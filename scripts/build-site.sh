@@ -67,6 +67,11 @@ for worktree_runtime_file in \
   src/spider-synth-model.js \
   src/spider-synth-web.js \
   src/spider-synth-world.js \
+  src/spider-synth-collision.js \
+  src/spider-synth-contact.js \
+  src/spider-synth-recordings.js \
+  src/spider-synth-specimens.js \
+  src/spider-synth-specimen-data.js \
   src/spider-synth-navigation-controls.js \
   src/spider-synth-viewer.js \
   src/spider-synth-audio.js \
@@ -812,6 +817,13 @@ do
   [[ -f "$repo_root/$worktree_runtime_file" ]] && copy_runtime_file "$worktree_runtime_file"
 done
 
+for spider_asset in "$repo_root"/assets/spider-synth/skins/ASSET.md "$repo_root"/assets/spider-synth/skins/*/* "$repo_root"/assets/audio/spider-synth/*; do
+  [[ -f "$spider_asset" ]] || continue
+  case "$spider_asset" in
+    *.glb|*.json|*.webp|*.wav|*.md|*.LICENSE.txt) copy_runtime_file "${spider_asset#"$repo_root/"}" ;;
+  esac
+done
+
 for catalog_icon in "$repo_root"/assets/instruments/*.webp; do
   [[ -f "$catalog_icon" ]] || continue
   copy_runtime_file "${catalog_icon#"$repo_root/"}"
@@ -821,6 +833,10 @@ required_files=(
   spider-synth.html
   src/spider-synth-model.js
   src/spider-synth-processor.js
+  src/spider-synth-specimens.js
+  src/spider-synth-specimen-data.js
+  src/spider-synth-collision.js
+  src/spider-synth-contact.js
   docs/spider-synth-request-audit.md
   docs/spider-synth-scan-candidates.md
   assets/spider-synth/spider-mobile.glb

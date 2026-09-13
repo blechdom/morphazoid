@@ -1,0 +1,43 @@
+{
+  "uid": "cbe47106f52f41adbc0b928d8b4d8a1e",
+  "name": "CC0 \u30aa\u30cb\u30b0\u30e2 \ud83d\udd77\ufe0f Devil Spider, Araneus ventricosu",
+  "description": "License: **CC0**  \n  \nAnimalia \u52d5\u7269\u754c  \n\u3000Arthropoda \u7bc0\u8db3\u52d5\u7269\u9580  \n\u3000\u3000Arachnida \u30af\u30e2\u7db1  \n\u3000\u3000\u3000Araneae \u30af\u30e2\u76ee  \n\u3000\u3000\u3000\u3000Araneidae \u30b3\u30ac\u30cd\u30b0\u30e2\u79d1  \n\u3000\u3000\u3000\u3000\u3000Araneus \u30aa\u30cb\u30b0\u30e2\u5c5e  \n\u3000\u3000\u3000\u3000\u3000\u3000Araneus ventricosus \u30aa\u30cb\u30b0\u30e2  \n  \n\u30af\u30e2 \u8718\u86db",
+  "license": {
+    "uri": "https://api.sketchfab.com/v3/licenses/7c23a1ba438d4306920229c12afcb5f9",
+    "label": "CC0 Public Domain",
+    "fullName": "CC0 Public Domain",
+    "requirements": "Credit is not mandatory. Commercial use is allowed.",
+    "url": "http://creativecommons.org/publicdomain/zero/1.0/",
+    "slug": "cc0"
+  },
+  "createdAt": "2024-02-22T03:10:30.641474",
+  "publishedAt": "2024-02-22T03:11:11.651595",
+  "faceCount": 161202,
+  "vertexCount": 80711,
+  "animationCount": 0,
+  "isDownloadable": true,
+  "isProtected": false,
+  "viewerUrl": "https://sketchfab.com/3d-models/cc0-devil-spider-araneus-ventricosu-cbe47106f52f41adbc0b928d8b4d8a1e",
+  "creator": {
+    "displayName": "ffish.asia / floraZia.com",
+    "profileUrl": "https://sketchfab.com/ffishAsia-and-floraZia",
+    "username": "ffishAsia-and-floraZia"
+  },
+  "retrieved": "2026-09-12",
+  "archive": "https://mirror.traines.eu/sketchfab-backup/cb/cbe47106f52f41adbc0b928d8b4d8a1e.zip",
+  "archiveSha256": "cb247ed93e614f1dae92277cc0a5080d0450fbbfa47789090be8819fe204968e",
+  "archiveBytes": 15470386,
+  "inspection": {
+    "suppliedSkin": false,
+    "suppliedAnimation": false,
+    "animalTriangles": 161171,
+    "excludedCalibrationTriangles": 31,
+    "rigJoints": 38,
+    "colorTexture": [
+      4096,
+      4096
+    ],
+    "runtimeBytes": 6587364,
+    "runtimeSha256": "5cfe1e25a20b05576704522a4e7d1a95eb015d782bcbbda2a3f09242e2aa8de7"
+  }
+}

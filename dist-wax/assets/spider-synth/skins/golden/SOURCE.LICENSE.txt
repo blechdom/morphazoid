@@ -1,0 +1,11 @@
+Model Information:
+* title:	CC0 オオジョロウグモ 🕷️ Giant Golden Orb Weaver
+* source:	https://sketchfab.com/3d-models/cc0-giant-golden-orb-weaver-88711ad10ac04174a56f6e9d6f8cb474
+* author:	ffish.asia / floraZia.com (https://sketchfab.com/ffishAsia-and-floraZia)
+
+Model License:
+* license type:	CC0-1.0 (http://creativecommons.org/publicdomain/zero/1.0/)
+* requirements:	Credit is not mandatory. Commercial use is allowed.
+
+
+Morphazoid modifications (2026-09-12): separate calibration object removed where supplied; uniform coordinate normalization; independently authored38-joint skin and rig metadata; normalized16-bit normals/UVs,8-bit weights, sub-microunit position rounding; original4K atlas re-encodedWebPquality90; losslessMeshopt packing of prepared attributes. All animal triangles retained.

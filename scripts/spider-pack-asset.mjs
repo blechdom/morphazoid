@@ -19,7 +19,7 @@ for (const [index, view] of json.bufferViews.entries()) {
   const bytes = binary.subarray(view.byteOffset ?? 0, (view.byteOffset ?? 0) + view.byteLength);
   const accessor = json.accessors.find(a => a.bufferView === index);
   if (!view.target || !accessor) { view.byteOffset = append(bytes); continue; }
-  const stride = widths[accessor.type] * ({ 5126: 4, 5125: 4, 5123: 2 }[accessor.componentType]);
+  const stride = view.byteStride ?? widths[accessor.type] * ({ 5126: 4, 5125: 4, 5123: 2, 5122: 2, 5121: 1, 5120: 1 }[accessor.componentType]);
   const mode = view.target === 34963 ? 'INDICES' : 'ATTRIBUTES';
   const count = bytes.length / stride;
   const encoded = MeshoptEncoder.encodeGltfBuffer(bytes, count, stride, mode);
@@ -43,7 +43,9 @@ binHeader.writeUInt32LE(offset); binHeader.writeUInt32LE(0x004e4942, 4);
 const result = Buffer.concat([header, padded, binHeader, ...chunks]);
 await writeFile(output, result);
 const report = { inputBytes: source.length, outputBytes: result.length, decodedGeometryBytes: fallback,
-  geometry: 'All compressed buffers decoded and compared byte-for-byte; no decimation or attribute quantization.',
+  geometry: json.extensionsUsed?.includes('KHR_mesh_quantization')
+    ? 'All compressed buffers decode byte-for-byte to the prepared input; preparation preserves all animal triangles and records normalized-attribute precision in rig-manifest.json.'
+    : 'All compressed buffers decoded and compared byte-for-byte; no decimation or attribute quantization.',
   inputSha256: createHash('sha256').update(source).digest('hex'), outputSha256: createHash('sha256').update(result).digest('hex') };
 await writeFile(`${output}.report.json`, `${JSON.stringify(report, null, 2)}\n`);
 console.log(JSON.stringify(report));

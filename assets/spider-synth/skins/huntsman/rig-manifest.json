@@ -1,0 +1,1240 @@
+{
+  "version": 2,
+  "id": "huntsman",
+  "label": "Huntsman",
+  "species": "Heteropoda venatoria",
+  "units": "web radius1; independent uniform specimen normalization",
+  "axis": {
+    "up": "+Y",
+    "forward": "+Z",
+    "right": "+X"
+  },
+  "bodyLength": 0.3924000000000001,
+  "bodyHeight": 0.1281513835671544,
+  "neutralBodyHeight": 0.08291087259445339,
+  "joints": [
+    {
+      "id": "cephalothorax",
+      "name": "Cephalothorax",
+      "groupId": "cephalothorax",
+      "pivot": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "parent": null
+    },
+    {
+      "id": "abdomen",
+      "name": "Abdomen",
+      "groupId": "abdomen",
+      "pivot": [
+        0.0,
+        0.00945,
+        -0.063
+      ],
+      "parent": "cephalothorax"
+    },
+    {
+      "id": "pedipalp_left",
+      "name": "Left pedipalp",
+      "groupId": "pedipalps",
+      "pivot": [
+        -0.037845000000000004,
+        -0.02790898085385561,
+        0.0549
+      ],
+      "parent": "cephalothorax",
+      "side": "left"
+    },
+    {
+      "id": "pedipalp_right",
+      "name": "Right pedipalp",
+      "groupId": "pedipalps",
+      "pivot": [
+        0.037845000000000004,
+        -0.00797067159600556,
+        0.0549
+      ],
+      "parent": "cephalothorax",
+      "side": "right"
+    },
+    {
+      "id": "chelicera_left",
+      "name": "Left chelicera",
+      "groupId": "chelicerae",
+      "pivot": [
+        -0.01305,
+        0.002208932085894048,
+        0.0657
+      ],
+      "parent": "cephalothorax",
+      "side": "left"
+    },
+    {
+      "id": "chelicera_right",
+      "name": "Right chelicera",
+      "groupId": "chelicerae",
+      "pivot": [
+        0.01305,
+        0.01361271607875824,
+        0.0657
+      ],
+      "parent": "cephalothorax",
+      "side": "right"
+    },
+    {
+      "id": "leg_left_1_hip",
+      "name": "Left leg 1 hip",
+      "groupId": "legs",
+      "pivot": [
+        -0.0432,
+        -0.027240788105875255,
+        0.033299999999999996
+      ],
+      "parent": "cephalothorax",
+      "side": "left",
+      "leg": 1,
+      "segment": "hip"
+    },
+    {
+      "id": "leg_left_1_knee",
+      "name": "Left leg 1 knee",
+      "groupId": "legs",
+      "pivot": [
+        -0.060300000000000006,
+        -0.02117410572990775,
+        0.171
+      ],
+      "parent": "leg_left_1_hip",
+      "side": "left",
+      "leg": 1,
+      "segment": "knee"
+    },
+    {
+      "id": "leg_left_1_ankle",
+      "name": "Left leg 1 ankle",
+      "groupId": "legs",
+      "pivot": [
+        -0.0819,
+        -0.000399062091484666,
+        0.2673
+      ],
+      "parent": "leg_left_1_knee",
+      "side": "left",
+      "leg": 1,
+      "segment": "ankle"
+    },
+    {
+      "id": "leg_left_1_tip",
+      "name": "Left leg 1 tip",
+      "groupId": "legs",
+      "pivot": [
+        -0.1305,
+        -0.010693679943680765,
+        0.3618
+      ],
+      "parent": "leg_left_1_ankle",
+      "side": "left",
+      "leg": 1,
+      "segment": "tip"
+    },
+    {
+      "id": "leg_left_2_hip",
+      "name": "Left leg 2 hip",
+      "groupId": "legs",
+      "pivot": [
+        -0.061200000000000004,
+        -0.04387670420855284,
+        0.0009000000000000001
+      ],
+      "parent": "cephalothorax",
+      "side": "left",
+      "leg": 2,
+      "segment": "hip"
+    },
+    {
+      "id": "leg_left_2_knee",
+      "name": "Left leg 2 knee",
+      "groupId": "legs",
+      "pivot": [
+        -0.162,
+        0.11139957922697068,
+        0.1404
+      ],
+      "parent": "leg_left_2_hip",
+      "side": "left",
+      "leg": 2,
+      "segment": "knee"
+    },
+    {
+      "id": "leg_left_2_ankle",
+      "name": "Left leg 2 ankle",
+      "groupId": "legs",
+      "pivot": [
+        -0.24570000000000003,
+        0.11071615236997605,
+        0.2421
+      ],
+      "parent": "leg_left_2_knee",
+      "side": "left",
+      "leg": 2,
+      "segment": "ankle"
+    },
+    {
+      "id": "leg_left_2_tip",
+      "name": "Left leg 2 tip",
+      "groupId": "legs",
+      "pivot": [
+        -0.3177,
+        0.01065387324616313,
+        0.2565
+      ],
+      "parent": "leg_left_2_ankle",
+      "side": "left",
+      "leg": 2,
+      "segment": "tip"
+    },
+    {
+      "id": "leg_left_3_hip",
+      "name": "Left leg 3 hip",
+      "groupId": "legs",
+      "pivot": [
+        -0.060300000000000006,
+        -0.027080109536647797,
+        -0.045899999999999996
+      ],
+      "parent": "cephalothorax",
+      "side": "left",
+      "leg": 3,
+      "segment": "hip"
+    },
+    {
+      "id": "leg_left_3_knee",
+      "name": "Left leg 3 knee",
+      "groupId": "legs",
+      "pivot": [
+        -0.1521,
+        0.020270238809287546,
+        -0.1809
+      ],
+      "parent": "leg_left_3_hip",
+      "side": "left",
+      "leg": 3,
+      "segment": "knee"
+    },
+    {
+      "id": "leg_left_3_ankle",
+      "name": "Left leg 3 ankle",
+      "groupId": "legs",
+      "pivot": [
+        -0.1863,
+        -0.023735701672732833,
+        -0.315
+      ],
+      "parent": "leg_left_3_knee",
+      "side": "left",
+      "leg": 3,
+      "segment": "ankle"
+    },
+    {
+      "id": "leg_left_3_tip",
+      "name": "Left leg 3 tip",
+      "groupId": "legs",
+      "pivot": [
+        -0.1872,
+        -0.06068816334754229,
+        -0.3978
+      ],
+      "parent": "leg_left_3_ankle",
+      "side": "left",
+      "leg": 3,
+      "segment": "tip"
+    },
+    {
+      "id": "leg_left_4_hip",
+      "name": "Left leg 4 hip",
+      "groupId": "legs",
+      "pivot": [
+        -0.0342,
+        -0.02653261284157634,
+        -0.06300000000000001
+      ],
+      "parent": "cephalothorax",
+      "side": "left",
+      "leg": 4,
+      "segment": "hip"
+    },
+    {
+      "id": "leg_left_4_knee",
+      "name": "Left leg 4 knee",
+      "groupId": "legs",
+      "pivot": [
+        -0.08460000000000001,
+        4.756342805922022e-05,
+        -0.2214
+      ],
+      "parent": "leg_left_4_hip",
+      "side": "left",
+      "leg": 4,
+      "segment": "knee"
+    },
+    {
+      "id": "leg_left_4_ankle",
+      "name": "Left leg 4 ankle",
+      "groupId": "legs",
+      "pivot": [
+        -0.0738,
+        -0.028038067191839218,
+        -0.3762
+      ],
+      "parent": "leg_left_4_knee",
+      "side": "left",
+      "leg": 4,
+      "segment": "ankle"
+    },
+    {
+      "id": "leg_left_4_tip",
+      "name": "Left leg 4 tip",
+      "groupId": "legs",
+      "pivot": [
+        -0.009000000000000001,
+        -0.10553363692760469,
+        -0.4311
+      ],
+      "parent": "leg_left_4_ankle",
+      "side": "left",
+      "leg": 4,
+      "segment": "tip"
+    },
+    {
+      "id": "leg_right_1_hip",
+      "name": "Right leg 1 hip",
+      "groupId": "legs",
+      "pivot": [
+        0.0549,
+        -0.007951901057269426,
+        0.0261
+      ],
+      "parent": "cephalothorax",
+      "side": "right",
+      "leg": 1,
+      "segment": "hip"
+    },
+    {
+      "id": "leg_right_1_knee",
+      "name": "Right leg 1 knee",
+      "groupId": "legs",
+      "pivot": [
+        0.1368,
+        0.00720968972146511,
+        0.2043
+      ],
+      "parent": "leg_right_1_hip",
+      "side": "right",
+      "leg": 1,
+      "segment": "knee"
+    },
+    {
+      "id": "leg_right_1_ankle",
+      "name": "Right leg 1 ankle",
+      "groupId": "legs",
+      "pivot": [
+        0.1998,
+        0.0024765256019309164,
+        0.3348
+      ],
+      "parent": "leg_right_1_knee",
+      "side": "right",
+      "leg": 1,
+      "segment": "ankle"
+    },
+    {
+      "id": "leg_right_1_tip",
+      "name": "Right leg 1 tip",
+      "groupId": "legs",
+      "pivot": [
+        0.25200000000000006,
+        -0.09181399700045587,
+        0.3888
+      ],
+      "parent": "leg_right_1_ankle",
+      "side": "right",
+      "leg": 1,
+      "segment": "tip"
+    },
+    {
+      "id": "leg_right_2_hip",
+      "name": "Right leg 2 hip",
+      "groupId": "legs",
+      "pivot": [
+        0.0657,
+        -0.021930605180561544,
+        -0.0009000000000000001
+      ],
+      "parent": "cephalothorax",
+      "side": "right",
+      "leg": 2,
+      "segment": "hip"
+    },
+    {
+      "id": "leg_right_2_knee",
+      "name": "Right leg 2 knee",
+      "groupId": "legs",
+      "pivot": [
+        0.18000000000000002,
+        0.08990998211503029,
+        0.1422
+      ],
+      "parent": "leg_right_2_hip",
+      "side": "right",
+      "leg": 2,
+      "segment": "knee"
+    },
+    {
+      "id": "leg_right_2_ankle",
+      "name": "Right leg 2 ankle",
+      "groupId": "legs",
+      "pivot": [
+        0.2997,
+        0.04105768892168999,
+        0.2277
+      ],
+      "parent": "leg_right_2_knee",
+      "side": "right",
+      "leg": 2,
+      "segment": "ankle"
+    },
+    {
+      "id": "leg_right_2_tip",
+      "name": "Right leg 2 tip",
+      "groupId": "legs",
+      "pivot": [
+        0.3321,
+        -0.03562248592078686,
+        0.2313
+      ],
+      "parent": "leg_right_2_ankle",
+      "side": "right",
+      "leg": 2,
+      "segment": "tip"
+    },
+    {
+      "id": "leg_right_3_hip",
+      "name": "Right leg 3 hip",
+      "groupId": "legs",
+      "pivot": [
+        0.061200000000000004,
+        -0.03912999388575554,
+        -0.042300000000000004
+      ],
+      "parent": "cephalothorax",
+      "side": "right",
+      "leg": 3,
+      "segment": "hip"
+    },
+    {
+      "id": "leg_right_3_knee",
+      "name": "Right leg 3 knee",
+      "groupId": "legs",
+      "pivot": [
+        0.1557,
+        0.018930887795984744,
+        -0.1872
+      ],
+      "parent": "leg_right_3_hip",
+      "side": "right",
+      "leg": 3,
+      "segment": "knee"
+    },
+    {
+      "id": "leg_right_3_ankle",
+      "name": "Right leg 3 ankle",
+      "groupId": "legs",
+      "pivot": [
+        0.18359999999999999,
+        -0.04851895925402641,
+        -0.315
+      ],
+      "parent": "leg_right_3_knee",
+      "side": "right",
+      "leg": 3,
+      "segment": "ankle"
+    },
+    {
+      "id": "leg_right_3_tip",
+      "name": "Right leg 3 tip",
+      "groupId": "legs",
+      "pivot": [
+        0.18270000000000003,
+        -0.10263489317893983,
+        -0.3978
+      ],
+      "parent": "leg_right_3_ankle",
+      "side": "right",
+      "leg": 3,
+      "segment": "tip"
+    },
+    {
+      "id": "leg_right_4_hip",
+      "name": "Right leg 4 hip",
+      "groupId": "legs",
+      "pivot": [
+        0.0351,
+        -0.0360393665805459,
+        -0.061200000000000004
+      ],
+      "parent": "cephalothorax",
+      "side": "right",
+      "leg": 4,
+      "segment": "hip"
+    },
+    {
+      "id": "leg_right_4_knee",
+      "name": "Right leg 4 knee",
+      "groupId": "legs",
+      "pivot": [
+        0.09269999999999999,
+        0.03999324421584607,
+        -0.1944
+      ],
+      "parent": "leg_right_4_hip",
+      "side": "right",
+      "leg": 4,
+      "segment": "knee"
+    },
+    {
+      "id": "leg_right_4_ankle",
+      "name": "Right leg 4 ankle",
+      "groupId": "legs",
+      "pivot": [
+        0.0774,
+        -0.026573246631771328,
+        -0.3105
+      ],
+      "parent": "leg_right_4_knee",
+      "side": "right",
+      "leg": 4,
+      "segment": "ankle"
+    },
+    {
+      "id": "leg_right_4_tip",
+      "name": "Right leg 4 tip",
+      "groupId": "legs",
+      "pivot": [
+        0.0324,
+        -0.08754853364825249,
+        -0.33840000000000003
+      ],
+      "parent": "leg_right_4_ankle",
+      "side": "right",
+      "leg": 4,
+      "segment": "tip"
+    }
+  ],
+  "legs": [
+    {
+      "id": "leg_left_1",
+      "side": "left",
+      "number": 1,
+      "jointIds": [
+        "leg_left_1_hip",
+        "leg_left_1_knee",
+        "leg_left_1_ankle",
+        "leg_left_1_tip"
+      ],
+      "anchors": [
+        [
+          -0.0432,
+          -0.027240788105875255,
+          0.033299999999999996
+        ],
+        [
+          -0.060300000000000006,
+          -0.02117410572990775,
+          0.171
+        ],
+        [
+          -0.0819,
+          -0.000399062091484666,
+          0.2673
+        ],
+        [
+          -0.1305,
+          -0.010693679943680765,
+          0.3618
+        ],
+        [
+          -0.1271760955452919,
+          -0.12936657947301866,
+          0.4061441091299057
+        ]
+      ],
+      "lengths": [
+        0.1388902611238487,
+        0.10085560191768417,
+        0.10676230213292874,
+        0.12673083854393666
+      ],
+      "curve": [
+        [
+          -0.0432,
+          -0.027240788105875255,
+          0.033299999999999996
+        ],
+        [
+          -0.060300000000000006,
+          -0.02117410572990775,
+          0.171
+        ],
+        [
+          -0.0819,
+          -0.000399062091484666,
+          0.2673
+        ],
+        [
+          -0.1305,
+          -0.010693679943680765,
+          0.3618
+        ],
+        [
+          -0.1271760955452919,
+          -0.12936657947301866,
+          0.4061441091299057
+        ]
+      ],
+      "sourceLandmarks": "Individually reviewed orthographic surface centerlines",
+      "radii": [
+        0.016996961851660584,
+        0.022776973566060645,
+        0.02840637250123092,
+        0.008963334380472135
+      ]
+    },
+    {
+      "id": "leg_left_2",
+      "side": "left",
+      "number": 2,
+      "jointIds": [
+        "leg_left_2_hip",
+        "leg_left_2_knee",
+        "leg_left_2_ankle",
+        "leg_left_2_tip"
+      ],
+      "anchors": [
+        [
+          -0.061200000000000004,
+          -0.04387670420855284,
+          0.0009000000000000001
+        ],
+        [
+          -0.162,
+          0.11139957922697068,
+          0.1404
+        ],
+        [
+          -0.24570000000000003,
+          0.11071615236997605,
+          0.2421
+        ],
+        [
+          -0.3177,
+          0.01065387324616313,
+          0.2565
+        ],
+        [
+          -0.35642165690660477,
+          -0.01842038315534592,
+          0.2655680460333824
+        ]
+      ],
+      "lengths": [
+        0.23180080715465387,
+        0.13171578140932416,
+        0.12411212552950594,
+        0.04926366366559684
+      ],
+      "curve": [
+        [
+          -0.061200000000000004,
+          -0.04387670420855284,
+          0.0009000000000000001
+        ],
+        [
+          -0.162,
+          0.11139957922697068,
+          0.1404
+        ],
+        [
+          -0.24570000000000003,
+          0.11071615236997605,
+          0.2421
+        ],
+        [
+          -0.3177,
+          0.01065387324616313,
+          0.2565
+        ],
+        [
+          -0.35642165690660477,
+          -0.01842038315534592,
+          0.2655680460333824
+        ]
+      ],
+      "sourceLandmarks": "Individually reviewed orthographic surface centerlines",
+      "radii": [
+        0.029069832887968907,
+        0.015663064142780524,
+        0.011320795769067004,
+        0.008576990978133059
+      ]
+    },
+    {
+      "id": "leg_left_3",
+      "side": "left",
+      "number": 3,
+      "jointIds": [
+        "leg_left_3_hip",
+        "leg_left_3_knee",
+        "leg_left_3_ankle",
+        "leg_left_3_tip"
+      ],
+      "anchors": [
+        [
+          -0.060300000000000006,
+          -0.027080109536647797,
+          -0.045899999999999996
+        ],
+        [
+          -0.1521,
+          0.020270238809287546,
+          -0.1809
+        ],
+        [
+          -0.1863,
+          -0.023735701672732833,
+          -0.315
+        ],
+        [
+          -0.1872,
+          -0.06068816334754229,
+          -0.3978
+        ],
+        [
+          -0.19446046203374864,
+          -0.05976563934981823,
+          -0.4440262409448624
+        ]
+      ],
+      "lengths": [
+        0.16998322119692114,
+        0.14522042830713286,
+        0.0906759859269711,
+        0.04680203747020378
+      ],
+      "curve": [
+        [
+          -0.060300000000000006,
+          -0.027080109536647797,
+          -0.045899999999999996
+        ],
+        [
+          -0.1521,
+          0.020270238809287546,
+          -0.1809
+        ],
+        [
+          -0.1863,
+          -0.023735701672732833,
+          -0.315
+        ],
+        [
+          -0.1872,
+          -0.06068816334754229,
+          -0.3978
+        ],
+        [
+          -0.19446046203374864,
+          -0.05976563934981823,
+          -0.4440262409448624
+        ]
+      ],
+      "sourceLandmarks": "Individually reviewed orthographic surface centerlines",
+      "radii": [
+        0.020859310158520824,
+        0.01280134823428665,
+        0.00930115562559603,
+        0.005294209981306345
+      ]
+    },
+    {
+      "id": "leg_left_4",
+      "side": "left",
+      "number": 4,
+      "jointIds": [
+        "leg_left_4_hip",
+        "leg_left_4_knee",
+        "leg_left_4_ankle",
+        "leg_left_4_tip"
+      ],
+      "anchors": [
+        [
+          -0.0342,
+          -0.02653261284157634,
+          -0.06300000000000001
+        ],
+        [
+          -0.08460000000000001,
+          4.756342805922022e-05,
+          -0.2214
+        ],
+        [
+          -0.0738,
+          -0.028038067191839218,
+          -0.3762
+        ],
+        [
+          -0.009000000000000001,
+          -0.10553363692760469,
+          -0.4311
+        ],
+        [
+          0.009561390336602927,
+          -0.121960598051548,
+          -0.47387673282623294
+        ]
+      ],
+      "lengths": [
+        0.1683366441703199,
+        0.15769744020534185,
+        0.11497222851050112,
+        0.049439044633590945
+      ],
+      "curve": [
+        [
+          -0.0342,
+          -0.02653261284157634,
+          -0.06300000000000001
+        ],
+        [
+          -0.08460000000000001,
+          4.756342805922022e-05,
+          -0.2214
+        ],
+        [
+          -0.0738,
+          -0.028038067191839218,
+          -0.3762
+        ],
+        [
+          -0.009000000000000001,
+          -0.10553363692760469,
+          -0.4311
+        ],
+        [
+          0.009561390336602927,
+          -0.121960598051548,
+          -0.47387673282623294
+        ]
+      ],
+      "sourceLandmarks": "Individually reviewed orthographic surface centerlines",
+      "radii": [
+        0.02484347559840481,
+        0.01577265867600448,
+        0.01000277664651132,
+        0.006252621997011225
+      ]
+    },
+    {
+      "id": "leg_right_1",
+      "side": "right",
+      "number": 1,
+      "jointIds": [
+        "leg_right_1_hip",
+        "leg_right_1_knee",
+        "leg_right_1_ankle",
+        "leg_right_1_tip"
+      ],
+      "anchors": [
+        [
+          0.0549,
+          -0.007951901057269426,
+          0.0261
+        ],
+        [
+          0.1368,
+          0.00720968972146511,
+          0.2043
+        ],
+        [
+          0.1998,
+          0.0024765256019309164,
+          0.3348
+        ],
+        [
+          0.25200000000000006,
+          -0.09181399700045587,
+          0.3888
+        ],
+        [
+          0.2692442983388901,
+          -0.11821536254882813,
+          0.4183743653297424
+        ]
+      ],
+      "lengths": [
+        0.19670466144690574,
+        0.1449884576184685,
+        0.12054684837286794,
+        0.043232406972969886
+      ],
+      "curve": [
+        [
+          0.0549,
+          -0.007951901057269426,
+          0.0261
+        ],
+        [
+          0.1368,
+          0.00720968972146511,
+          0.2043
+        ],
+        [
+          0.1998,
+          0.0024765256019309164,
+          0.3348
+        ],
+        [
+          0.25200000000000006,
+          -0.09181399700045587,
+          0.3888
+        ],
+        [
+          0.2692442983388901,
+          -0.11821536254882813,
+          0.4183743653297424
+        ]
+      ],
+      "sourceLandmarks": "Individually reviewed orthographic surface centerlines",
+      "radii": [
+        0.0281591328054927,
+        0.023694509227158603,
+        0.015452358621261245,
+        0.006714500072428182
+      ]
+    },
+    {
+      "id": "leg_right_2",
+      "side": "right",
+      "number": 2,
+      "jointIds": [
+        "leg_right_2_hip",
+        "leg_right_2_knee",
+        "leg_right_2_ankle",
+        "leg_right_2_tip"
+      ],
+      "anchors": [
+        [
+          0.0657,
+          -0.021930605180561544,
+          -0.0009000000000000001
+        ],
+        [
+          0.18000000000000002,
+          0.08990998211503029,
+          0.1422
+        ],
+        [
+          0.2997,
+          0.04105768892168999,
+          0.2277
+        ],
+        [
+          0.3321,
+          -0.03562248592078686,
+          0.2313
+        ],
+        [
+          0.35515315979719164,
+          -0.06838911902904511,
+          0.2347657722830772
+        ]
+      ],
+      "lengths": [
+        0.21459360886713963,
+        0.1549996340326263,
+        0.08332208119023925,
+        0.0402133311154921
+      ],
+      "curve": [
+        [
+          0.0657,
+          -0.021930605180561544,
+          -0.0009000000000000001
+        ],
+        [
+          0.18000000000000002,
+          0.08990998211503029,
+          0.1422
+        ],
+        [
+          0.2997,
+          0.04105768892168999,
+          0.2277
+        ],
+        [
+          0.3321,
+          -0.03562248592078686,
+          0.2313
+        ],
+        [
+          0.35515315979719164,
+          -0.06838911902904511,
+          0.2347657722830772
+        ]
+      ],
+      "sourceLandmarks": "Individually reviewed orthographic surface centerlines",
+      "radii": [
+        0.02326138583259702,
+        0.029046037934248058,
+        0.009789900697298199,
+        0.006494007370256562
+      ]
+    },
+    {
+      "id": "leg_right_3",
+      "side": "right",
+      "number": 3,
+      "jointIds": [
+        "leg_right_3_hip",
+        "leg_right_3_knee",
+        "leg_right_3_ankle",
+        "leg_right_3_tip"
+      ],
+      "anchors": [
+        [
+          0.061200000000000004,
+          -0.03912999388575554,
+          -0.042300000000000004
+        ],
+        [
+          0.1557,
+          0.018930887795984744,
+          -0.1872
+        ],
+        [
+          0.18359999999999999,
+          -0.04851895925402641,
+          -0.315
+        ],
+        [
+          0.18270000000000003,
+          -0.10263489317893983,
+          -0.3978
+        ],
+        [
+          0.18554183542728425,
+          -0.10513540935516358,
+          -0.4350146623849869
+        ]
+      ],
+      "lengths": [
+        0.18247554899673832,
+        0.14717585354625906,
+        0.09892009050018905,
+        0.03740667996724497
+      ],
+      "curve": [
+        [
+          0.061200000000000004,
+          -0.03912999388575554,
+          -0.042300000000000004
+        ],
+        [
+          0.1557,
+          0.018930887795984744,
+          -0.1872
+        ],
+        [
+          0.18359999999999999,
+          -0.04851895925402641,
+          -0.315
+        ],
+        [
+          0.18270000000000003,
+          -0.10263489317893983,
+          -0.3978
+        ],
+        [
+          0.18554183542728425,
+          -0.10513540935516358,
+          -0.4350146623849869
+        ]
+      ],
+      "sourceLandmarks": "Individually reviewed orthographic surface centerlines",
+      "radii": [
+        0.01790135214131605,
+        0.011874146350764492,
+        0.007763432036322301,
+        0.006518152758511217
+      ]
+    },
+    {
+      "id": "leg_right_4",
+      "side": "right",
+      "number": 4,
+      "jointIds": [
+        "leg_right_4_hip",
+        "leg_right_4_knee",
+        "leg_right_4_ankle",
+        "leg_right_4_tip"
+      ],
+      "anchors": [
+        [
+          0.0351,
+          -0.0360393665805459,
+          -0.061200000000000004
+        ],
+        [
+          0.09269999999999999,
+          0.03999324421584607,
+          -0.1944
+        ],
+        [
+          0.0774,
+          -0.026573246631771328,
+          -0.3105
+        ],
+        [
+          0.0324,
+          -0.08754853364825249,
+          -0.33840000000000003
+        ],
+        [
+          0.006863790890201927,
+          -0.12062103581428528,
+          -0.3776823374032975
+        ]
+      ],
+      "lengths": [
+        0.16383210278976343,
+        0.13470114217691673,
+        0.08075515851474913,
+        0.057349720200608474
+      ],
+      "curve": [
+        [
+          0.0351,
+          -0.0360393665805459,
+          -0.061200000000000004
+        ],
+        [
+          0.09269999999999999,
+          0.03999324421584607,
+          -0.1944
+        ],
+        [
+          0.0774,
+          -0.026573246631771328,
+          -0.3105
+        ],
+        [
+          0.0324,
+          -0.08754853364825249,
+          -0.33840000000000003
+        ],
+        [
+          0.006863790890201927,
+          -0.12062103581428528,
+          -0.3776823374032975
+        ]
+      ],
+      "sourceLandmarks": "Individually reviewed orthographic surface centerlines",
+      "radii": [
+        0.02098640991063806,
+        0.011095521803020432,
+        0.007803461956517879,
+        0.007906376413723696
+      ]
+    }
+  ],
+  "collision": {
+    "bodies": [
+      {
+        "jointId": "cephalothorax",
+        "center": [
+          -0.0003134383354335968,
+          -0.015444395558908582,
+          -0.003842892922461035
+        ],
+        "radii": [
+          0.07161187490914017,
+          0.05346647703554481,
+          0.05697064187005162
+        ]
+      },
+      {
+        "jointId": "abdomen",
+        "center": [
+          -0.00021538436785340648,
+          0.01862408935278654,
+          -0.17072975413128735
+        ],
+        "radii": [
+          0.07598861930899323,
+          0.0640756917835772,
+          0.11296980629570784
+        ]
+      }
+    ]
+  },
+  "triangles": 171906,
+  "vertices": 160770,
+  "texture": {
+    "width": 4096,
+    "height": 4096,
+    "encoding": "WebP q90",
+    "bytes": 2231236
+  },
+  "sourceTransform": {
+    "boundsCenter": [
+      -0.0009403908625245094,
+      -0.000379068311303854,
+      -0.00054159015417099
+    ],
+    "normalization": 15.956656455993652,
+    "origin": [
+      -0.035,
+      0.005,
+      0
+    ],
+    "basis": [
+      [
+        0,
+        0,
+        1
+      ],
+      [
+        0,
+        1,
+        0
+      ],
+      [
+        -1,
+        0,
+        0
+      ]
+    ],
+    "uniformScale": 0.9
+  },
+  "precision": {
+    "positionMaxComponentError": 5e-07,
+    "normalMaxComponentError": 1.5259254737998596e-05,
+    "uvMaxComponentError": 7.629510948348211e-06,
+    "weightMaxComponentError": 0.00196078431372549,
+    "trianglesRemovedFromAnimal": 0
+  },
+  "sourceSha256": "b3eac7c4d16486c2d37b8f630a1539c38bc4acca3dfe1bf1cb0ce4f2f997c8ce",
+  "outputSha256": "83ff460649f0eb69499a4f8c41cc507576c486e9874cbeb4d908c5e49fdf11c9",
+  "caveat": "Authored four-link articulation and approximate mouth regions on a real static scan; source overlaps and texture detail are retained. Collision ellipsoids/capsules approximate the photographed surface."
+}

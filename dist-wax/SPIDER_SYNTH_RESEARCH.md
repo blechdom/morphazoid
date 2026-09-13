@@ -1,15 +1,18 @@
 # Spider Synth: specimen, silk and sound
 
-Spider Synth is an articulated orb-weaver instrument built around a real scan.
-The spider’s supported leg contacts and the visible web graph are shared with
-its audio engine. It is a musical interpretation of a web, not a prediction of
-what this individual animal sounds like.
+Spider Synth is an articulated instrument with six independently rigged real
+spider scans. The spider’s supported leg contacts and the visible web graph are
+shared with its audio engine. It is a musical interpretation of a web, not a
+prediction of what a selected individual animal sounds like. Version 4 adds
+selectable specimens, licensed peacock-spider vibration recordings and
+measured collision constraints; final integrated validation is recorded
+separately in the [QA record](docs/spider-synth-qa.md).
 
 This version uses [*Argiope aurantia*](https://en.wikipedia.org/wiki/Argiope_aurantia)
-as the research starting point requested by the musician. The existing scan
-remains *A. bruennichi*, a related species. Its surface has not been relabeled
-as an *A. aurantia* scan. The initial construction is an orb with an adjustable
-central zigzag, and broader spider constructions and performance dances are
+as the research starting point requested by the musician. The original and
+default scan remains *A. bruennichi*, a related species. Its surface has not
+been relabeled as an *A. aurantia* scan. The initial construction is an orb with
+an adjustable central zigzag, and broader spider constructions and performance dances are
 offered as separate musical possibilities.
 
 ## Evidence ledger
@@ -31,15 +34,28 @@ offered as separate musical possibilities.
 
 ## Specimen and articulation
 
-The source depicts *Argiope bruennichi*, an orb-weaving spider, with eight legs,
-a striped abdomen and cephalothorax. The head and thorax are fused: the UI names
-that row **Head / thorax**. It does not invent a cockroach neck, antennae or
-wings. The model preserves 106,200 animal triangles and a 4096-pixel color atlas.
-The download is compressed for mobile while retaining that geometry.
+The default source depicts *Argiope bruennichi*, an orb-weaving spider, with
+eight legs, a striped abdomen and cephalothorax. The head and thorax are fused:
+the UI names that row **Head / thorax**. It does not invent a cockroach neck,
+antennae or wings. The original model preserves 106,200 animal triangles and a
+4096-pixel color atlas. The additional choices are a giant golden orb-weaver
+(*Nephila pilipes*), devil spider (*Araneus ventricosus*), King Baboon tarantula
+(*Pelinobius muticus*), huntsman (*Heteropoda venatoria*) and a provisionally
+identified fishing spider (*Dolomedes cf. sulfureus*). Each retains its own
+scanned surface, proportions and texture.
 
-Morphazoid adds 38 skin controls: cephalothorax, abdomen, two pedipalps, two
-cheliceral regions, and four controls along each of eight legs. Small face
-pivots approximate boundaries in a connected scanned surface; they are not a
+The five new downloads measure 4.98–6.59 MB each, with all animal triangles
+retained and their 4K color atlases re-encoded to WebP. Only the selected GLB is
+fetched; these sizes are not added together at startup. Changing **Spider skin**
+preserves Sound and Animation state, the held pose, sound, web and phase. A load
+failure keeps the existing specimen and performance. Audio initializes
+independently of model loading.
+
+Morphazoid adds 38 skin controls to each scan: cephalothorax, abdomen, two
+pedipalps, two cheliceral regions, and four controls along each of eight legs.
+Every specimen has independently measured leg chains and reach geometry. Four
+broad control links group smaller anatomical segments; this is not a claim
+that spider legs have only four joints. Small face pivots approximate boundaries in a connected scanned surface; they are not a
 claim that every tiny fang or mouth articulation was separately reconstructed.
 Spinneret timbre follows abdominal movement; the mixer does not imply a
 separately resolved spinneret mesh. Speech adds temporary face and palp motion
@@ -47,7 +63,9 @@ without changing the held pose or starting the animation transport.
 
 See [the source license](assets/spider-synth/SOURCE.LICENSE.txt) and
 [provenance record](assets/spider-synth/source-provenance.json) for the exact
-source, derivative and processing information.
+source, derivative and processing information. The
+[additional specimen asset record](assets/spider-synth/skins/ASSET.md) contains
+per-skin credits, delivery sizes, rigging methods and source-quality limits.
 
 ## The shared contact model
 
@@ -65,6 +83,15 @@ phases and landing contacts. Macarena, disco, pushups and rollover are authored
 performance gestures. They are not documented A. aurantia locomotor routines.
 The renderer solves the scan’s leg rig toward the same contact targets that
 the audio engine samples. The graphical frame rate does not generate the beat.
+
+Per-specimen body ellipsoids and leg capsules provide solid-boundary
+approximations. Pose constraints prevent new or deeper overlap at attachments,
+and supported feet use exact web contact targets and clearance checks. These
+constraints apply to the composed pose, including manual and MIDI movement.
+They do not solve collisions between every triangle or hair of the scan.
+Original attachment overlap and curled preserved limbs can remain visible.
+The collision regression covers all six specimens and forty routines; the
+[QA record](docs/spider-synth-qa.md) states the tested tolerances and limits.
 
 A string’s ideal transverse fundamental is proportional to
 
@@ -108,17 +135,40 @@ not transplanted as biological spider classifications.
 The speaking voice reuses Morphazoid’s locally bundled KAL16 diphone atlas and
 CMU pronunciation resources, with the existing licenses preserved. Sound
 presets color that voice together with the body and silk. Spoken words, FM
-bells, drones and cartoon percussion are creative sounds. No field recording
-is presented as a spider vocalization, and the instrument does not download
-Roach Synth’s animal-movement recordings.
+bells, drones and cartoon percussion are creative sounds. Three additional
+sources use actual *Maratus volans* courtship substrate vibrations measured
+with laser vibrometry: **Peacock rumble**, **Peacock crunch** and **Peacock
+grind**. These are three excerpts from one research video's recorded
+articulations, not airborne calls or recordings of any selectable specimen.
+
+Girard, Kasumovic and Elias (2011) published the source in
+[Video S1](https://doi.org/10.1371/journal.pone.0025390.s001) of their
+[peacock-spider courtship study](https://doi.org/10.1371/journal.pone.0025390).
+The exact [Figshare dataset](https://doi.org/10.6084/m9.figshare.132960) specifies
+CC BY 4.0. The bundled mono WAVs total 261,646 bytes and load asynchronously
+after Audio is armed. They cannot delay the worklet or existing speech atlas.
+The [recording credits](assets/audio/spider-synth/README.md) and
+[manifest](assets/audio/spider-synth/manifest.json) retain author attribution,
+license, species, exact source intervals, extraction changes and file hashes.
+
+The 27 source choices and 27 sound presets include **Peacock courtship**,
+**Peacock percussion** and **Peacock underworld**, alongside 40 motion companion
+mixes. Recordings play faded fragments only when accepted movement, contact or
+MIDI gestures excite them. Eight shared voices, two tails per body row and a
+minimum retrigger interval bound their cost. No recording runs as a permanent
+background loop; pitch and playback changes are artistic transformations of
+the measured signal. Selecting a recorded preset changes neither specimen nor
+animation, and unavailable samples leave procedural synthesis playable.
 
 ## Timing and controls
 
 Audio begins only after explicit Audio, MIDI enable or a valid WAX host arm.
 Sound Play holds the selected resonances. Animation Play advances the spider’s
 contact rhythm. Either can run independently; MIDI notes temporarily pose and
-sound the selected parts without changing either Play state. Pause freezes the
-procedural pose and stops future automatic routine contacts; joystick travel,
+sound the selected parts without changing either Play state. Selecting a body
+pose preserves playback, animation time and current offsets; the live fix is
+commit `b9606cd`. Changing specimen likewise does not reset the performance.
+Pause freezes the procedural pose and stops future automatic routine contacts; joystick travel,
 prey actions and their contacts remain independent. Existing string tails
 are allowed to decay. Manual plucks, gestures and speech remain available
 while Audio is armed.
@@ -133,7 +183,11 @@ visible while controls scroll underneath a reachable main Audio button.
 
 ## Sound research and mechanism decisions
 
-This is a playable sonification, not a measured vocal reconstruction. Argiope aurantia is the requested biological starting point; the specimen asset is identified separately as Argiope bruennichi. No spider field recording was imported. The KAL16 diphone words remain a deliberately fictional robot voice.
+This is a playable sonification, not a measured vocal reconstruction. Argiope
+aurantia is the requested biological starting point; the default scan is
+identified separately as Argiope bruennichi. The real Maratus recordings are
+laboratory substrate vibrations, distinct from the procedural silk models and
+the deliberately fictional KAL16 robot voice.
 
 | Primary evidence | Supported observation | Instrument mapping and limitation |
 | --- | --- | --- |
@@ -141,17 +195,29 @@ This is a playable sonification, not a measured vocal reconstruction. Argiope au
 | Wignall & Herberstein (2013), [The Influence of Vibratory Courtship on Female Mating Behaviour in Orb-Web Spiders](https://doi.org/10.1371/journal.pone.0053057) | Argiope keyserlingi males perform shudders, abdominal wags and mating-thread plucks/bounces. | Movement-triggered percussive rolls, web plucks and abdominal modulation. This is a different Argiope species; no exact species-wide courtship rhythm is claimed. |
 | Mortimer et al. (2016), [Tuning the instrument: sonic properties in the spider's web](https://doi.org/10.1098/rsif.2016.0341), [institutional paper record](https://e-archivo.uc3m.es/entities/publication/04104fa7-91d6-4ec1-90cc-45ba0ecb5389) | Experiments and modeling connect web architecture, tension and silk stiffness with transverse and longitudinal wave transmission. | Pooled fractional-delay strings use visible segment/subsegment length; tension changes pitch, damping changes loss, and bounded adjacent coupling changes decay texture. The audible frequency scale and material presets are musical design choices, not silk material measurements. |
 | Elias et al. (2006), [Seismic signal production in a wolf spider: parallel versus serial multi-component signals](https://doi.org/10.1242/jeb.02104), [author-hosted paper](https://nature.berkeley.edu/eliaslab/Publications/EliasEtAl2006d.pdf) | In Schizocosa stridulans, palp stridulation, abdominal tremulation and foreleg percussion form serial and parallel courtship components, measured with vibrometry and high-speed video. | Palp stridulation, tremulation and finite courtship-roll colors are explicitly wolf-spider analogies. They are not claimed anatomy or recorded behavior of Argiope. The Courtship knob changes substructure inside an externally triggered decay envelope. |
+| Girard, Kasumovic & Elias (2011), [Multi-Modal Courtship in the Peacock Spider, Maratus volans](https://doi.org/10.1371/journal.pone.0025390), [licensed supplementary recording](https://doi.org/10.6084/m9.figshare.132960) | Laser vibrometry records rumble-rump, crunch-roll and grind-rev courtship articulations transmitted through an experimental substrate. | Three attributed CC BY 4.0 excerpts add finite recorded accents to body movement and contacts. These are measured Maratus signals, not Argiope or tarantula calls; processing and runtime pitch changes are documented. |
 | Jaffe & Smith (1983), [Extensions of the Karplus–Strong Plucked-String Algorithm](https://musicweb.ucsd.edu/~trsmyth/papers/KSExtensions.pdf) | Filtered delay loops support useful string synthesis extensions. | The existing Karplus core adds bounded dispersion and smoothly changing delay length. The bowed/slipping branch is an authored velocity-weakening friction model. Neither is a recording. |
 
 The perpetual Sound Play bed is an intentionally musical extension: slowly changing modal amplitudes, mild pitch drift and a bounded bowed delay loop. Event-only sources still receive no excitation at a held pose. Silk extrusion is driven by measured world travel while Lay Silk is enabled; prey approach, struggle and eating are owned by bounded shared-world prey records.
 
 Four short damped feedback paths provide Space; they are part of the same worklet, not extra Web Audio nodes. Existing output reconstruction guard and20-frame output delay are retained. Audio control/world sampling has a 200 Hz baseline with extra refreshes at planned stride/event deadlines and does not depend on the renderer.
 
-## Recording search and provenance decision
+## Recording search and provenance decisions
+
+Version 4 bundles the three identified Maratus excerpts above. The exact
+supplementary-file metadata, downloaded source checksum and visible behavior
+labels were checked before extraction. The publisher's downloadable video is
+the source; the study's authors and CC BY 4.0 terms remain attached to every
+redistributed derivative. No tarantula hiss or Argiope recording was verified
+and added.
 
 The [Elias laboratory multimedia archive](https://nature.berkeley.edu/eliaslab/Multimedia.html) exposes real research sonifications/recordings for other spider species. No explicit redistribution license was located for those individual audio files, so none was copied. Open-access article licensing does not automatically license unrelated archive audio. The [Steatoda grossa study](https://doi.org/10.1371/journal.pone.0228988) also cautions against assuming stridulation merely from an apparent apparatus: the tested North American males did not stridulate during courtship. Its behavioral videos are not substitutes for an identified Argiope sound recording.
 
-All new animal/world sounds here are deterministic procedural mechanisms. No claim of ultrasonic recording, authentic Argiope speech, human listening approval, phone-hardware validation or DAW routing validation is made.
+The other body/world sources remain procedural mechanisms. The licensed
+Maratus excerpts do not establish ultrasonic capture or authentic Argiope
+speech. Automated tests and render inspection are distinct from human
+listening, physical-phone or hardware-MIDI/DAW validation; no acceptance in
+those environments is claimed here.
 
 
 ## Construction rules added in version 3
@@ -226,11 +292,14 @@ the fixed voice pool limits resource use. Under extreme physical-event load,
 old physical tails may be replaced so new steps remain audible. MIDI-owned
 strings keep separate ownership.
 
-[Five additional real-scan candidates](docs/spider-synth-scan-candidates.md)
-were downloaded and inspected. The giant golden orb-weaver and *Araneus
-ventricosus* offer the strongest next specimen choices. Tarantulas need a
-silk-retreat setting and different rig calibration. Candidate research does
-not add selectable skins to this release. The
-[request audit](docs/spider-synth-request-audit.md) records remaining limits,
-including the absence of a full body collision solver and redistributed
-animal recordings.
+[Five additional real scans](docs/spider-synth-scan-candidates.md) now have
+independent rigs, measured reach geometry and selectable mobile GLBs. Together
+with the original Argiope there are six specimens. The giant golden orb-weaver
+and devil spider have particularly distinct surface patterns; the museum
+tarantula has a bulkier silhouette but softer fine hair and facial detail.
+The tarantula, huntsman and fishing spider perform in an artistic web scene;
+this does not make them natural Argiope-style orb-web builders. No verified
+black-widow body scan was added. The
+[request audit](docs/spider-synth-request-audit.md) distinguishes these completed
+implementations from full mesh collision, biological reconstruction and final
+integrated performance validation.

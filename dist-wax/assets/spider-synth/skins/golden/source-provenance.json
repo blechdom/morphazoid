@@ -1,0 +1,43 @@
+{
+  "uid": "88711ad10ac04174a56f6e9d6f8cb474",
+  "name": "CC0 \u30aa\u30aa\u30b8\u30e7\u30ed\u30a6\u30b0\u30e2 \ud83d\udd77\ufe0f Giant Golden Orb Weaver",
+  "description": "License: **CC0**  \n\n  \nAnimalia \u52d5\u7269\u754c  \n\u3000Arthropoda \u7bc0\u8db3\u52d5\u7269\u9580  \n\u3000\u3000Arachnida \u30af\u30e2\u7db1  \n\u3000\u3000\u3000Araneae \u30af\u30e2\u76ee  \n\u3000\u3000\u3000\u3000Nephilidae \u30b8\u30e7\u30ed\u30a6\u30b0\u30e2\u79d1  \n\u3000\u3000\u3000\u3000\u3000Nephila \u30b8\u30e7\u30ed\u30a6\u30b0\u30e2\u5c5e  \n\u3000\u3000\u3000\u3000\u3000\u3000Nephila pilipes \u30aa\u30aa\u30b8\u30e7\u30ed\u30a6\u30b0\u30e2  \n  \n\u30af\u30e2 \u8718\u86db",
+  "license": {
+    "uri": "https://api.sketchfab.com/v3/licenses/7c23a1ba438d4306920229c12afcb5f9",
+    "label": "CC0 Public Domain",
+    "fullName": "CC0 Public Domain",
+    "requirements": "Credit is not mandatory. Commercial use is allowed.",
+    "url": "http://creativecommons.org/publicdomain/zero/1.0/",
+    "slug": "cc0"
+  },
+  "createdAt": "2024-02-16T02:44:07.263468",
+  "publishedAt": "2024-02-16T02:44:44.729495",
+  "faceCount": 116391,
+  "vertexCount": 58286,
+  "animationCount": 0,
+  "isDownloadable": true,
+  "isProtected": false,
+  "viewerUrl": "https://sketchfab.com/3d-models/cc0-giant-golden-orb-weaver-88711ad10ac04174a56f6e9d6f8cb474",
+  "creator": {
+    "displayName": "ffish.asia / floraZia.com",
+    "profileUrl": "https://sketchfab.com/ffishAsia-and-floraZia",
+    "username": "ffishAsia-and-floraZia"
+  },
+  "retrieved": "2026-09-12",
+  "archive": "https://mirror.traines.eu/sketchfab-backup/88/88711ad10ac04174a56f6e9d6f8cb474.zip",
+  "archiveSha256": "040d8b9b3e30b8f3efcc45db75c1e4a470bdc743679507c29048ef80ad7ff845",
+  "archiveBytes": 12569975,
+  "inspection": {
+    "suppliedSkin": false,
+    "suppliedAnimation": false,
+    "animalTriangles": 116379,
+    "excludedCalibrationTriangles": 12,
+    "rigJoints": 38,
+    "colorTexture": [
+      4096,
+      4096
+    ],
+    "runtimeBytes": 4982988,
+    "runtimeSha256": "fe9bf3919356ee6a3a0392b0e5c5ab5f4681f6abeceb230ad91bfc2e5acb394b"
+  }
+}

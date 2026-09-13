@@ -1,4 +1,5 @@
 import { SpiderSynthViewer } from './src/spider-synth-viewer.js';
+import { SPIDER_SPECIMENS, getSpiderSpecimen } from './src/spider-synth-specimens.js';
 import { createSpiderMidiControls } from './src/spider-synth-midi-controls.js';
 import { createSpiderNavigationControls } from './src/spider-synth-navigation-controls.js';
 import { SpiderSynthWorld, normalizeSpiderWorld, SPIDER_TRAVEL_PATHS } from './src/spider-synth-world.js';
@@ -16,6 +17,7 @@ const motionQuery = matchMedia('(prefers-reduced-motion: reduce)');
 const state = {
   playing: false, soundPlaying: false, audioOn: false, audioStarting: false, disposed: false,
   modelLoading: true, notice: '', metronome: false, phraseRequest: 0,
+  specimenChoice: 'argiope',
   posePreset: 'neutral', poseSeed: 0, motionSeed: 0, soundSeed: 0,
   motionChoice: SPIDER_MOTION_PRESETS[0].id,
   motion: normalizeSpiderMotion({ ...SPIDER_MOTION_DEFAULTS, preset: 'none' }),
@@ -37,6 +39,10 @@ function syncStageStatus() { status('liveStatus', state.notice || (state.modelLo
 const announce = message => { state.notice = message; syncStageStatus(); };
 const audio = new SpiderSynthAudio({
   getWorldSnapshot() { updateVisual(); return visualWorld.snapshot(); },
+  onSamples({ status: sampleState }) {
+    if (!state.disposed) status('recordingStatus', sampleState === 'unavailable' || sampleState === 'partial'
+      ? 'Some spider recordings could not load. The other synth sounds remain available.' : '');
+  },
   onStatus(message) {
     if (state.disposed) return;
     const text = String(message?.message ?? message ?? '');
@@ -48,7 +54,7 @@ const audio = new SpiderSynthAudio({
   },
   onTelemetry(data) {
     if (state.disposed) return;
-    if (state.audioOn && data.world) visualWorld.restore(data.world);
+    if (state.audioOn && data.world && (data.world.specimen ?? 'argiope') === state.motion.specimen) visualWorld.restore(data.world);
     const db = state.audioOn && data.peak > .000001 ? 20 * Math.log10(data.peak) : -Infinity;
     el('mixMeter').value = Math.max(-60, db); el('mixPeak').value = Number.isFinite(db) ? `${db.toFixed(1)} dBFS` : '−∞ dBFS';
     speechMotion.target = data.speechEnvelope > .001 ? Math.min(1, data.speechEnvelope * 10) : 0;
@@ -360,31 +366,47 @@ function initializeKnobs() {
     for (const type of ['pointerup', 'pointercancel', 'lostpointercapture']) area.addEventListener(type, release, options);
   }
 }
-async function loadModel() {
+async function loadModel(id = state.specimenChoice) {
   if (!viewer) return;
+  const specimen = getSpiderSpecimen(id); state.specimenChoice = specimen.id;
+  el('specimenPreset').value = specimen.id;
+  el('specimenPreset').setAttribute('aria-busy', 'true');
   state.modelLoading = true; syncStageStatus(); const version = ++loadVersion; el('retryModel').hidden = true;
   try {
-    const loaded = await viewer.load();
-    if (loaded === false || !viewer.getState().loaded) throw new Error('The spider scan could not load');
+    // Resolve asset URLs here: the geometry metadata also runs in the audio
+    // worklet, whose global scope has no URL constructor.
+    const assetBase = new URL('./src/', import.meta.url);
+    const loaded = await viewer.load(new URL(specimen.modelPath, assetBase).href, new URL(specimen.rigPath, assetBase).href);
     if (version !== loadVersion || state.disposed) return;
+    if (loaded === false || !viewer.getState().loaded) throw new Error('The spider scan could not load');
+    state.motion = normalizeSpiderMotion({ ...state.motion, specimen: specimen.id });
+    audio.update({ motion: state.motion });
+    el('specimenInfo').textContent = `${specimen.species}. ${specimen.description} ${specimen.credit}.`;
+    el('specimenPreset').title = el('specimenInfo').textContent;
     el('specimenImage').hidden = true; el('spiderCanvas').style.visibility = 'visible';
     for (const id of ['resetCamera', 'showJoints']) el(id).disabled = false;
-    viewer.setOffsets?.(state.motion.offsets); selectView(state.view); selectGroup('cephalothorax');
+    viewer.setOffsets?.(state.motion.offsets); selectView(state.view); selectGroup(state.selectedGroup || 'cephalothorax');
     status('modelStatus'); updateVisual(); midiControls?.syncRig();
   } catch (error) {
     if (version !== loadVersion || state.disposed) return;
     status('modelStatus', `Model: ${error.message || 'could not load'}. Web sound remains playable.`); el('retryModel').hidden = false;
-  } finally { if (version === loadVersion && !state.disposed) { state.modelLoading = false; syncStageStatus(); } }
+  } finally { if (version === loadVersion && !state.disposed) { state.modelLoading = false; el('specimenPreset').setAttribute('aria-busy', 'false'); syncStageStatus(); } }
 }
 
 buildToneControls(); buildWorldControls(); buildMixer(); initializeKnobs();
+el('specimenPreset').replaceChildren(...SPIDER_SPECIMENS.map(item => new Option(item.label, item.id)));
+el('specimenPreset').addEventListener('change', () => void loadModel(el('specimenPreset').value), options);
 el('posePreset').replaceChildren(new Option('Custom pose', 'custom'), ...SPIDER_STATIC_POSES.map(item => new Option(item.label, item.id)));
 el('posePreset').value = state.posePreset;
 const soundBank = document.createElement('optgroup'); soundBank.label = 'Sound presets';
-soundBank.append(...SPIDER_SOUND_PRESETS.map(item => new Option(item.label, item.id)));
+const recordedPresetIds = new Set(['peacock-courtship', 'peacock-percussion', 'peacock-underworld']);
+soundBank.append(...SPIDER_SOUND_PRESETS.filter(item => !recordedPresetIds.has(item.id)).map(item => new Option(item.label, item.id)));
 const motionBank = document.createElement('optgroup'); motionBank.label = 'Animation sounds';
 motionBank.append(...SPIDER_MOTION_PRESETS.map(item => new Option(item.label, `motion:${item.id}`)));
-el('soundPreset').replaceChildren(soundBank, motionBank);
+// Keep the original 24 sound + 40 animation Program Change addresses stable.
+const recordedBank = document.createElement('optgroup'); recordedBank.label = 'Recorded spider voices';
+recordedBank.append(...SPIDER_SOUND_PRESETS.filter(item => recordedPresetIds.has(item.id)).map(item => new Option(item.label, item.id)));
+el('soundPreset').replaceChildren(soundBank, motionBank, recordedBank);
 el('soundPreset').value = SPIDER_SOUND_PRESETS[0].id;
 el('tempo').value = state.motion.tempo; el('tempoOut').value = `${state.motion.tempo} BPM`;
 el('intensity').value = state.motion.intensity; el('intensityOut').value = `${Math.round(state.motion.intensity * 100)}%`;
@@ -423,6 +445,7 @@ try {
 }
 Object.defineProperty(window, 'spiderSynth', { configurable: true, value: Object.freeze({
   getState: () => ({ ...viewer?.getState(), playing: state.playing, soundPlaying: state.soundPlaying, audioOn: state.audioOn,
+    specimen: state.motion.specimen, specimenChoice: state.specimenChoice, modelLoading: state.modelLoading,
     time: currentTime(), view: state.view, side: state.side, posePreset: state.posePreset, motionChoice: state.motionChoice,
     motionSettings: structuredClone(state.motion), webSettings: { ...state.webSettings },
     worldSettings: structuredClone(effectiveWorldSettings()), world: visualWorld.snapshot(), navigation: navigationControls?.getState(),
@@ -430,7 +453,7 @@ Object.defineProperty(window, 'spiderSynth', { configurable: true, value: Object
     soundPreset: el('soundPreset').value, sound: { ...state.sound }, bodyMix: structuredClone(state.bodyMix),
     effectiveBodyMix: effectiveBodyMix(), muted: [...state.muted], solo: [...state.solo], selectedGroup: state.selectedGroup,
     audio: audio.getState(), midi: midiControls?.getState(), speechMotion: speechMotion.amount, metronome: state.metronome,
-    renderQuality: 'audio-first', modelLoading: state.modelLoading }),
+    renderQuality: 'audio-first' }),
   getPartScreenPosition: id => viewer?.getPartScreenPosition(id),
   getSegmentScreenPosition: (id, u) => viewer?.getSegmentScreenPosition?.(id, u),
   getSilkScreenPosition: (id, u) => viewer?.getSilkScreenPosition?.(id, u),

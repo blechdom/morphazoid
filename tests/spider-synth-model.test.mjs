@@ -193,7 +193,14 @@ test('all XYZ axes of every leg joint move only that leg contact at a frozen clo
 test('body pose rocks the fused front body while all web support anchors stay fixed', () => {
   const motion = normalizeSpiderMotion({ preset: 'none' }); const baseline = createSpiderFrame(); const frame = createSpiderFrame(); const pose = new Float32Array(114);
   writeSpiderFrame(0, motion, web, baseline); pose[0] = .2; pose[1] = -.2; pose[2] = .15; writeSpiderFrame(0, motion, web, frame, pose);
-  assert.notDeepEqual(frame.body, baseline.body); assert.deepEqual(frame.feet, baseline.feet); assert.deepEqual(frame.pose, pose);
+  assert.notDeepEqual(frame.body, baseline.body); assert.deepEqual(frame.feet, baseline.feet);
+  // Solid-body limits may reduce a combined tilt, while retaining its direction
+  // and keeping all caller-owned support anchors and unrelated joints exact.
+  for (let axis = 0; axis < 3; axis++) {
+    assert.equal(Math.sign(frame.pose[axis]), Math.sign(pose[axis]));
+    assert.ok(Math.abs(frame.pose[axis]) <= Math.abs(pose[axis]));
+  }
+  assert.deepEqual(frame.pose.slice(3), pose.slice(3));
 });
 
 test('radian constraints keep malformed and extreme overlays finite and respect reordered joint metadata', () => {

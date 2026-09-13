@@ -1,0 +1,13 @@
+Model Information:
+* title:	King Baboon Tarantula
+* source:	https://sketchfab.com/3d-models/king-baboon-tarantula-92c84c9dac9043ee81e87173e2ee0381
+* author:	Auckland Museum (https://sketchfab.com/aucklandmuseum)
+
+Model License:
+* license type:	CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)
+* requirements:	Author must be credited. Commercial use is allowed.
+
+If you use this 3D model in your project be sure to copy paste this credit wherever you share it:
+This work is based on "King Baboon Tarantula" (https://sketchfab.com/3d-models/king-baboon-tarantula-92c84c9dac9043ee81e87173e2ee0381) by Auckland Museum (https://sketchfab.com/aucklandmuseum) licensed under CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)
+
+Morphazoid modifications (2026-09-12): separate calibration object removed where supplied; uniform coordinate normalization; independently authored38-joint skin and rig metadata; normalized16-bit normals/UVs,8-bit weights, sub-microunit position rounding; original4K atlas re-encodedWebPquality90; losslessMeshopt packing of prepared attributes. All animal triangles retained.

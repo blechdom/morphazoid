@@ -287,6 +287,24 @@ manifest = dict(version=1, species='Argiope bruennichi', units='web radius1; sou
                 texture=dict(width=image.width, height=image.height, encoding='WebP q92', bytes=len(encoded.getvalue())),
                 sourceSha256=hashlib.sha256(binary).hexdigest(), outputSha256=hashlib.sha256(data).hexdigest(),
                 caveat='Approximate authored articulation of a real static photogrammetry surface; small mouth and grouped leg segments are not measured biological joints.')
+# Measured per-specimen collision surrogates. GLB surface/binds stay unchanged.
+manifest['id'] = 'argiope'
+manifest['collision'] = dict(bodies=[])
+for idx, id in enumerate(['cephalothorax', 'abdomen']):
+    selected = vertices[skin_indices[:, 0] == idx]
+    lo, hi = np.quantile(selected, [.005, .995], axis=0)
+    manifest['collision']['bodies'].append(dict(jointId=id, center=((lo + hi) / 2).tolist(), radii=((hi - lo) / 2 * .98).tolist()))
+manifest['neutralBodyHeight'] = max(.06, max(b['radii'][1] - b['center'][1] for b in manifest['collision']['bodies']) + .014)
+for leg in leg_data:
+    leg['radii'] = []
+    for segment, id in enumerate(leg['jointIds']):
+        a, b = np.array(leg['anchors'][segment]), np.array(leg['anchors'][segment + 1])
+        delta = b - a; axial = (vertices - a) @ delta / (delta @ delta)
+        radial = np.linalg.norm(vertices - (a + axial[:, None] * delta), axis=1)
+        selected = skin_indices[:, 0] == bone_index[id]
+        central = selected & (axial > .18) & (axial < .8)
+        measured = radial[central] if central.sum() >= 24 else radial[selected]
+        leg['radii'].append(float(np.clip(np.quantile(measured, .82), .001, .05)))
 (target.parent / 'rig-manifest.json').write_text(json.dumps(manifest, indent=2) + '\n')
 np.savez('/tmp/spider-source/prepared.npz', vertices=vertices, indices=skin_indices, weights=skin_weights, faces=faces)
 print(json.dumps(dict(bytes=len(data), triangles=len(faces), bones=len(all_bones), sha256=manifest['outputSha256'])))

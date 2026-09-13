@@ -22,6 +22,7 @@ class SpiderSynthProcessor extends AudioWorkletProcessor {
         else if (data?.type === 'world-command') this.dsp.worldCommand(data.command,data.audioTime);
         else if (data?.type === 'world-state') this.dsp.restoreWorld(data.snapshot,data.timeOffset);
         else if (data?.type === 'pluck' && (!Number.isFinite(data.audioTime) || currentTime - data.audioTime < .1)) this.dsp.pluck(data.pluck);
+        else if (data?.type === 'sample-bank') this.dsp.setSampleBank(data.samples);
         else if (data?.type === 'atlas') this.dsp.setAtlas(data.samples, data.sampleRate);
         else if (data?.type === 'speak') this.dsp.speak(data.phones);
         else if (data?.type === 'stop-speech') this.dsp.stopSpeech();

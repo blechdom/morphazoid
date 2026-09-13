@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { spiderRecordingFixture } from './helpers/spider-recording-fixture.mjs';
 import { SpiderSynthDsp, SPIDER_SOUND_PRESETS, SPIDER_MOTION_SOUND_PRESETS, SPIDER_BODY_SOURCES, createDefaultSpiderBodyMix, normalizeSpiderBodyMix, normalizeSpiderSound, getSpiderMotionSound } from '../src/spider-synth-dsp.js';
 import { SpiderStrings, spiderPluckFrequency } from '../src/spider-synth-string.js';
 import { SpiderSynthAudio, createSpiderSpeechPlan } from '../src/spider-synth-audio.js';
@@ -10,13 +11,13 @@ import { SPIDER_JOINTS, SPIDER_MOTION_PRESETS, createSpiderFrame, writeSpiderFra
 const mix=(group,source='silk')=>createDefaultSpiderBodyMix().map(row=>({...row,source,level:group==='*'||row.groupId===group?.[0]||row.groupId===group?.[1]||row.groupId===group?.[2]? .7:0}));
 const note=(n=68,v=100,extra={})=>({type:'noteOn',note:n,velocity:v,sourceId:'keys',channel:0,...extra});
 const off=(n=68,extra={})=>({...note(n,0,extra),type:'noteOff'});
-function synth(settings={}){const d=new SpiderSynthDsp(24000);d.update({enabled:true,motion:{preset:'listen',explore:false,intensity:1},...settings});return d;}
+function synth(settings={}){const d=new SpiderSynthDsp(24000);d.setSampleBank(spiderRecordingFixture);d.update({enabled:true,motion:{preset:'listen',explore:false,intensity:1},...settings});return d;}
 function render(d,seconds,time){const l=new Float32Array(Math.round(seconds*d.sampleRate)),r=new Float32Array(l.length);const t=structuredClone(d.render(l,r,time));for(let i=0;i<l.length;i++)assert.ok(Number.isFinite(l[i])&&Number.isFinite(r[i]));return {l,r,...t};}
 function energy(a){let sum=0;for(const x of a)sum+=x*x;return Math.sqrt(sum/a.length);}
 function toneFrequency(a,rate,expected){let best=-1,freq=0;const start=Math.min(a.length/2,Math.round(rate*.04));const count=Math.min(Math.round(rate*.25),a.length-start);for(let f=expected*.8;f<=expected*1.2;f+=expected*.004){let re=0,im=0;for(let i=0;i<count;i++){const phase=2*Math.PI*f*i/rate;re+=a[start+i]*Math.cos(phase);im+=a[start+i]*Math.sin(phase);}const power=re*re+im*im;if(power>best){best=power;freq=f;}}return freq;}
 
-test('catalogues own eight groups, 24 actual sources and distinct companions for every shared motion',()=>{
- assert.equal(SPIDER_BODY_SOURCES.length,24);assert.equal(SPIDER_SOUND_PRESETS.length,24);assert.equal(SPIDER_MOTION_SOUND_PRESETS.length,SPIDER_MOTION_PRESETS.length);
+test('catalogues own eight groups, 27 actual sources and distinct companions for every shared motion',()=>{
+ assert.equal(SPIDER_BODY_SOURCES.length,27);assert.equal(SPIDER_SOUND_PRESETS.length,27);assert.equal(SPIDER_MOTION_SOUND_PRESETS.length,SPIDER_MOTION_PRESETS.length);
  assert.deepEqual(SPIDER_MOTION_SOUND_PRESETS.map(p=>p.id),SPIDER_MOTION_PRESETS.map(p=>p.id));
  assert.equal(new Set(SPIDER_MOTION_SOUND_PRESETS.map(p=>JSON.stringify([p.sound,p.bodyMix]))).size,SPIDER_MOTION_PRESETS.length);
  const value=createDefaultSpiderBodyMix();const normalized=normalizeSpiderBodyMix(value);value[0].level=0;assert.notEqual(normalized[0].level,0);
@@ -260,7 +261,7 @@ test('root-turn timbre is periodic and crossing an angle wrap cannot invent a la
 
 
 test('authored string registers retain physical length ordering and separate actual pitch and onset',()=>{
- assert.equal(new Set(SPIDER_SOUND_PRESETS.map(p=>JSON.stringify([p.sound.pluckRegister,p.sound.pluckSpread,p.sound.pluckAttack,p.sound.pluckHold,p.sound.pluckRelease]))).size,24);
+ assert.equal(new Set(SPIDER_SOUND_PRESETS.map(p=>JSON.stringify([p.sound.pluckRegister,p.sound.pluckSpread,p.sound.pluckAttack,p.sound.pluckHold,p.sound.pluckRelease]))).size,SPIDER_SOUND_PRESETS.length);
  const levels=new Float64Array(8).fill(1);const results=[];
  for(const id of ['thread-bass','tiny-bells','velvet-listener']){
   const sound={...SPIDER_SOUND_PRESETS.find(p=>p.id===id).sound,slide:0};

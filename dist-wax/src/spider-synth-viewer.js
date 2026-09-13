@@ -1,11 +1,12 @@
 import * as THREE from '../vendor/three/three.module.min.js';
 import { GLTFLoader } from '../vendor/three/loaders/GLTFLoader.js';
 import { MeshoptDecoder } from '../vendor/meshoptimizer/meshopt_decoder.module.js';
+import { createSpiderCollisionProfile, constrainSpiderCollisionPose, createSpiderCollisionSolver } from './spider-synth-collision.js?v=ba050afc7c8e';
 
 const clamp = (value, low, high) => Math.min(high, Math.max(low, Number(value) || 0));
 const AXES = ['x', 'y', 'z'];
 const MODEL_URL = new URL('../assets/spider-synth/spider-mobile.glb?v=aee7f2b4c9b2', import.meta.url);
-const RIG_URL = new URL('../assets/spider-synth/rig-manifest.json?v=693c6be940d9', import.meta.url);
+const RIG_URL = new URL('../assets/spider-synth/rig-manifest.json?v=8dc0f1eec0ca', import.meta.url);
 const MAX_BYTES = 16 * 1024 * 1024;
 const MAX_PIXELS = 1_150_000;
 const WEB_PIECES = 20; // Twelve regular spans plus up to eight exact toe knots.
@@ -111,6 +112,7 @@ export class SpiderSynthViewer {
     this.moveCenter = { x: 0, z: 0 };
     this.frameData = { time: 0, body: { x: 0, y: .06, z: 0, yaw: 0, pitch: 0, roll: 0 }, feet: [], pose: new Float32Array(114) };
     this.bones = []; this.legs = []; this.mesh = null; this.model = null; this.rig = null;
+    this.collisionProfile = null; this.collisionSolver = null; this.collisionBodies = []; this.collisionChains = [];
     this.selectedBone = null; this.web = null; this.webLines = []; this.recentEvents = [];
     this.strandEvents = new Map(); this.strandPins = new Map(); this.world = null;
     this.preyPool = new Map(); this.followFace = false;
@@ -123,13 +125,13 @@ export class SpiderSynthViewer {
     this.bindEvents(); this.resize(); this.setViewPreset('top');
   }
 
-  async load(url = MODEL_URL) {
+  async load(url = MODEL_URL, rigUrl = RIG_URL) {
     const serial = ++this.loadSerial; this.abort?.abort(); this.abort = new AbortController();
     this.onStatus({ state: 'loading', message: 'Loading the spider scan…', progress: 0 });
     let imported = null; let releaseDecoder;
     try {
       const [response, rigResponse] = await Promise.all([
-        fetch(url, { signal: this.abort.signal }), fetch(RIG_URL, { signal: this.abort.signal }),
+        fetch(url, { signal: this.abort.signal }), fetch(rigUrl, { signal: this.abort.signal }),
       ]);
       if (!response.ok || !rigResponse.ok) throw new Error('The spider model could not be downloaded.');
       const rig = await rigResponse.json();
@@ -159,18 +161,26 @@ export class SpiderSynthViewer {
       if (this.disposed || serial !== this.loadSerial) { releaseObject(imported.scene); return false; }
       const mesh = []; imported.scene.traverse(object => { if (object.isSkinnedMesh) mesh.push(object); });
       if (mesh.length !== 1 || mesh[0].skeleton.bones.length !== 38) throw new Error('The spider model needs its 38-joint skin.');
+      const sourcePositions = mesh[0].geometry?.attributes?.position;
+      const sourceJoints = mesh[0].geometry?.attributes?.skinIndex;
+      if (!sourcePositions?.count || sourceJoints?.count !== sourcePositions.count) throw new Error('The spider skin geometry is invalid.');
+      // Validate the complete replacement before releasing the playing specimen.
+      const nextBones = rig.joints.map((meta, index) => {
+        const bone = imported.scene.getObjectByName(meta.id);
+        if (!bone?.isBone) throw new Error(`Missing spider joint ${meta.id}`);
+        return { ...meta, bone, index, rest: bone.quaternion.clone() };
+      });
+      for (const leg of rig.legs) if (leg.jointIds?.length !== 4 || leg.anchors?.length !== 5 || leg.lengths?.length !== 4
+        || !leg.jointIds.every(id => nextBones.some(bone => bone.id === id)) || !leg.lengths.every(length => Number.isFinite(length) && length > 0)
+        || !leg.anchors.every(anchor => anchor?.length === 3 && anchor.every(Number.isFinite))) throw new Error('The spider leg rig is invalid.');
+      const collisionProfile = createSpiderCollisionProfile(rig);
+      this.cancelGesture();
       releaseObject(this.model); if (this.model) this.performer.remove(this.model);
       this.model = imported.scene; this.mesh = mesh[0]; this.rig = rig; this.performer.add(this.model);
       this.mesh.castShadow = true; this.mesh.receiveShadow = true; this.mesh.frustumCulled = false;
       this.mesh.boundingSphere = new THREE.Sphere(new THREE.Vector3(), 2);
       this.mesh.boundingBox = new THREE.Box3(new THREE.Vector3(-2, -2, -2), new THREE.Vector3(2, 2, 2));
-      this.bones = rig.joints.map((meta, index) => {
-        const bone = this.model.getObjectByName(meta.id);
-        if (!bone?.isBone) throw new Error(`Missing spider joint ${meta.id}`);
-        return { ...meta, bone, index, rest: bone.quaternion.clone() };
-      });
-      const sourcePositions = this.mesh.geometry.attributes.position;
-      const sourceJoints = this.mesh.geometry.attributes.skinIndex;
+      this.bones = nextBones;
       this.bones.forEach(bone => { bone.samples = []; });
       for (let i = 0; i < sourcePositions.count; i += 13) {
         const bone = this.bones[sourceJoints.getX(i)];
@@ -181,12 +191,19 @@ export class SpiderSynthViewer {
         points: Array.from({ length: 5 }, () => new THREE.Vector3()),
         end: new THREE.Vector3().fromArray(leg.anchors[4]).sub(new THREE.Vector3().fromArray(leg.anchors[3])),
         actual: new THREE.Vector3(), target: new THREE.Vector3(), error: 0,
+        root: new THREE.Vector3(), radii: collisionProfile.legs[index].radii,
       }));
+      this.collisionProfile = collisionProfile; this.collisionSolver = createSpiderCollisionSolver(collisionProfile);
+      this.collisionBodies = collisionProfile.bodies.map(body => ({ ...body, a: new THREE.Vector3(), b: new THREE.Vector3(), worldCenter: new THREE.Vector3(), axes: new Float64Array(9) }));
+      this.collisionChains = this.legs;
       this.buildJointMarkers(); this.loaded = true;
       this.applyFrame(); this.fit(); this.invalidate();
       this.onStatus({ state: 'ready', message: 'Spider ready', progress: 1 }); this.onChange(this.getState());
       return true;
     } catch (error) {
+      // A bad companion manifest can fail before the model body is consumed.
+      // Cancel only this request; a newer specimen load owns its own signal.
+      if (serial === this.loadSerial) this.abort?.abort();
       if (imported?.scene && imported.scene !== this.model) releaseObject(imported.scene);
       if (!this.disposed && serial === this.loadSerial && error.name !== 'AbortError') {
         this.onStatus({ state: 'error', message: `${error.message} Try loading again.`, progress: 0 });
@@ -483,6 +500,7 @@ export class SpiderSynthViewer {
     const body = this.frameData.body;
     this.performer.position.set(clamp(body.x, -1.2, 1.2), clamp(body.y, -.7, 1.2), clamp(body.z, -1.2, 1.2));
     this.performer.rotation.set(clamp(body.pitch, -Math.PI * 2, Math.PI * 2), Number(body.yaw) || 0, clamp(body.roll, -Math.PI * 2, Math.PI * 2), 'YXZ');
+    constrainSpiderCollisionPose(this.frameData.pose, this.collisionProfile);
     for (const { bone, index, rest } of this.bones) {
       this.euler.set(this.frameData.pose[index * 3], this.frameData.pose[index * 3 + 1], this.frameData.pose[index * 3 + 2], 'XYZ');
       bone.quaternion.copy(rest).multiply(this.turn.setFromEuler(this.euler));
@@ -495,6 +513,24 @@ export class SpiderSynthViewer {
       if (target.airborne || this.frameData.airborne) {
         leg.actual.copy(leg.end).applyMatrix4(leg.chain[3].matrixWorld); leg.error = leg.actual.distanceTo(leg.target);
       } else this.solveLeg(leg);
+    }
+    if (this.collisionSolver) {
+      for (let i = 0; i < this.collisionBodies.length; i++) {
+        const profile = this.collisionProfile.bodies[i], body = this.collisionBodies[i], matrix = this.bones[profile.index].bone.matrixWorld;
+        body.a.set(profile.a.x, profile.a.y, profile.a.z).applyMatrix4(matrix); body.b.set(profile.b.x, profile.b.y, profile.b.z).applyMatrix4(matrix);
+        body.worldCenter.set(profile.center.x - profile.pivot.x, profile.center.y - profile.pivot.y, profile.center.z - profile.pivot.z).applyMatrix4(matrix);
+        const e = matrix.elements; body.axes[0] = e[0]; body.axes[1] = e[4]; body.axes[2] = e[8]; body.axes[3] = e[1]; body.axes[4] = e[5]; body.axes[5] = e[9]; body.axes[6] = e[2]; body.axes[7] = e[6]; body.axes[8] = e[10];
+      }
+      for (const leg of this.legs) {
+        leg.chain.forEach((bone, i) => bone.getWorldPosition(leg.points[i]));
+        leg.points[4].copy(leg.end).applyMatrix4(leg.chain[3].matrixWorld); leg.root.copy(leg.points[0]);
+        // An airborne leg starts at its authored tip but can fold away from
+        // solids. A supported or swinging leg retains its exact planned toe.
+        leg.pinned = !(this.frameData.airborne || this.frameData.feet[leg.index]?.airborne);
+        if (!leg.pinned) leg.target.copy(leg.points[4]);
+      }
+      this.collisionSolver.solve(this.collisionChains, this.collisionBodies);
+      for (const leg of this.legs) this.alignLeg(leg);
     }
     this.performer.updateMatrixWorld(true); this.mesh.skeleton.update();
     if (this.showJoints) this.bones.forEach(({ bone }, i) => bone.getWorldPosition(this.jointMarkers.children[i].position));
@@ -523,6 +559,10 @@ export class SpiderSynthViewer {
       }
       if (points[4].distanceToSquared(wanted) < 1e-10) break;
     }
+    this.alignLeg(leg);
+  }
+  alignLeg(leg) {
+    const { points, chain, target } = leg;
     // Align each rest link to the solved chain while preserving its original
     // pose twist. This bends the existing skin; there are no substitute legs.
     const current = this.temp[3], desired = this.temp[4], start = this.temp[5], finish = this.temp[6];
@@ -795,7 +835,8 @@ export class SpiderSynthViewer {
     try { if (this.canvas.hasPointerCapture(g.id)) this.canvas.releasePointerCapture(g.id); } catch { /* Detached pointer. */ }
   }
   getState() {
-    return { loaded: this.loaded, bones: this.bones.map(({ id, name, groupId, bone, index }) => ({ id, jointId: id, name, groupId, index,
+    return { loaded: this.loaded, specimen: this.rig?.id || this.rig?.species || null, collision: this.collisionSolver ? { ...this.collisionSolver.stats } : null,
+    bones: this.bones.map(({ id, name, groupId, bone, index }) => ({ id, jointId: id, name, groupId, index,
       quaternion: bone.quaternion.toArray(), position: bone.getWorldPosition(this.temp[11]).toArray(), offset: { ...(this.offsets[id] || { x: 0, y: 0, z: 0 }) } })),
     selectedBone: this.selectedBone, camera: { view: this.view, side: this.side, distance: this.distance, target: this.target.toArray(), quaternion: this.orbit.toArray(), position: this.camera.position.toArray() },
     footPositions: this.legs.map(leg => ({ id: `${leg.id}_tip`, position: leg.actual.toArray(), target: leg.target.toArray(), error: leg.error, stance: !!this.frameData.feet[leg.index]?.stance,

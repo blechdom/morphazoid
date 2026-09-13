@@ -9,7 +9,7 @@
     <title>Spider Synth — Morphazoid</title>
     <link rel="icon" href="favicon.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="style.css" />
-    <link rel="stylesheet" href="spider-synth.css?v=f3d28731af44" />
+    <link rel="stylesheet" href="spider-synth.css?v=ba050afc7c8e" />
   </head>
   <body class="spider-synth-page" data-instrument-info="off">
     <header class="masthead">
@@ -47,6 +47,8 @@
       </section>
       <aside class="spider-panel" aria-label="Spider Synth controls">
         <section class="spider-control-block spider-view-controls" aria-label="View and joint controls">
+          <label class="spider-inline-select spider-specimen-picker" for="specimenPreset"><span>Spider skin</span><span class="select-shell"><select id="specimenPreset" aria-describedby="specimenInfo"><option value="argiope">Wasp spider</option></select></span></label>
+          <span id="specimenInfo" class="sr-only">The original Argiope specimen.</span>
           <div class="spider-stage-toolbar">
             <div class="choice-switch spider-views" id="viewPresets" role="group" aria-label="Camera view">
               <button type="button" data-view="side" aria-pressed="false">Sideways</button><button type="button" data-view="top" aria-pressed="true">Top</button><button type="button" data-view="bottom" aria-pressed="false">Bottom</button><button type="button" data-view="face" aria-pressed="false">Face</button>
@@ -81,6 +83,7 @@
           <label class="spider-voice-label" for="phrase">Voice <span>Type words to speak</span></label><textarea id="phrase" rows="2" maxlength="96" placeholder="Type words here…" autocomplete="off" spellcheck="false">hi, I'm a spider and this is my web</textarea>
           <div class="spider-voice-actions"><button class="mini-action spider-speak" id="speakButton" type="button">Say it</button><label class="spider-knob spider-voice-level" for="voice"><span class="knob-label">Voice</span><span class="knob-face" aria-hidden="true"><i></i><small id="voiceOut">78%</small></span><input id="voice" data-sound="voice" type="range" min="0" max="1" step="0.01" value="0.78" aria-label="Voice level" /></label><span class="sr-only">Control or Command + Enter speaks.</span></div>
           <p class="spider-status" id="voiceStatus" role="status" hidden></p>
+          <p class="spider-status" id="recordingStatus" role="status" hidden></p>
         </section>
         <section class="spider-control-block spider-performance" aria-label="Animation">
           <div class="spider-control-row spider-animation-row">
@@ -134,11 +137,11 @@
             <p class="spider-note">Computer keys: Z S X D C V G B H N J M = C3–B3; Q 2 W 3 E R 5 T 6 Y 7 U = C4–B4. [ / ] shift octaves.</p>
           </details>
         </section>
-        <details class="spider-notes"><summary>Specimen &amp; sound sources</summary><p>A real <i>Argiope bruennichi</i> scan by <a href="https://sketchfab.com/3d-models/cc0-orb-weaver-spider-a-bruennichi-bb646be39dad44948a403366b0ebc977">Yuichi Kano / ffish.asia</a>, CC0. Morphazoid adds a flexible rig with eight articulated legs and authored face pivots. The head and thorax are fused; tiny mouthpart boundaries are approximate.</p><p>The web is a musical string model: shorter silk subdivisions ring higher; tension raises pitch, and leg speed and angle shape each pluck. These are amplified, stylized string sounds, not recordings of a spider’s voice.</p><p><a href="SPIDER_SYNTH_RESEARCH.md">Research &amp; limitations</a> · <a href="docs/spider-synth-midi.md">MIDI guide</a> · <a href="assets/spider-synth/SOURCE.LICENSE.txt">Scan provenance</a></p></details>
+        <details class="spider-notes"><summary>Specimens &amp; sound sources</summary><p>Six real spider scans, each with its own eight-legged rig: Argiope, golden orb-weaver, devil spider, tarantula, huntsman and fishing spider. The orb-weaver and hunting-spider scans are CC0 by Yuichi Kano / ffish.asia; the King Baboon tarantula is CC BY 4.0 by Auckland Museum. Mouth regions are approximate.</p><p>Peacock rumble, crunch and grind use real <i>Maratus volans</i> courtship vibrations recorded by Girard, Kasumovic &amp; Elias (2011), CC BY 4.0. They are short motion-triggered excerpts of measured substrate vibrations. The web strings, flying bug and speaking voice remain musical synth models.</p><p><a href="assets/spider-synth/skins/ASSET.md">Specimen credits &amp; rig limits</a> · <a href="assets/audio/spider-synth/README.md">Recording credits</a> · <a href="SPIDER_SYNTH_RESEARCH.md">Research</a> · <a href="docs/spider-synth-midi.md">MIDI guide</a></p></details>
       </aside>
     </main>
     <script type="module" src="nav.js"></script>
-    <script type="module" src="spider-synth-app.js?v=f3d28731af44"></script>
+    <script type="module" src="spider-synth-app.js?v=ba050afc7c8e"></script>
     <script type="module" src="wax/wax-universal-adapter.js" data-morphazoid-wax-universal-adapter></script>
 </body>
 </html>

@@ -1,11 +1,18 @@
-import { writeSpiderFrame, writeSpiderLegOffset, createSpiderFrame, SPIDER_LEG_GEOMETRY, SPIDER_MOTION_PRESETS, SPIDER_JOINTS } from './spider-synth-model.js?v=f3d28731af44';
-import { projectSpiderWebInto, spiderWebHeight, spiderWebGeometryKey } from './spider-synth-web.js?v=f3d28731af44';
+import { getSpiderSpecimen } from './spider-synth-specimens.js?v=ba050afc7c8e';
+import { constrainSpiderSupportBody } from './spider-synth-collision.js?v=ba050afc7c8e';
+import { writeSpiderFrame, writeSpiderFrameBody, writeSpiderBody, writeSpiderSupportBody, writeSpiderPose, writeSpiderLegOffset, createSpiderFrame, constrainSpiderBodyPose, SPIDER_JOINTS, SPIDER_MOTION_PRESETS } from './spider-synth-model.js?v=ba050afc7c8e';
+import { projectSpiderWebInto, spiderWebHeight, spiderWebGeometryKey } from './spider-synth-web.js?v=ba050afc7c8e';
+import { createSpiderFootClearance, writeSpiderFootClearance, writeSpiderFootOutward, spiderFootFacesOutward, spiderFootNeutralX, spiderFootClearsBodies, spiderFeetClear } from './spider-synth-contact.js?v=ba050afc7c8e';
 
 const TAU = Math.PI * 2;
 const WAVE_ORDER = Object.freeze([0, 4, 1, 5, 2, 6, 3, 7]);
 const ease = t => t * t * (3 - 2 * t);
 const angleDelta = (a, b) => Math.atan2(Math.sin(a - b), Math.cos(a - b));
-const footRecord = () => ({ x: 0, y: 0, z: 0, segmentId: 0, u: .5, step: 0, touchPhase: 0, touchTime: 0, touchBeat: 0, yaw: 0, hx: 0, hy: 0, hz: 0 });
+const footRecord = () => {
+  const foot = { x: 0, y: 0, z: 0, space: 0, segmentId: 0, u: .5, step: 0, touchPhase: 0, touchTime: 0, touchBeat: 0, yaw: 0, hx: 0, hy: 0, hz: 0 };
+  Object.defineProperty(foot, '_projectionCache', { value: { web: null, specimen: null, qx: 0, qz: 0, x: 0, y: 0, z: 0, yaw: 0, hx: 0, hy: 0, hz: 0, space: 0, px: 0, py: 0, pz: 0, segmentId: -1, u: .5 } });
+  return foot;
+};
 const strideRecord = () => ({ serial: 0, a: 0, b: 0, ax: 0, ay: .06, az: 0, ayaw: 0, bx: 0, by: .06, bz: 0, byaw: 0, mask: 0, lift: .03, accepted: 0, eventEpoch: -1, from: Array.from({ length: 8 }, footRecord), to: Array.from({ length: 8 }, footRecord) });
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const finite = (v, d = 0) => Number.isFinite(Number(v)) ? Number(v) : d;
@@ -29,6 +36,12 @@ function clone(value) { return JSON.parse(JSON.stringify(value)); }
 export class SpiderSynthWorld {
   constructor(settings = {}) {
     this.settings = normalizeSpiderWorld(settings); this.clock = 0; this.gridOrigin = 0; this.webKey = ''; this.web = null;
+    this.specimen = getSpiderSpecimen('argiope');
+    this._clearance = createSpiderFootClearance(this.specimen.collisionProfile);
+    this._clearancePose = new Float32Array(114);
+    this._bodyCacheStamp = 0; this._bodyCacheCursor = 0;
+    this._bodyCache = Array.from({ length: 32 }, () => ({ stamp: -1, time: -1, height: 0, pitch: 0, roll: 0, pose: new Float32Array(114) }));
+    this._writePlannedFrame = writeSpiderFrameBody;
     this.motionScale = 1; this._motionKey = ''; this.travelHistory = [{ time: 0, x: 0, z: 0, settings: this.settings, target: null, scale: 1 }];
     this.prey = []; this.silkSegments = []; this.events = [];
     this._silkPool = Array.from({ length: 256 }, () => ({ id: 0, ax: 0, ay: 0, az: 0, bx: 0, by: 0, bz: 0, born: 0, length: 0, angle: 0 }));
@@ -41,7 +54,9 @@ export class SpiderSynthWorld {
     this.state = { time: 0, version: 0, graphVersion: 0, webKey: '', active: false, travelSpeed: 0, layingSpeed: 0, preyBuzz: 0, preyStruggle: 0, eating: 0, prey: this.prey, silkSegments: this.silkSegments, events: this.events, activeSilk: null, contactEpoch: 0 };
     this._phaseHistory = [{ time: 0, phase: 0, rate: 0 }]; this._tempo = 108; this._plannerReady = false; this._plannerEnabled = false;
     this._stridePool = Array.from({ length: 64 }, strideRecord); this._strideHistory = []; this._strideCursor = 0; this._strideSerial = 0; this._strideEnd = 0;
-    this._strideFeet = Array.from({ length: 8 }, footRecord); this._supportFeet = Array.from({ length: 8 }, footRecord); this._targetFeet = Array.from({ length: 8 }, footRecord); this._strideBody = point(); this._candidate = point(); this._aim = point(); this._overlay = point(); this._overlayScratch = new Float32Array(12);
+    this._strideFeet = Array.from({ length: 8 }, footRecord); this._supportFeet = Array.from({ length: 8 }, footRecord); this._targetFeet = Array.from({ length: 8 }, footRecord); this._swingFeet = Array.from({ length: 8 }, point); this._strideBody = point(); this._candidate = point(); this._aim = point(); this._overlay = point(); this._overlayScratch = new Float32Array(12);
+    this._supportFrame = { body: this._clearance.body, pose: this._clearancePose, feet: this._swingFeet, airborne: false };
+    this._overlayScale = 1; this._gestureFrom = [footRecord(), footRecord()]; this._gestureTo = [footRecord(), footRecord()];
     this._motionBeatOffset = 0; this._lastMotion = null; this._lastPose = null; this._lastMidi = null; this._forecastFrame = createSpiderFrame(); this._forecastKey = -Infinity; this._forecastConfig = { initialized: false, preset: '', tempo: 0, intensity: 0, playing: false, seed: 0, yaw: 0, cx: 0, cz: 0 }; this._previousFrameValid = false; this._previousFeet = Array.from({ length: 8 }, footRecord); this._epochTime = 0; this._overlayValues = new Float64Array(228); this._projectedFoot = footRecord(); this._forecastA = footRecord(); this._forecastB = footRecord();
     this._footEvents = []; this._footEventPool = Array.from({ length: 64 }, () => ({ serial: 0, epoch: 0, time: 0, legIndex: 0, kind: 'contact', manual: false, segmentId: -1, u: .5, impulse: 0, force: 0, speed: 0, angle: 0 })); this._footEventCursor = 0; this._nextFootSerial = 1;
     this.state.footEvents = this._footEvents; this.state.nextFootEventTime = Infinity; this.state.nextFootPlanTime = Infinity; this.state.strideLength = 0; this.state.stridePhase = 0; this.state.heading = 0;
@@ -74,14 +89,34 @@ export class SpiderSynthWorld {
   }
   _initPlanner(frame, phase) {
     this._strideHistory.length = 0; this._strideCursor = 0; this._strideSerial = 0; this._strideEnd = phase;
-    this._strideBody.x = this.point.x; this._strideBody.z = this.point.z; this._strideBody.y = spiderWebHeight(this.web, this.point.x, this.point.z) + .06; this._strideBody.yaw = frame.body.yaw;
+    this._strideBody.x = this.point.x; this._strideBody.z = this.point.z; this._strideBody.y = spiderWebHeight(this.web, this.point.x, this.point.z) + this.specimen.bodyHeight; this._strideBody.yaw = frame.body.yaw;
+    for (const foot of this._strideFeet) foot.space = 0;
+    writeSpiderFootClearance(this._clearance, frame.pose, this._strideBody, this._strideFeet);
     for (let i = 0; i < 8; i += 1) {
-      const g = SPIDER_LEG_GEOMETRY[i]; const c = Math.cos(this._strideBody.yaw); const s = Math.sin(this._strideBody.yaw); const f = this._strideFeet[i];
+      const g = this.specimen.legs[i]; const c = Math.cos(this._strideBody.yaw); const s = Math.sin(this._strideBody.yaw); const f = this._strideFeet[i];
       const hx = this.point.x + g.hip[0] * c + g.hip[2] * s; const hz = this.point.z + g.hip[2] * c - g.hip[0] * s;
-      projectSpiderWebInto(this.web, this.point.x + g.neutral[0] * c + g.neutral[2] * s, this.point.z + g.neutral[2] * c - g.neutral[0] * s, f, hx, hz, g.reach * .72, this._strideBody.y + g.hip[1], true, g.innerReach + .035);
+      this._clearance.legIndex = i; this._clearance.radius = this._clearance.radii[i]; this._clearance.footCount = i;
+      writeSpiderFootOutward(this._clearance, g, this._strideBody, .012);
+      const nx = spiderFootNeutralX(g);
+      projectSpiderWebInto(this.web, this.point.x + nx * c + g.neutral[2] * s, this.point.z + g.neutral[2] * c - nx * s, f, hx, hz, g.reach * .72, this._strideBody.y + g.hip[1], true, g.innerReach + g.reachMargin, this._clearance);
       f.step = 0; f.touchPhase = phase; f.touchTime = this._lastMotionTime; f.touchBeat = this._lastMotionTime * this._tempo / 60; f.yaw = this._strideBody.yaw; f.hx = hx; f.hy = this._strideBody.y + g.hip[1]; f.hz = hz;
     }
+    for (let i = 0; i < 8; i++) this._reserveFoot(this._strideFeet, i);
     this._plannerReady = true;
+  }
+  _reserveFoot(feet, index) {
+    const foot = feet[index], radius = this._clearance.radii[index]; let space = .055;
+    for (let i = 0; i < 8; i++) if (i !== index && feet[i].segmentId >= 0) {
+      const other = feet[i], free = Math.hypot(foot.x - other.x, foot.y - other.y, foot.z - other.z) - radius - this._clearance.radii[i] - this._clearance.margin - (other.space || 0);
+      space = Math.min(space, free * .45);
+    }
+    for (const body of this._clearance.bodies) {
+      const axes = body.axes, center = body.worldCenter, x = foot.x - center.x, y = foot.y - center.y, z = foot.z - center.z;
+      const rx = body.radii[0] + radius + this._clearance.margin, ry = body.radii[1] + radius + this._clearance.margin, rz = body.radii[2] + radius + this._clearance.margin;
+      const distance = Math.hypot((axes[0] * x + axes[3] * y + axes[6] * z) / rx, (axes[1] * x + axes[4] * y + axes[7] * z) / ry, (axes[2] * x + axes[5] * y + axes[8] * z) / rz);
+      space = Math.min(space, Math.min(rx, ry, rz) * (distance - 1));
+    }
+    foot.space = Math.max(0, space);
   }
   _routeTarget(phase, out) {
     const time = this._timeAtPhase(phase); const e = this._entry(Number.isFinite(time) ? time : this.clock); const s = e.settings;
@@ -100,13 +135,36 @@ export class SpiderSynthWorld {
   }
   _supportFits(x, y, z, yaw, mask) {
     const c = Math.cos(yaw); const s = Math.sin(yaw);
+    const body = this._clearance.body; body.x = x; body.y = y; body.z = z; body.yaw = yaw;
+    writeSpiderFootClearance(this._clearance, this._lastPose, body);
     for (let i = 0; i < 8; i += 1) if (!(mask & 1 << i)) {
-      const g = SPIDER_LEG_GEOMETRY[i]; const f = this._supportFeet[i];
+      const g = this.specimen.legs[i]; const f = this._supportFeet[i];
       const hx = x + g.hip[0] * c + g.hip[2] * s; const hz = z + g.hip[2] * c - g.hip[0] * s;
       const distance = Math.hypot(f.x - hx, f.y - y - g.hip[1], f.z - hz);
-      if (distance > g.reach * .85 || distance < g.innerReach + .035) return false;
+      if (distance > g.reach * .85 || distance < g.innerReach + g.reachMargin || !spiderFootClearsBodies(f, this._clearance, i) || !spiderFootFacesOutward(f, this._clearance, g, body, false)) return false;
     }
     return true;
+  }
+  _clearanceAt(phase, x, y, z, yaw) {
+    const time = this.settings.playing ? Math.max(0, (phase + this._motionBeatOffset) * 60 / this._tempo) : this._lastMotionTime, pose = this._clearancePose;
+    const body = this._clearance.body;
+    let sample = null;
+    for (const record of this._bodyCache) if (record.stamp === this._bodyCacheStamp && record.time === time) { sample = record; break; }
+    if (!sample) {
+      sample = this._bodyCache[this._bodyCacheCursor++ % 32];
+      writeSpiderPose(time, this._lastMotion, pose);
+      if (this._lastMidi) { for (let i = 0; i < 18; i++) pose[i] += finite(this._lastMidi[i]); constrainSpiderBodyPose(pose, this._lastMotion); }
+      writeSpiderBody(time, this._lastMotion, this.web, body, pose);
+      sample.stamp = this._bodyCacheStamp; sample.time = time; sample.pose.set(pose);
+      sample.height = body.y - spiderWebHeight(this.web, body.x, body.z) - this.specimen.bodyHeight;
+      sample.pitch = body.pitch; sample.roll = body.roll;
+    } else pose.set(sample.pose);
+    // Candidate retries change placement, not these nine exact clocked body
+    // samples. Reuse the guarded local pose before applying each candidate's
+    // independent translation/yaw; no interpolation or event-time quantization.
+    body.y = y + sample.height; body.pitch = sample.pitch; body.roll = sample.roll;
+    body.x = x; body.z = z; body.yaw = yaw + pose[1] * .2;
+    return writeSpiderFootClearance(this._clearance, pose, body);
   }
   _planStride() {
     const selected = MOTIONS[this._lastMotion.preset] || MOTIONS['radial-run'];
@@ -134,21 +192,33 @@ export class SpiderSynthWorld {
     for (let attempt = 0; attempt < 2; attempt += 1) {
     let lo = 0; let hi = 1;
     for (let iteration = 0; iteration < 9; iteration += 1) {
-      const f = (lo + hi) / 2; const x = body.x + dx * f; const z = body.z + dz * f; const y = spiderWebHeight(this.web, x, z) + .06;
+      const f = (lo + hi) / 2; const x = body.x + dx * f; const z = body.z + dz * f; const y = spiderWebHeight(this.web, x, z) + this.specimen.bodyHeight;
       let valid = this._supportFits(x, y, z, body.yaw + turn * f, mask);
-      if (valid) valid = this._supportFits(body.x + dx * f * .5, spiderWebHeight(this.web, body.x + dx * f * .5, body.z + dz * f * .5) + .06, body.z + dz * f * .5, body.yaw + turn * f * .5, mask);
+      if (valid) valid = this._supportFits(body.x + dx * f * .5, spiderWebHeight(this.web, body.x + dx * f * .5, body.z + dz * f * .5) + this.specimen.bodyHeight, body.z + dz * f * .5, body.yaw + turn * f * .5, mask);
       if (valid) lo = f; else hi = f;
     }
     feasible = false;
     for (let retry = 0; retry < 9 && !feasible; retry += 1) {
-      p.bx = body.x + dx * lo; p.bz = body.z + dz * lo; p.by = spiderWebHeight(this.web, p.bx, p.bz) + .06; p.byaw = body.yaw + turn * lo; p.accepted = Math.hypot(dx * lo, dz * lo);
+      p.bx = body.x + dx * lo; p.bz = body.z + dz * lo; p.by = spiderWebHeight(this.web, p.bx, p.bz) + this.specimen.bodyHeight; p.byaw = body.yaw + turn * lo; p.accepted = Math.hypot(dx * lo, dz * lo);
       const c = Math.cos(p.byaw); const s = Math.sin(p.byaw); feasible = true;
+      // If support limits the turn, swing feet can prepare the next heading
+      // before the body advances. Otherwise a long front pair can hold each
+      // other at the shoulder boundary forever while the target is behind us.
+      const footYaw = p.byaw + turn * (1 - lo) * .75, fc = Math.cos(footYaw), fs = Math.sin(footYaw);
+      for (let i = 0; i < 8; i++) { Object.assign(p.from[i], this._strideFeet[i]); Object.assign(p.to[i], this._strideFeet[i]); }
+      const targetBody = this._clearance.body; targetBody.x = p.bx; targetBody.y = p.by; targetBody.z = p.bz; targetBody.yaw = p.byaw;
+      writeSpiderFootClearance(this._clearance, this._lastPose, targetBody, p.to);
+      this._clearance.reservations = true;
       for (let i = 0; i < 8; i += 1) {
-        const current = this._strideFeet[i]; Object.assign(p.from[i], current); Object.assign(p.to[i], current);
+        const current = this._strideFeet[i];
         if (mask & 1 << i) {
-          const g = SPIDER_LEG_GEOMETRY[i]; const f = p.to[i]; const hx = p.bx + g.hip[0] * c + g.hip[2] * s; const hz = p.bz + g.hip[2] * c - g.hip[0] * s;
-          projectSpiderWebInto(this.web, p.bx + g.neutral[0] * c + g.neutral[2] * s + dx * lo * .45, p.bz + g.neutral[2] * c - g.neutral[0] * s + dz * lo * .45, f, hx, hz, g.reach * .69, p.by + g.hip[1], true, g.innerReach + .035);
+          const g = this.specimen.legs[i]; const f = p.to[i]; const hx = p.bx + g.hip[0] * c + g.hip[2] * s; const hz = p.bz + g.hip[2] * c - g.hip[0] * s;
+          this._clearance.legIndex = i; this._clearance.radius = this._clearance.radii[i];
+          writeSpiderFootOutward(this._clearance, g, targetBody, .012);
+          const nx = spiderFootNeutralX(g);
+          projectSpiderWebInto(this.web, p.bx + nx * fc + g.neutral[2] * fs + dx * lo * .45, p.bz + g.neutral[2] * fc - nx * fs + dz * lo * .45, f, hx, hz, g.reach * .69, p.by + g.hip[1], true, g.innerReach + g.reachMargin, this._clearance);
           if (f.segmentId < 0) { feasible = false; break; }
+          this._reserveFoot(p.to, i);
           f.step = current.step + 1; f.touchPhase = phase + interval * .88; f.touchTime = Math.max(0, (f.touchPhase + this._motionBeatOffset) * 60 / this._tempo); f.touchBeat = f.touchPhase + this._motionBeatOffset; f.yaw = p.byaw; f.hx = hx; f.hy = p.by + g.hip[1]; f.hz = hz;
         }
       }
@@ -158,11 +228,25 @@ export class SpiderSynthWorld {
       if (feasible) for (let k = 0; k <= 8 && feasible; k += 1) {
         const q = k / 8, f = ease(q), yaw = p.ayaw + (p.byaw - p.ayaw) * f, c = Math.cos(yaw), s = Math.sin(yaw);
         const x = p.ax + (p.bx - p.ax) * f, y = p.ay + (p.by - p.ay) * f, z = p.az + (p.bz - p.az) * f;
+        this._clearanceAt(p.a + (p.b - p.a) * q, x, y, z, yaw);
         for (let i = 0; i < 8; i += 1) {
-          const g = SPIDER_LEG_GEOMETRY[i], a = this._supportFeet[i], b = this._targetFeet[i], qf = mask & 1 << i ? clamp((q - .12) / .76, 0, 1) : 0, f = ease(qf);
+          const g = this.specimen.legs[i], a = this._supportFeet[i], b = this._targetFeet[i], qf = mask & 1 << i ? clamp((q - .12) / .76, 0, 1) : 0, f = ease(qf);
           const tx = a.x + (b.x - a.x) * f, ty = a.y + (b.y - a.y) * f + p.lift * Math.sin(Math.PI * qf), tz = a.z + (b.z - a.z) * f;
+          const foot = this._swingFeet[i]; foot.x = tx; foot.y = ty; foot.z = tz;
           const distance = Math.hypot(tx - x - g.hip[0] * c - g.hip[2] * s, ty - y - g.hip[1], tz - z - g.hip[2] * c + g.hip[0] * s);
-          if (distance > g.reach * .9 || distance < g.innerReach + .035) { feasible = false; break; }
+          if (distance > g.reach * .9 || distance < g.innerReach + g.reachMargin || !spiderFootFacesOutward(foot, this._clearance, g, this._clearance.body, false)) { feasible = false; break; }
+        }
+        if (feasible) for (let i = 0; i < 8 && feasible; i++) for (let j = 0; j < i; j++) if (!spiderFeetClear(this._swingFeet[i], this._swingFeet[j], this._clearance, i, j)) { feasible = false; break; }
+        // Accept the support pair only if a complete root transform exists.
+        // A yaw-only check would reject playable MIDI turns; ignoring this
+        // interval feasibility would commit an impossible pair of forefeet.
+        if (feasible) {
+          this._supportFrame.body = this._clearance.body;
+          feasible = constrainSpiderSupportBody(this._supportFrame, this.specimen.collisionProfile);
+          if (feasible) {
+            writeSpiderFootClearance(this._clearance, this._clearancePose, this._supportFrame.body);
+            for (let i = 0; i < 8; i++) if (!spiderFootClearsBodies(this._swingFeet[i], this._clearance, i)) { feasible = false; break; }
+          }
         }
       }
       if (!feasible) lo *= .5;
@@ -199,12 +283,65 @@ export class SpiderSynthWorld {
   _projectAnchor(i, anchor, motion, pose, midiOffsets, out) {
     Object.assign(out, anchor);
     writeSpiderLegOffset(i, finite(anchor.touchBeat, anchor.touchTime * this._tempo / 60) * 60 / this._tempo, motion, pose, midiOffsets, this._overlay, this._overlayScratch);
+    this._overlay.x *= this._overlayScale; this._overlay.z *= this._overlayScale;
     if (this._overlay.x || this._overlay.z) {
+      // Every planted target reserves a bounded, disjoint manipulation region.
+      // A performer can bend a joint against its boundary without moving a
+      // neighbor or changing the identity/timing of an established contact.
+      if (anchor.space <= 1e-9) return out;
       const c = Math.cos(anchor.yaw); const s = Math.sin(anchor.yaw);
-      projectSpiderWebInto(this.web, anchor.x + this._overlay.x * c + this._overlay.z * s, anchor.z + this._overlay.z * c - this._overlay.x * s, this._projection, anchor.hx, anchor.hz, SPIDER_LEG_GEOMETRY[i].reach * .9, anchor.hy, true, SPIDER_LEG_GEOMETRY[i].innerReach + .035);
+      const qx = anchor.x + this._overlay.x * c + this._overlay.z * s, qz = anchor.z + this._overlay.z * c - this._overlay.x * s, cache = anchor._projectionCache;
+      if (cache && cache.web === this.web && cache.specimen === this.specimen && cache.qx === qx && cache.qz === qz && cache.x === anchor.x && cache.y === anchor.y && cache.z === anchor.z && cache.yaw === anchor.yaw && cache.hx === anchor.hx && cache.hy === anchor.hy && cache.hz === anchor.hz && cache.space === anchor.space) {
+        if (cache.segmentId >= 0) { out.x = cache.px; out.y = cache.py; out.z = cache.pz; out.segmentId = cache.segmentId; out.u = cache.u; }
+        return out;
+      }
+      const clearance = this._clearance;
+      clearance.within = anchor; clearance.planes = null; clearance.feet = null;
+      const geometry = this.specimen.legs[i], body = clearance.body;
+      body.x = anchor.hx - geometry.hip[0] * c - geometry.hip[2] * s; body.y = anchor.hy - geometry.hip[1]; body.z = anchor.hz - geometry.hip[2] * c + geometry.hip[0] * s; body.yaw = anchor.yaw;
+      writeSpiderFootOutward(clearance, geometry, body);
+      const bodies = clearance.bodies; clearance.bodies = null;
+      projectSpiderWebInto(this.web, qx, qz, this._projection, anchor.hx, anchor.hz, this.specimen.legs[i].reach * .9, anchor.hy, true, this.specimen.legs[i].innerReach + this.specimen.legs[i].reachMargin, clearance);
+      clearance.bodies = bodies; clearance.within = null;
+      if (cache) {
+        cache.web = this.web; cache.specimen = this.specimen; cache.qx = qx; cache.qz = qz; cache.x = anchor.x; cache.y = anchor.y; cache.z = anchor.z; cache.yaw = anchor.yaw; cache.hx = anchor.hx; cache.hy = anchor.hy; cache.hz = anchor.hz; cache.space = anchor.space;
+        cache.px = this._projection.x; cache.py = this._projection.y; cache.pz = this._projection.z; cache.segmentId = this._projection.segmentId; cache.u = this._projection.u;
+      }
       if (this._projection.segmentId >= 0) { out.x = this._projection.x; out.y = this._projection.y; out.z = this._projection.z; out.segmentId = this._projection.segmentId; out.u = this._projection.u; }
     }
     return out;
+  }
+  _fitCurrentGesture(phase) {
+    const p = this._strideAt(phase); if (!p) return;
+    const legs = this.specimen.collisionProfile.legs;
+    // The exact yaw interval guard has no constraints for these anatomies.
+    // Their disjoint foot reservations already bound every joint overlay.
+    if (legs[0].lengths[0] <= legs[0].lengths[1] + legs[0].lengths[2] + legs[0].lengths[3] && legs[4].lengths[0] <= legs[4].lengths[1] + legs[4].lengths[2] + legs[4].lengths[3]) { this._overlayScale = 1; return; }
+    const start = clamp((phase - p.a) / (p.b - p.a), 0, 1);
+    for (let attempt = 0; attempt < 5; attempt++) {
+      this._overlayScale = attempt === 4 ? 0 : 2 ** -attempt;
+      for (let n = 0; n < 2; n++) {
+        const i = n * 4;
+        this._projectAnchor(i, p.from[i], this._lastMotion, this._lastPose, this._lastMidi, this._gestureFrom[n]);
+        this._projectAnchor(i, p.to[i], this._lastMotion, this._lastPose, this._lastMidi, this._gestureTo[n]);
+      }
+      let valid = true;
+      for (let k = 0; k <= 8 && valid; k++) {
+        const q = start + (1 - start) * k / 8, f = ease(q);
+        const time = this.settings.playing ? Math.max(0, (p.a + (p.b - p.a) * q + this._motionBeatOffset) * 60 / this._tempo) : this._lastMotionTime;
+        const body = this._clearance.body;
+        writeSpiderSupportBody(time, this._lastMotion, this.web, body, this._clearancePose, this._lastMidi);
+        const height = body.y - spiderWebHeight(this.web, body.x, body.z) - this.specimen.bodyHeight;
+        body.x = p.ax + (p.bx - p.ax) * f; body.y = p.ay + (p.by - p.ay) * f + height; body.z = p.az + (p.bz - p.az) * f; body.yaw = p.ayaw + (p.byaw - p.ayaw) * f + this._clearancePose[1] * .2;
+        for (let n = 0; n < 2; n++) {
+          const i = n * 4, a = this._gestureFrom[n], b = this._gestureTo[n], qf = p.mask & 1 << i ? clamp((q - .12) / .76, 0, 1) : 0, amount = ease(qf), foot = this._swingFeet[i];
+          foot.x = a.x + (b.x - a.x) * amount; foot.y = a.y + (b.y - a.y) * amount + p.lift * Math.sin(Math.PI * qf); foot.z = a.z + (b.z - a.z) * amount;
+        }
+        this._supportFrame.body = this._clearance.body;
+        valid = constrainSpiderSupportBody(this._supportFrame, this.specimen.collisionProfile);
+      }
+      if (valid) return;
+    }
   }
   _emitFootAt(time, kind, legIndex, f, impulse, speed, angle, manual = false) {
     if (!Number.isFinite(time) || f.segmentId < 0) return;
@@ -282,7 +419,7 @@ export class SpiderSynthWorld {
   _writeLocomotionFrame(phase, motion, frame, pose, midiOffsets) {
     const p = this._strideAt(phase); if (!p) return;
     this._writeStridePoint(phase, this.point); const q = clamp((phase - p.a) / (p.b - p.a), 0, 1);
-    const localHeight = frame.body.y - spiderWebHeight(this.web, frame.body.x, frame.body.z) - .06;
+    const localHeight = frame.body.y - spiderWebHeight(this.web, frame.body.x, frame.body.z) - this.specimen.bodyHeight;
     frame.body.x = this.point.x; frame.body.z = this.point.z; frame.body.y = this.point.y + localHeight;
     frame.body.yaw = this.point.yaw + frame.pose[1] * .2; frame.supportCount = 0;
     const rate = this._phaseHistory.at(-1).rate; const duration = (p.b - p.a) / Math.max(.01, rate); const moving = (p.mask & 255) !== 0;
@@ -306,6 +443,7 @@ export class SpiderSynthWorld {
       if (foot.stance) frame.supportCount += 1;
     }
     this.state.strideLength = p.accepted; this.state.stridePhase = q; this.state.heading = this.point.yaw;
+    constrainSpiderSupportBody(frame, this.specimen.collisionProfile);
   }
 
   _entry(time, cutoff = Infinity) {
@@ -316,7 +454,7 @@ export class SpiderSynthWorld {
   writeTravel(time, out, cutoff = Infinity) {
     if (this._plannerReady) return this._writeStridePoint(this._phaseAt(time), out);
     const entry = this._entry(time, cutoff);
-    out.x = entry.x; out.z = entry.z; out.y = this.web ? spiderWebHeight(this.web, out.x, out.z) + .06 : .06; out.yaw = 0; return out;
+    out.x = entry.x; out.z = entry.z; out.y = this.web ? spiderWebHeight(this.web, out.x, out.z) + this.specimen.bodyHeight : this.specimen.bodyHeight; out.yaw = finite(entry.yaw); return out;
   }
 
   update(settings = {}, time = this.clock) {
@@ -331,7 +469,7 @@ export class SpiderSynthWorld {
   }
   _record(time, x, z, target) {
     if (this.travelHistory.length >= 128) this.travelHistory.shift();
-    this.travelHistory.push({ time, x, z, settings: this.settings, target, scale: 1, phase: this._phaseAt(time) });
+    this.travelHistory.push({ time, x, z, yaw: this.point.yaw, settings: this.settings, target, scale: 1, phase: this._phaseAt(time) });
   }
   _emit(type, time, id, strength = 1, segmentId = -1, u = .5, length = .1, angle = 0) {
     const event = this._eventPool[this._eventCursor++ % 64];
@@ -373,6 +511,7 @@ export class SpiderSynthWorld {
   _acceptWeb(web, time) {
     if (this.web === web) return;
     const key = webKey(web); if (key !== this.webKey) {
+      this._bodyCacheStamp++;
       if (this.webKey) { this.prey.length = 0; this.silkSegments.length = 0; this.events.length = 0; }
       this._plannerReady = false; this._plannerEnabled = false; this._strideHistory.length = 0; this._footEvents.length = 0; this.webKey = key; this.state.webKey = key; this.state.graphVersion += 1; this._contactEpoch += 1; this._anchor = null; this.lastSilkTick = Math.floor((time - this.gridOrigin) * 8); this.lastWorldTick = Math.floor((time - this.gridOrigin) * 24) - 1;
     }
@@ -429,22 +568,37 @@ export class SpiderSynthWorld {
     const time = clockOf(clock); const motionTime = clockOf(options.motionTime === undefined ? time : options.motionTime); const playing = options.playing === undefined ? this.settings.playing : options.playing === true;
     if (playing !== this.settings.playing) this.update({ playing }, time);
     this._acceptWeb(web, time);
+    const specimen = getSpiderSpecimen(motion.specimen);
+    const specimenChanged = specimen !== this.specimen;
+    if (specimenChanged) {
+      // Keep the current body location/beat; only the old anatomy's support
+      // plan becomes invalid. The next stride uses the new leg measurements.
+      if (this._plannerReady) this.writeTravel(time, this.point);
+      this._record(time, this.point.x, this.point.z, this._entry(time).target);
+      this.specimen = specimen; this._plannerReady = false; this._plannerEnabled = false;
+      this._overlayScale = 1;
+      this._clearance = createSpiderFootClearance(specimen.collisionProfile);
+      this._strideHistory.length = 0; this._previousFrameValid = false; this._invalidateContacts(time);
+    }
+    if (pose) constrainSpiderBodyPose(pose, motion);
     const phaseBefore = this._phaseAt(time); this._tempo = clamp(finite(motion.tempo, 108), 20, 300); this._lastMotion = motion; this._lastMotionTime = motionTime; this._lastPose = pose; this._lastMidi = midiOffsets;
     const config = this._forecastConfig; const yaw = finite(motion.yaw), cx = finite(motion.center?.x), cz = finite(motion.center?.z);
-    const configChanged = !config.initialized || config.preset !== motion.preset || config.tempo !== this._tempo || config.intensity !== motion.intensity || config.playing !== playing || config.seed !== motion.seed || config.yaw !== yaw || config.cx !== cx || config.cz !== cz;
-    config.initialized = true; config.preset = motion.preset; config.tempo = this._tempo; config.intensity = motion.intensity; config.playing = playing; config.seed = motion.seed; config.yaw = yaw; config.cx = cx; config.cz = cz;
+    const configChanged = !config.initialized || config.specimen !== specimen.id || config.preset !== motion.preset || config.tempo !== this._tempo || config.intensity !== motion.intensity || config.playing !== playing || config.seed !== motion.seed || config.yaw !== yaw || config.cx !== cx || config.cz !== cz;
+    config.initialized = true; config.specimen = specimen.id; config.preset = motion.preset; config.tempo = this._tempo; config.intensity = motion.intensity; config.playing = playing; config.seed = motion.seed; config.yaw = yaw; config.cx = cx; config.cz = cz;
     const controlsChanged = this._controlsChanged(motion, midiOffsets);
-    if (configChanged || controlsChanged) this._invalidateContacts(time);
+    if (configChanged || controlsChanged) { this._bodyCacheStamp++; this._invalidateContacts(time); }
     this._motionBeatOffset = motionTime * this._tempo / 60 - phaseBefore;
     if (this._plannerReady) this.writeTravel(time, this.point);
     const wanted = this._travelWanted(time); const rate = wanted ? this._tempo / 60 : 0;
     this._setRate(time, rate); const phase = this._phaseAt(time);
+    if (controlsChanged && this._plannerReady) this._fitCurrentGesture(phase);
     if (!wanted && playing) this._plannerEnabled = false;
     this.writeTravel(time, this.point);
     this._stationaryCenter.x = this.point.x + finite(motion.center?.x); this._stationaryCenter.z = this.point.z + finite(motion.center?.z);
-    const m = this._frameMotion; m.preset = motion.preset; m.tempo = motion.tempo; m.intensity = motion.intensity; m.seed = motion.seed; m.center = this._plannerEnabled || wanted ? motion.center : this._stationaryCenter; m.yaw = finite(motion.yaw) + (!this._plannerEnabled && !wanted ? this.point.yaw : 0); m.offsets = motion.offsets; m.explore = this._plannerEnabled || wanted ? false : motion.explore;
-    writeSpiderFrame(motionTime, m, web, frame, pose, midiOffsets);
-    if (wanted && !this._plannerReady) this._initPlanner(frame, this._phaseHistory.at(-1).phase);
+    const m = this._frameMotion; m.specimen = specimen.id; m.preset = motion.preset; m.tempo = motion.tempo; m.intensity = motion.intensity; m.seed = motion.seed; m.center = this._plannerEnabled || wanted ? motion.center : this._stationaryCenter; m.yaw = finite(motion.yaw) + (!this._plannerEnabled && !wanted ? this.point.yaw : 0); m.offsets = motion.offsets; m.explore = this._plannerEnabled || wanted ? false : motion.explore;
+    if (this._plannerReady && (this._plannerEnabled || wanted)) this._writePlannedFrame(motionTime, m, web, frame, pose, midiOffsets);
+    else writeSpiderFrame(motionTime, m, web, frame, pose, midiOffsets);
+    if (wanted && !this._plannerReady) this._initPlanner(frame, specimenChanged ? phase : this._phaseHistory.at(-1).phase);
     if (wanted) { this._plannerEnabled = true; this._planTo(phase); }
     if (this._plannerEnabled && this._plannerReady) {
       this._writeLocomotionFrame(phase, m, frame, pose, midiOffsets);
@@ -478,12 +632,14 @@ export class SpiderSynthWorld {
   }
 
   snapshot() {
-    return clone({ version: 1, clock: this.clock, gridOrigin: this.gridOrigin, settings: this.settings, travelHistory: this.travelHistory, prey: this.prey, silkSegments: this.silkSegments, events: this.events, nextPreyId: this.nextPreyId, nextEventId: this.nextEventId, lastSilkTick: this.lastSilkTick, lastWorldTick: this.lastWorldTick, webKey: this.webKey, anchor: this._anchor, contactEpoch: this._contactEpoch, contactMode: this._contactMode, graphVersion: this.state.graphVersion, stateVersion: this.state.version, motionScale: this.motionScale, motionKey: this._motionKey, frozenContact: this._frozenContact, locomotion: { phaseHistory: this._phaseHistory, tempo: this._tempo, ready: this._plannerReady, enabled: this._plannerEnabled, cursor: this._strideCursor, serial: this._strideSerial, end: this._strideEnd, body: this._strideBody, feet: this._strideFeet, strides: this._strideHistory.slice(-8), nextFootSerial: this._nextFootSerial, footEvents: this._footEvents, motionBeatOffset: this._motionBeatOffset, forecastKey: this._forecastKey, forecastConfig: this._forecastConfig, epochTime: this._epochTime, overlayValues: Array.from(this._overlayValues) } });
+    return clone({ version: 1, specimen: this.specimen.id, clock: this.clock, gridOrigin: this.gridOrigin, settings: this.settings, travelHistory: this.travelHistory, prey: this.prey, silkSegments: this.silkSegments, events: this.events, nextPreyId: this.nextPreyId, nextEventId: this.nextEventId, lastSilkTick: this.lastSilkTick, lastWorldTick: this.lastWorldTick, webKey: this.webKey, anchor: this._anchor, contactEpoch: this._contactEpoch, contactMode: this._contactMode, graphVersion: this.state.graphVersion, stateVersion: this.state.version, motionScale: this.motionScale, motionKey: this._motionKey, frozenContact: this._frozenContact, locomotion: { overlayScale: this._overlayScale, phaseHistory: this._phaseHistory, tempo: this._tempo, ready: this._plannerReady, enabled: this._plannerEnabled, cursor: this._strideCursor, serial: this._strideSerial, end: this._strideEnd, body: this._strideBody, feet: this._strideFeet, strides: this._strideHistory.slice(-8), nextFootSerial: this._nextFootSerial, footEvents: this._footEvents, motionBeatOffset: this._motionBeatOffset, forecastKey: this._forecastKey, forecastConfig: this._forecastConfig, epochTime: this._epochTime, overlayValues: Array.from(this._overlayValues) } });
   }
   restore(snapshot = {}, timeOffset = 0) {
     if (snapshot.version !== 1) return this;
+    this.specimen = getSpiderSpecimen(snapshot.specimen);
+    this._clearance = createSpiderFootClearance(this.specimen.collisionProfile);
     const delta = finite(timeOffset); this.clock = clockOf(finite(snapshot.clock) + delta); this.gridOrigin = finite(snapshot.gridOrigin) + delta; this.settings = normalizeSpiderWorld(snapshot.settings);
-    this.travelHistory = (snapshot.travelHistory || []).slice(-128).map(e => ({ time: finite(e.time) + delta, x: clamp(finite(e.x), -.78, .78), z: clamp(finite(e.z), -.78, .78), phase: finite(e.phase), settings: normalizeSpiderWorld(e.settings), scale: clamp(finite(e.scale, 1), 0, 1), target: e.target ? { x: clamp(finite(e.target.x), -.78, .78), z: clamp(finite(e.target.z), -.78, .78), preyId: finite(e.target.preyId) } : null }));
+    this.travelHistory = (snapshot.travelHistory || []).slice(-128).map(e => ({ time: finite(e.time) + delta, x: clamp(finite(e.x), -.78, .78), z: clamp(finite(e.z), -.78, .78), yaw: finite(e.yaw), phase: finite(e.phase), settings: normalizeSpiderWorld(e.settings), scale: clamp(finite(e.scale, 1), 0, 1), target: e.target ? { x: clamp(finite(e.target.x), -.78, .78), z: clamp(finite(e.target.z), -.78, .78), preyId: finite(e.target.preyId) } : null }));
     if (!this.travelHistory.length) this.travelHistory.push({ time: this.clock, x: 0, z: 0, settings: this.settings, target: null });
     this.prey.length = 0;
     for (const record of (snapshot.prey || []).slice(-8)) { const prey = { ...record }; for (const key of ['born', 'trappedAt', 'huntAt', 'eatenAt']) if (prey[key] !== null && Number.isFinite(prey[key])) prey[key] += delta; this.prey.push(prey); }
@@ -495,6 +651,7 @@ export class SpiderSynthWorld {
     this.motionScale = clamp(finite(snapshot.motionScale, 1), 0, 1); this._motionKey = String(snapshot.motionKey || ''); if (snapshot.frozenContact) { Object.assign(this._frozenContact, snapshot.frozenContact); this._frozenContact.clockOffset += delta; this._frozenContact.motionOffset += delta; if (this._frozenContact.cutoff !== null && this._frozenContact.cutoff !== undefined) this._frozenContact.cutoff += delta; } this._anchor = snapshot.anchor ? Object.assign(this._silkAnchor, snapshot.anchor) : null; this._contactEpoch = finite(snapshot.contactEpoch); this._contactMode = snapshot.contactMode || ''; this.state.graphVersion = finite(snapshot.graphVersion); this.state.version = finite(snapshot.stateVersion);
     const loc = snapshot.locomotion;
     if (loc) {
+      this._overlayScale = clamp(finite(loc.overlayScale, 1), 0, 1);
       this._phaseHistory = (loc.phaseHistory || []).slice(-128).map(r => ({ time: finite(r.time) + delta, phase: finite(r.phase), rate: clamp(finite(r.rate), 0, 5) }));
       if (!this._phaseHistory.length) this._phaseHistory.push({ time: this.clock, phase: 0, rate: 0 });
       this._tempo = clamp(finite(loc.tempo, 108), 20, 300); this._plannerReady = loc.ready === true; this._plannerEnabled = loc.enabled === true; this._strideSerial = finite(loc.serial); this._strideEnd = finite(loc.end); Object.assign(this._strideBody, loc.body);

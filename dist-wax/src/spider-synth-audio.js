@@ -1,14 +1,15 @@
-import { createSpiderWeb, normalizeSpiderWeb, spiderWebGeometryKey, serializeSpiderWeb } from './spider-synth-web.js?v=f3d28731af44';
-import { SpiderSynthWorld } from './spider-synth-world.js?v=f3d28731af44';
+import { createSpiderWeb, normalizeSpiderWeb, spiderWebGeometryKey, serializeSpiderWeb } from './spider-synth-web.js?v=ba050afc7c8e';
+import { SpiderSynthWorld } from './spider-synth-world.js?v=ba050afc7c8e';
 import { connectAudioOutput } from './audio-output-manager.js';
 import { SPELLING_DIPHONE_ATLAS_URL, SPELLING_DIPHONE_CLIPS } from './spelling-diphone-atlas.js';
 import { loadSpellingPronunciations, spellingPhoneDefinition, spellingPronunciationTokens } from './spelling-pronunciation.js';
-import { normalizeSpiderSound, SPIDER_SOUND_DEFAULTS, normalizeSpiderBodyMix, createDefaultSpiderBodyMix } from './spider-synth-dsp.js?v=f3d28731af44';
-import { SpiderMidiPerformance, normalizeSpiderMidiMessage } from './spider-synth-midi.js?v=f3d28731af44';
+import { normalizeSpiderSound, SPIDER_SOUND_DEFAULTS, normalizeSpiderBodyMix, createDefaultSpiderBodyMix } from './spider-synth-dsp.js?v=ba050afc7c8e';
+import { SpiderMidiPerformance, normalizeSpiderMidiMessage } from './spider-synth-midi.js?v=ba050afc7c8e';
+import { SPIDER_RECORDINGS } from './spider-synth-recordings.js?v=ba050afc7c8e';
 
 export { SPIDER_SOUND_DEFAULTS, SPIDER_SOUND_PRESETS, SPIDER_BODY_GROUPS, SPIDER_BODY_SOURCES,
   normalizeSpiderSound, createDefaultSpiderBodyMix, normalizeSpiderBodyMix, createRandomSpiderSound,
-  SPIDER_MOTION_SOUND_PRESETS, getSpiderMotionSound, getSpiderBodyGroupId } from './spider-synth-dsp.js?v=f3d28731af44';
+  SPIDER_MOTION_SOUND_PRESETS, getSpiderMotionSound, getSpiderBodyGroupId } from './spider-synth-dsp.js?v=ba050afc7c8e';
 
 const finite = (value, fallback = 0) => Number.isFinite(Number(value)) ? Number(value) : fallback;
 const safeCall = (callback, value) => { try { callback?.(value); } catch {} };
@@ -52,6 +53,7 @@ export class SpiderSynthAudio {
     this.enabled = false; this.ready = false; this.disposed = false;
     this.generation = 0; this.speechGeneration = 0; this.buildPromise = null;
     this.atlasPromise = null; this.atlasReady = false; this.speechAbort = null;
+    this.samplesPromise = null; this.samplesStatus = 'unloaded'; this.samplesLoaded = 0; this.samplesAbort = null;
 
     this.preparedWebKey=null;
     this.state = { playing: false, soundPlaying: false, sound: { ...SPIDER_SOUND_DEFAULTS }, bodyMix: createDefaultSpiderBodyMix() };
@@ -65,7 +67,7 @@ export class SpiderSynthAudio {
     return { ...this.telemetry, enabled: this.enabled, ready: this.ready,
       contextState: this.context?.state ?? 'uninitialized', time: this.getTime(),
       playing: this.state.playing, soundPlaying: this.state.soundPlaying, disposed: this.disposed,
-      midi: this.getMidiState(), world:this.worldSnapshot };
+      midi: this.getMidiState(), world:this.worldSnapshot, samplesStatus:this.samplesStatus, samplesLoaded:this.samplesLoaded };
   }
   getMidiState() { return this.midiPerformance.getState(this.clock()); }
   applyMidiPose(pose, joints, tempo = this.state.motion?.tempo ?? 120, intensity = this.state.motion?.intensity ?? 1) {
@@ -174,7 +176,7 @@ export class SpiderSynthAudio {
       if (!context.audioWorklet?.addModule || typeof this.runtime.AudioWorkletNode !== 'function') {
         throw new Error('Spider Synth requires AudioWorklet support.');
       }
-      await context.audioWorklet.addModule(new URL('./spider-synth-processor.js?v=f3d28731af44', import.meta.url));
+      await context.audioWorklet.addModule(new URL('./spider-synth-processor.js?v=ba050afc7c8e', import.meta.url));
       if (this.disposed || this.context !== context || context.state === 'closed') throw cancelled();
       const node = new this.runtime.AudioWorkletNode(context, 'spider-synth', {
         numberOfInputs: 0, numberOfOutputs: 1, outputChannelCount: [2], channelCount: 2,
@@ -194,6 +196,7 @@ export class SpiderSynthAudio {
             pullEvents:finite(data.pullEvents),footReleaseEvents:finite(data.footReleaseEvents),lateFootEvents:finite(data.lateFootEvents),droppedFootEvents:finite(data.droppedFootEvents),droppedStringEvents:finite(data.droppedStringEvents),maxFootLateness:finite(data.maxFootLateness),lastContactAudioTime:finite(data.lastContactAudioTime,-1),propagationEvents:finite(data.propagationEvents),voiceReplacements:finite(data.voiceReplacements),shortenedAttacks:finite(data.shortenedAttacks),
             contactEvents: finite(data.contactEvents), lastContactTime: finite(data.lastContactTime, -1),
             pluckEvents: finite(data.pluckEvents), activeStrings: finite(data.activeStrings),
+            recordingEvents:finite(data.recordingEvents),activeRecordings:finite(data.activeRecordings),droppedRecordings:finite(data.droppedRecordings),
             recentEvents: Array.isArray(data.recentEvents) ? data.recentEvents.slice(0,16).map(e=>({id:finite(e.id),segmentId:finite(e.segmentId),u:finite(e.u),velocity:finite(e.velocity),audioTime:finite(e.audioTime,-1),source:String(e.source??'contact').slice(0,20),silkId:e.silkId==null||finite(e.silkId,-1)<0?null:Math.round(finite(e.silkId)),graphVersion:Math.max(0,Math.round(finite(e.graphVersion))),footSerial:e.footSerial==null?null:Math.max(0,Math.round(finite(e.footSerial))),legIndex:Math.round(finite(e.legIndex,-1)),kind:e.kind==null?null:String(e.kind).slice(0,12),manual:e.manual===true,sourceTime:finite(e.sourceTime,-1),frequency:finite(e.frequency)})) : [],
             metronomeEvents: finite(data.metronomeEvents), lastMetronomeTime: finite(data.lastMetronomeTime, -1),
             midiActive: finite(data.midiActive), midiEvents: finite(data.midiEvents),
@@ -213,6 +216,7 @@ export class SpiderSynthAudio {
         node.disconnect(); node.port.onmessage = null;
         this.master?.disconnect(); this.master = null; this.node = null;
         this.atlasReady = false; this.atlasPromise = null;
+        this.samplesAbort?.abort(); this.samplesAbort = null; this.samplesPromise = null; this.samplesStatus = 'unloaded'; this.samplesLoaded = 0;
 
       };
       this.ready = true;
@@ -246,6 +250,7 @@ export class SpiderSynthAudio {
       this.master.gain.setTargetAtTime(1, now, .015);
       safeCall(this.onStatus, 'Spider sound ready.');
       // Recording I/O and decoding never delay Audio, either transport, or speech.
+      void this.loadSamples();
 
       return this;
     } catch (error) {
@@ -267,6 +272,47 @@ export class SpiderSynthAudio {
       this.master.gain.cancelScheduledValues(now); this.master.gain.setTargetAtTime(0, now, .012);
     }
     safeCall(this.onStatus, 'Audio off.');
+  }
+  async loadSamples() {
+    if (this.disposed || !this.node || !this.context || this.samplesStatus === 'ready') return;
+    if (this.samplesPromise) return this.samplesPromise;
+    const context = this.context; const node = this.node;
+    const controller = new AbortController(); this.samplesAbort = controller;
+    this.samplesStatus = 'loading';
+    safeCall(this.onSamples, { status: 'loading', loaded: 0 });
+    const task = (async () => {
+      try {
+        const results = await Promise.allSettled(SPIDER_RECORDINGS.map(async ({ id, url, duration }) => {
+          const response = await this.runtime.fetch(new URL(url, import.meta.url), { signal: controller.signal });
+          if (!response.ok) throw new Error('Spider recording could not load.');
+          const bytes = await response.arrayBuffer();
+          if (bytes.byteLength > 256 * 1024) throw new Error('Spider recording exceeds its fixed budget.');
+          const buffer = await context.decodeAudioData(bytes);
+          if (Math.abs(buffer.duration - duration) > .01 || buffer.numberOfChannels !== 1) throw new Error('Unexpected spider recording format.');
+          // Sanitize on the main thread, then transfer ownership. The worklet
+          // adopts these buffers without a long copy during an audio deadline.
+          const data = new Float32Array(buffer.getChannelData(0));
+          for (let i = 0; i < data.length; i += 1) data[i] = Number.isFinite(data[i]) ? Math.max(-1, Math.min(1, data[i])) : 0;
+          return { id, data, sampleRate: buffer.sampleRate };
+        }));
+        if (this.disposed || controller.signal.aborted || this.context !== context || this.node !== node) return;
+        const samples = results.filter(result => result.status === 'fulfilled').map(result => result.value);
+        this.samplesLoaded = samples.length;
+        this.samplesStatus = samples.length === SPIDER_RECORDINGS.length ? 'ready' : samples.length ? 'partial' : 'unavailable';
+        if (samples.length) this.post({ type: 'sample-bank', samples }, samples.map(sample => sample.data.buffer));
+        safeCall(this.onSamples, { status: this.samplesStatus, loaded: this.samplesLoaded });
+      } catch {
+        if (!this.disposed && !controller.signal.aborted && this.node === node) {
+          this.samplesStatus = 'unavailable'; safeCall(this.onSamples, { status: 'unavailable', loaded: 0 });
+        }
+      }
+    })();
+    this.samplesPromise = task;
+    try { await task; }
+    finally {
+      if (this.samplesPromise === task) this.samplesPromise = null;
+      if (this.samplesAbort === controller) this.samplesAbort = null;
+    }
   }
   async loadAtlas() {
     if (this.atlasReady) return;
@@ -316,7 +362,7 @@ export class SpiderSynthAudio {
     if (this.disposed) return;
     this.disable(); this.resetMidi(); this.post({ type: 'dispose' });
     this.disposed = true; this.generation += 1; this.speechGeneration += 1;
-    this.speechAbort?.abort(); this.speechAbort = null;
+    this.speechAbort?.abort(); this.speechAbort = null; this.samplesAbort?.abort(); this.samplesAbort = null;
     if (this.node) { this.node.port.onmessage = null; this.node.onprocessorerror = null; this.node.disconnect(); this.node.port.close?.(); }
     this.releaseOutput?.(); this.releaseOutput = null;
     this.master?.disconnect(); this.master = null; this.node = null; this.ready = false;

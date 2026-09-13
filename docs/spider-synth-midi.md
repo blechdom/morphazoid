@@ -6,6 +6,15 @@ raise Tension for a tighter, brighter web, or Damping for shorter, softer notes.
 Choose a motion preset to hear its own body and web mix. Random sound and
 Random animation are separate controls. Sound presets change only the sound
 and voice: they preserve the web, pose, travel, tempo and both players.
+Selecting a body pose also keeps Animation running at its current time, with
+existing offsets preserved.
+
+**Spider skin** chooses one of six real scans: Wasp spider (the original
+Argiope), golden orb-weaver, devil spider, King Baboon tarantula, huntsman or
+fishing spider. Each has its own rig and measured leg reach. Changing skin
+preserves the players, held pose, sound, web and phase; a failed download leaves
+the current specimen playing. Only the selected approximately 5–6.6 MB model
+loads, and Audio remains available while it loads.
 
 Drag a body joint to change its sound. Choose X, Y or Z for a single axis;
 **Move on web** makes dragging the body relocate the spider’s strand contacts.
@@ -22,11 +31,24 @@ struggles on its trapped strand. Click it or press **Hunt bug** to approach and
 eat it. Type into **Voice** and press **Say it**, or Control/Command+Enter.
 Words temporarily animate the face without starting Animation.
 
+The 27 body/web sources include **Peacock rumble**, **Peacock crunch** and
+**Peacock grind**, real recorded Maratus courtship substrate vibrations. Find
+**Peacock courtship**, **Peacock percussion** and **Peacock underworld** under
+**Recorded spider voices** in the sound preset menu. Each makes different use
+of these accents and the procedural sources. Recordings arrive after Audio is
+armed, then respond to movement, contact and MIDI gestures in finite bursts.
+Holding a motionless pose does not loop them. Group level, Mute and Solo work
+as usual; Tune, joint movement and MIDI expression alter the fragments. These
+are peacock-spider research recordings, independent of your selected skin.
+[Recording credits and methods](../assets/audio/spider-synth/README.md).
+
 ## Web and travel
 
-The initial web takes its zigzag decoration from *Argiope aurantia*. The scan is
-the related *Argiope bruennichi*. Construction presets include other spider web
-families and playful geometric patterns. Adjust radials, spiral density,
+The initial web takes its zigzag decoration from *Argiope aurantia*. The default
+scan is the related *Argiope bruennichi*. Tarantula, huntsman and fishing skins
+perform in an artistic web scene; they are not natural orb-web builders.
+Construction presets include other spider web families and playful geometric
+patterns. Adjust radials, spiral density,
 external anchors, capture spacing, asymmetry, twist, irregularity, depth and
 zigzag amount. Changing construction clears the flies and extra silk attached
 to the previous web. The Sound preset never changes construction.
@@ -84,6 +106,8 @@ pitch bend moves two semitones either way. Polyphonic/channel pressure and
 expression shape owned notes, and sustain holds them after release. Notes from
 different device/channel pairs retain separate ownership. **Release MIDI**
 returns temporary note and CC poses without resetting the main instrument.
+Recorded accents follow the same note ownership and release behavior; releasing
+MIDI stops its accents without stopping independently played contacts.
 
 Choose **Poses + travel** under Notes to steer with MIDI while also playing body
 parts. C moves forward, D♯ right, F♯ backward and A left; intermediate notes
@@ -105,8 +129,23 @@ uses CC14–21; Settings → MIDI Map adapts supported hardware profiles.
 
 Standard controls: CC1 movement, CC7 master, CC10 pan, CC11 expression,
 CC64 sustain, CC71 body, CC74 brightness. Program Change selects a sound
-preset. MIDI Start/Continue/Stop controls Animation and incoming clock sets
-tempo. A configured hardware macro takes precedence over an overlapping CC.
+preset without changing Animation or the selected skin. Existing program
+addresses are preserved:
+
+| MIDI Program Change value (zero-based) | Sound preset bank |
+| --- | --- |
+| 0–23 | Original 24 sound presets, in their existing order |
+| 24–63 | The 40 motion companion mixes, in their existing order |
+| 64 | Peacock courtship · recorded |
+| 65 | Peacock percussion · recorded |
+| 66 | Peacock underworld · recorded |
+
+Controllers displaying programs 1–128 show these values plus one. Selecting a
+motion companion through Program Change recalls its sound only; selecting an
+animation in the Animation menu remains a separate action.
+
+MIDI Start/Continue/Stop controls Animation and incoming clock sets tempo. A
+configured hardware macro takes precedence over an overlapping CC.
 
 Audio and MIDI routing in the WAX build remain owned by the host adapter.
 Normal browser MIDI input is never echoed automatically to MIDI output.

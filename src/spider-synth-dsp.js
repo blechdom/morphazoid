@@ -5,6 +5,7 @@ import { SpiderSynthWorld, normalizeSpiderWorld } from './spider-synth-world.js'
 import { SpiderMidiPerformance } from './spider-synth-midi.js';
 import { SpiderStrings, SpiderOutputGuard } from './spider-synth-string.js';
 import { SpiderSurfaceVoice, SpiderSpace, SpiderWorldSound } from './spider-synth-textures.js';
+import { SpiderRecordingBank, SPIDER_RECORDINGS } from './spider-synth-recordings.js';
 export { SPIDER_BODY_GROUPS, getSpiderBodyGroupId } from './spider-synth-body.js';
 const TAU = Math.PI * 2, MAX_PHONES = 96, EMPTY_PHONES = Object.freeze([]);
 const finite = (value, fallback = 0) => Number.isFinite(Number(value)) ? Number(value) : fallback;
@@ -19,7 +20,9 @@ export const SPIDER_BODY_SOURCES = Object.freeze([
  ['hollow','Hollow resonance',false],['breath','Breath',true],['drone','Dark drone',false],['sub','Sub resonance',false],['shimmer','Shimmer',false],
  ['membrane','Living membrane',false],['bowed-silk','Bowed silk',false],['stridulate','Palp stridulation',true],['tremulate','Abdomen tremulation',true],
  ['palp-roll','Courtship roll',true],['silk-slip','Silk slip',true],['glass-slide','Glass slide',true],['choral-web','Choral web',false],
+ ...SPIDER_RECORDINGS.map(record=>[record.id,record.label,true]),
 ].map(([id,label,motionOnly]) => Object.freeze({id,label,motionOnly})));
+const RECORDING_SOURCE_START = 24;
 const SOURCE_INDEX = new Map(SPIDER_BODY_SOURCES.map((s,i)=>[s.id,i]));
 const DEFAULT_SOURCES = ['click','bowed-silk','membrane','palp-roll','clack','choral-web','silk','glass'];
 const DEFAULT_LEVELS = [.42,.26,.2,.4,.3,.15,.65,.55];
@@ -31,6 +34,7 @@ export function normalizeSpiderBodyMix(value) {
 // Authored string registers and contours, in semitones / exponent / seconds.
 // Positive spread retains the physical ordering: a longer strand stays lower.
 const PLUCK_SHAPES = Object.freeze({
+ 'peacock-courtship':[19,.9,.015,.03,.7], 'peacock-percussion':[29,1.2,.003,0,.22], 'peacock-underworld':[-7,.65,.08,.08,1.6],
  'orb-silk':[12,1,.018,.04,1.1], 'cathedral':[7,1.05,.18,.3,3.2],
  'clockwork':[19,.65,.002,0,.09], 'glass-orbit':[31,.8,.035,.08,2.2],
  'gut-shadow':[-12,.65,.018,.06,.24], 'electric-silk':[7,1.65,.003,.03,.6],
@@ -70,10 +74,17 @@ export const SPIDER_SOUND_PRESETS=Object.freeze([
  patch('rain-on-silk','Rain on silk',['click','choral-web','membrane','palp-roll','fm-bell','shimmer','glass','thumb'],{texture:.55,flutter:.9,space:.8,slide:.3,decay:1.6},{preset:'sheet',spokes:24,rings:16,seed:31}),
  patch('low-courtship','Low courtship',['clack','membrane','tremulate','stridulate','rattle','sub','gut','wire'],{tune:.55,tension:.3,texture:.75,flutter:1,brightness:.5,decay:.65},{preset:'triangle',spokes:9,rings:4,seed:7}),
  patch('singing-architecture','Singing architecture',['silk','choral-web','membrane','glass-slide','fm-bell','bowed-silk','wire','glass'],{texture:.8,space:.9,slide:.7,decay:5.2,brightness:.73,tension:1.6},{preset:'dome',spokes:20,rings:12,seed:56,depth:.24}),
+ patch('peacock-courtship','Peacock courtship · recorded',['clack','bowed-silk','peacock-rumble','peacock-grind','click','membrane','silk','glass'],{texture:.5,slide:.42,space:.25,decay:1.1,body:.7}),
+ patch('peacock-percussion','Peacock percussion · recorded',['peacock-crunch','membrane','sub','peacock-grind','clack','shimmer','thumb','glass'],{texture:.7,slide:.12,space:.18,decay:.5,body:.75}),
+ patch('peacock-underworld','Peacock underworld · recorded',['thumb','bowed-silk','peacock-grind','peacock-rumble','clack','membrane','gut','wire'],{tune:.65,texture:.8,slide:.8,space:.6,decay:2.1,body:.7}),
 ]);
+const PROCEDURAL_SOUND_PRESETS=SPIDER_SOUND_PRESETS.filter(p=>!p.id.startsWith('peacock-'));
 export const SPIDER_MOTION_SOUND_PRESETS=Object.freeze(SPIDER_MOTION_PRESETS.map((motion,i)=>{
- const source=SPIDER_SOUND_PRESETS[(i*7)%SPIDER_SOUND_PRESETS.length]; const bodyMix=source.bodyMix.map(row=>({...row}));
- bodyMix[3].source=SPIDER_BODY_SOURCES[(i*3)%SPIDER_BODY_SOURCES.length].id;
+ const source=PROCEDURAL_SOUND_PRESETS[(i*7)%PROCEDURAL_SOUND_PRESETS.length]; const bodyMix=source.bodyMix.map(row=>({...row}));
+ bodyMix[3].source=SPIDER_BODY_SOURCES[(i*3)%RECORDING_SOURCE_START].id;
+ if(motion.id==='abdomen-drum')bodyMix[2]={...bodyMix[2],source:'peacock-rumble',level:.5};
+ if(motion.id==='palp-talk')bodyMix[3]={...bodyMix[3],source:'peacock-grind',level:.45};
+ if(motion.id==='leg-fan')bodyMix[0]={...bodyMix[0],source:'peacock-crunch',level:.45};
  // Body-led routines need an audible owner even when no foot leaves the web.
  if(motion.id==='anchor-rock'){bodyMix[1]={...bodyMix[1],source:'hollow',level:.6};bodyMix[2]={...bodyMix[2],source:'growl',level:.45};}
  if(motion.id==='threat-pose'){bodyMix[0]={...bodyMix[0],source:'growl',level:.55};bodyMix[1]={...bodyMix[1],source:'hollow',level:.5};bodyMix[2]={...bodyMix[2],source:'sub',level:.45};}
@@ -86,7 +97,7 @@ export function createRandomSpiderSound(seed=1) { let n=(finite(seed,1)|0)||1;co
 // Eight fixed body voices: finite impact/FM/noise envelopes and four smooth
 // held sources. The web strings remain the actual delay-line voices above.
 class BodyVoice {
- constructor(rate,index) { this.rate=rate;this.index=index;this.source=0;this.oldSource=0;this.fade=1;this.level=0;this.targetLevel=0;this.phase=0;this.modPhase=.13;this.subPhase=.7;this.env=0;this.age=0;this.manual=0;this.frequency=140;this.targetFrequency=140;this.gate=0;this.targetGate=0;this.x=0;this.y=0;this.z=0;this.low=0;this.filtered=0;this.eventFrequency=0;this.decayCoefficient=.99;this.filterCoefficient=.25;this.panL=.7;this.panR=.7;this.seed=(0x4714153^index*7393)|0;this.output=new Float64Array(24);this.surface=new SpiderSurfaceVoice(rate,index);this.frequencySmoothing=1-Math.exp(-1/(rate*.022));this.smooth=1-Math.exp(-1/(rate*.022)); }
+ constructor(rate,index) { this.rate=rate;this.index=index;this.source=0;this.oldSource=0;this.fade=1;this.level=0;this.targetLevel=0;this.phase=0;this.modPhase=.13;this.subPhase=.7;this.env=0;this.age=0;this.manual=0;this.frequency=140;this.targetFrequency=140;this.gate=0;this.targetGate=0;this.x=0;this.y=0;this.z=0;this.low=0;this.filtered=0;this.eventFrequency=0;this.decayCoefficient=.99;this.filterCoefficient=.25;this.panL=.7;this.panR=.7;this.seed=(0x4714153^index*7393)|0;this.output=new Float64Array(SPIDER_BODY_SOURCES.length);this.surface=new SpiderSurfaceVoice(rate,index);this.frequencySmoothing=1-Math.exp(-1/(rate*.022));this.smooth=1-Math.exp(-1/(rate*.022)); }
  assign(row,initial=false){const source=SOURCE_INDEX.get(row.source)??0;if(source!==this.source){this.oldSource=this.source;this.source=source;this.fade=initial?1:0;}this.targetLevel=row.level;if(initial)this.level=row.level;}
  excite(strength){this.env=Math.min(1.25,this.env+clamp(strength,0,1));this.age=0;}
  sample(still,sound){
@@ -95,19 +106,22 @@ class BodyVoice {
   let n=this.seed;n^=n<<13;n^=n>>>17;n^=n<<5;this.seed=n|0;const white=(n>>>0)/2147483648-1;this.low+=(white-this.low)*.12;
   this.age++;const sine=Math.sin(TAU*this.phase),sub=Math.sin(TAU*this.subPhase),mod=Math.sin(TAU*this.modPhase),attack=Math.min(1,this.age/(this.rate*.0015));
   const e=this.env*attack,g=Math.max(still,this.gate,Math.min(1,this.env)),o=this.output;
+  // Only these stateless expressions feed the current crossfade. Keep every
+  // oscillator, noise, envelope and surface state advancing in the same order.
+  const active=(1<<this.source)|(this.fade<1?1<<this.oldSource:0);
   // String-material rows have only a very quiet body tap; their main sound is a pooled web loop.
-  for(let i=0;i<5;i++)o[i]=sine*e*.012;
-  o[5]=(white-this.low)*e*Math.exp(-this.age/(this.rate*.0035))*.2;
-  o[6]=(sine*.17+Math.sin(TAU*this.phase*1.63)*.11+white*.009)*e*Math.exp(-this.age/(this.rate*.02));
-  o[7]=Math.sin(TAU*this.phase+mod*e*(1+sound.brightness*6))*e*.19;
-  o[8]=(Math.sin(TAU*this.phase+mod*e)*.13+(white-this.low)*(.08+sound.brightness*.05)*(.3+.7*Math.max(0,Math.sin(this.age/this.rate*TAU*37))))*e;
-  o[9]=Math.tanh((sine+mod*.5)*2)*e*.11;
-  o[10]=(Math.tanh(sub*3+sine*.8)*.14+this.low*.07)*e;
-  o[11]=(sine*.09+sub*.085+mod*.04)*g;
-  o[12]=(white-this.low)*e*.09;
-  o[13]=(sine*.085+sub*.09+Math.sin(TAU*this.modPhase*.71)*.05)*g;
-  o[14]=Math.tanh(sub*1.7)*g*.17;
-  o[15]=(sine*.07+Math.sin(TAU*this.modPhase*2)*.05)*g;
+  for(let i=0;i<5;i++)if(active&(1<<i))o[i]=sine*e*.012;
+  if(active&(1<<5))o[5]=(white-this.low)*e*Math.exp(-this.age/(this.rate*.0035))*.2;
+  if(active&(1<<6))o[6]=(sine*.17+Math.sin(TAU*this.phase*1.63)*.11+white*.009)*e*Math.exp(-this.age/(this.rate*.02));
+  if(active&(1<<7))o[7]=Math.sin(TAU*this.phase+mod*e*(1+sound.brightness*6))*e*.19;
+  if(active&(1<<8))o[8]=(Math.sin(TAU*this.phase+mod*e)*.13+(white-this.low)*(.08+sound.brightness*.05)*(.3+.7*Math.max(0,Math.sin(this.age/this.rate*TAU*37))))*e;
+  if(active&(1<<9))o[9]=Math.tanh((sine+mod*.5)*2)*e*.11;
+  if(active&(1<<10))o[10]=(Math.tanh(sub*3+sine*.8)*.14+this.low*.07)*e;
+  if(active&(1<<11))o[11]=(sine*.09+sub*.085+mod*.04)*g;
+  if(active&(1<<12))o[12]=(white-this.low)*e*.09;
+  if(active&(1<<13))o[13]=(sine*.085+sub*.09+Math.sin(TAU*this.modPhase*.71)*.05)*g;
+  if(active&(1<<14))o[14]=Math.tanh(sub*1.7)*g*.17;
+  if(active&(1<<15))o[15]=(sine*.07+Math.sin(TAU*this.modPhase*2)*.05)*g;
   const extra=this.surface.sample(g,this.env,white,this.age,this.source,this.oldSource,this.fade);for(let i=0;i<8;i++)o[16+i]=extra[i];
   this.env*=this.decayCoefficient;if(this.env<1e-10)this.env=0;
   this.fade=Math.min(1,this.fade+1/(this.rate*.035));const raw=o[this.source]*this.fade+o[this.oldSource]*(1-this.fade);
@@ -122,7 +136,7 @@ export class SpiderSynthDsp {
   this.sampleRate=clamp(sampleRate,8000,192000);this.time=0;this.audioTime=0;this.soundTime=0;this.enabled=false;this.playing=false;this.soundPlaying=false;this.master=0;this.still=0;this.hasEnabled=false;
   this.sound=normalizeSpiderSound();this.smooth=normalizeSpiderSound();this.motion=normalizeSpiderMotion();this.webSettings=normalizeSpiderWeb();this.web=options.preparedWeb?hydrateSpiderWeb(options.preparedWeb):createSpiderWeb(this.webSettings);this.webSettings=normalizeSpiderWeb(this.web);this.webKey=spiderWebGeometryKey(this.webSettings);this.setNeighbors();
   this.bodyMix=createDefaultSpiderBodyMix();this.voices=Array.from({length:8},(_,i)=>new BodyVoice(this.sampleRate,i));for(let i=0;i<8;i++)this.voices[i].assign(this.bodyMix[i],true);
-  this.levels=new Float64Array(8);this.strings=new SpiderStrings(this.sampleRate);this.guard=new SpiderOutputGuard();this.space=new SpiderSpace(this.sampleRate);this.worldSound=new SpiderWorldSound(this.sampleRate);
+  this.levels=new Float64Array(8);this.strings=new SpiderStrings(this.sampleRate);this.guard=new SpiderOutputGuard();this.space=new SpiderSpace(this.sampleRate);this.worldSound=new SpiderWorldSound(this.sampleRate);this.recordings=new SpiderRecordingBank(this.sampleRate);this.recordingBaseDistance=new Float64Array(8);this.recordingControlMoved=new Uint8Array(8);this.previousRecordingControls=new Float64Array(24);
   this.worldSettings=normalizeSpiderWorld({playing:false});this.world=new SpiderSynthWorld(this.worldSettings);this.worldOptions={motionTime:0,playing:false};this.worldEventSerial=0;this.contactEpoch=-1;
   this.frame=createSpiderFrame();this.pose=new Float32Array(SPIDER_JOINTS.length*3);this.previousPose=new Float32Array(this.pose.length);this.basePose=new Float32Array(this.pose.length);this.previousOverlay=new Float32Array(this.pose.length);this.previousMidiForces=new Float64Array(this.pose.length);
   this.previousRoot=new Float64Array(4);this.groupPose=new Float64Array(24);this.groupDistance=new Float64Array(8);this.distances=new Float64Array(8);this.groupCounts=new Uint8Array(8);this.jointGroups=new Uint8Array(SPIDER_JOINTS.length);for(let i=0;i<SPIDER_JOINTS.length;i++){const group=getSpiderJointBodyGroup(SPIDER_JOINTS[i]);this.jointGroups[i]=group;this.groupCounts[group]++;}
@@ -139,7 +153,7 @@ export class SpiderSynthDsp {
   this.telemetry={rms:0,peak:0,audioTime:0,time:0,motionTime:0,speechEnvelope:0,contactEvents:0,pluckEvents:0,activeStrings:0,lastContactTime:-1,recentEvents:this.recentEvents,renderedFrames:0};
  }
  update(value={}){
-  if('enabled'in value){const was=this.enabled;this.enabled=value.enabled===true;if(!this.enabled){this.clearFootQueue();this.strings.release();for(const voice of this.voices)voice.env=0;for(const p of this.prey)p.active=false;this.stopSpeech();}if(!was&&this.enabled){this.footSerial=0;this.acceptFootAfter=this.audioTime-1e-10;}if(!was||!this.enabled)this.primeMidi();}
+  if('enabled'in value){const was=this.enabled;this.enabled=value.enabled===true;if(!this.enabled){this.clearFootQueue();this.strings.release();this.recordings.release();for(const voice of this.voices)voice.env=0;for(const p of this.prey)p.active=false;this.stopSpeech();}if(!was&&this.enabled){this.footSerial=0;this.acceptFootAfter=this.audioTime-1e-10;}if(!was||!this.enabled)this.primeMidi();}
   if('playing'in value){if(this.playing!==(value.playing===true)){this.primed=false;this.acceptFootAfter=this.audioTime;}this.playing=value.playing===true;}
   if(value.worldSettings||'playing'in value){const next=normalizeSpiderWorld({...this.worldSettings,...value.worldSettings,playing:this.playing});let changed=false;for(const key of ['path','speed','range','laySilk','hunt','playing','seed'])if(next[key]!==this.worldSettings[key])changed=true;if(next.joystick.x!==this.worldSettings.joystick.x||next.joystick.z!==this.worldSettings.joystick.z)changed=true;this.worldSettings=next;if(changed)this.world.update(next,this.audioTime);}
   if('soundPlaying'in value)this.soundPlaying=value.soundPlaying===true;
@@ -161,8 +175,8 @@ export class SpiderSynthDsp {
    }
    this.webSettings=settings;this.web.tension=this.sound.tension;
   }
-  if(value.bodyMix){this.bodyMix=normalizeSpiderBodyMix(value.bodyMix);for(let i=0;i<8;i++)this.voices[i].assign(this.bodyMix[i],!this.hasEnabled);}
-  if(value.resetActivity){this.clearFootQueue();this.acceptFootAfter=this.audioTime;this.primed=false;this.overlayPrimed=false;this.distances.fill(0);this.strings.release();for(const v of this.voices)v.env=0;for(const p of this.prey)p.active=false;}
+  if(value.bodyMix){this.bodyMix=normalizeSpiderBodyMix(value.bodyMix);for(let i=0;i<8;i++){if(SOURCE_INDEX.get(this.bodyMix[i].source)!==this.voices[i].source)this.recordings.release(i);this.voices[i].assign(this.bodyMix[i],!this.hasEnabled);}}
+  if(value.resetActivity){this.clearFootQueue();this.acceptFootAfter=this.audioTime;this.primed=false;this.overlayPrimed=false;this.distances.fill(0);this.strings.release();this.recordings.release();for(const v of this.voices)v.env=0;for(const p of this.prey)p.active=false;}
   if(!this.hasEnabled)Object.assign(this.smooth,this.sound);if(this.enabled)this.hasEnabled=true;this.countdown=0;
  }
  setNeighbors(){
@@ -172,9 +186,9 @@ export class SpiderSynthDsp {
   for(const segment of this.web.segments){let neighbor=-1;for(const id of incident[segment.a])if(id!==segment.id){neighbor=id;break;}if(neighbor<0)for(const id of incident[segment.b])if(id!==segment.id){neighbor=id;break;}this.neighbors[segment.id]=neighbor<0?segment.id:neighbor;}
  }
  primeMidi(){for(let i=0;i<this.orders.length;i++)this.orders[i]=this.midiPerformance.voices[i]?.order??0;this.overlayPrimed=false;}
- midi(message,audioTime=this.audioTime){const accepted=this.midiPerformance.handle(message,audioTime);if(accepted){this.countdown=0;if(message.type==='controlChange'&&message.controller===11)this.overlayPrimed=false;if(message.type==='controlChange'&&message.controller===120){this.acceptFootAfter=this.audioTime;this.overlayPrimed=false;this.strings.releaseMidi(message.synthetic&&message.sourceId==='web-midi:manager'?undefined:{sourceId:message.sourceId,...(!message.synthetic?{channel:message.channel}:{})});}if(message.type==='noteOn'&&this.audioTime-audioTime>=.1)this.overlayPrimed=false;}return accepted;}
+ midi(message,audioTime=this.audioTime){const accepted=this.midiPerformance.handle(message,audioTime);if(accepted){this.countdown=0;if(message.type==='controlChange'&&message.controller===11)this.overlayPrimed=false;if(message.type==='controlChange'&&message.controller===120){this.acceptFootAfter=this.audioTime;this.overlayPrimed=false;const scope=message.synthetic&&message.sourceId==='web-midi:manager'?undefined:{sourceId:message.sourceId,...(!message.synthetic?{channel:message.channel}:{})};this.strings.releaseMidi(scope);this.recordings.release(-1,scope,true);}if(message.type==='noteOn'&&this.audioTime-audioTime>=.1)this.overlayPrimed=false;}return accepted;}
  midiControl(groupId,axis,value,audioTime=this.audioTime,scope){const accepted=this.midiPerformance.setControl(groupId,axis,value,audioTime,scope);if(accepted)this.countdown=0;return accepted;}
- resetMidi(scope,audioTime=this.audioTime){this.acceptFootAfter=this.audioTime;this.midiPerformance.reset(audioTime,scope);this.strings.releaseMidi(scope);this.overlayPrimed=false;this.countdown=0;}
+ resetMidi(scope,audioTime=this.audioTime){this.acceptFootAfter=this.audioTime;this.midiPerformance.reset(audioTime,scope);this.strings.releaseMidi(scope);this.recordings.release(-1,scope,true);this.overlayPrimed=false;this.countdown=0;}
  restoreMidi(snapshot){if(!this.midiPerformance.restore(snapshot))return false;this.primeMidi();this.countdown=0;return true;}
  interact({jointId,active=false}={}){
   this.interactionActive=active===true;
@@ -264,6 +278,7 @@ export class SpiderSynthDsp {
   const amount=Math.sqrt(midiOwner&&expression>0?strength/expression:strength)*(.35+.65*Math.abs(Math.sin(angle-segment.angle)));
   let accepted=false;
   if(voice.source<5)accepted=this.strings.pluck(frequency,amount,clamp(x*.8+this.smooth.pan+(owner>=0?voice.z*.3:0),-1,1),this.smooth,group,id,voice.source,u,midiOwner,expression,source==='gesture'||source==='midi'||source==='prey',worldKind,this.activeFootEvent?.legIndex??-1);
+  else if(voice.source>=RECORDING_SOURCE_START){accepted=this.recordings.trigger(voice.source-RECORDING_SOURCE_START,group,amount,this.audioTime,midiOwner,expression);}
   else{voice.eventFrequency=frequency/this.smooth.tune;voice.targetFrequency=frequency;voice.excite(amount);accepted=true;}
   if(accepted){
    this.lastPluckFrequency=voice.source<5?this.strings.voices[this.strings.lastVoiceIndex].frequency:frequency;
@@ -278,6 +293,7 @@ export class SpiderSynthDsp {
  exciteGroup(group,strength,source='gesture',footIndex=-1,midiRatio=1,midiOwner=null){
   if(this.voices[group].targetLevel<=0)return;
   this.voices[group].excite(strength);
+  if(this.voices[group].source>=RECORDING_SOURCE_START){this.recordings.trigger(this.voices[group].source-RECORDING_SOURCE_START,group,strength,this.audioTime,midiOwner,midiOwner?this.midiPerformance.scopes[midiOwner.scope]?.expression??1:1);return;}
   if(this.voices[group].source<5){
    // A body resonance belongs to that body, not an arbitrary toe's web strand.
    const voice=this.voices[group],expression=midiOwner?this.midiPerformance.scopes[midiOwner.scope]?.expression??1:1;
@@ -295,8 +311,9 @@ export class SpiderSynthDsp {
   if(this.contactEpoch!==this.frame.contactEpoch){this.footDistances.fill(0);this.contactEpoch=this.frame.contactEpoch;}
   this.queueFootEvents(worldState);
   this.processWorldEvents(worldState);this.worldSound.control(worldState,this.smooth,this.enabled);
-  this.groupPose.fill(0);this.groupDistance.fill(0);
-  for(let i=0;i<SPIDER_JOINTS.length;i++){const group=this.jointGroups[i];for(let axis=0;axis<3;axis++){const k=i*3+axis;this.groupPose[group*3+axis]+=this.pose[k];const overlay=this.pose[k]-this.basePose[k];if(this.primed&&(this.playing||this.overlayPrimed)){const delta=this.overlayPrimed?this.pose[k]-this.previousPose[k]:this.basePose[k]-(this.previousPose[k]-this.previousOverlay[k]);this.groupDistance[group]+=Math.abs(delta);}this.previousOverlay[k]=overlay;}}
+  this.groupPose.fill(0);this.groupDistance.fill(0);this.recordingBaseDistance.fill(0);this.recordingControlMoved.fill(0);
+  for(let k=0;k<24;k++){const value=this.midiPerformance.controlValues[k];if(Math.abs(value-this.previousRecordingControls[k])>1e-7)this.recordingControlMoved[Math.floor(k/3)]=1;this.previousRecordingControls[k]=value;}
+  for(let i=0;i<SPIDER_JOINTS.length;i++){const group=this.jointGroups[i];for(let axis=0;axis<3;axis++){const k=i*3+axis;this.groupPose[group*3+axis]+=this.pose[k];const overlay=this.pose[k]-this.basePose[k];if(this.primed&&(this.playing||this.overlayPrimed)){const delta=this.overlayPrimed?this.pose[k]-this.previousPose[k]:this.basePose[k]-(this.previousPose[k]-this.previousOverlay[k]);this.groupDistance[group]+=Math.abs(delta);this.recordingBaseDistance[group]+=Math.abs(this.basePose[k]-(this.previousPose[k]-this.previousOverlay[k]));}this.previousOverlay[k]=overlay;}}
   // Procedural root turns (rollover, bows, leaps) are real body movement.
   // Remove the already counted cephalothorax joint contribution before routing.
   for(let axis=0;axis<4;axis++){
@@ -313,18 +330,23 @@ export class SpiderSynthDsp {
     if(this.primed)this.groupDistance[0]+=Math.hypot(f.x-this.previousFeet[k],f.y-this.previousFeet[k+1],f.z-this.previousFeet[k+2])*2;
    }
   }
-  for(let axis=0;axis<3;axis++)this.groupPose[15+axis]=this.groupPose[6+axis]*.65;this.groupDistance[5]=this.groupDistance[2]*.65;
+  for(let axis=0;axis<3;axis++)this.groupPose[15+axis]=this.groupPose[6+axis]*.65;this.groupDistance[5]=this.groupDistance[2]*.65;this.recordingBaseDistance[5]=this.recordingBaseDistance[2]*.65;this.recordingControlMoved[5]=this.recordingControlMoved[2];
   for(let i=0;i<8;i++){
    const voice=this.voices[i],div=Math.sqrt(Math.max(1,this.groupCounts[i]));voice.x=this.groupPose[i*3]/div;voice.y=this.groupPose[i*3+1]/div;voice.z=this.groupPose[i*3+2]/div;
    voice.targetFrequency=clamp((midi.notes[i]>=0?midi.frequencies[i]:i>=6?(voice.eventFrequency||spiderStringFrequency(this.webLengths[i-6],this.smooth.tension,.5)):95+i*29)*this.smooth.tune*2**(voice.x*.15+voice.y*.08),30,this.sampleRate*.12);
    voice.decayCoefficient=Math.exp(-1/(this.sampleRate*(voice.source>=9?.022+this.smooth.decay*.018:.035+this.smooth.decay*.055)));voice.filterCoefficient=1-Math.exp(-TAU*Math.min(this.sampleRate*.4,650*15**clamp(this.smooth.brightness+voice.y*.2,0,1))/this.sampleRate);
    voice.frequencySmoothing=1-Math.exp(-1/(this.sampleRate*(.008+this.smooth.slide*this.smooth.slide*.48)));voice.surface.configure(voice.frequency,this.smooth,voice.x,voice.y,voice.z);
    voice.targetGate=midi.gates[i]*midi.velocities[i]*midi.expressions[i]*(1+.35*midi.pressures[i]);
+   this.recordings.control(i,this.smooth.tune*2**(voice.x*.35+voice.y*.15),this.midiPerformance);
    const pan=clamp(this.smooth.pan+voice.z*.4+midi.pans[i]*.5,-.95,.95);voice.panL=Math.cos((pan+1)*Math.PI/4);voice.panR=Math.sin((pan+1)*Math.PI/4);
    // Friction and resonances follow measured angular speed, including very
    // slow abdomen/head gestures. A stationary pose never refreshes this tail.
    if(this.enabled&&voice.source>=9&&this.groupDistance[i]>1e-7)voice.env=Math.max(voice.env,Math.min(.9,Math.sqrt(this.groupDistance[i]*this.sampleRate/this.controlStride)*.7));
-   this.distances[i]+=this.groupDistance[i];
+   // Recorded note attacks own their own finite grain. A MIDI pose settling
+   // back to rest must not queue a second unowned recording after note-off.
+   // Direct body edits, real locomotion and changed CC axes remain playable.
+   const recordingMove=voice.source<RECORDING_SOURCE_START||this.frame.motionActive||this.recordingBaseDistance[i]>1e-7||this.recordingControlMoved[i];
+   if(recordingMove)this.distances[i]+=this.groupDistance[i];else this.distances[i]=0;
    if(this.enabled&&this.distances[i]>.12&&!(this.frame.motionActive&&i===0)){this.distances[i]%=.12;this.exciteGroup(i,Math.min(.85,.25+this.groupDistance[i]*2),'gesture');}
    const foot=this.frame.feet[i];if(!Array.isArray(worldState.footEvents)&&this.primed&&this.frame.motionActive&&this.enabled&&foot.stance&&foot.step>this.steps[i]){this.contactEvents++;this.lastContactTime=this.time;this.exciteGroup(0,foot.impact,'contact',i);this.pluckString(foot.segmentId,foot.u,foot.impact,foot.angle,-1,'contact');}
    const k=i*3,dx=foot.x-this.previousFeet[k],dy=foot.y-this.previousFeet[k+1],dz=foot.z-this.previousFeet[k+2];
@@ -340,6 +362,7 @@ export class SpiderSynthDsp {
   }
   this.previousPose.set(this.pose);this.primed=true;this.overlayPrimed=true;this.strings.retune(this.smooth,this.midiPerformance);this.speechRate=clamp(this.smooth.tune**.25,.72,1.4);
  }
+  setSampleBank(samples) { return this.recordings.setBank(samples); }
   setAtlas(samples, sampleRate) {
     if (!(samples instanceof Float32Array) || samples.length > 192000 * 16) throw new Error('Speech atlas exceeds its fixed budget.');
     this.atlas = samples; this.atlasRate = clamp(sampleRate, 8000, 192000);
@@ -402,7 +425,7 @@ export class SpiderSynthDsp {
    const click=Math.sin(TAU*this.clickPhase)*this.click*.075;this.click*=Math.exp(-1/(this.sampleRate*.008));
    for(const key of SOUND_KEYS)this.smooth[key]+=(this.sound[key]-this.smooth[key])*this.smoothing;
    this.master+=((this.enabled?1:0)-this.master)*this.smoothing;this.still+=((this.soundPlaying?1:0)-this.still)*this.smoothing;
-   let bodyL=0,bodyR=0;for(let group=0;group<8;group++){const v=this.voices[group],value=v.sample(this.still,this.smooth);bodyL+=value*v.panL;bodyR+=value*v.panR;this.levels[group]=v.level;}
+   const recorded=this.recordings.sample();let bodyL=0,bodyR=0;for(let group=0;group<8;group++){const v=this.voices[group],value=v.sample(this.still,this.smooth)+recorded[group]*v.level*(.55+this.smooth.body*.75);bodyL+=value*v.panL;bodyR+=value*v.panR;this.levels[group]=v.level;}
    this.strings.sample(this.levels,this.smooth.brightness,this.smooth);
    const speech=this.atlas?this.speechSample():0;this.speechEnvelope+=(Math.abs(speech)-this.speechEnvelope)*.008;
    this.speechFilter+=(speech-this.speechFilter)*(1-Math.exp(-TAU*Math.min(this.sampleRate*.4,1800+this.smooth.brightness*9500)/this.sampleRate));
@@ -421,6 +444,6 @@ export class SpiderSynthDsp {
   const t=this.telemetry;t.rms=Math.sqrt(energy/Math.max(1,count));t.peak=peak;t.audioTime=this.audioTime;t.time=this.time;t.motionTime=this.time;t.soundTime=this.soundTime;t.speechEnvelope=this.speechEnvelope;
   t.pullEvents=this.pullEvents;t.footReleaseEvents=this.footReleaseEvents;t.lateFootEvents=this.lateFootEvents;t.droppedFootEvents=this.droppedFootEvents;t.droppedStringEvents=this.droppedStringEvents;t.lastContactAudioTime=this.lastContactAudioTime;t.maxFootLateness=this.maxFootLateness;t.propagationEvents=this.strings.propagationEvents;t.voiceReplacements=this.strings.voiceReplacements;t.shortenedAttacks=this.strings.shortenedAttacks;
   t.contactEvents=this.contactEvents;t.pluckEvents=this.pluckEvents;t.activeStrings=this.strings.active;t.lastContactTime=this.lastContactTime;t.midiEvents=this.midiEvents;t.midiNotes=this.midiPerformance.output.notes;let activeMidi=0;for(let i=0;i<8;i++){this.midiGates[i]=this.voices[i].gate;if(this.midiPerformance.output.notes[i]>=0)activeMidi++;}t.midiActive=activeMidi;t.midiGates=this.midiGates;t.midiExpressions=this.midiPerformance.output.expressions;t.midiFrequencies=this.midiPerformance.output.frequencies;t.renderedFrames+=count;
-  t.metronomeEvents=this.metronomeEvents;t.lastMetronomeTime=this.lastMetronomeTime;return t;
+  t.recordingEvents=this.recordings.events;t.activeRecordings=this.recordings.active;t.droppedRecordings=this.recordings.dropped;t.metronomeEvents=this.metronomeEvents;t.lastMetronomeTime=this.lastMetronomeTime;return t;
  }
 }

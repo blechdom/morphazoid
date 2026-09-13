@@ -1,0 +1,8 @@
+{
+  "inputBytes": 10753260,
+  "outputBytes": 6587364,
+  "decodedGeometryBytes": 7813896,
+  "geometry": "All compressed buffers decode byte-for-byte to the prepared input; preparation preserves all animal triangles and records normalized-attribute precision in rig-manifest.json.",
+  "inputSha256": "dfade99896e3d0a051bd5fe69c4ab12d99963624fdb794e506ef1a465ef3bc4b",
+  "outputSha256": "5cfe1e25a20b05576704522a4e7d1a95eb015d782bcbbda2a3f09242e2aa8de7"
+}

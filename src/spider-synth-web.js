@@ -424,7 +424,54 @@ function buildSpatialIndex(web) {
     const a = web.nodes[segment.a]; const b = web.nodes[segment.b];
     for (let z = cell(Math.min(a.z, b.z)); z <= cell(Math.max(a.z, b.z)); z += 1) for (let x = cell(Math.min(a.x, b.x)); x <= cell(Math.max(a.x, b.x)); x += 1) cells[z * size + x].push(segment.id);
   }
-  Object.defineProperty(web, '_spatial', { value: { size, extent, cells, seen: new Uint32Array(web.segments.length), candidates: new Uint16Array(web.segments.length), stamp: 0, count: 0 }, enumerable: false });
+  Object.defineProperty(web, '_spatial', { value: { size, extent, cells, seen: new Uint32Array(web.segments.length), candidates: new Uint16Array(web.segments.length), intervals: new Float64Array(64), stamp: 0, count: 0 }, enumerable: false });
+}
+
+// Subtract an open forbidden interval in place. At most six bodies and seven
+// other toes can split the reach interval, so 32 intervals is a fixed ceiling.
+function excludeInterval(intervals, count, left, right) {
+  for (let i = count - 1; i >= 0; i--) {
+    const lo = intervals[i * 2], hi = intervals[i * 2 + 1];
+    if (right <= lo || left >= hi) continue;
+    if (left <= lo && right >= hi) {
+      for (let j = i; j < count - 1; j++) { intervals[j * 2] = intervals[j * 2 + 2]; intervals[j * 2 + 1] = intervals[j * 2 + 3]; }
+      count--;
+    } else if (left <= lo) intervals[i * 2] = right;
+    else if (right >= hi) intervals[i * 2 + 1] = left;
+    else {
+      for (let j = count; j > i + 1; j--) { intervals[j * 2] = intervals[j * 2 - 2]; intervals[j * 2 + 1] = intervals[j * 2 - 1]; }
+      intervals[i * 2 + 1] = left; intervals[i * 2 + 2] = right; intervals[i * 2 + 3] = hi; count++;
+    }
+  }
+  return count;
+}
+function excludeQuadric(intervals, count, ax, ay, az, dx, dy, dz, radius = 1) {
+  const length2 = dx * dx + dy * dy + dz * dz;
+  if (length2 < 1e-20) return ax * ax + ay * ay + az * az < radius * radius ? 0 : count;
+  const center = -(ax * dx + ay * dy + az * dz) / length2;
+  const radial = center * center - (ax * ax + ay * ay + az * az - radius * radius) / length2;
+  if (radial <= 0) return count;
+  const half = Math.sqrt(radial);
+  return excludeInterval(intervals, count, center - half, center + half);
+}
+function clearanceContains(clearance, x, y, z) {
+  const padding = clearance.radius + (clearance.margin || 0);
+  for (const body of clearance.bodies || []) {
+    const center = body.worldCenter, ax = x - center.x, ay = y - center.y, az = z - center.z;
+    const bound = Math.max(body.radii[0], body.radii[1], body.radii[2]) + padding;
+    if (ax * ax + ay * ay + az * az >= bound * bound) continue;
+    const axes = body.axes;
+    const px = (axes[0] * ax + axes[3] * ay + axes[6] * az) / (body.radii[0] + padding);
+    const py = (axes[1] * ax + axes[4] * ay + axes[7] * az) / (body.radii[1] + padding);
+    const pz = (axes[2] * ax + axes[5] * ay + axes[8] * az) / (body.radii[2] + padding);
+    if (px * px + py * py + pz * pz < 1 - 1e-12) return true;
+  }
+  for (let j = 0; j < (clearance.feet?.length || 0); j++) {
+    const foot = clearance.feet[j]; if (j === clearance.legIndex || foot.segmentId < 0 || j >= (clearance.footCount ?? 8)) continue;
+    const radius = padding + (clearance.radii?.[j] || 0) + (clearance.reservations ? foot.space || 0 : 0);
+    if ((x - foot.x) ** 2 + (y - foot.y) ** 2 + (z - foot.z) ** 2 < radius * radius - 1e-14) return true;
+  }
+  return false;
 }
 
 /** Shared exact nearest strand projection, optionally clipped to a 3D reach
@@ -432,7 +479,7 @@ function buildSpatialIndex(web) {
  * Walking requests exclude upper interception/retreat structures;
  * ordinary pointer/prey projection still addresses every visible strand.
  * A spatial index only discards segments outside the sphere's XZ box. */
-export function projectSpiderWebInto(web, x, z, out, cx = 0, cz = 0, reach = Infinity, cy = 0, walkableOnly = false, minReach = 0) {
+export function projectSpiderWebInto(web, x, z, out, cx = 0, cz = 0, reach = Infinity, cy = 0, walkableOnly = false, minReach = 0, clearance = null) {
   const index = web._spatial; let count = web.segments.length; let candidates = null;
   if (index && reach !== Infinity) {
     index.stamp = (index.stamp + 1) >>> 0; if (!index.stamp) { index.seen.fill(0); index.stamp = 1; }
@@ -440,6 +487,10 @@ export function projectSpiderWebInto(web, x, z, out, cx = 0, cz = 0, reach = Inf
     const x0 = clamp(Math.floor((cx - reach + index.extent) * scale), 0, maxCell); const x1 = clamp(Math.floor((cx + reach + index.extent) * scale), 0, maxCell);
     const z0 = clamp(Math.floor((cz - reach + index.extent) * scale), 0, maxCell); const z1 = clamp(Math.floor((cz + reach + index.extent) * scale), 0, maxCell);
     count = 0; candidates = index.candidates;
+    // Try the requested cell first. Once a nearby admissible strand is found,
+    // geometric lower bounds cheaply discard the rest of the reach box.
+    const qx = clamp(Math.floor((x + index.extent) * scale), x0, x1), qz = clamp(Math.floor((z + index.extent) * scale), z0, z1);
+    for (const id of index.cells[qz * index.size + qx]) { if (index.seen[id] === index.stamp) continue; index.seen[id] = index.stamp; candidates[count++] = id; }
     for (let iz = z0; iz <= z1; iz += 1) for (let ix = x0; ix <= x1; ix += 1) {
       const entries = index.cells[iz * index.size + ix];
       for (let k = 0; k < entries.length; k += 1) { const id = entries[k]; if (index.seen[id] === index.stamp) continue; index.seen[id] = index.stamp; candidates[count++] = id; }
@@ -454,6 +505,8 @@ export function projectSpiderWebInto(web, x, z, out, cx = 0, cz = 0, reach = Inf
     const a = web.nodes[segment.a]; const b = web.nodes[segment.b];
     const dx = b.x - a.x; const dy = b.y - a.y; const dz = b.z - a.z; const length2 = dx * dx + dz * dz, fullLength2 = length2 + dy * dy;
     if (!(fullLength2 > 1e-16)) continue;
+    const nearest = length2 > 1e-16 ? clamp(((x - a.x) * dx + (z - a.z) * dz) / length2, 0, 1) : 0;
+    if ((x - a.x - nearest * dx) ** 2 + (z - a.z - nearest * dz) ** 2 > best) continue;
     let lo = 0; let hi = 1;
     if (reach !== Infinity) {
       const ax = a.x - cx; const ay = a.y - cy; const az = a.z - cz;
@@ -462,9 +515,57 @@ export function projectSpiderWebInto(web, x, z, out, cx = 0, cz = 0, reach = Inf
       if (radial < 0) continue;
       const half = Math.sqrt(radial); lo = Math.max(0, center - half); hi = Math.min(1, center + half); if (lo > hi) continue;
     }
+    if (clearance?.within) {
+      const sphere = clearance.within, ax = a.x - sphere.x, ay = a.y - sphere.y, az = a.z - sphere.z;
+      const center = -(ax * dx + ay * dy + az * dz) / fullLength2;
+      const radial = center * center - (ax * ax + ay * ay + az * az - sphere.space * sphere.space) / fullLength2;
+      if (radial < 0) continue;
+      const half = Math.sqrt(radial); lo = Math.max(lo, center - half); hi = Math.min(hi, center + half); if (lo > hi) continue;
+    }
     const desired = length2 > 1e-16 ? ((x - a.x) * dx + (z - a.z) * dz) / length2 : (cy - a.y) / dy;
+    if (clearance?.planes) for (let p = 0; p < (clearance.planeCount ?? clearance.planes.length); p++) {
+      const plane = clearance.planes[p];
+      const start = a.x * plane.x + a.y * plane.y + a.z * plane.z - plane.offset;
+      const slope = dx * plane.x + dy * plane.y + dz * plane.z;
+      if (Math.abs(slope) < 1e-15) { if (start < 0) { hi = -1; break; } }
+      else if (slope > 0) lo = Math.max(lo, -start / slope);
+      else hi = Math.min(hi, -start / slope);
+    }
+    if (clearance?.hipPlane) {
+      const plane = clearance.hipPlane, start = a.x * plane.x + a.y * plane.y + a.z * plane.z - plane.offset, slope = dx * plane.x + dy * plane.y + dz * plane.z;
+      if (Math.abs(slope) < 1e-15) { if (start < 0) hi = -1; }
+      else if (slope > 0) lo = Math.max(lo, -start / slope); else hi = Math.min(hi, -start / slope);
+    }
+    if (clearance?.sidePlane) {
+      const plane = clearance.sidePlane, start = a.x * plane.x + a.y * plane.y + a.z * plane.z - plane.offset, slope = dx * plane.x + dy * plane.y + dz * plane.z;
+      if (Math.abs(slope) < 1e-15) { if (start < 0) hi = -1; }
+      else if (slope > 0) lo = Math.max(lo, -start / slope); else hi = Math.min(hi, -start / slope);
+    }
+    if (lo > hi) continue;
     let u = clamp(desired, lo, hi);
-    if (minimum > 0) {
+    const innerInvalid = minimum > 0 && (a.x + u * dx - cx) ** 2 + (a.y + u * dy - cy) ** 2 + (a.z + u * dz - cz) ** 2 < minimum * minimum;
+    if (clearance && (innerInvalid || clearanceContains(clearance, a.x + u * dx, a.y + u * dy, a.z + u * dz))) {
+      const intervals = clearance.intervals || index?.intervals;
+      intervals[0] = lo; intervals[1] = hi; let pieces = 1;
+      if (minimum > 0) pieces = excludeQuadric(intervals, pieces, a.x - cx, a.y - cy, a.z - cz, dx, dy, dz, minimum);
+      const padding = clearance.radius + (clearance.margin || 0);
+      for (const body of clearance.bodies || []) {
+        if (!pieces) break;
+        const axes = body.axes, center = body.worldCenter, ax = a.x - center.x, ay = a.y - center.y, az = a.z - center.z;
+        const rx = body.radii[0] + padding, ry = body.radii[1] + padding, rz = body.radii[2] + padding;
+        pieces = excludeQuadric(intervals, pieces,
+          (axes[0] * ax + axes[3] * ay + axes[6] * az) / rx, (axes[1] * ax + axes[4] * ay + axes[7] * az) / ry, (axes[2] * ax + axes[5] * ay + axes[8] * az) / rz,
+          (axes[0] * dx + axes[3] * dy + axes[6] * dz) / rx, (axes[1] * dx + axes[4] * dy + axes[7] * dz) / ry, (axes[2] * dx + axes[5] * dy + axes[8] * dz) / rz);
+      }
+      for (let j = 0; pieces && j < (clearance.feet?.length || 0); j++) {
+        const foot = clearance.feet[j]; if (j === clearance.legIndex || foot.segmentId < 0 || j >= (clearance.footCount ?? 8)) continue;
+        pieces = excludeQuadric(intervals, pieces, a.x - foot.x, a.y - foot.y, a.z - foot.z, dx, dy, dz, padding + (clearance.radii?.[j] || 0) + (clearance.reservations ? foot.space || 0 : 0));
+      }
+      if (!pieces) continue;
+      let distance = Infinity;
+      for (let j = 0; j < pieces; j++) { const candidate = clamp(desired, intervals[j * 2], intervals[j * 2 + 1]), d = Math.abs(candidate - desired); if (d < distance) { distance = d; u = candidate; } }
+    }
+    else if (minimum > 0) {
       const ax = a.x - cx; const ay = a.y - cy; const az = a.z - cz;
       const center = -(ax * dx + ay * dy + az * dz) / fullLength2;
       const radial = center * center - (ax * ax + ay * ay + az * az - minimum * minimum) / fullLength2;

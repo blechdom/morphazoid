@@ -251,10 +251,10 @@ test('manual steering can leave a web edge through a supported backstep without 
     const world = new SpiderSynthWorld({ playing: false, speed: .75 });
     const m = normalizeSpiderMotion({ preset: 'low-sprint', tempo: 300, intensity: .65, explore: false });
     sample(world, 0, m, graph, false, 11.464); world.command({ type: 'home' }, 0); world.update({ joystick: { x: -1, z: 0 } }, 0);
-    let reached, last;
+    let reached, last, outerToe;
     for (let i = 0; i <= 520; i += 1) {
       const t = i / 200;
-      if (i === 260) { reached = { ...last.body }; world.update({ joystick: next }, t); }
+      if (i === 260) { reached = { ...last.body }; outerToe = Math.min(...last.feet.filter(foot => foot.stance).map(foot => foot.x)); world.update({ joystick: next }, t); }
       const f = sample(world, t, m, graph, false, 11.464); assert.ok(f.supportCount >= 4);
       const c = Math.cos(f.body.yaw), s = Math.sin(f.body.yaw);
       for (let j = 0; j < 8; j += 1) {
@@ -265,7 +265,14 @@ test('manual steering can leave a web edge through a supported backstep without 
       }
       last = f;
     }
-    assert.ok(reached.x < -.6); assert.ok(Math.hypot(last.body.x - reached.x, last.body.z - reached.z) > .5);
+    // The long first foreleg links now stay outside the face. The body must
+    // stop before the old x=-.6 fixture (which folded those links through a
+    // palp); an outer supported toe still reaches the last capture mesh cell.
+    const edge = Math.min(...graph.nodes.filter(node => node.role === 'capture-junction').map(node => node.x));
+    const captureLengths = graph.segments.filter(segment => segment.stage === 'capture').map(segment => segment.length).sort((a, b) => a - b);
+    const meshSpan = captureLengths[Math.floor(captureLengths.length / 2)];
+    assert.ok(outerToe <= edge + meshSpan); assert.ok(reached.x < 0);
+    assert.ok(Math.hypot(last.body.x - reached.x, last.body.z - reached.z) > .5);
     assert.equal(world.settings.playing, false); assert.ok(Math.abs(last.body.yaw - reached.yaw) > .5);
   }
 });

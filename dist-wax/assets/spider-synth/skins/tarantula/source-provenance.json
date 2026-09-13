@@ -1,0 +1,43 @@
+{
+  "uid": "92c84c9dac9043ee81e87173e2ee0381",
+  "name": "King Baboon Tarantula",
+  "description": "The king baboon spider, scientific name , is a tarantula species native to East Africa. The king baboon spider can grow up to 20 cm in leg span. It is a slow-growing species. The spider is often rusty brown or orange in colour. As a burrowing species, the back legs are very thick and used for digging burrows.\n\nThis specimen is from the Museum's handling collection.\n\n\n*Pelinobius muticus* (Karsch, 1885)\n\n**Kingdom:**\tAnimalia\n**Phylum:**\tArthropoda\n**Subphylum:**\tChelicerata\n**Class:\t**Arachnida\n**Order:**\tAraneae\n**Infraorder:\t**Mygalomorphae\n**Family:\t**Theraphosidae\n\nMore information on [Wikipedia](https://en.wikipedia.org/wiki/King_baboon_spider).\n\n#AMNature\n#AMCollection",
+  "license": {
+    "uri": "https://api.sketchfab.com/v3/licenses/322a749bcfa841b29dff1e8a1bb74b0b",
+    "label": "CC Attribution",
+    "fullName": "Creative Commons Attribution",
+    "requirements": "Author must be credited. Commercial use is allowed.",
+    "url": "http://creativecommons.org/licenses/by/4.0/",
+    "slug": "by"
+  },
+  "createdAt": "2016-06-20T02:54:43.455007",
+  "publishedAt": "2016-06-20T03:03:13.162097",
+  "faceCount": 239276,
+  "vertexCount": 119628,
+  "animationCount": 0,
+  "isDownloadable": true,
+  "isProtected": false,
+  "viewerUrl": "https://sketchfab.com/3d-models/king-baboon-tarantula-92c84c9dac9043ee81e87173e2ee0381",
+  "creator": {
+    "displayName": "Auckland Museum",
+    "profileUrl": "https://sketchfab.com/aucklandmuseum",
+    "username": "aucklandmuseum"
+  },
+  "retrieved": "2026-09-12",
+  "archive": "https://mirror.traines.eu/sketchfab-backup/92/92c84c9dac9043ee81e87173e2ee0381.zip",
+  "archiveSha256": "ac39f947ce78c38914cf028efb300f8a76c300365c8d1e9f2b92d5bc4cedf74d",
+  "archiveBytes": 10676413,
+  "inspection": {
+    "suppliedSkin": false,
+    "suppliedAnimation": false,
+    "animalTriangles": 239276,
+    "excludedCalibrationTriangles": 0,
+    "rigJoints": 38,
+    "colorTexture": [
+      4096,
+      4096
+    ],
+    "runtimeBytes": 5246060,
+    "runtimeSha256": "9838fab6326f860118d04d8de73a34e1c99f9ea71fb4dc20f6954c932c37bd63"
+  }
+}

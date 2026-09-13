@@ -20,7 +20,15 @@ test('Spider releases keep worklet, motion, scan and rig metadata cache versions
       'src/spider-synth-processor.js': "import './spider-synth-dsp.js';",
       'src/spider-synth-dsp.js': "import './spider-synth-model.js'; export const gain = 1;",
       'src/spider-synth-model.js': 'export const beat = 1;',
+      'src/spider-synth-specimen-data.js': 'export const skins = ["../assets/spider-synth/skins/golden/spider-mobile.glb", "../assets/spider-synth/skins/golden/rig-manifest.json"];',
+      'src/spider-synth-recordings.js': 'export const recording = "../assets/audio/spider-synth/peacock-rumble.wav";',
     };
+    const skinDirectory = path.join(root, 'assets/spider-synth/skins/golden');
+    const recordingDirectory = path.join(root, 'assets/audio/spider-synth');
+    await mkdir(skinDirectory, { recursive: true }); await mkdir(recordingDirectory, { recursive: true });
+    await writeFile(path.join(skinDirectory, 'spider-mobile.glb'), new Uint8Array([8,9,10]));
+    await writeFile(path.join(skinDirectory, 'rig-manifest.json'), '{"species":"golden"}');
+    await writeFile(path.join(recordingDirectory, 'peacock-rumble.wav'), new Uint8Array([11,12,13]));
     for (const [name, source] of Object.entries(fixture)) await writeFile(path.join(root, name), source);
     const first = await fingerprintSpiderSynth(root); assert.deepEqual(await fingerprintSpiderSynth(root), first);
     await writeFile(path.join(root, 'src/spider-synth-model.js'), 'export const beat = 2;');
@@ -35,5 +43,15 @@ test('Spider releases keep worklet, motion, scan and rig metadata cache versions
     await writeFile(model, new Uint8Array([1,2,3,5])); const changed = await fingerprintSpiderSynth(root);
     assert.notEqual(changed.modelVersion, rigRelease.modelVersion); assert.notEqual(changed.version, rigRelease.version);
     assert.equal(changed.rigVersion, rigRelease.rigVersion);
+    const skinBefore = await readFile(path.join(root, 'src/spider-synth-specimen-data.js'), 'utf8');
+    const sampleBefore = await readFile(path.join(root, 'src/spider-synth-recordings.js'), 'utf8');
+    assert.ok(!skinBefore.includes(`spider-mobile.glb?v=${changed.modelVersion}`), 'each scan has its own cache identity');
+    await writeFile(path.join(recordingDirectory, 'peacock-rumble.wav'), new Uint8Array([11,12,14]));
+    const sampleRelease = await fingerprintSpiderSynth(root);
+    assert.notEqual(sampleRelease.version, changed.version);
+    assert.equal(sampleRelease.modelVersion, changed.modelVersion);
+    assert.equal(await readFile(path.join(root, 'src/spider-synth-specimen-data.js'), 'utf8'), skinBefore);
+    assert.notEqual(await readFile(path.join(root, 'src/spider-synth-recordings.js'), 'utf8'), sampleBefore);
+    assert.deepEqual(await fingerprintSpiderSynth(root), sampleRelease);
   } finally { await rm(root, { recursive: true, force: true }); }
 });

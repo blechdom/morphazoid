@@ -1,5 +1,8 @@
-import { createSpiderWeb, projectSpiderWebInto as projectInto, spiderWebHeight } from './spider-synth-web.js?v=f3d28731af44';
-export { createSpiderWeb, projectSpiderWebPoint, normalizeSpiderWeb, SPIDER_WEB_PRESETS, SPIDER_WEB_PARAMETERS } from './spider-synth-web.js?v=f3d28731af44';
+import { getSpiderSpecimen } from './spider-synth-specimens.js?v=ba050afc7c8e';
+import { constrainSpiderCollisionPose, constrainSpiderCollisionRoot, constrainSpiderSupportBody } from './spider-synth-collision.js?v=ba050afc7c8e';
+import { createSpiderWeb, projectSpiderWebInto as projectInto, spiderWebHeight } from './spider-synth-web.js?v=ba050afc7c8e';
+import { createSpiderFootClearance, writeSpiderFootClearance, writeSpiderFootCell, writeSpiderFootOutward, spiderFootNeutralX } from './spider-synth-contact.js?v=ba050afc7c8e';
+export { createSpiderWeb, projectSpiderWebPoint, normalizeSpiderWeb, SPIDER_WEB_PRESETS, SPIDER_WEB_PARAMETERS } from './spider-synth-web.js?v=ba050afc7c8e';
 /**
  * Shared audio-clock web contacts and authored spider gestures.
  * Coordinates are web-radius units, Y up, Z forward; rotations are radians.
@@ -85,7 +88,7 @@ export const SPIDER_MOTION_PRESETS = freeze([
 const PRESET_BY_ID = new Map(SPIDER_MOTION_PRESETS.map(item => [item.id, item]));
 const STILL = freeze(preset('none', 'Held pose', 'still', 4, 1, 0, 0, 0, 0, 0));
 const presetOf = motion => motion?.preset === 'none' ? STILL : PRESET_BY_ID.get(motion?.preset) || SPIDER_MOTION_PRESETS[0];
-export const SPIDER_MOTION_DEFAULTS = freeze({ preset: 'orb-walk', tempo: 108, intensity: .65, explore: true, seed: 1, center: { x: 0, z: 0 }, yaw: 0, offsets: {} });
+export const SPIDER_MOTION_DEFAULTS = freeze({ specimen: 'argiope', preset: 'orb-walk', tempo: 108, intensity: .65, explore: true, seed: 1, center: { x: 0, z: 0 }, yaw: 0, offsets: {} });
 
 export function normalizeSpiderMotion(settings = {}) {
   const offsets = {};
@@ -95,7 +98,7 @@ export function normalizeSpiderMotion(settings = {}) {
     const limits = LIMITS[joint.segment || joint.groupId];
     offsets[joint.id] = { x: clamp(finite(value.x), -limits[0], limits[0]), y: clamp(finite(value.y), -limits[1], limits[1]), z: clamp(finite(value.z), -limits[2], limits[2]) };
   }
-  return { preset: presetOf(settings).id, tempo: tempoOf(settings), intensity: intensityOf(settings), explore: settings.explore !== false, seed: finite(settings.seed, 1) >>> 0, center: { x: clamp(finite(settings.center?.x), -.42, .42), z: clamp(finite(settings.center?.z), -.42, .42) }, yaw: clamp(finite(settings.yaw), -Math.PI, Math.PI), offsets };
+  return { specimen: getSpiderSpecimen(settings.specimen).id, preset: presetOf(settings).id, tempo: tempoOf(settings), intensity: intensityOf(settings), explore: settings.explore !== false, seed: finite(settings.seed, 1) >>> 0, center: { x: clamp(finite(settings.center?.x), -.42, .42), z: clamp(finite(settings.center?.z), -.42, .42) }, yaw: clamp(finite(settings.yaw), -Math.PI, Math.PI), offsets };
 }
 function randomGenerator(seed) {
   let state = finite(seed, 1) >>> 0;
@@ -192,15 +195,15 @@ function bodyAt(beat, motion, item, intensity, out, web, travel) {
   let cx = clamp(finite(motion?.center?.x), -.78, .78); let cz = clamp(finite(motion?.center?.z), -.78, .78);
   const radius = Math.hypot(cx, cz); if (radius > .78) { cx *= .78 / radius; cz *= .78 / radius; }
   out.x = cx + dx; out.z = cz + dz;
-  out.y = .06 + intensity * (item.mode === 'crawl' || item.mode === 'back' ? -.006 : .004 * Math.sin(TAU * beat / item.period));
+  out.y = getSpiderSpecimen(motion?.specimen).bodyHeight + intensity * (item.mode === 'crawl' || item.mode === 'back' ? -.006 : .004 * Math.sin(TAU * beat / item.period));
   out.yaw = clamp(finite(motion?.yaw), -Math.PI, Math.PI) + item.twist * intensity * Math.sin(a + phase);
   // A full turn uses short overlapping steps; each supported toe still holds
   // its touchdown position while the body turns through the next small arc.
   if (item.turnsPerLoop && intensity > 0) out.yaw += mod(beat / item.loopBeats, 1) * TAU * item.turnsPerLoop;
   out.pitch = item.mode === 'threat' ? -.11 * intensity : .025 * intensity * Math.sin(TAU * beat / 4 + item.flavor);
   out.roll = (item.mode === 'rock' ? .12 : .035) * intensity * Math.sin(TAU * beat / (item.mode === 'dance' ? 3 : 8));
-  if (item.mode === 'still') { out.y = .06; out.pitch = 0; out.roll = 0; }
-  if (item.mode === 'pushup') out.y = .045 + .035 * intensity * (.5 + .5 * Math.cos(TAU * beat / 4));
+  if (item.mode === 'still') { out.y = getSpiderSpecimen(motion?.specimen).bodyHeight; out.pitch = 0; out.roll = 0; }
+  if (item.mode === 'pushup') out.y = getSpiderSpecimen(motion?.specimen).bodyHeight - .015 + .035 * intensity * (.5 + .5 * Math.cos(TAU * beat / 4));
   if (item.mode === 'disco') { out.roll = .14 * intensity * Math.sin(TAU * beat / 2); out.pitch = .08 * intensity * Math.cos(TAU * beat / 4); }
   if (item.mode === 'macarena') out.yaw += .14 * intensity * Math.sin(TAU * beat / 8);
   if (web) out.y += spiderWebHeight(web, out.x, out.z);
@@ -233,17 +236,25 @@ function writeLegPose(beat, item, intensity, leg, out, start = 0) {
   }
 }
 
+function writeRootPose(beat, item, intensity, out) {
+  out[0] = 0; out[1] = 0; out[2] = 0;
+  if (item.mode === 'still' || intensity <= 0) return;
+  const wave = Math.sin(TAU * beat / item.period), slow = Math.sin(TAU * beat / 8);
+  out[0] = .045 * intensity * wave; out[1] = .065 * intensity * Math.sin(TAU * beat / 8 + item.flavor); out[2] = .035 * intensity * slow;
+  if (item.mode === 'listen' || item.mode === 'peek') { out[0] = -.05 * intensity; out[1] = .23 * intensity * slow; out[2] = .11 * intensity * Math.sin(TAU * beat / 12); }
+  if (item.mode === 'rock') out[2] = .19 * intensity * slow;
+  if (item.mode === 'threat') out[0] = -.2 * intensity;
+}
 function writePose(time, motion, out, offsets) {
   const beat = timeOf(time) * tempoOf(motion) / 60; const item = presetOf(motion); const intensity = intensityOf(motion);
   const pulse = TAU * beat / item.period; const wave = Math.sin(pulse); const slow = Math.sin(TAU * beat / 8);
   out.fill(0);
+  writeRootPose(beat, item, intensity, out);
   if (item.mode !== 'still' && intensity > 0) {
-    out[0] = .045 * intensity * wave; out[1] = .065 * intensity * Math.sin(TAU * beat / 8 + item.flavor); out[2] = .035 * intensity * slow;
     out[3] = .07 * intensity * Math.sin(pulse + .7); out[4] = .045 * intensity * slow; out[5] = -.04 * intensity * wave;
     if (item.mode === 'drum' || item.mode === 'silk') { out[3] = .2 * intensity * Math.sin(pulse * 2); out[5] = .17 * intensity * slow; }
-    if (item.mode === 'listen' || item.mode === 'peek') { out[0] = -.05 * intensity; out[1] = .23 * intensity * slow; out[2] = .11 * intensity * Math.sin(TAU * beat / 12); }
-    if (item.mode === 'rock') { out[2] = .19 * intensity * slow; out[5] = -.22 * intensity * slow; }
-    if (item.mode === 'threat') { out[0] = -.2 * intensity; out[3] = .16 * intensity; }
+    if (item.mode === 'rock') out[5] = -.22 * intensity * slow;
+    if (item.mode === 'threat') out[3] = .16 * intensity;
     for (let index = 2; index < 6; index += 1) {
       const side = index % 2 ? 1 : -1; const fast = item.mode === 'talk' ? 3 : item.mode === 'clean' ? 2 : 1;
       out[index * 3] = intensity * (index < 4 ? .14 : .045) * Math.sin(pulse * fast + index * .7);
@@ -255,23 +266,46 @@ function writePose(time, motion, out, offsets) {
     const value = motion?.offsets?.[SPIDER_JOINTS[index].id];
     if (value) { out[index * 3] += finite(value.x); out[index * 3 + 1] += finite(value.y); out[index * 3 + 2] += finite(value.z); }
   }
-  return constrainSpiderPose(out);
+  constrainSpiderPose(out);
+  return constrainSpiderBodyPose(out, motion);
 }
 export function writeSpiderPose(time, motion = SPIDER_MOTION_DEFAULTS, out = new Float32Array(114)) { return writePose(time, motion, out, true); }
 
-// Geometry constants below are extracted from the authored CC0 scan rig.json.
-// Keep each chain's asymmetric length; particularly short third legs must not
-// inherit the front legs' reach. They are not measured biological joint lengths.
-const LEG_DATA = [{"id":"leg_left_1","hip":[-0.028999999999999998,-0.008,0.027999999999999997],"tip":[-0.18152625678146816,-0.08133799296441671,0.37022828639823285],"lengths":[0.29287096768969606,0.07019223075724654,0.05636722713421957,0.04210482543238473]},{"id":"leg_left_2","hip":[-0.033,-0.01,0.008999999999999998],"tip":[-0.2594274268285054,-0.0980544765457922,0.19580138155069687],"lengths":[0.15952369469558758,0.15094979360165484,0.09242697039403498,0.040940162626625344]},{"id":"leg_left_3","hip":[-0.033999999999999996,-0.01,-0.012],"tip":[-0.1744725624331153,-0.01479762527681694,-0.2301299117148901],"lengths":[0.0805643961434649,0.10933295587907976,0.055657019405965326,0.02516213183185387]},{"id":"leg_left_4","hip":[-0.028,-0.01,-0.03],"tip":[-0.09058521322903704,-0.12391606722533197,-0.4222173167853169],"lengths":[0.17505455014796373,0.13593106816632802,0.09239121476077286,0.04054629857169566]},{"id":"leg_right_1","hip":[0.028999999999999998,-0.008,0.027999999999999997],"tip":[0.08068319974943625,-0.13605032970107517,0.31947184342565577],"lengths":[0.28330544359600834,0.07013490516814175,0.05545798507459013,0.04011745889279488]},{"id":"leg_right_2","hip":[0.033,-0.01,0.008999999999999998],"tip":[0.15494292382780317,-0.16444708528596944,0.23728675501783783],"lengths":[0.157070639338727,0.1559204134672031,0.09190734982471384,0.04042079699761992]},{"id":"leg_right_3","hip":[0.033999999999999996,-0.01,-0.012],"tip":[0.23709051640080167,-0.013819192487094054,-0.19110928895549073],"lengths":[0.0836505664138107,0.11379697198604838,0.0572018028635017,0.02578615249075577]},{"id":"leg_right_4","hip":[0.028,-0.01,-0.03],"tip":[0.1416698662873986,-0.14681983228387752,-0.4122490041543284],"lengths":[0.2713705663669329,0.06283295164827087,0.0648014945397351,0.039526316917982314]}];
-export const SPIDER_LEG_GEOMETRY = freeze(LEG_DATA.map(leg => {
-  const reach = leg.lengths.reduce((sum, length) => sum + length, 0);
-  const dx = leg.tip[0] - leg.hip[0]; const dz = leg.tip[2] - leg.hip[2]; const length = Math.hypot(dx, dz);
-  return { ...leg, reach, innerReach: Math.max(0, Math.max(...leg.lengths) * 2 - reach), neutral: [leg.hip[0] + dx / length * reach * .68, 0, leg.hip[2] + dz / length * reach * .68] };
-}));
+/** Cheap analytic body transform for the shared support planner. */
+export function writeSpiderBody(time, motion, web, out, pose) {
+  bodyAt(timeOf(time) * tempoOf(motion) / 60, motion, presetOf(motion), intensityOf(motion), out, web);
+  out.pitch += finite(pose?.[0]) * .28; out.yaw += finite(pose?.[1]) * .2; out.roll += finite(pose?.[2]) * .28;
+  return out;
+}
+
+/** Identical root/body inputs for support interval checks. Local face and
+ * abdomen collision solves cannot change the root, so those unrelated solves
+ * are omitted when evaluating a changed gesture against its committed stride. */
+export function writeSpiderSupportBody(time, motion, web, out, pose, midiOffsets) {
+  const item = presetOf(motion), profile = getSpiderSpecimen(motion?.specimen).collisionProfile;
+  writeRootPose(timeOf(time) * tempoOf(motion) / 60, item, intensityOf(motion), pose);
+  const offset = motion?.offsets?.cephalothorax, limits = LIMITS.cephalothorax;
+  if (offset) { pose[0] += finite(offset.x); pose[1] += finite(offset.y); pose[2] += finite(offset.z); }
+  for (let axis = 0; axis < 3; axis++) pose[axis] = clamp(finite(pose[axis]), -limits[axis], limits[axis]);
+  constrainSpiderCollisionRoot(pose, profile);
+  if (midiOffsets) {
+    for (let axis = 0; axis < 3; axis++) pose[axis] += finite(midiOffsets[axis]);
+    constrainSpiderCollisionRoot(pose, profile);
+  }
+  return writeSpiderBody(time, motion, web, out, pose);
+}
+
+// The original export remains available to diagnostics; active specimens use
+// their own measured chains before the model download has completed.
+export const SPIDER_LEG_GEOMETRY = getSpiderSpecimen('argiope').legs;
+export function constrainSpiderBodyPose(pose, motion = SPIDER_MOTION_DEFAULTS) {
+  return constrainSpiderCollisionPose(pose, getSpiderSpecimen(motion.specimen).collisionProfile);
+}
 
 export function createSpiderFrame() {
   const frame = { time: 0, body: { x: 0, y: .06, z: 0, yaw: 0, pitch: 0, roll: 0 }, feet: Array.from({ length: 8 }, (_, legIndex) => ({ id: SPIDER_JOINTS[9 + legIndex * 4].id, legIndex, x: 0, y: 0, z: 0, segmentId: 0, u: .5, stance: true, step: 0, impact: 0, speed: 0, angle: 0 })), pose: new Float32Array(114), beat: 0, beatIndex: 0, bar: 0, phase: 0, supportCount: 8, airborne: false, tethered: false, motionActive: true, contactEpoch: 0 };
   Object.defineProperty(frame, '_scratch', { value: { base: new Float32Array(114), anchorBase: new Float32Array(12), body: { x: 0, y: 0, z: 0, yaw: 0, pitch: 0, roll: 0 }, phase: { step: 0, phase: 0, stance: true, touchBeat: 0, nextBeat: 0, swing: 0 }, a: { x: 0, y: 0, z: 0, segmentId: 0, u: 0, distance: 0 }, b: { x: 0, y: 0, z: 0, segmentId: 0, u: 0, distance: 0 } } });
+  frame._scratch.anchors = Array.from({ length: 8 }, () => ({ cursor: 0, records: Array.from({ length: 8 }, () => ({ valid: false, qx: 0, qz: 0, hx: 0, hy: 0, hz: 0, yaw: 0, pitch: 0, roll: 0, x: 0, y: 0, z: 0, segmentId: -1, u: 0, distance: 0 })) }));
   return frame;
 }
 
@@ -303,10 +337,10 @@ export function writeSpiderLegOffset(legIndex, touchTime, motion, pose, midiOffs
   out.x = clamp(dx, -.055, .055); out.z = clamp(dz, -.055, .055); return out;
 }
 
-function anchor(beat, motion, item, intensity, web, legIndex, pose, base, body, out, midiPoseOffsets, anchorBase, travel) {
+function anchor(beat, motion, item, intensity, web, legIndex, pose, base, body, out, midiPoseOffsets, anchorBase, travel, clearance, cache) {
   bodyAt(beat, motion, item, intensity, body, web, travel);
-  const geometry = SPIDER_LEG_GEOMETRY[legIndex]; const side = legIndex < 4 ? -1 : 1;
-  let x = geometry.neutral[0]; let z = geometry.neutral[2];
+  const geometry = getSpiderSpecimen(motion.specimen).legs[legIndex]; const side = legIndex < 4 ? -1 : 1;
+  let x = spiderFootNeutralX(geometry); let z = geometry.neutral[2];
   // Only the local overlay is applied here: procedural rotations are represented
   // by the analytic target itself. This keeps held stance anchors stationary.
   if (midiPoseOffsets) writeLegPose(beat, item, intensity, legIndex, anchorBase);
@@ -332,26 +366,65 @@ function anchor(beat, motion, item, intensity, web, legIndex, pose, base, body, 
   const c = Math.cos(body.yaw); const s = Math.sin(body.yaw);
   const hx = body.x + geometry.hip[0] * c + geometry.hip[2] * s;
   const hz = body.z + geometry.hip[2] * c - geometry.hip[0] * s;
-  return projectInto(web, body.x + x * c + z * s, body.z + z * c - x * s, out, hx, hz, geometry.reach * .78, body.y + geometry.hip[1], true, geometry.innerReach + .035);
+  const hy = body.y + geometry.hip[1], qx = body.x + x * c + z * s, qz = body.z + z * c - x * s;
+  // Contact queries recur at the same touchdown even when graphics stall or
+  // the sample clock forecasts several events. Reuse exact solved identities;
+  // the bounded cache never changes which strand a fresh query would select.
+  for (const record of cache.records) if (record.valid && record.qx === qx && record.qz === qz && record.hx === hx && record.hy === hy && record.hz === hz && record.yaw === body.yaw && record.pitch === body.pitch && record.roll === body.roll) {
+    out.x = record.x; out.y = record.y; out.z = record.z; out.segmentId = record.segmentId; out.u = record.u; out.distance = record.distance; return out;
+  }
+  writeSpiderFootClearance(clearance, null, body, null, legIndex);
+  writeSpiderFootCell(clearance, getSpiderSpecimen(motion.specimen).legs, legIndex, body);
+  writeSpiderFootOutward(clearance, geometry, body, .012);
+  projectInto(web, qx, qz, out, hx, hz, geometry.reach * .78, hy, true, geometry.innerReach + geometry.reachMargin, clearance);
+  // A sparse fan may only offer a farther strand in this leg's solid-safe
+  // workspace. Spend some of its measured reserve before refusing the target.
+  if (out.segmentId < 0) projectInto(web, qx, qz, out, hx, hz, geometry.reach * .88, hy, true, geometry.innerReach + geometry.reachMargin, clearance);
+  if (out.segmentId < 0) {
+    // The final support-body guard can turn the performer toward an available
+    // foothold when a sparse fan offers none at the requested heading. Keep
+    // body exclusion, toe cells and exact reach rather than inventing a strand.
+    clearance.hipPlane = null; clearance.sidePlane = null;
+    projectInto(web, qx, qz, out, hx, hz, geometry.reach * .78, hy, true, geometry.innerReach + geometry.reachMargin, clearance);
+  }
+  const record = cache.records[cache.cursor++ % 8];
+  record.valid = true; record.qx = qx; record.qz = qz; record.hx = hx; record.hy = hy; record.hz = hz; record.yaw = body.yaw; record.pitch = body.pitch; record.roll = body.roll;
+  record.x = out.x; record.y = out.y; record.z = out.z; record.segmentId = out.segmentId; record.u = out.u; record.distance = out.distance;
+  return out;
 }
 
 // Optional final argument is the MIDI layer's pre-clamp additive XYZ radians.
 // It is separate from pose and owned/reused by the caller, never a custom field
 // on a typed array. Existing five-argument diagnostics retain their behavior.
 export function writeSpiderFrame(time, motion = SPIDER_MOTION_DEFAULTS, web, out = createSpiderFrame(), pose, midiPoseOffsets, travel) {
+  return writeFrame(time, motion, web, out, pose, midiPoseOffsets, travel, true);
+}
+
+/** A prepared locomotion plan owns all feet. Compose the exact same clock,
+ * pose, body and airborne gesture without computing discarded stationary toes. */
+export function writeSpiderFrameBody(time, motion, web, out, pose, midiPoseOffsets) {
+  return writeFrame(time, motion, web, out, pose, midiPoseOffsets, undefined, false);
+}
+
+function writeFrame(time, motion, web, out, pose, midiPoseOffsets, travel, contacts) {
   const t = timeOf(time); const tempo = tempoOf(motion); const intensity = intensityOf(motion); const item = presetOf(motion); const beat = t * tempo / 60;
   const scratch = out._scratch;
+  const profile = getSpiderSpecimen(motion.specimen).collisionProfile;
+  if (contacts && (scratch.clearance?.profile !== profile || scratch.web !== web)) {
+    scratch.clearance = createSpiderFootClearance(profile); scratch.web = web;
+    for (const cache of scratch.anchors) { cache.cursor = 0; for (const record of cache.records) record.valid = false; }
+  }
   const contactItem = travel?.contactItem || item; const contactBeat = travel?.contactItem ? travel.contactBeat : beat; const contactTempo = travel?.contactItem ? travel.contactTempo : tempo;
-  if (pose) { if (pose !== out.pose) for (let i = 0; i < 114; i += 1) out.pose[i] = finite(pose[i]); constrainSpiderPose(out.pose); }
+  if (pose) { if (pose !== out.pose) for (let i = 0; i < 114; i += 1) out.pose[i] = finite(pose[i]); constrainSpiderPose(out.pose); constrainSpiderBodyPose(out.pose, motion); }
   else writePose(t, motion, out.pose, true);
-  writePose(t, motion, scratch.base, false);
+  if (contacts) writePose(t, motion, scratch.base, false);
   out.time = t; out.beat = beat; out.beatIndex = Math.floor(beat + 1e-10); out.bar = Math.floor(out.beatIndex / 4); out.phase = mod(beat, 1);
   bodyAt(beat, motion, item, intensity, out.body, web, travel);
   // The fused front body can rock over fixed toe anchors; IK holds the support.
   out.body.pitch += out.pose[0] * .28; out.body.yaw += out.pose[1] * .2; out.body.roll += out.pose[2] * .28;
   if (travel) travel.anchorQuery = true;
   out.supportCount = 0; out.airborne = false; out.tethered = false;
-  for (let index = 0; index < 8; index += 1) {
+  if (contacts) for (let index = 0; index < 8; index += 1) {
     const foot = out.feet[index]; const state = footPhase(contactBeat, contactItem, index, travel?.contactItem ? travel.contactIntensity : intensity, scratch.phase);
     let touchBeat = state.touchBeat; let nextBeat = state.nextBeat;
     if (travel?.contactItem) {
@@ -359,9 +432,9 @@ export function writeSpiderFrame(time, motion = SPIDER_MOTION_DEFAULTS, web, out
       touchBeat = travel.anchorMotionAdvances ? (aClock - travel.frameClockOffset) * tempo / 60 : beat; nextBeat = travel.anchorMotionAdvances ? (bClock - travel.frameClockOffset) * tempo / 60 : beat;
       travel.queryClock = aClock;
     }
-    const a = anchor(touchBeat, motion, item, intensity, web, index, out.pose, scratch.base, scratch.body, scratch.a, midiPoseOffsets, scratch.anchorBase, travel);
+    const a = anchor(touchBeat, motion, item, intensity, web, index, out.pose, scratch.base, scratch.body, scratch.a, midiPoseOffsets, scratch.anchorBase, travel, scratch.clearance, scratch.anchors[index]);
     if (travel?.contactItem) travel.queryClock = state.nextBeat * 60 / contactTempo + travel.contactClockOffset;
-    const b = anchor(nextBeat, motion, item, intensity, web, index, out.pose, scratch.base, scratch.body, scratch.b, midiPoseOffsets, scratch.anchorBase, travel);
+    const b = anchor(nextBeat, motion, item, intensity, web, index, out.pose, scratch.base, scratch.body, scratch.b, midiPoseOffsets, scratch.anchorBase, travel, scratch.clearance, scratch.anchors[index]);
     foot.airborne = false; foot.stance = state.stance; foot.step = state.step; foot.segmentId = a.segmentId; foot.u = a.u;
     const swingTime = contactItem.period * (1 - contactItem.duty) * 60 / contactTempo;
     foot.speed = state.nextBeat === state.touchBeat ? 0 : Math.hypot(b.x - a.x, b.z - a.z, contactItem.lift * intensity * 2) / Math.max(.025, swingTime);
@@ -382,10 +455,11 @@ export function writeSpiderFrame(time, motion = SPIDER_MOTION_DEFAULTS, web, out
       out.body.y += height;
       if (item.mode === 'roll') out.body.roll += TAU * smooth(amount);
       if (item.mode === 'leap') out.body.pitch += .3 * Math.sin(TAU * amount) * intensity;
-      for (const foot of out.feet) { foot.stance = false; foot.airborne = true; foot.impact = 0; }
+      if (contacts) for (const foot of out.feet) { foot.stance = false; foot.airborne = true; foot.impact = 0; }
       out.supportCount = 0;
     }
   }
+  if (contacts) constrainSpiderSupportBody(out, profile);
   return out;
 }
 

@@ -1,0 +1,50 @@
+{
+  "version": 1,
+  "species": "Maratus volans",
+  "source": "https://doi.org/10.1371/journal.pone.0025390.s001",
+  "license": "CC BY 4.0",
+  "licenseEvidence": "https://api.figshare.com/v2/articles/132960",
+  "author": "Madeline B. Girard, Michael M. Kasumovic, Damian O. Elias",
+  "sourceSha256": "eb17b297355119430fa1abe8763160c3eef78d8f04be241df7ea96923a77ca0b",
+  "records": [
+    {
+      "id": "peacock-rumble",
+      "filename": "peacock-rumble.wav",
+      "sourceStart": 18.82,
+      "sourceEnd": 21.38,
+      "duration": 2.56,
+      "sampleRate": 22050,
+      "gain": 2.2699669632651207,
+      "rms": 0.05629946169280791,
+      "peak": 0.76,
+      "sha256": "3212d12cf550ef3d012bce6cc0fec02e29723a6b3f7c3f2e0ea792a441a22084",
+      "bytes": 112940
+    },
+    {
+      "id": "peacock-crunch",
+      "filename": "peacock-crunch.wav",
+      "sourceStart": 39.93,
+      "sourceEnd": 41.27,
+      "duration": 1.34,
+      "sampleRate": 22050,
+      "gain": 1.091416079376174,
+      "rms": 0.08473367966206007,
+      "peak": 0.76,
+      "sha256": "b93f8547e8811ae8560b91cdc9cb720d5afa953cb19729d681fae584a6d7d5ff",
+      "bytes": 59138
+    },
+    {
+      "id": "peacock-grind",
+      "filename": "peacock-grind.wav",
+      "sourceStart": 59.02,
+      "sourceEnd": 61.05,
+      "duration": 2.0300226757369613,
+      "sampleRate": 22050,
+      "gain": 3.3505019218250345,
+      "rms": 0.07927638788201748,
+      "peak": 0.76,
+      "sha256": "a77617ffa55c7144fe11bfa8d358862594766318c58a6eb0472841ea3f6a171c",
+      "bytes": 89568
+    }
+  ]
+}

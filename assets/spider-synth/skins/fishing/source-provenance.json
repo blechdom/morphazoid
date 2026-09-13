@@ -1,0 +1,43 @@
+{
+  "uid": "17b41b78fc2545ea839ba67952a60953",
+  "name": "CC0 \u30a4\u30aa\u30a6\u30a4\u30ed\u30cf\u30b7\u30ea\u30b0\u30e2\uff1f \ud83d\udd77\ufe0f Fishing Spider, D. sulfureus",
+  "description": "License: **CC0**  \n\u30b9\u30b8\u30dc\u30bd\u578b. \n  \nAnimalia \u52d5\u7269\u754c  \n\u3000Arthropoda \u7bc0\u8db3\u52d5\u7269\u9580  \n\u3000\u3000Arachnida \u30af\u30e2\u7db1  \n\u3000\u3000\u3000Araneae \u30af\u30e2\u76ee  \n\u3000\u3000\u3000\u3000Pisauridae \u30ad\u30b7\u30c0\u30b0\u30e2\u79d1  \n\u3000\u3000\u3000\u3000\u3000Dolomedes \u30cf\u30b7\u30ea\u30b0\u30e2\u5c5e  \n\u3000\u3000\u3000\u3000\u3000\u3000Dolomedes sulfureus \u30a4\u30aa\u30a6\u30a4\u30ed\u30cf\u30b7\u30ea\u30b0\u30e2  \n  \n\u30af\u30e2 \u8718\u86db",
+  "license": {
+    "uri": "https://api.sketchfab.com/v3/licenses/7c23a1ba438d4306920229c12afcb5f9",
+    "label": "CC0 Public Domain",
+    "fullName": "CC0 Public Domain",
+    "requirements": "Credit is not mandatory. Commercial use is allowed.",
+    "url": "http://creativecommons.org/publicdomain/zero/1.0/",
+    "slug": "cc0"
+  },
+  "createdAt": "2024-01-16T07:51:16.396006",
+  "publishedAt": "2024-01-16T07:51:59.593603",
+  "faceCount": 147024,
+  "vertexCount": 73794,
+  "animationCount": 0,
+  "isDownloadable": true,
+  "isProtected": false,
+  "viewerUrl": "https://sketchfab.com/3d-models/cc0-fishing-spider-d-sulfureus-17b41b78fc2545ea839ba67952a60953",
+  "creator": {
+    "displayName": "ffish.asia / floraZia.com",
+    "profileUrl": "https://sketchfab.com/ffishAsia-and-floraZia",
+    "username": "ffishAsia-and-floraZia"
+  },
+  "retrieved": "2026-09-12",
+  "archive": "https://mirror.traines.eu/sketchfab-backup/17/17b41b78fc2545ea839ba67952a60953.zip",
+  "archiveSha256": "a2ea2f1e2f07567bacef216bcaf4e63e02e1b1a02a53bb1d28dbdaf24a54af5e",
+  "archiveBytes": 14207773,
+  "inspection": {
+    "suppliedSkin": false,
+    "suppliedAnimation": false,
+    "animalTriangles": 147012,
+    "excludedCalibrationTriangles": 12,
+    "rigJoints": 38,
+    "colorTexture": [
+      4096,
+      4096
+    ],
+    "runtimeBytes": 6213220,
+    "runtimeSha256": "55fe1cf424d48cabff30a8c16c864366b499c35f5282f1dfae33ac54d665855a"
+  }
+}

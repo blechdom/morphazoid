@@ -20,3 +20,10 @@ node --test tests/spider-synth-asset.test.mjs
 The preparation script requires NumPy, SciPy and Pillow only at build time. The published delivery was prepared using NumPy 2.5.3, SciPy 1.18.1, Pillow 12.3.0 and Node 22.23.2, plus the repository's vendored Meshoptimizer encoder. WebP bytes may differ with encoder versions; the packed report records the actual result. No processing dependencies or original source archives are downloaded by the instrument at runtime.
 
 `specimen.webp` is an actual 1100 x 900 render of the neutral spider and web. The matching instrument icon is a separate 512 x 512 render, not a crop that cuts away the feet. Both use WebP quality 90. No AI-generated specimen image is used.
+
+The original rig now also includes measured body collision ellipsoids, per-link
+cross-section radii and `neutralBodyHeight` (0.0789815082 web units). This is a
+metadata addition; the original `spider-mobile.glb` bytes are unchanged. The
+height includes 0.014 units of clearance above the fitted body underside.
+Five additional independently rigged real scans are documented in
+[skins/ASSET.md](skins/ASSET.md).

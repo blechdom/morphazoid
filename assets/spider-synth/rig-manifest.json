@@ -825,7 +825,13 @@
           0.37022828639823285
         ]
       ],
-      "sourceBranchVertices": 4270
+      "sourceBranchVertices": 4270,
+      "radii": [
+        0.026799280900748762,
+        0.004383664952949076,
+        0.0032429113180759707,
+        0.002761219074975544
+      ]
     },
     {
       "id": "leg_left_2",
@@ -1122,7 +1128,13 @@
           0.19580138155069687
         ]
       ],
-      "sourceBranchVertices": 3520
+      "sourceBranchVertices": 3520,
+      "radii": [
+        0.01676521961221484,
+        0.021806829448380298,
+        0.005178507294329302,
+        0.0027232570079725074
+      ]
     },
     {
       "id": "leg_left_3",
@@ -1419,7 +1431,13 @@
           -0.2301299117148901
         ]
       ],
-      "sourceBranchVertices": 1874
+      "sourceBranchVertices": 1874,
+      "radii": [
+        0.012046909576025337,
+        0.013823947180646572,
+        0.004578658391755417,
+        0.002436664968640123
+      ]
     },
     {
       "id": "leg_left_4",
@@ -1716,7 +1734,13 @@
           -0.4222173167853169
         ]
       ],
-      "sourceBranchVertices": 2700
+      "sourceBranchVertices": 2700,
+      "radii": [
+        0.019870770506699702,
+        0.008976073962573605,
+        0.004114127424016521,
+        0.002475086367939502
+      ]
     },
     {
       "id": "leg_right_1",
@@ -2013,7 +2037,13 @@
           0.31947184342565577
         ]
       ],
-      "sourceBranchVertices": 3927
+      "sourceBranchVertices": 3927,
+      "radii": [
+        0.023704332822629782,
+        0.004865079400224975,
+        0.003327553652746796,
+        0.0027719756795157725
+      ]
     },
     {
       "id": "leg_right_2",
@@ -2310,7 +2340,13 @@
           0.23728675501783783
         ]
       ],
-      "sourceBranchVertices": 3408
+      "sourceBranchVertices": 3408,
+      "radii": [
+        0.023513048034456353,
+        0.016902266757308482,
+        0.004301112300529995,
+        0.0027955769775366212
+      ]
     },
     {
       "id": "leg_right_3",
@@ -2607,7 +2643,13 @@
           -0.19110928895549073
         ]
       ],
-      "sourceBranchVertices": 1694
+      "sourceBranchVertices": 1694,
+      "radii": [
+        0.014946727035204343,
+        0.00962663921724355,
+        0.004306784299204681,
+        0.002815463891420269
+      ]
     },
     {
       "id": "leg_right_4",
@@ -2904,7 +2946,13 @@
           -0.4122490041543284
         ]
       ],
-      "sourceBranchVertices": 2954
+      "sourceBranchVertices": 2954,
+      "radii": [
+        0.03178706884601416,
+        0.005639955020590269,
+        0.0029289710043691928,
+        0.003207267853392621
+      ]
     }
   ],
   "triangles": 106200,
@@ -2917,5 +2965,37 @@
   },
   "sourceSha256": "2d3a0f5c20396df17e39bf87adc4265c3d5ac54150d6bcafd3979af0d9b11848",
   "outputSha256": "050375e8cff1df8dbb6aeb1e917052bded448ee3eed624aece93c6b13694627d",
-  "caveat": "Approximate authored articulation of a real static photogrammetry surface; small mouth and grouped leg segments are not measured biological joints."
+  "caveat": "Approximate authored articulation of a real static photogrammetry surface; small mouth and grouped leg segments are not measured biological joints.",
+  "id": "argiope",
+  "collision": {
+    "bodies": [
+      {
+        "jointId": "cephalothorax",
+        "center": [
+          -6.477991891656876e-06,
+          -0.0030706760312012443,
+          0.009691851797273412
+        ],
+        "radii": [
+          0.044213890395499986,
+          0.040339916586707145,
+          0.04017186539894047
+        ]
+      },
+      {
+        "jointId": "abdomen",
+        "center": [
+          -0.0008699757251722368,
+          -0.0055186637820701274,
+          -0.12842131645543914
+        ],
+        "radii": [
+          0.06557437305339993,
+          0.0594628444074893,
+          0.0929690366962975
+        ]
+      }
+    ]
+  },
+  "neutralBodyHeight": 0.07898150818955943
 }

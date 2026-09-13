@@ -1,0 +1,43 @@
+{
+  "uid": "d7c041dddbbe49d38b33b60db6a6b1a7",
+  "name": "CC0 \u30a2\u30b7\u30c0\u30ab\u30b0\u30e2 \ud83d\udd77\ufe0f Huntsman Spider, H. venatoria",
+  "description": "License: **CC0**  \n  \nAnimalia \u52d5\u7269\u754c  \n\u3000Arthropoda \u7bc0\u8db3\u52d5\u7269\u9580  \n\u3000\u3000Arachnida \u30af\u30e2\u7db1  \n\u3000\u3000\u3000Araneae \u30af\u30e2\u76ee  \n\u3000\u3000\u3000\u3000Sparassidae \u30a2\u30b7\u30c0\u30ab\u30b0\u30e2\u79d1  \n\u3000\u3000\u3000\u3000\u3000Heteropoda \u30a2\u30b7\u30c0\u30ab\u30b0\u30e2\u5c5e  \n\u3000\u3000\u3000\u3000\u3000\u3000Heteropoda venatoria \u30a2\u30b7\u30c0\u30ab\u30b0\u30e2  \n  \n\u30af\u30e2 \u8718\u86db",
+  "license": {
+    "uri": "https://api.sketchfab.com/v3/licenses/7c23a1ba438d4306920229c12afcb5f9",
+    "label": "CC0 Public Domain",
+    "fullName": "CC0 Public Domain",
+    "requirements": "Credit is not mandatory. Commercial use is allowed.",
+    "url": "http://creativecommons.org/publicdomain/zero/1.0/",
+    "slug": "cc0"
+  },
+  "createdAt": "2024-03-18T04:44:05.631699",
+  "publishedAt": "2024-03-18T04:44:46.545930",
+  "faceCount": 171934,
+  "vertexCount": 86174,
+  "animationCount": 0,
+  "isDownloadable": true,
+  "isProtected": false,
+  "viewerUrl": "https://sketchfab.com/3d-models/cc0-huntsman-spider-h-venatoria-d7c041dddbbe49d38b33b60db6a6b1a7",
+  "creator": {
+    "displayName": "ffish.asia / floraZia.com",
+    "profileUrl": "https://sketchfab.com/ffishAsia-and-floraZia",
+    "username": "ffishAsia-and-floraZia"
+  },
+  "retrieved": "2026-09-12",
+  "archive": "https://mirror.traines.eu/sketchfab-backup/d7/d7c041dddbbe49d38b33b60db6a6b1a7.zip",
+  "archiveSha256": "a2dccf6670b00077126fa3a0062d073e76769786e2bb370318d73148d9c2478c",
+  "archiveBytes": 14123227,
+  "inspection": {
+    "suppliedSkin": false,
+    "suppliedAnimation": false,
+    "animalTriangles": 171906,
+    "excludedCalibrationTriangles": 28,
+    "rigJoints": 38,
+    "colorTexture": [
+      4096,
+      4096
+    ],
+    "runtimeBytes": 5972996,
+    "runtimeSha256": "e6b118582f83cb728f75398a153cc9ce94a56437f99df06112f364a5d91b289b"
+  }
+}

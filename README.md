@@ -1,10 +1,14 @@
 # Morphazoid
 
-[Spider Synth](spider-synth.html) makes a scanned orb-weaver and its web into an
-instrument. Eight articulated legs pluck length-dependent silk strings; 40
-motion patches, held poses, body/web source assignments, speech and independent
-MIDI poses share an audio-clock contact model. Construction controls shape 17
-web families, and the spider can lay silk, catch flies and follow a joystick.
+[Spider Synth](spider-synth.html) makes six independently rigged spider scans
+and a playable web into an instrument. Eight articulated legs pluck
+length-dependent silk strings; 40 motion patches, held poses, body/web source
+assignments, speech and independent MIDI poses share an audio-clock contact
+model. Twenty-seven sound presets and 40 motion companion mixes include short,
+licensed recordings of peacock-spider courtship vibrations. Construction
+controls shape 17 web families, and the spider can lay silk, catch flies and
+follow a joystick. Each selected specimen loads individually without delaying
+Audio; changing its skin or body pose preserves the players.
 See the [request audit](docs/spider-synth-request-audit.md),
 [research and model limits](SPIDER_SYNTH_RESEARCH.md) and
 [MIDI performance guide](docs/spider-synth-midi.md).

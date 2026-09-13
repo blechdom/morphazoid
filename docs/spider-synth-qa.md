@@ -1,3 +1,146 @@
+# Spider Synth — version 4 QA record
+
+Date: 2026-09-12. This update adds five independently rigged scanned specimens,
+three licensed animal-recording sources, and body/leg clearance handling. The
+version 3 and version 2 measurements below are historical, not measurements of
+this release. No human listening, physical-phone, hardware MIDI or DAW-host
+acceptance is claimed.
+
+## Playback and model loading
+
+The separate pose hotfix `b9606cd` was deployed before this update. Body pose,
+Random pose and Reset preserve both players, the selected routine and phase;
+starting Animation retains the selected held pose. Three live-site cases passed
+at desktop, phone portrait and phone landscape sizes. AWS and Pages deployment
+jobs succeeded and all 34 frozen public runtime/page/contract files matched.
+
+The additional skin browser cases exercise all six specimens on desktop and
+phone. They verify one initial GLB request, live audio and contact events while
+a replacement download is deliberately held, unchanged pose/sound/web/transport,
+and paused phase continuity. Invalid rigs, failed requests, superseded selections
+and Retry retain a playable specimen. All three skin cases pass. Each replacement
+is validated before the previous GPU scene is released; inactive scans are not
+kept as live GPU scenes.
+
+Three recording browser cases pass: desktop/phone delayed loading after Audio
+arm, movement-triggered grains, finite tails after stopping, a deliberate 650 ms
+main-thread stall, and complete recording download failure with procedural sound
+still playable. Shared responsive, strict accessibility, strict control inventory
+and shared-contract audits pass. Responsive coverage includes 1440×900, 390×844
+and 844×390; strict accessibility reports no serious or critical violations.
+
+## Scans and measured recordings
+
+The original scan retains its 5,488,852-byte GLB. Five additional GLBs retain all
+animal triangles and photographed 4K textures in approximately 5–6.6 MB each.
+All 38 joints have real weighted vertices. Six independent leg-chain profiles
+are available before any mesh load, so sound and contact timing cannot wait for
+a model download. The asset tests check weights, inverse binds, endpoints, link
+lengths, compression decode, body height and license provenance. See
+[specimen details](../assets/spider-synth/skins/ASSET.md) for exact sizes and
+quality limits; the museum tarantula has softer source detail.
+
+The three excerpts total 261,646 bytes and are credited Maratus volans substrate
+courtship vibrations from Girard et al. (2011), not calls of the selected scanned
+species. Eight bounded grain voices respond to accepted movement, contacts and
+MIDI; there is no unattended recording loop. The new samples do not delay Audio
+arm, procedural voices or speech. Sources, extraction and licensing are in the
+[recording provenance](../assets/audio/spider-synth/README.md).
+
+## Collision and final integration
+
+The collision suite exercises 5,760 skeletal frames across six specimens and
+40 routines, plus 80 hostile manual poses. Normal routine tests keep additional
+proxy penetration below approximately 0.000255 web units. Extreme simultaneous
+manual edits use an explicit 0.001-unit tolerance (about 0.1% of the scan span).
+This is an approximation of solids, not a promise of exact mesh separation.
+Skeletal planted-toe error stays below 4e−16 in the normal probe; actual GPU
+surface rendering has its separate browser tolerance. Airborne toes can fold
+for clearance while planted contacts and the measured link lengths stay fixed.
+
+Main body/abdomen volumes and leg thicknesses are measured from each scan;
+palp/fang volumes are derived from authored pivots and body length. Existing
+anatomical attachment overlaps remain calibrated baselines. The shared planner
+clips exact valid intervals on strands, excludes body/toe volumes, rejects
+infeasible body orientations, and preserves the leg/strand/position/time ledger.
+A geometric boundary regression checks the outer supported toe approaching the
+capture-web edge rather than demanding that the body cross its reachable limit.
+
+The first integrated stress benchmark found recurring deadline failures from
+repeated future body calculations, rather than recording playback. Its partial
+results are retained as failed development evidence, not release acceptance.
+The fixes preserve exact results: bounded pose/projection caches, a root-only
+support forecast, omission of stationary toes that a committed walking plan
+immediately replaces, and evaluation of only audible body-source expressions.
+The complete viewer collision solve remains outside the audio thread.
+
+Equivalence checks cover 4,800 optimized full-guard comparisons, 1,200 root-only
+guard comparisons, 1,920 composed root/body cases, and 960 complete frames with
+matching event ledgers and snapshots. The latter include all six specimens,
+dense MIDI, sprint/leap/roll, paused/resumed animation and hold/travel transitions.
+The final geometry combination passes 122 focused tests and 19 collision/viewer
+tests. All nine future support samples remain in use.
+
+The audio-expression optimization matches all 27×27 source transitions at
+24, 48 and 96 kHz: 2,187 cases and 4,866,075 scalar samples. All 67 sound and
+companion mixes also match over 1,097,728 stereo frames with MIDI and interrupted
+crossfades; stateful surfaces, oscillator state and telemetry match. Existing
+audio and recording tests pass 61/61. These comparisons establish preservation,
+not human approval of timbre.
+
+## Final callback measurements
+
+Frozen runtime: model `c5cdcd7d`, world `34e15c20`, collision `e9ea0ff1`, DSP
+`36463d0c`. Node 22.23.2 on Linux ARM64 runs the actual processor at 48 kHz,
+128-frame stereo callbacks and approximately 10 Hz world snapshots. Node's
+`structuredClone` stands in for MessagePort submission; this does not measure a
+browser's device scheduling, native clone cost or physical-phone performance.
+Each of 30 cases has 1,500 warm-up and 5,000 measured callbacks.
+
+Every case's p99 is below the 2.667 ms deadline. All twelve held/normal-walk
+cases have zero overruns. The eighteen maximum-load cases have **245 tail
+overruns**, or 0.272% of their 90,000 callbacks (0.163% of all 150,000 measured
+callbacks). This is not a zero-dropout or worst-case real-time guarantee.
+
+| Specimen | Normal walk p99 ms | Worst dense p99 ms | Worst dense callback ms | Dense overruns |
+| --- | ---: | ---: | ---: | ---: |
+| Argiope | 1.233 | 2.439 | 4.331 | 60 / 15,000 |
+| Golden | 1.231 | 2.347 | 4.072 | 50 / 15,000 |
+| Devil | 1.204 | 2.377 | 3.926 | 55 / 15,000 |
+| Tarantula | 1.186 | 1.907 | 3.034 | 5 / 15,000 |
+| Huntsman | 1.182 | 1.828 | 3.680 | 6 / 15,000 |
+| Fishing | 1.163 | 2.455 | 3.688 | 69 / 15,000 |
+
+Dense cases combine 300 BPM sprinting, maximum movement, a 24-spoke/16-ring
+web, 24 held/retriggered MIDI notes, all 24 group/axis CC ramps at 46.875 Hz,
+bend/pressure, eight replenished prey, silk deposition and dense recorded,
+wire or textured mixes. All 150,000 callbacks are finite with no clipped
+samples. No physical foot events are late or dropped by the event scheduler;
+maximum sub-sample timing error is 0.4 samples. These offline event counters do
+not prove absence of audible device underruns during the timing outliers.
+The recording pool stays at eight voices. When every body/string row is forced
+to a recorded source, bounded fragment/retrigger admission rejects excess
+accents; those admission counters are distinct from lost physical foot events.
+
+Eighteen four-second stereo audition renders cover all three recorded presets
+and six skins. All are finite below full scale and contain 24–37 recording
+attacks. Courtship RMS spans −26.35 to −22.43 dBFS, percussion −27.21 to
+−24.60 dBFS, and underworld −19.32 to −16.02 dBFS. Exact rendered WAV hashes and
+raw callback timings are preserved in the local final characterization bundle;
+these renders have not received human listening approval.
+
+Repository verification passes: 3,512 tests passed, six skipped, zero failures;
+syntax, SIMD, XYFlow and clean WAX reproduction checks pass. The final browser
+suites pass **35/35 on source and 35/35 on WAX**. These cover skin load failures
+and replacement races, recordings/fallback, pose and sound independence, all
+ordinary routines, mobile portrait/landscape scroll and touch, MIDI, speaking
+face motion, prey/silk and worklet continuity during rendering stalls. The four
+shared responsive/accessibility/control/contract audits also pass. Final desktop
+and phone screenshots were inspected; this remains browser emulation rather
+than physical-device or human-listening acceptance.
+
+---
+
 # Spider Synth — version 3 QA record
 
 Date: 2026-09-12. This record covers the coupled locomotion, construction and
