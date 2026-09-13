@@ -29,7 +29,6 @@
           <option value="spider-synth.html">Spider Synth</option>
         </select>
       </label>
-      <a class="about-header-link" href="storybook/">Design system</a>
     </header>
 
     <main class="about-shell" id="about">
@@ -51,103 +50,65 @@
           ></div>
         </section>
 
-        <section class="manual-section" id="implementation">
+        <section class="manual-section" id="project">
           <div class="manual-section-heading">
-            <p class="manual-section-label">Built with</p>
-            <h2>Implementation</h2>
-            <p class="manual-section-note">
-              Morphazoid is a static site and does not need an application server.
-            </p>
+            <h2>Project</h2>
           </div>
           <div class="manual-copy">
-            <dl class="technical-list">
-              <div>
-                <dt>Interface</dt>
-                <dd>Plain HTML, CSS, and JavaScript modules. No UI framework.</dd>
-              </div>
-              <div>
-                <dt>Graphics</dt>
-                <dd>Canvas draws the instrument stages with a pixel budget for large screens.</dd>
-              </div>
-              <div>
-                <dt>Audio</dt>
-                <dd>
-                  Web Audio handles synthesis, filters, routing, and output. AudioWorklets handle
-                  continuous high-voice-count synthesis.
+            <dl class="technical-list project-links">
+              <div class="project-author-row">
+                <dt class="project-author-heading">
+                  <img
+                    class="author-mark"
+                    src="assets/author/kristin-galvin.webp"
+                    width="512"
+                    height="512"
+                    alt="A playful illustrated portrait of Kristin Galvin"
+                  />
+                  <span>Author</span>
+                </dt>
+                <dd class="project-author-links">
+                  <a href="https://github.com/blechdom">Kristin Galvin</a>
+                  <a
+                    class="github-link"
+                    href="https://github.com/blechdom/morphazoid"
+                    aria-label="Morphazoid on GitHub"
+                  >
+                    <svg class="github-mark" viewBox="0 0 24 24" aria-hidden="true">
+                      <path
+                        fill="currentColor"
+                        d="M12 .7a11.5 11.5 0 0 0-3.64 22.4c.58.1.79-.25.79-.56v-2.2c-3.22.7-3.9-1.36-3.9-1.36-.52-1.34-1.28-1.7-1.28-1.7-1.05-.72.08-.7.08-.7 1.16.08 1.77 1.19 1.77 1.19 1.03 1.76 2.7 1.25 3.36.95.1-.75.4-1.25.73-1.54-2.57-.3-5.27-1.29-5.27-5.69 0-1.26.45-2.28 1.19-3.09-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.16 1.18A10.96 10.96 0 0 1 12 7.14c.98 0 1.95.13 2.86.38 2.2-1.49 3.16-1.18 3.16-1.18.63 1.59.23 2.76.11 3.05.74.81 1.19 1.83 1.19 3.09 0 4.41-2.71 5.39-5.29 5.68.42.36.79 1.07.79 2.16v3.21c0 .31.21.67.8.56A11.5 11.5 0 0 0 12 .7Z"
+                      />
+                    </svg>
+                    <span>GitHub</span>
+                  </a>
                 </dd>
               </div>
               <div>
-                <dt>State</dt>
-                <dd>
-                  Pages load their defaults when opened. Instrument editors can keep selected
-                  banks in browser storage.
-                </dd>
-              </div>
-              <div>
-                <dt>Development</dt>
-                <dd>
-                  Use <code>npm run dev</code> for the local server and
-                  <code>npm run verify</code> for checks and tests.
-                </dd>
+                <dt>MIDI</dt>
+                <dd><a href="midi-guide.html">MIDI guide</a></dd>
               </div>
               <div>
                 <dt>Plug-ins</dt>
+                <dd><a href="wax.html">Morphazoid for WAX</a></dd>
+              </div>
+              <div>
+                <dt>Design system</dt>
+                <dd><a href="storybook/">Component library</a></dd>
+              </div>
+              <div>
+                <dt>License</dt>
                 <dd>
-                  <a href="wax.html">Morphazoid for WAX</a> — setup, routing, and Linux test notes.
+                  <a href="https://github.com/blechdom/morphazoid/blob/main/LICENSE">MIT License</a>
+                  ·
+                  <a href="https://github.com/blechdom/morphazoid/blob/main/THIRD_PARTY_NOTICES.md"
+                    >Third-party notices</a
+                  >
                 </dd>
               </div>
             </dl>
           </div>
         </section>
-
-        <section class="manual-section" id="source">
-          <div class="manual-section-heading">
-            <p class="manual-section-label">Open source</p>
-            <h2>Source &amp; license</h2>
-            <p class="manual-section-note">
-              The source is public under the repository license.
-            </p>
-          </div>
-          <div class="manual-copy">
-            <p>
-              Code, tests, deployment files, and development notes are in the
-              <a href="https://github.com/blechdom/morphazoid">Morphazoid GitHub repository</a>.
-            </p>
-            <p>
-              Morphazoid uses the
-              <a href="https://github.com/blechdom/morphazoid/blob/main/LICENSE">MIT License</a>.
-              Bundled third-party components retain their original terms in the
-              <a href="https://github.com/blechdom/morphazoid/blob/main/THIRD_PARTY_NOTICES.md"
-                >third-party notices</a
-              >.
-            </p>
-          </div>
-        </section>
-
-        <section class="manual-section" id="author">
-          <div class="manual-section-heading">
-            <p class="manual-section-label">Made by</p>
-            <h2>Author</h2>
-          </div>
-          <div class="manual-copy">
-            <p>
-              <a href="https://github.com/blechdom">Kristin Galvin</a> created and develops
-              Morphazoid. She is a software engineer and experimental electronic musician who has
-              recorded and performed as Kevin Blechdom and as part of Blectum from Blechdom.
-              Morphazoid brings together her work in browser synthesis, audio processing,
-              geometry, and recursive systems.
-            </p>
-          </div>
-        </section>
-
-        <footer class="about-footer">
-          <span>Morphazoid</span>
-          <span class="about-footer-credit"
-            >vibed up with Codex 5.6 Sol Ultra, mostly - no code was ever touched by human
-            typings</span
-          >
-          <span>Copyright &copy; 2026 Kristin Galvin</span>
-        </footer>
       </article>
     </main>
 
