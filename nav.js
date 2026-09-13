@@ -171,7 +171,7 @@ export const TOOL_GROUPS = Object.freeze([
       id: "simd-303",
       label: "SIMD 303",
       href: "simd-303.html",
-      imageHref: "assets/instruments/webgpu-303.webp",
+      imageHref: "assets/instruments/simd-303.webp",
     },
     { id: "simd-synth", label: "SIMD SYNTH", href: "simd-synth.html" },
     {
