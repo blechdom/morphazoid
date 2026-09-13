@@ -1,4 +1,4 @@
-import { SpiderSynthDsp } from './spider-synth-dsp.js?v=456b92d1a726';
+import { SpiderSynthDsp } from './spider-synth-dsp.js?v=74d232932f0e';
 
 class SpiderSynthProcessor extends AudioWorkletProcessor {
   constructor() {
@@ -19,6 +19,8 @@ class SpiderSynthProcessor extends AudioWorkletProcessor {
         else if (data?.type === 'midi-control') this.dsp.midiControl(data.groupId, data.axis, data.value, data.audioTime, data.scope);
         else if (data?.type === 'midi-reset') this.dsp.resetMidi(data.scope, data.audioTime);
         else if (data?.type === 'midi-state') this.dsp.restoreMidi(data.snapshot);
+        else if (data?.type === 'world-command') this.dsp.worldCommand(data.command,data.audioTime);
+        else if (data?.type === 'world-state') this.dsp.restoreWorld(data.snapshot,data.timeOffset);
         else if (data?.type === 'pluck' && (!Number.isFinite(data.audioTime) || currentTime - data.audioTime < .1)) this.dsp.pluck(data.pluck);
         else if (data?.type === 'atlas') this.dsp.setAtlas(data.samples, data.sampleRate);
         else if (data?.type === 'speak') this.dsp.speak(data.phones);
@@ -37,7 +39,7 @@ class SpiderSynthProcessor extends AudioWorkletProcessor {
     if (this.framesSinceTelemetry >= sampleRate / 10) {
       // Measure the whole reporting window: a 17 ms foot tap must not vanish
       // merely because the one block at the 100 ms boundary happened to be quiet.
-      this.port.postMessage({ type: 'telemetry', ...telemetry,
+      this.port.postMessage({ type: 'telemetry', ...telemetry, world:this.dsp.getWorldSnapshot(),
         rms: Math.sqrt(this.telemetryEnergy / this.framesSinceTelemetry),
         peak: this.telemetryPeak, audioTime: currentTime });
       this.framesSinceTelemetry = 0; this.telemetryEnergy = 0; this.telemetryPeak = 0;

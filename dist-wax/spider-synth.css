@@ -55,6 +55,25 @@ body.spider-synth-page { --accent: #d8ca94; --accent-soft: #aa9976; --accent-glo
 .spider-animation-picker { display: flex; align-items: flex-end; flex: 1; min-width: 0; }
 .spider-inline-arrows { display: flex; }
 .spider-inline-arrows button { min-width: 26px; min-height: 36px; padding: 0; background: var(--bg-deep); color: var(--accent); border: 0; font-size: 20px; cursor: pointer; }
+.spider-roam-controls { display: grid; grid-template-columns: 102px minmax(0, 1fr); align-items: center; gap: 16px; margin: 14px 0 10px; }
+.spider-joystick { --stick-x: 0px; --stick-y: 0px; width: 102px; height: 102px; padding: 0; position: relative; border: 1px solid var(--line); border-radius: 50%; background: radial-gradient(circle, #18252b, #0a1015 72%); color: var(--accent); cursor: grab; touch-action: none; user-select: none; }
+.spider-joystick:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.spider-joystick.is-steering { cursor: grabbing; border-color: var(--accent); }
+.spider-stick-grid { position: absolute; inset: 15px; border: 1px solid #42515c66; border-radius: 50%; }
+.spider-stick-grid::before, .spider-stick-grid::after { content: ''; position: absolute; background: #75869355; }
+.spider-stick-grid::before { left: 50%; top: -7px; bottom: -7px; width: 1px; }
+.spider-stick-grid::after { top: 50%; left: -7px; right: -7px; height: 1px; }
+.spider-stick-nub { position: absolute; width: 25px; height: 25px; left: calc(50% - 12.5px); top: calc(50% - 12.5px); border: 1px solid currentColor; border-radius: 50%; background: #263637; box-shadow: 0 2px 8px #0008; transform: translate(var(--stick-x), var(--stick-y)); }
+.spider-stick-label { position: absolute; bottom: 5px; left: 0; right: 0; font-size: 10px; letter-spacing: .06em; }
+.spider-roam-settings { display: grid; gap: 6px; min-width: 0; }
+.spider-travel-knobs { display: flex; align-items: center; gap: 20px; }
+.spider-web-preset { margin: 4px 0 10px; }
+.spider-silk-actions, .spider-prey-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 10px; }
+.spider-inline-knobs { margin-left: auto; }
+.spider-inline-knobs .spider-tone-knob { min-width: 46px; }
+.spider-world-status { display: block; min-height: 1.3em; margin: 8px 0; }
+#laySilk[aria-pressed="true"] { color: #071013; background: var(--accent); border-color: var(--accent); }
+.spider-midi > .spider-inline-select { margin-bottom: 8px; }
 .spider-animation-picker select { border-right: 0; }
 .spider-motion-controls { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 14px; }
 .spider-motion-controls .control { margin: 0; }

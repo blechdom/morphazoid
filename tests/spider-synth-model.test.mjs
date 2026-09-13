@@ -23,9 +23,9 @@ test('38 stable rig identities and measured asymmetric chains preserve the short
   assert.ok(SPIDER_LEG_GEOMETRY[2].reach < .29 && SPIDER_LEG_GEOMETRY[6].reach < .29);
 });
 
-test('preset definitions are deeply immutable and contain 24 distinct nonflying motions', () => {
-  assert.equal(SPIDER_MOTION_PRESETS.length, 24);
-  assert.equal(new Set(SPIDER_MOTION_PRESETS.map(item => item.id)).size, 24);
+test('preset definitions are deeply immutable and retain 24 original routines and add 16 bounded nonflying routines', () => {
+  assert.equal(SPIDER_MOTION_PRESETS.length, 40);
+  assert.equal(new Set(SPIDER_MOTION_PRESETS.map(item => item.id)).size, 40);
   assert.ok(SPIDER_MOTION_PRESETS.every(item => !/fly|flight/.test(item.mode)));
   assert.throws(() => { SPIDER_MOTION_PRESETS[0].period = 999; }, TypeError);
   assert.throws(() => { SPIDER_MOTION_DEFAULTS.center.x = 1; }, TypeError);
@@ -77,7 +77,7 @@ test('string mode follows inverse substring length and square-root tension with 
 
 test('all 24 routines have exact silk support, bounded reachable toes and finite poses across extremes', () => {
   const frame = createSpiderFrame();
-  for (const preset of SPIDER_MOTION_PRESETS) for (const tempo of [20, 300]) for (const intensity of [0, .65, 1]) for (const explore of [false, true]) {
+  for (const preset of SPIDER_MOTION_PRESETS.slice(0, 24)) for (const tempo of [20, 300]) for (const intensity of [0, .65, 1]) for (const explore of [false, true]) {
     const motion = normalizeSpiderMotion({ preset: preset.id, tempo, intensity, explore, center: { x: .42, z: .42 } });
     for (let tick = 0; tick < 96; tick += 1) {
       writeSpiderFrame((tick + .173) * .25 * 60 / tempo, motion, web, frame);
@@ -101,7 +101,7 @@ test('all 24 routines have exact silk support, bounded reachable toes and finite
 
 test('stance anchors do not slide with animation, including constant manual joint offsets', () => {
   const frame = createSpiderFrame();
-  for (const preset of SPIDER_MOTION_PRESETS) {
+  for (const preset of SPIDER_MOTION_PRESETS.slice(0, 24)) {
     const motion = normalizeSpiderMotion({ preset: preset.id, offsets: { leg_left_3_knee: { x: .2, y: -.1, z: .1 } } });
     const previous = Array.from({ length: 8 }, () => null);
     for (let tick = 0; tick < 240; tick += 1) {
@@ -117,7 +117,7 @@ test('stance anchors do not slide with animation, including constant manual join
 
 test('landing serials, lift and projection remain continuous at actual tempo-grid touchdown', () => {
   const before = createSpiderFrame(); const after = createSpiderFrame();
-  for (const item of SPIDER_MOTION_PRESETS) if (item.mask && item.duty < 1) {
+  for (const item of SPIDER_MOTION_PRESETS.slice(0, 24)) if (item.mask && item.duty < 1) {
     const motion = normalizeSpiderMotion({ preset: item.id, tempo: 120 });
     for (let index = 0; index < 8; index += 1) if (item.mask & (1 << index)) {
       const offset = ((index < 4 ? index : index + 1) & 1) * .5;
@@ -147,7 +147,7 @@ test('contact crossing angle follows toe travel and is distinct from the strand 
 test('coarse and dense webs retain reachable support under seeded manual postures', () => {
   const frame = createSpiderFrame();
   for (const graph of [createSpiderWeb({ spokes: 8, rings: 3 }), createSpiderWeb({ spokes: 24, rings: 16 })]) for (let seed = 0; seed < 24; seed += 1) {
-    const motion = createRandomSpiderMotion(seed, { intensity: 1, center: { x: -.42, z: .42 }, tempo: 300 });
+    const motion = createRandomSpiderMotion(seed, { intensity: 1, center: { x: -.42, z: .42 }, tempo: 300 }); motion.preset = SPIDER_MOTION_PRESETS[seed].id;
     for (let tick = 0; tick < 48; tick += 1) {
       writeSpiderFrame(tick * .131, motion, graph, frame);
       assert.ok(frame.supportCount >= 4);
@@ -206,7 +206,7 @@ test('radian constraints keep malformed and extreme overlays finite and respect 
 test('24 routines and 16 held pose choices are reproducible and meaningfully varied', () => {
   const signatures = new Set();
   for (const item of SPIDER_MOTION_PRESETS) { const motion = normalizeSpiderMotion({ preset: item.id }); const frame = createSpiderFrame(); writeSpiderFrame(1.173, motion, web, frame); signatures.add(JSON.stringify([...frame.pose, ...frame.feet.flatMap(foot => [foot.x, foot.y, foot.z])])); }
-  assert.equal(signatures.size, 24);
+  assert.equal(signatures.size, 40);
   for (const item of SPIDER_STATIC_POSES) { assert.deepEqual(createSpiderStaticPose(item.id, 17), createSpiderStaticPose(item.id, 17)); const pose = writeSpiderPose(20, normalizeSpiderMotion({ preset: 'none', offsets: createSpiderStaticPose(item.id, 17) })); assert.ok(pose.every(value => Number.isFinite(value) && Math.abs(value) <= .75)); }
   assert.deepEqual(createRandomSpiderMotion(97), createRandomSpiderMotion(97)); assert.notDeepEqual(createRandomSpiderMotion(97), createRandomSpiderMotion(98));
   assert.deepEqual(createSpiderStaticPose('neutral'), {});
@@ -223,7 +223,7 @@ test('speech gesture is additive, bounded, zero-exact and cannot move legs or ab
 
 test('explicit pre-clamp overlays keep saturated held poses planted across all routines', () => {
   const frame = createSpiderFrame(); const pose = new Float32Array(114); const overlay = new Float64Array(114);
-  for (const sign of [-1, 1]) for (const preset of SPIDER_MOTION_PRESETS) {
+  for (const sign of [-1, 1]) for (const preset of SPIDER_MOTION_PRESETS.slice(0, 24)) {
     const motion = normalizeSpiderMotion({ preset: preset.id, intensity: 1, offsets: createSpiderStaticPose('random', 19) });
     for (let i = 18; i < 114; i += 1) overlay[i] = sign * (.52 + (i % 3) * .13);
     const previous = Array.from({ length: 8 }, () => null);
@@ -243,7 +243,7 @@ test('explicit pre-clamp overlays keep saturated held poses planted across all r
 
 test('explicit zero overlay preserves normal frames and facial speech cannot perturb support', () => {
   const original = createSpiderFrame(); const explicit = createSpiderFrame(); const overlay = new Float64Array(114); const pose = new Float32Array(114);
-  for (const preset of SPIDER_MOTION_PRESETS) {
+  for (const preset of SPIDER_MOTION_PRESETS.slice(0, 24)) {
     const motion = normalizeSpiderMotion({ preset: preset.id });
     for (const time of [0, .178, 2.371]) {
       writeSpiderPose(time, motion, pose); writeSpiderFrame(time, motion, web, original, pose); writeSpiderFrame(time, motion, web, explicit, pose, overlay);
@@ -279,5 +279,50 @@ test('touchdown overlay reproduces separate manual and MIDI clamps, including op
     for (let axis = 0; axis < 3; axis += 1) { overlay[18 + axis] = amount; pose[18 + axis] += amount; }
     constrainSpiderPose(pose); writeSpiderFrame(time, motion, web, original, pose); writeSpiderFrame(time, motion, web, explicit, pose, overlay);
     assert.equal(explicit.feet[0].x, original.feet[0].x); assert.equal(explicit.feet[0].z, original.feet[0].z);
+  }
+});
+
+test('new gait families keep explicit support exceptions and tempo-grid landings at intensity extremes', () => {
+  const before = createSpiderFrame(); const after = createSpiderFrame();
+  for (const item of SPIDER_MOTION_PRESETS.slice(24)) for (const tempo of [20, 300]) for (const intensity of [0, .3, 1]) {
+    const motion = normalizeSpiderMotion({ preset: item.id, tempo, intensity });
+    for (let tick = 0; tick < 64; tick += 1) {
+      writeSpiderFrame((tick + .23) * item.period / 16 * 60 / tempo, motion, web, after);
+      assert.ok(after.supportCount >= 4 || item.support && after.airborne);
+      assert.ok(after.pose.every(v => Number.isFinite(v) && Math.abs(v) <= .75));
+      if (!intensity) { assert.equal(after.supportCount, 8); assert.ok(after.feet.every(f => f.impact === 0 && f.step === 0)); }
+    }
+    if (!intensity || !item.mask || item.duty === 1) continue;
+    for (let index = 0; index < 8; index += 1) if (item.mask & 1 << index) {
+      const offset = item.gait === 'together' ? 0 : item.gait === 'wave' ? index / 8 : item.gait === 'ripple' ? index % 4 / 4 : ((index < 4 ? index : index + 1) & 1) * .5;
+      const landing = (3 - offset) * item.period * 60 / tempo;
+      writeSpiderFrame(landing - 1e-7, motion, web, before); writeSpiderFrame(landing + 1e-7, motion, web, after);
+      assert.equal(before.feet[index].stance, false); assert.equal(after.feet[index].stance, true);
+      assert.equal(after.feet[index].step, before.feet[index].step + 1);
+      assert.ok(Math.hypot(before.feet[index].x - after.feet[index].x, before.feet[index].y - after.feet[index].y, before.feet[index].z - after.feet[index].z) < 1e-5);
+      if (item.mode === 'roll') { close(Math.cos(before.body.roll), Math.cos(after.body.roll), 1e-5); close(Math.sin(before.body.roll), Math.sin(after.body.roll), 1e-5); }
+    }
+  }
+});
+
+test('Circle patrol completes a full yaw turn with fixed supported toes and reachable short legs', () => {
+  const item = SPIDER_MOTION_PRESETS.find(p => p.id === 'circle-patrol');
+  for (const tempo of [20, 300]) for (const intensity of [.1, 1]) {
+    const motion = normalizeSpiderMotion({ preset: item.id, tempo, intensity, center: { x: .42, z: .42 } });
+    const frame = createSpiderFrame(); let previous = null; let turn = 0;
+    for (let tick = 0; tick <= 480; tick += 1) {
+      writeSpiderFrame(tick / 480 * item.loopBeats * 60 / tempo, motion, web, frame);
+      assert.ok(frame.supportCount >= 4 && !frame.airborne);
+      if (previous) turn += Math.atan2(Math.sin(frame.body.yaw - previous.yaw), Math.cos(frame.body.yaw - previous.yaw));
+      for (let i = 0; i < 8; i += 1) {
+        const foot = frame.feet[i]; const before = previous?.feet[i];
+        if (before?.stance && foot.stance && before.step === foot.step) for (const axis of ['x', 'y', 'z']) close(foot[axis], before[axis]);
+        const leg = SPIDER_LEG_GEOMETRY[i]; const c = Math.cos(frame.body.yaw); const s = Math.sin(frame.body.yaw);
+        const distance = Math.hypot(foot.x - frame.body.x - leg.hip[0] * c - leg.hip[2] * s, foot.y - frame.body.y - leg.hip[1], foot.z - frame.body.z - leg.hip[2] * c + leg.hip[0] * s);
+        assert.ok(distance < leg.reach * .98, `${i}: ${distance / leg.reach}`);
+      }
+      previous = { yaw: frame.body.yaw, feet: frame.feet.map(f => ({ ...f })) };
+    }
+    close(turn, Math.PI * 2, 1e-7);
   }
 });

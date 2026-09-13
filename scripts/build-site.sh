@@ -65,6 +65,9 @@ for worktree_runtime_file in \
   spider-synth.css \
   spider-synth-app.js \
   src/spider-synth-model.js \
+  src/spider-synth-web.js \
+  src/spider-synth-world.js \
+  src/spider-synth-navigation-controls.js \
   src/spider-synth-viewer.js \
   src/spider-synth-audio.js \
   src/spider-synth-dsp.js \
@@ -73,6 +76,7 @@ for worktree_runtime_file in \
   src/spider-synth-midi.js \
   src/spider-synth-midi-controls.js \
   src/spider-synth-string.js \
+  src/spider-synth-textures.js \
   docs/spider-synth-midi.md \
   docs/spider-synth-qa.md \
   contracts/spider-synth-v1.md \

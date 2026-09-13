@@ -1,3 +1,5 @@
+import { createSpiderWeb, projectSpiderWebInto as projectInto, spiderWebHeight } from './spider-synth-web.js?v=74d232932f0e';
+export { createSpiderWeb, projectSpiderWebPoint, normalizeSpiderWeb, SPIDER_WEB_PRESETS, SPIDER_WEB_PARAMETERS } from './spider-synth-web.js?v=74d232932f0e';
 /**
  * Shared audio-clock web contacts and authored spider gestures.
  * Coordinates are web-radius units, Y up, Z forward; rotations are radians.
@@ -60,6 +62,22 @@ export const SPIDER_MOTION_PRESETS = freeze([
   preset('threat-pose', 'Velvet warning', 'threat', 8, 1, 0, 0, 0, .04, 21),
   preset('quiet-clean', 'Polished palps', 'clean', 4, .45, 16, 0, .065, .03, 22),
   preset('spinneret-sway', 'Spinneret sway', 'silk', 4, 1, 0, 0, 0, .1, 23),
+  { ...preset('wave-walk', 'Traveling wave', 'crawl', 4, .88, 255, .35, .035, .025, 24), gait: 'wave' },
+  { ...preset('ripple-run', 'Ripple runner', 'crawl', 2, .76, 255, .8, .035, .05, 25), gait: 'ripple' },
+  preset('low-sprint', 'Low silk sprint', 'crawl', .5, .62, 255, .7, .018, .025, 26),
+  preset('pushups', 'Silk push-ups', 'pushup', 4, 1, 0, 0, 0, .02, 27),
+  { ...preset('web-jump', 'Safety-line jump', 'jump', 4, .72, 255, 0, .14, .02, 28), support: 'airborne', gait: 'together' },
+  { ...preset('long-leap', 'Long silk leap', 'leap', 8, .72, 255, .3, .22, .04, 29), support: 'airborne', gait: 'together' },
+  { ...preset('tether-bounce', 'Tether bounce', 'bounce', 2, .68, 255, 0, .12, .03, 30), support: 'tethered', gait: 'together' },
+  { ...preset('rollover', 'Silk somersault', 'roll', 8, .65, 255, 0, .12, .02, 31), support: 'tethered', gait: 'together' },
+  { ...preset('macarena', 'Eight-arm Macarena', 'macarena', 4, .35, 51, 0, .075, .12, 32), gait: 'ripple' },
+  preset('disco', 'Disco spider', 'disco', 2, .64, 255, .1, .05, .18, 33),
+  preset('moonwalk', 'Silken moonwalk', 'back', 2, .75, 255, .65, .022, .08, 34),
+  { ...preset('circle-patrol', 'Circle patrol', 'circle', .5, .76, 255, .35, .03, 0, 35), gait: 'ripple', turnsPerLoop: 1 },
+  preset('prey-pounce', 'Pounce and pin', 'pounce', 4, .7, 51, .15, .09, .06, 36),
+  preset('silk-reel', 'Reel the silk', 'reel', 2, .6, 136, 0, .045, .07, 37),
+  { ...preset('stutter-step', 'Stop-start shuffle', 'shuffle', 2, .8, 255, .45, .05, .09, 38), gait: 'ripple' },
+  preset('palp-boxing', 'Tiny shadow boxer', 'box', 2, .7, 17, 0, .08, .11, 39),
 ]);
 const PRESET_BY_ID = new Map(SPIDER_MOTION_PRESETS.map(item => [item.id, item]));
 const STILL = freeze(preset('none', 'Held pose', 'still', 4, 1, 0, 0, 0, 0, 0));
@@ -82,7 +100,7 @@ function randomGenerator(seed) {
 }
 export function createRandomSpiderMotion(seed = 1, base = {}) {
   const random = randomGenerator(seed);
-  return normalizeSpiderMotion({ ...base, seed, preset: SPIDER_MOTION_PRESETS[Math.floor(random() * 24)].id, intensity: .45 + random() * .55, yaw: (random() - .5) * .6, offsets: createSpiderStaticPose('random', seed) });
+  return normalizeSpiderMotion({ ...base, seed, preset: SPIDER_MOTION_PRESETS[Math.floor(random() * SPIDER_MOTION_PRESETS.length)].id, intensity: .45 + random() * .55, yaw: (random() - .5) * .6, offsets: createSpiderStaticPose('random', seed) });
 }
 
 export const SPIDER_STATIC_POSES = freeze([
@@ -133,56 +151,6 @@ export function constrainSpiderPose(pose, joints = SPIDER_JOINTS, out = pose) {
   return out;
 }
 
-export function createSpiderWeb(settings = {}) {
-  const spokes = Math.round(clamp(finite(settings.spokes, 16), 8, 24));
-  const rings = Math.round(clamp(finite(settings.rings, 10), 3, 16));
-  const tension = clamp(finite(settings.tension, 1), .2, 4);
-  const seed = finite(settings.seed, 1) >>> 0;
-  const random = randomGenerator(seed);
-  const nodes = [{ id: 0, x: 0, y: 0, z: 0 }];
-  const segments = [];
-  const phase = (random() - .5) * TAU / spokes * .22;
-  for (let ring = 1; ring <= rings; ring += 1) for (let spoke = 0; spoke < spokes; spoke += 1) {
-    const angle = phase + TAU * spoke / spokes;
-    const radius = ring / rings;
-    nodes.push({ id: nodes.length, x: Math.sin(angle) * radius, y: 0, z: Math.cos(angle) * radius });
-  }
-  const add = (a, b, kind) => { const dx = nodes[b].x - nodes[a].x; const dz = nodes[b].z - nodes[a].z; segments.push({ id: segments.length, a, b, length: Math.hypot(dx, dz), angle: Math.atan2(dz, dx), kind }); };
-  for (let ring = 1; ring <= rings; ring += 1) for (let spoke = 0; spoke < spokes; spoke += 1) {
-    const current = 1 + (ring - 1) * spokes + spoke;
-    add(ring === 1 ? 0 : current - spokes, current, 'radial');
-    add(current, 1 + (ring - 1) * spokes + (spoke + 1) % spokes, ring === rings ? 'frame' : 'spiral');
-  }
-  return { nodes, segments, radius: 1, spokes, rings, tension, seed };
-}
-
-// Optional circular reach restriction clips candidate segments analytically.
-// Both the unrestricted public picker and every stance use this same projection.
-function projectInto(web, x, z, out, cx = 0, cz = 0, reach = Infinity) {
-  let best = Infinity; let bestId = -1; let bestU = 0; let bestX = 0; let bestZ = 0;
-  for (let index = 0; index < web.segments.length; index += 1) {
-    const segment = web.segments[index]; const a = web.nodes[segment.a]; const b = web.nodes[segment.b];
-    const dx = b.x - a.x; const dz = b.z - a.z; const length2 = dx * dx + dz * dz;
-    if (!(length2 > 1e-16)) continue;
-    let lo = 0; let hi = 1;
-    if (reach !== Infinity) {
-      const ax = a.x - cx; const az = a.z - cz;
-      const center = -(ax * dx + az * dz) / length2;
-      const radial = center * center - (ax * ax + az * az - reach * reach) / length2;
-      if (radial < 0) continue;
-      const half = Math.sqrt(radial); lo = Math.max(0, center - half); hi = Math.min(1, center + half);
-      if (lo > hi) continue;
-    }
-    const u = clamp(((x - a.x) * dx + (z - a.z) * dz) / length2, lo, hi);
-    const px = a.x + u * dx; const pz = a.z + u * dz;
-    const distance2 = (x - px) ** 2 + (z - pz) ** 2;
-    if (distance2 < best) { best = distance2; bestId = index; bestU = u; bestX = px; bestZ = pz; }
-  }
-  out.x = bestX; out.y = 0; out.z = bestZ; out.segmentId = bestId; out.u = bestU; out.distance = Math.sqrt(best);
-  return out;
-}
-export function projectSpiderWebPoint(web, x, z) { return projectInto(web, finite(x), finite(z), {}); }
-
 /** Intentional musical scaling: effective wave speed 18 web-units/s at tension1.
  * The shorter of the two toe-divided lengths determines this voiced mode;
  * near-end contacts and extreme inputs are bounded to a useful 45–6000 Hz.
@@ -196,7 +164,7 @@ export function spiderStringFrequency(segmentLength, tension = 1, position = .5)
 function footPhase(beat, item, index, intensity, out) {
   const active = intensity > 0 && (item.mask & (1 << index)) !== 0 && item.duty < 1;
   // Complementary tetrapods: L1/L3/R2/R4, then L2/L4/R1/R3.
-  const offset = ((index < 4 ? index : index + 1) & 1) * .5;
+  const offset = item.gait === 'together' ? 0 : item.gait === 'wave' ? index / 8 : item.gait === 'ripple' ? (index % 4) / 4 : ((index < 4 ? index : index + 1) & 1) * .5;
   const cycle = beat / item.period + offset;
   const step = Math.floor(cycle + 1e-10);
   const phase = Math.max(0, cycle - step);
@@ -207,7 +175,7 @@ function footPhase(beat, item, index, intensity, out) {
   return out;
 }
 
-function bodyAt(beat, motion, item, intensity, out) {
+function bodyAt(beat, motion, item, intensity, out, web, travel) {
   const a = TAU * beat / 24;
   const phase = (finite(motion?.seed, 1) % 97) / 97 * TAU;
   const exploration = motion?.explore === false ? 0 : item.travel * .095 * intensity;
@@ -220,9 +188,24 @@ function bodyAt(beat, motion, item, intensity, out) {
   out.x = cx + dx; out.z = cz + dz;
   out.y = .06 + intensity * (item.mode === 'crawl' || item.mode === 'back' ? -.006 : .004 * Math.sin(TAU * beat / item.period));
   out.yaw = clamp(finite(motion?.yaw), -Math.PI, Math.PI) + item.twist * intensity * Math.sin(a + phase);
+  // A full turn uses short overlapping steps; each supported toe still holds
+  // its touchdown position while the body turns through the next small arc.
+  if (item.turnsPerLoop && intensity > 0) out.yaw += mod(beat / item.loopBeats, 1) * TAU * item.turnsPerLoop;
   out.pitch = item.mode === 'threat' ? -.11 * intensity : .025 * intensity * Math.sin(TAU * beat / 4 + item.flavor);
   out.roll = (item.mode === 'rock' ? .12 : .035) * intensity * Math.sin(TAU * beat / (item.mode === 'dance' ? 3 : 8));
   if (item.mode === 'still') { out.y = .06; out.pitch = 0; out.roll = 0; }
+  if (item.mode === 'pushup') out.y = .045 + .035 * intensity * (.5 + .5 * Math.cos(TAU * beat / 4));
+  if (item.mode === 'disco') { out.roll = .14 * intensity * Math.sin(TAU * beat / 2); out.pitch = .08 * intensity * Math.cos(TAU * beat / 4); }
+  if (item.mode === 'macarena') out.yaw += .14 * intensity * Math.sin(TAU * beat / 8);
+  if (web) out.y += spiderWebHeight(web, out.x, out.z);
+  if (travel) {
+    travel.writeTravel(travel.queryClock === null ? beat * 60 / tempoOf(motion) + travel.frameClockOffset : travel.queryClock, travel.modelPoint, travel.anchorQuery ? travel.anchorCutoff : Infinity);
+    out.x += travel.modelPoint.x; out.z += travel.modelPoint.z;
+    const travelRadius = Math.hypot(out.x, out.z); if (travelRadius > .58) { out.x *= .58 / travelRadius; out.z *= .58 / travelRadius; }
+    // Travel heading is fixed in each command segment: stance does not orbit.
+    out.yaw += travel.modelPoint.yaw;
+    if (web) out.y += spiderWebHeight(web, out.x, out.z) - spiderWebHeight(web, out.x - travel.modelPoint.x, out.z - travel.modelPoint.z);
+  }
   return out;
 }
 
@@ -237,6 +220,8 @@ function writeLegPose(beat, item, intensity, leg, out, start = 0) {
     out[i] = intensity * amount * Math.sin(phase + segment * .25);
     out[i + 1] = side * intensity * amount * .6 * Math.cos(phase);
     out[i + 2] = side * intensity * .025 * Math.sin(TAU * beat / 8 + leg);
+    if (item.mode === 'macarena' && leg % 4 < 2) { out[i] += .23 * intensity * Math.sin(pulse + leg * 1.3); out[i + 1] += side * .23 * intensity * Math.cos(pulse * .5 + segment); }
+    if (item.mode === 'box' && leg % 4 === 0) out[i] += .25 * intensity * Math.sin(pulse * 2 + side);
     if (item.mode === 'fan') out[i + 2] += side * .17 * intensity * Math.sin(pulse + leg * .4);
     if (item.mode === 'threat' && leg % 4 === 0) out[i] -= intensity * .22;
   }
@@ -279,7 +264,7 @@ export const SPIDER_LEG_GEOMETRY = freeze(LEG_DATA.map(leg => {
 }));
 
 export function createSpiderFrame() {
-  const frame = { time: 0, body: { x: 0, y: .06, z: 0, yaw: 0, pitch: 0, roll: 0 }, feet: Array.from({ length: 8 }, (_, legIndex) => ({ id: SPIDER_JOINTS[9 + legIndex * 4].id, legIndex, x: 0, y: 0, z: 0, segmentId: 0, u: .5, stance: true, step: 0, impact: 0, speed: 0, angle: 0 })), pose: new Float32Array(114), beat: 0, beatIndex: 0, bar: 0, phase: 0, supportCount: 8 };
+  const frame = { time: 0, body: { x: 0, y: .06, z: 0, yaw: 0, pitch: 0, roll: 0 }, feet: Array.from({ length: 8 }, (_, legIndex) => ({ id: SPIDER_JOINTS[9 + legIndex * 4].id, legIndex, x: 0, y: 0, z: 0, segmentId: 0, u: .5, stance: true, step: 0, impact: 0, speed: 0, angle: 0 })), pose: new Float32Array(114), beat: 0, beatIndex: 0, bar: 0, phase: 0, supportCount: 8, airborne: false, tethered: false, motionActive: true, contactEpoch: 0 };
   Object.defineProperty(frame, '_scratch', { value: { base: new Float32Array(114), anchorBase: new Float32Array(12), body: { x: 0, y: 0, z: 0, yaw: 0, pitch: 0, roll: 0 }, phase: { step: 0, phase: 0, stance: true, touchBeat: 0, nextBeat: 0, swing: 0 }, a: { x: 0, y: 0, z: 0, segmentId: 0, u: 0, distance: 0 }, b: { x: 0, y: 0, z: 0, segmentId: 0, u: 0, distance: 0 } } });
   return frame;
 }
@@ -291,8 +276,8 @@ function anchoredOffset(base, manual, midi, limit) {
   return Math.fround(clamp(Math.fround(manualPose + finite(midi)), -limit, limit)) - base;
 }
 
-function anchor(beat, motion, item, intensity, web, legIndex, pose, base, body, out, midiPoseOffsets, anchorBase) {
-  bodyAt(beat, motion, item, intensity, body);
+function anchor(beat, motion, item, intensity, web, legIndex, pose, base, body, out, midiPoseOffsets, anchorBase, travel) {
+  bodyAt(beat, motion, item, intensity, body, web, travel);
   const geometry = SPIDER_LEG_GEOMETRY[legIndex]; const side = legIndex < 4 ? -1 : 1;
   let x = geometry.neutral[0]; let z = geometry.neutral[2];
   // Only the local overlay is applied here: procedural rotations are represented
@@ -320,37 +305,59 @@ function anchor(beat, motion, item, intensity, web, legIndex, pose, base, body, 
   const c = Math.cos(body.yaw); const s = Math.sin(body.yaw);
   const hx = body.x + geometry.hip[0] * c + geometry.hip[2] * s;
   const hz = body.z + geometry.hip[2] * c - geometry.hip[0] * s;
-  return projectInto(web, body.x + x * c + z * s, body.z + z * c - x * s, out, hx, hz, geometry.reach * .78);
+  return projectInto(web, body.x + x * c + z * s, body.z + z * c - x * s, out, hx, hz, geometry.reach * .78, web.depth ? body.y + geometry.hip[1] : 0);
 }
 
 // Optional final argument is the MIDI layer's pre-clamp additive XYZ radians.
 // It is separate from pose and owned/reused by the caller, never a custom field
 // on a typed array. Existing five-argument diagnostics retain their behavior.
-export function writeSpiderFrame(time, motion = SPIDER_MOTION_DEFAULTS, web, out = createSpiderFrame(), pose, midiPoseOffsets) {
+export function writeSpiderFrame(time, motion = SPIDER_MOTION_DEFAULTS, web, out = createSpiderFrame(), pose, midiPoseOffsets, travel) {
   const t = timeOf(time); const tempo = tempoOf(motion); const intensity = intensityOf(motion); const item = presetOf(motion); const beat = t * tempo / 60;
   const scratch = out._scratch;
+  const contactItem = travel?.contactItem || item; const contactBeat = travel?.contactItem ? travel.contactBeat : beat; const contactTempo = travel?.contactItem ? travel.contactTempo : tempo;
   if (pose) { if (pose !== out.pose) for (let i = 0; i < 114; i += 1) out.pose[i] = finite(pose[i]); constrainSpiderPose(out.pose); }
   else writePose(t, motion, out.pose, true);
   writePose(t, motion, scratch.base, false);
   out.time = t; out.beat = beat; out.beatIndex = Math.floor(beat + 1e-10); out.bar = Math.floor(out.beatIndex / 4); out.phase = mod(beat, 1);
-  bodyAt(beat, motion, item, intensity, out.body);
+  bodyAt(beat, motion, item, intensity, out.body, web, travel);
   // The fused front body can rock over fixed toe anchors; IK holds the support.
   out.body.pitch += out.pose[0] * .28; out.body.yaw += out.pose[1] * .2; out.body.roll += out.pose[2] * .28;
-  out.supportCount = 0;
+  if (travel) travel.anchorQuery = true;
+  out.supportCount = 0; out.airborne = false; out.tethered = false;
   for (let index = 0; index < 8; index += 1) {
-    const foot = out.feet[index]; const state = footPhase(beat, item, index, intensity, scratch.phase);
-    const a = anchor(state.touchBeat, motion, item, intensity, web, index, out.pose, scratch.base, scratch.body, scratch.a, midiPoseOffsets, scratch.anchorBase);
-    const b = anchor(state.nextBeat, motion, item, intensity, web, index, out.pose, scratch.base, scratch.body, scratch.b, midiPoseOffsets, scratch.anchorBase);
-    foot.stance = state.stance; foot.step = state.step; foot.segmentId = a.segmentId; foot.u = a.u;
-    const swingTime = item.period * (1 - item.duty) * 60 / tempo;
-    foot.speed = state.nextBeat === state.touchBeat ? 0 : Math.hypot(b.x - a.x, b.z - a.z, item.lift * intensity * 2) / Math.max(.025, swingTime);
+    const foot = out.feet[index]; const state = footPhase(contactBeat, contactItem, index, travel?.contactItem ? travel.contactIntensity : intensity, scratch.phase);
+    let touchBeat = state.touchBeat; let nextBeat = state.nextBeat;
+    if (travel?.contactItem) {
+      const aClock = state.touchBeat * 60 / contactTempo + travel.contactClockOffset; const bClock = state.nextBeat * 60 / contactTempo + travel.contactClockOffset;
+      touchBeat = travel.anchorMotionAdvances ? (aClock - travel.frameClockOffset) * tempo / 60 : beat; nextBeat = travel.anchorMotionAdvances ? (bClock - travel.frameClockOffset) * tempo / 60 : beat;
+      travel.queryClock = aClock;
+    }
+    const a = anchor(touchBeat, motion, item, intensity, web, index, out.pose, scratch.base, scratch.body, scratch.a, midiPoseOffsets, scratch.anchorBase, travel);
+    if (travel?.contactItem) travel.queryClock = state.nextBeat * 60 / contactTempo + travel.contactClockOffset;
+    const b = anchor(nextBeat, motion, item, intensity, web, index, out.pose, scratch.base, scratch.body, scratch.b, midiPoseOffsets, scratch.anchorBase, travel);
+    foot.airborne = false; foot.stance = state.stance; foot.step = state.step; foot.segmentId = a.segmentId; foot.u = a.u;
+    const swingTime = contactItem.period * (1 - contactItem.duty) * 60 / contactTempo;
+    foot.speed = state.nextBeat === state.touchBeat ? 0 : Math.hypot(b.x - a.x, b.z - a.z, contactItem.lift * intensity * 2) / Math.max(.025, swingTime);
     foot.impact = state.nextBeat === state.touchBeat ? 0 : clamp((.24 + foot.speed * 1.8) * intensity, 0, 1);
     // Angle is the toe's travel direction, not the strand tangent. A vertical
     // in-place lift pulls across the strand and uses its perpendicular instead.
     const dx = b.x - a.x; const dz = b.z - a.z;
     foot.angle = dx * dx + dz * dz > 1e-14 ? Math.atan2(dz, dx) : (web.segments[a.segmentId]?.angle || 0) + Math.PI / 2;
-    if (state.stance) { foot.x = a.x; foot.y = 0; foot.z = a.z; out.supportCount += 1; }
-    else { const amount = smooth(state.swing); foot.x = a.x + (b.x - a.x) * amount; foot.z = a.z + (b.z - a.z) * amount; foot.y = Math.max(1e-12, item.lift * intensity * Math.sin(Math.PI * state.swing)); }
+    if (state.stance) { foot.x = a.x; foot.y = a.y; foot.z = a.z; out.supportCount += 1; }
+    else { const amount = smooth(state.swing); foot.x = a.x + (b.x - a.x) * amount; foot.z = a.z + (b.z - a.z) * amount; foot.y = a.y + (b.y - a.y) * amount + Math.max(1e-12, contactItem.lift * (travel?.contactItem ? travel.contactIntensity : intensity) * Math.sin(Math.PI * state.swing)); }
+  }
+  if (travel) travel.anchorQuery = false;
+  if (item.support && intensity > 0) {
+    const phase = mod(beat / item.period, 1); const airborne = phase >= item.duty;
+    out.airborne = airborne; out.tethered = item.support === 'tethered' && airborne;
+    if (airborne) {
+      const amount = (phase - item.duty) / (1 - item.duty); const height = Math.sin(Math.PI * amount) * item.lift * intensity;
+      out.body.y += height;
+      if (item.mode === 'roll') out.body.roll += TAU * smooth(amount);
+      if (item.mode === 'leap') out.body.pitch += .3 * Math.sin(TAU * amount) * intensity;
+      for (const foot of out.feet) { foot.stance = false; foot.airborne = true; foot.impact = 0; }
+      out.supportCount = 0;
+    }
   }
   return out;
 }

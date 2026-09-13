@@ -1,12 +1,13 @@
+import { SpiderSynthWorld } from './spider-synth-world.js?v=74d232932f0e';
 import { connectAudioOutput } from './audio-output-manager.js';
 import { SPELLING_DIPHONE_ATLAS_URL, SPELLING_DIPHONE_CLIPS } from './spelling-diphone-atlas.js';
 import { loadSpellingPronunciations, spellingPhoneDefinition, spellingPronunciationTokens } from './spelling-pronunciation.js';
-import { normalizeSpiderSound, SPIDER_SOUND_DEFAULTS, normalizeSpiderBodyMix, createDefaultSpiderBodyMix } from './spider-synth-dsp.js?v=456b92d1a726';
-import { SpiderMidiPerformance, normalizeSpiderMidiMessage } from './spider-synth-midi.js?v=456b92d1a726';
+import { normalizeSpiderSound, SPIDER_SOUND_DEFAULTS, normalizeSpiderBodyMix, createDefaultSpiderBodyMix } from './spider-synth-dsp.js?v=74d232932f0e';
+import { SpiderMidiPerformance, normalizeSpiderMidiMessage } from './spider-synth-midi.js?v=74d232932f0e';
 
 export { SPIDER_SOUND_DEFAULTS, SPIDER_SOUND_PRESETS, SPIDER_BODY_GROUPS, SPIDER_BODY_SOURCES,
   normalizeSpiderSound, createDefaultSpiderBodyMix, normalizeSpiderBodyMix, createRandomSpiderSound,
-  SPIDER_MOTION_SOUND_PRESETS, getSpiderMotionSound, getSpiderBodyGroupId } from './spider-synth-dsp.js?v=456b92d1a726';
+  SPIDER_MOTION_SOUND_PRESETS, getSpiderMotionSound, getSpiderBodyGroupId } from './spider-synth-dsp.js?v=74d232932f0e';
 
 const finite = (value, fallback = 0) => Number.isFinite(Number(value)) ? Number(value) : fallback;
 const safeCall = (callback, value) => { try { callback?.(value); } catch {} };
@@ -44,8 +45,8 @@ export function createSpiderSpeechPlan(text, pronunciations) {
 
 /** Explicitly armed, one-context/one-worklet instrument with an audio clock. */
 export class SpiderSynthAudio {
-  constructor({ onStatus, onTelemetry, onSamples, runtime = globalThis } = {}) {
-    this.runtime = runtime; this.onStatus = onStatus; this.onTelemetry = onTelemetry; this.onSamples = onSamples;
+  constructor({ onStatus, onTelemetry, onSamples, getWorldSnapshot, runtime = globalThis } = {}) {
+    this.runtime = runtime; this.onStatus = onStatus; this.onTelemetry = onTelemetry; this.onSamples = onSamples; this.getWorldSnapshot=getWorldSnapshot; this.worldSnapshot=null;
     this.context = null; this.node = null; this.master = null; this.releaseOutput = null;
     this.enabled = false; this.ready = false; this.disposed = false;
     this.generation = 0; this.speechGeneration = 0; this.buildPromise = null;
@@ -62,7 +63,7 @@ export class SpiderSynthAudio {
     return { ...this.telemetry, enabled: this.enabled, ready: this.ready,
       contextState: this.context?.state ?? 'uninitialized', time: this.getTime(),
       playing: this.state.playing, soundPlaying: this.state.soundPlaying, disposed: this.disposed,
-      midi: this.getMidiState() };
+      midi: this.getMidiState(), world:this.worldSnapshot };
   }
   getMidiState() { return this.midiPerformance.getState(this.clock()); }
   applyMidiPose(pose, joints, tempo = this.state.motion?.tempo ?? 120, intensity = this.state.motion?.intensity ?? 1) {
@@ -99,7 +100,21 @@ export class SpiderSynthAudio {
     this.midiPerformance.reset(audioTime, owner);
     this.post({ type: 'midi-reset', scope: owner, audioTime });
   }
+  worldCommand(value={}) {
+    if(this.disposed||!['send-prey','hunt','clear-silk','reset','home','move','pluck-silk'].includes(value.type))return false;
+    const command={type:value.type};if(value.id!=null)command.id=typeof value.id==='number'?Math.round(finite(value.id)):String(value.id).slice(0,96);
+    if(value.silkId!=null)command.silkId=Math.round(finite(value.silkId));
+    for(const key of ['u','velocity','strength'])if(value[key]!=null)command[key]=Math.max(0,Math.min(1,finite(value[key])));
+    for(const key of ['x','z'])if(value[key]!=null)command[key]=Math.max(-.55,Math.min(.55,finite(value[key])));
+    if(value.angle!=null)command.angle=finite(value.angle);
+    this.post({type:'world-command',command,audioTime:this.clock()});return true;
+  }
+  restoreWorld(snapshot,timeOffset=0) {
+    if(this.disposed||!snapshot||typeof snapshot!=='object')return false;
+    this.worldSnapshot=new SpiderSynthWorld().restore(snapshot,finite(timeOffset)).snapshot();this.post({type:'world-state',snapshot,timeOffset:finite(timeOffset),audioTime:this.clock()});return true;
+  }
   pluck(value = {}) {
+    if(value.source==='silk')return this.worldCommand({...value,type:'pluck-silk'});
     if (this.disposed) return false;
     this.post({ type: 'pluck', pluck: { segmentId: Math.round(finite(value.segmentId,-1)), u: Math.max(0,Math.min(1,finite(value.u,.5))),
       velocity: Math.max(0,Math.min(1,finite(value.velocity,.65))), angle: finite(value.angle,Math.PI/2), source: value.source === 'prey' ? 'prey' : 'gesture' }, audioTime: this.clock() });
@@ -149,7 +164,7 @@ export class SpiderSynthAudio {
       if (!context.audioWorklet?.addModule || typeof this.runtime.AudioWorkletNode !== 'function') {
         throw new Error('Spider Synth requires AudioWorklet support.');
       }
-      await context.audioWorklet.addModule(new URL('./spider-synth-processor.js?v=456b92d1a726', import.meta.url));
+      await context.audioWorklet.addModule(new URL('./spider-synth-processor.js?v=74d232932f0e', import.meta.url));
       if (this.disposed || this.context !== context || context.state === 'closed') throw cancelled();
       const node = new this.runtime.AudioWorkletNode(context, 'spider-synth', {
         numberOfInputs: 0, numberOfOutputs: 1, outputChannelCount: [2], channelCount: 2,
@@ -161,12 +176,13 @@ export class SpiderSynthAudio {
       node.port.onmessage = ({ data }) => {
         if (this.disposed) return;
         if (data?.type === 'telemetry') {
+          if(data.world&&typeof data.world==='object')this.worldSnapshot=data.world;
           this.telemetry = { rms: finite(data.rms), peak: finite(data.peak), speechEnvelope: finite(data.speechEnvelope),
             audioTime: finite(data.audioTime, this.clock()),
             renderedFrames: finite(data.renderedFrames), motionTime: finite(data.motionTime), soundTime: finite(data.soundTime),
             contactEvents: finite(data.contactEvents), lastContactTime: finite(data.lastContactTime, -1),
             pluckEvents: finite(data.pluckEvents), activeStrings: finite(data.activeStrings),
-            recentEvents: Array.isArray(data.recentEvents) ? data.recentEvents.slice(0,16).map(e=>({id:finite(e.id),segmentId:finite(e.segmentId),u:finite(e.u),velocity:finite(e.velocity),audioTime:finite(e.audioTime,-1),source:String(e.source??'contact').slice(0,20)})) : [],
+            recentEvents: Array.isArray(data.recentEvents) ? data.recentEvents.slice(0,16).map(e=>({id:finite(e.id),segmentId:finite(e.segmentId),u:finite(e.u),velocity:finite(e.velocity),audioTime:finite(e.audioTime,-1),source:String(e.source??'contact').slice(0,20),silkId:e.silkId==null||finite(e.silkId,-1)<0?null:Math.round(finite(e.silkId)),graphVersion:Math.max(0,Math.round(finite(e.graphVersion)))})) : [],
             metronomeEvents: finite(data.metronomeEvents), lastMetronomeTime: finite(data.lastMetronomeTime, -1),
             midiActive: finite(data.midiActive), midiEvents: finite(data.midiEvents),
             midiNotes: Array.from(data.midiNotes ?? [], value => finite(value, -1)),
@@ -210,6 +226,8 @@ export class SpiderSynthAudio {
       // module loading must not play late; notes still held keep their phase.
       this.midiPerformance.sample(context.currentTime, this.state.motion?.tempo ?? 120);
       this.post({ type: 'midi-state', snapshot: this.midiPerformance.serialize(), audioTime: context.currentTime });
+      const worldSnapshot=this.getWorldSnapshot?.();
+      if(worldSnapshot)this.restoreWorld(worldSnapshot,context.currentTime-finite(worldSnapshot.clock,context.currentTime));
       this.postState({ ...this.state, time: this.getTime(), enabled: true });
       const now = context.currentTime;
       this.master.gain.cancelScheduledValues(now);

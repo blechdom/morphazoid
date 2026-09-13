@@ -14,16 +14,25 @@ pose/contact model; rendering never owns automatic audio onsets.
 | Pause animation | Stop new automatic contacts; let tails decay | Freeze procedural time |
 | Drag joint / pluck strand | Finite gesture if armed | Change selected pose/contact, independently of Play |
 | Hold/release MIDI note | Owned note and release envelope | Temporary static pose overlay; never change Play |
+| Joystick / optional MIDI travel | Movement contacts while traveling | Steer independently; release stops manual travel |
+| Lay silk | Movement-gated silk friction and attachment plucks | Deposit bounded playable threads along the route |
+| Send fly / Hunt bug | Approach buzz, trapped-strand pulses, finite eating gesture | Fly arrives; spider travels to the selected prey |
 | Voice | Finite phrase; no browser speech API | Temporary cephalothorax/palp/fang gesture |
 | Audio off | Fade/suspend output | Preserve visible performance settings |
 | Hide/teardown/panic | Release owned resources and notes appropriately | No stale held notes or stuck pointer ownership |
 
 Eight feet are ordered L1–L4, R1–R4. Web coordinates are XZ, +Y outward and +Z
 forward. Stance feet lie on a real segment; the default locomotion keeps at
-least four supports. There is no flying spider. No independent anatomical neck
+least four supports. Explicit jump, leap and rollover routines have marked
+airborne/tethered phases and landing contacts. There is no flying spider. No independent anatomical neck
 is claimed. Articulation of small face regions is explicitly approximate.
 
-The graph is bounded to 24 spokes ×16 rings. The string renderer is a bounded
+Construction presets include an Argiope-inspired zigzag orb, other spider web
+families and explicitly artistic networks. Geometry is bounded to 1,200 nodes
+and 2,400 segments, with at most 256 deposited threads and eight prey records.
+Graph replacement clears topology-dependent prey/silk while preserving the
+camera and both player states. Existing notes retain their own string length
+and release independently of the replaced graph. The string renderer is a bounded
 voice pool, not one permanent oscillator per segment. Length and square-root
 tension control pitch; speed/angle shape excitation. Coupling and caught-bug
 flutter have fixed event limits. All source mixes must remain finite and
@@ -37,3 +46,19 @@ Acceptance includes pure model support/identity/bounds tests, independent
 transport/MIDI/voice tests, DSP pitch/level/tail characterization and a browser
 main-thread-stall probe. Source and WAX must share the same release graph.
 A real-device touch or listening pass is recorded separately from automation.
+
+## Shared world clock
+
+The worklet evaluates contacts and world events at 200 Hz. The renderer follows
+at 20 fps and renders decaying strand waves localized around each pluck.
+Endpoints and actual planted contact points pin the visible wave; they do not
+silence the entire contacted strand. The visualization is slowed for legibility.
+
+Animation phase and absolute world time are separate. Pausing Animation freezes
+the selected routine but permits joystick travel, prey actions and silk laying.
+Lazy Audio enable transfers the latest silent-world snapshot only after loading
+has completed. Suspending an already armed AudioContext freezes its clock;
+resuming it never advances through missed wall time. Audio off transfers visible
+world state back to the performance clock. MIDI sustain may hold a body pose but
+cannot latch steering after a physical note release. Panic and lost input
+ownership release steering without pressing either player.

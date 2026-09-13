@@ -11,11 +11,16 @@ const PARAMS = [
   ['intensity', 'Movement'], ['tempo', 'Tempo'], ['tune', 'Tuning'], ['brightness', 'Brightness'],
   ['tension', 'Silk tension'], ['damping', 'Damping'], ['coupling', 'Coupling'], ['decay', 'Decay'],
   ['body', 'Body resonance'], ['pan', 'Pan'], ['voice', 'Voice level'], ['level', 'Master level'],
+  ['texture', 'Texture'], ['slide', 'Silk glide'], ['flutter', 'Courtship pulses'], ['space', 'Resonant space'],
+  ['silkLevel', 'Spinning silk level'], ['preyLevel', 'Bug level'], ['travelSpeed', 'Travel speed'], ['travelRange', 'Travel range'],
+  ['spokes', 'Web struts'], ['rings', 'Web rows'], ['asymmetry', 'Web asymmetry'], ['twist', 'Web twist'],
+  ['irregularity', 'Web irregularity'], ['depth', 'Web depth'], ['stabilimentum', 'Web zigzag'],
 ];
 const ACTIONS = [
   ['speakButton', 'Say phrase'], ['soundPlayButton', 'Sound play / pause'], ['motionButton', 'Animation play / pause'],
   ['nextMotion', 'Next animation'], ['previousMotion', 'Previous animation'],
   ['randomSound', 'Random sound'], ['randomMotion', 'Random animation'], ['randomPose', 'Random body pose'],
+  ['laySilk', 'Lay silk on / off'], ['catchBug', 'Send a fly'], ['huntBug', 'Hunt the bug'],
 ];
 const NOTE_NAMES = ['C', 'C♯', 'D', 'D♯', 'E', 'F', 'F♯', 'G', 'G♯', 'A', 'A♯', 'B'];
 const clamp = (value, low, high) => Math.max(low, Math.min(high, Number(value) || 0));
@@ -24,12 +29,33 @@ const wrap = (value, length) => ((value % length) + length) % length;
 /** Own only Spider's public MIDI event; the shared toolbar owns permission,
  * controller profiles and keyboard input in both browser and WAX builds. */
 export function createSpiderMidiControls({ audio, setPlaying, selectGroup, onVisual,
+  onSteer = () => {},
   runtime = window, document: doc = runtime.document }) {
   const el = id => doc.getElementById(id);
   const listeners = new AbortController(), options = { signal: listeners.signal };
   let disposed = false, routes = [...SPIDER_MIDI_ROUTE_DEFAULTS];
   let visualUntil = 0, lastLabel = 'MIDI poses ready', managerEnabled = false;
   const edgeScopes = new Map();
+  const steeringNotes = new Map();
+  let noteMode = 'poses';
+  function steer() {
+    let x = 0, z = 0;
+    for (const note of steeringNotes.values()) {
+      const angle = note.note % 12 * Math.PI / 6;
+      const strength = (.3 + note.velocity * .7) * Math.max(.35, Math.min(1.3, 2 ** ((note.note - 60) / 24)));
+      x += Math.sin(angle) * strength; z += Math.cos(angle) * strength;
+    }
+    if (Math.hypot(x, z) < .000001) { x = 0; z = 0; }
+    const length = Math.max(1, Math.hypot(x, z));
+    onSteer({ x: x / length, z: z / length, active: Boolean(x || z), source: 'midi' });
+  }
+  function releaseSteering(message) {
+    if (message?.synthetic && message.sourceId === 'web-midi:manager') message = null;
+    const sourceId = String(message?.sourceId ?? 'midi').slice(0, 128);
+    for (const [key, note] of steeringNotes) if (!message || (note.sourceId === sourceId
+      && (message.synthetic || note.channel === (message.channel ?? 0)))) steeringNotes.delete(key);
+    steer();
+  }
   function edgesFor(message) {
     const key = `${String(message.sourceId ?? 'midi').slice(0, 128)}:${message.channel ?? 0}`;
     if (!edgeScopes.has(key)) {
@@ -51,7 +77,7 @@ export function createSpiderMidiControls({ audio, setPlaying, selectGroup, onVis
     ['Body rotations', SPIDER_BODY_GROUPS.slice(0, 5).flatMap(({ id, label }) => ['x', 'y', 'z'].map(axis => [`joint:${id}:${axis}`, `${label} · ${axis.toUpperCase()}`]))],
     ['Body levels', SPIDER_BODY_GROUPS.map(({ id, label }) => [`mix:${id}`, `${label} level`])],
     ['Body sounds', SPIDER_BODY_GROUPS.map(({ id, label }) => [`source:${id}`, `${label} sound`])],
-    ['Presets', [['select:soundPreset', 'Sound preset'], ['select:motionPreset', 'Animation preset']]],
+    ['Presets', [['select:soundPreset', 'Sound preset'], ['select:motionPreset', 'Animation preset'], ['select:webPreset', 'Web construction'], ['select:travelPath', 'Travel path']]],
     ['Buttons · cross halfway to trigger', ACTIONS.map(([id, label]) => [`action:${id}`, label])],
   ];
   for (const [, values] of groups) for (const [id] of values) validTargets.add(id);
@@ -59,10 +85,11 @@ export function createSpiderMidiControls({ audio, setPlaying, selectGroup, onVis
     const saved = JSON.parse(runtime.localStorage.getItem(KEY));
     if (saved?.version === 1) {
       routes = routes.map((fallback, i) => validTargets.has(saved.routes?.[i]) ? saved.routes[i] : fallback);
+      noteMode = saved.noteMode === 'travel' ? 'travel' : 'poses';
     }
   } catch {}
   function save() {
-    try { runtime.localStorage.setItem(KEY, JSON.stringify({ version: 1, routes })); } catch {}
+    try { runtime.localStorage.setItem(KEY, JSON.stringify({ version: 1, routes, noteMode })); } catch {}
   }
   function wake() { visualUntil = runtime.performance.now() + 600; onVisual(); }
   function range(id, normalized) {
@@ -82,7 +109,7 @@ export function createSpiderMidiControls({ audio, setPlaying, selectGroup, onVis
     input.value = choices[index].value; input.dispatchEvent(new runtime.Event('change', { bubbles: true }));
   }
   function panic() {
-    audio.resetMidi(); clearEdges();
+    audio.resetMidi(); clearEdges(); releaseSteering();
     lastLabel = 'MIDI released'; el('midiStatus').textContent = lastLabel; wake();
   }
   function applyMacro(index, value, message) {
@@ -110,6 +137,15 @@ export function createSpiderMidiControls({ audio, setPlaying, selectGroup, onVis
       if (!Number.isInteger(message.note) || message.note < 0 || message.note > 127) return;
       const attack = type === 'noteOn' && message.velocity > 0;
       audio.midi({ ...message, kind: 'body' });
+      if (noteMode === 'travel') {
+        const sourceId = String(message.sourceId ?? 'midi').slice(0, 128), channel = message.channel ?? 0;
+        const key = `${sourceId}:${channel}:${message.note}`;
+        if (attack) {
+          if (steeringNotes.size >= 24 && !steeringNotes.has(key)) steeringNotes.delete(steeringNotes.keys().next().value);
+          steeringNotes.set(key, { sourceId, channel, note: message.note, velocity: clamp(message.velocity / 127, 0, 1) });
+        } else steeringNotes.delete(key);
+        steer();
+      }
       if (attack) {
         const gesture = SPIDER_MIDI_GESTURES[message.note % 12];
         lastLabel = `${NOTE_NAMES[message.note % 12]}${Math.floor(message.note / 12) - 1} · ${gesture.label}`;
@@ -125,7 +161,7 @@ export function createSpiderMidiControls({ audio, setPlaying, selectGroup, onVis
       if (cc >= 14 && cc <= 21 && !message.profileId) { applyMacro(cc - 14, value, message); return; }
       if ([11, 64, 120, 121, 123].includes(cc)) {
         audio.midi(message); wake();
-        if ([120, 121, 123].includes(cc)) clearEdges(message);
+        if ([120, 121, 123].includes(cc)) { clearEdges(message); releaseSteering(message); }
         return;
       }
       const parameter = { 1: 'intensity', 7: 'level', 10: 'pan', 71: 'body', 74: 'brightness' }[cc];
@@ -159,6 +195,12 @@ export function createSpiderMidiControls({ audio, setPlaying, selectGroup, onVis
     note.textContent = NOTE_NAMES[i]; part.textContent = gesture.label; el('midiKeyMap').append(note, part);
   }
   el('midiPanic').addEventListener('click', panic, options);
+  if (el('midiNoteMode')) {
+    el('midiNoteMode').value = noteMode;
+    el('midiNoteMode').addEventListener('change', () => {
+      releaseSteering(); noteMode = el('midiNoteMode').value === 'travel' ? 'travel' : 'poses'; save();
+    }, options);
+  }
   el('midiResetRoutes').addEventListener('click', () => {
     panic(); routes = [...SPIDER_MIDI_ROUTE_DEFAULTS]; routes.forEach((id, i) => { el(`midiRoute${i}`).value = id; }); save();
   }, options);
@@ -169,7 +211,7 @@ export function createSpiderMidiControls({ audio, setPlaying, selectGroup, onVis
     managerEnabled = status.enabled;
   });
   return Object.freeze({
-    getState: () => ({ routes: [...routes], ...audio.getMidiState(), lastLabel }),
+    getState: () => ({ routes: [...routes], ...audio.getMidiState(), lastLabel, noteMode, steeringNotes: steeringNotes.size }),
     isAnimating: () => !disposed && (runtime.performance.now() < visualUntil || audio.midiPerformance.hasActivity(audio.clock())),
     syncRig: wake, panic,
     dispose() { if (disposed) return; panic(); disposed = true; listeners.abort(); unsubscribe(); },

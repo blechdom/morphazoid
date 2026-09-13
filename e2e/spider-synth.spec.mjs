@@ -49,7 +49,7 @@ test('detailed scan, complete source bank and view controls expose the new instr
   expect(await page.locator('#bodyMixer .spider-body-row').count()).toBe(8);
   expect(await page.locator('#source-legs option').count()).toBeGreaterThan(8);
   expect(await page.locator('#soundPreset option').count()).toBeGreaterThanOrEqual(40);
-  expect(await page.locator('#motionPreset option').count()).toBe(24);
+  expect(await page.locator('#motionPreset option').count()).toBeGreaterThanOrEqual(40);
   await expect(page.locator('#phrase')).toHaveValue("hi, I'm a spider and this is my web");
   await expect(page.locator('.instrument-picker-link[data-tool-id="spider-synth"]')).toHaveAttribute('aria-current', 'page');
   const lighting = initial.lighting;
@@ -61,11 +61,12 @@ test('detailed scan, complete source bank and view controls expose the new instr
   expect(errors).toEqual([]);
 });
 
-test('all24 motion patches keep actual skinned toes supported and vary the body sound assignments', async ({ page }) => {
+test('ordinary motion patches keep actual skinned toes supported and vary the body sound assignments', async ({ page }) => {
   await open(page); await page.locator('#motionButton').click();
   const ids = await page.locator('#motionPreset option').evaluateAll(options => options.map(option => option.value));
   const sounds = new Set();
   for (const id of ids) {
+    if (['web-jump', 'long-leap', 'tether-bounce', 'rollover'].includes(id)) continue;
     await page.locator('#motionPreset').selectOption(id);
     const start = (await snapshot(page)).time;
     await expect.poll(async () => (await snapshot(page)).frame.time).toBeGreaterThan(start + .15);
@@ -148,7 +149,7 @@ for (const size of [{ width: 390, height: 844 }, { width: 844, height: 390 }]) {
   });
 }
 
-test('web plucking and finite caught-bug flutter work without starting either player', async ({ page }) => {
+test('web plucking and a trapped fly work independently, then hunting ends its struggle', async ({ page }) => {
   await open(page); await arm(page);
   const point = await page.evaluate(() => {
     for (let id = 200; id < window.spiderSynth.getState().web.segments; id++) {
@@ -157,8 +158,11 @@ test('web plucking and finite caught-bug flutter work without starting either pl
   });
   expect(point).toBeTruthy(); await page.mouse.click(point.x, point.y);
   await expect.poll(async () => (await snapshot(page)).audio.pluckEvents).toBeGreaterThan(0);
+  await expect.poll(async () => (await snapshot(page)).waves.maxDisplacement, { intervals: [50], timeout: 2000 }).toBeGreaterThan(.0001);
   const first = (await snapshot(page)).audio.pluckEvents; await page.locator('#catchBug').click();
   await expect.poll(async () => (await snapshot(page)).audio.pluckEvents).toBeGreaterThan(first + 4);
+  await page.locator('#huntBug').click();
+  await expect.poll(async () => (await snapshot(page)).world.prey.at(-1)?.state, { timeout: 20000 }).toBe('eaten');
   await expect.poll(async () => (await snapshot(page)).audio.activeStrings, { timeout: 15000 }).toBe(0);
   const state = await snapshot(page); expect(state.playing).toBe(false); expect(state.soundPlaying).toBe(false);
   await expect.poll(async () => (await snapshot(page)).audio.peak).toBeLessThan(.0001);

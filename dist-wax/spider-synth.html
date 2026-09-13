@@ -9,7 +9,7 @@
     <title>Spider Synth — Morphazoid</title>
     <link rel="icon" href="favicon.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="style.css" />
-    <link rel="stylesheet" href="spider-synth.css?v=456b92d1a726" />
+    <link rel="stylesheet" href="spider-synth.css?v=74d232932f0e" />
   </head>
   <body class="spider-synth-page" data-instrument-info="off">
     <header class="masthead">
@@ -88,15 +88,25 @@
             <div class="spider-animation-picker"><label class="spider-inline-select" for="motionPreset"><span>Animation</span><span class="select-shell"><select id="motionPreset"><option value="orb-walk">Orb walk</option></select></span></label><div class="spider-inline-arrows"><button type="button" id="previousMotion" aria-label="Previous animation">‹</button><button type="button" id="nextMotion" aria-label="Next animation">›</button></div></div>
             <button class="mini-action" id="randomMotion" type="button" aria-label="Random animation">Random</button>
           </div>
-          <div class="spider-motion-controls"><label class="control" for="tempo"><span><b>Tempo</b><output id="tempoOut" for="tempo">108 BPM</output></span><input id="tempo" type="range" min="35" max="240" step="1" value="108" /></label><label class="control" for="intensity"><span><b>Movement</b><output id="intensityOut" for="intensity">65%</output></span><input id="intensity" type="range" min="0" max="1" step="0.01" value="0.65" /></label></div>
+          <div class="spider-motion-controls"><label class="control" for="tempo"><span><b>Tempo</b><output id="tempoOut" for="tempo">108 BPM</output></span><input id="tempo" type="range" min="35" max="300" step="1" value="108" /></label><label class="control" for="intensity"><span><b>Movement</b><output id="intensityOut" for="intensity">65%</output></span><input id="intensity" type="range" min="0" max="1" step="0.01" value="0.65" /></label></div>
           <div class="spider-beat-controls"><label class="spider-check"><input id="metronome" type="checkbox" /> Metronome</label><div class="spider-beat" id="beatIndicator" role="img" aria-label="Beat stopped"><i></i><i></i><i></i><i></i></div></div>
-          <label class="spider-check"><input id="explore" type="checkbox" checked /> Roam the web</label>
+          <div class="spider-roam-controls">
+            <button id="webJoystick" class="spider-joystick" type="button" aria-label="Steer spider: drag or hold arrow keys" aria-describedby="travelHelp" aria-keyshortcuts="ArrowUp ArrowDown ArrowLeft ArrowRight"><span class="spider-stick-grid" aria-hidden="true"></span><span class="spider-stick-nub" aria-hidden="true"></span><span class="spider-stick-label" aria-hidden="true">Steer</span></button>
+            <div class="spider-roam-settings"><label class="spider-inline-select" for="travelPath"><span>Travel path</span><span class="select-shell"><select id="travelPath"><option value="orbit">Orbit</option></select></span></label><div class="spider-travel-knobs" id="travelControls" role="group" aria-label="Travel speed and range"></div></div>
+          </div>
+          <div class="spider-beat-controls"><label class="spider-check"><input id="explore" type="checkbox" checked /> Roam during animation</label><button class="mini-action" id="homeSpider" type="button">Home</button></div>
+          <p class="spider-note" id="travelHelp">Drag Steer or focus it and hold arrow keys. Release to stop steering. Animation and sound keep their own Play buttons.</p>
         </section>
         <section class="spider-control-block spider-web-controls" aria-labelledby="webTitle">
-          <div class="spider-mixer-heading"><h2 id="webTitle">Silk strings</h2><button class="mini-action" id="catchBug" type="button">Catch a bug</button></div>
+          <div class="spider-mixer-heading"><h2 id="webTitle">Web</h2><button class="mini-action" id="randomWeb" type="button">Random web</button></div>
+          <label class="spider-inline-select spider-web-preset" for="webPreset"><span>Construction</span><span class="select-shell"><select id="webPreset"><option value="orb">Orb</option></select></span></label>
+          <div id="webGeometryControls" class="spider-tone-controls" role="group" aria-label="Web construction geometry"></div>
           <div id="webControls" class="spider-tone-controls" role="group" aria-label="Web string parameters"></div>
           <div class="spider-motion-controls"><label class="control" for="spokes"><span><b>Radials</b><output id="spokesOut" for="spokes">16</output></span><input id="spokes" type="range" min="8" max="24" step="1" value="16" /></label><label class="control" for="rings"><span><b>Spirals</b><output id="ringsOut" for="rings">10</output></span><input id="rings" type="range" min="4" max="16" step="1" value="10" /></label></div>
-          <p class="spider-note">Shorter strands ring higher. Leg contacts pluck; movement changes the attack.</p>
+          <div class="spider-silk-actions"><button class="mini-action" id="laySilk" type="button" aria-pressed="false">Lay silk</button><button class="mini-action" id="clearSilk" type="button">Clear new silk</button><div id="silkMixControl" class="spider-inline-knobs"></div></div>
+          <div class="spider-prey-actions"><button class="mini-action" id="catchBug" type="button">Send a fly</button><button class="mini-action" id="huntBug" type="button">Hunt bug</button><div id="preyMixControl" class="spider-inline-knobs"></div></div>
+          <output class="spider-note spider-world-status" id="webWorldStatus" aria-live="polite"></output>
+          <p class="spider-note">Lay silk while steering or roaming. Click a trapped fly or choose Hunt bug to go eat it.</p>
         </section>
         <section class="spider-control-block spider-body-mixer" aria-labelledby="mixerTitle">
           <div class="spider-mixer-heading"><h2 id="mixerTitle">Body + web sounds</h2><button class="mini-action" id="resetMix" type="button">Reset mix</button></div>
@@ -107,6 +117,7 @@
         </section>
         <section class="spider-control-block spider-midi" aria-label="MIDI performance">
           <div class="spider-control-row"><span class="spider-player">MIDI poses</span><button class="mini-action" id="midiPanic" type="button" title="Release MIDI notes and return MIDI-controlled joints">Release MIDI</button></div>
+          <label class="spider-inline-select" for="midiNoteMode"><span>Keys move</span><span class="select-shell"><select id="midiNoteMode"><option value="poses">Body poses</option><option value="travel">Poses + travel</option></select></span></label>
           <p class="spider-note" id="midiHelp">Turn MIDI In on above. Hold keys to pose body parts; release to relax. Animation Play stays independent.</p>
           <output id="midiStatus" class="spider-midi-status" aria-live="off">MIDI poses ready</output>
           <details id="midiRoutes"><summary>CC routes &amp; key map</summary>
@@ -116,6 +127,7 @@
             <p class="spider-note">Combine keys into poses. Octaves vary the pose and pitch; velocity changes strength, pitch bend moves ±2 semitones, and sustain holds notes.</p>
             <dl id="midiKeyMap" class="spider-midi-keymap"></dl>
             <p class="spider-note">Every key plays its body part’s assigned sound. Program Change selects a sound preset. Notes never start or stop either player.</p>
+            <p class="spider-note">Poses + travel maps the twelve pitch classes around the web: C moves forward, D♯ right, F♯ back and A left. Octaves and velocity change speed; release keys to stop steering. Sustain holds the pose, not travel.</p>
             <p class="spider-note">CC1 movement · CC7 level · CC10 pan · CC11 expression · CC64 sustain · CC71 body · CC74 brightness. Assigned controller macros take precedence. MIDI Start/Stop controls animation; incoming clock sets tempo. C4 = note 60.</p>
             <p class="spider-note">Computer keys: Z S X D C V G B H N J M = C3–B3; Q 2 W 3 E R 5 T 6 Y 7 U = C4–B4. [ / ] shift octaves.</p>
           </details>
@@ -124,7 +136,7 @@
       </aside>
     </main>
     <script type="module" src="nav.js"></script>
-    <script type="module" src="spider-synth-app.js?v=456b92d1a726"></script>
+    <script type="module" src="spider-synth-app.js?v=74d232932f0e"></script>
     <script type="module" src="wax/wax-universal-adapter.js" data-morphazoid-wax-universal-adapter></script>
 </body>
 </html>

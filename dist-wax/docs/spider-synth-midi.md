@@ -16,9 +16,35 @@ have authored small pivots. The Spinnerets sound row follows the abdomen.
 
 The compact mixer assigns one source, level, Mute and Solo per body group or
 web layer. Individual leg joints still influence pitch, filter, pan and contact
-while sharing the Legs source. Catch a bug produces a finite flutter on a
-strand. Type into **Voice** and press **Say it**, or Control/Command+Enter.
+while sharing the Legs source. **Send a fly** brings in a buzzy visitor that
+struggles on its trapped strand. Click it or press **Hunt bug** to approach and
+eat it. Type into **Voice** and press **Say it**, or Control/Command+Enter.
 Words temporarily animate the face without starting Animation.
+
+## Web and travel
+
+The initial web takes its zigzag decoration from *Argiope aurantia*. The scan is
+the related *Argiope bruennichi*. Construction presets include other spider web
+families and playful geometric patterns. Adjust struts, rows, asymmetry, twist,
+irregularity, depth and zigzag amount. Changing construction clears the flies
+and extra silk attached to the previous web. Sound presets can also recall a
+web construction without changing either Play button or the camera.
+
+Drag the round **Steer** pad or focus it and hold arrow keys. Steering follows
+the current camera's directions across the web. Release to stop
+manual travel. **Roam during animation** follows the chosen path; Speed and
+Range shape that route. **Home** returns to the hub. Arrow keys over the 3D
+canvas still orbit the camera; Shift+arrows manipulate the selected joint.
+
+Turn on **Lay silk** and travel to leave new playable threads. Silk level sets
+the spinning sound; **Clear new silk** removes those added strands. Plucked
+threads visibly vibrate around their contact points. The base graph and newly
+laid silk share the bounded audio voice pool.
+
+Texture, Glide, Courtship and Space expand body resonances into rubbing,
+sliding, tremulous and layered timbres. Courtship is a musical pulse macro,
+not a calibrated recording. Individual motion sources settle when movement
+stops; Sound Play owns the held resonance layer.
 
 ## MIDI and computer keys
 
@@ -46,6 +72,14 @@ pitch bend moves two semitones either way. Polyphonic/channel pressure and
 expression shape owned notes, and sustain holds them after release. Notes from
 different device/channel pairs retain separate ownership. **Release MIDI**
 returns temporary note and CC poses without resetting the main instrument.
+
+Choose **Poses + travel** under Notes to steer with MIDI while also playing body
+parts. C moves forward, D♯ right, F♯ backward and A left; intermediate notes
+blend directions. Chords combine directions, and velocity/octave change reach.
+Releasing a note ends its steering even when sustain holds its pose and sound.
+**Body poses** remains the default. Neither note mode changes Sound or Animation
+Play. CC routes can also choose web construction/path, shape web geometry,
+control travel speed, lay silk or send/hunt a fly.
 
 Computer keys: `Z S X D C V G B H N J M` = C3–B3;
 `Q 2 W 3 E R 5 T 6 Y 7 U` = C4–B4. `[` and `]` change octave;

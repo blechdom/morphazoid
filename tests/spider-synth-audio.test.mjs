@@ -15,10 +15,10 @@ function render(d,seconds,time){const l=new Float32Array(Math.round(seconds*d.sa
 function energy(a){let sum=0;for(const x of a)sum+=x*x;return Math.sqrt(sum/a.length);}
 function toneFrequency(a,rate,expected){let best=-1,freq=0;const start=Math.min(a.length/2,Math.round(rate*.04));const count=Math.min(Math.round(rate*.25),a.length-start);for(let f=expected*.8;f<=expected*1.2;f+=expected*.004){let re=0,im=0;for(let i=0;i<count;i++){const phase=2*Math.PI*f*i/rate;re+=a[start+i]*Math.cos(phase);im+=a[start+i]*Math.sin(phase);}const power=re*re+im*im;if(power>best){best=power;freq=f;}}return freq;}
 
-test('catalogues own eight groups, sixteen actual sources and distinct companions for all24 motions',()=>{
- assert.equal(SPIDER_BODY_SOURCES.length,16);assert.equal(SPIDER_SOUND_PRESETS.length,16);assert.equal(SPIDER_MOTION_SOUND_PRESETS.length,24);
+test('catalogues own eight groups, 24 actual sources and distinct companions for every shared motion',()=>{
+ assert.equal(SPIDER_BODY_SOURCES.length,24);assert.equal(SPIDER_SOUND_PRESETS.length,24);assert.equal(SPIDER_MOTION_SOUND_PRESETS.length,SPIDER_MOTION_PRESETS.length);
  assert.deepEqual(SPIDER_MOTION_SOUND_PRESETS.map(p=>p.id),SPIDER_MOTION_PRESETS.map(p=>p.id));
- assert.equal(new Set(SPIDER_MOTION_SOUND_PRESETS.map(p=>JSON.stringify([p.sound,p.bodyMix]))).size,24);
+ assert.equal(new Set(SPIDER_MOTION_SOUND_PRESETS.map(p=>JSON.stringify([p.sound,p.bodyMix]))).size,SPIDER_MOTION_PRESETS.length);
  const value=createDefaultSpiderBodyMix();const normalized=normalizeSpiderBodyMix(value);value[0].level=0;assert.notEqual(normalized[0].level,0);
  assert.equal(normalizeSpiderSound({coupling:99}).coupling,.4);assert.equal(normalizeSpiderSound({tension:NaN}).tension,.25);
 });
@@ -46,7 +46,7 @@ test('real pooled string pitch follows substring length and tension and angle ch
 
 test('coupling only excites an adjacent strand and has a fixed one-generation budget',()=>{
  const d=synth({bodyMix:mix(['radials','spirals']),sound:{coupling:.3}});d.pluck({segmentId:10,u:.4,velocity:.7});assert.equal(d.pluckEvents,2);
- const events=d.recentEvents.filter(e=>e.id>0);const a=d.web.segments[events[0].segmentId],b=d.web.segments[events[1].segmentId];assert.ok([a.a,a.b].some(node=>node===b.a||node===b.b));assert.equal(events[1].source,'coupling');
+ const events=d.recentEvents.filter(e=>e.id>0);const a=d.web.segments[events[0].segmentId],b=d.web.segments[events[1].segmentId];assert.ok([a.a,a.b].some(node=>node===b.a||node===b.b));assert.equal(events[1].source,'coupling');assert.equal(events[0].silkId,null);assert.equal(events[1].silkId,null);
 });
 
 test('worklet contacts consume exactly the shared foot step ledger without visual updates',()=>{
@@ -181,4 +181,76 @@ test('CC11 controls owned ringing strings without creating a new neutral-return 
 
 test('metronome telemetry is sample-clock aligned and resume cannot add an off-beat click',()=>{
  const d=synth({playing:true,metronome:true,bodyMix:mix([]),motion:{tempo:120,preset:'listen',explore:false}});const first=render(d,.3);assert.equal(first.metronomeEvents,1);assert.equal(first.lastMetronomeTime,0);d.update({playing:false});render(d,.2);d.update({playing:true});assert.equal(render(d,.1).metronomeEvents,1);const next=render(d,.2);assert.equal(next.metronomeEvents,2);assert.ok(Math.abs(next.lastMetronomeTime-.5)<=1/d.sampleRate);d.update({enabled:false});assert.equal(render(d,1).metronomeEvents,2);
+});
+
+test('all six texture/world controls are normalized and every companion has immutable real geometry',()=>{
+ const keys=['texture','slide','flutter','space','silkLevel','preyLevel'];for(const key of keys){assert.equal(normalizeSpiderSound({[key]:2})[key],1);assert.equal(normalizeSpiderSound({[key]:-1})[key],0);}
+ for(const patch of SPIDER_SOUND_PRESETS){assert.ok(Object.isFrozen(patch.webSettings));assert.ok(patch.webSettings.spokes>=8&&patch.webSettings.rings>=3);}
+ assert.ok(new Set(SPIDER_SOUND_PRESETS.map(p=>p.webSettings.preset)).size>=8);
+ const preset=getSpiderMotionSound('silk-reel');const before=getSpiderMotionSound('silk-reel').webSettings.spokes;preset.webSettings.spokes=999;assert.equal(getSpiderMotionSound('silk-reel').webSettings.spokes,before);
+});
+
+test('living default resonance varies with texture while still, without manufactured impacts',()=>{
+ const signals=[];for(const texture of [0,1]){const d=synth({soundPlaying:true,sound:{texture}});render(d,.3);const signal=render(d,2);assert.ok(signal.rms>.015);assert.equal(signal.pluckEvents,0);assert.equal(signal.contactEvents,0);signals.push(signal.l);}
+ assert.notDeepEqual(signals[0],signals[1]);
+ const d=synth({soundPlaying:true});render(d,.3);const chunks=[];for(let n=0;n<12;n++)chunks.push(render(d,.15).rms);assert.ok(Math.max(...chunks)/Math.min(...chunks)>1.1);
+});
+
+test('glide changes real delay-line settling and courtship/space controls change measured bursts',()=>{
+ for(const slide of [0,1]){const strings=new SpiderStrings(24000),sound=normalizeSpiderSound({slide});strings.pluck(220,.8,0,sound,6,0,0,.5);const voice=strings.voices.find(v=>v.remaining>0);const initial=Math.abs(voice.period-voice.targetPeriod);const levels=new Float64Array(8).fill(1);for(let i=0;i<2400;i++)strings.sample(levels,.65);assert.ok(slide?Math.abs(voice.period-voice.targetPeriod)>initial*.25:Math.abs(voice.period-voice.targetPeriod)<.001);}
+ for(const key of ['flutter','space']){const outputs=[];for(const value of [0,1]){const d=synth({bodyMix:mix(['cephalothorax'],'palp-roll'),sound:{[key]:value}});render(d,.05);d.update({motion:{offsets:{cephalothorax:{x:.4,y:.3,z:0}}}});outputs.push(render(d,.5).l);}assert.notDeepEqual(outputs[0],outputs[1],key);}
+});
+
+test('joystick travel and silk extrusion have independent clocks and settle without either Play transport',()=>{
+ const d=synth({bodyMix:mix([])});render(d,.05);assert.equal(d.pluckEvents,0);
+ d.update({worldSettings:{joystick:{x:.8,z:.2},speed:1,laySilk:true}});const moving=render(d,1.5);assert.ok(moving.rms>.005);assert.ok(d.world.silkSegments.length>5);assert.ok(d.contactEvents>0);assert.equal(d.time,0);assert.equal(d.soundTime,0);assert.equal(d.playing,false);
+ d.update({worldSettings:{joystick:{x:0,z:0}}});render(d,2);const contacts=d.contactEvents,plucks=d.pluckEvents;assert.ok(render(d,.2).peak<1e-6);assert.equal(d.contactEvents,contacts);assert.equal(d.pluckEvents,plucks);
+ const muted=synth({bodyMix:mix([]),sound:{silkLevel:0},worldSettings:{joystick:{x:1,z:0},speed:1,laySilk:true}});assert.equal(render(muted,1).peak,0);assert.ok(muted.world.silkSegments.length>0);
+});
+
+test('world snapshots retain clock ownership and do not replay already consumed prey events',()=>{
+ const a=synth({worldSettings:{hunt:true,speed:2}});a.worldCommand({type:'send-prey'});render(a,1.5);const snapshot=a.getWorldSnapshot();
+ const b=synth();assert.equal(b.restoreWorld(snapshot,10),true);assert.equal(b.world.clock,snapshot.clock+10);const before=b.pluckEvents;render(b,.01,snapshot.clock+10);assert.equal(b.pluckEvents,before);
+ render(b,8);const plucks=b.pluckEvents;assert.ok(b.world.prey.every(p=>p.state==='eaten'));assert.ok(render(b,.2).peak<1e-6);assert.equal(b.pluckEvents,plucks);assert.equal(b.playing,false);
+});
+
+test('laid silk plucks use strand length and retain silk identity; topology replacement preserves player state',()=>{
+ const d=synth({soundPlaying:true});d.update({worldSettings:{joystick:{x:1,z:0},laySilk:true,speed:1}});render(d,.8);d.update({worldSettings:{joystick:{x:0,z:0}}});render(d,.2);
+ const strand=d.world.silkSegments[0];assert.ok(strand);d.worldCommand({type:'pluck-silk',silkId:strand.id,u:.35,velocity:.8,angle:strand.angle+Math.PI/2});render(d,.01);const event=d.recentEvents.find(e=>e.source==='silk');assert.equal(event.silkId,strand.id);assert.equal(event.segmentId,-1);assert.equal(event.u,.35);
+ const voice=d.strings.voices.find(v=>v.remaining>0&&v.segmentId===-1);assert.ok(voice);assert.ok(Math.abs(voice.targetPeriod-(d.sampleRate/(spiderStringFrequency(strand.length,d.smooth.tension,.35)*d.smooth.tune)-.5))<2);
+ const old=d.web;d.update({webSettings:{preset:'sheet',depth:.1},playing:true});assert.notEqual(d.web,old);assert.equal(d.playing,true);assert.equal(d.soundPlaying,true);render(d,.01);assert.equal(d.world.silkSegments.length,0);assert.ok(d.recentEvents.every(e=>e.id===0||e.graphVersion===d.world.state.graphVersion));
+});
+
+test('adapter rebases exposed world snapshots and adopts the latest world after lazy enable',async()=>{
+ const f=adapter(true),source=synth();source.update({worldSettings:{joystick:{x:.7,z:0},speed:1}});render(source,.5);let calls=0;
+ const audio=new SpiderSynthAudio({runtime:f.runtime,getWorldSnapshot:()=>{calls++;return source.getWorldSnapshot();}});const pending=audio.enable();render(source,.5);f.contexts[0].currentTime=4;f.finish();await pending;
+ assert.equal(calls,1);assert.equal(audio.getState().world.clock,4);const message=f.messages.find(m=>m.type==='world-state');assert.equal(message.snapshot.clock,source.world.clock);assert.equal(message.timeOffset,4-source.world.clock);
+ const contexts=f.contexts.length;audio.worldCommand({type:'pluck-silk',silkId:9,u:.3,velocity:.8});const command=f.messages.at(-1).command;assert.equal(command.silkId,9);assert.equal(command.u,.3);assert.equal(f.contexts.length,contexts);audio.dispose();
+});
+
+
+test('a trapped prey settles after its finite shared struggle window without an idle audio loop',()=>{
+ const d=synth();d.worldCommand({type:'send-prey'});render(d,11);const events=d.pluckEvents,serial=d.world.nextEventId;render(d,3);assert.equal(d.pluckEvents,events);assert.equal(d.world.nextEventId,serial);assert.equal(d.world.state.preyStruggle,0);assert.ok(render(d,.2).peak<1e-6);assert.equal(d.world.prey[0].state,'trapped');
+});
+
+
+test('adapter telemetry preserves deposited-strand identity and graph generation',async()=>{
+ const f=adapter(),audio=new SpiderSynthAudio({runtime:f.runtime});await audio.enable();
+ audio.node.port.onmessage({data:{type:'telemetry',recentEvents:[{id:1,segmentId:5,silkId:null,graphVersion:3,source:'contact'},{id:2,segmentId:-1,silkId:19,graphVersion:3,source:'silk'}]}});
+ const events=audio.getState().recentEvents;assert.equal(events[0].silkId,null);assert.equal(events[0].segmentId,5);assert.equal(events[1].silkId,19);assert.equal(events[1].graphVersion,3);audio.dispose();
+});
+
+
+test('world gain zero silences its already ringing string without silencing unrelated manual strings',()=>{
+ const d=synth({sound:{decay:6,coupling:0,space:0},bodyMix:mix(['radials','spirals'])});d.pluck({segmentId:20,velocity:.8,source:'prey'});render(d,.1);assert.ok(d.strings.voices.some(v=>v.remaining>0&&v.worldKind===2));d.update({sound:{preyLevel:0}});render(d,.8);assert.ok(render(d,.1).peak<1e-6);d.pluck({segmentId:23,velocity:.8});assert.ok(render(d,.15).rms>.005);
+});
+
+
+test('procedural root-body turns excite their body owners and release when animation stops',()=>{
+ const d=synth({playing:true,motion:{preset:'rollover',intensity:1},bodyMix:mix(['cephalothorax'],'membrane')});const moving=render(d,2);assert.ok(moving.rms>.015);d.update({playing:false});render(d,1);assert.ok(render(d,.2).peak<1e-6);assert.equal(d.soundPlaying,false);
+});
+
+
+test('root-turn timbre is periodic and crossing an angle wrap cannot invent a large movement',()=>{
+ const d=synth({bodyMix:mix(['cephalothorax'],'palp-roll')});let yaw=0;const sample=d.world.sample.bind(d.world);d.world.sample=(...args)=>{const state=sample(...args);args[3].body.yaw+=yaw;return state;};d.control();const pose=d.groupPose.slice();yaw=Math.PI*2;d.control();for(let i=0;i<pose.length;i++)assert.ok(Math.abs(d.groupPose[i]-pose[i])<1e-6);assert.ok(d.groupDistance[1]<1e-6);assert.equal(d.pluckEvents,0);yaw=Math.PI-.01;d.control();yaw=Math.PI+.01;d.control();assert.ok(d.groupDistance[1]<.02);
 });

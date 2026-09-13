@@ -1,139 +1,111 @@
-# Spider Synth — QA record
+# Spider Synth — version 2 QA record
 
-Date: 2026-09-12. This records automated tests and offline signal measurements.
-It is **not** a human listening, physical mobile device, or DAW approval.
-Desktop, mobile-layout, source and generated-WAX browser checks are included
-below. WAX browser checks do not constitute a test in a physical DAW host.
+Date: 2026-09-12. Evidence below is automated browser testing, actual mesh/rig
+inspection and offline audio measurement. It does not represent human listening,
+a physical phone or a DAW host test. The source scan remains unchanged:
+5,488,852 bytes, 106,200 triangles, a 4096-pixel color atlas and 38 weighted bones.
 
-## Integrated focused tests
+## Coverage
 
-The integrated Node run passed **60 tests, zero failures**: model 22, asset/viewer
-4, audio 25, MIDI 8, release consistency 1.
+The integrated focused run passed **95 tests, zero failures**.
+`npm run verify` passed **3,418 tests, six skipped, zero failures**, plus syntax,
+SIMD, XYFlow and generated-WAX consistency checks.
 
-- The delivered specimen is 5,488,852 bytes, with all 106,200 animal triangles,
-  the 4096 × 4096 color atlas, and 38 authored weighted bones. Asset checks
-  verify normalized skin weights, neutral inverse binds, joint identities,
-  output hash, and removal of the calibration cube. See
-  [asset provenance](../assets/spider-synth/SOURCE.LICENSE.txt) and
-  [preparation notes](../assets/spider-synth/ASSET.md).
-- Model checks cover all 24 routines, deterministic direct-time sampling,
-  bounded poses and web topology, reachable contacts, nonsliding stance anchors,
-  and exact touchdown ledgers. Actual scan-chain tests cover 24 routines × 20
-  sampled poses, with contact error below 0.001 web units and no mutation of
-  the supplied pose. Planted web segments remain flat; temporary strand/prey
-  graphics expire on the shared clock.
-- Audio checks cover the shared contact ledger without graphic updates,
-  string pitch within 3% at 220/440 Hz, substring/tension/crossing-angle
-  causality, bounded adjacent coupling, live controls, idle/release silence,
-  all 16 source responses, five distinct string materials, real KAL speech,
-  voice mute, and sample-grid metronome pause/resume.
-- MIDI checks cover 24-record ownership limits, eight independently posed
-  legs, static held poses, source/channel isolation, sustain, pressure, bend,
-  expression, panic, and clock adoption. Saturated notes plus maximum leg XYZ
-  controls retain exactly stationary planted anchors. Audio remains explicitly
-  armed; cancelled loading cannot arm later or replay released notes.
+The focused suites cover 17 web families and their construction bounds, 40
+motion routines, exact planted toe positions, airborne/tethered phases,
+deterministic travel, pause/resume, silk deposition, prey lifecycle and bounded
+world snapshots. Ordinary crawling retains four or more supports. Explicit
+acrobatics have separate takeoff/landing expectations.
 
-The rig, gait and silk-frequency scale are authored approximations, not measured
-animal anatomy or validated biological acoustics. Spinneret sound follows
-abdomen movement; the scan has no independently articulated spinneret joint.
+The viewer's actual skinned toes were checked across all 17 families; the
+maximum reported supported error was 0.00000879 web units. Visible wave tests
+check nonzero strand displacement while endpoints and exact planted toe knots
+remain fixed. Integration tests also exercise a real AudioWorklet pluck through
+telemetry into the visible wave; synthetic viewer events alone are insufficient.
 
-## Audio mechanism and measured levels
+All **22 browser cases** pass on source and the generated WAX page.
+Browser cases cover model loading and retry, separate Sound/Animation players,
+spoken face motion, notes and scoped MIDI ownership, sustain-independent travel,
+screen-relative joystick steering, lost-pointer/blur release, mobile scrolling,
+explicit zoom, web construction changes, retained silk across Audio enable,
+fly picking/hunting and no graphics-owned automatic sound triggers. A deliberate
+450 ms main-thread stall leaves the worklet producing contacts and bounded audio.
 
-The worklet owns 24 fractional-delay Karplus string loops and eight body voices.
-The shared foot touchdown ledger excites the corresponding visible strand;
-substring length and tension determine pitch, while crossing angle and speed
-shape excitation. Coupling adds at most one adjacent generation. At the fixed
-voice limit, surplus attacks are dropped instead of stealing live tails.
-Still resonance and event percussion have separate gates. The control clock is
-200 Hz and does not depend on rendering. The design follows
-[Jaffe and Smith's Karplus–Strong extensions](https://musicweb.ucsd.edu/~trsmyth/papers/KSExtensions.pdf).
-Speech uses the bundled KAL16 atlas and CMU pronunciations; no Roach worklet or
-Roach animal recordings are loaded.
+The mobile layouts tested are 390×844 and 844×390. New steering tests send touch
+events to the real circular pad, cancel the gesture and confirm no zoom or
+transport change. Shared audits cover control inventory, responsive geometry,
+accessibility and page diagnostics. All five shared audits pass; strict
+accessibility reports no serious or critical violations.
 
-Offline renders used stereo 24 kHz, four seconds per scenario, intensity 0.65,
-tempo 108, and three deterministic noise seeds. The 24 motion companions were
-each rendered with all three seeds. Default still/walk/voice used three seeds
-each, and all 16 sound presets rendered speech: **97 scenarios total**. Samples
-were not gain-normalized. The phrase was “hello, I am a spider. Please do not
-break my web.”
+## Sound mechanisms and measured levels
 
-| Default state | RMS dBFS | Peak dBFS | Contacts / plucks, seed 1 |
-| --- | ---: | ---: | ---: |
-| Still Sound Play | −29.59 | −20.37 | 0 / 0 |
-| Orb walk | −25.02 to −24.71 | −5.12 to −4.44 | 28 / 47 |
-| Words | −26.08 | −8.93 | 0 / 0 |
+The worklet retains a pool of 24 fractional-delay strings and eight body voices.
+Four string slots are reserved from routine contacts/coupling so direct plucks
+and notes remain responsive during dense movement. There are 24 selectable
+source colors and 24 sound presets, plus motion companion mixes. Six new macros
+control texture, slide, courtship substructure, resonant space, silk and prey.
 
-Across all motion/seed combinations, RMS ranged from −33.18 to −21.75 dBFS;
-the largest sample peak was −3.36 dBFS. Across the 16 spoken presets, RMS ranged
-from −26.60 to −25.86 dBFS. Different contact densities intentionally produce
-different average levels. Sound Play alone creates no contact or pluck events.
+All animal/world sounds are procedural. Real research recordings were located
+but not bundled without an explicit redistribution license. The existing KAL16
+speech atlas and pronunciation resources remain the only sampled voice assets.
+The research ledger distinguishes A. aurantia web responses, related Argiope
+courtship and wolf-spider mechanism analogies from the fictional talking voice.
 
-The stereo output guard adds 20 audio frames of delay: 0.417 ms at 48 kHz.
-It bounds reconstruction against its specified 4×, 81-tap interpolator; this
-does not establish broadcast true-peak certification.
+These are pre-host-gain worklet measurements; the shared output level and any
+external host gain are additional. Three seeds were used for the default mix.
 
-## Callback budget
+| Scenario | RMS dBFS | Sample peak dBFS |
+| --- | ---: | ---: |
+| Default held silk | −25.67 to −25.66 | −15.35 to −15.02 |
+| Default moving spider | −25.35 to −25.15 | −5.51 to −4.81 |
+| Default spoken phrase | −26.08 | −8.93 |
 
-Node 22 ARM64, 48 kHz, 128-frame callbacks, with 1,000 warmup blocks and 4,000
-measured blocks per scenario. Measurements include DSP, the 200 Hz model/MIDI
-pose updates, and constraints. Main-thread message normalization is excluded.
-The maximum-load case holds 24 notes, moves all group XYZ controls, and reaches
-24 active strings. This final run includes the distinct Thumb tine and scoped
-string-expression implementation.
+The 24 sound presets were rendered still and moving for three seeds: 144
+scenarios, all finite, with sample peaks at or below −4.57 dBFS. All 40 motion companions also completed 16-beat renders with three seeds,
+bringing the preset/motion matrix to 264 finite scenarios. The all-controls
+stress case reached −3.61 dBFS sample peak. Event-only sources stop receiving
+excitation when motion ends; explicit Sound Play owns held resonances. Struggle
+sounds settle after a finite window and eating cancels the prey's activity.
 
-| Scenario | Mean ms | p99 ms | Maximum ms | Above 2.667 ms |
+## Resource ownership
+
+The worklet owns 200 Hz control/world sampling and all sound event timing.
+World graphs are bounded to 1,200 nodes and 2,400 segments, with eight prey and
+256 newly laid strands. Spatial lookup keeps stance projection bounded. The
+viewer follows at 20 fps with a 1.15-megapixel cap and one bounded shadow map.
+A geometry-only test with 1,167 strands and 32 pulses measured 1.08 ms median and
+1.13 ms p95; this excludes WebGL and is not a phone GPU measurement.
+
+The final callback benchmark used 48 kHz stereo and 128-frame blocks, including
+10 Hz snapshot serialization. Each regime measured 5,000 blocks after warmup
+on this development machine. The deadline is 2.667 ms. These are local CPU
+measurements, not a guarantee for every browser or physical phone.
+
+| Regime | Mean ms | p99 ms | Maximum ms | Over deadline |
 | --- | ---: | ---: | ---: | ---: |
-| Idle / still | 0.196 | 0.234 | 0.259 | 0 / 4,000 |
-| Walk | 0.246 | 0.288 | 1.028 | 0 / 4,000 |
-| 24 MIDI notes + moving CC + full string pool | 0.274 | 0.316 | 0.431 | 0 / 4,000 |
+| Held silk | 0.467 | 0.533 | 0.673 | 0 / 5,000 |
+| Moving dense web | 0.544 | 0.719 | 1.475 | 0 / 5,000 |
+| All bowed sources | 0.512 | 0.677 | 0.853 | 0 / 5,000 |
+| 24 MIDI notes, CC and world activity | 0.600 | 0.710 | 1.376 | 0 / 5,000 |
 
-These are host measurements, not a guarantee for a particular phone or audio
-device. Measured source fingerprints: DSP `8e5280f50e5f0b40`, string core
-`3167f72f571f7428`.
-
-## Browser and release verification
-
-All 12 Spider browser scenarios pass on source and on the generated WAX page.
-They cover the 38-bone scan and four views, all 24 motion companions and actual
-toe contacts, audio during delayed/failed model downloads, retry, voice gestures,
-held computer/MIDI notes, direct joint sound, orbit versus zoom, finite prey
-flutter, and mobile scrolling at 390×844 and 844×390. The real worklet continues
-through a deliberate 450 ms main-thread stall. Resuming suspended Audio preserves
-the frozen beat instead of advancing through suspended wall time. Direct gesture
-attacks are measured during movement; their intentionally short release is then
-checked for silence.
-
-Five shared Spider audits pass: smoke, control inventory, shared controls,
-responsive layout, and accessibility. The strict accessibility pass finds no
-critical or serious violations. The Roach page and shared MIDI regression suite
-passes all 18 scenarios.
-
-`npm run verify` passes: **3,383 tests passed, six skipped, zero failed**, plus
-syntax, SIMD, deterministic XYFlow and clean WAX parity checks. The normal/WAX
-release and Storybook build succeed; the Storybook artifact checker validates
-109 entries. Generated WAX browser testing explicitly arms Audio because an
-ordinary browser has no DAW host to arm it. Output probes read the manager from
-the tested artifact's own directory.
+The workload included 1,192 web segments, up to 24 active strings, eight prey,
+silk deposition and maximum texture/Space. The profiled DSP SHA-256 begins
+`dcc7eee9ad70e262`; shared world hash begins `4f4d85e804236d7b`.
+No graphics or model download is allowed to gate Audio.
 
 ## Reproduction
 
-From the repository root, using the supported Node runtime:
+Use the repository Node version, install dependencies, and run:
 
 ```sh
-node --test tests/spider-synth-model.test.mjs tests/spider-synth-asset.test.mjs tests/spider-synth-audio.test.mjs tests/spider-synth-midi.test.mjs tests/spider-synth-release.test.mjs
-npx playwright test e2e/spider-synth.spec.mjs --workers=1
+node --test tests/spider-synth-*.test.mjs
+npx playwright test e2e/spider-synth.spec.mjs e2e/spider-synth-world.spec.mjs e2e/spider-synth-viewer.spec.mjs
 npm run build:wax
 npm run verify
+npm run build:deploy
+npm run check:storybook-dist
 ```
 
-The audio tests exercise the same exported DSP and shared frame writers as the
-worklet. To reproduce the level matrix, instantiate `SpiderSynthDsp(24000)` for
-each `SPIDER_MOTION_SOUND_PRESETS` entry and set `strings.randomState` to
-`seed * 12345` for seeds 1–3. Enable animation with the settings above, then
-render 96,000 stereo frames. Compare whole-render RMS and sample peak; do not
-normalize each result. Decode the bundled KAL16 atlas and use
-`createSpiderSpeechPlan` with CMU pronunciations for the speech cases.
-
-Human listening, physical-device timing, and DAW capture were **not performed**.
-These automated checks establish functional relationships and bounded output;
-they do not establish preferred timbre, musical feel, or biological fidelity.
+Repeat browser cases with `MORPHAZOID_QA_BASE_URL` pointing to the generated WAX
+page directory. Source and WAX runtime modules must share the release graph.
+Publication is checked against the exact pushed commit and deployed bytes.

@@ -5,7 +5,7 @@ import { createHash } from 'node:crypto';
 import * as THREE from '../vendor/three/three.module.min.js';
 import { MeshoptDecoder } from '../vendor/meshoptimizer/meshopt_decoder.module.js';
 import { SpiderSynthViewer } from '../src/spider-synth-viewer.js';
-import { SPIDER_JOINTS, SPIDER_MOTION_PRESETS, createSpiderWeb, createSpiderFrame, writeSpiderFrame } from '../src/spider-synth-model.js';
+import { SPIDER_JOINTS, SPIDER_MOTION_PRESETS, SPIDER_WEB_PRESETS, createSpiderWeb, createSpiderFrame, writeSpiderFrame } from '../src/spider-synth-model.js';
 
 const rig = JSON.parse(await readFile(new URL('../assets/spider-synth/rig-manifest.json', import.meta.url)));
 const bytes = await readFile(new URL('../assets/spider-synth/spider-mobile.glb', import.meta.url));
@@ -43,14 +43,13 @@ test('Shared-clock prey and strand pulses expire without Audio, and planted cont
   });
   const web = createSpiderWeb(); viewer.setWeb(web); viewer.setClock(100);
   const segment = web.segments[0];
-  viewer.frameData.feet = [{ stance: true, segmentId: segment.id }];
+  viewer.frameData.feet = [{ stance: true, segmentId: segment.id, u: .4 }];
   viewer.setEvents([{ segmentId: segment.id, audioTime: 100, velocity: 1 }], 100);
+  viewer.setClock(100.1);
   viewer.updateWeb();
-  const group = viewer.webLines.find(entry => entry.segments.includes(segment));
-  const start = group.segments.indexOf(segment) * 8;
-  for (let vertex = start; vertex < start + 8; vertex++) assert.ok(Math.abs(group.lines.geometry.attributes.position.getY(vertex) - .0002) < 1e-9);
-  viewer.frameData.feet[0].stance = false; viewer.updateWeb();
-  assert.ok(Array.from({ length: 8 }, (_, index) => group.lines.geometry.attributes.position.getY(start + index)).some(y => Math.abs(y - .0002) > .0001));
+  const samples = viewer.getSegmentSamples(segment.id), toe = samples.find(sample => sample.u === .4);
+  assert.ok(toe); assert.equal(toe.displacement, 0);
+  assert.ok(samples.some(point => point.displacement > .001), 'The strand still moves on either side of the fixed toe');
   assert.equal(viewer.showPrey({ segmentId: segment.id, u: .4 }), true);
   viewer.updateWeb(); assert.equal(viewer.prey.visible, true);
   viewer.setClock(102.3); viewer.updateWeb(); assert.equal(viewer.prey.visible, false);
@@ -102,9 +101,26 @@ test('Actual scan joint lengths reach shared web contacts across every routine w
     writeSpiderFrame(phase * .19, { preset: preset.id, tempo: 108, intensity: 1, explore: true, seed: 1, center: { x: 0, z: 0 }, yaw: 0, offsets: {} }, web, viewer.frameData);
     const pose = [...viewer.frameData.pose]; viewer.applyFrame(); assert.deepEqual([...viewer.frameData.pose], pose);
     for (const leg of viewer.legs) {
+      if (viewer.frameData.airborne || viewer.frameData.feet[leg.index].airborne) {
+        assert.equal(viewer.frameData.feet[leg.index].stance, false);
+        assert.ok(Number.isFinite(leg.error)); continue;
+      }
       maximum = Math.max(maximum, leg.error);
       assert.ok(Number.isFinite(leg.error) && leg.error < .001, `${preset.id} phase${phase} ${leg.id} contact gap${leg.error}`);
     }
   }
   assert.ok(maximum < .001);
+});
+
+test('Skinned support toes reach the three-dimensional strands in every web family', () => {
+  const viewer = fixture(), failures = [];
+  for (const family of SPIDER_WEB_PRESETS) {
+    const web = createSpiderWeb(family.settings);
+    for (const preset of ['orb-walk', 'radial-run', 'silk-harp']) for (let phase = 0; phase < 16; phase++) {
+      writeSpiderFrame(phase * .21, { preset, tempo: 108, intensity: 1, explore: true, seed: 1, center: { x: 0, z: 0 }, yaw: 0, offsets: {} }, web, viewer.frameData);
+      viewer.applyFrame();
+      for (const leg of viewer.legs) if (viewer.frameData.feet[leg.index].stance && leg.error > .004) failures.push({ family: family.id, preset, phase, leg: leg.id, error: leg.error });
+    }
+  }
+  assert.deepEqual(failures.sort((a, b) => b.error - a.error).slice(0, 12), []);
 });

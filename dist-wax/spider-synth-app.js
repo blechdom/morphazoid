@@ -1,11 +1,14 @@
-import { SpiderSynthViewer } from './src/spider-synth-viewer.js?v=456b92d1a726';
-import { createSpiderMidiControls } from './src/spider-synth-midi-controls.js?v=456b92d1a726';
+import { SpiderSynthViewer } from './src/spider-synth-viewer.js?v=74d232932f0e';
+import { createSpiderMidiControls } from './src/spider-synth-midi-controls.js?v=74d232932f0e';
+import { createSpiderNavigationControls } from './src/spider-synth-navigation-controls.js?v=74d232932f0e';
+import { SpiderSynthWorld, normalizeSpiderWorld, SPIDER_TRAVEL_PATHS } from './src/spider-synth-world.js?v=74d232932f0e';
+import { normalizeSpiderWeb, SPIDER_WEB_PRESETS, SPIDER_WEB_PARAMETERS } from './src/spider-synth-web.js?v=74d232932f0e';
 import { SPIDER_JOINTS, SPIDER_MOTION_PRESETS, SPIDER_MOTION_DEFAULTS, SPIDER_STATIC_POSES,
   normalizeSpiderMotion, createRandomSpiderMotion, createSpiderStaticPose,
-  createSpiderWeb, createSpiderFrame, writeSpiderPose, writeSpiderFrame, applySpiderSpeechPose } from './src/spider-synth-model.js?v=456b92d1a726';
+  createSpiderWeb, createSpiderFrame, writeSpiderPose, applySpiderSpeechPose } from './src/spider-synth-model.js?v=74d232932f0e';
 import { SpiderSynthAudio, SPIDER_SOUND_PRESETS, SPIDER_SOUND_DEFAULTS, SPIDER_BODY_GROUPS,
   SPIDER_BODY_SOURCES, createDefaultSpiderBodyMix, createRandomSpiderSound,
-  getSpiderMotionSound, getSpiderBodyGroupId } from './src/spider-synth-audio.js?v=456b92d1a726';
+  getSpiderMotionSound, getSpiderBodyGroupId } from './src/spider-synth-audio.js?v=74d232932f0e';
 
 const el = id => document.getElementById(id);
 const listeners = new AbortController(), options = { signal: listeners.signal };
@@ -13,55 +16,91 @@ const motionQuery = matchMedia('(prefers-reduced-motion: reduce)');
 const state = {
   playing: false, soundPlaying: false, audioOn: false, audioStarting: false, disposed: false,
   modelLoading: true, notice: '', metronome: false, phraseRequest: 0,
-  posePreset: 'neutral', poseSeed: 0, motionSeed: 0, soundSeed: 0, preySeed: 0,
+  posePreset: 'neutral', poseSeed: 0, motionSeed: 0, soundSeed: 0,
   motionChoice: SPIDER_MOTION_PRESETS[0].id,
   motion: normalizeSpiderMotion({ ...SPIDER_MOTION_DEFAULTS, preset: 'none' }),
-  webSettings: { spokes: 16, rings: 10, seed: 1 },
+  webSettings: normalizeSpiderWeb({ preset: 'argiope', spokes: 16, rings: 10, seed: 1 }),
+  worldSettings: normalizeSpiderWorld({ path: 'orbit', speed: .65, range: .45, playing: false }),
   sound: { ...SPIDER_SOUND_DEFAULTS, ...SPIDER_SOUND_PRESETS[0].sound },
   bodyMix: structuredClone(SPIDER_SOUND_PRESETS[0].bodyMix), muted: new Set(), solo: new Set(),
   selectedGroup: '', view: 'top', side: 'left', time: 0, anchor: performance.now(),
 };
-let viewer, midiControls, animationFrame = 0, loadVersion = 0, lastFrame = -Infinity, pulsesUntil = 0;
+let viewer, midiControls, navigationControls, animationFrame = 0, loadVersion = 0, lastFrame = -Infinity, pulsesUntil = 0, wavesActive = false;
 let web = createSpiderWeb(state.webSettings);
+const visualWorld = new SpiderSynthWorld(state.worldSettings);
+const steering = new Map();
 const pose = new Float32Array(SPIDER_JOINTS.length * 3), scene = createSpiderFrame();
 const speechMotion = { amount: 0, target: 0, audioTime: -Infinity, updatedAt: performance.now() };
 const status = (id, message = '') => { el(id).textContent = message; el(id).hidden = !message; };
 function syncStageStatus() { status('liveStatus', state.notice || (state.modelLoading ? 'Loading the spider… Web sound and voice are available.' : '')); }
 const announce = message => { state.notice = message; syncStageStatus(); };
 const audio = new SpiderSynthAudio({
+  getWorldSnapshot() { updateVisual(); return visualWorld.snapshot(); },
   onStatus(message) {
     if (state.disposed) return;
     const text = String(message?.message ?? message ?? '');
     if (/error|could not|unavailable|requires|failed/i.test(text)) status('voiceStatus', text);
     if (state.audioOn && !audio.getState().enabled) {
-      anchorTime(audio.getTime()); state.audioOn = false; syncAudioButton(); syncTransport();
+      releaseAudioWorld(); anchorTime(audio.getTime()); state.audioOn = false; syncAudioButton(); syncTransport();
     }
     if (speechMotion.amount > 0) scheduleFrame();
   },
   onTelemetry(data) {
     if (state.disposed) return;
+    if (state.audioOn && data.world) visualWorld.restore(data.world);
     const db = state.audioOn && data.peak > .000001 ? 20 * Math.log10(data.peak) : -Infinity;
     el('mixMeter').value = Math.max(-60, db); el('mixPeak').value = Number.isFinite(db) ? `${db.toFixed(1)} dBFS` : '−∞ dBFS';
     speechMotion.target = data.speechEnvelope > .001 ? Math.min(1, data.speechEnvelope * 10) : 0;
     speechMotion.audioTime = data.audioTime;
-    if (data.recentEvents?.length) {
-      viewer?.setEvents(data.recentEvents, data.audioTime);
-      if (data.recentEvents.some(event => data.audioTime - event.audioTime < .15)) pulsesUntil = performance.now() + 500;
+    const events = (data.recentEvents ?? []).filter(event => data.audioTime - event.audioTime <= 2.4
+      && (event.graphVersion == null || event.graphVersion === visualWorld.state.graphVersion));
+    if (events.length || wavesActive) {
+      viewer?.setEvents(events, data.audioTime); wavesActive = events.length > 0;
+      if (events.length) {
+        const age = Math.max(0, data.audioTime - Math.max(...events.map(event => event.audioTime)));
+        pulsesUntil = performance.now() + Math.max(0, 2.5 - age) * 1000;
+      }
     }
     if (needsVisualFrames()) scheduleFrame();
   },
 });
 function fallbackTime() { return state.time + (state.playing ? (performance.now() - state.anchor) / 1000 : 0); }
 function currentTime() { return state.audioOn ? audio.getTime() : fallbackTime(); }
+function worldClock() { return state.audioOn ? audio.clock() : performance.now() / 1000; }
+function effectiveWorldSettings() {
+  return { ...state.worldSettings, path: el('explore').checked ? state.worldSettings.path : 'hold', playing: state.playing };
+}
+function releaseAudioWorld() {
+  updateVisual(); const snapshot = visualWorld.snapshot();
+  visualWorld.restore(snapshot, performance.now() / 1000 - snapshot.clock);
+}
+function updateWorldSettings(settings) {
+  if (JSON.stringify(normalizeSpiderWorld(settings)) !== JSON.stringify(visualWorld.settings)) visualWorld.update(settings, worldClock());
+}
+function publishWorld() {
+  const settings = effectiveWorldSettings(); updateWorldSettings(settings);
+  audio.update({ worldSettings: settings }); updateVisual(); scheduleFrame();
+}
+function commandWorld(command) {
+  visualWorld.command(command, worldClock()); audio.worldCommand(command);
+  updateVisual(); scheduleFrame();
+}
+function steerSpider({ x, z, source }) {
+  const direction = viewer?.screenToWebDirection?.(x, z) ?? { x: -x, z };
+  steering.set(source, direction); let dx = 0, dz = 0;
+  for (const vector of steering.values()) { dx += vector.x; dz += vector.z; }
+  const length = Math.max(1, Math.hypot(dx, dz));
+  state.worldSettings.joystick = { x: dx / length, z: dz / length }; publishWorld();
+}
 function anchorTime(time) { state.time = Math.max(0, Number(time) || 0); state.anchor = performance.now(); }
 function effectiveBodyMix() {
   return state.bodyMix.map(row => ({ ...row, level: state.muted.has(row.groupId) || (state.solo.size && !state.solo.has(row.groupId)) ? 0 : row.level }));
 }
 function audioSettings(extra = {}) {
   return { playing: state.playing, soundPlaying: state.soundPlaying, motion: state.motion,
-    webSettings: state.webSettings, sound: state.sound, bodyMix: effectiveBodyMix(), metronome: state.metronome, ...extra };
+    webSettings: state.webSettings, worldSettings: effectiveWorldSettings(), sound: state.sound, bodyMix: effectiveBodyMix(), metronome: state.metronome, ...extra };
 }
-function publish(extra = {}) { audio.update(audioSettings(extra)); }
+function publish(extra = {}) { updateWorldSettings(effectiveWorldSettings()); audio.update(audioSettings(extra)); }
 function publishSound() { audio.update({ sound: state.sound, bodyMix: effectiveBodyMix() }); }
 function syncAudioButton() {
   el('audioButton').setAttribute('aria-pressed', String(state.audioOn));
@@ -93,7 +132,7 @@ function selectView(view) {
 function speechTarget() {
   return state.audioOn && audio.context?.state === 'running' && audio.clock() - speechMotion.audioTime < .3 ? speechMotion.target : 0;
 }
-function needsVisualFrames() { return state.playing || midiControls?.isAnimating() || speechMotion.amount > 0 || speechTarget() > 0 || performance.now() < pulsesUntil; }
+function needsVisualFrames() { return state.playing || visualWorld.state.active || midiControls?.isAnimating() || speechMotion.amount > 0 || speechTarget() > 0 || performance.now() < pulsesUntil; }
 function updateVisual() {
   if (state.disposed) return;
   const time = currentTime(), beat = state.playing ? Math.floor(time * state.motion.tempo / 60) % 4 : -1;
@@ -105,8 +144,13 @@ function updateVisual() {
   const target = speechTarget(); speechMotion.amount += (target - speechMotion.amount) * (1 - Math.exp(-dt / (target > speechMotion.amount ? .04 : .14)));
   if (!target && speechMotion.amount < .001) speechMotion.amount = 0;
   applySpiderSpeechPose(audio.clock(), speechMotion.amount, pose);
-  writeSpiderFrame(time, state.motion, web, scene, pose, audio.midiPerformance.poseOffsets);
-  viewer?.setClock?.(audio.clock()); viewer?.setCenter?.(state.motion.center); viewer?.setFrame(scene);
+  const world = visualWorld.sample(worldClock(), state.motion, web, scene, pose, audio.midiPerformance.poseOffsets, { motionTime: time, playing: state.playing });
+  viewer?.setClock?.(worldClock()); viewer?.setCenter?.(visualWorld.point); viewer?.setWorld?.(world); viewer?.setFrame(scene);
+  const prey = world.prey.filter(item => item.state !== 'eaten');
+  const worldStatus = world.eating ? 'Enjoying a fly' : prey.some(item => item.state === 'hunting') ? 'Hunting the fly'
+    : prey.some(item => item.state === 'flying') ? 'Fly approaching' : prey.length ? 'Fly trapped · click it to hunt'
+    : world.layingSpeed > .0001 ? 'Spinning silk' : '';
+  if (el('webWorldStatus').textContent !== worldStatus) el('webWorldStatus').textContent = worldStatus;
 }
 function tick(now) {
   animationFrame = 0; if (state.disposed || document.hidden) return;
@@ -151,7 +195,7 @@ function applyStaticPose(id) {
 function paintKnob(input) {
   const value = Number(input.value), fraction = (value - Number(input.min)) / (Number(input.max) - Number(input.min));
   input.closest('.spider-knob')?.style.setProperty('--knob-angle', `${-135 + 270 * fraction}deg`);
-  const text = ['tune', 'tension'].includes(input.id) ? `${value.toFixed(2)}×` : input.id === 'decay' ? `${value.toFixed(1)}s`
+  const text = ['tune', 'tension', 'travelSpeed'].includes(input.id) ? `${value.toFixed(2)}×` : input.id === 'decay' ? `${value.toFixed(1)}s`
     : input.id === 'pan' ? value === 0 ? 'C' : `${Math.round(Math.abs(value) * 100)}${value < 0 ? 'L' : 'R'}` : `${Math.round(value * 100)}%`;
   el(`${input.id}Out`).textContent = text; input.setAttribute('aria-valuetext', text);
 }
@@ -159,15 +203,55 @@ function buildToneControls() {
   const params = [ ['tension', 'Tension', .25, 4, .01, 'webControls'], ['damping', 'Damping', 0, 1, .01, 'webControls'],
     ['coupling', 'Coupling', 0, .4, .01, 'webControls'], ['decay', 'Decay', .08, 6, .01, 'webControls'],
     ['tune', 'Tuning', .5, 2, .01, 'toneControls'], ['brightness', 'Brightness', 0, 1, .01, 'toneControls'],
-    ['body', 'Body', 0, 1, .01, 'toneControls'], ['pan', 'Pan', -1, 1, .01, 'toneControls'] ];
+    ['body', 'Body', 0, 1, .01, 'toneControls'], ['pan', 'Pan', -1, 1, .01, 'toneControls'],
+    ['texture', 'Texture', 0, 1, .01, 'toneControls'], ['slide', 'Glide', 0, 1, .01, 'toneControls'],
+    ['flutter', 'Courtship', 0, 1, .01, 'toneControls'], ['space', 'Space', 0, 1, .01, 'toneControls'],
+    ['silkLevel', 'Silk level', 0, 1, .01, 'silkMixControl'], ['preyLevel', 'Bug level', 0, 1, .01, 'preyMixControl'] ];
   for (const [id, name, min, max, step, parent] of params) {
+    const input = addKnob({ id, name, min, max, step, parent }); input.dataset.sound = id;
+  }
+}
+function addKnob({ id, name, min, max, step, parent }) {
     const label = document.createElement('label'); label.className = 'spider-knob spider-tone-knob'; label.htmlFor = id;
     const copy = document.createElement('span'); copy.className = 'knob-label'; copy.textContent = name;
     const face = document.createElement('span'); face.className = 'knob-face'; face.setAttribute('aria-hidden', 'true');
     const pointer = document.createElement('i'), output = document.createElement('small'); output.id = `${id}Out`; face.append(pointer, output);
-    const input = document.createElement('input'); Object.assign(input, { id, type: 'range', min, max, step }); input.dataset.sound = id; input.setAttribute('aria-label', name);
+    const input = document.createElement('input'); Object.assign(input, { id, type: 'range', min, max, step }); input.setAttribute('aria-label', name);
     label.append(copy, face, input); el(parent).append(label);
+    return input;
+}
+function syncWebControls() {
+  el('webPreset').value = state.webSettings.preset;
+  for (const parameter of SPIDER_WEB_PARAMETERS) {
+    const input = el(parameter.key); if (!input) continue;
+    input.value = state.webSettings[parameter.key];
+    if (input.closest('.spider-knob')) paintKnob(input);
+    else el(`${parameter.key}Out`).value = input.value;
   }
+}
+function changeWeb(settings) {
+  state.webSettings = normalizeSpiderWeb(settings); web = createSpiderWeb(state.webSettings);
+  syncWebControls(); viewer?.setWeb(web); audio.update({ webSettings: state.webSettings }); updateVisual();
+}
+function selectWebPreset(id) {
+  const preset = SPIDER_WEB_PRESETS.find(item => item.id === id); if (!preset) return;
+  changeWeb({ ...preset.settings, seed: state.webSettings.seed });
+}
+function buildWorldControls() {
+  el('webPreset').replaceChildren(...SPIDER_WEB_PRESETS.map(item => new Option(item.label, item.id)));
+  el('travelPath').replaceChildren(...SPIDER_TRAVEL_PATHS.map(item => new Option(item.label, item.id)));
+  el('travelPath').value = state.worldSettings.path;
+  for (const parameter of SPIDER_WEB_PARAMETERS) {
+    if (['spokes', 'rings'].includes(parameter.key)) continue;
+    const input = addKnob({ id: parameter.key, name: parameter.label, ...parameter, parent: 'webGeometryControls' });
+    input.addEventListener('input', () => changeWeb({ ...state.webSettings, [parameter.key]: Number(input.value) }), options);
+  }
+  for (const [key, id, name, max] of [['speed', 'travelSpeed', 'Speed', 2], ['range', 'travelRange', 'Range', .58]]) {
+    const input = addKnob({ id, name, min: 0, max, step: .01, parent: 'travelControls' });
+    input.value = state.worldSettings[key]; paintKnob(input);
+    input.addEventListener('input', () => { state.worldSettings[key] = Number(input.value); paintKnob(input); publishWorld(); }, options);
+  }
+  syncWebControls();
 }
 function syncMixer() {
   for (const row of state.bodyMix) {
@@ -270,7 +354,7 @@ async function loadModel() {
   } finally { if (version === loadVersion && !state.disposed) { state.modelLoading = false; syncStageStatus(); } }
 }
 
-buildToneControls(); buildMixer(); initializeKnobs();
+buildToneControls(); buildWorldControls(); buildMixer(); initializeKnobs();
 el('posePreset').replaceChildren(new Option('Custom pose', 'custom'), ...SPIDER_STATIC_POSES.map(item => new Option(item.label, item.id)));
 el('posePreset').value = state.posePreset;
 const soundBank = document.createElement('optgroup'); soundBank.label = 'Sound presets';
@@ -297,14 +381,15 @@ try {
       if (!state.audioOn && active) announce('Audio is off — turn it on to hear playback');
     },
     onMove({ x, z, active, velocity }) {
-      state.motion = normalizeSpiderMotion({ ...state.motion, center: { x, z } });
-      audio.update({ motion: state.motion }); audio.interact({ jointId: 'cephalothorax', active, velocity }); updateVisual();
+      commandWorld({ type: 'move', x, z }); audio.interact({ jointId: 'cephalothorax', active, velocity });
     },
     onPluck(event) {
-      audio.pluck(event);
+      if (event.source === 'silk') commandWorld({ type: 'pluck-silk', id: event.silkId, u: event.u, strength: event.velocity, angle: event.angle });
+      else audio.pluck(event);
       if (!state.audioOn) announce('Audio is off — turn it on to hear playback');
       else { pulsesUntil = performance.now() + 500; scheduleFrame(); }
     },
+    onPreySelect({ id }) { commandWorld({ type: 'hunt', id }); },
   });
   viewer.setWeb(web); updateVisual();
   // Show the small real-specimen render until the interactive scan is ready.
@@ -317,6 +402,7 @@ Object.defineProperty(window, 'spiderSynth', { configurable: true, value: Object
   getState: () => ({ ...viewer?.getState(), playing: state.playing, soundPlaying: state.soundPlaying, audioOn: state.audioOn,
     time: currentTime(), view: state.view, side: state.side, posePreset: state.posePreset, motionChoice: state.motionChoice,
     motionSettings: structuredClone(state.motion), webSettings: { ...state.webSettings },
+    worldSettings: structuredClone(effectiveWorldSettings()), world: visualWorld.snapshot(), navigation: navigationControls?.getState(),
     web: { nodes: web.nodes.length, segments: web.segments.length }, frame: { ...structuredClone(scene), pose: Array.from(scene.pose) },
     soundPreset: el('soundPreset').value, sound: { ...state.sound }, bodyMix: structuredClone(state.bodyMix),
     effectiveBodyMix: effectiveBodyMix(), muted: [...state.muted], solo: [...state.solo], selectedGroup: state.selectedGroup,
@@ -324,12 +410,14 @@ Object.defineProperty(window, 'spiderSynth', { configurable: true, value: Object
     renderQuality: 'audio-first', modelLoading: state.modelLoading }),
   getPartScreenPosition: id => viewer?.getPartScreenPosition(id),
   getSegmentScreenPosition: (id, u) => viewer?.getSegmentScreenPosition?.(id, u),
+  getSilkScreenPosition: (id, u) => viewer?.getSilkScreenPosition?.(id, u),
+  getPreyScreenPosition: id => viewer?.getPreyScreenPosition?.(id),
 }) });
 
 el('audioButton').addEventListener('click', async () => {
   if (state.audioStarting || state.disposed) return;
   if (state.audioOn && audio.getState().contextState === 'running') {
-    const time = currentTime(); state.audioOn = false; anchorTime(time); audio.disable(); syncAudioButton(); syncTransport(); updateVisual(); return;
+    const time = currentTime(); releaseAudioWorld(); state.audioOn = false; anchorTime(time); audio.disable(); syncAudioButton(); syncTransport(); updateVisual(); return;
   }
   const resumingAudioClock = state.audioOn;
   state.audioStarting = true; el('audioButton').disabled = true; syncAudioButton();
@@ -339,7 +427,10 @@ el('audioButton').addEventListener('click', async () => {
     // A suspended audio clock freezes its pose. Only a previously silent
     // animation hands over elapsed wall time when Audio is first armed.
     const time = resumingAudioClock ? audio.getTime() : fallbackTime();
-    state.audioOn = true; publish({ time }); status('voiceStatus'); syncTransport();
+    const snapshot = audio.getState().world;
+    if (snapshot) visualWorld.restore(snapshot);
+    else if (!resumingAudioClock) { const fallback = visualWorld.snapshot(); visualWorld.restore(fallback, audio.clock() - fallback.clock); }
+    state.audioOn = true; publish({ time }); status('voiceStatus'); syncTransport(); updateVisual(); scheduleFrame();
   } catch (error) { state.audioOn = false; announce(`Audio could not start: ${error.message || error}`); }
   finally { state.audioStarting = false; if (!state.disposed) { el('audioButton').disabled = false; syncAudioButton(); } }
 }, options);
@@ -368,21 +459,37 @@ el('tempo').addEventListener('input', () => {
   anchorTime(time); publish({ time, resetActivity: true }); updateVisual();
 }, options);
 el('intensity').addEventListener('input', () => { state.motion.intensity = Number(el('intensity').value); el('intensityOut').value = `${Math.round(state.motion.intensity * 100)}%`; audio.update({ motion: state.motion }); updateVisual(); }, options);
-el('explore').addEventListener('change', () => { state.motion.explore = el('explore').checked; audio.update({ motion: state.motion }); updateVisual(); }, options);
+el('explore').addEventListener('change', publishWorld, options);
+el('travelPath').addEventListener('change', () => { state.worldSettings.path = el('travelPath').value; publishWorld(); }, options);
+el('homeSpider').addEventListener('click', () => {
+  navigationControls?.release(); midiControls?.panic();
+  state.motion = normalizeSpiderMotion({ ...state.motion, center: { x: 0, z: 0 }, yaw: 0 });
+  audio.update({ motion: state.motion }); commandWorld({ type: 'home' });
+}, options);
 el('metronome').addEventListener('change', () => { state.metronome = el('metronome').checked; audio.update({ metronome: state.metronome }); }, options);
 for (const key of ['spokes', 'rings']) el(key).addEventListener('input', () => {
-  state.webSettings[key] = Number(el(key).value); el(`${key}Out`).value = state.webSettings[key];
-  web = createSpiderWeb(state.webSettings); viewer?.setWeb(web); audio.update({ webSettings: state.webSettings, resetActivity: true }); updateVisual();
+  changeWeb({ ...state.webSettings, [key]: Number(el(key).value) });
 }, options);
+el('webPreset').addEventListener('change', () => selectWebPreset(el('webPreset').value), options);
+el('randomWeb').addEventListener('click', () => {
+  state.webSettings.seed = (state.webSettings.seed + 1) >>> 0;
+  selectWebPreset(SPIDER_WEB_PRESETS[(state.webSettings.seed * 7) % SPIDER_WEB_PRESETS.length].id);
+}, options);
+el('laySilk').addEventListener('click', () => {
+  state.worldSettings.laySilk = !state.worldSettings.laySilk;
+  el('laySilk').setAttribute('aria-pressed', String(state.worldSettings.laySilk)); publishWorld();
+}, options);
+el('clearSilk').addEventListener('click', () => commandWorld({ type: 'clear-silk' }), options);
+el('huntBug').addEventListener('click', () => commandWorld({ type: 'hunt' }), options);
 el('catchBug').addEventListener('click', () => {
-  const index = (++state.preySeed * 97 + 41) % web.segments.length;
-  const event = { segmentId: index, u: .35 + (state.preySeed % 4) * .1, velocity: .65, angle: Math.PI / 2, source: 'prey' };
-  audio.pluck(event); viewer?.showPrey({ ...event, until: audio.clock() + 2 }); pulsesUntil = performance.now() + 2400; scheduleFrame();
+  commandWorld({ type: 'send-prey' });
   if (!state.audioOn) announce('Audio is off — turn it on to hear playback');
 }, options);
 el('soundPreset').addEventListener('change', () => {
   const preset = selectedSoundPreset(); if (!preset) return;
-  state.sound = { ...preset.sound, level: state.sound.level }; state.bodyMix = structuredClone(preset.bodyMix); syncSound(); publishSound();
+  state.sound = { ...preset.sound, level: state.sound.level }; state.bodyMix = structuredClone(preset.bodyMix);
+  if (preset.webSettings) changeWeb({ ...preset.webSettings, seed: state.webSettings.seed });
+  syncSound(); publishSound();
 }, options);
 el('randomSound').addEventListener('click', () => {
   const next = createRandomSpiderSound(++state.soundSeed * 2654435761 >>> 0);
@@ -434,7 +541,8 @@ infoArea.addEventListener('focusout', event => { if (!infoArea.contains(event.re
 gestureInfo.addEventListener('click', () => { infoPinned = !infoPinned; showGestureHelp(infoPinned); }, options);
 document.addEventListener('pointerdown', event => { if (!infoArea.contains(event.target)) closeGestureHelp(); }, options);
 document.addEventListener('keydown', event => { if (event.key === 'Escape') closeGestureHelp(); }, options);
-midiControls = createSpiderMidiControls({ audio, setPlaying, selectGroup,
+navigationControls = createSpiderNavigationControls({ element: el('webJoystick'), onSteer: steerSpider });
+midiControls = createSpiderMidiControls({ audio, setPlaying, selectGroup, onSteer: steerSpider,
   onVisual: () => { updateVisual(); scheduleFrame(); },
 });
 document.addEventListener('visibilitychange', () => { if (document.hidden) { if (animationFrame) cancelAnimationFrame(animationFrame); animationFrame = 0; } else { lastFrame = -Infinity; updateVisual(); if (needsVisualFrames()) scheduleFrame(); } }, options);
@@ -443,5 +551,5 @@ window.addEventListener('pagehide', event => {
   if (event.persisted) return;
   state.disposed = true; loadVersion += 1; state.phraseRequest += 1;
   if (animationFrame) cancelAnimationFrame(animationFrame); animationFrame = 0;
-  midiControls?.dispose(); headerObserver?.disconnect(); listeners.abort(); viewer?.dispose(); audio.dispose(); delete window.spiderSynth;
+  navigationControls?.dispose(); midiControls?.dispose(); headerObserver?.disconnect(); listeners.abort(); viewer?.dispose(); audio.dispose(); delete window.spiderSynth;
 }, options);
