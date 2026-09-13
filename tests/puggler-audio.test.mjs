@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { readFile } from 'node:fs/promises';
-import { PugglerAudio, punkMotion, punkVocalMotion, vocalPerformer, MAX_PUGGLER_ATTACKS, MAX_PUGGLER_VOICES, MAX_PUGGLER_AIR_TAILS } from '../src/puggler-audio.js';
+import { PugglerAudio, sonicMotion, punkMotion, punkVocalMotion, vocalPerformer, MAX_PUGGLER_ATTACKS, MAX_PUGGLER_VOICES, MAX_PUGGLER_AIR_TAILS } from '../src/puggler-audio.js';
 import { VOCAL_CHARACTERS, vocalCharacter } from '../src/puggler-vocals.js';
 import { PUNK_DRUMS, PUNK_RIFFS, renderPunkPhrase, renderVocalChant } from '../src/puggler-samples.js';
 import { PROPS, WORLD } from '../src/puggler.js';
@@ -79,7 +79,7 @@ test('all nine characters select their own cached OI and WOO buffers while crowd
   await audio.close();assert.equal(audio.vocalBuffers,null);
 }));
 
-test('vocal handoffs crossfade at relative phrase position and leave guitar sources alone', async () => withAudio(async audio => {
+test('era and performer handoffs crossfade instruments and vocals at relative phrase position', async () => withAudio(async audio => {
   await audio.arm();
   const objects=[{...object(0),riff:'oi',owner:2,voiceOwner:1},object(4)];
   audio.update(objects,{skin:'punk'},true);
@@ -89,7 +89,9 @@ test('vocal handoffs crossfade at relative phrase position and leave guitar sour
   const next=audio.voices[0],position=audio.phrasePositions[0];
   assert.equal(next.character,vocalCharacter('future',1).id);
   assert.notEqual(next.source,old.source);assert.ok(old.source.stops.length);
-  assert.ok(audio.airTails.has(old));assert.equal(audio.voices[4],guitar);
+  assert.ok(audio.airTails.has(old));assert.notEqual(audio.voices[4],guitar);
+  assert.ok(audio.airTails.has(guitar));assert.equal(audio.voices[4].key,'future:0:guitar');
+  assert.ok(Math.abs(audio.voices[4].offset/audio.voices[4].source.buffer.duration-audio.phrasePositions[4].offset/audio.phrasePositions[4].duration)<1e-12);
   assert.ok(Math.abs(next.offset/next.source.buffer.duration-position.offset/position.duration)<1e-12);
   assert.ok(next.offset>0,'changing character does not restart the word');
   audio.update([{...objects[0],phase:'held'},objects[1]],{skin:'future'},true);
@@ -354,3 +356,73 @@ test('fast catch storms remain bounded and mute/close stop and disconnect all so
   assert.equal(audio.context.state, 'closed'); assert.equal(audio.attacks.size, 0); assert.equal(audio.airTails.size, 0);
   assert.ok(audio.context.nodes.filter(n => n.kind === 'sample').every(n => n.disconnected));
 }));
+
+
+test('era banks cover each performer and drum without new fetches or live regeneration', async () => withAudio(async (audio, urls) => {
+  await audio.arm(); assert.equal(urls.length, 8);
+  const bank = audio.eraBuffers; assert.equal(Object.keys(bank).length, 22);
+  for (const skin of ['history', 'future']) {
+    for (let owner = 0; owner < 3; owner++) for (const role of ['guitar', 'bass']) {
+      const prop = { ...object(0), riff: role, owner: (owner + 1) % 3, fromOwner: owner };
+      audio.update([prop], { skin }, true);
+      const voice = audio.voices[0];
+      assert.equal(voice.key, `${skin}:${owner}:${role}`);
+      assert.equal(voice.speaker, owner, 'passing instrument stays with its thrower');
+      assert.equal(voice.source.buffer, bank[voice.key]);
+      assert.equal(voice.character, null);
+      assert.equal(voice.drive === null, skin === 'history', 'acoustic plucks bypass overdrive');
+      assert.ok(voice.pan.connections.includes(skin === 'history' ? audio.vocalBus : audio.airBus));
+      audio.update([prop], { skin, tempo:1200 }, true);
+      assert.equal(audio.voices[0], voice);
+    }
+    for (const drum of PUNK_DRUMS) {
+      audio.strike({ ...object(1), kind:'catch', drum }, { skin });
+      const hit = [...audio.attacks].at(-1);
+      assert.equal(hit.source.buffer, bank[`${skin}:${drum}`]);
+      assert.ok(hit.pan.connections.includes(audio.drumBus), 'era hits retain the punchy impact route');
+    }
+  }
+  audio.update([{...object(0),voiceOwner:0}], {skin:'punk'}, true);
+  const punk = audio.voices[0];
+  audio.update([{...object(0),voiceOwner:2}], {skin:'unknown'}, true);
+  assert.equal(audio.voices[0], punk, 'original punk guitar stays common to its performers');
+  assert.equal(audio.eraBuffers, bank); assert.equal(urls.length, 8);
+  await audio.close(); assert.equal(audio.eraBuffers, null);
+}));
+
+test('era motion keeps spatial control, register and tempo sensitivity bounded', () => {
+  const prop=object(0);
+  for (const skin of ['history','future']) for (const role of PUNK_RIFFS) {
+    const base=sonicMotion(prop,{skin,tempo:240},role);
+    const high=sonicMotion({...prop,y:prop.y+300},{skin,tempo:240},role);
+    const fast=sonicMotion(prop,{skin,tempo:1200},role);
+    assert.ok(high.rate>base.rate); assert.ok(fast.rate>base.rate);
+    assert.ok(sonicMotion({...prop,x:900},{skin},role).pan>sonicMotion({...prop,x:100},{skin},role).pan);
+    const broken=sonicMotion({x:NaN,y:Infinity,vx:NaN,vy:-Infinity},{skin,tempo:Infinity,height:NaN,grit:NaN},role);
+    assert.ok(Object.values(broken).every(Number.isFinite));
+    for (const tempo of [60,240,600,1200]) {
+      const extreme=sonicMotion({...prop,y:20000,vx:-5000,vy:8000},{skin,tempo,height:2,grit:1,motion:12},role);
+      assert.ok(extreme.rate>=.3&&extreme.rate<=5);
+      assert.ok(extreme.tone>=650&&extreme.tone<=10000);
+      assert.ok(extreme.resonance<=2);
+      if (['oi','woo'].includes(role)) assert.ok(extreme.rate>=.84&&extreme.rate<=1.2);
+    }
+  }
+  const {resonance,...punk}=sonicMotion(prop,{skin:'punk'},'guitar');
+  assert.deepEqual(punk,punkMotion(prop)); assert.equal(resonance,.55);
+});
+
+
+test('high-rate device decoding retains all three complete OI calls and their duration', () => {
+  // decodeAudioData returns PCM at the context rate; assembly must use that
+  // same clock, otherwise a 192 kHz device cuts every word and halves the bar.
+  const rate=192000,source=Float32Array.from({length:Math.round(rate*.45)},(_,i)=>.3*Math.sin(i*2*Math.PI*220/rate));
+  const chant=renderVocalChant(source,rate);
+  assert.equal(chant.length/rate,1.8);
+  for (const [index,level] of [.92,1,.86].entries()) {
+    const at=Math.round(index*.6*rate);
+    assert.ok(rms(chant.slice(at+rate*.35,at+rate*.44))>.1,'the end of each word survives');
+    assert.equal(rms(chant.slice(at+rate*.45,at+rate*.6)),0,'calls retain their silence');
+    assert.ok(Math.abs(rms(chant.slice(at,at+source.length))/rms(source)-level)<1e-6);
+  }
+});

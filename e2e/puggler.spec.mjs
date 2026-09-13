@@ -681,3 +681,52 @@ test('automatic Roxy and Moss yield to direct touch while Audio stays off', asyn
     await context.close();
   }
 });
+
+test('Puggler sonic skins change instruments, vocal colors and impact kits during a live act', async ({ page }) => {
+  const errors=[];page.on('pageerror',error=>errors.push(error.message));
+  await openShow(page);await page.locator('#count').selectOption('4');
+  await page.locator('#pattern').selectOption('fountain');await range(page,'chaos',0);
+  await range(page,'assist',120);await page.locator('#autoRide').uncheck();
+  await page.locator('#skin').selectOption('history');
+  expect((await state(page)).audioOn).toBe(false);
+  await expect(page.locator('#riffs0 option:checked')).toHaveText('Twang / keys');
+  await expect(page.locator('#drums0 option:checked')).toHaveText('Frame drum');
+  await page.locator('#audioButton').click();
+  await expect(page.locator('#audioButton')).toHaveAttribute('aria-pressed','true',{timeout:15000});
+  for(const [skin,lead,drum,grit] of [
+    ['history','Twang / keys','Frame drum','String bite'],
+    ['future','Liquid lead','Sub kick','Cyber grit'],
+    ['punk','Guitar','Kick','Amp filth'],
+  ]){
+    const before=await state(page);
+    await page.locator('#skin').selectOption(skin);
+    await expect(page.locator('#riffs0 option:checked')).toHaveText(lead);
+    await expect(page.locator('#drums0 option:checked')).toHaveText(drum);
+    await expect(page.locator('label:has(#grit) .mz-field__label')).toHaveText(grit);
+    await expect.poll(async()=>{
+      const s=await state(page);
+      return s.sonics.some(v=>v.role==='guitar'&&v.skin===skin&&(skin==='punk'?v.key==='guitar':v.key.startsWith(`${skin}:`)))
+        &&s.hitSounds.some(key=>skin==='punk'?key==='kick':key===`${skin}:kick`);
+    },{timeout:8000}).toBe(true);
+    const sound=await sampleAudioEnvelope(page,{durationMs:1200,intervalMs:40});
+    expect(sound.summary.finite).toBe(true);expect(sound.summary.maxPeak).toBeGreaterThan(.003);
+    expect(sound.summary.clippedSamples).toBe(0);
+    const after=await state(page);
+    expect(after).toMatchObject({skin,running:true,audioOn:true,count:4,pattern:'fountain'});
+    expect(after.time).toBeGreaterThan(before.time);expect(after.catches).toBeGreaterThan(before.catches);
+  }
+  await page.locator('#count').selectOption('10');await range(page,'tempo',1200);
+  await range(page,'level',1);await range(page,'impacts',2);await range(page,'flight',1);await range(page,'grit',1);
+  for(const skin of ['history','future']){
+    await page.locator('#skin').selectOption(skin);
+    const extreme=await sampleAudioEnvelope(page,{durationMs:1800,intervalMs:30});
+    expect(extreme.summary.finite).toBe(true);expect(extreme.summary.maxPeak).toBeGreaterThan(.003);
+    expect(extreme.summary.clippedSamples).toBe(0);expect(extreme.summary.maxPeak).toBeLessThan(.92);
+    expect((await state(page)).sonics.length).toBeLessThanOrEqual(10);
+  }
+  await page.locator('#playButton').click();await page.locator('#skin').selectOption('history');
+  expect(await state(page)).toMatchObject({running:false,audioOn:true,sonics:[]});
+  await page.locator('#audioButton').click();
+  const muted=await sampleAudioEnvelope(page,{durationMs:500,intervalMs:50});
+  expect(muted.samples.at(-1).peak).toBeLessThan(.001);expect(errors).toEqual([]);
+});

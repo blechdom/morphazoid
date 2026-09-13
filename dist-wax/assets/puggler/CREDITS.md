@@ -57,22 +57,41 @@ compressed, filtered, or shortened during playback.
 repository's MIT license: a distorted plucked-string power-chord phrase,
 a plucked bass phrase. They are rendered into small PCM buffers at Audio
 activation. OI now uses the sampled call above; WOO uses the existing audience
-recording. `src/puggler-vocals.js` derives separate OI and WOO buffers for each
-of the nine characters from these same licensed recordings. These are processed
-voice treatments, not nine newly recorded actors. Complete calls are resampled
-to different registers, then colored with broad EQ, short doubling, and gentle
-amplitude motion; future characters also use chorus and ring modulation.
-Buffers are rendered once when Audio is armed, with balanced source RMS, a 0.88
-peak ceiling, and faded boundaries. The dry human signal stays dominant.
-Vocal phrases avoid guitar overdrive and use gentle compression. Their live
-path-driven playback rate stays between 0.84× and 1.2× around each character's
-register, even at extreme juggling tempos.
+recording. `src/puggler-vocals.js` supplies the original three punk characters'
+register, EQ and doubling treatments. `src/puggler-era-vocals.js` supplies six
+era voices: earthy chant, chamber reply, an ornamented Maestro line, cyber-funk
+call, Cyberwoman soprano and liquid Quor melisma. These all transform the same
+licensed OI/WOO recordings; they are not newly recorded actors. A short-grain
+pitch treatment preserves syllable order, with a smaller three-formant singing
+layer following the recording's amplitude and voiced-pitch estimate. Short,
+finite early reflections and chorus add era color. The estimator is an effect
+control, not a transcription or a validated analysis of the singer.
 
-The character who last threw or kicked a prop owns its vocal phrase. A pass
-keeps that voice until the receiver throws; audience returns use the intended
-receiver. Skin changes crossfade to the matching character treatment while
-preserving relative phrase progress. Crowd cheers and boos keep the original
-audience recordings.
+`src/puggler-era-samples.js` authors twelve two-second instrumental phrases and
+ten finite percussion sounds under the repository's MIT license. Historical
+performers use mouth-bow-style twang, lute/oud-like plucks and harpsichord-like
+keys, with different woody/gut-string bass parts. Their catch kit uses frame
+drum, tabor, bronze gong, log drum and finger-cymbal approximations. Future
+performers use FM leads, liquid glass, underwater marimba and elastic cyber-funk
+bass; their catches use sub kick, laser clap, splash crash, water tom and glitch
+hat synthesis. These are theatrical synthesis colors, not instrument recordings
+or reconstructions of particular historical traditions.
+
+All era buffers are rendered once at explicit Audio activation and reused.
+Vocal buffers have source-relative level balancing, a 0.88 peak ceiling and faded
+boundaries; authored instruments target RMS 0.17 and percussion 0.18, with peaks
+bounded below 0.90 before live gain. Historical instruments and all vocals bypass
+per-voice overdrive and use gentle compression. Future instruments use milder
+drive than the punk guitar. The shared output ceiling and catch-driven ducking
+remain in place. Vocal path-driven playback rates stay between 0.84× and 1.2×,
+even at extreme juggling tempos, to retain the character's register.
+
+The character who last threw or kicked a prop owns its vocal phrase and its era
+instrument. A pass keeps that voice until the receiver throws; audience returns
+use the intended receiver. Skin changes crossfade to matching instruments and
+voices while preserving relative phrase progress. Sound-role IDs remain stable,
+so existing object choices and presets still work. Crowd cheers and boos keep
+the original audience recordings.
 
 Only airborne objects (including audience lobs and throws to the crowd) sound their looping
 phrase. Rider and audience catches trigger the selected drum; drops trigger the audience boo.

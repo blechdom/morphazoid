@@ -61,7 +61,8 @@ function synthStrings(role, sampleRate) {
 // Keep the recorded mouth articulation intact. Three full calls with small
 // level accents make the phrase; no synthetic vowels or pitch-stacked choir.
 export function renderVocalChant(samples, sampleRate = 22050) {
-  sampleRate = Math.round(bound(sampleRate, 8000, 96000));
+  // decodeAudioData resamples to the device rate, including 192 kHz devices.
+  sampleRate = Math.round(bound(sampleRate, 8000, 192000));
   const output = new Float32Array(Math.round(sampleRate * 1.8));
   const length = Math.min(samples.length, Math.round(sampleRate * .55));
   [.92, 1, .86].forEach((level, call) => {

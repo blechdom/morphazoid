@@ -270,3 +270,62 @@ listeners, distant silhouettes and crowd exchanges all use the future theme,
 including when images are unavailable. Existing crowd motion and audio behavior
 remain unchanged. Image provenance and the exact prompt are in
 `assets/puggler/FUTURE_CROWD_CREDITS.md`.
+
+
+## Sonic skins: history and a liquid future
+
+Changing the visual skin also changes object instruments, character vocals and
+hand-impact percussion. The cast remains one physical simulation: positions,
+throw ownership, motion, mass-derived energy, catch timing and transport state
+continue across the switch. The shared role IDs preserve existing presets and
+object selections; only their visible sound names and sound bank change.
+
+| Performer | Airborne lead / bass | Vocal direction |
+| --- | --- | --- |
+| Cavewoman | Mouth-bow-style twang / woody string bass | Earthy chant |
+| Dame Roxy | Lute/oud-like plucks / gut bass | Chamber reply |
+| Maestro Moss | Quill keys / plucked bass | Ornamented singing line |
+| Futureman | Cyber-funk FM lead / resonant bass | Rhythmic cyber call |
+| Cyberwoman | Liquid glass keys / rubber bass | Soprano opera contour |
+| Quor | Underwater marimba / plasma bass | Liquid, wandering melisma |
+
+Historical catches select frame drum, tabor, bronze gong, log drum or finger
+cymbals. Future catches select sub kick, laser clap, splash crash, water tom or
+glitch hat. All ten sounds are original finite synthesis; the punk kit retains
+its existing CC0 recordings. These names describe a fictional sound collage,
+not cultural or historical authenticity.
+
+The acoustic phrases use decaying string partials, faster damping of higher
+partials, short excitation noise and small resonant-body contributions. This
+choice draws on Julius O. Smith's
+[Virtual Musical Instruments](https://dsprelated.com/freebooks/pasp/Virtual_Musical_Instruments.html)
+and Välimäki, Penttinen and Knif's
+[Sound Synthesis of the Harpsichord Using a Physical Model](https://www.ee.columbia.edu/~dpwe/e6820/papers/ValPK04-harpsi.pdf).
+The implementation uses a small additive approximation, not that paper's full
+physical model. Future phrases use bounded FM, glides and inharmonic glass or
+bar partials. Each performer has its own syncopated score with accents and rests.
+
+Era vocals retain the licensed human recording as their main source and add a
+smaller pitched-vowel layer driven by its syllable envelope. Source/filter
+voice synthesis and parallel formant bands are described in Smith's
+[Voice Synthesis](https://dsprelated.com/freebooks/pasp/Voice_Synthesis.html) and
+[FM Voice](https://dsprelated.com/freebooks/sasp/FM_Voice.html).
+Here a compact harmonic source, three resonant formants, gentle granular pitch
+movement, vibrato and finite early reflections create theatrical singing colors.
+The original words are processed sounds, not newly sung lyrics or AI-generated
+speech. Future vocal colors use more moving formants and chorus; they remain
+caused by airborne objects rather than an independent drone or backing track.
+
+Motion still changes pan, pitch/phrase speed and brightness. Historical playback
+rates bend more gently than punk guitar rates, and acoustic phrases bypass the
+per-voice amplifier. String bite opens the acoustic tone; Cyber grit adds mild
+drive and resonance. Hand impacts keep the existing direct percussion route and
+briefly duck airborne sounds. Era/performer changes preserve normalized phrase
+progress, with bounded crossfade tails. All buffers are generated once when
+Audio is explicitly armed; live switches neither fetch nor resynthesize audio.
+
+Mechanical checks cover PCM bounds, source-envelope retention, distinctions
+between level-matched phrases and hits, era/performer routing, phrase continuity,
+transport, teardown and the ten-object/1,200-BPM mix. Those checks do not establish
+perceived instrument identity, operatic quality or musical balance. Human
+listening and physical-device play remain unperformed.

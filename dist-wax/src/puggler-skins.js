@@ -1,5 +1,6 @@
 import { ERA_PROP_OVERRIDES } from './puggler-era-props.js';
-// Presentation-only skins. The simulation owns prop identity, physics and sound.
+// Skin identity joins artwork and era audio. The simulation keeps physical
+// prop identity and assigned sound roles; skin changes do not re-rack the act.
 export const SKINS = Object.freeze([
   { id: 'punk', name: 'Trashpunk', riders: ['Puggler', 'Roxy', 'Moss'] },
   { id: 'history', name: 'History mash-up', riders: ['Cavewoman', 'Dame Roxy', 'Maestro Moss'] },

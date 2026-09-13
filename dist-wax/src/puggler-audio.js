@@ -1,6 +1,9 @@
 import { connectAudioOutput } from './audio-output-manager.js';
 import { clamp, soundMapping, WORLD } from './puggler.js';
 import { PUNK_DRUMS, PUNK_RIFFS, PHRASE_TEMPO, renderPunkPhrase, renderVocalChant } from './puggler-samples.js';
+import { sonicSkin, eraPhraseKey } from './puggler-sonic-skins.js';
+import { renderEraPhrase, renderEraDrum } from './puggler-era-samples.js';
+import { renderEraVocal } from './puggler-era-vocals.js';
 import { VOCAL_CHARACTERS, vocalCharacter, renderCharacterVocal } from './puggler-vocals.js';
 
 export const MAX_PUGGLER_VOICES = 10;
@@ -11,7 +14,6 @@ export const MAX_PUGGLER_AIR_TAILS = 20;
 const CATCH_GATE = .018;
 const SAMPLE_IDS = [...PUNK_DRUMS, 'oi', 'woo', 'boo'];
 const DRUM_GAIN = { kick: 1.15, snare: 1.03, crash: .55, tom: 1.05, hat: .62 };
-const RIFF_GAIN = { guitar: .38, bass: .53, oi: .8, woo: .75 };
 const isVocal = role => role === 'oi' || role === 'woo';
 const finite = (value, fallback = 0) => Number.isFinite(Number(value)) ? Number(value) : fallback;
 
@@ -59,6 +61,24 @@ export function punkVocalMotion(object, parameters = {}) {
     level: .82 + .18 * Math.min(1, Math.hypot(finite(object.vx), finite(object.vy)) / 1600),
   };
 }
+// Era color changes the instrument, while the same trajectory still controls it.
+export function sonicMotion(object, parameters = {}, role = object.riff) {
+  const skin = sonicSkin(parameters.skin).id;
+  const m = isVocal(role) ? punkVocalMotion(object, parameters) : punkMotion(object, parameters);
+  if (skin === 'punk') return { ...m, resonance: .55 };
+  const grit = clamp(finite(parameters.grit, .65), 0, 1);
+  const height = clamp((finite(object.y, WORLD.handY) - WORLD.handY) / 800, 0, 1);
+  if (isVocal(role)) return { ...m,
+    tone: skin === 'future' ? clamp(2600 + height * 4300 + m.tone * .22, 3200, 9000) : m.tone,
+    resonance: skin === 'future' ? .8 + grit * .7 : .55,
+  };
+  return { ...m,
+    rate: skin === 'history' ? clamp(m.rate ** .66, .45, 3.55) : clamp(m.rate ** .82, .35, 5),
+    tone: skin === 'history' ? clamp(m.tone * (.65 + grit * .45) + 700, 1200, 10000)
+      : clamp(m.tone * (.48 + grit * .25) + height * 1800, 700, 9500),
+    resonance: skin === 'history' ? .55 + grit * .2 : .8 + grit * 1.2,
+  };
+}
 function saturator(amount = 1) {
   const curve = new Float32Array(1024);
   for (let i = 0; i < curve.length; i++) { const x = i / (curve.length - 1) * 2 - 1; curve[i] = Math.tanh(x * amount) / Math.tanh(amount); }
@@ -70,7 +90,7 @@ export class PugglerAudio {
     this.phrasePositions = Array(MAX_PUGGLER_VOICES).fill(null);
     this.gateUntil = Array(MAX_PUGGLER_VOICES).fill(0);
     this.attacks = new Set(); this.airTails = new Set(); this.disposed = false;
-    this.buffers = null; this.vocalBuffers = null; this.loading = null; this.armSerial = 0; this.running = false; this.active = true; this.level = .38;
+    this.buffers = null; this.vocalBuffers = null; this.eraBuffers = null; this.loading = null; this.armSerial = 0; this.running = false; this.active = true; this.level = .38;
   }
   async arm() {
     if (this.disposed) return;
@@ -125,15 +145,26 @@ export class PugglerAudio {
       const rate = 22050, data = renderPunkPhrase(role, rate), buffer = c.createBuffer(1, data.length, rate);
       buffer.copyToChannel(data, 0); entries.push([role, buffer]);
     }
-    const buffers = Object.fromEntries(entries), vocals = {};
+    const buffers = Object.fromEntries(entries), vocals = {}, eras = {};
     // Eighteen bounded, reusable phrases; skin/cast changes never decode or
     // rebuild samples in the real-time update loop. Audience clips stay separate.
     for (const character of VOCAL_CHARACTERS) for (const role of ['oi', 'woo']) {
-      const original = buffers[role], data = renderCharacterVocal(original.getChannelData(0), original.sampleRate, character);
+      const original = buffers[role], data = character.skin === 'punk'
+        ? renderCharacterVocal(original.getChannelData(0), original.sampleRate, character)
+        : renderEraVocal(original.getChannelData(0), original.sampleRate, character, role);
       const buffer = c.createBuffer(1, data.length, original.sampleRate);
       buffer.copyToChannel(data, 0); vocals[`${character.id}:${role}`] = buffer;
     }
-    this.buffers = buffers; this.vocalBuffers = vocals;
+    for (const skin of ['history', 'future']) {
+      const rate = 22050;
+      const cache = (key, data) => {
+        const buffer = c.createBuffer(1, data.length, rate); buffer.copyToChannel(data, 0); eras[key] = buffer;
+      };
+      for (let owner = 0; owner < 3; owner++) for (const role of ['guitar', 'bass'])
+        cache(eraPhraseKey(skin, role, owner), renderEraPhrase(skin, role, owner, rate));
+      for (const drum of PUNK_DRUMS) cache(`${skin}:${drum}`, renderEraDrum(skin, drum, rate));
+    }
+    this.buffers = buffers; this.vocalBuffers = vocals; this.eraBuffers = eras;
   }
   mute() {
     ++this.armSerial; this.on = false;
@@ -159,36 +190,39 @@ export class PugglerAudio {
       if (!object || !['air', 'replacement', 'audience'].includes(object.phase) || finite(parameters.flight, .7) <= 0) {
         this.releaseAir(i); continue;
       }
-      const character = isVocal(role) ? vocalCharacter(parameters.skin, vocalPerformer(object)) : null;
-      const key = character ? `${character.id}:${role}` : role;
-      if (this.voices[i]?.key !== key) { this.releaseAir(i); this.voices[i] = this.startAir(role, t, i, character); }
-      const v = this.voices[i], m = isVocal(role) ? punkVocalMotion(object, parameters) : punkMotion(object, parameters);
+      const skin = sonicSkin(parameters.skin), owner = vocalPerformer(object);
+      const character = isVocal(role) ? vocalCharacter(skin.id, owner) : null;
+      const key = character ? `${character.id}:${role}` : eraPhraseKey(skin.id, role, owner);
+      if (this.voices[i]?.key !== key) { this.releaseAir(i); this.voices[i] = this.startAir(role, t, i, character, skin.id, owner); }
+      const v = this.voices[i], m = sonicMotion(object, parameters, role);
       this.advancePhrase(v, t); v.rate = m.rate;
       v.source.playbackRate.setTargetAtTime(m.rate, t, .035);
       v.filter.frequency.setTargetAtTime(m.tone, t, .025);
+      v.filter.Q.setTargetAtTime(m.resonance, t, .025);
       v.pan.pan.setTargetAtTime(m.pan, t, .02);
-      v.gain.gain.setTargetAtTime(clamp(finite(parameters.flight, .7), 0, 1) * RIFF_GAIN[role] * m.level * flightMix, Math.max(t, v.startedAt), .012);
-      v.drive?.gain.setTargetAtTime(1 + clamp(finite(parameters.grit, .65), 0, 1) * (role === 'guitar' ? 2.6 : 1.2), t, .025);
+      v.gain.gain.setTargetAtTime(clamp(finite(parameters.flight, .7), 0, 1) * skin.gains[role] * m.level * flightMix, Math.max(t, v.startedAt), .012);
+      v.drive?.gain.setTargetAtTime(1 + clamp(finite(parameters.grit, .65), 0, 1) * (skin.id === 'future' ? .9 : role === 'guitar' ? 2.6 : 1.2), t, .025);
     }
   }
-  startAir(role, t, slot, character = null) {
+  startAir(role, t, slot, character = null, skin = 'punk', owner = 0) {
     const c = this.context, source = c.createBufferSource(), filter = c.createBiquadFilter();
     const gain = c.createGain(), pan = c.createStereoPanner();
-    const vocal = isVocal(role), drive = vocal ? null : c.createGain(), dirt = vocal ? null : c.createWaveShaper();
-    const key = character ? `${character.id}:${role}` : role;
-    source.buffer = character ? this.vocalBuffers[key] : this.buffers[role]; source.loop = true;
+    const vocal = isVocal(role), clean = vocal || skin === 'history';
+    const drive = clean ? null : c.createGain(), dirt = clean ? null : c.createWaveShaper();
+    const key = character ? `${character.id}:${role}` : eraPhraseKey(skin, role, owner);
+    source.buffer = character ? this.vocalBuffers[key] : skin === 'punk' ? this.buffers[role] : this.eraBuffers[key]; source.loop = true;
     filter.type = 'lowpass'; filter.Q.value = .55; filter.frequency.value = vocal ? 7200 : 4200;
     gain.gain.value = 0; source.connect(filter);
-    if (vocal) filter.connect(gain);
-    else { dirt.curve = saturator(1.3); dirt.oversample = '2x'; filter.connect(drive); drive.connect(dirt); dirt.connect(gain); }
-    gain.connect(pan); pan.connect(vocal ? this.vocalBus : this.airBus);
+    if (clean) filter.connect(gain);
+    else { dirt.curve = saturator(skin === 'future' ? 1.1 : 1.3); dirt.oversample = '2x'; filter.connect(drive); drive.connect(dirt); dirt.connect(gain); }
+    gain.connect(pan); pan.connect(clean ? this.vocalBus : this.airBus);
     const position = this.phrasePositions[slot];
     // Preserve relative phrase progress when a different character's treatment
     // changes the clip duration. Catches still pause the object's own cursor.
     const offset = position?.role !== role ? 0 : position.duration === source.buffer.duration
       ? position.offset : (position.offset / position.duration * source.buffer.duration) % source.buffer.duration;
     const startedAt = Math.max(t + .002, this.gateUntil[slot]);
-    const voice = { role, key, character:character?.id ?? null, speaker:character?.owner ?? null, source, filter, gain, drive, dirt, pan, slot, offset, lastTime: startedAt, startedAt, rate: 1 };
+    const voice = { role, key, skin, character:character?.id ?? null, speaker:owner, source, filter, gain, drive, dirt, pan, slot, offset, lastTime: startedAt, startedAt, rate: 1 };
     source.onended = () => this.disconnectVoice(voice);
     source.start(startedAt, offset); return voice;
   }
@@ -249,11 +283,12 @@ export class PugglerAudio {
     }
     const m = punkMotion(event, parameters);
     const source = c.createBufferSource(), gain = c.createGain(), pan = c.createStereoPanner();
-    source.buffer = this.buffers[id];
+    const skin = sonicSkin(parameters.skin), key = crowd || skin.id === 'punk' ? id : `${skin.id}:${id}`;
+    source.buffer = crowd || skin.id === 'punk' ? this.buffers[id] : this.eraBuffers[key];
     const rate = crowd ? clamp(.95 + finite(event.id) * .015, .85, 1.1) : clamp(1 + (m.energy - .5) * .045, .95, 1.05);
     source.playbackRate.value = rate; pan.pan.value = crowd ? m.pan * .3 : m.pan;
     const duration = Math.max(.05, Math.min(source.buffer.duration / rate, crowd ? 2 : source.buffer.duration * clamp(finite(parameters.decay, 1), .2, 2)));
-    const peak = amount * (crowd ? (cheer ? .58 : .64) : DRUM_GAIN[id] * (.72 + .28 * m.energy));
+    const peak = amount * (crowd ? (cheer ? .58 : .64) : DRUM_GAIN[id] * skin.impact * (.72 + .28 * m.energy));
     gain.gain.setValueAtTime(0, t); gain.gain.linearRampToValueAtTime(peak * (crowd ? 1 : 1.35), t + .002);
     if (!crowd) {
       gain.gain.setValueAtTime(peak * 1.35, t + .012);
@@ -262,7 +297,7 @@ export class PugglerAudio {
     gain.gain.setValueAtTime(peak, t + Math.max(crowd ? .004 : .043, duration - .045));
     gain.gain.linearRampToValueAtTime(0, t + duration);
     source.connect(gain); gain.connect(pan); pan.connect(crowd ? this.bus : this.drumBus);
-    const voice = { role: id, source, gain, pan }; this.attacks.add(voice);
+    const voice = { role: id, key, skin: crowd ? 'crowd' : skin.id, source, gain, pan }; this.attacks.add(voice);
     source.onended = () => this.disconnectVoice(voice); source.start(t); source.stop(t + duration + .01);
   }
   disconnectVoice(v) {
@@ -288,7 +323,7 @@ export class PugglerAudio {
   async close() {
     if (this.disposed) return; this.disposed = true; this.on = false; ++this.armSerial; this.abort?.abort();
     for (const voice of [...this.attacks, ...this.airTails, ...this.voices]) this.disconnectVoice(voice);
-    this.voices = []; this.buffers = null; this.vocalBuffers = null; this.releaseOutput?.();
+    this.voices = []; this.buffers = null; this.vocalBuffers = null; this.eraBuffers = null; this.releaseOutput?.();
     for (const node of [this.airBus, this.airDuck, this.vocalBus, this.vocalCompressor, this.drumBus, this.bus, this.compressor, this.ceiling, this.peakGuard, this.master]) node?.disconnect();
     if (this.context?.state !== 'closed') await this.context?.close();
   }
