@@ -52,21 +52,21 @@
     </header>
 
     <main class="shell" id="julieSaw">
-      <section class="stage julie-stage" aria-label="Interactive seated musical-saw performer">
+      <section class="stage julie-stage" aria-label="Interactive musical-saw performance">
         <div class="stage-wrap" id="stageWrap">
           <canvas
             id="stage"
             tabindex="0"
-            aria-label="Julie sits with a musical saw between her knees. Drag the pink flex hand to bend and curl the S-shaped blade. Drag the amber bow across the smooth edge; horizontal speed and direction bow the blade, vertical position follows its moving sweet spot, and pointer pressure changes bow force. Two touches can flex and bow at once."
+            aria-label="Julie, a glamorous adult woman facing the viewer like a cellist, sits on an iridescent geometric hyper-prism chair with a musical saw between her separated legs. Her pink saw arm begins on the viewer's left and her amber bow arm begins on the viewer's right. The chair emits rainbow ribbons with the sound. Drag the pink hand freely down, up, and sideways to bend and curl the S-shaped blade. Drag the amber bow across the smooth edge; horizontal speed and direction bow the blade, vertical position follows its moving sweet spot, and pointer pressure changes bow force. Two touches can flex and bow at once."
             aria-describedby="canvasInstructions liveStatus"
           >
-            A seated player bends an S-curved musical saw with one hand and bows its moving sweet spot with the other.
+            A glamorous adult woman on a rainbow hyper-prism chair faces the viewer in a cello-player posture, holding an S-curved musical saw between her legs with one arm and bowing it from the opposite side.
           </canvas>
 
           <div class="julie-stage-heading" aria-hidden="true">
             <p>CURVED STEEL · MOVING SWEET SPOT · TWO-HAND BOW</p>
             <h1>JULIE SAW</h1>
-            <small>flex the pink hand · bow the amber handle · release to ring</small>
+            <small>move the pink grip in any direction · bow the amber handle · release to ring</small>
           </div>
 
           <div class="julie-stage-readout" role="group" aria-label="Current saw pitch and bow contact">
@@ -135,7 +135,8 @@
             <label class="control" for="bowSpeed"><span><b>Bow speed</b><output id="bowSpeedOut" for="bowSpeed">43%</output></span><input id="bowSpeed" type="range" min="0.01" max="1.5" step="0.01" value="0.43" /></label>
             <label class="control" for="bowContact"><span><b>Blade contact</b><output id="bowContactOut" for="bowContact">52%</output></span><input id="bowContact" type="range" min="0" max="1" step="0.005" value="0.52" /></label>
             <label class="control" for="rosin"><span><b>Rosin grip</b><output id="rosinOut" for="rosin">62%</output></span><input id="rosin" type="range" min="0" max="1" step="0.01" value="0.62" /></label>
-            <label class="control" for="edgeRasp"><span><b>Edge rasp</b><output id="edgeRaspOut" for="edgeRasp">16%</output></span><input id="edgeRasp" type="range" min="0" max="1" step="0.01" value="0.16" /></label>
+            <label class="control" for="bowBite"><span><b>Bow bite</b><output id="bowBiteOut" for="bowBite">58%</output></span><input id="bowBite" type="range" min="0" max="1" step="0.01" value="0.58" /></label>
+            <label class="control" for="edgeRasp"><span><b>Edge rasp</b><output id="edgeRaspOut" for="edgeRasp">24%</output></span><input id="edgeRasp" type="range" min="0" max="1" step="0.01" value="0.24" /></label>
           </div>
         </details>
 
@@ -158,7 +159,7 @@
               <label class="control" for="sustain"><span><b>Sustain</b><output id="sustainOut" for="sustain">88%</output></span><input id="sustain" type="range" min="0" max="1" step="0.01" value="0.88" /></label>
               <label class="control" for="releaseSeconds"><span><b>Release</b><output id="releaseSecondsOut" for="releaseSeconds">0.44 s</output></span><input id="releaseSeconds" type="range" min="0.01" max="5" step="0.01" value="0.44" /></label>
             </div>
-            <label class="control" for="body"><span><b>Chair + room body</b><output id="bodyOut" for="body">38%</output></span><input id="body" type="range" min="0" max="1" step="0.01" value="0.38" /></label>
+            <label class="control" for="body"><span><b>Steel + room body</b><output id="bodyOut" for="body">38%</output></span><input id="body" type="range" min="0" max="1" step="0.01" value="0.38" /></label>
             <label class="control" for="stereoWidth"><span><b>Plate width</b><output id="stereoWidthOut" for="stereoWidth">34%</output></span><input id="stereoWidth" type="range" min="0" max="1" step="0.01" value="0.34" /></label>
           </div>
         </details>
@@ -167,7 +168,7 @@
       </aside>
 
       <p class="sr-only" id="canvasInstructions">
-        Drag the pink flex hand horizontally to change the arch and pitch and vertically to change the tip curl. Drag the amber bow left and right across the smooth edge to bow; moving vertically changes contact position and pointer pressure changes force. Two simultaneous pointers can operate both arms. Use A W S E D F T G Y H U J K O L P and semicolon as chromatic notes through the shared computer-key player. Space toggles the automatic phrase, Escape silences the instrument, and arrow keys flex the blade while the canvas is focused. The Bow and exciter buttons and sliders provide keyboard-accessible equivalents for every continuous gesture.
+        Drag the pink flex hand freely: sideways changes the arch and pitch, while down and up change the tip curl. Drag the amber bow left and right across the smooth edge to bow; moving vertically changes contact position and pointer pressure changes force. Bow bite sets the strength and duration of the rosined attack grain, while edge rasp sets the continuing hair-on-steel texture. Two simultaneous pointers can operate both arms. Use A W S E D F T G Y H U J K O L P and semicolon as chromatic notes through the shared computer-key player. Space toggles the automatic phrase, Escape silences the instrument, and arrow keys flex the blade while the canvas is focused. The Bow and exciter buttons and sliders provide keyboard-accessible equivalents for every continuous gesture.
       </p>
       <p class="sr-only" id="liveStatus" aria-live="polite"></p>
     </main>

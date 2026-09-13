@@ -52,6 +52,14 @@ test("the performer canvas gives flex and bow independent continuous gestures", 
   await page.mouse.up();
   expect(Number(await page.locator("#bend").inputValue())).toBeGreaterThan(bendBefore);
   expect(Number(await page.locator("#tipCurl").inputValue())).toBeGreaterThan(curlBefore);
+  const raisedBend = Number(await page.locator("#bend").inputValue());
+  const raisedCurl = Number(await page.locator("#tipCurl").inputValue());
+  await page.mouse.move(box.x + box.width * .64, box.y + box.height * .17);
+  await page.mouse.down();
+  await page.mouse.move(box.x + box.width * .52, box.y + box.height * .32, { steps: 8 });
+  await page.mouse.up();
+  expect(Number(await page.locator("#bend").inputValue())).toBeLessThan(raisedBend);
+  expect(Number(await page.locator("#tipCurl").inputValue())).toBeLessThan(raisedCurl);
   await expect(page.locator("#trackSweetSpot")).toHaveAttribute("aria-pressed", "true");
   await expect(page.locator("#presetSelect")).toHaveValue("custom");
 
@@ -73,6 +81,44 @@ test("the performer canvas gives flex and bow independent continuous gestures", 
   await page.locator("#chokeButton").click();
   await expect(page.locator("#audioButton")).toHaveAttribute("aria-pressed", "false");
   expect(await readAudioStatus(page)).toMatchObject({ active: false, connectionCount: 0 });
+});
+
+test("the pink flex grip follows a coarse touch down and sideways without scrolling the page", async ({ browser, baseURL }) => {
+  const context = await browser.newContext({
+    baseURL,
+    viewport: { width: 390, height: 844 },
+    hasTouch: true,
+    isMobile: true,
+  });
+  const page = await context.newPage();
+  await page.goto("julie-saw.html", { waitUntil: "load" });
+  const canvas = page.locator("#stage");
+  const box = await canvas.boundingBox();
+  expect(box).not.toBeNull();
+  const bendBefore = Number(await page.locator("#bend").inputValue());
+  const curlBefore = Number(await page.locator("#tipCurl").inputValue());
+  const session = await context.newCDPSession(page);
+  const point = (x, y) => ({
+    x: box.x + box.width * x,
+    y: box.y + box.height * y,
+    id: 1,
+    radiusX: 7,
+    radiusY: 7,
+    force: .5,
+  });
+  await session.send("Input.dispatchTouchEvent", {
+    type: "touchStart",
+    touchPoints: [point(.54, .24)],
+  });
+  await session.send("Input.dispatchTouchEvent", {
+    type: "touchMove",
+    touchPoints: [point(.46, .39)],
+  });
+  await session.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+  expect(Number(await page.locator("#bend").inputValue())).toBeLessThan(bendBefore);
+  expect(Number(await page.locator("#tipCurl").inputValue())).toBeLessThan(curlBefore);
+  expect(await page.evaluate(() => window.scrollY)).toBe(0);
+  await context.close();
 });
 
 test("manual bow and alternate exciters run through the real AudioWorklet", async ({ page }) => {

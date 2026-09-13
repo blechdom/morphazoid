@@ -70,6 +70,7 @@ class JulieSawProcessor extends AudioWorkletProcessor {
     this.noiseDc = 0;
     this.bowForce = 0;
     this.bowNoise = 0;
+    this.bowHairDc = 0;
     this.modalLeft = 0;
     this.modalRight = 0;
     this.outputDcLeft = 0;
@@ -232,6 +233,7 @@ class JulieSawProcessor extends AudioWorkletProcessor {
     this.noiseDc = 0;
     this.bowForce = 0;
     this.bowNoise = 0;
+    this.bowHairDc = 0;
     this.modalLeft = 0;
     this.modalRight = 0;
     this.outputDcLeft = 0;
@@ -364,7 +366,7 @@ class JulieSawProcessor extends AudioWorkletProcessor {
     this.autoStableRegime = Math.exp(-(this.autoSpeedError ** 2) / 1.25);
     this.frictionSlope = 1.5 + clamp(this.state.rosin) * 9.5;
     this.noiseSmoothing = 0.035 + clamp(this.state.rosin) * 0.14;
-    this.edgeNoise = this.state.edgeRasp * 0.0045;
+    this.edgeNoise = 0.0007 + this.state.edgeRasp * 0.009;
     const glideCoefficient = 1 - Math.exp(-128 / Math.max(1, this.state.glideSeconds * this.rate));
     this.autoBendOffset += (this.autoBendTarget - this.autoBendOffset) * 0.026;
     this.autoContactOffset += (this.autoContactTarget - this.autoContactOffset) * 0.036;
@@ -482,18 +484,34 @@ class JulieSawProcessor extends AudioWorkletProcessor {
       * relativeVelocity
       * velocityWeakening
       * 0.046;
-    this.noise += (this._signedRandom() - this.noise) * this.noiseSmoothing;
+    const white = this._signedRandom();
+    this.noise += (white - this.noise) * this.noiseSmoothing;
+    this.bowHairDc += (white - this.bowHairDc) * 0.009;
+    const hairGrain = white - this.bowHairDc;
     const miss = 1 - this.alignment;
     const instability = clamp(speedError * 0.38 + overPressure * 0.7 + stationaryChoke);
+    const bite = clamp(this.state.bowBite);
+    const bowAgeSeconds = this.driveAgeSamples / this.rate;
+    const biteEnvelope = Math.exp(-bowAgeSeconds / (0.012 + bite * 0.075));
+    const speedGrain = 0.35 + clamp(bowSpeed / 0.9) * 0.65;
     const noiseAmount = pressure * (
       this.edgeNoise
-      + miss * 0.0009
-      + instability * 0.0075
+      + miss * 0.0035
+      + instability * 0.011
     );
+    const attackGrain = hairGrain
+      * biteEnvelope
+      * (0.0015 + bite * 0.013)
+      * (0.3 + pressure * 0.7)
+      * speedGrain;
+    const continuousGrain = hairGrain
+      * pressure
+      * (0.00035 + this.state.edgeRasp * 0.0045)
+      * (0.45 + this.state.rosin * 0.55);
     this.stickAmount = clamp(velocityWeakening * stableRegime * this.alignment);
     this.choke = Math.max(this.choke, stationaryChoke * 0.72);
-    this.bowForce = tonal + this.noise * noiseAmount * 0.24;
-    this.bowNoise = this.noise * noiseAmount;
+    this.bowNoise = this.noise * noiseAmount + attackGrain + continuousGrain;
+    this.bowForce = tonal + this.bowNoise * (0.12 + this.state.rosin * 0.16);
   }
 
   _renderModes(force) {
@@ -502,7 +520,9 @@ class JulieSawProcessor extends AudioWorkletProcessor {
     for (let index = 0; index < this.modeCount; index += 1) {
       const real = this.modeReal[index];
       const injected = this.modeImaginary[index]
-        + force * this.modeContactWeight[index] * (index === 0 ? 0.048 : 0.03);
+        + force * this.modeContactWeight[index] * (index === 0 ? 0.048 : 0.03)
+        + this.bowNoise * this.state.bowBite * this.modeContactWeight[index]
+          * (index === 0 ? 0.0015 : 0.003 + index * 0.00055);
       let nextReal = (real * this.modeCosine[index] - injected * this.modeSine[index]) * this.modeDecay[index];
       let nextImaginary = (real * this.modeSine[index] + injected * this.modeCosine[index]) * this.modeDecay[index];
       nextReal = clamp(nextReal, -2.5, 2.5);
@@ -544,7 +564,7 @@ class JulieSawProcessor extends AudioWorkletProcessor {
       impulseActivity += this._injectImpulse();
       const manualDrive = this.manualGate || this.noteGate;
       const direction = manualDrive ? this.manualDirection : this.autoDirection;
-      if (driving || this.driveEnvelope > SILENCE_FLOOR) {
+      if (driving) {
         this._bowExcitation(
           direction,
           manualDrive ? this.manualBowSpeed : this.autoBowSpeed,
@@ -552,8 +572,14 @@ class JulieSawProcessor extends AudioWorkletProcessor {
           manualDrive ? this.manualSpeedError : this.autoSpeedError,
         );
       } else {
-        this.bowForce = 0;
-        this.bowNoise = 0;
+        // Lifting the bow removes the exciter quickly; the modal bank below is
+        // deliberately left alone so the localized steel mode can ring until
+        // blade damping or an explicit choke dissipates it.
+        const lift = Math.exp(-1 / Math.max(1, this.rate * 0.004));
+        this.bowForce *= lift;
+        this.bowNoise *= lift;
+        if (Math.abs(this.bowForce) < SILENCE_FLOOR) this.bowForce = 0;
+        if (Math.abs(this.bowNoise) < SILENCE_FLOOR) this.bowNoise = 0;
       }
       let scrape = this.bowNoise;
       if (this.scrapeBurst > 0) {

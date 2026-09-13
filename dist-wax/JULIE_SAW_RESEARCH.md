@@ -60,7 +60,8 @@ pitch** and **Tip curl** separate rather than hiding both behind a note knob.
 
 The stage has two independent pointer owners:
 
-- Drag the pink flex hand in two dimensions to change arch and tip curl.
+- Drag the pink flex hand freely in two dimensions: sideways changes arch while
+  down/up changes tip curl, and the drawn hand follows both axes directly.
 - Drag the amber bow horizontally for signed speed/direction and vertically for
   contact position. Pen/touch pressure also changes force.
 - Two touches can operate both arms simultaneously.
@@ -102,7 +103,7 @@ playable extension rather than a documented acoustic law.
 | Teeth scrape | Run a hard object along the tooth edge for washboard color | C | Teeth button; synthetic safe gesture |
 | Open-blade gong | Free or suspend the handle and strike the blade | B | Documented, not explicitly modeled |
 | Blade snap / thwap | Flex and release a free blade for a short transient | B | Documented, not explicitly modeled |
-| Siren / wowa | Large repeated bend sweeps make characteristic vocal slides | B | Siren Chair / Wowa Bloom |
+| Siren / wowa | Large repeated bend sweeps make characteristic vocal slides | B | Siren Seat / Wowa Bloom |
 | Storm / wind | Irregular low-pressure bowing, contact misses, and pitch sweeps | B | Storm Window |
 | Two-saw combination tones | Two separate sounding saws create interactions | B | Not modeled; Julie is monophonic |
 
@@ -163,12 +164,15 @@ velocity-weakening friction proxy into a modal bank. Julie adds a dedicated
 2. separate arch and tip-curl geometry;
 3. a bend-dependent moving sweet spot;
 4. the same contact mode shape in the feedback-velocity read and force injection;
-5. coupled pressure/speed stability, stationary-pressure choke, and miss noise;
+5. coupled pressure/speed stability, stationary-pressure choke, rosined attack
+   bite, sustained hair grain, and contact-miss noise;
 6. one long localized principal mode plus short-lived, non-integer upper modes;
-7. geometry-linked vibrato that moves pitch and the sweet spot together;
-8. distinct soft mallet, hard mallet, edge-pluck, thimble, scrape, and choke exciters;
-9. an AudioWorklet-owned rhythm clock and telemetry-driven animation;
-10. output soft clipping plus a gentle browser compressor.
+7. a fast bow-lift disengagement that stops excitation while leaving those
+   modal states free to ring, with explicit choke as the contrasting damped end;
+8. geometry-linked vibrato that moves pitch and the sweet spot together;
+9. distinct soft mallet, hard mallet, edge-pluck, thimble, scrape, and choke exciters;
+10. an AudioWorklet-owned rhythm clock and telemetry-driven animation;
+11. output soft clipping plus a gentle browser compressor.
 
 The modal bank is naturally SIMD-friendly: modal frequencies, decays, complex
 states, gains, contact weights, and stereo weights can be packed into four- or
@@ -190,8 +194,10 @@ actually connected.
   behavior; their exact T60 values are artistic defaults.
 - “Higher mode” and “Mode pair” are intentionally unstable approximations. No
   universal partial selector exists across real saws.
-- Chair/body and stereo controls are radiating-body presentation, not a measured
+- Steel/body and stereo controls are radiating-body presentation, not a measured
   room or performer transfer function.
+- The sound-reactive rainbow hyper-prism chair is a surreal stage image, not
+  researched saw-playing posture or physical-safety guidance.
 - Julie is monophonic; two-saw combination tones are outside this model.
 
 ## Physical safety

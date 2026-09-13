@@ -19,6 +19,7 @@ export const JULIE_SAW_LIMITS = freeze({
   bowSpeed: freeze([0.01, 1.5]),
   bowContact: freeze([0, 1]),
   rosin: freeze([0, 1]),
+  bowBite: freeze([0, 1]),
   edgeRasp: freeze([0, 1]),
   vibratoDepthCents: freeze([0, 120]),
   vibratoRateHz: freeze([0.1, 14]),
@@ -101,7 +102,8 @@ export const JULIE_SAW_DEFAULTS = freeze({
   bowSpeed: 0.43,
   bowContact: 0.52,
   rosin: 0.62,
-  edgeRasp: 0.16,
+  bowBite: 0.58,
+  edgeRasp: 0.24,
   vibratoDepthCents: 24,
   vibratoRateHz: 5.2,
   vibratoDelaySeconds: 0.28,
@@ -119,19 +121,19 @@ export const JULIE_SAW_DEFAULTS = freeze({
 });
 
 export const JULIE_SAW_TECHNIQUES = freeze([
-  freeze({ id: "clean-ring", label: "Ring + lift", description: "A clean onset near the sweet spot, then the bow lifts so the localized fundamental can ring.", settings: freezeSettings({ bowPressure: 0.46, bowSpeed: 0.42, edgeRasp: 0.08, brightness: 0.42, releaseSeconds: 0.72 }) }),
-  freeze({ id: "straight-tone", label: "Straight tone", description: "A centered bow with no automatic vibrato; add hand or knee motion only when wanted.", settings: freezeSettings({ vibratoDepthCents: 0, bowPressure: 0.48, bowSpeed: 0.4, edgeRasp: 0.08 }) }),
+  freeze({ id: "clean-ring", label: "Ring + lift", description: "A defined rosined catch near the sweet spot, then the bow lifts so the cleaner localized fundamental can ring.", settings: freezeSettings({ bowPressure: 0.46, bowSpeed: 0.42, bowBite: 0.5, edgeRasp: 0.16, brightness: 0.42, releaseSeconds: 0.72 }) }),
+  freeze({ id: "straight-tone", label: "Straight tone", description: "A centered bow with a restrained hair texture and no automatic vibrato; add hand or knee motion only when wanted.", settings: freezeSettings({ vibratoDepthCents: 0, bowPressure: 0.48, bowSpeed: 0.4, bowBite: 0.34, edgeRasp: 0.12 }) }),
   freeze({ id: "knee-vibrato", label: "Knee vibrato", description: "The seated player's raised heel and knee pulse the whole bend after a clean attack.", settings: freezeSettings({ vibratoDepthCents: 34, vibratoRateHz: 5.1, vibratoDelaySeconds: 0.3, localization: 0.88 }) }),
   freeze({ id: "hand-vibrato", label: "Hand vibrato", description: "Smaller, faster tip-hand motion perturbs curvature, pitch, Q, and sweet-spot position together.", settings: freezeSettings({ vibratoDepthCents: 19, vibratoRateHz: 7.2, vibratoDelaySeconds: 0.08, localization: 0.82 }) }),
-  freeze({ id: "continuous-bow", label: "Continuous bow", description: "The bow stays in contact for controllable level and a little more friction color.", settings: freezeSettings({ bowPressure: 0.54, bowSpeed: 0.48, edgeRasp: 0.25, sustain: 0.94 }) }),
-  freeze({ id: "detache", label: "Détaché", description: "Alternating separate strokes articulate a regular pulse without muting the blade completely.", settings: freezeSettings({ attackSeconds: 0.012, releaseSeconds: 0.12, bowSpeed: 0.62, edgeRasp: 0.14 }) }),
-  freeze({ id: "tremolo", label: "Bow tremolo", description: "Rapid alternating strokes repeatedly recharge the same localized mode.", settings: freezeSettings({ attackSeconds: 0.004, releaseSeconds: 0.055, bowSpeed: 0.82, bowPressure: 0.38, edgeRasp: 0.22 }) }),
-  freeze({ id: "sweep", label: "Sweet-spot sweep", description: "A diagonal stroke hunts toward the moving sweet spot; useful and intentionally noisier.", settings: freezeSettings({ edgeRasp: 0.42, bowSpeed: 0.68, bowContact: 0.34, brightness: 0.62 }) }),
+  freeze({ id: "continuous-bow", label: "Continuous bow", description: "The bow stays in contact for controllable level and persistent hair-on-steel friction color.", settings: freezeSettings({ bowPressure: 0.54, bowSpeed: 0.48, bowBite: 0.62, edgeRasp: 0.34, sustain: 0.94 }) }),
+  freeze({ id: "detache", label: "Détaché", description: "Alternating separate strokes make the rosined catch part of each articulation without muting the blade completely.", settings: freezeSettings({ attackSeconds: 0.012, releaseSeconds: 0.12, bowSpeed: 0.62, bowBite: 0.72, edgeRasp: 0.26 }) }),
+  freeze({ id: "tremolo", label: "Bow tremolo", description: "Rapid alternating strokes repeatedly expose the bow catch and recharge the same localized mode.", settings: freezeSettings({ attackSeconds: 0.004, releaseSeconds: 0.055, bowSpeed: 0.82, bowPressure: 0.38, bowBite: 0.78, edgeRasp: 0.38 }) }),
+  freeze({ id: "sweep", label: "Sweet-spot sweep", description: "A diagonal stroke hunts toward the moving sweet spot; useful and intentionally noisy.", settings: freezeSettings({ bowBite: 0.7, edgeRasp: 0.58, bowSpeed: 0.68, bowContact: 0.34, brightness: 0.62 }) }),
   freeze({ id: "harmonic", label: "Higher mode", description: "Contact below the usual sweet spot favors unstable upper plate motion; exact partials vary by blade.", settings: freezeSettings({ bowContact: 0.72, bowPressure: 0.34, bowSpeed: 0.54, brightness: 0.78, edgeRasp: 0.28 }) }),
   freeze({ id: "double-stop", label: "Mode pair", description: "A deliberately unstable approximation of fundamental and higher-mode coexistence on one saw.", settings: freezeSettings({ bowContact: 0.67, bowPressure: 0.63, bowSpeed: 0.32, localization: 0.66, brightness: 0.82 }) }),
   freeze({ id: "siren", label: "Siren glide", description: "A large continuous flex sweep makes the characteristic rising and falling saw glissando.", settings: freezeSettings({ glideSeconds: 0.42, vibratoDepthCents: 8, bowSpeed: 0.5, bowPressure: 0.5 }) }),
   freeze({ id: "wowa", label: "Wowa", description: "Repeated bend arcs make a broad vocal-like up/down slide.", settings: freezeSettings({ glideSeconds: 0.3, vibratoDepthCents: 52, vibratoRateHz: 1.25, vibratoDelaySeconds: 0 }) }),
-  freeze({ id: "storm", label: "Storm wind", description: "Fast flex and contact drift trade a stable note for bowed wind and shimmering plate modes.", settings: freezeSettings({ localization: 0.42, bowPressure: 0.72, bowSpeed: 0.92, edgeRasp: 0.76, brightness: 0.86, vibratoDepthCents: 92, vibratoRateHz: 3.2 }) }),
+  freeze({ id: "storm", label: "Storm wind", description: "Fast flex and contact drift trade a stable note for coarse bowed wind and shimmering plate modes.", settings: freezeSettings({ localization: 0.42, bowPressure: 0.72, bowSpeed: 0.92, bowBite: 0.92, edgeRasp: 0.88, brightness: 0.86, vibratoDepthCents: 92, vibratoRateHz: 3.2 }) }),
   freeze({ id: "soft-mallet", label: "Soft mallet", action: "soft-mallet", description: "A padded strike at the sweet spot rebounds quickly and leaves a rounded ring.", settings: freezeSettings({ edgeRasp: 0.05, brightness: 0.32, releaseSeconds: 1.2 }) }),
   freeze({ id: "hard-mallet", label: "Hard mallet", action: "hard-mallet", description: "A harder beater increases impact character and short-lived upper plate modes.", settings: freezeSettings({ edgeRasp: 0.18, brightness: 0.8, releaseSeconds: 0.7 }) }),
   freeze({ id: "edge-pluck", label: "Edge pluck", action: "pluck", description: "A thumb or plectrum snaps the edge into a short, partial-rich response.", settings: freezeSettings({ brightness: 0.68, bladeDamping: 0.38, releaseSeconds: 0.34 }) }),
@@ -174,7 +176,7 @@ export const JULIE_SAW_PRESETS = freeze([
   ["silver-tremolo", "Silver Tremolo", "limber-soprano", "tremolo", "bow-tremolo", { tempoBpm: 154, localization: .78 }],
   ["sweet-spot-hunt", "Sweet-Spot Hunt", "old-carpenter", "sweep", "rebow", { bowContact: .26, edgeRasp: .56 }],
   ["mode-pair-mirage", "Mode-Pair Mirage", "thick-stage", "double-stop", "lyric-ring", { bend: .57, body: .68, stereoWidth: .76 }],
-  ["siren-chair", "Siren Chair", "concert-tenor", "siren", "siren-arc", { tempoBpm: 62, glideSeconds: .62 }],
+  ["siren-chair", "Siren Seat", "concert-tenor", "siren", "siren-arc", { tempoBpm: 62, glideSeconds: .62 }],
   ["wowa-bloom", "Wowa Bloom", "long-baritone", "wowa", "siren-arc", { bend: .32, tempoBpm: 54, vibratoDepthCents: 66 }],
   ["storm-window", "Storm Window", "old-carpenter", "storm", "storm-motion", { tempoBpm: 118, level: .35, stereoWidth: .84 }],
   ["felt-mallets", "Felt Mallets", "long-baritone", "soft-mallet", "mallet-duet", { tempoBpm: 84, body: .66, bladeDamping: .16 }],
@@ -220,6 +222,15 @@ export function bendToFrequency(state) {
   const effectiveCurvature = clamp(arch * 0.82 + curl * 0.18);
   const midi = blade.lowMidi + (blade.highMidi - blade.lowMidi) * effectiveCurvature;
   return midiToFrequency(midi);
+}
+
+export function flexHandlePosition(state, width = 1, height = 1) {
+  const arch = clamp(state?.bend, ...JULIE_SAW_LIMITS.bend);
+  const curl = clamp(state?.tipCurl, ...JULIE_SAW_LIMITS.tipCurl);
+  return {
+    x: Math.max(1, Number(width) || 1) * (0.43 + arch * 0.25),
+    y: Math.max(1, Number(height) || 1) * (0.13 + (1 - curl) * 0.3),
+  };
 }
 
 export function sweetSpotPosition(state) {
@@ -313,6 +324,7 @@ export function randomizedJulieSawState(state = JULIE_SAW_DEFAULTS, random = Mat
     bowPressure: range(.24, .86),
     bowSpeed: range(.22, 1.02),
     rosin: range(.28, .9),
+    bowBite: range(.22, .92),
     edgeRasp: range(.05, .58),
     vibratoDepthCents: range(0, 72),
     vibratoRateHz: range(2.8, 8.2),

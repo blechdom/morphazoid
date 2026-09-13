@@ -12,6 +12,7 @@ import {
   applyJulieSawTechnique,
   bendToFrequency,
   contactAlignment,
+  flexHandlePosition,
   julieSawRhythm,
   pitchName,
   randomizedJulieSawState,
@@ -68,6 +69,15 @@ function positiveZeroCrossingFrequency(samples, rate = RATE) {
 
 function rms(samples) {
   return Math.sqrt(samples.reduce((sum, value) => sum + value * value, 0) / Math.max(1, samples.length));
+}
+
+function normalizedDifferenceRms(samples) {
+  let square = 0;
+  for (let index = 1; index < samples.length; index += 1) {
+    const difference = samples[index] - samples[index - 1];
+    square += difference * difference;
+  }
+  return Math.sqrt(square / Math.max(1, samples.length - 1)) / Math.max(1e-9, rms(samples));
 }
 
 async function withProcessorHarness(run) {
@@ -140,6 +150,15 @@ test("arch and curl tune continuously while independently moving localization ge
   assert.ok(Math.abs(1200 * Math.log2(bendToFrequency(archHeavy) / bendToFrequency(curlHeavy))) < 40);
   assert.ok(Math.abs(sweetSpotPosition(archHeavy) - sweetSpotPosition(curlHeavy)) > .02);
   assert.match(pitchName(440), /^A4/);
+});
+
+test("the flex hand follows arch sideways and tip curl vertically", () => {
+  const centered = flexHandlePosition(JULIE_SAW_DEFAULTS, 1000, 600);
+  const arched = flexHandlePosition({ ...JULIE_SAW_DEFAULTS, bend: .9 }, 1000, 600);
+  const lowered = flexHandlePosition({ ...JULIE_SAW_DEFAULTS, tipCurl: .1 }, 1000, 600);
+  assert.ok(arched.x > centered.x + 100, `${arched.x} should move right of ${centered.x}`);
+  assert.ok(lowered.y > centered.y + 90, `${lowered.y} should move below ${centered.y}`);
+  assert.equal(flexHandlePosition({ bend: Infinity, tipCurl: -Infinity }, 1000, 600).y, 258);
 });
 
 test("the moving sweet spot strongly controls tonal coupling", () => {
@@ -277,6 +296,37 @@ test("Julie Saw worklet renders finite bowing, release, impulses, and sample-clo
   });
 });
 
+test("bow bite exposes a rough excitation and bow lift leaves a resonant steel tail", async () => {
+  await withProcessorHarness(async ({ makeProcessor }) => {
+    const aligned = {
+      trackSweetSpot: false,
+      bowContact: sweetSpotPosition(JULIE_SAW_DEFAULTS),
+      bowPressure: .56,
+      bowSpeed: .48,
+      attackSeconds: .008,
+    };
+    const soft = makeProcessor({ ...aligned, bowBite: 0, edgeRasp: 0, rosin: .2 });
+    const coarse = makeProcessor({ ...aligned, bowBite: 1, edgeRasp: .82, rosin: .9 });
+    for (const voice of [soft, coarse]) voice._handleMessage({ type: "bow", gate: true, direction: 1 });
+    const softAttack = renderLeftBlocks(soft, 34);
+    const coarseAttack = renderLeftBlocks(coarse, 34);
+    assert.ok(
+      normalizedDifferenceRms(coarseAttack) > normalizedDifferenceRms(softAttack) * 1.08,
+      "bow bite and rasp should add measurable high-frequency attack texture",
+    );
+
+    const sustained = rms(renderLeftBlocks(coarse, 100));
+    coarse._handleMessage({ type: "bow", gate: false });
+    const ringing = renderLeftBlocks(coarse, 20);
+    assert.ok(rms(ringing) > sustained * .02, "lifting the bow should leave audible resonator energy");
+    assert.ok(Math.abs(coarse.bowNoise) < 1e-8, "bow-hair excitation should disengage after lift");
+
+    coarse._handleMessage({ type: "choke", duration: .2 });
+    const choked = renderLeftBlocks(coarse, 80);
+    assert.ok(rms(choked.slice(-BLOCK_SIZE * 10)) < rms(ringing) * .2, "choke should tamp the free ring");
+  });
+});
+
 test("reset clears every queued exciter and restores deterministic geometry immediately", async () => {
   await withProcessorHarness(async ({ makeProcessor }) => {
     const voice = makeProcessor({ bend: .9, bladeDamping: .82, trackSweetSpot: false });
@@ -408,13 +458,19 @@ test("Julie Saw page, research, navigation, and release lists expose the full in
     readFile(new URL("../scripts/build-site.sh", import.meta.url), "utf8"),
   ]);
   assert.match(html, /<h1>JULIE SAW<\/h1>/);
+  assert.match(html, /Julie, a glamorous adult woman/);
+  assert.match(app, /function drawHyperPrismChair/);
+  assert.match(app, /telemetry\.activity \* 7/);
+  assert.doesNotMatch(app, /function drawChair/);
+  assert.doesNotMatch(app, /function drawHumanStool/);
+  assert.doesNotMatch(html, /Chair \+ room body/);
   assert.match(html, /data-primary-transport/);
   assert.match(html, /data-reset-all data-reset-in-place/);
   assert.match(html, /id="stage"[\s\S]*tabindex="0"/);
   assert.match(html, /Track sweet spot/);
   assert.doesNotMatch(html, /julie-stage-readout"[^>]*aria-live/);
   assert.match(html, /id="liveStatus" aria-live="polite"/);
-  for (const id of ["bend", "tipCurl", "bowPressure", "bowSpeed", "bowContact", "vibratoDepthCents", "attackSeconds", "releaseSeconds"]) {
+  for (const id of ["bend", "tipCurl", "bowPressure", "bowSpeed", "bowContact", "bowBite", "vibratoDepthCents", "attackSeconds", "releaseSeconds"]) {
     assert.match(html, new RegExp(`id="${id}"`));
   }
   assert.match(css, /touch-action:\s*none/);

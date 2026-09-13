@@ -10,6 +10,7 @@ import {
   bendToFrequency,
   clamp,
   contactAlignment,
+  flexHandlePosition,
   julieSawBlade,
   julieSawRhythm,
   julieSawTechnique,
@@ -40,6 +41,7 @@ const CONTROL_SPECS = Object.freeze([
   { key: "bowSpeed", format: formatPercent },
   { key: "bowContact", format: formatPercent },
   { key: "rosin", format: formatPercent },
+  { key: "bowBite", format: formatPercent },
   { key: "edgeRasp", format: formatPercent },
   { key: "vibratoDepthCents", format: (value) => `${Math.round(value)} ct` },
   { key: "vibratoRateHz", format: (value) => `${value.toFixed(1)} Hz` },
@@ -219,9 +221,12 @@ function updatePresentation({ score = true } = {}) {
   $("techniqueDescription").textContent = technique.description;
   $("bladeSummary").textContent = `${blade.label.toLowerCase()} · ${state.localization > .55 ? "S curve" : "loose curve"}`;
   const alignment = contactAlignment(state);
+  const bowCharacter = state.bowBite > .72
+    ? "coarse catch"
+    : state.bowBite > .38 ? "rosined catch" : "soft catch";
   $("bowSummary").textContent = alignment > .78
-    ? "centered · stable slip"
-    : alignment > .3 ? "edge of sweet spot" : "miss · scrape";
+    ? `centered · ${bowCharacter}`
+    : alignment > .3 ? `edge · ${bowCharacter}` : "miss · scrape";
   $("motionSummary").textContent = state.vibratoDepthCents <= 1
     ? "straight tone"
     : `${state.vibratoDelaySeconds > .12 ? "delayed " : ""}${state.vibratoRateHz.toFixed(1)} Hz vibrato`;
@@ -632,7 +637,7 @@ function updateFlexPointer(pointer, point) {
   const dx = point.x - pointer.startPoint.x;
   const dy = point.y - pointer.startPoint.y;
   commitPatch({
-    bend: pointer.startBend + dx / Math.max(160, cssWidth * .34),
+    bend: pointer.startBend + dx / Math.max(120, cssWidth * .25),
     tipCurl: pointer.startCurl - dy / Math.max(120, cssHeight * .3),
   }, { followSweetSpot: true });
 }
@@ -819,14 +824,14 @@ function handleMidiInput(event) {
 
 function bladePoint(t, width = cssWidth, height = cssHeight, bend = state.bend) {
   const base = { x: width * .54, y: height * .84 };
-  const tipY = height * .2;
+  const tip = flexHandlePosition({ ...state, bend }, width, height);
   const normalized = clamp(t);
   const amplitude = width * (.035 + bend * .105);
   const taperMotion = .5 + normalized * .5;
-  const tipLean = width * (state.tipCurl - .5) * .085 * normalized * normalized;
   return {
-    x: base.x + Math.sin(normalized * TWO_PI) * amplitude * taperMotion + tipLean,
-    y: base.y + (tipY - base.y) * normalized,
+    x: base.x + (tip.x - base.x) * normalized
+      + Math.sin(normalized * TWO_PI) * amplitude * taperMotion,
+    y: base.y + (tip.y - base.y) * normalized,
   };
 }
 
@@ -864,19 +869,119 @@ function drawWaveform(width, height) {
   drawing.restore();
 }
 
-function drawChair(width, height) {
+function drawHyperPrismChair(width, height) {
   drawing.save();
-  drawing.strokeStyle = "rgba(220, 227, 223, 0.28)";
-  drawing.lineWidth = Math.max(2, width * .0022);
+  const colors = ["#ff5b8d", "#ff9f43", "#ffe66d", "#70e38b", "#55c8ff", "#a78bfa"];
+  const energy = clamp(telemetry.activity * 7 + actionFlash.amount * .4);
+  const time = prefersReducedMotion ? 0 : performance.now() * .00035;
   drawing.lineCap = "round";
+  drawing.lineJoin = "round";
+
+  // Audio releases bounded rainbow ribbons from behind the chair.
+  if (energy > .01) {
+    for (let index = 0; index < colors.length; index += 1) {
+      const phase = (time + index / colors.length) % 1;
+      const direction = index % 2 ? 1 : -1;
+      const reach = (.12 + phase * .29) * width * energy;
+      const startX = width * (direction < 0 ? .345 : .53);
+      const startY = height * (.6 + (index % 3) * .022);
+      drawing.strokeStyle = colors[index];
+      drawing.globalAlpha = energy * (1 - phase * .72) * .82;
+      drawing.lineWidth = Math.max(1.8, width * (.0023 + energy * .0022));
+      drawing.beginPath();
+      drawing.moveTo(startX, startY);
+      drawing.bezierCurveTo(
+        startX + direction * reach * .35,
+        startY - height * (.035 + phase * .08),
+        startX + direction * reach * .72,
+        startY + height * Math.sin((phase + index) * Math.PI) * .09,
+        startX + direction * reach,
+        startY - height * (.02 + phase * .15),
+      );
+      drawing.stroke();
+      drawing.fillStyle = colors[index];
+      drawing.beginPath();
+      drawing.arc(
+        startX + direction * reach,
+        startY - height * (.02 + phase * .15),
+        Math.max(1.5, width * .0028 * energy),
+        0,
+        TWO_PI,
+      );
+      drawing.fill();
+    }
+  }
+
+  // Two offset prisms and their cross-connections suggest a small hypercube seat.
+  drawing.globalAlpha = 1;
+  const rear = [
+    { x: width * .31, y: height * .565 },
+    { x: width * .485, y: height * .565 },
+    { x: width * .515, y: height * .615 },
+    { x: width * .34, y: height * .615 },
+  ];
+  const front = rear.map(({ x, y }) => ({ x: x + width * .027, y: y + height * .035 }));
+  const seatGlow = drawing.createLinearGradient(rear[0].x, rear[0].y, front[2].x, front[2].y);
+  seatGlow.addColorStop(0, "rgba(255, 91, 141, 0.2)");
+  seatGlow.addColorStop(.34, "rgba(255, 230, 109, 0.12)");
+  seatGlow.addColorStop(.68, "rgba(85, 200, 255, 0.16)");
+  seatGlow.addColorStop(1, "rgba(167, 139, 250, 0.2)");
+  drawing.fillStyle = seatGlow;
   drawing.beginPath();
-  drawing.moveTo(width * .32, height * .59);
-  drawing.lineTo(width * .54, height * .59);
-  drawing.lineTo(width * .51, height * .85);
-  drawing.moveTo(width * .35, height * .59);
-  drawing.lineTo(width * .31, height * .88);
-  drawing.moveTo(width * .32, height * .59);
-  drawing.lineTo(width * .3, height * .34);
+  drawing.moveTo(front[0].x, front[0].y);
+  for (let index = 1; index < front.length; index += 1) drawing.lineTo(front[index].x, front[index].y);
+  drawing.closePath();
+  drawing.fill();
+  const drawPrism = (points, alpha) => {
+    for (let index = 0; index < points.length; index += 1) {
+      const next = (index + 1) % points.length;
+      drawing.strokeStyle = colors[index % colors.length];
+      drawing.globalAlpha = alpha;
+      drawing.lineWidth = Math.max(1.5, width * .0024);
+      drawing.beginPath();
+      drawing.moveTo(points[index].x, points[index].y);
+      drawing.lineTo(points[next].x, points[next].y);
+      drawing.stroke();
+    }
+  };
+  drawPrism(rear, .7);
+  drawPrism(front, .92);
+  for (let index = 0; index < rear.length; index += 1) {
+    drawing.strokeStyle = colors[(index + 4) % colors.length];
+    drawing.globalAlpha = .62;
+    drawing.beginPath();
+    drawing.moveTo(rear[index].x, rear[index].y);
+    drawing.lineTo(front[index].x, front[index].y);
+    drawing.stroke();
+  }
+  const feet = [
+    [front[0], { x: width * .285, y: height * .89 }],
+    [front[1], { x: width * .46, y: height * .89 }],
+    [front[2], { x: width * .585, y: height * .89 }],
+  ];
+  for (let index = 0; index < feet.length; index += 1) {
+    drawing.strokeStyle = colors[(index + 1) * 2 % colors.length];
+    drawing.globalAlpha = .6;
+    drawing.lineWidth = Math.max(2, width * .003);
+    drawing.beginPath();
+    drawing.moveTo(feet[index][0].x, feet[index][0].y);
+    drawing.lineTo(feet[index][1].x, feet[index][1].y);
+    drawing.stroke();
+  }
+  drawing.globalAlpha = .5;
+  drawing.strokeStyle = "#55c8ff";
+  drawing.beginPath();
+  drawing.moveTo(rear[0].x, rear[0].y);
+  drawing.lineTo(width * .285, height * .39);
+  drawing.lineTo(width * .32, height * .36);
+  drawing.lineTo(front[0].x, front[0].y);
+  drawing.stroke();
+  drawing.strokeStyle = "#ff5b8d";
+  drawing.beginPath();
+  drawing.moveTo(rear[1].x, rear[1].y);
+  drawing.lineTo(width * .51, height * .41);
+  drawing.lineTo(width * .535, height * .44);
+  drawing.lineTo(front[1].x, front[1].y);
   drawing.stroke();
   drawing.restore();
 }
@@ -886,44 +991,146 @@ function drawJulie(width, height, tip, bowHandle) {
   const kneeVibrato = state.vibratoDepthCents > 0
     ? Math.sin(performance.now() * .001 * state.vibratoRateHz * TWO_PI) * Math.min(4, state.vibratoDepthCents * .04) * activity
     : 0;
-  const head = { x: width * .38, y: height * .29 };
-  const shoulder = { x: width * .4, y: height * .39 };
-  const hip = { x: width * .42, y: height * .58 };
-  const leftKnee = { x: width * .47 + kneeVibrato, y: height * .72 };
-  const rightKnee = { x: width * .59 - kneeVibrato, y: height * .72 };
+  const head = { x: width * .4, y: height * .265 };
+  const leftShoulder = { x: width * .345, y: height * .385 };
+  const rightShoulder = { x: width * .455, y: height * .385 };
+  const waist = { x: width * .405, y: height * .49 };
+  const hip = { x: width * .43, y: height * .58 };
+  const viewerLeftKnee = { x: width * .455 + kneeVibrato, y: height * .705 };
+  const viewerRightKnee = { x: width * .615 - kneeVibrato, y: height * .72 };
   drawing.save();
-  drawing.strokeStyle = "rgba(220, 227, 223, 0.74)";
-  drawing.fillStyle = "rgba(220, 227, 223, 0.055)";
-  drawing.lineWidth = Math.max(2, width * .0026);
   drawing.lineCap = "round";
   drawing.lineJoin = "round";
+
+  // Hair and face: an adult woman looking straight toward the player.
+  const hair = drawing.createLinearGradient(head.x - width * .055, head.y, head.x + width * .055, head.y);
+  hair.addColorStop(0, "rgba(167, 139, 250, 0.2)");
+  hair.addColorStop(.5, "rgba(239, 140, 154, 0.32)");
+  hair.addColorStop(1, "rgba(255, 91, 141, 0.2)");
+  drawing.fillStyle = hair;
+  drawing.strokeStyle = "rgba(239, 140, 154, 0.72)";
+  drawing.lineWidth = Math.max(2, width * .0023);
   drawing.beginPath();
-  drawing.arc(head.x, head.y, Math.min(width, height) * .046, 0, TWO_PI);
+  drawing.moveTo(head.x - width * .05, head.y + height * .055);
+  drawing.bezierCurveTo(
+    head.x - width * .065, head.y - height * .04,
+    head.x - width * .025, head.y - height * .085,
+    head.x, head.y - height * .082,
+  );
+  drawing.bezierCurveTo(
+    head.x + width * .035, head.y - height * .08,
+    head.x + width * .062, head.y - height * .035,
+    head.x + width * .052, head.y + height * .062,
+  );
+  drawing.quadraticCurveTo(head.x + width * .03, head.y + height * .085, head.x, head.y + height * .052);
+  drawing.quadraticCurveTo(head.x - width * .03, head.y + height * .09, head.x - width * .05, head.y + height * .055);
+  drawing.closePath();
   drawing.fill();
   drawing.stroke();
+  drawing.fillStyle = "rgba(255, 230, 109, 0.86)";
+  for (const offset of [-.042, .042]) {
+    drawing.beginPath();
+    drawing.arc(head.x + width * offset, head.y + height * .024, Math.max(1.8, width * .0022), 0, TWO_PI);
+    drawing.fill();
+  }
+  drawing.fillStyle = "rgba(220, 227, 223, 0.11)";
+  drawing.strokeStyle = "rgba(220, 227, 223, 0.82)";
   drawing.beginPath();
-  drawing.moveTo(head.x, head.y + height * .045);
-  drawing.quadraticCurveTo(width * .36, height * .45, hip.x, hip.y);
-  drawing.lineTo(width * .31, height * .58);
-  drawing.moveTo(hip.x, hip.y);
-  drawing.lineTo(leftKnee.x, leftKnee.y);
-  drawing.lineTo(width * .39, height * .91);
-  drawing.moveTo(hip.x + width * .02, hip.y);
-  drawing.lineTo(rightKnee.x, rightKnee.y);
-  drawing.lineTo(width * .66, height * .91);
+  drawing.ellipse(head.x, head.y, Math.min(width, height) * .039, Math.min(width, height) * .052, 0, 0, TWO_PI);
+  drawing.fill();
   drawing.stroke();
+
+  // Eyes, nose and lips make the front-facing posture unambiguous.
+  drawing.fillStyle = "rgba(220, 227, 223, 0.88)";
+  for (const offset of [-.014, .014]) {
+    drawing.beginPath();
+    drawing.arc(head.x + width * offset, head.y - height * .009, Math.max(1.2, width * .0014), 0, TWO_PI);
+    drawing.fill();
+    drawing.strokeStyle = "rgba(239, 140, 154, 0.78)";
+    drawing.lineWidth = Math.max(1, width * .0011);
+    drawing.beginPath();
+    drawing.moveTo(head.x + width * offset - width * .008, head.y - height * .016);
+    drawing.lineTo(head.x + width * offset + width * .008, head.y - height * .019);
+    drawing.stroke();
+  }
+  drawing.strokeStyle = "rgba(220, 227, 223, 0.46)";
+  drawing.lineWidth = Math.max(1, width * .0012);
+  drawing.beginPath();
+  drawing.moveTo(head.x, head.y - height * .002);
+  drawing.lineTo(head.x - width * .003, head.y + height * .018);
+  drawing.lineTo(head.x + width * .004, head.y + height * .019);
+  drawing.stroke();
+  drawing.strokeStyle = "rgba(239, 140, 154, 0.9)";
+  drawing.beginPath();
+  drawing.moveTo(head.x - width * .012, head.y + height * .032);
+  drawing.quadraticCurveTo(head.x, head.y + height * .039, head.x + width * .012, head.y + height * .032);
+  drawing.stroke();
+
+  // Neck, fitted stage dress, waist and seated hip.
+  const dress = drawing.createLinearGradient(width * .34, height * .39, width * .49, height * .6);
+  dress.addColorStop(0, "rgba(255, 91, 141, 0.18)");
+  dress.addColorStop(.45, "rgba(28, 26, 31, 0.94)");
+  dress.addColorStop(1, "rgba(167, 139, 250, 0.15)");
+  drawing.fillStyle = dress;
+  drawing.strokeStyle = "rgba(220, 227, 223, 0.78)";
+  drawing.lineWidth = Math.max(2, width * .0025);
+  drawing.beginPath();
+  drawing.moveTo(head.x - width * .014, head.y + height * .052);
+  drawing.bezierCurveTo(width * .39, height * .34, width * .36, height * .365, leftShoulder.x, leftShoulder.y);
+  drawing.bezierCurveTo(width * .345, height * .445, waist.x - width * .025, waist.y, hip.x - width * .032, hip.y);
+  drawing.quadraticCurveTo(width * .405, height * .61, width * .48, height * .605);
+  drawing.quadraticCurveTo(width * .475, height * .545, waist.x + width * .025, waist.y);
+  drawing.bezierCurveTo(width * .47, height * .445, rightShoulder.x, height * .405, rightShoulder.x, rightShoulder.y);
+  drawing.bezierCurveTo(width * .44, height * .36, width * .415, height * .34, head.x + width * .014, head.y + height * .052);
+  drawing.closePath();
+  drawing.fill();
+  drawing.stroke();
+  drawing.strokeStyle = "rgba(239, 140, 154, 0.78)";
+  drawing.lineWidth = Math.max(1.5, width * .0018);
+  drawing.beginPath();
+  drawing.moveTo(width * .36, height * .405);
+  drawing.bezierCurveTo(width * .377, height * .418, width * .387, height * .438, width * .403, height * .447);
+  drawing.bezierCurveTo(width * .418, height * .438, width * .43, height * .417, width * .45, height * .405);
+  drawing.moveTo(waist.x - width * .017, waist.y);
+  drawing.lineTo(waist.x + width * .028, waist.y + height * .004);
+  drawing.stroke();
+
+  // Her anatomical right appears on the viewer's left; the saw stays between both legs.
+  drawing.strokeStyle = "rgba(220, 227, 223, 0.76)";
   roundedLine([
-    shoulder,
-    { x: width * .46, y: height * .41 },
+    { x: hip.x - width * .018, y: hip.y },
+    viewerLeftKnee,
+    { x: width * .39, y: height * .88 },
+  ], "rgba(220, 227, 223, 0.76)", Math.max(6, width * .0125), 1);
+  roundedLine([
+    { x: hip.x + width * .035, y: hip.y + height * .002 },
+    viewerRightKnee,
+    { x: width * .69, y: height * .895 },
+  ], "rgba(220, 227, 223, 0.76)", Math.max(6, width * .0125), 1);
+  drawing.strokeStyle = "rgba(239, 140, 154, 0.8)";
+  drawing.lineWidth = Math.max(2, width * .0024);
+  drawing.beginPath();
+  drawing.moveTo(width * .37, height * .89);
+  drawing.lineTo(width * .415, height * .89);
+  drawing.lineTo(width * .42, height * .914);
+  drawing.moveTo(width * .67, height * .9);
+  drawing.lineTo(width * .715, height * .9);
+  drawing.lineTo(width * .72, height * .924);
+  drawing.stroke();
+
+  // Viewer-left owns the saw; viewer-right owns the bow.
+  roundedLine([
+    leftShoulder,
+    { x: width * .43, y: height * .34 },
     { x: tip.x - width * .035, y: tip.y + height * .05 },
     tip,
-  ], "#ef8c9a", Math.max(3, width * .0044), .86);
+  ], "#ef8c9a", Math.max(4, width * .0062), .9);
   roundedLine([
-    { x: shoulder.x + width * .01, y: shoulder.y + height * .015 },
-    { x: width * .53, y: height * .46 },
+    rightShoulder,
+    { x: width * .5, y: height * .45 },
     { x: bowHandle.x - width * .04, y: bowHandle.y + height * .02 },
     bowHandle,
-  ], "#efbd72", Math.max(3, width * .0044), .84);
+  ], "#efbd72", Math.max(4, width * .0062), .88);
   drawing.fillStyle = "#ef8c9a";
   drawing.beginPath();
   drawing.arc(tip.x, tip.y, Math.max(6, Math.min(width, height) * .012), 0, TWO_PI);
@@ -933,6 +1140,20 @@ function drawJulie(width, height, tip, bowHandle) {
   drawing.arc(bowHandle.x, bowHandle.y, Math.max(6, Math.min(width, height) * .011), 0, TWO_PI);
   drawing.fill();
   drawing.restore();
+}
+
+function bladeNormal(points, index) {
+  const before = points[Math.max(0, index - 1)];
+  const after = points[Math.min(points.length - 1, index + 1)];
+  const dx = after.x - before.x;
+  const dy = after.y - before.y;
+  const length = Math.max(1, Math.hypot(dx, dy));
+  return { x: -dy / length, y: dx / length };
+}
+
+function bladeHalfWidth(index, pointCount, width) {
+  const fromHandle = index / Math.max(1, pointCount - 1);
+  return width * (0.0135 - fromHandle * 0.0085);
 }
 
 function drawSaw(width, height) {
@@ -962,51 +1183,132 @@ function drawSaw(width, height) {
   drawing.fill();
   drawing.shadowColor = "rgba(220, 227, 223, 0.22)";
   drawing.shadowBlur = 12 + telemetry.activity * 18;
-  roundedLine(points, "rgba(220, 227, 223, 0.9)", Math.max(7, width * .009), 1);
-  drawing.shadowBlur = 0;
-  roundedLine(points, "rgba(65, 70, 68, 0.9)", Math.max(2, width * .002), .75);
-  drawing.fillStyle = "rgba(220, 227, 223, 0.62)";
-  for (let index = 5; index < points.length - 4; index += 4) {
-    const point = points[index];
-    const before = points[index - 1];
-    const after = points[index + 1];
-    const dx = after.x - before.x;
-    const dy = after.y - before.y;
-    const length = Math.max(1, Math.hypot(dx, dy));
-    const normal = { x: -dy / length, y: dx / length };
-    const root = { x: point.x + normal.x * 4, y: point.y + normal.y * 4 };
-    const tooth = { x: point.x + normal.x * (7 + visualBend * 2), y: point.y + normal.y * (7 + visualBend * 2) };
-    drawing.beginPath();
-    drawing.moveTo(root.x - dx / length * 3.2, root.y - dy / length * 3.2);
-    drawing.lineTo(tooth.x, tooth.y);
-    drawing.lineTo(root.x + dx / length * 3.2, root.y + dy / length * 3.2);
-    drawing.closePath();
-    drawing.fill();
+  const smoothEdge = [];
+  const toothedEdge = [];
+  for (let index = 0; index < points.length; index += 1) {
+    const normal = bladeNormal(points, index);
+    const halfWidth = bladeHalfWidth(index, points.length, width);
+    smoothEdge.push({
+      x: points[index].x - normal.x * halfWidth,
+      y: points[index].y - normal.y * halfWidth,
+    });
+    toothedEdge.push({
+      x: points[index].x + normal.x * halfWidth,
+      y: points[index].y + normal.y * halfWidth,
+    });
   }
-  drawing.fillStyle = "#32251b";
-  drawing.strokeStyle = "#efbd72";
-  drawing.lineWidth = 2;
+  const steel = drawing.createLinearGradient(width * .48, 0, width * .6, 0);
+  steel.addColorStop(0, "rgba(76, 82, 80, 0.96)");
+  steel.addColorStop(.36, "rgba(229, 235, 232, 0.94)");
+  steel.addColorStop(.58, "rgba(134, 143, 139, 0.98)");
+  steel.addColorStop(1, "rgba(53, 58, 56, 0.98)");
+  drawing.fillStyle = steel;
+  drawing.strokeStyle = "rgba(229, 235, 232, 0.82)";
+  drawing.lineWidth = Math.max(1.2, width * .0014);
   drawing.beginPath();
-  drawing.roundRect(base.x - width * .035, base.y - height * .018, width * .07, height * .095, 7);
+  drawing.moveTo(smoothEdge[0].x, smoothEdge[0].y);
+  for (let index = 1; index < smoothEdge.length; index += 1) {
+    drawing.lineTo(smoothEdge[index].x, smoothEdge[index].y);
+  }
+  for (let index = toothedEdge.length - 1; index >= 0; index -= 1) {
+    drawing.lineTo(toothedEdge[index].x, toothedEdge[index].y);
+  }
+  drawing.closePath();
   drawing.fill();
   drawing.stroke();
+  drawing.shadowBlur = 0;
+  roundedLine(smoothEdge, "rgba(244, 247, 245, 0.92)", Math.max(1.4, width * .0018), 1);
+  roundedLine(points, "rgba(35, 39, 37, 0.5)", Math.max(1, width * .0012), 1);
+
+  // The set teeth sit on the opposite edge from the bow and remain obvious at phone scale.
+  drawing.fillStyle = "rgba(211, 219, 215, 0.96)";
+  drawing.strokeStyle = "rgba(48, 53, 51, 0.9)";
+  drawing.lineWidth = 1;
+  for (let index = 3; index < points.length - 3; index += 3) {
+    const point = points[index];
+    const normal = bladeNormal(points, index);
+    const halfWidth = bladeHalfWidth(index, points.length, width);
+    const tangent = { x: -normal.y, y: normal.x };
+    const root = {
+      x: point.x + normal.x * halfWidth,
+      y: point.y + normal.y * halfWidth,
+    };
+    const toothLength = Math.max(5, width * (0.0065 + visualBend * .002));
+    const tooth = {
+      x: root.x + normal.x * toothLength - tangent.x * toothLength * .42,
+      y: root.y + normal.y * toothLength - tangent.y * toothLength * .42,
+    };
+    drawing.beginPath();
+    drawing.moveTo(root.x - tangent.x * toothLength * .48, root.y - tangent.y * toothLength * .48);
+    drawing.lineTo(tooth.x, tooth.y);
+    drawing.lineTo(root.x + tangent.x * toothLength * .48, root.y + tangent.y * toothLength * .48);
+    drawing.closePath();
+    drawing.fill();
+    drawing.stroke();
+  }
+
+  // A recognisable D-handle sits between the knees, with steel tang and rivets.
+  const handleWidth = Math.max(34, width * .072);
+  const handleHeight = Math.max(48, height * .13);
+  drawing.fillStyle = "#6b3d24";
+  drawing.strokeStyle = "#efbd72";
+  drawing.lineWidth = Math.max(2, width * .0022);
+  drawing.beginPath();
+  drawing.roundRect(base.x - handleWidth * .5, base.y - height * .012, handleWidth, handleHeight, Math.max(8, handleWidth * .22));
+  drawing.fill();
+  drawing.stroke();
+  drawing.fillStyle = "#11100f";
+  drawing.beginPath();
+  drawing.roundRect(
+    base.x - handleWidth * .24,
+    base.y + handleHeight * .18,
+    handleWidth * .48,
+    handleHeight * .48,
+    Math.max(5, handleWidth * .15),
+  );
+  drawing.fill();
+  drawing.fillStyle = "#efbd72";
+  for (const xOffset of [-.24, .24]) {
+    drawing.beginPath();
+    drawing.arc(base.x + handleWidth * xOffset, base.y + handleHeight * .09, Math.max(1.8, width * .0022), 0, TWO_PI);
+    drawing.fill();
+  }
+
+  const contactNormal = bladeNormal(points, contactIndex);
+  const bowContact = {
+    x: contact.x - contactNormal.x * bladeHalfWidth(contactIndex, points.length, width),
+    y: contact.y - contactNormal.y * bladeHalfWidth(contactIndex, points.length, width),
+  };
   const bowTravel = visualBowOffset * width * .035
     + Math.sin(performance.now() * .006 * (telemetry.bowDirection || 1)) * telemetry.envelope * width * .018;
   const bowLength = width * .25;
-  const bowY = contact.y;
+  const bowY = bowContact.y;
   drawing.strokeStyle = alignment > .35 ? "rgba(239, 189, 114, 0.94)" : "rgba(239, 140, 154, 0.82)";
   drawing.lineWidth = Math.max(2, width * .0024);
   drawing.beginPath();
-  drawing.moveTo(contact.x - bowLength * .52 + bowTravel, bowY - 3);
-  drawing.lineTo(contact.x + bowLength * .48 + bowTravel, bowY + 3);
+  drawing.moveTo(bowContact.x - bowLength * .52 + bowTravel, bowY - 3);
+  drawing.lineTo(bowContact.x + bowLength * .48 + bowTravel, bowY + 3);
   drawing.stroke();
   drawing.strokeStyle = "rgba(225, 222, 205, 0.6)";
   drawing.lineWidth = 1;
   drawing.beginPath();
-  drawing.moveTo(contact.x - bowLength * .5 + bowTravel, bowY + 1);
-  drawing.lineTo(contact.x + bowLength * .46 + bowTravel, bowY + 7);
+  drawing.moveTo(bowContact.x - bowLength * .5 + bowTravel, bowY + 1);
+  drawing.lineTo(bowContact.x + bowLength * .46 + bowTravel, bowY + 7);
   drawing.stroke();
-  const bowHandle = { x: contact.x + bowLength * .51 + bowTravel, y: bowY + 5 };
+  const visibleBite = state.bowBite * clamp(telemetry.envelope);
+  if (visibleBite > .03) {
+    drawing.strokeStyle = `rgba(239, 140, 154, ${.16 + visibleBite * .5})`;
+    drawing.lineWidth = 1;
+    const grainCount = 2 + Math.round(state.edgeRasp * 4);
+    for (let index = 0; index < grainCount; index += 1) {
+      const offset = (index - (grainCount - 1) * .5) * 3;
+      drawing.beginPath();
+      drawing.moveTo(bowContact.x - 5 + offset, bowContact.y - 6 - visibleBite * 4);
+      drawing.lineTo(bowContact.x + 2 + offset, bowContact.y + 6 + visibleBite * 5);
+      drawing.stroke();
+    }
+  }
+  const bowHandle = { x: bowContact.x + bowLength * .51 + bowTravel, y: bowY + 5 };
   drawing.fillStyle = "#efbd72";
   drawing.beginPath();
   drawing.roundRect(bowHandle.x - 8, bowHandle.y - 5, 24, 10, 4);
@@ -1024,8 +1326,7 @@ function drawSaw(width, height) {
   drawing.fillStyle = "rgba(239, 189, 114, 0.82)";
   drawing.fillText("BOW", bowHandle.x + 10, bowHandle.y + 20);
   drawing.restore();
-  stageGeometry = { points, base, tip, sweet, contact, bowHandle };
-  return stageGeometry;
+  return { points, base, tip, sweet, contact, bowHandle };
 }
 
 function drawStage() {
@@ -1046,11 +1347,26 @@ function drawStage() {
   }
   drawing.restore();
   drawWaveform(width, height);
-  drawChair(width, height);
-  const geometry = drawSaw(width, height);
-  drawJulie(width, height, geometry.tip, geometry.bowHandle);
+  const sceneWidth = Math.min(width, height * 1.45);
+  const sceneOffsetX = Math.max(0, width * .52 - sceneWidth * .5);
+  drawing.save();
+  drawing.translate(sceneOffsetX, 0);
+  drawHyperPrismChair(sceneWidth, height);
+  const geometry = drawSaw(sceneWidth, height);
+  drawJulie(sceneWidth, height, geometry.tip, geometry.bowHandle);
+  drawing.restore();
+  const shiftPoint = (point) => ({ x: point.x + sceneOffsetX, y: point.y });
+  const displayGeometry = {
+    points: geometry.points.map(shiftPoint),
+    base: shiftPoint(geometry.base),
+    tip: shiftPoint(geometry.tip),
+    sweet: shiftPoint(geometry.sweet),
+    contact: shiftPoint(geometry.contact),
+    bowHandle: shiftPoint(geometry.bowHandle),
+  };
+  stageGeometry = displayGeometry;
   if (actionFlash.amount > .01) {
-    const center = actionFlash.gesture === "choke" ? geometry.base : geometry.sweet;
+    const center = actionFlash.gesture === "choke" ? displayGeometry.base : displayGeometry.sweet;
     drawing.save();
     drawing.strokeStyle = actionFlash.gesture === "choke"
       ? `rgba(239, 140, 154, ${actionFlash.amount})`
