@@ -78,35 +78,17 @@
   pointer-events: none;
 }
 
-.julie-stage-heading p,
-.julie-stage-heading h1,
-.julie-stage-heading small {
+.julie-stage-heading h1 {
   margin: 0;
 }
 
-.julie-stage-heading p {
-  color: rgba(239, 140, 154, 0.78);
-  font-size: 7px;
-  letter-spacing: 0.18em;
-}
-
 .julie-stage-heading h1 {
-  margin-top: 7px;
   color: rgba(226, 231, 228, 0.94);
   font-family: inherit;
   font-size: clamp(30px, 4.6vw, 66px);
   font-weight: 360;
   letter-spacing: -0.062em;
   line-height: 0.86;
-}
-
-.julie-stage-heading small {
-  display: block;
-  margin-top: 10px;
-  color: rgba(137, 145, 141, 0.78);
-  font-size: 7px;
-  letter-spacing: 0.09em;
-  text-transform: uppercase;
 }
 
 .julie-stage-readout {
@@ -582,11 +564,6 @@
   .julie-stage-heading {
     top: 15px;
     left: 16px;
-  }
-
-  .julie-stage-heading p,
-  .julie-stage-heading small {
-    display: none;
   }
 
   .julie-stage-heading h1 {

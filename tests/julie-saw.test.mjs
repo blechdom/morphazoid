@@ -119,9 +119,9 @@ async function withProcessorHarness(run) {
 
 test("Julie Saw exposes broad blade, performance, technique, and rhythm ranges", () => {
   assert.ok(JULIE_SAW_BLADES.length >= 5);
-  assert.ok(JULIE_SAW_PRESETS.length >= 20);
+  assert.ok(JULIE_SAW_PRESETS.length >= 35);
   assert.ok(JULIE_SAW_TECHNIQUES.length >= 16);
-  assert.ok(JULIE_SAW_RHYTHMS.length >= 10);
+  assert.ok(JULIE_SAW_RHYTHMS.length >= 20);
   assert.equal(new Set(JULIE_SAW_PRESETS.map(({ id }) => id)).size, JULIE_SAW_PRESETS.length);
   assert.equal(new Set(JULIE_SAW_TECHNIQUES.map(({ id }) => id)).size, JULIE_SAW_TECHNIQUES.length);
   assert.equal(new Set(JULIE_SAW_RHYTHMS.map(({ id }) => id)).size, JULIE_SAW_RHYTHMS.length);
@@ -130,7 +130,11 @@ test("Julie Saw exposes broad blade, performance, technique, and rhythm ranges",
     "sweep", "harmonic", "double-stop", "siren", "wowa", "storm",
     "soft-mallet", "hard-mallet", "edge-pluck", "choke",
   ]) assert.ok(JULIE_SAW_TECHNIQUES.some(({ id }) => id === required), required);
-  for (const required of ["bounce-two", "bounce-three", "bounce-four", "mallet-duet", "storm-motion"]) {
+  for (const required of [
+    "bounce-two", "bounce-three", "bounce-four", "bow-shuffle", "train-rebows",
+    "tresillo-bow", "triplet-answer", "slow-drag-bow", "walking-bow", "prism-waltz",
+    "gospel-bow-response", "foxfire-chase", "smoky-rebows", "mallet-duet", "storm-motion",
+  ]) {
     assert.ok(JULIE_SAW_RHYTHMS.some(({ id }) => id === required), required);
   }
 });
@@ -156,6 +160,7 @@ test("the flex hand follows arch sideways and tip curl vertically", () => {
   const centered = flexHandlePosition(JULIE_SAW_DEFAULTS, 1000, 600);
   const arched = flexHandlePosition({ ...JULIE_SAW_DEFAULTS, bend: .9 }, 1000, 600);
   const lowered = flexHandlePosition({ ...JULIE_SAW_DEFAULTS, tipCurl: .1 }, 1000, 600);
+  assert.ok(centered.x > 470 && centered.x < 500, `${centered.x} should begin just left of Julie's face`);
   assert.ok(arched.x > centered.x + 100, `${arched.x} should move right of ${centered.x}`);
   assert.ok(lowered.y > centered.y + 90, `${lowered.y} should move below ${centered.y}`);
   assert.equal(flexHandlePosition({ bend: Infinity, tipCurl: -Infinity }, 1000, 600).y, 258);
@@ -459,8 +464,20 @@ test("Julie Saw page, research, navigation, and release lists expose the full in
   ]);
   assert.match(html, /<h1>JULIE SAW<\/h1>/);
   assert.match(html, /Julie, a glamorous adult woman/);
+  assert.match(html, /with a square curly bob and shoes/);
+  assert.doesNotMatch(html, /CURVED STEEL|move the pink grip in any direction/);
   assert.match(app, /function drawHyperPrismChair/);
+  assert.match(app, /const bodyCenter = width \* \.54/);
+  assert.match(app, /function drawJulieHairWave/);
+  assert.match(app, /function drawJulieShoe/);
+  assert.match(app, /function drawJulieChest/);
+  assert.match(app, /bowHandle\.y - height \* \.02/);
+  assert.match(app, /One solid, faceted prism supports Julie/);
   assert.match(app, /telemetry\.activity \* 7/);
+  assert.match(app, /lowResourceVisualMode\(\) \? 720_000 : 1_800_000/);
+  assert.match(app, /lowResourceVisualMode\(\) \? 1000 \/ 30 : 0/);
+  assert.doesNotMatch(app, /desynchronized:\s*true/);
+  assert.doesNotMatch(app, /const feet =|Two offset prisms/);
   assert.doesNotMatch(app, /function drawChair/);
   assert.doesNotMatch(app, /function drawHumanStool/);
   assert.doesNotMatch(html, /Chair \+ room body/);

@@ -196,8 +196,8 @@ actually connected.
   universal partial selector exists across real saws.
 - Steel/body and stereo controls are radiating-body presentation, not a measured
   room or performer transfer function.
-- The sound-reactive rainbow hyper-prism chair is a surreal stage image, not
-  researched saw-playing posture or physical-safety guidance.
+- The sound-reactive solid rainbow prism block is a surreal stage image, not
+  furniture and not researched saw-playing posture or physical-safety guidance.
 - Julie is monophonic; two-saw combination tones are outside this model.
 
 ## Physical safety

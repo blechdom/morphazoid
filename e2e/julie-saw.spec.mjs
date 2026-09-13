@@ -11,9 +11,9 @@ import { readAudioStatus } from "./helpers/audio-probe.mjs";
 test("Julie Saw exposes recoverable performances and keeps Play separate from Audio", async ({ page }) => {
   await page.goto("julie-saw.html", { waitUntil: "load" });
 
-  await expect(page.locator("#presetSelect option")).toHaveCount(22);
+  await expect(page.locator("#presetSelect option")).toHaveCount(38);
   await expect(page.locator("#techniqueSelect option")).toHaveCount(17);
-  await expect(page.locator("#rhythmSelect option")).toHaveCount(12);
+  await expect(page.locator("#rhythmSelect option")).toHaveCount(22);
   await expect(page.locator(".julie-actions button")).toHaveCount(7);
   await expect(page.locator("#audioButton")).toHaveAttribute("aria-pressed", "false");
   await expect(page.locator(".julie-stage-readout")).not.toHaveAttribute("aria-live", /.+/);
@@ -23,6 +23,10 @@ test("Julie Saw exposes recoverable performances and keeps Play separate from Au
   await expect(page.locator("#playButton")).toHaveAttribute("aria-pressed", "true");
   await expect(page.locator("#audioButton")).toHaveAttribute("aria-pressed", "false");
   await expect(page.locator("#transportAudioAttention")).toBeVisible();
+
+  await page.locator("#presetSelect").selectOption("rough-rosin");
+  await expect(page.locator("#techniqueSelect")).toHaveValue("continuous-bow");
+  await expect(page.locator("#rhythmSelect")).toHaveValue("train-rebows");
 
   await page.locator("#presetSelect").selectOption("storm-window");
   await expect(page.locator("#bladeSelect")).toHaveValue("old-carpenter");
@@ -118,6 +122,46 @@ test("the pink flex grip follows a coarse touch down and sideways without scroll
   expect(Number(await page.locator("#bend").inputValue())).toBeLessThan(bendBefore);
   expect(Number(await page.locator("#tipCurl").inputValue())).toBeLessThan(curlBefore);
   expect(await page.evaluate(() => window.scrollY)).toBe(0);
+
+  await page.locator("#audioButton").click();
+  await expect(page.locator("#audioButton")).toHaveAttribute("aria-pressed", "true");
+  const bowBox = await page.locator("#bowButton").boundingBox();
+  expect(bowBox).not.toBeNull();
+  await page.mouse.move(bowBox.x + bowBox.width / 2, bowBox.y + bowBox.height / 2);
+  await page.mouse.down();
+  await expect(page.locator("#bowButton")).toHaveAttribute("aria-pressed", "true");
+  const frameHealth = await page.evaluate(async () => {
+    const canvas = document.querySelector("#stage");
+    const context = canvas.getContext("2d");
+    const panel = document.querySelector(".panel");
+    const litSamples = [];
+    const sizes = new Set();
+    for (let frame = 0; frame < 24; frame += 1) {
+      panel.scrollTop = frame % 8 < 4 ? panel.scrollHeight : 0;
+      await new Promise((resolve) => requestAnimationFrame(resolve));
+      const pixels = context.getImageData(0, 0, canvas.width, canvas.height).data;
+      let lit = 0;
+      for (let index = 0; index < pixels.length; index += 1600) {
+        if (pixels[index] + pixels[index + 1] + pixels[index + 2] > 42) lit += 1;
+      }
+      litSamples.push(lit);
+      sizes.add(`${canvas.width}x${canvas.height}`);
+    }
+    return {
+      desynchronized: context.getContextAttributes?.().desynchronized ?? false,
+      minimumLitSamples: Math.min(...litSamples),
+      maximumLitSamples: Math.max(...litSamples),
+      sizes: [...sizes],
+      backingPixels: canvas.width * canvas.height,
+    };
+  });
+  expect(frameHealth.desynchronized).toBe(false);
+  expect(frameHealth.minimumLitSamples).toBeGreaterThan(20);
+  expect(frameHealth.minimumLitSamples).toBeGreaterThanOrEqual(frameHealth.maximumLitSamples * .8);
+  expect(frameHealth.sizes).toHaveLength(1);
+  expect(frameHealth.backingPixels).toBeLessThanOrEqual(720_000);
+  expect(await readAudioStatus(page)).toMatchObject({ active: true, connectionCount: 1 });
+  await page.mouse.up();
   await context.close();
 });
 
@@ -246,7 +290,7 @@ test("the generated WAX Julie Saw loads without arming Audio", async ({ page }) 
   await page.goto("dist-wax/julie-saw.html", { waitUntil: "load" });
   await expect(page.locator("script[data-morphazoid-wax-bootstrap]")).toHaveCount(1);
   await expect(page.locator("script[data-morphazoid-wax-universal-adapter]")).toHaveCount(1);
-  await expect(page.locator("#presetSelect option")).toHaveCount(22);
+  await expect(page.locator("#presetSelect option")).toHaveCount(38);
   await expect(page.locator("#audioButton")).toHaveAttribute("aria-pressed", "false");
   await page.locator("#presetSelect").selectOption("bow-lift-halo");
   await expect(page.locator("#bladeSelect")).toHaveValue("thick-stage");

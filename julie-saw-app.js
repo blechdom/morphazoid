@@ -27,8 +27,11 @@ import { unlockAudioContext } from "./src/audio.js";
 const $ = (id) => document.getElementById(id);
 const canvas = $("stage");
 const stageWrap = $("stageWrap");
-const drawing = canvas.getContext("2d", { alpha: false, desynchronized: true });
+// Keep canvas commits synchronized on mobile: low-latency desynchronized 2D
+// contexts can expose a cleared backing store between frames on some GPUs.
+const drawing = canvas.getContext("2d", { alpha: false });
 const prefersReducedMotion = globalThis.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches ?? false;
+const coarsePointer = globalThis.matchMedia?.("(pointer: coarse)") ?? { matches: false };
 
 const formatPercent = (value) => `${Math.round(value * 100)}%`;
 const CONTROL_SPECS = Object.freeze([
@@ -68,6 +71,9 @@ let pageIsActive = true;
 let lifecycleGeneration = 0;
 let audioGeneration = 0;
 let animationFrame = 0;
+let resizeFrame = 0;
+let lastVisualFrame = 0;
+let visualContextLost = false;
 let cssWidth = 1;
 let cssHeight = 1;
 let pixelRatio = 1;
@@ -877,14 +883,23 @@ function drawHyperPrismChair(width, height) {
   drawing.lineCap = "round";
   drawing.lineJoin = "round";
 
-  // Audio releases bounded rainbow ribbons from behind the chair.
+  const top = [
+    { x: width * .43, y: height * .565 },
+    { x: width * .62, y: height * .565 },
+    { x: width * .665, y: height * .625 },
+    { x: width * .475, y: height * .625 },
+  ];
+  const lowerLeft = { x: top[3].x, y: height * .79 };
+  const lowerRight = { x: top[2].x, y: height * .79 };
+
+  // Audio releases bounded rainbow ribbons from the solid prism's lower facets.
   if (energy > .01) {
     for (let index = 0; index < colors.length; index += 1) {
       const phase = (time + index / colors.length) % 1;
       const direction = index % 2 ? 1 : -1;
       const reach = (.12 + phase * .29) * width * energy;
-      const startX = width * (direction < 0 ? .345 : .53);
-      const startY = height * (.6 + (index % 3) * .022);
+      const startX = direction < 0 ? lowerLeft.x : lowerRight.x;
+      const startY = height * (.665 + (index % 3) * .026);
       drawing.strokeStyle = colors[index];
       drawing.globalAlpha = energy * (1 - phase * .72) * .82;
       drawing.lineWidth = Math.max(1.8, width * (.0023 + energy * .0022));
@@ -912,78 +927,112 @@ function drawHyperPrismChair(width, height) {
     }
   }
 
-  // Two offset prisms and their cross-connections suggest a small hypercube seat.
+  // One solid, faceted prism supports Julie without reading as furniture.
   drawing.globalAlpha = 1;
-  const rear = [
-    { x: width * .31, y: height * .565 },
-    { x: width * .485, y: height * .565 },
-    { x: width * .515, y: height * .615 },
-    { x: width * .34, y: height * .615 },
-  ];
-  const front = rear.map(({ x, y }) => ({ x: x + width * .027, y: y + height * .035 }));
-  const seatGlow = drawing.createLinearGradient(rear[0].x, rear[0].y, front[2].x, front[2].y);
-  seatGlow.addColorStop(0, "rgba(255, 91, 141, 0.2)");
-  seatGlow.addColorStop(.34, "rgba(255, 230, 109, 0.12)");
-  seatGlow.addColorStop(.68, "rgba(85, 200, 255, 0.16)");
-  seatGlow.addColorStop(1, "rgba(167, 139, 250, 0.2)");
-  drawing.fillStyle = seatGlow;
+  const frontGlow = drawing.createLinearGradient(lowerLeft.x, top[3].y, lowerRight.x, lowerRight.y);
+  frontGlow.addColorStop(0, "rgba(255, 91, 141, 0.3)");
+  frontGlow.addColorStop(.48, "rgba(42, 36, 68, 0.9)");
+  frontGlow.addColorStop(1, "rgba(85, 200, 255, 0.3)");
+  drawing.fillStyle = frontGlow;
   drawing.beginPath();
-  drawing.moveTo(front[0].x, front[0].y);
-  for (let index = 1; index < front.length; index += 1) drawing.lineTo(front[index].x, front[index].y);
+  drawing.moveTo(top[3].x, top[3].y);
+  drawing.lineTo(top[2].x, top[2].y);
+  drawing.lineTo(lowerRight.x, lowerRight.y);
+  drawing.lineTo(lowerLeft.x, lowerLeft.y);
   drawing.closePath();
   drawing.fill();
-  const drawPrism = (points, alpha) => {
-    for (let index = 0; index < points.length; index += 1) {
-      const next = (index + 1) % points.length;
-      drawing.strokeStyle = colors[index % colors.length];
-      drawing.globalAlpha = alpha;
-      drawing.lineWidth = Math.max(1.5, width * .0024);
-      drawing.beginPath();
-      drawing.moveTo(points[index].x, points[index].y);
-      drawing.lineTo(points[next].x, points[next].y);
-      drawing.stroke();
-    }
-  };
-  drawPrism(rear, .7);
-  drawPrism(front, .92);
-  for (let index = 0; index < rear.length; index += 1) {
-    drawing.strokeStyle = colors[(index + 4) % colors.length];
-    drawing.globalAlpha = .62;
-    drawing.beginPath();
-    drawing.moveTo(rear[index].x, rear[index].y);
-    drawing.lineTo(front[index].x, front[index].y);
-    drawing.stroke();
-  }
-  const feet = [
-    [front[0], { x: width * .285, y: height * .89 }],
-    [front[1], { x: width * .46, y: height * .89 }],
-    [front[2], { x: width * .585, y: height * .89 }],
+
+  const sideGlow = drawing.createLinearGradient(top[1].x, top[1].y, lowerRight.x, lowerRight.y);
+  sideGlow.addColorStop(0, "rgba(255, 230, 109, 0.28)");
+  sideGlow.addColorStop(1, "rgba(167, 139, 250, 0.38)");
+  drawing.fillStyle = sideGlow;
+  drawing.beginPath();
+  drawing.moveTo(top[1].x, top[1].y);
+  drawing.lineTo(top[2].x, top[2].y);
+  drawing.lineTo(lowerRight.x, lowerRight.y);
+  drawing.lineTo(width * .62, height * .73);
+  drawing.closePath();
+  drawing.fill();
+
+  const topGlow = drawing.createLinearGradient(top[0].x, top[0].y, top[2].x, top[2].y);
+  topGlow.addColorStop(0, "rgba(255, 91, 141, 0.38)");
+  topGlow.addColorStop(.5, "rgba(255, 230, 109, 0.2)");
+  topGlow.addColorStop(1, "rgba(85, 200, 255, 0.34)");
+  drawing.fillStyle = topGlow;
+  drawing.beginPath();
+  drawing.moveTo(top[0].x, top[0].y);
+  for (let index = 1; index < top.length; index += 1) drawing.lineTo(top[index].x, top[index].y);
+  drawing.closePath();
+  drawing.fill();
+
+  const solidEdges = [
+    ...top.map((point, index) => [point, top[(index + 1) % top.length]]),
+    [top[3], lowerLeft],
+    [top[2], lowerRight],
+    [lowerLeft, lowerRight],
+    [top[1], { x: width * .62, y: height * .73 }],
+    [{ x: width * .62, y: height * .73 }, lowerRight],
   ];
-  for (let index = 0; index < feet.length; index += 1) {
-    drawing.strokeStyle = colors[(index + 1) * 2 % colors.length];
-    drawing.globalAlpha = .6;
-    drawing.lineWidth = Math.max(2, width * .003);
+  solidEdges.forEach(([from, to], index) => {
+    drawing.strokeStyle = colors[index % colors.length];
+    drawing.globalAlpha = .84;
+    drawing.lineWidth = Math.max(1.5, width * .0024);
     drawing.beginPath();
-    drawing.moveTo(feet[index][0].x, feet[index][0].y);
-    drawing.lineTo(feet[index][1].x, feet[index][1].y);
+    drawing.moveTo(from.x, from.y);
+    drawing.lineTo(to.x, to.y);
+    drawing.stroke();
+  });
+  drawing.restore();
+}
+
+function drawJulieShoe(ankleX, floorY, direction, width, height) {
+  const toeX = ankleX + direction * width * .046;
+  const insideX = ankleX - direction * width * .012;
+  const upperY = floorY - height * .025;
+  const shoe = drawing.createLinearGradient(insideX, upperY, toeX, floorY);
+  shoe.addColorStop(0, "rgba(167, 139, 250, 0.9)");
+  shoe.addColorStop(1, "rgba(255, 91, 141, 0.96)");
+  drawing.fillStyle = shoe;
+  drawing.strokeStyle = "rgba(239, 140, 154, 0.96)";
+  drawing.lineWidth = Math.max(1.5, width * .002);
+  drawing.beginPath();
+  drawing.moveTo(insideX, floorY - height * .003);
+  drawing.quadraticCurveTo(ankleX, upperY, ankleX + direction * width * .012, upperY);
+  drawing.quadraticCurveTo(toeX, floorY - height * .018, toeX, floorY - height * .004);
+  drawing.quadraticCurveTo(toeX - direction * width * .018, floorY + height * .004, insideX, floorY - height * .003);
+  drawing.closePath();
+  drawing.fill();
+  drawing.stroke();
+  drawing.beginPath();
+  drawing.moveTo(insideX, floorY - height * .002);
+  drawing.lineTo(insideX - direction * width * .004, floorY + height * .018);
+  drawing.stroke();
+}
+
+function drawJulieHairWave(x, topY, bottomY, direction, width) {
+  const amplitude = width * .007;
+  const segment = (bottomY - topY) / 3;
+  drawing.beginPath();
+  drawing.moveTo(x, topY);
+  drawing.bezierCurveTo(x + direction * amplitude, topY + segment * .3, x + direction * amplitude, topY + segment * .7, x, topY + segment);
+  drawing.bezierCurveTo(x - direction * amplitude, topY + segment * 1.3, x - direction * amplitude, topY + segment * 1.7, x, topY + segment * 2);
+  drawing.bezierCurveTo(x + direction * amplitude, topY + segment * 2.3, x + direction * amplitude, topY + segment * 2.7, x, bottomY);
+  drawing.stroke();
+}
+
+function drawJulieChest(bodyCenter, width, height) {
+  drawing.strokeStyle = "rgba(239, 140, 154, 0.78)";
+  drawing.lineWidth = Math.max(1.5, width * .0018);
+  for (const direction of [-1, 1]) {
+    drawing.beginPath();
+    drawing.moveTo(bodyCenter + direction * width * .004, height * .446);
+    drawing.bezierCurveTo(
+      bodyCenter + direction * width * .012, height * .417,
+      bodyCenter + direction * width * .038, height * .412,
+      bodyCenter + direction * width * .052, height * .436,
+    );
     drawing.stroke();
   }
-  drawing.globalAlpha = .5;
-  drawing.strokeStyle = "#55c8ff";
-  drawing.beginPath();
-  drawing.moveTo(rear[0].x, rear[0].y);
-  drawing.lineTo(width * .285, height * .39);
-  drawing.lineTo(width * .32, height * .36);
-  drawing.lineTo(front[0].x, front[0].y);
-  drawing.stroke();
-  drawing.strokeStyle = "#ff5b8d";
-  drawing.beginPath();
-  drawing.moveTo(rear[1].x, rear[1].y);
-  drawing.lineTo(width * .51, height * .41);
-  drawing.lineTo(width * .535, height * .44);
-  drawing.lineTo(front[1].x, front[1].y);
-  drawing.stroke();
-  drawing.restore();
 }
 
 function drawJulie(width, height, tip, bowHandle) {
@@ -991,19 +1040,23 @@ function drawJulie(width, height, tip, bowHandle) {
   const kneeVibrato = state.vibratoDepthCents > 0
     ? Math.sin(performance.now() * .001 * state.vibratoRateHz * TWO_PI) * Math.min(4, state.vibratoDepthCents * .04) * activity
     : 0;
-  const head = { x: width * .4, y: height * .265 };
-  const leftShoulder = { x: width * .345, y: height * .385 };
-  const rightShoulder = { x: width * .455, y: height * .385 };
-  const waist = { x: width * .405, y: height * .49 };
-  const hip = { x: width * .43, y: height * .58 };
-  const viewerLeftKnee = { x: width * .455 + kneeVibrato, y: height * .705 };
-  const viewerRightKnee = { x: width * .615 - kneeVibrato, y: height * .72 };
+  const bodyCenter = width * .54;
+  const head = { x: bodyCenter, y: height * .265 };
+  const leftShoulder = { x: bodyCenter - width * .066, y: height * .385 };
+  const rightShoulder = { x: bodyCenter + width * .066, y: height * .385 };
+  const waist = { x: bodyCenter, y: height * .49 };
+  const leftHip = { x: bodyCenter - width * .052, y: height * .585 };
+  const rightHip = { x: bodyCenter + width * .052, y: height * .585 };
+  const viewerLeftKnee = { x: bodyCenter - width * .105 + kneeVibrato, y: height * .715 };
+  const viewerRightKnee = { x: bodyCenter + width * .105 - kneeVibrato, y: height * .715 };
+  const viewerLeftAnkle = { x: bodyCenter - width * .13, y: height * .88 };
+  const viewerRightAnkle = { x: bodyCenter + width * .13, y: height * .88 };
   drawing.save();
   drawing.lineCap = "round";
   drawing.lineJoin = "round";
 
-  // Hair and face: an adult woman looking straight toward the player.
-  const hair = drawing.createLinearGradient(head.x - width * .055, head.y, head.x + width * .055, head.y);
+  // A broad, square curly bob frames the face on one stable frontal centerline.
+  const hair = drawing.createLinearGradient(head.x - width * .062, head.y, head.x + width * .062, head.y);
   hair.addColorStop(0, "rgba(167, 139, 250, 0.2)");
   hair.addColorStop(.5, "rgba(239, 140, 154, 0.32)");
   hair.addColorStop(1, "rgba(255, 91, 141, 0.2)");
@@ -1011,22 +1064,35 @@ function drawJulie(width, height, tip, bowHandle) {
   drawing.strokeStyle = "rgba(239, 140, 154, 0.72)";
   drawing.lineWidth = Math.max(2, width * .0023);
   drawing.beginPath();
-  drawing.moveTo(head.x - width * .05, head.y + height * .055);
-  drawing.bezierCurveTo(
-    head.x - width * .065, head.y - height * .04,
-    head.x - width * .025, head.y - height * .085,
-    head.x, head.y - height * .082,
-  );
-  drawing.bezierCurveTo(
-    head.x + width * .035, head.y - height * .08,
-    head.x + width * .062, head.y - height * .035,
-    head.x + width * .052, head.y + height * .062,
-  );
-  drawing.quadraticCurveTo(head.x + width * .03, head.y + height * .085, head.x, head.y + height * .052);
-  drawing.quadraticCurveTo(head.x - width * .03, head.y + height * .09, head.x - width * .05, head.y + height * .055);
+  drawing.moveTo(head.x - width * .062, head.y + height * .072);
+  drawing.lineTo(head.x - width * .062, head.y - height * .035);
+  drawing.quadraticCurveTo(head.x - width * .058, head.y - height * .082, head.x - width * .034, head.y - height * .088);
+  drawing.lineTo(head.x + width * .034, head.y - height * .088);
+  drawing.quadraticCurveTo(head.x + width * .058, head.y - height * .082, head.x + width * .062, head.y - height * .035);
+  drawing.lineTo(head.x + width * .062, head.y + height * .072);
+  drawing.quadraticCurveTo(head.x + width * .05, head.y + height * .092, head.x + width * .038, head.y + height * .074);
+  drawing.quadraticCurveTo(head.x + width * .025, head.y + height * .094, head.x + width * .012, head.y + height * .074);
+  drawing.quadraticCurveTo(head.x, head.y + height * .094, head.x - width * .012, head.y + height * .074);
+  drawing.quadraticCurveTo(head.x - width * .025, head.y + height * .094, head.x - width * .038, head.y + height * .074);
+  drawing.quadraticCurveTo(head.x - width * .05, head.y + height * .092, head.x - width * .062, head.y + height * .072);
   drawing.closePath();
   drawing.fill();
   drawing.stroke();
+
+  // Wide, uninterrupted waves read as curls without loose circular coils.
+  drawing.strokeStyle = "rgba(239, 140, 154, 0.86)";
+  drawing.lineWidth = Math.max(1.4, width * .0018);
+  for (const direction of [-1, 1]) {
+    for (let index = 0; index < 3; index += 1) {
+      drawJulieHairWave(
+        head.x + direction * width * (.041 + index * .009),
+        head.y - height * .047,
+        head.y + height * .07,
+        direction,
+        width,
+      );
+    }
+  }
   drawing.fillStyle = "rgba(255, 230, 109, 0.86)";
   for (const offset of [-.042, .042]) {
     drawing.beginPath();
@@ -1066,8 +1132,8 @@ function drawJulie(width, height, tip, bowHandle) {
   drawing.quadraticCurveTo(head.x, head.y + height * .039, head.x + width * .012, head.y + height * .032);
   drawing.stroke();
 
-  // Neck, fitted stage dress, waist and seated hip.
-  const dress = drawing.createLinearGradient(width * .34, height * .39, width * .49, height * .6);
+  // Level shoulders, waist, and hips make the forward-facing seated posture explicit.
+  const dress = drawing.createLinearGradient(bodyCenter - width * .08, height * .39, bodyCenter + width * .08, height * .6);
   dress.addColorStop(0, "rgba(255, 91, 141, 0.18)");
   dress.addColorStop(.45, "rgba(28, 26, 31, 0.94)");
   dress.addColorStop(1, "rgba(167, 139, 250, 0.15)");
@@ -1076,59 +1142,50 @@ function drawJulie(width, height, tip, bowHandle) {
   drawing.lineWidth = Math.max(2, width * .0025);
   drawing.beginPath();
   drawing.moveTo(head.x - width * .014, head.y + height * .052);
-  drawing.bezierCurveTo(width * .39, height * .34, width * .36, height * .365, leftShoulder.x, leftShoulder.y);
-  drawing.bezierCurveTo(width * .345, height * .445, waist.x - width * .025, waist.y, hip.x - width * .032, hip.y);
-  drawing.quadraticCurveTo(width * .405, height * .61, width * .48, height * .605);
-  drawing.quadraticCurveTo(width * .475, height * .545, waist.x + width * .025, waist.y);
-  drawing.bezierCurveTo(width * .47, height * .445, rightShoulder.x, height * .405, rightShoulder.x, rightShoulder.y);
-  drawing.bezierCurveTo(width * .44, height * .36, width * .415, height * .34, head.x + width * .014, head.y + height * .052);
+  drawing.bezierCurveTo(bodyCenter - width * .018, height * .34, leftShoulder.x + width * .018, height * .365, leftShoulder.x, leftShoulder.y);
+  drawing.bezierCurveTo(leftShoulder.x, height * .435, waist.x - width * .036, waist.y, leftHip.x - width * .018, leftHip.y);
+  drawing.quadraticCurveTo(bodyCenter, height * .62, rightHip.x + width * .018, rightHip.y);
+  drawing.bezierCurveTo(waist.x + width * .036, waist.y, rightShoulder.x, height * .435, rightShoulder.x, rightShoulder.y);
+  drawing.bezierCurveTo(rightShoulder.x - width * .018, height * .365, bodyCenter + width * .018, height * .34, head.x + width * .014, head.y + height * .052);
   drawing.closePath();
   drawing.fill();
   drawing.stroke();
+  drawJulieChest(bodyCenter, width, height);
   drawing.strokeStyle = "rgba(239, 140, 154, 0.78)";
   drawing.lineWidth = Math.max(1.5, width * .0018);
   drawing.beginPath();
-  drawing.moveTo(width * .36, height * .405);
-  drawing.bezierCurveTo(width * .377, height * .418, width * .387, height * .438, width * .403, height * .447);
-  drawing.bezierCurveTo(width * .418, height * .438, width * .43, height * .417, width * .45, height * .405);
-  drawing.moveTo(waist.x - width * .017, waist.y);
-  drawing.lineTo(waist.x + width * .028, waist.y + height * .004);
+  drawing.moveTo(waist.x - width * .028, waist.y);
+  drawing.lineTo(waist.x + width * .028, waist.y);
+  drawing.moveTo(leftHip.x - width * .006, leftHip.y);
+  drawing.quadraticCurveTo(bodyCenter, height * .607, rightHip.x + width * .006, rightHip.y);
   drawing.stroke();
 
-  // Her anatomical right appears on the viewer's left; the saw stays between both legs.
+  // Her anatomical right appears viewer-left; matched hips and knees frame the saw handle.
   drawing.strokeStyle = "rgba(220, 227, 223, 0.76)";
   roundedLine([
-    { x: hip.x - width * .018, y: hip.y },
+    leftHip,
     viewerLeftKnee,
-    { x: width * .39, y: height * .88 },
+    viewerLeftAnkle,
   ], "rgba(220, 227, 223, 0.76)", Math.max(6, width * .0125), 1);
   roundedLine([
-    { x: hip.x + width * .035, y: hip.y + height * .002 },
+    rightHip,
     viewerRightKnee,
-    { x: width * .69, y: height * .895 },
+    viewerRightAnkle,
   ], "rgba(220, 227, 223, 0.76)", Math.max(6, width * .0125), 1);
-  drawing.strokeStyle = "rgba(239, 140, 154, 0.8)";
-  drawing.lineWidth = Math.max(2, width * .0024);
-  drawing.beginPath();
-  drawing.moveTo(width * .37, height * .89);
-  drawing.lineTo(width * .415, height * .89);
-  drawing.lineTo(width * .42, height * .914);
-  drawing.moveTo(width * .67, height * .9);
-  drawing.lineTo(width * .715, height * .9);
-  drawing.lineTo(width * .72, height * .924);
-  drawing.stroke();
+  drawJulieShoe(viewerLeftAnkle.x, height * .897, -1, width, height);
+  drawJulieShoe(viewerRightAnkle.x, height * .897, 1, width, height);
 
-  // Viewer-left owns the saw; viewer-right owns the bow.
+  // The arm roots are mirror-balanced even though the two playing jobs differ.
   roundedLine([
     leftShoulder,
-    { x: width * .43, y: height * .34 },
+    { x: bodyCenter - width * .105, y: height * .45 },
     { x: tip.x - width * .035, y: tip.y + height * .05 },
     tip,
   ], "#ef8c9a", Math.max(4, width * .0062), .9);
   roundedLine([
     rightShoulder,
-    { x: width * .5, y: height * .45 },
-    { x: bowHandle.x - width * .04, y: bowHandle.y + height * .02 },
+    { x: bodyCenter + width * .105, y: height * .45 },
+    { x: bowHandle.x - width * .04, y: bowHandle.y - height * .02 },
     bowHandle,
   ], "#efbd72", Math.max(4, width * .0062), .88);
   drawing.fillStyle = "#ef8c9a";
@@ -1156,7 +1213,7 @@ function bladeHalfWidth(index, pointCount, width) {
   return width * (0.0135 - fromHandle * 0.0085);
 }
 
-function drawSaw(width, height) {
+function resolveSawGeometry(width, height) {
   const telemetryIsFresh = graph
     && audioContext?.state === "running"
     && performance.now() - lastTelemetryAt < 250;
@@ -1173,6 +1230,27 @@ function drawSaw(width, height) {
   const sweet = points[sweetIndex];
   const contact = points[contactIndex];
   const alignment = clamp(telemetry.alignment ?? contactAlignment(state));
+  const contactNormal = bladeNormal(points, contactIndex);
+  const bowContact = {
+    x: contact.x - contactNormal.x * bladeHalfWidth(contactIndex, points.length, width),
+    y: contact.y - contactNormal.y * bladeHalfWidth(contactIndex, points.length, width),
+  };
+  const bowTravel = visualBowOffset * width * .035
+    + Math.sin(performance.now() * .006 * (telemetry.bowDirection || 1)) * telemetry.envelope * width * .018;
+  const bowLength = width * .25;
+  const bowY = bowContact.y;
+  const bowHandle = { x: bowContact.x + bowLength * .51 + bowTravel, y: bowY + 5 };
+  return {
+    points, base, tip, sweet, contact, alignment, visualBend,
+    contactIndex, bowContact, bowTravel, bowLength, bowY, bowHandle,
+  };
+}
+
+function drawSaw(width, height, geometry = resolveSawGeometry(width, height)) {
+  const {
+    points, base, tip, sweet, contact, alignment, visualBend,
+    contactIndex, bowContact, bowTravel, bowLength, bowY, bowHandle,
+  } = geometry;
   drawing.save();
   const glow = drawing.createRadialGradient(sweet.x, sweet.y, 2, sweet.x, sweet.y, Math.min(width, height) * .12);
   glow.addColorStop(0, `rgba(239, 140, 154, ${.18 + alignment * .22})`);
@@ -1274,15 +1352,6 @@ function drawSaw(width, height) {
     drawing.fill();
   }
 
-  const contactNormal = bladeNormal(points, contactIndex);
-  const bowContact = {
-    x: contact.x - contactNormal.x * bladeHalfWidth(contactIndex, points.length, width),
-    y: contact.y - contactNormal.y * bladeHalfWidth(contactIndex, points.length, width),
-  };
-  const bowTravel = visualBowOffset * width * .035
-    + Math.sin(performance.now() * .006 * (telemetry.bowDirection || 1)) * telemetry.envelope * width * .018;
-  const bowLength = width * .25;
-  const bowY = bowContact.y;
   drawing.strokeStyle = alignment > .35 ? "rgba(239, 189, 114, 0.94)" : "rgba(239, 140, 154, 0.82)";
   drawing.lineWidth = Math.max(2, width * .0024);
   drawing.beginPath();
@@ -1308,7 +1377,6 @@ function drawSaw(width, height) {
       drawing.stroke();
     }
   }
-  const bowHandle = { x: bowContact.x + bowLength * .51 + bowTravel, y: bowY + 5 };
   drawing.fillStyle = "#efbd72";
   drawing.beginPath();
   drawing.roundRect(bowHandle.x - 8, bowHandle.y - 5, 24, 10, 4);
@@ -1326,7 +1394,7 @@ function drawSaw(width, height) {
   drawing.fillStyle = "rgba(239, 189, 114, 0.82)";
   drawing.fillText("BOW", bowHandle.x + 10, bowHandle.y + 20);
   drawing.restore();
-  return { points, base, tip, sweet, contact, bowHandle };
+  return geometry;
 }
 
 function drawStage() {
@@ -1352,8 +1420,9 @@ function drawStage() {
   drawing.save();
   drawing.translate(sceneOffsetX, 0);
   drawHyperPrismChair(sceneWidth, height);
-  const geometry = drawSaw(sceneWidth, height);
+  const geometry = resolveSawGeometry(sceneWidth, height);
   drawJulie(sceneWidth, height, geometry.tip, geometry.bowHandle);
+  drawSaw(sceneWidth, height, geometry);
   drawing.restore();
   const shiftPoint = (point) => ({ x: point.x + sceneOffsetX, y: point.y });
   const displayGeometry = {
@@ -1380,21 +1449,51 @@ function drawStage() {
   }
 }
 
-function resizeCanvas() {
+function lowResourceVisualMode() {
+  return coarsePointer.matches || cssWidth <= 650;
+}
+
+function resizeCanvas(force = false) {
   const rect = stageWrap.getBoundingClientRect();
-  cssWidth = Math.max(1, rect.width);
-  cssHeight = Math.max(1, rect.height);
+  const nextCssWidth = Math.max(1, rect.width);
+  const nextCssHeight = Math.max(1, rect.height);
+  cssWidth = nextCssWidth;
+  cssHeight = nextCssHeight;
   const nativeRatio = Math.max(1, globalThis.devicePixelRatio || 1);
-  const pixelBudget = 1_800_000;
-  pixelRatio = Math.min(nativeRatio, Math.sqrt(pixelBudget / Math.max(1, cssWidth * cssHeight)));
-  canvas.width = Math.max(1, Math.round(cssWidth * pixelRatio));
-  canvas.height = Math.max(1, Math.round(cssHeight * pixelRatio));
-  canvas.style.width = `${cssWidth}px`;
-  canvas.style.height = `${cssHeight}px`;
-  drawStage();
+  const pixelBudget = lowResourceVisualMode() ? 720_000 : 1_800_000;
+  const ratioLimit = lowResourceVisualMode() ? 2 : nativeRatio;
+  const nextPixelRatio = Math.min(ratioLimit, nativeRatio, Math.sqrt(pixelBudget / Math.max(1, cssWidth * cssHeight)));
+  const nextWidth = Math.max(1, Math.round(cssWidth * nextPixelRatio));
+  const nextHeight = Math.max(1, Math.round(cssHeight * nextPixelRatio));
+  const backingStoreChanged = canvas.width !== nextWidth || canvas.height !== nextHeight;
+  pixelRatio = nextPixelRatio;
+  if (backingStoreChanged) {
+    canvas.width = nextWidth;
+    canvas.height = nextHeight;
+  }
+  const styleWidth = `${cssWidth}px`;
+  const styleHeight = `${cssHeight}px`;
+  if (canvas.style.width !== styleWidth) canvas.style.width = styleWidth;
+  if (canvas.style.height !== styleHeight) canvas.style.height = styleHeight;
+  if ((backingStoreChanged || force) && !visualContextLost) drawStage();
+}
+
+function scheduleResizeCanvas() {
+  if (resizeFrame) return;
+  resizeFrame = requestAnimationFrame(() => {
+    resizeFrame = 0;
+    resizeCanvas();
+  });
 }
 
 function tick(time) {
+  if (!pageIsActive) return;
+  const frameInterval = lowResourceVisualMode() ? 1000 / 30 : 0;
+  if (frameInterval && time - lastVisualFrame < frameInterval) {
+    animationFrame = requestAnimationFrame(tick);
+    return;
+  }
+  lastVisualFrame = time;
   const frequency = currentDisplayFrequency();
   $("pitchReadout").textContent = `${pitchName(frequency)} · ${Math.round(frequency)} Hz`;
   const alignment = graph && performance.now() - lastTelemetryAt < 250
@@ -1410,14 +1509,22 @@ function tick(time) {
       renderRhythmScore(previewStep);
     }
   }
-  drawStage();
+  if (!visualContextLost) drawStage();
   animationFrame = requestAnimationFrame(tick);
 }
 
 function installGlobalLifecycle() {
   globalThis.addEventListener("morphazoid:midi-input", handleMidiInput);
-  globalThis.addEventListener("resize", resizeCanvas);
+  globalThis.addEventListener("resize", scheduleResizeCanvas);
   globalThis.addEventListener("blur", cancelTransientPerformance);
+  canvas.addEventListener("contextlost", (event) => {
+    event.preventDefault();
+    visualContextLost = true;
+  });
+  canvas.addEventListener("contextrestored", () => {
+    visualContextLost = false;
+    resizeCanvas(true);
+  });
   document.addEventListener("visibilitychange", () => {
     if (document.hidden) cancelTransientPerformance();
   });
@@ -1427,7 +1534,7 @@ function installGlobalLifecycle() {
     silencePerformance({ stopAuto: true });
     announce("Julie Saw silenced");
   });
-  new ResizeObserver(resizeCanvas).observe(stageWrap);
+  new ResizeObserver(scheduleResizeCanvas).observe(stageWrap);
   globalThis.addEventListener("pagehide", () => {
     pageIsActive = false;
     lifecycleGeneration += 1;
@@ -1435,7 +1542,9 @@ function installGlobalLifecycle() {
     audioGeneration += 1;
     silencePerformance({ stopAuto: true });
     cancelAnimationFrame(animationFrame);
+    cancelAnimationFrame(resizeFrame);
     animationFrame = 0;
+    resizeFrame = 0;
     const closingGraph = graph;
     const closingContext = audioContext;
     graph = null;
@@ -1450,7 +1559,8 @@ function installGlobalLifecycle() {
     waveform.fill(0);
     setAudioPresentation("off");
     updatePresentation();
-    resizeCanvas();
+    lastVisualFrame = 0;
+    resizeCanvas(true);
     animationFrame = requestAnimationFrame(tick);
   });
 }
@@ -1460,5 +1570,5 @@ installControls();
 installCanvasInteractions();
 installGlobalLifecycle();
 updatePresentation();
-resizeCanvas();
+resizeCanvas(true);
 animationFrame = requestAnimationFrame(tick);
