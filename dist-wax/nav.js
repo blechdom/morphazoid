@@ -1310,7 +1310,7 @@ export function createMidiToolbar(
     "MIDI Map",
     select,
   );
-  const guide = element(doc, "a", "midi-profile-guide", "MIDI Guide");
+  const guide = element(doc, "a", "midi-profile-guide", "MIDI & WAX Plugin Guide");
   guide.setAttribute("href", new URL("midi-guide.html", NAVIGATION_BASE_URL).href);
   const error = element(doc, "p", "midi-profile-error");
   error.id = `sharedMidiError${suffix}`;

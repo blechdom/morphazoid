@@ -28,9 +28,9 @@
 .instrument-catalog-grid {
   display: grid;
   padding-top: 9px;
-  grid-template-columns: repeat(auto-fill, minmax(70px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(88px, 1fr));
   align-items: stretch;
-  gap: 9px 7px;
+  gap: 12px 9px;
 }
 
 .instrument-card {
@@ -40,13 +40,13 @@
 .instrument-card-link {
   display: flex;
   min-width: 0;
-  min-height: 68px;
-  padding: 7px 4px 6px;
+  min-height: 88px;
+  padding: 9px 4px 8px;
   border-radius: 5px;
   color: inherit;
   align-items: center;
   flex-direction: column;
-  gap: 5px;
+  gap: 7px;
   text-align: center;
   text-decoration: none;
 }
@@ -63,12 +63,12 @@
 
 .instrument-card-visual {
   display: grid;
-  width: 34px;
-  height: 34px;
+  width: 48px;
+  height: 48px;
   overflow: hidden;
   border-radius: 3px;
   background: #000;
-  flex: 0 0 34px;
+  flex: 0 0 48px;
   place-items: center;
 }
 
@@ -87,7 +87,7 @@
   margin: 0;
   overflow: hidden;
   color: currentColor;
-  font-size: 9px;
+  font-size: 11px;
   font-weight: 600;
   letter-spacing: 0;
   line-height: 1.18;
@@ -167,6 +167,15 @@
   -webkit-line-clamp: 4;
 }
 
+.catalogue-guide-link {
+  color: var(--ink);
+  text-decoration: none;
+}
+
+.catalogue-guide-link:hover {
+  color: var(--accent);
+}
+
 @media (max-width: 560px) {
   .catalogue-group {
     padding-top: 15px;
@@ -178,23 +187,23 @@
 
   .instrument-catalog-grid {
     grid-template-columns: repeat(5, minmax(0, 1fr));
-    gap: 8px 5px;
+    gap: 10px 7px;
   }
 
   .instrument-card-link {
-    min-height: 64px;
+    min-height: 78px;
     padding-right: 2px;
     padding-left: 2px;
   }
 
   .instrument-card-visual {
-    width: 31px;
-    height: 31px;
-    flex-basis: 31px;
+    width: 42px;
+    height: 42px;
+    flex-basis: 42px;
   }
 
   .instrument-card-title {
-    font-size: 8px;
+    font-size: 9.5px;
   }
 
   .instrument-card-preview {
@@ -216,6 +225,7 @@
   .instrument-card-preview-description {
     font-size: 8.5px;
   }
+
 }
 
 @media (max-width: 340px) {

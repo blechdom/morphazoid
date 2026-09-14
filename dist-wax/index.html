@@ -35,7 +35,8 @@
     <main class="about-shell" id="about">
       <article class="about-document">
         <header class="about-intro">
-          <div>
+          <div class="about-title-lockup">
+            <span class="about-title-mark" aria-hidden="true"></span>
             <h1>Morphazoid</h1>
           </div>
         </header>
@@ -51,48 +52,17 @@
           ></div>
         </section>
 
-        <section class="manual-section" id="project">
+        <section class="manual-section catalogue-manual-section catalogue-links-section" aria-label="MIDI and WAX guide">
           <div class="manual-section-heading">
-            <h2>Project</h2>
+            <h2>
+              <a class="catalogue-guide-link" href="midi-guide.html">MIDI &amp; WAX Plugin Guide <span aria-hidden="true">→</span></a>
+            </h2>
           </div>
+        </section>
+
+        <section class="manual-section site-links-section" aria-label="Morphazoid links and credits">
           <div class="manual-copy">
-            <dl class="technical-list project-links">
-              <div class="project-author-row">
-                <dt class="project-author-heading">
-                  <img
-                    class="author-mark"
-                    src="assets/authors/kristin-galvin.png"
-                    width="64"
-                    height="64"
-                    alt="Kristin Galvin"
-                  />
-                  <span>Author</span>
-                </dt>
-                <dd class="project-author-links">
-                  <a href="https://github.com/blechdom">Kristin Galvin</a>
-                  <a
-                    class="github-link"
-                    href="https://github.com/blechdom/morphazoid"
-                    aria-label="Morphazoid on GitHub"
-                  >
-                    <svg class="github-mark" viewBox="0 0 24 24" aria-hidden="true">
-                      <path
-                        fill="currentColor"
-                        d="M12 .7a11.5 11.5 0 0 0-3.64 22.4c.58.1.79-.25.79-.56v-2.2c-3.22.7-3.9-1.36-3.9-1.36-.52-1.34-1.28-1.7-1.28-1.7-1.05-.72.08-.7.08-.7 1.16.08 1.77 1.19 1.77 1.19 1.03 1.76 2.7 1.25 3.36.95.1-.75.4-1.25.73-1.54-2.57-.3-5.27-1.29-5.27-5.69 0-1.26.45-2.28 1.19-3.09-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.16 1.18A10.96 10.96 0 0 1 12 7.14c.98 0 1.95.13 2.86.38 2.2-1.49 3.16-1.18 3.16-1.18.63 1.59.23 2.76.11 3.05.74.81 1.19 1.83 1.19 3.09 0 4.41-2.71 5.39-5.29 5.68.42.36.79 1.07.79 2.16v3.21c0 .31.21.67.8.56A11.5 11.5 0 0 0 12 .7Z"
-                      />
-                    </svg>
-                    <span>GitHub</span>
-                  </a>
-                </dd>
-              </div>
-              <div>
-                <dt>MIDI</dt>
-                <dd><a href="midi-guide.html">MIDI guide</a></dd>
-              </div>
-              <div>
-                <dt>Plug-ins</dt>
-                <dd><a href="wax.html">Morphazoid for WAX</a></dd>
-              </div>
+            <dl class="technical-list site-links">
               <div>
                 <dt>Design system</dt>
                 <dd><a href="../storybook/">Component library</a></dd>
@@ -105,6 +75,40 @@
                   <a href="https://github.com/blechdom/morphazoid/blob/main/THIRD_PARTY_NOTICES.md"
                     >Third-party notices</a
                   >
+                </dd>
+              </div>
+              <div>
+                <dt>Code</dt>
+                <dd>
+                  <a
+                    class="github-link"
+                    href="https://github.com/blechdom/morphazoid"
+                    aria-label="Morphazoid on GitHub"
+                  >
+                    <svg class="github-mark" viewBox="0 0 24 24" aria-hidden="true">
+                      <path
+                        fill="currentColor"
+                        d="M12 .7a11.5 11.5 0 0 0-3.64 22.4c.58.1.79-.25.79-.56v-2.2c-3.22.7-3.9-1.36-3.9-1.36-.52-1.34-1.28-1.7-1.28-1.7-1.05-.72.08-.7.08-.7 1.16.08 1.77 1.19 1.77 1.19 1.03 1.76 2.7 1.25 3.36.95.1-.75.4-1.25.73-1.54-2.57-.3-5.27-1.29-5.27-5.69 0-1.26.45-2.28 1.19-3.09-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.16 1.18A10.96 10.96 0 0 1 12 7.14c.98 0 1.95.13 2.86.38 2.2-1.49 3.16-1.18 3.16-1.18.63 1.59.23 2.76.11 3.05.74.81 1.19 1.83 1.19 3.09 0 4.41-2.71 5.39-5.29 5.68.42.36.79 1.07.79 2.16v3.21c0 .31.21.67.8.56A11.5 11.5 0 0 0 12 .7Z"
+                      />
+                    </svg>
+                    <span>Morphazoid</span>
+                  </a>
+                </dd>
+              </div>
+              <div class="site-author-row">
+                <dt class="site-author-image">
+                  <img
+                    class="author-mark"
+                    src="assets/authors/kristin-galvin.png"
+                    width="112"
+                    height="112"
+                    alt="Kristin Galvin"
+                  />
+                </dt>
+                <dd class="site-author-copy">
+                  Created by <a href="https://github.com/blechdom">Kristin Galvin</a>
+                  <span>(a.k.a. Kevin Blechdom)</span>
+                  <a class="instagram-link" href="https://www.instagram.com/blechdom">Instagram</a>
                 </dd>
               </div>
             </dl>

@@ -1762,7 +1762,7 @@ test("one header MIDI control owns connection and controller profile selection",
   assert.equal(control.leftMeter.getAttribute("aria-label"), "Left audio output level");
   assert.equal(control.rightMeter.getAttribute("aria-label"), "Right audio output level");
   const guide = control.details.findAll((node) => node.className === "midi-profile-guide")[0];
-  assert.equal(guide.textContent, "MIDI Guide");
+  assert.equal(guide.textContent, "MIDI & WAX Plugin Guide");
   assert.match(guide.getAttribute("href"), /midi-guide\.html$/);
   assert.deepEqual(
     settingsHeading.parentNode.children.filter((node) => node.hidden !== true),

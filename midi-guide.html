@@ -6,9 +6,9 @@
     <meta name="theme-color" content="#07090b" />
     <meta
       name="description"
-      content="Connect MIDI controllers to Morphazoid, use computer keys, choose controller profiles, map messages, and understand browser and WAX MIDI output."
+      content="Connect MIDI controllers to Morphazoid and use its WAX audio plug-in build inside a DAW."
     />
-    <title>MIDI Guide — Morphazoid</title>
+    <title>MIDI &amp; WAX Plugin Guide — Morphazoid</title>
     <link rel="icon" href="favicon.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="style.css" />
     <link rel="stylesheet" href="about.css" />
@@ -27,128 +27,199 @@
           <option value="" selected>choose</option>
         </select>
       </label>
-
-      <span class="about-header-label">MIDI guide</span>
     </header>
 
-    <main class="about-shell" id="midi">
+    <main class="about-shell" id="midi-wax">
       <article class="about-document">
         <header class="about-intro">
           <div>
-            <p class="about-kicker">Play and automate</p>
-            <h1>MIDI Guide</h1>
+            <h1>MIDI &amp; WAX Plugin Guide</h1>
             <p class="about-lede">
-              The browser toolbar receives MIDI and maps it to each instrument. WAX adds DAW-aware
-              MIDI output on suitable pages.
+              Play Morphazoid from a controller in the browser, or load it in your DAW with WAX,
+              an audio plug-in that puts a browser inside a VST3 or Audio Unit.
             </p>
           </div>
         </header>
 
         <section class="manual-section" aria-labelledby="browserMidiTitle">
           <div class="manual-section-heading">
-            <p class="manual-section-label">Connect and control</p>
             <h2 id="browserMidiTitle">Browser MIDI</h2>
-            <p class="manual-section-note">
-              Audio, MIDI input, and MIDI output remain separate routes.
-            </p>
           </div>
-          <div class="manual-copy">
-            <p>
-              Every playable instrument has a MIDI control in its top bar. Select
-              <strong>MIDI</strong> to enable it; the browser requires a click before it can request
-              access to connected devices. Its receive light flashes for incoming notes and controls.
-              The small L/R meter shows the two channels being sent to the audio destination, so
-              panning and channel imbalance stay visible. The gear at the far right opens the
-              compact Morphazoid Settings panel.
-            </p>
-            <dl class="technical-list">
-              <div>
-                <dt>Settings</dt>
-                <dd>
-                  Audio Out, Mic / Audio In, MIDI In, MIDI Out, and MIDI Map describe the routes
-                  available to the current instrument. A greyed-out selector means that route is not
-                  used by the instrument or cannot be selected in this browser. Microphone permission
-                  and stream controls remain on instruments that use live input; some browsers expose
-                  only the system audio destination. WAX receives audio and MIDI routing from its DAW
-                  or plug-in host.
-                </dd>
-              </div>
-              <div>
-                <dt>Computer keys</dt>
-                <dd>
-                  This is the default MIDI Map. Melodic instruments use
-                  <kbd>Z S X D C V G B H N J M</kbd> for C3–B3 and
-                  <kbd>Q 2 W 3 E R 5 T 6 Y 7 U</kbd> for C4–B4. Drum instruments use the 4 × 4
-                  pad rows <kbd>1 2 3 4</kbd>, <kbd>Q W E R</kbd>, <kbd>A S D F</kbd>, and
-                  <kbd>Z X C V</kbd>. <kbd>[</kbd> and <kbd>]</kbd> shift octaves;
-                  <kbd>-</kbd> and <kbd>=</kbd> change velocity. A few instruments retain their own
-                  typing or recording shortcuts instead.
-                </dd>
-              </div>
-              <div>
-                <dt>Controller profiles</dt>
-                <dd>
-                  Computer keys remains the default while connected hardware is detected
-                  automatically. Choose a named MIDI Map only to force one controller layout:
-                  Morphazoid and NI templates use macro CC14–21; Maschine Mikro uses MIDI mode
-                  (Shift + Project) and pads 36–51; Akai MPK Mini uses CC70–77 and pads 36–51;
-                  Arturia MiniLab 3 uses CC74, 71, 76, 77, 93, 18, 19, and 16 with pads 36–43;
-                  and Novation Launchkey uses Custom Mode CC21–28 with pads 36–51. Custom /
-                  Pass-through leaves standard MIDI unchanged. NI assignments require a
-                  user-created MIDI template rather than a factory mapping.
-                </dd>
-              </div>
-              <div>
-                <dt>Mappings</dt>
-                <dd>
-                  Chaotic and Recursive FM/PM, Shape, FM Drums, and Sample Drums use custom native
-                  mappings. Other pages use a conservative universal map: notes retune or trigger
-                  sound only where a safe target exists, common CCs follow matching control labels,
-                  profile macro knobs address the first eight eligible sliders, and Program Change
-                  selects presets where available. Pitch bend follows a mapped pitch; pressure seeks
-                  a matching pressure or intensity control; and MIDI Clock, Start, and Stop follow a
-                  page's tempo and transport when those controls exist.
-                </dd>
-              </div>
-              <div>
-                <dt>Messages</dt>
-                <dd>
-                  The shared input accepts notes and velocity, pitch bend, CC, Program Change,
-                  polyphonic and channel pressure, MIDI Clock, Start, Continue, Stop, and Song
-                  Position. An instrument responds only to messages that have a useful mapping on
-                  that page.
-                </dd>
-              </div>
-              <div>
-                <dt>MIDI output</dt>
-                <dd>
-                  Input and output remain separate. In the normal browser, MIDI Out is currently a
-                  preview only: no output destination is exposed and none of the displayed values is
-                  sent. Suitable pages in the generated <a href="wax.html">WAX</a> build can run as
-                  MIDI FX, produce a deterministic companion sequence, and follow DAW tempo and
-                  position. Incoming MIDI is never echoed automatically.
-                </dd>
-              </div>
-              <div>
-                <dt>MIDI Out Monitor</dt>
-                <dd>
-                  Output-capable browser instruments include a live monitor at the bottom of their
-                  control rail. It separates exact instrument note previews when that page publishes
-                  them, current controls as unassigned 0–127 CC candidates, genuine BPM clock
-                  candidates or other unmapped timebases, and transport state. The monitor is
-                  diagnostic only: nothing shown there is routed, mapped, or sent as MIDI yet.
-                </dd>
-              </div>
-            </dl>
-            <p><a href="./#operation">Back to basic operation</a></p>
+          <div class="manual-copy guide-stack">
+            <section class="guide-piece">
+              <h3>Start playing</h3>
+              <ol class="guide-steps">
+                <li>Open any playable instrument and select <strong>MIDI</strong> in its top bar.</li>
+                <li>Click once to let the browser request access to your connected devices.</li>
+                <li>Watch the receive light flash for incoming notes and controls.</li>
+                <li>Use the L/R meter to see the two channels reaching the audio destination; panning and channel imbalance stay visible.</li>
+              </ol>
+              <p>The gear at the far right opens the compact Morphazoid Settings panel.</p>
+            </section>
+
+            <section class="guide-piece">
+              <h3>Choose input and output</h3>
+              <p>
+                Audio Out, Mic / Audio In, MIDI In, MIDI Out, and MIDI Map describe the routes
+                available to the current instrument. A greyed-out selector means that route is not
+                used by the instrument or cannot be selected in this browser. Microphone permission
+                and stream controls remain on instruments that use live input; some browsers expose
+                only the system audio destination.
+              </p>
+            </section>
+
+            <section class="guide-piece">
+              <h3>Computer keys</h3>
+              <p>
+                This is the default MIDI Map. Melodic instruments use
+                <kbd>Z S X D C V G B H N J M</kbd> for C3–B3 and
+                <kbd>Q 2 W 3 E R 5 T 6 Y 7 U</kbd> for C4–B4.
+              </p>
+              <p>
+                Drum instruments use the 4 × 4 pad rows <kbd>1 2 3 4</kbd>,
+                <kbd>Q W E R</kbd>, <kbd>A S D F</kbd>, and <kbd>Z X C V</kbd>. <kbd>[</kbd> and
+                <kbd>]</kbd> shift octaves; <kbd>-</kbd> and <kbd>=</kbd> change velocity. A few
+                instruments retain their own typing or recording shortcuts instead.
+              </p>
+            </section>
+
+            <section class="guide-piece">
+              <h3>Controller profiles</h3>
+              <ul class="guide-list">
+                <li><strong>Automatic:</strong> Computer keys remains the default while connected hardware is detected automatically.</li>
+                <li><strong>Morphazoid / NI:</strong> macro CC14–21. NI assignments require a user-created MIDI template.</li>
+                <li><strong>Maschine Mikro:</strong> MIDI mode (Shift + Project), pads 36–51.</li>
+                <li><strong>Akai MPK Mini:</strong> CC70–77, pads 36–51.</li>
+                <li><strong>Arturia MiniLab 3:</strong> CC74, 71, 76, 77, 93, 18, 19, and 16; pads 36–43.</li>
+                <li><strong>Novation Launchkey:</strong> Custom Mode CC21–28, pads 36–51.</li>
+                <li><strong>Custom / Pass-through:</strong> leaves standard MIDI unchanged.</li>
+              </ul>
+            </section>
+
+            <section class="guide-piece">
+              <h3>What gets mapped</h3>
+              <ul class="guide-list">
+                <li><strong>Native maps:</strong> Chaotic and Recursive FM/PM, Shape, FM Drums, and Sample Drums use custom native mappings.</li>
+                <li><strong>Universal maps:</strong> other pages use a conservative universal map: notes retune or trigger only where a safe target exists; matching CC labels control matching parameters; profile macro knobs address the first eight eligible sliders; Program Change selects presets where available.</li>
+                <li><strong>Expression and time:</strong> pitch bend follows a mapped pitch, pressure seeks a matching pressure or intensity control, and MIDI Clock, Start, and Stop follow a page's tempo and transport when those controls exist.</li>
+                <li><strong>Accepted messages:</strong> notes and velocity, pitch bend, CC, Program Change, polyphonic and channel pressure, MIDI Clock, Start, Continue, Stop, and Song Position. An instrument responds only when it has a useful mapping.</li>
+              </ul>
+            </section>
+
+            <section class="guide-piece">
+              <h3>Browser MIDI Out</h3>
+              <p>
+                Input and output remain separate. In a normal browser, MIDI Out is a preview only:
+                no output destination is exposed and none of the displayed values is sent.
+              </p>
+              <p>
+                The MIDI Out Monitor is diagnostic only. It separates exact instrument note previews,
+                current controls as unassigned 0–127 CC candidates, genuine BPM clock candidates,
+                and transport state; nothing it shows is routed, mapped, or sent as MIDI.
+              </p>
+            </section>
           </div>
         </section>
 
-        <footer class="about-footer">
-          <span>Morphazoid</span>
-          <span>MIDI Guide</span>
-          <span>Copyright &copy; 2026 Kristin Galvin</span>
-        </footer>
+        <section class="manual-section" id="wax" aria-labelledby="waxTitle">
+          <div class="manual-section-heading">
+            <h2 id="waxTitle">WAX in a DAW</h2>
+          </div>
+          <div class="manual-copy guide-stack">
+            <section class="guide-piece">
+              <h3>What WAX is</h3>
+              <p>
+                WAX is the required audio plug-in host for Morphazoid in a DAW; it is not a
+                standalone Morphazoid VST3 or Audio Unit. It loads browser pages as a VST3 on
+                Windows or as a VST3 / Audio Unit on macOS, with host-aware audio, MIDI, transport,
+                and saved state.
+              </p>
+            </section>
+
+            <section class="guide-piece">
+              <h3>Get started</h3>
+              <ol class="guide-steps">
+                <li><a href="https://audiofusion.com/download-wax/" target="_blank" rel="noopener noreferrer">Download AudioFusion WAX</a> for Windows 10+ or macOS 11+.</li>
+                <li>Install it, open your DAW, and rescan plug-ins.</li>
+                <li>Insert the WAX role that matches what you want to make or process.</li>
+                <li>Paste the hosted <a href="https://blechdom.github.io/morphazoid/dist-wax/chaotic-fm.html" target="_blank" rel="noopener noreferrer">Chaotic FM page</a> into WAX's address bar, or open the <a href="https://blechdom.github.io/morphazoid/dist-wax/" target="_blank" rel="noopener noreferrer">complete WAX-ready catalog</a>.</li>
+              </ol>
+              <p>
+                WAX is currently published for Windows and macOS. On Linux, Morphazoid can be
+                tested in a browser but not as an officially supported native WAX plug-in.
+              </p>
+            </section>
+
+            <section class="guide-piece">
+              <h3>Pick the WAX role</h3>
+              <dl class="guide-role-list">
+                <div>
+                  <dt>WAX Instrument</dt>
+                  <dd><strong>Track MIDI → Morphazoid → audio.</strong> Use it for built-in synths, samplers, drums, and sonification.</dd>
+                </div>
+                <div>
+                  <dt>WAX Audio FX</dt>
+                  <dd><strong>Track audio → Morphazoid processing → audio.</strong> Use it when Morphazoid should hear and process the DAW track.</dd>
+                </div>
+                <div>
+                  <dt>WAX MIDI FX</dt>
+                  <dd><strong>MIDI or host clock → Morphazoid → MIDI.</strong> Use it to play another instrument from a MIDI-output page.</dd>
+                </div>
+              </dl>
+              <p>
+                VST3 and Audio Unit are plug-in formats; Instrument, Audio FX, and MIDI FX are
+                WAX routing roles. One WAX instance has fixed inputs and outputs, so replace its
+                wrapper when the role changes.
+              </p>
+            </section>
+
+            <section class="guide-piece">
+              <h3>Send MIDI to another instrument</h3>
+              <ol class="guide-steps">
+                <li>Insert <strong>WAX MIDI FX</strong>, then load Rubix or Algorithmic Sequencers.</li>
+                <li>In the page's WAX panel choose <strong>MIDI only</strong>.</li>
+                <li>Select a host MIDI destination, root note, division, channel, and gate.</li>
+                <li>Place a software instrument after WAX, or route this track's MIDI to another instrument track.</li>
+                <li>Start the DAW. Notes follow play, stop, BPM, position, seeks, and loops. Incoming MIDI is never echoed automatically.</li>
+              </ol>
+            </section>
+
+            <section class="guide-piece">
+              <h3>Use a local copy</h3>
+              <ol class="guide-steps">
+                <li>Download the <a href="https://github.com/blechdom/morphazoid/archive/refs/heads/main.zip" target="_blank" rel="noopener noreferrer">Morphazoid ZIP</a> and extract it.</li>
+                <li>Serve its <code>dist-wax</code> folder; do not open its HTML files directly. Direct files can block modules and AudioWorklets.</li>
+              </ol>
+              <pre><code>cd /path/to/morphazoid/dist-wax
+python3 -m http.server 3436 --bind 127.0.0.1</code></pre>
+              <p>
+                Enter <code>http://127.0.0.1:3436/</code> in WAX. On Windows PowerShell, use
+                <code>py -m http.server 3436 --bind 127.0.0.1</code> instead.
+              </p>
+            </section>
+
+            <section class="guide-piece">
+              <h3>First check</h3>
+              <ol class="guide-steps">
+                <li>Open Chaotic FM in WAX Instrument, arm its track, and send MIDI notes.</li>
+                <li>Confirm that WAX's Debug Panel sees audio and MIDI.</li>
+                <li>Change a few controls, save and reopen the DAW project, then confirm state and audio remain intact.</li>
+                <li>Test both 44.1 and 48 kHz before a serious session.</li>
+              </ol>
+            </section>
+
+            <section class="guide-piece">
+              <h3>WAX help</h3>
+              <ul class="guide-list guide-links-list">
+                <li><a href="https://wp.audiofusion.com/docs/download-install-wax/" target="_blank" rel="noopener noreferrer">Install WAX</a></li>
+                <li><a href="https://audiofusion.com/docs/how-to-use-wax/" target="_blank" rel="noopener noreferrer">Use WAX</a></li>
+                <li><a href="https://audiofusion.com/docs/custom-pages/" target="_blank" rel="noopener noreferrer">Load custom pages</a></li>
+                <li><a href="https://audiofusion.com/docs/debug-panel/" target="_blank" rel="noopener noreferrer">Debug Panel guide</a></li>
+              </ul>
+              <p>WAX is an AudioFusion product; Morphazoid is independent and not affiliated with or endorsed by AudioFusion.</p>
+            </section>
+          </div>
+        </section>
       </article>
     </main>
 

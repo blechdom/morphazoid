@@ -33,16 +33,22 @@ test("Home page is the About guide", async () => {
   assert.doesNotMatch(html, /class="about-summary"/);
   assert.doesNotMatch(html, /class="manual-index"/);
   assert.doesNotMatch(html, /<dt>(?:Instruments|Runtime)<\/dt>/);
+  assert.doesNotMatch(html, /<h2>Project<\/h2>/);
   assert.match(
     html,
-    /<h2>Project<\/h2>[\s\S]*?<span>Author<\/span>[\s\S]*?<dt>MIDI<\/dt>[\s\S]*?<dt>Plug-ins<\/dt>[\s\S]*?<dt>Design system<\/dt>[\s\S]*?<dt>License<\/dt>/,
+    /id="instrument-catalogue"[\s\S]*?homeInstrumentCatalogue[\s\S]*?MIDI &amp; WAX Plugin Guide <span aria-hidden="true">→<\/span>/,
   );
+  assert.match(html, /<dt>Design system<\/dt>[\s\S]*?<dt>License<\/dt>[\s\S]*?<dt>Code<\/dt>[\s\S]*?Created by/);
+  assert.match(html, /class="about-title-mark"/);
   assert.match(html, /class="author-mark"[\s\S]*?src="assets\/authors\/kristin-galvin\.png"/);
   assert.match(html, /class="github-mark"[\s\S]*?aria-label="Morphazoid on GitHub"|aria-label="Morphazoid on GitHub"[\s\S]*?class="github-mark"/);
-  assert.match(html, /<a href="midi-guide\.html">MIDI guide<\/a>/);
-  assert.match(html, /<a href="wax\.html">Morphazoid for WAX<\/a>/);
+  assert.match(html, /<a class="catalogue-guide-link" href="midi-guide\.html">MIDI &amp; WAX Plugin Guide <span aria-hidden="true">→<\/span><\/a>/);
+  assert.doesNotMatch(html, /catalogue-companion/);
+  assert.doesNotMatch(html, /href="wax\.html"/);
   assert.match(html, /<a href="storybook\/">Component library<\/a>/);
   assert.match(html, /https:\/\/github\.com\/blechdom\/morphazoid\/blob\/main\/LICENSE/);
+  assert.match(html, /https:\/\/www\.instagram\.com\/blechdom/);
+  assert.match(html, /Created by <a href="https:\/\/github\.com\/blechdom">Kristin Galvin<\/a>[\s\S]*?a\.k\.a\. Kevin Blechdom/);
   assert.doesNotMatch(html, /href="plugins\.html"/);
   assert.doesNotMatch(
     html,
@@ -103,23 +109,23 @@ test("Home mounts the only complete registry-backed catalogue", async () => {
   assert.match(home, /Kristin Galvin/);
   assert.match(
     home,
-    /class="author-mark"[\s\S]*?src="assets\/authors\/kristin-galvin\.png"[\s\S]*?alt="Kristin Galvin"/,
+    /class="author-mark"[\s\S]*?src="assets\/authors\/kristin-galvin\.png"[\s\S]*?width="112"[\s\S]*?alt="Kristin Galvin"/,
   );
 });
 
-test("Standalone MIDI guide keeps WAX output distinct", async () => {
+test("MIDI and WAX guide keeps browser MIDI and DAW plug-in routing clear", async () => {
   const html = await readFile(new URL("midi-guide.html", root), "utf8");
   const visibleText = html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
 
-  assert.match(html, /<title>MIDI Guide — Morphazoid<\/title>/);
+  assert.match(html, /<title>MIDI &amp; WAX Plugin Guide — Morphazoid<\/title>/);
   assert.match(html, /<body class="about-page">/);
-  assert.match(html, /<h1>MIDI Guide<\/h1>/);
+  assert.match(html, /<h1>MIDI &amp; WAX Plugin Guide<\/h1>/);
   assert.match(html, /<nav class="tabs" aria-label="Morphazoid main menu"><\/nav>/);
   assert.match(html, /<script type="module" src="nav\.js"><\/script>/);
-  assert.match(visibleText, /MIDI Guide/);
-  assert.match(visibleText, /Every playable instrument has a MIDI control in its top bar/);
-  assert.match(visibleText, /receive light flashes for incoming notes and controls/);
-  assert.match(visibleText, /small L\/R meter shows the two channels being sent to the audio destination/);
+  assert.match(visibleText, /Play Morphazoid from a controller in the browser, or load it in your DAW with WAX, an audio plug-in/);
+  assert.match(visibleText, /Open any playable instrument and select MIDI in its top bar/);
+  assert.match(visibleText, /receive light flash for incoming notes and controls/);
+  assert.match(visibleText, /L\/R meter to see the two channels reaching the audio destination/);
   assert.match(visibleText, /panning and channel imbalance stay visible/);
   assert.match(visibleText, /gear at the far right opens the compact Morphazoid Settings panel/);
   assert.match(
@@ -131,25 +137,28 @@ test("Standalone MIDI guide keeps WAX output distinct", async () => {
   assert.match(visibleText, /Z S X D C V G B H N J M.*Q 2 W 3 E R 5 T 6 Y 7 U/);
   assert.match(visibleText, /1 2 3 4.*Q W E R.*A S D F.*Z X C V/);
   assert.match(visibleText, /\[ and \] shift octaves; - and = change velocity/);
-  assert.match(visibleText, /Controller profiles Computer keys remains the default.*detected automatically/);
-  assert.match(visibleText, /Maschine Mikro uses MIDI mode.*Akai MPK Mini uses CC70–77/);
-  assert.match(visibleText, /Arturia MiniLab 3 uses CC74, 71, 76, 77, 93, 18, 19, and 16/);
-  assert.match(visibleText, /Novation Launchkey uses Custom Mode CC21–28/);
+  assert.match(visibleText, /Controller profiles Automatic: Computer keys remains the default.*detected automatically/);
+  assert.match(visibleText, /Maschine Mikro: MIDI mode.*Akai MPK Mini: CC70–77/);
+  assert.match(visibleText, /Arturia MiniLab 3: CC74, 71, 76, 77, 93, 18, 19, and 16/);
+  assert.match(visibleText, /Novation Launchkey: Custom Mode CC21–28/);
   assert.match(visibleText, /custom native mappings.*conservative universal map/);
-  assert.match(visibleText, /Pitch bend follows a mapped pitch.*pressure or intensity control/);
+  assert.match(visibleText, /pitch bend follows a mapped pitch.*pressure or intensity control/i);
   assert.match(visibleText, /MIDI Clock, Start, and Stop follow a page's tempo and transport/);
   assert.match(visibleText, /notes and velocity, pitch bend, CC, Program Change/);
   assert.match(visibleText, /Input and output remain separate/);
-  assert.match(visibleText, /normal browser, MIDI Out is currently a preview only/);
+  assert.match(visibleText, /normal browser, MIDI Out is a preview only/);
   assert.match(visibleText, /no output destination is exposed.*none of the displayed values is sent/);
   assert.match(visibleText, /MIDI Out Monitor/);
   assert.match(
     visibleText,
-    /exact instrument note previews.*unassigned 0–127 CC candidates.*BPM clock candidates.*transport state/,
+    /exact instrument note previews.*unassigned 0–127 CC candidates.*genuine BPM clock candidates.*transport state/,
   );
-  assert.match(visibleText, /diagnostic only.*not.*routed, mapped, or sent as MIDI/i);
-  assert.match(html, /href="wax\.html"/);
-  assert.match(visibleText, /WAX build can run as MIDI FX/);
+  assert.match(visibleText, /diagnostic only.*nothing it shows is routed, mapped, or sent as MIDI/i);
+  assert.match(html, /id="wax"/);
+  assert.match(visibleText, /WAX is the required audio plug-in host for Morphazoid in a DAW/);
+  assert.match(visibleText, /not a standalone Morphazoid VST3 or Audio Unit/);
+  assert.match(visibleText, /WAX Instrument.*WAX Audio FX.*WAX MIDI FX/);
+  assert.match(visibleText, /MIDI only.*host MIDI destination.*root note.*division.*channel.*gate/);
   assert.match(visibleText, /Incoming MIDI is never echoed automatically/);
   assert.doesNotMatch(visibleText, /every page (?:generates|outputs) MIDI/i);
 });
@@ -186,7 +195,7 @@ test("About document styles remain independently scrollable on instrument breakp
   assert.match(css, /\.about-header-label\s*\{[^}]*color: var\(--muted\);/);
   assert.match(css, /\.about-header-link\s*\{[^}]*min-height: 44px;/);
   assert.match(css, /\.about-header-link:hover\s*\{[^}]*color: var\(--ink\);/);
-  assert.match(css, /\.author-mark\s*\{[^}]*width: 64px;/);
+  assert.match(css, /\.author-mark\s*\{[^}]*width: 112px;/);
   assert.match(css, /\.author-mark\s*\{[^}]*border-radius: 50%;/);
   assert.match(css, /@media \(max-width: 560px\)/);
 });

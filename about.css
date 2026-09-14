@@ -50,6 +50,20 @@
   grid-template-columns: minmax(0, 760px);
 }
 
+.about-title-lockup {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+}
+
+.about-title-mark {
+  display: block;
+  width: 52px;
+  height: 52px;
+  background: url("favicon.svg") center / 150% no-repeat;
+  flex: 0 0 52px;
+}
+
 .about-kicker,
 .manual-section-label {
   margin: 0 0 10px;
@@ -125,6 +139,100 @@
 
 .manual-copy > :last-child {
   margin-bottom: 0;
+}
+
+.guide-stack {
+  display: grid;
+  gap: clamp(26px, 4vw, 44px);
+}
+
+.guide-piece {
+  min-width: 0;
+}
+
+.manual-copy .guide-piece h3 {
+  margin: 0 0 12px;
+  color: var(--ink);
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1.25;
+}
+
+.guide-piece p {
+  margin: 14px 0 0;
+}
+
+.guide-steps,
+.guide-list {
+  max-width: 78ch;
+  padding-left: 20px;
+  margin: 0;
+}
+
+.guide-steps li,
+.guide-list li {
+  color: color-mix(in oklab, var(--ink) 77%, var(--muted));
+  font-size: 12px;
+  line-height: 1.7;
+}
+
+.guide-steps li + li,
+.guide-list li + li {
+  margin-top: 8px;
+}
+
+.guide-role-list {
+  display: grid;
+  max-width: 78ch;
+  margin: 0;
+  gap: 12px;
+}
+
+.guide-role-list div {
+  display: grid;
+  grid-template-columns: minmax(118px, 0.26fr) minmax(0, 1fr);
+  gap: 18px;
+}
+
+.guide-role-list dt,
+.guide-role-list dd {
+  margin: 0;
+}
+
+.guide-role-list dt {
+  color: var(--muted);
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  line-height: 1.45;
+  text-transform: uppercase;
+}
+
+.guide-role-list dd {
+  color: color-mix(in oklab, var(--ink) 77%, var(--muted));
+  font-size: 12px;
+  line-height: 1.7;
+}
+
+.guide-piece pre {
+  max-width: 78ch;
+  padding: 13px 14px;
+  margin: 16px 0 0;
+  overflow-x: auto;
+  color: color-mix(in oklab, var(--ink) 84%, var(--muted));
+  background: color-mix(in oklab, var(--panel) 76%, transparent);
+  font-size: 11px;
+  line-height: 1.55;
+}
+
+.guide-piece code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+.guide-links-list {
+  display: grid;
+  padding-left: 18px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  column-gap: 26px;
 }
 
 .manual-copy p,
@@ -226,27 +334,58 @@
   line-height: 1.7;
 }
 
-.project-author-heading {
-  display: flex;
-  align-items: center;
-  gap: 14px;
+.site-links-section {
+  display: block;
+  padding-top: 34px;
+  padding-bottom: 0;
+  border-bottom: 0;
+}
+
+.site-links-section .manual-copy {
+  max-width: 780px;
+}
+
+.site-links {
+  border-top: 0;
+}
+
+.site-links div {
+  padding: 8px 0;
+  border-bottom: 0;
+}
+
+.site-links .site-author-row {
+  padding-top: 22px;
 }
 
 .author-mark {
   display: block;
-  width: 64px;
-  height: 64px;
+  width: 112px;
+  height: 112px;
   background: #000;
   object-fit: cover;
   object-position: 50% 42%;
   border-radius: 50%;
 }
 
-.project-author-links {
+.site-author-row {
+  align-items: center;
+}
+
+.site-author-image {
   display: flex;
   align-items: center;
+}
+
+.site-author-copy {
+  display: flex;
+  align-items: baseline;
   flex-wrap: wrap;
-  gap: 12px 18px;
+  gap: 0 0.32em;
+}
+
+.instagram-link {
+  margin-left: 10px;
 }
 
 .github-link {
@@ -274,6 +413,12 @@
     font-size: 46px;
   }
 
+  .about-title-mark {
+    width: 42px;
+    height: 42px;
+    flex-basis: 42px;
+  }
+
   .manual-section-note {
     max-width: 62ch;
   }
@@ -287,6 +432,16 @@
 
   .about-intro h1 {
     font-size: 36px;
+  }
+
+  .about-title-lockup {
+    gap: 12px;
+  }
+
+  .about-title-mark {
+    width: 34px;
+    height: 34px;
+    flex-basis: 34px;
   }
 
   .manual-section h2 {
@@ -309,12 +464,17 @@
     gap: 6px;
   }
 
-  .project-author-heading {
-    gap: 10px;
+  .guide-role-list div {
+    grid-template-columns: 1fr;
+    gap: 4px;
+  }
+
+  .guide-links-list {
+    grid-template-columns: 1fr;
   }
 
   .author-mark {
-    width: 54px;
-    height: 54px;
+    width: 92px;
+    height: 92px;
   }
 }

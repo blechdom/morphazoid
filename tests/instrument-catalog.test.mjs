@@ -962,9 +962,11 @@ test("card renderer stays a dense, complete activity-ranked visual index", async
   assert.doesNotMatch(app, /catalogue-tag-filter|catalogue-category-button|image-preview/);
   assert.match(css, /\.catalogue-group-title\s*\{/);
   assert.doesNotMatch(css, /catalogue-category-nav|catalogue-category-button/);
-  assert.match(css, /grid-template-columns: repeat\(auto-fill, minmax\(70px, 1fr\)\)/);
-  assert.match(css, /\.instrument-card-link\s*\{[^}]*min-height: 68px;/s);
-  assert.match(css, /\.instrument-card-visual\s*\{[^}]*width: 34px;[^}]*height: 34px;/s);
+  assert.match(css, /grid-template-columns: repeat\(auto-fill, minmax\(88px, 1fr\)\)/);
+  assert.match(css, /\.instrument-card-link\s*\{[^}]*min-height: 88px;/s);
+  assert.match(css, /\.instrument-card-visual\s*\{[^}]*width: 48px;[^}]*height: 48px;/s);
+  assert.match(css, /\.catalogue-guide-link\s*\{[^}]*color: var\(--ink\);/s);
+  assert.doesNotMatch(css, /\.catalogue-companion/);
   assert.match(css, /\.instrument-card-preview\s*\{[^}]*position: fixed;/s);
   assert.match(css, /\.instrument-card-preview\s*\{[^}]*pointer-events: none;/s);
   assert.match(css, /@media \(max-width: 560px\)[\s\S]*grid-template-columns: repeat\(5, minmax\(0, 1fr\)\)/);
