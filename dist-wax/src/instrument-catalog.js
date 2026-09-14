@@ -850,7 +850,6 @@ const ADDITIONAL_TAG_IDS = Object.freeze({
   "fm-drums": Object.freeze(["geometry-drums"]),
   "linear-drums": Object.freeze(["geometry-drums"]),
   "sample-drums": Object.freeze(["geometry-drums"]),
-  "wave-pool": Object.freeze(["geometry-drums"]),
   micmic: Object.freeze(["fractals-recursion"]),
   "recursive-fm": Object.freeze(["fractals-recursion"]),
   "recursive-pm": Object.freeze(["fractals-recursion"]),

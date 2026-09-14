@@ -49,10 +49,10 @@ const quantumPages = Object.freeze([
   }),
 ]);
 
-test("menu registry keeps the quantum simulators with Morphazoidical in Experiments", () => {
+test("menu registry keeps the quantum simulators with Morphazoidical in Works in progress", () => {
   const group = TOOL_GROUPS.find(({ id }) => id === "experiments");
   assert.ok(group);
-  assert.equal(group.label, "Experiments");
+  assert.equal(group.label, "Works in progress");
   const quantumStart = group.tools.findIndex(({ id }) => id === "order-tones");
   assert.deepEqual(
     group.tools.slice(quantumStart, quantumStart + 6).map(({ id }) => id),

@@ -4,6 +4,7 @@ import test from "node:test";
 
 import { FAVE_TOOL_IDS, TOOL_GROUPS } from "../nav.js";
 import {
+  FIRST_CATEGORY_ID,
   HOMEPAGE_ACTIVITY_IDS,
   instrumentMatchesTag,
   orderHomepageInstruments,
@@ -110,7 +111,7 @@ test("experiments carry a works-in-progress status while regular instruments do 
   );
 });
 
-test("unfinished algorithmic scores live only in Experiments", () => {
+test("unfinished algorithmic scores live only in Works in progress", () => {
   const movedIds = ["hanoi", "minimax", "nqueens", "euclid"];
   const algorithmicIds = INSTRUMENT_GROUPS.find(
     ({ id }) => id === "algorithmic-sequencers",
@@ -556,8 +557,9 @@ test("Wave Pool catalogues a sample-free hydroacoustic rhythm model", () => {
   assert.match(instrument?.description ?? "", /entrained bubbles/i);
   assert.deepEqual(
     instrument?.tags.map(({ id }) => id),
-    ["sequencers", "geometry-drums"],
+    ["experiments"],
   );
+  assert.equal(instrument?.status, "Works in progress");
   assert.ok(instrument?.features.includes("Physical-model DSP"));
   assert.ok(instrument?.features.includes("Computer keys"));
   const midi = instrumentMidiCapabilityForId("wave-pool");
@@ -616,7 +618,7 @@ test("catalogue tag matching includes secondary tags", () => {
   assert.equal(instrumentMatchesTag(instrumentById("lattice"), "faves"), true);
 });
 
-test("home catalogue renders every instrument as one compact linked image and name", () => {
+test("home catalogue shows every category with Faves first and compact duplicate links", () => {
   class FakeElement {
     constructor(tagName, ownerDocument) {
       this.tagName = tagName;
@@ -624,6 +626,8 @@ test("home catalogue renders every instrument as one compact linked image and na
       this.children = [];
       this.dataset = {};
       this.attributes = new Map();
+      this.listeners = new Map();
+      this.style = {};
       this.textContent = "";
     }
 
@@ -639,29 +643,72 @@ test("home catalogue renders every instrument as one compact linked image and na
       this.attributes.set(name, value);
     }
 
+    addEventListener(name, listener) {
+      this.listeners.set(name, listener);
+    }
+
+    dispatch(name) {
+      this.listeners.get(name)?.();
+    }
+
+    getBoundingClientRect() {
+      return {
+        left: 20,
+        top: 240,
+        width: 70,
+        bottom: 308,
+      };
+    }
   }
 
   const doc = {};
   doc.createElement = (tagName) => new FakeElement(tagName, doc);
   const rootElement = new FakeElement("div", doc);
   const rendered = renderInstrumentCatalog(rootElement);
-  const homeCardIds = rendered.grid.children.map(({ dataset }) => dataset.instrumentId);
-  assert.equal(rootElement.children.length, 1);
-  assert.equal(rootElement.children[0], rendered.grid);
-  assert.equal(rendered.cards.length, INSTRUMENTS.length);
-  assert.equal(new Set(homeCardIds).size, INSTRUMENTS.length);
+  const groupIds = rendered.groups.map(({ id }) => id);
+  assert.deepEqual(groupIds, [FIRST_CATEGORY_ID, ...INSTRUMENT_GROUPS.map(({ id }) => id)]);
+  assert.equal(rootElement.children.length, rendered.groups.length + 1);
+  assert.deepEqual(rootElement.children.slice(0, -1), rendered.groups.map(({ section }) => section));
+  assert.equal(rootElement.children.at(-1), rendered.preview.node);
+  assert.equal(rendered.groups[0].heading.textContent, "Faves");
+  assert.equal(rendered.groups[1].heading.textContent, "Geometry Synths");
+
+  const orderedInstruments = orderHomepageInstruments(INSTRUMENTS);
+  const expectedCardCount = INSTRUMENTS.reduce((sum, { tags }) => sum + tags.length, 0);
+  assert.equal(rendered.cards.length, expectedCardCount);
+  const renderedInstrumentIds = new Set(rendered.cards.map(({ dataset }) => dataset.instrumentId));
+  assert.equal(renderedInstrumentIds.size, INSTRUMENTS.length);
   assert.deepEqual(
-    new Set(homeCardIds),
+    renderedInstrumentIds,
     new Set(INSTRUMENTS.map(({ id }) => id)),
   );
-  assert.deepEqual(
-    homeCardIds.slice(0, HOMEPAGE_ACTIVITY_IDS.length),
-    HOMEPAGE_ACTIVITY_IDS,
-  );
-  assert.equal(homeCardIds.includes("combo"), true);
-  assert.equal(homeCardIds.includes("plasma-ball"), true);
 
-  const firstInstrument = orderHomepageInstruments(INSTRUMENTS)[0];
+  for (const group of rendered.groups) {
+    assert.equal(group.section.dataset.categoryId, group.id);
+    assert.equal(group.grid.dataset.categoryId, group.id);
+    assert.deepEqual(
+      group.cards.map(({ dataset }) => dataset.instrumentId),
+      orderedInstruments
+        .filter((instrument) => instrumentMatchesTag(instrument, group.id))
+        .map(({ id }) => id),
+    );
+  }
+
+  const faveIds = new Set(FAVE_TOOL_IDS);
+  assert.deepEqual(
+    rendered.groups[0].cards.map(({ dataset }) => dataset.instrumentId),
+    orderedInstruments.filter(({ id }) => faveIds.has(id)).map(({ id }) => id),
+  );
+  for (const faveId of FAVE_TOOL_IDS) {
+    const fave = instrumentById(faveId);
+    assert.ok(rendered.groups[0].cards.some(({ dataset }) => dataset.instrumentId === faveId));
+    assert.ok(
+      rendered.groups.find(({ id }) => id === fave.tags[0].id)
+        .cards.some(({ dataset }) => dataset.instrumentId === faveId),
+    );
+  }
+
+  const firstInstrument = orderedInstruments.find((instrument) => faveIds.has(instrument.id));
   const firstCard = rendered.cards[0];
   const [cardLink] = firstCard.children;
   const [visual, title] = cardLink.children;
@@ -677,6 +724,23 @@ test("home catalogue renders every instrument as one compact linked image and na
   assert.equal(title.tagName, "h3");
   assert.equal(title.textContent, firstInstrument.label);
   assert.equal(cardLink.children.length, 2);
+  assert.equal(rendered.preview.node.hidden, true);
+  assert.equal(rendered.preview.node.attributes.get("aria-hidden"), "true");
+
+  cardLink.dispatch("pointerenter");
+  const [previewVisual, previewCopy] = rendered.preview.node.children;
+  const [previewImage] = previewVisual.children;
+  const [previewTitle, previewDescription] = previewCopy.children;
+  assert.equal(rendered.preview.node.hidden, false);
+  assert.equal(previewImage.src, firstInstrument.imageHref);
+  assert.equal(previewTitle.textContent, firstInstrument.label);
+  assert.ok(previewDescription.textContent.length > 0);
+  assert.ok(previewDescription.textContent.length <= 150);
+  assert.equal(rendered.preview.node.style.left, "8px");
+  assert.equal(rendered.preview.node.style.top, "232px");
+
+  cardLink.dispatch("pointerleave");
+  assert.equal(rendered.preview.node.hidden, true);
 });
 
 test("input and plug-in availability facts remain explicit", () => {
@@ -735,10 +799,10 @@ test("input and plug-in availability facts remain explicit", () => {
     ["experiments"],
   );
   assert.equal(instrumentById("penrose-tilings")?.label, "Penrose Tilings");
-  assert.equal(instrumentById("penrose-tilings")?.status, null);
+  assert.equal(instrumentById("penrose-tilings")?.status, "Works in progress");
   assert.deepEqual(
     instrumentById("penrose-tilings")?.tags.map(({ id }) => id),
-    ["tiles"],
+    ["experiments"],
   );
   assert.deepEqual(
     INSTRUMENT_GROUPS.find(({ id }) => id === "apps")?.tools.map(({ id }) => id),
@@ -761,7 +825,6 @@ test("input and plug-in availability facts remain explicit", () => {
     "spiral",
     "lattice-drums",
     "spiral-drums",
-    "penrose-tilings",
   ];
   assert.deepEqual(
     INSTRUMENT_GROUPS.find(({ id }) => id === "tiles")?.tools.map(({ id }) => id),
@@ -875,26 +938,38 @@ test("card renderer stays a dense, complete activity-ranked visual index", async
     [],
   );
   assert.match(app, /const instruments = orderHomepageInstruments\(INSTRUMENTS\)/);
-  assert.match(app, /instruments\.map\(\(instrument, index\) => createCard/);
+  assert.match(app, /const groupViews = homepageCategories\(\)\.map/);
   assert.match(app, /image\.loading = index < 12 \? "eager" : "lazy"/);
   assert.match(app, /image\.decoding = index < 12 \? "sync" : "async"/);
-  assert.ok(app.indexOf("image.loading =") < app.indexOf("image.src = instrument.imageHref"));
-  assert.match(app, /grid\.append\(\.\.\.cards\)/);
-  assert.match(app, /root\.replaceChildren\(grid\)/);
+  const cardRenderer = app.slice(app.indexOf("function createCard"));
+  assert.ok(cardRenderer.indexOf("image.loading =") < cardRenderer.indexOf("image.src = instrument.imageHref"));
+  assert.match(app, /grid\.append\(\.\.\.groupCards\)/);
+  assert.match(app, /root\.replaceChildren\(\.\.\.groupViews\.map/);
+  assert.match(app, /const section = element\(doc, "section", "catalogue-group"\)/);
+  assert.match(app, /FIRST_CATEGORY_ID = "faves"/);
+  assert.doesNotMatch(app, /import\s*\{[^}]*FAVE_TOOL_IDS/s);
   assert.match(app, /element\(doc, "a", "instrument-card-link"\)/);
   assert.match(app, /cardLink\.href = instrument\.href/);
   assert.match(app, /cardLink\.setAttribute\("aria-label", instrument\.label\)/);
   assert.match(app, /cardLink\.append\(visual, title\)/);
   assert.match(app, /card\.append\(cardLink\)/);
-  assert.doesNotMatch(app, /instrument-description|instrument-start|instrument-tags/);
-  assert.doesNotMatch(app, /instrument\.description|instrument\.start|instrument\.status/);
-  assert.doesNotMatch(app, /catalogue-tag-filter|catalogue-experiments|image-preview/);
-  assert.match(css, /grid-template-columns: repeat\(auto-fill, minmax\(76px, 1fr\)\)/);
+  assert.match(app, /function createPreview\(doc\)/);
+  assert.match(app, /cardLink\.addEventListener\("pointerenter"/);
+  assert.match(app, /cardLink\.addEventListener\("focus"/);
+  assert.match(app, /preview\.description\.textContent = previewDescription\(instrument\.description\)/);
+  assert.doesNotMatch(app, /instrument-start|instrument-tags/);
+  assert.doesNotMatch(app, /instrument\.start|instrument\.status/);
+  assert.doesNotMatch(app, /catalogue-tag-filter|catalogue-category-button|image-preview/);
+  assert.match(css, /\.catalogue-group-title\s*\{/);
+  assert.doesNotMatch(css, /catalogue-category-nav|catalogue-category-button/);
+  assert.match(css, /grid-template-columns: repeat\(auto-fill, minmax\(70px, 1fr\)\)/);
   assert.match(css, /\.instrument-card-link\s*\{[^}]*min-height: 68px;/s);
   assert.match(css, /\.instrument-card-visual\s*\{[^}]*width: 34px;[^}]*height: 34px;/s);
+  assert.match(css, /\.instrument-card-preview\s*\{[^}]*position: fixed;/s);
+  assert.match(css, /\.instrument-card-preview\s*\{[^}]*pointer-events: none;/s);
   assert.match(css, /@media \(max-width: 560px\)[\s\S]*grid-template-columns: repeat\(5, minmax\(0, 1fr\)\)/);
   assert.match(css, /@media \(max-width: 340px\)[\s\S]*grid-template-columns: repeat\(4, minmax\(0, 1fr\)\)/);
-  assert.doesNotMatch(css, /catalogue-tag-filter|catalogue-experiments|instrument-description/);
+  assert.doesNotMatch(css, /catalogue-tag-filter|catalogue-experiments/);
 });
 
 

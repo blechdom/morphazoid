@@ -256,6 +256,7 @@ test("tool registry is categorized, unique, and includes Morphazoidical", () => 
     TOOL_GROUPS.map((group) => group.label),
     [
       "Geometry Synths",
+      "Apps",
       "Tiles",
       "Drum Machines",
       "Sequencers",
@@ -267,8 +268,7 @@ test("tool registry is categorized, unique, and includes Morphazoidical", () => 
       "Misc",
       "Instruments",
       "Algorithmic Sequencers",
-      "Experiments",
-      "Apps",
+      "Works in progress",
     ],
   );
   const tools = TOOL_GROUPS.flatMap((group) => group.tools);
@@ -569,7 +569,6 @@ test("tool registry is categorized, unique, and includes Morphazoidical", () => 
       { id: "spiral", href: "spiral.html" },
       { id: "lattice-drums", href: "lattice-drums.html" },
       { id: "spiral-drums", href: "spiral-drums.html" },
-      { id: "penrose-tilings", href: "penrose-tilings.html" },
     ],
   );
   assert.deepEqual(
@@ -605,7 +604,6 @@ test("tool registry is categorized, unique, and includes Morphazoidical", () => 
       { id: "rubix", href: "rubix.html" },
       { id: "constellation", href: "constellation.html" },
       { id: "sliding-puzzle", href: "sliding-puzzle.html" },
-      { id: "wave-pool", href: "wave-pool.html" },
       { id: "hocket-loom", href: "hocket-loom.html" },
       { id: "hyper-rubix", href: "hyper-rubix.html" },
       { id: "webgpu-303", href: "webgpu-303.html" },
@@ -845,6 +843,10 @@ test("tool registry is categorized, unique, and includes Morphazoidical", () => 
   const experiments = TOOL_GROUPS.find((group) => group.id === "experiments");
   assert.equal(experiments?.picker, false);
   assert.equal(experiments?.tools.some(({ id }) => id === "plasma-ball"), true);
+  assert.deepEqual(experiments?.tools.slice(4, 6).map(({ id }) => id), [
+    "wave-pool",
+    "penrose-tilings",
+  ]);
   assert.deepEqual(experiments?.tools.slice(0, 4), [
     {
       id: "room-lobby",
@@ -878,6 +880,8 @@ test("tool registry is categorized, unique, and includes Morphazoidical", () => 
       { id: "vocal-effects-room", href: "vocal-effects-room.html" },
       { id: "instrument-share-room", href: "instrument-share-room.html" },
       { id: "morphazoid-roulette", href: "morphazoid-roulette.html" },
+      { id: "wave-pool", href: "wave-pool.html" },
+      { id: "penrose-tilings", href: "penrose-tilings.html" },
       { id: "yoyodyne", href: "yoyodyne.html" },
       { id: "hanoi", href: "hanoi.html" },
       { id: "minimax", href: "minimax.html" },
@@ -1146,9 +1150,10 @@ test("shared navigation creates a searchable accordion picker and preserves the 
   );
   assert.equal(groupNodes.every(({ tagName }) => tagName === "DETAILS"), true);
   assert.equal(groupNodes[0].getAttribute("data-group-id"), "faves");
-  assert.equal(groupNodes.at(-1).getAttribute("data-group-id"), "apps");
+  const appsGroup = groupNodes.find((group) => group.getAttribute("data-group-id") === "apps");
+  assert.equal(groupNodes.indexOf(appsGroup), 2);
   assert.deepEqual(
-    groupNodes.at(-1).findAll((node) => node.classList.contains("instrument-picker-link"))
+    appsGroup.findAll((node) => node.classList.contains("instrument-picker-link"))
       .map((link) => link.getAttribute("data-tool-id")),
     ["combo", "l-systems", "tiles-app", "algorithmic-mazes", "paths"],
   );
@@ -1226,9 +1231,10 @@ test("shared navigation creates a searchable accordion picker and preserves the 
     doc.select.children.map((group) => group.label),
     basePickerGroups.map((group) => group.label),
   );
-  assert.equal(doc.select.children.at(-1).label, "Apps");
+  const appsOptionGroup = doc.select.children.find((group) => group.label === "Apps");
+  assert.equal(doc.select.children.indexOf(appsOptionGroup), 1);
   assert.deepEqual(
-    doc.select.children.at(-1).children.map((option) => option.textContent),
+    appsOptionGroup.children.map((option) => option.textContent),
     ["Shapes", "L-Systems", "Tiles", "Algorithmic Mazes", "Paths"],
   );
   const selectedOptions = doc.select.findAll((node) => node.tagName === "OPTION" && node.selected);

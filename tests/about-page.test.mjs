@@ -93,6 +93,10 @@ test("Home mounts the only complete registry-backed catalogue", async () => {
   assert.match(home, /https:\/\/github\.com\/blechdom\/morphazoid/);
   assert.match(home, /https:\/\/github\.com\/blechdom\/morphazoid\/blob\/main\/LICENSE/);
   assert.match(home, /Kristin Galvin/);
+  assert.match(
+    home,
+    /class="about-author-portrait"[\s\S]*?src="assets\/authors\/kristin-galvin\.png"[\s\S]*?alt="Kristin Galvin"/,
+  );
 });
 
 test("Standalone MIDI guide keeps WAX output distinct", async () => {
@@ -175,6 +179,8 @@ test("About document styles remain independently scrollable on instrument breakp
   assert.match(css, /\.about-header-link\s*\{[^}]*min-height: 44px;/);
   assert.match(css, /\.about-header-link:hover\s*\{[^}]*color: var\(--ink\);/);
   assert.match(css, /\.about-footer\s*\{[^}]*color: var\(--muted\);/);
+  assert.match(css, /\.about-author-profile\s*\{[^}]*grid-template-columns: 64px minmax\(0, 1fr\);/);
+  assert.match(css, /\.about-author-portrait\s*\{[^}]*border-radius: 50%;/);
   assert.match(css, /@media \(max-width: 560px\)/);
 });
 

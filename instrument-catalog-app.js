@@ -1,6 +1,10 @@
-import { INSTRUMENTS } from "./src/instrument-catalog.js?v=catalog-20260913-1";
+import {
+  INSTRUMENT_GROUPS,
+  INSTRUMENTS,
+} from "./src/instrument-catalog.js?v=catalog-20260913-2";
 
 const ALL_TAG_ID = "all";
+export const FIRST_CATEGORY_ID = "faves";
 
 // A repository-history snapshot balances log-scaled commit count (58%) with
 // latest direct work (42%). Everything not yet ranked retains registry order.
@@ -160,7 +164,59 @@ function element(doc, tag, className, text) {
   return node;
 }
 
-function createCard(doc, instrument, index) {
+function previewDescription(description) {
+  const firstSentence = description.match(/^[^.!?]+[.!?]/)?.[0] ?? description;
+  const maximumLength = 88;
+  if (firstSentence.length <= maximumLength) return firstSentence;
+  const excerpt = firstSentence.slice(0, maximumLength - 1).trimEnd();
+  const finalWordBreak = excerpt.lastIndexOf(" ");
+  return `${excerpt.slice(0, finalWordBreak > 0 ? finalWordBreak : excerpt.length).trimEnd()}…`;
+}
+
+function createPreview(doc) {
+  const node = element(doc, "aside", "instrument-card-preview");
+  node.hidden = true;
+  node.setAttribute("aria-hidden", "true");
+
+  const visual = element(doc, "span", "instrument-card-preview-visual");
+  const image = element(doc, "img", "instrument-card-preview-image");
+  image.alt = "";
+  image.width = 512;
+  image.height = 512;
+  image.decoding = "async";
+  visual.append(image);
+
+  const copy = element(doc, "span", "instrument-card-preview-copy");
+  const title = element(doc, "h3", "instrument-card-preview-title");
+  const description = element(doc, "p", "instrument-card-preview-description");
+  copy.append(title, description);
+  node.append(visual, copy);
+  return Object.freeze({ node, image, title, description });
+}
+
+function showPreview(preview, cardLink, instrument) {
+  const { node } = preview;
+  const anchorRect = cardLink.getBoundingClientRect();
+  const viewportWidth = Math.max(0, globalThis.innerWidth ?? 1024);
+  const horizontalMargin = 8;
+  const previewWidth = Math.min(212, Math.max(0, viewportWidth - (horizontalMargin * 2)));
+  const centeredLeft = anchorRect.left + (anchorRect.width / 2) - (previewWidth / 2);
+  const left = Math.max(horizontalMargin, Math.min(
+    centeredLeft,
+    viewportWidth - previewWidth - horizontalMargin,
+  ));
+  const showBelow = anchorRect.top < 176;
+
+  preview.image.src = instrument.imageHref;
+  preview.title.textContent = instrument.label;
+  preview.description.textContent = previewDescription(instrument.description);
+  node.className = `instrument-card-preview${showBelow ? " is-below" : ""}`;
+  node.style.left = `${left}px`;
+  node.style.top = `${showBelow ? anchorRect.bottom + horizontalMargin : anchorRect.top - horizontalMargin}px`;
+  node.hidden = false;
+}
+
+function createCard(doc, instrument, index, preview) {
   const card = element(doc, "article", "instrument-card");
   card.dataset.instrumentId = instrument.id;
 
@@ -182,6 +238,16 @@ function createCard(doc, instrument, index) {
   const title = element(doc, "h3", "instrument-card-title", instrument.label);
   cardLink.append(visual, title);
   card.append(cardLink);
+
+  cardLink.addEventListener("pointerenter", () => showPreview(preview, cardLink, instrument));
+  cardLink.addEventListener("pointerleave", () => {
+    preview.node.hidden = true;
+  });
+  cardLink.addEventListener("focus", () => showPreview(preview, cardLink, instrument));
+  cardLink.addEventListener("blur", () => {
+    preview.node.hidden = true;
+  });
+
   return card;
 }
 
@@ -198,18 +264,57 @@ export function orderHomepageInstruments(instruments) {
   ];
 }
 
+function homepageCategories() {
+  return [
+    Object.freeze({ id: FIRST_CATEGORY_ID, label: "Faves" }),
+    ...INSTRUMENT_GROUPS.filter(({ id, tools }) => id !== FIRST_CATEGORY_ID && tools.length > 0),
+  ];
+}
+
 export function renderInstrumentCatalog(root) {
   if (!root?.ownerDocument) return null;
   const doc = root.ownerDocument;
-  const grid = element(doc, "div", "instrument-catalog-grid");
   const instruments = orderHomepageInstruments(INSTRUMENTS);
-  const cards = instruments.map((instrument, index) => createCard(doc, instrument, index));
-  grid.append(...cards);
-  root.replaceChildren(grid);
+  const preview = createPreview(doc);
+  const cards = [];
+  let renderIndex = 0;
+  const groupViews = homepageCategories().map((category) => {
+    const categoryInstruments = instruments.filter((instrument) => (
+      instrumentMatchesTag(instrument, category.id)
+    ));
+    const section = element(doc, "section", "catalogue-group");
+    const heading = element(doc, "h3", "catalogue-group-title", category.label);
+    const grid = element(doc, "div", "instrument-catalog-grid");
+    const headingId = `catalogue-${category.id}-title`;
+    heading.id = headingId;
+    section.dataset.categoryId = category.id;
+    section.setAttribute("aria-labelledby", headingId);
+    grid.dataset.categoryId = category.id;
+
+    const groupCards = categoryInstruments.map((instrument) => {
+      const card = createCard(doc, instrument, renderIndex, preview);
+      renderIndex += 1;
+      card.dataset.categoryId = category.id;
+      cards.push(card);
+      return card;
+    });
+    grid.append(...groupCards);
+    section.append(heading, grid);
+    return Object.freeze({
+      id: category.id,
+      section,
+      heading,
+      grid,
+      cards: Object.freeze(groupCards),
+    });
+  });
+
+  root.replaceChildren(...groupViews.map(({ section }) => section), preview.node);
   return Object.freeze({
     root,
-    grid,
+    groups: Object.freeze(groupViews),
     cards: Object.freeze(cards),
+    preview,
   });
 }
 

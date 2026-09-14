@@ -127,6 +127,26 @@
   margin-bottom: 0;
 }
 
+.about-author-profile {
+  display: grid;
+  grid-template-columns: 64px minmax(0, 1fr);
+  align-items: start;
+  gap: 16px;
+}
+
+.about-author-portrait {
+  display: block;
+  width: 64px;
+  height: 64px;
+  object-fit: cover;
+  object-position: 50% 42%;
+  border-radius: 50%;
+}
+
+.about-author-profile p {
+  margin: 0;
+}
+
 .manual-copy p,
 .manual-copy li {
   max-width: 78ch;
@@ -297,5 +317,15 @@
   .about-footer {
     flex-direction: column;
     gap: 8px;
+  }
+
+  .about-author-profile {
+    grid-template-columns: 52px minmax(0, 1fr);
+    gap: 12px;
+  }
+
+  .about-author-portrait {
+    width: 52px;
+    height: 52px;
   }
 }

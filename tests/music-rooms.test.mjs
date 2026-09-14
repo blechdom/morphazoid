@@ -39,12 +39,12 @@ const roomPreviews = [
   { heading: "Morphazoid Roulette", href: "morphazoid-roulette.html" },
 ];
 
-test("Music Rooms routes live in works in progress without entering the instrument catalogue", () => {
+test("Music Rooms routes live in Works in progress without entering the instrument catalogue", () => {
   const group = TOOL_GROUPS.find(({ id }) => id === "experiments");
 
   assert.ok(group);
   assert.equal(TOOL_GROUPS.some(({ id }) => id === "music-rooms"), false);
-  assert.equal(group.label, "Experiments");
+  assert.equal(group.label, "Works in progress");
   assert.deepEqual(group.tools.slice(0, 4), roomTools);
   for (const room of roomTools) {
     assert.equal(resolveActiveTool(`${siteRoot}${room.href}`, siteRoot)?.id, room.id);

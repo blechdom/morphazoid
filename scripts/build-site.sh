@@ -43,7 +43,7 @@ while IFS= read -r -d '' source_path; do
   esac
 
   case "$source_path" in
-    *.html|*.css|*.js|*.wasm|*.webp|*.glb|*.LICENSE.txt|favicon.svg|THIRD_PARTY_NOTICES.md|morphazoidical/PLAN.md|downloads/plugins/*|\
+    *.html|*.css|*.js|*.wasm|*.webp|*.glb|*.LICENSE.txt|favicon.svg|THIRD_PARTY_NOTICES.md|morphazoidical/PLAN.md|downloads/plugins/*|assets/authors/*.png|\
     assets/puggler/*.wav|assets/puggler/*CREDITS.md|assets/puggler/CC0-1.0.txt|\
     vendor/tactile/LICENSE|\
     vendor/ffmpeg-wasm/LICENSE|\
@@ -57,6 +57,13 @@ while IFS= read -r -d '' source_path; do
       ;;
   esac
 done < <(git -C "$repo_root" ls-files -z)
+
+# Keep the author portrait in local release artifacts before its first commit.
+for worktree_runtime_file in assets/authors/kristin-galvin.png; do
+  if [[ -f "$repo_root/$worktree_runtime_file" ]]; then
+    copy_runtime_file "$worktree_runtime_file"
+  fi
+done
 
 # Allow new public pages to enter local release artifacts before their first
 # commit; after tracking, these copies simply refresh the same paths.

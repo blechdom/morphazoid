@@ -87,6 +87,17 @@ export const TOOL_GROUPS = Object.freeze([
       href: "graph-synth.html",
     },
   ]),
+  freezeGroup("apps", "Apps", [
+    { id: "combo", label: "Shapes", href: "shapes.html" },
+    { id: "l-systems", label: "L-Systems", href: "l-systems.html" },
+    { id: "tiles-app", label: "Tiles", href: "tiles.html" },
+    {
+      id: "algorithmic-mazes",
+      label: "Algorithmic Mazes",
+      href: "algorithmic-mazes.html",
+    },
+    { id: "paths", label: "Paths", href: "paths.html" },
+  ]),
   freezeGroup("tiles", "Tiles", [
     { id: "lattice", label: "Lattice", href: "lattice.html" },
     { id: "spiral", label: "Spiral", href: "spiral.html" },
@@ -99,11 +110,6 @@ export const TOOL_GROUPS = Object.freeze([
       id: "spiral-drums",
       label: "Spiral Drum Machine",
       href: "spiral-drums.html",
-    },
-    {
-      id: "penrose-tilings",
-      label: "Penrose Tilings",
-      href: "penrose-tilings.html",
     },
   ]),
   freezeGroup("geometry-drums", "Drum Machines", [
@@ -154,11 +160,6 @@ export const TOOL_GROUPS = Object.freeze([
       id: "sliding-puzzle",
       label: "Sliding Puzzle",
       href: "sliding-puzzle.html",
-    },
-    {
-      id: "wave-pool",
-      label: "Wave Pool",
-      href: "wave-pool.html",
     },
     {
       id: "hocket-loom",
@@ -355,7 +356,7 @@ export const TOOL_GROUPS = Object.freeze([
     { id: "sorting-algorithms", label: "Sorting", href: "algorithmic-sequencers.html" },
     { id: "dijkstra", label: "DJ Dijkstra", href: "dijkstra.html" },
   ]),
-  freezeGroup("experiments", "Experiments", [
+  freezeGroup("experiments", "Works in progress", [
     {
       id: "room-lobby",
       label: "Music Rooms",
@@ -379,6 +380,12 @@ export const TOOL_GROUPS = Object.freeze([
       label: "Morphazoid Roulette",
       href: "morphazoid-roulette.html",
       catalogue: false,
+    },
+    { id: "wave-pool", label: "Wave Pool", href: "wave-pool.html" },
+    {
+      id: "penrose-tilings",
+      label: "Penrose Tilings",
+      href: "penrose-tilings.html",
     },
     { id: "yoyodyne", label: "Yoyodyne", href: "yoyodyne.html" },
     { id: "hanoi", label: "Hanoi Carillon", href: "hanoi.html" },
@@ -474,17 +481,6 @@ export const TOOL_GROUPS = Object.freeze([
     { id: "escape-dust", label: "Escape Dust", href: "escape-dust.html" },
     { id: "linebreaker", label: "Linebreaker", href: "linebreaker.html" },
   ], { picker: false }),
-  freezeGroup("apps", "Apps", [
-    { id: "combo", label: "Shapes", href: "shapes.html" },
-    { id: "l-systems", label: "L-Systems", href: "l-systems.html" },
-    { id: "tiles-app", label: "Tiles", href: "tiles.html" },
-    {
-      id: "algorithmic-mazes",
-      label: "Algorithmic Mazes",
-      href: "algorithmic-mazes.html",
-    },
-    { id: "paths", label: "Paths", href: "paths.html" },
-  ]),
 ]);
 
 export const SITE_LINKS = Object.freeze([]);
