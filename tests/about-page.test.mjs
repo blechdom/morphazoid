@@ -16,10 +16,7 @@ test("Home page is the About guide", async () => {
   assert.doesNotMatch(html, /Project (?:reference|guide)/i);
   assert.match(html, /<nav class="tabs" aria-label="Morphazoid main menu"><\/nav>/);
   assert.match(html, /<option value="" selected>choose<\/option>/);
-  assert.match(
-    html,
-    /<a class="about-header-link" href="storybook\/">Design system<\/a>/,
-  );
+  assert.doesNotMatch(html, /class="about-header-link"/);
   assert.doesNotMatch(html, /href="(?:plugins|instruments|about)\.html"/);
   assert.match(html, /id="homeInstrumentCatalogue"[\s\S]*?data-instrument-catalog/);
   assert.match(html, /src="instrument-catalog-app\.js\?v=catalog-[^"]+"/);
@@ -35,13 +32,24 @@ test("Home page is the About guide", async () => {
   assert.doesNotMatch(html, /Audio starts off\./);
   assert.doesNotMatch(html, /class="about-summary"/);
   assert.doesNotMatch(html, /class="manual-index"/);
-  assert.doesNotMatch(html, /<dt>(?:Instruments|Runtime|License)<\/dt>/);
+  assert.doesNotMatch(html, /<dt>(?:Instruments|Runtime)<\/dt>/);
   assert.match(
     html,
-    /<dt>Plug-ins<\/dt>[\s\S]*?<a href="wax\.html">Morphazoid for WAX<\/a>[\s\S]*?setup, routing, and Linux test notes\./,
+    /<h2>Project<\/h2>[\s\S]*?<span>Author<\/span>[\s\S]*?<dt>MIDI<\/dt>[\s\S]*?<dt>Plug-ins<\/dt>[\s\S]*?<dt>Design system<\/dt>[\s\S]*?<dt>License<\/dt>/,
   );
+  assert.match(html, /class="author-mark"[\s\S]*?src="assets\/authors\/kristin-galvin\.png"/);
+  assert.match(html, /class="github-mark"[\s\S]*?aria-label="Morphazoid on GitHub"|aria-label="Morphazoid on GitHub"[\s\S]*?class="github-mark"/);
+  assert.match(html, /<a href="midi-guide\.html">MIDI guide<\/a>/);
+  assert.match(html, /<a href="wax\.html">Morphazoid for WAX<\/a>/);
+  assert.match(html, /<a href="storybook\/">Component library<\/a>/);
+  assert.match(html, /https:\/\/github\.com\/blechdom\/morphazoid\/blob\/main\/LICENSE/);
   assert.doesNotMatch(html, /href="plugins\.html"/);
-  assert.match(html, /vibed up with Codex 5\.6 Sol Ultra, mostly/);
+  assert.doesNotMatch(
+    html,
+    /manual-section-label">Built with|<h2>Implementation<\/h2>|<dt>(?:Interface|Graphics|Audio|State|Development)<\/dt>/,
+  );
+  assert.doesNotMatch(html, /static site and does not need an application server/);
+  assert.doesNotMatch(html, /vibed up with Codex|no code was ever touched|Copyright/);
   assert.doesNotMatch(html, /manual-section-label">\d+/);
   assert.doesNotMatch(html, /class="page-entry"/);
   assert.doesNotMatch(html, /<script type="module" src="app\.js"><\/script>/);
@@ -95,7 +103,7 @@ test("Home mounts the only complete registry-backed catalogue", async () => {
   assert.match(home, /Kristin Galvin/);
   assert.match(
     home,
-    /class="about-author-portrait"[\s\S]*?src="assets\/authors\/kristin-galvin\.png"[\s\S]*?alt="Kristin Galvin"/,
+    /class="author-mark"[\s\S]*?src="assets\/authors\/kristin-galvin\.png"[\s\S]*?alt="Kristin Galvin"/,
   );
 });
 
@@ -178,9 +186,8 @@ test("About document styles remain independently scrollable on instrument breakp
   assert.match(css, /\.about-header-label\s*\{[^}]*color: var\(--muted\);/);
   assert.match(css, /\.about-header-link\s*\{[^}]*min-height: 44px;/);
   assert.match(css, /\.about-header-link:hover\s*\{[^}]*color: var\(--ink\);/);
-  assert.match(css, /\.about-footer\s*\{[^}]*color: var\(--muted\);/);
-  assert.match(css, /\.about-author-profile\s*\{[^}]*grid-template-columns: 64px minmax\(0, 1fr\);/);
-  assert.match(css, /\.about-author-portrait\s*\{[^}]*border-radius: 50%;/);
+  assert.match(css, /\.author-mark\s*\{[^}]*width: 64px;/);
+  assert.match(css, /\.author-mark\s*\{[^}]*border-radius: 50%;/);
   assert.match(css, /@media \(max-width: 560px\)/);
 });
 

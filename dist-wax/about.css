@@ -127,26 +127,6 @@
   margin-bottom: 0;
 }
 
-.about-author-profile {
-  display: grid;
-  grid-template-columns: 64px minmax(0, 1fr);
-  align-items: start;
-  gap: 16px;
-}
-
-.about-author-portrait {
-  display: block;
-  width: 64px;
-  height: 64px;
-  object-fit: cover;
-  object-position: 50% 42%;
-  border-radius: 50%;
-}
-
-.about-author-profile p {
-  margin: 0;
-}
-
 .manual-copy p,
 .manual-copy li {
   max-width: 78ch;
@@ -246,24 +226,39 @@
   line-height: 1.7;
 }
 
-.about-footer {
+.project-author-heading {
   display: flex;
-  padding-top: 28px;
-  color: var(--muted);
-  justify-content: space-between;
-  align-items: baseline;
-  gap: 24px;
-  font-size: 9px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  align-items: center;
+  gap: 14px;
 }
 
-.about-footer-credit {
-  max-width: 620px;
-  letter-spacing: 0;
-  line-height: 1.6;
-  text-align: center;
-  text-transform: none;
+.author-mark {
+  display: block;
+  width: 64px;
+  height: 64px;
+  background: #000;
+  object-fit: cover;
+  object-position: 50% 42%;
+  border-radius: 50%;
+}
+
+.project-author-links {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px 18px;
+}
+
+.github-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.github-mark {
+  width: 17px;
+  height: 17px;
+  flex: 0 0 17px;
 }
 
 @media (max-width: 760px) {
@@ -314,18 +309,12 @@
     gap: 6px;
   }
 
-  .about-footer {
-    flex-direction: column;
-    gap: 8px;
+  .project-author-heading {
+    gap: 10px;
   }
 
-  .about-author-profile {
-    grid-template-columns: 52px minmax(0, 1fr);
-    gap: 12px;
-  }
-
-  .about-author-portrait {
-    width: 52px;
-    height: 52px;
+  .author-mark {
+    width: 54px;
+    height: 54px;
   }
 }
