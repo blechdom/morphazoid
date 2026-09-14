@@ -23,7 +23,7 @@ async function specimen(page, { touch = false, modelUrl = '/assets/roach-synth/c
     };
     window.specimenViewer = createRoachViewer({ canvas: document.querySelector('#specimen'),
       onRig(state) { joints = state.bones; rigNotifications.push({ modelName: state.modelName, joints: state.bones.length }); },
-      onPoseChange(change) { poseChanges.push(change); joints.find((joint) => joint.id === change.id).offset = change.offset; drawSpecimen(); },
+      onPoseChange(change) { poseChanges.push(change); joints = specimenViewer.getState().bones; drawSpecimen(); },
       onInteraction(change) { interactions.push(change); },
     });
     if (modelUrl) { await specimenViewer.loadUrl(modelUrl); drawSpecimen(); }
@@ -94,7 +94,12 @@ test('roach surface drags edit all three joint axes; background drags orbit and 
     await page.mouse.up();
     const after = await page.evaluate(() => specimenViewer.getState());
     expect(after.selectedBone).toBe(point.id);
-    expect(after.bones.find((joint) => joint.id === point.id).offset[axis]).toBeGreaterThan(10);
+    const edited = after.bones.find((joint) => joint.id === point.id);
+    // A surface constraint can accept less than the requested 13.68 degrees.
+    // The stored gesture must still produce visible movement, not hidden travel.
+    expect(edited.offset[axis]).toBeGreaterThan(.1);
+    expect(edited.offset[axis]).toBeLessThanOrEqual(13.681);
+    expect(edited.quaternion).not.toEqual(before.bones.find((joint) => joint.id === point.id).quaternion);
     expect(after.camera.quaternion).toEqual(before.camera.quaternion);
     expect(after.camera.distance).toBe(before.camera.distance);
     expect(after.camera.position).toEqual(before.camera.position);

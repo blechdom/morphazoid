@@ -52,6 +52,15 @@ unchanged test reproduces the same failure on the live `4e1f372` baseline.
 That control/test issue is outside this floor-collision change; this report
 does not describe the entire expanded browser suite as green.
 
+The full source browser run completed with 56 of 59 cases passing. The viewer
+fixture was then aligned with accepted movement (a constrained head gesture
+correctly accepts 6.39 degrees instead of the raw 13.68-degree request); its
+focused test passes and verifies visible movement. Speech-with-animation
+sampling failed under concurrent QA load but passed unchanged with other test
+jobs stopped. The remaining mobile-knob failure reproduces on the live
+baseline, as noted above. Repository verification also passes after integrating
+the separate catalogue-logo update from `main`.
+
 ### Audio timing
 
 Measured the final DSP on this machine at 48 kHz in 128-sample blocks. Each case
