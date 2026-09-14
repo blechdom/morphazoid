@@ -1,11 +1,12 @@
-import { createRoachViewer } from './src/roach-synth-viewer.js?v=291f01aef669';
-import { createRoachMidiControls } from './src/roach-synth-midi-controls.js?v=291f01aef669';
+import { createRoachViewer } from './src/roach-synth-viewer.js?v=0f50ed8f1f29';
+import { createRoachMidiControls } from './src/roach-synth-midi-controls.js?v=0f50ed8f1f29';
 import { ROACH_MOTION_PRESETS, ROACH_MOTION_DEFAULTS, normalizeRoachMotion, activeRoachPreset,
   writeRoachPose, createRoachSceneState, writeRoachSceneState, bakeRoachPresetTracks,
-  createRandomRoachMotion, ROACH_STATIC_POSES, getRoachStaticPose, writeRoachBeatState, applyRoachSpeechPose } from './src/roach-synth-motion.js?v=291f01aef669';
+  createRandomRoachMotion, ROACH_STATIC_POSES, getRoachStaticPose, writeRoachBeatState, applyRoachSpeechPose,
+  constrainRoachFloorPose } from './src/roach-synth-motion.js?v=0f50ed8f1f29';
 import { RoachSynthAudio, ROACH_SOUND_PRESETS, ROACH_BODY_GROUPS,
   ROACH_BODY_SOURCES, createDefaultRoachBodyMix, createRandomRoachSound, getRoachBodyGroupId,
-  ROACH_MOTION_SOUND_PRESETS, getRoachMotionSound } from './src/roach-synth-audio.js?v=291f01aef669';
+  ROACH_MOTION_SOUND_PRESETS, getRoachMotionSound } from './src/roach-synth-audio.js?v=0f50ed8f1f29';
 
 const el = id => document.getElementById(id);
 const listeners = new AbortController();
@@ -135,7 +136,11 @@ function updateVisual() {
   audio.applyMidiPose(pose, state.joints, state.motion.tempo, state.motion.intensity);
   updateSpeechMotion();
   writeRoachSceneState(time, state.motion, sceneState, state.joints);
-  viewer.setExternalPose(pose); viewer.setSceneState(sceneState);
+  // Preserve the composed input as the origin of a future direct edit. The
+  // viewer projects it too; keeping only the clipped pose would hide overshoot.
+  viewer.setExternalPose(pose);
+  constrainRoachFloorPose(pose, state.joints, sceneState);
+  viewer.setSceneState(sceneState);
 }
 function tick(now) {
   frame = 0;

@@ -1003,6 +1003,170 @@ export function constrainRoachPose(target, joints, out = target) {
   return out;
 }
 
+const FLOOR_RIGS = new WeakMap();
+const FLOOR_ANGLES = Object.freeze([-30, 30, -60, 60, -90, 90]);
+function copyFloorPose(source, target, count) { for (let i = 0; i < count; i++) target[i] = source[i]; }
+function floorRig(joints) {
+  const core = constraintRig(joints);
+  if (!core) return null;
+  const frame = joints[core.body].groundFrame;
+  if (!frame?.dorsal || !frame.forward || !frame.left || !(frame.bodyLength > 0)) return null;
+  let cached = FLOOR_RIGS.get(joints);
+  if (cached?.core === core && cached.frame === frame) {
+    let same = true;
+    for (let i = 0; i < joints.length; i++) if (cached.boundsRefs[i] !== joints[i].floorBounds) { same = false; break; }
+    if (same) return cached;
+  }
+  const faces = core.order.filter(i => ['neck', 'head', 'antenna'].includes(metadata(joints[i]).kind));
+  const points = joints.map((joint, i) => {
+    const source = faces.includes(i) && Array.isArray(joint.floorBounds) ? joint.floorBounds.slice(0, 512) : [];
+    return Float64Array.from(source.flatMap(p => [finite(p?.[0]), finite(p?.[1]), finite(p?.[2])]));
+  });
+  const feet = core.order.filter(i => joints[i].kinematics?.footTip?.length === 3).slice(0, 6);
+  if (!faces.length || !feet.length || !points.some(p => p.length)) return null;
+  const masks = new Map();
+  for (const face of faces) {
+    const mask = new Uint8Array(joints.length);
+    for (const i of faces) for (let parent = i; parent >= 0; parent = core.parents[parent]) if (parent === face) { mask[i] = 1; break; }
+    masks.set(face, mask);
+  }
+  cached = { core, frame, faces, points, feet, masks, boundsRefs: joints.map(j => j.floorBounds),
+    normal: new Float64Array(3), current: new Float64Array(joints.length * 3), reference: new Float64Array(joints.length * 3), best: new Float64Array(joints.length * 3),
+    input: new Float64Array(joints.length * 3), output: new Float64Array(joints.length * 3), sceneKey: new Float64Array(4), sceneValues: new Float64Array(4), hasInput: false, lift: 0, plane: 0, precision: 0 };
+  FLOOR_RIGS.set(joints, cached);
+  return cached;
+}
+function rotateFloorNormal(out, axis, degrees) {
+  const angle = degrees * Math.PI / 180, c = Math.cos(angle), s = Math.sin(angle);
+  const ax = finite(axis[0]), ay = finite(axis[1]), az = finite(axis[2]), x = out[0], y = out[1], z = out[2];
+  const dot = ax * x + ay * y + az * z;
+  out[0] = x * c + (ay * z - az * y) * s + ax * dot * (1 - c);
+  out[1] = y * c + (az * x - ax * z) * s + ay * dot * (1 - c);
+  out[2] = z * c + (ax * y - ay * x) * s + az * dot * (1 - c);
+}
+function floorHeight(rig, i, x, y, z) {
+  const m = rig.core.world, at = i * 16, n = rig.normal;
+  return n[0] * (m[at] * x + m[at + 4] * y + m[at + 8] * z + m[at + 12])
+    + n[1] * (m[at + 1] * x + m[at + 5] * y + m[at + 9] * z + m[at + 13])
+    + n[2] * (m[at + 2] * x + m[at + 6] * y + m[at + 10] * z + m[at + 14]);
+}
+function faceFloorGap(rig, i) {
+  const points = rig.points[i], m = rig.core.world, at = i * 16, n = rig.normal;
+  const x = n[0] * m[at] + n[1] * m[at + 1] + n[2] * m[at + 2];
+  const y = n[0] * m[at + 4] + n[1] * m[at + 5] + n[2] * m[at + 6];
+  const z = n[0] * m[at + 8] + n[1] * m[at + 9] + n[2] * m[at + 10];
+  const offset = n[0] * m[at + 12] + n[1] * m[at + 13] + n[2] * m[at + 14] - rig.plane;
+  let minimum = Infinity;
+  for (let p = 0; p < points.length; p += 3) minimum = Math.min(minimum, points[p] * x + points[p + 1] * y + points[p + 2] * z + offset);
+  return minimum;
+}
+function faceCoreSafe(rig, i) {
+  const active = rig.core.active[i];
+  for (let j = 0; j < active.length; j++) if (active[j] && coreDistance(rig.core, i, j) < .99999) return false;
+  return true;
+}
+function branchFloorGap(rig, mask) {
+  let minimum = Infinity;
+  for (const i of rig.faces) if (!mask || mask[i]) {
+    if (!faceCoreSafe(rig, i)) return -Infinity;
+    minimum = Math.min(minimum, faceFloorGap(rig, i));
+  }
+  return minimum;
+}
+function faceLimit(value, joint, axis) {
+  const name = XYZ_AXES[axis], range = joint.poseLimits?.[name], rest = clamp(finite(joint.restOffset?.[name]), -145, 145);
+  const low = range?.length === 2 ? Math.max(-180, rest + finite(range[0], -180)) : -180;
+  const high = range?.length === 2 ? Math.min(180, rest + finite(range[1], 180)) : 180;
+  return clamp(value, Math.min(low, high), Math.max(low, high));
+}
+/** Keep bounded head/feeler geometry above the same six-foot floor used by
+ * graphics. Inputs are already degree poses; non-face angles are never edited.
+ * A calibrated rest branch supplies deterministic safe references, independent
+ * of call order. Only impossible support layouts need derived world-unit lift. */
+export function constrainRoachFloorPose(pose, joints, scene, out = pose) {
+  const count = joints.length * 3;
+  if (!out || out.length < count) throw new RangeError('A pose buffer needs three values per joint.');
+  if (out !== pose) copyFloorPose(pose, out, count);
+  if (scene) scene.floorLift = 0;
+  const rig = scene && floorRig(joints);
+  if (!rig) return out;
+  const body = scene.body, values = rig.sceneValues, precision = out.BYTES_PER_ELEMENT || 8;
+  values[0] = finite(body?.pitch); values[1] = finite(body?.roll); values[2] = finite(body?.yaw); values[3] = finite(body?.lift);
+  let same = rig.hasInput && rig.precision === precision;
+  for (let i = 0; i < values.length; i++) if (rig.sceneKey[i] !== values[i]) same = false;
+  for (let i = 0; i < count && same; i++) if (rig.input[i] !== out[i]) same = false;
+  if (same) { copyFloorPose(rig.output, out, count); scene.floorLift = rig.lift; return out; }
+  copyFloorPose(out, rig.input, count); rig.sceneKey.set(values); rig.precision = precision;
+  for (const i of rig.faces) for (let a = 0; a < 3; a++) out[i * 3 + a] = faceLimit(finite(out[i * 3 + a]), joints[i], a);
+  rig.normal.set(rig.frame.dorsal);
+  // R = left(-pitch) * forward(roll) * dorsal(yaw), matching the viewer's
+  // quaternion multiplication. R^T applied to the normal reverses that order.
+  rotateFloorNormal(rig.normal, rig.frame.left, values[0]);
+  rotateFloorNormal(rig.normal, rig.frame.forward, -values[1]);
+  rotateFloorNormal(rig.normal, rig.frame.dorsal, -values[2]);
+  forwardKinematics(rig.core, out, joints);
+  let lowest = Infinity;
+  for (const i of rig.feet) { const p = joints[i].kinematics.footTip; lowest = Math.min(lowest, floorHeight(rig, i, p[0], p[1], p[2])); }
+  rig.plane = lowest - .006 - values[3] * rig.frame.bodyLength;
+  for (let attempt = 0; attempt < rig.faces.length; attempt++) {
+    let bad = -1;
+    for (const i of rig.faces) if (faceFloorGap(rig, i) < -1e-8 || !faceCoreSafe(rig, i)) { bad = i; break; }
+    if (bad < 0) break;
+    copyFloorPose(out, rig.current, count);
+    let branch = bad, gap = -Infinity, mask;
+    // Try the smallest offending face subtree first. A lowered head pivot may
+    // require its neck parent; unrelated antenna and all leg values stay put.
+    while (branch >= 0) {
+      mask = rig.masks.get(branch);
+      copyFloorPose(rig.current, out, count);
+      for (const i of rig.faces) if (mask[i]) for (let a = 0; a < 3; a++) out[i * 3 + a] = faceLimit(rig.core.neutral[i * 3 + a], joints[i], a);
+      forwardKinematics(rig.core, out, joints); gap = branchFloorGap(rig, mask);
+      if (gap >= 0) break;
+      let parent = rig.core.parents[branch];
+      while (parent >= 0 && !rig.masks.has(parent)) parent = rig.core.parents[parent];
+      if (parent < 0) break;
+      branch = parent;
+    }
+    copyFloorPose(out, rig.reference, count); copyFloorPose(out, rig.best, count);
+    if (gap < 0) {
+      // A small deterministic posture bank makes room under tilted bodies.
+      // It changes only this face branch, never the supports or player state.
+      let bestGap = gap;
+      for (const i of rig.faces) if (mask[i] && metadata(joints[i]).kind !== 'antenna') {
+        for (let axis = 0; axis < 3 && gap < 0; axis++) for (const angle of FLOOR_ANGLES) {
+          copyFloorPose(rig.reference, out, count);
+          out[i * 3 + axis] = faceLimit(rig.reference[i * 3 + axis] + angle, joints[i], axis);
+          forwardKinematics(rig.core, out, joints); const candidate = branchFloorGap(rig, mask);
+          if (candidate > bestGap) { bestGap = candidate; copyFloorPose(out, rig.best, count); }
+          if (candidate >= 0) { gap = candidate; break; }
+        }
+        if (gap >= 0) break;
+      }
+      copyFloorPose(rig.best, out, count); gap = bestGap;
+    }
+    if (gap >= 0) {
+      copyFloorPose(out, rig.reference, count);
+      let low = 0, high = 1;
+      for (let pass = 0; pass < 11; pass++) {
+        const f = (low + high) * .5;
+        for (const i of rig.faces) if (mask[i]) for (let a = 0; a < 3; a++) { const p = i * 3 + a; out[p] = rig.reference[p] + (rig.current[p] - rig.reference[p]) * f; }
+        forwardKinematics(rig.core, out, joints);
+        if (branchFloorGap(rig, mask) >= 0) low = f; else high = f;
+      }
+      for (const i of rig.faces) if (mask[i]) for (let a = 0; a < 3; a++) { const p = i * 3 + a; out[p] = rig.reference[p] + (rig.current[p] - rig.reference[p]) * low; }
+    }
+    forwardKinematics(rig.core, out, joints);
+    if (gap < 0) break;
+  }
+  // Lifting this accepted support layout by exactly its remaining deficit is
+  // the bounded fallback when no reference posture fits under the body tilt.
+  let minimum = Infinity;
+  for (const i of rig.faces) minimum = Math.min(minimum, faceFloorGap(rig, i));
+  scene.floorLift = Math.max(0, -minimum);
+  copyFloorPose(out, rig.output, count); rig.lift = scene.floorLift; rig.hasInput = true;
+  return out;
+}
+
 const EDITED_FOOT_CACHES = new WeakMap();
 function editedFootCache(controls, joints) {
   const tracks = controls.tracks;

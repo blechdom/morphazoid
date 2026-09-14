@@ -1,7 +1,8 @@
 import * as THREE from '../vendor/three/three.module.min.js';
 import { GLTFLoader } from '../vendor/three/loaders/GLTFLoader.js';
 import { MeshoptDecoder } from '../vendor/meshoptimizer/meshopt_decoder.module.js';
-import { articulateRoachWings, updateRoachWingFans, roachWingDisplayPoints } from './roach-synth-wings.js?v=291f01aef669';
+import { constrainRoachPose, constrainRoachFloorPose } from './roach-synth-motion.js?v=0f50ed8f1f29';
+import { articulateRoachWings, updateRoachWingFans, roachWingDisplayPoints } from './roach-synth-wings.js?v=0f50ed8f1f29';
 
 const MAX_BYTES = 64 * 1024 * 1024;
 const MESHOPT = 'EXT_meshopt_compression';
@@ -257,6 +258,13 @@ export function createRoachViewer({ canvas, onStatus = () => {}, onRig = () => {
   let groundingOffset = 0;
   let contactEvidence = [];
   let footJoints = [];
+  let poseJoints = [];
+  let appliedPose = new Float32Array(0);
+  let composedPose = new Float32Array(0);
+  let editPose = new Float32Array(0);
+  const defaultScene = { body: { lift: 0, pitch: 0, roll: 0, yaw: 0 }, floorLift: 0 };
+  const editScene = { body: {}, floorLift: 0 };
+  let floorParts = [];
   let externalPose = null;
   let renderFps = 60;
   let renderPixelRatio = 1.75;
@@ -316,6 +324,7 @@ export function createRoachViewer({ canvas, onStatus = () => {}, onRig = () => {
       authoredReconstruction: !!item.bone.userData.authoredReconstruction,
       poseLimits: item.poseLimits ?? null, collisionSamples: item.collisionSamples ?? null,
       bodyEllipsoid: item.bodyEllipsoid ?? null,
+      floorBounds: item.floorBounds ?? null, groundFrame: item.groundFrame ?? null,
       screenPosition: { x: rect.left + (point.x + 1) * rect.width / 2,
         y: rect.top + (1 - point.y) * rect.height / 2, inFrame: Math.abs(point.x) <= 1 && Math.abs(point.y) <= 1 && Math.abs(point.z) <= 1 },
       offset: { ...item.offset }, motion: { ...item.motion }, quaternion: item.bone.quaternion.toArray() };
@@ -330,7 +339,7 @@ export function createRoachViewer({ canvas, onStatus = () => {}, onRig = () => {
       skeletonVisible, reducedMotion: motionQuery.matches,
       camera: { position: camera.position.toArray(), quaternion: camera.quaternion.toArray(),
         target: target.toArray(), distance, viewPreset, side: viewSide },
-      externalPoseActive: externalPose !== null, renderBudget: { fps: renderFps, pixelRatio: renderPixelRatio }, renderCount,
+      appliedPose: Array.from(appliedPose), externalPoseActive: externalPose !== null, renderBudget: { fps: renderFps, pixelRatio: renderPixelRatio }, renderCount,
       interaction: { dragAxis, touchInteraction, touchAction: canvas.style.touchAction, pointerCount: pointers.size,
         active: gesture ? { kind: gesture.kind, jointId: gesture.id ?? null, committed: gesture.committed } : null },
       lighting: { exposure: renderer.toneMappingExposure, ambient: ambientLight.intensity,
@@ -341,6 +350,7 @@ export function createRoachViewer({ canvas, onStatus = () => {}, onRig = () => {
       ground: { visible: groundRoot.visible, receivesShadow: ground.receiveShadow, height: groundHeight,
         bodyLength: anatomy?.bodyLength ?? 0, bellyHeight: anatomy?.bellyHeight ?? 0,
         normal: anatomy?.dorsal.toArray() ?? [0, 1, 0],
+        floorLift: (sceneState ?? defaultScene).floorLift ?? 0, parts: floorParts.map((part) => ({ ...part })),
         offset: sceneState?.groundOffset ?? 0, groundingOffset, contacts: contactEvidence.map((foot) => ({ ...foot })),
         body: sceneState?.body ? { ...sceneState.body } : null },
       renderSize: { width: canvas.width, height: canvas.height }, disposed };
@@ -438,7 +448,23 @@ export function createRoachViewer({ canvas, onStatus = () => {}, onRig = () => {
     // toward the belly; do not push the rendered body through a fixed floor.
     groundHeight = bellyHeight - bodyLength * 0.12;
     calibrateStance();
+    // The authored feelers point below the lowered walking stance. Raise their
+    // calibrated rest without recording a held manual gesture in the synth.
+    for (const item of bones) {
+      const id = item.bone.userData.jointId;
+      if (id !== 'antenna_left' && id !== 'antenna_right') continue;
+      item.restOffset = { x: 0, y: id === 'antenna_left' ? 45 : -45, z: 0 };
+      item.bone.quaternion.copy(item.baseQuaternion).multiply(deltaRotation.setFromEuler(euler.set(0, item.restOffset.y * RAD, 0, 'XYZ')));
+    }
+    performer.updateMatrixWorld(true);
     captureCollisionBounds();
+    poseJoints = bones.map((item) => ({ id: item.id, jointId: item.bone.userData.jointId,
+      parent: item.parent, kinematics: item.kinematics, restOffset: item.restOffset,
+      poseLimits: item.poseLimits, collisionSamples: item.collisionSamples,
+      bodyEllipsoid: item.bodyEllipsoid, floorBounds: item.floorBounds, groundFrame: item.groundFrame }));
+    appliedPose = new Float32Array(bones.length * 3);
+    composedPose = new Float32Array(appliedPose.length);
+    editPose = new Float32Array(appliedPose.length);
     performer.updateMatrixWorld(true);
     anatomy.bounds.setFromObject(content);
     anatomy.center.copy(anatomy.bounds.getCenter(new THREE.Vector3()));
@@ -481,6 +507,8 @@ export function createRoachViewer({ canvas, onStatus = () => {}, onRig = () => {
         parentMatrix: parent ? null : parentWorld.toArray(), footTip: null };
       item.restWorldQuaternion = item.bone.getWorldQuaternion(new THREE.Quaternion());
       item.meshSamples = [];
+      const face = /^(neck|head|antenna_left|antenna_right)$/.test(item.bone.userData.jointId);
+      const floorVertices = [];
       const meshBounds = new THREE.Box3();
       const toJoint = item.bone.matrixWorld.clone().invert();
       item.bone.traverse((object) => {
@@ -492,10 +520,30 @@ export function createRoachViewer({ canvas, onStatus = () => {}, onRig = () => {
         if (!object.geometry.boundingBox) object.geometry.computeBoundingBox();
         meshBounds.union(object.geometry.boundingBox.clone().applyMatrix4(relativeMesh));
         const vertices = object.geometry.attributes.position;
+        if (face) for (let i = 0; i < vertices.count; i += 1) {
+          floorVertices.push(new THREE.Vector3().fromBufferAttribute(vertices, i).applyMatrix4(relativeMesh));
+        }
         for (let i = 0; i < vertices.count; i += Math.max(1, Math.ceil(vertices.count / 32))) {
           item.meshSamples.push(new THREE.Vector3().fromBufferAttribute(vertices, i).applyMatrix4(relativeMesh));
         }
       });
+      // Conservative occupied-cell bounds enclose every rendered vertex. This
+      // one-time scan yields at most 512 points; audio never traverses meshes.
+      if (floorVertices.length) {
+        const size = meshBounds.getSize(new THREE.Vector3());
+        const cells = new Map();
+        for (const vertex of floorVertices) {
+          const cell = ['x', 'y', 'z'].map((axis) => Math.min(3, Math.max(0,
+            Math.floor((vertex[axis] - meshBounds.min[axis]) / Math.max(1e-9, size[axis]) * 4))));
+          const key = cell[0] + cell[1] * 4 + cell[2] * 16;
+          if (!cells.has(key)) cells.set(key, new THREE.Box3());
+          cells.get(key).expandByPoint(vertex);
+        }
+        item.floorBounds = [];
+        for (const box of cells.values()) for (let mask = 0; mask < 8; mask += 1) item.floorBounds.push([
+          mask & 1 ? box.max.x : box.min.x, mask & 2 ? box.max.y : box.min.y, mask & 4 ? box.max.z : box.min.z,
+        ]);
+      }
       item.meshCenter = meshBounds.isEmpty() ? null : meshBounds.getCenter(new THREE.Vector3());
       if (item.meshCenter) item.meshSamples.unshift(item.meshCenter);
       const footIndex = terminalIds.indexOf(item.bone.userData.jointId);
@@ -524,6 +572,8 @@ export function createRoachViewer({ canvas, onStatus = () => {}, onRig = () => {
   function captureCollisionBounds() {
     const body = bones.find((item) => item.bone.userData.jointId === 'body');
     const abdomen = bones.find((item) => item.bone.userData.jointId === 'abdomen');
+    if (body) body.groundFrame = { dorsal: anatomy.dorsal.toArray(), forward: anatomy.forward.toArray(),
+      left: anatomy.left.toArray(), bodyLength: anatomy.bodyLength };
     if (body && abdomen) {
       const box = new THREE.Box3();
       const inverse = body.bone.matrixWorld.clone().invert();
@@ -791,7 +841,16 @@ export function createRoachViewer({ canvas, onStatus = () => {}, onRig = () => {
         else if (item.motion.axis === 'y') y += value;
         else z += value;
       }
-      deltaRotation.setFromEuler(euler.set(x * RAD, y * RAD, z * RAD, 'XYZ'));
+      appliedPose[item.index * 3] = x;
+      appliedPose[item.index * 3 + 1] = y;
+      appliedPose[item.index * 3 + 2] = z;
+    }
+    constrainRoachPose(appliedPose, poseJoints);
+    composedPose.set(appliedPose);
+    constrainRoachFloorPose(appliedPose, poseJoints, sceneState ?? defaultScene);
+    for (const item of bones) {
+      const index = item.index * 3;
+      deltaRotation.setFromEuler(euler.set(appliedPose[index] * RAD, appliedPose[index + 1] * RAD, appliedPose[index + 2] * RAD, 'XYZ'));
       item.bone.quaternion.multiply(deltaRotation).normalize();
     }
     performer.updateMatrixWorld(true);
@@ -841,13 +900,21 @@ export function createRoachViewer({ canvas, onStatus = () => {}, onRig = () => {
       lowest = Math.min(lowest, worldFoot.dot(dorsal));
     }
     groundingOffset = Number.isFinite(lowest) ? groundHeight - lowest + 0.006 : 0;
-    performer.position.addScaledVector(dorsal, groundingOffset + (body?.lift ?? 0) * bodyLength);
+    performer.position.addScaledVector(dorsal, groundingOffset + (body?.lift ?? 0) * bodyLength + ((sceneState ?? defaultScene).floorLift ?? 0));
     performer.updateMatrixWorld(true);
     shadeCenter.copy(bodyCenter).applyMatrix4(performer.matrixWorld);
     groundRoot.worldToLocal(shadeCenter);
     contactShade.position.set(shadeCenter.x, shadeCenter.y, 0.001);
     contactShade.material.uniforms.opacity.value = 0.34 / (1 + Math.max(0, body?.lift ?? 0) * 7);
     groundTexture.offset.y = ((sceneState?.groundOffset ?? 0) * bodyLength * 28 / 12) % 1;
+    floorParts.length = 0;
+    for (const item of bones) {
+      if (!item.floorBounds?.length) continue;
+      let clearance = Infinity;
+      for (const point of item.floorBounds) clearance = Math.min(clearance,
+        projected.fromArray(point).applyMatrix4(item.bone.matrixWorld).dot(dorsal) - groundHeight);
+      floorParts.push({ id: item.id, jointId: item.bone.userData.jointId, clearance });
+    }
     contactEvidence.length = 0;
     for (const foot of footJoints) {
       const state = sceneState?.feet?.[foot.index];
@@ -904,6 +971,12 @@ export function createRoachViewer({ canvas, onStatus = () => {}, onRig = () => {
     anatomy = null;
     sceneState = null;
     footJoints = [];
+    poseJoints = [];
+    appliedPose = new Float32Array(0);
+    composedPose = new Float32Array(0);
+    editPose = new Float32Array(0);
+    defaultScene.floorLift = 0;
+    floorParts = [];
     contactEvidence = [];
     groundRoot.visible = false;
     performer.position.set(0, 0, 0);
@@ -991,6 +1064,7 @@ export function createRoachViewer({ canvas, onStatus = () => {}, onRig = () => {
     else {
       if (!sceneState) sceneState = { body: { lift: 0, pitch: 0, roll: 0, yaw: 0 }, groundOffset: 0,
         feet: Array.from({ length: 6 }, () => ({ stance: false, impact: 0, lift: 0, stride: 0 })) };
+      sceneState.floorLift = clamp(value.floorLift, 0, 10);
       sceneState.body.lift = clamp(value.body?.lift, 0, 2);
       for (const axis of ['pitch', 'roll', 'yaw']) sceneState.body[axis] = clamp(value.body?.[axis], -180, 180);
       sceneState.groundOffset = clamp(value.groundOffset, -1e8, 1e8);
@@ -1279,7 +1353,27 @@ export function createRoachViewer({ canvas, onStatus = () => {}, onRig = () => {
     canvas.style.cursor = 'grab';
   }
   function editJoint(item, offset, velocity = 0, phase = 'change') {
-    setBoneOffset(item.id, offset);
+    // Project a proposed edit against the currently composed pose, then keep
+    // only accepted deltas. Animation, MIDI and speech retain their own state.
+    applyPose(0);
+    editPose.set(appliedPose);
+    for (let axis = 0; axis < 3; axis += 1) {
+      const key = ['x', 'y', 'z'][axis];
+      editPose[item.index * 3 + axis] += clamp(offset[key], -180, 180) - item.offset[key];
+    }
+    Object.assign(editScene.body, (sceneState ?? defaultScene).body);
+    constrainRoachPose(editPose, poseJoints);
+    constrainRoachFloorPose(editPose, poseJoints, editScene);
+    for (const joint of bones) for (let axis = 0; axis < 3; axis += 1) {
+      const index = joint.index * 3 + axis;
+      if (joint === item || Math.abs(editPose[index] - appliedPose[index]) > 1e-7) {
+        // The held offset must cancel any contribution the floor previously
+        // rejected; measuring from the displayed angle would preserve a hidden
+        // animation/MIDI overshoot and swallow a permitted reverse drag.
+        joint.offset[['x', 'y', 'z'][axis]] += editPose[index] - composedPose[index];
+      }
+    }
+    invalidate();
     onPoseChange({ id: item.id, jointId: item.bone.userData.jointId ?? item.id,
       offset: { ...item.offset }, axis: dragAxis, phase, velocity });
   }
@@ -1338,6 +1432,10 @@ export function createRoachViewer({ canvas, onStatus = () => {}, onRig = () => {
       for (const component of ['x', 'y', 'z']) offset[component] = clamp(offset[component], -90, 90);
       const velocity = clamp(Math.hypot(dx, dy) / Math.max(8, event.timeStamp - gesture.time) / 1.7, 0.04, 1);
       editJoint(item, offset, velocity);
+      // Discard blocked travel so reversing the pointer releases immediately.
+      gesture.offset = { ...item.offset };
+      gesture.x = event.clientX;
+      gesture.y = event.clientY;
       interaction('change', velocity);
     } else if (pointers.size === 1) {
       orbit(dx * 0.006, (gesture.scrollTouch ? 0 : dy) * 0.006);
