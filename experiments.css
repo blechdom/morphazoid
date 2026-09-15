@@ -45,6 +45,88 @@
   gap: 12px;
 }
 
+/* Automatapoeia keeps seed, speed and sound within the first control screen. */
+#automata #stageReadout {
+  padding: 4px 6px;
+  background: color-mix(in oklab, var(--bg-deep) 90%, transparent);
+}
+
+#automata .automata-compact-section > .experiment-card-heading {
+  padding: 12px 16px 8px;
+}
+
+#automata .automata-compact-section > .group-body {
+  display: grid;
+  padding: 0 16px 12px;
+  gap: 10px;
+}
+
+#automata .automata-compact-section :is(.control, .select-control, .experiment-button-grid, .automata-rule-picker) {
+  margin: 0;
+}
+
+#automata .automata-control-pair {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+#automata .automata-control-pair .control > span {
+  display: grid;
+  align-content: start;
+  min-height: 32px;
+  gap: 3px;
+}
+
+#automata .automata-control-pair output {
+  text-align: left;
+  white-space: normal;
+}
+
+#automata .automata-sound-details > summary {
+  display: list-item;
+  padding: 12px 0;
+  color: var(--accent);
+  cursor: pointer;
+  font-size: 11px;
+}
+
+#automata .automata-sound-details-body {
+  display: grid;
+  padding: 4px 0 8px;
+  gap: 12px;
+}
+
+@media (pointer: coarse) {
+  #automata :is(.experiment-button-grid button, select, summary) {
+    min-height: 48px;
+  }
+}
+
+@media (max-width: 960px) {
+  #automata {
+    grid-template-rows: minmax(180px, 46%) minmax(0, 1fr);
+  }
+
+  #automata .stage-meta {
+    display: none;
+  }
+}
+
+@media (min-width: 600px) and (max-width: 960px) and (max-height: 560px) {
+  #automata {
+    grid-template-columns: minmax(0, 1fr) 320px;
+    grid-template-rows: minmax(0, 1fr);
+  }
+
+  #automata .stage {
+    position: relative;
+    border-right: 1px solid var(--line);
+    border-bottom: 0;
+    box-shadow: none;
+  }
+}
+
 .experiment-card {
   padding: 16px;
 }

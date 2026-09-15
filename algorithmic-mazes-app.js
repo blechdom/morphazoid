@@ -347,12 +347,46 @@ function partialCurve(curve, amount) {
   };
 }
 
+let mazeViewportCache = null;
+
+function mazeViewport() {
+  if (mazeViewportCache?.maze === state.maze
+    && mazeViewportCache.width === cssWidth
+    && mazeViewportCache.height === cssHeight) return mazeViewportCache;
+  let minX = Infinity;
+  let maxX = -Infinity;
+  let minY = Infinity;
+  let maxY = -Infinity;
+  for (const cell of state.maze.cells) {
+    for (const vertex of cell.polygon) {
+      minX = Math.min(minX, vertex.x);
+      maxX = Math.max(maxX, vertex.x);
+      minY = Math.min(minY, vertex.y);
+      maxY = Math.max(maxY, vertex.y);
+    }
+  }
+  // Fit actual topology bounds without stretching circles or hexagons. Cache
+  // once per maze/resize; drawing and cell picking share this same projection.
+  const scale = Math.min(
+    Math.max(1, cssWidth - 24) / Math.max(0.001, maxX - minX),
+    Math.max(1, cssHeight - 24) / Math.max(0.001, maxY - minY),
+  );
+  mazeViewportCache = {
+    maze: state.maze,
+    width: cssWidth,
+    height: cssHeight,
+    scale,
+    x: cssWidth / 2 - (minX + maxX) * scale / 2,
+    y: cssHeight / 2 + (minY + maxY) * scale / 2,
+  };
+  return mazeViewportCache;
+}
+
 function screenPoint(current) {
-  const margin = Math.max(38, Math.min(cssWidth, cssHeight) * 0.075);
-  const scale = Math.max(1, Math.min(cssWidth - margin * 2, cssHeight - margin * 2) / 2);
+  const view = mazeViewport();
   return {
-    x: cssWidth / 2 + current.x * scale,
-    y: cssHeight / 2 - current.y * scale,
+    x: view.x + current.x * view.scale,
+    y: view.y - current.y * view.scale,
   };
 }
 

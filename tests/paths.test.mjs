@@ -126,7 +126,6 @@ test("Paths page keeps generation primary and explanatory chrome absent", async 
   assert.doesNotMatch(html, /id="(?:warp|motion|rotation)"|>Shape</);
   assert.doesNotMatch(html, /<p class="control-note"|class="instrument-info/);
   assert.match(css, /\.paths-shell\s*\{/);
-  assert.match(css, /\.paths-stage-wrap\s*\{[\s\S]*?aspect-ratio: 1;/);
   assert.match(css, /@media \(max-width: 960px\)/);
   assert.match(css, /@media \(max-width: 960px\)[\s\S]*?\.paths-panel\s*\{[\s\S]*?overflow-y: auto;/);
   assert.match(app, /new VoicePool\(8/);

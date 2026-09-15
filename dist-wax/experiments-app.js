@@ -1537,14 +1537,14 @@ function drawAutomata() {
   clearStage();
   if (!state.caRows.length) seedAutomata();
   const width = Math.max(1, ...state.caRows.map((row) => row.length));
-  const topInset = canvasWidth < 520 ? 112 : 0;
-  const drawableHeight = Math.max(120, canvasHeight - topInset - 28);
-  const cell = Math.max(1, Math.min(canvasWidth / width, canvasHeight / 90));
-  const rowsVisible = Math.min(state.caRows.length, Math.floor((drawableHeight * 0.92) / cell));
+  // Fill the viewport with square cells; crop only the oldest partial row.
+  // History and the audio clock stay independent of the display dimensions.
+  const cell = canvasWidth / width;
+  const rowsVisible = Math.min(state.caRows.length, Math.ceil(canvasHeight / cell));
   const startRow = Math.max(0, state.caRows.length - rowsVisible);
-  const gridWidth = width * cell;
-  const x0 = (canvasWidth - gridWidth) / 2;
-  const y0 = topInset + (drawableHeight - rowsVisible * cell) / 2;
+  const gridWidth = canvasWidth;
+  const x0 = 0;
+  const y0 = Math.min(0, canvasHeight - rowsVisible * cell);
   const raster = updateAutomataRaster(width, rowsVisible, startRow);
   ctx.save();
   ctx.imageSmoothingEnabled = false;

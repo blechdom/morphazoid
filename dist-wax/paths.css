@@ -15,23 +15,22 @@
 }
 
 .paths-shell {
-  min-height: calc(100svh - 58px);
+  min-height: 0;
   grid-template-columns: minmax(0, 1fr) minmax(350px, 390px);
 }
 
 .paths-stage {
   min-width: 0;
-  align-items: center;
-  justify-content: center;
+  align-items: stretch;
   background: #030506;
 }
 
 .paths-stage-wrap {
-  width: min(100%, calc(100svh - 58px));
+  width: 100%;
+  height: 100%;
   min-height: 0;
-  aspect-ratio: 1;
   overflow: hidden;
-  flex: 0 0 auto;
+  flex: 1 1 auto;
   background:
     linear-gradient(rgba(99, 225, 208, 0.028) 1px, transparent 1px),
     linear-gradient(90deg, rgba(239, 202, 114, 0.024) 1px, transparent 1px),
@@ -54,9 +53,9 @@
 
 .paths-phase-track {
   position: absolute;
-  right: 18px;
-  bottom: 34px;
-  left: 18px;
+  right: 12px;
+  bottom: 4px;
+  left: 12px;
   height: 2px;
   overflow: hidden;
   pointer-events: none;
@@ -72,9 +71,7 @@
 }
 
 .paths-page .stage-meta {
-  top: auto;
-  bottom: 12px;
-  background: transparent;
+  display: none;
 }
 
 .paths-page .stage-meta span {
@@ -311,11 +308,7 @@
   .paths-shell {
     min-height: 0;
     grid-template-columns: 1fr;
-    grid-template-rows: min(100vw, 65dvh) minmax(0, 1fr);
-  }
-
-  .paths-stage-wrap {
-    width: min(100%, 65dvh);
+    grid-template-rows: minmax(180px, 50%) minmax(0, 1fr);
   }
 
   .paths-panel {
@@ -324,13 +317,21 @@
   }
 }
 
-@media (max-width: 650px) {
-  .paths-phase-track {
-    right: 12px;
-    bottom: 32px;
-    left: 12px;
+@media (min-width: 600px) and (max-width: 960px) and (max-height: 560px) {
+  .paths-shell {
+    grid-template-columns: minmax(0, 1fr) 320px;
+    grid-template-rows: minmax(0, 1fr);
   }
 
+  .paths-stage {
+    position: relative;
+    border-right: 1px solid var(--line);
+    border-bottom: 0;
+    box-shadow: none;
+  }
+}
+
+@media (max-width: 650px) {
   .paths-rack {
     padding-right: 14px;
     padding-left: 14px;

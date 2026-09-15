@@ -140,7 +140,7 @@ function updateView() {
   });
   const width = Math.max(0.02, maxX - minX);
   const height = Math.max(0.02, maxY - minY);
-  const padding = Math.min(58, Math.max(30, Math.min(cssWidth, cssHeight) * 0.085));
+  const padding = 12;
   view = {
     scale: Math.max(1, Math.min(
       (cssWidth - padding * 2) / width,

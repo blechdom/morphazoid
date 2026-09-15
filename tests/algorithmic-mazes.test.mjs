@@ -142,9 +142,8 @@ test("solver targets can move without changing the generated maze", () => {
 });
 
 test("page exposes both audible graph layers and vector export", async () => {
-  const [html, css, app] = await Promise.all([
+  const [html, app] = await Promise.all([
     readFile(new URL("algorithmic-mazes.html", root), "utf8"),
-    readFile(new URL("algorithmic-mazes.css", root), "utf8"),
     readFile(new URL("algorithmic-mazes-app.js", root), "utf8"),
   ]);
   assert.match(html, /Passage centers/);
@@ -171,7 +170,6 @@ test("page exposes both audible graph layers and vector export", async () => {
   assert.match(app, /topology: "orthogonal"/);
   assert.match(app, /cycleBehavior: "hold"/);
   assert.doesNotMatch(app, /warpPoint|state\.(?:bend|twist|fieldMotion)/);
-  assert.match(css, /\.maze-stage-wrap\s*\{[\s\S]*?aspect-ratio: 1;/);
   assert.match(app, /const CARVE_PROFILES/);
   assert.match(app, /data-layer="wall-outlines"/);
   assert.match(app, /data-layer="passage-centers"/);
