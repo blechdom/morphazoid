@@ -1231,7 +1231,7 @@ function exportSvg() {
   const svg = [
     "<?xml version=\"1.0\" encoding=\"UTF-8\"?>",
     "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"-1.12 -1.12 2.24 2.24\">",
-    `<title>Algorithmic Mazes - ${state.maze.topology.label}, ${state.maze.algorithm.label}, seed ${state.seed}</title>`,
+    `<title>Mazes - ${state.maze.topology.label}, ${state.maze.algorithm.label}, seed ${state.seed}</title>`,
     "<rect x=\"-1.12\" y=\"-1.12\" width=\"2.24\" height=\"2.24\" fill=\"#050708\"/>",
     `<path id="wall-outlines" data-layer="wall-outlines" d="${wallPaths}" fill="none" stroke="${COLORS.wall}" stroke-width="0.006" stroke-linecap="square" stroke-linejoin="miter"/>`,
     `<path id="passage-centers" data-layer="passage-centers" d="${passagePaths}" fill="none" stroke="${COLORS.passage}" stroke-width="0.0045" stroke-linecap="square" stroke-linejoin="miter"/>`,
@@ -1347,7 +1347,7 @@ function bindControls() {
     Object.assign(state, DEFAULTS, { audio: keepAudio });
     voicePool.setLevel(state.level);
     regenerate({ resetTime: false, announceChange: false });
-    announce("Algorithmic Mazes reset.");
+    announce("Mazes reset.");
   });
 
   canvas.addEventListener("pointerdown", (event) => {

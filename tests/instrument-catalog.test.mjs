@@ -75,8 +75,6 @@ test("every instrument keeps factual catalogue metadata and a valid icon path", 
       ? "assets/instruments/webgpu-synths.webp"
       : instrument.id === "webgpu-chiptune"
         ? "assets/instruments/webgpu-303.webp"
-        : instrument.id === "constellation"
-        ? "assets/instruments/graph-synth.webp"
         : instrument.id === "jaw-jam"
           ? "assets/instruments/jaw-harp.webp"
           : instrument.id === "object-forge"
@@ -92,7 +90,7 @@ test("every instrument keeps factual catalogue metadata and a valid icon path", 
   }
 });
 
-test("experiments carry a works-in-progress status while regular instruments do not", () => {
+test("experiments carry a works-in-progress status, and Automatapoeia is also a Fave", () => {
   const experimentGroup = INSTRUMENT_GROUPS.find(({ id }) => id === "experiments");
   assert.ok(experimentGroup);
   const experiments = INSTRUMENTS.filter((instrument) => (
@@ -101,9 +99,16 @@ test("experiments carry a works-in-progress status while regular instruments do 
   ));
   assert.equal(experiments.length, experimentGroup.tools.length);
   assert.equal(experiments.every(({ status }) => status === "Works in progress"), true);
-  assert.equal(experiments.every(({ tags }) => (
-    tags.length === 1 && tags[0].id === "experiments"
-  )), true);
+  assert.equal(
+    experiments.filter(({ id }) => id !== "cellular-automata").every(({ tags }) => (
+      tags.length === 1 && tags[0].id === "experiments"
+    )),
+    true,
+  );
+  assert.deepEqual(
+    instrumentById("cellular-automata")?.tags.map(({ id }) => id),
+    ["experiments", "faves"],
+  );
   assert.equal(
     INSTRUMENTS.filter((instrument) => !experiments.includes(instrument))
       .every(({ status }) => status === null),
@@ -129,19 +134,14 @@ test("unfinished algorithmic scores live only in Works in progress", () => {
   }
 });
 
-test("Faves keep their regular catalogue groups and experiments never inherit the tag", () => {
+test("Faves keep their regular catalogue groups", () => {
   for (const id of FAVE_TOOL_IDS) {
     const instrument = instrumentById(id);
     assert.ok(instrument, `${id} must exist in the catalogue`);
     assert.equal(instrument.tags.some(({ id: tagId }) => tagId === "faves"), true);
     assert.notEqual(instrument.tags[0].id, "faves", `${id} keeps its primary group first`);
-    assert.equal(instrument.status, null);
+    assert.equal(instrument.status, id === "cellular-automata" ? "Works in progress" : null);
   }
-  assert.equal(
-    INSTRUMENTS.filter(({ status }) => status)
-      .some(({ tags }) => tags.some(({ id }) => id === "faves")),
-    false,
-  );
 });
 
 test("Misc group owns the uncategorized instruments including Puggler", () => {

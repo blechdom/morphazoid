@@ -251,6 +251,7 @@ test("tool registry is categorized, unique, and includes Morphazoidical", () => 
     "graph-synth",
     "lattice",
     "spiral",
+    "cellular-automata",
   ]);
   assert.deepEqual(
     TOOL_GROUPS.map((group) => group.label),
@@ -602,7 +603,6 @@ test("tool registry is categorized, unique, and includes Morphazoidical", () => 
     ),
     [
       { id: "rubix", href: "rubix.html" },
-      { id: "constellation", href: "constellation.html" },
       { id: "sliding-puzzle", href: "sliding-puzzle.html" },
       { id: "hocket-loom", href: "hocket-loom.html" },
       { id: "hyper-rubix", href: "hyper-rubix.html" },
@@ -703,7 +703,6 @@ test("tool registry is categorized, unique, and includes Morphazoidical", () => 
       { id: "micmic", label: "L-system Delay", href: "l-mic.html" },
       { id: "graph-delay", label: "Graph Delay", href: "graph-delay.html" },
       { id: "micromorph", label: "Micromorph", href: "micromorph.html" },
-      { id: "plugazoid", label: "Plugazoid", href: "plugazoid.html" },
     ],
   );
   assert.deepEqual(
@@ -892,7 +891,6 @@ test("tool registry is categorized, unique, and includes Morphazoidical", () => 
       { id: "morphynx", href: "morphynx.html" },
       { id: "escher-tessellation", href: "escher-tessellation.html" },
       { id: "plasma-ball", href: "plasma-ball.html" },
-      { id: "ffmpeg-wasm", href: "ffmpeg-wasm.html" },
       { id: "simd-resonator", href: "simd-resonator.html" },
       { id: "simd-audio-lab", href: "simd-audio-lab.html" },
       { id: "order-tones", href: "order-tones.html" },
@@ -1170,7 +1168,12 @@ test("shared navigation creates a searchable accordion picker and preserves the 
   const pickerLinks = picker.findAll(
     (node) => node.classList.contains("instrument-picker-link"),
   );
-  assert.equal(pickerLinks.length, pickerTools.length);
+  assert.equal(
+    pickerLinks.length,
+    pickerTools.length + FAVE_TOOL_IDS.filter(
+      (id) => !pickerTools.some((tool) => tool.id === id),
+    ).length,
+  );
   const shapeLink = pickerLinks.find((link) => link.getAttribute("data-tool-id") === "shape");
   const shapeIcon = shapeLink.querySelector(".instrument-picker-link-icon");
   assert.equal(shapeIcon.tagName, "IMG");
@@ -1235,7 +1238,7 @@ test("shared navigation creates a searchable accordion picker and preserves the 
   assert.equal(doc.select.children.indexOf(appsOptionGroup), 1);
   assert.deepEqual(
     appsOptionGroup.children.map((option) => option.textContent),
-    ["Shapes", "L-Systems", "Tiles", "Algorithmic Mazes", "Paths"],
+    ["Shapes", "L-Systems", "Tiles", "Mazes", "Paths"],
   );
   const selectedOptions = doc.select.findAll((node) => node.tagName === "OPTION" && node.selected);
   const orbitalFerrisOption = doc.select.findAll(
