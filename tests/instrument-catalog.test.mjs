@@ -100,14 +100,14 @@ test("experiments carry a works-in-progress status, and Automatapoeia is also a 
   assert.equal(experiments.length, experimentGroup.tools.length);
   assert.equal(experiments.every(({ status }) => status === "Works in progress"), true);
   assert.equal(
-    experiments.filter(({ id }) => id !== "cellular-automata").every(({ tags }) => (
+    experiments.every(({ tags }) => (
       tags.length === 1 && tags[0].id === "experiments"
     )),
     true,
   );
   assert.deepEqual(
     instrumentById("cellular-automata")?.tags.map(({ id }) => id),
-    ["experiments", "faves"],
+    ["algorithmic-sequencers", "faves"],
   );
   assert.equal(
     INSTRUMENTS.filter((instrument) => !experiments.includes(instrument))
@@ -125,7 +125,7 @@ test("unfinished algorithmic scores live only in Works in progress", () => {
     ({ id }) => id === "experiments",
   )?.tools.map(({ id }) => id);
 
-  assert.deepEqual(algorithmicIds, ["sorting-algorithms", "dijkstra"]);
+  assert.deepEqual(algorithmicIds, ["cellular-automata", "sorting-algorithms", "dijkstra"]);
   for (const id of movedIds) {
     const instrument = instrumentById(id);
     assert.equal(experimentIds.includes(id), true);
@@ -140,12 +140,13 @@ test("Faves keep their regular catalogue groups", () => {
     assert.ok(instrument, `${id} must exist in the catalogue`);
     assert.equal(instrument.tags.some(({ id: tagId }) => tagId === "faves"), true);
     assert.notEqual(instrument.tags[0].id, "faves", `${id} keeps its primary group first`);
-    assert.equal(instrument.status, id === "cellular-automata" ? "Works in progress" : null);
+    assert.equal(instrument.status, null);
   }
 });
 
 test("Misc group owns the uncategorized instruments including Puggler", () => {
   const ids = [
+    "moire-drone",
     "playhead-paint",
     "boidzoid",
     "puggler",
@@ -227,7 +228,7 @@ test("Fabric Filter catalogues its two-dimensional noise-filter collision engine
   assert.ok(instrument?.features.includes("Pointer"));
   assert.ok(instrument?.features.includes("MIDI"));
   assert.equal(instrument?.features.includes("Computer keys"), false);
-  assert.deepEqual(instrument?.tags.map(({ id }) => id), ["barber-shop-poles"]);
+  assert.deepEqual(instrument?.tags.map(({ id }) => id), ["misc"]);
   const midi = instrumentMidiCapabilityForId("moire-drone");
   assert.equal(midi?.noteMode, "processor");
   assert.equal(midi?.audioInput, false);

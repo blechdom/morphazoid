@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <filter id="glow-mz2" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="12" result="b1"/>
+      <feMerge><feMergeNode in="b1"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+
+  <!-- 3 Mouth Horn Resonators at top -->
+  <path d="M 170 120 L 140 60 L 200 60 Z" fill="#00ffb2" fill-opacity="0.3" stroke="#00ffb2" stroke-width="6"/>
+  <path d="M 256 120 L 256 50" stroke="#00ffb2" stroke-width="8" stroke-linecap="round"/>
+  <circle cx="256" cy="50" r="14" fill="#ffffff" stroke="#00ffb2" stroke-width="4"/>
+  <path d="M 342 120 L 372 60 L 312 60 Z" fill="#00ffb2" fill-opacity="0.3" stroke="#00ffb2" stroke-width="6"/>
+
+  <!-- Central Valve Routing Matrix (Cyan) -->
+  <rect x="156" y="120" width="200" height="120" rx="20" fill="#040e0b" stroke="#00e5ff" stroke-width="8"/>
+  <!-- Matrix Valve Pips -->
+  <circle cx="196" cy="155" r="10" fill="#ffcc00"/>
+  <circle cx="256" cy="155" r="10" fill="#ff2a85"/>
+  <circle cx="316" cy="155" r="10" fill="#00ffb2"/>
+  <circle cx="196" cy="205" r="10" fill="#00e5ff"/>
+  <circle cx="256" cy="205" r="14" fill="#ffffff" filter="url(#glow-mz2)"/>
+  <circle cx="316" cy="205" r="10" fill="#ffcc00"/>
+
+  <!-- 4 Independent Airway Lungs below (Coral & Mint) -->
+  <ellipse cx="140" cy="330" rx="34" ry="75" fill="#ff2a85" fill-opacity="0.25" stroke="#ff2a85" stroke-width="7"/>
+  <ellipse cx="218" cy="345" rx="30" ry="85" fill="#00ffb2" fill-opacity="0.25" stroke="#00ffb2" stroke-width="7"/>
+  <ellipse cx="294" cy="345" rx="30" ry="85" fill="#00ffb2" fill-opacity="0.25" stroke="#00ffb2" stroke-width="7"/>
+  <ellipse cx="372" cy="330" rx="34" ry="75" fill="#ff2a85" fill-opacity="0.25" stroke="#ff2a85" stroke-width="7"/>
+
+  <!-- Interconnecting Trachea Pipes -->
+  <line x1="140" y1="255" x2="196" y2="240" stroke="#ff2a85" stroke-width="6"/>
+  <line x1="218" y1="260" x2="236" y2="240" stroke="#00ffb2" stroke-width="6"/>
+  <line x1="294" y1="260" x2="276" y2="240" stroke="#00ffb2" stroke-width="6"/>
+  <line x1="372" y1="255" x2="316" y2="240" stroke="#ff2a85" stroke-width="6"/>
+</svg>

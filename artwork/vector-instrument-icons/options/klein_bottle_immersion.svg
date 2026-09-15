@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <filter id="glow-kb" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="12" result="b1"/>
+      <feMerge><feMergeNode in="b1"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+
+  <!-- Outer Bulb Body (Mint #00ffb2 - 11px) -->
+  <path d="M 190 100 C 120 100, 75 180, 75 280 C 75 390, 150 440, 256 440 C 362 440, 437 390, 437 280 C 437 180, 392 100, 322 100 L 322 210" fill="#00ffb2" fill-opacity="0.14" stroke="#00ffb2" stroke-width="11" stroke-linecap="round"/>
+
+  <!-- Neck Loop curving out and re-entering the base (Electric Cyan #00e5ff - 10px) -->
+  <path d="M 190 100 C 190 50, 322 50, 322 100 L 322 250 C 322 340, 256 380, 256 440" fill="none" stroke="#00e5ff" stroke-width="10" stroke-linecap="round"/>
+
+  <!-- Self-Intersection Window (Where neck passes through body wall - Coral #ff2a85) -->
+  <ellipse cx="256" cy="275" rx="36" ry="18" fill="#040e0b" stroke="#ff2a85" stroke-width="6"/>
+
+  <!-- Dual Slicing Curves / Waveform Trajectories -->
+  <path d="M 120 300 Q 256 360 392 300" fill="none" stroke="#ffcc00" stroke-width="6" stroke-dasharray="10,8"/>
+  <circle cx="256" cy="330" r="14" fill="#ffcc00" filter="url(#glow-kb)"/>
+  <circle cx="256" cy="330" r="6" fill="#ffffff"/>
+
+  <!-- Top Mouth Flange -->
+  <ellipse cx="256" cy="65" rx="42" ry="16" fill="#040a08" stroke="#00ffb2" stroke-width="5"/>
+  <circle cx="256" cy="65" r="5" fill="#ffffff"/>
+</svg>

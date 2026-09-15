@@ -1,0 +1,58 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <filter id="glow-hb-int" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="12" result="b1"/>
+      <feMerge><feMergeNode in="b1"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+
+  <!-- Multi-Track Keyframe Score Grid below -->
+  <!-- 4 Horizontal Pitch Tracks -->
+  <line x1="50" y1="400" x2="462" y2="400" stroke="#00e5ff" stroke-width="4" opacity="0.6"/>
+  <line x1="50" y1="430" x2="462" y2="430" stroke="#ffcc00" stroke-width="4" opacity="0.6"/>
+  <line x1="50" y1="460" x2="462" y2="460" stroke="#ff2a85" stroke-width="4" opacity="0.6"/>
+
+  <!-- Keyframe diamond nodes along the score -->
+  <polygon points="120,394 126,400 120,406 114,400" fill="#00e5ff"/>
+  <polygon points="280,394 286,400 280,406 274,400" fill="#00e5ff"/>
+  <polygon points="390,394 396,400 390,406 384,400" fill="#00e5ff"/>
+
+  <polygon points="180,424 186,430 180,436 174,430" fill="#ffcc00"/>
+  <polygon points="330,424 336,430 330,436 324,430" fill="#ffcc00"/>
+
+  <polygon points="150,454 156,460 150,466 144,460" fill="#ff2a85"/>
+  <polygon points="360,454 366,460 360,466 354,460" fill="#ff2a85"/>
+
+  <!-- Dynamic Playhead Needle Cursor -->
+  <line x1="330" y1="365" x2="330" y2="480" stroke="#ffffff" stroke-width="4.5" filter="url(#glow-hb-int)"/>
+  <polygon points="330,360 323,375 337,375" fill="#ffcc00"/>
+
+  <!-- Layered Feathers / Horn Spines on Crest (Violet & Cyan) -->
+  <path d="M 125 190 L 60 145 L 140 155 L 80 105 L 165 120 L 120 65 L 210 95 L 190 40 L 260 75" fill="none" stroke="#b85dff" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M 140 170 L 95 135 L 150 145 L 115 105 L 175 115 L 145 75 L 210 95" fill="none" stroke="#00e5ff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <!-- Neck / Trachea Column (Phosphor Mint #00ffb2 - 14px bold) -->
+  <path d="M 125 190 C 165 270, 160 340, 175 400" fill="none" stroke="#00ffb2" stroke-width="14" stroke-linecap="round"/>
+  <path d="M 125 190 C 165 270, 160 340, 175 400" fill="none" stroke="#ffffff" stroke-width="4" stroke-linecap="round"/>
+
+  <!-- Hooked Raptor Beak / Upper Jaw (Warm Gold #ffcc00) -->
+  <path d="M 260 75 C 320 80, 395 110, 445 155 C 475 180, 445 205, 400 205 C 340 205, 275 215, 220 245" fill="#ffcc00" fill-opacity="0.35" stroke="#ffcc00" stroke-width="10" stroke-linejoin="round"/>
+  <!-- Beak Tomial Cutting Ridge & Serration -->
+  <path d="M 280 205 L 320 205 L 350 208 L 380 205 L 420 180" fill="none" stroke="#ffffff" stroke-width="4" stroke-linecap="round"/>
+
+  <!-- Lower Jaw (Phosphor Mint #00ffb2) -->
+  <path d="M 220 280 C 270 305, 330 305, 365 285 C 375 275, 345 255, 295 250" fill="#00ffb2" fill-opacity="0.25" stroke="#00ffb2" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <!-- Glowing Animal Eye (Double Ring Raptor Eye, Cyan & Gold) -->
+  <circle cx="295" cy="135" r="22" fill="#040a08" stroke="#00ffb2" stroke-width="5"/>
+  <circle cx="295" cy="135" r="14" fill="#ffcc00" filter="url(#glow-hb-int)"/>
+  <circle cx="295" cy="135" r="6" fill="#040a08"/>
+  <circle cx="295" cy="135" r="2.5" fill="#ffffff"/>
+
+  <!-- Long Curled Protruding Animal Tongue (Coral Pink #ff2a85 - 14px bold) -->
+  <path d="M 245 245 C 300 220, 360 235, 420 268 C 465 290, 490 280, 480 255" fill="none" stroke="#ff2a85" stroke-width="14" stroke-linecap="round"/>
+  <path d="M 245 245 C 300 220, 360 235, 420 268 C 465 290, 490 280, 480 255" fill="none" stroke="#ffffff" stroke-width="4.5" stroke-linecap="round"/>
+  <!-- Glowing Tip Node -->
+  <circle cx="480" cy="255" r="14" fill="#ff2a85" filter="url(#glow-hb-int)"/>
+  <circle cx="480" cy="255" r="6" fill="#ffffff"/>
+</svg>

@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <filter id="glow-vz" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="12" result="b1"/>
+      <feMerge><feMergeNode in="b1"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+
+  <!-- Articulated Mechanical Mouth Frame (Mint #00ffb2) -->
+  <path d="M 110 240 C 110 140, 256 120, 256 120 C 256 120, 402 140, 402 240 C 402 340, 256 360, 256 360 C 256 360, 110 340, 110 240 Z" fill="#00ffb2" fill-opacity="0.16" stroke="#00ffb2" stroke-width="11" stroke-linejoin="round"/>
+
+  <!-- Formant Frequency Resonator Rings (F1, F2 Vowel Plane) -->
+  <ellipse cx="256" cy="240" rx="90" ry="50" fill="none" stroke="#ff2a85" stroke-width="6" stroke-dasharray="10,8"/>
+  <circle cx="256" cy="240" r="18" fill="#ffffff" filter="url(#glow-vz)"/>
+  <circle cx="256" cy="240" r="7" fill="#040a08"/>
+
+  <!-- Syllable Phoneme Blocks linked in melody at bottom -->
+  <g>
+    <rect x="90" y="400" width="70" height="42" rx="8" fill="#ffcc00" stroke="#040a08" stroke-width="3"/>
+    <line x1="160" y1="421" x2="185" y2="421" stroke="#ffffff" stroke-width="4"/>
+    <rect x="185" y="400" width="70" height="42" rx="8" fill="#00e5ff" stroke="#040a08" stroke-width="3"/>
+    <line x1="255" y1="421" x2="280" y2="421" stroke="#ffffff" stroke-width="4"/>
+    <rect x="280" y="400" width="70" height="42" rx="8" fill="#ff2a85" stroke="#040a08" stroke-width="3"/>
+    <line x1="350" y1="421" x2="375" y2="421" stroke="#ffffff" stroke-width="4"/>
+    <rect x="375" y="400" width="70" height="42" rx="8" fill="#00ffb2" stroke="#040a08" stroke-width="3"/>
+  </g>
+</svg>

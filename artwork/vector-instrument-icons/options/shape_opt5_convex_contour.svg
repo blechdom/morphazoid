@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <filter id="glow-sh-cv" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="12" result="b1"/>
+      <feMerge><feMergeNode in="b1"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+
+  <!-- Closed Contour -->
+  <path d="M 256 85 C 380 85, 450 180, 430 300 C 410 420, 290 440, 210 430 C 100 410, 70 320, 90 220 C 110 110, 180 85, 256 85 Z" fill="#00ffb2" fill-opacity="0.22" stroke="#00ffb2" stroke-width="11"/>
+
+  <!-- Slicing Scanline -->
+  <line x1="50" y1="260" x2="462" y2="260" stroke="#ffffff" stroke-width="7" stroke-linecap="round"/>
+  <line x1="50" y1="260" x2="462" y2="260" stroke="#ff2a85" stroke-width="16" stroke-opacity="0.25" stroke-linecap="round"/>
+
+  <!-- Dual Sounding Contact Nodes -->
+  <circle cx="89" cy="260" r="22" fill="#ffcc00" fill-opacity="0.45" filter="url(#glow-sh-cv)"/>
+  <circle cx="89" cy="260" r="13" fill="#ffffff" stroke="#ffcc00" stroke-width="4.5"/>
+  <circle cx="89" cy="260" r="4.5" fill="#040a08"/>
+
+  <circle cx="426" cy="260" r="22" fill="#ffcc00" fill-opacity="0.45" filter="url(#glow-sh-cv)"/>
+  <circle cx="426" cy="260" r="13" fill="#ffffff" stroke="#ffcc00" stroke-width="4.5"/>
+  <circle cx="426" cy="260" r="4.5" fill="#040a08"/>
+</svg>

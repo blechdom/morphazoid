@@ -1,0 +1,57 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <filter id="glow-q2" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="12" result="b1"/>
+      <feMerge><feMergeNode in="b1"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+
+  <!-- Speed Motion Trails -->
+  <line x1="40" y1="230" x2="130" y2="230" stroke="#00e5ff" stroke-width="5" stroke-dasharray="10,8" opacity="0.6"/>
+  <line x1="20" y1="260" x2="110" y2="260" stroke="#00ffb2" stroke-width="5" stroke-dasharray="12,10" opacity="0.6"/>
+  <line x1="60" y1="290" x2="150" y2="290" stroke="#ff2a85" stroke-width="5" stroke-dasharray="10,8" opacity="0.6"/>
+
+  <!-- Ground Plane -->
+  <line x1="50" y1="410" x2="470" y2="410" stroke="#00ffb2" stroke-width="7" stroke-dasharray="16,10" stroke-linecap="round"/>
+
+  <!-- Back Left Leg (Extended far back in gallop, Cyan) -->
+  <polyline points="190,260 120,295 70,350 45,405" fill="none" stroke="#00e5ff" stroke-width="11" stroke-linecap="round" stroke-linejoin="round" opacity="0.75"/>
+  <circle cx="45" cy="405" r="13" fill="#00e5ff" filter="url(#glow-q2)"/>
+
+  <!-- Back Right Leg (Tucked forward under belly, Coral) -->
+  <polyline points="190,260 150,310 185,365 210,405" fill="none" stroke="#ff2a85" stroke-width="11" stroke-linecap="round" stroke-linejoin="round" opacity="0.75"/>
+  <circle cx="210" cy="405" r="13" fill="#ff2a85" filter="url(#glow-q2)"/>
+
+  <!-- Aerodynamic Faceted Cyber-Chassis -->
+  <polygon points="170,280 190,240 330,225 385,245 350,285 200,292" fill="#00ffb2" fill-opacity="0.35" stroke="#00ffb2" stroke-width="9" stroke-linejoin="round"/>
+  <line x1="190" y1="240" x2="385" y2="245" stroke="#ffffff" stroke-width="5" stroke-linecap="round"/>
+  <line x1="245" y1="235" x2="275" y2="290" stroke="#00e5ff" stroke-width="5"/>
+  <line x1="310" y1="230" x2="275" y2="290" stroke="#00e5ff" stroke-width="5"/>
+
+  <!-- Forward-Thrust Head / Visor Canopy -->
+  <polygon points="365,235 435,210 475,225 440,255 375,255" fill="#ffcc00" fill-opacity="0.25" stroke="#ffcc00" stroke-width="7" stroke-linejoin="round"/>
+  <line x1="435" y1="210" x2="475" y2="225" stroke="#ffffff" stroke-width="6" stroke-linecap="round"/>
+  <circle cx="455" cy="225" r="6" fill="#ffffff" filter="url(#glow-q2)"/>
+
+  <!-- Streamlined Tail Antenna -->
+  <path d="M 170 280 Q 110 270 75 220" fill="none" stroke="#00e5ff" stroke-width="6" stroke-linecap="round"/>
+  <circle cx="75" cy="220" r="8" fill="#ffcc00"/>
+
+  <!-- Fore Left Leg (Forward reaching paw, Gold) -->
+  <polyline points="340,245 390,295 425,355 450,405" fill="none" stroke="#ffcc00" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="390" cy="295" r="11" fill="#040a08" stroke="#ffcc00" stroke-width="4.5"/>
+  <circle cx="450" cy="405" r="16" fill="#ffcc00" filter="url(#glow-q2)"/>
+  <circle cx="450" cy="405" r="6" fill="#ffffff"/>
+
+  <!-- Fore Right Leg (Impacting / Braking paw, Mint) -->
+  <polyline points="340,245 320,305 345,365 330,408" fill="none" stroke="#00ffb2" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="320" cy="305" r="11" fill="#040a08" stroke="#00ffb2" stroke-width="4.5"/>
+  <circle cx="330" cy="408" r="16" fill="#00ffb2" filter="url(#glow-q2)"/>
+  <circle cx="330" cy="408" r="6" fill="#ffffff"/>
+
+  <!-- Shoulder & Hip Servos -->
+  <circle cx="190" cy="260" r="17" fill="#040a08" stroke="#00ffb2" stroke-width="6"/>
+  <circle cx="190" cy="260" r="7" fill="#00ffb2"/>
+  <circle cx="340" cy="245" r="17" fill="#040a08" stroke="#00ffb2" stroke-width="6"/>
+  <circle cx="340" cy="245" r="7" fill="#ffcc00"/>
+</svg>

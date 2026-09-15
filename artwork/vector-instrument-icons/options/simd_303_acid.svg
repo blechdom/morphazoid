@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <filter id="glow-303" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="12" result="b1"/>
+      <feMerge><feMergeNode in="b1"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+
+  <!-- 303 Acid Resonant Filter Sweep Curve (Resonance Peak Q, Mint #00ffb2) -->
+  <path d="M 65 380 L 220 380 C 265 380, 275 140, 295 105 C 315 70, 325 320, 355 380 L 447 380" fill="none" stroke="#00ffb2" stroke-width="12" stroke-linecap="round"/>
+  
+  <!-- High Resonance Q Peak Spark (Gold #ffcc00) -->
+  <circle cx="295" cy="105" r="22" fill="#ffcc00" fill-opacity="0.45" filter="url(#glow-303)"/>
+  <circle cx="295" cy="105" r="14" fill="#ffffff" stroke="#ffcc00" stroke-width="4.5"/>
+  <circle cx="295" cy="105" r="5" fill="#040a08"/>
+
+  <!-- Acid Stepping Bassline Staircase (Coral Pink #ff2a85) -->
+  <polyline points="75,280 135,280 135,220 195,220 195,310 255,310" fill="none" stroke="#ff2a85" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="195" cy="220" r="8" fill="#ffffff"/>
+
+  <!-- 4-Lane SIMD Vector Indicators at top -->
+  <g>
+    <rect x="85" y="75" width="24" height="12" rx="4" fill="#00e5ff"/>
+    <rect x="115" y="75" width="24" height="12" rx="4" fill="#00e5ff"/>
+    <rect x="145" y="75" width="24" height="12" rx="4" fill="#00e5ff"/>
+    <rect x="175" y="75" width="24" height="12" rx="4" fill="#00e5ff"/>
+  </g>
+</svg>

@@ -7,37 +7,40 @@ folder.
 ## Geometry Synths
 
 1. [x] Shape - [catalogue-preferred.webp](shape/catalogue-preferred.webp)
-2. [ ] Lattice - [open folder](lattice/)
-3. [ ] Spiral - [open folder](spiral/)
-4. [ ] Solid - [open folder](solid/)
-5. [ ] Hyper - [open folder](hyper/)
+2. [x] Lattice - [lattice.webp](lattice/lattice.webp)
+3. [x] Spiral - [spiral.webp](spiral/spiral.webp)
+4. [x] Solid - [solid.webp](solid/solid.webp)
+5. [x] Hyper - [hyper.webp](hyper/hyper.webp)
 
 ## Geometry Drum Machines
 
 6. [x] Shape Drum Machine - [round-1-original.webp](shape-drums/round-1-original.webp)
 7. [ ] Lattice Drum Machine - [open folder](lattice-drums/)
 8. [ ] Spiral Drum Machine - [open folder](spiral-drums/)
-9. [ ] Solid Drum Machine - [open folder](solid-drums/)
-10. [ ] Hyper Drum Machine - [open folder](hyper-drums/)
-11. [ ] L-System Drum Machine - [open folder](l-system-drums/)
+9. [x] Solid Drum Machine - [solid-drums.webp](solid-drums/solid-drums.webp)
+10. [x] Hyper Drum Machine - [hyper-drums.webp](hyper-drums/hyper-drums.webp)
+11. [x] L-System Drum Machine - [l-system-drums.webp](l-system-drums/l-system-drums.webp)
 12. [ ] Rattle Snake Skin - [open folder](linear-drums-machine/)
 
 ## Signal & Voice
 
+- [x] Hybrinx (using Tongued Beasts)
+- [x] Syrinx
+
 13. [ ] Lumber Loops - [open folder](lumber/)
-14. [ ] L-system Delay - [open folder](micmic/)
-15. [ ] Graph Delay - [open folder](graph-delay/)
-16. [ ] Throatazoid - [open folder](throatazoid/)
+14. [x] L-system Delay - [micmic.webp](micmic/micmic.webp)
+15. [x] Graph Delay - [graph-delay.webp](graph-delay/graph-delay.webp)
+16. [x] Throatazoid - [throatazoid.webp](throatazoid/throatazoid.webp)
 
 ## Barber Shop Poles
 
 17. [ ] Shepard-Risset - [open folder](shepard-risset/)
 18. [ ] Sandy Syrup Delay - [open folder](sandy-syrup-delay/)
-19. [ ] Candy Coil Delay - [open folder](candy-coil-delay/)
+19. [x] Candy Coil Delay - [candy-coil-delay.webp](candy-coil-delay/candy-coil-delay.webp)
 
 ## Fractals & Recursion
 
-21. [ ] L-System - [open folder](l-system/)
+21. [x] L-System - [l-system.webp](l-system/l-system.webp)
 22. [ ] Recursion - [open folder](recursion/)
 23. [ ] Julia - [open folder](julia/)
 
@@ -54,6 +57,8 @@ folder.
 29. [ ] WebGPU 303 - [open folder](webgpu-303/)
 
 ## Instruments
+
+- [x] Rubix (Original 3D Cube with transparent alpha & SVG)
 
 30. [ ] FM Drums - [open folder](fm-drums/)
 31. [ ] Rattlesnake - [open folder](linear-drums/)
@@ -87,7 +92,7 @@ folder.
 53. [ ] Chladni Plate - [open folder](chladni-plate/)
 54. [ ] Spring Choir - [open folder](spring-choir/)
 55. [ ] Gear Ratio Drums - [open folder](gear-ratio-drums/)
-56. [ ] Automatapoeia - [open folder](cellular-automata/)
+56. [x] Automatapoeia - [cellular-automata.webp](cellular-automata/cellular-automata.webp)
 57. [ ] Prime Sieve - [open folder](prime-sieve/)
 58. [ ] Lissajous Orbits - [open folder](lissajous-orbits/)
 59. [ ] Pendulum Wave - [open folder](pendulum-wave/)

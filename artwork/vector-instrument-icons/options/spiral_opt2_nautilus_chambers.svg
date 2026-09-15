@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <filter id="glow-sp2" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="12" result="b1"/>
+      <feMerge><feMergeNode in="b1"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+
+  <!-- Golden Chamber Arcs (Self-contained) -->
+  <path d="M 256 256 A 35 35 0 0 1 291 256 A 55 55 0 0 1 256 311 A 90 90 0 0 1 166 256 A 145 145 0 0 1 256 111 A 235 235 0 0 1 491 256" fill="none" stroke="#00ffb2" stroke-width="10" stroke-linecap="round"/>
+
+  <!-- Radial Chamber Septa / Pitch Rays -->
+  <line x1="256" y1="256" x2="491" y2="256" stroke="#ffcc00" stroke-width="6" stroke-linecap="round"/>
+  <line x1="256" y1="256" x2="256" y2="111" stroke="#00e5ff" stroke-width="6" stroke-linecap="round"/>
+  <line x1="256" y1="256" x2="166" y2="256" stroke="#b85dff" stroke-width="6" stroke-linecap="round"/>
+  <line x1="256" y1="256" x2="256" y2="311" stroke="#ff2a85" stroke-width="6" stroke-linecap="round"/>
+
+  <!-- Resonant Nodes along the Golden Curve -->
+  <circle cx="291" cy="256" r="14" fill="#00e5ff" filter="url(#glow-sp2)"/>
+  <circle cx="291" cy="256" r="6" fill="#ffffff"/>
+
+  <circle cx="256" cy="311" r="15" fill="#ff2a85" filter="url(#glow-sp2)"/>
+  <circle cx="256" cy="311" r="6" fill="#ffffff"/>
+
+  <circle cx="166" cy="256" r="16" fill="#b85dff" filter="url(#glow-sp2)"/>
+  <circle cx="166" cy="256" r="6" fill="#ffffff"/>
+
+  <circle cx="256" cy="111" r="18" fill="#00e5ff" filter="url(#glow-sp2)"/>
+  <circle cx="256" cy="111" r="7" fill="#ffffff"/>
+
+  <circle cx="491" cy="256" r="19" fill="#ffcc00" filter="url(#glow-sp2)"/>
+  <circle cx="491" cy="256" r="8" fill="#ffffff"/>
+
+  <circle cx="256" cy="256" r="12" fill="#040a08" stroke="#ffffff" stroke-width="4"/>
+  <circle cx="256" cy="256" r="4" fill="#ffffff"/>
+</svg>

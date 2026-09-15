@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <filter id="glow-gs2" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="12" result="b1"/>
+      <feMerge><feMergeNode in="b1"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+
+  <circle cx="256" cy="256" r="175" fill="none" stroke="#00ffb2" stroke-width="7"/>
+  <g><line x1="256.0" y1="81.0" x2="358.9" y2="397.6" stroke="#00e5ff" stroke-width="5" stroke-dasharray="8,6" opacity="0.6"/><line x1="256.0" y1="81.0" x2="256" y2="256" stroke="#ffffff" stroke-width="6.5" stroke-linecap="round"/><line x1="422.4" y1="201.9" x2="153.1" y2="397.6" stroke="#b85dff" stroke-width="5" stroke-dasharray="8,6" opacity="0.6"/><line x1="422.4" y1="201.9" x2="256" y2="256" stroke="#ffffff" stroke-width="6.5" stroke-linecap="round"/><line x1="358.9" y1="397.6" x2="89.6" y2="201.9" stroke="#ff2a85" stroke-width="5" stroke-dasharray="8,6" opacity="0.6"/><line x1="358.9" y1="397.6" x2="256" y2="256" stroke="#ffffff" stroke-width="6.5" stroke-linecap="round"/><line x1="153.1" y1="397.6" x2="256.0" y2="81.0" stroke="#ffcc00" stroke-width="5" stroke-dasharray="8,6" opacity="0.6"/><line x1="153.1" y1="397.6" x2="256" y2="256" stroke="#ffffff" stroke-width="6.5" stroke-linecap="round"/><line x1="89.6" y1="201.9" x2="422.4" y2="201.9" stroke="#00ffb2" stroke-width="5" stroke-dasharray="8,6" opacity="0.6"/><line x1="89.6" y1="201.9" x2="256" y2="256" stroke="#ffffff" stroke-width="6.5" stroke-linecap="round"/></g>
+  <g>
+        <circle cx="256.0" cy="81.0" r="26" fill="#040a08" stroke="#00e5ff" stroke-width="6"/>
+        <circle cx="256.0" cy="81.0" r="14" fill="#00e5ff" fill-opacity="0.4"/>
+        <circle cx="256.0" cy="81.0" r="5.5" fill="#00e5ff"/>
+        
+        <circle cx="422.4" cy="201.9" r="26" fill="#040a08" stroke="#b85dff" stroke-width="6"/>
+        <circle cx="422.4" cy="201.9" r="14" fill="#b85dff" fill-opacity="0.4"/>
+        <circle cx="422.4" cy="201.9" r="5.5" fill="#b85dff"/>
+        
+        <circle cx="358.9" cy="397.6" r="26" fill="#040a08" stroke="#ff2a85" stroke-width="6"/>
+        <circle cx="358.9" cy="397.6" r="14" fill="#ff2a85" fill-opacity="0.4"/>
+        <circle cx="358.9" cy="397.6" r="5.5" fill="#ff2a85"/>
+        
+        <circle cx="153.1" cy="397.6" r="26" fill="#040a08" stroke="#ffcc00" stroke-width="6"/>
+        <circle cx="153.1" cy="397.6" r="14" fill="#ffcc00" fill-opacity="0.4"/>
+        <circle cx="153.1" cy="397.6" r="5.5" fill="#ffcc00"/>
+        
+        <circle cx="89.6" cy="201.9" r="26" fill="#040a08" stroke="#00ffb2" stroke-width="6"/>
+        <circle cx="89.6" cy="201.9" r="14" fill="#00ffb2" fill-opacity="0.4"/>
+        <circle cx="89.6" cy="201.9" r="5.5" fill="#00ffb2"/>
+        </g>
+  <g filter="url(#glow-gs2)">
+    <circle cx="256" cy="256" r="48" fill="#040e0b" stroke="#00ffb2" stroke-width="7"/>
+    <circle cx="256" cy="256" r="36" fill="#00ffb2" fill-opacity="0.3"/>
+    <polyline points="230.0,268.0 231.0,267.8 232.0,267.2 233.0,266.3 234.0,265.0 235.0,263.4 236.0,261.6 237.0,259.6 238.0,257.4 239.0,255.3 240.0,253.1 241.0,251.1 242.0,249.2 243.0,247.5 244.0,246.1 245.0,245.1 246.0,244.3 247.0,244.0 248.0,244.1 249.0,244.5 250.0,245.4 251.0,246.6 252.0,248.0 253.0,249.8 254.0,251.7 255.0,253.8 256.0,256.0 257.0,258.2 258.0,260.3 259.0,262.2 260.0,264.0 261.0,265.4 262.0,266.6 263.0,267.5 264.0,267.9 265.0,268.0 266.0,267.7 267.0,266.9 268.0,265.9 269.0,264.5 270.0,262.8 271.0,260.9 272.0,258.9 273.0,256.7 274.0,254.6 275.0,252.4 276.0,250.4 277.0,248.6 278.0,247.0 279.0,245.7 280.0,244.8 281.0,244.2 282.0,244.0" fill="none" stroke="#ffffff" stroke-width="6" stroke-linecap="round"/>
+    </g>
+</svg>

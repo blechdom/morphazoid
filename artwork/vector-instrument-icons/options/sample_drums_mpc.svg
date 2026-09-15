@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <filter id="glow-sd" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="12" result="b1"/>
+      <feMerge><feMergeNode in="b1"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+
+  <!-- Pad 1 (Top-Left: Kick, Mint #00ffb2) -->
+  <rect x="70" y="70" width="165" height="165" rx="16" fill="#00ffb2" fill-opacity="0.18" stroke="#00ffb2" stroke-width="8"/>
+  <path d="M 85 152 Q 115 95 152 152 Q 190 210 220 152" fill="none" stroke="#00ffb2" stroke-width="6" stroke-linecap="round"/>
+  <circle cx="95" cy="95" r="7" fill="#00ffb2"/>
+
+  <!-- Pad 2 (Top-Right: Snare, Coral Pink #ff2a85) -->
+  <rect x="277" y="70" width="165" height="165" rx="16" fill="#ff2a85" fill-opacity="0.25" stroke="#ff2a85" stroke-width="9" filter="url(#glow-sd)"/>
+  <path d="M 295 152 L 315 125 L 335 175 L 355 130 L 375 165 L 425 152" fill="none" stroke="#ffffff" stroke-width="6" stroke-linecap="round"/>
+  <circle cx="302" cy="95" r="9" fill="#ffffff"/>
+
+  <!-- Pad 3 (Bottom-Left: Hi-Hat, Cyan #00e5ff) -->
+  <rect x="70" y="277" width="165" height="165" rx="16" fill="#00e5ff" fill-opacity="0.18" stroke="#00e5ff" stroke-width="8"/>
+  <line x1="95" y1="360" x2="210" y2="360" stroke="#00e5ff" stroke-width="6" stroke-linecap="round"/>
+  <circle cx="95" cy="302" r="7" fill="#00e5ff"/>
+
+  <!-- Pad 4 (Bottom-Right: Perc / Tom, Warm Gold #ffcc00) -->
+  <rect x="277" y="277" width="165" height="165" rx="16" fill="#ffcc00" fill-opacity="0.18" stroke="#ffcc00" stroke-width="8"/>
+  <path d="M 295 360 Q 360 300 425 360" fill="none" stroke="#ffcc00" stroke-width="6" stroke-linecap="round"/>
+  <circle cx="302" cy="302" r="7" fill="#ffcc00"/>
+</svg>

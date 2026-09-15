@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <filter id="glow-jh" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="12" result="b1"/>
+      <feMerge><feMergeNode in="b1"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+
+  <g><path d="M 405 191 A 65 65 0 0 1 405 321" fill="none" stroke="#ff2a85" stroke-width="4.5" stroke-dasharray="8,8" stroke-opacity="0.6"/><path d="M 405 146 A 110 110 0 0 1 405 366" fill="none" stroke="#ff2a85" stroke-width="4.5" stroke-dasharray="8,8" stroke-opacity="0.6"/><path d="M 405 101 A 155 155 0 0 1 405 411" fill="none" stroke="#ff2a85" stroke-width="4.5" stroke-dasharray="8,8" stroke-opacity="0.6"/></g>
+
+  <path d="M 415 190 L 245 200 C 195 200, 160 145, 120 170 C 70 205, 70 307, 120 342 C 160 367, 195 312, 245 312 L 415 322" fill="none" stroke="#00ffb2" stroke-width="26" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M 415 190 L 245 200 C 195 200, 160 145, 120 170 C 70 205, 70 307, 120 342 C 160 367, 195 312, 245 312 L 415 322" fill="none" stroke="#040a08" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M 415 190 L 245 200 C 195 200, 160 145, 120 170 C 70 205, 70 307, 120 342 C 160 367, 195 312, 245 312 L 415 322" fill="none" stroke="#00ffb2" stroke-width="3" stroke-linecap="round" stroke-dasharray="6,8"/>
+
+  <circle cx="415" cy="190" r="14" fill="#040a08" stroke="#00ffb2" stroke-width="4"/>
+  <circle cx="415" cy="190" r="5.5" fill="#00ffb2"/>
+  <circle cx="415" cy="322" r="14" fill="#040a08" stroke="#00ffb2" stroke-width="4"/>
+  <circle cx="415" cy="322" r="5.5" fill="#00ffb2"/>
+
+  <circle cx="75" cy="256" r="18" fill="#040a08" stroke="#00ffb2" stroke-width="5"/>
+  <circle cx="75" cy="256" r="8" fill="#00ffb2"/>
+
+  <path d="M 88.0,256.0 L 96.0,256.0 L 104.0,256.0 L 112.0,255.9 L 120.0,255.7 L 128.0,255.5 L 136.0,255.3 L 144.0,255.1 L 152.0,254.8 L 160.0,254.7 L 168.0,254.6 L 176.0,254.7 L 184.0,254.9 L 192.0,255.3 L 200.0,256.0 L 208.0,255.2 L 216.0,254.2 L 224.0,253.1 L 232.0,252.0 L 240.0,250.9 L 248.0,249.9 L 256.0,249.1 L 264.0,248.7 L 272.0,248.7 L 280.0,249.1 L 288.0,250.0 L 296.0,251.5 L 304.0,253.4 L 312.0,255.8 L 320.0,253.5 L 328.0,250.6 L 336.0,247.6 L 344.0,244.8 L 352.0,242.2 L 360.0,240.2 L 368.0,238.8 L 376.0,238.3 L 384.0,238.7 L 392.0,240.1 L 400.0,242.6 L 408.0,246.0 L 416.0,250.3 L 424.0,255.3" fill="none" stroke="#00e5ff" stroke-width="3.5" stroke-dasharray="6,4" stroke-opacity="0.75"/>
+  <path d="M 88.0,256.0 L 96.0,256.0 L 104.0,256.0 L 112.0,256.1 L 120.0,256.3 L 128.0,256.5 L 136.0,256.7 L 144.0,256.9 L 152.0,257.2 L 160.0,257.3 L 168.0,257.4 L 176.0,257.3 L 184.0,257.1 L 192.0,256.7 L 200.0,256.0 L 208.0,256.8 L 216.0,257.8 L 224.0,258.9 L 232.0,260.0 L 240.0,261.1 L 248.0,262.1 L 256.0,262.9 L 264.0,263.3 L 272.0,263.3 L 280.0,262.9 L 288.0,262.0 L 296.0,260.5 L 304.0,258.6 L 312.0,256.2 L 320.0,258.5 L 328.0,261.4 L 336.0,264.4 L 344.0,267.2 L 352.0,269.8 L 360.0,271.8 L 368.0,273.2 L 376.0,273.7 L 384.0,273.3 L 392.0,271.9 L 400.0,269.4 L 408.0,266.0 L 416.0,261.7 L 424.0,256.7" fill="none" stroke="#00e5ff" stroke-width="3.5" stroke-dasharray="6,4" stroke-opacity="0.75"/>
+
+  <line x1="75" y1="256" x2="430" y2="256" stroke="#ffffff" stroke-width="7.5" stroke-linecap="round"/>
+  <line x1="75" y1="256" x2="430" y2="256" stroke="#00e5ff" stroke-width="15" stroke-opacity="0.25" stroke-linecap="round"/>
+
+  <polyline points="430,256 430,185 455,185" fill="none" stroke="#ffcc00" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+  
+  <circle cx="455" cy="185" r="17" fill="#ffcc00" fill-opacity="0.4" filter="url(#glow-jh)"/>
+  <circle cx="455" cy="185" r="9.5" fill="#ffffff" stroke="#ffcc00" stroke-width="3.5"/>
+  <circle cx="455" cy="185" r="3" fill="#040a08"/>
+
+  <rect x="85" y="244" width="24" height="24" rx="5" fill="#ffcc00" stroke="#040a08" stroke-width="3"/>
+</svg>

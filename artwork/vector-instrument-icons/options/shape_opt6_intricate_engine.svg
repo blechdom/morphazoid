@@ -1,0 +1,57 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <filter id="glow-sh-int" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="10" result="b1"/>
+      <feMerge><feMergeNode in="b1"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+
+  <!-- Concentric Harmonic Iso-Rings -->
+  <circle cx="256" cy="256" r="170" fill="none" stroke="#75d9ff" stroke-width="2" stroke-dasharray="4,6" opacity="0.4"/>
+  <circle cx="256" cy="256" r="115" fill="none" stroke="#ff2a85" stroke-width="2" stroke-dasharray="4,6" opacity="0.4"/>
+  <circle cx="256" cy="256" r="65" fill="none" stroke="#ffcc00" stroke-width="2" stroke-dasharray="4,6" opacity="0.5"/>
+
+  <!-- Slicing Chords -->
+  <line x1="85" y1="186" x2="427" y2="186" stroke="#ff2a85" stroke-width="5" stroke-dasharray="10,8" opacity="0.8"/>
+  <circle cx="152" cy="186" r="7" fill="#ff2a85"/>
+  <circle cx="360" cy="186" r="7" fill="#ff2a85"/>
+
+  <line x1="105" y1="331" x2="407" y2="331" stroke="#ff2a85" stroke-width="5" stroke-dasharray="10,8" opacity="0.8"/>
+  <circle cx="125" cy="331" r="7" fill="#ff2a85"/>
+  <circle cx="387" cy="331" r="7" fill="#ff2a85"/>
+
+  <!-- Outer Heptagon Contour (Phosphor Mint #00ffb2) -->
+  <polygon points="256.0,51.0 416.3,128.2 455.9,301.6 344.9,440.7 167.1,440.7 56.1,301.6 95.7,128.2" fill="#00ffb2" fill-opacity="0.12" stroke="#00ffb2" stroke-width="9" stroke-linejoin="round"/>
+
+  <!-- Inscribed Star Polygon (Electric Cyan #00e5ff) -->
+  <polygon points="256.0,71.5 298.7,167.3 400.2,141.0 351.9,234.1 435.9,297.1 332.9,317.4 336.1,422.2 256.0,354.4 175.9,422.2 179.1,317.4 76.1,297.1 160.1,234.1 111.8,141.0 213.3,167.3" fill="#00e5ff" fill-opacity="0.18" stroke="#00e5ff" stroke-width="5.5" stroke-linejoin="round"/>
+
+  <!-- Core Pentagon (Warm Gold #ffcc00) -->
+  <polygon points="256.0,201.0 308.3,239.0 288.3,300.5 223.7,300.5 203.7,239.0" fill="#ffcc00" fill-opacity="0.35" stroke="#ffcc00" stroke-width="5" stroke-linejoin="round"/>
+
+  <!-- Edge Ticks & Vertices -->
+  <line x1="296.1" y1="70.3" x2="290.0" y2="82.9" stroke="#00e5ff" stroke-width="4" stroke-linecap="round"/><line x1="336.1" y1="89.6" x2="330.1" y2="102.2" stroke="#ffcc00" stroke-width="4" stroke-linecap="round"/><line x1="376.2" y1="108.9" x2="370.1" y2="121.5" stroke="#00e5ff" stroke-width="4" stroke-linecap="round"/><line x1="426.2" y1="171.5" x2="412.5" y2="174.7" stroke="#00e5ff" stroke-width="4" stroke-linecap="round"/><line x1="436.1" y1="214.9" x2="422.4" y2="218.0" stroke="#ffcc00" stroke-width="4" stroke-linecap="round"/><line x1="446.0" y1="258.3" x2="432.3" y2="261.4" stroke="#00e5ff" stroke-width="4" stroke-linecap="round"/><line x1="428.1" y1="336.4" x2="417.2" y2="327.7" stroke="#00e5ff" stroke-width="4" stroke-linecap="round"/><line x1="400.4" y1="371.2" x2="389.5" y2="362.4" stroke="#ffcc00" stroke-width="4" stroke-linecap="round"/><line x1="372.7" y1="405.9" x2="361.7" y2="397.2" stroke="#00e5ff" stroke-width="4" stroke-linecap="round"/><line x1="300.5" y1="440.7" x2="300.5" y2="426.7" stroke="#00e5ff" stroke-width="4" stroke-linecap="round"/><line x1="256.0" y1="440.7" x2="256.0" y2="426.7" stroke="#ffcc00" stroke-width="4" stroke-linecap="round"/><line x1="211.5" y1="440.7" x2="211.5" y2="426.7" stroke="#00e5ff" stroke-width="4" stroke-linecap="round"/><line x1="139.3" y1="405.9" x2="150.3" y2="397.2" stroke="#00e5ff" stroke-width="4" stroke-linecap="round"/><line x1="111.6" y1="371.2" x2="122.5" y2="362.4" stroke="#ffcc00" stroke-width="4" stroke-linecap="round"/><line x1="83.9" y1="336.4" x2="94.8" y2="327.7" stroke="#00e5ff" stroke-width="4" stroke-linecap="round"/><line x1="66.0" y1="258.3" x2="79.7" y2="261.4" stroke="#00e5ff" stroke-width="4" stroke-linecap="round"/><line x1="75.9" y1="214.9" x2="89.6" y2="218.0" stroke="#ffcc00" stroke-width="4" stroke-linecap="round"/><line x1="85.8" y1="171.5" x2="99.5" y2="174.7" stroke="#00e5ff" stroke-width="4" stroke-linecap="round"/><line x1="135.8" y1="108.9" x2="141.9" y2="121.5" stroke="#00e5ff" stroke-width="4" stroke-linecap="round"/><line x1="175.9" y1="89.6" x2="181.9" y2="102.2" stroke="#ffcc00" stroke-width="4" stroke-linecap="round"/><line x1="215.9" y1="70.3" x2="222.0" y2="82.9" stroke="#00e5ff" stroke-width="4" stroke-linecap="round"/>
+  <circle cx="256.0" cy="51.0" r="9" fill="#040a08" stroke="#00ffb2" stroke-width="4"/><circle cx="256.0" cy="51.0" r="3.5" fill="#ffffff"/><circle cx="416.3" cy="128.2" r="9" fill="#040a08" stroke="#00ffb2" stroke-width="4"/><circle cx="416.3" cy="128.2" r="3.5" fill="#ffffff"/><circle cx="455.9" cy="301.6" r="9" fill="#040a08" stroke="#00ffb2" stroke-width="4"/><circle cx="455.9" cy="301.6" r="3.5" fill="#ffffff"/><circle cx="344.9" cy="440.7" r="9" fill="#040a08" stroke="#00ffb2" stroke-width="4"/><circle cx="344.9" cy="440.7" r="3.5" fill="#ffffff"/><circle cx="167.1" cy="440.7" r="9" fill="#040a08" stroke="#00ffb2" stroke-width="4"/><circle cx="167.1" cy="440.7" r="3.5" fill="#ffffff"/><circle cx="56.1" cy="301.6" r="9" fill="#040a08" stroke="#00ffb2" stroke-width="4"/><circle cx="56.1" cy="301.6" r="3.5" fill="#ffffff"/><circle cx="95.7" cy="128.2" r="9" fill="#040a08" stroke="#00ffb2" stroke-width="4"/><circle cx="95.7" cy="128.2" r="3.5" fill="#ffffff"/>
+
+  <!-- 3 Scanning Reader Rays & Playhead Strike Nodes -->
+  
+        <line x1="256" y1="256" x2="423.9" y2="138.4" stroke="#ffffff" stroke-width="5.5" stroke-linecap="round"/>
+        <circle cx="423.9" cy="138.4" r="16" fill="#ffffff" fill-opacity="0.4" filter="url(#glow-sh-int)"/>
+        <circle cx="423.9" cy="138.4" r="10" fill="#ffffff" stroke="#ffffff" stroke-width="3.5"/>
+        <circle cx="423.9" cy="138.4" r="3.5" fill="#040a08"/>
+        
+        <line x1="256" y1="256" x2="273.9" y2="460.2" stroke="#00e5ff" stroke-width="5.5" stroke-linecap="round"/>
+        <circle cx="273.9" cy="460.2" r="16" fill="#00e5ff" fill-opacity="0.4" filter="url(#glow-sh-int)"/>
+        <circle cx="273.9" cy="460.2" r="10" fill="#ffffff" stroke="#00e5ff" stroke-width="3.5"/>
+        <circle cx="273.9" cy="460.2" r="3.5" fill="#040a08"/>
+        
+        <line x1="256" y1="256" x2="70.2" y2="169.4" stroke="#ff2a85" stroke-width="5.5" stroke-linecap="round"/>
+        <circle cx="70.2" cy="169.4" r="16" fill="#ff2a85" fill-opacity="0.4" filter="url(#glow-sh-int)"/>
+        <circle cx="70.2" cy="169.4" r="10" fill="#ffffff" stroke="#ff2a85" stroke-width="3.5"/>
+        <circle cx="70.2" cy="169.4" r="3.5" fill="#040a08"/>
+        
+
+  <!-- Central Origin Hub -->
+  <circle cx="256" cy="256" r="13" fill="#040a08" stroke="#00ffb2" stroke-width="4"/>
+  <circle cx="256" cy="256" r="5" fill="#ffffff"/>
+</svg>

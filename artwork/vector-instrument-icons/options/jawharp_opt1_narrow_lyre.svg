@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <filter id="glow-jh1" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="12" result="b1"/>
+      <feMerge><feMergeNode in="b1"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+
+  <!-- Acoustic Mouth Formants -->
+  <g><path d="M 430 201 A 55 55 0 0 1 430 311" fill="none" stroke="#ff2a85" stroke-width="4.5" stroke-dasharray="8,8" stroke-opacity="0.65"/><path d="M 430 161 A 95 95 0 0 1 430 351" fill="none" stroke="#ff2a85" stroke-width="4.5" stroke-dasharray="8,8" stroke-opacity="0.65"/><path d="M 430 116 A 140 140 0 0 1 430 396" fill="none" stroke="#ff2a85" stroke-width="4.5" stroke-dasharray="8,8" stroke-opacity="0.65"/></g>
+
+  <!-- Forged Frame (Phosphor Mint #00ffb2) with NARROW Tines -->
+  <path d="M 435 240 L 255 240 C 205 240, 165 140, 115 170 C 65 205, 65 307, 115 342 C 165 372, 205 272, 255 272 L 435 272" fill="none" stroke="#00ffb2" stroke-width="24" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M 435 240 L 255 240 C 205 240, 165 140, 115 170 C 65 205, 65 307, 115 342 C 165 372, 205 272, 255 272 L 435 272" fill="none" stroke="#040a08" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M 435 240 L 255 240 C 205 240, 165 140, 115 170 C 65 205, 65 307, 115 342 C 165 372, 205 272, 255 272 L 435 272" fill="none" stroke="#00ffb2" stroke-width="3" stroke-linecap="round" stroke-dasharray="6,8"/>
+
+  <!-- Tine End Caps -->
+  <circle cx="435" cy="240" r="13" fill="#040a08" stroke="#00ffb2" stroke-width="4"/>
+  <circle cx="435" cy="240" r="5" fill="#00ffb2"/>
+  <circle cx="435" cy="272" r="13" fill="#040a08" stroke="#00ffb2" stroke-width="4"/>
+  <circle cx="435" cy="272" r="5" fill="#00ffb2"/>
+
+  <!-- Base Anchor Loop -->
+  <circle cx="70" cy="256" r="17" fill="#040a08" stroke="#00ffb2" stroke-width="5"/>
+  <circle cx="70" cy="256" r="7.5" fill="#00ffb2"/>
+
+  <!-- Central Spring Steel Reed (Narrow, Closely Hugged) -->
+  <line x1="70" y1="256" x2="445" y2="256" stroke="#ffffff" stroke-width="7" stroke-linecap="round"/>
+  <line x1="70" y1="256" x2="445" y2="256" stroke="#00e5ff" stroke-width="14" stroke-opacity="0.3" stroke-linecap="round"/>
+
+  <!-- Plucking Trigger Tip (Gold crook) -->
+  <polyline points="445,256 445,190 468,190" fill="none" stroke="#ffcc00" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="468" cy="190" r="16" fill="#ffcc00" fill-opacity="0.4" filter="url(#glow-jh1)"/>
+  <circle cx="468" cy="190" r="9" fill="#ffffff" stroke="#ffcc00" stroke-width="3.5"/>
+
+  <!-- Clamp -->
+  <rect x="80" y="244" width="22" height="24" rx="5" fill="#ffcc00" stroke="#040a08" stroke-width="3"/>
+</svg>

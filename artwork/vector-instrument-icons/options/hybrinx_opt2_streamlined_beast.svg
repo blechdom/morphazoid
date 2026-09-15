@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <filter id="glow-hb2" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="12" result="b1"/>
+      <feMerge><feMergeNode in="b1"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+
+  <!-- Sequencer Keyframe Grid Lines -->
+  <line x1="60" y1="430" x2="452" y2="430" stroke="#00e5ff" stroke-width="4" stroke-dasharray="8,6" opacity="0.6"/>
+  <line x1="60" y1="390" x2="452" y2="390" stroke="#ffcc00" stroke-width="4" stroke-dasharray="8,6" opacity="0.6"/>
+
+  <!-- Beast Head Silhouette Profile -->
+  <!-- Head & Curved Beak (Gold #ffcc00) -->
+  <path d="M 170 180 C 160 110, 220 70, 290 70 C 350 70, 420 110, 460 160 C 475 180, 450 200, 410 195 C 360 190, 310 205, 270 235 L 290 270 C 330 275, 360 260, 370 250" fill="none" stroke="#ffcc00" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <!-- Neck / Vocal Column (Mint #00ffb2) -->
+  <path d="M 170 180 C 180 260, 160 340, 160 430" fill="none" stroke="#00ffb2" stroke-width="12" stroke-linecap="round"/>
+
+  <!-- Fiery Crest Spines (Violet & Cyan) -->
+  <polyline points="200,90 140,80 180,120 120,125 170,155" fill="none" stroke="#00e5ff" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <!-- Glowing Raptor Eye -->
+  <circle cx="310" cy="130" r="16" fill="#040a08" stroke="#00ffb2" stroke-width="4.5"/>
+  <circle cx="310" cy="130" r="8" fill="#00e5ff" filter="url(#glow-hb2)"/>
+  <circle cx="310" cy="130" r="3" fill="#ffffff"/>
+
+  <!-- Long Playable Tongue (Coral Pink #ff2a85) -->
+  <path d="M 270 235 C 330 220, 380 240, 440 280 C 475 300, 490 285, 475 265" fill="none" stroke="#ff2a85" stroke-width="13" stroke-linecap="round"/>
+  <circle cx="475" cy="265" r="8" fill="#ff2a85" filter="url(#glow-hb2)"/>
+
+  <!-- Keyframe Diamonds on Score -->
+  <polygon points="210,384 216,390 210,396 204,390" fill="#ffcc00"/>
+  <polygon points="340,424 346,430 340,436 334,430" fill="#00e5ff"/>
+</svg>

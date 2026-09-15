@@ -1,0 +1,52 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <filter id="glow-hr1" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="12" result="b1"/>
+      <feMerge><feMergeNode in="b1"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+
+  <!-- 4D Hypercube Unfolded Cross Net (Dalí Tesseract) -->
+  <!-- Cube 1 (Top) -->
+  <rect x="216" y="35" width="80" height="80" rx="6" fill="#00ffb2" fill-opacity="0.25" stroke="#00ffb2" stroke-width="6"/>
+  <line x1="256" y1="35" x2="256" y2="115" stroke="#00ffb2" stroke-width="3"/>
+  <line x1="216" y1="75" x2="296" y2="75" stroke="#00ffb2" stroke-width="3"/>
+
+  <!-- Cube 2 (Center-Upper) -->
+  <rect x="216" y="115" width="80" height="80" rx="6" fill="#00e5ff" fill-opacity="0.25" stroke="#00e5ff" stroke-width="6"/>
+  <line x1="256" y1="115" x2="256" y2="195" stroke="#00e5ff" stroke-width="3"/>
+  <line x1="216" y1="155" x2="296" y2="155" stroke="#00e5ff" stroke-width="3"/>
+
+  <!-- Cube 3 (Left Arm) -->
+  <rect x="136" y="195" width="80" height="80" rx="6" fill="#ffcc00" fill-opacity="0.25" stroke="#ffcc00" stroke-width="6"/>
+  <line x1="176" y1="195" x2="176" y2="275" stroke="#ffcc00" stroke-width="3"/>
+  <line x1="136" y1="235" x2="216" y2="235" stroke="#ffcc00" stroke-width="3"/>
+
+  <!-- Cube 4 (Center Core Hub) -->
+  <rect x="216" y="195" width="80" height="80" rx="6" fill="#ffffff" fill-opacity="0.35" stroke="#ffffff" stroke-width="7"/>
+  <circle cx="256" cy="235" r="14" fill="#ff2a85" filter="url(#glow-hr1)"/>
+
+  <!-- Cube 5 (Right Arm) -->
+  <rect x="296" y="195" width="80" height="80" rx="6" fill="#ff2a85" fill-opacity="0.25" stroke="#ff2a85" stroke-width="6"/>
+  <line x1="336" y1="195" x2="336" y2="275" stroke="#ff2a85" stroke-width="3"/>
+  <line x1="296" y1="235" x2="376" y2="235" stroke="#ff2a85" stroke-width="3"/>
+
+  <!-- Cube 6 (Far Right Front / Back fold) -->
+  <rect x="376" y="195" width="80" height="80" rx="6" fill="#b85dff" fill-opacity="0.25" stroke="#b85dff" stroke-width="6"/>
+  <line x1="416" y1="195" x2="416" y2="275" stroke="#b85dff" stroke-width="3"/>
+  <line x1="376" y1="235" x2="456" y2="235" stroke="#b85dff" stroke-width="3"/>
+
+  <!-- Cube 7 (Center-Lower) -->
+  <rect x="216" y="275" width="80" height="80" rx="6" fill="#00ffb2" fill-opacity="0.25" stroke="#00ffb2" stroke-width="6"/>
+  <line x1="256" y1="275" x2="256" y2="355" stroke="#00ffb2" stroke-width="3"/>
+  <line x1="216" y1="315" x2="296" y2="315" stroke="#00ffb2" stroke-width="3"/>
+
+  <!-- Cube 8 (Bottom) -->
+  <rect x="216" y="355" width="80" height="80" rx="6" fill="#00e5ff" fill-opacity="0.25" stroke="#00e5ff" stroke-width="6"/>
+  <line x1="256" y1="355" x2="256" y2="435" stroke="#00e5ff" stroke-width="3"/>
+  <line x1="216" y1="395" x2="296" y2="395" stroke="#00e5ff" stroke-width="3"/>
+
+  <!-- 4D Hyper-Folding Arc rays -->
+  <path d="M 256 35 C 130 35, 136 195, 136 195" fill="none" stroke="#b85dff" stroke-width="5" stroke-dasharray="8,6"/>
+  <path d="M 256 35 C 382 35, 376 195, 376 195" fill="none" stroke="#b85dff" stroke-width="5" stroke-dasharray="8,6"/>
+</svg>

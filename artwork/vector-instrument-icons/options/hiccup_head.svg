@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <filter id="glow-hh" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="12" result="b1"/>
+      <feMerge><feMergeNode in="b1"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+
+  <!-- Head Silhouette Contour (Phosphor Mint) -->
+  <path d="M 150 440 L 150 250 C 150 140, 220 70, 330 70 C 410 70, 440 120, 440 190 C 440 230, 400 250, 435 285 C 445 295, 410 320, 390 320 C 370 320, 375 350, 395 375 C 385 410, 350 440, 290 440" fill="#00ffb2" fill-opacity="0.14" stroke="#00ffb2" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <!-- Oral Cavity Acoustic Waveguide Tube (Cyan #00e5ff) -->
+  <path d="M 180 390 C 180 290, 250 220, 370 230" fill="none" stroke="#00e5ff" stroke-width="14" stroke-linecap="round"/>
+  <path d="M 180 390 C 180 290, 250 220, 370 230" fill="none" stroke="#040a08" stroke-width="6" stroke-linecap="round"/>
+
+  <!-- Tongue Body Articulator Node (Gold #ffcc00) -->
+  <circle cx="280" cy="275" r="28" fill="#ffcc00" fill-opacity="0.3" filter="url(#glow-hh)"/>
+  <circle cx="280" cy="275" r="20" fill="#040e0b" stroke="#ffcc00" stroke-width="6"/>
+  <circle cx="280" cy="275" r="8" fill="#ffcc00"/>
+
+  <!-- Glottal Pulse Source at base (Coral Pink #ff2a85) -->
+  <circle cx="180" cy="390" r="18" fill="#ff2a85" fill-opacity="0.4" filter="url(#glow-hh)"/>
+  <circle cx="180" cy="390" r="11" fill="#ffffff" stroke="#ff2a85" stroke-width="4"/>
+
+  <!-- Lip Aperture Radiation Burst at mouth -->
+  <path d="M 430 270 Q 465 285 430 300" fill="none" stroke="#ffcc00" stroke-width="7" stroke-linecap="round"/>
+  <circle cx="455" cy="285" r="10" fill="#ffffff" filter="url(#glow-hh)"/>
+</svg>

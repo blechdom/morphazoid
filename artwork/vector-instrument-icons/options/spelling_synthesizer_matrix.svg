@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <filter id="glow-ss" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="12" result="b1"/>
+      <feMerge><feMergeNode in="b1"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+
+  <!-- 3x3 Diphone Phoneme Matrix Grid (Cyan #00e5ff) -->
+  <rect x="95" y="95" width="322" height="322" rx="20" fill="#00e5ff" fill-opacity="0.12" stroke="#00e5ff" stroke-width="8"/>
+  <line x1="202" y1="95" x2="202" y2="417" stroke="#00e5ff" stroke-width="4" opacity="0.6"/>
+  <line x1="310" y1="95" x2="310" y2="417" stroke="#00e5ff" stroke-width="4" opacity="0.6"/>
+  <line x1="95" y1="202" x2="417" y2="202" stroke="#00e5ff" stroke-width="4" opacity="0.6"/>
+  <line x1="95" y1="310" x2="417" y2="310" stroke="#00e5ff" stroke-width="4" opacity="0.6"/>
+
+  <!-- Active Speech Trajectory Path weaving through letters -->
+  <path d="M 148 148 Q 256 120 256 256 Q 256 364 364 364" fill="none" stroke="#ff2a85" stroke-width="8" stroke-linecap="round"/>
+  
+  <circle cx="148" cy="148" r="18" fill="#ffcc00" filter="url(#glow-ss)"/>
+  <circle cx="148" cy="148" r="8" fill="#ffffff"/>
+
+  <circle cx="256" cy="256" r="22" fill="#00ffb2" filter="url(#glow-ss)"/>
+  <circle cx="256" cy="256" r="10" fill="#ffffff"/>
+
+  <circle cx="364" cy="364" r="18" fill="#ffcc00" filter="url(#glow-ss)"/>
+  <circle cx="364" cy="364" r="8" fill="#ffffff"/>
+</svg>

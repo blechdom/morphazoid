@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <filter id="glow-ouc" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="12" result="b1"/>
+      <feMerge><feMergeNode in="b1"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+
+  <!-- Carousel Top Canopy (Mint #00ffb2 - Scalloped Roof) -->
+  <path d="M 75 140 Q 256 70 437 140 L 400 170 Q 256 120 112 170 Z" fill="#00ffb2" fill-opacity="0.25" stroke="#00ffb2" stroke-width="7" stroke-linejoin="round"/>
+
+  <!-- Circular Snake Carousel Rail (Coral Pink #ff2a85 - 12px bold) -->
+  <circle cx="256" cy="285" r="150" fill="none" stroke="#ff2a85" stroke-width="12" stroke-dasharray="16,10"/>
+
+  <!-- Snake Head devouring tail on rail -->
+  <polygon points="395,250 425,285 380,295" fill="#ffcc00" stroke="#ffffff" stroke-width="4"/>
+  <circle cx="400" cy="275" r="4" fill="#040a08"/>
+
+  <!-- Vertical Carousel Brass Poles -->
+  <line x1="140" y1="160" x2="140" y2="410" stroke="#ffcc00" stroke-width="6" stroke-linecap="round"/>
+  <line x1="256" y1="130" x2="256" y2="435" stroke="#ffcc00" stroke-width="7" stroke-linecap="round"/>
+  <line x1="372" y1="160" x2="372" y2="410" stroke="#ffcc00" stroke-width="6" stroke-linecap="round"/>
+
+  <!-- Center Axis Spark -->
+  <circle cx="256" cy="285" r="18" fill="#ffffff" filter="url(#glow-ouc)"/>
+  <circle cx="256" cy="285" r="7" fill="#040a08"/>
+</svg>

@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <filter id="glow-tb" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="12" result="b1"/>
+      <feMerge><feMergeNode in="b1"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+
+  <!-- Left Beast Profile (Mint #00ffb2) -->
+  <path d="M 60 360 C 60 220, 160 170, 210 200 L 150 250 C 130 270, 80 290, 60 360" fill="#00ffb2" fill-opacity="0.2" stroke="#00ffb2" stroke-width="8" stroke-linejoin="round"/>
+  <circle cx="150" cy="190" r="8" fill="#ffcc00"/>
+  <!-- Left Tongue -->
+  <path d="M 170 230 C 210 210, 240 260, 270 250" fill="none" stroke="#ff2a85" stroke-width="9" stroke-linecap="round"/>
+
+  <!-- Right Beast Profile (Cyan #00e5ff) -->
+  <path d="M 452 360 C 452 220, 352 170, 302 200 L 362 250 C 382 270, 432 290, 452 360" fill="#00e5ff" fill-opacity="0.2" stroke="#00e5ff" stroke-width="8" stroke-linejoin="round"/>
+  <circle cx="362" cy="190" r="8" fill="#ffcc00"/>
+  <!-- Right Tongue -->
+  <path d="M 342 230 C 302 210, 272 260, 242 250" fill="none" stroke="#ffcc00" stroke-width="9" stroke-linecap="round"/>
+
+  <!-- Central Acoustic Vocal Handoff Spark -->
+  <circle cx="256" cy="250" r="16" fill="#ffffff" filter="url(#glow-tb)"/>
+  <circle cx="256" cy="250" r="6" fill="#040a08"/>
+</svg>

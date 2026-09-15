@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <filter id="glow-ou" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="12" result="b1"/>
+      <feMerge><feMergeNode in="b1"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+
+  <!-- Circular Dragon Body (Mint #00ffb2 - 16px heavy coil) -->
+  <circle cx="256" cy="256" r="175" fill="none" stroke="#00ffb2" stroke-width="18" stroke-linecap="round"/>
+  <circle cx="256" cy="256" r="175" fill="none" stroke="#040a08" stroke-width="8" stroke-linecap="round"/>
+  <circle cx="256" cy="256" r="175" fill="none" stroke="#00e5ff" stroke-width="3" stroke-dasharray="10,8"/>
+
+  <!-- Dragon Head at top (eating tail from left) -->
+  <path d="M 241 96 L 306 56 L 321 106 Z" fill="#ffcc00" stroke="#00ffb2" stroke-width="6" stroke-linejoin="round"/>
+  <!-- Glowing Eye -->
+  <circle cx="291" cy="81" r="6" fill="#ff2a85" filter="url(#glow-ou)"/>
+  <circle cx="291" cy="81" r="2.5" fill="#ffffff"/>
+
+  <!-- Sharp Dragon Dorsal Spines around the ring -->
+  <g>
+    <polygon points="417.9,349.5 416.8,376.6 391.1,385.3" fill="#ffcc00"/><polygon points="349.5,417.9 334.9,440.9 308.3,435.5" fill="#ffcc00"/><polygon points="256.0,443.0 231.9,455.6 211.5,437.6" fill="#ffcc00"/><polygon points="162.5,417.9 135.4,416.8 126.7,391.1" fill="#ffcc00"/><polygon points="94.1,349.5 71.1,334.9 76.5,308.3" fill="#ffcc00"/><polygon points="69.0,256.0 56.4,231.9 74.4,211.5" fill="#ffcc00"/><polygon points="94.1,162.5 95.2,135.4 120.9,126.7" fill="#ffcc00"/><polygon points="162.5,94.1 177.1,71.1 203.7,76.5" fill="#ffcc00"/><polygon points="256.0,69.0 280.1,56.4 300.5,74.4" fill="#ffcc00"/><polygon points="349.5,94.1 376.6,95.2 385.3,120.9" fill="#ffcc00"/>
+  </g>
+
+  <!-- Central Audio Feedback Core Singularity -->
+  <circle cx="256" cy="256" r="32" fill="#ff2a85" fill-opacity="0.25" filter="url(#glow-ou)"/>
+  <circle cx="256" cy="256" r="22" fill="#040a08" stroke="#ff2a85" stroke-width="5"/>
+  <circle cx="256" cy="256" r="8" fill="#ffffff"/>
+</svg>

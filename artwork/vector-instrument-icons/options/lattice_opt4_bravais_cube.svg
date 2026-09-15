@@ -1,0 +1,51 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <filter id="glow-lat4" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="12" result="b1"/>
+      <feMerge><feMergeNode in="b1"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+
+  <!-- Back Struts (Dashed Cyan) -->
+  <line x1="158.5" y1="98.5" x2="428.5" y2="98.5" stroke="#00e5ff" stroke-width="7" stroke-dasharray="10,8" opacity="0.6"/>
+  <line x1="428.5" y1="98.5" x2="428.5" y2="368.5" stroke="#00e5ff" stroke-width="7" stroke-dasharray="10,8" opacity="0.6"/>
+  <line x1="428.5" y1="368.5" x2="158.5" y2="368.5" stroke="#00e5ff" stroke-width="7" stroke-dasharray="10,8" opacity="0.6"/>
+  <line x1="158.5" y1="368.5" x2="158.5" y2="98.5" stroke="#00e5ff" stroke-width="7" stroke-dasharray="10,8" opacity="0.6"/>
+  <line x1="83.5" y1="413.5" x2="158.5" y2="368.5" stroke="#00e5ff" stroke-width="7" stroke-dasharray="10,8" opacity="0.6"/>
+
+  <!-- Back Nodes -->
+  <circle cx="158.5" cy="98.5" r="12" fill="#040a08" stroke="#00e5ff" stroke-width="4"/>
+  <circle cx="428.5" cy="98.5" r="12" fill="#040a08" stroke="#00e5ff" stroke-width="4"/>
+  <circle cx="158.5" cy="368.5" r="12" fill="#040a08" stroke="#00e5ff" stroke-width="4"/>
+  <circle cx="428.5" cy="368.5" r="12" fill="#040a08" stroke="#00e5ff" stroke-width="4"/>
+
+  <!-- Cross-diagonal Spring Struts (Violet #b85dff) -->
+  <line x1="83.5" y1="143.5" x2="353.5" y2="413.5" stroke="#b85dff" stroke-width="6" opacity="0.7"/>
+  <line x1="353.5" y1="143.5" x2="83.5" y2="413.5" stroke="#b85dff" stroke-width="6" opacity="0.7"/>
+
+  <!-- Foreground Cube Struts (Mint #00ffb2 - 10px bold) -->
+  <line x1="83.5" y1="143.5" x2="353.5" y2="143.5" stroke="#00ffb2" stroke-width="10" stroke-linecap="round"/>
+  <line x1="353.5" y1="143.5" x2="353.5" y2="413.5" stroke="#00ffb2" stroke-width="10" stroke-linecap="round"/>
+  <line x1="353.5" y1="413.5" x2="83.5" y2="413.5" stroke="#00ffb2" stroke-width="10" stroke-linecap="round"/>
+  <line x1="83.5" y1="413.5" x2="83.5" y2="143.5" stroke="#00ffb2" stroke-width="10" stroke-linecap="round"/>
+
+  <!-- Connecting Side Struts -->
+  <line x1="83.5" y1="143.5" x2="158.5" y2="98.5" stroke="#00ffb2" stroke-width="10" stroke-linecap="round"/>
+  <line x1="353.5" y1="143.5" x2="428.5" y2="98.5" stroke="#00ffb2" stroke-width="10" stroke-linecap="round"/>
+  <line x1="353.5" y1="413.5" x2="428.5" y2="368.5" stroke="#00ffb2" stroke-width="10" stroke-linecap="round"/>
+
+  <!-- Diagonal Excitation Scanline -->
+  <line x1="60" y1="360" x2="452" y2="152" stroke="#ffffff" stroke-width="6.5" stroke-linecap="round"/>
+  <line x1="60" y1="360" x2="452" y2="152" stroke="#ff2a85" stroke-width="12" stroke-opacity="0.3" stroke-linecap="round"/>
+
+  <!-- Face-Centered Active Atom (Gold) -->
+  <circle cx="218.5" cy="278.5" r="22" fill="#ffcc00" fill-opacity="0.4" filter="url(#glow-lat4)"/>
+  <circle cx="218.5" cy="278.5" r="14" fill="#ffffff" stroke="#ffcc00" stroke-width="5"/>
+  <circle cx="218.5" cy="278.5" r="5" fill="#040a08"/>
+
+  <!-- Foreground Corner Atoms -->
+  <circle cx="83.5" cy="143.5" r="15" fill="#040a08" stroke="#00ffb2" stroke-width="5"/><circle cx="83.5" cy="143.5" r="5" fill="#ffffff"/>
+  <circle cx="353.5" cy="143.5" r="15" fill="#040a08" stroke="#00ffb2" stroke-width="5"/><circle cx="353.5" cy="143.5" r="5" fill="#ffffff"/>
+  <circle cx="353.5" cy="413.5" r="15" fill="#040a08" stroke="#00ffb2" stroke-width="5"/><circle cx="353.5" cy="413.5" r="5" fill="#ffffff"/>
+  <circle cx="83.5" cy="413.5" r="15" fill="#040a08" stroke="#00ffb2" stroke-width="5"/><circle cx="83.5" cy="413.5" r="5" fill="#ffffff"/>
+</svg>

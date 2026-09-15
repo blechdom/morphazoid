@@ -1,0 +1,82 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <filter id="glow-hh-int" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="12" result="b1"/>
+      <feMerge><feMergeNode in="b1"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+
+  <!-- Outer Acoustic Aura Rings -->
+  <ellipse cx="256" cy="245" rx="195" ry="230" fill="none" stroke="#ff2a85" stroke-width="2.5" stroke-dasharray="6,8" opacity="0.45"/>
+  <ellipse cx="256" cy="245" rx="180" ry="218" fill="none" stroke="#ffcc00" stroke-width="2.5" stroke-dasharray="6,8" opacity="0.5"/>
+
+  <!-- Sound Breath Energy Whiskers -->
+  <line x1="30" y1="240" x2="80" y2="230" stroke="#00e5ff" stroke-width="6" stroke-linecap="round"/>
+  <line x1="20" y1="275" x2="75" y2="275" stroke="#00e5ff" stroke-width="6.5" stroke-linecap="round"/>
+  <line x1="30" y1="310" x2="80" y2="320" stroke="#00e5ff" stroke-width="6" stroke-linecap="round"/>
+
+  <line x1="482" y1="240" x2="432" y2="230" stroke="#ff2a85" stroke-width="6" stroke-linecap="round"/>
+  <line x1="492" y1="275" x2="437" y2="275" stroke="#ff2a85" stroke-width="6.5" stroke-linecap="round"/>
+  <line x1="482" y1="310" x2="432" y2="320" stroke="#ff2a85" stroke-width="6" stroke-linecap="round"/>
+
+  <!-- Face Contour Shell (Phosphor Mint #00ffb2) -->
+  <ellipse cx="256" cy="245" rx="165" ry="202" fill="#00ffb2" fill-opacity="0.16" stroke="#00ffb2" stroke-width="11"/>
+
+  <!-- Forehead Translucent Checkerboard Matrix Patch -->
+  <g opacity="0.55" stroke="#00e5ff" stroke-width="2">
+    <rect x="216" y="95" width="20" height="20" fill="#00ffb2"/>
+    <rect x="236" y="95" width="20" height="20" fill="#ffcc00"/>
+    <rect x="256" y="95" width="20" height="20" fill="#ff2a85"/>
+    <rect x="276" y="95" width="20" height="20" fill="#00e5ff"/>
+    <rect x="216" y="115" width="20" height="20" fill="#ff2a85"/>
+    <rect x="236" y="115" width="20" height="20" fill="#00e5ff"/>
+    <rect x="256" y="115" width="20" height="20" fill="#00ffb2"/>
+    <rect x="276" y="115" width="20" height="20" fill="#ffcc00"/>
+  </g>
+
+  <!-- Expressive Eyebrows -->
+  <path d="M 135 150 Q 175 125 215 145" fill="none" stroke="#ffcc00" stroke-width="6.5" stroke-linecap="round"/>
+  <path d="M 297 145 Q 337 125 377 150" fill="none" stroke="#ffcc00" stroke-width="6.5" stroke-linecap="round"/>
+
+  <!-- Glowing Eyes (Almond Shells with Glowing Pupils) -->
+  <ellipse cx="175" cy="182" rx="38" ry="24" fill="#040a08" stroke="#00e5ff" stroke-width="6"/>
+  <circle cx="175" cy="182" r="14" fill="#00e5ff" filter="url(#glow-hh-int)"/>
+  <circle cx="175" cy="182" r="6" fill="#ffffff"/>
+
+  <ellipse cx="337" cy="182" rx="38" ry="24" fill="#040a08" stroke="#00e5ff" stroke-width="6"/>
+  <circle cx="337" cy="182" r="14" fill="#00e5ff" filter="url(#glow-hh-int)"/>
+  <circle cx="337" cy="182" r="6" fill="#ffffff"/>
+
+  <!-- Concentric Acoustic Cheek Formant Ripples -->
+  <circle cx="120" cy="285" r="34" fill="none" stroke="#ff2a85" stroke-width="3" stroke-dasharray="5,5" opacity="0.7"/>
+  <circle cx="120" cy="285" r="22" fill="none" stroke="#ff2a85" stroke-width="4"/>
+  <circle cx="120" cy="285" r="10" fill="#ff2a85" fill-opacity="0.4"/>
+
+  <circle cx="392" cy="285" r="34" fill="none" stroke="#ffcc00" stroke-width="3" stroke-dasharray="5,5" opacity="0.7"/>
+  <circle cx="392" cy="285" r="22" fill="none" stroke="#ffcc00" stroke-width="4"/>
+  <circle cx="392" cy="285" r="10" fill="#ffcc00" fill-opacity="0.4"/>
+
+  <!-- Nose (Central Resonant Airway Bridge) -->
+  <path d="M 256 215 L 236 265 L 276 265 Z" fill="#040e0b" stroke="#00ffb2" stroke-width="5" stroke-linejoin="round"/>
+  <circle cx="256" cy="252" r="4" fill="#ffcc00"/>
+
+  <!-- Wide Resonant Oral Cavity (Mouth) -->
+  <path d="M 155 330 Q 256 312 357 330 C 385 410, 256 430, 127 410 Z" fill="#040e0b" stroke="#ff2a85" stroke-width="9" stroke-linejoin="round"/>
+  
+  <!-- White Upper Dental Arch Teeth -->
+  <path d="M 175 332 Q 256 322 337 332 Q 320 358 256 358 Q 192 358 175 332 Z" fill="#ffffff" stroke="#ffffff" stroke-width="2"/>
+  <!-- Teeth division lines -->
+  <line x1="228" y1="330" x2="228" y2="355" stroke="#040a08" stroke-width="2.5"/>
+  <line x1="256" y1="326" x2="256" y2="358" stroke="#040a08" stroke-width="2.5"/>
+  <line x1="284" y1="330" x2="284" y2="355" stroke="#040a08" stroke-width="2.5"/>
+
+  <!-- Vibrating Tongue Articulator (Bright Gold with Waveform) -->
+  <ellipse cx="256" cy="388" rx="55" ry="24" fill="#ffcc00" stroke="#ffcc00" stroke-width="4"/>
+  <circle cx="256" cy="388" r="12" fill="#ffffff" filter="url(#glow-hh-int)"/>
+  <circle cx="256" cy="388" r="5" fill="#040a08"/>
+
+  <!-- Chin Gesture Sequencer Step Blocks (8 step buttons at jaw) -->
+  <g>
+    <rect x="156" y="420" width="20" height="10" rx="3" fill="#ff2a85" stroke="#040a08" stroke-width="1.5"/><rect x="181" y="420" width="20" height="10" rx="3" fill="#ffcc00" stroke="#040a08" stroke-width="1.5"/><rect x="206" y="420" width="20" height="10" rx="3" fill="#00ffb2" stroke="#040a08" stroke-width="1.5"/><rect x="231" y="420" width="20" height="10" rx="3" fill="#00e5ff" stroke="#040a08" stroke-width="1.5"/><rect x="256" y="420" width="20" height="10" rx="3" fill="#c79bff" stroke="#040a08" stroke-width="1.5"/><rect x="281" y="420" width="20" height="10" rx="3" fill="#ff2a85" stroke="#040a08" stroke-width="1.5"/><rect x="306" y="420" width="20" height="10" rx="3" fill="#ffcc00" stroke="#040a08" stroke-width="1.5"/><rect x="331" y="420" width="20" height="10" rx="3" fill="#00ffb2" stroke="#040a08" stroke-width="1.5"/>
+  </g>
+</svg>

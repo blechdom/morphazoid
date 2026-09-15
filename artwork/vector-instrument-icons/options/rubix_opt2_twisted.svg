@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <!-- Bottom 2 layers: Stable isometric cube -->
+  <polygon points="105,256 256,342 407,256 407,370 256,456 105,370" fill="#040e0b" stroke="#00ffb2" stroke-width="8" stroke-linejoin="round"/>
+  <line x1="256" y1="342" x2="256" y2="456" stroke="#00ffb2" stroke-width="8"/>
+  <line x1="105" y1="313" x2="256" y2="399" stroke="#00ffb2" stroke-width="5"/>
+  <line x1="256" y1="399" x2="407" y2="313" stroke="#00ffb2" stroke-width="5"/>
+  
+  <!-- Lower sticker facets -->
+  <rect x="135" y="325" width="36" height="32" rx="4" fill="#00e5ff" transform="skewY(30)"/>
+  <rect x="185" y="296" width="36" height="32" rx="4" fill="#ffcc00" transform="skewY(30)"/>
+  <rect x="290" y="470" width="36" height="32" rx="4" fill="#ff2a85" transform="skewY(-30)"/>
+  <rect x="340" y="499" width="36" height="32" rx="4" fill="#00ffb2" transform="skewY(-30)"/>
+
+  <!-- Top Layer Twisted 45 Degrees (Glowing Mint & Gold) -->
+  <g transform="rotate(28 256 210)">
+    <polygon points="130,165 256,92 382,165 256,238" fill="#ffcc00" fill-opacity="0.3" stroke="#ffcc00" stroke-width="8.5" stroke-linejoin="round"/>
+    <!-- 3x3 tiles on twisted layer -->
+    <line x1="172" y1="141" x2="298" y2="214" stroke="#ffcc00" stroke-width="5"/>
+    <line x1="214" y1="116" x2="340" y2="189" stroke="#ffcc00" stroke-width="5"/>
+    <line x1="214" y1="214" x2="340" y2="141" stroke="#ffcc00" stroke-width="5"/>
+    <line x1="172" y1="189" x2="298" y2="116" stroke="#ffcc00" stroke-width="5"/>
+    <circle cx="256" cy="165" r="12" fill="#ffffff"/>
+  </g>
+</svg>

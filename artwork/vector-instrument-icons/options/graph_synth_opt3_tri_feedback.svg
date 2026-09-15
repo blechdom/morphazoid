@@ -1,0 +1,48 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <filter id="glow-g3" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="12" result="b1"/>
+      <feMerge><feMergeNode in="b1"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+
+  <!-- Large Outer Feedback Loop Arc from Delay back to Modulator (Coral Pink #ff2a85) -->
+  <path d="M 397 365 C 475 220, 256 50, 256 115" fill="none" stroke="#ff2a85" stroke-width="8" stroke-linecap="round"/>
+  <polygon points="256,115 272,92 250,90" fill="#ff2a85"/>
+
+  <!-- Forward Directed Conduits (10px thick) -->
+  <!-- Mod -> VCO (Cyan) -->
+  <path d="M 115 365 Q 120 180 256 115" fill="none" stroke="#00e5ff" stroke-width="10" stroke-linecap="round"/>
+  <polygon points="220,132 200,118 208,138" fill="#00e5ff"/>
+  <circle cx="160" cy="210" r="11" fill="#ffffff" stroke="#00e5ff" stroke-width="3"/>
+
+  <!-- VCO -> Delay (Mint) -->
+  <path d="M 256 115 Q 392 180 397 365" fill="none" stroke="#00ffb2" stroke-width="10" stroke-linecap="round"/>
+  <polygon points="352,210 360,190 342,200" fill="#00ffb2"/>
+  <circle cx="352" cy="245" r="11" fill="#ffffff" stroke="#00ffb2" stroke-width="3"/>
+
+  <!-- Delay -> Mod (Bottom Bridge, Gold) -->
+  <path d="M 397 365 Q 256 420 115 365" fill="none" stroke="#ffcc00" stroke-width="10" stroke-linecap="round"/>
+  <polygon points="230,397 256,400 240,380" fill="#ffcc00"/>
+  <circle cx="256" cy="396" r="11" fill="#ffffff" stroke="#ffcc00" stroke-width="3"/>
+
+  <!-- Center Cross-Modulation Conduit (Violet) -->
+  <line x1="256" y1="115" x2="256" y2="396" stroke="#b85dff" stroke-width="6" stroke-dasharray="10,8"/>
+
+  <!-- Node 1: Modulator (Bottom Left, Cyan) -->
+  <circle cx="115" cy="365" r="42" fill="#040e0b" stroke="#00e5ff" stroke-width="8"/>
+  <circle cx="115" cy="365" r="26" fill="#00e5ff" fill-opacity="0.3"/>
+  <circle cx="115" cy="365" r="10" fill="#00e5ff"/>
+
+  <!-- Node 2: Delay/Filter (Bottom Right, Coral Pink) -->
+  <circle cx="397" cy="365" r="42" fill="#040e0b" stroke="#ff2a85" stroke-width="8"/>
+  <circle cx="397" cy="365" r="26" fill="#ff2a85" fill-opacity="0.3"/>
+  <circle cx="397" cy="365" r="10" fill="#ff2a85"/>
+
+  <!-- Node 3: Active VCO Core (Top Center, Mint with Sine wave) -->
+  <circle cx="256" cy="115" r="54" fill="#00ffb2" fill-opacity="0.2" filter="url(#glow-g3)"/>
+  <circle cx="256" cy="115" r="48" fill="#040e0b" stroke="#00ffb2" stroke-width="9"/>
+  <circle cx="256" cy="115" r="32" fill="#00ffb2" fill-opacity="0.3"/>
+  <!-- Bold Sine Wave inside Core -->
+  <path d="M 226 115 Q 241 85 256 115 Q 271 145 286 115" fill="none" stroke="#ffffff" stroke-width="7" stroke-linecap="round"/>
+</svg>

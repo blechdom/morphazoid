@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <filter id="glow-gs1" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="12" result="b1"/>
+      <feMerge><feMergeNode in="b1"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+
+  <g><path d="M 135 125 Q 256.0 168.6 377 125" fill="none" stroke="#b85dff" stroke-width="7" stroke-linecap="round"/><polygon points="268.2,147.0 251.0,156.2 251.3,137.2" fill="#b85dff"/><path d="M 135 125 L 256 245" fill="none" stroke="#00e5ff" stroke-width="7" stroke-linecap="round"/><polygon points="225.7,215.0 207.0,209.7 220.3,196.3" fill="#00e5ff"/><path d="M 377 125 L 256 245" fill="none" stroke="#b85dff" stroke-width="7" stroke-linecap="round"/><polygon points="322.6,179.0 328.0,160.3 341.3,173.7" fill="#b85dff"/><path d="M 256 245 Q 183.5 307.9 95 345" fill="none" stroke="#ffcc00" stroke-width="7" stroke-linecap="round"/><polygon points="161.8,312.3 171.3,295.3 181.2,311.5" fill="#ffcc00"/><path d="M 256 245 Q 328.5 307.9 417 345" fill="none" stroke="#ff2a85" stroke-width="7" stroke-linecap="round"/><polygon points="360.1,317.9 340.7,317.5 350.3,301.1" fill="#ff2a85"/><path d="M 95 345 Q 181.2 382.8 256 440" fill="none" stroke="#ffcc00" stroke-width="7" stroke-linecap="round"/><polygon points="236.6,425.4 217.2,423.6 227.9,407.9" fill="#ffcc00"/><path d="M 417 345 Q 330.8 382.8 256 440" fill="none" stroke="#ff2a85" stroke-width="7" stroke-linecap="round"/><polygon points="284.6,418.9 293.5,401.6 304.0,417.4" fill="#ff2a85"/><path d="M 417 345 Q 511.4 214.2 377 125" fill="none" stroke="#ff2a85" stroke-width="7" stroke-linecap="round"/><polygon points="446.9,197.4 460.7,211.0 442.5,216.4" fill="#ff2a85"/></g>
+  <g filter="url(#glow-gs1)"><circle cx="251.2" cy="146.7" r="9" fill="#ffffff" stroke="#b85dff" stroke-width="3"/><circle cx="213.7" cy="203.0" r="9" fill="#ffffff" stroke="#00e5ff" stroke-width="3"/><circle cx="334.6" cy="167.0" r="9" fill="#ffffff" stroke="#b85dff" stroke-width="3"/><circle cx="176.3" cy="303.4" r="9" fill="#ffffff" stroke="#ffcc00" stroke-width="3"/><circle cx="345.5" cy="309.3" r="9" fill="#ffffff" stroke="#ff2a85" stroke-width="3"/><circle cx="222.5" cy="415.8" r="9" fill="#ffffff" stroke="#ffcc00" stroke-width="3"/><circle cx="298.8" cy="409.5" r="9" fill="#ffffff" stroke="#ff2a85" stroke-width="3"/><circle cx="451.6" cy="213.7" r="9" fill="#ffffff" stroke="#ff2a85" stroke-width="3"/></g>
+  <g>
+            <circle cx="135" cy="125" r="34" fill="#040a08" stroke="#00e5ff" stroke-width="6.5"/>
+            <circle cx="135" cy="125" r="24" fill="#00e5ff" fill-opacity="0.38"/>
+            <circle cx="135" cy="125" r="6.5" fill="#00e5ff"/>
+            
+            <circle cx="377" cy="125" r="34" fill="#040a08" stroke="#b85dff" stroke-width="6.5"/>
+            <circle cx="377" cy="125" r="24" fill="#b85dff" fill-opacity="0.38"/>
+            <circle cx="377" cy="125" r="6.5" fill="#b85dff"/>
+            
+            <circle cx="256" cy="245" r="60" fill="none" stroke="#00ffb2" stroke-width="3.5" stroke-dasharray="6,6"/>
+            <circle cx="256" cy="245" r="46" fill="#040e0b" stroke="#00ffb2" stroke-width="6.5"/>
+            <circle cx="256" cy="245" r="37" fill="#00ffb2" fill-opacity="0.3"/>
+            <polyline points="232.0,256.0 233.0,255.8 234.0,255.2 235.0,254.1 236.0,252.8 237.0,251.1 238.0,249.2 239.0,247.1 240.0,245.0 241.0,242.9 242.0,240.8 243.0,238.9 244.0,237.2 245.0,235.9 246.0,234.8 247.0,234.2 248.0,234.0 249.0,234.2 250.0,234.8 251.0,235.9 252.0,237.2 253.0,238.9 254.0,240.8 255.0,242.9 256.0,245.0 257.0,247.1 258.0,249.2 259.0,251.1 260.0,252.8 261.0,254.1 262.0,255.2 263.0,255.8 264.0,256.0 265.0,255.8 266.0,255.2 267.0,254.1 268.0,252.8 269.0,251.1 270.0,249.2 271.0,247.1 272.0,245.0 273.0,242.9 274.0,240.8 275.0,238.9 276.0,237.2 277.0,235.9 278.0,234.8 279.0,234.2 280.0,234.0" fill="none" stroke="#ffffff" stroke-width="5.5" stroke-linecap="round"/>
+            
+            <circle cx="95" cy="345" r="32" fill="#040a08" stroke="#ffcc00" stroke-width="6.5"/>
+            <circle cx="95" cy="345" r="22" fill="#ffcc00" fill-opacity="0.38"/>
+            <circle cx="95" cy="345" r="6.5" fill="#ffcc00"/>
+            
+            <circle cx="417" cy="345" r="32" fill="#040a08" stroke="#ff2a85" stroke-width="6.5"/>
+            <circle cx="417" cy="345" r="22" fill="#ff2a85" fill-opacity="0.38"/>
+            <circle cx="417" cy="345" r="6.5" fill="#ff2a85"/>
+            
+            <circle cx="256" cy="440" r="38" fill="#040a08" stroke="#00ffb2" stroke-width="6.5"/>
+            <circle cx="256" cy="440" r="28" fill="#00ffb2" fill-opacity="0.38"/>
+            <circle cx="256" cy="440" r="6.5" fill="#00ffb2"/>
+            </g>
+</svg>

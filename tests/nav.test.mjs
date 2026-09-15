@@ -399,14 +399,9 @@ test("tool registry is categorized, unique, and includes Morphazoidical", () => 
     "Slippery Resynthesis belongs immediately after Shepard–Risset",
   );
   assert.equal(
-    barberShopTools.findIndex(({ id }) => id === "moire-drone"),
-    barberShopTools.findIndex(({ id }) => id === "slippery-resynthesis") + 1,
-    "Fabric Filter belongs immediately after Slippery Resynthesis",
-  );
-  assert.equal(
     barberShopTools.findIndex(({ id }) => id === "drum-roll-please"),
-    barberShopTools.findIndex(({ id }) => id === "moire-drone") + 1,
-    "Drum Roll Please belongs immediately after Fabric Filter",
+    barberShopTools.findIndex(({ id }) => id === "slippery-resynthesis") + 1,
+    "Drum Roll Please belongs immediately after Slippery Resynthesis",
   );
   assert.equal(
     barberShopTools.findIndex(({ id }) => id === "ouroborousel"),
@@ -621,6 +616,7 @@ test("tool registry is categorized, unique, and includes Morphazoidical", () => 
       ({ id, href }) => ({ id, href }),
     ),
     [
+      { id: "moire-drone", href: "moire-drone.html" },
       { id: "playhead-paint", href: "playhead-paint.html" },
       { id: "boidzoid", href: "boidzoid.html" },
       { id: "puggler", href: "puggler.html" },
@@ -710,6 +706,7 @@ test("tool registry is categorized, unique, and includes Morphazoidical", () => 
       ({ id, href }) => ({ id, href }),
     ),
     [
+      { id: "cellular-automata", href: "automatapoeia.html" },
       { id: "sorting-algorithms", href: "algorithmic-sequencers.html" },
       { id: "dijkstra", href: "dijkstra.html" },
     ],
@@ -754,7 +751,6 @@ test("tool registry is categorized, unique, and includes Morphazoidical", () => 
     [
       { id: "shepard-risset", href: "shepard-risset.html" },
       { id: "slippery-resynthesis", href: "slippery-resynthesis.html" },
-      { id: "moire-drone", href: "moire-drone.html" },
       { id: "drum-roll-please", href: "drum-roll-please.html" },
       { id: "ouroborousel", href: "ouroborousel.html" },
       { id: "ourorourobouroboros", href: "ourorourobouroboros.html" },
@@ -912,7 +908,6 @@ test("tool registry is categorized, unique, and includes Morphazoidical", () => 
       { id: "chladni-plate", href: "chladni-plate.html" },
       { id: "spring-choir", href: "spring-choir.html" },
       { id: "gear-ratio-drums", href: "gear-ratio-drums.html" },
-      { id: "cellular-automata", href: "automatapoeia.html" },
       { id: "prime-sieve", href: "prime-sieve.html" },
       { id: "lissajous-orbits", href: "lissajous-orbits.html" },
       { id: "pendulum-wave", href: "pendulum-wave.html" },

@@ -1,0 +1,56 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <filter id="glow-rc2" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="12" result="b1"/>
+      <feMerge><feMergeNode in="b1"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+
+  <!-- Antenna Feelers with Glowing Tips (Cyan) -->
+  <path d="M 230 115 C 190 40, 100 35, 60 55" fill="none" stroke="#00e5ff" stroke-width="6" stroke-linecap="round"/>
+  <circle cx="60" cy="55" r="10" fill="#00e5ff" filter="url(#glow-rc2)"/>
+  <circle cx="60" cy="55" r="4" fill="#ffffff"/>
+
+  <path d="M 282 115 C 322 40, 412 35, 452 55" fill="none" stroke="#00e5ff" stroke-width="6" stroke-linecap="round"/>
+  <circle cx="452" cy="55" r="10" fill="#00e5ff" filter="url(#glow-rc2)"/>
+  <circle cx="452" cy="55" r="4" fill="#ffffff"/>
+
+  <!-- 6 Heavy Articulated Legs with Knuckle Pistons (Mint #00ffb2 - 9px) -->
+  <polyline points="215,180 135,135 75,105" fill="none" stroke="#00ffb2" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="135" cy="135" r="8" fill="#040a08" stroke="#ffcc00" stroke-width="3.5"/>
+
+  <polyline points="297,180 377,135 437,105" fill="none" stroke="#00ffb2" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="377" cy="135" r="8" fill="#040a08" stroke="#ffcc00" stroke-width="3.5"/>
+
+  <polyline points="205,255 110,255 55,290" fill="none" stroke="#00ffb2" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="110" cy="255" r="8" fill="#040a08" stroke="#ffcc00" stroke-width="3.5"/>
+
+  <polyline points="307,255 402,255 457,290" fill="none" stroke="#00ffb2" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="402" cy="255" r="8" fill="#040a08" stroke="#ffcc00" stroke-width="3.5"/>
+
+  <polyline points="215,335 110,380 70,455" fill="none" stroke="#00ffb2" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="110" cy="380" r="8" fill="#040a08" stroke="#ffcc00" stroke-width="3.5"/>
+
+  <polyline points="297,335 402,380 442,455" fill="none" stroke="#00ffb2" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="402" cy="380" r="8" fill="#040a08" stroke="#ffcc00" stroke-width="3.5"/>
+
+  <!-- Exoskeleton Head Capsule with Dual Oscilloscope Speaker Eyes -->
+  <rect x="206" y="105" width="100" height="70" rx="30" fill="#040e0b" stroke="#00ffb2" stroke-width="7"/>
+  <!-- Left Speaker Eye (Sine) -->
+  <circle cx="232" cy="140" r="16" fill="#040a08" stroke="#00e5ff" stroke-width="3.5"/>
+  <path d="M 222 140 Q 227 132 232 140 Q 237 148 242 140" fill="none" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round"/>
+  <!-- Right Speaker Eye (Sine) -->
+  <circle cx="280" cy="140" r="16" fill="#040a08" stroke="#00e5ff" stroke-width="3.5"/>
+  <path d="M 270 140 Q 275 132 280 140 Q 285 148 290 140" fill="none" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round"/>
+
+  <!-- Abdominal Shell Body (Coral & Gold) -->
+  <ellipse cx="256" cy="305" rx="60" ry="110" fill="#ff2a85" fill-opacity="0.25" stroke="#ff2a85" stroke-width="9"/>
+
+  <!-- Central Vacuum Tube Sound Core with Glowing Waveform -->
+  <rect x="236" y="215" width="40" height="85" rx="16" fill="#040a08" stroke="#ffcc00" stroke-width="5"/>
+  <path d="M 246 257 Q 251 245 256 257 Q 261 269 266 257" fill="none" stroke="#ffffff" stroke-width="4.5" stroke-linecap="round" filter="url(#glow-rc2)"/>
+
+  <!-- Acoustic Abdominal Speaker Grille at base -->
+  <circle cx="256" cy="355" r="22" fill="#040a08" stroke="#00e5ff" stroke-width="5"/>
+  <circle cx="256" cy="355" r="8" fill="#00e5ff"/>
+</svg>

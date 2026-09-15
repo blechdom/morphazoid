@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <filter id="glow-sh-hex" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="12" result="b1"/>
+      <feMerge><feMergeNode in="b1"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+
+  <!-- Solid Polygon Body -->
+  <polygon points="256.0,61.0 424.9,158.5 424.9,353.5 256.0,451.0 87.1,353.5 87.1,158.5" fill="#00ffb2" fill-opacity="0.2" stroke="#00ffb2" stroke-width="11" stroke-linejoin="round"/>
+
+  <!-- Edge Division Ticks -->
+  <line x1="312.2" y1="93.5" x2="304.2" y2="107.3" stroke="#ffcc00" stroke-width="5.5" stroke-linecap="round"/><line x1="368.5" y1="125.9" x2="360.5" y2="139.8" stroke="#ffcc00" stroke-width="5.5" stroke-linecap="round"/><line x1="424.9" y1="223.4" x2="408.9" y2="223.4" stroke="#ffcc00" stroke-width="5.5" stroke-linecap="round"/><line x1="424.9" y1="288.4" x2="408.9" y2="288.4" stroke="#ffcc00" stroke-width="5.5" stroke-linecap="round"/><line x1="368.6" y1="386.0" x2="360.6" y2="372.1" stroke="#ffcc00" stroke-width="5.5" stroke-linecap="round"/><line x1="312.4" y1="418.4" x2="304.4" y2="404.6" stroke="#ffcc00" stroke-width="5.5" stroke-linecap="round"/><line x1="199.8" y1="418.5" x2="207.8" y2="404.7" stroke="#ffcc00" stroke-width="5.5" stroke-linecap="round"/><line x1="143.5" y1="386.1" x2="151.5" y2="372.2" stroke="#ffcc00" stroke-width="5.5" stroke-linecap="round"/><line x1="87.1" y1="288.6" x2="103.1" y2="288.6" stroke="#ffcc00" stroke-width="5.5" stroke-linecap="round"/><line x1="87.1" y1="223.6" x2="103.1" y2="223.6" stroke="#ffcc00" stroke-width="5.5" stroke-linecap="round"/><line x1="143.4" y1="126.0" x2="151.4" y2="139.9" stroke="#ffcc00" stroke-width="5.5" stroke-linecap="round"/><line x1="199.6" y1="93.6" x2="207.6" y2="107.4" stroke="#ffcc00" stroke-width="5.5" stroke-linecap="round"/>
+
+  <!-- Vertices -->
+  <circle cx="256.0" cy="61.0" r="11" fill="#040a08" stroke="#00ffb2" stroke-width="5"/><circle cx="256.0" cy="61.0" r="4" fill="#ffffff"/><circle cx="424.9" cy="158.5" r="11" fill="#040a08" stroke="#00ffb2" stroke-width="5"/><circle cx="424.9" cy="158.5" r="4" fill="#ffffff"/><circle cx="424.9" cy="353.5" r="11" fill="#040a08" stroke="#00ffb2" stroke-width="5"/><circle cx="424.9" cy="353.5" r="4" fill="#ffffff"/><circle cx="256.0" cy="451.0" r="11" fill="#040a08" stroke="#00ffb2" stroke-width="5"/><circle cx="256.0" cy="451.0" r="4" fill="#ffffff"/><circle cx="87.1" cy="353.5" r="11" fill="#040a08" stroke="#00ffb2" stroke-width="5"/><circle cx="87.1" cy="353.5" r="4" fill="#ffffff"/><circle cx="87.1" cy="158.5" r="11" fill="#040a08" stroke="#00ffb2" stroke-width="5"/><circle cx="87.1" cy="158.5" r="4" fill="#ffffff"/>
+
+  <!-- Scanning Reader Ray -->
+  <line x1="256" y1="256" x2="421.4" y2="152.7" stroke="#ffffff" stroke-width="8" stroke-linecap="round"/>
+
+  <!-- Active Sounding Contact Node -->
+  <circle cx="421.4" cy="152.7" r="24" fill="#00ffb2" fill-opacity="0.45" filter="url(#glow-sh-hex)"/>
+  <circle cx="421.4" cy="152.7" r="15" fill="#ffffff" stroke="#00ffb2" stroke-width="5"/>
+  <circle cx="421.4" cy="152.7" r="5.5" fill="#040a08"/>
+
+  <!-- Center Hub -->
+  <circle cx="256" cy="256" r="16" fill="#040a08" stroke="#00ffb2" stroke-width="4.5"/>
+  <circle cx="256" cy="256" r="6" fill="#ffcc00"/>
+</svg>

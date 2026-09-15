@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <filter id="glow-hb1" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="12" result="b1"/>
+      <feMerge><feMergeNode in="b1"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+
+  <!-- Multi-Track Keyframe Pitch Contour Lines below (from original logo!) -->
+  <!-- Track 1: Cyan -->
+  <path d="M 60 410 L 160 410 Q 200 370 240 410 L 452 410" fill="none" stroke="#00e5ff" stroke-width="4.5" stroke-linecap="round"/>
+  <circle cx="60" cy="410" r="5" fill="#00e5ff"/>
+  <polygon points="200,380 206,386 200,392 194,386" fill="#00e5ff"/>
+  <circle cx="452" cy="410" r="5" fill="#00e5ff"/>
+
+  <!-- Track 2: Coral Pink -->
+  <path d="M 60 445 L 220 445 Q 260 415 300 445 L 452 445" fill="none" stroke="#ff2a85" stroke-width="4.5" stroke-linecap="round"/>
+  <circle cx="60" cy="445" r="5" fill="#ff2a85"/>
+  <polygon points="260,425 266,431 260,437 254,431" fill="#ff2a85"/>
+  <circle cx="452" cy="445" r="5" fill="#ff2a85"/>
+
+  <!-- Ruffled Feather / Horn Crest on Neck (Left side) -->
+  <path d="M 120 180 L 70 140 L 135 150 L 95 105 L 165 125 L 140 75 L 210 110" fill="none" stroke="#ffcc00" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <!-- Animal Ear/Fan (Top-Left) -->
+  <path d="M 170 100 C 130 50, 200 40, 230 85" fill="none" stroke="#ff2a85" stroke-width="8" stroke-linecap="round"/>
+
+  <!-- Throat / Neck Column (Mint #00ffb2) flowing down to track -->
+  <path d="M 130 180 C 170 270, 160 350, 180 410" fill="none" stroke="#00ffb2" stroke-width="12" stroke-linecap="round"/>
+
+  <!-- Upper Beak / Jaw (Hooked Raptor Beak, Gold #ffcc00) -->
+  <path d="M 230 85 C 280 90, 360 120, 420 160 C 450 180, 430 205, 390 205 C 330 205, 270 215, 220 240" fill="#ffcc00" fill-opacity="0.3" stroke="#ffcc00" stroke-width="9" stroke-linejoin="round"/>
+
+  <!-- Lower Jaw (Mint #00ffb2) -->
+  <path d="M 220 280 C 260 300, 310 300, 345 285 C 355 275, 330 260, 290 255" fill="none" stroke="#00ffb2" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <!-- Glowing Animal Eye (Raptor Eye, Cyan & Gold) -->
+  <circle cx="270" cy="140" r="18" fill="#040a08" stroke="#00e5ff" stroke-width="5"/>
+  <circle cx="270" cy="140" r="9" fill="#ffcc00" filter="url(#glow-hb1)"/>
+  <circle cx="270" cy="140" r="4" fill="#ffffff"/>
+
+  <!-- Long Curled Protruding Animal Tongue (Vivid Coral Pink #ff2a85) -->
+  <path d="M 235 240 C 290 220, 350 240, 410 270 C 450 290, 470 280, 465 260" fill="none" stroke="#ff2a85" stroke-width="13" stroke-linecap="round"/>
+  <path d="M 235 240 C 290 220, 350 240, 410 270 C 450 290, 470 280, 465 260" fill="none" stroke="#ffffff" stroke-width="4" stroke-linecap="round"/>
+  <circle cx="465" cy="260" r="7" fill="#ff2a85" filter="url(#glow-hb1)"/>
+</svg>

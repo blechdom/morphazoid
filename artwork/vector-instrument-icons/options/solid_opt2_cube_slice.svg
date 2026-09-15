@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <filter id="glow-sol2" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="12" result="b1"/>
+      <feMerge><feMergeNode in="b1"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+
+  <!-- Cutting Plane Slab -->
+  <polygon points="65,340 160,110 447,172 352,402" fill="#ff2a85" fill-opacity="0.25" stroke="#ff2a85" stroke-width="6" stroke-linejoin="round"/>
+
+  <!-- Isometric Cube Edges (Bold 9px) -->
+  <!-- Top Face -->
+  <polygon points="256,76 396,156 256,236 116,156" fill="#00ffb2" fill-opacity="0.15" stroke="#00ffb2" stroke-width="9" stroke-linejoin="round"/>
+  <!-- Left Face -->
+  <polygon points="116,156 256,236 256,396 116,316" fill="#00e5ff" fill-opacity="0.12" stroke="#00e5ff" stroke-width="9" stroke-linejoin="round"/>
+  <!-- Right Face -->
+  <polygon points="256,236 396,156 396,316 256,396" fill="#00ffb2" fill-opacity="0.2" stroke="#00ffb2" stroke-width="9" stroke-linejoin="round"/>
+
+  <!-- Cross-section cut polygon -->
+  <polygon points="151,216 326,196 326,356 151,376" fill="#ffcc00" fill-opacity="0.35" stroke="#ffffff" stroke-width="6" stroke-linejoin="round"/>
+
+  <!-- Slicing Nodes -->
+  <circle cx="151" cy="216" r="16" fill="#ffcc00" filter="url(#glow-sol2)"/>
+  <circle cx="151" cy="216" r="8" fill="#ffffff"/>
+
+  <circle cx="326" cy="196" r="16" fill="#ffcc00" filter="url(#glow-sol2)"/>
+  <circle cx="326" cy="196" r="8" fill="#ffffff"/>
+
+  <circle cx="326" cy="356" r="16" fill="#ffcc00" filter="url(#glow-sol2)"/>
+  <circle cx="326" cy="356" r="8" fill="#ffffff"/>
+
+  <circle cx="151" cy="376" r="16" fill="#ffcc00" filter="url(#glow-sol2)"/>
+  <circle cx="151" cy="376" r="8" fill="#ffffff"/>
+</svg>

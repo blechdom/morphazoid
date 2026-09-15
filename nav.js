@@ -271,11 +271,6 @@ export const TOOL_GROUPS = Object.freeze([
       href: "slippery-resynthesis.html",
     },
     {
-      id: "moire-drone",
-      label: "Fabric Filter",
-      href: "moire-drone.html",
-    },
-    {
       id: "drum-roll-please",
       label: "Drum Roll Please!",
       href: "drum-roll-please.html",
@@ -316,6 +311,11 @@ export const TOOL_GROUPS = Object.freeze([
     { id: "weierstrass", label: "Weierstrass", href: "weierstrass.html" },
   ]),
   freezeGroup("misc", "Misc", [
+    {
+      id: "moire-drone",
+      label: "Fabric Filter",
+      href: "moire-drone.html",
+    },
     { id: "playhead-paint", label: "Playhead Paint", href: "playhead-paint.html" },
     { id: "boidzoid", label: "Boidzoid", href: "boidzoid.html" },
     { id: "puggler", label: "Puggler the Punk Rock Jugger", href: "puggler.html" },
@@ -347,6 +347,11 @@ export const TOOL_GROUPS = Object.freeze([
     },
   ]),
   freezeGroup("algorithmic-sequencers", "Algorithmic Sequencers", [
+    {
+      id: "cellular-automata",
+      label: "Automatapoeia",
+      href: "automatapoeia.html",
+    },
     { id: "sorting-algorithms", label: "Sorting", href: "algorithmic-sequencers.html" },
     { id: "dijkstra", label: "DJ Dijkstra", href: "dijkstra.html" },
   ]),
@@ -434,11 +439,6 @@ export const TOOL_GROUPS = Object.freeze([
       id: "gear-ratio-drums",
       label: "Gear Ratio Drums",
       href: "gear-ratio-drums.html",
-    },
-    {
-      id: "cellular-automata",
-      label: "Automatapoeia",
-      href: "automatapoeia.html",
     },
     { id: "prime-sieve", label: "Prime Sieve", href: "prime-sieve.html" },
     {

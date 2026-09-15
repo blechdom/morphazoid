@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <filter id="glow-hl" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="12" result="b1"/>
+      <feMerge><feMergeNode in="b1"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+
+  <!-- 3 Concentric Ring Tracks (Track 1 Mint, Track 2 Cyan, Track 3 Coral) -->
+  <circle cx="256" cy="256" r="205" fill="none" stroke="#00ffb2" stroke-width="7" stroke-dasharray="14,10" opacity="0.5"/>
+  <circle cx="256" cy="256" r="145" fill="none" stroke="#00e5ff" stroke-width="7" stroke-dasharray="12,8" opacity="0.6"/>
+  <circle cx="256" cy="256" r="85" fill="none" stroke="#ff2a85" stroke-width="7" stroke-dasharray="10,6" opacity="0.7"/>
+
+  <!-- Interlocking Radial Weave Struts (Loom Spokes) -->
+  <line x1="256" y1="51" x2="256" y2="461" stroke="#ffffff" stroke-width="4" stroke-dasharray="8,6" opacity="0.4"/>
+  <line x1="51" y1="256" x2="461" y2="256" stroke="#ffffff" stroke-width="4" stroke-dasharray="8,6" opacity="0.4"/>
+
+  <!-- Track 1 Pulses (Outer Ring, Mint) -->
+  <circle cx="256" cy="51" r="18" fill="#00ffb2" filter="url(#glow-hl)"/>
+  <circle cx="256" cy="51" r="9" fill="#ffffff"/>
+  <circle cx="461" cy="256" r="18" fill="#00ffb2" filter="url(#glow-hl)"/>
+  <circle cx="461" cy="256" r="9" fill="#ffffff"/>
+
+  <!-- Track 2 Pulses (Middle Ring, Cyan - Offbeat Handoffs!) -->
+  <circle cx="153" cy="153" r="18" fill="#00e5ff" filter="url(#glow-hl)"/>
+  <circle cx="153" cy="153" r="9" fill="#ffffff"/>
+  <circle cx="359" cy="359" r="18" fill="#00e5ff" filter="url(#glow-hl)"/>
+  <circle cx="359" cy="359" r="9" fill="#ffffff"/>
+
+  <!-- Track 3 Pulses (Inner Ring, Coral & Gold - Syncopations!) -->
+  <circle cx="256" cy="341" r="18" fill="#ff2a85" filter="url(#glow-hl)"/>
+  <circle cx="256" cy="341" r="9" fill="#ffffff"/>
+  <circle cx="171" cy="256" r="18" fill="#ffcc00" filter="url(#glow-hl)"/>
+  <circle cx="171" cy="256" r="9" fill="#ffffff"/>
+
+  <!-- Center Loom Spindle Hub -->
+  <circle cx="256" cy="256" r="22" fill="#040a08" stroke="#ffffff" stroke-width="5"/>
+  <circle cx="256" cy="256" r="8" fill="#ffcc00"/>
+</svg>

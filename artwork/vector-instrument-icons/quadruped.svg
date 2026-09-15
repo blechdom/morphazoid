@@ -1,0 +1,120 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <filter id="glow-qp2" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="12" result="b1"/>
+      <feMerge><feMergeNode in="b1"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+
+  <circle cx="256" cy="256" r="215" fill="none" stroke="#00e5ff" stroke-width="3.5" stroke-dasharray="6,8" stroke-opacity="0.45"/>
+  <line x1="75" y1="370" x2="437" y2="370" stroke="#00ffb2" stroke-width="6" stroke-dasharray="12,8" stroke-linecap="round"/>
+
+  <!-- Background Legs -->
+  <g stroke-linecap="round" stroke-linejoin="round" opacity="0.7">
+    <polyline points="175,205 120,250 100,310 78,368" fill="none" stroke="#00e5ff" stroke-width="8"/>
+    <circle cx="120" cy="250" r="8" fill="#040a08" stroke="#00e5ff" stroke-width="3.5"/>
+    <circle cx="100" cy="310" r="8" fill="#040a08" stroke="#00e5ff" stroke-width="3.5"/>
+    <circle cx="78" cy="368" r="10" fill="#00e5ff"/>
+  </g>
+
+  <g stroke-linecap="round" stroke-linejoin="round" opacity="0.7">
+    <polyline points="335,190 370,235 405,280 428,330" fill="none" stroke="#ff2a85" stroke-width="8"/>
+    <circle cx="370" cy="235" r="8" fill="#040a08" stroke="#ff2a85" stroke-width="3.5"/>
+    <circle cx="405" cy="280" r="8" fill="#040a08" stroke="#ff2a85" stroke-width="3.5"/>
+    <circle cx="428" cy="330" r="10" fill="#ff2a85"/>
+  </g>
+
+  <!-- Torso -->
+  <polygon points="150,225 175,188 335,178 360,208 330,235 175,240" fill="#00ffb2" fill-opacity="0.3" stroke="#00ffb2" stroke-width="7" stroke-linejoin="round"/>
+  <line x1="220" y1="185" x2="255" y2="238" stroke="#00e5ff" stroke-width="4"/>
+  <line x1="290" y1="181" x2="255" y2="238" stroke="#00e5ff" stroke-width="4"/>
+  <line x1="290" y1="181" x2="330" y2="235" stroke="#00e5ff" stroke-width="4"/>
+  <line x1="175" y1="188" x2="335" y2="178" stroke="#ffffff" stroke-width="4" stroke-linecap="round"/>
+
+  <!-- Neck & Sensor Head -->
+  <polyline points="335,178 380,135 422,135" fill="none" stroke="#00ffb2" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+  <polygon points="410,120 450,135 410,150" fill="#ffcc00" stroke="#00ffb2" stroke-width="4" stroke-linejoin="round"/>
+  <circle cx="422" cy="135" r="6" fill="#ffffff" filter="url(#glow-qp2)"/>
+
+  <path d="M 150 225 C 120 215, 110 170, 95 165" fill="none" stroke="#00e5ff" stroke-width="5" stroke-linecap="round"/>
+  <circle cx="95" cy="165" r="7" fill="#ffcc00"/>
+
+  <!-- Foreground Legs -->
+  <g stroke-linecap="round" stroke-linejoin="round">
+    <polyline points="175,205 152,260 185,320 210,368" fill="none" stroke="#00ffb2" stroke-width="10"/>
+    <circle cx="152" cy="260" r="11" fill="#040a08" stroke="#00ffb2" stroke-width="4.5"/>
+    <circle cx="152" cy="260" r="4" fill="#00ffb2"/>
+    <circle cx="185" cy="320" r="10" fill="#040a08" stroke="#00ffb2" stroke-width="4.5"/>
+    <circle cx="210" cy="368" r="14" fill="#00ffb2" filter="url(#glow-qp2)"/>
+    <circle cx="210" cy="368" r="5.5" fill="#ffffff"/>
+  </g>
+
+  <g stroke-linecap="round" stroke-linejoin="round">
+    <polyline points="335,190 350,250 332,315 315,368" fill="none" stroke="#ffcc00" stroke-width="10"/>
+    <circle cx="350" cy="250" r="11" fill="#040a08" stroke="#ffcc00" stroke-width="4.5"/>
+    <circle cx="350" cy="250" r="4" fill="#ffcc00"/>
+    <circle cx="332" cy="315" r="10" fill="#040a08" stroke="#ffcc00" stroke-width="4.5"/>
+    <circle cx="315" cy="368" r="15" fill="#ffcc00" filter="url(#glow-qp2)"/>
+    <circle cx="315" cy="368" r="6" fill="#ffffff"/>
+  </g>
+
+  <circle cx="175" cy="205" r="16" fill="#040a08" stroke="#00ffb2" stroke-width="5"/>
+  <circle cx="175" cy="205" r="7" fill="#00ffb2"/>
+
+  <circle cx="335" cy="190" r="16" fill="#040a08" stroke="#00ffb2" stroke-width="5"/>
+  <circle cx="335" cy="190" r="7" fill="#ffcc00"/>
+
+  <g>
+            <circle cx="256.0" cy="41.0" r="17" fill="#ffcc00" fill-opacity="0.3" stroke="#ffcc00" stroke-width="4.5"/>
+            <circle cx="256.0" cy="41.0" r="9" fill="#ffcc00"/>
+            <circle cx="256.0" cy="41.0" r="3.5" fill="#ffffff"/>
+            
+            <circle cx="338.3" cy="57.4" r="7.5" fill="#040a08" stroke="#00ffb2" stroke-width="2.5" stroke-opacity="0.5"/>
+            <circle cx="338.3" cy="57.4" r="2.5" fill="#00ffb2" opacity="0.8"/>
+            
+            <circle cx="408.0" cy="104.0" r="7.5" fill="#040a08" stroke="#00ffb2" stroke-width="2.5" stroke-opacity="0.5"/>
+            <circle cx="408.0" cy="104.0" r="2.5" fill="#00ffb2" opacity="0.8"/>
+            
+            <circle cx="454.6" cy="173.7" r="7.5" fill="#040a08" stroke="#00ffb2" stroke-width="2.5" stroke-opacity="0.5"/>
+            <circle cx="454.6" cy="173.7" r="2.5" fill="#00ffb2" opacity="0.8"/>
+            
+            <circle cx="471.0" cy="256.0" r="17" fill="#00e5ff" fill-opacity="0.3" stroke="#00e5ff" stroke-width="4.5"/>
+            <circle cx="471.0" cy="256.0" r="9" fill="#00e5ff"/>
+            <circle cx="471.0" cy="256.0" r="3.5" fill="#ffffff"/>
+            
+            <circle cx="454.6" cy="338.3" r="7.5" fill="#040a08" stroke="#00ffb2" stroke-width="2.5" stroke-opacity="0.5"/>
+            <circle cx="454.6" cy="338.3" r="2.5" fill="#00ffb2" opacity="0.8"/>
+            
+            <circle cx="408.0" cy="408.0" r="7.5" fill="#040a08" stroke="#00ffb2" stroke-width="2.5" stroke-opacity="0.5"/>
+            <circle cx="408.0" cy="408.0" r="2.5" fill="#00ffb2" opacity="0.8"/>
+            
+            <circle cx="338.3" cy="454.6" r="7.5" fill="#040a08" stroke="#00ffb2" stroke-width="2.5" stroke-opacity="0.5"/>
+            <circle cx="338.3" cy="454.6" r="2.5" fill="#00ffb2" opacity="0.8"/>
+            
+            <circle cx="256.0" cy="471.0" r="17" fill="#ff2a85" fill-opacity="0.3" stroke="#ff2a85" stroke-width="4.5"/>
+            <circle cx="256.0" cy="471.0" r="9" fill="#ff2a85"/>
+            <circle cx="256.0" cy="471.0" r="3.5" fill="#ffffff"/>
+            
+            <circle cx="173.7" cy="454.6" r="7.5" fill="#040a08" stroke="#00ffb2" stroke-width="2.5" stroke-opacity="0.5"/>
+            <circle cx="173.7" cy="454.6" r="2.5" fill="#00ffb2" opacity="0.8"/>
+            
+            <circle cx="104.0" cy="408.0" r="7.5" fill="#040a08" stroke="#00ffb2" stroke-width="2.5" stroke-opacity="0.5"/>
+            <circle cx="104.0" cy="408.0" r="2.5" fill="#00ffb2" opacity="0.8"/>
+            
+            <circle cx="57.4" cy="338.3" r="7.5" fill="#040a08" stroke="#00ffb2" stroke-width="2.5" stroke-opacity="0.5"/>
+            <circle cx="57.4" cy="338.3" r="2.5" fill="#00ffb2" opacity="0.8"/>
+            
+            <circle cx="41.0" cy="256.0" r="17" fill="#00ffb2" fill-opacity="0.3" stroke="#00ffb2" stroke-width="4.5"/>
+            <circle cx="41.0" cy="256.0" r="9" fill="#00ffb2"/>
+            <circle cx="41.0" cy="256.0" r="3.5" fill="#ffffff"/>
+            
+            <circle cx="57.4" cy="173.7" r="7.5" fill="#040a08" stroke="#00ffb2" stroke-width="2.5" stroke-opacity="0.5"/>
+            <circle cx="57.4" cy="173.7" r="2.5" fill="#00ffb2" opacity="0.8"/>
+            
+            <circle cx="104.0" cy="104.0" r="7.5" fill="#040a08" stroke="#00ffb2" stroke-width="2.5" stroke-opacity="0.5"/>
+            <circle cx="104.0" cy="104.0" r="2.5" fill="#00ffb2" opacity="0.8"/>
+            
+            <circle cx="173.7" cy="57.4" r="7.5" fill="#040a08" stroke="#00ffb2" stroke-width="2.5" stroke-opacity="0.5"/>
+            <circle cx="173.7" cy="57.4" r="2.5" fill="#00ffb2" opacity="0.8"/>
+            </g>
+</svg>

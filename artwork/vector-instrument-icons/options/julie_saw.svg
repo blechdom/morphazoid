@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <filter id="glow-js" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="12" result="b1"/>
+      <feMerge><feMergeNode in="b1"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+
+  <!-- Wooden Handle Base (Bottom-Left) -->
+  <path d="M 85 435 L 140 435 L 125 365 L 70 365 Z" fill="#ffcc00" fill-opacity="0.3" stroke="#ffcc00" stroke-width="7" stroke-linejoin="round"/>
+  <circle cx="105" cy="400" r="6" fill="#ffffff"/>
+
+  <!-- S-Curved Steel Saw Blade (Mint #00ffb2, 11px) -->
+  <!-- Curves from handle (100, 365) through sweet-spot inflection (256, 256) to tip (415, 95) -->
+  <path d="M 100 365 C 100 240, 210 270, 256 256 C 302 242, 415 220, 415 95" fill="none" stroke="#00ffb2" stroke-width="12" stroke-linecap="round"/>
+  <path d="M 100 365 C 100 240, 210 270, 256 256 C 302 242, 415 220, 415 95" fill="none" stroke="#ffffff" stroke-width="4" stroke-linecap="round"/>
+
+  <!-- Violin / Cello Bow Stroke crossing at inflection point (Coral Pink #ff2a85) -->
+  <line x1="160" y1="180" x2="352" y2="332" stroke="#ff2a85" stroke-width="7.5" stroke-linecap="round"/>
+
+  <!-- Sweet-Spot Stick-Slip Resonance Node (Gold) -->
+  <circle cx="256" cy="256" r="22" fill="#ffcc00" fill-opacity="0.45" filter="url(#glow-js)"/>
+  <circle cx="256" cy="256" r="14" fill="#ffffff" stroke="#ffcc00" stroke-width="4.5"/>
+  <circle cx="256" cy="256" r="5" fill="#040a08"/>
+
+  <!-- Singing Sine Wave Radiation -->
+  <path d="M 285 210 Q 320 200 345 220 Q 370 240 395 225" fill="none" stroke="#00e5ff" stroke-width="4.5" stroke-dasharray="6,4"/>
+</svg>

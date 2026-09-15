@@ -1,0 +1,42 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <filter id="glow-l2" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="12" result="b1"/>
+      <feMerge><feMergeNode in="b1"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+
+  <!-- Square Rhombus rotated 45 deg, subdivided 4x4 -->
+  <g stroke="#00e5ff" stroke-width="5.5" stroke-linecap="round">
+    <line x1="76" y1="256" x2="256" y2="76"/>
+    <line x1="121" y1="301" x2="301" y2="121"/>
+    <line x1="166" y1="346" x2="346" y2="166"/>
+    <line x1="211" y1="391" x2="391" y2="211"/>
+    <line x1="256" y1="436" x2="436" y2="256"/>
+
+    <line x1="256" y1="76" x2="436" y2="256"/>
+    <line x1="211" y1="121" x2="391" y2="301"/>
+    <line x1="166" y1="166" x2="346" y2="346"/>
+    <line x1="121" y1="211" x2="301" y2="391"/>
+    <line x1="76" y1="256" x2="256" y2="436"/>
+  </g>
+
+  <!-- Horizontal Scan Slicer -->
+  <line x1="50" y1="256" x2="462" y2="256" stroke="#ff2a85" stroke-width="7" stroke-linecap="round"/>
+
+  <!-- Active Nodes on scanline -->
+  <circle cx="76" cy="256" r="16" fill="#ffcc00" filter="url(#glow-l2)"/>
+  <circle cx="76" cy="256" r="8" fill="#ffffff"/>
+
+  <circle cx="166" cy="256" r="16" fill="#00ffb2" filter="url(#glow-l2)"/>
+  <circle cx="166" cy="256" r="8" fill="#ffffff"/>
+
+  <circle cx="256" cy="256" r="22" fill="#ffcc00" filter="url(#glow-l2)"/>
+  <circle cx="256" cy="256" r="12" fill="#ffffff" stroke="#ffcc00" stroke-width="4"/>
+
+  <circle cx="346" cy="256" r="16" fill="#00ffb2" filter="url(#glow-l2)"/>
+  <circle cx="346" cy="256" r="8" fill="#ffffff"/>
+
+  <circle cx="436" cy="256" r="16" fill="#ffcc00" filter="url(#glow-l2)"/>
+  <circle cx="436" cy="256" r="8" fill="#ffffff"/>
+</svg>

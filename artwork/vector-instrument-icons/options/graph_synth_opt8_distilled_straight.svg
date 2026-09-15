@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <filter id="glow-gr2" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="12" result="b1"/>
+      <feMerge><feMergeNode in="b1"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+
+  <g><line x1="90" y1="180" x2="280" y2="140" stroke="#00e5ff" stroke-width="6.5" stroke-linecap="round"/><polygon points="191.8,158.6 179.8,169.3 176.5,153.6" fill="#00e5ff"/><line x1="280" y1="140" x2="420" y2="90" stroke="#00e5ff" stroke-width="6.5" stroke-linecap="round"/><polygon points="356.6,112.6 346.1,124.9 340.7,109.8" fill="#00e5ff"/><line x1="420" y1="90" x2="450" y2="230" stroke="#00e5ff" stroke-width="6.5" stroke-linecap="round"/><polygon points="436.5,166.8 425.7,154.8 441.4,151.5" fill="#00e5ff"/><line x1="450" y1="230" x2="350" y2="380" stroke="#00e5ff" stroke-width="6.5" stroke-linecap="round"/><polygon points="396.1,310.8 397.2,294.7 410.5,303.6" fill="#00e5ff"/><line x1="350" y1="380" x2="130" y2="420" stroke="#00e5ff" stroke-width="6.5" stroke-linecap="round"/><polygon points="233.1,401.3 245.5,390.9 248.3,406.6" fill="#00e5ff"/><line x1="130" y1="420" x2="50" y2="300" stroke="#00e5ff" stroke-width="6.5" stroke-linecap="round"/><polygon points="86.1,354.2 100.5,361.4 87.2,370.3" fill="#00e5ff"/><line x1="50" y1="300" x2="230" y2="270" stroke="#00e5ff" stroke-width="6.5" stroke-linecap="round"/><polygon points="146.9,283.8 134.4,294.0 131.8,278.3" fill="#00e5ff"/><line x1="230" y1="270" x2="280" y2="140" stroke="#00e5ff" stroke-width="6.5" stroke-linecap="round"/><polygon points="257.5,198.5 260.0,214.4 245.0,208.7" fill="#00e5ff"/><line x1="230" y1="270" x2="350" y2="380" stroke="#00e5ff" stroke-width="6.5" stroke-linecap="round"/><polygon points="295.2,329.7 279.4,326.2 290.2,314.4" fill="#00e5ff"/><line x1="350" y1="380" x2="420" y2="440" stroke="#00e5ff" stroke-width="6.5" stroke-linecap="round"/><polygon points="390.3,414.6 374.5,411.5 384.9,399.4" fill="#00e5ff"/><line x1="420" y1="440" x2="450" y2="230" stroke="#00e5ff" stroke-width="6.5" stroke-linecap="round"/><polygon points="436.0,328.1 441.9,343.1 426.1,340.8" fill="#00e5ff"/><line x1="90" y1="180" x2="50" y2="300" stroke="#00e5ff" stroke-width="6.5" stroke-linecap="round"/><polygon points="67.8,246.6 64.6,230.8 79.8,235.9" fill="#00e5ff"/></g>
+  <g>
+            <circle cx="280" cy="140" r="42" fill="#00e5ff" fill-opacity="0.4" filter="url(#glow-gr2)"/>
+            <circle cx="280" cy="140" r="28" fill="#040e0b" stroke="#ffffff" stroke-width="5"/>
+            <circle cx="280" cy="140" r="20" fill="#00e5ff" fill-opacity="0.6"/>
+            
+            <circle cx="90" cy="180" r="22" fill="#040a08" stroke="#00e5ff" stroke-width="5"/>
+            <circle cx="90" cy="180" r="14" fill="#00e5ff" fill-opacity="0.35"/>
+            <circle cx="90" cy="180" r="4.5" fill="#00e5ff"/>
+            
+            <circle cx="420" cy="90" r="22" fill="#040a08" stroke="#b85dff" stroke-width="5"/>
+            <circle cx="420" cy="90" r="14" fill="#b85dff" fill-opacity="0.35"/>
+            <circle cx="420" cy="90" r="4.5" fill="#b85dff"/>
+            
+            <circle cx="450" cy="230" r="22" fill="#040a08" stroke="#ff7bd5" stroke-width="5"/>
+            <circle cx="450" cy="230" r="14" fill="#ff7bd5" fill-opacity="0.35"/>
+            <circle cx="450" cy="230" r="4.5" fill="#ff7bd5"/>
+            
+            <circle cx="50" cy="300" r="22" fill="#040a08" stroke="#ffcc00" stroke-width="5"/>
+            <circle cx="50" cy="300" r="14" fill="#ffcc00" fill-opacity="0.35"/>
+            <circle cx="50" cy="300" r="4.5" fill="#ffcc00"/>
+            
+            <circle cx="230" cy="270" r="24" fill="#040a08" stroke="#00ffb2" stroke-width="5"/>
+            <circle cx="230" cy="270" r="16" fill="#00ffb2" fill-opacity="0.35"/>
+            <circle cx="230" cy="270" r="4.5" fill="#00ffb2"/>
+            
+            <circle cx="130" cy="420" r="22" fill="#040a08" stroke="#ffe17a" stroke-width="5"/>
+            <circle cx="130" cy="420" r="14" fill="#ffe17a" fill-opacity="0.35"/>
+            <circle cx="130" cy="420" r="4.5" fill="#ffe17a"/>
+            
+            <circle cx="350" cy="380" r="22" fill="#040a08" stroke="#ff2a85" stroke-width="5"/>
+            <circle cx="350" cy="380" r="14" fill="#ff2a85" fill-opacity="0.35"/>
+            <circle cx="350" cy="380" r="4.5" fill="#ff2a85"/>
+            
+            <circle cx="420" cy="440" r="20" fill="#040a08" stroke="#c79bff" stroke-width="5"/>
+            <circle cx="420" cy="440" r="12" fill="#c79bff" fill-opacity="0.35"/>
+            <circle cx="420" cy="440" r="4.5" fill="#c79bff"/>
+            </g>
+</svg>

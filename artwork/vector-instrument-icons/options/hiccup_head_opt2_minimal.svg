@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <filter id="glow-hh2" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="12" result="b1"/>
+      <feMerge><feMergeNode in="b1"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+
+  <!-- Heavy Outer Face Shield (Mint #00ffb2) -->
+  <ellipse cx="256" cy="245" rx="160" ry="200" fill="#00ffb2" fill-opacity="0.18" stroke="#00ffb2" stroke-width="12"/>
+
+  <!-- Large Expressive Eyes (Gold & White) -->
+  <circle cx="180" cy="185" r="28" fill="#040a08" stroke="#ffcc00" stroke-width="7"/>
+  <circle cx="180" cy="185" r="14" fill="#ffcc00" filter="url(#glow-hh2)"/>
+  <circle cx="180" cy="185" r="5" fill="#ffffff"/>
+
+  <circle cx="332" cy="185" r="28" fill="#040a08" stroke="#ffcc00" stroke-width="7"/>
+  <circle cx="332" cy="185" r="14" fill="#ffcc00" filter="url(#glow-hh2)"/>
+  <circle cx="332" cy="185" r="5" fill="#ffffff"/>
+
+  <!-- Nose Marker -->
+  <polyline points="245,235 256,260 267,235" fill="none" stroke="#00e5ff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <!-- Wide Resonant Mouth Cavity (Coral Pink #ff2a85) -->
+  <path d="M 160 315 C 160 315, 256 300, 352 315 C 365 395, 256 425, 147 395 Z" fill="#040a08" stroke="#ff2a85" stroke-width="10" stroke-linejoin="round"/>
+  
+  <!-- Upper Teeth Band -->
+  <rect x="216" y="318" width="80" height="20" rx="4" fill="#ffffff"/>
+
+  <!-- Round Tongue Articulator (Mint Glow) -->
+  <circle cx="256" cy="375" r="20" fill="#00ffb2" filter="url(#glow-hh2)"/>
+  <circle cx="256" cy="375" r="8" fill="#ffffff"/>
+
+  <!-- Cheek Sound Pips -->
+  <circle cx="115" cy="275" r="9" fill="#00e5ff"/>
+  <circle cx="397" cy="275" r="9" fill="#00e5ff"/>
+</svg>

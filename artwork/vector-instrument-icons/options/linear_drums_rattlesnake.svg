@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <filter id="glow-rs" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="12" result="b1"/>
+      <feMerge><feMergeNode in="b1"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+
+  <!-- Coiled Serpent Body (Phosphor Mint #00ffb2 - 14px bold) -->
+  <path d="M 120 380 C 70 340, 70 240, 140 190 C 210 140, 310 150, 350 220 C 390 290, 330 360, 250 360 C 180 360, 170 300, 210 260 C 250 220, 290 240, 305 275" fill="none" stroke="#00ffb2" stroke-width="16" stroke-linecap="round"/>
+  <path d="M 120 380 C 70 340, 70 240, 140 190 C 210 140, 310 150, 350 220 C 390 290, 330 360, 250 360 C 180 360, 170 300, 210 260 C 250 220, 290 240, 305 275" fill="none" stroke="#040a08" stroke-width="7" stroke-linecap="round"/>
+
+  <!-- Snake Head (Triangular Pit Viper Head, Gold #ffcc00) -->
+  <polygon points="120,380 75,410 75,350" fill="#ffcc00" stroke="#00ffb2" stroke-width="6" stroke-linejoin="round"/>
+  <circle cx="95" cy="380" r="4" fill="#040a08"/>
+  <!-- Forked Tongue -->
+  <polyline points="75,380 45,380 30,365" fill="none" stroke="#ff2a85" stroke-width="4" stroke-linecap="round"/>
+  <polyline points="45,380 30,395" fill="none" stroke="#ff2a85" stroke-width="4" stroke-linecap="round"/>
+
+  <!-- Articulated Tail Rattle Bells (Gold #ffcc00 - 4 nested interlocking segments) -->
+  <ellipse cx="320" cy="285" rx="14" ry="20" fill="#ffcc00" stroke="#040a08" stroke-width="4"/>
+  <ellipse cx="345" cy="295" rx="13" ry="18" fill="#ffcc00" stroke="#040a08" stroke-width="4"/>
+  <ellipse cx="370" cy="305" rx="12" ry="16" fill="#ffcc00" stroke="#040a08" stroke-width="4"/>
+  <ellipse cx="395" cy="315" rx="10" ry="14" fill="#ffffff" stroke="#ffcc00" stroke-width="4" filter="url(#glow-rs)"/>
+
+  <!-- High-Frequency Acoustic Rattle Vibration Waves (Coral Pink #ff2a85) -->
+  <path d="M 415 285 Q 435 315 415 345" fill="none" stroke="#ff2a85" stroke-width="6" stroke-linecap="round"/>
+  <path d="M 435 270 Q 460 315 435 360" fill="none" stroke="#ff2a85" stroke-width="5" stroke-linecap="round"/>
+  <path d="M 455 255 Q 485 315 455 375" fill="none" stroke="#ff2a85" stroke-width="4" stroke-linecap="round"/>
+</svg>
