@@ -165,6 +165,12 @@ for worktree_runtime_file in \
   l-systems-app.js \
   src/l-systems-suite.js \
   assets/instruments/l-systems.webp \
+  graphs.html \
+  graphs.css \
+  graphs-app.js \
+  src/graphs-suite.js \
+  src/graph-delay-audio.js \
+  assets/instruments/graphs.webp \
   algorithmic-mazes.html \
   algorithmic-mazes.css \
   algorithmic-mazes-app.js \
@@ -872,6 +878,12 @@ required_files=(
   l-systems-app.js
   src/l-systems-suite.js
   assets/instruments/l-systems.webp
+  graphs.html
+  graphs.css
+  graphs-app.js
+  src/graphs-suite.js
+  src/graph-delay-audio.js
+  assets/instruments/graphs.webp
   paths.html
   paths.css
   paths-app.js

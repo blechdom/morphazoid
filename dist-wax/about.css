@@ -58,10 +58,10 @@
 
 .about-title-mark {
   display: block;
-  width: 52px;
-  height: 52px;
-  background: url("favicon.svg") center / 150% no-repeat;
-  flex: 0 0 52px;
+  width: 64px;
+  height: 64px;
+  background: url("favicon.svg") center / contain no-repeat;
+  flex: 0 0 64px;
 }
 
 .about-kicker,

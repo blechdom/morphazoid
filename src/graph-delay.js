@@ -540,7 +540,27 @@ export function generateGraph(options = {}) {
         if (random() < routeProbability) addEdge(edges, seen, from, to);
       }
     }
-    if (!edges.length) addEdge(edges, seen, 0, split);
+    // Sparse bipartite rolls used to leave individual dots with no route at
+    // all. Preserve the topology while adding the smallest deterministic
+    // backbone needed for every displayed node to participate.
+    const rightCount = count - split;
+    const seedOffset = Math.abs(Math.floor(Number(seed) || 0));
+    const connectedLeft = new Set(edges.map((edge) => edge.from));
+    const connectedRight = new Set(edges.map((edge) => edge.to));
+    for (let from = 0; from < split; from += 1) {
+      if (connectedLeft.has(from)) continue;
+      const to = split + ((from + seedOffset) % rightCount);
+      addEdge(edges, seen, from, to);
+      connectedLeft.add(from);
+      connectedRight.add(to);
+    }
+    for (let to = split; to < count; to += 1) {
+      if (connectedRight.has(to)) continue;
+      const from = ((to - split + seedOffset) % split);
+      addEdge(edges, seen, from, to);
+      connectedLeft.add(from);
+      connectedRight.add(to);
+    }
   } else if (type === "ring" || type === "smallworld") {
     nodes = circleLayout(count);
     for (let node = 0; node < count; node += 1) addEdge(edges, seen, node, (node + 1) % count);

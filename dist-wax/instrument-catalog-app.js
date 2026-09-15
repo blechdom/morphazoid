@@ -1,7 +1,7 @@
 import {
   INSTRUMENT_GROUPS,
   INSTRUMENTS,
-} from "./src/instrument-catalog.js?v=catalog-20260913-2";
+} from "./src/instrument-catalog.js?v=catalog-20260914-1";
 
 const ALL_TAG_ID = "all";
 export const FIRST_CATEGORY_ID = "faves";
@@ -11,6 +11,7 @@ export const FIRST_CATEGORY_ID = "faves";
 // Refresh this list when a catalogue addition or sustained instrument rewrite
 // materially changes the active end of the collection.
 export const HOMEPAGE_ACTIVITY_IDS = Object.freeze([
+  "graphs",
   "shader-synth-playground",
   "jaw-harp",
   "webgpu-synths",
@@ -49,18 +50,15 @@ export const HOMEPAGE_ACTIVITY_IDS = Object.freeze([
   "colony-syrinx",
   "boidzoid",
   "hocket-loom",
-  "ffmpeg-wasm",
   "lumber",
   "enveloper",
   "simd-resonator",
   "simd-303",
   "sliding-puzzle",
   "recursive-fm",
-  "plugazoid",
   "yoyodyne",
   "srtuss",
   "l-system",
-  "constellation",
   "shape",
   "throatazoid",
   "julia",

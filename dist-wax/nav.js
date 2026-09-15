@@ -65,6 +65,7 @@ export const FAVE_TOOL_IDS = Object.freeze([
   "graph-synth",
   "lattice",
   "spiral",
+  "cellular-automata",
 ]);
 
 /**
@@ -90,10 +91,11 @@ export const TOOL_GROUPS = Object.freeze([
   freezeGroup("apps", "Apps", [
     { id: "combo", label: "Shapes", href: "shapes.html" },
     { id: "l-systems", label: "L-Systems", href: "l-systems.html" },
+    { id: "graphs", label: "Graphs", href: "graphs.html" },
     { id: "tiles-app", label: "Tiles", href: "tiles.html" },
     {
       id: "algorithmic-mazes",
-      label: "Algorithmic Mazes",
+      label: "Mazes",
       href: "algorithmic-mazes.html",
     },
     { id: "paths", label: "Paths", href: "paths.html" },
@@ -149,12 +151,6 @@ export const TOOL_GROUPS = Object.freeze([
       id: "rubix",
       label: "Rubix Cube Sequencer",
       href: "rubix.html",
-    },
-    {
-      id: "constellation",
-      label: "Morphazoid Composer",
-      href: "constellation.html",
-      imageHref: "assets/instruments/graph-synth.webp",
     },
     {
       id: "sliding-puzzle",
@@ -267,7 +263,6 @@ export const TOOL_GROUPS = Object.freeze([
     { id: "micmic", label: "L-system Delay", href: "l-mic.html" },
     { id: "graph-delay", label: "Graph Delay", href: "graph-delay.html" },
     { id: "micromorph", label: "Micromorph", href: "micromorph.html" },
-    { id: "plugazoid", label: "Plugazoid", href: "plugazoid.html" },
   ]),
   freezeGroup("barber-shop-poles", "Barber Shop Poles", [
     { id: "shepard-risset", label: "Shepard–Risset", href: "shepard-risset.html" },
@@ -275,11 +270,6 @@ export const TOOL_GROUPS = Object.freeze([
       id: "slippery-resynthesis",
       label: "Slippery Resynthesis",
       href: "slippery-resynthesis.html",
-    },
-    {
-      id: "moire-drone",
-      label: "Fabric Filter",
-      href: "moire-drone.html",
     },
     {
       id: "drum-roll-please",
@@ -322,6 +312,11 @@ export const TOOL_GROUPS = Object.freeze([
     { id: "weierstrass", label: "Weierstrass", href: "weierstrass.html" },
   ]),
   freezeGroup("misc", "Misc", [
+    {
+      id: "moire-drone",
+      label: "Fabric Filter",
+      href: "moire-drone.html",
+    },
     { id: "playhead-paint", label: "Playhead Paint", href: "playhead-paint.html" },
     { id: "boidzoid", label: "Boidzoid", href: "boidzoid.html" },
     { id: "puggler", label: "Puggler the Punk Rock Jugger", href: "puggler.html" },
@@ -353,6 +348,11 @@ export const TOOL_GROUPS = Object.freeze([
     },
   ]),
   freezeGroup("algorithmic-sequencers", "Algorithmic Sequencers", [
+    {
+      id: "cellular-automata",
+      label: "Automatapoeia",
+      href: "automatapoeia.html",
+    },
     { id: "sorting-algorithms", label: "Sorting", href: "algorithmic-sequencers.html" },
     { id: "dijkstra", label: "DJ Dijkstra", href: "dijkstra.html" },
   ]),
@@ -401,7 +401,6 @@ export const TOOL_GROUPS = Object.freeze([
       href: "escher-tessellation.html",
     },
     { id: "plasma-ball", label: "Plasma Ball", href: "plasma-ball.html" },
-    { id: "ffmpeg-wasm", label: "FFmpeg Wasm", href: "ffmpeg-wasm.html" },
     { id: "simd-resonator", label: "SIMD Resonator", href: "simd-resonator.html" },
     {
       id: "simd-audio-lab",
@@ -441,11 +440,6 @@ export const TOOL_GROUPS = Object.freeze([
       id: "gear-ratio-drums",
       label: "Gear Ratio Drums",
       href: "gear-ratio-drums.html",
-    },
-    {
-      id: "cellular-automata",
-      label: "Automatapoeia",
-      href: "automatapoeia.html",
     },
     { id: "prime-sieve", label: "Prime Sieve", href: "prime-sieve.html" },
     {
@@ -497,8 +491,8 @@ const basePickerGroups = () => TOOL_GROUPS.flatMap((group) => {
 });
 const pickerGroups = () => {
   const groups = basePickerGroups();
-  const toolById = new Map(groups.flatMap((group) => (
-    group.tools.map((tool) => [tool.id, tool])
+  const toolById = new Map(allTools().map((tool) => (
+    [tool.id, tool]
   )));
   const faves = FAVE_TOOL_IDS.map((id) => toolById.get(id)).filter(Boolean);
   return faves.length > 0

@@ -1,7 +1,7 @@
 import {
   FAVE_TOOL_IDS,
   TOOL_GROUPS,
-} from "../nav.js?v=catalog-20260906-6";
+} from "../nav.js?v=catalog-20260914-1";
 import { instrumentMidiCapabilityForId } from "./instrument-midi-capabilities.js";
 
 const define = (kind, description, start, features = [], pluginHref = null) => Object.freeze({
@@ -36,6 +36,12 @@ const CATALOG_DETAILS = Object.freeze({
     "A self-contained L-system instrument with one canvas, shared grammar controls, and Continuous, Notes, Triggers, and Mic playing modes.",
     "Choose a grammar and mix preset, then keep the same branch traversal running while switching between sustained synth, note events, drum triggers, and live mic delay.",
     ["Built-in synth", "Drum machine", "Mic input", "Shared transport", "Self-contained app"],
+  ),
+  graphs: define(
+    "Network instrument app",
+    "A self-contained graph instrument with one editable network and Synth, Drums, and Mic playing modes that share its nodes, routes, motion, and timing.",
+    "Choose or generate a graph, then reshape and play the same topology while switching between pitched pulses, percussion triggers, and live microphone delay.",
+    ["Built-in synth", "Drum machine", "Mic input", "Pointer", "Shared topology", "Self-contained app"],
   ),
   "tiles-app": define(
     "Tile instrument app",
@@ -179,12 +185,6 @@ const CATALOG_DETAILS = Object.freeze({
     "Choose one bank or preset, then drag the cube or enable Random Twists; in WebGPU 303 mode, sticker row, column, edge, current face, and visibility reshape each acid step.",
     ["Pointer"],
   ),
-  constellation: define(
-    "Morphazoid Composer",
-    "Patches clock, MIDI, control, and audio graphs through preset instruments, effects, converters, observers, surround outputs, and recorders; every device can open into a nested graph.",
-    "Load a factory graph, connect compatible typed ports, choose each device preset in the Inspector, monitor signals anywhere, then record the stereo mix or individual stems.",
-    ["Built-in synth", "Built-in drums", "MIDI", "Surround", "Recording", "Signal monitors", "Recursive graphs"],
-  ),
   "sliding-puzzle": define(
     "2D puzzle sequencer",
     "Reads a resizable 2 × 2 through 8 × 8 square or rectangular tile field as either a serial score or Rubix-style parallel rows, with four fixed home-row colors and one moving silent cell.",
@@ -255,12 +255,6 @@ const CATALOG_DETAILS = Object.freeze({
     "Streams microphone audio and sample-clocked performance controls to an optional local diffusion model, while five visible membranes expose the path from source to imaginary descendant.",
     "Use headphones, turn on the microphone, move Ancestor distance through the five derivation stages, then connect an MGA Stream v1 model host for neural audio; without one, the page identifies its bounded rehearsal DSP honestly.",
     ["Mic input", "Local model host", "Streaming PCM", "Parameter conditioning"],
-  ),
-  plugazoid: define(
-    "Browser plug-in host prototype",
-    "Routes live microphone audio through an AudioWorklet reference effect while exposing the source-port boundary for VST3, CLAP, and Audio Unit.",
-    "Turn on Audio, connect a microphone with headphones, then reshape Port Drive or use the test signal; native plug-in bundles require a source port or local bridge.",
-    ["Mic input", "AudioWorklet", "WASM-ready", "VST3 source port"],
   ),
   throatazoid: define(
     "Voice instrument",
@@ -399,12 +393,6 @@ const CATALOG_DETAILS = Object.freeze({
     "Tracks microphone or local-file audio across logarithmic FFT bands, then rebuilds it through endlessly slipping Shepard glissando banks with adaptive consonant excitation.",
     "Choose Mic or File, turn on audio, then shape the glide, transpose, spectral tilt, carrier color, consonant detail, stereo spread, and dry/slip mix.",
     ["Mic input", "Local file input", "Speech-detail resynthesis"],
-  ),
-  "ffmpeg-wasm": define(
-    "FFmpeg window processor",
-    "Runs short microphone windows through FFmpeg/Wasm and returns them to Web Audio.",
-    "Turn on Audio, then turn on the microphone. Preloading is optional.",
-    ["Mic input", "FFmpeg/Wasm", "Chunked processing", "Audio export"],
   ),
   "simd-resonator": define(
     "SIMD modal instrument",
@@ -843,6 +831,7 @@ const ADDITIONAL_TAG_IDS = Object.freeze({
   blowhole: Object.freeze(["sequencers"]),
   "hiccup-head": Object.freeze(["sequencers"]),
   "l-systems": Object.freeze(["fractals-recursion", "geometry-drums", "mic-fx"]),
+  graphs: Object.freeze(["fractals-recursion", "geometry-drums", "mic-fx"]),
   "l-system-drums": Object.freeze(["fractals-recursion"]),
   "graph-drums": Object.freeze(["fractals-recursion"]),
   "graph-synth": Object.freeze(["fractals-recursion"]),
@@ -881,9 +870,7 @@ const invalidAdditionalTags = Object.entries(ADDITIONAL_TAG_IDS).flatMap(
     .filter((tagId) => !instrumentIds.has(instrumentId) || !groupById.has(tagId))
     .map((tagId) => `${instrumentId}:${tagId}`),
 );
-const invalidFaveIds = FAVE_TOOL_IDS.filter((id) => (
-  !instrumentIds.has(id) || primaryGroupByToolId.get(id)?.id === "experiments"
-));
+const invalidFaveIds = FAVE_TOOL_IDS.filter((id) => !instrumentIds.has(id));
 
 if (
   missingDetails.length
@@ -905,13 +892,11 @@ if (
 
 const instrumentByToolId = new Map(instrumentTools.map((tool) => {
   const primaryGroup = primaryGroupByToolId.get(tool.id);
-  const tagIds = primaryGroup.id === "experiments"
-    ? [primaryGroup.id]
-    : [
-      primaryGroup.id,
-      ...(ADDITIONAL_TAG_IDS[tool.id] ?? []),
-      ...(FAVE_TOOL_IDS.includes(tool.id) ? [FAVES_TAG.id] : []),
-    ];
+  const tagIds = [
+    primaryGroup.id,
+    ...(ADDITIONAL_TAG_IDS[tool.id] ?? []),
+    ...(FAVE_TOOL_IDS.includes(tool.id) ? [FAVES_TAG.id] : []),
+  ];
   const tags = Object.freeze([...new Set(tagIds)].map((tagId) => {
     if (tagId === FAVES_TAG.id) return FAVES_TAG;
     const group = groupById.get(tagId);

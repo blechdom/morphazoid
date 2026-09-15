@@ -807,8 +807,19 @@ test("input and plug-in availability facts remain explicit", () => {
   );
   assert.deepEqual(
     INSTRUMENT_GROUPS.find(({ id }) => id === "apps")?.tools.map(({ id }) => id),
-    ["combo", "l-systems", "tiles-app", "algorithmic-mazes", "paths"],
+    ["combo", "l-systems", "graphs", "tiles-app", "algorithmic-mazes", "paths"],
   );
+  assert.deepEqual(
+    instrumentById("graphs")?.tags.map(({ id }) => id),
+    ["apps", "fractals-recursion", "geometry-drums", "mic-fx"],
+  );
+  assert.equal(instrumentById("graphs")?.label, "Graphs");
+  assert.equal(instrumentById("graphs")?.href, "graphs.html");
+  assert.equal(instrumentById("graphs")?.imageHref, "assets/instruments/graphs.webp");
+  const graphsMidi = instrumentMidiCapabilityForId("graphs");
+  assert.equal(graphsMidi?.noteMode, "sequence");
+  assert.equal(graphsMidi?.audioInput, true);
+  assert.equal(graphsMidi?.midiOutput, true);
   assert.deepEqual(
     instrumentById("tiles-app")?.tags.map(({ id }) => id),
     ["apps"],

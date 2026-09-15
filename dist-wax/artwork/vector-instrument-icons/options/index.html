@@ -1,0 +1,587 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+    <script src="../../../wax/wax-host-bootstrap.js" data-morphazoid-wax-bootstrap></script>
+  <title>Morphazoid Icon Redesign Gallery</title>
+  <style>
+    :root {
+      --bg: #070b0e;
+      --card-bg: #0f171c;
+      --border: #1a2930;
+      --text: #d8edf2;
+      --accent: #00ffb2;
+      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      margin: 0;
+      padding: 40px 24px;
+    }
+    h1 {
+      font-family: var(--mono);
+      color: var(--accent);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 8px;
+    }
+    p.lead {
+      color: #799ba3;
+      max-width: 800px;
+      margin-bottom: 40px;
+      line-height: 1.5;
+    }
+    .instrument-section {
+      margin-bottom: 48px;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 36px;
+    }
+    .instrument-title {
+      font-family: var(--mono);
+      font-size: 20px;
+      color: #ffffff;
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .options-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 24px;
+    }
+    .option-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+    .option-header {
+      font-family: var(--mono);
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--accent);
+    }
+    .preview-container {
+      display: flex;
+      align-items: center;
+      justify-content: space-around;
+      background: #040709;
+      border: 1px solid #132228;
+      border-radius: 8px;
+      padding: 18px;
+      min-height: 180px;
+    }
+    .preview-large {
+      width: 140px;
+      height: 140px;
+      object-fit: contain;
+    }
+    .small-badge {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+    }
+    .small-badge span {
+      font-family: var(--mono);
+      font-size: 11px;
+      color: #60757a;
+    }
+    .preview-40 {
+      width: 40px;
+      height: 40px;
+      image-rendering: pixelated;
+    }
+    .option-notes {
+      font-size: 13px;
+      color: #9cb5bd;
+      line-height: 1.4;
+    }
+    .badge-installed {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 4px;
+      background: #00ffb222;
+      color: #00ffb2;
+      border: 1px solid #00ffb244;
+      font-size: 11px;
+      font-family: var(--mono);
+      font-weight: 600;
+    }
+  </style>
+</head>
+<body>
+  <h1>Morphazoid Vector Icon Gallery</h1>
+  <p class="lead">All icons render with 100% transparent alpha backgrounds and are tested at full size (512px) and small card size (40px).</p>
+
+  <!-- LATEST BATCH OF REQUESTED ICONS -->
+  <div class="instrument-section">
+    <div class="instrument-title">Newly Generated Instruments (Latest Batch)</div>
+    <div class="options-grid">
+      <!-- Automatapoeia -->
+      <div class="option-card">
+        <div class="option-header">Automatapoeia (Cellular Automata)</div>
+        <div class="preview-container">
+          <img class="preview-large" src="cellular_automata_wolfram.webp" alt="Automatapoeia">
+          <div class="small-badge">
+            <img class="preview-40" src="cellular_automata_wolfram_40px.png" alt="40px preview">
+            <span>40 × 40 px</span>
+          </div>
+        </div>
+        <div class="option-notes">Wolfram Rule 30 cellular automata pyramid cascade with glowing active trigger cells in Mint & Gold.</div>
+      </div>
+
+      <!-- Klein Bottle -->
+      <div class="option-card">
+        <div class="option-header">Klein Bottle (Nonorientable 4D Immersion)</div>
+        <div class="preview-container">
+          <img class="preview-large" src="klein_bottle_immersion.webp" alt="Klein Bottle">
+          <div class="small-badge">
+            <img class="preview-40" src="klein_bottle_immersion_40px.png" alt="40px preview">
+            <span>40 × 40 px</span>
+          </div>
+        </div>
+        <div class="option-notes">Figure-eight Klein bottle immersion with self-intersecting neck, slicing plane contour, and gold wave node.</div>
+      </div>
+
+      <!-- Mazes -->
+      <div class="option-card">
+        <div class="option-header">Mazes (Algorithmic Mazes / Pathfinder)</div>
+        <div class="preview-container">
+          <img class="preview-large" src="algorithmic_mazes_pathfinder.webp" alt="Mazes">
+          <div class="small-badge">
+            <img class="preview-40" src="algorithmic_mazes_pathfinder_40px.png" alt="40px preview">
+            <span>40 × 40 px</span>
+          </div>
+        </div>
+        <div class="option-notes">Concentric radial maze with strategic gaps traversed by an active glowing coral/gold sonic pathfinder trail.</div>
+      </div>
+
+      <!-- Rattlesnake -->
+      <div class="option-card">
+        <div class="option-header">Rattlesnake (Linear Drums)</div>
+        <div class="preview-container">
+          <img class="preview-large" src="linear_drums_rattlesnake.webp" alt="Rattlesnake">
+          <div class="small-badge">
+            <img class="preview-40" src="linear_drums_rattlesnake_40px.png" alt="40px preview">
+            <span>40 × 40 px</span>
+          </div>
+        </div>
+        <div class="option-notes">Coiled serpent body with pit viper head and interlocking tail rattle bells emitting acoustic vibration waves.</div>
+      </div>
+
+      <!-- Rattlesnake Skin -->
+      <div class="option-card">
+        <div class="option-header">Rattlesnake Skin (Linear Drums Machine)</div>
+        <div class="preview-container">
+          <img class="preview-large" src="linear_drums_machine_snakeskin.webp" alt="Rattlesnake Skin">
+          <div class="small-badge">
+            <img class="preview-40" src="linear_drums_machine_snakeskin_40px.png" alt="40px preview">
+            <span>40 × 40 px</span>
+          </div>
+        </div>
+        <div class="option-notes">Diamond scale snakeskin lattice with horizontal drum trigger scan rail and gold/coral strike nodes.</div>
+      </div>
+
+      <!-- Hocket Luigi -->
+      <div class="option-card">
+        <div class="option-header">Hocket Luigi (Hocket Loom)</div>
+        <div class="preview-container">
+          <img class="preview-large" src="hocket_loom_interlock.webp" alt="Hocket Luigi">
+          <div class="small-badge">
+            <img class="preview-40" src="hocket_loom_interlock_40px.png" alt="40px preview">
+            <span>40 × 40 px</span>
+          </div>
+        </div>
+        <div class="option-notes">3 concentric ring tracks with interlocking offbeat pulse bobbins and shuttle handoffs (Mint, Cyan, Coral).</div>
+      </div>
+
+      <!-- Sample Drums -->
+      <div class="option-card">
+        <div class="option-header">Sample Drums</div>
+        <div class="preview-container">
+          <img class="preview-large" src="sample_drums_mpc.webp" alt="Sample Drums">
+          <div class="small-badge">
+            <img class="preview-40" src="sample_drums_mpc_40px.png" alt="40px preview">
+            <span>40 × 40 px</span>
+          </div>
+        </div>
+        <div class="option-notes">4 MPC-style trigger pads (Kick, Snare, Hi-Hat, Perc) with active sliced waveform transients.</div>
+      </div>
+
+      <!-- SIMD 303 -->
+      <div class="option-card">
+        <div class="option-header">SIMD 303 (Acid Synth)</div>
+        <div class="preview-container">
+          <img class="preview-large" src="simd_303_acid.webp" alt="SIMD 303">
+          <div class="small-badge">
+            <img class="preview-40" src="simd_303_acid_40px.png" alt="40px preview">
+            <span>40 × 40 px</span>
+          </div>
+        </div>
+        <div class="option-notes">303 resonant low-pass filter cutoff curve with acid stepping bassline staircase and 4-lane vector indicators.</div>
+      </div>
+
+      <!-- Shader Synth -->
+      <div class="option-card">
+        <div class="option-header">Shader Synth (GPU Synths)</div>
+        <div class="preview-container">
+          <img class="preview-large" src="webgpu_synths_shader.webp" alt="Shader Synth">
+          <div class="small-badge">
+            <img class="preview-40" src="webgpu_synths_shader_40px.png" alt="40px preview">
+            <span>40 × 40 px</span>
+          </div>
+        </div>
+        <div class="option-notes">Fragment shader code brackets framing a raymarched plasma sphere with audio waveform modulation.</div>
+      </div>
+
+      <!-- SIMD Synth -->
+      <div class="option-card">
+        <div class="option-header">SIMD Synth</div>
+        <div class="preview-container">
+          <img class="preview-large" src="simd_synth.webp" alt="SIMD Synth">
+          <div class="small-badge">
+            <img class="preview-40" src="simd_synth_40px.png" alt="40px preview">
+            <span>40 × 40 px</span>
+          </div>
+        </div>
+        <div class="option-notes">4 parallel vector waveform data lanes (128-bit SIMD: 4×32-bit floats) passing through an execution gate.</div>
+      </div>
+
+      <!-- Monstrozoid -->
+      <div class="option-card">
+        <div class="option-header">Monstrozoid (Colony Syrinx)</div>
+        <div class="preview-container">
+          <img class="preview-large" src="colony_syrinx_monstrozoid.webp" alt="Monstrozoid">
+          <div class="small-badge">
+            <img class="preview-40" src="colony_syrinx_monstrozoid_40px.png" alt="40px preview">
+            <span>40 × 40 px</span>
+          </div>
+        </div>
+        <div class="option-notes">Multi-organ pressure network: 4 airway lungs, central 4×3 valve matrix, and 3 mouth horn resonators.</div>
+      </div>
+
+      <!-- Vocalzoid -->
+      <div class="option-card">
+        <div class="option-header">Vocalzoid</div>
+        <div class="preview-container">
+          <img class="preview-large" src="vocalzoid_mouth.webp" alt="Vocalzoid">
+          <div class="small-badge">
+            <img class="preview-40" src="vocalzoid_mouth_40px.png" alt="40px preview">
+            <span>40 × 40 px</span>
+          </div>
+        </div>
+        <div class="option-notes">Mechanical speech mouth with formant vowel resonator and modular syllable phoneme melody blocks.</div>
+      </div>
+
+      <!-- Spelling Synthesizer -->
+      <div class="option-card">
+        <div class="option-header">Spelling Synthesizer</div>
+        <div class="preview-container">
+          <img class="preview-large" src="spelling_synthesizer_matrix.webp" alt="Spelling Synthesizer">
+          <div class="small-badge">
+            <img class="preview-40" src="spelling_synthesizer_matrix_40px.png" alt="40px preview">
+            <span>40 × 40 px</span>
+          </div>
+        </div>
+        <div class="option-notes">3×3 diphone speech matrix with continuous acoustic formant speech trajectory.</div>
+      </div>
+
+      <!-- Tongued Beasts -->
+      <div class="option-card">
+        <div class="option-header">Tongued Beasts</div>
+        <div class="preview-container">
+          <img class="preview-large" src="tongued_beasts_chimera.webp" alt="Tongued Beasts">
+          <div class="small-badge">
+            <img class="preview-40" src="tongued_beasts_chimera_40px.png" alt="40px preview">
+            <span>40 × 40 px</span>
+          </div>
+        </div>
+        <div class="option-notes">Dual chimera beast profiles facing each other with extended vocal tongues meeting at an acoustic spark.</div>
+      </div>
+
+      <!-- Ouroborousel -->
+      <div class="option-card">
+        <div class="option-header">Ouroborousel</div>
+        <div class="preview-container">
+          <img class="preview-large" src="ouroborousel_carousel.webp" alt="Ouroborousel">
+          <div class="small-badge">
+            <img class="preview-40" src="ouroborousel_carousel_40px.png" alt="40px preview">
+            <span>40 × 40 px</span>
+          </div>
+        </div>
+        <div class="option-notes">Carousel canopy with rotating circular snake rail and revolving playhead carriage.</div>
+      </div>
+
+      <!-- Ouroboros -->
+      <div class="option-card">
+        <div class="option-header">Ouroboros</div>
+        <div class="preview-container">
+          <img class="preview-large" src="ouroboros_dragon_loop.webp" alt="Ouroboros">
+          <div class="small-badge">
+            <img class="preview-40" src="ouroboros_dragon_loop_40px.png" alt="40px preview">
+            <span>40 × 40 px</span>
+          </div>
+        </div>
+        <div class="option-notes">Single continuous circular dragon devouring its tail with dorsal spines and central feedback core.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- LIVE INSTALLED INSTRUMENTS -->
+  <div class="instrument-section">
+    <div class="instrument-title">Installed Live in Morphazoid App <span class="badge-installed">LIVE</span></div>
+    <div class="options-grid">
+      <div class="option-card">
+        <div class="option-header">SIMD Synth: 4-Lane Vector SIMD</div>
+        <div class="preview-container">
+          <img class="preview-large" src="simd_synth.webp" alt="SIMD Synth Installed">
+          <div class="small-badge">
+            <img class="preview-40" src="simd_synth_40px.png" alt="40px preview">
+            <span>40 × 40 px</span>
+          </div>
+        </div>
+        <div class="option-notes">Installed as simd-synth.webp. 4 parallel vector waveform data lanes (128-bit SIMD) passing through an execution gate.</div>
+      </div>
+      <div class="option-card">
+        <div class="option-header">Automatapoeia: Wolfram Rule 30 Cascade</div>
+        <div class="preview-container">
+          <img class="preview-large" src="cellular_automata_wolfram.webp" alt="Automatapoeia Installed">
+          <div class="small-badge">
+            <img class="preview-40" src="cellular_automata_wolfram_40px.png" alt="40px preview">
+            <span>40 × 40 px</span>
+          </div>
+        </div>
+        <div class="option-notes">Installed as cellular-automata.webp. Wolfram Rule 30 cellular automata pyramid cascade with active trigger cells in Mint & Gold.</div>
+      </div>
+      <div class="option-card">
+        <div class="option-header">Hybrinx: Tongued Beasts (Chosen)</div>
+        <div class="preview-container">
+          <img class="preview-large" src="hybrinx.webp" alt="Hybrinx Installed">
+          <div class="small-badge">
+            <img class="preview-40" src="hybrinx_40px.png" alt="40px preview">
+            <span>40 × 40 px</span>
+          </div>
+        </div>
+        <div class="option-notes">Installed as hybrinx.webp and hybrinx.svg. Tongued beast head with clean transparent alpha cutout.</div>
+      </div>
+      <div class="option-card">
+        <div class="option-header">Syrinx: Songbird Vocal Organ (Chosen)</div>
+        <div class="preview-container">
+          <img class="preview-large" src="syrinx.webp" alt="Syrinx Installed">
+          <div class="small-badge">
+            <img class="preview-40" src="syrinx_40px.png" alt="40px preview">
+            <span>40 × 40 px</span>
+          </div>
+        </div>
+        <div class="option-notes">Installed as syrinx.webp and syrinx.svg. Internal dual syrinx organ with clean transparent alpha cutout.</div>
+      </div>
+      <div class="option-card">
+        <div class="option-header">Throatazoid: Multi-Throat Coral (Chosen)</div>
+        <div class="preview-container">
+          <img class="preview-large" src="throatazoid.webp" alt="Throatazoid Installed">
+          <div class="small-badge">
+            <img class="preview-40" src="throatazoid_40px.png" alt="40px preview">
+            <span>40 × 40 px</span>
+          </div>
+        </div>
+        <div class="option-notes">Installed as throatazoid.webp and throatazoid.svg with clean transparent alpha cutout.</div>
+      </div>
+      <div class="option-card">
+        <div class="option-header">Candy Coil Delay: Barber Pole (Chosen)</div>
+        <div class="preview-container">
+          <img class="preview-large" src="candy-coil-delay.webp" alt="Candy Coil Installed">
+          <div class="small-badge">
+            <img class="preview-40" src="candy-coil-delay_40px.png" alt="40px preview">
+            <span>40 × 40 px</span>
+          </div>
+        </div>
+        <div class="option-notes">Installed as candy-coil-delay.webp and candy-coil-delay.svg with clean transparent alpha cutout.</div>
+      </div>
+      <div class="option-card">
+        <div class="option-header">Rubix: Original 3D Cube (Transparent + SVG)</div>
+        <div class="preview-container">
+          <img class="preview-large" src="rubix.webp" alt="Rubix Original Transparent">
+          <div class="small-badge">
+            <img class="preview-40" src="rubix_40px.png" alt="40px preview">
+            <span>40 × 40 px</span>
+          </div>
+        </div>
+        <div class="option-notes">Original 3D Rubik's cube with clean transparent alpha cutout and rubix.svg generated.</div>
+      </div>
+      <div class="option-card">
+        <div class="option-header">Spider Synth: Radial Silk Web Plucker</div>
+        <div class="preview-container">
+          <img class="preview-large" src="spider_synth.webp" alt="Spider Installed">
+          <div class="small-badge">
+            <img class="preview-40" src="spider_synth_40px.png" alt="40px preview">
+            <span>40 × 40 px</span>
+          </div>
+        </div>
+        <div class="option-notes">Installed as spider-synth.webp. 8 articulated legs on a radial silk web plucking resonant string nodes.</div>
+      </div>
+      <div class="option-card">
+        <div class="option-header">Roach Synth: Biomechanical Speaker Eyes & Tube (Option 2)</div>
+        <div class="preview-container">
+          <img class="preview-large" src="roach_synth_opt2_biomech.webp" alt="Roach Installed">
+          <div class="small-badge">
+            <img class="preview-40" src="roach_synth_opt2_biomech_40px.png" alt="40px preview">
+            <span>40 × 40 px</span>
+          </div>
+        </div>
+        <div class="option-notes">Installed as roach-synth.webp. Dual oscilloscope speaker eyes, central vacuum tube with glowing wave, and knuckle-jointed legs.</div>
+      </div>
+      <div class="option-card">
+        <div class="option-header">Site Logo & Favicon / Hyper: Uniform Tesseract (Flipped Perspective)</div>
+        <div class="preview-container">
+          <img class="preview-large" src="hyper_opt1_uniform_tesseract_flipped.webp" alt="Hyper Installed">
+          <div class="small-badge">
+            <img class="preview-40" src="hyper_opt1_uniform_tesseract_40px.png" alt="40px preview">
+            <span>40 × 40 px</span>
+          </div>
+        </div>
+        <div class="option-notes">Installed as official site logo (sized to match Capital M), favicon.svg, and hyper.webp with reversed perspective.</div>
+      </div>
+      <div class="option-card">
+        <div class="option-header">Graph Synth / Drums: In-App Screen Constellation (Option 7)</div>
+        <div class="preview-container">
+          <img class="preview-large" src="graph_synth_opt7_straight_edges.webp" alt="Graph Synth Installed">
+          <div class="small-badge">
+            <img class="preview-40" src="graph_synth_opt7_straight_edges_40px.png" alt="40px preview">
+            <span>40 × 40 px</span>
+          </div>
+        </div>
+        <div class="option-notes">Installed as graph-synth.webp and graph-drums.webp. Straight lines, nodes and edges only.</div>
+      </div>
+      <div class="option-card">
+        <div class="option-header">Graph Delay: Distilled Straight Network (Option 8)</div>
+        <div class="preview-container">
+          <img class="preview-large" src="graph_synth_opt8_distilled_straight.webp" alt="Graph Delay Installed">
+          <div class="small-badge">
+            <img class="preview-40" src="graph_synth_opt8_distilled_straight_40px.png" alt="40px preview">
+            <span>40 × 40 px</span>
+          </div>
+        </div>
+        <div class="option-notes">Installed as graph-delay.webp.</div>
+      </div>
+      <div class="option-card">
+        <div class="option-header">Lattice & Tiles: Piano Roll Note Tile Scroll Rotated 90° (Option 2)</div>
+        <div class="preview-container">
+          <img class="preview-large" src="lattice_opt9_piano_roll_rot90.webp" alt="Lattice Installed">
+          <div class="small-badge">
+            <img class="preview-40" src="lattice_opt9_piano_roll_rot90_40px.png" alt="40px preview">
+            <span>40 × 40 px</span>
+          </div>
+        </div>
+        <div class="option-notes">Installed as lattice.webp and tiles-app.webp. Horizontal piano roll scroll with 2 alternating tile colors.</div>
+      </div>
+      <div class="option-card">
+        <div class="option-header">Filter Fabric: Moiré Drone Wave Mesh</div>
+        <div class="preview-container">
+          <img class="preview-large" src="filter_fabric.webp" alt="Filter Fabric Installed">
+          <div class="small-badge">
+            <img class="preview-40" src="filter_fabric_40px.png" alt="40px preview">
+            <span>40 × 40 px</span>
+          </div>
+        </div>
+        <div class="option-notes">Installed as moire-drone.webp. Woven frequency fabric with dual sculptor nodes.</div>
+      </div>
+      <div class="option-card">
+        <div class="option-header">Shape: Regular Polygon Slicer (Option 4)</div>
+        <div class="preview-container">
+          <img class="preview-large" src="shape_opt4_polygon_slicer.webp" alt="Shape Installed">
+          <div class="small-badge">
+            <img class="preview-40" src="shape_opt4_polygon_slicer_40px.png" alt="40px preview">
+            <span>40 × 40 px</span>
+          </div>
+        </div>
+        <div class="option-notes">Installed as shape.webp for the singular "Shape" app. Regular polygon with radial reader ray.</div>
+      </div>
+      <div class="option-card">
+        <div class="option-header">Shapes ("combo" app): Geometric Slicing Trio</div>
+        <div class="preview-container">
+          <img class="preview-large" src="shapes_opt2_geometric_trio.webp" alt="Shapes Installed">
+          <div class="small-badge">
+            <img class="preview-40" src="shapes_opt2_geometric_trio_40px.png" alt="40px preview">
+            <span>40 × 40 px</span>
+          </div>
+        </div>
+        <div class="option-notes">Installed as combo.webp for the "Shapes" app. Intersecting circle, square, and triangle.</div>
+      </div>
+      <div class="option-card">
+        <div class="option-header">Spiral: Log-Polar Spiral Tiling (Option 5)</div>
+        <div class="preview-container">
+          <img class="preview-large" src="spiral_opt5_logpolar_tessellation_mint_cyan.webp" alt="Spiral Installed">
+          <div class="small-badge">
+            <img class="preview-40" src="spiral_opt5_logpolar_tessellation_mint_cyan_40px.png" alt="40px preview">
+            <span>40 × 40 px</span>
+          </div>
+        </div>
+        <div class="option-notes">Installed as spiral.webp. Log-polar spiral lattice tiles.</div>
+      </div>
+      <div class="option-card">
+        <div class="option-header">Jaw Harp: Narrow-Tine Lyre</div>
+        <div class="preview-container">
+          <img class="preview-large" src="jawharp_opt1_narrow_lyre.webp" alt="Jaw Harp Installed">
+          <div class="small-badge">
+            <img class="preview-40" src="jawharp_opt1_narrow_lyre_40px.png" alt="40px preview">
+            <span>40 × 40 px</span>
+          </div>
+        </div>
+        <div class="option-notes">Installed as jaw-harp.webp with tight 26px mouth tines hugging the reed.</div>
+      </div>
+      <div class="option-card">
+        <div class="option-header">L-Systems: Horizontal Tree (No Ground)</div>
+        <div class="preview-container">
+          <img class="preview-large" src="lsystems_opt1_horizontal_tree.webp" alt="L-Systems Installed">
+          <div class="small-badge">
+            <img class="preview-40" src="lsystems_opt1_horizontal_tree_40px.png" alt="40px preview">
+            <span>40 × 40 px</span>
+          </div>
+        </div>
+        <div class="option-notes">Installed as l-system.webp / l-systems.webp with ground bar removed.</div>
+      </div>
+      <div class="option-card">
+        <div class="option-header">Paths: Recursive Dragon Curve</div>
+        <div class="preview-container">
+          <img class="preview-large" src="lsystems_opt3_dragon_curve.webp" alt="Paths Installed">
+          <div class="small-badge">
+            <img class="preview-40" src="lsystems_opt3_dragon_curve_40px.png" alt="40px preview">
+            <span>40 × 40 px</span>
+          </div>
+        </div>
+        <div class="option-notes">Installed as paths.webp. Pure recursive space-filling L-system syntax.</div>
+      </div>
+      <div class="option-card">
+        <div class="option-header">Quadruped: Robot Runner (No Outer Dots)</div>
+        <div class="preview-container">
+          <img class="preview-large" src="quadruped_opt1_robot_runner.webp" alt="Quadruped Installed">
+          <div class="small-badge">
+            <img class="preview-40" src="quadruped_opt1_robot_runner_40px.png" alt="40px preview">
+            <span>40 × 40 px</span>
+          </div>
+        </div>
+        <div class="option-notes">Installed as quadruped.webp with no outer dial and 4 color-coded footfall nodes on the feet.</div>
+      </div>
+      <div class="option-card">
+        <div class="option-header">Solid: Octahedron Slicing Engine</div>
+        <div class="preview-container">
+          <img class="preview-large" src="solid_opt1_octahedron_slice.webp" alt="Solid Installed">
+          <div class="small-badge">
+            <img class="preview-40" src="solid_opt1_octahedron_slice_40px.png" alt="40px preview">
+            <span>40 × 40 px</span>
+          </div>
+        </div>
+        <div class="option-notes">Installed as solid.webp. 3D wireframe octahedron with coral slicing plane.</div>
+      </div>
+    </div>
+  </div>
+  <script type="module" src="../../../wax/wax-universal-adapter.js" data-morphazoid-wax-universal-adapter></script>
+</body>
+</html>

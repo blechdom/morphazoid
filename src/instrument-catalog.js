@@ -1,7 +1,7 @@
 import {
   FAVE_TOOL_IDS,
   TOOL_GROUPS,
-} from "../nav.js?v=catalog-20260906-6";
+} from "../nav.js?v=catalog-20260914-1";
 import { instrumentMidiCapabilityForId } from "./instrument-midi-capabilities.js";
 
 const define = (kind, description, start, features = [], pluginHref = null) => Object.freeze({
@@ -36,6 +36,12 @@ const CATALOG_DETAILS = Object.freeze({
     "A self-contained L-system instrument with one canvas, shared grammar controls, and Continuous, Notes, Triggers, and Mic playing modes.",
     "Choose a grammar and mix preset, then keep the same branch traversal running while switching between sustained synth, note events, drum triggers, and live mic delay.",
     ["Built-in synth", "Drum machine", "Mic input", "Shared transport", "Self-contained app"],
+  ),
+  graphs: define(
+    "Network instrument app",
+    "A self-contained graph instrument with one editable network and Synth, Drums, and Mic playing modes that share its nodes, routes, motion, and timing.",
+    "Choose or generate a graph, then reshape and play the same topology while switching between pitched pulses, percussion triggers, and live microphone delay.",
+    ["Built-in synth", "Drum machine", "Mic input", "Pointer", "Shared topology", "Self-contained app"],
   ),
   "tiles-app": define(
     "Tile instrument app",
@@ -825,6 +831,7 @@ const ADDITIONAL_TAG_IDS = Object.freeze({
   blowhole: Object.freeze(["sequencers"]),
   "hiccup-head": Object.freeze(["sequencers"]),
   "l-systems": Object.freeze(["fractals-recursion", "geometry-drums", "mic-fx"]),
+  graphs: Object.freeze(["fractals-recursion", "geometry-drums", "mic-fx"]),
   "l-system-drums": Object.freeze(["fractals-recursion"]),
   "graph-drums": Object.freeze(["fractals-recursion"]),
   "graph-synth": Object.freeze(["fractals-recursion"]),

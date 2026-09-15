@@ -100,6 +100,7 @@ const NOTE_MODE_IDS = Object.freeze({
   ]),
   sequence: Object.freeze([
     "l-systems",
+    "graphs",
     "tiles-app",
     "algorithmic-mazes",
     "paths",
@@ -243,6 +244,7 @@ const noGenericNoteKeyboardIds = new Set(NO_GENERIC_NOTE_KEYBOARD_IDS);
 const processorAudioIds = new Set(["moire-drone", "recursion"]);
 const audioInputIds = new Set([
   "l-systems",
+  "graphs",
   "lumber",
   "micmic",
   "graph-delay",

@@ -77,6 +77,22 @@ test("graph-delay offers acyclic, cyclic, community, and random topology familie
   }
 });
 
+test("every generated graph node participates in at least one edge", () => {
+  for (const type of Object.keys(GRAPH_PRESETS)) {
+    for (const density of [0, 0.01, 0.18, 0.6, 1]) {
+      for (const seed of [1, 2, 17, 43]) {
+        const graph = generateGraph({ type, nodeCount: 24, density, seed });
+        for (const node of graph.nodes) {
+          assert.ok(
+            graph.indegree[node.id] + graph.outdegree[node.id] > 0,
+            `${type} density ${density} seed ${seed} isolated node ${node.id}`,
+          );
+        }
+      }
+    }
+  }
+});
+
 test("graph generation keeps the microphone cap by default and supports opt-in large graphs", () => {
   assert.equal(MAX_GRAPH_NODES, 24);
   assert.equal(MAX_GENERATABLE_GRAPH_NODES, 512);

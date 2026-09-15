@@ -538,6 +538,7 @@ test("tool registry is categorized, unique, and includes Morphazoidical", () => 
     [
       { id: "combo", href: "shapes.html" },
       { id: "l-systems", href: "l-systems.html" },
+      { id: "graphs", href: "graphs.html" },
       { id: "tiles-app", href: "tiles.html" },
       { id: "algorithmic-mazes", href: "algorithmic-mazes.html" },
       { id: "paths", href: "paths.html" },
@@ -1148,7 +1149,7 @@ test("shared navigation creates a searchable accordion picker and preserves the 
   assert.deepEqual(
     appsGroup.findAll((node) => node.classList.contains("instrument-picker-link"))
       .map((link) => link.getAttribute("data-tool-id")),
-    ["combo", "l-systems", "tiles-app", "algorithmic-mazes", "paths"],
+    ["combo", "l-systems", "graphs", "tiles-app", "algorithmic-mazes", "paths"],
   );
   assert.equal(groupNodes[0].open, true);
   assert.equal(
@@ -1233,7 +1234,7 @@ test("shared navigation creates a searchable accordion picker and preserves the 
   assert.equal(doc.select.children.indexOf(appsOptionGroup), 1);
   assert.deepEqual(
     appsOptionGroup.children.map((option) => option.textContent),
-    ["Shapes", "L-Systems", "Tiles", "Mazes", "Paths"],
+    ["Shapes", "L-Systems", "Graphs", "Tiles", "Mazes", "Paths"],
   );
   const selectedOptions = doc.select.findAll((node) => node.tagName === "OPTION" && node.selected);
   const orbitalFerrisOption = doc.select.findAll(

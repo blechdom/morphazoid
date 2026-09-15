@@ -1,0 +1,175 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#07090b" />
+    <meta name="description" content="Morphazoid Graphs — one editable directed graph played as a synth, drum machine, or live microphone delay." />
+    <title>Graphs — Morphazoid</title>
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="graphs.css" />
+  </head>
+  <body class="graphs-page" data-graphs-mode="synth">
+    <header class="masthead graphs-masthead">
+      <a class="wordmark" href="./" aria-label="Morphazoid home">
+        <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+        <span>morphazoid</span>
+      </a>
+      <nav class="tabs" aria-label="Instrument"><a class="tab active" href="graphs.html" aria-current="page">Graphs</a></nav>
+      <label class="mobile-instrument-nav"><span class="sr-only">Instrument</span><select class="mobile-instrument-select" aria-label="Instrument"><option value="graphs.html" selected>Graphs</option></select></label>
+      <div class="audio-strip" aria-label="Audio controls">
+        <label class="header-level" for="output"><span><b>Level</b><output id="outputOut" for="output">64%</output></span><input id="output" aria-label="Graphs master level" type="range" min="0" max="0.9" step="0.01" value="0.64" /></label>
+        <button class="audio-button" id="audioButton" type="button" aria-pressed="false" aria-busy="false" aria-label="Start graph audio"><span class="audio-glyph" aria-hidden="true">◇</span><span class="audio-copy"><b>Audio</b><small id="audioState" aria-live="polite">off</small></span></button>
+      </div>
+    </header>
+
+    <main class="graphs-app" id="graphsApp" data-playing-mode="synth">
+      <h1 class="sr-only">Graphs</h1>
+      <section class="graphs-stage" aria-label="Graphs stage">
+        <div class="graphs-stage-wrap" id="stageWrap">
+          <canvas id="stage" tabindex="0" role="application" aria-roledescription="interactive directed graph" aria-keyshortcuts="Space Enter ArrowUp ArrowDown ArrowLeft ArrowRight BracketLeft BracketRight Escape" aria-label="An editable directed graph. Audio off." aria-describedby="canvasInstructions liveStatus">An editable directed graph played as synth notes, percussion, or microphone delay.</canvas>
+          <div class="graphs-stage-meter" aria-hidden="true"><span id="mappingReadout">NODE 1 · PASS 0 → A3 · 100%</span></div>
+          <div class="graphs-stage-meta" aria-hidden="true"><span id="stageReadout">SYNTH · LAYERED DAG · OFF</span></div>
+          <div class="graphs-key" aria-hidden="true"><span><i class="feed-forward"></i>route</span><span><i class="feedback"></i>return</span><span><i class="route-switch"></i>switch</span></div>
+        </div>
+      </section>
+
+      <aside class="graphs-panel" aria-label="Graphs controls">
+        <header class="graphs-panel-header">
+          <div class="graphs-mode-switch" id="playingMode" role="tablist" aria-label="Graphs playing mode">
+            <button id="modeSynth" type="button" role="tab" data-playing-mode="synth" aria-selected="true" aria-controls="synthBank">Synth</button>
+            <button id="modeDrums" type="button" role="tab" data-playing-mode="drums" aria-selected="false" aria-controls="drumsBank" tabindex="-1">Drums</button>
+            <button id="modeMic" type="button" role="tab" data-playing-mode="mic" aria-selected="false" aria-controls="micBank" tabindex="-1">Mic</button>
+          </div>
+        </header>
+
+        <div class="graphs-panel-scroll">
+          <section class="graphs-rack graphs-performance" aria-labelledby="playRackTitle">
+            <header><h2 id="playRackTitle">Play</h2></header>
+            <div class="graphs-action-row">
+              <button class="graphs-small-action" id="pulseButton" type="button">Send note</button>
+              <label class="graphs-preset" for="graphPatchSelect"><span class="field-label">Scene</span><span class="select-shell"><select id="graphPatchSelect">
+                <option value="" disabled>Custom</option><option value="clearSteps">Clear Steps</option><option value="lowLadder">Low Ladder</option><option value="branchChoir">Branch Choir</option><option value="glassCanopy">Glass Canopy</option><option value="layeredGlass" selected>Layered Glass</option><option value="rainLattice">Rain Lattice</option><option value="twinBanks">Twin Banks</option><option value="haloRing">Halo Ring</option><option value="slowOrbit">Slow Orbit</option><option value="shortcutChorus">Shortcut Chorus</option><option value="hubScatter">Hub Scatter</option><option value="softMesh">Soft Mesh</option><option value="islandSignals">Island Signals</option><option value="dustPaths">Dust Paths</option>
+              </select></span></label>
+              <button class="graphs-reset" id="resetAll" type="button" data-reset-all>Reset</button>
+            </div>
+            <div class="graphs-grid graphs-edge-time-grid">
+              <label class="control" for="baseDelay"><span><b>Minimum edge time</b><output id="baseDelayOut" for="baseDelay">62 ms</output></span><input id="baseDelay" type="range" min="20" max="600" step="1" value="62" dir="rtl" aria-label="Minimum edge time, slow to fast" aria-valuetext="62 milliseconds" title="Slow at the left, fast at the right." /></label>
+              <label class="control" for="distanceRatio"><span><b>Distance-time ratio</b><output id="distanceRatioOut" for="distanceRatio">1.94×</output></span><input id="distanceRatio" type="range" min="1" max="12" step="0.01" value="1.94" aria-label="Distance-time ratio" /></label>
+            </div>
+            <div class="graphs-tempo-row">
+              <button class="graphs-play-button" id="playButton" type="button" data-primary-transport aria-pressed="false" aria-busy="false" aria-label="Play graph pulses">
+                <svg class="transport-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5 18 12 8 18.5Z" /></svg>
+                <svg class="transport-mic" viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3" /><path d="M6.5 11.5v.5a5.5 5.5 0 0 0 11 0v-.5M12 17.5V21M9 21h6" /></svg>
+                <svg class="transport-pause" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6v12M16 6v12" /></svg>
+              </button>
+              <label class="control" for="tempo"><span><b>Tempo</b><output id="tempoOut" for="tempo">126 BPM</output></span><input id="tempo" name="tempo" type="range" min="35" max="220" step="1" value="126" /></label>
+              <label class="select-control" for="pulseDivision"><span class="field-label">Pulse</span><span class="select-shell"><select id="pulseDivision"><option value="0.5">½ beat</option><option value="1" selected>1 beat</option><option value="2">2 beats</option><option value="4">4 beats</option></select></span></label>
+            </div>
+            <div class="graphs-grid">
+              <label class="control event-only" for="seedNote"><span><b>Seed note</b><output id="seedNoteOut" for="seedNote">A3 · 57</output></span><input id="seedNote" name="pitch" type="range" min="0" max="127" step="1" value="57" /></label>
+            </div>
+            <p class="audio-error" id="audioError" role="alert" hidden></p>
+          </section>
+
+          <section class="graphs-rack" aria-labelledby="graphRackTitle">
+            <header><h2 id="graphRackTitle">Graph</h2></header>
+            <div class="graphs-grid">
+              <label class="select-control" for="topology"><span class="field-label">Shape</span><span class="select-shell"><select id="topology"><option value="chain">Chain</option><option value="tree">Tree</option><option value="dag" selected>Layered DAG</option><option value="bipartite">Bipartite</option><option value="ring">Ring</option><option value="smallworld">Small world</option><option value="hub">Hub + spokes</option><option value="mesh">Feedback mesh</option><option value="modular">Islands</option><option value="random">Seeded random</option></select></span></label>
+              <label class="control" for="nodeCount"><span><b>Nodes</b><output id="nodeCountOut" for="nodeCount">10</output></span><input id="nodeCount" type="range" min="3" max="24" step="1" value="10" /></label>
+              <label class="control" for="density"><span><b>Route density</b><output id="densityOut" for="density">34%</output></span><input id="density" type="range" min="0" max="1" step="0.01" value="0.34" aria-label="Route density" title="Adds optional connections when the selected graph shape supports them; every node keeps at least one route." /></label>
+              <label class="control" for="seed"><span><b>Seed</b><output id="seedOut" for="seed">17</output></span><input id="seed" type="range" min="1" max="99" step="1" value="17" /></label>
+            </div>
+            <div class="graphs-actions"><button class="graphs-small-action" id="newGraphButton" type="button">Next</button><button class="graphs-small-action" id="randomGraphButton" type="button">Random graph</button><button class="graphs-small-action" id="arrangeGraphButton" type="button">Arrange</button><button class="graphs-small-action" id="randomizeNodePositionsButton" type="button" title="Randomize node positions without changing graph connections">Randomize positions</button><button class="graphs-small-action" id="openAllSwitchesButton" type="button" title="Re-enable every route switch you closed; this does not add new connections.">Enable all routes</button></div>
+            <div class="graphs-grid">
+              <label class="control" for="timeCurve"><span><b>Length curve</b><output id="timeCurveOut" for="timeCurve">0.90</output></span><input id="timeCurve" type="range" min="0.25" max="3" step="0.05" value="0.9" /></label>
+              <label class="control" for="nodePass"><span><b>Pass-through</b><output id="nodePassOut" for="nodePass">100%</output></span><input id="nodePass" type="range" min="0" max="1" step="0.01" value="1" /></label>
+              <label class="control" for="feedback"><span><b>Cycle return</b><output id="feedbackOut" for="feedback">72%</output></span><input id="feedback" type="range" min="0" max="0.92" step="0.01" value="0.72" /></label>
+              <label class="control event-only" for="feedbackTone"><span><b>Return tone</b><output id="feedbackToneOut" for="feedbackTone">78%</output></span><input id="feedbackTone" type="range" min="0.2" max="1" step="0.01" value="0.78" /></label>
+            </div>
+          </section>
+
+          <section class="graphs-rack" aria-labelledby="motionRackTitle">
+            <header><h2 id="motionRackTitle">Motion</h2></header>
+            <div class="graphs-motion-row">
+              <button class="graphs-motion-button" id="nodeMotionPlayButton" type="button" aria-pressed="false" aria-label="Play node motion"><svg class="transport-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5 18 12 8 18.5Z" /></svg><svg class="transport-pause" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6v12M16 6v12" /></svg></button>
+              <label class="select-control" for="nodeMotionMode"><span class="field-label">Node path</span><span class="select-shell"><select id="nodeMotionMode"><option value="wiggle" selected>Wiggle</option><option value="orbit">Orbit</option><option value="random">Random walk</option></select></span></label>
+            </div>
+            <div class="graphs-grid"><label class="control" for="nodeMotionSpeed"><span><b>Node speed</b><output id="nodeMotionSpeedOut" for="nodeMotionSpeed">0.12 cyc/s</output></span><input id="nodeMotionSpeed" type="range" min="0.01" max="0.5" step="0.01" value="0.12" /></label><label class="control" for="nodeMotionAmount"><span><b>Node travel</b><output id="nodeMotionAmountOut" for="nodeMotionAmount">7%</output></span><input id="nodeMotionAmount" type="range" min="0.01" max="0.3" step="0.01" value="0.07" /></label></div>
+          </section>
+
+          <section class="graphs-rack" aria-labelledby="mappingRackTitle">
+            <header><h2 id="mappingRackTitle">Mapping</h2></header>
+            <div class="graphs-grid">
+              <label class="select-control" for="mappingMode"><span class="field-label" id="mappingModeLabel">Graph → pitch</span><span class="select-shell"><select id="mappingMode" data-mode="synth"><option value="turn">Inherited route turns</option><option value="height">Node height</option><option value="degree">Node degree</option><option value="progress">Left-to-right progress</option></select></span></label>
+              <label class="select-control event-only" for="triggerScope"><span class="field-label">Sound at</span><span class="select-shell"><select id="triggerScope"><option value="all" selected>Every node</option><option value="leaves">Sinks only</option></select></span></label>
+              <label class="select-control event-only" for="attackLaneCount"><span class="field-label">Separation</span><span class="select-shell"><select id="attackLaneCount"><option value="1" selected>Natural</option><option value="2">2 lanes</option><option value="4">4 lanes</option></select></span></label>
+            </div>
+            <p class="graphs-note" id="mappingDescription">Every turn adds a local interval to the pitch inherited from the previous route.</p>
+            <div class="graphs-legend" aria-label="Current mapping"><span><b id="mappingLegendLabel0">Turn</b><small id="mappingLegendDetail0">pitch</small></span><span><b id="mappingLegendLabel1">Height</b><small id="mappingLegendDetail1">stereo</small></span><span><b id="mappingLegendLabel2">Degree</b><small id="mappingLegendDetail2">timbre</small></span><span><b id="mappingLegendLabel3">Cycle</b><small id="mappingLegendDetail3">decay</small></span></div>
+          </section>
+
+          <section class="graphs-rack graphs-mode-bank is-active" id="synthBank" data-mode-bank="synth" role="tabpanel" aria-labelledby="modeSynth">
+            <header><h2>Synth</h2></header>
+            <div class="graphs-grid">
+              <label class="select-control" for="soundMode"><span class="field-label">Voice</span><span class="select-shell"><select id="soundMode"><option value="sine">Sine</option><option value="triangle">Triangle</option><option value="sawtooth">Saw</option><option value="square">Square</option><option value="fm" selected>FM</option><option value="pm">PM</option><option value="shepard">Shepard</option></select></span></label>
+              <label class="select-control" for="tuningMode"><span class="field-label">Tuning</span><span class="select-shell"><select id="tuningMode"><option value="pure">Pure angle</option><option value="equal" selected>Equal divisions</option><option value="just">Just ratios</option></select></span></label>
+              <label class="control" for="turnPitchScale"><span><b>Turn travel</b><output id="turnPitchScaleOut" for="turnPitchScale">1.10 oct / 360°</output></span><input id="turnPitchScale" type="range" min="0" max="4" step="0.01" value="1.1" /></label>
+              <label class="control" for="pitchRange"><span><b>Pitch span</b><output id="pitchRangeOut" for="pitchRange">2.00 oct</output></span><input id="pitchRange" type="range" min="0" max="5" step="0.05" value="2" /></label>
+              <label class="control" for="edoDivisions"><span><b>Divisions</b><output id="edoDivisionsOut" for="edoDivisions">19</output></span><input id="edoDivisions" type="range" min="1" max="360" step="1" value="19" /></label>
+              <label class="control" for="stereoSpread"><span><b>Stereo</b><output id="stereoSpreadOut" for="stereoSpread">84%</output></span><input id="stereoSpread" type="range" min="0" max="1" step="0.01" value="0.84" /></label>
+              <label class="control" for="modulationIndex"><span><b>Mod index</b><output id="modulationIndexOut" for="modulationIndex">2.80</output></span><input id="modulationIndex" type="range" min="0" max="12" step="0.05" value="2.8" /></label>
+              <label class="control" for="modulationRatio"><span><b>Mod ratio</b><output id="modulationRatioOut" for="modulationRatio">2.00×</output></span><input id="modulationRatio" type="range" min="0.25" max="8" step="0.05" value="2" /></label>
+              <label class="select-control" for="articulation"><span class="field-label">Articulation</span><span class="select-shell"><select id="articulation"><option value="trigger" selected>Triggered ADSR</option><option value="edge">Edge gate</option></select></span></label>
+              <label class="control" for="noteDuration"><span><b>Gate</b><output id="noteDurationOut" for="noteDuration">210 ms</output></span><input id="noteDuration" type="range" min="20" max="4000" step="10" value="210" /></label>
+              <label class="control" for="attack"><span><b>Attack</b><output id="attackOut" for="attack">8 ms</output></span><input id="attack" type="range" min="1" max="2000" step="1" value="8" /></label>
+              <label class="control" for="decay"><span><b>Decay</b><output id="decayOut" for="decay">90 ms</output></span><input id="decay" type="range" min="5" max="2400" step="1" value="90" /></label>
+              <label class="control" for="sustain"><span><b>Sustain</b><output id="sustainOut" for="sustain">34%</output></span><input id="sustain" type="range" min="0" max="1" step="0.01" value="0.34" /></label>
+              <label class="control" for="release"><span><b>Release</b><output id="releaseOut" for="release">220 ms</output></span><input id="release" type="range" min="2" max="5000" step="1" value="220" /></label>
+            </div>
+            <p class="sr-only" id="pitchRangeNote">Inherited turns keep accumulating through cycles.</p><span class="sr-only" id="soundSummary">FM · trigger · ADSR</span>
+          </section>
+
+          <section class="graphs-rack graphs-mode-bank" id="drumsBank" data-mode-bank="drums" role="tabpanel" aria-labelledby="modeDrums" hidden>
+            <header><h2>Drums</h2></header>
+            <div class="graphs-grid">
+              <label class="select-control graphs-wide" for="percussionStyle"><span class="field-label">Percussion</span><span class="select-shell"><select id="percussionStyle"><option value="drum-bank">Drum bank</option><option value="circuit" selected>Circuit percussion</option><option value="rattlesnake">Rattlesnake</option><option value="rattlesnake-physical">Physical rattlesnake</option><option value="resonant-metal">Resonant metal</option><option value="karplus-strong">Karplus Strong</option><option value="karplus-tines">Karplus tines</option><option value="karplus-objects">Karplus objects</option></select></span></label>
+              <label class="control" for="pitchDepth"><span><b id="pitchDepthLabel">Height → pitch</b><output id="pitchDepthOut" for="pitchDepth">12 st</output></span><input id="pitchDepth" type="range" min="0" max="24" step="1" value="12" /></label>
+              <label class="control" for="turnPitchDepth"><span><b>Turn → pitch</b><output id="turnPitchDepthOut" for="turnPitchDepth">9 st</output></span><input id="turnPitchDepth" type="range" min="0" max="24" step="1" value="9" /></label>
+              <label class="control graphs-wide" for="characterDepth"><span><b>Graph character</b><output id="characterDepthOut" for="characterDepth">72%</output></span><input id="characterDepth" type="range" min="0" max="1" step="0.01" value="0.72" /></label>
+            </div>
+            <div class="graphs-drum-map" id="drumMap" aria-label="Sixteen playable graph drum voices"></div>
+          </section>
+
+          <section class="graphs-rack graphs-mode-bank" id="micBank" data-mode-bank="mic" role="tabpanel" aria-labelledby="modeMic" hidden>
+            <header><h2>Mic delay</h2><div class="graphs-mic-monitor"><span id="micState" aria-live="polite">mic off</span><div class="graphs-input-meter" id="inputMeter" role="meter" aria-label="Microphone input level" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><i aria-hidden="true"></i></div></div></header>
+            <p class="graphs-safety"><b>Headphones recommended.</b> The round microphone button above starts input. Speaker sound can re-enter cyclic routes.</p>
+            <div class="graphs-grid">
+              <label class="control" for="inputTrim"><span><b>Input</b><output id="inputTrimOut" for="inputTrim">80%</output></span><input id="inputTrim" type="range" min="0" max="1.5" step="0.01" value="0.8" /></label>
+              <label class="control" for="pitchScale"><span><b>Turn pitch</b><output id="pitchScaleOut" for="pitchScale">0.26 oct</output></span><input id="pitchScale" type="range" min="0" max="2" step="0.01" value="0.26" /></label>
+              <label class="control" for="pitchAsymmetry"><span><b>Asymmetry</b><output id="pitchAsymmetryOut" for="pitchAsymmetry">even</output></span><input id="pitchAsymmetry" type="range" min="-0.8" max="0.8" step="0.01" value="0" /></label>
+              <label class="control" for="pitchCurve"><span><b>Pitch curve</b><output id="pitchCurveOut" for="pitchCurve">1.35</output></span><input id="pitchCurve" type="range" min="0.5" max="2" step="0.01" value="1.35" /></label>
+              <label class="control" for="pitchSlew"><span><b>Glide</b><output id="pitchSlewOut" for="pitchSlew">165 ms</output></span><input id="pitchSlew" type="range" min="10" max="600" step="5" value="165" /></label>
+              <label class="control" for="damping"><span><b>Damping</b><output id="dampingOut" for="damping">4.8 kHz</output></span><input id="damping" type="range" min="250" max="14000" step="10" value="4800" /></label>
+              <label class="control" for="wet"><span><b>Graph</b><output id="wetOut" for="wet">108%</output></span><input id="wet" type="range" min="0" max="1.5" step="0.01" value="1.08" /></label>
+              <label class="control" for="dry"><span><b>Direct</b><output id="dryOut" for="dry">18%</output></span><input id="dry" type="range" min="0" max="1" step="0.01" value="0.18" /></label>
+              <label class="control" for="spread"><span><b>Stereo</b><output id="spreadOut" for="spread">82%</output></span><input id="spread" type="range" min="0" max="1" step="0.01" value="0.82" /></label>
+            </div>
+            <button class="graphs-panic" id="panicButton" type="button">Panic · stop mic + tails</button>
+          </section>
+
+          <div class="sr-only" aria-hidden="true">
+            <input id="graphPatch" type="hidden" value="layeredGlass" /><div id="graphPatchGrid"></div>
+            <span id="playSummary">paused</span><span id="delaySummary">62 ms</span><span id="topologySummary">Layered Glass</span><span id="topologyDescription">Layered DAG</span><span id="graphPatchDescription">Layered Glass</span><span id="feedbackSafetyNote">Acyclic</span><span id="motionSummary">nodes stable</span><span id="mappingSummary">inherited turns</span><span id="graphInfoSummary">10 nodes</span><output id="structureReadout">10 nodes</output><output id="cycleReadout">none</output><output id="tailReadout">finite</output><output id="selectedNodeReadout">node 1</output>
+          </div>
+          <div data-midi-output-monitor-host aria-label="MIDI output monitor"></div>
+        </div>
+      </aside>
+      <p class="sr-only" id="canvasInstructions">Drag any node or the source marker to change route timing and mapping. Click a small edge switch to open or close that route. Space sends a trace, arrow keys move the selected node, left and right bracket select a route, Enter toggles it, and Escape stops all audio.</p>
+      <p class="sr-only" id="liveStatus" aria-live="polite"></p>
+    </main>
+    <script type="module" src="nav.js"></script>
+    <script type="module" src="graphs-app.js"></script>
+  </body>
+</html>

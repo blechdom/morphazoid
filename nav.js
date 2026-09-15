@@ -91,6 +91,7 @@ export const TOOL_GROUPS = Object.freeze([
   freezeGroup("apps", "Apps", [
     { id: "combo", label: "Shapes", href: "shapes.html" },
     { id: "l-systems", label: "L-Systems", href: "l-systems.html" },
+    { id: "graphs", label: "Graphs", href: "graphs.html" },
     { id: "tiles-app", label: "Tiles", href: "tiles.html" },
     {
       id: "algorithmic-mazes",
