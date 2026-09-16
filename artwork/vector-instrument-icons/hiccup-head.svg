@@ -1,0 +1,171 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 800 800" role="img" aria-labelledby="title description">
+  <title id="title">Hiccup Head</title>
+  <desc id="description">A wide-eyed checkerboard head with violet side hair, a round orange nose, and a green-rimmed, gap-toothed mouth.</desc>
+  <defs>
+    <pattern id="checkerboard" width="80" height="80" patternUnits="userSpaceOnUse" x="0" y="36">
+      <rect width="80" height="80" fill="#f8f5e9"/>
+      <path d="M0 0H40V40H0ZM40 40H80V80H40Z" fill="#171518"/>
+    </pattern>
+    <clipPath id="head-clip">
+      <ellipse cx="400" cy="400" rx="320" ry="364"/>
+    </clipPath>
+    <clipPath id="left-eye-clip">
+      <ellipse cx="286" cy="280" rx="82" ry="81"/>
+    </clipPath>
+    <clipPath id="right-eye-clip">
+      <ellipse cx="516" cy="280" rx="82" ry="81"/>
+    </clipPath>
+    <clipPath id="mouth-clip">
+      <ellipse cx="400" cy="582" rx="153" ry="66"/>
+    </clipPath>
+    <radialGradient id="iris" cx="38%" cy="32%" r="72%">
+      <stop offset="0" stop-color="#d5c3ff"/>
+      <stop offset=".52" stop-color="#9db8fa"/>
+      <stop offset="1" stop-color="#86e1db"/>
+    </radialGradient>
+  </defs>
+
+  <!-- Side hair and ears sit behind the head, as in the instrument. -->
+  <g fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <g stroke="#a55bea" stroke-width="9">
+      <path id="side-hair" d="M113 177L147 197 M99 191L134 211 M91 207L124 225 M80 220L115 240 M79 242L108 258 M68 258L102 278 M56 279L98 300 M64 299L95 315 M54 319L91 336 M60 337L88 350 M670 201L705 187 M680 218L715 200 M689 235L725 220 M697 252L724 241 M703 270L730 255 M708 289L742 274 M713 307L743 291 M718 323L752 306 M721 340L760 324"/>
+    </g>
+    <use href="#side-hair" stroke="#df8bdc" stroke-width="4"/>
+  </g>
+  <g stroke="#a55bea" stroke-width="4">
+    <ellipse cx="65" cy="412" rx="51" ry="53" fill="#f8f5e9"/>
+    <ellipse cx="735" cy="419" rx="51" ry="53" fill="#f8f5e9"/>
+  </g>
+  <g fill="none" stroke-linecap="round">
+    <path d="M64 382C98 377 100 440 65 442" stroke="#a55bea" stroke-width="2.5"/>
+    <path d="M738 391C769 401 768 440 740 447" stroke="#a55bea" stroke-width="2.5"/>
+    <circle cx="65" cy="416" r="16" stroke="#7ccdd2" stroke-width="2" opacity=".7"/>
+    <circle cx="735" cy="418" r="16" stroke="#7ccdd2" stroke-width="2" opacity=".7"/>
+  </g>
+
+  <ellipse cx="400" cy="400" rx="320" ry="364" fill="url(#checkerboard)" stroke="#a55bea" stroke-width="4.5"/>
+
+  <!-- A reduced set of the face's colored trigger dots keeps the icon legible. -->
+  <g clip-path="url(#head-clip)" stroke-width="1.8" fill-opacity=".5" stroke-opacity=".75">
+    <g fill="#9561b4" stroke="#8b57a6">
+      <circle cx="294" cy="98" r="7"/>
+      <circle cx="208" cy="148" r="7"/>
+      <circle cx="452" cy="137" r="7"/>
+      <circle cx="580" cy="191" r="7"/>
+      <circle cx="154" cy="228" r="7"/>
+      <circle cx="166" cy="309" r="9"/>
+      <circle cx="400" cy="305" r="7"/>
+      <circle cx="586" cy="341" r="7"/>
+      <circle cx="226" cy="389" r="7"/>
+      <circle cx="178" cy="425" r="7"/>
+      <circle cx="292" cy="410" r="7"/>
+      <circle cx="525" cy="376" r="7"/>
+      <circle cx="669" cy="418" r="7"/>
+      <circle cx="157" cy="553" r="8"/>
+      <circle cx="642" cy="520" r="7"/>
+      <circle cx="639" cy="542" r="7"/>
+      <circle cx="158" cy="616" r="7"/>
+      <circle cx="629" cy="644" r="7"/>
+    </g>
+    <g fill="#588564" stroke="#507959">
+      <circle cx="340" cy="86" r="7"/>
+      <circle cx="460" cy="86" r="7"/>
+      <circle cx="349" cy="137" r="7"/>
+      <circle cx="400" cy="166" r="7"/>
+      <circle cx="592" cy="148" r="7"/>
+      <circle cx="220" cy="191" r="7"/>
+      <circle cx="111" cy="360" r="7"/>
+      <circle cx="214" cy="342" r="7"/>
+      <circle cx="635" cy="309" r="7"/>
+      <circle cx="574" cy="389" r="7"/>
+      <circle cx="131" cy="418" r="7"/>
+      <circle cx="145" cy="447" r="7"/>
+      <circle cx="482" cy="466" r="7"/>
+      <circle cx="689" cy="491" r="7"/>
+      <circle cx="192" cy="650" r="7"/>
+      <circle cx="215" cy="666" r="8"/>
+      <circle cx="569" cy="674" r="7"/>
+    </g>
+    <g fill="#567fa5" stroke="#527497">
+      <circle cx="400" cy="86" r="7"/>
+      <circle cx="506" cy="98" r="7"/>
+      <circle cx="645" cy="229" r="7"/>
+      <circle cx="689" cy="360" r="7"/>
+      <circle cx="276" cy="375" r="7"/>
+      <circle cx="507" cy="412" r="7"/>
+      <circle cx="615" cy="411" r="7"/>
+      <circle cx="595" cy="447" r="7"/>
+      <circle cx="111" cy="491" r="7"/>
+      <circle cx="192" cy="485" r="7"/>
+      <circle cx="319" cy="466" r="7"/>
+      <circle cx="642" cy="469" r="7"/>
+      <circle cx="595" cy="499" r="7"/>
+      <circle cx="669" cy="550" r="7"/>
+      <circle cx="149" cy="594" r="7"/>
+      <circle cx="653" cy="578" r="7"/>
+      <circle cx="508" cy="650" r="8"/>
+      <circle cx="596" cy="659" r="7"/>
+    </g>
+  </g>
+
+  <!-- Long, asymmetric eyebrows; no UI handles or guide rings. -->
+  <g fill="none" stroke-linecap="round">
+    <g stroke="#a55bea" stroke-width="15">
+      <path id="left-brow" d="M198 177Q279 143 377 167"/>
+      <path id="right-brow" d="M429 163Q526 146 604 185"/>
+    </g>
+    <use href="#left-brow" stroke="#f080a6" stroke-width="9"/>
+    <use href="#right-brow" stroke="#a9d986" stroke-width="9"/>
+  </g>
+
+  <!-- Cream eyes retain a faint checkerboard under pink and lime eyelids. -->
+  <g clip-path="url(#left-eye-clip)">
+    <ellipse cx="286" cy="280" rx="82" ry="81" fill="#f4f1d9" fill-opacity=".93"/>
+    <path d="M208 205Q286 191 365 205L365 213Q286 218 208 212Z M207 348Q286 339 365 349V369H207Z" fill="#e77ca8"/>
+  </g>
+  <g clip-path="url(#right-eye-clip)">
+    <ellipse cx="516" cy="280" rx="82" ry="81" fill="#f4f1d9" fill-opacity=".93"/>
+    <path d="M434 205Q516 191 599 209V216Q516 221 434 212Z M433 350Q516 343 600 352V370H433Z" fill="#a8d875"/>
+  </g>
+  <g fill="none" stroke="#a55bea" stroke-width="4">
+    <ellipse cx="286" cy="280" rx="82" ry="81"/>
+    <ellipse cx="516" cy="280" rx="82" ry="81"/>
+  </g>
+  <g fill="url(#iris)" stroke="#a55bea" stroke-width="2">
+    <circle cx="281" cy="275" r="32"/>
+    <circle cx="521" cy="285" r="32"/>
+  </g>
+  <g fill="#0d0b12" stroke="#a9a0bc" stroke-width="2">
+    <circle cx="281" cy="276" r="15"/>
+    <circle cx="521" cy="286" r="15"/>
+  </g>
+  <g fill="#f8f5ff" opacity=".85">
+    <circle cx="274" cy="267" r="5.5"/>
+    <circle cx="514" cy="277" r="5.5"/>
+  </g>
+
+  <circle cx="400" cy="438" r="47" fill="#f43b05" stroke="#a55bea" stroke-width="4"/>
+  <ellipse cx="382" cy="419" rx="8" ry="7" transform="rotate(-38 382 419)" fill="#ffc59e"/>
+
+  <!-- Twelve crooked teeth with the characteristic missing central incisor. -->
+  <ellipse cx="400" cy="582" rx="153" ry="66" fill="#09090a"/>
+  <g clip-path="url(#mouth-clip)">
+    <path d="M285 637Q400 587 511 637L511 660H285Z" fill="#a93165" stroke="#c46597" stroke-width="2"/>
+    <path d="M400 621Q418 627 408 644" fill="none" stroke="#d082aa" stroke-width="2.5" stroke-linecap="round" opacity=".7"/>
+    <g fill="#f3edd7" stroke="#9c7ab9" stroke-width="1.8" stroke-linejoin="round">
+      <path d="M301 523L315 522L311 554Q303 557 296 553Z"/>
+      <path d="M318 521L331 521L327 555Q320 558 313 554Z"/>
+      <path d="M334 520L347 520L343 556Q336 559 330 555Z"/>
+      <path d="M350 520L363 520L360 557Q353 560 346 556Z"/>
+      <path d="M366 520L379 521L379 557Q372 560 364 556Z"/>
+      <path d="M382 521L395 522L401 558Q393 562 386 557Z"/>
+      <path d="M417 522L430 521L429 558Q422 561 416 558Z"/>
+      <path d="M433 521L446 521L444 558Q437 561 431 557Z"/>
+      <path d="M449 521L462 522L459 557Q452 560 446 556Z"/>
+      <path d="M465 522L478 523L475 557Q468 559 461 555Z"/>
+      <path d="M481 523L494 525L490 556Q483 558 477 554Z"/>
+      <path d="M497 525L510 529L507 554Q500 557 494 553Z"/>
+    </g>
+  </g>
+  <ellipse cx="400" cy="582" rx="153" ry="66" fill="none" stroke="#518f58" stroke-width="10"/>
+</svg>

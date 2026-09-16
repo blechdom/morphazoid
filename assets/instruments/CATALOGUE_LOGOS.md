@@ -47,3 +47,15 @@ same black so the square boundary disappears without deleting dark edge detail.
 | `entanglement-dance.webp` | Two linked qubit dancers with correlated motion |
 | `vocalzoid.webp` | Mechanical mouth joining syllable blocks into melody |
 | `playhead-paint.webp` | Painted looping stroke chased by three playheads |
+
+## Hiccup Head reference redraw — 2026-09-16
+
+`hiccup-head.webp` is a hand-authored vector redraw of the user's Hiccup Head
+instrument screenshot, not an AI-generated image. It preserves the cream/black
+checkerboard, violet outline and side hair, round eyes, orange nose, and green
+gap-toothed mouth. UI guides and the old icon's color-swatch strip are omitted.
+
+The editable source is `artwork/vector-instrument-icons/hiccup-head.svg`, with
+a transparent 1024 × 1024 PNG beside it. The catalogue uses a transparent
+512 × 512 lossless WebP rasterized from that SVG with librsvg/Cairo and Pillow.
+The existing catalogue and menu asset path is unchanged.
