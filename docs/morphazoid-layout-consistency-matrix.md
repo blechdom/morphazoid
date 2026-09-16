@@ -89,7 +89,6 @@ Examples: `F=` shared and conforming; `L=` legacy-standard and conforming; `C~` 
 | `graph-drums` / `graph-drums.html` | Drum Machines | L= | L= | L= | L= | Ø– | L~ | L? | F? | Ø– | L? | Large topology/delay/motion/mapping panel uses repeated legacy fields. |
 | `linear-drums-machine` / `linear-drums-machine.html` | Drum Machines | L= | C~ | C~ | C~ | C~ | C~ | L? | F? | C~ | C? | Paint-machine shell and custom pattern workspace intentionally depart from the standard two-column anatomy. |
 | `rubix` / `rubix.html` | Sequencers | L= | L= | L= | L= | C~ | L~ | L? | F? | Ø– | L? | Cube visibility and sticker sequencing require app-owned grid semantics. |
-| `constellation` / `constellation.html` | Sequencers | L= | C~ | C~ | C~ | C~ | C~ | L? | F? | C~ | C? | Composer graph/inspector workspace is a Dashboard or Sequence Workspace, not a plain Instrument Shell. |
 | `sliding-puzzle` / `sliding-puzzle.html` | Sequencers | L= | L= | L= | L= | C~ | L~ | L? | F? | Ø– | L? | Move history and solver timeline remain puzzle-owned. |
 | `wave-pool` / `wave-pool.html` | Sequencers | L= | C~ | C~ | C~ | C~ | C~ | L? | F? | Ø– | C? | Custom wave/pattern surface keeps a standard panel vocabulary only at its edges. |
 | `hyper-rubix` / `hyper-rubix.html` | Sequencers | L= | L= | L= | L= | C~ | L~ | L? | F? | Ø– | L? | High-dimensional cube sequence uses custom visibility and traversal semantics. |
@@ -118,7 +117,6 @@ Examples: `F=` shared and conforming; `L=` legacy-standard and conforming; `C~` 
 | `micmic` / `l-mic.html` | Mic FX | L= | L= | L= | L= | Ø– | L~ | L? | F? | Ø– | L? | Stable ID differs from route; microphone chain remains processor-owned. |
 | `graph-delay` / `graph-delay.html` | Mic FX | L= | L= | L= | L= | Ø– | L~ | L? | F? | Ø– | L? | Graph delay uses standard shell while routing/model behavior stays local. |
 | `micromorph` / `micromorph.html` | Mic FX | L= | L= | L= | L= | Ø– | L~ | L? | F? | Ø– | L? | Custom slider-role controls and external model state need targeted accessibility review. |
-| `plugazoid` / `plugazoid.html` | Mic FX | L= | L= | L= | L= | Ø– | L~ | L? | F? | C~ | L? | Input bridge/download/help content adds a significant auxiliary region. |
 | `shepard-risset` / `shepard-risset.html` | Barber Shop Poles | L= | L= | L= | L= | Ø– | L~ | L? | F? | Ø– | L? | Compact standard shell and static panel fields are a safe factory-migration example. |
 | `slippery-resynthesis` / `slippery-resynthesis.html` | Barber Shop Poles | L= | L= | L= | L= | Ø– | L~ | L? | F? | C~ | L? | Resynthesis/file state adds auxiliary and persistence concerns. |
 | `moire-drone` / `moire-drone.html` | Barber Shop Poles | L= | L= | L= | L= | Ø– | L~ | L? | F? | Ø– | L? | Standard shell; custom visual/filter coupling remains instrument-owned. |
@@ -170,7 +168,6 @@ Examples: `F=` shared and conforming; `L=` legacy-standard and conforming; `C~` 
 | `morphynx` / `morphynx.html` | Experiments | L= | L= | L= | L= | C~ | L~ | L? | F? | C~ | L? | Animal/voice sequence and HUD extend otherwise standard anatomy. |
 | `escher-tessellation` / `escher-tessellation.html` | Experiments | L= | L= | L= | L= | C~ | L~ | L? | F? | C~ | L? | Geometry traversal and analysis are custom but contained by the shell. |
 | `plasma-ball` / `plasma-ball.html` | Experiments | L= | L= | L= | L= | Ø– | Ø– | L? | F? | Ø– | L? | Compact experiment with no visible preset/state bank. |
-| `ffmpeg-wasm` / `ffmpeg-wasm.html` | Experiments | L= | L= | C~ | L= | Ø– | Ø– | L? | F? | C~ | L? | Media processing surface omits `.stage-wrap`; capture/export is auxiliary and permission-sensitive. |
 | `order-tones` / `order-tones.html` | Experiments | L= | L= | L= | L= | C~ | Ø– | L? | F? | Ø– | L? | Ordering progression is a custom generated sequence in a shared shell. |
 | `morphazoidical` / `morphazoidical/` | Experiments | C~ | C~ | C~ | C~ | C~ | Ø– | C? | C? | C~ | C? | Independent themed workspace is intentionally Special; do not treat it as a template name. |
 | `bell-square` / `bell-square.html` | Experiments | L= | L= | L= | L= | Ø– | Ø– | L? | F? | Ø– | L? | Physics experiment uses the standard shell and shared physics factories. |

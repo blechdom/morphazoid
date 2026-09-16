@@ -46,9 +46,6 @@ while IFS= read -r -d '' source_path; do
     *.html|*.css|*.js|*.wasm|*.webp|*.glb|*.LICENSE.txt|favicon.svg|THIRD_PARTY_NOTICES.md|morphazoidical/PLAN.md|downloads/plugins/*|assets/authors/*.png|\
     assets/puggler/*.wav|assets/puggler/*CREDITS.md|assets/puggler/CC0-1.0.txt|\
     vendor/tactile/LICENSE|\
-    vendor/ffmpeg-wasm/LICENSE|\
-    vendor/ffmpeg-wasm/core/COPYING.GPLv2|\
-    vendor/ffmpeg-wasm/core/README.md|\
     vendor/cmudict/cmudict-en-us.dict|\
     vendor/cmudict/LICENSE|\
     vendor/signalsmith-stretch/LICENSE|\
@@ -145,13 +142,6 @@ for worktree_runtime_file in \
   jaw-jam-app.js \
   src/jaw-jam.js \
   src/jaw-jam-processor.js \
-  plugazoid.html \
-  plugazoid.css \
-  plugazoid-app.js \
-  src/plugazoid.js \
-  src/plugazoid-host.js \
-  src/plugazoid-processor.js \
-  assets/instruments/plugazoid.webp \
   breath-atlas.html \
   mouthophones.html \
   breath-atlas.css \
@@ -507,12 +497,6 @@ for worktree_runtime_file in \
   src/rubix-webgpu-303.js \
   src/rubix-visibility.js \
   assets/instruments/rubix.webp \
-  constellation.html \
-  constellation.css \
-  constellation-app.js \
-  src/constellation-composer.js \
-  src/constellation-audio.js \
-  src/constellation-analysis.js \
   sliding-puzzle.html \
   sliding-puzzle.css \
   sliding-puzzle-app.js \
@@ -580,12 +564,6 @@ for worktree_runtime_file in \
   slippery-resynthesis-app.js \
   src/slippery-resynthesis.js \
   assets/instruments/slippery-resynthesis.webp \
-  ffmpeg-wasm.html \
-  ffmpeg-wasm.css \
-  ffmpeg-wasm-app.js \
-  src/ffmpeg-wasm.js \
-  src/ffmpeg-wasm-capture-processor.js \
-  assets/instruments/ffmpeg-wasm.webp \
   simd-resonator.html \
   simd-audio-lab.html \
   simd-resonator.css \
@@ -617,16 +595,6 @@ for worktree_runtime_file in \
   assets/wasm/simd-synth-scalar.wasm \
   assets/wasm/simd-synth-simd.wasm \
   assets/instruments/simd-synth.webp \
-  vendor/ffmpeg-wasm/ffmpeg/classes.js \
-  vendor/ffmpeg-wasm/ffmpeg/const.js \
-  vendor/ffmpeg-wasm/ffmpeg/errors.js \
-  vendor/ffmpeg-wasm/ffmpeg/index.js \
-  vendor/ffmpeg-wasm/ffmpeg/types.js \
-  vendor/ffmpeg-wasm/ffmpeg/utils.js \
-  vendor/ffmpeg-wasm/ffmpeg/worker.js \
-  vendor/ffmpeg-wasm/LICENSE \
-  vendor/ffmpeg-wasm/core/COPYING.GPLv2 \
-  vendor/ffmpeg-wasm/core/README.md \
   micromorph.html \
   micromorph.css \
   micromorph-app.js \
@@ -1218,13 +1186,6 @@ required_files=(
   src/micromorph.js
   src/micromorph-model-client.js
   assets/instruments/micromorph.webp
-  plugazoid.html
-  plugazoid.css
-  plugazoid-app.js
-  src/plugazoid.js
-  src/plugazoid-host.js
-  src/plugazoid-processor.js
-  assets/instruments/plugazoid.webp
   shepard-risset.html
   shepard-risset-app.js
   src/shepard-risset.js
@@ -1233,12 +1194,6 @@ required_files=(
   slippery-resynthesis-app.js
   src/slippery-resynthesis.js
   assets/instruments/slippery-resynthesis.webp
-  ffmpeg-wasm.html
-  ffmpeg-wasm.css
-  ffmpeg-wasm-app.js
-  src/ffmpeg-wasm.js
-  src/ffmpeg-wasm-capture-processor.js
-  assets/instruments/ffmpeg-wasm.webp
   simd-resonator.html
   simd-audio-lab.html
   simd-resonator.css
@@ -1270,16 +1225,6 @@ required_files=(
   assets/wasm/simd-synth-scalar.wasm
   assets/wasm/simd-synth-simd.wasm
   assets/instruments/simd-synth.webp
-  vendor/ffmpeg-wasm/ffmpeg/classes.js
-  vendor/ffmpeg-wasm/ffmpeg/const.js
-  vendor/ffmpeg-wasm/ffmpeg/errors.js
-  vendor/ffmpeg-wasm/ffmpeg/index.js
-  vendor/ffmpeg-wasm/ffmpeg/types.js
-  vendor/ffmpeg-wasm/ffmpeg/utils.js
-  vendor/ffmpeg-wasm/ffmpeg/worker.js
-  vendor/ffmpeg-wasm/LICENSE
-  vendor/ffmpeg-wasm/core/COPYING.GPLv2
-  vendor/ffmpeg-wasm/core/README.md
   moire-drone.html
   moire-drone.css
   moire-drone-app.js
@@ -1518,12 +1463,6 @@ required_files=(
   src/rubix-webgpu-303.js
   src/rubix-visibility.js
   assets/instruments/rubix.webp
-  constellation.html
-  constellation.css
-  constellation-app.js
-  src/constellation-composer.js
-  src/constellation-audio.js
-  src/constellation-analysis.js
   sliding-puzzle.html
   sliding-puzzle.css
   sliding-puzzle-app.js

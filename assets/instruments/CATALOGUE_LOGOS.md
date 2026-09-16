@@ -33,9 +33,7 @@ same black so the square boundary disappears without deleting dark edge detail.
 | `dentaphone.webp` | Two dental arches forming a modal marimba |
 | `moire-drone.webp` | Woven frequency fabric under two sculptor nodes |
 | `hocket-loom.webp` | Three-track pulse loom with interlocking handoffs |
-| `ffmpeg-wasm.webp` | Microphone windows passing through a processor cube |
 | `yoyodyne.webp` | Spinning yo-yo, taut string, hand, and trick trajectories |
-| `plugazoid.webp` | Audio-jack creature with visible input/effect/output path |
 | `gesturama.webp` | Tracked hand painting drum, membrane, and harp zones |
 | `moebius.webp` | Half-twisted ribbon with stations and two playheads |
 | `micromorph.webp` | Microphone signal morphing through five membranes |

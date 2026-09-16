@@ -7,9 +7,7 @@ const NOTE_MODE_IDS = Object.freeze({
     "micmic",
     "graph-delay",
     "micromorph",
-    "plugazoid",
     "slippery-resynthesis",
-    "ffmpeg-wasm",
     "simd-resonator",
     "moire-drone",
     "sandy-syrup-delay",
@@ -110,7 +108,6 @@ const NOTE_MODE_IDS = Object.freeze({
     "pink-trombonazoid",
     "colony-syrinx",
     "vocalzoid",
-    "constellation",
     "sliding-puzzle",
     "webgpu-chiptune",
     "hyper-rubix",
@@ -165,7 +162,6 @@ export const NATIVE_INSTRUMENT_MIDI_IDS = Object.freeze([
   "chaotic-pm",
   "fm-drums",
   "sample-drums",
-  "constellation",
 ]);
 
 export const PAGE_KEYBOARD_INSTRUMENT_IDS = Object.freeze([
@@ -196,7 +192,6 @@ export const PAGE_KEYBOARD_INSTRUMENT_IDS = Object.freeze([
   "object-forge",
   "surround-field",
   "gesturama",
-  "constellation",
   "simd-resonator",
   "simd-synth",
 ]);
@@ -217,9 +212,7 @@ export const NO_GENERIC_NOTE_KEYBOARD_IDS = Object.freeze([
   "srtuss",
   "playhead-paint",
   "slippery-resynthesis",
-  "ffmpeg-wasm",
   "micromorph",
-  "plugazoid",
   "moire-drone",
   "candy-coil-delay",
   "chladni-plate",
@@ -249,9 +242,7 @@ const audioInputIds = new Set([
   "micmic",
   "graph-delay",
   "micromorph",
-  "plugazoid",
   "slippery-resynthesis",
-  "ffmpeg-wasm",
   "simd-resonator",
   "sandy-syrup-delay",
   "candy-coil-delay",

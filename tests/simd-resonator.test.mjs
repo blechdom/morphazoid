@@ -519,12 +519,11 @@ test("FFT band resynthesis reconstructs separated speech-band energy with bounde
 });
 
 test("SIMD Resonator is dedicated while the lab explains and auditions seven parallel DSP examples", async () => {
-  const [html, labHtml, app, worker, ffmpegHtml] = await Promise.all([
+  const [html, labHtml, app, worker] = await Promise.all([
     readFile(new URL("simd-resonator.html", root), "utf8"),
     readFile(new URL("simd-audio-lab.html", root), "utf8"),
     readFile(new URL("simd-resonator-app.js", root), "utf8"),
     readFile(new URL("src/simd-audio-worker.js", root), "utf8"),
-    readFile(new URL("ffmpeg-wasm.html", root), "utf8"),
   ]);
   assert.match(html, /id="audioButton"[^>]*aria-pressed="false"/);
   assert.match(html, /id="micButton"[\s\S]*ENABLE MICROPHONE/);
@@ -550,8 +549,6 @@ test("SIMD Resonator is dedicated while the lab explains and auditions seven par
   assert.match(labHtml, /Phase vocoder[\s\S]*Filterbank vocoder[\s\S]*Long IR[\s\S]*Nonlinear bank[\s\S]*Ambisonic decode[\s\S]*Audio ring/);
   assert.doesNotMatch(html.match(/<button id="resetButton"[^>]*>/)?.[0] || "", /data-reset-all/);
   assert.doesNotMatch(html.toLowerCase(), /experiment 001|in the loop/);
-  assert.match(ffmpegHtml, /href="simd-resonator\.html"/);
-  assert.match(ffmpegHtml, /href="simd-audio-lab\.html"/);
   assert.match(app, /if \(!state\.audioReady \|\| !state\.node\)/);
   assert.match(app, /micRequestGeneration/);
   assert.match(app, /function chooseEngine/);

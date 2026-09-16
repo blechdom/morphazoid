@@ -69,7 +69,6 @@ test("input processors are conservative previews and musical generators expose u
     "micmic",
     "graph-delay",
     "micromorph",
-    "ffmpeg-wasm",
     "sandy-syrup-delay",
     "candy-coil-delay",
     "recursion",

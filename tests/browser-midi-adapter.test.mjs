@@ -155,7 +155,6 @@ test("one acyclic capability registry covers every playable catalog instrument",
     "chaotic-pm",
     "fm-drums",
     "sample-drums",
-    "constellation",
   ]);
   assert.equal(instrumentMidiCapabilityForId("rubix").noteMode, "drums");
   assert.equal(instrumentMidiCapabilityForId("ouroborousel").noteMode, "drums");
@@ -163,7 +162,6 @@ test("one acyclic capability registry covers every playable catalog instrument",
   assert.equal(instrumentMidiCapabilityForId("ouroboros").noteMode, "drums");
   assert.equal(instrumentMidiCapabilityForId("ouroboros-borealis").noteMode, "drums");
   assert.equal(instrumentMidiCapabilityForId("hyper-rubix").noteMode, "sequence");
-  assert.equal(instrumentMidiCapabilityForId("constellation").noteMode, "sequence");
   assert.equal(instrumentMidiCapabilityForId("enveloper").noteMode, "sequence");
   assert.equal(
     INSTRUMENT_MIDI_CAPABILITIES.filter(({ id }) => id === "enveloper").length,
@@ -214,7 +212,6 @@ test("one acyclic capability registry covers every playable catalog instrument",
     "object-forge",
     "surround-field",
     "gesturama",
-    "constellation",
     "simd-resonator",
     "simd-synth",
   ]);
@@ -231,9 +228,7 @@ test("one acyclic capability registry covers every playable catalog instrument",
     "srtuss",
     "playhead-paint",
     "slippery-resynthesis",
-    "ffmpeg-wasm",
     "micromorph",
-    "plugazoid",
     "moire-drone",
     "candy-coil-delay",
     "chladni-plate",
@@ -252,9 +247,6 @@ test("one acyclic capability registry covers every playable catalog instrument",
     "yoyodyne",
   ]);
   assert.equal(instrumentMidiCapabilityForId("spelling-synthesizer").computerKeyboardMode, "page");
-  assert.equal(instrumentMidiCapabilityForId("constellation").midiInputMode, "native");
-  assert.equal(instrumentMidiCapabilityForId("constellation").computerKeyboardMode, "page");
-  assert.equal(instrumentMidiCapabilityForId("constellation").midiOutput, true);
   assert.equal(instrumentMidiCapabilityForId("webgpu-chiptune").noteMode, "sequence");
   assert.equal(instrumentMidiCapabilityForId("webgpu-chiptune").computerKeyboardMode, "none");
   assert.equal(instrumentMidiCapabilityForId("srtuss").noteMode, "sequence");
@@ -272,10 +264,6 @@ test("one acyclic capability registry covers every playable catalog instrument",
   assert.equal(instrumentMidiCapabilityForId("slippery-resynthesis").audioInput, true);
   assert.equal(instrumentMidiCapabilityForId("slippery-resynthesis").noteMode, "processor");
   assert.equal(instrumentMidiCapabilityForId("slippery-resynthesis").computerKeyboardMode, "none");
-  assert.equal(instrumentMidiCapabilityForId("ffmpeg-wasm").audioInput, true);
-  assert.equal(instrumentMidiCapabilityForId("ffmpeg-wasm").noteMode, "processor");
-  assert.equal(instrumentMidiCapabilityForId("ffmpeg-wasm").computerKeyboardMode, "none");
-  assert.equal(instrumentMidiCapabilityForId("ffmpeg-wasm").startsAudio, false);
   assert.equal(instrumentMidiCapabilityForId("moire-drone").audioInput, false);
   assert.equal(instrumentMidiCapabilityForId("moire-drone").noteMode, "processor");
   assert.equal(instrumentMidiCapabilityForId("moire-drone").startsAudio, true);
