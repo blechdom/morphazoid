@@ -60,7 +60,7 @@
   display: block;
   width: 64px;
   height: 64px;
-  background: url("favicon.svg") center / contain no-repeat;
+  object-fit: contain;
   flex: 0 0 64px;
 }
 

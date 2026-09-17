@@ -1518,6 +1518,11 @@ required_files=(
   vendor/tactile/tactile.js
 )
 
+# Make the sharing image explicit in the HTML crawlers actually receive.
+# This shared step covers the normal public build and its WAX counterpart,
+# including nested routes and pages added after this fix.
+node "$repo_root/scripts/social-preview.mjs" "$output_dir"
+
 for required_file in "${required_files[@]}"; do
   if [[ ! -f "$output_dir/$required_file" ]]; then
     echo "Missing required runtime file: $required_file" >&2
