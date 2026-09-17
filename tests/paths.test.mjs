@@ -105,7 +105,7 @@ test("Paths page keeps generation primary and explanatory chrome absent", async 
     readFile(new URL("paths.html", root), "utf8"),
     readFile(new URL("paths.css", root), "utf8"),
     readFile(new URL("paths-app.js", root), "utf8"),
-    readFile(new URL("nav.js", root), "utf8"),
+    readFile(new URL("src/site/instrument-registry.js", root), "utf8"),
     readFile(new URL("src/instrument-catalog.js", root), "utf8"),
     readFile(new URL("src/instrument-midi-capabilities.js", root), "utf8"),
     access(new URL("assets/instruments/paths.webp", root)),

@@ -2,7 +2,7 @@ import { readdir, readFile } from "node:fs/promises";
 import { extname, join, relative, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { FAVE_TOOL_IDS, TOOL_GROUPS } from "../nav.js";
+import { FAVE_TOOL_IDS, TOOL_GROUPS } from "../src/site/instrument-registry.js";
 import { INSTRUMENTS } from "../src/instrument-catalog.js";
 
 const projectRoot = fileURLToPath(new URL("../", import.meta.url));

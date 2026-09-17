@@ -134,7 +134,7 @@ test("Syrinx exposes a complete, accessible animal-voice instrument page", async
 
 test("Syrinx is discoverable through Morphazoid navigation and catalogue data", async () => {
   const [navigation, catalogue, buildScript] = await Promise.all([
-    readFile(new URL("nav.js", root), "utf8"),
+    readFile(new URL("src/site/instrument-registry.js", root), "utf8"),
     readFile(new URL("src/instrument-catalog.js", root), "utf8"),
     readFile(new URL("scripts/build-site.sh", root), "utf8"),
   ]);

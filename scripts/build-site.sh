@@ -67,6 +67,7 @@ done
 for worktree_runtime_file in \
   src/graphics/canvas-sizing.js \
   src/families/tract/geometry.js \
+  src/site/instrument-registry.js \
   spider-synth.html \
   spider-synth.css \
   spider-synth-app.js \
@@ -1179,6 +1180,7 @@ required_files=(
   src/audio.js
   src/graphics/canvas-sizing.js
   src/families/tract/geometry.js
+  src/site/instrument-registry.js
   src/contour-synth-processor.js
   l-mic.html
   micmic.html

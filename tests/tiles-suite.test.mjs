@@ -220,7 +220,7 @@ test("Tiles restores the guarded X/Y prototile editor and visual tile-system opt
 
 test("Tiles lives in the Morphazoid Apps section", async () => {
   const [nav, catalog, midi] = await Promise.all([
-    readFile(new URL("nav.js", root), "utf8"),
+    readFile(new URL("src/site/instrument-registry.js", root), "utf8"),
     readFile(new URL("src/instrument-catalog.js", root), "utf8"),
     readFile(new URL("src/instrument-midi-capabilities.js", root), "utf8"),
     access(new URL("assets/instruments/tiles-app.webp", root)),

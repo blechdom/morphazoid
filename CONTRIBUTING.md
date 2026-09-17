@@ -95,7 +95,8 @@ committed compatibility artifact: change authored sources, run
   Extract a shared component only for two real consumers or a project-wide
   contract; keep synthesis, simulation, and domain-specific Canvas behavior in
   the instrument.
-- Keep catalogue registration synchronized across `nav.js`,
+- Keep catalogue registration synchronized across `src/site/instrument-registry.js`
+  (re-exported by `nav.js`),
   `src/instrument-catalog.js`, and
   `src/instrument-midi-capabilities.js`. Tests should compare IDs and records
   across those inventories rather than pinning the current total. Keep an

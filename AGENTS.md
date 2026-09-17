@@ -119,7 +119,8 @@ command names.
 
 ## Integration and responsive behavior
 
-- A stable catalogue ID joins `TOOL_GROUPS` in `nav.js`, `CATALOG_DETAILS` and
+- A stable catalogue ID joins `TOOL_GROUPS` in `src/site/instrument-registry.js`
+  (re-exported by `nav.js`), `CATALOG_DETAILS` and
   optional secondary tags in `src/instrument-catalog.js`, and every applicable
   capability classification in `src/instrument-midi-capabilities.js`. Compare
   IDs and records across these sources instead of pinning the current total;

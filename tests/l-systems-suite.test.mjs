@@ -195,7 +195,7 @@ test("L-Systems app owns the audio engines and preserves shared state while swit
 
 test("L-Systems lives in the Morphazoid Apps section", async () => {
   const [nav, catalog, midi] = await Promise.all([
-    readFile(new URL("nav.js", root), "utf8"),
+    readFile(new URL("src/site/instrument-registry.js", root), "utf8"),
     readFile(new URL("src/instrument-catalog.js", root), "utf8"),
     readFile(new URL("src/instrument-midi-capabilities.js", root), "utf8"),
     access(new URL("assets/instruments/l-systems.webp", root)),

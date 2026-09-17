@@ -2,7 +2,7 @@
 
 This browser suite is the mechanical half of the Morphazoid quality process. It is designed to find regressions, inventory controls, and produce reviewable evidence. It does not replace the listening pass that decides whether an instrument is expressive, coherent, or enjoyable.
 
-The route inventory is generated from the same catalogue and navigation data used by the site. `e2e/routes.mjs`, `nav.js`, and `src/instrument-catalog.js` are the source of truth; documentation and cross-registry tests must compare IDs and records dynamically rather than pinning the current total. An explicit count belongs only in a test where cardinality itself is a reviewed product contract.
+The route inventory is generated from the same catalogue and navigation data used by the site. `e2e/routes.mjs`, `src/site/instrument-registry.js` (also re-exported by `nav.js`), and `src/instrument-catalog.js` are the source of truth; documentation and cross-registry tests must compare IDs and records dynamically rather than pinning the current total. An explicit count belongs only in a test where cardinality itself is a reviewed product contract.
 
 ## Setup and commands
 

@@ -5,7 +5,7 @@ import { execFileSync } from "node:child_process";
 import { readFile, readdir, stat } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { TOOL_GROUPS } from "../nav.js";
+import { TOOL_GROUPS } from "../src/site/instrument-registry.js";
 import { INSTRUMENTS, instrumentById } from "../src/instrument-catalog.js";
 import { instrumentMidiCapabilityForId } from "../src/instrument-midi-capabilities.js";
 

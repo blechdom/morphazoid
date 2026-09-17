@@ -209,7 +209,7 @@ test("the page exposes 32 shuffled presets, persistent envelopes, direct note ed
     readFile(new URL("webgpu-synths.css", root), "utf8"),
     readFile(new URL("webgpu-synths-app.js", root), "utf8"),
     readFile(new URL("src/webgpu-synths.js", root), "utf8"),
-    readFile(new URL("nav.js", root), "utf8"),
+    readFile(new URL("src/site/instrument-registry.js", root), "utf8"),
     readFile(new URL("src/instrument-catalog.js", root), "utf8"),
     readFile(new URL("scripts/build-site.sh", root), "utf8"),
   ]);
