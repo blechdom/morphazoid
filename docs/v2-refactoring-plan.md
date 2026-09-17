@@ -1,5 +1,17 @@
 # Morphazoid v2: preservation-first refactoring
 
+## Current status — September 17, 2026
+
+The reviewed preservation layers have been committed, reconciled with fetched
+main, and merged into local main. Full verification now passes with zero
+failures. See `v2-integration-results.md`; earlier eight-failure counts below
+describe the historical source reference, not current main.
+
+Await the owner's catalogue/name/file-layout changes before further runtime
+edits. Combined Apps and their individual versions remain until the owner is
+satisfied with the replacements. Deep renames, source moves and device-aware
+Faves require separate reviewed mappings/evidence.
+
 ## Objective
 
 Reduce duplication and make the existing instruments easier to maintain without
@@ -60,7 +72,8 @@ after each utility or caller.
 - Run `npm run test:refactor:fast` during implementation.
 - Run the broader checks once per review batch; `npm run test:refactor:batch`
   assembles the current sizing, interaction/audio, build-parity, and full-suite
-  checks. The known full-suite failures remain visible and make it exit nonzero.
+  checks. It now passes on integrated main; do not preserve old failures as
+  permanent exceptions.
 - Freeze a candidate artifact for review so continued editing does not change
   the version the owner is testing.
 - Keep dependency-aware rollback layers: a caller migration depends on the

@@ -1,5 +1,9 @@
 # v2 review checkpoint — September 16, 2026
 
+**Historical checkpoint:** these uncommitted-state descriptions record September
+16. The tested layers were subsequently committed and integrated into local
+main on September 17; see `v2-integration-results.md` for current status.
+
 Worktree: `/home/blechdom/creative/morphazoid-v2`
 
 Branch: `codex/v2-preservation`

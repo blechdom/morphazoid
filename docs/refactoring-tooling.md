@@ -88,10 +88,11 @@ parity, the broad browser sizing matrix, focused interaction/audio suites, and
 the existing full verification. It does not regenerate WAX itself: regenerate
 and review generated changes before running it.
 
-The batch gate stops on a failed check and never suppresses the eight recorded
-baseline failures. In particular, its final `npm run verify` still fails until
-those separate baseline issues are resolved. Report new and pre-existing
-failures separately; do not call the repository fully green.
+The batch gate stops on a failed check and never suppresses baseline failures.
+After integration with main on September 17, the full batch passes; the earlier
+eight-failure reports describe the old source reference. Report any new and
+pre-existing failures separately and do not turn historical failures into
+permanent exceptions. See `v2-integration-results.md`.
 
 ## Focused browser checks
 

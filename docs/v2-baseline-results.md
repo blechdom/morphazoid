@@ -1,5 +1,11 @@
 # v2 baseline and first-pilot results
 
+**Current integration status:** the historical eight failures recorded below
+are resolved in the reconciled local main. On September 17, full verification
+passed with 3,597 passing tests, zero failures and six skips; all 362 browser
+checks also passed. See `v2-integration-results.md`. Keep the older results as
+provenance, not as a permanent expected-failure list.
+
 Recorded September 16, 2026, in the isolated `codex/v2-preservation` worktree.
 The untouched-source reference is `4e9feed0748d94aa86500b0d63218b62b20138c6`.
 Node: `v22.23.2`. This is a local source reference, not a verified production

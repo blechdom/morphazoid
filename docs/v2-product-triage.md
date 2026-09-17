@@ -1,5 +1,12 @@
 # Product triage before further abstraction — September 17, 2026
 
+**Follow-up:** the audit below preceded the now-completed local main integration.
+See `v2-integration-results.md` for the verified outcome. The owner subsequently
+confirmed that Apps and individual versions should coexist until the Apps are
+satisfactory, and requested catalogue/deep-name/file-layout decisions before
+more implementation. No additional retirement is authorized by duplication
+scores.
+
 ## Owner's revised direction
 
 - Retire the standalone **Throatazoid** instrument; keep Alien Larynx.
