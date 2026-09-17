@@ -1,4 +1,4 @@
-# Tract-family geometry
+# Tract-family geometry and drawing
 
 `geometry.js` contains the shared geometry previously duplicated in
 `throatazoid-app.js` and `alien-larynx-app.js`:
@@ -28,8 +28,32 @@ other page behavior, including audio configuration; this extraction does not
 redefine them.
 
 An explicit animated diameter profile is copied without recomputing it.
-Animation smoothing remains page-owned. Draw routines and gesture handlers
-remain in the pages, using the same geometry objects and coordinate helpers.
+Animation smoothing and gesture handlers remain page-owned, using the same
+geometry objects and coordinate helpers.
+
+## Physical-tract rendering
+
+`rendering.js` contains the identical physical-tract drawing block formerly
+duplicated in the two controllers. Its single public entry is:
+
+```js
+drawPhysicalTract(drawing, geometry, time, liveAlpha, performance, view);
+```
+
+The caller still prepares animated geometry and updates `currentTract`,
+`currentTongues`, `currentNoses`, and `currentBodyHandles` **before** drawing.
+Those objects are also used by gestures; the renderer neither replaces them nor
+owns their lifecycle.
+
+The `view` argument supplies current CSS dimensions, selections, visual pressure
+readings, reduced-motion preference, pointer highlight, burst/keyboard pulse,
+and the existing `isAwake`/color callbacks. It is read-only per-frame input, not
+a cached application store. Helpers take only their required drawing/view
+arguments and retain their original math, colors, Canvas operations and ordering.
+No frame scheduling, audio, smoothing, listeners or DOM lookup moved here.
+
+Other anatomy/monitor drawing and the two pages' instrument-specific behavior
+remain in their controllers. This is not a universal renderer or controller.
 
 ## Compatibility
 
@@ -51,7 +75,15 @@ instruments' states or collapse their processing differences into this module.
 - `e2e/v2-tract-preservation.spec.mjs` exercises the actual pages: anatomy
   shortcuts, direct tongue dragging, held-pointer resize, synthetic phonemes,
   audio continuity, and cleanup. It blocks microphone requests.
+- `tests/fixtures/tract-rendering-v1.json` freezes the original drawing block.
+- `tests/tract-rendering.test.mjs` compares exact Canvas commands/property writes,
+  current/default visual state, pressure and closure cases, selections,
+  reduced-motion behavior, optional Canvas APIs, pulses and hit-test aliases.
+- `e2e/v2-tract-rendering.spec.mjs` compares actual Canvas pixels with the frozen
+  original at fixed timestamps, three sizes/DPRs, three anatomies, and both
+  motion preferences, using normal and generated WAX modules.
 
 These checks do not establish microphone behavior, physical fidelity, or a
-human listening judgment. Keep larger rendering or gesture extractions in
+human listening judgment. Fixed-frame pixels do not imply that live animation
+screenshots will be identical. Keep subsequent gesture or audio extractions in
 separately reviewable layers.

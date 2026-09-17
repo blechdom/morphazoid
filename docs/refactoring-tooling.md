@@ -81,7 +81,8 @@ npm run test:refactor:batch
 ```
 
 The fast gate checks sizing-policy equivalence, audio/transport infrastructure,
-the contour worklet, tract geometry, nested source discovery, and report tooling.
+the contour worklet, tract geometry and drawing, registry preservation/import purity, nested
+source discovery, and report tooling.
 The batch gate additionally runs build
 parity, the broad browser sizing matrix, focused interaction/audio suites, and
 the existing full verification. It does not regenerate WAX itself: regenerate
@@ -99,6 +100,7 @@ npm run test:browser:v2-pilot
 npm run test:browser:v2-rollout
 npm run test:browser:v2-uniformity
 npm run test:browser:v2-tract
+npm run test:browser:v2-site
 ```
 
 The pilot suite checks Solid and Hyper in three layouts, their existing canvas
@@ -117,6 +119,17 @@ The tract suite compares the existing Alien Larynx/Throatazoid pages across
 viewports and anatomies, direct tongue dragging (including resize while held),
 and explicit synthetic-source playback. It does not exercise real microphone
 input or claim listening approval.
+It now also compares 36 fixed-frame rasterizations against the original drawing
+block, across normal/WAX modules, three canvas sizes/DPRs, three anatomies and
+two motion preferences. This controlled pixel test complements rather than
+replaces the live-page gesture and synthetic-audio tests.
+
+The site suite checks pure metadata imports (including generated WAX data),
+existing menu/catalogue ordering and links, one-click keyboard transport, Audio
+remaining off, and the existing shared contracts across all catalogue routes.
+The data-purity test is a new requirement enabled by the extraction; when
+comparing the old build, run the other site tests separately rather than
+pretending that the old side-effectful import satisfied it.
 
 Browser preservation runs are serial to avoid resource contention in heavy
 visualizations. Fast Node tests remain parallel. An unchanged Plasma Ball
@@ -171,6 +184,16 @@ also remains under `test-results/v2-round2/checkpoint/`.
 The tract layer uses `test-results/v2-tract/`, with a complete changed-file
 checkpoint of the preceding work, original function fixtures, source-body and
 release-file comparisons, and before/after browser reports.
+
+The catalogue layer uses `test-results/v2-catalog/`. Its preceding-source
+checkpoint, frozen release, exact metadata fixture, 142 paired shared-contract
+records, focused navigation/transport comparisons, architecture reports and
+full verification results are retained there.
+
+The rendering layer uses `test-results/v2-tract-rendering/`, including its
+pre-extraction checkpoint, frozen release, source-isolation proof, Canvas-command
+tests, paired live-page records, fixed-frame pixel checks and verification.
+`v2-review-checkpoint.md` is the short review/rollback map for the current batch.
 
 ## Recursive syntax coverage
 

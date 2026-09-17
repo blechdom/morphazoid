@@ -216,6 +216,124 @@ Reference: `http://127.0.0.1:4347`, serving `test-results/v2-uniformity/site/`.
 Candidate: `http://127.0.0.1:4348`, serving `test-results/v2-tract/site/`.
 Source, artifact, and test evidence live under `test-results/v2-tract/`.
 
+## Catalogue and navigation ownership layer
+
+The existing `TOOL_GROUPS`, `FAVE_TOOL_IDS`, and `SITE_LINKS` records now live in
+`src/site/instrument-registry.js`. Navigation re-exports them for compatibility
+and retains its public root URL and all non-data initialization/function bodies.
+The derived catalogue, route inventory, and inspection tool import the registry
+instead of initializing navigation to obtain metadata.
+
+All moved/derived records and ordering match a frozen pre-extraction fixture.
+Cold data imports do not access browser globals; real-browser imports of normal
+and WAX catalogue data do not register listeners, mutate the page or clear the
+probe's storage key. This removes the reported navigation/catalogue import cycle;
+the configured dependency scan reports zero warnings across 477 modules.
+This is the scan's scope, not proof that every runtime dependency is acyclic.
+
+| Check | Result |
+| --- | --- |
+| Focused registry/catalogue/navigation Node tests | 126 passed |
+| Focused original/candidate browser behavior | 5 / 5 passed; identical attached records |
+| New candidate-only data-import purity check | Passed |
+| Existing shared instrument browser contract | 142 passed on each build; all 142 records identical |
+| Full Node suite | 3,633 passed; the same 8 baseline failures; 6 skipped |
+| Independent WAX and XYFlow parity | Passed |
+
+The release-file comparison has four changed copies (`nav.js` and the catalogue
+in normal/WAX output), two added registry copies, 3,426 identical existing files,
+and no removals. Audio, processors, HTML, CSS, sound assets and instrument
+controllers are untouched by this layer. Source-reading tests now inspect the
+registry where appropriate; their existing catalogue assertions were retained.
+The missing FFmpeg/Constellation entries and WAX/capability mismatches were not
+fixed or approved as part of this extraction.
+
+Reference: `http://127.0.0.1:4348`, serving `test-results/v2-tract/site/`.
+Candidate: `http://127.0.0.1:4349`, serving `test-results/v2-catalog/site/`.
+Source, built-file and paired-test evidence live under `test-results/v2-catalog/`.
+
+## Tract-family rendering layer
+
+A second tract batch extracts the identical 717-line physical-tract drawing
+block into `src/families/tract/rendering.js`. Each controller is another 689
+lines shorter. The shared module is 725 lines, giving a net reduction of 653
+authored runtime lines. Geometry preparation and the four assignments that
+update gesture/hit-test objects remain page-owned and in their original order.
+
+The source-isolation comparison proves that all drawing bodies are unchanged
+apart from explicit dependency arguments, and all other controller code is
+unchanged apart from imports. There is no audio, mapping, smoothing, gesture,
+preset, scheduling, asset or CSS change in this layer.
+
+| Check | Result |
+| --- | --- |
+| Exact Canvas-command comparisons before wiring | 4 tests passed |
+| Expanded fast preservation gate after wiring | 163 passed |
+| Focused tract model/worklet/page/geometry/drawing tests | 73 passed |
+| Recursive JavaScript parsing | 495 modules, zero syntax failures |
+| Original/candidate live-page tract suite | 10 passed on each build |
+| Fixed-frame normal/WAX pixel suite | 6 tests passed; all 36 rendered scene comparisons byte-identical |
+| Full Node suite | 3,637 passed; the same 8 baseline failures; 6 skipped |
+| Independent WAX and XYFlow parity | Passed |
+
+The command-trace tests exercise every voice/anatomy, three viewports, closure
+and pressure, motion preferences, selection changes, explicit visual performance,
+optional Canvas APIs and pulse/flash boundaries. They also check input
+non-mutation, finite drawing arguments, balanced save/restore calls, exact object
+aliases, and geometry preparation before rendering.
+
+The live-page suite retains the previous anatomy, drag, held-resize, synthetic
+phoneme, audio continuity and cleanup checks. Captured controls/layout/drag
+records match; realtime meter samples and animated screenshots are not treated
+as exact goldens. The separate fixed-time tests compare real raster output
+without changing or disabling the pages' runtime animation.
+
+The release-file comparison has four changed controller copies, two added
+renderer copies, 3,428 identical existing files and no removals. Source and
+built-file comparisons, test logs and local checkpoint evidence are under
+`test-results/v2-tract-rendering/`.
+
+Reference: `http://127.0.0.1:4349`, serving `test-results/v2-catalog/site/`.
+Candidate: `http://127.0.0.1:4350`, serving `test-results/v2-tract-rendering/site/`.
+
+### Cumulative artifact guard
+
+Against the untouched local-source reference, the current release has 84 changed
+files, eight new normal/WAX shared-module copies, 3,342 identical existing files
+and no removals. Every one of the 582 runtime-asset paths, 12 WASM binaries and
+637 HTML/CSS files is byte-identical. The 67 paths selected by the
+processor/worklet-name and core-engine checks are also identical. The full
+changed-path list and hashes are retained in
+`test-results/v2-tract-rendering/cumulative-artifact-comparison.json`.
+
+The final configured dependency scan reports no warnings across 478 modules.
+The duplicate scan reports 21,225 duplicated lines versus 21,914 before the
+renderer layer. Its block count remains 620: shortening a block does not
+necessarily eliminate a reported block. These are advisory metrics, not a
+quality score or justification to merge distinct instruments.
+
+### Combined review gate
+
+`MORPHAZOID_QA_BASE_URL=http://127.0.0.1:4350 npm run test:refactor:batch`
+was run end-to-end against the frozen candidate:
+
+| Stage | Result |
+| --- | --- |
+| Fast preservation checks | 163 passed |
+| WAX and XYFlow parity | Passed |
+| Broad canvas sizing | 145 browser tests passed |
+| Pilot/rollout interaction and audio checks | 49 browser tests passed |
+| Tract interaction and fixed-frame drawing | 16 browser tests passed |
+| Catalogue, navigation and site-wide shared contracts | 148 browser tests passed |
+| Shared Web Audio checks | 4 browser tests passed |
+| Final `npm run verify` | 495 modules parsed; 3,637 Node tests passed, same 8 baseline failures, 6 skipped |
+
+All **362 browser tests** in the combined gate passed. The command correctly
+exited **1**, not green, at the final full-suite failures. The separate WAX and
+XYFlow parity checks passed both independently and earlier in the batch.
+`test-results/v2-tract-rendering/batch.log` and `batch-summary.json` retain the
+result; no baseline failure was suppressed.
+
 ## Limits and next gate
 
 The existing browser output-manager probes provide coarse meter readings, not

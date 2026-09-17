@@ -183,8 +183,8 @@ See `../src/graphics/README.md` for the policy boundary.
 
 - [x] Start with the substantial Alien Larynx/Throatazoid duplication.
 - [x] Extract shared tract geometry with explicit current-state/view dependencies.
-- [ ] Extract further rendering and gesture helpers in separate layers, with
-  preserved instrument-specific differences.
+- [x] Extract the identical physical-tract renderer in a separate layer.
+- [ ] Review gesture helpers separately, preserving instrument-specific differences.
 - [ ] Review duplicated graph-editor/controller behavior next.
 - [ ] Keep original routes, entry modules, processors, and sound assets stable
   during these extractions.
@@ -200,9 +200,17 @@ module is 455 lines, for 367 fewer authored runtime lines overall. Processing,
 presets, smoothing, drawing, gestures, and lifecycle code remain page/model-owned.
 The accepted sizing build is retained as the comparison reference.
 
+The second tract layer extracts the 717-line physical-tract drawing block into
+`src/families/tract/rendering.js`. Each controller is another 689 lines shorter;
+the net reduction is 653 runtime lines. Animated profile preparation and all
+four hit-test alias assignments remain in the original order in the pages.
+Exact Canvas-command comparisons, 36 same-browser fixed-frame pixel comparisons,
+and paired live-page interaction/synthetic-audio checks pass. No processing,
+mapping, smoothing, scheduling or gesture code was changed.
+
 ### 7. Clarify module ownership and release assembly
 
-- [ ] Separate pure catalogue/route data from navigation initialization.
+- [x] Separate pure catalogue/route data from navigation initialization.
 - [ ] Make MIDI, transport, and page initialization explicit without changing
   their behavior or event ordering.
 - [ ] Group instrument-owned code incrementally, retaining compatibility entry
@@ -213,6 +221,14 @@ The accepted sizing build is retained as the comparison reference.
   output is committed requires a separate compatibility decision.
 
 **Gate:** authored behavior and released asset dependencies remain equivalent.
+
+The first ownership layer moves the existing ordered navigation records into
+`src/site/instrument-registry.js`. `nav.js` keeps its public URL, exports, URL
+base and startup behavior. Data-only consumers no longer initialize navigation.
+All 142 existing shared instrument browser contracts pass on both builds with
+identical captured records; focused menu/catalogue and transport checks also
+match. No missing registry entries were silently restored, and the same eight
+full-suite failures remain visible.
 
 ### 8. Consider audio deduplication and hosting separately
 
