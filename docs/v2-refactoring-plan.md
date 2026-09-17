@@ -9,6 +9,18 @@ extraction and organization project, not an instrument rewrite.
 Work proceeds in small, reviewable patches. Completing one phase does not
 authorize unrelated changes in a later phase.
 
+## Priority update — September 17, 2026
+
+The owner chose to retire standalone Throatazoid, requested a product-overlap
+audit and catalogue/category rearrangement, and wants Alien Larynx design
+changes specified before more abstraction. Pause further family extraction
+pending those decisions. `v2-instrument-plan.csv` holds proposed catalogue
+decisions without changing the live menus. The next integration, retirement,
+catalogue and design sequence is recorded in `v2-product-triage.md`, including
+the actual local-main divergence and shared dependencies that must survive
+Throatazoid's retirement. No deletion or Git history change is implied by this
+planning update.
+
 ## Starting point — September 16, 2026
 
 - Source reference: `4e9feed0748d94aa86500b0d63218b62b20138c6`.
