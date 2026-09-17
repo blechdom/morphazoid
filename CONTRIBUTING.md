@@ -123,6 +123,19 @@ Start with the narrowest relevant test, then run the required repository gate.
 [QA_AUTOMATION.md](QA_AUTOMATION.md) for the browser commands, strict audit
 modes, artifacts, and manual release boundary.
 
+## Preservation-first refactoring
+
+Follow the bounded steps in [the v2 plan](docs/v2-refactoring-plan.md).
+`npm run analyze:architecture` produces advisory duplication and dependency
+reports without rewriting source; these are not release gates. The focused
+Solid/Hyper checks run with `npm run test:browser:v2-pilot`.
+Use `npm run test:refactor:fast` during edits and
+`npm run test:refactor:batch` for a larger review batch; the latter includes
+broader canvas and playback checks and preserves existing verification failures.
+See [refactoring tooling](docs/refactoring-tooling.md) for report scope, server
+selection, and evidence capture, and [baseline results](docs/v2-baseline-results.md)
+for pre-existing failures and the remaining human-review boundary.
+
 ## Documentation maintenance
 
 - Keep `README.md` concise and public-facing; link to focused details.

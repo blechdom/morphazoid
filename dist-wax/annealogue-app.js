@@ -16,6 +16,7 @@ import {
   stateProbabilities,
   successProbability,
 } from "./src/annealogue.js";
+import { canvasSizing } from "./src/graphics/canvas-sizing.js";
 
 const $ = (id) => document.getElementById(id);
 const canvas = $("stage");
@@ -61,15 +62,12 @@ function announce(message) {
 
 function resizeCanvas() {
   const bounds = stageWrap.getBoundingClientRect();
-  cssWidth = Math.max(1, Math.round(bounds.width));
-  cssHeight = Math.max(1, Math.round(bounds.height));
-  pixelRatio = Math.max(1, Math.min(
-    globalThis.devicePixelRatio || 1,
-    2,
-    Math.sqrt(3_000_000 / Math.max(1, cssWidth * cssHeight)),
-  ));
-  const width = Math.round(cssWidth * pixelRatio);
-  const height = Math.round(cssHeight * pixelRatio);
+  const sizing = canvasSizing(bounds, globalThis.devicePixelRatio);
+  cssWidth = sizing.cssWidth;
+  cssHeight = sizing.cssHeight;
+  pixelRatio = sizing.pixelRatio;
+  const width = sizing.width;
+  const height = sizing.height;
   if (canvas.width !== width) canvas.width = width;
   if (canvas.height !== height) canvas.height = height;
 }

@@ -108,7 +108,7 @@ test("Digestazoid stays playable on touch screens and honors reduced motion", ()
   assert.match(css, /@media \(max-width: 420px\)/);
   assert.match(css, /@media \(prefers-reduced-motion: reduce\)/);
   assert.match(app, /devicePixelRatio/);
-  assert.match(app, /pixelBudgetRatio/);
+  assert.match(app, /canvasSizing\(bounds, globalThis\.devicePixelRatio, \{ pixelBudget: 2_600_000 \}\)/);
   assert.match(app, /ResizeObserver/);
   assert.match(app, /visibilitychange/);
   assert.match(app, /pagehide/);

@@ -17,6 +17,7 @@ import {
   traceLSystem,
 } from "./src/l-system.js";
 import { createAmplitudeControl } from "./src/amplitude-control.js";
+import { canvasSizing } from "./src/graphics/canvas-sizing.js";
 
 const $ = (id) => document.getElementById(id);
 const TAU = Math.PI * 2;
@@ -107,15 +108,12 @@ pool.onPolyphonyStatus = scheduleFrame;
 
 function resizeCanvas() {
   const bounds = stageWrap.getBoundingClientRect();
-  cssWidth = Math.max(1, Math.round(bounds.width));
-  cssHeight = Math.max(1, Math.round(bounds.height));
-  pixelRatio = Math.max(1, Math.min(
-    window.devicePixelRatio || 1,
-    2,
-    Math.sqrt(3_000_000 / (cssWidth * cssHeight)),
-  ));
-  canvas.width = Math.round(cssWidth * pixelRatio);
-  canvas.height = Math.round(cssHeight * pixelRatio);
+  const sizing = canvasSizing(bounds, window.devicePixelRatio);
+  cssWidth = sizing.cssWidth;
+  cssHeight = sizing.cssHeight;
+  pixelRatio = sizing.pixelRatio;
+  canvas.width = sizing.width;
+  canvas.height = sizing.height;
   scheduleFrame();
 }
 

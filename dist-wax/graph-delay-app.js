@@ -13,6 +13,7 @@ import {
 } from "./src/graph-delay.js?v=20260726-edge-switches";
 import { unlockAudioContext } from "./src/audio.js";
 import { connectAudioOutput } from "./src/audio-output-manager.js";
+import { canvasSizing } from "./src/graphics/canvas-sizing.js";
 
 const $ = (id) => document.getElementById(id);
 const EDGE_COLORS = [
@@ -1092,11 +1093,12 @@ function panic(message = "Panic stop. Microphone and every graph feedback tail a
 
 function resizeCanvas() {
   const bounds = stageWrap.getBoundingClientRect();
-  cssWidth = Math.max(1, Math.round(bounds.width));
-  cssHeight = Math.max(1, Math.round(bounds.height));
-  pixelRatio = Math.min(2, globalThis.devicePixelRatio || 1);
-  canvas.width = Math.round(cssWidth * pixelRatio);
-  canvas.height = Math.round(cssHeight * pixelRatio);
+  const sizing = canvasSizing(bounds, globalThis.devicePixelRatio, { pixelBudget: null, minPixelRatio: null });
+  cssWidth = sizing.cssWidth;
+  cssHeight = sizing.cssHeight;
+  pixelRatio = sizing.pixelRatio;
+  canvas.width = sizing.width;
+  canvas.height = sizing.height;
   canvas.style.width = `${cssWidth}px`;
   canvas.style.height = `${cssHeight}px`;
   context.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);

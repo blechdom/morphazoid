@@ -15,6 +15,7 @@ import {
   normalizeLiveAxes,
 } from "./src/recursion-live.js";
 import { mobiusFrequencyMap } from "./src/recursion-spectral-dsp.js";
+import { canvasSizing } from "./src/graphics/canvas-sizing.js";
 
 const $ = (id) => document.getElementById(id);
 const TAU = Math.PI * 2;
@@ -188,15 +189,12 @@ function scheduleFrame() {
 
 function resizeCanvas() {
   const bounds = stageWrap.getBoundingClientRect();
-  cssWidth = Math.max(1, Math.round(bounds.width));
-  cssHeight = Math.max(1, Math.round(bounds.height));
-  pixelRatio = Math.max(1, Math.min(
-    globalThis.devicePixelRatio || 1,
-    2,
-    Math.sqrt(2_700_000 / Math.max(1, cssWidth * cssHeight)),
-  ));
-  canvas.width = Math.round(cssWidth * pixelRatio);
-  canvas.height = Math.round(cssHeight * pixelRatio);
+  const sizing = canvasSizing(bounds, globalThis.devicePixelRatio, { pixelBudget: 2_700_000 });
+  cssWidth = sizing.cssWidth;
+  cssHeight = sizing.cssHeight;
+  pixelRatio = sizing.pixelRatio;
+  canvas.width = sizing.width;
+  canvas.height = sizing.height;
   scheduleFrame();
 }
 

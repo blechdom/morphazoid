@@ -18,6 +18,7 @@ import {
   createChaoticSpectrum,
   drawChaoticLiveAnalysis,
 } from "./src/chaotic-synth-visuals.js";
+import { canvasSizing } from "./src/graphics/canvas-sizing.js";
 
 const $ = (id) => document.getElementById(id);
 const DEFAULT_LEVEL = 0.58;
@@ -456,11 +457,12 @@ function updateAudioUi() {
 
 function resizeCanvas() {
   const bounds = stageWrap.getBoundingClientRect();
-  cssWidth = Math.max(1, Math.round(bounds.width));
-  cssHeight = Math.max(1, Math.round(bounds.height));
-  pixelRatio = Math.min(2, Math.max(1, window.devicePixelRatio || 1));
-  canvas.width = Math.round(cssWidth * pixelRatio);
-  canvas.height = Math.round(cssHeight * pixelRatio);
+  const sizing = canvasSizing(bounds, window.devicePixelRatio, { pixelBudget: null });
+  cssWidth = sizing.cssWidth;
+  cssHeight = sizing.cssHeight;
+  pixelRatio = sizing.pixelRatio;
+  canvas.width = sizing.width;
+  canvas.height = sizing.height;
   canvas.style.width = `${cssWidth}px`;
   canvas.style.height = `${cssHeight}px`;
   visualizationDirty = true;

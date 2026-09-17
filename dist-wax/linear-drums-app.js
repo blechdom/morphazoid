@@ -19,6 +19,7 @@ import {
   sanitizeLinearDrumSettings,
 } from "./src/linear-drums.js";
 import { KARPLUS_STRONG_PRESETS } from "./src/karplus-strong.js";
+import { canvasSizing } from "./src/graphics/canvas-sizing.js";
 
 const $ = (id) => document.getElementById(id);
 const clamp = (value, minimum, maximum) => Math.min(maximum, Math.max(minimum, value));
@@ -1127,15 +1128,12 @@ $("resetAll").addEventListener("click", () => {
 
 function resizeCanvas() {
   const bounds = stageWrap.getBoundingClientRect();
-  cssWidth = Math.max(1, Math.round(bounds.width));
-  cssHeight = Math.max(1, Math.round(bounds.height));
-  pixelRatio = Math.max(1, Math.min(
-    window.devicePixelRatio || 1,
-    2,
-    Math.sqrt(2_800_000 / (cssWidth * cssHeight)),
-  ));
-  canvas.width = Math.round(cssWidth * pixelRatio);
-  canvas.height = Math.round(cssHeight * pixelRatio);
+  const sizing = canvasSizing(bounds, window.devicePixelRatio, { pixelBudget: 2_800_000 });
+  cssWidth = sizing.cssWidth;
+  cssHeight = sizing.cssHeight;
+  pixelRatio = sizing.pixelRatio;
+  canvas.width = sizing.width;
+  canvas.height = sizing.height;
   scheduleFrame();
 }
 

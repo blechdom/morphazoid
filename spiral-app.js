@@ -35,6 +35,7 @@ import {
   rebasePingPongPosition,
 } from "./src/articulation.js";
 import { emitMidiOutputPreview } from "./src/midi-output-preview.js";
+import { canvasSizing } from "./src/graphics/canvas-sizing.js";
 
 const $ = (id) => document.getElementById(id);
 const TAU = Math.PI * 2;
@@ -1194,11 +1195,12 @@ $("sizeCoupling").addEventListener("click", () => {
 
 function resizeCanvas() {
   const bounds = stageWrap.getBoundingClientRect();
-  cssWidth = Math.max(1, Math.round(bounds.width));
-  cssHeight = Math.max(1, Math.round(bounds.height));
-  pixelRatio = Math.max(1, Math.min(window.devicePixelRatio || 1, 2));
-  canvas.width = Math.round(cssWidth * pixelRatio);
-  canvas.height = Math.round(cssHeight * pixelRatio);
+  const sizing = canvasSizing(bounds, window.devicePixelRatio, { pixelBudget: null });
+  cssWidth = sizing.cssWidth;
+  cssHeight = sizing.cssHeight;
+  pixelRatio = sizing.pixelRatio;
+  canvas.width = sizing.width;
+  canvas.height = sizing.height;
   worldScale = Math.min(cssWidth, cssHeight) * 0.455;
   scheduleFrame();
 }

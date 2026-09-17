@@ -1,0 +1,23 @@
+{
+  "minLines": 10,
+  "minTokens": 100,
+  "mode": "weak",
+  "format": ["javascript", "jsx", "typescript"],
+  "reporters": ["json", "html"],
+  "ignore": [
+    "**/node_modules/**",
+    "**/vendor/**",
+    "**/assets/**",
+    "**/artwork/**",
+    "**/dist/**",
+    "**/dist-wax/**",
+    "**/storybook-static/**",
+    "**/tests/**",
+    "**/e2e/**",
+    "**/test-results/**",
+    "**/playwright-report/**",
+    "**/scripts/**",
+    "**/stories/**",
+    "**/.storybook/**"
+  ]
+}

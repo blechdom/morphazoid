@@ -1,0 +1,13 @@
+function resizeCanvas() {
+  const bounds = stageWrap.getBoundingClientRect();
+  cssWidth = Math.max(1, Math.round(bounds.width));
+  cssHeight = Math.max(1, Math.round(bounds.height));
+  pixelRatio = Math.max(1, Math.min(
+    window.devicePixelRatio || 1,
+    2,
+    Math.sqrt(3_000_000 / (cssWidth * cssHeight)),
+  ));
+  canvas.width = Math.round(cssWidth * pixelRatio);
+  canvas.height = Math.round(cssHeight * pixelRatio);
+  scheduleFrame();
+}

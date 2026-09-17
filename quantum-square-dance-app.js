@@ -10,6 +10,7 @@ import {
   squareDanceCall,
   timeLensDiagnostics,
 } from "./src/quantum-square-dance.js";
+import { canvasSizing } from "./src/graphics/canvas-sizing.js";
 
 const $ = (id) => document.getElementById(id);
 const TAU = Math.PI * 2;
@@ -1190,11 +1191,12 @@ function scheduleFrame() {
 
 function resizeCanvas() {
   const bounds = stageWrap.getBoundingClientRect();
-  cssWidth = Math.max(1, Math.round(bounds.width));
-  cssHeight = Math.max(1, Math.round(bounds.height));
-  pixelRatio = Math.min(1.5, Math.max(1, globalThis.devicePixelRatio || 1));
-  const width = Math.round(cssWidth * pixelRatio);
-  const height = Math.round(cssHeight * pixelRatio);
+  const sizing = canvasSizing(bounds, globalThis.devicePixelRatio, { pixelBudget: null, maxPixelRatio: 1.5 });
+  cssWidth = sizing.cssWidth;
+  cssHeight = sizing.cssHeight;
+  pixelRatio = sizing.pixelRatio;
+  const width = sizing.width;
+  const height = sizing.height;
   if (canvas.width !== width || canvas.height !== height) {
     canvas.width = width;
     canvas.height = height;

@@ -150,9 +150,11 @@ test("Candy restores its original red-and-white catalogue logo", async () => {
       root,
     )),
   ]);
-  assert.deepEqual(liveLogo, originalLogo);
-  assert.deepEqual(currentLogo, originalLogo);
-  assert.deepEqual(pinnedLogo, originalLogo);
+  // Preserve exact byte equality without formatting a huge binary diff when
+  // this existing artwork contract fails during a refactoring batch.
+  assert.ok(liveLogo.equals(originalLogo), "Published Candy logo differs from the original bytes");
+  assert.ok(currentLogo.equals(originalLogo), "Current catalogue Candy logo differs from the original bytes");
+  assert.ok(pinnedLogo.equals(originalLogo), "Pinned Candy logo differs from the original bytes");
 });
 
 test("the retired centered-hump route is removed", async () => {

@@ -1,0 +1,323 @@
+{
+  "referenceCommit": "4e9feed0748d94aa86500b0d63218b62b20138c6",
+  "description": "Frozen pre-extraction callbacks and their existing policies. Do not regenerate to accept drift.",
+  "entries": [
+    {
+      "file": "annealogue-app.js",
+      "line": 62,
+      "moduleSha256": "11dedb69848174dec88e220959b1ceb39576e780c4747c5b936fcec1df51b3d9",
+      "options": {},
+      "source": "function resizeCanvas() {\n  const bounds = stageWrap.getBoundingClientRect();\n  cssWidth = Math.max(1, Math.round(bounds.width));\n  cssHeight = Math.max(1, Math.round(bounds.height));\n  pixelRatio = Math.max(1, Math.min(\n    globalThis.devicePixelRatio || 1,\n    2,\n    Math.sqrt(3_000_000 / Math.max(1, cssWidth * cssHeight)),\n  ));\n  const width = Math.round(cssWidth * pixelRatio);\n  const height = Math.round(cssHeight * pixelRatio);\n  if (canvas.width !== width) canvas.width = width;\n  if (canvas.height !== height) canvas.height = height;\n}"
+    },
+    {
+      "file": "app.js",
+      "line": 1813,
+      "moduleSha256": "28edf49f9ac452947a9f017f6d40b372c4259080a4ef8dde508353b902a23cc1",
+      "options": {},
+      "source": "function resizeCanvas() {\n  const bounds = stageWrap.getBoundingClientRect();\n  cssWidth = Math.max(1, Math.round(bounds.width));\n  cssHeight = Math.max(1, Math.round(bounds.height));\n  const pixelBudgetRatio = Math.sqrt(3_000_000 / (cssWidth * cssHeight));\n  pixelRatio = Math.max(1, Math.min(window.devicePixelRatio || 1, 2, pixelBudgetRatio));\n  canvas.width = Math.round(cssWidth * pixelRatio);\n  canvas.height = Math.round(cssHeight * pixelRatio);\n  invalidate();\n}"
+    },
+    {
+      "file": "bell-square-app.js",
+      "line": 736,
+      "moduleSha256": "d3a3d03b9467821dd22e77bb49b63f184d8e877a3b679a88bf75ee4ae8a8633d",
+      "options": {
+        "pixelBudget": null,
+        "maxPixelRatio": 1.5
+      },
+      "source": "function resizeCanvas() {\n  const bounds = stageWrap.getBoundingClientRect();\n  cssWidth = Math.max(1, Math.round(bounds.width));\n  cssHeight = Math.max(1, Math.round(bounds.height));\n  pixelRatio = Math.min(1.5, Math.max(1, globalThis.devicePixelRatio || 1));\n  const width = Math.round(cssWidth * pixelRatio);\n  const height = Math.round(cssHeight * pixelRatio);\n  if (canvas.width !== width || canvas.height !== height) {\n    canvas.width = width;\n    canvas.height = height;\n    canvas.style.width = `${cssWidth}px`;\n    canvas.style.height = `${cssHeight}px`;\n  }\n  visualizationDirty = true;\n  scheduleVisualization();\n}"
+    },
+    {
+      "file": "cascading-fm-app.js",
+      "line": 737,
+      "moduleSha256": "78614ffca7b5620fb750ad01c9ed4852ad7de8c2b6aebb014a9a52d5c1c5a3f4",
+      "options": {
+        "pixelBudget": null
+      },
+      "source": "function resizeCanvas() {\n  const bounds = stageWrap.getBoundingClientRect();\n  cssWidth = Math.max(1, Math.round(bounds.width));\n  cssHeight = Math.max(1, Math.round(bounds.height));\n  pixelRatio = Math.min(2, Math.max(1, window.devicePixelRatio || 1));\n  canvas.width = Math.round(cssWidth * pixelRatio);\n  canvas.height = Math.round(cssHeight * pixelRatio);\n  canvas.style.width = `${cssWidth}px`;\n  canvas.style.height = `${cssHeight}px`;\n  visualizationDirty = true;\n  scheduleVisualization();\n}"
+    },
+    {
+      "file": "cascading-pm-app.js",
+      "line": 457,
+      "moduleSha256": "f25fcc09c17f92beadf8ead8366228331bdf5ea8e3d621493adf44861d69f17c",
+      "options": {
+        "pixelBudget": null
+      },
+      "source": "function resizeCanvas() {\n  const bounds = stageWrap.getBoundingClientRect();\n  cssWidth = Math.max(1, Math.round(bounds.width));\n  cssHeight = Math.max(1, Math.round(bounds.height));\n  pixelRatio = Math.min(2, Math.max(1, window.devicePixelRatio || 1));\n  canvas.width = Math.round(cssWidth * pixelRatio);\n  canvas.height = Math.round(cssHeight * pixelRatio);\n  canvas.style.width = `${cssWidth}px`;\n  canvas.style.height = `${cssHeight}px`;\n  visualizationDirty = true;\n  scheduleVisualization();\n}"
+    },
+    {
+      "file": "chaotic-fm-app.js",
+      "line": 782,
+      "moduleSha256": "04afaba5984e0d8288bae6c1dbd30a7891e06462462c473461218f55a15df51f",
+      "options": {
+        "pixelBudget": null,
+        "maxPixelRatio": 1.5
+      },
+      "source": "function resizeCanvas() {\n  const bounds = stageWrap.getBoundingClientRect();\n  cssWidth = Math.max(1, Math.round(bounds.width));\n  cssHeight = Math.max(1, Math.round(bounds.height));\n  pixelRatio = Math.min(1.5, Math.max(1, globalThis.devicePixelRatio || 1));\n  const width = Math.round(cssWidth * pixelRatio);\n  const height = Math.round(cssHeight * pixelRatio);\n  if (canvas.width !== width || canvas.height !== height) {\n    canvas.width = width;\n    canvas.height = height;\n    canvas.style.width = `${cssWidth}px`;\n    canvas.style.height = `${cssHeight}px`;\n  }\n  context2d.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);\n  visualizationDirty = true;\n  scheduleVisualization();\n}"
+    },
+    {
+      "file": "chaotic-pm-app.js",
+      "line": 871,
+      "moduleSha256": "40f3c9bab820f038843f123da3f77aef78fc82fee2259dfafd90224855b680b9",
+      "options": {
+        "pixelBudget": null
+      },
+      "source": "function resizeCanvas() {\n  if (disposed) return;\n  const bounds = stageWrap.getBoundingClientRect();\n  cssWidth = Math.max(1, Math.round(bounds.width));\n  cssHeight = Math.max(1, Math.round(bounds.height));\n  pixelRatio = Math.min(2, Math.max(1, window.devicePixelRatio || 1));\n  canvas.width = Math.round(cssWidth * pixelRatio);\n  canvas.height = Math.round(cssHeight * pixelRatio);\n  canvas.style.width = `${cssWidth}px`;\n  canvas.style.height = `${cssHeight}px`;\n  visualizationDirty = true;\n  scheduleVisualization();\n}"
+    },
+    {
+      "file": "digestazoid-app.js",
+      "line": 484,
+      "moduleSha256": "b448e59143ddb4e1c77cb2fa4f5b96431cbf33ed8b63d9991592894750d0ac48",
+      "options": {
+        "pixelBudget": 2600000
+      },
+      "source": "function resizeCanvas() {\n  const bounds = stageWrap.getBoundingClientRect();\n  cssWidth = Math.max(1, Math.round(bounds.width));\n  cssHeight = Math.max(1, Math.round(bounds.height));\n  const requestedRatio = Math.min(2, globalThis.devicePixelRatio || 1);\n  const pixelBudgetRatio = Math.sqrt(2_600_000 / Math.max(1, cssWidth * cssHeight));\n  pixelRatio = Math.max(1, Math.min(requestedRatio, pixelBudgetRatio));\n  const width = Math.max(1, Math.round(cssWidth * pixelRatio));\n  const height = Math.max(1, Math.round(cssHeight * pixelRatio));\n  if (canvas.width !== width || canvas.height !== height) {\n    canvas.width = width;\n    canvas.height = height;\n  }\n  canvas.style.width = `${cssWidth}px`;\n  canvas.style.height = `${cssHeight}px`;\n}"
+    },
+    {
+      "file": "enveloper-app.js",
+      "line": 919,
+      "moduleSha256": "08767345ed4c6bfb7ada75e4f90d2f56578268379fd1c6baef68c6f4a2e03d43",
+      "options": {
+        "pixelBudget": 4000000
+      },
+      "source": "function resizeCanvas() {\n  const bounds = stageWrap.getBoundingClientRect();\n  cssWidth = Math.max(1, Math.round(bounds.width));\n  cssHeight = Math.max(1, Math.round(bounds.height));\n  const budgetRatio = Math.sqrt(4_000_000 / Math.max(1, cssWidth * cssHeight));\n  pixelRatio = Math.max(1, Math.min(2, window.devicePixelRatio || 1, budgetRatio));\n  canvas.width = Math.round(cssWidth * pixelRatio);\n  canvas.height = Math.round(cssHeight * pixelRatio);\n  canvas.style.width = `${cssWidth}px`;\n  canvas.style.height = `${cssHeight}px`;\n  draw();\n}"
+    },
+    {
+      "file": "graph-delay-app.js",
+      "line": 1093,
+      "moduleSha256": "edd81fafc66111795bc0fa844568d5ea42147c419a2b84baf9af0f23a16f8c30",
+      "options": {
+        "pixelBudget": null,
+        "minPixelRatio": null
+      },
+      "source": "function resizeCanvas() {\n  const bounds = stageWrap.getBoundingClientRect();\n  cssWidth = Math.max(1, Math.round(bounds.width));\n  cssHeight = Math.max(1, Math.round(bounds.height));\n  pixelRatio = Math.min(2, globalThis.devicePixelRatio || 1);\n  canvas.width = Math.round(cssWidth * pixelRatio);\n  canvas.height = Math.round(cssHeight * pixelRatio);\n  canvas.style.width = `${cssWidth}px`;\n  canvas.style.height = `${cssHeight}px`;\n  context.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);\n}"
+    },
+    {
+      "file": "graphs-app.js",
+      "line": 1752,
+      "moduleSha256": "6be742a46c825127a9b4fc6fd0f8c4d46c643a707732e3f1ece4bf74454c0a31",
+      "options": {},
+      "source": "function resizeCanvas() {\n    const bounds = stageWrap.getBoundingClientRect();\n    cssWidth = Math.max(1, Math.round(bounds.width));\n    cssHeight = Math.max(1, Math.round(bounds.height));\n    pixelRatio = Math.max(1, Math.min(\n      runtime.devicePixelRatio || 1,\n      2,\n      Math.sqrt(3_000_000 / Math.max(1, cssWidth * cssHeight)),\n    ));\n    canvas.width = Math.round(cssWidth * pixelRatio);\n    canvas.height = Math.round(cssHeight * pixelRatio);\n    scheduleFrame();\n  }"
+    },
+    {
+      "file": "hyper-drums-app.js",
+      "line": 699,
+      "moduleSha256": "aba0baeea2bf2bd8835d4ed93fae96670c96102d3f5418f763abe53b975e29f6",
+      "options": {},
+      "source": "function resizeCanvas() {\n  const bounds = stageWrap.getBoundingClientRect();\n  cssWidth = Math.max(1, Math.round(bounds.width));\n  cssHeight = Math.max(1, Math.round(bounds.height));\n  pixelRatio = Math.max(1, Math.min(\n    window.devicePixelRatio || 1,\n    2,\n    Math.sqrt(3_000_000 / (cssWidth * cssHeight)),\n  ));\n  canvas.width = Math.round(cssWidth * pixelRatio);\n  canvas.height = Math.round(cssHeight * pixelRatio);\n  canvas.style.width = `${cssWidth}px`;\n  canvas.style.height = `${cssHeight}px`;\n  scheduleFrame();\n}"
+    },
+    {
+      "file": "karplus-carpet-app.js",
+      "line": 839,
+      "moduleSha256": "dd8e958e744de86f42ba8d5190208ae5455833edb1edebcfdb2b7205d19349fa",
+      "options": {
+        "pixelBudget": 2600000
+      },
+      "source": "function resizeCanvas() {\n  const bounds = stageWrap.getBoundingClientRect();\n  cssWidth = Math.max(1, Math.round(bounds.width));\n  cssHeight = Math.max(1, Math.round(bounds.height));\n  pixelRatio = Math.max(1, Math.min(\n    window.devicePixelRatio || 1,\n    2,\n    Math.sqrt(2_600_000 / Math.max(1, cssWidth * cssHeight)),\n  ));\n  canvas.width = Math.round(cssWidth * pixelRatio);\n  canvas.height = Math.round(cssHeight * pixelRatio);\n  context.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);\n  currentSpatialCell = null;\n  if (activePointerGesture) {\n    activePointerGesture.width = cssWidth;\n    activePointerGesture.height = cssHeight;\n    activePointerGesture.grid = currentSpatialGrid();\n    activePointerGesture.lastPoint = null;\n  }\n  paintReadouts();\n  scheduleFrame();\n}"
+    },
+    {
+      "file": "karplus-strong-app.js",
+      "line": 614,
+      "moduleSha256": "76bc93d8bb9041dec4c2fbee6fd76ec1f37cb4af2bf36138dad86c724ddbb91a",
+      "options": {
+        "pixelBudget": 2600000
+      },
+      "source": "function resizeCanvas() {\n  const bounds = stageWrap.getBoundingClientRect();\n  cssWidth = Math.max(1, Math.round(bounds.width));\n  cssHeight = Math.max(1, Math.round(bounds.height));\n  pixelRatio = Math.max(1, Math.min(\n    window.devicePixelRatio || 1,\n    2,\n    Math.sqrt(2_600_000 / Math.max(1, cssWidth * cssHeight)),\n  ));\n  canvas.width = Math.round(cssWidth * pixelRatio);\n  canvas.height = Math.round(cssHeight * pixelRatio);\n  context.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);\n  scheduleFrame();\n}"
+    },
+    {
+      "file": "l-system-app.js",
+      "line": 108,
+      "moduleSha256": "6dcf785632d3642b5f59867b61cedadf6b36b4fd6a2bb4d2219c829175183dcd",
+      "options": {},
+      "source": "function resizeCanvas() {\n  const bounds = stageWrap.getBoundingClientRect();\n  cssWidth = Math.max(1, Math.round(bounds.width));\n  cssHeight = Math.max(1, Math.round(bounds.height));\n  pixelRatio = Math.max(1, Math.min(\n    window.devicePixelRatio || 1,\n    2,\n    Math.sqrt(3_000_000 / (cssWidth * cssHeight)),\n  ));\n  canvas.width = Math.round(cssWidth * pixelRatio);\n  canvas.height = Math.round(cssHeight * pixelRatio);\n  scheduleFrame();\n}"
+    },
+    {
+      "file": "l-system-drums-app.js",
+      "line": 118,
+      "moduleSha256": "5116cd29e591a89108cc9a33e4c2d86eb22cce157ecb621e6b1848f06504b77a",
+      "options": {},
+      "source": "function resizeCanvas() {\n  const bounds = stageWrap.getBoundingClientRect();\n  cssWidth = Math.max(1, Math.round(bounds.width));\n  cssHeight = Math.max(1, Math.round(bounds.height));\n  pixelRatio = Math.max(1, Math.min(\n    window.devicePixelRatio || 1,\n    2,\n    Math.sqrt(3_000_000 / (cssWidth * cssHeight)),\n  ));\n  canvas.width = Math.round(cssWidth * pixelRatio);\n  canvas.height = Math.round(cssHeight * pixelRatio);\n  scheduleFrame();\n}"
+    },
+    {
+      "file": "l-systems-app.js",
+      "line": 380,
+      "moduleSha256": "4988a5ad7c8aa1b6958bd8a3e54da880dfc28a54dfe863d2a41f53a40ede2e6d",
+      "options": {},
+      "source": "function resizeCanvas() {\n  const bounds = stageWrap.getBoundingClientRect();\n  cssWidth = Math.max(1, Math.round(bounds.width));\n  cssHeight = Math.max(1, Math.round(bounds.height));\n  pixelRatio = Math.max(1, Math.min(\n    window.devicePixelRatio || 1,\n    2,\n    Math.sqrt(3_000_000 / (cssWidth * cssHeight)),\n  ));\n  canvas.width = Math.round(cssWidth * pixelRatio);\n  canvas.height = Math.round(cssHeight * pixelRatio);\n  scheduleFrame();\n}"
+    },
+    {
+      "file": "lattice-app.js",
+      "line": 1304,
+      "moduleSha256": "1b8e3b674645b86b82a1f1c57b29b474d98035bb988acc83dcb29349562eb35e",
+      "options": {
+        "pixelBudget": null,
+        "maxPixelRatio": 2.5,
+        "minPixelRatio": null
+      },
+      "source": "function resizeCanvas() {\n  const bounds = stageWrap.getBoundingClientRect();\n  cssWidth = Math.max(1, Math.round(bounds.width));\n  cssHeight = Math.max(1, Math.round(bounds.height));\n  pixelRatio = Math.min(window.devicePixelRatio || 1, 2.5);\n  canvas.width = Math.round(cssWidth * pixelRatio);\n  canvas.height = Math.round(cssHeight * pixelRatio);\n  canvas.style.width = `${cssWidth}px`;\n  canvas.style.height = `${cssHeight}px`;\n  const halfHeight = 1.04;\n  const halfWidth = halfHeight * (cssWidth / cssHeight);\n  viewBounds = {\n    minX: -halfWidth,\n    minY: -halfHeight,\n    maxX: halfWidth,\n    maxY: halfHeight,\n  };\n  worldScale = cssHeight / (halfHeight * 2);\n  invalidateGeometry();\n}"
+    },
+    {
+      "file": "lattice-drums-app.js",
+      "line": 1168,
+      "moduleSha256": "7e7d46a15f409176b000943d821aa5281dd5dd55180245f9d2dd8dd719934435",
+      "options": {
+        "pixelBudget": null,
+        "maxPixelRatio": 2.5,
+        "minPixelRatio": null
+      },
+      "source": "function resizeCanvas() {\n  const bounds = stageWrap.getBoundingClientRect();\n  cssWidth = Math.max(1, Math.round(bounds.width));\n  cssHeight = Math.max(1, Math.round(bounds.height));\n  pixelRatio = Math.min(window.devicePixelRatio || 1, 2.5);\n  canvas.width = Math.round(cssWidth * pixelRatio);\n  canvas.height = Math.round(cssHeight * pixelRatio);\n  canvas.style.width = `${cssWidth}px`;\n  canvas.style.height = `${cssHeight}px`;\n  const halfHeight = 1.04;\n  const halfWidth = halfHeight * (cssWidth / cssHeight);\n  viewBounds = {\n    minX: -halfWidth,\n    minY: -halfHeight,\n    maxX: halfWidth,\n    maxY: halfHeight,\n  };\n  worldScale = cssHeight / (halfHeight * 2);\n  invalidateGeometry();\n}"
+    },
+    {
+      "file": "linear-drums-app.js",
+      "line": 1128,
+      "moduleSha256": "603881fb6f102eae896da623e5f9c08adc404fdffc4b03747c7edb487bb01b16",
+      "options": {
+        "pixelBudget": 2800000
+      },
+      "source": "function resizeCanvas() {\n  const bounds = stageWrap.getBoundingClientRect();\n  cssWidth = Math.max(1, Math.round(bounds.width));\n  cssHeight = Math.max(1, Math.round(bounds.height));\n  pixelRatio = Math.max(1, Math.min(\n    window.devicePixelRatio || 1,\n    2,\n    Math.sqrt(2_800_000 / (cssWidth * cssHeight)),\n  ));\n  canvas.width = Math.round(cssWidth * pixelRatio);\n  canvas.height = Math.round(cssHeight * pixelRatio);\n  scheduleFrame();\n}"
+    },
+    {
+      "file": "linear-drums-machine-app.js",
+      "line": 790,
+      "moduleSha256": "815b38ce05e0473bbafc70a80e63a4aea3b6d6e9cf3855527d503c2efa2b84cf",
+      "options": {
+        "pixelBudget": 2800000
+      },
+      "source": "function resizeCanvas() {\n  const bounds = stageWrap.getBoundingClientRect();\n  cssWidth = Math.max(1, Math.round(bounds.width));\n  cssHeight = Math.max(1, Math.round(bounds.height));\n  pixelRatio = Math.max(1, Math.min(\n    window.devicePixelRatio || 1,\n    2,\n    Math.sqrt(2_800_000 / (cssWidth * cssHeight)),\n  ));\n  canvas.width = Math.round(cssWidth * pixelRatio);\n  canvas.height = Math.round(cssHeight * pixelRatio);\n  if (scheduledFrame) cancelAnimationFrame(scheduledFrame);\n  scheduledFrame = 0;\n  drawStage(performance.now());\n}"
+    },
+    {
+      "file": "lumber-app.js",
+      "line": 1705,
+      "moduleSha256": "8c4cb026449e4588038edd443f3b364be9484ca1604ca086c9b11488263cf52c",
+      "options": {
+        "pixelBudget": null,
+        "maxPixelRatio": 2.5,
+        "minPixelRatio": null
+      },
+      "source": "function resizeCanvas() {\n  const bounds = stageWrap.getBoundingClientRect();\n  cssWidth = Math.max(1, Math.round(bounds.width));\n  cssHeight = Math.max(1, Math.round(bounds.height));\n  pixelRatio = Math.min(window.devicePixelRatio || 1, 2.5);\n  canvas.width = Math.round(cssWidth * pixelRatio);\n  canvas.height = Math.round(cssHeight * pixelRatio);\n  scheduleFrame();\n}"
+    },
+    {
+      "file": "nonorientable-app.js",
+      "line": 291,
+      "moduleSha256": "766fa3835607efb99db49ca840f93d02656f78b0f8cb2ac22ef5bedb8825b776",
+      "options": {
+        "pixelBudget": 2600000
+      },
+      "source": "function resizeCanvas() {\n  const bounds = stageWrap.getBoundingClientRect();\n  cssWidth = Math.max(1, Math.round(bounds.width));\n  cssHeight = Math.max(1, Math.round(bounds.height));\n  pixelRatio = Math.max(1, Math.min(\n    window.devicePixelRatio || 1,\n    2,\n    Math.sqrt(2_600_000 / (cssWidth * cssHeight)),\n  ));\n  canvas.width = Math.round(cssWidth * pixelRatio);\n  canvas.height = Math.round(cssHeight * pixelRatio);\n  scheduleFrame();\n}"
+    },
+    {
+      "file": "physics-app.js",
+      "line": 259,
+      "moduleSha256": "16b2e34794673028d7abe448288833f01f695645fb8d5b4c49678e9d9aaf1b4a",
+      "options": {},
+      "source": "function resizeCanvas() {\n  const bounds = stageWrap.getBoundingClientRect();\n  cssWidth = Math.max(1, Math.round(bounds.width));\n  cssHeight = Math.max(1, Math.round(bounds.height));\n  pixelRatio = Math.max(1, Math.min(\n    window.devicePixelRatio || 1,\n    2,\n    Math.sqrt(3_000_000 / (cssWidth * cssHeight)),\n  ));\n  canvas.width = Math.round(cssWidth * pixelRatio);\n  canvas.height = Math.round(cssHeight * pixelRatio);\n  scheduleFrame();\n}"
+    },
+    {
+      "file": "plasma-ball-app.js",
+      "line": 78,
+      "moduleSha256": "d13092825f58eec15470e6371a6eb09dfec60a5a8d0562c984b29615b998af3b",
+      "options": {
+        "pixelBudget": 1250000,
+        "maxPixelRatio": 1.35
+      },
+      "source": "function resizeCanvas() {\n  const bounds = stageWrap.getBoundingClientRect();\n  cssWidth = Math.max(1, Math.round(bounds.width));\n  cssHeight = Math.max(1, Math.round(bounds.height));\n  pixelRatio = Math.max(1, Math.min(\n    globalThis.devicePixelRatio || 1,\n    1.35,\n    Math.sqrt(1_250_000 / Math.max(1, cssWidth * cssHeight)),\n  ));\n  const width = Math.round(cssWidth * pixelRatio);\n  const height = Math.round(cssHeight * pixelRatio);\n  if (canvas.width !== width) canvas.width = width;\n  if (canvas.height !== height) canvas.height = height;\n  layout = computeLayout();\n}"
+    },
+    {
+      "file": "quantum-square-dance-app.js",
+      "line": 1191,
+      "moduleSha256": "c80d6be66d733539a29d1a4986fc989b40161c4dc8a25848db7d344d5fd00e92",
+      "options": {
+        "pixelBudget": null,
+        "maxPixelRatio": 1.5
+      },
+      "source": "function resizeCanvas() {\n  const bounds = stageWrap.getBoundingClientRect();\n  cssWidth = Math.max(1, Math.round(bounds.width));\n  cssHeight = Math.max(1, Math.round(bounds.height));\n  pixelRatio = Math.min(1.5, Math.max(1, globalThis.devicePixelRatio || 1));\n  const width = Math.round(cssWidth * pixelRatio);\n  const height = Math.round(cssHeight * pixelRatio);\n  if (canvas.width !== width || canvas.height !== height) {\n    canvas.width = width;\n    canvas.height = height;\n    canvas.style.width = cssWidth + \"px\";\n    canvas.style.height = cssHeight + \"px\";\n  }\n  visualizationDirty = true;\n  scheduleFrame();\n}"
+    },
+    {
+      "file": "recursion-app.js",
+      "line": 189,
+      "moduleSha256": "fa01f6a614c5e5345190bca2ad34188a3d12c90a9fae6b50d55bb11f15e305ac",
+      "options": {
+        "pixelBudget": 2700000
+      },
+      "source": "function resizeCanvas() {\n  const bounds = stageWrap.getBoundingClientRect();\n  cssWidth = Math.max(1, Math.round(bounds.width));\n  cssHeight = Math.max(1, Math.round(bounds.height));\n  pixelRatio = Math.max(1, Math.min(\n    globalThis.devicePixelRatio || 1,\n    2,\n    Math.sqrt(2_700_000 / Math.max(1, cssWidth * cssHeight)),\n  ));\n  canvas.width = Math.round(cssWidth * pixelRatio);\n  canvas.height = Math.round(cssHeight * pixelRatio);\n  scheduleFrame();\n}"
+    },
+    {
+      "file": "recursive-fm-app.js",
+      "line": 1347,
+      "moduleSha256": "1ce40d75448642a701cc12d057e7d2aaf1a907b070ccd80dfe6162194a1e13f8",
+      "options": {
+        "pixelBudget": null
+      },
+      "source": "function resizeCanvas() {\n  const bounds = stageWrap.getBoundingClientRect();\n  cssWidth = Math.max(1, Math.round(bounds.width));\n  cssHeight = Math.max(1, Math.round(bounds.height));\n  pixelRatio = Math.min(2, Math.max(1, window.devicePixelRatio || 1));\n  canvas.width = Math.round(cssWidth * pixelRatio);\n  canvas.height = Math.round(cssHeight * pixelRatio);\n  canvas.style.width = `${cssWidth}px`;\n  canvas.style.height = `${cssHeight}px`;\n  visualizationDirty = true;\n  scheduleVisualization();\n}"
+    },
+    {
+      "file": "recursive-pm-app.js",
+      "line": 655,
+      "moduleSha256": "0986f6e95e9537084e8d71d69c62dfff34db8db8a452de1bb57bb2b6d6d7d2ea",
+      "options": {
+        "pixelBudget": null
+      },
+      "source": "function resizeCanvas() {\n  if (disposed) return;\n  const bounds = stageWrap.getBoundingClientRect();\n  cssWidth = Math.max(1, Math.round(bounds.width));\n  cssHeight = Math.max(1, Math.round(bounds.height));\n  pixelRatio = Math.min(2, Math.max(1, window.devicePixelRatio || 1));\n  canvas.width = Math.round(cssWidth * pixelRatio);\n  canvas.height = Math.round(cssHeight * pixelRatio);\n  canvas.style.width = `${cssWidth}px`;\n  canvas.style.height = `${cssHeight}px`;\n  visualizationDirty = true;\n  scheduleVisualization();\n}"
+    },
+    {
+      "file": "shape-drums-app.js",
+      "line": 913,
+      "moduleSha256": "027c0f4563572abd7ad6f969a14adefd89e93cfee7131389fb8dcb774a310d01",
+      "options": {
+        "pixelBudget": null,
+        "maxPixelRatio": 2.5
+      },
+      "source": "function resizeCanvas() {\n  const bounds = stageWrap.getBoundingClientRect();\n  cssWidth = Math.max(1, Math.round(bounds.width));\n  cssHeight = Math.max(1, Math.round(bounds.height));\n  pixelRatio = Math.max(1, Math.min(window.devicePixelRatio || 1, 2.5));\n  canvas.width = Math.round(cssWidth * pixelRatio);\n  canvas.height = Math.round(cssHeight * pixelRatio);\n  canvas.style.width = `${cssWidth}px`;\n  canvas.style.height = `${cssHeight}px`;\n  scheduleFrame();\n}"
+    },
+    {
+      "file": "solid-drums-app.js",
+      "line": 660,
+      "moduleSha256": "65a1dae925387617d19b08ccdd0737635a218a57cbc73c2e49b2e522e01bf02a",
+      "options": {},
+      "source": "function resizeCanvas() {\n  const bounds = stageWrap.getBoundingClientRect();\n  cssWidth = Math.max(1, Math.round(bounds.width));\n  cssHeight = Math.max(1, Math.round(bounds.height));\n  pixelRatio = Math.max(1, Math.min(\n    window.devicePixelRatio || 1,\n    2,\n    Math.sqrt(3_000_000 / (cssWidth * cssHeight)),\n  ));\n  canvas.width = Math.round(cssWidth * pixelRatio);\n  canvas.height = Math.round(cssHeight * pixelRatio);\n  canvas.style.width = `${cssWidth}px`;\n  canvas.style.height = `${cssHeight}px`;\n  scheduleFrame();\n}"
+    },
+    {
+      "file": "spiral-app.js",
+      "line": 1195,
+      "moduleSha256": "33a69415d3801bbc273b3efbb930f21c50c2e7e9365868ea62330aea1c542d3f",
+      "options": {
+        "pixelBudget": null
+      },
+      "source": "function resizeCanvas() {\n  const bounds = stageWrap.getBoundingClientRect();\n  cssWidth = Math.max(1, Math.round(bounds.width));\n  cssHeight = Math.max(1, Math.round(bounds.height));\n  pixelRatio = Math.max(1, Math.min(window.devicePixelRatio || 1, 2));\n  canvas.width = Math.round(cssWidth * pixelRatio);\n  canvas.height = Math.round(cssHeight * pixelRatio);\n  worldScale = Math.min(cssWidth, cssHeight) * 0.455;\n  scheduleFrame();\n}"
+    },
+    {
+      "file": "spiral-drums-app.js",
+      "line": 1224,
+      "moduleSha256": "271303197d5f49897858eaadadd8d4029753c0b10b45852e491907cc192aa9be",
+      "options": {
+        "pixelBudget": null
+      },
+      "source": "function resizeCanvas() {\n  const bounds = stageWrap.getBoundingClientRect();\n  cssWidth = Math.max(1, Math.round(bounds.width));\n  cssHeight = Math.max(1, Math.round(bounds.height));\n  pixelRatio = Math.max(1, Math.min(window.devicePixelRatio || 1, 2));\n  canvas.width = Math.round(cssWidth * pixelRatio);\n  canvas.height = Math.round(cssHeight * pixelRatio);\n  canvas.style.width = `${cssWidth}px`;\n  canvas.style.height = `${cssHeight}px`;\n  worldScale = Math.min(cssWidth, cssHeight) * .455;\n  tileEditorDirty = true;\n  scheduleFrame();\n}"
+    },
+    {
+      "file": "throat-singing-app.js",
+      "line": 1203,
+      "moduleSha256": "7248df2d78865af9a2fb2bb4e1f0530c1a38fda2ad1cd4cd0a8d738f479d8b13",
+      "options": {
+        "pixelBudget": null
+      },
+      "source": "function resizeCanvas() {\n  const rect = stageWrap.getBoundingClientRect();\n  cssWidth = Math.max(1, Math.round(rect.width));\n  cssHeight = Math.max(1, Math.round(rect.height));\n  pixelRatio = Math.min(2, Math.max(1, globalThis.devicePixelRatio || 1));\n  const width = Math.max(1, Math.round(cssWidth * pixelRatio));\n  const height = Math.max(1, Math.round(cssHeight * pixelRatio));\n  if (canvas.width !== width || canvas.height !== height) {\n    canvas.width = width;\n    canvas.height = height;\n  }\n}"
+    },
+    {
+      "file": "weierstrass-app.js",
+      "line": 785,
+      "moduleSha256": "c3b2e6527dc62888ba8bc593804ab72906132f00d8e972b93df9aa870b7eeed1",
+      "options": {
+        "pixelBudget": null,
+        "maxPixelRatio": 1.5
+      },
+      "source": "function resizeCanvas() {\n  const bounds = stageWrap.getBoundingClientRect();\n  cssWidth = Math.max(1, Math.round(bounds.width));\n  cssHeight = Math.max(1, Math.round(bounds.height));\n  pixelRatio = Math.min(1.5, Math.max(1, globalThis.devicePixelRatio || 1));\n  const width = Math.round(cssWidth * pixelRatio);\n  const height = Math.round(cssHeight * pixelRatio);\n  if (canvas.width !== width || canvas.height !== height) {\n    canvas.width = width;\n    canvas.height = height;\n    canvas.style.width = `${cssWidth}px`;\n    canvas.style.height = `${cssHeight}px`;\n  }\n  context2d.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);\n  visualizationDirty = true;\n  scheduleVisualization();\n}"
+    },
+    {
+      "file": "src/graph-instrument-app.js",
+      "line": 1322,
+      "moduleSha256": "b74c89991fb618d2c376855d4be9c94bfddc048e69aa13f345317549c691cd9f",
+      "options": {},
+      "source": "function resizeCanvas() {\n    const bounds = stageWrap.getBoundingClientRect();\n    cssWidth = Math.max(1, Math.round(bounds.width));\n    cssHeight = Math.max(1, Math.round(bounds.height));\n    pixelRatio = Math.max(1, Math.min(\n      runtime.devicePixelRatio || 1,\n      2,\n      Math.sqrt(3_000_000 / Math.max(1, cssWidth * cssHeight)),\n    ));\n    canvas.width = Math.round(cssWidth * pixelRatio);\n    canvas.height = Math.round(cssHeight * pixelRatio);\n    scheduleFrame();\n  }"
+    }
+  ]
+}

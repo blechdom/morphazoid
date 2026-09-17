@@ -420,11 +420,13 @@ test("the mobile instrument markup exposes the complete compact control surface"
       "@storybook/addon-docs",
       "@storybook/html-vite",
       "assemblyscript",
+      "dependency-cruiser",
       "esbuild-wasm",
+      "jscpd",
       "storybook",
       "vite",
     ],
-    "browser QA and component-catalog tooling must remain development-only",
+    "browser QA, architecture reports, and component-catalog tooling must remain development-only",
   );
   assert.doesNotMatch(packageJson, /next|typescript/i);
 });

@@ -9,6 +9,7 @@ import {
 } from "./src/digestazoid.js?v=digestazoid-model-20260902-3";
 import { connectAudioOutput } from "./src/audio-output-manager.js";
 import { unlockAudioContext } from "./src/audio.js";
+import { canvasSizing } from "./src/graphics/canvas-sizing.js";
 
 const $ = (id) => document.getElementById(id);
 const canvas = $("stage");
@@ -483,13 +484,12 @@ function endGasChange() {
 
 function resizeCanvas() {
   const bounds = stageWrap.getBoundingClientRect();
-  cssWidth = Math.max(1, Math.round(bounds.width));
-  cssHeight = Math.max(1, Math.round(bounds.height));
-  const requestedRatio = Math.min(2, globalThis.devicePixelRatio || 1);
-  const pixelBudgetRatio = Math.sqrt(2_600_000 / Math.max(1, cssWidth * cssHeight));
-  pixelRatio = Math.max(1, Math.min(requestedRatio, pixelBudgetRatio));
-  const width = Math.max(1, Math.round(cssWidth * pixelRatio));
-  const height = Math.max(1, Math.round(cssHeight * pixelRatio));
+  const sizing = canvasSizing(bounds, globalThis.devicePixelRatio, { pixelBudget: 2_600_000 });
+  cssWidth = sizing.cssWidth;
+  cssHeight = sizing.cssHeight;
+  pixelRatio = sizing.pixelRatio;
+  const width = Math.max(1, sizing.width);
+  const height = Math.max(1, sizing.height);
   if (canvas.width !== width || canvas.height !== height) {
     canvas.width = width;
     canvas.height = height;

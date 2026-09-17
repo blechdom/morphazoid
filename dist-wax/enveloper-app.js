@@ -16,6 +16,7 @@ import {
   enveloperScoreAtAudioTime,
   planEnveloperAudioWindow,
 } from "./src/enveloper-transport.js";
+import { canvasSizing } from "./src/graphics/canvas-sizing.js";
 
 const $ = (id) => document.getElementById(id);
 const clamp = (value, minimum = 0, maximum = 1) => (
@@ -918,12 +919,12 @@ function draw() {
 
 function resizeCanvas() {
   const bounds = stageWrap.getBoundingClientRect();
-  cssWidth = Math.max(1, Math.round(bounds.width));
-  cssHeight = Math.max(1, Math.round(bounds.height));
-  const budgetRatio = Math.sqrt(4_000_000 / Math.max(1, cssWidth * cssHeight));
-  pixelRatio = Math.max(1, Math.min(2, window.devicePixelRatio || 1, budgetRatio));
-  canvas.width = Math.round(cssWidth * pixelRatio);
-  canvas.height = Math.round(cssHeight * pixelRatio);
+  const sizing = canvasSizing(bounds, window.devicePixelRatio, { pixelBudget: 4_000_000 });
+  cssWidth = sizing.cssWidth;
+  cssHeight = sizing.cssHeight;
+  pixelRatio = sizing.pixelRatio;
+  canvas.width = sizing.width;
+  canvas.height = sizing.height;
   canvas.style.width = `${cssWidth}px`;
   canvas.style.height = `${cssHeight}px`;
   draw();

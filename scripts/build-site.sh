@@ -65,6 +65,7 @@ done
 # Allow new public pages to enter local release artifacts before their first
 # commit; after tracking, these copies simply refresh the same paths.
 for worktree_runtime_file in \
+  src/graphics/canvas-sizing.js \
   spider-synth.html \
   spider-synth.css \
   spider-synth-app.js \
@@ -1175,6 +1176,7 @@ required_files=(
   style.css
   favicon.svg
   src/audio.js
+  src/graphics/canvas-sizing.js
   src/contour-synth-processor.js
   l-mic.html
   micmic.html

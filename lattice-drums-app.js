@@ -44,6 +44,7 @@ import {
   rebasePingPongPosition,
 } from "./src/articulation.js";
 import { emitMidiOutputPreview } from "./src/midi-output-preview.js";
+import { canvasSizing } from "./src/graphics/canvas-sizing.js";
 
 const $ = (id) => document.getElementById(id);
 const DEFAULT_TILING = 20;
@@ -1167,11 +1168,12 @@ function triggerContacts(contacts, now, {
 
 function resizeCanvas() {
   const bounds = stageWrap.getBoundingClientRect();
-  cssWidth = Math.max(1, Math.round(bounds.width));
-  cssHeight = Math.max(1, Math.round(bounds.height));
-  pixelRatio = Math.min(window.devicePixelRatio || 1, 2.5);
-  canvas.width = Math.round(cssWidth * pixelRatio);
-  canvas.height = Math.round(cssHeight * pixelRatio);
+  const sizing = canvasSizing(bounds, window.devicePixelRatio, { pixelBudget: null, maxPixelRatio: 2.5, minPixelRatio: null });
+  cssWidth = sizing.cssWidth;
+  cssHeight = sizing.cssHeight;
+  pixelRatio = sizing.pixelRatio;
+  canvas.width = sizing.width;
+  canvas.height = sizing.height;
   canvas.style.width = `${cssWidth}px`;
   canvas.style.height = `${cssHeight}px`;
   const halfHeight = 1.04;

@@ -18,6 +18,7 @@ import {
 import { glottalHarmonics } from "./src/throatazoid.js";
 import { connectAudioOutput } from "./src/audio-output-manager.js";
 import { unlockAudioContext } from "./src/audio.js";
+import { canvasSizing } from "./src/graphics/canvas-sizing.js";
 
 const $ = (id) => document.getElementById(id);
 const canvas = $("stage");
@@ -1202,11 +1203,12 @@ async function destroyAudio() {
 
 function resizeCanvas() {
   const rect = stageWrap.getBoundingClientRect();
-  cssWidth = Math.max(1, Math.round(rect.width));
-  cssHeight = Math.max(1, Math.round(rect.height));
-  pixelRatio = Math.min(2, Math.max(1, globalThis.devicePixelRatio || 1));
-  const width = Math.max(1, Math.round(cssWidth * pixelRatio));
-  const height = Math.max(1, Math.round(cssHeight * pixelRatio));
+  const sizing = canvasSizing(rect, globalThis.devicePixelRatio, { pixelBudget: null });
+  cssWidth = sizing.cssWidth;
+  cssHeight = sizing.cssHeight;
+  pixelRatio = sizing.pixelRatio;
+  const width = Math.max(1, sizing.width);
+  const height = Math.max(1, sizing.height);
   if (canvas.width !== width || canvas.height !== height) {
     canvas.width = width;
     canvas.height = height;
