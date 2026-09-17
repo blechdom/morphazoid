@@ -181,9 +181,10 @@ See `../src/graphics/README.md` for the policy boundary.
 
 ### 6. Extract instrument-family modules
 
-- [ ] Start with the substantial Alien Larynx/Throatazoid duplication.
-- [ ] Extract tract geometry, rendering, and gesture helpers separately, with
-  explicit dependencies and preserved instrument-specific differences.
+- [x] Start with the substantial Alien Larynx/Throatazoid duplication.
+- [x] Extract shared tract geometry with explicit current-state/view dependencies.
+- [ ] Extract further rendering and gesture helpers in separate layers, with
+  preserved instrument-specific differences.
 - [ ] Review duplicated graph-editor/controller behavior next.
 - [ ] Keep original routes, entry modules, processors, and sound assets stable
   during these extractions.
@@ -193,6 +194,12 @@ See `../src/graphics/README.md` for the policy boundary.
 instrument's identity. Geometry and gestures can affect sound and are not
 assumed harmless merely because they are outside a processor.
 
+The first tract layer moves four identical calculation bodies into
+`src/families/tract/geometry.js`. Each page is 411 lines shorter; the shared
+module is 455 lines, for 367 fewer authored runtime lines overall. Processing,
+presets, smoothing, drawing, gestures, and lifecycle code remain page/model-owned.
+The accepted sizing build is retained as the comparison reference.
+
 ### 7. Clarify module ownership and release assembly
 
 - [ ] Separate pure catalogue/route data from navigation initialization.
@@ -200,7 +207,7 @@ assumed harmless merely because they are outside a processor.
   their behavior or event ordering.
 - [ ] Group instrument-owned code incrementally, retaining compatibility entry
   points instead of renaming all public paths.
-- [ ] Ensure source checks and dependency discovery cover any new directories.
+- [x] Ensure source checks and dependency discovery cover any new directories.
 - [ ] Replace release-file special cases with a reviewed runtime-asset manifest.
 - [ ] Preserve the WAX generation/parity contract. Changing whether generated
   output is committed requires a separate compatibility decision.

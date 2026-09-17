@@ -164,6 +164,58 @@ to other renderer state. Linebreaker's clamp order is different; Rubix has
 deferred backing-store changes. Hyper Rubix also has an existing WAX-registry
 import failure in the baseline. None was normalized just to remove duplication.
 
+## Tract-family geometry layer
+
+Following the owner's approval to continue, four identical functions were
+extracted from Alien Larynx and Throatazoid into
+`src/families/tract/geometry.js`. Their calculation bodies are byte-identical to
+the frozen originals. Page-owned wrappers preserve current state, viewport,
+selection, and articulation callbacks; the rest of each controller is
+token-identical apart from the corresponding imports.
+
+Each controller is 411 lines shorter. The shared module contains 455 lines,
+giving a net reduction of 367 authored runtime lines. This is not an audio-engine,
+rendering, gesture, preset, or smoothing rewrite.
+
+The flat JavaScript syntax check was also replaced by recursive source
+discovery. It now covers nested family modules and build tools without executing
+browser code. Lumber's old source-string check was replaced with a check that
+the actual discovered syntax targets include its controller.
+
+| Check | Result |
+| --- | --- |
+| Original tract model/worklet/page tests | 60 passed before changes |
+| New geometry comparisons against original controllers | 6 passed before wiring |
+| Focused geometry/model/worklet/page/syntax tests after extraction | 71 passed |
+| Recursive JavaScript parsing | 493 modules, zero syntax failures |
+| Original tract browser suite | 10 passed |
+| Candidate tract browser suite | 10 passed |
+| Full Node suite | 3,630 passed; the same 8 baseline failures; 6 skipped |
+| Expanded fast refactoring gate | 156 passed |
+| Independent WAX and XYFlow parity | Passed |
+
+The browser matrix includes Clear/Hydra/Oracle anatomy changes at three
+viewports, direct tongue dragging, a resize while the pointer is held, phoneme
+changes and multi-mouth playback using the internal glottis, audio-off
+continuity, and cleanup. Microphone requests are blocked in these tests.
+The owner has not been asked to repeat the prior 48-page sizing review.
+
+Captured layout/control records, before/after drag values, held-resize results,
+and control states during synthetic playback match the reference exactly.
+Canvas screenshots include ongoing time-based visualization and are retained
+for visual review, not claimed as pixel-identical goldens. No renderer animation
+was disabled or changed in the runtime to force a screenshot match.
+
+The release comparison with the accepted sizing build shows four changed
+controller copies and two new shared-module copies across normal/WAX output;
+3,424 existing files are byte-identical. There are no removed public files or
+changes to DSP processors, the shared parameter model, sound assets, presets,
+HTML, or CSS.
+
+Reference: `http://127.0.0.1:4347`, serving `test-results/v2-uniformity/site/`.
+Candidate: `http://127.0.0.1:4348`, serving `test-results/v2-tract/site/`.
+Source, artifact, and test evidence live under `test-results/v2-tract/`.
+
 ## Limits and next gate
 
 The existing browser output-manager probes provide coarse meter readings, not

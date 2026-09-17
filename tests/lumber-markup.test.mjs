@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
+import { runtimeSourceFiles } from "../scripts/check-runtime-source.mjs";
 
 const root = new URL("../", import.meta.url);
 
@@ -146,7 +147,8 @@ test("Lumber Loops keeps a traditional looper surface with optional advanced pla
     );
   }
   assert.doesNotMatch(css, /--section-(?:accent|wash)/);
-  assert.match(JSON.parse(packageJson).scripts.check, /(?:lumber-app\.js|\*-app\.js)/);
+  assert.match(JSON.parse(packageJson).scripts.check, /scripts\/check-runtime-source\.mjs/);
+  assert.ok((await runtimeSourceFiles()).includes("lumber-app.js"), "the syntax check must cover Lumber");
 });
 
 test("Lumber Loops markup has unique ids and complete labels", async () => {

@@ -66,6 +66,7 @@ done
 # commit; after tracking, these copies simply refresh the same paths.
 for worktree_runtime_file in \
   src/graphics/canvas-sizing.js \
+  src/families/tract/geometry.js \
   spider-synth.html \
   spider-synth.css \
   spider-synth-app.js \
@@ -1177,6 +1178,7 @@ required_files=(
   favicon.svg
   src/audio.js
   src/graphics/canvas-sizing.js
+  src/families/tract/geometry.js
   src/contour-synth-processor.js
   l-mic.html
   micmic.html

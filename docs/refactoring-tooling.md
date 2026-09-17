@@ -81,7 +81,8 @@ npm run test:refactor:batch
 ```
 
 The fast gate checks sizing-policy equivalence, audio/transport infrastructure,
-the contour worklet, and report tooling. The batch gate additionally runs build
+the contour worklet, tract geometry, nested source discovery, and report tooling.
+The batch gate additionally runs build
 parity, the broad browser sizing matrix, focused interaction/audio suites, and
 the existing full verification. It does not regenerate WAX itself: regenerate
 and review generated changes before running it.
@@ -97,6 +98,7 @@ failures separately; do not call the repository fully green.
 npm run test:browser:v2-pilot
 npm run test:browser:v2-rollout
 npm run test:browser:v2-uniformity
+npm run test:browser:v2-tract
 ```
 
 The pilot suite checks Solid and Hyper in three layouts, their existing canvas
@@ -110,6 +112,11 @@ microphone requests. The uniformity suite discovers pages loading every
 migrated controller, including the Graph wrappers, and checks each against its
 own frozen callback in `tests/fixtures/canvas-resize-variants-v1.json`.
 It does not assume that all instruments should use Solid/Hyper's pixel budget.
+
+The tract suite compares the existing Alien Larynx/Throatazoid pages across
+viewports and anatomies, direct tongue dragging (including resize while held),
+and explicit synthetic-source playback. It does not exercise real microphone
+input or claim listening approval.
 
 Browser preservation runs are serial to avoid resource contention in heavy
 visualizations. Fast Node tests remain parallel. An unchanged Plasma Ball
@@ -160,3 +167,19 @@ The broader batch uses `test-results/v2-uniformity/` for source-isolation checks
 original callback backups, before/after policy tests, built-file comparisons,
 browser JSON reports, and full-suite results. The accepted first-pilot snapshot
 also remains under `test-results/v2-round2/checkpoint/`.
+
+The tract layer uses `test-results/v2-tract/`, with a complete changed-file
+checkpoint of the preceding work, original function fixtures, source-body and
+release-file comparisons, and before/after browser reports.
+
+## Recursive syntax coverage
+
+`npm run check` now uses `scripts/check-runtime-source.mjs` before the unchanged
+WASM reproducibility check. It parses root browser JavaScript and nested
+JavaScript in `src/`, `scripts/`, and `morphazoidical/`, without executing it.
+Important root entry points remain mandatory even if missing.
+
+Tests, vendor/generated output, AssemblyScript `.ts`, and JSX are not fed to
+Node's parser. AssemblyScript retains its compiler check; the existing XYFlow
+build handles JSX. This replaces the manual flat-file check list so moving
+code into family folders does not silently remove syntax coverage.
