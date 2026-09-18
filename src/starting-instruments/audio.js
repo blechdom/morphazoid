@@ -76,7 +76,7 @@ export class StartingAudio {
   }
   async startMic() {
     if (!this.armed || !this.node) throw new Error("Turn Audio on before enabling the microphone.");
-    if (this.stream) return;
+    if (this.stream) return true;
     if (!navigator.mediaDevices?.getUserMedia) throw new Error("Microphone access needs a supported browser and HTTPS or localhost.");
     const generation = ++this.micGeneration;
     let stream;
@@ -132,7 +132,7 @@ export class StartingAudio {
       const samples = buffer.getChannelData(c);
       for (let i = 0; i < count; i++) mono[i] += samples[i] / buffer.numberOfChannels;
     }
-    this.send({ type: "load", index, samples: mono, name: file.name });
+    this.send({ type: "load", ...(typeof index === "string" ? { loopId: index } : { index }), samples: mono, name: file.name });
     return buffer.duration > 12 ? "Loaded the first 12 seconds." : "Recording loaded.";
   }
   async close() {

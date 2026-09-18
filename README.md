@@ -3,12 +3,17 @@
 Five **starting instruments** explore the September concepts without combining
 their engines: [Tempo Tantrum](tempo-tantrum.html) plays driven phases that lock
 and slip; [Tape Worm](tape-worm.html) splices one reader between intact recordings;
-[Loop Soup](loop-soup.html) retains and erases audio in three bowls;
+[Loop Soup](loop-soup.html) retains and erases audio in editable lettered loops;
 [Habit Habitat](habit-habitat.html) learns routes only from manual teaching; and
 [Hollowphonic](hollowphonic.html) plays coupled resonating cavities. Each has
 original demo material, explicit Audio, direct stage gestures, and four
 recoverable presets. Names are provisional; all five are Works in progress.
 [Models, boundaries, and recording behavior](docs/starting-instruments.md).
+
+Tape Worm and Loop Soup now support up to eight movable loops with center
+record/pause/mute/solo controls and live directed-route editing. Tape Worm routes
+transfer its reader at per-route gates; Loop Soup routes feed filtered audio.
+[Loop-network controls and limits](docs/loop-networks.md).
 
 [Spider Synth](spider-synth.html) makes six independently rigged spider scans
 and a playable web into an instrument. Eight articulated legs pluck

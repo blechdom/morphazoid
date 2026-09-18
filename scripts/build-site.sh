@@ -72,7 +72,12 @@ for worktree_runtime_file in \
   hollowphonic.html \
   starting-instruments.css \
   starting-instruments-app.js \
+  loop-network-app.js \
+  loop-network.css \
   src/starting-instruments/common.js \
+  src/starting-instruments/loop-network.js \
+  src/starting-instruments/network-view.js \
+  src/starting-instruments/network-ui-utils.js \
   src/starting-instruments/tempo-tantrum.js \
   src/starting-instruments/tape-worm.js \
   src/starting-instruments/loop-soup.js \
@@ -90,6 +95,7 @@ for worktree_runtime_file in \
   assets/instruments/habit-habitat.webp \
   assets/instruments/hollowphonic.webp \
   docs/starting-instruments.md \
+  docs/loop-networks.md \
   src/graphics/canvas-sizing.js \
   src/families/tract/geometry.js \
   src/families/tract/rendering.js \

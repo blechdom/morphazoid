@@ -1,4 +1,5 @@
-import { Core, clamp, wrap, sampleAt, demoTape, waveform } from "./common.js";
+import { clamp, wrap, sampleAt } from "./common.js";
+import { LoopNetwork } from "./loop-network.js";
 
 export const TAPE_DEFAULTS = Object.freeze({ speed: 1, splice: 1, departure: 0.72, landing: 0.08 });
 export const TAPE_PRESETS = Object.freeze({
@@ -7,101 +8,109 @@ export const TAPE_PRESETS = Object.freeze({
   "Slow worm": { speed: 0.55, splice: 1, departure: 0.81, landing: 0.31 },
   "Original loops": { speed: 1, splice: 0, departure: 0.72, landing: 0.08 },
 });
-export class TapeWorm extends Core {
+export class TapeWorm extends LoopNetwork {
   constructor(rate = 48000) {
-    super(rate, TAPE_DEFAULTS);
-    this.phase = 0; this.tape = 0; this.transitions = 0;
-    this.fading = 0; this.oldTape = 0; this.oldPhase = 0;
-    this.recording = null; this.mediaVersion = 0;
-    this.lastRecording = null;
-    this.demo();
+    super(rate, TAPE_DEFAULTS, "tape");
+    this.phase = 0; this.tape = 0; this.transitions = 0; this.fading = 0;
+    this.oldBuffer = null; this.oldPhase = 0; this.routeCursor = new Map();
+    this.fadeLength = 1; this.monitorGain = 0; this.demo();
   }
+  get tapes() { return this.buffers; }
+  get names() { return this.loops.map((l) => l.name); }
   demo() {
-    this.tapes = [demoTape(this.rate, 2, 0), demoTape(this.rate, 3, 1)];
-    this.names = ["Demo · plucked phrase", "Demo · answering phrase"];
-    this.envelopes = this.tapes.map((t) => waveform(t));
-    this.mediaVersion++;
-    this.phase = 0; this.tape = 0; this.fading = 0;
+    this.loops = []; this.buffers = []; this.routes = []; this.envelopes = []; this.energy = [];
+    this.recording = null; this.nextLoopId = 0; this.nextRouteId = 0; this.routeCursor.clear();
+    const a = this.addLoop(2, true), b = this.addLoop(3, true);
+    this.addRoute(a, b); this.addRoute(b, a); this.phase = 0; this.tape = 0; this.fading = 0;
+    this.oldBuffer = null; this.mediaVersion++; this.transitions = 0;
   }
   set(p) {
-    for (const [key, lo, hi] of [["speed", 0.25, 2], ["departure", 0.05, 0.95], ["landing", 0, 0.85], ["splice", 0, 1]]) {
+    for (const [key, lo, hi] of [["speed", 0.25, 2], ["departure", 0.02, 0.98], ["landing", 0, 0.95], ["splice", 0, 1]]) {
       if (key in p) this.params[key] = clamp(p[key], lo, hi, TAPE_DEFAULTS[key]);
     }
-  }
-  jump(tape, phase) {
-    this.oldTape = this.tape; this.oldPhase = this.phase;
-    this.fading = Math.max(1, Math.round(this.rate * 0.012));
-    this.tape = Math.round(clamp(tape, 0, 1)); this.phase = wrap(phase);
-    this.transitions++;
-  }
-  install(index, samples, name) {
-    if (!(samples instanceof Float32Array) || samples.length < this.rate * 0.08 || samples.length > this.rate * 12) return false;
-    const clean = Float32Array.from(samples, (x) => clamp(x, -0.95, 0.95, 0));
-    const fade = Math.min(256, Math.floor(clean.length / 10));
-    for (let i = 0; i < fade; i++) {
-      clean[i] *= i / fade; clean[clean.length - 1 - i] *= i / fade;
+    // Legacy global gate knobs remain explicit all-route edits. Route edits
+    // are independent until a global gate knob/preset is deliberately applied.
+    if ("departure" in p || "landing" in p) for (const route of this.routes) {
+      if ("departure" in p) route.departure = this.params.departure;
+      if ("landing" in p) route.landing = this.params.landing;
     }
-    this.tapes[index] = clean; this.names[index] = String(name ?? "Recording").slice(0, 80);
-    this.envelopes[index] = waveform(clean); this.mediaVersion++;
-    this.phase = wrap(this.phase); this.fading = 0;
-    return true;
+  }
+  onBeforeRemove(index) {
+    if (this.tape === index) {
+      this.removedFade = { buffer: this.buffers[index], phase: this.phase,
+        audible: !this.loops[index].muted && (!this.hasSolo || this.loops[index].solo) };
+    }
+  }
+  onRemove(index) {
+    if (this.tape === index) {
+      this.tape = Math.min(index, this.loops.length - 1); this.phase = 0;
+      this.oldBuffer = this.removedFade?.buffer; this.oldPhase = this.removedFade?.phase ?? 0;
+      this.oldAudible = this.removedFade?.audible ?? false;
+      this.fading = this.fadeLength = Math.round(this.rate * 0.025);
+      this.removedFade = null;
+    }
+    else if (this.tape > index) this.tape--;
+  }
+  onInstall(index) { if (index === this.tape) { this.phase = wrap(this.phase); this.fading = 0; } }
+  jump(index, phase, fade = 0.025, count = true) {
+    if (!this.loops[index]) return;
+    this.oldBuffer = this.buffers[this.tape]; this.oldPhase = this.phase;
+    this.oldAudible = !this.loops[this.tape]?.muted && (!this.hasSolo || this.loops[this.tape]?.solo);
+    this.fadeLength = Math.max(1, Math.round(this.rate * clamp(fade, 0.005, 0.15, 0.025)));
+    this.fading = this.fadeLength; this.tape = index; this.phase = wrap(phase);
+    if (count) this.transitions++;
   }
   command(m) {
     super.command(m);
-    const i = Math.round(clamp(m.index, 0, 1));
-    if (m.type === "jump") this.jump(i, clamp(m.phase, 0, 1));
-    if (m.type === "load") this.install(i, m.samples, m.name);
-    if (m.type === "demo") { this.recording = null; this.demo(); }
-    if (m.type === "record") {
-      this.lastRecording = null;
-      this.recording = { index: i, samples: new Float32Array(Math.round(this.rate * 12)), count: 0 };
-    }
-    if (m.type === "cancel-record") this.recording = null;
-    if (m.type === "finish-record" && this.recording) {
-      const r = this.recording; this.recording = null;
-      const accepted = this.install(r.index, r.samples.slice(0, r.count), "Microphone recording");
-      this.lastRecording = { index: r.index, accepted, seconds: r.count / this.rate };
-    }
+    const i = this.indexFor(m);
+    if (m.type === "jump" && i >= 0) { this.jump(i, clamp(m.phase, 0, 1)); this.loops[i].paused = false; }
+    if (m.type === "demo") this.demo();
     if (m.type === "reset") { this.set(TAPE_DEFAULTS); this.jump(0, 0); this.transitions = 0; }
   }
   advance(dt) {
-    if (!this.playing) return;
-    const delta = dt * this.params.speed / (this.tapes[this.tape].length / this.rate);
-    const old = this.phase;
-    this.phase = wrap(old + delta);
-    const gate = this.params.departure;
-    const crossed = old < gate ? old + delta >= gate : old + delta >= 1 + gate;
-    if (this.params.splice > 0.5 && crossed) this.jump(1 - this.tape, this.params.landing);
+    if (!this.playing || this.loops[this.tape]?.paused) return;
+    let remaining = dt, guard = 0;
+    while (remaining > 1e-10 && guard++ < 32) {
+      const index = this.tape, speed = this.params.speed / (this.buffers[index].length / this.rate);
+      let bestDistance = Infinity, chosen = null;
+      const startCursor = this.routeCursor.get(this.loops[index].id) ?? 0;
+      for (let j = 0; j < this.routes.length; j++) {
+        const route = this.routes[(j + startCursor) % this.routes.length];
+        if (this.params.splice < 0.5 || !route.enabled || route.a !== index || this.loops[route.b]?.paused) continue;
+        let distance = wrap(route.departure - this.phase);
+        if (distance < 1e-12) distance = 1;
+        if (distance < bestDistance - 1e-8) { bestDistance = distance; chosen = route; }
+      }
+      if (chosen && bestDistance / speed <= remaining + 1e-10) {
+        const elapsed = Math.min(remaining, bestDistance / speed);
+        this.phase = wrap(this.phase + elapsed * speed); remaining -= elapsed;
+        this.routeCursor.set(this.loops[index].id, (this.routes.indexOf(chosen) + 1) % this.routes.length);
+        this.jump(chosen.b, chosen.landing, chosen.fade);
+      } else { this.phase = wrap(this.phase + remaining * speed); remaining = 0; }
+    }
     this.time += dt;
   }
   tick(input = 0) {
-    if (this.recording) {
-      const r = this.recording;
-      if (r.count < r.samples.length) r.samples[r.count++] = clamp(input, -0.95, 0.95, 0);
-      // Completion is handled outside the inner render loop by the processor.
+    this.capture(input);
+    const loop = this.loops[this.tape];
+    const active = this.playing && !loop.paused;
+    const desired = active && !loop.muted && (!this.hasSolo || loop.solo) ? loop.level : 0;
+    this.monitorGain += (desired - this.monitorGain) * this.gainSlew;
+    let sample = sampleAt(this.buffers[this.tape], this.phase);
+    if (this.fading > 0 && this.oldBuffer) {
+      const mix = this.fading / this.fadeLength;
+      sample = sample * (1 - mix) + (this.oldAudible ? sampleAt(this.oldBuffer, this.oldPhase) : 0) * mix;
+      this.oldPhase = wrap(this.oldPhase + this.params.speed / this.oldBuffer.length);
+      this.fading--; if (!this.fading) this.oldBuffer = null;
     }
-    let sample = 0;
-    if (this.playing) {
-      sample = sampleAt(this.tapes[this.tape], this.phase);
-      if (this.fading > 0) {
-        const mix = this.fading / Math.max(1, Math.round(this.rate * 0.012));
-        sample = sample * (1 - mix) + sampleAt(this.tapes[this.oldTape], this.oldPhase) * mix;
-        this.oldPhase = wrap(this.oldPhase + this.params.speed / this.tapes[this.oldTape].length);
-        this.fading--;
-      }
-      this.advance(1 / this.rate);
-    }
-    return this.output(sample, this.tape ? 0.3 : -0.3);
+    const output = this.output(sample * this.monitorGain, loop.pan);
+    if (active) this.advance(1 / this.rate);
+    return output;
   }
-  snapshot() {
-    return { ...super.snapshot(), phase: this.phase, tape: this.tape, transitions: this.transitions,
-      mediaVersion: this.mediaVersion, names: [...this.names], waves: this.envelopes,
-      lastRecording: this.lastRecording,
-      durations: this.tapes.map((t) => t.length / this.rate),
-      recording: this.recording ? { index: this.recording.index, seconds: this.recording.count / this.rate } : null };
-  }
+  snapshot() { return { ...super.snapshot(), ...this.metadata(), phase: this.phase, tape: this.tape, transitions: this.transitions }; }
   restore(s) {
-    super.restore(s); this.phase = wrap(clamp(s?.phase, 0, 1)); this.tape = Math.round(clamp(s?.tape, 0, 1));
+    super.restore(s); this.restoreNetwork(s);
+    this.phase = wrap(clamp(s?.phase, 0, 1)); this.tape = Math.round(clamp(s?.tape, 0, this.loops.length - 1));
     this.transitions = Math.round(clamp(s?.transitions, 0, 1e9));
   }
 }

@@ -2,7 +2,8 @@ import { expect, test } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
 import { readAudioStatus, sampleAudioEnvelope } from "./helpers/audio-probe.mjs";
 
-const ids = ["tempo-tantrum", "tape-worm", "loop-soup", "habit-habitat", "hollowphonic"];
+// Tape Worm / Loop Soup now have dedicated network coverage in loop-network.spec.mjs.
+const ids = ["tempo-tantrum", "habit-habitat", "hollowphonic"];
 const state = (page) => page.locator("#stage").evaluate((c) => JSON.parse(c.dataset.state));
 async function setRange(page, id, value) {
   await page.locator(`#${id}`).evaluate((node, value) => {
@@ -116,23 +117,6 @@ test("Tempo: worklet keeps moving through a stalled UI and recovers from a phase
   await expect.poll(async () => (await state(page)).locked?.every((x) => !x), { timeout: 6000 }).toBe(true);
 });
 
-test("Tape: file decoding installs a real clip, splices and reset preserve it", async ({ page }) => {
-  await ready(page, "tape-worm"); await arm(page);
-  const rate = 24000, count = rate / 2, bytes = Buffer.alloc(44 + count * 2);
-  bytes.write("RIFF"); bytes.writeUInt32LE(bytes.length - 8, 4); bytes.write("WAVEfmt ", 8);
-  bytes.writeUInt32LE(16, 16); bytes.writeUInt16LE(1, 20); bytes.writeUInt16LE(1, 22);
-  bytes.writeUInt32LE(rate, 24); bytes.writeUInt32LE(rate * 2, 28); bytes.writeUInt16LE(2, 32); bytes.writeUInt16LE(16, 34);
-  bytes.write("data", 36); bytes.writeUInt32LE(count * 2, 40);
-  for (let i = 0; i < count; i++) bytes.writeInt16LE(Math.round(Math.sin(i * 2 * Math.PI * 223 / rate) * 8000), 44 + i * 2);
-  page.on("dialog", (d) => d.accept());
-  await page.locator("#tapeFile").setInputFiles({ name: "test-tone.wav", mimeType: "audio/wav", buffer: bytes });
-  await expect(page.locator("#liveStatus")).toContainText("loaded");
-  await page.locator("#playButton").click();
-  await expect.poll(async () => (await state(page)).transitions).toBeGreaterThan(0);
-  await page.locator("#resetButton").click();
-  expect((await sampleAudioEnvelope(page, { durationMs: 600 })).summary.maxRms).toBeGreaterThan(0.005);
-});
-
 test("Habit: Teach and Recall produce different state ownership; saved memory round-trips", async ({ page }) => {
   await ready(page, "habit-habitat");
   page.on("dialog", (d) => d.accept());
@@ -152,49 +136,6 @@ test("Habit: Teach and Recall produce different state ownership; saved memory ro
   await expect.poll(async () => (await state(page)).weights).toEqual(learned);
 });
 
-test("Soup: Hold freezes contents while overdub accepts input", async ({ page }) => {
-  await ready(page, "loop-soup"); await arm(page); await page.locator("#playButton").click();
-  await page.getByRole("button", { name: "Hold selected tape", exact: true }).click();
-  await expect(page.locator("#modelStatus")).toContainText("hold");
-  const before = (await state(page)).energy[0];
-  await page.waitForTimeout(1100);
-  expect((await state(page)).energy[0]).toBeCloseTo(before, 6);
-  await page.getByRole("button", { name: "Resume overdub", exact: true }).click();
-  await page.waitForTimeout(1100);
-  expect((await state(page)).energy[0]).not.toBeCloseTo(before, 6);
-});
-
-test("microphone is explicit, cancellation stops late tracks, active Audio Off stops tracks", async ({ page }) => {
-  await page.addInitScript(() => {
-    window.__micTest = { calls: 0, resolve: null, stream: null };
-    Object.defineProperty(navigator.mediaDevices, "getUserMedia", { configurable: true, value: () => {
-      window.__micTest.calls++;
-      return new Promise((resolve) => { window.__micTest.resolve = resolve; });
-    } });
-  });
-  await ready(page, "loop-soup"); await page.locator("#playButton").click();
-  expect(await page.evaluate(() => window.__micTest.calls)).toBe(0);
-  await arm(page);
-  await page.getByRole("button", { name: "Enable microphone", exact: true }).click();
-  await expect.poll(() => page.evaluate(() => window.__micTest.calls)).toBe(1);
-  await page.getByRole("button", { name: "Cancel microphone request", exact: true }).click();
-  await page.evaluate(() => {
-    const ctx = new AudioContext(); window.__micTest.context = ctx;
-    const destination = ctx.createMediaStreamDestination(); window.__micTest.stream = destination.stream;
-    window.__micTest.resolve(destination.stream);
-  });
-  await expect.poll(() => page.evaluate(() => window.__micTest.stream.getTracks()[0].readyState)).toBe("ended");
-  await page.getByRole("button", { name: "Enable microphone", exact: true }).click();
-  await page.evaluate(() => {
-    const destination = window.__micTest.context.createMediaStreamDestination();
-    window.__micTest.stream = destination.stream; window.__micTest.resolve(destination.stream);
-  });
-  await expect(page.getByRole("button", { name: "Disable microphone", exact: true })).toBeVisible();
-  await page.locator("#audioButton").click();
-  await expect.poll(() => page.evaluate(() => window.__micTest.stream.getTracks()[0].readyState)).toBe("ended");
-  await page.evaluate(() => window.__micTest.context.close());
-});
-
 test("note input gestures work without advertising fabricated MIDI output", async ({ page }) => {
   await ready(page, "habit-habitat");
   await page.evaluate(() => window.dispatchEvent(new CustomEvent("morphazoid:midi-input", {
@@ -204,48 +145,13 @@ test("note input gestures work without advertising fabricated MIDI output", asyn
   expect((await readAudioStatus(page)).connectionCount).toBe(0);
 });
 
-test("recording uses the real worklet input, completes, and releases its microphone", async ({ page }) => {
-  await page.addInitScript(() => {
-    window.__capture = { calls: 0 };
-    Object.defineProperty(navigator.mediaDevices, "getUserMedia", { configurable: true, value: async () => {
-      window.__capture.calls++;
-      const context = new AudioContext(), destination = context.createMediaStreamDestination();
-      const oscillator = context.createOscillator(), gain = context.createGain();
-      oscillator.frequency.value = 233; gain.gain.value = 0.22;
-      oscillator.connect(gain).connect(destination); oscillator.start(); await context.resume();
-      Object.assign(window.__capture, { context, oscillator, stream: destination.stream });
-      return destination.stream;
-    } });
-  });
-  await ready(page, "tape-worm"); await arm(page);
-  page.on("dialog", (d) => d.accept());
-  await page.getByRole("button", { name: "Record selected tape", exact: true }).click();
-  await expect.poll(async () => (await state(page)).recording).toBe(true);
-  await page.waitForTimeout(450);
-  await page.getByRole("button", { name: "Stop recording", exact: true }).click();
-  await expect.poll(async () => (await state(page)).recording).toBe(false);
-  await expect.poll(() => page.evaluate(() => window.__capture.stream.getTracks()[0].readyState)).toBe("ended");
-  await page.getByRole("button", { name: "Splices on", exact: true }).click();
-  await page.getByRole("button", { name: "Reader to start", exact: true }).click();
-  await page.locator("#playButton").click();
-  expect((await sampleAudioEnvelope(page, { durationMs: 600 })).summary.maxRms).toBeGreaterThan(0.005);
-  await page.evaluate(() => { window.__capture.oscillator.stop(); return window.__capture.context.close(); });
-});
-
-test("direct stage drags change phase, splice positions, and cavity depth without arming Audio", async ({ page }) => {
+test("direct stage drags change phase and cavity depth without arming Audio", async ({ page }) => {
   await ready(page, "tempo-tantrum");
   let p = await worldPoint(page, 505, 240);
   let q = await worldPoint(page, 567, 351);
   await page.mouse.move(p.x, p.y); await page.mouse.down(); await page.mouse.move(q.x, q.y, { steps: 8 }); await page.mouse.up();
   expect((await state(page)).phases[0]).not.toBeCloseTo(0.11, 2);
   expect((await readAudioStatus(page)).connectionCount).toBe(0);
-
-  await ready(page, "tape-worm");
-  const a = 0.72 * Math.PI * 2 - Math.PI / 2;
-  p = await worldPoint(page, 250 + 132 * Math.cos(a), 310 + 132 * Math.sin(a));
-  q = await worldPoint(page, 382, 310);
-  await page.mouse.move(p.x, p.y); await page.mouse.down(); await page.mouse.move(q.x, q.y, { steps: 8 }); await page.mouse.up();
-  await expect.poll(async () => (await state(page)).params.departure).toBeCloseTo(0.25, 2);
 
   await ready(page, "hollowphonic");
   const before = await page.locator("#modelStatus").textContent();
@@ -298,39 +204,6 @@ test("unavailable Web Audio shows a truthful error without claiming Audio is on"
   await expect(page.locator("#audioError")).toContainText("does not support Web Audio");
   await expect(page.locator("#audioButton")).toHaveAttribute("aria-pressed", "false");
   expect((await state(page)).audio).toBe(false);
-});
-
-test("Soup: pre-arm Hold and erase survive audio initialization; arrows do not erase unless enabled", async ({ page }) => {
-  await ready(page, "loop-soup");
-  await page.getByRole("button", { name: "Hold selected tape", exact: true }).click();
-  await page.locator("#stage").focus();
-  const before = (await state(page)).energy[0];
-  await page.keyboard.press("ArrowUp");
-  expect((await state(page)).energy[0]).toBe(before);
-  page.on("dialog", (d) => d.accept());
-  await page.getByRole("button", { name: "Empty selected bowl", exact: true }).click();
-  await expect.poll(async () => (await state(page)).energy[0]).toBe(0);
-  await arm(page);
-  await expect.poll(async () => (await state(page)).modes[0]).toBe("hold");
-  await expect.poll(async () => (await state(page)).energy[0]).toBe(0);
-  await page.locator("#playButton").click(); await page.waitForTimeout(1000);
-  expect((await state(page)).energy[0]).toBe(0);
-  await page.locator("#resetButton").click();
-  await expect.poll(async () => (await state(page)).modes[0]).toBe("hold");
-});
-
-test("Tape: dragging IN edits arrival, OUT edits departure, and selected recording target is explicit", async ({ page }) => {
-  await ready(page, "tape-worm");
-  const angle = 0.08 * Math.PI * 2 - Math.PI / 2;
-  const p = await worldPoint(page, 250 + 132 * Math.cos(angle), 310 + 132 * Math.sin(angle));
-  const q = await worldPoint(page, 382, 310);
-  await page.mouse.move(p.x, p.y); await page.mouse.down(); await page.mouse.move(q.x, q.y, { steps: 6 }); await page.mouse.up();
-  await expect.poll(async () => (await state(page)).params.landing).toBeCloseTo(0.25, 2);
-  expect((await state(page)).params.departure).toBe(0.72);
-  await page.getByRole("button", { name: "Tape B", exact: true }).click();
-  await expect(page.locator("#modelStatus")).toContainText("replace target: Tape B");
-  await expect(page.locator("#actionStatus")).toContainText("no graph detection");
-  await expect(page.locator("#landingOut")).toHaveText("25%");
 });
 
 test("Hollowphonic: silence and disconnected-mic explanations match actual source state", async ({ page }) => {

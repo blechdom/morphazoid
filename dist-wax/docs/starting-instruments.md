@@ -1,5 +1,21 @@
 # Five starting instruments — September 17, 2026
 
+## September 18: editable loop networks
+
+Tape Worm and Loop Soup have progressed beyond the original fixed-loop demos.
+See [the loop-network guide](loop-networks.md) for current behavior:
+
+- Add/remove up to eight loops, with stable letter names.
+- Move loops by dragging their letters; keyboard arrows move focused labels.
+- Record, pause/resume, mute and solo inside each loop.
+- Attach/detach directed routes during playback, with individual route settings.
+- Tape Worm routes move its single reader; Loop Soup routes feed audio into
+  other loops. They are deliberately not interchangeable.
+
+Recordings are still temporary, page-local, and lost on reload. There is still
+no automatic phrase segmentation/graph inference or independently movable
+record-head system.
+
 Reviewed for playback clarity and consistency on **September 18, 2026**.
 Each page now has **How it works / listening exercise**, with a concrete first
 experiment, a visual legend, control descriptions, keyboard alternatives,
@@ -17,8 +33,8 @@ audio product already uses Tapeworm.
 | Page | Direct gesture | Visible and audible mechanism | Explicit non-goal |
 | --- | --- | --- | --- |
 | `tempo-tantrum.html` | Drag or nudge an orbiting bead | Phase perturbation and frequency detuning change crossings of three driven oscillators | Not quantum time-crystal physics, not clock division plus random jitter |
-| `tape-worm.html` | Drag splice gates, click a tape | One reader changes between two source recordings with a 12 ms crossfade | Traversal never overwrites recordings; no graph inference |
-| `loop-soup.html` | Hold, overdub, spill, erase a region | Three tapes retain and transform stored samples | Fixed three-loop topology; no head-routing sequencer |
+| `tape-worm.html` | Record inside loops, move letters, connect routes | One reader traverses editable tapes and route-specific gates/crossfades | No graph inference or additional independent readers |
+| `loop-soup.html` | Record, Hold/Write, route, mute and solo | Editable directed feeds exchange audio among lettered loops | No head-routing sequencer or automatic analysis |
 | `habit-habitat.html` | Teach node sequences, then Recall | Bounded learned transition strengths bias a seeded walk | No audio recording; recall never reinforces itself |
 | `hollowphonic.html` | Deepen or strike a chamber | Three coupled, damped waveguides interfere with a fixed source | No claimed material accuracy or acoustic sum-rule budget |
 
@@ -42,13 +58,14 @@ the reader to Tape A without replacing either recording.
 
 ## Is one of these the full graph looper?
 
-**No.** These are five contrasting mechanism studies, not the large editable
+**Partly, after the loop-network update.** Tape Worm and Loop Soup now have
+editable loop layouts and route topology, but not all of the large multi-head
 graph-tape instrument described in the design discussion.
 
 | Current page | What exists | What does not |
 | --- | --- | --- |
-| Tape Worm | Two recordings; one read head; linked OUT/IN gates; file replacement and microphone capture | Add/remove heads, independently moving record heads, free graph geometry, phrase analysis |
-| Loop Soup | Three fixed loops; retained samples; Hold/Overdub; fixed cyclic spill; erase brush | User-sized first loop, repositionable heads, editable edge topology |
+| Tape Worm | Up to eight movable recorded loops; one reader; per-route OUT/IN gates; center capture and playback controls | Add/remove independent readers, moving record heads, phrase analysis |
+| Loop Soup | Up to eight movable loops; Hold/Write, center capture/transport, editable directed feeds with level/tone | Independently repositionable heads, automatic graph inference |
 | Habit Habitat | Six fixed nodes; manual transition teaching and recall | Audio analysis, recorded tape, movable geometry |
 | Tempo Tantrum | Three driven oscillators and phase perturbations | Recording and graphs |
 | Hollowphonic | Three coupled resonating chambers | Looping, recording and graph inference |
@@ -71,7 +88,8 @@ The requested graph looper deserves its own first-loop-first interface:
 5. Preview and accept the proposed graph; always retain the original loop and
    an undo route. Similarity grouping must not delete individual occurrences.
 
-That would join several demonstrated mechanisms, but it is a separate build.
+Movable loops, route editing, and per-loop recording are now available. The
+remaining independent-head and automatic-analysis steps are not implemented.
 No current control labelled Record performs automatic segmentation or clustering.
 
 ## Tempo Tantrum: emergent event timing
@@ -103,7 +121,7 @@ DOI `10.1038/s41467-025-64673-8` and `10.1038/s41586-026-10825-9`.
 
 ## Tape and microphone boundaries
 
-Tape Worm holds two mono recordings of at most 12 seconds each. File decoding is
+Tape Worm holds up to eight mono recordings of at most 12 seconds each. File decoding is
 explicit and uses an already armed context. Files larger than 40 MB are rejected;
 longer decoded clips use their first 12 seconds, with a visible notice.
 Microphone capture uses the worklet, not ScriptProcessor. Short captures and
@@ -111,9 +129,11 @@ cancelled permission requests preserve the previous tape. Source audio is
 page-local and is never uploaded.
 Splice and head edits only change read locations.
 
-Loop Soup has 0.75, 1.2 and 1.8 second buffers. Each overdub revisits a cell once
-per tape cycle and writes a softly saturated sum of retained audio, new input,
-and the previous sample from a neighboring loop. Each cell is bounded to ±0.9.
+Loop Soup starts with 0.75, 1.2 and 1.8 second buffers; new empty loops can be
+0.25–12 seconds, and microphone/file replacement sets the actual recorded length.
+Each overdub revisits a cell once per cycle and writes a softly saturated sum
+of retained audio, new input, and the filtered sends of its incoming routes.
+Each cell is bounded to ±0.9.
 Hold does not write any cells. The erase brush is interpolated along skipped
 pointer positions. Source and time domains differ intentionally from Tape Worm.
 

@@ -20,15 +20,15 @@ const CATALOG_DETAILS = Object.freeze({
     ["Built-in synth", "Pointer", "Phase locking", "Starting instrument"],
   ),
   "tape-worm": define(
-    "Two-tape splice instrument",
-    "One playback head crosses between two intact recordings at movable splices, with file and microphone capture, varispeed, and a bypass for original loops.",
-    "Enable Audio and Play to hear the demo, then drag a splice or click a tape to reposition the reader. Recording replaces only the selected tape.",
+    "Editable tape-splice network",
+    "One playback head traverses up to eight recorded loops using live-editable directed routes, with per-route exit, entry and crossfade, center recording, and movable loop controls.",
+    "Enable Audio, record in a loop center, or Play the demo. Add a loop, drag its letter, and connect it using Route then a destination letter.",
     ["Audio file", "Mic input", "Pointer", "Tape splices", "Starting instrument"],
   ),
   "loop-soup": define(
     "Retaining tape network",
-    "Three persistent loops mix stored audio, a local demo ingredient, or microphone input with bounded spill between bowls, exact hold, overdubbing, and selective erasure.",
-    "Enable Audio and Play, select a bowl, and compare Hold with Overdub. Turn on the erase brush to remove sound from a region of tape.",
+    "Up to eight movable lettered loops retain recorded audio, with per-loop record, pause, mute, solo and hold, plus editable directed audio feeds with send-level and tone controls.",
+    "Enable Audio, Play the demo, and use the controls inside each loop. Add or remove loops and connect them using Route, then edit the route send level or tone.",
     ["Mic input", "Pointer", "Persistent tape", "Starting instrument"],
   ),
   "habit-habitat": define(

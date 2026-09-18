@@ -6,6 +6,7 @@ const escape = (s) => String(s).replaceAll("&", "&amp;").replaceAll('"', "&quot;
 const root = new URL("../", import.meta.url);
 for (const [id, spec] of Object.entries(STARTING_INSTRUMENTS)) {
   const help = INSTRUMENT_HELP[id];
+  const network = ["tape-worm", "loop-soup"].includes(id);
   const links = Object.entries(STARTING_INSTRUMENTS).map(([slug, item]) =>
     `<a href="${slug}.html"${slug === id ? ' aria-current="page"' : ""}>${escape(item.title)}</a>`).join("\n");
   const ranges = spec.controls.map((c) => `<label class="control" for="${c.key}">
@@ -22,9 +23,9 @@ for (const [id, spec] of Object.entries(STARTING_INSTRUMENTS)) {
   <title>${escape(spec.title)} · Morphazoid</title>
   <link rel="icon" href="favicon.svg" type="image/svg+xml" />
   <link rel="stylesheet" href="style.css" />
-  <link rel="stylesheet" href="starting-instruments.css" />
+  <link rel="stylesheet" href="starting-instruments.css" />${network ? '\n  <link rel="stylesheet" href="loop-network.css" />' : ""}
 </head>
-<body class="starting-instrument" data-starting-instrument="${id}" style="--accent:${spec.accent}">
+<body class="starting-instrument${network ? " loop-network-page" : ""}" data-starting-instrument="${id}" style="--accent:${spec.accent}">
   <header class="masthead">
     <a class="wordmark" href="./" aria-label="Morphazoid home"><span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span><span>morphazoid</span></a>
     <nav class="tabs" aria-label="Instrument"><a class="tab active" href="${id}.html" aria-current="page">${escape(spec.title)}</a><a class="tab" href="lumber.html">Lumber Loops</a></nav>
@@ -32,9 +33,9 @@ for (const [id, spec] of Object.entries(STARTING_INSTRUMENTS)) {
     <div id="audioSlot" class="audio-strip" aria-label="Audio controls"><button id="audioButton" class="audio-button" type="button" aria-pressed="false" disabled>Audio off · enable JavaScript</button></div>
   </header>
   <main class="starting-shell">
-    <section class="starting-stage" aria-label="${escape(spec.title)} instrument">
+    <section class="starting-stage${network ? " network-stage" : ""}" aria-label="${escape(spec.title)} instrument">
       <header class="starting-title"><h1>${escape(spec.title)}</h1><p>${escape(spec.subtitle)}</p></header>
-      <div class="stage-wrap" id="stageWrap"><canvas id="stage" role="img" tabindex="0" aria-label="${escape(spec.description)}" aria-describedby="canvasInstructions modelStatus">Use the labelled controls below to play this instrument.</canvas></div>
+      ${network ? `<div class="network-viewport" id="networkViewport" tabindex="0" role="region" aria-label="Scrollable loop network" aria-describedby="canvasInstructions"><div id="stage"><div id="networkSurface" class="network-surface"></div></div></div>` : `<div class="stage-wrap" id="stageWrap"><canvas id="stage" role="img" tabindex="0" aria-label="${escape(spec.description)}" aria-describedby="canvasInstructions modelStatus">Use the labelled controls below to play this instrument.</canvas></div>`}
       <p class="starting-hint" id="canvasInstructions">${escape(spec.hint)} <a href="#howItWorks">How to play / keys</a></p>
     </section>
     <aside class="starting-controls" aria-label="${escape(spec.title)} controls">
@@ -66,7 +67,7 @@ for (const [id, spec] of Object.entries(STARTING_INSTRUMENTS)) {
       <noscript><p>This instrument needs JavaScript. Audio and microphone start off.</p></noscript>
     </aside>
   </main>
-  <script type="module" src="starting-instruments-app.js"></script>
+  <script type="module" src="${network ? "loop-network-app.js" : "starting-instruments-app.js"}"></script>
   <script type="module" src="nav.js"></script>
 </body>
 </html>`;

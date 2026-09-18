@@ -6,7 +6,7 @@
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="Morphazoid" />
     <meta property="og:title" content="Loop Soup · Morphazoid" />
-    <meta property="og:description" content="Three persistent tape loops retain and mix their contents. Hold stops writing, overdub adds sound, and a brush selectively erases the tapes." />
+    <meta property="og:description" content="Up to eight independently controlled loops with center recording, play/pause, mute, solo, hold, and editable directed audio feeds with send level and tone controls." />
     <meta property="og:url" content="https://morphazoid.com/loop-soup.html" />
     <meta property="og:image" content="https://morphazoid.com/assets/social/morphazoid-card-20260917.png" />
     <meta property="og:image:secure_url" content="https://morphazoid.com/assets/social/morphazoid-card-20260917.png" />
@@ -16,20 +16,21 @@
     <meta property="og:image:alt" content="Morphazoid geometric wireframe logo on a dark background." />
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="Loop Soup · Morphazoid" />
-    <meta name="twitter:description" content="Three persistent tape loops retain and mix their contents. Hold stops writing, overdub adds sound, and a brush selectively erases the tapes." />
+    <meta name="twitter:description" content="Up to eight independently controlled loops with center recording, play/pause, mute, solo, hold, and editable directed audio feeds with send level and tone controls." />
     <meta name="twitter:image" content="https://morphazoid.com/assets/social/morphazoid-card-20260917.png" />
     <meta name="twitter:image:alt" content="Morphazoid geometric wireframe logo on a dark background." />
     <link rel="image_src" href="https://morphazoid.com/assets/social/morphazoid-card-20260917.png" />
     <!-- morphazoid-social-preview:end -->
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <meta name="description" content="Three persistent tape loops retain and mix their contents. Hold stops writing, overdub adds sound, and a brush selectively erases the tapes." />
+  <meta name="description" content="Up to eight independently controlled loops with center recording, play/pause, mute, solo, hold, and editable directed audio feeds with send level and tone controls." />
   <meta name="theme-color" content="#080e16" />
   <title>Loop Soup · Morphazoid</title>
   <link rel="icon" href="favicon.svg" type="image/svg+xml" />
   <link rel="stylesheet" href="style.css" />
   <link rel="stylesheet" href="starting-instruments.css" />
+  <link rel="stylesheet" href="loop-network.css" />
 </head>
-<body class="starting-instrument" data-starting-instrument="loop-soup" style="--accent:#eca6bd">
+<body class="starting-instrument loop-network-page" data-starting-instrument="loop-soup" style="--accent:#eca6bd">
   <header class="masthead">
     <a class="wordmark" href="./" aria-label="Morphazoid home"><span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span><span>morphazoid</span></a>
     <nav class="tabs" aria-label="Instrument"><a class="tab active" href="loop-soup.html" aria-current="page">Loop Soup</a><a class="tab" href="lumber.html">Lumber Loops</a></nav>
@@ -37,16 +38,16 @@
     <div id="audioSlot" class="audio-strip" aria-label="Audio controls"><button id="audioButton" class="audio-button" type="button" aria-pressed="false" disabled>Audio off · enable JavaScript</button></div>
   </header>
   <main class="starting-shell">
-    <section class="starting-stage" aria-label="Loop Soup instrument">
-      <header class="starting-title"><h1>Loop Soup</h1><p>leave something in the pot</p></header>
-      <div class="stage-wrap" id="stageWrap"><canvas id="stage" role="img" tabindex="0" aria-label="Three persistent tape loops retain and mix their contents. Hold stops writing, overdub adds sound, and a brush selectively erases the tapes." aria-describedby="canvasInstructions modelStatus">Use the labelled controls below to play this instrument.</canvas></div>
-      <p class="starting-hint" id="canvasInstructions">Click a bowl to select it. Enable Erase brush and drag around its tape to remove sound. <a href="#howItWorks">How to play / keys</a></p>
+    <section class="starting-stage network-stage" aria-label="Loop Soup instrument">
+      <header class="starting-title"><h1>Loop Soup</h1><p>lettered loops · editable audio routes</p></header>
+      <div class="network-viewport" id="networkViewport" tabindex="0" role="region" aria-label="Scrollable loop network" aria-describedby="canvasInstructions"><div id="stage"><div id="networkSurface" class="network-surface"></div></div></div>
+      <p class="starting-hint" id="canvasInstructions">● record · ▶/Ⅱ play/pause · M mute · S solo. Drag a letter to move its loop. The bent-arrow icon attaches an audio feed; scroll to reach other loops. <a href="#howItWorks">How to play / keys</a></p>
     </section>
     <aside class="starting-controls" aria-label="Loop Soup controls">
       <section class="group">
         <div class="transport-row"><button id="playButton" type="button" aria-pressed="false" data-primary-transport>Play</button><button id="resetButton" class="mini-action" type="button" data-reset-all data-reset-in-place>Reset controls</button></div>
         <label class="field-label" for="preset">Starting point<select id="preset" aria-label="Starting point"></select></label>
-        <p id="presetHint" class="starting-note">Moderate retention with a small amount of spill and a fresh pluck.</p>
+        <p id="presetHint" class="starting-note">Moderate retention, low route level and demo input.</p>
         <div id="modelStatus" role="status">Ready · Audio off</div>
         <p id="liveStatus" role="status" aria-live="polite">Turn Audio on, then Play. No microphone is required for the demo.</p>
         <p id="actionStatus" class="starting-note">Temporary audio: leaving or reloading this page discards it.</p>
@@ -54,30 +55,30 @@
       </section>
       <section class="group" aria-label="Instrument parameters"><label class="control" for="retention">
     <span><b>Retain each pass</b><output id="retentionOut" for="retention">87%</output></span>
-    <input id="retention" type="range" min="0" max="1" step="0.01" value="0.87" aria-describedby="retentionHelp" title="Old audio kept per pass before saturation. 100% is not exact freeze: use Hold for that." />
+    <input id="retention" type="range" min="0" max="1" step="0.01" value="0.87" aria-describedby="retentionHelp" title="Retained audio per overdub pass, before saturation. Use Hold, not 100% retention, for exact freeze." />
   </label>
 <label class="control" for="feed">
-    <span><b>New ingredient</b><output id="feedOut" for="feed">38%</output></span>
-    <input id="feed" type="range" min="0" max="0.9" step="0.01" value="0.38" aria-describedby="feedHelp" title="Amount of demo or microphone input written into every overdubbing bowl. Does not change the volume of existing tape." />
+    <span><b>Input write level</b><output id="feedOut" for="feed">38%</output></span>
+    <input id="feed" type="range" min="0" max="0.9" step="0.01" value="0.38" aria-describedby="feedHelp" title="Level of microphone/demo input written into every unpaused Write loop. Zero disables new input writing without muting the existing tapes." />
   </label>
 <label class="control" for="spill">
-    <span><b>Spill into next bowl</b><output id="spillOut" for="spill">18%</output></span>
-    <input id="spill" type="range" min="0" max="0.7" step="0.01" value="0.18" aria-describedby="spillHelp" title="Amount of the previous bowl's playback written into each overdubbing bowl. Hold blocks incoming spill." />
+    <span><b>Route write level</b><output id="spillOut" for="spill">18%</output></span>
+    <input id="spill" type="range" min="0" max="0.7" step="0.01" value="0.18" aria-describedby="spillHelp" title="Scales all route sends into Write loops. Individual routes also have send level and tone. Hold or Pause blocks writing to a destination." />
   </label></section>
       <section class="group" aria-label="Direct actions"><div class="starting-selectors" id="selectors" role="group" aria-label="Selected object"></div><div class="starting-tools" id="instrumentTools"></div></section>
       <details class="starting-guide" id="howItWorks">
         <summary>How it works / listening exercise</summary>
-        <h2>Try this first</h2><p>Enable Audio and Play. Hold Bowl 1 while the other tapes keep changing. Turn the demo ingredient off, then try the erase brush on the held bowl.</p>
-        <h2>What you hear</h2><p>Three loops play together, panned across the stereo field. A synthesized pluck is the optional new ingredient; microphone input can replace it.</p>
-        <h2>What the picture means</h2><p>Contours show stored amplitude, cream dots show read/write positions, and arrows show spill direction. Density indicates recorded level, not the count of layers. The selected bowl has a thicker outline.</p>
-        <h2>The mechanism</h2><p>The fixed loops last 0.75, 1.2, and 1.8 seconds. Each overdub pass mixes retained samples, new input, and spill from the previous bowl, with soft saturation. Spill travels 1 → 2 → 3 → 1. Hold stops all writing to that bowl but keeps its playback audible.</p>
-        <h2>Controls</h2><dl><dt>Retain each pass</dt><dd id="retentionHelp">Old audio kept per pass before saturation. 100% is not exact freeze: use Hold for that.</dd><dt>New ingredient</dt><dd id="feedHelp">Amount of demo or microphone input written into every overdubbing bowl. Does not change the volume of existing tape.</dd><dt>Spill into next bowl</dt><dd id="spillHelp">Amount of the previous bowl's playback written into each overdubbing bowl. Hold blocks incoming spill.</dd></dl>
-        <h2>Pause, reset, and memory</h2><p>Pause stops tape motion and overdubbing. Audio Off mutes and closes the mic, but running overdubs still evolve from stored audio and the demo source. Hold preserves samples exactly; 100% retention alone still passes through saturation. Erased regions can refill unless their bowl is held. Reloading loses all tape contents.</p>
+        <h2>Try this first</h2><p>Enable Audio and Play. Hold A using its grid-shaped hold icon, add empty loop D, then use the bent-arrow icon on A and click D to feed it. M mutes, S solos, and the red circle records. Select the route to adjust send level and tone.</p>
+        <h2>What you hear</h2><p>Lettered loops play simultaneously. The demo signal or microphone can be written into loops in Write mode. Directed routes also write filtered audio from source loops into destinations.</p>
+        <h2>What the picture means</h2><p>A, B, C… are stable labels, not renumbered when a loop is removed. Drag a letter to move its loop. The opaque disc contains compact play/pause, record, M and S controls. Hover for full labels. The line arrow points to the destination; its button opens Route controls. The dot is the loop's read/write position and the contour shows stored amplitude.</p>
+        <h2>The mechanism</h2><p>Each route has its own send level, low-pass tone and enable switch. Route write level scales all routes. Hold stops writing without stopping playback. Pause stops the selected loop's playback and writing. Solo isolates monitoring without changing the network's feeds; Mute also closes outgoing sends. All feedback is softly saturated and bounded.</p>
+        <h2>Controls</h2><dl><dt>Retain each pass</dt><dd id="retentionHelp">Retained audio per overdub pass, before saturation. Use Hold, not 100% retention, for exact freeze.</dd><dt>Input write level</dt><dd id="feedHelp">Level of microphone/demo input written into every unpaused Write loop. Zero disables new input writing without muting the existing tapes.</dd><dt>Route write level</dt><dd id="spillHelp">Scales all route sends into Write loops. Individual routes also have send level and tone. Hold or Pause blocks writing to a destination.</dd></dl>
+        <h2>Pause, reset, and memory</h2><p>Record in a loop's center captures a replacement of the duration you perform, then puts that loop in Hold. Write resumes overdubbing. Pause inside the recording loop pauses capture; Stop installs it. Global Pause stops loop playback and overdubbing, not capture. Audio Off finalizes capture and closes the mic, but running Write loops still evolve from demo/audio feeds. Hold protects samples exactly. Moving or editing routes never clears audio. Removing a loop deletes it and its routes. Reloading loses unsaved recordings.</p>
         <p>Audio Off is mute, not Pause. It closes owned microphone tracks but retains transport. Monitor can pass live microphone audio while paused until you turn it off.</p>
-        <h2>Keyboard</h2><p>Focus the stage. Left/right selects a bowl; Enter or 1–3 toggles Hold/Overdub. With Erase brush enabled, up/down erases at that bowl's current head. Space toggles Play.</p>
-        <h2>What this demo does not do</h2><p class="starting-limit">Three fixed tapes with fixed read/write motion. You cannot add or reposition heads, resize loops, draw new connections, or infer a graph. There is no file import or audio export.</p>
+        <h2>Keyboard</h2><p>Tab to a loop letter; arrow keys move it. All center controls are native keyboard buttons. From/To and Attach route connect without dragging. The selected-loop controls expose level and pan. Scroll the workspace to reach every loop. Escape cancels connecting or the erase brush.</p>
+        <h2>What this demo does not do</h2><p class="starting-limit">Up to eight loops, 24 routes, and one 12-second microphone capture at a time. Routes carry audio, not travelling heads. No automatic recording-to-graph analysis. No self routes or duplicate endpoint pairs.</p>
       </details>
-      <details><summary>About this starting instrument</summary><p>A bounded digital tape network. Hold preserves samples exactly; overdub is softly saturated. Memory is local to this page.</p><p>Presets change parameters, not capabilities. Reset controls keeps recordings and learned routes. Demo material is synthesized locally.</p><a href="docs/starting-instruments.md">Model and limitations</a></details>
+      <details><summary>About this starting instrument</summary><p>A bounded editable tape network. Hold preserves samples; Write enables saturated overdubbing. Memory is page-local and disappears on reload.</p><p>Presets change parameters, not capabilities. Reset controls keeps recordings and learned routes. Demo material is synthesized locally.</p><a href="docs/starting-instruments.md">Model and limitations</a></details>
       <nav class="starting-family" aria-label="Other starting instruments"><a href="tempo-tantrum.html">Tempo Tantrum</a>
 <a href="tape-worm.html">Tape Worm</a>
 <a href="loop-soup.html" aria-current="page">Loop Soup</a>
@@ -86,7 +87,7 @@
       <noscript><p>This instrument needs JavaScript. Audio and microphone start off.</p></noscript>
     </aside>
   </main>
-  <script type="module" src="starting-instruments-app.js"></script>
+  <script type="module" src="loop-network-app.js"></script>
   <script type="module" src="nav.js"></script>
 </body>
 </html>

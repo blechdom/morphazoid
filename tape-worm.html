@@ -6,7 +6,7 @@
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="Morphazoid" />
     <meta property="og:title" content="Tape Worm · Morphazoid" />
-    <meta property="og:description" content="One playback head crosses between two intact recordings at an editable splice. The source recordings are never overwritten by traversal." />
+    <meta property="og:description" content="An editable network of up to eight recorded loops: record in each center, drag loops, attach directed playback-head routes, and set independent exit, entry, and crossfade parameters." />
     <meta property="og:url" content="https://morphazoid.com/tape-worm.html" />
     <meta property="og:image" content="https://morphazoid.com/assets/social/morphazoid-card-20260917.png" />
     <meta property="og:image:secure_url" content="https://morphazoid.com/assets/social/morphazoid-card-20260917.png" />
@@ -16,20 +16,21 @@
     <meta property="og:image:alt" content="Morphazoid geometric wireframe logo on a dark background." />
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="Tape Worm · Morphazoid" />
-    <meta name="twitter:description" content="One playback head crosses between two intact recordings at an editable splice. The source recordings are never overwritten by traversal." />
+    <meta name="twitter:description" content="An editable network of up to eight recorded loops: record in each center, drag loops, attach directed playback-head routes, and set independent exit, entry, and crossfade parameters." />
     <meta name="twitter:image" content="https://morphazoid.com/assets/social/morphazoid-card-20260917.png" />
     <meta name="twitter:image:alt" content="Morphazoid geometric wireframe logo on a dark background." />
     <link rel="image_src" href="https://morphazoid.com/assets/social/morphazoid-card-20260917.png" />
     <!-- morphazoid-social-preview:end -->
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <meta name="description" content="One playback head crosses between two intact recordings at an editable splice. The source recordings are never overwritten by traversal." />
+  <meta name="description" content="An editable network of up to eight recorded loops: record in each center, drag loops, attach directed playback-head routes, and set independent exit, entry, and crossfade parameters." />
   <meta name="theme-color" content="#080e16" />
   <title>Tape Worm · Morphazoid</title>
   <link rel="icon" href="favicon.svg" type="image/svg+xml" />
   <link rel="stylesheet" href="style.css" />
   <link rel="stylesheet" href="starting-instruments.css" />
+  <link rel="stylesheet" href="loop-network.css" />
 </head>
-<body class="starting-instrument" data-starting-instrument="tape-worm" style="--accent:#a4ddba">
+<body class="starting-instrument loop-network-page" data-starting-instrument="tape-worm" style="--accent:#a4ddba">
   <header class="masthead">
     <a class="wordmark" href="./" aria-label="Morphazoid home"><span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span><span>morphazoid</span></a>
     <nav class="tabs" aria-label="Instrument"><a class="tab active" href="tape-worm.html" aria-current="page">Tape Worm</a><a class="tab" href="lumber.html">Lumber Loops</a></nav>
@@ -37,16 +38,16 @@
     <div id="audioSlot" class="audio-strip" aria-label="Audio controls"><button id="audioButton" class="audio-button" type="button" aria-pressed="false" disabled>Audio off · enable JavaScript</button></div>
   </header>
   <main class="starting-shell">
-    <section class="starting-stage" aria-label="Tape Worm instrument">
-      <header class="starting-title"><h1>Tape Worm</h1><p>one reader, unexpected continuations</p></header>
-      <div class="stage-wrap" id="stageWrap"><canvas id="stage" role="img" tabindex="0" aria-label="One playback head crosses between two intact recordings at an editable splice. The source recordings are never overwritten by traversal." aria-describedby="canvasInstructions modelStatus">Use the labelled controls below to play this instrument.</canvas></div>
-      <p class="starting-hint" id="canvasInstructions">Drag round OUT or diamond IN gates; both tapes share the gate settings. Click a tape to move the reader. <a href="#howItWorks">How to play / keys</a></p>
+    <section class="starting-stage network-stage" aria-label="Tape Worm instrument">
+      <header class="starting-title"><h1>Tape Worm</h1><p>record loops · connect their continuations</p></header>
+      <div class="network-viewport" id="networkViewport" tabindex="0" role="region" aria-label="Scrollable loop network" aria-describedby="canvasInstructions"><div id="stage"><div id="networkSurface" class="network-surface"></div></div></div>
+      <p class="starting-hint" id="canvasInstructions">● record · ▶/Ⅱ play/pause · M mute · S solo. Drag a letter to move its loop. Use the bent-arrow icon, then a destination letter, to connect. <a href="#howItWorks">How to play / keys</a></p>
     </section>
     <aside class="starting-controls" aria-label="Tape Worm controls">
       <section class="group">
         <div class="transport-row"><button id="playButton" type="button" aria-pressed="false" data-primary-transport>Play</button><button id="resetButton" class="mini-action" type="button" data-reset-all data-reset-in-place>Reset controls</button></div>
         <label class="field-label" for="preset">Starting point<select id="preset" aria-label="Starting point"></select></label>
-        <p id="presetHint" class="starting-note">Leaves at 72%, arrives at 8%, at original speed. The two demo phrases alternate.</p>
+        <p id="presetHint" class="starting-note">Original-speed default gate positions. Existing loops and routes remain intact.</p>
         <div id="modelStatus" role="status">Ready · Audio off</div>
         <p id="liveStatus" role="status" aria-live="polite">Turn Audio on, then Play. No microphone is required for the demo.</p>
         <p id="actionStatus" class="starting-note">Temporary audio: leaving or reloading this page discards it.</p>
@@ -54,30 +55,30 @@
       </section>
       <section class="group" aria-label="Instrument parameters"><label class="control" for="speed">
     <span><b>Tape speed</b><output id="speedOut" for="speed">1.00×</output></span>
-    <input id="speed" type="range" min="0.25" max="2" step="0.01" value="1" aria-describedby="speedHelp" title="1× is original pitch and duration. 0.5× is twice as long and one octave lower; 2× is half as long and one octave higher." />
+    <input id="speed" type="range" min="0.25" max="2" step="0.01" value="1" aria-describedby="speedHelp" title="Varispeed: 0.5× doubles duration and lowers pitch by one octave; 2× halves duration and raises pitch." />
   </label>
 <label class="control" for="departure">
-    <span><b>Leave at</b><output id="departureOut" for="departure">72%</output></span>
-    <input id="departure" type="range" min="0.05" max="0.95" step="0.01" value="0.72" aria-describedby="departureHelp" title="Shared departure position on both recordings, measured clockwise from the top. Drag either round OUT gate." />
+    <span><b>All route exits</b><output id="departureOut" for="departure">72%</output></span>
+    <input id="departure" type="range" min="0.02" max="0.98" step="0.01" value="0.72" aria-describedby="departureHelp" title="Sets the exit position of ALL existing routes. To edit only one route use its OUT gate or Route controls." />
   </label>
 <label class="control" for="landing">
-    <span><b>Arrive at</b><output id="landingOut" for="landing">8%</output></span>
-    <input id="landing" type="range" min="0" max="0.85" step="0.01" value="0.08" aria-describedby="landingHelp" title="Shared arrival position in the other recording. Drag either diamond IN gate. If it is beyond OUT, the head wraps around before leaving." />
+    <span><b>All route entries</b><output id="landingOut" for="landing">8%</output></span>
+    <input id="landing" type="range" min="0" max="0.95" step="0.01" value="0.08" aria-describedby="landingHelp" title="Sets the entry position of ALL existing routes. To edit only one route use its IN gate or Route controls." />
   </label></section>
       <section class="group" aria-label="Direct actions"><div class="starting-selectors" id="selectors" role="group" aria-label="Selected object"></div><div class="starting-tools" id="instrumentTools"></div></section>
       <details class="starting-guide" id="howItWorks">
         <summary>How it works / listening exercise</summary>
-        <h2>Try this first</h2><p>Enable Audio and Play to hear the two demo phrases. Drag a round OUT gate to change where the worm leaves; drag a diamond IN gate to change where it arrives.</p>
-        <h2>What you hear</h2><p>One reader plays a single tape at a time. At the OUT gate it crossfades into the other tape's IN position. Tape A leans left; Tape B leans right.</p>
-        <h2>What the picture means</h2><p>The cream worm is the playback head. Colored contours show recorded amplitude. Round OUT gates are departures; diamond IN gates are arrivals. Dashed arrows show cross-tape routes, not editable graph edges.</p>
-        <h2>The mechanism</h2><p>Both tapes share the Leave at and Arrive at percentages. With splices bypassed, the current tape loops by itself—not both tapes together. Tape speed changes both duration and pitch. Moving a gate never edits the recording.</p>
-        <h2>Controls</h2><dl><dt>Tape speed</dt><dd id="speedHelp">1× is original pitch and duration. 0.5× is twice as long and one octave lower; 2× is half as long and one octave higher.</dd><dt>Leave at</dt><dd id="departureHelp">Shared departure position on both recordings, measured clockwise from the top. Drag either round OUT gate.</dd><dt>Arrive at</dt><dd id="landingHelp">Shared arrival position in the other recording. Drag either diamond IN gate. If it is beyond OUT, the head wraps around before leaving.</dd></dl>
-        <h2>Pause, reset, and memory</h2><p>Choose Tape A/B before replacing it with a file or recording. Capture is limited to 12 seconds; Pause affects playback, not an active capture. Stop recording or Audio Off finishes capture. Reloading or leaving this page loses the recordings; there is no audio export yet.</p>
+        <h2>Try this first</h2><p>Enable Audio and Play the demo. The red circle in A records your microphone. M mutes, S solos, and the triangle/pause icon starts or pauses the loop. Add a loop, then use the bent-arrow icon and a destination letter to connect.</p>
+        <h2>What you hear</h2><p>One reader plays a single tape at a time. At an enabled OUT gate it crossfades into the destination IN position. Each loop has its own output level and pan.</p>
+        <h2>What the picture means</h2><p>Letters are persistent loop names and drag handles. Round OUT and IN buttons are editable route gates. Arrow labels select route controls. The cream dot is the reader. Moving a letter changes layout only, never tape timing or recorded samples.</p>
+        <h2>The mechanism</h2><p>Routes have independent exit, entry, crossfade and enable settings. The earliest eligible exit wins. If exits coincide, the reader alternates them in stable order. Paused destination loops are skipped. With no eligible route the current tape loops locally.</p>
+        <h2>Controls</h2><dl><dt>Tape speed</dt><dd id="speedHelp">Varispeed: 0.5× doubles duration and lowers pitch by one octave; 2× halves duration and raises pitch.</dd><dt>All route exits</dt><dd id="departureHelp">Sets the exit position of ALL existing routes. To edit only one route use its OUT gate or Route controls.</dd><dt>All route entries</dt><dd id="landingHelp">Sets the entry position of ALL existing routes. To edit only one route use its IN gate or Route controls.</dd></dl>
+        <h2>Pause, reset, and memory</h2><p>The red circle captures a replacement take, retaining the old tape until the red stop square is pressed. Short takes keep the old recording. Pause inside that loop pauses its reader and capture. Global Pause stops playback but does not stop capture. M and S affect listening, not the reader's route. Audio Off finalizes capture and releases the mic. Added loops are empty and linked after the last loop. Removing a loop deletes only its audio and attached routes. Reloading loses unsaved recordings.</p>
         <p>Audio Off is mute, not Pause. It closes owned microphone tracks but retains transport. Monitor can pass live microphone audio while paused until you turn it off.</p>
-        <h2>Keyboard</h2><p>Focus the stage. Left/right selects A/B; Enter or 1–2 puts the reader at that tape's start. Up/down moves the shared OUT gates. Arrive at has its own slider. Space toggles Play.</p>
-        <h2>What this demo does not do</h2><p class="starting-limit">Exactly two mono recordings and one reader. No added play heads, moving record heads, free graph layout, onset detection, or automatic graph construction.</p>
+        <h2>Keyboard</h2><p>Tab to each loop's letter; arrow keys move it (Shift moves faster). Native center buttons control recording, pause, mute, solo and reader placement. Use From/To and Attach route for keyboard connections. On the scrollable workspace, 1–8 selects a loop and Enter moves the reader there. Space controls global Play.</p>
+        <h2>What this demo does not do</h2><p class="starting-limit">One reader, up to eight loops and 24 directed routes. Capture is one microphone recording at a time, up to 12 seconds. No automatic phrase analysis or graph generation. Two routes with identical endpoints are not duplicated; no self routes.</p>
       </details>
-      <details><summary>About this starting instrument</summary><p>Working title. Two original synthetic phrases are preloaded. Recordings stay in this page's memory; reloading discards them.</p><p>Presets change parameters, not capabilities. Reset controls keeps recordings and learned routes. Demo material is synthesized locally.</p><a href="docs/starting-instruments.md">Model and limitations</a></details>
+      <details><summary>About this starting instrument</summary><p>Up to eight mono tapes and 24 routes. One playback head transfers between tapes. Recordings are page-local and disappear on reload; no automatic graph analysis.</p><p>Presets change parameters, not capabilities. Reset controls keeps recordings and learned routes. Demo material is synthesized locally.</p><a href="docs/starting-instruments.md">Model and limitations</a></details>
       <nav class="starting-family" aria-label="Other starting instruments"><a href="tempo-tantrum.html">Tempo Tantrum</a>
 <a href="tape-worm.html" aria-current="page">Tape Worm</a>
 <a href="loop-soup.html">Loop Soup</a>
@@ -86,7 +87,7 @@
       <noscript><p>This instrument needs JavaScript. Audio and microphone start off.</p></noscript>
     </aside>
   </main>
-  <script type="module" src="starting-instruments-app.js"></script>
+  <script type="module" src="loop-network-app.js"></script>
   <script type="module" src="nav.js"></script>
 </body>
 </html>

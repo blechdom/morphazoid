@@ -99,7 +99,7 @@ test("Tape: splicing changes route, never source bytes; bypass and recording hav
 
 test("Soup: Hold is exact, overdub changes material, local erasure works, extremes stay bounded", () => {
   const c = new LoopSoup(12000); c.playing = true;
-  c.modes = ["hold", "hold", "hold"];
+  for (let i = 0; i < 3; i++) c.command({ type: "mode", index: i, value: "hold" });
   const original = c.buffers.map((b) => Float32Array.from(b));
   run(c, 3, () => 0.8);
   assert.deepEqual(c.buffers, original);
@@ -109,7 +109,8 @@ test("Soup: Hold is exact, overdub changes material, local erasure works, extrem
   assert.deepEqual(c.buffers[1], original[1]);
   c.command({ type: "erase", index: 0, phase: 0.5 });
   assert.equal(c.buffers[0][Math.floor(c.buffers[0].length * 0.5)], 0);
-  c.set({ retention: 1, spill: 0.7, feed: 0.9 }); c.modes.fill("overdub");
+  c.set({ retention: 1, spill: 0.7, feed: 0.9 });
+  for (let i = 0; i < 3; i++) c.command({ type: "mode", index: i, value: "overdub" });
   run(c, 5, () => 50);
   for (const buffer of c.buffers) assert.ok(buffer.every((v) => Math.abs(v) <= 0.901));
   const memory = c.buffers.map((b) => Float32Array.from(b));
@@ -161,8 +162,9 @@ test("all five entries are authored, classified, and use real WebP icons", async
     assert.ok(html.includes('data-primary-transport'));
     assert.ok(html.includes('data-reset-all'));
     assert.ok(html.includes('tabindex="0"'));
-    assert.ok(html.includes('starting-instruments-app.js'));
-    assert.ok(html.includes('aria-describedby="canvasInstructions modelStatus"'));
+    const network = ["tape-worm", "loop-soup"].includes(id);
+    assert.ok(html.includes(network ? "loop-network-app.js" : "starting-instruments-app.js"));
+    assert.ok(html.includes(network ? 'aria-label="Scrollable loop network"' : 'aria-describedby="canvasInstructions modelStatus"'));
     assert.ok(html.includes('og:image'));
     const help = INSTRUMENT_HELP[id];
     assert.ok(html.includes('id="howItWorks"'));

@@ -1,5 +1,10 @@
 # Starting-instrument review — September 18, 2026
 
+**Later September 18 update:** Tape Worm and Loop Soup now use editable
+multi-loop network engines and native in-loop controls. See
+[loop-network QA](loop-networks-qa.md) for the current tests. The fixed-loop
+limits and counts below describe the earlier, published five-demo checkpoint.
+
 Source worktree: `/home/blechdom/creative/morphazoid`, local `main`, based on
 `a17d7b5`. This report records the pre-publication acceptance checks for the
 five demos and their September 18 clarity review.
