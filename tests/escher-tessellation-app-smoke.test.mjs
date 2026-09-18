@@ -357,7 +357,7 @@ test("Escher app renders, responds to every input path, and cleans up", async (t
     EscherPerformanceAudio.prototype.configure = originalConfigure;
   });
 
-  await import(`../escher-tessellation-app.js?smoke=${Date.now()}`);
+  await import(`../src/instruments/escher-tessellation/escher-tessellation-app.js?smoke=${Date.now()}`);
 
   assert.ok(renderSnapshots.length >= 1, "initialization should paint a complete frame");
   assert.ok(fills > 10, "the initial tessellation should fill its tiles");

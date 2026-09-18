@@ -213,7 +213,7 @@ test("Rubix WebGPU 303 patterns follow read order, tempo, visibility, and safe s
 test("Rubix exposes Web Audio/WebGPU 303 choice and tears the GPU engine down safely", async () => {
   const [html, app] = await Promise.all([
     readFile(new URL("rubix.html", root), "utf8"),
-    readFile(new URL("rubix-app.js", root), "utf8"),
+    readFile(new URL("src/instruments/rubix/rubix-app.js", root), "utf8"),
   ]);
 
   const acidEngine = html.match(/<select\b[^>]*\bid="acidEngine"[^>]*>[\s\S]*?<\/select>/)?.[0];

@@ -366,7 +366,7 @@ test("Spelling Synthesizer sustains held vowels, joins pairs, and resumes local 
   };
   globalThis.setTimeout = fakeSetTimeout;
 
-  await import(`../spelling-synthesizer-app.js?smoke=${Date.now()}`);
+  await import(`../src/instruments/spelling-synthesizer/spelling-synthesizer-app.js?smoke=${Date.now()}`);
 
   assert.equal(audioContextConstructions, 0, "module load must not construct Web Audio");
   assert.equal(playbackStarts, 0, "module load must not start any fake audio source");

@@ -4,6 +4,7 @@ import test from "node:test";
 
 import { canvasSizing } from "../src/graphics/canvas-sizing.js";
 import { runCanvasResize } from "./helpers/canvas-resize-harness.mjs";
+import { currentSourcePath } from "./helpers/relocated-sources.mjs";
 
 const reference = JSON.parse(await readFile(new URL("./fixtures/canvas-resize-variants-v1.json", import.meta.url)));
 const dimensions = [
@@ -13,7 +14,7 @@ const dimensions = [
 const ratios = [undefined, 0, -1, 0.5, 1, 1.25, 2, 3, Infinity, Number.NaN];
 
 for (const entry of reference.entries) {
-  const current = await readFile(new URL(`../${entry.file}`, import.meta.url), "utf8");
+  const current = await readFile(new URL(`../${currentSourcePath(entry.file)}`, import.meta.url), "utf8");
   // Respect the function's indentation, including nested graph controllers.
   const callback = current.match(/(^[ \t]*)function resizeCanvas\(\) \{[\s\S]*?\n\1\}/m)?.[0].trimStart();
   assert.ok(callback, `${entry.file} callback must exist`);

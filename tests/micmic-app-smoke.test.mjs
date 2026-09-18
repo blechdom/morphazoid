@@ -279,7 +279,7 @@ test("L-system Delay renders and drives a recursive microphone graph", async () 
       },
     },
   });
-  await import(`../micmic-app.js?smoke=${Date.now()}`);
+  await import(`../src/instruments/micmic/micmic-app.js?smoke=${Date.now()}`);
   assert.equal(typeof queuedFrame, "function");
   queuedFrame(performance.now() + 120);
 

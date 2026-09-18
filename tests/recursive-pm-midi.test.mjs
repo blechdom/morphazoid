@@ -558,8 +558,8 @@ test("Recursive PM worklet glides linearly in semitones for the exact duration",
 test("Recursive PM uses shared header MIDI and keeps foreground live analysis", async () => {
   const [html, app, css, engineSource] = await Promise.all([
     readFile(new URL("../recursive-pm.html", import.meta.url), "utf8"),
-    readFile(new URL("../recursive-pm-app.js", import.meta.url), "utf8"),
-    readFile(new URL("../recursive-pm.css", import.meta.url), "utf8"),
+    readFile(new URL("../src/instruments/recursive-pm/recursive-pm-app.js", import.meta.url), "utf8"),
+    readFile(new URL("../src/instruments/recursive-pm/recursive-pm.css", import.meta.url), "utf8"),
     readFile(new URL("../src/recursive-pm.js", import.meta.url), "utf8"),
   ]);
   assert.doesNotMatch(html, /id="midiButton"|id="midiState"|id="midiError"/);

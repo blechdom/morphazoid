@@ -11,7 +11,7 @@
     <title>Plasma Ball — Morphazoid</title>
     <link rel="icon" href="favicon.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="style.css" />
-    <link rel="stylesheet" href="plasma-ball.css" />
+    <link rel="stylesheet" href="src/instruments/plasma-ball/plasma-ball.css" />
   </head>
   <body class="plasma-ball-page">
     <header class="masthead">
@@ -21,13 +21,13 @@
       </a>
 
       <nav class="tabs" aria-label="Instrument">
-        <a class="tab" href="shape.html">shape</a>
+        <a class="tab" href="shape-synth.html">shape</a>
         <a class="tab active" href="plasma-ball.html" aria-current="page">plasma ball</a>
       </nav>
       <label class="mobile-instrument-nav">
         <span class="sr-only">Instrument</span>
         <select class="mobile-instrument-select" aria-label="Instrument">
-          <option value="shape.html">shape</option>
+          <option value="shape-synth.html">shape</option>
           <option value="plasma-ball.html" selected>plasma ball</option>
         </select>
       </label>
@@ -182,6 +182,6 @@
     </main>
 
     <script type="module" src="nav.js"></script>
-    <script type="module" src="plasma-ball-app.js"></script>
+    <script type="module" src="src/instruments/plasma-ball/plasma-ball-app.js"></script>
   </body>
 </html>

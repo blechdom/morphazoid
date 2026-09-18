@@ -8,13 +8,13 @@ import { fingerprintSpiderSynth } from '../scripts/fingerprint-spider-synth.mjs'
 test('Spider releases keep worklet, motion, scan and rig metadata cache versions coherent', async () => {
   const root = await mkdtemp(path.join(os.tmpdir(), 'spider-release-'));
   try {
-    await mkdir(path.join(root, 'src')); await mkdir(path.join(root, 'assets/spider-synth'), { recursive: true });
+    await mkdir(path.join(root, 'src/instruments/spider-synth'), { recursive: true }); await mkdir(path.join(root, 'assets/spider-synth'), { recursive: true });
     const model = path.join(root, 'assets/spider-synth/spider-mobile.glb'), rig = path.join(root, 'assets/spider-synth/rig-manifest.json');
     await writeFile(model, new Uint8Array([1,2,3,4])); await writeFile(rig, '{"version":1}');
     const fixture = {
-      'spider-synth.html': '<link href="spider-synth.css"><script src="spider-synth-app.js"></script>',
-      'spider-synth.css': 'body { color: gold; }',
-      'spider-synth-app.js': "import './src/spider-synth-audio.js'; import './src/spider-synth-model.js'; import './src/spider-synth-viewer.js';",
+      'spider-synth.html': '<link href="src/instruments/spider-synth/spider-synth.css"><script src="src/instruments/spider-synth/spider-synth-app.js"></script>',
+      "src/instruments/spider-synth/spider-synth.css": 'body { color: gold; }',
+      "src/instruments/spider-synth/spider-synth-app.js": "import '../../spider-synth-audio.js'; import '../../spider-synth-model.js'; import '../../spider-synth-viewer.js';",
       'src/spider-synth-viewer.js': "new URL('../assets/spider-synth/spider-mobile.glb', import.meta.url); new URL('../assets/spider-synth/rig-manifest.json', import.meta.url);",
       'src/spider-synth-audio.js': "new URL('./spider-synth-processor.js', import.meta.url);",
       'src/spider-synth-processor.js': "import './spider-synth-dsp.js';",
@@ -34,7 +34,7 @@ test('Spider releases keep worklet, motion, scan and rig metadata cache versions
     const first = await fingerprintSpiderSynth(root); assert.deepEqual(await fingerprintSpiderSynth(root), first);
     await writeFile(path.join(root, 'src/spider-synth-model.js'), 'export const beat = 2;');
     const next = await fingerprintSpiderSynth(root); assert.notEqual(next.version, first.version); assert.equal(next.modelVersion, first.modelVersion); assert.equal(next.rigVersion, first.rigVersion);
-    for (const name of ['spider-synth.html', 'spider-synth-app.js', 'src/spider-synth-audio.js', 'src/spider-synth-dsp.js']) {
+    for (const name of ['spider-synth.html', "src/instruments/spider-synth/spider-synth-app.js", 'src/spider-synth-audio.js', 'src/spider-synth-dsp.js']) {
       const source = await readFile(path.join(root, name), 'utf8'); assert.ok(source.includes(`?v=${next.version}`)); assert.ok(!source.includes(`?v=${first.version}`));
     }
     await writeFile(rig, '{"version":2}'); const rigRelease = await fingerprintSpiderSynth(root);

@@ -694,18 +694,18 @@ test("finite preview notes leave the monitor's active set after their gate", asy
 test("exact geometry preview controls are excluded before shared navigation initializes", async () => {
   const pages = new Map(await Promise.all([
     "lattice.html",
-    "lattice-drums.html",
+    "lattice-drum-machine.html",
     "spiral.html",
-    "spiral-drums.html",
+    "spiral-drum-machine.html",
   ].map(async (file) => [
     file,
     await readFile(new URL(`../${file}`, import.meta.url), "utf8"),
   ])));
   const expectedIds = new Map([
     ["lattice.html", ["playButton", "position", "speed"]],
-    ["lattice-drums.html", ["playButton", "position", "speed"]],
+    ["lattice-drum-machine.html", ["playButton", "position", "speed"]],
     ["spiral.html", ["playButton", "loopPlayButton", "position", "speed", "loopPhase", "loopSpeed"]],
-    ["spiral-drums.html", ["playButton", "loopPlayButton", "position", "speed", "loopPhase", "loopSpeed"]],
+    ["spiral-drum-machine.html", ["playButton", "loopPlayButton", "position", "speed", "loopPhase", "loopSpeed"]],
   ]);
 
   for (const [file, ids] of expectedIds) {

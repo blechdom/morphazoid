@@ -1550,8 +1550,8 @@ test("the worklet renders silence, calls, finite surface breaths, and depth-limi
 test("the page, app, and styles expose the complete accessible physical-instrument contract", async () => {
   const [html, app, css, sharedCss, processor, model] = await Promise.all([
     readFile(new URL("blowhole.html", root), "utf8"),
-    readFile(new URL("blowhole-app.js", root), "utf8"),
-    readFile(new URL("blowhole.css", root), "utf8"),
+    readFile(new URL("src/instruments/blowhole/blowhole-app.js", root), "utf8"),
+    readFile(new URL("src/instruments/blowhole/blowhole.css", root), "utf8"),
     readFile(new URL("style.css", root), "utf8"),
     readFile(new URL("src/blowhole-processor.js", root), "utf8"),
     readFile(new URL("src/blowhole.js", root), "utf8"),
@@ -1671,7 +1671,7 @@ test("the page, app, and styles expose the complete accessible physical-instrume
   assert.match(html, /id="audioError" role="alert" hidden/);
   assert.match(html, /data-primary-transport/);
   assert.match(html, /data-reset-all data-reset-in-place/);
-  assert.match(html, /<script type="module" src="nav\.js"><\/script>[\s\S]*<script type="module" src="blowhole-app\.js"><\/script>/);
+  assert.match(html, /<script type="module" src="nav\.js"><\/script>[\s\S]*<script type="module" src="src\/instruments\/blowhole\/blowhole-app\.js"><\/script>/);
 
   assert.match(app, /new AudioWorkletNode\(context, "blowhole-physical-model"/);
   assert.match(app, /const startup = createAudioGraph\(\)/);
@@ -1792,7 +1792,7 @@ test("the page, app, and styles expose the complete accessible physical-instrume
 });
 
 test("Blowhole is integrated into the voice catalogue, navigation, and shared MIDI classification", () => {
-  const voiceGroup = TOOL_GROUPS.find(({ id }) => id === "voice-synths");
+  const voiceGroup = TOOL_GROUPS.find(({ id }) => id === "bioacoustic");
   const navigationEntry = voiceGroup?.tools.find(({ id }) => id === "blowhole");
   assert.deepEqual(navigationEntry, {
     id: "blowhole",

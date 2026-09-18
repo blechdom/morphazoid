@@ -477,7 +477,7 @@ test("Reset Tongue clears only current-call tongue automation and preserves host
     "Reset Tongue only clears automation on the selected call",
   );
 
-  const app = await readFile(new URL("syrinx-app.js", root), "utf8");
+  const app = await readFile(new URL("src/families/syrinx/syrinx-app.js", root), "utf8");
   const resetBody = standaloneFunctionBody(app, "resetTonguePerformance");
   assert.match(
     resetBody,
@@ -634,9 +634,9 @@ test("timeline modulation deterministically affects playback while keeping host 
 test("Hybrinx exposes accessible Add +, per-lane Mod, and independent two-axis zoom controls", async () => {
   const [html, css, timelineSource, app] = await Promise.all([
     readFile(new URL("hybrinx.html", root), "utf8"),
-    readFile(new URL("hybrinx.css", root), "utf8"),
+    readFile(new URL("src/instruments/hybrinx/hybrinx.css", root), "utf8"),
     readFile(new URL("src/hybrinx-timeline.js", root), "utf8"),
-    readFile(new URL("syrinx-app.js", root), "utf8"),
+    readFile(new URL("src/families/syrinx/syrinx-app.js", root), "utf8"),
   ]);
 
   const addButton = html.match(/<button\b[^>]*id="hybrinxTimelineAddParameter"[^>]*>[\s\S]*?<\/button>/i)?.[0] ?? "";
@@ -776,9 +776,9 @@ test("Hybrinx exposes accessible Add +, per-lane Mod, and independent two-axis z
 test("Hybrinx exposes tongue pattern clips as accessible timeline edits", async () => {
   const [html, css, timelineSource, app] = await Promise.all([
     readFile(new URL("hybrinx.html", root), "utf8"),
-    readFile(new URL("hybrinx.css", root), "utf8"),
+    readFile(new URL("src/instruments/hybrinx/hybrinx.css", root), "utf8"),
     readFile(new URL("src/hybrinx-timeline.js", root), "utf8"),
-    readFile(new URL("syrinx-app.js", root), "utf8"),
+    readFile(new URL("src/families/syrinx/syrinx-app.js", root), "utf8"),
   ]);
 
   assert.match(html, /Voice \+ tongue timeline/i);

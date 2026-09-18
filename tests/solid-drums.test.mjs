@@ -14,7 +14,7 @@ import {
   solidDrumSubdivisionCount,
   solidDrumSubdivisionMarkers,
   solidDrumVoiceIndex,
-} from "../src/solid-drums.js";
+} from "../src/instruments/solid-drum-machine/solid-drum-machine.js";
 import {
   buildSolid,
   deformSolid,
@@ -221,9 +221,9 @@ test("every Solid form resolves all drum mappings to the shared sixteen-voice ba
 test("Solid Drum Machine keeps Solid controls and excludes legacy synth panels", async () => {
   const root = new URL("../", import.meta.url);
   const [html, css, app] = await Promise.all([
-    readFile(new URL("solid-drums.html", root), "utf8"),
-    readFile(new URL("solid-drums.css", root), "utf8"),
-    readFile(new URL("solid-drums-app.js", root), "utf8"),
+    readFile(new URL("solid-drum-machine.html", root), "utf8"),
+    readFile(new URL("src/instruments/solid-drum-machine/solid-drum-machine.css", root), "utf8"),
+    readFile(new URL("src/instruments/solid-drum-machine/solid-drum-machine-app.js", root), "utf8"),
   ]);
   for (const id of [
     "stage",
@@ -259,7 +259,7 @@ test("Solid Drum Machine keeps Solid controls and excludes legacy synth panels",
   }
   assert.doesNotMatch(html, /<h1|subtitle|solid-drums-heading/);
   assert.doesNotMatch(html, /data-section="mapping" open/);
-  assert.match(html, /src="solid-drums-app\.js"/);
+  assert.match(html, /src="src\/instruments\/solid-drum-machine\/solid-drum-machine-app\.js"/);
   assert.match(
     html,
     /<b>Subdivisions \/ side<\/b>[\s\S]*?id="subdivisions"[\s\S]*?min="1"[\s\S]*?max="16"[\s\S]*?step="1"[\s\S]*?value="2"/,

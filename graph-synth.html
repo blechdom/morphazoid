@@ -8,18 +8,18 @@
     <title>Graph Synth — Morphazoid</title>
     <link rel="icon" href="favicon.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="style.css" />
-    <link rel="stylesheet" href="micmic.css" />
-    <link rel="stylesheet" href="graph-delay.css" />
-    <link rel="stylesheet" href="l-system-drums.css" />
-    <link rel="stylesheet" href="graph-instruments.css?v=graph-instruments-20260830-13" />
+    <link rel="stylesheet" href="src/instruments/micmic/micmic.css" />
+    <link rel="stylesheet" href="src/instruments/graph-delay/graph-delay.css" />
+    <link rel="stylesheet" href="src/instruments/l-system-drum-machine/l-system-drum-machine.css" />
+    <link rel="stylesheet" href="src/families/graph/graph-instruments.css?v=graph-instruments-20260830-13" />
   </head>
   <body class="micmic-page graph-delay-page graph-instrument-page graph-synth-page" data-graph-instrument="synth">
     <header class="masthead">
       <a class="wordmark" href="./" aria-label="Morphazoid home"><span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span><span>morphazoid</span></a>
       <nav class="tabs" aria-label="Instrument">
-        <a class="tab" href="shape.html">shape</a><a class="tab" href="lattice.html">lattice</a><a class="tab" href="spiral.html">spiral</a><a class="tab" href="solid.html">solid</a><a class="tab" href="hyper.html">hyper</a><a class="tab" href="l-system.html">l-system</a><a class="tab active" href="graph-synth.html" aria-current="page">graph synth</a><a class="tab" href="graph-delay.html">graph delay</a>
+        <a class="tab" href="shape-synth.html">shape</a><a class="tab" href="lattice.html">lattice</a><a class="tab" href="spiral.html">spiral</a><a class="tab" href="solid-synth.html">solid</a><a class="tab" href="hyper-synth.html">hyper</a><a class="tab" href="l-system.html">l-system</a><a class="tab active" href="graph-synth.html" aria-current="page">graph synth</a><a class="tab" href="graph-delay.html">graph delay</a>
       </nav>
-      <label class="mobile-instrument-nav"><span class="sr-only">Instrument</span><select class="mobile-instrument-select" aria-label="Instrument"><option value="shape.html">shape</option><option value="lattice.html">lattice</option><option value="spiral.html">spiral</option><option value="solid.html">solid</option><option value="hyper.html">hyper</option><option value="l-system.html">l-system</option><option value="graph-synth.html" selected>graph synth</option><option value="graph-delay.html">graph delay</option></select></label>
+      <label class="mobile-instrument-nav"><span class="sr-only">Instrument</span><select class="mobile-instrument-select" aria-label="Instrument"><option value="shape-synth.html">shape</option><option value="lattice.html">lattice</option><option value="spiral.html">spiral</option><option value="solid-synth.html">solid</option><option value="hyper-synth.html">hyper</option><option value="l-system.html">l-system</option><option value="graph-synth.html" selected>graph synth</option><option value="graph-delay.html">graph delay</option></select></label>
       <div class="audio-strip" aria-label="Audio controls">
         <button class="audio-button" id="audioButton" type="button" aria-pressed="false"><span class="audio-glyph" aria-hidden="true">◇</span><span class="audio-copy"><b>Audio</b><small id="audioState">off</small></span></button>
         <label class="header-level" for="output"><span><b>Output</b><output id="outputOut" for="output">64%</output></span><input id="output" aria-label="Graph Synth output level" type="range" min="0" max="0.9" step="0.01" value="0.64" /></label>
@@ -174,6 +174,6 @@
       <p class="sr-only" id="liveStatus" aria-live="polite"></p>
     </main>
     <script type="module" src="nav.js"></script>
-    <script type="module" src="graph-synth-app.js?v=graph-instruments-20260830-13"></script>
+    <script type="module" src="src/instruments/graph-synth/graph-synth-app.js?v=graph-instruments-20260830-13"></script>
   </body>
 </html>

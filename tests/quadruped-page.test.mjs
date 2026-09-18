@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
+import { readRuntimeManifest } from "../scripts/site/runtime-manifest.mjs";
 
 const root = new URL("../", import.meta.url);
 const read = (path) => readFile(new URL(path, root), "utf8");
@@ -38,7 +39,7 @@ test("Quadruped page exposes animal choices, four feet, sixteen cards, one surfa
   assert.match(html, /aria-label="Interactive side-view Quadruped/);
   assert.match(html, /id="playButton"[\s\S]*?data-primary-transport/);
   assert.match(html, /Audio is off — turn it on to hear playback/);
-  assert.match(html, /type="module" src="quadruped-app\.js"/);
+  assert.match(html, /type="module" src="src\/instruments\/quadruped\/quadruped-app\.js"/);
 });
 
 test("the old misspelled route redirects to canonical Quadruped and preserves location state", async () => {
@@ -50,7 +51,7 @@ test("the old misspelled route redirects to canonical Quadruped and preserves lo
 });
 
 test("transport remains independent of explicit Audio arming", async () => {
-  const app = await read("quadruped-app.js");
+  const app = await read("src/instruments/quadruped/quadruped-app.js");
   const start = app.match(/function startTransport\(\) \{([\s\S]*?)\n\}/)?.[1] ?? "";
   const stop = app.match(/function stopTransport\(\) \{([\s\S]*?)\n\}/)?.[1] ?? "";
   const close = app.match(/async function closeAudio\([^)]*\) \{([\s\S]*?)\n\}/)?.[1] ?? "";
@@ -62,7 +63,7 @@ test("transport remains independent of explicit Audio arming", async () => {
 });
 
 test("animation and audio both advance from the foot-driven motor", async () => {
-  const app = await read("quadruped-app.js");
+  const app = await read("src/instruments/quadruped/quadruped-app.js");
   for (const symbol of [
     "advanceQuadrupedMotor", "createQuadrupedMotorState", "kickQuadrupedMotor",
     "predictQuadrupedMotor", "quadrupedMotorSnapshot", "synchronizeQuadrupedMotorTempo",
@@ -83,7 +84,7 @@ test("animation and audio both advance from the foot-driven motor", async () => 
 });
 
 test("the compact score makes touchdown strength and continuing support independent", async () => {
-  const [app, css] = await Promise.all([read("quadruped-app.js"), read("quadruped.css")]);
+  const [app, css] = await Promise.all([read("src/instruments/quadruped/quadruped-app.js"), read("src/instruments/quadruped/quadruped.css")]);
   assert.match(app, /aria-rowcount", "8"/);
   assert.match(app, /aria-colcount", String\(QUADRUPED_STEP_COUNT \+ 1\)/);
   assert.match(app, /cell\.setAttribute\("role", "columnheader"\)/);
@@ -99,7 +100,7 @@ test("the compact score makes touchdown strength and continuing support independ
 });
 
 test("the centered animal uses stair footprints and one fixed three-segment limb chain in cards and stage", async () => {
-  const app = await read("quadruped-app.js");
+  const app = await read("src/instruments/quadruped/quadruped-app.js");
   assert.match(app, /const centerX = width \* 0\.5/);
   assert.match(app, /lastFootprintHits/);
   assert.match(app, /quadrupedGroundHeightAtWorldX\(state\.groundProfileId/);
@@ -119,7 +120,7 @@ test("the centered animal uses stair footprints and one fixed three-segment limb
 });
 
 test("audio uses one material resonator, stance accents, and an exact no-support flight voice", async () => {
-  const app = await read("quadruped-app.js");
+  const app = await read("src/instruments/quadruped/quadruped-app.js");
   assert.match(app, /mixBus\.gain\.value = 1\.45/);
   assert.equal((app.match(/const materialBus = createMaterialBus\(/g) ?? []).length, 1);
   assert.match(app, /const flightVoices = Array\.from\(\{ length: 3 \}/);
@@ -145,7 +146,7 @@ test("audio uses one material resonator, stance accents, and an exact no-support
 
 test("edits preserve motion and global surface/path changes relatch honestly", async () => {
   const [app, model, motor, catalog] = await Promise.all([
-    read("quadruped-app.js"),
+    read("src/instruments/quadruped/quadruped-app.js"),
     read("src/quadruped.js"),
     read("src/quadruped-motor.js"),
     read("src/instrument-catalog.js"),
@@ -168,7 +169,7 @@ test("edits preserve motion and global surface/path changes relatch honestly", a
 });
 
 test("the sequencer and controls remain reachable at desktop, portrait, and short landscape sizes", async () => {
-  const css = await read("quadruped.css");
+  const css = await read("src/instruments/quadruped/quadruped.css");
   assert.match(css, /\.quadruped-grid-scroll\s*\{[\s\S]*?overflow-x:\s*auto/);
   assert.match(css, /\.quadruped-grid-row-label\s*\{[\s\S]*?position:\s*sticky/);
   assert.match(css, /@media \(max-width: 1280px\)/);
@@ -183,7 +184,7 @@ test("the sequencer and controls remain reachable at desktop, portrait, and shor
 });
 
 test("the shared gait dictionary stays compact and scrollable", async () => {
-  const css = await read("quadruped.css");
+  const css = await read("src/instruments/quadruped/quadruped.css");
   assert.match(css, /\.quadruped-behavior-buttons\s*\{\s*grid-template-columns:\s*repeat\(5,\s*1fr\);[\s\S]*?max-height:\s*230px;[\s\S]*?overflow-y:\s*auto/);
   assert.match(css, /@media\s*\(max-width:\s*760px\)[\s\S]*?\.quadruped-behavior-buttons\s*\{[\s\S]*?grid-template-columns:\s*repeat\(3,\s*1fr\)/);
   assert.match(css, /\.quadruped-behavior-buttons button\s*\{[\s\S]*?font-size:\s*0\.61rem/);
@@ -196,8 +197,9 @@ test("Quadruped markup does not duplicate ids", async () => {
 });
 
 test("the release builder carries the Quadruped motor into static and WAX output", async () => {
-  const build = await read("scripts/build-site.sh");
-  assert.equal((build.match(/src\/quadruped-motor\.js/g) ?? []).length, 2);
-  assert.equal((build.match(/src\/quadruped-voices\.js/g) ?? []).length, 2);
-  assert.equal((build.match(/src\/quadruped-world\.js/g) ?? []).length, 2);
+  const inventory = await readRuntimeManifest();
+  for (const file of ["src/quadruped-motor.js", "src/quadruped-voices.js", "src/quadruped-world.js"]) {
+    assert.ok(inventory.worktreeFiles.includes(file), `${file} has pre-commit copy permission`);
+    assert.ok(inventory.requiredFiles.includes(file), `${file} is required in the artifact`);
+  }
 });

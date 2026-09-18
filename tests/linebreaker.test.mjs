@@ -181,7 +181,7 @@ test("Linebreaker markup states the model boundary, mappings, and primary source
   assert.match(html, /<body class="fractal-uncertainty-page linebreaker-page">/);
   assert.match(html, /<main class="shell fractal-uncertainty-shell"/);
   assert.match(html, /<link rel="stylesheet" href="style\.css"/);
-  assert.match(html, /<link rel="stylesheet" href="fractal-uncertainty\.css"/);
+  assert.match(html, /<link rel="stylesheet" href="src\/instruments\/fractal-uncertainty\/fractal-uncertainty\.css"/);
   assert.match(html, /FRACTAL UNCERTAINTY · 03/);
   assert.match(html, /<h1 id="linebreakerTitle">Linebreaker<\/h1>/);
   assert.match(html, /FINITE CLASSICAL FOURIER MODEL · NOT A PROOF · NOT QPU OUTPUT/);
@@ -242,11 +242,11 @@ test("Linebreaker markup states the model boundary, mappings, and primary source
   assert.match(html, /<dt>Find clearest line<\/dt>/);
   assert.match(html, /id="probeWidth"[^>]*min="1"[^>]*max="5"[^>]*step="2"/);
   assert.match(html, /<script type="module" src="nav\.js"><\/script>/);
-  assert.match(html, /<script type="module" src="linebreaker-app\.js"><\/script>/);
+  assert.match(html, /<script type="module" src="src\/instruments\/linebreaker\/linebreaker-app\.js"><\/script>/);
 });
 
 test("Linebreaker app provides bounded continuous sonification, gestures, and BFCache cleanup", async () => {
-  const app = await read("linebreaker-app.js");
+  const app = await read("src/instruments/linebreaker/linebreaker-app.js");
   assert.match(app, /const MAX_AUDIO_VOICES = 12/);
   assert.match(app, /new VoicePool\(MAX_AUDIO_VOICES/);
   assert.match(app, /pool\.setVoices\(voices/);

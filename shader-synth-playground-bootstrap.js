@@ -78,7 +78,7 @@ async function boot() {
     }
   }
 
-  await import("./shader-synth-playground-app.js?v=20260907-latency-control");
+  await import("./src/instruments/shader-synth-playground/shader-synth-playground-app.js?v=20260907-latency-control");
 }
 
 void boot();

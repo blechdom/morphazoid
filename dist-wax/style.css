@@ -307,7 +307,7 @@ a {
   border-top: 0;
 }
 
-.tools-menu-group[data-tool-group="geometry"] {
+.tools-menu-group[data-tool-group="geometric"] {
   --group-accent: var(--accent);
 }
 
@@ -315,39 +315,39 @@ a {
   --group-accent: var(--orange);
 }
 
-.tools-menu-group[data-tool-group="voice-synths"] {
+.tools-menu-group[data-tool-group="physical-model"] {
   --group-accent: var(--blue);
 }
 
-.tools-menu-group[data-tool-group="mic-fx"] {
+.tools-menu-group[data-tool-group="audio-effect"] {
   --group-accent: var(--accent);
 }
 
-.tools-menu-group[data-tool-group="barber-shop-poles"] {
+.tools-menu-group[data-tool-group="infinite-illusion"] {
   --group-accent: var(--brass);
 }
 
-.tools-menu-group[data-tool-group="fractals-recursion"] {
+.tools-menu-group[data-tool-group="fractal"] {
   --group-accent: var(--violet);
 }
 
-.tools-menu-group[data-tool-group="chaotic-synths"] {
+.tools-menu-group[data-tool-group="synthesizer"] {
   --group-accent: #ff7aa6;
 }
 
-.tools-menu-group[data-tool-group="sequencers"] {
+.tools-menu-group[data-tool-group="sequencer"] {
   --group-accent: #9dff57;
 }
 
-.tools-menu-group[data-tool-group="algorithmic-sequencers"] {
+.tools-menu-group[data-tool-group="algorithmic"] {
   --group-accent: #70d8e7;
 }
 
-.tools-menu-group[data-tool-group="experiments"] {
+.tools-menu-group[data-tool-group="wip"] {
   --group-accent: #e883ee;
 }
 
-.tools-menu-group[data-tool-group="instruments"] {
+.tools-menu-group[data-tool-group="instrument"] {
   --group-accent: #fff3d6;
 }
 

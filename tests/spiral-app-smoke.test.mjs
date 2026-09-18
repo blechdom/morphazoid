@@ -159,7 +159,7 @@ test("spiral app renders intrinsic readers and plays tessellation contacts", asy
     async close() { this.state = "closed"; }
   };
 
-  await import(`../spiral-app.js?smoke=${Date.now()}`);
+  await import(`../src/instruments/spiral/spiral-app.js?smoke=${Date.now()}`);
   assert.equal(typeof queuedFrame, "function");
   assert.equal(
     attributes.get("playButton:data-no-midi-preview"),

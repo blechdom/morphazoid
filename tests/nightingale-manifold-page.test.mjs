@@ -3,8 +3,8 @@ import fs from "node:fs";
 import test from "node:test";
 
 const html = fs.readFileSync(new URL("../nightingale-manifold.html", import.meta.url), "utf8");
-const css = fs.readFileSync(new URL("../nightingale-manifold.css", import.meta.url), "utf8");
-const app = fs.readFileSync(new URL("../nightingale-manifold-app.js", import.meta.url), "utf8");
+const css = fs.readFileSync(new URL("../src/instruments/nightingale-manifold/nightingale-manifold.css", import.meta.url), "utf8");
+const app = fs.readFileSync(new URL("../src/instruments/nightingale-manifold/nightingale-manifold-app.js", import.meta.url), "utf8");
 const renderer = fs.readFileSync(new URL("../src/nightingale-manifold-3d.js", import.meta.url), "utf8");
 
 test("the nightingale shell exposes the complete local graph workflow", () => {

@@ -61,16 +61,16 @@ function riffWaveDuration(bytes) {
 test("Vocalzoid page wires every control, module, and local asset", async () => {
   const [html, app] = await Promise.all([
     readFile(new URL("vocalzoid.html", ROOT), "utf8"),
-    readFile(new URL("vocalzoid-app.js", ROOT), "utf8"),
+    readFile(new URL("src/instruments/vocalzoid/vocalzoid-app.js", ROOT), "utf8"),
   ]);
 
   assert.match(html, /<body\b[^>]*class="[^"]*\bvocalzoid-page\b[^"]*"/);
   assert.match(html, /href="vocalzoid\.html" aria-current="page"/);
   assert.match(html, /<option value="vocalzoid\.html" selected>vocalzoid<\/option>/);
   assert.match(html, /<link rel="stylesheet" href="style\.css"\s*\/>/);
-  assert.match(html, /<link rel="stylesheet" href="vocalzoid\.css"\s*\/>/);
+  assert.match(html, /<link rel="stylesheet" href="src\/instruments\/vocalzoid\/vocalzoid\.css"\s*\/>/);
   assert.match(html, /<script type="module" src="nav\.js"><\/script>/);
-  assert.match(html, /<script type="module" src="vocalzoid-app\.js"><\/script>/);
+  assert.match(html, /<script type="module" src="src\/instruments\/vocalzoid\/vocalzoid-app\.js"><\/script>/);
 
   const ids = idsIn(html);
   assert.equal(new Set(ids).size, ids.length, "page IDs must be unique");
@@ -159,7 +159,7 @@ test("Vocalzoid page wires every control, module, and local asset", async () => 
     ...app.matchAll(/\bfrom\s+"(\.[^"]+)"/g),
   ].map((match) => match[1]);
   for (const path of modulePaths) {
-    const info = await stat(new URL(path, new URL("vocalzoid-app.js", ROOT)));
+    const info = await stat(new URL(path, new URL("src/instruments/vocalzoid/vocalzoid-app.js", ROOT)));
     assert.ok(info.isFile(), `${path} must resolve from vocalzoid-app.js`);
   }
 });
@@ -167,8 +167,8 @@ test("Vocalzoid page wires every control, module, and local asset", async () => 
 test("the piano roll exposes complete note editing for pointer, touch, and keyboard", async () => {
   const [html, app, css] = await Promise.all([
     readFile(new URL("vocalzoid.html", ROOT), "utf8"),
-    readFile(new URL("vocalzoid-app.js", ROOT), "utf8"),
-    readFile(new URL("vocalzoid.css", ROOT), "utf8"),
+    readFile(new URL("src/instruments/vocalzoid/vocalzoid-app.js", ROOT), "utf8"),
+    readFile(new URL("src/instruments/vocalzoid/vocalzoid.css", ROOT), "utf8"),
   ]);
   for (const id of ["addNoteButton", "randomizeButton", "splitNoteButton", "deleteNoteButton"]) {
     assert.match(html, new RegExp(`<button\\b[^>]*\\bid="${id}"[^>]*\\btype="button"`));
@@ -201,8 +201,8 @@ test("the piano roll exposes complete note editing for pointer, touch, and keybo
 test("each MIDI note exposes editable, role-safe phoneme pull-downs", async () => {
   const [html, app, css] = await Promise.all([
     readFile(new URL("vocalzoid.html", ROOT), "utf8"),
-    readFile(new URL("vocalzoid-app.js", ROOT), "utf8"),
-    readFile(new URL("vocalzoid.css", ROOT), "utf8"),
+    readFile(new URL("src/instruments/vocalzoid/vocalzoid-app.js", ROOT), "utf8"),
+    readFile(new URL("src/instruments/vocalzoid/vocalzoid.css", ROOT), "utf8"),
   ]);
   assert.equal(SPELLING_PRONUNCIATION_PHONE_CATALOG.length, 39);
   assert.equal(SPELLING_PRONUNCIATION_PHONE_CATALOG.filter(({ vowel }) => vowel).length, 15);
@@ -232,7 +232,7 @@ test("each MIDI note exposes editable, role-safe phoneme pull-downs", async () =
 });
 
 test("Randomize replaces the score and synchronizes musical parameters without autoplay", async () => {
-  const app = await readFile(new URL("vocalzoid-app.js", ROOT), "utf8");
+  const app = await readFile(new URL("src/instruments/vocalzoid/vocalzoid-app.js", ROOT), "utf8");
   const randomize = sourceSection(app, "function randomizeScore()", "async function buildScore()");
   assertOrdered(
     randomize,
@@ -308,8 +308,8 @@ test("Vocalzoid exposes local import, source terms, and accessible status", asyn
 test("Vocalzoid keeps a usable responsive piano roll and reduced-motion mode", async () => {
   const [html, app, css] = await Promise.all([
     readFile(new URL("vocalzoid.html", ROOT), "utf8"),
-    readFile(new URL("vocalzoid-app.js", ROOT), "utf8"),
-    readFile(new URL("vocalzoid.css", ROOT), "utf8"),
+    readFile(new URL("src/instruments/vocalzoid/vocalzoid-app.js", ROOT), "utf8"),
+    readFile(new URL("src/instruments/vocalzoid/vocalzoid.css", ROOT), "utf8"),
   ]);
   assert.match(css, /\.piano-roll\s*\{[\s\S]*?overflow-x:\s*auto/);
   assert.match(css, /\.vocalzoid-workspace\s*\{[^}]*padding:\s*clamp\(8px,\s*1vw,\s*14px\)/);
@@ -349,7 +349,7 @@ test("Vocalzoid keeps a usable responsive piano roll and reduced-motion mode", a
 });
 
 test("audio power transitions remain separate from cancellable playback preparation", async () => {
-  const app = await readFile(new URL("vocalzoid-app.js", ROOT), "utf8");
+  const app = await readFile(new URL("src/instruments/vocalzoid/vocalzoid-app.js", ROOT), "utf8");
   assert.match(app, /\bstarting:\s*false,/);
   assert.match(app, /\baudioTransition:\s*"",/);
 
@@ -418,7 +418,7 @@ test("audio power transitions remain separate from cancellable playback preparat
 });
 
 test("score and voicebank requests ignore stale async completions", async () => {
-  const app = await readFile(new URL("vocalzoid-app.js", ROOT), "utf8");
+  const app = await readFile(new URL("src/instruments/vocalzoid/vocalzoid-app.js", ROOT), "utf8");
   for (const field of ["scoreRequest", "importRequest", "sourceRevision"]) {
     assert.match(app, new RegExp(`\\b${field}:\\s*0,`));
   }
@@ -469,7 +469,7 @@ test("score and voicebank requests ignore stale async completions", async () => 
 });
 
 test("a completed import preserves a voice source chosen after that import began", async () => {
-  const app = await readFile(new URL("vocalzoid-app.js", ROOT), "utf8");
+  const app = await readFile(new URL("src/instruments/vocalzoid/vocalzoid-app.js", ROOT), "utf8");
   const selectors = [
     sourceSection(app, "function chooseKalStyle(", "function chooseOpenBank("),
     sourceSection(app, "function chooseOpenBank(", "function chooseLocalBank()"),

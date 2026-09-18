@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
-import { createColonySyrinxState } from "../src/colony-syrinx.js";
+import { createColonySyrinxState } from "../src/instruments/monstroid/monstroid.js";
 
 const root = new URL("../", import.meta.url);
 
@@ -35,22 +35,22 @@ const INACTIVE_FREQUENCY_MARKER = new RegExp([
   "if\\s*\\(\\s*!\\w*(?:Folds?|Voic\\w*)\\s*\\)[\\s\\S]{0,160}[\"'](?:unvoiced|inactive|no folds|off|[—–-]{2,})[\"']",
 ].join("|"), "i");
 
-test("former instrument URLs redirect to canonical Monstrozoid without dropping URL state", async () => {
-  for (const legacyPage of ["monsterzoid.html", "colony-syrinx.html"]) {
+test("former instrument URLs redirect to canonical Monstroid without dropping URL state", async () => {
+  for (const legacyPage of ["colony-syrinx.html", "monsterzoid.html", "monstrozoid.html"]) {
     const html = await readFile(new URL(legacyPage, root), "utf8");
-    assert.match(html, /http-equiv="refresh" content="0; url=monstrozoid\.html"/);
-    assert.match(html, /rel="canonical" href="monstrozoid\.html"/);
+    assert.match(html, /http-equiv="refresh" content="0; url=monstroid\.html"/);
+    assert.match(html, /rel="canonical" href="monstroid\.html"/);
     assert.match(html, /destination\.search = location\.search/);
     assert.match(html, /destination\.hash = location\.hash/);
-    assert.doesNotMatch(html, /src="colony-syrinx-app\.js"/);
+    assert.doesNotMatch(html, /src="src\/instruments\/monstroid\/monstroid-app\.js"/);
   }
 });
 
-test("Monstrozoid page exposes anatomy slots, variable-count controls, literal headings, and calls", async () => {
-  const html = await readFile(new URL("monstrozoid.html", root), "utf8");
+test("Monstroid page exposes anatomy slots, variable-count controls, literal headings, and calls", async () => {
+  const html = await readFile(new URL("monstroid.html", root), "utf8");
   const routeValves = html.match(/<button id="route-s\d-m\d"[^>]*>/g) ?? [];
-  assert.match(html, /<title>Monstrozoid/);
-  assert.match(html, /<h1 id="pageTitle">MONSTROZOID<\/h1>/);
+  assert.match(html, /<title>Monstroid/);
+  assert.match(html, /<h1 id="pageTitle">MONSTROID<\/h1>/);
   assert.doesNotMatch(html, /MULTI-SOURCE VOCAL NETWORK/);
   assert.ok(
     html.indexOf('class="colony-body-stage"') < html.indexOf('class="colony-titlebar"')
@@ -151,14 +151,14 @@ test("Monstrozoid page exposes anatomy slots, variable-count controls, literal h
   assert.doesNotMatch(html, /id="connectionDensity(?:Out)?"/);
   assert.match(html, /id="playButton"[^>]*data-primary-transport/);
   assert.match(html, /class="panel colony-console control-rail"/);
-  assert.match(html, /src="nav\.js"[\s\S]*src="colony-syrinx-app\.js"/);
+  assert.match(html, /src="nav\.js"[\s\S]*src="src\/instruments\/monstroid\/monstroid-app\.js"/);
 });
 
 test("interactive anatomy graph exposes direct manipulation and keyboard-safe routing", async () => {
   const [html, app, css] = await Promise.all([
-    readFile(new URL("monstrozoid.html", root), "utf8"),
-    readFile(new URL("colony-syrinx-app.js", root), "utf8"),
-    readFile(new URL("colony-syrinx.css", root), "utf8"),
+    readFile(new URL("monstroid.html", root), "utf8"),
+    readFile(new URL("src/instruments/monstroid/monstroid-app.js", root), "utf8"),
+    readFile(new URL("src/instruments/monstroid/monstroid.css", root), "utf8"),
   ]);
 
   const bodySvg = html.match(/<svg\b[^>]*class="colony-body"[^>]*>/)?.[0] ?? "";
@@ -178,7 +178,7 @@ test("interactive anatomy graph exposes direct manipulation and keyboard-safe ro
     assert.match(html, new RegExp(`id="${id}"`), `${id} should host dynamic graph geometry`);
   }
 
-  assert.match(app, /from "\.\/src\/colony-syrinx-graph\.js"/);
+  assert.match(app, /from "\.\/monstroid-graph\.js"/);
   assert.match(app, /createColonySyrinxGraphLayout\(/);
   assert.match(app, /alignGraphLayout\(/);
   assert.match(app, /function persistGraphLayoutInState\(/);
@@ -294,7 +294,7 @@ test("interactive anatomy graph exposes direct manipulation and keyboard-safe ro
 });
 
 test("controller owns calls, valve MIDI, continuous flow, variable counts, preset text, and panic", async () => {
-  const source = await readFile(new URL("colony-syrinx-app.js", root), "utf8");
+  const source = await readFile(new URL("src/instruments/monstroid/monstroid-app.js", root), "utf8");
   assert.match(source, /const MIDI_BASE_NOTE = 48/);
   assert.match(source, /colonySyrinxRouteFromMidiNote\(note, midiBaseNote\)/);
   assert.match(source, /morphazoid:midi-input/);
@@ -356,14 +356,14 @@ test("controller owns calls, valve MIDI, continuous flow, variable counts, prese
   );
   assert.match(
     toggleAudioSource,
-    /if \(await ensureAudio\(\)\) \{\s*announce\("Monstrozoid audio on"\);\s*\}/,
+    /if \(await ensureAudio\(\)\) \{\s*announce\("Monstroid audio on"\);\s*\}/,
   );
 });
 
 test("call UI keeps one-shot identity separate from continuous transport and edited settings", async () => {
   const [appSource, processorSource] = await Promise.all([
-    readFile(new URL("colony-syrinx-app.js", root), "utf8"),
-    readFile(new URL("../src/colony-syrinx-processor.js", import.meta.url), "utf8"),
+    readFile(new URL("src/instruments/monstroid/monstroid-app.js", root), "utf8"),
+    readFile(new URL("../src/instruments/monstroid/monstroid-processor.js", import.meta.url), "utf8"),
   ]);
 
   const ensureAudioSource = sourceSection(
@@ -487,7 +487,7 @@ test("call UI keeps one-shot identity separate from continuous transport and edi
 });
 
 test("telemetry CSS maps anatomy and the six contour editor lanes", async () => {
-  const css = await readFile(new URL("colony-syrinx.css", root), "utf8");
+  const css = await readFile(new URL("src/instruments/monstroid/monstroid.css", root), "utf8");
   assert.match(css, /\.lung\.is-pressured/);
   assert.match(css, /--activity/);
   assert.match(css, /\.route-valve\.is-flowing/);
@@ -554,7 +554,7 @@ test("worklet continuously morphs one pressure flow, honors active organs, and p
 
   try {
     const processorSource = await readFile(
-      new URL("../src/colony-syrinx-processor.js", import.meta.url),
+      new URL("../src/instruments/monstroid/monstroid-processor.js", import.meta.url),
       "utf8",
     );
     assert.doesNotMatch(processorSource, /AUTO_EXHALE_PATTERN|autoExhaleEnvelope/);
@@ -572,7 +572,7 @@ test("worklet continuously morphs one pressure flow, honors active organs, and p
     assert.match(processorSource, /callActive: this\.callActive/);
     assert.match(processorSource, /callProgress:/);
 
-    const processorUrl = new URL("../src/colony-syrinx-processor.js", import.meta.url);
+    const processorUrl = new URL("../src/instruments/monstroid/monstroid-processor.js", import.meta.url);
     processorUrl.searchParams.set("test", String(Date.now()));
     await import(processorUrl.href);
     assert.equal(registeredName, "colony-syrinx-pressure-network");

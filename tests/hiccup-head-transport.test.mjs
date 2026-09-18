@@ -5,14 +5,14 @@ import { readFile } from "node:fs/promises";
 const root = new URL("../", import.meta.url);
 
 test("there is no redundant step-number row and transport always loops the full sequence", async () => {
-  const app = await readFile(new URL("hiccup-head-app.js", root), "utf8");
+  const app = await readFile(new URL("src/instruments/hiccup-head/hiccup-head-app.js", root), "utf8");
   assert.doesNotMatch(app, /stepRangeDrag|setLoopRange|queueSequenceStep|releaseSubloop/);
   assert.match(app, /sequenceStep = \(sequenceStep \+ 1\) % sequenceLength/);
   assert.doesNotMatch(app, /hiccup-head-step-number|gridHeadingsByStep/);
 });
 
 test("the grid is one monophonic lane with precise and paintable sound selectors", async () => {
-  const app = await readFile(new URL("hiccup-head-app.js", root), "utf8");
+  const app = await readFile(new URL("src/instruments/hiccup-head/hiccup-head-app.js", root), "utf8");
   assert.match(app, /\[id, String\(index \+ 1\)\.padStart\(2, "0"\)\]/);
   assert.match(app, /function soundOptions\(selectedId = ""\)[\s\S]*?emptyOption\.value = ""[\s\S]*?emptyOption\.textContent = "—"[\s\S]*?HICCUP_HEAD_SOUNDS\.forEach/);
   assert.match(app, /grid\.setAttribute\("aria-rowcount", "1"\)/);
@@ -40,7 +40,7 @@ test("the grid is one monophonic lane with precise and paintable sound selectors
 
 test("the audio clock prebuffers mobile work and skips late-event bursts", async () => {
   const [app, processor] = await Promise.all([
-    readFile(new URL("hiccup-head-app.js", root), "utf8"),
+    readFile(new URL("src/instruments/hiccup-head/hiccup-head-app.js", root), "utf8"),
     readFile(new URL("src/hiccup-head-processor.js", root), "utf8"),
   ]);
   assert.match(app, /scheduleSequenceAhead\(usesCompactCanvas\(\) \? 0\.32 : 0\.22\)/);
@@ -67,7 +67,7 @@ test("the audio clock prebuffers mobile work and skips late-event bursts", async
 });
 
 test("the two eyebrows execute the five-position on/off-beat accent map", async () => {
-  const app = await readFile(new URL("hiccup-head-app.js", root), "utf8");
+  const app = await readFile(new URL("src/instruments/hiccup-head/hiccup-head-app.js", root), "utf8");
   const browSource = app.slice(
     app.indexOf("function normalizedBrowValue("),
     app.indexOf("function scheduleSequence()"),

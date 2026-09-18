@@ -172,7 +172,7 @@ test("graph-delay keeps live settings safe, coalesces transitions, and rolls bac
   };
 
   try {
-    await import(`../graph-delay-app.js?smoke=${Date.now()}`);
+    await import(`../src/instruments/graph-delay/graph-delay-app.js?smoke=${Date.now()}`);
     assert.equal(typeof queuedFrame, "function");
 
     listeners.get("audioButton:click")();

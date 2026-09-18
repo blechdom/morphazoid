@@ -11,8 +11,8 @@
     <title>Chaotic FM — Morphazoid</title>
     <link rel="icon" href="favicon.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="style.css" />
-    <link rel="stylesheet" href="chaotic-fm.css" />
-    <link rel="stylesheet" href="chaotic-synth-ui.css" />
+    <link rel="stylesheet" href="src/instruments/chaotic-fm/chaotic-fm.css" />
+    <link rel="stylesheet" href="src/instruments/chaotic-synth-ui/chaotic-synth-ui.css" />
   </head>
   <body class="chaotic-fm-page">
     <header class="masthead">
@@ -22,14 +22,14 @@
       </a>
 
       <nav class="tabs" aria-label="Instrument">
-        <a class="tab" href="shape.html">shape</a>
+        <a class="tab" href="shape-synth.html">shape</a>
         <a class="tab" href="recursive-fm.html">recursive fm</a>
         <a class="tab active" href="chaotic-fm.html" aria-current="page">chaotic fm</a>
       </nav>
       <label class="mobile-instrument-nav">
         <span class="sr-only">Instrument</span>
         <select class="mobile-instrument-select" aria-label="Instrument">
-          <option value="shape.html">shape</option>
+          <option value="shape-synth.html">shape</option>
           <option value="recursive-fm.html">recursive fm</option>
           <option value="chaotic-fm.html" selected>chaotic fm</option>
         </select>
@@ -287,6 +287,6 @@
 
     <script type="module" src="nav.js"></script>
     <script type="module" src="src/chaotic-dsp-reference.js"></script>
-    <script type="module" src="chaotic-fm-app.js"></script>
+    <script type="module" src="src/instruments/chaotic-fm/chaotic-fm-app.js"></script>
   </body>
 </html>

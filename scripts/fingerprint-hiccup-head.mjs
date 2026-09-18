@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { relativeReference } from "./site/reference-paths.mjs";
 
 const roomImpulsePathnames = Object.freeze([
   "./assets/audio/hiccup-head-emt140-warm-plate.wav",
@@ -29,8 +30,8 @@ function versionReference(source, pathname, version) {
 export async function fingerprintHiccupHead(outputDirectory) {
   const modelPath = path.join(outputDirectory, "src/hiccup-head.js");
   const processorPath = path.join(outputDirectory, "src/hiccup-head-processor.js");
-  const appPath = path.join(outputDirectory, "hiccup-head-app.js");
-  const cssPath = path.join(outputDirectory, "hiccup-head.css");
+  const appPath = path.join(outputDirectory, "src/instruments/hiccup-head/hiccup-head-app.js");
+  const cssPath = path.join(outputDirectory, "src/instruments/hiccup-head/hiccup-head.css");
   const htmlPath = path.join(outputDirectory, "hiccup-head.html");
 
   const model = await readFile(modelPath, "utf8");
@@ -42,8 +43,8 @@ export async function fingerprintHiccupHead(outputDirectory) {
   const processorVersion = contentVersion(processor);
 
   let app = await readFile(appPath, "utf8");
-  app = versionReference(app, "./src/hiccup-head.js", modelVersion);
-  app = versionReference(app, "./src/hiccup-head-processor.js", processorVersion);
+  app = versionReference(app, relativeReference(appPath, modelPath), modelVersion);
+  app = versionReference(app, relativeReference(appPath, processorPath), processorVersion);
   // Fingerprint binary dependencies before hashing the app so an updated IR
   // also changes the module URL carried by the no-cache HTML entry point.
   const roomImpulseVersions = Object.fromEntries(await Promise.all(
@@ -53,7 +54,7 @@ export async function fingerprintHiccupHead(outputDirectory) {
     }),
   ));
   for (const [pathname, version] of Object.entries(roomImpulseVersions)) {
-    app = versionReference(app, pathname, version);
+    app = versionReference(app, relativeReference(appPath, path.join(outputDirectory, pathname)), version);
   }
   const visualSkinVersions = Object.fromEntries(await Promise.all(
     visualSkinPathnames.map(async (pathname) => {
@@ -62,7 +63,7 @@ export async function fingerprintHiccupHead(outputDirectory) {
     }),
   ));
   for (const [pathname, version] of Object.entries(visualSkinVersions)) {
-    app = versionReference(app, pathname, version);
+    app = versionReference(app, relativeReference(appPath, path.join(outputDirectory, pathname)), version);
   }
   await writeFile(appPath, app, "utf8");
   const appVersion = contentVersion(app);
@@ -76,8 +77,8 @@ export async function fingerprintHiccupHead(outputDirectory) {
     html = versionReference(html, pathname.replace(/^\.\//, ""), version);
   }
   html = versionReference(html, "src/hiccup-head-processor.js", processorVersion);
-  html = versionReference(html, "hiccup-head.css", cssVersion);
-  html = versionReference(html, "hiccup-head-app.js", appVersion);
+  html = versionReference(html, "src/instruments/hiccup-head/hiccup-head.css", cssVersion);
+  html = versionReference(html, "src/instruments/hiccup-head/hiccup-head-app.js", appVersion);
   await writeFile(htmlPath, html, "utf8");
 
   return {

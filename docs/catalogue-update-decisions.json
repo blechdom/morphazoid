@@ -1,0 +1,2479 @@
+{
+  "date": "2026-09-18",
+  "source": "docs/catalogue-update-2026-09-18.tsv",
+  "categoryOrder": [
+    "geometric",
+    "app",
+    "tesselation",
+    "fractal",
+    "instrument",
+    "sequencer",
+    "gpu-audio",
+    "simd-audio",
+    "physical-model",
+    "bioacoustic",
+    "voice",
+    "audio-effect",
+    "infinite-illusion",
+    "synthesizer",
+    "noise",
+    "graphic-ui",
+    "dispersion",
+    "algorithmic",
+    "wip"
+  ],
+  "categories": {
+    "geometric": "Geometric",
+    "app": "App",
+    "tesselation": "Tesselation",
+    "fractal": "Fractal",
+    "instrument": "Instrument",
+    "sequencer": "Sequencer",
+    "gpu-audio": "GPU Audio",
+    "simd-audio": "SIMD Audio",
+    "physical-model": "Physical Model",
+    "bioacoustic": "Bioacoustic",
+    "voice": "Voice",
+    "audio-effect": "Audio Effect",
+    "infinite-illusion": "Infinite Illusion",
+    "synthesizer": "Synthesizer",
+    "noise": "Noise",
+    "graphic-ui": "Graphic-UI",
+    "dispersion": "Dispersion",
+    "algorithmic": "Algorithmic",
+    "wip": "Work in Progress"
+  },
+  "notes": [
+    {
+      "row": 5,
+      "field": "category",
+      "action": "Used wip ID as primary and retained Geometric as a secondary tag."
+    },
+    {
+      "row": 6,
+      "field": "category",
+      "action": "Used wip ID as primary and retained Geometric as a secondary tag."
+    },
+    {
+      "row": 11,
+      "field": "current ID",
+      "action": "Mapped the unique Tiles app row to existing tiles-app.",
+      "raw": "tesselation-app"
+    },
+    {
+      "row": 21,
+      "field": "new category ID",
+      "action": "Normalized ID punctuation/case.",
+      "raw": "fractal;",
+      "effective": "fractal"
+    },
+    {
+      "row": 23,
+      "field": "category",
+      "action": "Used geometric ID as primary and retained Drum Machine as a secondary tag."
+    },
+    {
+      "row": 29,
+      "field": "new ID",
+      "action": "Owner confirmed retaining webgpu-303 with display name WebGPU 303.",
+      "raw": "webgpu-304",
+      "effective": "webgpu-303",
+      "status": "confirmed",
+      "confirmedOn": "2026-09-18"
+    },
+    {
+      "row": 80,
+      "field": "secondary tags",
+      "action": "Kept as an unresolved question/feature request, not a published capability tag.",
+      "raw": "Recursion (is it)"
+    },
+    {
+      "row": 81,
+      "field": "secondary tags",
+      "action": "Kept as an unresolved question/feature request, not a published capability tag.",
+      "raw": "Audio Effect (add capability)"
+    },
+    {
+      "row": 84,
+      "field": "new category ID",
+      "action": "Normalized ID punctuation/case.",
+      "raw": "graphic-UI",
+      "effective": "graphic-ui"
+    },
+    {
+      "row": 87,
+      "field": "new ID",
+      "action": "Owner confirmed retaining image-to-instrument-3.",
+      "raw": "image-to-instrument-4",
+      "effective": "image-to-instrument-3",
+      "status": "confirmed",
+      "confirmedOn": "2026-09-18"
+    },
+    {
+      "row": 90,
+      "field": "new Name",
+      "action": "Owner confirmed retaining Rattlesnake.",
+      "raw": "RatTesselationnake",
+      "effective": "Rattlesnake",
+      "status": "confirmed",
+      "confirmedOn": "2026-09-18"
+    }
+  ],
+  "rows": [
+    {
+      "sheetRow": 2,
+      "oldId": "shape",
+      "id": "shape-synth",
+      "label": "Shape",
+      "categoryId": "geometric",
+      "categoryLabel": "Geometric",
+      "tags": [
+        {
+          "id": "2d",
+          "label": "2D"
+        },
+        {
+          "id": "synthesizer",
+          "label": "Synthesizer"
+        }
+      ],
+      "kind": "instrument"
+    },
+    {
+      "sheetRow": 3,
+      "oldId": "solid",
+      "id": "solid-synth",
+      "label": "Solid",
+      "categoryId": "geometric",
+      "categoryLabel": "Geometric",
+      "tags": [
+        {
+          "id": "3d",
+          "label": "3D"
+        },
+        {
+          "id": "synthesizer",
+          "label": "Synthesizer"
+        }
+      ],
+      "kind": "instrument"
+    },
+    {
+      "sheetRow": 4,
+      "oldId": "hyper",
+      "id": "hyper-synth",
+      "label": "Hyper",
+      "categoryId": "geometric",
+      "categoryLabel": "Geometric",
+      "tags": [
+        {
+          "id": "4d",
+          "label": "4D"
+        },
+        {
+          "id": "synthesizer",
+          "label": "Synthesizer"
+        }
+      ],
+      "kind": "instrument"
+    },
+    {
+      "sheetRow": 5,
+      "oldId": "moebius",
+      "id": "moebius-synth",
+      "label": "Möbius",
+      "categoryId": "wip",
+      "categoryLabel": "Work in Progress",
+      "tags": [
+        {
+          "id": "synthesizer",
+          "label": "Synthesizer"
+        },
+        {
+          "id": "geometric",
+          "label": "Geometric"
+        }
+      ],
+      "kind": "instrument"
+    },
+    {
+      "sheetRow": 6,
+      "oldId": "klein-bottle",
+      "id": "klein-bottle-synth",
+      "label": "Klein Bottle",
+      "categoryId": "wip",
+      "categoryLabel": "Work in Progress",
+      "tags": [
+        {
+          "id": "synthesizer",
+          "label": "Synthesizer"
+        },
+        {
+          "id": "geometric",
+          "label": "Geometric"
+        }
+      ],
+      "kind": "instrument"
+    },
+    {
+      "sheetRow": 7,
+      "oldId": "graph-synth",
+      "id": "graph-synth",
+      "label": "Graph Synth",
+      "categoryId": "geometric",
+      "categoryLabel": "Geometric",
+      "tags": [
+        {
+          "id": "fractal",
+          "label": "Fractal"
+        },
+        {
+          "id": "recursive",
+          "label": "Recursive"
+        }
+      ],
+      "kind": "instrument"
+    },
+    {
+      "sheetRow": 8,
+      "oldId": "combo",
+      "id": "shapes",
+      "label": "Shapes",
+      "categoryId": "app",
+      "categoryLabel": "App",
+      "tags": [
+        {
+          "id": "geometric",
+          "label": "Geometric"
+        },
+        {
+          "id": "synthesizer",
+          "label": "Synthesizer"
+        },
+        {
+          "id": "sequencer",
+          "label": "Sequencer"
+        },
+        {
+          "id": "drum-machine",
+          "label": "Drum Machine"
+        },
+        {
+          "id": "audio-effect",
+          "label": "Audio Effect"
+        },
+        {
+          "id": "2d",
+          "label": "2D"
+        },
+        {
+          "id": "3d",
+          "label": "3D"
+        },
+        {
+          "id": "4d",
+          "label": "4D"
+        }
+      ],
+      "kind": "instrument"
+    },
+    {
+      "sheetRow": 9,
+      "oldId": "l-systems",
+      "id": "l-systems",
+      "label": "L-Systems",
+      "categoryId": "app",
+      "categoryLabel": "App",
+      "tags": [
+        {
+          "id": "fractal",
+          "label": "Fractal"
+        },
+        {
+          "id": "recursive",
+          "label": "Recursive"
+        },
+        {
+          "id": "drum-machine",
+          "label": "Drum Machine"
+        },
+        {
+          "id": "audio-effect",
+          "label": "Audio Effect"
+        }
+      ],
+      "kind": "instrument"
+    },
+    {
+      "sheetRow": 10,
+      "oldId": "graphs",
+      "id": "graphs",
+      "label": "Graphs",
+      "categoryId": "app",
+      "categoryLabel": "App",
+      "tags": [
+        {
+          "id": "fractal",
+          "label": "Fractal"
+        },
+        {
+          "id": "recursive",
+          "label": "Recursive"
+        },
+        {
+          "id": "drum-machine",
+          "label": "Drum Machine"
+        },
+        {
+          "id": "audio-effect",
+          "label": "Audio Effect"
+        }
+      ],
+      "kind": "instrument"
+    },
+    {
+      "sheetRow": 11,
+      "oldId": "tiles-app",
+      "id": "tesselation",
+      "label": "Tesselation",
+      "categoryId": "app",
+      "categoryLabel": "App",
+      "tags": [
+        {
+          "id": "tesselation",
+          "label": "Tesselation"
+        },
+        {
+          "id": "sequencer",
+          "label": "Sequencer"
+        },
+        {
+          "id": "drum-machine",
+          "label": "Drum Machine"
+        }
+      ],
+      "kind": "instrument"
+    },
+    {
+      "sheetRow": 12,
+      "oldId": "algorithmic-mazes",
+      "id": "algorithmic-mazes",
+      "label": "Mazes",
+      "categoryId": "wip",
+      "categoryLabel": "Work in Progress",
+      "tags": [],
+      "kind": "instrument"
+    },
+    {
+      "sheetRow": 13,
+      "oldId": "paths",
+      "id": "paths",
+      "label": "Paths",
+      "categoryId": "wip",
+      "categoryLabel": "Work in Progress",
+      "tags": [],
+      "kind": "instrument"
+    },
+    {
+      "sheetRow": 14,
+      "oldId": "lattice",
+      "id": "lattice",
+      "label": "Lattice",
+      "categoryId": "tesselation",
+      "categoryLabel": "Tesselation",
+      "tags": [
+        {
+          "id": "sequencer",
+          "label": "Sequencer"
+        }
+      ],
+      "kind": "instrument"
+    },
+    {
+      "sheetRow": 15,
+      "oldId": "spiral",
+      "id": "spiral",
+      "label": "Spiral",
+      "categoryId": "tesselation",
+      "categoryLabel": "Tesselation",
+      "tags": [
+        {
+          "id": "sequencer",
+          "label": "Sequencer"
+        }
+      ],
+      "kind": "instrument"
+    },
+    {
+      "sheetRow": 16,
+      "oldId": "lattice-drums",
+      "id": "lattice-drum-machine",
+      "label": "Lattice Drum Machine",
+      "categoryId": "tesselation",
+      "categoryLabel": "Tesselation",
+      "tags": [
+        {
+          "id": "sequencer",
+          "label": "Sequencer"
+        }
+      ],
+      "kind": "instrument"
+    },
+    {
+      "sheetRow": 17,
+      "oldId": "spiral-drums",
+      "id": "spiral-drum-machine",
+      "label": "Spiral Drum Machine",
+      "categoryId": "tesselation",
+      "categoryLabel": "Tesselation",
+      "tags": [
+        {
+          "id": "sequencer",
+          "label": "Sequencer"
+        }
+      ],
+      "kind": "instrument"
+    },
+    {
+      "sheetRow": 18,
+      "oldId": "shape-drums",
+      "id": "shape-drum-machine",
+      "label": "Shape Drum Machine",
+      "categoryId": "geometric",
+      "categoryLabel": "Geometric",
+      "tags": [],
+      "kind": "instrument"
+    },
+    {
+      "sheetRow": 19,
+      "oldId": "solid-drums",
+      "id": "solid-drum-machine",
+      "label": "Solid Drum Machine",
+      "categoryId": "geometric",
+      "categoryLabel": "Geometric",
+      "tags": [],
+      "kind": "instrument"
+    },
+    {
+      "sheetRow": 20,
+      "oldId": "hyper-drums",
+      "id": "hyper-drum-machine",
+      "label": "Hyper Drum Machine",
+      "categoryId": "geometric",
+      "categoryLabel": "Geometric",
+      "tags": [],
+      "kind": "instrument"
+    },
+    {
+      "sheetRow": 21,
+      "oldId": "l-system-drums",
+      "id": "l-system-drum-machine",
+      "label": "L-System Drum Machine",
+      "categoryId": "fractal",
+      "categoryLabel": "Fractal",
+      "tags": [
+        {
+          "id": "drum-machine",
+          "label": "Drum Machine"
+        },
+        {
+          "id": "recursive",
+          "label": "Recursive"
+        }
+      ],
+      "kind": "instrument"
+    },
+    {
+      "sheetRow": 22,
+      "oldId": "l-system",
+      "id": "l-system",
+      "label": "L-System",
+      "categoryId": "fractal",
+      "categoryLabel": "Fractal",
+      "tags": [
+        {
+          "id": "recursive",
+          "label": "Recursive"
+        },
+        {
+          "id": "sequencer",
+          "label": "Sequencer"
+        }
+      ],
+      "kind": "instrument"
+    },
+    {
+      "sheetRow": 23,
+      "oldId": "graph-drums",
+      "id": "graph-drum-machine",
+      "label": "Graph Drum Machine",
+      "categoryId": "geometric",
+      "categoryLabel": "Geometric",
+      "tags": [
+        {
+          "id": "fractal",
+          "label": "Fractal"
+        },
+        {
+          "id": "recursive",
+          "label": "Recursive"
+        },
+        {
+          "id": "drum-machine",
+          "label": "Drum Machine"
+        }
+      ],
+      "kind": "instrument"
+    },
+    {
+      "sheetRow": 24,
+      "oldId": "linear-drums-machine",
+      "id": "rattlesnake-skin",
+      "label": "Rattlesnake Skin",
+      "categoryId": "instrument",
+      "categoryLabel": "Instrument",
+      "tags": [
+        {
+          "id": "drum-machine",
+          "label": "Drum Machine"
+        }
+      ],
+      "kind": "instrument"
+    },
+    {
+      "sheetRow": 25,
+      "oldId": "rubix",
+      "id": "rubix",
+      "label": "Rubix Cube Sequencer",
+      "categoryId": "sequencer",
+      "categoryLabel": "Sequencer",
+      "tags": [
+        {
+          "id": "drum-machine",
+          "label": "Drum Machine"
+        },
+        {
+          "id": "3d",
+          "label": "3D"
+        },
+        {
+          "id": "puzzle",
+          "label": "Puzzle"
+        }
+      ],
+      "kind": "instrument"
+    },
+    {
+      "sheetRow": 26,
+      "oldId": "sliding-puzzle",
+      "id": "sliding-puzzle",
+      "label": "Sliding Puzzle",
+      "categoryId": "sequencer",
+      "categoryLabel": "Sequencer",
+      "tags": [
+        {
+          "id": "drum-machine",
+          "label": "Drum Machine"
+        },
+        {
+          "id": "2d",
+          "label": "2D"
+        }
+      ],
+      "kind": "instrument"
+    },
+    {
+      "sheetRow": 27,
+      "oldId": "hocket-loom",
+      "id": "hocket-loom",
+      "label": "Hocket Luigi",
+      "categoryId": "sequencer",
+      "categoryLabel": "Sequencer",
+      "tags": [
+        {
+          "id": "drum-machine",
+          "label": "Drum Machine"
+        },
+        {
+          "id": "3d",
+          "label": "3D"
+        }
+      ],
+      "kind": "instrument"
+    },
+    {
+      "sheetRow": 28,
+      "oldId": "hyper-rubix",
+      "id": "hyper-rubix",
+      "label": "Hyper Rubix",
+      "categoryId": "sequencer",
+      "categoryLabel": "Sequencer",
+      "tags": [
+        {
+          "id": "drum-machine",
+          "label": "Drum Machine"
+        },
+        {
+          "id": "4d",
+          "label": "4D"
+        },
+        {
+          "id": "puzzle",
+          "label": "Puzzle"
+        }
+      ],
+      "kind": "instrument"
+    },
+    {
+      "sheetRow": 29,
+      "oldId": "webgpu-303",
+      "id": "webgpu-303",
+      "label": "WebGPU 303",
+      "categoryId": "gpu-audio",
+      "categoryLabel": "GPU Audio",
+      "tags": [
+        {
+          "id": "sequencer",
+          "label": "Sequencer"
+        },
+        {
+          "id": "synthesizer",
+          "label": "Synthesizer"
+        },
+        {
+          "id": "acid",
+          "label": "Acid"
+        },
+        {
+          "id": "303",
+          "label": "303"
+        }
+      ],
+      "kind": "instrument"
+    },
+    {
+      "sheetRow": 30,
+      "oldId": "simd-303",
+      "id": "simd-303",
+      "label": "SIMD 303",
+      "categoryId": "simd-audio",
+      "categoryLabel": "SIMD Audio",
+      "tags": [
+        {
+          "id": "sequencer",
+          "label": "Sequencer"
+        },
+        {
+          "id": "synthesizer",
+          "label": "Synthesizer"
+        },
+        {
+          "id": "acid",
+          "label": "Acid"
+        },
+        {
+          "id": "303",
+          "label": "303"
+        }
+      ],
+      "kind": "instrument"
+    },
+    {
+      "sheetRow": 31,
+      "oldId": "simd-synth",
+      "id": "simd-synth",
+      "label": "SIMD Synth",
+      "categoryId": "simd-audio",
+      "categoryLabel": "SIMD Audio",
+      "tags": [
+        {
+          "id": "synthesizer",
+          "label": "Synthesizer"
+        },
+        {
+          "id": "sequencer",
+          "label": "Sequencer"
+        }
+      ],
+      "kind": "instrument"
+    },
+    {
+      "sheetRow": 32,
+      "oldId": "webgpu-chiptune",
+      "id": "webgpu-chiptune",
+      "label": "WebGPU Chiptune",
+      "categoryId": "gpu-audio",
+      "categoryLabel": "GPU Audio",
+      "tags": [
+        {
+          "id": "synthesizer",
+          "label": "Synthesizer"
+        },
+        {
+          "id": "sequencer",
+          "label": "Sequencer"
+        }
+      ],
+      "kind": "instrument"
+    },
+    {
+      "sheetRow": 33,
+      "oldId": "jaw-jam",
+      "id": "jaw-jam",
+      "label": "Jaw Jam",
+      "categoryId": "sequencer",
+      "categoryLabel": "Sequencer",
+      "tags": [
+        {
+          "id": "physical-model",
+          "label": "Physical Model"
+        },
+        {
+          "id": "instrument",
+          "label": "Instrument"
+        },
+        {
+          "id": "synthesizer",
+          "label": "Synthesizer"
+        }
+      ],
+      "kind": "instrument"
+    },
+    {
+      "sheetRow": 34,
+      "oldId": "webgpu-synths",
+      "id": "webgpu-synths",
+      "label": "GPU Shader Synths",
+      "categoryId": "gpu-audio",
+      "categoryLabel": "GPU Audio",
+      "tags": [
+        {
+          "id": "sequencer",
+          "label": "Sequencer"
+        },
+        {
+          "id": "synthesizer",
+          "label": "Synthesizer"
+        }
+      ],
+      "kind": "instrument"
+    },
+    {
+      "sheetRow": 35,
+      "oldId": "srtuss",
+      "id": "srtuss",
+      "label": "srtuss Master",
+      "categoryId": "gpu-audio",
+      "categoryLabel": "GPU Audio",
+      "tags": [
+        {
+          "id": "sequencer",
+          "label": "Sequencer"
+        },
+        {
+          "id": "synthesizer",
+          "label": "Synthesizer"
+        }
+      ],
+      "kind": "instrument"
+    },
+    {
+      "sheetRow": 36,
+      "oldId": "shader-synth-playground",
+      "id": "shader-synth-playground",
+      "label": "Modular Shader Synth",
+      "categoryId": "gpu-audio",
+      "categoryLabel": "GPU Audio",
+      "tags": [
+        {
+          "id": "synthesizer",
+          "label": "Synthesizer"
+        }
+      ],
+      "kind": "instrument"
+    },
+    {
+      "sheetRow": 37,
+      "oldId": "throatazoid",
+      "id": "throatazoid",
+      "label": "Throatazoid",
+      "categoryId": "physical-model",
+      "categoryLabel": "Physical Model",
+      "tags": [
+        {
+          "id": "voice",
+          "label": "Voice"
+        },
+        {
+          "id": "synthesizer",
+          "label": "Synthesizer"
+        }
+      ],
+      "kind": "instrument"
+    },
+    {
+      "sheetRow": 38,
+      "oldId": "pink-trombonazoid",
+      "id": "pink-trombonazoid",
+      "label": "Pink Trombonazoid",
+      "categoryId": "physical-model",
+      "categoryLabel": "Physical Model",
+      "tags": [
+        {
+          "id": "voice",
+          "label": "Voice"
+        },
+        {
+          "id": "sequencer",
+          "label": "Sequencer"
+        },
+        {
+          "id": "synthesizer",
+          "label": "Synthesizer"
+        }
+      ],
+      "kind": "instrument"
+    },
+    {
+      "sheetRow": 39,
+      "oldId": "throat-singing",
+      "id": "throat-singing",
+      "label": "Throat Singing",
+      "categoryId": "physical-model",
+      "categoryLabel": "Physical Model",
+      "tags": [
+        {
+          "id": "voice",
+          "label": "Voice"
+        },
+        {
+          "id": "synthesizer",
+          "label": "Synthesizer"
+        }
+      ],
+      "kind": "instrument"
+    },
+    {
+      "sheetRow": 40,
+      "oldId": "syrinx",
+      "id": "syrinx",
+      "label": "Syrinx",
+      "categoryId": "bioacoustic",
+      "categoryLabel": "Bioacoustic",
+      "tags": [
+        {
+          "id": "physical-model",
+          "label": "Physical Model"
+        }
+      ],
+      "kind": "instrument"
+    },
+    {
+      "sheetRow": 41,
+      "oldId": "tongued-beasts",
+      "id": "tongued-beasts",
+      "label": "Tongued Beasts",
+      "categoryId": "bioacoustic",
+      "categoryLabel": "Bioacoustic",
+      "tags": [
+        {
+          "id": "physical-model",
+          "label": "Physical Model"
+        }
+      ],
+      "kind": "instrument"
+    },
+    {
+      "sheetRow": 42,
+      "oldId": "hybrinx",
+      "id": "hybrinx",
+      "label": "Hybrinx",
+      "categoryId": "bioacoustic",
+      "categoryLabel": "Bioacoustic",
+      "tags": [
+        {
+          "id": "physical-model",
+          "label": "Physical Model"
+        }
+      ],
+      "kind": "instrument"
+    },
+    {
+      "sheetRow": 43,
+      "oldId": "creaturazoid",
+      "id": "creaturazoid",
+      "label": "Creaturazoid",
+      "categoryId": "bioacoustic",
+      "categoryLabel": "Bioacoustic",
+      "tags": [
+        {
+          "id": "sequencer",
+          "label": "Sequencer"
+        },
+        {
+          "id": "physical-model",
+          "label": "Physical Model"
+        }
+      ],
+      "kind": "instrument"
+    },
+    {
+      "sheetRow": 44,
+      "oldId": "quadruped",
+      "id": "quadruped",
+      "label": "Quadruped",
+      "categoryId": "bioacoustic",
+      "categoryLabel": "Bioacoustic",
+      "tags": [
+        {
+          "id": "sequencer",
+          "label": "Sequencer"
+        },
+        {
+          "id": "drum-machine",
+          "label": "Drum Machine"
+        }
+      ],
+      "kind": "instrument"
+    },
+    {
+      "sheetRow": 45,
+      "oldId": "roach-synth",
+      "id": "roach-synth",
+      "label": "Roach Synth",
+      "categoryId": "bioacoustic",
+      "categoryLabel": "Bioacoustic",
+      "tags": [],
+      "kind": "instrument"
+    },
+    {
+      "sheetRow": 46,
+      "oldId": "spider-synth",
+      "id": "spider-synth",
+      "label": "Spider Synth",
+      "categoryId": "bioacoustic",
+      "categoryLabel": "Bioacoustic",
+      "tags": [],
+      "kind": "instrument"
+    },
+    {
+      "sheetRow": 47,
+      "oldId": "colony-syrinx",
+      "id": "monstroid",
+      "label": "Monstroid",
+      "categoryId": "physical-model",
+      "categoryLabel": "Physical Model",
+      "tags": [
+        {
+          "id": "voice",
+          "label": "Voice"
+        },
+        {
+          "id": "synthesizer",
+          "label": "Synthesizer"
+        }
+      ],
+      "kind": "instrument"
+    },
+    {
+      "sheetRow": 48,
+      "oldId": "blowhole",
+      "id": "blowhole",
+      "label": "Blowhole",
+      "categoryId": "bioacoustic",
+      "categoryLabel": "Bioacoustic",
+      "tags": [
+        {
+          "id": "sequencer",
+          "label": "Sequencer"
+        }
+      ],
+      "kind": "instrument"
+    },
+    {
+      "sheetRow": 49,
+      "oldId": "jaw-harp",
+      "id": "jaw-harp",
+      "label": "Jaw Harp",
+      "categoryId": "physical-model",
+      "categoryLabel": "Physical Model",
+      "tags": [
+        {
+          "id": "instrument",
+          "label": "Instrument"
+        },
+        {
+          "id": "synthesizer",
+          "label": "Synthesizer"
+        }
+      ],
+      "kind": "instrument"
+    },
+    {
+      "sheetRow": 50,
+      "oldId": "harmonica",
+      "id": "harmonica",
+      "label": "Harmonicazoid",
+      "categoryId": "physical-model",
+      "categoryLabel": "Physical Model",
+      "tags": [
+        {
+          "id": "instrument",
+          "label": "Instrument"
+        },
+        {
+          "id": "synthesizer",
+          "label": "Synthesizer"
+        }
+      ],
+      "kind": "instrument"
+    },
+    {
+      "sheetRow": 51,
+      "oldId": "julie-saw",
+      "id": "julie-saw",
+      "label": "Julie Saw",
+      "categoryId": "physical-model",
+      "categoryLabel": "Physical Model",
+      "tags": [
+        {
+          "id": "instrument",
+          "label": "Instrument"
+        },
+        {
+          "id": "synthesizer",
+          "label": "Synthesizer"
+        }
+      ],
+      "kind": "instrument"
+    },
+    {
+      "sheetRow": 52,
+      "oldId": "hiccup-head",
+      "id": "hiccup-head",
+      "label": "Hiccup Head",
+      "categoryId": "physical-model",
+      "categoryLabel": "Physical Model",
+      "tags": [
+        {
+          "id": "voice",
+          "label": "Voice"
+        },
+        {
+          "id": "sequencer",
+          "label": "Sequencer"
+        }
+      ],
+      "kind": "instrument"
+    },
+    {
+      "sheetRow": 53,
+      "oldId": "digestazoid",
+      "id": "digestazoid",
+      "label": "Digestazoid",
+      "categoryId": "bioacoustic",
+      "categoryLabel": "Bioacoustic",
+      "tags": [],
+      "kind": "instrument"
+    },
+    {
+      "sheetRow": 54,
+      "oldId": "breath-atlas",
+      "id": "breath-atlas",
+      "label": "Mouthophones",
+      "categoryId": "wip",
+      "categoryLabel": "Work in Progress",
+      "tags": [],
+      "kind": "instrument"
+    },
+    {
+      "sheetRow": 55,
+      "oldId": "spelling-synthesizer",
+      "id": "spelling-synthesizer",
+      "label": "Spelling Synthesizer",
+      "categoryId": "wip",
+      "categoryLabel": "Work in Progress",
+      "tags": [],
+      "kind": "instrument"
+    },
+    {
+      "sheetRow": 56,
+      "oldId": "vocalzoid",
+      "id": "vocalzoid",
+      "label": "Vocalzoid",
+      "categoryId": "voice",
+      "categoryLabel": "Voice",
+      "tags": [
+        {
+          "id": "synthesizer",
+          "label": "Synthesizer"
+        }
+      ],
+      "kind": "instrument"
+    },
+    {
+      "sheetRow": 57,
+      "oldId": "lumber",
+      "id": "lumber",
+      "label": "Lumber Loops",
+      "categoryId": "audio-effect",
+      "categoryLabel": "Audio Effect",
+      "tags": [
+        {
+          "id": "looper",
+          "label": "Looper"
+        }
+      ],
+      "kind": "instrument"
+    },
+    {
+      "sheetRow": 58,
+      "oldId": "micmic",
+      "id": "micmic",
+      "label": "L-system Delay",
+      "categoryId": "audio-effect",
+      "categoryLabel": "Audio Effect",
+      "tags": [
+        {
+          "id": "fractal",
+          "label": "Fractal"
+        },
+        {
+          "id": "recursive",
+          "label": "Recursive"
+        }
+      ],
+      "kind": "instrument"
+    },
+    {
+      "sheetRow": 59,
+      "oldId": "graph-delay",
+      "id": "graph-delay",
+      "label": "Graph Delay",
+      "categoryId": "audio-effect",
+      "categoryLabel": "Audio Effect",
+      "tags": [
+        {
+          "id": "graph",
+          "label": "Graph"
+        }
+      ],
+      "kind": "instrument"
+    },
+    {
+      "sheetRow": 60,
+      "oldId": "micromorph",
+      "id": "micromorph",
+      "label": "Micromorph",
+      "categoryId": "wip",
+      "categoryLabel": "Work in Progress",
+      "tags": [],
+      "kind": "instrument"
+    },
+    {
+      "sheetRow": 61,
+      "oldId": "shepard-risset",
+      "id": "shepard-risset",
+      "label": "Shepard–Risset",
+      "categoryId": "infinite-illusion",
+      "categoryLabel": "Infinite Illusion",
+      "tags": [
+        {
+          "id": "synthesizer",
+          "label": "Synthesizer"
+        },
+        {
+          "id": "shepard",
+          "label": "Shepard"
+        },
+        {
+          "id": "risset",
+          "label": "Risset"
+        }
+      ],
+      "kind": "instrument"
+    },
+    {
+      "sheetRow": 62,
+      "oldId": "slippery-resynthesis",
+      "id": "slippery-resynthesis",
+      "label": "Slippery Resynthesis",
+      "categoryId": "infinite-illusion",
+      "categoryLabel": "Infinite Illusion",
+      "tags": [
+        {
+          "id": "audio-effect",
+          "label": "Audio Effect"
+        },
+        {
+          "id": "shepard",
+          "label": "Shepard"
+        },
+        {
+          "id": "risset",
+          "label": "Risset"
+        },
+        {
+          "id": "fft",
+          "label": "FFT"
+        },
+        {
+          "id": "resynthesis",
+          "label": "Resynthesis"
+        }
+      ],
+      "kind": "instrument"
+    },
+    {
+      "sheetRow": 63,
+      "oldId": "drum-roll-please",
+      "id": "drum-roll-please",
+      "label": "Drum Roll Please!",
+      "categoryId": "infinite-illusion",
+      "categoryLabel": "Infinite Illusion",
+      "tags": [
+        {
+          "id": "shepard",
+          "label": "Shepard"
+        },
+        {
+          "id": "risset",
+          "label": "Risset"
+        },
+        {
+          "id": "drum-machine",
+          "label": "Drum Machine"
+        },
+        {
+          "id": "sequencer",
+          "label": "Sequencer"
+        }
+      ],
+      "kind": "instrument"
+    },
+    {
+      "sheetRow": 64,
+      "oldId": "ouroborousel",
+      "id": "ouroborousel",
+      "label": "Ouroborousel",
+      "categoryId": "infinite-illusion",
+      "categoryLabel": "Infinite Illusion",
+      "tags": [
+        {
+          "id": "shepard",
+          "label": "Shepard"
+        },
+        {
+          "id": "risset",
+          "label": "Risset"
+        },
+        {
+          "id": "drum-machine",
+          "label": "Drum Machine"
+        },
+        {
+          "id": "sequencer",
+          "label": "Sequencer"
+        }
+      ],
+      "kind": "instrument"
+    },
+    {
+      "sheetRow": 65,
+      "oldId": "ourorourobouroboros",
+      "id": "ourorourobouroboros",
+      "label": "Ourorourobouroboros",
+      "categoryId": "infinite-illusion",
+      "categoryLabel": "Infinite Illusion",
+      "tags": [
+        {
+          "id": "shepard",
+          "label": "Shepard"
+        },
+        {
+          "id": "risset",
+          "label": "Risset"
+        },
+        {
+          "id": "drum-machine",
+          "label": "Drum Machine"
+        },
+        {
+          "id": "sequencer",
+          "label": "Sequencer"
+        }
+      ],
+      "kind": "instrument"
+    },
+    {
+      "sheetRow": 66,
+      "oldId": "ouroboros",
+      "id": "ouroboros",
+      "label": "Ouroboros",
+      "categoryId": "infinite-illusion",
+      "categoryLabel": "Infinite Illusion",
+      "tags": [
+        {
+          "id": "shepard",
+          "label": "Shepard"
+        },
+        {
+          "id": "risset",
+          "label": "Risset"
+        },
+        {
+          "id": "drum-machine",
+          "label": "Drum Machine"
+        },
+        {
+          "id": "sequencer",
+          "label": "Sequencer"
+        }
+      ],
+      "kind": "instrument"
+    },
+    {
+      "sheetRow": 67,
+      "oldId": "ouroboros-borealis",
+      "id": "ouroboros-borealis",
+      "label": "Ouroboros Borealis",
+      "categoryId": "infinite-illusion",
+      "categoryLabel": "Infinite Illusion",
+      "tags": [
+        {
+          "id": "shepard",
+          "label": "Shepard"
+        },
+        {
+          "id": "risset",
+          "label": "Risset"
+        },
+        {
+          "id": "drum-machine",
+          "label": "Drum Machine"
+        },
+        {
+          "id": "sequencer",
+          "label": "Sequencer"
+        }
+      ],
+      "kind": "instrument"
+    },
+    {
+      "sheetRow": 68,
+      "oldId": "sandy-syrup-delay",
+      "id": "sandy-syrup-delay",
+      "label": "Sandy Syrup Delay",
+      "categoryId": "infinite-illusion",
+      "categoryLabel": "Infinite Illusion",
+      "tags": [
+        {
+          "id": "shepard",
+          "label": "Shepard"
+        },
+        {
+          "id": "risset",
+          "label": "Risset"
+        },
+        {
+          "id": "audio-effect",
+          "label": "Audio Effect"
+        },
+        {
+          "id": "delay",
+          "label": "Delay"
+        }
+      ],
+      "kind": "instrument"
+    },
+    {
+      "sheetRow": 69,
+      "oldId": "candy-coil-delay",
+      "id": "candy-coil-delay",
+      "label": "Candy Coil Delay",
+      "categoryId": "infinite-illusion",
+      "categoryLabel": "Infinite Illusion",
+      "tags": [
+        {
+          "id": "shepard",
+          "label": "Shepard"
+        },
+        {
+          "id": "risset",
+          "label": "Risset"
+        },
+        {
+          "id": "audio-effect",
+          "label": "Audio Effect"
+        },
+        {
+          "id": "delay",
+          "label": "Delay"
+        }
+      ],
+      "kind": "instrument"
+    },
+    {
+      "sheetRow": 70,
+      "oldId": "recursion",
+      "id": "recursion",
+      "label": "Recursion",
+      "categoryId": "wip",
+      "categoryLabel": "Work in Progress",
+      "tags": [],
+      "kind": "instrument"
+    },
+    {
+      "sheetRow": 71,
+      "oldId": "enveloper",
+      "id": "enveloper",
+      "label": "Enveloper",
+      "categoryId": "sequencer",
+      "categoryLabel": "Sequencer",
+      "tags": [],
+      "kind": "instrument"
+    },
+    {
+      "sheetRow": 72,
+      "oldId": "julia",
+      "id": "julia",
+      "label": "Julia",
+      "categoryId": "fractal",
+      "categoryLabel": "Fractal",
+      "tags": [
+        {
+          "id": "sonification",
+          "label": "Sonification"
+        }
+      ],
+      "kind": "instrument"
+    },
+    {
+      "sheetRow": 73,
+      "oldId": "striped-staircase",
+      "id": "striped-staircase",
+      "label": "Striped Staircase",
+      "categoryId": "fractal",
+      "categoryLabel": "Fractal",
+      "tags": [
+        {
+          "id": "sonification",
+          "label": "Sonification"
+        }
+      ],
+      "kind": "instrument"
+    },
+    {
+      "sheetRow": 74,
+      "oldId": "recursive-fm",
+      "id": "recursive-fm",
+      "label": "Recursive FM",
+      "categoryId": "synthesizer",
+      "categoryLabel": "Synthesizer",
+      "tags": [
+        {
+          "id": "chaotic",
+          "label": "Chaotic"
+        },
+        {
+          "id": "nonlinear",
+          "label": "Nonlinear"
+        },
+        {
+          "id": "recursive",
+          "label": "Recursive"
+        },
+        {
+          "id": "fm",
+          "label": "FM"
+        }
+      ],
+      "kind": "instrument"
+    },
+    {
+      "sheetRow": 75,
+      "oldId": "recursive-pm",
+      "id": "recursive-pm",
+      "label": "Recursive PM",
+      "categoryId": "synthesizer",
+      "categoryLabel": "Synthesizer",
+      "tags": [
+        {
+          "id": "chaotic",
+          "label": "Chaotic"
+        },
+        {
+          "id": "nonlinear",
+          "label": "Nonlinear"
+        },
+        {
+          "id": "recursive",
+          "label": "Recursive"
+        },
+        {
+          "id": "pm",
+          "label": "PM"
+        }
+      ],
+      "kind": "instrument"
+    },
+    {
+      "sheetRow": 76,
+      "oldId": "chaotic-fm",
+      "id": "chaotic-fm",
+      "label": "Chaotic FM",
+      "categoryId": "synthesizer",
+      "categoryLabel": "Synthesizer",
+      "tags": [
+        {
+          "id": "chaotic",
+          "label": "Chaotic"
+        },
+        {
+          "id": "nonlinear",
+          "label": "Nonlinear"
+        },
+        {
+          "id": "fm",
+          "label": "FM"
+        }
+      ],
+      "kind": "instrument"
+    },
+    {
+      "sheetRow": 77,
+      "oldId": "chaotic-pm",
+      "id": "chaotic-pm",
+      "label": "Chaotic PM",
+      "categoryId": "synthesizer",
+      "categoryLabel": "Synthesizer",
+      "tags": [
+        {
+          "id": "chaotic",
+          "label": "Chaotic"
+        },
+        {
+          "id": "nonlinear",
+          "label": "Nonlinear"
+        },
+        {
+          "id": "pm",
+          "label": "PM"
+        }
+      ],
+      "kind": "instrument"
+    },
+    {
+      "sheetRow": 78,
+      "oldId": "cascading-fm",
+      "id": "cascading-fm",
+      "label": "Cascading FM",
+      "categoryId": "synthesizer",
+      "categoryLabel": "Synthesizer",
+      "tags": [
+        {
+          "id": "chaotic",
+          "label": "Chaotic"
+        },
+        {
+          "id": "nonlinear",
+          "label": "Nonlinear"
+        },
+        {
+          "id": "fm",
+          "label": "FM"
+        }
+      ],
+      "kind": "instrument"
+    },
+    {
+      "sheetRow": 79,
+      "oldId": "cascading-pm",
+      "id": "cascading-pm",
+      "label": "Cascading PM",
+      "categoryId": "synthesizer",
+      "categoryLabel": "Synthesizer",
+      "tags": [
+        {
+          "id": "chaotic",
+          "label": "Chaotic"
+        },
+        {
+          "id": "nonlinear",
+          "label": "Nonlinear"
+        },
+        {
+          "id": "pm",
+          "label": "PM"
+        }
+      ],
+      "kind": "instrument"
+    },
+    {
+      "sheetRow": 80,
+      "oldId": "weierstrass",
+      "id": "weierstrass",
+      "label": "Weierstrass",
+      "categoryId": "synthesizer",
+      "categoryLabel": "Synthesizer",
+      "tags": [
+        {
+          "id": "chaotic",
+          "label": "Chaotic"
+        },
+        {
+          "id": "nonlinear",
+          "label": "Nonlinear"
+        }
+      ],
+      "kind": "instrument"
+    },
+    {
+      "sheetRow": 81,
+      "oldId": "moire-drone",
+      "id": "moire-drone",
+      "label": "Fabric Filter",
+      "categoryId": "noise",
+      "categoryLabel": "Noise",
+      "tags": [
+        {
+          "id": "filter",
+          "label": "Filter"
+        },
+        {
+          "id": "2d",
+          "label": "2D"
+        }
+      ],
+      "kind": "instrument"
+    },
+    {
+      "sheetRow": 82,
+      "oldId": "playhead-paint",
+      "id": "playhead-paint",
+      "label": "Playhead Paint",
+      "categoryId": "wip",
+      "categoryLabel": "Work in Progress",
+      "tags": [],
+      "kind": "instrument"
+    },
+    {
+      "sheetRow": 83,
+      "oldId": "boidzoid",
+      "id": "boidzoid",
+      "label": "Boidzoid",
+      "categoryId": "wip",
+      "categoryLabel": "Work in Progress",
+      "tags": [],
+      "kind": "instrument"
+    },
+    {
+      "sheetRow": 84,
+      "oldId": "puggler",
+      "id": "puggler",
+      "label": "Puggler the Punk Rock Jugger",
+      "categoryId": "graphic-ui",
+      "categoryLabel": "Graphic-UI",
+      "tags": [
+        {
+          "id": "sequencer",
+          "label": "Sequencer"
+        }
+      ],
+      "kind": "instrument"
+    },
+    {
+      "sheetRow": 85,
+      "oldId": "vector-flight",
+      "id": "vector-flight",
+      "label": "Vector Flight",
+      "categoryId": "wip",
+      "categoryLabel": "Work in Progress",
+      "tags": [],
+      "kind": "instrument"
+    },
+    {
+      "sheetRow": 86,
+      "oldId": "gesturama",
+      "id": "gesturama",
+      "label": "Gesturama",
+      "categoryId": "wip",
+      "categoryLabel": "Work in Progress",
+      "tags": [],
+      "kind": "instrument"
+    },
+    {
+      "sheetRow": 87,
+      "oldId": "image-to-instrument-3",
+      "id": "image-to-instrument-3",
+      "label": "Wheel of Organs",
+      "categoryId": "wip",
+      "categoryLabel": "Work in Progress",
+      "tags": [],
+      "kind": "instrument"
+    },
+    {
+      "sheetRow": 88,
+      "oldId": "orbital-ferris",
+      "id": "orbital-ferris",
+      "label": "Feral Fairy Ferris Ferry",
+      "categoryId": "wip",
+      "categoryLabel": "Work in Progress",
+      "tags": [],
+      "kind": "instrument"
+    },
+    {
+      "sheetRow": 89,
+      "oldId": "fm-drums",
+      "id": "fm-drums",
+      "label": "FM Drums",
+      "categoryId": "instrument",
+      "categoryLabel": "Instrument",
+      "tags": [
+        {
+          "id": "drum-machine",
+          "label": "Drum Machine"
+        }
+      ],
+      "kind": "instrument"
+    },
+    {
+      "sheetRow": 90,
+      "oldId": "linear-drums",
+      "id": "linear-drums",
+      "label": "Rattlesnake",
+      "categoryId": "instrument",
+      "categoryLabel": "Instrument",
+      "tags": [
+        {
+          "id": "drum-machine",
+          "label": "Drum Machine"
+        }
+      ],
+      "kind": "instrument"
+    },
+    {
+      "sheetRow": 91,
+      "oldId": "karplus-strong",
+      "id": "karplus-strong",
+      "label": "Karplus Strong",
+      "categoryId": "instrument",
+      "categoryLabel": "Instrument",
+      "tags": [
+        {
+          "id": "synthesizer",
+          "label": "Synthesizer"
+        },
+        {
+          "id": "physical-model",
+          "label": "Physical Model"
+        }
+      ],
+      "kind": "instrument"
+    },
+    {
+      "sheetRow": 92,
+      "oldId": "karplus-carpet",
+      "id": "karplus-carpet",
+      "label": "Karplus Carpet",
+      "categoryId": "instrument",
+      "categoryLabel": "Instrument",
+      "tags": [
+        {
+          "id": "synthesizer",
+          "label": "Synthesizer"
+        },
+        {
+          "id": "physical-model",
+          "label": "Physical Model"
+        }
+      ],
+      "kind": "instrument"
+    },
+    {
+      "sheetRow": 93,
+      "oldId": "surround-field",
+      "id": "surround-field",
+      "label": "Surround for Safety",
+      "categoryId": "dispersion",
+      "categoryLabel": "Dispersion",
+      "tags": [
+        {
+          "id": "surround",
+          "label": "Surround"
+        },
+        {
+          "id": "spatial",
+          "label": "Spatial"
+        },
+        {
+          "id": "routing",
+          "label": "Routing"
+        }
+      ],
+      "kind": "instrument"
+    },
+    {
+      "sheetRow": 94,
+      "oldId": "sample-drums",
+      "id": "sample-drums",
+      "label": "Sample Drums",
+      "categoryId": "instrument",
+      "categoryLabel": "Instrument",
+      "tags": [
+        {
+          "id": "drum-machine",
+          "label": "Drum Machine"
+        }
+      ],
+      "kind": "instrument"
+    },
+    {
+      "sheetRow": 95,
+      "oldId": "object-forge",
+      "id": "object-forge",
+      "label": "Dentaphone",
+      "categoryId": "instrument",
+      "categoryLabel": "Instrument",
+      "tags": [],
+      "kind": "instrument"
+    },
+    {
+      "sheetRow": 96,
+      "oldId": "cellular-automata",
+      "id": "cellular-automata",
+      "label": "Automatapoeia",
+      "categoryId": "algorithmic",
+      "categoryLabel": "Algorithmic",
+      "tags": [
+        {
+          "id": "sequencer",
+          "label": "Sequencer"
+        }
+      ],
+      "kind": "instrument"
+    },
+    {
+      "sheetRow": 97,
+      "oldId": "sorting-algorithms",
+      "id": "sorting-algorithms",
+      "label": "Sorting",
+      "categoryId": "algorithmic",
+      "categoryLabel": "Algorithmic",
+      "tags": [
+        {
+          "id": "sequencer",
+          "label": "Sequencer"
+        }
+      ],
+      "kind": "instrument"
+    },
+    {
+      "sheetRow": 98,
+      "oldId": "dijkstra",
+      "id": "dijkstra",
+      "label": "DJ Dijkstra",
+      "categoryId": "algorithmic",
+      "categoryLabel": "Algorithmic",
+      "tags": [
+        {
+          "id": "sequencer",
+          "label": "Sequencer"
+        }
+      ],
+      "kind": "instrument"
+    },
+    {
+      "sheetRow": 99,
+      "oldId": "wave-pool",
+      "id": "wave-pool",
+      "label": "Wave Pool",
+      "categoryId": "wip",
+      "categoryLabel": "Work in Progress",
+      "tags": [],
+      "kind": "instrument"
+    },
+    {
+      "sheetRow": 100,
+      "oldId": "penrose-tilings",
+      "id": "penrose-tilings",
+      "label": "Penrose Tilings",
+      "categoryId": "wip",
+      "categoryLabel": "Work in Progress",
+      "tags": [],
+      "kind": "instrument"
+    },
+    {
+      "sheetRow": 101,
+      "oldId": "yoyodyne",
+      "id": "yoyodyne",
+      "label": "Yoyodyne",
+      "categoryId": "wip",
+      "categoryLabel": "Work in Progress",
+      "tags": [],
+      "kind": "instrument"
+    },
+    {
+      "sheetRow": 102,
+      "oldId": "hanoi",
+      "id": "hanoi",
+      "label": "Hanoi Carillon",
+      "categoryId": "wip",
+      "categoryLabel": "Work in Progress",
+      "tags": [],
+      "kind": "instrument"
+    },
+    {
+      "sheetRow": 103,
+      "oldId": "minimax",
+      "id": "minimax",
+      "label": "Alpha-Beta Minimax",
+      "categoryId": "wip",
+      "categoryLabel": "Work in Progress",
+      "tags": [],
+      "kind": "instrument"
+    },
+    {
+      "sheetRow": 104,
+      "oldId": "nqueens",
+      "id": "nqueens",
+      "label": "N-Queens Backtracker",
+      "categoryId": "wip",
+      "categoryLabel": "Work in Progress",
+      "tags": [],
+      "kind": "instrument"
+    },
+    {
+      "sheetRow": 105,
+      "oldId": "euclid",
+      "id": "euclid",
+      "label": "Euclidean Pulse",
+      "categoryId": "wip",
+      "categoryLabel": "Work in Progress",
+      "tags": [],
+      "kind": "instrument"
+    },
+    {
+      "sheetRow": 106,
+      "oldId": "alien-larynx",
+      "id": "alien-larynx",
+      "label": "Alien Larynx",
+      "categoryId": "wip",
+      "categoryLabel": "Work in Progress",
+      "tags": [],
+      "kind": "instrument"
+    },
+    {
+      "sheetRow": 107,
+      "oldId": "hyper-syrinx",
+      "id": "hyper-syrinx",
+      "label": "Hyper-Syrinx",
+      "categoryId": "wip",
+      "categoryLabel": "Work in Progress",
+      "tags": [
+        {
+          "id": "bioacoustic",
+          "label": "Bioacoustic"
+        }
+      ],
+      "kind": "instrument"
+    },
+    {
+      "sheetRow": 108,
+      "oldId": "morphynx",
+      "id": "morphynx",
+      "label": "Morphynx",
+      "categoryId": "wip",
+      "categoryLabel": "Work in Progress",
+      "tags": [],
+      "kind": "instrument"
+    },
+    {
+      "sheetRow": 109,
+      "oldId": "escher-tessellation",
+      "id": "escher-tessellation",
+      "label": "Escher",
+      "categoryId": "wip",
+      "categoryLabel": "Work in Progress",
+      "tags": [],
+      "kind": "instrument"
+    },
+    {
+      "sheetRow": 110,
+      "oldId": "plasma-ball",
+      "id": "plasma-ball",
+      "label": "Plasma Ball",
+      "categoryId": "wip",
+      "categoryLabel": "Work in Progress",
+      "tags": [],
+      "kind": "instrument"
+    },
+    {
+      "sheetRow": 111,
+      "oldId": "simd-resonator",
+      "id": "simd-resonator",
+      "label": "SIMD Resonator",
+      "categoryId": "simd-audio",
+      "categoryLabel": "SIMD Audio",
+      "tags": [
+        {
+          "id": "resonator",
+          "label": "Resonator"
+        }
+      ],
+      "kind": "instrument"
+    },
+    {
+      "sheetRow": 112,
+      "oldId": "order-tones",
+      "id": "order-tones",
+      "label": "Order Tones",
+      "categoryId": "wip",
+      "categoryLabel": "Work in Progress",
+      "tags": [],
+      "kind": "instrument"
+    },
+    {
+      "sheetRow": 113,
+      "oldId": "morphazoidical",
+      "id": "morphazoidical",
+      "label": "Morphazoidical",
+      "categoryId": "wip",
+      "categoryLabel": "Work in Progress",
+      "tags": [],
+      "kind": "instrument"
+    },
+    {
+      "sheetRow": 114,
+      "oldId": "bell-square",
+      "id": "bell-square",
+      "label": "Bell Square",
+      "categoryId": "wip",
+      "categoryLabel": "Work in Progress",
+      "tags": [],
+      "kind": "instrument"
+    },
+    {
+      "sheetRow": 115,
+      "oldId": "entanglement-dance",
+      "id": "entanglement-dance",
+      "label": "Entanglement Dance",
+      "categoryId": "wip",
+      "categoryLabel": "Work in Progress",
+      "tags": [],
+      "kind": "instrument"
+    },
+    {
+      "sheetRow": 116,
+      "oldId": "quantum-square-dance",
+      "id": "quantum-square-dance",
+      "label": "Quantum Square Dance",
+      "categoryId": "wip",
+      "categoryLabel": "Work in Progress",
+      "tags": [],
+      "kind": "instrument"
+    },
+    {
+      "sheetRow": 117,
+      "oldId": "annealogue",
+      "id": "annealogue",
+      "label": "Annealogue",
+      "categoryId": "wip",
+      "categoryLabel": "Work in Progress",
+      "tags": [],
+      "kind": "instrument"
+    },
+    {
+      "sheetRow": 118,
+      "oldId": "gravity-walk",
+      "id": "gravity-walk",
+      "label": "Gravity Walk",
+      "categoryId": "wip",
+      "categoryLabel": "Work in Progress",
+      "tags": [],
+      "kind": "instrument"
+    },
+    {
+      "sheetRow": 119,
+      "oldId": "ricochet",
+      "id": "ricochet",
+      "label": "Ricochet",
+      "categoryId": "wip",
+      "categoryLabel": "Work in Progress",
+      "tags": [],
+      "kind": "instrument"
+    },
+    {
+      "sheetRow": 120,
+      "oldId": "rigidity",
+      "id": "rigidity",
+      "label": "Rigidity",
+      "categoryId": "wip",
+      "categoryLabel": "Work in Progress",
+      "tags": [],
+      "kind": "instrument"
+    },
+    {
+      "sheetRow": 121,
+      "oldId": "rolling-measure",
+      "id": "rolling-measure",
+      "label": "Rolling Measure",
+      "categoryId": "wip",
+      "categoryLabel": "Work in Progress",
+      "tags": [],
+      "kind": "instrument"
+    },
+    {
+      "sheetRow": 122,
+      "oldId": "falling-forms",
+      "id": "falling-forms",
+      "label": "Falling Forms",
+      "categoryId": "wip",
+      "categoryLabel": "Work in Progress",
+      "tags": [],
+      "kind": "instrument"
+    },
+    {
+      "sheetRow": 123,
+      "oldId": "charge-garden",
+      "id": "charge-garden",
+      "label": "Charge Garden",
+      "categoryId": "wip",
+      "categoryLabel": "Work in Progress",
+      "tags": [],
+      "kind": "instrument"
+    },
+    {
+      "sheetRow": 124,
+      "oldId": "packing-pressure",
+      "id": "packing-pressure",
+      "label": "Packing Pressure",
+      "categoryId": "wip",
+      "categoryLabel": "Work in Progress",
+      "tags": [],
+      "kind": "instrument"
+    },
+    {
+      "sheetRow": 125,
+      "oldId": "geodesic-drift",
+      "id": "geodesic-drift",
+      "label": "Geodesic Drift",
+      "categoryId": "wip",
+      "categoryLabel": "Work in Progress",
+      "tags": [],
+      "kind": "instrument"
+    },
+    {
+      "sheetRow": 126,
+      "oldId": "kinetic-hull",
+      "id": "kinetic-hull",
+      "label": "Kinetic Hull",
+      "categoryId": "wip",
+      "categoryLabel": "Work in Progress",
+      "tags": [],
+      "kind": "instrument"
+    },
+    {
+      "sheetRow": 127,
+      "oldId": "moire-organ",
+      "id": "moire-organ",
+      "label": "RISSET-MOIRE",
+      "categoryId": "wip",
+      "categoryLabel": "Work in Progress",
+      "tags": [],
+      "kind": "instrument"
+    },
+    {
+      "sheetRow": 128,
+      "oldId": "chladni-plate",
+      "id": "chladni-plate",
+      "label": "Chladni Plate",
+      "categoryId": "wip",
+      "categoryLabel": "Work in Progress",
+      "tags": [],
+      "kind": "instrument"
+    },
+    {
+      "sheetRow": 129,
+      "oldId": "spring-choir",
+      "id": "spring-choir",
+      "label": "Spring Choir",
+      "categoryId": "wip",
+      "categoryLabel": "Work in Progress",
+      "tags": [],
+      "kind": "instrument"
+    },
+    {
+      "sheetRow": 130,
+      "oldId": "gear-ratio-drums",
+      "id": "gear-ratio-drums",
+      "label": "Gear Ratio Drums",
+      "categoryId": "wip",
+      "categoryLabel": "Work in Progress",
+      "tags": [],
+      "kind": "instrument"
+    },
+    {
+      "sheetRow": 131,
+      "oldId": "prime-sieve",
+      "id": "prime-sieve",
+      "label": "Prime Sieve",
+      "categoryId": "wip",
+      "categoryLabel": "Work in Progress",
+      "tags": [],
+      "kind": "instrument"
+    },
+    {
+      "sheetRow": 132,
+      "oldId": "lissajous-orbits",
+      "id": "lissajous-orbits",
+      "label": "Lissajous Orbits",
+      "categoryId": "wip",
+      "categoryLabel": "Work in Progress",
+      "tags": [],
+      "kind": "instrument"
+    },
+    {
+      "sheetRow": 133,
+      "oldId": "pendulum-wave",
+      "id": "pendulum-wave",
+      "label": "Pendulum Wave",
+      "categoryId": "wip",
+      "categoryLabel": "Work in Progress",
+      "tags": [],
+      "kind": "instrument"
+    },
+    {
+      "sheetRow": 134,
+      "oldId": "double-pendulum",
+      "id": "double-pendulum",
+      "label": "Double Pendulum",
+      "categoryId": "wip",
+      "categoryLabel": "Work in Progress",
+      "tags": [],
+      "kind": "instrument"
+    },
+    {
+      "sheetRow": 135,
+      "oldId": "reaction-diffusion",
+      "id": "reaction-diffusion",
+      "label": "Reaction-Diffusion",
+      "categoryId": "wip",
+      "categoryLabel": "Work in Progress",
+      "tags": [],
+      "kind": "instrument"
+    },
+    {
+      "sheetRow": 136,
+      "oldId": "atomic-orbitals",
+      "id": "atomic-orbitals",
+      "label": "Atomic Orbitals",
+      "categoryId": "wip",
+      "categoryLabel": "Work in Progress",
+      "tags": [],
+      "kind": "instrument"
+    },
+    {
+      "sheetRow": 137,
+      "oldId": "dna-translator",
+      "id": "dna-translator",
+      "label": "DNA Translator",
+      "categoryId": "wip",
+      "categoryLabel": "Work in Progress",
+      "tags": [],
+      "kind": "instrument"
+    },
+    {
+      "sheetRow": 138,
+      "oldId": "neural-pulse",
+      "id": "neural-pulse",
+      "label": "Neural Pulse",
+      "categoryId": "wip",
+      "categoryLabel": "Work in Progress",
+      "tags": [],
+      "kind": "instrument"
+    },
+    {
+      "sheetRow": 139,
+      "oldId": "fourier-epicycles",
+      "id": "fourier-epicycles",
+      "label": "Fourier Epicycles",
+      "categoryId": "wip",
+      "categoryLabel": "Work in Progress",
+      "tags": [],
+      "kind": "instrument"
+    },
+    {
+      "sheetRow": 140,
+      "oldId": "gravity-lens",
+      "id": "gravity-lens",
+      "label": "Gravity Lens",
+      "categoryId": "wip",
+      "categoryLabel": "Work in Progress",
+      "tags": [],
+      "kind": "instrument"
+    },
+    {
+      "sheetRow": 141,
+      "oldId": "cantor-lock",
+      "id": "cantor-lock",
+      "label": "Cantor Lock",
+      "categoryId": "wip",
+      "categoryLabel": "Work in Progress",
+      "tags": [],
+      "kind": "instrument"
+    },
+    {
+      "sheetRow": 142,
+      "oldId": "escape-dust",
+      "id": "escape-dust",
+      "label": "Escape Dust",
+      "categoryId": "wip",
+      "categoryLabel": "Work in Progress",
+      "tags": [],
+      "kind": "instrument"
+    },
+    {
+      "sheetRow": 143,
+      "oldId": "linebreaker",
+      "id": "linebreaker",
+      "label": "Linebreaker",
+      "categoryId": "wip",
+      "categoryLabel": "Work in Progress",
+      "tags": [],
+      "kind": "instrument"
+    },
+    {
+      "sheetRow": 144,
+      "oldId": "acoustic-manifold",
+      "id": "acoustic-manifold",
+      "label": "Acoustic Manifold",
+      "categoryId": "wip",
+      "categoryLabel": "Work in Progress",
+      "tags": [],
+      "kind": "lab"
+    },
+    {
+      "sheetRow": 145,
+      "oldId": "adaptive-airway",
+      "id": "adaptive-airway",
+      "label": "Adaptive Airway Lab",
+      "categoryId": "wip",
+      "categoryLabel": "Work in Progress",
+      "tags": [],
+      "kind": "lab"
+    },
+    {
+      "sheetRow": 146,
+      "oldId": "birdsong-lab",
+      "id": "birdsong-lab",
+      "label": "Strophe Lab",
+      "categoryId": "wip",
+      "categoryLabel": "Work in Progress",
+      "tags": [],
+      "kind": "lab"
+    },
+    {
+      "sheetRow": 147,
+      "oldId": "crickets",
+      "id": "crickets",
+      "label": "Crickets",
+      "categoryId": "bioacoustic",
+      "categoryLabel": "Bioacoustic",
+      "tags": [],
+      "kind": "lab"
+    },
+    {
+      "sheetRow": 148,
+      "oldId": "nightingale-manifold",
+      "id": "nightingale-manifold",
+      "label": "Nightingale Manifolds",
+      "categoryId": "wip",
+      "categoryLabel": "Work in Progress",
+      "tags": [],
+      "kind": "lab"
+    },
+    {
+      "sheetRow": 149,
+      "oldId": "syrinx-ui",
+      "id": "syrinx-ui",
+      "label": "Syrinx UI",
+      "categoryId": "wip",
+      "categoryLabel": "Work in Progress",
+      "tags": [],
+      "kind": "lab"
+    },
+    {
+      "sheetRow": 150,
+      "oldId": "simd-audio-lab",
+      "id": "simd-lab",
+      "label": "SIMD Audio Lab",
+      "categoryId": "wip",
+      "categoryLabel": "Work in Progress",
+      "tags": [
+        {
+          "id": "simd-audio",
+          "label": "SIMD Audio"
+        }
+      ],
+      "kind": "lab"
+    },
+    {
+      "sheetRow": null,
+      "oldId": "tempo-tantrum",
+      "id": "tempo-tantrum",
+      "label": "Tempo Tantrum",
+      "categoryId": "wip",
+      "categoryLabel": "Work in Progress",
+      "tags": [],
+      "kind": "instrument",
+      "note": "Added on main after the sheet inventory; preserved rather than deleted."
+    },
+    {
+      "sheetRow": null,
+      "oldId": "tape-worm",
+      "id": "tape-worm",
+      "label": "Tape Worm",
+      "categoryId": "wip",
+      "categoryLabel": "Work in Progress",
+      "tags": [],
+      "kind": "instrument",
+      "note": "Added on main after the sheet inventory; preserved rather than deleted."
+    },
+    {
+      "sheetRow": null,
+      "oldId": "loop-soup",
+      "id": "loop-soup",
+      "label": "Loop Soup",
+      "categoryId": "wip",
+      "categoryLabel": "Work in Progress",
+      "tags": [],
+      "kind": "instrument",
+      "note": "Added on main after the sheet inventory; preserved rather than deleted."
+    },
+    {
+      "sheetRow": null,
+      "oldId": "habit-habitat",
+      "id": "habit-habitat",
+      "label": "Habit Habitat",
+      "categoryId": "wip",
+      "categoryLabel": "Work in Progress",
+      "tags": [],
+      "kind": "instrument",
+      "note": "Added on main after the sheet inventory; preserved rather than deleted."
+    },
+    {
+      "sheetRow": null,
+      "oldId": "hollowphonic",
+      "id": "hollowphonic",
+      "label": "Hollowphonic",
+      "categoryId": "wip",
+      "categoryLabel": "Work in Progress",
+      "tags": [],
+      "kind": "instrument",
+      "note": "Added on main after the sheet inventory; preserved rather than deleted."
+    }
+  ],
+  "retirementDecision": "Latest sheet retains Throatazoid; no deletion in this pass.",
+  "labs": "Keep existing lab behavior; expose as lab catalogue items without inventing MIDI/standard-instrument compatibility."
+}

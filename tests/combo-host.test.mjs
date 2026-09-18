@@ -7,7 +7,7 @@ import {
   COMBO_PLAYING_MODES,
   comboSelectionFor,
   sanitizeComboFocus,
-} from "../src/combo-host.js";
+} from "../src/instruments/shapes/shapes-host.js";
 import { resolveActiveTool, TOOL_GROUPS } from "../nav.js";
 
 const repositoryRoot = new URL("../", import.meta.url);
@@ -42,24 +42,24 @@ test("Shapes is one native Morphazoid route with no embedded page dependencies",
   const [html, redirect, css, app, scene, rhythm, state] = await Promise.all([
     readFile(new URL("shapes.html", repositoryRoot), "utf8"),
     readFile(new URL("combo.html", repositoryRoot), "utf8"),
-    readFile(new URL("combo.css", repositoryRoot), "utf8"),
-    readFile(new URL("combo-app.js", repositoryRoot), "utf8"),
+    readFile(new URL("src/instruments/shapes/shapes.css", repositoryRoot), "utf8"),
+    readFile(new URL("src/instruments/shapes/shapes-app.js", repositoryRoot), "utf8"),
     readFile(new URL("src/shapes-scene.js", repositoryRoot), "utf8"),
     readFile(new URL("src/shapes-rhythm.js", repositoryRoot), "utf8"),
     readFile(new URL("src/shapes-state.js", repositoryRoot), "utf8"),
   ]);
 
-  const comboTool = TOOL_GROUPS.flatMap(({ tools }) => tools).find(({ id }) => id === "combo");
+  const comboTool = TOOL_GROUPS.flatMap(({ tools }) => tools).find(({ id }) => id === "shapes");
   assert.equal(comboTool?.href, "shapes.html");
   assert.equal(comboTool?.label, "Shapes");
-  assert.equal(TOOL_GROUPS.find(({ id }) => id === "apps")?.tools[0]?.id, "combo");
+  assert.equal(TOOL_GROUPS.find(({ id }) => id === "app")?.tools[0]?.id, "shapes");
   assert.equal(resolveActiveTool(
     "https://example.test/morphazoid/shapes.html",
     "https://example.test/morphazoid/",
-  )?.id, "combo");
+  )?.id, "shapes");
 
-  assert.match(redirect, /new URL\("shapes\.html", window\.location\.href\)/);
-  assert.match(redirect, /window\.location\.replace\(destination\)/);
+  assert.match(redirect, /new URL\("shapes\.html", location\.href\)/);
+  assert.match(redirect, /location\.replace\(destination\.href\)/);
   assert.match(html, /<title>Shapes — Morphazoid<\/title>/);
   assert.match(html, /<header class="masthead">/);
   assert.match(html, /<a class="tab active" href="shapes\.html" aria-current="page">Shapes<\/a>/);
@@ -67,15 +67,15 @@ test("Shapes is one native Morphazoid route with no embedded page dependencies",
   assert.match(html, /<aside class="shapes-panel"/);
   assert.doesNotMatch(html, /Shapes app|One form, three dimensions/);
   assert.match(html, /<script type="module" src="nav\.js"><\/script>/);
-  assert.match(html, /<script type="module" src="combo-app\.js"><\/script>/);
+  assert.match(html, /<script type="module" src="src\/instruments\/shapes\/shapes-app\.js"><\/script>/);
   assert.doesNotMatch(html, /<(?:iframe|object|embed)\b/i);
   assert.doesNotMatch(html, /(?:shape|solid|hyper)(?:-drums)?\.html/i);
 
   assert.doesNotMatch(app, /contentDocument|contentWindow|window\.frames|createElement\(["']iframe/);
   assert.doesNotMatch(app, /(?:^|["'/])(?:app|solid-app|hyper-app|shape-drums-app|solid-drums-app|hyper-drums-app)\.js/);
-  assert.match(app, /from "\.\/src\/shapes-state\.js"/);
-  assert.match(app, /from "\.\/src\/shapes-scene\.js"/);
-  assert.match(app, /from "\.\/src\/shapes-rhythm\.js"/);
+  assert.match(app, /from "\.\.\/\.\.\/shapes-state\.js"/);
+  assert.match(app, /from "\.\.\/\.\.\/shapes-scene\.js"/);
+  assert.match(app, /from "\.\.\/\.\.\/shapes-rhythm\.js"/);
   assert.match(app, /legacySound === "synth"[\s\S]*?"continuous"/);
   assert.match(app, /createShapesRhythmSample\(seedState\)/);
   assert.match(app, /advanceShapesRhythmSample\(discreteRhythmSample, sampledState\)/);
@@ -175,7 +175,7 @@ test("Shapes owns the fixed application picker and local 2D, 3D, 4D submenu", as
 test("Shapes uses an original-style hierarchy with restrained control chrome", async () => {
   const [html, css] = await Promise.all([
     readFile(new URL("shapes.html", repositoryRoot), "utf8"),
-    readFile(new URL("combo.css", repositoryRoot), "utf8"),
+    readFile(new URL("src/instruments/shapes/shapes.css", repositoryRoot), "utf8"),
   ]);
   assert.match(html, /class="shapes-twin-rack"/);
   assert.doesNotMatch(html, />0[12]<\/span>/);

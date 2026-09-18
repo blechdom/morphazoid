@@ -1,6 +1,7 @@
 import { getSharedMidiManager } from "./midi-manager.js";
 import { MidiClockTempoTracker, midiNoteToFrequency, normalizedControlValue } from "./wax-midi-routing.js";
 import { instrumentMidiCapabilityForId } from "./instrument-midi-capabilities.js";
+import { legacyInstrumentId } from "./site/instrument-identities.js";
 
 const ADAPTER_KEY = Symbol.for("morphazoid.browserMidiAdapter");
 
@@ -213,7 +214,7 @@ export function dispatchBrowserMidiEvent(runtime, message, routeId) {
   }
   const event = new runtime.CustomEvent("morphazoid:midi-input", {
     cancelable: true,
-    detail: Object.freeze({ message, routeId, source: "browser" }),
+    detail: Object.freeze({ message, routeId: legacyInstrumentId(routeId), source: "browser" }),
   });
   runtime.dispatchEvent(event);
   return event.defaultPrevented;

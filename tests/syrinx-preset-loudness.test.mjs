@@ -198,7 +198,7 @@ test("preset trims are frozen, bounded, and routed independently from user level
     ) < 1e-12,
   );
 
-  const app = await readFile(new URL("../syrinx-app.js", import.meta.url), "utf8");
+  const app = await readFile(new URL("../src/families/syrinx/syrinx-app.js", import.meta.url), "utf8");
   const postConfiguration = functionBody(app, "postConfiguration", "setAudioPresentation");
   const createAudioGraph = functionBody(app, "createAudioGraph", "ensureAudio");
   const updatePerformance = functionBody(app, "updatePerformance", "updateHybrinxTimeline");

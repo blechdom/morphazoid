@@ -6,7 +6,7 @@ import { readFile, readdir, stat } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { TOOL_GROUPS } from "../src/site/instrument-registry.js";
-import { INSTRUMENTS, instrumentById } from "../src/instrument-catalog.js";
+import { INSTRUMENTS, catalogueItemById } from "../src/instrument-catalog.js";
 import { instrumentMidiCapabilityForId } from "../src/instrument-midi-capabilities.js";
 
 export const repositoryRoot = fileURLToPath(new URL("../", import.meta.url));
@@ -92,7 +92,7 @@ async function walk(directory) {
 
 export async function inspectInstrument(id) {
   if (!/^[a-z0-9][a-z0-9-]*$/.test(id ?? "")) throw new Error("Use a catalogue ID, for example: puggler");
-  const instrument = instrumentById(id);
+  const instrument = catalogueItemById(id);
   if (!instrument) throw new Error(`Unknown instrument ID: ${id}. Available IDs: ${INSTRUMENTS.map(i => i.id).sort().join(", ")}`);
   const route = localPath(instrument.href, "index.html");
   if (route === null) throw new Error(`Instrument ${id} has an external route: ${instrument.href}`);
@@ -143,7 +143,7 @@ export async function inspectInstrument(id) {
   files.sort((a, b) => a.path.localeCompare(b.path, "en"));
   edges.sort((a, b) => `${a.from}:${a.to}:${a.kind}`.localeCompare(`${b.from}:${b.to}:${b.kind}`, "en"));
   const entries = edges.filter(e => e.from === page && ["entry-script", "module"].includes(e.kind)).map(e => e.to);
-  const stems = sorted([id, ...files.map(f => f.path).filter(p => !p.includes("/") && p.endsWith("-app.js")).map(p => p.replace(/-app\.js$/, ""))]);
+  const stems = sorted([id, ...files.map(f => f.path).filter(p => p.endsWith("-app.js")).map(p => path.basename(p).replace(/-app\.js$/, ""))]);
   const domainFiles = files.map(f => f.path).filter(p => stems.some(stem => path.basename(p).startsWith(`${stem}.`) || path.basename(p).startsWith(`${stem}-`)) || (page.includes("/") && p.startsWith(`${path.dirname(page)}/`)));
   const testFiles = (await Promise.all([walk("tests"), walk("e2e"), walk("morphazoidical/tests")])).flat().filter(p => /\.(?:test|spec)\.mjs$/.test(p));
   const focusedTests = [];

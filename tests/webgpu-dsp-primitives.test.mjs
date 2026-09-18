@@ -135,8 +135,8 @@ test("every function in the live GPU synth WGSL is named by a live atlas entry",
 test("the companion page exposes filters, a semantic table, and technical notes", async () => {
   const [html, css, app, synthPage] = await Promise.all([
     readFile(new URL("webgpu-dsp-primitives.html", ROOT), "utf8"),
-    readFile(new URL("webgpu-dsp-primitives.css", ROOT), "utf8"),
-    readFile(new URL("webgpu-dsp-primitives-app.js", ROOT), "utf8"),
+    readFile(new URL("src/instruments/webgpu-dsp-primitives/webgpu-dsp-primitives.css", ROOT), "utf8"),
+    readFile(new URL("src/instruments/webgpu-dsp-primitives/webgpu-dsp-primitives-app.js", ROOT), "utf8"),
     readFile(new URL("webgpu-synths.html", ROOT), "utf8"),
   ]);
 
@@ -154,8 +154,8 @@ test("the companion page exposes filters, a semantic table, and technical notes"
   assert.doesNotMatch(html, /patch-sketch|SOUND SKETCHPAD|WGSL RAW MATERIAL/i);
   assert.match(html, /href=["'](?:\.\/)?webgpu-synths\.html(?:[?#][^"']*)?["']/i);
   assert.match(html, /href=["'](?:\.\/)?shader-synth-playground\.html(?:[?#][^"']*)?["']/i);
-  assert.match(html, /src=["'](?:\.\/)?webgpu-dsp-primitives-app\.js(?:\?[^"']*)?["']/i);
-  assert.match(html, /href=["'](?:\.\/)?webgpu-dsp-primitives\.css(?:\?[^"']*)?["']/i);
+  assert.match(html, /src=["'](?:\.\/)?src\/instruments\/webgpu-dsp-primitives\/webgpu-dsp-primitives-app\.js(?:\?[^"']*)?["']/i);
+  assert.match(html, /href=["'](?:\.\/)?src\/instruments\/webgpu-dsp-primitives\/webgpu-dsp-primitives\.css(?:\?[^"']*)?["']/i);
   assert.match(synthPage, /href=["'](?:\.\/)?webgpu-dsp-primitives\.html(?:[?#][^"']*)?["']/i);
   assert.match(html, /<title>Shader Synth Primitives — Morphazoid<\/title>/i);
   assert.doesNotMatch(html, /FIELD NOTES \+ PRIMARY SOURCES/i);

@@ -8,7 +8,7 @@
     <title>FM Drums — Morphazoid</title>
     <link rel="icon" href="favicon.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="style.css" />
-    <link rel="stylesheet" href="fm-drums.css" />
+    <link rel="stylesheet" href="src/instruments/fm-drums/fm-drums.css" />
   </head>
   <body class="fm-drums-page">
     <header class="masthead">
@@ -18,21 +18,21 @@
       </a>
 
       <nav class="tabs" aria-label="Instrument">
-        <a class="tab" href="shape.html">shape</a>
+        <a class="tab" href="shape-synth.html">shape</a>
         <a class="tab active" href="fm-drums.html" aria-current="page">fm drums</a>
         <a class="tab" href="linear-drums.html">linear drums</a>
         <a class="tab" href="sample-drums.html">sample drums</a>
-        <a class="tab" href="spiral-drums.html">spiral drums</a>
+        <a class="tab" href="spiral-drum-machine.html">spiral drums</a>
         <a class="tab morphazoidical-tab" href="morphazoidical/">morphazoidical</a>
       </nav>
       <label class="mobile-instrument-nav">
         <span class="sr-only">Instrument</span>
         <select class="mobile-instrument-select" aria-label="Instrument">
-          <option value="shape.html">shape</option>
+          <option value="shape-synth.html">shape</option>
           <option value="fm-drums.html" selected>fm drums</option>
           <option value="linear-drums.html">linear drums</option>
           <option value="sample-drums.html">sample drums</option>
-          <option value="spiral-drums.html">spiral drums</option>
+          <option value="spiral-drum-machine.html">spiral drums</option>
           <option value="morphazoidical/">morphazoidical</option>
         </select>
       </label>
@@ -91,6 +91,6 @@
     </main>
 
     <script type="module" src="nav.js"></script>
-    <script type="module" src="fm-drums-app.js"></script>
+    <script type="module" src="src/instruments/fm-drums/fm-drums-app.js"></script>
   </body>
 </html>

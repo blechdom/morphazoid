@@ -1,8 +1,8 @@
-import { getSpiderSpecimen } from './spider-synth-specimens.js?v=64d3f9bd2cd0';
-import { constrainSpiderSupportBody } from './spider-synth-collision.js?v=64d3f9bd2cd0';
-import { writeSpiderFrame, writeSpiderFrameBody, writeSpiderBody, writeSpiderSupportBody, writeSpiderPose, writeSpiderLegOffset, createSpiderFrame, constrainSpiderBodyPose, SPIDER_JOINTS, SPIDER_MOTION_PRESETS } from './spider-synth-model.js?v=64d3f9bd2cd0';
-import { projectSpiderWebInto, spiderWebHeight, spiderWebGeometryKey } from './spider-synth-web.js?v=64d3f9bd2cd0';
-import { createSpiderFootClearance, writeSpiderFootClearance, writeSpiderFootOutward, spiderFootFacesOutward, spiderFootNeutralX, spiderFootClearsBodies, spiderFeetClear } from './spider-synth-contact.js?v=64d3f9bd2cd0';
+import { getSpiderSpecimen } from './spider-synth-specimens.js?v=dd1be907fd5b';
+import { constrainSpiderSupportBody } from './spider-synth-collision.js?v=dd1be907fd5b';
+import { writeSpiderFrame, writeSpiderFrameBody, writeSpiderBody, writeSpiderSupportBody, writeSpiderPose, writeSpiderLegOffset, createSpiderFrame, constrainSpiderBodyPose, SPIDER_JOINTS, SPIDER_MOTION_PRESETS } from './spider-synth-model.js?v=dd1be907fd5b';
+import { projectSpiderWebInto, spiderWebHeight, spiderWebGeometryKey } from './spider-synth-web.js?v=dd1be907fd5b';
+import { createSpiderFootClearance, writeSpiderFootClearance, writeSpiderFootOutward, spiderFootFacesOutward, spiderFootNeutralX, spiderFootClearsBodies, spiderFeetClear } from './spider-synth-contact.js?v=dd1be907fd5b';
 
 const TAU = Math.PI * 2;
 const WAVE_ORDER = Object.freeze([0, 4, 1, 5, 2, 6, 3, 7]);

@@ -29,8 +29,8 @@ const root = new URL("../", import.meta.url);
 test("Spelling Synthesizer is a focused, accessible text-driven voice instrument", async () => {
   const [html, css, app, audio] = await Promise.all([
     readFile(new URL("spelling-synthesizer.html", root), "utf8"),
-    readFile(new URL("spelling-synthesizer.css", root), "utf8"),
-    readFile(new URL("spelling-synthesizer-app.js", root), "utf8"),
+    readFile(new URL("src/instruments/spelling-synthesizer/spelling-synthesizer.css", root), "utf8"),
+    readFile(new URL("src/instruments/spelling-synthesizer/spelling-synthesizer-app.js", root), "utf8"),
     readFile(new URL("src/spelling-synthesizer-audio.js", root), "utf8"),
   ]);
 
@@ -58,7 +58,7 @@ test("Spelling Synthesizer is a focused, accessible text-driven voice instrument
   assert.match(html, /id="readbackButton"[\s\S]*?data-primary-transport[\s\S]*?>Read it back to me<\/button>/);
   assert.match(html, /href="throatazoid\.html">Open the full Throatazoid anatomy/);
   assert.match(html, /src="nav\.js"/);
-  assert.match(html, /src="spelling-synthesizer-app\.js"/);
+  assert.match(html, /src="src\/instruments\/spelling-synthesizer\/spelling-synthesizer-app\.js"/);
 
   const ids = [...html.matchAll(/\bid="([^"]+)"/g)].map((match) => match[1]);
   assert.equal(new Set(ids).size, ids.length, "every page id must be unique");

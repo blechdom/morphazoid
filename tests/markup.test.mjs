@@ -6,16 +6,16 @@ const root = new URL("../", import.meta.url);
 
 test("the mobile instrument markup exposes the complete compact control surface", async () => {
   const [html, siteCss, buttonCss, audioStripCss, app, packageJson] = await Promise.all([
-    readFile(new URL("shape.html", root), "utf8"),
+    readFile(new URL("shape-synth.html", root), "utf8"),
     readFile(new URL("style.css", root), "utf8"),
     readFile(new URL("src/ui/primitives/button.css", root), "utf8"),
     readFile(new URL("src/ui/patterns/audio-strip.css", root), "utf8"),
-    readFile(new URL("app.js", root), "utf8"),
+    readFile(new URL("src/instruments/shape-synth/shape-synth-app.js", root), "utf8"),
     readFile(new URL("package.json", root), "utf8"),
   ]);
   const css = `${siteCss}\n${buttonCss}\n${audioStripCss}`;
 
-  assert.match(html, /<script\s+type="module"\s+src="app\.js"><\/script>/);
+  assert.match(html, /<script\s+type="module"\s+src="src\/instruments\/shape-synth\/shape-synth-app\.js"><\/script>/);
   assert.match(html, /<canvas[\s\S]+?id="stage"/);
   assert.doesNotMatch(html, /Shape Player/i);
 

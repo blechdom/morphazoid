@@ -655,13 +655,13 @@ test("native page keeps audio creation behind the Audio gesture and cleans up", 
   const root = new URL("../", import.meta.url);
   const [markup, app, audioModule] = await Promise.all([
     readFile(new URL("shepard-risset.html", root), "utf8"),
-    readFile(new URL("shepard-risset-app.js", root), "utf8"),
+    readFile(new URL("src/instruments/shepard-risset/shepard-risset-app.js", root), "utf8"),
     readFile(new URL("src/shepard-risset.js", root), "utf8"),
   ]);
 
   assert.match(markup, /id="audioButton"[^>]+aria-pressed="false"/);
   assert.match(markup, /id="audioState">off</);
-  assert.match(markup, /src="shepard-risset-app\.js"/);
+  assert.match(markup, /src="src\/instruments\/shepard-risset\/shepard-risset-app\.js"/);
   assert.match(markup, /Unboxed barber-pole stripes/);
   assert.match(app, /audioButton"\)\.addEventListener\("click", toggleAudio\)/);
   assert.match(app, /function drawAudioFragment/);

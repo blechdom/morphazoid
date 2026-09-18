@@ -3,6 +3,7 @@ import { expect, test } from "@playwright/test";
 import { attachJson } from "./helpers/canvas-preservation.mjs";
 import { readAudioStatus } from "./helpers/audio-probe.mjs";
 import { pageDiagnosticMessages, settlePage, watchPageDiagnostics } from "./helpers/diagnostics.mjs";
+import { canonicalInstrumentId } from "../src/site/instrument-identities.js";
 
 test("catalogue data imports alone do not initialize a page or clear storage", async ({ page, baseURL }) => {
   await page.route("**/v2-data-probe.html", (route) => route.fulfill({
@@ -48,7 +49,7 @@ for (const id of ["shape", "solid", "l-system", "l-systems"]) {
     await page.goto(`${id}.html`, { waitUntil: "load" });
     await settlePage(page);
     await page.evaluate(async () => { await import("/src/instrument-catalog.js?late-data-probe"); });
-    await expect(page.locator(".instrument-picker")).toHaveAttribute("data-active-tool-id", id);
+    await expect(page.locator(".instrument-picker")).toHaveAttribute("data-active-tool-id", canonicalInstrumentId(id));
     await expect(page.locator("#audioButton")).toHaveAttribute("aria-pressed", "false");
     expect((await readAudioStatus(page)).connectionCount).toBe(0);
 

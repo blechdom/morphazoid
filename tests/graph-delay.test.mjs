@@ -495,7 +495,7 @@ test("graph-delay page exposes microphone, topology, feedback safety, and panic 
   const root = new URL("../", import.meta.url);
   const [html, app, turnProcessor] = await Promise.all([
     readFile(new URL("graph-delay.html", root), "utf8"),
-    readFile(new URL("graph-delay-app.js", root), "utf8"),
+    readFile(new URL("src/instruments/graph-delay/graph-delay-app.js", root), "utf8"),
     readFile(new URL("src/graph-turn-processor.js", root), "utf8"),
   ]);
   assert.match(html, /<body class="micmic-page graph-delay-page">/);

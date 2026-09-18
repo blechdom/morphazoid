@@ -99,9 +99,9 @@ test("the starter painting contains notes, glisses, rings, and modulation", () =
 
 test("the painted drum-machine page exposes its complete editing surface", async () => {
   const [html, app, css] = await Promise.all([
-    readFile(new URL("linear-drums-machine.html", root), "utf8"),
-    readFile(new URL("linear-drums-machine-app.js", root), "utf8"),
-    readFile(new URL("linear-drums-machine.css", root), "utf8"),
+    readFile(new URL("rattlesnake-skin.html", root), "utf8"),
+    readFile(new URL("src/instruments/rattlesnake-skin/rattlesnake-skin-app.js", root), "utf8"),
+    readFile(new URL("src/instruments/rattlesnake-skin/rattlesnake-skin.css", root), "utf8"),
   ]);
   assert.match(html, /id="paintStage"/);
   assert.match(html, /data-paint-tool="hit"/);

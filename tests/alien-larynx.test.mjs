@@ -17,7 +17,7 @@ test("Alien Larynx exposes five bypassed systems, two system maps, and a voice r
   ]);
   assert.match(html, /<title>ALIEN LARYNX — Morphazoid<\/title>/);
   assert.match(html, /id="returnToVoiceButton"/);
-  assert.match(html, /src="alien-larynx-app\.js"/);
+  assert.match(html, /src="src\/instruments\/alien-larynx\/alien-larynx-app\.js"/);
   assert.match(html, /href="throatazoid-architecture\.html"/);
   assert.match(html, /href="alien-larynx-architecture\.html"/);
   assert.equal((html.match(/class="alien-switch"/g) ?? []).length, 5);

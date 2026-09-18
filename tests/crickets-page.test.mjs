@@ -3,8 +3,8 @@ import fs from "node:fs";
 import test from "node:test";
 
 const html = fs.readFileSync(new URL("../crickets.html", import.meta.url), "utf8");
-const css = fs.readFileSync(new URL("../crickets.css", import.meta.url), "utf8");
-const app = fs.readFileSync(new URL("../crickets-app.js", import.meta.url), "utf8");
+const css = fs.readFileSync(new URL("../src/instruments/crickets/crickets.css", import.meta.url), "utf8");
+const app = fs.readFileSync(new URL("../src/instruments/crickets/crickets-app.js", import.meta.url), "utf8");
 
 const ids = [
   "cricket-stage",

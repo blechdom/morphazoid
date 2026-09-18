@@ -200,14 +200,14 @@ test("SampleDrumAudio reuses buffers and lets faster pitch shorten the sample", 
 test("Sample Drums page exposes the standalone sampler and preload flow", async () => {
   const [html, css, app, notices] = await Promise.all([
     readFile(new URL("sample-drums.html", root), "utf8"),
-    readFile(new URL("sample-drums.css", root), "utf8"),
-    readFile(new URL("sample-drums-app.js", root), "utf8"),
+    readFile(new URL("src/instruments/sample-drums/sample-drums.css", root), "utf8"),
+    readFile(new URL("src/instruments/sample-drums/sample-drums-app.js", root), "utf8"),
     readFile(new URL("THIRD_PARTY_NOTICES.md", root), "utf8"),
   ]);
   assert.match(html, /id="sampleDrums"/);
   assert.match(html, /id="preloadSamples"/);
   assert.match(html, /id="sampleLoadState"/);
-  assert.match(html, /src="sample-drums-app\.js"/);
+  assert.match(html, /src="src\/instruments\/sample-drums\/sample-drums-app\.js"/);
   assert.match(html, /sample-drums\.css/);
   assert.match(css, /\.sample-load-state/);
   assert.match(app, /new SampleDrumAudio\(globalThis\)/);

@@ -31,8 +31,8 @@
     <title>Recursive PM — Morphazoid</title>
     <link rel="icon" href="favicon.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="style.css" />
-    <link rel="stylesheet" href="recursive-pm.css" />
-    <link rel="stylesheet" href="chaotic-synth-ui.css" />
+    <link rel="stylesheet" href="src/instruments/recursive-pm/recursive-pm.css" />
+    <link rel="stylesheet" href="src/instruments/chaotic-synth-ui/chaotic-synth-ui.css" />
   </head>
   <body class="recursive-pm-page">
     <header class="masthead">
@@ -42,11 +42,11 @@
       </a>
 
       <nav class="tabs" aria-label="Instrument">
-        <a class="tab" href="shape.html">shape</a>
+        <a class="tab" href="shape-synth.html">shape</a>
         <a class="tab" href="lattice.html">lattice</a>
         <a class="tab" href="spiral.html">spiral</a>
-        <a class="tab" href="solid.html">solid</a>
-        <a class="tab" href="hyper.html">hyper</a>
+        <a class="tab" href="solid-synth.html">solid</a>
+        <a class="tab" href="hyper-synth.html">hyper</a>
         <a class="tab" href="l-system.html">l-system</a>
         <a class="tab recursion-tab" href="recursion.html">recursion</a>
         <a class="tab" href="recursive-fm.html">recursive fm</a>
@@ -61,11 +61,11 @@
       <label class="mobile-instrument-nav">
         <span class="sr-only">Instrument</span>
         <select class="mobile-instrument-select" aria-label="Instrument">
-          <option value="shape.html">shape</option>
+          <option value="shape-synth.html">shape</option>
           <option value="lattice.html">lattice</option>
           <option value="spiral.html">spiral</option>
-          <option value="solid.html">solid</option>
-          <option value="hyper.html">hyper</option>
+          <option value="solid-synth.html">solid</option>
+          <option value="hyper-synth.html">hyper</option>
           <option value="l-system.html">l-system</option>
           <option value="recursion.html">recursion</option>
           <option value="recursive-fm.html">recursive fm</option>
@@ -291,7 +291,7 @@
 
     <script type="module" src="nav.js"></script>
     <script type="module" src="src/chaotic-dsp-reference.js"></script>
-    <script type="module" src="recursive-pm-app.js"></script>
+    <script type="module" src="src/instruments/recursive-pm/recursive-pm-app.js"></script>
     <script type="module" src="wax/wax-universal-adapter.js" data-morphazoid-wax-universal-adapter></script>
 </body>
 </html>

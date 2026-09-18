@@ -526,7 +526,7 @@ test("Playhead Paint initializes, gates browser audio, performs symmetry, and te
   };
 
   try {
-    await import(`../playhead-paint-app.js?smoke=${Date.now()}`);
+    await import(`../src/instruments/playhead-paint/playhead-paint-app.js?smoke=${Date.now()}`);
 
     assert.equal(element("audioState").textContent, "off");
     assert.equal(element("audioButton").getAttribute("aria-pressed"), "false");

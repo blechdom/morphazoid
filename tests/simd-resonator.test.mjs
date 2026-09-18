@@ -521,8 +521,8 @@ test("FFT band resynthesis reconstructs separated speech-band energy with bounde
 test("SIMD Resonator is dedicated while the lab explains and auditions seven parallel DSP examples", async () => {
   const [html, labHtml, app, worker] = await Promise.all([
     readFile(new URL("simd-resonator.html", root), "utf8"),
-    readFile(new URL("simd-audio-lab.html", root), "utf8"),
-    readFile(new URL("simd-resonator-app.js", root), "utf8"),
+    readFile(new URL("simd-lab.html", root), "utf8"),
+    readFile(new URL("src/families/simd-resonator/simd-resonator-app.js", root), "utf8"),
     readFile(new URL("src/simd-audio-worker.js", root), "utf8"),
   ]);
   assert.match(html, /id="audioButton"[^>]*aria-pressed="false"/);

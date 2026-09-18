@@ -205,8 +205,8 @@ test("algorithm score sanitizer bounds hostile controls", () => {
 
 test("five scores are five native interactive Morphazoid instrument pages", async () => {
   const [app, css, router] = await Promise.all([
-    readFile(new URL("../algorithmic-scores-app.js", import.meta.url), "utf8"),
-    readFile(new URL("../algorithmic-scores.css", import.meta.url), "utf8"),
+    readFile(new URL("../src/families/algorithmic-scores/algorithmic-scores-app.js", import.meta.url), "utf8"),
+    readFile(new URL("../src/families/algorithmic-scores/algorithmic-scores.css", import.meta.url), "utf8"),
     readFile(new URL("../algorithmic-scores.html", import.meta.url), "utf8"),
   ]);
 
@@ -229,7 +229,7 @@ test("five scores are five native interactive Morphazoid instrument pages", asyn
     assert.match(html, /id="space"/);
     assert.doesNotMatch(html, /<button[^>]+data-algorithm=/);
     assert.match(html, /<script type="module" src="nav\.js"><\/script>/);
-    assert.match(html, /<script type="module" src="algorithmic-scores-app\.js"><\/script>/);
+    assert.match(html, /<script type="module" src="src\/families\/algorithmic-scores\/algorithmic-scores-app\.js"><\/script>/);
     assert.doesNotMatch(html, /https?:\/\//i);
   }
 

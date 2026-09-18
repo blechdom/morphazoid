@@ -24,8 +24,8 @@ function optionValues(html, selectId) {
 test("Syrinx exposes a complete, accessible animal-voice instrument page", async () => {
   const [html, css, app, core, processor, sourceModels] = await Promise.all([
     readFile(new URL("syrinx.html", root), "utf8"),
-    readFile(new URL("syrinx.css", root), "utf8"),
-    readFile(new URL("syrinx-app.js", root), "utf8"),
+    readFile(new URL("src/families/syrinx/syrinx.css", root), "utf8"),
+    readFile(new URL("src/families/syrinx/syrinx-app.js", root), "utf8"),
     readFile(new URL("src/syrinx.js", root), "utf8"),
     readFile(new URL("src/syrinx-processor.js", root), "utf8"),
     readFile(new URL("src/syrinx-source-models.js", root), "utf8"),
@@ -35,9 +35,9 @@ test("Syrinx exposes a complete, accessible animal-voice instrument page", async
   assert.match(html, /<body\b[^>]*class="[^"]*syrinx-page[^"]*"/);
   assert.match(html, /<main\b[^>]*\bid="syrinx"[^>]*>/);
   assert.match(html, /href="style\.css"/);
-  assert.match(html, /href="syrinx\.css\?v=syrinx-ui-[^"]+"/);
+  assert.match(html, /href="src\/families\/syrinx\/syrinx\.css\?v=syrinx-ui-[^"]+"/);
   assert.match(html, /<script\s+type="module"\s+src="nav\.js\?v=syrinx-ui-[^"]+"><\/script>/);
-  assert.match(html, /<script\s+type="module"\s+src="syrinx-app\.js\?v=syrinx-ui-[^"]+"><\/script>/);
+  assert.match(html, /<script\s+type="module"\s+src="src\/families\/syrinx\/syrinx-app\.js\?v=syrinx-ui-[^"]+"><\/script>/);
   assert.match(html, /<a class="wordmark" href="\.\/" aria-label="Morphazoid home">/);
 
   const ids = [...html.matchAll(/\bid="([^"]+)"/g)].map((match) => match[1]);
@@ -112,8 +112,8 @@ test("Syrinx exposes a complete, accessible animal-voice instrument page", async
     assert.match(openingTag(html, id), /\btype="range"/);
   }
 
-  assert.match(app, /from\s+["']\.\/src\/syrinx\.js\?v=syrinx-ui-[^"']+["']/);
-  assert.match(app, /src\/syrinx-processor\.js/);
+  assert.match(app, /from\s+["']\.\.\/\.\.\/syrinx\.js\?v=syrinx-ui-[^"']+["']/);
+  assert.match(app, /\.\.\/\.\.\/syrinx-processor\.js/);
   assert.match(app, /new\s+AudioWorkletNode\s*\(/);
   assert.match(app, /connectAudioOutput/);
   assert.match(app, /unlockAudioContext/);
@@ -136,7 +136,7 @@ test("Syrinx is discoverable through Morphazoid navigation and catalogue data", 
   const [navigation, catalogue, buildScript] = await Promise.all([
     readFile(new URL("src/site/instrument-registry.js", root), "utf8"),
     readFile(new URL("src/instrument-catalog.js", root), "utf8"),
-    readFile(new URL("scripts/build-site.sh", root), "utf8"),
+    readFile(new URL("scripts/site/runtime-files.tsv", root), "utf8"),
   ]);
 
   assert.match(
@@ -146,8 +146,8 @@ test("Syrinx is discoverable through Morphazoid navigation and catalogue data", 
   assert.match(catalogue, /\bsyrinx:\s*define\s*\(/);
   for (const runtimeFile of [
     "syrinx.html",
-    "syrinx.css",
-    "syrinx-app.js",
+    "src/families/syrinx/syrinx.css",
+    "src/families/syrinx/syrinx-app.js",
     "src/syrinx.js",
     "src/syrinx-processor.js",
     "src/syrinx-source-models.js",

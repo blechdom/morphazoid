@@ -31,8 +31,8 @@
     <title>Syrinx UI · Morphazoid</title>
     <link rel="icon" href="favicon.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="style.css" />
-    <link rel="stylesheet" href="syrinx.css?v=syrinx-ui-20260819-1" />
-    <link rel="stylesheet" href="syrinx-ui.css?v=syrinx-ui-20260819-1" />
+    <link rel="stylesheet" href="src/families/syrinx/syrinx.css?v=syrinx-ui-20260819-1" />
+    <link rel="stylesheet" href="src/instruments/syrinx-ui/syrinx-ui.css?v=syrinx-ui-20260819-1" />
   </head>
   <body class="syrinx-page syrinx-ui-page" data-instrument-info="off">
     <header class="masthead">
@@ -42,11 +42,11 @@
       </a>
 
       <nav class="tabs" aria-label="Instrument">
-        <a class="tab" href="shape.html">shape</a>
+        <a class="tab" href="shape-synth.html">shape</a>
         <a class="tab" href="lattice.html">lattice</a>
         <a class="tab" href="spiral.html">spiral</a>
-        <a class="tab" href="solid.html">solid</a>
-        <a class="tab" href="hyper.html">hyper</a>
+        <a class="tab" href="solid-synth.html">solid</a>
+        <a class="tab" href="hyper-synth.html">hyper</a>
         <a class="tab" href="l-system.html">l-system</a>
         <a class="tab" href="recursion.html">recursion</a>
         <a class="tab" href="julia.html">julia</a>
@@ -62,11 +62,11 @@
       <label class="mobile-instrument-nav">
         <span class="sr-only">Instrument</span>
         <select class="mobile-instrument-select" aria-label="Instrument">
-          <option value="shape.html">shape</option>
+          <option value="shape-synth.html">shape</option>
           <option value="lattice.html">lattice</option>
           <option value="spiral.html">spiral</option>
-          <option value="solid.html">solid</option>
-          <option value="hyper.html">hyper</option>
+          <option value="solid-synth.html">solid</option>
+          <option value="hyper-synth.html">hyper</option>
           <option value="l-system.html">l-system</option>
           <option value="recursion.html">recursion</option>
           <option value="julia.html">julia</option>
@@ -415,7 +415,7 @@
     </main>
 
     <script type="module" src="nav.js?v=syrinx-ui-20260819-1"></script>
-    <script type="module" src="syrinx-app.js?v=syrinx-ui-20260821-4"></script>
+    <script type="module" src="src/families/syrinx/syrinx-app.js?v=syrinx-ui-20260821-4"></script>
     <script type="module" src="wax/wax-universal-adapter.js" data-morphazoid-wax-universal-adapter></script>
 </body>
 </html>

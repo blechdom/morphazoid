@@ -45,7 +45,7 @@ const selected = new URL(\`../assets/demo/\${id}.wav\`, import.meta.url);
 
 test("Puggler inventory includes samples, provenance, live capability and mirrored source", async () => {
   const report = await inspectInstrument("puggler");
-  assert.deepEqual(report.entries, ["nav.js", "puggler-app.js"]);
+  assert.deepEqual(report.entries, ["nav.js", "src/instruments/puggler/puggler-app.js"]);
   assert.equal(report.registration.capability.computerKeyboardMode, "page");
   const recordings = report.files.filter(f => f.path.endsWith(".wav"));
   assert.equal(recordings.length, 8);
@@ -69,7 +69,7 @@ test("Puggler inventory includes samples, provenance, live capability and mirror
 
 test("shared page names and transitive app imports find Wheel of Organs models and tests", async () => {
   const report = await inspectInstrument("image-to-instrument-3");
-  assert.ok(report.entries.includes("image-to-instrument-app.js"));
+  assert.ok(report.entries.includes("src/families/image-to-instrument/image-to-instrument-app.js"));
   assert.ok(report.files.some(f => f.path === "src/wheel-of-organs-audio.js"));
   assert.ok(report.tests.candidates.includes("tests/wheel-of-organs-audio.test.mjs"));
   assert.deepEqual(report.files.filter(f => !f.present), []);

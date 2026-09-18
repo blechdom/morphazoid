@@ -28,9 +28,12 @@ command names.
 - For a browser instrument, `node scripts/inspect-instrument.mjs <catalogue-id>`
   inventories its entries, dependencies, registration, WAX copies, and test
   candidates without changing files; see `docs/agent-tooling.md` for its limits.
+- Instrument controllers/styles are moving into `src/instruments/` in batches.
+  Follow the actual HTML references or inspection output; do not assume a
+  controller still lives at the root or that navigation categories name folders.
 - For a browser preview, verify the responding endpoint and report the exact URL
   and worktree. The dev server may choose a port after 3435, while Playwright
-  always targets 3435 and can reuse an existing server. Verify what each port
+  defaults to 3435 (overridable with `MORPHAZOID_QA_BASE_URL`) and can reuse an existing server. Verify what each port
   serves and do not stop an unrelated process. Native and REAPER previews follow
   `plugins/README.md`.
 
@@ -88,6 +91,9 @@ command names.
   source. Treat `dist-wax/` as generated, committed output: regenerate it with
   `npm run build:wax` rather than editing it, and require
   `npm run check:wax-dist` to match a clean build when runtime source changes.
+- Explicit pre-commit file inclusion and required artifact paths live in
+  `scripts/site/runtime-files.tsv`. Declare each path once and preserve the
+  distinction between copy permission and required presence; see its README.
 - Keep the browser surface static and browser-runnable. Do not add a framework,
   server rendering, backend, or runtime Node dependency unless the task
   explicitly changes that architecture. This restriction does not apply to

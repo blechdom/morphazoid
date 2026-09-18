@@ -11,7 +11,7 @@ const unversion = source => source.replace(versionedReference, '$1');
 export async function fingerprintRoachSynth(outputDirectory) {
   const modules = (await readdir(path.join(outputDirectory, 'src')))
     .filter(name => /^roach-synth(?:-[\w-]+)?\.js$/.test(name)).sort();
-  const filenames = ['roach-synth-app.js', 'roach-synth.css', ...modules.map(name => `src/${name}`)];
+  const filenames = ["src/instruments/roach-synth/roach-synth-app.js", "src/instruments/roach-synth/roach-synth.css", ...modules.map(name => `src/${name}`)];
   const sources = await Promise.all(filenames.map(async name => [name, unversion(await readFile(path.join(outputDirectory, name), 'utf8'))]));
   const hash = createHash('sha256');
   for (const [name, source] of sources) hash.update(name).update('\0').update(source).update('\0');

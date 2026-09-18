@@ -280,7 +280,7 @@ test("Vector Flight exposes geometry articulations and retires score controls", 
 });
 
 test("manual browser hook reports a permanently centered ship and mode switching", async () => {
-  const app = await readFile(new URL("../vector-flight-app.js", import.meta.url), "utf8");
+  const app = await readFile(new URL("../src/instruments/vector-flight/vector-flight-app.js", import.meta.url), "utf8");
   assert.match(app, /globalThis\.__VECTOR_FLIGHT__/);
   assert.match(app, /setMode\(value\)/);
   assert.match(app, /ship: \{ x: 0\.5, y: 0\.5/);

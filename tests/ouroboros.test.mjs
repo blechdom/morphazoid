@@ -854,9 +854,9 @@ test("the worklet registers once and renders finite, audible stereo through both
 test("the native page exposes an accessible, lazy Ouroboros instrument", async () => {
   const [markup, app, source, styles] = await Promise.all([
     readFile(new URL("ouroboros.html", ROOT), "utf8"),
-    readFile(new URL("ouroboros-app.js", ROOT), "utf8"),
+    readFile(new URL("src/instruments/ouroboros/ouroboros-app.js", ROOT), "utf8"),
     readFile(new URL("src/ouroboros.js", ROOT), "utf8"),
-    readFile(new URL("ouroboros.css", ROOT), "utf8"),
+    readFile(new URL("src/instruments/ouroboros/ouroboros.css", ROOT), "utf8"),
   ]);
 
   assert.match(markup, /<title>Ouroboros — Morphazoid<\/title>/);
@@ -950,7 +950,7 @@ test("the native page exposes an accessible, lazy Ouroboros instrument", async (
   assert.match(markup, /drag|pointer/i);
   assert.match(markup, /circular[^<]+(?:loop|rail)|(?:loop|rail)[^<]+circle/i);
   assert.doesNotMatch(markup, /\boval\b/i);
-  assert.match(markup, /src="ouroboros-app\.js"/);
+  assert.match(markup, /src="src\/instruments\/ouroboros\/ouroboros-app\.js"/);
   assert.doesNotMatch(markup, /https?:\/\//);
 
   assert.match(app, /new OuroborosAudio\(globalThis\)/);

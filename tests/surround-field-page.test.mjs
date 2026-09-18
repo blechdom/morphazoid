@@ -6,8 +6,8 @@ import { fileURLToPath } from "node:url";
 
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const html = await readFile(path.join(repositoryRoot, "surround-field.html"), "utf8");
-const app = await readFile(path.join(repositoryRoot, "surround-field-app.js"), "utf8");
-const css = await readFile(path.join(repositoryRoot, "surround-field.css"), "utf8");
+const app = await readFile(path.join(repositoryRoot, "src/instruments/surround-field/surround-field-app.js"), "utf8");
+const css = await readFile(path.join(repositoryRoot, "src/instruments/surround-field/surround-field.css"), "utf8");
 
 test("the stage uses a compact, single-line Surround for Safety title", () => {
   const identity = html.match(/<header class="surround-identity">([\s\S]*?)<\/header>/)?.[1] ?? "";

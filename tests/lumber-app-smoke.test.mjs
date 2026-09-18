@@ -238,7 +238,7 @@ test("Lumber Loops renders, records new rings, and explicitly replaces", async (
   });
   globalThis.localStorage = { getItem() { return null; }, setItem() {} };
 
-  await import(`../lumber-app.js?smoke=${Date.now()}`);
+  await import(`../src/instruments/lumber/lumber-app.js?smoke=${Date.now()}`);
   queuedFrame(performance.now() + 16);
   assert.ok(arcs >= 12, "the empty default contour and vertices must render");
   assert.equal(elements.get("vertexCountOut").textContent, "12 vertices");

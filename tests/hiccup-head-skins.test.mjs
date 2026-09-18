@@ -202,7 +202,7 @@ function elementTextById(html, id) {
 }
 
 test("Hiccup Head exposes exactly six visual skins with checker as the stable fallback", async () => {
-  const app = await readFile(new URL("hiccup-head-app.js", root), "utf8");
+  const app = await readFile(new URL("src/instruments/hiccup-head/hiccup-head-app.js", root), "utf8");
   const registry = sourceForNamedArray(app, "HICCUP_HEAD_VISUAL_SKINS");
   const ids = [...registry.matchAll(/\bid\s*:\s*["']([^"']+)["']/g)]
     .map(([, id]) => id);
@@ -221,7 +221,7 @@ test("Hiccup Head exposes exactly six visual skins with checker as the stable fa
 test("the static visual-skin selector mirrors registry order and ends with Zombie Zoid", async () => {
   const [html, app] = await Promise.all([
     readFile(new URL("hiccup-head.html", root), "utf8"),
-    readFile(new URL("hiccup-head-app.js", root), "utf8"),
+    readFile(new URL("src/instruments/hiccup-head/hiccup-head-app.js", root), "utf8"),
   ]);
   const select = html.match(
     /<select\b[^>]*\bid=["']visualSkinSelect["'][^>]*>[\s\S]*?<\/select>/i,
@@ -241,7 +241,7 @@ test("the static visual-skin selector mirrors registry order and ends with Zombi
 });
 
 test("Zombie Zoid uses dedicated non-human anatomy without changing shared controls", async () => {
-  const app = await readFile(new URL("hiccup-head-app.js", root), "utf8");
+  const app = await readFile(new URL("src/instruments/hiccup-head/hiccup-head-app.js", root), "utf8");
   const registry = sourceForNamedArray(app, "HICCUP_HEAD_VISUAL_SKINS");
   assert.match(
     registry,
@@ -259,7 +259,7 @@ test("Zombie Zoid uses dedicated non-human anatomy without changing shared contr
 
 test("Zombie Zoid cycles deterministic alien-zombie decay without brain or neon anatomy", async () => {
   const [app, model, processor, assetReadme] = await Promise.all([
-    readFile(new URL("hiccup-head-app.js", root), "utf8"),
+    readFile(new URL("src/instruments/hiccup-head/hiccup-head-app.js", root), "utf8"),
     readFile(new URL("src/hiccup-head.js", root), "utf8"),
     readFile(new URL("src/hiccup-head-processor.js", root), "utf8"),
     readFile(new URL("assets/hiccup-head/skins/README.md", root), "utf8"),
@@ -391,7 +391,7 @@ test("Zombie Zoid cycles deterministic alien-zombie decay without brain or neon 
 });
 
 test("Zombie Zoid swaps hidden slap mitts for large paint-only ice-cream cones", async () => {
-  const app = await readFile(new URL("hiccup-head-app.js", root), "utf8");
+  const app = await readFile(new URL("src/instruments/hiccup-head/hiccup-head-app.js", root), "utf8");
   const cone = sourceForFunction(app, "drawZombieZoidIceCreamCone");
   assert.match(cone, /ice cream|waffle cone/i);
   assert.match(cone, /coneLength\s*=\s*Math\.max\(r\s*\*\s*(\d+(?:\.\d+)?)/);
@@ -435,7 +435,7 @@ test("Zombie Zoid swaps hidden slap mitts for large paint-only ice-cream cones",
 });
 
 test("Zombie Zoid paints both draggable ears as circular saw blades", async () => {
-  const app = await readFile(new URL("hiccup-head-app.js", root), "utf8");
+  const app = await readFile(new URL("src/instruments/hiccup-head/hiccup-head-app.js", root), "utf8");
   const saw = sourceForFunction(app, "drawZombieZoidSawBlade");
   const toothCount = Number(saw.match(/const\s+toothCount\s*=\s*(\d+)/)?.[1]);
   assert.ok(toothCount >= 12, "a saw ear needs enough teeth to read as a circular blade");
@@ -474,7 +474,7 @@ test("Zombie Zoid paints both draggable ears as circular saw blades", async () =
 });
 
 test("visual beats use the due paint timestamp without entering the audio clock", async () => {
-  const app = await readFile(new URL("hiccup-head-app.js", root), "utf8");
+  const app = await readFile(new URL("src/instruments/hiccup-head/hiccup-head-app.js", root), "utf8");
   const flush = sourceForFunction(app, "flushVisualQueue");
   const stepBranchStart = flush.indexOf('event.type === "step"');
   const stepBranchEnd = flush.indexOf("const sound =", stepBranchStart);
@@ -517,7 +517,7 @@ test("visual beats use the due paint timestamp without entering the audio clock"
 });
 
 test("every non-checker skin owns a deterministic, visibly distinct face-field beat", async () => {
-  const app = await readFile(new URL("hiccup-head-app.js", root), "utf8");
+  const app = await readFile(new URL("src/instruments/hiccup-head/hiccup-head-app.js", root), "utf8");
   const field = sourceForFunction(app, "drawVisualSkinBeatField");
   const expectedDetails = new Map([
     ["wild-ink", [/(?:decay|registration|grain)/i]],
@@ -544,7 +544,7 @@ test("every non-checker skin owns a deterministic, visibly distinct face-field b
 
 test("skin beat render helpers are paint-only and Zombie Zoid retains low-fi ink texture", async () => {
   const [app, model, processor] = await Promise.all([
-    readFile(new URL("hiccup-head-app.js", root), "utf8"),
+    readFile(new URL("src/instruments/hiccup-head/hiccup-head-app.js", root), "utf8"),
     readFile(new URL("src/hiccup-head.js", root), "utf8"),
     readFile(new URL("src/hiccup-head-processor.js", root), "utf8"),
   ]);
@@ -602,7 +602,7 @@ test("visual skin and camera share a panel row above the mutable face preset", a
 });
 
 test("ASCII terminal builds its patterned face components from cached density-shaded glyphs", async () => {
-  const app = await readFile(new URL("hiccup-head-app.js", root), "utf8");
+  const app = await readFile(new URL("src/instruments/hiccup-head/hiccup-head-app.js", root), "utf8");
   const styleStart = app.indexOf("const ASCII_GLYPH_STYLES");
   const styleEnd = app.indexOf("function asciiSeedForRole", styleStart);
   assert.ok(styleStart >= 0 && styleEnd > styleStart);
@@ -633,7 +633,7 @@ test("ASCII terminal builds its patterned face components from cached density-sh
 });
 
 test("ASCII eyes use explicit independent top and bottom glyph shutters", async () => {
-  const app = await readFile(new URL("hiccup-head-app.js", root), "utf8");
+  const app = await readFile(new URL("src/instruments/hiccup-head/hiccup-head-app.js", root), "utf8");
   const shutters = sourceForFunction(app, "drawAsciiEyeShutters");
   assert.match(shutters, /\bclosure\b/);
   assert.match(shutters, /\bleftEye\b/);
@@ -679,7 +679,7 @@ test("ASCII eyes use explicit independent top and bottom glyph shutters", async 
 });
 
 test("ASCII keeps the oral cavity opaque black without per-frame glyph rasterization", async () => {
-  const app = await readFile(new URL("hiccup-head-app.js", root), "utf8");
+  const app = await readFile(new URL("src/instruments/hiccup-head/hiccup-head-app.js", root), "utf8");
   const styleStart = app.indexOf("const ASCII_GLYPH_STYLES");
   const styleEnd = app.indexOf("function asciiSeedForRole", styleStart);
   assert.ok(styleStart >= 0 && styleEnd > styleStart);
@@ -720,7 +720,7 @@ test("ASCII keeps the oral cavity opaque black without per-frame glyph rasteriza
 test("skin selection is an explicitly visual-only accessible control", async () => {
   const [html, app] = await Promise.all([
     readFile(new URL("hiccup-head.html", root), "utf8"),
-    readFile(new URL("hiccup-head-app.js", root), "utf8"),
+    readFile(new URL("src/instruments/hiccup-head/hiccup-head-app.js", root), "utf8"),
   ]);
   const selectTag = html.match(/<select\b[^>]*\bid="visualSkinSelect"[^>]*>/i)?.[0] ?? "";
   assert.ok(selectTag, "the visual skin selector must be present");
@@ -746,7 +746,7 @@ test("skin selection is an explicitly visual-only accessible control", async () 
 });
 
 test("raster-backed skins use readable project-local assets", async () => {
-  const app = await readFile(new URL("hiccup-head-app.js", root), "utf8");
+  const app = await readFile(new URL("src/instruments/hiccup-head/hiccup-head-app.js", root), "utf8");
   const registry = sourceForNamedArray(app, "HICCUP_HEAD_VISUAL_SKINS");
   const rasterPaths = [...registry.matchAll(/["']([^"']+\.(?:avif|png|webp|jpe?g))(?:\?[^"']*)?["']/gi)]
     .map(([, path]) => path);
@@ -771,7 +771,7 @@ test("raster-backed skins use readable project-local assets", async () => {
 });
 
 test("cutout collage cycles one local 3 by 2 face-field sheet by due beat ordinal", async () => {
-  const app = await readFile(new URL("hiccup-head-app.js", root), "utf8");
+  const app = await readFile(new URL("src/instruments/hiccup-head/hiccup-head-app.js", root), "utf8");
   const registry = sourceForNamedArray(app, "HICCUP_HEAD_VISUAL_SKINS");
   const cutoutEntry = sourceForRegistryEntry(registry, "cutout-collage");
   const fieldAsset = cutoutEntry.match(/\bfieldAsset\s*:\s*["']([^"']+)["']/)?.[1];
@@ -820,7 +820,7 @@ test("cutout collage cycles one local 3 by 2 face-field sheet by due beat ordina
 });
 
 test("the 1904 atlas uses its measured visual head center as an explicit anchor", async () => {
-  const app = await readFile(new URL("hiccup-head-app.js", root), "utf8");
+  const app = await readFile(new URL("src/instruments/hiccup-head/hiccup-head-app.js", root), "utf8");
   const anchorsStart = app.indexOf("const SKIN_ATLAS_PART_ANCHORS");
   const anchorsEnd = app.indexOf("function drawSkinAtlasPart", anchorsStart);
   assert.ok(anchorsStart >= 0 && anchorsEnd > anchorsStart);
@@ -844,7 +844,7 @@ test("the 1904 atlas uses its measured visual head center as an explicit anchor"
 });
 
 test("atlas border scraps are cropped without rescaling the noses or hair", async () => {
-  const app = await readFile(new URL("hiccup-head-app.js", root), "utf8");
+  const app = await readFile(new URL("src/instruments/hiccup-head/hiccup-head-app.js", root), "utf8");
   const insetsStart = app.indexOf("const SKIN_ATLAS_SOURCE_INSETS");
   const insetsEnd = app.indexOf("function drawSkinAtlasPart", insetsStart);
   assert.ok(insetsStart >= 0 && insetsEnd > insetsStart);
@@ -861,7 +861,7 @@ test("atlas border scraps are cropped without rescaling the noses or hair", asyn
 
 test("changing a skin cannot write audio, model, voice, pattern, or scheduler state", async () => {
   const [app, model, processor] = await Promise.all([
-    readFile(new URL("hiccup-head-app.js", root), "utf8"),
+    readFile(new URL("src/instruments/hiccup-head/hiccup-head-app.js", root), "utf8"),
     readFile(new URL("src/hiccup-head.js", root), "utf8"),
     readFile(new URL("src/hiccup-head-processor.js", root), "utf8"),
   ]);
@@ -934,7 +934,7 @@ test("webcam cut-up is an accessible explicit-consent dialog with visible privac
 });
 
 test("opening or requesting the webcam crosses one narrow audio-silence boundary", async () => {
-  const app = await readFile(new URL("hiccup-head-app.js", root), "utf8");
+  const app = await readFile(new URL("src/instruments/hiccup-head/hiccup-head-app.js", root), "utf8");
   const silence = sourceForFunction(app, "silenceHiccupHeadForWebcam");
   assert.match(
     silence,
@@ -987,7 +987,7 @@ test("opening or requesting the webcam crosses one narrow audio-silence boundary
 });
 
 test("webcam permission, mirrored freeze, errors, and track cleanup are explicit and bounded", async () => {
-  const app = await readFile(new URL("hiccup-head-app.js", root), "utf8");
+  const app = await readFile(new URL("src/instruments/hiccup-head/hiccup-head-app.js", root), "utf8");
   const request = sourceForFunction(app, "requestWebcamPreview");
   assert.match(request, /navigator\.mediaDevices\?\.getUserMedia/);
   assert.match(request, /navigator\.mediaDevices\.getUserMedia\s*\(\s*\{[\s\S]*?audio\s*:\s*false/);
@@ -1037,7 +1037,7 @@ test("webcam permission, mirrored freeze, errors, and track cleanup are explicit
 test("webcam pixels become one session-only atlas and never enter storage, upload, or frame loops", async () => {
   const [html, app, model, processor] = await Promise.all([
     readFile(new URL("hiccup-head.html", root), "utf8"),
-    readFile(new URL("hiccup-head-app.js", root), "utf8"),
+    readFile(new URL("src/instruments/hiccup-head/hiccup-head-app.js", root), "utf8"),
     readFile(new URL("src/hiccup-head.js", root), "utf8"),
     readFile(new URL("src/hiccup-head-processor.js", root), "utf8"),
   ]);
@@ -1099,7 +1099,7 @@ test("webcam pixels become one session-only atlas and never enter storage, uploa
 });
 
 test("webcam head mosaic preserves row bands and wide feature crops", async () => {
-  const app = await readFile(new URL("hiccup-head-app.js", root), "utf8");
+  const app = await readFile(new URL("src/instruments/hiccup-head/hiccup-head-app.js", root), "utf8");
   const mosaic = sourceForFunction(app, "paintWebcamHeadMosaic");
   assert.match(mosaic, /const\s+divisions\s*=\s*4\s*;/);
   const permutationSource = sourceForNamedArray(mosaic, "permutation");
@@ -1147,7 +1147,7 @@ test("webcam head mosaic preserves row bands and wide feature crops", async () =
 });
 
 test("webcam mouth paints one full photographed oval over a smaller cavity", async () => {
-  const app = await readFile(new URL("hiccup-head-app.js", root), "utf8");
+  const app = await readFile(new URL("src/instruments/hiccup-head/hiccup-head-app.js", root), "utf8");
   const face = sourceForFunction(app, "drawFace");
   assert.match(face, /const\s+webcamSkin\s*=\s*visualSkin\.id\s*===\s*["']webcam-cutup["']/);
   const branchStart = face.indexOf("if (webcamSkin && atlasReady");
@@ -1192,7 +1192,7 @@ test("webcam mouth paints one full photographed oval over a smaller cavity", asy
 });
 
 test("face presets, face mutation, and resets preserve the selected visual skin", async () => {
-  const app = await readFile(new URL("hiccup-head-app.js", root), "utf8");
+  const app = await readFile(new URL("src/instruments/hiccup-head/hiccup-head-app.js", root), "utf8");
   for (const name of ["setPreset", "randomizeFace", "resetAll", "resetFaceEffects"]) {
     const body = sourceForFunction(app, name);
     assert.doesNotMatch(body, /\b(?:visualSkinId|HICCUP_HEAD_VISUAL_SKINS|visualSkinSelect)\b/);

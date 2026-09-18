@@ -12,7 +12,7 @@ export const L_SYSTEM_SUITE_MODES = freezeList([
     id: "drums",
     label: "Drums",
     title: "L-System Drum Machine",
-    href: "l-system-drums.html",
+    href: "l-system-drum-machine.html",
     accent: "#ffb86b",
   },
   {

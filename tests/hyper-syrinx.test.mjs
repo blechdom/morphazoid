@@ -10,8 +10,8 @@ const root = new URL("../", import.meta.url);
 test("Hyper-Syrinx exposes a complete multiply-in-place vocal flow", async () => {
   const [html, css, app] = await Promise.all([
     readFile(new URL("hyper-syrinx.html", root), "utf8"),
-    readFile(new URL("hyper-syrinx.css", root), "utf8"),
-    readFile(new URL("hyper-syrinx-app.js", root), "utf8"),
+    readFile(new URL("src/instruments/hyper-syrinx/hyper-syrinx.css", root), "utf8"),
+    readFile(new URL("src/instruments/hyper-syrinx/hyper-syrinx-app.js", root), "utf8"),
   ]);
 
   assert.match(html, /<body[^>]*class="[^"]*hyper-syrinx-page[^"]*"/);
@@ -24,7 +24,7 @@ test("Hyper-Syrinx exposes a complete multiply-in-place vocal flow", async () =>
   assert.match(html, /data-route="braid"/);
   assert.match(html, /data-route="chain"/);
   assert.match(html, /data-route="all"/);
-  assert.match(html, /src="hyper-syrinx-app\.js"/);
+  assert.match(html, /src="src\/instruments\/hyper-syrinx\/hyper-syrinx-app\.js"/);
   assert.match(html, /src="nav\.js"/);
 
   for (const term of [
@@ -55,7 +55,7 @@ test("Hyper-Syrinx exposes a complete multiply-in-place vocal flow", async () =>
 
 test("Hyper-Syrinx is an Experiments WIP and enters clean release builds", async () => {
   const tool = TOOL_GROUPS
-    .find(({ id }) => id === "experiments")
+    .find(({ id }) => id === "wip")
     ?.tools.find(({ id }) => id === "hyper-syrinx");
   assert.deepEqual(tool, {
     id: "hyper-syrinx",
@@ -63,14 +63,14 @@ test("Hyper-Syrinx is an Experiments WIP and enters clean release builds", async
     href: "hyper-syrinx.html",
   });
   const instrument = instrumentById("hyper-syrinx");
-  assert.equal(instrument?.status, "Works in progress");
-  assert.deepEqual(instrument?.tags.map(({ id }) => id), ["experiments"]);
+  assert.equal(instrument?.status, "Work in Progress");
+  assert.deepEqual(instrument?.tags.map(({ id }) => id), ["wip", "bioacoustic"]);
 
-  const build = await readFile(new URL("scripts/build-site.sh", root), "utf8");
+  const build = await readFile(new URL("scripts/site/runtime-files.tsv", root), "utf8");
   for (const file of [
     "hyper-syrinx.html",
-    "hyper-syrinx.css",
-    "hyper-syrinx-app.js",
+    "src/instruments/hyper-syrinx/hyper-syrinx.css",
+    "src/instruments/hyper-syrinx/hyper-syrinx-app.js",
     "assets/instruments/hyper-syrinx.webp",
   ]) {
     assert.match(build, new RegExp(file.replaceAll(".", "\\.")));

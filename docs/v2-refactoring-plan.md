@@ -1,6 +1,25 @@
 # Morphazoid v2: preservation-first refactoring
 
-## Current status — September 17, 2026
+## Current status — September 18, 2026
+
+The owner's updated sheet is being applied on the isolated
+`codex/v2-catalogue-layout` worktree, based on main `59e4f4e`. Prior packaging and
+source-move layers were carried forward without changing the main checkout.
+Catalogue IDs/names/categories and the full root-controller/style cleanup are
+now implemented. The owner confirmed the three retained values (`webgpu-303`,
+`image-to-instrument-3`, and “Rattlesnake”) and authorized a branch push for
+testing on another computer.
+See [the current report](v2-catalogue-layout-results.md) for verification,
+compatibility boundaries, and rollback artifacts.
+
+Combined Apps and individual instruments remain. The latest sheet retains
+Throatazoid, so this batch does not delete it. Device-aware favorites, instrument
+redesigns, and further engine abstraction remain separate work. Nothing in this
+batch is to be merged into main or deployed before that review. The branch
+commit/push is authorized; the previous uncommitted state is preserved in the
+local checkpoint.
+
+## Previous status — September 17, 2026
 
 The reviewed preservation layers have been committed, reconciled with fetched
 main, and merged into local main. Full verification now passes with zero
@@ -11,6 +30,12 @@ Await the owner's catalogue/name/file-layout changes before further runtime
 edits. Combined Apps and their individual versions remain until the owner is
 satisfied with the replacements. Deep renames, source moves and device-aware
 Faves require separate reviewed mappings/evidence.
+
+The worktree now holds two separate, uncommitted layers: release-file
+bookkeeping and the first owner-approved directory cleanup using current names.
+See `v2-release-manifest-results.md` and `v2-source-layout-results.md`. Public HTML
+routes stay stable; internal JS/CSS locations change. Product names/categories,
+instrument redesign and device-aware Faves remain pending.
 
 ## Objective
 
@@ -238,8 +263,9 @@ mapping, smoothing, scheduling or gesture code was changed.
 - [x] Separate pure catalogue/route data from navigation initialization.
 - [ ] Make MIDI, transport, and page initialization explicit without changing
   their behavior or event ordering.
-- [ ] Group instrument-owned code incrementally, retaining compatibility entry
-  points instead of renaming all public paths.
+- [x] Begin grouping instrument-owned code: 18 controllers and 11 stylesheets,
+  retaining public HTML entry points and updating their resource references.
+- [ ] Continue the remaining controller/style families in separately verified batches.
 - [x] Ensure source checks and dependency discovery cover any new directories.
 - [ ] Replace release-file special cases with a reviewed runtime-asset manifest.
 - [ ] Preserve the WAX generation/parity contract. Changing whether generated

@@ -11,7 +11,7 @@
     <title>Spelling Synthesizer — Morphazoid</title>
     <link rel="icon" href="favicon.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="style.css" />
-    <link rel="stylesheet" href="spelling-synthesizer.css" />
+    <link rel="stylesheet" href="src/instruments/spelling-synthesizer/spelling-synthesizer.css" />
   </head>
   <body class="spelling-synthesizer-page">
     <header class="masthead">
@@ -21,7 +21,7 @@
       </a>
 
       <nav class="tabs" aria-label="Instrument">
-        <a class="tab" href="shape.html">shape</a>
+        <a class="tab" href="shape-synth.html">shape</a>
         <a class="tab" href="throatazoid.html">throatazoid</a>
         <a
           class="tab active"
@@ -33,7 +33,7 @@
       <label class="mobile-instrument-nav">
         <span class="sr-only">Instrument</span>
         <select class="mobile-instrument-select" aria-label="Instrument">
-          <option value="shape.html">shape</option>
+          <option value="shape-synth.html">shape</option>
           <option value="throatazoid.html">throatazoid</option>
           <option value="spelling-synthesizer.html" selected>spelling synthesizer</option>
         </select>
@@ -223,6 +223,6 @@
     </main>
 
     <script type="module" src="nav.js"></script>
-    <script type="module" src="spelling-synthesizer-app.js"></script>
+    <script type="module" src="src/instruments/spelling-synthesizer/spelling-synthesizer-app.js"></script>
   </body>
 </html>

@@ -18,13 +18,13 @@ import {
   isColonySyrinxGraphNodeEnabled,
   moveColonySyrinxGraphNode,
   sanitizeColonySyrinxGraphLayout,
-} from "../src/colony-syrinx-graph.js";
+} from "../src/instruments/monstroid/monstroid-graph.js";
 import {
   createColonySyrinxState,
   formatColonySyrinxPreset,
   parseColonySyrinxPreset,
   randomizeColonySyrinxState,
-} from "../src/colony-syrinx.js";
+} from "../src/instruments/monstroid/monstroid.js";
 
 const nodesOfKind = (layout, kind) => Object.values(layout.nodes).filter((node) => (
   node.kind === kind

@@ -232,8 +232,8 @@ test("equal outline speed makes smaller real contours loop more frequently", () 
 test("Escher markup is labelled, self-contained, and explicit about source boundaries", async () => {
   const [html, app, css, performanceAudio] = await Promise.all([
     readFile(new URL("escher-tessellation.html", root), "utf8"),
-    readFile(new URL("escher-tessellation-app.js", root), "utf8"),
-    readFile(new URL("escher-tessellation.css", root), "utf8"),
+    readFile(new URL("src/instruments/escher-tessellation/escher-tessellation-app.js", root), "utf8"),
+    readFile(new URL("src/instruments/escher-tessellation/escher-tessellation.css", root), "utf8"),
     readFile(new URL("src/escher-performance-audio.js", root), "utf8"),
   ]);
   const ids = [...html.matchAll(/\bid="([^"]+)"/g)].map((match) => match[1]);
@@ -295,7 +295,7 @@ test("Escher markup is labelled, self-contained, and explicit about source bound
     assert.match(html, new RegExp(`<option value="${preset.id}"`));
   }
   assert.match(html, /src="nav\.js"/);
-  assert.match(html, /src="escher-tessellation-app\.js"/);
+  assert.match(html, /src="src\/instruments\/escher-tessellation\/escher-tessellation-app\.js"/);
   assert.match(html, /href="escher-tessellation\.html" aria-current="page">escher<\/a>[\s\S]+href="order-tones\.html">order tones<\/a>/);
   assert.doesNotMatch(html, /href="lattice\.html">lattice<\/a>|href="spiral\.html">spiral<\/a>/);
   assert.match(html, /<option value="order-tones\.html">order tones<\/option>/);
@@ -308,7 +308,7 @@ test("Escher markup is labelled, self-contained, and explicit about source bound
   assert.match(app, /event\.code === "Home"/);
   assert.match(app, /is-model-locked/);
   assert.match(app, /new EscherPerformanceAudio/);
-  assert.match(app, /from "\.\/src\/escher-contours\.js"/);
+  assert.match(app, /from "\.\.\/\.\.\/escher-contours\.js"/);
   assert.match(app, /buildEscherContours/);
   assert.match(app, /contourPointAtDistance/);
   assert.match(app, /selectEscherContours/);

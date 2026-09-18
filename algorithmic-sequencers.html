@@ -11,7 +11,7 @@
     <title>Algorithmic Sequencers - Morphazoid</title>
     <link rel="icon" href="favicon.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="style.css" />
-    <link rel="stylesheet" href="algorithmic-sequencers.css" />
+    <link rel="stylesheet" href="src/families/algorithmic-sequencers/algorithmic-sequencers.css" />
   </head>
   <body class="algorithmic-sequencers-page">
     <header class="masthead">
@@ -21,13 +21,13 @@
       </a>
 
       <nav class="tabs" aria-label="Instrument">
-        <a class="tab" href="shape.html">shape</a>
+        <a class="tab" href="shape-synth.html">shape</a>
         <a class="tab active algorithmic-sequencers-tab" href="algorithmic-sequencers.html" aria-current="page">algorithmic sequencers</a>
       </nav>
       <label class="mobile-instrument-nav">
         <span class="sr-only">Instrument</span>
         <select class="mobile-instrument-select" aria-label="Instrument">
-          <option value="shape.html">shape</option>
+          <option value="shape-synth.html">shape</option>
           <option value="algorithmic-sequencers.html" selected>algorithmic sequencers</option>
         </select>
       </label>
@@ -235,6 +235,6 @@
     </main>
 
     <script type="module" src="nav.js"></script>
-    <script type="module" src="algorithmic-sequencers-app.js"></script>
+    <script type="module" src="src/families/algorithmic-sequencers/algorithmic-sequencers-app.js"></script>
   </body>
 </html>

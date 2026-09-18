@@ -138,7 +138,7 @@ test("size coupling gives radial playback physical speed and bounded pitch rates
 test("Spiral page exposes intrinsic time paths and tactile winding controls", async () => {
   const [html, app] = await Promise.all([
     readFile(new URL("../spiral.html", import.meta.url), "utf8"),
-    readFile(new URL("../spiral-app.js", import.meta.url), "utf8"),
+    readFile(new URL("../src/instruments/spiral/spiral-app.js", import.meta.url), "utf8"),
   ]);
   assert.match(html, /<body class="spiral-page">/);
   assert.match(html, /id="radiusTime"[^>]+aria-pressed="true"/);

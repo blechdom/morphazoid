@@ -1,6 +1,6 @@
 import { getSharedMidiManager } from './midi-manager.js';
-import { SPIDER_BODY_GROUPS } from './spider-synth-body.js?v=64d3f9bd2cd0';
-import { SPIDER_MIDI_GESTURES } from './spider-synth-midi.js?v=64d3f9bd2cd0';
+import { SPIDER_BODY_GROUPS } from './spider-synth-body.js?v=dd1be907fd5b';
+import { SPIDER_MIDI_GESTURES } from './spider-synth-midi.js?v=dd1be907fd5b';
 
 export const SPIDER_MIDI_ROUTE_DEFAULTS = Object.freeze([
   'param:tension', 'param:damping', 'param:brightness', 'param:coupling',

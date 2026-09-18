@@ -27,8 +27,11 @@ worktrees at once, so preserve unrelated tracked and untracked work.
 
 | Path | Purpose |
 | --- | --- |
-| Root `*.html`, `*.css`, and `*-app.js` files | Authored browser pages and page controllers |
+| Root `*.html`, `style.css`, and bootstrap scripts | Public browser entry points and global styling; controllers are under `src/` |
 | `src/` | Shared and instrument-owned ES modules, DSP, AudioWorklets, and UI primitives |
+| `src/instruments/` | Instrument-owned controllers/styles and selected helpers, grouped by canonical instrument ID |
+| `src/families/` | Explicit shared family code/styles, not catalogue categories |
+| `src/site/` | Catalogue, identity aliases, taxonomy, and site-page controllers/styles |
 | `assets/`, `artwork/`, and `vendor/` | Runtime assets, source artwork, and attributed third-party code/data |
 | `contracts/` | Versioned browser, MIDI, transport, and host behavior contracts |
 | `tests/` | Node tests |
@@ -39,6 +42,11 @@ worktrees at once, so preserve unrelated tracked and untracked work.
 | `infra/` and `.github/workflows/` | AWS infrastructure and GitHub deployment automation |
 | `.agents/skills/` | Focused, repository-scoped agent workflows |
 | `docs/` | Focused architecture and maintenance guides |
+
+Public HTML addresses remain at the root; renamed addresses have compatibility
+redirects preserving query strings and fragments. Runtime assets stay top-level.
+The [catalogue/layout update](docs/v2-catalogue-layout-results.md) records the
+September 18 naming decisions, current ownership boundaries, and verification.
 
 The root [AGENTS.md](AGENTS.md) contains durable rules shared by coding agents.
 The [agent-tooling guide](docs/agent-tooling.md) explains when guidance belongs
@@ -54,9 +62,9 @@ npm run dev
 ```
 
 Open the exact URL printed by the server. It starts at port `3435` and selects
-the next available port when needed. Playwright always targets
-`http://127.0.0.1:3435`; confirm that endpoint serves this worktree before
-reusing an existing server.
+the next available port when needed. Playwright defaults to
+`http://127.0.0.1:3435`. Set `MORPHAZOID_QA_BASE_URL` to test another already-running
+preview, and confirm that endpoint serves this worktree before reusing it.
 
 The package manifest is the source of truth for commands:
 
@@ -64,6 +72,7 @@ The package manifest is the source of truth for commands:
 | --- | --- |
 | `npm run check` | Parse the authored JavaScript and build tooling. |
 | `npm test` | Run Node tests in `tests/` and `morphazoidical/tests/`. |
+| `npm run test:release-manifest` | Check release-file policies and isolated old/new builder parity. |
 | `npm run verify` | Run `check`, Node tests, and committed WAX parity. |
 | `npm run build:wax` | Regenerate the committed `dist-wax/` tree. |
 | `npm run build:site` | Assemble the public site and hosted WAX site in ignored `dist/`. |
@@ -77,6 +86,12 @@ The package manifest is the source of truth for commands:
 committed compatibility artifact: change authored sources, run
 `npm run build:wax`, review the generated diff, and finish with
 `npm run check:wax-dist` or `npm run verify`.
+
+Explicit pre-commit inclusion and mandatory artifact files are declared once in
+`scripts/site/runtime-files.tsv`, rather than in duplicate shell lists. Its
+`copy`, `require`, and `copy+require` policies are intentionally different.
+See `scripts/site/README.md` before adding or moving a runtime file. The
+builder's tracked-file selection and asset-glob rules remain separate.
 
 ## Coding and interface conventions
 

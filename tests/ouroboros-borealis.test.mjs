@@ -1054,16 +1054,16 @@ test("the worklet renders bounded stereo through both independent seams and extr
 test("the native page exposes five circular, independently controlled Ouroboros rings", async () => {
   const [markup, app, source, styles] = await Promise.all([
     readFile(new URL("ouroboros-borealis.html", ROOT), "utf8"),
-    readFile(new URL("ouroboros-borealis-app.js", ROOT), "utf8"),
+    readFile(new URL("src/instruments/ouroboros-borealis/ouroboros-borealis-app.js", ROOT), "utf8"),
     readFile(new URL("src/ouroboros-borealis.js", ROOT), "utf8"),
-    readFile(new URL("ouroboros-borealis.css", ROOT), "utf8"),
+    readFile(new URL("src/instruments/ouroboros-borealis/ouroboros-borealis.css", ROOT), "utf8"),
   ]);
 
   assert.match(markup, /<title>Ouroboros Borealis — Morphazoid<\/title>/);
   assert.equal((markup.match(/<h1\b/g) ?? []).length, 1);
   assert.match(markup, /<h1[^>]*>\s*Ouroboros Borealis\s*<\/h1>/);
   assert.match(markup, /<body class="ouroboros-page borealis-page">/);
-  assert.match(markup, /href="ouroboros\.css"/);
+  assert.match(markup, /href="src\/instruments\/ouroboros\/ouroboros\.css"/);
   assert.match(markup, /class="ouroboros-shell borealis-shell"/);
   assert.match(markup, /class="panel ouroboros-control-panel borealis-control-panel"/);
   assert.match(markup, /<main[^>]+id="ouroborosBorealis"/);
@@ -1123,7 +1123,7 @@ test("the native page exposes five circular, independently controlled Ouroboros 
   assert.match(markup, /id="coupling"[^>]+min="-1"[^>]+max="1"[^>]+value="0"/);
   assert.match(markup, /id="couplingFocus"[^>]+min="0"[^>]+max="1"[^>]+value="0\.5"/);
   assert.match(markup, /id="presetGrid"[^>]+role="group"/);
-  assert.match(markup, /src="ouroboros-borealis-app\.js"/);
+  assert.match(markup, /src="src\/instruments\/ouroboros-borealis\/ouroboros-borealis-app\.js"/);
   assert.doesNotMatch(markup, /https?:\/\//);
 
   assert.match(app, /new OuroborosBorealisAudio\(globalThis\)/);

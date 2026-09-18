@@ -22,7 +22,7 @@ for (const [id, spec] of Object.entries(STARTING_INSTRUMENTS)) {
   <title>${escape(spec.title)} · Morphazoid</title>
   <link rel="icon" href="favicon.svg" type="image/svg+xml" />
   <link rel="stylesheet" href="style.css" />
-  <link rel="stylesheet" href="starting-instruments.css" />
+  <link rel="stylesheet" href="src/families/starting-instruments/starting-instruments.css" />
 </head>
 <body class="starting-instrument" data-starting-instrument="${id}" style="--accent:${spec.accent}">
   <header class="masthead">
@@ -66,7 +66,7 @@ for (const [id, spec] of Object.entries(STARTING_INSTRUMENTS)) {
       <noscript><p>This instrument needs JavaScript. Audio and microphone start off.</p></noscript>
     </aside>
   </main>
-  <script type="module" src="starting-instruments-app.js"></script>
+  <script type="module" src="src/families/starting-instruments/starting-instruments-app.js"></script>
   <script type="module" src="nav.js"></script>
 </body>
 </html>`;
