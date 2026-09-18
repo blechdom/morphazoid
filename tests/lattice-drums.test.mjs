@@ -15,7 +15,7 @@ import {
   latticeDrumVoiceIndex,
   mappedLatticeDrumVoice,
   normalizedLatticeContact,
-} from "../src/lattice-drums.js";
+} from "../src/instruments/lattice-drum-machine/lattice-drum-machine.js";
 
 const bounds = { minX: -2, minY: -1, maxX: 2, maxY: 1 };
 const root = new URL("../", import.meta.url);
@@ -216,9 +216,9 @@ test("hexagon drum contacts keep changing physical onset keys", () => {
 
 test("Lattice Drum Machine uses the lattice core and compact FM drum bank", async () => {
   const [html, css, app] = await Promise.all([
-    readFile(new URL("lattice-drums.html", root), "utf8"),
-    readFile(new URL("lattice-drums.css", root), "utf8"),
-    readFile(new URL("lattice-drums-app.js", root), "utf8"),
+    readFile(new URL("lattice-drum-machine.html", root), "utf8"),
+    readFile(new URL("src/instruments/lattice-drum-machine/lattice-drum-machine.css", root), "utf8"),
+    readFile(new URL("src/instruments/lattice-drum-machine/lattice-drum-machine-app.js", root), "utf8"),
   ]);
   assert.match(html, /Lattice Drum Machine/);
   assert.match(html, /id="stage"/);
@@ -237,7 +237,7 @@ test("Lattice Drum Machine uses the lattice core and compact FM drum bank", asyn
   assert.match(html, /id="engineStatus"/);
   assert.match(html, /id="auditionEngine"/);
   assert.match(html, /808\/909 samples/);
-  assert.match(html, /src="lattice-drums-app\.js"/);
+  assert.match(html, /src="src\/instruments\/lattice-drum-machine\/lattice-drum-machine-app\.js"/);
   assert.match(css, /\.lattice-drum-map[\s\S]*grid-template-columns: repeat\(4/);
   assert.match(app, /TILING_TYPES/);
   assert.match(app, /buildPrototile/);

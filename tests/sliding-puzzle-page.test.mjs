@@ -7,8 +7,8 @@ const root = new URL("../", import.meta.url);
 async function pageSources() {
   const [html, css, app, model] = await Promise.all([
     readFile(new URL("sliding-puzzle.html", root), "utf8"),
-    readFile(new URL("sliding-puzzle.css", root), "utf8"),
-    readFile(new URL("sliding-puzzle-app.js", root), "utf8"),
+    readFile(new URL("src/instruments/sliding-puzzle/sliding-puzzle.css", root), "utf8"),
+    readFile(new URL("src/instruments/sliding-puzzle/sliding-puzzle-app.js", root), "utf8"),
     readFile(new URL("src/sliding-puzzle.js", root), "utf8"),
   ]);
   return { html, css, app, model };
@@ -52,8 +52,8 @@ function selectOptions(source, id) {
 test("the rectangular sliding-puzzle page ships complete local assets and metadata", async () => {
   for (const path of [
     "sliding-puzzle.html",
-    "sliding-puzzle.css",
-    "sliding-puzzle-app.js",
+    "src/instruments/sliding-puzzle/sliding-puzzle.css",
+    "src/instruments/sliding-puzzle/sliding-puzzle-app.js",
     "src/sliding-puzzle.js",
   ]) {
     assert.ok((await stat(new URL(path, root))).size > 0, `${path} should not be empty`);
@@ -68,9 +68,9 @@ test("the rectangular sliding-puzzle page ships complete local assets and metada
     /name="description"[\s\S]*resize a square or rectangular note puzzle[\s\S]*serially or all rows in parallel[\s\S]*rotate, scramble/i,
   );
   assert.match(html, /<link rel="stylesheet" href="style\.css"\s*\/>/);
-  assert.match(html, /<link rel="stylesheet" href="sliding-puzzle\.css"\s*\/>/);
+  assert.match(html, /<link rel="stylesheet" href="src\/instruments\/sliding-puzzle\/sliding-puzzle\.css"\s*\/>/);
   assert.match(html, /<script type="module" src="nav\.js"><\/script>/);
-  assert.match(html, /<script type="module" src="sliding-puzzle-app\.js"><\/script>/);
+  assert.match(html, /<script type="module" src="src\/instruments\/sliding-puzzle\/sliding-puzzle-app\.js"><\/script>/);
   assert.match(html, /href="sliding-puzzle\.html" aria-current="page"/);
   assert.match(html, /<h1 id="slidingPuzzleTitle">Sliding Puzzle<\/h1>/);
   assert.match(html, /<option value="sliding-puzzle\.html" selected>sliding puzzle<\/option>/);

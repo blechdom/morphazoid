@@ -6,18 +6,18 @@ const root = new URL("../", import.meta.url);
 
 test("Shape, Lattice, and Lumber Loops expose reciprocal instrument navigation", async () => {
   const [shapeHtml, latticeHtml, lumberHtml] = await Promise.all([
-    readFile(new URL("shape.html", root), "utf8"),
+    readFile(new URL("shape-synth.html", root), "utf8"),
     readFile(new URL("lattice.html", root), "utf8"),
     readFile(new URL("lumber.html", root), "utf8"),
   ]);
 
-  assert.match(shapeHtml, /<a class="tab active" href="shape\.html" aria-current="page">shape<\/a>/);
+  assert.match(shapeHtml, /<a class="tab active" href="shape-synth\.html" aria-current="page">shape<\/a>/);
   assert.match(shapeHtml, /<a class="tab" href="lattice\.html">lattice<\/a>/);
   assert.match(shapeHtml, /<a class="tab" href="lumber\.html">lumber loops<\/a>/);
-  assert.match(latticeHtml, /<a class="tab" href="shape\.html">shape<\/a>/);
+  assert.match(latticeHtml, /<a class="tab" href="shape-synth\.html">shape<\/a>/);
   assert.match(latticeHtml, /<a class="tab active" href="lattice\.html" aria-current="page">lattice<\/a>/);
   assert.match(latticeHtml, /<a class="tab" href="lumber\.html">lumber loops<\/a>/);
-  assert.match(lumberHtml, /<a class="tab" href="shape\.html">shape<\/a>/);
+  assert.match(lumberHtml, /<a class="tab" href="shape-synth\.html">shape<\/a>/);
   assert.match(lumberHtml, /<a class="tab" href="lattice\.html">lattice<\/a>/);
   assert.match(lumberHtml, /<a class="tab active" href="lumber\.html" aria-current="page">lumber loops<\/a>/);
 });
@@ -39,7 +39,7 @@ test("Lattice and Spiral visibly credit Craig S. Kaplan's TactileJS work", async
 test("Lattice is one centered line instrument with no walk controls", async () => {
   const [html, app, geometry] = await Promise.all([
     readFile(new URL("lattice.html", root), "utf8"),
-    readFile(new URL("lattice-app.js", root), "utf8"),
+    readFile(new URL("src/instruments/lattice/lattice-app.js", root), "utf8"),
     readFile(new URL("src/lattice.js", root), "utf8"),
   ]);
 
@@ -53,7 +53,7 @@ test("Lattice is one centered line instrument with no walk controls", async () =
   assert.match(html, /id="patternDirectionAngle"[^>]+value="0"/);
   assert.match(html, /id="patternDirectionAngle"[^>]+step="0\.1"/);
   assert.match(html, /id="voiceCap"/);
-  assert.match(html, /src="lattice-app\.js"/);
+  assert.match(html, /src="src\/instruments\/lattice\/lattice-app\.js"/);
   assert.doesNotMatch(html, /walk dot|walk length|turn bias/i);
   assert.doesNotMatch(`${app}\n${geometry}`, /walkNet|walkToPolyline|_probeWalk|walkLen/);
   assert.match(app, /createScanLine\(viewBounds, 0\.5, state\.angle\)/);
@@ -69,7 +69,7 @@ test("Lattice is one centered line instrument with no walk controls", async () =
 test("Lattice exposes complete shape controls and single-patch synth modes", async () => {
   const [html, app] = await Promise.all([
     readFile(new URL("lattice.html", root), "utf8"),
-    readFile(new URL("lattice-app.js", root), "utf8"),
+    readFile(new URL("src/instruments/lattice/lattice-app.js", root), "utf8"),
   ]);
   assert.match(html, /id="tilingType"/);
   assert.match(html, /id="parameter5"/);

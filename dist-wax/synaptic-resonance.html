@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+    <script src="wax/wax-host-bootstrap.js" data-morphazoid-wax-bootstrap></script>
+    <!-- morphazoid-social-preview:start -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Morphazoid" />
+    <meta property="og:title" content="Synaptic Resonance · Morphazoid" />
+    <meta property="og:description" content="Prototype: a graph whose edges are synapses with facilitation and depression, so pulse rate decides which paths carry signal." />
+    <meta property="og:url" content="https://morphazoid.com/synaptic-resonance.html" />
+    <meta property="og:image" content="https://morphazoid.com/assets/social/morphazoid-card-20260917.png" />
+    <meta property="og:image:secure_url" content="https://morphazoid.com/assets/social/morphazoid-card-20260917.png" />
+    <meta property="og:image:type" content="image/png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="Morphazoid geometric wireframe logo on a dark background." />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Synaptic Resonance · Morphazoid" />
+    <meta name="twitter:description" content="Prototype: a graph whose edges are synapses with facilitation and depression, so pulse rate decides which paths carry signal." />
+    <meta name="twitter:image" content="https://morphazoid.com/assets/social/morphazoid-card-20260917.png" />
+    <meta name="twitter:image:alt" content="Morphazoid geometric wireframe logo on a dark background." />
+    <link rel="image_src" href="https://morphazoid.com/assets/social/morphazoid-card-20260917.png" />
+    <!-- morphazoid-social-preview:end -->
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="description" content="Prototype: a graph whose edges are synapses with facilitation and depression, so pulse rate decides which paths carry signal." />
+  <meta name="theme-color" content="#080e16" />
+  <title>Synaptic Resonance · Morphazoid</title>
+  <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="starting-instruments.css" />
+  <link rel="stylesheet" href="proto-graph.css" />
+</head>
+<body class="starting-instrument proto-page" data-starting-instrument="synaptic-resonance" style="--accent:#9bb7ff">
+  <header class="masthead">
+    <a class="wordmark" href="./" aria-label="Morphazoid home"><span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span><span>morphazoid</span></a>
+    <nav class="tabs" aria-label="Instrument">
+      <a class="tab" href="head-shed.html">Head Shed</a>
+      <a class="tab" href="splice-ring.html">Splice Ring</a>
+      <a class="tab" href="onset-atlas.html">Onset Atlas</a>
+      <a class="tab active" href="synaptic-resonance.html" aria-current="page">Synaptic Resonance</a>
+    </nav>
+    <div id="audioSlot" class="audio-strip" aria-label="Audio controls">
+      <button id="audioButton" class="audio-button" type="button" aria-pressed="false" disabled>Audio off · enable JavaScript</button>
+    </div>
+  </header>
+  <main class="starting-shell">
+    <section class="starting-stage" aria-label="Synaptic Resonance instrument">
+      <header class="starting-title"><h1>Synaptic Resonance</h1><p>the graph routes by rhythm, not by a switch</p></header>
+      <canvas id="stage" tabindex="0" role="application" aria-roledescription="synaptic graph"
+        aria-label="Seven nodes joined by ring steps and longer shortcuts. Edge thickness shows each synapse's current strength, which rises with facilitation and falls with depletion."
+        aria-describedby="canvasInstructions"></canvas>
+      <p class="starting-hint" id="canvasInstructions">
+        Click a node to strike it. <kbd>Shift</kbd>-click to move where auto pulses enter.
+        Number keys <kbd>1</kbd>–<kbd>7</kbd> strike nodes. Change <b>Pulse rate</b> and watch which edges thicken.
+      </p>
+    </section>
+    <aside class="starting-controls" aria-label="Synaptic Resonance controls">
+      <section class="group">
+        <div class="transport-row">
+          <button id="playButton" type="button" aria-pressed="false" data-primary-transport>Play</button>
+          <button id="resetSynapses" class="mini-action" type="button">Reset synapses</button>
+        </div>
+        <p id="liveStatus" role="status" aria-live="polite">Turn Audio on, then Play. Sweep Pulse rate slowly from 1 to 12.</p>
+        <p id="audioError" role="alert" hidden></p>
+        <p class="readout">
+          ring steps <b id="readoutRing">1.00</b> · shortcuts <b id="readoutCut">1.00</b><br />
+          currently: <b id="readoutWho">balanced</b>
+        </p>
+      </section>
+
+      <section class="group" aria-label="Rhythm">
+        <label class="control" for="rate"><span><b>Pulse rate</b><output id="rateOut" for="rate">4.00 /s</output></span>
+          <input id="rate" type="range" min="0.3" max="14" step="0.05" value="4"
+            title="The main gesture. Each synapse is band-pass in rate: too slow and facilitation has decayed, too fast and its resources are depleted." /></label>
+        <label class="control checkbox" for="autoPulse">
+          <input id="autoPulse" type="checkbox" checked />
+          <span><b>Auto pulse</b></span>
+        </label>
+      </section>
+
+      <section class="group" aria-label="Synapse parameters">
+        <label class="control" for="facil"><span><b>Facilitation</b><output id="facilOut" for="facil">0.55</output></span>
+          <input id="facil" type="range" min="0" max="1.4" step="0.01" value="0.55"
+            title="How much each pulse raises the next pulse's strength. Decays back toward rest." /></label>
+        <label class="control" for="deplete"><span><b>Depletion</b><output id="depleteOut" for="deplete">0.42</output></span>
+          <input id="deplete" type="range" min="0" max="0.9" step="0.01" value="0.42"
+            title="Fraction of available resources each pulse consumes. Recovers over the edge's own time constant." /></label>
+        <label class="control" for="inhibition"><span><b>Mutual inhibition</b><output id="inhibitionOut" for="inhibition">winner-take-all</output></span>
+          <input id="inhibition" type="range" min="0" max="1" step="0.01" value="0.75"
+            title="How strongly sibling edges suppress each other. At 1 only the strongest branch transmits; at 0 every branch does." /></label>
+        <label class="control" for="decay"><span><b>Resonator decay</b><output id="decayOut" for="decay">2.60 s</output></span>
+          <input id="decay" type="range" min="0.2" max="6" step="0.05" value="2.6" /></label>
+      </section>
+
+      <section class="group" id="howItWorks">
+        <h2 class="group-title">How it works</h2>
+        <p class="starting-note">
+          Each edge is a synapse with two states: <b>facilitation</b>, which rises with every pulse
+          and decays between them, and <b>available resources</b>, which each pulse depletes and which
+          recover slowly. Effective strength is their product, which makes every edge <em>band-pass in
+          pulse rate</em> — weak when you play too slowly, weak when you play too fast, strong in between.
+        </p>
+        <p class="starting-note">
+          The seven ring steps facilitate slowly and prefer unhurried playing. The seven shortcuts
+          facilitate and deplete quickly and prefer fast bursts. So <b>tempo is the routing control</b>:
+          sweep Pulse rate and the signal physically moves between the two subnetworks. Mutual
+          inhibition decides whether a branch point passes everything or only its strongest edge.
+        </p>
+        <p class="starting-note">
+          This is why it exists: in earlier prototypes the branch decision came from a rotor, whose
+          period turned out to be fixed by topology and unsteerable. Here the decision comes from
+          how you play, so it is under your hands.
+        </p>
+        <p class="starting-note warn">
+          <b>Honesty:</b> this is a musical model using the standard facilitation/depression form.
+          It is not a claim of biological accuracy, not a neuron simulation, and the "lattice" of the
+          referenced audio plugin is not reproduced here.
+        </p>
+        <p class="starting-note"><b>Not implemented:</b> no recording, no tape, no editable topology, no saved state.</p>
+      </section>
+    </aside>
+  </main>
+  <script type="module" src="synaptic-resonance-app.js?v=proto-20260918-1"></script>
+  <script type="module" src="nav.js"></script>
+  <script type="module" src="wax/wax-universal-adapter.js" data-morphazoid-wax-universal-adapter></script>
+</body>
+</html>

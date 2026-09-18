@@ -3,7 +3,7 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 test("Hyper Drum Machine starts, renders sixteen voices, and strikes on motion", async () => {
-  const html = await readFile(new URL("../hyper-drums.html", import.meta.url), "utf8");
+  const html = await readFile(new URL("../hyper-drum-machine.html", import.meta.url), "utf8");
   const ids = [...html.matchAll(/\bid="([^"]+)"/g)].map((match) => match[1]);
   const elements = new Map();
   const listeners = new Map();
@@ -199,7 +199,7 @@ test("Hyper Drum Machine starts, renders sixteen voices, and strikes on motion",
     for (const callback of callbacks) callback(now);
   }
 
-  await import(`../hyper-drums-app.js?smoke=${Date.now()}`);
+  await import(`../src/instruments/hyper-drum-machine/hyper-drum-machine-app.js?smoke=${Date.now()}`);
   assert.ok(rafQueue.length > 0, "startup should schedule an initial render");
   flushAnimationFrames();
 

@@ -11,7 +11,7 @@ const quantumPages = Object.freeze([
     id: "order-tones",
     label: "Order Tones",
     page: "order-tones.html",
-    app: "order-tones-app.js",
+    app: "src/instruments/order-tones/order-tones-app.js",
     core: "src/order-tones.js",
     number: "01",
   }),
@@ -19,7 +19,7 @@ const quantumPages = Object.freeze([
     id: "bell-square",
     label: "Bell Square",
     page: "bell-square.html",
-    app: "bell-square-app.js",
+    app: "src/instruments/bell-square/bell-square-app.js",
     core: "src/bell-square.js",
     number: "02",
   }),
@@ -27,7 +27,7 @@ const quantumPages = Object.freeze([
     id: "entanglement-dance",
     label: "Entanglement Dance",
     page: "entanglement-dance.html",
-    app: "entanglement-dance-app.js",
+    app: "src/instruments/entanglement-dance/entanglement-dance-app.js",
     core: "src/entanglement-dance.js",
     number: "03",
   }),
@@ -35,7 +35,7 @@ const quantumPages = Object.freeze([
     id: "quantum-square-dance",
     label: "Quantum Square Dance",
     page: "quantum-square-dance.html",
-    app: "quantum-square-dance-app.js",
+    app: "src/instruments/quantum-square-dance/quantum-square-dance-app.js",
     core: "src/quantum-square-dance.js",
     number: "04",
   }),
@@ -43,16 +43,16 @@ const quantumPages = Object.freeze([
     id: "annealogue",
     label: "Annealogue",
     page: "annealogue.html",
-    app: "annealogue-app.js",
+    app: "src/instruments/annealogue/annealogue-app.js",
     core: "src/annealogue.js",
     number: "05",
   }),
 ]);
 
 test("menu registry keeps the quantum simulators with Morphazoidical in Works in progress", () => {
-  const group = TOOL_GROUPS.find(({ id }) => id === "experiments");
+  const group = TOOL_GROUPS.find(({ id }) => id === "wip");
   assert.ok(group);
-  assert.equal(group.label, "Works in progress");
+  assert.equal(group.label, "Work in Progress");
   const quantumStart = group.tools.findIndex(({ id }) => id === "order-tones");
   assert.deepEqual(
     group.tools.slice(quantumStart, quantumStart + 6).map(({ id }) => id),
@@ -82,7 +82,7 @@ test("Quantum Synth pages share the instrument shell and disclose simulation sco
     ]);
 
     assert.match(html, /<link rel="stylesheet" href="style\.css"\s*\/?>/);
-    assert.match(html, /<link rel="stylesheet" href="quantum-synths\.css"\s*\/?>/);
+    assert.match(html, /<link rel="stylesheet" href="src\/instruments\/quantum-synths\/quantum-synths\.css"\s*\/?>/);
     assert.match(html, /class="[^"]*quantum-page/);
     assert.match(html, /class="[^"]*quantum-shell/);
     assert.match(html, /<canvas[\s\S]*?id="stage"[\s\S]*?tabindex="0"/);
@@ -95,7 +95,7 @@ test("Quantum Synth pages share the instrument shell and disclose simulation sco
     assert.match(html, new RegExp(`QUANTUM SYNTHS\\s*(?:&middot;|·)\\s*${instrument.number}`, "i"));
     assert.match(html, new RegExp(`<h1[^>]*>${instrument.label}<\\/h1>`, "i"));
     assert.match(html, new RegExp(`<script type="module" src="${instrument.app.replace(".", "\\.")}">`));
-    assert.match(app, new RegExp(`from ["']\\./${instrument.core.replace("src/", "src/").replace(".", "\\.")}["']`));
+    assert.match(app, new RegExp(`from ["']\\.\\./\\.\\./${instrument.core.replace("src/", "").replace(".", "\\.")}["']`));
     for (const route of quantumPages) {
       assert.match(html, new RegExp(`(?:href|value)="${route.page.replace(".", "\\.")}"`));
     }
@@ -106,7 +106,7 @@ test("Quantum Synth pages share the instrument shell and disclose simulation sco
 });
 
 test("Quantum Synth family CSS preserves the responsive stage and reduced-motion contract", async () => {
-  const css = await readFile(new URL("quantum-synths.css", root), "utf8");
+  const css = await readFile(new URL("src/instruments/quantum-synths/quantum-synths.css", root), "utf8");
   assert.match(css, /\.quantum-shell\s*\{/);
   assert.match(css, /\.quantum-heading\s*\{/);
   assert.match(css, /\.quantum-simulation-notice/);

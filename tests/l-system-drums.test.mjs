@@ -21,7 +21,7 @@ import {
   lSystemDrumVoiceIndex,
   mappedLSystemDrumVoice,
   styledLSystemDrumVoice,
-} from "../src/l-system-drums.js";
+} from "../src/instruments/l-system-drum-machine/l-system-drum-machine.js";
 
 const root = new URL("../", import.meta.url);
 
@@ -332,9 +332,9 @@ test("looping L-system drums re-arm the first hit after wraparound", () => {
 
 test("L-System Drum Machine copies the L-system controls into a compact drum page", async () => {
   const [html, css, app] = await Promise.all([
-    readFile(new URL("l-system-drums.html", root), "utf8"),
-    readFile(new URL("l-system-drums.css", root), "utf8"),
-    readFile(new URL("l-system-drums-app.js", root), "utf8"),
+    readFile(new URL("l-system-drum-machine.html", root), "utf8"),
+    readFile(new URL("src/instruments/l-system-drum-machine/l-system-drum-machine.css", root), "utf8"),
+    readFile(new URL("src/instruments/l-system-drum-machine/l-system-drum-machine-app.js", root), "utf8"),
   ]);
 
   assert.match(html, /L-System Drum Machine/);
@@ -377,8 +377,8 @@ test("L-System Drum Machine copies the L-system controls into a compact drum pag
   assert.match(html, /id="anglePitchDepth"[\s\S]*max="36"[\s\S]*value="12"/);
   assert.match(html, /id="angleRange"[\s\S]*min="15"[\s\S]*max="360"[\s\S]*value="90"/);
   assert.match(html, /class="l-system-mapping-readout"[^>]*aria-label="Latest drum mapping"[^>]*aria-live="off"/);
-  assert.match(html, /href="l-system-drums\.html" aria-current="page"/);
-  assert.match(html, /src="l-system-drums-app\.js"/);
+  assert.match(html, /href="l-system-drum-machine\.html" aria-current="page"/);
+  assert.match(html, /src="src\/instruments\/l-system-drum-machine\/l-system-drum-machine-app\.js"/);
   assert.doesNotMatch(html, /<h1\b|soundMode|polyphonyReadout|synth-panel/);
   assert.match(html, /<details\b[^>]*data-section="play"[^>]*\sopen(?:\s|>)/);
   assert.equal((html.match(/<details\b[^>]*\sopen(?:\s|>)/g) ?? []).length, 1);

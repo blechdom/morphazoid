@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { editableWheelWord } from "../wheel-of-organs-app.js";
+import { editableWheelWord } from "../src/instruments/wheel-of-organs/wheel-of-organs-app.js";
 
 import {
   ALPHABET,

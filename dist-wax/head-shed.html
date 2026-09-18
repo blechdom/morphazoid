@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+    <script src="wax/wax-host-bootstrap.js" data-morphazoid-wax-bootstrap></script>
+    <!-- morphazoid-social-preview:start -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Morphazoid" />
+    <meta property="og:title" content="Head Shed · Morphazoid" />
+    <meta property="og:description" content="Prototype: one continuous tape loop with independently positioned play, record and erase heads." />
+    <meta property="og:url" content="https://morphazoid.com/head-shed.html" />
+    <meta property="og:image" content="https://morphazoid.com/assets/social/morphazoid-card-20260917.png" />
+    <meta property="og:image:secure_url" content="https://morphazoid.com/assets/social/morphazoid-card-20260917.png" />
+    <meta property="og:image:type" content="image/png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="Morphazoid geometric wireframe logo on a dark background." />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Head Shed · Morphazoid" />
+    <meta name="twitter:description" content="Prototype: one continuous tape loop with independently positioned play, record and erase heads." />
+    <meta name="twitter:image" content="https://morphazoid.com/assets/social/morphazoid-card-20260917.png" />
+    <meta name="twitter:image:alt" content="Morphazoid geometric wireframe logo on a dark background." />
+    <link rel="image_src" href="https://morphazoid.com/assets/social/morphazoid-card-20260917.png" />
+    <!-- morphazoid-social-preview:end -->
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="description" content="Prototype: one continuous tape loop with independently positioned play, record and erase heads." />
+  <meta name="theme-color" content="#080e16" />
+  <title>Head Shed · Morphazoid</title>
+  <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="starting-instruments.css" />
+  <link rel="stylesheet" href="proto-graph.css" />
+</head>
+<body class="starting-instrument proto-page" data-starting-instrument="head-shed" style="--accent:#7ee0a8">
+  <header class="masthead">
+    <a class="wordmark" href="./" aria-label="Morphazoid home"><span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span><span>morphazoid</span></a>
+    <nav class="tabs" aria-label="Instrument">
+      <a class="tab active" href="head-shed.html" aria-current="page">Head Shed</a>
+      <a class="tab" href="splice-ring.html">Splice Ring</a>
+      <a class="tab" href="onset-atlas.html">Onset Atlas</a>
+      <a class="tab" href="synaptic-resonance.html">Synaptic Resonance</a>
+    </nav>
+    <div id="audioSlot" class="audio-strip" aria-label="Audio controls">
+      <button id="audioButton" class="audio-button" type="button" aria-pressed="false" disabled>Audio off · enable JavaScript</button>
+    </div>
+  </header>
+  <main class="starting-shell">
+    <section class="starting-stage" aria-label="Head Shed instrument">
+      <header class="starting-title"><h1>Head Shed</h1><p>one tape loop · heads you place yourself</p></header>
+      <canvas id="stage" tabindex="0" role="application" aria-roledescription="tape loop with movable heads"
+        aria-label="A circular tape loop. Stored audio displaces the ring. Play, record and erase heads sit at fixed angles while the tape rotates past them."
+        aria-describedby="canvasInstructions"></canvas>
+      <p class="starting-hint" id="canvasInstructions">
+        Click the ring to add a play head. Drag a head around for position, in and out for level.
+        Press <kbd>K</kbd> to change a focused head between play, record and erase. Arrow keys move it.
+      </p>
+    </section>
+    <aside class="starting-controls" aria-label="Head Shed controls">
+      <section class="group">
+        <div class="transport-row">
+          <button id="playButton" type="button" aria-pressed="false" data-primary-transport>Play</button>
+          <button id="micButton" class="mini-action" type="button" aria-pressed="false">Microphone off</button>
+        </div>
+        <p id="liveStatus" role="status" aria-live="polite">Turn Audio on, then Play. Demo material is already on the tape — no microphone needed.</p>
+        <p id="audioError" role="alert" hidden></p>
+        <p class="starting-note">Prototype. Recordings are page-local and lost on reload.</p>
+      </section>
+
+      <section class="group" aria-label="Selected head">
+        <h2 class="group-title"><span id="selectedHead">Head 1</span></h2>
+        <label class="control" for="headKind"><span><b>Head type</b></span>
+          <select id="headKind">
+            <option value="play">Play — reads the tape</option>
+            <option value="record">Record — writes live input</option>
+            <option value="erase">Erase — wipes what passes</option>
+          </select>
+        </label>
+        <label class="control" for="headPos"><span><b>Position</b><output id="headPosOut" for="headPos">0.00 s</output></span>
+          <input id="headPos" type="range" min="0" max="0.999" step="0.001" value="0" /></label>
+        <label class="control" for="headLevel"><span><b>Level</b><output id="headLevelOut" for="headLevel">0.90</output></span>
+          <input id="headLevel" type="range" min="0" max="1" step="0.01" value="0.9" /></label>
+        <div class="transport-row">
+          <button id="removeHead" class="mini-action" type="button">Remove head</button>
+          <button id="clearTape" class="mini-action" type="button">Clear tape</button>
+        </div>
+        <p class="starting-note">Heads on the tape: <span id="headList">—</span></p>
+      </section>
+
+      <section class="group" aria-label="Tape parameters">
+        <label class="control" for="speed"><span><b>Tape speed</b><output id="speedOut" for="speed">1.00×</output></span>
+          <input id="speed" type="range" min="0.25" max="2.5" step="0.01" value="1"
+            title="Duration is loop length divided by speed. Speed also sets pitch, as on tape." /></label>
+        <label class="control" for="retain"><span><b>Erase / hold</b><output id="retainOut" for="retain">hold (sound-on-sound)</output></span>
+          <input id="retain" type="range" min="0" max="1" step="0.01" value="1"
+            title="0 wipes the tape behind the record head, making this a plain delay. 1 defeats the erase, giving sound-on-sound." /></label>
+        <label class="control" for="genLoss"><span><b>Generation loss</b><output id="genLossOut" for="genLoss">0.12</output></span>
+          <input id="genLoss" type="range" min="0" max="1" step="0.01" value="0.12"
+            title="Saturation applied on every pass, rather than a clean multiply." /></label>
+        <label class="control" for="dry"><span><b>Dry monitor</b><output id="dryOut" for="dry">0.70</output></span>
+          <input id="dry" type="range" min="0" max="1" step="0.01" value="0.7"
+            title="Live input monitoring. A looper must always let you hear yourself." /></label>
+        <label class="control checkbox" for="rotorOnly">
+          <input id="rotorOnly" type="checkbox" />
+          <span><b>One play head per lap</b></span>
+        </label>
+        <p class="starting-note">
+          That last switch is the experiment: with three or more play heads, does hearing one
+          per lap read as <em>sequencing</em>, or just as dropouts?
+        </p>
+      </section>
+
+      <section class="group" id="howItWorks">
+        <h2 class="group-title">How it works</h2>
+        <p class="starting-note">
+          The tape moves and the heads do not — the ring rotates past fixed heads, as on real
+          hardware. Loop length divided by tape speed is the duration; speed also sets pitch.
+        </p>
+        <p class="starting-note">
+          <b>Erase / hold</b> is the one control that separates a delay from a looper. At 0 the tape
+          is wiped behind the record head and you have an ordinary multi-tap delay. At 1 the erase is
+          defeated and material accumulates — which is exactly what sound-on-sound mode did on an Echoplex.
+        </p>
+        <p class="starting-note">
+          <b>Not implemented:</b> no phrase analysis, no branching, no splices, no saved state.
+        </p>
+      </section>
+    </aside>
+  </main>
+  <script type="module" src="head-shed-app.js?v=proto-20260918-1"></script>
+  <script type="module" src="nav.js"></script>
+  <script type="module" src="wax/wax-universal-adapter.js" data-morphazoid-wax-universal-adapter></script>
+</body>
+</html>

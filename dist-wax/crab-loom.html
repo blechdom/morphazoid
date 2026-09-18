@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+    <script src="wax/wax-host-bootstrap.js" data-morphazoid-wax-bootstrap></script>
+    <!-- morphazoid-social-preview:start -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Morphazoid" />
+    <meta property="og:title" content="Crab Loom · Morphazoid" />
+    <meta property="og:description" content="A Mobius tape loop: record a line and hear it against its own retrograde, with a draggable seam, twist parity, and a cut that lengthens instead of halving." />
+    <meta property="og:url" content="https://morphazoid.com/crab-loom.html" />
+    <meta property="og:image" content="https://morphazoid.com/assets/social/morphazoid-card-20260917.png" />
+    <meta property="og:image:secure_url" content="https://morphazoid.com/assets/social/morphazoid-card-20260917.png" />
+    <meta property="og:image:type" content="image/png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="Morphazoid geometric wireframe logo on a dark background." />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Crab Loom · Morphazoid" />
+    <meta name="twitter:description" content="A Mobius tape loop: record a line and hear it against its own retrograde, with a draggable seam, twist parity, and a cut that lengthens instead of halving." />
+    <meta name="twitter:image" content="https://morphazoid.com/assets/social/morphazoid-card-20260917.png" />
+    <meta name="twitter:image:alt" content="Morphazoid geometric wireframe logo on a dark background." />
+    <link rel="image_src" href="https://morphazoid.com/assets/social/morphazoid-card-20260917.png" />
+    <!-- morphazoid-social-preview:end -->
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="description" content="A Mobius tape loop: record a line and hear it against its own retrograde, with a draggable seam, twist parity, and a cut that lengthens instead of halving." />
+  <meta name="theme-color" content="#080e16" />
+  <title>Crab Loom · Morphazoid</title>
+  <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="starting-instruments.css" />
+  <link rel="stylesheet" href="wave-lab.css" />
+</head>
+<body class="starting-instrument wave-lab" data-starting-instrument="crab-loom" style="--accent:#9fdcff">
+  <header class="masthead">
+    <a class="wordmark" href="./" aria-label="Morphazoid home"><span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span><span>morphazoid</span></a>
+    <nav class="tabs" aria-label="Instrument">
+      <a class="tab active" href="crab-loom.html" aria-current="page">Crab Loom</a>
+      <a class="tab" href="freeze-point.html">Freeze Point</a>
+      <a class="tab" href="scatter-ghost.html">Scatter Ghost</a>
+      <a class="tab" href="exceptional.html">Exceptional</a>
+      <a class="tab" href="lumber.html">Lumber Loops</a>
+    </nav>
+    <label class="mobile-instrument-nav"><span class="sr-only">Instrument</span>
+      <select class="mobile-instrument-select" aria-label="Instrument">
+        <option value="crab-loom.html" selected>Crab Loom</option>
+        <option value="freeze-point.html">Freeze Point</option>
+        <option value="scatter-ghost.html">Scatter Ghost</option>
+        <option value="exceptional.html">Exceptional</option>
+        <option value="lumber.html">Lumber Loops</option>
+      </select>
+    </label>
+    <div id="audioSlot" class="audio-strip" aria-label="Audio controls">
+      <button id="audioButton" class="audio-button" type="button" aria-pressed="false" disabled>Audio off · enable JavaScript</button>
+    </div>
+  </header>
+  <main class="starting-shell">
+    <section class="starting-stage" aria-label="Crab Loom instrument">
+      <header class="starting-title"><h1>Crab Loom</h1><p>one band · one side · two laps</p></header>
+      <canvas id="stage" class="lab-canvas" tabindex="0" role="application" aria-roledescription="Mobius tape band"
+        aria-label="A tape band drawn as a ribbon whose two edges cross at a seam. Two heads travel it; a ringed head is reading the flipped face."
+        aria-describedby="canvasInstructions"></canvas>
+      <p class="starting-hint" id="canvasInstructions">
+        Click or drag around the band to move the <b>seam</b> — where the flip happens. Arrow keys nudge it.
+        Record a line, then listen for it coming back transformed on the second lap.
+      </p>
+    </section>
+    <aside class="starting-controls" aria-label="Crab Loom controls">
+      <section class="group">
+        <div class="transport-row">
+          <button id="playButton" type="button" aria-pressed="false" data-primary-transport>Play</button>
+          <button id="resetButton" class="mini-action" type="button" data-reset-all data-reset-in-place>Reset controls</button>
+        </div>
+        <div class="record-row">
+          <button id="recordButton" type="button" aria-pressed="false">Record</button>
+          <button id="clearBand" class="mini-action" type="button">Clear band</button>
+        </div>
+        <p id="liveStatus" role="status" aria-live="polite">Turn Audio on, then Play. A demo line is already on the band.</p>
+        <p id="audioError" role="alert" hidden></p>
+        <p id="recordedNote" class="starting-note">No recording yet.</p>
+      </section>
+
+      <section class="group" aria-label="The flip">
+        <h2 class="group-title">The flip</h2>
+        <label class="control" for="involution"><span><b>Involution</b></span>
+          <select id="involution"></select></label>
+        <p id="involutionNote" class="starting-note">—</p>
+        <label class="control" for="halfTwists"><span><b>Half twists</b><output id="halfTwistsOut" for="halfTwists">1</output></span>
+          <input id="halfTwists" type="range" min="0" max="5" step="1" value="1"
+            title="Odd counts make the band one-sided, which doubles its period. Even counts behave as an ordinary loop." /></label>
+        <p id="periodNote" class="readout">—</p>
+      </section>
+
+      <section class="group" aria-label="Heads">
+        <h2 class="group-title">Heads</h2>
+        <label class="control" for="headOffset"><span><b>Head separation</b><output id="headOffsetOut" for="headOffset">0.50</output></span>
+          <input id="headOffset" type="range" min="0" max="0.99" step="0.01" value="0.5"
+            title="Canon interval. At 0.5 the second head sits half a period away, so on a one-sided band it is reading the other face." /></label>
+        <label class="control" for="hocket"><span><b>Canon ↔ hocket</b><output id="hocketOut" for="hocket">canon (both sound)</output></span>
+          <input id="hocket" type="range" min="0" max="1" step="0.01" value="0"
+            title="At 0 both heads sound together, giving a canon. At 1 they strictly alternate, splitting one line across its own transform." /></label>
+        <label class="control" for="speed"><span><b>Tape speed</b><output id="speedOut" for="speed">1.00×</output></span>
+          <input id="speed" type="range" min="0.25" max="2.5" step="0.01" value="1" /></label>
+        <label class="control" for="retain"><span><b>Erase / hold</b><output id="retainOut" for="retain">hold</output></span>
+          <input id="retain" type="range" min="0" max="1" step="0.01" value="1" /></label>
+      </section>
+
+      <section class="group" aria-label="Cutting">
+        <h2 class="group-title">Cut the band</h2>
+        <label class="control" for="cutOffset"><span><b>Cut position</b></span>
+          <input id="cutOffset" type="range" min="0" max="0.45" step="0.01" value="0"
+            title="0 is a centre cut. Move it toward the edge for an off-centre cut." /></label>
+        <div class="transport-row"><button id="cutButton" class="mini-action" type="button">Cut</button></div>
+        <p id="cutResult" class="readout">Cut a one-sided band down the middle and it does not halve.</p>
+      </section>
+
+      <section class="group" id="howItWorks">
+        <h2 class="group-title">How it works</h2>
+        <p class="starting-note">
+          A Möbius band is a loop plus an <b>involution</b> — any transform that undoes itself when
+          applied twice. That is exactly why an odd-twist band takes two laps to return, and it is the
+          same structure as a crab canon, where a line sounds against its own retrograde. Bach's Crab
+          Canon from the <i>Musical Offering</i> is conventionally realised as a physical half-twisted strip.
+        </p>
+        <p class="starting-note">
+          Every option in the <b>Involution</b> menu squares to the identity, so each one is a legitimate
+          Möbius. Track-lane swap is what real endless-loop cartridges did to double playing time.
+        </p>
+        <p class="starting-note">
+          <b>Canon ↔ hocket</b> crossfades between the two heads sounding together and strictly
+          alternating. Hocket is one line distributed across voices so it seems like two; a Möbius band
+          is one surface that seems like two. Same idea, different medium.
+        </p>
+        <p class="starting-note">
+          <b>Cutting</b> is the counter-intuitive part and the results here are the real topology: a centre
+          cut through a one-sided band gives one band of <em>double</em> length, and an off-centre cut gives
+          two linked bands of different lengths — a ratio you did not choose.
+        </p>
+        <p class="starting-note warn">
+          <b>Honesty:</b> polarity flip and inversion are audible stand-ins, not magnetic or pitch-domain
+          models. The topology and period arithmetic are exact; the tape physics is a musical approximation.
+        </p>
+      </section>
+    </aside>
+  </main>
+  <script type="module" src="crab-loom-app.js?v=wave-20260918-1"></script>
+  <script type="module" src="nav.js"></script>
+  <script type="module" src="wax/wax-universal-adapter.js" data-morphazoid-wax-universal-adapter></script>
+</body>
+</html>

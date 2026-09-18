@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
+import { currentSourcePath } from "./helpers/relocated-sources.mjs";
 
 import { SPECIMENS, VOICE_PRESETS, specimenState, voicePresetState } from "../src/throatazoid.js";
 import { drawPhysicalTract } from "../src/families/tract/rendering.js";
@@ -12,7 +13,7 @@ const geometryFixture = JSON.parse(await readFile(new URL("./fixtures/tract-geom
 const originalGeometry = createTractGeometryHarness(geometryFixture.records[0]);
 const original = createTractRenderingHarness(fixture);
 const pages = await Promise.all(Object.keys(fixture.sources).map(async (file) => {
-  const source = await readFile(new URL(`../${file}`, import.meta.url), "utf8");
+  const source = await readFile(new URL(`../${currentSourcePath(file)}`, import.meta.url), "utf8");
   const start = source.indexOf("function drawTractText(");
   const block = start < 0 ? "" : source.slice(start, source.indexOf("function drawVoidGeometry("));
   const wrapper = source.match(/^function drawPhysicalTract\([^\n]*\) \{[\s\S]*?\n\}/m)?.[0];

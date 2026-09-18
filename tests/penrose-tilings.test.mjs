@@ -465,8 +465,8 @@ test("Penrose page is an accessible researched instrument rather than a periodic
   const root = new URL("../", import.meta.url);
   const [html, css, app, geometry] = await Promise.all([
     readFile(new URL("penrose-tilings.html", root), "utf8"),
-    readFile(new URL("penrose-tilings.css", root), "utf8"),
-    readFile(new URL("penrose-tilings-app.js", root), "utf8"),
+    readFile(new URL("src/instruments/penrose-tilings/penrose-tilings.css", root), "utf8"),
+    readFile(new URL("src/instruments/penrose-tilings/penrose-tilings-app.js", root), "utf8"),
     readFile(new URL("src/penrose-tilings.js", root), "utf8"),
   ]);
   const ids = [...html.matchAll(/\bid="([^"]+)"/g)].map((match) => match[1]);
@@ -492,7 +492,7 @@ test("Penrose page is an accessible researched instrument rather than a periodic
   assert.match(html, /id="showPaths"[\s\S]*id="showLookahead"/);
   assert.match(html, /id="pathControls"[\s\S]*id="pathVoiceCap"/);
   assert.match(html, /canonical angles are vital/i);
-  assert.match(html, /src="penrose-tilings-app\.js"/);
+  assert.match(html, /src="src\/instruments\/penrose-tilings\/penrose-tilings-app\.js"/);
   assert.match(css, /\.penrose-shell/);
   assert.match(css, /--accent: #ff4fd8/);
   assert.match(css, /@media \(max-width: 980px\)/);

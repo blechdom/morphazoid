@@ -9,14 +9,14 @@ const root = new URL("../", import.meta.url);
 
 test("Graph Drum Machine and Graph Synth expose the shared graph-feedback workbench", async () => {
   const [drums, synth, css, app, core, drumAudio, drumWrapper, synthWrapper, research] = await Promise.all([
-    readFile(new URL("graph-drums.html", root), "utf8"),
+    readFile(new URL("graph-drum-machine.html", root), "utf8"),
     readFile(new URL("graph-synth.html", root), "utf8"),
-    readFile(new URL("graph-instruments.css", root), "utf8"),
+    readFile(new URL("src/families/graph/graph-instruments.css", root), "utf8"),
     readFile(new URL("src/graph-instrument-app.js", root), "utf8"),
     readFile(new URL("src/graph-instruments.js", root), "utf8"),
     readFile(new URL("src/graph-drum-audio.js", root), "utf8"),
-    readFile(new URL("graph-drums-app.js", root), "utf8"),
-    readFile(new URL("graph-synth-app.js", root), "utf8"),
+    readFile(new URL("src/instruments/graph-drum-machine/graph-drum-machine-app.js", root), "utf8"),
+    readFile(new URL("src/instruments/graph-synth/graph-synth-app.js", root), "utf8"),
     readFile(new URL("GRAPH_INSTRUMENTS_RESEARCH.md", root), "utf8"),
   ]);
 
@@ -48,14 +48,14 @@ test("Graph Drum Machine and Graph Synth expose the shared graph-feedback workbe
     assert.match(drums, new RegExp(`<option value="${id}">${label}<\\/option>`));
     assert.equal((drums.match(new RegExp(`value="${id}"`, "g")) ?? []).length, 1);
   }
-  assert.match(drums, /src="graph-drums-app\.js(?:\?[^\"]+)?"/);
+  assert.match(drums, /src="src\/instruments\/graph-drum-machine\/graph-drum-machine-app\.js(?:\?[^\"]+)?"/);
   assert.match(synth, /<title>Graph Synth — Morphazoid<\/title>/);
   assert.match(synth, /data-graph-instrument="synth"/);
   assert.match(synth, /id="outputOut"[^>]*>64%<\/output>/);
   assert.match(synth, /id="output"[^>]*value="0\.64"/);
   assert.doesNotMatch(synth, /id="baseFrequency"/);
   assert.match(synth, /id="soundMode"/);
-  assert.match(synth, /src="graph-synth-app\.js(?:\?[^\"]+)?"/);
+  assert.match(synth, /src="src\/instruments\/graph-synth\/graph-synth-app\.js(?:\?[^\"]+)?"/);
 
   for (const html of [drums, synth]) {
     for (const id of [
@@ -264,25 +264,22 @@ test("Graph Drum Machine and Graph Synth expose the shared graph-feedback workbe
 
 test("Graph pages cannot mix refreshed markup with stale Graph runtime modules", async () => {
   const [drums, synth, drumWrapper, synthWrapper, app, core, devServer] = await Promise.all([
-    readFile(new URL("graph-drums.html", root), "utf8"),
+    readFile(new URL("graph-drum-machine.html", root), "utf8"),
     readFile(new URL("graph-synth.html", root), "utf8"),
-    readFile(new URL("graph-drums-app.js", root), "utf8"),
-    readFile(new URL("graph-synth-app.js", root), "utf8"),
+    readFile(new URL("src/instruments/graph-drum-machine/graph-drum-machine-app.js", root), "utf8"),
+    readFile(new URL("src/instruments/graph-synth/graph-synth-app.js", root), "utf8"),
     readFile(new URL("src/graph-instrument-app.js", root), "utf8"),
     readFile(new URL("src/graph-instruments.js", root), "utf8"),
     readFile(new URL("scripts/dev-server.py", root), "utf8"),
   ]);
   const version = "graph-instruments-20260830-13";
 
-  assert.match(drums, new RegExp(`href="graph-instruments\\.css\\?v=${version}"`));
-  assert.match(synth, new RegExp(`href="graph-instruments\\.css\\?v=${version}"`));
-  assert.match(drums, new RegExp(`src="graph-drums-app\\.js\\?v=${version}"`));
-  assert.match(synth, new RegExp(`src="graph-synth-app\\.js\\?v=${version}"`));
+  assert.match(drums, new RegExp(`href="src/families/graph/graph-instruments\\.css\\?v=${version}"`));
+  assert.match(synth, new RegExp(`href="src/families/graph/graph-instruments\\.css\\?v=${version}"`));
+  assert.match(drums, new RegExp(`src=\"src\\/instruments\\/graph-drum-machine\\/graph-drum-machine-app\\.js\\?v=${version}"`));
+  assert.match(synth, new RegExp(`src="src/instruments/graph-synth/graph-synth-app\\.js\\?v=${version}"`));
   for (const wrapper of [drumWrapper, synthWrapper]) {
-    assert.match(
-      wrapper,
-      new RegExp(`from "\\./src/graph-instrument-app\\.js\\?v=${version}"`),
-    );
+    assert.ok(wrapper.includes(`from "../../graph-instrument-app.js?v=${version}"`));
   }
   for (const dependency of [
     "graph-drum-audio", "graph-delay", "graph-instruments", "graph-synth-audio",
@@ -305,31 +302,31 @@ test("Graph pages cannot mix refreshed markup with stale Graph runtime modules",
 
 test("both Graph instruments are registered in navigation, catalogue, and MIDI", () => {
   const tools = TOOL_GROUPS.flatMap(({ tools: entries }) => entries);
-  const graphDrums = tools.find(({ id }) => id === "graph-drums");
+  const graphDrums = tools.find(({ id }) => id === "graph-drum-machine");
   const graphSynth = tools.find(({ id }) => id === "graph-synth");
   assert.deepEqual(
     { label: graphDrums?.label, href: graphDrums?.href },
-    { label: "Graph Drum Machine", href: "graph-drums.html" },
+    { label: "Graph Drum Machine", href: "graph-drum-machine.html" },
   );
   assert.deepEqual(
     { label: graphSynth?.label, href: graphSynth?.href },
     { label: "Graph Synth", href: "graph-synth.html" },
   );
   assert.equal(
-    TOOL_GROUPS.find(({ id }) => id === "geometry-drums").tools.includes(graphDrums),
+    TOOL_GROUPS.find(({ id }) => id === "geometric").tools.includes(graphDrums),
     true,
   );
   assert.equal(
-    TOOL_GROUPS.find(({ id }) => id === "geometry").tools.includes(graphSynth),
+    TOOL_GROUPS.find(({ id }) => id === "geometric").tools.includes(graphSynth),
     true,
   );
 
-  const drumRecord = INSTRUMENTS.find(({ id }) => id === "graph-drums");
+  const drumRecord = INSTRUMENTS.find(({ id }) => id === "graph-drum-machine");
   const synthRecord = INSTRUMENTS.find(({ id }) => id === "graph-synth");
   assert.equal(drumRecord?.kind, "Network drum machine");
   assert.equal(synthRecord?.kind, "Network synth");
-  assert.ok(drumRecord.tags.some(({ id }) => id === "fractals-recursion"));
-  assert.ok(synthRecord.tags.some(({ id }) => id === "fractals-recursion"));
+  assert.ok(drumRecord.tags.some(({ id }) => id === "fractal"));
+  assert.ok(synthRecord.tags.some(({ id }) => id === "fractal"));
   assert.equal(drumRecord.imageHref, "assets/instruments/graph-drums.webp");
   assert.equal(synthRecord.imageHref, "assets/instruments/graph-synth.webp");
 
@@ -344,13 +341,13 @@ test("both Graph instruments are registered in navigation, catalogue, and MIDI",
 });
 
 test("the release builder includes every new Graph instrument runtime file", async () => {
-  const build = await readFile(new URL("scripts/build-site.sh", root), "utf8");
+  const build = await readFile(new URL("scripts/site/runtime-files.tsv", root), "utf8");
   for (const file of [
-    "graph-drums.html",
+    "graph-drum-machine.html",
     "graph-synth.html",
-    "graph-instruments.css",
-    "graph-drums-app.js",
-    "graph-synth-app.js",
+    "src/families/graph/graph-instruments.css",
+    "src/instruments/graph-drum-machine/graph-drum-machine-app.js",
+    "src/instruments/graph-synth/graph-synth-app.js",
     "src/graph-instrument-app.js",
     "src/graph-instruments.js",
     "src/graph-drum-audio.js",

@@ -11,8 +11,8 @@
     <title>ALIEN LARYNX — Morphazoid</title>
     <link rel="icon" href="favicon.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="style.css" />
-    <link rel="stylesheet" href="throatazoid.css" />
-    <link rel="stylesheet" href="alien-larynx.css" />
+    <link rel="stylesheet" href="src/instruments/throatazoid/throatazoid.css" />
+    <link rel="stylesheet" href="src/instruments/alien-larynx/alien-larynx.css" />
   </head>
   <body class="throatazoid-page alien-larynx-page">
     <header class="masthead">
@@ -22,11 +22,11 @@
       </a>
 
       <nav class="tabs" aria-label="Instrument">
-        <a class="tab" href="shape.html">shape</a>
+        <a class="tab" href="shape-synth.html">shape</a>
         <a class="tab" href="lattice.html">lattice</a>
         <a class="tab" href="spiral.html">spiral</a>
-        <a class="tab" href="solid.html">solid</a>
-        <a class="tab" href="hyper.html">hyper</a>
+        <a class="tab" href="solid-synth.html">solid</a>
+        <a class="tab" href="hyper-synth.html">hyper</a>
         <a class="tab" href="l-system.html">l-system</a>
         <a class="tab recursion-tab" href="recursion.html">recursion</a>
         <a class="tab" href="julia.html">julia</a>
@@ -41,11 +41,11 @@
       <label class="mobile-instrument-nav">
         <span class="sr-only">Instrument</span>
         <select class="mobile-instrument-select" aria-label="Instrument">
-          <option value="shape.html">shape</option>
+          <option value="shape-synth.html">shape</option>
           <option value="lattice.html">lattice</option>
           <option value="spiral.html">spiral</option>
-          <option value="solid.html">solid</option>
-          <option value="hyper.html">hyper</option>
+          <option value="solid-synth.html">solid</option>
+          <option value="hyper-synth.html">hyper</option>
           <option value="l-system.html">l-system</option>
           <option value="recursion.html">recursion</option>
           <option value="julia.html">julia</option>
@@ -1568,6 +1568,6 @@
     </main>
 
     <script type="module" src="nav.js"></script>
-    <script type="module" src="alien-larynx-app.js"></script>
+    <script type="module" src="src/instruments/alien-larynx/alien-larynx-app.js"></script>
   </body>
 </html>

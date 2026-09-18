@@ -11,8 +11,8 @@
     <title>Cascading PM — Morphazoid</title>
     <link rel="icon" href="favicon.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="style.css" />
-    <link rel="stylesheet" href="chaotic-synth-ui.css" />
-    <link rel="stylesheet" href="cascading-pm.css" />
+    <link rel="stylesheet" href="src/instruments/chaotic-synth-ui/chaotic-synth-ui.css" />
+    <link rel="stylesheet" href="src/instruments/cascading-pm/cascading-pm.css" />
   </head>
   <body class="cascading-pm-page">
     <header class="masthead">
@@ -22,14 +22,14 @@
       </a>
 
       <nav class="tabs" aria-label="Instrument">
-        <a class="tab" href="shape.html">shape</a>
+        <a class="tab" href="shape-synth.html">shape</a>
         <a class="tab" href="recursive-pm.html">recursive pm</a>
         <a class="tab active" href="cascading-pm.html" aria-current="page">cascading pm</a>
       </nav>
       <label class="mobile-instrument-nav">
         <span class="sr-only">Instrument</span>
         <select class="mobile-instrument-select" aria-label="Instrument">
-          <option value="shape.html">shape</option>
+          <option value="shape-synth.html">shape</option>
           <option value="recursive-pm.html">recursive pm</option>
           <option value="cascading-pm.html" selected>cascading pm</option>
         </select>
@@ -167,6 +167,6 @@
 
     <script type="module" src="nav.js"></script>
     <script type="module" src="src/chaotic-dsp-reference.js"></script>
-    <script type="module" src="cascading-pm-app.js"></script>
+    <script type="module" src="src/instruments/cascading-pm/cascading-pm-app.js"></script>
   </body>
 </html>

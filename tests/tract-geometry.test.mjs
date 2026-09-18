@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
+import { currentSourcePath } from "./helpers/relocated-sources.mjs";
 
 import {
   PHONEMES, SPECIMENS, VOICE_PRESETS, specimenState, voicePresetState,
@@ -13,7 +14,7 @@ import { createTractGeometryHarness, pageGeometryFunctions } from "./helpers/tra
 const fixture = JSON.parse(await readFile(new URL("./fixtures/tract-geometry-v1.json", import.meta.url)));
 const original = createTractGeometryHarness(fixture.records[0]);
 const pages = await Promise.all(fixture.records.map(async (record) => {
-  const source = await readFile(new URL(`../${record.file}`, import.meta.url), "utf8");
+  const source = await readFile(new URL(`../${currentSourcePath(record.file)}`, import.meta.url), "utf8");
   return { record, source, current: createTractGeometryHarness(record, pageGeometryFunctions(source)) };
 }));
 const viewports = [
@@ -142,7 +143,7 @@ test("point interpolation and tract coordinates preserve boundaries and off-path
 test("both pages use the shared geometry while keeping state defaults in small page-owned wrappers", () => {
   for (const { record, source } of pages) {
     const functions = pageGeometryFunctions(source);
-    assert.match(source, /from "\.\/src\/families\/tract\/geometry\.js"/, record.file);
+    assert.match(source, /from "\.\.\/\.\.\/families\/tract\/geometry\.js"/, record.file);
     assert.equal(functions.tractPoint, undefined);
     assert.equal(functions.interpolatePoint, undefined);
     assert.match(functions.tractDiameterProfile, /buildTractDiameterProfile\(performance,/);

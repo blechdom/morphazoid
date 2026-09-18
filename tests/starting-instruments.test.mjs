@@ -153,7 +153,7 @@ test("all five entries are authored, classified, and use real WebP icons", async
   for (const [id, spec] of Object.entries(STARTING_INSTRUMENTS)) {
     const record = instrumentById(id), capability = instrumentMidiCapabilityForId(id);
     assert.equal(record.label, spec.title);
-    assert.equal(record.status, "Works in progress");
+    assert.equal(record.status, "Work in Progress");
     assert.equal(capability.midiOutput, false);
     assert.equal(capability.computerKeyboardMode, "page");
     assert.equal(capability.audioInput, ["tape-worm", "loop-soup", "hollowphonic"].includes(id));
@@ -163,7 +163,7 @@ test("all five entries are authored, classified, and use real WebP icons", async
     assert.ok(html.includes('data-reset-all'));
     assert.ok(html.includes('tabindex="0"'));
     const network = ["tape-worm", "loop-soup"].includes(id);
-    assert.ok(html.includes(network ? "loop-network-app.js" : "starting-instruments-app.js"));
+    assert.ok(html.includes(network ? "src/families/starting-instruments/loop-network-app.js" : "src/families/starting-instruments/starting-instruments-app.js"));
     assert.ok(html.includes(network ? 'aria-label="Scrollable loop network"' : 'aria-describedby="canvasInstructions modelStatus"'));
     assert.ok(html.includes('og:image'));
     const help = INSTRUMENT_HELP[id];

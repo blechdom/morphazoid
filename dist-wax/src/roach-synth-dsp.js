@@ -1,8 +1,8 @@
-import { RoachBodyEngine } from './roach-synth-body-engine.js?v=0f50ed8f1f29';
-import { ROACH_BODY_GROUPS, ROACH_BODY_SOURCES, createDefaultRoachBodyMix, normalizeRoachBodyMix, getRoachJointBodyGroup } from './roach-synth-body.js?v=0f50ed8f1f29';
-import { RoachMidiPerformance } from './roach-synth-midi.js?v=0f50ed8f1f29';
-export { ROACH_BODY_GROUPS, ROACH_BODY_SOURCES, createDefaultRoachBodyMix, normalizeRoachBodyMix, getRoachBodyGroupId } from './roach-synth-body.js?v=0f50ed8f1f29';
-import { normalizeRoachMotion, writeRoachPose, createRoachSceneState, writeRoachSceneState, constrainRoachFloorPose } from './roach-synth-motion.js?v=0f50ed8f1f29';
+import { RoachBodyEngine } from './roach-synth-body-engine.js?v=4c63f5560a14';
+import { ROACH_BODY_GROUPS, ROACH_BODY_SOURCES, createDefaultRoachBodyMix, normalizeRoachBodyMix, getRoachJointBodyGroup } from './roach-synth-body.js?v=4c63f5560a14';
+import { RoachMidiPerformance } from './roach-synth-midi.js?v=4c63f5560a14';
+export { ROACH_BODY_GROUPS, ROACH_BODY_SOURCES, createDefaultRoachBodyMix, normalizeRoachBodyMix, getRoachBodyGroupId } from './roach-synth-body.js?v=4c63f5560a14';
+import { normalizeRoachMotion, writeRoachPose, createRoachSceneState, writeRoachSceneState, constrainRoachFloorPose } from './roach-synth-motion.js?v=4c63f5560a14';
 
 // A held pose has smooth, group-owned resonances. Motion-only sources receive
 // only their own joints' actual displacement and the shared six-foot contacts.

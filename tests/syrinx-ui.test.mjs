@@ -55,10 +55,10 @@ function elementMarkup(source, tagName, id) {
 test("Syrinx UI exposes the two-menu preset bank, universal controls, and loop silence", async () => {
   const [html, css, app, original, build] = await Promise.all([
     readFile(new URL("syrinx-ui.html", root), "utf8"),
-    readFile(new URL("syrinx-ui.css", root), "utf8"),
-    readFile(new URL("syrinx-app.js", root), "utf8"),
+    readFile(new URL("src/instruments/syrinx-ui/syrinx-ui.css", root), "utf8"),
+    readFile(new URL("src/families/syrinx/syrinx-app.js", root), "utf8"),
     readFile(new URL("syrinx.html", root), "utf8"),
-    readFile(new URL("scripts/build-site.sh", root), "utf8"),
+    readFile(new URL("scripts/site/runtime-files.tsv", root), "utf8"),
   ]);
 
   assert.match(html, /<title>Syrinx UI · Morphazoid<\/title>/);
@@ -67,10 +67,10 @@ test("Syrinx UI exposes the two-menu preset bank, universal controls, and loop s
   assert.match(html, /id="loopGap"[^>]*type="range"[^>]*max="8000"/);
   assert.match(html, /id="loopGapOut"/);
   assert.match(html, /id="breathButton"/);
-  assert.match(html, /src="syrinx-app\.js\?v=syrinx-ui-[^"]+"/);
-  assert.match(html, /href="syrinx-ui\.css\?v=syrinx-ui-[^"]+"/);
+  assert.match(html, /src="src\/families\/syrinx\/syrinx-app\.js\?v=syrinx-ui-[^"]+"/);
+  assert.match(html, /href="src\/instruments\/syrinx-ui\/syrinx-ui\.css\?v=syrinx-ui-[^"]+"/);
   assert.match(original, /<body[^>]*class="[^"]*syrinx-ui-page[^"]*"/);
-  assert.match(original, /href="syrinx-ui\.css\?v=syrinx-ui-[^"]+"/);
+  assert.match(original, /href="src\/instruments\/syrinx-ui\/syrinx-ui\.css\?v=syrinx-ui-[^"]+"/);
   assert.match(css, /\.syrinx-ui-page/);
   assert.match(css, /orientation:\s*landscape[\s\S]*grid-template-columns:[\s\S]*\.syrinx-ui-page \.panel[\s\S]*overflow-y:\s*auto/);
   assert.doesNotMatch(html, /class="syrinx-word"/);
@@ -142,7 +142,7 @@ test("Syrinx UI exposes the two-menu preset bank, universal controls, and loop s
   assert.match(manualBreath, /call transport continues/);
   assert.match(manualBreath, /hasActiveParameterModulators\(\)/);
 
-  for (const runtimeFile of ["syrinx-ui.html", "syrinx-ui.css"]) {
+  for (const runtimeFile of ["syrinx-ui.html", "src/instruments/syrinx-ui/syrinx-ui.css"]) {
     assert.match(build, new RegExp(runtimeFile.replaceAll(".", "\\.")));
   }
 });
@@ -151,13 +151,13 @@ test("Syrinx UI exposes the two-menu preset bank, universal controls, and loop s
 test("Tongued Beasts keeps viewport handles and the parameter panel available on mobile", async () => {
   const [html, css, app, build] = await Promise.all([
     readFile(new URL("tongued-beasts.html", root), "utf8"),
-    readFile(new URL("tongued-beasts.css", root), "utf8"),
-    readFile(new URL("syrinx-app.js", root), "utf8"),
-    readFile(new URL("scripts/build-site.sh", root), "utf8"),
+    readFile(new URL("src/instruments/tongued-beasts/tongued-beasts.css", root), "utf8"),
+    readFile(new URL("src/families/syrinx/syrinx-app.js", root), "utf8"),
+    readFile(new URL("scripts/site/runtime-files.tsv", root), "utf8"),
   ]);
   assert.match(html, /class="[^"]*syrinx-ui-page[^"]*tongued-beasts-page[^"]*"/);
-  assert.match(html, /src="syrinx-app\.js\?v=syrinx-ui-[^"]+"/);
-  assert.match(html, /href="tongued-beasts\.css\?v=syrinx-ui-[^"]+"/);
+  assert.match(html, /src="src\/families\/syrinx\/syrinx-app\.js\?v=syrinx-ui-[^"]+"/);
+  assert.match(html, /href="src\/instruments\/tongued-beasts\/tongued-beasts\.css\?v=syrinx-ui-[^"]+"/);
   assert.match(css, /orientation:\s*landscape[\s\S]*grid-template-columns:[\s\S]*\.tongued-beasts-page \.panel[\s\S]*overflow-y:\s*auto/);
   assert.match(html, /id="tongueAirwayOut"[\s\S]*id="tongueMotionOut"/);
   for (const id of [
@@ -201,8 +201,8 @@ test("Tongued Beasts keeps viewport handles and the parameter panel available on
 test("Tongued Beasts puts modulation buttons and expanded rate/depth controls on viewport rails", async () => {
   const [html, css, app] = await Promise.all([
     readFile(new URL("tongued-beasts.html", root), "utf8"),
-    readFile(new URL("tongued-beasts.css", root), "utf8"),
-    readFile(new URL("syrinx-app.js", root), "utf8"),
+    readFile(new URL("src/instruments/tongued-beasts/tongued-beasts.css", root), "utf8"),
+    readFile(new URL("src/families/syrinx/syrinx-app.js", root), "utf8"),
   ]);
   const stageMarkup = html.match(/<section class="stage syrinx-stage"[\s\S]*?<\/section>/)?.[0] ?? "";
   const panelMarkup = html.match(/<aside class="panel"[\s\S]*?<\/aside>/)?.[0] ?? "";
@@ -314,8 +314,8 @@ test("Tongued Beasts puts modulation buttons and expanded rate/depth controls on
 test("viewport modulation editors close without disabling their active wiggle", async () => {
   const [html, css, app] = await Promise.all([
     readFile(new URL("tongued-beasts.html", root), "utf8"),
-    readFile(new URL("tongued-beasts.css", root), "utf8"),
-    readFile(new URL("syrinx-app.js", root), "utf8"),
+    readFile(new URL("src/instruments/tongued-beasts/tongued-beasts.css", root), "utf8"),
+    readFile(new URL("src/families/syrinx/syrinx-app.js", root), "utf8"),
   ]);
   const panelMarkup = html.match(/<aside class="panel"[\s\S]*?<\/aside>/)?.[0] ?? "";
   const installViewportModulators = functionBody(
@@ -399,8 +399,8 @@ test("viewport modulation editors close without disabling their active wiggle", 
 
 test("viewport modulation editors remain draggable while expanded", async () => {
   const [css, app] = await Promise.all([
-    readFile(new URL("tongued-beasts.css", root), "utf8"),
-    readFile(new URL("syrinx-app.js", root), "utf8"),
+    readFile(new URL("src/instruments/tongued-beasts/tongued-beasts.css", root), "utf8"),
+    readFile(new URL("src/families/syrinx/syrinx-app.js", root), "utf8"),
   ]);
   const createViewportRange = functionBody(
     app,
@@ -446,7 +446,7 @@ test("viewport modulation editors remain draggable while expanded", async () => 
 test("Tongued Beasts exposes its motion presets in a viewport hover and focus palette", async () => {
   const [html, css] = await Promise.all([
     readFile(new URL("tongued-beasts.html", root), "utf8"),
-    readFile(new URL("tongued-beasts.css", root), "utf8"),
+    readFile(new URL("src/instruments/tongued-beasts/tongued-beasts.css", root), "utf8"),
   ]);
   const stageMarkup = html.match(/<section class="stage syrinx-stage"[\s\S]*?<\/section>/)?.[0] ?? "";
 
@@ -487,7 +487,7 @@ test("Tongued Beasts exposes its motion presets in a viewport hover and focus pa
 test("the viewport tongue reset restores free-hand defaults without interrupting transport", async () => {
   const [html, app] = await Promise.all([
     readFile(new URL("tongued-beasts.html", root), "utf8"),
-    readFile(new URL("syrinx-app.js", root), "utf8"),
+    readFile(new URL("src/families/syrinx/syrinx-app.js", root), "utf8"),
   ]);
   const stageMarkup = html.match(/<section class="stage syrinx-stage"[\s\S]*?<\/section>/)?.[0] ?? "";
   const resetButton = elementMarkup(stageMarkup, "button", "resetViewportTongue");
@@ -554,7 +554,7 @@ test("the viewport tongue reset restores free-hand defaults without interrupting
 test("the full Tongued Beasts reset cancels automatic tongue motion", async () => {
   const [html, app] = await Promise.all([
     readFile(new URL("tongued-beasts.html", root), "utf8"),
-    readFile(new URL("syrinx-app.js", root), "utf8"),
+    readFile(new URL("src/families/syrinx/syrinx-app.js", root), "utf8"),
   ]);
   const resetButton = html.match(/<button\b[^>]*data-reset-all[^>]*>[\s\S]*?<\/button>/i)?.[0] ?? "";
   const listeners = standaloneFunctionBody(app, "installControlListeners");
@@ -570,7 +570,7 @@ test("the full Tongued Beasts reset cancels automatic tongue motion", async () =
 test("the viewport modulator reset restores every wiggle default and stops tongue motion", async () => {
   const [html, app] = await Promise.all([
     readFile(new URL("tongued-beasts.html", root), "utf8"),
-    readFile(new URL("syrinx-app.js", root), "utf8"),
+    readFile(new URL("src/families/syrinx/syrinx-app.js", root), "utf8"),
   ]);
   const stageMarkup = html.match(/<section class="stage syrinx-stage"[\s\S]*?<\/section>/)?.[0] ?? "";
   const resetButton = elementMarkup(stageMarkup, "button", "resetViewportModulators");

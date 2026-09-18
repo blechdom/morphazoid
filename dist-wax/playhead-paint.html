@@ -31,7 +31,7 @@
     <title>Playhead Paint - Morphazoid</title>
     <link rel="icon" href="favicon.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="style.css" />
-    <link rel="stylesheet" href="playhead-paint.css" />
+    <link rel="stylesheet" href="src/instruments/playhead-paint/playhead-paint.css" />
   </head>
   <body class="playhead-paint-page">
     <header class="masthead">
@@ -41,16 +41,16 @@
       </a>
 
       <nav class="tabs" aria-label="Instrument">
-        <a class="tab" href="shape.html">shape</a>
+        <a class="tab" href="shape-synth.html">shape</a>
         <a class="tab active" href="playhead-paint.html" aria-current="page">playhead paint</a>
-        <a class="tab" href="linear-drums-machine.html">rattle snake skin</a>
+        <a class="tab" href="rattlesnake-skin.html">rattlesnake skin</a>
       </nav>
       <label class="mobile-instrument-nav">
         <span class="sr-only">Instrument</span>
         <select class="mobile-instrument-select" aria-label="Instrument">
-          <option value="shape.html">shape</option>
+          <option value="shape-synth.html">shape</option>
           <option value="playhead-paint.html" selected>playhead paint</option>
-          <option value="linear-drums-machine.html">rattle snake skin</option>
+          <option value="rattlesnake-skin.html">rattlesnake skin</option>
         </select>
       </label>
 
@@ -238,7 +238,7 @@
     </main>
 
     <script type="module" src="nav.js"></script>
-    <script type="module" src="playhead-paint-app.js"></script>
+    <script type="module" src="src/instruments/playhead-paint/playhead-paint-app.js"></script>
     <script type="module" src="wax/wax-universal-adapter.js" data-morphazoid-wax-universal-adapter></script>
 </body>
 </html>

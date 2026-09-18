@@ -4,6 +4,7 @@ import test from "node:test";
 import { runInNewContext } from "node:vm";
 
 import { canvasSizing } from "../src/graphics/canvas-sizing.js";
+import { currentSourcePath } from "./helpers/relocated-sources.mjs";
 
 // Verbatim resizeCanvas() body shared by Solid/Hyper at 4e9feed. Keep this
 // independent reference unchanged when editing the extracted implementation.
@@ -11,7 +12,7 @@ const reference = await readFile(new URL("./fixtures/canvas-resize-v1.txt", impo
 const pages = await Promise.all([
   "solid", "hyper", "l-system", "l-system-drums", "l-systems", "physics",
 ].map(async (id) => {
-  const source = await readFile(new URL(`../${id}-app.js`, import.meta.url), "utf8");
+  const source = await readFile(new URL(`../${currentSourcePath(`${id}-app.js`)}`, import.meta.url), "utf8");
   const resize = source.match(/function resizeCanvas\(\) \{[\s\S]*?\n\}/)?.[0];
   assert.ok(resize, `${id} resize callback must exist`);
   return { id, resize };

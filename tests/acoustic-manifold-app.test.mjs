@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import test from "node:test";
 
-const app = fs.readFileSync(new URL("../acoustic-manifold-app.js", import.meta.url), "utf8");
+const app = fs.readFileSync(new URL("../src/instruments/acoustic-manifold/acoustic-manifold-app.js", import.meta.url), "utf8");
 
 test("the Acoustic Manifold controller connects every source path to the shared analysis", () => {
   assert.match(app, /ACOUSTIC_BUILT_IN_SOURCES/);

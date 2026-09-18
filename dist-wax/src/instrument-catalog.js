@@ -3,6 +3,8 @@ import {
   TOOL_GROUPS,
 } from "./site/instrument-registry.js";
 import { instrumentMidiCapabilityForId } from "./instrument-midi-capabilities.js";
+import { canonicalInstrumentId } from "./site/instrument-identities.js";
+import { ADDITIONAL_TAG_IDS, CATALOGUE_TAGS, LAB_CATALOGUE_DETAILS } from "./site/catalogue-taxonomy.js";
 
 const define = (kind, description, start, features = [], pluginHref = null) => Object.freeze({
   kind,
@@ -61,11 +63,59 @@ const CATALOG_DETAILS = Object.freeze({
     "Turn Audio on, play a held pose or animate it, then mix its legs, shell, wings and voice. Drag a body part, choose a motion, or make a new random motion.",
     ["Built-in synth", "3D model", "Pointer", "Voice", "Body-part mixer", "Recordings"],
   ),
-  combo: define(
+  "shapes": define(
     "2D / 3D / 4D instrument",
     "A self-contained Polygon, Polyhedra, and Hyperpolyhedra instrument with one canvas, one shared transport, and dimension-aware form and rotation controls.",
     "Choose 2D, 3D, or 4D, then play the same running form continuously, as notes, or as triggers from the responsive Twin Rack panel.",
     ["Built-in synth", "Pointer", "Shared transport", "Self-contained app"],
+  ),
+  "crab-loom": define(
+    "Mobius tape looper",
+    "Records a line onto a one-sided tape band and plays it against its own transform, with a draggable seam, twist parity that doubles the period, and a cut whose result is the real topology.",
+    "Turn on audio, press Record and make a sound, then drag the seam and change the involution.",
+    ["Mic input", "Built-in synth", "Self-contained app"],
+  ),
+  "freeze-point": define(
+    "Coupled-resonator lattice",
+    "A grid of detuned resonators with a disorder control that has a threshold: below it a strike floods the lattice, above it energy stays trapped where it entered.",
+    "Turn on audio, strike a cell, then sweep Disorder across the measured threshold and strike again.",
+    ["Mic input", "Built-in synth", "Pointer"],
+  ),
+  "scatter-ghost": define(
+    "Time-reversal chamber",
+    "Sends a recorded phrase through a chamber of draggable scatterers until it is unrecognisable, then replays it time-reversed so it reconverges on a movable focus.",
+    "Turn on audio, record a phrase, play it scattered, then reverse it and move a scatterer to hear the refocus degrade.",
+    ["Mic input", "Pointer", "Self-contained app"],
+  ),
+  exceptional: define(
+    "Non-Hermitian mode pair",
+    "Two coupled resonators with balanced gain and loss whose partials converge and coalesce at an exceptional point, where the response to a fixed perturbation grows as a square root.",
+    "Turn on audio, strike or record into it, then raise the gain and loss balance slowly and listen for the two partials merging.",
+    ["Mic input", "Built-in synth"],
+  ),
+  "head-shed": define(
+    "Tape loop with movable heads",
+    "One continuous tape loop with independently positioned play, record and erase heads, where defeating the erase turns the same machine from a delay into a looper.",
+    "Turn on audio, click the ring to add a head, then drag it around for position and in and out for level.",
+    ["Mic input", "Pointer", "Built-in synth"],
+  ),
+  "splice-ring": define(
+    "Spliced loop reader",
+    "Divides one intact recording into segments with draggable splice markers and optional chords, measuring the real order period rather than asserting it.",
+    "Turn on audio, click the ring to add a splice, then shift-click two splices to connect them with a chord.",
+    ["Mic input", "Pointer", "Self-contained app"],
+  ),
+  "onset-atlas": define(
+    "Segmentation preview",
+    "Segments a phrase into families and proposes a transition graph, showing the measured order period so a collapse is visible before the graph is accepted.",
+    "Turn on audio, press Play, then move Distinctness and watch families split or merge before accepting the graph.",
+    ["Mic input", "Self-contained app"],
+  ),
+  "synaptic-resonance": define(
+    "Rate-routed synapse graph",
+    "A graph whose edges facilitate and deplete like synapses, so each one is band-pass in pulse rate and tempo decides which paths carry signal.",
+    "Turn on audio, press Play, then sweep Pulse rate from 1 to 12 and watch the signal move between ring steps and shortcuts.",
+    ["Mic input", "Pointer", "Built-in synth"],
   ),
   "l-systems": define(
     "Recursive instrument app",
@@ -79,7 +129,7 @@ const CATALOG_DETAILS = Object.freeze({
     "Choose or generate a graph, then reshape and play the same topology while switching between pitched pulses, percussion triggers, and live microphone delay.",
     ["Built-in synth", "Drum machine", "Mic input", "Pointer", "Shared topology", "Self-contained app"],
   ),
-  "tiles-app": define(
+  "tesselation": define(
     "Tile instrument app",
     "A self-contained lattice and spiral instrument with one canvas, shared isohedral tile controls, sustained synth modes, and FM drum trigger modes.",
     "Choose Lattice, Lattice Drums, Spiral, or Spiral Drums, then keep the same tile form and reader transport running while switching sound engines.",
@@ -97,7 +147,7 @@ const CATALOG_DETAILS = Object.freeze({
     "Choose a generator, draw it through time, then trace the finished path with one or more sounding heads.",
     ["Pointer", "Built-in synth", "SVG export", "Shared transport", "Self-contained app"],
   ),
-  shape: define(
+  "shape-synth": define(
     "Synth",
     "Scans a 2D contour with moving points, lines, or rays; each geometric contact shapes pitch, pan, level, and timbre.",
     "Turn on audio, choose a reader, then move the contour or play a MIDI or computer key.",
@@ -154,24 +204,24 @@ const CATALOG_DETAILS = Object.freeze({
     "Warps an isohedral tiling into log-polar space and scans its radial and spiral edges for sound.",
     "Turn on audio, choose a reader, then run or drag the warped lattice.",
   ),
-  solid: define(
+  "solid-synth": define(
     "Synth",
     "Cuts a moving 3D wireframe with a plane; every wire-plane intersection becomes a voice.",
     "Turn on audio, choose a solid, then rotate it or move the cutting plane.",
   ),
-  moebius: define(
+  "moebius-synth": define(
     "Nonorientable surface synth",
     "Sweeps a two-dimensional plane through a half-twisted Möbius band, or runs a 16-station, two-lap counterpoint weave whose hocketed subject gains an offbeat answer and inverts on the shadow lap.",
     "Choose Plane slice for playable intersection curves, or Counterpoint weave for the perpendicular A–B crossbar, mirrored pitch traces, and forward-only two-lap phrase.",
     ["Pointer", "Built-in synth", "Shared transport"],
   ),
-  "klein-bottle": define(
+  "klein-bottle-synth": define(
     "Nonorientable surface synth",
     "Sweeps a two-dimensional plane through a figure-eight Klein bottle immersion while keeping coincident sheets separate in the parameter mesh.",
     "Turn on Audio, press Play or drag the 2D head, then tilt its plane and reshape the immersion while its glowing slice curves remain the score.",
     ["Pointer", "Built-in synth", "Shared transport"],
   ),
-  hyper: define(
+  "hyper-synth": define(
     "Synth",
     "Cuts a rotating 4D wireframe with a W hyperplane and sonifies the crossing edges.",
     "Turn on audio, choose a 4D form, then move the W reader or start rotation.",
@@ -189,22 +239,22 @@ const CATALOG_DETAILS = Object.freeze({
     ["Pointer", "Built-in synth"],
   ),
 
-  "shape-drums": define(
+  "shape-drum-machine": define(
     "Drum machine",
     "Turns contour contacts and corner events into drum hits whose voices change with position, angle, and phase.",
     "Turn on audio, choose a reader and drum bank, then move the contour through it.",
   ),
-  "lattice-drums": define(
+  "lattice-drum-machine": define(
     "Drum machine",
     "Turns tiling-reader contacts into drum hits selected and retuned by edge class, orientation, height, and angle.",
     "Turn on audio, choose a tiling and bank, then start the lattice motion.",
   ),
-  "spiral-drums": define(
+  "spiral-drum-machine": define(
     "Drum machine",
     "Turns contacts in a log-polar tiling into drum patterns that follow its radial and spiral geometry.",
     "Turn on audio, choose a bank and reader, then run the spiral field.",
   ),
-  "solid-drums": define(
+  "solid-drum-machine": define(
     "Drum machine",
     "Turns intersections between a cutting plane and a 3D wireframe into a changing drum pattern.",
     "Turn on audio, choose a bank, then rotate the solid or move the plane.",
@@ -233,23 +283,23 @@ const CATALOG_DETAILS = Object.freeze({
     "Turn on audio, run the four-lane sequence, then tap the pool or use keys 1–4 while changing water depth, wave height, bubble radius, wall system, and receiver position.",
     ["Built-in source", "Pointer", "Computer keys", "Physical-model DSP"],
   ),
-  "hyper-drums": define(
+  "hyper-drum-machine": define(
     "Drum machine",
     "Turns 4D hyperplane intersections into drum hits selected by position and four-dimensional rotation.",
     "Turn on audio, choose a bank, then move the W reader or start rotation.",
   ),
-  "l-system-drums": define(
+  "l-system-drum-machine": define(
     "Drum machine",
     "Walks through recursive branch heads and maps depth, angle, generation, phase, and position to drums.",
     "Turn on audio, choose a grammar and drum bank, then generate and play the tree.",
   ),
-  "graph-drums": define(
+  "graph-drum-machine": define(
     "Network drum machine",
     "Propagates percussion triggers through editable directed graphs, mapping node position, degree, route turn, path depth, and cycle pass to a shared sixteen-voice FM drum bank.",
     "Turn on audio, choose a topology and drum style, then seed a pulse or run the clock; cyclic routes return later with reduced amplitude and tone.",
     ["Built-in drums", "Pointer", "MIDI", "Feedback sequencing"],
   ),
-  "linear-drums-machine": define(
+  "rattlesnake-skin": define(
     "Drum machine",
     "Paints notes, glissandi, rings, and parameter fields onto a looping time-frequency canvas powered by continuous percussion.",
     "Turn on audio, choose a preset and paint tool, draw on the canvas, then start the loop.",
@@ -340,7 +390,7 @@ const CATALOG_DETAILS = Object.freeze({
     "Play Solo, Herd or Trio and edit each animal's foot and call score. Borrow the same gait dictionary and stretch leaps or skids. Change continuous ground material or stair direction for seeded friction and depth color; tempo stays independent.",
     ["Built-in source", "Pointer", "Computer keys"],
   ),
-  "colony-syrinx": define(
+  "monstroid": define(
     "Mutable pressure-network voice",
     "Routes variable lungs, vocal-fold sources, paths, and mouth resonators through continuous pressure, tension, routing, articulation, impact, and resonance contours.",
     "Turn on audio and select a call to hear it immediately, or start continuous flow; then edit anatomy counts, route connections, vocal behavior, and modulation contours.",
@@ -856,34 +906,6 @@ const CATALOG_DETAILS = Object.freeze({
   ),
 });
 
-const ADDITIONAL_TAG_IDS = Object.freeze({
-  "hocket-loom": Object.freeze(["geometry-drums"]),
-  "jaw-jam": Object.freeze(["voice-synths"]),
-  "pink-trombonazoid": Object.freeze(["sequencers"]),
-  hybrinx: Object.freeze(["sequencers"]),
-  creaturazoid: Object.freeze(["sequencers"]),
-  quadruped: Object.freeze(["sequencers", "geometry-drums"]),
-  moebius: Object.freeze(["sequencers"]),
-  blowhole: Object.freeze(["sequencers"]),
-  "hiccup-head": Object.freeze(["sequencers"]),
-  "l-systems": Object.freeze(["fractals-recursion", "geometry-drums", "mic-fx"]),
-  graphs: Object.freeze(["fractals-recursion", "geometry-drums", "mic-fx"]),
-  "l-system-drums": Object.freeze(["fractals-recursion"]),
-  "graph-drums": Object.freeze(["fractals-recursion"]),
-  "graph-synth": Object.freeze(["fractals-recursion"]),
-  enveloper: Object.freeze(["sequencers"]),
-  "fm-drums": Object.freeze(["geometry-drums"]),
-  "linear-drums": Object.freeze(["geometry-drums"]),
-  "sample-drums": Object.freeze(["geometry-drums"]),
-  micmic: Object.freeze(["fractals-recursion"]),
-  "recursive-fm": Object.freeze(["fractals-recursion"]),
-  "recursive-pm": Object.freeze(["fractals-recursion"]),
-  "chaotic-fm": Object.freeze(["fractals-recursion"]),
-  "chaotic-pm": Object.freeze(["fractals-recursion"]),
-  "cascading-fm": Object.freeze(["fractals-recursion"]),
-  "cascading-pm": Object.freeze(["fractals-recursion"]),
-  weierstrass: Object.freeze(["fractals-recursion"]),
-});
 const FAVES_TAG = Object.freeze({ id: "faves", label: "Faves" });
 
 const instrumentToolGroups = TOOL_GROUPS
@@ -895,7 +917,9 @@ const instrumentToolGroups = TOOL_GROUPS
   .filter((group) => group.tools.length > 0);
 const instrumentTools = instrumentToolGroups.flatMap((group) => group.tools);
 const instrumentIds = new Set(instrumentTools.map((tool) => tool.id));
-const groupById = new Map(instrumentToolGroups.map((group) => [group.id, group]));
+const groupById = new Map(TOOL_GROUPS.map((group) => [group.id, group]));
+const tagById = new Map(CATALOGUE_TAGS.map((tag) => [tag.id, tag]));
+const browseIds = new Set(TOOL_GROUPS.flatMap(group => group.tools.filter(tool => tool.browse).map(tool => tool.id)));
 const primaryGroupByToolId = new Map(instrumentToolGroups.flatMap((group) => (
   group.tools.map((tool) => [tool.id, group])
 )));
@@ -903,7 +927,7 @@ const missingDetails = instrumentTools.filter((tool) => !CATALOG_DETAILS[tool.id
 const unusedDetails = Object.keys(CATALOG_DETAILS).filter((id) => !instrumentIds.has(id));
 const invalidAdditionalTags = Object.entries(ADDITIONAL_TAG_IDS).flatMap(
   ([instrumentId, tagIds]) => tagIds
-    .filter((tagId) => !instrumentIds.has(instrumentId) || !groupById.has(tagId))
+    .filter((tagId) => (!instrumentIds.has(instrumentId) && !browseIds.has(instrumentId)) || !tagById.has(tagId))
     .map((tagId) => `${instrumentId}:${tagId}`),
 );
 const invalidFaveIds = FAVE_TOOL_IDS.filter((id) => !instrumentIds.has(id));
@@ -935,8 +959,8 @@ const instrumentByToolId = new Map(instrumentTools.map((tool) => {
   ];
   const tags = Object.freeze([...new Set(tagIds)].map((tagId) => {
     if (tagId === FAVES_TAG.id) return FAVES_TAG;
-    const group = groupById.get(tagId);
-    return Object.freeze({ id: group.id, label: group.label });
+    const tag = tagById.get(tagId);
+    return Object.freeze({ id: tag.id, label: tag.label });
   }));
   const midiCapability = instrumentMidiCapabilityForId(tool.id);
   return [tool.id, Object.freeze({
@@ -948,7 +972,7 @@ const instrumentByToolId = new Map(instrumentTools.map((tool) => {
       ...(midiCapability?.computerKeyboardMode === "none" ? [] : ["Computer keys"]),
     ])]),
     tags,
-    status: primaryGroup.id === "experiments" ? "Works in progress" : null,
+    status: primaryGroup.id === "wip" ? "Work in Progress" : null,
     imageHref: tool.imageHref ?? `assets/instruments/${tool.id}.webp`,
   })];
 }));
@@ -962,5 +986,18 @@ export const INSTRUMENT_GROUPS = Object.freeze(instrumentToolGroups.map((group) 
 export const INSTRUMENTS = Object.freeze(instrumentTools.map((tool) => instrumentByToolId.get(tool.id)));
 
 export function instrumentById(id) {
-  return INSTRUMENTS.find((instrument) => instrument.id === id) ?? null;
+  return INSTRUMENTS.find((instrument) => instrument.id === canonicalInstrumentId(id)) ?? null;
 }
+
+/** Existing analysis/demo labs can be browsed without claiming instrument/MIDI conformance. */
+export const LABS = Object.freeze(TOOL_GROUPS.flatMap(group => group.tools.filter(tool => tool.browse && tool.catalogue === false).map(tool => Object.freeze({
+  ...tool, ...LAB_CATALOGUE_DETAILS[tool.id], entryType: "lab",
+  status: group.id === "wip" ? "Work in Progress" : null,
+  tags: Object.freeze([...new Set([group.id, ...(ADDITIONAL_TAG_IDS[tool.id] ?? [])])].map(id => tagById.get(id))),
+}))));
+const browseById = new Map([...INSTRUMENTS, ...LABS].map(item => [item.id, item]));
+export const CATALOGUE_GROUPS = Object.freeze(TOOL_GROUPS.map(group => Object.freeze({
+  id: group.id, label: group.label, tools: Object.freeze(group.tools.map(tool => browseById.get(tool.id)).filter(Boolean)),
+})).filter(group => group.tools.length));
+export const CATALOGUE_ITEMS = Object.freeze(CATALOGUE_GROUPS.flatMap(group => group.tools));
+export function catalogueItemById(id) { return browseById.get(canonicalInstrumentId(id)) ?? null; }

@@ -1,0 +1,226 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <script src="wax/wax-host-bootstrap.js" data-morphazoid-wax-bootstrap></script>
+    <!-- morphazoid-social-preview:start -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Morphazoid" />
+    <meta property="og:title" content="Graph Drum Machine — Morphazoid" />
+    <meta property="og:description" content="Morphazoid Graph Drum Machine — send percussion triggers through switchable directed graphs whose cycles return as timed, decaying echoes." />
+    <meta property="og:url" content="https://morphazoid.com/graph-drum-machine.html" />
+    <meta property="og:image" content="https://morphazoid.com/assets/social/morphazoid-card-20260917.png" />
+    <meta property="og:image:secure_url" content="https://morphazoid.com/assets/social/morphazoid-card-20260917.png" />
+    <meta property="og:image:type" content="image/png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="Morphazoid geometric wireframe logo on a dark background." />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Graph Drum Machine — Morphazoid" />
+    <meta name="twitter:description" content="Morphazoid Graph Drum Machine — send percussion triggers through switchable directed graphs whose cycles return as timed, decaying echoes." />
+    <meta name="twitter:image" content="https://morphazoid.com/assets/social/morphazoid-card-20260917.png" />
+    <meta name="twitter:image:alt" content="Morphazoid geometric wireframe logo on a dark background." />
+    <link rel="image_src" href="https://morphazoid.com/assets/social/morphazoid-card-20260917.png" />
+    <!-- morphazoid-social-preview:end -->
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#07090b" />
+    <meta name="description" content="Morphazoid Graph Drum Machine — send percussion triggers through switchable directed graphs whose cycles return as timed, decaying echoes." />
+    <title>Graph Drum Machine — Morphazoid</title>
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="src/instruments/micmic/micmic.css" />
+    <link rel="stylesheet" href="src/instruments/graph-delay/graph-delay.css" />
+    <link rel="stylesheet" href="src/instruments/l-system-drum-machine/l-system-drum-machine.css" />
+    <link rel="stylesheet" href="src/families/graph/graph-instruments.css?v=graph-instruments-20260830-13" />
+  </head>
+  <body class="micmic-page graph-delay-page graph-instrument-page graph-drums-page" data-graph-instrument="drums">
+    <header class="masthead">
+      <a class="wordmark" href="./" aria-label="Morphazoid home">
+        <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span><span>morphazoid</span>
+      </a>
+      <nav class="tabs" aria-label="Instrument">
+        <a class="tab" href="shape-drum-machine.html">shape drums</a>
+        <a class="tab" href="lattice-drum-machine.html">lattice drums</a>
+        <a class="tab" href="spiral-drum-machine.html">spiral drums</a>
+        <a class="tab" href="solid-drum-machine.html">solid drums</a>
+        <a class="tab" href="hyper-drum-machine.html">hyper drums</a>
+        <a class="tab" href="l-system-drum-machine.html">l-system drums</a>
+        <a class="tab active" href="graph-drum-machine.html" aria-current="page">graph drums</a>
+        <a class="tab" href="fm-drums.html">fm drums</a>
+      </nav>
+      <label class="mobile-instrument-nav">
+        <span class="sr-only">Instrument</span>
+        <select class="mobile-instrument-select" aria-label="Instrument">
+          <option value="shape-drum-machine.html">shape drums</option>
+          <option value="lattice-drum-machine.html">lattice drums</option>
+          <option value="spiral-drum-machine.html">spiral drums</option>
+          <option value="solid-drum-machine.html">solid drums</option>
+          <option value="hyper-drum-machine.html">hyper drums</option>
+          <option value="l-system-drum-machine.html">l-system drums</option>
+          <option value="graph-drum-machine.html" selected>graph drums</option>
+          <option value="fm-drums.html">fm drums</option>
+        </select>
+      </label>
+      <div class="audio-strip" aria-label="Audio controls">
+        <button class="audio-button" id="audioButton" type="button" aria-pressed="false">
+          <span class="audio-glyph" aria-hidden="true">◆</span>
+          <span class="audio-copy"><b>Audio</b><small id="audioState">off</small></span>
+        </button>
+        <label class="header-level" for="output">
+          <span><b>Output</b><output id="outputOut" for="output">58%</output></span>
+          <input id="output" aria-label="Graph Drum Machine output level" type="range" min="0" max="0.9" step="0.01" value="0.58" />
+        </label>
+      </div>
+    </header>
+
+    <main class="shell" id="graphDrums">
+      <section class="stage" aria-label="Graph Drum Machine stage">
+        <div class="stage-wrap" id="stageWrap">
+          <canvas id="stage" tabindex="0" role="application" aria-roledescription="interactive percussion graph" aria-keyshortcuts="Space Enter ArrowUp ArrowDown ArrowLeft ArrowRight" aria-label="A directed graph whose active routes trigger drums. Audio off." aria-describedby="canvasInstructions liveStatus">
+            A switchable directed graph whose nodes trigger percussion and whose cycles make decaying repeats.
+          </canvas>
+          <div class="l-system-mapping-readout" id="mappingReadout" aria-label="Latest graph drum mapping" aria-live="off">NODE 1 · PASS 0 → CIRCUIT SUB KICK · 100%</div>
+          <div class="graph-key" aria-hidden="true">
+            <span><i class="feed-forward"></i> feed-forward</span>
+            <span><i class="feedback"></i> cycle return</span>
+            <span><i class="route-switch"></i> click switch</span>
+            <span><i class="pulse-route"></i> active route</span>
+          </div>
+          <div class="stage-meta" aria-hidden="true"><span id="stageReadout">LAYERED DAG · 10 NODES · READY · AUDIO OFF</span></div>
+        </div>
+      </section>
+
+      <aside class="panel" aria-label="Graph Drum Machine controls">
+        <details class="group control-section" id="playSection" data-section="play" open>
+          <summary class="group-summary"><h2 class="group-title">Play</h2><span class="section-state" id="playSummary">paused · 126 BPM · 1 beat</span></summary>
+          <div class="group-body">
+            <div class="graph-transport-actions">
+              <button class="graph-pulse-action" id="pulseButton" type="button">Send one graph pulse</button>
+              <button class="graph-pulse-action graph-random-action" id="randomGraphButton" type="button" aria-label="Create a random graph with randomized node positions">Random graph</button>
+            </div>
+            <div class="graph-play-primary-grid" aria-label="Primary graph sound controls">
+              <label class="select-control" for="topology"><span class="field-label">Graph shape</span><span class="select-shell"><select id="topology" aria-describedby="topologyDescription">
+                <optgroup label="Directed acyclic graphs"><option value="chain">Delay Chain</option><option value="tree">Branching Tree</option><option value="dag" selected>Layered DAG</option><option value="bipartite">Bipartite Field</option></optgroup>
+                <optgroup label="Cyclic and network graphs"><option value="ring">Directed Ring</option><option value="smallworld">Small World</option><option value="hub">Hub + Spokes</option><option value="mesh">Feedback Mesh</option><option value="modular">Modular Islands</option><option value="random">Seeded Random</option></optgroup>
+              </select></span></label>
+              <div class="graph-edge-timing-stack">
+                <label class="control graph-edge-speed-control" for="baseDelay"><span><b>Minimum edge time</b><output id="baseDelayOut" for="baseDelay">62 ms</output></span><input id="baseDelay" type="range" min="20" max="600" step="1" value="62" dir="rtl" aria-label="Minimum edge time, slow to fast" aria-valuetext="62 milliseconds" title="Slow at the left, fast at the right. Pulse tempo controls graph-note launches." /></label>
+                <label class="control graph-distance-ratio-control" for="distanceRatio"><span><b>Distance-time ratio</b><output id="distanceRatioOut" for="distanceRatio">1.94×</output></span><input id="distanceRatio" type="range" min="1" max="12" step="0.01" value="1.94" /></label>
+              </div>
+              <small class="growth-parameter-note graph-distance-note">At 1×, every edge uses the minimum time. Higher values make longer drawn segments take proportionally longer, up to the 2 s safety limit.</small>
+              <button class="mini-action graph-node-position-action" id="randomizeNodePositionsButton" type="button" title="Randomize node positions without changing graph connections">Randomize positions</button>
+            </div>
+            <div class="graph-pulse-grid">
+              <label class="control graph-seed-note-control" for="seedNote"><span><b>Seed note</b><output id="seedNoteOut" for="seedNote">C4 · 60</output></span><input id="seedNote" name="pitch" type="range" min="0" max="127" step="1" value="60" /></label>
+              <div class="graph-tempo-row">
+                <button class="play-button" id="playButton" type="button" data-primary-transport aria-pressed="false" aria-label="Play graph drum pulses">
+                  <svg class="transport-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5 18 12 8 18.5Z" /></svg>
+                  <svg class="transport-pause" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6v12M16 6v12" /></svg>
+                </button>
+                <label class="control" for="tempo"><span><b>Pulse tempo</b><output id="tempoOut" for="tempo">126 BPM</output></span><input id="tempo" name="tempo" type="range" min="35" max="220" step="1" value="126" /></label>
+              </div>
+              <label class="select-control graph-pulse-interval-control" for="pulseDivision"><span class="field-label">Pulse interval</span><span class="select-shell"><select id="pulseDivision"><option value="0.5">Every 1/2 beat</option><option value="1" selected>Every beat</option><option value="2">Every 2 beats</option><option value="4">Every 4 beats</option></select></span></label>
+            </div>
+            <small class="growth-parameter-note graph-seed-note-note">MIDI In and computer keys launch their own seed notes; this value sets Play, Send, and Space.</small>
+            <section class="graph-play-percussion-bank" aria-labelledby="percussionBankTitle">
+              <h3 class="parameter-cluster-title" id="percussionBankTitle">Percussion bank</h3>
+              <label class="select-control" for="percussionStyle"><span class="field-label">Percussion style</span><span class="select-shell"><select id="percussionStyle"><option value="drum-bank">Drum bank</option><option value="circuit" selected>Circuit percussion</option><option value="rattlesnake">Rattlesnake</option><option value="rattlesnake-physical">Rattlesnake physical</option><option value="resonant-metal">Resonant metal</option><option value="karplus-strong">Karplus Strong</option><option value="karplus-tines">Karplus tines</option><option value="karplus-objects">Karplus objects</option></select></span></label>
+              <div class="graph-drum-map" id="drumMap" aria-label="Sixteen graph drum voices"></div>
+            </section>
+            <p class="graph-cycle-note"><b>Cycles are musical feedback.</b> Every return waits for its edge times, then loses amplitude and tone before it can trigger again.</p>
+            <p class="audio-error" id="audioError" role="alert" hidden></p>
+          </div>
+        </details>
+
+        <details class="group control-section" id="delaySection" data-section="delay" open>
+          <summary class="group-summary"><h2 class="group-title">Time + feedback</h2><span class="section-state" id="delaySummary">62–120 ms · acyclic</span></summary>
+          <div class="group-body">
+            <label class="select-control" for="triggerScope"><span class="field-label">Attack points</span><span class="select-shell"><select id="triggerScope"><option value="all" selected>Every node arrival</option><option value="leaves">Leaf / sink nodes only</option></select></span></label>
+            <label class="select-control" for="attackLaneCount"><span class="field-label">Attack separation</span><span class="select-shell"><select id="attackLaneCount" aria-describedby="attackLaneNote"><option value="1" selected>Natural polyphony</option><option value="2">2-lane round robin</option><option value="4">4-lane round robin</option></select></span></label>
+            <small class="growth-parameter-note graph-attack-lane-note" id="attackLaneNote">Each admitted attack already gets an independent voice. Lanes rotate subtle tone to help overlaps read separately; audio-safety-thinned attacks stay thinned.</small>
+            <label class="control" for="nodePass"><span><b>Node pass-through</b><output id="nodePassOut" for="nodePass">100%</output></span><input id="nodePass" type="range" min="0.2" max="1" step="0.01" value="1" /></label>
+            <label class="control" for="timeCurve"><span><b>Length response</b><output id="timeCurveOut" for="timeCurve">0.90</output></span><input id="timeCurve" type="range" min="0.25" max="3" step="0.05" value="0.9" /></label>
+            <label class="control" for="feedback"><span><b>Cycle amplitude return</b><output id="feedbackOut" for="feedback">72%</output></span><input id="feedback" type="range" min="0" max="0.92" step="0.01" value="0.72" /></label>
+            <label class="control" for="feedbackTone"><span><b>Cycle tone retention</b><output id="feedbackToneOut" for="feedbackTone">78%</output></span><input id="feedbackTone" type="range" min="0.2" max="1" step="0.01" value="0.78" /></label>
+            <small class="growth-parameter-note" id="feedbackSafetyNote">Acyclic · the feedback controls are dormant.</small>
+          </div>
+        </details>
+
+        <details class="group control-section" id="topologySection" data-section="topology">
+          <summary class="group-summary"><h2 class="group-title">Topology</h2><span class="section-state" id="topologySummary">Layered Glass · Layered DAG</span></summary>
+          <div class="group-body">
+            <input id="graphPatch" type="hidden" value="layeredGlass" />
+            <div class="micmic-preset-grid graph-preset-grid" id="graphPatchGrid" role="group" aria-label="Graph drum presets">
+              <button id="graphPatch-clearSteps" type="button" data-graph-patch="clearSteps" data-preset-band="clean" aria-pressed="false"><b>Clear Steps</b><small>CHAIN · FINITE</small></button>
+              <button id="graphPatch-branchChoir" type="button" data-graph-patch="branchChoir" data-preset-band="spacious" aria-pressed="false"><b>Branch Choir</b><small>TREE · SPLIT</small></button>
+              <button id="graphPatch-layeredGlass" type="button" data-graph-patch="layeredGlass" data-preset-band="rhythmic" aria-pressed="true"><b>Layered Glass</b><small>DAG · CROSSING</small></button>
+              <button id="graphPatch-haloRing" type="button" data-graph-patch="haloRing" data-preset-band="feedback" aria-pressed="false"><b>Halo Ring</b><small>RING · DECAY</small></button>
+              <button id="graphPatch-shortcutChorus" type="button" data-graph-patch="shortcutChorus" data-preset-band="feedback" aria-pressed="false"><b>Shortcut Chorus</b><small>SMALL WORLD</small></button>
+              <button id="graphPatch-hubScatter" type="button" data-graph-patch="hubScatter" data-preset-band="wild" aria-pressed="false"><b>Hub Scatter</b><small>SPOKE RETURNS</small></button>
+              <button id="graphPatch-softMesh" type="button" data-graph-patch="softMesh" data-preset-band="feedback" aria-pressed="false"><b>Soft Mesh</b><small>NEIGHBOR LOOPS</small></button>
+              <button id="graphPatch-islandSignals" type="button" data-graph-patch="islandSignals" data-preset-band="spacious" aria-pressed="false"><b>Island Signals</b><small>MODULAR LOOPS</small></button>
+            </div>
+            <p class="growth-preset-description" id="graphPatchDescription">Close crossing times make a tight cascade on every beat.</p>
+            <section class="recursion-parameter-cluster graph-generator-cluster">
+              <h3 class="parameter-cluster-title">Graph generator</h3>
+              <p class="graph-mapping-description" id="topologyDescription">Several forward-only routes cross between ordered layers.</p>
+              <label class="control" for="nodeCount"><span><b>Nodes</b><output id="nodeCountOut" for="nodeCount">10</output></span><input id="nodeCount" type="range" min="3" max="32" step="1" value="10" /></label>
+              <label class="control" for="density"><span><b>Connection density</b><output id="densityOut" for="density">34%</output></span><input id="density" type="range" min="0" max="1" step="0.01" value="0.34" /></label>
+              <label class="control" for="seed"><span><b>Graph seed</b><output id="seedOut" for="seed">17</output></span><input id="seed" type="range" min="1" max="99" step="1" value="17" /></label>
+              <button class="mini-action" id="newGraphButton" type="button">Next seed</button>
+              <div class="graph-layout-actions" role="group" aria-label="Topology-preserving node layouts">
+                <button class="mini-action" id="arrangeGraphButton" type="button" title="Restore a stable symmetric layout without changing graph connections">Arrange</button>
+              </div>
+              <button class="mini-action" id="openAllSwitchesButton" type="button" disabled>Open all graph switches</button>
+            </section>
+          </div>
+        </details>
+
+        <details class="group control-section" id="motionSection" data-section="motion" open>
+          <summary class="group-summary"><h2 class="group-title">Motion</h2><span class="section-state" id="motionSummary">nodes paused · wiggle</span></summary>
+          <div class="group-body">
+            <div class="graph-motion-row">
+              <button class="play-button motion-play-button" id="nodeMotionPlayButton" type="button" aria-pressed="false" aria-label="Play node motion">
+                <svg class="transport-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5 18 12 8 18.5Z" /></svg>
+                <svg class="transport-pause" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6v12M16 6v12" /></svg>
+              </button>
+              <label class="select-control" for="nodeMotionMode"><span class="field-label">Node path</span><span class="select-shell"><select id="nodeMotionMode"><option value="wiggle" selected>Independent wiggle</option><option value="orbit">Circular orbits</option><option value="random">Random walks</option></select></span></label>
+            </div>
+            <label class="control" for="nodeMotionSpeed"><span><b>Node speed</b><output id="nodeMotionSpeedOut" for="nodeMotionSpeed">0.12 cyc/s</output></span><input id="nodeMotionSpeed" type="range" min="0.01" max="0.5" step="0.01" value="0.12" /></label>
+            <label class="control" for="nodeMotionAmount"><span><b>Node travel</b><output id="nodeMotionAmountOut" for="nodeMotionAmount">7%</output></span><input id="nodeMotionAmount" type="range" min="0.01" max="0.3" step="0.01" value="0.07" /></label>
+            <small class="growth-parameter-note">Motion changes distance, timing, and mapping without launching a new pulse.</small>
+          </div>
+        </details>
+
+        <details class="group control-section" id="mappingSection" data-section="mapping">
+          <summary class="group-summary"><h2 class="group-title">Drum mapping</h2><span class="section-state" id="mappingSummary">position grid · circuit percussion</span></summary>
+          <div class="group-body">
+            <label class="select-control" for="mappingMode"><span class="field-label">Node → voice</span><span class="select-shell"><select id="mappingMode"><option value="position-grid" selected>Stage position</option><option value="degree-turn">Degree × incoming turn</option><option value="path-phase">Path depth × cycle pass</option></select></span></label>
+            <p class="graph-mapping-description" id="mappingDescription">Each node's 4 × 4 stage position chooses one drum.</p>
+            <div class="graph-mapping-legend" aria-label="Graph drum mapping legend"><span><b id="mappingLegendLabel0">Vertical</b><small id="mappingLegendDetail0">drum row</small></span><span><b id="mappingLegendLabel1">Horizontal</b><small id="mappingLegendDetail1">voice column</small></span><span><b id="mappingLegendLabel2">Edge turn</b><small id="mappingLegendDetail2">tuning</small></span><span><b id="mappingLegendLabel3">Cycle pass</b><small id="mappingLegendDetail3">level + tone loss</small></span></div>
+            <label class="control" for="pitchDepth"><span><b id="pitchDepthLabel">Height → pitch</b><output id="pitchDepthOut" for="pitchDepth">12 st</output></span><input id="pitchDepth" type="range" min="0" max="24" step="1" value="12" /></label>
+            <label class="control" for="turnPitchDepth"><span><b>Turn → pitch</b><output id="turnPitchDepthOut" for="turnPitchDepth">9 st</output></span><input id="turnPitchDepth" type="range" min="0" max="24" step="1" value="9" /></label>
+            <label class="control" for="characterDepth"><span><b>Graph → character</b><output id="characterDepthOut" for="characterDepth">72%</output></span><input id="characterDepth" type="range" min="0" max="1" step="0.01" value="0.72" /></label>
+          </div>
+        </details>
+
+        <details class="group control-section" id="graphInfoSection" data-section="settings">
+          <summary class="group-summary"><h2 class="group-title">Current graph</h2><span class="section-state" id="graphInfoSummary">10 nodes · 12 routes</span></summary>
+          <div class="group-body graph-info-readout">
+            <div class="structure-readout"><b>Structure</b><output id="structureReadout">10 nodes · 12/12 routes open</output></div>
+            <div class="structure-readout"><b>Cycles</b><output id="cycleReadout">none · finite tail</output></div>
+            <div class="structure-readout"><b>Pulse tail</b><output id="tailReadout">finite · 0 repeats</output></div>
+            <div class="structure-readout selected-node-card"><b>Selected</b><output id="selectedNodeReadout">node 1 · source</output></div>
+          </div>
+        </details>
+
+        <div class="reset-all-row"><button class="reset-all-button" id="resetAll" type="button" data-reset-all>Reset Graph Drum Machine</button></div>
+      </aside>
+      <p class="sr-only" id="canvasInstructions">Drag nodes to change edge times. Click an edge switch to open or close that route. With the graph focused, Space sends a pulse, arrow keys move the selected node, and Enter toggles its first outgoing route. In a cyclic graph, a pulse returns after traversing the cycle with lower amplitude and darker tone on every pass.</p>
+      <p class="sr-only" id="liveStatus" aria-live="polite"></p>
+    </main>
+    <script type="module" src="nav.js"></script>
+    <script type="module" src="src/instruments/graph-drum-machine/graph-drum-machine-app.js?v=graph-instruments-20260830-13"></script>
+    <script type="module" src="wax/wax-universal-adapter.js" data-morphazoid-wax-universal-adapter></script>
+</body>
+</html>

@@ -2,6 +2,7 @@ import { readFile, readdir } from "node:fs/promises";
 import { expect, test } from "@playwright/test";
 
 import { runCanvasResize } from "../tests/helpers/canvas-resize-harness.mjs";
+import { currentSourcePath } from "../tests/helpers/relocated-sources.mjs";
 import { canvasLayouts, attachJson } from "./helpers/canvas-preservation.mjs";
 import { pageDiagnosticMessages, settlePage, watchPageDiagnostics } from "./helpers/diagnostics.mjs";
 
@@ -9,12 +10,12 @@ const root = new URL("../", import.meta.url);
 const fixture = JSON.parse(await readFile(new URL("tests/fixtures/canvas-resize-variants-v1.json", root)));
 const original = await readFile(new URL("tests/fixtures/canvas-resize-v1.txt", root), "utf8");
 const controllers = new Map([
-  ...fixture.entries.map((entry) => [entry.file, entry]),
-  ...["solid-app.js", "hyper-app.js"].map((file) => [file, { file, source: original, options: {} }]),
+  ...fixture.entries.map((entry) => [currentSourcePath(entry.file), entry]),
+  ...["src/instruments/solid-synth/solid-synth-app.js", "src/instruments/hyper-synth/hyper-synth-app.js"].map((file) => [file, { file, source: original, options: {} }]),
 ]);
 const wrapperTargets = new Map([
-  ["graph-drums-app.js", "src/graph-instrument-app.js"],
-  ["graph-synth-app.js", "src/graph-instrument-app.js"],
+  ["src/instruments/graph-drum-machine/graph-drum-machine-app.js", "src/graph-instrument-app.js"],
+  ["src/instruments/graph-synth/graph-synth-app.js", "src/graph-instrument-app.js"],
 ]);
 
 const routes = [];
@@ -27,7 +28,7 @@ for (const name of (await readdir(root)).filter((name) => name.endsWith(".html")
   if (!matches.length) continue;
   if (matches.length !== 1) throw new Error(`Review the multiple sizing controllers on ${name}`);
   const entry = controllers.get(matches[0]);
-  const source = await readFile(new URL(entry.file, root), "utf8");
+  const source = await readFile(new URL(currentSourcePath(entry.file), root), "utf8");
   const canvasId = source.match(/const canvas = \$\("([^"]+)"\)/)?.[1];
   const wrapId = source.match(/const stageWrap = \$\("([^"]+)"\)/)?.[1];
   if (!canvasId || !wrapId) throw new Error(`Review canvas selectors for ${entry.file}`);
@@ -35,7 +36,7 @@ for (const name of (await readdir(root)).filter((name) => name.endsWith(".html")
 }
 
 test("every migrated sizing controller has an explicitly discovered browser route", () => {
-  expect([...new Set(routes.map(({ entry }) => entry.file))].sort()).toEqual([...controllers.keys()].sort());
+  expect([...new Set(routes.map(({ entry }) => currentSourcePath(entry.file)))].sort()).toEqual([...controllers.keys()].sort());
 });
 
 async function inspectSizing(page, route) {

@@ -8,8 +8,8 @@ import {
 } from "./helpers/audio-probe.mjs";
 
 const surfaces = [
-  { id: "moebius", href: "moebius.html" },
-  { id: "klein-bottle", href: "klein-bottle.html" },
+  { id: "moebius", href: "moebius-synth.html" },
+  { id: "klein-bottle", href: "klein-bottle-synth.html" },
 ];
 
 async function setRange(page, selector, value) {
@@ -94,7 +94,7 @@ test("Mobius counterpoint weave hockets across the orientation reversal", async 
     if (message.type() === "error") errors.push(message.text());
   });
 
-  await page.goto("moebius.html", { waitUntil: "load" });
+  await page.goto("moebius-synth.html", { waitUntil: "load" });
   const canvas = page.locator("#stage");
   const play = page.locator("#playButton");
   const audio = page.locator("#audioButton");

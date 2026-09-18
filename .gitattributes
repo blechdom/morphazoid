@@ -1,2 +1,6 @@
 # The generated WAX artifact preserves vendored upstream files byte-for-byte.
 dist-wax/vendor/** -whitespace
+
+# Final tabs represent empty spreadsheet cells; preserve the owner's source TSV.
+docs/catalogue-update-2026-09-18.tsv whitespace=-blank-at-eol
+docs/catalogue-update-effective.tsv whitespace=-blank-at-eol

@@ -1,5 +1,5 @@
-import { ROACH_BODY_GROUPS, getRoachJointBodyGroup } from './roach-synth-body.js?v=0f50ed8f1f29';
-import { constrainRoachPose } from './roach-synth-motion.js?v=0f50ed8f1f29';
+import { ROACH_BODY_GROUPS, getRoachJointBodyGroup } from './roach-synth-body.js?v=4c63f5560a14';
+import { constrainRoachPose } from './roach-synth-motion.js?v=4c63f5560a14';
 
 const AXES = ['x', 'y', 'z'];
 const MAX_SCOPES = 64;

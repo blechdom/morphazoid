@@ -81,8 +81,8 @@ npm run test:refactor:batch
 ```
 
 The fast gate checks sizing-policy equivalence, audio/transport infrastructure,
-the contour worklet, tract geometry and drawing, registry preservation/import purity, nested
-source discovery, and report tooling.
+the contour worklet, tract geometry and drawing, registry preservation/import purity,
+nested source discovery, release-file policies and report tooling.
 The batch gate additionally runs build
 parity, the broad browser sizing matrix, focused interaction/audio suites, and
 the existing full verification. It does not regenerate WAX itself: regenerate
@@ -102,6 +102,7 @@ npm run test:browser:v2-rollout
 npm run test:browser:v2-uniformity
 npm run test:browser:v2-tract
 npm run test:browser:v2-site
+npm run test:browser:v2-layout
 ```
 
 The pilot suite checks Solid and Hyper in three layouts, their existing canvas
@@ -207,3 +208,42 @@ Tests, vendor/generated output, AssemblyScript `.ts`, and JSX are not fed to
 Node's parser. AssemblyScript retains its compiler check; the existing XYFlow
 build handles JSX. This replaces the manual flat-file check list so moving
 code into family folders does not silently remove syntax coverage.
+
+## Source-layout preservation
+
+`npm run test:browser:v2-layout` compares the relocated pages' control surfaces
+at three viewport widths and exercises Graph Delay's real worklet with a
+synthetic input. `tests/source-layout.test.mjs` checks source existence,
+dependency references, pre-commit build inclusion and nested inspection/syntax
+coverage. Both are included in the relevant refactoring gates.
+
+For before/after comparison, these browser tests run against either frozen
+artifact while source discovery uses the current checkout. The original resize
+fixtures remain independent; `tests/helpers/relocated-sources.mjs` maps their
+historical filenames to current implementations.
+
+See `v2-source-layout-results.md` for the historical first batch and
+`v2-catalogue-layout-results.md` for the full controller/style cleanup and
+September 18 naming pass. A pre-rename reference will not contain new canonical
+HTML addresses: map routes explicitly when comparing that reference, rather
+than assuming current route discovery can run unchanged against it.
+
+`tests/catalogue-update.test.mjs` validates the effective owner sheet and the
+unchanged MIDI/WAX policies. `tests/instrument-identity-compatibility.test.mjs`
+exercises old listener IDs, project state keys, and companion note sequences.
+`e2e/catalogue-update.spec.mjs` checks rendered entries and old-route
+query/fragment preservation. These distinguish public names from internal
+protocol identities; global string replacement is not a safe rename strategy.
+
+## Release inventory
+
+`scripts/site/runtime-files.tsv` declares explicit copy permission and required
+artifact presence independently, without repeating filenames in two shell lists.
+It complements, rather than replaces, the builder's tracked-file and asset-glob
+rules. Read `../scripts/site/README.md` before editing it.
+
+`npm run test:release-manifest` tests parsing, policy separation and isolated
+builder behavior against the frozen original. The fast gate includes these
+checks; the full Node suite also discovers them. Tests deliberately supply the
+historical inventory to both fixture builders, so approved future changes to
+the live filenames do not automatically require updating the old fixture.

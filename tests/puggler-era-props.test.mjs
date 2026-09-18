@@ -152,7 +152,7 @@ test('recognizable fallback mechanisms include eight curled octopus arms and har
 });
 
 test('unknown fallback sprites leave the context untouched and drawing errors restore state', () => {
-  for (const prop of [null, undefined, {}, { sprite: '__proto__' }, { sprite: 'unrelated' }]) {
+  for (const prop of [null, undefined, {}, { sprite: "[object Object]" }, { sprite: 'unrelated' }]) {
     const c = new RecordingCanvas(), before = { ...c.state };
     assert.equal(drawEraProp(c, prop), false);
     assert.deepEqual(c.operations, []);

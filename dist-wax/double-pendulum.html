@@ -23,7 +23,7 @@
     <link rel="image_src" href="https://morphazoid.com/assets/social/morphazoid-card-20260917.png" />
     <!-- morphazoid-social-preview:end --><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" /><meta name="theme-color" content="#07090b" />
     <meta name="description" content="Morphazoid Double Pendulum - nearby initial conditions diverge into audible chaos." /><title>Double Pendulum - Morphazoid</title>
-    <link rel="icon" href="favicon.svg" type="image/svg+xml" /><link rel="stylesheet" href="style.css" /><link rel="stylesheet" href="experiments.css" />
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" /><link rel="stylesheet" href="style.css" /><link rel="stylesheet" href="src/families/experiments/experiments.css" />
   </head>
   <body class="experiment-page" data-experiment="doublependulum">
     <header class="masthead"><a class="wordmark" href="./" aria-label="Morphazoid home"><span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span><span>morphazoid</span></a><nav class="tabs" aria-label="Morphazoid main menu"><a class="tab active" href="double-pendulum.html" aria-current="page">double pendulum</a></nav><label class="mobile-instrument-nav"><span class="sr-only">Instrument</span><select class="mobile-instrument-select" aria-label="Instrument"><option value="double-pendulum.html" selected>double pendulum</option></select></label><div class="header-actions"><button class="audio-button" id="audioButton" type="button" aria-pressed="false"><span class="audio-dot" aria-hidden="true"></span><span>audio</span><strong id="audioState">off</strong></button><label class="header-level" for="level"><span><b>level</b><output id="levelOut" for="level">42%</output></span><input id="level" aria-label="Master audio level" type="range" min="0" max="0.82" step="0.01" value="0.42" /></label></div></header>
@@ -37,7 +37,7 @@
           <label class="control" for="chaosSpeed"><span><b>Time scale</b><output id="chaosSpeedOut" for="chaosSpeed">0.85 x</output></span><input id="chaosSpeed" type="range" min="0.2" max="2" step="0.01" value="0.85" /></label>
           <label class="control" for="chaosTone"><span><b>Tone center</b><output id="chaosToneOut" for="chaosTone">92 Hz</output></span><input id="chaosTone" type="range" min="50" max="220" step="1" value="92" /></label>
         </div></section><div class="reset-all-row"><button class="reset-all-button" type="button" data-reset-all>Reset all parameters</button></div></aside>
-    </main><script type="module" src="nav.js"></script><script type="module" src="experiments-app.js"></script>
+    </main><script type="module" src="nav.js"></script><script type="module" src="src/families/experiments/experiments-app.js"></script>
     <script type="module" src="wax/wax-universal-adapter.js" data-morphazoid-wax-universal-adapter></script>
 </body>
 </html>

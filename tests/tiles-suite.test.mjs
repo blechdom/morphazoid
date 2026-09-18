@@ -8,7 +8,7 @@ import {
   TILES_IDENTICAL_PARAMETERS,
   TILES_UNIQUE_PARAMETERS,
   tilesModeFor,
-} from "../src/tiles-suite.js";
+} from "../src/instruments/tesselation/tesselation-suite.js";
 
 const root = new URL("../", import.meta.url);
 
@@ -23,9 +23,9 @@ test("Tiles app modes describe the four source instruments", () => {
     })),
     [
       { id: "lattice", label: "Lattice", href: "lattice.html", geometryKind: "lattice", audioKind: "synth" },
-      { id: "lattice-drums", label: "Lattice Drums", href: "lattice-drums.html", geometryKind: "lattice", audioKind: "drums" },
+      { id: "lattice-drums", label: "Lattice Drums", href: "lattice-drum-machine.html", geometryKind: "lattice", audioKind: "drums" },
       { id: "spiral", label: "Spiral", href: "spiral.html", geometryKind: "spiral", audioKind: "synth" },
-      { id: "spiral-drums", label: "Spiral Drums", href: "spiral-drums.html", geometryKind: "spiral", audioKind: "drums" },
+      { id: "spiral-drums", label: "Spiral Drums", href: "spiral-drum-machine.html", geometryKind: "spiral", audioKind: "drums" },
     ],
   );
   assert.equal(tilesModeFor("spiral-drums").title, "Spiral Drum Machine");
@@ -76,14 +76,14 @@ test("Tiles app records shared, analog, unique, and crossover parameters", () =>
 
 test("Tiles page is a native combined app, not a frame host", async () => {
   const [html, css] = await Promise.all([
-    readFile(new URL("tiles.html", root), "utf8"),
-    readFile(new URL("tiles.css", root), "utf8"),
+    readFile(new URL("tesselation.html", root), "utf8"),
+    readFile(new URL("src/instruments/tesselation/tesselation.css", root), "utf8"),
   ]);
 
   assert.match(html, /<body class="tiles-app-page">/);
   assert.match(html, /id="tilesApp" data-tiles-mode="lattice"/);
   assert.match(html, /<canvas id="stage"/);
-  assert.match(html, /id="tilesMode" role="tablist" aria-label="Tiles mode"/);
+  assert.match(html, /id="tilesMode" role="tablist" aria-label="Tesselation mode"/);
   assert.match(html, /data-tiles-mode="lattice"/);
   assert.match(html, /data-tiles-mode="lattice-drums"/);
   assert.match(html, /data-tiles-mode="spiral"/);
@@ -104,7 +104,7 @@ test("Tiles page is a native combined app, not a frame host", async () => {
   assert.match(html, /id="loopMotion"[\s\S]*aria-label="Loop movement"/);
   assert.match(html, /id="pingPongMotion"[\s\S]*aria-label="Ping-pong movement"/);
   assert.match(html, /class="tiles-midi-dock" data-midi-output-monitor-host/);
-  assert.match(html, /src="tiles-app\.js"/);
+  assert.match(html, /src="src\/instruments\/tesselation\/tesselation-app\.js"/);
   assert.doesNotMatch(html, /<iframe\b/i);
   assert.doesNotMatch(html, /Open original/i);
   assert.doesNotMatch(html, /href="(?:lattice|lattice-drums|spiral|spiral-drums)\.html"/i);
@@ -128,7 +128,7 @@ test("Tiles page is a native combined app, not a frame host", async () => {
 });
 
 test("Tiles app owns geometry and audio engines while preserving shared state on mode switch", async () => {
-  const app = await readFile(new URL("tiles-app.js", root), "utf8");
+  const app = await readFile(new URL("src/instruments/tesselation/tesselation-app.js", root), "utf8");
 
   assert.match(app, /new VoicePool\(128, \{ adaptive: true, maxVoices: 4096 \}\)/);
   assert.match(app, /new FmDrumAudio\(globalThis\)/);
@@ -168,7 +168,7 @@ test("Tiles app owns geometry and audio engines while preserving shared state on
 });
 
 test("Tiles keeps the lattice reader fixed and preserves transport travel phase", async () => {
-  const app = await readFile(new URL("tiles-app.js", root), "utf8");
+  const app = await readFile(new URL("src/instruments/tesselation/tesselation-app.js", root), "utf8");
 
   assert.match(app, /const scan = createScanLine\(LATTICE_BOUNDS, 0\.5, state\.lineAngle\);/);
   assert.match(app, /const offset = latticeOffsetForPhase\(lattice, state\.position\);/);
@@ -193,8 +193,8 @@ test("Tiles keeps the lattice reader fixed and preserves transport travel phase"
 
 test("Tiles restores the guarded X/Y prototile editor and visual tile-system options", async () => {
   const [html, app] = await Promise.all([
-    readFile(new URL("tiles.html", root), "utf8"),
-    readFile(new URL("tiles-app.js", root), "utf8"),
+    readFile(new URL("tesselation.html", root), "utf8"),
+    readFile(new URL("src/instruments/tesselation/tesselation-app.js", root), "utf8"),
   ]);
 
   assert.match(html, /Shape modifier <span aria-hidden="true">X\/Y<\/span>/);
@@ -226,8 +226,8 @@ test("Tiles lives in the Morphazoid Apps section", async () => {
     access(new URL("assets/instruments/tiles-app.webp", root)),
   ]);
 
-  assert.match(nav, /freezeGroup\("apps", "Apps", \[[\s\S]*id: "tiles-app", label: "Tiles", href: "tiles\.html"/);
-  assert.match(catalog, /"tiles-app": define\(/);
+  assert.match(nav, /freezeGroup\("app", "App", \[[\s\S]*id: "tesselation", label: "Tesselation", href: "tesselation\.html"/);
+  assert.match(catalog, /"tesselation": define\(/);
   assert.match(catalog, /Lattice, Lattice Drums, Spiral, or Spiral Drums/);
-  assert.match(midi, /sequence: Object\.freeze\(\[\s*"l-systems",\s*"graphs",\s*"tiles-app"/);
+  assert.match(midi, /sequence: Object\.freeze\(\[\s*"l-systems",\s*"graphs",\s*"tesselation"/);
 });

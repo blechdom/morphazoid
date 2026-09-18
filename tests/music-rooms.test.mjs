@@ -40,11 +40,11 @@ const roomPreviews = [
 ];
 
 test("Music Rooms routes live in Works in progress without entering the instrument catalogue", () => {
-  const group = TOOL_GROUPS.find(({ id }) => id === "experiments");
+  const group = TOOL_GROUPS.find(({ id }) => id === "wip");
 
   assert.ok(group);
   assert.equal(TOOL_GROUPS.some(({ id }) => id === "music-rooms"), false);
-  assert.equal(group.label, "Works in progress");
+  assert.equal(group.label, "Work in Progress");
   assert.deepEqual(group.tools.slice(0, 4), roomTools);
   for (const room of roomTools) {
     assert.equal(resolveActiveTool(`${siteRoot}${room.href}`, siteRoot)?.id, room.id);
@@ -55,7 +55,7 @@ test("Music Rooms routes live in Works in progress without entering the instrume
 test("Room Lobby presents exactly three distinct room previews", async () => {
   const [html, css] = await Promise.all([
     readFile(new URL("music-rooms.html", root), "utf8"),
-    readFile(new URL("music-rooms.css", root), "utf8"),
+    readFile(new URL("src/instruments/music-rooms/music-rooms.css", root), "utf8"),
   ]);
 
   assert.match(html, /<title>Music Rooms \| Morphazoid<\/title>/);
@@ -88,7 +88,7 @@ test("each room route is an explicit, non-connecting preview with a lobby return
     assert.match(html, /Preview · Not connected/);
     assert.match(html, /<button class="music-room-join" type="button" disabled>/);
     assert.match(html, /href="music-rooms\.html">Back to Music Rooms<\/a>/);
-    assert.match(html, /href="music-rooms\.css"/);
+    assert.match(html, /href="src\/instruments\/music-rooms\/music-rooms\.css"/);
     assert.match(html, /<script type="module" src="nav\.js"><\/script>/);
   }
 

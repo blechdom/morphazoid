@@ -510,12 +510,12 @@ test("WebGPU 303 restartTimeline primes and reports an exact shared-context star
 test("WebGPU 303 page ships as a separate credited section", async () => {
   const [html, css, app, source, notices, readme, buildScript] = await Promise.all([
     readFile(new URL("webgpu-303.html", root), "utf8"),
-    readFile(new URL("webgpu-303.css", root), "utf8"),
-    readFile(new URL("webgpu-303-app.js", root), "utf8"),
+    readFile(new URL("src/instruments/webgpu-303/webgpu-303.css", root), "utf8"),
+    readFile(new URL("src/instruments/webgpu-303/webgpu-303-app.js", root), "utf8"),
     readFile(new URL("src/webgpu-303.js", root), "utf8"),
     readFile(new URL("THIRD_PARTY_NOTICES.md", root), "utf8"),
     readFile(new URL("README.md", root), "utf8"),
-    readFile(new URL("scripts/build-site.sh", root), "utf8"),
+    readFile(new URL("scripts/site/runtime-files.tsv", root), "utf8"),
   ]);
 
   assert.match(html, /id="webgpu303"/);
@@ -531,7 +531,7 @@ test("WebGPU 303 page ships as a separate credited section", async () => {
   assert.match(html, /class="webgpu-stage-knob-actions"/);
   assert.match(html, /id="clearSequence"/);
   assert.match(html, /id="randomizeSequence"/);
-  assert.match(html, /src="webgpu-303-app\.js"/);
+  assert.match(html, /src="src\/instruments\/webgpu-303\/webgpu-303-app\.js"/);
   assert.match(html, /sound - acid jam by srtuss on Shadertoy/);
   const masthead = html.slice(html.indexOf('<header class="masthead">'), html.indexOf("</header>"));
   assert.doesNotMatch(masthead, /synthPlayButton|data-primary-transport/);
@@ -653,8 +653,8 @@ test("WebGPU 303 page ships as a separate credited section", async () => {
   assert.match(readme, /does not share the existing Web Audio synth engines/);
   for (const file of [
     "webgpu-303.html",
-    "webgpu-303.css",
-    "webgpu-303-app.js",
+    "src/instruments/webgpu-303/webgpu-303.css",
+    "src/instruments/webgpu-303/webgpu-303-app.js",
     "src/webgpu-303.js",
   ]) {
     assert.match(buildScript, new RegExp(file.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));

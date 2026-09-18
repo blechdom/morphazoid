@@ -418,7 +418,7 @@ test("call edits persist across switches and reset at current-call or whole-stor
 test("Hybrinx viewport, full, and timeline resets cancel automatic tongue motion", async () => {
   const [html, app, timelineSource] = await Promise.all([
     readFile(new URL("hybrinx.html", root), "utf8"),
-    readFile(new URL("syrinx-app.js", root), "utf8"),
+    readFile(new URL("src/families/syrinx/syrinx-app.js", root), "utf8"),
     readFile(new URL("src/hybrinx-timeline.js", root), "utf8"),
   ]);
   const viewportResetButton = html.match(/<button\b[^>]*id="resetViewportTongue"[^>]*>[\s\S]*?<\/button>/i)?.[0] ?? "";
@@ -462,12 +462,12 @@ test("Hybrinx viewport, full, and timeline resets cancel automatic tongue motion
 test("Hybrinx is a Tongued Beasts-derived page with its timeline below the viewport", async () => {
   const [html, css, app, layout, timelineSource, navigation, build, catalogue, iconBytes, iconStat] = await Promise.all([
     readFile(new URL("hybrinx.html", root), "utf8"),
-    readFile(new URL("hybrinx.css", root), "utf8"),
-    readFile(new URL("syrinx-app.js", root), "utf8"),
+    readFile(new URL("src/instruments/hybrinx/hybrinx.css", root), "utf8"),
+    readFile(new URL("src/families/syrinx/syrinx-app.js", root), "utf8"),
     readFile(new URL("src/hybrinx-layout.js", root), "utf8"),
     readFile(new URL("src/hybrinx-timeline.js", root), "utf8"),
     readFile(new URL("src/site/instrument-registry.js", root), "utf8"),
-    readFile(new URL("scripts/build-site.sh", root), "utf8"),
+    readFile(new URL("scripts/site/runtime-files.tsv", root), "utf8"),
     readFile(new URL("src/instrument-catalog.js", root), "utf8"),
     readFile(new URL("assets/instruments/hybrinx.webp", root)),
     stat(new URL("assets/instruments/hybrinx.webp", root)),
@@ -478,9 +478,9 @@ test("Hybrinx is a Tongued Beasts-derived page with its timeline below the viewp
     html,
     /<body[^>]*class="[^"]*syrinx-ui-page[^"]*tongued-beasts-page[^"]*hybrinx-page[^"]*"/,
   );
-  assert.match(html, /href="tongued-beasts\.css\?v=[^"]+"/);
-  assert.match(html, /href="hybrinx\.css\?v=hybrinx-[^"]+"/);
-  assert.match(html, /src="syrinx-app\.js\?v=[^"]+"/);
+  assert.match(html, /href="src\/instruments\/tongued-beasts\/tongued-beasts\.css\?v=[^"]+"/);
+  assert.match(html, /href="src\/instruments\/hybrinx\/hybrinx\.css\?v=hybrinx-[^"]+"/);
+  assert.match(html, /src="src\/families\/syrinx\/syrinx-app\.js\?v=[^"]+"/);
 
   const stage = html.match(/<section class="stage syrinx-stage"[\s\S]*?<\/section>/)?.[0] ?? "";
   const viewportIndex = stage.indexOf('id="stageWrap"');
@@ -587,7 +587,7 @@ test("Hybrinx is a Tongued Beasts-derived page with its timeline below the viewp
     /\.hybrinx-page \.syrinx-stage\s*\{[^}]*position:\s*sticky[^}]*top:\s*0[^}]*height:\s*max\(420px, calc\(100dvh - 50px\)\)[^}]*min-height:\s*420px/s,
   );
 
-  assert.match(app, /import\s*\{\s*createHybrinxTimeline\s*\}\s*from\s*["']\.\/src\/hybrinx-timeline\.js\?v=[^"']+["']/);
+  assert.match(app, /import\s*\{\s*createHybrinxTimeline\s*\}\s*from\s*["']\.\.\/\.\.\/hybrinx-timeline\.js\?v=[^"']+["']/);
   assert.match(app, /const\s+HYBRINX_MODE\s*=\s*document\.body\.classList\.contains\(["']hybrinx-page["']\)/);
   assert.match(app, /createHybrinxTimeline\(\$\(["']hybrinxTimelineSection["']\)\)/);
   assert.match(app, /function\s+updateHybrinxTimeline\s*\(/);
@@ -639,7 +639,7 @@ test("Hybrinx is a Tongued Beasts-derived page with its timeline below the viewp
   assert.match(catalogue, /(?:hybrinx|["']hybrinx["'])\s*:\s*define\s*\(/);
   for (const runtimeFile of [
     "hybrinx.html",
-    "hybrinx.css",
+    "src/instruments/hybrinx/hybrinx.css",
     "src/hybrinx-layout.js",
     "src/hybrinx-timeline.js",
     "assets/instruments/hybrinx.webp",

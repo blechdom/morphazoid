@@ -6,7 +6,7 @@ import { buildPrototile, tilingInfo } from "../src/lattice.js";
 import { MIDI_OUTPUT_PREVIEW_EVENT } from "../src/midi-output-preview.js";
 
 test("spiral drum app starts and keeps its complete geometry editor interactive", async () => {
-  const html = await readFile(new URL("../spiral-drums.html", import.meta.url), "utf8");
+  const html = await readFile(new URL("../spiral-drum-machine.html", import.meta.url), "utf8");
   const ids = [...html.matchAll(/\bid="([^"]+)"/g)].map((match) => match[1]);
   const elements = new Map();
   const listeners = new Map();
@@ -233,7 +233,7 @@ test("spiral drum app starts and keeps its complete geometry editor interactive"
     for (const callback of callbacks) callback(frameNow);
   }
 
-  await import(`../spiral-drums-app.js?smoke=${Date.now()}`);
+  await import(`../src/instruments/spiral-drum-machine/spiral-drum-machine-app.js?smoke=${Date.now()}`);
   assert.ok(rafQueue.length > 0, "startup should schedule an initial render");
   assert.equal(
     attributes.get("playButton:data-no-midi-preview"),

@@ -264,8 +264,8 @@ test("pitch maps directly from top, center, and bottom viewport positions", () =
 test("Feral Fairy Ferris Ferry exposes one transport and assignable level processors", async () => {
   const [html, app, css] = await Promise.all([
     readFile(new URL("orbital-ferris.html", root), "utf8"),
-    readFile(new URL("experiments-app.js", root), "utf8"),
-    readFile(new URL("experiments.css", root), "utf8"),
+    readFile(new URL("src/families/experiments/experiments-app.js", root), "utf8"),
+    readFile(new URL("src/families/experiments/experiments.css", root), "utf8"),
   ]);
 
   assert.match(html, /<title>Feral Fairy Ferris Ferry - Morphazoid<\/title>/);

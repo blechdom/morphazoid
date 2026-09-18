@@ -1,3 +1,5 @@
+import { canonicalInstrumentId } from "./site/instrument-identities.js";
+
 // Browser MIDI and WAX MIDI share this page classification. Keep it independent
 // of nav.js and instrument-catalog.js so navigation can install MIDI without an
 // import cycle through the catalogue.
@@ -10,6 +12,14 @@ const NOTE_MODE_IDS = Object.freeze({
     "slippery-resynthesis",
     "simd-resonator",
     "moire-drone",
+    "crab-loom",
+    "freeze-point",
+    "scatter-ghost",
+    "exceptional",
+    "head-shed",
+    "splice-ring",
+    "onset-atlas",
+    "synaptic-resonance",
     "sandy-syrup-delay",
     "candy-coil-delay",
     "recursion",
@@ -19,15 +29,15 @@ const NOTE_MODE_IDS = Object.freeze({
   ]),
   drums: Object.freeze([
     "hocket-loom",
-    "shape-drums",
-    "lattice-drums",
-    "spiral-drums",
-    "solid-drums",
+    "shape-drum-machine",
+    "lattice-drum-machine",
+    "spiral-drum-machine",
+    "solid-drum-machine",
     "rubix",
-    "hyper-drums",
-    "l-system-drums",
-    "graph-drums",
-    "linear-drums-machine",
+    "hyper-drum-machine",
+    "l-system-drum-machine",
+    "graph-drum-machine",
+    "rattlesnake-skin",
     "hiccup-head",
     "creaturazoid",
     "quadruped",
@@ -47,15 +57,15 @@ const NOTE_MODE_IDS = Object.freeze({
   pitched: Object.freeze([
     "roach-synth",
     "spider-synth",
-    "combo",
-    "shape",
+    "shapes",
+    "shape-synth",
     "playhead-paint",
     "lattice",
     "spiral",
-    "solid",
-    "moebius",
-    "klein-bottle",
-    "hyper",
+    "solid-synth",
+    "moebius-synth",
+    "klein-bottle-synth",
+    "hyper-synth",
     "graph-synth",
     "image-to-instrument-3",
     "throatazoid",
@@ -103,14 +113,14 @@ const NOTE_MODE_IDS = Object.freeze({
   sequence: Object.freeze([
     "l-systems",
     "graphs",
-    "tiles-app",
+    "tesselation",
     "algorithmic-mazes",
     "paths",
     "boidzoid",
     "puggler",
     "vector-flight",
     "pink-trombonazoid",
-    "colony-syrinx",
+    "monstroid",
     "vocalzoid",
     "sliding-puzzle",
     "webgpu-chiptune",
@@ -161,7 +171,7 @@ const NOTE_MODE_IDS = Object.freeze({
 });
 
 export const NATIVE_INSTRUMENT_MIDI_IDS = Object.freeze([
-  "shape",
+  "shape-synth",
   "recursive-fm",
   "recursive-pm",
   "chaotic-fm",
@@ -185,7 +195,7 @@ export const PAGE_KEYBOARD_INSTRUMENT_IDS = Object.freeze([
   "quadruped",
   "digestazoid",
   "wave-pool",
-  "colony-syrinx",
+  "monstroid",
   "breath-atlas",
   "morphynx",
   "hyper-syrinx",
@@ -242,7 +252,10 @@ export const NO_GENERIC_NOTE_KEYBOARD_IDS = Object.freeze([
 const nativeIds = new Set(NATIVE_INSTRUMENT_MIDI_IDS);
 const pageKeyboardIds = new Set(PAGE_KEYBOARD_INSTRUMENT_IDS);
 const noGenericNoteKeyboardIds = new Set(NO_GENERIC_NOTE_KEYBOARD_IDS);
-const processorAudioIds = new Set(["moire-drone", "recursion", "tape-worm", "loop-soup", "hollowphonic"]);
+const processorAudioIds = new Set([
+  "moire-drone", "recursion", "tape-worm", "loop-soup", "hollowphonic",
+  "crab-loom", "freeze-point", "scatter-ghost", "exceptional", "head-shed", "splice-ring", "onset-atlas", "synaptic-resonance",
+]);
 const audioInputIds = new Set([
   "l-systems",
   "graphs",
@@ -259,15 +272,16 @@ const audioInputIds = new Set([
   "morphynx",
   "alien-larynx",
   "tape-worm", "loop-soup", "hollowphonic",
+  "crab-loom", "freeze-point", "scatter-ghost", "exceptional", "head-shed", "splice-ring", "onset-atlas", "synaptic-resonance",
 ]);
 const midiOutputExtraIds = new Set([
-  "shape",
+  "shape-synth",
   "lattice",
   "spiral",
-  "solid",
-  "moebius",
-  "klein-bottle",
-  "hyper",
+  "solid-synth",
+  "moebius-synth",
+  "klein-bottle-synth",
+  "hyper-synth",
   "graph-synth",
   "l-system",
   "julia",
@@ -304,5 +318,5 @@ if (capabilityById.size !== INSTRUMENT_MIDI_CAPABILITIES.length) {
 }
 
 export function instrumentMidiCapabilityForId(id) {
-  return capabilityById.get(id) ?? null;
+  return capabilityById.get(canonicalInstrumentId(id)) ?? null;
 }

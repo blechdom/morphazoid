@@ -108,7 +108,7 @@ test("L-system app draws and drives adaptively capped bifurcating sine voices", 
     async close() { this.state = "closed"; }
   };
 
-  await import(`../l-system-app.js?smoke=${Date.now()}`);
+  await import(`../src/instruments/l-system/l-system-app.js?smoke=${Date.now()}`);
   assert.equal(typeof queuedFrame, "function");
   assert.equal(elements.get("baseFrequencyOut").textContent, "220 Hz");
   let now = performance.now() + 20;

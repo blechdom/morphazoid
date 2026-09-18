@@ -6,8 +6,8 @@ const root = new URL("../", import.meta.url);
 
 async function readSequencerSources() {
   const [app, css, html] = await Promise.all([
-    readFile(new URL("hiccup-head-app.js", root), "utf8"),
-    readFile(new URL("hiccup-head.css", root), "utf8"),
+    readFile(new URL("src/instruments/hiccup-head/hiccup-head-app.js", root), "utf8"),
+    readFile(new URL("src/instruments/hiccup-head/hiccup-head.css", root), "utf8"),
     readFile(new URL("hiccup-head.html", root), "utf8"),
   ]);
   return { app, css, html };

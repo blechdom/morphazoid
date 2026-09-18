@@ -328,15 +328,15 @@ test("worklet uses exact recursive phase modulation without render allocations",
 test("Recursive PM page is internal, gesture controlled, and cleans up audio", async () => {
   const [html, app, css] = await Promise.all([
     readFile(new URL("../recursive-pm.html", import.meta.url), "utf8"),
-    readFile(new URL("../recursive-pm-app.js", import.meta.url), "utf8"),
-    readFile(new URL("../recursive-pm.css", import.meta.url), "utf8"),
+    readFile(new URL("../src/instruments/recursive-pm/recursive-pm-app.js", import.meta.url), "utf8"),
+    readFile(new URL("../src/instruments/recursive-pm/recursive-pm.css", import.meta.url), "utf8"),
   ]);
 
   assert.match(html, /id="audioButton"/);
   assert.match(html, /id="level"/);
   assert.match(html, /id="stage"/);
   assert.match(html, /id="midiEnvelopeControls" hidden/);
-  assert.match(html, /href="chaotic-synth-ui\.css"/);
+  assert.match(html, /href="src\/instruments\/chaotic-synth-ui\/chaotic-synth-ui\.css"/);
   assert.match(html, /class="chaotic-path-graph"/);
   assert.match(html, /id="recursivePmFlow"/);
   assert.match(app, /function updateSignalFlow\(stack\)/);
@@ -354,7 +354,7 @@ test("Recursive PM page is internal, gesture controlled, and cleans up audio", a
   assert.match(html, /id="turnsReadout"/);
   assert.doesNotMatch(html, />Turn \d+</);
   assert.match(html, /data-preset="chromium-swarm"/);
-  assert.match(html, /src="recursive-pm-app\.js"/);
+  assert.match(html, /src="src\/instruments\/recursive-pm\/recursive-pm-app\.js"/);
   assert.doesNotMatch(html, /https?:\/\//);
   assert.match(app, /new RecursivePmAudioEngine\(window\)/);
   assert.match(app, /drawChaoticLiveAnalysis/);

@@ -1,3 +1,4 @@
+import { canonicalInstrumentId } from "./site/instrument-identities.js";
 import { INSTRUMENTS } from "./instrument-catalog.js";
 import {
   INSTRUMENT_MIDI_CAPABILITIES,
@@ -143,5 +144,5 @@ export const WAX_INSTRUMENT_SUPPORT = Object.freeze(INSTRUMENTS.map((instrument)
 const supportById = new Map(WAX_INSTRUMENT_SUPPORT.map((support) => [support.id, support]));
 
 export function waxSupportForId(id) {
-  return supportById.get(id) ?? null;
+  return supportById.get(canonicalInstrumentId(id)) ?? null;
 }

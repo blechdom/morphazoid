@@ -420,8 +420,8 @@ test("bubble radius changes the rendered resonance and hostile event density nev
 test("the page exposes quiet opt-in audio, accessible interaction, responsive layout, and no sample loader", async () => {
   const [html, css, app, model, processor, research] = await Promise.all([
     readFile(new URL("wave-pool.html", root), "utf8"),
-    readFile(new URL("wave-pool.css", root), "utf8"),
-    readFile(new URL("wave-pool-app.js", root), "utf8"),
+    readFile(new URL("src/instruments/wave-pool/wave-pool.css", root), "utf8"),
+    readFile(new URL("src/instruments/wave-pool/wave-pool-app.js", root), "utf8"),
     readFile(new URL("src/wave-pool.js", root), "utf8"),
     readFile(new URL("src/wave-pool-processor.js", root), "utf8"),
     readFile(new URL("WAVE_POOL_RESEARCH.md", root), "utf8"),

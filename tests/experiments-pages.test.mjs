@@ -29,9 +29,9 @@ test("experiment pages are native Morphazoid pages with shared controls", async 
     assert.match(html, new RegExp(`<body[^>]*data-experiment="${mode}"`));
     assert.match(html, new RegExp(`<h1>${title}`));
     assert.match(html, /<link rel="stylesheet" href="style\.css"/);
-    assert.match(html, /<link rel="stylesheet" href="experiments\.css"/);
+    assert.match(html, /<link rel="stylesheet" href="src\/families\/experiments\/experiments\.css"/);
     assert.match(html, /<script type="module" src="nav\.js"><\/script>/);
-    assert.match(html, /<script type="module" src="experiments-app\.js"><\/script>/);
+    assert.match(html, /<script type="module" src="src\/families\/experiments\/experiments-app\.js"><\/script>/);
     assert.match(html, /id="audioButton"/);
     assert.match(html, /id="level"/);
     assert.match(html, /id="stageReadout"/);
@@ -48,8 +48,8 @@ test("experiment pages are native Morphazoid pages with shared controls", async 
 
 test("experiment runtime contains each simulation and audio mapping", async () => {
   const [app, css] = await Promise.all([
-    readFile(new URL("experiments-app.js", root), "utf8"),
-    readFile(new URL("experiments.css", root), "utf8"),
+    readFile(new URL("src/families/experiments/experiments-app.js", root), "utf8"),
+    readFile(new URL("src/families/experiments/experiments.css", root), "utf8"),
   ]);
   for (const key of [
     "moire",
@@ -113,7 +113,7 @@ test("Automatapoeia preserves exact live evolution while exposing history-safe i
   const [html, legacy, app, sonification] = await Promise.all([
     readFile(new URL("automatapoeia.html", root), "utf8"),
     readFile(new URL("automatopoeia.html", root), "utf8"),
-    readFile(new URL("experiments-app.js", root), "utf8"),
+    readFile(new URL("src/families/experiments/experiments-app.js", root), "utf8"),
     readFile(new URL("src/automatapoeia.js", root), "utf8"),
   ]);
   assert.match(legacy, /url=automatapoeia\.html/);
@@ -408,7 +408,7 @@ test("Automatapoeia preserves exact live evolution while exposing history-safe i
 test("RISSET-MOIRE pairs every line with a counter-moving Shepard oscillator", async () => {
   const [html, app] = await Promise.all([
     readFile(new URL("moire-organ.html", root), "utf8"),
-    readFile(new URL("experiments-app.js", root), "utf8"),
+    readFile(new URL("src/families/experiments/experiments-app.js", root), "utf8"),
   ]);
 
   assert.match(html, /id="moireInterval"[^>]*min="0\.1"[^>]*max="2"[^>]*step="0\.01"[^>]*value="1"/);

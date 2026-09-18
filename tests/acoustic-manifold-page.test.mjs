@@ -3,8 +3,8 @@ import fs from "node:fs";
 import test from "node:test";
 
 const html = fs.readFileSync(new URL("../acoustic-manifold.html", import.meta.url), "utf8");
-const css = fs.readFileSync(new URL("../acoustic-manifold.css", import.meta.url), "utf8");
-const app = fs.readFileSync(new URL("../acoustic-manifold-app.js", import.meta.url), "utf8");
+const css = fs.readFileSync(new URL("../src/instruments/acoustic-manifold/acoustic-manifold.css", import.meta.url), "utf8");
+const app = fs.readFileSync(new URL("../src/instruments/acoustic-manifold/acoustic-manifold-app.js", import.meta.url), "utf8");
 const sourceCatalog = fs.readFileSync(
   new URL("../src/acoustic-source-catalog.js", import.meta.url),
   "utf8",
@@ -177,7 +177,7 @@ test("the multifractal explanation distinguishes the claim from multiscale summa
 });
 
 test("the additive stylesheet reuses the established responsive manifold design", () => {
-  assert.match(css, /@import url\(["']\.\/nightingale-manifold\.css["']\)/);
+  assert.match(css, /@import url\(["']\.\.\/nightingale-manifold\/nightingale-manifold\.css["']\)/);
   assert.match(css, /\.live-source/);
   assert.match(css, /#live-input-meter/);
   assert.match(css, /\.profile-research/);

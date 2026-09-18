@@ -8,7 +8,7 @@ const ignoredDirectories = new Set(["node_modules", "tests", "dist", "dist-wax"]
 
 export async function runtimeSourceFiles(root = repositoryRoot) {
   const files = new Set([
-    "app.js", "nav.js", "wax-page.js", "shader-synth-playground-bootstrap.js",
+    "src/instruments/shape-synth/shape-synth-app.js", "nav.js", "wax-page.js", "shader-synth-playground-bootstrap.js",
   ]);
   const entries = await readdir(root, { withFileTypes: true });
   for (const entry of entries) {

@@ -1,0 +1,155 @@
+previous ID	current ID	name	category ID	category	secondary tags	entry type	review note
+shape	shape-synth	Shape	geometric	Geometric	2D; Synthesizer	instrument	
+solid	solid-synth	Solid	geometric	Geometric	3D; Synthesizer	instrument	
+hyper	hyper-synth	Hyper	geometric	Geometric	4D; Synthesizer	instrument	
+moebius	moebius-synth	Möbius	wip	Work in Progress	Synthesizer; Geometric	instrument	Used wip ID as primary and retained Geometric as a secondary tag.
+klein-bottle	klein-bottle-synth	Klein Bottle	wip	Work in Progress	Synthesizer; Geometric	instrument	Used wip ID as primary and retained Geometric as a secondary tag.
+graph-synth	graph-synth	Graph Synth	geometric	Geometric	Fractal; Recursive	instrument	
+combo	shapes	Shapes	app	App	Geometric; Synthesizer; Sequencer; Drum Machine; Audio Effect; 2D; 3D; 4D	instrument	
+l-systems	l-systems	L-Systems	app	App	Fractal; Recursive; Drum Machine; Audio Effect	instrument	
+graphs	graphs	Graphs	app	App	Fractal; Recursive; Drum Machine; Audio Effect	instrument	
+tiles-app	tesselation	Tesselation	app	App	Tesselation; Sequencer; Drum Machine	instrument	Mapped the unique Tiles app row to existing tiles-app. [sheet: tesselation-app]
+algorithmic-mazes	algorithmic-mazes	Mazes	wip	Work in Progress		instrument	
+paths	paths	Paths	wip	Work in Progress		instrument	
+lattice	lattice	Lattice	tesselation	Tesselation	Sequencer	instrument	
+spiral	spiral	Spiral	tesselation	Tesselation	Sequencer	instrument	
+lattice-drums	lattice-drum-machine	Lattice Drum Machine	tesselation	Tesselation	Sequencer	instrument	
+spiral-drums	spiral-drum-machine	Spiral Drum Machine	tesselation	Tesselation	Sequencer	instrument	
+shape-drums	shape-drum-machine	Shape Drum Machine	geometric	Geometric		instrument	
+solid-drums	solid-drum-machine	Solid Drum Machine	geometric	Geometric		instrument	
+hyper-drums	hyper-drum-machine	Hyper Drum Machine	geometric	Geometric		instrument	
+l-system-drums	l-system-drum-machine	L-System Drum Machine	fractal	Fractal	Drum Machine; Recursive	instrument	Normalized ID punctuation/case. [sheet: fractal;]
+l-system	l-system	L-System	fractal	Fractal	Recursive; Sequencer	instrument	
+graph-drums	graph-drum-machine	Graph Drum Machine	geometric	Geometric	Fractal; Recursive; Drum Machine	instrument	Used geometric ID as primary and retained Drum Machine as a secondary tag.
+linear-drums-machine	rattlesnake-skin	Rattlesnake Skin	instrument	Instrument	Drum Machine	instrument	
+rubix	rubix	Rubix Cube Sequencer	sequencer	Sequencer	Drum Machine; 3D; Puzzle	instrument	
+sliding-puzzle	sliding-puzzle	Sliding Puzzle	sequencer	Sequencer	Drum Machine; 2D	instrument	
+hocket-loom	hocket-loom	Hocket Luigi	sequencer	Sequencer	Drum Machine; 3D	instrument	
+hyper-rubix	hyper-rubix	Hyper Rubix	sequencer	Sequencer	Drum Machine; 4D; Puzzle	instrument	
+webgpu-303	webgpu-303	WebGPU 303	gpu-audio	GPU Audio	Sequencer; Synthesizer; Acid; 303	instrument	Owner confirmed retaining webgpu-303 with display name WebGPU 303. [sheet: webgpu-304]
+simd-303	simd-303	SIMD 303	simd-audio	SIMD Audio	Sequencer; Synthesizer; Acid; 303	instrument	
+simd-synth	simd-synth	SIMD Synth	simd-audio	SIMD Audio	Synthesizer; Sequencer	instrument	
+webgpu-chiptune	webgpu-chiptune	WebGPU Chiptune	gpu-audio	GPU Audio	Synthesizer; Sequencer	instrument	
+jaw-jam	jaw-jam	Jaw Jam	sequencer	Sequencer	Physical Model; Instrument; Synthesizer	instrument	
+webgpu-synths	webgpu-synths	GPU Shader Synths	gpu-audio	GPU Audio	Sequencer; Synthesizer	instrument	
+srtuss	srtuss	srtuss Master	gpu-audio	GPU Audio	Sequencer; Synthesizer	instrument	
+shader-synth-playground	shader-synth-playground	Modular Shader Synth	gpu-audio	GPU Audio	Synthesizer	instrument	
+throatazoid	throatazoid	Throatazoid	physical-model	Physical Model	Voice; Synthesizer	instrument	
+pink-trombonazoid	pink-trombonazoid	Pink Trombonazoid	physical-model	Physical Model	Voice; Sequencer; Synthesizer	instrument	
+throat-singing	throat-singing	Throat Singing	physical-model	Physical Model	Voice; Synthesizer	instrument	
+syrinx	syrinx	Syrinx	bioacoustic	Bioacoustic	Physical Model	instrument	
+tongued-beasts	tongued-beasts	Tongued Beasts	bioacoustic	Bioacoustic	Physical Model	instrument	
+hybrinx	hybrinx	Hybrinx	bioacoustic	Bioacoustic	Physical Model	instrument	
+creaturazoid	creaturazoid	Creaturazoid	bioacoustic	Bioacoustic	Sequencer; Physical Model	instrument	
+quadruped	quadruped	Quadruped	bioacoustic	Bioacoustic	Sequencer; Drum Machine	instrument	
+roach-synth	roach-synth	Roach Synth	bioacoustic	Bioacoustic		instrument	
+spider-synth	spider-synth	Spider Synth	bioacoustic	Bioacoustic		instrument	
+colony-syrinx	monstroid	Monstroid	physical-model	Physical Model	Voice; Synthesizer	instrument	
+blowhole	blowhole	Blowhole	bioacoustic	Bioacoustic	Sequencer	instrument	
+jaw-harp	jaw-harp	Jaw Harp	physical-model	Physical Model	Instrument; Synthesizer	instrument	
+harmonica	harmonica	Harmonicazoid	physical-model	Physical Model	Instrument; Synthesizer	instrument	
+julie-saw	julie-saw	Julie Saw	physical-model	Physical Model	Instrument; Synthesizer	instrument	
+hiccup-head	hiccup-head	Hiccup Head	physical-model	Physical Model	Voice; Sequencer	instrument	
+digestazoid	digestazoid	Digestazoid	bioacoustic	Bioacoustic		instrument	
+breath-atlas	breath-atlas	Mouthophones	wip	Work in Progress		instrument	
+spelling-synthesizer	spelling-synthesizer	Spelling Synthesizer	wip	Work in Progress		instrument	
+vocalzoid	vocalzoid	Vocalzoid	voice	Voice	Synthesizer	instrument	
+lumber	lumber	Lumber Loops	audio-effect	Audio Effect	Looper	instrument	
+micmic	micmic	L-system Delay	audio-effect	Audio Effect	Fractal; Recursive	instrument	
+graph-delay	graph-delay	Graph Delay	audio-effect	Audio Effect	Graph	instrument	
+micromorph	micromorph	Micromorph	wip	Work in Progress		instrument	
+shepard-risset	shepard-risset	Shepard–Risset	infinite-illusion	Infinite Illusion	Synthesizer; Shepard; Risset	instrument	
+slippery-resynthesis	slippery-resynthesis	Slippery Resynthesis	infinite-illusion	Infinite Illusion	Audio Effect; Shepard; Risset; FFT; Resynthesis	instrument	
+drum-roll-please	drum-roll-please	Drum Roll Please!	infinite-illusion	Infinite Illusion	Shepard; Risset; Drum Machine; Sequencer	instrument	
+ouroborousel	ouroborousel	Ouroborousel	infinite-illusion	Infinite Illusion	Shepard; Risset; Drum Machine; Sequencer	instrument	
+ourorourobouroboros	ourorourobouroboros	Ourorourobouroboros	infinite-illusion	Infinite Illusion	Shepard; Risset; Drum Machine; Sequencer	instrument	
+ouroboros	ouroboros	Ouroboros	infinite-illusion	Infinite Illusion	Shepard; Risset; Drum Machine; Sequencer	instrument	
+ouroboros-borealis	ouroboros-borealis	Ouroboros Borealis	infinite-illusion	Infinite Illusion	Shepard; Risset; Drum Machine; Sequencer	instrument	
+sandy-syrup-delay	sandy-syrup-delay	Sandy Syrup Delay	infinite-illusion	Infinite Illusion	Shepard; Risset; Audio Effect; Delay	instrument	
+candy-coil-delay	candy-coil-delay	Candy Coil Delay	infinite-illusion	Infinite Illusion	Shepard; Risset; Audio Effect; Delay	instrument	
+recursion	recursion	Recursion	wip	Work in Progress		instrument	
+enveloper	enveloper	Enveloper	sequencer	Sequencer		instrument	
+julia	julia	Julia	fractal	Fractal	Sonification	instrument	
+striped-staircase	striped-staircase	Striped Staircase	fractal	Fractal	Sonification	instrument	
+recursive-fm	recursive-fm	Recursive FM	synthesizer	Synthesizer	Chaotic; Nonlinear; Recursive; FM	instrument	
+recursive-pm	recursive-pm	Recursive PM	synthesizer	Synthesizer	Chaotic; Nonlinear; Recursive; PM	instrument	
+chaotic-fm	chaotic-fm	Chaotic FM	synthesizer	Synthesizer	Chaotic; Nonlinear; FM	instrument	
+chaotic-pm	chaotic-pm	Chaotic PM	synthesizer	Synthesizer	Chaotic; Nonlinear; PM	instrument	
+cascading-fm	cascading-fm	Cascading FM	synthesizer	Synthesizer	Chaotic; Nonlinear; FM	instrument	
+cascading-pm	cascading-pm	Cascading PM	synthesizer	Synthesizer	Chaotic; Nonlinear; PM	instrument	
+weierstrass	weierstrass	Weierstrass	synthesizer	Synthesizer	Chaotic; Nonlinear	instrument	Kept as an unresolved question/feature request, not a published capability tag. [sheet: Recursion (is it)]
+moire-drone	moire-drone	Fabric Filter	noise	Noise	Filter; 2D	instrument	Kept as an unresolved question/feature request, not a published capability tag. [sheet: Audio Effect (add capability)]
+playhead-paint	playhead-paint	Playhead Paint	wip	Work in Progress		instrument	
+boidzoid	boidzoid	Boidzoid	wip	Work in Progress		instrument	
+puggler	puggler	Puggler the Punk Rock Jugger	graphic-ui	Graphic-UI	Sequencer	instrument	Normalized ID punctuation/case. [sheet: graphic-UI]
+vector-flight	vector-flight	Vector Flight	wip	Work in Progress		instrument	
+gesturama	gesturama	Gesturama	wip	Work in Progress		instrument	
+image-to-instrument-3	image-to-instrument-3	Wheel of Organs	wip	Work in Progress		instrument	Owner confirmed retaining image-to-instrument-3. [sheet: image-to-instrument-4]
+orbital-ferris	orbital-ferris	Feral Fairy Ferris Ferry	wip	Work in Progress		instrument	
+fm-drums	fm-drums	FM Drums	instrument	Instrument	Drum Machine	instrument	
+linear-drums	linear-drums	Rattlesnake	instrument	Instrument	Drum Machine	instrument	Owner confirmed retaining Rattlesnake. [sheet: RatTesselationnake]
+karplus-strong	karplus-strong	Karplus Strong	instrument	Instrument	Synthesizer; Physical Model	instrument	
+karplus-carpet	karplus-carpet	Karplus Carpet	instrument	Instrument	Synthesizer; Physical Model	instrument	
+surround-field	surround-field	Surround for Safety	dispersion	Dispersion	Surround; Spatial; Routing	instrument	
+sample-drums	sample-drums	Sample Drums	instrument	Instrument	Drum Machine	instrument	
+object-forge	object-forge	Dentaphone	instrument	Instrument		instrument	
+cellular-automata	cellular-automata	Automatapoeia	algorithmic	Algorithmic	Sequencer	instrument	
+sorting-algorithms	sorting-algorithms	Sorting	algorithmic	Algorithmic	Sequencer	instrument	
+dijkstra	dijkstra	DJ Dijkstra	algorithmic	Algorithmic	Sequencer	instrument	
+wave-pool	wave-pool	Wave Pool	wip	Work in Progress		instrument	
+penrose-tilings	penrose-tilings	Penrose Tilings	wip	Work in Progress		instrument	
+yoyodyne	yoyodyne	Yoyodyne	wip	Work in Progress		instrument	
+hanoi	hanoi	Hanoi Carillon	wip	Work in Progress		instrument	
+minimax	minimax	Alpha-Beta Minimax	wip	Work in Progress		instrument	
+nqueens	nqueens	N-Queens Backtracker	wip	Work in Progress		instrument	
+euclid	euclid	Euclidean Pulse	wip	Work in Progress		instrument	
+alien-larynx	alien-larynx	Alien Larynx	wip	Work in Progress		instrument	
+hyper-syrinx	hyper-syrinx	Hyper-Syrinx	wip	Work in Progress	Bioacoustic	instrument	
+morphynx	morphynx	Morphynx	wip	Work in Progress		instrument	
+escher-tessellation	escher-tessellation	Escher	wip	Work in Progress		instrument	
+plasma-ball	plasma-ball	Plasma Ball	wip	Work in Progress		instrument	
+simd-resonator	simd-resonator	SIMD Resonator	simd-audio	SIMD Audio	Resonator	instrument	
+order-tones	order-tones	Order Tones	wip	Work in Progress		instrument	
+morphazoidical	morphazoidical	Morphazoidical	wip	Work in Progress		instrument	
+bell-square	bell-square	Bell Square	wip	Work in Progress		instrument	
+entanglement-dance	entanglement-dance	Entanglement Dance	wip	Work in Progress		instrument	
+quantum-square-dance	quantum-square-dance	Quantum Square Dance	wip	Work in Progress		instrument	
+annealogue	annealogue	Annealogue	wip	Work in Progress		instrument	
+gravity-walk	gravity-walk	Gravity Walk	wip	Work in Progress		instrument	
+ricochet	ricochet	Ricochet	wip	Work in Progress		instrument	
+rigidity	rigidity	Rigidity	wip	Work in Progress		instrument	
+rolling-measure	rolling-measure	Rolling Measure	wip	Work in Progress		instrument	
+falling-forms	falling-forms	Falling Forms	wip	Work in Progress		instrument	
+charge-garden	charge-garden	Charge Garden	wip	Work in Progress		instrument	
+packing-pressure	packing-pressure	Packing Pressure	wip	Work in Progress		instrument	
+geodesic-drift	geodesic-drift	Geodesic Drift	wip	Work in Progress		instrument	
+kinetic-hull	kinetic-hull	Kinetic Hull	wip	Work in Progress		instrument	
+moire-organ	moire-organ	RISSET-MOIRE	wip	Work in Progress		instrument	
+chladni-plate	chladni-plate	Chladni Plate	wip	Work in Progress		instrument	
+spring-choir	spring-choir	Spring Choir	wip	Work in Progress		instrument	
+gear-ratio-drums	gear-ratio-drums	Gear Ratio Drums	wip	Work in Progress		instrument	
+prime-sieve	prime-sieve	Prime Sieve	wip	Work in Progress		instrument	
+lissajous-orbits	lissajous-orbits	Lissajous Orbits	wip	Work in Progress		instrument	
+pendulum-wave	pendulum-wave	Pendulum Wave	wip	Work in Progress		instrument	
+double-pendulum	double-pendulum	Double Pendulum	wip	Work in Progress		instrument	
+reaction-diffusion	reaction-diffusion	Reaction-Diffusion	wip	Work in Progress		instrument	
+atomic-orbitals	atomic-orbitals	Atomic Orbitals	wip	Work in Progress		instrument	
+dna-translator	dna-translator	DNA Translator	wip	Work in Progress		instrument	
+neural-pulse	neural-pulse	Neural Pulse	wip	Work in Progress		instrument	
+fourier-epicycles	fourier-epicycles	Fourier Epicycles	wip	Work in Progress		instrument	
+gravity-lens	gravity-lens	Gravity Lens	wip	Work in Progress		instrument	
+cantor-lock	cantor-lock	Cantor Lock	wip	Work in Progress		instrument	
+escape-dust	escape-dust	Escape Dust	wip	Work in Progress		instrument	
+linebreaker	linebreaker	Linebreaker	wip	Work in Progress		instrument	
+acoustic-manifold	acoustic-manifold	Acoustic Manifold	wip	Work in Progress		lab	
+adaptive-airway	adaptive-airway	Adaptive Airway Lab	wip	Work in Progress		lab	
+birdsong-lab	birdsong-lab	Strophe Lab	wip	Work in Progress		lab	
+crickets	crickets	Crickets	bioacoustic	Bioacoustic		lab	
+nightingale-manifold	nightingale-manifold	Nightingale Manifolds	wip	Work in Progress		lab	
+syrinx-ui	syrinx-ui	Syrinx UI	wip	Work in Progress		lab	
+simd-audio-lab	simd-lab	SIMD Audio Lab	wip	Work in Progress	SIMD Audio	lab	
+tempo-tantrum	tempo-tantrum	Tempo Tantrum	wip	Work in Progress		instrument	Added on main after the sheet inventory; preserved rather than deleted.
+tape-worm	tape-worm	Tape Worm	wip	Work in Progress		instrument	Added on main after the sheet inventory; preserved rather than deleted.
+loop-soup	loop-soup	Loop Soup	wip	Work in Progress		instrument	Added on main after the sheet inventory; preserved rather than deleted.
+habit-habitat	habit-habitat	Habit Habitat	wip	Work in Progress		instrument	Added on main after the sheet inventory; preserved rather than deleted.
+hollowphonic	hollowphonic	Hollowphonic	wip	Work in Progress		instrument	Added on main after the sheet inventory; preserved rather than deleted.

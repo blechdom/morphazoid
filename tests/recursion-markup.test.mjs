@@ -6,7 +6,7 @@ const root = new URL("../", import.meta.url);
 test("recursion exposes one label-only Fuzzy Donut instrument and finite local seeds", async () => {
   const [html, css] = await Promise.all([
     readFile(new URL("recursion.html", root), "utf8"),
-    readFile(new URL("recursion.css", root), "utf8"),
+    readFile(new URL("src/instruments/recursion/recursion.css", root), "utf8"),
   ]);
 
   assert.match(html, /<body class="recursion-page">/);
@@ -15,8 +15,8 @@ test("recursion exposes one label-only Fuzzy Donut instrument and finite local s
     /class="tab recursion-tab active"[^>]*aria-current="page">(?:recursion|fuzzy donut)<\/a>/,
   );
   assert.match(html, /<option value="recursion\.html" selected>(?:recursion|fuzzy donut)<\/option>/);
-  assert.match(html, /src="recursion-app\.js"/);
-  assert.match(html, /href="recursion\.css"/);
+  assert.match(html, /src="src\/instruments\/recursion\/recursion-app\.js"/);
+  assert.match(html, /href="src\/instruments\/recursion\/recursion\.css"/);
 
   assert.match(html, /<h1[^>]*\bid="stageTitle"[^>]*>Fuzzy Donut<\/h1>/);
   assert.match(html, /<section[^>]*\baria-label="Fuzzy Donut"/);
@@ -139,7 +139,7 @@ test("recursion markup keeps ids unique and range controls labelled", async () =
 test("recursion offers three labelled geometry projections beside the canvas", async () => {
   const [html, app] = await Promise.all([
     readFile(new URL("recursion.html", root), "utf8"),
-    readFile(new URL("recursion-app.js", root), "utf8"),
+    readFile(new URL("src/instruments/recursion/recursion-app.js", root), "utf8"),
   ]);
   const group = html.match(
     /<[^>]+\bid="geometryViews"[^>]*>([\s\S]*?)<\/(?:div|nav|section)>/,

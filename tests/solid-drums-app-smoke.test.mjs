@@ -3,7 +3,7 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 test("solid drum app starts, renders sixteen voices, and plays plane intersections", async () => {
-  const html = await readFile(new URL("../solid-drums.html", import.meta.url), "utf8");
+  const html = await readFile(new URL("../solid-drum-machine.html", import.meta.url), "utf8");
   const ids = [...html.matchAll(/\bid="([^"]+)"/g)].map((match) => match[1]);
   const elements = new Map();
   const listeners = new Map();
@@ -212,7 +212,7 @@ test("solid drum app starts, renders sixteen voices, and plays plane intersectio
     for (const callback of callbacks) callback(now);
   }
 
-  await import(`../solid-drums-app.js?smoke=${Date.now()}`);
+  await import(`../src/instruments/solid-drum-machine/solid-drum-machine-app.js?smoke=${Date.now()}`);
   assert.ok(rafQueue.length > 0, "startup should schedule an initial render");
   flushAnimationFrames();
 

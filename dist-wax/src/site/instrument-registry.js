@@ -1,17 +1,15 @@
-/** Pure catalogue/navigation records. No browser startup or device access.
- * Public hrefs remain relative to the site root provided by nav.js, not this file.
- */
+/** Ordered catalogue/navigation data. No browser startup or device access. */
 const freezeGroup = (id, label, tools, metadata = {}) => Object.freeze({
-  id,
-  label,
-  ...metadata,
-  tools: Object.freeze(tools.map((tool) => Object.freeze(tool))),
+  id, label, ...metadata,
+  tools: Object.freeze(tools.map(tool => Object.freeze({ ...tool,
+    ...(tool.legacyHrefs ? { legacyHrefs: Object.freeze([...tool.legacyHrefs]) } : {}),
+  }))),
 });
 
 export const FAVE_TOOL_IDS = Object.freeze([
-  "shape",
-  "solid",
-  "hyper",
+  "shape-synth",
+  "solid-synth",
+  "hyper-synth",
   "rubix",
   "hyper-rubix",
   "hybrinx",
@@ -23,244 +21,109 @@ export const FAVE_TOOL_IDS = Object.freeze([
   "graph-synth",
   "lattice",
   "spiral",
-  "cellular-automata",
+  "cellular-automata"
 ]);
 
-/**
- * Shared navigation contract.
- *
- * `href` values are relative to nav.js, which lives at the published site
- * root. Directory tools use prefix matching so their secondary pages remain
- * associated with the same top-level tool.
- */
 export const TOOL_GROUPS = Object.freeze([
-  freezeGroup("geometry", "Geometry Synths", [
-    { id: "shape", label: "Shape", href: "shape.html" },
-    { id: "solid", label: "Solid", href: "solid.html" },
-    { id: "moebius", label: "Möbius", href: "moebius.html" },
-    { id: "klein-bottle", label: "Klein Bottle", href: "klein-bottle.html" },
-    { id: "hyper", label: "Hyper", href: "hyper.html" },
-    {
-      id: "graph-synth",
-      label: "Graph Synth",
-      href: "graph-synth.html",
-    },
+  freezeGroup("geometric", "Geometric", [
+    { id: "shape-synth", label: "Shape", href: "shape-synth.html", legacyHrefs: ["shape.html"], imageHref: "assets/instruments/shape.webp" },
+    { id: "solid-synth", label: "Solid", href: "solid-synth.html", legacyHrefs: ["solid.html"], imageHref: "assets/instruments/solid.webp" },
+    { id: "hyper-synth", label: "Hyper", href: "hyper-synth.html", legacyHrefs: ["hyper.html"], imageHref: "assets/instruments/hyper.webp" },
+    { id: "graph-synth", label: "Graph Synth", href: "graph-synth.html" },
+    { id: "shape-drum-machine", label: "Shape Drum Machine", href: "shape-drum-machine.html", legacyHrefs: ["shape-drums.html"], imageHref: "assets/instruments/shape-drums.webp" },
+    { id: "solid-drum-machine", label: "Solid Drum Machine", href: "solid-drum-machine.html", legacyHrefs: ["solid-drums.html"], imageHref: "assets/instruments/solid-drums.webp" },
+    { id: "hyper-drum-machine", label: "Hyper Drum Machine", href: "hyper-drum-machine.html", legacyHrefs: ["hyper-drums.html"], imageHref: "assets/instruments/hyper-drums.webp" },
+    { id: "graph-drum-machine", label: "Graph Drum Machine", href: "graph-drum-machine.html", legacyHrefs: ["graph-drums.html"], imageHref: "assets/instruments/graph-drums.webp" },
   ]),
-  freezeGroup("apps", "Apps", [
-    { id: "combo", label: "Shapes", href: "shapes.html" },
+  freezeGroup("app", "App", [
+    { id: "shapes", label: "Shapes", href: "shapes.html", legacyHrefs: ["combo.html"], imageHref: "assets/instruments/combo.webp" },
     { id: "l-systems", label: "L-Systems", href: "l-systems.html" },
     { id: "graphs", label: "Graphs", href: "graphs.html" },
-    { id: "tiles-app", label: "Tiles", href: "tiles.html" },
-    {
-      id: "algorithmic-mazes",
-      label: "Mazes",
-      href: "algorithmic-mazes.html",
-    },
-    { id: "paths", label: "Paths", href: "paths.html" },
+    { id: "tesselation", label: "Tesselation", href: "tesselation.html", legacyHrefs: ["tiles.html"], imageHref: "assets/instruments/tiles-app.webp" },
   ]),
-  freezeGroup("tiles", "Tiles", [
+  freezeGroup("tesselation", "Tesselation", [
     { id: "lattice", label: "Lattice", href: "lattice.html" },
     { id: "spiral", label: "Spiral", href: "spiral.html" },
-    {
-      id: "lattice-drums",
-      label: "Lattice Drum Machine",
-      href: "lattice-drums.html",
-    },
-    {
-      id: "spiral-drums",
-      label: "Spiral Drum Machine",
-      href: "spiral-drums.html",
-    },
+    { id: "lattice-drum-machine", label: "Lattice Drum Machine", href: "lattice-drum-machine.html", legacyHrefs: ["lattice-drums.html"], imageHref: "assets/instruments/lattice-drums.webp" },
+    { id: "spiral-drum-machine", label: "Spiral Drum Machine", href: "spiral-drum-machine.html", legacyHrefs: ["spiral-drums.html"], imageHref: "assets/instruments/spiral-drums.webp" },
   ]),
-  freezeGroup("geometry-drums", "Drum Machines", [
-    {
-      id: "shape-drums",
-      label: "Shape Drum Machine",
-      href: "shape-drums.html",
-    },
-    {
-      id: "solid-drums",
-      label: "Solid Drum Machine",
-      href: "solid-drums.html",
-    },
-    {
-      id: "hyper-drums",
-      label: "Hyper Drum Machine",
-      href: "hyper-drums.html",
-    },
-    {
-      id: "l-system-drums",
-      label: "L-System Drum Machine",
-      href: "l-system-drums.html",
-    },
-    {
-      id: "graph-drums",
-      label: "Graph Drum Machine",
-      href: "graph-drums.html",
-    },
-    {
-      id: "linear-drums-machine",
-      label: "Rattle Snake Skin",
-      href: "linear-drums-machine.html",
-    },
+  freezeGroup("fractal", "Fractal", [
+    { id: "l-system-drum-machine", label: "L-System Drum Machine", href: "l-system-drum-machine.html", legacyHrefs: ["l-system-drums.html"], imageHref: "assets/instruments/l-system-drums.webp" },
+    { id: "l-system", label: "L-System", href: "l-system.html" },
+    { id: "julia", label: "Julia", href: "julia.html" },
+    { id: "striped-staircase", label: "Striped Staircase", href: "striped-staircase.html" },
   ]),
-  freezeGroup("sequencers", "Sequencers", [
-    {
-      id: "rubix",
-      label: "Rubix Cube Sequencer",
-      href: "rubix.html",
-    },
-    {
-      id: "sliding-puzzle",
-      label: "Sliding Puzzle",
-      href: "sliding-puzzle.html",
-    },
-    {
-      id: "hocket-loom",
-      label: "Hocket Luigi",
-      href: "hocket-loom.html",
-    },
+  freezeGroup("instrument", "Instrument", [
+    { id: "rattlesnake-skin", label: "Rattlesnake Skin", href: "rattlesnake-skin.html", legacyHrefs: ["linear-drums-machine.html"], imageHref: "assets/instruments/linear-drums-machine.webp" },
+    { id: "fm-drums", label: "FM Drums", href: "fm-drums.html" },
+    { id: "linear-drums", label: "Rattlesnake", href: "linear-drums.html" },
+    { id: "karplus-strong", label: "Karplus Strong", href: "karplus-strong.html" },
+    { id: "karplus-carpet", label: "Karplus Carpet", href: "karplus-carpet.html" },
+    { id: "sample-drums", label: "Sample Drums", href: "sample-drums.html" },
+    { id: "object-forge", label: "Dentaphone", href: "dentaphone.html", imageHref: "assets/instruments/dentaphone.webp" },
+  ]),
+  freezeGroup("sequencer", "Sequencer", [
+    { id: "rubix", label: "Rubix Cube Sequencer", href: "rubix.html" },
+    { id: "sliding-puzzle", label: "Sliding Puzzle", href: "sliding-puzzle.html" },
+    { id: "hocket-loom", label: "Hocket Luigi", href: "hocket-loom.html" },
     { id: "hyper-rubix", label: "Hyper Rubix", href: "hyper-rubix.html" },
-    { id: "webgpu-303", label: "WebGPU 303", href: "webgpu-303.html" },
-    {
-      id: "simd-303",
-      label: "SIMD 303",
-      href: "simd-303.html",
-      imageHref: "assets/instruments/simd-303.webp",
-    },
-    { id: "simd-synth", label: "SIMD SYNTH", href: "simd-synth.html" },
-    {
-      id: "webgpu-chiptune",
-      label: "WebGPU Chiptune",
-      href: "webgpu-chiptune.html",
-      imageHref: "assets/instruments/webgpu-303.webp",
-    },
-    {
-      id: "jaw-jam",
-      label: "Jaw Jam",
-      href: "jaw-jam.html",
-      imageHref: "assets/instruments/jaw-harp.webp",
-    },
-    { id: "webgpu-synths", label: "GPU Shader Synths", href: "webgpu-synths.html" },
-    {
-      id: "srtuss",
-      label: "srtuss Master",
-      href: "srtuss.html",
-      imageHref: "assets/instruments/webgpu-synths.webp",
-    },
-    {
-      id: "shader-synth-playground",
-      label: "Modular Shader Synth",
-      href: "shader-synth-playground.html",
-      imageHref: "assets/instruments/webgpu-synths.webp",
-    },
+    { id: "jaw-jam", label: "Jaw Jam", href: "jaw-jam.html", imageHref: "assets/instruments/jaw-harp.webp" },
+    { id: "enveloper", label: "Enveloper", href: "enveloper.html" },
   ]),
-  freezeGroup("voice-synths", "Voice Synths", [
+  freezeGroup("gpu-audio", "GPU Audio", [
+    { id: "webgpu-303", label: "WebGPU 303", href: "webgpu-303.html" },
+    { id: "webgpu-chiptune", label: "WebGPU Chiptune", href: "webgpu-chiptune.html", imageHref: "assets/instruments/webgpu-303.webp" },
+    { id: "webgpu-synths", label: "GPU Shader Synths", href: "webgpu-synths.html" },
+    { id: "srtuss", label: "srtuss Master", href: "srtuss.html", imageHref: "assets/instruments/webgpu-synths.webp" },
+    { id: "shader-synth-playground", label: "Modular Shader Synth", href: "shader-synth-playground.html", imageHref: "assets/instruments/webgpu-synths.webp" },
+  ]),
+  freezeGroup("simd-audio", "SIMD Audio", [
+    { id: "simd-303", label: "SIMD 303", href: "simd-303.html", imageHref: "assets/instruments/simd-303.webp" },
+    { id: "simd-synth", label: "SIMD Synth", href: "simd-synth.html" },
+    { id: "simd-resonator", label: "SIMD Resonator", href: "simd-resonator.html" },
+  ]),
+  freezeGroup("physical-model", "Physical Model", [
     { id: "throatazoid", label: "Throatazoid", href: "throatazoid.html" },
-    {
-      id: "pink-trombonazoid",
-      label: "Pink Trombonazoid",
-      href: "pink-trombonazoid.html",
-    },
-    {
-      id: "throat-singing",
-      label: "Throat Singing",
-      href: "throat-singing.html",
-    },
-    { id: "syrinx", label: "Syrinx", href: "syrinx.html" },
-    {
-      id: "tongued-beasts",
-      label: "Tongued Beasts",
-      href: "tongued-beasts.html",
-    },
-    { id: "hybrinx", label: "Hybrinx", href: "hybrinx.html" },
-    { id: "creaturazoid", label: "Creaturazoid", href: "creaturazoid.html" },
-    {
-      id: "quadruped",
-      label: "Quadruped",
-      href: "quadruped.html",
-      legacyHrefs: Object.freeze(["quadroped.html"]),
-    },
-    { id: "roach-synth", label: "Roach Synth", href: "roach-synth.html" },
-    { id: "spider-synth", label: "Spider Synth", href: "spider-synth.html" },
-    {
-      id: "colony-syrinx",
-      label: "Monstrozoid",
-      href: "monstrozoid.html",
-      legacyHrefs: Object.freeze(["monsterzoid.html", "colony-syrinx.html"]),
-    },
-    { id: "blowhole", label: "Blowhole", href: "blowhole.html" },
+    { id: "pink-trombonazoid", label: "Pink Trombonazoid", href: "pink-trombonazoid.html" },
+    { id: "throat-singing", label: "Throat Singing", href: "throat-singing.html" },
+    { id: "monstroid", label: "Monstroid", href: "monstroid.html", legacyHrefs: ["monsterzoid.html","colony-syrinx.html","monstrozoid.html"], imageHref: "assets/instruments/colony-syrinx.webp" },
     { id: "jaw-harp", label: "Jaw Harp", href: "jaw-harp.html" },
     { id: "harmonica", label: "Harmonicazoid", href: "harmonica.html" },
     { id: "julie-saw", label: "Julie Saw", href: "julie-saw.html" },
     { id: "hiccup-head", label: "Hiccup Head", href: "hiccup-head.html" },
-    {
-      id: "digestazoid",
-      label: "Digestazoid",
-      href: "digestazoid.html",
-      imageHref: "assets/instruments/digestazoid.webp",
-    },
-    {
-      id: "breath-atlas",
-      label: "Mouthophones",
-      href: "mouthophones.html",
-    },
-    {
-      id: "spelling-synthesizer",
-      label: "Spelling Synthesizer",
-      href: "spelling-synthesizer.html",
-    },
-    {
-      id: "vocalzoid",
-      label: "Vocalzoid",
-      href: "vocalzoid.html",
-    },
   ]),
-  freezeGroup("mic-fx", "Mic FX", [
+  freezeGroup("bioacoustic", "Bioacoustic", [
+    { id: "syrinx", label: "Syrinx", href: "syrinx.html" },
+    { id: "tongued-beasts", label: "Tongued Beasts", href: "tongued-beasts.html" },
+    { id: "hybrinx", label: "Hybrinx", href: "hybrinx.html" },
+    { id: "creaturazoid", label: "Creaturazoid", href: "creaturazoid.html" },
+    { id: "quadruped", label: "Quadruped", href: "quadruped.html", legacyHrefs: ["quadroped.html"] },
+    { id: "roach-synth", label: "Roach Synth", href: "roach-synth.html" },
+    { id: "spider-synth", label: "Spider Synth", href: "spider-synth.html" },
+    { id: "blowhole", label: "Blowhole", href: "blowhole.html" },
+    { id: "digestazoid", label: "Digestazoid", href: "digestazoid.html", imageHref: "assets/instruments/digestazoid.webp" },
+    { id: "crickets", label: "Crickets", href: "crickets.html", catalogue: false, browse: true, entryType: "lab", imageHref: "assets/instruments/lab-placeholder.webp" },
+  ]),
+  freezeGroup("voice", "Voice", [
+    { id: "vocalzoid", label: "Vocalzoid", href: "vocalzoid.html" },
+  ]),
+  freezeGroup("audio-effect", "Audio Effect", [
     { id: "lumber", label: "Lumber Loops", href: "lumber.html" },
     { id: "micmic", label: "L-system Delay", href: "l-mic.html" },
     { id: "graph-delay", label: "Graph Delay", href: "graph-delay.html" },
-    { id: "micromorph", label: "Micromorph", href: "micromorph.html" },
   ]),
-  freezeGroup("barber-shop-poles", "Barber Shop Poles", [
+  freezeGroup("infinite-illusion", "Infinite Illusion", [
     { id: "shepard-risset", label: "Shepard–Risset", href: "shepard-risset.html" },
-    {
-      id: "slippery-resynthesis",
-      label: "Slippery Resynthesis",
-      href: "slippery-resynthesis.html",
-    },
-    {
-      id: "drum-roll-please",
-      label: "Drum Roll Please!",
-      href: "drum-roll-please.html",
-    },
+    { id: "slippery-resynthesis", label: "Slippery Resynthesis", href: "slippery-resynthesis.html" },
+    { id: "drum-roll-please", label: "Drum Roll Please!", href: "drum-roll-please.html" },
     { id: "ouroborousel", label: "Ouroborousel", href: "ouroborousel.html" },
-    {
-      id: "ourorourobouroboros",
-      label: "Ourorourobouroboros",
-      href: "ourorourobouroboros.html",
-    },
+    { id: "ourorourobouroboros", label: "Ourorourobouroboros", href: "ourorourobouroboros.html" },
     { id: "ouroboros", label: "Ouroboros", href: "ouroboros.html" },
-    {
-      id: "ouroboros-borealis",
-      label: "Ouroboros Borealis",
-      href: "ouroboros-borealis.html",
-    },
+    { id: "ouroboros-borealis", label: "Ouroboros Borealis", href: "ouroboros-borealis.html" },
     { id: "sandy-syrup-delay", label: "Sandy Syrup Delay", href: "sandy-syrup-delay.html" },
     { id: "candy-coil-delay", label: "Candy Coil Delay", href: "candy-coil-delay.html" },
   ]),
-  freezeGroup("fractals-recursion", "Fractals & Recursion", [
-    { id: "l-system", label: "L-System", href: "l-system.html" },
-    { id: "recursion", label: "Recursion", href: "recursion.html" },
-    { id: "enveloper", label: "Enveloper", href: "enveloper.html" },
-    { id: "julia", label: "Julia", href: "julia.html" },
-    {
-      id: "striped-staircase",
-      label: "Striped Staircase",
-      href: "striped-staircase.html",
-    },
-  ]),
-  freezeGroup("chaotic-synths", "Chaotic Synths", [
+  freezeGroup("synthesizer", "Synthesizer", [
     { id: "recursive-fm", label: "Recursive FM", href: "recursive-fm.html" },
     { id: "recursive-pm", label: "Recursive PM", href: "recursive-pm.html" },
     { id: "chaotic-fm", label: "Chaotic FM", href: "chaotic-fm.html" },
@@ -269,82 +132,41 @@ export const TOOL_GROUPS = Object.freeze([
     { id: "cascading-pm", label: "Cascading PM", href: "cascading-pm.html" },
     { id: "weierstrass", label: "Weierstrass", href: "weierstrass.html" },
   ]),
-  freezeGroup("misc", "Misc", [
-    {
-      id: "moire-drone",
-      label: "Fabric Filter",
-      href: "moire-drone.html",
-    },
-    { id: "playhead-paint", label: "Playhead Paint", href: "playhead-paint.html" },
-    { id: "boidzoid", label: "Boidzoid", href: "boidzoid.html" },
+  freezeGroup("noise", "Noise", [
+    { id: "moire-drone", label: "Fabric Filter", href: "moire-drone.html" },
+  ]),
+  freezeGroup("graphic-ui", "Graphic-UI", [
     { id: "puggler", label: "Puggler the Punk Rock Jugger", href: "puggler.html" },
-    { id: "vector-flight", label: "Vector Flight", href: "vector-flight.html" },
-    { id: "gesturama", label: "Gesturama", href: "gesturama.html" },
-    {
-      id: "image-to-instrument-3",
-      label: "Wheel of Organs",
-      href: "image-to-instrument-3.html",
-    },
-    {
-      id: "orbital-ferris",
-      label: "Feral Fairy Ferris Ferry",
-      href: "orbital-ferris.html",
-    },
   ]),
-  freezeGroup("instruments", "Instruments", [
-    { id: "fm-drums", label: "FM Drums", href: "fm-drums.html" },
-    { id: "linear-drums", label: "Rattlesnake", href: "linear-drums.html" },
-    { id: "karplus-strong", label: "Karplus Strong", href: "karplus-strong.html" },
-    { id: "karplus-carpet", label: "Karplus Carpet", href: "karplus-carpet.html" },
+  freezeGroup("dispersion", "Dispersion", [
     { id: "surround-field", label: "Surround for Safety", href: "surround-field.html" },
-    { id: "sample-drums", label: "Sample Drums", href: "sample-drums.html" },
-    {
-      id: "object-forge",
-      label: "Dentaphone",
-      href: "dentaphone.html",
-      imageHref: "assets/instruments/dentaphone.webp",
-    },
   ]),
-  freezeGroup("algorithmic-sequencers", "Algorithmic Sequencers", [
-    {
-      id: "cellular-automata",
-      label: "Automatapoeia",
-      href: "automatapoeia.html",
-    },
+  freezeGroup("algorithmic", "Algorithmic", [
+    { id: "cellular-automata", label: "Automatapoeia", href: "automatapoeia.html" },
     { id: "sorting-algorithms", label: "Sorting", href: "algorithmic-sequencers.html" },
     { id: "dijkstra", label: "DJ Dijkstra", href: "dijkstra.html" },
   ]),
-  freezeGroup("experiments", "Works in progress", [
-    {
-      id: "room-lobby",
-      label: "Music Rooms",
-      href: "music-rooms.html",
-      catalogue: false,
-    },
-    {
-      id: "vocal-effects-room",
-      label: "Vocal Effects Room",
-      href: "vocal-effects-room.html",
-      catalogue: false,
-    },
-    {
-      id: "instrument-share-room",
-      label: "Instrument Share Room",
-      href: "instrument-share-room.html",
-      catalogue: false,
-    },
-    {
-      id: "morphazoid-roulette",
-      label: "Morphazoid Roulette",
-      href: "morphazoid-roulette.html",
-      catalogue: false,
-    },
+  freezeGroup("wip", "Work in Progress", [
+    { id: "room-lobby", label: "Music Rooms", href: "music-rooms.html", catalogue: false },
+    { id: "vocal-effects-room", label: "Vocal Effects Room", href: "vocal-effects-room.html", catalogue: false },
+    { id: "instrument-share-room", label: "Instrument Share Room", href: "instrument-share-room.html", catalogue: false },
+    { id: "morphazoid-roulette", label: "Morphazoid Roulette", href: "morphazoid-roulette.html", catalogue: false },
+    { id: "moebius-synth", label: "Möbius", href: "moebius-synth.html", legacyHrefs: ["moebius.html"], imageHref: "assets/instruments/moebius.webp" },
+    { id: "klein-bottle-synth", label: "Klein Bottle", href: "klein-bottle-synth.html", legacyHrefs: ["klein-bottle.html"], imageHref: "assets/instruments/klein-bottle.webp" },
+    { id: "algorithmic-mazes", label: "Mazes", href: "algorithmic-mazes.html" },
+    { id: "paths", label: "Paths", href: "paths.html" },
+    { id: "breath-atlas", label: "Mouthophones", href: "mouthophones.html" },
+    { id: "spelling-synthesizer", label: "Spelling Synthesizer", href: "spelling-synthesizer.html" },
+    { id: "micromorph", label: "Micromorph", href: "micromorph.html" },
+    { id: "recursion", label: "Recursion", href: "recursion.html" },
+    { id: "playhead-paint", label: "Playhead Paint", href: "playhead-paint.html" },
+    { id: "boidzoid", label: "Boidzoid", href: "boidzoid.html" },
+    { id: "vector-flight", label: "Vector Flight", href: "vector-flight.html" },
+    { id: "gesturama", label: "Gesturama", href: "gesturama.html" },
+    { id: "image-to-instrument-3", label: "Wheel of Organs", href: "image-to-instrument-3.html" },
+    { id: "orbital-ferris", label: "Feral Fairy Ferris Ferry", href: "orbital-ferris.html" },
     { id: "wave-pool", label: "Wave Pool", href: "wave-pool.html" },
-    {
-      id: "penrose-tilings",
-      label: "Penrose Tilings",
-      href: "penrose-tilings.html",
-    },
+    { id: "penrose-tilings", label: "Penrose Tilings", href: "penrose-tilings.html" },
     { id: "yoyodyne", label: "Yoyodyne", href: "yoyodyne.html" },
     { id: "hanoi", label: "Hanoi Carillon", href: "hanoi.html" },
     { id: "minimax", label: "Alpha-Beta Minimax", href: "minimax.html" },
@@ -353,34 +175,13 @@ export const TOOL_GROUPS = Object.freeze([
     { id: "alien-larynx", label: "Alien Larynx", href: "alien-larynx.html" },
     { id: "hyper-syrinx", label: "Hyper-Syrinx", href: "hyper-syrinx.html" },
     { id: "morphynx", label: "Morphynx", href: "morphynx.html" },
-    {
-      id: "escher-tessellation",
-      label: "Escher",
-      href: "escher-tessellation.html",
-    },
+    { id: "escher-tessellation", label: "Escher", href: "escher-tessellation.html" },
     { id: "plasma-ball", label: "Plasma Ball", href: "plasma-ball.html" },
-    { id: "simd-resonator", label: "SIMD Resonator", href: "simd-resonator.html" },
-    {
-      id: "simd-audio-lab",
-      label: "SIMD Audio Lab",
-      href: "simd-audio-lab.html",
-      imageHref: "assets/instruments/simd-resonator.webp",
-      catalogue: false,
-    },
     { id: "order-tones", label: "Order Tones", href: "order-tones.html" },
-    {
-      id: "morphazoidical",
-      label: "Morphazoidical",
-      href: "morphazoidical/",
-      match: "directory",
-    },
+    { id: "morphazoidical", label: "Morphazoidical", href: "morphazoidical/", match: "directory" },
     { id: "bell-square", label: "Bell Square", href: "bell-square.html" },
     { id: "entanglement-dance", label: "Entanglement Dance", href: "entanglement-dance.html" },
-    {
-      id: "quantum-square-dance",
-      label: "Quantum Square Dance",
-      href: "quantum-square-dance.html",
-    },
+    { id: "quantum-square-dance", label: "Quantum Square Dance", href: "quantum-square-dance.html" },
     { id: "annealogue", label: "Annealogue", href: "annealogue.html" },
     { id: "gravity-walk", label: "Gravity Walk", href: "gravity-walk.html" },
     { id: "ricochet", label: "Ricochet", href: "ricochet.html" },
@@ -394,51 +195,43 @@ export const TOOL_GROUPS = Object.freeze([
     { id: "moire-organ", label: "RISSET-MOIRE", href: "moire-organ.html" },
     { id: "chladni-plate", label: "Chladni Plate", href: "chladni-plate.html" },
     { id: "spring-choir", label: "Spring Choir", href: "spring-choir.html" },
-    {
-      id: "gear-ratio-drums",
-      label: "Gear Ratio Drums",
-      href: "gear-ratio-drums.html",
-    },
+    { id: "gear-ratio-drums", label: "Gear Ratio Drums", href: "gear-ratio-drums.html" },
     { id: "prime-sieve", label: "Prime Sieve", href: "prime-sieve.html" },
-    {
-      id: "lissajous-orbits",
-      label: "Lissajous Orbits",
-      href: "lissajous-orbits.html",
-    },
+    { id: "lissajous-orbits", label: "Lissajous Orbits", href: "lissajous-orbits.html" },
     { id: "pendulum-wave", label: "Pendulum Wave", href: "pendulum-wave.html" },
-    {
-      id: "double-pendulum",
-      label: "Double Pendulum",
-      href: "double-pendulum.html",
-    },
-    {
-      id: "reaction-diffusion",
-      label: "Reaction-Diffusion",
-      href: "reaction-diffusion.html",
-    },
-    {
-      id: "atomic-orbitals",
-      label: "Atomic Orbitals",
-      href: "atomic-orbitals.html",
-    },
+    { id: "double-pendulum", label: "Double Pendulum", href: "double-pendulum.html" },
+    { id: "reaction-diffusion", label: "Reaction-Diffusion", href: "reaction-diffusion.html" },
+    { id: "atomic-orbitals", label: "Atomic Orbitals", href: "atomic-orbitals.html" },
     { id: "dna-translator", label: "DNA Translator", href: "dna-translator.html" },
     { id: "neural-pulse", label: "Neural Pulse", href: "neural-pulse.html" },
-    {
-      id: "fourier-epicycles",
-      label: "Fourier Epicycles",
-      href: "fourier-epicycles.html",
-    },
+    { id: "fourier-epicycles", label: "Fourier Epicycles", href: "fourier-epicycles.html" },
     { id: "gravity-lens", label: "Gravity Lens", href: "gravity-lens.html" },
     { id: "cantor-lock", label: "Cantor Lock", href: "cantor-lock.html" },
     { id: "escape-dust", label: "Escape Dust", href: "escape-dust.html" },
     { id: "linebreaker", label: "Linebreaker", href: "linebreaker.html" },
+    { id: "acoustic-manifold", label: "Acoustic Manifold", href: "acoustic-manifold.html", catalogue: false, browse: true, entryType: "lab", imageHref: "assets/instruments/lab-placeholder.webp" },
+    { id: "adaptive-airway", label: "Adaptive Airway Lab", href: "adaptive-airway.html", catalogue: false, browse: true, entryType: "lab", imageHref: "assets/instruments/lab-placeholder.webp" },
+    { id: "birdsong-lab", label: "Strophe Lab", href: "birdsong-lab.html", catalogue: false, browse: true, entryType: "lab", imageHref: "assets/instruments/lab-placeholder.webp" },
+    { id: "nightingale-manifold", label: "Nightingale Manifolds", href: "nightingale-manifold.html", catalogue: false, browse: true, entryType: "lab", imageHref: "assets/instruments/lab-placeholder.webp" },
+    { id: "syrinx-ui", label: "Syrinx UI", href: "syrinx-ui.html", catalogue: false, browse: true, entryType: "lab", imageHref: "assets/instruments/syrinx-ui.webp" },
+    { id: "simd-lab", label: "SIMD Audio Lab", href: "simd-lab.html", imageHref: "assets/instruments/simd-resonator.webp", catalogue: false, legacyHrefs: ["simd-audio-lab.html"], browse: true, entryType: "lab" },
     { id: "tempo-tantrum", label: "Tempo Tantrum", href: "tempo-tantrum.html" },
     { id: "tape-worm", label: "Tape Worm", href: "tape-worm.html" },
     { id: "loop-soup", label: "Loop Soup", href: "loop-soup.html" },
     { id: "habit-habitat", label: "Habit Habitat", href: "habit-habitat.html" },
     { id: "hollowphonic", label: "Hollowphonic", href: "hollowphonic.html" },
     { id: "graph-3d", label: "3D Graph", href: "graph-3d.html" },
+    { id: "crab-loom", label: "Crab Loom", href: "crab-loom.html" },
+    { id: "freeze-point", label: "Freeze Point", href: "freeze-point.html" },
+    { id: "scatter-ghost", label: "Scatter Ghost", href: "scatter-ghost.html" },
+    { id: "exceptional", label: "Exceptional", href: "exceptional.html" },
+    { id: "head-shed", label: "Head Shed", href: "head-shed.html" },
+    { id: "splice-ring", label: "Splice Ring", href: "splice-ring.html" },
+    { id: "onset-atlas", label: "Onset Atlas", href: "onset-atlas.html" },
+    { id: "synaptic-resonance", label: "Synaptic Resonance", href: "synaptic-resonance.html" },
   ], { picker: false }),
 ]);
 
-export const SITE_LINKS = Object.freeze([]);
+export const SITE_LINKS = Object.freeze([
+
+]);

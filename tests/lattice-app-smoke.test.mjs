@@ -190,7 +190,7 @@ test("lattice app renders and plays line contacts", async () => {
     return true;
   };
 
-  await import(`../lattice-app.js?smoke=${Date.now()}`);
+  await import(`../src/instruments/lattice/lattice-app.js?smoke=${Date.now()}`);
   assert.equal(typeof queuedFrame, "function");
   let now = performance.now() + 20;
   queuedFrame(now);

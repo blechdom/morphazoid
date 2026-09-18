@@ -31,7 +31,7 @@
     <title>Slippery Resynthesis — Morphazoid</title>
     <link rel="icon" href="favicon.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="style.css" />
-    <link rel="stylesheet" href="slippery-resynthesis.css" />
+    <link rel="stylesheet" href="src/instruments/slippery-resynthesis/slippery-resynthesis.css" />
   </head>
   <body class="slippery-resynthesis-page">
     <header class="masthead">
@@ -41,14 +41,14 @@
       </a>
 
       <nav class="tabs" aria-label="Instrument">
-        <a class="tab" href="shape.html">shape</a>
+        <a class="tab" href="shape-synth.html">shape</a>
         <a class="tab" href="shepard-risset.html">shepard–risset</a>
         <a class="tab active" href="slippery-resynthesis.html" aria-current="page">slippery resynthesis</a>
       </nav>
       <label class="mobile-instrument-nav">
         <span class="sr-only">Instrument</span>
         <select class="mobile-instrument-select" aria-label="Instrument">
-          <option value="shape.html">shape</option>
+          <option value="shape-synth.html">shape</option>
           <option value="shepard-risset.html">shepard–risset</option>
           <option value="slippery-resynthesis.html" selected>slippery resynthesis</option>
         </select>
@@ -422,7 +422,7 @@
     </main>
 
     <script type="module" src="nav.js"></script>
-    <script type="module" src="slippery-resynthesis-app.js"></script>
+    <script type="module" src="src/instruments/slippery-resynthesis/slippery-resynthesis-app.js"></script>
     <script type="module" src="wax/wax-universal-adapter.js" data-morphazoid-wax-universal-adapter></script>
 </body>
 </html>

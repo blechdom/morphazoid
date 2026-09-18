@@ -612,8 +612,8 @@ test("native page exposes Wave, FM, and source-faithful PM with bounded ledgers"
   const root = new URL("../", import.meta.url);
   const [markup, app, stylesheet, moduleSource] = await Promise.all([
     readFile(new URL("weierstrass.html", root), "utf8"),
-    readFile(new URL("weierstrass-app.js", root), "utf8"),
-    readFile(new URL("weierstrass.css", root), "utf8"),
+    readFile(new URL("src/instruments/weierstrass/weierstrass-app.js", root), "utf8"),
+    readFile(new URL("src/instruments/weierstrass/weierstrass.css", root), "utf8"),
     readFile(new URL("src/weierstrass.js", root), "utf8"),
   ]);
 
@@ -623,7 +623,7 @@ test("native page exposes Wave, FM, and source-faithful PM with bounded ledgers"
   assert.match(markup, /data-mode="wave"[^>]+>Wave</);
   assert.match(markup, /data-mode="fm"[^>]+>FM</);
   assert.match(markup, /data-mode="pm"[^>]+>PM</);
-  assert.match(markup, /href="chaotic-synth-ui\.css"/);
+  assert.match(markup, /href="src\/instruments\/chaotic-synth-ui\/chaotic-synth-ui\.css"/);
   assert.match(markup, /id="weierstrassFlow"/);
   assert.match(markup, />Terms</);
   assert.match(markup, />Start exponent</);
@@ -650,7 +650,7 @@ test("native page exposes Wave, FM, and source-faithful PM with bounded ledgers"
   assert.match(markup, /above-band energy is bounded/i);
   assert.match(markup, /role="img"/);
   assert.match(markup, /aria-live="polite"/);
-  assert.match(markup, /src="weierstrass-app\.js"/);
+  assert.match(markup, /src="src\/instruments\/weierstrass\/weierstrass-app\.js"/);
   assert.equal((markup.match(/data-preset="/g) ?? []).length, 10);
   assert.equal(
     (markup.match(/data-preset="[^"]+" data-mode="pm"/g) ?? []).length,

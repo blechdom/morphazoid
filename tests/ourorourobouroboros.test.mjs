@@ -357,8 +357,8 @@ test("defaults match the page contract and whimsical presets are complete", () =
 test("the new page wires its recursive rail, ring stepper, transport, controls, and reset accessibly", async () => {
   const [markup, app, styles, engine] = await Promise.all([
     readFile(new URL("ourorourobouroboros.html", ROOT), "utf8"),
-    readFile(new URL("ourorourobouroboros-app.js", ROOT), "utf8"),
-    readFile(new URL("ourorourobouroboros.css", ROOT), "utf8"),
+    readFile(new URL("src/instruments/ourorourobouroboros/ourorourobouroboros-app.js", ROOT), "utf8"),
+    readFile(new URL("src/instruments/ourorourobouroboros/ourorourobouroboros.css", ROOT), "utf8"),
     readFile(new URL("src/ourorourobouroboros.js", ROOT), "utf8"),
   ]);
 
@@ -433,8 +433,8 @@ test("the new page wires its recursive rail, ring stepper, transport, controls, 
     /document\.querySelector\("\[data-reset-all\]"\)\.addEventListener\("click"/,
   );
   assert.match(app, /calculateOuroborouselLayers/);
-  assert.match(app, /from "\.\/src\/ourorourobouroboros\.js"/);
-  assert.doesNotMatch(app, /from "\.\/src\/ouroborousel\.js"/);
+  assert.match(app, /from "\.\.\/\.\.\/ourorourobouroboros\.js"/);
+  assert.doesNotMatch(app, /from "\.\.\/\.\.\/ouroborousel\.js"/);
   assert.match(app, /const BLUE = \[86, 166, 255\]/);
   assert.match(app, /const ICE = \[238, 247, 255\]/);
   assert.match(app, /const VIOLET = \[139, 92, 246\]/);

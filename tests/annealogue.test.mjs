@@ -289,7 +289,7 @@ test("seeded measurement is deterministic and collapses to the sampled basis sta
 test("Annealogue markup and browser controller honor the quantum instrument contract", async () => {
   const [html, app] = await Promise.all([
     readFile(new URL("../annealogue.html", import.meta.url), "utf8"),
-    readFile(new URL("../annealogue-app.js", import.meta.url), "utf8"),
+    readFile(new URL("../src/instruments/annealogue/annealogue-app.js", import.meta.url), "utf8"),
   ]);
 
   assert.match(html, /<body class="quantum-page annealogue-page">/);
@@ -297,7 +297,7 @@ test("Annealogue markup and browser controller honor the quantum instrument cont
   assert.match(html, /class="stage quantum-stage annealogue-stage"/);
   assert.match(html, /class="panel quantum-panel annealogue-panel"/);
   assert.match(html, /href="style\.css"/);
-  assert.match(html, /href="quantum-synths\.css"/);
+  assert.match(html, /href="src\/instruments\/quantum-synths\/quantum-synths\.css"/);
   assert.match(html, /QUANTUM SYNTHS · 05/);
   assert.match(html, /<h1 id="annealogueTitle">Annealogue<\/h1>/);
   assert.match(html, /EXACT THREE-QUBIT CLASSICAL SIMULATION · NO SPEEDUP CLAIM/);
@@ -317,7 +317,7 @@ test("Annealogue markup and browser controller honor the quantum instrument cont
   assert.match(html, /Single Basin[\s\S]*False Floor[\s\S]*Frustrated Ring/);
 
   for (const [href, label] of [
-    ["shape.html", "shape"],
+    ["shape-synth.html", "shape"],
     ["order-tones.html", "order tones"],
     ["bell-square.html", "bell square"],
     ["annealogue.html", "annealogue"],
@@ -326,7 +326,7 @@ test("Annealogue markup and browser controller honor the quantum instrument cont
     assert.match(html, new RegExp('value="' + href.replace(".", "\\.") + '"[^>]*>' + label));
   }
   assert.match(html, /<script type="module" src="nav\.js"><\/script>/);
-  assert.match(html, /<script type="module" src="annealogue-app\.js"><\/script>/);
+  assert.match(html, /<script type="module" src="src\/instruments\/annealogue\/annealogue-app\.js"><\/script>/);
 
   assert.match(app, /new VoicePool\(8\)/);
   assert.match(app, /simulateAnneal/);

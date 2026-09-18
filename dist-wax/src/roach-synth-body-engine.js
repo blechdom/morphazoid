@@ -1,6 +1,6 @@
-import { RoachZing, RoachRecordingGrains } from './roach-synth-textures.js?v=0f50ed8f1f29';
-import { ROACH_BODY_SOURCE_INDEX, ROACH_BODY_SOURCES, normalizeRoachBodyMix } from './roach-synth-body.js?v=0f50ed8f1f29';
-import { RoachPercussion } from './roach-synth-percussion.js?v=0f50ed8f1f29';
+import { RoachZing, RoachRecordingGrains } from './roach-synth-textures.js?v=4c63f5560a14';
+import { ROACH_BODY_SOURCE_INDEX, ROACH_BODY_SOURCES, normalizeRoachBodyMix } from './roach-synth-body.js?v=4c63f5560a14';
+import { RoachPercussion } from './roach-synth-percussion.js?v=4c63f5560a14';
 
 const TAU = Math.PI * 2;
 const clamp = (x, lo, hi) => Math.max(lo, Math.min(hi, x));

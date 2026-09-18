@@ -5,7 +5,7 @@ import test from "node:test";
 import {
   WHEEL_ORGAN_PRESETS,
   mountWheelOfOrgans,
-} from "../wheel-of-organs-app.js";
+} from "../src/instruments/wheel-of-organs/wheel-of-organs-app.js";
 
 function fakeWheelDocument(html) {
   const elements = new Map();

@@ -31,7 +31,7 @@
     <title>Automatapoeia - Morphazoid</title>
     <link rel="icon" href="favicon.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="style.css" />
-    <link rel="stylesheet" href="experiments.css" />
+    <link rel="stylesheet" href="src/families/experiments/experiments.css" />
   </head>
   <body class="experiment-page" data-experiment="automata" data-tool-id="cellular-automata">
     <header class="masthead">
@@ -41,13 +41,13 @@
       </a>
 
       <nav class="tabs" aria-label="Instrument">
-        <a class="tab" href="shape.html">shape</a>
+        <a class="tab" href="shape-synth.html">shape</a>
         <a class="tab active" href="automatapoeia.html" aria-current="page">automatapoeia</a>
       </nav>
       <label class="mobile-instrument-nav">
         <span class="sr-only">Instrument</span>
         <select class="mobile-instrument-select" aria-label="Instrument">
-          <option value="shape.html">shape</option>
+          <option value="shape-synth.html">shape</option>
           <option value="automatapoeia.html" selected>automatapoeia</option>
         </select>
       </label>
@@ -436,7 +436,7 @@
     </main>
 
     <script type="module" src="nav.js"></script>
-    <script type="module" src="experiments-app.js"></script>
+    <script type="module" src="src/families/experiments/experiments-app.js"></script>
     <script type="module" src="wax/wax-universal-adapter.js" data-morphazoid-wax-universal-adapter></script>
 </body>
 </html>

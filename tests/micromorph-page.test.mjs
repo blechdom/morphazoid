@@ -7,8 +7,8 @@ const read = (path) => readFile(new URL(path, import.meta.url), "utf8");
 test("Micromorph exposes one honest, local-first live diffusion instrument", async () => {
   const [html, app, css, contract] = await Promise.all([
     read("../micromorph.html"),
-    read("../micromorph-app.js"),
-    read("../micromorph.css"),
+    read("../src/instruments/micromorph/micromorph-app.js"),
+    read("../src/instruments/micromorph/micromorph.css"),
     read("../contracts/micromorph-stream-v1.md"),
   ]);
   const ids = [...html.matchAll(/\bid="([^"]+)"/g)].map((match) => match[1]);
@@ -34,7 +34,7 @@ test("Micromorph exposes one honest, local-first live diffusion instrument", asy
   assert.match(html, /No neural model is active/i);
   assert.match(html, /deterministic spectral rehearsal/i);
   assert.match(html, /Use headphones/i);
-  assert.match(html, /src="micromorph-app\.js"/);
+  assert.match(html, /src="src\/instruments\/micromorph\/micromorph-app\.js"/);
   assert.match(app, /new MicromorphModelClient/);
   assert.match(app, /subscribePcmOutput/);
   assert.match(app, /sendPcmInput/);

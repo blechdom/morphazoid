@@ -20,7 +20,7 @@ import {
   shapeRotationTravelForAngle,
   shapeDrumVoiceIndex,
   shapeSideSubdivision,
-} from "../src/shape-drums.js";
+} from "../src/instruments/shape-drum-machine/shape-drum-machine.js";
 
 const bounds = { minX: -2, minY: -1, maxX: 2, maxY: 1, width: 4, height: 2 };
 const root = new URL("../", import.meta.url);
@@ -192,9 +192,9 @@ test("real shape contacts resolve to playable FM drum voices", () => {
 
 test("Shape Drum Machine keeps Shape controls and the compact shared FM drum bank", async () => {
   const [html, css, app] = await Promise.all([
-    readFile(new URL("shape-drums.html", root), "utf8"),
-    readFile(new URL("shape-drums.css", root), "utf8"),
-    readFile(new URL("shape-drums-app.js", root), "utf8"),
+    readFile(new URL("shape-drum-machine.html", root), "utf8"),
+    readFile(new URL("src/instruments/shape-drum-machine/shape-drum-machine.css", root), "utf8"),
+    readFile(new URL("src/instruments/shape-drum-machine/shape-drum-machine-app.js", root), "utf8"),
   ]);
   assert.match(html, /Shape Drum Machine/);
   assert.match(html, /id="stage"/);
@@ -229,7 +229,7 @@ test("Shape Drum Machine keeps Shape controls and the compact shared FM drum ban
   assert.match(html, /id="hitCapStatus"/);
   assert.match(html, />Simultaneous hit cap</);
   assert.doesNotMatch(html, /id="hitCapStatus"[^>]*aria-live/);
-  assert.match(html, /src="shape-drums-app\.js"/);
+  assert.match(html, /src="src\/instruments\/shape-drum-machine\/shape-drum-machine-app\.js"/);
   assert.doesNotMatch(html, /data-section="(?:sound|pitch)"|soundMode|synth-panel|voiceEditor/);
   assert.match(html, /id="playSection"[^>]*\sopen(?:\s|>)/);
   assert.doesNotMatch(html, /id="formSection"[^>]*\sopen(?:\s|>)/);

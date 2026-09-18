@@ -462,7 +462,7 @@ test("Rubix read-path metadata is immutable and defaults to parallel row-major p
     cellIndex: 4,
     activeRoles: ["acid", "drumLeft", "drumRight"],
   });
-  assert.deepEqual(rubixReadFrame("constructor", 4), rubixReadFrame("parallel", 4));
+  assert.deepEqual(rubixReadFrame("function Object() { [native code] }", 4), rubixReadFrame("parallel", 4));
 });
 
 test("Rubix read paths wrap transport positions and expose the full snake", () => {
@@ -569,8 +569,8 @@ test("dynamic read paths cover representative 2 x 2 through 12 x 12 cube faces",
 test("Rubix page exposes cube gestures, mutually exclusive banks across all six faces, and release asset", async () => {
   const [html, css, app, image] = await Promise.all([
     readFile(new URL("rubix.html", root), "utf8"),
-    readFile(new URL("rubix.css", root), "utf8"),
-    readFile(new URL("rubix-app.js", root), "utf8"),
+    readFile(new URL("src/instruments/rubix/rubix.css", root), "utf8"),
+    readFile(new URL("src/instruments/rubix/rubix-app.js", root), "utf8"),
     stat(new URL("assets/instruments/rubix.webp", root)),
   ]);
 
@@ -592,7 +592,7 @@ test("Rubix page exposes cube gestures, mutually exclusive banks across all six 
   assert.match(html, /all six faces run/i);
   assert.match(html, /one (?:sound )?bank (?:plays )?at a time/i);
   assert.match(html, /hidden stickers are silent/i);
-  assert.match(html, /src="rubix-app\.js"/);
+  assert.match(html, /src="src\/instruments\/rubix\/rubix-app\.js"/);
   const clockPosition = html.indexOf('data-section="play"');
   const playPosition = html.indexOf('id="playButton"');
   const movesPosition = html.indexOf('data-section="form"');
@@ -608,7 +608,7 @@ test("Rubix page exposes cube gestures, mutually exclusive banks across all six 
   assert.match(css, /\.rubix-read-modes/);
   assert.match(css, /\.rubix-mini-face/);
   assert.match(css, /@media \(max-width: 650px\)/);
-  assert.match(app, /from "\.\/src\/rubix\.js"/);
+  assert.match(app, /from "\.\.\/\.\.\/rubix\.js"/);
   assert.match(app, /rubixReadFrame/);
   assert.match(app, /rubixLayersForSize/);
   assert.match(app, /createRubixVisibilityProfile/);

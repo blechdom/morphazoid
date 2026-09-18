@@ -8,7 +8,7 @@ const root = new URL("../", import.meta.url);
 test("Lumber Loops keeps a traditional looper surface with optional advanced playback", async () => {
   const [html, app, css, packageJson] = await Promise.all([
     readFile(new URL("lumber.html", root), "utf8"),
-    readFile(new URL("lumber-app.js", root), "utf8"),
+    readFile(new URL("src/instruments/lumber/lumber-app.js", root), "utf8"),
     readFile(new URL("style.css", root), "utf8"),
     readFile(new URL("package.json", root), "utf8"),
   ]);
@@ -148,7 +148,7 @@ test("Lumber Loops keeps a traditional looper surface with optional advanced pla
   }
   assert.doesNotMatch(css, /--section-(?:accent|wash)/);
   assert.match(JSON.parse(packageJson).scripts.check, /scripts\/check-runtime-source\.mjs/);
-  assert.ok((await runtimeSourceFiles()).includes("lumber-app.js"), "the syntax check must cover Lumber");
+  assert.ok((await runtimeSourceFiles()).includes("src/instruments/lumber/lumber-app.js"), "the syntax check must cover Lumber");
 });
 
 test("Lumber Loops markup has unique ids and complete labels", async () => {

@@ -11,7 +11,7 @@
     <title>Escher — Morphazoid</title>
     <link rel="icon" href="favicon.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="style.css" />
-    <link rel="stylesheet" href="escher-tessellation.css" />
+    <link rel="stylesheet" href="src/instruments/escher-tessellation/escher-tessellation.css" />
   </head>
   <body class="escher-tessellation-page">
     <header class="masthead">
@@ -21,7 +21,7 @@
       </a>
 
       <nav class="tabs" aria-label="Instrument">
-        <a class="tab" href="shape.html">shape</a>
+        <a class="tab" href="shape-synth.html">shape</a>
         <a class="tab active" href="escher-tessellation.html" aria-current="page">escher</a>
         <a class="tab" href="order-tones.html">order tones</a>
         <a class="tab morphazoidical-tab" href="morphazoidical/">morphazoidical</a>
@@ -31,7 +31,7 @@
       <label class="mobile-instrument-nav">
         <span class="sr-only">Instrument</span>
         <select class="mobile-instrument-select" aria-label="Instrument">
-          <option value="shape.html">shape</option>
+          <option value="shape-synth.html">shape</option>
           <option value="escher-tessellation.html" selected>escher</option>
           <option value="order-tones.html">order tones</option>
           <option value="morphazoidical/">morphazoidical</option>
@@ -312,6 +312,6 @@
     </main>
 
     <script type="module" src="nav.js"></script>
-    <script type="module" src="escher-tessellation-app.js"></script>
+    <script type="module" src="src/instruments/escher-tessellation/escher-tessellation-app.js"></script>
   </body>
 </html>

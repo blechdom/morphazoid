@@ -1,5 +1,6 @@
 import { getSharedMidiManager } from "../../src/midi-manager.js";
 import { waxSupportForId } from "../../src/wax-instrument-roles.js";
+import { instrumentIdForRouteName, legacyInstrumentId } from "../../src/site/instrument-identities.js";
 import {
   UNIVERSAL_MIDI_CC_KEYWORDS,
   applyBrowserMidiClockTempo,
@@ -68,7 +69,7 @@ export function routeIdForLocation(locationLike) {
   const filename = pathname.split("/").at(-1) || "index.html";
   const basename = filename.replace(/\.html?$/i, "");
   if (basename === "index" && /\/morphazoidical(?:\/|$)/.test(pathname)) return "morphazoidical";
-  return ROUTE_ALIASES[basename] || basename || "index";
+  return instrumentIdForRouteName(ROUTE_ALIASES[basename] || basename || "index");
 }
 
 function isPressed(element) {
@@ -444,6 +445,7 @@ export function updateSelectOutputs(select, status, wantedId) {
 export function installUniversalWaxAdapter(runtime = globalThis, documentObject = runtime.document) {
   if (!runtime?.MorphazoidWAX || !documentObject?.body) return null;
   const routeId = routeIdForLocation(runtime.location);
+  const legacyRouteId = legacyInstrumentId(routeId);
   const support = waxSupportForId(routeId);
   if (!support) return null;
 
@@ -514,7 +516,7 @@ export function installUniversalWaxAdapter(runtime = globalThis, documentObject 
     if (!routingState.outputId || availableOutputIds.has(routingState.outputId)) {
       manager.selectOutput?.(routingState.outputId || null);
     }
-    scheduler.configure(routingState, { ...support, id: routeId });
+    scheduler.configure(routingState, { ...support, id: legacyRouteId });
     scheduler.setEnabled(
       routingState.hostSync && ["midi", "both"].includes(routingState.outputMode),
     );
@@ -549,7 +551,7 @@ export function installUniversalWaxAdapter(runtime = globalThis, documentObject 
       applyRoutingState({ ...routingState, rootNote: message.note }, "midi");
     }
     if (
-      EXISTING_MIDI_CLIENTS.has(routeId)
+      EXISTING_MIDI_CLIENTS.has(legacyRouteId)
       && !["timingClock", "start", "continue", "stop", "songPosition", "programChange", "polyPressure", "channelPressure"].includes(message.type)
     ) return;
     if (hostTransportAvailable && ["timingClock", "start", "continue", "stop", "songPosition"].includes(message.type)) {
@@ -570,7 +572,7 @@ export function installUniversalWaxAdapter(runtime = globalThis, documentObject 
   };
 
   const unregisterMidi = manager.registerClient({
-    id: `wax-universal:${routeId}`,
+    id: `wax-universal:${legacyRouteId}`,
     computerKeyboard: support.computerKeyboardMode !== "midi"
       ? false
       : support.noteMode === "drums"
@@ -637,7 +639,7 @@ export function installUniversalWaxAdapter(runtime = globalThis, documentObject 
   };
 
   const unregisterWax = runtime.MorphazoidWAX.register({
-    id: `${routeId}:midi-routing`,
+    id: `${legacyRouteId}:midi-routing`,
     stateVersion: 1,
     getState: () => routingState,
     applyState: (state) => applyRoutingState(state, "wax-hydration"),
@@ -665,7 +667,7 @@ export function installUniversalWaxAdapter(runtime = globalThis, documentObject 
         for (const event of events) {
           if (typeof runtime.CustomEvent === "function") {
             runtime.dispatchEvent?.(new runtime.CustomEvent("morphazoid:wax-midi-output", {
-              detail: { ...event, routeId, source: "companion-sequencer" },
+              detail: { ...event, routeId: legacyRouteId, source: "companion-sequencer" },
             }));
           }
         }

@@ -329,7 +329,7 @@ test("near-total wave loss becomes near-silent instead of keeping a fixed chord 
 test("Escape Dust markup exposes all layers, controls, mappings, and scientific guardrails", async () => {
   const html = await readFile(new URL("escape-dust.html", root), "utf8");
   assert.match(html, /<link rel="stylesheet" href="style\.css"/);
-  assert.match(html, /<link rel="stylesheet" href="fractal-uncertainty\.css"/);
+  assert.match(html, /<link rel="stylesheet" href="src\/instruments\/fractal-uncertainty\/fractal-uncertainty\.css"/);
   assert.match(html, /<body class="fractal-uncertainty-page escape-dust-page">/);
   assert.match(html, /<main class="shell fractal-uncertainty-shell" id="escapeDust">/);
   assert.match(html, /FRACTAL UNCERTAINTY · 02/);
@@ -409,7 +409,7 @@ test("Escape Dust markup has unique ids and labels every adjustable control", as
 });
 
 test("Escape Dust app uses bounded VoicePool layers, stable mappings, shortcuts, and BFCache cleanup", async () => {
-  const app = await readFile(new URL("escape-dust-app.js", root), "utf8");
+  const app = await readFile(new URL("src/instruments/escape-dust/escape-dust-app.js", root), "utf8");
   assert.match(app, /new VoicePool\(12/);
   assert.match(app, /deriveEscapeDustSound\(simulation\)/);
   assert.match(app, /voices\.setVoices\(sound\.waveVoices/);
@@ -431,7 +431,7 @@ test("Escape Dust app uses bounded VoicePool layers, stable mappings, shortcuts,
 });
 
 test("Escape Dust sound anatomy reports computed synth targets rather than generic prose", async () => {
-  const app = await readFile(new URL("escape-dust-app.js", root), "utf8");
+  const app = await readFile(new URL("src/instruments/escape-dust/escape-dust-app.js", root), "utf8");
   assert.match(app, /function livingCentroid\(\)/);
   assert.match(app, /sound\.waveVoices\.map/);
   assert.match(app, /sound\.waveVoices\.reduce/);

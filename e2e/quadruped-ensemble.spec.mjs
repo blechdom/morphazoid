@@ -72,7 +72,7 @@ test("Quadruped trio shares immediate BPM while each animal owns its own score",
 test("Quadruped renders every bonus voice in isolation with finite output and release", async ({ page }) => {
   await page.goto("/quadruped.html");
   const report = await page.evaluate(async () => {
-    const source = await (await fetch("./quadruped-app.js")).text();
+    const source = await (await fetch("./src/instruments/quadruped/quadruped-app.js")).text();
     const { QUADRUPED_CALLS } = await import("./src/quadruped-voices.js");
     const names = ["createPanner", "midiToFrequency", "scheduleTone", "schedulePitchContour", "scheduleCall"];
     const functions = names.map(name => {

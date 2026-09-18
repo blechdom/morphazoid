@@ -4,15 +4,15 @@ import test from "node:test";
 
 const ROOT = new URL("../", import.meta.url);
 const PAGES = [
-  { file: "shape.html", transportLabel: "Playhead direction and movement", directionLabel: "Playhead direction: clockwise" },
-  { file: "shape-drums.html", transportLabel: "Playhead direction and movement", directionLabel: "Playhead direction: clockwise" },
+  { file: "shape-synth.html", transportLabel: "Playhead direction and movement", directionLabel: "Playhead direction: clockwise" },
+  { file: "shape-drum-machine.html", transportLabel: "Playhead direction and movement", directionLabel: "Playhead direction: clockwise" },
   { file: "lattice.html", transportLabel: "Pattern direction and movement", directionLabel: "Pattern direction: reverse" },
-  { file: "lattice-drums.html", transportLabel: "Pattern direction and movement", directionLabel: "Pattern direction: reverse" },
+  { file: "lattice-drum-machine.html", transportLabel: "Pattern direction and movement", directionLabel: "Pattern direction: reverse" },
   { file: "spiral.html", transportLabel: "Time direction and movement", directionLabel: "Time direction: out to in" },
-  { file: "spiral-drums.html", transportLabel: "Time direction and movement", directionLabel: "Time direction: out to in" },
-  { file: "solid-drums.html", transportLabel: "Surface direction and movement", directionLabel: "Surface direction: forward" },
-  { file: "hyper-drums.html", transportLabel: "Hyperplane direction and movement", directionLabel: "Hyperplane direction: forward" },
-  { file: "l-system-drums.html", transportLabel: "Traversal direction and movement", directionLabel: "Traversal direction: forward" },
+  { file: "spiral-drum-machine.html", transportLabel: "Time direction and movement", directionLabel: "Time direction: out to in" },
+  { file: "solid-drum-machine.html", transportLabel: "Surface direction and movement", directionLabel: "Surface direction: forward" },
+  { file: "hyper-drum-machine.html", transportLabel: "Hyperplane direction and movement", directionLabel: "Hyperplane direction: forward" },
+  { file: "l-system-drum-machine.html", transportLabel: "Traversal direction and movement", directionLabel: "Traversal direction: forward" },
 ];
 const MIGRATED_PAGES = PAGES.slice(2);
 const LEGACY_PRIMARY_IDS = [
@@ -112,7 +112,7 @@ test("shape instruments and their drum machines share the Shape primary transpor
   }
 
   assert.equal(openingTagsWithId(sources.get("lattice.html"), "patternDirection").length, 1, "the Lattice spatial direction control remains distinct");
-  for (const file of ["spiral.html", "spiral-drums.html"]) {
+  for (const file of ["spiral.html", "spiral-drum-machine.html"]) {
     assert.equal(openingTagsWithId(sources.get(file), "loopDirection").length, 1, `${file} keeps its separate zoom direction control`);
   }
 });

@@ -19,7 +19,7 @@ test("Home page is the About guide", async () => {
   assert.doesNotMatch(html, /class="about-header-link"/);
   assert.doesNotMatch(html, /href="(?:plugins|instruments|about)\.html"/);
   assert.match(html, /id="homeInstrumentCatalogue"[\s\S]*?data-instrument-catalog/);
-  assert.match(html, /src="instrument-catalog-app\.js\?v=catalog-[^"]+"/);
+  assert.match(html, /src="src\/site\/instrument-catalog-app\.js\?v=catalog-[^"]+"/);
   assert.match(
     html,
     /<h1>Morphazoid<\/h1>[\s\S]*?<h2>Instrument Catalogue<\/h2>/,
@@ -58,7 +58,7 @@ test("Home page is the About guide", async () => {
   assert.doesNotMatch(html, /vibed up with Codex|no code was ever touched|Copyright/);
   assert.doesNotMatch(html, /manual-section-label">\d+/);
   assert.doesNotMatch(html, /class="page-entry"/);
-  assert.doesNotMatch(html, /<script type="module" src="app\.js"><\/script>/);
+  assert.doesNotMatch(html, /<script type="module" src="src\/instruments\/shape-synth\/shape-synth-app\.js"><\/script>/);
 });
 
 test("Home mounts the only complete registry-backed catalogue", async () => {
@@ -188,7 +188,7 @@ test("legacy About and catalogue URLs redirect to the single home page", async (
 });
 
 test("About document styles remain independently scrollable on instrument breakpoints", async () => {
-  const css = await readFile(new URL("about.css", root), "utf8");
+  const css = await readFile(new URL("src/site/styles/about.css", root), "utf8");
 
   assert.match(css, /\.about-shell\s*\{[^}]*overflow-y: auto;/);
   assert.match(css, /\.about-shell\s*\{[^}]*flex: 1 1 auto;/);

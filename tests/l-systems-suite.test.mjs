@@ -19,7 +19,7 @@ test("L-Systems suite modes describe the three source instruments", () => {
     L_SYSTEM_SUITE_MODES.map(({ id, label, href }) => ({ id, label, href })),
     [
       { id: "synth", label: "Synth", href: "l-system.html" },
-      { id: "drums", label: "Drums", href: "l-system-drums.html" },
+      { id: "drums", label: "Drums", href: "l-system-drum-machine.html" },
       { id: "mic", label: "Mic", href: "l-mic.html" },
     ],
   );
@@ -85,7 +85,7 @@ test("L-Systems suite records shared, analog, unique, and crossover parameters",
 test("L-Systems page is a native combined app, not a frame host", async () => {
   const [html, css] = await Promise.all([
     readFile(new URL("l-systems.html", root), "utf8"),
-    readFile(new URL("l-systems.css", root), "utf8"),
+    readFile(new URL("src/instruments/l-systems/l-systems.css", root), "utf8"),
   ]);
 
   assert.match(html, /<body class="l-systems-app-page">/);
@@ -122,7 +122,7 @@ test("L-Systems page is a native combined app, not a frame host", async () => {
   assert.match(html, /id="position"/);
   assert.match(html, /id="speed"/);
   assert.match(html, /id="structureMode"/);
-  assert.match(html, /src="l-systems-app\.js"/);
+  assert.match(html, /src="src\/instruments\/l-systems\/l-systems-app\.js"/);
   assert.doesNotMatch(html, /<iframe\b/i);
   assert.doesNotMatch(html, /Open original/i);
   assert.doesNotMatch(html, /l-systems-embed\.css/);
@@ -145,7 +145,7 @@ test("L-Systems page is a native combined app, not a frame host", async () => {
 });
 
 test("L-Systems app owns the audio engines and preserves shared state while switching modes", async () => {
-  const app = await readFile(new URL("l-systems-app.js", root), "utf8");
+  const app = await readFile(new URL("src/instruments/l-systems/l-systems-app.js", root), "utf8");
 
   assert.match(app, /new VoicePool\(128, \{ adaptive: true, maxVoices: 4096 \}\)/);
   assert.match(app, /new FmDrumAudio\(globalThis\)/);
@@ -201,10 +201,11 @@ test("L-Systems lives in the Morphazoid Apps section", async () => {
     access(new URL("assets/instruments/l-systems.webp", root)),
   ]);
 
-  assert.match(nav, /freezeGroup\("apps", "Apps", \[[\s\S]*id: "l-systems", label: "L-Systems", href: "l-systems\.html"/);
+  assert.match(nav, /freezeGroup\("app", "App", \[[\s\S]*id: "l-systems", label: "L-Systems", href: "l-systems\.html"/);
   assert.match(catalog, /"l-systems": define\(/);
   assert.match(catalog, /Continuous, Notes, Triggers, and Mic playing modes/);
-  assert.match(catalog, /"l-systems": Object\.freeze\(\["fractals-recursion", "geometry-drums", "mic-fx"\]\)/);
+  const { instrumentById } = await import("../src/instrument-catalog.js");
+  assert.deepEqual(instrumentById("l-systems").tags.map(tag => tag.id), ["app", "fractal", "recursive", "drum-machine", "audio-effect"]);
   assert.match(midi, /sequence: Object\.freeze\(\[\s*"l-systems"/);
   assert.match(midi, /const audioInputIds = new Set\(\[\s*"l-systems"/);
 });

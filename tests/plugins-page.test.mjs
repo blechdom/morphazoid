@@ -74,8 +74,8 @@ test("plug-in catalog keeps separate instruments and immutable release artifacts
 test("plug-ins page gives non-programmers the Chaotic Synth catalog and VST roadmap", async () => {
   const [html, css, app] = await Promise.all([
     readFile(new URL("plugins.html", root), "utf8"),
-    readFile(new URL("plugins.css", root), "utf8"),
-    readFile(new URL("plugins-app.js", root), "utf8"),
+    readFile(new URL("src/site/plugins.css", root), "utf8"),
+    readFile(new URL("src/site/plugins-app.js", root), "utf8"),
   ]);
 
   assert.match(html, /<title>Morphazoid Plug-ins \(under development\)<\/title>/);
@@ -96,8 +96,8 @@ test("plug-ins page gives non-programmers the Chaotic Synth catalog and VST road
   );
   assert.match(html, /download="Morphazoid_Chaotic_FM-v0\.3\.0\.jsfx"/);
   assert.match(html, /src="nav\.js"/);
-  assert.match(html, /href="plugins\.css\?v=20260815-2"/);
-  assert.match(html, /src="plugins-app\.js\?v=20260815-2"/);
+  assert.match(html, /href="src\/site\/plugins\.css\?v=20260815-2"/);
+  assert.match(html, /src="src\/site\/plugins-app\.js\?v=20260815-2"/);
   assert.doesNotMatch(html, /id="pluginSearch"|id="pluginStatusFilter"/);
 
   assert.match(app, /PLUGIN_CATALOG\.map\(renderPluginCard\)/);

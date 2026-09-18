@@ -1209,8 +1209,8 @@ test("underrun recovery fades a nonzero chunk in from silence", () => {
 test("page is a control-forward explicit-audio master synth with no shader viewport", async () => {
   const [html, app, css, notices] = await Promise.all([
     readFile(new URL("srtuss.html", root), "utf8"),
-    readFile(new URL("srtuss-app.js", root), "utf8"),
-    readFile(new URL("srtuss.css", root), "utf8"),
+    readFile(new URL("src/instruments/srtuss/srtuss-app.js", root), "utf8"),
+    readFile(new URL("src/instruments/srtuss/srtuss.css", root), "utf8"),
     readFile(new URL("THIRD_PARTY_NOTICES.md", root), "utf8"),
   ]);
 
@@ -1231,8 +1231,8 @@ test("page is a control-forward explicit-audio master synth with no shader viewp
   assert.match(html, /class="group control-section srtuss-section/);
   const appVersion = html.match(/srtuss-app\.js\?v=([^"]+)/)?.[1];
   assert.ok(appVersion, "the SRTUSS app should have a cache version");
-  assert.match(app, new RegExp('from "\\.\\/src\\/srtuss\\.js\\?v=' + appVersion + '"'));
-  assert.match(app, new RegExp('from "\\.\\/src\\/srtuss-master\\.js\\?v=' + appVersion + '"'));
+  assert.match(app, new RegExp('from "\\.\\.\\/\\.\\.\\/srtuss\\.js\\?v=' + appVersion + '"'));
+  assert.match(app, new RegExp('from "\\.\\.\\/\\.\\.\\/srtuss-master\\.js\\?v=' + appVersion + '"'));
   assert.match(html, /Local server required/);
   assert.match(html, /npm run dev/);
   assert.match(html, /id="masterControls"/);

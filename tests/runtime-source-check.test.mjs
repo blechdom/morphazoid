@@ -10,7 +10,7 @@ test("syntax discovery includes nested families and tools without parsing Assemb
   const root = await mkdtemp(path.join(tmpdir(), "morphazoid-syntax-scope-"));
   try {
     const paths = [
-      "lumber-app.js", "src/families/tract/geometry.js", "src/graphics/canvas-sizing.js",
+      "src/instruments/lumber/lumber-app.js", "src/families/tract/geometry.js", "src/graphics/canvas-sizing.js",
       "scripts/architecture/report.mjs", "scripts/wax/bridge.js", "morphazoidical/app.js",
       "src/simd-resonator-scalar.ts", "src/xyflow/graph.jsx", "vendor/library.js",
       "dist-wax/app.js", "tests/example.test.mjs", "morphazoidical/tests/example.test.mjs",
@@ -24,7 +24,7 @@ test("syntax discovery includes nested families and tools without parsing Assemb
     for (const name of paths.slice(0, 6)) assert.ok(discovered.includes(name), name);
     for (const name of paths.slice(6)) assert.equal(discovered.includes(name), false, name);
     // Required entry points are checked even when missing, not silently omitted.
-    for (const name of ["app.js", "nav.js", "wax-page.js", "shader-synth-playground-bootstrap.js"]) {
+    for (const name of ["src/instruments/shape-synth/shape-synth-app.js", "nav.js", "wax-page.js", "shader-synth-playground-bootstrap.js"]) {
       assert.ok(discovered.includes(name), name);
     }
   } finally {

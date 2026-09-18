@@ -261,7 +261,7 @@ test("Fuzzy Donut initializes, draws, and drives one live recursive instrument",
     callback(now);
   }
 
-  await import(`../recursion-app.js?smoke=${Date.now()}`);
+  await import(`../src/instruments/recursion/recursion-app.js?smoke=${Date.now()}`);
   flushFrame();
 
   assert.equal(canvas.width, 1_800);

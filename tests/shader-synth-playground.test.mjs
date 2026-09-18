@@ -681,8 +681,8 @@ test("the graph editor shares a compact node footprint without shrinking touch t
   });
 
   const [css, app, html] = await Promise.all([
-    readFile(new URL("shader-synth-playground.css", ROOT), "utf8"),
-    readFile(new URL("shader-synth-playground-app.js", ROOT), "utf8"),
+    readFile(new URL("src/instruments/shader-synth-playground/shader-synth-playground.css", ROOT), "utf8"),
+    readFile(new URL("src/instruments/shader-synth-playground/shader-synth-playground-app.js", ROOT), "utf8"),
     readFile(new URL("shader-synth-playground.html", ROOT), "utf8"),
   ]);
   assert.match(css, /\.patch-node\s*\{[\s\S]*?width: 150px;[\s\S]*?min-height: 60px;[\s\S]*?border-radius: 7px;/);
@@ -2497,7 +2497,7 @@ test("waveform callbacks are playback-aligned and cannot stop the audio renderer
 });
 
 test("dynamic pattern-control ceilings follow Steps without changing registry limits", async () => {
-  const app = await readFile(new URL("shader-synth-playground-app.js", ROOT), "utf8");
+  const app = await readFile(new URL("src/instruments/shader-synth-playground/shader-synth-playground-app.js", ROOT), "utf8");
   const maximumSource = app.match(/function dynamicParameterMaximum\(moduleId, paramId, steps, specMaximum\) \{[\s\S]*?\n\}/)?.[0];
   assert.ok(maximumSource);
   const dynamicParameterMaximum = Function(`"use strict"; return (${maximumSource});`)();
@@ -2517,7 +2517,7 @@ test("dynamic pattern-control ceilings follow Steps without changing registry li
 });
 
 test("performance note-on requests one GPU queue handoff after pitch and one-shot reset", async () => {
-  const app = await readFile(new URL("shader-synth-playground-app.js", ROOT), "utf8");
+  const app = await readFile(new URL("src/instruments/shader-synth-playground/shader-synth-playground-app.js", ROOT), "utf8");
   const handoffSource = app.match(
     /function requestPerformanceNoteHandoff\(engine, applyPitch\) \{[\s\S]*?\n\}/,
   )?.[0];
@@ -2578,8 +2578,8 @@ test("performance note-on requests one GPU queue handoff after pitch and one-sho
 test("the page exposes a real graph editor, inspector, transport, and shared instrument header", async () => {
   const [html, css, app, engineSource, primitives, synth] = await Promise.all([
     readFile(new URL("shader-synth-playground.html", ROOT), "utf8"),
-    readFile(new URL("shader-synth-playground.css", ROOT), "utf8"),
-    readFile(new URL("shader-synth-playground-app.js", ROOT), "utf8"),
+    readFile(new URL("src/instruments/shader-synth-playground/shader-synth-playground.css", ROOT), "utf8"),
+    readFile(new URL("src/instruments/shader-synth-playground/shader-synth-playground-app.js", ROOT), "utf8"),
     readFile(new URL("src/shader-synth-playground.js", ROOT), "utf8"),
     readFile(new URL("webgpu-dsp-primitives.html", ROOT), "utf8"),
     readFile(new URL("webgpu-synths.html", ROOT), "utf8"),

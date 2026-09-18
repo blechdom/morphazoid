@@ -1,0 +1,16 @@
+{
+  "sourceCommit": "e042512165799c1ab32d36379c1071912e528e89",
+  "reason": "New loop-network capabilities landed on main after the owner-sheet baseline.",
+  "updates": {
+    "tape-worm": {
+      "kind": "Editable tape-splice network",
+      "description": "One playback head traverses up to eight recorded loops using live-editable directed routes, with per-route exit, entry and crossfade, center recording, and movable loop controls.",
+      "start": "Enable Audio, record in a loop center, or Play the demo. Add a loop, drag its letter, and connect it using Route then a destination letter."
+    },
+    "loop-soup": {
+      "kind": "Retaining tape network",
+      "description": "Up to eight movable lettered loops retain recorded audio, with per-loop record, pause, mute, solo and hold, plus editable directed audio feeds with send-level and tone controls.",
+      "start": "Enable Audio, Play the demo, and use the controls inside each loop. Add or remove loops and connect them using Route, then edit the route send level or tone."
+    }
+  }
+}

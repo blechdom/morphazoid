@@ -3,7 +3,7 @@ import { KARPLUS_STRONG_PRESETS } from "./karplus-strong.js";
 import {
   L_SYSTEM_DRUM_STYLES,
   styledLSystemDrumVoice,
-} from "./l-system-drums.js";
+} from "./instruments/l-system-drum-machine/l-system-drum-machine.js";
 import { LinearDrumAudio } from "./linear-drums.js";
 
 const clamp = (value, minimum = 0, maximum = 1, fallback = minimum) => {

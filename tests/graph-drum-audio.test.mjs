@@ -14,7 +14,7 @@ import {
   sanitizeGraphDrumPercussionStyle,
   translateGraphDrumStartAt,
 } from "../src/graph-drum-audio.js";
-import { styledLSystemDrumVoice } from "../src/l-system-drums.js";
+import { styledLSystemDrumVoice } from "../src/instruments/l-system-drum-machine/l-system-drum-machine.js";
 
 const baseVoice = Object.freeze({
   id: "test-drum",

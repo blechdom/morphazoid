@@ -129,7 +129,7 @@ test("Jaw Jam page exposes one complete accessible workstation contract", async 
   assert.match(html, /Sustain[\s\S]*carry pitch \+ reshape mouth/);
   assert.match(html, /Rest[\s\S]*stop reed \+ breath/);
   assert.match(html, /<script type="module" src="nav\.js"><\/script>/);
-  assert.match(html, /<script type="module" src="jaw-jam-app\.js"><\/script>/);
+  assert.match(html, /<script type="module" src="src\/instruments\/jaw-jam\/jaw-jam-app\.js"><\/script>/);
 
   for (const id of REQUIRED_IDS) {
     assert.equal(
@@ -155,7 +155,7 @@ test("Jaw Jam page exposes one complete accessible workstation contract", async 
 });
 
 test("Jaw Jam app owns compact monophonic cells, one shared inspector, and lane-wide paint gestures", async () => {
-  const app = await readFile(new URL("jaw-jam-app.js", root), "utf8");
+  const app = await readFile(new URL("src/instruments/jaw-jam/jaw-jam-app.js", root), "utf8");
 
   for (const className of DYNAMIC_STEP_CLASSES) {
     assert.ok(app.includes(className), `app must build ${className}`);
@@ -211,7 +211,7 @@ test("Jaw Jam app owns compact monophonic cells, one shared inspector, and lane-
 });
 
 test("Jaw Jam CSS keeps cells compact while preserving sustain bridges, hard rests, painting, and the performer", async () => {
-  const css = await readFile(new URL("jaw-jam.css", root), "utf8");
+  const css = await readFile(new URL("src/instruments/jaw-jam/jaw-jam.css", root), "utf8");
 
   assert.match(css, /--jaw-jam-copper:\s*#df9d5a/);
   assert.match(css, /--jaw-jam-cyan:\s*#76dfd3/);

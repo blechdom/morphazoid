@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
+import { readRuntimeManifest } from "../scripts/site/runtime-manifest.mjs";
 
 import {
   SHADER_PLAYGROUND_COMBOS,
@@ -953,7 +954,7 @@ test("site and WAX builds include the dedicated stateful runtime", async () => {
     readFile(new URL("dist-wax/src/shader-synth-playground-advanced-state.js", ROOT), "utf8"),
     readFile(new URL("src/shader-synth-playground-advanced-state-engine.js", ROOT), "utf8"),
     readFile(new URL("dist-wax/src/shader-synth-playground-advanced-state-engine.js", ROOT), "utf8"),
-    readFile(new URL("scripts/build-site.sh", ROOT), "utf8"),
+    readRuntimeManifest(),
     readFile(new URL("src/shader-synth-playground.js", ROOT), "utf8"),
     readFile(new URL("dist-wax/src/shader-synth-playground.js", ROOT), "utf8"),
   ]);
@@ -970,9 +971,7 @@ test("site and WAX builds include the dedicated stateful runtime", async () => {
     "shader-synth-playground-advanced-state.js",
     "shader-synth-playground-advanced-state-engine.js",
   ]) {
-    assert.ok(
-      countMatches(builder, new RegExp(`src/${file.replaceAll(".", "\\.")}`, "g")) >= 2,
-      `${file} must appear in both worktree-runtime and required-file build contracts`,
-    );
+    assert.ok(builder.worktreeFiles.includes(`src/${file}`), `${file} has pre-commit copy permission`);
+    assert.ok(builder.requiredFiles.includes(`src/${file}`), `${file} is required in the artifact`);
   }
 });

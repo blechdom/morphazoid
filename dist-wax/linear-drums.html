@@ -28,7 +28,7 @@
     <title>Rattlesnake - Morphazoid</title>
     <link rel="icon" href="favicon.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="style.css" />
-    <link rel="stylesheet" href="linear-drums.css" />
+    <link rel="stylesheet" href="src/instruments/linear-drums/linear-drums.css" />
   </head>
   <body class="linear-drums-page">
     <header class="masthead">
@@ -38,7 +38,7 @@
       </a>
 
       <nav class="tabs" aria-label="Instrument">
-        <a class="tab" href="shape.html">shape</a>
+        <a class="tab" href="shape-synth.html">shape</a>
         <a class="tab" href="fm-drums.html">fm drums</a>
         <a class="tab active" href="linear-drums.html" aria-current="page">rattlesnake</a>
         <a class="tab" href="karplus-strong.html">karplus strong</a>
@@ -52,7 +52,7 @@
       <label class="mobile-instrument-nav">
         <span class="sr-only">Instrument</span>
         <select class="mobile-instrument-select" aria-label="Instrument">
-          <option value="shape.html">shape</option>
+          <option value="shape-synth.html">shape</option>
           <option value="fm-drums.html">fm drums</option>
           <option value="linear-drums.html" selected>rattlesnake</option>
           <option value="karplus-strong.html">karplus strong</option>
@@ -259,7 +259,7 @@
     </main>
 
     <script type="module" src="nav.js"></script>
-    <script type="module" src="linear-drums-app.js"></script>
+    <script type="module" src="src/instruments/linear-drums/linear-drums-app.js"></script>
     <script type="module" src="wax/wax-universal-adapter.js" data-morphazoid-wax-universal-adapter></script>
 </body>
 </html>

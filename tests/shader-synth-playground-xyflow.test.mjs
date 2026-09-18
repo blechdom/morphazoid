@@ -15,14 +15,14 @@ test("shader playground offers XYFlow as a renderer-only comparison route", asyn
   const [html, bootstrap, app, jsx] = await Promise.all([
     source("shader-synth-playground.html"),
     source("shader-synth-playground-bootstrap.js"),
-    source("shader-synth-playground-app.js"),
+    source("src/instruments/shader-synth-playground/shader-synth-playground-app.js"),
     source("src/xyflow/shader-synth-playground-xyflow.jsx"),
   ]);
 
   assert.match(html, /id="graphRendererComparison"[\s\S]*href="\?graph=xyflow"/);
   assert.match(html, /id="xyflowGraphRoot"[\s\S]*hidden/);
   assert.match(html, /src="shader-synth-playground-bootstrap\.js/);
-  assert.doesNotMatch(html, /<script[^>]+src="shader-synth-playground-app\.js/);
+  assert.doesNotMatch(html, /<script[^>]+src="src\/instruments\/shader-synth-playground\/shader-synth-playground-app\.js/);
 
   assert.match(bootstrap, /requestedRenderer === xyflowRenderer/);
   assert.match(bootstrap, /import\(`\.\/assets\/xyflow\/shader-synth-playground-xyflow\.js\?v=\$\{xyflowAssetVersion\}`\)/);
@@ -32,7 +32,7 @@ test("shader playground offers XYFlow as a renderer-only comparison route", asyn
   assert.match(bootstrap, /assetResults\.find\(\(result\) => result\.status === "rejected"\)/);
   assert.match(bootstrap, /delete globalThis\.MorphazoidShaderSynthGraphRenderer/);
   assert.match(bootstrap, /catch \(error\)[\s\S]*using the original canvas/);
-  assert.match(bootstrap, /await import\("\.\/shader-synth-playground-app\.js/);
+  assert.match(bootstrap, /await import\("\.\/src\/instruments\/shader-synth-playground\/shader-synth-playground-app\.js/);
 
   assert.doesNotMatch(app, /from\s+["'](?:react|react-dom|@xyflow\/react)/);
   assert.match(app, /graphRendererFactory\.mount/);
@@ -119,9 +119,10 @@ test("XYFlow output cleanup rejects a linked assets directory before touching it
 });
 
 test("XYFlow authoring stays out of runtime copies and static builders own its output", async () => {
-  const [manifestText, buildSite, releaseBuilder, waxBuilder, bundleBuilder, css] = await Promise.all([
+  const [manifestText, buildSite, runtimeFiles, releaseBuilder, waxBuilder, bundleBuilder, css] = await Promise.all([
     source("package.json"),
     source("scripts/build-site.sh"),
+    source("scripts/site/runtime-files.tsv"),
     source("scripts/build-release-site.mjs"),
     source("scripts/build-wax-site.mjs"),
     source("scripts/build-shader-synth-xyflow.mjs"),
@@ -136,7 +137,7 @@ test("XYFlow authoring stays out of runtime copies and static builders own its o
   assert.match(manifest.scripts.dev, /build:xyflow/);
   assert.match(manifest.scripts.verify, /check:xyflow/);
   assert.match(buildSite, /src\/xyflow\/\*/);
-  assert.match(buildSite, /shader-synth-playground-bootstrap\.js/);
+  assert.match(runtimeFiles, /shader-synth-playground-bootstrap\.js/);
   assert.match(releaseBuilder, /buildShaderSynthXyflow/);
   assert.match(waxBuilder, /buildShaderSynthXyflow/);
   assert.match(bundleBuilder, /THIRD_PARTY_LICENSES\.txt/);

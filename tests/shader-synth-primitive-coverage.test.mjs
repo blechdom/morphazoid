@@ -57,7 +57,7 @@ test("every atlas primitive has one explicit playable, infrastructure, or workfl
     assert.equal(shaderSynthPrimitiveCoverageById(primitiveId), coverage);
   }
   assert.equal(shaderSynthPrimitiveCoverageById("not-a-primitive"), null);
-  assert.equal(shaderSynthPrimitiveCoverageById("__proto__"), null);
+  assert.equal(shaderSynthPrimitiveCoverageById("[object Object]"), null);
 });
 
 test("catalog ideas and graph modules remain intentionally many-to-one", () => {
@@ -92,9 +92,9 @@ test("the combined advanced modules are all reachable from their source primitiv
 
 test("the atlas renders searchable coverage links and the playground accepts module deep links", async () => {
   const [atlasApp, atlasCss, playgroundApp] = await Promise.all([
-    readFile(new URL("webgpu-dsp-primitives-app.js", ROOT), "utf8"),
-    readFile(new URL("webgpu-dsp-primitives.css", ROOT), "utf8"),
-    readFile(new URL("shader-synth-playground-app.js", ROOT), "utf8"),
+    readFile(new URL("src/instruments/webgpu-dsp-primitives/webgpu-dsp-primitives-app.js", ROOT), "utf8"),
+    readFile(new URL("src/instruments/webgpu-dsp-primitives/webgpu-dsp-primitives.css", ROOT), "utf8"),
+    readFile(new URL("src/instruments/shader-synth-playground/shader-synth-playground-app.js", ROOT), "utf8"),
   ]);
 
   assert.match(atlasApp, /shaderSynthPrimitiveCoverageById/);

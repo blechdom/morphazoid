@@ -78,7 +78,7 @@ const instrumentById = new Map(instrumentRoutes.map((route) => [route.id, route]
 const instrumentByHref = new Map(instrumentRoutes.map((route) => [route.href, route]));
 
 export const primaryInstrumentRoutes = Object.freeze(instrumentRoutes.filter(
-  ({ status }) => status !== "Works in progress",
+  ({ groupId }) => groupId !== "wip",
 ));
 
 export const faveRoutes = Object.freeze(FAVE_TOOL_IDS.map((id) => {

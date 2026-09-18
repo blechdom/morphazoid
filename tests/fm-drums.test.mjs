@@ -780,8 +780,8 @@ test("FM drum audio cancels a suspended start when page lifecycle closure wins",
 test("FM Drums keeps compact preset controls without a page title block", async () => {
   const [html, css, app] = await Promise.all([
     readFile(new URL("fm-drums.html", root), "utf8"),
-    readFile(new URL("fm-drums.css", root), "utf8"),
-    readFile(new URL("fm-drums-app.js", root), "utf8"),
+    readFile(new URL("src/instruments/fm-drums/fm-drums.css", root), "utf8"),
+    readFile(new URL("src/instruments/fm-drums/fm-drums-app.js", root), "utf8"),
   ]);
   assert.match(html, /class="masthead"/);
   assert.match(html, /class="mobile-instrument-select"/);
@@ -790,7 +790,7 @@ test("FM Drums keeps compact preset controls without a page title block", async 
   assert.match(html, /id="resetSet"/);
   assert.match(html, /id="downloadBank"/);
   assert.match(html, /src="nav\.js"/);
-  assert.match(html, /src="fm-drums-app\.js"/);
+  assert.match(html, /src="src\/instruments\/fm-drums\/fm-drums-app\.js"/);
   assert.match(html, /MIDI NOTES 36–51/);
   assert.match(html, /Controller Macros 1–8 · tune · decay · FM ratio · FM index · pitch sweep · noise · tone · level/);
   assert.match(html, /CC7 output · CC16 tune · CC73 attack · CC72 decay/);

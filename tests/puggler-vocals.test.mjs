@@ -42,7 +42,7 @@ test('nine immutable character profiles resolve stable cast identities and safe 
     assert.ok(Object.isFrozen(profile));
   }
   assert.equal(vocalCharacter(), VOCAL_CHARACTERS[0]);
-  assert.equal(vocalCharacter('__proto__', 2), vocalCharacter('punk', 2));
+  assert.equal(vocalCharacter("[object Object]", 2), vocalCharacter('punk', 2));
   for (const owner of [-1, 3, Infinity, NaN, 1.1, '1', null]) {
     assert.equal(vocalCharacter('future', owner), vocalCharacter('future', 0));
   }

@@ -329,7 +329,7 @@ test("L-system page exposes presets, traversal, mapping, adaptive synthesis, and
   const root = new URL("../", import.meta.url);
   const [html, app] = await Promise.all([
     readFile(new URL("l-system.html", root), "utf8"),
-    readFile(new URL("l-system-app.js", root), "utf8"),
+    readFile(new URL("src/instruments/l-system/l-system-app.js", root), "utf8"),
   ]);
   assert.equal(L_SYSTEM_PRESETS.length, 11);
   for (const name of ["Koch snowflake", "Sierpiński triangle", "Hilbert curve", "Gosper curve", "Cantor set", "Lévy C curve", "Terdragon"]) {
@@ -345,7 +345,7 @@ test("L-system page exposes presets, traversal, mapping, adaptive synthesis, and
   assert.match(html, /Branch length taper/);
   assert.match(html, /Length only—not line width or loudness/);
   assert.match(html, /hyper<\/a><a class="tab active"[^>]+>l-system<\/a><a class="tab recursion-tab"[^>]+>recursion<\/a><a class="tab"[^>]+>julia<\/a><a class="tab"[^>]+>lumber loops<\/a>/);
-  assert.match(html, /src="l-system-app\.js"/);
+  assert.match(html, /src="src\/instruments\/l-system\/l-system-app\.js"/);
   assert.match(app, /iterationPlaybackAtPhase/);
   assert.match(app, /allocateIterationVoiceHeads/);
   assert.match(app, /new VoicePool\(INITIAL_L_SYSTEM_VOICES,[\s\S]*adaptive: true,[\s\S]*maxVoices: MAX_L_SYSTEM_VOICES/);
