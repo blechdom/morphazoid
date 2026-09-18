@@ -13,7 +13,7 @@ const relativeAsset = (source, reference) => path.posix.normalize(path.posix.joi
 export async function fingerprintSpiderSynth(outputDirectory) {
   const modules = (await readdir(path.join(outputDirectory, 'src')))
     .filter(name => /^spider-synth(?:-[\w-]+)?\.js$/.test(name)).sort();
-  const filenames = ['spider-synth-app.js', 'spider-synth.css', ...modules.map(name => `src/${name}`)];
+  const filenames = ["src/instruments/spider-synth/spider-synth-app.js", "src/instruments/spider-synth/spider-synth.css", ...modules.map(name => `src/${name}`)];
   const sources = await Promise.all(filenames.map(async name => [name, unversion(await readFile(path.join(outputDirectory, name), 'utf8'))]));
   const hash = createHash('sha256');
   for (const [name, source] of sources) hash.update(name).update('\0').update(source).update('\0');

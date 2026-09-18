@@ -1,3 +1,5 @@
+import { canonicalInstrumentId } from "./site/instrument-identities.js";
+
 export const MIDI_OUTPUT_PREVIEW_EVENT = "morphazoid:midi-output-preview";
 
 const NOTE_NAMES = Object.freeze([
@@ -152,7 +154,7 @@ export function createMidiOutputPreviewState() {
 }
 
 function sameSignal(left, right) {
-  return left?.routeId === right?.routeId && left?.sourceId === right?.sourceId;
+  return canonicalInstrumentId(left?.routeId) === canonicalInstrumentId(right?.routeId) && left?.sourceId === right?.sourceId;
 }
 
 function retainSignal(list, event, limit = MAX_RETAINED_SIGNALS) {
@@ -562,7 +564,7 @@ export function initializeMidiOutputMonitor(
     }
   };
   const accept = (detail) => {
-    if (detail?.routeId && routeId && detail.routeId !== routeId) return null;
+    if (detail?.routeId && routeId && canonicalInstrumentId(detail.routeId) !== canonicalInstrumentId(routeId)) return null;
     state = reduceMidiOutputPreview(state, detail);
     if (state.last.kind === "note") {
       const noteKey = `${state.last.routeId}:${state.last.sourceId}:${state.last.voiceId}`;

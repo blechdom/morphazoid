@@ -22,14 +22,14 @@ const root = new URL("../", import.meta.url);
 test("Gesturama is a native Morphazoid page with explicit local camera startup", async () => {
   const [html, css, app, audio] = await Promise.all([
     readFile(new URL("gesturama.html", root), "utf8"),
-    readFile(new URL("gesturama.css", root), "utf8"),
-    readFile(new URL("gesturama-app.js", root), "utf8"),
+    readFile(new URL("src/instruments/gesturama/gesturama.css", root), "utf8"),
+    readFile(new URL("src/instruments/gesturama/gesturama-app.js", root), "utf8"),
     readFile(new URL("src/gesturama-audio.js", root), "utf8"),
   ]);
 
   assert.match(html, /<title>Gesturama — Morphazoid<\/title>/);
   assert.match(html, /class="wordmark" href="\.\/" aria-label="Morphazoid home"/);
-  assert.match(html, /href="style\.css"[\s\S]*href="gesturama\.css"/);
+  assert.match(html, /href="style\.css"[\s\S]*href="src\/instruments\/gesturama\/gesturama\.css"/);
   assert.match(html, /class="tab active" href="gesturama\.html" aria-current="page"/);
   assert.equal((html.match(/id="start-button"/g) ?? []).length, 1);
   assert.equal((html.match(/>Start camera<\/span>/g) ?? []).length, 1);
@@ -48,7 +48,7 @@ test("Gesturama is a native Morphazoid page with explicit local camera startup",
   assert.match(html, /id="paint-canvas"[\s\S]*aria-describedby="canvas-instructions"/);
   assert.match(html, /id="camera-feed"[^>]*autoplay[^>]*muted[^>]*playsinline/);
   assert.equal((html.match(/data-note="(?:36|38|39|42)"/g) ?? []).length, 4);
-  assert.match(html, /src="nav\.js"[\s\S]*src="gesturama-app\.js"/);
+  assert.match(html, /src="nav\.js"[\s\S]*src="src\/instruments\/gesturama\/gesturama-app\.js"/);
 
   assert.match(css, /^\.gesturama-app\s*\{/m);
   assert.doesNotMatch(css, /^:root\s*\{/m);
@@ -74,7 +74,7 @@ test("Gesturama is a native Morphazoid page with explicit local camera startup",
 test("Gesturama has no Draw or Play mode and pointer hover cannot perform sounds", async () => {
   const [html, app] = await Promise.all([
     readFile(new URL("gesturama.html", root), "utf8"),
-    readFile(new URL("gesturama-app.js", root), "utf8"),
+    readFile(new URL("src/instruments/gesturama/gesturama-app.js", root), "utf8"),
   ]);
 
   assert.doesNotMatch(html, /\bdata-mode=/);
@@ -142,7 +142,7 @@ test("Gesturama exposes presets, harp, motion view, microphone sampling, and col
 });
 
 test("Gesturama wires mirrored local color sampling into camera performance", async () => {
-  const app = await readFile(new URL("gesturama-app.js", root), "utf8");
+  const app = await readFile(new URL("src/instruments/gesturama/gesturama-app.js", root), "utf8");
 
   assert.match(app, /findColorCentroid,[\s\S]*sampleFrameColor,/);
   assert.match(app, /gridCells:\s*\[\.\.\.root\.querySelectorAll\("#trigger-grid \[data-grid-cell\]"\)\]/);
@@ -180,7 +180,7 @@ test("Gesturama wires mirrored local color sampling into camera performance", as
 });
 
 test("camera analysis combines the default grid with painted-zone priority", async () => {
-  const app = await readFile(new URL("gesturama-app.js", root), "utf8");
+  const app = await readFile(new URL("src/instruments/gesturama/gesturama-app.js", root), "utf8");
 
   assert.match(app, /const gridZones = defaultGridZones\(\);/);
   assert.match(
@@ -195,7 +195,7 @@ test("camera analysis combines the default grid with painted-zone priority", asy
 
 test("continuous pads, harp crossings, and grayscale motion levels are wired", async () => {
   const [app, audio] = await Promise.all([
-    readFile(new URL("gesturama-app.js", root), "utf8"),
+    readFile(new URL("src/instruments/gesturama/gesturama-app.js", root), "utf8"),
     readFile(new URL("src/gesturama-audio.js", root), "utf8"),
   ]);
 
@@ -226,7 +226,7 @@ test("continuous pads, harp crossings, and grayscale motion levels are wired", a
 
 test("microphone recorder and stored sample lifecycle are wired", async () => {
   const [app, audio] = await Promise.all([
-    readFile(new URL("gesturama-app.js", root), "utf8"),
+    readFile(new URL("src/instruments/gesturama/gesturama-app.js", root), "utf8"),
     readFile(new URL("src/gesturama-audio.js", root), "utf8"),
   ]);
 
@@ -262,7 +262,7 @@ test("microphone recorder and stored sample lifecycle are wired", async () => {
 });
 
 test("color tracking clears back to motion mode and cleans up marker/debug state", async () => {
-  const app = await readFile(new URL("gesturama-app.js", root), "utf8");
+  const app = await readFile(new URL("src/instruments/gesturama/gesturama-app.js", root), "utf8");
 
   assert.match(
     app,

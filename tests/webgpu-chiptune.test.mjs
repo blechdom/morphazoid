@@ -2093,12 +2093,12 @@ test("a stale future-preroll render is dropped once without spinning", async () 
 test("WebGPU Chiptune ships as a separate accessible and credited page", async () => {
   const [html, css, app, source, notices, readme, buildScript] = await Promise.all([
     readFile(new URL("webgpu-chiptune.html", root), "utf8"),
-    readFile(new URL("webgpu-chiptune.css", root), "utf8"),
-    readFile(new URL("webgpu-chiptune-app.js", root), "utf8"),
+    readFile(new URL("src/instruments/webgpu-chiptune/webgpu-chiptune.css", root), "utf8"),
+    readFile(new URL("src/instruments/webgpu-chiptune/webgpu-chiptune-app.js", root), "utf8"),
     readFile(new URL("src/webgpu-chiptune.js", root), "utf8"),
     readFile(new URL("THIRD_PARTY_NOTICES.md", root), "utf8"),
     readFile(new URL("README.md", root), "utf8"),
-    readFile(new URL("scripts/build-site.sh", root), "utf8"),
+    readFile(new URL("scripts/site/runtime-files.tsv", root), "utf8"),
   ]);
 
   assert.match(html, /id="webgpuChiptune"/);
@@ -2206,7 +2206,7 @@ test("WebGPU Chiptune ships as a separate accessible and credited page", async (
   assert.match(html, /Double-click, Enter, or Space turns it on or off/);
   assert.doesNotMatch(html, /Drums are binary|ducks the ensemble|auditions the/);
   assert.match(html, /Chiptune \(sound\) by srtuss, 2015 · Shadertoy MljSRt/);
-  assert.match(html, /src="webgpu-chiptune-app\.js"/);
+  assert.match(html, /src="src\/instruments\/webgpu-chiptune\/webgpu-chiptune-app\.js"/);
   assert.match(css, /#stage:focus-visible/);
   assert.match(css, /@media \(max-width: 620px\)[\s\S]*overflow-x: auto/);
   assert.match(css, /data-tracker-view="sequence"/);
@@ -2452,8 +2452,8 @@ test("WebGPU Chiptune ships as a separate accessible and credited page", async (
   }
   for (const file of [
     "webgpu-chiptune.html",
-    "webgpu-chiptune.css",
-    "webgpu-chiptune-app.js",
+    "src/instruments/webgpu-chiptune/webgpu-chiptune.css",
+    "src/instruments/webgpu-chiptune/webgpu-chiptune-app.js",
     "src/webgpu-chiptune.js",
   ]) {
     assert.ok(buildScript.includes(file), file + " must ship in the WAX build");

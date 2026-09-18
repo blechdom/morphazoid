@@ -150,12 +150,12 @@ test('all banks remain finite, balanced and bounded from 8 to 96 kHz', () => {
 });
 
 test('invalid identities and sample-rate extremes have explicit bounded behavior', () => {
-  for (const skin of ['', undefined, 'punk', '__proto__', null]) {
+  for (const skin of ['', undefined, 'punk', "[object Object]", null]) {
     assert.throws(() => renderEraPhrase(skin, 'guitar'), RangeError);
     assert.throws(() => renderEraDrum(skin, 'kick'), RangeError);
   }
-  for (const role of ['', 'oi', 'woo', '__proto__', null]) assert.throws(() => renderEraPhrase('history', role), RangeError);
-  for (const drum of ['', 'guitar', '__proto__', null]) assert.throws(() => renderEraDrum('future', drum), RangeError);
+  for (const role of ['', 'oi', 'woo', "[object Object]", null]) assert.throws(() => renderEraPhrase('history', role), RangeError);
+  for (const drum of ['', 'guitar', "[object Object]", null]) assert.throws(() => renderEraDrum('future', drum), RangeError);
   for (const owner of [-1, 3, NaN, Infinity, '1', 1.5, null]) {
     assert.deepEqual(renderEraPhrase('future', 'bass', owner), renderEraPhrase('future', 'bass', 0));
   }

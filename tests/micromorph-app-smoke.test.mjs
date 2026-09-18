@@ -147,7 +147,7 @@ test("Micromorph initializes one bounded render loop and does not request audio"
       },
     });
 
-    await import(`../micromorph-app.js?smoke=${Date.now()}`);
+    await import(`../src/instruments/micromorph/micromorph-app.js?smoke=${Date.now()}`);
     assert.equal(microphoneRequests, 0);
     assert.equal(animationRequests, 1, "startup and ResizeObserver share one pending frame");
 

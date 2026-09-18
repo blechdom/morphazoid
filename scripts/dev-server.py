@@ -24,6 +24,7 @@ class DevelopmentRequestHandler(SimpleHTTPRequestHandler):
         if urlsplit(self.path).path in {
             "/simd-resonator.html",
             "/simd-audio-lab.html",
+            "/simd-lab.html",
             "/src/simd-audio-worker.js",
         }:
             self.send_header("Cross-Origin-Opener-Policy", "same-origin")

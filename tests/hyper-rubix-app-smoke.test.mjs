@@ -712,7 +712,7 @@ test("view-facing projection changes cancel old lookahead without resetting the 
   const clock = new FakeClock(20_000);
   const runtime = installRuntimeEnvironment(t, fixture, clock);
 
-  await import("../hyper-rubix-app.js?projection-lookahead=" + Date.now());
+  await import("../src/instruments/hyper-rubix/hyper-rubix-app.js?projection-lookahead=" + Date.now());
   runtime.runFrame();
   await fixture.elements.get("audioButton").emit("click");
   await setControl(fixture, "tempo", 300, "input");
@@ -757,7 +757,7 @@ test("a completed manual twist cancels old-score lookahead without resetting the
   const clock = new FakeClock(30_000);
   const runtime = installRuntimeEnvironment(t, fixture, clock);
 
-  await import("../hyper-rubix-app.js?twist-lookahead=" + Date.now());
+  await import("../src/instruments/hyper-rubix/hyper-rubix-app.js?twist-lookahead=" + Date.now());
   runtime.runFrame();
   await fixture.elements.get("audioButton").emit("click");
   await setControl(fixture, "tempo", 300, "input");
@@ -800,7 +800,7 @@ test("manual twists never layer the Web Audio acid fallback over a live WebGPU 3
   const runtime = installRuntimeEnvironment(t, fixture, clock);
   const webGpu = installFakeWebGpu303Engine(t);
 
-  await import("../hyper-rubix-app.js?webgpu-exclusive=" + Date.now());
+  await import("../src/instruments/hyper-rubix/hyper-rubix-app.js?webgpu-exclusive=" + Date.now());
   runtime.runFrame();
   await fixture.elements.get("audioButton").emit("click");
   await setControl(fixture, "voice", "webgpu-303");
@@ -833,7 +833,7 @@ test("a WebGPU scope restart keeps the single phase calculated for its scheduled
   const runtime = installRuntimeEnvironment(t, fixture, clock);
   const webGpu = installFakeWebGpu303Engine(t);
 
-  await import("../hyper-rubix-app.js?webgpu-scope-phase=" + Date.now());
+  await import("../src/instruments/hyper-rubix/hyper-rubix-app.js?webgpu-scope-phase=" + Date.now());
   runtime.runFrame();
   await fixture.elements.get("audioButton").emit("click");
   await setControl(fixture, "voice", "webgpu-303");
@@ -868,7 +868,7 @@ test("Hyper Rubix keeps projection gestures silent, auditions twists, and surviv
   const fixture = runtimeFixture();
   const runtime = installRuntimeEnvironment(t, fixture);
 
-  await import("../hyper-rubix-app.js?manual-runtime=" + Date.now());
+  await import("../src/instruments/hyper-rubix/hyper-rubix-app.js?manual-runtime=" + Date.now());
   const baseTime = performance.now();
   runtime.runFrame(baseTime);
 
@@ -1063,7 +1063,7 @@ test("the single Shape loop traverses every sticker, stays running through edits
   const clock = new FakeClock(40_000);
   const runtime = installRuntimeEnvironment(t, fixture, clock);
 
-  await import("../hyper-rubix-app.js?shape-loop-runtime=" + Date.now());
+  await import("../src/instruments/hyper-rubix/hyper-rubix-app.js?shape-loop-runtime=" + Date.now());
   runtime.runFrame();
 
   const currentStickerId = () => fixture.elements.get("stage").dataset.currentSoundingStickerId;

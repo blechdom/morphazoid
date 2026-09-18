@@ -417,7 +417,7 @@ test("pair swing preserves total pair duration and focus modes only alter gain",
 test("page markup exposes one explicit audio arm, one primary transport, and no authored WAX bootstrap", async () => {
   const [html, app, audioModule, research] = await Promise.all([
     readFile(new URL("hocket-loom.html", root), "utf8"),
-    readFile(new URL("hocket-loom-app.js", root), "utf8"),
+    readFile(new URL("src/instruments/hocket-loom/hocket-loom-app.js", root), "utf8"),
     readFile(new URL("src/hocket-loom-audio.js", root), "utf8"),
     readFile(new URL("HOCKET_LOOM_RESEARCH.md", root), "utf8"),
   ]);

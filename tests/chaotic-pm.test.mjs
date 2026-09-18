@@ -1361,9 +1361,9 @@ test("worklet preallocates state and keeps its render loop allocation-free", asy
 test("Chaotic PM exposes Smooth and Legacy transfers with shared MIDI performance UI", async () => {
   const [markup, app, source, css] = await Promise.all([
     readFile(new URL("../chaotic-pm.html", import.meta.url), "utf8"),
-    readFile(new URL("../chaotic-pm-app.js", import.meta.url), "utf8"),
+    readFile(new URL("../src/instruments/chaotic-pm/chaotic-pm-app.js", import.meta.url), "utf8"),
     readFile(new URL("../src/chaotic-pm.js", import.meta.url), "utf8"),
-    readFile(new URL("../chaotic-pm.css", import.meta.url), "utf8"),
+    readFile(new URL("../src/instruments/chaotic-pm/chaotic-pm.css", import.meta.url), "utf8"),
   ]);
   assert.doesNotMatch(markup, /id="midiButton"/);
   assert.doesNotMatch(markup, /id="midiState"|id="midiError"/);

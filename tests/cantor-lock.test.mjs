@@ -147,7 +147,7 @@ test("Cantor Lock markup discloses scope, sources, controls, and the sound corre
   assert.match(html, /<body class="fractal-uncertainty-page cantor-lock-page">/);
   assert.match(html, /<main class="shell fractal-uncertainty-shell"/);
   assert.match(html, /href="style\.css"/);
-  assert.match(html, /href="fractal-uncertainty\.css"/);
+  assert.match(html, /href="src\/instruments\/fractal-uncertainty\/fractal-uncertainty\.css"/);
   assert.match(html, /FRACTAL UNCERTAINTY · 01/);
   assert.match(html, /<h1 id="cantorLockTitle">Cantor Lock<\/h1>/);
   assert.match(html, /FINITE CLASSICAL FOURIER MODEL · NOT A PROOF · NOT QPU OUTPUT/);
@@ -163,7 +163,7 @@ test("Cantor Lock markup discloses scope, sources, controls, and the sound corre
   ]) assert.match(html, new RegExp(`id="${id}"`), `missing #${id}`);
   assert.match(html, /Y address → pitch \+ pulse order/);
   assert.match(html, /The pitches follow sampled Fourier addresses directly rather than a conventional scale/);
-  assert.match(html, /<script type="module" src="cantor-lock-app\.js"><\/script>/);
+  assert.match(html, /<script type="module" src="src\/instruments\/cantor-lock\/cantor-lock-app\.js"><\/script>/);
 });
 
 test("Cantor Lock exposes an accessible live sound anatomy and musician-facing control guide", async () => {
@@ -191,7 +191,7 @@ test("Cantor Lock exposes an accessible live sound anatomy and musician-facing c
 });
 
 test("Cantor Lock sound anatomy mirrors the render pool and every audible mapping live", async () => {
-  const app = await read("cantor-lock-app.js");
+  const app = await read("src/instruments/cantor-lock/cantor-lock-app.js");
   assert.match(app, /levelToGain,[\s\S]*limitVoicePeakSum,[\s\S]*normalizeVoiceGains,[\s\S]*reduceVoiceContacts/);
   assert.match(app, /function continuousMix\(now = performance\.now\(\)\)/);
   assert.match(app, /reduceVoiceContacts\([\s\S]*MAX_AUDIO_VOICES/);
@@ -219,10 +219,10 @@ test("Cantor Lock sound anatomy mirrors the render pool and every audible mappin
 
 test("Cantor Lock app keeps audio bounded, live, accessible, and BFCache safe", async () => {
   const [app, core] = await Promise.all([
-    read("cantor-lock-app.js"),
+    read("src/instruments/cantor-lock/cantor-lock-app.js"),
     read("src/cantor-lock.js"),
   ]);
-  assert.match(app, /VoicePool,[\s\S]*from "\.\/src\/audio\.js"/);
+  assert.match(app, /VoicePool,[\s\S]*from "\.\.\/\.\.\/audio\.js"/);
   assert.match(app, /const MAX_AUDIO_VOICES = 12/);
   assert.match(app, /new VoicePool\(MAX_AUDIO_VOICES, \{ continuousPeakCeiling: 0\.68 \}\)/);
   assert.match(app, /pool\.setVoices/);

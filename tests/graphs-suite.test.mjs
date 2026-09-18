@@ -39,7 +39,7 @@ test("Graphs modes describe the synth, drum machine, and live microphone sources
         id: "drums",
         label: "Drums",
         title: "Graph Drum Machine",
-        href: "graph-drums.html",
+        href: "graph-drum-machine.html",
         audioKind: "drums",
       },
       {

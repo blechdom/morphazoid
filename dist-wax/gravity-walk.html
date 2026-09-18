@@ -28,7 +28,7 @@
     <title>Gravity Walk — Morphazoid</title>
     <link rel="icon" href="favicon.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="style.css" />
-    <link rel="stylesheet" href="physics.css" />
+    <link rel="stylesheet" href="src/families/physics/physics.css" />
   </head>
   <body class="physics-page" data-physics-scene="gravity-walk">
     <header class="masthead">
@@ -37,13 +37,13 @@
         <span>morphazoid</span>
       </a>
       <nav class="tabs" aria-label="Instrument">
-        <a class="tab" href="shape.html">shape</a>
+        <a class="tab" href="shape-synth.html">shape</a>
         <a class="tab active" href="gravity-walk.html" aria-current="page">gravity walk</a>
       </nav>
       <label class="mobile-instrument-nav">
         <span class="sr-only">Instrument</span>
         <select class="mobile-instrument-select" aria-label="Instrument">
-          <option value="shape.html">shape</option>
+          <option value="shape-synth.html">shape</option>
           <option value="gravity-walk.html" selected>gravity walk</option>
         </select>
       </label>
@@ -119,7 +119,7 @@
       <p class="sr-only" id="liveStatus" aria-live="polite"></p>
     </main>
     <script type="module" src="nav.js"></script>
-    <script type="module" src="physics-app.js"></script>
+    <script type="module" src="src/families/physics/physics-app.js"></script>
     <script type="module" src="wax/wax-universal-adapter.js" data-morphazoid-wax-universal-adapter></script>
 </body>
 </html>

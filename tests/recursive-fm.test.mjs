@@ -439,8 +439,8 @@ test("frequency readouts stay compact", () => {
 test("Recursive FM page is internal and uses a gesture-controlled audio button", async () => {
   const [html, app, css] = await Promise.all([
     readFile(new URL("../recursive-fm.html", import.meta.url), "utf8"),
-    readFile(new URL("../recursive-fm-app.js", import.meta.url), "utf8"),
-    readFile(new URL("../recursive-fm.css", import.meta.url), "utf8"),
+    readFile(new URL("../src/instruments/recursive-fm/recursive-fm-app.js", import.meta.url), "utf8"),
+    readFile(new URL("../src/instruments/recursive-fm/recursive-fm.css", import.meta.url), "utf8"),
   ]);
 
   assert.match(html, /id="audioButton"/);
@@ -449,7 +449,7 @@ test("Recursive FM page is internal and uses a gesture-controlled audio button",
   assert.match(html, /aria-label="Recursive FM graphic pane"/);
   assert.doesNotMatch(html, /recursive-fm-heading|recursiveFmTitle/);
   assert.match(html, /id="midiEnvelopeControls" hidden/);
-  assert.match(html, /href="chaotic-synth-ui\.css"/);
+  assert.match(html, /href="src\/instruments\/chaotic-synth-ui\/chaotic-synth-ui\.css"/);
   assert.match(html, /class="recursive-fm-signal-graph"/);
   assert.match(html, /id="recursiveFmFlow"/);
   assert.doesNotMatch(html, /id="midiButton"|id="midiState"|id="midiError"/);
@@ -490,7 +490,7 @@ test("Recursive FM page is internal and uses a gesture-controlled audio button",
   assert.match(app, /updateSignalFlow\(stack\)/);
   assert.match(html, /id="turnsReadout"/);
   assert.doesNotMatch(html, />Turn \d+</);
-  assert.match(html, /src="recursive-fm-app\.js"/);
+  assert.match(html, /src="src\/instruments\/recursive-fm\/recursive-fm-app\.js"/);
   assert.doesNotMatch(html, /https?:\/\//);
   assert.match(app, /class RecursiveFmAudioEngine/);
   assert.match(app, /new RecursiveFmWebMidi/);

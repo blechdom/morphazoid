@@ -28,13 +28,13 @@
     <title>Falling Forms — Morphazoid</title>
     <link rel="icon" href="favicon.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="style.css" />
-    <link rel="stylesheet" href="physics.css" />
+    <link rel="stylesheet" href="src/families/physics/physics.css" />
   </head>
   <body class="physics-page" data-physics-scene="falling-forms">
     <header class="masthead">
       <a class="wordmark" href="./" aria-label="Morphazoid home"><span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span><span>morphazoid</span></a>
-      <nav class="tabs" aria-label="Instrument"><a class="tab" href="shape.html">shape</a><a class="tab active" href="falling-forms.html" aria-current="page">falling forms</a></nav>
-      <label class="mobile-instrument-nav"><span class="sr-only">Instrument</span><select class="mobile-instrument-select" aria-label="Instrument"><option value="shape.html">shape</option><option value="falling-forms.html" selected>falling forms</option></select></label>
+      <nav class="tabs" aria-label="Instrument"><a class="tab" href="shape-synth.html">shape</a><a class="tab active" href="falling-forms.html" aria-current="page">falling forms</a></nav>
+      <label class="mobile-instrument-nav"><span class="sr-only">Instrument</span><select class="mobile-instrument-select" aria-label="Instrument"><option value="shape-synth.html">shape</option><option value="falling-forms.html" selected>falling forms</option></select></label>
       <div class="audio-strip" aria-label="Audio controls"><button class="audio-button" id="audioButton" type="button" aria-pressed="false"><span class="audio-glyph" aria-hidden="true">⬢</span><span class="audio-copy"><b>Audio</b><small id="audioState">off</small></span></button><label class="header-level" for="level"><span><b>Master level</b><output id="levelOut" for="level">56%</output></span><input id="level" aria-label="Master audio level" type="range" min="0" max="1" step="0.01" value="0.56" /></label></div>
     </header>
     <main class="shell physics-demo" id="physics-demo">
@@ -53,7 +53,7 @@
         <div class="reset-all-row"><button class="reset-all-button" id="resetAll" type="button" data-reset-all data-reset-in-place>Reset all parameters</button></div>
       </aside><p class="sr-only" id="liveStatus" aria-live="polite"></p>
     </main>
-    <script type="module" src="nav.js"></script><script type="module" src="physics-app.js"></script>
+    <script type="module" src="nav.js"></script><script type="module" src="src/families/physics/physics-app.js"></script>
     <script type="module" src="wax/wax-universal-adapter.js" data-morphazoid-wax-universal-adapter></script>
 </body>
 </html>

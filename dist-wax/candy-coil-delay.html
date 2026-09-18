@@ -31,7 +31,7 @@
     <title>Candy Coil Delay — Morphazoid</title>
     <link rel="icon" href="favicon.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="style.css" />
-    <link rel="stylesheet" href="barber-delay.css" />
+    <link rel="stylesheet" href="src/families/barber-delay/barber-delay.css" />
   </head>
   <body class="barber-delay-page candy-coil-page" data-delay-mode="candy">
     <header class="masthead">
@@ -41,13 +41,13 @@
       </a>
 
       <nav class="tabs" aria-label="Instrument">
-        <a class="tab" href="shape.html">shape</a>
+        <a class="tab" href="shape-synth.html">shape</a>
         <a class="tab active" href="candy-coil-delay.html" aria-current="page">candy coil</a>
       </nav>
       <label class="mobile-instrument-nav">
         <span class="sr-only">Instrument</span>
         <select class="mobile-instrument-select" aria-label="Instrument">
-          <option value="shape.html">shape</option>
+          <option value="shape-synth.html">shape</option>
           <option value="candy-coil-delay.html" selected>candy coil delay</option>
         </select>
       </label>
@@ -314,7 +314,7 @@
     </main>
 
     <script type="module" src="nav.js"></script>
-    <script type="module" src="barber-delay-app.js"></script>
+    <script type="module" src="src/families/barber-delay/barber-delay-app.js"></script>
     <script type="module" src="wax/wax-universal-adapter.js" data-morphazoid-wax-universal-adapter></script>
 </body>
 </html>

@@ -26,11 +26,11 @@ test("Enveloper exposes an explicit three-generation editor and separate transpo
   assert.match(html, /id="timingPriority"[^>]*data-state="off"/);
   assert.match(html, /id="timingClock"/);
   assert.match(html, /id="timingDetail"/);
-  assert.match(html, /script type="module" src="enveloper-app\.js"/);
+  assert.match(html, /script type="module" src="src\/instruments\/enveloper\/enveloper-app\.js"/);
 });
 
 test("Enveloper app keeps audio explicit and maps every stage interaction", async () => {
-  const app = await readFile(new URL("enveloper-app.js", root), "utf8");
+  const app = await readFile(new URL("src/instruments/enveloper/enveloper-app.js", root), "utf8");
 
   assert.match(app, /deriveEnveloperTimeline/);
   assert.match(app, /new EnveloperAudio/);
@@ -80,8 +80,8 @@ test("Enveloper app keeps audio explicit and maps every stage interaction", asyn
 
 test("Enveloper keeps all three generations available in compact layouts", async () => {
   const [css, app] = await Promise.all([
-    readFile(new URL("enveloper.css", root), "utf8"),
-    readFile(new URL("enveloper-app.js", root), "utf8"),
+    readFile(new URL("src/instruments/enveloper/enveloper.css", root), "utf8"),
+    readFile(new URL("src/instruments/enveloper/enveloper-app.js", root), "utf8"),
   ]);
 
   assert.match(css, /@media \(max-width: 960px\)/);

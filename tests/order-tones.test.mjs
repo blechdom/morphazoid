@@ -212,7 +212,7 @@ test("Order Tones markup follows the shared quantum and Morphazoid contracts", a
   assert.match(html, /<body class="quantum-page order-tones-page">/);
   assert.match(html, /<main class="shell quantum-shell"/);
   assert.match(html, /<link rel="stylesheet" href="style\.css"/);
-  assert.match(html, /<link rel="stylesheet" href="quantum-synths\.css"/);
+  assert.match(html, /<link rel="stylesheet" href="src\/instruments\/quantum-synths\/quantum-synths\.css"/);
   assert.match(html, /QUANTUM SYNTHS · 01/);
   assert.match(html, /<h1 id="orderTonesTitle">Order Tones<\/h1>/);
   assert.match(html, /EXACT TINY CLASSICAL SIMULATION · NOT QPU OUTPUT/);
@@ -239,17 +239,17 @@ test("Order Tones markup follows the shared quantum and Morphazoid contracts", a
   ]) assert.match(html, new RegExp(`id="${id}"`), `missing #${id}`);
 
   assert.match(html, /<small id="audioState">off<\/small>/);
-  assert.match(html, /href="shape\.html">shape<\/a>/);
+  assert.match(html, /href="shape-synth\.html">shape<\/a>/);
   assert.match(html, /href="order-tones\.html"[^>]*>order tones<\/a>/);
   assert.match(html, /href="bell-square\.html">bell square<\/a>/);
   assert.match(html, /href="annealogue\.html">annealogue<\/a>/);
   assert.match(html, /<script type="module" src="nav\.js"><\/script>/);
-  assert.match(html, /<script type="module" src="order-tones-app\.js"><\/script>/);
+  assert.match(html, /<script type="module" src="src\/instruments\/order-tones\/order-tones-app\.js"><\/script>/);
 });
 
 test("Order Tones app bounds rendering and audio and supports required gestures", async () => {
   const [app, math] = await Promise.all([
-    read("order-tones-app.js"),
+    read("src/instruments/order-tones/order-tones-app.js"),
     read("src/order-tones.js"),
   ]);
   assert.match(app, /new VoicePool\(MAX_AUDIO_VOICES\)/);

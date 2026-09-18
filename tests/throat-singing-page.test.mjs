@@ -14,9 +14,9 @@ const root = new URL("../", import.meta.url);
 test("Throat Singing ships one research-labelled physical-model page", async () => {
   const [html, css, app, build, research, icon] = await Promise.all([
     readFile(new URL("throat-singing.html", root), "utf8"),
-    readFile(new URL("throat-singing.css", root), "utf8"),
-    readFile(new URL("throat-singing-app.js", root), "utf8"),
-    readFile(new URL("scripts/build-site.sh", root), "utf8"),
+    readFile(new URL("src/instruments/throat-singing/throat-singing.css", root), "utf8"),
+    readFile(new URL("src/instruments/throat-singing/throat-singing-app.js", root), "utf8"),
+    readFile(new URL("scripts/site/runtime-files.tsv", root), "utf8"),
     readFile(new URL("THROAT_SINGING_RESEARCH.md", root), "utf8"),
     readFile(new URL("assets/instruments/throat-singing.webp", root)),
   ]);
@@ -63,8 +63,8 @@ test("Throat Singing ships one research-labelled physical-model page", async () 
 
   for (const path of [
     "throat-singing.html",
-    "throat-singing.css",
-    "throat-singing-app.js",
+    "src/instruments/throat-singing/throat-singing.css",
+    "src/instruments/throat-singing/throat-singing-app.js",
     "src/throat-singing.js",
     "THROAT_SINGING_RESEARCH.md",
     "assets/instruments/throat-singing.webp",
@@ -86,7 +86,7 @@ test("Throat Singing ships one research-labelled physical-model page", async () 
 });
 
 test("Throat Singing is adjacent to its tract lineage and owns its keyboard", () => {
-  const voiceTools = TOOL_GROUPS.find(({ id }) => id === "voice-synths")?.tools ?? [];
+  const voiceTools = TOOL_GROUPS.find(({ id }) => id === "physical-model")?.tools ?? [];
   const throatIndex = voiceTools.findIndex(({ id }) => id === "throat-singing");
   assert.equal(voiceTools[throatIndex - 1]?.id, "pink-trombonazoid");
   assert.deepEqual(voiceTools[throatIndex], {

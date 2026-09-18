@@ -1,8 +1,8 @@
 import * as THREE from '../vendor/three/three.module.min.js';
 import { GLTFLoader } from '../vendor/three/loaders/GLTFLoader.js';
 import { MeshoptDecoder } from '../vendor/meshoptimizer/meshopt_decoder.module.js';
-import { createSpiderCollisionProfile, constrainSpiderCollisionPose, createSpiderCollisionSolver } from './spider-synth-collision.js?v=64d3f9bd2cd0';
-import { getSpiderDisplayProfile } from './spider-synth-display.js?v=64d3f9bd2cd0';
+import { createSpiderCollisionProfile, constrainSpiderCollisionPose, createSpiderCollisionSolver } from './spider-synth-collision.js?v=dd1be907fd5b';
+import { getSpiderDisplayProfile } from './spider-synth-display.js?v=dd1be907fd5b';
 
 const clamp = (value, low, high) => Math.min(high, Math.max(low, Number(value) || 0));
 const AXES = ['x', 'y', 'z'];

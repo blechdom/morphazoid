@@ -1240,8 +1240,8 @@ test("harmonica worklet couples pressure, tract, paired reeds, and material with
 test("harmonica page exposes the dedicated model and accessible controls", async () => {
   const [html, css, app, processor] = await Promise.all([
     readFile(new URL("harmonica.html", root), "utf8"),
-    readFile(new URL("harmonica.css", root), "utf8"),
-    readFile(new URL("harmonica-app.js", root), "utf8"),
+    readFile(new URL("src/instruments/harmonica/harmonica.css", root), "utf8"),
+    readFile(new URL("src/instruments/harmonica/harmonica-app.js", root), "utf8"),
     readFile(new URL("src/harmonica-processor.js", root), "utf8"),
   ]);
   assert.match(html, /<body class="[^"]*\bharmonica-page\b[^"]*"/);

@@ -1,0 +1,150 @@
+current ID	new ID	new Name	new category ID	new category	secondary tags
+shape	shape-synth	Shape	geometric	Geometric	2D, Synthesizer
+solid	solid-synth	Solid	geometric	Geometric	3D, Synthesizer
+hyper	hyper-synth	Hyper	geometric	Geometric	4D, Synthesizer
+moebius	moebius-synth	Möbius	wip	Geometric	Work In Progress, Synthesizer
+klein-bottle	klein-bottle-synth	Klein Bottle	wip	Geometric	Work In Progress, Synthesizer
+graph-synth	graph-synth	Graph Synth	geometric	Geometric	Fractal, Recursive
+combo	shapes	Shapes	app	App	Geometric, Synthesizer, Sequencer, Drum Machine, Audio Effect, 2D, 3D, 4D
+l-systems	l-systems	L-Systems	app	App	Fractal, Recursive; Drum Machines; Audio Effect
+graphs	graphs	Graphs	app	App	Fractal, Recursive; Drum Machines; Audio Effect
+tesselation-app	tesselation	Tesselation	app	App	Tesselation, Sequencer, Drum Machine
+algorithmic-mazes	algorithmic-mazes	Mazes	wip	Work In Progress	
+paths	paths	Paths	wip	Work In Progress	
+lattice	lattice	Lattice	tesselation	Tesselation	Sequencer
+spiral	spiral	Spiral	tesselation	Tesselation	Sequencer
+lattice-drums	lattice-drum-machine	Lattice Drum Machine	tesselation	Tesselation	Sequencer
+spiral-drums	spiral-drum-machine	Spiral Drum Machine	tesselation	Tesselation	Sequencer
+shape-drums	shape-drum-machine	Shape Drum Machine	geometric	Geometric	
+solid-drums	solid-drum-machine	Solid Drum Machine	geometric	Geometric	
+hyper-drums	hyper-drum-machine	Hyper Drum Machine	geometric	Geometric	
+l-system-drums	l-system-drum-machine	L-System Drum Machine	fractal;	Fractal	Drum Machine, Recursive
+l-system	l-system	L-System	fractal	Fractal	Recursive, Sequencer
+graph-drums	graph-drum-machine	Graph Drum Machine	geometric	Drum Machines	Fractal, Recursive
+linear-drums-machine	rattlesnake-skin	Rattlesnake Skin	instrument	Instrument	Drum Machine
+rubix	rubix	Rubix Cube Sequencer	sequencer	sequencer	Drum Machine, 3D, Puzzle
+sliding-puzzle	sliding-puzzle	Sliding Puzzle	sequencer	sequencer	Drum Machines, 2D
+hocket-loom	hocket-loom	Hocket Luigi	sequencer	sequencer	Drum Machines, 3D
+hyper-rubix	hyper-rubix	Hyper Rubix	sequencer	sequencer	Drum Machines, 4D, Puzzle
+webgpu-303	webgpu-304	WebGPU 303	gpu-audio	GPU Audio	Sequencer, Synthesizer, Acid, 303
+simd-303	simd-303	SIMD 303	simd-audio	SIMD Audio	Sequencer, Synthesizer, Acid, 303
+simd-synth	simd-synth	SIMD Synth	simd-audio	SIMD Audio	Synthesizer, Sequencer
+webgpu-chiptune	webgpu-chiptune	WebGPU Chiptune	gpu-audio	GPU Audio	Synthesizer, Sequencer
+jaw-jam	jaw-jam	Jaw Jam	sequencer	sequencer	Physical Model, Instrument, Sequencer, Synthesizer
+webgpu-synths	webgpu-synths	GPU Shader Synths	gpu-audio	GPU Audio	sequencer, synthesizer
+srtuss	srtuss	srtuss Master	gpu-audio	GPU Audio	sequencer, synthesizer
+shader-synth-playground	shader-synth-playground	Modular Shader Synth	gpu-audio	GPU Audio	Synthesizer
+throatazoid	throatazoid	Throatazoid	physical-model	Physical Model	Voice, Synthesizer
+pink-trombonazoid	pink-trombonazoid	Pink Trombonazoid	physical-model	Physical Model	Voice, Sequencer, Synthesizer
+throat-singing	throat-singing	Throat Singing	physical-model	Physical Model	Voice, Synthesizer
+syrinx	syrinx	Syrinx	bioacoustic	Bioacoustic	Physical Model
+tongued-beasts	tongued-beasts	Tongued Beasts	bioacoustic	Bioacoustic	Physical Model
+hybrinx	hybrinx	Hybrinx	bioacoustic	Bioacoustic	Physical Model
+creaturazoid	creaturazoid	Creaturazoid	bioacoustic	Bioacoustic	sequencer, Physical Model
+quadruped	quadruped	Quadruped	bioacoustic	Bioacoustic	sequencer; Drum Machine
+roach-synth	roach-synth	Roach Synth	bioacoustic	Bioacoustic	
+spider-synth	spider-synth	Spider Synth	bioacoustic	Bioacoustic	
+colony-syrinx	monstroid	Monstroid	physical-model	Physical Model	Voice, Synthesizer
+blowhole	blowhole	Blowhole	bioacoustic	Bioacoustic	sequencer
+jaw-harp	jaw-harp	Jaw Harp	physical-model	Physical Model	Instrument, Synthesizer
+harmonica	harmonica	Harmonicazoid	physical-model	Physical Model	Instrument, Synthesizer
+julie-saw	julie-saw	Julie Saw	physical-model	Physical Model	Instrument, Synthesizer
+hiccup-head	hiccup-head	Hiccup Head	physical-model	Physical Model	Voice, Sequencer
+digestazoid	digestazoid	Digestazoid	bioacoustic	Bioacoustic	
+breath-atlas	breath-atlas	Mouthophones	wip	Work In Progress	
+spelling-synthesizer	spelling-synthesizer	Spelling Synthesizer	wip	Work In Progress	
+vocalzoid	vocalzoid	Vocalzoid	voice	Voice	Voice, Synthesizer
+lumber	lumber	Lumber Loops	audio-effect	Audio Effect	Looper
+micmic	micmic	L-system Delay	audio-effect	Audio Effect	Fractal, Recursive
+graph-delay	graph-delay	Graph Delay	audio-effect	Audio Effect	Graph
+micromorph	micromorph	Micromorph	wip	Work In Progress	
+shepard-risset	shepard-risset	Shepard–Risset	infinite-illusion	Infinite Illusion	Synthesizer, Shepard, Risset
+slippery-resynthesis	slippery-resynthesis	Slippery Resynthesis	infinite-illusion	Infinite Illusion	Audio Effect, Shepard, Risset, FFT, Resynthesis
+drum-roll-please	drum-roll-please	Drum Roll Please!	infinite-illusion	Infinite Illusion	Shepard, Risset, Drum Machine, Sequencer
+ouroborousel	ouroborousel	Ouroborousel	infinite-illusion	Infinite Illusion	Shepard, Risset, Drum Machine, Sequencer
+ourorourobouroboros	ourorourobouroboros	Ourorourobouroboros	infinite-illusion	Infinite Illusion	Shepard, Risset, Drum Machine, Sequencer
+ouroboros	ouroboros	Ouroboros	infinite-illusion	Infinite Illusion	Shepard, Risset, Drum Machine, Sequencer
+ouroboros-borealis	ouroboros-borealis	Ouroboros Borealis	infinite-illusion	Infinite Illusion	Shepard, Risset, Drum Machine, Sequencer
+sandy-syrup-delay	sandy-syrup-delay	Sandy Syrup Delay	infinite-illusion	Infinite Illusion	Shepard, Risset, Audio Effect, Delay
+candy-coil-delay	candy-coil-delay	Candy Coil Delay	infinite-illusion	Infinite Illusion	Shepard, Risset, Audio Effect, Delay
+recursion	recursion	Recursion	wip	Work In Progress	
+enveloper	enveloper	Enveloper	sequencer	Sequencer	
+julia	julia	Julia	fractal	Fractal	Sonification
+striped-staircase	striped-staircase	Striped Staircase	fractal	Fractal	Sonification
+recursive-fm	recursive-fm	Recursive FM	synthesizer	Synthesizer	Chaotic, Nonlinear, Synthesizer, Recursive, FM
+recursive-pm	recursive-pm	Recursive PM	synthesizer	Synthesizer	Chaotic, Nonlinear, Synthesizer, Recursive, PM
+chaotic-fm	chaotic-fm	Chaotic FM	synthesizer	Synthesizer	Chaotic, Nonlinear, Synthesizer, FM
+chaotic-pm	chaotic-pm	Chaotic PM	synthesizer	Synthesizer	Chaotic, Nonlinear, Synthesizer, PM
+cascading-fm	cascading-fm	Cascading FM	synthesizer	Synthesizer	Chaotic, Nonlinear, Synthesizer, FM
+cascading-pm	cascading-pm	Cascading PM	synthesizer	Synthesizer	Chaotic, Nonlinear, Synthesizer, PM
+weierstrass	weierstrass	Weierstrass	synthesizer	Synthesizer	Chaotic, Nonlinear, Synthesizer, Recursion (is it)
+moire-drone	moire-drone	Fabric Filter	noise	Noise	Filter, 2D, Audio Effect (add capability)
+playhead-paint	playhead-paint	Playhead Paint	wip	Work In Progress	
+boidzoid	boidzoid	Boidzoid	wip	Work In Progress	
+puggler	puggler	Puggler the Punk Rock Jugger	graphic-UI	Graphic-UI	Sequencer
+vector-flight	vector-flight	Vector Flight	wip	Work In Progress	
+gesturama	gesturama	Gesturama	wip	Work In Progress	
+image-to-instrument-3	image-to-instrument-4	Wheel of Organs	wip	Work In Progress	
+orbital-ferris	orbital-ferris	Feral Fairy Ferris Ferry	wip	Work In Progress	
+fm-drums	fm-drums	FM Drums	instrument	Instrument	Drum Machines
+linear-drums	linear-drums	RatTesselationnake	instrument	Instrument	Drum Machines
+karplus-strong	karplus-strong	Karplus Strong	instrument	Instrument	Synthesis, Physical Model
+karplus-carpet	karplus-carpet	Karplus Carpet	instrument	Instrument	Synthesis, Physical Model
+surround-field	surround-field	Surround for Safety	dispersion	Dispersion	Surround, Spatial, Routing
+sample-drums	sample-drums	Sample Drums	instrument	Instrument	Drum Machines
+object-forge	object-forge	Dentaphone	instrument	Instrument	
+cellular-automata	cellular-automata	Automatapoeia	algorithmic	Algorithmic	Sequencer
+sorting-algorithms	sorting-algorithms	Sorting	algorithmic	Algorithmic	Sequencer
+dijkstra	dijkstra	DJ Dijkstra	algorithmic	Algorithmic	Sequencer
+wave-pool	wave-pool	Wave Pool	wip	Works in progress	
+penrose-tilings	penrose-tilings	Penrose Tilings	wip	Works in progress	
+yoyodyne	yoyodyne	Yoyodyne	wip	Works in progress	
+hanoi	hanoi	Hanoi Carillon	wip	Works in progress	
+minimax	minimax	Alpha-Beta Minimax	wip	Works in progress	
+nqueens	nqueens	N-Queens Backtracker	wip	Works in progress	
+euclid	euclid	Euclidean Pulse	wip	Works in progress	
+alien-larynx	alien-larynx	Alien Larynx	wip	Works in progress	
+hyper-syrinx	hyper-syrinx	Hyper-Syrinx	wip	Works in progress	bioacoustic
+morphynx	morphynx	Morphynx	wip	Works in progress	
+escher-tessellation	escher-tessellation	Escher	wip	Works in progress	
+plasma-ball	plasma-ball	Plasma Ball	wip	Works in progress	
+simd-resonator	simd-resonator	SIMD Resonator	simd-audio	SIMD Audio	Resonator
+order-tones	order-tones	Order Tones	wip	Works in progress	
+morphazoidical	morphazoidical	Morphazoidical	wip	Works in progress	
+bell-square	bell-square	Bell Square	wip	Works in progress	
+entanglement-dance	entanglement-dance	Entanglement Dance	wip	Works in progress	
+quantum-square-dance	quantum-square-dance	Quantum Square Dance	wip	Works in progress	
+annealogue	annealogue	Annealogue	wip	Works in progress	
+gravity-walk	gravity-walk	Gravity Walk	wip	Works in progress	
+ricochet	ricochet	Ricochet	wip	Works in progress	
+rigidity	rigidity	Rigidity	wip	Works in progress	
+rolling-measure	rolling-measure	Rolling Measure	wip	Works in progress	
+falling-forms	falling-forms	Falling Forms	wip	Works in progress	
+charge-garden	charge-garden	Charge Garden	wip	Works in progress	
+packing-pressure	packing-pressure	Packing Pressure	wip	Works in progress	
+geodesic-drift	geodesic-drift	Geodesic Drift	wip	Works in progress	
+kinetic-hull	kinetic-hull	Kinetic Hull	wip	Works in progress	
+moire-organ	moire-organ	RISSET-MOIRE	wip	Works in progress	
+chladni-plate	chladni-plate	Chladni Plate	wip	Works in progress	
+spring-choir	spring-choir	Spring Choir	wip	Works in progress	
+gear-ratio-drums	gear-ratio-drums	Gear Ratio Drums	wip	Works in progress	
+prime-sieve	prime-sieve	Prime Sieve	wip	Works in progress	
+lissajous-orbits	lissajous-orbits	Lissajous Orbits	wip	Works in progress	
+pendulum-wave	pendulum-wave	Pendulum Wave	wip	Works in progress	
+double-pendulum	double-pendulum	Double Pendulum	wip	Works in progress	
+reaction-diffusion	reaction-diffusion	Reaction-Diffusion	wip	Works in progress	
+atomic-orbitals	atomic-orbitals	Atomic Orbitals	wip	Works in progress	
+dna-translator	dna-translator	DNA Translator	wip	Works in progress	
+neural-pulse	neural-pulse	Neural Pulse	wip	Works in progress	
+fourier-epicycles	fourier-epicycles	Fourier Epicycles	wip	Works in progress	
+gravity-lens	gravity-lens	Gravity Lens	wip	Works in progress	
+cantor-lock	cantor-lock	Cantor Lock	wip	Works in progress	
+escape-dust	escape-dust	Escape Dust	wip	Works in progress	
+linebreaker	linebreaker	Linebreaker	wip	Works in progress	
+n/a		Acoustic Manifold	wip	Works in progress	
+n/a		Adaptive Airway Lab 	wip	Works in progress	
+n/a		Strophe Lab	wip	Works in progress	
+n/a		Crickets	bioacoustic	Bioacoustic	
+n/a		Nightingale Manifolds	wip	Works in progress	
+n/a		Syrinx UI	wip	Works in progress	
+n/a	simd-lab	SIMD Audio Lab	wip	Works in progress	SIMD Audio

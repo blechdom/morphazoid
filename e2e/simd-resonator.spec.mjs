@@ -96,7 +96,7 @@ test.describe("SIMD Audio", () => {
   });
 
   test("plays the granular cloud and oscillator swarm without rearming Audio", async ({ page }) => {
-    await page.goto("simd-audio-lab.html", { waitUntil: "networkidle" });
+    await page.goto("simd-lab.html", { waitUntil: "networkidle" });
     const readState = () => page.evaluate(() => globalThis.__MORPHAZOID_SIMD_AUDIO__.getState());
     expect((await readState()).surface).toBe("lab");
     expect((await readState()).engine).toBe("granular");
@@ -126,7 +126,7 @@ test.describe("SIMD Audio", () => {
   });
 
   test("loads dense presets and plays every added DSP engine", async ({ page }) => {
-    await page.goto("simd-audio-lab.html", { waitUntil: "networkidle" });
+    await page.goto("simd-lab.html", { waitUntil: "networkidle" });
     const readState = () => page.evaluate(() => globalThis.__MORPHAZOID_SIMD_AUDIO__.getState());
     await page.locator("#audioButton").click();
     await expect.poll(async () => (await readState()).audioOn).toBe(true);
@@ -162,7 +162,7 @@ test.describe("SIMD Audio", () => {
   });
 
   test("keeps the Resonator and every lab example reachable at target viewport sizes", async ({ page }) => {
-    for (const route of ["simd-resonator.html", "simd-audio-lab.html"]) {
+    for (const route of ["simd-resonator.html", "simd-lab.html"]) {
       for (const viewport of [
         { width: 1440, height: 900 },
         { width: 390, height: 844 },

@@ -148,7 +148,7 @@ test("one acyclic capability registry covers every playable catalog instrument",
     new Set(INSTRUMENTS.map(({ id }) => id)),
   );
   assert.deepEqual(NATIVE_INSTRUMENT_MIDI_IDS, [
-    "shape",
+    "shape-synth",
     "recursive-fm",
     "recursive-pm",
     "chaotic-fm",
@@ -175,10 +175,10 @@ test("one acyclic capability registry covers every playable catalog instrument",
   assert.equal(instrumentMidiCapabilityForId("creaturazoid").noteMode, "drums");
   assert.equal(instrumentMidiCapabilityForId("quadruped").noteMode, "drums");
   assert.equal(instrumentMidiCapabilityForId("digestazoid").noteMode, "drums");
-  assert.equal(instrumentMidiCapabilityForId("graph-drums").noteMode, "drums");
+  assert.equal(instrumentMidiCapabilityForId("graph-drum-machine").noteMode, "drums");
   assert.equal(instrumentMidiCapabilityForId("graph-synth").noteMode, "pitched");
   assert.equal(instrumentMidiCapabilityForId("wave-pool").noteMode, "drums");
-  assert.equal(instrumentMidiCapabilityForId("colony-syrinx").noteMode, "sequence");
+  assert.equal(instrumentMidiCapabilityForId("monstroid").noteMode, "sequence");
   assert.equal(instrumentMidiCapabilityForId("harmonica").noteMode, "pitched");
   assert.equal(instrumentMidiCapabilityForId("morphazoidical").noteMode, "sequence");
   assert.equal(instrumentMidiCapabilityForId("object-forge").noteMode, "pitched");
@@ -199,7 +199,7 @@ test("one acyclic capability registry covers every playable catalog instrument",
     "quadruped",
     "digestazoid",
     "wave-pool",
-    "colony-syrinx",
+    "monstroid",
     "breath-atlas",
     "morphynx",
     "hyper-syrinx",
@@ -252,7 +252,7 @@ test("one acyclic capability registry covers every playable catalog instrument",
   assert.equal(instrumentMidiCapabilityForId("webgpu-chiptune").computerKeyboardMode, "none");
   assert.equal(instrumentMidiCapabilityForId("srtuss").noteMode, "sequence");
   assert.equal(instrumentMidiCapabilityForId("srtuss").computerKeyboardMode, "none");
-  assert.equal(instrumentMidiCapabilityForId("shape-drums").computerKeyboardMode, "midi");
+  assert.equal(instrumentMidiCapabilityForId("shape-drum-machine").computerKeyboardMode, "midi");
   assert.equal(instrumentMidiCapabilityForId("shader-synth-playground").computerKeyboardMode, "midi");
   assert.equal(instrumentMidiCapabilityForId("recursion").startsAudio, true);
   assert.equal(instrumentMidiCapabilityForId("lumber").startsAudio, false);
@@ -454,17 +454,15 @@ test("Recursion's built-in Noise and Impulse sources prepare audio despite its p
 });
 
 test("clean release builds include untracked browser MIDI runtime modules", async () => {
-  const buildScript = await readFile(path.join(repositoryRoot, "scripts", "build-site.sh"), "utf8");
+  const { readRuntimeManifest } = await import("../scripts/site/runtime-manifest.mjs");
+  const inventory = await readRuntimeManifest();
   for (const runtimeModule of [
     "src/audio-output-manager.js",
     "src/browser-midi-adapter.js",
     "src/instrument-midi-capabilities.js",
   ]) {
-    assert.equal(
-      buildScript.split(runtimeModule).length - 1,
-      2,
-      `${runtimeModule} is present in both the pre-commit copy and required-file lists`,
-    );
+    assert.ok(inventory.worktreeFiles.includes(runtimeModule), `${runtimeModule} has pre-commit copy permission`);
+    assert.ok(inventory.requiredFiles.includes(runtimeModule), `${runtimeModule} is required in the artifact`);
   }
 });
 

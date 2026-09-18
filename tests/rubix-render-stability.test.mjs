@@ -93,7 +93,7 @@ function bracedSource(source, startIndex) {
 }
 
 test("Rubix canvas resize observations are stable no-ops until size or DPR changes", async () => {
-  const app = await readFile(new URL("rubix-app.js", root), "utf8");
+  const app = await readFile(new URL("src/instruments/rubix/rubix-app.js", root), "utf8");
   const observer = app.match(/new\s+ResizeObserver\s*\(\s*([\w$]+)/);
   assert.ok(observer, "the stage should use a named ResizeObserver callback");
   const resize = functionSource(app, observer[1]);
@@ -148,7 +148,7 @@ test("Rubix canvas resize observations are stable no-ops until size or DPR chang
 });
 
 test("Rubix drawing coalesces invalidations into one animation frame", async () => {
-  const app = await readFile(new URL("rubix-app.js", root), "utf8");
+  const app = await readFile(new URL("src/instruments/rubix/rubix-app.js", root), "utf8");
   const requestDraw = functionSource(app, "requestDraw");
   const drawFrame = functionSource(app, "drawFrame");
 
@@ -170,7 +170,7 @@ test("Rubix drawing coalesces invalidations into one animation frame", async () 
 });
 
 test("Rubix renderer has no idle continuous draw loop", async () => {
-  const app = await readFile(new URL("rubix-app.js", root), "utf8");
+  const app = await readFile(new URL("src/instruments/rubix/rubix-app.js", root), "utf8");
   const drawFrame = functionSource(app, "drawFrame");
 
   assert.doesNotMatch(drawFrame, /requestAnimationFrame\s*\(/);
@@ -187,7 +187,7 @@ test("Rubix renderer has no idle continuous draw loop", async () => {
 });
 
 test("Rubix mobile canvas keeps synchronized compositing and caps coarse-pointer DPR", async () => {
-  const app = await readFile(new URL("rubix-app.js", root), "utf8");
+  const app = await readFile(new URL("src/instruments/rubix/rubix-app.js", root), "utf8");
   const contextSetup = app.match(/canvas\.getContext\s*\(\s*["']2d["']\s*(?:,\s*(\{[^}]*\}))?\s*\)/);
   assert.ok(contextSetup, "the Rubix stage should create a 2D canvas context");
   assert.doesNotMatch(
@@ -213,7 +213,7 @@ test("Rubix mobile canvas keeps synchronized compositing and caps coarse-pointer
 });
 
 test("Rubix mobile stage uses stable viewport rows and a local positioning context", async () => {
-  const css = await readFile(new URL("rubix.css", root), "utf8");
+  const css = await readFile(new URL("src/instruments/rubix/rubix.css", root), "utf8");
   const shellRules = [...css.matchAll(/\.rubix-shell\s*\{([^}]*)\}/g)]
     .filter((match) => /[ds]vh/.test(match[1]));
   assert.ok(shellRules.length > 0, "mobile Rubix layout should define viewport-sized stage rows");

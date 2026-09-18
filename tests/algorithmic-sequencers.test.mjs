@@ -133,7 +133,7 @@ test("sanitizer bounds hostile sorting parameters", () => {
 test("Algorithmic Sequencers presents randomize first and runs local sorting demos", async () => {
   const [html, app] = await Promise.all([
     readFile(new URL("../algorithmic-sequencers.html", import.meta.url), "utf8"),
-    readFile(new URL("../algorithmic-sequencers-app.js", import.meta.url), "utf8"),
+    readFile(new URL("../src/families/algorithmic-sequencers/algorithmic-sequencers-app.js", import.meta.url), "utf8"),
   ]);
 
   assert.match(html, /<h1[^>]*>Algorithmic Sequencers<\/h1>/);
@@ -145,7 +145,7 @@ test("Algorithmic Sequencers presents randomize first and runs local sorting dem
   assert.ok(html.indexOf('id="randomInput"') < html.indexOf('id="presetButtons"'));
   assert.doesNotMatch(html, /targetIndex|data-curve="random"/);
   assert.match(html, /<script type="module" src="nav\.js"><\/script>/);
-  assert.match(html, /<script type="module" src="algorithmic-sequencers-app\.js"><\/script>/);
+  assert.match(html, /<script type="module" src="src\/families\/algorithmic-sequencers\/algorithmic-sequencers-app\.js"><\/script>/);
   assert.match(app, /generateSortSequence/);
   assert.match(app, /dataSeed: createRandomDataSeed\(\)/);
   assert.doesNotMatch(html, /https?:\/\//i);

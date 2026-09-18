@@ -484,10 +484,10 @@ test("component tracking preserves branch identity when display order crosses", 
 });
 test("Möbius and Klein pages expose the shared playable and lifecycle contracts", async () => {
   const [moebius, klein, app, css] = await Promise.all([
-    readFile(new URL("moebius.html", root), "utf8"),
-    readFile(new URL("klein-bottle.html", root), "utf8"),
-    readFile(new URL("nonorientable-app.js", root), "utf8"),
-    readFile(new URL("nonorientable.css", root), "utf8"),
+    readFile(new URL("moebius-synth.html", root), "utf8"),
+    readFile(new URL("klein-bottle-synth.html", root), "utf8"),
+    readFile(new URL("src/families/nonorientable/nonorientable-app.js", root), "utf8"),
+    readFile(new URL("src/families/nonorientable/nonorientable.css", root), "utf8"),
   ]);
 
   for (const [kind, html] of [["moebius", moebius], ["klein", klein]]) {
@@ -505,8 +505,8 @@ test("Möbius and Klein pages expose the shared playable and lifecycle contracts
     )?.[0] ?? "";
     let previousOption = -1;
     for (const href of [
-      "shape.html", "lattice.html", "spiral.html", "solid.html", "moebius.html",
-      "klein-bottle.html", "hyper.html", "l-system.html", "recursion.html",
+      "shape-synth.html", "lattice.html", "spiral.html", "solid-synth.html", "moebius-synth.html",
+      "klein-bottle-synth.html", "hyper-synth.html", "l-system.html", "recursion.html",
       "julia.html", "lumber.html", "l-mic.html", "graph-delay.html",
       "throatazoid.html", "morphazoidical/",
     ]) {

@@ -1,4 +1,4 @@
-# Site metadata
+# Site metadata and page implementation
 
 `instrument-registry.js` owns the existing ordered `TOOL_GROUPS`,
 `FAVE_TOOL_IDS`, and `SITE_LINKS` records. It is data-only: importing it does not
@@ -14,8 +14,24 @@ Stored route strings are **site-root-relative metadata**, not paths relative
 to this module. Navigation still resolves them against its public root entry
 URL (`NAVIGATION_BASE_URL`). Do not move that URL base into this directory.
 
-This extraction does not fix missing catalogue/capability registrations or
-change group membership. Those existing cross-registry failures remain visible.
+`catalogue-taxonomy.js` owns normalized secondary tags. `instrument-identities.js`
+maps new public IDs to historical protocol IDs and old URLs to current IDs.
+Those aliases preserve storage and MIDI listeners; do not globally replace
+internal strings when a public instrument name changes.
+
+The owner-sheet changes are recorded in
+`docs/catalogue-update-decisions.json`, alongside the original TSV. Runtime data
+does not import this review document. Keep assertions synchronized with approved
+changes, not with guesses about ambiguous sheet cells.
+
+`INSTRUMENTS` remains the normal MIDI/WAX inventory. `CATALOGUE_ITEMS` additionally
+contains browseable labs (`catalogue: false`, `browse: true`, `entryType: "lab"`).
+Listing a lab is not evidence that it implements the regular Audio/MIDI
+contracts. WIP stays visible on the homepage but excluded from the instrument
+chooser, preserving the existing picker policy.
+
+The catalogue and plugins page controllers/styles also live here. Auxiliary
+page styles are under `styles/`. They do not own audio engines or instruments.
 
 Preservation checks:
 

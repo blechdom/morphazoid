@@ -10,8 +10,8 @@ test("L-system Delay exposes live recursion, current settings, safety, and an ec
   const [html, legacyRedirect, app, css] = await Promise.all([
     readFile(new URL("l-mic.html", root), "utf8"),
     readFile(new URL("micmic.html", root), "utf8"),
-    readFile(new URL("micmic-app.js", root), "utf8"),
-    readFile(new URL("micmic.css", root), "utf8"),
+    readFile(new URL("src/instruments/micmic/micmic-app.js", root), "utf8"),
+    readFile(new URL("src/instruments/micmic/micmic.css", root), "utf8"),
   ]);
 
   assert.match(html, /<title>L-system Delay — Morphazoid<\/title>/);
@@ -27,8 +27,8 @@ test("L-system Delay exposes live recursion, current settings, safety, and an ec
     /window\.location\.replace\(`l-mic\.html\$\{window\.location\.search\}\$\{window\.location\.hash\}`\)/,
   );
   assert.match(html, /<span class="audio-copy"><b>Audio<\/b>/);
-  assert.match(html, /src="micmic-app\.js(?:\?[^"]+)?"/);
-  assert.match(html, /href="micmic\.css"/);
+  assert.match(html, /src="src\/instruments\/micmic\/micmic-app\.js(?:\?[^"]+)?"/);
+  assert.match(html, /href="src\/instruments\/micmic\/micmic\.css"/);
   for (const id of [
     "stage", "seedControl", "seedMicButton", "panicButton", "audioButton", "inputMenu", "inputMenuButton", "micButton",
     "freezeButton", "inputMeterBar", "inputTrim", "depth", "interval",

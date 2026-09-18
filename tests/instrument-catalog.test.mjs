@@ -1,3 +1,4 @@
+import { expectedTagIdsFor, expectedCategoryFor, expectedStatusFor, expectedIdFor, previousInstrumentFor, expectedTagsFor } from "./helpers/catalogue-plan.mjs";
 import assert from "node:assert/strict";
 import { readFile, stat } from "node:fs/promises";
 import test from "node:test";
@@ -9,10 +10,13 @@ import {
   instrumentMatchesTag,
   orderHomepageInstruments,
   renderInstrumentCatalog,
-} from "../instrument-catalog-app.js";
+} from "../src/site/instrument-catalog-app.js";
 import {
   INSTRUMENT_GROUPS,
   INSTRUMENTS,
+  CATALOGUE_ITEMS,
+  CATALOGUE_GROUPS,
+  catalogueItemById,
   instrumentById,
 } from "../src/instrument-catalog.js";
 import { instrumentMidiCapabilityForId } from "../src/instrument-midi-capabilities.js";
@@ -54,7 +58,7 @@ test("catalogue data inherits exact section order, names, titles, and links from
     group.picker !== false || tool.picker === true
   )));
   assert.deepEqual(
-    pickerTools.filter((tool) => !instrumentById(tool.id)).map(({ id }) => id),
+    pickerTools.filter((tool) => !catalogueItemById(tool.id)).map(({ id }) => id),
     [],
     "every pull-down entry must have a catalogue card",
   );
@@ -71,15 +75,7 @@ test("every instrument keeps factual catalogue metadata and a valid icon path", 
       instrument.tags.length,
       `${instrument.id} repeats a tag`,
     );
-    const expectedImageHref = ["shader-synth-playground", "srtuss"].includes(instrument.id)
-      ? "assets/instruments/webgpu-synths.webp"
-      : instrument.id === "webgpu-chiptune"
-        ? "assets/instruments/webgpu-303.webp"
-        : instrument.id === "jaw-jam"
-          ? "assets/instruments/jaw-harp.webp"
-          : instrument.id === "object-forge"
-            ? "assets/instruments/dentaphone.webp"
-          : `assets/instruments/${instrument.id}.webp`;
+    const expectedImageHref = previousInstrumentFor(instrument.id)?.imageHref;
     assert.equal(instrument.imageHref, expectedImageHref);
 
     const imageUrl = new URL(instrument.imageHref, root);
@@ -90,47 +86,29 @@ test("every instrument keeps factual catalogue metadata and a valid icon path", 
   }
 });
 
-test("experiments carry a works-in-progress status, and Automatapoeia is also a Fave", () => {
-  const experimentGroup = INSTRUMENT_GROUPS.find(({ id }) => id === "experiments");
-  assert.ok(experimentGroup);
-  const experiments = INSTRUMENTS.filter((instrument) => (
-    instrument.tags.some(({ id }) => id === "experiments")
-    && experimentGroup.tools.includes(instrument)
-  ));
-  assert.equal(experiments.length, experimentGroup.tools.length);
-  assert.equal(experiments.every(({ status }) => status === "Works in progress"), true);
-  assert.equal(
-    experiments.every(({ tags }) => (
-      tags.length === 1 && tags[0].id === "experiments"
-    )),
-    true,
-  );
-  assert.deepEqual(
-    instrumentById("cellular-automata")?.tags.map(({ id }) => id),
-    ["algorithmic-sequencers", "faves"],
-  );
-  assert.equal(
-    INSTRUMENTS.filter((instrument) => !experiments.includes(instrument))
-      .every(({ status }) => status === null),
-    true,
-  );
+test("WIP status and secondary tags follow the approved catalogue sheet", () => {
+  for (const instrument of INSTRUMENTS) {
+    assert.equal(instrument.status, expectedStatusFor(instrument.id));
+    assert.deepEqual(instrument.tags.map(tag => tag.id), expectedTagIdsFor(instrument.id));
+  }
+  assert.ok(instrumentById("cellular-automata").tags.some(tag => tag.id === "faves"));
 });
 
 test("unfinished algorithmic scores live only in Works in progress", () => {
   const movedIds = ["hanoi", "minimax", "nqueens", "euclid"];
   const algorithmicIds = INSTRUMENT_GROUPS.find(
-    ({ id }) => id === "algorithmic-sequencers",
+    ({ id }) => id === "algorithmic",
   )?.tools.map(({ id }) => id);
   const experimentIds = INSTRUMENT_GROUPS.find(
-    ({ id }) => id === "experiments",
+    ({ id }) => id === "wip",
   )?.tools.map(({ id }) => id);
 
   assert.deepEqual(algorithmicIds, ["cellular-automata", "sorting-algorithms", "dijkstra"]);
   for (const id of movedIds) {
     const instrument = instrumentById(id);
     assert.equal(experimentIds.includes(id), true);
-    assert.equal(instrument?.status, "Works in progress");
-    assert.deepEqual(instrument?.tags.map(({ id: tagId }) => tagId), ["experiments"]);
+    assert.equal(instrument?.status, "Work in Progress");
+    assert.deepEqual(instrument?.tags.map(({ id: tagId }) => tagId), expectedTagIdsFor((instrument)?.id));
   }
 });
 
@@ -144,22 +122,12 @@ test("Faves keep their regular catalogue groups", () => {
   }
 });
 
-test("Misc group owns the uncategorized instruments including Puggler", () => {
-  const ids = [
-    "moire-drone",
-    "playhead-paint",
-    "boidzoid",
-    "puggler",
-    "vector-flight",
-    "gesturama",
-    "image-to-instrument-3",
-    "orbital-ferris",
-  ];
-  const misc = INSTRUMENT_GROUPS.find(({ id }) => id === "misc");
-  assert.deepEqual(misc?.tools.map(({ id }) => id), ids);
-  for (const id of ids) {
-    assert.deepEqual(instrumentById(id)?.tags.map(({ id: tagId }) => tagId), ["misc"]);
-    assert.equal(instrumentById(id)?.status, null);
+test("former Misc entries use their explicitly selected categories", () => {
+  for (const id of ["moire-drone", "playhead-paint", "boidzoid", "puggler", "vector-flight", "gesturama", "image-to-instrument-3", "orbital-ferris"]) {
+    const instrument = instrumentById(id);
+    assert.deepEqual(instrument.tags.map(tag => tag.id), expectedTagIdsFor(id));
+    assert.equal(instrument.status, expectedStatusFor(id));
+    assert.equal(INSTRUMENT_GROUPS.find(group => group.tools.includes(instrument))?.id, expectedCategoryFor(id));
   }
 });
 
@@ -168,7 +136,7 @@ test("Dentaphone catalogues its complete sample-free tooth instrument", () => {
   assert.equal(instrument?.label, "Dentaphone");
   assert.equal(instrument?.href, "dentaphone.html");
   assert.equal(instrument?.imageHref, "assets/instruments/dentaphone.webp");
-  assert.deepEqual(instrument?.tags.map(({ id }) => id), ["instruments"]);
+  assert.deepEqual(instrument?.tags.map(({ id }) => id), expectedTagIdsFor((instrument)?.id));
   assert.match(instrument?.description ?? "", /32 individually playable upper and lower teeth/i);
   assert.ok(instrument?.features.includes("Physical-model DSP"));
   assert.ok(instrument?.features.includes("Sample-free AudioWorklet"));
@@ -178,10 +146,10 @@ test("Dentaphone catalogues its complete sample-free tooth instrument", () => {
 
 test("Plasma Ball is an experiment with no secondary catalogue tags", () => {
   const plasmaBall = instrumentById("plasma-ball");
-  assert.equal(plasmaBall?.status, "Works in progress");
+  assert.equal(plasmaBall?.status, "Work in Progress");
   assert.deepEqual(
     plasmaBall?.tags.map(({ id }) => id),
-    ["experiments"],
+    expectedTagIdsFor((plasmaBall)?.id),
   );
 });
 
@@ -213,7 +181,7 @@ test("Micromorph catalogues its honest local streaming-model boundary", () => {
   assert.ok(instrument?.features.includes("Streaming PCM"));
   assert.ok(instrument?.features.includes("MIDI"));
   assert.equal(instrument?.features.includes("Computer keys"), false);
-  assert.deepEqual(instrument?.tags.map(({ id }) => id), ["mic-fx"]);
+  assert.deepEqual(instrument?.tags.map(({ id }) => id), expectedTagIdsFor((instrument)?.id));
   assert.equal(instrumentMidiCapabilityForId("micromorph")?.noteMode, "processor");
 });
 
@@ -228,7 +196,7 @@ test("Fabric Filter catalogues its two-dimensional noise-filter collision engine
   assert.ok(instrument?.features.includes("Pointer"));
   assert.ok(instrument?.features.includes("MIDI"));
   assert.equal(instrument?.features.includes("Computer keys"), false);
-  assert.deepEqual(instrument?.tags.map(({ id }) => id), ["misc"]);
+  assert.deepEqual(instrument?.tags.map(({ id }) => id), expectedTagIdsFor((instrument)?.id));
   const midi = instrumentMidiCapabilityForId("moire-drone");
   assert.equal(midi?.noteMode, "processor");
   assert.equal(midi?.audioInput, false);
@@ -244,7 +212,7 @@ test("Modular Shader Synth is a sequencer instrument with shared GPU artwork", (
   assert.equal(instrument?.imageHref, "assets/instruments/webgpu-synths.webp");
   assert.match(instrument?.description ?? "", /editable graph/i);
   assert.match(instrument?.description ?? "", /WGSL compute shaders/i);
-  assert.deepEqual(instrument?.tags.map(({ id }) => id), ["sequencers"]);
+  assert.deepEqual(instrument?.tags.map(({ id }) => id), expectedTagIdsFor((instrument)?.id));
   assert.ok(instrument?.features.includes("WebGPU"));
   assert.ok(instrument?.features.includes("Pointer"));
   assert.ok(instrument?.features.includes("Built-in synth"));
@@ -257,13 +225,13 @@ test("Modular Shader Synth is a sequencer instrument with shared GPU artwork", (
 
 test("SIMD SYNTH is a pitched, configurable WebAssembly instrument", () => {
   const instrument = instrumentById("simd-synth");
-  assert.equal(instrument?.label, "SIMD SYNTH");
+  assert.equal(instrument?.label, "SIMD Synth");
   assert.equal(instrument?.href, "simd-synth.html");
   assert.equal(instrument?.kind, "Configurable WebAssembly SIMD synth");
   assert.equal(instrument?.imageHref, "assets/instruments/simd-synth.webp");
   assert.match(instrument?.description ?? "", /eight synthesis models/i);
   assert.match(instrument?.description ?? "", /filter-routing/i);
-  assert.deepEqual(instrument?.tags.map(({ id }) => id), ["sequencers"]);
+  assert.deepEqual(instrument?.tags.map(({ id }) => id), expectedTagIdsFor((instrument)?.id));
   assert.ok(instrument?.features.includes("WebAssembly SIMD"));
   assert.ok(instrument?.features.includes("AudioWorklet"));
   assert.ok(instrument?.features.includes("MIDI"));
@@ -281,7 +249,7 @@ test("srtuss is a sound-only decomposed WebGPU master synth", () => {
   assert.match(instrument?.description ?? "", /48 selectable source parts/i);
   assert.match(instrument?.description ?? "", /all ten verified translations/i);
   assert.match(instrument?.start ?? "", /Explode mix/i);
-  assert.deepEqual(instrument?.tags.map(({ id }) => id), ["sequencers"]);
+  assert.deepEqual(instrument?.tags.map(({ id }) => id), expectedTagIdsFor((instrument)?.id));
   assert.ok(instrument?.features.includes("WebGPU"));
   assert.ok(instrument?.features.includes("Built-in synth"));
   assert.equal(instrumentMidiCapabilityForId("srtuss")?.noteMode, "sequence");
@@ -315,7 +283,7 @@ test("Playhead Paint is a pointer drawing synth without generic note keys", () =
   assert.equal(instrument?.kind, "Drawing synth");
   assert.match(instrument?.description ?? "", /freehand pointer strokes/i);
   assert.match(instrument?.description ?? "", /mirrored axes/i);
-  assert.deepEqual(instrument?.tags.map(({ id }) => id), ["misc"]);
+  assert.deepEqual(instrument?.tags.map(({ id }) => id), expectedTagIdsFor((instrument)?.id));
   assert.ok(instrument?.features.includes("Pointer"));
   assert.ok(instrument?.features.includes("Built-in synth"));
   assert.ok(instrument?.features.includes("MIDI"));
@@ -341,7 +309,7 @@ test("Karplus Carpet is a synthesized microsound field with page-owned note gest
   assert.match(instrument?.start ?? "", /each newly crossed area sounds once per gesture/i);
   assert.match(instrument?.start ?? "", /holding still stays silent/i);
   assert.doesNotMatch(instrument?.start ?? "", /\bPlay\b|hit count|timing scatter/i);
-  assert.deepEqual(instrument?.tags.map(({ id }) => id), ["instruments"]);
+  assert.deepEqual(instrument?.tags.map(({ id }) => id), expectedTagIdsFor((instrument)?.id));
   assert.ok(instrument?.features.includes("Built-in synth"));
   assert.ok(instrument?.features.includes("Pointer"));
   assert.ok(instrument?.features.includes("MIDI"));
@@ -363,7 +331,7 @@ test("Boidzoid is a continuous flocking sine field without generic note keys", (
   assert.match(instrument?.description ?? "", /arrow playheads/i);
   assert.match(instrument?.description ?? "", /continuous sine voice/i);
   assert.match(instrument?.description ?? "", /without note divisions/i);
-  assert.deepEqual(instrument?.tags.map(({ id }) => id), ["misc"]);
+  assert.deepEqual(instrument?.tags.map(({ id }) => id), expectedTagIdsFor((instrument)?.id));
   assert.ok(instrument?.features.includes("Pointer"));
   assert.ok(instrument?.features.includes("Built-in synth"));
   assert.ok(instrument?.features.includes("MIDI"));
@@ -385,7 +353,7 @@ test("Pink Trombonazoid is an articulatory voice sequencer without generic note 
   assert.match(instrument?.description ?? "", /physical vocal tract/i);
   assert.deepEqual(
     instrument?.tags.map(({ id }) => id),
-    ["voice-synths", "sequencers"],
+    expectedTagIdsFor((instrument)?.id),
   );
   assert.ok(instrument?.features.includes("Built-in source"));
   assert.ok(instrument?.features.includes("Pointer"));
@@ -411,7 +379,7 @@ test("Hiccup Head is a monophonic physical beatbox sequencer with page-owned dru
   assert.match(instrument?.start ?? "", /one gesture per column/i);
   assert.deepEqual(
     instrument?.tags.map(({ id }) => id),
-    ["voice-synths", "sequencers", "faves"],
+    expectedTagIdsFor((instrument)?.id),
   );
   assert.ok(instrument?.features.includes("Built-in source"));
   assert.ok(instrument?.features.includes("Pointer"));
@@ -432,7 +400,7 @@ test("Jaw Jam is a dual-clock monophonic physical jaw-harp sequencer", () => {
   assert.equal(instrument?.kind, "Virtuosic monophonic jaw-harp sequencer");
   assert.match(instrument?.description ?? "", /plucks, pitch-inheriting sustains, and exact hard rests/i);
   assert.match(instrument?.start ?? "", /independent pluck and breath clocks/i);
-  assert.deepEqual(instrument?.tags.map(({ id }) => id), ["sequencers", "voice-synths"]);
+  assert.deepEqual(instrument?.tags.map(({ id }) => id), expectedTagIdsFor((instrument)?.id));
   assert.ok(instrument?.features.includes("Physical-model DSP"));
   assert.ok(instrument?.features.includes("Dual clocks"));
   assert.ok(instrument?.features.includes("MIDI"));
@@ -478,7 +446,7 @@ test("Creaturazoid intersperses creature voices and body percussion in one share
   );
   assert.deepEqual(
     instrument?.tags.map(({ id }) => id),
-    ["voice-synths", "sequencers"],
+    expectedTagIdsFor((instrument)?.id),
   );
   assert.deepEqual(
     instrument?.features,
@@ -508,7 +476,7 @@ test("Quadruped includes Frog and couples animal bodies to foot-driven contact s
   assert.match(instrument?.start ?? "", /tempo stays independent/i);
   assert.deepEqual(
     instrument?.tags.map(({ id }) => id),
-    ["voice-synths", "sequencers", "geometry-drums"],
+    expectedTagIdsFor((instrument)?.id),
   );
   assert.deepEqual(
     instrument?.features,
@@ -523,8 +491,8 @@ test("Quadruped includes Frog and couples animal bodies to foot-driven contact s
 
 test("Monstrozoid is a continuous mutable pressure-network voice with page-owned valve keys", () => {
   const instrument = instrumentById("colony-syrinx");
-  assert.equal(instrument?.label, "Monstrozoid");
-  assert.equal(instrument?.href, "monstrozoid.html");
+  assert.equal(instrument?.label, "Monstroid");
+  assert.equal(instrument?.href, "monstroid.html");
   assert.equal(instrument?.imageHref, "assets/instruments/colony-syrinx.webp");
   assert.equal(instrument?.kind, "Mutable pressure-network voice");
   assert.match(instrument?.description ?? "", /variable lungs/i);
@@ -536,7 +504,7 @@ test("Monstrozoid is a continuous mutable pressure-network voice with page-owned
   assert.match(instrument?.start ?? "", /select a call to hear it immediately/i);
   assert.deepEqual(
     instrument?.tags.map(({ id }) => id),
-    ["voice-synths"],
+    expectedTagIdsFor((instrument)?.id),
   );
   assert.ok(instrument?.features.includes("Physical-model DSP"));
   assert.ok(instrument?.features.includes("MIDI"));
@@ -558,9 +526,9 @@ test("Wave Pool catalogues a sample-free hydroacoustic rhythm model", () => {
   assert.match(instrument?.description ?? "", /entrained bubbles/i);
   assert.deepEqual(
     instrument?.tags.map(({ id }) => id),
-    ["experiments"],
+    expectedTagIdsFor((instrument)?.id),
   );
-  assert.equal(instrument?.status, "Works in progress");
+  assert.equal(instrument?.status, "Work in Progress");
   assert.ok(instrument?.features.includes("Physical-model DSP"));
   assert.ok(instrument?.features.includes("Computer keys"));
   const midi = instrumentMidiCapabilityForId("wave-pool");
@@ -571,50 +539,50 @@ test("Wave Pool catalogues a sample-free hydroacoustic rhythm model", () => {
 
 test("Alien Larynx is a work-in-progress experiment", () => {
   const alienLarynx = instrumentById("alien-larynx");
-  assert.equal(alienLarynx?.status, "Works in progress");
+  assert.equal(alienLarynx?.status, "Work in Progress");
   assert.deepEqual(
     alienLarynx?.tags.map(({ id }) => id),
-    ["experiments"],
+    expectedTagIdsFor((alienLarynx)?.id),
   );
   assert.equal(
     INSTRUMENT_GROUPS.find(({ tools }) => tools.includes(alienLarynx))?.id,
-    "experiments",
+    "wip",
   );
 });
 
 test("Hyper-Syrinx is a work-in-progress experiment", () => {
   const hyperSyrinx = instrumentById("hyper-syrinx");
-  assert.equal(hyperSyrinx?.status, "Works in progress");
+  assert.equal(hyperSyrinx?.status, "Work in Progress");
   assert.deepEqual(
     hyperSyrinx?.tags.map(({ id }) => id),
-    ["experiments"],
+    expectedTagIdsFor((hyperSyrinx)?.id),
   );
   assert.equal(
     INSTRUMENT_GROUPS.find(({ tools }) => tools.includes(hyperSyrinx))?.id,
-    "experiments",
+    "wip",
   );
 });
 
 test("Morphynx is a work-in-progress experiment", () => {
   const morphynx = instrumentById("morphynx");
-  assert.equal(morphynx?.status, "Works in progress");
+  assert.equal(morphynx?.status, "Work in Progress");
   assert.deepEqual(
     morphynx?.tags.map(({ id }) => id),
-    ["experiments"],
+    expectedTagIdsFor((morphynx)?.id),
   );
   assert.equal(
     INSTRUMENT_GROUPS.find(({ tools }) => tools.includes(morphynx))?.id,
-    "experiments",
+    "wip",
   );
 });
 
 test("catalogue tag matching includes secondary tags", () => {
   assert.equal(instrumentMatchesTag(instrumentById("plasma-ball"), "all"), true);
   assert.equal(instrumentMatchesTag(instrumentById("plasma-ball"), "chaotic-synths"), false);
-  assert.equal(instrumentMatchesTag(instrumentById("plasma-ball"), "experiments"), true);
+  assert.equal(instrumentMatchesTag(instrumentById("plasma-ball"), "wip"), true);
   assert.equal(instrumentMatchesTag(instrumentById("plasma-ball"), "geometry"), false);
-  assert.equal(instrumentMatchesTag(instrumentById("fm-drums"), "geometry-drums"), true);
-  assert.equal(instrumentMatchesTag(instrumentById("moebius"), "sequencers"), true);
+  assert.equal(instrumentMatchesTag(instrumentById("fm-drums"), "drum-machine"), true);
+  assert.equal(instrumentMatchesTag(instrumentById("moebius"), "synthesizer"), true);
   assert.equal(instrumentMatchesTag(instrumentById("shape"), "faves"), true);
   assert.equal(instrumentMatchesTag(instrumentById("lattice"), "faves"), true);
 });
@@ -667,21 +635,21 @@ test("home catalogue shows every category with Faves first and compact duplicate
   const rootElement = new FakeElement("div", doc);
   const rendered = renderInstrumentCatalog(rootElement);
   const groupIds = rendered.groups.map(({ id }) => id);
-  assert.deepEqual(groupIds, [FIRST_CATEGORY_ID, ...INSTRUMENT_GROUPS.map(({ id }) => id)]);
+  assert.deepEqual(groupIds, [FIRST_CATEGORY_ID, ...CATALOGUE_GROUPS.map(({ id }) => id)]);
   assert.equal(rootElement.children.length, rendered.groups.length + 1);
   assert.deepEqual(rootElement.children.slice(0, -1), rendered.groups.map(({ section }) => section));
   assert.equal(rootElement.children.at(-1), rendered.preview.node);
   assert.equal(rendered.groups[0].heading.textContent, "Faves");
-  assert.equal(rendered.groups[1].heading.textContent, "Geometry Synths");
+  assert.equal(rendered.groups[1].heading.textContent, "Geometric");
 
-  const orderedInstruments = orderHomepageInstruments(INSTRUMENTS);
-  const expectedCardCount = INSTRUMENTS.reduce((sum, { tags }) => sum + tags.length, 0);
+  const orderedInstruments = orderHomepageInstruments(CATALOGUE_ITEMS);
+  const expectedCardCount = groupIds.reduce((sum, id) => sum + CATALOGUE_ITEMS.filter(item => instrumentMatchesTag(item, id)).length, 0);
   assert.equal(rendered.cards.length, expectedCardCount);
   const renderedInstrumentIds = new Set(rendered.cards.map(({ dataset }) => dataset.instrumentId));
-  assert.equal(renderedInstrumentIds.size, INSTRUMENTS.length);
+  assert.equal(renderedInstrumentIds.size, CATALOGUE_ITEMS.length);
   assert.deepEqual(
     renderedInstrumentIds,
-    new Set(INSTRUMENTS.map(({ id }) => id)),
+    new Set(CATALOGUE_ITEMS.map(({ id }) => id)),
   );
 
   for (const group of rendered.groups) {
@@ -779,39 +747,35 @@ test("input and plug-in availability facts remain explicit", () => {
   );
   assert.ok(instrumentById("ouroboros-borealis")?.features.includes("Built-in synth"));
   assert.equal(instrumentById("escher-tessellation")?.label, "Escher");
-  assert.equal(instrumentById("escher-tessellation")?.status, "Works in progress");
+  assert.equal(instrumentById("escher-tessellation")?.status, "Work in Progress");
   assert.equal(
     INSTRUMENT_GROUPS.find(({ tools }) => (
       tools.some(({ id }) => id === "escher-tessellation")
     ))?.id,
-    "experiments",
+    "wip",
   );
   assert.deepEqual(instrumentById("shape")?.features, ["MIDI", "Computer keys"]);
   assert.deepEqual(
     instrumentById("micmic")?.tags.map(({ id, label }) => ({ id, label })),
-    [
-      { id: "mic-fx", label: "Mic FX" },
-      { id: "fractals-recursion", label: "Fractals & Recursion" },
-      { id: "faves", label: "Faves" },
-    ],
+    expectedTagsFor("micmic"),
   );
   assert.deepEqual(
     instrumentById("escher-tessellation")?.tags.map(({ id }) => id),
-    ["experiments"],
+    expectedTagIdsFor((instrumentById("escher-tessellation"))?.id),
   );
   assert.equal(instrumentById("penrose-tilings")?.label, "Penrose Tilings");
-  assert.equal(instrumentById("penrose-tilings")?.status, "Works in progress");
+  assert.equal(instrumentById("penrose-tilings")?.status, "Work in Progress");
   assert.deepEqual(
     instrumentById("penrose-tilings")?.tags.map(({ id }) => id),
-    ["experiments"],
+    expectedTagIdsFor((instrumentById("penrose-tilings"))?.id),
   );
   assert.deepEqual(
-    INSTRUMENT_GROUPS.find(({ id }) => id === "apps")?.tools.map(({ id }) => id),
-    ["combo", "l-systems", "graphs", "tiles-app", "algorithmic-mazes", "paths"],
+    INSTRUMENT_GROUPS.find(({ id }) => id === "app")?.tools.map(({ id }) => id),
+    ["shapes", "l-systems", "graphs", "tesselation"],
   );
   assert.deepEqual(
     instrumentById("graphs")?.tags.map(({ id }) => id),
-    ["apps", "fractals-recursion", "geometry-drums", "mic-fx"],
+    expectedTagIdsFor((instrumentById("graphs"))?.id),
   );
   assert.equal(instrumentById("graphs")?.label, "Graphs");
   assert.equal(instrumentById("graphs")?.href, "graphs.html");
@@ -822,15 +786,15 @@ test("input and plug-in availability facts remain explicit", () => {
   assert.equal(graphsMidi?.midiOutput, true);
   assert.deepEqual(
     instrumentById("tiles-app")?.tags.map(({ id }) => id),
-    ["apps"],
+    expectedTagIdsFor((instrumentById("tiles-app"))?.id),
   );
   assert.deepEqual(
     instrumentById("algorithmic-mazes")?.tags.map(({ id }) => id),
-    ["apps"],
+    expectedTagIdsFor((instrumentById("algorithmic-mazes"))?.id),
   );
   assert.deepEqual(
     instrumentById("paths")?.tags.map(({ id }) => id),
-    ["apps"],
+    expectedTagIdsFor((instrumentById("paths"))?.id),
   );
   const tileIds = [
     "lattice",
@@ -839,14 +803,14 @@ test("input and plug-in availability facts remain explicit", () => {
     "spiral-drums",
   ];
   assert.deepEqual(
-    INSTRUMENT_GROUPS.find(({ id }) => id === "tiles")?.tools.map(({ id }) => id),
-    tileIds,
+    INSTRUMENT_GROUPS.find(({ id }) => id === "tesselation")?.tools.map(({ id }) => id),
+    tileIds.map(expectedIdFor),
   );
   const faveTileIds = new Set(["lattice", "spiral"]);
   for (const id of tileIds) {
     assert.deepEqual(
       instrumentById(id)?.tags.map(({ id: tagId }) => tagId),
-      ["tiles", ...(faveTileIds.has(id) ? ["faves"] : [])],
+      expectedTagIdsFor((instrumentById(id))?.id),
     );
   }
   assert.ok(instrumentById("lumber")?.features.includes("Mic input"));
@@ -882,7 +846,7 @@ test("input and plug-in availability facts remain explicit", () => {
     assert.equal(instrumentById(id)?.kind, "Synth");
     assert.deepEqual(
       instrumentById(id)?.tags.map(({ id: tagId }) => tagId),
-      ["chaotic-synths", "fractals-recursion"],
+      expectedTagIdsFor((instrumentById(id))?.id),
     );
   }
   assert.match(instrumentById("cascading-fm")?.description ?? "", /frequenc(?:y|ies)/i);
@@ -891,7 +855,7 @@ test("input and plug-in availability facts remain explicit", () => {
   assert.equal(instrumentById("image-to-instrument-2"), null);
   assert.equal(INSTRUMENT_GROUPS.some(({ id }) => id === "image-to-instrument"), false);
   assert.equal(
-    INSTRUMENT_GROUPS.find(({ id }) => id === "misc")?.tools.some(
+    INSTRUMENT_GROUPS.find(({ id }) => id === "wip")?.tools.some(
       ({ id }) => id === "image-to-instrument-3",
     ),
     true,
@@ -941,15 +905,15 @@ test("Hyper Rubix copy documents every order, playback scope, and five instrumen
 
 test("card renderer stays a dense, complete activity-ranked visual index", async () => {
   const [app, css] = await Promise.all([
-    readFile(new URL("instrument-catalog-app.js", root), "utf8"),
-    readFile(new URL("instrument-catalog.css", root), "utf8"),
+    readFile(new URL("src/site/instrument-catalog-app.js", root), "utf8"),
+    readFile(new URL("src/site/instrument-catalog.css", root), "utf8"),
   ]);
   assert.equal(new Set(HOMEPAGE_ACTIVITY_IDS).size, HOMEPAGE_ACTIVITY_IDS.length);
   assert.deepEqual(
-    HOMEPAGE_ACTIVITY_IDS.filter((id) => !instrumentById(id)),
+    HOMEPAGE_ACTIVITY_IDS.filter((id) => !catalogueItemById(id)),
     [],
   );
-  assert.match(app, /const instruments = orderHomepageInstruments\(INSTRUMENTS\)/);
+  assert.match(app, /const instruments = orderHomepageInstruments\(CATALOGUE_ITEMS\)/);
   assert.match(app, /const groupViews = homepageCategories\(\)\.map/);
   assert.match(app, /image\.loading = index < 12 \? "eager" : "lazy"/);
   assert.match(app, /image\.decoding = index < 12 \? "sync" : "async"/);
@@ -962,7 +926,7 @@ test("card renderer stays a dense, complete activity-ranked visual index", async
   assert.doesNotMatch(app, /import\s*\{[^}]*FAVE_TOOL_IDS/s);
   assert.match(app, /element\(doc, "a", "instrument-card-link"\)/);
   assert.match(app, /cardLink\.href = instrument\.href/);
-  assert.match(app, /cardLink\.setAttribute\("aria-label", instrument\.label\)/);
+  assert.match(app, /cardLink\.setAttribute\("aria-label", instrument\.entryType === "lab"/);
   assert.match(app, /cardLink\.append\(visual, title\)/);
   assert.match(app, /card\.append\(cardLink\)/);
   assert.match(app, /function createPreview\(doc\)/);
@@ -988,14 +952,14 @@ test("card renderer stays a dense, complete activity-ranked visual index", async
 
 
 test("Roach Synth is discoverable in the main chooser with current body-instrument copy", () => {
-  const group = TOOL_GROUPS.find(({ id }) => id === "voice-synths");
+  const group = TOOL_GROUPS.find(({ id }) => id === "bioacoustic");
   const entry = group.tools.find(({ id }) => id === "roach-synth");
   assert.equal(entry.href, "roach-synth.html");
   assert.notEqual(group.picker, false);
   assert.equal(TOOL_GROUPS.flatMap(({ tools }) => tools).filter(({ id }) => id === "roach-synth").length, 1);
   const instrument = instrumentById("roach-synth");
   assert.equal(instrument.status, null);
-  assert.equal(instrument.tags[0].id, "voice-synths");
+  assert.equal(instrument.tags[0].id, "bioacoustic");
   assert.match(instrument.description, /31 playable joints/);
   assert.match(instrument.description, /body-part mixer/);
   assert.doesNotMatch(instrument.description + instrument.start, /27 playable|16-step|joint score|edit each joint.s loop/);

@@ -3,7 +3,7 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 test("app.js initializes and draws one frame against browser APIs", async () => {
-  const html = await readFile(new URL("../shape.html", import.meta.url), "utf8");
+  const html = await readFile(new URL("../shape-synth.html", import.meta.url), "utf8");
   const ids = [...html.matchAll(/\bid="([^"]+)"/g)].map((match) => match[1]);
   const initialTags = new Map(
     [...html.matchAll(/<[^>]+\bid="([^"]+)"[^>]*>/g)].map((match) => [match[1], match[0]]),
@@ -264,7 +264,7 @@ test("app.js initializes and draws one frame against browser APIs", async () => 
     value: { now: () => 1_000 },
   });
 
-  await import(`../app.js?smoke=${Date.now()}`);
+  await import(`../src/instruments/shape-synth/shape-synth-app.js?smoke=${Date.now()}`);
   assert.equal(typeof queuedFrame, "function");
   queuedFrame(1_000);
 
@@ -1235,7 +1235,7 @@ test("app.js initializes and draws one frame against browser APIs", async () => 
   assert.match(elements.get("markDecayOut").textContent, /3500 ms ADSR/);
 
   sessionStorage.set("morphazoid:shape:reset:sides", "7");
-  await import(`../app.js?smokeReload=${Date.now()}`);
+  await import(`../src/instruments/shape-synth/shape-synth-app.js?smokeReload=${Date.now()}`);
   assert.equal(elements.get("sides").value, "7");
   assert.equal(elements.get("sidesOut").textContent, "7 · polygon");
   assert.equal(sessionStorage.size, 0, "the reset-only side count should be consumed once");

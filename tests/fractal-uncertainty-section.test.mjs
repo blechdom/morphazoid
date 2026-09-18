@@ -12,27 +12,27 @@ const instruments = Object.freeze([
     id: "cantor-lock",
     label: "Cantor Lock",
     page: "cantor-lock.html",
-    app: "cantor-lock-app.js",
+    app: "src/instruments/cantor-lock/cantor-lock-app.js",
     core: "src/cantor-lock.js",
   }),
   Object.freeze({
     id: "escape-dust",
     label: "Escape Dust",
     page: "escape-dust.html",
-    app: "escape-dust-app.js",
+    app: "src/instruments/escape-dust/escape-dust-app.js",
     core: "src/escape-dust.js",
   }),
   Object.freeze({
     id: "linebreaker",
     label: "Linebreaker",
     page: "linebreaker.html",
-    app: "linebreaker-app.js",
+    app: "src/instruments/linebreaker/linebreaker-app.js",
     core: "src/linebreaker.js",
   }),
 ]);
 
 test("the three fractal uncertainty instruments live together in Experiments", () => {
-  const group = TOOL_GROUPS.find(({ id }) => id === "experiments");
+  const group = TOOL_GROUPS.find(({ id }) => id === "wip");
   assert.ok(group);
   const start = group.tools.findIndex(({ id }) => id === instruments[0].id);
   assert.ok(start >= 0);
@@ -51,7 +51,7 @@ test("fractal uncertainty pages share a playable, disclosed instrument shell", a
     ]);
 
     assert.match(html, /<link rel="stylesheet" href="style\.css"\s*\/?>/);
-    assert.match(html, /<link rel="stylesheet" href="fractal-uncertainty\.css"\s*\/?>/);
+    assert.match(html, /<link rel="stylesheet" href="src\/instruments\/fractal-uncertainty\/fractal-uncertainty\.css"\s*\/?>/);
     assert.match(html, /class="[^"]*fractal-uncertainty-page/);
     assert.match(html, /<canvas[\s\S]*?id="stage"[\s\S]*?tabindex="0"/);
     assert.match(html, /id="audioButton"[^>]*aria-pressed="false"/);
@@ -65,7 +65,7 @@ test("fractal uncertainty pages share a playable, disclosed instrument shell", a
     assert.ok(html.includes(disclosure), `${instrument.page} must keep the scope disclosure visible`);
     assert.match(html, new RegExp(`<h1[^>]*>${instrument.label}<\\/h1>`, "i"));
     assert.match(html, new RegExp(`<script type="module" src="${instrument.app.replace(".", "\\.")}">`));
-    assert.match(app, new RegExp(`from ["']\\./${instrument.core.replace(".", "\\.")}["']`));
+    assert.match(app, new RegExp(`from ["']\\.\\./\\.\\./${instrument.core.replace("src/", "").replace(".", "\\.")}["']`));
     assert.match(app, /audioState/);
     assert.match(app, /pagehide/);
     assert.doesNotMatch(core, /\bdocument\.|\bwindow\./, `${instrument.core} must stay import-safe`);
@@ -85,7 +85,7 @@ test("catalogue and README describe finite models without claiming a proof", asy
 });
 
 test("fractal uncertainty CSS preserves desktop, compact, and reduced-motion layouts", async () => {
-  const css = await readFile(new URL("fractal-uncertainty.css", root), "utf8");
+  const css = await readFile(new URL("src/instruments/fractal-uncertainty/fractal-uncertainty.css", root), "utf8");
   assert.match(css, /\.fractal-uncertainty-page\s*\{/);
   assert.match(css, /\.fractal-uncertainty-shell\s*\{/);
   assert.match(css, /\.fractal-uncertainty-heading\s*\{/);

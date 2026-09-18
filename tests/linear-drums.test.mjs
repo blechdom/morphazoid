@@ -410,8 +410,8 @@ test("Linear Drum audio builds each body model and releases its graph", async ()
 test("Rattlesnake page exposes the continuous instrument and global controls", async () => {
   const [html, source, css] = await Promise.all([
     readFile(new URL("linear-drums.html", root), "utf8"),
-    readFile(new URL("linear-drums-app.js", root), "utf8"),
-    readFile(new URL("linear-drums.css", root), "utf8"),
+    readFile(new URL("src/instruments/linear-drums/linear-drums-app.js", root), "utf8"),
+    readFile(new URL("src/instruments/linear-drums/linear-drums.css", root), "utf8"),
   ]);
 
   assert.match(html, /<h1 id="linearDrumsTitle">Rattlesnake<\/h1>/);

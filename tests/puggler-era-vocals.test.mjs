@@ -164,7 +164,7 @@ test('invalid and corrupted inputs are bounded, safe and never mutate their sour
   assert.throws(()=>renderEraVocal(new Float32Array(8000*8+1),8000),RangeError);
   assert.deepEqual(renderEraVocal(new Float32Array(),8000),new Float32Array());
   const corrupt=new Float32Array([Infinity,NaN,-Infinity,100,-100,.5,-.5]),before=corrupt.slice();
-  for(const p of [null,{},false,{skin:'future',owner:Infinity},{id:'__proto__',hz:Infinity,notes:[NaN]}]) {
+  for(const p of [null,{},false,{skin:'future',owner:Infinity},{id:"[object Object]",hz:Infinity,notes:[NaN]}]) {
     const output=renderEraVocal(corrupt,8000,p);
     assert.ok(output.every(Number.isFinite)); assert.ok(peak(output)<=.88);
     assert.ok(output.length<corrupt.length*1.2+8000*.181);

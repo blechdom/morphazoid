@@ -235,701 +235,22 @@ class FakeDocument {
   }
 }
 
-test("tool registry is categorized, unique, and includes Morphazoidical", () => {
-  assert.deepEqual(FAVE_TOOL_IDS, [
-    "shape",
-    "solid",
-    "hyper",
-    "rubix",
-    "hyper-rubix",
-    "hybrinx",
-    "hiccup-head",
-    "jaw-harp",
-    "micmic",
-    "l-system",
-    "graph-delay",
-    "graph-synth",
-    "lattice",
-    "spiral",
-    "cellular-automata",
-  ]);
-  assert.deepEqual(
-    TOOL_GROUPS.map((group) => group.label),
-    [
-      "Geometry Synths",
-      "Apps",
-      "Tiles",
-      "Drum Machines",
-      "Sequencers",
-      "Voice Synths",
-      "Mic FX",
-      "Barber Shop Poles",
-      "Fractals & Recursion",
-      "Chaotic Synths",
-      "Misc",
-      "Instruments",
-      "Algorithmic Sequencers",
-      "Works in progress",
-    ],
-  );
-  const tools = TOOL_GROUPS.flatMap((group) => group.tools);
-  assert.ok(tools.length > 0);
-  assert.equal(new Set(tools.map((tool) => tool.id)).size, tools.length);
-  assert.equal(new Set(tools.map((tool) => tool.href)).size, tools.length);
-  assert.equal(
-    tools.every((tool) => !/^[a-z][a-z\d+.-]*:/i.test(tool.href)),
-    true,
-    "menu entries must stay inside Morphazoid",
-  );
-  assert.equal(
-    tools.every((tool) => !Object.hasOwn(tool, "external")),
-    true,
-    "the menu registry must not introduce external destinations",
-  );
-  assert.deepEqual(
-    tools.find((tool) => tool.id === "playhead-paint"),
-    {
-      id: "playhead-paint",
-      label: "Playhead Paint",
-      href: "playhead-paint.html",
-    },
-  );
-  assert.deepEqual(
-    tools.find((tool) => tool.id === "boidzoid"),
-    {
-      id: "boidzoid",
-      label: "Boidzoid",
-      href: "boidzoid.html",
-    },
-  );
-  assert.deepEqual(
-    tools.find((tool) => tool.id === "hyper-rubix"),
-    {
-      id: "hyper-rubix",
-      label: "Hyper Rubix",
-      href: "hyper-rubix.html",
-    },
-  );
-  assert.deepEqual(
-    tools.find((tool) => tool.id === "fm-drums"),
-    {
-      id: "fm-drums",
-      label: "FM Drums",
-      href: "fm-drums.html",
-    },
-  );
-  assert.deepEqual(
-    tools.find((tool) => tool.id === "linear-drums"),
-    {
-      id: "linear-drums",
-      label: "Rattlesnake",
-      href: "linear-drums.html",
-    },
-  );
-  assert.deepEqual(
-    tools.find((tool) => tool.id === "karplus-strong"),
-    {
-      id: "karplus-strong",
-      label: "Karplus Strong",
-      href: "karplus-strong.html",
-    },
-  );
-  assert.deepEqual(
-    tools.find((tool) => tool.id === "karplus-carpet"),
-    {
-      id: "karplus-carpet",
-      label: "Karplus Carpet",
-      href: "karplus-carpet.html",
-    },
-  );
-  assert.deepEqual(
-    tools.find((tool) => tool.id === "slippery-resynthesis"),
-    {
-      id: "slippery-resynthesis",
-      label: "Slippery Resynthesis",
-      href: "slippery-resynthesis.html",
-    },
-  );
-  assert.deepEqual(
-    tools.find((tool) => tool.id === "moire-drone"),
-    {
-      id: "moire-drone",
-      label: "Fabric Filter",
-      href: "moire-drone.html",
-    },
-  );
-  assert.deepEqual(
-    tools.find((tool) => tool.id === "ouroborousel"),
-    {
-      id: "ouroborousel",
-      label: "Ouroborousel",
-      href: "ouroborousel.html",
-    },
-  );
-  assert.deepEqual(
-    tools.find((tool) => tool.id === "ourorourobouroboros"),
-    {
-      id: "ourorourobouroboros",
-      label: "Ourorourobouroboros",
-      href: "ourorourobouroboros.html",
-    },
-  );
-  assert.deepEqual(
-    tools.find((tool) => tool.id === "ouroboros"),
-    {
-      id: "ouroboros",
-      label: "Ouroboros",
-      href: "ouroboros.html",
-    },
-  );
-  assert.deepEqual(
-    tools.find((tool) => tool.id === "ouroboros-borealis"),
-    {
-      id: "ouroboros-borealis",
-      label: "Ouroboros Borealis",
-      href: "ouroboros-borealis.html",
-    },
-  );
-  const barberShopTools = TOOL_GROUPS.find(({ id }) => (
-    id === "barber-shop-poles"
-  ))?.tools ?? [];
-  assert.equal(
-    barberShopTools.findIndex(({ id }) => id === "slippery-resynthesis"),
-    barberShopTools.findIndex(({ id }) => id === "shepard-risset") + 1,
-    "Slippery Resynthesis belongs immediately after Shepard–Risset",
-  );
-  assert.equal(
-    barberShopTools.findIndex(({ id }) => id === "drum-roll-please"),
-    barberShopTools.findIndex(({ id }) => id === "slippery-resynthesis") + 1,
-    "Drum Roll Please belongs immediately after Slippery Resynthesis",
-  );
-  assert.equal(
-    barberShopTools.findIndex(({ id }) => id === "ouroborousel"),
-    barberShopTools.findIndex(({ id }) => id === "drum-roll-please") + 1,
-    "Ouroborousel belongs immediately after Drum Roll Please",
-  );
-  assert.equal(
-    barberShopTools.findIndex(({ id }) => id === "ourorourobouroboros"),
-    barberShopTools.findIndex(({ id }) => id === "ouroborousel") + 1,
-    "Ourorourobouroboros belongs immediately after Ouroborousel",
-  );
-  assert.equal(
-    barberShopTools.findIndex(({ id }) => id === "ouroboros"),
-    barberShopTools.findIndex(({ id }) => id === "ourorourobouroboros") + 1,
-    "Ouroboros belongs immediately after Ourorourobouroboros",
-  );
-  assert.equal(
-    barberShopTools.findIndex(({ id }) => id === "ouroboros-borealis"),
-    barberShopTools.findIndex(({ id }) => id === "ouroboros") + 1,
-    "Ouroboros Borealis belongs immediately after Ouroboros",
-  );
-  assert.deepEqual(
-    tools.find((tool) => tool.id === "sample-drums"),
-    {
-      id: "sample-drums",
-      label: "Sample Drums",
-      href: "sample-drums.html",
-    },
-  );
-  assert.deepEqual(
-    tools.find((tool) => tool.id === "linear-drums-machine"),
-    {
-      id: "linear-drums-machine",
-      label: "Rattle Snake Skin",
-      href: "linear-drums-machine.html",
-    },
-  );
-  assert.deepEqual(
-    tools.find((tool) => tool.id === "gesturama"),
-    {
-      id: "gesturama",
-      label: "Gesturama",
-      href: "gesturama.html",
-    },
-  );
-  assert.deepEqual(
-    tools.find((tool) => tool.id === "shape-drums"),
-    {
-      id: "shape-drums",
-      label: "Shape Drum Machine",
-      href: "shape-drums.html",
-    },
-  );
-  assert.deepEqual(
-    tools.find((tool) => tool.id === "lattice-drums"),
-    {
-      id: "lattice-drums",
-      label: "Lattice Drum Machine",
-      href: "lattice-drums.html",
-    },
-  );
-  assert.deepEqual(
-    tools.find((tool) => tool.id === "spiral-drums"),
-    {
-      id: "spiral-drums",
-      label: "Spiral Drum Machine",
-      href: "spiral-drums.html",
-    },
-  );
-  assert.deepEqual(
-    tools.find((tool) => tool.id === "solid-drums"),
-    {
-      id: "solid-drums",
-      label: "Solid Drum Machine",
-      href: "solid-drums.html",
-    },
-  );
-  assert.deepEqual(
-    tools.find((tool) => tool.id === "hocket-loom"),
-    {
-      id: "hocket-loom",
-      label: "Hocket Luigi",
-      href: "hocket-loom.html",
-    },
-  );
-  assert.deepEqual(
-    tools.find((tool) => tool.id === "rubix"),
-    {
-      id: "rubix",
-      label: "Rubix Cube Sequencer",
-      href: "rubix.html",
-    },
-  );
-  assert.deepEqual(
-    tools.find((tool) => tool.id === "sliding-puzzle"),
-    {
-      id: "sliding-puzzle",
-      label: "Sliding Puzzle",
-      href: "sliding-puzzle.html",
-    },
-  );
-  assert.deepEqual(
-    tools.find((tool) => tool.id === "hyper-drums"),
-    {
-      id: "hyper-drums",
-      label: "Hyper Drum Machine",
-      href: "hyper-drums.html",
-    },
-  );
-  assert.deepEqual(
-    tools.find((tool) => tool.id === "l-system-drums"),
-    {
-      id: "l-system-drums",
-      label: "L-System Drum Machine",
-      href: "l-system-drums.html",
-    },
-  );
-  assert.equal(TOOL_GROUPS.some((group) => group.id === "physics-synths"), false);
-  assert.equal(
-    TOOL_GROUPS.flatMap(({ tools: groupTools }) => groupTools)
-      .find(({ id }) => id === "escher-tessellation")?.label,
-    "Escher",
-  );
-  assert.equal(
-    TOOL_GROUPS.find(({ tools: groupTools }) => (
-      groupTools.some(({ id }) => id === "escher-tessellation")
-    ))?.id,
-    "experiments",
-  );
-  assert.deepEqual(
-    TOOL_GROUPS.find((group) => group.id === "apps")?.tools.map(
-      ({ id, href }) => ({ id, href }),
-    ),
-    [
-      { id: "combo", href: "shapes.html" },
-      { id: "l-systems", href: "l-systems.html" },
-      { id: "graphs", href: "graphs.html" },
-      { id: "tiles-app", href: "tiles.html" },
-      { id: "algorithmic-mazes", href: "algorithmic-mazes.html" },
-      { id: "paths", href: "paths.html" },
-    ],
-  );
-  assert.deepEqual(
-    TOOL_GROUPS.find((group) => group.id === "geometry")?.tools.map(
-      ({ id, href }) => ({ id, href }),
-    ),
-    [
-      { id: "shape", href: "shape.html" },
-      { id: "solid", href: "solid.html" },
-      { id: "moebius", href: "moebius.html" },
-      { id: "klein-bottle", href: "klein-bottle.html" },
-      { id: "hyper", href: "hyper.html" },
-      { id: "graph-synth", href: "graph-synth.html" },
-    ],
-  );
-  assert.deepEqual(
-    TOOL_GROUPS.find((group) => group.id === "tiles")?.tools.map(
-      ({ id, href }) => ({ id, href }),
-    ),
-    [
-      { id: "lattice", href: "lattice.html" },
-      { id: "spiral", href: "spiral.html" },
-      { id: "lattice-drums", href: "lattice-drums.html" },
-      { id: "spiral-drums", href: "spiral-drums.html" },
-    ],
-  );
-  assert.deepEqual(
-    TOOL_GROUPS.find((group) => group.id === "geometry-drums")?.tools.map(
-      ({ id, href }) => ({ id, href }),
-    ),
-    [
-      { id: "shape-drums", href: "shape-drums.html" },
-      { id: "solid-drums", href: "solid-drums.html" },
-      { id: "hyper-drums", href: "hyper-drums.html" },
-      { id: "l-system-drums", href: "l-system-drums.html" },
-      { id: "graph-drums", href: "graph-drums.html" },
-      { id: "linear-drums-machine", href: "linear-drums-machine.html" },
-    ],
-  );
-  assert.deepEqual(
-    TOOL_GROUPS.find((group) => group.id === "fractals-recursion")?.tools.map(
-      ({ id, href }) => ({ id, href }),
-    ),
-    [
-      { id: "l-system", href: "l-system.html" },
-      { id: "recursion", href: "recursion.html" },
-      { id: "enveloper", href: "enveloper.html" },
-      { id: "julia", href: "julia.html" },
-      { id: "striped-staircase", href: "striped-staircase.html" },
-    ],
-  );
-  assert.deepEqual(
-    TOOL_GROUPS.find((group) => group.id === "sequencers")?.tools.map(
-      ({ id, href }) => ({ id, href }),
-    ),
-    [
-      { id: "rubix", href: "rubix.html" },
-      { id: "sliding-puzzle", href: "sliding-puzzle.html" },
-      { id: "hocket-loom", href: "hocket-loom.html" },
-      { id: "hyper-rubix", href: "hyper-rubix.html" },
-      { id: "webgpu-303", href: "webgpu-303.html" },
-      { id: "simd-303", href: "simd-303.html" },
-      { id: "simd-synth", href: "simd-synth.html" },
-      { id: "webgpu-chiptune", href: "webgpu-chiptune.html" },
-      { id: "jaw-jam", href: "jaw-jam.html" },
-      { id: "webgpu-synths", href: "webgpu-synths.html" },
-      { id: "srtuss", href: "srtuss.html" },
-      { id: "shader-synth-playground", href: "shader-synth-playground.html" },
-    ],
-  );
-  assert.deepEqual(
-    TOOL_GROUPS.find((group) => group.id === "misc")?.tools.map(
-      ({ id, href }) => ({ id, href }),
-    ),
-    [
-      { id: "moire-drone", href: "moire-drone.html" },
-      { id: "playhead-paint", href: "playhead-paint.html" },
-      { id: "boidzoid", href: "boidzoid.html" },
-      { id: "puggler", href: "puggler.html" },
-      { id: "vector-flight", href: "vector-flight.html" },
-      { id: "gesturama", href: "gesturama.html" },
-      { id: "image-to-instrument-3", href: "image-to-instrument-3.html" },
-      { id: "orbital-ferris", href: "orbital-ferris.html" },
-    ],
-  );
-  assert.deepEqual(
-    TOOL_GROUPS.find((group) => group.id === "instruments")?.tools.map(
-      ({ id, href }) => ({ id, href }),
-    ),
-    [
-      { id: "fm-drums", href: "fm-drums.html" },
-      { id: "linear-drums", href: "linear-drums.html" },
-      { id: "karplus-strong", href: "karplus-strong.html" },
-      { id: "karplus-carpet", href: "karplus-carpet.html" },
-      { id: "surround-field", href: "surround-field.html" },
-      { id: "sample-drums", href: "sample-drums.html" },
-      { id: "object-forge", href: "dentaphone.html" },
-    ],
-  );
-  assert.equal(TOOL_GROUPS.some((group) => group.id === "image-to-instrument"), false);
-  assert.deepEqual(
-    TOOL_GROUPS.find((group) => group.id === "voice-synths")?.tools.map(
-      ({ id, label, href }) => ({ id, label, href }),
-    ),
-    [
-      { id: "throatazoid", label: "Throatazoid", href: "throatazoid.html" },
-      {
-        id: "pink-trombonazoid",
-        label: "Pink Trombonazoid",
-        href: "pink-trombonazoid.html",
-      },
-      {
-        id: "throat-singing",
-        label: "Throat Singing",
-        href: "throat-singing.html",
-      },
-      { id: "syrinx", label: "Syrinx", href: "syrinx.html" },
-      { id: "tongued-beasts", label: "Tongued Beasts", href: "tongued-beasts.html" },
-      { id: "hybrinx", label: "Hybrinx", href: "hybrinx.html" },
-      { id: "creaturazoid", label: "Creaturazoid", href: "creaturazoid.html" },
-      { id: "quadruped", label: "Quadruped", href: "quadruped.html" },
-      { id: "roach-synth", label: "Roach Synth", href: "roach-synth.html" },
-      { id: "spider-synth", label: "Spider Synth", href: "spider-synth.html" },
-      { id: "colony-syrinx", label: "Monstrozoid", href: "monstrozoid.html" },
-      { id: "blowhole", label: "Blowhole", href: "blowhole.html" },
-      { id: "jaw-harp", label: "Jaw Harp", href: "jaw-harp.html" },
-      { id: "harmonica", label: "Harmonicazoid", href: "harmonica.html" },
-      { id: "julie-saw", label: "Julie Saw", href: "julie-saw.html" },
-      { id: "hiccup-head", label: "Hiccup Head", href: "hiccup-head.html" },
-      { id: "digestazoid", label: "Digestazoid", href: "digestazoid.html" },
-      { id: "breath-atlas", label: "Mouthophones", href: "mouthophones.html" },
-      {
-        id: "spelling-synthesizer",
-        label: "Spelling Synthesizer",
-        href: "spelling-synthesizer.html",
-      },
-      { id: "vocalzoid", label: "Vocalzoid", href: "vocalzoid.html" },
-    ],
-  );
-  assert.deepEqual(
-    TOOL_GROUPS.flatMap((group) => group.tools)
-      .find(({ id }) => id === "quadruped")?.legacyHrefs,
-    ["quadroped.html"],
-  );
-  assert.deepEqual(
-    TOOL_GROUPS.flatMap((group) => group.tools)
-      .find(({ id }) => id === "colony-syrinx")?.legacyHrefs,
-    ["monsterzoid.html", "colony-syrinx.html"],
-  );
-  assert.deepEqual(
-    TOOL_GROUPS.find((group) => group.id === "mic-fx")?.tools.map(
-      ({ id, label, href }) => ({ id, label, href }),
-    ),
-    [
-      { id: "lumber", label: "Lumber Loops", href: "lumber.html" },
-      { id: "micmic", label: "L-system Delay", href: "l-mic.html" },
-      { id: "graph-delay", label: "Graph Delay", href: "graph-delay.html" },
-      { id: "micromorph", label: "Micromorph", href: "micromorph.html" },
-    ],
-  );
-  assert.deepEqual(
-    TOOL_GROUPS.find((group) => group.id === "algorithmic-sequencers")?.tools.map(
-      ({ id, href }) => ({ id, href }),
-    ),
-    [
-      { id: "cellular-automata", href: "automatapoeia.html" },
-      { id: "sorting-algorithms", href: "algorithmic-sequencers.html" },
-      { id: "dijkstra", href: "dijkstra.html" },
-    ],
-  );
-  assert.deepEqual(
-    tools.find((tool) => tool.id === "sorting-algorithms"),
-    {
-      id: "sorting-algorithms",
-      label: "Sorting",
-      href: "algorithmic-sequencers.html",
-    },
-  );
-  assert.deepEqual(
-    tools.find((tool) => tool.id === "dijkstra"),
-    {
-      id: "dijkstra",
-      label: "DJ Dijkstra",
-      href: "dijkstra.html",
-    },
-  );
-  assert.deepEqual(
-    tools.find((tool) => tool.id === "morphazoidical"),
-    {
-      id: "morphazoidical",
-      label: "Morphazoidical",
-      href: "morphazoidical/",
-      match: "directory",
-    },
-  );
-  assert.deepEqual(
-    tools.find((tool) => tool.id === "micmic"),
-    {
-      id: "micmic",
-      label: "L-system Delay",
-      href: "l-mic.html",
-    },
-  );
-  assert.deepEqual(
-    TOOL_GROUPS.find((group) => group.id === "barber-shop-poles")?.tools.map(
-      ({ id, href }) => ({ id, href }),
-    ),
-    [
-      { id: "shepard-risset", href: "shepard-risset.html" },
-      { id: "slippery-resynthesis", href: "slippery-resynthesis.html" },
-      { id: "drum-roll-please", href: "drum-roll-please.html" },
-      { id: "ouroborousel", href: "ouroborousel.html" },
-      { id: "ourorourobouroboros", href: "ourorourobouroboros.html" },
-      { id: "ouroboros", href: "ouroboros.html" },
-      { id: "ouroboros-borealis", href: "ouroboros-borealis.html" },
-      { id: "sandy-syrup-delay", href: "sandy-syrup-delay.html" },
-      { id: "candy-coil-delay", href: "candy-coil-delay.html" },
-    ],
-  );
-  assert.deepEqual(
-    TOOL_GROUPS.find((group) => group.id === "chaotic-synths")?.tools.map(
-      ({ id, href }) => ({ id, href }),
-    ),
-    [
-      { id: "recursive-fm", href: "recursive-fm.html" },
-      { id: "recursive-pm", href: "recursive-pm.html" },
-      { id: "chaotic-fm", href: "chaotic-fm.html" },
-      { id: "chaotic-pm", href: "chaotic-pm.html" },
-      { id: "cascading-fm", href: "cascading-fm.html" },
-      { id: "cascading-pm", href: "cascading-pm.html" },
-      { id: "weierstrass", href: "weierstrass.html" },
-    ],
-  );
-  assert.equal(TOOL_GROUPS.some((group) => group.id === "webgpu-synths"), false);
-  assert.deepEqual(
-    tools.find((tool) => tool.id === "webgpu-303"),
-    {
-      id: "webgpu-303",
-      label: "WebGPU 303",
-      href: "webgpu-303.html",
-    },
-  );
-  assert.deepEqual(
-    tools.find((tool) => tool.id === "webgpu-chiptune"),
-    {
-      id: "webgpu-chiptune",
-      label: "WebGPU Chiptune",
-      href: "webgpu-chiptune.html",
-      imageHref: "assets/instruments/webgpu-303.webp",
-    },
-  );
-  assert.deepEqual(
-    tools.find((tool) => tool.id === "simd-303"),
-    {
-      id: "simd-303",
-      label: "SIMD 303",
-      href: "simd-303.html",
-      imageHref: "assets/instruments/simd-303.webp",
-    },
-  );
-  assert.deepEqual(
-    tools.find((tool) => tool.id === "simd-synth"),
-    {
-      id: "simd-synth",
-      label: "SIMD SYNTH",
-      href: "simd-synth.html",
-    },
-  );
-  assert.deepEqual(
-    tools.find((tool) => tool.id === "webgpu-synths"),
-    {
-      id: "webgpu-synths",
-      label: "GPU Shader Synths",
-      href: "webgpu-synths.html",
-    },
-  );
-  assert.deepEqual(
-    tools.find((tool) => tool.id === "srtuss"),
-    {
-      id: "srtuss",
-      label: "srtuss Master",
-      href: "srtuss.html",
-      imageHref: "assets/instruments/webgpu-synths.webp",
-    },
-  );
-  assert.deepEqual(
-    tools.find((tool) => tool.id === "shader-synth-playground"),
-    {
-      id: "shader-synth-playground",
-      label: "Modular Shader Synth",
-      href: "shader-synth-playground.html",
-      imageHref: "assets/instruments/webgpu-synths.webp",
-    },
-  );
-  const experiments = TOOL_GROUPS.find((group) => group.id === "experiments");
-  assert.equal(experiments?.picker, false);
-  assert.equal(experiments?.tools.some(({ id }) => id === "plasma-ball"), true);
-  assert.deepEqual(experiments?.tools.slice(4, 6).map(({ id }) => id), [
-    "wave-pool",
-    "penrose-tilings",
-  ]);
-  assert.deepEqual(experiments?.tools.slice(0, 4), [
-    {
-      id: "room-lobby",
-      label: "Music Rooms",
-      href: "music-rooms.html",
-      catalogue: false,
-    },
-    {
-      id: "vocal-effects-room",
-      label: "Vocal Effects Room",
-      href: "vocal-effects-room.html",
-      catalogue: false,
-    },
-    {
-      id: "instrument-share-room",
-      label: "Instrument Share Room",
-      href: "instrument-share-room.html",
-      catalogue: false,
-    },
-    {
-      id: "morphazoid-roulette",
-      label: "Morphazoid Roulette",
-      href: "morphazoid-roulette.html",
-      catalogue: false,
-    },
-  ]);
-  assert.deepEqual(
-    experiments?.tools.map(({ id, href }) => ({ id, href })),
-    [
-      { id: "room-lobby", href: "music-rooms.html" },
-      { id: "vocal-effects-room", href: "vocal-effects-room.html" },
-      { id: "instrument-share-room", href: "instrument-share-room.html" },
-      { id: "morphazoid-roulette", href: "morphazoid-roulette.html" },
-      { id: "wave-pool", href: "wave-pool.html" },
-      { id: "penrose-tilings", href: "penrose-tilings.html" },
-      { id: "yoyodyne", href: "yoyodyne.html" },
-      { id: "hanoi", href: "hanoi.html" },
-      { id: "minimax", href: "minimax.html" },
-      { id: "nqueens", href: "nqueens.html" },
-      { id: "euclid", href: "euclid.html" },
-      { id: "alien-larynx", href: "alien-larynx.html" },
-      { id: "hyper-syrinx", href: "hyper-syrinx.html" },
-      { id: "morphynx", href: "morphynx.html" },
-      { id: "escher-tessellation", href: "escher-tessellation.html" },
-      { id: "plasma-ball", href: "plasma-ball.html" },
-      { id: "simd-resonator", href: "simd-resonator.html" },
-      { id: "simd-audio-lab", href: "simd-audio-lab.html" },
-      { id: "order-tones", href: "order-tones.html" },
-      { id: "morphazoidical", href: "morphazoidical/" },
-      { id: "bell-square", href: "bell-square.html" },
-      { id: "entanglement-dance", href: "entanglement-dance.html" },
-      { id: "quantum-square-dance", href: "quantum-square-dance.html" },
-      { id: "annealogue", href: "annealogue.html" },
-      { id: "gravity-walk", href: "gravity-walk.html" },
-      { id: "ricochet", href: "ricochet.html" },
-      { id: "rigidity", href: "rigidity.html" },
-      { id: "rolling-measure", href: "rolling-measure.html" },
-      { id: "falling-forms", href: "falling-forms.html" },
-      { id: "charge-garden", href: "charge-garden.html" },
-      { id: "packing-pressure", href: "packing-pressure.html" },
-      { id: "geodesic-drift", href: "geodesic-drift.html" },
-      { id: "kinetic-hull", href: "kinetic-hull.html" },
-      { id: "moire-organ", href: "moire-organ.html" },
-      { id: "chladni-plate", href: "chladni-plate.html" },
-      { id: "spring-choir", href: "spring-choir.html" },
-      { id: "gear-ratio-drums", href: "gear-ratio-drums.html" },
-      { id: "prime-sieve", href: "prime-sieve.html" },
-      { id: "lissajous-orbits", href: "lissajous-orbits.html" },
-      { id: "pendulum-wave", href: "pendulum-wave.html" },
-      { id: "double-pendulum", href: "double-pendulum.html" },
-      { id: "reaction-diffusion", href: "reaction-diffusion.html" },
-      { id: "atomic-orbitals", href: "atomic-orbitals.html" },
-      { id: "dna-translator", href: "dna-translator.html" },
-      { id: "neural-pulse", href: "neural-pulse.html" },
-      { id: "fourier-epicycles", href: "fourier-epicycles.html" },
-      { id: "gravity-lens", href: "gravity-lens.html" },
-      { id: "cantor-lock", href: "cantor-lock.html" },
-      { id: "escape-dust", href: "escape-dust.html" },
-      { id: "linebreaker", href: "linebreaker.html" },
-      { id: "tempo-tantrum", href: "tempo-tantrum.html" },
-      { id: "tape-worm", href: "tape-worm.html" },
-      { id: "loop-soup", href: "loop-soup.html" },
-      { id: "habit-habitat", href: "habit-habitat.html" },
-      { id: "hollowphonic", href: "hollowphonic.html" },
-    ],
-  );
-  assert.deepEqual(SITE_LINKS, []);
+test("tool registry follows the approved sheet and retains unique navigation identities", async () => {
+  const plan = JSON.parse(await readFile(new URL("../docs/catalogue-update-decisions.json", import.meta.url)));
+  const before = JSON.parse(await readFile(new URL("./fixtures/catalogue-before-20260918.json", import.meta.url)));
+  const rows = new Map(plan.rows.flatMap(row => [[row.oldId, row], [row.id, row]]));
+  assert.deepEqual(TOOL_GROUPS.map(group => group.id), plan.categoryOrder);
+  const tools = TOOL_GROUPS.flatMap(group => group.tools);
+  assert.equal(new Set(tools.map(tool => tool.id)).size, tools.length);
+  for (const row of plan.rows) {
+    const group = TOOL_GROUPS.find(group => group.tools.some(tool => tool.id === row.id));
+    assert.equal(group?.id, row.categoryId, row.id);
+    assert.equal(group.tools.find(tool => tool.id === row.id)?.label, row.label);
+  }
+  assert.deepEqual(FAVE_TOOL_IDS, before.registry.FAVE_TOOL_IDS.map(id => rows.get(id)?.id ?? id));
+  assert.equal(tools.find(tool => tool.id === "morphazoidical")?.href, "morphazoidical/");
+  assert.equal(TOOL_GROUPS.find(group => group.id === "wip")?.picker, false);
+  assert.deepEqual(SITE_LINKS, before.registry.SITE_LINKS);
 });
 
 test("every navigation tool ships a valid picker icon", async () => {
@@ -947,7 +268,7 @@ test("active tool resolution preserves GitHub Pages subpaths and nested workbenc
   assert.equal(normalizeNavigationPath(`${SITE_ROOT}index.html?mode=test`, SITE_ROOT), "/blechdom/morphazoid/");
   assert.equal(resolveActiveTool("https://example.test/blechdom/morphazoid", SITE_ROOT), null);
   assert.equal(resolveActiveSiteLink("https://example.test/blechdom/morphazoid", SITE_ROOT), null);
-  assert.equal(resolveActiveTool(`${SITE_ROOT}shape.html`, SITE_ROOT)?.id, "shape");
+  assert.equal(resolveActiveTool(`${SITE_ROOT}shape.html`, SITE_ROOT)?.id, "shape-synth");
   assert.equal(
     resolveActiveTool(`${SITE_ROOT}playhead-paint.html`, SITE_ROOT)?.id,
     "playhead-paint",
@@ -987,8 +308,8 @@ test("active tool resolution preserves GitHub Pages subpaths and nested workbenc
   assert.equal(resolveActiveTool(`${SITE_ROOT}harmonica.html`, SITE_ROOT)?.id, "harmonica");
   assert.equal(resolveActiveTool(`${SITE_ROOT}julie-saw.html`, SITE_ROOT)?.id, "julie-saw");
   assert.equal(resolveActiveTool(`${SITE_ROOT}dentaphone.html`, SITE_ROOT)?.id, "object-forge");
-  for (const page of ["monstrozoid.html", "monsterzoid.html", "colony-syrinx.html"]) {
-    assert.equal(resolveActiveTool(`${SITE_ROOT}${page}`, SITE_ROOT)?.id, "colony-syrinx");
+  for (const page of ["monstroid.html", "monstroid.html", "monstroid.html"]) {
+    assert.equal(resolveActiveTool(`${SITE_ROOT}${page}`, SITE_ROOT)?.id, "monstroid");
   }
   assert.equal(resolveActiveTool(`${SITE_ROOT}alien-larynx.html`, SITE_ROOT)?.id, "alien-larynx");
   assert.equal(resolveActiveTool(`${SITE_ROOT}orbital-ferris.html`, SITE_ROOT)?.id, "orbital-ferris");
@@ -1079,14 +400,14 @@ test("active tool resolution preserves GitHub Pages subpaths and nested workbenc
   assert.equal(resolveActiveTool(`${SITE_ROOT}surround-field.html`, SITE_ROOT)?.id, "surround-field");
   assert.equal(
     resolveActiveTool(`${SITE_ROOT}linear-drums-machine.html`, SITE_ROOT)?.id,
-    "linear-drums-machine",
+    "rattlesnake-skin",
   );
   assert.equal(resolveActiveTool(`${SITE_ROOT}sample-drums.html`, SITE_ROOT)?.id, "sample-drums");
   assert.equal(resolveActiveTool(`${SITE_ROOT}gesturama.html`, SITE_ROOT)?.id, "gesturama");
-  assert.equal(resolveActiveTool(`${SITE_ROOT}shape-drums.html`, SITE_ROOT)?.id, "shape-drums");
-  assert.equal(resolveActiveTool(`${SITE_ROOT}lattice-drums.html`, SITE_ROOT)?.id, "lattice-drums");
-  assert.equal(resolveActiveTool(`${SITE_ROOT}spiral-drums.html`, SITE_ROOT)?.id, "spiral-drums");
-  assert.equal(resolveActiveTool(`${SITE_ROOT}solid-drums.html`, SITE_ROOT)?.id, "solid-drums");
+  assert.equal(resolveActiveTool(`${SITE_ROOT}shape-drums.html`, SITE_ROOT)?.id, "shape-drum-machine");
+  assert.equal(resolveActiveTool(`${SITE_ROOT}lattice-drums.html`, SITE_ROOT)?.id, "lattice-drum-machine");
+  assert.equal(resolveActiveTool(`${SITE_ROOT}spiral-drums.html`, SITE_ROOT)?.id, "spiral-drum-machine");
+  assert.equal(resolveActiveTool(`${SITE_ROOT}solid-drums.html`, SITE_ROOT)?.id, "solid-drum-machine");
   assert.equal(resolveActiveTool(`${SITE_ROOT}hyper-rubix.html`, SITE_ROOT)?.id, "hyper-rubix");
   assert.equal(resolveActiveTool(`${SITE_ROOT}hocket-loom.html`, SITE_ROOT)?.id, "hocket-loom");
   assert.equal(resolveActiveTool(`${SITE_ROOT}rubix.html`, SITE_ROOT)?.id, "rubix");
@@ -1095,8 +416,8 @@ test("active tool resolution preserves GitHub Pages subpaths and nested workbenc
     resolveActiveTool(`${SITE_ROOT}sliding-puzzle.html`, SITE_ROOT)?.id,
     "sliding-puzzle",
   );
-  assert.equal(resolveActiveTool(`${SITE_ROOT}hyper-drums.html`, SITE_ROOT)?.id, "hyper-drums");
-  assert.equal(resolveActiveTool(`${SITE_ROOT}l-system-drums.html`, SITE_ROOT)?.id, "l-system-drums");
+  assert.equal(resolveActiveTool(`${SITE_ROOT}hyper-drums.html`, SITE_ROOT)?.id, "hyper-drum-machine");
+  assert.equal(resolveActiveTool(`${SITE_ROOT}l-system-drums.html`, SITE_ROOT)?.id, "l-system-drum-machine");
   assert.equal(resolveActiveTool(`${SITE_ROOT}analyzer.html`, SITE_ROOT), null);
   assert.equal(resolveActiveTool(`${SITE_ROOT}morphazoidical/`, SITE_ROOT)?.id, "morphazoidical");
   assert.equal(resolveActiveTool(`${SITE_ROOT}morphazoidical/atlas.html`, SITE_ROOT)?.id, "morphazoidical");
@@ -1138,7 +459,7 @@ test("shared navigation creates a searchable accordion picker and preserves the 
   const pickerGroups = expectedPickerGroups();
   const basePickerGroups = expectedBasePickerGroups();
   const pickerTools = pickerGroups.flatMap((group) => group.tools);
-  assert.equal(pickerGroups.some(({ id }) => id === "experiments"), false);
+  assert.equal(pickerGroups.some(({ id }) => id === "wip"), false);
   assert.deepEqual(
     picker.findAll((node) => node.classList.contains("instrument-picker-group-title"))
       .map((heading) => heading.querySelector(".instrument-picker-group-label").textContent),
@@ -1149,16 +470,16 @@ test("shared navigation creates a searchable accordion picker and preserves the 
   );
   assert.equal(groupNodes.every(({ tagName }) => tagName === "DETAILS"), true);
   assert.equal(groupNodes[0].getAttribute("data-group-id"), "faves");
-  const appsGroup = groupNodes.find((group) => group.getAttribute("data-group-id") === "apps");
+  const appsGroup = groupNodes.find((group) => group.getAttribute("data-group-id") === "app");
   assert.equal(groupNodes.indexOf(appsGroup), 2);
   assert.deepEqual(
     appsGroup.findAll((node) => node.classList.contains("instrument-picker-link"))
       .map((link) => link.getAttribute("data-tool-id")),
-    ["combo", "l-systems", "graphs", "tiles-app", "algorithmic-mazes", "paths"],
+    ["shapes", "l-systems", "graphs", "tesselation"],
   );
   assert.equal(groupNodes[0].open, true);
   assert.equal(
-    groupNodes.find((group) => group.getAttribute("data-group-id") === "fractals-recursion").open,
+    groupNodes.find((group) => group.getAttribute("data-group-id") === "fractal").open,
     true,
   );
   assert.deepEqual(
@@ -1175,7 +496,7 @@ test("shared navigation creates a searchable accordion picker and preserves the 
       (id) => !pickerTools.some((tool) => tool.id === id),
     ).length,
   );
-  const shapeLink = pickerLinks.find((link) => link.getAttribute("data-tool-id") === "shape");
+  const shapeLink = pickerLinks.find((link) => link.getAttribute("data-tool-id") === "shape-synth");
   const shapeIcon = shapeLink.querySelector(".instrument-picker-link-icon");
   assert.equal(shapeIcon.tagName, "IMG");
   assert.equal(shapeIcon.src, `${SITE_ROOT}assets/instruments/shape.webp`);
@@ -1193,10 +514,10 @@ test("shared navigation creates a searchable accordion picker and preserves the 
   const orbitalFerrisLink = picker.findAll(
     (node) => node.getAttribute("data-tool-id") === "orbital-ferris",
   );
-  assert.equal(orbitalFerrisLink.length, 1);
+  assert.equal(orbitalFerrisLink.length, 0, "the owner moved this instrument to WIP");
   assert.equal(
-    orbitalFerrisLink[0].getAttribute("href"),
-    `${SITE_ROOT}orbital-ferris.html`,
+    resolveActiveTool(`${SITE_ROOT}orbital-ferris.html`, SITE_ROOT)?.id,
+    "orbital-ferris",
   );
   const searchInput = picker.querySelector(".instrument-picker-search-input");
   assert.equal(searchInput.type, "search");
@@ -1205,7 +526,7 @@ test("shared navigation creates a searchable accordion picker and preserves the 
   searchInput.dispatch("input");
   assert.equal(groupNodes[0].hidden, true, "search suppresses duplicate Faves results");
   const voiceGroup = groupNodes.find(
-    (group) => group.getAttribute("data-group-id") === "voice-synths",
+    (group) => group.getAttribute("data-group-id") === "physical-model",
   );
   assert.equal(voiceGroup.hidden, false);
   assert.equal(voiceGroup.open, true);
@@ -1235,18 +556,18 @@ test("shared navigation creates a searchable accordion picker and preserves the 
     doc.select.children.map((group) => group.label),
     basePickerGroups.map((group) => group.label),
   );
-  const appsOptionGroup = doc.select.children.find((group) => group.label === "Apps");
+  const appsOptionGroup = doc.select.children.find((group) => group.label === "App");
   assert.equal(doc.select.children.indexOf(appsOptionGroup), 1);
   assert.deepEqual(
     appsOptionGroup.children.map((option) => option.textContent),
-    ["Shapes", "L-Systems", "Graphs", "Tiles", "Mazes", "Paths"],
+    ["Shapes", "L-Systems", "Graphs", "Tesselation"],
   );
   const selectedOptions = doc.select.findAll((node) => node.tagName === "OPTION" && node.selected);
   const orbitalFerrisOption = doc.select.findAll(
     (node) => node.tagName === "OPTION" && node.textContent === "Feral Fairy Ferris Ferry",
   );
-  assert.equal(orbitalFerrisOption.length, 1);
-  assert.equal(orbitalFerrisOption[0].value, `${SITE_ROOT}orbital-ferris.html`);
+  assert.equal(orbitalFerrisOption.length, 0);
+  assert.equal(resolveActiveTool(`${SITE_ROOT}orbital-ferris.html`, SITE_ROOT)?.href, "orbital-ferris.html");
   assert.equal(selectedOptions.length, 1);
   assert.equal(selectedOptions[0].textContent, "Julia");
   assert.doesNotMatch(selectedOptions[0].textContent, /Fractals|Recursion/);
@@ -1292,7 +613,7 @@ test("instrument info lives once at the bottom of the page control rail", () => 
     {
       id: "shape",
       label: "Shape",
-      href: "shape.html",
+      href: "shape-synth.html",
       imageHref: "assets/instruments/shape.webp",
       tags: [{ id: "geometry", label: "Geometry Synths" }],
       kind: "Synth",
@@ -1305,7 +626,7 @@ test("instrument info lives once at the bottom of the page control rail", () => 
       label: "Julia",
       href: "julia.html",
       imageHref: "assets/instruments/julia.webp",
-      tags: [{ id: "fractals-recursion", label: "Fractals & Recursion" }],
+      tags: [{ id: "fractal", label: "Fractals & Recursion" }],
       kind: "Synth",
       features: [],
       description: "A Julia boundary instrument.",

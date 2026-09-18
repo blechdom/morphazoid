@@ -784,8 +784,8 @@ test("the browser wrapper is lazy and the page exposes complete accessible contr
 
   const [html, appSource, cssSource] = await Promise.all([
     readFile(new URL("../moire-drone.html", import.meta.url), "utf8"),
-    readFile(new URL("../moire-drone-app.js", import.meta.url), "utf8"),
-    readFile(new URL("../moire-drone.css", import.meta.url), "utf8"),
+    readFile(new URL("../src/instruments/moire-drone/moire-drone-app.js", import.meta.url), "utf8"),
+    readFile(new URL("../src/instruments/moire-drone/moire-drone.css", import.meta.url), "utf8"),
   ]);
   assert.equal(
     (cssSource.match(/\{/g) ?? []).length,

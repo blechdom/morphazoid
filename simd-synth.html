@@ -4,11 +4,11 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="theme-color" content="#080b12" />
-    <meta name="description" content="SIMD SYNTH is an eight-voice, semi-modular WebAssembly SIMD performance synthesizer." />
-    <title>SIMD SYNTH — Morphazoid</title>
+    <meta name="description" content="SIMD Synth is an eight-voice, semi-modular WebAssembly SIMD performance synthesizer." />
+    <title>SIMD Synth — Morphazoid</title>
     <link rel="icon" href="favicon.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="style.css" />
-    <link rel="stylesheet" href="simd-synth.css" />
+    <link rel="stylesheet" href="src/instruments/simd-synth/simd-synth.css" />
   </head>
   <body class="simd-synth-page" data-simd-surface="synth" data-instrument-info="off">
     <header class="masthead">
@@ -38,21 +38,21 @@
         </button>
         <label class="header-level" for="outputLevel">
           <span><b>Output</b><output id="outputLevelOut" for="outputLevel">62%</output></span>
-          <input id="outputLevel" aria-label="SIMD SYNTH output level" type="range" min="0" max="1" step="0.01" value="0.62" />
+          <input id="outputLevel" aria-label="SIMD Synth output level" type="range" min="0" max="1" step="0.01" value="0.62" />
         </label>
       </div>
     </header>
 
     <main class="shell simd-synth-shell" id="simd-synth">
-      <section class="stage simd-synth-stage" aria-label="SIMD SYNTH instrument">
+      <section class="stage simd-synth-stage" aria-label="SIMD Synth instrument">
         <header class="simd-synth-titlebar">
-          <h1>SIMD SYNTH</h1>
+          <h1>SIMD Synth</h1>
         </header>
 
         <div class="simd-performance-grid">
           <section class="simd-scope-card" aria-labelledby="scopeTitle">
             <div class="simd-card-heading"><h2 id="scopeTitle">Actual output</h2><span id="scopeState">audio off</span></div>
-            <canvas id="scopeCanvas" width="1000" height="320" aria-label="Oscilloscope drawn from the audible AudioWorklet output">SIMD SYNTH output waveform.</canvas>
+            <canvas id="scopeCanvas" width="1000" height="320" aria-label="Oscilloscope drawn from the audible AudioWorklet output">SIMD Synth output waveform.</canvas>
             <div class="simd-voice-lamps" id="voiceLamps" aria-label="Eight SIMD voice activity indicators"></div>
           </section>
 
@@ -94,7 +94,7 @@
               <button class="mini-action" type="button" id="resetSequence">Reset</button>
             </div>
           </div>
-          <div class="simd-sequencer" id="sequencer" aria-label="SIMD SYNTH step sequence. Select a lane, then drag across steps to paint it."></div>
+          <div class="simd-sequencer" id="sequencer" aria-label="SIMD Synth step sequence. Select a lane, then drag across steps to paint it."></div>
         </section>
 
         <section class="simd-keyboard-card" aria-labelledby="keyboardTitle">
@@ -109,7 +109,7 @@
         <p class="audio-error simd-audio-error" id="audioError" role="alert" hidden></p>
       </section>
 
-      <aside class="panel simd-synth-panel" aria-label="SIMD SYNTH patch controls">
+      <aside class="panel simd-synth-panel" aria-label="SIMD Synth patch controls">
         <section class="simd-panel-transport" aria-label="Transport, tempo, and patch recall">
           <div class="simd-transport-row">
             <button
@@ -117,7 +117,7 @@
               id="playButton"
               type="button"
               aria-pressed="false"
-              aria-label="Play SIMD SYNTH sequence"
+              aria-label="Play SIMD Synth sequence"
               aria-keyshortcuts="Space"
               data-primary-transport
             >
@@ -132,7 +132,7 @@
               <input id="bpm" data-param="bpm" type="range" min="30" max="240" step="1" />
             </label>
           </div>
-          <label class="simd-preset-picker" for="presetSelect"><span>Patch</span><select id="presetSelect" aria-label="SIMD SYNTH preset"></select></label>
+          <label class="simd-preset-picker" for="presetSelect"><span>Patch</span><select id="presetSelect" aria-label="SIMD Synth preset"></select></label>
           <div class="simd-recovery-tools" role="group" aria-label="Patch recovery and creation">
             <button class="mini-action" type="button" id="initPatch" data-reset-all data-reset-in-place>Init</button>
             <button class="mini-action" type="button" id="undoPatch" disabled>Undo</button>
@@ -279,6 +279,6 @@
     </main>
 
     <script type="module" src="nav.js"></script>
-    <script type="module" src="simd-synth-app.js"></script>
+    <script type="module" src="src/instruments/simd-synth/simd-synth-app.js"></script>
   </body>
 </html>

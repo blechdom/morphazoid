@@ -39,7 +39,7 @@ test("Wheel of Organs keeps its stable route inside Voice Synths", async () => {
   assert.match(html, /quiet and still at rest/i);
   assert.match(html, /data-reset-all[^>]*>reset organism<\/button>/);
   assert.match(html, /<script type="module" src="nav\.js"><\/script>/);
-  assert.match(html, /<script type="module" src="image-to-instrument-app\.js"><\/script>/);
+  assert.match(html, /<script type="module" src="src\/families\/image-to-instrument\/image-to-instrument-app\.js"><\/script>/);
 
   for (const index of [1, 2]) {
     await assert.rejects(
@@ -95,8 +95,8 @@ test("Wheel of Organs exposes the original patch and several lower-noise presets
 
 test("the stable image-to-instrument route delegates to the internal Wheel runtime", async () => {
   const [app, css] = await Promise.all([
-    readFile(new URL("image-to-instrument-app.js", root), "utf8"),
-    readFile(new URL("image-to-instrument.css", root), "utf8"),
+    readFile(new URL("src/families/image-to-instrument/image-to-instrument-app.js", root), "utf8"),
+    readFile(new URL("src/families/image-to-instrument/image-to-instrument.css", root), "utf8"),
   ]);
   assert.match(app, /mountWheelOfOrgans/);
   assert.match(app, /audio\.disable\(\)/);
@@ -112,7 +112,7 @@ test("the stable image-to-instrument route delegates to the internal Wheel runti
 
 test("Wheel of Organs uses a dedicated formant runtime without external input", async () => {
   const [app, audio] = await Promise.all([
-    readFile(new URL("wheel-of-organs-app.js", root), "utf8"),
+    readFile(new URL("src/instruments/wheel-of-organs/wheel-of-organs-app.js", root), "utf8"),
     readFile(new URL("src/wheel-of-organs-audio.js", root), "utf8"),
   ]);
   assert.match(app, /compileWheelWord/);

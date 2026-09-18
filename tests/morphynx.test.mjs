@@ -330,8 +330,8 @@ test("voice articulation supplies finite source controls and microphone formants
 test("Morphynx page exposes the hybrid lab, full keyboard, mic, recording, and canvas", async () => {
   const [html, css, app, icon, iconStat] = await Promise.all([
     readFile(new URL("morphynx.html", root), "utf8"),
-    readFile(new URL("morphynx.css", root), "utf8"),
-    readFile(new URL("morphynx-app.js", root), "utf8"),
+    readFile(new URL("src/instruments/morphynx/morphynx.css", root), "utf8"),
+    readFile(new URL("src/instruments/morphynx/morphynx-app.js", root), "utf8"),
     readFile(new URL("assets/instruments/morphynx.webp", root)),
     stat(new URL("assets/instruments/morphynx.webp", root)),
   ]);
@@ -344,7 +344,7 @@ test("Morphynx page exposes the hybrid lab, full keyboard, mic, recording, and c
   assert.match(html, /id="recordButton"/);
   assert.match(html, /id="phonemeButtons"/);
   assert.match(html, /src="nav\.js\?v=morphynx-responsive-[^"]+"/);
-  assert.match(html, /src="morphynx-app\.js\?v=morphynx-responsive-[^"]+"/);
+  assert.match(html, /src="src\/instruments\/morphynx\/morphynx-app\.js\?v=morphynx-responsive-[^"]+"/);
   const ids = [...html.matchAll(/\bid="([^"]+)"/g)].map((match) => match[1]);
   assert.equal(new Set(ids).size, ids.length, "Morphynx element IDs stay unique");
 
@@ -362,7 +362,7 @@ test("Morphynx page exposes the hybrid lab, full keyboard, mic, recording, and c
   assert.match(css, /\.morphynx-phoneme-grid/);
   assert.match(css, /\.morphynx-stage-axis/);
   assert.match(css, /orientation:\s*landscape[\s\S]*grid-template-columns:[\s\S]*\.morphynx-page \.panel[\s\S]*overflow-y:\s*auto/);
-  assert.match(html, /href="morphynx\.css\?v=morphynx-responsive-[^"]+"/);
+  assert.match(html, /href="src\/instruments\/morphynx\/morphynx\.css\?v=morphynx-responsive-[^"]+"/);
   assert.ok(iconStat.size > 1_000);
   assert.equal(icon.subarray(0, 4).toString("ascii"), "RIFF");
   assert.equal(icon.subarray(8, 12).toString("ascii"), "WEBP");

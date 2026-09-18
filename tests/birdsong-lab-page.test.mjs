@@ -3,7 +3,7 @@ import fs from "node:fs";
 import test from "node:test";
 
 const html = fs.readFileSync(new URL("../birdsong-lab.html", import.meta.url), "utf8");
-const app = fs.readFileSync(new URL("../birdsong-lab-app.js", import.meta.url), "utf8");
+const app = fs.readFileSync(new URL("../src/instruments/birdsong-lab/birdsong-lab-app.js", import.meta.url), "utf8");
 const analysis = fs.readFileSync(new URL("../src/birdsong-analysis.js", import.meta.url), "utf8");
 
 test("Strophe Lab exposes the complete local analysis-by-synthesis workflow", () => {

@@ -18,7 +18,7 @@ export const GRAPHS_APP_MODES = freezeList([
     id: "drums",
     label: "Drums",
     title: "Graph Drum Machine",
-    href: "graph-drums.html",
+    href: "graph-drum-machine.html",
     audioKind: "drums",
     accent: "#ffad69",
   },

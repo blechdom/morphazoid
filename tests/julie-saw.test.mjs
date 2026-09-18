@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
+import { readRuntimeManifest } from "../scripts/site/runtime-manifest.mjs";
 
 import {
   JULIE_SAW_BLADES,
@@ -453,14 +454,14 @@ test("aligned contact is more tonal and active than a distant localized miss", a
 test("Julie Saw page, research, navigation, and release lists expose the full instrument contract", async () => {
   const [html, css, app, processor, research, nav, catalog, midi, build] = await Promise.all([
     readFile(new URL("../julie-saw.html", import.meta.url), "utf8"),
-    readFile(new URL("../julie-saw.css", import.meta.url), "utf8"),
-    readFile(new URL("../julie-saw-app.js", import.meta.url), "utf8"),
+    readFile(new URL("../src/instruments/julie-saw/julie-saw.css", import.meta.url), "utf8"),
+    readFile(new URL("../src/instruments/julie-saw/julie-saw-app.js", import.meta.url), "utf8"),
     readFile(new URL("../src/julie-saw-processor.js", import.meta.url), "utf8"),
     readFile(new URL("../JULIE_SAW_RESEARCH.md", import.meta.url), "utf8"),
     readFile(new URL("../src/site/instrument-registry.js", import.meta.url), "utf8"),
     readFile(new URL("../src/instrument-catalog.js", import.meta.url), "utf8"),
     readFile(new URL("../src/instrument-midi-capabilities.js", import.meta.url), "utf8"),
-    readFile(new URL("../scripts/build-site.sh", import.meta.url), "utf8"),
+    readRuntimeManifest(),
   ]);
   assert.match(html, /<h1>JULIE SAW<\/h1>/);
   assert.match(html, /Julie, a glamorous adult woman/);
@@ -527,10 +528,11 @@ test("Julie Saw page, research, navigation, and release lists expose the full in
   assert.match(catalog, /"julie-saw": define/);
   assert.match(midi, /"julie-saw"/);
   for (const path of [
-    "julie-saw.html", "julie-saw.css", "julie-saw-app.js", "src/julie-saw.js",
+    "julie-saw.html", "src/instruments/julie-saw/julie-saw.css", "src/instruments/julie-saw/julie-saw-app.js", "src/julie-saw.js",
     "src/julie-saw-processor.js", "assets/instruments/julie-saw.webp", "JULIE_SAW_RESEARCH.md",
   ]) {
-    assert.ok(build.split(path).length >= 3, `${path} must be present in both build lists`);
+    assert.ok(build.worktreeFiles.includes(path), `${path} must have pre-commit copy permission`);
+    assert.ok(build.requiredFiles.includes(path), `${path} must be required in the artifact`);
   }
   assert.ok(root.href.endsWith("/"));
 });

@@ -387,10 +387,10 @@ test("Plasma Ball is a labelled, keyboard-accessible Morphazoid instrument", asy
   const html = await readFile(new URL("plasma-ball.html", root), "utf8");
   assert.match(html, /<title>Plasma Ball (?:—|\|) Morphazoid<\/title>/);
   assert.match(html, /href="style\.css"/);
-  assert.match(html, /href="plasma-ball\.css"/);
+  assert.match(html, /href="src\/instruments\/plasma-ball\/plasma-ball\.css"/);
   assert.match(html, /<h1\b[^>]*>Plasma Ball<\/h1>/);
   assert.match(html, /<script type="module" src="nav\.js"><\/script>/);
-  assert.match(html, /<script type="module" src="plasma-ball-app\.js"><\/script>/);
+  assert.match(html, /<script type="module" src="src\/instruments\/plasma-ball\/plasma-ball-app\.js"><\/script>/);
   assert.match(html, /<canvas\b[^>]*\bid="stage"[^>]*\btabindex="0"/);
   assert.match(html, /\bid="stage"[^>]*\baria-(?:label|labelledby)="[^"]+"/);
   assert.match(html, /\bid="audioButton"[^>]*\baria-pressed="false"/);
@@ -417,7 +417,7 @@ test("Plasma Ball is a labelled, keyboard-accessible Morphazoid instrument", asy
 
 test("browser controller uses bounded shared audio, direct glass gestures, and lifecycle cleanup", async () => {
   const [app, core] = await Promise.all([
-    readFile(new URL("plasma-ball-app.js", root), "utf8"),
+    readFile(new URL("src/instruments/plasma-ball/plasma-ball-app.js", root), "utf8"),
     readFile(new URL("src/plasma-ball.js", root), "utf8"),
   ]);
   assert.match(app, /new VoicePool\(/);

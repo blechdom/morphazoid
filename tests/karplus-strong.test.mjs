@@ -314,8 +314,8 @@ test("Karplus Strong presets stay distinct and complete", () => {
 test("Karplus Strong page exposes a standalone playable instrument", async () => {
   const [html, css, app, source] = await Promise.all([
     readFile(new URL("karplus-strong.html", root), "utf8"),
-    readFile(new URL("karplus-strong.css", root), "utf8"),
-    readFile(new URL("karplus-strong-app.js", root), "utf8"),
+    readFile(new URL("src/instruments/karplus-strong/karplus-strong.css", root), "utf8"),
+    readFile(new URL("src/instruments/karplus-strong/karplus-strong-app.js", root), "utf8"),
     readFile(new URL("src/karplus-strong.js", root), "utf8"),
   ]);
 

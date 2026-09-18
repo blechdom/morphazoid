@@ -1202,7 +1202,7 @@ test("microphone and local-file sources are lazy, reusable, and fully released",
 test("the page and app expose accessible controls and explicit lifecycle cleanup", async () => {
   const [html, appSource, runtimeSource] = await Promise.all([
     readFile(new URL("../slippery-resynthesis.html", import.meta.url), "utf8"),
-    readFile(new URL("../slippery-resynthesis-app.js", import.meta.url), "utf8"),
+    readFile(new URL("../src/instruments/slippery-resynthesis/slippery-resynthesis-app.js", import.meta.url), "utf8"),
     readFile(MODULE_URL, "utf8"),
   ]);
 
@@ -1224,7 +1224,7 @@ test("the page and app expose accessible controls and explicit lifecycle cleanup
   assert.match(html, /id="audioError"\s+role="alert"/);
   assert.match(html, /id="liveStatus"\s+aria-live="polite"/);
   assert.match(html, /id="slipperyResynthesisDescription"/);
-  assert.match(html, /<script\s+type="module"\s+src="slippery-resynthesis-app\.js"><\/script>/);
+  assert.match(html, /<script\s+type="module"\s+src="src\/instruments\/slippery-resynthesis\/slippery-resynthesis-app\.js"><\/script>/);
   for (const id of [
     "consonantDetail",
     "transpose",

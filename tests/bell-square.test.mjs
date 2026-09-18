@@ -172,7 +172,7 @@ test("seeded one-shot and 32-shot measurement streams are deterministic", () => 
 test("Bell Square markup exposes the quantum section, exact-simulation framing, and controls", async () => {
   const html = await readFile(new URL("bell-square.html", root), "utf8");
   assert.match(html, /<link rel="stylesheet" href="style\.css"/);
-  assert.match(html, /<link rel="stylesheet" href="quantum-synths\.css"/);
+  assert.match(html, /<link rel="stylesheet" href="src\/instruments\/quantum-synths\/quantum-synths\.css"/);
   assert.match(html, /<body class="quantum-page bell-square-page">/);
   assert.match(html, /<main class="shell quantum-shell" id="bellSquare">/);
   assert.match(html, /class="stage quantum-stage bell-square-stage"/);
@@ -211,7 +211,7 @@ test("Bell Square markup has unique ids and every adjustable control is labelled
 
 test("Bell Square app uses bounded VoicePool audio, exact shots, shortcuts, and cleanup", async () => {
   const [app, core] = await Promise.all([
-    readFile(new URL("bell-square-app.js", root), "utf8"),
+    readFile(new URL("src/instruments/bell-square/bell-square-app.js", root), "utf8"),
     readFile(new URL("src/bell-square.js", root), "utf8"),
   ]);
   assert.match(app, /new VoicePool\(8\)/);

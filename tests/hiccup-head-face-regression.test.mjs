@@ -75,7 +75,7 @@ function inspectPcmWave(buffer) {
 
 test("Hiccup Head keeps one stable mouth, colored lids, and nose clearance", async () => {
   const [app, html] = await Promise.all([
-    readFile(new URL("hiccup-head-app.js", root), "utf8"),
+    readFile(new URL("src/instruments/hiccup-head/hiccup-head-app.js", root), "utf8"),
     readFile(new URL("hiccup-head.html", root), "utf8"),
   ]);
   assert.match(app, /const mouthY = featureY \+ ry \* 0\.39/);
@@ -196,7 +196,7 @@ test("Hiccup Head keeps one stable mouth, colored lids, and nose clearance", asy
 test("Hiccup Head exposes one reset-all FX control", async () => {
   const [html, app] = await Promise.all([
     readFile(new URL("hiccup-head.html", root), "utf8"),
-    readFile(new URL("hiccup-head-app.js", root), "utf8"),
+    readFile(new URL("src/instruments/hiccup-head/hiccup-head-app.js", root), "utf8"),
   ]);
   assert.match(html, /id="resetEffectsButton"[^>]*aria-label="Reset all face effects"/);
   assert.doesNotMatch(html, /id="(?:delay|reverb|nasal|stereo)EffectButton"/);
@@ -209,7 +209,7 @@ test("Hiccup Head exposes one reset-all FX control", async () => {
 test("Hiccup Head presets have next buttons and performance arrow shortcuts", async () => {
   const [html, app] = await Promise.all([
     readFile(new URL("hiccup-head.html", root), "utf8"),
-    readFile(new URL("hiccup-head-app.js", root), "utf8"),
+    readFile(new URL("src/instruments/hiccup-head/hiccup-head-app.js", root), "utf8"),
   ]);
   assert.match(html, /id="nextFacePresetButton"[^>]*aria-label="Next face preset"/);
   assert.match(html, /id="nextPatternButton"[^>]*aria-label="Next rhythm preset"/);
@@ -220,7 +220,7 @@ test("Hiccup Head presets have next buttons and performance arrow shortcuts", as
 });
 
 test("right-eyebrow accents remain audible when their mask overlaps the left brow", async () => {
-  const app = await readFile(new URL("hiccup-head-app.js", root), "utf8");
+  const app = await readFile(new URL("src/instruments/hiccup-head/hiccup-head-app.js", root), "utf8");
   const source = app.slice(
     app.indexOf("function normalizedBrowValue("),
     app.indexOf("function scheduleSequence("),
@@ -243,7 +243,7 @@ test("right-eyebrow accents remain audible when their mask overlaps the left bro
 });
 
 test("Hiccup Head keeps mutation audible and freckles clear of anatomy", async () => {
-  const app = await readFile(new URL("hiccup-head-app.js", root), "utf8");
+  const app = await readFile(new URL("src/instruments/hiccup-head/hiccup-head-app.js", root), "utf8");
   assert.match(app, /lungPressure: clamp\(state\.lungPressure, 0\.5, 1\)/);
   assert.match(app, /tonguePosition: clamp\(state\.tonguePosition, -0\.25, 1\.25\)/);
   assert.match(app, /const forbiddenCircles = \[/);
@@ -252,8 +252,8 @@ test("Hiccup Head keeps mutation audible and freckles clear of anatomy", async (
 
 test("Hiccup Head stays centered and keeps the mobile one-lane sequencer nearby", async () => {
   const [app, css] = await Promise.all([
-    readFile(new URL("hiccup-head-app.js", root), "utf8"),
-    readFile(new URL("hiccup-head.css", root), "utf8"),
+    readFile(new URL("src/instruments/hiccup-head/hiccup-head-app.js", root), "utf8"),
+    readFile(new URL("src/instruments/hiccup-head/hiccup-head.css", root), "utf8"),
   ]);
   assert.match(app, /const cx = cssWidth \* 0\.5/);
   assert.doesNotMatch(app, /headingClearance/);
@@ -273,7 +273,7 @@ test("Hiccup Head stays centered and keeps the mobile one-lane sequencer nearby"
 });
 
 test("Hiccup Head loads black and warm white, then varies distinct step checker pairs", async () => {
-  const app = await readFile(new URL("hiccup-head-app.js", root), "utf8");
+  const app = await readFile(new URL("src/instruments/hiccup-head/hiccup-head-app.js", root), "utf8");
   const palette = app.slice(
     app.indexOf("const SKIN_CHECKER_PALETTE"),
     app.indexOf("// These are performance-level bypasses"),
@@ -337,7 +337,7 @@ test("Hiccup Head loads black and warm white, then varies distinct step checker 
 
 test("local EMT plate and York hall impulses are real stereo PCM with attribution", async () => {
   const [app, attribution, plateFile, cathedralFile] = await Promise.all([
-    readFile(new URL("hiccup-head-app.js", root), "utf8"),
+    readFile(new URL("src/instruments/hiccup-head/hiccup-head-app.js", root), "utf8"),
     readFile(new URL("assets/audio/HICCUP_HEAD_REVERB_ATTRIBUTION.md", root), "utf8"),
     readFile(new URL("assets/audio/hiccup-head-emt140-warm-plate.wav", root)),
     readFile(new URL("assets/audio/hiccup-head-york-minster-warm-hall.wav", root)),
@@ -475,7 +475,7 @@ test("eye convolution sends and the in-series high-pass sweep progressively", ()
 
 test("native convolution feeds post-room fuzz and the in-series Biquad makeup stage", async () => {
   const [app, processor] = await Promise.all([
-    readFile(new URL("hiccup-head-app.js", root), "utf8"),
+    readFile(new URL("src/instruments/hiccup-head/hiccup-head-app.js", root), "utf8"),
     readFile(new URL("src/hiccup-head-processor.js", root), "utf8"),
   ]);
   const postConfiguration = app.slice(
@@ -613,7 +613,7 @@ test("native convolution feeds post-room fuzz and the in-series Biquad makeup st
 
 test("Hiccup Head keeps FX energy balanced and gives BRUSH tuned marimba steps", async () => {
   const [app, processor] = await Promise.all([
-    readFile(new URL("hiccup-head-app.js", root), "utf8"),
+    readFile(new URL("src/instruments/hiccup-head/hiccup-head-app.js", root), "utf8"),
     readFile(new URL("src/hiccup-head-processor.js", root), "utf8"),
   ]);
   assert.match(processor, /Both hairs feed a centered two-tap delay network/);

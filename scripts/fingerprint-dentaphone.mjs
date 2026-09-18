@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { relativeReference } from "./site/reference-paths.mjs";
 
 const visualAssetPathnames = Object.freeze([
   "assets/dentaphone-upper.webp",
@@ -57,8 +58,8 @@ export async function fingerprintDentaphone(outputDirectory) {
   const dentaphonePath = path.join(outputDirectory, "src/dentaphone.js");
   const physicalSoundsPath = path.join(outputDirectory, "src/physical-sounds.js");
   const processorPath = path.join(outputDirectory, "src/physical-sounds-processor.js");
-  const appPath = path.join(outputDirectory, "physical-sounds-app.js");
-  const cssPath = path.join(outputDirectory, "physical-sounds.css");
+  const appPath = path.join(outputDirectory, "src/instruments/object-forge/object-forge-app.js");
+  const cssPath = path.join(outputDirectory, "src/instruments/object-forge/object-forge.css");
   const htmlPath = path.join(outputDirectory, "dentaphone.html");
 
   // Fingerprint the vendored Three.js graph from its leaf module upward.
@@ -95,11 +96,11 @@ export async function fingerprintDentaphone(outputDirectory) {
     ["./physical-sounds.js", physicalSoundsVersion],
   ]);
   const appVersion = await fingerprintSource(appPath, [
-    ["./src/audio-output-manager.js", audioOutputManagerVersion],
-    ["./src/physical-sounds.js", physicalSoundsVersion],
-    ["./src/dentaphone.js", dentaphoneVersion],
-    ["./src/dentaphone-webgl.js", rendererVersion],
-    ["./src/physical-sounds-processor.js", processorVersion],
+    [relativeReference(appPath, audioOutputManagerPath), audioOutputManagerVersion],
+    [relativeReference(appPath, physicalSoundsPath), physicalSoundsVersion],
+    [relativeReference(appPath, dentaphonePath), dentaphoneVersion],
+    [relativeReference(appPath, rendererPath), rendererVersion],
+    [relativeReference(appPath, processorPath), processorVersion],
   ]);
 
   const cssVersion = await sourceVersion(cssPath);
@@ -110,8 +111,8 @@ export async function fingerprintDentaphone(outputDirectory) {
     ]),
   ));
   await fingerprintSource(htmlPath, [
-    ["physical-sounds.css", cssVersion],
-    ["physical-sounds-app.js", appVersion],
+    ["src/instruments/object-forge/object-forge.css", cssVersion],
+    ["src/instruments/object-forge/object-forge-app.js", appVersion],
     ...Object.entries(visualAssetVersions),
   ]);
 

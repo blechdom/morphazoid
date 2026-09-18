@@ -4,18 +4,18 @@ import test from "node:test";
 
 const root = new URL("../", import.meta.url);
 const pages = [
-  ["shape-drums.html", "shape-drums.html"],
-  ["lattice-drums.html", "lattice-drums.html"],
-  ["spiral-drums.html", "spiral-drums.html"],
-  ["solid-drums.html", "solid-drums.html"],
-  ["hyper-drums.html", "hyper-drums.html"],
-  ["l-system-drums.html", "l-system-drums.html"],
+  ["shape-drum-machine.html", "shape-drum-machine.html"],
+  ["lattice-drum-machine.html", "lattice-drum-machine.html"],
+  ["spiral-drum-machine.html", "spiral-drum-machine.html"],
+  ["solid-drum-machine.html", "solid-drum-machine.html"],
+  ["hyper-drum-machine.html", "hyper-drum-machine.html"],
+  ["l-system-drum-machine.html", "l-system-drum-machine.html"],
 ];
 const drumRoutes = pages.map(([, route]) => route);
 const subdividedPages = [
-  ["shape-drums.html", "sideSubdivisions", "sideSubdivisionsOut"],
-  ["solid-drums.html", "subdivisions", "subdivisionsOut"],
-  ["hyper-drums.html", "subdivisions", "subdivisionsOut"],
+  ["shape-drum-machine.html", "sideSubdivisions", "sideSubdivisionsOut"],
+  ["solid-drum-machine.html", "subdivisions", "subdivisionsOut"],
+  ["hyper-drum-machine.html", "subdivisions", "subdivisionsOut"],
 ];
 
 test("every geometry drum page has a complete menu and a visible primary transport", async () => {

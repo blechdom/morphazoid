@@ -206,12 +206,12 @@ test("the WGSL shader owns sequencing and the complete synthesis signal path", (
 test("the page exposes 32 shuffled presets, persistent envelopes, direct note editing, and no Web Audio synthesis nodes", async () => {
   const [html, css, app, engine, nav, catalogue, build] = await Promise.all([
     readFile(new URL("webgpu-synths.html", root), "utf8"),
-    readFile(new URL("webgpu-synths.css", root), "utf8"),
-    readFile(new URL("webgpu-synths-app.js", root), "utf8"),
+    readFile(new URL("src/instruments/webgpu-synths/webgpu-synths.css", root), "utf8"),
+    readFile(new URL("src/instruments/webgpu-synths/webgpu-synths-app.js", root), "utf8"),
     readFile(new URL("src/webgpu-synths.js", root), "utf8"),
     readFile(new URL("src/site/instrument-registry.js", root), "utf8"),
     readFile(new URL("src/instrument-catalog.js", root), "utf8"),
-    readFile(new URL("scripts/build-site.sh", root), "utf8"),
+    readFile(new URL("scripts/site/runtime-files.tsv", root), "utf8"),
   ]);
   assert.match(html, /<h1 id="webgpuSynthsTitle">GPU Shader Synths<\/h1>/);
   assert.match(html, /<html lang="en" class="webgpu-synths-document">/);

@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
+import { readRuntimeManifest } from "../scripts/site/runtime-manifest.mjs";
 import { STEP, TAU, DEFAULTS, TRICKS, createYoyo, throwYoyo, bindYoyo, tugYoyo, setTrick, stepYoyo, soundingState, snapshot, settings } from "../src/yoyodyne.js";
 import { KineticStringDSP, sanitizeSound } from "../src/yoyodyne-dsp.js";
 const advance = (w, seconds, automatic = false) => { for (let i=0;i<Math.round(seconds/STEP);i++) stepYoyo(w,{automatic}); return w; };
@@ -133,13 +134,15 @@ test("all tricks excite distinct bounded continuous phrases",()=>{
   assert.ok(Math.abs(results[i].pitch-results[j].pitch)>100 || Math.abs(results[i].side-results[j].side)>1);
 });
 test("source and build inventory expose kinetic modules without timeline or browser WAX bootstrap",async()=>{
- const html=await source("yoyodyne.html"),app=await source("yoyodyne-app.js"),build=await source("scripts/build-site.sh");
+ const html=await source("yoyodyne.html"),app=await source("src/instruments/yoyodyne/yoyodyne-app.js"),build=await readRuntimeManifest();
  assert.match(html,/data-primary-transport/);assert.match(html,/aria-pressed="false"/);
  assert.match(html,/aria-label="[^"]+"/);assert.match(html,/tabindex="0"/);
  assert.doesNotMatch(html,/data-morphazoid-wax-bootstrap|data-note-id|selectedPitch/);
  assert.doesNotMatch(app,/requestAnimationFrame\(pump|createYoyodynePhrase/);
- for(const path of ["src/yoyodyne.js","src/yoyodyne-audio.js","src/yoyodyne-dsp.js","src/yoyodyne-processor.js","docs/yoyodyne-kinetic.md"])
-  assert.equal(build.split(path).length-1,2,path+" included in both builder manifests");
+ for(const path of ["src/yoyodyne.js","src/yoyodyne-audio.js","src/yoyodyne-dsp.js","src/yoyodyne-processor.js","docs/yoyodyne-kinetic.md"]) {
+  assert.ok(build.worktreeFiles.includes(path),path+" has pre-commit copy permission");
+  assert.ok(build.requiredFiles.includes(path),path+" is required in the artifact");
+ }
 });
 test("worklet drops stale and distant frames, bounds its queue, fades on starvation and disposes",async()=>{
  const keys=["AudioWorkletProcessor","registerProcessor","sampleRate","currentTime"];

@@ -5,8 +5,8 @@ import test from "node:test";
 const root = new URL("../", import.meta.url);
 const [html, css, app] = await Promise.all([
   readFile(new URL("digestazoid.html", root), "utf8"),
-  readFile(new URL("digestazoid.css", root), "utf8"),
-  readFile(new URL("digestazoid-app.js", root), "utf8"),
+  readFile(new URL("src/instruments/digestazoid/digestazoid.css", root), "utf8"),
+  readFile(new URL("src/instruments/digestazoid/digestazoid-app.js", root), "utf8"),
 ]);
 
 test("Digestazoid exposes a tactile persistent digestive system", () => {

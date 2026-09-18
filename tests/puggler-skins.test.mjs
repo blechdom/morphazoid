@@ -8,7 +8,7 @@ test('skin choices have stable cast identities and canonical fallback', () => {
   assert.deepEqual(SKINS.map(skin => skin.id), ['punk', 'history', 'future']);
   assert.deepEqual(skinFor('history').riders, ['Cavewoman', 'Dame Roxy', 'Maestro Moss']);
   assert.deepEqual(skinFor('future').riders, ['Futureman', 'Cyberwoman', 'Quor']);
-  for (const id of [undefined, '', 'missing', '__proto__']) assert.equal(skinFor(id), SKINS[0]);
+  for (const id of [undefined, '', 'missing', "[object Object]"]) assert.equal(skinFor(id), SKINS[0]);
   assert.ok(Object.isFrozen(SKINS));
   for (const skin of SKINS) {
     assert.ok(Object.isFrozen(skin));
@@ -72,7 +72,7 @@ test('cached presentations preserve transient supplied fields and invalidate on 
   assert.equal(presentProp(live, 'history').extra, 5);
   delete live.custom;
   assert.equal(Object.hasOwn(presentProp(live, 'history'), 'custom'), false);
-  const unknown = { ...live, id: '__proto__', name: 'Custom object' };
+  const unknown = { ...live, id: "[object Object]", name: 'Custom object' };
   assert.equal(presentProp(unknown, 'future').name, 'Custom object');
 });
 

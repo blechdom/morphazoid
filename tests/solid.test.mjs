@@ -69,8 +69,8 @@ test("3D target picking selects wireframe edges before the surface behind them",
 
 test("Solid defaults to Sine and silences continuous voices while stopped", async () => {
   const [html, app] = await Promise.all([
-    readFile(new URL("../solid.html", import.meta.url), "utf8"),
-    readFile(new URL("../solid-app.js", import.meta.url), "utf8"),
+    readFile(new URL("../solid-synth.html", import.meta.url), "utf8"),
+    readFile(new URL("../src/instruments/solid-synth/solid-synth-app.js", import.meta.url), "utf8"),
   ]);
   assert.match(html, /<option value="sine" selected>/);
   assert.match(app, /soundMode: "sine"/);
@@ -92,8 +92,8 @@ test("Solid defaults to Sine and silences continuous voices while stopped", asyn
 
 test("Solid opens with a dimensional shape and a visibly broad surface", async () => {
   const [html, app] = await Promise.all([
-    readFile(new URL("../solid.html", import.meta.url), "utf8"),
-    readFile(new URL("../solid-app.js", import.meta.url), "utf8"),
+    readFile(new URL("../solid-synth.html", import.meta.url), "utf8"),
+    readFile(new URL("../src/instruments/solid-synth/solid-synth-app.js", import.meta.url), "utf8"),
   ]);
   for (const [key, value] of [
     ["rotationX", -24], ["rotationY", 36], ["rotationZ", 8],
@@ -119,8 +119,8 @@ test("Solid opens with a dimensional shape and a visibly broad surface", async (
 
 test("Solid can select and drag either the shape or surface in 3D", async () => {
   const [html, app] = await Promise.all([
-    readFile(new URL("../solid.html", import.meta.url), "utf8"),
-    readFile(new URL("../solid-app.js", import.meta.url), "utf8"),
+    readFile(new URL("../solid-synth.html", import.meta.url), "utf8"),
+    readFile(new URL("../src/instruments/solid-synth/solid-synth-app.js", import.meta.url), "utf8"),
   ]);
   assert.match(html, /id="selectSolid"[^>]+aria-pressed="true"[^>]*>Shape<\/button>/);
   assert.match(html, /id="selectSurface"[^>]+aria-pressed="false"[^>]*>Surface<\/button>/);

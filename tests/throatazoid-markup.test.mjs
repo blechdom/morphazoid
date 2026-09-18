@@ -7,8 +7,8 @@ const root = new URL("../", import.meta.url);
 test("Throatazoid is a first-class mic and glottis-driven Morphazoid instrument", async () => {
   const [html, css, app, notices] = await Promise.all([
     readFile(new URL("throatazoid.html", root), "utf8"),
-    readFile(new URL("throatazoid.css", root), "utf8"),
-    readFile(new URL("throatazoid-app.js", root), "utf8"),
+    readFile(new URL("src/instruments/throatazoid/throatazoid.css", root), "utf8"),
+    readFile(new URL("src/instruments/throatazoid/throatazoid-app.js", root), "utf8"),
     readFile(new URL("THIRD_PARTY_NOTICES.md", root), "utf8"),
   ]);
 
@@ -76,7 +76,7 @@ test("Throatazoid is a first-class mic and glottis-driven Morphazoid instrument"
   assert.match(notices, /Copyright 2017 Neil Thapen/);
   assert.match(notices, /Permission is hereby granted, free of charge/);
   assert.match(html, /src="nav\.js"/);
-  assert.match(html, /src="throatazoid-app\.js"/);
+  assert.match(html, /src="src\/instruments\/throatazoid\/throatazoid-app\.js"/);
   assert.match(html, /href="throatazoid-architecture\.html"/);
   assert.match(html, /href="alien-larynx\.html"/);
   assert.doesNotMatch(html, /<details\b[^>]*\sopen(?:\s|>)/);

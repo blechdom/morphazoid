@@ -6,8 +6,8 @@ const root = new URL("../", import.meta.url);
 
 test("all instrument pages share desktop and mobile navigation", async () => {
   const files = [
-    "shape.html", "lattice.html", "spiral.html", "solid.html", "moebius.html",
-    "klein-bottle.html", "hyper.html",
+    "shape-synth.html", "lattice.html", "spiral.html", "solid-synth.html", "moebius-synth.html",
+    "klein-bottle-synth.html", "hyper-synth.html",
     "l-system.html", "recursion.html", "julia.html", "lumber.html", "l-mic.html",
     "graph-delay.html",
     "throatazoid.html",
@@ -55,8 +55,8 @@ test("all instrument pages share desktop and mobile navigation", async () => {
     }
   }
   const visibleTransportFiles = new Set([
-    "shape.html", "lattice.html", "spiral.html", "solid.html", "moebius.html",
-    "klein-bottle.html", "hyper.html",
+    "shape-synth.html", "lattice.html", "spiral.html", "solid-synth.html", "moebius-synth.html",
+    "klein-bottle-synth.html", "hyper-synth.html",
     "l-system.html", "julia.html", "lumber.html", "graph-delay.html",
   ]);
   for (const [index, html] of pages.entries()) {
@@ -72,11 +72,11 @@ test("all instrument pages share desktop and mobile navigation", async () => {
   assert.match(css, /\.tools-menu-label\s*\{[^}]*color: var\(--muted\);[^}]*font-size: 10px;/);
   assert.match(css, /\.tools-menu-current\s*\{[^}]*font-size: 13px;/);
   assert.match(css, /\.tools-menu-group\[data-tool-group="geometry-drums"\]\s*\{[^}]*--group-accent: var\(--orange\);/);
-  assert.match(css, /\.tools-menu-group\[data-tool-group="voice-synths"\]\s*\{[^}]*--group-accent: var\(--blue\);/);
-  assert.match(css, /\.tools-menu-group\[data-tool-group="mic-fx"\]\s*\{[^}]*--group-accent: var\(--accent\);/);
+  assert.match(css, /\.tools-menu-group\[data-tool-group="physical-model"\]\s*\{[^}]*--group-accent: var\(--blue\);/);
+  assert.match(css, /\.tools-menu-group\[data-tool-group="audio-effect"\]\s*\{[^}]*--group-accent: var\(--accent\);/);
   assert.doesNotMatch(css, /data-tool-group="image-to-instrument"/);
-  assert.match(css, /\.tools-menu-group\[data-tool-group="sequencers"\]\s*\{[^}]*--group-accent: #9dff57;/);
-  assert.match(css, /\.tools-menu-group\[data-tool-group="experiments"\]\s*\{[^}]*--group-accent: #e883ee;/);
+  assert.match(css, /\.tools-menu-group\[data-tool-group="sequencer"\]\s*\{[^}]*--group-accent: #9dff57;/);
+  assert.match(css, /\.tools-menu-group\[data-tool-group="wip"\]\s*\{[^}]*--group-accent: #e883ee;/);
   assert.match(css, /\.experiment-title,[\s\S]*?\.stage-title-group > h1 \{\s*display: none !important;/);
   assert.match(css, /\.instrument-picker-card-subtitle\s*\{[^}]*color: var\(--muted\);[^}]*font-size: 9px;/s);
   assert.match(css, /\.tools-menu-heading\s*\{[^}]*color: color-mix\(in oklab, var\(--group-accent\) 68%, var\(--muted\)\);[^}]*font-size: 10px;/);
@@ -91,18 +91,18 @@ test("all instrument pages share desktop and mobile navigation", async () => {
 
 test("Solid and Hyper expose wireframe players and Sine-first audio", async () => {
   const [solid, hyper] = await Promise.all([
-    readFile(new URL("solid.html", root), "utf8"),
-    readFile(new URL("hyper.html", root), "utf8"),
+    readFile(new URL("solid-synth.html", root), "utf8"),
+    readFile(new URL("hyper-synth.html", root), "utf8"),
   ]);
   assert.match(solid, /Cube[\s\S]*Pyramid[\s\S]*Cone[\s\S]*Sphere/);
-  assert.match(solid, /<script type="module" src="solid-app\.js">/);
+  assert.match(solid, /<script type="module" src="src\/instruments\/solid-synth\/solid-synth-app\.js">/);
   assert.match(hyper, /X–W plane[\s\S]*Y–W plane[\s\S]*Z–W plane/);
-  assert.match(hyper, /<script type="module" src="hyper-app\.js">/);
+  assert.match(hyper, /<script type="module" src="src\/instruments\/hyper-synth\/hyper-synth-app\.js">/);
   for (const html of [solid, hyper]) assert.match(html, /<option value="sine" selected>/);
 });
 
 test("every oscillator-based instrument can reach a 20 Hz base frequency", async () => {
-  const files = ["shape.html", "lattice.html", "spiral.html", "solid.html", "moebius.html", "klein-bottle.html", "hyper.html", "julia.html"];
+  const files = ["shape-synth.html", "lattice.html", "spiral.html", "solid-synth.html", "moebius-synth.html", "klein-bottle-synth.html", "hyper-synth.html", "julia.html"];
   const pages = await Promise.all(files.map((file) => readFile(new URL(file, root), "utf8")));
   for (const html of pages) {
     assert.match(html, /id="baseFrequency"[^>]*min="20"/);

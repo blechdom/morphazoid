@@ -40,10 +40,10 @@ async function appendArtifact(outputDirectory, pathname, addition) {
 
 async function assertVersionsMatchContents(outputDirectory, versions) {
   const versionPaths = {
-    appVersion: "physical-sounds-app.js",
+    appVersion: "src/instruments/object-forge/object-forge-app.js",
     audioOutputManagerVersion: "src/audio-output-manager.js",
     bufferGeometryUtilsVersion: "vendor/three/utils/BufferGeometryUtils.js",
-    cssVersion: "physical-sounds.css",
+    cssVersion: "src/instruments/object-forge/object-forge.css",
     dentaphoneVersion: "src/dentaphone.js",
     glbVersion: "assets/models/dentaphone-chomper.glb",
     gltfLoaderVersion: "vendor/three/loaders/GLTFLoader.js",
@@ -76,6 +76,7 @@ test("Dentaphone publish fingerprints propagate through the complete 3D and audi
   await Promise.all([
     mkdir(path.join(outputDirectory, "assets/models"), { recursive: true }),
     mkdir(path.join(outputDirectory, "src"), { recursive: true }),
+    mkdir(path.join(outputDirectory, "src/instruments/object-forge"), { recursive: true }),
     mkdir(path.join(outputDirectory, "vendor/three/loaders"), { recursive: true }),
     mkdir(path.join(outputDirectory, "vendor/three/utils"), { recursive: true }),
   ]);
@@ -146,23 +147,23 @@ test("Dentaphone publish fingerprints propagate through the complete 3D and audi
       'import { sound } from "./physical-sounds.js?v=stale-physical"; void sound;\n',
     ),
     writeFile(
-      path.join(outputDirectory, "physical-sounds-app.js"),
+      path.join(outputDirectory, "src/instruments/object-forge/object-forge-app.js"),
       [
-        'import "./src/audio-output-manager.js";',
-        'import "./src/physical-sounds.js?v=stale-physical";',
-        'import "./src/dentaphone.js";',
-        'const renderer = import("./src/dentaphone-webgl.js?v=stale-renderer");',
-        'const processor = new URL("./src/physical-sounds-processor.js?v=stale-worklet", import.meta.url);',
+        'import "../../audio-output-manager.js";',
+        'import "../../physical-sounds.js?v=stale-physical";',
+        'import "../../dentaphone.js";',
+        'const renderer = import("../../dentaphone-webgl.js?v=stale-renderer");',
+        'const processor = new URL("../../physical-sounds-processor.js?v=stale-worklet", import.meta.url);',
         "void renderer; void processor;",
         "",
       ].join("\n"),
     ),
-    writeFile(path.join(outputDirectory, "physical-sounds.css"), ".tooth { color: ivory; }\n"),
+    writeFile(path.join(outputDirectory, "src/instruments/object-forge/object-forge.css"), ".tooth { color: ivory; }\n"),
     writeFile(
       path.join(outputDirectory, "dentaphone.html"),
       [
-        '<link rel="stylesheet" href="physical-sounds.css?v=stale-css">',
-        '<script type="module" src="physical-sounds-app.js?v=stale-app"></script>',
+        '<link rel="stylesheet" href="src/instruments/object-forge/object-forge.css?v=stale-css">',
+        '<script type="module" src="src/instruments/object-forge/object-forge-app.js?v=stale-app"></script>',
         '<img src="assets/dentaphone-upper.webp?v=stale-upper">',
         '<img src="assets/dentaphone-lower.webp">',
         '<img src="assets/dentaphone-toothbrush.webp?v=stale-brush">',
@@ -185,7 +186,7 @@ test("Dentaphone publish fingerprints propagate through the complete 3D and audi
   const firstLoader = await readArtifact(outputDirectory, "vendor/three/loaders/GLTFLoader.js");
   const firstRenderer = await readArtifact(outputDirectory, "src/dentaphone-webgl.js");
   const firstProcessor = await readArtifact(outputDirectory, "src/physical-sounds-processor.js");
-  const firstApp = await readArtifact(outputDirectory, "physical-sounds-app.js");
+  const firstApp = await readArtifact(outputDirectory, "src/instruments/object-forge/object-forge-app.js");
   const firstHtml = await readArtifact(outputDirectory, "dentaphone.html");
   assertVersioned(firstThreeModule, "./three.core.min.js", first.threeCoreVersion);
   assert.equal(
@@ -202,13 +203,13 @@ test("Dentaphone publish fingerprints propagate through the complete 3D and audi
   assertVersioned(firstRenderer, "../vendor/three/loaders/GLTFLoader.js", first.gltfLoaderVersion);
   assertVersioned(firstRenderer, "../assets/models/dentaphone-chomper.glb", first.glbVersion);
   assertVersioned(firstProcessor, "./physical-sounds.js", first.physicalSoundsVersion);
-  assertVersioned(firstApp, "./src/audio-output-manager.js", first.audioOutputManagerVersion);
-  assertVersioned(firstApp, "./src/physical-sounds.js", first.physicalSoundsVersion);
-  assertVersioned(firstApp, "./src/dentaphone.js", first.dentaphoneVersion);
-  assertVersioned(firstApp, "./src/dentaphone-webgl.js", first.rendererVersion);
-  assertVersioned(firstApp, "./src/physical-sounds-processor.js", first.processorVersion);
-  assertVersioned(firstHtml, "physical-sounds.css", first.cssVersion);
-  assertVersioned(firstHtml, "physical-sounds-app.js", first.appVersion);
+  assertVersioned(firstApp, "../../audio-output-manager.js", first.audioOutputManagerVersion);
+  assertVersioned(firstApp, "../../physical-sounds.js", first.physicalSoundsVersion);
+  assertVersioned(firstApp, "../../dentaphone.js", first.dentaphoneVersion);
+  assertVersioned(firstApp, "../../dentaphone-webgl.js", first.rendererVersion);
+  assertVersioned(firstApp, "../../physical-sounds-processor.js", first.processorVersion);
+  assertVersioned(firstHtml, "src/instruments/object-forge/object-forge.css", first.cssVersion);
+  assertVersioned(firstHtml, "src/instruments/object-forge/object-forge-app.js", first.appVersion);
   for (const pathname of visualAssetPathnames) {
     assertVersioned(firstHtml, pathname, first.visualAssetVersions[pathname]);
   }
@@ -240,7 +241,7 @@ test("Dentaphone publish fingerprints propagate through the complete 3D and audi
   );
   assertVersioned(
     await readArtifact(outputDirectory, "dentaphone.html"),
-    "physical-sounds-app.js",
+    "src/instruments/object-forge/object-forge-app.js",
     afterGlb.appVersion,
   );
 
@@ -361,7 +362,7 @@ test("Dentaphone publish fingerprints propagate through the complete 3D and audi
   assert.notEqual(afterAudioOutput.appVersion, afterDentaphone.appVersion);
 
   await writeFile(
-    path.join(outputDirectory, "physical-sounds.css"),
+    path.join(outputDirectory, "src/instruments/object-forge/object-forge.css"),
     ".tooth { color: porcelain; }\n",
   );
   const afterCss = await fingerprintDentaphone(outputDirectory);
@@ -369,7 +370,7 @@ test("Dentaphone publish fingerprints propagate through the complete 3D and audi
   assert.equal(afterCss.appVersion, afterAudioOutput.appVersion);
   assertVersioned(
     await readArtifact(outputDirectory, "dentaphone.html"),
-    "physical-sounds.css",
+    "src/instruments/object-forge/object-forge.css",
     afterCss.cssVersion,
   );
 
@@ -392,7 +393,7 @@ test("Dentaphone publish fingerprints propagate through the complete 3D and audi
 
   const mutableArtifacts = [
     "dentaphone.html",
-    "physical-sounds-app.js",
+    "src/instruments/object-forge/object-forge-app.js",
     "src/dentaphone-webgl.js",
     "src/physical-sounds-processor.js",
     "vendor/three/loaders/GLTFLoader.js",

@@ -217,7 +217,7 @@ test("Julia app builds, draws, scrubs, and advances its boundary", async () => {
     async close() { this.state = "closed"; }
   };
 
-  await import(`../julia-app.js?smoke=${Date.now()}`);
+  await import(`../src/instruments/julia/julia-app.js?smoke=${Date.now()}`);
   assert.equal(typeof queuedFrame, "function");
   let now = performance.now() + 20;
   flushFrame(now);

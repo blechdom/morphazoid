@@ -28,7 +28,7 @@
     <title>SIMD Resonator &mdash; Morphazoid</title>
     <link rel="icon" href="favicon.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="style.css" />
-    <link rel="stylesheet" href="simd-resonator.css" />
+    <link rel="stylesheet" href="src/families/simd-resonator/simd-resonator.css" />
   </head>
   <body class="simd-resonator-page" data-simd-surface="resonator">
     <header class="masthead">
@@ -38,13 +38,13 @@
       </a>
       <nav class="tabs" aria-label="Instrument">
         <a class="tab active" href="simd-resonator.html" aria-current="page">resonator</a>
-        <a class="tab" href="simd-audio-lab.html">simd lab</a>
+        <a class="tab" href="simd-lab.html">simd lab</a>
       </nav>
       <label class="mobile-instrument-nav">
         <span class="sr-only">Instrument</span>
         <select class="mobile-instrument-select" aria-label="Instrument">
           <option value="simd-resonator.html" selected>simd resonator</option>
-          <option value="simd-audio-lab.html">simd audio lab</option>
+          <option value="simd-lab.html">simd audio lab</option>
         </select>
       </label>
       <div class="audio-strip" aria-label="Audio controls">
@@ -154,12 +154,12 @@
           </div>
         </details>
 
-        <a class="simd-lab-link" href="simd-audio-lab.html"><b>SIMD AUDIO LAB</b><span>grains · freeze · IR · mesh · strings · space →</span></a>
+        <a class="simd-lab-link" href="simd-lab.html"><b>SIMD AUDIO LAB</b><span>grains · freeze · IR · mesh · strings · space →</span></a>
         <div class="simd-panel-footer"><button id="resetButton" type="button">Reset</button><span>128 modes · 128 FFT bands</span></div>
       </aside>
     </main>
     <script type="module" src="nav.js"></script>
-    <script type="module" src="simd-resonator-app.js"></script>
+    <script type="module" src="src/families/simd-resonator/simd-resonator-app.js"></script>
     <script type="module" src="wax/wax-universal-adapter.js" data-morphazoid-wax-universal-adapter></script>
 </body>
 </html>

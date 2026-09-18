@@ -241,11 +241,11 @@ test("the view atlas includes the earlier Codex fractal landmarks", () => {
 test("the Morphazoid page is audible, navigable, and publishable", async () => {
   const [html, css, app, core, audioSource, buildScript, icon] = await Promise.all([
     readFile(new URL("striped-staircase.html", root), "utf8"),
-    readFile(new URL("striped-staircase.css", root), "utf8"),
-    readFile(new URL("striped-staircase-app.js", root), "utf8"),
+    readFile(new URL("src/instruments/striped-staircase/striped-staircase.css", root), "utf8"),
+    readFile(new URL("src/instruments/striped-staircase/striped-staircase-app.js", root), "utf8"),
     readFile(new URL("src/striped-staircase.js", root), "utf8"),
     readFile(new URL("src/striped-staircase-audio.js", root), "utf8"),
-    readFile(new URL("scripts/build-site.sh", root), "utf8"),
+    readFile(new URL("scripts/site/runtime-files.tsv", root), "utf8"),
     stat(new URL("assets/instruments/striped-staircase.webp", root)),
   ]);
 
@@ -254,7 +254,7 @@ test("the Morphazoid page is audible, navigable, and publishable", async () => {
   assert.match(html, /id="depthRail"/);
   assert.match(html, /data-reset-all data-reset-in-place/);
   assert.match(html, /src="nav\.js"/);
-  assert.match(html, /src="striped-staircase-app\.js"/);
+  assert.match(html, /src="src\/instruments\/striped-staircase\/striped-staircase-app\.js"/);
   assert.match(html, /class="audio-strip"/);
   assert.match(html, /id="audioButton"/);
   assert.match(html, /data-timing="equal"[\s\S]*data-timing="geometry"[\s\S]*data-timing="dive"/);

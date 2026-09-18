@@ -254,7 +254,7 @@ test("Julia page exposes the fractal, signed-turn mapping, and Shepard controls"
   const root = new URL("../", import.meta.url);
   const [html, app] = await Promise.all([
     readFile(new URL("julia.html", root), "utf8"),
-    readFile(new URL("julia-app.js", root), "utf8"),
+    readFile(new URL("src/instruments/julia/julia-app.js", root), "utf8"),
   ]);
   for (const id of [
     "playButton", "position", "speed", "cReal", "cImag", "maxIterations",
@@ -277,7 +277,7 @@ test("Julia page exposes the fractal, signed-turn mapping, and Shepard controls"
   assert.match(html, /id="baseFrequency"[^>]*min="20"[^>]*max="580"[^>]*value="300"/);
   assert.match(html, /id="shepardWidth"[^>]*min="1"[^>]*max="15"[^>]*value="8"/);
   assert.match(html, /id="synthMode"[\s\S]*option value="basic" selected>Basic Shepard<[\s\S]*option value="harmony">Shepard \+ vertical harmony</);
-  assert.match(html, /src="julia-app\.js"/);
+  assert.match(html, /src="src\/instruments\/julia\/julia-app\.js"/);
   assert.match(app, /generateJuliaBoundary/);
   assert.match(app, /cumulativeTurnOctaves/);
   assert.match(app, /setVoiceTrajectory/);

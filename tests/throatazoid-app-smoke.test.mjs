@@ -370,7 +370,7 @@ test("Throatazoid renders, awakens mic and glottis sources, and mutates specimen
     },
   });
 
-  await import(`../throatazoid-app.js?smoke=${Date.now()}`);
+  await import(`../src/instruments/throatazoid/throatazoid-app.js?smoke=${Date.now()}`);
   assert.equal(typeof queuedFrame, "function");
   queuedFrame(performance.now() + 100);
   assert.ok(strokes > 15, "the dormant alien anatomy should have visible structure");

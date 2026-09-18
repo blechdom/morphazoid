@@ -43,7 +43,7 @@ function standaloneFunctionBody(source, name) {
 test("Pink Trombonazoid page wires its accessible editor and local modules", async () => {
   const [html, app] = await Promise.all([
     readFile(new URL("pink-trombonazoid.html", ROOT), "utf8"),
-    readFile(new URL("pink-trombonazoid-app.js", ROOT), "utf8"),
+    readFile(new URL("src/instruments/pink-trombonazoid/pink-trombonazoid-app.js", ROOT), "utf8"),
   ]);
 
   assert.match(html, /<body\b[^>]*class="[^"]*\bpink-trombonazoid-page\b/);
@@ -51,15 +51,15 @@ test("Pink Trombonazoid page wires its accessible editor and local modules", asy
   assert.match(html, /<option value="pink-trombonazoid\.html" selected>Pink Trombonazoid<\/option>/);
   assert.match(
     html,
-    /href="pink-trombonazoid\.css\?v=pink-trombonazoid-20260823-2"/,
+    /href="src\/instruments\/pink-trombonazoid\/pink-trombonazoid\.css\?v=pink-trombonazoid-20260823-2"/,
   );
   assert.match(
     html,
-    /<script type="module" src="pink-trombonazoid-app\.js\?v=pink-trombonazoid-20260823-2"><\/script>/,
+    /<script type="module" src="src\/instruments\/pink-trombonazoid\/pink-trombonazoid-app\.js\?v=pink-trombonazoid-20260823-2"><\/script>/,
   );
   assert.match(
     app,
-    /from "\.\/src\/pink-trombonazoid\.js\?v=pink-trombonazoid-20260823-2"/,
+    /from "\.\.\/\.\.\/pink-trombonazoid\.js\?v=pink-trombonazoid-20260823-2"/,
     "the app and its core must share a cache version",
   );
 
@@ -120,7 +120,7 @@ test("Pink Trombonazoid page wires its accessible editor and local modules", asy
   }
   for (const path of [...app.matchAll(/\bfrom\s+"(\.[^"]+)"/g)].map((match) => match[1])) {
     assert.equal(
-      (await stat(new URL(path, new URL("pink-trombonazoid-app.js", ROOT)))).isFile(),
+      (await stat(new URL(path, new URL("src/instruments/pink-trombonazoid/pink-trombonazoid-app.js", ROOT)))).isFile(),
       true,
       `${path} must resolve from the page app`,
     );
@@ -130,7 +130,7 @@ test("Pink Trombonazoid page wires its accessible editor and local modules", asy
 test("the page explains and implements word-to-tract sequencing", async () => {
   const [html, app] = await Promise.all([
     readFile(new URL("pink-trombonazoid.html", ROOT), "utf8"),
-    readFile(new URL("pink-trombonazoid-app.js", ROOT), "utf8"),
+    readFile(new URL("src/instruments/pink-trombonazoid/pink-trombonazoid-app.js", ROOT), "utf8"),
   ]);
 
   assert.doesNotMatch(html, /THROATAZOID × HYBRINX|Local CMU pronunciation dictionary/);
@@ -217,7 +217,7 @@ test("the page explains and implements word-to-tract sequencing", async () => {
 test("timeline automation supports multiple two-dimensional keys, live playback, and lane zoom", async () => {
   const [html, app] = await Promise.all([
     readFile(new URL("pink-trombonazoid.html", ROOT), "utf8"),
-    readFile(new URL("pink-trombonazoid-app.js", ROOT), "utf8"),
+    readFile(new URL("src/instruments/pink-trombonazoid/pink-trombonazoid-app.js", ROOT), "utf8"),
   ]);
   const renderTimeline = standaloneFunctionBody(app, "renderTimeline");
   const timelineGeometry = standaloneFunctionBody(app, "timelineGeometry");
@@ -308,8 +308,8 @@ test("timeline automation supports multiple two-dimensional keys, live playback,
 test("timeline lanes expose Hybrinx-style editable modulation contours", async () => {
   const [html, app, css] = await Promise.all([
     readFile(new URL("pink-trombonazoid.html", ROOT), "utf8"),
-    readFile(new URL("pink-trombonazoid-app.js", ROOT), "utf8"),
-    readFile(new URL("pink-trombonazoid.css", ROOT), "utf8"),
+    readFile(new URL("src/instruments/pink-trombonazoid/pink-trombonazoid-app.js", ROOT), "utf8"),
+    readFile(new URL("src/instruments/pink-trombonazoid/pink-trombonazoid.css", ROOT), "utf8"),
   ]);
   const renderTimeline = standaloneFunctionBody(app, "renderTimeline");
   const continueDrag = standaloneFunctionBody(app, "continueDrag");
@@ -336,7 +336,7 @@ test("timeline lanes expose Hybrinx-style editable modulation contours", async (
 test("Pink Trombonazoid uses the source palette and responsive Hybrinx-style lanes", async () => {
   const [html, css] = await Promise.all([
     readFile(new URL("pink-trombonazoid.html", ROOT), "utf8"),
-    readFile(new URL("pink-trombonazoid.css", ROOT), "utf8"),
+    readFile(new URL("src/instruments/pink-trombonazoid/pink-trombonazoid.css", ROOT), "utf8"),
   ]);
 
   assert.match(html, /name="theme-color" content="#050205"/);

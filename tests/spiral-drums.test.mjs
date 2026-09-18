@@ -7,7 +7,7 @@ import {
   mappedSpiralDrumVoice,
   normalizedSpiralContact,
   spiralDrumVoiceIndex,
-} from "../src/spiral-drums.js";
+} from "../src/instruments/spiral-drum-machine/spiral-drum-machine.js";
 import {
   buildSpiralTessellation,
   contactsForSpiralReader,
@@ -153,9 +153,9 @@ test("every intrinsic Spiral reader resolves contacts through every drum mapping
 
 test("Spiral Drum Machine keeps the full geometry UI and excludes legacy sound panels", async () => {
   const [html, css, app] = await Promise.all([
-    readFile(new URL("spiral-drums.html", root), "utf8"),
-    readFile(new URL("spiral-drums.css", root), "utf8"),
-    readFile(new URL("spiral-drums-app.js", root), "utf8"),
+    readFile(new URL("spiral-drum-machine.html", root), "utf8"),
+    readFile(new URL("src/instruments/spiral-drum-machine/spiral-drum-machine.css", root), "utf8"),
+    readFile(new URL("src/instruments/spiral-drum-machine/spiral-drum-machine-app.js", root), "utf8"),
   ]);
   for (const id of [
     "stage",
@@ -178,7 +178,7 @@ test("Spiral Drum Machine keeps the full geometry UI and excludes legacy sound p
   }
   assert.doesNotMatch(html, /id="spiralDrumsTitle"|class="spiral-drums-heading"/);
   assert.doesNotMatch(css, /\.spiral-drums-heading/);
-  assert.match(html, /src="spiral-drums-app\.js"/);
+  assert.match(html, /src="src\/instruments\/spiral-drum-machine\/spiral-drum-machine-app\.js"/);
   assert.match(css, /\.spiral-drum-map[\s\S]*grid-template-columns: repeat\(4/);
   assert.match(app, /buildSpiralTessellation/);
   assert.match(app, /contactsForSpiralReader/);

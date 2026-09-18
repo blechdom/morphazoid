@@ -17,6 +17,7 @@ const skinPathnames = [
   "./assets/hiccup-head/skins/wild-ink-decay-fields.webp",
 ];
 
+const appAssetPath = (pathname) => "../../../" + pathname.replace(/^\.\//, "");
 function contentVersion(source) {
   return createHash("sha256").update(source).digest("hex").slice(0, 12);
 }
@@ -26,6 +27,7 @@ test("Hiccup Head publish fingerprints follow both warm room impulse contents", 
   t.after(() => rm(outputDirectory, { recursive: true, force: true }));
   await Promise.all([
     mkdir(path.join(outputDirectory, "src"), { recursive: true }),
+    mkdir(path.join(outputDirectory, "src/instruments/hiccup-head"), { recursive: true }),
     mkdir(path.join(outputDirectory, "assets", "audio"), { recursive: true }),
     mkdir(path.join(outputDirectory, "assets", "hiccup-head", "skins"), { recursive: true }),
   ]);
@@ -39,26 +41,26 @@ test("Hiccup Head publish fingerprints follow both warm room impulse contents", 
       'import "./hiccup-head.js?v=stale-model";\n',
     ),
     writeFile(
-      path.join(outputDirectory, "hiccup-head-app.js"),
+      path.join(outputDirectory, "src/instruments/hiccup-head/hiccup-head-app.js"),
       [
-        'import "./src/hiccup-head.js?v=stale-model";',
-        'const processor = new URL("./src/hiccup-head-processor.js?v=stale-processor", import.meta.url);',
-        `const plate = new URL("${platePathname}?v=stale-plate", import.meta.url);`,
-        `const cathedral = new URL("${cathedralPathname}", import.meta.url);`,
-        ...skinPathnames.map((pathname, index) => `const skin${index} = "${pathname}?v=stale-skin";`),
+        'import "../../hiccup-head.js?v=stale-model";',
+        'const processor = new URL("../../hiccup-head-processor.js?v=stale-processor", import.meta.url);',
+        `const plate = new URL("${appAssetPath(platePathname)}?v=stale-plate", import.meta.url);`,
+        `const cathedral = new URL("${appAssetPath(cathedralPathname)}", import.meta.url);`,
+        ...skinPathnames.map((pathname, index) => `const skin${index} = "${appAssetPath(pathname)}?v=stale-skin";`),
         "void processor; void plate; void cathedral; void skin0; void skin1; void skin2; void skin3;",
         "",
       ].join("\n"),
     ),
-    writeFile(path.join(outputDirectory, "hiccup-head.css"), ".face { display: block; }\n"),
+    writeFile(path.join(outputDirectory, "src/instruments/hiccup-head/hiccup-head.css"), ".face { display: block; }\n"),
     writeFile(
       path.join(outputDirectory, "hiccup-head.html"),
       [
         '<link rel="preload" href="assets/audio/hiccup-head-emt140-warm-plate.wav?v=stale-plate">',
         '<link rel="preload" href="assets/audio/hiccup-head-york-minster-warm-hall.wav">',
         '<link rel="modulepreload" href="src/hiccup-head-processor.js?v=stale-processor">',
-        '<link rel="stylesheet" href="hiccup-head.css?v=stale-css">',
-        '<script type="module" src="hiccup-head-app.js?v=stale-app"></script>',
+        '<link rel="stylesheet" href="src/instruments/hiccup-head/hiccup-head.css?v=stale-css">',
+        '<script type="module" src="src/instruments/hiccup-head/hiccup-head-app.js?v=stale-app"></script>',
         "",
       ].join("\n"),
     ),
@@ -71,7 +73,7 @@ test("Hiccup Head publish fingerprints follow both warm room impulse contents", 
   ]);
 
   const first = await fingerprintHiccupHead(outputDirectory);
-  const firstApp = await readFile(path.join(outputDirectory, "hiccup-head-app.js"), "utf8");
+  const firstApp = await readFile(path.join(outputDirectory, "src/instruments/hiccup-head/hiccup-head-app.js"), "utf8");
   const firstHtml = await readFile(path.join(outputDirectory, "hiccup-head.html"), "utf8");
   const firstPlateVersion = contentVersion(firstPlate);
   const cathedralVersion = contentVersion(cathedral);
@@ -95,7 +97,7 @@ test("Hiccup Head publish fingerprints follow both warm room impulse contents", 
   const secondPlate = Buffer.from("changed and reprocessed warm plate impulse");
   await writeFile(path.join(outputDirectory, platePathname), secondPlate);
   const second = await fingerprintHiccupHead(outputDirectory);
-  const secondApp = await readFile(path.join(outputDirectory, "hiccup-head-app.js"), "utf8");
+  const secondApp = await readFile(path.join(outputDirectory, "src/instruments/hiccup-head/hiccup-head-app.js"), "utf8");
   const secondHtml = await readFile(path.join(outputDirectory, "hiccup-head.html"), "utf8");
   const secondPlateVersion = contentVersion(secondPlate);
   assert.notEqual(secondPlateVersion, firstPlateVersion);
@@ -111,7 +113,7 @@ test("Hiccup Head publish fingerprints follow both warm room impulse contents", 
   const secondCathedral = Buffer.from("changed and reprocessed warm cathedral impulse");
   await writeFile(path.join(outputDirectory, cathedralPathname), secondCathedral);
   const third = await fingerprintHiccupHead(outputDirectory);
-  const thirdApp = await readFile(path.join(outputDirectory, "hiccup-head-app.js"), "utf8");
+  const thirdApp = await readFile(path.join(outputDirectory, "src/instruments/hiccup-head/hiccup-head-app.js"), "utf8");
   const thirdCathedralVersion = contentVersion(secondCathedral);
   assert.notEqual(third.appVersion, second.appVersion);
   assert.equal(third.roomImpulseVersions[platePathname], secondPlateVersion);
@@ -125,7 +127,7 @@ test("Hiccup Head publish fingerprints follow both warm room impulse contents", 
   const fourth = await fingerprintHiccupHead(outputDirectory);
   assert.deepEqual(fourth, third, "fingerprinting the same artifact twice must be idempotent");
   assert.equal(
-    await readFile(path.join(outputDirectory, "hiccup-head-app.js"), "utf8"),
+    await readFile(path.join(outputDirectory, "src/instruments/hiccup-head/hiccup-head-app.js"), "utf8"),
     thirdApp,
   );
 });

@@ -55,9 +55,9 @@ test("both barber delays are native internal Morphazoid pages", async () => {
     assert.match(markup, new RegExp(`<body[^>]+data-delay-mode="${page.mode}"`));
     assert.match(markup, new RegExp(page.title));
     assert.match(markup, /<link rel="stylesheet" href="style\.css"/);
-    assert.match(markup, /<link rel="stylesheet" href="barber-delay\.css"/);
+    assert.match(markup, /<link rel="stylesheet" href="src\/families\/barber-delay\/barber-delay\.css"/);
     assert.match(markup, /<script type="module" src="nav\.js"><\/script>/);
-    assert.match(markup, /<script type="module" src="barber-delay-app\.js"><\/script>/);
+    assert.match(markup, /<script type="module" src="src\/families\/barber-delay\/barber-delay-app\.js"><\/script>/);
     assert.match(markup, /id="audioButton"[^>]+aria-pressed="false"/);
     assert.match(markup, /id="audioState">off</);
     assert.doesNotMatch(markup, /id="audioState">listening</i);
@@ -210,11 +210,11 @@ test("the shared app preserves every authoritative built-in preset", () => {
 
 test("the shared controller keeps audio behind the menu gesture and cleans resources", async () => {
   const [app, css] = await Promise.all([
-    readFile(new URL("barber-delay-app.js", root), "utf8"),
-    readFile(new URL("barber-delay.css", root), "utf8"),
+    readFile(new URL("src/families/barber-delay/barber-delay-app.js", root), "utf8"),
+    readFile(new URL("src/families/barber-delay/barber-delay.css", root), "utf8"),
   ]);
 
-  assert.match(app, /from "\.\/src\/barber-delay\.js"/);
+  assert.match(app, /from "\.\.\/\.\.\/barber-delay\.js"/);
   assert.match(app, /barberDelaySliderPosition/);
   assert.match(app, /barberDelaySliderValue/);
   assert.match(app, /function formatMilliseconds/);

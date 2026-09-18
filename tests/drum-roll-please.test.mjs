@@ -652,7 +652,7 @@ test("worklet registers once and renders bounded stereo audio through both seams
 test("Drum Roll Please page uses Shepard-aligned controls and an accessible pitch toggle", async () => {
   const [markup, app, audioModule] = await Promise.all([
     readFile(new URL("drum-roll-please.html", ROOT), "utf8"),
-    readFile(new URL("drum-roll-please-app.js", ROOT), "utf8"),
+    readFile(new URL("src/instruments/drum-roll-please/drum-roll-please-app.js", ROOT), "utf8"),
     readFile(new URL("src/drum-roll-please.js", ROOT), "utf8"),
   ]);
 
@@ -714,7 +714,7 @@ test("Drum Roll Please page uses Shepard-aligned controls and an accessible pitc
   assert.match(markup, /id="stripeAngleNote">[\s\S]*?Display only:/);
   assert.match(markup, /Crisp diagonal tempo bands/);
   assert.match(markup, /kick, tom, hand, and air/);
-  assert.match(markup, /src="drum-roll-please-app\.js"/);
+  assert.match(markup, /src="src\/instruments\/drum-roll-please\/drum-roll-please-app\.js"/);
   assert.doesNotMatch(markup, /https?:\/\//);
 
   assert.match(app, /audioButton"\)\.addEventListener\("click", toggleAudio\)/);
@@ -729,7 +729,7 @@ test("Drum Roll Please page uses Shepard-aligned controls and an accessible pitc
 });
 
 test("visualization is a crisp angled barber field with persistent hit history", async () => {
-  const app = await readFile(new URL("drum-roll-please-app.js", ROOT), "utf8");
+  const app = await readFile(new URL("src/instruments/drum-roll-please/drum-roll-please-app.js", ROOT), "utf8");
 
   assert.match(app, /visualHitHistories/);
   const historyDuration = app.match(/HIT_HISTORY_SECONDS\s*=\s*([\d.]+)/);

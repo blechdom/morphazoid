@@ -5,10 +5,10 @@ import test from "node:test";
 const root = new URL("../", import.meta.url);
 const [html, app, model, processor, css, icon] = await Promise.all([
   readFile(new URL("creaturazoid.html", root), "utf8"),
-  readFile(new URL("creaturazoid-app.js", root), "utf8"),
+  readFile(new URL("src/instruments/creaturazoid/creaturazoid-app.js", root), "utf8"),
   readFile(new URL("src/creaturazoid.js", root), "utf8"),
   readFile(new URL("src/creaturazoid-processor.js", root), "utf8"),
-  readFile(new URL("creaturazoid.css", root), "utf8"),
+  readFile(new URL("src/instruments/creaturazoid/creaturazoid.css", root), "utf8"),
   readFile(new URL("assets/instruments/creaturazoid.webp", root)),
 ]);
 
@@ -196,12 +196,12 @@ test("body, tongue, ear, attack, vibrato, and modulation controls are present an
   assert.doesNotMatch(mutateBody, /Math\.random/);
   assert.match(mutateBody, /bodyMutationVisual = Object\.freeze/);
 
-  assert.match(html, /<link rel="stylesheet" href="creaturazoid\.css\?v=[^"]+" \/>/);
+  assert.match(html, /<link rel="stylesheet" href="src\/instruments\/creaturazoid\/creaturazoid\.css\?v=[^"]+" \/>/);
   assert.match(html, /<script type="module" src="nav\.js\?v=[^"]+"><\/script>/);
-  assert.match(html, /<script type="module" src="creaturazoid-app\.js\?v=[^"]+"><\/script>/);
-  assert.match(app, /from "\.\/src\/creaturazoid\.js\?v=[^"]+"/);
-  assert.match(app, /from "\.\/src\/syrinx\.js\?v=[^"]+"/);
-  assert.match(app, /\.\/src\/creaturazoid-processor\.js\?v=/);
+  assert.match(html, /<script type="module" src="src\/instruments\/creaturazoid\/creaturazoid-app\.js\?v=[^"]+"><\/script>/);
+  assert.match(app, /from "\.\.\/\.\.\/creaturazoid\.js\?v=[^"]+"/);
+  assert.match(app, /from "\.\.\/\.\.\/syrinx\.js\?v=[^"]+"/);
+  assert.match(app, /\.\.\/\.\.\/creaturazoid-processor\.js\?v=/);
 });
 
 test("mobile actions precede the sequencer while the stage stays fixed above the lower scroller", () => {

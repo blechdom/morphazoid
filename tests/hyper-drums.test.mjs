@@ -10,7 +10,7 @@ import {
   hyperDrumVoiceIndex,
   mappedHyperDrumVoice,
   normalizedHyperContact,
-} from "../src/hyper-drums.js";
+} from "../src/instruments/hyper-drum-machine/hyper-drum-machine.js";
 import {
   hyperplaneIntersections,
   transformedHyperShape,
@@ -173,9 +173,9 @@ test("real 4D hyperplane contacts resolve through every mapping mode", () => {
 
 test("Hyper Drum Machine keeps the complete 4D UI and excludes legacy synth panels", async () => {
   const [html, css, app] = await Promise.all([
-    readFile(new URL("hyper-drums.html", root), "utf8"),
-    readFile(new URL("hyper-drums.css", root), "utf8"),
-    readFile(new URL("hyper-drums-app.js", root), "utf8"),
+    readFile(new URL("hyper-drum-machine.html", root), "utf8"),
+    readFile(new URL("src/instruments/hyper-drum-machine/hyper-drum-machine.css", root), "utf8"),
+    readFile(new URL("src/instruments/hyper-drum-machine/hyper-drum-machine-app.js", root), "utf8"),
   ]);
   for (const id of [
     "stage",
@@ -210,7 +210,7 @@ test("Hyper Drum Machine keeps the complete 4D UI and excludes legacy synth pane
     assert.match(html, new RegExp(`id="${id}"`), `missing ${id}`);
   }
   assert.match(html, /src="nav\.js"/);
-  assert.match(html, /src="hyper-drums-app\.js"/);
+  assert.match(html, /src="src\/instruments\/hyper-drum-machine\/hyper-drum-machine-app\.js"/);
   assert.doesNotMatch(html, /id="hyperDrumsTitle"|class="hyper-drums-heading"/);
   assert.doesNotMatch(
     html,

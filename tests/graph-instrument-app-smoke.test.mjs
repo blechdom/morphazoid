@@ -923,7 +923,7 @@ async function exerciseLiveEditRegression(mode, htmlFile) {
 }
 
 for (const [mode, label, htmlFile] of [
-  ["drums", "Graph Drum Machine", "graph-drums.html"],
+  ["drums", "Graph Drum Machine", "graph-drum-machine.html"],
   ["synth", "Graph Synth", "graph-synth.html"],
 ]) {
   test(`cold sound triggers work and live edits preserve the current ${label} run`, () => (

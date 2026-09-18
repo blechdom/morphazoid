@@ -2259,8 +2259,8 @@ test("jaw-harp worklet renders a bounded, decaying pluck", async () => {
 test("jaw-harp page exposes the physical model and accessible interactions", async () => {
   const [html, css, app, processor] = await Promise.all([
     readFile(new URL("jaw-harp.html", root), "utf8"),
-    readFile(new URL("jaw-harp.css", root), "utf8"),
-    readFile(new URL("jaw-harp-app.js", root), "utf8"),
+    readFile(new URL("src/instruments/jaw-harp/jaw-harp.css", root), "utf8"),
+    readFile(new URL("src/instruments/jaw-harp/jaw-harp-app.js", root), "utf8"),
     readFile(new URL("src/jaw-harp-processor.js", root), "utf8"),
   ]);
   assert.match(html, /<body class="jaw-harp-page"/);
@@ -2293,7 +2293,7 @@ test("jaw-harp page exposes the physical model and accessible interactions", asy
   assert.match(html, /Breath mode steps once at every inhale\/exhale turn/);
   assert.ok(html.indexOf('id="randomizeButton"') < html.indexOf('id="vowelSequenceSelect"'));
   assert.ok(html.indexOf('id="vowelSequenceSelect"') < html.indexOf('class="jaw-model-hud"'));
-  assert.match(html, /src="jaw-harp-app\.js"/);
+  assert.match(html, /src="src\/instruments\/jaw-harp\/jaw-harp-app\.js"/);
   for (const key of [
     "pluckForce",
     "tonguePosition",

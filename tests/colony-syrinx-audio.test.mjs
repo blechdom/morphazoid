@@ -5,7 +5,7 @@ import {
   COLONY_SYRINX_CALLS,
   createColonySyrinxCallState,
   createColonySyrinxState,
-} from "../src/colony-syrinx.js";
+} from "../src/instruments/monstroid/monstroid.js";
 
 const render = (processor, seconds, sampleRate, skipSeconds = 0) => {
   const blocks = Math.ceil(seconds * sampleRate / 128);
@@ -68,7 +68,7 @@ test("all seventy-two calls render finite audible openings and pellet grains ric
   globalThis.registerProcessor = (_name, Processor) => { RegisteredProcessor = Processor; };
 
   try {
-    const processorUrl = new URL("../src/colony-syrinx-processor.js", import.meta.url);
+    const processorUrl = new URL("../src/instruments/monstroid/monstroid-processor.js", import.meta.url);
     processorUrl.searchParams.set("atlas-audio-test", String(Date.now()));
     await import(processorUrl.href);
     assert.equal(typeof RegisteredProcessor, "function");

@@ -21,7 +21,7 @@ const sample = `<!doctype html>
 </head><body><img src="assets/authors/portrait.png"><script src="app.js"></script></body></html>`;
 
 test("static preview metadata always selects the logo rather than a page portrait", () => {
-  const transformed = withSocialPreview(sample, "shape.html");
+  const transformed = withSocialPreview(sample, "shape-synth.html");
   assert.match(transformed, /property="og:title" content="MIDI &amp; &quot;WAX&quot; — Morphazoid"/);
   assert.match(transformed, /property="og:description" content="A &quot;playable&quot; &amp; safe &lt;instrument&gt;\."/);
   assert.ok(transformed.includes(`property="og:image" content="${SOCIAL_IMAGE_URL}"`));
@@ -32,11 +32,11 @@ test("static preview metadata always selects the logo rather than a page portrai
   assert.match(transformed, /property="og:image:type" content="image\/png"/);
   assert.match(transformed, /property="og:image:alt" content="Morphazoid geometric wireframe logo/);
   assert.match(transformed, /name="twitter:card" content="summary_large_image"/);
-  assert.match(transformed, /property="og:url" content="https:\/\/morphazoid\.com\/shape\.html"/);
+  assert.match(transformed, /property="og:url" content="https:\/\/morphazoid\.com\/shape-synth\.html"/);
   assert.equal(transformed.slice(transformed.indexOf("<body")), sample.slice(sample.indexOf("<body")));
   assert.ok(transformed.includes('<link rel="canonical" href="./shape.html">'));
   assert.doesNotMatch(transformed.slice(0, transformed.indexOf("</head>")), /authors\/|portrait/);
-  assert.equal(withSocialPreview(transformed, "shape.html"), transformed);
+  assert.equal(withSocialPreview(transformed, "shape-synth.html"), transformed);
 });
 
 test("a stale portrait declaration cannot precede or override the safe image", () => {
@@ -46,12 +46,12 @@ test("a stale portrait declaration cannot precede or override the safe image", (
     <link href="https://example.test/headshot.png" rel="image_src">
     <meta property="og:image:width" content="112">
   </head>`);
-  const transformed = withSocialPreview(stale, "shape.html");
+  const transformed = withSocialPreview(stale, "shape-synth.html");
   assert.equal((transformed.match(/property="og:image"/g) ?? []).length, 1);
   assert.equal((transformed.match(/name="twitter:image"/g) ?? []).length, 1);
   assert.equal((transformed.match(/rel="image_src"/g) ?? []).length, 1);
   assert.doesNotMatch(transformed, /example\.test/);
-  assert.equal(withSocialPreview(transformed, "shape.html"), transformed);
+  assert.equal(withSocialPreview(transformed, "shape-synth.html"), transformed);
 });
 
 test("nested pages and homepage aliases receive correct public URLs before redirect scripts", () => {

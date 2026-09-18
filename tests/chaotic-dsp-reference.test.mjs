@@ -131,15 +131,15 @@ test("all seven pages attach the shared reference after controls and before rese
 test("the dedicated page renders an unconstrained selectable reference", async () => {
   const [markup, app, stylesheet] = await Promise.all([
     readFile(new URL("chaotic-dsp-reference.html", ROOT), "utf8"),
-    readFile(new URL("chaotic-dsp-reference-page.js", ROOT), "utf8"),
-    readFile(new URL("chaotic-dsp-reference.css", ROOT), "utf8"),
+    readFile(new URL("src/site/chaotic-dsp-reference-page.js", ROOT), "utf8"),
+    readFile(new URL("src/instruments/chaotic-dsp-reference/chaotic-dsp-reference.css", ROOT), "utf8"),
   ]);
 
   assert.match(markup, /data-chaos-dsp-reference-page/);
   assert.match(markup, /data-chaos-dsp-full-page/);
   assert.match(markup, /id="dspSynthSelect"/);
   assert.equal((markup.match(/<option value="(?:recursive|chaotic|cascading|weierstrass)/g) ?? []).length, 7);
-  assert.match(markup, /src="chaotic-dsp-reference-page\.js"/);
+  assert.match(markup, /src="src\/site\/chaotic-dsp-reference-page\.js"/);
   assert.match(app, /searchParams\.get\("synth"\)/);
   assert.match(app, /renderChaoticDspReference\(root, reference, document\)/);
   assert.match(app, /instrumentLink\.href = `\$\{reference\.id\}\.html#dsp-reference`/);
@@ -151,7 +151,7 @@ test("the dedicated page renders an unconstrained selectable reference", async (
 test("the renderer uses semantic DOM and responsive, bounded flowchart nodes", async () => {
   const [moduleSource, stylesheet] = await Promise.all([
     readFile(new URL("src/chaotic-dsp-reference.js", ROOT), "utf8"),
-    readFile(new URL("chaotic-synth-ui.css", ROOT), "utf8"),
+    readFile(new URL("src/instruments/chaotic-synth-ui/chaotic-synth-ui.css", ROOT), "utf8"),
   ]);
 
   assert.match(moduleSource, /documentObject\.createElement\("figure"\)/);

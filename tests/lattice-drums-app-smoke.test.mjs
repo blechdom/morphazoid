@@ -5,7 +5,7 @@ import test from "node:test";
 import { buildPrototile, tilingInfo } from "../src/lattice.js";
 
 test("lattice drum app starts with the complete editable isohedral form", async () => {
-  const html = await readFile(new URL("../lattice-drums.html", import.meta.url), "utf8");
+  const html = await readFile(new URL("../lattice-drum-machine.html", import.meta.url), "utf8");
   const ids = [...html.matchAll(/\bid="([^"]+)"/g)].map((match) => match[1]);
   const elements = new Map();
   const listeners = new Map();
@@ -284,7 +284,7 @@ test("lattice drum app starts with the complete editable isohedral form", async 
     return [node, ...node.children.flatMap(descendants)];
   }
 
-  await import(`../lattice-drums-app.js?smoke=${Date.now()}`);
+  await import(`../src/instruments/lattice-drum-machine/lattice-drum-machine-app.js?smoke=${Date.now()}`);
   assert.ok(rafQueue.length > 0, "startup should schedule an initial render");
   flushAnimationFrame();
   assert.equal(attributes.get("playButton:data-no-midi-preview"), "");

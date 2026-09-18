@@ -23,9 +23,9 @@ test("every geometric-physics demo is a first-class Morphazoid page", async () =
     assert.match(html, new RegExp(`<title>${title} — Morphazoid<\\/title>`));
     assert.match(html, new RegExp(`class="physics-page" data-physics-scene="${id}"`));
     assert.match(html, /href="style\.css"/);
-    assert.match(html, /href="physics\.css"/);
+    assert.match(html, /href="src\/families\/physics\/physics\.css"/);
     assert.match(html, /<script type="module" src="nav\.js"><\/script>/);
-    assert.match(html, /<script type="module" src="physics-app\.js"><\/script>/);
+    assert.match(html, /<script type="module" src="src\/families\/physics\/physics-app\.js"><\/script>/);
     assert.match(html, /<canvas id="stage"[^>]*tabindex="0"[^>]*aria-describedby="sceneInstruction sceneLesson"/);
     assert.match(html, /id="audioState">off<\/small>/);
     assert.match(html, /data-reset-all data-reset-in-place/);
@@ -66,8 +66,8 @@ test("every geometric-physics demo is a first-class Morphazoid page", async () =
 
 test("physics shell exposes fixed-step simulation, direct manipulation, and continuous free pitch", async () => {
   const [app, css] = await Promise.all([
-    readFile(new URL("physics-app.js", root), "utf8"),
-    readFile(new URL("physics.css", root), "utf8"),
+    readFile(new URL("src/families/physics/physics-app.js", root), "utf8"),
+    readFile(new URL("src/families/physics/physics.css", root), "utf8"),
   ]);
   assert.match(app, /createFixedStepper/);
   assert.match(app, /new VoicePool\(24\)/);

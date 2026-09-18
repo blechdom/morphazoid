@@ -252,8 +252,8 @@ test("defaults match the page contract and whimsical presets are complete", () =
 test("the page wires its recursive rail, transport, controls, and reset accessibly", async () => {
   const [markup, app, styles] = await Promise.all([
     readFile(new URL("ouroborousel.html", ROOT), "utf8"),
-    readFile(new URL("ouroborousel-app.js", ROOT), "utf8"),
-    readFile(new URL("ouroborousel.css", ROOT), "utf8"),
+    readFile(new URL("src/instruments/ouroborousel/ouroborousel-app.js", ROOT), "utf8"),
+    readFile(new URL("src/instruments/ouroborousel/ouroborousel.css", ROOT), "utf8"),
   ]);
 
   assert.match(markup, /<title>Ouroborousel — Morphazoid<\/title>/);

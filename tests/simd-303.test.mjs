@@ -457,12 +457,12 @@ test("SIMD 303 support requires Web Audio, AudioWorklet, and WebAssembly", () =>
 test("SIMD 303 ships as a separate page with the shared 303 control surface", async () => {
   const [html, css, app, sharedApp, runtime, processor, buildScript, readme] = await Promise.all([
     readFile(new URL("simd-303.html", root), "utf8"),
-    readFile(new URL("simd-303.css", root), "utf8"),
-    readFile(new URL("simd-303-app.js", root), "utf8"),
-    readFile(new URL("webgpu-303-app.js", root), "utf8"),
+    readFile(new URL("src/instruments/simd-303/simd-303.css", root), "utf8"),
+    readFile(new URL("src/instruments/simd-303/simd-303-app.js", root), "utf8"),
+    readFile(new URL("src/instruments/webgpu-303/webgpu-303-app.js", root), "utf8"),
     readFile(new URL("src/simd-303.js", root), "utf8"),
     readFile(new URL("src/simd-303-processor.js", root), "utf8"),
-    readFile(new URL("scripts/build-site.sh", root), "utf8"),
+    readFile(new URL("scripts/site/runtime-files.tsv", root), "utf8"),
     readFile(new URL("README.md", root), "utf8"),
   ]);
 
@@ -529,8 +529,8 @@ test("SIMD 303 ships as a separate page with the shared 303 control surface", as
   assert.match(readme, /\*\*SIMD 303\*\*/);
   for (const file of [
     "simd-303.html",
-    "simd-303.css",
-    "simd-303-app.js",
+    "src/instruments/simd-303/simd-303.css",
+    "src/instruments/simd-303/simd-303-app.js",
     "src/simd-303.js",
     "src/simd-303-morph.js",
     "src/simd-303-presets.js",

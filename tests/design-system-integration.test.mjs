@@ -23,7 +23,7 @@ test("the production stylesheet consumes the shared design tokens and controls",
     readProjectFile("src/ui/primitives/choice-switch.css"),
     readProjectFile("src/ui/primitives/select-field.css"),
     readProjectFile("src/ui/patterns/midi-status.css"),
-    readProjectFile("fm-drums.css"),
+    readProjectFile("src/instruments/fm-drums/fm-drums.css"),
     readProjectFile("morphazoidical/style.css"),
   ]);
 
@@ -92,9 +92,9 @@ test("the production stylesheet consumes the shared design tokens and controls",
 });
 
 test("the physics instrument family renders controls with shared factories", async () => {
-  const source = await readProjectFile("physics-app.js");
+  const source = await readProjectFile("src/families/physics/physics-app.js");
 
-  assert.match(source, /from "\.\/src\/ui\/index\.js";/);
+  assert.match(source, /from "\.\.\/\.\.\/ui\/index\.js";/);
   assert.match(source, /return createRangeField\(\{/);
   assert.match(source, /return createSelectField\(\{/);
   assert.match(source, /return createChoiceSwitch\(\{/);

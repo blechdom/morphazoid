@@ -473,7 +473,7 @@ test("seven contrasting sound banks retune anatomy without overwriting live face
 
 test("measured bank trims travel with each strike and act after the presence knee", async () => {
   const [app, processor] = await Promise.all([
-    readFile(new URL("hiccup-head-app.js", root), "utf8"),
+    readFile(new URL("src/instruments/hiccup-head/hiccup-head-app.js", root), "utf8"),
     readFile(new URL("src/hiccup-head-processor.js", root), "utf8"),
   ]);
   assert.match(app, /hiccupHeadSoundBankOutputGain\(currentSoundBankId, soundId\)/);
@@ -563,7 +563,7 @@ test("voice-capable sounds come from model metadata and include formerly omitted
     assert.equal(hiccupHeadSound(soundId).voiceCapable, true);
   }
 
-  const app = await readFile(new URL("hiccup-head-app.js", root), "utf8");
+  const app = await readFile(new URL("src/instruments/hiccup-head/hiccup-head-app.js", root), "utf8");
   assert.match(app, /HICCUP_HEAD_VOICE_SOUND_IDS,/);
   assert.match(app, /const VOICE_SOUND_IDS = new Set\(HICCUP_HEAD_VOICE_SOUND_IDS\)/);
   assert.match(app, /\.filter\(\(sound\) => VOICE_SOUND_IDS\.has\(sound\.id\)\)/);
@@ -621,7 +621,7 @@ test("FWEE drives a bounded edge jet through the missing upper-left central inci
 });
 
 test("BRUSH sends one composite gesture and sweeps all teeth upward and downward in the worklet", async () => {
-  const app = await readFile(new URL("hiccup-head-app.js", root), "utf8");
+  const app = await readFile(new URL("src/instruments/hiccup-head/hiccup-head-app.js", root), "utf8");
   const postStrikeSource = app.slice(
     app.indexOf("function postStrike("),
     app.indexOf("async function triggerSound("),
@@ -912,8 +912,8 @@ test("eight bounded voice characters retune one tract and preserve assignable mo
 
 test("voice cards expose every base voice parameter separately from the assignable LFO", async () => {
   const [app, css] = await Promise.all([
-    readFile(new URL("hiccup-head-app.js", root), "utf8"),
-    readFile(new URL("hiccup-head.css", root), "utf8"),
+    readFile(new URL("src/instruments/hiccup-head/hiccup-head-app.js", root), "utf8"),
+    readFile(new URL("src/instruments/hiccup-head/hiccup-head.css", root), "utf8"),
   ]);
   const specsStart = app.indexOf("const VOICE_BASE_PARAMETER_SPECS");
   const specsEnd = app.indexOf("function voiceParameterSummary", specsStart);
@@ -1899,8 +1899,8 @@ test("velocity cycling and swing preserve every loop duration from one through s
 test.skip("Hiccup Head bounds mobile grid, canvas, and HUD work without hiding its face controls", async () => {
   const [html, css, app] = await Promise.all([
     readFile(new URL("hiccup-head.html", root), "utf8"),
-    readFile(new URL("hiccup-head.css", root), "utf8"),
-    readFile(new URL("hiccup-head-app.js", root), "utf8"),
+    readFile(new URL("src/instruments/hiccup-head/hiccup-head.css", root), "utf8"),
+    readFile(new URL("src/instruments/hiccup-head/hiccup-head-app.js", root), "utf8"),
   ]);
   const drawFaceSource = app.slice(
     app.indexOf("function drawFace("),
@@ -2285,7 +2285,7 @@ test.skip("Hiccup Head bounds mobile grid, canvas, and HUD work without hiding i
 });
 
 test.skip("Hiccup Head fills its canvas with a large outlined, translucent-checker goofball head", async () => {
-  const app = await readFile(new URL("hiccup-head-app.js", root), "utf8");
+  const app = await readFile(new URL("src/instruments/hiccup-head/hiccup-head-app.js", root), "utf8");
   const drawFaceSource = app.slice(
     app.indexOf("function drawFace("),
     app.indexOf("function drawWaveform("),
@@ -2589,7 +2589,7 @@ test.skip("Hiccup Head fills its canvas with a large outlined, translucent-check
 });
 
 test.skip("all fifty-two Hiccup Head sounds own exactly one feature-safe face polka dot", async () => {
-  const app = await readFile(new URL("hiccup-head-app.js", root), "utf8");
+  const app = await readFile(new URL("src/instruments/hiccup-head/hiccup-head-app.js", root), "utf8");
   const layoutStart = app.indexOf("const FACE_SOUND_TRIGGER_LAYOUT = Object.freeze([");
   const layoutEnd = app.indexOf("\n]);", layoutStart);
   assert.ok(layoutStart >= 0 && layoutEnd > layoutStart, "the face trigger layout must be explicit");
@@ -2765,7 +2765,7 @@ test.skip("all fifty-two Hiccup Head sounds own exactly one feature-safe face po
 test.skip("persistent face-effect bypasses and voice assignment fallback stay independent", async () => {
   const [html, app] = await Promise.all([
     readFile(new URL("hiccup-head.html", root), "utf8"),
-    readFile(new URL("hiccup-head-app.js", root), "utf8"),
+    readFile(new URL("src/instruments/hiccup-head/hiccup-head-app.js", root), "utf8"),
   ]);
 
   assert.match(html, /aria-label="Persistent effect bypasses"/);
@@ -4268,12 +4268,12 @@ test.skip("Hiccup Head worklet renders fifty-two distinct gestures through exact
 test.skip("Hiccup Head page, app, accessibility, catalogue, MIDI registry, and build wiring stay integrated", async () => {
   const [html, css, app, model, processor, readme, buildScript] = await Promise.all([
     readFile(new URL("hiccup-head.html", root), "utf8"),
-    readFile(new URL("hiccup-head.css", root), "utf8"),
-    readFile(new URL("hiccup-head-app.js", root), "utf8"),
+    readFile(new URL("src/instruments/hiccup-head/hiccup-head.css", root), "utf8"),
+    readFile(new URL("src/instruments/hiccup-head/hiccup-head-app.js", root), "utf8"),
     readFile(new URL("src/hiccup-head.js", root), "utf8"),
     readFile(new URL("src/hiccup-head-processor.js", root), "utf8"),
     readFile(new URL("README.md", root), "utf8"),
-    readFile(new URL("scripts/build-site.sh", root), "utf8"),
+    readFile(new URL("scripts/site/runtime-files.tsv", root), "utf8"),
   ]);
 
   assert.match(html, /<title>Hiccup Head · Morphazoid<\/title>/);
@@ -4281,8 +4281,8 @@ test.skip("Hiccup Head page, app, accessibility, catalogue, MIDI registry, and b
   assert.match(html, /<h1>HICCUP HEAD<\/h1>/);
   assert.doesNotMatch(html, /crazed clown beatbox/i);
   assert.doesNotMatch(html, /one face\s*(?:×|x)\s*one mouth/i);
-  assert.match(html, /href="hiccup-head\.css\?v=hiccup-head-sequencer-20260904-1"/);
-  assert.match(html, /src="hiccup-head-app\.js\?v=hiccup-head-sequencer-20260904-1"/);
+  assert.match(html, /href="src\/instruments\/hiccup-head\/hiccup-head\.css\?v=hiccup-head-sequencer-20260904-1"/);
+  assert.match(html, /src="src\/instruments\/hiccup-head\/hiccup-head-app\.js\?v=hiccup-head-sequencer-20260904-1"/);
   assert.match(html, /centered open eyes are dry[\s\S]*?bright plate[\s\S]*?dark cathedral/i);
   assert.match(
     html,
@@ -4653,8 +4653,8 @@ test.skip("Hiccup Head page, app, accessibility, catalogue, MIDI registry, and b
 
   for (const path of [
     "hiccup-head.html",
-    "hiccup-head.css",
-    "hiccup-head-app.js",
+    "src/instruments/hiccup-head/hiccup-head.css",
+    "src/instruments/hiccup-head/hiccup-head-app.js",
     "src/hiccup-head.js",
     "src/hiccup-head-processor.js",
     "assets/instruments/hiccup-head.webp",

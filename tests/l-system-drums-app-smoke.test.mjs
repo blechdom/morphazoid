@@ -3,7 +3,7 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 test("L-System Drum Machine exposes a continuous Shape-style transport", async () => {
-  const html = await readFile(new URL("../l-system-drums.html", import.meta.url), "utf8");
+  const html = await readFile(new URL("../l-system-drum-machine.html", import.meta.url), "utf8");
   const ids = [...html.matchAll(/\bid="([^"]+)"/g)].map((match) => match[1]);
   const elements = new Map();
   const listeners = new Map();
@@ -102,7 +102,7 @@ test("L-System Drum Machine exposes a continuous Shape-style transport", async (
     for (const callback of callbacks) callback(frameNow);
   }
 
-  await import(`../l-system-drums-app.js?smoke=${Date.now()}`);
+  await import(`../src/instruments/l-system-drum-machine/l-system-drum-machine-app.js?smoke=${Date.now()}`);
   frameNow = performance.now();
   assert.ok(rafQueue.length > 0, "startup should schedule an initial render");
   flushAnimationFrames();

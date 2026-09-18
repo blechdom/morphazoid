@@ -663,10 +663,10 @@ test("native page exposes binary gesture audio, accurate naming, and cleanup", a
   const root = new URL("../", import.meta.url);
   const [markup, app, moduleSource, flowSource, sharedUi] = await Promise.all([
     readFile(new URL("chaotic-fm.html", root), "utf8"),
-    readFile(new URL("chaotic-fm-app.js", root), "utf8"),
+    readFile(new URL("src/instruments/chaotic-fm/chaotic-fm-app.js", root), "utf8"),
     readFile(new URL("src/chaotic-fm.js", root), "utf8"),
     readFile(new URL("src/chaotic-fm-flow.js", root), "utf8"),
-    readFile(new URL("chaotic-synth-ui.css", root), "utf8"),
+    readFile(new URL("src/instruments/chaotic-synth-ui/chaotic-synth-ui.css", root), "utf8"),
   ]);
 
   assert.match(markup, /id="audioButton"[^>]+aria-pressed="false"/);
@@ -692,7 +692,7 @@ test("native page exposes binary gesture audio, accurate naming, and cleanup", a
   assert.match(markup, /Controller Macros 1–8 · carrier · offset · amount · nonlinearity · attack · release · glide · output/);
   assert.match(markup, /non-scrolling live spectrum/i);
   assert.match(markup, /frequency bars sits behind a brighter oscilloscope/i);
-  assert.match(markup, /href="chaotic-synth-ui\.css"/);
+  assert.match(markup, /href="src\/instruments\/chaotic-synth-ui\/chaotic-synth-ui\.css"/);
   assert.match(markup, /class="chaotic-path-graph"/);
   assert.match(markup, /id="chaoticFmFlow"/);
   assert.match(markup, /tabindex="0"/);
@@ -725,7 +725,7 @@ test("native page exposes binary gesture audio, accurate naming, and cleanup", a
     /downloads\/plugins\/chaotic-fm\/0\.3\.0\/reaper-jsfx\/Morphazoid_Chaotic_FM\.jsfx/,
   );
   assert.match(markup, /href="plugins\.html#chaotic-fm"/);
-  assert.match(markup, /src="chaotic-fm-app\.js"/);
+  assert.match(markup, /src="src\/instruments\/chaotic-fm\/chaotic-fm-app\.js"/);
   assert.doesNotMatch(markup, /https?:\/\//);
   assert.doesNotMatch(markup, />\s*filter\s*</i);
 

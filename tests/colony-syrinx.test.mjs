@@ -50,7 +50,7 @@ import {
   sanitizeColonySyrinxState,
   setColonySyrinxRoute,
   stepColonySyrinx,
-} from "../src/colony-syrinx.js";
+} from "../src/instruments/monstroid/monstroid.js";
 
 function assertFiniteTree(value, label = "value") {
   if (typeof value === "number") {

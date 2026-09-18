@@ -1,15 +1,15 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
-import { initializeGraphs } from "../graphs-app.js";
+import { initializeGraphs } from "../src/instruments/graphs/graphs-app.js";
 
 const root = new URL("../", import.meta.url);
 
 async function pageSources() {
   const [html, css, app] = await Promise.all([
     readFile(new URL("graphs.html", root), "utf8"),
-    readFile(new URL("graphs.css", root), "utf8"),
-    readFile(new URL("graphs-app.js", root), "utf8"),
+    readFile(new URL("src/instruments/graphs/graphs.css", root), "utf8"),
+    readFile(new URL("src/instruments/graphs/graphs-app.js", root), "utf8"),
   ]);
   return { html, css, app };
 }
@@ -21,7 +21,7 @@ test("Graphs is one native instrument with three accessible playing-mode banks",
   assert.equal(new Set(ids).size, ids.length, "every Graphs DOM id must be unique");
   assert.equal((html.match(/<canvas\b/gi) ?? []).length, 1, "the modes share one canvas");
   assert.doesNotMatch(html, /<(?:iframe|embed|object)\b/i);
-  assert.match(html, /<script type="module" src="graphs-app\.js"><\/script>/);
+  assert.match(html, /<script type="module" src="src\/instruments\/graphs\/graphs-app\.js"><\/script>/);
   assert.doesNotMatch(
     app,
     /(?:from\s+["'].+\/(?:graph-instrument-app|graph-synth-app|graph-drums-app|graph-delay-app)\.js|import\s*["'].+\/(?:graph-synth-app|graph-drums-app|graph-delay-app)\.js)/,
