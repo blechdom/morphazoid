@@ -72,7 +72,9 @@ function summaryFor(instrument, noteMode, midiOutput, audioInput) {
       : "Play the built-in percussion from DAW notes and mapped controls.";
   }
   if (noteMode === "sequence") {
-    return "Hear the built-in sonification, or route its initial control-shaped companion sequence to another instrument.";
+    return midiOutput
+      ? "Hear the built-in sonification, or route its initial control-shaped companion sequence to another instrument."
+      : "Play and automate the built-in sequence; this instrument does not advertise MIDI output.";
   }
   if (midiOutput) {
     return "Play the built-in synth, or route a control-shaped geometry companion as MIDI notes.";

@@ -1,5 +1,15 @@
 # Morphazoid
 
+Five **starting instruments** explore the September concepts without combining
+their engines: [Tempo Tantrum](tempo-tantrum.html) plays driven phases that lock
+and slip; [Tape Worm](tape-worm.html) splices one reader between intact recordings;
+[Loop Soup](loop-soup.html) retains and erases audio in three bowls;
+[Habit Habitat](habit-habitat.html) learns routes only from manual teaching; and
+[Hollowphonic](hollowphonic.html) plays coupled resonating cavities. Each has
+original demo material, explicit Audio, direct stage gestures, and four
+recoverable presets. Names are provisional; all five are Works in progress.
+[Models, boundaries, and recording behavior](docs/starting-instruments.md).
+
 [Spider Synth](spider-synth.html) makes six independently rigged spider scans
 and a playable web into an instrument. Eight articulated legs pluck
 length-dependent silk strings; 40 motion patches, held poses, body/web source

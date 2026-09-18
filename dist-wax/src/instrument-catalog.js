@@ -13,6 +13,36 @@ const define = (kind, description, start, features = [], pluginHref = null) => O
 });
 
 const CATALOG_DETAILS = Object.freeze({
+  "tempo-tantrum": define(
+    "Driven-phase rhythm experiment",
+    "Three continuously evolving phase oscillators lock to a driving pulse, slip outside the locking range, and recover after a nudge; their own crossings trigger the notes.",
+    "Enable Audio and Play, then nudge a bead or drag it outward to detune it. Compare strong coupling with a released drive.",
+    ["Built-in synth", "Pointer", "Phase locking", "Starting instrument"],
+  ),
+  "tape-worm": define(
+    "Two-tape splice instrument",
+    "One playback head crosses between two intact recordings at movable splices, with file and microphone capture, varispeed, and a bypass for original loops.",
+    "Enable Audio and Play to hear the demo, then drag a splice or click a tape to reposition the reader. Recording replaces only the selected tape.",
+    ["Audio file", "Mic input", "Pointer", "Tape splices", "Starting instrument"],
+  ),
+  "loop-soup": define(
+    "Retaining tape network",
+    "Three persistent loops mix stored audio, a local demo ingredient, or microphone input with bounded spill between bowls, exact hold, overdubbing, and selective erasure.",
+    "Enable Audio and Play, select a bowl, and compare Hold with Overdub. Turn on the erase brush to remove sound from a region of tape.",
+    ["Mic input", "Pointer", "Persistent tape", "Starting instrument"],
+  ),
+  "habit-habitat": define(
+    "Learned-route instrument",
+    "Manual node visits teach a bounded transition network; seeded weighted recall plays those tendencies without reinforcing its own playback.",
+    "Enable Audio, choose Teach, and tap numbered nodes. Switch to Recall and Play to hear the learned routes; save a memory in this browser.",
+    ["Built-in synth", "Pointer", "Learned routes", "Starting instrument"],
+  ),
+  hollowphonic: define(
+    "Coupled cavity experiment",
+    "Three damped, coupled delay-line resonators reshape noise, a drone, or microphone input; dragging cavity depth retunes resonances and direct strikes excite the same chambers.",
+    "Enable Audio and Play, drag a chamber deeper, or strike it directly. Compare bypass and damping while the source remains unchanged.",
+    ["Built-in synth", "Mic input", "Pointer", "Resonators", "Starting instrument"],
+  ),
   "spider-synth": define(
     "Spider + silk string instrument",
     "A detailed orb-weaver scan with eight articulated legs in a playable web. Leg contacts pluck silk subdivisions, while held poses, a body mixer and a tiny voice shape its sound.",

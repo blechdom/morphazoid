@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+    <script src="wax/wax-host-bootstrap.js" data-morphazoid-wax-bootstrap></script>
+    <!-- morphazoid-social-preview:start -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Morphazoid" />
+    <meta property="og:title" content="Loop Soup · Morphazoid" />
+    <meta property="og:description" content="Three persistent tape loops retain and mix their contents. Hold stops writing, overdub adds sound, and a brush selectively erases the tapes." />
+    <meta property="og:url" content="https://morphazoid.com/loop-soup.html" />
+    <meta property="og:image" content="https://morphazoid.com/assets/social/morphazoid-card-20260917.png" />
+    <meta property="og:image:secure_url" content="https://morphazoid.com/assets/social/morphazoid-card-20260917.png" />
+    <meta property="og:image:type" content="image/png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="Morphazoid geometric wireframe logo on a dark background." />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Loop Soup · Morphazoid" />
+    <meta name="twitter:description" content="Three persistent tape loops retain and mix their contents. Hold stops writing, overdub adds sound, and a brush selectively erases the tapes." />
+    <meta name="twitter:image" content="https://morphazoid.com/assets/social/morphazoid-card-20260917.png" />
+    <meta name="twitter:image:alt" content="Morphazoid geometric wireframe logo on a dark background." />
+    <link rel="image_src" href="https://morphazoid.com/assets/social/morphazoid-card-20260917.png" />
+    <!-- morphazoid-social-preview:end -->
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="description" content="Three persistent tape loops retain and mix their contents. Hold stops writing, overdub adds sound, and a brush selectively erases the tapes." />
+  <meta name="theme-color" content="#080e16" />
+  <title>Loop Soup · Morphazoid</title>
+  <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="starting-instruments.css" />
+</head>
+<body class="starting-instrument" data-starting-instrument="loop-soup" style="--accent:#eca6bd">
+  <header class="masthead">
+    <a class="wordmark" href="./" aria-label="Morphazoid home"><span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span><span>morphazoid</span></a>
+    <nav class="tabs" aria-label="Instrument"><a class="tab active" href="loop-soup.html" aria-current="page">Loop Soup</a><a class="tab" href="lumber.html">Lumber Loops</a></nav>
+    <label class="mobile-instrument-nav"><span class="sr-only">Instrument</span><select class="mobile-instrument-select" aria-label="Instrument"><option value="loop-soup.html" selected>Loop Soup</option><option value="lumber.html">Lumber Loops</option></select></label>
+    <div id="audioSlot" class="audio-strip" aria-label="Audio controls"><button id="audioButton" class="audio-button" type="button" aria-pressed="false" disabled>Audio off · enable JavaScript</button></div>
+  </header>
+  <main class="starting-shell">
+    <section class="starting-stage" aria-label="Loop Soup instrument">
+      <header class="starting-title"><h1>Loop Soup</h1><p>leave something in the pot</p></header>
+      <div class="stage-wrap" id="stageWrap"><canvas id="stage" role="img" tabindex="0" aria-label="Three persistent tape loops retain and mix their contents. Hold stops writing, overdub adds sound, and a brush selectively erases the tapes." aria-describedby="canvasInstructions modelStatus">Use the labelled controls below to play this instrument.</canvas></div>
+      <p class="starting-hint" id="canvasInstructions">Click a bowl to select it. Enable Erase brush and drag around its tape to remove sound. <a href="#howItWorks">How to play / keys</a></p>
+    </section>
+    <aside class="starting-controls" aria-label="Loop Soup controls">
+      <section class="group">
+        <div class="transport-row"><button id="playButton" type="button" aria-pressed="false" data-primary-transport>Play</button><button id="resetButton" class="mini-action" type="button" data-reset-all data-reset-in-place>Reset controls</button></div>
+        <label class="field-label" for="preset">Starting point<select id="preset" aria-label="Starting point"></select></label>
+        <p id="presetHint" class="starting-note">Moderate retention with a small amount of spill and a fresh pluck.</p>
+        <div id="modelStatus" role="status">Ready · Audio off</div>
+        <p id="liveStatus" role="status" aria-live="polite">Turn Audio on, then Play. No microphone is required for the demo.</p>
+        <p id="actionStatus" class="starting-note">Temporary audio: leaving or reloading this page discards it.</p>
+        <p id="audioError" role="alert" hidden></p>
+      </section>
+      <section class="group" aria-label="Instrument parameters"><label class="control" for="retention">
+    <span><b>Retain each pass</b><output id="retentionOut" for="retention">87%</output></span>
+    <input id="retention" type="range" min="0" max="1" step="0.01" value="0.87" aria-describedby="retentionHelp" title="Old audio kept per pass before saturation. 100% is not exact freeze: use Hold for that." />
+  </label>
+<label class="control" for="feed">
+    <span><b>New ingredient</b><output id="feedOut" for="feed">38%</output></span>
+    <input id="feed" type="range" min="0" max="0.9" step="0.01" value="0.38" aria-describedby="feedHelp" title="Amount of demo or microphone input written into every overdubbing bowl. Does not change the volume of existing tape." />
+  </label>
+<label class="control" for="spill">
+    <span><b>Spill into next bowl</b><output id="spillOut" for="spill">18%</output></span>
+    <input id="spill" type="range" min="0" max="0.7" step="0.01" value="0.18" aria-describedby="spillHelp" title="Amount of the previous bowl's playback written into each overdubbing bowl. Hold blocks incoming spill." />
+  </label></section>
+      <section class="group" aria-label="Direct actions"><div class="starting-selectors" id="selectors" role="group" aria-label="Selected object"></div><div class="starting-tools" id="instrumentTools"></div></section>
+      <details class="starting-guide" id="howItWorks">
+        <summary>How it works / listening exercise</summary>
+        <h2>Try this first</h2><p>Enable Audio and Play. Hold Bowl 1 while the other tapes keep changing. Turn the demo ingredient off, then try the erase brush on the held bowl.</p>
+        <h2>What you hear</h2><p>Three loops play together, panned across the stereo field. A synthesized pluck is the optional new ingredient; microphone input can replace it.</p>
+        <h2>What the picture means</h2><p>Contours show stored amplitude, cream dots show read/write positions, and arrows show spill direction. Density indicates recorded level, not the count of layers. The selected bowl has a thicker outline.</p>
+        <h2>The mechanism</h2><p>The fixed loops last 0.75, 1.2, and 1.8 seconds. Each overdub pass mixes retained samples, new input, and spill from the previous bowl, with soft saturation. Spill travels 1 → 2 → 3 → 1. Hold stops all writing to that bowl but keeps its playback audible.</p>
+        <h2>Controls</h2><dl><dt>Retain each pass</dt><dd id="retentionHelp">Old audio kept per pass before saturation. 100% is not exact freeze: use Hold for that.</dd><dt>New ingredient</dt><dd id="feedHelp">Amount of demo or microphone input written into every overdubbing bowl. Does not change the volume of existing tape.</dd><dt>Spill into next bowl</dt><dd id="spillHelp">Amount of the previous bowl's playback written into each overdubbing bowl. Hold blocks incoming spill.</dd></dl>
+        <h2>Pause, reset, and memory</h2><p>Pause stops tape motion and overdubbing. Audio Off mutes and closes the mic, but running overdubs still evolve from stored audio and the demo source. Hold preserves samples exactly; 100% retention alone still passes through saturation. Erased regions can refill unless their bowl is held. Reloading loses all tape contents.</p>
+        <p>Audio Off is mute, not Pause. It closes owned microphone tracks but retains transport. Monitor can pass live microphone audio while paused until you turn it off.</p>
+        <h2>Keyboard</h2><p>Focus the stage. Left/right selects a bowl; Enter or 1–3 toggles Hold/Overdub. With Erase brush enabled, up/down erases at that bowl's current head. Space toggles Play.</p>
+        <h2>What this demo does not do</h2><p class="starting-limit">Three fixed tapes with fixed read/write motion. You cannot add or reposition heads, resize loops, draw new connections, or infer a graph. There is no file import or audio export.</p>
+      </details>
+      <details><summary>About this starting instrument</summary><p>A bounded digital tape network. Hold preserves samples exactly; overdub is softly saturated. Memory is local to this page.</p><p>Presets change parameters, not capabilities. Reset controls keeps recordings and learned routes. Demo material is synthesized locally.</p><a href="docs/starting-instruments.md">Model and limitations</a></details>
+      <nav class="starting-family" aria-label="Other starting instruments"><a href="tempo-tantrum.html">Tempo Tantrum</a>
+<a href="tape-worm.html">Tape Worm</a>
+<a href="loop-soup.html" aria-current="page">Loop Soup</a>
+<a href="habit-habitat.html">Habit Habitat</a>
+<a href="hollowphonic.html">Hollowphonic</a></nav>
+      <noscript><p>This instrument needs JavaScript. Audio and microphone start off.</p></noscript>
+    </aside>
+  </main>
+  <script type="module" src="starting-instruments-app.js"></script>
+  <script type="module" src="nav.js"></script>
+  <script type="module" src="wax/wax-universal-adapter.js" data-morphazoid-wax-universal-adapter></script>
+</body>
+</html>

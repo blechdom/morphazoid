@@ -34,8 +34,10 @@ const instruments = Object.freeze([
 test("the three fractal uncertainty instruments live together in Experiments", () => {
   const group = TOOL_GROUPS.find(({ id }) => id === "experiments");
   assert.ok(group);
+  const start = group.tools.findIndex(({ id }) => id === instruments[0].id);
+  assert.ok(start >= 0);
   assert.deepEqual(
-    group.tools.slice(-instruments.length).map(({ id, label, href }) => ({ id, label, href })),
+    group.tools.slice(start, start + instruments.length).map(({ id, label, href }) => ({ id, label, href })),
     instruments.map(({ id, label, page }) => ({ id, label, href: page })),
   );
 });

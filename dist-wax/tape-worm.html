@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+    <script src="wax/wax-host-bootstrap.js" data-morphazoid-wax-bootstrap></script>
+    <!-- morphazoid-social-preview:start -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Morphazoid" />
+    <meta property="og:title" content="Tape Worm · Morphazoid" />
+    <meta property="og:description" content="One playback head crosses between two intact recordings at an editable splice. The source recordings are never overwritten by traversal." />
+    <meta property="og:url" content="https://morphazoid.com/tape-worm.html" />
+    <meta property="og:image" content="https://morphazoid.com/assets/social/morphazoid-card-20260917.png" />
+    <meta property="og:image:secure_url" content="https://morphazoid.com/assets/social/morphazoid-card-20260917.png" />
+    <meta property="og:image:type" content="image/png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="Morphazoid geometric wireframe logo on a dark background." />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Tape Worm · Morphazoid" />
+    <meta name="twitter:description" content="One playback head crosses between two intact recordings at an editable splice. The source recordings are never overwritten by traversal." />
+    <meta name="twitter:image" content="https://morphazoid.com/assets/social/morphazoid-card-20260917.png" />
+    <meta name="twitter:image:alt" content="Morphazoid geometric wireframe logo on a dark background." />
+    <link rel="image_src" href="https://morphazoid.com/assets/social/morphazoid-card-20260917.png" />
+    <!-- morphazoid-social-preview:end -->
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="description" content="One playback head crosses between two intact recordings at an editable splice. The source recordings are never overwritten by traversal." />
+  <meta name="theme-color" content="#080e16" />
+  <title>Tape Worm · Morphazoid</title>
+  <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="starting-instruments.css" />
+</head>
+<body class="starting-instrument" data-starting-instrument="tape-worm" style="--accent:#a4ddba">
+  <header class="masthead">
+    <a class="wordmark" href="./" aria-label="Morphazoid home"><span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span><span>morphazoid</span></a>
+    <nav class="tabs" aria-label="Instrument"><a class="tab active" href="tape-worm.html" aria-current="page">Tape Worm</a><a class="tab" href="lumber.html">Lumber Loops</a></nav>
+    <label class="mobile-instrument-nav"><span class="sr-only">Instrument</span><select class="mobile-instrument-select" aria-label="Instrument"><option value="tape-worm.html" selected>Tape Worm</option><option value="lumber.html">Lumber Loops</option></select></label>
+    <div id="audioSlot" class="audio-strip" aria-label="Audio controls"><button id="audioButton" class="audio-button" type="button" aria-pressed="false" disabled>Audio off · enable JavaScript</button></div>
+  </header>
+  <main class="starting-shell">
+    <section class="starting-stage" aria-label="Tape Worm instrument">
+      <header class="starting-title"><h1>Tape Worm</h1><p>one reader, unexpected continuations</p></header>
+      <div class="stage-wrap" id="stageWrap"><canvas id="stage" role="img" tabindex="0" aria-label="One playback head crosses between two intact recordings at an editable splice. The source recordings are never overwritten by traversal." aria-describedby="canvasInstructions modelStatus">Use the labelled controls below to play this instrument.</canvas></div>
+      <p class="starting-hint" id="canvasInstructions">Drag round OUT or diamond IN gates; both tapes share the gate settings. Click a tape to move the reader. <a href="#howItWorks">How to play / keys</a></p>
+    </section>
+    <aside class="starting-controls" aria-label="Tape Worm controls">
+      <section class="group">
+        <div class="transport-row"><button id="playButton" type="button" aria-pressed="false" data-primary-transport>Play</button><button id="resetButton" class="mini-action" type="button" data-reset-all data-reset-in-place>Reset controls</button></div>
+        <label class="field-label" for="preset">Starting point<select id="preset" aria-label="Starting point"></select></label>
+        <p id="presetHint" class="starting-note">Leaves at 72%, arrives at 8%, at original speed. The two demo phrases alternate.</p>
+        <div id="modelStatus" role="status">Ready · Audio off</div>
+        <p id="liveStatus" role="status" aria-live="polite">Turn Audio on, then Play. No microphone is required for the demo.</p>
+        <p id="actionStatus" class="starting-note">Temporary audio: leaving or reloading this page discards it.</p>
+        <p id="audioError" role="alert" hidden></p>
+      </section>
+      <section class="group" aria-label="Instrument parameters"><label class="control" for="speed">
+    <span><b>Tape speed</b><output id="speedOut" for="speed">1.00×</output></span>
+    <input id="speed" type="range" min="0.25" max="2" step="0.01" value="1" aria-describedby="speedHelp" title="1× is original pitch and duration. 0.5× is twice as long and one octave lower; 2× is half as long and one octave higher." />
+  </label>
+<label class="control" for="departure">
+    <span><b>Leave at</b><output id="departureOut" for="departure">72%</output></span>
+    <input id="departure" type="range" min="0.05" max="0.95" step="0.01" value="0.72" aria-describedby="departureHelp" title="Shared departure position on both recordings, measured clockwise from the top. Drag either round OUT gate." />
+  </label>
+<label class="control" for="landing">
+    <span><b>Arrive at</b><output id="landingOut" for="landing">8%</output></span>
+    <input id="landing" type="range" min="0" max="0.85" step="0.01" value="0.08" aria-describedby="landingHelp" title="Shared arrival position in the other recording. Drag either diamond IN gate. If it is beyond OUT, the head wraps around before leaving." />
+  </label></section>
+      <section class="group" aria-label="Direct actions"><div class="starting-selectors" id="selectors" role="group" aria-label="Selected object"></div><div class="starting-tools" id="instrumentTools"></div></section>
+      <details class="starting-guide" id="howItWorks">
+        <summary>How it works / listening exercise</summary>
+        <h2>Try this first</h2><p>Enable Audio and Play to hear the two demo phrases. Drag a round OUT gate to change where the worm leaves; drag a diamond IN gate to change where it arrives.</p>
+        <h2>What you hear</h2><p>One reader plays a single tape at a time. At the OUT gate it crossfades into the other tape's IN position. Tape A leans left; Tape B leans right.</p>
+        <h2>What the picture means</h2><p>The cream worm is the playback head. Colored contours show recorded amplitude. Round OUT gates are departures; diamond IN gates are arrivals. Dashed arrows show cross-tape routes, not editable graph edges.</p>
+        <h2>The mechanism</h2><p>Both tapes share the Leave at and Arrive at percentages. With splices bypassed, the current tape loops by itself—not both tapes together. Tape speed changes both duration and pitch. Moving a gate never edits the recording.</p>
+        <h2>Controls</h2><dl><dt>Tape speed</dt><dd id="speedHelp">1× is original pitch and duration. 0.5× is twice as long and one octave lower; 2× is half as long and one octave higher.</dd><dt>Leave at</dt><dd id="departureHelp">Shared departure position on both recordings, measured clockwise from the top. Drag either round OUT gate.</dd><dt>Arrive at</dt><dd id="landingHelp">Shared arrival position in the other recording. Drag either diamond IN gate. If it is beyond OUT, the head wraps around before leaving.</dd></dl>
+        <h2>Pause, reset, and memory</h2><p>Choose Tape A/B before replacing it with a file or recording. Capture is limited to 12 seconds; Pause affects playback, not an active capture. Stop recording or Audio Off finishes capture. Reloading or leaving this page loses the recordings; there is no audio export yet.</p>
+        <p>Audio Off is mute, not Pause. It closes owned microphone tracks but retains transport. Monitor can pass live microphone audio while paused until you turn it off.</p>
+        <h2>Keyboard</h2><p>Focus the stage. Left/right selects A/B; Enter or 1–2 puts the reader at that tape's start. Up/down moves the shared OUT gates. Arrive at has its own slider. Space toggles Play.</p>
+        <h2>What this demo does not do</h2><p class="starting-limit">Exactly two mono recordings and one reader. No added play heads, moving record heads, free graph layout, onset detection, or automatic graph construction.</p>
+      </details>
+      <details><summary>About this starting instrument</summary><p>Working title. Two original synthetic phrases are preloaded. Recordings stay in this page's memory; reloading discards them.</p><p>Presets change parameters, not capabilities. Reset controls keeps recordings and learned routes. Demo material is synthesized locally.</p><a href="docs/starting-instruments.md">Model and limitations</a></details>
+      <nav class="starting-family" aria-label="Other starting instruments"><a href="tempo-tantrum.html">Tempo Tantrum</a>
+<a href="tape-worm.html" aria-current="page">Tape Worm</a>
+<a href="loop-soup.html">Loop Soup</a>
+<a href="habit-habitat.html">Habit Habitat</a>
+<a href="hollowphonic.html">Hollowphonic</a></nav>
+      <noscript><p>This instrument needs JavaScript. Audio and microphone start off.</p></noscript>
+    </aside>
+  </main>
+  <script type="module" src="starting-instruments-app.js"></script>
+  <script type="module" src="nav.js"></script>
+  <script type="module" src="wax/wax-universal-adapter.js" data-morphazoid-wax-universal-adapter></script>
+</body>
+</html>

@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+    <!-- morphazoid-social-preview:start -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Morphazoid" />
+    <meta property="og:title" content="Hollowphonic · Morphazoid" />
+    <meta property="og:description" content="Three coupled delay-line resonators reshape noise, a drone, or microphone input. Change cavity lengths and losses or strike the chambers directly." />
+    <meta property="og:url" content="https://morphazoid.com/hollowphonic.html" />
+    <meta property="og:image" content="https://morphazoid.com/assets/social/morphazoid-card-20260917.png" />
+    <meta property="og:image:secure_url" content="https://morphazoid.com/assets/social/morphazoid-card-20260917.png" />
+    <meta property="og:image:type" content="image/png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="Morphazoid geometric wireframe logo on a dark background." />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Hollowphonic · Morphazoid" />
+    <meta name="twitter:description" content="Three coupled delay-line resonators reshape noise, a drone, or microphone input. Change cavity lengths and losses or strike the chambers directly." />
+    <meta name="twitter:image" content="https://morphazoid.com/assets/social/morphazoid-card-20260917.png" />
+    <meta name="twitter:image:alt" content="Morphazoid geometric wireframe logo on a dark background." />
+    <link rel="image_src" href="https://morphazoid.com/assets/social/morphazoid-card-20260917.png" />
+    <!-- morphazoid-social-preview:end -->
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="description" content="Three coupled delay-line resonators reshape noise, a drone, or microphone input. Change cavity lengths and losses or strike the chambers directly." />
+  <meta name="theme-color" content="#080e16" />
+  <title>Hollowphonic · Morphazoid</title>
+  <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="starting-instruments.css" />
+</head>
+<body class="starting-instrument" data-starting-instrument="hollowphonic" style="--accent:#c9b0ed">
+  <header class="masthead">
+    <a class="wordmark" href="./" aria-label="Morphazoid home"><span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span><span>morphazoid</span></a>
+    <nav class="tabs" aria-label="Instrument"><a class="tab active" href="hollowphonic.html" aria-current="page">Hollowphonic</a><a class="tab" href="lumber.html">Lumber Loops</a></nav>
+    <label class="mobile-instrument-nav"><span class="sr-only">Instrument</span><select class="mobile-instrument-select" aria-label="Instrument"><option value="hollowphonic.html" selected>Hollowphonic</option><option value="lumber.html">Lumber Loops</option></select></label>
+    <div id="audioSlot" class="audio-strip" aria-label="Audio controls"><button id="audioButton" class="audio-button" type="button" aria-pressed="false" disabled>Audio off · enable JavaScript</button></div>
+  </header>
+  <main class="starting-shell">
+    <section class="starting-stage" aria-label="Hollowphonic instrument">
+      <header class="starting-title"><h1>Hollowphonic</h1><p>play the space the sound passes through</p></header>
+      <div class="stage-wrap" id="stageWrap"><canvas id="stage" role="img" tabindex="0" aria-label="Three coupled delay-line resonators reshape noise, a drone, or microphone input. Change cavity lengths and losses or strike the chambers directly." aria-describedby="canvasInstructions modelStatus">Use the labelled controls below to play this instrument.</canvas></div>
+      <p class="starting-hint" id="canvasInstructions">Drag a chamber vertically to change its depth and resonance. Tap it to excite the same resonator. <a href="#howItWorks">How to play / keys</a></p>
+    </section>
+    <aside class="starting-controls" aria-label="Hollowphonic controls">
+      <section class="group">
+        <div class="transport-row"><button id="playButton" type="button" aria-pressed="false" data-primary-transport>Play</button><button id="resetButton" class="mini-action" type="button" data-reset-all data-reset-in-place>Reset controls</button></div>
+        <label class="field-label" for="preset">Starting point<select id="preset" aria-label="Starting point"></select></label>
+        <p id="presetHint" class="starting-note">Noise through moderately damped chambers.</p>
+        <div id="modelStatus" role="status">Ready · Audio off</div>
+        <p id="liveStatus" role="status" aria-live="polite">Turn Audio on, then Play. No microphone is required for the demo.</p>
+        <p id="actionStatus" class="starting-note">Recordings and graph generation are not part of this demo.</p>
+        <p id="audioError" role="alert" hidden></p>
+      </section>
+      <section class="group" aria-label="Instrument parameters"><label class="control" for="depth">
+    <span><b>Cavity depth</b><output id="depthOut" for="depth">56%</output></span>
+    <input id="depth" type="range" min="0" max="1" step="0.01" value="0.56" aria-describedby="depthHelp" title="Overall depth. Individual drags add an offset; deeper means lower resonance." />
+  </label>
+<label class="control" for="loss">
+    <span><b>Wall damping</b><output id="lossOut" for="loss">40%</output></span>
+    <input id="loss" type="range" min="0" max="1" step="0.01" value="0.4" aria-describedby="lossHelp" title="Higher damping shortens ringing and reduces high-frequency energy in the feedback." />
+  </label>
+<label class="control" for="coupling">
+    <span><b>Between chambers</b><output id="couplingOut" for="coupling">30%</output></span>
+    <input id="coupling" type="range" min="0" max="1" step="0.01" value="0.3" aria-describedby="couplingHelp" title="Transfers feedback energy between chambers rather than keeping it within each chamber." />
+  </label>
+<label class="control" for="mix">
+    <span><b>Through the wall</b><output id="mixOut" for="mix">85%</output></span>
+    <input id="mix" type="range" min="0" max="1" step="0.01" value="0.85" aria-describedby="mixHelp" title="0% compares the source alone; 100% uses the resonated/interference output. Wall bypass overrides this mix." />
+  </label></section>
+      <section class="group" aria-label="Direct actions"><div class="starting-selectors" id="selectors" role="group" aria-label="Selected object"></div><div class="starting-tools" id="instrumentTools"></div></section>
+      <details class="starting-guide" id="howItWorks">
+        <summary>How it works / listening exercise</summary>
+        <h2>Try this first</h2><p>Enable Audio and Play the noise source. Drag one chamber down to deepen it. Compare Wall bypass, then choose Strike the wall and tap a chamber.</p>
+        <h2>What you hear</h2><p>Noise or a drone passes through three resonating delay lines. The direct and resonated signals interfere. A strike excites those same chambers.</p>
+        <h2>What the picture means</h2><p>Chamber depth follows the resonator setting; moving lines show stored signal activity. Hz readouts describe nominal delay resonances, not detected pitches.</p>
+        <h2>The mechanism</h2><p>A deeper chamber has a longer delay and a lower nominal resonance. Wall damping removes stored energy. Coupling transfers energy around 1 → 2 → 3 → 1. This is a digital waveguide approximation, not a simulation of a particular building or material.</p>
+        <h2>Controls</h2><dl><dt>Cavity depth</dt><dd id="depthHelp">Overall depth. Individual drags add an offset; deeper means lower resonance.</dd><dt>Wall damping</dt><dd id="lossHelp">Higher damping shortens ringing and reduces high-frequency energy in the feedback.</dd><dt>Between chambers</dt><dd id="couplingHelp">Transfers feedback energy between chambers rather than keeping it within each chamber.</dd><dt>Through the wall</dt><dd id="mixHelp">0% compares the source alone; 100% uses the resonated/interference output. Wall bypass overrides this mix.</dd></dl>
+        <h2>Pause, reset, and memory</h2><p>Play runs the continuous source. Pause stops that source but leaves decaying resonances and manual strikes available. Silent · strikes only needs taps, not Play. Microphone is silent until explicitly enabled. Reset restores depths and turns bypass off; no recordings are stored.</p>
+        <p>Audio Off is mute, not Pause. It closes owned microphone tracks but retains transport. Monitor can pass live microphone audio while paused until you turn it off.</p>
+        <h2>Keyboard</h2><p>Focus the stage. Left/right selects a chamber; Enter or 1–3 strikes it. Up/down changes depth. Space toggles the continuous source.</p>
+        <h2>What this demo does not do</h2><p class="starting-limit">Three fixed resonators. No recorded loops, graph analysis, or conservation-budget display. Bypass compares the unfiltered source at the same output stage; it is not bit-perfect pass-through.</p>
+      </details>
+      <details><summary>About this starting instrument</summary><p>A coupled digital waveguide approximation, not a material simulation or an acoustic sum-rule demonstrator.</p><p>Presets change parameters, not capabilities. Reset controls keeps recordings and learned routes. Demo material is synthesized locally.</p><a href="docs/starting-instruments.md">Model and limitations</a></details>
+      <nav class="starting-family" aria-label="Other starting instruments"><a href="tempo-tantrum.html">Tempo Tantrum</a>
+<a href="tape-worm.html">Tape Worm</a>
+<a href="loop-soup.html">Loop Soup</a>
+<a href="habit-habitat.html">Habit Habitat</a>
+<a href="hollowphonic.html" aria-current="page">Hollowphonic</a></nav>
+      <noscript><p>This instrument needs JavaScript. Audio and microphone start off.</p></noscript>
+    </aside>
+  </main>
+  <script type="module" src="starting-instruments-app.js"></script>
+  <script type="module" src="nav.js"></script>
+</body>
+</html>

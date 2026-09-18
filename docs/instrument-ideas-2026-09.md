@@ -6,6 +6,13 @@ design session so the reasoning and the sources are not lost. Dated 2026-09-16.
 Related: [`graph-tape/`](graph-tape/README.md) holds the Graph Tape concept that grew
 out of the structural-gap analysis below and became the session's main thread.
 
+**September 17 implementation follow-up:** the
+[five starting instruments](starting-instruments.md) explore selected musical
+behaviors from this discussion. Tempo Tantrum uses a classical driven-phase
+model, not either physical time-crystal experiment cited below. This document
+remains the historical concept record; its broad novelty and physics claims
+are not implementation claims.
+
 ---
 
 ## Part 1 — Reading of the collection

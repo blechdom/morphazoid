@@ -65,6 +65,31 @@ done
 # Allow new public pages to enter local release artifacts before their first
 # commit; after tracking, these copies simply refresh the same paths.
 for worktree_runtime_file in \
+  tempo-tantrum.html \
+  tape-worm.html \
+  loop-soup.html \
+  habit-habitat.html \
+  hollowphonic.html \
+  starting-instruments.css \
+  starting-instruments-app.js \
+  src/starting-instruments/common.js \
+  src/starting-instruments/tempo-tantrum.js \
+  src/starting-instruments/tape-worm.js \
+  src/starting-instruments/loop-soup.js \
+  src/starting-instruments/habit-habitat.js \
+  src/starting-instruments/hollowphonic.js \
+  src/starting-instruments/cores.js \
+  src/starting-instruments/catalog.js \
+  src/starting-instruments/help.js \
+  src/starting-instruments/audio.js \
+  src/starting-instruments/processor.js \
+  src/starting-instruments/render.js \
+  assets/instruments/tempo-tantrum.webp \
+  assets/instruments/tape-worm.webp \
+  assets/instruments/loop-soup.webp \
+  assets/instruments/habit-habitat.webp \
+  assets/instruments/hollowphonic.webp \
+  docs/starting-instruments.md \
   src/graphics/canvas-sizing.js \
   src/families/tract/geometry.js \
   src/families/tract/rendering.js \

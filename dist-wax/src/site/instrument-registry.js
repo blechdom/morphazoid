@@ -432,6 +432,11 @@ export const TOOL_GROUPS = Object.freeze([
     { id: "cantor-lock", label: "Cantor Lock", href: "cantor-lock.html" },
     { id: "escape-dust", label: "Escape Dust", href: "escape-dust.html" },
     { id: "linebreaker", label: "Linebreaker", href: "linebreaker.html" },
+    { id: "tempo-tantrum", label: "Tempo Tantrum", href: "tempo-tantrum.html" },
+    { id: "tape-worm", label: "Tape Worm", href: "tape-worm.html" },
+    { id: "loop-soup", label: "Loop Soup", href: "loop-soup.html" },
+    { id: "habit-habitat", label: "Habit Habitat", href: "habit-habitat.html" },
+    { id: "hollowphonic", label: "Hollowphonic", href: "hollowphonic.html" },
   ], { picker: false }),
 ]);
 

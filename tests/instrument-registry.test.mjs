@@ -10,11 +10,20 @@ import { INSTRUMENTS, INSTRUMENT_GROUPS } from "../src/instrument-catalog.js";
 const snapshot = JSON.parse(await readFile(new URL("./fixtures/instrument-registry-v1.json", import.meta.url)));
 
 test("the extracted registry and derived catalogue preserve all original records and ordering", () => {
+  // The September 2026 request adds five starting instruments. Preserve every
+  // pre-existing record and its order without freezing catalogue growth.
+  const additions = new Set(["tempo-tantrum", "tape-worm", "loop-soup", "habit-habitat", "hollowphonic"]);
+  const originalRecords = (value) => {
+    if (Array.isArray(value)) return value.filter((v) => !additions.has(v?.id)).map(originalRecords);
+    if (value && typeof value === "object") return Object.fromEntries(Object.entries(value).map(([k, v]) => [k, originalRecords(v)]));
+    return value;
+  };
   const actual = JSON.parse(JSON.stringify({
     FAVE_TOOL_IDS, TOOL_GROUPS, SITE_LINKS, INSTRUMENTS, INSTRUMENT_GROUPS,
   }));
   const { description, ...expected } = snapshot;
-  assert.deepEqual(actual, expected);
+  assert.deepEqual(originalRecords(actual), expected);
+  assert.deepEqual(INSTRUMENTS.filter(({ id }) => additions.has(id)).map(({ id }) => id), [...additions]);
 });
 
 test("navigation retains its exports, immutable records, and published-root URL semantics", () => {

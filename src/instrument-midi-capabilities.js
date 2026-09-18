@@ -13,6 +13,9 @@ const NOTE_MODE_IDS = Object.freeze({
     "sandy-syrup-delay",
     "candy-coil-delay",
     "recursion",
+    "tape-worm",
+    "loop-soup",
+    "hollowphonic",
   ]),
   drums: Object.freeze([
     "hocket-loom",
@@ -151,6 +154,8 @@ const NOTE_MODE_IDS = Object.freeze({
     "enveloper",
     "orbital-ferris",
     "yoyodyne",
+    "tempo-tantrum",
+    "habit-habitat",
   ]),
 });
 
@@ -194,6 +199,7 @@ export const PAGE_KEYBOARD_INSTRUMENT_IDS = Object.freeze([
   "gesturama",
   "simd-resonator",
   "simd-synth",
+  "tempo-tantrum", "tape-worm", "loop-soup", "habit-habitat", "hollowphonic",
 ]);
 
 // These pages still expose hardware MIDI for labeled controls, presets, and
@@ -234,7 +240,7 @@ export const NO_GENERIC_NOTE_KEYBOARD_IDS = Object.freeze([
 const nativeIds = new Set(NATIVE_INSTRUMENT_MIDI_IDS);
 const pageKeyboardIds = new Set(PAGE_KEYBOARD_INSTRUMENT_IDS);
 const noGenericNoteKeyboardIds = new Set(NO_GENERIC_NOTE_KEYBOARD_IDS);
-const processorAudioIds = new Set(["moire-drone", "recursion"]);
+const processorAudioIds = new Set(["moire-drone", "recursion", "tape-worm", "loop-soup", "hollowphonic"]);
 const audioInputIds = new Set([
   "l-systems",
   "graphs",
@@ -250,6 +256,7 @@ const audioInputIds = new Set([
   "throatazoid",
   "morphynx",
   "alien-larynx",
+  "tape-worm", "loop-soup", "hollowphonic",
 ]);
 const midiOutputExtraIds = new Set([
   "shape",
@@ -264,6 +271,7 @@ const midiOutputExtraIds = new Set([
   "julia",
 ]);
 const noMidiOutputIds = new Set([
+  "tempo-tantrum", "habit-habitat",
   "hocket-loom",
   "pink-trombonazoid",
   "vocalzoid",

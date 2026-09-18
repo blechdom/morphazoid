@@ -214,6 +214,7 @@ test("one acyclic capability registry covers every playable catalog instrument",
     "gesturama",
     "simd-resonator",
     "simd-synth",
+    "tempo-tantrum", "tape-worm", "loop-soup", "habit-habitat", "hollowphonic",
   ]);
   assert.deepEqual(NO_GENERIC_NOTE_KEYBOARD_IDS, [
     "hocket-loom",
