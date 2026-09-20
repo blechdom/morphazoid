@@ -69,6 +69,18 @@ const pickerGroups = () => {
     : groups;
 };
 
+/** Tour the visible menu once per instrument, Faves first, then wrap around. */
+export function nextPickerTool(activeId = null) {
+  const seen = new Set();
+  const tools = pickerGroups().flatMap(group => group.tools).filter(tool => {
+    if (seen.has(tool.id)) return false;
+    seen.add(tool.id);
+    return true;
+  });
+  const index = tools.findIndex(tool => tool.id === activeId);
+  return tools[(index + 1) % tools.length] ?? null;
+}
+
 /**
  * Normalize a navigation URL to a pathname suitable for route comparison.
  * The site root and its index.html spelling intentionally resolve identically.
@@ -264,6 +276,26 @@ function createInstrumentPicker(doc, activeTool, siteRoot, index) {
     if (details.open && !details.contains(event.target)) details.open = false;
   });
   return details;
+}
+
+function createNextInstrumentLink(doc, activeTool, siteRoot) {
+  const next = nextPickerTool(activeTool?.id);
+  if (!next) return null;
+  // Native navigation retains open-in-new-tab, keyboard, and normal teardown.
+  // Do not carry one instrument's patch query/hash or Audio state into another.
+  const link = element(doc, "a", "instrument-picker-next");
+  link.setAttribute("href", new URL(next.href, siteRoot).href);
+  link.setAttribute("data-next-tool-id", next.id);
+  link.setAttribute("aria-label", `Next instrument: ${next.label}`);
+  link.setAttribute("title", `Next instrument: ${next.label}`);
+  const arrow = element(doc, "span", "instrument-picker-next-icon", "▶");
+  arrow.setAttribute("aria-hidden", "true");
+  link.append(arrow);
+  // Some legacy global instrument shortcuts do not recognize links as controls.
+  // Keep this focused control's keys local, without cancelling Enter/Tab defaults
+  // or swallowing keyup events that may release an already held musical note.
+  link.addEventListener?.("keydown", event => event.stopPropagation?.());
+  return link;
 }
 
 const INSTRUMENT_INFO_HOST_SELECTORS = Object.freeze([
@@ -1354,7 +1386,8 @@ export function enhanceSharedNavigation(doc, {
 
   [...doc.querySelectorAll(".tabs")].forEach((nav, index) => {
     const picker = createInstrumentPicker(doc, activeTool, siteRoot, index + 1);
-    nav.replaceChildren(picker);
+    const next = createNextInstrumentLink(doc, activeTool, siteRoot);
+    nav.replaceChildren(picker, ...(next ? [next] : []));
     nav.classList.add("tools-nav");
     nav.hidden = false;
     nav.setAttribute("aria-label", "Morphazoid main menu");

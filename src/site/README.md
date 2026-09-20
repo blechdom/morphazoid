@@ -14,6 +14,12 @@ Stored route strings are **site-root-relative metadata**, not paths relative
 to this module. Navigation still resolves them against its public root entry
 URL (`NAVIGATION_BASE_URL`). Do not move that URL base into this directory.
 
+The homepage's Faves section and the Choose menu both use `FAVE_TOOL_IDS` order.
+The adjacent next-instrument arrow tours the visible Choose entries once each,
+Faves first, then wraps. It navigates normally; it does not transfer a previous
+instrument's Audio state or patch query/hash. Focused arrow keydowns remain local
+to navigation; musical note-release events are not blocked.
+
 `catalogue-taxonomy.js` owns normalized secondary tags. `instrument-identities.js`
 maps new public IDs to historical protocol IDs and old URLs to current IDs.
 Those aliases preserve storage and MIDI listeners; do not globally replace

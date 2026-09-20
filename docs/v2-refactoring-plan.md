@@ -1,6 +1,19 @@
 # Morphazoid v2: preservation-first refactoring
 
-## Current status — September 18, 2026
+## Current status — September 20, 2026
+
+The file-layout refactor was rebased onto main `e042512` in an isolated worktree,
+preserving the newer loop-network instruments. The owner then requested a new
+test branch for navigation and a full-instrument preset rollout, rather than
+immediate publication. `codex/full-instrument-presets` contains the current
+checkpoint; main and the old review worktree remain untouched.
+
+The next-instrument arrow and Faves changes are implemented: Creaturazoid follows
+Hiccup Head, and Spiral is no longer a Fave. The all-instrument preset work is
+at the inventory/contract stage, not complete. See
+[the rollout contract and status](full-instrument-preset-rollout.md).
+
+## Previous status — September 18, 2026
 
 The owner's updated sheet is being applied on the isolated
 `codex/v2-catalogue-layout` worktree, based on main `59e4f4e`. Prior packaging and

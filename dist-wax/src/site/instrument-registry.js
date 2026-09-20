@@ -14,13 +14,13 @@ export const FAVE_TOOL_IDS = Object.freeze([
   "hyper-rubix",
   "hybrinx",
   "hiccup-head",
+  "creaturazoid",
   "jaw-harp",
   "micmic",
   "l-system",
   "graph-delay",
   "graph-synth",
   "lattice",
-  "spiral",
   "cellular-automata"
 ]);
 

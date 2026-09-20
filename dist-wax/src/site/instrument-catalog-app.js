@@ -2,6 +2,7 @@ import {
   CATALOGUE_GROUPS,
   CATALOGUE_ITEMS,
 } from "../instrument-catalog.js?v=catalog-20260914-1";
+import { FAVE_TOOL_IDS } from "./instrument-registry.js";
 
 const ALL_TAG_ID = "all";
 export const FIRST_CATEGORY_ID = "faves";
@@ -133,9 +134,9 @@ export function renderInstrumentCatalog(root) {
   const cards = [];
   let renderIndex = 0;
   const groupViews = homepageCategories().map((category) => {
-    const categoryInstruments = instruments.filter((instrument) => (
-      instrumentMatchesTag(instrument, category.id)
-    ));
+    const categoryInstruments = category.id === FIRST_CATEGORY_ID
+      ? FAVE_TOOL_IDS.map(id => instruments.find(instrument => instrument.id === id)).filter(Boolean)
+      : instruments.filter(instrument => instrumentMatchesTag(instrument, category.id));
     const section = element(doc, "section", "catalogue-group");
     const heading = element(doc, "h3", "catalogue-group-title", category.label);
     const grid = element(doc, "div", "instrument-catalog-grid");

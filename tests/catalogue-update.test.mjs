@@ -6,6 +6,7 @@ import { FAVE_TOOL_IDS, TOOL_GROUPS } from "../src/site/instrument-registry.js";
 import { canonicalInstrumentId, legacyInstrumentId } from "../src/site/instrument-identities.js";
 import { instrumentMidiCapabilityForId } from "../src/instrument-midi-capabilities.js";
 import { waxSupportForId } from "../src/wax-instrument-roles.js";
+import { expectedFaveToolIds } from "./helpers/catalogue-plan.mjs";
 
 const root = new URL("../", import.meta.url);
 const plan = JSON.parse(await readFile(new URL("docs/catalogue-update-decisions.json", root)));
@@ -59,7 +60,7 @@ test("ID aliases retain every existing MIDI/WAX policy and legacy protocol ident
       assert.deepEqual(current[key], previous[key], `${previous.id}: ${key}`);
     }
   }
-  assert.deepEqual(FAVE_TOOL_IDS, before.registry.FAVE_TOOL_IDS.map(canonicalInstrumentId));
+  assert.deepEqual(FAVE_TOOL_IDS, expectedFaveToolIds);
 });
 
 test("existing labs are browseable without being misrepresented as verified MIDI instruments", () => {
