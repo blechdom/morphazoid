@@ -439,9 +439,37 @@ a {
   z-index: 60;
   display: flex;
   width: clamp(150px, 18vw, 220px);
+  min-width: 0;
   height: 100%;
   align-items: center;
   flex: 1 1 auto;
+}
+
+.instrument-picker-next {
+  display: grid;
+  width: 36px;
+  height: 36px;
+  flex: 0 0 36px;
+  padding: 0;
+  border: 1px solid var(--line-strong);
+  color: var(--accent);
+  background: var(--bg-deep);
+  place-items: center;
+  font: 600 11px/1 var(--mono);
+  text-decoration: none;
+}
+
+.instrument-picker-next:hover {
+  border-color: var(--accent-soft);
+  background: color-mix(in oklab, var(--panel-high) 82%, var(--bg-deep));
+}
+
+@media (pointer: coarse) {
+  .instrument-picker-next {
+    width: 48px;
+    height: 48px;
+    flex-basis: 48px;
+  }
 }
 
 .instrument-picker-trigger {

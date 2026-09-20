@@ -2,7 +2,12 @@ import { readFileSync } from 'node:fs';
 export const cataloguePlan = JSON.parse(readFileSync(new URL('../../docs/catalogue-update-decisions.json', import.meta.url), 'utf8'));
 const prior = JSON.parse(readFileSync(new URL('../fixtures/catalogue-before-20260918.json', import.meta.url), 'utf8'));
 const byId = new Map(cataloguePlan.rows.flatMap(row => [[row.oldId, row], [row.id, row]]));
-const faves = new Set(prior.registry.FAVE_TOOL_IDS.map(id => byId.get(id)?.id ?? id));
+const previousFaves = prior.registry.FAVE_TOOL_IDS.map(id => byId.get(id)?.id ?? id);
+// Explicit owner follow-up on September 20; keep the pre-sheet fixture intact.
+previousFaves.splice(previousFaves.indexOf("hiccup-head") + 1, 0, "creaturazoid");
+previousFaves.splice(previousFaves.indexOf("spiral"), 1);
+export const expectedFaveToolIds = Object.freeze(previousFaves);
+const faves = new Set(expectedFaveToolIds);
 export function expectedTagIdsFor(id) {
   const row = byId.get(id);
   if (!row) throw new Error(`No approved catalogue plan row for ${id}`);

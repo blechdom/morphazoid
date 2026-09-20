@@ -13,6 +13,7 @@ import {
   initializeSharedNavigation,
   normalizeNavigationPath,
   normalizeAudioButtonIcons,
+  nextPickerTool,
   resolveActiveSiteLink,
   resolveActiveTool,
 } from "../nav.js";
@@ -20,6 +21,7 @@ import {
   MIDI_PROFILES,
   WebMidiManager,
 } from "../src/midi-manager.js";
+import { expectedFaveToolIds } from "./helpers/catalogue-plan.mjs";
 
 const SITE_ROOT = "https://example.test/blechdom/morphazoid/";
 
@@ -247,10 +249,55 @@ test("tool registry follows the approved sheet and retains unique navigation ide
     assert.equal(group?.id, row.categoryId, row.id);
     assert.equal(group.tools.find(tool => tool.id === row.id)?.label, row.label);
   }
-  assert.deepEqual(FAVE_TOOL_IDS, before.registry.FAVE_TOOL_IDS.map(id => rows.get(id)?.id ?? id));
+  assert.deepEqual(FAVE_TOOL_IDS, expectedFaveToolIds);
   assert.equal(tools.find(tool => tool.id === "morphazoidical")?.href, "morphazoidical/");
   assert.equal(TOOL_GROUPS.find(group => group.id === "wip")?.picker, false);
   assert.deepEqual(SITE_LINKS, before.registry.SITE_LINKS);
+});
+
+test("next-instrument touring follows Faves then the visible menu without duplicate visits", () => {
+  const expected = [...new Map(expectedPickerGroups().flatMap(group => group.tools)
+    .map(tool => [tool.id, tool])).values()];
+  assert.equal(nextPickerTool()?.id, FAVE_TOOL_IDS[0]);
+  assert.equal(nextPickerTool("not-a-tool")?.id, FAVE_TOOL_IDS[0]);
+  assert.equal(nextPickerTool("hiccup-head")?.id, "creaturazoid");
+  assert.equal(FAVE_TOOL_IDS.includes("spiral"), false);
+  let tool = nextPickerTool();
+  const visited = [];
+  for (let index = 0; index < expected.length; index += 1) {
+    visited.push(tool.id);
+    tool = nextPickerTool(tool.id);
+  }
+  assert.deepEqual(visited, expected.map(tool => tool.id));
+  assert.equal(new Set(visited).size, visited.length);
+  assert.equal(visited.includes("spiral"), true, "Spiral remains a normal instrument, just not a Fave");
+  assert.equal(tool.id, visited[0], "last instrument wraps to the first");
+  assert.equal(visited.includes("tape-worm"), false, "hidden WIP does not enter the tour");
+  assert.equal(nextPickerTool("tape-worm").id, FAVE_TOOL_IDS[0]);
+});
+
+test("the next arrow is a native navigation link beside, not inside, Choose", () => {
+  const doc = new FakeDocument();
+  const siteRoot = `${SITE_ROOT}dist-wax/`;
+  const options = { currentHref: `${siteRoot}hiccup-head.html?patch=old#old`, siteRoot };
+  for (let iteration = 0; iteration < 2; iteration += 1) {
+    const result = enhanceSharedNavigation(doc, options);
+    assert.equal(doc.tabs.children.length, 2, "rehydration must not add extra arrows");
+    const [picker, next] = doc.tabs.children;
+    assert.equal(picker, result.disclosures[0]);
+    assert.equal(next.tagName, "A");
+    assert.equal(next.className, "instrument-picker-next");
+    assert.equal(next.getAttribute("href"), `${siteRoot}creaturazoid.html`);
+    assert.equal(next.getAttribute("aria-label"), "Next instrument: Creaturazoid");
+    assert.equal(next.getAttribute("title"), "Next instrument: Creaturazoid");
+    assert.equal(next.children[0].textContent, "▶");
+    assert.equal(next.children[0].getAttribute("aria-hidden"), "true");
+    assert.equal(next.listeners.has("click"), false, "click uses native navigation");
+    let stopped = false;
+    next.dispatch("keydown", { stopPropagation() { stopped = true; } });
+    assert.equal(stopped, true, "focused navigation keys must not reach legacy musical shortcuts");
+    assert.equal(next.listeners.has("keyup"), false, "held-note releases still propagate");
+  }
 });
 
 test("every navigation tool ships a valid picker icon", async () => {
@@ -444,7 +491,7 @@ test("shared navigation creates a searchable accordion picker and preserves the 
   assert.equal(doc.tabs.getAttribute("aria-label"), "Morphazoid main menu");
   assert.equal(doc.tabs.classList.contains("tools-nav"), true);
   assert.equal(doc.tabs.hidden, false);
-  assert.equal(doc.tabs.children.length, 1);
+  assert.equal(doc.tabs.children.length, 2);
   const picker = result.disclosures[0];
   assert.equal(picker.tagName, "DETAILS");
   assert.equal(picker.className, "instrument-picker");
@@ -585,7 +632,7 @@ test("home navigation shows Choose in both enhanced and fallback controls", () =
   assert.equal(result.activeSiteLink, null);
   assert.equal(result.selectedInfos.length, 0);
   assert.equal(result.pageInfos.length, 0);
-  assert.equal(doc.tabs.children.length, 1);
+  assert.equal(doc.tabs.children.length, 2);
   assert.equal(
     doc.tabs.findAll((node) => node.className === "instrument-picker-current")[0]?.textContent,
     "Choose",

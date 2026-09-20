@@ -1,5 +1,10 @@
 # Catalogue and source-layout update — September 18, 2026
 
+> September 20 follow-up: the refactor is rebased onto the newer loop-network
+> main commit, and pending navigation/preset work has moved to a separate test
+> branch. See [current rollout status](full-instrument-preset-rollout.md).
+> The original review-branch details and verification below are historical.
+
 ## Status and scope
 
 Worktree: `/home/blechdom/creative/morphazoid-v2-catalogue`

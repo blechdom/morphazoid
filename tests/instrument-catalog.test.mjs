@@ -657,7 +657,7 @@ test("home catalogue shows every category with Faves first and compact duplicate
     assert.equal(group.grid.dataset.categoryId, group.id);
     assert.deepEqual(
       group.cards.map(({ dataset }) => dataset.instrumentId),
-      orderedInstruments
+      group.id === FIRST_CATEGORY_ID ? FAVE_TOOL_IDS : orderedInstruments
         .filter((instrument) => instrumentMatchesTag(instrument, group.id))
         .map(({ id }) => id),
     );
@@ -666,7 +666,7 @@ test("home catalogue shows every category with Faves first and compact duplicate
   const faveIds = new Set(FAVE_TOOL_IDS);
   assert.deepEqual(
     rendered.groups[0].cards.map(({ dataset }) => dataset.instrumentId),
-    orderedInstruments.filter(({ id }) => faveIds.has(id)).map(({ id }) => id),
+    FAVE_TOOL_IDS,
   );
   for (const faveId of FAVE_TOOL_IDS) {
     const fave = instrumentById(faveId);
@@ -923,7 +923,7 @@ test("card renderer stays a dense, complete activity-ranked visual index", async
   assert.match(app, /root\.replaceChildren\(\.\.\.groupViews\.map/);
   assert.match(app, /const section = element\(doc, "section", "catalogue-group"\)/);
   assert.match(app, /FIRST_CATEGORY_ID = "faves"/);
-  assert.doesNotMatch(app, /import\s*\{[^}]*FAVE_TOOL_IDS/s);
+  assert.match(app, /import\s*\{\s*FAVE_TOOL_IDS\s*\}\s*from "\.\/instrument-registry\.js"/);
   assert.match(app, /element\(doc, "a", "instrument-card-link"\)/);
   assert.match(app, /cardLink\.href = instrument\.href/);
   assert.match(app, /cardLink\.setAttribute\("aria-label", instrument\.entryType === "lab"/);
