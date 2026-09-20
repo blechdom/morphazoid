@@ -65,6 +65,12 @@ done
 # Allow new public pages to enter local release artifacts before their first
 # commit; after tracking, these copies simply refresh the same paths.
 for worktree_runtime_file in \
+  graph-3d.html \
+  graph-3d.css \
+  graph-3d-app.js \
+  src/graph-3d.js \
+  assets/instruments/graph-3d.webp \
+  docs/graph-3d.md \
   tempo-tantrum.html \
   tape-worm.html \
   loop-soup.html \

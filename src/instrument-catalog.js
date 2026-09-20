@@ -13,6 +13,12 @@ const define = (kind, description, start, features = [], pluginHref = null) => O
 });
 
 const CATALOG_DETAILS = Object.freeze({
+  "graph-3d": define(
+    "Spatial graph synthesizer",
+    "A rotatable 3D Graph Synth with directed note propagation, true spatial edge timing, height/depth/radius/bend pitch mappings, and bounded spring, repulsion, center, and shell forces.",
+    "Enable Audio and Play. Drag empty space to orbit, drag a node to reshape it, or Shift-drag into depth. Enable forces to hear the geometry reorganize.",
+    ["Built-in synth", "3D", "Pointer", "Organizing forces", "MIDI input"],
+  ),
   "tempo-tantrum": define(
     "Driven-phase rhythm experiment",
     "Three continuously evolving phase oscillators lock to a driving pulse, slip outside the locking range, and recover after a nudge; their own crossings trigger the notes.",

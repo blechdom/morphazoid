@@ -437,6 +437,7 @@ export const TOOL_GROUPS = Object.freeze([
     { id: "loop-soup", label: "Loop Soup", href: "loop-soup.html" },
     { id: "habit-habitat", label: "Habit Habitat", href: "habit-habitat.html" },
     { id: "hollowphonic", label: "Hollowphonic", href: "hollowphonic.html" },
+    { id: "graph-3d", label: "3D Graph", href: "graph-3d.html" },
   ], { picker: false }),
 ]);
 

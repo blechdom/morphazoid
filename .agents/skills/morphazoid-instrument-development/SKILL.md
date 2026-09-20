@@ -70,6 +70,17 @@ instruments' aesthetic or pause behavior.
 
 ## Build in vertical slices
 
+### Morphazoid tuning preference
+
+Design from physics, geometry, and continuous causal relationships first.
+The user strongly dislikes pentatonic defaults: do not introduce automatic
+pentatonic, Western-scale, or equal-tempered quantization in new instruments
+or presets. Western tuning is a rare, deliberate option, not the organizing
+assumption; retain existing optional tunings unless asked to remove them.
+A MIDI seed note may supply a reference frequency without quantizing the
+resulting pitch relationships. Distinguish artistic physics-inspired mappings
+from validated physical/acoustic models.
+
 1. Implement the smallest complete slice: the central visual, one primary
    gesture, its audible consequence, explicit Audio arm, transport behavior when
    applicable, a safe default, and deterministic reset.

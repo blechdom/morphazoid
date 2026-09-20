@@ -1,0 +1,203 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <!-- morphazoid-social-preview:start -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Morphazoid" />
+    <meta property="og:title" content="3D Graph · Morphazoid" />
+    <meta property="og:description" content="3D Graph — a rotatable, editable spatial Graph Synth. Three-dimensional route lengths shape rhythm, while depth, bending, and organizing forces reshape the music." />
+    <meta property="og:url" content="https://morphazoid.com/graph-3d.html" />
+    <meta property="og:image" content="https://morphazoid.com/assets/social/morphazoid-card-20260917.png" />
+    <meta property="og:image:secure_url" content="https://morphazoid.com/assets/social/morphazoid-card-20260917.png" />
+    <meta property="og:image:type" content="image/png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="Morphazoid geometric wireframe logo on a dark background." />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="3D Graph · Morphazoid" />
+    <meta name="twitter:description" content="3D Graph — a rotatable, editable spatial Graph Synth. Three-dimensional route lengths shape rhythm, while depth, bending, and organizing forces reshape the music." />
+    <meta name="twitter:image" content="https://morphazoid.com/assets/social/morphazoid-card-20260917.png" />
+    <meta name="twitter:image:alt" content="Morphazoid geometric wireframe logo on a dark background." />
+    <link rel="image_src" href="https://morphazoid.com/assets/social/morphazoid-card-20260917.png" />
+    <!-- morphazoid-social-preview:end -->
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#070a0e" />
+    <meta name="description" content="3D Graph — a rotatable, editable spatial Graph Synth. Three-dimensional route lengths shape rhythm, while depth, bending, and organizing forces reshape the music." />
+    <title>3D Graph · Morphazoid</title>
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="graph-3d.css" />
+  </head>
+  <body class="graph-3d-page">
+    <header class="masthead">
+      <a class="wordmark" href="./" aria-label="Morphazoid home"><span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span><span>morphazoid</span></a>
+      <nav class="tabs" aria-label="Instrument">
+        <a class="tab active" href="graph-3d.html" aria-current="page">3D Graph</a>
+        <a class="tab" href="graph-synth.html">Graph Synth</a>
+        <a class="tab" href="graphs.html">Graphs</a>
+      </nav>
+      <label class="mobile-instrument-nav"><span class="sr-only">Instrument</span><select class="mobile-instrument-select" aria-label="Instrument"><option value="graph-3d.html" selected>3D Graph</option><option value="graph-synth.html">Graph Synth</option><option value="graphs.html">Graphs</option></select></label>
+      <div id="audioSlot" class="audio-strip"><button id="audioButton" class="audio-button" type="button" aria-pressed="false" disabled>Audio off · JavaScript required</button></div>
+    </header>
+
+    <main class="graph-3d-shell">
+      <section class="graph-3d-stage" aria-label="Rotatable three-dimensional graph">
+        <div class="graph-3d-wrap" id="stageWrap">
+          <canvas id="stage" tabindex="0" role="img" aria-label="An editable graph in three-dimensional space. Drag empty space to rotate; drag a node to move it." aria-describedby="stageHelp graphReadout">
+            Use the view buttons and selected node X, Y and Z controls to edit this graph.
+          </canvas>
+          <header class="graph-3d-title"><h1>3D Graph</h1><button id="infoButton" class="graph-3d-info" type="button" aria-label="About 3D Graph and how to play" aria-haspopup="dialog" aria-controls="infoDialog" title="How to play"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v6"/><circle cx="12" cy="7" r=".8" class="info-dot"/></svg></button></header>
+          <div class="graph-3d-viewbar" role="group" aria-label="Camera controls">
+            <button id="zoomOut" type="button" aria-label="Zoom out" title="Zoom out">−</button>
+            <button id="zoomIn" type="button" aria-label="Zoom in" title="Zoom in">+</button>
+            <button id="viewReset" type="button" title="Reset camera only">View reset</button>
+            <button id="autoRotate" type="button" aria-pressed="false" title="Rotate the camera only; sound unchanged">Orbit</button>
+          </div>
+          <div class="graph-3d-caption"><span id="graphReadout">12 nodes · Audio off</span><span id="viewReadout">Camera</span></div>
+        </div>
+        <p id="stageHelp" class="sr-only">Drag empty space to orbit. Drag a node to move and pin it; Shift-drag for depth. Use the info button for full instructions.</p>
+      </section>
+
+      <aside class="graph-3d-panel" aria-label="3D Graph controls">
+        <section class="graph-3d-rack">
+          <div class="graph-3d-transport">
+            <button id="playButton" class="graph-3d-play" data-primary-transport type="button" aria-pressed="false" aria-label="Play graph" title="Play graph">
+              <svg class="transport-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5 18 12 8 18.5Z"/></svg>
+              <svg class="transport-pause" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6v12M16 6v12"/></svg>
+            </button>
+            <button id="sendButton" type="button" title="Inject one note from the selected node">Send note</button>
+            <button id="panicButton" type="button" title="Stop playback and clear every pending arrival">Panic</button>
+            <button id="resetAll" type="button" data-reset-all data-reset-in-place title="Reset graph, controls and camera">Reset</button>
+          </div>
+          <label class="select-control" for="scene"><span>Preset · 30 starting points</span><select id="scene"><option value="" disabled>Custom</option></select></label>
+          <div class="graph-3d-pair">
+            <label class="control" for="tempo"><span><b>Tempo</b><output id="tempoOut">104 BPM</output></span><input id="tempo" data-parameter="tempo" data-unit=" BPM" type="range" min="35" max="220" step="1" value="104" /></label>
+            <label class="select-control" for="pulseBeats"><span>Inject every</span><select id="pulseBeats" data-parameter="pulseBeats"><option value="0.5">½ beat</option><option value="1">1 beat</option><option value="2" selected>2 beats</option><option value="4">4 beats</option><option value="8">8 beats</option></select></label>
+          </div>
+          <p id="sceneDescription" class="graph-3d-note"></p>
+          <p id="liveStatus" role="status" aria-live="polite">Enable Audio, then Play or Send note.</p>
+          <p id="audioError" role="alert" hidden></p>
+        </section>
+
+        <section class="graph-3d-rack" aria-labelledby="mappingTitle">
+          <h2 id="mappingTitle">Source → sound</h2>
+          <p class="graph-3d-note">X left/right · Y up/down · Z depth. World axes stay fixed when the camera turns.</p>
+          <div class="graph-3d-pair">
+            <label class="control" for="rootMidiNote"><span><b>Seed MIDI pitch</b><output id="rootMidiNoteOut">68</output></span><input id="rootMidiNote" data-parameter="rootMidiNote" type="range" min="24" max="84" step="1" value="68" /></label>
+            <label class="select-control" for="tuning"><span>Tuning</span><select id="tuning" data-parameter="tuning"><option value="free" selected>Continuous</option><option value="chromatic">Chromatic</option><option value="pentatonic">Pentatonic</option><option value="minor">Minor</option></select></label>
+          </div>
+          <label class="control" for="baseDelay"><span><b>Minimum travel time</b><output id="baseDelayOut">95 ms</output></span><input id="baseDelay" data-parameter="baseDelay" data-unit=" ms" type="range" min="25" max="400" step="1" value="95" /></label>
+          <div class="graph-3d-mapping-row">
+            <label class="select-control" for="timeSource"><span>Source → Travel time</span><select id="timeSource" data-parameter="timeSource"><option value="x">X travel · |ΔX|</option><option value="height">Y travel · |ΔY|</option><option value="depth">Z travel · |ΔZ|</option><option value="distance" selected>Route length · XYZ</option><option value="radius">Arrival radius</option><option value="strain">Route stretch</option><option value="none">Off · fixed</option></select></label>
+            <label class="control" for="distanceRatio"><span><b>Time multiplier</b><output id="distanceRatioOut">4×</output></span><input id="distanceRatio" data-parameter="distanceRatio" data-unit="×" type="range" min="1" max="8" step="0.1" value="4" /></label>
+          </div>
+          <div class="graph-3d-mapping-row">
+            <label class="select-control" for="mapping"><span>Source → Pitch</span><select id="mapping" data-parameter="mapping"><option value="x">X · left / right</option><option value="height" selected>Y · height</option><option value="depth">Z · depth</option><option value="distance">Route length · XYZ</option><option value="radius">Radius · from center</option><option value="strain">Route stretch</option><option value="none">Off · fixed</option><option value="bend">Accumulated 3D bends</option></select></label>
+            <label class="control" for="pitchRange"><span><b>Pitch span</b><output id="pitchRangeOut">2 oct</output></span><input id="pitchRange" data-parameter="pitchRange" data-unit=" oct" type="range" min="0" max="4" step="0.05" value="2" /></label>
+          </div>
+          <div class="graph-3d-mapping-row">
+            <label class="select-control" for="timbreSource"><span>Source → FM / PM color</span><select id="timbreSource" data-parameter="timbreSource"><option value="x">X · left / right</option><option value="height">Y · height</option><option value="depth">Z · depth</option><option value="distance">Route length · XYZ</option><option value="radius">Radius · from center</option><option value="strain" selected>Route stretch</option><option value="none">Off · fixed</option></select></label>
+            <label class="control" for="strain"><span><b>Color amount</b><output id="strainOut">0.4</output></span><input id="strain" data-parameter="strain" data-unit="" type="range" min="0" max="1" step="0.01" value="0.4" /></label>
+          </div>
+          <div class="graph-3d-mapping-row">
+            <label class="select-control" for="shadeSource"><span>Source → Brightness / level</span><select id="shadeSource" data-parameter="shadeSource"><option value="x">X · left / right</option><option value="height">Y · height</option><option value="depth" selected>Z · depth</option><option value="distance">Route length · XYZ</option><option value="radius">Radius · from center</option><option value="strain">Route stretch</option><option value="none">Off · fixed</option></select></label>
+            <label class="control" for="depthTone"><span><b>Shade amount</b><output id="depthToneOut">0.35</output></span><input id="depthTone" data-parameter="depthTone" data-unit="" type="range" min="0" max="1" step="0.01" value="0.35" /></label>
+          </div>
+          <div class="graph-3d-mapping-row">
+            <label class="select-control" for="panSource"><span>Source → Stereo pan</span><select id="panSource" data-parameter="panSource"><option value="x" selected>X · left / right</option><option value="height">Y · height</option><option value="depth">Z · depth</option><option value="distance">Route length · XYZ</option><option value="radius">Radius · from center</option><option value="strain">Route stretch</option><option value="none">Off · fixed</option></select></label>
+            <label class="control" for="spread"><span><b>Stereo width</b><output id="spreadOut">0.8</output></span><input id="spread" data-parameter="spread" data-unit="" type="range" min="0" max="1" step="0.01" value="0.8" /></label>
+          </div>
+          <p id="mappingReadout" class="graph-3d-note"></p>
+          <p class="graph-3d-note">Time reads distance traveled along an axis; pitch, color and pan read the arrival position. ⓘ explains each source.</p>
+        </section>
+
+        <section class="graph-3d-rack" aria-labelledby="geometryTitle">
+          <h2 id="geometryTitle">Graph / space</h2>
+          <div class="graph-3d-pair">
+            <label class="select-control" for="topology"><span>Connections</span><select id="topology" data-parameter="topology"><option value="chain">Chain</option><option value="tree">Tree</option><option value="dag">Layered DAG</option><option value="ring">Ring</option><option value="smallworld" selected>Small world</option><option value="mesh">Mesh</option><option value="modular">Islands</option></select></label>
+            <label class="select-control" for="layout"><span>Arrangement</span><select id="layout" data-parameter="layout"><option value="sphere">Sphere</option><option value="helix">Helix</option><option value="layers">Layers</option><option value="cube">Cube</option></select></label>
+          </div>
+          <div class="graph-3d-pair">
+            <label class="control" for="nodeCount"><span><b>Nodes</b><output id="nodeCountOut">12</output></span><input id="nodeCount" data-parameter="nodeCount" type="range" min="3" max="24" step="1" value="12" /></label>
+            <label class="control" for="density"><span><b>Extra routes</b><output id="densityOut">0.25</output></span><input id="density" data-parameter="density" type="range" min="0" max="0.65" step="0.01" value="0.25" title="Generator-specific extra connections; chain and ring remain sparse." /></label>
+          </div>
+          <label class="control" for="depth"><span><b>Depth spread</b><output id="depthOut">0.85</output></span><input id="depth" data-parameter="depth" type="range" min="0" max="1.3" step="0.01" value="0.85" title="Expand the local third dimension; changes real 3D edge length and depth pitch." /></label>
+          <label class="control" for="twist"><span><b>Helical twist</b><output id="twistOut">0.30</output></span><input id="twist" data-parameter="twist" type="range" min="-1" max="1" step="0.01" value="0.3" title="Rotate horizontal slices by their height; changes graph geometry, not camera." /></label>
+          <div class="graph-3d-actions"><button id="arrangeButton" type="button">Arrange</button><button id="nextSeed" type="button">Next seed</button><button id="releasePins" type="button">Unpin all</button></div>
+        </section>
+
+        <section class="graph-3d-rack" aria-labelledby="forcesTitle">
+          <h2 id="forcesTitle">Organizing forces</h2>
+          <label class="graph-3d-check"><input id="motion" data-parameter="motion" type="checkbox" /> Let forces move the nodes</label>
+          <label class="control" for="spring"><span><b>Spring rest length</b><output id="springOut">0.42</output></span><input id="spring" data-parameter="spring" type="range" min="0.15" max="0.95" step="0.01" value="0.42" title="Preferred separation along connected edges." /></label>
+          <label class="control" for="repel"><span><b>Node repulsion</b><output id="repelOut">0.30</output></span><input id="repel" data-parameter="repel" type="range" min="0" max="1" step="0.01" value="0.3" /></label>
+          <label class="control" for="gravity"><span><b>Center attraction</b><output id="gravityOut">0.35</output></span><input id="gravity" data-parameter="gravity" type="range" min="0" max="1" step="0.01" value="0.35" /></label>
+          <label class="control" for="shell"><span><b>Shell attraction</b><output id="shellOut">0.25</output></span><input id="shell" data-parameter="shell" type="range" min="0" max="1" step="0.01" value="0.25" title="Pull toward a spherical shell rather than only toward its center." /></label>
+          <p class="graph-3d-note">Forces reshape connected geometry; they do not add or remove routes. Edited nodes pin automatically. Unpin a node to let forces move it again.</p>
+        </section>
+
+        <section class="graph-3d-rack" aria-labelledby="soundTitle">
+          <h2 id="soundTitle">Voice / envelope</h2>
+          <div class="graph-3d-pair">
+            <label class="select-control" for="soundMode"><span>Voice</span><select id="soundMode" data-parameter="soundMode"><option value="sine">Sine</option><option value="triangle">Triangle</option><option value="fm" selected>FM</option><option value="pm">PM</option><option value="shepard">Shepard</option></select></label>
+            <label class="control" for="modulationIndex"><span><b>FM/PM index</b><output id="modulationIndexOut">0.80</output></span><input id="modulationIndex" data-parameter="modulationIndex" type="range" min="0" max="6" step="0.05" value="0.8" /></label>
+          </div>
+          <div class="graph-3d-pair">
+            <label class="control" for="feedback"><span><b>Return level</b><output id="feedbackOut">0.62</output></span><input id="feedback" data-parameter="feedback" type="range" min="0" max="0.88" step="0.01" value="0.62" /></label>
+            <label class="control" for="feedbackTone"><span><b>Return brightness</b><output id="feedbackToneOut">0.80</output></span><input id="feedbackTone" data-parameter="feedbackTone" type="range" min="0.25" max="1" step="0.01" value="0.8" /></label>
+          </div>
+          <div class="graph-3d-pair">
+            <label class="control" for="attack"><span><b>Attack</b><output id="attackOut">0.008 s</output></span><input id="attack" data-parameter="attack" data-unit=" s" type="range" min="0.002" max="0.4" step="0.001" value="0.008" /></label>
+            <label class="control" for="decay"><span><b>Decay</b><output id="decayOut">0.24 s</output></span><input id="decay" data-parameter="decay" data-unit=" s" type="range" min="0.04" max="1.5" step="0.01" value="0.24" /></label>
+          </div>
+        </section>
+
+        <section class="graph-3d-rack" aria-labelledby="nodeTitle">
+          <h2 id="nodeTitle">Selected node</h2>
+          <label class="select-control" for="nodeSelect"><span>Source / edit node</span><select id="nodeSelect"></select></label>
+          <label class="control" for="nodeX"><span><b>X · left/right</b><output id="nodeXOut">0</output></span><input id="nodeX" type="range" min="-1.2" max="1.2" step="0.01" value="0" /></label>
+          <label class="control" for="nodeY"><span><b>Y · height</b><output id="nodeYOut">0</output></span><input id="nodeY" type="range" min="-0.92" max="0.92" step="0.01" value="0" /></label>
+          <label class="control" for="nodeZ"><span><b>Z · depth</b><output id="nodeZOut">0</output></span><input id="nodeZ" type="range" min="-1.2" max="1.2" step="0.01" value="0" /></label>
+          <div class="graph-3d-actions"><button id="pinNode" type="button" aria-pressed="false">Pin node</button><label class="graph-3d-check"><input id="editDepth" type="checkbox" /> Drag into depth</label></div>
+          <p id="depthHint" class="graph-3d-note"></p>
+        </section>
+        <section class="graph-3d-rack" aria-labelledby="routeTitle">
+          <h2 id="routeTitle">Selected route</h2>
+          <label class="select-control" for="routeSelect"><span>Directed edge</span><select id="routeSelect"></select></label>
+          <div class="graph-3d-actions"><button id="routeSwitch" type="button" aria-pressed="true">Route on</button><span id="routeReadout" class="graph-3d-note"></span></div>
+        </section>
+        <section class="graph-3d-rack">
+          <div class="graph-3d-actions"><button id="viewFront" type="button">Front view</button><button id="viewSide" type="button">Side view</button><button id="savePatch" type="button">Save patch</button><button id="loadPatch" type="button">Load patch</button></div>
+        </section>
+
+      </aside>
+    </main>
+    <dialog id="infoDialog" class="graph-3d-dialog" aria-labelledby="infoTitle">
+      <form method="dialog" class="graph-3d-dialog-heading"><h2 id="infoTitle">3D Graph · how to play</h2><button id="infoClose" type="submit" aria-label="Close instructions" autofocus>×</button></form>
+      <h3>Start a traversal</h3>
+      <p>Enable <b>Audio</b>, then <b>Play</b> for repeating injections, or <b>Send note</b> for one traversal from the selected node. Tempo sets injection spacing; the graph sets travel time between notes. The seed defaults to MIDI pitch <b>68</b>; <b>Continuous</b> tuning leaves geometry-derived pitches unsnapped. MIDI supplies a reference frequency, not a scale.</p>
+      <h3>Shape it, then leave it there</h3>
+      <p>Drag empty space to orbit. Drag a node to move it in the screen plane; Shift-drag or <b>Drag into depth</b> moves along camera depth. Editing a node automatically <b>pins</b> it: it stays where you leave it, even with forces enabled. Use <b>Unpin node</b> or <b>Unpin all</b> to let forces move it again. X/Y/Z sliders provide precise world-axis edits.</p>
+      <p>Forces are off initially. Repulsion separates nodes; springs favor their rest length; Center attraction draws inward; Shell attraction pulls toward a sphere. Pins hold local coordinates; deliberately changing Depth spread or Twist still transforms the whole shape. These are bounded artistic layout forces, not a validated acoustic simulation.</p>
+      <h3>Assign space to sound</h3>
+      <p>Each <b>Source → sound</b> row has its own source menu and amount. You can use one axis for several destinations, or turn an assignment off. Camera rotation never retunes or repans the graph.</p>
+      <ul>
+        <li><b>Travel time:</b> XYZ route length, distance along X/Y/Z, arrival radius, or route stretch. Bigger values make longer waits. Minimum travel time × the mapped multiplier sets each delay, capped at 2 seconds. Off or multiplier 1 gives equal travel times.</li>
+        <li><b>Pitch:</b> X/Y/Z position, radius, incoming route length/stretch, or accumulated signed 3D bends. Pitch span is a continuous octave range around the seed; Off holds the seed. Bends accumulate along a traversal; the bend normal’s Y component chooses the sign.</li>
+        <li><b>FM / PM color:</b> the source adds modulation depth above the base FM/PM index. Inactive for Sine, Triangle and Shepard voices.</li>
+        <li><b>Brightness / level:</b> lower source values become darker and slightly quieter as Shade amount increases. Off removes this shading.</li>
+        <li><b>Stereo pan:</b> lower source values go left, higher go right. Stereo width sets the amount; Off centers the voice.</li>
+      </ul>
+      <p>Route length means true XYZ distance, not screen length. Radius is distance from the center. Stretch compares world-space route length with the spring-rest reference. Incoming route values are sampled at departure; the initial injected note has zero incoming length/stretch. Axis positions are bipolar; distances/stretch are normalized across their range.</p>
+      <h3>Routes, presets and recovery</h3>
+      <p>Click an edge midpoint to switch its route, or use Selected route. Return controls affect cycles only. In-flight deadlines stay fixed; each next hop uses the current graph. Up to 120 ms of already scheduled sound may remain after a route edit.</p>
+      <p>Thirty presets explore different shapes, rhythms, voices, forces and mappings. A preset replaces graph edits, pins and route switches but keeps Audio, Play and camera state. All presets use Continuous tuning; their controls remain freely editable. Arrange resets only unpinned nodes. Reset restores the default graph and camera without disarming Audio or changing Play.</p>
+      <h3>Keyboard and saving</h3>
+      <p>With the stage focused: arrows orbit; [ / ] select a node; Shift+arrows move and pin it; P toggles its pin; Enter sends a note; Space toggles Play. Save/Load stores a patch in this browser, not transport or camera state. No microphone is used. Hidden pages stop and release audio.</p>
+      <p>Graph Synth supplies topology generators, split/merge gains, tuning and voice rendering. <a href="docs/graph-3d.md">Implementation and mapping notes</a>.</p>
+    </dialog>
+    <script type="module" src="graph-3d-app.js"></script>
+    <script type="module" src="nav.js"></script>
+  </body>
+</html>

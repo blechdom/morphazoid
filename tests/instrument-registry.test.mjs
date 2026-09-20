@@ -10,9 +10,9 @@ import { INSTRUMENTS, INSTRUMENT_GROUPS } from "../src/instrument-catalog.js";
 const snapshot = JSON.parse(await readFile(new URL("./fixtures/instrument-registry-v1.json", import.meta.url)));
 
 test("the extracted registry and derived catalogue preserve all original records and ordering", () => {
-  // The September 2026 request adds five starting instruments. Preserve every
+  // September 2026 adds the starting instruments and 3D Graph. Preserve every
   // pre-existing record and its order without freezing catalogue growth.
-  const additions = new Set(["tempo-tantrum", "tape-worm", "loop-soup", "habit-habitat", "hollowphonic"]);
+  const additions = new Set(["tempo-tantrum", "tape-worm", "loop-soup", "habit-habitat", "hollowphonic", "graph-3d"]);
   const originalRecords = (value) => {
     if (Array.isArray(value)) return value.filter((v) => !additions.has(v?.id)).map(originalRecords);
     if (value && typeof value === "object") return Object.fromEntries(Object.entries(value).map(([k, v]) => [k, originalRecords(v)]));

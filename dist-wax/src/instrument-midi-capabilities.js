@@ -98,6 +98,7 @@ const NOTE_MODE_IDS = Object.freeze({
     "atomic-orbitals",
     "fourier-epicycles",
     "gravity-lens",
+    "graph-3d",
   ]),
   sequence: Object.freeze([
     "l-systems",
@@ -200,6 +201,7 @@ export const PAGE_KEYBOARD_INSTRUMENT_IDS = Object.freeze([
   "simd-resonator",
   "simd-synth",
   "tempo-tantrum", "tape-worm", "loop-soup", "habit-habitat", "hollowphonic",
+  "graph-3d",
 ]);
 
 // These pages still expose hardware MIDI for labeled controls, presets, and

@@ -1,0 +1,85 @@
+body.graph-3d-page { --accent: #b3a1ee; --accent-soft: #796f9b; --accent-glow: #272333; background: #070a0e; }
+.graph-3d-shell { display: grid; grid-template-columns: minmax(0, 1fr) 330px; flex: 1; min-height: 0; overflow: hidden; }
+.graph-3d-stage { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+.graph-3d-wrap { position: relative; flex: 1; min-height: 240px; overflow: hidden; }
+.graph-3d-wrap canvas { display: block; position: absolute; inset: 0; width: 100%; height: 100%; touch-action: none; cursor: grab; }
+.graph-3d-wrap canvas.is-dragging { cursor: grabbing; }
+.graph-3d-wrap canvas:focus-visible { outline: 2px solid var(--accent); outline-offset: -4px; }
+.graph-3d-title { position: absolute; top: 20px; left: 24px; pointer-events: none; display: flex; align-items: center; gap: 8px; }
+.graph-3d-title h1 { color: var(--accent); font: 500 clamp(26px, 3vw, 40px)/1.1 var(--mono); letter-spacing: -.04em; margin: 0; }
+.graph-3d-info { pointer-events: auto; display: grid; place-items: center; width: 34px; height: 34px; padding: 5px; border: 0; border-radius: 50%; background: #10171c; color: var(--accent); cursor: pointer; }
+.graph-3d-info svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; }
+.graph-3d-info .info-dot { fill: currentColor; stroke: none; }
+.graph-3d-dialog { width: min(650px, calc(100vw - 32px)); max-height: calc(100dvh - 32px); box-sizing: border-box; overflow-y: auto; margin: auto; padding: 20px 24px; color: #c9d6df; background: #0e151d; border: 1px solid #5b5577; border-radius: 8px; font: 12px/1.8 var(--mono); }
+.graph-3d-dialog::backdrop { background: #02050bbb; }
+.graph-3d-dialog-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.graph-3d-dialog h2 { margin: 0; font-size: 17px; color: var(--accent); }
+.graph-3d-dialog h3 { font-size: 13px; color: #d4c5f9; margin: 24px 0 8px; }
+.graph-3d-dialog button { flex: none; width: 44px; height: 44px; border: 1px solid #5b5577; border-radius: 50%; color: #ddd3f1; background: #171e29; font-size: 23px; cursor: pointer; }
+.graph-3d-dialog a { color: #c5b4f1; }
+.graph-3d-dialog li { margin-bottom: 9px; }
+.graph-3d-viewbar { position: absolute; top: 17px; right: 18px; display: flex; gap: 4px; }
+.graph-3d-viewbar button { min-height: 30px; font-size: 10px; padding: 4px 8px; background: #10171c; border: 1px solid #364249; color: #bed0d8; }
+.graph-3d-viewbar button[aria-pressed="true"] { color: #11151a; background: var(--accent); }
+.graph-3d-caption { position: absolute; bottom: 12px; left: 20px; right: 20px; display: flex; justify-content: space-between; gap: 10px; color: #8c9da7; font: 10px var(--mono); pointer-events: none; }
+.graph-3d-hint { flex: none; font: 11px/1.7 var(--mono); color: #96aab6; padding: 10px 20px; margin: 0; border-top: 1px solid #24313a; }
+.graph-3d-hint b { color: #bed2d8; font-weight: 500; }
+.graph-3d-panel { overflow-y: auto; min-width: 0; padding: 14px; border-left: 1px solid #25323a; background: #0b0f13; }
+.graph-3d-rack { border: 0; border-bottom: 1px solid #273139; margin: 0; padding: 17px 0; display: grid; gap: 11px; }
+.graph-3d-rack:first-child { padding-top: 0; }
+.graph-3d-rack h2 { margin: 0; font: 600 11px var(--mono); color: var(--accent); text-transform: uppercase; letter-spacing: .07em; }
+.graph-3d-panel .control { margin: 0; min-width: 0; display: block; }
+.graph-3d-panel .control > span { display: flex; align-items: baseline; justify-content: space-between; gap: 7px; font-size: 10px; color: #b7c5c9; margin-bottom: 6px; }
+.graph-3d-panel .control b { font-weight: 450; }
+.graph-3d-panel output { flex: none; overflow: visible; color: #9d8bc8; font-size: 9px; }
+.graph-3d-panel input[type="range"] { width: 100%; min-height: 23px; accent-color: var(--accent); }
+.graph-3d-panel .select-control { display: grid; gap: 7px; color: #b7c5c9; font-size: 10px; min-width: 0; }
+.graph-3d-panel select { width: 100%; min-height: 34px; font: 10px var(--mono); color: #c5d5dc; background: #131e26; border: 1px solid #35434c; padding: 5px 7px; border-radius: 3px; }
+.graph-3d-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 11px; align-items: end; }
+.graph-3d-mapping-row { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 11px; align-items: end; padding: 5px 0; }
+.graph-3d-mapping-row .select-control > span { color: #dbccff; }
+.graph-3d-mapping-row .control > span { flex-wrap: wrap; gap: 3px 7px; }
+.graph-3d-mapping-row output { margin-left: auto; }
+.graph-3d-panel button { min-height: 32px; font: 10px var(--mono); color: #d8e2df; background: #10191d; border: 1px solid #394a50; padding: 6px 8px; border-radius: 3px; }
+.graph-3d-panel button:hover, .graph-3d-viewbar button:hover { border-color: var(--accent); color: var(--accent); }
+.graph-3d-panel button[aria-pressed="true"] { background: #34303f; color: #e4d8ff; border-color: var(--accent); }
+.graph-3d-transport { display: flex; gap: 7px; align-items: center; }
+.graph-3d-panel .graph-3d-play { width: 40px; min-width: 40px; height: 40px; min-height: 40px; border-radius: 50%; padding: 0; display: grid; place-items: center; color: var(--accent); }
+.graph-3d-play svg { width: 17px; height: 17px; fill: currentColor; stroke: currentColor; stroke-width: 2; stroke-linecap: round; }
+.graph-3d-play .transport-pause, .graph-3d-play[aria-pressed="true"] .transport-play { display: none; }
+.graph-3d-play[aria-pressed="true"] .transport-pause { display: block; }
+.graph-3d-panel .graph-3d-play[aria-pressed="true"] { background: var(--accent); color: #0d1014; }
+.graph-3d-actions { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; }
+.graph-3d-check { display: flex; align-items: center; gap: 7px; font: 11px var(--mono); color: #b8c8cd; min-height: 32px; }
+.graph-3d-check input { width: 17px; height: 17px; accent-color: var(--accent); }
+.graph-3d-note, #liveStatus { color: #99adb9; font: 10px/1.6 var(--mono); margin: 0; }
+#liveStatus { min-height: 30px; }
+.graph-3d-panel details { display: block; color: #9bafbb; font: 11px/1.7 var(--mono); }
+.graph-3d-panel details summary { min-height: 36px; cursor: pointer; color: var(--accent); }
+.graph-3d-panel details a { color: var(--accent); }
+.graph-3d-panel [role="alert"] { color: #ffb4bb; background: #38242d; font-size: 12px; line-height: 1.6; padding: 9px; }
+.graph-3d-page :focus-visible { outline: 2px solid #f0c68e; outline-offset: 3px; }
+@media (max-width: 700px) {
+  body.graph-3d-page { height: auto; min-height: 100dvh; overflow: auto; display: block; }
+  .graph-3d-shell { display: flex; flex-direction: column; overflow: visible; }
+  .graph-3d-wrap { height: 430px; flex: none; }
+  .graph-3d-panel { overflow: visible; padding: 18px 20px; border-left: 0; border-top: 1px solid #28343d; }
+  .graph-3d-title { top: 15px; left: 17px; }
+  .graph-3d-title h1 { font-size: 28px; }
+  .graph-3d-viewbar { top: 75px; left: 17px; right: auto; }
+  .graph-3d-viewbar button { min-height: 40px; }
+  .graph-3d-caption { font-size: 9px; }
+  .graph-3d-panel button, .graph-3d-panel select { min-height: 44px; }
+}
+@media (pointer: coarse) {
+  .graph-3d-info { width: 44px; height: 44px; }
+  .graph-3d-panel .graph-3d-play { width: 48px; height: 48px; min-width: 48px; min-height: 48px; }
+  .graph-3d-viewbar button { min-width: 48px; min-height: 48px; }
+}
+@media (max-height: 480px) and (min-width: 701px) {
+  .graph-3d-shell { grid-template-columns: minmax(0, 1fr) 290px; }
+  .graph-3d-title { left: 15px; top: 10px; }
+  .graph-3d-title h1 { font-size: 24px; }
+  .graph-3d-viewbar { top: 9px; right: 10px; }
+  .graph-3d-wrap { min-height: 160px; }
+}
