@@ -91,7 +91,7 @@ family layout.
 - No public HTML route, catalogue category, Faves order, asset/WASM content,
   sample, model binary, framework, hosting or deployment setting changes.
 
-## Final verification
+## Owner-reported verification before publication
 
 The owner reported **all green** after the final `build:wax` → `verify` →
 full browser smoke → `git fetch origin` command sequence on September 21.
@@ -105,6 +105,36 @@ The fetched `origin/main` is `d96793a` and is already an ancestor of the tested
 branch, so no additional rebase or runtime changes are needed before committing
 this batch. Publication must use a normal fast-forward push, never force.
 The separate local `main` worktree is not modified.
+
+## Subsequent CI findings, September 21
+
+The later hosted logs report 4,020 passes, two failures and six skips. Those
+results supersede any assumption that the owner-reported local gate established
+hosted-CI success:
+
+- The Shapes saved-voice test compared serialized doubles exactly. CI reported
+  `294.0975479820249` against `294.0975479820248`; the same original test passes
+  locally. The follow-up changes only the test comparison, allowing
+  `8 * Number.EPSILON * max(1, |actual|, |reference|)` on computed numeric
+  outputs. Voice counts/order, schema, literal synthesis settings and exact
+  silence stay strict. Six comparator tests cover the reported difference,
+  tight bounds, invalid numbers and regressions that must still fail.
+- The favicon insertion left `about.html` and `instruments.html` out of the
+  existing social-preview generator's canonical head order. The follow-up
+  moves the favicon after the managed metadata block, preserving both. The
+  original strict metadata-equality test is retained.
+- The earlier missing-icon logs describe the WAX omission present in
+  `d96793a`; all eight source and generated icons are already committed with
+  matching blob hashes in `d066dd3`.
+
+The follow-up passes 147 focused local checks (Shapes reference/preset tests,
+social previews, QA-server policy and the 430-module preservation proof).
+No DSP, preset, asset, saved reference fixture or generated WAX bytes change.
+The fresh full WAX check stalled during sandboxed bundling and was stopped;
+the outside-sandbox retry was rejected by the approval service before
+execution. A separate comparison using a Git subprocess was also blocked.
+Neither is reported as passing. Full hosted verification and production
+deployment remain to be confirmed for the follow-up commit.
 
 ## Verification history
 

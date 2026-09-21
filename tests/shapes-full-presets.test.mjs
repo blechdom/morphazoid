@@ -14,14 +14,17 @@ import { originalSynthSpecs, originalCornerIntents, originalCornerSample } from 
 import { createShapeSoundModel } from "../src/families/geometry-presets/shape-sound.js";
 import { createGeometryVoicePool } from "../src/families/geometry-presets/audio-budget.js";
 import { presetStateKey } from "../src/site/header-presets.js";
+import { assertReferenceVoices } from "./helpers/shapes-reference-voices.mjs";
 
 const banks = { shape: SHAPE_FULL_PRESETS, solid: SOLID_FULL_PRESETS, hyper: HYPER_FULL_PRESETS };
 const reference = JSON.parse(readFileSync(new URL("fixtures/shapes-original-voices.json", import.meta.url), "utf8"));
-test("122 pre-integration reference voice sets retain exact frequencies, envelopes, pan and synth parameters", () => {
+test("122 pre-integration reference voice sets retain frequencies, envelopes, pan and synth parameters within floating-point precision", () => {
+  assert.equal(reference.cases.length, 122);
   for (const example of reference.cases) {
     const state = applyShapesPreset(createShapesState(), SHAPES_FULL_PRESETS.find(p => p.id === example.id).snapshot);
     state.play.continuousPhase = example.phase;
-    assert.deepEqual(originalSynthSpecs(buildShapesScene(state), state).map(({ key, ...voice }) => voice), example.voices, example.id);
+    assertReferenceVoices(originalSynthSpecs(buildShapesScene(state), state).map(({ key, ...voice }) => voice),
+      example.voices, `${example.id} at phase ${example.phase}`);
   }
 });
 test("106 unique presets retain the originals and merge corner/tonal playing with six dense Rattlesnake demos", () => {

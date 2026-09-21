@@ -96,12 +96,24 @@ test("homepage and aliases work without JavaScript and the first homepage image 
   for (const file of ["index.html", "about.html", "instruments.html"]) {
     const html = await readFile(new URL(file, root), "utf8");
     assert.equal(html, withSocialPreview(html, file), `Stale authored metadata: ${file}`);
+    assert.equal((html.match(/<link\b[^>]*rel="icon"[^>]*>/g) ?? []).length, 1, `${file}: keep its favicon`);
   }
   const home = await readFile(new URL("index.html", root), "utf8");
   const firstImage = home.match(/<img\b[\s\S]*?>/i)?.[0];
   assert.ok(firstImage?.includes(`src="${BRAND_MARK_PATH}"`));
   assert.ok(home.includes('src="assets/authors/kristin-galvin.png"'), "Keep on-page creator credit");
   assert.ok(home.indexOf(BRAND_MARK_PATH) < home.indexOf('src="assets/authors/'));
+});
+
+test("canonical social metadata preserves the favicon when normalizing an alias head", () => {
+  const favicon = '<link rel="icon" href="favicon.svg" type="image/svg+xml" />';
+  const canonical = withSocialPreview(sample, "about.html");
+  const misplaced = canonical.replace('<meta charset="utf-8">', `<meta charset="utf-8">\n  ${favicon}`);
+  const normalized = withSocialPreview(misplaced, "about.html");
+  assert.equal((normalized.match(/rel="icon"/g) ?? []).length, 1);
+  assert.ok(normalized.indexOf("<!-- morphazoid-social-preview:end -->") < normalized.indexOf(favicon));
+  assert.equal(withSocialPreview(normalized, "about.html"), normalized);
+  assert.equal(normalized.slice(normalized.indexOf("<body")), sample.slice(sample.indexOf("<body")));
 });
 
 test("preview assets have the advertised raster dimensions and avoid SVG-only crawler support", async () => {

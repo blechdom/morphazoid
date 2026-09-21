@@ -127,8 +127,13 @@ See `test-results/shapes-density-clicks/` for source snapshots and measurements.
 - All 76 imported source snapshots have exact parameter round-trip tests.
 - `tests/fixtures/shapes-original-voices.json` contains 122 voice sets from the
   saved pre-integration individual controllers, with SHA-256 provenance. Tests
-  compare exact frequency, gain, pan and synth parameters at two phases of each
-  continuous scene.
+  compare frequency, gain, pan and synth parameters at two phases of each
+  continuous scene. Computed numeric outputs allow at most
+  `8 * Number.EPSILON * max(1, |actual|, |reference|)` to accommodate last-bit
+  differences in serialized doubles between runners. Voice counts, ordering,
+  field sets, modes, literal ratios/widths/smoothing times, nulls and exact
+  silence remain strict. The saved reference bytes and synthesis are unchanged;
+  negative tests reject nonfinite outputs and changes beyond this rounding bound.
 - DSP tests cover long ADSR/release, pre-marker attack/peak, independent overlap,
   true sine/FM/PM/Shepard differences, MIDI hold/release, bounded waiting voices,
   stale-event cancellation and smooth dense-pool handoffs.
