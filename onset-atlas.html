@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="description" content="Prototype: segment a phrase into a proposed graph and show the real order period before you accept it." />
+  <meta name="theme-color" content="#080e16" />
+  <title>Onset Atlas · Morphazoid</title>
+  <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="starting-instruments.css" />
+  <link rel="stylesheet" href="proto-graph.css" />
+</head>
+<body class="starting-instrument proto-page" data-starting-instrument="onset-atlas" style="--accent:#ffd479">
+  <header class="masthead">
+    <a class="wordmark" href="./" aria-label="Morphazoid home"><span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span><span>morphazoid</span></a>
+    <nav class="tabs" aria-label="Instrument">
+      <a class="tab" href="head-shed.html">Head Shed</a>
+      <a class="tab" href="splice-ring.html">Splice Ring</a>
+      <a class="tab active" href="onset-atlas.html" aria-current="page">Onset Atlas</a>
+      <a class="tab" href="synaptic-resonance.html">Synaptic Resonance</a>
+    </nav>
+    <div id="audioSlot" class="audio-strip" aria-label="Audio controls">
+      <button id="audioButton" class="audio-button" type="button" aria-pressed="false" disabled>Audio off · enable JavaScript</button>
+    </div>
+  </header>
+  <main class="starting-shell">
+    <section class="starting-stage" aria-label="Onset Atlas instrument">
+      <header class="starting-title"><h1>Onset Atlas</h1><p>a proposed graph · and what it will actually cost you</p></header>
+      <canvas id="stage" role="img"
+        aria-label="Top: the recorded phrase as an envelope with detected segments coloured by family. Below: the proposed transition graph, with one node per family and edges for observed successions."
+        aria-describedby="canvasInstructions"></canvas>
+      <p class="starting-hint" id="canvasInstructions">
+        The strip is the recording, never modified. The circle is the graph the analysis proposes.
+        Move <b>Distinctness</b> and watch nodes split or merge, then read the order period before accepting.
+      </p>
+    </section>
+    <aside class="starting-controls" aria-label="Onset Atlas controls">
+      <section class="group">
+        <div class="transport-row">
+          <button id="playButton" type="button" aria-pressed="false" data-primary-transport>Play</button>
+          <button id="acceptButton" class="mini-action" type="button">Accept graph</button>
+        </div>
+        <p id="liveStatus" role="status" aria-live="polite">Turn Audio on, then Play. The demo phrase is deliberately repetitive.</p>
+        <p id="audioError" role="alert" hidden></p>
+        <p class="readout">
+          events <b id="statEvents">0</b> · families <b id="statNodes">0</b> · edges <b id="statEdges">0</b><br />
+          measured order period <b id="statPeriod">0</b>
+        </p>
+        <p id="periodWarning" class="starting-note">—</p>
+        <p id="acceptState" class="starting-note">Proposal only.</p>
+      </section>
+
+      <section class="group" aria-label="Segmentation">
+        <label class="control" for="sensitivity"><span><b>Onset threshold</b><output id="sensitivityOut" for="sensitivity">0.45</output></span>
+          <input id="sensitivity" type="range" min="0.02" max="0.9" step="0.01" value="0.45" /></label>
+        <label class="control" for="minSeg"><span><b>Minimum segment</b><output id="minSegOut" for="minSeg">80 ms</output></span>
+          <input id="minSeg" type="range" min="0.02" max="0.5" step="0.005" value="0.08" /></label>
+        <label class="control" for="similarity"><span><b>Distinctness</b><output id="similarityOut" for="similarity">0.45</output></span>
+          <input id="similarity" type="range" min="0.05" max="1.2" step="0.01" value="0.45"
+            title="Lower merges similar events into one family, which shrinks the graph and shortens the order period. Higher keeps them apart." /></label>
+        <label class="control" for="speed"><span><b>Playback speed</b><output id="speedOut" for="speed">1.00×</output></span>
+          <input id="speed" type="range" min="0.5" max="2" step="0.01" value="1" /></label>
+        <div class="transport-row"><button id="reanalyse" class="mini-action" type="button">Re-analyse</button></div>
+      </section>
+
+      <section class="group" id="howItWorks">
+        <h2 class="group-title">How it works</h2>
+        <p class="starting-note">
+          Onsets split the phrase into events. Similar events merge into <b>families</b>, which become
+          the graph's nodes; observed successions become its edges. Playing the graph walks it, taking
+          each node's exits in turn.
+        </p>
+        <p class="starting-note">
+          <b>The point of this page is the number in bold.</b> The order period is measured by actually
+          simulating the traversal, and it is often <em>smaller</em> than the number of events you
+          recorded — sing "da da dee da" and two families with three edges give you a three-event loop,
+          not a four-event one. A previous design in this line displayed 24 while the audible order was
+          3, because it counted alternate takes of the same syllable as events. This page refuses to do
+          that, and warns you when the graph would give back less than you put in.
+        </p>
+        <p class="starting-note">
+          <b>Distinctness</b> is the honest control: raise it and fewer events merge, so the graph keeps
+          more of your phrase. The tension is real — repetition creates branching but also shrinks the graph.
+        </p>
+        <p class="starting-note"><b>Not implemented:</b> no microphone recording yet, no MFCC or PCA features, no undo history, no saved state.</p>
+      </section>
+    </aside>
+  </main>
+  <script type="module" src="onset-atlas-app.js?v=proto-20260918-1"></script>
+  <script type="module" src="nav.js"></script>
+</body>
+</html>

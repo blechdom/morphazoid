@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="description" content="Prototype: draggable splice points turn one intact loop into a branching graph without cutting the recording." />
+  <meta name="theme-color" content="#080e16" />
+  <title>Splice Ring · Morphazoid</title>
+  <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="starting-instruments.css" />
+  <link rel="stylesheet" href="proto-graph.css" />
+</head>
+<body class="starting-instrument proto-page" data-starting-instrument="splice-ring" style="--accent:#ff96dc">
+  <header class="masthead">
+    <a class="wordmark" href="./" aria-label="Morphazoid home"><span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span><span>morphazoid</span></a>
+    <nav class="tabs" aria-label="Instrument">
+      <a class="tab" href="head-shed.html">Head Shed</a>
+      <a class="tab active" href="splice-ring.html" aria-current="page">Splice Ring</a>
+      <a class="tab" href="onset-atlas.html">Onset Atlas</a>
+      <a class="tab" href="synaptic-resonance.html">Synaptic Resonance</a>
+    </nav>
+    <div id="audioSlot" class="audio-strip" aria-label="Audio controls">
+      <button id="audioButton" class="audio-button" type="button" aria-pressed="false" disabled>Audio off · enable JavaScript</button>
+    </div>
+  </header>
+  <main class="starting-shell">
+    <section class="starting-stage" aria-label="Splice Ring instrument">
+      <header class="starting-title"><h1>Splice Ring</h1><p>one intact loop · markers, not cuts</p></header>
+      <canvas id="stage" tabindex="0" role="application" aria-roledescription="spliced tape loop"
+        aria-label="A loop drawn as a ring of coloured segments divided by splice markers, with the intact recording's waveform inside and chord lines showing alternative continuations."
+        aria-describedby="canvasInstructions"></canvas>
+      <p class="starting-hint" id="canvasInstructions">
+        Click the ring to add a splice. Drag a splice to move it. <kbd>Shift</kbd>-click a splice, then click
+        another, to add a chord. <kbd>Tab</kbd> selects, arrows nudge, <kbd>Delete</kbd> removes.
+      </p>
+    </section>
+    <aside class="starting-controls" aria-label="Splice Ring controls">
+      <section class="group">
+        <div class="transport-row">
+          <button id="playButton" type="button" aria-pressed="false" data-primary-transport>Play</button>
+          <button id="restoreLoop" class="mini-action" type="button">Restore original loop</button>
+        </div>
+        <p id="liveStatus" role="status" aria-live="polite">Turn Audio on, then Play. The demo phrase is already loaded.</p>
+        <p id="audioError" role="alert" hidden></p>
+        <p class="readout">
+          segments <b id="segmentCount">4</b> · chords <b id="chordCount">0</b> · selected splice at <b id="spliceTime">0.00 s</b><br />
+          <span id="orderNote">Plain loop of 4 segments.</span>
+        </p>
+      </section>
+
+      <section class="group" aria-label="Traversal">
+        <label class="control checkbox" for="useChords">
+          <input id="useChords" type="checkbox" checked />
+          <span><b>Follow chords</b></span>
+        </label>
+        <label class="control checkbox" for="alternate">
+          <input id="alternate" type="checkbox" checked />
+          <span><b>Alternate at a chord</b></span>
+        </label>
+        <label class="control" for="speed"><span><b>Tape speed</b><output id="speedOut" for="speed">1.00×</output></span>
+          <input id="speed" type="range" min="0.25" max="2.5" step="0.01" value="1" /></label>
+        <label class="control" for="crossfade"><span><b>Splice crossfade</b><output id="crossfadeOut" for="crossfade">20 ms</output></span>
+          <input id="crossfade" type="range" min="0.002" max="0.12" step="0.001" value="0.02"
+            title="Real splices click. This is the tape-editor's diagonal cut." /></label>
+        <div class="transport-row">
+          <button id="removeSplice" class="mini-action" type="button">Remove splice</button>
+        </div>
+      </section>
+
+      <section class="group" id="howItWorks">
+        <h2 class="group-title">How it works</h2>
+        <p class="starting-note">
+          The recording is never modified. Splices are <em>markers</em> on an intact loop, segments are
+          the spans between them, and chords are alternative continuations drawn across the interior.
+          <b>Restore original loop</b> removes every marker and you have exactly what you started with.
+        </p>
+        <p class="starting-note">
+          Without chords this is an ordinary loop and the order repeats every segment count. Add a chord
+          and turn on <b>Alternate</b>, and that splice sends the reader one way then the other, so the
+          order period grows. The number shown is <em>measured by simulating the actual traversal</em>,
+          not asserted — an earlier design in this line was killed for displaying a count of 24 when the
+          audible order period was 3.
+        </p>
+        <p class="starting-note"><b>Not implemented:</b> no recording yet (demo material only), no heads, no analysis, no saved state.</p>
+      </section>
+    </aside>
+  </main>
+  <script type="module" src="splice-ring-app.js?v=proto-20260918-1"></script>
+  <script type="module" src="nav.js"></script>
+</body>
+</html>

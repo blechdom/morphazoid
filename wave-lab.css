@@ -1,0 +1,29 @@
+/* Shared layout for the wave-physics instrument pages. */
+.wave-lab .starting-stage { display: flex; flex-direction: column; min-height: 0; }
+.wave-lab .lab-canvas {
+  flex: 1 1 auto; width: 100%; min-height: 300px; display: block;
+  border-radius: 10px; border: 1px solid rgba(255, 255, 255, 0.08);
+  background: radial-gradient(circle at 50% 42%, #0d1721 0%, #070d14 72%);
+  touch-action: none;
+}
+.wave-lab .lab-canvas:focus-visible { outline: 2px solid var(--accent, #8fd3ff); outline-offset: 2px; }
+.wave-lab .group-title {
+  font-size: 0.75rem; letter-spacing: 0.09em; text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.6); margin: 0 0 0.5rem;
+}
+.wave-lab .control.checkbox { flex-direction: row; align-items: center; gap: 0.55rem; }
+.wave-lab .control.checkbox input { width: auto; min-width: 1.15rem; min-height: 1.15rem; }
+.wave-lab .readout {
+  font-variant-numeric: tabular-nums; font-size: 0.82rem; line-height: 1.55;
+  background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 8px; padding: 0.5rem 0.6rem; margin: 0.4rem 0 0;
+}
+.wave-lab .readout b { color: var(--accent, #8fd3ff); }
+.wave-lab .readout.alert { border-color: rgba(255, 180, 162, 0.45); }
+.wave-lab .warn { color: #ffb4a2; }
+.wave-lab .record-row { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 0.5rem; }
+.wave-lab .record-row button[aria-pressed="true"] { background: #b23b3b; color: #fff; }
+@media (pointer: coarse) {
+  .wave-lab .transport-row button,
+  .wave-lab .record-row button { min-height: 48px; min-width: 48px; }
+}

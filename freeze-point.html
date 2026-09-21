@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="description" content="disorder past a threshold traps the sound" />
+  <meta name="theme-color" content="#080e16" />
+  <title>Freeze Point · Morphazoid</title>
+  <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="starting-instruments.css" />
+  <link rel="stylesheet" href="wave-lab.css" />
+</head>
+<body class="starting-instrument wave-lab" data-starting-instrument="freeze-point" style="--accent:#8fd3ff">
+  <header class="masthead">
+    <a class="wordmark" href="./" aria-label="Morphazoid home"><span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span><span>morphazoid</span></a>
+    <nav class="tabs" aria-label="Instrument">
+      <a class="tab" href="crab-loom.html">Crab Loom</a>
+      <a class="tab active" href="freeze-point.html" aria-current="page">Freeze Point</a>
+      <a class="tab" href="scatter-ghost.html">Scatter Ghost</a>
+      <a class="tab" href="exceptional.html">Exceptional</a>
+      <a class="tab" href="lumber.html">Lumber Loops</a>
+    </nav>
+    <label class="mobile-instrument-nav"><span class="sr-only">Instrument</span>
+      <select class="mobile-instrument-select" aria-label="Instrument">
+        <option value="crab-loom.html">Crab Loom</option>
+        <option value="freeze-point.html" selected>Freeze Point</option>
+        <option value="scatter-ghost.html">Scatter Ghost</option>
+        <option value="exceptional.html">Exceptional</option>
+        <option value="lumber.html">Lumber Loops</option>
+      </select>
+    </label>
+    <div id="audioSlot" class="audio-strip" aria-label="Audio controls">
+      <button id="audioButton" class="audio-button" type="button" aria-pressed="false" disabled>Audio off · enable JavaScript</button>
+    </div>
+  </header>
+  <main class="starting-shell">
+    <section class="starting-stage" aria-label="Freeze Point instrument">
+      <header class="starting-title"><h1>Freeze Point</h1><p>disorder past a threshold traps the sound</p></header>
+      <canvas id="stage" class="lab-canvas" tabindex="0" role="application" aria-label="An eight by eight lattice of resonators. Brightness shows where energy is; past the disorder threshold it stops spreading." aria-describedby="canvasInstructions"></canvas>
+      <p class="starting-hint" id="canvasInstructions">Click a cell to strike it. <kbd>Shift</kbd>-click to move where the microphone enters. Then sweep <b>Disorder</b> across the threshold and strike again.</p>
+    </section>
+    <aside class="starting-controls" aria-label="Freeze Point controls">
+      <section class="group">
+        <div class="transport-row">
+          <button id="playButton" type="button" aria-pressed="false" data-primary-transport>Play</button>
+          <button id="resetButton" class="mini-action" type="button" data-reset-all data-reset-in-place>Reset controls</button>
+        </div>
+        <div class="record-row">
+          <button id="recordButton" type="button" aria-pressed="false">Record</button>
+        </div>
+        <p id="liveStatus" role="status" aria-live="polite">Turn Audio on, then Play.</p>
+        <p id="audioError" role="alert" hidden></p>
+      </section>
+      <section class="group" aria-label="Lattice">
+        <h2 class="group-title">The threshold</h2>
+        <label class="control" for="disorder"><span><b>Disorder</b><output id="disorderOut" for="disorder">0.40</output></span>
+          <input id="disorder" type="range" min="0" max="3" step="0.01" value="0.4"
+            title="Detunes each site away from its neighbours. Past a threshold, coupling can no longer move energy and the lattice freezes." /></label>
+        <p class="readout">
+          spread across <b id="prOut">—</b> cells · threshold at <b id="thresholdOut">—</b><br />
+          regime: <b id="regime">extended</b>
+        </p>
+        <label class="control" for="coupling"><span><b>Coupling</b><output id="couplingOut" for="coupling">0.55</output></span>
+          <input id="coupling" type="range" min="0.05" max="1" step="0.01" value="0.55" /></label>
+        <label class="control" for="damping"><span><b>Site decay</b><output id="dampingOut" for="damping">2.40 s</output></span>
+          <input id="damping" type="range" min="0.2" max="8" step="0.05" value="2.4" /></label>
+        <label class="control" for="inputGain"><span><b>Microphone drive</b><output id="inputGainOut" for="inputGain">0.80</output></span>
+          <input id="inputGain" type="range" min="0" max="2" step="0.01" value="0.8" /></label>
+        <label class="control" for="sizeSelect"><span><b>Lattice size</b></span>
+          <select id="sizeSelect"><option value="6">6 × 6</option><option value="8" selected>8 × 8</option><option value="10">10 × 10</option><option value="12">12 × 12</option></select></label>
+        <div class="transport-row"><button id="silenceButton" class="mini-action" type="button">Silence lattice</button></div>
+      </section>
+      <section class="group" id="howItWorks">
+        <h2 class="group-title">How it works</h2>
+        <p class="starting-note">
+          Each cell is a resonator. Coupling only moves energy between cells that are close in
+          frequency, and <b>Disorder</b> detunes them apart — so past a threshold the transfer collapses
+          and energy stops travelling. Strike a cell below the threshold and the whole grid lights up;
+          strike it above and the light stays where you put it.
+        </p>
+        <p class="starting-note">
+          The readout measures the participation ratio — roughly how many cells are sharing the energy —
+          and locates the threshold for the current coupling. It is computed from the model, not asserted.
+        </p>
+        <p class="starting-note">
+          <b>Record</b> feeds your own take into the input cell on a loop, so the phenomenon acts on your
+          sound rather than on a test tone. <kbd>Shift</kbd>-click to move where the microphone enters.
+        </p>
+        <p class="starting-note warn">
+          <b>Honesty:</b> a two-dimensional coupled-resonator model showing localization behaviour. Not a
+          claim of Anderson-localization fidelity, and no critical exponents are asserted.
+        </p>
+      </section>
+    </aside>
+  </main>
+  <script type="module" src="freeze-point-app.js?v=wave-20260918-1"></script>
+  <script type="module" src="nav.js"></script>
+</body>
+</html>

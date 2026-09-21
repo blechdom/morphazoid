@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="description" content="two modes that merge instead of crossing" />
+  <meta name="theme-color" content="#080e16" />
+  <title>Exceptional · Morphazoid</title>
+  <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="starting-instruments.css" />
+  <link rel="stylesheet" href="wave-lab.css" />
+</head>
+<body class="starting-instrument wave-lab" data-starting-instrument="exceptional" style="--accent:#ffa8c8">
+  <header class="masthead">
+    <a class="wordmark" href="./" aria-label="Morphazoid home"><span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span><span>morphazoid</span></a>
+    <nav class="tabs" aria-label="Instrument">
+      <a class="tab" href="crab-loom.html">Crab Loom</a>
+      <a class="tab" href="freeze-point.html">Freeze Point</a>
+      <a class="tab" href="scatter-ghost.html">Scatter Ghost</a>
+      <a class="tab active" href="exceptional.html" aria-current="page">Exceptional</a>
+      <a class="tab" href="lumber.html">Lumber Loops</a>
+    </nav>
+    <label class="mobile-instrument-nav"><span class="sr-only">Instrument</span>
+      <select class="mobile-instrument-select" aria-label="Instrument">
+        <option value="crab-loom.html">Crab Loom</option>
+        <option value="freeze-point.html">Freeze Point</option>
+        <option value="scatter-ghost.html">Scatter Ghost</option>
+        <option value="exceptional.html" selected>Exceptional</option>
+        <option value="lumber.html">Lumber Loops</option>
+      </select>
+    </label>
+    <div id="audioSlot" class="audio-strip" aria-label="Audio controls">
+      <button id="audioButton" class="audio-button" type="button" aria-pressed="false" disabled>Audio off · enable JavaScript</button>
+    </div>
+  </header>
+  <main class="starting-shell">
+    <section class="starting-stage" aria-label="Exceptional instrument">
+      <header class="starting-title"><h1>Exceptional</h1><p>two modes that merge instead of crossing</p></header>
+      <canvas id="stage" class="lab-canvas" tabindex="0" role="application" aria-label="A complex plane showing two eigenvalues. As the gain and loss balance rises they travel toward each other and coalesce at the exceptional point." aria-describedby="canvasInstructions"></canvas>
+      <p class="starting-hint" id="canvasInstructions">Press <b>Strike</b> or record into it, then raise <b>Gain / loss balance</b> slowly and listen to the two partials fuse. <b>Nudge</b> applies the same perturbation at any setting.</p>
+    </section>
+    <aside class="starting-controls" aria-label="Exceptional controls">
+      <section class="group">
+        <div class="transport-row">
+          <button id="playButton" type="button" aria-pressed="false" data-primary-transport>Play</button>
+          <button id="resetButton" class="mini-action" type="button" data-reset-all data-reset-in-place>Reset controls</button>
+        </div>
+        <div class="record-row">
+          <button id="recordButton" type="button" aria-pressed="false">Record</button>
+        </div>
+        <p id="liveStatus" role="status" aria-live="polite">Turn Audio on, then Play.</p>
+        <p id="audioError" role="alert" hidden></p>
+      </section>
+      <section class="group" aria-label="Modes">
+        <h2 class="group-title">Toward the point</h2>
+        <label class="control" for="gamma"><span><b>Gain / loss balance</b><output id="gammaOut" for="gamma">0.00</output></span>
+          <input id="gamma" type="range" min="0" max="2" step="0.005" value="0"
+            title="Raises gain on one mode and loss on the other. At balance equal to coupling the two modes coalesce." /></label>
+        <p class="readout">
+          split <b id="splitOut">—</b> Hz · proximity to the point <b id="proxOut">—</b><br />
+          <span id="regimeNote">two distinct modes</span>
+        </p>
+        <label class="control" for="kappa"><span><b>Coupling</b><output id="kappaOut" for="kappa">40 Hz</output></span>
+          <input id="kappa" type="range" min="2" max="200" step="1" value="40" /></label>
+        <label class="control" for="centre"><span><b>Centre</b><output id="centreOut" for="centre">320 Hz</output></span>
+          <input id="centre" type="range" min="60" max="2000" step="1" value="320" /></label>
+        <label class="control" for="decay"><span><b>Ring</b><output id="decayOut" for="decay">2.20 s</output></span>
+          <input id="decay" type="range" min="0.2" max="8" step="0.05" value="2.2" /></label>
+        <div class="transport-row">
+          <button id="strikeButton" type="button">Strike</button>
+          <button id="nudgeButton" class="mini-action" type="button">Nudge</button>
+        </div>
+        <p class="readout">response to the same nudge: <b id="nudgeOut">—</b></p>
+      </section>
+      <section class="group" id="howItWorks">
+        <h2 class="group-title">How it works</h2>
+        <p class="starting-note">
+          Two modes at the same centre frequency, coupled by <b>kappa</b>, with balanced gain and loss.
+          Their separation is the square root of <i>kappa² − gamma²</i>: as the balance rises the two
+          partials converge, and at <i>gamma = kappa</i> they do not merely meet — they <b>coalesce</b>.
+          That is the exceptional point.
+        </p>
+        <p class="starting-note">
+          The identity is the square root. Away from the point, <b>Nudge</b> moves the sound in proportion.
+          Near it, the same nudge moves it enormously, because the response goes as √ε rather than ε. The
+          readout shows that number changing as you approach.
+        </p>
+        <p class="starting-note">
+          Past the point the split becomes imaginary: one frequency, two different decay rates, one of
+          them growing. Gain is clamped below self-oscillation and the output is limited.
+        </p>
+        <p class="starting-note warn">
+          <b>Honesty:</b> the standard 2×2 non-Hermitian form rendered with resonant filters. Not a
+          PT-symmetric metamaterial simulation and no claim about non-Hermitian topology.
+        </p>
+      </section>
+    </aside>
+  </main>
+  <script type="module" src="exceptional-app.js?v=wave-20260918-1"></script>
+  <script type="module" src="nav.js"></script>
+</body>
+</html>

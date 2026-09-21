@@ -438,6 +438,14 @@ export const TOOL_GROUPS = Object.freeze([
     { id: "habit-habitat", label: "Habit Habitat", href: "habit-habitat.html" },
     { id: "hollowphonic", label: "Hollowphonic", href: "hollowphonic.html" },
     { id: "graph-3d", label: "3D Graph", href: "graph-3d.html" },
+    { id: "crab-loom", label: "Crab Loom", href: "crab-loom.html" },
+    { id: "freeze-point", label: "Freeze Point", href: "freeze-point.html" },
+    { id: "scatter-ghost", label: "Scatter Ghost", href: "scatter-ghost.html" },
+    { id: "exceptional", label: "Exceptional", href: "exceptional.html" },
+    { id: "head-shed", label: "Head Shed", href: "head-shed.html" },
+    { id: "splice-ring", label: "Splice Ring", href: "splice-ring.html" },
+    { id: "onset-atlas", label: "Onset Atlas", href: "onset-atlas.html" },
+    { id: "synaptic-resonance", label: "Synaptic Resonance", href: "synaptic-resonance.html" },
   ], { picker: false }),
 ]);
 

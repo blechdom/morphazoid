@@ -928,6 +928,14 @@ test("tool registry is categorized, unique, and includes Morphazoidical", () => 
       { id: "habit-habitat", href: "habit-habitat.html" },
       { id: "hollowphonic", href: "hollowphonic.html" },
       { id: "graph-3d", href: "graph-3d.html" },
+      { id: "crab-loom", href: "crab-loom.html" },
+      { id: "freeze-point", href: "freeze-point.html" },
+      { id: "scatter-ghost", href: "scatter-ghost.html" },
+      { id: "exceptional", href: "exceptional.html" },
+      { id: "head-shed", href: "head-shed.html" },
+      { id: "splice-ring", href: "splice-ring.html" },
+      { id: "onset-atlas", href: "onset-atlas.html" },
+      { id: "synaptic-resonance", href: "synaptic-resonance.html" },
     ],
   );
   assert.deepEqual(SITE_LINKS, []);
