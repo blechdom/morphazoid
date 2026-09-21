@@ -9,7 +9,7 @@ import {
   shapeMidiMacroAction,
   shapeMidiNoteRatio,
   shapeMidiPadAction,
-} from "../src/shape-midi.js";
+} from "../src/instruments/shape-synth/shape-midi.js";
 
 test("Shape note overlay uses C4 as neutral and follows equal temperament", () => {
   assert.equal(shapeMidiNoteRatio(60), 1);

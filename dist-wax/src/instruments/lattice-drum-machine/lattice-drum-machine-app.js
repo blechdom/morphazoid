@@ -12,20 +12,20 @@ import {
   parametersForDraggedVertex,
   tilingInfo,
   tilingParameterRange,
-} from "../../lattice.js";
+} from "../lattice/lattice.js";
 import {
   cloneDefaultFmDrumVoices,
   FM_DRUM_STORAGE_KEY,
   FmDrumAudio,
   sanitizeFmDrumVoice,
-} from "../../fm-drums.js";
+} from "../fm-drums/fm-drums.js";
 import {
   SAMPLE_DRUM_STORAGE_KEY,
   SampleDrumAudio,
   cloneDefaultSampleDrumVoices,
   mappedLatticeSampleDrumVoice,
   sanitizeSampleDrumVoice,
-} from "../../sample-drums.js";
+} from "../sample-drums/sample-drums.js";
 import {
   LATTICE_DRUM_MAPPING_MODES,
   latticeDrumVoiceIndex,
@@ -37,7 +37,7 @@ import {
   latticeColorPairForIndex,
   latticeColorPairLabel,
   normalizedLatticeColorPair,
-} from "../../lattice-colors.js";
+} from "../lattice/lattice-colors.js";
 import { EdgeShape } from "../../../vendor/tactile/tactile.js";
 import {
   rebaseContinuousPosition,

@@ -8,17 +8,17 @@ import {
   loadUtauBankFiles,
   utauBankAliases,
   vocalzoidAcceptedBankFiles,
-} from "../src/vocalzoid-bank.js";
+} from "../src/instruments/vocalzoid/vocalzoid-bank.js";
 import {
   VOCALZOID_MAX_BANK_BYTES,
   VOCALZOID_MAX_BANK_FILES,
-} from "../src/vocalzoid-audio.js";
+} from "../src/instruments/vocalzoid/vocalzoid-audio.js";
 import {
   VOCALZOID_OPEN_BANKS,
   vocalzoidOpenBank,
   vocalzoidOpenBankCoverage,
   vocalzoidOpenBankRecipe,
-} from "../src/vocalzoid-open-banks.js";
+} from "../src/instruments/vocalzoid/vocalzoid-open-banks.js";
 
 const encoder = new TextEncoder();
 

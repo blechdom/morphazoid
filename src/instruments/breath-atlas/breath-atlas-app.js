@@ -18,7 +18,7 @@ import {
   sourceNeedsGesture,
   sourceRequiresBreath,
   stateForInstrument,
-} from "../../breath-atlas.js";
+} from "./breath-atlas.js";
 import { connectAudioOutput } from "../../audio-output-manager.js";
 import { unlockAudioContext } from "../../audio.js";
 
@@ -132,7 +132,7 @@ async function createAudioGraph() {
   if (!Context) throw new Error("This browser does not provide Web Audio.");
   const context = new Context({ latencyHint: "interactive", sampleRate: 48_000 });
   unlockAudioContext(context);
-  await context.audioWorklet.addModule(new URL("../../breath-atlas-processor.js", import.meta.url));
+  await context.audioWorklet.addModule(new URL("./breath-atlas-processor.js", import.meta.url));
   const sourceNode = new AudioWorkletNode(context, "breath-atlas-physical-model", {
     numberOfInputs: 0,
     numberOfOutputs: 1,

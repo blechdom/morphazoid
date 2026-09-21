@@ -19,7 +19,7 @@ import {
   pitchShiftLoopSamplesByContour,
   waveformEnvelope,
   wrap01,
-} from "../../lumber.js";
+} from "./lumber.js";
 import { canvasSizing } from "../../graphics/canvas-sizing.js";
 
 const $ = (id) => document.getElementById(id);

@@ -8,7 +8,7 @@ import {
   createWavePoolState,
   deriveWavePoolPhysics,
   sanitizeWavePoolState,
-} from "../../wave-pool.js";
+} from "./wave-pool.js";
 import { connectAudioOutput } from "../../audio-output-manager.js";
 import { unlockAudioContext } from "../../audio.js";
 
@@ -152,7 +152,7 @@ async function createAudioGraph() {
   const context = new Context({ latencyHint: "interactive", sampleRate: 48_000 });
   unlockAudioContext(context);
   await context.resume();
-  await context.audioWorklet.addModule(new URL("../../wave-pool-processor.js", import.meta.url));
+  await context.audioWorklet.addModule(new URL("./wave-pool-processor.js", import.meta.url));
   const sourceNode = new AudioWorkletNode(context, "wave-pool-physical-model", {
     numberOfInputs: 0,
     numberOfOutputs: 1,

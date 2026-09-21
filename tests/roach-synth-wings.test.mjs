@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import * as THREE from '../vendor/three/three.module.min.js';
-import { splitRoachWingGeometry, articulateRoachWings, updateRoachWingFans } from '../src/roach-synth-wings.js';
+import { splitRoachWingGeometry, articulateRoachWings, updateRoachWingFans } from '../src/instruments/roach-synth/roach-synth-wings.js';
 
 function area(geometry) {
   let sum = 0;

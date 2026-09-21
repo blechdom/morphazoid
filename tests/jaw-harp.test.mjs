@@ -43,7 +43,7 @@ import {
   sanitizeJawHarpState,
   tineDisplayFrequencyHz,
   tineReleaseMotion,
-} from "../src/jaw-harp.js";
+} from "../src/instruments/jaw-harp/jaw-harp.js";
 
 const root = new URL("../", import.meta.url);
 
@@ -727,7 +727,7 @@ test("jaw-harp worklet renders a bounded, decaying pluck", async () => {
   };
   try {
     const { breathDirection, breathTextureGain, fastSine } = await import(
-      `../src/jaw-harp-processor.js?test=${Date.now()}`
+      `../src/instruments/jaw-harp/jaw-harp-processor.js?test=${Date.now()}`
     );
     assert.equal(breathDirection(0), 0);
     assert.ok(breathDirection(-0.2) < -0.99);
@@ -2261,7 +2261,7 @@ test("jaw-harp page exposes the physical model and accessible interactions", asy
     readFile(new URL("jaw-harp.html", root), "utf8"),
     readFile(new URL("src/instruments/jaw-harp/jaw-harp.css", root), "utf8"),
     readFile(new URL("src/instruments/jaw-harp/jaw-harp-app.js", root), "utf8"),
-    readFile(new URL("src/jaw-harp-processor.js", root), "utf8"),
+    readFile(new URL("src/instruments/jaw-harp/jaw-harp-processor.js", root), "utf8"),
   ]);
   assert.match(html, /<body class="jaw-harp-page"/);
   assert.match(html, /id="stage"[\s\S]*?tabindex="0"/);

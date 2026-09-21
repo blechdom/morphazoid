@@ -34,15 +34,15 @@ import {
   rotateHyperRubixPoint4,
   selectHyperRubixViewFacingCells,
   turnHyperRubixBoundaryCell,
-} from "../../hyper-rubix.js";
+} from "./hyper-rubix.js";
 import { unlockAudioContext } from "../../audio.js";
 import { connectAudioOutput } from "../../audio-output-manager.js";
 import { WebGpu303Audio, webGpu303Support } from "../../webgpu-303.js";
 import {
   HYPER_RUBIX_WEBGPU_303_DEFAULTS,
   createHyperRubixWebGpu303Pattern,
-} from "../../hyper-rubix-webgpu-303.js";
-import { projectedPolygonArea } from "../../rubix-visibility.js";
+} from "./hyper-rubix-webgpu-303.js";
+import { projectedPolygonArea } from "../rubix/rubix-visibility.js";
 
 const $ = (id) => document.getElementById(id);
 const clamp = (value, minimum, maximum) => Math.min(maximum, Math.max(minimum, value));

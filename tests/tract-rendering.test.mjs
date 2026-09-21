@@ -3,7 +3,7 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 import { currentSourcePath } from "./helpers/relocated-sources.mjs";
 
-import { SPECIMENS, VOICE_PRESETS, specimenState, voicePresetState } from "../src/throatazoid.js";
+import { SPECIMENS, VOICE_PRESETS, specimenState, voicePresetState } from "../src/families/tract/throatazoid.js";
 import { drawPhysicalTract } from "../src/families/tract/rendering.js";
 import { createTractGeometryHarness } from "./helpers/tract-geometry-harness.mjs";
 import { createTractRenderingHarness, recordTractDrawing } from "./helpers/tract-rendering-harness.mjs";

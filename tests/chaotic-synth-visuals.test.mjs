@@ -12,7 +12,7 @@ import {
   normalizeChaoticWaveformSample,
   updateChaoticSpectrum,
   updateChaoticSpectrogram,
-} from "../src/chaotic-synth-visuals.js";
+} from "../src/families/chaotic/chaotic-synth-visuals.js";
 
 test("chaotic synth analysis reserves scope above spectrogram and flow", () => {
   for (const height of [380, 500, 800]) {

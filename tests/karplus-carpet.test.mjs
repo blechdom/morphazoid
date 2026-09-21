@@ -21,13 +21,13 @@ import {
   mergeKarplusCarpetPresetSettings,
   normalizeKarplusCarpetSamples,
   sanitizeKarplusCarpetSettings,
-} from "../src/karplus-carpet.js";
+} from "../src/instruments/karplus-carpet/karplus-carpet.js";
 import {
   KARPLUS_STRONG_DEFAULTS,
   KARPLUS_STRONG_PRESETS,
   karplusStrongStringFrequencies,
   sanitizeKarplusStrongSettings,
-} from "../src/karplus-strong.js";
+} from "../src/instruments/karplus-strong/karplus-strong.js";
 
 const root = new URL("../", import.meta.url);
 
@@ -654,11 +654,11 @@ test("Karplus Carpet page exposes synthesized microsound performance controls", 
     readFile(new URL("karplus-carpet.html", root), "utf8"),
     readFile(new URL("src/instruments/karplus-carpet/karplus-carpet.css", root), "utf8"),
     readFile(new URL("src/instruments/karplus-carpet/karplus-carpet-app.js", root), "utf8"),
-    readFile(new URL("src/karplus-carpet.js", root), "utf8"),
+    readFile(new URL("src/instruments/karplus-carpet/karplus-carpet.js", root), "utf8"),
     readFile(new URL("dist-wax/karplus-carpet.html", root), "utf8"),
     readFile(new URL("dist-wax/src/instruments/karplus-carpet/karplus-carpet.css", root), "utf8"),
     readFile(new URL("dist-wax/src/instruments/karplus-carpet/karplus-carpet-app.js", root), "utf8"),
-    readFile(new URL("dist-wax/src/karplus-carpet.js", root), "utf8"),
+    readFile(new URL("dist-wax/src/instruments/karplus-carpet/karplus-carpet.js", root), "utf8"),
   ]);
   assert.match(html, /<h1>Karplus Carpet<\/h1>/);
   assert.match(html, /id="grainDuration"[^>]*type="range"[^>]*min="\.08"[^>]*max="\.4"/);

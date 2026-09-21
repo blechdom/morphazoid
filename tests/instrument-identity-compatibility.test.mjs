@@ -3,7 +3,7 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 import { dispatchBrowserMidiEvent } from "../src/browser-midi-adapter.js";
-import { PpqMidiOutputScheduler } from "../src/wax-midi-routing.js";
+import { PpqMidiOutputScheduler } from "../src/instruments/wax/wax-midi-routing.js";
 import { installUniversalWaxAdapter, routeIdForLocation } from "../scripts/wax/wax-universal-adapter.js";
 import { TOOL_GROUPS } from "../src/site/instrument-registry.js";
 

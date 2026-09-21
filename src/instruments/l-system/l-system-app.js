@@ -17,7 +17,7 @@ import {
   lSystemTraversalBoundaryGain,
   normalizeLSystemPoint,
   traceLSystem,
-} from "../../l-system.js";
+} from "./l-system.js";
 import { createAmplitudeControl } from "../../amplitude-control.js";
 import { canvasSizing } from "../../graphics/canvas-sizing.js";
 

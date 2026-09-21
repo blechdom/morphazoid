@@ -18,7 +18,7 @@ import {
   sandySyrupVoiceGain,
   sanitizeBarberDelayMode,
   sanitizeBarberDelayParams,
-} from "../src/barber-delay.js";
+} from "../src/families/barber-delay/barber-delay.js";
 
 test("Sandy Syrup preserves its centered rate and exponential history vectors", () => {
   assert.deepEqual(
@@ -180,7 +180,7 @@ test("Sandy worklet preallocates 24 streams, reserves traversal, and renders fin
   globalThis.sampleRate = 48_000;
 
   try {
-    await import(`../src/barber-delay.js?sandy-worklet=${Date.now()}`);
+    await import(`../src/families/barber-delay/barber-delay.js?sandy-worklet=${Date.now()}`);
     assert.equal(registeredName, BARBER_DELAY_PROCESSOR_NAME);
     const processor = new Processor({
       processorOptions: {

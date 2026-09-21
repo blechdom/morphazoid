@@ -16,12 +16,12 @@ import {
   quadraticSliderValue,
   sanitizeChaoticFmParams,
   sanitizeChaoticFmPerformance,
-} from "../../chaotic-fm.js";
-import { buildChaoticFmFlowDiagram } from "../../chaotic-fm-flow.js";
+} from "./chaotic-fm.js";
+import { buildChaoticFmFlowDiagram } from "../../families/chaotic/chaotic-fm-flow.js";
 import {
   createChaoticSpectrum,
   drawChaoticLiveAnalysis,
-} from "../../chaotic-synth-visuals.js";
+} from "../../families/chaotic/chaotic-synth-visuals.js";
 import { getSharedMidiManager } from "../../midi-manager.js";
 import { canvasSizing } from "../../graphics/canvas-sizing.js";
 

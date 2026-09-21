@@ -13,7 +13,7 @@ import {
   syrinxAnimalPreset,
   syrinxSourceExample,
   syrinxSourceModelId,
-} from "../src/syrinx-source-models.js";
+} from "../src/families/syrinx/syrinx-source-models.js";
 
 function peak(values) {
   let maximum = 0;

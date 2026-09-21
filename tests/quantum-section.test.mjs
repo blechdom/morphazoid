@@ -1,3 +1,4 @@
+import { relativeReference } from "../scripts/site/reference-paths.mjs";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
@@ -12,7 +13,7 @@ const quantumPages = Object.freeze([
     label: "Order Tones",
     page: "order-tones.html",
     app: "src/instruments/order-tones/order-tones-app.js",
-    core: "src/order-tones.js",
+    core: "src/instruments/order-tones/order-tones.js",
     number: "01",
   }),
   Object.freeze({
@@ -20,7 +21,7 @@ const quantumPages = Object.freeze([
     label: "Bell Square",
     page: "bell-square.html",
     app: "src/instruments/bell-square/bell-square-app.js",
-    core: "src/bell-square.js",
+    core: "src/instruments/bell-square/bell-square.js",
     number: "02",
   }),
   Object.freeze({
@@ -28,7 +29,7 @@ const quantumPages = Object.freeze([
     label: "Entanglement Dance",
     page: "entanglement-dance.html",
     app: "src/instruments/entanglement-dance/entanglement-dance-app.js",
-    core: "src/entanglement-dance.js",
+    core: "src/instruments/entanglement-dance/entanglement-dance.js",
     number: "03",
   }),
   Object.freeze({
@@ -36,7 +37,7 @@ const quantumPages = Object.freeze([
     label: "Quantum Square Dance",
     page: "quantum-square-dance.html",
     app: "src/instruments/quantum-square-dance/quantum-square-dance-app.js",
-    core: "src/quantum-square-dance.js",
+    core: "src/instruments/quantum-square-dance/quantum-square-dance.js",
     number: "04",
   }),
   Object.freeze({
@@ -44,7 +45,7 @@ const quantumPages = Object.freeze([
     label: "Annealogue",
     page: "annealogue.html",
     app: "src/instruments/annealogue/annealogue-app.js",
-    core: "src/annealogue.js",
+    core: "src/instruments/annealogue/annealogue.js",
     number: "05",
   }),
 ]);
@@ -95,7 +96,7 @@ test("Quantum Synth pages share the instrument shell and disclose simulation sco
     assert.match(html, new RegExp(`QUANTUM SYNTHS\\s*(?:&middot;|·)\\s*${instrument.number}`, "i"));
     assert.match(html, new RegExp(`<h1[^>]*>${instrument.label}<\\/h1>`, "i"));
     assert.match(html, new RegExp(`<script type="module" src="${instrument.app.replace(".", "\\.")}">`));
-    assert.match(app, new RegExp(`from ["']\\.\\./\\.\\./${instrument.core.replace("src/", "").replace(".", "\\.")}["']`));
+    assert.ok(app.includes(relativeReference(instrument.app, instrument.core)));
     for (const route of quantumPages) {
       assert.match(html, new RegExp(`(?:href|value)="${route.page.replace(".", "\\.")}"`));
     }

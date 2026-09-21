@@ -9,7 +9,7 @@ import {
   mobiusFrequencyMap,
   spectralMobiusGenerations,
   tentFold,
-} from "../src/recursion-spectral-dsp.js";
+} from "../src/instruments/recursion/recursion-spectral-dsp.js";
 
 const TWO_PI = Math.PI * 2;
 

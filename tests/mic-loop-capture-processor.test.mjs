@@ -20,7 +20,7 @@ globalThis.registerProcessor = (name, constructor) => {
   ProcessorConstructor = constructor;
 };
 
-await import(`../src/mic-loop-capture-processor.js?test=${Date.now()}`);
+await import(`../src/families/mic-branch/mic-loop-capture-processor.js?test=${Date.now()}`);
 
 test("microphone worklet captures an exact mono duration and transfers its PCM buffer", () => {
   assert.equal(processorName, "morphazoid-mic-loop-capture");

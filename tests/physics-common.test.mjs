@@ -9,7 +9,7 @@ import {
   pointAtDistance,
   pointInPolygon,
   regularPolygon,
-} from "../src/physics-common.js";
+} from "../src/families/physics/physics-common.js";
 
 test("regular physics polygons are deterministic and use centered model coordinates", () => {
   const first = regularPolygon(5, { radius: 0.7, rotation: 0.2 });

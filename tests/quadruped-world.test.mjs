@@ -1,8 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { QUADRUPED_ANIMALS, QUADRUPED_LANES, createQuadrupedState, sanitizeQuadrupedState, applyQuadrupedAnimal, applyQuadrupedBehavior, deriveQuadrupedPose } from "../src/quadruped.js";
-import { quadrupedCalls, quadrupedCallEvents, sanitizeQuadrupedCalls } from "../src/quadruped-voices.js";
-import { createQuadrupedGroup, quadrupedGroupOffsets, shareQuadrupedWorld, quadrupedStairSound, renderQuadrupedFriction } from "../src/quadruped-world.js";
+import { QUADRUPED_ANIMALS, QUADRUPED_LANES, createQuadrupedState, sanitizeQuadrupedState, applyQuadrupedAnimal, applyQuadrupedBehavior, deriveQuadrupedPose } from "../src/instruments/quadruped/quadruped.js";
+import { quadrupedCalls, quadrupedCallEvents, sanitizeQuadrupedCalls } from "../src/instruments/quadruped/quadruped-voices.js";
+import { createQuadrupedGroup, quadrupedGroupOffsets, shareQuadrupedWorld, quadrupedStairSound, renderQuadrupedFriction } from "../src/instruments/quadruped/quadruped-world.js";
 
 test("all fifteen animals own three named, distinct optional melodic calls", () => {
   for (const animal of QUADRUPED_ANIMALS) {

@@ -4,7 +4,7 @@ import {
   formatSortOperation,
   generateSortSequence,
   sanitizeSortSequencerParams,
-} from "../../algorithmic-sequencers.js";
+} from "./algorithmic-sequencers.js";
 import { unlockAudioContext } from "../../audio.js";
 import { connectAudioOutput } from "../../audio-output-manager.js";
 

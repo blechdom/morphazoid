@@ -38,7 +38,7 @@ A separate **Works in progress** instrument built on Graph Synth. The existing
 
 These are bounded artistic graph-layout forces, **not a claim of acoustic
 physics**. They do not generate new connections. The supported deterministic
-graph generators are reused from `src/graph-delay.js`; layouts are sphere,
+graph generators are reused from `src/instruments/graph-delay/graph-delay.js`; layouts are sphere,
 helix, layers and cube. Thirty presets (six original plus 24 additions) explore different structures,
 articulations, tempos, force settings and assignable sound mappings.
 The initial seed is **MIDI pitch 68** and tuning is **Continuous**. Every preset
@@ -135,7 +135,7 @@ These descriptions state design intent, not human listening approval.
 
 ## Reuse, scheduling and state ownership
 
-`src/graph-3d.js` reuses the existing topology generators, split/merge and
+`src/instruments/graph-3d/graph-3d.js` reuses the existing topology generators, split/merge and
 feedback gains, `graphSynthVoice` tuning/voice conversion, and
 `rotatePoint3`/`projectPoint3` from the solid instruments. Its separate
 spatial model and bounded frontier scheduler leave the 2D code unchanged.

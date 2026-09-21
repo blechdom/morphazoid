@@ -1,5 +1,5 @@
 import { getSharedMidiManager } from "../../src/midi-manager.js";
-import { waxSupportForId } from "../../src/wax-instrument-roles.js";
+import { waxSupportForId } from "../../src/instruments/wax/wax-instrument-roles.js";
 import { instrumentIdForRouteName, legacyInstrumentId } from "../../src/site/instrument-identities.js";
 import {
   UNIVERSAL_MIDI_CC_KEYWORDS,
@@ -17,7 +17,7 @@ import {
   PpqMidiOutputScheduler,
   normalizeWaxRoutingState,
   normalizedControlValue,
-} from "../../src/wax-midi-routing.js";
+} from "../../src/instruments/wax/wax-midi-routing.js";
 
 const EXISTING_MIDI_CLIENTS = new Set([
   "shape",

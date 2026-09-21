@@ -4,7 +4,7 @@ import {
   ENVELOPER_AUDIO_LIMITS,
   EnveloperAudio,
   deriveEnveloperLeafTrigger,
-} from "../src/enveloper-audio.js";
+} from "../src/instruments/enveloper/enveloper-audio.js";
 
 class FakeGraphSynthAudio {
   constructor() {

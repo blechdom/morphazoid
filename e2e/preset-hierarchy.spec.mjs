@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
-import { CREATURAZOID_BODY_PRESETS, CREATURAZOID_SEQUENCE_PRESETS } from "../src/creaturazoid.js";
-import { HICCUP_HEAD_PRESETS, HICCUP_HEAD_PATTERNS, HICCUP_HEAD_SOUND_BANKS } from "../src/hiccup-head.js";
+import { CREATURAZOID_BODY_PRESETS, CREATURAZOID_SEQUENCE_PRESETS } from "../src/instruments/creaturazoid/creaturazoid.js";
+import { HICCUP_HEAD_PRESETS, HICCUP_HEAD_PATTERNS, HICCUP_HEAD_SOUND_BANKS } from "../src/instruments/hiccup-head/hiccup-head.js";
 import { CREATURAZOID_FULL_PRESETS } from "../src/instruments/creaturazoid/full-presets.js";
 import { HICCUP_HEAD_FULL_PRESETS } from "../src/instruments/hiccup-head/full-presets.js";
 import { readAudioStatus } from "./helpers/audio-probe.mjs";

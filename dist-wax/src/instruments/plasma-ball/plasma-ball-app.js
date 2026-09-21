@@ -11,7 +11,7 @@ import {
   plasmaVoiceSpecs,
   stepPlasmaBolts,
   wrapAngle,
-} from "../../plasma-ball.js";
+} from "./plasma-ball.js";
 import { canvasSizing } from "../../graphics/canvas-sizing.js";
 
 const $ = (id) => document.getElementById(id);

@@ -1,5 +1,5 @@
-import { L_SYSTEM_PRESETS, traceLSystem } from "../../l-system.js";
-import { GENERATION_RULE_PRESETS, FIXED_FORK_DENSITY, MAX_GENERATION_STAGES, recursionParameters, generationTopology } from "../../micmic.js";
+import { L_SYSTEM_PRESETS, traceLSystem } from "../../instruments/l-system/l-system.js";
+import { GENERATION_RULE_PRESETS, FIXED_FORK_DENSITY, MAX_GENERATION_STAGES, recursionParameters, generationTopology } from "../../instruments/micmic/micmic.js";
 import { amplitudeEnvelopePreset, sanitizeAmplitudeEnvelope } from "../../audio.js";
 import { presetStateKey } from "../../site/header-presets.js";
 import { clonePresetData, presetRandom, randomParameterValues } from "../../site/preset-random.js";

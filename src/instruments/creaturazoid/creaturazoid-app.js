@@ -29,7 +29,7 @@ import {
   sanitizeCreaturazoidPattern,
   sanitizeCreaturazoidState,
   setCreaturazoidStep,
-} from "../../creaturazoid.js?v=creaturazoid-model-20260903-9";
+} from "./creaturazoid.js?v=creaturazoid-model-20260903-9";
 import {
   ANIMALS,
   CALL_GESTURES,
@@ -39,10 +39,10 @@ import {
   resolveSourceControls,
   resolveSyrinxPresetGain,
   sampleModulationWave,
-} from "../../syrinx.js?v=creaturazoid-core-20260902-2";
+} from "../../families/syrinx/syrinx.js?v=creaturazoid-core-20260902-2";
 import { connectAudioOutput } from "../../audio-output-manager.js";
 import { unlockAudioContext } from "../../audio.js";
-import { tongueAirwayAperture } from "../../tongue-physics.js";
+import { tongueAirwayAperture } from "../../families/syrinx/tongue-physics.js";
 import { registerHeaderPresets } from "../../site/header-presets.js";
 import { CREATURAZOID_FULL_PRESETS, randomizeCreaturazoidPreset } from "./full-presets.js";
 
@@ -395,7 +395,7 @@ async function createAudioGraph() {
   const context = new Context({ latencyHint: "interactive", sampleRate: 48_000 });
   unlockAudioContext(context);
   await context.audioWorklet.addModule(new URL(
-    "../../creaturazoid-processor.js?v=creaturazoid-worklet-20260903-6",
+    "./creaturazoid-processor.js?v=creaturazoid-worklet-20260903-6",
     import.meta.url,
   ));
   const configuration = restingConfiguration();

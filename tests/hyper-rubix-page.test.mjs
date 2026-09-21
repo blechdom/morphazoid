@@ -332,7 +332,7 @@ test("shape position, independent tails, Rattlesnake, and WebGPU 303 stay mapped
   assert.match(app, /if \(isRattlesnakePreset\(\)\)[\s\S]*?audio\.scheduleRattleStep/);
 
   assert.match(app, /import \{ WebGpu303Audio, webGpu303Support \} from "\.\.\/\.\.\/webgpu-303\.js"/);
-  assert.match(app, /createHyperRubixWebGpu303Pattern,[\s\S]*?from "\.\.\/\.\.\/hyper-rubix-webgpu-303\.js"/);
+  assert.match(app, /createHyperRubixWebGpu303Pattern,[\s\S]*?from "\.\/hyper-rubix-webgpu-303\.js"/);
   assert.match(app, /function syncWebGpu303Pattern\(/);
   assert.match(app, /function queueWebGpu303Sync\(/);
   assert.match(app, /async function stopWebGpu303Engine\(/);
@@ -409,7 +409,7 @@ test("variable-order twists stay manual and the guide explains 64, 216, and 512 
 
 test("the app keeps its pure core, keyboard play, local imports, and responsive canvas styling", async () => {
   const { css, app } = await pageSources();
-  const coreImport = app.match(/import\s*\{([\s\S]*?)\}\s*from "\.\.\/\.\.\/hyper-rubix\.js";/);
+  const coreImport = app.match(/import\s*\{([\s\S]*?)\}\s*from "\.\/hyper-rubix\.js";/);
   assert.ok(coreImport);
   for (const name of [
     "HYPER_RUBIX_BOUNDARY_CELLS",

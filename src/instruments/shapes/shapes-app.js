@@ -16,16 +16,16 @@ import { rebasePingPongPosition } from "../../articulation.js";
 import {
   cloneDefaultFmDrumVoices,
   FmDrumAudio,
-} from "../../fm-drums.js";
+} from "../fm-drums/fm-drums.js";
 import {
   LINEAR_DRUM_PRESETS,
   LinearDrumAudio,
   linearDrumFrequencyAtPosition,
-} from "../../linear-drums.js";
+} from "../linear-drums/linear-drums.js";
 import {
   buildShapesDivisionMarkers,
   buildShapesScene,
-} from "../../shapes-scene.js";
+} from "./shapes-scene.js";
 import {
   directedCornerEnvelopeProfile,
   shapes2dContactContourDirection,
@@ -33,7 +33,7 @@ import {
 import {
   advanceShapesRhythmSample,
   createShapesRhythmSample,
-} from "../../shapes-rhythm.js";
+} from "./shapes-rhythm.js";
 import {
   advanceShapesMotion,
   createShapesState,
@@ -58,7 +58,7 @@ import {
   SHAPES_DIMENSIONS,
   SHAPES_STORAGE_KEY,
   SHAPES_TRIGGER_SOUND_BANKS,
-} from "../../shapes-state.js";
+} from "./shapes-state.js";
 
 const TAU = Math.PI * 2;
 const AUDIO_LOOKAHEAD_SECONDS = 0.075;

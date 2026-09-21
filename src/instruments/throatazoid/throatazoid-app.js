@@ -31,7 +31,7 @@ import {
   tongueFromTractCoordinates,
   voicePresetState,
   waveformLevel,
-} from "../../throatazoid.js";
+} from "../../families/tract/throatazoid.js";
 import { connectAudioOutput } from "../../audio-output-manager.js";
 import { unlockAudioContext } from "../../audio.js";
 import {
@@ -520,7 +520,7 @@ async function createPhysicalTract(audio) {
   ) return null;
   try {
     await audio.audioWorklet.addModule(
-      new URL("../../throatazoid-tract-processor.js", import.meta.url),
+      new URL("../../families/tract/throatazoid-tract-processor.js", import.meta.url),
     );
     const processor = new globalThis.AudioWorkletNode(
       audio,

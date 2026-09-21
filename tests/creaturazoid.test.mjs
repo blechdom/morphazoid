@@ -6,7 +6,7 @@ import {
   CALL_GESTURES,
   CONTROL_LIMITS,
   resolveSourceControls,
-} from "../src/syrinx.js";
+} from "../src/families/syrinx/syrinx.js";
 import {
   CREATURAZOID_ANATOMY_DESIGNS,
   CREATURAZOID_BODY_PRESETS,
@@ -55,8 +55,8 @@ import {
   sanitizeCreaturazoidShape,
   sanitizeCreaturazoidState,
   setCreaturazoidStep,
-} from "../src/creaturazoid.js";
-import { applyTongueToDiameter } from "../src/tongue-physics.js";
+} from "../src/instruments/creaturazoid/creaturazoid.js";
+import { applyTongueToDiameter } from "../src/families/syrinx/tongue-physics.js";
 
 const HYBRINX_PALETTE = new Set([
   "#baff54",

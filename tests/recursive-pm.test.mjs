@@ -13,7 +13,7 @@ import {
   logarithmicRecursivePmValue,
   sanitizeRecursivePmSettings,
   summarizeRecursivePmStack,
-} from "../src/recursive-pm.js";
+} from "../src/instruments/recursive-pm/recursive-pm.js";
 
 test("Recursive PM preserves all five exact Morphisma factory settings", () => {
   assert.equal(DEFAULT_RECURSIVE_PM_PRESET_ID, "chromium-swarm");
@@ -284,7 +284,7 @@ test("audio engine starts once, updates smoothly, analyses, and fully closes", a
   assert.equal(engine.waveform.length, 512, "scope window matches Chaotic FM");
   assert.equal(FakeAudioContext.instances.length, 1);
   assert.equal(engine.context.options.latencyHint, "interactive");
-  assert.match(engine.context.modules[0], /src\/recursive-pm\.js$/);
+  assert.match(engine.context.modules[0], /src\/instruments\/recursive-pm\/recursive-pm\.js$/);
   assert.equal(engine.worklet.name, "morphazoid-recursive-pm");
   assert.equal(engine.worklet.messages[0].type, "settings");
   assert.equal(engine.worklet.messages[0].immediate, true);
@@ -308,7 +308,7 @@ test("audio engine starts once, updates smoothly, analyses, and fully closes", a
 
 test("worklet uses exact recursive phase modulation without render allocations", async () => {
   const source = await readFile(
-    new URL("../src/recursive-pm.js", import.meta.url),
+    new URL("../src/instruments/recursive-pm/recursive-pm.js", import.meta.url),
     "utf8",
   );
   const processBody = source.slice(

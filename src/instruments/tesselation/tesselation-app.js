@@ -13,7 +13,7 @@ import {
 import {
   cloneDefaultFmDrumVoices,
   FmDrumAudio,
-} from "../../fm-drums.js";
+} from "../fm-drums/fm-drums.js";
 import {
   TILING_TYPES,
   buildLattice,
@@ -30,7 +30,7 @@ import {
   parametersForDraggedVertex,
   tilingInfo,
   tilingParameterRange,
-} from "../../lattice.js";
+} from "../lattice/lattice.js";
 import {
   angleShapePitchForSpiralContact,
   buildSpiralTessellation,
@@ -39,7 +39,7 @@ import {
   phaseForSpiralPoint,
   scaleRateForSpiralRadius,
   shapePitchForSpiralContact,
-} from "../../spiral.js";
+} from "../spiral/spiral.js";
 import {
   LATTICE_DRUM_MAPPING_MODES,
   latticeDrumVoiceIndex,

@@ -6,14 +6,14 @@ import {
   contourEvents,
   contourPointAtDistance,
   selectEscherContours,
-} from "../src/escher-contours.js";
-import { buildLattice, tilingInfo } from "../src/lattice.js";
+} from "../src/instruments/escher-tessellation/escher-contours.js";
+import { buildLattice, tilingInfo } from "../src/instruments/lattice/lattice.js";
 import {
   createHyperbolicTiling,
   createSimilarityOrbit,
   escherTessellationPreset,
   samplePoincareGeodesic,
-} from "../src/escher-tessellation.js";
+} from "../src/instruments/escher-tessellation/escher-tessellation.js";
 
 const EPSILON = 1e-7;
 const BOUNDS = Object.freeze({ minX: -1.35, minY: -1.05, maxX: 1.35, maxY: 1.05 });

@@ -6,20 +6,20 @@ import { HICCUP_HEAD_FULL_PRESETS } from "../src/instruments/hiccup-head/full-pr
 import { KARPLUS_STRONG_FULL_PRESETS } from "../src/instruments/karplus-strong/full-presets.js";
 import { algorithmicFullPresets } from "../src/families/algorithmic-scores/full-presets.js";
 import { CASCADING_FM_FULL_PRESETS, CASCADING_PM_FULL_PRESETS } from "../src/families/cascading/full-presets.js";
-import { CASCADING_FM_PRESETS, deriveCascadeStack as fmStack } from "../src/cascading-fm.js";
-import { CASCADING_PM_PRESETS, deriveCascadeStack as pmStack } from "../src/cascading-pm.js";
+import { CASCADING_FM_PRESETS, deriveCascadeStack as fmStack } from "../src/instruments/cascading-fm/cascading-fm.js";
+import { CASCADING_PM_PRESETS, deriveCascadeStack as pmStack } from "../src/instruments/cascading-pm/cascading-pm.js";
 import {
   CREATURAZOID_BODY_PRESETS, CREATURAZOID_SEQUENCE_PRESETS, sanitizeCreaturazoidState, sanitizeCreaturazoidPattern,
-} from "../src/creaturazoid.js";
+} from "../src/instruments/creaturazoid/creaturazoid.js";
 import {
   HICCUP_HEAD_PRESETS, HICCUP_HEAD_PATTERNS, HICCUP_HEAD_SOUND_BANKS, sanitizeHiccupHeadState, sanitizeHiccupHeadVoice, clonePattern,
-} from "../src/hiccup-head.js";
+} from "../src/instruments/hiccup-head/hiccup-head.js";
 import {
   KARPLUS_STRONG_PRESETS, sanitizeKarplusStrongSettings, sanitizeKarplusStrongTuning, generateKarplusStrongSamples,
-} from "../src/karplus-strong.js";
+} from "../src/instruments/karplus-strong/karplus-strong.js";
 import {
   ALGORITHMIC_INSTRUMENTS, sanitizeAlgorithmicScoreParams, generateAlgorithmicScore,
-} from "../src/algorithmic-scores.js";
+} from "../src/families/algorithmic-scores/algorithmic-scores.js";
 import { FAVE_TOOL_IDS } from "../src/site/instrument-registry.js";
 
 const equalIds = (actual, records) => assert.deepEqual(new Set(actual), new Set(records.map(record => record.id)));

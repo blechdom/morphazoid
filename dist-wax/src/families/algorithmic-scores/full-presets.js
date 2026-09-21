@@ -1,4 +1,4 @@
-import { ALGORITHMIC_INSTRUMENTS, sanitizeAlgorithmicScoreParams } from "../../algorithmic-scores.js";
+import { ALGORITHMIC_INSTRUMENTS, sanitizeAlgorithmicScoreParams } from "./algorithmic-scores.js";
 import { presetRandom } from "../../site/preset-random.js";
 
 // Explicit score/sound studies, applied to each instrument's own algorithm and

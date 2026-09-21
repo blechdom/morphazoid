@@ -260,8 +260,8 @@ test("Zombie Zoid uses dedicated non-human anatomy without changing shared contr
 test("Zombie Zoid cycles deterministic alien-zombie decay without brain or neon anatomy", async () => {
   const [app, model, processor, assetReadme] = await Promise.all([
     readFile(new URL("src/instruments/hiccup-head/hiccup-head-app.js", root), "utf8"),
-    readFile(new URL("src/hiccup-head.js", root), "utf8"),
-    readFile(new URL("src/hiccup-head-processor.js", root), "utf8"),
+    readFile(new URL("src/instruments/hiccup-head/hiccup-head.js", root), "utf8"),
+    readFile(new URL("src/instruments/hiccup-head/hiccup-head-processor.js", root), "utf8"),
     readFile(new URL("assets/hiccup-head/skins/README.md", root), "utf8"),
   ]);
   const palettes = sourceForNamedArray(app, "WILD_INK_DECAY_PALETTES");
@@ -545,8 +545,8 @@ test("every non-checker skin owns a deterministic, visibly distinct face-field b
 test("skin beat render helpers are paint-only and Zombie Zoid retains low-fi ink texture", async () => {
   const [app, model, processor] = await Promise.all([
     readFile(new URL("src/instruments/hiccup-head/hiccup-head-app.js", root), "utf8"),
-    readFile(new URL("src/hiccup-head.js", root), "utf8"),
-    readFile(new URL("src/hiccup-head-processor.js", root), "utf8"),
+    readFile(new URL("src/instruments/hiccup-head/hiccup-head.js", root), "utf8"),
+    readFile(new URL("src/instruments/hiccup-head/hiccup-head-processor.js", root), "utf8"),
   ]);
   const beatFrame = sourceForFunction(app, "visualSkinBeatFrame");
   const field = sourceForFunction(app, "drawVisualSkinBeatField");
@@ -862,8 +862,8 @@ test("atlas border scraps are cropped without rescaling the noses or hair", asyn
 test("changing a skin cannot write audio, model, voice, pattern, or scheduler state", async () => {
   const [app, model, processor] = await Promise.all([
     readFile(new URL("src/instruments/hiccup-head/hiccup-head-app.js", root), "utf8"),
-    readFile(new URL("src/hiccup-head.js", root), "utf8"),
-    readFile(new URL("src/hiccup-head-processor.js", root), "utf8"),
+    readFile(new URL("src/instruments/hiccup-head/hiccup-head.js", root), "utf8"),
+    readFile(new URL("src/instruments/hiccup-head/hiccup-head-processor.js", root), "utf8"),
   ]);
   const setter = sourceForFunction(app, "setVisualSkin");
 
@@ -1038,8 +1038,8 @@ test("webcam pixels become one session-only atlas and never enter storage, uploa
   const [html, app, model, processor] = await Promise.all([
     readFile(new URL("hiccup-head.html", root), "utf8"),
     readFile(new URL("src/instruments/hiccup-head/hiccup-head-app.js", root), "utf8"),
-    readFile(new URL("src/hiccup-head.js", root), "utf8"),
-    readFile(new URL("src/hiccup-head-processor.js", root), "utf8"),
+    readFile(new URL("src/instruments/hiccup-head/hiccup-head.js", root), "utf8"),
+    readFile(new URL("src/instruments/hiccup-head/hiccup-head-processor.js", root), "utf8"),
   ]);
   const ephemeralStart = app.indexOf("const WEBCAM_CUTUP_VISUAL_SKIN");
   const ephemeralEnd = app.indexOf("const VISUAL_SKIN_STORAGE_KEY", ephemeralStart);

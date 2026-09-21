@@ -21,7 +21,7 @@ import {
   sanitizeWebGpuSynthSequence,
   varyWebGpuSynthSequence,
   webGpuSynthSupport,
-} from "../../webgpu-synths.js?v=20260826-phase-safe-presets";
+} from "./webgpu-synths.js?v=20260826-phase-safe-presets";
 
 const $ = (id) => document.getElementById(id);
 const clamp = (value, minimum, maximum) => Math.min(maximum, Math.max(minimum, Number(value) || 0));

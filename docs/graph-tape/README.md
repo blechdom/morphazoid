@@ -60,7 +60,7 @@ Not a new instrument. Make Lumber do what it looks like it already does:
 
 1. **Dry monitoring** — one gain node; it is currently a hard zero
 2. **Draggable heads on the canvas** — heads are drawn but slider-driven only
-3. **Duration-preserving length change** — wire the existing OLA resampler in `src/lumber.js`
+3. **Duration-preserving length change** — wire the existing OLA resampler in `src/instruments/lumber/lumber.js`
    to length changes, decoupling period from pitch
 
 Each is independently worth doing, and all three are prerequisites for B.

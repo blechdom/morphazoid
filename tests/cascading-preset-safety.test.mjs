@@ -8,7 +8,7 @@ import {
   DEFAULT_CASCADING_FM_PRESET_ID,
   deriveCascadeStack as deriveFmStack,
   sanitizeCascadingFmSettings,
-} from "../src/cascading-fm.js";
+} from "../src/instruments/cascading-fm/cascading-fm.js";
 import {
   CASCADING_PM_DEFAULTS,
   CASCADING_PM_LIMITS,
@@ -18,7 +18,7 @@ import {
   deriveCascadeStack as derivePmStack,
   renderCascadingPmSamples,
   sanitizeCascadingPmSettings,
-} from "../src/cascading-pm.js";
+} from "../src/instruments/cascading-pm/cascading-pm.js";
 
 const SAMPLE_RATE = 48_000;
 const FRAME_COUNT = 32_768;

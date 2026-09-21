@@ -5,7 +5,7 @@ import { clamp, cornerStrikePeak, cornerAttackSeconds, cornerDecaySeconds, pitch
 import { crossesPeriodicTarget, crossesPingPongTarget } from "../../articulation.js";
 import { wrap01, pointAtPath } from "../../geometry.js";
 import { crossedHyperplaneVertex } from "../../hyper.js";
-import { shapes2dHeadTravel, shapesDivisionCount } from "../../shapes-state.js";
+import { shapes2dHeadTravel, shapesDivisionCount } from "./shapes-state.js";
 
 export function sampleGeometryEnvelope(envelope, phase, peak) {
   const raw = clamp(phase, 0, 1);

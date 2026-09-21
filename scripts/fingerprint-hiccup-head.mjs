@@ -28,8 +28,8 @@ function versionReference(source, pathname, version) {
 }
 
 export async function fingerprintHiccupHead(outputDirectory) {
-  const modelPath = path.join(outputDirectory, "src/hiccup-head.js");
-  const processorPath = path.join(outputDirectory, "src/hiccup-head-processor.js");
+  const modelPath = path.join(outputDirectory, "src/instruments/hiccup-head/hiccup-head.js");
+  const processorPath = path.join(outputDirectory, "src/instruments/hiccup-head/hiccup-head-processor.js");
   const appPath = path.join(outputDirectory, "src/instruments/hiccup-head/hiccup-head-app.js");
   const cssPath = path.join(outputDirectory, "src/instruments/hiccup-head/hiccup-head.css");
   const htmlPath = path.join(outputDirectory, "hiccup-head.html");
@@ -76,7 +76,7 @@ export async function fingerprintHiccupHead(outputDirectory) {
   for (const [pathname, version] of Object.entries(roomImpulseVersions)) {
     html = versionReference(html, pathname.replace(/^\.\//, ""), version);
   }
-  html = versionReference(html, "src/hiccup-head-processor.js", processorVersion);
+  html = versionReference(html, "src/instruments/hiccup-head/hiccup-head-processor.js", processorVersion);
   html = versionReference(html, "src/instruments/hiccup-head/hiccup-head.css", cssVersion);
   html = versionReference(html, "src/instruments/hiccup-head/hiccup-head-app.js", appVersion);
   await writeFile(htmlPath, html, "utf8");

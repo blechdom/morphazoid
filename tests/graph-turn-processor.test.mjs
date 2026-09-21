@@ -18,7 +18,7 @@ globalThis.registerProcessor = (name, constructor) => {
   ProcessorConstructor = constructor;
 };
 
-await import(`../src/graph-turn-processor.js?test=${Date.now()}`);
+await import(`../src/instruments/graph-delay/graph-turn-processor.js?test=${Date.now()}`);
 
 function renderTone(processor, {
   semitones,

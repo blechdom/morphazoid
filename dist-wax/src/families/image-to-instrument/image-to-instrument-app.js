@@ -13,7 +13,7 @@ import {
   midiToFrequency,
   radialPetalLayout,
   sequencerStepDurationSeconds,
-} from "../../image-to-instrument.js";
+} from "./image-to-instrument.js";
 
 const TAU = Math.PI * 2;
 const NOTE_NAMES = Object.freeze(["C", "C♯", "D", "E♭", "E", "F", "F♯", "G", "A♭", "A", "B♭", "B"]);

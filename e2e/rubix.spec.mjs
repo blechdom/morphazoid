@@ -149,7 +149,7 @@ for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 
       await page.waitForTimeout(100);
       const evidence = await page.evaluate(async () => {
         const s = (await import("/src/instruments/rubix/rubix-app.js")).rubixPlaybackSnapshot();
-        const { createRubixVisibilityProfile } = await import("/src/rubix-visibility.js");
+        const { createRubixVisibilityProfile } = await import("/src/instruments/rubix/rubix-visibility.js");
         return { ...s, expected: createRubixVisibilityProfile(s.geometry, s.viewport), overflow: document.documentElement.scrollWidth > innerWidth + 1 };
       });
       expect(evidence.visibility).toEqual(evidence.expected);
@@ -167,7 +167,7 @@ for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 
 test("live gain fades a sustained note to the new area, then exact hidden silence", async ({ page }, info) => {
   await page.goto("/rubix.html");
   const result = await page.evaluate(async () => {
-    const { RubixStickerMixer } = await import("/src/rubix-mix.js");
+    const { RubixStickerMixer } = await import("/src/instruments/rubix/rubix-mix.js");
     const context = new OfflineAudioContext(1, 48000, 48000);
     const mixer = new RubixStickerMixer(context);
     mixer.update({ test: 1 });
@@ -342,7 +342,7 @@ test("Rubix keeps its Classic fallback playable when Wasm cannot load", async ({
 test("master dynamics reduce dense-versus-sparse level swings without clipping", async ({ page }, info) => {
   await page.goto("/rubix.html");
   const measurements = await page.evaluate(async () => {
-    const { createRubixDynamics } = await import("/src/rubix-mix.js");
+    const { createRubixDynamics } = await import("/src/instruments/rubix/rubix-mix.js");
     const results = [];
     for (const count of [1, 3, 6]) {
       const context = new OfflineAudioContext(1, 48000, 48000);

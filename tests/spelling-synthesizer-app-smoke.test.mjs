@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
-import { SPELLING_DIPHONE_CLIPS } from "../src/spelling-diphone-atlas.js";
+import { SPELLING_DIPHONE_CLIPS } from "../src/instruments/spelling-synthesizer/spelling-diphone-atlas.js";
 
 const MOCK_ATLAS_DURATION = Math.max(
   ...Object.values(SPELLING_DIPHONE_CLIPS)

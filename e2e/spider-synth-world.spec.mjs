@@ -16,7 +16,7 @@ async function setRange(page, id, value) {
 }
 async function webHub(page) {
   return page.evaluate(async () => {
-    const { createSpiderWeb } = await import('./src/spider-synth-web.js');
+    const { createSpiderWeb } = await import('./src/instruments/spider-synth/spider-synth-web.js');
     return createSpiderWeb(window.spiderSynth.getState().webSettings).nodes.find(node => node.role === 'hub');
   });
 }

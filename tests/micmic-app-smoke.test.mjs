@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
-import { sliderFromTimeFold } from "../src/micmic.js";
+import { sliderFromTimeFold } from "../src/instruments/micmic/micmic.js";
 
 test("L-system Delay renders and drives a recursive microphone graph", async () => {
   const html = await readFile(new URL("../l-mic.html", import.meta.url), "utf8");

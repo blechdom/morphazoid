@@ -1,8 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import { PROPS, PugglerModel, soundMapping } from '../src/puggler.js';
-import { SKINS, SKIN_ATLASES, skinFor, presentProp } from '../src/puggler-skins.js';
+import { PROPS, PugglerModel, soundMapping } from '../src/instruments/puggler/puggler.js';
+import { SKINS, SKIN_ATLASES, skinFor, presentProp } from '../src/instruments/puggler/puggler-skins.js';
 
 test('skin choices have stable cast identities and canonical fallback', () => {
   assert.deepEqual(SKINS.map(skin => skin.id), ['punk', 'history', 'future']);

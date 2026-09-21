@@ -62,9 +62,9 @@ frozen artifacts for comparison.
 
 Do **not** delete all files matching `throatazoid*`:
 
-- `src/throatazoid.js` is imported by Alien Larynx, Throat Singing, Morphynx,
+- `src/families/tract/throatazoid.js` is imported by Alien Larynx, Throat Singing, Morphynx,
   Pink Trombonazoid, Spelling Synthesizer, Wheel of Organs and the tract modules.
-- `src/throatazoid-tract-processor.js` is loaded by Throat Singing and Spelling
+- `src/families/tract/throatazoid-tract-processor.js` is loaded by Throat Singing and Spelling
   Synthesizer independently of the retired page.
 - `throatazoid.css` is still loaded by Alien Larynx.
 - Model/processor tests, third-party notices and technical lineage documents
@@ -84,8 +84,8 @@ measure lexical overlap, not musical or behavioral equivalence.
 | Family | Evidence | Disposition |
 | --- | --- | --- |
 | Throatazoid / Alien Larynx | About 99% of the shorter remaining controller is covered by duplicate blocks; Alien has five additional systems. | Owner chose retirement of standalone Throatazoid. Preserve shared dependencies. |
-| Graphs / Graph Synth / Graph Drums / Graph Delay | `src/graphs-suite.js` explicitly identifies the three older pages as Graphs modes. About 78% of the older shared controller is covered by duplicate blocks with `graphs-app.js`. | Highest next consolidation review. Check presets, limits, gesture/transport and mic behavior before retiring old pages. |
-| L-Systems / L-System / L-System Drums / L-System Delay | `src/l-systems-suite.js` explicitly maps the older pages into the combined suite. | High-priority product overlap even without a top-ranked text match. Defaults differ: for example the standalone synth's level is 0.55 versus 0.58 in the suite, so it is not automatically a drop-in replacement. |
+| Graphs / Graph Synth / Graph Drums / Graph Delay | `src/instruments/graphs/graphs-suite.js` explicitly identifies the three older pages as Graphs modes. About 78% of the older shared controller is covered by duplicate blocks with `graphs-app.js`. | Highest next consolidation review. Check presets, limits, gesture/transport and mic behavior before retiring old pages. |
+| L-Systems / L-System / L-System Drums / L-System Delay | `src/instruments/l-systems/l-systems-suite.js` explicitly maps the older pages into the combined suite. | High-priority product overlap even without a top-ranked text match. Defaults differ: for example the standalone synth's level is 0.55 versus 0.58 in the suite, so it is not automatically a drop-in replacement. |
 | Ouroborousel / Ourorourobouroboros | About 68% controller/model overlap in the reported pairs. The latter adds different layer handling, nested-silence/mix state, defaults and output constraints. | Review retained musical identity with the owner. Do not infer that the extra variant supersedes the first. |
 | Roach Synth / Spider Synth infrastructure | Roughly 78% MIDI-module and 71% audio-wrapper overlap in the reported pairs. | Shared plumbing does not make these duplicate instruments. Keep the instruments; consider infrastructure extraction only later. |
 | Geometry synth/drum pairs; FM Drums / Sample Drums; FM/PM pairs | Related interfaces/geometry or shared infrastructure, but different engines or playing roles. | Do not remove on source similarity alone. |

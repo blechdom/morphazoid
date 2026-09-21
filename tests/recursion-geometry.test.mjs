@@ -7,8 +7,8 @@ import {
   motionCoordinates,
   stackPoint,
   torusPoint,
-} from "../src/recursion-geometry.js";
-import { buildRecursionPlan } from "../src/recursion.js";
+} from "../src/instruments/recursion/recursion-geometry.js";
+import { buildRecursionPlan } from "../src/instruments/recursion/recursion.js";
 
 const EPSILON = 1e-9;
 

@@ -1,7 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { expect, test } from "@playwright/test";
 
-import { voicePresetState } from "../src/throatazoid.js";
+import { voicePresetState } from "../src/families/tract/throatazoid.js";
 import { createTractGeometryHarness } from "../tests/helpers/tract-geometry-harness.mjs";
 import { readAudioStatus, sampleAudioEnvelope, waitForStableAudioState } from "./helpers/audio-probe.mjs";
 import { attachJson, canvasLayouts } from "./helpers/canvas-preservation.mjs";

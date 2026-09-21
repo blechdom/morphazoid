@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
-import { SPELLING_DIPHONE_CLIPS } from "../src/spelling-diphone-atlas.js";
+import { SPELLING_DIPHONE_CLIPS } from "../src/instruments/spelling-synthesizer/spelling-diphone-atlas.js";
 import {
   SPELLING_PRONUNCIATION_DICTIONARY_URL,
   fallbackSpellingPronunciation,
@@ -11,7 +11,7 @@ import {
   parseSpellingPronunciations,
   spellingPhoneDefinition,
   spellingPronunciationTokens,
-} from "../src/spelling-pronunciation.js";
+} from "../src/instruments/spelling-synthesizer/spelling-pronunciation.js";
 
 const ARPABET_PHONES = Object.freeze([
   "AA", "AE", "AH", "AO", "AW", "AY", "B", "CH", "D", "DH", "EH", "ER", "EY",

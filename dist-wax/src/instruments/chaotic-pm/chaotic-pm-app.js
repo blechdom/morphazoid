@@ -15,11 +15,11 @@ import {
   sanitizeChaoticPmParams,
   sanitizeChaoticPmPerformance,
   summarizeChaoticPmStack,
-} from "../../chaotic-pm.js";
+} from "./chaotic-pm.js";
 import {
   createChaoticSpectrum,
   drawChaoticLiveAnalysis,
-} from "../../chaotic-synth-visuals.js";
+} from "../../families/chaotic/chaotic-synth-visuals.js";
 import { getSharedMidiManager } from "../../midi-manager.js";
 import { canvasSizing } from "../../graphics/canvas-sizing.js";
 

@@ -6,7 +6,7 @@ import {
   HOCKET_MARKER_NODE_LIMIT,
   HOCKET_MARKER_SOURCE_LIMIT,
   hocketMarkerPlan,
-} from "../src/hocket-loom-audio.js";
+} from "../src/instruments/hocket-loom/hocket-loom-audio.js";
 import {
   DEFAULT_HOCKET_STATE,
   HOCKET_PRESETS,
@@ -25,7 +25,7 @@ import {
   rotateHocketPattern,
   sanitizeHocketState,
   tightenHocketPattern,
-} from "../src/hocket-loom.js";
+} from "../src/instruments/hocket-loom/hocket-loom.js";
 
 const root = new URL("../", import.meta.url);
 
@@ -418,7 +418,7 @@ test("page markup exposes one explicit audio arm, one primary transport, and no 
   const [html, app, audioModule, research] = await Promise.all([
     readFile(new URL("hocket-loom.html", root), "utf8"),
     readFile(new URL("src/instruments/hocket-loom/hocket-loom-app.js", root), "utf8"),
-    readFile(new URL("src/hocket-loom-audio.js", root), "utf8"),
+    readFile(new URL("src/instruments/hocket-loom/hocket-loom-audio.js", root), "utf8"),
     readFile(new URL("HOCKET_LOOM_RESEARCH.md", root), "utf8"),
   ]);
   assert.match(html, /<title>Hocket Luigi · Morphazoid<\/title>/);

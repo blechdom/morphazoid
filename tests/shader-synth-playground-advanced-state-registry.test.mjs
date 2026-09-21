@@ -7,9 +7,9 @@ import {
   SHADER_SYNTH_PLAYGROUND_ADVANCED_STATE_KIND_SET,
   SHADER_SYNTH_PLAYGROUND_ADVANCED_STATE_MODULES,
   isShaderSynthPlaygroundAdvancedStateKind,
-} from "../src/shader-synth-playground-advanced-state.js";
-import { SHADER_SYNTH_PRIMITIVE_COVERAGE } from "../src/shader-synth-playground-primitive-coverage.js";
-import { WEBGPU_DSP_PRIMITIVES } from "../src/webgpu-dsp-primitives.js";
+} from "../src/instruments/shader-synth-playground/shader-synth-playground-advanced-state.js";
+import { SHADER_SYNTH_PRIMITIVE_COVERAGE } from "../src/instruments/shader-synth-playground/shader-synth-playground-primitive-coverage.js";
+import { WEBGPU_DSP_PRIMITIVES } from "../src/instruments/webgpu-dsp-primitives/webgpu-dsp-primitives.js";
 
 const EXPECTED_IDS = Object.freeze([
   "sequence-lane",

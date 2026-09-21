@@ -1,9 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import { HISTORY_CROWD_ATLAS, historicalCrowdMember } from '../src/puggler-history-crowd.js';
-import { FUTURE_CROWD_ATLAS } from '../src/puggler-future-crowd-atlas.js';
-import { PugglerCrowd } from '../src/puggler-crowd.js';
+import { HISTORY_CROWD_ATLAS, historicalCrowdMember } from '../src/instruments/puggler/puggler-history-crowd.js';
+import { FUTURE_CROWD_ATLAS } from '../src/instruments/puggler/puggler-future-crowd-atlas.js';
+import { PugglerCrowd } from '../src/instruments/puggler/puggler-crowd.js';
 
 for(const atlas of [HISTORY_CROWD_ATLAS,FUTURE_CROWD_ATLAS])test(`${atlas.url.pathname.split('/').at(-1)} retains alpha and has isolated, published in-bounds crops`,()=>{
   const bytes=fs.readFileSync(atlas.url);

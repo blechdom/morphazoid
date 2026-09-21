@@ -2,7 +2,7 @@ import { SHAPE_FULL_PRESETS, randomizeShapePreset, createShapeInitialState, capt
 import { SOLID_FULL_PRESETS, HYPER_FULL_PRESETS, randomizeGeometryPreset, captureGeometryPreset, createSolidInitialState, createHyperInitialState } from "../../families/geometry-presets/full-presets.js";
 import { presetStateKey } from "../../site/header-presets.js";
 import { presetRandom } from "../../site/preset-random.js";
-import { createShapesState, displayShapesPhase } from "../../shapes-state.js";
+import { createShapesState, displayShapesPhase } from "./shapes-state.js";
 import { rebasePingPongPosition } from "../../articulation.js";
 import { applyOriginalParameters } from "./parameter-bridge.js";
 import { createShapesModeScenes } from "./mode-presets.js";

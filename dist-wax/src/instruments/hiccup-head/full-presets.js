@@ -4,7 +4,7 @@ import {
   hiccupHeadState, hiccupHeadPattern, hiccupHeadSoundBank,
   hiccupHeadVoiceCharacter, sanitizeHiccupHeadVoice, clonePattern,
   sanitizeHiccupHeadState, HICCUP_HEAD_LIMITS, HICCUP_HEAD_SOUNDS, HICCUP_HEAD_SOUND_BANKS,
-} from "../../hiccup-head.js";
+} from "./hiccup-head.js";
 import { presetRandom, randomParameterValues, randomMonophonicRows } from "../../site/preset-random.js";
 
 // Complete scenes cover all existing face and rhythm choices and all seven

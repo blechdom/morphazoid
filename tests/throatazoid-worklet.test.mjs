@@ -3,12 +3,12 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 import vm from "node:vm";
 
-import { PHONEMES } from "../src/throatazoid.js";
+import { PHONEMES } from "../src/families/tract/throatazoid.js";
 
 const SAMPLE_RATE = 48_000;
 const BLOCK_SIZE = 128;
 const WORKLET_URL = new URL(
-  "../src/throatazoid-tract-processor.js",
+  "../src/families/tract/throatazoid-tract-processor.js",
   import.meta.url,
 );
 const WORKLET_SOURCE = readFileSync(WORKLET_URL, "utf8");

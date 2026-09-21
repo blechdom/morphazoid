@@ -36,7 +36,7 @@ import {
   sanitizeJawHarpState,
   tineReleaseMotion,
   vowelPreset,
-} from "../../jaw-harp.js";
+} from "./jaw-harp.js";
 import { connectAudioOutput } from "../../audio-output-manager.js";
 import { unlockAudioContext } from "../../audio.js";
 import { registerHeaderPresets } from "../../site/header-presets.js";
@@ -483,7 +483,7 @@ async function createAudioGraph() {
   let releaseOutput = null;
   unlockAudioContext(context);
   try {
-    await context.audioWorklet.addModule(new URL("../../jaw-harp-processor.js", import.meta.url));
+    await context.audioWorklet.addModule(new URL("./jaw-harp-processor.js", import.meta.url));
     const sourceNode = new AudioWorkletNode(context, "jaw-harp-physical-model", {
       numberOfInputs: 0,
       numberOfOutputs: 1,

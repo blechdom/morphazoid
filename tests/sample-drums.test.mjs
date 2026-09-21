@@ -10,7 +10,7 @@ import {
   sampleDrumVoiceForFmVoice,
   sampleRateFromSemitones,
   sanitizeSampleDrumVoice,
-} from "../src/sample-drums.js";
+} from "../src/instruments/sample-drums/sample-drums.js";
 
 const root = new URL("../", import.meta.url);
 

@@ -1,9 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { renderEraVocal, ERA_VOCAL_PROFILES } from '../src/puggler-era-vocals.js';
-import { VOCAL_CHARACTERS, renderCharacterVocal } from '../src/puggler-vocals.js';
-import { renderVocalChant } from '../src/puggler-samples.js';
+import { renderEraVocal, ERA_VOCAL_PROFILES } from '../src/instruments/puggler/puggler-era-vocals.js';
+import { VOCAL_CHARACTERS, renderCharacterVocal } from '../src/instruments/puggler/puggler-vocals.js';
+import { renderVocalChant } from '../src/instruments/puggler/puggler-samples.js';
 import { decodePcmWav } from '../src/pcm-wav-decoder.js';
 
 const rms = data => Math.sqrt(data.reduce((sum, x) => sum + x*x, 0) / Math.max(1, data.length));

@@ -5,7 +5,7 @@ import test, { after } from "node:test";
 
 const SAMPLE_RATE = 48_000;
 const BLOCK_SIZE = 128;
-const MODULE_URL = new URL("../src/slippery-resynthesis.js", import.meta.url);
+const MODULE_URL = new URL("../src/instruments/slippery-resynthesis/slippery-resynthesis.js", import.meta.url);
 
 const savedWorkletGlobals = new Map(
   ["sampleRate", "AudioWorkletProcessor", "registerProcessor"]
@@ -1142,7 +1142,7 @@ test("microphone and local-file sources are lazy, reusable, and fully released",
   assert.equal(audio.node.name, SLIPPERYNTHESIS_PROCESSOR_NAME);
   assert.deepEqual(audio.node.options.outputChannelCount, [2]);
   assert.ok(
-    records.contexts[0].modules[0].endsWith("/src/slippery-resynthesis.js"),
+    records.contexts[0].modules[0].endsWith("/src/instruments/slippery-resynthesis/slippery-resynthesis.js"),
     "the browser graph must load its self-registering worklet module",
   );
   assert.ok(audio.node.port.messages.some(({ type }) => type === "reset"));

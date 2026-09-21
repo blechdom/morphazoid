@@ -1,6 +1,6 @@
 /** Pure wireframe geometry for the Solid instrument. */
 
-import { sharedProfilePoints } from "./shapes-profile.js";
+import { sharedProfilePoints } from "./instruments/shapes/shapes-profile.js";
 
 const TAU = Math.PI * 2;
 const EPSILON = 1e-8;

@@ -1,0 +1,2155 @@
+{
+  "baseCommit": "fb749f22b32be2b5f37dff5c051162301d958d27",
+  "files": [
+    {
+      "before": "src/acoustic-live-capture.js",
+      "after": "src/families/acoustic/acoustic-live-capture.js",
+      "sha256": "03c0e7aa8ad6b04cbac38359e6f10bb89629c99f4ea4fc4094d2d657f70cdcc8"
+    },
+    {
+      "before": "src/acoustic-manifold.js",
+      "after": "src/instruments/acoustic-manifold/acoustic-manifold.js",
+      "sha256": "a839ebee75c880e3cad7e38d264b97dc4a7b38830c45a2ef415fcad4488a6dae"
+    },
+    {
+      "before": "src/acoustic-profiles.js",
+      "after": "src/families/acoustic/acoustic-profiles.js",
+      "sha256": "0fc7371a348e70fc1b0ed9fe4fa997b23d59e5cbec5281c408d2f4671d254e19"
+    },
+    {
+      "before": "src/acoustic-source-catalog.js",
+      "after": "src/families/acoustic/acoustic-source-catalog.js",
+      "sha256": "e38c9e00bb776eaff32cfe4233d591dfd658dc9d3dc7f4c3e2241df9e9162cdf"
+    },
+    {
+      "before": "src/algorithmic-mazes.js",
+      "after": "src/instruments/algorithmic-mazes/algorithmic-mazes.js",
+      "sha256": "135eb891dcbff95b96249ce86a44ecf7ea27442ee652518fd34c917866f3ff11"
+    },
+    {
+      "before": "src/algorithmic-scores.js",
+      "after": "src/families/algorithmic-scores/algorithmic-scores.js",
+      "sha256": "04c994d0406225dcce5b85b639347b92691b654b1e71932ff97f9e3550aada02"
+    },
+    {
+      "before": "src/algorithmic-sequencers.js",
+      "after": "src/families/algorithmic-sequencers/algorithmic-sequencers.js",
+      "sha256": "fb3d7eac10bbff60d9907ed82b6158b364a2d86b005d15c9da5212ec2290af38"
+    },
+    {
+      "before": "src/alien-larynx-tract-processor.js",
+      "after": "src/families/tract/alien-larynx-tract-processor.js",
+      "sha256": "401240c42727e7169010cbff596cc72186a438cb1c7d6453af7d95eca8af370d"
+    },
+    {
+      "before": "src/annealogue.js",
+      "after": "src/instruments/annealogue/annealogue.js",
+      "sha256": "1ae5eb4ea3412e848986a9567742f3b1186480cd8a08f7dab8e5e4553d440565"
+    },
+    {
+      "before": "src/automatapoeia.js",
+      "after": "src/instruments/cellular-automata/automatapoeia.js",
+      "sha256": "b19cf7ec401888cae971596942b654d578005e8b198a98f2da3e2e33746f7934"
+    },
+    {
+      "before": "src/barber-delay.js",
+      "after": "src/families/barber-delay/barber-delay.js",
+      "sha256": "d540076f59331af21aea0b27853853c58761d91c573850fcd8f0fea485f5ae57"
+    },
+    {
+      "before": "src/bell-square.js",
+      "after": "src/instruments/bell-square/bell-square.js",
+      "sha256": "1d1efb4ff25471da12b5f4188bebecc3f3bc52216e3e75d8456ff22fdfbd7088"
+    },
+    {
+      "before": "src/birdsong-analysis.js",
+      "after": "src/families/acoustic/birdsong-analysis.js",
+      "sha256": "381465b95e98fbc89f6e48d30f3e197cac8281e3a29a8c1f293148545a4c8c74"
+    },
+    {
+      "before": "src/blowhole-processor.js",
+      "after": "src/instruments/blowhole/blowhole-processor.js",
+      "sha256": "b1bd19076b58b07b46d35ccf947f54ee10a2bdd11030254c3776897e864f7251"
+    },
+    {
+      "before": "src/blowhole.js",
+      "after": "src/instruments/blowhole/blowhole.js",
+      "sha256": "7cccba27099e3f171a6bdf98c375e03d7c6458df4a56edbf56d65e67fb305d2a"
+    },
+    {
+      "before": "src/boidzoid.js",
+      "after": "src/instruments/boidzoid/boidzoid.js",
+      "sha256": "12d6e561d0077416c8b063149a201b1a70f92a1be3acf66d5239901c1793f297"
+    },
+    {
+      "before": "src/breath-atlas-processor.js",
+      "after": "src/instruments/breath-atlas/breath-atlas-processor.js",
+      "sha256": "d16856f9ccd3bddd1c40482397b573740ece55571701d2a95f4ff2ca6bf9ebf4"
+    },
+    {
+      "before": "src/breath-atlas.js",
+      "after": "src/instruments/breath-atlas/breath-atlas.js",
+      "sha256": "75bd442ec910cd717e1b5ead03f2fc75320cb77b52bd13ec00c06a37f6b06968"
+    },
+    {
+      "before": "src/browser-midi-adapter.js",
+      "after": "src/browser-midi-adapter.js",
+      "sha256": "a8c04fd671b9a436d6d4eaebf7376ff9e8c6fb29e8789dd32bbf0219aa2d1e0d"
+    },
+    {
+      "before": "src/cantor-lock.js",
+      "after": "src/instruments/cantor-lock/cantor-lock.js",
+      "sha256": "1a8f83e80583d8b858102907264a458eddc8db84c6492908443567d43061c4e8"
+    },
+    {
+      "before": "src/cascading-fm.js",
+      "after": "src/instruments/cascading-fm/cascading-fm.js",
+      "sha256": "2eef4269dd03c1a2bf7da2d0d3577d976f07baf971a3b1000165dec74a095f6b"
+    },
+    {
+      "before": "src/cascading-pm.js",
+      "after": "src/instruments/cascading-pm/cascading-pm.js",
+      "sha256": "6bb39fd587b4d9770919029bb54d2d7d351e0e010991d5516451d32bd6d4b382"
+    },
+    {
+      "before": "src/chaotic-dsp-reference.js",
+      "after": "src/instruments/chaotic-dsp-reference/chaotic-dsp-reference.js",
+      "sha256": "e1a4440511a2d036b4f6193720a0628b25eb58fbd858b88ca406e9e25abd9cb3"
+    },
+    {
+      "before": "src/chaotic-fm-flow.js",
+      "after": "src/families/chaotic/chaotic-fm-flow.js",
+      "sha256": "60c9158370980c45728a18e5f3fc34292427d5281fd90db296106c7c411d9cc2"
+    },
+    {
+      "before": "src/chaotic-fm.js",
+      "after": "src/instruments/chaotic-fm/chaotic-fm.js",
+      "sha256": "1d0889e1167e80e9f371fe340d7a80f86eb2cf2abccf5cccca865b7d18139db9"
+    },
+    {
+      "before": "src/chaotic-pm.js",
+      "after": "src/instruments/chaotic-pm/chaotic-pm.js",
+      "sha256": "438b7e1ee953ecb04198c9f78787cdaa7b08974e1aab46de4f6593d75550666f"
+    },
+    {
+      "before": "src/chaotic-synth-visuals.js",
+      "after": "src/families/chaotic/chaotic-synth-visuals.js",
+      "sha256": "14eea77ffa1da436f88b7c9838a8011c7dd93d55c4d449d6dee9e8359d485d3e"
+    },
+    {
+      "before": "src/chaotic-viewport-controls.js",
+      "after": "src/families/chaotic/chaotic-viewport-controls.js",
+      "sha256": "ff8a6ce9306f3d876af0baaf5e620e4b115a73fd39b6ebb0565804c47ce90752"
+    },
+    {
+      "before": "src/constellation-analysis.js",
+      "after": "src/families/acoustic/constellation-analysis.js",
+      "sha256": "f3d44883b73f5f9e8763fac2f5a8f448ba290981f267b77fa14ca7dc54086512"
+    },
+    {
+      "before": "src/crab-loom-processor.js",
+      "after": "src/instruments/crab-loom/crab-loom-processor.js",
+      "sha256": "3e383c63d4253db29b3b4932e252e6d0defa7eb0d2e296bac440bead523aeb72"
+    },
+    {
+      "before": "src/crab-loom.js",
+      "after": "src/instruments/crab-loom/crab-loom.js",
+      "sha256": "11c775f2d2e982d5e1c6f7c5e44413ba2dd530bd0c3f2a9f7d72ae404d561603"
+    },
+    {
+      "before": "src/creaturazoid-processor.js",
+      "after": "src/instruments/creaturazoid/creaturazoid-processor.js",
+      "sha256": "a9587e0dbbe0306a4a834568bbc4b7dde2d6d8e29b0389c769b86190fedd405b"
+    },
+    {
+      "before": "src/creaturazoid.js",
+      "after": "src/instruments/creaturazoid/creaturazoid.js",
+      "sha256": "ca4321a26b37ebabe6da95f223c8b00cb2606a597e7b225f4df85247eb6354af"
+    },
+    {
+      "before": "src/crickets.js",
+      "after": "src/instruments/crickets/crickets.js",
+      "sha256": "8b6e83bd155f2726ce24da0a8fd276bcd9cd6c51399b61b172ceed251d4eed0a"
+    },
+    {
+      "before": "src/dentaphone-webgl.js",
+      "after": "src/instruments/object-forge/dentaphone-webgl.js",
+      "sha256": "2940d5f8d139f033549bf51d839e412b0a81751fd012f8b04d47f97a7c948f62"
+    },
+    {
+      "before": "src/dentaphone.js",
+      "after": "src/instruments/object-forge/dentaphone.js",
+      "sha256": "482770e9db32bc2d34f445a7a72efd7671c191411d3b2fbe9484324b9267be83"
+    },
+    {
+      "before": "src/digestazoid-processor.js",
+      "after": "src/instruments/digestazoid/digestazoid-processor.js",
+      "sha256": "88d6f497ebe7fcf57aa0b5395abdf42b121fa7f0480572631b2e0fde61905885"
+    },
+    {
+      "before": "src/digestazoid.js",
+      "after": "src/instruments/digestazoid/digestazoid.js",
+      "sha256": "38a48fc1403fcaa381b9fbb5078b35e0e9933930946523d2576377601f1133d5"
+    },
+    {
+      "before": "src/drum-roll-please.js",
+      "after": "src/instruments/drum-roll-please/drum-roll-please.js",
+      "sha256": "3557a69406915cf878187b6a6c0a1fdbe09c9029c4e756464e9b122436aae0c6"
+    },
+    {
+      "before": "src/entanglement-dance.js",
+      "after": "src/instruments/entanglement-dance/entanglement-dance.js",
+      "sha256": "d6138c67414616cff72ff2dd87552201e355aa2ad3e62394589e29b0ea7272bf"
+    },
+    {
+      "before": "src/enveloper-audio.js",
+      "after": "src/instruments/enveloper/enveloper-audio.js",
+      "sha256": "436d75724df41819a81cabc4dfcaeb7eafd08ea10cddca9f84328659a2b41868"
+    },
+    {
+      "before": "src/enveloper-transport.js",
+      "after": "src/instruments/enveloper/enveloper-transport.js",
+      "sha256": "0dc339457dac498b90e9a959e628fd309d56cc663d040361e8df2aed7307ed27"
+    },
+    {
+      "before": "src/enveloper.js",
+      "after": "src/instruments/enveloper/enveloper.js",
+      "sha256": "0a702c3380436f3b38cb6405fbc236f0f31fe698854d8bfb52a184671416fe9a"
+    },
+    {
+      "before": "src/escape-dust.js",
+      "after": "src/instruments/escape-dust/escape-dust.js",
+      "sha256": "d1c55fe4c903f2ce94f6d8edd1a4aff7e119b7c5f5bc54b37fe09e4a0cb50c0a"
+    },
+    {
+      "before": "src/escher-contours.js",
+      "after": "src/instruments/escher-tessellation/escher-contours.js",
+      "sha256": "ec712b885c5ab74cc5846ce15969884f549dfc505b550aeec2329d2ee1178c38"
+    },
+    {
+      "before": "src/escher-performance-audio.js",
+      "after": "src/instruments/escher-tessellation/escher-performance-audio.js",
+      "sha256": "6e7912bb2c2bb0c3476c77190e9e68a9a885bf87b9cdc8252738516d2cd148c0"
+    },
+    {
+      "before": "src/escher-tessellation.js",
+      "after": "src/instruments/escher-tessellation/escher-tessellation.js",
+      "sha256": "279440ec7a961f34b1831b6792344063b68c2c4115d21030749bc4366908e9f0"
+    },
+    {
+      "before": "src/exceptional.js",
+      "after": "src/instruments/exceptional/exceptional.js",
+      "sha256": "770095d16ec269805611a4cc7c02fa32b76ec8daff86f03d27b00ace98b37a69"
+    },
+    {
+      "before": "src/families/algorithmic-scores/algorithmic-scores-app.js",
+      "after": "src/families/algorithmic-scores/algorithmic-scores-app.js",
+      "sha256": "92868fdba12fe945fef605d6280a808e6cada789bfe41afe6250d23c82cb289a"
+    },
+    {
+      "before": "src/families/algorithmic-scores/full-presets.js",
+      "after": "src/families/algorithmic-scores/full-presets.js",
+      "sha256": "fe89a382c83e2db23b2890a09259ebfec055b2e2e7ba08c3875b0859e0f814f2"
+    },
+    {
+      "before": "src/families/algorithmic-sequencers/algorithmic-sequencers-app.js",
+      "after": "src/families/algorithmic-sequencers/algorithmic-sequencers-app.js",
+      "sha256": "0b98117e7d5abe4aa95c0bcd1ed67b3c8197eee6fba404a6b265d97715d3e4e5"
+    },
+    {
+      "before": "src/families/barber-delay/barber-delay-app.js",
+      "after": "src/families/barber-delay/barber-delay-app.js",
+      "sha256": "4010d6d07260a06e542bf2d7807a0ba9cf6b02821e9de4fed76f6b4af074bc3b"
+    },
+    {
+      "before": "src/families/branch-presets/full-presets.js",
+      "after": "src/families/branch-presets/full-presets.js",
+      "sha256": "5e2845bd3b6b3e1dc4ffb6ab45c426010bf288e65c783635477788cf9b2809d1"
+    },
+    {
+      "before": "src/families/branch-presets/initial-state.js",
+      "after": "src/families/branch-presets/initial-state.js",
+      "sha256": "cbb4933dfcce9296acf6c3bb4dc96471ebb31a9d5d50cca2a022fe26e6e3fa89"
+    },
+    {
+      "before": "src/families/cascading/full-presets.js",
+      "after": "src/families/cascading/full-presets.js",
+      "sha256": "edd1caf488290dd7ee9e2bf40ad23548c113fac47329b08a9ad31da015196ebf"
+    },
+    {
+      "before": "src/families/experiments/automata-presets.js",
+      "after": "src/families/experiments/automata-presets.js",
+      "sha256": "389d506b6ff93749652b54bf6dc687e47702ead2db44efe061b540cd0c6d6cb6"
+    },
+    {
+      "before": "src/families/experiments/experiments-app.js",
+      "after": "src/families/experiments/experiments-app.js",
+      "sha256": "68b99ed90f4b49720b9766e396061d5b4a20cf8d5c84b96f44a7c477c1ef25e9"
+    },
+    {
+      "before": "src/families/graph-presets/full-presets.js",
+      "after": "src/families/graph-presets/full-presets.js",
+      "sha256": "82c0cc6ae8f76a8300f138fd1c4a949bd46e82362a01890bf30fba6dea3527a3"
+    },
+    {
+      "before": "src/families/image-to-instrument/image-to-instrument-app.js",
+      "after": "src/families/image-to-instrument/image-to-instrument-app.js",
+      "sha256": "3d7b7328dab993ef3fedad993374453d3c80c842d6f79b80ddda68bdd1fe04d9"
+    },
+    {
+      "before": "src/families/nonorientable/nonorientable-app.js",
+      "after": "src/families/nonorientable/nonorientable-app.js",
+      "sha256": "623bd8928c840cc105ede5e19b5e12a7fe8ae34464be2f92fc8b9a6cbbafbcd8"
+    },
+    {
+      "before": "src/families/physics/physics-app.js",
+      "after": "src/families/physics/physics-app.js",
+      "sha256": "ea8e866784391a36b3a7a9a0c1aee2c12b1d082708ec8440fc56bdab578073c7"
+    },
+    {
+      "before": "src/families/syrinx/full-presets.js",
+      "after": "src/families/syrinx/full-presets.js",
+      "sha256": "dd7516efc2faf701f4686f0c1c9fa1a9698fa800bb917b75b8d1546447e66aeb"
+    },
+    {
+      "before": "src/families/syrinx/syrinx-app.js",
+      "after": "src/families/syrinx/syrinx-app.js",
+      "sha256": "c92b31a6f75a1d366163b45906eb5e7908a68cf8f0f91576d84944788bdda3fd"
+    },
+    {
+      "before": "src/families/tract/geometry.js",
+      "after": "src/families/tract/geometry.js",
+      "sha256": "4afe63a16b7dd628ae634d9a34e4a33a2e60a3d805d83286f2003429c47d8fa8"
+    },
+    {
+      "before": "src/families/tract/rendering.js",
+      "after": "src/families/tract/rendering.js",
+      "sha256": "df6397490474314cb168b4d20ae16e6b4b65151247c866d03a2c64ee0e6b0759"
+    },
+    {
+      "before": "src/fm-drums-midi.js",
+      "after": "src/instruments/fm-drums/fm-drums-midi.js",
+      "sha256": "71815edacc10351ecc635f039161157495b26bd9f070757b321b03b47841dd86"
+    },
+    {
+      "before": "src/fm-drums.js",
+      "after": "src/instruments/fm-drums/fm-drums.js",
+      "sha256": "2a08b10dcb4179691aef37c21211f0ec9a067fe6258221869dfd596dc15ef62f"
+    },
+    {
+      "before": "src/freeze-point-processor.js",
+      "after": "src/instruments/freeze-point/freeze-point-processor.js",
+      "sha256": "fe967f4d98fea0865c4efe1a571b59e79ebcc5d8a3ab17f01ea02707f8055af3"
+    },
+    {
+      "before": "src/freeze-point.js",
+      "after": "src/instruments/freeze-point/freeze-point.js",
+      "sha256": "c4ab9f5d06c44019a2a49c91ea57fb6ffece27afe4d5ebcb143cd6250595084a"
+    },
+    {
+      "before": "src/gesturama-audio.js",
+      "after": "src/instruments/gesturama/gesturama-audio.js",
+      "sha256": "fabd707eacf99c4c0c10063946e93c4de27417792f556aec6547777aff780c64"
+    },
+    {
+      "before": "src/gesturama-core.js",
+      "after": "src/instruments/gesturama/gesturama-core.js",
+      "sha256": "3c99ce7c2062121e807c8f468acdac63108ec58004995df4f85fb5e126f8dd84"
+    },
+    {
+      "before": "src/gesturama-zones.js",
+      "after": "src/instruments/gesturama/gesturama-zones.js",
+      "sha256": "527bfb82524cfa47fb8e60cd4811291af8cceeb3fc492edd5d3fa2513043170d"
+    },
+    {
+      "before": "src/granular-economy-renderer.js",
+      "after": "src/families/signalsmith-generation/granular-economy-renderer.js",
+      "sha256": "9b83b2282384c0339eede88049827df4dd8ec1289fc599e9d53bdf71dcb4f405"
+    },
+    {
+      "before": "src/graph-3d.js",
+      "after": "src/instruments/graph-3d/graph-3d.js",
+      "sha256": "adb2ca81e7848f9d1829f0954c66248e08fb1128ddcd837c93a10ddb1f5f1718"
+    },
+    {
+      "before": "src/graph-delay-audio.js",
+      "after": "src/instruments/graph-delay/graph-delay-audio.js",
+      "sha256": "0ae95084ad887485c085ec4aed8046833742a69a47dabd21ca16be85052d0b03"
+    },
+    {
+      "before": "src/graph-delay.js",
+      "after": "src/instruments/graph-delay/graph-delay.js",
+      "sha256": "889fd76faa6666ed170b86788d24221dbcc419f1a8bc7ee590349410cbfb0bba"
+    },
+    {
+      "before": "src/graph-drum-audio.js",
+      "after": "src/families/graph/graph-drum-audio.js",
+      "sha256": "1a5f82a52942d16d55c15a72e3884ccc6441b83af49ccae6f33bebc56796566f"
+    },
+    {
+      "before": "src/graph-instrument-app.js",
+      "after": "src/families/graph/graph-instrument-app.js",
+      "sha256": "2aefb70e6cc76f6d2a5f1aad34b43b676beb1335d5f4383ea1b2c23ea154e5b9"
+    },
+    {
+      "before": "src/graph-instruments.js",
+      "after": "src/families/graph/graph-instruments.js",
+      "sha256": "20b0379b3e47c4a13d4c2ee2e5cc264e05f798e6f538d2b6417052d429122088"
+    },
+    {
+      "before": "src/graph-pitch-processor.js",
+      "after": "src/families/graph/graph-pitch-processor.js",
+      "sha256": "ef8839c81a2265ddeda707ae177cedbd931861cb2a03cad50fe71087905f0b25"
+    },
+    {
+      "before": "src/graph-synth-audio.js",
+      "after": "src/families/graph/graph-synth-audio.js",
+      "sha256": "14833319e340ec988fea36e436b6cdf7753c22f0dfffd7454685474242edcebb"
+    },
+    {
+      "before": "src/graph-turn-processor.js",
+      "after": "src/instruments/graph-delay/graph-turn-processor.js",
+      "sha256": "351e37cd40b3357e9dfb6dece4c1ce474f3efec37592971d5e9aa695346a022c"
+    },
+    {
+      "before": "src/graphs-suite.js",
+      "after": "src/instruments/graphs/graphs-suite.js",
+      "sha256": "95db0824af9ebabda46cad7f2b2ad239ae25a20dd364008a588e1fb43f851304"
+    },
+    {
+      "before": "src/harmonica-processor.js",
+      "after": "src/instruments/harmonica/harmonica-processor.js",
+      "sha256": "9503f036fe64f83503c406c2398c22b38debd04939771f274cdb5999acf292b9"
+    },
+    {
+      "before": "src/harmonica.js",
+      "after": "src/instruments/harmonica/harmonica.js",
+      "sha256": "47724fbd8c59174f0ffb1b003404bd3562be9203291b5b37af2f4046cc8fb893"
+    },
+    {
+      "before": "src/head-shed-processor.js",
+      "after": "src/instruments/head-shed/head-shed-processor.js",
+      "sha256": "1f11e3965a21bcf364d2707fe0ce9e97b1c66087080174f09dd2e4fba0dea384"
+    },
+    {
+      "before": "src/hiccup-head-processor.js",
+      "after": "src/instruments/hiccup-head/hiccup-head-processor.js",
+      "sha256": "53f3071a51cdd58f37bfb111081ccc112f4221478ecc05bd2d4fc55e753dbbae"
+    },
+    {
+      "before": "src/hiccup-head.js",
+      "after": "src/instruments/hiccup-head/hiccup-head.js",
+      "sha256": "75c67dec055e1d33136c2115d5557d7e86f6e7f1fc3e89afa6692ca8567ba99f"
+    },
+    {
+      "before": "src/hocket-loom-audio.js",
+      "after": "src/instruments/hocket-loom/hocket-loom-audio.js",
+      "sha256": "3e8257b09a90453f41c364f10aeeb57d61b88769712a4c12af3d662bd345262f"
+    },
+    {
+      "before": "src/hocket-loom.js",
+      "after": "src/instruments/hocket-loom/hocket-loom.js",
+      "sha256": "11eafbd4196f41e169b499c03caf486efac9ab656ed730cd35c32ee26baa4a29"
+    },
+    {
+      "before": "src/hybrinx-layout.js",
+      "after": "src/instruments/hybrinx/hybrinx-layout.js",
+      "sha256": "ab715f369577bb7feb3c1bfe36a027ec55cb231b78fbf4b3f99c90d563401ab5"
+    },
+    {
+      "before": "src/hybrinx-timeline.js",
+      "after": "src/instruments/hybrinx/hybrinx-timeline.js",
+      "sha256": "edd3d6b6af0ddd77c18c72c2d0e868ba522dd1b5bc7d544cd63cd61b284efcf1"
+    },
+    {
+      "before": "src/hyper-rubix-webgpu-303.js",
+      "after": "src/instruments/hyper-rubix/hyper-rubix-webgpu-303.js",
+      "sha256": "4b2aa61ddb244abe1b3d0923dec0ab6aed27021e08fb31e661d955db4afba06a"
+    },
+    {
+      "before": "src/hyper-rubix.js",
+      "after": "src/instruments/hyper-rubix/hyper-rubix.js",
+      "sha256": "c1f80fe167cf2cd601ae2d888746fc68c99e9a48cf55c76139c214424a9d10f8"
+    },
+    {
+      "before": "src/hyper.js",
+      "after": "src/hyper.js",
+      "sha256": "c6fcd574a56f3647be7315970f0b3a702e0e473666989f1845b64b05c1cc5d2c"
+    },
+    {
+      "before": "src/image-to-instrument.js",
+      "after": "src/families/image-to-instrument/image-to-instrument.js",
+      "sha256": "287333dedcca29666533748367960c2e4689973b2a56647192178694345efa1c"
+    },
+    {
+      "before": "src/instruments/acoustic-manifold/acoustic-manifold-app.js",
+      "after": "src/instruments/acoustic-manifold/acoustic-manifold-app.js",
+      "sha256": "8fdf43a3cd978b9c64072327f0761ff10d79f85a07a44cc3f0b7999a28bbbf4a"
+    },
+    {
+      "before": "src/instruments/algorithmic-mazes/algorithmic-mazes-app.js",
+      "after": "src/instruments/algorithmic-mazes/algorithmic-mazes-app.js",
+      "sha256": "8ac51535ea93e8af453c8b13ff96c014398d219c7d8f7874657e16bc31febc15"
+    },
+    {
+      "before": "src/instruments/alien-larynx/alien-larynx-app.js",
+      "after": "src/instruments/alien-larynx/alien-larynx-app.js",
+      "sha256": "3d202f936428de2ee8208b6319080d05b6acd2bc9c0ddf7998257d18a8295122"
+    },
+    {
+      "before": "src/instruments/annealogue/annealogue-app.js",
+      "after": "src/instruments/annealogue/annealogue-app.js",
+      "sha256": "e550707822b14fbcc2b561651c5acc98a4774e21d57aaed209d2a5d76f78130f"
+    },
+    {
+      "before": "src/instruments/bell-square/bell-square-app.js",
+      "after": "src/instruments/bell-square/bell-square-app.js",
+      "sha256": "7fbe81b7b36854127ea197caa8b44c250bf62f75020fd2f70f3aef40d77e0af6"
+    },
+    {
+      "before": "src/instruments/birdsong-lab/birdsong-lab-app.js",
+      "after": "src/instruments/birdsong-lab/birdsong-lab-app.js",
+      "sha256": "b7a97b740d8a892c34f03152125b5c156a7fea5a4b75863586e34af8c4b22222"
+    },
+    {
+      "before": "src/instruments/blowhole/blowhole-app.js",
+      "after": "src/instruments/blowhole/blowhole-app.js",
+      "sha256": "28f9ca64202df52046afb2e3f960a40c387ff587cfcd9be343925254995e659d"
+    },
+    {
+      "before": "src/instruments/boidzoid/boidzoid-app.js",
+      "after": "src/instruments/boidzoid/boidzoid-app.js",
+      "sha256": "f435c83a38065f0b9d7d4bb205ba5c6a6ac5e1808a35b4fd84a0676aa151342e"
+    },
+    {
+      "before": "src/instruments/breath-atlas/breath-atlas-app.js",
+      "after": "src/instruments/breath-atlas/breath-atlas-app.js",
+      "sha256": "f7841df1702cbb9a39fcda91c80b09468771d7c20c17e01aaf131384ba13bce8"
+    },
+    {
+      "before": "src/instruments/cantor-lock/cantor-lock-app.js",
+      "after": "src/instruments/cantor-lock/cantor-lock-app.js",
+      "sha256": "935f3a7fcaf6bd550a5b82bab1e4aa773145557c265d955c682300e084ebc2b9"
+    },
+    {
+      "before": "src/instruments/cascading-fm/cascading-fm-app.js",
+      "after": "src/instruments/cascading-fm/cascading-fm-app.js",
+      "sha256": "2be1451da478b316d073268ebd24a0525ed1b8a4f4039e97b81dcfc8db1d85bd"
+    },
+    {
+      "before": "src/instruments/cascading-pm/cascading-pm-app.js",
+      "after": "src/instruments/cascading-pm/cascading-pm-app.js",
+      "sha256": "e18e3fe92bc667d2731880a48de45780f2fac6279054f99d8aa860d50ab1785c"
+    },
+    {
+      "before": "src/instruments/chaotic-fm/chaotic-fm-app.js",
+      "after": "src/instruments/chaotic-fm/chaotic-fm-app.js",
+      "sha256": "6d0d71fac61ee4936ce66f11a0f9b6010830f7c40876f97f72b1a6777782a4f8"
+    },
+    {
+      "before": "src/instruments/chaotic-pm/chaotic-pm-app.js",
+      "after": "src/instruments/chaotic-pm/chaotic-pm-app.js",
+      "sha256": "67e486e6a0218e89ce40d188046442db497389fac2145dd84c72bc860c14421b"
+    },
+    {
+      "before": "src/instruments/crab-loom/crab-loom-app.js",
+      "after": "src/instruments/crab-loom/crab-loom-app.js",
+      "sha256": "67a09c62d69dfd333b398cee6ef421b89686e2852bedf806a1270079a7e0799a"
+    },
+    {
+      "before": "src/instruments/creaturazoid/creaturazoid-app.js",
+      "after": "src/instruments/creaturazoid/creaturazoid-app.js",
+      "sha256": "13c4074d5bd24955ec45c24d7f2380d45ee70c14bb45a263cac9568a8b558ec1"
+    },
+    {
+      "before": "src/instruments/creaturazoid/full-presets.js",
+      "after": "src/instruments/creaturazoid/full-presets.js",
+      "sha256": "248784ed327800728f4323022212d62100b51be676e8f714d1961bab7346f7ec"
+    },
+    {
+      "before": "src/instruments/crickets/crickets-app.js",
+      "after": "src/instruments/crickets/crickets-app.js",
+      "sha256": "a86fa3342e4b24121dbd97cd6f98598a9b821961411ea413a7f8e879b3ec02de"
+    },
+    {
+      "before": "src/instruments/digestazoid/digestazoid-app.js",
+      "after": "src/instruments/digestazoid/digestazoid-app.js",
+      "sha256": "fb826a2e81f6e95993a04963365d57edb938f28542cae3b2efe3af6b4a34c039"
+    },
+    {
+      "before": "src/instruments/drum-roll-please/drum-roll-please-app.js",
+      "after": "src/instruments/drum-roll-please/drum-roll-please-app.js",
+      "sha256": "a526f01e30498ea6f4575c8d515dfc9288e80fc213331ef455d346a1d27c3409"
+    },
+    {
+      "before": "src/instruments/entanglement-dance/entanglement-dance-app.js",
+      "after": "src/instruments/entanglement-dance/entanglement-dance-app.js",
+      "sha256": "e8c0f6f0092d05ee75c340ebfe966e37dc4916824bf0a9ba341ec72b1238b01b"
+    },
+    {
+      "before": "src/instruments/enveloper/enveloper-app.js",
+      "after": "src/instruments/enveloper/enveloper-app.js",
+      "sha256": "86245325102f95c6443a35a8bc7ec315f0c07e1f77668e471a071252c7668b0f"
+    },
+    {
+      "before": "src/instruments/escape-dust/escape-dust-app.js",
+      "after": "src/instruments/escape-dust/escape-dust-app.js",
+      "sha256": "b11e6e07125b29f3313fcdc358a8678378763d26945ed5ce9e1f9fd73e017c2d"
+    },
+    {
+      "before": "src/instruments/escher-tessellation/escher-tessellation-app.js",
+      "after": "src/instruments/escher-tessellation/escher-tessellation-app.js",
+      "sha256": "b5cb7dde51912648aabecb5050deae0e7ff6d619fbce185a4b1a313d149af53c"
+    },
+    {
+      "before": "src/instruments/exceptional/exceptional-app.js",
+      "after": "src/instruments/exceptional/exceptional-app.js",
+      "sha256": "07947f7bb8045531dbe2f834cedcf13c33b0e469a3283959578a23a2ea31379b"
+    },
+    {
+      "before": "src/instruments/fm-drums/fm-drums-app.js",
+      "after": "src/instruments/fm-drums/fm-drums-app.js",
+      "sha256": "7972c92fdab5561f2708679bd9a1b3c16afa5c43b327f7883dc0dd8a242336bb"
+    },
+    {
+      "before": "src/instruments/freeze-point/freeze-point-app.js",
+      "after": "src/instruments/freeze-point/freeze-point-app.js",
+      "sha256": "2b21fe08e4e96f164a44e0d14825080b53dc24ed77657c2ece2c7e8b2f1c9602"
+    },
+    {
+      "before": "src/instruments/gesturama/gesturama-app.js",
+      "after": "src/instruments/gesturama/gesturama-app.js",
+      "sha256": "bff69ae577ce13ad0917cc9be22c1ccc31dffab288ccab77a81fecff43a27c71"
+    },
+    {
+      "before": "src/instruments/graph-3d/graph-3d-app.js",
+      "after": "src/instruments/graph-3d/graph-3d-app.js",
+      "sha256": "f846f889e2033524e287a8da662c4b95bcbc089dcdcfc39645ff55e94cc0b890"
+    },
+    {
+      "before": "src/instruments/graph-delay/graph-delay-app.js",
+      "after": "src/instruments/graph-delay/graph-delay-app.js",
+      "sha256": "b791730450cfa8bed2b30853a6dca46f2f45cd1f2fb133134e502570beb82ce2"
+    },
+    {
+      "before": "src/instruments/graph-drum-machine/graph-drum-machine-app.js",
+      "after": "src/instruments/graph-drum-machine/graph-drum-machine-app.js",
+      "sha256": "77fc3543e0672c956c664249b473a3eeeabdeb79aff70b24b591fa9b810badb5"
+    },
+    {
+      "before": "src/instruments/graph-synth/graph-synth-app.js",
+      "after": "src/instruments/graph-synth/graph-synth-app.js",
+      "sha256": "acbc44165971dab0099a5e5d42966145634692d5d25d0cbbbd1c455670efe35b"
+    },
+    {
+      "before": "src/instruments/graphs/graphs-app.js",
+      "after": "src/instruments/graphs/graphs-app.js",
+      "sha256": "08203ddef61133caf53a730eba9021e7105555b8121b0e709b9abb6b742a14c4"
+    },
+    {
+      "before": "src/instruments/harmonica/harmonica-app.js",
+      "after": "src/instruments/harmonica/harmonica-app.js",
+      "sha256": "7778a0ed77debc9f680a6a215daf16caaa38e69f43bb05ddf3575c085f7cbbb4"
+    },
+    {
+      "before": "src/instruments/head-shed/head-shed-app.js",
+      "after": "src/instruments/head-shed/head-shed-app.js",
+      "sha256": "fbf0ea8f5fd2a8ccc909ea5780722bdf1b4000b9929295daedb77804d2f4b1bd"
+    },
+    {
+      "before": "src/instruments/hiccup-head/full-presets.js",
+      "after": "src/instruments/hiccup-head/full-presets.js",
+      "sha256": "818366e27fb2a59f28c9c3efa800caafd769bb1e009bbc12d73a060281b196b2"
+    },
+    {
+      "before": "src/instruments/hiccup-head/hiccup-head-app.js",
+      "after": "src/instruments/hiccup-head/hiccup-head-app.js",
+      "sha256": "264161b33a4d669903211ca27aea229e3b9f6fc6641394af1405b0e6edf3ca8d"
+    },
+    {
+      "before": "src/instruments/hocket-loom/hocket-loom-app.js",
+      "after": "src/instruments/hocket-loom/hocket-loom-app.js",
+      "sha256": "7bbc45e4ac4c2c97ac3c4389414668993614b68a06d5385a847687c6854120db"
+    },
+    {
+      "before": "src/instruments/hyper-drum-machine/hyper-drum-machine-app.js",
+      "after": "src/instruments/hyper-drum-machine/hyper-drum-machine-app.js",
+      "sha256": "abe3694aec450973ff744d6ec1111205fab1acf1e702a5d7659c9ce6cdec9cbc"
+    },
+    {
+      "before": "src/instruments/hyper-rubix/full-presets.js",
+      "after": "src/instruments/hyper-rubix/full-presets.js",
+      "sha256": "00760e3dc61fb9c964c73e803b8ce2e7efd87cd6853b00819e0f51eb9d434f0b"
+    },
+    {
+      "before": "src/instruments/hyper-rubix/hyper-rubix-app.js",
+      "after": "src/instruments/hyper-rubix/hyper-rubix-app.js",
+      "sha256": "3ea9d7cad9db988d30974f127fb9a9425ac6eb89eb80bfe50859abd1c2a05840"
+    },
+    {
+      "before": "src/instruments/hyper-synth/hyper-synth-app.js",
+      "after": "src/instruments/hyper-synth/hyper-synth-app.js",
+      "sha256": "3d27118d3382c18f2aabb4b1fed142049541218308fde026a0fdbe2bbc5b4367"
+    },
+    {
+      "before": "src/instruments/jaw-harp/full-presets.js",
+      "after": "src/instruments/jaw-harp/full-presets.js",
+      "sha256": "66784e75a861e7b9e2618a71882e712f38d4d719510c2731b4b33766803c1d47"
+    },
+    {
+      "before": "src/instruments/jaw-harp/jaw-harp-app.js",
+      "after": "src/instruments/jaw-harp/jaw-harp-app.js",
+      "sha256": "5b0960d24927801bebb4a5ef87aa9f9bcf7c4fad0c064399b8c383c7ce6494e8"
+    },
+    {
+      "before": "src/instruments/jaw-jam/jaw-jam-app.js",
+      "after": "src/instruments/jaw-jam/jaw-jam-app.js",
+      "sha256": "83b75770d11ad67acef836a9cf5403524d0b4f30fba119d5806c2e755ac22eb1"
+    },
+    {
+      "before": "src/instruments/julia/julia-app.js",
+      "after": "src/instruments/julia/julia-app.js",
+      "sha256": "c50df86b2cb55504f191cd6e9375faef5392a84fe16ec60d163cc9e7c359859a"
+    },
+    {
+      "before": "src/instruments/julie-saw/julie-saw-app.js",
+      "after": "src/instruments/julie-saw/julie-saw-app.js",
+      "sha256": "477bd0dc992fd60e306de41ebf11256628441172ef8ab434eb86345dd21dacf9"
+    },
+    {
+      "before": "src/instruments/karplus-carpet/karplus-carpet-app.js",
+      "after": "src/instruments/karplus-carpet/karplus-carpet-app.js",
+      "sha256": "aa06e8327065675c56efd8e56a85db0424372490b33c3fb495fddd2ca870147d"
+    },
+    {
+      "before": "src/instruments/karplus-strong/full-presets.js",
+      "after": "src/instruments/karplus-strong/full-presets.js",
+      "sha256": "e050ed3327e5b6520da0b4ba5087c8e2755949fce2932bffbf817244e6373304"
+    },
+    {
+      "before": "src/instruments/karplus-strong/karplus-strong-app.js",
+      "after": "src/instruments/karplus-strong/karplus-strong-app.js",
+      "sha256": "2bbfbb2cd043a5d9fbac3870c762898efd4d41fe32656c54bf01b7fb02b88212"
+    },
+    {
+      "before": "src/instruments/l-system-drum-machine/l-system-drum-machine-app.js",
+      "after": "src/instruments/l-system-drum-machine/l-system-drum-machine-app.js",
+      "sha256": "e70e6e2eff507ea357f1721e0025d99a416a73c0dda386e3a165c24a84a96bc2"
+    },
+    {
+      "before": "src/instruments/l-system-drum-machine/l-system-drum-machine.js",
+      "after": "src/instruments/l-system-drum-machine/l-system-drum-machine.js",
+      "sha256": "8ed04918ef0dd00a888c5dc25c1d947314b23c500aa00d98fcd3cf7936eecae4"
+    },
+    {
+      "before": "src/instruments/l-system/l-system-app.js",
+      "after": "src/instruments/l-system/l-system-app.js",
+      "sha256": "6644c06f176c1d5f67606555f69e2e5db8aa1c0887a48b441a5414e7cfbdad14"
+    },
+    {
+      "before": "src/instruments/l-systems/l-systems-app.js",
+      "after": "src/instruments/l-systems/l-systems-app.js",
+      "sha256": "dcfe783c41428cbb0254ecfe19c144c19377494fe902ad812952ea36275cb334"
+    },
+    {
+      "before": "src/instruments/lattice-drum-machine/lattice-drum-machine-app.js",
+      "after": "src/instruments/lattice-drum-machine/lattice-drum-machine-app.js",
+      "sha256": "db5191afd7aeb02ae72caa0524ad297261cda5c18d5196047181359d7312fb55"
+    },
+    {
+      "before": "src/instruments/lattice-drum-machine/lattice-drum-machine.js",
+      "after": "src/instruments/lattice-drum-machine/lattice-drum-machine.js",
+      "sha256": "fb5df5e9cf913781fb510b64e75ab44755aa73683085d637b3919f7d086c0ba8"
+    },
+    {
+      "before": "src/instruments/lattice/full-presets.js",
+      "after": "src/instruments/lattice/full-presets.js",
+      "sha256": "c0dbffd3b39dd31e96adf945e2fe002b852ef71ac4ede53ff2308f8d9ca98810"
+    },
+    {
+      "before": "src/instruments/lattice/initial-state.js",
+      "after": "src/instruments/lattice/initial-state.js",
+      "sha256": "a6eb81cdae7ea5e50ad089c5697e39f58ee71c25eb493696e287670947e21a69"
+    },
+    {
+      "before": "src/instruments/lattice/lattice-app.js",
+      "after": "src/instruments/lattice/lattice-app.js",
+      "sha256": "00d4144e042b0336671051ef4fea64ccdafd44680509db29b6e05cb30d9fbc87"
+    },
+    {
+      "before": "src/instruments/linear-drums/linear-drums-app.js",
+      "after": "src/instruments/linear-drums/linear-drums-app.js",
+      "sha256": "bf0a6688be7dcd0d21c22551770c4174429c5cade71bc8a6f708d04afe6c9b46"
+    },
+    {
+      "before": "src/instruments/linebreaker/linebreaker-app.js",
+      "after": "src/instruments/linebreaker/linebreaker-app.js",
+      "sha256": "c42656883fa162ba9a2f01ccc7bde73eca7fc95edbf785c134e387750157a537"
+    },
+    {
+      "before": "src/instruments/lumber/lumber-app.js",
+      "after": "src/instruments/lumber/lumber-app.js",
+      "sha256": "9070b1034c1e320418215c1adea3b3982625bedf01a2e3d1c9476ea251d2e420"
+    },
+    {
+      "before": "src/instruments/micmic/micmic-app.js",
+      "after": "src/instruments/micmic/micmic-app.js",
+      "sha256": "394fdf345e687a359316ec0f104eef4c059c0eb8d3e4ab5064e88a2663e68b3c"
+    },
+    {
+      "before": "src/instruments/micromorph/micromorph-app.js",
+      "after": "src/instruments/micromorph/micromorph-app.js",
+      "sha256": "e35ba4934d22f378b07101413984cb6996a0f81ada55283189351501bde02846"
+    },
+    {
+      "before": "src/instruments/moire-drone/moire-drone-app.js",
+      "after": "src/instruments/moire-drone/moire-drone-app.js",
+      "sha256": "b886fb0e85ea5b61032d1d650ae5364aa8381e2e71754319427c449ca763651b"
+    },
+    {
+      "before": "src/instruments/monstroid/monstroid-app.js",
+      "after": "src/instruments/monstroid/monstroid-app.js",
+      "sha256": "4b6b196bf1e6bfa6ea6914001d0fd2f558fa2af58c538e90e45988cab812e02e"
+    },
+    {
+      "before": "src/instruments/monstroid/monstroid-processor.js",
+      "after": "src/instruments/monstroid/monstroid-processor.js",
+      "sha256": "4598810f37ebe189948eff991e599a8073763257c40f630807d5c55fad1317cd"
+    },
+    {
+      "before": "src/instruments/morphynx/morphynx-app.js",
+      "after": "src/instruments/morphynx/morphynx-app.js",
+      "sha256": "a26e4bb00a0099a45ac574c7a437ca0a178f53217b196049d1f60914dc6c1696"
+    },
+    {
+      "before": "src/instruments/nightingale-manifold/nightingale-manifold-app.js",
+      "after": "src/instruments/nightingale-manifold/nightingale-manifold-app.js",
+      "sha256": "94709f1c24e21e07091d08b2b51b8b78004d6aebe29cdda20259accba8cbc52b"
+    },
+    {
+      "before": "src/instruments/object-forge/object-forge-app.js",
+      "after": "src/instruments/object-forge/object-forge-app.js",
+      "sha256": "5f6953e97b63da3d0af1999c30cfef986facf6c1a6b709f54f80dd1bdfa8772f"
+    },
+    {
+      "before": "src/instruments/onset-atlas/onset-atlas-app.js",
+      "after": "src/instruments/onset-atlas/onset-atlas-app.js",
+      "sha256": "a0b962ed1ebd245c9216e2993dc473dfb56f40d00625bfa7d83de679ae3ca20d"
+    },
+    {
+      "before": "src/instruments/order-tones/order-tones-app.js",
+      "after": "src/instruments/order-tones/order-tones-app.js",
+      "sha256": "2d4ed7430a67c0ab39c05b9176e9fbfc5d1a68c8b6a6d9347c1dae1796231ff0"
+    },
+    {
+      "before": "src/instruments/ouroboros-borealis/ouroboros-borealis-app.js",
+      "after": "src/instruments/ouroboros-borealis/ouroboros-borealis-app.js",
+      "sha256": "589c241a6ce58e6007c0e9bfdb456e62395d6b1d3b7ea425e4e27a68f21d7d73"
+    },
+    {
+      "before": "src/instruments/ouroboros/ouroboros-app.js",
+      "after": "src/instruments/ouroboros/ouroboros-app.js",
+      "sha256": "1317459759eb6788908add47a1ed1c1dba9143abcb1f1317428c05662fffb402"
+    },
+    {
+      "before": "src/instruments/ouroborousel/ouroborousel-app.js",
+      "after": "src/instruments/ouroborousel/ouroborousel-app.js",
+      "sha256": "8a5027bffbcb9019ef087b128bd0adfd1b7d496197d96af47c26a817454d5c6f"
+    },
+    {
+      "before": "src/instruments/ourorourobouroboros/ourorourobouroboros-app.js",
+      "after": "src/instruments/ourorourobouroboros/ourorourobouroboros-app.js",
+      "sha256": "8b37f494f33487c130a4fde5a65c1627d6200641f59c45f23f32aad464282e1e"
+    },
+    {
+      "before": "src/instruments/paths/paths-app.js",
+      "after": "src/instruments/paths/paths-app.js",
+      "sha256": "86cfba5c0f701094586b4f538d590edd76e24e388d090be7ea3450b165269570"
+    },
+    {
+      "before": "src/instruments/penrose-tilings/penrose-tilings-app.js",
+      "after": "src/instruments/penrose-tilings/penrose-tilings-app.js",
+      "sha256": "74f54c0e19cd9e0af4ea19521860f3d45209f55a2673a40b2324f54e4388dfe0"
+    },
+    {
+      "before": "src/instruments/pink-trombonazoid/pink-trombonazoid-app.js",
+      "after": "src/instruments/pink-trombonazoid/pink-trombonazoid-app.js",
+      "sha256": "b7e0db2631989dae861a73b721101c740809fed58fbc627fc31e0bbe0b021e18"
+    },
+    {
+      "before": "src/instruments/plasma-ball/plasma-ball-app.js",
+      "after": "src/instruments/plasma-ball/plasma-ball-app.js",
+      "sha256": "fe8dd24f0b64e676ec717cc23d2efc3faa9c29344c70984baba339f10beca8cf"
+    },
+    {
+      "before": "src/instruments/playhead-paint/playhead-paint-app.js",
+      "after": "src/instruments/playhead-paint/playhead-paint-app.js",
+      "sha256": "1c49b2915f5fb0444b6ac9f22e12b35e83d5c8a7fbceb15dee9ee5cffcebba64"
+    },
+    {
+      "before": "src/instruments/puggler/puggler-app.js",
+      "after": "src/instruments/puggler/puggler-app.js",
+      "sha256": "0fca34dbf4aba33b80d71a1a07626ffbc098ddfff66302598409808241626991"
+    },
+    {
+      "before": "src/instruments/quadruped/quadruped-app.js",
+      "after": "src/instruments/quadruped/quadruped-app.js",
+      "sha256": "bd19478fbce3fa7f1dd697beda89f1b71ed441e53a78e9bf479e004131af5aec"
+    },
+    {
+      "before": "src/instruments/quantum-square-dance/quantum-square-dance-app.js",
+      "after": "src/instruments/quantum-square-dance/quantum-square-dance-app.js",
+      "sha256": "c105736e903187cf08e2531e74007675d6b0e77c903f028c0d2d3c8c7cadad32"
+    },
+    {
+      "before": "src/instruments/rattlesnake-skin/rattlesnake-skin-app.js",
+      "after": "src/instruments/rattlesnake-skin/rattlesnake-skin-app.js",
+      "sha256": "464bf3c89e6243e35d0ae00a13eb3718d8287c7428bbaaf0ed2c4356600d187d"
+    },
+    {
+      "before": "src/instruments/recursion/recursion-app.js",
+      "after": "src/instruments/recursion/recursion-app.js",
+      "sha256": "7c90f369158e930a24a64d0bf65040552bef942c955b8ee755454cc81ed1753d"
+    },
+    {
+      "before": "src/instruments/recursive-fm/recursive-fm-app.js",
+      "after": "src/instruments/recursive-fm/recursive-fm-app.js",
+      "sha256": "9db0e0d8c773d7f884ca0e0f69836ce199e889f62c2313e326dd2b2e42e6ce71"
+    },
+    {
+      "before": "src/instruments/recursive-pm/recursive-pm-app.js",
+      "after": "src/instruments/recursive-pm/recursive-pm-app.js",
+      "sha256": "687a642e88231d9d492963084242a896d4986e4666897e9e64a2dc37bf9be684"
+    },
+    {
+      "before": "src/instruments/roach-synth/roach-synth-app.js",
+      "after": "src/instruments/roach-synth/roach-synth-app.js",
+      "sha256": "5104ddf2380b1518523b45384640dc86a95bb04e4ec108589862c1e7e57fe48c"
+    },
+    {
+      "before": "src/instruments/rubix/factory-presets.js",
+      "after": "src/instruments/rubix/factory-presets.js",
+      "sha256": "88a118ca3e14696cd9d23380d4fe8b2c9825f7b24f6d67eb44ed42a89338dc06"
+    },
+    {
+      "before": "src/instruments/rubix/full-presets.js",
+      "after": "src/instruments/rubix/full-presets.js",
+      "sha256": "a0f571063db5667761eb5a2abda322e5a3f6b5ca183aed58605f2fcf9f6f9bdc"
+    },
+    {
+      "before": "src/instruments/rubix/rubix-app.js",
+      "after": "src/instruments/rubix/rubix-app.js",
+      "sha256": "2b31cbfb4ee4c5e145b687ea577aa86676f47984413023caf26522ecf712b2c0"
+    },
+    {
+      "before": "src/instruments/sample-drums/sample-drums-app.js",
+      "after": "src/instruments/sample-drums/sample-drums-app.js",
+      "sha256": "b9e686ad0c12908c6a1e3b77f16a95136e73285a346ccbfbd8849c767193822a"
+    },
+    {
+      "before": "src/instruments/scatter-ghost/scatter-ghost-app.js",
+      "after": "src/instruments/scatter-ghost/scatter-ghost-app.js",
+      "sha256": "57dacc3fa792452441805d4680e6e6b134efba985b2cefe5c2eb305cd1e33704"
+    },
+    {
+      "before": "src/instruments/shader-synth-playground/shader-synth-playground-app.js",
+      "after": "src/instruments/shader-synth-playground/shader-synth-playground-app.js",
+      "sha256": "24857f429e01fcc3184f3d0adecb11286dda5be4706c7e2bd88bc6fe87cfdfd6"
+    },
+    {
+      "before": "src/instruments/shape-drum-machine/shape-drum-machine-app.js",
+      "after": "src/instruments/shape-drum-machine/shape-drum-machine-app.js",
+      "sha256": "81ead45dcae5cdc845da84c27e0b910425cf948b2d2904f3a35ceca1f090eaec"
+    },
+    {
+      "before": "src/instruments/shape-synth/shape-synth-app.js",
+      "after": "src/instruments/shape-synth/shape-synth-app.js",
+      "sha256": "e06eb09a904db8024909dcc74ada10baf83d083b1a205d2988689ed8985ee149"
+    },
+    {
+      "before": "src/instruments/shapes/full-presets.js",
+      "after": "src/instruments/shapes/full-presets.js",
+      "sha256": "b33be7ce1bf55f34d3438296806f07f963dd87b8506b3dc730222ad8d1a38e6b"
+    },
+    {
+      "before": "src/instruments/shapes/mode-presets.js",
+      "after": "src/instruments/shapes/mode-presets.js",
+      "sha256": "e91241df85a4a1a5976ac6c7be550bbe62b80c3c79bdcc23d4f5b877ac1bc5da"
+    },
+    {
+      "before": "src/instruments/shapes/original-audio.js",
+      "after": "src/instruments/shapes/original-audio.js",
+      "sha256": "1c74ce9cd9ac8ee7a270c5ecc4bfd3fdc41b5025d6c81afd356bf72bfbe2574b"
+    },
+    {
+      "before": "src/instruments/shapes/shapes-app.js",
+      "after": "src/instruments/shapes/shapes-app.js",
+      "sha256": "61d85a9d515f068c9543ace5653fbe20849bf9203e8f5d7b32d337154899ea87"
+    },
+    {
+      "before": "src/instruments/shapes/shapes-host.js",
+      "after": "src/instruments/shapes/shapes-host.js",
+      "sha256": "380314c640c80a9c25c7ee51f5ec634b3cf2af7924c39748c6bdd439cf30840f"
+    },
+    {
+      "before": "src/instruments/shepard-risset/shepard-risset-app.js",
+      "after": "src/instruments/shepard-risset/shepard-risset-app.js",
+      "sha256": "0cd80e88159bce7b8bea8da137bd316f6c447e324b0e0a26459e8429c3b3a946"
+    },
+    {
+      "before": "src/instruments/sliding-puzzle/sliding-puzzle-app.js",
+      "after": "src/instruments/sliding-puzzle/sliding-puzzle-app.js",
+      "sha256": "79f8a0e1a2e74c90482f444dd3681c07cab1bbdec4977202a530685474aa7301"
+    },
+    {
+      "before": "src/instruments/slippery-resynthesis/slippery-resynthesis-app.js",
+      "after": "src/instruments/slippery-resynthesis/slippery-resynthesis-app.js",
+      "sha256": "004edff4cbb3d8b95e85c1309937ea83d3f9c589a3ce271e171481c29ad68c71"
+    },
+    {
+      "before": "src/instruments/solid-drum-machine/solid-drum-machine-app.js",
+      "after": "src/instruments/solid-drum-machine/solid-drum-machine-app.js",
+      "sha256": "629b26ccebadcf98cc709b99de7e908471aa27cdd3dfe23f6b73941e1614e99f"
+    },
+    {
+      "before": "src/instruments/solid-synth/solid-synth-app.js",
+      "after": "src/instruments/solid-synth/solid-synth-app.js",
+      "sha256": "5aa18c41e5f4603998d74e0bd487135f6444fdcb498946f3327200ca69410251"
+    },
+    {
+      "before": "src/instruments/spelling-synthesizer/spelling-synthesizer-app.js",
+      "after": "src/instruments/spelling-synthesizer/spelling-synthesizer-app.js",
+      "sha256": "946778b906624c62d3388d1534ef976ca6638e95104b4f3d27de21e75894c1e7"
+    },
+    {
+      "before": "src/instruments/spider-synth/spider-synth-app.js",
+      "after": "src/instruments/spider-synth/spider-synth-app.js",
+      "sha256": "d052cde71742085902c3af05f8d94f7a7ae3b18dcb9da79d22d038653d5fcba6"
+    },
+    {
+      "before": "src/instruments/spiral-drum-machine/spiral-drum-machine-app.js",
+      "after": "src/instruments/spiral-drum-machine/spiral-drum-machine-app.js",
+      "sha256": "33644f340f32a78e90823285631cd265c4ce4c03b45957861820bc8e1a19869b"
+    },
+    {
+      "before": "src/instruments/spiral/spiral-app.js",
+      "after": "src/instruments/spiral/spiral-app.js",
+      "sha256": "b1be2fd1fe7b4e52cee4b279738bee25a91146b232ce70ff5bc9071ff8f4e7af"
+    },
+    {
+      "before": "src/instruments/splice-ring/splice-ring-app.js",
+      "after": "src/instruments/splice-ring/splice-ring-app.js",
+      "sha256": "cd7fe9d634dc91b35a59f35cac8b68543962770aebff2ff60ee342dfdefa7d51"
+    },
+    {
+      "before": "src/instruments/srtuss/srtuss-app.js",
+      "after": "src/instruments/srtuss/srtuss-app.js",
+      "sha256": "29d70628f1ed1172b5e1fb8497d0304062f7598c8c0c04eaa85c6db45e4122c5"
+    },
+    {
+      "before": "src/instruments/striped-staircase/striped-staircase-app.js",
+      "after": "src/instruments/striped-staircase/striped-staircase-app.js",
+      "sha256": "2b958241425a00cf9cbac78680cf2c494c56c5fc42671651b746740357901385"
+    },
+    {
+      "before": "src/instruments/surround-field/surround-field-app.js",
+      "after": "src/instruments/surround-field/surround-field-app.js",
+      "sha256": "a4ec4cc08c27b756407cb3b329250f4ce5c793af6667f6275d586d0ab3d8521b"
+    },
+    {
+      "before": "src/instruments/synaptic-resonance/synaptic-resonance-app.js",
+      "after": "src/instruments/synaptic-resonance/synaptic-resonance-app.js",
+      "sha256": "1895b1f205d225de911af557dc2e5d38328e07b821df6f8ee2c65ba8fc0c7347"
+    },
+    {
+      "before": "src/instruments/tesselation/tesselation-app.js",
+      "after": "src/instruments/tesselation/tesselation-app.js",
+      "sha256": "cfd0812e66576d9f2d5d074961130c1643e3c9dd1942736917ef6061cdb0dcd6"
+    },
+    {
+      "before": "src/instruments/throat-singing/throat-singing-app.js",
+      "after": "src/instruments/throat-singing/throat-singing-app.js",
+      "sha256": "27c173b727ece0bbf63cd9aef8a565c5195963492c287f5aa9c52acaf4d4b9f2"
+    },
+    {
+      "before": "src/instruments/throatazoid/throatazoid-app.js",
+      "after": "src/instruments/throatazoid/throatazoid-app.js",
+      "sha256": "0b04e68b1583a82e7fcb0faa89feaedabed205758a7815a4314ad6dfa6bd0623"
+    },
+    {
+      "before": "src/instruments/vector-flight/vector-flight-app.js",
+      "after": "src/instruments/vector-flight/vector-flight-app.js",
+      "sha256": "268a0ff935aa3e0b641ae6f4c5442dd1be69206f99b0f80e1a59dff51c9ac59b"
+    },
+    {
+      "before": "src/instruments/vocalzoid/vocalzoid-app.js",
+      "after": "src/instruments/vocalzoid/vocalzoid-app.js",
+      "sha256": "340b5ff25480ff3522a7793350434130f44dc7f2a32e9fff0b95106d717f461e"
+    },
+    {
+      "before": "src/instruments/wave-pool/wave-pool-app.js",
+      "after": "src/instruments/wave-pool/wave-pool-app.js",
+      "sha256": "cf4f7dbacb968cd8c51f48f3c699b2c1864ed684c61a01604629d579bdeb0249"
+    },
+    {
+      "before": "src/instruments/webgpu-chiptune/webgpu-chiptune-app.js",
+      "after": "src/instruments/webgpu-chiptune/webgpu-chiptune-app.js",
+      "sha256": "93f844b24fbd232cbf9a0abfe66ae0bb8b854ea027100c9162eb6d33ae22c0d1"
+    },
+    {
+      "before": "src/instruments/webgpu-dsp-primitives/webgpu-dsp-primitives-app.js",
+      "after": "src/instruments/webgpu-dsp-primitives/webgpu-dsp-primitives-app.js",
+      "sha256": "70e9e31e8fa1e5fd4e8b3806d495067fd216f88ca0dd8ba150a78346836eaf61"
+    },
+    {
+      "before": "src/instruments/webgpu-synths/webgpu-synths-app.js",
+      "after": "src/instruments/webgpu-synths/webgpu-synths-app.js",
+      "sha256": "13fbc756882667e6e25a4e309e901e9bbca923928ae90a5c8d475a78d40d8fed"
+    },
+    {
+      "before": "src/instruments/weierstrass/weierstrass-app.js",
+      "after": "src/instruments/weierstrass/weierstrass-app.js",
+      "sha256": "5bafefd7e84dd00884f59fa2b3bc39db4cefacac6bf2fe0584a5e0a8a94bfdb0"
+    },
+    {
+      "before": "src/instruments/wheel-of-organs/wheel-of-organs-app.js",
+      "after": "src/instruments/wheel-of-organs/wheel-of-organs-app.js",
+      "sha256": "ead9f42bf42cb4dde30c8d2ad0c0e0c95d36c3bb590ea61a235d608f74e2bf26"
+    },
+    {
+      "before": "src/instruments/yoyodyne/yoyodyne-app.js",
+      "after": "src/instruments/yoyodyne/yoyodyne-app.js",
+      "sha256": "85a98866f63d1a66f0338f2474eeb03f9b6a7312a44458ca2e4cdc2894c5dcf2"
+    },
+    {
+      "before": "src/jaw-harp-processor.js",
+      "after": "src/instruments/jaw-harp/jaw-harp-processor.js",
+      "sha256": "a112a65ce3c0b7daff4742605a580414cb7955c4f309bfd66678a7e85f09db4c"
+    },
+    {
+      "before": "src/jaw-harp.js",
+      "after": "src/instruments/jaw-harp/jaw-harp.js",
+      "sha256": "1b0ddf0471a6ffa2963b9ed54d33b03b3e22aeb64801fefa25aacd8f9bf19312"
+    },
+    {
+      "before": "src/jaw-jam-processor.js",
+      "after": "src/instruments/jaw-jam/jaw-jam-processor.js",
+      "sha256": "2b5c08150d7d9d0e72e06a6361d2669c23a8ebb97e4f7d8e684a940212cf0597"
+    },
+    {
+      "before": "src/jaw-jam.js",
+      "after": "src/instruments/jaw-jam/jaw-jam.js",
+      "sha256": "3c39ff8172338ed3c14ba0c9151de83152ba3abd0ab1a07c65b450803e195b68"
+    },
+    {
+      "before": "src/julia-similarity.js",
+      "after": "src/instruments/julia/julia-similarity.js",
+      "sha256": "c89d26dbdf12100c41a8992e0efc46c1df7e91f47f67c978ef3209b3aa7fe2bc"
+    },
+    {
+      "before": "src/julia.js",
+      "after": "src/instruments/julia/julia.js",
+      "sha256": "9138dffbb211f988f4f7fa77f8357965782610e66d3f577eb090cf7599c7340f"
+    },
+    {
+      "before": "src/julie-saw-processor.js",
+      "after": "src/instruments/julie-saw/julie-saw-processor.js",
+      "sha256": "87e71939d21c4690bb5db13235c9f7db4f69d0c2ffc4f35c364e4718d7e2cd92"
+    },
+    {
+      "before": "src/julie-saw.js",
+      "after": "src/instruments/julie-saw/julie-saw.js",
+      "sha256": "de76430c97a6a98526899befb49192bf2ce796a2a6bd274c118e0f4b5bc2b4ba"
+    },
+    {
+      "before": "src/karplus-carpet.js",
+      "after": "src/instruments/karplus-carpet/karplus-carpet.js",
+      "sha256": "9b6ab013af0767bf9b09dc4b04b8ea45855919f6a619893d4b857fabd9e79d11"
+    },
+    {
+      "before": "src/karplus-strong.js",
+      "after": "src/instruments/karplus-strong/karplus-strong.js",
+      "sha256": "838bf8d7d42f21975d0ebf0600158abff2bd66686112e722ba88074af3fca647"
+    },
+    {
+      "before": "src/l-system.js",
+      "after": "src/instruments/l-system/l-system.js",
+      "sha256": "d06fcd72cd0f5039b469808f99d482b00e431f7b11491dc0ca05141f795ba760"
+    },
+    {
+      "before": "src/l-systems-suite.js",
+      "after": "src/instruments/l-systems/l-systems-suite.js",
+      "sha256": "5a3bb4c7239a93c5f931f2effa2834c4704db4bff8d5b108b87ef980f5e44caf"
+    },
+    {
+      "before": "src/lattice-colors.js",
+      "after": "src/instruments/lattice/lattice-colors.js",
+      "sha256": "aae46bb46bede8022aa3f3747054c6a26aa29388dfac5d787642ce28b2a0c547"
+    },
+    {
+      "before": "src/lattice.js",
+      "after": "src/instruments/lattice/lattice.js",
+      "sha256": "4f172dfe6c44018c4f8f745d770135c24f18641df2f8fa1569725403f8dd0b56"
+    },
+    {
+      "before": "src/linear-drums-machine.js",
+      "after": "src/instruments/rattlesnake-skin/linear-drums-machine.js",
+      "sha256": "cd1e186933ff2bbf84042917dfed7edfaf2782b1705160b0bb590820fd5253a3"
+    },
+    {
+      "before": "src/linear-drums.js",
+      "after": "src/instruments/linear-drums/linear-drums.js",
+      "sha256": "05de689622f0dc27fbfda82412a16425ecb82374a2c8c74150a0e10b891d3454"
+    },
+    {
+      "before": "src/linebreaker.js",
+      "after": "src/instruments/linebreaker/linebreaker.js",
+      "sha256": "34f117f16a5e0f20e353ffcb8ddfc70b02d88e0a9315cdf6d192f34d18c1db09"
+    },
+    {
+      "before": "src/lumber.js",
+      "after": "src/instruments/lumber/lumber.js",
+      "sha256": "2cd6d748f497c89bba5d4377aa38f23acbe3324680a3071bf6df6b86c1d95f46"
+    },
+    {
+      "before": "src/mic-branch-dsp.js",
+      "after": "src/families/mic-branch/mic-branch-dsp.js",
+      "sha256": "4c9325e47158bb9e2ca9ed968dba629921d428fbb457e3f56d92b29b49942111"
+    },
+    {
+      "before": "src/mic-branch-engine.js",
+      "after": "src/families/mic-branch/mic-branch-engine.js",
+      "sha256": "9e7705a75e8ae0360b692f831291b242a1b30c21e6f97e3a0e0f79964d93d5ee"
+    },
+    {
+      "before": "src/mic-branch-processor.js",
+      "after": "src/families/mic-branch/mic-branch-processor.js",
+      "sha256": "77fd842d809225d9d36b97bb423007ae33c04dc2b2a3097884324e43d470a861"
+    },
+    {
+      "before": "src/mic-loop-capture-processor.js",
+      "after": "src/families/mic-branch/mic-loop-capture-processor.js",
+      "sha256": "16621ca22f5e47b435fa8ac382c0f4e0106050449f5759fd9eabe84b1942f70a"
+    },
+    {
+      "before": "src/micmic-generation-dsp.js",
+      "after": "src/families/mic-branch/micmic-generation-dsp.js",
+      "sha256": "b67e9362ad637cc2d9a52167faafe268724c5198f337f462013caef83be7c24d"
+    },
+    {
+      "before": "src/micmic-generation-processor.js",
+      "after": "src/families/mic-branch/micmic-generation-processor.js",
+      "sha256": "bac808291f01121e37a78e1d3a495770a623131037c3896ed4484d6fd13d948f"
+    },
+    {
+      "before": "src/micmic.js",
+      "after": "src/instruments/micmic/micmic.js",
+      "sha256": "b45d3a20dd054ffa01ec58b127fbedb16b429cfb3f9d78c1c38077319e64ef65"
+    },
+    {
+      "before": "src/micromorph-model-client.js",
+      "after": "src/instruments/micromorph/micromorph-model-client.js",
+      "sha256": "44738f9e0ceb9880677a76bd8a4ffae7ca9bd3ac57f9ab2beb46e2d53abd3ae1"
+    },
+    {
+      "before": "src/micromorph.js",
+      "after": "src/instruments/micromorph/micromorph.js",
+      "sha256": "ee70694b648d3877b3be9475febb7986997f329524f13a7c2cab905e08a206e5"
+    },
+    {
+      "before": "src/moire-drone.js",
+      "after": "src/instruments/moire-drone/moire-drone.js",
+      "sha256": "ef9657740e4c84417a3c78c18f748fe3876ed57c822654b61fba7dc8e725908c"
+    },
+    {
+      "before": "src/monstrozoid-body.js",
+      "after": "src/families/syrinx/monstrozoid-body.js",
+      "sha256": "53b5f2e730e5a578afc4bfb80b3ba3a6da546231ba740433c1e1d955fadc9eef"
+    },
+    {
+      "before": "src/morphynx.js",
+      "after": "src/instruments/morphynx/morphynx.js",
+      "sha256": "fae62336772bd5e47efa930b245975ce168ed174bac5079eaa30cfbbe9c37ab3"
+    },
+    {
+      "before": "src/nightingale-manifold-3d.js",
+      "after": "src/instruments/nightingale-manifold/nightingale-manifold-3d.js",
+      "sha256": "1afd62e9ef3e30269a256d6936812085273909392f9894a9d3293945c59028f8"
+    },
+    {
+      "before": "src/nightingale-manifold.js",
+      "after": "src/instruments/nightingale-manifold/nightingale-manifold.js",
+      "sha256": "296e26198670dd46e64e4a25855786051086f60f763d8a1ec5f53f9bf4df0145"
+    },
+    {
+      "before": "src/nonorientable-surface.js",
+      "after": "src/families/nonorientable/nonorientable-surface.js",
+      "sha256": "6b51fd6c22fd087889764435e8bac32540e1804c2a44eca69ed5a7f14ea902b2"
+    },
+    {
+      "before": "src/orbital-ferris.js",
+      "after": "src/instruments/orbital-ferris/orbital-ferris.js",
+      "sha256": "e34377a5745c5070294593c5f1ee25d07728c9a25e6a0cbb17f13e2a1c7b62b1"
+    },
+    {
+      "before": "src/order-tones.js",
+      "after": "src/instruments/order-tones/order-tones.js",
+      "sha256": "858b228d89cae0310f31b7a315ec72057dd41c962f21a6be7839fd920853892b"
+    },
+    {
+      "before": "src/ouroboros-borealis.js",
+      "after": "src/instruments/ouroboros-borealis/ouroboros-borealis.js",
+      "sha256": "f99a5bb033b1765a61e634d4460cb7f123bec56d7513c178223d164974a4c10a"
+    },
+    {
+      "before": "src/ouroboros.js",
+      "after": "src/instruments/ouroboros/ouroboros.js",
+      "sha256": "3d6221d9a38430f5acd5ce484a32b9303858f1bb4a6d9bff329fda61a37f32c0"
+    },
+    {
+      "before": "src/ouroborousel.js",
+      "after": "src/instruments/ouroborousel/ouroborousel.js",
+      "sha256": "6a06faf7681786d5813445b4196fab81b50f668d84ceb82b2e1616ecd30c6d8a"
+    },
+    {
+      "before": "src/ourorourobouroboros.js",
+      "after": "src/instruments/ourorourobouroboros/ourorourobouroboros.js",
+      "sha256": "b8bd1d4d8fb0dee60c272fa565089f13f2ff4d482fb0c8cc3d0133f709e45c49"
+    },
+    {
+      "before": "src/paths.js",
+      "after": "src/instruments/paths/paths.js",
+      "sha256": "3cd5cb38144d9379e8515c3301506cb70cf256f08b1604c6849c3a3b624514b6"
+    },
+    {
+      "before": "src/penrose-tilings.js",
+      "after": "src/instruments/penrose-tilings/penrose-tilings.js",
+      "sha256": "5005d367214e03406ff529b281ed7e9bacb20290b3fa539c1ac44f7767e6636a"
+    },
+    {
+      "before": "src/penrose-world-p2.js",
+      "after": "src/instruments/penrose-tilings/penrose-world-p2.js",
+      "sha256": "0546606c81fed39b0f32908727fd0257e46d70fc276708d8e886423e83760422"
+    },
+    {
+      "before": "src/physics-common.js",
+      "after": "src/families/physics/physics-common.js",
+      "sha256": "ae62ede014fd25686eb5f337bd02bdbe5e93fb02a02b2a1b6033d3b309fe4da2"
+    },
+    {
+      "before": "src/physics-scenes-advanced.js",
+      "after": "src/families/physics/physics-scenes-advanced.js",
+      "sha256": "4f10695858f6c845ad4a2501abab37deaa6054d896e08a4186db0c7de8e59804"
+    },
+    {
+      "before": "src/physics-scenes-shape.js",
+      "after": "src/families/physics/physics-scenes-shape.js",
+      "sha256": "17f1fb6b8a292b4a3dfb8fd9e508ddc8fc974ee0b655fd9d7a9fc020ee4f3713"
+    },
+    {
+      "before": "src/physics-scenes.js",
+      "after": "src/families/physics/physics-scenes.js",
+      "sha256": "7c1140a6931f6bf4811a9fb44cdb27982c4ab8b5a41383f31509b87c8db3b64a"
+    },
+    {
+      "before": "src/pink-trombonazoid.js",
+      "after": "src/families/tract/pink-trombonazoid.js",
+      "sha256": "44a36c024675c9def9d7aa59bc9217ed6a2af36ef6d72b22647158c83dc548b7"
+    },
+    {
+      "before": "src/plasma-ball.js",
+      "after": "src/instruments/plasma-ball/plasma-ball.js",
+      "sha256": "ca43988dd604de00b9a304cfdd75ac4194f8a4c464abafb9345eaa83db5259e5"
+    },
+    {
+      "before": "src/playhead-paint-audio.js",
+      "after": "src/instruments/playhead-paint/playhead-paint-audio.js",
+      "sha256": "8ed1c34a651122cfb8d4e5e289dfdd929d26340a63cf281d467f1f0c87caf743"
+    },
+    {
+      "before": "src/playhead-paint.js",
+      "after": "src/instruments/playhead-paint/playhead-paint.js",
+      "sha256": "0c92cc633a5901a9a2cba5fde73d7777e98e1d559f542baea806b2ed47e4ce46"
+    },
+    {
+      "before": "src/proto-shell.js",
+      "after": "src/families/proto-graph/proto-shell.js",
+      "sha256": "07b67509a6b35cabf0ad3cc38b6a53584c19e553eb24f1229335e3d0655d5823"
+    },
+    {
+      "before": "src/puggler-audio.js",
+      "after": "src/instruments/puggler/puggler-audio.js",
+      "sha256": "b8ddc0682586d4712a68d75bc7e466eafd79beca122fbae4acbf69e3494ab2d9"
+    },
+    {
+      "before": "src/puggler-collage.js",
+      "after": "src/instruments/puggler/puggler-collage.js",
+      "sha256": "49d3d2c6f6f31c65b9941726ac7f3a9ba0889d91959fcfd2385408f0a9d67f52"
+    },
+    {
+      "before": "src/puggler-controls.js",
+      "after": "src/instruments/puggler/puggler-controls.js",
+      "sha256": "c71b3a06ba2459ebfac7208bfa501224901e8c9f805f869ceeb4a2a1d133d749"
+    },
+    {
+      "before": "src/puggler-crowd-extra.js",
+      "after": "src/instruments/puggler/puggler-crowd-extra.js",
+      "sha256": "9cfaf9fe4ef00b4ff26e7cdbd8c050bab38a14a7f8c7108a6866b309d162be93"
+    },
+    {
+      "before": "src/puggler-crowd.js",
+      "after": "src/instruments/puggler/puggler-crowd.js",
+      "sha256": "19eda65fd12083b5bc9ffb33bc940c5a05d246218ba90d9edd5dedbf9a73ac41"
+    },
+    {
+      "before": "src/puggler-era-prop-renderer.js",
+      "after": "src/instruments/puggler/puggler-era-prop-renderer.js",
+      "sha256": "b63d6400dce2d383fd449a77c433f22865928b7037197ebdb91a45813370a10d"
+    },
+    {
+      "before": "src/puggler-era-props.js",
+      "after": "src/instruments/puggler/puggler-era-props.js",
+      "sha256": "411d7e1e28ad2a3c7a104bca8374a22b746c30122d08dfcd7e0087153dac2065"
+    },
+    {
+      "before": "src/puggler-era-samples.js",
+      "after": "src/instruments/puggler/puggler-era-samples.js",
+      "sha256": "4bacdbd99dcd6a3a876fbdc3c33e200d2526d3a584e21112884b5d3b07bf9184"
+    },
+    {
+      "before": "src/puggler-era-vocals.js",
+      "after": "src/instruments/puggler/puggler-era-vocals.js",
+      "sha256": "bc1a8202300777ff50aed02a219ef191644a9137cf1fb78571aae0b4c8999ac0"
+    },
+    {
+      "before": "src/puggler-future-crowd-atlas.js",
+      "after": "src/instruments/puggler/puggler-future-crowd-atlas.js",
+      "sha256": "f1716a29b406e1ab29dd658a7764351ab7719f64b5ccefe89a7cf713a07ff47c"
+    },
+    {
+      "before": "src/puggler-future-crowd.js",
+      "after": "src/instruments/puggler/puggler-future-crowd.js",
+      "sha256": "4f98c9660f1e6b86accce6f34b2a86f875569c7effe5de6e1feba0197f663a0f"
+    },
+    {
+      "before": "src/puggler-history-crowd.js",
+      "after": "src/instruments/puggler/puggler-history-crowd.js",
+      "sha256": "94fa65d96786cb8af5eaa54428cad8cab7e2d61c1887bee9e1162f59b3551765"
+    },
+    {
+      "before": "src/puggler-lighting.js",
+      "after": "src/instruments/puggler/puggler-lighting.js",
+      "sha256": "85a55288d9758a36736630aecb92b9f36ed889055db2324cca6292e4d7cbefd8"
+    },
+    {
+      "before": "src/puggler-presets.js",
+      "after": "src/instruments/puggler/puggler-presets.js",
+      "sha256": "159a911d96f885c819c80d027afccfc1b6438e0604e09a69c3fe4c0a2c63bdc9"
+    },
+    {
+      "before": "src/puggler-pyro.js",
+      "after": "src/instruments/puggler/puggler-pyro.js",
+      "sha256": "4e5d6f36b4e95eab3700545006237628310e3389874a84be96c57289f1e74b1c"
+    },
+    {
+      "before": "src/puggler-renderer.js",
+      "after": "src/instruments/puggler/puggler-renderer.js",
+      "sha256": "51174ccc7b8f39185d647e5454e5df21061f8e25ace2be7928e675de8be55a75"
+    },
+    {
+      "before": "src/puggler-samples.js",
+      "after": "src/instruments/puggler/puggler-samples.js",
+      "sha256": "c91b4de7375713d69b63f0347c7f715811941435a89aa99265d058f0fed8c28c"
+    },
+    {
+      "before": "src/puggler-skin-renderer.js",
+      "after": "src/instruments/puggler/puggler-skin-renderer.js",
+      "sha256": "0d39a12dff5e58b8c122c6b735e5370a5f87cdba7aedfc278fd942e26ad58653"
+    },
+    {
+      "before": "src/puggler-skins.js",
+      "after": "src/instruments/puggler/puggler-skins.js",
+      "sha256": "9ccb1163917a80218d61a0cd5d761df02b8140263b33097e2909183cb0f27155"
+    },
+    {
+      "before": "src/puggler-sonic-skins.js",
+      "after": "src/instruments/puggler/puggler-sonic-skins.js",
+      "sha256": "de49630e96ebd024e3f59f7f4414858bc0e4960468f6e8884fbbb2ac9f78eeda"
+    },
+    {
+      "before": "src/puggler-vocals.js",
+      "after": "src/instruments/puggler/puggler-vocals.js",
+      "sha256": "19756656207f94b88f448273aee6576a737051e35bee32d503923cc20b09c437"
+    },
+    {
+      "before": "src/puggler.js",
+      "after": "src/instruments/puggler/puggler.js",
+      "sha256": "a405fa5345bbffba01443bb0bebbbd7073df457ad50a94dc322ccbb099a661ba"
+    },
+    {
+      "before": "src/quadruped-motor.js",
+      "after": "src/instruments/quadruped/quadruped-motor.js",
+      "sha256": "95be03473868102c3f659c5a2ce46f4c58d97e6268cd3970f22a2d503da4e125"
+    },
+    {
+      "before": "src/quadruped-voices.js",
+      "after": "src/instruments/quadruped/quadruped-voices.js",
+      "sha256": "fc098bb4d2304a4aff47f4a602f0266773ad515fda59f8fec0cc3c0de344eeeb"
+    },
+    {
+      "before": "src/quadruped-world.js",
+      "after": "src/instruments/quadruped/quadruped-world.js",
+      "sha256": "1ba2ed75b2d7e74752c255e911038187a69a5cdfa707f1626ed74df34e09cd63"
+    },
+    {
+      "before": "src/quadruped.js",
+      "after": "src/instruments/quadruped/quadruped.js",
+      "sha256": "9f0beec09a395af2c5099fff5ff44d807ee0e19f7488216e5723ef428a787c62"
+    },
+    {
+      "before": "src/quantum-square-dance.js",
+      "after": "src/instruments/quantum-square-dance/quantum-square-dance.js",
+      "sha256": "afa049d2521b77ac5deea5e3357660d80e68bb03cc7b3eb0bbf53943dd0d162f"
+    },
+    {
+      "before": "src/recursion-audio-engine.js",
+      "after": "src/instruments/recursion/recursion-audio-engine.js",
+      "sha256": "91f130fb1b4db125fc2b38329aa68ab2f0e8c679ad20aa7aa626dac5f20c706d"
+    },
+    {
+      "before": "src/recursion-buffer-dsp.js",
+      "after": "src/instruments/recursion/recursion-buffer-dsp.js",
+      "sha256": "e503bc10cfccd44a689b219f9839cc6d7fb9b92b12a7a93c5dca6263e4438bc5"
+    },
+    {
+      "before": "src/recursion-geometry.js",
+      "after": "src/instruments/recursion/recursion-geometry.js",
+      "sha256": "f53e1c785cc534c8d75b373f0e325c4263c34e39236a720b819e3d588cc3cf44"
+    },
+    {
+      "before": "src/recursion-live.js",
+      "after": "src/instruments/recursion/recursion-live.js",
+      "sha256": "5f5e584fb963d70eb8546764ba1f16d29f52d5651cdae9781dddd53900571c6e"
+    },
+    {
+      "before": "src/recursion-motion.js",
+      "after": "src/instruments/recursion/recursion-motion.js",
+      "sha256": "dc17c43d2bf35663a9c84e8eda8ac6d9e7644bb0d2f1e9be58bcf6cea8996679"
+    },
+    {
+      "before": "src/recursion-spectral-dsp.js",
+      "after": "src/instruments/recursion/recursion-spectral-dsp.js",
+      "sha256": "6fb4a7a5ac05985c2db1339240b109e73d5379ad4c0488760450363d34a3251f"
+    },
+    {
+      "before": "src/recursion.js",
+      "after": "src/instruments/recursion/recursion.js",
+      "sha256": "d1b278499093c614b9ec765e560f6da616f0a9296ab218cfb9690178750c7ce7"
+    },
+    {
+      "before": "src/recursive-fm.js",
+      "after": "src/instruments/recursive-fm/recursive-fm.js",
+      "sha256": "ca6a166d12a7144db8bc40cbb552660e784dd8b0503bbced85ea202b8f6c1b96"
+    },
+    {
+      "before": "src/recursive-pm-midi.js",
+      "after": "src/instruments/recursive-pm/recursive-pm-midi.js",
+      "sha256": "0c85d8844d6c536f5a5d5ce61dfa65487ea5f3c702dfba17c87e5cd573529e4c"
+    },
+    {
+      "before": "src/recursive-pm.js",
+      "after": "src/instruments/recursive-pm/recursive-pm.js",
+      "sha256": "8f2daaeb87592134d004f1d3698571c5876bfe4cd5e4d6c34285b45ab98333c1"
+    },
+    {
+      "before": "src/roach-synth-audio.js",
+      "after": "src/instruments/roach-synth/roach-synth-audio.js",
+      "sha256": "fb1f301cd37366c566598ef44ae9e4555526b84626e3c3f497754d62f4b844de"
+    },
+    {
+      "before": "src/roach-synth-body-engine.js",
+      "after": "src/instruments/roach-synth/roach-synth-body-engine.js",
+      "sha256": "65b90c30691d6f22e0073a5aa3951ef3d7ca916dfb26bd21db0e784610cdaf3b"
+    },
+    {
+      "before": "src/roach-synth-body.js",
+      "after": "src/instruments/roach-synth/roach-synth-body.js",
+      "sha256": "4a63ec331c44f254a1e9b616d2f21ebdbb911c40ef55cc6032fc10afe98258c1"
+    },
+    {
+      "before": "src/roach-synth-dsp.js",
+      "after": "src/instruments/roach-synth/roach-synth-dsp.js",
+      "sha256": "671174555eaa59b34b1cba2bebdb2ddf423fec19b006e49b2f7e20d0006ce8c8"
+    },
+    {
+      "before": "src/roach-synth-midi-controls.js",
+      "after": "src/instruments/roach-synth/roach-synth-midi-controls.js",
+      "sha256": "cc69c67016fa4501d340c9cc4828aafdb955ec2a8fecf5c802a672395da7c905"
+    },
+    {
+      "before": "src/roach-synth-midi.js",
+      "after": "src/instruments/roach-synth/roach-synth-midi.js",
+      "sha256": "08250032c3014e398e492dceb2049b9bd1ffe4da6635f47378de49176e500797"
+    },
+    {
+      "before": "src/roach-synth-motion.js",
+      "after": "src/instruments/roach-synth/roach-synth-motion.js",
+      "sha256": "304367d6780ea3838a0375faa455c22bc65b91ca4b64ce0d003eba92c60fb771"
+    },
+    {
+      "before": "src/roach-synth-percussion.js",
+      "after": "src/instruments/roach-synth/roach-synth-percussion.js",
+      "sha256": "29e6843c8affc2013eb25418b29fe3c4107ed73209a3fe200404c58b81c49b61"
+    },
+    {
+      "before": "src/roach-synth-processor.js",
+      "after": "src/instruments/roach-synth/roach-synth-processor.js",
+      "sha256": "61b459933ebe2298c74fe1012e25313ada7a2a41c9f84a59e79e731cb3310fba"
+    },
+    {
+      "before": "src/roach-synth-textures.js",
+      "after": "src/instruments/roach-synth/roach-synth-textures.js",
+      "sha256": "716df6522b93ecb24d32e339ce80aae06a53c62a0915f0142ffbcbd461ad4e67"
+    },
+    {
+      "before": "src/roach-synth-viewer.js",
+      "after": "src/instruments/roach-synth/roach-synth-viewer.js",
+      "sha256": "88741643d28bcfff0d34e039ee65a248fe9a148264dee16ee7716d4996f9117e"
+    },
+    {
+      "before": "src/roach-synth-wings.js",
+      "after": "src/instruments/roach-synth/roach-synth-wings.js",
+      "sha256": "95f081d5cc6a738309376b3450ef2db173641c769af158e104e76bda17611cfb"
+    },
+    {
+      "before": "src/rubix-mix.js",
+      "after": "src/instruments/rubix/rubix-mix.js",
+      "sha256": "3051c5320b35c54eced656b19a83800eef55e5ce97bca7874f777a46b0e91ae3"
+    },
+    {
+      "before": "src/rubix-percussion.js",
+      "after": "src/instruments/rubix/rubix-percussion.js",
+      "sha256": "80847e53969d967ce829b716a06ecbbce581d30edcd582fd7f2f687dd8d686ea"
+    },
+    {
+      "before": "src/rubix-simd-303-processor.js",
+      "after": "src/instruments/rubix/rubix-simd-303-processor.js",
+      "sha256": "a2a8401c39bf11ec556f23c6397d123f89011ec10a28d7d7844e8569abb8e298"
+    },
+    {
+      "before": "src/rubix-simd-presets.js",
+      "after": "src/instruments/rubix/rubix-simd-presets.js",
+      "sha256": "043ca4b1d152456387cc607da09e8f05d053e76e6bc68504960477d26ab70672"
+    },
+    {
+      "before": "src/rubix-simd-surface.js",
+      "after": "src/instruments/rubix/rubix-simd-surface.js",
+      "sha256": "9234569f4d2f3fd31dcca1176867fb2ae56c1875ee949d2fc71f0be0d8d62b93"
+    },
+    {
+      "before": "src/rubix-visibility.js",
+      "after": "src/instruments/rubix/rubix-visibility.js",
+      "sha256": "daddf15b4beac1fc07fb23fd98c88e056d8915b074d275f0469b5245417daf4e"
+    },
+    {
+      "before": "src/rubix-webgpu-303.js",
+      "after": "src/instruments/rubix/rubix-webgpu-303.js",
+      "sha256": "2382e88a3dfb2e856d542ed62d0b642435b6569ec3c116c4d71e6305e60d4b86"
+    },
+    {
+      "before": "src/rubix.js",
+      "after": "src/instruments/rubix/rubix.js",
+      "sha256": "32d869bee074248f677d91a75f4d5bbdc204616f33ee9c910cbb4aa091a06298"
+    },
+    {
+      "before": "src/sample-drums.js",
+      "after": "src/instruments/sample-drums/sample-drums.js",
+      "sha256": "59f89bbb7573ab2cdaa7db522ec6a435cefeee13a62f1559e0bd99ea6932fae6"
+    },
+    {
+      "before": "src/scatter-ghost.js",
+      "after": "src/instruments/scatter-ghost/scatter-ghost.js",
+      "sha256": "b5e83acc972fc09602c16d6e865bdc2fb110771a150f755efb6535b82b918137"
+    },
+    {
+      "before": "src/shader-synth-playground-advanced-state-engine.js",
+      "after": "src/instruments/shader-synth-playground/shader-synth-playground-advanced-state-engine.js",
+      "sha256": "b6b4e60c254550405884a7a6622a209c4aa514afcc69e2c5aca7fff8a3081e77"
+    },
+    {
+      "before": "src/shader-synth-playground-advanced-state.js",
+      "after": "src/instruments/shader-synth-playground/shader-synth-playground-advanced-state.js",
+      "sha256": "f56fa3abb5ad4f5773d70bca86b435cae981354cc1db9db98d0a78ed67de7249"
+    },
+    {
+      "before": "src/shader-synth-playground-atlas-routing.js",
+      "after": "src/instruments/shader-synth-playground/shader-synth-playground-atlas-routing.js",
+      "sha256": "7c6b59e65a5542ad90456226dccc63241aedf58bcff4b16338ef829419968f9c"
+    },
+    {
+      "before": "src/shader-synth-playground-atlas.js",
+      "after": "src/instruments/shader-synth-playground/shader-synth-playground-atlas.js",
+      "sha256": "43b2a2ed499ffa8cee367d659e265070b1774233fd89f218d40919912d4edcd6"
+    },
+    {
+      "before": "src/shader-synth-playground-audio-assets.js",
+      "after": "src/instruments/shader-synth-playground/shader-synth-playground-audio-assets.js",
+      "sha256": "85a38d450571ad813992efa0dfaa0906ebf57a55e6ab050f377a5e861616bc86"
+    },
+    {
+      "before": "src/shader-synth-playground-extra.js",
+      "after": "src/instruments/shader-synth-playground/shader-synth-playground-extra.js",
+      "sha256": "0ef41ffaad11a876a894ee8e923a62dd802fb9a4d24375c5c3092ea50cecadd3"
+    },
+    {
+      "before": "src/shader-synth-playground-found-sounds.js",
+      "after": "src/instruments/shader-synth-playground/shader-synth-playground-found-sounds.js",
+      "sha256": "8b97ec5749b6ce09d9203d6c309b0765c4689a7e9d94bf64f67f8ce41d911f2a"
+    },
+    {
+      "before": "src/shader-synth-playground-fx.js",
+      "after": "src/instruments/shader-synth-playground/shader-synth-playground-fx.js",
+      "sha256": "f44cf8c46f4ae03894f65ae11fa5f97ca561d8cd9d7cf9299bdb607863468958"
+    },
+    {
+      "before": "src/shader-synth-playground-geometry.js",
+      "after": "src/instruments/shader-synth-playground/shader-synth-playground-geometry.js",
+      "sha256": "d6aea94929c4a9b08f5208bf0ff955d9f44ae68aa67068cfb62d07a084fb48d0"
+    },
+    {
+      "before": "src/shader-synth-playground-primitive-coverage.js",
+      "after": "src/instruments/shader-synth-playground/shader-synth-playground-primitive-coverage.js",
+      "sha256": "619f84ffb186caf77b7b815eff501461ac8e358f9f287f416807e7ad6521444f"
+    },
+    {
+      "before": "src/shader-synth-playground-scenes.js",
+      "after": "src/instruments/shader-synth-playground/shader-synth-playground-scenes.js",
+      "sha256": "8c41e075795ff541929f9b7ca11c556c36ed620d6e660d9e31b086ad93b4ab03"
+    },
+    {
+      "before": "src/shader-synth-playground-state-engine.js",
+      "after": "src/instruments/shader-synth-playground/shader-synth-playground-state-engine.js",
+      "sha256": "2f1c4552a5ae866b6e88f32b4f7d0afa0b8f1b9f11ab48b8225e75f0921050ba"
+    },
+    {
+      "before": "src/shader-synth-playground-stateful.js",
+      "after": "src/instruments/shader-synth-playground/shader-synth-playground-stateful.js",
+      "sha256": "e6f09b3d60bac7888a40afb8cb22c40c0a26fd4b4c4ad56bc27fc5b010aafe45"
+    },
+    {
+      "before": "src/shader-synth-playground-visual-state.js",
+      "after": "src/instruments/shader-synth-playground/shader-synth-playground-visual-state.js",
+      "sha256": "e1cc3662107aa49d9987c25c020503311f739edd531788d15f80b1f6d5cfb8f9"
+    },
+    {
+      "before": "src/shader-synth-playground.js",
+      "after": "src/instruments/shader-synth-playground/shader-synth-playground.js",
+      "sha256": "a8851a5ea0b98bca98b3e243f8f0057373f6a107d758a8bf4c04bed73492bc52"
+    },
+    {
+      "before": "src/shape-midi.js",
+      "after": "src/instruments/shape-synth/shape-midi.js",
+      "sha256": "4157c637cd1351db100ccbbce04f277f86beb1aa5dbc4c948f37a2db93b833d0"
+    },
+    {
+      "before": "src/shapes-native-bridge.js",
+      "after": "src/families/geometry/shapes-native-bridge.js",
+      "sha256": "faf614d6b68144e9bf241a909bf5ead6e7ee6f08faeba9590f4d665beb8231cc"
+    },
+    {
+      "before": "src/shapes-profile.js",
+      "after": "src/instruments/shapes/shapes-profile.js",
+      "sha256": "b5d876a065bd44ef20e24ab7944b50779d6102f72ad4fc21d4acb0bbfde04fdf"
+    },
+    {
+      "before": "src/shapes-rhythm.js",
+      "after": "src/instruments/shapes/shapes-rhythm.js",
+      "sha256": "2d5040f8413aa0e4869387e3d54b8bf3c3652a0617141dff60fe11e961d34a03"
+    },
+    {
+      "before": "src/shapes-scene.js",
+      "after": "src/instruments/shapes/shapes-scene.js",
+      "sha256": "e0d6cb2f4b618511803edebcef384a6ebc1189b447f1ab99cd2b1cfd6490793c"
+    },
+    {
+      "before": "src/shapes-state.js",
+      "after": "src/instruments/shapes/shapes-state.js",
+      "sha256": "3fa366fca2c7eda48581b26c6127a11fa206f8388b8597f5cc129318d5158b09"
+    },
+    {
+      "before": "src/shepard-risset.js",
+      "after": "src/instruments/shepard-risset/shepard-risset.js",
+      "sha256": "5982feae93ef92e79597652aa03b511c07a41255b7fc5eb94c640b84e0975375"
+    },
+    {
+      "before": "src/signalsmith-generation-bank.js",
+      "after": "src/families/signalsmith-generation/signalsmith-generation-bank.js",
+      "sha256": "3e1fe215413fc8dbad66e70f242c0d39f712819e56bfecdcdd8d76e74d6c16a4"
+    },
+    {
+      "before": "src/signalsmith-generation-limits.js",
+      "after": "src/families/signalsmith-generation/signalsmith-generation-limits.js",
+      "sha256": "796fdaa0156b2a7fb3423080abd4a326c28efe7abe09113ba2b182a9320a5ac8"
+    },
+    {
+      "before": "src/signalsmith-generation-mixer-dsp.js",
+      "after": "src/families/signalsmith-generation/signalsmith-generation-mixer-dsp.js",
+      "sha256": "ff54d716ebe44063fa04651c575d0371bbe76fbd0cceeddc3c98b35a018cd868"
+    },
+    {
+      "before": "src/signalsmith-generation-mixer-processor.js",
+      "after": "src/families/signalsmith-generation/signalsmith-generation-mixer-processor.js",
+      "sha256": "d16685299ff711500321cf69375600d6e57c47ae1166cb6f97720f1da2d7fa29"
+    },
+    {
+      "before": "src/site/chaotic-dsp-reference-page.js",
+      "after": "src/site/chaotic-dsp-reference-page.js",
+      "sha256": "c8fda2b5ab0a0d2877fc11b861d3af29291f11d9a8fb8e76b004259f7a405880"
+    },
+    {
+      "before": "src/sliding-puzzle.js",
+      "after": "src/instruments/sliding-puzzle/sliding-puzzle.js",
+      "sha256": "338598dbd0963d5182919d1e36c700627eef255bf47234b2e3d66022a01c5597"
+    },
+    {
+      "before": "src/slippery-resynthesis.js",
+      "after": "src/instruments/slippery-resynthesis/slippery-resynthesis.js",
+      "sha256": "f837ab0de477ce57c1c00cab16ea98f7f78293d87a81723ecb0f57ab225e3541"
+    },
+    {
+      "before": "src/solid.js",
+      "after": "src/solid.js",
+      "sha256": "9926ce5fd6ded5ed9ec34d0dc7ec4e646fa8cf6aaa9ef4eddeacafe3d983d729"
+    },
+    {
+      "before": "src/spelling-diphone-atlas.js",
+      "after": "src/instruments/spelling-synthesizer/spelling-diphone-atlas.js",
+      "sha256": "ebf44707c62b4f6bb2ecd532bdf60a2426645470c1c0e42dcdac3be3da0e92ee"
+    },
+    {
+      "before": "src/spelling-pronunciation.js",
+      "after": "src/instruments/spelling-synthesizer/spelling-pronunciation.js",
+      "sha256": "e2299ea228864d024179f2fe2967b0376748473927bd9a4ee080718226181f89"
+    },
+    {
+      "before": "src/spelling-synthesizer-audio.js",
+      "after": "src/instruments/spelling-synthesizer/spelling-synthesizer-audio.js",
+      "sha256": "5d794a1142e71fdb847eb7c0c51de9152ebd7bd637a29b63a76d30eca6eac966"
+    },
+    {
+      "before": "src/spelling-synthesizer.js",
+      "after": "src/instruments/spelling-synthesizer/spelling-synthesizer.js",
+      "sha256": "2954b7bd52e3b680f5ff1da5c0cdb5478719ef9c58e45db5e8c6f2b28d8f5e27"
+    },
+    {
+      "before": "src/spelling-vocoder-processor.js",
+      "after": "src/instruments/spelling-synthesizer/spelling-vocoder-processor.js",
+      "sha256": "062b180d93568c0819a2a6c2b80a88bd903875ca73342b3e5ecaaedf58d9eb58"
+    },
+    {
+      "before": "src/spider-synth-audio.js",
+      "after": "src/instruments/spider-synth/spider-synth-audio.js",
+      "sha256": "96c20d51bcfc3fdc0a0dd533c5d473f4c5b23371db727903cd0f32f80927e973"
+    },
+    {
+      "before": "src/spider-synth-body.js",
+      "after": "src/instruments/spider-synth/spider-synth-body.js",
+      "sha256": "3800629a0f25a85c0b00ce898c4aa2be75704aee3b6a50de9e27e9bd69c3c4d1"
+    },
+    {
+      "before": "src/spider-synth-collision.js",
+      "after": "src/instruments/spider-synth/spider-synth-collision.js",
+      "sha256": "e9ea0ff1cea3f723f2dbb6521fa0317a98fc64b6b897e3824521c6bac0b226cf"
+    },
+    {
+      "before": "src/spider-synth-contact.js",
+      "after": "src/instruments/spider-synth/spider-synth-contact.js",
+      "sha256": "d64ab45d497bd54cdc9eb4fcd47d589d97e67a3debe57362ecf9fa2618c411c1"
+    },
+    {
+      "before": "src/spider-synth-display.js",
+      "after": "src/instruments/spider-synth/spider-synth-display.js",
+      "sha256": "9bdf92ba98f383a9ca123e89c71c0527b964415f42c651ce088d487347d48ba4"
+    },
+    {
+      "before": "src/spider-synth-dsp.js",
+      "after": "src/instruments/spider-synth/spider-synth-dsp.js",
+      "sha256": "36463d0cd9ebc42ba37dabdca6996fa5dd4931098c5e73ee1b0b07cfe36889a8"
+    },
+    {
+      "before": "src/spider-synth-midi-controls.js",
+      "after": "src/instruments/spider-synth/spider-synth-midi-controls.js",
+      "sha256": "1abc6f3a6419ac30b05fa2460b7dea9cb772925b58eb2c89f4887450ae8ac4a5"
+    },
+    {
+      "before": "src/spider-synth-midi.js",
+      "after": "src/instruments/spider-synth/spider-synth-midi.js",
+      "sha256": "953d57f79e4bf86aa20cceeee0b2787b18710ac4cd5f6ca86d9530093f29a2ea"
+    },
+    {
+      "before": "src/spider-synth-model.js",
+      "after": "src/instruments/spider-synth/spider-synth-model.js",
+      "sha256": "c5cdcd7dddee42dfde4fb14f27a4cf23797b2110a9641eea57ffaf222c5284cb"
+    },
+    {
+      "before": "src/spider-synth-navigation-controls.js",
+      "after": "src/instruments/spider-synth/spider-synth-navigation-controls.js",
+      "sha256": "589e832455dc847fd4bc5d145298c4e39989ed7f3a326bcc17bfaacc28ae7c78"
+    },
+    {
+      "before": "src/spider-synth-processor.js",
+      "after": "src/instruments/spider-synth/spider-synth-processor.js",
+      "sha256": "62ec0efaeb7e6ff6fb8c9787f4d760b56625010e62327849a43c3285c61f642e"
+    },
+    {
+      "before": "src/spider-synth-recordings.js",
+      "after": "src/instruments/spider-synth/spider-synth-recordings.js",
+      "sha256": "149a48af0c16e9076dc30bca5a46c3c0c9c28316a24bdb613cc5bcfd8e6d6633"
+    },
+    {
+      "before": "src/spider-synth-specimen-data.js",
+      "after": "src/instruments/spider-synth/spider-synth-specimen-data.js",
+      "sha256": "86ff38018f70071290808d85007d6e401424b72ea9482a996e3a92121c6c1ebf"
+    },
+    {
+      "before": "src/spider-synth-specimens.js",
+      "after": "src/instruments/spider-synth/spider-synth-specimens.js",
+      "sha256": "d6169bcc34c8b8721ac046ea68d0e39995108c799d0eddee96eb9423c6c40dea"
+    },
+    {
+      "before": "src/spider-synth-string.js",
+      "after": "src/instruments/spider-synth/spider-synth-string.js",
+      "sha256": "fed0c6700cac3fe60ae84c5571aa68b23aa41f37546bfbd54a3c2a1ecedef119"
+    },
+    {
+      "before": "src/spider-synth-textures.js",
+      "after": "src/instruments/spider-synth/spider-synth-textures.js",
+      "sha256": "5af2c6e9c7e7495cbb121382a7d2bf57e1de85b4ae39d89f84151745e0db4d15"
+    },
+    {
+      "before": "src/spider-synth-viewer.js",
+      "after": "src/instruments/spider-synth/spider-synth-viewer.js",
+      "sha256": "75a199b8aeffd837e690aeef75558f20a665e2861c52ef005ae331c4c0aacd9f"
+    },
+    {
+      "before": "src/spider-synth-web.js",
+      "after": "src/instruments/spider-synth/spider-synth-web.js",
+      "sha256": "39ab873c7761971cf39a9818dc12a245db98e57a9129cdc0266e16d53f7eaac0"
+    },
+    {
+      "before": "src/spider-synth-world.js",
+      "after": "src/instruments/spider-synth/spider-synth-world.js",
+      "sha256": "34e15c20af0064a0601ebe321af2d693f47f62066a6d279e1a40e3b7707a0e6d"
+    },
+    {
+      "before": "src/spiral.js",
+      "after": "src/instruments/spiral/spiral.js",
+      "sha256": "a13d9e504503d282aa0e47dfb3297a1a002cadf5f5dec414a887b5b6dde54df4"
+    },
+    {
+      "before": "src/srtuss-master-shaders.js",
+      "after": "src/instruments/srtuss/srtuss-master-shaders.js",
+      "sha256": "e5781f07c0f4882ab3c1cbd0447d80c8b929fcc5bf3e620f18e6f0bb4ccf749b"
+    },
+    {
+      "before": "src/srtuss-master.js",
+      "after": "src/instruments/srtuss/srtuss-master.js",
+      "sha256": "32f464aac09bdbc292ed4d858dcf04e5f3b880ede60714c8defa432bb4bb2236"
+    },
+    {
+      "before": "src/srtuss-shaders-a.js",
+      "after": "src/instruments/srtuss/srtuss-shaders-a.js",
+      "sha256": "9481d76dd088cb088ac2f0971fb5adb578fb0b9f36c4368e68d724bbda9f13b9"
+    },
+    {
+      "before": "src/srtuss-shaders-b.js",
+      "after": "src/instruments/srtuss/srtuss-shaders-b.js",
+      "sha256": "460bf381d1a07f89e978394584c8c2ddb7cfe93f2cb674ad28cad0f718c62bd7"
+    },
+    {
+      "before": "src/srtuss-shaders-c.js",
+      "after": "src/instruments/srtuss/srtuss-shaders-c.js",
+      "sha256": "72f738f70f09ebf053d608eea357cb9a136ba7497ef4e0c86df8f3eadff079bf"
+    },
+    {
+      "before": "src/srtuss-shaders-d.js",
+      "after": "src/instruments/srtuss/srtuss-shaders-d.js",
+      "sha256": "e8071c40dfcb9a6d081db02d6b43c28da28f9f91e3b07ddd2c21a6032515996e"
+    },
+    {
+      "before": "src/srtuss.js",
+      "after": "src/instruments/srtuss/srtuss.js",
+      "sha256": "a50110accbebdfc099e55f0613c0225a126c7b53aa9b62ad6c5297d092e1abe6"
+    },
+    {
+      "before": "src/striped-staircase-audio.js",
+      "after": "src/instruments/striped-staircase/striped-staircase-audio.js",
+      "sha256": "520c8874be09085854ab038e14d17dce794cfb56587448784451e2e3dcd792fa"
+    },
+    {
+      "before": "src/striped-staircase.js",
+      "after": "src/instruments/striped-staircase/striped-staircase.js",
+      "sha256": "54348357956bbf57b6cc53010095102523a5c4b283a763c5e225d8d2660755b4"
+    },
+    {
+      "before": "src/surround-field-recorder-processor.js",
+      "after": "src/instruments/surround-field/surround-field-recorder-processor.js",
+      "sha256": "b82acd14ef6f30034985a35bdcd852fd6ef7b5c7d97ef95d9aebb0f3567d6dd1"
+    },
+    {
+      "before": "src/surround-field-recorder.js",
+      "after": "src/instruments/surround-field/surround-field-recorder.js",
+      "sha256": "4de40fb9a55f8be60ec9d45ef7af7078d7e725249973c8738d15ce1c8c2883d8"
+    },
+    {
+      "before": "src/surround-field.js",
+      "after": "src/instruments/surround-field/surround-field.js",
+      "sha256": "bda86f2611b4977b2cd3f04a8e3eaacd0445d031b40ece15383456b4e8ecdd24"
+    },
+    {
+      "before": "src/syrinx-processor.js",
+      "after": "src/families/syrinx/syrinx-processor.js",
+      "sha256": "c12e62d8b32df06588ae8fba4855d2766471d7bd93c4355ab9231e0ba9dc86c8"
+    },
+    {
+      "before": "src/syrinx-source-models.js",
+      "after": "src/families/syrinx/syrinx-source-models.js",
+      "sha256": "1710972d2cbd4f2c2a82ac30981eb43de4458c695ae6975289b9af76332aa879"
+    },
+    {
+      "before": "src/syrinx.js",
+      "after": "src/families/syrinx/syrinx.js",
+      "sha256": "544130a4527374b3d86810c315fcd70d8cf304b46d2939190031a49384c3ff37"
+    },
+    {
+      "before": "src/throat-singing.js",
+      "after": "src/instruments/throat-singing/throat-singing.js",
+      "sha256": "ebf2874c16f1cd8e9a927851d2b239e8a6c57e93e7f9823ff795b5366ee8acb8"
+    },
+    {
+      "before": "src/throatazoid-tract-processor.js",
+      "after": "src/families/tract/throatazoid-tract-processor.js",
+      "sha256": "dedcbeaebe87eb1ac51ba5321349a9a9588f2a5fc41bf74160f8a140d82c88b5"
+    },
+    {
+      "before": "src/throatazoid.js",
+      "after": "src/families/tract/throatazoid.js",
+      "sha256": "e70da56bb3ecc625c0b7dbb2ec77eddbad679450934d28feff25d728f148e15a"
+    },
+    {
+      "before": "src/tongue-performance.js",
+      "after": "src/families/syrinx/tongue-performance.js",
+      "sha256": "10702937ff11ab9e1302ee03a80761c84ebf3bf4f9bc951a5f3b21f992100fa4"
+    },
+    {
+      "before": "src/tongue-physics.js",
+      "after": "src/families/syrinx/tongue-physics.js",
+      "sha256": "6cb4662c522c2f5594241cd056a73d92a6aa5f727f0da5f94f2e39a7e6f49bd2"
+    },
+    {
+      "before": "src/vector-flight.js",
+      "after": "src/instruments/vector-flight/vector-flight.js",
+      "sha256": "42df892bfb9d4404835731538d2d1f48158af6b01ab0944842fab684b35c2b3a"
+    },
+    {
+      "before": "src/vocalzoid-audio.js",
+      "after": "src/instruments/vocalzoid/vocalzoid-audio.js",
+      "sha256": "4a6904a168f0a27a00ebbe66eb75194b1d1558854605c005e830ea5ea7a51550"
+    },
+    {
+      "before": "src/vocalzoid-bank.js",
+      "after": "src/instruments/vocalzoid/vocalzoid-bank.js",
+      "sha256": "467c05b499d67c1eeaf55027a803dde9bf3f08ea49e23cde00f76430a9090446"
+    },
+    {
+      "before": "src/vocalzoid-open-banks.js",
+      "after": "src/instruments/vocalzoid/vocalzoid-open-banks.js",
+      "sha256": "e9f79d6a4600247f60c7c4183a6d7efd262e982b762780ba50384b0c61d91b07"
+    },
+    {
+      "before": "src/vocalzoid.js",
+      "after": "src/instruments/vocalzoid/vocalzoid.js",
+      "sha256": "12828d78d36f50b2760fdba6a3a0fe1f0cc2842ef6c067baa8ac5b76075f39fc"
+    },
+    {
+      "before": "src/wave-lab-shell.js",
+      "after": "src/families/wave-lab/wave-lab-shell.js",
+      "sha256": "951a21f443cf6954b85274e90b7edfca16b8d807508e64b291d0e2859829a656"
+    },
+    {
+      "before": "src/wave-pool-processor.js",
+      "after": "src/instruments/wave-pool/wave-pool-processor.js",
+      "sha256": "0e506abfa5fb6d8753ef020a53d5ae7f226b5662d27798ee2c5038e99a484299"
+    },
+    {
+      "before": "src/wave-pool.js",
+      "after": "src/instruments/wave-pool/wave-pool.js",
+      "sha256": "bb778329db3bf803edae48bd793287259e5f8a8764787aeb8f466e32fe15773d"
+    },
+    {
+      "before": "src/wax-instrument-roles.js",
+      "after": "src/instruments/wax/wax-instrument-roles.js",
+      "sha256": "b10a20d9f3fdfe5c74e1207f8b637f8c0ba3041c7caf94270c2e11d818d0c595"
+    },
+    {
+      "before": "src/wax-midi-routing.js",
+      "after": "src/instruments/wax/wax-midi-routing.js",
+      "sha256": "283e5aa02d46f5852e7d4f27fa063f11e13a848928719b272b584fb446852348"
+    },
+    {
+      "before": "src/webgpu-chiptune-dancers.js",
+      "after": "src/instruments/webgpu-chiptune/webgpu-chiptune-dancers.js",
+      "sha256": "579c0213e626e73b4fb7c2c26d4e2e61a4aa1d3ed5c2e945e0aa80f67f2b95fc"
+    },
+    {
+      "before": "src/webgpu-chiptune.js",
+      "after": "src/instruments/webgpu-chiptune/webgpu-chiptune.js",
+      "sha256": "638fecae70647e5c5f746c8fcbef31f9e900dcc3f80adee92fe37f0095133f6e"
+    },
+    {
+      "before": "src/webgpu-dsp-primitives.js",
+      "after": "src/instruments/webgpu-dsp-primitives/webgpu-dsp-primitives.js",
+      "sha256": "4836c685b03a816c86f9ce56c78d79b225ae727dcc700a2b95237731fc709247"
+    },
+    {
+      "before": "src/webgpu-synths.js",
+      "after": "src/instruments/webgpu-synths/webgpu-synths.js",
+      "sha256": "50dc5f1a991df8332fb9a3514f0b9ea896d91e776faf1194a5b57760cb49a6da"
+    },
+    {
+      "before": "src/weierstrass.js",
+      "after": "src/instruments/weierstrass/weierstrass.js",
+      "sha256": "6e32b30dabd0c84c8e940fa9732d24a8766d543f5c00f81ce06e8020c920abb7"
+    },
+    {
+      "before": "src/wheel-of-organs-audio.js",
+      "after": "src/instruments/wheel-of-organs/wheel-of-organs-audio.js",
+      "sha256": "16284689971712e118a62a5c86ec732270a8d3ccc5523be85e5c0516b1fd86a1"
+    },
+    {
+      "before": "src/wheel-of-organs.js",
+      "after": "src/instruments/wheel-of-organs/wheel-of-organs.js",
+      "sha256": "f81fffb4891b95f051e34eb79a4cfbc0c298342f366127750acb214263653c64"
+    },
+    {
+      "before": "src/yoyodyne-audio.js",
+      "after": "src/instruments/yoyodyne/yoyodyne-audio.js",
+      "sha256": "6dbe6587f8c00b2f75f2763223a34f06059975247290d9e3e862a5ad2e8791b2"
+    },
+    {
+      "before": "src/yoyodyne-dsp.js",
+      "after": "src/instruments/yoyodyne/yoyodyne-dsp.js",
+      "sha256": "f5d6c002d93f8ff87004d556866fb6a58ffb75efc331e465bac8193c088e29c6"
+    },
+    {
+      "before": "src/yoyodyne-processor.js",
+      "after": "src/instruments/yoyodyne/yoyodyne-processor.js",
+      "sha256": "579f1e759adf47a3a4a7ab170ca098090cb922e359931b8b4a9d0ec3d3d75bcd"
+    },
+    {
+      "before": "src/yoyodyne.js",
+      "after": "src/instruments/yoyodyne/yoyodyne.js",
+      "sha256": "892032e1c0fa9335b7f9824c22214e04fd5657bd2e296045934c5d61a16086a9"
+    }
+  ]
+}

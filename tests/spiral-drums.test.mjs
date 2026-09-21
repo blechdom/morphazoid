@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
-import { DEFAULT_FM_DRUM_VOICES } from "../src/fm-drums.js";
+import { DEFAULT_FM_DRUM_VOICES } from "../src/instruments/fm-drums/fm-drums.js";
 import {
   SPIRAL_DRUM_MAPPING_MODES,
   mappedSpiralDrumVoice,
@@ -12,7 +12,7 @@ import {
   buildSpiralTessellation,
   contactsForSpiralReader,
   createSpiralReader,
-} from "../src/spiral.js";
+} from "../src/instruments/spiral/spiral.js";
 
 const bounds = { innerRadius: 0.05, outerRadius: 1 };
 const root = new URL("../", import.meta.url);

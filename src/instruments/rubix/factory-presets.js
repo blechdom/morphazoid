@@ -1,5 +1,5 @@
-import { RUBIX_TWIST_SPEED_DEFAULT_POSITION } from "../../rubix.js";
-import { rubixSimdPreset, DEFAULT_RUBIX_SIMD_PRESET } from "../../rubix-simd-presets.js";
+import { RUBIX_TWIST_SPEED_DEFAULT_POSITION } from "./rubix.js";
+import { rubixSimdPreset, DEFAULT_RUBIX_SIMD_PRESET } from "./rubix-simd-presets.js";
 const DEFAULT_ACID_ENGINE = "simd-303";
 const DEFAULT_STICKER_MODULATION = 0.68;
 export const RUBIX_DEFAULTS = Object.freeze({

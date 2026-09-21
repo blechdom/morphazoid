@@ -2,7 +2,7 @@ import {
   CHAOTIC_DSP_REFERENCES,
   chaoticDspReferenceForId,
   renderChaoticDspReference,
-} from "../chaotic-dsp-reference.js";
+} from "../instruments/chaotic-dsp-reference/chaotic-dsp-reference.js";
 
 const root = document.querySelector("[data-chaos-dsp-reference-page]");
 const select = document.querySelector("#dspSynthSelect");

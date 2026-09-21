@@ -1,12 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { RecursiveAudioEngine } from "../src/recursion-audio-engine.js";
+import { RecursiveAudioEngine } from "../src/instruments/recursion/recursion-audio-engine.js";
 import {
   LIVE_DEFAULTS,
   normalizeLiveAxes,
-} from "../src/recursion-live.js";
-import { MOTION_CAPS } from "../src/recursion-motion.js";
+} from "../src/instruments/recursion/recursion-live.js";
+import { MOTION_CAPS } from "../src/instruments/recursion/recursion-motion.js";
 
 const EPSILON = 1e-6;
 

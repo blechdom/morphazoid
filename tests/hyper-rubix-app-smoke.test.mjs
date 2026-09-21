@@ -13,9 +13,9 @@ import {
   createSolvedHyperRubix,
   hyperRubixTechnoVoiceParameters,
   turnHyperRubixBoundaryCell,
-} from "../src/hyper-rubix.js";
+} from "../src/instruments/hyper-rubix/hyper-rubix.js";
 import { WebGpu303Audio } from "../src/webgpu-303.js";
-import { WAX_ROLE_IDS, waxSupportForId } from "../src/wax-instrument-roles.js";
+import { WAX_ROLE_IDS, waxSupportForId } from "../src/instruments/wax/wax-instrument-roles.js";
 
 class FakeClassList {
   constructor() {

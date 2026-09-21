@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
-import { L_SYSTEM_PRESETS } from "../src/l-system.js";
+import { L_SYSTEM_PRESETS } from "../src/instruments/l-system/l-system.js";
 
 const root = new URL("../", import.meta.url);
 

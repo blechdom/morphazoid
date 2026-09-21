@@ -9,7 +9,7 @@ import {
   startWheelSpin,
   stepWheelSpin,
   wheelMouthCrossings,
-} from "../src/wheel-of-organs.js";
+} from "../src/instruments/wheel-of-organs/wheel-of-organs.js";
 
 const TAU = Math.PI * 2;
 

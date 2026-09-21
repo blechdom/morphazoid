@@ -16,7 +16,7 @@ import {
   dentaphonePitchRange,
   dentaphoneToothLabel,
   sanitizeDentaphonePitchState,
-} from "../../dentaphone.js?v=482770e9db32";
+} from "./dentaphone.js?v=482770e9db32";
 
 const root = document.getElementById("physicalSoundRoot");
 const canvas = document.getElementById("stage");
@@ -534,7 +534,7 @@ async function initializeDentaphoneRenderer() {
   const loadGeneration = ++dentaphoneWebGLLoadGeneration;
   let loadedModule = null;
   let loadPromise = null;
-  loadPromise = import("../../dentaphone-webgl.js?v=3533693c07e9")
+  loadPromise = import("./dentaphone-webgl.js?v=4b3f2eddd088")
     .then(async (module) => {
       loadedModule = module;
       if (

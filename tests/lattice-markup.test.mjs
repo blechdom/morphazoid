@@ -41,7 +41,7 @@ test("Lattice is one centered line instrument with no walk controls", async () =
   const [html, app, geometry] = await Promise.all([
     readFile(new URL("lattice.html", root), "utf8"),
     readFile(new URL("src/instruments/lattice/lattice-app.js", root), "utf8"),
-    readFile(new URL("src/lattice.js", root), "utf8"),
+    readFile(new URL("src/instruments/lattice/lattice.js", root), "utf8"),
   ]);
 
   assert.equal((html.match(/<canvas[^>]+id="stage"/g) ?? []).length, 1);

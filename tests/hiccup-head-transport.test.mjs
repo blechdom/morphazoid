@@ -41,7 +41,7 @@ test("the grid is one monophonic lane with precise and paintable sound selectors
 test("the audio clock prebuffers mobile work and skips late-event bursts", async () => {
   const [app, processor] = await Promise.all([
     readFile(new URL("src/instruments/hiccup-head/hiccup-head-app.js", root), "utf8"),
-    readFile(new URL("src/hiccup-head-processor.js", root), "utf8"),
+    readFile(new URL("src/instruments/hiccup-head/hiccup-head-processor.js", root), "utf8"),
   ]);
   assert.match(app, /scheduleSequenceAhead\(usesCompactCanvas\(\) \? 0\.32 : 0\.22\)/);
   assert.match(app, /while \(nextStepTime < audioContext\.currentTime - 0\.025\)/);
@@ -183,7 +183,7 @@ test("the worklet acknowledges startup only after real render quanta", async () 
   });
 
   try {
-    await import(`../src/hiccup-head-processor.js?startup-ready=${Date.now()}-${Math.random()}`);
+    await import(`../src/instruments/hiccup-head/hiccup-head-processor.js?startup-ready=${Date.now()}-${Math.random()}`);
     const processor = new Processor({ processorOptions: { configuration: {} } });
     processor._handleMessage({ type: "warmup", token: "cold-start" });
     for (let block = 0; block < 14; block += 1) {

@@ -9,7 +9,7 @@ import {
   simulateSquareDance,
   squareDanceCall,
   timeLensDiagnostics,
-} from "../../quantum-square-dance.js";
+} from "./quantum-square-dance.js";
 import { canvasSizing } from "../../graphics/canvas-sizing.js";
 
 const $ = (id) => document.getElementById(id);

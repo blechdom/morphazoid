@@ -9,7 +9,7 @@ import {
   midiNoteToFrequency,
   normalizeWaxRoutingState,
   normalizedControlValue,
-} from "../src/wax-midi-routing.js";
+} from "../src/instruments/wax/wax-midi-routing.js";
 import { routeIdForLocation } from "../scripts/wax/wax-universal-adapter.js";
 import {
   automationMessageForControl,

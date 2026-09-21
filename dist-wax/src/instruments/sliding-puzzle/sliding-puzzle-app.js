@@ -2,7 +2,7 @@ import {
   DEFAULT_FM_DRUM_VOICES,
   FM_DRUM_STORAGE_KEY,
   sanitizeFmDrumVoice,
-} from "../../fm-drums.js";
+} from "../fm-drums/fm-drums.js";
 import { unlockAudioContext } from "../../audio.js";
 import { connectAudioOutput } from "../../audio-output-manager.js";
 import {
@@ -11,7 +11,7 @@ import {
   RUBIX_DRUM_RIGHT_VOICE_BY_COLOR,
   rubixTwistIntervalMs,
   rubixTwistSpeedMultiplier,
-} from "../../rubix.js";
+} from "../rubix/rubix.js";
 import {
   SLIDING_PLAYBACK_MODES,
   SLIDING_PUZZLE_SIZE,
@@ -35,7 +35,7 @@ import {
   slidingPuzzleScreenCellForBoardCell,
   slidingPuzzleScreenDimensions,
   slidingTileColor,
-} from "../../sliding-puzzle.js";
+} from "./sliding-puzzle.js";
 
 const $ = (id) => document.getElementById(id);
 const clamp = (value, minimum, maximum) => (

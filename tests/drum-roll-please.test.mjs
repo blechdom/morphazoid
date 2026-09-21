@@ -11,7 +11,7 @@ import {
   drumRollRateSafety,
   drumRollWindow,
   sanitizeDrumRollParams,
-} from "../src/drum-roll-please.js";
+} from "../src/instruments/drum-roll-please/drum-roll-please.js";
 
 const ROOT = new URL("../", import.meta.url);
 
@@ -473,7 +473,7 @@ test("audio wrapper remains lazy and sends sanitized parameter and transport mes
 
 test("worklet process reuses typed-array state without render-loop allocations", async () => {
   const source = await readFile(
-    new URL("src/drum-roll-please.js", ROOT),
+    new URL("src/instruments/drum-roll-please/drum-roll-please.js", ROOT),
     "utf8",
   );
   const start = source.indexOf("    process(_inputs, outputs) {");
@@ -513,7 +513,7 @@ test("worklet registers once and renders bounded stereo audio through both seams
   globalThis.sampleRate = 48_000;
 
   try {
-    await import(`../src/drum-roll-please.js?worklet-test=${Date.now()}`);
+    await import(`../src/instruments/drum-roll-please/drum-roll-please.js?worklet-test=${Date.now()}`);
     assert.equal(registeredName, "morphazoid-drum-roll-please");
     assert.equal(registrationCount, 1);
     assert.equal(typeof Processor, "function");
@@ -653,7 +653,7 @@ test("Drum Roll Please page uses Shepard-aligned controls and an accessible pitc
   const [markup, app, audioModule] = await Promise.all([
     readFile(new URL("drum-roll-please.html", ROOT), "utf8"),
     readFile(new URL("src/instruments/drum-roll-please/drum-roll-please-app.js", ROOT), "utf8"),
-    readFile(new URL("src/drum-roll-please.js", ROOT), "utf8"),
+    readFile(new URL("src/instruments/drum-roll-please/drum-roll-please.js", ROOT), "utf8"),
   ]);
 
   assert.match(markup, /<title>Drum Roll Please! — Morphazoid<\/title>/);

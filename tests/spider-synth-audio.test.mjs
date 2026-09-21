@@ -2,12 +2,12 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { spiderRecordingFixture } from './helpers/spider-recording-fixture.mjs';
-import { SpiderSynthDsp, SPIDER_SOUND_PRESETS, SPIDER_MOTION_SOUND_PRESETS, SPIDER_BODY_SOURCES, createDefaultSpiderBodyMix, normalizeSpiderBodyMix, normalizeSpiderSound, getSpiderMotionSound } from '../src/spider-synth-dsp.js';
-import { SpiderStrings, spiderPluckFrequency } from '../src/spider-synth-string.js';
-import { SpiderSynthAudio, createSpiderSpeechPlan } from '../src/spider-synth-audio.js';
-import { SPELLING_DIPHONE_ATLAS_URL } from '../src/spelling-diphone-atlas.js';
-import { loadSpellingPronunciations } from '../src/spelling-pronunciation.js';
-import { SPIDER_JOINTS, SPIDER_MOTION_PRESETS, createSpiderFrame, writeSpiderFrame, spiderStringFrequency } from '../src/spider-synth-model.js';
+import { SpiderSynthDsp, SPIDER_SOUND_PRESETS, SPIDER_MOTION_SOUND_PRESETS, SPIDER_BODY_SOURCES, createDefaultSpiderBodyMix, normalizeSpiderBodyMix, normalizeSpiderSound, getSpiderMotionSound } from '../src/instruments/spider-synth/spider-synth-dsp.js';
+import { SpiderStrings, spiderPluckFrequency } from '../src/instruments/spider-synth/spider-synth-string.js';
+import { SpiderSynthAudio, createSpiderSpeechPlan } from '../src/instruments/spider-synth/spider-synth-audio.js';
+import { SPELLING_DIPHONE_ATLAS_URL } from '../src/instruments/spelling-synthesizer/spelling-diphone-atlas.js';
+import { loadSpellingPronunciations } from '../src/instruments/spelling-synthesizer/spelling-pronunciation.js';
+import { SPIDER_JOINTS, SPIDER_MOTION_PRESETS, createSpiderFrame, writeSpiderFrame, spiderStringFrequency } from '../src/instruments/spider-synth/spider-synth-model.js';
 const mix=(group,source='silk')=>createDefaultSpiderBodyMix().map(row=>({...row,source,level:group==='*'||row.groupId===group?.[0]||row.groupId===group?.[1]||row.groupId===group?.[2]? .7:0}));
 const note=(n=68,v=100,extra={})=>({type:'noteOn',note:n,velocity:v,sourceId:'keys',channel:0,...extra});
 const off=(n=68,extra={})=>({...note(n,0,extra),type:'noteOff'});
@@ -287,7 +287,7 @@ test('physical foot replacements preserve the fixed pool and accept new owned pi
 });
 
 test('the realtime DSP accepts prepared graphs and rejects unprepared or mismatched replacement atomically',async()=>{
- const {createSpiderWeb,serializeSpiderWeb}=await import('../src/spider-synth-web.js');
+ const {createSpiderWeb,serializeSpiderWeb}=await import('../src/instruments/spider-synth/spider-synth-web.js');
  const d=new SpiderSynthDsp(24000,{requirePreparedWeb:true});const previous=d.web;
  assert.throws(()=>d.update({webSettings:{preset:'sheet'}}),/prepared web/i);assert.equal(d.web,previous);
  const prepared=serializeSpiderWeb(createSpiderWeb({preset:'sheet',anchors:9,spacing:.7}));

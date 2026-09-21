@@ -11,12 +11,12 @@ import {
   recursivePmMidiPitchRatio,
   recursivePmVelocityGain,
   sanitizeRecursivePmPerformance,
-} from "../src/recursive-pm-midi.js";
+} from "../src/instruments/recursive-pm/recursive-pm-midi.js";
 import {
   RECURSIVE_PM_PRESETS,
   RecursivePmAudioEngine,
   RecursivePmProcessor,
-} from "../src/recursive-pm.js";
+} from "../src/instruments/recursive-pm/recursive-pm.js";
 
 test("Recursive PM performance defaults preserve the browser drone", () => {
   assert.equal(RECURSIVE_PM_PERFORMANCE_DEFAULTS.playMode, "drone");
@@ -560,7 +560,7 @@ test("Recursive PM uses shared header MIDI and keeps foreground live analysis", 
     readFile(new URL("../recursive-pm.html", import.meta.url), "utf8"),
     readFile(new URL("../src/instruments/recursive-pm/recursive-pm-app.js", import.meta.url), "utf8"),
     readFile(new URL("../src/instruments/recursive-pm/recursive-pm.css", import.meta.url), "utf8"),
-    readFile(new URL("../src/recursive-pm.js", import.meta.url), "utf8"),
+    readFile(new URL("../src/instruments/recursive-pm/recursive-pm.js", import.meta.url), "utf8"),
   ]);
   assert.doesNotMatch(html, /id="midiButton"|id="midiState"|id="midiError"/);
   assert.doesNotMatch(html, /id="playModeDrone"|id="playModeMidi"/);

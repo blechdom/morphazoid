@@ -22,7 +22,7 @@ import {
   spellingTextEdit,
   spellingTokens,
   typingDynamics,
-} from "../src/spelling-synthesizer.js";
+} from "../src/instruments/spelling-synthesizer/spelling-synthesizer.js";
 
 const root = new URL("../", import.meta.url);
 
@@ -31,7 +31,7 @@ test("Spelling Synthesizer is a focused, accessible text-driven voice instrument
     readFile(new URL("spelling-synthesizer.html", root), "utf8"),
     readFile(new URL("src/instruments/spelling-synthesizer/spelling-synthesizer.css", root), "utf8"),
     readFile(new URL("src/instruments/spelling-synthesizer/spelling-synthesizer-app.js", root), "utf8"),
-    readFile(new URL("src/spelling-synthesizer-audio.js", root), "utf8"),
+    readFile(new URL("src/instruments/spelling-synthesizer/spelling-synthesizer-audio.js", root), "utf8"),
   ]);
 
   assert.match(html, /<title>Spelling Synthesizer — Morphazoid<\/title>/);

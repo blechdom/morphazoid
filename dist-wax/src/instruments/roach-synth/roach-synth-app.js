@@ -1,12 +1,12 @@
-import { createRoachViewer } from "../../roach-synth-viewer.js?v=4c63f5560a14";
-import { createRoachMidiControls } from "../../roach-synth-midi-controls.js?v=4c63f5560a14";
+import { createRoachViewer } from "./roach-synth-viewer.js?v=54f237f4207f";
+import { createRoachMidiControls } from "./roach-synth-midi-controls.js?v=54f237f4207f";
 import { ROACH_MOTION_PRESETS, ROACH_MOTION_DEFAULTS, normalizeRoachMotion, activeRoachPreset,
   writeRoachPose, createRoachSceneState, writeRoachSceneState, bakeRoachPresetTracks,
   createRandomRoachMotion, ROACH_STATIC_POSES, getRoachStaticPose, writeRoachBeatState, applyRoachSpeechPose,
-  constrainRoachFloorPose } from "../../roach-synth-motion.js?v=4c63f5560a14";
+  constrainRoachFloorPose } from "./roach-synth-motion.js?v=54f237f4207f";
 import { RoachSynthAudio, ROACH_SOUND_PRESETS, ROACH_BODY_GROUPS,
   ROACH_BODY_SOURCES, createDefaultRoachBodyMix, createRandomRoachSound, getRoachBodyGroupId,
-  ROACH_MOTION_SOUND_PRESETS, getRoachMotionSound } from "../../roach-synth-audio.js?v=4c63f5560a14";
+  ROACH_MOTION_SOUND_PRESETS, getRoachMotionSound } from "./roach-synth-audio.js?v=54f237f4207f";
 
 const el = id => document.getElementById(id);
 const listeners = new AbortController();

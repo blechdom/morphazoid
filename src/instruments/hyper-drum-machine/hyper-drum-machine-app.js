@@ -11,7 +11,7 @@ import {
   FM_DRUM_STORAGE_KEY,
   FmDrumAudio,
   sanitizeFmDrumVoice,
-} from "../../fm-drums.js";
+} from "../fm-drums/fm-drums.js";
 import {
   HYPER_DRUM_MAPPING_MODES,
   hyperContactSegmentIndex,
@@ -24,7 +24,7 @@ import {
   rebaseContinuousPosition,
   rebasePingPongPosition,
 } from "../../articulation.js";
-import { installShapesNativeBridge } from "../../shapes-native-bridge.js";
+import { installShapesNativeBridge } from "../../families/geometry/shapes-native-bridge.js";
 import { canvasSizing } from "../../graphics/canvas-sizing.js";
 
 const $ = (id) => document.getElementById(id);

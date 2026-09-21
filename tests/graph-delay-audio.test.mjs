@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { generateGraph } from "../src/graph-delay.js";
+import { generateGraph } from "../src/instruments/graph-delay/graph-delay.js";
 import {
   GraphDelayAudio,
   graphAudibleTapGain,
@@ -9,7 +9,7 @@ import {
   graphTerminalDelaySeconds,
   graphTurnSemitoneMatrix,
   sanitizeGraphDelayAudioSettings,
-} from "../src/graph-delay-audio.js";
+} from "../src/instruments/graph-delay/graph-delay-audio.js";
 
 const closeTo = (actual, expected, tolerance = 1e-12) => {
   assert.ok(

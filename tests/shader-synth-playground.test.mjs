@@ -23,7 +23,7 @@ import {
   shaderPlaygroundShaderMaskForPatch,
   shaderPlaygroundSupport,
   validateShaderPlaygroundPatch,
-} from "../src/shader-synth-playground.js";
+} from "../src/instruments/shader-synth-playground/shader-synth-playground.js";
 import {
   SHADER_SYNTH_PLAYGROUND_FX_BINDINGS,
   SHADER_SYNTH_PLAYGROUND_FX_KINDS,
@@ -41,29 +41,29 @@ import {
   shaderSynthPlaygroundFxKindsForPatch,
   shaderSynthPlaygroundFxNodes,
   shaderSynthPlaygroundFxShaderKeyForPatch,
-} from "../src/shader-synth-playground-fx.js";
+} from "../src/instruments/shader-synth-playground/shader-synth-playground-fx.js";
 import {
   SHADER_SYNTH_PLAYGROUND_EXTRA_CASES,
   SHADER_SYNTH_PLAYGROUND_EXTRA_HELPERS,
   SHADER_SYNTH_PLAYGROUND_EXTRA_MODULES,
-} from "../src/shader-synth-playground-extra.js";
+} from "../src/instruments/shader-synth-playground/shader-synth-playground-extra.js";
 import {
   SHADER_SYNTH_PLAYGROUND_ATLAS_CASES,
   SHADER_SYNTH_PLAYGROUND_ATLAS_KINDS,
   SHADER_SYNTH_PLAYGROUND_ATLAS_MODULES,
-} from "../src/shader-synth-playground-atlas.js";
+} from "../src/instruments/shader-synth-playground/shader-synth-playground-atlas.js";
 import {
   SHADER_SYNTH_PLAYGROUND_ATLAS_ROUTING_CASES,
   SHADER_SYNTH_PLAYGROUND_ATLAS_ROUTING_MODULES,
-} from "../src/shader-synth-playground-atlas-routing.js";
+} from "../src/instruments/shader-synth-playground/shader-synth-playground-atlas-routing.js";
 import {
   SHADER_SYNTH_PLAYGROUND_FOUND_HELPERS,
-} from "../src/shader-synth-playground-found-sounds.js";
+} from "../src/instruments/shader-synth-playground/shader-synth-playground-found-sounds.js";
 import {
   SHADER_SYNTH_PLAYGROUND_GEOMETRY_CASES,
   SHADER_SYNTH_PLAYGROUND_GEOMETRY_HELPERS,
   SHADER_SYNTH_PLAYGROUND_GEOMETRY_MODULES,
-} from "../src/shader-synth-playground-geometry.js";
+} from "../src/instruments/shader-synth-playground/shader-synth-playground-geometry.js";
 
 const ROOT = new URL("../", import.meta.url);
 
@@ -530,7 +530,7 @@ test("every shipped patch module contributes to its final output", () => {
 });
 
 test("the Shepard/Risset spiral integrates exponential phase across octave wraps", async () => {
-  const source = await readFile(new URL("src/shader-synth-playground-found-sounds.js", ROOT), "utf8");
+  const source = await readFile(new URL("src/instruments/shader-synth-playground/shader-synth-playground-found-sounds.js", ROOT), "utf8");
   assert.match(source, /fundamentalPhase = fract\(frequency \/ \(glideRate \* FOUND_LN_2\)\)/);
   assert.match(source, /octaveOffset \/ f32\(layerCount\) \+ rotation/);
 
@@ -2580,7 +2580,7 @@ test("the page exposes a real graph editor, inspector, transport, and shared ins
     readFile(new URL("shader-synth-playground.html", ROOT), "utf8"),
     readFile(new URL("src/instruments/shader-synth-playground/shader-synth-playground.css", ROOT), "utf8"),
     readFile(new URL("src/instruments/shader-synth-playground/shader-synth-playground-app.js", ROOT), "utf8"),
-    readFile(new URL("src/shader-synth-playground.js", ROOT), "utf8"),
+    readFile(new URL("src/instruments/shader-synth-playground/shader-synth-playground.js", ROOT), "utf8"),
     readFile(new URL("webgpu-dsp-primitives.html", ROOT), "utf8"),
     readFile(new URL("webgpu-synths.html", ROOT), "utf8"),
   ]);

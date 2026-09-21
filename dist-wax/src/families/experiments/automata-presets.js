@@ -2,7 +2,7 @@ import {
   AUTOMATAPOEIA_BOUNDARIES, AUTOMATAPOEIA_FAMILIES, AUTOMATAPOEIA_SONIFICATION_MODES, AUTOMATAPOEIA_TRANSFORMS,
   AUTOMATAPOEIA_POLARITIES, AUTOMATAPOEIA_OBJECT_MODES, AUTOMATAPOEIA_PITCH_CURVES, AUTOMATAPOEIA_TIMBRE_SOURCES,
   AUTOMATAPOEIA_CONTOUR_SOURCES, AUTOMATAPOEIA_PHRASE_SHAPES, AUTOMATAPOEIA_VOICES, AUTOMATAPOEIA_DEFAULT_ENVELOPE,
-} from "../../automatapoeia.js";
+} from "../../instruments/cellular-automata/automatapoeia.js";
 import { presetStateKey } from "../../site/header-presets.js";
 import { clonePresetData, presetRandom, randomParameterValues } from "../../site/preset-random.js";
 

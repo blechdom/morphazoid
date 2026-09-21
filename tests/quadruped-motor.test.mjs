@@ -9,13 +9,13 @@ import {
   predictQuadrupedMotor,
   quadrupedMotorSnapshot,
   synchronizeQuadrupedMotorTempo,
-} from "../src/quadruped-motor.js";
+} from "../src/instruments/quadruped/quadruped-motor.js";
 import {
   QUADRUPED_ANIMALS,
   clearQuadrupedPattern,
   createQuadrupedState,
   setQuadrupedContact,
-} from "../src/quadruped.js";
+} from "../src/instruments/quadruped/quadruped.js";
 
 const FOOT_IDS = ["front-left", "front-right", "rear-left", "rear-right"];
 

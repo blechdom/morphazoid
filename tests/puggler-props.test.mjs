@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { PugglerModel, PROPS, propFor, launchFlight, flightPosition, soundMapping } from '../src/puggler.js';
-import { PAGE_DEFAULTS, PRESETS } from '../src/puggler-presets.js';
+import { PugglerModel, PROPS, propFor, launchFlight, flightPosition, soundMapping } from '../src/instruments/puggler/puggler.js';
+import { PAGE_DEFAULTS, PRESETS } from '../src/instruments/puggler/puggler-presets.js';
 
 const additions=['icecream','axe','deadcat','hydrant','pickle','violin','skull','banana','snake','plant','plunger','cd','vhs'];
 

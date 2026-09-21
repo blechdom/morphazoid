@@ -6,8 +6,8 @@ import {
   WEBGPU_DSP_CATEGORIES,
   WEBGPU_DSP_PRIMITIVES,
   WEBGPU_DSP_STATUSES,
-} from "../src/webgpu-dsp-primitives.js";
-import { WEBGPU_SYNTHS_SHADER } from "../src/webgpu-synths.js";
+} from "../src/instruments/webgpu-dsp-primitives/webgpu-dsp-primitives.js";
+import { WEBGPU_SYNTHS_SHADER } from "../src/instruments/webgpu-synths/webgpu-synths.js";
 
 const ROOT = new URL("../", import.meta.url);
 const DSP_STATUSES = Object.freeze(["live", "direct", "block"]);

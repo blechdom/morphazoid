@@ -22,7 +22,7 @@ import {
   programLevelToGain,
   projectPoint,
   signalRms,
-} from "../src/surround-field.js";
+} from "../src/instruments/surround-field/surround-field.js";
 
 test("audio lookahead planner keeps events on an absolute timeline", () => {
   const plan = planAudioEvents({

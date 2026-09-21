@@ -9,7 +9,7 @@ async function pageSources() {
     readFile(new URL("sliding-puzzle.html", root), "utf8"),
     readFile(new URL("src/instruments/sliding-puzzle/sliding-puzzle.css", root), "utf8"),
     readFile(new URL("src/instruments/sliding-puzzle/sliding-puzzle-app.js", root), "utf8"),
-    readFile(new URL("src/sliding-puzzle.js", root), "utf8"),
+    readFile(new URL("src/instruments/sliding-puzzle/sliding-puzzle.js", root), "utf8"),
   ]);
   return { html, css, app, model };
 }
@@ -54,7 +54,7 @@ test("the rectangular sliding-puzzle page ships complete local assets and metada
     "sliding-puzzle.html",
     "src/instruments/sliding-puzzle/sliding-puzzle.css",
     "src/instruments/sliding-puzzle/sliding-puzzle-app.js",
-    "src/sliding-puzzle.js",
+    "src/instruments/sliding-puzzle/sliding-puzzle.js",
   ]) {
     assert.ok((await stat(new URL(path, root))).size > 0, `${path} should not be empty`);
   }

@@ -13,16 +13,16 @@ import {
   recursionParameters,
   sliderFromTimeFold,
   timeFoldFromSlider,
-} from "../../micmic.js?v=20260829-l-system-types";
-import { L_SYSTEM_PRESETS } from "../../l-system.js";
+} from "./micmic.js?v=20260829-l-system-types";
+import { L_SYSTEM_PRESETS } from "../l-system/l-system.js";
 import { AdaptivePolyphonyController } from "../../adaptive-polyphony.js";
 import {
   GRANULAR_ECONOMY_PITCH_CLASSES,
   GranularEconomyRenderer,
-} from "../../granular-economy-renderer.js?v=20260725-presets";
+} from "../../families/signalsmith-generation/granular-economy-renderer.js?v=20260725-presets";
 import { unlockAudioContext } from "../../audio.js";
 import { connectAudioOutput } from "../../audio-output-manager.js";
-import { SignalsmithGenerationBank } from "../../signalsmith-generation-bank.js?v=20260725-presets";
+import { SignalsmithGenerationBank } from "../../families/signalsmith-generation/signalsmith-generation-bank.js?v=20260725-presets";
 
 const $ = (id) => document.getElementById(id);
 const GENERATION_COLORS = ["#fff3d6", "#55d9ff", "#5fe8c4", "#7db4ff", "#c79bff", "#ff826f", "#e8c46b"];
@@ -780,7 +780,7 @@ async function prepareGenerationProcessor(audio, audioGraph) {
   let node = null;
   try {
     await audio.audioWorklet.addModule(
-      new URL("../../micmic-generation-processor.js?v=20260725-presets", import.meta.url),
+      new URL("../../families/mic-branch/micmic-generation-processor.js?v=20260725-presets", import.meta.url),
     );
     if (audioContext !== audio || graph !== audioGraph || audio.state === "closed") return;
     node = new WorkletNode(audio, "morphazoid-micmic-generations", {

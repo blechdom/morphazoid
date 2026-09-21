@@ -14,7 +14,7 @@ import {
   sampledPorosityDiagnostics,
   shiftedMagnitude,
   ternaryDigits,
-} from "../src/linebreaker.js";
+} from "../src/instruments/linebreaker/linebreaker.js";
 
 const root = new URL("../", import.meta.url);
 const read = (name) => readFile(new URL(name, root), "utf8");

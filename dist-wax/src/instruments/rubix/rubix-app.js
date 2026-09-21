@@ -5,25 +5,25 @@ import {
   DEFAULT_FM_DRUM_VOICES,
   FM_DRUM_STORAGE_KEY,
   sanitizeFmDrumVoice,
-} from "../../fm-drums.js";
+} from "../fm-drums/fm-drums.js";
 import { unlockAudioContext } from "../../audio.js";
 import { connectAudioOutput } from "../../audio-output-manager.js";
-import { RUBIX_FACE_ROLES, RubixStickerMixer, createRubixDynamics } from "../../rubix-mix.js";
+import { RUBIX_FACE_ROLES, RubixStickerMixer, createRubixDynamics } from "./rubix-mix.js";
 import {
   RUBIX_EXTRA_KITS, renderRubixExtraDrum, normalizeRubixDrumBuffer, trimRubixDrumBuffer,
-} from "../../rubix-percussion.js";
-import { RubixSurfaceSimd303, createRubixSimdSurfacePatterns } from "../../rubix-simd-surface.js";
+} from "./rubix-percussion.js";
+import { RubixSurfaceSimd303, createRubixSimdSurfacePatterns } from "./rubix-simd-surface.js";
 import {
   RUBIX_SIMD_PRESETS, DEFAULT_RUBIX_SIMD_PRESET, rubixSimdPreset,
   rubixSimdVoiceParams, rubixSimdSurfaceTone, rubixPerformerLevels,
-} from "../../rubix-simd-presets.js";
+} from "./rubix-simd-presets.js";
 import { simd303Support } from "../../simd-303.js";
 import { WEBGPU_303_SEQUENCE_LENGTH as SIMD_303_SEQUENCE_LENGTH } from "../../webgpu-303.js";
 import {
   createRubixVisibilityProfile,
   rubixStickerVisibility,
   rubixVisibilityGain,
-} from "../../rubix-visibility.js";
+} from "./rubix-visibility.js";
 import {
   DEFAULT_RUBIX_CAMERA,
   RUBIX_ACID_MIDI_BY_COLOR,
@@ -42,7 +42,7 @@ import {
   rubixTwistIntervalMs,
   rubixTwistSpeedMultiplier,
   turnRubixLayer,
-} from "../../rubix.js";
+} from "./rubix.js";
 
 const $ = (id) => document.getElementById(id);
 const clamp = (value, minimum, maximum) => Math.min(maximum, Math.max(minimum, Number(value) || 0));

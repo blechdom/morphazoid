@@ -1,14 +1,14 @@
 import { defineConfig, devices } from "@playwright/test";
+import { previewServerConfiguration } from "./scripts/qa/preview-server.mjs";
 
-const baseURL = process.env.MORPHAZOID_QA_BASE_URL
-  ?? process.env.PLAYWRIGHT_BASE_URL
-  ?? "http://127.0.0.1:3435";
+const { baseURL, webServer } = previewServerConfiguration();
 const webGpuLaunchArgs = process.env.MORPHAZOID_WEBGPU_QA === "1"
   ? ["--enable-unsafe-webgpu", "--autoplay-policy=no-user-gesture-required"]
   : [];
 
 export default defineConfig({
   testDir: "./e2e",
+  globalSetup: "./e2e/preview-setup.mjs",
   outputDir: "./test-results/playwright",
   fullyParallel: true,
   forbidOnly: Boolean(process.env.CI),
@@ -46,11 +46,5 @@ export default defineConfig({
       },
     },
   ],
-  webServer: {
-    command: "python3 -m http.server 3435 --bind 127.0.0.1 --directory .",
-    url: `${baseURL}/index.html`,
-    reuseExistingServer: !process.env.CI,
-    stderr: "ignore",
-    timeout: 30_000,
-  },
+  webServer,
 });

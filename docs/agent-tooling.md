@@ -53,9 +53,9 @@ machine path into a skill.
 | Source of truth | Location / boundary |
 | --- | --- |
 | Public entry pages | Root `*.html`; intentionally nested applications such as `morphazoidical/` keep their own entries |
-| Instrument controllers, styles, selected helpers and preset banks | `src/instruments/<canonical-id>/`; read the page references, not a guessed `<display-name>-app.js` |
+| Instrument controllers, models, worklets, helpers, styles and preset banks | `src/instruments/<canonical-id>/`; read the page references, not a guessed `<display-name>-app.js` |
 | Multiple instruments sharing an implementation | `src/families/<family>/`; these folders are not catalogue categories |
-| Remaining shared models, DSP and worklets | Existing `src/` locations reached through imports; the controller move did not relocate every model |
+| Remaining shared infrastructure | Core audio/MIDI/math utilities and WASM engine/toolchain modules retain their `src/` paths; `docs/source-module-layout.json` lists the 281 model/worklet relocations and retained shared modules |
 | Site registry and Faves | `src/site/instrument-registry.js` |
 | Public-ID / historical-route compatibility | `src/site/instrument-identities.js`; old storage and processor IDs are not incidental rename targets |
 | Catalogue descriptions and derived records | `src/instrument-catalog.js` |
@@ -73,8 +73,10 @@ instrument is migrated because the shared header code exists.
 
 For previews, use `npm run dev` from the chosen root and inspect the URL it
 prints. Check `scripts/dev-server.py` and `playwright.config.mjs` for current
-defaults; set `MORPHAZOID_QA_BASE_URL` when testing an already-running nondefault
-preview. A successful HTTP response alone does not identify the checkout:
+defaults; use `MORPHAZOID_QA_PORT` for a separate managed QA server, or set
+`MORPHAZOID_QA_BASE_URL` when intentionally testing an already-running preview.
+Managed QA servers do not reuse occupied ports. A successful HTTP response
+alone does not identify the checkout:
 compare a distinguishing served source/page with the file in the intended
 worktree. A frozen build needs its own explicit server root.
 

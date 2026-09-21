@@ -29,7 +29,7 @@ import {
   slidingPuzzleScreenCellForBoardCell,
   slidingPuzzleScreenDimensions,
   slidingTileColor,
-} from "../src/sliding-puzzle.js";
+} from "../src/instruments/sliding-puzzle/sliding-puzzle.js";
 
 const THREE_BY_FIVE_ORDERS = Object.freeze({
   rows: Object.freeze([

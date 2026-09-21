@@ -309,6 +309,13 @@ mapping, smoothing, scheduling or gesture code was changed.
 
 ### 7. Clarify module ownership and release assembly
 
+**September 21 follow-up:** page controllers/styles have already been relocated.
+The next layer now moves 281 model, audio, worklet and helper modules into their
+instrument/family directories. The source edits and WAX build are in place;
+final verification is pending approval-service recovery. See
+`module-hierarchy-restructure.md` and `source-module-layout.json` rather than
+treating the earlier 18-controller milestone below as the current file count.
+
 - [x] Separate pure catalogue/route data from navigation initialization.
 - [ ] Make MIDI, transport, and page initialization explicit without changing
   their behavior or event ordering.

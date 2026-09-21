@@ -7,7 +7,7 @@ import {
   midiNoteFrequency,
   nearestKarplusStrongStringIndex,
   sanitizeKarplusStrongSettings,
-} from "../../karplus-strong.js";
+} from "../karplus-strong/karplus-strong.js";
 import {
   KARPLUS_CARPET_DEFAULTS,
   KARPLUS_CARPET_LIMITS,
@@ -21,7 +21,7 @@ import {
   karplusCarpetSpatialCrossings,
   karplusCarpetSpatialGrid,
   sanitizeKarplusCarpetSettings,
-} from "../../karplus-carpet.js";
+} from "./karplus-carpet.js";
 import { canvasSizing } from "../../graphics/canvas-sizing.js";
 
 const $ = (id) => document.getElementById(id);

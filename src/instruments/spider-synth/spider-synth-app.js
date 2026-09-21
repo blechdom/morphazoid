@@ -1,16 +1,16 @@
-import { SpiderSynthViewer } from "../../spider-synth-viewer.js";
-import { getSpiderDisplayProfile } from "../../spider-synth-display.js";
-import { SPIDER_SPECIMENS, getSpiderSpecimen } from "../../spider-synth-specimens.js";
-import { createSpiderMidiControls } from "../../spider-synth-midi-controls.js";
-import { createSpiderNavigationControls } from "../../spider-synth-navigation-controls.js";
-import { SpiderSynthWorld, normalizeSpiderWorld, SPIDER_TRAVEL_PATHS } from "../../spider-synth-world.js";
-import { normalizeSpiderWeb, serializeSpiderWeb, SPIDER_WEB_PRESETS, SPIDER_WEB_PARAMETERS } from "../../spider-synth-web.js";
+import { SpiderSynthViewer } from "./spider-synth-viewer.js";
+import { getSpiderDisplayProfile } from "./spider-synth-display.js";
+import { SPIDER_SPECIMENS, getSpiderSpecimen } from "./spider-synth-specimens.js";
+import { createSpiderMidiControls } from "./spider-synth-midi-controls.js";
+import { createSpiderNavigationControls } from "./spider-synth-navigation-controls.js";
+import { SpiderSynthWorld, normalizeSpiderWorld, SPIDER_TRAVEL_PATHS } from "./spider-synth-world.js";
+import { normalizeSpiderWeb, serializeSpiderWeb, SPIDER_WEB_PRESETS, SPIDER_WEB_PARAMETERS } from "./spider-synth-web.js";
 import { SPIDER_JOINTS, SPIDER_MOTION_PRESETS, SPIDER_MOTION_DEFAULTS, SPIDER_STATIC_POSES,
   normalizeSpiderMotion, createRandomSpiderMotion, createSpiderStaticPose,
-  createSpiderWeb, createSpiderFrame, writeSpiderPose, applySpiderSpeechPose } from "../../spider-synth-model.js";
+  createSpiderWeb, createSpiderFrame, writeSpiderPose, applySpiderSpeechPose } from "./spider-synth-model.js";
 import { SpiderSynthAudio, SPIDER_SOUND_PRESETS, SPIDER_SOUND_DEFAULTS, SPIDER_BODY_GROUPS,
   SPIDER_BODY_SOURCES, createDefaultSpiderBodyMix, createRandomSpiderSound,
-  getSpiderMotionSound, getSpiderBodyGroupId } from "../../spider-synth-audio.js";
+  getSpiderMotionSound, getSpiderBodyGroupId } from "./spider-synth-audio.js";
 
 const el = id => document.getElementById(id);
 const listeners = new AbortController(), options = { signal: listeners.signal };
@@ -378,7 +378,7 @@ async function loadModel(id = state.specimenChoice) {
   try {
     // Resolve asset URLs here: the geometry metadata also runs in the audio
     // worklet, whose global scope has no URL constructor.
-    const assetBase = new URL("../../", import.meta.url);
+    const assetBase = new URL("./", import.meta.url);
     const modelPath = displayProfile.mobileAssets ? specimen.phoneModelPath : specimen.modelPath;
     const loaded = await viewer.load(new URL(modelPath, assetBase).href, new URL(specimen.rigPath, assetBase).href);
     if (version !== loadVersion || state.disposed) return;

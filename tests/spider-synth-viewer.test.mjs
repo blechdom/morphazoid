@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import * as THREE from '../vendor/three/three.module.min.js';
-import { SpiderSynthViewer, sampleSpiderStrand } from '../src/spider-synth-viewer.js';
+import { SpiderSynthViewer, sampleSpiderStrand } from '../src/instruments/spider-synth/spider-synth-viewer.js';
 
 const segment = { id: 0, a: 0, b: 1, kind: 'radial' };
 const a = { x: -.4, y: -.2, z: .1 }, b = { x: .5, y: .3, z: -.15 };

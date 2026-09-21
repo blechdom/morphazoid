@@ -126,7 +126,7 @@ mechanism from the standard 2x2 non-Hermitian form*. Acoustic realisability —
 
 ## Shared
 
-- `src/wave-lab-shell.js` — Audio arm honouring the icon contract, shared output
+- `src/families/wave-lab/wave-lab-shell.js` — Audio arm honouring the icon contract, shared output
   manager connection, microphone arm/release, recording buffer, teardown on
   `pagehide`.
 - Microphone constraints: echo cancellation, noise suppression and AGC all off.

@@ -4,8 +4,8 @@ import test from "node:test";
 import {
   CHAOTIC_FM_DEFAULTS,
   deriveChaoticFmStack,
-} from "../src/chaotic-fm.js";
-import { buildChaoticFmFlowDiagram } from "../src/chaotic-fm-flow.js";
+} from "../src/instruments/chaotic-fm/chaotic-fm.js";
+import { buildChaoticFmFlowDiagram } from "../src/families/chaotic/chaotic-fm-flow.js";
 
 function diagramAtDepth(depth) {
   const stack = deriveChaoticFmStack({

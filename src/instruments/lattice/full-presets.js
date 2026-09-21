@@ -1,4 +1,4 @@
-import { TILING_TYPES, tilingInfo, tilingParameterRange, constrainPrototileEdit, prototileIsNonOverlapping } from "../../lattice.js";
+import { TILING_TYPES, tilingInfo, tilingParameterRange, constrainPrototileEdit, prototileIsNonOverlapping } from "./lattice.js";
 import { EdgeShape } from "../../../vendor/tactile/tactile.js";
 import { percussionEnvelopePreset, percussionEnvelopeEditorX, sanitizeAmplitudeEnvelope } from "../../audio.js";
 import { createLatticeInitialState } from "./initial-state.js";

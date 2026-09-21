@@ -4,7 +4,7 @@ import test from "node:test";
 import {
   PHYSICS_SCENES,
   createPhysicsScene,
-} from "../src/physics-scenes.js";
+} from "../src/families/physics/physics-scenes.js";
 
 const EXPECTED_SCENES = [
   "gravity-walk",

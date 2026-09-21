@@ -78,7 +78,7 @@ Checked directly in the source, not taken on report:
 | Loop length is the performer's release | no bar, grid, or quantisation anywhere in the record path; 30 s ceiling, 0.15 s floor |
 | Phase is analytic, not timer-driven | derived from `audioContext.currentTime` against a per-ring anchor; free mode is fully independent and sample-exact |
 | Stored audio is already visualised | waveform envelope displaces the ring contour by +/-6.5% of radius |
-| Duration-preserving pitch already exists | centre-anchored OLA granular resampling in `src/lumber.js`, unit-tested — the most reusable thing in the file |
+| Duration-preserving pitch already exists | centre-anchored OLA granular resampling in `src/instruments/lumber/lumber.js`, unit-tested — the most reusable thing in the file |
 
 ## Killed — the LCM story on Lumber as it stands
 

@@ -25,7 +25,7 @@ import {
   parametersForDraggedVertex,
   tilingInfo,
   tilingParameterRange,
-} from "../../lattice.js";
+} from "./lattice.js";
 import { EdgeShape } from "../../../vendor/tactile/tactile.js";
 import { createAmplitudeControl } from "../../amplitude-control.js";
 import {

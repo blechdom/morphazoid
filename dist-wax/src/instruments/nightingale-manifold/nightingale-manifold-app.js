@@ -2,8 +2,8 @@ import {
   analyzeBirdsong,
   encodeMonoWav,
   renderBirdsongModel,
-} from "../../birdsong-analysis.js";
-import { createNightingaleManifoldRenderer } from "../../nightingale-manifold-3d.js";
+} from "../../families/acoustic/birdsong-analysis.js";
+import { createNightingaleManifoldRenderer } from "./nightingale-manifold-3d.js";
 import {
   NIGHTINGALE_MANIFOLD_LIMITS,
   analyzeNightingaleSequence,
@@ -12,7 +12,7 @@ import {
   buildStropheTraversal,
   createDemoNightingaleSequence,
   nightingaleManifoldExport,
-} from "../../nightingale-manifold.js";
+} from "./nightingale-manifold.js";
 
 const $ = (id) => document.getElementById(id);
 const MAX_FILE_BYTES = 96 * 1024 * 1024;

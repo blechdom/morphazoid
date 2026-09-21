@@ -16,14 +16,14 @@ import {
   RUBIX_WEBGPU_303_DEFAULTS,
   createRubixWebGpu303Pattern,
   rubixWebGpu303Placement,
-} from "../src/rubix-webgpu-303.js";
+} from "../src/instruments/rubix/rubix-webgpu-303.js";
 import {
   RUBIX_SNAKE_ORDER,
   createRubixSequenceSnapshot,
   createSolvedRubixCube,
   extractRubixFace,
   turnRubixLayer,
-} from "../src/rubix.js";
+} from "../src/instruments/rubix/rubix.js";
 
 const root = new URL("../", import.meta.url);
 const near = (actual, expected, epsilon = 1e-6) => {

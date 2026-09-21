@@ -3,14 +3,14 @@ import {
   FM_DRUM_STORAGE_KEY,
   FmDrumAudio,
   sanitizeFmDrumVoice,
-} from "../../fm-drums.js";
+} from "../fm-drums/fm-drums.js";
 import {
   L_SYSTEM_PRESETS,
   advanceLSystemTraversal,
   iterationPlaybackAtPhase,
   iterationPlaybackPhaseRate,
   traceLSystem,
-} from "../../l-system.js";
+} from "../l-system/l-system.js";
 import {
   L_SYSTEM_DRUM_MAPPING_MODES,
   L_SYSTEM_DRUM_STYLES,

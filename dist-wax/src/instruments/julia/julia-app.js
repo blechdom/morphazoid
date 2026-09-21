@@ -12,7 +12,7 @@ import {
   juliaContourVerticalAddress,
   juliaVerticalAddressOctaves,
   sampleBoundary,
-} from "../../julia.js";
+} from "./julia.js";
 import {
   buildSimilarityAuditionLayers,
   buildInverseArcFamily,
@@ -25,7 +25,7 @@ import {
   rateLimitedTemporalPitchFidelity,
   sampleBoundaryArc,
   samplePitchSignal,
-} from "../../julia-similarity.js";
+} from "./julia-similarity.js";
 
 const $ = (id) => document.getElementById(id);
 const LOOKAHEAD_SECONDS = 0.065;

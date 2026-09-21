@@ -7,9 +7,9 @@ import {
   SHADER_SYNTH_PRIMITIVE_COVERAGE_KINDS,
   shaderSynthPrimitiveCoverageById,
   shaderSynthPrimitivePlaygroundHref,
-} from "../src/shader-synth-playground-primitive-coverage.js";
-import { SHADER_PLAYGROUND_MODULES } from "../src/shader-synth-playground.js";
-import { WEBGPU_DSP_PRIMITIVES } from "../src/webgpu-dsp-primitives.js";
+} from "../src/instruments/shader-synth-playground/shader-synth-playground-primitive-coverage.js";
+import { SHADER_PLAYGROUND_MODULES } from "../src/instruments/shader-synth-playground/shader-synth-playground.js";
+import { WEBGPU_DSP_PRIMITIVES } from "../src/instruments/webgpu-dsp-primitives/webgpu-dsp-primitives.js";
 
 const ROOT = new URL("../", import.meta.url);
 const ADVANCED_MODULE_IDS = new Set([

@@ -6,12 +6,12 @@ import {
   micromorphStageName,
   micromorphStageWeights,
   sanitizeMicromorphParams,
-} from "../../micromorph.js";
+} from "./micromorph.js";
 import {
   MICROMORPH_MODEL_CLIENT_STATES,
   MicromorphModelClient,
   redactMicromorphEndpoint,
-} from "../../micromorph-model-client.js";
+} from "./micromorph-model-client.js";
 
 const $ = (id) => document.getElementById(id);
 const canvas = $("stage");

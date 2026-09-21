@@ -13,8 +13,8 @@ import {
   penrosePitch01,
   penroseTileAtPoint,
   upcomingPenroseEdges,
-} from "../../penrose-tilings.js";
-import { derivePenroseP2World } from "../../penrose-world-p2.js";
+} from "./penrose-tilings.js";
+import { derivePenroseP2World } from "./penrose-world-p2.js";
 
 const $ = (id) => document.getElementById(id);
 const TAU = Math.PI * 2;

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { createContext, runInContext } from "node:vm";
 
-import { clamp } from "../../src/throatazoid.js";
+import { clamp } from "../../src/families/tract/throatazoid.js";
 import { tractPoint } from "../../src/families/tract/geometry.js";
 import { drawPhysicalTract } from "../../src/families/tract/rendering.js";
 

@@ -19,7 +19,7 @@ globalThis.registerProcessor = (name, constructor) => {
   ProcessorConstructor = constructor;
 };
 
-await import(`../src/mic-branch-processor.js?test=${Date.now()}`);
+await import(`../src/families/mic-branch/mic-branch-processor.js?test=${Date.now()}`);
 
 test("microphone worklet enforces its live ceiling and reports render load", () => {
   assert.equal(processorName, "morphazoid-mic-branches");

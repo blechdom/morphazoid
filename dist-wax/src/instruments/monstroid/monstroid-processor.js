@@ -14,7 +14,7 @@ import {
   sanitizeColonySyrinxState,
   stepColonySyrinx,
 } from "./monstroid.js";
-import { SyrinxSourceEngine } from "../../syrinx-source-models.js";
+import { SyrinxSourceEngine } from "../../families/syrinx/syrinx-source-models.js";
 
 const TWO_PI = Math.PI * 2;
 const OUTPUT_LIMIT = 0.92;

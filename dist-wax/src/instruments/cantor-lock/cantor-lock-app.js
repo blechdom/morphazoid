@@ -9,7 +9,7 @@ import {
   CANTOR_LOCK_DEFAULTS,
   analyzeCantorLock,
   complexMagnitudes,
-} from "../../cantor-lock.js";
+} from "./cantor-lock.js";
 
 const $ = (id) => document.getElementById(id);
 const MAX_AUDIO_VOICES = 12;

@@ -42,9 +42,9 @@ import {
   webGpuChiptuneStageSnapshot,
   webGpuChiptuneStepSnapshot,
   webGpuChiptuneSupport,
-} from "../../webgpu-chiptune.js";
+} from "./webgpu-chiptune.js";
 
-import { CHIPTUNE_DANCER_IDENTITIES, drawChiptuneDancer } from "../../webgpu-chiptune-dancers.js";
+import { CHIPTUNE_DANCER_IDENTITIES, drawChiptuneDancer } from "./webgpu-chiptune-dancers.js";
 
 const $ = (id) => document.getElementById(id);
 const clamp = (value, minimum, maximum) => Math.min(maximum, Math.max(minimum, Number(value) || 0));

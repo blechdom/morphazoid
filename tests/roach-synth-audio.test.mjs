@@ -1,11 +1,11 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { readFileSync } from 'node:fs';
-import { loadSpellingPronunciations } from '../src/spelling-pronunciation.js';
-import { SPELLING_DIPHONE_ATLAS_URL } from '../src/spelling-diphone-atlas.js';
-import { RoachSynthDsp, ROACH_SOUND_DEFAULTS, ROACH_SOUND_PRESETS, ROACH_MOD_TARGETS, createDefaultRoachMappings, ROACH_BODY_GROUPS, ROACH_BODY_SOURCES, createDefaultRoachBodyMix, normalizeRoachBodyMix, createRandomRoachSound, getRoachBodyGroupId, ROACH_MOTION_SOUND_PRESETS, getRoachMotionSound } from '../src/roach-synth-dsp.js';
-import { RoachSynthAudio, createRoachSpeechPlan, ROACH_RECORDINGS } from '../src/roach-synth-audio.js';
-import { ROACH_MOTION_PRESETS, ROACH_STATIC_POSES, getRoachStaticPose, bakeRoachPresetTracks, createRoachSceneState, writeRoachSceneState, writeRoachPose } from '../src/roach-synth-motion.js';
+import { loadSpellingPronunciations } from '../src/instruments/spelling-synthesizer/spelling-pronunciation.js';
+import { SPELLING_DIPHONE_ATLAS_URL } from '../src/instruments/spelling-synthesizer/spelling-diphone-atlas.js';
+import { RoachSynthDsp, ROACH_SOUND_DEFAULTS, ROACH_SOUND_PRESETS, ROACH_MOD_TARGETS, createDefaultRoachMappings, ROACH_BODY_GROUPS, ROACH_BODY_SOURCES, createDefaultRoachBodyMix, normalizeRoachBodyMix, createRandomRoachSound, getRoachBodyGroupId, ROACH_MOTION_SOUND_PRESETS, getRoachMotionSound } from '../src/instruments/roach-synth/roach-synth-dsp.js';
+import { RoachSynthAudio, createRoachSpeechPlan, ROACH_RECORDINGS } from '../src/instruments/roach-synth/roach-synth-audio.js';
+import { ROACH_MOTION_PRESETS, ROACH_STATIC_POSES, getRoachStaticPose, bakeRoachPresetTracks, createRoachSceneState, writeRoachSceneState, writeRoachPose } from '../src/instruments/roach-synth/roach-synth-motion.js';
 import { getSharedAudioOutputManager } from '../src/audio-output-manager.js';
 
 const labels = ['body', 'abdomen', 'head', 'neck', 'wing_covers', 'left_antenna', 'right_antenna'];

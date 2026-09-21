@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { readFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
-import { RoachSynthAudio, ROACH_RECORDINGS } from '../src/roach-synth-audio.js';
+import { RoachSynthAudio, ROACH_RECORDINGS } from '../src/instruments/roach-synth/roach-synth-audio.js';
 
 function fixture(fetcher, decoder) {
   const messages = []; const requests = [];

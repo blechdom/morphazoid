@@ -7,10 +7,10 @@ import {
 import {
   HICCUP_HEAD_LIMITS, HICCUP_HEAD_PRESETS, HICCUP_HEAD_PATTERNS, HICCUP_HEAD_SOUND_BANKS,
   sanitizeHiccupHeadState, hiccupHeadState,
-} from "../src/hiccup-head.js";
+} from "../src/instruments/hiccup-head/hiccup-head.js";
 import {
   CREATURAZOID_BODY_PRESETS, CREATURAZOID_SEQUENCE_PRESETS,
-} from "../src/creaturazoid.js";
+} from "../src/instruments/creaturazoid/creaturazoid.js";
 import { CREATURAZOID_FULL_PRESETS } from "../src/instruments/creaturazoid/full-presets.js";
 import { validateFullPresetBank } from "../src/site/header-presets.js";
 

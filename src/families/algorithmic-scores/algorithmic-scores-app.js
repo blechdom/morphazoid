@@ -7,7 +7,7 @@ import {
   describeAlgorithmicEvent,
   generateAlgorithmicScore,
   sanitizeAlgorithmicScoreParams,
-} from "../../algorithmic-scores.js";
+} from "./algorithmic-scores.js";
 import { connectAudioOutput } from "../../audio-output-manager.js";
 import { registerHeaderPresets } from "../../site/header-presets.js";
 import { algorithmicFullPresets, randomizeAlgorithmicPreset } from "./full-presets.js";

@@ -2,8 +2,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import * as THREE from '../vendor/three/three.module.min.js';
-import { SpiderSynthViewer, createSpiderFaceBounds } from '../src/spider-synth-viewer.js';
-import { getSpiderDisplayProfile } from '../src/spider-synth-display.js';
+import { SpiderSynthViewer, createSpiderFaceBounds } from '../src/instruments/spider-synth/spider-synth-viewer.js';
+import { getSpiderDisplayProfile } from '../src/instruments/spider-synth/spider-synth-display.js';
 
 const ids = ['argiope', 'golden', 'devil', 'tarantula', 'huntsman', 'fishing'];
 const rigs = await Promise.all(ids.map(id => readFile(new URL(`../assets/spider-synth/${id === 'argiope' ? '' : `skins/${id}/`}rig-manifest.json`, import.meta.url), 'utf8').then(JSON.parse)));

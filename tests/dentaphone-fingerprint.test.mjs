@@ -44,12 +44,12 @@ async function assertVersionsMatchContents(outputDirectory, versions) {
     audioOutputManagerVersion: "src/audio-output-manager.js",
     bufferGeometryUtilsVersion: "vendor/three/utils/BufferGeometryUtils.js",
     cssVersion: "src/instruments/object-forge/object-forge.css",
-    dentaphoneVersion: "src/dentaphone.js",
+    dentaphoneVersion: "src/instruments/object-forge/dentaphone.js",
     glbVersion: "assets/models/dentaphone-chomper.glb",
     gltfLoaderVersion: "vendor/three/loaders/GLTFLoader.js",
     physicalSoundsVersion: "src/physical-sounds.js",
     processorVersion: "src/physical-sounds-processor.js",
-    rendererVersion: "src/dentaphone-webgl.js",
+    rendererVersion: "src/instruments/object-forge/dentaphone-webgl.js",
     skeletonUtilsVersion: "vendor/three/utils/SkeletonUtils.js",
     threeCoreVersion: "vendor/three/three.core.min.js",
     threeModuleVersion: "vendor/three/three.module.min.js",
@@ -121,7 +121,7 @@ test("Dentaphone publish fingerprints propagate through the complete 3D and audi
       Buffer.from(`first Dentaphone visual ${index}`),
     )),
     writeFile(
-      path.join(outputDirectory, "src/dentaphone-webgl.js"),
+      path.join(outputDirectory, "src/instruments/object-forge/dentaphone-webgl.js"),
       [
         'import * as THREE from "../vendor/three/three.module.min.js";',
         'import { GLTFLoader } from "../vendor/three/loaders/GLTFLoader.js?v=stale-loader";',
@@ -135,7 +135,7 @@ test("Dentaphone publish fingerprints propagate through the complete 3D and audi
       "export const connectAudioOutput = () => 'first output';\n",
     ),
     writeFile(
-      path.join(outputDirectory, "src/dentaphone.js"),
+      path.join(outputDirectory, "src/instruments/object-forge/dentaphone.js"),
       "export const teeth = 32;\n",
     ),
     writeFile(
@@ -184,7 +184,7 @@ test("Dentaphone publish fingerprints propagate through the complete 3D and audi
   const firstBufferUtils = await readArtifact(outputDirectory, "vendor/three/utils/BufferGeometryUtils.js");
   const firstSkeletonUtils = await readArtifact(outputDirectory, "vendor/three/utils/SkeletonUtils.js");
   const firstLoader = await readArtifact(outputDirectory, "vendor/three/loaders/GLTFLoader.js");
-  const firstRenderer = await readArtifact(outputDirectory, "src/dentaphone-webgl.js");
+  const firstRenderer = await readArtifact(outputDirectory, "src/instruments/object-forge/dentaphone-webgl.js");
   const firstProcessor = await readArtifact(outputDirectory, "src/physical-sounds-processor.js");
   const firstApp = await readArtifact(outputDirectory, "src/instruments/object-forge/object-forge-app.js");
   const firstHtml = await readArtifact(outputDirectory, "dentaphone.html");
@@ -235,7 +235,7 @@ test("Dentaphone publish fingerprints propagate through the complete 3D and audi
   assert.notEqual(afterGlb.appVersion, first.appVersion);
   assert.equal(afterGlb.gltfLoaderVersion, first.gltfLoaderVersion);
   assertVersioned(
-    await readArtifact(outputDirectory, "src/dentaphone-webgl.js"),
+    await readArtifact(outputDirectory, "src/instruments/object-forge/dentaphone-webgl.js"),
     "../assets/models/dentaphone-chomper.glb",
     afterGlb.glbVersion,
   );
@@ -308,7 +308,7 @@ test("Dentaphone publish fingerprints propagate through the complete 3D and audi
 
   await appendArtifact(
     outputDirectory,
-    "src/dentaphone-webgl.js",
+    "src/instruments/object-forge/dentaphone-webgl.js",
     "export const rendererRevision = 2;\n",
   );
   const afterRenderer = await fingerprintDentaphone(outputDirectory);
@@ -342,7 +342,7 @@ test("Dentaphone publish fingerprints propagate through the complete 3D and audi
   );
 
   await writeFile(
-    path.join(outputDirectory, "src/dentaphone.js"),
+    path.join(outputDirectory, "src/instruments/object-forge/dentaphone.js"),
     "export const teeth = 32; export const layout = 'changed';\n",
   );
   const afterDentaphone = await fingerprintDentaphone(outputDirectory);
@@ -394,7 +394,7 @@ test("Dentaphone publish fingerprints propagate through the complete 3D and audi
   const mutableArtifacts = [
     "dentaphone.html",
     "src/instruments/object-forge/object-forge-app.js",
-    "src/dentaphone-webgl.js",
+    "src/instruments/object-forge/dentaphone-webgl.js",
     "src/physical-sounds-processor.js",
     "vendor/three/loaders/GLTFLoader.js",
     "vendor/three/three.module.min.js",

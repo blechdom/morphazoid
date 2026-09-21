@@ -37,7 +37,7 @@ import {
   setQuadrupedSurface,
   solveQuadrupedLimbChain,
   solveQuadrupedLimbJoint,
-} from "../src/quadruped.js";
+} from "../src/instruments/quadruped/quadruped.js";
 import {
   QUADRUPED_MOTOR_LIMITS,
   advanceQuadrupedMotor,
@@ -45,7 +45,7 @@ import {
   kickQuadrupedMotor,
   predictQuadrupedMotor,
   quadrupedMotorSnapshot,
-} from "../src/quadruped-motor.js";
+} from "../src/instruments/quadruped/quadruped-motor.js";
 
 const footLaneIds = QUADRUPED_LANES.map(({ id }) => id);
 const animalIds = [

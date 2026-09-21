@@ -13,7 +13,7 @@ import {
   graphDrumTriggerPlan,
   sanitizeGraphDrumPercussionStyle,
   translateGraphDrumStartAt,
-} from "../src/graph-drum-audio.js";
+} from "../src/families/graph/graph-drum-audio.js";
 import { styledLSystemDrumVoice } from "../src/instruments/l-system-drum-machine/l-system-drum-machine.js";
 
 const baseVoice = Object.freeze({

@@ -22,7 +22,7 @@ import {
   unitaryDft,
   wavePositionDensity,
   windowedFourierDensity,
-} from "../src/escape-dust.js";
+} from "../src/instruments/escape-dust/escape-dust.js";
 
 const root = new URL("../", import.meta.url);
 const TOLERANCE = 1e-10;

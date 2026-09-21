@@ -40,22 +40,28 @@ def parse_args() -> argparse.Namespace:
         default=DEFAULT_PORT,
         help=f"first port to try (default: {DEFAULT_PORT})",
     )
+    parser.add_argument(
+        "--strict-port",
+        action="store_true",
+        help="fail if the requested port is occupied (used by automated QA)",
+    )
     return parser.parse_args()
 
 
-def create_server(start_port: int) -> ThreadingHTTPServer:
+def create_server(start_port: int, *, strict_port: bool = False) -> ThreadingHTTPServer:
     handler = partial(DevelopmentRequestHandler, directory=str(PROJECT_ROOT))
 
-    for port in range(start_port, start_port + PORT_ATTEMPTS):
+    attempts = 1 if strict_port else PORT_ATTEMPTS
+    for port in range(start_port, min(65536, start_port + attempts)):
         try:
             return ThreadingHTTPServer(("127.0.0.1", port), handler)
         except OSError as error:
-            if error.errno != errno.EADDRINUSE:
+            if strict_port or error.errno != errno.EADDRINUSE:
                 raise
 
     raise RuntimeError(
         f"No available localhost port from {start_port} "
-        f"through {start_port + PORT_ATTEMPTS - 1}."
+        f"through {min(65535, start_port + attempts - 1)}."
     )
 
 
@@ -64,7 +70,7 @@ def main() -> None:
     if not 0 <= args.port <= 65535:
         raise SystemExit("Port must be between 0 and 65535.")
 
-    server = create_server(args.port)
+    server = create_server(args.port, strict_port=args.strict_port)
     port = server.server_address[1]
     print(f"Morphazoid running at http://localhost:{port}/", flush=True)
 

@@ -1,5 +1,5 @@
-import { CASCADING_FM_PRESETS, sanitizeCascadingFmSettings } from "../../cascading-fm.js";
-import { CASCADING_PM_PRESETS, sanitizeCascadingPmSettings } from "../../cascading-pm.js";
+import { CASCADING_FM_PRESETS, sanitizeCascadingFmSettings } from "../../instruments/cascading-fm/cascading-fm.js";
+import { CASCADING_PM_PRESETS, sanitizeCascadingPmSettings } from "../../instruments/cascading-pm/cascading-pm.js";
 import { presetRandom } from "../../site/preset-random.js";
 
 // One bank per engine: default, Reset and the header cannot disagree.

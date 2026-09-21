@@ -4,7 +4,7 @@ import test from "node:test";
 import {
   RECURSION_STUDIES,
   buildRecursionPlan,
-} from "../src/recursion.js";
+} from "../src/instruments/recursion/recursion.js";
 import {
   LIVE_AXIS_IDS,
   LIVE_DEFAULTS,
@@ -15,8 +15,8 @@ import {
   normalizeLiveAxes,
   sessionToneFor,
   voiceMixFor,
-} from "../src/recursion-live.js";
-import { MOTION_CAPS } from "../src/recursion-motion.js";
+} from "../src/instruments/recursion/recursion-live.js";
+import { MOTION_CAPS } from "../src/instruments/recursion/recursion-motion.js";
 
 const EPSILON = 1e-6;
 const PUBLIC_INSTRUMENT_ID = "ouroboros-tape";

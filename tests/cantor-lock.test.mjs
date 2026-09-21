@@ -17,7 +17,7 @@ import {
   seededMaskState,
   solidIntervalMask,
   unitaryDft,
-} from "../src/cantor-lock.js";
+} from "../src/instruments/cantor-lock/cantor-lock.js";
 
 const root = new URL("../", import.meta.url);
 const read = (name) => readFile(new URL(name, root), "utf8");
@@ -220,7 +220,7 @@ test("Cantor Lock sound anatomy mirrors the render pool and every audible mappin
 test("Cantor Lock app keeps audio bounded, live, accessible, and BFCache safe", async () => {
   const [app, core] = await Promise.all([
     read("src/instruments/cantor-lock/cantor-lock-app.js"),
-    read("src/cantor-lock.js"),
+    read("src/instruments/cantor-lock/cantor-lock.js"),
   ]);
   assert.match(app, /VoicePool,[\s\S]*from "\.\.\/\.\.\/audio\.js"/);
   assert.match(app, /const MAX_AUDIO_VOICES = 12/);

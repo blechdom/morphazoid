@@ -23,7 +23,7 @@ import {
   sanitizeRecursiveFmPerformance,
   sanitizeRecursiveFmSettings,
   summarizeRecursiveFmStack,
-} from "../src/recursive-fm.js";
+} from "../src/instruments/recursive-fm/recursive-fm.js";
 
 test("Recursive FM preserves the six legacy Morphisma parameter sets", () => {
   assert.equal(RECURSIVE_FM_PRESETS.length, 6);

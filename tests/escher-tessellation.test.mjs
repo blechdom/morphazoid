@@ -2,13 +2,13 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
-import { buildLattice, tilingInfo } from "../src/lattice.js";
+import { buildLattice, tilingInfo } from "../src/instruments/lattice/lattice.js";
 import {
   buildEscherContours,
   contourEvents,
   contourPointAtDistance,
   selectEscherContours,
-} from "../src/escher-contours.js";
+} from "../src/instruments/escher-tessellation/escher-contours.js";
 import {
   DEFAULT_ESCHER_TESSELLATION_PRESET,
   ESCHER_TESSELLATION_PALETTES,
@@ -22,7 +22,7 @@ import {
   regularHyperbolicPolygon,
   rotateEscherPoint,
   similarityEscherPoint,
-} from "../src/escher-tessellation.js";
+} from "../src/instruments/escher-tessellation/escher-tessellation.js";
 
 const root = new URL("../", import.meta.url);
 const close = (first, second, epsilon = 1e-8) => Math.abs(first - second) <= epsilon;
@@ -234,7 +234,7 @@ test("Escher markup is labelled, self-contained, and explicit about source bound
     readFile(new URL("escher-tessellation.html", root), "utf8"),
     readFile(new URL("src/instruments/escher-tessellation/escher-tessellation-app.js", root), "utf8"),
     readFile(new URL("src/instruments/escher-tessellation/escher-tessellation.css", root), "utf8"),
-    readFile(new URL("src/escher-performance-audio.js", root), "utf8"),
+    readFile(new URL("src/instruments/escher-tessellation/escher-performance-audio.js", root), "utf8"),
   ]);
   const ids = [...html.matchAll(/\bid="([^"]+)"/g)].map((match) => match[1]);
   assert.equal(new Set(ids).size, ids.length, "page ids must be unique");
@@ -308,7 +308,7 @@ test("Escher markup is labelled, self-contained, and explicit about source bound
   assert.match(app, /event\.code === "Home"/);
   assert.match(app, /is-model-locked/);
   assert.match(app, /new EscherPerformanceAudio/);
-  assert.match(app, /from "\.\.\/\.\.\/escher-contours\.js"/);
+  assert.match(app, /from "\.\/escher-contours\.js"/);
   assert.match(app, /buildEscherContours/);
   assert.match(app, /contourPointAtDistance/);
   assert.match(app, /selectEscherContours/);

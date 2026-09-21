@@ -7,7 +7,7 @@ import {
   formatShaderSynthPlaygroundAudioAsset,
   prepareShaderSynthPlaygroundAudioAsset,
   shaderSynthPlaygroundAudioAssetSpec,
-} from "../src/shader-synth-playground-audio-assets.js";
+} from "../src/instruments/shader-synth-playground/shader-synth-playground-audio-assets.js";
 
 const ROOT = new URL("../", import.meta.url);
 

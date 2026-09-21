@@ -58,7 +58,7 @@ import {
   rotateHyperRubixQuarterVector,
   selectHyperRubixViewFacingCells,
   turnHyperRubixBoundaryCell,
-} from "../src/hyper-rubix.js";
+} from "../src/instruments/hyper-rubix/hyper-rubix.js";
 
 const vector = (x, y, z, w) => ({ x, y, z, w });
 const positionKey = (position) => HYPER_RUBIX_AXES.map((axis) => position[axis]).join(":");

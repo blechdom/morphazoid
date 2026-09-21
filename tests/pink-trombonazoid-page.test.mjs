@@ -6,7 +6,7 @@ import {
   PINK_TROMBONAZOID_LANES,
   PINK_TROMBONAZOID_VOICE_HARMONIES,
   PINK_TROMBONAZOID_VOICE_PRESETS,
-} from "../src/pink-trombonazoid.js";
+} from "../src/families/tract/pink-trombonazoid.js";
 
 const ROOT = new URL("../", import.meta.url);
 
@@ -59,7 +59,7 @@ test("Pink Trombonazoid page wires its accessible editor and local modules", asy
   );
   assert.match(
     app,
-    /from "\.\.\/\.\.\/pink-trombonazoid\.js\?v=pink-trombonazoid-20260823-2"/,
+    /from "\.\.\/\.\.\/families\/tract\/pink-trombonazoid\.js\?v=pink-trombonazoid-20260823-2"/,
     "the app and its core must share a cache version",
   );
 

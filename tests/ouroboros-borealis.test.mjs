@@ -16,7 +16,7 @@ import {
   ouroborosBorealisRateSafety,
   ouroborosBorealisRhythmWindow,
   sanitizeOuroborosBorealisParams,
-} from "../src/ouroboros-borealis.js";
+} from "../src/instruments/ouroboros-borealis/ouroboros-borealis.js";
 
 const ROOT = new URL("../", import.meta.url);
 const SAMPLE_RATE = 48_000;
@@ -698,7 +698,7 @@ test("the lazy audio wrapper separates audibility from transport and preserves s
 });
 
 test("the worklet render loop contains no explicit allocations", async () => {
-  const source = await readFile(new URL("src/ouroboros-borealis.js", ROOT), "utf8");
+  const source = await readFile(new URL("src/instruments/ouroboros-borealis/ouroboros-borealis.js", ROOT), "utf8");
   const start = source.indexOf("    process(_inputs, outputs) {");
   const end = source.indexOf("\n      return true;\n    }\n  };", start);
   assert.ok(start >= 0 && end > start);
@@ -731,7 +731,7 @@ test("the worklet renders bounded stereo through both independent seams and extr
   globalThis.sampleRate = SAMPLE_RATE;
 
   try {
-    await import(`../src/ouroboros-borealis.js?worklet-test=${Date.now()}`);
+    await import(`../src/instruments/ouroboros-borealis/ouroboros-borealis.js?worklet-test=${Date.now()}`);
     assert.equal(registeredName, "morphazoid-ouroboros-borealis");
     assert.equal(registrationCount, 1);
     assert.equal(typeof Processor, "function");
@@ -1055,7 +1055,7 @@ test("the native page exposes five circular, independently controlled Ouroboros 
   const [markup, app, source, styles] = await Promise.all([
     readFile(new URL("ouroboros-borealis.html", ROOT), "utf8"),
     readFile(new URL("src/instruments/ouroboros-borealis/ouroboros-borealis-app.js", ROOT), "utf8"),
-    readFile(new URL("src/ouroboros-borealis.js", ROOT), "utf8"),
+    readFile(new URL("src/instruments/ouroboros-borealis/ouroboros-borealis.js", ROOT), "utf8"),
     readFile(new URL("src/instruments/ouroboros-borealis/ouroboros-borealis.css", ROOT), "utf8"),
   ]);
 

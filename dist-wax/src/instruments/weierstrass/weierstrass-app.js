@@ -16,13 +16,13 @@ import {
   quadraticSliderPosition,
   quadraticSliderValue,
   sanitizeWeierstrassParams,
-} from "../../weierstrass.js";
+} from "./weierstrass.js";
 import {
   createChaoticSpectrogram,
   drawChaoticScope,
   drawChaoticSpectrogram,
   updateChaoticSpectrogram,
-} from "../../chaotic-synth-visuals.js";
+} from "../../families/chaotic/chaotic-synth-visuals.js";
 import { canvasSizing } from "../../graphics/canvas-sizing.js";
 
 const $ = (id) => document.getElementById(id);

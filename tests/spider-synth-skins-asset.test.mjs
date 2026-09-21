@@ -4,7 +4,7 @@ import {readFile} from 'node:fs/promises';
 import {createHash} from 'node:crypto';
 import * as THREE from '../vendor/three/three.module.min.js';
 import {MeshoptDecoder} from '../vendor/meshoptimizer/meshopt_decoder.module.js';
-import {SPIDER_JOINTS} from '../src/spider-synth-model.js';
+import {SPIDER_JOINTS} from '../src/instruments/spider-synth/spider-synth-model.js';
 
 const specimens = [
   ['golden', 116379, 'CC0-1.0'], ['devil', 161171, 'CC0-1.0'],

@@ -38,7 +38,7 @@ trying to make every instrument look identical:
 
 `createSignalMonitor()` provides the repeated canvas, title/subtitle, HUD,
 legend, and axis contract. Existing pure renderers in
-`src/chaotic-synth-visuals.js` draw waveforms, logarithmic spectra, and
+`src/families/chaotic/chaotic-synth-visuals.js` draw waveforms, logarithmic spectra, and
 spectrograms into its canvas. This keeps Storybook deterministic and static
 while allowing production instruments to supply live samples.
 

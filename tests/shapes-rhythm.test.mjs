@@ -5,11 +5,11 @@ import {
   createShapesState,
   selectShapesPlayingMode,
   setShapesDivisionCount,
-} from "../src/shapes-state.js";
+} from "../src/instruments/shapes/shapes-state.js";
 import {
   advanceShapesRhythmSample,
   createShapesRhythmSample,
-} from "../src/shapes-rhythm.js";
+} from "../src/instruments/shapes/shapes-rhythm.js";
 
 function rhythmState({
   phase,

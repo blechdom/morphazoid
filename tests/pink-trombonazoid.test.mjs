@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { fallbackSpellingPronunciation } from "../src/spelling-pronunciation.js";
+import { fallbackSpellingPronunciation } from "../src/instruments/spelling-synthesizer/spelling-pronunciation.js";
 import {
   DEFAULT_PINK_TROMBONAZOID_PRESET,
   DEFAULT_PINK_TROMBONAZOID_VOICE_PRESET,
@@ -27,7 +27,7 @@ import {
   samplePinkTrombonazoidLfo,
   updatePinkTrombonazoidKeyframe,
   updatePinkTrombonazoidSegment,
-} from "../src/pink-trombonazoid.js";
+} from "../src/families/tract/pink-trombonazoid.js";
 
 const closeTo = (actual, expected, epsilon = 1e-9) => {
   assert.ok(

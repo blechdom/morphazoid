@@ -5,7 +5,7 @@ import {
   JAW_HARP_LIMITS,
   JAW_HARP_PRESETS,
   VOWEL_PRESETS,
-} from "../src/jaw-harp.js";
+} from "../src/instruments/jaw-harp/jaw-harp.js";
 import {
   JAW_JAM_ACTIONS,
   JAW_JAM_BREATH_RATIOS,
@@ -26,7 +26,7 @@ import {
   randomizeJawJamPattern,
   sanitizeJawJamPattern,
   sanitizeJawJamStep,
-} from "../src/jaw-jam.js";
+} from "../src/instruments/jaw-jam/jaw-jam.js";
 
 const MATERIAL_IDS = new Set(JAW_HARP_PRESETS.map(({ id }) => id));
 const VOWEL_IDS = new Set(VOWEL_PRESETS.map(({ id }) => id));

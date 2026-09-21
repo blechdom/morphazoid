@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { PugglerModel } from '../src/puggler.js';
-import { drawSkinPerformer, drawSkinStage, skinPerformerPose } from '../src/puggler-skin-renderer.js';
+import { PugglerModel } from '../src/instruments/puggler/puggler.js';
+import { drawSkinPerformer, drawSkinStage, skinPerformerPose } from '../src/instruments/puggler/puggler-skin-renderer.js';
 
 function context(){
   const calls=[],ellipses=[],stack=[];let m=[1,0,0,1,0,0];

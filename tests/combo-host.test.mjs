@@ -45,9 +45,9 @@ test("Shapes is one native Morphazoid route with no embedded page dependencies",
     readFile(new URL("combo.html", repositoryRoot), "utf8"),
     readFile(new URL("src/instruments/shapes/shapes.css", repositoryRoot), "utf8"),
     readFile(new URL("src/instruments/shapes/shapes-app.js", repositoryRoot), "utf8"),
-    readFile(new URL("src/shapes-scene.js", repositoryRoot), "utf8"),
-    readFile(new URL("src/shapes-rhythm.js", repositoryRoot), "utf8"),
-    readFile(new URL("src/shapes-state.js", repositoryRoot), "utf8"),
+    readFile(new URL("src/instruments/shapes/shapes-scene.js", repositoryRoot), "utf8"),
+    readFile(new URL("src/instruments/shapes/shapes-rhythm.js", repositoryRoot), "utf8"),
+    readFile(new URL("src/instruments/shapes/shapes-state.js", repositoryRoot), "utf8"),
   ]);
 
   const comboTool = TOOL_GROUPS.flatMap(({ tools }) => tools).find(({ id }) => id === "shapes");
@@ -74,9 +74,9 @@ test("Shapes is one native Morphazoid route with no embedded page dependencies",
 
   assert.doesNotMatch(app, /contentDocument|contentWindow|window\.frames|createElement\(["']iframe/);
   assert.doesNotMatch(app, /(?:^|["'/])(?:app|solid-app|hyper-app|shape-drums-app|solid-drums-app|hyper-drums-app)\.js/);
-  assert.match(app, /from "\.\.\/\.\.\/shapes-state\.js"/);
-  assert.match(app, /from "\.\.\/\.\.\/shapes-scene\.js"/);
-  assert.match(app, /from "\.\.\/\.\.\/shapes-rhythm\.js"/);
+  assert.match(app, /from "\.\/shapes-state\.js"/);
+  assert.match(app, /from "\.\/shapes-scene\.js"/);
+  assert.match(app, /from "\.\/shapes-rhythm\.js"/);
   assert.match(app, /legacySound === "synth"[\s\S]*?"continuous"/);
   assert.match(app, /createShapesRhythmSample\(seedState\)/);
   assert.match(app, /advanceShapesRhythmSample\(discreteRhythmSample, sampledState\)/);
@@ -125,9 +125,9 @@ test("Shapes is one native Morphazoid route with no embedded page dependencies",
   assert.match(app, /document\.hidden[\s\S]*?stopDiscreteScheduler\(\)[\s\S]*?drumAudio\.silence\(\)/);
   assert.match(app, /morphazoid:midi-input/);
   assert.match(app, /event\.preventDefault\(\)/);
-  assert.match(scene, /from "\.\/geometry\.js"/);
-  assert.match(scene, /from "\.\/solid\.js"/);
-  assert.match(scene, /from "\.\/hyper\.js"/);
+  assert.match(scene, /from "\.\.\/\.\.\/geometry\.js"/);
+  assert.match(scene, /from "\.\.\/\.\.\/solid\.js"/);
+  assert.match(scene, /from "\.\.\/\.\.\/hyper\.js"/);
   assert.match(scene, /eventKey: `2d:\$\{contactRegionOnPath/);
   assert.match(scene, /twoDimensionalPathCache/);
   assert.match(rhythm, /export function createShapesRhythmSample/);

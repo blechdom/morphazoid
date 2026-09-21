@@ -32,8 +32,8 @@ async function instrument(page) {
   });
 }
 const fixture = `<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="icon" href="data:,"><style>html,body{margin:0;background:#090d12}canvas{display:block;width:100vw;height:min(700px,100vh)}</style></head><body><canvas tabindex="0" aria-label="Roach floor fixture"></canvas><script type="module">
-import {createRoachViewer} from './src/roach-synth-viewer.js';
-import * as model from './src/roach-synth-motion.js';
+import {createRoachViewer} from './src/instruments/roach-synth/roach-synth-viewer.js';
+import * as model from './src/instruments/roach-synth/roach-synth-motion.js';
 let joints=[],body={},contribution={};const motion={presetId:'none',intensity:1,antennae:false,tempo:108},scene=model.createRoachSceneState();
 const viewer=createRoachViewer({canvas:document.querySelector('canvas'),onRig:s=>{joints=s.bones},onPoseChange:()=>{joints=viewer.getState().bones;draw()}});
 function draw(){const pose=new Float32Array(joints.length*3);model.writeRoachPose(0,motion,joints,pose);joints.forEach((j,i)=>['x','y','z'].forEach((axis,a)=>{pose[i*3+a]+=contribution[j.jointId]?.[axis]||0}));model.writeRoachSceneState(0,motion,scene,joints);Object.assign(scene.body,body);viewer.setExternalPose(pose);viewer.setSceneState(scene)}

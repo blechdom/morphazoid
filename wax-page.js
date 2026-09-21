@@ -3,7 +3,7 @@ import {
   WAX_INSTRUMENT_SUPPORT,
   WAX_ROLE_DEFINITIONS,
   waxSupportForId,
-} from "./src/wax-instrument-roles.js";
+} from "./src/instruments/wax/wax-instrument-roles.js";
 
 const instrumentById = new Map(INSTRUMENTS.map((instrument) => [instrument.id, instrument]));
 

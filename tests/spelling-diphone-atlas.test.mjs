@@ -5,7 +5,7 @@ import test from "node:test";
 import {
   SPELLING_DIPHONE_CLIPS,
   spellingDiphoneClipKey,
-} from "../src/spelling-diphone-atlas.js";
+} from "../src/instruments/spelling-synthesizer/spelling-diphone-atlas.js";
 
 const ATLAS_URL = new URL(
   "../assets/audio/spelling-diphone-kal16.wav",

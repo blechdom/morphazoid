@@ -19,7 +19,7 @@ import {
   bellCorrelation,
   bellConcurrence,
   sampleBellOutcome,
-} from "../../entanglement-dance.js";
+} from "./entanglement-dance.js";
 
 // ─── constants ────────────────────────────────────────────────────────────────
 

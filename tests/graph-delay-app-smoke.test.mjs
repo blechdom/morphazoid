@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
-import { GRAPH_DELAY_PATCHES } from "../src/graph-delay.js";
+import { GRAPH_DELAY_PATCHES } from "../src/instruments/graph-delay/graph-delay.js";
 
 test("graph-delay keeps live settings safe, coalesces transitions, and rolls back failed builds", async () => {
   const html = await readFile(new URL("../graph-delay.html", import.meta.url), "utf8");

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { buildShapesScene } from "../src/shapes-scene.js";
+import { buildShapesScene } from "../src/instruments/shapes/shapes-scene.js";
 import {
   MAX_SHAPES_2D_HEADS,
   createShapesState,
@@ -10,11 +10,11 @@ import {
   shapes2dHeadPhase,
   shapes2dHeadTravel,
   toggleShapes2dHeadOption,
-} from "../src/shapes-state.js";
+} from "../src/instruments/shapes/shapes-state.js";
 import {
   advanceShapesRhythmSample,
   createShapesRhythmSample,
-} from "../src/shapes-rhythm.js";
+} from "../src/instruments/shapes/shapes-rhythm.js";
 
 const EPSILON = 1e-10;
 

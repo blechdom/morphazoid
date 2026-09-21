@@ -2,7 +2,7 @@ import {
   LATTICE_COLOR_PAIR_COUNT,
   latticeColorPairIndex,
   latticeTileColorIndex,
-} from "../../lattice-colors.js";
+} from "../lattice/lattice-colors.js";
 
 const clamp = (value, minimum = 0, maximum = 1) => (
   Math.min(maximum, Math.max(minimum, Number(value) || 0))

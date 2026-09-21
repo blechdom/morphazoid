@@ -17,8 +17,8 @@ import {
   linearDrumPitchedMorphWeights,
   linearDrumPositionAtFrequency,
   sanitizeLinearDrumSettings,
-} from "../../linear-drums.js";
-import { KARPLUS_STRONG_PRESETS } from "../../karplus-strong.js";
+} from "./linear-drums.js";
+import { KARPLUS_STRONG_PRESETS } from "../karplus-strong/karplus-strong.js";
 import { canvasSizing } from "../../graphics/canvas-sizing.js";
 
 const $ = (id) => document.getElementById(id);

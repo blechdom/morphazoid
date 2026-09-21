@@ -20,7 +20,7 @@ import {
   transformedHyperShape,
 } from "../../hyper.js";
 import { createAmplitudeControl } from "../../amplitude-control.js";
-import { installShapesNativeBridge } from "../../shapes-native-bridge.js";
+import { installShapesNativeBridge } from "../../families/geometry/shapes-native-bridge.js";
 import { canvasSizing } from "../../graphics/canvas-sizing.js";
 
 const $ = (id) => document.getElementById(id);

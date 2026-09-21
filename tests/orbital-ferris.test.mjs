@@ -19,7 +19,7 @@ import {
   orbitalFerrisScene,
   orbitalFerrisShapeSample,
   orbitalFerrisVoiceModulation,
-} from "../src/orbital-ferris.js";
+} from "../src/instruments/orbital-ferris/orbital-ferris.js";
 
 const root = new URL("../", import.meta.url);
 const closeTo = (actual, expected, tolerance = 1e-9) => {

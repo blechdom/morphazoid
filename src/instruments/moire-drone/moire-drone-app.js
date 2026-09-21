@@ -23,7 +23,7 @@ import {
   spectralFftMaskGain,
   spectralWarpedCombGate,
   wrapUnit,
-} from "../../moire-drone.js";
+} from "./moire-drone.js";
 
 const $ = (id) => document.getElementById(id);
 const TAU = Math.PI * 2;

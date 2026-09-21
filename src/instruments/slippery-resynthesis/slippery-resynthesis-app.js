@@ -8,7 +8,7 @@ import {
   slipperyGlidePhase,
   slipperyHann,
   wrapUnit,
-} from "../../slippery-resynthesis.js";
+} from "./slippery-resynthesis.js";
 
 const $ = (id) => document.getElementById(id);
 const audio = new SlipperyResynthesisAudio(globalThis);

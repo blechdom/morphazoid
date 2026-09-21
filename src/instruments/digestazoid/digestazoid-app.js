@@ -6,7 +6,7 @@ import {
   digestazoidPreset,
   digestazoidState,
   sanitizeDigestazoidState,
-} from "../../digestazoid.js?v=digestazoid-model-20260902-3";
+} from "./digestazoid.js?v=digestazoid-model-20260902-3";
 import { connectAudioOutput } from "../../audio-output-manager.js";
 import { unlockAudioContext } from "../../audio.js";
 import { canvasSizing } from "../../graphics/canvas-sizing.js";
@@ -249,7 +249,7 @@ async function createAudioGraph() {
   const context = new Context({ latencyHint: "interactive", sampleRate: 48_000 });
   unlockAudioContext(context);
   await context.audioWorklet.addModule(new URL(
-    "../../digestazoid-processor.js?v=digestazoid-worklet-20260902-3",
+    "./digestazoid-processor.js?v=digestazoid-worklet-20260902-3",
     import.meta.url,
   ));
   const sourceNode = new AudioWorkletNode(context, "digestazoid-physical-model", {

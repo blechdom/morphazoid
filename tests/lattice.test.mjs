@@ -19,7 +19,7 @@ import {
   prototileIsNonOverlapping,
   tilingInfo,
   tilingParameterRange,
-} from "../src/lattice.js";
+} from "../src/instruments/lattice/lattice.js";
 
 const bounds = { minX: -1.5, minY: -1, maxX: 1.5, maxY: 1 };
 

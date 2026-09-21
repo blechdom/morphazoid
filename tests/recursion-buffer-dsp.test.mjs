@@ -8,7 +8,7 @@ import {
   generateNoiseSeed,
   normalizeChannels,
   ouroborosGenerations,
-} from "../src/recursion-buffer-dsp.js";
+} from "../src/instruments/recursion/recursion-buffer-dsp.js";
 
 function peakOf(channels) {
   let peak = 0;

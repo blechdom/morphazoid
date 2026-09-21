@@ -4,7 +4,7 @@ import {
   OuroborosAudio,
   calculateOuroborosLayers,
   sanitizeOuroborosParams,
-} from "../../ouroboros.js";
+} from "./ouroboros.js";
 
 const $ = (id) => document.getElementById(id);
 const audio = new OuroborosAudio(globalThis);

@@ -4,11 +4,11 @@ import test from "node:test";
 import {
   CASCADING_FM_PRESETS, CASCADING_FM_DEFAULTS, DEFAULT_CASCADING_FM_PRESET_ID,
   deriveCascadeStack as fmStack,
-} from "../src/cascading-fm.js";
+} from "../src/instruments/cascading-fm/cascading-fm.js";
 import {
   CASCADING_PM_PRESETS, CASCADING_PM_DEFAULTS, DEFAULT_CASCADING_PM_PRESET_ID,
   deriveCascadeStack as pmStack, renderCascadingPmSamples,
-} from "../src/cascading-pm.js";
+} from "../src/instruments/cascading-pm/cascading-pm.js";
 import { CASCADING_FM_FULL_PRESETS, CASCADING_PM_FULL_PRESETS } from "../src/families/cascading/full-presets.js";
 import { renderCascadeReference, summarizeCascadeRhythm, spectrumOfCascade } from "../scripts/presets/cascade-rhythm-analysis.mjs";
 

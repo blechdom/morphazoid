@@ -114,7 +114,7 @@ test("Automatapoeia preserves exact live evolution while exposing history-safe i
     readFile(new URL("automatapoeia.html", root), "utf8"),
     readFile(new URL("automatopoeia.html", root), "utf8"),
     readFile(new URL("src/families/experiments/experiments-app.js", root), "utf8"),
-    readFile(new URL("src/automatapoeia.js", root), "utf8"),
+    readFile(new URL("src/instruments/cellular-automata/automatapoeia.js", root), "utf8"),
   ]);
   assert.match(legacy, /url=automatapoeia\.html/);
   assert.match(legacy, /href="automatapoeia\.html">Automatapoeia/);

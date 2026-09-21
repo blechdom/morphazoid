@@ -7,7 +7,7 @@ import {
   openingBounds,
   stepEscapeDustSimulation,
   wavePositionDensity,
-} from "../../escape-dust.js";
+} from "./escape-dust.js";
 
 const $ = (id) => document.getElementById(id);
 const DRAW_INTERVAL = 1_000 / 30;

@@ -8,7 +8,7 @@ import {
   probeLine,
   sampledPorosityDiagnostics,
   shiftedMagnitude,
-} from "../../linebreaker.js";
+} from "./linebreaker.js";
 
 const $ = (id) => document.getElementById(id);
 const TAU = Math.PI * 2;

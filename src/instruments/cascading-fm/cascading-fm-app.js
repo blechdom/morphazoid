@@ -16,11 +16,11 @@ import {
   rootHzSliderPosition,
   rootHzSliderValue,
   sanitizeCascadingFmSettings,
-} from "../../cascading-fm.js";
+} from "./cascading-fm.js";
 import {
   createChaoticSpectrum,
   drawChaoticLiveAnalysis,
-} from "../../chaotic-synth-visuals.js";
+} from "../../families/chaotic/chaotic-synth-visuals.js";
 import { unlockAudioContext } from "../../audio.js";
 import { connectAudioOutput } from "../../audio-output-manager.js";
 import { canvasSizing } from "../../graphics/canvas-sizing.js";

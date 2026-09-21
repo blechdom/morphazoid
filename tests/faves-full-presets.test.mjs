@@ -9,13 +9,13 @@ import { validateFullPresetBank, presetStateKey } from "../src/site/header-prese
 import { clonePresetData } from "../src/site/preset-random.js";
 import { createSolidInitialState, createHyperInitialState, captureGeometryPreset, validateGeometryPreset } from "../src/families/geometry-presets/full-presets.js";
 import { createAmplitudeControl } from "../src/amplitude-control.js";
-import { createHybrinxGestureStore, normalizeHybrinxPresetGesture, applyHybrinxTimelinePerformance } from "../src/hybrinx-timeline.js";
-import { CALL_GESTURES, animalState, sanitizeSyrinxState, interpolateGesture, modulateSyrinxState, resolveGestureTimeline } from "../src/syrinx.js";
-import { DEFAULT_TONGUE_STATE, sanitizeTongueState } from "../src/tongue-physics.js";
+import { createHybrinxGestureStore, normalizeHybrinxPresetGesture, applyHybrinxTimelinePerformance } from "../src/instruments/hybrinx/hybrinx-timeline.js";
+import { CALL_GESTURES, animalState, sanitizeSyrinxState, interpolateGesture, modulateSyrinxState, resolveGestureTimeline } from "../src/families/syrinx/syrinx.js";
+import { DEFAULT_TONGUE_STATE, sanitizeTongueState } from "../src/families/syrinx/tongue-physics.js";
 import { captureHybrinxPreset, validateHybrinxFullPreset, HYBRINX_FULL_PRESETS, randomizeHybrinxPreset } from "../src/families/syrinx/full-presets.js";
 import { RUBIX_FACTORY_PRESETS, RUBIX_DEFAULTS } from "../src/instruments/rubix/factory-presets.js";
 import { RUBIX_PRESET_SETTING_KEYS } from "../src/instruments/rubix/full-presets.js";
-import { rubixSimdPreset } from "../src/rubix-simd-presets.js";
+import { rubixSimdPreset } from "../src/instruments/rubix/rubix-simd-presets.js";
 import { HYPER_RUBIX_PRESET_DEFAULTS } from "../src/instruments/hyper-rubix/preset-state.js";
 import { DEFAULT_L_SYSTEM_STATE, DEFAULT_MICMIC_STATE } from "../src/families/branch-presets/initial-state.js";
 import { GRAPH_DELAY_INITIAL_STATE } from "../src/families/graph-presets/initial-state.js";

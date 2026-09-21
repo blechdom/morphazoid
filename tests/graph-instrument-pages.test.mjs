@@ -12,9 +12,9 @@ test("Graph Drum Machine and Graph Synth expose the shared graph-feedback workbe
     readFile(new URL("graph-drum-machine.html", root), "utf8"),
     readFile(new URL("graph-synth.html", root), "utf8"),
     readFile(new URL("src/families/graph/graph-instruments.css", root), "utf8"),
-    readFile(new URL("src/graph-instrument-app.js", root), "utf8"),
-    readFile(new URL("src/graph-instruments.js", root), "utf8"),
-    readFile(new URL("src/graph-drum-audio.js", root), "utf8"),
+    readFile(new URL("src/families/graph/graph-instrument-app.js", root), "utf8"),
+    readFile(new URL("src/families/graph/graph-instruments.js", root), "utf8"),
+    readFile(new URL("src/families/graph/graph-drum-audio.js", root), "utf8"),
     readFile(new URL("src/instruments/graph-drum-machine/graph-drum-machine-app.js", root), "utf8"),
     readFile(new URL("src/instruments/graph-synth/graph-synth-app.js", root), "utf8"),
     readFile(new URL("GRAPH_INSTRUMENTS_RESEARCH.md", root), "utf8"),
@@ -268,8 +268,8 @@ test("Graph pages cannot mix refreshed markup with stale Graph runtime modules",
     readFile(new URL("graph-synth.html", root), "utf8"),
     readFile(new URL("src/instruments/graph-drum-machine/graph-drum-machine-app.js", root), "utf8"),
     readFile(new URL("src/instruments/graph-synth/graph-synth-app.js", root), "utf8"),
-    readFile(new URL("src/graph-instrument-app.js", root), "utf8"),
-    readFile(new URL("src/graph-instruments.js", root), "utf8"),
+    readFile(new URL("src/families/graph/graph-instrument-app.js", root), "utf8"),
+    readFile(new URL("src/families/graph/graph-instruments.js", root), "utf8"),
     readFile(new URL("scripts/dev-server.py", root), "utf8"),
   ]);
   const version = "graph-instruments-20260830-13";
@@ -279,20 +279,20 @@ test("Graph pages cannot mix refreshed markup with stale Graph runtime modules",
   assert.match(drums, new RegExp(`src=\"src\\/instruments\\/graph-drum-machine\\/graph-drum-machine-app\\.js\\?v=${version}"`));
   assert.match(synth, new RegExp(`src="src/instruments/graph-synth/graph-synth-app\\.js\\?v=${version}"`));
   for (const wrapper of [drumWrapper, synthWrapper]) {
-    assert.ok(wrapper.includes(`from "../../graph-instrument-app.js?v=${version}"`));
+    assert.ok(wrapper.includes(`from "../../families/graph/graph-instrument-app.js?v=${version}"`));
   }
   for (const dependency of [
     "graph-drum-audio", "graph-delay", "graph-instruments", "graph-synth-audio",
   ]) {
     assert.match(
       app,
-      new RegExp(`from "\\./${dependency}\\.js\\?v=${version}"`),
+      new RegExp(`from "${dependency === "graph-delay" ? "../../instruments/graph-delay/" : "./"}${dependency}\\.js\\?v=${version}"`),
       `${dependency} must share the Graph runtime version`,
     );
   }
   assert.match(
     core,
-    new RegExp(`from "\\./graph-delay\\.js\\?v=${version}"`),
+    new RegExp(`from "../../instruments/graph-delay/graph-delay\\.js\\?v=${version}"`),
     "the core scheduler must resolve the same fresh Graph Delay module",
   );
   assert.match(devServer, /class DevelopmentRequestHandler\(SimpleHTTPRequestHandler\):/);
@@ -348,10 +348,10 @@ test("the release builder includes every new Graph instrument runtime file", asy
     "src/families/graph/graph-instruments.css",
     "src/instruments/graph-drum-machine/graph-drum-machine-app.js",
     "src/instruments/graph-synth/graph-synth-app.js",
-    "src/graph-instrument-app.js",
-    "src/graph-instruments.js",
-    "src/graph-drum-audio.js",
-    "src/graph-synth-audio.js",
+    "src/families/graph/graph-instrument-app.js",
+    "src/families/graph/graph-instruments.js",
+    "src/families/graph/graph-drum-audio.js",
+    "src/families/graph/graph-synth-audio.js",
     "assets/instruments/graph-drums.webp",
     "assets/instruments/graph-synth.webp",
     "GRAPH_INSTRUMENTS_RESEARCH.md",

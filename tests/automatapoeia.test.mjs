@@ -58,7 +58,7 @@ import {
   sanitizeAutomatapoeiaTransform,
   sanitizeAutomatapoeiaVoice,
   writeAutomatapoeiaRaster,
-} from "../src/automatapoeia.js";
+} from "../src/instruments/cellular-automata/automatapoeia.js";
 
 function signalMetrics(samples) {
   let peak = 0;

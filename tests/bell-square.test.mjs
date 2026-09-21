@@ -17,7 +17,7 @@ import {
   simulateBellSquare,
   stateFidelity,
   stateNorm,
-} from "../src/bell-square.js";
+} from "../src/instruments/bell-square/bell-square.js";
 
 const root = new URL("../", import.meta.url);
 const TOLERANCE = 1e-10;
@@ -212,7 +212,7 @@ test("Bell Square markup has unique ids and every adjustable control is labelled
 test("Bell Square app uses bounded VoicePool audio, exact shots, shortcuts, and cleanup", async () => {
   const [app, core] = await Promise.all([
     readFile(new URL("src/instruments/bell-square/bell-square-app.js", root), "utf8"),
-    readFile(new URL("src/bell-square.js", root), "utf8"),
+    readFile(new URL("src/instruments/bell-square/bell-square.js", root), "utf8"),
   ]);
   assert.match(app, /new VoicePool\(8\)/);
   assert.match(app, /simulation\.probabilities\.forEach/);

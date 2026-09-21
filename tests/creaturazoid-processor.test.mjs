@@ -22,7 +22,7 @@ globalThis.registerProcessor = (name, Processor) => {
 };
 
 const { CreaturazoidPhysicalProcessor } = await import(
-  "../src/creaturazoid-processor.js?creaturazoid-processor-test=1"
+  "../src/instruments/creaturazoid/creaturazoid-processor.js?creaturazoid-processor-test=1"
 );
 const {
   CREATURAZOID_BODY_PRESETS,
@@ -32,15 +32,15 @@ const {
   creaturazoidSound,
   creaturazoidState,
   resolveCreaturazoidEventState,
-} = await import("../src/creaturazoid.js?creaturazoid-processor-integration-test=1");
+} = await import("../src/instruments/creaturazoid/creaturazoid.js?creaturazoid-processor-integration-test=1");
 const {
   ANIMALS,
   clamp: clampSyrinx,
   resolveSourceControls,
   resolveSyrinxPresetGain,
-} = await import("../src/syrinx.js?creaturazoid-processor-integration-test=1");
+} = await import("../src/families/syrinx/syrinx.js?creaturazoid-processor-integration-test=1");
 const { tongueAirwayAperture } = await import(
-  "../src/tongue-physics.js?creaturazoid-processor-integration-test=1"
+  "../src/families/syrinx/tongue-physics.js?creaturazoid-processor-integration-test=1"
 );
 
 const FAMILY_OUTPUT_TRIM = Object.freeze({

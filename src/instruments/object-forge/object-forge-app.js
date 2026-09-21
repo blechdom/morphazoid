@@ -16,7 +16,7 @@ import {
   dentaphonePitchRange,
   dentaphoneToothLabel,
   sanitizeDentaphonePitchState,
-} from "../../dentaphone.js";
+} from "./dentaphone.js";
 
 const root = document.getElementById("physicalSoundRoot");
 const canvas = document.getElementById("stage");
@@ -534,7 +534,7 @@ async function initializeDentaphoneRenderer() {
   const loadGeneration = ++dentaphoneWebGLLoadGeneration;
   let loadedModule = null;
   let loadPromise = null;
-  loadPromise = import("../../dentaphone-webgl.js?v=dentaphone-chomp-contact-20260904")
+  loadPromise = import("./dentaphone-webgl.js?v=dentaphone-chomp-contact-20260904")
     .then(async (module) => {
       loadedModule = module;
       if (

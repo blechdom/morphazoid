@@ -10,7 +10,7 @@ import {
   pathSvgData,
   samplePath,
   sanitizePathSettings,
-} from "../../paths.js";
+} from "./paths.js";
 
 const $ = (id) => document.getElementById(id);
 const TAU = Math.PI * 2;

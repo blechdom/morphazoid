@@ -18,7 +18,7 @@ import {
   quantizeGraphSemitones,
   scheduleGraphPulse,
   tuneGraphSemitones,
-} from "../src/graph-instruments.js";
+} from "../src/families/graph/graph-instruments.js";
 import {
   applyGraphAttackSeparation,
   assignGraphAttackLanes,
@@ -27,10 +27,10 @@ import {
   graphInstrumentDefaultState,
   graphInstrumentPresetState,
   sanitizeGraphAttackLaneCount,
-} from "../src/graph-instrument-app.js";
-import { edgeAudioParameters, generateGraph } from "../src/graph-delay.js";
-import { GRAPH_DRUM_PERCUSSION_STYLES } from "../src/graph-drum-audio.js";
-import { cloneDefaultFmDrumVoices } from "../src/fm-drums.js";
+} from "../src/families/graph/graph-instrument-app.js";
+import { edgeAudioParameters, generateGraph } from "../src/instruments/graph-delay/graph-delay.js";
+import { GRAPH_DRUM_PERCUSSION_STYLES } from "../src/families/graph/graph-drum-audio.js";
+import { cloneDefaultFmDrumVoices } from "../src/instruments/fm-drums/fm-drums.js";
 
 const closeTo = (actual, expected, epsilon = 1e-12) => {
   assert.ok(

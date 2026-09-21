@@ -43,8 +43,8 @@ import {
   ShapeMidiPerformance,
   shapeMidiMacroAction,
   shapeMidiPadAction,
-} from "../../shape-midi.js";
-import { installShapesNativeBridge } from "../../shapes-native-bridge.js";
+} from "./shape-midi.js";
+import { installShapesNativeBridge } from "../../families/geometry/shapes-native-bridge.js";
 import { canvasSizing } from "../../graphics/canvas-sizing.js";
 
 const $ = (id) => document.getElementById(id);

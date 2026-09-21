@@ -22,7 +22,7 @@ import {
   wheelMouthLayout,
   wheelStateForWord,
   wheelVocalParameters,
-} from "../src/wheel-of-organs.js";
+} from "../src/instruments/wheel-of-organs/wheel-of-organs.js";
 
 test("wheel defaults spell ORGANISM across eight stable, independent mouths", () => {
   assert.deepEqual(WHEEL_MOUTH_LIMITS, { minimum: 0, default: 8, maximum: 32 });

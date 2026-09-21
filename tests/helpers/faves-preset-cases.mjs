@@ -5,7 +5,7 @@ import { JAW_HARP_FULL_PRESETS, validateJawHarpPreset, randomizeJawHarpPreset } 
 import { HYPER_RUBIX_FULL_PRESETS, validateHyperRubixPreset, randomizeHyperRubixPreset } from "../../src/instruments/hyper-rubix/full-presets.js";
 import { MICMIC_FULL_PRESETS, L_SYSTEM_FULL_PRESETS, validateMicmicPreset, validateLSystemPreset, randomizeMicmicPreset, randomizeLSystemPreset } from "../../src/families/branch-presets/full-presets.js";
 import { GRAPH_DELAY_FULL_PRESETS, graphSynthFullPresets, validateGraphDelayPreset, validateGraphSynthPreset, randomizeGraphDelayPreset, randomizeGraphSynthPreset } from "../../src/families/graph-presets/full-presets.js";
-import { graphInstrumentDefaultState } from "../../src/graph-instrument-app.js";
+import { graphInstrumentDefaultState } from "../../src/families/graph/graph-instrument-app.js";
 import { AUTOMATA_FULL_PRESETS, validateAutomataPreset, randomizeAutomataPreset } from "../../src/families/experiments/automata-presets.js";
 import { LATTICE_FULL_PRESETS, validateLatticePreset, randomizeLatticePreset } from "../../src/instruments/lattice/full-presets.js";
 const graphDefaults = graphInstrumentDefaultState();

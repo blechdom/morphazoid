@@ -22,7 +22,7 @@ import {
   srtussProjectById,
   srtussSupport,
   srtussVoiceMixSettings,
-} from "../src/srtuss.js";
+} from "../src/instruments/srtuss/srtuss.js";
 import {
   SRTUSS_MIX_PART_ID,
   SRTUSS_MASTER_FAMILIES,
@@ -37,7 +37,7 @@ import {
   sanitizeSrtussMasterStems,
   srtussMasterPartIndex,
   srtussMasterParts,
-} from "../src/srtuss-master.js";
+} from "../src/instruments/srtuss/srtuss-master.js";
 
 const root = new URL("../", import.meta.url);
 
@@ -1231,8 +1231,8 @@ test("page is a control-forward explicit-audio master synth with no shader viewp
   assert.match(html, /class="group control-section srtuss-section/);
   const appVersion = html.match(/srtuss-app\.js\?v=([^"]+)/)?.[1];
   assert.ok(appVersion, "the SRTUSS app should have a cache version");
-  assert.match(app, new RegExp('from "\\.\\.\\/\\.\\.\\/srtuss\\.js\\?v=' + appVersion + '"'));
-  assert.match(app, new RegExp('from "\\.\\.\\/\\.\\.\\/srtuss-master\\.js\\?v=' + appVersion + '"'));
+  assert.match(app, new RegExp('from "\\./srtuss\\.js\\?v=' + appVersion + '"'));
+  assert.match(app, new RegExp('from "\\./srtuss-master\\.js\\?v=' + appVersion + '"'));
   assert.match(html, /Local server required/);
   assert.match(html, /npm run dev/);
   assert.match(html, /id="masterControls"/);

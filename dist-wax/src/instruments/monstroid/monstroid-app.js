@@ -30,7 +30,7 @@ import {
   createColonySyrinxGraphLayout,
   moveColonySyrinxGraphNode,
 } from "./monstroid-graph.js";
-import { createMonstrozoidBodyGeometry } from "../../monstrozoid-body.js";
+import { createMonstrozoidBodyGeometry } from "../../families/syrinx/monstrozoid-body.js";
 
 const $ = (id) => document.getElementById(id);
 const clamp = (value, minimum = 0, maximum = 1) => (

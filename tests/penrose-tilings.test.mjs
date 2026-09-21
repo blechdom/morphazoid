@@ -21,7 +21,7 @@ import {
   subdividePenroseKiteDartTriangles,
   subdividePenroseTriangles,
   upcomingPenroseEdges,
-} from "../src/penrose-tilings.js";
+} from "../src/instruments/penrose-tilings/penrose-tilings.js";
 
 const close = (first, second, tolerance = 1e-8) => Math.abs(first - second) <= tolerance;
 
@@ -467,7 +467,7 @@ test("Penrose page is an accessible researched instrument rather than a periodic
     readFile(new URL("penrose-tilings.html", root), "utf8"),
     readFile(new URL("src/instruments/penrose-tilings/penrose-tilings.css", root), "utf8"),
     readFile(new URL("src/instruments/penrose-tilings/penrose-tilings-app.js", root), "utf8"),
-    readFile(new URL("src/penrose-tilings.js", root), "utf8"),
+    readFile(new URL("src/instruments/penrose-tilings/penrose-tilings.js", root), "utf8"),
   ]);
   const ids = [...html.matchAll(/\bid="([^"]+)"/g)].map((match) => match[1]);
   assert.equal(new Set(ids).size, ids.length);

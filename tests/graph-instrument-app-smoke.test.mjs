@@ -1,12 +1,12 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
-import { generateGraph } from "../src/graph-delay.js";
-import { initializeGraphInstrument } from "../src/graph-instrument-app.js";
+import { generateGraph } from "../src/instruments/graph-delay/graph-delay.js";
+import { initializeGraphInstrument } from "../src/families/graph/graph-instrument-app.js";
 import {
   MAX_GRAPH_INSTRUMENT_NODES,
   graphSynthVoice,
-} from "../src/graph-instruments.js";
+} from "../src/families/graph/graph-instruments.js";
 
 async function exerciseLiveEditRegression(mode, htmlFile) {
   const html = await readFile(new URL(`../${htmlFile}`, import.meta.url), "utf8");

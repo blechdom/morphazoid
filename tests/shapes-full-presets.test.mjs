@@ -6,8 +6,8 @@ import { ensurePlayableShapesRandom } from "../src/instruments/shapes/random-pla
 import { SHAPE_FULL_PRESETS } from "../src/instruments/shape-synth/full-presets.js";
 import { SOLID_FULL_PRESETS, HYPER_FULL_PRESETS } from "../src/families/geometry-presets/full-presets.js";
 import { captureOriginalParameters, originalShapeState } from "../src/instruments/shapes/parameter-bridge.js";
-import { createShapesState, advanceShapesMotion, projectShapesMotion } from "../src/shapes-state.js";
-import { buildShapesScene, buildShapesDivisionMarkers } from "../src/shapes-scene.js";
+import { createShapesState, advanceShapesMotion, projectShapesMotion } from "../src/instruments/shapes/shapes-state.js";
+import { buildShapesScene, buildShapesDivisionMarkers } from "../src/instruments/shapes/shapes-scene.js";
 import { projectPoint3 } from "../src/solid.js";
 import { geometryViewPoint } from "../src/families/geometry-presets/geometry-sound.js";
 import { originalSynthSpecs, originalCornerIntents, originalCornerSample } from "../src/instruments/shapes/original-audio.js";

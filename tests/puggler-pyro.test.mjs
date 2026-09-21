@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { MAX_PYRO_PARTICLES, PugglerPyro } from '../src/puggler-pyro.js';
+import { MAX_PYRO_PARTICLES, PugglerPyro } from '../src/instruments/puggler/puggler-pyro.js';
 
 const hit=(time,drum='kick',id=0)=>({kind:'catch',time,drum,id});
 function firstBurst(){

@@ -4,8 +4,8 @@ import {
   createDemoCricketSong,
   cricketGestureExport,
   renderCricketModel,
-} from "../../crickets.js";
-import { encodeMonoWav } from "../../birdsong-analysis.js";
+} from "./crickets.js";
+import { encodeMonoWav } from "../../families/acoustic/birdsong-analysis.js";
 
 const $ = (id) => document.getElementById(id);
 const clamp = (value, minimum = 0, maximum = 1) => (

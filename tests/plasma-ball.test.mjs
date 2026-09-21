@@ -11,7 +11,7 @@ import {
   stepPlasmaBolts,
   plasmaBoltPath,
   plasmaVoiceSpecs,
-} from "../src/plasma-ball.js";
+} from "../src/instruments/plasma-ball/plasma-ball.js";
 
 const root = new URL("../", import.meta.url);
 const TAU = Math.PI * 2;
@@ -418,7 +418,7 @@ test("Plasma Ball is a labelled, keyboard-accessible Morphazoid instrument", asy
 test("browser controller uses bounded shared audio, direct glass gestures, and lifecycle cleanup", async () => {
   const [app, core] = await Promise.all([
     readFile(new URL("src/instruments/plasma-ball/plasma-ball-app.js", root), "utf8"),
-    readFile(new URL("src/plasma-ball.js", root), "utf8"),
+    readFile(new URL("src/instruments/plasma-ball/plasma-ball.js", root), "utf8"),
   ]);
   assert.match(app, /new VoicePool\(/);
   const poolArgument = app.match(/new VoicePool\((\d+|[A-Z][A-Z0-9_]*)\)/)?.[1] ?? "";

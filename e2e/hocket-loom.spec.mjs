@@ -36,7 +36,7 @@ async function characterizeHocketMarkers(page) {
       createHocketNoiseBuffer,
       hocketMarkerPlan,
       scheduleHocketMarker,
-    } = await import(new URL("/src/hocket-loom-audio.js", location.origin).href);
+    } = await import(new URL("/src/instruments/hocket-loom/hocket-loom-audio.js", location.origin).href);
     const sampleRate = 48_000;
     const eventStartSeconds = 0.05;
 

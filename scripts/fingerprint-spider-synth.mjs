@@ -11,9 +11,9 @@ const relativeAsset = (source, reference) => path.posix.normalize(path.posix.joi
 // The page and worklet must use one release of their shared motion/voice graph.
 // A group hash also covers newly introduced sources without a hand-kept edge list.
 export async function fingerprintSpiderSynth(outputDirectory) {
-  const modules = (await readdir(path.join(outputDirectory, 'src')))
-    .filter(name => /^spider-synth(?:-[\w-]+)?\.js$/.test(name)).sort();
-  const filenames = ["src/instruments/spider-synth/spider-synth-app.js", "src/instruments/spider-synth/spider-synth.css", ...modules.map(name => `src/${name}`)];
+  const modules = (await readdir(path.join(outputDirectory, 'src/instruments/spider-synth')))
+    .filter(name => name !== "spider-synth-app.js" && /^spider-synth(?:-[\w-]+)?\.js$/.test(name)).sort();
+  const filenames = ["src/instruments/spider-synth/spider-synth-app.js", "src/instruments/spider-synth/spider-synth.css", ...modules.map(name => `src/instruments/spider-synth/${name}`)];
   const sources = await Promise.all(filenames.map(async name => [name, unversion(await readFile(path.join(outputDirectory, name), 'utf8'))]));
   const hash = createHash('sha256');
   for (const [name, source] of sources) hash.update(name).update('\0').update(source).update('\0');

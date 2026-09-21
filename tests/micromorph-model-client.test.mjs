@@ -13,7 +13,7 @@ import {
   normalizeMicromorphControlCurveFrame,
   redactMicromorphEndpoint,
   validateMicromorphEndpoint,
-} from "../src/micromorph-model-client.js";
+} from "../src/instruments/micromorph/micromorph-model-client.js";
 
 class FakeWebSocket {
   static instances = [];

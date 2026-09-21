@@ -4,7 +4,7 @@ import test, { after } from "node:test";
 
 const SAMPLE_RATE = 48_000;
 const BLOCK_SIZE = 128;
-const MODULE_URL = new URL("../src/moire-drone.js", import.meta.url);
+const MODULE_URL = new URL("../src/instruments/moire-drone/moire-drone.js", import.meta.url);
 const savedWorkletGlobals = new Map(
   ["sampleRate", "AudioWorkletProcessor", "registerProcessor"]
     .map((key) => [key, Object.getOwnPropertyDescriptor(globalThis, key)]),

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { SignalsmithGenerationBank } from "../src/signalsmith-generation-bank.js";
+import { SignalsmithGenerationBank } from "../src/families/signalsmith-generation/signalsmith-generation-bank.js";
 
 function audioNode(extra = {}) {
   return {

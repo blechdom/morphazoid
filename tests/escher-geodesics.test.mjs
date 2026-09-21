@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { samplePoincareGeodesic } from "../src/escher-tessellation.js";
+import { samplePoincareGeodesic } from "../src/instruments/escher-tessellation/escher-tessellation.js";
 
 const close = (first, second, epsilon = 1e-9) => Math.abs(first - second) <= epsilon;
 

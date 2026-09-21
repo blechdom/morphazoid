@@ -5,12 +5,12 @@ import {
   frequencyFromSlider,
   frequencySliderPosition,
   sanitizeFmDrumVoice,
-} from "../../fm-drums.js";
+} from "./fm-drums.js";
 import {
   createFmDrumMidiTriggerVoice,
   fmDrumMidiAction,
   updateFmDrumVoiceFromMidi,
-} from "../../fm-drums-midi.js";
+} from "./fm-drums-midi.js";
 import { getSharedMidiManager } from "../../midi-manager.js";
 
 const $ = (id) => document.getElementById(id);

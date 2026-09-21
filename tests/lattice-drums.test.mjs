@@ -1,14 +1,14 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
-import { DEFAULT_FM_DRUM_VOICES } from "../src/fm-drums.js";
+import { DEFAULT_FM_DRUM_VOICES } from "../src/instruments/fm-drums/fm-drums.js";
 import {
   TILING_TYPES,
   buildLattice,
   contactsForLine,
   createScanLine,
   latticeOffsetForPhase,
-} from "../src/lattice.js";
+} from "../src/instruments/lattice/lattice.js";
 import {
   LATTICE_DRUM_MAPPING_MODES,
   latticeColorPairVoiceIndex,

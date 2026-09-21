@@ -1,6 +1,6 @@
 import { createContext, runInContext } from "node:vm";
 
-import * as model from "../../src/throatazoid.js";
+import * as model from "../../src/families/tract/throatazoid.js";
 import {
   buildTractDiameterProfile,
   buildTractGeometry,

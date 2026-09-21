@@ -22,7 +22,7 @@ import {
   rotatePoint3,
 } from "../../solid.js";
 import { createAmplitudeControl } from "../../amplitude-control.js";
-import { installShapesNativeBridge } from "../../shapes-native-bridge.js";
+import { installShapesNativeBridge } from "../../families/geometry/shapes-native-bridge.js";
 import { canvasSizing } from "../../graphics/canvas-sizing.js";
 
 const $ = (id) => document.getElementById(id);

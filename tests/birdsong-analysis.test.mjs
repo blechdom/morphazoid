@@ -9,7 +9,7 @@ import {
   encodeMonoWav,
   monoSamples,
   renderBirdsongModel,
-} from "../src/birdsong-analysis.js";
+} from "../src/families/acoustic/birdsong-analysis.js";
 
 const SAMPLE_RATE = 48_000;
 

@@ -29,8 +29,8 @@ worktrees at once, so preserve unrelated tracked and untracked work.
 | --- | --- |
 | Root `*.html`, `style.css`, and bootstrap scripts | Public browser entry points and global styling; controllers are under `src/` |
 | `src/` | Shared and instrument-owned ES modules, DSP, AudioWorklets, and UI primitives |
-| `src/instruments/` | Instrument-owned controllers/styles and selected helpers, grouped by canonical instrument ID |
-| `src/families/` | Explicit shared family code/styles, not catalogue categories |
+| `src/instruments/` | Instrument-owned controllers, models, audio/worklet modules, presets and styles |
+| `src/families/` | Explicit shared family controllers, models, engines and styles, not catalogue categories |
 | `src/site/` | Catalogue, identity aliases, taxonomy, and site-page controllers/styles |
 | `assets/`, `artwork/`, and `vendor/` | Runtime assets, source artwork, and attributed third-party code/data |
 | `contracts/` | Versioned browser, MIDI, transport, and host behavior contracts |
@@ -63,8 +63,10 @@ npm run dev
 
 Open the exact URL printed by the server. It starts at port `3435` and selects
 the next available port when needed. Playwright defaults to
-`http://127.0.0.1:3435`. Set `MORPHAZOID_QA_BASE_URL` to test another already-running
-preview, and confirm that endpoint serves this worktree before reusing it.
+`http://127.0.0.1:3435` but refuses to reuse an occupied port. Set
+`MORPHAZOID_QA_PORT` to start a dedicated QA server on another port, or set
+`MORPHAZOID_QA_BASE_URL` to use an explicitly started preview. The QA preflight
+checks its source bytes against this checkout before running instrument tests.
 
 The package manifest is the source of truth for commands:
 

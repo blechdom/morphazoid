@@ -4,11 +4,11 @@ import test from "node:test";
 import {
   PENROSE_PHI,
   createPenroseWorldWindow,
-} from "../src/penrose-tilings.js";
+} from "../src/instruments/penrose-tilings/penrose-tilings.js";
 import {
   derivePenroseP2World,
   markedPenroseRhombVertexIndex,
-} from "../src/penrose-world-p2.js";
+} from "../src/instruments/penrose-tilings/penrose-world-p2.js";
 
 const commonBounds = Object.freeze({
   minX: -0.55,

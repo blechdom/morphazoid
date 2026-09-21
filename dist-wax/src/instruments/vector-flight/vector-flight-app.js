@@ -3,7 +3,7 @@ import {
   normalizeStrikeGains,
   synthParametersForMode,
 } from "../../audio.js";
-import { createFixedStepper } from "../../physics-common.js";
+import { createFixedStepper } from "../../families/physics/physics-common.js";
 import {
   FLIGHT_ARTICULATIONS,
   FLIGHT_TIERS,
@@ -24,7 +24,7 @@ import {
   trailLengthForThrottle,
   travelSpeedForThrottle,
   wrapAngle,
-} from "../../vector-flight.js";
+} from "./vector-flight.js";
 
 const $ = (id) => document.getElementById(id);
 const canvas = $("stage");

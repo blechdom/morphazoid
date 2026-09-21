@@ -2,8 +2,8 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { readRuntimeManifest } from "../scripts/site/runtime-manifest.mjs";
-import { STEP, TAU, DEFAULTS, TRICKS, createYoyo, throwYoyo, bindYoyo, tugYoyo, setTrick, stepYoyo, soundingState, snapshot, settings } from "../src/yoyodyne.js";
-import { KineticStringDSP, sanitizeSound } from "../src/yoyodyne-dsp.js";
+import { STEP, TAU, DEFAULTS, TRICKS, createYoyo, throwYoyo, bindYoyo, tugYoyo, setTrick, stepYoyo, soundingState, snapshot, settings } from "../src/instruments/yoyodyne/yoyodyne.js";
+import { KineticStringDSP, sanitizeSound } from "../src/instruments/yoyodyne/yoyodyne-dsp.js";
 const advance = (w, seconds, automatic = false) => { for (let i=0;i<Math.round(seconds/STEP);i++) stepYoyo(w,{automatic}); return w; };
 const rms = a => Math.sqrt(a.reduce((s,v)=>s+v*v,0)/a.length);
 const peak = a => a.reduce((s,v)=>Math.max(s,Math.abs(v)),0);
@@ -139,7 +139,7 @@ test("source and build inventory expose kinetic modules without timeline or brow
  assert.match(html,/aria-label="[^"]+"/);assert.match(html,/tabindex="0"/);
  assert.doesNotMatch(html,/data-morphazoid-wax-bootstrap|data-note-id|selectedPitch/);
  assert.doesNotMatch(app,/requestAnimationFrame\(pump|createYoyodynePhrase/);
- for(const path of ["src/yoyodyne.js","src/yoyodyne-audio.js","src/yoyodyne-dsp.js","src/yoyodyne-processor.js","docs/yoyodyne-kinetic.md"]) {
+ for(const path of ["src/instruments/yoyodyne/yoyodyne.js","src/instruments/yoyodyne/yoyodyne-audio.js","src/instruments/yoyodyne/yoyodyne-dsp.js","src/instruments/yoyodyne/yoyodyne-processor.js","docs/yoyodyne-kinetic.md"]) {
   assert.ok(build.worktreeFiles.includes(path),path+" has pre-commit copy permission");
   assert.ok(build.requiredFiles.includes(path),path+" is required in the artifact");
  }
@@ -152,7 +152,7 @@ test("worklet drops stale and distant frames, bounds its queue, fades on starvat
   globalThis.AudioWorkletProcessor=class{constructor(){this.port={};}};
   globalThis.registerProcessor=(_name,type)=>{Processor=type;};
   globalThis.sampleRate=48000;globalThis.currentTime=0;
-  await import("../src/yoyodyne-processor.js");
+  await import("../src/instruments/yoyodyne/yoyodyne-processor.js");
   const p=new Processor(),send=data=>p.port.onmessage({data});
   send({type:"frames",frames:[{time:-10,state:frame},{time:100,state:frame}]});assert.equal(p.queue.length,0);
   for(let i=0;i<8;i++)send({type:"frames",frames:Array.from({length:64},(_,n)=>({time:n/1000,state:frame}))});

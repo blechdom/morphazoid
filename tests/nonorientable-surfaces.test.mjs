@@ -16,7 +16,7 @@ import {
   sliceSurface,
   surfacePoint,
   trackSliceComponents,
-} from "../src/nonorientable-surface.js";
+} from "../src/families/nonorientable/nonorientable-surface.js";
 
 const root = new URL("../", import.meta.url);
 

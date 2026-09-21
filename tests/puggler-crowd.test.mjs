@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { CROWD_MEMBERS, MAX_CROWD_IMPULSES, PugglerCrowd } from '../src/puggler-crowd.js';
+import { CROWD_MEMBERS, MAX_CROWD_IMPULSES, PugglerCrowd } from '../src/instruments/puggler/puggler-crowd.js';
 
 const catchAt=(time,drum='kick',id=0)=>({kind:'catch',time,drum,id});
 

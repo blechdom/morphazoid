@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { generateJuliaBoundary } from "../src/julia.js";
+import { generateJuliaBoundary } from "../src/instruments/julia/julia.js";
 import {
   buildSimilarityAuditionLayers,
   buildInverseArcFamily,
@@ -16,7 +16,7 @@ import {
   sampleBoundaryArc,
   rateLimitedTemporalPitchFidelity,
   temporalPitchFidelity,
-} from "../src/julia-similarity.js";
+} from "../src/instruments/julia/julia-similarity.js";
 
 test("the critical orbit diagnoses the cap-sensitive Spiral preset", () => {
   const spiral = criticalOrbitStatus(-0.7, 0.27015, 200);

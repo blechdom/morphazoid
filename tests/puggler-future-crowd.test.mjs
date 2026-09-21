@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { PugglerCrowd, CROWD_MEMBERS } from '../src/puggler-crowd.js';
-import { futureCrowdMember, futureHeadwear, drawFutureCrowdHead, drawFutureCrowdHand } from '../src/puggler-future-crowd.js';
+import { PugglerCrowd, CROWD_MEMBERS } from '../src/instruments/puggler/puggler-crowd.js';
+import { futureCrowdMember, futureHeadwear, drawFutureCrowdHead, drawFutureCrowdHand } from '../src/instruments/puggler/puggler-future-crowd.js';
 
 function context() {
   const calls=[],stack=[],state={fillStyle:'#123456',strokeStyle:'#654321',lineWidth:7,lineCap:'butt',lineJoin:'miter',shadowBlur:5,shadowOffsetX:4,shadowOffsetY:3,shadowColor:'#f00',globalAlpha:.7};

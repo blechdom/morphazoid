@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
-import { DEFAULT_FM_DRUM_VOICES } from "../src/fm-drums.js";
+import { DEFAULT_FM_DRUM_VOICES } from "../src/instruments/fm-drums/fm-drums.js";
 import {
   buildShape,
   pingPong01,

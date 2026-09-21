@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
-import { buildPrototile, tilingInfo } from "../src/lattice.js";
+import { buildPrototile, tilingInfo } from "../src/instruments/lattice/lattice.js";
 
 test("lattice app renders and plays line contacts", async () => {
   const html = await readFile(new URL("../lattice.html", import.meta.url), "utf8");

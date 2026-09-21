@@ -6,12 +6,12 @@ import vm from "node:vm";
 import {
   SPELLING_DIPHONE_ATLAS_URL,
   SPELLING_DIPHONE_CLIPS,
-} from "../src/spelling-diphone-atlas.js";
+} from "../src/instruments/spelling-synthesizer/spelling-diphone-atlas.js";
 
 const SAMPLE_RATE = 48_000;
 const BLOCK_SIZE = 128;
 const WORKLET_URL = new URL(
-  "../src/spelling-vocoder-processor.js",
+  "../src/instruments/spelling-synthesizer/spelling-vocoder-processor.js",
   import.meta.url,
 );
 const WORKLET_SOURCE = readFileSync(WORKLET_URL, "utf8");

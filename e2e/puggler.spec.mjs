@@ -1,10 +1,10 @@
 import { expect, test } from '@playwright/test';
 import { sampleAudioEnvelope } from './helpers/audio-probe.mjs';
-import { COLLAGE_ATLASES } from '../src/puggler-collage.js';
-import { PATTERNS } from '../src/puggler.js';
-import { SKINS } from '../src/puggler-skins.js';
-import { LIGHTING_SCENES } from '../src/puggler-lighting.js';
-import { VOCAL_CHARACTERS } from '../src/puggler-vocals.js';
+import { COLLAGE_ATLASES } from '../src/instruments/puggler/puggler-collage.js';
+import { PATTERNS } from '../src/instruments/puggler/puggler.js';
+import { SKINS } from '../src/instruments/puggler/puggler-skins.js';
+import { LIGHTING_SCENES } from '../src/instruments/puggler/puggler-lighting.js';
+import { VOCAL_CHARACTERS } from '../src/instruments/puggler/puggler-vocals.js';
 
 const atlasCount = Object.keys(COLLAGE_ATLASES).length;
 
@@ -513,7 +513,7 @@ test('Puggler presets change riding and flyers, while paused riders keep balanci
   await openShow(page);
   const start = await state(page);
   const flyers = () => page.evaluate(async () => {
-    const { posterLayout } = await import('./src/puggler-renderer.js');
+    const { posterLayout } = await import('./src/instruments/puggler/puggler-renderer.js');
     return posterLayout(window.__puggler.snapshot().posterSeed, 1030, 612);
   });
   const firstFlyers = await flyers();

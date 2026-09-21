@@ -4,7 +4,7 @@ import test from "node:test";
 import {
   WHEEL_AUDIO_VOICE_COUNT,
   WheelOfOrgansAudio,
-} from "../src/wheel-of-organs-audio.js";
+} from "../src/instruments/wheel-of-organs/wheel-of-organs-audio.js";
 
 class FakeAudioParam {
   constructor(value = 0) {

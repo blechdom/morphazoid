@@ -21,8 +21,8 @@ import {
   sanitizeChaoticPmParams,
   sanitizeChaoticPmPerformance,
   smoothChaoticPmTurnSample,
-} from "../src/chaotic-pm.js";
-import { fft } from "../src/recursion-spectral-dsp.js";
+} from "../src/instruments/chaotic-pm/chaotic-pm.js";
+import { fft } from "../src/instruments/recursion/recursion-spectral-dsp.js";
 
 const LEGACY_PRESET_IDS = [
   "subzero-thread",
@@ -688,7 +688,7 @@ test("audio stays lazy, starts one worklet, and closes every node", async () => 
   assert.equal(FakeAudioContext.instances.length, 1);
   assert.equal(audio.running, true);
   assert.equal(audio.context.options.latencyHint, "interactive");
-  assert.match(audio.context.modules[0], /src\/chaotic-pm\.js$/);
+  assert.match(audio.context.modules[0], /src\/instruments\/chaotic-pm\/chaotic-pm\.js$/);
   const worklet = audio.worklet ?? audio.node;
   assert.equal(worklet.name, "morphazoid-chaotic-pm");
   assert.equal(CHAOTIC_PM_DC_BLOCKER_HZ, 18);
@@ -950,7 +950,7 @@ test("worklet renders both banks finitely and playable presets audibly", async (
     globalThis.registerProcessor = (_name, ProcessorClass) => {
       Processor = ProcessorClass;
     };
-    const workletUrl = new URL("../src/chaotic-pm.js", import.meta.url);
+    const workletUrl = new URL("../src/instruments/chaotic-pm/chaotic-pm.js", import.meta.url);
     workletUrl.searchParams.set("worklet-test", String(Date.now()));
     await import(workletUrl);
     assert.equal(typeof Processor, "function");
@@ -1347,7 +1347,7 @@ test("worklet renders both banks finitely and playable presets audibly", async (
 
 test("worklet preallocates state and keeps its render loop allocation-free", async () => {
   const source = await readFile(
-    new URL("../src/chaotic-pm.js", import.meta.url),
+    new URL("../src/instruments/chaotic-pm/chaotic-pm.js", import.meta.url),
     "utf8",
   );
   const processBody = methodBody(source, "process(_inputs, outputs)");
@@ -1362,7 +1362,7 @@ test("Chaotic PM exposes Smooth and Legacy transfers with shared MIDI performanc
   const [markup, app, source, css] = await Promise.all([
     readFile(new URL("../chaotic-pm.html", import.meta.url), "utf8"),
     readFile(new URL("../src/instruments/chaotic-pm/chaotic-pm-app.js", import.meta.url), "utf8"),
-    readFile(new URL("../src/chaotic-pm.js", import.meta.url), "utf8"),
+    readFile(new URL("../src/instruments/chaotic-pm/chaotic-pm.js", import.meta.url), "utf8"),
     readFile(new URL("../src/instruments/chaotic-pm/chaotic-pm.css", import.meta.url), "utf8"),
   ]);
   assert.doesNotMatch(markup, /id="midiButton"/);

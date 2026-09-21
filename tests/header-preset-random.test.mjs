@@ -15,15 +15,15 @@ import {
   CASCADING_FM_FULL_PRESETS, CASCADING_PM_FULL_PRESETS,
   randomizeCascadingFmPreset, randomizeCascadingPmPreset,
 } from "../src/families/cascading/full-presets.js";
-import { sanitizeHiccupHeadState, sanitizeHiccupHeadVoice, clonePattern } from "../src/hiccup-head.js";
-import { sanitizeCreaturazoidState, sanitizeCreaturazoidPattern } from "../src/creaturazoid.js";
-import { sanitizeCascadingFmSettings, deriveCascadeStack as fmStack } from "../src/cascading-fm.js";
-import { sanitizeCascadingPmSettings, deriveCascadeStack as pmStack } from "../src/cascading-pm.js";
+import { sanitizeHiccupHeadState, sanitizeHiccupHeadVoice, clonePattern } from "../src/instruments/hiccup-head/hiccup-head.js";
+import { sanitizeCreaturazoidState, sanitizeCreaturazoidPattern } from "../src/instruments/creaturazoid/creaturazoid.js";
+import { sanitizeCascadingFmSettings, deriveCascadeStack as fmStack } from "../src/instruments/cascading-fm/cascading-fm.js";
+import { sanitizeCascadingPmSettings, deriveCascadeStack as pmStack } from "../src/instruments/cascading-pm/cascading-pm.js";
 import {
   sanitizeKarplusStrongSettings, sanitizeKarplusStrongTuning,
   karplusStrongStringFrequencies, generateKarplusStrongSamples,
-} from "../src/karplus-strong.js";
-import { sanitizeAlgorithmicScoreParams, generateAlgorithmicScore } from "../src/algorithmic-scores.js";
+} from "../src/instruments/karplus-strong/karplus-strong.js";
+import { sanitizeAlgorithmicScoreParams, generateAlgorithmicScore } from "../src/families/algorithmic-scores/algorithmic-scores.js";
 import { renderCascadeReference } from "../scripts/presets/cascade-rhythm-analysis.mjs";
 import { parseRuntimeManifest } from "../scripts/site/runtime-manifest.mjs";
 

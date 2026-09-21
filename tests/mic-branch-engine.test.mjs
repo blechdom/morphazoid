@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { MicBranchEngine } from "../src/mic-branch-engine.js";
+import { MicBranchEngine } from "../src/families/mic-branch/mic-branch-engine.js";
 
 function branch(index) {
   return { key: `branch:${index}`, rate: 1, gain: 0.01, pan: 0, depth: 0 };

@@ -6,7 +6,7 @@ import {
   encodeMonoWav,
   monoSamples,
   renderBirdsongModel,
-} from "../../birdsong-analysis.js";
+} from "../../families/acoustic/birdsong-analysis.js";
 
 const $ = (id) => document.getElementById(id);
 

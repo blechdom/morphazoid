@@ -12,7 +12,7 @@ import {
   orbitalFerrisScene,
   orbitalFerrisShapeSample,
   orbitalFerrisVoiceModulation,
-} from "../../orbital-ferris.js";
+} from "../../instruments/orbital-ferris/orbital-ferris.js";
 import {
   AUTOMATAPOEIA_DEFAULT_BOUNDARY,
   AUTOMATAPOEIA_DEFAULT_CONTOUR_SOURCE,
@@ -69,7 +69,7 @@ import {
   sanitizeAutomatapoeiaTransform,
   sanitizeAutomatapoeiaVoice,
   writeAutomatapoeiaRaster,
-} from "../../automatapoeia.js";
+} from "../../instruments/cellular-automata/automatapoeia.js";
 
 const TAU = Math.PI * 2;
 const MAX_CONTINUOUS_VOICES = 48;

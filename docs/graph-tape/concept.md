@@ -89,7 +89,7 @@ A normal looper: sing, get a fixed-length loop, layer on top. Here: sing, and
 **analysis builds the graph you then play**.
 
 1. Onset detection segments the phrase into events (`detectSyllables` in
-   `src/birdsong-analysis.js` already does this).
+   `src/families/acoustic/birdsong-analysis.js` already does this).
 2. Each event gets features: pitch, duration, spectral centroid, energy.
 3. Similar events **cluster into nodes** — sing "da da dee da" and the three *da*s
    collapse to one node.
@@ -115,7 +115,7 @@ discoverable in about ninety seconds of play.
 ### Relation to Strophe Graph / Nightingale Manifold
 
 Live phrase analysis and offline recording analysis are the same pipeline with
-different inputs. `src/nightingale-manifold.js` already does the offline version at
+different inputs. `src/instruments/nightingale-manifold/nightingale-manifold.js` already does the offline version at
 strophe scale. Importing a nightingale-derived graph is therefore a second input
 mode on the same instrument, not a separate build. The analysis notes below still
 apply.
@@ -165,7 +165,7 @@ inputBus -> switchGain -> DelayNode(2.2s) -> gain -> [lowpass] -> nodes[edge.to]
 ```
 
 Nodes are summing gains with a tap and a stereo panner. Turns are handled by an
-AudioWorklet (`morphazoid-graph-turns`, `src/graph-turn-processor.js`, tested in
+AudioWorklet (`morphazoid-graph-turns`, `src/instruments/graph-delay/graph-turn-processor.js`, tested in
 `tests/graph-turn-processor.test.mjs`) doing per-turn pitch.
 
 Two insertion points matter:
@@ -182,14 +182,14 @@ memory that *shapes* signal (nearly free, still musical).
 ### Graph Drums and Graph Synth already share an engine
 
 `graph-drums-app.js` and `graph-synth-app.js` are ~232-byte wrappers over
-`src/graph-instrument-app.js`, switched by `mode: "drums" | "synth"`. The shared
+`src/families/graph/graph-instrument-app.js`, switched by `mode: "drums" | "synth"`. The shared
 contract is documented in `../../GRAPH_INSTRUMENTS_RESEARCH.md`. Graph Delay is *not*
 on this engine — it has its own 75KB app. Any new graph instrument should decide
 deliberately which lineage it joins.
 
 ### Nightingale Manifold already builds a graph from audio
 
-`src/nightingale-manifold.js` and `src/birdsong-analysis.js` already do the
+`src/instruments/nightingale-manifold/nightingale-manifold.js` and `src/families/acoustic/birdsong-analysis.js` already do the
 audio-aware graph construction, in-browser, with no model and no backend:
 
 - Segments a recording into strophes. Operational definition: "one active song

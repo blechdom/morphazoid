@@ -836,7 +836,7 @@ test("Dentaphone ignores a stale 3D rejection after a newer retry starts", async
   await page.goto("dentaphone.html", { waitUntil: "load" });
   await page.evaluate(async () => {
     const { GLTFLoader } = await import("./vendor/three/loaders/GLTFLoader.js");
-    const module = await import("./src/dentaphone-webgl.js?retry-race");
+    const module = await import("./src/instruments/object-forge/dentaphone-webgl.js?retry-race");
     const nativeLoadAsync = GLTFLoader.prototype.loadAsync;
     // FileLoader coalesces concurrent requests for one URL, so control only the
     // stale load and let the retry exercise the real loader independently.

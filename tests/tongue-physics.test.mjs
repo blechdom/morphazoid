@@ -11,8 +11,8 @@ import {
   tongueAirwayState,
   tongueCavityGuides,
   tongueGeometry,
-} from "../src/tongue-physics.js";
-import { animalState, resolveSourceControls } from "../src/syrinx.js";
+} from "../src/families/syrinx/tongue-physics.js";
+import { animalState, resolveSourceControls } from "../src/families/syrinx/syrinx.js";
 
 test("tongue state sanitation keeps a complete bounded articulator", () => {
   assert.deepEqual(sanitizeTongueState(), DEFAULT_TONGUE_STATE);

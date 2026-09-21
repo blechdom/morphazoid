@@ -15,7 +15,7 @@ import {
   ratioSliderPosition,
   ratioSliderValue,
   sanitizeCascadingFmSettings,
-} from "../src/cascading-fm.js";
+} from "../src/instruments/cascading-fm/cascading-fm.js";
 import { CASCADING_FM_FULL_PRESETS } from "../src/families/cascading/full-presets.js";
 
 const ROOT = new URL("../", import.meta.url);

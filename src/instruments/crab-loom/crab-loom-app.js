@@ -1,7 +1,7 @@
-import { createWaveLabShell } from "../../wave-lab-shell.js?v=wave-20260918-1";
+import { createWaveLabShell } from "../../families/wave-lab/wave-lab-shell.js?v=wave-20260918-1";
 import {
   INVOLUTIONS, involutionById, isOneSided, lapsPerPeriod, cutBand, compositePeriod,
-} from "../../crab-loom.js?v=wave-20260918-1";
+} from "./crab-loom.js?v=wave-20260918-1";
 
 const $ = (id) => document.getElementById(id);
 const TAU = Math.PI * 2;
@@ -197,7 +197,7 @@ function demoTake(context) {
 
 const shell = createWaveLabShell({
   onArm: async (context) => {
-    await context.audioWorklet.addModule("src/crab-loom-processor.js?v=wave-20260918-1");
+    await context.audioWorklet.addModule("src/instruments/crab-loom/crab-loom-processor.js?v=wave-20260918-1");
     node = new AudioWorkletNode(context, "morphazoid-crab-loom", {
       numberOfInputs: 1, numberOfOutputs: 1, outputChannelCount: [2],
     });

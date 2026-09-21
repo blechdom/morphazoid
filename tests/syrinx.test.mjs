@@ -13,8 +13,8 @@ import {
   resolveSourceControls,
   sampleModulationWave,
   sanitizeSyrinxState,
-} from "../src/syrinx.js";
-import { syrinxSourceModelId } from "../src/syrinx-source-models.js";
+} from "../src/families/syrinx/syrinx.js";
+import { syrinxSourceModelId } from "../src/families/syrinx/syrinx-source-models.js";
 
 const ANIMAL_IDS = Object.freeze([
   "lion",
@@ -389,7 +389,7 @@ test("the Syrinx worklet joins each source family to a finite variable-length tr
     tractDiameterAt,
     tractSectionCount,
   } = await import(
-    `../src/syrinx-processor.js?test=${Date.now()}`
+    `../src/families/syrinx/syrinx-processor.js?test=${Date.now()}`
   );
   assert.equal(processorName, "syrinx-physical-model");
   assert.equal(typeof ProcessorConstructor, "function");

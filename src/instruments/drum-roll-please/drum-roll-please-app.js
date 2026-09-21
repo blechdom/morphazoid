@@ -5,7 +5,7 @@ import {
   DrumRollPleaseAudio,
   calculateDrumRollLayers,
   sanitizeDrumRollParams,
-} from "../../drum-roll-please.js";
+} from "./drum-roll-please.js";
 
 const $ = (id) => document.getElementById(id);
 const audio = new DrumRollPleaseAudio(globalThis);

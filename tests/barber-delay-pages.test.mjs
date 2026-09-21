@@ -4,7 +4,7 @@ import test from "node:test";
 import {
   BARBER_DELAY_PRESETS,
   BarberDelayAudio,
-} from "../src/barber-delay.js";
+} from "../src/families/barber-delay/barber-delay.js";
 
 const root = new URL("../", import.meta.url);
 
@@ -214,7 +214,7 @@ test("the shared controller keeps audio behind the menu gesture and cleans resou
     readFile(new URL("src/families/barber-delay/barber-delay.css", root), "utf8"),
   ]);
 
-  assert.match(app, /from "\.\.\/\.\.\/barber-delay\.js"/);
+  assert.match(app, /from "\.\/barber-delay\.js"/);
   assert.match(app, /barberDelaySliderPosition/);
   assert.match(app, /barberDelaySliderValue/);
   assert.match(app, /function formatMilliseconds/);

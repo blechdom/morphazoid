@@ -4,7 +4,7 @@ import test from "node:test";
 import {
   RECURSION_STUDIES,
   buildRecursionPlan,
-} from "../src/recursion.js";
+} from "../src/instruments/recursion/recursion.js";
 
 const PUBLIC_INSTRUMENT_ID = "ouroboros-tape";
 const HIDDEN_BUILDER_IDS = [

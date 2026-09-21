@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
-import { buildPrototile, tilingInfo } from "../src/lattice.js";
+import { buildPrototile, tilingInfo } from "../src/instruments/lattice/lattice.js";
 
 test("lattice drum app starts with the complete editable isohedral form", async () => {
   const html = await readFile(new URL("../lattice-drum-machine.html", import.meta.url), "utf8");

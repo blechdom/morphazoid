@@ -21,7 +21,7 @@ import {
   sourceNeedsGesture,
   sourceRequiresBreath,
   stateForInstrument,
-} from "../src/breath-atlas.js";
+} from "../src/instruments/breath-atlas/breath-atlas.js";
 
 const root = new URL("../", import.meta.url);
 
@@ -131,7 +131,7 @@ test("breath-atlas worklet keeps air sources silent at rest and makes dry plucks
     return { rms: Math.sqrt(squareSum / samples), peak };
   };
   try {
-    await import(`../src/breath-atlas-processor.js?test=${Date.now()}`);
+    await import(`../src/instruments/breath-atlas/breath-atlas-processor.js?test=${Date.now()}`);
     const silentLesiba = new Processor({ processorOptions: { configuration: stateForInstrument("lesiba") } });
     assert.equal(render(silentLesiba, 180).rms, 0);
     const breathingLesiba = new Processor({ processorOptions: { configuration: stateForInstrument("lesiba") } });
@@ -161,7 +161,7 @@ test("page exposes signed breath, coupled rhythms, evidence, and physical workle
     readFile(new URL("mouthophones.html", root), "utf8"),
     readFile(new URL("src/instruments/breath-atlas/breath-atlas.css", root), "utf8"),
     readFile(new URL("src/instruments/breath-atlas/breath-atlas-app.js", root), "utf8"),
-    readFile(new URL("src/breath-atlas-processor.js", root), "utf8"),
+    readFile(new URL("src/instruments/breath-atlas/breath-atlas-processor.js", root), "utf8"),
   ]);
   assert.match(html, /class="breath-atlas-page"/);
   assert.match(html, /<title>Mouthophones · Morphazoid<\/title>/);

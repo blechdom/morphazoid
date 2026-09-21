@@ -6,7 +6,7 @@ import {
   CONTROL_LIMITS,
   animalState,
   resolveGestureTimeline,
-} from "../src/syrinx.js";
+} from "../src/families/syrinx/syrinx.js";
 
 const root = new URL("../", import.meta.url);
 
@@ -195,7 +195,7 @@ test("Tongued Beasts keeps viewport handles and the parameter panel available on
   );
   assert.match(css, /\.tongue-motion-presets/);
   assert.match(css, /\.tongue-feral-bank/);
-  assert.match(build, /src\/tongue-performance\.js/);
+  assert.match(build, /src\/families\/syrinx\/tongue-performance\.js/);
 });
 
 test("Tongued Beasts puts modulation buttons and expanded rate/depth controls on viewport rails", async () => {

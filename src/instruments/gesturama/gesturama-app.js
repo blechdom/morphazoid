@@ -14,9 +14,9 @@ import {
   sampleFrameColor,
   starterZones,
   clamp,
-} from "../../gesturama-core.js";
-import { DrumEngine, MicrophoneRecorder } from "../../gesturama-audio.js";
-import { drawZones } from "../../gesturama-zones.js";
+} from "./gesturama-core.js";
+import { DrumEngine, MicrophoneRecorder } from "./gesturama-audio.js";
+import { drawZones } from "./gesturama-zones.js";
 
 const root = document.querySelector("#gesturama");
 

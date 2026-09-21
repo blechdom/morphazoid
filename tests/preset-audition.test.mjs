@@ -4,7 +4,7 @@ import { createHash } from "node:crypto";
 import test from "node:test";
 import { SHAPE_FULL_PRESETS } from "../src/instruments/shape-synth/full-presets.js";
 import { HICCUP_HEAD_FULL_PRESETS } from "../src/instruments/hiccup-head/full-presets.js";
-import { HICCUP_HEAD_GROOVE_PATTERNS, HICCUP_HEAD_PATTERNS, HICCUP_HEAD_SOUNDS, clonePattern } from "../src/hiccup-head.js";
+import { HICCUP_HEAD_GROOVE_PATTERNS, HICCUP_HEAD_PATTERNS, HICCUP_HEAD_SOUNDS, clonePattern } from "../src/instruments/hiccup-head/hiccup-head.js";
 import { presetStateKey, validateFullPresetBank } from "../src/site/header-presets.js";
 
 const before = JSON.parse(await readFile(new URL("./fixtures/preset-audition-before-20260921.json", import.meta.url)));

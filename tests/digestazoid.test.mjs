@@ -24,7 +24,7 @@ import {
   sanitizeDigestazoidRuntime,
   sanitizeDigestazoidState,
   stepDigestazoid,
-} from "../src/digestazoid.js";
+} from "../src/instruments/digestazoid/digestazoid.js";
 
 function assertFiniteTree(value, label = "value") {
   if (typeof value === "number") {

@@ -53,9 +53,9 @@ export async function fingerprintDentaphone(outputDirectory) {
   const skeletonUtilsPath = path.join(threeDirectory, "utils/SkeletonUtils.js");
   const gltfLoaderPath = path.join(threeDirectory, "loaders/GLTFLoader.js");
   const glbPath = path.join(outputDirectory, "assets/models/dentaphone-chomper.glb");
-  const rendererPath = path.join(outputDirectory, "src/dentaphone-webgl.js");
+  const rendererPath = path.join(outputDirectory, "src/instruments/object-forge/dentaphone-webgl.js");
   const audioOutputManagerPath = path.join(outputDirectory, "src/audio-output-manager.js");
-  const dentaphonePath = path.join(outputDirectory, "src/dentaphone.js");
+  const dentaphonePath = path.join(outputDirectory, "src/instruments/object-forge/dentaphone.js");
   const physicalSoundsPath = path.join(outputDirectory, "src/physical-sounds.js");
   const processorPath = path.join(outputDirectory, "src/physical-sounds-processor.js");
   const appPath = path.join(outputDirectory, "src/instruments/object-forge/object-forge-app.js");

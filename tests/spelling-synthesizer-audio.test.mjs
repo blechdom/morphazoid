@@ -1,18 +1,18 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { SpellingSynthesizerAudio } from "../src/spelling-synthesizer-audio.js";
+import { SpellingSynthesizerAudio } from "../src/instruments/spelling-synthesizer/spelling-synthesizer-audio.js";
 import {
   SPELLING_DIPHONE_CLIPS,
   spellingDiphoneClipKey,
-} from "../src/spelling-diphone-atlas.js";
+} from "../src/instruments/spelling-synthesizer/spelling-diphone-atlas.js";
 import {
   SPELLING_PAIRS,
   spellingArticulation,
   spellingPerformanceState,
   typingDynamics,
-} from "../src/spelling-synthesizer.js";
-import { singingVoiceParameters } from "../src/throatazoid.js";
+} from "../src/instruments/spelling-synthesizer/spelling-synthesizer.js";
+import { singingVoiceParameters } from "../src/families/tract/throatazoid.js";
 
 const MOCK_ATLAS_SAMPLE_RATE = 16_000;
 const MOCK_ATLAS_DURATION = Math.max(

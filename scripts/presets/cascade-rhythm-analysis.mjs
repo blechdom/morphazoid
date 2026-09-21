@@ -2,8 +2,8 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { deriveCascadeStack as deriveFm } from "../../src/cascading-fm.js";
-import { deriveCascadeStack as derivePm } from "../../src/cascading-pm.js";
+import { deriveCascadeStack as deriveFm } from "../../src/instruments/cascading-fm/cascading-fm.js";
+import { deriveCascadeStack as derivePm } from "../../src/instruments/cascading-pm/cascading-pm.js";
 
 const TAU = Math.PI * 2;
 const root = fileURLToPath(new URL("../../", import.meta.url));

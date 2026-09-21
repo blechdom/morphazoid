@@ -2,8 +2,8 @@ import assert from "node:assert/strict";
 import { readFile, stat } from "node:fs/promises";
 import test from "node:test";
 
-import { VOCALZOID_OPEN_BANKS } from "../src/vocalzoid-open-banks.js";
-import { SPELLING_PRONUNCIATION_PHONE_CATALOG } from "../src/spelling-pronunciation.js";
+import { VOCALZOID_OPEN_BANKS } from "../src/instruments/vocalzoid/vocalzoid-open-banks.js";
+import { SPELLING_PRONUNCIATION_PHONE_CATALOG } from "../src/instruments/spelling-synthesizer/spelling-pronunciation.js";
 
 const ROOT = new URL("../", import.meta.url);
 const ODDVOICES_REVISION = "33a248af8df88edf5166593bf36b7e24e7bc1f94";

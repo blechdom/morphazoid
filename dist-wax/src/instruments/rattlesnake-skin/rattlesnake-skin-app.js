@@ -4,7 +4,7 @@ import {
   LinearDrumAudio,
   linearDrumFrequencyAtPosition,
   linearDrumPositionAtFrequency,
-} from "../../linear-drums.js";
+} from "../linear-drums/linear-drums.js";
 import {
   PAINT_MACHINE_LAYER_DEFAULTS,
   PAINT_MACHINE_TARGETS,
@@ -18,7 +18,7 @@ import {
   paintMachinePhaseCrossed,
   sanitizePaintItem,
   simplifyPaintPoints,
-} from "../../linear-drums-machine.js";
+} from "./linear-drums-machine.js";
 import { canvasSizing } from "../../graphics/canvas-sizing.js";
 
 const $ = (id) => document.getElementById(id);

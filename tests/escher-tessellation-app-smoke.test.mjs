@@ -346,7 +346,7 @@ test("Escher app renders, responds to every input path, and cleans up", async (t
     async close() { this.closeCalls += 1; this.state = "closed"; }
   };
 
-  const { EscherPerformanceAudio } = await import("../src/escher-performance-audio.js");
+  const { EscherPerformanceAudio } = await import("../src/instruments/escher-tessellation/escher-performance-audio.js");
   const originalConfigure = EscherPerformanceAudio.prototype.configure;
   const performanceConfigs = [];
   EscherPerformanceAudio.prototype.configure = function capturePerformanceConfig(config) {

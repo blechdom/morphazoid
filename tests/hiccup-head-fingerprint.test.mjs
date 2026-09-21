@@ -35,16 +35,16 @@ test("Hiccup Head publish fingerprints follow both warm room impulse contents", 
   const firstPlate = Buffer.from("first warm plate impulse");
   const cathedral = Buffer.from("stable warm cathedral impulse");
   await Promise.all([
-    writeFile(path.join(outputDirectory, "src", "hiccup-head.js"), "export const model = true;\n"),
+    writeFile(path.join(outputDirectory, "src/instruments/hiccup-head", "hiccup-head.js"), "export const model = true;\n"),
     writeFile(
-      path.join(outputDirectory, "src", "hiccup-head-processor.js"),
+      path.join(outputDirectory, "src/instruments/hiccup-head", "hiccup-head-processor.js"),
       'import "./hiccup-head.js?v=stale-model";\n',
     ),
     writeFile(
       path.join(outputDirectory, "src/instruments/hiccup-head/hiccup-head-app.js"),
       [
-        'import "../../hiccup-head.js?v=stale-model";',
-        'const processor = new URL("../../hiccup-head-processor.js?v=stale-processor", import.meta.url);',
+        'import "./hiccup-head.js?v=stale-model";',
+        'const processor = new URL("./hiccup-head-processor.js?v=stale-processor", import.meta.url);',
         `const plate = new URL("${appAssetPath(platePathname)}?v=stale-plate", import.meta.url);`,
         `const cathedral = new URL("${appAssetPath(cathedralPathname)}", import.meta.url);`,
         ...skinPathnames.map((pathname, index) => `const skin${index} = "${appAssetPath(pathname)}?v=stale-skin";`),
@@ -58,7 +58,7 @@ test("Hiccup Head publish fingerprints follow both warm room impulse contents", 
       [
         '<link rel="preload" href="assets/audio/hiccup-head-emt140-warm-plate.wav?v=stale-plate">',
         '<link rel="preload" href="assets/audio/hiccup-head-york-minster-warm-hall.wav">',
-        '<link rel="modulepreload" href="src/hiccup-head-processor.js?v=stale-processor">',
+        '<link rel="modulepreload" href="src/instruments/hiccup-head/hiccup-head-processor.js?v=stale-processor">',
         '<link rel="stylesheet" href="src/instruments/hiccup-head/hiccup-head.css?v=stale-css">',
         '<script type="module" src="src/instruments/hiccup-head/hiccup-head-app.js?v=stale-app"></script>',
         "",
@@ -90,7 +90,7 @@ test("Hiccup Head publish fingerprints follow both warm room impulse contents", 
     new RegExp(`${cathedralPathname.replaceAll(".", "\\.")}\\?v=${cathedralVersion}`),
   );
   assert.match(firstHtml, new RegExp(`hiccup-head-app\\.js\\?v=${first.appVersion}`));
-  assert.match(firstHtml, new RegExp(`src/hiccup-head-processor\\.js\\?v=${first.processorVersion}`));
+  assert.match(firstHtml, new RegExp(`src/instruments/hiccup-head/hiccup-head-processor\\.js\\?v=${first.processorVersion}`));
   assert.match(firstHtml, new RegExp(`hiccup-head-emt140-warm-plate\\.wav\\?v=${firstPlateVersion}`));
   assert.match(firstHtml, new RegExp(`hiccup-head-york-minster-warm-hall\\.wav\\?v=${cathedralVersion}`));
 
@@ -107,7 +107,7 @@ test("Hiccup Head publish fingerprints follow both warm room impulse contents", 
   assert.match(secondApp, new RegExp(`${platePathname.replaceAll(".", "\\.")}\\?v=${secondPlateVersion}`));
   assert.doesNotMatch(secondApp, new RegExp(`stale-|${firstPlateVersion}`));
   assert.match(secondHtml, new RegExp(`hiccup-head-app\\.js\\?v=${second.appVersion}`));
-  assert.match(secondHtml, new RegExp(`src/hiccup-head-processor\\.js\\?v=${second.processorVersion}`));
+  assert.match(secondHtml, new RegExp(`src/instruments/hiccup-head/hiccup-head-processor\\.js\\?v=${second.processorVersion}`));
   assert.match(secondHtml, new RegExp(`hiccup-head-emt140-warm-plate\\.wav\\?v=${secondPlateVersion}`));
 
   const secondCathedral = Buffer.from("changed and reprocessed warm cathedral impulse");

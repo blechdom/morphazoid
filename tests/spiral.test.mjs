@@ -15,8 +15,8 @@ import {
   shapePitchForSpiralContact,
   spiralLoopLogOffset,
   spiralPoint,
-} from "../src/spiral.js";
-import { tilingInfo } from "../src/lattice.js";
+} from "../src/instruments/spiral/spiral.js";
+import { tilingInfo } from "../src/instruments/lattice/lattice.js";
 
 test("A and B close one exact turn of the logarithmic spiral", () => {
   const tiling = new IsohedralTiling(tilingInfo(20).type);

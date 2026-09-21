@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
-import { CHAOTIC_FM_PRESETS } from "../src/chaotic-fm.js";
+import { CHAOTIC_FM_PRESETS } from "../src/instruments/chaotic-fm/chaotic-fm.js";
 
 const jsfxUrl = new URL(
   "../plugins/reaper/Morphazoid_Chaotic_FM.jsfx",

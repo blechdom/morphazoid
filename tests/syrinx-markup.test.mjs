@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
-import { ANIMALS } from "../src/syrinx.js";
+import { ANIMALS } from "../src/families/syrinx/syrinx.js";
 
 const root = new URL("../", import.meta.url);
 
@@ -26,9 +26,9 @@ test("Syrinx exposes a complete, accessible animal-voice instrument page", async
     readFile(new URL("syrinx.html", root), "utf8"),
     readFile(new URL("src/families/syrinx/syrinx.css", root), "utf8"),
     readFile(new URL("src/families/syrinx/syrinx-app.js", root), "utf8"),
-    readFile(new URL("src/syrinx.js", root), "utf8"),
-    readFile(new URL("src/syrinx-processor.js", root), "utf8"),
-    readFile(new URL("src/syrinx-source-models.js", root), "utf8"),
+    readFile(new URL("src/families/syrinx/syrinx.js", root), "utf8"),
+    readFile(new URL("src/families/syrinx/syrinx-processor.js", root), "utf8"),
+    readFile(new URL("src/families/syrinx/syrinx-source-models.js", root), "utf8"),
   ]);
 
   assert.match(html, /<title>[^<]*Syrinx[^<]*<\/title>/i);
@@ -112,8 +112,8 @@ test("Syrinx exposes a complete, accessible animal-voice instrument page", async
     assert.match(openingTag(html, id), /\btype="range"/);
   }
 
-  assert.match(app, /from\s+["']\.\.\/\.\.\/syrinx\.js\?v=syrinx-ui-[^"']+["']/);
-  assert.match(app, /\.\.\/\.\.\/syrinx-processor\.js/);
+  assert.match(app, /from\s+["']\.\/syrinx\.js\?v=syrinx-ui-[^"']+["']/);
+  assert.match(app, /\.\/syrinx-processor\.js/);
   assert.match(app, /new\s+AudioWorkletNode\s*\(/);
   assert.match(app, /connectAudioOutput/);
   assert.match(app, /unlockAudioContext/);
@@ -148,9 +148,9 @@ test("Syrinx is discoverable through Morphazoid navigation and catalogue data", 
     "syrinx.html",
     "src/families/syrinx/syrinx.css",
     "src/families/syrinx/syrinx-app.js",
-    "src/syrinx.js",
-    "src/syrinx-processor.js",
-    "src/syrinx-source-models.js",
+    "src/families/syrinx/syrinx.js",
+    "src/families/syrinx/syrinx-processor.js",
+    "src/families/syrinx/syrinx-source-models.js",
   ]) {
     assert.match(
       buildScript,

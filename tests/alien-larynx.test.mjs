@@ -50,7 +50,7 @@ let Processor;
 async function processorClass() {
   if (Processor) return Processor;
   const source = await readFile(
-    new URL("src/alien-larynx-tract-processor.js", root),
+    new URL("src/families/tract/alien-larynx-tract-processor.js", root),
     "utf8",
   );
   const registrations = new Map();

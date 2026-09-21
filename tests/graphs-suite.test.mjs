@@ -11,12 +11,12 @@ import {
   graphDistanceRatioFromTimeScale,
   graphTimeScaleFromDistanceRatio,
   graphsModeFor,
-} from "../src/graphs-suite.js";
+} from "../src/instruments/graphs/graphs-suite.js";
 import {
   GRAPH_DELAY_PATCHES,
   edgeAudioParameters,
   generateGraph,
-} from "../src/graph-delay.js";
+} from "../src/instruments/graph-delay/graph-delay.js";
 
 test("Graphs modes describe the synth, drum machine, and live microphone sources", () => {
   assert.deepEqual(

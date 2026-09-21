@@ -10,7 +10,7 @@ import {
   sandySyrupBaseDelay,
   sandySyrupTargetRate,
   sanitizeBarberDelayParams,
-} from "../../barber-delay.js";
+} from "./barber-delay.js";
 
 const $ = (id) => document.getElementById(id);
 const TAU = Math.PI * 2;

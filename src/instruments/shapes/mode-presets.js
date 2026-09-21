@@ -1,4 +1,4 @@
-import { createShapesState, setShapes2dHeadCount } from "../../shapes-state.js";
+import { createShapesState, setShapes2dHeadCount } from "./shapes-state.js";
 import { SHAPE_FULL_PRESETS } from "../shape-synth/full-presets.js";
 import { SOLID_FULL_PRESETS, HYPER_FULL_PRESETS } from "../../families/geometry-presets/full-presets.js";
 import { applyOriginalParameters } from "./parameter-bridge.js";

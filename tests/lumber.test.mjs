@@ -23,7 +23,7 @@ import {
   timeStretchLoopSamples,
   waveformEnvelope,
   wrap01,
-} from "../src/lumber.js";
+} from "../src/instruments/lumber/lumber.js";
 
 test("loop phase always closes at the recorded duration", () => {
   assert.equal(wrap01(-0.25), 0.75);

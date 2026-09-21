@@ -1,10 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { PugglerCollage, COLLAGE_ATLASES } from '../src/puggler-collage.js';
-import { drawProp } from '../src/puggler-renderer.js';
-import { presentProp } from '../src/puggler-skins.js';
-import { PROPS } from '../src/puggler.js';
-import { ERA_PROP_OVERRIDES } from '../src/puggler-era-props.js';
+import { PugglerCollage, COLLAGE_ATLASES } from '../src/instruments/puggler/puggler-collage.js';
+import { drawProp } from '../src/instruments/puggler/puggler-renderer.js';
+import { presentProp } from '../src/instruments/puggler/puggler-skins.js';
+import { PROPS } from '../src/instruments/puggler/puggler.js';
+import { ERA_PROP_OVERRIDES } from '../src/instruments/puggler/puggler-era-props.js';
 
 const TEST_ATLASES = Object.fromEntries(Object.entries(COLLAGE_ATLASES).map(([id, atlas]) => [id, { ...atlas, rects: undefined }]));
 

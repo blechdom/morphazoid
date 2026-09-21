@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 
 test.setTimeout(60000);
 const fixture = `<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="icon" href="data:,"><style>html,body{margin:0;background:#080d11}canvas{display:block;width:100vw;height:min(700px,100vh);touch-action:pan-y}body.phone{min-height:1800px}body.phone canvas{height:388px}</style></head><body><canvas tabindex="0" aria-label="Spider viewer"></canvas><script type="module">
-import {SpiderSynthViewer} from './src/spider-synth-viewer.js';import * as model from './src/spider-synth-model.js';
+import {SpiderSynthViewer} from './src/instruments/spider-synth/spider-synth-viewer.js';import * as model from './src/instruments/spider-synth/spider-synth-model.js';
 const web=model.createSpiderWeb(),frame=model.createSpiderFrame();const motion={...model.SPIDER_MOTION_DEFAULTS,preset:'none',explore:false};const events=[];const selections=[];
 const viewer=new SpiderSynthViewer({canvas:document.querySelector('canvas'),onPreySelect:e=>selections.push(e),onPluck:e=>events.push(e),onInteract:e=>{motion.offsets={...motion.offsets,[e.jointId]:e.offset};viewer.setOffsets(motion.offsets);update()}});
 function update(){model.writeSpiderFrame(0,motion,web,frame);viewer.setFrame(frame)}viewer.setWeb(web);update();

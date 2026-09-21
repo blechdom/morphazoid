@@ -15,11 +15,11 @@ import {
   wheelStateForWord,
   wheelMouthLayout,
   wheelVocalParameters,
-} from "../../wheel-of-organs.js";
+} from "./wheel-of-organs.js";
 import {
   WHEEL_AUDIO_VOICE_COUNT,
   WheelOfOrgansAudio,
-} from "../../wheel-of-organs-audio.js";
+} from "./wheel-of-organs-audio.js";
 
 const TAU = Math.PI * 2;
 const NOTE_NAMES = Object.freeze(["C", "C♯", "D", "E♭", "E", "F", "F♯", "G", "A♭", "A", "B♭", "B"]);

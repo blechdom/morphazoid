@@ -1,9 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { RUBIX_FACE_ROLES, RubixStickerMixer, createRubixDynamics } from "../src/rubix-mix.js";
-import { createRubixSequenceSnapshot, createSolvedRubixCube, rubixReadFrame } from "../src/rubix.js";
-import { createRubixVisibilityProfile, rubixUncoveredAreas } from "../src/rubix-visibility.js";
-import { normalizeRubixDrumBuffer } from "../src/rubix-percussion.js";
+import { RUBIX_FACE_ROLES, RubixStickerMixer, createRubixDynamics } from "../src/instruments/rubix/rubix-mix.js";
+import { createRubixSequenceSnapshot, createSolvedRubixCube, rubixReadFrame } from "../src/instruments/rubix/rubix.js";
+import { createRubixVisibilityProfile, rubixUncoveredAreas } from "../src/instruments/rubix/rubix-visibility.js";
+import { normalizeRubixDrumBuffer } from "../src/instruments/rubix/rubix-percussion.js";
 
 const rect = (x, y, width, height) => [
   { x, y }, { x: x + width, y }, { x: x + width, y: y + height }, { x, y: y + height },

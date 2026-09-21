@@ -53,7 +53,7 @@ import {
   tongueTractCoordinates,
   voicePresetState,
   waveformLevel,
-} from "../src/throatazoid.js";
+} from "../src/families/tract/throatazoid.js";
 
 test("tongue controls round-trip through the same tract coordinates as the DSP", () => {
   for (const position of [0, 0.18, 0.5, 0.82, 1]) {

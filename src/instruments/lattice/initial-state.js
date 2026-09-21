@@ -1,4 +1,4 @@
-import { tilingInfo } from "../../lattice.js";
+import { tilingInfo } from "./lattice.js";
 export function createLatticeInitialState() {
 const DEFAULT_TILING_TYPE = 20, DEFAULT_DENSITY = 0.52;
 const defaultInfo = tilingInfo(DEFAULT_TILING_TYPE);

@@ -11,7 +11,7 @@ import {
   ouroborosFrequencySafety,
   ouroborosWindow,
   sanitizeOuroborosParams,
-} from "../src/ouroboros.js";
+} from "../src/instruments/ouroboros/ouroboros.js";
 
 const ROOT = new URL("../", import.meta.url);
 const SAMPLE_RATE = 48_000;
@@ -553,7 +553,7 @@ test("the audio wrapper keeps audible output independent from automatic transpor
 });
 
 test("the worklet render loop reuses typed state and contains no explicit allocations", async () => {
-  const source = await readFile(new URL("src/ouroboros.js", ROOT), "utf8");
+  const source = await readFile(new URL("src/instruments/ouroboros/ouroboros.js", ROOT), "utf8");
   const start = source.indexOf("    process(_inputs, outputs) {");
   const end = source.indexOf("\n      return true;\n    }\n  };", start);
   assert.ok(start >= 0 && end > start);
@@ -588,7 +588,7 @@ test("the worklet registers once and renders finite, audible stereo through both
   globalThis.sampleRate = SAMPLE_RATE;
 
   try {
-    await import(`../src/ouroboros.js?worklet-test=${Date.now()}`);
+    await import(`../src/instruments/ouroboros/ouroboros.js?worklet-test=${Date.now()}`);
     assert.equal(registeredName, "morphazoid-ouroboros");
     assert.equal(registrationCount, 1);
     assert.equal(typeof Processor, "function");
@@ -855,7 +855,7 @@ test("the native page exposes an accessible, lazy Ouroboros instrument", async (
   const [markup, app, source, styles] = await Promise.all([
     readFile(new URL("ouroboros.html", ROOT), "utf8"),
     readFile(new URL("src/instruments/ouroboros/ouroboros-app.js", ROOT), "utf8"),
-    readFile(new URL("src/ouroboros.js", ROOT), "utf8"),
+    readFile(new URL("src/instruments/ouroboros/ouroboros.js", ROOT), "utf8"),
     readFile(new URL("src/instruments/ouroboros/ouroboros.css", ROOT), "utf8"),
   ]);
 

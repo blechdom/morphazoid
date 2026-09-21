@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { DEFAULT_FM_DRUM_VOICES } from "../src/fm-drums.js";
+import { DEFAULT_FM_DRUM_VOICES } from "../src/instruments/fm-drums/fm-drums.js";
 import {
   createFmDrumMidiTriggerVoice,
   FM_DRUM_MACRO_LABELS,
@@ -11,7 +11,7 @@ import {
   fmDrumVelocityGain,
   fmDrumVoiceIndexForMidiEvent,
   updateFmDrumVoiceFromMidi,
-} from "../src/fm-drums-midi.js";
+} from "../src/instruments/fm-drums/fm-drums-midi.js";
 
 test("FM drum notes and logical pads address the sixteen visible voices", () => {
   assert.equal(fmDrumVoiceIndexForMidiEvent({ type: "noteOn", note: 36, velocity: 1 }), 0);

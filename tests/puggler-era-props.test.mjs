@@ -1,8 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { ERA_PROP_ATLAS, ERA_PROP_OVERRIDES, ERA_VECTOR_PROP_IDS } from '../src/puggler-era-props.js';
-import { drawEraProp } from '../src/puggler-era-prop-renderer.js';
+import { ERA_PROP_ATLAS, ERA_PROP_OVERRIDES, ERA_VECTOR_PROP_IDS } from '../src/instruments/puggler/puggler-era-props.js';
+import { drawEraProp } from '../src/instruments/puggler/puggler-era-prop-renderer.js';
 
 function atlasHeader() {
   const bytes = readFileSync(ERA_PROP_ATLAS.url);

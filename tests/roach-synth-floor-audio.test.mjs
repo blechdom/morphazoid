@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { RoachSynthDsp, createDefaultRoachBodyMix } from '../src/roach-synth-dsp.js';
-import { RoachMidiPerformance } from '../src/roach-synth-midi.js';
-import { constrainRoachFloorPose, createRoachSceneState, writeRoachPose, writeRoachSceneState } from '../src/roach-synth-motion.js';
+import { RoachSynthDsp, createDefaultRoachBodyMix } from '../src/instruments/roach-synth/roach-synth-dsp.js';
+import { RoachMidiPerformance } from '../src/instruments/roach-synth/roach-synth-midi.js';
+import { constrainRoachFloorPose, createRoachSceneState, writeRoachPose, writeRoachSceneState } from '../src/instruments/roach-synth/roach-synth-motion.js';
 
 const identity = [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1];
 const zero = () => ({ x: 0, y: 0, z: 0 });

@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { PugglerModel, CASTS, RIDE_PATTERNS, WORLD } from '../src/puggler.js';
-import { PAGE_DEFAULTS, PRESETS } from '../src/puggler-presets.js';
+import { PugglerModel, CASTS, RIDE_PATTERNS, WORLD } from '../src/instruments/puggler/puggler.js';
+import { PAGE_DEFAULTS, PRESETS } from '../src/instruments/puggler/puggler-presets.js';
 
 function advance(model,seconds,controls=[],juggling=false,observe=()=>{}) {
   const events=[];

@@ -1,7 +1,7 @@
 import {
   advanceLSystemTraversal,
   iterationPlaybackAtPhase,
-} from "../../l-system.js";
+} from "../l-system/l-system.js";
 
 const clamp = (value, minimum = 0, maximum = 1, fallback = minimum) => {
   const number = Number(value);

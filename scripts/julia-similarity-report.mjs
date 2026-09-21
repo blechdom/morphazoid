@@ -3,7 +3,7 @@ import {
   generateJuliaField,
   JULIA_DEFAULTS,
   JULIA_PRESETS,
-} from "../src/julia.js";
+} from "../src/instruments/julia/julia.js";
 import {
   buildInverseArcFamily,
   comparePitchSignals,
@@ -15,7 +15,7 @@ import {
   rateLimitedTemporalPitchFidelity,
   pitchSignalForArc,
   resampleOpenArc,
-} from "../src/julia-similarity.js";
+} from "../src/instruments/julia/julia-similarity.js";
 
 const reportPresetIds = new Set(["listening", "spiral", "rabbit", "siegel", "basilica"]);
 const presets = JULIA_PRESETS.filter((preset) => reportPresetIds.has(preset.id));

@@ -11,7 +11,7 @@ import {
   roundedAirwayPath,
   sampleDiameterProfile,
   tongueTractCoordinates,
-} from "../../throatazoid.js";
+} from "./throatazoid.js";
 
 export function interpolatePoint(points, progress) {
   if (points.length < 2) return points[0] ?? { x: 0, y: 0 };

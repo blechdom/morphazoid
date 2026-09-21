@@ -3,9 +3,9 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 import {
   RUBIX_SIMD_PRESETS, rubixSimdPreset, rubixSimdVoiceParams, rubixSimdSurfaceTone, rubixPerformerLevels,
-} from "../src/rubix-simd-presets.js";
-import { createRubixSimdSurfacePatterns, rubixSimdConfigurations } from "../src/rubix-simd-surface.js";
-import { createRubixSequenceSnapshot, createSolvedRubixCube, RUBIX_COLOR_ORDER } from "../src/rubix.js";
+} from "../src/instruments/rubix/rubix-simd-presets.js";
+import { createRubixSimdSurfacePatterns, rubixSimdConfigurations } from "../src/instruments/rubix/rubix-simd-surface.js";
+import { createRubixSequenceSnapshot, createSolvedRubixCube, RUBIX_COLOR_ORDER } from "../src/instruments/rubix/rubix.js";
 
 globalThis.sampleRate = 48000;
 globalThis.currentTime = 0;
@@ -13,7 +13,7 @@ globalThis.AudioWorkletProcessor = class {
   constructor() { this.port = { postMessage() {} }; }
 };
 globalThis.registerProcessor = () => {};
-const { RubixSimd303Processor } = await import("../src/rubix-simd-303-processor.js");
+const { RubixSimd303Processor } = await import("../src/instruments/rubix/rubix-simd-303-processor.js");
 const scalarBytes = await readFile(new URL("../assets/wasm/simd-303-scalar.wasm", import.meta.url));
 const simdBytes = await readFile(new URL("../assets/wasm/simd-303-simd.wasm", import.meta.url));
 

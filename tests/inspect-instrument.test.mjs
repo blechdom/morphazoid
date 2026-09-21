@@ -61,7 +61,7 @@ test("Puggler inventory includes samples, provenance, live capability and mirror
     else if (readFileSync(source).equals(readFileSync(wax))) assert.equal(file.wax, "identical");
     else assert.match(file.wax, /^different:/);
   }
-  assert.ok(report.files.some(f => f.path === "src/puggler-presets.js"));
+  assert.ok(report.files.some(f => f.path === "src/instruments/puggler/puggler-presets.js"));
   assert.ok(report.tests.candidates.includes("e2e/puggler.spec.mjs"));
   assert.match(report.files.find(f => f.path === "puggler.html").wax, /^different:/);
   assert.deepEqual(report.files.filter(f => !f.present), []);
@@ -70,7 +70,7 @@ test("Puggler inventory includes samples, provenance, live capability and mirror
 test("shared page names and transitive app imports find Wheel of Organs models and tests", async () => {
   const report = await inspectInstrument("image-to-instrument-3");
   assert.ok(report.entries.includes("src/families/image-to-instrument/image-to-instrument-app.js"));
-  assert.ok(report.files.some(f => f.path === "src/wheel-of-organs-audio.js"));
+  assert.ok(report.files.some(f => f.path === "src/instruments/wheel-of-organs/wheel-of-organs-audio.js"));
   assert.ok(report.tests.candidates.includes("tests/wheel-of-organs-audio.test.mjs"));
   assert.deepEqual(report.files.filter(f => !f.present), []);
 });

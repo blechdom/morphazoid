@@ -2,7 +2,7 @@ import {
   cloneDefaultFmDrumVoices,
   FM_DRUM_STORAGE_KEY,
   sanitizeFmDrumVoice,
-} from "../../fm-drums.js";
+} from "../fm-drums/fm-drums.js";
 import {
   GRAPH_DRUM_PERCUSSION_STYLES,
   MAX_GRAPH_KARPLUS_ATTACKS_PER_FRAME,
@@ -13,7 +13,7 @@ import {
   graphDrumStyleUsesContinuousPitch,
   graphDrumStyleUsesPhysicalEngine,
   sanitizeGraphDrumPercussionStyle,
-} from "../../graph-drum-audio.js";
+} from "../../families/graph/graph-drum-audio.js";
 import {
   GRAPH_DELAY_PATCHES,
   GRAPH_PRESETS,
@@ -22,7 +22,7 @@ import {
   generateGraph,
   generateGraphWithinTurnBudget,
   graphSinkNodeIds,
-} from "../../graph-delay.js";
+} from "../graph-delay/graph-delay.js";
 import {
   GRAPH_INSTRUMENT_PATCHES,
   MAX_GRAPH_EVENT_SCHEDULE,
@@ -33,13 +33,13 @@ import {
   graphSynthVoice,
   mappedGraphDrumVoice,
   scheduleGraphPulse,
-} from "../../graph-instruments.js";
+} from "../../families/graph/graph-instruments.js";
 import {
   MAX_GRAPH_SYNTH_ACTIVE_VOICES,
   GraphSynthAudio,
-} from "../../graph-synth-audio.js";
-import { GraphDelayAudio } from "../../graph-delay-audio.js";
-import { graphDistanceRatioFromTimeScale, graphsModeFor } from "../../graphs-suite.js";
+} from "../../families/graph/graph-synth-audio.js";
+import { GraphDelayAudio } from "../graph-delay/graph-delay-audio.js";
+import { graphDistanceRatioFromTimeScale, graphsModeFor } from "./graphs-suite.js";
 import { canvasSizing } from "../../graphics/canvas-sizing.js";
 
 const TAU = Math.PI * 2;

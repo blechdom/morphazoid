@@ -11,7 +11,7 @@ import {
   generateSortSequence,
   sanitizeSortSequencerParams,
   shuffleSortValues,
-} from "../src/algorithmic-sequencers.js";
+} from "../src/families/algorithmic-sequencers/algorithmic-sequencers.js";
 
 test("sorting sequencer exposes the first demo set and future candidates", () => {
   assert.deepEqual(

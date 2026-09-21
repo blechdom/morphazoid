@@ -5,7 +5,7 @@ import {
   OuroborouselAudio,
   calculateOuroborouselLayers,
   sanitizeOuroborouselParams,
-} from "../../ouroborousel.js";
+} from "./ouroborousel.js";
 
 const $ = (id) => document.getElementById(id);
 const audio = new OuroborouselAudio(globalThis);

@@ -14,7 +14,7 @@ import {
   staircaseBoundaries,
   viewById,
   zoomCameraAt,
-} from "../src/striped-staircase.js";
+} from "../src/instruments/striped-staircase/striped-staircase.js";
 import {
   analyzeStaircaseBlobs,
   contourVoiceTrajectory,
@@ -24,7 +24,7 @@ import {
   staircaseStepWeights,
   voicesForStaircaseContacts,
   voicesForStaircaseBlobs,
-} from "../src/striped-staircase-audio.js";
+} from "../src/instruments/striped-staircase/striped-staircase-audio.js";
 
 const root = new URL("../", import.meta.url);
 
@@ -243,8 +243,8 @@ test("the Morphazoid page is audible, navigable, and publishable", async () => {
     readFile(new URL("striped-staircase.html", root), "utf8"),
     readFile(new URL("src/instruments/striped-staircase/striped-staircase.css", root), "utf8"),
     readFile(new URL("src/instruments/striped-staircase/striped-staircase-app.js", root), "utf8"),
-    readFile(new URL("src/striped-staircase.js", root), "utf8"),
-    readFile(new URL("src/striped-staircase-audio.js", root), "utf8"),
+    readFile(new URL("src/instruments/striped-staircase/striped-staircase.js", root), "utf8"),
+    readFile(new URL("src/instruments/striped-staircase/striped-staircase-audio.js", root), "utf8"),
     readFile(new URL("scripts/site/runtime-files.tsv", root), "utf8"),
     stat(new URL("assets/instruments/striped-staircase.webp", root)),
   ]);

@@ -15,7 +15,7 @@ import {
   simulateAnneal,
   stateProbabilities,
   successProbability,
-} from "../../annealogue.js";
+} from "./annealogue.js";
 import { canvasSizing } from "../../graphics/canvas-sizing.js";
 
 const $ = (id) => document.getElementById(id);

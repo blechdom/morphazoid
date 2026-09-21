@@ -4,7 +4,7 @@ import {
   MicBranchDSP,
   micBranchPlaybackRate,
   sanitizeMicBranchVoice,
-} from "../src/mic-branch-dsp.js";
+} from "../src/families/mic-branch/mic-branch-dsp.js";
 
 test("microphone branch pitch is expressed as a bounded playback rate", () => {
   assert.equal(micBranchPlaybackRate(0, 2, 1), 1);

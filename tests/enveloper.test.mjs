@@ -20,7 +20,7 @@ import {
   sanitizeEnveloperLeaf,
   sanitizeEnveloperState,
   updateEnveloperNode,
-} from "../src/enveloper.js";
+} from "../src/instruments/enveloper/enveloper.js";
 
 const closeTo = (actual, expected, epsilon = 1e-10) => {
   assert.ok(

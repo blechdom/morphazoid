@@ -12,7 +12,7 @@ import {
   resolveSyrinxOutputLevel,
   resolveSyrinxPresetGain,
   resolveSourceControls,
-} from "../src/syrinx.js";
+} from "../src/families/syrinx/syrinx.js";
 
 const SAMPLE_RATE = 48_000;
 const BLOCK_SIZE = 128;
@@ -252,7 +252,7 @@ test("shared Syrinx call and manual presets stay near the bird loudness band", a
     processorName = name;
     ProcessorConstructor = Constructor;
   };
-  await import(`../src/syrinx-processor.js?loudness-test=${Date.now()}`);
+  await import(`../src/families/syrinx/syrinx-processor.js?loudness-test=${Date.now()}`);
   assert.equal(processorName, "syrinx-physical-model");
   assert.equal(typeof ProcessorConstructor, "function");
 

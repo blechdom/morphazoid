@@ -7,7 +7,7 @@ import {
   MAX_GRAPH_SYNTH_SOURCE_START_BURST,
   GraphSynthAudio,
   graphSynthSourceCost,
-} from "../src/graph-synth-audio.js";
+} from "../src/families/graph/graph-synth-audio.js";
 
 class FakeAudioParam {
   constructor(value = 0) {

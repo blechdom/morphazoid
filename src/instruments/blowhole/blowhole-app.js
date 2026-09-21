@@ -10,7 +10,7 @@ import {
   deriveBlowholeReadout,
   evaluateBlowholeGesture,
   sanitizeBlowholeState,
-} from "../../blowhole.js";
+} from "./blowhole.js";
 import { connectAudioOutput } from "../../audio-output-manager.js";
 import { unlockAudioContext } from "../../audio.js";
 
@@ -295,7 +295,7 @@ async function createAudioGraph() {
   let releaseOutput = null;
   unlockAudioContext(context);
   try {
-    await context.audioWorklet.addModule(new URL("../../blowhole-processor.js", import.meta.url));
+    await context.audioWorklet.addModule(new URL("./blowhole-processor.js", import.meta.url));
     const sourceNode = new AudioWorkletNode(context, "blowhole-physical-model", {
       numberOfInputs: 0,
       numberOfOutputs: 1,

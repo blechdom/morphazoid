@@ -20,21 +20,21 @@ import {
   vocalzoidPronunciation,
   vocalzoidRenderPlan,
   vocalzoidSequenceBeats,
-} from "../../vocalzoid.js";
-import { VocalzoidAudio } from "../../vocalzoid-audio.js";
+} from "./vocalzoid.js";
+import { VocalzoidAudio } from "./vocalzoid-audio.js";
 import {
   loadUtauBankFiles,
   utauBankAliases,
-} from "../../vocalzoid-bank.js";
+} from "./vocalzoid-bank.js";
 import {
   VOCALZOID_OPEN_BANKS,
   vocalzoidOpenBankCoverage,
-} from "../../vocalzoid-open-banks.js";
+} from "./vocalzoid-open-banks.js";
 import {
   SPELLING_PRONUNCIATION_PHONE_CATALOG,
   loadSpellingPronunciations,
   spellingPronunciationTokens,
-} from "../../spelling-pronunciation.js";
+} from "../spelling-synthesizer/spelling-pronunciation.js";
 
 const $ = (id) => document.getElementById(id);
 const ROW_HEIGHT = 20;

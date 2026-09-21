@@ -13,7 +13,7 @@ import {
   viewById,
   zoomCameraAt,
   zoomLevel,
-} from "../../striped-staircase.js";
+} from "./striped-staircase.js";
 import { VoicePool } from "../../audio.js";
 import {
   contourVoiceTrajectory,
@@ -21,7 +21,7 @@ import {
   staircaseGeometryRate,
   staircaseDepthContourContacts,
   voicesForStaircaseContacts,
-} from "../../striped-staircase-audio.js";
+} from "./striped-staircase-audio.js";
 
 const $ = (id) => document.getElementById(id);
 const FRAME_UI_INTERVAL = 70;

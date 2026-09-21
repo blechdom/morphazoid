@@ -4,7 +4,7 @@ import test from "node:test";
 import {
   ESCHER_PERFORMANCE_AUDIO_LIMITS,
   EscherPerformanceAudio,
-} from "../src/escher-performance-audio.js";
+} from "../src/instruments/escher-tessellation/escher-performance-audio.js";
 
 const near = (actual, expected, epsilon = 1e-7) => {
   assert.ok(

@@ -8,14 +8,14 @@ import {
   sampleEnveloperEnvelope,
   sanitizeEnveloperState,
   updateEnveloperNode,
-} from "../../enveloper.js";
-import { EnveloperAudio } from "../../enveloper-audio.js";
+} from "./enveloper.js";
+import { EnveloperAudio } from "./enveloper-audio.js";
 import {
   ENVELOPER_AUDIO_TIMING,
   enveloperEventAtScore,
   enveloperScoreAtAudioTime,
   planEnveloperAudioWindow,
-} from "../../enveloper-transport.js";
+} from "./enveloper-transport.js";
 import { canvasSizing } from "../../graphics/canvas-sizing.js";
 
 const $ = (id) => document.getElementById(id);

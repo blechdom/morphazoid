@@ -1,11 +1,11 @@
-import { sonicSkin } from "../../puggler-sonic-skins.js";
-import { PugglerModel, PROPS, PATTERNS, DEFAULTS, DRUMS, RIFFS, MAX_OBJECTS, RIDER_NAMES, CASTS, clamp, soundMapping } from "../../puggler.js";
-import { PAGE_DEFAULTS, PRESETS } from "../../puggler-presets.js";
-import { PugglerAudio } from "../../puggler-audio.js";
-import { PugglerRenderer } from "../../puggler-renderer.js";
-import { RIDER_KEYS, GAME_KEYS, drivingControls } from "../../puggler-controls.js";
-import { SKINS, skinFor, presentProp } from "../../puggler-skins.js";
-import { LIGHTING_SCENES } from "../../puggler-lighting.js";
+import { sonicSkin } from "./puggler-sonic-skins.js";
+import { PugglerModel, PROPS, PATTERNS, DEFAULTS, DRUMS, RIFFS, MAX_OBJECTS, RIDER_NAMES, CASTS, clamp, soundMapping } from "./puggler.js";
+import { PAGE_DEFAULTS, PRESETS } from "./puggler-presets.js";
+import { PugglerAudio } from "./puggler-audio.js";
+import { PugglerRenderer } from "./puggler-renderer.js";
+import { RIDER_KEYS, GAME_KEYS, drivingControls } from "./puggler-controls.js";
+import { SKINS, skinFor, presentProp } from "./puggler-skins.js";
+import { LIGHTING_SCENES } from "./puggler-lighting.js";
 import { createRangeField } from "../../ui/index.js";
 
 const $ = id => document.getElementById(id);

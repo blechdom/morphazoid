@@ -58,7 +58,7 @@ import {
   sanitizeHiccupHeadState,
   sanitizePattern,
   sequenceStepIntervalSeconds,
-} from "../src/hiccup-head.js";
+} from "../src/instruments/hiccup-head/hiccup-head.js";
 
 const root = new URL("../", import.meta.url);
 const ORIGINAL_SOUND_IDS = Object.freeze([
@@ -330,7 +330,7 @@ test("ZZZZ and EH-YEAH render present finite bodies without reaching the safety 
   });
 
   try {
-    await import(`../src/hiccup-head-processor.js?zzzz-ehyeah=${Date.now()}-${Math.random()}`);
+    await import(`../src/instruments/hiccup-head/hiccup-head-processor.js?zzzz-ehyeah=${Date.now()}-${Math.random()}`);
     const Processor = processors.get("hiccup-head-physical-model");
     assert.equal(typeof Processor, "function");
     const renderMetrics = (soundId) => {
@@ -474,7 +474,7 @@ test("seven contrasting sound banks retune anatomy without overwriting live face
 test("measured bank trims travel with each strike and act after the presence knee", async () => {
   const [app, processor] = await Promise.all([
     readFile(new URL("src/instruments/hiccup-head/hiccup-head-app.js", root), "utf8"),
-    readFile(new URL("src/hiccup-head-processor.js", root), "utf8"),
+    readFile(new URL("src/instruments/hiccup-head/hiccup-head-processor.js", root), "utf8"),
   ]);
   assert.match(app, /hiccupHeadSoundBankOutputGain\(currentSoundBankId, soundId\)/);
   assert.match(app, /bankOutputGain !== 1 \? \{ bankOutputGain \} : \{\}/);
@@ -666,7 +666,7 @@ test("BRUSH sends one composite gesture and sweeps all teeth upward and downward
   });
 
   try {
-    await import(`../src/hiccup-head-processor.js?brush-order=${Date.now()}-${Math.random()}`);
+    await import(`../src/instruments/hiccup-head/hiccup-head-processor.js?brush-order=${Date.now()}-${Math.random()}`);
     const Processor = processors.get("hiccup-head-physical-model");
     assert.equal(typeof Processor, "function");
     const ascending = HICCUP_HEAD_TOOTH_TINE_PROFILES.map((_, toothIndex) => toothIndex);
@@ -3030,7 +3030,7 @@ test.skip("persistent face-effect bypasses and voice assignment fallback stay in
 });
 
 test("Hiccup Head keeps DSP safety and telemetry scans bounded on mobile", async () => {
-  const processor = await readFile(new URL("src/hiccup-head-processor.js", root), "utf8");
+  const processor = await readFile(new URL("src/instruments/hiccup-head/hiccup-head-processor.js", root), "utf8");
   const faceSpaceSource = processor.slice(
     processor.indexOf("class FaceSpace"),
     processor.indexOf("function updateReflections"),
@@ -3143,7 +3143,7 @@ test.skip("Hiccup Head worklet renders fifty-two distinct gestures through exact
   });
 
   try {
-    await import(`../src/hiccup-head-processor.js?hiccup-head-test=${Date.now()}-${Math.random()}`);
+    await import(`../src/instruments/hiccup-head/hiccup-head-processor.js?hiccup-head-test=${Date.now()}-${Math.random()}`);
     assert.equal(processorName, "hiccup-head-physical-model");
     assert.equal(typeof Processor, "function");
 
@@ -4270,8 +4270,8 @@ test.skip("Hiccup Head page, app, accessibility, catalogue, MIDI registry, and b
     readFile(new URL("hiccup-head.html", root), "utf8"),
     readFile(new URL("src/instruments/hiccup-head/hiccup-head.css", root), "utf8"),
     readFile(new URL("src/instruments/hiccup-head/hiccup-head-app.js", root), "utf8"),
-    readFile(new URL("src/hiccup-head.js", root), "utf8"),
-    readFile(new URL("src/hiccup-head-processor.js", root), "utf8"),
+    readFile(new URL("src/instruments/hiccup-head/hiccup-head.js", root), "utf8"),
+    readFile(new URL("src/instruments/hiccup-head/hiccup-head-processor.js", root), "utf8"),
     readFile(new URL("README.md", root), "utf8"),
     readFile(new URL("scripts/site/runtime-files.tsv", root), "utf8"),
   ]);
@@ -4352,8 +4352,8 @@ test.skip("Hiccup Head page, app, accessibility, catalogue, MIDI registry, and b
   assert.match(css, /@media \(max-width:\s*680px\)/);
   assert.match(css, /@media \(prefers-reduced-motion:\s*reduce\)/);
 
-  assert.match(app, /from "\.\/src\/hiccup-head\.js\?v=hiccup-head-model-20260902-4"/);
-  assert.match(app, /\.\/src\/hiccup-head-processor\.js\?v=hiccup-head-tract-20260902-4/);
+  assert.match(app, /from "\.\/src\/instruments\/hiccup-head\/hiccup-head\.js\?v=hiccup-head-model-20260902-4"/);
+  assert.match(app, /\.\/src\/instruments\/hiccup-head\/hiccup-head-processor\.js\?v=hiccup-head-tract-20260902-4/);
   assert.match(processor, /from "\.\/hiccup-head\.js\?v=hiccup-head-model-20260902-4"/);
   assert.match(app, /"hiccup-head-physical-model"/);
   assert.match(app, /connectAudioOutput\(context, analyser/);
@@ -4655,8 +4655,8 @@ test.skip("Hiccup Head page, app, accessibility, catalogue, MIDI registry, and b
     "hiccup-head.html",
     "src/instruments/hiccup-head/hiccup-head.css",
     "src/instruments/hiccup-head/hiccup-head-app.js",
-    "src/hiccup-head.js",
-    "src/hiccup-head-processor.js",
+    "src/instruments/hiccup-head/hiccup-head.js",
+    "src/instruments/hiccup-head/hiccup-head-processor.js",
     "assets/instruments/hiccup-head.webp",
   ]) {
     assert.match(

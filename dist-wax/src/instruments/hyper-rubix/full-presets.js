@@ -3,7 +3,7 @@ import {
   createSolvedHyperRubix, createHyperRubixScramble, createSeededHyperRubixRandom, turnHyperRubixBoundaryCell,
   hyperRubixSizeMetrics, HYPER_RUBIX_CELL_ORDER, HYPER_RUBIX_SEQUENCE_PATTERNS,
   hyperRubixBoundaryCell,
-} from "../../hyper-rubix.js";
+} from "./hyper-rubix.js";
 import { presetStateKey } from "../../site/header-presets.js";
 import { clonePresetData, presetRandom, randomParameterValues } from "../../site/preset-random.js";
 

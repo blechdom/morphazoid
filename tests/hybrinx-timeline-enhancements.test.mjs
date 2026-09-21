@@ -8,9 +8,9 @@ import {
   CONTROL_LIMITS,
   animalState,
   interpolateGesture,
-} from "../src/syrinx.js";
-import { DEFAULT_TONGUE_STATE } from "../src/tongue-physics.js";
-import * as hybrinx from "../src/hybrinx-timeline.js";
+} from "../src/families/syrinx/syrinx.js";
+import { DEFAULT_TONGUE_STATE } from "../src/families/syrinx/tongue-physics.js";
+import * as hybrinx from "../src/instruments/hybrinx/hybrinx-timeline.js";
 
 const root = new URL("../", import.meta.url);
 
@@ -39,7 +39,7 @@ const ADDABLE_PARAMETERS = Object.freeze([
 
 function requiredExport(name, type = "function") {
   const value = hybrinx[name];
-  assert.equal(typeof value, type, `src/hybrinx-timeline.js must export ${name}`);
+  assert.equal(typeof value, type, `src/instruments/hybrinx/hybrinx-timeline.js must export ${name}`);
   return value;
 }
 
@@ -635,7 +635,7 @@ test("Hybrinx exposes accessible Add +, per-lane Mod, and independent two-axis z
   const [html, css, timelineSource, app] = await Promise.all([
     readFile(new URL("hybrinx.html", root), "utf8"),
     readFile(new URL("src/instruments/hybrinx/hybrinx.css", root), "utf8"),
-    readFile(new URL("src/hybrinx-timeline.js", root), "utf8"),
+    readFile(new URL("src/instruments/hybrinx/hybrinx-timeline.js", root), "utf8"),
     readFile(new URL("src/families/syrinx/syrinx-app.js", root), "utf8"),
   ]);
 
@@ -777,7 +777,7 @@ test("Hybrinx exposes tongue pattern clips as accessible timeline edits", async 
   const [html, css, timelineSource, app] = await Promise.all([
     readFile(new URL("hybrinx.html", root), "utf8"),
     readFile(new URL("src/instruments/hybrinx/hybrinx.css", root), "utf8"),
-    readFile(new URL("src/hybrinx-timeline.js", root), "utf8"),
+    readFile(new URL("src/instruments/hybrinx/hybrinx-timeline.js", root), "utf8"),
     readFile(new URL("src/families/syrinx/syrinx-app.js", root), "utf8"),
   ]);
 

@@ -17,11 +17,11 @@ import {
   updatePinkTrombonazoidKeyframe,
   updatePinkTrombonazoidPersonality,
   updatePinkTrombonazoidSegment,
-} from "../../pink-trombonazoid.js?v=pink-trombonazoid-20260823-2";
+} from "../../families/tract/pink-trombonazoid.js?v=pink-trombonazoid-20260823-2";
 import {
   loadSpellingPronunciations,
-} from "../../spelling-pronunciation.js?v=pink-trombonazoid-20260821-6";
-import { SpellingSynthesizerAudio } from "../../spelling-synthesizer-audio.js?v=pink-trombonazoid-20260821-6";
+} from "../spelling-synthesizer/spelling-pronunciation.js?v=pink-trombonazoid-20260821-6";
+import { SpellingSynthesizerAudio } from "../spelling-synthesizer/spelling-synthesizer-audio.js?v=pink-trombonazoid-20260821-6";
 
 const $ = (id) => document.getElementById(id);
 const SVG_NS = "http://www.w3.org/2000/svg";

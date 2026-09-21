@@ -1,6 +1,6 @@
 /** Pure 4D tesseract projection and hyperplane intersection helpers. */
 
-import { sharedProfilePoints } from "./shapes-profile.js";
+import { sharedProfilePoints } from "./instruments/shapes/shapes-profile.js";
 
 const EPSILON = 1e-8;
 

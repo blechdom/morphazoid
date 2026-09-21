@@ -26,7 +26,7 @@ Hybrinx is a software physical-model sequencer. There are no Hybrinx CAD files, 
 
 1. **Morphology and gesture remain separate.** The body defines a pressure-driven sound-producing system; a call is a time-varying performance through that body.
 2. **The source is causal.** Pressure, tension, closure, bilateral balance, and irregularity drive an oscillator before the tract and cavity stages.
-3. **Calls are visible contours.** Hybrinx exposes pressure, pitch/tension, closure, mouth, cavity, roughness, source split, and bilateral balance as synchronized lanes in [`src/hybrinx-timeline.js`](src/hybrinx-timeline.js).
+3. **Calls are visible contours.** Hybrinx exposes pressure, pitch/tension, closure, mouth, cavity, roughness, source split, and bilateral balance as synchronized lanes in [`src/instruments/hybrinx/hybrinx-timeline.js`](src/instruments/hybrinx/hybrinx-timeline.js).
 4. **Anatomy is the interface.** Its cutaway body and draggable organs keep the signal path legible while the graph shows the same motion over time.
 5. **Speculation is labeled.** Hybrinx calls its grafted tongues chimeric instead of presenting them as literal comparative anatomy.
 

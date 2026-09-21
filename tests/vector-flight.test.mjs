@@ -18,7 +18,7 @@ import {
   stepFlightStar,
   trailLengthForThrottle,
   travelSpeedForThrottle,
-} from "../src/vector-flight.js";
+} from "../src/instruments/vector-flight/vector-flight.js";
 
 test("throttle progresses continuously from vector points through full-circle plaid", () => {
   assert.equal(flightTierForThrottle(0).id, "vector");

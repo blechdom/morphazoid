@@ -19,7 +19,22 @@ If a managed machine already has Chrome but cannot install Playwright's browser,
 PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=/usr/bin/google-chrome npm run test:browser:smoke
 ```
 
-The Playwright configuration starts a local server on `127.0.0.1:3435`; a separate development server is not required.
+The Playwright configuration starts a local server on `127.0.0.1:3435` from
+the checkout containing the configuration. It **does not reuse an existing
+server**, because that server may belong to another worktree. If the port is
+occupied, choose a dedicated port:
+
+```sh
+env -u MORPHAZOID_QA_BASE_URL -u PLAYWRIGHT_BASE_URL \
+  MORPHAZOID_QA_PORT=4381 npm run test:browser:smoke
+```
+
+`MORPHAZOID_QA_BASE_URL` (or `PLAYWRIGHT_BASE_URL`) instead selects an explicitly
+started preview; no additional server is launched in that mode. A global
+preflight compares its navigation, registry and shared audio source bytes with
+this checkout and fails once with a wrong/stale-server explanation if they
+differ. This baseline check prevents testing another worktree by accident; it
+does not replace the full route/resource tests.
 
 | Command | Purpose |
 | --- | --- |
@@ -55,7 +70,7 @@ Scopes below are derived when the suite starts and change automatically as catal
 
 | Area | Scope | Automated contract | Important boundary |
 | --- | ---: | --- | --- |
-| Route smoke | Every discovered source HTML route | Successful document response, visible body, title, language, and no page/console/first-party request or HTTP errors | Does not interact deeply with each page |
+| Route smoke | Every discovered source HTML route | Successful document response, visible body, title, language, and no page/console/first-party request or HTTP errors; Spider also requires its asynchronously loaded 38-joint model | Does not interact deeply with each page |
 | Shared consistency | Every catalogue instrument | Shared Audio control exists and starts off; standard navigation/mobile pickers hydrate to the active instrument; the intentional Morphazoidical custom header is an explicit contract | Does not judge detailed visual style or musical consistency |
 | Responsive reachability | Every discovered source HTML route × 3 layouts | Desktop `1440×900`, phone portrait `390×844`, and phone landscape `844×390`; viewport metadata, horizontal overflow, clipped/fixed interactive controls | Does not prove touch gestures feel good or that visual hierarchy is attractive |
 | Accessibility | Every primary instrument | axe reports for WCAG 2 A/AA, 2.1 A/AA, and 2.2 AA; critical/serious failures can be gated in strict mode | Automated rules do not replace keyboard, focus, screen-reader, or cognitive review |

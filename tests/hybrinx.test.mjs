@@ -8,13 +8,13 @@ import {
   animalState,
   interpolateGesture,
   resolveGestureTimeline,
-} from "../src/syrinx.js";
+} from "../src/families/syrinx/syrinx.js";
 import {
   HYBRINX_TIMELINE_LANES,
   buildHybrinxTimelineModel,
   createHybrinxGestureStore,
   resolveHybrinxPlayhead,
-} from "../src/hybrinx-timeline.js";
+} from "../src/instruments/hybrinx/hybrinx-timeline.js";
 
 const root = new URL("../", import.meta.url);
 const EXPECTED_LANES = Object.freeze([
@@ -419,7 +419,7 @@ test("Hybrinx viewport, full, and timeline resets cancel automatic tongue motion
   const [html, app, timelineSource] = await Promise.all([
     readFile(new URL("hybrinx.html", root), "utf8"),
     readFile(new URL("src/families/syrinx/syrinx-app.js", root), "utf8"),
-    readFile(new URL("src/hybrinx-timeline.js", root), "utf8"),
+    readFile(new URL("src/instruments/hybrinx/hybrinx-timeline.js", root), "utf8"),
   ]);
   const viewportResetButton = html.match(/<button\b[^>]*id="resetViewportTongue"[^>]*>[\s\S]*?<\/button>/i)?.[0] ?? "";
   const fullResetButton = html.match(/<button\b[^>]*data-reset-all[^>]*>[\s\S]*?<\/button>/i)?.[0] ?? "";
@@ -464,8 +464,8 @@ test("Hybrinx is a Tongued Beasts-derived page with its timeline below the viewp
     readFile(new URL("hybrinx.html", root), "utf8"),
     readFile(new URL("src/instruments/hybrinx/hybrinx.css", root), "utf8"),
     readFile(new URL("src/families/syrinx/syrinx-app.js", root), "utf8"),
-    readFile(new URL("src/hybrinx-layout.js", root), "utf8"),
-    readFile(new URL("src/hybrinx-timeline.js", root), "utf8"),
+    readFile(new URL("src/instruments/hybrinx/hybrinx-layout.js", root), "utf8"),
+    readFile(new URL("src/instruments/hybrinx/hybrinx-timeline.js", root), "utf8"),
     readFile(new URL("src/site/instrument-registry.js", root), "utf8"),
     readFile(new URL("scripts/site/runtime-files.tsv", root), "utf8"),
     readFile(new URL("src/instrument-catalog.js", root), "utf8"),
@@ -587,7 +587,7 @@ test("Hybrinx is a Tongued Beasts-derived page with its timeline below the viewp
     /\.hybrinx-page \.syrinx-stage\s*\{[^}]*position:\s*sticky[^}]*top:\s*0[^}]*height:\s*max\(420px, calc\(100dvh - 50px\)\)[^}]*min-height:\s*420px/s,
   );
 
-  assert.match(app, /import\s*\{\s*createHybrinxTimeline\s*\}\s*from\s*["']\.\.\/\.\.\/hybrinx-timeline\.js\?v=[^"']+["']/);
+  assert.match(app, /import\s*\{\s*createHybrinxTimeline\s*\}\s*from\s*["']\.\.\/\.\.\/instruments\/hybrinx\/hybrinx-timeline\.js\?v=[^"']+["']/);
   assert.match(app, /const\s+HYBRINX_MODE\s*=\s*document\.body\.classList\.contains\(["']hybrinx-page["']\)/);
   assert.match(app, /createHybrinxTimeline\(\$\(["']hybrinxTimelineSection["']\)\)/);
   assert.match(app, /function\s+updateHybrinxTimeline\s*\(/);
@@ -622,7 +622,7 @@ test("Hybrinx is a Tongued Beasts-derived page with its timeline below the viewp
     "keyframe hit targets must opt back into pointer interaction",
   );
 
-  assert.match(html, /<script\b[^>]*type="module"[^>]*src="src\/hybrinx-layout\.js\?v=[^"]+"[^>]*><\/script>/i);
+  assert.match(html, /<script\b[^>]*type="module"[^>]*src="src\/instruments\/hybrinx\/hybrinx-layout\.js\?v=[^"]+"[^>]*><\/script>/i);
   assert.match(layout, /export\s+function\s+createHybrinxSplitPane\s*\(/);
   assert.match(layout, /setPointerCapture/);
   assert.match(layout, /addEventListener\(["']pointermove["']/);
@@ -640,8 +640,8 @@ test("Hybrinx is a Tongued Beasts-derived page with its timeline below the viewp
   for (const runtimeFile of [
     "hybrinx.html",
     "src/instruments/hybrinx/hybrinx.css",
-    "src/hybrinx-layout.js",
-    "src/hybrinx-timeline.js",
+    "src/instruments/hybrinx/hybrinx-layout.js",
+    "src/instruments/hybrinx/hybrinx-timeline.js",
     "assets/instruments/hybrinx.webp",
   ]) {
     assert.match(

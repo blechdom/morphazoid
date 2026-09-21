@@ -57,9 +57,10 @@ remain in their controllers. This is not a universal renderer or controller.
 
 ## Compatibility
 
-The existing shared parameter-model functions still come from
-`src/throatazoid.js`. Its name and public path have not been changed. Alien
-Larynx's extra state and sound processing remain instrument-owned.
+The shared parameter-model functions now live in
+`src/families/tract/throatazoid.js`. The relocation preserves its exports,
+behavior and legacy basename. Alien Larynx's extra state and sound processing
+remain instrument-owned.
 
 Preserve calculation order, Float32 assignments, object relationships, callback
 ordering, and fallback behavior during maintenance. Do not normalize the two

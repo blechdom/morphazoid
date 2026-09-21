@@ -17,7 +17,7 @@ import {
   createCandyTransparentCeilingCurve,
   sanitizeBarberDelayMode,
   sanitizeBarberDelayParams,
-} from "../src/barber-delay.js";
+} from "../src/families/barber-delay/barber-delay.js";
 
 test("barber controls retain Morphisma's low-range power curves", () => {
   assert.equal(barberDelaySliderValue(0, 0, 5, 2), 0);
@@ -221,7 +221,7 @@ test("worklet uses one bounded stereo ring and stays finite at feedback limits",
   globalThis.sampleRate = 48_000;
 
   try {
-    await import(`../src/barber-delay.js?worklet-test=${Date.now()}`);
+    await import(`../src/families/barber-delay/barber-delay.js?worklet-test=${Date.now()}`);
     assert.equal(registeredName, BARBER_DELAY_PROCESSOR_NAME);
     assert.equal(typeof Processor, "function");
 

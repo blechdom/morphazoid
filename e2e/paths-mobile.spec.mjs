@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { generatePath } from "../src/paths.js";
+import { generatePath } from "../src/instruments/paths/paths.js";
 import { pageDiagnosticMessages, settlePage, watchPageDiagnostics } from "./helpers/diagnostics.mjs";
 
 const layouts = [

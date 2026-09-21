@@ -6,7 +6,7 @@ import {
   HOCKET_MARKER_SOURCE_LIMIT,
   hocketMarkerPlan,
   scheduleHocketMarker,
-} from "../../hocket-loom-audio.js";
+} from "./hocket-loom-audio.js";
 import {
   HOCKET_PRESETS,
   HOCKET_VOICE_COLORS,
@@ -23,7 +23,7 @@ import {
   rotateHocketPattern,
   sanitizeHocketState,
   tightenHocketPattern,
-} from "../../hocket-loom.js";
+} from "./hocket-loom.js";
 
 const $ = (selector) => document.querySelector(selector);
 const dom = {

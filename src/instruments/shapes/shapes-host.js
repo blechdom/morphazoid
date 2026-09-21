@@ -2,7 +2,7 @@ import {
   createShapesState,
   SHAPES_DIMENSIONS,
   SHAPES_PLAYING_MODES,
-} from "../../shapes-state.js";
+} from "./shapes-state.js";
 
 // Compatibility exports for older links. Shapes now owns its runtime; these
 // records describe in-app state routes, never external HTML pages.

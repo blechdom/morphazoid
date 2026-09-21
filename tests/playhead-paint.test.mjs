@@ -39,7 +39,7 @@ import {
   sanitizeSample,
   sanitizeTimedPoints,
   simplifyTimedPoints,
-} from "../src/playhead-paint.js";
+} from "../src/instruments/playhead-paint/playhead-paint.js";
 
 const closeTo = (actual, expected, epsilon = 1e-9) => {
   assert.ok(

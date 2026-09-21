@@ -1,8 +1,8 @@
-import { encodeMonoWav } from "../../birdsong-analysis.js";
+import { encodeMonoWav } from "../../families/acoustic/birdsong-analysis.js";
 import {
   AcousticLiveCapture,
   normalizeCaptureDuration,
-} from "../../acoustic-live-capture.js";
+} from "../../families/acoustic/acoustic-live-capture.js";
 import {
   ACOUSTIC_ARCHIVE_COLLECTIONS,
   ACOUSTIC_ARCHIVE_GROUPS,
@@ -22,14 +22,14 @@ import {
   normalizeAcousticAnalysisParameters,
   normalizeAcousticResynthesis,
   renderAcousticModelSegment,
-} from "../../acoustic-manifold.js";
+} from "./acoustic-manifold.js";
 import { decodePcmWav } from "../../pcm-wav-decoder.js";
-import { createNightingaleManifoldRenderer } from "../../nightingale-manifold-3d.js";
+import { createNightingaleManifoldRenderer } from "../nightingale-manifold/nightingale-manifold-3d.js";
 import {
   assembleAudioSegments,
   assembleStropheRoute,
   buildStropheTraversal,
-} from "../../nightingale-manifold.js";
+} from "../nightingale-manifold/nightingale-manifold.js";
 
 const $ = (id) => document.getElementById(id);
 const MAX_FILE_BYTES = 32 * 1024 * 1024;

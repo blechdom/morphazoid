@@ -5,7 +5,7 @@ import {
   normalizeSpiderMotion, createRandomSpiderMotion, createSpiderStaticPose, createSpiderWeb,
   projectSpiderWebPoint, createSpiderFrame, writeSpiderPose, writeSpiderFrame,
   constrainSpiderPose, spiderStringFrequency, applySpiderSpeechPose,
-} from '../src/spider-synth-model.js';
+} from '../src/instruments/spider-synth/spider-synth-model.js';
 
 const close = (a, b, tolerance = 1e-9) => assert.ok(Math.abs(a - b) <= tolerance, `${a} != ${b}`);
 const web = createSpiderWeb();

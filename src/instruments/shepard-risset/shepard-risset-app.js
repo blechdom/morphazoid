@@ -8,7 +8,7 @@ import {
   calculateMorphismaSweepVoices,
   sanitizeMorphismaSweepParams,
   sanitizeShepardParams,
-} from "../../shepard-risset.js";
+} from "./shepard-risset.js";
 
 const $ = (id) => document.getElementById(id);
 const audio = new ShepardRissetAudio(globalThis);
@@ -468,7 +468,7 @@ async function toggleAudio() {
 
 $("audioButton").addEventListener("click", toggleAudio);
 
-$("[data-reset-all]").addEventListener("click", () => {
+document.querySelector("[data-reset-all]").addEventListener("click", () => {
   state.octave = octaveMemory(SHEPARD_PRESETS[0]);
   state.morphisma = morphismaMemory(MORPHISMA_SWEEP_PRESETS[0]);
   state.level = SHEPARD_DEFAULTS.level;

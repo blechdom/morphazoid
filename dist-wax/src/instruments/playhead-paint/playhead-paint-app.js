@@ -10,8 +10,8 @@ import {
   reflectionTransforms,
   sanitizeMark,
   simplifyTimedPoints,
-} from "../../playhead-paint.js";
-import { PlayheadPaintAudio } from "../../playhead-paint-audio.js";
+} from "./playhead-paint.js";
+import { PlayheadPaintAudio } from "./playhead-paint-audio.js";
 
 const $ = (id) => document.getElementById(id);
 const clamp = (value, minimum, maximum) => Math.min(maximum, Math.max(minimum, value));

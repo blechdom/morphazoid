@@ -12,7 +12,7 @@ import {
   graphSinkNodeIds,
   graphTurnRoutings,
   nodeTurnRouting,
-} from "../../graph-delay.js?v=20260726-edge-switches";
+} from "./graph-delay.js?v=20260726-edge-switches";
 import { unlockAudioContext } from "../../audio.js";
 import { connectAudioOutput } from "../../audio-output-manager.js";
 import { canvasSizing } from "../../graphics/canvas-sizing.js";
@@ -383,7 +383,7 @@ async function preparePitchProcessor(audio) {
   if (!audio.audioWorklet?.addModule || !globalThis.AudioWorkletNode) return false;
   try {
     await audio.audioWorklet.addModule(
-      new URL("../../graph-turn-processor.js?v=20260726-edge-switches", import.meta.url),
+      new URL("./graph-turn-processor.js?v=20260726-edge-switches", import.meta.url),
     );
     pitchProcessorReady = true;
   } catch {

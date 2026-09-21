@@ -7,7 +7,7 @@ import {
   CHAOTIC_DSP_REFERENCES,
   chaoticDspReferenceForId,
   renderChaoticDspReferences,
-} from "../src/chaotic-dsp-reference.js";
+} from "../src/instruments/chaotic-dsp-reference/chaotic-dsp-reference.js";
 
 const ROOT = new URL("../", import.meta.url);
 const SYNTH_PAGES = Object.freeze([
@@ -117,7 +117,7 @@ test("all seven pages attach the shared reference after controls and before rese
     assert.match(markup, /id="dsp-reference"/);
     assert.match(markup, /data-chaos-dsp-reference-body/);
     assert.match(markup, />DSP reference</);
-    assert.match(markup, /src="src\/chaotic-dsp-reference\.js"/);
+    assert.match(markup, /src="src\/instruments\/chaotic-dsp-reference\/chaotic-dsp-reference\.js"/);
     assert.ok(
       markup.indexOf(`data-chaos-dsp-reference="${id}"`) < markup.indexOf("class=\"reset-all-row\""),
       `${id} should place its reference directly above the reset row`,
@@ -150,7 +150,7 @@ test("the dedicated page renders an unconstrained selectable reference", async (
 
 test("the renderer uses semantic DOM and responsive, bounded flowchart nodes", async () => {
   const [moduleSource, stylesheet] = await Promise.all([
-    readFile(new URL("src/chaotic-dsp-reference.js", ROOT), "utf8"),
+    readFile(new URL("src/instruments/chaotic-dsp-reference/chaotic-dsp-reference.js", ROOT), "utf8"),
     readFile(new URL("src/instruments/chaotic-synth-ui/chaotic-synth-ui.css", ROOT), "utf8"),
   ]);
 

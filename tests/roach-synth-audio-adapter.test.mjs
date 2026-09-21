@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { RoachSynthAudio, createDefaultRoachBodyMix } from '../src/roach-synth-audio.js';
-import { RoachSynthDsp } from '../src/roach-synth-dsp.js';
+import { RoachSynthAudio, createDefaultRoachBodyMix } from '../src/instruments/roach-synth/roach-synth-audio.js';
+import { RoachSynthDsp } from '../src/instruments/roach-synth/roach-synth-dsp.js';
 
 function fixture() {
   const contexts = []; const messages = []; const rate = 24000;

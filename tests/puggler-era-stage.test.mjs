@@ -1,8 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { PugglerModel } from '../src/puggler.js';
-import { drawSkinPerformer, futureStageMotion } from '../src/puggler-skin-renderer.js';
-import { LIGHTING_SCENES, lightingState } from '../src/puggler-lighting.js';
+import { PugglerModel } from '../src/instruments/puggler/puggler.js';
+import { drawSkinPerformer, futureStageMotion } from '../src/instruments/puggler/puggler-skin-renderer.js';
+import { LIGHTING_SCENES, lightingState } from '../src/instruments/puggler/puggler-lighting.js';
 
 test('historical skin tones swap on the actual drawn palms while the medieval rider keeps hers',()=>{
   const model=new PugglerModel({cast:'trio'}),expected=[['#e0b69a','#865f55'],['#cfad84','#624c43'],['#bb855d','#63483c']];

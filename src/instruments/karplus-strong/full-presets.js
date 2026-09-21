@@ -1,7 +1,7 @@
 import {
   KARPLUS_STRONG_PRESETS, KARPLUS_STRONG_TUNING_DEFAULTS,
   sanitizeKarplusStrongSettings, sanitizeKarplusStrongTuning,
-} from "../../karplus-strong.js";
+} from "./karplus-strong.js";
 import { presetRandom, randomParameterValues } from "../../site/preset-random.js";
 
 // Keep all original materials, now paired with a complete tuning field.

@@ -1,7 +1,7 @@
 import {
   JAW_HARP_DEFAULTS, JAW_HARP_STYLE_REFERENCES, jawHarpPreset, jawHarpState, applyJawHarpStyle,
   sanitizeJawHarpState, randomizeJawHarpState,
-} from "../../jaw-harp.js";
+} from "./jaw-harp.js";
 import { clonePresetData, presetRandom } from "../../site/preset-random.js";
 import { presetStateKey } from "../../site/header-presets.js";
 

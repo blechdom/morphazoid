@@ -21,7 +21,7 @@ import {
   nodeTurnRouting,
   relativeTurnRadians,
   turnPitchSemitones,
-} from "../src/graph-delay.js";
+} from "../src/instruments/graph-delay/graph-delay.js";
 
 function spectralRadius(nodeCount, edges, iterations = 500) {
   let vector = Array(nodeCount).fill(1 / Math.sqrt(nodeCount));
@@ -496,7 +496,7 @@ test("graph-delay page exposes microphone, topology, feedback safety, and panic 
   const [html, app, turnProcessor] = await Promise.all([
     readFile(new URL("graph-delay.html", root), "utf8"),
     readFile(new URL("src/instruments/graph-delay/graph-delay-app.js", root), "utf8"),
-    readFile(new URL("src/graph-turn-processor.js", root), "utf8"),
+    readFile(new URL("src/instruments/graph-delay/graph-turn-processor.js", root), "utf8"),
   ]);
   assert.match(html, /<body class="micmic-page graph-delay-page">/);
   assert.match(html, /graph-delay-tab active/);

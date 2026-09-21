@@ -22,7 +22,7 @@ import {
   sampleDistribution,
   shotHistogram,
   simulateOrderFindingShots,
-} from "../src/order-tones.js";
+} from "../src/instruments/order-tones/order-tones.js";
 
 const root = new URL("../", import.meta.url);
 const read = (name) => readFile(new URL(name, root), "utf8");
@@ -250,7 +250,7 @@ test("Order Tones markup follows the shared quantum and Morphazoid contracts", a
 test("Order Tones app bounds rendering and audio and supports required gestures", async () => {
   const [app, math] = await Promise.all([
     read("src/instruments/order-tones/order-tones-app.js"),
-    read("src/order-tones.js"),
+    read("src/instruments/order-tones/order-tones.js"),
   ]);
   assert.match(app, /new VoicePool\(MAX_AUDIO_VOICES\)/);
   assert.match(app, /const MAX_AUDIO_VOICES = 8/);

@@ -7,7 +7,7 @@ import { readFile, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import * as THREE from '../vendor/three/three.module.min.js';
-import { prepareRoachWingGeometry } from '../src/roach-synth-wings.js';
+import { prepareRoachWingGeometry } from '../src/instruments/roach-synth/roach-synth-wings.js';
 
 const TYPES = { SCALAR: 1, VEC2: 2, VEC3: 3, VEC4: 4, MAT4: 16 };
 const COMPONENTS = { 5120: Int8Array, 5121: Uint8Array, 5122: Int16Array, 5123: Uint16Array, 5125: Uint32Array, 5126: Float32Array };

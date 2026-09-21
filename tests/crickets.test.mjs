@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import * as crickets from "../src/crickets.js";
+import * as crickets from "../src/instruments/crickets/crickets.js";
 
 const {
   CRICKET_ANALYSIS_LIMITS,

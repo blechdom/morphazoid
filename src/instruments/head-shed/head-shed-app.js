@@ -1,4 +1,4 @@
-import { createProtoShell, renderDemoPhrase } from "../../proto-shell.js?v=proto-20260918-1";
+import { createProtoShell, renderDemoPhrase } from "../../families/proto-graph/proto-shell.js?v=proto-20260918-1";
 
 const $ = (id) => document.getElementById(id);
 const TAU = Math.PI * 2;
@@ -219,7 +219,7 @@ function syncHeadPanel() {
 }
 
 async function buildAudio(context) {
-  await context.audioWorklet.addModule("src/head-shed-processor.js?v=proto-20260918-1");
+  await context.audioWorklet.addModule("src/instruments/head-shed/head-shed-processor.js?v=proto-20260918-1");
   node = new AudioWorkletNode(context, "morphazoid-head-shed", {
     numberOfInputs: 1,
     numberOfOutputs: 1,

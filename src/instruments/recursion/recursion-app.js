@@ -1,11 +1,11 @@
-import { RECURSION_STUDIES, buildRecursionPlan } from "../../recursion.js";
-import { RecursiveAudioEngine } from "../../recursion-audio-engine.js";
+import { RECURSION_STUDIES, buildRecursionPlan } from "./recursion.js";
+import { RecursiveAudioEngine } from "./recursion-audio-engine.js";
 import {
   causalCurve,
   geometryTrace,
   stackPoint,
   torusPoint,
-} from "../../recursion-geometry.js";
+} from "./recursion-geometry.js";
 import {
   LIVE_AXIS_IDS,
   LIVE_DEFAULTS,
@@ -13,8 +13,8 @@ import {
   denseMomentFor,
   morphMoment,
   normalizeLiveAxes,
-} from "../../recursion-live.js";
-import { mobiusFrequencyMap } from "../../recursion-spectral-dsp.js";
+} from "./recursion-live.js";
+import { mobiusFrequencyMap } from "./recursion-spectral-dsp.js";
 import { canvasSizing } from "../../graphics/canvas-sizing.js";
 
 const $ = (id) => document.getElementById(id);

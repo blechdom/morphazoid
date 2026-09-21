@@ -31,7 +31,7 @@ import {
   setQuadrupedGroundProfile,
   setQuadrupedSurface,
   solveQuadrupedLimbChain,
-} from "../../quadruped.js";
+} from "./quadruped.js";
 import {
   advanceQuadrupedMotor,
   createQuadrupedMotorState,
@@ -39,11 +39,11 @@ import {
   predictQuadrupedMotor,
   quadrupedMotorSnapshot,
   synchronizeQuadrupedMotorTempo,
-} from "../../quadruped-motor.js";
+} from "./quadruped-motor.js";
 import { connectAudioOutput } from "../../audio-output-manager.js";
-import { quadrupedCalls, quadrupedCallEvents, emptyQuadrupedCalls } from "../../quadruped-voices.js";
+import { quadrupedCalls, quadrupedCallEvents, emptyQuadrupedCalls } from "./quadruped-voices.js";
 import { unlockAudioContext } from "../../audio.js";
-import { createQuadrupedGroup, shareQuadrupedWorld, quadrupedGroupOffsets, quadrupedStairSound, renderQuadrupedFriction, sanitizeQuadrupedWorld } from "../../quadruped-world.js";
+import { createQuadrupedGroup, shareQuadrupedWorld, quadrupedGroupOffsets, quadrupedStairSound, renderQuadrupedFriction, sanitizeQuadrupedWorld } from "./quadruped-world.js";
 
 const $ = (id) => document.getElementById(id);
 const canvas = $("stage");

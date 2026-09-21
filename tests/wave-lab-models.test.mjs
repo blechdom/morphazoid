@@ -3,14 +3,14 @@ import assert from "node:assert/strict";
 
 import {
   INVOLUTIONS, involutionById, isOneSided, lapsPerPeriod, cutBand, compositePeriod, headState,
-} from "../src/crab-loom.js";
+} from "../src/instruments/crab-loom/crab-loom.js";
 import {
   createLattice, participationRatio, findThreshold, siteFrequency, neighbours, MAX_SIDE,
-} from "../src/freeze-point.js";
+} from "../src/instruments/freeze-point/freeze-point.js";
 import {
   createScatterers, paths, renderImpulseResponse, refocusQuality, reverseChannel, MAX_IR_SECONDS,
-} from "../src/scatter-ghost.js";
-import { eigenmodes, responseToPerturbation, proximity, decaySeconds } from "../src/exceptional.js";
+} from "../src/instruments/scatter-ghost/scatter-ghost.js";
+import { eigenmodes, responseToPerturbation, proximity, decaySeconds } from "../src/instruments/exceptional/exceptional.js";
 
 test("crab loom: every listed transform is an involution in name and count", () => {
   assert.ok(INVOLUTIONS.length >= 5);

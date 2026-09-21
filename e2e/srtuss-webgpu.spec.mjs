@@ -39,7 +39,7 @@ test.describe("srtuss sound-only WebGPU archive", () => {
 
     const report = await page.evaluate(async () => {
       if (!navigator.gpu) throw new Error("WebGPU is unavailable in this Chromium run.");
-      const { SRTUSS_SOUND_PROJECTS, SrtussAudio } = await import("./src/srtuss.js");
+      const { SRTUSS_SOUND_PROJECTS, SrtussAudio } = await import("./src/instruments/srtuss/srtuss.js");
       const gainParam = () => ({
         value: 0,
         cancelAndHoldAtTime() {},
@@ -287,8 +287,8 @@ test.describe("srtuss sound-only WebGPU archive", () => {
           SRTUSS_MASTER_STEM_DEFAULTS,
         },
       ] = await Promise.all([
-        import("./src/srtuss.js" + appVersion),
-        import("./src/srtuss-master.js" + appVersion),
+        import("./src/instruments/srtuss/srtuss.js" + appVersion),
+        import("./src/instruments/srtuss/srtuss-master.js" + appVersion),
       ]);
       const gainParam = () => ({
         value: 0,
@@ -429,8 +429,8 @@ test.describe("srtuss sound-only WebGPU archive", () => {
       ).search;
       const [{ SRTUSS_DURATION_SECONDS, SrtussAudio }, { SRTUSS_MASTER_PARAM_DEFAULTS }] =
         await Promise.all([
-          import("./src/srtuss.js" + appVersion),
-          import("./src/srtuss-master.js" + appVersion),
+          import("./src/instruments/srtuss/srtuss.js" + appVersion),
+          import("./src/instruments/srtuss/srtuss-master.js" + appVersion),
         ]);
       const gainParam = () => ({
         value: 0,
@@ -543,7 +543,7 @@ test.describe("srtuss sound-only WebGPU archive", () => {
       const appVersion = new URL(
         document.querySelector('script[src^="srtuss-app.js"]')?.src ?? location.href,
       ).search;
-      const { SrtussAudio } = await import("./src/srtuss.js" + appVersion);
+      const { SrtussAudio } = await import("./src/instruments/srtuss/srtuss.js" + appVersion);
       const originalSetVoices = SrtussAudio.prototype.setVoices;
       globalThis.__srtussEndpointVoiceCommits = [];
       SrtussAudio.prototype.setVoices = async function setVoicesWithEndpointProbe(

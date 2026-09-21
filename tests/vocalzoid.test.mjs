@@ -21,11 +21,11 @@ import {
   vocalzoidBankCoverage,
   vocalzoidPronunciation,
   vocalzoidRenderPlan,
-} from "../src/vocalzoid.js";
+} from "../src/instruments/vocalzoid/vocalzoid.js";
 import {
   isSpellingPronunciationVowel,
   SPELLING_PRONUNCIATION_PHONE_CATALOG,
-} from "../src/spelling-pronunciation.js";
+} from "../src/instruments/spelling-synthesizer/spelling-pronunciation.js";
 
 function seededRandom(seed) {
   let state = seed >>> 0;

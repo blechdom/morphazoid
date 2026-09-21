@@ -147,8 +147,8 @@ test("audio uses one material resonator, stance accents, and an exact no-support
 test("edits preserve motion and global surface/path changes relatch honestly", async () => {
   const [app, model, motor, catalog] = await Promise.all([
     read("src/instruments/quadruped/quadruped-app.js"),
-    read("src/quadruped.js"),
-    read("src/quadruped-motor.js"),
+    read("src/instruments/quadruped/quadruped.js"),
+    read("src/instruments/quadruped/quadruped-motor.js"),
     read("src/instrument-catalog.js"),
   ]);
   const keyboard = app.match(/function handleGridKeydown\(event\) \{([\s\S]*?)\n\}/)?.[1] ?? "";
@@ -198,7 +198,7 @@ test("Quadruped markup does not duplicate ids", async () => {
 
 test("the release builder carries the Quadruped motor into static and WAX output", async () => {
   const inventory = await readRuntimeManifest();
-  for (const file of ["src/quadruped-motor.js", "src/quadruped-voices.js", "src/quadruped-world.js"]) {
+  for (const file of ["src/instruments/quadruped/quadruped-motor.js", "src/instruments/quadruped/quadruped-voices.js", "src/instruments/quadruped/quadruped-world.js"]) {
     assert.ok(inventory.worktreeFiles.includes(file), `${file} has pre-commit copy permission`);
     assert.ok(inventory.requiredFiles.includes(file), `${file} is required in the artifact`);
   }

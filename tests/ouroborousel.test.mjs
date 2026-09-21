@@ -22,7 +22,7 @@ import {
   ouroborouselFusionToneGain,
   ouroborouselWindow,
   sanitizeOuroborouselParams,
-} from "../src/ouroborousel.js";
+} from "../src/instruments/ouroborousel/ouroborousel.js";
 
 const ROOT = new URL("../", import.meta.url);
 
@@ -779,7 +779,7 @@ test("fused note lanes remain audible well beyond the old 96-hit ceiling", () =>
 });
 
 test("worklet process has typed phase state and no render-loop allocations", async () => {
-  const source = await readFile(new URL("src/ouroborousel.js", ROOT), "utf8");
+  const source = await readFile(new URL("src/instruments/ouroborousel/ouroborousel.js", ROOT), "utf8");
   const start = source.indexOf("    process(_inputs, outputs) {");
   const end = source.indexOf("\n      return true;\n    }\n  };", start);
   assert.ok(start >= 0 && end > start);
@@ -831,7 +831,7 @@ test("worklet renders bounded stereo chunks and tones through its octave seam", 
   globalThis.sampleRate = 48_000;
 
   try {
-    await import(`../src/ouroborousel.js?worklet-test=${Date.now()}`);
+    await import(`../src/instruments/ouroborousel/ouroborousel.js?worklet-test=${Date.now()}`);
     assert.equal(registeredName, "morphazoid-ouroborousel");
     assert.equal(registrationCount, 1);
     assert.equal(typeof Processor, "function");

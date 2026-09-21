@@ -5,7 +5,7 @@ import { CATALOGUE_ITEMS, CATALOGUE_GROUPS, INSTRUMENTS, LABS, catalogueItemById
 import { FAVE_TOOL_IDS, TOOL_GROUPS } from "../src/site/instrument-registry.js";
 import { canonicalInstrumentId, legacyInstrumentId } from "../src/site/instrument-identities.js";
 import { instrumentMidiCapabilityForId } from "../src/instrument-midi-capabilities.js";
-import { waxSupportForId } from "../src/wax-instrument-roles.js";
+import { waxSupportForId } from "../src/instruments/wax/wax-instrument-roles.js";
 import { expectedFaveToolIds, mainAdditions } from "./helpers/catalogue-plan.mjs";
 
 const root = new URL("../", import.meta.url);

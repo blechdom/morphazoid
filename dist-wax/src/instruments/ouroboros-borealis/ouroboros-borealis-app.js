@@ -6,7 +6,7 @@ import {
   advanceOuroborosBorealisCoordinates,
   calculateOuroborosBorealisFrame,
   sanitizeOuroborosBorealisParams,
-} from "../../ouroboros-borealis.js";
+} from "./ouroboros-borealis.js";
 
 const $ = (id) => document.getElementById(id);
 const setText = (id, value) => {

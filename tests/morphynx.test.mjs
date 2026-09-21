@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFile, stat } from "node:fs/promises";
 import test from "node:test";
 
-import { animalState } from "../src/syrinx.js";
+import { animalState } from "../src/families/syrinx/syrinx.js";
 import {
   DEFAULT_MORPHYNX_STATE,
   MORPHYNX_ANATOMIES,
@@ -15,8 +15,8 @@ import {
   morphynxLevelMatchTrim,
   morphynxMix,
   morphynxVoiceState,
-} from "../src/morphynx.js";
-import { applyTonguesToDiameter } from "../src/tongue-physics.js";
+} from "../src/instruments/morphynx/morphynx.js";
+import { applyTonguesToDiameter } from "../src/families/syrinx/tongue-physics.js";
 
 const root = new URL("../", import.meta.url);
 

@@ -17,7 +17,7 @@ import {
   simulateSquareDance,
   squareDanceCall,
   timeLensDiagnostics,
-} from "../src/quantum-square-dance.js";
+} from "../src/instruments/quantum-square-dance/quantum-square-dance.js";
 
 const TOLERANCE = 1e-11;
 const TAU = Math.PI * 2;
@@ -367,7 +367,7 @@ test("dephasing changes only the sound coherence layer, not branch power", () =>
 });
 
 test("the scientific core remains import-safe and free of browser/audio side effects", async () => {
-  const source = await readFile(new URL("../src/quantum-square-dance.js", import.meta.url), "utf8");
+  const source = await readFile(new URL("../src/instruments/quantum-square-dance/quantum-square-dance.js", import.meta.url), "utf8");
   assert.doesNotMatch(source, /\bdocument\b|\bwindow\b|AudioContext|webkitAudioContext/);
   assert.doesNotMatch(source, /Math\.random|setTimeout|setInterval|requestAnimationFrame/);
 });

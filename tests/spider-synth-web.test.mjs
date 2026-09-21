@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { SPIDER_WEB_PRESETS, SPIDER_WEB_PARAMETERS, SPIDER_WEB_CONSTRUCTION_RULES, normalizeSpiderWeb, createSpiderWeb, projectSpiderWebInto, spiderWebGeometryKey, serializeSpiderWeb, hydrateSpiderWeb, spiderWebHeight } from '../src/spider-synth-web.js';
-import { SPIDER_MOTION_PRESETS, SPIDER_LEG_GEOMETRY, normalizeSpiderMotion, createSpiderFrame, writeSpiderFrame } from '../src/spider-synth-model.js';
+import { SPIDER_WEB_PRESETS, SPIDER_WEB_PARAMETERS, SPIDER_WEB_CONSTRUCTION_RULES, normalizeSpiderWeb, createSpiderWeb, projectSpiderWebInto, spiderWebGeometryKey, serializeSpiderWeb, hydrateSpiderWeb, spiderWebHeight } from '../src/instruments/spider-synth/spider-synth-web.js';
+import { SPIDER_MOTION_PRESETS, SPIDER_LEG_GEOMETRY, normalizeSpiderMotion, createSpiderFrame, writeSpiderFrame } from '../src/instruments/spider-synth/spider-synth-model.js';
 const near = (a, b, e = 1e-9) => assert.ok(Math.abs(a - b) <= e, `${a} != ${b}`);
 
 test('17 named web networks are connected, finite, deterministic and bounded at knob extremes', () => {

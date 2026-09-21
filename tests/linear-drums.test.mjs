@@ -21,7 +21,7 @@ import {
   linearDrumPositionAtFrequency,
   linearDrumSigmoid,
   sanitizeLinearDrumSettings,
-} from "../src/linear-drums.js";
+} from "../src/instruments/linear-drums/linear-drums.js";
 
 const root = new URL("../", import.meta.url);
 

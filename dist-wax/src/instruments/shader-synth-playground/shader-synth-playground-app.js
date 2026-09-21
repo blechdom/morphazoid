@@ -13,17 +13,17 @@ import {
   sanitizeShaderPlaygroundPatch,
   shaderPlaygroundSupport,
   validateShaderPlaygroundPatch,
-} from "../../shader-synth-playground.js?v=20260902-monotonic-play-note";
+} from "./shader-synth-playground.js?v=20260902-monotonic-play-note";
 import {
   WEBGPU_SYNTHS_DEFAULT_ORGAN_RANKS,
   WEBGPU_SYNTHS_ORGAN_RANK_COUNT,
   sanitizeWebGpuSynthOrganRanks,
-} from "../../webgpu-synths.js";
+} from "../webgpu-synths/webgpu-synths.js";
 import {
   formatShaderSynthPlaygroundAudioAsset,
   prepareShaderSynthPlaygroundAudioAsset,
   shaderSynthPlaygroundAudioAssetSpec,
-} from "../../shader-synth-playground-audio-assets.js?v=20260831-modules125";
+} from "./shader-synth-playground-audio-assets.js?v=20260831-modules125";
 
 const $ = (id) => document.getElementById(id);
 const clamp = (value, minimum, maximum) => Math.min(maximum, Math.max(minimum, Number(value) || 0));

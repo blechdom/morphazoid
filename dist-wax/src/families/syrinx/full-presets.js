@@ -1,7 +1,7 @@
-import { ANIMALS, CALL_GESTURES, CONTROL_LIMITS, MODULATION_TARGETS, animalState, sanitizeSyrinxState } from "../../syrinx.js";
-import { DEFAULT_TONGUE_STATE, TONGUE_ANATOMIES, sanitizeTongueState } from "../../tongue-physics.js";
-import { TONGUE_PARAMETER_LIMITS, TONGUE_MOTION_PRESETS } from "../../tongue-performance.js";
-import { normalizeHybrinxPresetGesture } from "../../hybrinx-timeline.js";
+import { ANIMALS, CALL_GESTURES, CONTROL_LIMITS, MODULATION_TARGETS, animalState, sanitizeSyrinxState } from "./syrinx.js";
+import { DEFAULT_TONGUE_STATE, TONGUE_ANATOMIES, sanitizeTongueState } from "./tongue-physics.js";
+import { TONGUE_PARAMETER_LIMITS, TONGUE_MOTION_PRESETS } from "./tongue-performance.js";
+import { normalizeHybrinxPresetGesture } from "../../instruments/hybrinx/hybrinx-timeline.js";
 import { clonePresetData, presetRandom, randomParameterValues } from "../../site/preset-random.js";
 import { presetStateKey } from "../../site/header-presets.js";
 

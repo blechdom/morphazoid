@@ -10,7 +10,7 @@ import {
   L_SYSTEM_UNIQUE_PARAMETERS,
   lSystemPlayingModeFor,
   lSystemSuiteModeFor,
-} from "../src/l-systems-suite.js";
+} from "../src/instruments/l-systems/l-systems-suite.js";
 
 const root = new URL("../", import.meta.url);
 

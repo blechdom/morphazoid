@@ -10,7 +10,7 @@ import {
   PlayheadPaintAudio,
   sanitizePlayheadPaintAdsr,
   sanitizePlayheadPaintVoice,
-} from "../src/playhead-paint-audio.js";
+} from "../src/instruments/playhead-paint/playhead-paint-audio.js";
 
 class FakeAudioParam {
   constructor(value = 0) {

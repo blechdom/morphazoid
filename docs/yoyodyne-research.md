@@ -161,7 +161,7 @@ behind it. A projected overlap does not mean a literal physical chord.
 
 This notebook records an earlier tine/contact proposal. Its experimental
 modules remain local to the development worktree and are not part of this
-published instrument. The current page instead uses `src/yoyodyne.js` and the
+published instrument. The current page instead uses `src/instruments/yoyodyne/yoyodyne.js` and the
 kinetic string DSP: a compliant tether, coupled payout/spin, a lossy bind
 approximation and prescribed cradle geometry drive continuous sonification.
 See [the current model contract](yoyodyne-kinetic.md). Full 3-D orientation,

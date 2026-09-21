@@ -1,6 +1,6 @@
 import { test, expect } from "@playwright/test";
-import { QUADRUPED_ANIMALS } from "../src/quadruped.js";
-import { quadrupedCalls } from "../src/quadruped-voices.js";
+import { QUADRUPED_ANIMALS } from "../src/instruments/quadruped/quadruped.js";
+import { quadrupedCalls } from "../src/instruments/quadruped/quadruped-voices.js";
 
 test("Quadruped frog has editable calls and an audio-clock-driven vocal gesture", async ({ page }) => {
   const errors = []; page.on("pageerror", error => errors.push(error.message));
@@ -73,7 +73,7 @@ test("Quadruped renders every bonus voice in isolation with finite output and re
   await page.goto("/quadruped.html");
   const report = await page.evaluate(async () => {
     const source = await (await fetch("./src/instruments/quadruped/quadruped-app.js")).text();
-    const { QUADRUPED_CALLS } = await import("./src/quadruped-voices.js");
+    const { QUADRUPED_CALLS } = await import("./src/instruments/quadruped/quadruped-voices.js");
     const names = ["createPanner", "midiToFrequency", "scheduleTone", "schedulePitchContour", "scheduleCall"];
     const functions = names.map(name => {
       const match = source.match(new RegExp("function " + name + "\\([^]*?\\n\\}(?=\\r?\\n)"));

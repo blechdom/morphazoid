@@ -7,7 +7,7 @@ import {
   clamp,
   interpolateGesture,
   resolveGestureTimeline,
-} from "../../syrinx.js";
+} from "../../families/syrinx/syrinx.js";
 import {
   DEFAULT_MORPHYNX_STATE,
   MORPHYNX_ANATOMIES,
@@ -18,7 +18,7 @@ import {
   morphynxKeyboardCommand,
   morphynxLevelMatchTrim,
   morphynxVoiceState,
-} from "../../morphynx.js";
+} from "./morphynx.js";
 import { connectAudioOutput } from "../../audio-output-manager.js";
 import { unlockAudioContext } from "../../audio.js";
 
@@ -320,7 +320,7 @@ async function createAudioGraph() {
   if (!Context) throw new Error("This browser does not provide Web Audio.");
   const context = new Context({ latencyHint: "interactive", sampleRate: 48_000 });
   unlockAudioContext(context);
-  await context.audioWorklet.addModule(new URL("../../syrinx-processor.js", import.meta.url));
+  await context.audioWorklet.addModule(new URL("../../families/syrinx/syrinx-processor.js", import.meta.url));
   const configuration = morphynxConfiguration({
     animal: state.animal,
     voice: baseVoice(),

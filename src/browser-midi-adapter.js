@@ -1,5 +1,5 @@
 import { getSharedMidiManager } from "./midi-manager.js";
-import { MidiClockTempoTracker, midiNoteToFrequency, normalizedControlValue } from "./wax-midi-routing.js";
+import { MidiClockTempoTracker, midiNoteToFrequency, normalizedControlValue } from "./instruments/wax/wax-midi-routing.js";
 import { instrumentMidiCapabilityForId } from "./instrument-midi-capabilities.js";
 import { legacyInstrumentId } from "./site/instrument-identities.js";
 

@@ -1,5 +1,5 @@
-import { MICMIC_PRESETS, GENERATION_RULE_PRESETS, FIXED_FORK_DENSITY } from "../../micmic.js";
-import { GRANULAR_ECONOMY_PITCH_CLASSES } from "../../granular-economy-renderer.js";
+import { MICMIC_PRESETS, GENERATION_RULE_PRESETS, FIXED_FORK_DENSITY } from "../../instruments/micmic/micmic.js";
+import { GRANULAR_ECONOMY_PITCH_CLASSES } from "../signalsmith-generation/granular-economy-renderer.js";
 export const DEFAULT_L_SYSTEM_STATE = Object.freeze({
   presetId: "pythagorean",
   iterations: 7,

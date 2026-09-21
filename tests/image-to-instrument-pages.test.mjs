@@ -113,7 +113,7 @@ test("the stable image-to-instrument route delegates to the internal Wheel runti
 test("Wheel of Organs uses a dedicated formant runtime without external input", async () => {
   const [app, audio] = await Promise.all([
     readFile(new URL("src/instruments/wheel-of-organs/wheel-of-organs-app.js", root), "utf8"),
-    readFile(new URL("src/wheel-of-organs-audio.js", root), "utf8"),
+    readFile(new URL("src/instruments/wheel-of-organs/wheel-of-organs-audio.js", root), "utf8"),
   ]);
   assert.match(app, /compileWheelWord/);
   assert.match(app, /mapWheelPullGesture/);

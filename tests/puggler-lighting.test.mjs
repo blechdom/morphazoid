@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { LIGHTING_SCENES, lightingState, renderStageLighting } from '../src/puggler-lighting.js';
+import { LIGHTING_SCENES, lightingState, renderStageLighting } from '../src/instruments/puggler/puggler-lighting.js';
 const model={time:10,activePlayers:[{lastCatch:9.5},{lastCatch:9.8},{lastCatch:9.9}]};
 
 test('the four selectable lighting scenarios have distinct finite bounded geometry',()=>{

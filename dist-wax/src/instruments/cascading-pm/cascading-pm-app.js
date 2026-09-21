@@ -15,11 +15,11 @@ import {
   rootHzSliderPosition,
   rootHzSliderValue,
   sanitizeCascadingPmSettings,
-} from "../../cascading-pm.js";
+} from "./cascading-pm.js";
 import {
   createChaoticSpectrum,
   drawChaoticLiveAnalysis,
-} from "../../chaotic-synth-visuals.js";
+} from "../../families/chaotic/chaotic-synth-visuals.js";
 import { canvasSizing } from "../../graphics/canvas-sizing.js";
 
 const $ = (id) => document.getElementById(id);

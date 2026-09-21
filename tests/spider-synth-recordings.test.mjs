@@ -2,9 +2,9 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
-import { SpiderRecordingBank, SPIDER_RECORDINGS, SPIDER_RECORDING_MAX_VOICES } from '../src/spider-synth-recordings.js';
-import { SpiderSynthDsp, createDefaultSpiderBodyMix, SPIDER_SOUND_PRESETS } from '../src/spider-synth-dsp.js';
-import { SpiderSynthAudio } from '../src/spider-synth-audio.js';
+import { SpiderRecordingBank, SPIDER_RECORDINGS, SPIDER_RECORDING_MAX_VOICES } from '../src/instruments/spider-synth/spider-synth-recordings.js';
+import { SpiderSynthDsp, createDefaultSpiderBodyMix, SPIDER_SOUND_PRESETS } from '../src/instruments/spider-synth/spider-synth-dsp.js';
+import { SpiderSynthAudio } from '../src/instruments/spider-synth/spider-synth-audio.js';
 import { spiderRecordingFixture } from './helpers/spider-recording-fixture.mjs';
 
 const mix = (source, group = 'abdomen') => createDefaultSpiderBodyMix().map(row => ({ ...row, source, level: row.groupId === group ? .7 : 0 }));

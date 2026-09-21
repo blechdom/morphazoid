@@ -4,7 +4,7 @@ import {
   chaoticVisualRegions,
   drawChaoticScope,
   drawChaoticSpectrum,
-} from "../src/chaotic-synth-visuals.js";
+} from "../src/families/chaotic/chaotic-synth-visuals.js";
 import "./catalog.css";
 
 function waveform(length = 512) {

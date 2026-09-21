@@ -8,7 +8,7 @@ import {
   WAX_ROLE_DEFINITIONS,
   WAX_ROLE_IDS,
   waxSupportForId,
-} from "../src/wax-instrument-roles.js";
+} from "../src/instruments/wax/wax-instrument-roles.js";
 
 const validRoleIds = new Set(Object.values(WAX_ROLE_IDS));
 

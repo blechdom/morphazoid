@@ -5,7 +5,7 @@ import {
   HICCUP_HEAD_DEFAULTS,
   HICCUP_HEAD_TOOTH_TINE_PROFILES,
   hiccupHeadFaceEffectTargets,
-} from "../src/hiccup-head.js";
+} from "../src/instruments/hiccup-head/hiccup-head.js";
 
 const root = new URL("../", import.meta.url);
 
@@ -476,7 +476,7 @@ test("eye convolution sends and the in-series high-pass sweep progressively", ()
 test("native convolution feeds post-room fuzz and the in-series Biquad makeup stage", async () => {
   const [app, processor] = await Promise.all([
     readFile(new URL("src/instruments/hiccup-head/hiccup-head-app.js", root), "utf8"),
-    readFile(new URL("src/hiccup-head-processor.js", root), "utf8"),
+    readFile(new URL("src/instruments/hiccup-head/hiccup-head-processor.js", root), "utf8"),
   ]);
   const postConfiguration = app.slice(
     app.indexOf("function postConfiguration("),
@@ -614,7 +614,7 @@ test("native convolution feeds post-room fuzz and the in-series Biquad makeup st
 test("Hiccup Head keeps FX energy balanced and gives BRUSH tuned marimba steps", async () => {
   const [app, processor] = await Promise.all([
     readFile(new URL("src/instruments/hiccup-head/hiccup-head-app.js", root), "utf8"),
-    readFile(new URL("src/hiccup-head-processor.js", root), "utf8"),
+    readFile(new URL("src/instruments/hiccup-head/hiccup-head-processor.js", root), "utf8"),
   ]);
   assert.match(processor, /Both hairs feed a centered two-tap delay network/);
   assert.match(processor, /const centeredDelay =/);
@@ -901,7 +901,7 @@ test("quiet fuzz, fallback high-pass, and post-hair ear width stay audible and b
   };
 
   try {
-    await import(`../src/hiccup-head-processor.js?face-fx=${Date.now()}-${Math.random()}`);
+    await import(`../src/instruments/hiccup-head/hiccup-head-processor.js?face-fx=${Date.now()}-${Math.random()}`);
     PhysicalProcessor = processors.get("hiccup-head-physical-model");
     FacePostProcessor = processors.get("hiccup-head-face-post");
     assert.equal(typeof PhysicalProcessor, "function");

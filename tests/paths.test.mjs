@@ -12,7 +12,7 @@ import {
   pathSvgData,
   samplePath,
   sanitizePathSettings,
-} from "../src/paths.js";
+} from "../src/instruments/paths/paths.js";
 
 const root = new URL("../", import.meta.url);
 

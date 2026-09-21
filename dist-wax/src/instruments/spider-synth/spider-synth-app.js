@@ -1,16 +1,16 @@
-import { SpiderSynthViewer } from "../../spider-synth-viewer.js?v=dd1be907fd5b";
-import { getSpiderDisplayProfile } from "../../spider-synth-display.js?v=dd1be907fd5b";
-import { SPIDER_SPECIMENS, getSpiderSpecimen } from "../../spider-synth-specimens.js?v=dd1be907fd5b";
-import { createSpiderMidiControls } from "../../spider-synth-midi-controls.js?v=dd1be907fd5b";
-import { createSpiderNavigationControls } from "../../spider-synth-navigation-controls.js?v=dd1be907fd5b";
-import { SpiderSynthWorld, normalizeSpiderWorld, SPIDER_TRAVEL_PATHS } from "../../spider-synth-world.js?v=dd1be907fd5b";
-import { normalizeSpiderWeb, serializeSpiderWeb, SPIDER_WEB_PRESETS, SPIDER_WEB_PARAMETERS } from "../../spider-synth-web.js?v=dd1be907fd5b";
+import { SpiderSynthViewer } from "./spider-synth-viewer.js?v=230f9505a484";
+import { getSpiderDisplayProfile } from "./spider-synth-display.js?v=230f9505a484";
+import { SPIDER_SPECIMENS, getSpiderSpecimen } from "./spider-synth-specimens.js?v=230f9505a484";
+import { createSpiderMidiControls } from "./spider-synth-midi-controls.js?v=230f9505a484";
+import { createSpiderNavigationControls } from "./spider-synth-navigation-controls.js?v=230f9505a484";
+import { SpiderSynthWorld, normalizeSpiderWorld, SPIDER_TRAVEL_PATHS } from "./spider-synth-world.js?v=230f9505a484";
+import { normalizeSpiderWeb, serializeSpiderWeb, SPIDER_WEB_PRESETS, SPIDER_WEB_PARAMETERS } from "./spider-synth-web.js?v=230f9505a484";
 import { SPIDER_JOINTS, SPIDER_MOTION_PRESETS, SPIDER_MOTION_DEFAULTS, SPIDER_STATIC_POSES,
   normalizeSpiderMotion, createRandomSpiderMotion, createSpiderStaticPose,
-  createSpiderWeb, createSpiderFrame, writeSpiderPose, applySpiderSpeechPose } from "../../spider-synth-model.js?v=dd1be907fd5b";
+  createSpiderWeb, createSpiderFrame, writeSpiderPose, applySpiderSpeechPose } from "./spider-synth-model.js?v=230f9505a484";
 import { SpiderSynthAudio, SPIDER_SOUND_PRESETS, SPIDER_SOUND_DEFAULTS, SPIDER_BODY_GROUPS,
   SPIDER_BODY_SOURCES, createDefaultSpiderBodyMix, createRandomSpiderSound,
-  getSpiderMotionSound, getSpiderBodyGroupId } from "../../spider-synth-audio.js?v=dd1be907fd5b";
+  getSpiderMotionSound, getSpiderBodyGroupId } from "./spider-synth-audio.js?v=230f9505a484";
 
 const el = id => document.getElementById(id);
 const listeners = new AbortController(), options = { signal: listeners.signal };
@@ -378,7 +378,7 @@ async function loadModel(id = state.specimenChoice) {
   try {
     // Resolve asset URLs here: the geometry metadata also runs in the audio
     // worklet, whose global scope has no URL constructor.
-    const assetBase = new URL("../../", import.meta.url);
+    const assetBase = new URL("./", import.meta.url);
     const modelPath = displayProfile.mobileAssets ? specimen.phoneModelPath : specimen.modelPath;
     const loaded = await viewer.load(new URL(modelPath, assetBase).href, new URL(specimen.rigPath, assetBase).href);
     if (version !== loadVersion || state.disposed) return;

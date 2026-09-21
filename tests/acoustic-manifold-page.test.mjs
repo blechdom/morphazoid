@@ -6,7 +6,7 @@ const html = fs.readFileSync(new URL("../acoustic-manifold.html", import.meta.ur
 const css = fs.readFileSync(new URL("../src/instruments/acoustic-manifold/acoustic-manifold.css", import.meta.url), "utf8");
 const app = fs.readFileSync(new URL("../src/instruments/acoustic-manifold/acoustic-manifold-app.js", import.meta.url), "utf8");
 const sourceCatalog = fs.readFileSync(
-  new URL("../src/acoustic-source-catalog.js", import.meta.url),
+  new URL("../src/families/acoustic/acoustic-source-catalog.js", import.meta.url),
   "utf8",
 );
 

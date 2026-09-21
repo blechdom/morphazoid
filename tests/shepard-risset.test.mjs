@@ -19,7 +19,7 @@ import {
   sanitizeShepardMode,
   sanitizeShepardParams,
   shepardWindow,
-} from "../src/shepard-risset.js";
+} from "../src/instruments/shepard-risset/shepard-risset.js";
 
 const EXPECTED_MODERN_PRESETS = [
   {
@@ -437,7 +437,7 @@ test("audio wrapper retains independent mode parameters and posts both banks", (
 
 test("worklet process retains typed-array state and allocates no collections", async () => {
   const source = await readFile(
-    new URL("../src/shepard-risset.js", import.meta.url),
+    new URL("../src/instruments/shepard-risset/shepard-risset.js", import.meta.url),
     "utf8",
   );
   const start = source.indexOf("    process(_inputs, outputs) {");
@@ -478,7 +478,7 @@ test("worklet crossfades rapid mode changes with finite extreme output", async (
   globalThis.sampleRate = 48_000;
 
   try {
-    await import(`../src/shepard-risset.js?dual-mode-test=${Date.now()}`);
+    await import(`../src/instruments/shepard-risset/shepard-risset.js?dual-mode-test=${Date.now()}`);
     assert.equal(typeof Processor, "function");
     const processor = new Processor({
       processorOptions: {
@@ -609,7 +609,7 @@ test("worklet renders a finite normalized stereo bank through an octave seam", a
   globalThis.sampleRate = 48_000;
 
   try {
-    await import(`../src/shepard-risset.js?worklet-test=${Date.now()}`);
+    await import(`../src/instruments/shepard-risset/shepard-risset.js?worklet-test=${Date.now()}`);
     assert.equal(typeof Processor, "function");
     const processor = new Processor({
       processorOptions: {
@@ -656,7 +656,7 @@ test("native page keeps audio creation behind the Audio gesture and cleans up", 
   const [markup, app, audioModule] = await Promise.all([
     readFile(new URL("shepard-risset.html", root), "utf8"),
     readFile(new URL("src/instruments/shepard-risset/shepard-risset-app.js", root), "utf8"),
-    readFile(new URL("src/shepard-risset.js", root), "utf8"),
+    readFile(new URL("src/instruments/shepard-risset/shepard-risset.js", root), "utf8"),
   ]);
 
   assert.match(markup, /id="audioButton"[^>]+aria-pressed="false"/);

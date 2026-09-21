@@ -8,7 +8,7 @@ import {
   bendToFrequency,
   sanitizeJulieSawState,
   sweetSpotPosition,
-} from "../src/julie-saw.js";
+} from "../src/instruments/julie-saw/julie-saw.js";
 
 const RATE = 48_000;
 const BLOCK_SIZE = 128;
@@ -35,7 +35,7 @@ globalThis.registerProcessor = (name, implementation) => {
   if (name !== "julie-saw-physical-model") throw new Error(`Unexpected processor ${name}`);
   Processor = implementation;
 };
-await import(`../src/julie-saw-processor.js?characterization=${Date.now()}`);
+await import(`../src/instruments/julie-saw/julie-saw-processor.js?characterization=${Date.now()}`);
 
 function render(configuration, durationSeconds = 4) {
   const state = sanitizeJulieSawState({ ...configuration, autoPlay: true });

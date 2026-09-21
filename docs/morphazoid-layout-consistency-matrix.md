@@ -5,7 +5,7 @@
 - **Audit date:** 2026-09-07
 - **Source baseline:** isolated `codex/ui-storybook-overhaul` worktree at commit `2c6763e14a26acd04d0a662185083d92945938f7`
 - **Inventory:** the 138 stable tool entries exported by `nav.js` `TOOL_GROUPS`, plus the authored home/catalog route `home / index.html`, for **139 navigable pages** total.
-- **Evidence used:** authored HTML/CSS/ES modules, `nav.js`, `src/instrument-catalog.js`, `src/instrument-midi-capabilities.js`, `src/wax-instrument-roles.js`, the shared `src/ui/` implementation, and existing focused tests.
+- **Evidence used:** authored HTML/CSS/ES modules, `nav.js`, `src/instrument-catalog.js`, `src/instrument-midi-capabilities.js`, `src/instruments/wax/wax-instrument-roles.js`, the shared `src/ui/` implementation, and existing focused tests.
 
 This is primarily a **static-source conformance report**, not a claim that all 139 pages were played and observed at every viewport. Static structure can earn `=` or `~`. Audio, MIDI, and responsive behavior remain `?` unless focused tests or direct runtime evidence establish the relevant contract. A class name, an `AudioContext` reference, a MIDI capability record, or an `@media` rule is evidence of intent, not proof of correct behavior. Custom/domain-specific UI is not automatically a defect.
 

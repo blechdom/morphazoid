@@ -11,7 +11,7 @@ import {
 import {
   HYPER_RUBIX_WEBGPU_303_DEFAULTS,
   createHyperRubixWebGpu303Pattern,
-} from "../src/hyper-rubix-webgpu-303.js";
+} from "../src/instruments/hyper-rubix/hyper-rubix-webgpu-303.js";
 import {
   HYPER_RUBIX_CELL_ORDER,
   createHyperRubixScopedStickerStream,
@@ -19,7 +19,7 @@ import {
   createSolvedHyperRubix,
   hyperRubixSizeMetrics,
   turnHyperRubixBoundaryCell,
-} from "../src/hyper-rubix.js";
+} from "../src/instruments/hyper-rubix/hyper-rubix.js";
 
 function assertFinitePattern(pattern) {
   assert.equal(pattern.sequence.length, pattern.requiredSequenceCapacity);

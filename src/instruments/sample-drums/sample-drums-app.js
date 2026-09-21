@@ -1,11 +1,11 @@
-import { fmDrumMidiAction } from "../../fm-drums-midi.js";
+import { fmDrumMidiAction } from "../fm-drums/fm-drums-midi.js";
 import { getSharedMidiManager } from "../../midi-manager.js";
 import {
   SAMPLE_DRUM_STORAGE_KEY,
   SampleDrumAudio,
   cloneDefaultSampleDrumVoices,
   sanitizeSampleDrumVoice,
-} from "../../sample-drums.js";
+} from "./sample-drums.js";
 
 const $ = (id) => document.getElementById(id);
 const audio = new SampleDrumAudio(globalThis);

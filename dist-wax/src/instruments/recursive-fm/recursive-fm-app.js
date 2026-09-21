@@ -18,11 +18,11 @@ import {
   sanitizeRecursiveFmPerformance,
   sanitizeRecursiveFmSettings,
   summarizeRecursiveFmStack,
-} from "../../recursive-fm.js";
+} from "./recursive-fm.js";
 import {
   createChaoticSpectrum,
   drawChaoticLiveAnalysis,
-} from "../../chaotic-synth-visuals.js";
+} from "../../families/chaotic/chaotic-synth-visuals.js";
 import { unlockAudioContext } from "../../audio.js";
 import { connectAudioOutput } from "../../audio-output-manager.js";
 import { getSharedMidiManager } from "../../midi-manager.js";

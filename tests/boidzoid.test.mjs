@@ -15,8 +15,8 @@ import {
   sanitizeBoidzoidSettings,
   skinCellAt,
   stepFlock,
-} from "../src/boidzoid.js";
-import { sanitizeKarplusStrongSettings } from "../src/karplus-strong.js";
+} from "../src/instruments/boidzoid/boidzoid.js";
+import { sanitizeKarplusStrongSettings } from "../src/instruments/karplus-strong/karplus-strong.js";
 
 const root = new URL("../", import.meta.url);
 

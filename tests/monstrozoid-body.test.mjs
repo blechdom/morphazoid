@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { createMonstrozoidBodyGeometry } from "../src/monstrozoid-body.js";
+import { createMonstrozoidBodyGeometry } from "../src/families/syrinx/monstrozoid-body.js";
 
 const layout = {
   seed: 77,

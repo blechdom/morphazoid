@@ -1,4 +1,6 @@
 // Historical fixture names mapped to current source locations.
+import { readFileSync } from "node:fs";
+const modelMoves = JSON.parse(readFileSync(new URL("../../docs/source-module-layout.json", import.meta.url), "utf8")).moves;
 export const relocatedSources = Object.freeze({
   "loop-network-app.js": "src/families/starting-instruments/loop-network-app.js",
   "app.js": "src/instruments/shape-synth/shape-synth-app.js",
@@ -44,4 +46,7 @@ export const relocatedSources = Object.freeze({
   "alien-larynx-app.js": "src/instruments/alien-larynx/alien-larynx-app.js"
 });
 
-export function currentSourcePath(file) { return relocatedSources[file] ?? file; }
+export function currentSourcePath(file) {
+  const controller = relocatedSources[file] ?? file;
+  return modelMoves[controller] ?? controller;
+}

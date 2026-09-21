@@ -1,5 +1,5 @@
-import { createWaveLabShell } from "../../wave-lab-shell.js?v=wave-20260918-1";
-import { createLattice, participationRatio, findThreshold, siteFrequency } from "../../freeze-point.js?v=wave-20260918-1";
+import { createWaveLabShell } from "../../families/wave-lab/wave-lab-shell.js?v=wave-20260918-1";
+import { createLattice, participationRatio, findThreshold, siteFrequency } from "./freeze-point.js?v=wave-20260918-1";
 
 const $ = (id) => document.getElementById(id);
 const TAU = Math.PI * 2;
@@ -99,7 +99,7 @@ canvas.addEventListener("keydown", (event) => {
 
 const shell = createWaveLabShell({
   onArm: async (context) => {
-    await context.audioWorklet.addModule("src/freeze-point-processor.js?v=wave-20260918-1");
+    await context.audioWorklet.addModule("src/instruments/freeze-point/freeze-point-processor.js?v=wave-20260918-1");
     node = new AudioWorkletNode(context, "morphazoid-freeze-point", {
       numberOfInputs: 1, numberOfOutputs: 1, outputChannelCount: [2],
       processorOptions: {

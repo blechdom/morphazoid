@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { readFile } from 'node:fs/promises';
-import { RoachMidiPerformance, ROACH_MIDI_GESTURES, ROACH_MIDI_MAX_VOICES, normalizeRoachMidiMessage } from '../src/roach-synth-midi.js';
-import { writeRoachPose, normalizeRoachMotion } from '../src/roach-synth-motion.js';
+import { RoachMidiPerformance, ROACH_MIDI_GESTURES, ROACH_MIDI_MAX_VOICES, normalizeRoachMidiMessage } from '../src/instruments/roach-synth/roach-synth-midi.js';
+import { writeRoachPose, normalizeRoachMotion } from '../src/instruments/roach-synth/roach-synth-motion.js';
 
 const event = (type, value = {}) => ({ type, sourceId: 'keys', channel: 0, ...value });
 const on = (p, note, time = 0, value = {}) => p.handle(event('noteOn', { note, velocity: 100, ...value }), time);
@@ -252,7 +252,7 @@ test('snapshot restore rejects incompatible versions and bounds hostile values',
 });
 
 test('sample and pose hot paths contain no explicit allocating constructs', async () => {
-  const source = await readFile(new URL('../src/roach-synth-midi.js', import.meta.url), 'utf8');
+  const source = await readFile(new URL('../src/instruments/roach-synth/roach-synth-midi.js', import.meta.url), 'utf8');
   const sample = source.slice(source.indexOf('  sample('), source.indexOf('  setJoints('));
   const pose = source.slice(source.indexOf('  applyPose('), source.indexOf('  getState('));
   assert.doesNotMatch((sample + pose).replace(/throw new RangeError\([^;]+;/g, ''), /\bnew\s|\.map\(|\.filter\(|\.slice\(|\.find\(|Array\.from|=>/);

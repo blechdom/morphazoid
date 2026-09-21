@@ -8,7 +8,7 @@ import {
   qftCosetDistribution,
   recoverFactorsFromMeasurement,
   simulateOrderFindingShots,
-} from "../../order-tones.js";
+} from "./order-tones.js";
 
 const $ = (id) => document.getElementById(id);
 const TAU = Math.PI * 2;

@@ -21,12 +21,12 @@ import {
   programLevelToGain,
   projectPoint,
   speakerPan,
-} from "../../surround-field.js";
+} from "./surround-field.js";
 import {
   MAX_RECORDING_SECONDS,
   SurroundFieldRecorder,
   buildStemArchive,
-} from "../../surround-field-recorder.js";
+} from "./surround-field-recorder.js";
 
 const $ = (id) => document.getElementById(id);
 const TAU = Math.PI * 2;

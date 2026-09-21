@@ -15,13 +15,13 @@ import {
   spellingTextEdit,
   spellingTokens,
   typingDynamics,
-} from "../../spelling-synthesizer.js";
-import { SpellingSynthesizerAudio } from "../../spelling-synthesizer-audio.js";
+} from "./spelling-synthesizer.js";
+import { SpellingSynthesizerAudio } from "./spelling-synthesizer-audio.js";
 import {
   loadSpellingPronunciations,
   spellingPhoneDefinition,
   spellingPronunciationTokens,
-} from "../../spelling-pronunciation.js";
+} from "./spelling-pronunciation.js";
 
 const $ = (id) => document.getElementById(id);
 const BOUNDARY_PATTERN = /\s|[.!?,;:]/;

@@ -355,7 +355,7 @@ test("GPU-rendered drum dynamics and voice tone controls are finite and conseque
   test.skip(process.env.MORPHAZOID_WEBGPU_QA !== "1", "Enable the actual GPU audio diagnostic pass.");
   await page.goto(chiptuneHref);
   const result = await page.evaluate(async () => {
-    const m = await import("./src/webgpu-chiptune.js");
+    const m = await import("./src/instruments/webgpu-chiptune/webgpu-chiptune.js");
     const audio = new m.WebGpuChiptuneAudio();
     const context = new AudioContext();
     const destination = context.createGain(); // Disconnected: measure without speaker output.
@@ -415,7 +415,7 @@ test("live note edits and character drags do not audition or restart playback", 
   await page.goto(chiptuneHref);
   await settlePage(page);
   await page.evaluate(async () => {
-    const { WebGpuChiptuneAudio } = await import("./src/webgpu-chiptune.js");
+    const { WebGpuChiptuneAudio } = await import("./src/instruments/webgpu-chiptune/webgpu-chiptune.js");
     window.chiptuneEditProbe = { auditions: 0, restarts: 0, times: [] };
     for (const [method, counter] of [["auditionSequenceCell", "auditions"], ["restartTimeline", "restarts"]]) {
       const original = WebGpuChiptuneAudio.prototype[method];
@@ -524,7 +524,7 @@ test("GPU Pattern pitch and volume work independently; drum edits keep the curre
   test.skip(process.env.MORPHAZOID_WEBGPU_QA !== "1", "Enable GPU audio measurements.");
   await page.goto(chiptuneHref);
   const result = await page.evaluate(async () => {
-    const m = await import("./src/webgpu-chiptune.js");
+    const m = await import("./src/instruments/webgpu-chiptune/webgpu-chiptune.js");
     const audio = new m.WebGpuChiptuneAudio(), context = new AudioContext();
     const rms = (pcm) => Math.sqrt(pcm.reduce((sum, v) => sum + v * v, 0) / pcm.length);
     const diff = (a, b) => rms(a.map((v, i) => v - b[i]));

@@ -12,7 +12,7 @@ import {
   frequencyFromSlider,
   frequencySliderPosition,
   sanitizeFmDrumVoice,
-} from "../src/fm-drums.js";
+} from "../src/instruments/fm-drums/fm-drums.js";
 
 const root = new URL("../", import.meta.url);
 

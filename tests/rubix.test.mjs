@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFile, stat } from "node:fs/promises";
 import test from "node:test";
 
-import { DEFAULT_FM_DRUM_VOICES } from "../src/fm-drums.js";
+import { DEFAULT_FM_DRUM_VOICES } from "../src/instruments/fm-drums/fm-drums.js";
 
 import {
   DEFAULT_RUBIX_CAMERA,
@@ -39,7 +39,7 @@ import {
   rubixTwistSpeedMultiplier,
   turnRubixLayer,
   visibleRubixFaces,
-} from "../src/rubix.js";
+} from "../src/instruments/rubix/rubix.js";
 
 const root = new URL("../", import.meta.url);
 
@@ -608,7 +608,7 @@ test("Rubix page exposes cube gestures, mutually exclusive banks across all six 
   assert.match(css, /\.rubix-read-modes/);
   assert.match(css, /\.rubix-mini-face/);
   assert.match(css, /@media \(max-width: 650px\)/);
-  assert.match(app, /from "\.\.\/\.\.\/rubix\.js"/);
+  assert.match(app, /from "\.\/rubix\.js"/);
   assert.match(app, /rubixReadFrame/);
   assert.match(app, /rubixLayersForSize/);
   assert.match(app, /createRubixVisibilityProfile/);

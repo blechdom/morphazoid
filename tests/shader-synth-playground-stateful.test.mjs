@@ -12,14 +12,14 @@ import {
   encodeShaderPlaygroundPatch,
   sanitizeShaderPlaygroundPatch,
   validateShaderPlaygroundPatch,
-} from "../src/shader-synth-playground.js";
+} from "../src/instruments/shader-synth-playground/shader-synth-playground.js";
 import {
   SHADER_SYNTH_PLAYGROUND_ADVANCED_RESET_PARAM_INDICES,
   SHADER_SYNTH_PLAYGROUND_ADVANCED_STATE_LIMITS,
   shaderSynthPlaygroundAdvancedAssetLayout,
   shaderSynthPlaygroundAdvancedPersistentByteSize,
-} from "../src/shader-synth-playground-advanced-state-engine.js";
-import * as stateful from "../src/shader-synth-playground-stateful.js";
+} from "../src/instruments/shader-synth-playground/shader-synth-playground-advanced-state-engine.js";
+import * as stateful from "../src/instruments/shader-synth-playground/shader-synth-playground-stateful.js";
 
 const ROOT = new URL("../", import.meta.url);
 const EXPECTED_STATEFUL_IDS = Object.freeze([
@@ -345,7 +345,7 @@ test("stateful WGSL owns six cases and a dedicated ordered compute entry point",
     );
   }
 
-  const stateEngineSource = await readFile(new URL("src/shader-synth-playground-state-engine.js", ROOT), "utf8");
+  const stateEngineSource = await readFile(new URL("src/instruments/shader-synth-playground/shader-synth-playground-state-engine.js", ROOT), "utf8");
   assert.match(
     stateEngineSource,
     /entryPoint:\s*["']renderStateNode["']/,
@@ -867,8 +867,8 @@ test("performance notes restart only sampler nodes in One-shot mode", () => {
 
 test("large state resources are conditional, state passes are active-only, and shutdown destroys them", async () => {
   const [coreSource, stateEngineSource] = await Promise.all([
-    readFile(new URL("src/shader-synth-playground.js", ROOT), "utf8"),
-    readFile(new URL("src/shader-synth-playground-state-engine.js", ROOT), "utf8"),
+    readFile(new URL("src/instruments/shader-synth-playground/shader-synth-playground.js", ROOT), "utf8"),
+    readFile(new URL("src/instruments/shader-synth-playground/shader-synth-playground-state-engine.js", ROOT), "utf8"),
   ]);
   const lifecycleSource = `${coreSource}\n${stateEngineSource}`;
   const allocationContract = lifecycleSource.match(
@@ -905,10 +905,10 @@ test("large state resources are conditional, state passes are active-only, and s
 
 test("stateful passes keep simulation data on GPU and preserve one final CPU readback", async () => {
   const [coreSource, stateBarrelSource, stateEngineSource, visualStateSource] = await Promise.all([
-    readFile(new URL("src/shader-synth-playground.js", ROOT), "utf8"),
-    readFile(new URL("src/shader-synth-playground-stateful.js", ROOT), "utf8"),
-    readFile(new URL("src/shader-synth-playground-state-engine.js", ROOT), "utf8"),
-    readFile(new URL("src/shader-synth-playground-visual-state.js", ROOT), "utf8"),
+    readFile(new URL("src/instruments/shader-synth-playground/shader-synth-playground.js", ROOT), "utf8"),
+    readFile(new URL("src/instruments/shader-synth-playground/shader-synth-playground-stateful.js", ROOT), "utf8"),
+    readFile(new URL("src/instruments/shader-synth-playground/shader-synth-playground-state-engine.js", ROOT), "utf8"),
+    readFile(new URL("src/instruments/shader-synth-playground/shader-synth-playground-visual-state.js", ROOT), "utf8"),
   ]);
   const renderStart = coreSource.indexOf("  async renderChunk(");
   const renderEnd = coreSource.indexOf("\n  handleError(", renderStart);
@@ -944,19 +944,19 @@ test("site and WAX builds include the dedicated stateful runtime", async () => {
     core,
     waxCore,
   ] = await Promise.all([
-    readFile(new URL("src/shader-synth-playground-stateful.js", ROOT), "utf8"),
-    readFile(new URL("dist-wax/src/shader-synth-playground-stateful.js", ROOT), "utf8"),
-    readFile(new URL("src/shader-synth-playground-state-engine.js", ROOT), "utf8"),
-    readFile(new URL("dist-wax/src/shader-synth-playground-state-engine.js", ROOT), "utf8"),
-    readFile(new URL("src/shader-synth-playground-visual-state.js", ROOT), "utf8"),
-    readFile(new URL("dist-wax/src/shader-synth-playground-visual-state.js", ROOT), "utf8"),
-    readFile(new URL("src/shader-synth-playground-advanced-state.js", ROOT), "utf8"),
-    readFile(new URL("dist-wax/src/shader-synth-playground-advanced-state.js", ROOT), "utf8"),
-    readFile(new URL("src/shader-synth-playground-advanced-state-engine.js", ROOT), "utf8"),
-    readFile(new URL("dist-wax/src/shader-synth-playground-advanced-state-engine.js", ROOT), "utf8"),
+    readFile(new URL("src/instruments/shader-synth-playground/shader-synth-playground-stateful.js", ROOT), "utf8"),
+    readFile(new URL("dist-wax/src/instruments/shader-synth-playground/shader-synth-playground-stateful.js", ROOT), "utf8"),
+    readFile(new URL("src/instruments/shader-synth-playground/shader-synth-playground-state-engine.js", ROOT), "utf8"),
+    readFile(new URL("dist-wax/src/instruments/shader-synth-playground/shader-synth-playground-state-engine.js", ROOT), "utf8"),
+    readFile(new URL("src/instruments/shader-synth-playground/shader-synth-playground-visual-state.js", ROOT), "utf8"),
+    readFile(new URL("dist-wax/src/instruments/shader-synth-playground/shader-synth-playground-visual-state.js", ROOT), "utf8"),
+    readFile(new URL("src/instruments/shader-synth-playground/shader-synth-playground-advanced-state.js", ROOT), "utf8"),
+    readFile(new URL("dist-wax/src/instruments/shader-synth-playground/shader-synth-playground-advanced-state.js", ROOT), "utf8"),
+    readFile(new URL("src/instruments/shader-synth-playground/shader-synth-playground-advanced-state-engine.js", ROOT), "utf8"),
+    readFile(new URL("dist-wax/src/instruments/shader-synth-playground/shader-synth-playground-advanced-state-engine.js", ROOT), "utf8"),
     readRuntimeManifest(),
-    readFile(new URL("src/shader-synth-playground.js", ROOT), "utf8"),
-    readFile(new URL("dist-wax/src/shader-synth-playground.js", ROOT), "utf8"),
+    readFile(new URL("src/instruments/shader-synth-playground/shader-synth-playground.js", ROOT), "utf8"),
+    readFile(new URL("dist-wax/src/instruments/shader-synth-playground/shader-synth-playground.js", ROOT), "utf8"),
   ]);
   assert.equal(waxBarrel, barrel, "WAX must ship the exact stateful barrel used by the web build");
   assert.equal(waxEngine, engine, "WAX must ship the exact state engine used by the web build");
@@ -971,7 +971,7 @@ test("site and WAX builds include the dedicated stateful runtime", async () => {
     "shader-synth-playground-advanced-state.js",
     "shader-synth-playground-advanced-state-engine.js",
   ]) {
-    assert.ok(builder.worktreeFiles.includes(`src/${file}`), `${file} has pre-commit copy permission`);
-    assert.ok(builder.requiredFiles.includes(`src/${file}`), `${file} is required in the artifact`);
+    assert.ok(builder.worktreeFiles.includes(`src/instruments/shader-synth-playground/${file}`), `${file} has pre-commit copy permission`);
+    assert.ok(builder.requiredFiles.includes(`src/instruments/shader-synth-playground/${file}`), `${file} is required in the artifact`);
   }
 });

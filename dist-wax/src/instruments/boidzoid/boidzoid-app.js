@@ -4,8 +4,8 @@ import {
   createFlock,
   mapBoidToSineVoice,
   stepFlock,
-} from "../../boidzoid.js";
-import { clamp, createFixedStepper, lerp, wrap } from "../../physics-common.js";
+} from "./boidzoid.js";
+import { clamp, createFixedStepper, lerp, wrap } from "../../families/physics/physics-common.js";
 
 const $ = (id) => document.getElementById(id);
 const canvas = $("stage");

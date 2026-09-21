@@ -14,8 +14,8 @@ import {
   paintMachinePhaseCrossed,
   sanitizePaintItem,
   simplifyPaintPoints,
-} from "../src/linear-drums-machine.js";
-import { sanitizeLinearDrumSettings } from "../src/linear-drums.js";
+} from "../src/instruments/rattlesnake-skin/linear-drums-machine.js";
+import { sanitizeLinearDrumSettings } from "../src/instruments/linear-drums/linear-drums.js";
 
 const root = new URL("../", import.meta.url);
 

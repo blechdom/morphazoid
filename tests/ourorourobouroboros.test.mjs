@@ -28,7 +28,7 @@ import {
   ouroborouselRhythmShare,
   ouroborouselWindow,
   sanitizeOuroborouselParams,
-} from "../src/ourorourobouroboros.js";
+} from "../src/instruments/ourorourobouroboros/ourorourobouroboros.js";
 
 const ROOT = new URL("../", import.meta.url);
 
@@ -359,7 +359,7 @@ test("the new page wires its recursive rail, ring stepper, transport, controls, 
     readFile(new URL("ourorourobouroboros.html", ROOT), "utf8"),
     readFile(new URL("src/instruments/ourorourobouroboros/ourorourobouroboros-app.js", ROOT), "utf8"),
     readFile(new URL("src/instruments/ourorourobouroboros/ourorourobouroboros.css", ROOT), "utf8"),
-    readFile(new URL("src/ourorourobouroboros.js", ROOT), "utf8"),
+    readFile(new URL("src/instruments/ourorourobouroboros/ourorourobouroboros.js", ROOT), "utf8"),
   ]);
 
   assert.match(markup, /<title>Ourorourobouroboros — Morphazoid<\/title>/);
@@ -433,7 +433,7 @@ test("the new page wires its recursive rail, ring stepper, transport, controls, 
     /document\.querySelector\("\[data-reset-all\]"\)\.addEventListener\("click"/,
   );
   assert.match(app, /calculateOuroborouselLayers/);
-  assert.match(app, /from "\.\.\/\.\.\/ourorourobouroboros\.js"/);
+  assert.match(app, /from "\.\/ourorourobouroboros\.js"/);
   assert.doesNotMatch(app, /from "\.\.\/\.\.\/ouroborousel\.js"/);
   assert.match(app, /const BLUE = \[86, 166, 255\]/);
   assert.match(app, /const ICE = \[238, 247, 255\]/);
@@ -475,7 +475,7 @@ test("the new page wires its recursive rail, ring stepper, transport, controls, 
   assert.match(markup, /high tones are interrupted into slower rhythms/i);
   assert.match(app, /interruption|nested silence/i);
   const source = await readFile(
-    new URL("src/ourorourobouroboros.js", ROOT),
+    new URL("src/instruments/ourorourobouroboros/ourorourobouroboros.js", ROOT),
     "utf8",
   );
   assert.match(source, /highpass\.frequency\.value = 12/);
@@ -1089,7 +1089,7 @@ test("fused note lanes remain audible well beyond the old 96-hit ceiling", () =>
 });
 
 test("worklet process has typed phase state and no render-loop allocations", async () => {
-  const source = await readFile(new URL("src/ourorourobouroboros.js", ROOT), "utf8");
+  const source = await readFile(new URL("src/instruments/ourorourobouroboros/ourorourobouroboros.js", ROOT), "utf8");
   const start = source.indexOf("    process(_inputs, outputs) {");
   const end = source.indexOf("\n      return true;\n    }\n  };", start);
   assert.ok(start >= 0 && end > start);
@@ -1148,7 +1148,7 @@ test("worklet renders bounded stereo chunks and tones through its octave seam", 
   globalThis.sampleRate = 48_000;
 
   try {
-    await import(`../src/ourorourobouroboros.js?worklet-test=${Date.now()}`);
+    await import(`../src/instruments/ourorourobouroboros/ourorourobouroboros.js?worklet-test=${Date.now()}`);
     assert.equal(registeredName, "morphazoid-ourorourobouroboros");
     assert.equal(registrationCount, 1);
     assert.equal(typeof Processor, "function");

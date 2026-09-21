@@ -11,12 +11,12 @@ import {
   createStoredZip,
   crc32,
   encodeMonoPcm16Wave,
-} from "../src/surround-field-recorder.js";
+} from "../src/instruments/surround-field/surround-field-recorder.js";
 
 const decoder = new TextDecoder();
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const processorSource = await readFile(
-  path.join(repositoryRoot, "src/surround-field-recorder-processor.js"),
+  path.join(repositoryRoot, "src/instruments/surround-field/surround-field-recorder-processor.js"),
   "utf8",
 );
 

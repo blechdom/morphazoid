@@ -22,7 +22,7 @@ import {
   instrumentMidiCapabilityForId,
 } from "../src/instrument-midi-capabilities.js";
 import { INSTRUMENTS } from "../src/instrument-catalog.js";
-import { MidiClockTempoTracker } from "../src/wax-midi-routing.js";
+import { MidiClockTempoTracker } from "../src/instruments/wax/wax-midi-routing.js";
 
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 

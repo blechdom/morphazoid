@@ -29,7 +29,7 @@ import {
   stateProbabilities,
   stepAnneal,
   successProbability,
-} from "../src/annealogue.js";
+} from "../src/instruments/annealogue/annealogue.js";
 
 const closeTo = (actual, expected, tolerance = 1e-10) => {
   assert.ok(

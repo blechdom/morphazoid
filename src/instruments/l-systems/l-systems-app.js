@@ -10,7 +10,7 @@ import {
   FM_DRUM_STORAGE_KEY,
   FmDrumAudio,
   sanitizeFmDrumVoice,
-} from "../../fm-drums.js";
+} from "../fm-drums/fm-drums.js";
 import {
   advanceLSystemTraversal,
   allocateIterationVoiceHeads,
@@ -22,7 +22,7 @@ import {
   lSystemTraversalBoundaryGain,
   normalizeLSystemPoint,
   traceLSystem,
-} from "../../l-system.js";
+} from "../l-system/l-system.js";
 import {
   advanceLSystemDrumTraversal,
   groupedLSystemDrumEvents,
@@ -35,11 +35,11 @@ import {
   mappedLSystemDrumVoice,
   styledLSystemDrumVoice,
 } from "../l-system-drum-machine/l-system-drum-machine.js";
-import { micBranchPlaybackRate } from "../../mic-branch-dsp.js";
-import { MicBranchEngine } from "../../mic-branch-engine.js";
+import { micBranchPlaybackRate } from "../../families/mic-branch/mic-branch-dsp.js";
+import { MicBranchEngine } from "../../families/mic-branch/mic-branch-engine.js";
 import {
   lSystemPlayingModeFor,
-} from "../../l-systems-suite.js";
+} from "./l-systems-suite.js";
 import { canvasSizing } from "../../graphics/canvas-sizing.js";
 
 const TAU = Math.PI * 2;

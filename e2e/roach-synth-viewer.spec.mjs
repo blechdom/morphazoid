@@ -4,8 +4,8 @@ async function specimen(page, { touch = false, modelUrl = '/assets/roach-synth/c
   await page.goto('/README.md');
   await page.setContent(`<html><head><meta name="viewport" content="width=device-width, initial-scale=1"></head><body style="margin:0;background:#090d12;min-height:1800px"><canvas id="specimen" tabindex="0" aria-label="Articulated roach" style="display:block;width:100%;height:${touch ? 460 : 700}px"></canvas></body></html>`);
   await page.evaluate(async (modelUrl) => {
-    const { createRoachViewer } = await import('/src/roach-synth-viewer.js');
-    const { writeRoachPose, writeRoachSceneState, createRoachSceneState } = await import('/src/roach-synth-motion.js');
+    const { createRoachViewer } = await import('/src/instruments/roach-synth/roach-synth-viewer.js');
+    const { writeRoachPose, writeRoachSceneState, createRoachSceneState } = await import('/src/instruments/roach-synth/roach-synth-motion.js');
     window.interactions = [];
     window.poseChanges = [];
     window.joints = [];
@@ -205,7 +205,7 @@ test('four textured/reconstructed wings articulate independently, camera fill is
     else expect(after[i].quaternion).toEqual(before[i].quaternion);
   }
   const constrained = await page.evaluate(async () => {
-    const { constrainRoachPose } = await import('/src/roach-synth-motion.js');
+    const { constrainRoachPose } = await import('/src/instruments/roach-synth/roach-synth-motion.js');
     const pose = new Float32Array(joints.length * 3);
     joints.forEach((joint, i) => ['x', 'y', 'z'].forEach((axis, a) => { pose[i * 3 + a] = joint.restOffset[axis]; }));
     const wing = joints.findIndex((joint) => joint.jointId === 'wing_cover_left');

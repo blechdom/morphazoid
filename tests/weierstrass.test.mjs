@@ -24,7 +24,7 @@ import {
   sanitizeWeierstrassParams,
   weierstrassPmSample,
   weierstrassWaveAtTime,
-} from "../src/weierstrass.js";
+} from "../src/instruments/weierstrass/weierstrass.js";
 
 const ORIGINAL_WAVE_TUPLES = [
   [1.81, 9, 0.91, 7.07, 2],
@@ -382,7 +382,7 @@ test("worklet renders finite extremes with fixed typed-array identities", async 
   globalThis.sampleRate = 48_000;
 
   try {
-    await import(`../src/weierstrass.js?worklet-test=${Date.now()}`);
+    await import(`../src/instruments/weierstrass/weierstrass.js?worklet-test=${Date.now()}`);
     assert.equal(typeof Processor, "function");
     const processor = new Processor({
       processorOptions: WEIERSTRASS_WAVE_PRESETS[0].settings,
@@ -453,7 +453,7 @@ test("worklet renders finite extremes with fixed typed-array identities", async 
     );
 
     const source = await readFile(
-      new URL("../src/weierstrass.js", import.meta.url),
+      new URL("../src/instruments/weierstrass/weierstrass.js", import.meta.url),
       "utf8",
     );
     const processStart = source.indexOf("    process(_inputs, outputs) {");
@@ -614,7 +614,7 @@ test("native page exposes Wave, FM, and source-faithful PM with bounded ledgers"
     readFile(new URL("weierstrass.html", root), "utf8"),
     readFile(new URL("src/instruments/weierstrass/weierstrass-app.js", root), "utf8"),
     readFile(new URL("src/instruments/weierstrass/weierstrass.css", root), "utf8"),
-    readFile(new URL("src/weierstrass.js", root), "utf8"),
+    readFile(new URL("src/instruments/weierstrass/weierstrass.js", root), "utf8"),
   ]);
 
   assert.match(markup, /id="audioButton"[^>]+aria-pressed="false"/);

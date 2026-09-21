@@ -6,20 +6,20 @@ import {
   parametersForDraggedVertex,
   tilingInfo,
   tilingParameterRange,
-} from "../../lattice.js";
+} from "../lattice/lattice.js";
 import {
   buildSpiralTessellation,
   contactsForSpiralReader,
   createSpiralReader,
   phaseForSpiralPoint,
   spiralLoopLogOffset,
-} from "../../spiral.js";
+} from "../spiral/spiral.js";
 import {
   cloneDefaultFmDrumVoices,
   FM_DRUM_STORAGE_KEY,
   FmDrumAudio,
   sanitizeFmDrumVoice,
-} from "../../fm-drums.js";
+} from "../fm-drums/fm-drums.js";
 import {
   SPIRAL_DRUM_MAPPING_MODES,
   mappedSpiralDrumVoice,
@@ -31,7 +31,7 @@ import {
   rebaseContinuousPosition,
   rebasePingPongPosition,
 } from "../../articulation.js";
-import { FM_DRUM_MIDI_FIRST_NOTE } from "../../fm-drums-midi.js";
+import { FM_DRUM_MIDI_FIRST_NOTE } from "../fm-drums/fm-drums-midi.js";
 import { emitMidiOutputPreview } from "../../midi-output-preview.js";
 import { canvasSizing } from "../../graphics/canvas-sizing.js";
 

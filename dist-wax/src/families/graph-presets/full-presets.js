@@ -1,5 +1,5 @@
-import { GRAPH_DELAY_PATCHES, GRAPH_PRESETS, MAX_GRAPH_TURN_ROUTES, generateGraph, generateGraphWithinTurnBudget, graphTurnRoutings } from "../../graph-delay.js";
-import { GRAPH_INSTRUMENT_PATCHES } from "../../graph-instruments.js";
+import { GRAPH_DELAY_PATCHES, GRAPH_PRESETS, MAX_GRAPH_TURN_ROUTES, generateGraph, generateGraphWithinTurnBudget, graphTurnRoutings } from "../../instruments/graph-delay/graph-delay.js";
+import { GRAPH_INSTRUMENT_PATCHES } from "../graph/graph-instruments.js";
 import { GRAPH_DELAY_INITIAL_STATE } from "./initial-state.js";
 import { clonePresetData, presetRandom, randomParameterValues } from "../../site/preset-random.js";
 import { presetStateKey } from "../../site/header-presets.js";

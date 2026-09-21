@@ -17,7 +17,7 @@ import {
   nearestKarplusStrongStringIndex,
   sanitizeKarplusStrongSettings,
   sanitizeKarplusStrongTuning,
-} from "../src/karplus-strong.js";
+} from "../src/instruments/karplus-strong/karplus-strong.js";
 
 const root = new URL("../", import.meta.url);
 
@@ -316,7 +316,7 @@ test("Karplus Strong page exposes a standalone playable instrument", async () =>
     readFile(new URL("karplus-strong.html", root), "utf8"),
     readFile(new URL("src/instruments/karplus-strong/karplus-strong.css", root), "utf8"),
     readFile(new URL("src/instruments/karplus-strong/karplus-strong-app.js", root), "utf8"),
-    readFile(new URL("src/karplus-strong.js", root), "utf8"),
+    readFile(new URL("src/instruments/karplus-strong/karplus-strong.js", root), "utf8"),
   ]);
 
   assert.match(html, /<h1>Karplus Strong<\/h1>/);

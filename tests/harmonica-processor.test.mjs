@@ -5,7 +5,7 @@ import {
   HARMONICA_DEFAULTS,
   harmonicaState,
   sanitizeHarmonicaState,
-} from "../src/harmonica.js";
+} from "../src/instruments/harmonica/harmonica.js";
 
 const RATE = 48_000;
 const BLOCK_SIZE = 128;
@@ -89,7 +89,7 @@ async function withProcessorHarness(run) {
     Processor = implementation;
   };
   try {
-    await import(`../src/harmonica-processor.js?continuity=${Date.now()}`);
+    await import(`../src/instruments/harmonica/harmonica-processor.js?continuity=${Date.now()}`);
     assert.equal(typeof Processor, "function");
     const makeProcessor = (configuration = {}) => new Processor({
       processorOptions: {

@@ -3,7 +3,7 @@ import test, { after } from "node:test";
 
 const SAMPLE_RATE = 48_000;
 const BLOCK_SIZE = 128;
-const MODULE_URL = new URL("../src/micromorph.js", import.meta.url);
+const MODULE_URL = new URL("../src/instruments/micromorph/micromorph.js", import.meta.url);
 const savedGlobals = new Map(
   ["sampleRate", "AudioWorkletProcessor", "registerProcessor"]
     .map((key) => [key, Object.getOwnPropertyDescriptor(globalThis, key)]),

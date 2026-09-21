@@ -11,7 +11,7 @@ import {
   generateMaze,
   sanitizeMazeSettings,
   shortestMazePath,
-} from "../src/algorithmic-mazes.js";
+} from "../src/instruments/algorithmic-mazes/algorithmic-mazes.js";
 
 const root = new URL("../", import.meta.url);
 

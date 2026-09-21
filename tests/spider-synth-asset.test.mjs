@@ -4,9 +4,9 @@ import { readFile } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
 import * as THREE from '../vendor/three/three.module.min.js';
 import { MeshoptDecoder } from '../vendor/meshoptimizer/meshopt_decoder.module.js';
-import { SpiderSynthViewer } from '../src/spider-synth-viewer.js';
-import { SpiderSynthWorld } from '../src/spider-synth-world.js';
-import { SPIDER_JOINTS, SPIDER_MOTION_PRESETS, SPIDER_WEB_PRESETS, createSpiderWeb, createSpiderFrame, writeSpiderFrame } from '../src/spider-synth-model.js';
+import { SpiderSynthViewer } from '../src/instruments/spider-synth/spider-synth-viewer.js';
+import { SpiderSynthWorld } from '../src/instruments/spider-synth/spider-synth-world.js';
+import { SPIDER_JOINTS, SPIDER_MOTION_PRESETS, SPIDER_WEB_PRESETS, createSpiderWeb, createSpiderFrame, writeSpiderFrame } from '../src/instruments/spider-synth/spider-synth-model.js';
 
 const rig = JSON.parse(await readFile(new URL('../assets/spider-synth/rig-manifest.json', import.meta.url)));
 const bytes = await readFile(new URL('../assets/spider-synth/spider-mobile.glb', import.meta.url));

@@ -13,8 +13,8 @@ the five existing demos, or a mechanism that `findings.md` measured and killed.
 | `onset-atlas.html` | segmentation preview with an honest readout | what does phrase analysis actually cost you? |
 | `synaptic-resonance.html` | a steerable branch decision | can rhythm route the graph where a rotor could not? |
 
-Shared: `src/proto-shell.js` (audio-arming contract and demo material),
-`proto-graph.css`, and `src/head-shed-processor.js` (the tape worklet).
+Shared: `src/families/proto-graph/proto-shell.js` (audio-arming contract and demo material),
+`proto-graph.css`, and `src/instruments/head-shed/head-shed-processor.js` (the tape worklet).
 
 ## Head Shed
 

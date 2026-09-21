@@ -5,10 +5,10 @@ import {
   VOCALZOID_MAX_BANK_BYTES,
   VOCALZOID_MAX_BANK_FILES,
   VocalzoidAudio,
-} from "../src/vocalzoid-audio.js";
-import { SPELLING_DIPHONE_CLIPS } from "../src/spelling-diphone-atlas.js";
-import { createVocalzoidSequence, parseUtauOto, splitVocalzoidNote } from "../src/vocalzoid.js";
-import { VOCALZOID_OPEN_BANKS } from "../src/vocalzoid-open-banks.js";
+} from "../src/instruments/vocalzoid/vocalzoid-audio.js";
+import { SPELLING_DIPHONE_CLIPS } from "../src/instruments/spelling-synthesizer/spelling-diphone-atlas.js";
+import { createVocalzoidSequence, parseUtauOto, splitVocalzoidNote } from "../src/instruments/vocalzoid/vocalzoid.js";
+import { VOCALZOID_OPEN_BANKS } from "../src/instruments/vocalzoid/vocalzoid-open-banks.js";
 
 class FakeAudioParam {
   constructor(value = 0) {

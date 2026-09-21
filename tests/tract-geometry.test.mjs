@@ -5,7 +5,7 @@ import { currentSourcePath } from "./helpers/relocated-sources.mjs";
 
 import {
   PHONEMES, SPECIMENS, VOICE_PRESETS, specimenState, voicePresetState,
-} from "../src/throatazoid.js";
+} from "../src/families/tract/throatazoid.js";
 import {
   buildTractDiameterProfile, buildTractGeometry, interpolatePoint, tractPoint,
 } from "../src/families/tract/geometry.js";

@@ -43,7 +43,7 @@ import {
   harmonicaTechniqueAllowed,
   randomizeHarmonicaState,
   sanitizeHarmonicaState,
-} from "../src/harmonica.js";
+} from "../src/instruments/harmonica/harmonica.js";
 
 const root = new URL("../", import.meta.url);
 
@@ -510,7 +510,7 @@ test("harmonica worklet couples pressure, tract, paired reeds, and material with
     Processor = implementation;
   };
   try {
-    await import(`../src/harmonica-processor.js?test=${Date.now()}`);
+    await import(`../src/instruments/harmonica/harmonica-processor.js?test=${Date.now()}`);
     assert.equal(typeof Processor, "function");
     const makeProcessor = (configuration = {}) => new Processor({
       processorOptions: {
@@ -1242,7 +1242,7 @@ test("harmonica page exposes the dedicated model and accessible controls", async
     readFile(new URL("harmonica.html", root), "utf8"),
     readFile(new URL("src/instruments/harmonica/harmonica.css", root), "utf8"),
     readFile(new URL("src/instruments/harmonica/harmonica-app.js", root), "utf8"),
-    readFile(new URL("src/harmonica-processor.js", root), "utf8"),
+    readFile(new URL("src/instruments/harmonica/harmonica-processor.js", root), "utf8"),
   ]);
   assert.match(html, /<body class="[^"]*\bharmonica-page\b[^"]*"/);
   assert.match(html, /<title>Harmonicazoid · Morphazoid<\/title>/);

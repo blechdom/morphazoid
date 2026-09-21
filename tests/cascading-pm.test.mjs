@@ -25,7 +25,7 @@ import {
   rootHzSliderPosition,
   rootHzSliderValue,
   sanitizeCascadingPmSettings,
-} from "../src/cascading-pm.js";
+} from "../src/instruments/cascading-pm/cascading-pm.js";
 
 const ROOT = new URL("../", import.meta.url);
 const TWO_PI = Math.PI * 2;
@@ -733,7 +733,7 @@ test("all ordered live preset transitions stay click-safe with preallocated stor
 });
 
 test("the worklet process loop is allocation-free", async () => {
-  const source = await readFile(new URL("src/cascading-pm.js", ROOT), "utf8");
+  const source = await readFile(new URL("src/instruments/cascading-pm/cascading-pm.js", ROOT), "utf8");
   const body = methodBody(source, "process(_inputs, outputs)");
   const applyBody = methodBody(source, "_applySettings(rawSettings, immediate = false)");
   assert.doesNotMatch(body, /\bnew\s+|Array\.from|\.(?:map|filter|reduce|slice)\(/);
@@ -822,7 +822,7 @@ test("the audio owner is lazy and sends true-PM settings to its worklet", async 
   assert.equal(worklets[0].name, CASCADING_PM_PROCESSOR_NAME);
   assert.deepEqual(worklets[0].options.outputChannelCount, [1]);
   assert.deepEqual(worklets[0].options.processorOptions, { settings });
-  assert.match(engine.context.modules[0], /\/src\/cascading-pm\.js$/);
+  assert.match(engine.context.modules[0], /\/src\/instruments\/cascading-pm\/cascading-pm\.js$/);
   assert.deepEqual(worklets[0].messages.at(-1), {
     type: "settings",
     settings: sanitizeCascadingPmSettings(settings),

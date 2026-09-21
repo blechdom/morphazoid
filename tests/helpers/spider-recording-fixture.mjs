@@ -1,5 +1,5 @@
 import { readFileSync } from 'node:fs';
-import { SPIDER_RECORDINGS } from '../../src/spider-synth-recordings.js';
+import { SPIDER_RECORDINGS } from '../../src/instruments/spider-synth/spider-synth-recordings.js';
 
 // The authored assets are small PCM WAVs. Keep the real samples in DSP tests;
 // an invented sine wave cannot establish that the licensed sources play.

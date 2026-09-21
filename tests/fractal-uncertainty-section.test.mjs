@@ -1,3 +1,4 @@
+import { relativeReference } from "../scripts/site/reference-paths.mjs";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
@@ -13,21 +14,21 @@ const instruments = Object.freeze([
     label: "Cantor Lock",
     page: "cantor-lock.html",
     app: "src/instruments/cantor-lock/cantor-lock-app.js",
-    core: "src/cantor-lock.js",
+    core: "src/instruments/cantor-lock/cantor-lock.js",
   }),
   Object.freeze({
     id: "escape-dust",
     label: "Escape Dust",
     page: "escape-dust.html",
     app: "src/instruments/escape-dust/escape-dust-app.js",
-    core: "src/escape-dust.js",
+    core: "src/instruments/escape-dust/escape-dust.js",
   }),
   Object.freeze({
     id: "linebreaker",
     label: "Linebreaker",
     page: "linebreaker.html",
     app: "src/instruments/linebreaker/linebreaker-app.js",
-    core: "src/linebreaker.js",
+    core: "src/instruments/linebreaker/linebreaker.js",
   }),
 ]);
 
@@ -65,7 +66,7 @@ test("fractal uncertainty pages share a playable, disclosed instrument shell", a
     assert.ok(html.includes(disclosure), `${instrument.page} must keep the scope disclosure visible`);
     assert.match(html, new RegExp(`<h1[^>]*>${instrument.label}<\\/h1>`, "i"));
     assert.match(html, new RegExp(`<script type="module" src="${instrument.app.replace(".", "\\.")}">`));
-    assert.match(app, new RegExp(`from ["']\\.\\./\\.\\./${instrument.core.replace("src/", "").replace(".", "\\.")}["']`));
+    assert.ok(app.includes(relativeReference(instrument.app, instrument.core)));
     assert.match(app, /audioState/);
     assert.match(app, /pagehide/);
     assert.doesNotMatch(core, /\bdocument\.|\bwindow\./, `${instrument.core} must stay import-safe`);

@@ -1,10 +1,10 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { readFile } from 'node:fs/promises';
-import { PugglerAudio, sonicMotion, punkMotion, punkVocalMotion, vocalPerformer, MAX_PUGGLER_ATTACKS, MAX_PUGGLER_VOICES, MAX_PUGGLER_AIR_TAILS } from '../src/puggler-audio.js';
-import { VOCAL_CHARACTERS, vocalCharacter } from '../src/puggler-vocals.js';
-import { PUNK_DRUMS, PUNK_RIFFS, renderPunkPhrase, renderVocalChant } from '../src/puggler-samples.js';
-import { PROPS, WORLD } from '../src/puggler.js';
+import { PugglerAudio, sonicMotion, punkMotion, punkVocalMotion, vocalPerformer, MAX_PUGGLER_ATTACKS, MAX_PUGGLER_VOICES, MAX_PUGGLER_AIR_TAILS } from '../src/instruments/puggler/puggler-audio.js';
+import { VOCAL_CHARACTERS, vocalCharacter } from '../src/instruments/puggler/puggler-vocals.js';
+import { PUNK_DRUMS, PUNK_RIFFS, renderPunkPhrase, renderVocalChant } from '../src/instruments/puggler/puggler-samples.js';
+import { PROPS, WORLD } from '../src/instruments/puggler/puggler.js';
 
 const object = (id, phase = 'air') => ({ id, phase, prop: PROPS[id % PROPS.length], drum: PUNK_DRUMS[id % PUNK_DRUMS.length], riff: PUNK_RIFFS[id % PUNK_RIFFS.length], x: 60 + id * 90, y: WORLD.handY + 200, vx: 90, vy: 420, spinRate: 3 });
 class Param {

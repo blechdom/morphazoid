@@ -19,7 +19,7 @@ import {
   pointOnLSystem,
   progressiveSampleIndices,
   traceLSystem,
-} from "../src/l-system.js";
+} from "../src/instruments/l-system/l-system.js";
 
 test("L-system expansion applies simultaneous production passes", () => {
   assert.equal(expandLSystem("FX", { F: "FF", X: "+F" }, 2), "FFFF+FF");

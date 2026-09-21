@@ -23,7 +23,7 @@ import {
   sliceSurface,
   surfacePoint,
   wrap01,
-} from "../../nonorientable-surface.js";
+} from "./nonorientable-surface.js";
 import { canvasSizing } from "../../graphics/canvas-sizing.js";
 
 const $ = (id) => document.getElementById(id);

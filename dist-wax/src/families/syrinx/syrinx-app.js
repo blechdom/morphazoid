@@ -14,7 +14,7 @@ import {
   resolveSourceControls,
   sampleModulationWave,
   sanitizeSyrinxState,
-} from "../../syrinx.js?v=syrinx-ui-20260902-5";
+} from "./syrinx.js?v=syrinx-ui-20260902-5";
 import { connectAudioOutput } from "../../audio-output-manager.js?v=syrinx-ui-20260819-1";
 import { unlockAudioContext } from "../../audio.js?v=syrinx-ui-20260819-1";
 import {
@@ -24,19 +24,19 @@ import {
   tongueAirwayAperture,
   tongueCavityGuides,
   tongueGeometry,
-} from "../../tongue-physics.js?v=syrinx-ui-20260820-1";
+} from "./tongue-physics.js?v=syrinx-ui-20260820-1";
 import {
   FERAL_TONGUE_PRESETS,
   TONGUE_MOTION_PRESETS,
   TONGUE_PARAMETER_LIMITS,
   modulateTongueState,
   sampleTongueMotionPreset,
-} from "../../tongue-performance.js?v=syrinx-ui-20260820-1";
-import { createHybrinxTimeline } from "../../hybrinx-timeline.js?v=hybrinx-20260821-3";
+} from "./tongue-performance.js?v=syrinx-ui-20260820-1";
+import { createHybrinxTimeline } from "../../instruments/hybrinx/hybrinx-timeline.js?v=hybrinx-20260821-3";
 import {
   applyHybrinxTimelinePerformance,
   createHybrinxGestureStore,
-} from "../../hybrinx-timeline.js?v=hybrinx-20260821-3";
+} from "../../instruments/hybrinx/hybrinx-timeline.js?v=hybrinx-20260821-3";
 import { registerHeaderPresets } from "../../site/header-presets.js";
 import { HYBRINX_FULL_PRESETS, captureHybrinxPreset, validateHybrinxFullPreset, randomizeHybrinxPreset } from "./full-presets.js";
 
@@ -487,7 +487,7 @@ async function createAudioGraph() {
   if (!Context) throw new Error("This browser does not provide Web Audio.");
   const context = new Context({ latencyHint: "interactive", sampleRate: 48_000 });
   unlockAudioContext(context);
-  await context.audioWorklet.addModule(new URL("../../syrinx-processor.js?v=tongue-live-20260820-1", import.meta.url));
+  await context.audioWorklet.addModule(new URL("./syrinx-processor.js?v=tongue-live-20260820-1", import.meta.url));
 
   const sourceNode = new AudioWorkletNode(context, "syrinx-physical-model", {
     numberOfInputs: 0,

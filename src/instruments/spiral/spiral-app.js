@@ -16,7 +16,7 @@ import {
   parametersForDraggedVertex,
   tilingInfo,
   tilingParameterRange,
-} from "../../lattice.js";
+} from "../lattice/lattice.js";
 import {
   angleShapePitchForSpiralContact,
   buildSpiralTessellation,
@@ -26,7 +26,7 @@ import {
   scaleRateForSpiralRadius,
   shapePitchForSpiralContact,
   spiralLoopLogOffset,
-} from "../../spiral.js";
+} from "./spiral.js";
 import { EdgeShape } from "../../../vendor/tactile/tactile.js";
 import { createAmplitudeControl } from "../../amplitude-control.js";
 import {

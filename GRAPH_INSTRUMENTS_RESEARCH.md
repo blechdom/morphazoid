@@ -13,7 +13,7 @@ Both instruments should use the same generated graph and the same edge-time/gain
 
 ### L-System synth
 
-`src/l-system.js` is the reusable grammar and traversal layer. Important exports are `L_SYSTEM_PRESETS`, `expandLSystem`, `traceLSystem`, `advanceLSystemTraversal`, `iterationPlaybackAtPhase`, `allocateIterationVoiceHeads`, `branchAngleFrequency`, `branchVoiceGain`, and `normalizeLSystemPoint`.
+`src/instruments/l-system/l-system.js` is the reusable grammar and traversal layer. Important exports are `L_SYSTEM_PRESETS`, `expandLSystem`, `traceLSystem`, `advanceLSystemTraversal`, `iterationPlaybackAtPhase`, `allocateIterationVoiceHeads`, `branchAngleFrequency`, `branchVoiceGain`, and `normalizeLSystemPoint`.
 
 `l-system-app.js` turns each active branch head into a continuous voice. `voiceForPlayhead` maps inherited turn, depth, progress, and position to pitch, timbre, gain, and pan; `voicesForPlayheads` preserves branch power and iteration-layer headroom. It uses `VoicePool`, `pitch01ToFrequency`, and `synthParametersForMode` from `src/audio.js` for Sine, FM, PM, and Shepard modes. The useful principle is that the visible traversal and the audio read the same structural state.
 
@@ -21,17 +21,17 @@ Both instruments should use the same generated graph and the same edge-time/gain
 
 `src/l-system-drums.js` supplies the discrete-event layer. `lSystemDrumEventsForTraversal` detects every newly entered segment subdivision, including samples around loop wraps and ping-pong reflections. `lSystemDrumVoiceIndex`, `groupedLSystemDrumEvents`, `mappedLSystemDrumVoice`, and `styledLSystemDrumVoice` turn depth, inherited turn, generation, phase, position, and simultaneous-head count into a bounded sixteen-voice drum result.
 
-`l-system-drums-app.js` uses `FmDrumAudio` from `src/fm-drums.js`. In particular, `FmDrumAudio.trigger(voice, { startAt, startDelaySeconds })` supports absolute AudioContext scheduling. The implemented Graph adapter preserves that FM bank and also routes explicitly selected physical palettes through `LinearDrumAudio`, whose absolute-time trigger supports both the full Rattlesnake model and canonical Karplus synthesis. The instrument also establishes useful limits: 240 hits per second, 24 hits per display frame, grouping of coincident hits, and square-root headroom.
+`l-system-drums-app.js` uses `FmDrumAudio` from `src/instruments/fm-drums/fm-drums.js`. In particular, `FmDrumAudio.trigger(voice, { startAt, startDelaySeconds })` supports absolute AudioContext scheduling. The implemented Graph adapter preserves that FM bank and also routes explicitly selected physical palettes through `LinearDrumAudio`, whose absolute-time trigger supports both the full Rattlesnake model and canonical Karplus synthesis. The instrument also establishes useful limits: 240 hits per second, 24 hits per display frame, grouping of coincident hits, and square-root headroom.
 
 ### L-System Delay / microphone instrument
 
-`src/micmic.js` turns recursive descendants into delayed audio voices. `generationTopology` builds the exact bounded rewrite, while `generationVoiceSpecs` inherits cumulative delay and cumulative turn-to-pitch along each parent path. Its gain law decays by generation and normalizes voices within a generation. `recursionParameters`, `estimateGenerations`, `generationCountForDepth`, and `generationTailSeconds` show the existing finite-tail and silence-floor conventions.
+`src/instruments/micmic/micmic.js` turns recursive descendants into delayed audio voices. `generationTopology` builds the exact bounded rewrite, while `generationVoiceSpecs` inherits cumulative delay and cumulative turn-to-pitch along each parent path. Its gain law decays by generation and normalizes voices within a generation. `recursionParameters`, `estimateGenerations`, `generationCountForDepth`, and `generationTailSeconds` show the existing finite-tail and silence-floor conventions.
 
-The hard bounds are also relevant: `MAX_RECURSION_FEEDBACK = 0.96`, thirteen generation stages, 1–3000 ms time folds, a 39-second usable history, 128 branches per generation, and adaptive audio pruning. `micmic-app.js`, `src/micmic-generation-dsp.js`, `src/micmic-generation-processor.js`, `src/signalsmith-generation-bank.js`, and `src/granular-economy-renderer.js` implement microphone capture and pitch-shifted descendant playback. The reusable idea is inherited time, pitch, amplitude, and stereo state along one structural lineage; the new graph instruments do not need microphone permission or this heavier renderer.
+The hard bounds are also relevant: `MAX_RECURSION_FEEDBACK = 0.96`, thirteen generation stages, 1–3000 ms time folds, a 39-second usable history, 128 branches per generation, and adaptive audio pruning. `micmic-app.js`, `src/families/mic-branch/micmic-generation-dsp.js`, `src/families/mic-branch/micmic-generation-processor.js`, `src/families/signalsmith-generation/signalsmith-generation-bank.js`, and `src/families/signalsmith-generation/granular-economy-renderer.js` implement microphone capture and pitch-shifted descendant playback. The reusable idea is inherited time, pitch, amplitude, and stereo state along one structural lineage; the new graph instruments do not need microphone permission or this heavier renderer.
 
 ### Graph Delay
 
-`src/graph-delay.js` should remain the canonical graph kernel rather than being copied. It provides:
+`src/instruments/graph-delay/graph-delay.js` should remain the canonical graph kernel rather than being copied. It provides:
 
 - `GRAPH_PRESETS` and `GRAPH_DELAY_PATCHES`;
 - `generateGraph` and `generateGraphWithinTurnBudget`;
@@ -45,7 +45,7 @@ The supplied topologies cover Chain, Tree, DAG, Bipartite, Ring, Small World, Hu
 
 `edgeAudioParameters` maps geometric edge length to 4 ms–2 s of delay. The microphone Graph Delay retains its absolute `timeScale` control, which adds milliseconds according to length. Graph Synth and Graph Drum Machine instead use a dimensionless `distanceRatio`: 1× gives every edge the minimum time, while larger ratios stretch longer edges proportionally until the shared 2-second safety ceiling. Its normal pass gain is `nodePass / sqrt(indegree * outdegree)`; only a `feedbackEdge` multiplies that result by the bounded feedback amount. Thus a simple ring at `nodePass = 1` loses exactly one feedback factor per complete lap, not one factor at every node. Existing tests also verify that dense and route-masked cyclic graphs remain below unity.
 
-`graph-delay-app.js` demonstrates the audio-rate realization in `buildAudioGraphNodes`: each edge is an `input bus -> route switch -> DelayNode -> GainNode`; a feedback edge additionally passes through a low-pass filter before returning to the target node. Relative incoming-to-outgoing turns are pitch shifted by `src/graph-turn-processor.js`. Only forward sinks are tapped to the wet output, then a compressor and soft clipper protect the final bus. This is the direct starting point for Graph Synth.
+`graph-delay-app.js` demonstrates the audio-rate realization in `buildAudioGraphNodes`: each edge is an `input bus -> route switch -> DelayNode -> GainNode`; a feedback edge additionally passes through a low-pass filter before returning to the target node. Relative incoming-to-outgoing turns are pitch shifted by `src/instruments/graph-delay/graph-turn-processor.js`. Only forward sinks are tapped to the wet output, then a compressor and soft clipper protect the final bus. This is the direct starting point for Graph Synth.
 
 ## Shared graph contract
 
@@ -117,7 +117,7 @@ Register Graph Drum Machine under the `drums` note mode and Graph Synth under `p
 
 ## Site, build, and test integration
 
-The implemented pages are `graph-drums.html` and `graph-synth.html`, with thin entry modules, the shared `graph-instruments.css` workbench style, `src/graph-instrument-app.js`, the pure `src/graph-instruments.js` scheduler/mapping kernel, and `src/graph-synth-audio.js`. They reuse `src/graph-delay.js`; its topology algorithms are not forked.
+The implemented pages are `graph-drums.html` and `graph-synth.html`, with thin entry modules, the shared `graph-instruments.css` workbench style, `src/families/graph/graph-instrument-app.js`, the pure `src/families/graph/graph-instruments.js` scheduler/mapping kernel, and `src/families/graph/graph-synth-audio.js`. They reuse `src/instruments/graph-delay/graph-delay.js`; its topology algorithms are not forked.
 
 Add both tools to `nav.js`, add mandatory card copy to `src/instrument-catalog.js`, classify MIDI in `src/instrument-midi-capabilities.js`, add `assets/instruments/graph-drums.webp` and `assets/instruments/graph-synth.webp`, update the authored desktop/mobile fallback links on related pages, and document both instruments in `README.md`. New untracked runtime files must be listed in the worktree-copy and required-file sections of `scripts/build-site.sh`; update `tests/aws-deployment.test.mjs`, then regenerate `dist-wax` through the build rather than editing generated copies by hand.
 

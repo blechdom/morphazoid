@@ -1,8 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { drawProp, drawObjectEchoes, drawPyrotechnics, MAX_TRAIL_ECHOES, posterLayout, PugglerRenderer } from '../src/puggler-renderer.js';
-import { PugglerModel, PROPS } from '../src/puggler.js';
-import { PugglerPyro, MAX_PYRO_PARTICLES } from '../src/puggler-pyro.js';
+import { drawProp, drawObjectEchoes, drawPyrotechnics, MAX_TRAIL_ECHOES, posterLayout, PugglerRenderer } from '../src/instruments/puggler/puggler-renderer.js';
+import { PugglerModel, PROPS } from '../src/instruments/puggler/puggler.js';
+import { PugglerPyro, MAX_PYRO_PARTICLES } from '../src/instruments/puggler/puggler-pyro.js';
 
 function context() {
   const calls=[],stack=[];

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { L_SYSTEM_PRESETS, traceLSystem } from "../src/l-system.js";
+import { L_SYSTEM_PRESETS, traceLSystem } from "../src/instruments/l-system/l-system.js";
 import {
   FIXED_FORK_DENSITY,
   MICMIC_PRESETS,
@@ -29,7 +29,7 @@ import {
   recursionParameters,
   sliderFromTimeFold,
   timeFoldFromSlider,
-} from "../src/micmic.js";
+} from "../src/instruments/micmic/micmic.js";
 
 test("L-system Delay presets stay inside the bounded feedback design", () => {
   assert.deepEqual(Object.keys(MICMIC_PRESETS), ["tunnel", "bloom", "choir", "fray"]);

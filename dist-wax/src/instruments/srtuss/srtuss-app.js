@@ -10,7 +10,7 @@ import {
   sanitizeSrtussVoices,
   srtussProjectById,
   srtussSupport,
-} from "../../srtuss.js?v=20260908-voice-card-1";
+} from "./srtuss.js?v=20260908-voice-card-1";
 import {
   SRTUSS_MIX_PART_ID,
   SRTUSS_MASTER_FAMILIES,
@@ -31,7 +31,7 @@ import {
   srtussMasterPart,
   srtussMasterPartMacros,
   srtussMasterParts,
-} from "../../srtuss-master.js?v=20260908-voice-card-1";
+} from "./srtuss-master.js?v=20260908-voice-card-1";
 
 const $ = (id) => document.getElementById(id);
 const support = srtussSupport(globalThis);

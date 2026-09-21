@@ -6,7 +6,7 @@ import {
   AcousticCaptureError,
   AcousticLiveCapture,
   normalizeCaptureDuration,
-} from "../src/acoustic-live-capture.js";
+} from "../src/families/acoustic/acoustic-live-capture.js";
 
 class FakeTrack {
   constructor() {

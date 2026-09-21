@@ -4,7 +4,7 @@ import test from "node:test";
 import {
   buildShapesDivisionMarkers,
   buildShapesScene,
-} from "../src/shapes-scene.js";
+} from "../src/instruments/shapes/shapes-scene.js";
 import {
   advanceShapesMotion,
   createShapesState,
@@ -18,11 +18,11 @@ import {
   shapesEventRegionKeys,
   shapesEventToken,
   shapesRotationIsMoving,
-} from "../src/shapes-state.js";
+} from "../src/instruments/shapes/shapes-state.js";
 import {
   normalizeSharedProfile,
   sharedProfilePoints,
-} from "../src/shapes-profile.js";
+} from "../src/instruments/shapes/shapes-profile.js";
 import {
   directedCornerEnvelopeProfile,
   shapes2dContactContourDirection,

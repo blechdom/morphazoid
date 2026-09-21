@@ -19,7 +19,7 @@ globalThis.registerProcessor = (name, constructor) => {
   ProcessorConstructor = constructor;
 };
 
-await import(`../src/micmic-generation-processor.js?test=${Date.now()}`);
+await import(`../src/families/mic-branch/micmic-generation-processor.js?test=${Date.now()}`);
 
 test("fallback generation processor reports measured load and its adaptive ceiling", () => {
   assert.equal(processorName, "morphazoid-micmic-generations");

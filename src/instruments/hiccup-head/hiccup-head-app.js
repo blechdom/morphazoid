@@ -34,7 +34,7 @@ import {
   sanitizeHiccupHeadState,
   sanitizeHiccupHeadVoice,
   sequenceStepIntervalSeconds,
-} from "../../hiccup-head.js?v=hiccup-head-model-20260902-4";
+} from "./hiccup-head.js?v=hiccup-head-model-20260902-4";
 import { connectAudioOutput } from "../../audio-output-manager.js";
 import { unlockAudioContext } from "../../audio.js";
 import { registerHeaderPresets } from "../../site/header-presets.js";
@@ -1804,7 +1804,7 @@ async function createAudioGraph() {
     [, , warmRoomBuffers] = await Promise.all([
       earlyResume,
       context.audioWorklet.addModule(new URL(
-        "../../hiccup-head-processor.js?v=hiccup-head-tract-20260902-4",
+        "./hiccup-head-processor.js?v=hiccup-head-tract-20260902-4",
         import.meta.url,
       )),
       decodeWarmRoomBuffers(context),

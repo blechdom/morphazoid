@@ -20,7 +20,7 @@ import {
   sanitizeJulieSawState,
   sweetSpotPosition,
   techniqueTracksSweetSpot,
-} from "../../julie-saw.js";
+} from "./julie-saw.js";
 import { connectAudioOutput } from "../../audio-output-manager.js";
 import { unlockAudioContext } from "../../audio.js";
 
@@ -277,7 +277,7 @@ async function createAudioGraph() {
   let releaseOutput = null;
   unlockAudioContext(context);
   try {
-    await context.audioWorklet.addModule(new URL("../../julie-saw-processor.js", import.meta.url));
+    await context.audioWorklet.addModule(new URL("./julie-saw-processor.js", import.meta.url));
     const sourceNode = new AudioWorkletNode(context, "julie-saw-physical-model", {
       numberOfInputs: 0,
       numberOfOutputs: 1,

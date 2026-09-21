@@ -1,10 +1,10 @@
-import { buildLattice, tilingInfo } from "../../lattice.js";
-import { EscherPerformanceAudio } from "../../escher-performance-audio.js";
+import { buildLattice, tilingInfo } from "../lattice/lattice.js";
+import { EscherPerformanceAudio } from "./escher-performance-audio.js";
 import {
   buildEscherContours,
   contourPointAtDistance,
   selectEscherContours,
-} from "../../escher-contours.js";
+} from "./escher-contours.js";
 import {
   DEFAULT_ESCHER_TESSELLATION_PRESET,
   ESCHER_TESSELLATION_PALETTES,
@@ -15,7 +15,7 @@ import {
   rotateEscherPoint,
   samplePoincareGeodesic,
   smoothstep,
-} from "../../escher-tessellation.js";
+} from "./escher-tessellation.js";
 
 const TAU = Math.PI * 2;
 const $ = (id) => document.getElementById(id);

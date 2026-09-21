@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { SpiderMidiPerformance, SPIDER_MIDI_GESTURES, normalizeSpiderMidiMessage } from '../src/spider-synth-midi.js';
-import { SPIDER_JOINTS, normalizeSpiderMotion, writeSpiderPose, createSpiderFrame, writeSpiderFrame, createSpiderWeb } from '../src/spider-synth-model.js';
+import { SpiderMidiPerformance, SPIDER_MIDI_GESTURES, normalizeSpiderMidiMessage } from '../src/instruments/spider-synth/spider-synth-midi.js';
+import { SPIDER_JOINTS, normalizeSpiderMotion, writeSpiderPose, createSpiderFrame, writeSpiderFrame, createSpiderWeb } from '../src/instruments/spider-synth/spider-synth-model.js';
 const event = (type, values = {}) => ({ type, sourceId: 'keys', channel: 0, ...values });
 const on = (m, note, time = 0, values = {}) => m.handle(event('noteOn', { note, velocity: 100, ...values }), time);
 const off = (m, note, time = .1, values = {}) => m.handle(event('noteOff', { note, ...values }), time);

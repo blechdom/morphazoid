@@ -3,7 +3,7 @@
  * No audio, animation scheduling, gesture handlers, or cached state lives here.
  * Keep drawing order/constants intact; see the frozen command-trace tests.
  */
-import { clamp } from "../../throatazoid.js";
+import { clamp } from "./throatazoid.js";
 import { tractPoint } from "./geometry.js";
 
 function drawTractText(drawing, geometry, progress, diameter, label, alpha = 0.54) {

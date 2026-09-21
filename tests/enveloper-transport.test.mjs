@@ -7,11 +7,11 @@ import {
   enveloperOccurrenceAtOrdinal,
   enveloperScoreAtAudioTime,
   planEnveloperAudioWindow,
-} from "../src/enveloper-transport.js";
+} from "../src/instruments/enveloper/enveloper-transport.js";
 import {
   createEnveloperState,
   deriveEnveloperTimeline,
-} from "../src/enveloper.js";
+} from "../src/instruments/enveloper/enveloper.js";
 
 const closeTo = (actual, expected, epsilon = 1e-10) => {
   assert.ok(

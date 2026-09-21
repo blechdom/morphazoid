@@ -1,7 +1,7 @@
 import test from 'node:test';
-import { PRESETS } from '../src/puggler-presets.js';
+import { PRESETS } from '../src/instruments/puggler/puggler-presets.js';
 import assert from 'node:assert/strict';
-import { PugglerModel, PATTERNS, PROPS, WORLD, PHRASE_CHUNKS, DEFAULTS, MAX_OBJECTS, CASTS, parseNotation, initialSlots, launchFlight, flightPosition, soundMapping } from '../src/puggler.js';
+import { PugglerModel, PATTERNS, PROPS, WORLD, PHRASE_CHUNKS, DEFAULTS, MAX_OBJECTS, CASTS, parseNotation, initialSlots, launchFlight, flightPosition, soundMapping } from '../src/instruments/puggler/puggler.js';
 
 const advance = (m, seconds, steer = 0) => { const events=[]; for(let i=0;i<seconds*120;i++)events.push(...m.step(1/120, typeof steer==='function'?steer(i/120):steer)); return events; };
 test('performer voice ownership follows passes, kicks and crowd returns without changing pass provenance',()=>{

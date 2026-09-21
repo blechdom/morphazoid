@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { glottalSample } from "../src/throatazoid.js";
+import { glottalSample } from "../src/families/tract/throatazoid.js";
 
 import {
   DEFAULT_THROAT_SINGING_STATE,
@@ -29,7 +29,7 @@ import {
   trueFoldFrequencyHz,
   ventricularFoldSupercycle,
   vocalFryModulationSupercycle,
-} from "../src/throat-singing.js";
+} from "../src/instruments/throat-singing/throat-singing.js";
 
 const expectedPresetIds = [
   "open-drone",

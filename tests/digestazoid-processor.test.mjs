@@ -9,7 +9,7 @@ import {
   DIGESTAZOID_LIMITS,
   DIGESTAZOID_VALVES,
   digestazoidState,
-} from "../src/digestazoid.js";
+} from "../src/instruments/digestazoid/digestazoid.js";
 
 const registeredProcessors = new Map();
 
@@ -35,7 +35,7 @@ const {
   DIGESTAZOID_BUBBLE_KINDS,
   DigestazoidPhysicalProcessor,
   RubberValveOscillator,
-} = await import("../src/digestazoid-processor.js?digestazoid-render-test=1");
+} = await import("../src/instruments/digestazoid/digestazoid-processor.js?digestazoid-render-test=1");
 
 function processor(state = {}, seed = 0xd165e57) {
   return new DigestazoidPhysicalProcessor({
@@ -698,7 +698,7 @@ test("the rubber valve repeatedly sticks, closes, and restarts with cycle jitter
 });
 
 test("processor source synthesizes in real time without sample-loading APIs", async () => {
-  const source = await readFile(new URL("../src/digestazoid-processor.js", import.meta.url), "utf8");
+  const source = await readFile(new URL("../src/instruments/digestazoid/digestazoid-processor.js", import.meta.url), "utf8");
   assert.match(source, /registerProcessor\("digestazoid-physical-model"/);
   assert.match(source, /class RubberValveOscillator/);
   assert.match(source, /class ModalResonator/);

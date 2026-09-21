@@ -1,5 +1,5 @@
-import { STEP, TAU, clamp, mix, DEFAULTS, TRICKS, createYoyo, throwYoyo, bindYoyo, tugYoyo, setTrick, stepYoyo, soundingState, snapshot } from "../../yoyodyne.js";
-import { YoyodyneAudio } from "../../yoyodyne-audio.js";
+import { STEP, TAU, clamp, mix, DEFAULTS, TRICKS, createYoyo, throwYoyo, bindYoyo, tugYoyo, setTrick, stepYoyo, soundingState, snapshot } from "./yoyodyne.js";
+import { YoyodyneAudio } from "./yoyodyne-audio.js";
 import { emitMidiOutputPreview } from "../../midi-output-preview.js";
 const $ = id => document.getElementById(id);
 const canvas = $("noteStage"), ctx = canvas.getContext("2d");

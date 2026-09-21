@@ -26,7 +26,7 @@ import {
   mapPhysicalToAudible,
   randomizeBlowholeState,
   sanitizeBlowholeState,
-} from "../src/blowhole.js";
+} from "../src/instruments/blowhole/blowhole.js";
 import { instrumentById } from "../src/instrument-catalog.js";
 import {
   PAGE_KEYBOARD_INSTRUMENT_IDS,
@@ -758,7 +758,7 @@ test("the worklet renders silence, calls, finite surface breaths, and depth-limi
   };
 
   try {
-    await import(`../src/blowhole-processor.js?blowhole-test=${Date.now()}`);
+    await import(`../src/instruments/blowhole/blowhole-processor.js?blowhole-test=${Date.now()}`);
     assert.equal(typeof Processor, "function", "the physical model processor must register");
 
     const silent = new Processor();
@@ -1553,8 +1553,8 @@ test("the page, app, and styles expose the complete accessible physical-instrume
     readFile(new URL("src/instruments/blowhole/blowhole-app.js", root), "utf8"),
     readFile(new URL("src/instruments/blowhole/blowhole.css", root), "utf8"),
     readFile(new URL("style.css", root), "utf8"),
-    readFile(new URL("src/blowhole-processor.js", root), "utf8"),
-    readFile(new URL("src/blowhole.js", root), "utf8"),
+    readFile(new URL("src/instruments/blowhole/blowhole-processor.js", root), "utf8"),
+    readFile(new URL("src/instruments/blowhole/blowhole.js", root), "utf8"),
   ]);
 
   assert.match(html, /<body class="blowhole-page">/);

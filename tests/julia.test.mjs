@@ -17,7 +17,7 @@ import {
   selectLongestClosedContour,
   simplifyClosedContour,
   smoothClosedContour,
-} from "../src/julia.js";
+} from "../src/instruments/julia/julia.js";
 
 function binaryField(rows) {
   return {

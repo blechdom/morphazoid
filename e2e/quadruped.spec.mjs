@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { QUADRUPED_ANIMALS, QUADRUPED_BEHAVIORS } from "../src/quadruped.js";
+import { QUADRUPED_ANIMALS, QUADRUPED_BEHAVIORS } from "../src/instruments/quadruped/quadruped.js";
 
 test.describe("Quadruped", () => {
   test("edits four touchdown lanes while transport remains independent of Audio", async ({ page }) => {

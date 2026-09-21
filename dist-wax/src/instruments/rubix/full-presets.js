@@ -1,9 +1,9 @@
 import { RUBIX_DEFAULTS, RUBIX_FACTORY_PRESETS } from "./factory-presets.js";
-import { createSolvedRubixCube, turnRubixLayer, rubixLayersForSize, DEFAULT_RUBIX_CAMERA, createRubixSequenceSnapshot } from "../../rubix.js";
-import { DEFAULT_FM_DRUM_VOICES, sanitizeFmDrumVoice } from "../../fm-drums.js";
+import { createSolvedRubixCube, turnRubixLayer, rubixLayersForSize, DEFAULT_RUBIX_CAMERA, createRubixSequenceSnapshot } from "./rubix.js";
+import { DEFAULT_FM_DRUM_VOICES, sanitizeFmDrumVoice } from "../fm-drums/fm-drums.js";
 import { clonePresetData, presetRandom, randomParameterValues } from "../../site/preset-random.js";
 import { presetStateKey } from "../../site/header-presets.js";
-import { RUBIX_SIMD_PRESETS, rubixSimdPreset } from "../../rubix-simd-presets.js";
+import { RUBIX_SIMD_PRESETS, rubixSimdPreset } from "./rubix-simd-presets.js";
 
 // Main's performer levels are protected for complete scenes as well as patches.
 export const RUBIX_PRESET_SETTING_KEYS = Object.freeze(Object.keys(RUBIX_DEFAULTS)

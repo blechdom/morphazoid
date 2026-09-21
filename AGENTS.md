@@ -31,10 +31,12 @@ command names.
 - For a browser instrument, `node scripts/inspect-instrument.mjs <catalogue-id>`
   inventories its entries, dependencies, registration, WAX copies, and test
   candidates without changing files; see `docs/agent-tooling.md` for its limits.
-- Instrument-owned controllers/styles live in `src/instruments/<canonical-id>/`;
+- Instrument-owned controllers, models, worklets, presets and styles live in `src/instruments/<canonical-id>/`;
   multi-instrument implementations live in `src/families/<family>/`, and site
-  metadata/controllers live in `src/site/`. Many shared models and worklets
-  retain their existing `src/` locations. Follow the actual HTML/import references
+  metadata/controllers live in `src/site/`. Shared audio/MIDI/math utilities and
+  the existing WASM engine/toolchain boundaries retain their `src/` locations.
+  See `docs/source-module-layout.json` for the explicit model/worklet move map.
+  Follow the actual HTML/import references
   or inspection output; categories and display names are not filesystem paths.
   Public HTML, global bootstrap scripts and `style.css` remain at the root;
   runtime `assets/` stays top-level. See `docs/agent-tooling.md` for the path map.

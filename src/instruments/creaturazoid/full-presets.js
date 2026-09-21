@@ -4,8 +4,8 @@ import {
   CREATURAZOID_LIMITS, CREATURAZOID_SHAPE_LIMITS, CREATURAZOID_EAR_TYPES, CREATURAZOID_TAIL_TYPES,
   CREATURAZOID_MORPH_CONTROLS, CREATURAZOID_MODULATION_SHAPES, CREATURAZOID_ANATOMY_DESIGNS, CREATURAZOID_SOUNDS,
   CREATURAZOID_BODY_PRESETS,
-} from "../../creaturazoid.js";
-import { CONTROL_LIMITS } from "../../syrinx.js";
+} from "./creaturazoid.js";
+import { CONTROL_LIMITS } from "../../families/syrinx/syrinx.js";
 import { presetRandom, randomParameterValues, randomMonophonicRows } from "../../site/preset-random.js";
 
 // Deliberate complete performances using every original body and rhythm.

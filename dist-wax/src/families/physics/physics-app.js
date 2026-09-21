@@ -7,8 +7,8 @@ import {
   clamp,
   createFixedStepper,
   createPainter,
-} from "../../physics-common.js";
-import { createPhysicsScene, PHYSICS_SCENE_INDEX } from "../../physics-scenes.js";
+} from "./physics-common.js";
+import { createPhysicsScene, PHYSICS_SCENE_INDEX } from "./physics-scenes.js";
 import {
   createChoiceSwitch,
   createRangeField,

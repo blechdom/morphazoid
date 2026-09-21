@@ -1,15 +1,15 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
-import { SPIDER_SPECIMENS, getSpiderSpecimen } from '../src/spider-synth-specimens.js';
-import { createSpiderWeb, SPIDER_WEB_PRESETS, createSpiderFrame, normalizeSpiderMotion, writeSpiderPose, writeSpiderFrame } from '../src/spider-synth-model.js';
-import { SpiderSynthWorld } from '../src/spider-synth-world.js';
+import { SPIDER_SPECIMENS, getSpiderSpecimen } from '../src/instruments/spider-synth/spider-synth-specimens.js';
+import { createSpiderWeb, SPIDER_WEB_PRESETS, createSpiderFrame, normalizeSpiderMotion, writeSpiderPose, writeSpiderFrame } from '../src/instruments/spider-synth/spider-synth-model.js';
+import { SpiderSynthWorld } from '../src/instruments/spider-synth/spider-synth-world.js';
 
 test('six specimen profiles match their actual rig geometry before any GLB load', async () => {
   assert.deepEqual(SPIDER_SPECIMENS.map(item => item.id), ['argiope', 'golden', 'devil', 'tarantula', 'huntsman', 'fishing']);
   const signatures = new Set();
   for (const specimen of SPIDER_SPECIMENS) {
-    const rig = JSON.parse(await readFile(new URL(specimen.rigPath, new URL('../src/', import.meta.url))));
+    const rig = JSON.parse(await readFile(new URL(specimen.rigPath, new URL('../src/instruments/spider-synth/', import.meta.url))));
     assert.equal(specimen.bodyHeight, rig.neutralBodyHeight ?? rig.bodyHeight);
     assert.equal(specimen.species, rig.species);
     assert.equal(specimen.legs.length, 8);

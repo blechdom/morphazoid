@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { generateMaze } from "../src/algorithmic-mazes.js";
+import { generateMaze } from "../src/instruments/algorithmic-mazes/algorithmic-mazes.js";
 import { pageDiagnosticMessages, settlePage, watchPageDiagnostics } from "./helpers/diagnostics.mjs";
 
 const layouts = [

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { MicmicGenerationDSP } from "../src/micmic-generation-dsp.js";
+import { MicmicGenerationDSP } from "../src/families/mic-branch/micmic-generation-dsp.js";
 
 test("generation DSP renders delayed pitchable taps from one rolling microphone", () => {
   const renderer = new MicmicGenerationDSP({

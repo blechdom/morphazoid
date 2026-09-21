@@ -22,7 +22,7 @@ import {
   normalizeAcousticResynthesis,
   renderAcousticModel,
   renderAcousticModelSegment,
-} from "../src/acoustic-manifold.js";
+} from "../src/instruments/acoustic-manifold/acoustic-manifold.js";
 
 const SAMPLE_RATE = 16_000;
 

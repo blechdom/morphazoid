@@ -9,7 +9,7 @@ import {
   buildStropheTraversal,
   createDemoNightingaleSequence,
   nightingaleManifoldExport,
-} from "../src/nightingale-manifold.js";
+} from "../src/instruments/nightingale-manifold/nightingale-manifold.js";
 
 const demo = createDemoNightingaleSequence(16_000);
 const analysis = analyzeNightingaleSequence(demo.samples, demo.sampleRate);

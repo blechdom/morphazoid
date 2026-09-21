@@ -5,7 +5,7 @@ import {
   normalizeRoachMotion, activeRoachPreset, writeRoachPose, createRoachJointTrack,
   roachSequencePosition, createRoachSceneState, writeRoachSceneState, bakeRoachPresetTracks,
   evaluateRoachTrack, ROACH_STATIC_POSES, getRoachStaticPose, constrainRoachPose, createRandomRoachMotion, writeRoachBeatState, ROACH_CONTACT_GRID_BEATS, applyRoachSpeechPose,
-} from '../src/roach-synth-motion.js';
+} from '../src/instruments/roach-synth/roach-synth-motion.js';
 
 const jointIds = ['body', 'abdomen', 'neck', 'head', 'antenna_left', 'antenna_right', 'wings'];
 for (const pair of ['front', 'middle', 'hind']) for (const side of ['left', 'right']) {

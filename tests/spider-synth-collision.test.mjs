@@ -2,11 +2,11 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import * as THREE from '../vendor/three/three.module.min.js';
-import { SpiderSynthViewer } from '../src/spider-synth-viewer.js';
-import { createSpiderCollisionProfile, constrainSpiderCollisionPose, constrainSpiderCollisionRoot, measureSpiderBodyPenetration, spiderSegmentDistance, createSpiderCollisionSolver, createSpiderCollisionBodies, writeSpiderCollisionBodies } from '../src/spider-synth-collision.js';
-import { createSpiderWeb, createSpiderFrame, writeSpiderFrame, writeSpiderPose, normalizeSpiderMotion, createSpiderStaticPose, SPIDER_MOTION_PRESETS } from '../src/spider-synth-model.js';
-import { SPIDER_SPECIMENS } from '../src/spider-synth-specimens.js';
-import { SpiderSynthWorld } from '../src/spider-synth-world.js';
+import { SpiderSynthViewer } from '../src/instruments/spider-synth/spider-synth-viewer.js';
+import { createSpiderCollisionProfile, constrainSpiderCollisionPose, constrainSpiderCollisionRoot, measureSpiderBodyPenetration, spiderSegmentDistance, createSpiderCollisionSolver, createSpiderCollisionBodies, writeSpiderCollisionBodies } from '../src/instruments/spider-synth/spider-synth-collision.js';
+import { createSpiderWeb, createSpiderFrame, writeSpiderFrame, writeSpiderPose, normalizeSpiderMotion, createSpiderStaticPose, SPIDER_MOTION_PRESETS } from '../src/instruments/spider-synth/spider-synth-model.js';
+import { SPIDER_SPECIMENS } from '../src/instruments/spider-synth/spider-synth-specimens.js';
+import { SpiderSynthWorld } from '../src/instruments/spider-synth/spider-synth-world.js';
 
 const rig = JSON.parse(await readFile(new URL('../assets/spider-synth/rig-manifest.json', import.meta.url), 'utf8'));
 const profile = createSpiderCollisionProfile(rig);

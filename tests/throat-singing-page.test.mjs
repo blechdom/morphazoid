@@ -65,7 +65,7 @@ test("Throat Singing ships one research-labelled physical-model page", async () 
     "throat-singing.html",
     "src/instruments/throat-singing/throat-singing.css",
     "src/instruments/throat-singing/throat-singing-app.js",
-    "src/throat-singing.js",
+    "src/instruments/throat-singing/throat-singing.js",
     "THROAT_SINGING_RESEARCH.md",
     "assets/instruments/throat-singing.webp",
   ]) {

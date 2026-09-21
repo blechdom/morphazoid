@@ -14,8 +14,8 @@ const controllers = new Map([
   ...["src/instruments/solid-synth/solid-synth-app.js", "src/instruments/hyper-synth/hyper-synth-app.js"].map((file) => [file, { file, source: original, options: {} }]),
 ]);
 const wrapperTargets = new Map([
-  ["src/instruments/graph-drum-machine/graph-drum-machine-app.js", "src/graph-instrument-app.js"],
-  ["src/instruments/graph-synth/graph-synth-app.js", "src/graph-instrument-app.js"],
+  ["src/instruments/graph-drum-machine/graph-drum-machine-app.js", "src/families/graph/graph-instrument-app.js"],
+  ["src/instruments/graph-synth/graph-synth-app.js", "src/families/graph/graph-instrument-app.js"],
 ]);
 
 const routes = [];

@@ -10,17 +10,17 @@ import {
   logarithmicRecursivePmValue,
   sanitizeRecursivePmSettings,
   summarizeRecursivePmStack,
-} from "../../recursive-pm.js";
+} from "./recursive-pm.js";
 import {
   createChaoticSpectrum,
   drawChaoticLiveAnalysis,
-} from "../../chaotic-synth-visuals.js";
+} from "../../families/chaotic/chaotic-synth-visuals.js";
 import {
   RECURSIVE_PM_PERFORMANCE_DEFAULTS,
   RecursivePmMidiPerformance,
   recursivePmVelocityGain,
   sanitizeRecursivePmPerformance,
-} from "../../recursive-pm-midi.js";
+} from "./recursive-pm-midi.js";
 import { getSharedMidiManager } from "../../midi-manager.js";
 import { canvasSizing } from "../../graphics/canvas-sizing.js";
 

@@ -6,8 +6,8 @@ import {
   quadrupedScoreTiming, quadrupedClockAtPosition, quadrupedPositionAtClock,
   quadrupedStepDurationSeconds, quadrupedSupportSnapshot, quadrupedFootCycleState,
   quadrupedFlightTrajectory, deriveQuadrupedPose, sanitizeQuadrupedState,
-} from "../src/quadruped.js";
-import { createQuadrupedMotorState, advanceQuadrupedMotor, synchronizeQuadrupedMotorTempo } from "../src/quadruped-motor.js";
+} from "../src/instruments/quadruped/quadruped.js";
+import { createQuadrupedMotorState, advanceQuadrupedMotor, synchronizeQuadrupedMotorTempo } from "../src/instruments/quadruped/quadruped-motor.js";
 
 const near = (a, b, tolerance = 1e-7) => assert.ok(Math.abs(a - b) < tolerance, `${a} != ${b}`);
 

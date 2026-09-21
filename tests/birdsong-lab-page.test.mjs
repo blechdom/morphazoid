@@ -4,7 +4,7 @@ import test from "node:test";
 
 const html = fs.readFileSync(new URL("../birdsong-lab.html", import.meta.url), "utf8");
 const app = fs.readFileSync(new URL("../src/instruments/birdsong-lab/birdsong-lab-app.js", import.meta.url), "utf8");
-const analysis = fs.readFileSync(new URL("../src/birdsong-analysis.js", import.meta.url), "utf8");
+const analysis = fs.readFileSync(new URL("../src/families/acoustic/birdsong-analysis.js", import.meta.url), "utf8");
 
 test("Strophe Lab exposes the complete local analysis-by-synthesis workflow", () => {
   assert.match(html, /href="acoustic-manifold\.html">acoustic manifold<\/a>/);
@@ -41,7 +41,7 @@ test("Strophe Lab exposes the complete local analysis-by-synthesis workflow", ()
 });
 
 test("the analysis path reuses Morphazoid's nonlinear syrinx rather than an oscillator stand-in", () => {
-  assert.match(analysis, /from "\.\/syrinx-source-models\.js"/);
+  assert.match(analysis, /from "\.\.\/syrinx\/syrinx-source-models\.js"/);
   assert.match(analysis, /new SyrinxSourceEngine/);
   assert.match(analysis, /model:\s*"syrinx"/);
   assert.match(analysis, /pressureProxy/);

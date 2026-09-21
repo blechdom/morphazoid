@@ -6,11 +6,11 @@ import {
   jawHarpPreset,
   jawHarpState,
   naturalTineStrike,
-} from "../src/jaw-harp.js";
+} from "../src/instruments/jaw-harp/jaw-harp.js";
 import {
   jawJamStepConfiguration,
   sanitizeJawJamPattern,
-} from "../src/jaw-jam.js";
+} from "../src/instruments/jaw-jam/jaw-jam.js";
 
 const SAMPLE_RATE = 48_000;
 
@@ -65,7 +65,7 @@ test("Jaw Jam worklet adds a sample-timed queue without changing the base voice"
   };
 
   try {
-    const module = await import(`../src/jaw-jam-processor.js?test=${Date.now()}`);
+    const module = await import(`../src/instruments/jaw-jam/jaw-jam-processor.js?test=${Date.now()}`);
     const Processor = registrations.get("jaw-jam-physical-model");
     assert.equal(module.JawJamPhysicalProcessor, Processor);
     assert.ok(registrations.has("jaw-harp-physical-model"));

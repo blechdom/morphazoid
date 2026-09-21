@@ -2,12 +2,12 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
-import { DEFAULT_FM_DRUM_VOICES } from "../src/fm-drums.js";
+import { DEFAULT_FM_DRUM_VOICES } from "../src/instruments/fm-drums/fm-drums.js";
 import {
   L_SYSTEM_PRESETS,
   branchingPlayheadsAtPhase,
   traceLSystem,
-} from "../src/l-system.js";
+} from "../src/instruments/l-system/l-system.js";
 import {
   L_SYSTEM_DRUM_MAPPING_MODES,
   L_SYSTEM_DRUM_STYLES,

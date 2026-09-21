@@ -29,7 +29,7 @@ import {
   harmonicaTechnique,
   randomizeHarmonicaState,
   sanitizeHarmonicaState,
-} from "../../harmonica.js";
+} from "./harmonica.js";
 import { connectAudioOutput } from "../../audio-output-manager.js";
 import { unlockAudioContext } from "../../audio.js";
 
@@ -364,7 +364,7 @@ async function createAudioGraph() {
   const context = new Context({ latencyHint: "interactive" });
   let releaseOutput = null;
   try {
-    await context.audioWorklet.addModule(new URL("../../harmonica-processor.js", import.meta.url));
+    await context.audioWorklet.addModule(new URL("./harmonica-processor.js", import.meta.url));
     const sourceNode = new AudioWorkletNode(context, "harmonica-physical-model", {
       numberOfInputs: 0,
       numberOfOutputs: 1,

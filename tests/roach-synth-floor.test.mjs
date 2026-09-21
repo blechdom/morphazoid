@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import * as THREE from '../vendor/three/three.module.min.js';
-import { constrainRoachFloorPose, constrainRoachPose, createRoachSceneState } from '../src/roach-synth-motion.js';
+import { constrainRoachFloorPose, constrainRoachPose, createRoachSceneState } from '../src/instruments/roach-synth/roach-synth-motion.js';
 
 function fixture() {
   const joint = (id, parent, position, extra = {}) => ({ id, jointId: id, parent, restOffset: { x: 0, y: 0, z: 0 }, kinematics: { position, quaternion: [0, 0, 0, 1], scale: [1, 1, 1] }, ...extra });

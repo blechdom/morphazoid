@@ -1,11 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { SPIDER_SPECIMENS } from '../src/spider-synth-specimens.js';
-import { createSpiderWeb, createSpiderFrame, normalizeSpiderMotion, writeSpiderPose, writeSpiderFrame, writeSpiderBody, writeSpiderSupportBody, constrainSpiderBodyPose, SPIDER_MOTION_PRESETS } from '../src/spider-synth-model.js';
-import { projectSpiderWebInto } from '../src/spider-synth-web.js';
-import { SpiderSynthWorld } from '../src/spider-synth-world.js';
-import { constrainSpiderSupportBody } from '../src/spider-synth-collision.js';
-import { createSpiderFootClearance, writeSpiderFootClearance, spiderFootClearsBodies, spiderFeetClear } from '../src/spider-synth-contact.js';
+import { SPIDER_SPECIMENS } from '../src/instruments/spider-synth/spider-synth-specimens.js';
+import { createSpiderWeb, createSpiderFrame, normalizeSpiderMotion, writeSpiderPose, writeSpiderFrame, writeSpiderBody, writeSpiderSupportBody, constrainSpiderBodyPose, SPIDER_MOTION_PRESETS } from '../src/instruments/spider-synth/spider-synth-model.js';
+import { projectSpiderWebInto } from '../src/instruments/spider-synth/spider-synth-web.js';
+import { SpiderSynthWorld } from '../src/instruments/spider-synth/spider-synth-world.js';
+import { constrainSpiderSupportBody } from '../src/instruments/spider-synth/spider-synth-collision.js';
+import { createSpiderFootClearance, writeSpiderFootClearance, spiderFootClearsBodies, spiderFeetClear } from '../src/instruments/spider-synth/spider-synth-contact.js';
 
 test('support-only future body samples match full collision-guarded composition across every specimen and motion', () => {
   const web = createSpiderWeb({ preset: 'argiope', seed: 3 });

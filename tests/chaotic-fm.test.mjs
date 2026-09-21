@@ -23,7 +23,7 @@ import {
   quadraticSliderValue,
   sanitizeChaoticFmParams,
   sanitizeChaoticFmPerformance,
-} from "../src/chaotic-fm.js";
+} from "../src/instruments/chaotic-fm/chaotic-fm.js";
 
 test("Chaotic FM preserves all five original Morphisma presets exactly", () => {
   assert.equal(CHAOTIC_FM_PRESETS.length, 5);
@@ -320,7 +320,7 @@ test("worklet renders finite extreme recursion and crossfades depth without rend
   globalThis.sampleRate = 48_000;
 
   try {
-    await import(`../src/chaotic-fm.js?worklet-test=${Date.now()}`);
+    await import(`../src/instruments/chaotic-fm/chaotic-fm.js?worklet-test=${Date.now()}`);
     assert.equal(typeof Processor, "function");
     const processor = new Processor({
       processorOptions: CHAOTIC_FM_PRESETS[0].settings,
@@ -495,7 +495,7 @@ test("worklet renders finite extreme recursion and crossfades depth without rend
     globalThis.sampleRate = 48_000;
 
     const source = await readFile(
-      new URL("../src/chaotic-fm.js", import.meta.url),
+      new URL("../src/instruments/chaotic-fm/chaotic-fm.js", import.meta.url),
       "utf8",
     );
     const processStart = source.indexOf("    process(_inputs, outputs) {");
@@ -664,8 +664,8 @@ test("native page exposes binary gesture audio, accurate naming, and cleanup", a
   const [markup, app, moduleSource, flowSource, sharedUi] = await Promise.all([
     readFile(new URL("chaotic-fm.html", root), "utf8"),
     readFile(new URL("src/instruments/chaotic-fm/chaotic-fm-app.js", root), "utf8"),
-    readFile(new URL("src/chaotic-fm.js", root), "utf8"),
-    readFile(new URL("src/chaotic-fm-flow.js", root), "utf8"),
+    readFile(new URL("src/instruments/chaotic-fm/chaotic-fm.js", root), "utf8"),
+    readFile(new URL("src/families/chaotic/chaotic-fm-flow.js", root), "utf8"),
     readFile(new URL("src/instruments/chaotic-synth-ui/chaotic-synth-ui.css", root), "utf8"),
   ]);
 

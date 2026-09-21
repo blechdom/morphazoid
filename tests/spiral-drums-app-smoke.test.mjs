@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
-import { buildPrototile, tilingInfo } from "../src/lattice.js";
+import { buildPrototile, tilingInfo } from "../src/instruments/lattice/lattice.js";
 import { MIDI_OUTPUT_PREVIEW_EVENT } from "../src/midi-output-preview.js";
 
 test("spiral drum app starts and keeps its complete geometry editor interactive", async () => {

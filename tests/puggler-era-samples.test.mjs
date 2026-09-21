@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { renderEraPhrase, renderEraDrum, ERA_IMPACT_MODELS } from '../src/puggler-era-samples.js';
-import { sonicSkin } from '../src/puggler-sonic-skins.js';
+import { renderEraPhrase, renderEraDrum, ERA_IMPACT_MODELS } from '../src/instruments/puggler/puggler-era-samples.js';
+import { sonicSkin } from '../src/instruments/puggler/puggler-sonic-skins.js';
 
 const skins = ['history', 'future'], roles = ['guitar', 'bass'], drums = ['kick', 'snare', 'crash', 'tom', 'hat'];
 const rms = data => Math.sqrt(data.reduce((sum, x) => sum + x * x, 0) / data.length);

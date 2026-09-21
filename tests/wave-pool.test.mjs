@@ -20,8 +20,8 @@ import {
   shallowWaterSpeed,
   stepWavePool,
   wavePoolStepDurationSeconds,
-} from "../src/wave-pool.js";
-import { WavePoolPhysicalProcessor } from "../src/wave-pool-processor.js";
+} from "../src/instruments/wave-pool/wave-pool.js";
+import { WavePoolPhysicalProcessor } from "../src/instruments/wave-pool/wave-pool-processor.js";
 
 const root = new URL("../", import.meta.url);
 const TEST_SAMPLE_RATE_HZ = 48_000;
@@ -422,8 +422,8 @@ test("the page exposes quiet opt-in audio, accessible interaction, responsive la
     readFile(new URL("wave-pool.html", root), "utf8"),
     readFile(new URL("src/instruments/wave-pool/wave-pool.css", root), "utf8"),
     readFile(new URL("src/instruments/wave-pool/wave-pool-app.js", root), "utf8"),
-    readFile(new URL("src/wave-pool.js", root), "utf8"),
-    readFile(new URL("src/wave-pool-processor.js", root), "utf8"),
+    readFile(new URL("src/instruments/wave-pool/wave-pool.js", root), "utf8"),
+    readFile(new URL("src/instruments/wave-pool/wave-pool-processor.js", root), "utf8"),
     readFile(new URL("WAVE_POOL_RESEARCH.md", root), "utf8"),
   ]);
   assert.match(html, /id="audioButton"[^>]*aria-pressed="false"/);

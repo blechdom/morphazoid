@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { RoachSynthDsp, createDefaultRoachBodyMix, ROACH_BODY_SOURCES } from '../src/roach-synth-dsp.js';
-import { RoachSynthAudio } from '../src/roach-synth-audio.js';
+import { RoachSynthDsp, createDefaultRoachBodyMix, ROACH_BODY_SOURCES } from '../src/instruments/roach-synth/roach-synth-dsp.js';
+import { RoachSynthAudio } from '../src/instruments/roach-synth/roach-synth-audio.js';
 
 const GROUPS = ['legs', 'covers', 'hindwings', 'thorax', 'abdomen', 'neck', 'head', 'antennae'];
 const IDS = ['front_left', 'front_right', 'wing_cover_left', 'wing_cover_right', 'wing_hind_left', 'wing_hind_right', 'thorax', 'abdomen', 'neck', 'head', 'antenna_left', 'antenna_right'];

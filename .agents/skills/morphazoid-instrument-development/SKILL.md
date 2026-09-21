@@ -26,7 +26,9 @@ take precedence over this workflow.
    use the supported Node versions in `CONTRIBUTING.md`, not a remembered local
    installation path. Review its discovery limits before relying on the result.
    Follow page/import references into `src/instruments/` or `src/families/`;
-   many models/worklets remain elsewhere in `src/`. Do not recreate root
+   instrument models/worklets now live with their owners. Shared infrastructure
+   and WASM engine/toolchain boundaries remain in `src/`; consult
+   `docs/source-module-layout.json` rather than guessing a model path. Do not recreate root
    controllers or derive filesystem names from catalogue categories.
 3. For creation or a core redesign, inspect at least two siblings chosen for
    relevant architecture or interaction patterns. Identify which parts to reuse

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {drivingControls} from '../src/puggler-controls.js';
+import {drivingControls} from '../src/instruments/puggler/puggler-controls.js';
 const controls=(keys,active=[0,1,2],targets=[null,null,null])=>drivingControls(new Set(keys),targets,active);
 test('gaming clusters distinguish slow and fast riding without arrow-key steering',()=>{
   assert.equal(controls(['KeyD'])[0].steer,.34);assert.equal(controls(['KeyE'])[0].steer,1);

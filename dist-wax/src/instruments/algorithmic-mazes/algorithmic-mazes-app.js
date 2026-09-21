@@ -12,7 +12,7 @@ import {
   mazeWallEdgeBetween,
   sanitizeMazeSettings,
   shortestMazePath,
-} from "../../algorithmic-mazes.js";
+} from "./algorithmic-mazes.js";
 
 const $ = (id) => document.getElementById(id);
 const TAU = Math.PI * 2;

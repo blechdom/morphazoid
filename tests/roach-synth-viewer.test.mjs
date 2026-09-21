@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { inspectRoachGlb } from '../src/roach-synth-viewer.js';
+import { inspectRoachGlb } from '../src/instruments/roach-synth/roach-synth-viewer.js';
 
 function glb(document, binaryBytes = 4) {
   const encoded = new TextEncoder().encode(JSON.stringify({ asset: { version: '2.0' }, ...document }));

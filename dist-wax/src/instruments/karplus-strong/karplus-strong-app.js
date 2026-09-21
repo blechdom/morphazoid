@@ -12,7 +12,7 @@ import {
   nearestKarplusStrongStringIndex,
   sanitizeKarplusStrongSettings,
   sanitizeKarplusStrongTuning,
-} from "../../karplus-strong.js";
+} from "./karplus-strong.js";
 import { canvasSizing } from "../../graphics/canvas-sizing.js";
 
 const $ = (id) => document.getElementById(id);

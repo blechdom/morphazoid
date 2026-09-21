@@ -14,8 +14,8 @@ import {
   trueFoldFrequencyForDroneHz,
   ventricularFoldSupercycle,
   vocalFryModulationSupercycle,
-} from "../../throat-singing.js";
-import { glottalHarmonics } from "../../throatazoid.js";
+} from "./throat-singing.js";
+import { glottalHarmonics } from "../../families/tract/throatazoid.js";
 import { connectAudioOutput } from "../../audio-output-manager.js";
 import { unlockAudioContext } from "../../audio.js";
 import { canvasSizing } from "../../graphics/canvas-sizing.js";
@@ -532,7 +532,7 @@ async function createPhysicalTract(audio) {
   if (!audio.audioWorklet?.addModule || typeof globalThis.AudioWorkletNode !== "function") return null;
   try {
     await audio.audioWorklet.addModule(
-      new URL("../../throatazoid-tract-processor.js", import.meta.url),
+      new URL("../../families/tract/throatazoid-tract-processor.js", import.meta.url),
     );
     const processor = new globalThis.AudioWorkletNode(audio, "throatazoid-tract", {
       numberOfInputs: 8,

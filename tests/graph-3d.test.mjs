@@ -6,8 +6,8 @@ import {
   graph3DEdgeParameters, graph3DVoice, signedBend3D, projectGraphPoint, dragGraphPoint,
   DEFAULT_VIEW, magnitude, sanitize3DSettings,
   GRAPH_3D_SOURCES, graph3DSource,
-} from "../src/graph-3d.js";
-import { generateGraph, edgeAudioParameters } from "../src/graph-delay.js";
+} from "../src/instruments/graph-3d/graph-3d.js";
+import { generateGraph, edgeAudioParameters } from "../src/instruments/graph-delay/graph-delay.js";
 import { instrumentById } from "../src/instrument-catalog.js";
 import { instrumentMidiCapabilityForId } from "../src/instrument-midi-capabilities.js";
 

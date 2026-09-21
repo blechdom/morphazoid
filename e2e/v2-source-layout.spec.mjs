@@ -86,7 +86,7 @@ test("Graph Delay loads its relocated-controller worklet URL with a synthetic in
   await expect.poll(async () => (await readAudioStatus(page)).peak).toBeGreaterThan(0.00001);
   const processors = await page.evaluate(() => window.__sourceLayoutWorklets);
   expect(processors).toEqual([{
-    path: "/src/graph-turn-processor.js?v=20260726-edge-switches", status: "loaded",
+    path: "/src/instruments/graph-delay/graph-turn-processor.js?v=20260726-edge-switches", status: "loaded",
   }]);
   await expect(page.locator("#liveStatus")).toContainText("Pitch processing active");
   const envelope = await sampleAudioEnvelope(page, { durationMs: 500, intervalMs: 40 });

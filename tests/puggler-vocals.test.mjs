@@ -1,10 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { VOCAL_CHARACTERS, vocalCharacter, renderCharacterVocal } from '../src/puggler-vocals.js';
-import { renderVocalChant } from '../src/puggler-samples.js';
+import { VOCAL_CHARACTERS, vocalCharacter, renderCharacterVocal } from '../src/instruments/puggler/puggler-vocals.js';
+import { renderVocalChant } from '../src/instruments/puggler/puggler-samples.js';
 import { decodePcmWav } from '../src/pcm-wav-decoder.js';
-import { SKINS } from '../src/puggler-skins.js';
+import { SKINS } from '../src/instruments/puggler/puggler-skins.js';
 
 const rms = data => Math.sqrt(data.reduce((sum, value) => sum + value * value, 0) / Math.max(1, data.length));
 const peak = data => data.reduce((max, value) => Math.max(max, Math.abs(value)), 0);

@@ -19,7 +19,7 @@ globalThis.registerProcessor = (name, constructor) => {
   ProcessorConstructor = constructor;
 };
 
-await import(`../src/signalsmith-generation-mixer-processor.js?test=${Date.now()}`);
+await import(`../src/families/signalsmith-generation/signalsmith-generation-mixer-processor.js?test=${Date.now()}`);
 
 test("Signalsmith mixer reports measured render load and its adaptive ceiling", () => {
   assert.equal(processorName, "morphazoid-signalsmith-generation-mixer");

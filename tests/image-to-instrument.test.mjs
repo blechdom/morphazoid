@@ -19,7 +19,7 @@ import {
   radialPetalLayout,
   sanitizeImageInstrumentState,
   sequencerStepDurationSeconds,
-} from "../src/image-to-instrument.js";
+} from "../src/families/image-to-instrument/image-to-instrument.js";
 
 const rmsGain = (voices) => Math.sqrt(
   voices.reduce((sum, voice) => sum + voice.gain ** 2, 0),

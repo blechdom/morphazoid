@@ -1,4 +1,4 @@
-import { createProtoShell, renderDemoPhrase } from "../../proto-shell.js?v=proto-20260918-1";
+import { createProtoShell, renderDemoPhrase } from "../../families/proto-graph/proto-shell.js?v=proto-20260918-1";
 
 const $ = (id) => document.getElementById(id);
 const TAU = Math.PI * 2;

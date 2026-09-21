@@ -7,11 +7,11 @@ import {
   TONGUE_PARAMETER_LIMITS,
   modulateTongueState,
   sampleTongueMotionPreset,
-} from "../src/tongue-performance.js";
+} from "../src/families/syrinx/tongue-performance.js";
 import {
   CONTROL_LIMITS,
   MODULATION_TARGETS,
-} from "../src/syrinx.js";
+} from "../src/families/syrinx/syrinx.js";
 
 const ARTICULATION_UNIT_PARAMETERS = Object.freeze([
   "lateralBypass",

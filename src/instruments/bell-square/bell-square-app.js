@@ -4,7 +4,7 @@ import {
   DEFAULT_SAMPLE_SEED,
   sampleJoint,
   simulateBellSquare,
-} from "../../bell-square.js";
+} from "./bell-square.js";
 import { canvasSizing } from "../../graphics/canvas-sizing.js";
 
 const $ = (id) => document.getElementById(id);

@@ -6,7 +6,7 @@ import {
   projectedPolygonArea,
   rubixStickerVisibility,
   rubixVisibilityGain,
-} from "../src/rubix-visibility.js";
+} from "../src/instruments/rubix/rubix-visibility.js";
 
 const rectangle = (width, height, x = 0, y = 0) => [
   { x, y },

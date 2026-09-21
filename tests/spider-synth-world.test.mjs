@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { SpiderSynthWorld, normalizeSpiderWorld, SPIDER_TRAVEL_PATHS } from '../src/spider-synth-world.js';
-import { createSpiderWeb, normalizeSpiderMotion, createSpiderFrame, writeSpiderPose, SPIDER_WEB_PRESETS, SPIDER_MOTION_PRESETS, SPIDER_LEG_GEOMETRY } from '../src/spider-synth-model.js';
+import { SpiderSynthWorld, normalizeSpiderWorld, SPIDER_TRAVEL_PATHS } from '../src/instruments/spider-synth/spider-synth-world.js';
+import { createSpiderWeb, normalizeSpiderMotion, createSpiderFrame, writeSpiderPose, SPIDER_WEB_PRESETS, SPIDER_MOTION_PRESETS, SPIDER_LEG_GEOMETRY } from '../src/instruments/spider-synth/spider-synth-model.js';
 const graph = createSpiderWeb();
 const motion = normalizeSpiderMotion({ preset: 'orb-walk', intensity: .7, tempo: 108, explore: false });
 const near = (a, b, e = 1e-9) => assert.ok(Math.abs(a - b) <= e, `${a} != ${b}`);

@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 
-import { PHYSICS_SCENES } from "../src/physics-scenes.js";
+import { PHYSICS_SCENES } from "../src/families/physics/physics-scenes.js";
 import { readAudioStatus, sampleAudioEnvelope, waitForStableAudioState } from "./helpers/audio-probe.mjs";
 import {
   attachJson, canvasLayouts, captureSettledLayout, expectCanvasSizing,

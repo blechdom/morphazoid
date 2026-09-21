@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { generationVoiceSpecs } from "../src/micmic.js";
-import { SignalsmithGenerationMixerDSP } from "../src/signalsmith-generation-mixer-dsp.js";
+import { generationVoiceSpecs } from "../src/instruments/micmic/micmic.js";
+import { SignalsmithGenerationMixerDSP } from "../src/families/signalsmith-generation/signalsmith-generation-mixer-dsp.js";
 
 test("fixed-pool mixer renders delayed taps without per-voice histories", () => {
   const renderer = new SignalsmithGenerationMixerDSP({

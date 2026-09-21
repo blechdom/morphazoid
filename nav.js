@@ -6,7 +6,7 @@ import { getSharedAudioOutputManager } from "./src/audio-output-manager.js";
 import { installBrowserMidiAdapter } from "./src/browser-midi-adapter.js";
 import { instrumentMidiCapabilityForId } from "./src/instrument-midi-capabilities.js";
 import { initializeMidiOutputMonitor } from "./src/midi-output-preview.js";
-import { initializeChaoticViewportControls } from "./src/chaotic-viewport-controls.js";
+import { initializeChaoticViewportControls } from "./src/families/chaotic/chaotic-viewport-controls.js";
 import { createMidiStatus, createStereoMeter } from "./src/ui/index.js";
 import { createChoosePickerShell } from "./src/ui/patterns/choose-picker-shell.js";
 import { mountHeaderPresets } from "./src/site/header-presets.js";

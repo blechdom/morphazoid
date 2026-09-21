@@ -4,7 +4,7 @@ import test from "node:test";
 import {
   GRANULAR_ECONOMY_PITCH_CLASSES,
   GranularEconomyRenderer,
-} from "../src/granular-economy-renderer.js";
+} from "../src/families/signalsmith-generation/granular-economy-renderer.js";
 
 function harness() {
   const messages = [];

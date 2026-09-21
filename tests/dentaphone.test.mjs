@@ -11,7 +11,7 @@ import {
   dentaphonePitchRange,
   dentaphoneToothLabel,
   sanitizeDentaphonePitchState,
-} from "../src/dentaphone.js";
+} from "../src/instruments/object-forge/dentaphone.js";
 import {
   PHYSICAL_SOUND_PRESETS,
   buildPhysicalModalBank,

@@ -14,7 +14,7 @@ import {
   generateMinimaxScore,
   generateNQueensScore,
   sanitizeAlgorithmicScoreParams,
-} from "../src/algorithmic-scores.js";
+} from "../src/families/algorithmic-scores/algorithmic-scores.js";
 
 test("algorithmic score bank exposes five non-sorting instruments", () => {
   assert.deepEqual(
