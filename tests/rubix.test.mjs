@@ -566,7 +566,7 @@ test("dynamic read paths cover representative 2 x 2 through 12 x 12 cube faces",
   }
 });
 
-test("Rubix page exposes cube gestures, mutually exclusive sound roles, and release asset", async () => {
+test("Rubix page exposes cube gestures, mutually exclusive banks across all six faces, and release asset", async () => {
   const [html, css, app, image] = await Promise.all([
     readFile(new URL("rubix.html", root), "utf8"),
     readFile(new URL("rubix.css", root), "utf8"),
@@ -588,8 +588,8 @@ test("Rubix page exposes cube gestures, mutually exclusive sound roles, and rele
     html,
     /data-read-mode="face"[^>]*>[\s\S]*?<b>Alternate faces<\/b>/,
   );
-  assert.match(html, /(?:Acid\s*303|303\s*acid|303)[\s\S]*upper visible face|upper visible face[\s\S]*(?:Acid\s*303|303\s*acid|303)/i);
-  assert.match(html, /drum (?:banks?|kits?)[\s\S]*side faces?|side faces?[\s\S]*drum (?:banks?|kits?)/i);
+  assert.match(html, /303[\s\S]*every visible face/i);
+  assert.match(html, /all six faces run/i);
   assert.match(html, /one (?:sound )?bank (?:plays )?at a time/i);
   assert.match(html, /hidden stickers are silent/i);
   assert.match(html, /src="rubix-app\.js"/);
@@ -711,7 +711,7 @@ test("Rubix page exposes cube gestures, mutually exclusive sound roles, and rele
   ].map((match) => match[1] ?? match[2]);
   assert.deepEqual(
     registeredSoundBanks,
-    ["soft-fm", "analog", "modal", "noise", "acid-303"],
+    ["soft-fm", "analog", "modal", "noise", "rattlesnake", "pitched-morph", "karplus-strong", "acid-303"],
   );
   assert.match(defaultsDefinition, /\bsoundBank\s*:\s*"soft-fm"/);
   assert.doesNotMatch(defaultsDefinition, /\bpercEngine\b/);
@@ -746,8 +746,8 @@ test("Rubix page exposes cube gestures, mutually exclusive sound roles, and rele
   );
   assert.match(
     app,
-    /Object\.assign\(state,\s*DEFAULTS,\s*preset\.settings\)/,
-    "preset application should retain a deterministic default-bank fallback",
+    /Object\.assign\(state,\s*DEFAULTS,\s*preset\.settings,\s*levels\)/,
+    "preset application should retain defaults while preserving performer levels",
   );
   const representedForms = new Set(presetForms.map(({ shapeId, size }) => `${shapeId}:${size}`));
   for (const representative of ["cube:2", "cube:3", "cube:4", "morphix:3", "orb:3"]) {
@@ -893,7 +893,8 @@ test("Rubix page exposes cube gestures, mutually exclusive sound roles, and rele
     "function performanceEventsForRole",
     "function schedulerTick",
   );
-  assert.match(liveEvents, /for\s*\([^)]*\bperformanceSnapshots\b[^)]*\)/);
+  assert.match(liveEvents, /performanceSnapshots\[0\]/);
+  assert.match(liveEvents, /Object.entries\(snapshot.faceLanes\)/);
   assert.match(liveEvents, /new\s+Map\s*\(/, "live candidates should be deduplicated");
   assert.match(liveEvents, /\.set\s*\(\s*(?:event\.)?sticker\.id\b/);
   const scheduler = sourceSection(app, "function schedulerTick", "function clearVisualTimers");
@@ -901,16 +902,11 @@ test("Rubix page exposes cube gestures, mutually exclusive sound roles, and rele
     scheduler,
     /const\s+acidBankActive\s*=\s*state\.soundBank\s*===\s*["']acid-303["']/,
   );
-  assert.match(
-    scheduler,
-    /if\s*\(\s*acidBankActive\s*&&[\s\S]{0,240}activeRoles\.has\(\s*["']acid["']\s*\)[\s\S]{0,600}scheduleAcid\s*\(/,
-    "the acid bank should schedule only the upper acid role",
-  );
-  assert.match(
-    scheduler,
-    /if\s*\(\s*!acidBankActive\s*\)\s*\{[\s\S]*?for\s*\(const\s+role\s+of\s+\[\s*["']drumLeft["']\s*,\s*["']drumRight["']\s*\][\s\S]*?scheduleDrum\s*\(/,
-    "each drum bank should schedule only the two side roles",
-  );
+  assert.match(scheduler, /for\s*\(const role of frame.activeRoles\)/);
+  assert.match(scheduler, /acidBankActive && activeAcidEngine === "web-audio"/);
+  assert.match(scheduler, /else if \(!acidBankActive\)/);
+  assert.doesNotMatch(scheduler, /filter\(.*gain.*> 0/, "hidden attacks must run behind live gates");
+  assert.match(scheduler, /state.soundBank, event.sticker/, "each attack routes through its sticker gate");
   assert.match(
     scheduler,
     /scheduleDrum\s*\([\s\S]*?state\.soundBank\s*,/,

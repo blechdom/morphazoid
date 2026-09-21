@@ -5,15 +5,17 @@ import {
 } from "./src/fm-drums.js";
 import { unlockAudioContext } from "./src/audio.js";
 import { connectAudioOutput } from "./src/audio-output-manager.js";
+import { RUBIX_FACE_ROLES, RubixStickerMixer, createRubixDynamics } from "./src/rubix-mix.js";
 import {
-  WEBGPU_303_SEQUENCE_LENGTH,
-  WebGpu303Audio,
-  webGpu303Support,
-} from "./src/webgpu-303.js";
+  RUBIX_EXTRA_KITS, renderRubixExtraDrum, normalizeRubixDrumBuffer, trimRubixDrumBuffer,
+} from "./src/rubix-percussion.js";
+import { RubixSurfaceSimd303, createRubixSimdSurfacePatterns } from "./src/rubix-simd-surface.js";
 import {
-  RUBIX_WEBGPU_303_DEFAULTS,
-  createRubixWebGpu303Pattern,
-} from "./src/rubix-webgpu-303.js";
+  RUBIX_SIMD_PRESETS, DEFAULT_RUBIX_SIMD_PRESET, rubixSimdPreset,
+  rubixSimdVoiceParams, rubixSimdSurfaceTone, rubixPerformerLevels,
+} from "./src/rubix-simd-presets.js";
+import { simd303Support } from "./src/simd-303.js";
+import { WEBGPU_303_SEQUENCE_LENGTH as SIMD_303_SEQUENCE_LENGTH } from "./src/webgpu-303.js";
 import {
   createRubixVisibilityProfile,
   rubixStickerVisibility,
@@ -52,9 +54,8 @@ const DEFAULT_SHAPE_ID = "cube";
 const DEFAULT_RUBIX_SIZE = 3;
 const RUBIX_SIZE_MIN = 2;
 const RUBIX_SIZE_MAX = 6;
-const DEFAULT_ACID_ENGINE = "web-audio";
+const DEFAULT_ACID_ENGINE = "simd-303";
 const DEFAULT_STICKER_MODULATION = 0.68;
-const WEBGPU_TIMING_CONTROL_IDS = Object.freeze(new Set(["tempo", "swing"]));
 
 const COLOR_HEX = Object.freeze({
   white: "#edf6ee",
@@ -84,9 +85,9 @@ const FACE_SHORT = Object.freeze({
 });
 
 const ROLE_META = Object.freeze({
-  acid: Object.freeze({ label: "Acid", detail: "upper visible face", color: "#9dff57" }),
-  drumLeft: Object.freeze({ label: "Drum A", detail: "left visible face", color: "#62dbff" }),
-  drumRight: Object.freeze({ label: "Drum B", detail: "right visible face", color: "#ff784f" }),
+  acid: Object.freeze({ label: "Y faces", detail: "up / down", color: "#9dff57" }),
+  drumLeft: Object.freeze({ label: "Z faces", detail: "front / back", color: "#62dbff" }),
+  drumRight: Object.freeze({ label: "X faces", detail: "left / right", color: "#ff784f" }),
 });
 
 const ROLE_AUDIO_VALUE = Object.freeze({
@@ -120,10 +121,22 @@ const SOUND_BANKS = Object.freeze({
     detail: "filtered bursts + quiet body",
     role: "percussion",
   }),
+  rattlesnake: Object.freeze({
+    id: "rattlesnake", label: "Rattlesnake · Modal + FM",
+    detail: "Rattlesnake's membrane and FM engine", role: "percussion",
+  }),
+  "pitched-morph": Object.freeze({
+    id: "pitched-morph", label: "Mallets · Pitched Morph",
+    detail: "Rattlesnake's marimba, xylophone and kalimba morph", role: "percussion",
+  }),
+  "karplus-strong": Object.freeze({
+    id: "karplus-strong", label: "Karplus Strong · plucked",
+    detail: "Karplus Strong's muted strings and tines", role: "percussion",
+  }),
   "acid-303": Object.freeze({
     id: "acid-303",
     label: "303 acid",
-    detail: "upper-face resonant sequence",
+    detail: "six resonant face sequences",
     role: "acid",
   }),
 });
@@ -132,9 +145,9 @@ const PERCUSSION_SOUND_BANK_IDS = Object.freeze(
 );
 
 const READ_MODE_DESCRIPTIONS = Object.freeze({
-  parallel: "All three visible faces read left-to-right, top-to-bottom together. Hidden stickers are silent.",
-  snake: "All three visible faces snake together: the middle row reverses, then the bottom row turns forward again. Hidden stickers are silent.",
-  face: "Each snake beat is divided into three face subdivisions: upper acid, left drum, then right drum. Hidden stickers are silent.",
+  parallel: "All six faces read rows together. Only uncovered stickers sound; their screen area sets the mix.",
+  snake: "All six faces snake together, reversing every other row. Hidden stickers are silent.",
+  face: "Opposite face pairs alternate: up/down, front/back, then left/right. Hidden stickers are silent.",
 });
 
 const ACID_ENGINES = Object.freeze({
@@ -143,9 +156,9 @@ const ACID_ENGINES = Object.freeze({
     label: "Web Audio 303",
     detail: "classic resonant voice",
   }),
-  "webgpu-303": Object.freeze({
-    id: "webgpu-303",
-    label: "WebGPU 303",
+  "simd-303": Object.freeze({
+    id: "simd-303",
+    label: "SIMD 303",
     detail: "sticker placement modulation",
   }),
 });
@@ -166,18 +179,17 @@ const MORPHIX_FACE_NORMALS = Object.freeze([
 ]);
 
 const DEFAULTS = Object.freeze({
+  ...rubixSimdPreset().controls,
   tempo: 126,
   swing: 0,
-  cutoff: 980,
-  resonance: 11.5,
-  acidDecay: 0.18,
-  drive: 2.4,
   acidLevel: 0.58,
   drumLevel: 0.54,
   soundBank: "soft-fm",
   acidEngine: DEFAULT_ACID_ENGINE,
+  simdPreset: DEFAULT_RUBIX_SIMD_PRESET,
+  simdPresetCustom: false,
   stickerModulation: DEFAULT_STICKER_MODULATION,
-  visibilityDynamics: 0.72,
+  visibilityDynamics: 1,
   output: 0.56,
   randomTwists: false,
   randomTwistSpeed: RUBIX_TWIST_SPEED_DEFAULT_POSITION,
@@ -194,6 +206,8 @@ const SOUND_DEFAULTS = Object.freeze({
   drumLevel: DEFAULTS.drumLevel,
   soundBank: DEFAULTS.soundBank,
   acidEngine: DEFAULTS.acidEngine,
+  simdPreset: DEFAULTS.simdPreset,
+  simdPresetCustom: false,
   stickerModulation: DEFAULTS.stickerModulation,
   visibilityDynamics: DEFAULTS.visibilityDynamics,
   output: DEFAULTS.output,
@@ -215,9 +229,8 @@ const RUBIX_PRESETS = Object.freeze({
     size: 2,
     readingMode: "snake",
     settings: Object.freeze({
-      tempo: 108, swing: 0.16, visibilityDynamics: 0.58,
+      tempo: 108, swing: 0.16, visibilityDynamics: 1,
       cutoff: 720, resonance: 8.8, acidDecay: 0.24, drive: 1.6,
-      acidLevel: 0.43, drumLevel: 0.52, output: 0.52,
       soundBank: "analog", randomTwists: true, randomTwistSpeed: 48,
     }),
   }),
@@ -228,9 +241,8 @@ const RUBIX_PRESETS = Object.freeze({
     size: 3,
     readingMode: "face",
     settings: Object.freeze({
-      tempo: 112, swing: 0.2, visibilityDynamics: 0.86,
+      tempo: 112, swing: 0.2, visibilityDynamics: 1,
       cutoff: 620, resonance: 7.5, acidDecay: 0.28, drive: 1.35,
-      acidLevel: 0.36, drumLevel: 0.53, output: 0.52,
       soundBank: "modal", randomTwists: true, randomTwistSpeed: 42,
     }),
   }),
@@ -241,9 +253,8 @@ const RUBIX_PRESETS = Object.freeze({
     size: 4,
     readingMode: "face",
     settings: Object.freeze({
-      tempo: 138, swing: 0.04, visibilityDynamics: 0.92,
+      tempo: 138, swing: 0.04, visibilityDynamics: 1,
       cutoff: 1860, resonance: 9, acidDecay: 0.11, drive: 1.7,
-      acidLevel: 0.4, drumLevel: 0.4, output: 0.48,
       soundBank: "noise", randomTwists: true, randomTwistSpeed: 70,
     }),
   }),
@@ -254,10 +265,9 @@ const RUBIX_PRESETS = Object.freeze({
     size: 3,
     readingMode: "snake",
     settings: Object.freeze({
-      tempo: 94, swing: 0.12, visibilityDynamics: 0.78,
-      cutoff: 540, resonance: 10.4, acidDecay: 0.38, drive: 1.25,
-      acidLevel: 0.34, drumLevel: 0.48, output: 0.5,
-      soundBank: "acid-303", acidEngine: "web-audio",
+      ...rubixSimdPreset("morphix-bloom").controls,
+      tempo: 94, swing: 0.12, visibilityDynamics: 1,
+      soundBank: "acid-303", acidEngine: "simd-303", simdPreset: "morphix-bloom",
       randomTwists: true, randomTwistSpeed: 32,
     }),
   }),
@@ -390,7 +400,7 @@ class RubixAudioEngine {
     this.drumBus = null;
     this.drumBankBuses = new Map();
     this.acidBus = null;
-    this.webGpuAcidBus = null;
+    this.simdAcidBus = null;
     this.acidFilter = null;
     this.acidShaper = null;
     this.acidVca = null;
@@ -402,6 +412,10 @@ class RubixAudioEngine {
     this.acidEngine = DEFAULT_ACID_ENGINE;
     this.lastAcidFrequency = midiFrequency(52);
     this.lifecycleGeneration = 0;
+    this.stickerMixer = null;
+    this.kitBuffers = new Map();
+    this.activeSources = new Set();
+    this.acidFrequencies = new Map();
   }
 
   async start(settings) {
@@ -427,21 +441,19 @@ class RubixAudioEngine {
       error.name = "AbortError";
       throw error;
     }
+    if (settings.soundBank !== "acid-303") await this.prepareKit(settings.soundBank);
     this.updateSettings(settings);
     return context;
   }
 
   buildGraph(settings) {
     const context = this.context;
-    this.compressor = context.createDynamicsCompressor();
-    this.compressor.threshold.value = -13;
-    this.compressor.knee.value = 12;
-    this.compressor.ratio.value = 7;
-    this.compressor.attack.value = 0.002;
-    this.compressor.release.value = 0.16;
+    const dynamics = createRubixDynamics(context);
+    this.compressor = dynamics.compressor;
+    this.stickerMixer = new RubixStickerMixer(context);
 
     this.transportGain = context.createGain();
-    this.transportGain.gain.value = 0.0001;
+    this.transportGain.gain.value = 0;
     this.master = context.createGain();
     this.master.gain.value = this.output;
     this.analyser = context.createAnalyser();
@@ -457,47 +469,21 @@ class RubixAudioEngine {
       return [bankId, bus];
     }));
     this.acidBus = context.createGain();
-    this.webGpuAcidBus = context.createGain();
+    this.simdAcidBus = context.createGain();
     this.drumBus.connect(this.compressor);
     this.acidBus.connect(this.compressor);
-    this.webGpuAcidBus.connect(this.compressor);
-    this.compressor.connect(this.transportGain);
+    this.simdAcidBus.connect(this.compressor);
+    dynamics.output.connect(this.transportGain);
     this.transportGain.connect(this.master);
     this.master.connect(this.analyser);
     this.releaseAudioOutput = connectAudioOutput(context, this.analyser, { runtime: this.runtime });
 
-    const sawGain = context.createGain();
-    const subGain = context.createGain();
-    sawGain.gain.value = 0.38;
-    subGain.gain.value = 0.12;
-    this.acidOscillator = context.createOscillator();
-    this.acidOscillator.type = "sawtooth";
-    this.acidSub = context.createOscillator();
-    this.acidSub.type = "square";
-    this.acidOscillator.frequency.value = this.lastAcidFrequency;
-    this.acidSub.frequency.value = this.lastAcidFrequency * 0.5;
-    this.acidOscillator.connect(sawGain);
-    this.acidSub.connect(subGain);
-
-    this.acidFilter = context.createBiquadFilter();
-    this.acidFilter.type = "lowpass";
-    this.acidShaper = context.createWaveShaper();
-    this.acidShaper.oversample = "4x";
-    this.acidVca = context.createGain();
-    this.acidVca.gain.value = 0.0001;
-    sawGain.connect(this.acidFilter);
-    subGain.connect(this.acidFilter);
-    this.acidFilter.connect(this.acidShaper);
-    this.acidShaper.connect(this.acidVca);
-    this.acidVca.connect(this.acidBus);
+    this.acidShaper = { curve: this.distortionCurve(settings.drive) };
 
     this.noiseBuffer = context.createBuffer(1, context.sampleRate * 2, context.sampleRate);
     const noise = this.noiseBuffer.getChannelData(0);
     for (let index = 0; index < noise.length; index += 1) noise[index] = Math.random() * 2 - 1;
 
-    const now = context.currentTime;
-    this.acidOscillator.start(now);
-    this.acidSub.start(now);
     this.updateSettings(settings);
   }
 
@@ -523,11 +509,10 @@ class RubixAudioEngine {
       now,
     );
     this.setBankGain(
-      this.webGpuAcidBus,
-      acidSelected && this.acidEngine === "webgpu-303" ? acidLevel : 0,
+      this.simdAcidBus,
+      acidSelected && this.acidEngine === "simd-303" ? acidLevel : 0,
       now,
     );
-    this.acidFilter.Q.setTargetAtTime(clamp(settings.resonance, 0, 18), now, 0.012);
     this.acidShaper.curve = this.distortionCurve(settings.drive);
   }
 
@@ -550,7 +535,7 @@ class RubixAudioEngine {
   }
 
   setAcidEngine(engineId, settings) {
-    this.acidEngine = engineId === "webgpu-303" ? "webgpu-303" : "web-audio";
+    this.acidEngine = engineId === "simd-303" ? "simd-303" : "web-audio";
     this.updateSettings(settings);
   }
 
@@ -575,17 +560,44 @@ class RubixAudioEngine {
     if (!this.transportGain || !this.context) return;
     const now = this.context.currentTime;
     this.transportGain.gain.cancelScheduledValues(now);
-    this.transportGain.gain.setTargetAtTime(active ? 1 : 0.0001, now, active ? 0.008 : 0.018);
+    this.transportGain.gain.setTargetAtTime(active ? 1 : 0, now, active ? 0.008 : 0.008);
+    if (!active) {
+      this.transportGain.gain.setValueAtTime(0, now + 0.04);
+      for (const source of this.activeSources) {
+        try { source.stop(now + 0.025); } catch { /* ended */ }
+      }
+    }
     if (!active && this.acidVca) {
       this.acidVca.gain.cancelScheduledValues(now);
-      this.acidVca.gain.setTargetAtTime(0.0001, now, 0.008);
+      this.acidVca.gain.setTargetAtTime(0, now, 0.008);
     }
   }
 
   scheduleAcid(midi, sticker, when, stepDuration, settings, laneGain = 1) {
-    if (!this.context || !this.acidOscillator || !this.acidSub || !this.acidVca) return;
+    if (!this.context || !this.stickerMixer) return;
     const visibleGain = clamp(laneGain, 0, 1);
     if (visibleGain <= 0) return;
+    const context = this.context;
+    const oscillator = context.createOscillator();
+    const sub = context.createOscillator();
+    const sawGain = context.createGain();
+    const subGain = context.createGain();
+    const filter = context.createBiquadFilter();
+    const shaper = context.createWaveShaper();
+    const vca = context.createGain();
+    oscillator.type = "sawtooth";
+    sub.type = "square";
+    sawGain.gain.value = 0.38;
+    subGain.gain.value = 0.12;
+    filter.type = "lowpass";
+    shaper.curve = this.acidShaper.curve;
+    shaper.oversample = "2x";
+    oscillator.connect(sawGain).connect(filter);
+    sub.connect(subGain).connect(filter);
+    filter.connect(shaper).connect(vca);
+    vca.connect(this.stickerMixer.destination(sticker.id, this.acidBus));
+    const face = rubixFaceForNormal(sticker.normal);
+    const previousFrequency = this.acidFrequencies.get(face) ?? midiFrequency(midi + 12);
     const target = midiFrequency(midi + 12);
     const glide = sticker.color === "blue" || sticker.color === "green";
     const lastCell = Math.max(0, Number(settings.cube?.size ?? 3) - 1);
@@ -594,47 +606,123 @@ class RubixAudioEngine {
     const attackEnd = when + 0.006;
     const decayEnd = when + Math.min(stepDuration * 0.94, clamp(settings.acidDecay, 0.06, 0.72));
 
-    this.acidOscillator.frequency.setValueAtTime(this.lastAcidFrequency, when);
-    this.acidSub.frequency.setValueAtTime(this.lastAcidFrequency * 0.5, when);
+    oscillator.frequency.setValueAtTime(previousFrequency, when);
+    sub.frequency.setValueAtTime(previousFrequency * 0.5, when);
     if (glide) {
       const glideEnd = when + Math.min(0.055, stepDuration * 0.42);
-      this.acidOscillator.frequency.exponentialRampToValueAtTime(target, glideEnd);
-      this.acidSub.frequency.exponentialRampToValueAtTime(target * 0.5, glideEnd);
+      oscillator.frequency.exponentialRampToValueAtTime(target, glideEnd);
+      sub.frequency.exponentialRampToValueAtTime(target * 0.5, glideEnd);
     } else {
-      this.acidOscillator.frequency.setValueAtTime(target, when);
-      this.acidSub.frequency.setValueAtTime(target * 0.5, when);
+      oscillator.frequency.setValueAtTime(target, when);
+      sub.frequency.setValueAtTime(target * 0.5, when);
     }
     this.lastAcidFrequency = target;
+    this.acidFrequencies.set(face, target);
 
     const peak = clamp(0.34 * accent * visibleGain, 0.0001, 0.52);
-    this.acidVca.gain.setValueAtTime(0.0001, when);
-    this.acidVca.gain.linearRampToValueAtTime(peak, attackEnd);
-    this.acidVca.gain.exponentialRampToValueAtTime(0.0001, Math.max(attackEnd + 0.012, decayEnd));
+    vca.gain.setValueAtTime(0, when);
+    vca.gain.linearRampToValueAtTime(peak, attackEnd);
+    vca.gain.exponentialRampToValueAtTime(0.0001, Math.max(attackEnd + 0.012, decayEnd));
+    vca.gain.linearRampToValueAtTime(0, decayEnd + 0.025);
 
     const cutoff = clamp(settings.cutoff, 160, 4200);
     const peakCutoff = clamp(cutoff * (2.25 + accent), 180, 12_000);
-    this.acidFilter.frequency.setValueAtTime(peakCutoff, when);
-    this.acidFilter.frequency.exponentialRampToValueAtTime(cutoff, Math.max(when + 0.018, decayEnd));
-    this.acidFilter.Q.setValueAtTime(clamp(settings.resonance + (accent - 1) * 3, 0, 20), when);
+    filter.frequency.setValueAtTime(peakCutoff, when);
+    filter.frequency.exponentialRampToValueAtTime(cutoff, Math.max(when + 0.018, decayEnd));
+    filter.Q.setValueAtTime(clamp(settings.resonance + (accent - 1) * 3, 0, 20), when);
+    oscillator.start(when);
+    sub.start(when);
+    oscillator.stop(decayEnd + 0.03);
+    sub.stop(decayEnd + 0.03);
+    this.trackSource(sub, [], sticker, when, decayEnd + 0.03);
+    this.trackSource(oscillator, [sawGain, subGain, filter, shaper, vca], sticker, when, decayEnd + 0.03);
   }
 
-  scheduleDrum(voiceIndex, when, laneGain = 1, engineId = "soft-fm") {
+  async prepareKit(bankId) {
+    if (!this.context || !PERCUSSION_SOUND_BANK_IDS.includes(bankId)) return;
+    if (this.kitBuffers.has(bankId)) return this.kitBuffers.get(bankId);
+    const liveContext = this.context;
+    const noiseBuffer = this.noiseBuffer;
+    const sampleRate = liveContext.sampleRate;
+    const OfflineContext = this.runtime.OfflineAudioContext ?? this.runtime.webkitOfflineAudioContext;
+    if (!OfflineContext) throw new Error("Offline audio rendering is unavailable.");
+    const pending = (async () => {
+      const buffers = [];
+      const usedVoices = new Set([
+        ...Object.values(RUBIX_DRUM_LEFT_VOICE_BY_COLOR),
+        ...Object.values(RUBIX_DRUM_RIGHT_VOICE_BY_COLOR),
+      ]);
+      for (const voiceIndex of usedVoices) {
+        if (this.context !== liveContext) {
+          const error = new Error("Rubix kit rendering cancelled.");
+          error.name = "AbortError";
+          throw error;
+        }
+        const voice = sanitizeFmDrumVoice(this.voices[voiceIndex]);
+        const context = new OfflineContext(2, Math.ceil(sampleRate * 1.8), sampleRate);
+        let buffer;
+        if (Object.hasOwn(RUBIX_EXTRA_KITS, bankId)) {
+          buffer = await renderRubixExtraDrum(context, voice, bankId);
+        } else {
+          const renderer = new RubixAudioEngine({});
+          renderer.context = context;
+          renderer.noiseBuffer = noiseBuffer;
+          const method = {
+            analog: "scheduleAnalogDrum", modal: "scheduleModalDrum",
+            noise: "scheduleNoiseDrum", "soft-fm": "scheduleFmDrum",
+          }[bankId];
+          renderer[method](voice, 0, 1, context.destination);
+          buffer = await context.startRendering();
+        }
+        buffers[voiceIndex] = trimRubixDrumBuffer(liveContext, normalizeRubixDrumBuffer(buffer));
+      }
+      return buffers;
+    })();
+    this.kitBuffers.set(bankId, pending);
+    try {
+      const buffers = await pending;
+      if (this.kitBuffers.get(bankId) === pending) this.kitBuffers.set(bankId, buffers);
+      return buffers;
+    } catch (error) {
+      if (this.kitBuffers.get(bankId) === pending) this.kitBuffers.delete(bankId);
+      throw error;
+    }
+  }
+
+  trackSource(source, nodes = [], sticker = null, startAt = 0, stopAt = Infinity) {
+    while (this.activeSources.size >= 192) {
+      const oldest = this.activeSources.values().next().value;
+      try { oldest.stop(this.context.currentTime + 0.025); } catch { /* ended */ }
+      this.activeSources.delete(oldest);
+    }
+    source.rubixStickerId = sticker?.id;
+    source.rubixStartAt = startAt;
+    source.rubixStopAt = stopAt;
+    this.activeSources.add(source);
+    source.onended = () => {
+      this.activeSources.delete(source);
+      source.disconnect();
+      for (const node of nodes) node.disconnect();
+    };
+  }
+
+  scheduleDrum(voiceIndex, when, laneGain = 1, engineId = "soft-fm", sticker = null) {
     if (!this.context || !this.drumBus) return;
     const bankId = PERCUSSION_SOUND_BANK_IDS.includes(engineId) ? engineId : DEFAULTS.soundBank;
-    const destination = this.drumBankBuses.get(bankId);
+    const bus = this.drumBankBuses.get(bankId);
+    const destination = sticker ? this.stickerMixer.destination(sticker.id, bus) : bus;
     if (!destination) return;
     const safeGain = clamp(laneGain, 0, 1.4);
     if (safeGain <= 0) return;
-    const voice = sanitizeFmDrumVoice(this.voices[voiceIndex] ?? this.voices[0]);
-    if (engineId === "analog") {
-      this.scheduleAnalogDrum(voice, when, safeGain, destination);
-    } else if (engineId === "modal") {
-      this.scheduleModalDrum(voice, when, safeGain, destination);
-    } else if (engineId === "noise") {
-      this.scheduleNoiseDrum(voice, when, safeGain, destination);
-    } else {
-      this.scheduleFmDrum(voice, when, safeGain, destination);
-    }
+    const buffers = this.kitBuffers.get(bankId);
+    if (!Array.isArray(buffers)) return;
+    const source = this.context.createBufferSource();
+    source.buffer = buffers[voiceIndex] ?? buffers[0];
+    const level = this.context.createGain();
+    level.gain.value = safeGain;
+    source.connect(level).connect(destination);
+    source.start(when);
+    this.trackSource(source, [level], sticker, when, when + source.buffer.duration);
   }
 
   scheduleFmDrum(voice, when, laneGain, destination) {
@@ -866,6 +954,11 @@ class RubixAudioEngine {
     this.releaseAudioOutput?.();
     this.releaseAudioOutput = null;
     this.context = null;
+    this.stickerMixer?.dispose();
+    this.stickerMixer = null;
+    this.kitBuffers.clear();
+    this.activeSources.clear();
+    this.acidFrequencies.clear();
     this.compressor = null;
     this.transportGain = null;
     this.master = null;
@@ -873,7 +966,7 @@ class RubixAudioEngine {
     this.drumBus = null;
     this.drumBankBuses.clear();
     this.acidBus = null;
-    this.webGpuAcidBus = null;
+    this.simdAcidBus = null;
     this.acidFilter = null;
     this.acidShaper = null;
     this.acidVca = null;
@@ -886,7 +979,7 @@ class RubixAudioEngine {
 
 const voices = loadDrumBank();
 const audio = new RubixAudioEngine(globalThis, voices);
-const webGpu303Capability = webGpu303Support(globalThis);
+const simd303Capability = simd303Support(globalThis);
 const state = {
   cube: createSolvedRubixCube(DEFAULT_RUBIX_SIZE),
   camera: { ...DEFAULT_RUBIX_CAMERA },
@@ -907,11 +1000,13 @@ let auditionCube = null;
 let auditionMoveKey = "";
 let audioLifecycleGeneration = 0;
 let audioStartPromise = null;
-let webGpu303LifecycleGeneration = 0;
-let webGpu303StartPromise = null;
-let webGpu303Engine = null;
-let webGpu303PatternKey = "";
-let webGpu303FailureMessage = "";
+let simd303LifecycleGeneration = 0;
+let simd303StartPromise = null;
+let simd303Engine = null;
+let simd303StartingEngine = null;
+let simd303PatternKey = "";
+let simd303SourceKey = "";
+let simd303FailureMessage = "";
 let activeAcidEngine = DEFAULT_ACID_ENGINE;
 let soundBankLifecycleGeneration = 0;
 let soundBankTransportResumeRequested = false;
@@ -940,6 +1035,7 @@ let matrixCameraX = Number.NaN;
 let matrixCameraY = Number.NaN;
 let matrixCameraZ = Number.NaN;
 let hitRegions = [];
+let geometryCache = null;
 let pointerGesture = null;
 let previewTurn = null;
 let turnAnimation = null;
@@ -973,11 +1069,7 @@ function selectedSticker() {
 }
 
 function roleForFace(face) {
-  const snapshot = performanceSnapshots.at(-1) ?? sequenceSnapshot;
-  if (snapshot.faceNames.acid === face) return "acid";
-  if (snapshot.faceNames.drumLeft === face) return "drumLeft";
-  if (snapshot.faceNames.drumRight === face) return "drumRight";
-  return null;
+  return RUBIX_FACE_ROLES[face] ?? null;
 }
 
 function faceCenterColor(face) {
@@ -1035,10 +1127,8 @@ function currentSoundBank() {
   return SOUND_BANKS[state.soundBank] ?? SOUND_BANKS[DEFAULTS.soundBank];
 }
 
-function soundBankRoleSet(bank = currentSoundBank()) {
-  return bank.role === "acid"
-    ? new Set(["acid"])
-    : new Set(["drumLeft", "drumRight"]);
+function soundBankRoleSet() {
+  return new Set(["acid", "drumLeft", "drumRight"]);
 }
 
 function currentAcidEngine() {
@@ -1049,6 +1139,17 @@ function markPresetCustom() {
   state.presetId = "";
   $("rubixPreset").value = "";
   $("rubixPresetState").textContent = "Custom";
+}
+
+function applySimdSoundPreset(id) {
+  const preset = rubixSimdPreset(id);
+  Object.assign(state, preset.controls, { simdPreset: preset.id, simdPresetCustom: false });
+  markPresetCustom();
+  audio.updateSettings(state);
+  syncSimd303Pattern({ force: true });
+  updateReadouts();
+  requestDraw();
+  announce(`${preset.label}. Sound changed; volume, cube, tempo and transport unchanged.`);
 }
 
 function currentReadFrame(step = state.currentStep) {
@@ -1117,21 +1218,20 @@ function flushOrbitPerformanceSnapshot() {
 }
 
 function performanceEventsForRole(role, frame = currentReadFrame()) {
-  const valueKey = ROLE_AUDIO_VALUE[role];
-  if (!valueKey) return [];
   const bySticker = new Map();
-  for (const snapshot of performanceSnapshots) {
-    const sticker = snapshot.lanes[role]?.[frame.cellIndex];
-    const value = snapshot.audio[valueKey]?.[frame.cellIndex];
-    if (!sticker || !Number.isFinite(value)) continue;
-    const event = {
-      sticker,
-      value,
-      gain: stickerDynamicsGain(sticker),
-      snapshot,
-    };
-    const existing = bySticker.get(sticker.id);
-    if (!existing || event.gain > existing.gain) bySticker.set(sticker.id, event);
+  // A turn retains its source score until the quarter-turn commits. Audition
+  // snapshots are for gesture feedback, not a second set of simultaneous notes.
+  const snapshot = performanceSnapshots[0] ?? sequenceSnapshot;
+  for (const [face, stickers] of Object.entries(snapshot.faceLanes)) {
+    if (RUBIX_FACE_ROLES[face] !== role) continue;
+    const sticker = stickers[frame.cellIndex];
+    const drumMap = role === "drumRight"
+      ? RUBIX_DRUM_RIGHT_VOICE_BY_COLOR : RUBIX_DRUM_LEFT_VOICE_BY_COLOR;
+    const value = state.soundBank === "acid-303"
+      ? RUBIX_ACID_MIDI_BY_COLOR[sticker.color] : drumMap[sticker.color];
+    bySticker.set(sticker.id, {
+      sticker, value, face, gain: stickerDynamicsGain(sticker), snapshot,
+    });
   }
   return [...bySticker.values()].sort((first, second) => second.gain - first.gain);
 }
@@ -1150,82 +1250,75 @@ function audibleStickerIds(frame = currentReadFrame()) {
   return ids;
 }
 
-function webGpu303FormSupported() {
-  return state.cube.size * state.cube.size <= WEBGPU_303_SEQUENCE_LENGTH;
+function simd303FormSupported() {
+  return state.cube.size <= RUBIX_SIZE_MAX
+    && state.cube.size * state.cube.size * 3 <= SIMD_303_SEQUENCE_LENGTH;
 }
 
-function webGpu303ParamsFromControls() {
-  const cutoff = clamp(state.cutoff, 160, 4200);
-  const cutoffPosition = (
-    Math.log(cutoff) - Math.log(160)
-  ) / (Math.log(4200) - Math.log(160));
-  return {
-    ...RUBIX_WEBGPU_303_DEFAULTS,
-    flt: -28 + cutoffPosition * 56,
-    res: clamp(state.resonance / 18 * 15, 0, 15),
-    dur: clamp(state.acidDecay, 0.06, 0.72),
-    dist: clamp(state.drive * 0.58, 0.01, 5),
-    swing: clamp(state.swing, 0, 0.42),
-  };
+function simd303ParamsFromControls() {
+  return rubixSimdVoiceParams(state);
 }
 
-function currentWebGpu303Pattern() {
-  const snapshot = performanceSnapshots.at(-1) ?? sequenceSnapshot;
-  const visibilityById = Object.freeze(Object.fromEntries(
-    snapshot.lanes.acid.map((sticker) => [sticker.id, stickerDynamicsGain(sticker)]),
-  ));
-  return createRubixWebGpu303Pattern(snapshot, {
+function currentSimd303Pattern() {
+  const snapshot = performanceSnapshots[0] ?? sequenceSnapshot;
+  const faces = createRubixSimdSurfacePatterns(snapshot, {
     readingMode: state.readingMode,
     tempo: state.tempo,
-    visibilityById,
     amount: state.stickerModulation,
-    baseParams: webGpu303ParamsFromControls(),
+    presetId: state.simdPreset,
+    baseParams: simd303ParamsFromControls(),
   });
+  return { ...faces[0], faces };
 }
 
-function webGpu303PatternFingerprint(pattern) {
+function simd303PatternFingerprint(pattern) {
+  if (pattern.faces) {
+    return pattern.faces.map((face) => `${face.stickerIds.join(",")}:${simd303PatternFingerprint(face)}`).join(";");
+  }
   return [
+    pattern.spectrumMorph, pattern.surface,
     ...Object.values(pattern.params).map((value) => Number(value).toFixed(4)),
-    ...pattern.sequence.slice(0, state.cube.size * state.cube.size),
+    ...pattern.sequence.slice(0, currentReadFrame().stepCount),
     ...pattern.stepModulation
-      .slice(0, state.cube.size * state.cube.size)
+      .slice(0, currentReadFrame().stepCount)
       .flatMap((step) => step.map((value) => Number(value).toFixed(3))),
+    ...pattern.stepExpression.slice(0, currentReadFrame().stepCount).flat(),
   ].join("|");
 }
 
-function syncWebGpu303Pattern({ force = false } = {}) {
+function syncSimd303Pattern({ force = false } = {}) {
   if (
-    !webGpu303Engine
+    !simd303Engine
     || state.soundBank !== "acid-303"
-    || state.acidEngine !== "webgpu-303"
+    || state.acidEngine !== "simd-303"
   ) return false;
   try {
-    const pattern = currentWebGpu303Pattern();
-    const key = webGpu303PatternFingerprint(pattern);
-    if (!force && key === webGpu303PatternKey) return true;
-    webGpu303PatternKey = key;
-    webGpu303Engine.updateParams(pattern.params);
-    webGpu303Engine.updateSequence(pattern.sequence);
-    webGpu303Engine.updateStepModulation(pattern.stepModulation);
+    const snapshot = performanceSnapshots[0] ?? sequenceSnapshot;
+    const sourceKey = [
+      state.readingMode, state.tempo, state.swing, state.cutoff, state.resonance,
+      state.acidDecay, state.drive, state.stickerModulation,
+      state.simdPreset,
+      ...Object.values(snapshot.faceLanes).flat().map(({ id }) => id),
+    ].join("|");
+    // Orbit only changes the live worklet gates, never the score. Avoid
+    // rebuilding six large modulation buffers for every camera/display frame.
+    if (!force && sourceKey === simd303SourceKey) return true;
+    const pattern = currentSimd303Pattern();
+    const key = simd303PatternFingerprint(pattern);
+    if (!force && key === simd303PatternKey) return true;
+    simd303PatternKey = key;
+    simd303Engine.updateSurfacePatterns(pattern.faces);
+    simd303SourceKey = sourceKey;
     return true;
   } catch (error) {
-    void fallbackFromWebGpu303(error);
+    void fallbackFromSimd303(error);
     return false;
   }
 }
 
 function currentReadModeDescription() {
   const config = currentReadConfig();
-  const soundBank = currentSoundBank();
-  const soundingFaces = soundBank.role === "acid"
-    ? `Only the upper visible face sounds through ${soundBank.label}; both drum faces rest.`
-    : `The two side faces sound through ${soundBank.label}; the upper acid face rests.`;
-  if (config.id !== "face") {
-    return `${READ_MODE_DESCRIPTIONS[config.id]} ${soundingFaces}`;
-  }
-  const frame = currentReadFrame();
-  const beatCount = frame.stepCount / config.subdivisionsPerBeat;
-  return `Each of ${beatCount} snake beats is divided into upper acid, left drum, then right drum: ${frame.stepCount} alternating face subdivisions. ${soundingFaces} Hidden stickers are silent.`;
+  return `${READ_MODE_DESCRIPTIONS[config.id]} ${currentSoundBank().label} plays every face. Hidden stickers are silent, including ringing tails.`;
 }
 
 function renderStepStrip() {
@@ -1276,7 +1369,9 @@ function renderColorKey() {
     const swatch = document.createElement("i");
     const copy = document.createElement("b");
     copy.textContent = soundBank.role === "acid"
-      ? `${color} · ${midiLabel(RUBIX_ACID_MIDI_BY_COLOR[color] + 12)}`
+      ? state.acidEngine === "simd-303"
+        ? `${color} · ${Math.round(midiFrequency(RUBIX_ACID_MIDI_BY_COLOR[color]) * simd303ParamsFromControls().fundamental / 440)} Hz`
+        : `${color} · ${midiLabel(RUBIX_ACID_MIDI_BY_COLOR[color] + 12)}`
       : `${color} · ${leftVoice.name} / ${rightVoice.name}`;
     item.append(swatch, copy);
     fragment.append(item);
@@ -1290,11 +1385,8 @@ function renderColorKey() {
 function renderLaneList() {
   const frame = currentReadFrame();
   const audibleRoles = soundBankRoleSet();
-  const lanes = [
-    ["acid", sequenceSnapshot.lanes.acid, sequenceSnapshot.faceNames.acid],
-    ["drumLeft", sequenceSnapshot.lanes.drumLeft, sequenceSnapshot.faceNames.drumLeft],
-    ["drumRight", sequenceSnapshot.lanes.drumRight, sequenceSnapshot.faceNames.drumRight],
-  ];
+  const lanes = Object.entries(sequenceSnapshot.faceLanes)
+    .map(([face, stickers]) => [RUBIX_FACE_ROLES[face], stickers, face]);
   const fragment = document.createDocumentFragment();
   for (const [role, stickers, face] of lanes) {
     const meta = ROLE_META[role];
@@ -1303,6 +1395,7 @@ function renderLaneList() {
     const isReading = bankActive && frame.activeRoles.includes(role);
     card.className = `rubix-lane-card${isReading ? " is-reading" : ""}${bankActive ? "" : " is-bank-resting"}`;
     card.dataset.laneRole = role;
+    card.dataset.face = face;
     card.dataset.bankActive = String(bankActive);
     card.setAttribute("aria-disabled", String(!bankActive));
     card.style.setProperty("--lane-color", meta.color);
@@ -1311,9 +1404,9 @@ function renderLaneList() {
     const label = document.createElement("b");
     const identity = document.createElement("span");
     const detail = document.createElement("small");
-    label.textContent = meta.label;
-    identity.textContent = `${FACE_SHORT[face]} face · ${faceCenterColor(face)}`;
-    detail.textContent = bankActive ? meta.detail : `${meta.detail} · bank resting`;
+    label.textContent = `${FACE_SHORT[face]} · ${face}`;
+    identity.textContent = currentSoundBank().label;
+    detail.textContent = "Live screen-area mix";
     copy.append(label, identity, detail);
     const miniFace = document.createElement("div");
     miniFace.className = "rubix-mini-face";
@@ -1335,11 +1428,7 @@ function renderLaneList() {
 }
 
 function renderFaceBadges() {
-  const entries = [
-    ["acid", sequenceSnapshot.faceNames.acid],
-    ["drumLeft", sequenceSnapshot.faceNames.drumLeft],
-    ["drumRight", sequenceSnapshot.faceNames.drumRight],
-  ];
+  const entries = Object.keys(sequenceSnapshot.faceLanes).map((face) => [RUBIX_FACE_ROLES[face], face]);
   const fragment = document.createDocumentFragment();
   const audibleRoles = soundBankRoleSet();
   for (const [role, face] of entries) {
@@ -1347,11 +1436,12 @@ function renderFaceBadges() {
     const bankActive = audibleRoles.has(role);
     badge.className = `rubix-face-badge${bankActive ? "" : " is-bank-resting"}`;
     badge.dataset.laneRole = role;
+    badge.dataset.face = face;
     badge.dataset.bankActive = String(bankActive);
     badge.style.setProperty("--face-color", ROLE_META[role].color);
     const name = document.createElement("b");
     const detail = document.createElement("small");
-    name.textContent = `${ROLE_META[role].label} · ${FACE_SHORT[face]}`;
+    name.textContent = FACE_SHORT[face];
     detail.textContent = face;
     badge.append(name, detail);
     fragment.append(badge);
@@ -1389,35 +1479,41 @@ function updateAcidEngineUi() {
   const modulationControl = $("stickerModulationControl");
   const modulationInput = $("stickerModulation");
   if (!engineSelect || !modulationControl || !modulationInput) return;
-  const gpuOption = engineSelect.querySelector('option[value="webgpu-303"]');
-  const gpuAvailable = webGpu303Capability.supported && webGpu303FormSupported();
-  if (gpuOption) gpuOption.disabled = !gpuAvailable;
+  const simdOption = engineSelect.querySelector('option[value="simd-303"]');
+  const simdAvailable = simd303Capability.supported && simd303FormSupported();
+  const sound = rubixSimdPreset(state.simdPreset);
+  $("simdPreset").value = state.simdPresetCustom ? "" : sound.id;
+  $("simdPresetState").textContent = state.simdPresetCustom ? "Custom" : sound.label;
+  $("simdPresetHelp").textContent = sound.description;
+  $("simdPreset").disabled = !acidBankSelected || engine.id !== "simd-303" || !simdAvailable;
+  if (simdOption) simdOption.disabled = !simdAvailable;
   engineSelect.value = engine.id;
   engineSelect.disabled = !acidBankSelected;
-  if (webGpu303StartPromise) engineSelect.setAttribute("aria-busy", "true");
+  if (simd303StartPromise) engineSelect.setAttribute("aria-busy", "true");
   else engineSelect.removeAttribute("aria-busy");
   $("acidEngineState").textContent = engine.label;
   modulationInput.value = String(state.stickerModulation);
   $("stickerModulationOut").textContent = `${Math.round(state.stickerModulation * 100)}%`;
-  const modulationDisabled = !acidBankSelected || engine.id !== "webgpu-303" || !gpuAvailable;
+  const modulationDisabled = !acidBankSelected || engine.id !== "simd-303" || !simdAvailable;
   modulationInput.disabled = modulationDisabled;
   modulationControl.classList.toggle("is-disabled", modulationDisabled);
   modulationControl.setAttribute("aria-disabled", String(modulationDisabled));
-  let status = "WebGPU ready · select it to let sticker placement shape each step";
+  let status = "SIMD ready · select it to let sticker placement shape each step";
   if (!acidBankSelected) {
     status = "303 resting · choose the 303 acid bank to enable these controls";
-  } else if (!webGpu303Capability.supported) {
-    status = "WebGPU unavailable in this browser · using Web Audio 303";
-  } else if (!webGpu303FormSupported()) {
-    status = `WebGPU supports up to ${Math.floor(Math.sqrt(WEBGPU_303_SEQUENCE_LENGTH))} × ${Math.floor(Math.sqrt(WEBGPU_303_SEQUENCE_LENGTH))} · using Web Audio 303`;
-  } else if (webGpu303FailureMessage) {
-    status = webGpu303FailureMessage;
-  } else if (webGpu303StartPromise) {
-    status = "Starting WebGPU 303…";
-  } else if (engine.id === "webgpu-303" && webGpu303Engine) {
-    status = `WebGPU 303 active · sticker modulation ${Math.round(state.stickerModulation * 100)}%`;
-  } else if (engine.id === "webgpu-303") {
-    status = "WebGPU ready · starts with Audio";
+  } else if (!simd303Capability.supported) {
+    status = "SIMD unavailable in this browser · using Web Audio 303";
+  } else if (!simd303FormSupported()) {
+    status = `SIMD supports up to ${RUBIX_SIZE_MAX} × ${RUBIX_SIZE_MAX} · using Web Audio 303`;
+  } else if (simd303FailureMessage) {
+    status = simd303FailureMessage;
+  } else if (simd303StartPromise) {
+    status = "Starting SIMD 303…";
+  } else if (engine.id === "simd-303" && simd303Engine) {
+    const backend = simd303Engine.backend === "scalar" ? "Wasm 303 (scalar fallback)" : "SIMD 303";
+    status = `${backend} active · sticker modulation ${Math.round(state.stickerModulation * 100)}%`;
+  } else if (engine.id === "simd-303") {
+    status = "SIMD ready · starts with Audio";
   }
   $("acidEngineStatus").textContent = status;
 }
@@ -1459,11 +1555,9 @@ function updateReadouts() {
   $("soundBankSummary").textContent = soundBank.label;
   const acidBankSelected = soundBank.role === "acid";
   $("soundBankStatus").textContent = acidBankSelected
-    ? `${acidEngine.label} active · upper face audible · drum kits resting`
-    : `${soundBank.label} active · side faces audible · 303 resting`;
-  $("scoreSummary").textContent = soundBank.role === "acid"
-    ? `${FACE_SHORT[sequenceSnapshot.faceNames.acid]} · ${soundBank.label}`
-    : `${FACE_SHORT[sequenceSnapshot.faceNames.drumLeft]} + ${FACE_SHORT[sequenceSnapshot.faceNames.drumRight]} · ${soundBank.label}`;
+    ? `${acidEngine.label} active · all visible faces · drums muted`
+    : `${soundBank.label} active · all visible faces · 303 muted`;
+  $("scoreSummary").textContent = `${soundBank.label} · all faces`;
   $("scoreDescription").textContent = currentReadModeDescription();
   for (const [id, disabled] of [
     ["kitBankControls", acidBankSelected],
@@ -1475,6 +1569,7 @@ function updateReadouts() {
     fieldset.setAttribute("aria-disabled", String(disabled));
   }
   updateAcidEngineUi();
+  renderColorKey();
   $("randomTwistSpeed").value = String(state.randomTwistSpeed);
   $("randomTwistSpeed").setAttribute(
     "aria-valuetext",
@@ -1482,6 +1577,9 @@ function updateReadouts() {
   );
   $("randomTwistSpeedOut").textContent = twistSpeedLabel();
   $("randomTwists").setAttribute("aria-pressed", String(state.randomTwists));
+  const twistAction = state.randomTwists ? "Pause random twists" : "Start random twists";
+  $("randomTwists").setAttribute("aria-label", twistAction);
+  $("randomTwists").title = twistAction;
   $("randomTwistState").textContent = state.randomTwists
     ? `on · ${twistSpeedLabel()} speed`
     : "off · manual moves only";
@@ -1498,9 +1596,9 @@ function syncReadingModeControls() {
     const detail = button.querySelector("small");
     if (detail) {
       detail.textContent = mode === "parallel"
-        ? `default · all 3 · ${frame.stepCount} steps`
+        ? `default · all 6 · ${frame.stepCount} steps`
         : mode === "snake"
-          ? `all 3 faces · ${frame.stepCount} steps`
+          ? `all 6 faces · ${frame.stepCount} steps`
           : `A → B → C · ${frame.stepCount} subdivisions`;
     }
     button.title = mode === "face"
@@ -1528,9 +1626,8 @@ function setReadingMode(mode, shouldAnnounce = true) {
     : currentReadLengthLabel();
 
   if (state.playing && changed && audio.context) {
-    if (activeAcidEngine === "webgpu-303") {
-      stopTransport();
-      void startTransport({ restart: true });
+    if (activeAcidEngine === "simd-303") {
+      syncSimd303Pattern({ force: true });
     } else {
       if (schedulerTimer !== null) clearTimeout(schedulerTimer);
       schedulerTimer = null;
@@ -1542,8 +1639,8 @@ function setReadingMode(mode, shouldAnnounce = true) {
   if (shouldAnnounce) {
     const frame = currentReadFrame();
     announce(config.roleMode === "all"
-      ? `${config.label} read path selected. ${frame.stepCount} steps; all three faces together.`
-      : `${config.label} read path selected. ${frame.stepCount} subdivisions across ${frame.stepCount / config.subdivisionsPerBeat} beats; acid, Drum A, and Drum B alternate inside every beat.`);
+      ? `${config.label} read path selected. ${frame.stepCount} steps; all six faces together.`
+      : `${config.label} read path selected. ${frame.stepCount} subdivisions across ${frame.stepCount / config.subdivisionsPerBeat} beats; opposite face pairs alternate inside every beat.`);
   }
 }
 
@@ -1567,61 +1664,35 @@ function updateSnapshot({ announceChange = false } = {}) {
   renderFaceBadges();
   updatePlayhead(state.currentStep);
   const soundBank = currentSoundBank();
-  const audibleFaceLabel = soundBank.role === "acid"
-    ? FACE_SHORT[sequenceSnapshot.faceNames.acid]
-    : [
-      sequenceSnapshot.faceNames.drumLeft,
-      sequenceSnapshot.faceNames.drumRight,
-    ].map((face) => FACE_SHORT[face]).join(" / ");
-  $("scoreSummary").textContent = soundBank.role === "acid"
-    ? `${FACE_SHORT[sequenceSnapshot.faceNames.acid]} · ${soundBank.label}`
-    : `${FACE_SHORT[sequenceSnapshot.faceNames.drumLeft]} + ${FACE_SHORT[sequenceSnapshot.faceNames.drumRight]} · ${soundBank.label}`;
-  $("sequenceState").textContent = `${sequenceSnapshot.stickerIds.length} visible stickers · ${soundBank.label} on ${audibleFaceLabel} · ${readConfig.label} · ${currentReadLengthLabel(readFrame, readConfig)}`;
-  if (
-    announceChange
-    && JSON.stringify(previousFaces) !== JSON.stringify(sequenceSnapshot.faceNames)
-  ) {
-    announce(soundBank.role === "acid"
-      ? `Visible score changed. ${sequenceSnapshot.faceNames.acid} face now plays ${soundBank.label}; both drum faces rest.`
-      : `Visible score changed. ${sequenceSnapshot.faceNames.drumLeft} and ${sequenceSnapshot.faceNames.drumRight} faces now play ${soundBank.label}; the upper acid face rests.`);
+  $("scoreSummary").textContent = `${soundBank.label} · all faces`;
+  $("sequenceState").textContent = `${state.cube.stickers.length} stickers · six running faces · ${currentReadLengthLabel(readFrame, readConfig)}`;
+  if (announceChange && JSON.stringify(previousFaces) !== JSON.stringify(sequenceSnapshot.faceNames)) {
+    announce("View changed. Visible sticker areas now set the mix; hidden stickers are silent.");
   }
   requestDraw();
 }
 
 function updateNowPlaying(frame = currentReadFrame()) {
-  const liveSnapshot = performanceSnapshots.at(-1) ?? sequenceSnapshot;
-  const acidEvent = performanceEventsForRole("acid", frame)[0];
-  const leftEvent = performanceEventsForRole("drumLeft", frame)[0];
-  const rightEvent = performanceEventsForRole("drumRight", frame)[0];
-  const activeRoles = new Set(frame.activeRoles);
-  const acidBankSelected = currentSoundBank().role === "acid";
-  const acidText = !acidBankSelected
-    ? "ACID · BANK RESTING"
-    : activeRoles.has("acid")
-    ? acidEvent?.gain > 0
-      ? `ACID · ${acidEvent.sticker.color.toUpperCase()} · ${midiLabel(acidEvent.value + 12)} · ${Math.round(acidEvent.gain * 100)}%`
-      : "ACID · SILENT · HIDDEN"
-    : `ACID · REST · ${FACE_SHORT[liveSnapshot.faceNames.acid]} WAITING`;
-  if ($("acidNow").textContent !== acidText) $("acidNow").textContent = acidText;
-  const drumNames = [];
-  if (activeRoles.has("drumLeft")) {
-    const voice = voices[leftEvent?.value];
-    drumNames.push(leftEvent?.gain > 0 && voice
-      ? `${voice.name.toUpperCase()} ${Math.round(leftEvent.gain * 100)}%`
-      : "A SILENT");
+  const events = frame.activeRoles.flatMap((role) => performanceEventsForRole(role, frame))
+    .filter(({ gain }) => gain > 0);
+  const readout = events.map(({ face, gain }) => `${FACE_SHORT[face]} ${Math.round(gain * 100)}%`).join(" · ");
+  $("acidNow").textContent = currentSoundBank().label.toUpperCase();
+  $("drumNow").textContent = readout || "CURRENT STEPS HIDDEN";
+  for (const card of $("laneList").querySelectorAll("[data-face]")) {
+    const face = card.dataset.face;
+    const visible = sequenceSnapshot.faceLanes[face].some((sticker) => stickerVisibility(sticker) > 0);
+    card.classList.toggle("is-bank-resting", !visible);
+    card.querySelector("small").textContent = visible ? "Visible · area-weighted" : "Hidden · silent";
   }
-  if (activeRoles.has("drumRight")) {
-    const voice = voices[rightEvent?.value];
-    drumNames.push(rightEvent?.gain > 0 && voice
-      ? `${voice.name.toUpperCase()} ${Math.round(rightEvent.gain * 100)}%`
-      : "B SILENT");
+  for (const badge of $("faceBadges").querySelectorAll("[data-face]")) {
+    const visible = sequenceSnapshot.faceLanes[badge.dataset.face]
+      .some((sticker) => stickerVisibility(sticker) > 0);
+    badge.classList.toggle("is-bank-resting", !visible);
   }
-  const drumText = acidBankSelected
-    ? "DRUMS · BANK RESTING"
-    : drumNames.length
-      ? `${currentSoundBank().label.toUpperCase()} · ${drumNames.join(" + ")}`
-      : `${currentSoundBank().label.toUpperCase()} · REST`;
-  if ($("drumNow").textContent !== drumText) $("drumNow").textContent = drumText;
+  const faces = Object.entries(sequenceSnapshot.faceLanes)
+    .filter(([, stickers]) => stickers.some((sticker) => stickerVisibility(sticker) > 0))
+    .map(([face]) => FACE_SHORT[face]).join(" / ");
+  $("stageReadout").textContent = `VISIBLE ${faces || "NONE"} · STEP ${state.currentStep + 1}/${frame.stepCount} · AUDIO ${state.audioOn ? "ON" : "OFF"}`;
 }
 
 function setAudibleStickerIds(ids) {
@@ -1659,15 +1730,6 @@ function updatePlayhead(step) {
   updateNowPlaying(frame);
   const audibleIds = audibleStickerIds(frame);
   setAudibleStickerIds(audibleIds);
-  const liveSnapshot = performanceSnapshots.at(-1) ?? sequenceSnapshot;
-  const soundBank = currentSoundBank();
-  const audibleFaceLabel = soundBank.role === "acid"
-    ? FACE_SHORT[liveSnapshot.faceNames.acid]
-    : [
-      liveSnapshot.faceNames.drumLeft,
-      liveSnapshot.faceNames.drumRight,
-    ].map((face) => FACE_SHORT[face]).join(" / ");
-  $("stageReadout").textContent = `AUDIBLE ${audibleFaceLabel} · ${soundBank.label.toUpperCase()} · STEP ${state.currentStep + 1}/${frame.stepCount} · AUDIO ${state.audioOn ? "ON" : "OFF"}`;
   requestDraw();
 }
 
@@ -2097,13 +2159,24 @@ function drawSticker(geometry, audibleIds) {
 
 function drawCube() {
   const turn = currentTurnTransform();
-  const geometry = state.cube.stickers
-    .map((sticker) => stickerGeometry(sticker, turn))
-    .filter(Boolean)
-    .sort((first, second) => first.depth - second.depth);
-  visibilityProfile = createRubixVisibilityProfile(geometry);
-  if (state.soundBank === "acid-303" && state.acidEngine === "webgpu-303") {
-    syncWebGpu303Pattern();
+  const key = [
+    state.shapeId, state.camera.x, state.camera.y, state.camera.z,
+    cssWidth, cssHeight, turn?.axis, turn?.layer, turn?.angle,
+  ].join("|");
+  if (geometryCache?.cube !== state.cube || geometryCache.key !== key) {
+    const geometry = state.cube.stickers
+      .map((sticker) => stickerGeometry(sticker, turn))
+      .filter(Boolean)
+      .sort((first, second) => first.depth - second.depth);
+    geometryCache = { cube: state.cube, key, geometry };
+    visibilityProfile = createRubixVisibilityProfile(geometry, { width: cssWidth, height: cssHeight });
+  }
+  const geometry = geometryCache.geometry;
+  audio.stickerMixer?.update(visibilityProfile, state.visibilityDynamics);
+  simd303Engine?.updateVisibility(visibilityProfile, state.visibilityDynamics,
+    rubixSimdSurfaceTone(geometry, { width: cssWidth, height: cssHeight, size: state.cube.size }, state.stickerModulation));
+  if (state.soundBank === "acid-303" && state.acidEngine === "simd-303") {
+    syncSimd303Pattern();
   }
   updateNowPlaying();
   const audibleIds = audibleStickerIds();
@@ -2333,13 +2406,17 @@ function setRubixForm({ shapeId = state.shapeId, size = state.cube.size } = {}, 
   previewTurn = null;
   moveHistory = [];
   visibilityProfile = Object.freeze({});
+  if (audio.stickerMixer) {
+    audio.stickerMixer.dispose();
+    audio.stickerMixer = new RubixStickerMixer(audio.context);
+  }
   state.cube = createSolvedRubixCube(safeSize);
   if (
     state.soundBank === "acid-303"
-    && state.acidEngine === "webgpu-303"
-    && !webGpu303FormSupported()
+    && state.acidEngine === "simd-303"
+    && !simd303FormSupported()
   ) {
-    void fallbackFromWebGpu303();
+    void fallbackFromSimd303();
   }
   updateCanvasAriaLabel();
   state.camera = { ...DEFAULT_RUBIX_CAMERA };
@@ -2359,9 +2436,8 @@ function setRubixForm({ shapeId = state.shapeId, size = state.cube.size } = {}, 
   updateSelectedUi();
 
   if (state.playing && audio.context) {
-    if (activeAcidEngine === "webgpu-303") {
-      stopTransport();
-      void startTransport({ restart: true });
+    if (activeAcidEngine === "simd-303") {
+      syncSimd303Pattern({ force: true });
     } else {
       if (schedulerTimer !== null) clearTimeout(schedulerTimer);
       schedulerTimer = null;
@@ -2377,12 +2453,15 @@ function setRubixForm({ shapeId = state.shapeId, size = state.cube.size } = {}, 
 
 async function applyRubixPreset(presetId, shouldAnnounce = true) {
   const preset = RUBIX_PRESETS[presetId] ?? RUBIX_PRESETS.classic;
+  const levels = rubixPerformerLevels(state);
   const wasPlaying = state.playing;
   if (wasPlaying) stopTransport();
   if (randomTwistTimer !== null) clearTimeout(randomTwistTimer);
   randomTwistTimer = null;
   state.presetId = preset.id;
-  Object.assign(state, DEFAULTS, preset.settings);
+  Object.assign(state, DEFAULTS, preset.settings, levels);
+  state.simdPresetCustom = Object.entries(rubixSimdPreset(state.simdPreset).controls)
+    .some(([key, value]) => state[key] !== value);
   setRubixForm({ shapeId: preset.shapeId, size: preset.size }, false);
   setReadingMode(preset.readingMode, false);
   await selectSoundBank(state.soundBank, {
@@ -2596,38 +2675,15 @@ function schedulerTick() {
     const subdivisionsPerBeat = currentReadConfig().subdivisionsPerBeat;
     const beatDuration = sixteenthDurationSeconds();
     const stepDuration = beatDuration / subdivisionsPerBeat;
-    const activeRoles = new Set(frame.activeRoles);
     const acidBankActive = state.soundBank === "acid-303";
-    const acidEvent = performanceEventsForRole("acid", frame)[0];
-    if (
-      acidBankActive
-      &&
-      activeAcidEngine === "web-audio"
-      && activeRoles.has("acid")
-      && acidEvent?.gain > 0
-    ) {
-      audio.scheduleAcid(
-        acidEvent.value,
-        acidEvent.sticker,
-        nextStepTime,
-        beatDuration,
-        state,
-        acidEvent.gain,
-      );
-    }
-    if (!acidBankActive) {
-      for (const role of ["drumLeft", "drumRight"]) {
-        if (!activeRoles.has(role)) continue;
-        const drumEvents = performanceEventsForRole(role, frame)
-          .filter(({ gain }) => gain > 0);
-        const transitionHeadroom = 1 / Math.sqrt(Math.max(1, drumEvents.length));
-        for (const event of drumEvents) {
-          audio.scheduleDrum(
-            event.value,
-            nextStepTime,
-            event.gain * transitionHeadroom,
-            state.soundBank,
-          );
+    for (const role of frame.activeRoles) {
+      for (const event of performanceEventsForRole(role, frame)) {
+        // Schedule hidden faces too. Their live sticker gates are zero until
+        // revealed; there is no retrigger or old-lookahead leak on camera moves.
+        if (acidBankActive && activeAcidEngine === "web-audio") {
+          audio.scheduleAcid(event.value, event.sticker, nextStepTime, beatDuration, state, 0.7);
+        } else if (!acidBankActive) {
+          audio.scheduleDrum(event.value, nextStepTime, 0.8, state.soundBank, event.sticker);
         }
       }
     }
@@ -2646,108 +2702,124 @@ function clearVisualTimers() {
 }
 
 function setActiveAcidEngine(engineId) {
-  activeAcidEngine = engineId === "webgpu-303" && webGpu303Engine
-    ? "webgpu-303"
+  activeAcidEngine = engineId === "simd-303" && simd303Engine
+    ? "simd-303"
     : "web-audio";
   audio.setAcidEngine(activeAcidEngine, state);
 }
 
-async function stopWebGpu303Engine() {
-  webGpu303LifecycleGeneration += 1;
-  webGpu303StartPromise = null;
-  webGpu303PatternKey = "";
-  const engine = webGpu303Engine;
-  webGpu303Engine = null;
+async function stopSimd303Engine() {
+  simd303LifecycleGeneration += 1;
+  simd303StartPromise = null;
+  simd303PatternKey = "";
+  const starting = simd303StartingEngine;
+  simd303StartingEngine = null;
+  const engine = simd303Engine;
+  simd303Engine = null;
+  if (starting && starting !== engine) await starting.stop().catch(() => {});
   setActiveAcidEngine("web-audio");
   if (engine) await engine.stop().catch(() => {});
 }
 
-async function fallbackFromWebGpu303(error) {
-  const wasSelected = state.acidEngine === "webgpu-303";
+async function fallbackFromSimd303(error) {
+  const wasSelected = state.acidEngine === "simd-303";
   if (error) {
-    webGpu303FailureMessage = "WebGPU 303 could not start or continue · using Web Audio 303";
+    simd303FailureMessage = "SIMD 303 could not start or continue · using Web Audio 303";
   }
-  state.acidEngine = DEFAULT_ACID_ENGINE;
-  await stopWebGpu303Engine();
+  state.acidEngine = "web-audio";
+  await stopSimd303Engine();
+  if (state.playing && audio.context) {
+    if (schedulerTimer !== null) clearTimeout(schedulerTimer);
+    clearVisualTimers();
+    nextStepIndex = state.currentStep;
+    nextStepTime = audio.context.currentTime + 0.012;
+    schedulerTick();
+  }
   updateReadouts();
   setAudioState(state.audioOn);
   if (wasSelected) {
-    announce("WebGPU 303 could not continue. Using the classic Web Audio 303.");
+    announce("SIMD 303 could not continue. Using the classic Web Audio 303.");
   }
-  if (error) console.warn("Rubix WebGPU 303 fallback", error);
+  if (error) console.warn("Rubix SIMD 303 fallback", error);
 }
 
-async function startWebGpu303Engine() {
-  if (state.soundBank !== "acid-303" || state.acidEngine !== "webgpu-303") return false;
-  if (webGpu303Engine) {
-    setActiveAcidEngine("webgpu-303");
-    syncWebGpu303Pattern({ force: true });
+async function startSimd303Engine() {
+  if (state.soundBank !== "acid-303" || state.acidEngine !== "simd-303") return false;
+  if (simd303Engine) {
+    setActiveAcidEngine("simd-303");
+    syncSimd303Pattern({ force: true });
     return true;
   }
-  if (!webGpu303Capability.supported || !webGpu303FormSupported()) {
-    await fallbackFromWebGpu303();
+  if (!simd303Capability.supported || !simd303FormSupported()) {
+    await fallbackFromSimd303();
     return false;
   }
-  if (!audio.context || !audio.webGpuAcidBus) return false;
-  if (webGpu303StartPromise) return webGpu303StartPromise;
+  if (!audio.context || !audio.simdAcidBus) return false;
+  if (simd303StartPromise) return simd303StartPromise;
 
-  webGpu303FailureMessage = "";
-  const generation = ++webGpu303LifecycleGeneration;
-  const candidate = new WebGpu303Audio(globalThis, { chunkDuration: 0.055 });
-  const pattern = currentWebGpu303Pattern();
-  candidate.updateSequence(pattern.sequence);
-  candidate.updateStepModulation(pattern.stepModulation);
+  simd303FailureMessage = "";
+  const generation = ++simd303LifecycleGeneration;
+  const candidate = new RubixSurfaceSimd303(globalThis);
+  simd303StartingEngine = candidate;
+  const pattern = currentSimd303Pattern();
+  candidate.updateSurfacePatterns(pattern.faces);
   candidate.setOutput(1);
   candidate.setPlaybackEnabled(false);
 
   let pending;
   pending = candidate.start(pattern.params, {
     context: audio.context,
-    destination: audio.webGpuAcidBus,
+    destination: audio.simdAcidBus,
     autoStart: false,
   }).then(async () => {
     if (
-      generation !== webGpu303LifecycleGeneration
+      generation !== simd303LifecycleGeneration
       || state.soundBank !== "acid-303"
-      || state.acidEngine !== "webgpu-303"
+      || state.acidEngine !== "simd-303"
       || candidate.context !== audio.context
     ) {
       await candidate.stop().catch(() => {});
       return false;
     }
-    webGpu303Engine = candidate;
-    webGpu303PatternKey = webGpu303PatternFingerprint(pattern);
-    candidate.setErrorHandler((renderError) => {
-      if (webGpu303Engine === candidate) void fallbackFromWebGpu303(renderError);
+    simd303Engine = candidate;
+    candidate.setStepHandler((step) => {
+      if (simd303Engine === candidate && state.playing) updatePlayhead(step);
     });
-    setActiveAcidEngine("webgpu-303");
+    candidate.updateVisibility(visibilityProfile, state.visibilityDynamics);
+    simd303PatternKey = simd303PatternFingerprint(pattern);
+    candidate.setErrorHandler((renderError) => {
+      if (simd303Engine === candidate) void fallbackFromSimd303(renderError);
+    });
+    setActiveAcidEngine("simd-303");
     updateReadouts();
     return true;
   }).catch(async (error) => {
     await candidate.stop().catch(() => {});
-    if (generation === webGpu303LifecycleGeneration) {
-      await fallbackFromWebGpu303(error);
+    if (generation === simd303LifecycleGeneration) {
+      await fallbackFromSimd303(error);
     }
     return false;
   }).finally(() => {
-    if (webGpu303StartPromise === pending) webGpu303StartPromise = null;
+    if (simd303StartPromise === pending) simd303StartPromise = null;
+    if (simd303StartingEngine === candidate) simd303StartingEngine = null;
     updateReadouts();
   });
-  webGpu303StartPromise = pending;
+  simd303StartPromise = pending;
   updateReadouts();
   return pending;
 }
 
 async function activateSelectedSoundBank({ audioEnabled = state.audioOn } = {}) {
+  if (audioEnabled && state.soundBank !== "acid-303") await audio.prepareKit(state.soundBank);
   audio.setSoundBank(state.soundBank, state);
   if (
     state.soundBank === "acid-303"
-    && state.acidEngine === "webgpu-303"
+    && state.acidEngine === "simd-303"
     && audioEnabled
   ) {
-    return startWebGpu303Engine();
+    return startSimd303Engine();
   }
-  await stopWebGpu303Engine();
+  await stopSimd303Engine();
   setActiveAcidEngine("web-audio");
   return true;
 }
@@ -2760,7 +2832,20 @@ async function selectSoundBank(bankId, {
   const wasPlaying = state.playing || soundBankTransportResumeRequested;
   soundBankTransportResumeRequested = wasPlaying;
   const generation = ++soundBankLifecycleGeneration;
-  stopTransport();
+  const wasSimd = activeAcidEngine === "simd-303";
+  // Prepare first, keeping the old kit and audio-clock transport running.
+  if (state.audioOn && requested !== "acid-303") {
+    $("soundBank").setAttribute("aria-busy", "true");
+    try {
+      await audio.prepareKit(requested);
+    } catch (error) {
+      if (generation === soundBankLifecycleGeneration && error.name !== "AbortError") showError(error);
+      return false;
+    } finally {
+      if (generation === soundBankLifecycleGeneration) $("soundBank").removeAttribute("aria-busy");
+    }
+    if (generation !== soundBankLifecycleGeneration) return false;
+  }
   state.soundBank = requested;
   if (markCustom) markPresetCustom();
   audio.setSoundBank(requested, state);
@@ -2775,15 +2860,15 @@ async function selectSoundBank(bankId, {
   if (generation !== soundBankLifecycleGeneration) return false;
   const shouldResume = state.audioOn
     && (wasPlaying || state.playing || soundBankTransportResumeRequested);
-  if (shouldResume) await startTransport({ restart: true });
+  if (shouldResume && (!state.playing || wasSimd || activeAcidEngine === "simd-303")) {
+    await startTransport({ restart: true });
+  }
   if (generation !== soundBankLifecycleGeneration) return false;
   soundBankTransportResumeRequested = false;
   updateReadouts();
   setAudioState(state.audioOn);
   if (announceChange && activated) {
-    announce(requested === "acid-303"
-      ? `${currentAcidEngine().label} 303 bank selected. Only the upper face is sounding.`
-      : `${currentSoundBank().label} selected. Only the two drum faces are sounding.`);
+    announce(`${currentSoundBank().label} selected. All six faces run; only visible stickers sound.`);
   }
   return activated;
 }
@@ -2792,18 +2877,19 @@ async function selectAcidEngine(engineId, {
   announceChange = true,
   markCustom = true,
 } = {}) {
-  const requested = ACID_ENGINES[engineId]?.id ?? DEFAULT_ACID_ENGINE;
-  if (requested === "webgpu-303") webGpu303FailureMessage = "";
-  else if (state.acidEngine !== "webgpu-303") webGpu303FailureMessage = "";
+  // Legacy saved/host values select the replacement rather than reviving GPU audio.
+  const requested = engineId === "webgpu-303" ? "simd-303" : ACID_ENGINES[engineId]?.id ?? DEFAULT_ACID_ENGINE;
+  if (requested === "simd-303") simd303FailureMessage = "";
+  else if (state.acidEngine !== "simd-303") simd303FailureMessage = "";
   if (
-    requested === "webgpu-303"
-    && (!webGpu303Capability.supported || !webGpu303FormSupported())
+    requested === "simd-303"
+    && (!simd303Capability.supported || !simd303FormSupported())
   ) {
-    state.acidEngine = DEFAULT_ACID_ENGINE;
-    setActiveAcidEngine(DEFAULT_ACID_ENGINE);
+    state.acidEngine = "web-audio";
+    setActiveAcidEngine("web-audio");
     updateReadouts();
     if (announceChange) {
-      announce("WebGPU 303 is unavailable for this browser or cube size. Using Web Audio 303.");
+      announce("SIMD 303 is unavailable for this browser or cube size. Using Web Audio 303.");
     }
     return false;
   }
@@ -2829,8 +2915,8 @@ async function selectAcidEngine(engineId, {
   updateReadouts();
   setAudioState(state.audioOn);
   if (announceChange && activated) {
-    announce(requested === "webgpu-303"
-      ? "WebGPU 303 selected. Sticker row, column, edge, face, and visibility now shape the acid voice."
+    announce(requested === "simd-303"
+      ? "SIMD 303 selected. Sticker row, column, edge, face, and visibility now shape the acid voice."
       : "Web Audio 303 selected.");
   }
   return activated;
@@ -2843,7 +2929,7 @@ function setAudioState(enabled) {
   updateCanvasAriaLabel();
   if (enabled && audio.context) {
     const engineLabel = state.soundBank === "acid-303"
-      ? activeAcidEngine === "webgpu-303" ? "WebGPU 303 acid" : "Classic Web Audio 303"
+      ? activeAcidEngine === "simd-303" ? "SIMD 303 acid" : "Classic Web Audio 303"
       : `${currentSoundBank().label} · Web Audio`;
     $("engineState").textContent = `${engineLabel} · ${Math.round(audio.context.sampleRate / 1000)} kHz`;
   } else {
@@ -2883,7 +2969,7 @@ async function disableAudio() {
   audioLifecycleGeneration += 1;
   audioStartPromise = null;
   setAudioState(false);
-  await stopWebGpu303Engine();
+  await stopSimd303Engine();
   await audio.close().catch(() => {});
 }
 
@@ -2897,30 +2983,30 @@ async function startTransport({ restart = false } = {}) {
   if (schedulerTimer !== null) clearTimeout(schedulerTimer);
   clearVisualTimers();
   let transportStartTime = audio.context.currentTime + 0.055;
-  const gpuEngine = webGpu303Engine;
+  const simdEngine = simd303Engine;
   if (
     state.soundBank === "acid-303"
-    && activeAcidEngine === "webgpu-303"
-    && gpuEngine
+    && activeAcidEngine === "simd-303"
+    && simdEngine
   ) {
     try {
-      syncWebGpu303Pattern({ force: true });
-      gpuEngine.setPlaybackEnabled(false);
-      const gpuStartTime = await gpuEngine.restartTimeline({
-        startAt: audio.context.currentTime + 0.075,
+      syncSimd303Pattern({ force: true });
+      simdEngine.setPlaybackEnabled(false);
+      const simdStartTime = await simdEngine.restartTimeline({
+        startAt: audio.context.currentTime + 0.012,
         offset: 0,
       });
       if (
         generation !== transportLifecycleGeneration
         || !state.audioOn
         || state.soundBank !== "acid-303"
-        || gpuEngine !== webGpu303Engine
-        || activeAcidEngine !== "webgpu-303"
+        || simdEngine !== simd303Engine
+        || activeAcidEngine !== "simd-303"
       ) return false;
-      if (Number.isFinite(gpuStartTime)) transportStartTime = gpuStartTime;
-      gpuEngine.setPlaybackEnabled(true);
+      if (Number.isFinite(simdStartTime)) transportStartTime = simdStartTime;
+      simdEngine.setPlaybackEnabled(true);
     } catch (error) {
-      await fallbackFromWebGpu303(error);
+      await fallbackFromSimd303(error);
       transportStartTime = audio.context.currentTime + 0.055;
     }
   }
@@ -2933,7 +3019,7 @@ async function startTransport({ restart = false } = {}) {
   $("playButton").setAttribute("aria-pressed", "true");
   $("playLabel").textContent = "Pause cube";
   $("playState").textContent = `${Math.round(state.tempo)} BPM · running`;
-  schedulerTick();
+  if (activeAcidEngine !== "simd-303") schedulerTick();
   announce(restart ? "Rubix loop restarted at step one." : "Rubix sequencer playing.");
   return true;
 }
@@ -2944,8 +3030,8 @@ function stopTransport() {
   if (schedulerTimer !== null) clearTimeout(schedulerTimer);
   schedulerTimer = null;
   clearVisualTimers();
-  webGpu303Engine?.setPlaybackEnabled(false);
-  webGpu303Engine?.pauseTimeline();
+  simd303Engine?.setPlaybackEnabled(false);
+  simd303Engine?.pauseTimeline();
   audio.setTransportActive(false);
   $("playButton").setAttribute("aria-pressed", "false");
   $("playLabel").textContent = "Play cube";
@@ -2958,30 +3044,16 @@ function bindRange(id, key, format, onInput = () => {}) {
   input.addEventListener("input", () => {
     state[key] = Number(input.value);
     markPresetCustom();
+    if (Object.hasOwn(rubixSimdPreset().controls, key)) state.simdPresetCustom = true;
     const output = $(`${id}Out`);
     if (output) output.textContent = format(state[key]);
     onInput(state[key]);
     audio.updateSettings(state);
     updateReadouts();
-    if (
-      !state.playing
-      || activeAcidEngine !== "webgpu-303"
-      || !WEBGPU_TIMING_CONTROL_IDS.has(id)
-    ) syncWebGpu303Pattern();
+    syncSimd303Pattern();
   });
 }
 
-function commitWebGpuTimingChange() {
-  if (
-    state.soundBank !== "acid-303"
-    || activeAcidEngine !== "webgpu-303"
-    || !webGpu303Engine
-  ) return;
-  syncWebGpu303Pattern({ force: true });
-  if (!state.playing) return;
-  stopTransport();
-  void startTransport({ restart: true });
-}
 
 $("audioButton").addEventListener("click", async () => {
   if (state.audioOn) {
@@ -3025,6 +3097,7 @@ $("soundBank").addEventListener("change", (event) => {
 $("acidEngine").addEventListener("change", (event) => {
   void selectAcidEngine(event.currentTarget.value);
 });
+$("simdPreset").addEventListener("change", (event) => applySimdSoundPreset(event.currentTarget.value));
 $("rubixPreset").addEventListener("change", (event) => {
   void applyRubixPreset(event.currentTarget.value);
 });
@@ -3060,8 +3133,6 @@ $("restartLoop").addEventListener("click", async () => {
 
 bindRange("tempo", "tempo", (value) => `${Math.round(value)} BPM`);
 bindRange("swing", "swing", (value) => `${Math.round(value * 100)}%`);
-$("tempo").addEventListener("change", commitWebGpuTimingChange);
-$("swing").addEventListener("change", commitWebGpuTimingChange);
 bindRange("randomTwistSpeed", "randomTwistSpeed", (value) => twistSpeedLabel(value), () => {
   if (state.randomTwists) startRandomTwists(false);
   updateSelectedUi();
@@ -3112,14 +3183,16 @@ window.addEventListener("pagehide", () => {
   soundBankLifecycleGeneration += 1;
   soundBankTransportResumeRequested = false;
   audioStartPromise = null;
-  webGpu303LifecycleGeneration += 1;
-  webGpu303StartPromise = null;
-  webGpu303PatternKey = "";
-  const gpuEngine = webGpu303Engine;
-  webGpu303Engine = null;
+  simd303LifecycleGeneration += 1;
+  simd303StartPromise = null;
+  simd303PatternKey = "";
+  const simdEngine = simd303Engine;
+  simd303Engine = null;
   setAudioState(false);
   void (async () => {
-    await gpuEngine?.stop().catch(() => {});
+    await simdEngine?.stop().catch(() => {});
+    await simd303StartingEngine?.stop().catch(() => {});
+    simd303StartingEngine = null;
     await audio.close().catch(() => {});
   })();
 });
@@ -3152,6 +3225,12 @@ const initialSize = sanitizeRubixSize(
 if (initialShapeId !== DEFAULT_SHAPE_ID || initialSize !== DEFAULT_RUBIX_SIZE) {
   state.presetId = "";
 }
+for (const preset of RUBIX_SIMD_PRESETS) {
+  const option = document.createElement("option");
+  option.value = preset.id;
+  option.textContent = preset.label;
+  $("simdPreset").append(option);
+}
 renderColorKey();
 setRubixForm({ shapeId: initialShapeId, size: initialSize }, false);
 setReadingMode(DEFAULT_READING_MODE, false);
@@ -3159,3 +3238,43 @@ updateSelectedUi();
 setAudioState(false);
 resizeCanvas();
 updatePlayhead(0);
+
+/** Read-only QA evidence; contains no audio nodes or mutation hooks. */
+export function rubixPlaybackSnapshot() {
+  const now = audio.context?.currentTime ?? 0;
+  const activeIds = new Set([...audio.activeSources].filter((source) => (
+    now >= source.rubixStartAt && now < source.rubixStopAt
+  )).map((source) => source.rubixStickerId));
+  return {
+    playing: state.playing, audioOn: state.audioOn, currentStep: state.currentStep,
+    soundBank: state.soundBank, camera: { ...state.camera }, size: state.cube.size,
+    shape: state.shapeId, simdPreset: state.simdPreset, simdPresetCustom: state.simdPresetCustom,
+    levels: rubixPerformerLevels(state),
+    scoreIds: state.cube.stickers.map(({ id, position, normal }) => `${id}:${Object.values(position)}:${Object.values(normal)}`),
+    visibility: { ...visibilityProfile },
+    events: currentReadFrame().activeRoles.flatMap((role) => performanceEventsForRole(role))
+      .map(({ sticker, face, value, gain }) => ({ id: sticker.id, face, value, gain })),
+    gates: audio.stickerMixer ? [...audio.stickerMixer.gates].flatMap(([id, buses]) =>
+      [...buses.values()].map((gate) => ({
+        id, active: activeIds.has(id), gain: gate.gain.value,
+        target: gate.rubixTarget ?? gate.gain.value,
+      }))) : [],
+    activeSources: audio.activeSources.size,
+    geometry: hitRegions.map(({ sticker, projectedTriangles, baseSurface }) => ({
+      sticker: { id: sticker.id },
+      projectedTriangles: projectedTriangles.map((points) => points.map((point) => ({ ...point }))),
+      baseSurface: { triangles: baseSurface.triangles.map(({ visible, points }) => ({
+        visible, points: points.map((point) => ({ ...point })),
+      })) },
+    })),
+    viewport: { width: cssWidth, height: cssHeight },
+    compressorReduction: audio.compressor?.reduction ?? 0,
+    simdVoices: simd303Engine?.faceCount ?? 0,
+    simdBackend: simd303Engine?.backend ?? "none",
+    simdStatus: simd303Engine?.lastStatus ?? null,
+    simdTimelineStart: simd303Engine?.timelineStart ?? null,
+    audioTime: now,
+    acidEngine: state.acidEngine,
+  };
+}
+export { RubixAudioEngine };

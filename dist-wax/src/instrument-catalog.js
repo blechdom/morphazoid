@@ -217,8 +217,8 @@ const CATALOG_DETAILS = Object.freeze({
   ),
   rubix: define(
     "Geometric sequencer",
-    "Offers five mutually exclusive banks: four sample-free drum kits read the two side faces, while 303 Acid reads only the upper face through its Classic or WebGPU engine; hidden stickers stay hard-silent.",
-    "Choose one bank or preset, then drag the cube or enable Random Twists; in WebGPU 303 mode, sticker row, column, edge, current face, and visibility reshape each acid step.",
+    "Runs all six face sequences through a selected synthesized drum, mallet, plucked-string or 303 bank. Uncovered screen area mixes each sticker live, including ringing tails; hidden stickers are silent and master compression tames dense mixes.",
+    "Turn on Audio and Play, choose a bank, then orbit or twist the cube to bring different sounds into view. Visibility dynamics defaults to proportional screen area; Classic and low-latency SIMD 303 both follow the visible surface.",
     ["Pointer"],
   ),
   "sliding-puzzle": define(

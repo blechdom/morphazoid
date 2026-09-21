@@ -663,6 +663,11 @@ export function createRubixSequenceSnapshot(cube, camera = DEFAULT_RUBIX_CAMERA)
       y: Number(camera?.y ?? DEFAULT_RUBIX_CAMERA.y),
       z: Number(camera?.z ?? DEFAULT_RUBIX_CAMERA.z),
     }),
+    // These six score lanes never depend on camera orientation. The renderer's
+    // uncovered-area profile alone determines what is heard.
+    faceLanes: Object.freeze(Object.fromEntries(
+      RUBIX_FACE_ORDER.map((face) => [face, extractRubixFace(source, face)]),
+    )),
     visibleFaces,
     faceNames: Object.freeze({
       acid: visibleFaces.acid.face,

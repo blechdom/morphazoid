@@ -210,7 +210,7 @@ test("Rubix WebGPU 303 patterns follow read order, tempo, visibility, and safe s
   assert.ok(partiallyVisible.stepModulation[0][0] < pattern.stepModulation[0][0]);
 });
 
-test("Rubix exposes Web Audio/WebGPU 303 choice and tears the GPU engine down safely", async () => {
+test("Rubix exposes Web Audio/SIMD 303 choice and tears the SIMD engine down safely", async () => {
   const [html, app] = await Promise.all([
     readFile(new URL("rubix.html", root), "utf8"),
     readFile(new URL("rubix-app.js", root), "utf8"),
@@ -218,8 +218,8 @@ test("Rubix exposes Web Audio/WebGPU 303 choice and tears the GPU engine down sa
 
   const acidEngine = html.match(/<select\b[^>]*\bid="acidEngine"[^>]*>[\s\S]*?<\/select>/)?.[0];
   assert.ok(acidEngine, "the Acid voice panel should expose its engine setting");
-  assert.match(acidEngine, /value="web-audio"[^>]*selected/);
-  assert.match(acidEngine, /value="webgpu-303"/);
+  assert.match(acidEngine, /value="web-audio"/);
+  assert.match(acidEngine, /value="simd-303"[^>]*selected/);
 
   const modulation = html.match(/<input\b[^>]*\bid="stickerModulation"[^>]*>/)?.[0];
   assert.ok(modulation, "sticker placement influence should be adjustable");
@@ -227,26 +227,26 @@ test("Rubix exposes Web Audio/WebGPU 303 choice and tears the GPU engine down sa
   assert.match(modulation, /\bmin="0"/);
   assert.match(modulation, /\bmax="1"/);
 
-  assert.match(app, /WebGpu303Audio/);
-  assert.match(app, /webGpu303Support\(globalThis\)/);
-  assert.match(app, /createRubixWebGpu303Pattern/);
-  assert.match(app, /updateStepModulation\(/);
+  assert.match(app, /RubixSurfaceSimd303/);
+  assert.match(app, /simd303Support\(globalThis\)/);
+  assert.match(app, /createRubixSimdSurfacePatterns/);
+  assert.match(app, /updateSurfacePatterns\(/);
   assert.match(
     app,
     /state\.soundBank\s*===\s*["']acid-303["']/,
-    "WebGPU should only be relevant inside the Acid 303 sound bank",
+    "SIMD should only be relevant inside the Acid 303 sound bank",
   );
   assert.match(
     app,
-    /state\.soundBank\s*!==\s*["']acid-303["'][\s\S]{0,300}(?:stopWebGpu303Engine|return false|disabled)/,
-    "leaving the acid bank should stop, bypass, or disable its WebGPU sub-engine",
+    /state\.soundBank\s*!==\s*["']acid-303["'][\s\S]{0,300}(?:stopSimd303Engine|return false|disabled)/,
+    "leaving the acid bank should stop, bypass, or disable its SIMD sub-engine",
   );
   assert.match(
     app,
-    /webgpu[\s\S]{0,500}supported|supported[\s\S]{0,500}webgpu/i,
-    "unsupported WebGPU should be detected before selecting the engine",
+    /simd[\s\S]{0,500}supported|supported[\s\S]{0,500}simd/i,
+    "unsupported SIMD should be detected before selecting the engine",
   );
 
   const pagehide = app.slice(app.indexOf('window.addEventListener("pagehide"'));
-  assert.match(pagehide, /\.stop\(\)/, "page exit should release the WebGPU device and AudioContext");
+  assert.match(pagehide, /\.stop\(\)/, "page exit should release the SIMD device and AudioContext");
 });

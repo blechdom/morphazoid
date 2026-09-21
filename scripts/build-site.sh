@@ -65,6 +65,12 @@ done
 # Allow new public pages to enter local release artifacts before their first
 # commit; after tracking, these copies simply refresh the same paths.
 for worktree_runtime_file in \
+  src/rubix-mix.js \
+  src/rubix-percussion.js \
+  src/rubix-simd-surface.js \
+  src/rubix-simd-presets.js \
+  src/rubix-simd-303-processor.js \
+  docs/rubix.md \
   graph-3d.html \
   graph-3d.css \
   graph-3d-app.js \

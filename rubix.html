@@ -24,7 +24,7 @@
         <a class="tab active rubix-tab" href="rubix.html" aria-current="page">rubix</a>
         <a class="tab" href="sliding-puzzle.html">sliding puzzle</a>
         <a class="tab" href="hyper-rubix.html">hyper rubix</a>
-        <a class="tab" href="webgpu-303.html">webgpu 303</a>
+        <a class="tab" href="simd-303.html">simd 303</a>
         <a class="tab" href="webgpu-chiptune.html">webgpu chiptune</a>
         <a class="tab" href="webgpu-synths.html">gpu shader synths</a>
       </nav>
@@ -34,7 +34,7 @@
           <option value="rubix.html" selected>rubix</option>
           <option value="sliding-puzzle.html">sliding puzzle</option>
           <option value="hyper-rubix.html">hyper rubix</option>
-          <option value="webgpu-303.html">webgpu 303</option>
+          <option value="simd-303.html">simd 303</option>
           <option value="webgpu-chiptune.html">webgpu chiptune</option>
           <option value="webgpu-synths.html">gpu shader synths</option>
         </select>
@@ -71,7 +71,7 @@
             aria-describedby="cubeInstructions liveStatus"
           >
             A playable 3 by 3 cube. Choose one sound bank: a synthesized drum kit
-            for the side faces or a 303 acid voice for the upper visible face.
+            or 303 acid for every visible face. Hidden stickers are silent.
           </canvas>
 
           <div class="rubix-heading">
@@ -105,13 +105,13 @@
             <span class="section-state" id="clockSummary">126 BPM · straight</span>
           </summary>
           <div class="group-body">
-            <div class="rubix-clock-transport" aria-label="Sequencer transport">
+            <div class="rubix-clock-transport" role="group" aria-label="Sequencer transport">
               <button class="rubix-play-button" id="playButton" type="button" aria-pressed="false">
                 <svg class="transport-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5 18 12 8 18.5Z" /></svg>
                 <svg class="transport-pause" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6v12M16 6v12" /></svg>
                 <span><b id="playLabel">Play cube</b><small id="playState">9-step loop</small></span>
               </button>
-              <div class="rubix-step-strip" id="stepStrip" aria-label="Sequence playhead"></div>
+              <div class="rubix-step-strip" id="stepStrip" role="img" aria-label="Sequence playhead"></div>
               <div class="rubix-now-playing" aria-live="off">
                 <span id="acidNow">ACID · BANK OFF</span>
                 <span id="drumNow">DRUMS · SOFT FM KIT</span>
@@ -139,13 +139,13 @@
             </div>
             <div class="rubix-read-modes" role="group" aria-label="Visible face read path">
               <button type="button" data-read-mode="parallel" aria-pressed="true">
-                <b>Rows together</b><small>default · all 3 faces</small>
+                <b>Rows together</b><small>default · all 6 faces</small>
               </button>
               <button type="button" data-read-mode="snake" aria-pressed="false">
-                <b>Snake together</b><small>all 3 faces · 9 steps</small>
+                <b>Snake together</b><small>all 6 faces · 9 steps</small>
               </button>
               <button type="button" data-read-mode="face" aria-pressed="false">
-                <b>Alternate faces</b><small>one face per subdivision · 27 steps</small>
+                <b>Alternate faces</b><small>opposite pairs · 27 steps</small>
               </button>
             </div>
             <label
@@ -155,7 +155,7 @@
             >
               <span>
                 <b>Visibility dynamics</b>
-                <output id="visibilityDynamicsOut" for="visibilityDynamics">72%</output>
+                <output id="visibilityDynamicsOut" for="visibilityDynamics">100%</output>
               </span>
               <input
                 id="visibilityDynamics"
@@ -163,7 +163,7 @@
                 min="0"
                 max="1"
                 step="0.01"
-                value="0.72"
+                value="1"
               />
               <small>0% equal level · 100% projected square area</small>
             </label>
@@ -231,15 +231,18 @@
               </label>
               <small class="rubix-form-note" id="rubixFormHelp">Cube turns · visual form · release Size to load</small>
             </fieldset>
-            <div class="rubix-cube-actions" aria-label="Cube arrangement actions">
+            <div class="rubix-cube-actions" role="group" aria-label="Cube arrangement actions">
               <button class="mini-action" id="scrambleCube" type="button">Scramble 18</button>
               <button class="mini-action rubix-solve-button" id="solveCube" type="button">Solve cube</button>
               <button class="mini-action" id="undoMove" type="button" disabled>Undo move</button>
               <button class="mini-action" id="resetView" type="button">Reset view</button>
             </div>
             <div class="rubix-random-twists">
-              <button id="randomTwists" type="button" aria-pressed="false">
-                <span aria-hidden="true">⤨</span>
+              <button id="randomTwists" type="button" aria-pressed="false" aria-label="Start random twists" title="Start random twists">
+                <span class="rubix-random-twist-icon" aria-hidden="true">
+                  <svg class="transport-play" viewBox="0 0 24 24"><path d="M8 5.5 18 12 8 18.5Z" /></svg>
+                  <svg class="transport-pause" viewBox="0 0 24 24"><path d="M8 6v12M16 6v12" /></svg>
+                </span>
                 <span><b>Random twists</b><small id="randomTwistState">off</small></span>
               </button>
               <label class="control" for="randomTwistSpeed">
@@ -264,7 +267,7 @@
               <span><b>Selected sticker</b><small id="selectedSticker">tap a tile</small></span>
               <i id="selectedSwatch" aria-hidden="true"></i>
             </div>
-            <div class="rubix-move-pad" aria-label="Selected slice controls">
+            <div class="rubix-move-pad" role="group" aria-label="Selected slice controls">
               <button id="moveUp" type="button" aria-label="Move selected column up">↑<small>column</small></button>
               <button id="moveLeft" type="button" aria-label="Move selected row left">←<small>row</small></button>
               <span aria-hidden="true">SLICE</span>
@@ -295,11 +298,14 @@
                   <option value="analog">Analog kit</option>
                   <option value="modal">Modal kit</option>
                   <option value="noise">Noise kit</option>
+                  <option value="rattlesnake">Rattlesnake · Modal + FM</option>
+                  <option value="pitched-morph">Mallets · Pitched Morph</option>
+                  <option value="karplus-strong">Karplus Strong · plucked</option>
                   <option value="acid-303">303 acid</option>
                 </select>
               </span>
               <small id="soundBankHelp">
-                One bank plays at a time · drum kits use the side faces · 303 uses the upper face
+                One bank plays at a time · all six faces run · only visible stickers sound
               </small>
             </label>
             <small
@@ -308,7 +314,7 @@
               role="status"
               aria-live="polite"
             >
-              Soft FM kit active · side faces audible · 303 resting
+              Soft FM kit active · all visible faces · 303 muted
             </small>
 
             <fieldset
@@ -318,7 +324,7 @@
             >
               <legend>Drum kit controls</legend>
               <p class="rubix-bank-help" id="kitBankHelp">
-                Selected kit · side faces only · 303 muted
+                Selected kit · all visible faces · 303 muted
               </p>
               <label class="control" for="drumLevel">
                 <span><b>Kit level</b><output id="drumLevelOut" for="drumLevel">54%</output></span>
@@ -326,7 +332,9 @@
               </label>
               <p class="rubix-engine-note">
                 Sticker colors choose kick, snare, tom, and hat voices. Only the
-                selected kit sounds; the 303 bank remains silent.
+                selected kit sounds; the 303 bank remains silent. Rattlesnake,
+                Mallets and Karplus Strong reuse the larger app’s synthesis engines.
+                Attack-level matching and master compression tame dense mixes.
               </p>
             </fieldset>
 
@@ -338,12 +346,12 @@
             >
               <legend>303 acid controls</legend>
               <p class="rubix-bank-help" id="acidBankHelp">
-                Classic or WebGPU 303 · upper face only · drum kit muted
+                Classic or SIMD 303 · all visible faces · drum kit muted
               </p>
               <label class="select-control rubix-acid-engine-control" for="acidEngine">
                 <span>
                   <b>303 engine</b>
-                  <output id="acidEngineState" for="acidEngine">Classic Web Audio</output>
+                  <output id="acidEngineState" for="acidEngine">SIMD 303</output>
                 </span>
                 <span class="select-shell">
                   <select
@@ -351,13 +359,25 @@
                     aria-label="303 acid engine"
                     aria-describedby="acidEngineHelp acidEngineStatus"
                   >
-                    <option value="web-audio" selected>Classic Web Audio</option>
-                    <option value="webgpu-303">WebGPU · sticker modulation</option>
+                    <option value="web-audio">Classic Web Audio</option>
+                    <option value="simd-303" selected>SIMD · sticker modulation</option>
                   </select>
                 </span>
                 <small id="acidEngineHelp">
-                  Classic uses color pitch · WebGPU also maps row, column, edge, face, and visibility
+                  Classic uses color pitch · SIMD also maps row, column, edge, face, and visibility
                 </small>
+              </label>
+              <label class="select-control rubix-acid-engine-control" for="simdPreset">
+                <span>
+                  <b>SIMD sound</b>
+                  <output id="simdPresetState" for="simdPreset">Color circuit</output>
+                </span>
+                <span class="select-shell">
+                  <select id="simdPreset" aria-label="SIMD 303 sound preset" aria-describedby="simdPresetHelp">
+                    <option value="" disabled>Custom sound</option>
+                  </select>
+                </span>
+                <small id="simdPresetHelp">Sound only · keeps volume, cube, tempo and transport.</small>
               </label>
               <label
                 class="control rubix-sticker-modulation is-disabled"
@@ -380,32 +400,32 @@
                 />
               </label>
               <small class="rubix-acid-engine-status" id="acidEngineStatus" role="status" aria-live="polite">
-                WebGPU support is checked in this browser
+                SIMD support is checked in this browser
               </small>
               <label class="control" for="cutoff">
-                <span><b>Cutoff</b><output id="cutoffOut" for="cutoff">980 Hz</output></span>
-                <input id="cutoff" type="range" min="160" max="4200" step="10" value="980" />
+                <span><b>Cutoff</b><output id="cutoffOut" for="cutoff">840 Hz</output></span>
+                <input id="cutoff" type="range" min="160" max="4200" step="10" value="840" />
               </label>
               <label class="control" for="resonance">
-                <span><b>Resonance</b><output id="resonanceOut" for="resonance">11.5</output></span>
-                <input id="resonance" type="range" min="0" max="18" step="0.1" value="11.5" />
+                <span><b>Resonance</b><output id="resonanceOut" for="resonance">10.8</output></span>
+                <input id="resonance" type="range" min="0" max="18" step="0.1" value="10.8" />
               </label>
               <label class="control" for="acidDecay">
-                <span><b>Accent decay</b><output id="acidDecayOut" for="acidDecay">180 ms</output></span>
-                <input id="acidDecay" type="range" min="0.06" max="0.72" step="0.01" value="0.18" />
+                <span><b>Accent decay</b><output id="acidDecayOut" for="acidDecay">280 ms</output></span>
+                <input id="acidDecay" type="range" min="0.06" max="0.72" step="0.01" value="0.28" />
               </label>
               <label class="control" for="drive">
-                <span><b>Drive</b><output id="driveOut" for="drive">2.4×</output></span>
-                <input id="drive" type="range" min="0.5" max="6" step="0.1" value="2.4" />
+                <span><b>Drive</b><output id="driveOut" for="drive">1.8×</output></span>
+                <input id="drive" type="range" min="0.5" max="6" step="0.1" value="1.8" />
               </label>
               <label class="control" for="acidLevel">
                 <span><b>303 level</b><output id="acidLevelOut" for="acidLevel">58%</output></span>
                 <input id="acidLevel" type="range" min="0" max="1" step="0.01" value="0.58" />
               </label>
               <p class="rubix-engine-note">
-                303 is the only sounding bank when selected. WebGPU turns each
-                sticker’s live placement into per-step timbre, stereo, resonance,
-                and a true silent gate.
+                Colors set pitch and articulation. Visible height, depth and shape
+                steer tone; screen position steers stereo. Hidden stickers are silent.
+                Sound presets keep your volume and cube unchanged.
               </p>
             </fieldset>
           </div>
@@ -414,16 +434,16 @@
         <details class="group control-section rubix-control-section rubix-score-section" data-section="mapping" open>
           <summary class="group-summary">
             <h2 class="group-title">Visible score</h2>
-            <span class="section-state" id="scoreSummary">Soft FM kit · sides only</span>
+            <span class="section-state" id="scoreSummary">Soft FM kit · all faces</span>
           </summary>
           <div class="group-body">
             <p class="rubix-causal-copy" id="scoreDescription">
-              Soft FM kit is active, so the two side faces trigger percussion and
-              the upper acid face rests. Choose 303 acid to hear only the upper face.
+              All six face sequences keep running. Only uncovered, on-screen stickers
+              are audible. Their screen area sets their relative level, even during turns.
               Hidden stickers are silent.
             </p>
-            <div class="rubix-lane-list" id="laneList" aria-label="Currently audible cube faces"></div>
-            <div class="rubix-color-key" id="colorKey" aria-label="Selected bank sticker color mapping"></div>
+            <div class="rubix-lane-list" id="laneList" role="group" aria-label="All six cube faces and their visibility"></div>
+            <div class="rubix-color-key" id="colorKey" role="group" aria-label="Selected bank sticker color mapping"></div>
           </div>
         </details>
 
@@ -449,15 +469,14 @@
         uses its own derived speed curve, independent of sequencer tempo. Choose Rows
         together, Snake together, or Alternate faces
         in the Clock section to change how the visible stickers are read. Alternate
-        faces divides each beat into acid, Drum A, and Drum B subdivisions. Choose
-        exactly one Sound bank: a drum kit makes the two side faces audible while
-        the upper face rests; 303 acid makes the upper face audible while both drum
-        faces rest. The Classic Web Audio and WebGPU choices are available only
+        faces divides each beat into opposite face pairs: up/down, front/back,
+        then left/right. Choose exactly one Sound bank for all six face sequences.
+        Only uncovered stickers in the viewport sound, including their ringing tails. The Classic Web Audio and SIMD choices are available only
         inside the 303 acid bank. The
         Shape chooses a cube-compatible visual form; Size loads 2 by 2 through 6 by 6 grids.
         Larger projected stickers sound louder according to Visibility dynamics,
         and any sticker that cannot be seen is silent. In the 303 acid bank, choose
-        WebGPU to let each sticker's row, column, edge, current face, and visibility
+        SIMD to let each sticker's row, column, edge, current face, and visibility
         reshape its acid step; unsupported browsers use Classic Web Audio.
       </p>
       <p class="sr-only" id="liveStatus" aria-live="polite"></p>

@@ -78,7 +78,7 @@ test("Rubix controls keep shape, size, visibility dynamics, and panel order expl
   assert.match(visibleScore, /id="scoreDescription"/);
   assert.match(
     clock,
-    /data-read-mode="face"[^>]*>[\s\S]*?<b>Alternate faces<\/b>[\s\S]*?<small>one face per subdivision · 27 steps<\/small>/,
+    /data-read-mode="face"[^>]*>[\s\S]*?<b>Alternate faces<\/b>[\s\S]*?<small>opposite pairs · 27 steps<\/small>/,
   );
 
   const shapeOptions = selectOptions(cubeMoves, "shape");
@@ -151,8 +151,8 @@ test("Rubix controls keep shape, size, visibility dynamics, and panel order expl
   assert.equal(attribute(dynamics, "min"), "0");
   assert.equal(attribute(dynamics, "max"), "1");
   assert.equal(attribute(dynamics, "step"), "0.01");
-  assert.equal(attribute(dynamics, "value"), "0.72");
-  assert.match(clock, /id="visibilityDynamicsOut"[^>]*for="visibilityDynamics">72%<\/output>/);
+  assert.equal(attribute(dynamics, "value"), "1");
+  assert.match(clock, /id="visibilityDynamicsOut"[^>]*for="visibilityDynamics">100%<\/output>/);
   assert.match(clock, /0% equal level · 100% projected square area/);
   assert.match(clock, /title="0% keeps every visible sticker at equal level; 100% follows its projected square area\."/);
   assert.ok(clock.indexOf('class="rubix-read-modes"') < clock.indexOf('id="visibilityDynamics"'));
@@ -161,6 +161,14 @@ test("Rubix controls keep shape, size, visibility dynamics, and panel order expl
   const randomTwists = openingTag(cubeMoves, "button", "randomTwists");
   assert.equal(attribute(randomTwists, "type"), "button");
   assert.equal(attribute(randomTwists, "aria-pressed"), "false");
+  assert.equal(attribute(randomTwists, "aria-label"), "Start random twists");
+  assert.equal(attribute(randomTwists, "title"), "Start random twists");
+  const twistButtonContent = cubeMoves.match(/<button\b[^>]*\bid="randomTwists"[^>]*>[\s\S]*?<\/button>/)?.[0];
+  assert.match(twistButtonContent, /<svg class="transport-play"/);
+  assert.match(twistButtonContent, /<svg class="transport-pause"/);
+  assert.doesNotMatch(twistButtonContent, /⤨/);
+  assert.match(css, /#randomTwists\[aria-pressed="true"\] \.transport-play\s*\{\s*display:\s*none/);
+  assert.match(css, /#randomTwists\[aria-pressed="true"\] \.transport-pause\s*\{\s*display:\s*block/);
   const randomTwistSpeed = openingTag(cubeMoves, "input", "randomTwistSpeed");
   assert.equal(attribute(randomTwistSpeed, "type"), "range");
   assert.equal(attribute(randomTwistSpeed, "min"), "0");
@@ -180,8 +188,8 @@ test("Rubix controls keep shape, size, visibility dynamics, and panel order expl
   const soundBankOptions = selectOptions(soundBank, "soundBank");
   assert.deepEqual(
     soundBankOptions.map(({ value }) => value),
-    ["soft-fm", "analog", "modal", "noise", "acid-303"],
-    "the top-level selector should expose four drum banks and one acid bank",
+    ["soft-fm", "analog", "modal", "noise", "rattlesnake", "pitched-morph", "karplus-strong", "acid-303"],
+    "the top-level selector should expose seven drum banks and one acid bank",
   );
   assert.deepEqual(
     soundBankOptions.filter(({ selected }) => selected).map(({ value }) => value),
@@ -202,20 +210,20 @@ test("Rubix controls keep shape, size, visibility dynamics, and panel order expl
   }
   assert.match(soundBank, /id="soundBankState"[^>]*for="soundBank"[^>]*>[^<]*Soft FM/i);
   assert.match(soundBank, /one (?:sound )?bank (?:plays )?at a time/i);
-  assert.match(soundBank, /(?:Acid\s*303|303\s*acid|303)[\s\S]*upper|upper[\s\S]*(?:Acid\s*303|303\s*acid|303)/i);
-  assert.match(soundBank, /drum (?:banks?|kits?)[\s\S]*side|side[\s\S]*drum (?:banks?|kits?)/i);
+  assert.match(soundBank, /303[\s\S]*all visible faces/i);
+  assert.match(soundBank, /Selected kit · all visible faces/i);
   assert.doesNotMatch(html, /\bid="percEngine"/);
   assert.match(soundBank, /id="soundBankSummary"[^>]*>[^<]*Soft FM/i);
-  assert.match(soundBank, /id="soundBankStatus"[^>]*[\s\S]*?side faces audible/i);
+  assert.match(soundBank, /id="soundBankStatus"[^>]*[\s\S]*?all visible faces/i);
   assert.match(soundBank, /<fieldset\b[^>]*\bid="acidBankControls"[^>]*\bdisabled\b/);
   assert.doesNotMatch(
     openingTag(soundBank, "fieldset", "kitBankControls"),
     /\bdisabled\b/,
   );
-  assert.match(html, /id="scoreSummary"[^>]*>[^<]*Soft FM[^<]*sides only/i);
+  assert.match(html, /id="scoreSummary"[^>]*>[^<]*Soft FM[^<]*all faces/i);
   assert.match(
     visibleScore,
-    /Soft FM[\s\S]*two side faces[\s\S]*upper acid face rests/i,
+    /All six face sequences[\s\S]*Only uncovered, on-screen stickers/i,
   );
 
   const presetOptions = selectOptions(html, "rubixPreset");

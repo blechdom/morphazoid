@@ -489,7 +489,7 @@
   color: currentColor;
   font-size: 6px;
   line-height: 1.25;
-  opacity: 0.65;
+  opacity: 1;
 }
 
 .rubix-visibility-dynamics {
@@ -692,7 +692,7 @@
   border-color: var(--line);
   background: color-mix(in oklab, var(--panel-high) 42%, var(--bg-deep));
   box-shadow: none;
-  opacity: 0.46;
+  /* Dim the miniature below, not the words explaining hidden/silent faces. */
 }
 
 .rubix-lane-card.is-bank-resting .rubix-mini-face {
@@ -1034,7 +1034,25 @@
 
 .rubix-random-twists > button > span:first-child {
   color: var(--accent);
-  font-size: 16px;
+}
+
+.rubix-random-twist-icon svg {
+  display: block;
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: square;
+}
+
+#randomTwists .transport-pause,
+#randomTwists[aria-pressed="true"] .transport-play {
+  display: none;
+}
+
+#randomTwists[aria-pressed="true"] .transport-pause {
+  display: block;
 }
 
 .rubix-random-twists > button > span:last-child {
@@ -1050,7 +1068,7 @@
 }
 
 .rubix-random-twists > button small {
-  color: var(--faint);
+  color: var(--muted);
 }
 
 .rubix-random-twists > button[aria-pressed="true"] {
@@ -1067,7 +1085,7 @@
 
 .rubix-random-twists > small {
   grid-column: 1 / -1;
-  color: var(--faint);
+  color: var(--muted);
   font-size: 7px;
   line-height: 1.4;
 }
@@ -1147,7 +1165,7 @@
   color: currentColor;
   font-size: 6px;
   letter-spacing: 0.06em;
-  opacity: 0.7;
+  opacity: 1;
   text-transform: uppercase;
 }
 
