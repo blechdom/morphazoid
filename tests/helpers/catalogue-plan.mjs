@@ -2,6 +2,8 @@ import { readFileSync } from 'node:fs';
 export const cataloguePlan = JSON.parse(readFileSync(new URL('../../docs/catalogue-update-decisions.json', import.meta.url), 'utf8'));
 const prior = JSON.parse(readFileSync(new URL('../fixtures/catalogue-before-20260918.json', import.meta.url), 'utf8'));
 const byId = new Map(cataloguePlan.rows.flatMap(row => [[row.oldId, row], [row.id, row]]));
+export const mainAdditions = JSON.parse(readFileSync(new URL('../fixtures/catalogue-main-d96793a.json', import.meta.url), 'utf8')).additions;
+for (const item of mainAdditions) byId.set(item.id, { id: item.id, oldId: item.id, categoryId: item.categoryId, categoryLabel: "Work in Progress", tags: [] });
 const previousFaves = prior.registry.FAVE_TOOL_IDS.map(id => byId.get(id)?.id ?? id);
 // Explicit owner follow-up on September 20; keep the pre-sheet fixture intact.
 previousFaves.splice(previousFaves.indexOf("hiccup-head") + 1, 0, "creaturazoid");
@@ -30,7 +32,7 @@ export function expectedStatusFor(id) { return expectedCategoryFor(id) === 'wip'
 export function expectedIdFor(id) { return byId.get(id)?.id ?? id; }
 export function previousInstrumentFor(id) {
   const row = byId.get(id);
-  return prior.INSTRUMENTS.find(item => item.id === (row?.oldId ?? id));
+  return prior.INSTRUMENTS.find(item => item.id === (row?.oldId ?? id)) ?? mainAdditions.find(item => item.id === id);
 }
 export function expectedTagsFor(id) {
   const row = byId.get(id);

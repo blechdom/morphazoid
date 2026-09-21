@@ -23,16 +23,23 @@ test("catalogue renaming preserves existing musical descriptions, features, and 
   // Main's loop-network update postdates the owner-sheet baseline. Preserve
   // its new descriptions without rewriting the historical fixture.
   const { updates } = JSON.parse(await readFile(new URL("./fixtures/catalogue-main-e042512.json", import.meta.url)));
+  const main = JSON.parse(await readFile(new URL("./fixtures/catalogue-main-d96793a.json", import.meta.url)));
   const { instrumentById } = await import("../src/instrument-catalog.js");
   for (const previous of before.INSTRUMENTS) {
     const current = instrumentById(previous.id);
-    const expected = { ...previous, ...updates[previous.id] };
+    const expected = { ...previous, ...updates[previous.id], ...main.updates[previous.id] };
     assert.ok(current, previous.id);
     for (const key of ["description", "start", "kind", "features", "pluginHref", "imageHref"]) {
       assert.deepEqual(current[key], expected[key], `${previous.id}: ${key}`);
     }
   }
   assert.deepEqual(SITE_LINKS, before.registry.SITE_LINKS);
+  for (const item of main.additions) {
+    const current = instrumentById(item.id);
+    assert.ok(current, `${item.id}: main addition survives`);
+    for (const key of ["description", "start", "kind", "imageHref"]) assert.equal(current[key], item[key], `${item.id}: ${key}`);
+    assert.equal(current.status, "Work in Progress");
+  }
 });
 
 test("navigation retains its exports, immutable records, and published-root URL semantics", () => {

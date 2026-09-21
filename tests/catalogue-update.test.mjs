@@ -6,7 +6,7 @@ import { FAVE_TOOL_IDS, TOOL_GROUPS } from "../src/site/instrument-registry.js";
 import { canonicalInstrumentId, legacyInstrumentId } from "../src/site/instrument-identities.js";
 import { instrumentMidiCapabilityForId } from "../src/instrument-midi-capabilities.js";
 import { waxSupportForId } from "../src/wax-instrument-roles.js";
-import { expectedFaveToolIds } from "./helpers/catalogue-plan.mjs";
+import { expectedFaveToolIds, mainAdditions } from "./helpers/catalogue-plan.mjs";
 
 const root = new URL("../", import.meta.url);
 const plan = JSON.parse(await readFile(new URL("docs/catalogue-update-decisions.json", root)));
@@ -26,7 +26,7 @@ test("the owner-confirmed retained IDs and Rattlesnake name remain unchanged", (
 });
 
 test("the current catalogue implements every effective sheet row without dropping newer main entries", () => {
-  assert.equal(CATALOGUE_ITEMS.length, plan.rows.length);
+  assert.deepEqual(new Set(CATALOGUE_ITEMS.map(item => item.id)), new Set([...plan.rows.map(row => row.id), ...mainAdditions.map(item => item.id)]));
   assert.equal(new Set(CATALOGUE_ITEMS.map(item => item.id)).size, CATALOGUE_ITEMS.length);
   assert.deepEqual(CATALOGUE_GROUPS.map(group => group.id), plan.categoryOrder);
   for (const row of plan.rows) {
@@ -39,7 +39,7 @@ test("the current catalogue implements every effective sheet row without droppin
     assert.deepEqual(item.tags.map(tag => tag.id), [...new Set(expected)], row.id);
     assert.equal(item.status, row.categoryId === "wip" ? "Work in Progress" : null);
   }
-  for (const id of ["tempo-tantrum", "tape-worm", "loop-soup", "habit-habitat", "hollowphonic"]) {
+  for (const id of ["tempo-tantrum", "tape-worm", "loop-soup", "habit-habitat", "hollowphonic", ...mainAdditions.map(item => item.id)]) {
     assert.ok(instrumentById(id), `${id}: preserve work added on main after the sheet`);
   }
 });
@@ -73,7 +73,7 @@ test("existing labs are browseable without being misrepresented as verified MIDI
     assert.equal(lab.features.includes("MIDI"), false);
     assert.ok(catalogueItemById(lab.id));
   }
-  assert.equal(INSTRUMENTS.length, before.INSTRUMENTS.length);
+  assert.equal(INSTRUMENTS.length, before.INSTRUMENTS.length + mainAdditions.length);
 });
 
 test("canonical pages, compatibility redirects and catalogue icons exist", async () => {

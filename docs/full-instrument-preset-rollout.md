@@ -50,7 +50,7 @@ priority change does not authorize weakening tests or skipping release checks.
 ## Current work: first full-preset batch implemented, final verification pending
 
 The next local batch now implements the shared Choose-styled header preset
-control for **24 of 147 regular instruments** (451 full-state presets):
+control for **24 of 156 regular instruments** (451 full-state presets):
 
 | Instrument | Full presets |
 | --- | ---: |
@@ -79,7 +79,7 @@ control for **24 of 147 regular instruments** (451 full-state presets):
 | Automatapoeia | 12 |
 | Lattice | 12 |
 
-This is not the all-instrument rollout completed: **123 regular instruments and
+This is not the all-instrument rollout completed: **132 regular instruments and
 the seven separately identified labs remain unmigrated.** That is a coverage
 count, not the active queue: unfinished WIP work is now deferred as described
 above. The table describes implemented adapters, not new listening approval.

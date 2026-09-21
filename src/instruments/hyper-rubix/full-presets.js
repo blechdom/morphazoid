@@ -2,6 +2,7 @@ import { HYPER_RUBIX_PRESET_DEFAULTS as defaults } from "./preset-state.js";
 import {
   createSolvedHyperRubix, createHyperRubixScramble, createSeededHyperRubixRandom, turnHyperRubixBoundaryCell,
   hyperRubixSizeMetrics, HYPER_RUBIX_CELL_ORDER, HYPER_RUBIX_SEQUENCE_PATTERNS,
+  hyperRubixBoundaryCell,
 } from "../../hyper-rubix.js";
 import { presetStateKey } from "../../site/header-presets.js";
 import { clonePresetData, presetRandom, randomParameterValues } from "../../site/preset-random.js";
@@ -31,6 +32,8 @@ function puzzleFor(size, turns, seed) {
 }
 function scene(id, label, settings, size = 3, turns = 0, seed = 1, gateStride = 0) {
   const p = { ...defaults, ...settings };
+  const planes = hyperRubixBoundaryCell(p.selectedCell).tangentPlanes;
+  if (!planes.includes(p.selectedPlane)) p.selectedPlane = planes[0];
   const puzzle = puzzleFor(size, turns, seed);
   return { id, label, description: `${label}: complete puzzle, ${p.voice} voice, ${p.playbackPreset} scope, ${p.tempo} BPM and topology sound. Audio/Play and live rotation phase are retained.`,
     snapshot: validateHyperRubixPreset({
@@ -59,6 +62,7 @@ export function validateHyperRubixPreset(s) {
   if (!p || Object.keys(p).length !== HYPER_RUBIX_PRESET_KEYS.length || HYPER_RUBIX_PRESET_KEYS.some(key => !Object.hasOwn(p, key))) throw new TypeError("Incomplete Hyper Rubix settings");
   for (const [key, [min, max]] of Object.entries(numeric)) if (!Number.isFinite(p[key]) || p[key] < min || p[key] > max) throw new TypeError(`Invalid Hyper Rubix ${key}`);
   for (const [key, values] of Object.entries(choices)) if (!values.includes(p[key])) throw new TypeError(`Invalid Hyper Rubix ${key}: ${p[key]}`);
+  if (!hyperRubixBoundaryCell(p.selectedCell).tangentPlanes.includes(p.selectedPlane)) throw new TypeError("Selected plane must be tangent to the selected cell");
   if (typeof p.autoRotate !== "boolean" || typeof p.rattleEnabled !== "boolean" || !Number.isInteger(s.sequenceGeneration) || s.sequenceGeneration < 0) throw new TypeError("Invalid Hyper Rubix switches/seed");
   const metrics = hyperRubixSizeMetrics(s.puzzle);
   const ids = new Set(s.puzzle.stickers.map(sticker => sticker.id));
@@ -73,6 +77,7 @@ export function randomizeHyperRubixPreset(current, random = Math.random) {
     topologyLevel: [0, 0.3], rattleLevel: [0.15, 0.45], cameraPitch: [-45, 45],
   }, rng) };
   for (const [key, values] of Object.entries(choices)) settings[key] = rng.pick(key === "voice" ? values.filter(value => value !== "webgpu-303") : values);
+  settings.selectedPlane = rng.pick(hyperRubixBoundaryCell(settings.selectedCell).tangentPlanes);
   settings.output = current.settings.output;
   settings.autoRotate = rng.pick([false, true]);
   settings.rattleEnabled = settings.voice === "rattlesnake";

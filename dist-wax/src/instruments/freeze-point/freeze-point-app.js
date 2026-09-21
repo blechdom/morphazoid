@@ -1,5 +1,5 @@
-import { createWaveLabShell } from "./src/wave-lab-shell.js?v=wave-20260918-1";
-import { createLattice, participationRatio, findThreshold, siteFrequency } from "./src/freeze-point.js?v=wave-20260918-1";
+import { createWaveLabShell } from "../../wave-lab-shell.js?v=wave-20260918-1";
+import { createLattice, participationRatio, findThreshold, siteFrequency } from "../../freeze-point.js?v=wave-20260918-1";
 
 const $ = (id) => document.getElementById(id);
 const TAU = Math.PI * 2;

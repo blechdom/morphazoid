@@ -881,8 +881,8 @@ copy	src/rubix-simd-presets.js
 copy	src/rubix-simd-303-processor.js
 copy	docs/rubix.md
 copy	graph-3d.html
-copy	graph-3d.css
-copy	graph-3d-app.js
+copy+require	src/instruments/graph-3d/graph-3d.css
+copy+require	src/instruments/graph-3d/graph-3d-app.js
 copy	src/graph-3d.js
 copy	assets/instruments/graph-3d.webp
 copy	docs/graph-3d.md
@@ -923,3 +923,13 @@ copy+require	src/instruments/shapes/original-audio.js
 copy+require	src/instruments/shapes/sound-controls.js
 copy+require	src/instruments/shapes/mode-presets.js
 copy+require	src/instruments/shapes/random-playability.js
+copy+require	src/instruments/crab-loom/crab-loom-app.js
+copy+require	src/instruments/exceptional/exceptional-app.js
+copy+require	src/instruments/freeze-point/freeze-point-app.js
+copy+require	src/instruments/head-shed/head-shed-app.js
+copy+require	src/instruments/onset-atlas/onset-atlas-app.js
+copy+require	src/instruments/scatter-ghost/scatter-ghost-app.js
+copy+require	src/instruments/splice-ring/splice-ring-app.js
+copy+require	src/instruments/synaptic-resonance/synaptic-resonance-app.js
+copy+require	src/families/proto-graph/proto-graph.css
+copy+require	src/families/wave-lab/wave-lab.css

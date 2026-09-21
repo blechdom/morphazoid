@@ -1,7 +1,11 @@
 import { expect, test } from "@playwright/test";
 import { readAudioStatus, sampleAudioEnvelope, waitForStableAudioState } from "./helpers/audio-probe.mjs";
 
-const snapshot = (page) => page.evaluate(async () => (await import("/rubix-app.js")).rubixPlaybackSnapshot());
+const snapshot = (page) => page.evaluate(async () => (await import("/src/instruments/rubix/rubix-app.js")).rubixPlaybackSnapshot());
+async function selectPerformancePreset(page, id) {
+  await page.locator(".header-preset-picker > summary").click();
+  await page.locator(`.header-preset-picker button[data-preset-id="${id}"]`).click();
+}
 const setRange = (page, id, value) => page.locator(`#${id}`).evaluate((input, value) => {
   input.value = String(value);
   input.dispatchEvent(new Event("input", { bubbles: true }));
@@ -44,7 +48,7 @@ for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 
     await button.click();
     await assertTwistState(false);
 
-    await page.locator("#rubixPreset").selectOption("pocket-funk");
+    await selectPerformancePreset(page, "pocket-funk");
     await button.scrollIntoViewIfNeeded();
     await assertTwistState(true);
     await page.locator("#solveCube").click();
@@ -144,7 +148,7 @@ for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 
       await setRange(page, "rubixSize", 6);
       await page.waitForTimeout(100);
       const evidence = await page.evaluate(async () => {
-        const s = (await import("/rubix-app.js")).rubixPlaybackSnapshot();
+        const s = (await import("/src/instruments/rubix/rubix-app.js")).rubixPlaybackSnapshot();
         const { createRubixVisibilityProfile } = await import("/src/rubix-visibility.js");
         return { ...s, expected: createRubixVisibilityProfile(s.geometry, s.viewport), overflow: document.documentElement.scrollWidth > innerWidth + 1 };
       });
@@ -199,7 +203,7 @@ test("uncovered polygon areas agree with an independent Canvas ID render", async
     await setRange(page, "rubixSize", 6);
     await page.waitForTimeout(60);
     const evidence = await page.evaluate(async () => {
-      const s = (await import("/rubix-app.js")).rubixPlaybackSnapshot();
+      const s = (await import("/src/instruments/rubix/rubix-app.js")).rubixPlaybackSnapshot();
       const canvas = document.createElement("canvas");
       canvas.width = Math.round(s.viewport.width * 2);
       canvas.height = Math.round(s.viewport.height * 2);
@@ -250,7 +254,7 @@ test("Rubix SIMD runs six audio-clock face voices without WebGPU or chunk primin
   await expect.poll(async () => (await snapshot(page)).simdVoices).toBe(6);
   expect((await snapshot(page)).simdBackend).toBe("simd");
   await page.evaluate(async () => {
-    const { rubixPlaybackSnapshot } = await import("/rubix-app.js");
+    const { rubixPlaybackSnapshot } = await import("/src/instruments/rubix/rubix-app.js");
     document.querySelector("#playButton").addEventListener("click", () => {
       window.rubixPlayClickTime = rubixPlaybackSnapshot().audioTime;
     }, { capture: true, once: true });
@@ -411,7 +415,7 @@ test("performance preset recall preserves performer volumes and Morphix Drift ha
   await page.locator("#playButton").click();
   const measurements = {};
   for (const id of ["classic", "pocket-funk", "modal-sphere", "noise-grid", "pyramid-drift"]) {
-    await page.locator("#rubixPreset").selectOption(id);
+    await selectPerformancePreset(page, id);
     await expect(page.locator("#playButton")).toHaveAttribute("aria-pressed", "true");
     if (await page.locator("#randomTwists").getAttribute("aria-pressed") === "true") await page.locator("#randomTwists").click();
     expect((await snapshot(page)).levels, id).toEqual(levels);
@@ -426,7 +430,7 @@ test("performance preset recall preserves performer volumes and Morphix Drift ha
   await info.attach("performance-preset-levels.json", { body: JSON.stringify(measurements), contentType: "application/json" });
   await setRange(page, "output", 0);
   for (const id of ["pocket-funk", "pyramid-drift", "classic"]) {
-    await page.locator("#rubixPreset").selectOption(id);
+    await selectPerformancePreset(page, id);
     expect((await snapshot(page)).levels.output).toBe(0);
   }
   await waitForStableAudioState(page, false);

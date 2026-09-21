@@ -1,9 +1,9 @@
 import {
   Graph3DModel, Graph3DTraversal, GRAPH_3D_DEFAULTS, GRAPH_3D_SCENES, DEFAULT_VIEW,
   clamp, projectGraphPoint, dragGraphPoint, graph3DEdgeParameters, graph3DVoice,
-} from "./src/graph-3d.js";
-import { GraphSynthAudio } from "./src/graph-synth-audio.js";
-import { createAudioStrip } from "./src/ui/patterns/audio-strip.js";
+} from "../../graph-3d.js";
+import { GraphSynthAudio } from "../../graph-synth-audio.js";
+import { createAudioStrip } from "../../ui/patterns/audio-strip.js";
 
 const $ = (id) => document.getElementById(id);
 const model = new Graph3DModel(), traversal = new Graph3DTraversal(), audio = new GraphSynthAudio();

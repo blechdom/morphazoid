@@ -1,20 +1,20 @@
 {
   "schemaVersion": 1,
   "date": "2026-09-21",
-  "branch": "codex/full-instrument-presets",
-  "source": "uncommitted working tree",
+  "branch": "codex/shapes-faves-rebased",
+  "source": "committed integration on codex/shapes-faves-rebased; main base d96793a",
   "counts": {
     "implemented": 24,
     "fullPresets": 451,
     "favesImplemented": 13,
     "activeRemaining": 64,
-    "regularRemaining": 123
+    "regularRemaining": 132
   },
   "verification": {
-    "browser": "53 unique browser cases passed after two selector corrections; final additional swell and two seeded-random reruns passed. All 106 factory recalls/audio, 48 seeded random scenes, MIDI, storage/BFCache and phone layouts covered.",
-    "wax": "regenerated: 198 pages; clean-build parity passed",
+    "browser": "Rebase checks: Faves navigation and Rubix/Hyper Rubix adapter/engine checks passed; all nine main additions load. Shapes 106-scene isolated audio rerun passed. One earlier concurrent run observed intermittent Rattlesnake clipping; source/audio files unchanged by rebase.",
+    "wax": "regenerated: 207 pages; clean-build parity passed",
     "humanListening": "Owner audition of overlapping ADSR/swell, note timbres and trigger subdivisions remains required",
-    "repository": "npm run verify passed: 3935 passed, 6 skipped; syntax, SIMD, XYFlow and clean-build WAX parity passed"
+    "repository": "Rebased npm run verify passed: 3990 passed, 6 skipped; syntax, SIMD, XYFlow and clean-build WAX parity passed"
   },
   "entries": [
     {
@@ -1438,6 +1438,87 @@
       "scope": "deferred-wip",
       "presets": null,
       "status": "deferred"
+    },
+    {
+      "id": "graph-3d",
+      "label": "3D Graph",
+      "href": "graph-3d.html",
+      "category": "wip",
+      "scope": "regular",
+      "presets": null,
+      "status": "unmigrated"
+    },
+    {
+      "id": "crab-loom",
+      "label": "Crab Loom",
+      "href": "crab-loom.html",
+      "category": "wip",
+      "scope": "regular",
+      "presets": null,
+      "status": "unmigrated"
+    },
+    {
+      "id": "freeze-point",
+      "label": "Freeze Point",
+      "href": "freeze-point.html",
+      "category": "wip",
+      "scope": "regular",
+      "presets": null,
+      "status": "unmigrated"
+    },
+    {
+      "id": "scatter-ghost",
+      "label": "Scatter Ghost",
+      "href": "scatter-ghost.html",
+      "category": "wip",
+      "scope": "regular",
+      "presets": null,
+      "status": "unmigrated"
+    },
+    {
+      "id": "exceptional",
+      "label": "Exceptional",
+      "href": "exceptional.html",
+      "category": "wip",
+      "scope": "regular",
+      "presets": null,
+      "status": "unmigrated"
+    },
+    {
+      "id": "head-shed",
+      "label": "Head Shed",
+      "href": "head-shed.html",
+      "category": "wip",
+      "scope": "regular",
+      "presets": null,
+      "status": "unmigrated"
+    },
+    {
+      "id": "splice-ring",
+      "label": "Splice Ring",
+      "href": "splice-ring.html",
+      "category": "wip",
+      "scope": "regular",
+      "presets": null,
+      "status": "unmigrated"
+    },
+    {
+      "id": "onset-atlas",
+      "label": "Onset Atlas",
+      "href": "onset-atlas.html",
+      "category": "wip",
+      "scope": "regular",
+      "presets": null,
+      "status": "unmigrated"
+    },
+    {
+      "id": "synaptic-resonance",
+      "label": "Synaptic Resonance",
+      "href": "synaptic-resonance.html",
+      "category": "wip",
+      "scope": "regular",
+      "presets": null,
+      "status": "unmigrated"
     }
   ]
 }

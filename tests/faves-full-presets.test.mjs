@@ -14,6 +14,8 @@ import { CALL_GESTURES, animalState, sanitizeSyrinxState, interpolateGesture, mo
 import { DEFAULT_TONGUE_STATE, sanitizeTongueState } from "../src/tongue-physics.js";
 import { captureHybrinxPreset, validateHybrinxFullPreset, HYBRINX_FULL_PRESETS, randomizeHybrinxPreset } from "../src/families/syrinx/full-presets.js";
 import { RUBIX_FACTORY_PRESETS, RUBIX_DEFAULTS } from "../src/instruments/rubix/factory-presets.js";
+import { RUBIX_PRESET_SETTING_KEYS } from "../src/instruments/rubix/full-presets.js";
+import { rubixSimdPreset } from "../src/rubix-simd-presets.js";
 import { HYPER_RUBIX_PRESET_DEFAULTS } from "../src/instruments/hyper-rubix/preset-state.js";
 import { DEFAULT_L_SYSTEM_STATE, DEFAULT_MICMIC_STATE } from "../src/families/branch-presets/initial-state.js";
 import { GRAPH_DELAY_INITIAL_STATE } from "../src/families/graph-presets/initial-state.js";
@@ -37,6 +39,7 @@ test("startup retains original settings with voice caps equal to the previous fi
     ...before,
     solid: { ...before.solid, voiceLimit: 32 },
     hyper: { ...before.hyper, voiceLimit: 20 },
+    rubix: { ...before.rubix, ...rubixSimdPreset().controls, acidEngine: "simd-303", simdPreset: "color-circuit", simdPresetCustom: false, visibilityDynamics: 1 },
   });
   const lattice = FAVES_PRESET_CASES.find(entry => entry.id === "lattice").bank[0].snapshot.parameters;
   const { audio, playing, position, continuousPosition, ...originalLatticeParameters } = before.lattice;
@@ -52,6 +55,10 @@ test("the implemented batches cover current Faves and retain tests for the demot
 });
 test("dice preserves a muted master on every newly migrated instrument", () => {
   for (const entry of FAVES_PRESET_CASES) {
+    if (entry.id === "rubix") {
+      for (const key of ["output", "acidLevel", "drumLevel"]) assert.equal(RUBIX_PRESET_SETTING_KEYS.includes(key), false, `${key} stays live`);
+      continue;
+    }
     const current = clonePresetData(entry.bank[0].snapshot);
     const parameters = current.parameters ?? current.settings ?? current.state;
     parameters[Object.hasOwn(parameters, "output") ? "output" : "level"] = 0;
@@ -97,7 +104,7 @@ for (const entry of FAVES_PRESET_CASES) {
         seen.get(key).add(presetStateKey(value));
       }
     }
-    const protectedOrMetadata = new Set(["level", "output", "acidEngine", "generationPreset", "label", "branching", "graphPatch", "percussionStyle"]);
+    const protectedOrMetadata = new Set(["level", "output", "acidEngine", "simdPresetCustom", "generationPreset", "label", "branching", "graphPatch", "percussionStyle"]);
     const unchanged = [...seen].filter(([key, values]) => values.size === 1 && !protectedOrMetadata.has(key)).map(([key]) => key);
     assert.deepEqual(unchanged, [], `Unintentionally frozen controls: ${unchanged.join(", ")}`);
   });
@@ -107,7 +114,9 @@ test("Rubix keeps all five old performance presets' settings while adding full s
   const { bank } = FAVES_PRESET_CASES.find(p => p.id === "rubix");
   for (const preset of Object.values(RUBIX_FACTORY_PRESETS)) {
     const full = bank.find(p => p.id === preset.id).snapshot;
-    assert.deepEqual(full.settings, { ...RUBIX_DEFAULTS, ...preset.settings });
+    const expected = { ...RUBIX_DEFAULTS, ...preset.settings };
+    expected.simdPresetCustom = Object.entries(rubixSimdPreset(expected.simdPreset).controls).some(([key, value]) => expected[key] !== value);
+    assert.deepEqual(full.settings, Object.fromEntries(RUBIX_PRESET_SETTING_KEYS.map(key => [key, expected[key]])));
     assert.equal(full.cube.size, preset.size);
     assert.equal(full.shapeId, preset.shapeId);
     assert.equal(full.readingMode, preset.readingMode);

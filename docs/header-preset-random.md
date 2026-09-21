@@ -35,7 +35,7 @@ during registration or page load. No new permissions or storage writes occur.
 
 ## Implemented coverage
 
-The button is now wired into **24 instruments, including all 15 Faves**, not the
+The button is now wired into **24 instruments, including all 13 current Faves**, not the
 entire catalogue. The table below describes the original randomizer batch;
 the [Faves implementation report](faves-preset-rollout.md) covers the twelve
 additional adapters and their device/transport boundaries. The remaining

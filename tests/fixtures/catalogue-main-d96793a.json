@@ -1,0 +1,139 @@
+{
+  "mainCommit": "d96793a",
+  "updates": {
+    "rubix": {
+      "kind": "Geometric sequencer",
+      "description": "Runs all six face sequences through a selected synthesized drum, mallet, plucked-string or 303 bank. Uncovered screen area mixes each sticker live, including ringing tails; hidden stickers are silent and master compression tames dense mixes.",
+      "start": "Turn on Audio and Play, choose a bank, then orbit or twist the cube to bring different sounds into view. Visibility dynamics defaults to proportional screen area; Classic and low-latency SIMD 303 both follow the visible surface.",
+      "pluginHref": null
+    }
+  },
+  "additions": [
+    {
+      "id": "graph-3d",
+      "kind": "Spatial graph synthesizer",
+      "description": "A rotatable 3D Graph Synth with directed note propagation, true spatial edge timing, height/depth/radius/bend pitch mappings, and bounded spring, repulsion, center, and shell forces.",
+      "start": "Enable Audio and Play. Drag empty space to orbit, drag a node to reshape it, or Shift-drag into depth. Enable forces to hear the geometry reorganize.",
+      "features": [
+        "Built-in synth",
+        "3D",
+        "Pointer",
+        "Organizing forces",
+        "MIDI input"
+      ],
+      "pluginHref": null,
+      "imageHref": "assets/instruments/graph-3d.webp",
+      "categoryId": "wip"
+    },
+    {
+      "id": "crab-loom",
+      "kind": "Mobius tape looper",
+      "description": "Records a line onto a one-sided tape band and plays it against its own transform, with a draggable seam, twist parity that doubles the period, and a cut whose result is the real topology.",
+      "start": "Turn on audio, press Record and make a sound, then drag the seam and change the involution.",
+      "features": [
+        "Mic input",
+        "Built-in synth",
+        "Self-contained app"
+      ],
+      "pluginHref": null,
+      "imageHref": "assets/instruments/crab-loom.webp",
+      "categoryId": "wip"
+    },
+    {
+      "id": "freeze-point",
+      "kind": "Coupled-resonator lattice",
+      "description": "A grid of detuned resonators with a disorder control that has a threshold: below it a strike floods the lattice, above it energy stays trapped where it entered.",
+      "start": "Turn on audio, strike a cell, then sweep Disorder across the measured threshold and strike again.",
+      "features": [
+        "Mic input",
+        "Built-in synth",
+        "Pointer"
+      ],
+      "pluginHref": null,
+      "imageHref": "assets/instruments/freeze-point.webp",
+      "categoryId": "wip"
+    },
+    {
+      "id": "scatter-ghost",
+      "kind": "Time-reversal chamber",
+      "description": "Sends a recorded phrase through a chamber of draggable scatterers until it is unrecognisable, then replays it time-reversed so it reconverges on a movable focus.",
+      "start": "Turn on audio, record a phrase, play it scattered, then reverse it and move a scatterer to hear the refocus degrade.",
+      "features": [
+        "Mic input",
+        "Pointer",
+        "Self-contained app"
+      ],
+      "pluginHref": null,
+      "imageHref": "assets/instruments/scatter-ghost.webp",
+      "categoryId": "wip"
+    },
+    {
+      "id": "exceptional",
+      "kind": "Non-Hermitian mode pair",
+      "description": "Two coupled resonators with balanced gain and loss whose partials converge and coalesce at an exceptional point, where the response to a fixed perturbation grows as a square root.",
+      "start": "Turn on audio, strike or record into it, then raise the gain and loss balance slowly and listen for the two partials merging.",
+      "features": [
+        "Mic input",
+        "Built-in synth"
+      ],
+      "pluginHref": null,
+      "imageHref": "assets/instruments/exceptional.webp",
+      "categoryId": "wip"
+    },
+    {
+      "id": "head-shed",
+      "kind": "Tape loop with movable heads",
+      "description": "One continuous tape loop with independently positioned play, record and erase heads, where defeating the erase turns the same machine from a delay into a looper.",
+      "start": "Turn on audio, click the ring to add a head, then drag it around for position and in and out for level.",
+      "features": [
+        "Mic input",
+        "Pointer",
+        "Built-in synth"
+      ],
+      "pluginHref": null,
+      "imageHref": "assets/instruments/head-shed.webp",
+      "categoryId": "wip"
+    },
+    {
+      "id": "splice-ring",
+      "kind": "Spliced loop reader",
+      "description": "Divides one intact recording into segments with draggable splice markers and optional chords, measuring the real order period rather than asserting it.",
+      "start": "Turn on audio, click the ring to add a splice, then shift-click two splices to connect them with a chord.",
+      "features": [
+        "Mic input",
+        "Pointer",
+        "Self-contained app"
+      ],
+      "pluginHref": null,
+      "imageHref": "assets/instruments/splice-ring.webp",
+      "categoryId": "wip"
+    },
+    {
+      "id": "onset-atlas",
+      "kind": "Segmentation preview",
+      "description": "Segments a phrase into families and proposes a transition graph, showing the measured order period so a collapse is visible before the graph is accepted.",
+      "start": "Turn on audio, press Play, then move Distinctness and watch families split or merge before accepting the graph.",
+      "features": [
+        "Mic input",
+        "Self-contained app"
+      ],
+      "pluginHref": null,
+      "imageHref": "assets/instruments/onset-atlas.webp",
+      "categoryId": "wip"
+    },
+    {
+      "id": "synaptic-resonance",
+      "kind": "Rate-routed synapse graph",
+      "description": "A graph whose edges facilitate and deplete like synapses, so each one is band-pass in pulse rate and tempo decides which paths carry signal.",
+      "start": "Turn on audio, press Play, then sweep Pulse rate from 1 to 12 and watch the signal move between ring steps and shortcuts.",
+      "features": [
+        "Mic input",
+        "Pointer",
+        "Built-in synth"
+      ],
+      "pluginHref": null,
+      "imageHref": "assets/instruments/synaptic-resonance.webp",
+      "categoryId": "wip"
+    }
+  ]
+}

@@ -3219,6 +3219,9 @@ registerHeaderPresets({
   }),
   apply(snapshot) {
     validateRubixFullPreset(snapshot);
+    const previousEngine = activeAcidEngine;
+    const needsActivation = state.soundBank !== snapshot.settings.soundBank
+      || state.acidEngine !== snapshot.settings.acidEngine;
     // Do not use the old applyRubixPreset/selectSoundBank path: it stops and
     // restarts the transport. Retain its live clock and update the same engine.
     if (randomTwistTimer !== null) clearTimeout(randomTwistTimer);
@@ -3248,13 +3251,13 @@ registerHeaderPresets({
     renderColorKey(); renderStepStrip(); updateReadouts(); updateSelectedUi(); updateCanvasAriaLabel();
     if (state.randomTwists) scheduleRandomTwists();
     syncSimd303Pattern({ force: true });
-    if (state.audioOn) {
+    if (state.audioOn && needsActivation) {
       const revision = soundBankLifecycleGeneration;
       void activateSelectedSoundBank().then(() => {
         if (revision !== soundBankLifecycleGeneration || !state.audioOn || !state.playing) return;
         // Backend activation may need a new sample-clock origin, but never
         // changes Audio or the user's performer levels.
-        return startTransport({ restart: true });
+        if (previousEngine !== activeAcidEngine) return startTransport({ restart: true });
       }).catch(showError);
     }
     requestDraw();
