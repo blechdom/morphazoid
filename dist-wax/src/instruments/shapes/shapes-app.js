@@ -3,8 +3,16 @@ import {
   pitch01ToFrequency,
   scaleShapeVoiceGains,
   synthParametersForMode,
-  VoicePool,
+  percussionEnvelopeTimeMs,
+  cornerAttackSeconds,
+  cornerDecaySeconds,
 } from "../../audio.js";
+import { createGeometryVoicePool } from "../../families/geometry-presets/audio-budget.js";
+import { registerHeaderPresets } from "../../site/header-presets.js";
+import { SHAPES_FULL_PRESETS, captureShapesPreset, applyShapesPreset, randomizeShapesPreset } from "./full-presets.js";
+import { originalSynthSpecs, originalCornerSample, originalCornerIntents, noteSpecForContact } from "./original-audio.js";
+import { createShapesSoundControls } from "./sound-controls.js";
+import { rebasePingPongPosition } from "../../articulation.js";
 import {
   cloneDefaultFmDrumVoices,
   FmDrumAudio,
@@ -37,12 +45,12 @@ import {
   selectShapesPlayingMode,
   setShapes2dHeadCount,
   setShapes2dHeadOffset,
+  toggleShapes2dHeadOption,
   setShapesDivisionCount,
   shapes2dHeadCount,
   shapes2dHeadDirection,
   shapes2dHeadOffset,
   shapesDivisionCount,
-  shapesEventIntervalMs,
   shapesEventRegionKeys,
   shapesRotationIsMoving,
   shapesRepresentationLabel,
@@ -59,7 +67,7 @@ const DISCRETE_SCHEDULER_INTERVAL_MS = 20;
 const DISCRETE_SCHEDULER_LEAD_SECONDS = 0.012;
 const DISCRETE_SAMPLE_INTERVAL_SECONDS = 1 / 256;
 const DISCRETE_MAX_SAMPLES_PER_TICK = 32;
-const DISCRETE_EVENT_RATE_LIMIT = Object.freeze({ notes: 96, triggers: 128 });
+const DISCRETE_EVENT_RATE_LIMIT = Object.freeze({ notes: 128, triggers: 128 });
 const CANVAS_PIXEL_BUDGET = 3_000_000;
 const PLAYHEAD_COLORS = Object.freeze(["#69f2bd", "#78a7ff", "#cb8fff", "#e8c46b"]);
 const TRIGGER_SOUND_BANK_BY_ID = new Map(
@@ -92,6 +100,7 @@ function loadState() {
     ...persisted,
     geometry: parameters.get("geometry") ?? persisted.geometry,
     sound: parameters.get("sound") ?? persisted.sound,
+    voice: { ...persisted.voice, engine: parameters.get("voice") ?? persisted.voice?.engine },
     selection: {
       ...(persisted.selection ?? {}),
       dimension: parameters.get("dimension")
@@ -106,7 +115,7 @@ function loadState() {
 }
 
 let state = loadState();
-const synthAudio = new VoicePool(32, { continuousPeakCeiling: 0.78 });
+const synthAudio = createGeometryVoicePool();
 const drumAudio = new FmDrumAudio(globalThis);
 const rattlesnakeAudio = new LinearDrumAudio(globalThis);
 const drumVoices = cloneDefaultFmDrumVoices();
@@ -129,8 +138,9 @@ let discreteSchedulerTimer = 0;
 let nextDiscreteSampleAt = null;
 let previousDiscreteSampleAt = null;
 let discreteRhythmSample = null;
+let discreteCornerSample = null;
+let manualCornerSample = null;
 let lastScheduledDiscreteEventAt = -Infinity;
-let noteReleaseTimer = 0;
 let lastScene = null;
 let renderedRotationDimension = null;
 let renderedMainFormDimension = null;
@@ -141,6 +151,14 @@ let pointerScrub = null;
 let pointerRotation = null;
 let audioRequest = 0;
 const heldMidiNotes = new Set();
+let soundControls = null;
+let presetController = null;
+let presetAudioRevision = 0;
+let noteEventSequence = 0;
+
+function syncSynthLevel() {
+  synthAudio.setLevel(clamp(state.audio.level * state.voice.presetLevel / 0.65, 0, 1));
+}
 
 function announce(message) {
   $("liveStatus").textContent = "";
@@ -149,19 +167,23 @@ function announce(message) {
 
 function queueSave() {
   clearTimeout(saveTimer);
-  saveTimer = setTimeout(() => {
-    try {
-      localStorage.setItem(SHAPES_STORAGE_KEY, JSON.stringify(state));
-    } catch {
-      // The instrument remains fully usable when storage is unavailable.
-    }
-  }, 120);
+  saveTimer = setTimeout(saveState, 120);
+}
+
+function saveState() {
+  saveTimer = 0;
+  try {
+    localStorage.setItem(SHAPES_STORAGE_KEY, JSON.stringify(state));
+  } catch {
+    // The instrument remains fully usable when storage is unavailable.
+  }
 }
 
 function updateRoute() {
   const url = new URL(window.location.href);
   url.searchParams.set("dimension", state.selection.dimension);
   url.searchParams.set("playing", state.selection.playingMode);
+  url.searchParams.set("voice", state.voice.engine);
   url.searchParams.delete("geometry");
   url.searchParams.delete("sound");
   history.replaceState(null, "", url);
@@ -175,6 +197,7 @@ function clearDiscreteCursor() {
   nextDiscreteSampleAt = null;
   previousDiscreteSampleAt = null;
   discreteRhythmSample = null;
+  discreteCornerSample = null;
 }
 
 function invalidateDiscreteSchedule({ silence = false } = {}) {
@@ -190,6 +213,7 @@ function invalidateDiscreteSchedule({ silence = false } = {}) {
 function resetEventClock() {
   lastEventRegions.phase = null;
   lastEventRegions.geometry = null;
+  manualCornerSample = null;
   invalidateDiscreteSchedule({ silence: true });
 }
 
@@ -289,7 +313,7 @@ function drawReader(scene, transform) {
 }
 
 function drawDivisionMarkers(scene, transform) {
-  const markers = buildShapesDivisionMarkers(scene, shapesDivisionCount(state));
+  const markers = buildShapesDivisionMarkers(scene, shapesDivisionCount(state), { geometric: state.selection.playingMode === "notes" });
   if (!markers.length) return;
   const color = SHAPES_DIMENSIONS[scene.dimension].color;
   const tickRadius = scene.dimension === "2d" ? 5 : 3.5;
@@ -430,6 +454,7 @@ function twoDimensionalContourDirection(contact, sourceState) {
 }
 
 function synthSpecs(scene, { baseHz = state.voice.baseHz, sourceState = state } = {}) {
+  if (sourceState.synthesis.model === "geometry") return originalSynthSpecs(scene, sourceState, baseHz);
   const mode = sourceState.voice.engine;
   const character = sourceState.voice.character;
   const contacts = scene.dimension === "4d"
@@ -475,9 +500,8 @@ function synthSpecs(scene, { baseHz = state.voice.baseHz, sourceState = state } 
 }
 
 function releaseNoteVoices() {
-  clearTimeout(noteReleaseTimer);
-  noteReleaseTimer = 0;
-  synthAudio.setVoices([]);
+  if (state.voice.engine === "percussion") synthAudio.silence();
+  else synthAudio.releaseNotes();
 }
 
 function emitNotes(scene, {
@@ -490,31 +514,21 @@ function emitNotes(scene, {
     ? frequency / (2 ** (state.voice.rangeOctaves * 0.5))
     : state.voice.baseHz;
   const level = clamp(Number(velocity) || 0, 0.05, 1);
-  const requested = synthSpecs(scene, { baseHz: centeredBase }).slice(0, 8).map((spec) => ({
-    ...spec,
-    gain: (0.18 + spec.gain) * level,
+  const requested = scene.contacts.slice(0, Math.min(state.notes.hitCap, state.voice.voiceLimit)).map(contact => ({
+    ...noteSpecForContact(contact, scene, state, centeredBase), gain: 0.3 * level,
   }));
   const specs = normalizeStrikeGains(requested, 0.68);
   if (!specs.length) return;
-  const eventInterval = shapesEventIntervalMs(state, specs.length);
-  const duration = Math.max(42, eventInterval * (0.62 + state.voice.character * 0.12));
-  if (Number.isFinite(startAt)) {
-    specs.forEach((spec) => synthAudio.strike(spec, {
-      attackSeconds: 0.004,
-      decaySeconds: duration / 1000,
-      startAt,
-      retriggerMode: "crossfade",
-    }));
-    return;
-  }
-  synthAudio.setVoices(specs, { mode: state.voice.engine });
-  clearTimeout(noteReleaseTimer);
-  noteReleaseTimer = 0;
-  if (hold) return;
-  noteReleaseTimer = setTimeout(() => {
-    noteReleaseTimer = 0;
-    if (state.selection.playingMode === "notes") synthAudio.setVoices([]);
-  }, duration);
+  const at = Number.isFinite(startAt) ? startAt : synthAudio.context?.currentTime ?? 0;
+  if (state.voice.engine === "percussion") {
+    const envelope = state.selection.dimension === "2d"
+      ? { envelopePoints: state.synthesis.tone.percussionEnvelopePoints, attackNoise: state.synthesis.tone.percussionAttackNoise, attackCurve: "smooth" }
+      : { attackSeconds: cornerAttackSeconds(state.synthesis.percussionAttack), decaySeconds: cornerDecaySeconds(state.synthesis.percussionDecay) };
+    scheduleOriginalCorners(specs.map(spec => ({ spec, envelope })), at);
+  } else synthAudio.scheduleNotes(specs, {
+    startAt: at, hold, envelopePoints: state.notes.envelopePoints,
+    voiceLimit: state.voice.voiceLimit, mode: state.voice.engine,
+  });
 }
 
 function triggerVoiceIndex(contact, index) {
@@ -556,7 +570,8 @@ function emitTriggers(scene, {
   startAt = null,
 } = {}) {
   const hitCap = Math.max(1, Math.min(state.trigger.hitCap, Math.round(hitLimit)));
-  const velocityGain = clamp(Number(velocity) || 0, 0.05, 1);
+  const velocityGain = clamp(Number(velocity) || 0, 0.05, 1) * state.trigger.strength;
+  if (velocityGain <= 0) return;
   if (state.trigger.soundBank === "rattlesnake") {
     scene.contacts.slice(0, hitCap).forEach((contact) => {
       const strikeVelocity = (0.68 + contact.strength * 0.32) * velocityGain;
@@ -566,6 +581,7 @@ function emitTriggers(scene, {
         {
           engine: "rattlesnake",
           velocity: strikeVelocity,
+          minimumVelocity: 0.001,
           performanceY: contact.drive01,
           ...(Number.isFinite(startAt) ? { startAt } : {}),
         },
@@ -693,6 +709,38 @@ function scheduleDiscreteScene(scene, startAt) {
   return true;
 }
 
+function scheduleOriginalCorners(intents, startAt) {
+  if (!intents.length) return;
+  const normalized = normalizeStrikeGains(intents.map(intent => intent.spec), synthAudio.availableStrikeHeadroom(0.78));
+  intents.forEach((intent, index) => synthAudio.strike({
+    ...normalized[index], key: `${normalized[index].key}:event:${++noteEventSequence}`,
+  }, { ...intent.envelope, startAt }));
+}
+
+function noteSwellLead() {
+  if (state.selection.playingMode !== "notes" || !state.notes.swell) return 0;
+  if (state.voice.engine !== "percussion") return percussionEnvelopeTimeMs(state.notes.envelopePoints[1].x) / 1000;
+  return state.selection.dimension === "2d"
+    ? percussionEnvelopeTimeMs(state.synthesis.tone.percussionEnvelopePoints[1].x) / 1000
+    : state.synthesis.percussionAttack / 1000;
+}
+
+function scheduleGeometricNotes(intents, scene, sourceState, markerAt) {
+  const startAt = markerAt - noteSwellLead();
+  if (state.voice.engine === "percussion") {
+    if (startAt < (synthAudio.context?.currentTime ?? 0)) return; // never squash an overdue pre-attack
+    scheduleOriginalCorners(intents, startAt);
+    return;
+  }
+  const selected = evenlySelect(intents, Math.min(state.notes.hitCap, state.voice.voiceLimit));
+  const specs = normalizeStrikeGains(selected.map(intent => noteSpecForContact(intent.contact, scene, sourceState)), 0.68);
+  if (!specs.length) return;
+  synthAudio.scheduleNotes(specs, {
+    startAt, envelopePoints: state.notes.envelopePoints, mode: state.voice.engine,
+    voiceLimit: state.voice.voiceLimit, joinInProgress: state.notes.swell,
+  });
+}
+
 function runDiscreteScheduler() {
   const mode = state.selection.playingMode;
   if (
@@ -716,14 +764,15 @@ function runDiscreteScheduler() {
   if (delta > 0) advanceShapesMotion(state, delta);
 
   const audioNow = audioContext.currentTime;
-  const horizon = audioNow + AUDIO_LOOKAHEAD_SECONDS;
+  const horizon = audioNow + AUDIO_LOOKAHEAD_SECONDS + noteSwellLead();
   if (
     !Number.isFinite(nextDiscreteSampleAt)
     || nextDiscreteSampleAt <= audioNow
     || nextDiscreteSampleAt > horizon + DISCRETE_SAMPLE_INTERVAL_SECONDS
   ) {
     const seedState = projectShapesMotion(state, 0);
-    discreteRhythmSample = createShapesRhythmSample(seedState);
+    if (mode === "notes") discreteCornerSample = originalCornerSample(seedState, buildShapesScene(seedState));
+    else discreteRhythmSample = createShapesRhythmSample(seedState);
     previousDiscreteSampleAt = audioNow;
     nextDiscreteSampleAt = audioNow + DISCRETE_SAMPLE_INTERVAL_SECONDS;
   }
@@ -739,15 +788,22 @@ function runDiscreteScheduler() {
   ) {
     const sampleAt = nextDiscreteSampleAt;
     const sampledState = projectShapesMotion(state, sampleAt - audioNow);
-    const advanced = advanceShapesRhythmSample(discreteRhythmSample, sampledState);
-    discreteRhythmSample = advanced.sample;
-    if (advanced.event) {
-      const intervalStart = previousDiscreteSampleAt;
-      events.push({
-        ...advanced.event,
-        startAt: intervalStart
-          + (sampleAt - intervalStart) * advanced.event.time01,
-      });
+    if (mode === "notes") {
+      const sample = originalCornerSample(sampledState, buildShapesScene(sampledState));
+      const intents = originalCornerIntents(discreteCornerSample, sample, sampledState);
+      discreteCornerSample = sample;
+      if (intents.length) events.push({ intents, startAt: sampleAt, scene: sample.scene, state: sampledState });
+    } else {
+      const advanced = advanceShapesRhythmSample(discreteRhythmSample, sampledState);
+      discreteRhythmSample = advanced.sample;
+      if (advanced.event) {
+        const intervalStart = previousDiscreteSampleAt;
+        events.push({
+          ...advanced.event,
+          startAt: intervalStart
+            + (sampleAt - intervalStart) * advanced.event.time01,
+        });
+      }
     }
     previousDiscreteSampleAt = sampleAt;
     nextDiscreteSampleAt += DISCRETE_SAMPLE_INTERVAL_SECONDS;
@@ -765,7 +821,10 @@ function runDiscreteScheduler() {
     // Preserve every crossing at normal musical densities while applying a
     // deterministic ceiling to pathological 4D × 16-division combinations.
     if (startAt - lastScheduledDiscreteEventAt < minimumEventSpacing) continue;
-    if (scheduleDiscreteScene(event.scene, startAt)) {
+    if (event.intents) {
+      scheduleGeometricNotes(event.intents, event.scene, event.state, startAt);
+      lastScheduledDiscreteEventAt = startAt;
+    } else if (scheduleDiscreteScene(event.scene, startAt)) {
       lastScheduledDiscreteEventAt = startAt;
     }
   }
@@ -796,6 +855,13 @@ function updateAudio(scene, now) {
   if (!state.audio.enabled || document.hidden) return;
   const mode = state.selection.playingMode;
   if (heldMidiNotes.size && mode !== "triggers") return;
+  if (mode === "notes") {
+    if (automaticMotionIsActive() && !manualDiscreteMotionIsActive(now)) return;
+    const next = originalCornerSample(state, scene);
+    if (motionIsActive(now)) scheduleGeometricNotes(originalCornerIntents(manualCornerSample, next, state), scene, state, (synthAudio.context?.currentTime ?? 0) + 0.003);
+    manualCornerSample = next;
+    return;
+  }
   if (mode === "continuous") {
     const moving = motionIsActive(now);
     if (moving && now - lastAudioUpdate < AUDIO_UPDATE_INTERVAL_MS) return;
@@ -806,7 +872,7 @@ function updateAudio(scene, now) {
         synthSpecs(scene),
         synthSpecs(future.scene, { sourceState: future.state }),
         AUDIO_LOOKAHEAD_SECONDS,
-        { mode: state.voice.engine },
+        { mode: state.voice.engine, voiceLimit: state.voice.voiceLimit },
       );
     }
     lastAudioUpdate = now;
@@ -846,7 +912,7 @@ function syncFastUi(scene) {
   $("phaseReadout").textContent = phase.toFixed(3);
   $("contactReadout").textContent = String(scene.contacts.length);
   const moving = transportIsMoving() || rotationIsMoving();
-  const modeLabel = titleCase(state.selection.playingMode);
+  const modeLabel = state.selection.playingMode === "notes" ? "Corners & Notes" : titleCase(state.selection.playingMode);
   const audioLabel = state.audio.enabled ? "AUDIO ON" : "AUDIO OFF";
   const divisions = shapesDivisionCount(state);
   const divisionLabel = state.selection.playingMode === "continuous"
@@ -888,7 +954,7 @@ async function prepareActiveAudio() {
     await synthAudio.enable();
   }
   if (request !== audioRequest || !state.audio.enabled) return;
-  synthAudio.setLevel(state.audio.level);
+  syncSynthLevel();
   drumAudio.setOutput(state.audio.level * 0.9);
   const triggerMode = state.selection.playingMode === "triggers";
   const rattlesnakeMode = triggerMode && state.trigger.soundBank === "rattlesnake";
@@ -911,8 +977,6 @@ async function setAudioEnabled(enabled) {
   if (!state.audio.enabled) {
     audioRequest += 1;
     stopDiscreteScheduler();
-    clearTimeout(noteReleaseTimer);
-    noteReleaseTimer = 0;
     synthAudio.disable();
     drumAudio.silence();
     drumAudio.setHostGain(0, 30);
@@ -988,6 +1052,7 @@ function setProfileKind(kind) {
   } else {
     if (state.profile.sides < 3) state.profile.sides = 4;
     state.profile.kind = kind === "star" ? "star" : "polygon";
+    state.dimension["2d"].closedShapeType = state.profile.kind;
   }
 }
 
@@ -1013,6 +1078,8 @@ function updateHeadMarker(marker, offset) {
   marker.setAttribute("aria-valuenow", wrapped.toFixed(4));
   marker.setAttribute("aria-valuetext", `${Math.round(wrapped * 100)}% of the reader cycle`);
   marker.title = `Playhead ${Number(marker.dataset.headIndex) + 1} · ${Math.round(wrapped * 100)}%`;
+  const option = $(`headOption${marker.dataset.headIndex}`);
+  if (option) option.style.left = `${wrapped * 100}%`;
 }
 
 function setHeadMarkerFromPointer(marker, event) {
@@ -1075,6 +1142,7 @@ function syncPlayheadControls() {
   $("resetHeadSpacing").disabled = count <= 1;
 
   const track = $("headLayoutTrack");
+  track.classList.add("has-head-options");
   const focusedIndex = Number(document.activeElement?.dataset?.headIndex);
   const markers = Array.from({ length: count }, (_, index) => {
     const marker = document.createElement("button");
@@ -1092,7 +1160,30 @@ function syncPlayheadControls() {
     installHeadMarkerInteraction(marker);
     return marker;
   });
-  track.replaceChildren(...markers);
+  const options = Array.from({ length: count }, (_, index) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.id = `headOption${index}`;
+    button.className = "head-option-toggle";
+    button.style.left = `${shapes2dHeadOffset(state, index) * 100}%`;
+    button.style.setProperty("--head-color", PLAYHEAD_COLORS[index % PLAYHEAD_COLORS.length]);
+    const local = state.dimension["2d"], line = local.reader === "line";
+    const alternate = line ? local.scanLineAxes[index] === "horizontal" : shapes2dHeadDirection(state, index) < 0;
+    button.textContent = line ? (alternate ? "—" : "│") : (alternate ? "←" : "→");
+    button.setAttribute("aria-pressed", String(alternate));
+    button.setAttribute("aria-label", line
+      ? `Line ${index + 1} ${alternate ? "horizontal" : "vertical"}; rotate 90 degrees`
+      : `Playhead ${index + 1} ${alternate ? "reverse" : "forward"}; change direction`);
+    button.title = button.getAttribute("aria-label");
+    button.addEventListener("click", () => {
+      toggleShapes2dHeadOption(state, index);
+      resetEventClock();
+      afterMutation();
+      $(`headOption${index}`)?.focus();
+    });
+    return button;
+  });
+  track.replaceChildren(...markers, ...options);
   if (Number.isInteger(focusedIndex) && markers[focusedIndex]) markers[focusedIndex].focus();
 }
 
@@ -1126,7 +1217,7 @@ function configureLiveKnobs() {
   const dimension = state.selection.dimension;
   if (dimension === "2d") {
     const local = state.dimension["2d"];
-    configureKnob("A", { label: "Angle", minimum: -180, maximum: 180, step: 1, value: local.rotation, format: (value) => `${Math.round(value)}°`, set: (value) => { local.rotation = value; } });
+    configureKnob("A", { label: "Angle", minimum: -180, maximum: 180, step: 1, value: local.rotation, format: (value) => `${Math.round(value)}°`, set: (value) => { local.rotation = value; rebaseTwoRotation(); } });
     configureKnob("B", { label: "Sides", minimum: 1, maximum: 32, step: 1, value: state.profile.sides, format: (value) => String(Math.round(value)), set: (value) => { state.profile.sides = Math.round(value); state.profile.kind = state.profile.sides === 1 ? "circle" : state.profile.sides === 2 ? "line" : state.profile.kind === "star" ? "star" : "polygon"; } });
     configureKnob("C", { label: "Roundness", minimum: -1, maximum: 1, step: 0.01, value: local.curvature, format: (value) => `${Math.round(value * 100)}%`, set: (value) => { local.curvature = value; } });
   } else if (dimension === "3d") {
@@ -1226,7 +1317,7 @@ function renderRotationControls() {
   if (dimension === "2d") {
     container.innerHTML = rotationControlCard("XY plane", [
       { label: "Angle", target: "rotation" },
-      { label: "Auto speed", target: "rotationSpeed", minimum: -0.5, maximum: 0.5, step: 0.01, suffix: " rev/s" },
+      { label: "Auto speed", target: "rotationSpeed", minimum: -4, maximum: 4, step: 0.01, suffix: " rev/s" },
     ]);
   } else if (dimension === "3d") {
     container.innerHTML = [
@@ -1260,6 +1351,7 @@ function renderRotationControls() {
   for (const input of container.querySelectorAll("[data-rotation-target]")) {
     input.addEventListener("input", () => {
       setLocalPath(input.dataset.rotationTarget, Number(input.value));
+      if (dimension === "2d" && input.dataset.rotationTarget === "rotation") rebaseTwoRotation();
       markManualMotion("geometry", 90);
       syncRotationControlValues();
       syncLiveKnobValues();
@@ -1343,12 +1435,15 @@ function syncAllControls() {
   $("triggerSoundBankControl").hidden = !triggerMode;
   $("voiceEngine").value = state.voice.engine;
   $("voiceEngine").disabled = triggerMode;
+  $("voiceEngine").querySelector('option[value="percussion"]').disabled = state.selection.playingMode === "continuous";
   $("triggerSoundBank").value = state.trigger.soundBank;
   $("readerSelect").value = state.dimension["2d"].reader;
   syncPlayheadControls();
   populateMainForm();
   configureLiveKnobs();
   renderRotationControls();
+  $("rotationMotionControl").hidden = dimension !== "2d";
+  $("rotationMotion").value = state.dimension["2d"].rotationMotion;
   for (const form of document.querySelectorAll("[data-dimension-form]")) form.hidden = form.dataset.dimensionForm !== dimension;
 
   $("profileKind").value = twoDimensionalFormValue();
@@ -1378,7 +1473,7 @@ function syncAllControls() {
   $("scale4w").value = String(state.dimension["4d"].scale.w);
   $("scale4wOut").textContent = `${state.dimension["4d"].scale.w.toFixed(2)}×`;
 
-  const divisionsActive = state.selection.playingMode !== "continuous";
+  const divisionsActive = ["notes", "triggers"].includes(state.selection.playingMode);
   const divisions = shapesDivisionCount(state);
   $("divisionsControl").hidden = !divisionsActive;
   $("divisions").disabled = !divisionsActive;
@@ -1394,6 +1489,9 @@ function syncAllControls() {
     stereoSpread: [`${Math.round(state.voice.spread * 100)}%`, state.voice.spread],
   };
   for (const [id, [label, value]] of Object.entries(voiceOutputs)) { $(id).value = String(value); $(`${id}Out`).textContent = label; }
+  $("voiceCharacter").closest("label").hidden = state.synthesis.model !== "shapes";
+  $("shapesSoundControls").hidden = triggerMode;
+  soundControls?.sync();
   $("voiceMappingSection").hidden = triggerMode;
   $("triggerMappingSection").hidden = !triggerMode;
   $("triggerMappingControl").hidden = state.trigger.soundBank !== "fm-kit";
@@ -1408,6 +1506,7 @@ function syncAllControls() {
       : `${Math.round(state.trigger.tuningDepth)} st`, state.trigger.tuningDepth],
     triggerCharacter: [`${Math.round(state.trigger.characterDepth * 100)}%`, state.trigger.characterDepth],
     hitCap: [String(state.trigger.hitCap), state.trigger.hitCap],
+    triggerStrength: [`${Math.round(state.trigger.strength * 100)}%`, state.trigger.strength],
   };
   for (const [id, [label, value]] of Object.entries(triggerOutputs)) { $(id).value = String(value); $(`${id}Out`).textContent = label; }
   syncAudioUi();
@@ -1415,11 +1514,13 @@ function syncAllControls() {
 }
 
 function afterMutation({ save = true, route = false, announceMessage = null } = {}) {
+  if (state.dimension["2d"].reader !== "points" || state.profile.sides === 2) state.synthesis.tone.shepardMapping = "travel";
   syncAllControls();
   if (route) updateRoute();
   if (save) queueSave();
   if (announceMessage) announce(announceMessage);
   scheduleFrame();
+  presetController?.refresh();
 }
 
 function syncLiveRangeControl(id) {
@@ -1450,7 +1551,7 @@ function syncLiveRangeControl(id) {
   else if (/^scale[34][xyzw]$/.test(id)) output.textContent = `${value.toFixed(2)}×`;
   else if (id === "baseFrequency") output.textContent = `${Math.round(value)} Hz`;
   else if (id === "pitchRange") output.textContent = `${value.toFixed(1)} oct`;
-  else if (["voiceCharacter", "stereoSpread", "triggerCharacter"].includes(id)) output.textContent = percent();
+  else if (["voiceCharacter", "stereoSpread", "triggerCharacter", "triggerStrength"].includes(id)) output.textContent = percent();
   else if (id === "tuningDepth") output.textContent = `${Math.round(value)} st`;
   else if (id === "hitCap") output.textContent = String(Math.round(value));
 }
@@ -1512,7 +1613,7 @@ function installKnobInteraction(button) {
 $("audioButton").addEventListener("click", () => setAudioEnabled(!state.audio.enabled));
 bindRange("level", (value) => {
   state.audio.level = value;
-  synthAudio.setLevel(value);
+  syncSynthLevel();
   drumAudio.setOutput(value * 0.9);
   rattlesnakeAudio.setOutput(
     state.audio.enabled
@@ -1552,8 +1653,6 @@ for (const button of $("playingMode").querySelectorAll("[data-playing-mode]")) b
   if (button.dataset.playingMode === state.selection.playingMode) return;
   selectShapesPlayingMode(state, button.dataset.playingMode);
   resetEventClock();
-  clearTimeout(noteReleaseTimer);
-  noteReleaseTimer = 0;
   heldMidiNotes.clear();
   synthAudio.silence();
   drumAudio.silence();
@@ -1589,7 +1688,7 @@ $("rotationTransport").addEventListener("click", (event) => {
   afterMutation({ announceMessage: `${button.textContent.trim()} rotation ${running ? "started" : "paused"}.` });
   syncDiscreteScheduler();
 });
-$("voiceEngine").addEventListener("change", () => { state.voice.engine = $("voiceEngine").value; resetEventClock(); afterMutation(); });
+$("voiceEngine").addEventListener("change", () => { state.voice.engine = $("voiceEngine").value; resetEventClock(); afterMutation({ route: true }); });
 $("triggerSoundBank").addEventListener("change", async () => {
   state.trigger.soundBank = $("triggerSoundBank").value;
   resetEventClock();
@@ -1606,6 +1705,16 @@ $("triggerSoundBank").addEventListener("change", async () => {
   }
 });
 $("readerSelect").addEventListener("change", () => { state.dimension["2d"].reader = $("readerSelect").value; resetEventClock(); afterMutation(); });
+function rebaseTwoRotation() {
+  const local = state.dimension["2d"];
+  local.continuousRotation = local.rotationMotion === "pingpong"
+    ? rebasePingPongPosition(local.continuousRotation, (local.rotation + 180) / 360)
+    : local.rotation / 360;
+}
+$("rotationMotion").addEventListener("change", () => {
+  state.dimension["2d"].rotationMotion = $("rotationMotion").value;
+  rebaseTwoRotation(); resetEventClock(); afterMutation();
+});
 $("removePlayhead").addEventListener("click", () => {
   setShapes2dHeadCount(state, shapes2dHeadCount(state) - 1);
   resetEventClock();
@@ -1647,6 +1756,7 @@ $("triggerMapping").addEventListener("change", () => { state.trigger.mapping = $
 bindRange("tuningDepth", (value) => { state.trigger.tuningDepth = value; });
 bindRange("triggerCharacter", (value) => { state.trigger.characterDepth = value; });
 bindRange("hitCap", (value) => { state.trigger.hitCap = Math.round(value); });
+bindRange("triggerStrength", (value) => { state.trigger.strength = value; });
 
 $("resetForm").addEventListener("click", () => {
   const defaults = createShapesState();
@@ -1677,6 +1787,9 @@ $("resetRotation").addEventListener("click", () => {
   else local.rotation = structuredClone(defaults.rotation);
   local.rotationSpeed = defaults.rotationSpeed;
   local.rotationRunning = false;
+  if (state.selection.dimension === "2d") {
+    local.rotationMotion = "loop"; rebaseTwoRotation();
+  }
   if (defaults.rotationMotion) local.rotationMotion = structuredClone(defaults.rotationMotion);
   if (state.selection.dimension === "3d") { local.readerYaw = defaults.readerYaw; local.readerPitch = defaults.readerPitch; }
   resetEventClock();
@@ -1686,8 +1799,10 @@ $("resetMapping").addEventListener("click", () => {
   const defaults = createShapesState();
   const soundBank = state.trigger.soundBank;
   state.voice = defaults.voice;
+  state.synthesis = defaults.synthesis;
   state.trigger = { ...defaults.trigger, soundBank };
   resetEventClock();
+  syncSynthLevel();
   afterMutation({ announceMessage: "Mappings reset." });
 });
 $("resetAll").addEventListener("click", async () => {
@@ -1865,6 +1980,7 @@ canvas.addEventListener("pointermove", (event) => {
   state.dimension["2d"].rotation = (
     (pointerRotation.startRotation + angleDelta * 180 / Math.PI + 180) % 360 + 360
   ) % 360 - 180;
+  rebaseTwoRotation();
   markManualMotion("geometry", 120);
   scheduleFrame();
 });
@@ -1907,14 +2023,59 @@ document.addEventListener("visibilitychange", () => {
 window.addEventListener("pagehide", () => {
   globalThis.removeEventListener?.("morphazoid:midi-input", handleShapesMidiInput);
   stopDiscreteScheduler();
-  clearTimeout(noteReleaseTimer);
+  clearTimeout(saveTimer);
+  if (saveTimer) saveState();
+  cancelAnimationFrame(animationFrame);
+  animationFrame = 0;
+  audioRequest += 1;
+  presetAudioRevision += 1;
+  heldMidiNotes.clear();
+  state.audio.enabled = false;
+  // The shared header destroys itself only on a non-BFCache navigation.
+  // Keep its menu and listeners when this document can be restored.
   synthAudio.close();
   drumAudio.close();
   rattlesnakeAudio.close();
 });
+window.addEventListener("pageshow", event => {
+  if (!event.persisted) return;
+  globalThis.addEventListener?.("morphazoid:midi-input", handleShapesMidiInput);
+  $("audioButton").dataset.audioState = "off";
+  $("audioButton").disabled = false;
+  resetTransportClocks();
+  syncAllControls();
+  presetController?.refresh();
+  scheduleFrame();
+});
 
 new ResizeObserver(resizeCanvas).observe(stageWrap);
+soundControls = createShapesSoundControls($("shapesSoundControls"), {
+  getState: () => state,
+  onChange: () => { syncSynthLevel(); resetEventClock(); afterMutation(); },
+});
 syncAllControls();
 resizeCanvas();
 updateRoute();
 scheduleFrame();
+{
+  presetController = registerHeaderPresets({
+    id: "shapes", presets: SHAPES_FULL_PRESETS, capture: () => captureShapesPreset(state),
+    randomize: randomizeShapesPreset,
+    apply(snapshot) {
+      state = applyShapesPreset(state, snapshot);
+      const revision = ++presetAudioRevision;
+      renderedMainFormDimension = null; renderedRotationDimension = null;
+      resetTransportClocks();
+      syncSynthLevel();
+      afterMutation({ route: true });
+      syncDiscreteScheduler();
+      // State recall is synchronous; only an already-armed Audio session may
+      // prepare a newly selected engine. Never auto-enable Audio here.
+      if (state.audio.enabled) void prepareActiveAudio().catch(error => {
+        if (revision !== presetAudioRevision) return;
+        announce(error?.message ?? "Selected sound could not start.");
+        void setAudioEnabled(false);
+      });
+    },
+  });
+}

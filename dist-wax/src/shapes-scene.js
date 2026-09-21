@@ -28,6 +28,8 @@ import {
   shapes2dHeadTravel,
   shapesDivisionCount,
 } from "./shapes-state.js";
+import { originalShapeState } from "./instruments/shapes/parameter-bridge.js";
+import { createShapeReaderModel } from "./families/geometry-presets/shape-readers.js";
 
 const clamp01 = (value) => Math.min(1, Math.max(0, Number(value) || 0));
 const MAX_VISIBLE_DIVISION_MARKERS = 1600;
@@ -224,6 +226,22 @@ function buildTwoDimensionalScene(state, phase) {
     voiced.push(...headContacts);
   }
 
+  if (state.synthesis?.model === "geometry") {
+    const original = createShapeReaderModel(originalShapeState(state)).collectContacts(path);
+    voiced.splice(0, voiced.length, ...original.contacts.map((contact, index) => ({
+      ...contact,
+      pitch01: 1 - (contact.y + 1) / 2,
+      pan: contact.x, drive01: contact.cornerStrength ?? 0,
+      strength: contact.cornerStrength ?? 0,
+      view: { x: contact.x, y: contact.y, z: 0 },
+      eventKey: `2d:${contactRegionOnPath(contact, path, divisions)}:head:${contact.headIndex ?? index}`,
+    })));
+    readers.forEach(reader => {
+      reader.contacts = voiced.filter(contact => contact.headIndex === reader.headIndex);
+      if (reader.type === "points") reader.contact = reader.contacts[0];
+    });
+  }
+
   const edges = [];
   const segmentCount = path.closed ? path.points.length : Math.max(0, path.points.length - 1);
   for (let index = 0; index < segmentCount; index += 1) {
@@ -417,7 +435,7 @@ function twoDimensionalDivisionMarkers(scene, count) {
   return markers;
 }
 
-export function buildShapesDivisionMarkers(scene, divisions = 1) {
+export function buildShapesDivisionMarkers(scene, divisions = 1, { geometric = false } = {}) {
   const count = divisionCount(divisions);
   if (count <= 1 || !scene) return [];
   if (scene.dimension === "2d") return twoDimensionalDivisionMarkers(scene, count);
@@ -435,8 +453,14 @@ export function buildShapesDivisionMarkers(scene, divisions = 1) {
     const dy = edge.b.y - edge.a.y;
     for (let division = 1; division < count; division += 1) {
       const along = division / count;
+      const sourceEdge = scene.geometry?.edges?.[edgeIndex];
+      const sourceA = sourceEdge && scene.geometry.vertices[sourceEdge.a];
+      const sourceB = sourceEdge && scene.geometry.vertices[sourceEdge.b];
+      const point = geometric && sourceA && sourceB
+        ? Object.fromEntries(["x", "y", "z", ...(scene.dimension === "4d" ? ["w"] : [])].map(axis => [axis, sourceA[axis] + (sourceB[axis] - sourceA[axis]) * along]))
+        : null;
       markers.push({
-        view: {
+        view: point ? (scene.dimension === "4d" ? hyperViewPoint(point) : projectPoint3(point)) : {
           x: edge.a.x + dx * along,
           y: edge.a.y + dy * along,
           z: (edge.a.z ?? 0) + ((edge.b.z ?? 0) - (edge.a.z ?? 0)) * along,

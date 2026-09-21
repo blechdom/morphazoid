@@ -1,3 +1,5 @@
+import { registerHeaderPresets } from "../../site/header-presets.js";
+import { DEFAULT_L_SYSTEM_STATE, L_SYSTEM_FULL_PRESETS, captureLSystemPreset, validateLSystemPreset, randomizeLSystemPreset } from "../../families/branch-presets/full-presets.js";
 import {
   VoicePool,
   clamp,
@@ -35,29 +37,7 @@ const pool = new VoicePool(INITIAL_L_SYSTEM_VOICES, {
 });
 const amplitudeControl = createAmplitudeControl($("amplitudeControl"), { onChange: scheduleFrame });
 const presetById = new Map(L_SYSTEM_PRESETS.map((preset) => [preset.id, preset]));
-const DEFAULT_L_SYSTEM_STATE = Object.freeze({
-  presetId: "pythagorean",
-  iterations: 7,
-  angle: 45,
-  turnAsymmetry: 0,
-  lengthScale: 0.72,
-  position: 0,
-  continuousPosition: 0,
-  speed: 0.3,
-  direction: 1,
-  traversalBehavior: "loop",
-  playing: false,
-  audio: false,
-  level: 0.55,
-  pitchSource: "angle",
-  baseFrequency: 220,
-  pitchRange: 2,
-  depthAmount: 0.65,
-  soundMode: "sine",
-  modulationIndex: 3,
-  stereoSpread: 0.9,
-  structureMode: "final",
-});
+
 const state = { ...DEFAULT_L_SYSTEM_STATE };
 
 function buildIterationTraces(preset, iterations, overrides = {}) {
@@ -120,10 +100,12 @@ function resizeCanvas() {
 new ResizeObserver(resizeCanvas).observe(stageWrap);
 resizeCanvas();
 
+const presetRangeRefreshers = new Map();
 function bindRange(id, key, formatter, afterChange) {
   const input = $(id);
   const output = $(`${id}Out`);
   const paint = () => { output.textContent = formatter(state[key]); };
+  presetRangeRefreshers.set(key, () => { input.value = String(state[key]); paint(); });
   input.value = String(state[key]);
   input.addEventListener("input", () => {
     state[key] = Number(input.value);
@@ -823,3 +805,26 @@ paintStructure();
 paintTraversalBehavior();
 paintCurrentSettings();
 scheduleFrame();
+
+registerHeaderPresets({
+  id: "l-system", presets: L_SYSTEM_FULL_PRESETS, randomize: randomizeLSystemPreset,
+  capture: () => captureLSystemPreset(state, amplitudeControl.captureState()),
+  apply(snapshot) {
+    validateLSystemPreset(snapshot);
+    const p = snapshot.parameters;
+    const nextTraces = buildIterationTraces(presetById.get(p.presetId), p.iterations, {
+      angle: p.angle, turnAsymmetry: p.turnAsymmetry, lengthScale: p.lengthScale,
+    });
+    Object.assign(state, p);
+    iterationTraces = nextTraces;
+    amplitudeControl.applyState(snapshot.envelope);
+    for (const refresh of presetRangeRefreshers.values()) refresh();
+    for (const [id, value] of Object.entries({ preset: state.presetId, soundMode: state.soundMode, pitchSource: state.pitchSource, structureMode: state.structureMode })) $(id).value = value;
+    $("soundSummary").textContent = state.soundMode.toUpperCase();
+    pool.setLevel(state.level);
+    resetVoiceSubmission();
+    paintGrammar(); paintStructure(); paintTraversalBehavior(); paintTraversalSpeed(); paintCurrentSettings();
+    $("systemError").hidden = true;
+    scheduleFrame();
+  },
+});

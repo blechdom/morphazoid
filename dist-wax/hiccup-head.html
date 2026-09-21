@@ -33,7 +33,7 @@
     <link rel="preload" href="assets/audio/hiccup-head-emt140-warm-plate.wav?v=a41910c0eb49" as="fetch" type="audio/wav" crossorigin="anonymous" />
     <link rel="preload" href="assets/audio/hiccup-head-york-minster-warm-hall.wav?v=d62e40ecbca2" as="fetch" type="audio/wav" crossorigin="anonymous" />
     <link rel="stylesheet" href="style.css" />
-    <link rel="stylesheet" href="src/instruments/hiccup-head/hiccup-head.css?v=6e2091a53df0" />
+    <link rel="stylesheet" href="src/instruments/hiccup-head/hiccup-head.css?v=44337ef02838" />
   </head>
   <body class="hiccup-head-page">
     <header class="masthead">
@@ -180,14 +180,17 @@
           <div class="hiccup-head-skin-tools" role="group" aria-label="Visual appearance">
             <label class="hiccup-head-visual-skin" for="visualSkinSelect">
               <span>Visual skin</span>
-              <select id="visualSkinSelect" aria-label="Visual skin" aria-describedby="visualSkinDescription">
-                <option value="checker">Checkerboard goofball</option>
-                <option value="cutout-collage">Cutout collage</option>
-                <option value="photo-1904">1904 photograph</option>
-                <option value="food-portrait">Food portrait</option>
-                <option value="ascii">ASCII terminal</option>
-                <option value="wild-ink">Zombie Zoid</option>
-              </select>
+              <span class="hiccup-head-picker-row hiccup-head-skin-picker-row">
+                <select id="visualSkinSelect" aria-label="Visual skin" aria-describedby="visualSkinDescription">
+                  <option value="checker">Checkerboard goofball</option>
+                  <option value="cutout-collage">Cutout collage</option>
+                  <option value="photo-1904">1904 photograph</option>
+                  <option value="food-portrait">Food portrait</option>
+                  <option value="ascii">ASCII terminal</option>
+                  <option value="wild-ink">Zombie Zoid</option>
+                </select>
+                <button id="nextVisualSkinButton" type="button" title="Next built-in visual skin" aria-label="Next built-in visual skin">▶</button>
+              </span>
             </label>
             <button
               class="hiccup-head-webcam-open"
@@ -201,7 +204,7 @@
               <span class="hiccup-head-camera-glyph" aria-hidden="true"></span>
             </button>
           </div>
-          <p class="sr-only" id="visualSkinDescription">Visual-only control; changing the skin does not change sound, sequence, presets, or face controls.</p>
+          <p class="sr-only" id="visualSkinDescription">The skin selector changes appearance only; sound, sequence, and face controls remain unchanged. Main presets recall a built-in skin together with the complete instrument; webcam capture is always separate.</p>
         </section>
 
         <section class="hiccup-head-preset-deck" aria-label="Mutable full-face preset">
@@ -212,7 +215,7 @@
               <button id="nextFacePresetButton" type="button" title="Next face preset (Right arrow)" aria-label="Next face preset">▶</button>
             </span>
           </div>
-          <p class="sr-only" id="presetDescription">A playable beatbox face with mutable anatomy. Eyebrows and live effects stay where you put them.</p>
+          <p class="sr-only" id="presetDescription">Face-only presets leave the sequence, skin, eyebrows and live effects where you put them. Main presets in the header recall the complete instrument, including effects and a built-in skin.</p>
           <button id="randomizeButton" type="button">
             <span aria-hidden="true">✦</span>
             <span><b>Mutate the whole face</b></span>
@@ -535,8 +538,8 @@
     <p class="sr-only" id="liveStatus" aria-live="polite"></p>
 
     <script type="module" src="nav.js?v=catalog-20260829-1"></script>
-    <link rel="modulepreload" href="src/hiccup-head-processor.js?v=150aee324f2c" />
-    <script type="module" src="src/instruments/hiccup-head/hiccup-head-app.js?v=d644b8e55f6a"></script>
+    <link rel="modulepreload" href="src/hiccup-head-processor.js?v=e4d91e40681d" />
+    <script type="module" src="src/instruments/hiccup-head/hiccup-head-app.js?v=4b11cd3ec39a"></script>
     <script type="module" src="wax/wax-universal-adapter.js" data-morphazoid-wax-universal-adapter></script>
 </body>
 </html>

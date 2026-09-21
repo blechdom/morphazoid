@@ -1,11 +1,12 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
+import { createShapeInitialState } from "../src/instruments/shape-synth/full-presets.js";
 
 const root = new URL("../", import.meta.url);
 
 test("the mobile instrument markup exposes the complete compact control surface", async () => {
-  const [html, siteCss, buttonCss, audioStripCss, app, packageJson] = await Promise.all([
+  const [html, siteCss, buttonCss, audioStripCss, appSource, packageJson] = await Promise.all([
     readFile(new URL("shape-synth.html", root), "utf8"),
     readFile(new URL("style.css", root), "utf8"),
     readFile(new URL("src/ui/primitives/button.css", root), "utf8"),
@@ -14,6 +15,12 @@ test("the mobile instrument markup exposes the complete compact control surface"
     readFile(new URL("package.json", root), "utf8"),
   ]);
   const css = `${siteCss}\n${buttonCss}\n${audioStripCss}`;
+  // Reader and mapping formulas now have two runtime consumers. Preserve the
+  // source contracts at their new owners and verify the original app calls them.
+  assert.match(appSource, /createShapeReaderModel\(state\)/);
+  assert.match(appSource, /createShapeSoundModel\(state, \{ getMidiSnapshot: \(\) => shapeMidiSnapshot \}\)/);
+  const app = [appSource, ...await Promise.all(["shape-readers", "shape-sound"].map(name =>
+    readFile(new URL(`src/families/geometry-presets/${name}.js`, root), "utf8")))].join("\n");
 
   assert.match(html, /<script\s+type="module"\s+src="src\/instruments\/shape-synth\/shape-synth-app\.js"><\/script>/);
   assert.match(html, /<canvas[\s\S]+?id="stage"/);
@@ -93,7 +100,8 @@ test("the mobile instrument markup exposes the complete compact control surface"
   assert.doesNotMatch(openingTag("headsControl"), /\bhidden\b/);
   assert.match(openingTag("heads"), /min="1"[^>]*max="12"/);
   assert.doesNotMatch(html, /id="(?:lineCount|lineCountControl|lineCountOut)"/);
-  assert.match(app, /headOffsets: \[0\]/);
+  assert.deepEqual(createShapeInitialState().headOffsets, [0]);
+  assert.match(app, /const state = createShapeInitialState\(initialSidesAfterReset\(\)\)/);
   assert.doesNotMatch(app, /\b(?:lineCount|traceHeadOffsets|scanHeadOffsets)\b/);
   const options = [...html.matchAll(/id="headOption(\d+)"/g)].map((match) => Number(match[1]));
   assert.deepEqual(options, Array.from({ length: 12 }, (_, index) => index));
@@ -226,7 +234,7 @@ test("the mobile instrument markup exposes the complete compact control surface"
   assert.doesNotMatch(html, /id="(?:sineArticulation|sineAccent|sineDecay)"/);
   assert.match(app, /sampleAmplitudeEnvelope/);
   assert.match(app, /scaleShapeVoiceGains/);
-  assert.match(app, /new VoicePool\(MAX_CONTINUOUS_VOICES, \{ continuousPeakCeiling: 0\.78 \}\)/);
+  assert.match(app, /createGeometryVoicePool\(MAX_CONTINUOUS_VOICES\)/);
   assert.match(app, /state\.cornerSwell/);
   assert.match(app, /mirroredCornerPhase\(path, contact\)/);
   assert.match(app, /spatialEnvelopeTimeRange/);
@@ -298,8 +306,8 @@ test("the mobile instrument markup exposes the complete compact control surface"
   assert.match(html, /id="cornerAmplitudeSourceFieldLabel">Corner ADSR level source<\/span>/);
   assert.match(openingTag("cornerAmplitudeSource"), /aria-describedby="cornerAmplitudeMappingNote cornerAmplitudeSourceHelp"/);
   assert.match(html, /Direct control → Corner ADSR level · 100%/);
-  assert.match(app, /fmIndexSource: "fixed"/);
-  assert.match(app, /pmDepthSource: "fixed"/);
+  assert.equal(createShapeInitialState().fmIndexSource, "fixed");
+  assert.equal(createShapeInitialState().pmDepthSource, "fixed");
   assert.match(app, /envelopeGain \* mappedLevel/);
   assert.match(html, /id="timbreSourceFieldLabel">FM index source<\/span>/);
   assert.match(openingTag("timbreSource"), /aria-describedby="timbreMappingNote timbreSourceHelp"/);

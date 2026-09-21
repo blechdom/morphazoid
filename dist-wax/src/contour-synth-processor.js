@@ -98,6 +98,17 @@ function makeVoice(spec) {
   };
 }
 
+function envelopeAt(points, seconds) {
+  if (seconds <= 0) return 0;
+  for (let i = 1; i < points.length; i++) {
+    const a = points[i - 1], b = points[i];
+    if (seconds > b.time) continue;
+    const t = b.time > a.time ? clamp((seconds - a.time) / (b.time - a.time), 0, 1) : 1;
+    return a.level + (b.level - a.level) * t;
+  }
+  return 0;
+}
+
 function rotateShepardUp(phases) {
   for (let index = phases.length - 1; index > 0; index -= 1) {
     phases[index] = phases[index - 1];
@@ -145,6 +156,13 @@ class MorphazoidContourSynth extends AudioWorkletProcessor {
       MAX_WORKLET_VOICES,
     ));
     this.runtimeLimit = this.maxVoices;
+    this.smoothVoiceStealing = Boolean(options.processorOptions?.smoothVoiceStealing);
+    this.pendingTargets = new Map();
+    this.renderedSamples = 0;
+    this.noteQueue = [];
+    this.noteSequence = 0;
+    this.noteGainBudget = null;
+    this.releaseLimit = this.maxVoices;
     this.voices = new Map();
     this.requestedVoiceCount = 0;
     this.requestedMode = "sine";
@@ -155,7 +173,24 @@ class MorphazoidContourSynth extends AudioWorkletProcessor {
     this.pendingControlMilliseconds = 0;
     this.reportedTimingUnavailable = false;
     this.port.onmessage = (event) => {
+      if (event.data?.type === "notes") {
+        this.queueNotes(event.data);
+        return;
+      }
+      if (event.data?.type === "release-notes") {
+        this.noteQueue = this.noteQueue.filter(note => !note.hold);
+        for (const voice of this.voices.values()) {
+          if (!voice.note?.hold || voice.note.release) continue;
+          voice.note.release = {
+            at: this.renderedSamples,
+            level: voice.target.gain > 0 ? clamp(voice.gain / voice.target.gain, 0, 1) : 0,
+            duration: Math.max(0.002, voice.note.envelope[4].time - voice.note.envelope[3].time) * sampleRate,
+          };
+        }
+        return;
+      }
       if (event.data?.type === "voices") {
+        this.noteQueue = [];
         const startedAt = clockMilliseconds();
         const nextRuntimeLimit = Math.floor(clamp(
           event.data.voiceLimit ?? this.runtimeLimit,
@@ -229,6 +264,45 @@ class MorphazoidContourSynth extends AudioWorkletProcessor {
       voice.trajectorySample = 0;
       voice.trajectorySamples = 0;
       voice.releasing = true;
+      voice.note = null;
+    }
+
+    if (this.smoothVoiceStealing) {
+      // A full pool used to delete audible release tails immediately. Keep
+      // them inside the same hard allocation and admit replacements only when
+      // a slot is quiet. Rebuild the bounded waiting set from the latest
+      // geometry, so stale intersections can never replay later.
+      this.pendingTargets.clear();
+      this.activeTargetCount = sanitized.length;
+      const allowance = Math.min(
+        this.maxVoices - targetLimit,
+        Math.max(Math.min(64, Math.ceil(targetLimit * 0.125)), Math.floor(Number(requestedReleaseAllowance) || 0)),
+      );
+      this.releaseLimit = Math.min(this.maxVoices, targetLimit + allowance);
+      for (const spec of sanitized) {
+        const voice = this.voices.get(spec.key);
+        const nextTarget = nextByKey.get(spec.key) ?? spec;
+        if (voice) {
+          voice.target = spec;
+          voice.nextTarget = nextTarget;
+          voice.trajectorySample = 0;
+          voice.trajectorySamples = trajectorySamples;
+          voice.releasing = false;
+        } else {
+          this.pendingTargets.set(spec.key, { spec, nextTarget, trajectorySamples, atSample: this.renderedSamples });
+        }
+      }
+      if (this.voices.size + this.pendingTargets.size > this.releaseLimit) {
+        for (const voice of this.voices.values()) {
+          if (!voice.releasing) continue;
+          // A short but real release, not a cut or extra overlapping bank.
+          // Do not repeatedly reset its progress when geometry updates arrive.
+          voice.target = { ...voice.target, gainSmoothingSeconds: Math.min(voice.target.gainSmoothingSeconds, 0.002) };
+          voice.nextTarget = voice.target;
+        }
+      }
+      this.admitPendingVoices();
+      return;
     }
 
     const newVoiceCount = sanitized.reduce(
@@ -258,6 +332,90 @@ class MorphazoidContourSynth extends AudioWorkletProcessor {
       this.maxVoices,
       targetLimit + releaseAllowance,
     ));
+  }
+
+  queueNotes(data) {
+    const specs = Array.isArray(data.voices) ? data.voices.slice(0, 8).map(sanitizeSpec) : [];
+    if (!specs.length) return;
+    const envelope = Array.isArray(data.envelope) && data.envelope.length === 5
+      ? data.envelope.map(point => ({ time: clamp(point.time, 0, 4), level: clamp(point.level, 0, 1) }))
+      : [{ time: 0, level: 0 }, { time: 0.02, level: 1 }, { time: 0.12, level: 0.5 }, { time: 0.35, level: 0.5 }, { time: 0.7, level: 0 }];
+    envelope[0] = { time: 0, level: 0 };
+    envelope[4].level = 0;
+    for (let i = 1; i < 5; i++) envelope[i].time = Math.max(envelope[i - 1].time, envelope[i].time);
+    const mode = specs[0].mode;
+    const limit = Math.floor(clamp(data.voiceLimit ?? this.maxVoices, 1, this.maxVoices));
+    if (mode !== this.requestedMode || limit !== this.runtimeLimit) {
+      this.loadBlocks = 0; this.loadTotal = 0; this.loadPeak = 0;
+    }
+    this.requestedMode = mode;
+    this.runtimeLimit = limit;
+    this.requestedVoiceCount = Math.max(limit, Math.floor(Number(data.requestedVoiceCount) || 0));
+    const audioNow = Number.isFinite(globalThis.currentTime) ? globalThis.currentTime : this.renderedSamples / sampleRate;
+    const requestedStart = Number(data.startAt);
+    const start = this.renderedSamples + Math.round(((Number.isFinite(requestedStart) ? requestedStart : audioNow) - audioNow) * sampleRate);
+    for (const spec of specs) this.noteQueue.push({
+      spec: { ...spec, key: `note:${++this.noteSequence}:${spec.key}`, shepardPosition: null, shepardTravel: null },
+      envelope, start, hold: Boolean(data.hold), joinInProgress: Boolean(data.joinInProgress),
+    });
+    this.noteQueue.sort((a, b) => a.start - b.start);
+    this.noteQueue = this.noteQueue.slice(-Math.max(1, this.maxVoices * 4));
+  }
+
+  noteLevel(voice, at) {
+    const note = voice.note;
+    if (!note || at < note.start) return 0;
+    if (note.release) {
+      const t = (at - note.release.at) / note.release.duration;
+      if (t >= 1) voice.releasing = true;
+      return note.release.level * Math.max(0, 1 - t);
+    }
+    const seconds = (at - note.start) / sampleRate;
+    if (note.hold && seconds >= note.envelope[3].time) return note.envelope[3].level;
+    if (seconds >= note.envelope[4].time) voice.releasing = true;
+    return envelopeAt(note.envelope, seconds);
+  }
+
+  admitScheduledNotes(blockSize) {
+    if (this.noteQueue[0]?.start >= this.renderedSamples + blockSize) return;
+    this.noteQueue = this.noteQueue.filter(note => note.joinInProgress
+      ? note.start + note.envelope[4].time * sampleRate > this.renderedSamples
+      : note.start >= this.renderedSamples - sampleRate * 0.03);
+    const due = this.noteQueue.filter(note => note.start < this.renderedSamples + blockSize).length;
+    const retiring = [...this.voices.values()].filter(voice => voice.releasing).length;
+    const needed = Math.max(0, Math.min(due, this.runtimeLimit) - Math.max(0, this.runtimeLimit - this.voices.size) - retiring);
+    const oldest = [...this.voices.values()].filter(voice => voice.note && !voice.releasing)
+      .sort((a, b) => a.note.start - b.note.start).slice(0, needed);
+    for (const voice of oldest) {
+      voice.note = null;
+      voice.releasing = true;
+      voice.target = { ...voice.target, gain: 0, gainSmoothingSeconds: 0.002 };
+      voice.nextTarget = voice.target;
+      voice.trajectorySamples = 0;
+    }
+    while (this.noteQueue.length && this.voices.size < Math.min(this.maxVoices, this.runtimeLimit)) {
+      if (this.noteQueue[0].start >= this.renderedSamples + blockSize) break;
+      const note = this.noteQueue.shift(), voice = makeVoice(note.spec);
+      voice.note = note; voice.noteKind = true;
+      this.voices.set(note.spec.key, voice);
+    }
+    this.activeTargetCount = [...this.voices.values()].filter(voice => !voice.releasing).length;
+  }
+
+  admitPendingVoices() {
+    if (!this.smoothVoiceStealing) return;
+    for (const [key, voice] of this.voices) {
+      if (voice.releasing && voice.gain < 0.00001) this.voices.delete(key);
+    }
+    for (const [key, pending] of this.pendingTargets) {
+      if (this.voices.size >= this.releaseLimit) break;
+      const voice = makeVoice(pending.spec);
+      voice.nextTarget = pending.nextTarget;
+      voice.trajectorySamples = pending.trajectorySamples;
+      voice.trajectorySample = Math.min(pending.trajectorySamples, this.renderedSamples - pending.atSample);
+      this.voices.set(key, voice);
+      this.pendingTargets.delete(key);
+    }
   }
 
   renderShepard(voice, frequency) {
@@ -367,8 +525,16 @@ class MorphazoidContourSynth extends AudioWorkletProcessor {
     const output = outputs[0];
     if (!output?.length) return true;
     const renderStartedAt = clockMilliseconds();
+    this.admitPendingVoices();
     const left = output[0];
     const right = output[1] ?? left;
+    if (this.noteQueue.length) this.admitScheduledNotes(left.length);
+    let noteBus = false;
+    for (const voice of this.voices.values()) if (voice.noteKind) { noteBus = true; break; }
+    if (noteBus) {
+      if (this.noteGainBudget?.length !== left.length) this.noteGainBudget = new Float64Array(left.length);
+      this.noteGainBudget.fill(0);
+    }
     left.fill(0);
     if (right !== left) right.fill(0);
 
@@ -379,6 +545,11 @@ class MorphazoidContourSynth extends AudioWorkletProcessor {
     for (const voice of this.voices.values()) {
       const target = voice.target;
       const nextTarget = voice.nextTarget;
+      // Constant for this voice throughout the block. Hoisting is numerically
+      // identical and avoids one Math.exp per voice per output sample.
+      const gainSlew = 1 - Math.exp(
+        -1 / (sampleRate * target.gainSmoothingSeconds),
+      );
       const trajectoryDuration = voice.trajectorySamples / sampleRate;
       const expectedShepardDelta = Number.isFinite(target.shepardTravel)
         && Number.isFinite(nextTarget.shepardTravel)
@@ -393,13 +564,12 @@ class MorphazoidContourSynth extends AudioWorkletProcessor {
       );
       voice.mode = target.mode;
       for (let index = 0; index < left.length; index += 1) {
+        if (voice.note && this.renderedSamples + index < voice.note.start) continue;
         const trajectoryAmount = voice.trajectorySamples > 0
           ? Math.min(1, (voice.trajectorySample + index) / voice.trajectorySamples)
           : 0;
-        const gainTarget = target.gain + (nextTarget.gain - target.gain) * trajectoryAmount;
-        const gainSlew = 1 - Math.exp(
-          -1 / (sampleRate * target.gainSmoothingSeconds),
-        );
+        const gainTarget = voice.note ? target.gain * this.noteLevel(voice, this.renderedSamples + index)
+          : target.gain + (nextTarget.gain - target.gain) * trajectoryAmount;
         const frequencyTarget = target.frequency
           + (nextTarget.frequency - target.frequency) * trajectoryAmount;
         const panTarget = target.pan + (nextTarget.pan - target.pan) * trajectoryAmount;
@@ -439,6 +609,8 @@ class MorphazoidContourSynth extends AudioWorkletProcessor {
         }
 
         const sample = this.renderVoice(voice) * voice.gain;
+        if (noteBus) this.noteGainBudget[index] += Math.abs(voice.gain)
+          * (voice.mode === "shepard" ? Math.sqrt(Math.max(1, voice.shepardContributorCount || 1)) : 1);
         const panAngle = (clamp(voice.pan, -1, 1) + 1) * Math.PI * 0.25;
         left[index] += sample * Math.cos(panAngle);
         if (right !== left) right[index] += sample * Math.sin(panAngle);
@@ -449,9 +621,15 @@ class MorphazoidContourSynth extends AudioWorkletProcessor {
       );
     }
 
+    if (noteBus) for (let index = 0; index < left.length; index++) {
+      const scale = Math.min(1, 0.78 / Math.max(0.78, this.noteGainBudget[index]));
+      left[index] *= scale;
+      if (right !== left) right[index] *= scale;
+    }
     for (const [key, voice] of this.voices) {
       if (voice.releasing && voice.gain < 0.00001) this.voices.delete(key);
     }
+    this.renderedSamples += left.length;
     this.recordRenderLoad(renderStartedAt, left.length);
     return true;
   }

@@ -9,6 +9,8 @@ import {
   sanitizeAlgorithmicScoreParams,
 } from "../../algorithmic-scores.js";
 import { connectAudioOutput } from "../../audio-output-manager.js";
+import { registerHeaderPresets } from "../../site/header-presets.js";
+import { algorithmicFullPresets, randomizeAlgorithmicPreset } from "./full-presets.js";
 
 const $ = (id) => document.getElementById(id);
 const FRAME_INTERVAL = 1_000 / 30;
@@ -1077,3 +1079,21 @@ function start() {
 }
 
 start();
+
+registerHeaderPresets({
+  id: instrument.id,
+  presets: algorithmicFullPresets(instrument.id),
+  randomize: randomizeAlgorithmicPreset,
+  capture: () => ({ settings: state.settings }),
+  apply(snapshot) {
+    const settings = sanitizeAlgorithmicScoreParams(snapshot.settings);
+    const score = generateAlgorithmicScore(settings);
+    state.settings = { ...settings };
+    state.score = score;
+    state.cursor = Math.min(state.cursor, score.events.length - 1);
+    // Preserve playing/audio flags and the live event deadline; the new score
+    // takes over at the next ordinary event, not by stopping or retriggering.
+    updateAccent();
+    updateReadouts();
+  },
+});

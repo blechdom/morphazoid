@@ -1,3 +1,5 @@
+import { registerHeaderPresets } from "../../site/header-presets.js";
+import { DEFAULT_MICMIC_STATE as DEFAULT_STATE, MICMIC_FULL_PRESETS, captureMicmicPreset, validateMicmicPreset, randomizeMicmicPreset } from "../../families/branch-presets/full-presets.js";
 import {
   FIXED_FORK_DENSITY,
   MICMIC_PRESETS,
@@ -38,27 +40,7 @@ const PITCH_DETAIL_OPTIONS = Object.freeze([
 const L_SYSTEM_PRESET_BY_ID = new Map(
   L_SYSTEM_PRESETS.map((preset) => [preset.id, preset]),
 );
-const DEFAULT_STATE = Object.freeze({
-  ...MICMIC_PRESETS.bloom,
-  inputTrim: 0.85,
-  level: 0.58,
-  mic: false,
-  starting: false,
-  frozen: false,
-  generations: GENERATION_RULE_PRESETS.pythagorean.generations,
-  branching: FIXED_FORK_DENSITY,
-  depth: GENERATION_RULE_PRESETS.pythagorean.depth,
-  interval: GENERATION_RULE_PRESETS.pythagorean.interval,
-  mutation: GENERATION_RULE_PRESETS.pythagorean.mutation,
-  generationPreset: "pythagorean",
-  lSystemType: "pythagorean",
-  timeRatio: GENERATION_RULE_PRESETS.pythagorean.timeRatio,
-  generationAngle: GENERATION_RULE_PRESETS.pythagorean.angle,
-  generationAsymmetry: GENERATION_RULE_PRESETS.pythagorean.asymmetry,
-  generationPitchScale: GENERATION_RULE_PRESETS.pythagorean.pitchScale,
-  pruningBias: 0,
-  pitchDetail: GRANULAR_ECONOMY_PITCH_CLASSES,
-});
+
 
 const state = { ...DEFAULT_STATE };
 const canvas = $("stage");
@@ -1920,3 +1902,16 @@ new ResizeObserver(resizeStage).observe(stageWrap);
 resizeStage();
 updateUi();
 requestAnimationFrame(frame);
+
+registerHeaderPresets({
+  id: "micmic", presets: MICMIC_FULL_PRESETS, randomize: randomizeMicmicPreset,
+  capture: () => captureMicmicPreset(state),
+  apply(snapshot) {
+    validateMicmicPreset(snapshot);
+    Object.assign(state, snapshot.parameters);
+    if (state.generationPreset !== "custom") lastGenerationPreset = state.generationPreset;
+    generationTopologyCache = null;
+    applyAudioParameters();
+    updateUi();
+  },
+});

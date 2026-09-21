@@ -175,6 +175,12 @@ function freezeEditableGesture(gesture, revision = 0) {
   });
 }
 
+/** Complete musical gesture without the store's evolving revision counter. */
+export function normalizeHybrinxPresetGesture(gesture) {
+  const { revision, ...snapshot } = freezeEditableGesture(gesture);
+  return snapshot;
+}
+
 function editableRawValue(parameter, patch, baseState = {}, tongueState = {}) {
   const definition = PARAMETER_DEFINITIONS.get(parameter);
   if (Number.isFinite(Number(patch?.rawValue))) {
@@ -261,6 +267,10 @@ export function createHybrinxGestureStore(nativeGestures = {}) {
   return Object.freeze({
     get(id) {
       return currentFor(id);
+    },
+    replace(id, snapshot) {
+      if (snapshot?.id !== String(id) || !originalFor(id)) throw new TypeError("Unknown Hybrinx gesture identity");
+      return commit(id, snapshot);
     },
     updateKeyframe(id, parameter, index, patch = {}, baseState = {}) {
       const gesture = currentFor(id);

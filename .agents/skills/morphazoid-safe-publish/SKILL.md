@@ -16,6 +16,12 @@ the user requested.
 
 Inspect the current branch, upstream, status including untracked files, diffs, recent commits, remotes, and active work communicated by other tasks. Identify exactly which paths belong to the requested change. If ownership is unclear, pause writes and resolve it.
 
+Use [worktree and source paths](../../../docs/agent-tooling.md#worktree-and-source-paths)
+to establish the checkout. Record an integration worktree and a built artifact's
+server root separately from the user's existing main/review checkout. Do not
+derive a Git directory, output directory or rollback path from an old handoff's
+machine-specific path; use Git discovery and the current build scripts.
+
 ## Reconcile fresh main safely
 
 When the requested operation needs current remote state, fetch or otherwise
@@ -39,6 +45,11 @@ only when staging or committing is authorized. In that case, stage explicit
 paths, inspect `git diff --cached`, and compare staged paths with declared scope.
 Do not include unrelated edits, local configuration, secrets, screenshots,
 caches, or temporary build output.
+
+For renamed/moved runtime files, verify the current
+`scripts/site/runtime-files.tsv` and regenerate `dist-wax/` from authored source.
+Never resolve generated-file conflicts by editing an older worktree's WAX copy
+or resurrecting obsolete root controllers/build lists.
 
 ## Perform only the authorized terminal actions
 

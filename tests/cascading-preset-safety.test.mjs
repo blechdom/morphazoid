@@ -209,7 +209,8 @@ test("factory cascade structures avoid hidden safety clamps", () => {
     assert.deepEqual(sanitizeCascadingFmSettings(fmPreset.settings), fmPreset.settings);
     const fmStack = deriveFmStack(fmPreset.settings);
     const fmCarrier = fmStack.oscillators.at(-1).freq;
-    assert.ok(fmCarrier >= 500, `${fmPreset.id} carrier ${fmCarrier} Hz`);
+    assert.ok(fmCarrier >= 45 && fmCarrier <= 160, `${fmPreset.id} carrier ${fmCarrier} Hz`);
+    assert.ok(fmPreset.settings.rootHz <= 3, `${fmPreset.id} needs a rhythmic root`);
     assert.ok(
       fmCarrier < CASCADING_FM_LIMITS.audioCeiling,
       `${fmPreset.id} carrier ${fmCarrier} Hz reaches the ceiling`,
@@ -227,7 +228,7 @@ test("factory cascade structures avoid hidden safety clamps", () => {
       assert.ok(depth <= CASCADING_FM_LIMITS.maxModDepth);
     }
     assert.ok(
-      fmStack.connections.at(-1).depthHz / fmCarrier <= 0.25,
+      fmStack.connections.at(-1).depthHz / fmCarrier <= 1.65,
       `${fmPreset.id} final deviation is too wide`,
     );
   }
@@ -267,9 +268,11 @@ test("factory FM cascades render audible, finite, bounded signals", () => {
       assert.ok(summary.rms >= 0.2, `FM ${preset.id} RMS is ${summary.rms}`);
       assert.ok(summary.rms <= 0.85, `FM ${preset.id} RMS is ${summary.rms}`);
       assert.ok(
-        summary.maximumStep <= 2.000001,
+        summary.maximumStep <= 0.08,
         `FM ${preset.id} maximum sample step is ${summary.maximumStep}`,
       );
+      assert.ok(summary.rolloff99Hz < 650, `FM ${preset.id} lost its low-register rhythmic voice`);
+      assert.ok(summary.highFrequencyEnergyFraction < 0.000001, `FM ${preset.id} has piercing-band energy`);
     }
   }
 });

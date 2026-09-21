@@ -61,6 +61,8 @@ export class AdaptivePolyphonyController {
   constructor({
     initialVoices = 128,
     minVoices = 16,
+    voiceQuantum = 8,
+    initialModeVoices = {},
     hardLimits = ADAPTIVE_POLYPHONY_HARD_LIMITS,
     growBelow = 0.45,
     growPeakBelow = 0.7,
@@ -79,6 +81,7 @@ export class AdaptivePolyphonyController {
       Math.max(1, integer(minVoices, 16)),
     );
     this.initialVoices = Math.max(this.minVoices, requestedInitial);
+    this.voiceQuantum = Math.max(1, integer(voiceQuantum, 8));
     this.growBelow = Math.max(0, finiteNumber(growBelow, 0.45));
     this.growPeakBelow = Math.max(this.growBelow, finiteNumber(growPeakBelow, 0.7));
     this.targetLoad = Math.max(0.05, finiteNumber(targetLoad, 0.55));
@@ -103,7 +106,9 @@ export class AdaptivePolyphonyController {
         this.minVoices,
         integer(requestedHardLimit, ADAPTIVE_POLYPHONY_HARD_LIMITS[mode]),
       );
-      return [mode, createProfile(this.initialVoices, hardLimit)];
+      const profile = createProfile(boundedInteger(initialModeVoices[mode] ?? this.initialVoices, this.minVoices, hardLimit), hardLimit);
+      profile.fallbackLimit = profile.limit;
+      return [mode, profile];
     }));
   }
 
@@ -114,7 +119,7 @@ export class AdaptivePolyphonyController {
   setTelemetryUnavailable(source = "fallback") {
     this.telemetry = "unavailable";
     for (const profile of this.profiles.values()) {
-      profile.limit = Math.min(this.initialVoices, profile.hardLimit);
+      profile.limit = profile.fallbackLimit;
       profile.stableLimit = profile.limit;
       profile.status = "fallback";
       profile.source = source;
@@ -170,10 +175,11 @@ export class AdaptivePolyphonyController {
     const active = Math.max(this.minVoices, profile.activeVoices || profile.limit);
     const proportional = roundDown(
       active * this.targetLoad / Math.max(0.01, observedLoad),
+      this.voiceQuantum,
     );
     const stepped = emergency
-      ? roundDown(profile.limit * 0.75)
-      : roundDown(profile.limit * 0.875);
+      ? roundDown(profile.limit * 0.75, this.voiceQuantum)
+      : roundDown(profile.limit * 0.875, this.voiceQuantum);
     const estimatedNext = boundedInteger(
       Math.min(profile.stableLimit, proportional || stepped, stepped),
       this.minVoices,
@@ -197,6 +203,7 @@ export class AdaptivePolyphonyController {
     requestedVoices,
     source = "renderer",
     valid = true,
+    peakReliable = true,
   } = {}) {
     const selectedMode = modeName(mode);
     const profile = this.profile(selectedMode);
@@ -225,17 +232,22 @@ export class AdaptivePolyphonyController {
       return this.decision(selectedMode);
     }
 
-    const emergency = underruns > 0 || profile.peakLoad >= this.emergencyPeak;
+    // Millisecond-quantized worklet clocks cannot reliably classify a single
+    // sub-3ms render deadline. Use sustained mean load for those samples;
+    // actual underrun reports and high-resolution peaks remain immediate.
+    const emergency = underruns > 0 || (peakReliable
+      ? profile.peakLoad >= this.emergencyPeak
+      : profile.averageLoad >= this.emergencyPeak);
     const tooHigh = emergency
       || profile.averageLoad > this.shrinkAbove
-      || profile.peakLoad > this.shrinkPeakAbove;
+      || (peakReliable && profile.peakLoad > this.shrinkPeakAbove);
     if (tooHigh) {
       profile.highWindows += 1;
       profile.safeWindows = 0;
       if (emergency || profile.highWindows >= this.shrinkAfter) {
         const observedLoad = Math.max(
           profile.averageLoad,
-          profile.peakLoad * 0.75,
+          peakReliable ? profile.peakLoad * 0.75 : 0,
           underruns > 0 ? 1 : 0,
         );
         this.shrink(profile, observedLoad, emergency);
@@ -250,7 +262,7 @@ export class AdaptivePolyphonyController {
       Math.min(profile.limit, profile.demand) * 0.9,
     );
     const hasHeadroom = profile.averageLoad < this.growBelow
-      && profile.peakLoad < this.growPeakBelow;
+      && (!peakReliable || profile.peakLoad < this.growPeakBelow);
     const needsMore = profile.demand > profile.limit;
 
     if (profile.safeWindows >= this.growAfter) {
@@ -258,8 +270,9 @@ export class AdaptivePolyphonyController {
       if (saturated && needsMore && hasHeadroom && profile.cooldownWindows === 0) {
         const proportional = roundDown(
           profile.activeVoices * this.targetLoad / Math.max(0.05, profile.averageLoad),
+          this.voiceQuantum,
         );
-        const step = roundUp(profile.limit * this.growthFactor);
+        const step = roundUp(profile.limit * this.growthFactor, this.voiceQuantum);
         const estimated = Math.max(profile.limit, proportional);
         const next = boundedInteger(
           Math.min(profile.demand, profile.hardLimit, step, estimated),

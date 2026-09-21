@@ -1,4 +1,6 @@
 import { normalizeSharedProfile } from "./shapes-profile.js";
+import { createShapesSynthesis } from "./instruments/shapes/synthesis-state.js";
+import { percussionEnvelopePreset, sanitizePercussionEnvelope } from "./audio.js";
 import {
   canonicalHeadOffsets,
   sanitizeHeadOffsets,
@@ -21,7 +23,7 @@ export const SHAPES_DIMENSIONS = Object.freeze({
 
 export const SHAPES_PLAYING_MODES = Object.freeze([
   Object.freeze({ id: "continuous", label: "Continuous" }),
-  Object.freeze({ id: "notes", label: "Notes" }),
+  Object.freeze({ id: "notes", label: "Corners & Notes" }),
   Object.freeze({ id: "triggers", label: "Triggers" }),
 ]);
 
@@ -30,6 +32,7 @@ export const SHAPES_VOICE_ENGINES = Object.freeze([
   Object.freeze({ id: "fm", label: "FM" }),
   Object.freeze({ id: "pm", label: "PM" }),
   Object.freeze({ id: "shepard", label: "Shepard" }),
+  Object.freeze({ id: "percussion", label: "Corner percussion" }),
 ]);
 
 export const SHAPES_TRIGGER_SOUND_BANKS = Object.freeze([
@@ -71,6 +74,7 @@ const DEFAULT_STATE = Object.freeze({
     tuningDepth: 12,
     characterDepth: 0.7,
     hitCap: 6,
+    strength: 1,
   }),
   dimension: Object.freeze({
     "2d": Object.freeze({
@@ -83,6 +87,9 @@ const DEFAULT_STATE = Object.freeze({
       traceHeadDirectionAdjustments: DEFAULT_HEAD_ADJUSTMENTS,
       radialHeadDirectionAdjustments: DEFAULT_HEAD_ADJUSTMENTS,
       rotation: 0,
+      continuousRotation: 0,
+      rotationMotion: "loop",
+      closedShapeType: "polygon",
       rotationRunning: false,
       rotationSpeed: 0.12,
       curvature: 0,
@@ -128,7 +135,8 @@ function sanitizeDimension(value) {
 }
 
 function sanitizePlayingMode(value, legacySound) {
-  if (value === "continuous" || value === "notes" || value === "triggers") return value;
+  if (value === "corners") return "notes";
+  if (["continuous", "notes", "triggers"].includes(value)) return value;
   if (legacySound === "drums") return "triggers";
   return "continuous";
 }
@@ -233,7 +241,7 @@ export function createShapesState(source = {}) {
       ),
       direction: Number(play.direction) < 0 ? -1 : 1,
       motion: choice(play.motion, ["loop", "pingpong"], "loop"),
-      divisions: Math.round(clamp(
+      divisions: selection.playingMode === "corners" ? 1 : Math.round(clamp(
         play.divisions
           ?? (selection.playingMode === "notes" ? voice.noteDivisions : trigger.divisions)
           ?? trigger.divisions
@@ -245,11 +253,24 @@ export function createShapesState(source = {}) {
     },
     profile: { sides: profile.sides, kind: profile.kind, starDepth: profile.starDepth },
     voice: {
-      engine: choice(voice.engine, SHAPES_VOICE_ENGINES.map(({ id }) => id), "sine"),
+      engine: selection.playingMode === "corners" ? "percussion"
+        : choice(voice.engine, SHAPES_VOICE_ENGINES.map(({ id }) => id), "sine"),
       baseHz: clamp(voice.baseHz, 20, 440, DEFAULT_STATE.voice.baseHz),
       rangeOctaves: clamp(voice.rangeOctaves, 0, 7, DEFAULT_STATE.voice.rangeOctaves),
       character: clamp(voice.character, 0, 1, DEFAULT_STATE.voice.character),
       spread: clamp(voice.spread, 0, 1, DEFAULT_STATE.voice.spread),
+      voiceLimit: Math.round(clamp(voice.voiceLimit, 1, 32, 32)),
+      presetLevel: clamp(voice.presetLevel, 0, 1, 0.65),
+    },
+    synthesis: createShapesSynthesis({
+      ...source.synthesis,
+      ...(sanitizePlayingMode(selection.playingMode, source.sound) === "notes" ? { model: "geometry" } : {}),
+    }),
+    notes: {
+      preset: ["pluck", "note", "sustain", "pad", "custom"].includes(source.notes?.preset) ? source.notes.preset : "note",
+      envelopePoints: sanitizePercussionEnvelope(source.notes?.envelopePoints ?? percussionEnvelopePreset("note")),
+      hitCap: Math.round(clamp(source.notes?.hitCap, 1, 8, 2)),
+      swell: Boolean(source.notes?.swell),
     },
     trigger: {
       soundBank: choice(
@@ -261,6 +282,7 @@ export function createShapesState(source = {}) {
       tuningDepth: clamp(trigger.tuningDepth, 0, 24, DEFAULT_STATE.trigger.tuningDepth),
       characterDepth: clamp(trigger.characterDepth, 0, 1, DEFAULT_STATE.trigger.characterDepth),
       hitCap: Math.round(clamp(trigger.hitCap, 1, 16, DEFAULT_STATE.trigger.hitCap)),
+      strength: clamp(trigger.strength, 0, 1, DEFAULT_STATE.trigger.strength),
     },
     dimension: {
       "2d": {
@@ -284,8 +306,11 @@ export function createShapesState(source = {}) {
           two.radialHeadDirectionAdjustments ?? two.radarHeadDirectionAdjustments,
         ),
         rotation: sanitizeAngle(two.rotation, DEFAULT_STATE.dimension["2d"].rotation),
+        continuousRotation: Number.isFinite(two.continuousRotation) ? two.continuousRotation : (Number(two.rotation) || 0) / 360,
+        rotationMotion: choice(two.rotationMotion, ["loop", "pingpong"], "loop"),
+        closedShapeType: two.closedShapeType === "star" ? "star" : "polygon",
         rotationRunning: Boolean(two.rotationRunning),
-        rotationSpeed: clamp(two.rotationSpeed, -0.5, 0.5, DEFAULT_STATE.dimension["2d"].rotationSpeed),
+        rotationSpeed: clamp(two.rotationSpeed, -4, 4, DEFAULT_STATE.dimension["2d"].rotationSpeed),
         curvature: clamp(two.curvature, -1, 1, 0),
         aspect: clamp(two.aspect, -2, 2, 0),
         skew: clamp(two.skew, -2, 2, 0),
@@ -500,6 +525,9 @@ export function selectShapesDimension(state, dimension) {
 
 export function selectShapesPlayingMode(state, playingMode) {
   state.selection.playingMode = sanitizePlayingMode(playingMode);
+  if (playingMode === "corners") state.voice.engine = "percussion";
+  if (state.selection.playingMode === "notes") state.synthesis.model = "geometry";
+  if (state.selection.playingMode === "continuous" && state.voice.engine === "percussion") state.voice.engine = "sine";
   return state;
 }
 
@@ -533,8 +561,8 @@ export function shapesRotationIsMoving(state, dimension = state?.selection?.dime
     || (Boolean(local.rotationRunning) && Math.abs(Number(local.rotationSpeed) || 0) > 1e-6);
 }
 
-export function advanceShapesMotion(state, deltaSeconds) {
-  const delta = clamp(deltaSeconds, 0, 0.25, 0);
+export function advanceShapesMotion(state, deltaSeconds, maximumDelta = 0.25) {
+  const delta = clamp(deltaSeconds, 0, maximumDelta, 0);
   if (state.play.running) {
     state.play.continuousPhase += state.play.direction * state.play.rateCyclesPerSecond * delta;
   }
@@ -542,7 +570,13 @@ export function advanceShapesMotion(state, deltaSeconds) {
   const local = state.dimension[dimension];
   if (dimension === "2d") {
     if (local.rotationRunning) {
-      local.rotation = sanitizeAngle(local.rotation + local.rotationSpeed * 360 * delta, 0);
+      if (local.rotationMotion === "pingpong") {
+        local.continuousRotation += local.rotationSpeed * delta;
+        local.rotation = foldShapesPhase(local.continuousRotation, "pingpong") * 360 - 180;
+      } else {
+        local.rotation = sanitizeAngle(local.rotation + local.rotationSpeed * 360 * delta, 0);
+        local.continuousRotation = local.rotation / 360;
+      }
     }
     return state;
   }
@@ -626,7 +660,7 @@ export function projectShapesMotion(state, deltaSeconds) {
       [dimension]: projectedLocal,
     },
   };
-  return advanceShapesMotion(projected, deltaSeconds);
+  return advanceShapesMotion(projected, deltaSeconds, 5);
 }
 
 export function shapesRepresentationLabel(state) {

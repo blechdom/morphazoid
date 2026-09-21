@@ -140,12 +140,12 @@ test("Cascading PM settings and presets are finite, bounded, and immutable", () 
     indexTaper: CASCADING_PM_LIMITS.minIndexTaper,
   });
   assert.ok(Object.isFrozen(safe));
-  assert.equal(DEFAULT_CASCADING_PM_PRESET_ID, "slow-cascade");
+  assert.equal(DEFAULT_CASCADING_PM_PRESET_ID, "slow-steps");
   assert.equal(CASCADING_PM_PROCESSOR_NAME, "morphazoid-cascading-pm");
   assert.equal(CASCADING_PM_LIMITS.minCascadeRatio, 0.25);
   assert.equal(CASCADING_PM_LIMITS.maxStages, 12);
   assert.equal(sanitizeCascadingPmSettings({ cascadeRatio: 0.01 }).cascadeRatio, 0.25);
-  assert.equal(CASCADING_PM_PRESETS.length, 6);
+  assert.equal(CASCADING_PM_PRESETS.length, 12);
   assert.ok(Object.isFrozen(CASCADING_PM_PRESETS));
   assert.ok(CASCADING_PM_PRESETS.every(Object.isFrozen));
   assert.ok(CASCADING_PM_PRESETS.every(({ settings }) => Object.isFrozen(settings)));
@@ -166,8 +166,8 @@ test("Cascading PM settings and presets are finite, bounded, and immutable", () 
   }
   assert.deepEqual(
     motionCounts,
-    { drone: 2, evolving: 3, rhythmic: 1 },
-    "the bank should deliberately balance drones, evolving tones, and rhythm",
+    { drone: 0, evolving: 0, rhythmic: 12 },
+    "the owner replaced the drone bank with LFO-led rhythmic examples",
   );
 });
 
@@ -398,71 +398,32 @@ test("factory PM presets span shallow and deep cascades without relying on safet
   }
 });
 
-test("preset motion classes sound distinct without forcing drones to pulse", () => {
+test("every replacement PM preset has LFO-driven motion instead of an audio-rate drone", () => {
   const sampleRate = 48_000;
   const frameCount = sampleRate * 8;
-  const summaries = new Map();
-
+  let amplitudeAccented = 0;
+  const summaries = [];
   for (const preset of CASCADING_PM_PRESETS) {
-    const rendered = renderCascadingPmSamples(preset.settings, {
-      sampleRate,
-      frameCount,
-    });
-    const unmodulated = renderCascadingPmSamples({
-      ...preset.settings,
-      phaseIndex: 0,
-    }, {
-      sampleRate,
-      frameCount,
-    });
+    assert.equal(preset.motion, "rhythmic");
+    assert.ok(preset.settings.rootHz >= 0.125 && preset.settings.rootHz <= 3);
+    const rendered = renderCascadingPmSamples(preset.settings, { sampleRate, frameCount });
+    const unmodulated = renderCascadingPmSamples({ ...preset.settings, phaseIndex: 0 }, { sampleRate, frameCount });
     const motion = temporalActivitySummary(rendered, sampleRate);
-    const carrierBaseline = temporalActivitySummary(unmodulated, sampleRate);
-    summaries.set(preset.id, {
-      ...motion,
-      accentLift: motion.accentContrast - carrierBaseline.accentContrast,
-      trajectoryLift: motion.trajectorySpread - carrierBaseline.trajectorySpread,
-    });
-
-    if (preset.motion === "evolving") {
-      assert.ok(
-        motion.trajectorySpread >= carrierBaseline.trajectorySpread + 0.001,
-        `${preset.id} long-form motion ${motion.trajectorySpread.toFixed(4)} `
-          + `barely exceeds its carrier baseline ${carrierBaseline.trajectorySpread.toFixed(4)}`,
-      );
-    }
-    if (preset.motion === "rhythmic") {
-      assert.ok(
-        motion.amplitudeContrastDb >= 0.6,
-        `${preset.id} has only ${motion.amplitudeContrastDb.toFixed(2)} dB `
-          + "of short-time accent contrast",
-      );
-      assert.ok(
-        motion.accentContrast >= carrierBaseline.accentContrast + 0.05,
-        `${preset.id} rhythmic contrast ${motion.accentContrast.toFixed(3)} `
-          + `barely exceeds its carrier baseline ${carrierBaseline.accentContrast.toFixed(3)}`,
-      );
-    }
+    const baseline = temporalActivitySummary(unmodulated, sampleRate);
+    assert.ok(motion.accentContrast >= baseline.accentContrast + 0.3,
+      `${preset.id}: LFO accents must clearly exceed the plain-carrier baseline`);
+    if (motion.amplitudeContrastDb >= 0.6) amplitudeAccented++;
+    summaries.push(motion);
   }
-
-  const evolvingRates = CASCADING_PM_PRESETS
-    .filter(({ motion }) => motion === "evolving")
-    .map(({ settings }) => settings.rootHz)
-    .sort((a, b) => a - b);
-  assert.equal(new Set(evolvingRates).size, 3, "evolving presets need three distinct rates");
-  for (let index = 1; index < evolvingRates.length; index += 1) {
-    assert.ok(
-      evolvingRates[index] / evolvingRates[index - 1] >= 3,
-      "neighboring evolving presets should differ by at least threefold in motion rate",
-    );
-  }
-
-  const motionValues = [...summaries.values()];
-  const amplitudeRange = Math.max(...motionValues.map(({ amplitudeContrastDb }) => amplitudeContrastDb))
-    - Math.min(...motionValues.map(({ amplitudeContrastDb }) => amplitudeContrastDb));
-  const trajectoryRange = Math.max(...motionValues.map(({ trajectoryLift }) => trajectoryLift))
-    - Math.min(...motionValues.map(({ trajectoryLift }) => trajectoryLift));
-  assert.ok(amplitudeRange >= 0.4, "the preset bank still has one shared accent profile");
-  assert.ok(trajectoryRange >= 0.004, "the preset bank still has one shared evolution profile");
+  // Simple Sway deliberately teaches pitch motion, not a fabricated volume
+  // gate. Most of the deeper chains also need genuine short-time level accents.
+  assert.ok(amplitudeAccented >= 9, "deeper chains should have measurable amplitude accents");
+  assert.ok(Math.max(...summaries.map(m => m.accentContrast))
+    - Math.min(...summaries.map(m => m.accentContrast)) >= 1,
+    "the bank needs varied rhythmic contours, not one renamed texture");
+  const rates = CASCADING_PM_PRESETS.map(preset => preset.settings.rootHz);
+  assert.ok(Math.max(...rates) / Math.min(...rates) >= 20,
+    "cover quick pulses through slow phrase-length motion");
 });
 
 test("the phase cascade evaluates the nested PM equation exactly", () => {
@@ -720,8 +681,8 @@ test("all ordered live preset transitions stay click-safe with preallocated stor
           "the worklet should allocate its fixed render storage in the constructor",
         );
         // Vary the hand-off phase deterministically so the matrix does not only
-        // exercise six transitions from the same all-zero alignment.
-        const preRoll = new Float32Array(4_096 + (fromIndex * 6 + toIndex) * 97);
+        // exercise every transition from the same all-zero alignment.
+        const preRoll = new Float32Array(4_096 + (fromIndex * CASCADING_PM_PRESETS.length + toIndex) * 97);
         assert.equal(processor.process([], [[preRoll]]), true);
         const priorSample = preRoll.at(-1);
         processor._applySettings(to.settings, false);
@@ -751,10 +712,11 @@ test("all ordered live preset transitions stay click-safe with preallocated stor
       }
     }
 
-    assert.equal(pairCount, 36, "the transition matrix must cover every ordered preset pair");
+    assert.equal(pairCount, CASCADING_PM_PRESETS.length ** 2, "the transition matrix must cover every ordered preset pair");
     assert.equal(
       shrinkingPairCount,
-      15,
+      CASCADING_PM_PRESETS.reduce((count, from) => count
+        + CASCADING_PM_PRESETS.filter(to => to.settings.stages < from.settings.stages).length, 0),
       "the transition matrix must include every deep-to-shallow stage change",
     );
     assert.ok(

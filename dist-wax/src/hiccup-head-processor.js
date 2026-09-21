@@ -9,7 +9,7 @@ import {
   physicalVoiceParameters,
   sanitizeHiccupHeadState,
   sanitizeHiccupHeadVoice,
-} from "./hiccup-head.js?v=e6a50de821d4";
+} from "./hiccup-head.js?v=75c67dec055e";
 
 // Hiccup Head's tract is a single, persistent Kelly-Lochbaum volume-flow tube.
 // The scattering convention, losses, and 44-section source geometry follow

@@ -21,6 +21,9 @@ export function createAmplitudeControl(host, {
   onChange = () => {},
   label = "Contact Amplitude ADSR",
   timing = "phase",
+  presets = PRESETS,
+  showLevel = true,
+  allowDisable = true,
 } = {}) {
   const usesMilliseconds = timing === "milliseconds";
   const presetPoints = (name) => (
@@ -91,7 +94,7 @@ export function createAmplitudeControl(host, {
       if (typeof snapshot.enabled === "boolean") state.enabled = snapshot.enabled;
       state.swell = !usesMilliseconds && state.enabled && Boolean(snapshot.swell);
       if (typeof snapshot.preset === "string") {
-        state.preset = PRESETS.includes(snapshot.preset) ? snapshot.preset : "custom";
+        state.preset = presets.includes(snapshot.preset) ? snapshot.preset : "custom";
       }
       if (Array.isArray(snapshot.points)) state.points = sanitizeAmplitudeEnvelope(snapshot.points);
       if (Number.isFinite(Number(snapshot.level))) state.level = clamp(snapshot.level);
@@ -132,8 +135,8 @@ export function createAmplitudeControl(host, {
     if (!host) return;
     host.className = "shared-amplitude-control";
     const releaseTime = formatTime(timedAmplitudeEnvelopeDurationMs(state.points));
-    host.innerHTML = `<div class="shared-amplitude-heading"><span class="field-label mz-field__label">${label}</span><div><button type="button" data-action="toggle" aria-pressed="${state.enabled}">${state.enabled ? "On" : "Off"}</button>${usesMilliseconds ? "" : `<button type="button" data-action="swell" aria-pressed="${state.swell}" ${state.enabled ? "" : "disabled"}>${state.swell ? "Swell on" : "Swell off"}</button>`}</div></div>
-      <div class="shared-amplitude-presets">${PRESETS.map((preset) => `<button type="button" data-preset="${preset}" aria-pressed="${state.preset === preset}" ${state.enabled ? "" : "disabled"}>${preset}</button>`).join("")}</div>
+    host.innerHTML = `<div class="shared-amplitude-heading"><span class="field-label mz-field__label">${label}</span><div>${allowDisable ? `<button type="button" data-action="toggle" aria-pressed="${state.enabled}">${state.enabled ? "On" : "Off"}</button>` : ""}${usesMilliseconds ? "" : `<button type="button" data-action="swell" aria-pressed="${state.swell}" ${state.enabled ? "" : "disabled"}>${state.swell ? "Swell on" : "Swell off"}</button>`}</div></div>
+      <div class="shared-amplitude-presets">${presets.map((preset) => `<button type="button" data-preset="${preset}" aria-pressed="${state.preset === preset}" ${state.enabled ? "" : "disabled"}>${preset}</button>`).join("")}</div>
       <div class="shared-amplitude-editor ${usesMilliseconds ? "is-timed" : ""} ${state.enabled ? "" : "is-disabled"}" data-editor>
         <svg viewBox="0 0 240 96" preserveAspectRatio="none" aria-hidden="true"><path d="${pathData()}" /></svg>
         ${state.points.map((point, index) => {
@@ -142,7 +145,7 @@ export function createAmplitudeControl(host, {
         }).join("")}
       </div>
       ${usesMilliseconds ? `<div class="shared-amplitude-time-axis"><span>0 ms</span><span>log time</span><span>Release ${releaseTime}</span></div>` : ""}
-      <label class="control mz-range-field shared-amplitude-level"><span class="mz-field__heading"><b class="mz-field__label">Envelope level</b><output class="mz-field__output">${Math.round(state.level * 100)}%</output></span><input class="mz-range-field__input" data-level type="range" min="0" max="1" step="0.01" value="${state.level}" /></label>
+      ${showLevel ? `<label class="control mz-range-field shared-amplitude-level"><span class="mz-field__heading"><b class="mz-field__label">Envelope level</b><output class="mz-field__output">${Math.round(state.level * 100)}%</output></span><input class="mz-range-field__input" data-level type="range" min="0" max="1" step="0.01" value="${state.level}" /></label>` : ""}
       <small class="mz-control-note">${usesMilliseconds ? "Node positions are milliseconds · Release sets total duration" : state.swell ? "Edge midpoint → corner peak → midpoint" : "Contact/corner trigger → release"}</small>`;
   }
 
@@ -163,7 +166,7 @@ export function createAmplitudeControl(host, {
       if (!state.enabled) state.swell = false;
     } else if (action === "swell" && state.enabled) state.swell = !state.swell;
     else if (preset && state.enabled) {
-      state.preset = PRESETS.includes(preset) ? preset : "note";
+      state.preset = presets.includes(preset) ? preset : "note";
       state.points = presetPoints(state.preset);
     } else return;
     render();
@@ -191,6 +194,20 @@ export function createAmplitudeControl(host, {
     state.points = updateAmplitudeEnvelopeNode(state.points, dragging.index, pointFromEvent(event));
     state.preset = "custom";
     render();
+    onChange(controller);
+  });
+  host?.addEventListener?.("keydown", (event) => {
+    const node = event.target.closest?.("[data-node]");
+    if (!node || !state.enabled || !["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(event.key)) return;
+    event.preventDefault();
+    const index = Number(node.dataset.node), point = state.points[index], step = event.shiftKey ? 0.05 : 0.01;
+    state.points = updateAmplitudeEnvelopeNode(state.points, index, {
+      x: point.x + (event.key === "ArrowRight" ? step : event.key === "ArrowLeft" ? -step : 0),
+      y: point.y + (event.key === "ArrowUp" ? step : event.key === "ArrowDown" ? -step : 0),
+    });
+    state.preset = "custom";
+    render();
+    host.querySelector?.(`[data-node="${index}"]`)?.focus();
     onChange(controller);
   });
   for (const type of ["pointerup", "pointercancel"]) host?.addEventListener?.(type, () => { dragging = null; });

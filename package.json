@@ -21,6 +21,7 @@
     "analyze:duplicates": "node scripts/architecture/report.mjs duplicates",
     "analyze:dependencies": "node scripts/architecture/report.mjs dependencies",
     "analyze:presets": "node scripts/presets/inventory.mjs",
+    "analyze:cascade-rhythm": "node scripts/presets/cascade-rhythm-analysis.mjs",
     "analyze:architecture": "npm run analyze:duplicates && npm run analyze:dependencies",
     "check": "node scripts/check-runtime-source.mjs && npm run check:simd-wasm",
     "test": "node --test --test-concurrency=2 tests/*.test.mjs morphazoidical/tests/*.test.mjs",

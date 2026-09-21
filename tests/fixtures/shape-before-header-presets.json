@@ -1,0 +1,195 @@
+{
+  "source": "shape-synth-app.js at 15980a9 (state defaults unchanged by pending work)",
+  "state": {
+    "sides": 4,
+    "curvature": 0,
+    "shapeType": "polygon",
+    "closedShapeType": "polygon",
+    "starDepth": 0.48,
+    "aspect": 0,
+    "skew": 0,
+    "rotation": 0,
+    "continuousRotation": 0,
+    "rotationMotionMode": "loop",
+    "playMethod": "trace",
+    "motionMode": "loop",
+    "heads": 1,
+    "headOffsets": [
+      0
+    ],
+    "scanLineAxes": [
+      "vertical",
+      "vertical",
+      "vertical",
+      "vertical",
+      "vertical",
+      "vertical",
+      "vertical",
+      "vertical",
+      "vertical",
+      "vertical",
+      "vertical",
+      "vertical"
+    ],
+    "traceHeadDirections": [
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1
+    ],
+    "radialHeadDirections": [
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1
+    ],
+    "traceHeadDirectionAdjustments": [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "radialHeadDirectionAdjustments": [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "autoRotate": false,
+    "rotationSpeed": 0.12,
+    "rotationDirection": 1,
+    "audio": false,
+    "playing": false,
+    "position": 0,
+    "continuousPosition": 0,
+    "speed": 0.25,
+    "traversalDirection": 1,
+    "baseFrequency": 130,
+    "pitchRange": 2.5,
+    "level": 0.65,
+    "soundMode": "sine",
+    "amplitudeEnvelopeEnabled": true,
+    "cornerSwell": false,
+    "amplitudePreset": "segment",
+    "amplitudeEnvelopePoints": [
+      {
+        "x": 0,
+        "y": 1
+      },
+      {
+        "x": 0.25,
+        "y": 0.75
+      },
+      {
+        "x": 0.5,
+        "y": 0.5
+      },
+      {
+        "x": 0.75,
+        "y": 0.25
+      },
+      {
+        "x": 1,
+        "y": 0
+      }
+    ],
+    "percussionStrikeLevel": 0.9,
+    "percussionAttackNoise": 0,
+    "percussionPreset": "pluck",
+    "percussionEnvelopePoints": [
+      {
+        "x": 0,
+        "y": 0
+      },
+      {
+        "x": 0.16713820653880265,
+        "y": 1
+      },
+      {
+        "x": 0.3928115322169286,
+        "y": 0.28
+      },
+      {
+        "x": 0.48531544320349806,
+        "y": 0.08
+      },
+      {
+        "x": 0.5564207629915985,
+        "y": 0
+      }
+    ],
+    "cornerAmplitudeSource": "fixed",
+    "fmIndexSource": "fixed",
+    "pmDepthSource": "fixed",
+    "shepardCycles": 1,
+    "shepardDirection": 1,
+    "shepardMapping": "travel",
+    "shepardTurnGlide": 0.35,
+    "shepardWidth": 4,
+    "fmIndex": 3,
+    "fmRatio": 2,
+    "pmIndex": 2,
+    "pmRatio": 1,
+    "stereoWidth": 1,
+    "stereoSource": "horizontal",
+    "stereoInverted": false,
+    "pitchSource": "vertical",
+    "pitchCurvePreset": "linear",
+    "pitchCurveNodes": [
+      {
+        "x": 0,
+        "y": 0
+      },
+      {
+        "x": 0.25,
+        "y": 0.25
+      },
+      {
+        "x": 0.5,
+        "y": 0.5
+      },
+      {
+        "x": 0.75,
+        "y": 0.75
+      },
+      {
+        "x": 1,
+        "y": 1
+      }
+    ],
+    "percussionLevelSource": "corner",
+    "percussionLevelCurve": "linear"
+  }
+}

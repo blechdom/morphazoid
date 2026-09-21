@@ -37,6 +37,8 @@ import {
   applyHybrinxTimelinePerformance,
   createHybrinxGestureStore,
 } from "../../hybrinx-timeline.js?v=hybrinx-20260821-3";
+import { registerHeaderPresets } from "../../site/header-presets.js";
+import { HYBRINX_FULL_PRESETS, captureHybrinxPreset, validateHybrinxFullPreset, randomizeHybrinxPreset } from "./full-presets.js";
 
 const $ = (id) => document.getElementById(id);
 const animalSelect = $("animalSelect");
@@ -3205,3 +3207,28 @@ updateModulationPresentation(0);
 updateHybrinxTimeline();
 setAudioPresentation("off");
 animationFrame = requestAnimationFrame(animate);
+
+if (HYBRINX_MODE) registerHeaderPresets({
+  id: "hybrinx", presets: HYBRINX_FULL_PRESETS, randomize: randomizeHybrinxPreset,
+  capture: () => captureHybrinxPreset(state, tongueState, activeGesture(), modulators),
+  apply(snapshot) {
+    validateHybrinxFullPreset(snapshot);
+    const active = state.active, previousModel = state.sourceModel;
+    state = sanitizeSyrinxState({ ...snapshot.state, active });
+    tongueState = sanitizeTongueState(snapshot.tongue);
+    performanceTongueState = tongueState;
+    hybrinxGestureStore.replace(state.callId, snapshot.gesture);
+    snapshot.modulators.forEach((values, index) => Object.assign(modulators[index], values));
+    // The highlighted clip is live presentation, not a preset parameter.
+    // updatePerformance derives it from the recalled timeline and current phase.
+    setHybrinxTonguePatternPresentation("");
+    // Preserve the current call position rather than restarting on every recall.
+    if (gesturePlaying) gestureStartTime = performance.now() - gesturePhase * snapshot.gesture.durationMs / state.gestureRate;
+    updateAnimalPresentation();
+    updateModulationPresentation();
+    updateHybrinxTimeline();
+    updatePerformance(performance.now());
+    postConfiguration(performanceState, previousModel !== state.sourceModel);
+    audioDirty = true;
+  },
+});

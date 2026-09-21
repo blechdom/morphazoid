@@ -37,6 +37,8 @@ import {
   GraphSynthAudio,
 } from "./graph-synth-audio.js?v=graph-instruments-20260830-13";
 import { canvasSizing } from "./graphics/canvas-sizing.js";
+import { registerHeaderPresets } from "./site/header-presets.js";
+import { graphSynthFullPresets, captureGraphSynthPreset, validateGraphSynthPreset, randomizeGraphSynthPreset } from "./families/graph-presets/full-presets.js";
 
 const TAU = Math.PI * 2;
 const AUDIO_LOOKAHEAD_SECONDS = 0.09;
@@ -2186,6 +2188,30 @@ export function initializeGraphInstrument({
   if (instrumentMode === "drums") renderDrumMap();
   updateUi();
   resizeCanvas();
+
+  if (instrumentMode === "synth") {
+    $("graphPatchGrid")?.setAttribute("hidden", "");
+    registerHeaderPresets({
+      id: "graph-synth", presets: graphSynthFullPresets(initialState), randomize: randomizeGraphSynthPreset,
+      document: documentObject, runtime,
+      capture: () => captureGraphSynthPreset(state, model, edgeSwitchStates, initialState),
+      apply(snapshot) {
+        validateGraphSynthPreset(snapshot, initialState);
+        Object.assign(state, snapshot.parameters);
+        model = snapshot.graph;
+        displayModel = model;
+        reverseEdgeKeys = new Set(model.edges.map(edge => `${edge.to}>${edge.from}`));
+        edgeSwitchStates = new Map(Object.entries(snapshot.edgeSwitches));
+        selectedNodeId = Math.min(selectedNodeId, model.nodes.length - 1);
+        resetNodeWalkState();
+        invalidatePulseTemplate({ clearRuns: false, silence: false, resetClock: false });
+        audio.setOutput?.(state.output);
+        syncControls();
+        updateUi();
+        scheduleFrame();
+      },
+    });
+  }
 
   return Object.freeze({
     get mode() { return instrumentMode; },

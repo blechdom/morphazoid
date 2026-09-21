@@ -173,6 +173,15 @@
   padding: 2px 5px 0;
 }
 
+.hiccup-head-visual-skin .hiccup-head-skin-picker-row {
+  display: grid;
+  padding: 0;
+}
+
+.hiccup-head-skin-picker-row #nextVisualSkinButton {
+  min-height: 31px;
+}
+
 .hiccup-head-visual-skin select {
   width: 100%;
   min-width: 0;
@@ -1359,6 +1368,15 @@ input.hiccup-head-step-sound-lane {
   text-align: left;
 }
 
+.hiccup-head-preset-deck #randomizeButton {
+  justify-self: start;
+  width: max-content;
+  max-width: 100%;
+  min-height: 32px;
+  height: 32px;
+  padding: 4px 8px;
+}
+
 .hiccup-head-preset-deck button:hover,
 .hiccup-head-preset-deck button:focus-visible {
   color: #16080b;
@@ -2352,7 +2370,23 @@ label.hiccup-head-voice-assignment,
 
 @media (pointer: coarse) {
   .hiccup-head-visual-skin select {
-    min-height: 44px;
+    min-height: 48px;
+  }
+
+  .hiccup-head-skin-tools,
+  .hiccup-head-skin-tools .hiccup-head-visual-skin {
+    height: auto;
+    min-height: 66px;
+  }
+
+  .hiccup-head-skin-picker-row {
+    grid-template-columns: minmax(0, 1fr) 48px;
+  }
+
+  .hiccup-head-skin-picker-row #nextVisualSkinButton,
+  .hiccup-head-preset-deck #randomizeButton {
+    min-height: 48px;
+    height: 48px;
   }
 
   .hiccup-head-step-slot {

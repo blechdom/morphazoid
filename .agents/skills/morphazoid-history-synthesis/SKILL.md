@@ -48,6 +48,10 @@ Do not preserve personal information, secrets, raw logs, or long quotations. Par
 - Put evolving aesthetic vocabulary and examples in project documentation.
 - Put page-specific behavior in that page's code, tests, or focused design notes.
 - Do not generalize a one-off preference unless the user explicitly requests it.
+- Keep absolute checkout paths, preview ports and old filenames as historical
+  evidence, not reusable commands. Before proposing current path guidance,
+  compare them with the active checkout's
+  [worktree/source map](../../../docs/agent-tooling.md#worktree-and-source-paths).
 
 Before changing guidance, read current files and identify overlap or contradiction. Prefer tightening an existing rule to adding a duplicate. Keep trigger descriptions narrow enough that skills do not activate on unrelated work.
 

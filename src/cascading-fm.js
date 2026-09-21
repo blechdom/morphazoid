@@ -1,3 +1,4 @@
+import { CASCADING_FM_RHYTHM_PRESETS } from "./families/cascading/rhythm-presets.js";
 // Cascading FM synthesis core.
 //
 // N sine oscillators in a linear chain: osc[0] → osc[1] → … → osc[N-1]
@@ -31,56 +32,11 @@ export const CASCADING_FM_LIMITS = Object.freeze({
   audioCeiling: 20_000,
 });
 
-export const CASCADING_FM_DEFAULTS = Object.freeze({
-  stages: 5,
-  rootHz: 55,
-  cascadeRatio: 2,
-  modDepth: 220,
-  depthTaper: 0.8,
-});
-
-const freezePreset = (p) => Object.freeze({ ...p, settings: Object.freeze({ ...p.settings }) });
-
-export const CASCADING_FM_PRESETS = Object.freeze([
-  freezePreset({
-    id: "brass-choir",
-    label: "Brass Choir",
-    description: "Five harmonic stages rooted at 55 Hz with moderate depth and even taper — warm and brassy.",
-    settings: { stages: 5, rootHz: 55, cascadeRatio: 2, modDepth: 220, depthTaper: 0.8 },
-  }),
-  freezePreset({
-    id: "bell-tower",
-    label: "Bell Tower",
-    description: "Four inharmonic stages from 110 Hz with a slight ratio offset and rising taper for metallic shimmer.",
-    settings: { stages: 4, rootHz: 110, cascadeRatio: 2.8, modDepth: 440, depthTaper: 1.1 },
-  }),
-  freezePreset({
-    id: "neon-reed",
-    label: "Neon Reed",
-    description: "Six tight stages at 82 Hz with low-index modulation and gentle taper — buzzy and reedy.",
-    settings: { stages: 6, rootHz: 82, cascadeRatio: 1.5, modDepth: 120, depthTaper: 0.75 },
-  }),
-  freezePreset({
-    id: "glass-forest",
-    label: "Glass Forest",
-    description: "Three widely spread stages from 110 Hz produce glassy, shifting overtones.",
-    settings: { stages: 3, rootHz: 110, cascadeRatio: 4.2, modDepth: 900, depthTaper: 0.5 },
-  }),
-  freezePreset({
-    id: "organ-pulse",
-    label: "Organ Pulse",
-    description: "Eight even octave-ish stages from 65 Hz with falling taper emulate a pipe organ chorus.",
-    settings: { stages: 8, rootHz: 65, cascadeRatio: 2, modDepth: 260, depthTaper: 0.65 },
-  }),
-  freezePreset({
-    id: "electric-wind",
-    label: "Electric Wind",
-    description: "Five wide-ratio stages at 110 Hz with high index and fast taper — electric and chaotic.",
-    settings: { stages: 5, rootHz: 110, cascadeRatio: 3.5, modDepth: 1_800, depthTaper: 0.4 },
-  }),
-]);
-
-export const DEFAULT_CASCADING_FM_PRESET_ID = "brass-choir";
+// Preset data is separate from DSP; the rhythmic bank is shared by startup,
+// Reset and the header. The synthesis and live-smoothing code below is unchanged.
+export { CASCADING_FM_RHYTHM_PRESETS as CASCADING_FM_PRESETS };
+export const CASCADING_FM_DEFAULTS = CASCADING_FM_RHYTHM_PRESETS[0].settings;
+export const DEFAULT_CASCADING_FM_PRESET_ID = CASCADING_FM_RHYTHM_PRESETS[0].id;
 
 function clamp(value, min, max) {
   return Math.min(max, Math.max(min, value));

@@ -1,5 +1,10 @@
 # Full-instrument preset rollout: source inventory
 
+This is the historical inventory from checkpoint `15980a9`, before implementation.
+For the current partial implementation and its verification status, see
+`full-instrument-preset-rollout.md`. The "Not migrated" column below records the
+starting state, not the latest working tree.
+
 Static hints only. Names do not prove preset existence, count, completeness, recall safety, or audible variety; no presets are applied.
 
 Every row still needs an instrument-owned full-state/pattern/voice-bank review.

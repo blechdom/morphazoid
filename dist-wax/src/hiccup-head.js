@@ -1437,6 +1437,53 @@ const phraseRow = (...phrases) => {
   return result;
 };
 
+// Each slot is one explicit mouth event or a rest, with optional velocity.
+// Two contrasting bars repeat over the existing 64-step bank. No sequencer,
+// voice model or timing logic changes when adding one of these scores.
+const groovePattern = (id, label, ...bars) => {
+  const knownSounds = new Set(HICCUP_HEAD_SOUNDS.map(sound => sound.id));
+  const events = bars.flatMap(bar => {
+    const slots = bar.trim().split(/\s+/);
+    if (slots.length !== 16) throw new Error(`${id}: each groove bar must have 16 steps`);
+    return slots.map(slot => {
+      if (slot === ".") return null;
+      const [soundId, amount = "0.72"] = slot.split(":");
+      const level = Number(amount);
+      if (!knownSounds.has(soundId) || !Number.isFinite(level) || level <= 0 || level > 1) {
+        throw new Error(`${id}: invalid groove event ${slot}`);
+      }
+      return { soundId, level };
+    });
+  });
+  const rows = Object.fromEntries([...knownSounds].map(soundId => [soundId, Array(HICCUP_HEAD_STEP_COUNT).fill(0)]));
+  for (let step = 0; step < HICCUP_HEAD_STEP_COUNT; step += 1) {
+    const event = events[step % events.length];
+    if (event) rows[event.soundId][step] = event.level;
+  }
+  return Object.freeze({ id, label, rows: freezePatternRows(rows) });
+};
+
+export const HICCUP_HEAD_GROOVE_PATTERNS = Object.freeze([
+  groovePattern("pocket-backbeat", "Pocket backbeat",
+    "kick:0.92 . tlik:0.3 . snare:0.8 . shh:0.38 bop:0.48 kick:0.82 . tlik:0.27 . snare:0.86 . pff:0.32 .",
+    "kick:0.9 . shh:0.34 kick:0.5 snare:0.82 . tlik:0.3 . kick:0.8 bop:0.45 . shh:0.36 snare:0.86 . tlik:0.25 pop:0.46"),
+  groovePattern("rubber-offbeats", "Rubber offbeats",
+    "bop:0.9 . shh:0.28 boop:0.52 . tlik:0.38 slap:0.78 . bop:0.82 . pff:0.32 . boop:0.64 slap:0.72 . tlik:0.28",
+    "bop:0.84 . boop:0.48 . slap:0.74 tlik:0.3 . shh:0.36 . bop:0.78 . pop:0.5 slap:0.82 . boop:0.42 ."),
+  groovePattern("tongue-breaks", "Tongue breaks",
+    "kick:0.9 tlik:0.25 . pff:0.36 snare:0.76 . kick:0.56 tlik:0.32 . pop:0.48 kick:0.82 . slap:0.84 tlik:0.26 . shh:0.3",
+    "kick:0.88 . tlik:0.29 kick:0.46 snare:0.8 pff:0.3 . tlik:0.35 kick:0.72 . pop:0.42 . slap:0.86 tomlo:0.5 tomhi:0.46 tlik:0.28"),
+  groovePattern("half-time-huff", "Half-time huff",
+    "kick:0.88 . . shh:0.32 . huff:0.5 . . snare:0.85 . . tlik:0.28 kick:0.58 . . pff:0.3",
+    "kick:0.84 . shh:0.3 . . huff:0.54 . bop:0.4 snare:0.82 . . . kick:0.62 . tlik:0.27 ."),
+  groovePattern("fwee-answer", "FWEE call and answer",
+    "kick:0.9 . tlik:0.3 . slap:0.74 whistle:0.65 . . kick:0.76 . shh:0.32 . slap:0.8 whistle:0.72 . .",
+    "kick:0.86 . tlik:0.28 . slap:0.76 doodoo:0.6 . . kick:0.8 . shh:0.35 . slap:0.82 whistle:0.68 . pop:0.38"),
+  groovePattern("three-two-mouth", "Three-two mouth",
+    "bop:0.9 . tlik:0.3 slap:0.74 . shh:0.33 kick:0.8 . tlik:0.28 . slap:0.82 . bop:0.68 . pff:0.32 .",
+    "bop:0.85 . tlik:0.28 slap:0.8 . kick:0.55 . shh:0.3 bop:0.76 . slap:0.8 . tlik:0.32 pop:0.46 . snare:0.7"),
+]);
+
 export const HICCUP_HEAD_PATTERNS = Object.freeze([
   Object.freeze({
     id: "mouth-party",
@@ -1699,6 +1746,7 @@ export const HICCUP_HEAD_PATTERNS = Object.freeze([
       hiccuplong: phraseRow([[15, 0.88]], [[15, 0.92]], [[15, 0.96]], [[15, 1]]),
     }),
   }),
+  ...HICCUP_HEAD_GROOVE_PATTERNS,
 ]);
 
 export function hiccupHeadPattern(id) {

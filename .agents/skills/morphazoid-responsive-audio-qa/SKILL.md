@@ -10,6 +10,13 @@ proves mechanical contracts; it does not claim perceptual or musical quality.
 
 ## Establish the risk surface
 
+Resolve the active checkout and source locations using
+[worktree and source paths](../../../docs/agent-tooling.md#worktree-and-source-paths).
+Follow actual entry imports rather than former root `*-app.js` names. Keep the
+tested server root explicit (source versus built artifact), verify its served
+bytes, and set `MORPHAZOID_QA_BASE_URL` when its port differs from the configured
+default. An old preview URL is not evidence of the current branch.
+
 Read changed files and identify transport state, audio lifecycle, render loop, breakpoint rules, nested scrollers, overlays, stored state, and navigation/catalogue integration. Choose focused tests before the broad suite.
 
 ## Exercise state transitions

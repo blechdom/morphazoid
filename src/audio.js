@@ -666,11 +666,42 @@ export function unlockAudioContext(context) {
   }
 }
 
-/** Fixed-size, click-safe oscillator pool for animation-frame updates. */
+// Noise uses linear automation. Retain its exact current envelope value when
+// interrupting a ramp; cancelScheduledValues alone removes the ramp endpoint
+// and can make the noise level jump before its release begins.
+function releaseStrikeNoise(strike, at, duration) {
+  const parameter = strike.noiseGain?.gain;
+  if (!parameter) return;
+  const points = strike.noiseEnvelope ?? [];
+  let value = 0;
+  for (let index = 0; index < points.length; index++) {
+    const right = points[index];
+    if (right.time > at) {
+      const left = points[index - 1];
+      if (left) value = left.value + (right.value - left.value) * (at - left.time) / (right.time - left.time);
+      break;
+    }
+    value = right.value;
+  }
+  if (typeof parameter.cancelAndHoldAtTime === "function") parameter.cancelAndHoldAtTime(at);
+  else {
+    parameter.cancelScheduledValues(at);
+    // Reconstruct the interrupted linear segment up to this point, including
+    // when a retrigger is scheduled slightly ahead of the audio clock.
+    parameter.linearRampToValueAtTime(value, at);
+  }
+  const end = Math.max(at, Math.min(strike.noiseEndsAt, at + duration));
+  if (end > at) parameter.linearRampToValueAtTime(0, end);
+  else parameter.setValueAtTime(0, at);
+  strike.noiseEnvelope = [...points.filter(point => point.time < at), { time: at, value }, { time: end, value: 0 }];
+  strike.noiseEndsAt = end;
+}
+
+/** Fixed-size oscillator pool for geometry-controlled updates. */
 export class VoicePool {
   /**
    * @param {number} [size] Native fallback and initial continuous voice count.
-   * @param {{adaptive?: boolean, maxVoices?: number, continuousPeakCeiling?: number}} [options]
+   * @param {{adaptive?: boolean, maxVoices?: number, minVoices?: number, voiceQuantum?: number, initialModeVoices?: object, modeVoiceLimits?: object, smoothVoiceStealing?: boolean, robustCoarseTelemetry?: boolean, continuousPeakCeiling?: number}} [options]
    */
   constructor(size = DEFAULT_VOICE_COUNT, options = {}) {
     this.size = Math.max(
@@ -698,11 +729,18 @@ export class VoicePool {
     this.polyphonyController = this.adaptivePolyphony
       ? new AdaptivePolyphonyController({
         initialVoices: this.size,
+        minVoices: options.minVoices,
+        voiceQuantum: options.voiceQuantum,
+        initialModeVoices: options.initialModeVoices,
         hardLimits: Object.fromEntries(Object.entries(ADAPTIVE_POLYPHONY_HARD_LIMITS)
-          .map(([mode, limit]) => [mode, Math.min(limit, this.maxVoiceLimit)])),
+          .map(([mode, limit]) => [mode, Math.min(limit, this.maxVoiceLimit,
+            Number.isFinite(options.modeVoiceLimits?.[mode]) ? options.modeVoiceLimits[mode] : limit)])),
       })
       : null;
     this.polyphonyMode = "sine";
+    this.smoothVoiceStealing = Boolean(options.smoothVoiceStealing);
+    this.robustCoarseTelemetry = Boolean(options.robustCoarseTelemetry);
+    this.usingTimedNotes = false;
     this.renderCapacityUpdatesToIgnore = 0;
     this.voiceDemand = 0;
     this.voiceLimit = this.size;
@@ -820,7 +858,8 @@ export class VoicePool {
 
   observePolyphony(sample) {
     if (!this.polyphonyController) return this.polyphonyStatus;
-    const decision = this.polyphonyController.observe(sample);
+    const decision = this.polyphonyController.observe(this.robustCoarseTelemetry && sample.source === "worklet-coarse"
+      ? { ...sample, peakReliable: false } : sample);
     if (sample.mode === this.polyphonyMode || !sample.mode) this.voiceLimit = decision.limit;
     this.notifyPolyphonyStatus(decision);
     return decision;
@@ -829,7 +868,7 @@ export class VoicePool {
   useAdaptiveFallback(source = "native-fallback") {
     if (!this.polyphonyController) return;
     this.polyphonyController.setTelemetryUnavailable(source);
-    this.voiceLimit = this.size;
+    this.voiceLimit = this.voiceLimitFor(this.polyphonyMode);
     this.notifyPolyphonyStatus();
   }
 
@@ -992,13 +1031,14 @@ export class VoicePool {
           numberOfInputs: 0,
           numberOfOutputs: 1,
           outputChannelCount: [2],
-          processorOptions: { maxVoices: this.maxVoiceLimit },
+          processorOptions: { maxVoices: this.maxVoiceLimit, smoothVoiceStealing: this.smoothVoiceStealing },
         },
       );
       synthNode.connect(this.master);
       synthNode.port.onmessage = (event) => {
         const report = event?.data;
         if (report?.type !== "render-load" || !this.polyphonyController) return;
+        if (this.usingTimedNotes) this.lastSubmittedVoiceCount = report.renderedVoices ?? report.activeVoices ?? 0;
         if (report.supported === false) {
           if (!this.renderCapacityActive) this.useAdaptiveFallback("timing-unavailable");
           return;
@@ -1131,6 +1171,7 @@ export class VoicePool {
    * @param {{requestedVoiceCount?: number, mode?: string, voiceLimit?: number, releaseVoiceAllowance?: number, allowVoiceStarts?: boolean}} [options]
    */
   setVoices(voices, options = {}) {
+    this.usingTimedNotes = false;
     const mode = CONTINUOUS_SYNTH_MODES.has(options.mode)
       ? options.mode
       : voices[0]?.mode ?? this.polyphonyMode;
@@ -1139,9 +1180,10 @@ export class VoicePool {
       Math.floor(Number(options.requestedVoiceCount) || 0),
     );
     if (this.adaptivePolyphony) this.setVoiceDemand(requested, mode);
+    const requestedLimit = Number.isFinite(options.voiceLimit) ? Math.max(0, Math.floor(options.voiceLimit)) : Infinity;
     const limit = this.synthNode
-      ? Math.min(this.voiceLimitFor(mode), this.maxVoiceLimit)
-      : this.size;
+      ? Math.min(this.voiceLimitFor(mode), this.maxVoiceLimit, requestedLimit)
+      : Math.min(this.size, this.voiceLimitFor(mode), requestedLimit);
     const sourceVoices = options.allowVoiceStarts === false
       ? updateStartedVoicesOnly(voices, this.pendingVoices)
       : voices;
@@ -1163,6 +1205,7 @@ export class VoicePool {
    * @param {{requestedVoiceCount?: number, mode?: string, voiceLimit?: number}} [options]
    */
   setVoiceTrajectory(voices, nextVoices, durationSeconds = 0.075, options = {}) {
+    this.usingTimedNotes = false;
     const mode = CONTINUOUS_SYNTH_MODES.has(options.mode)
       ? options.mode
       : voices[0]?.mode ?? nextVoices[0]?.mode ?? this.polyphonyMode;
@@ -1181,7 +1224,7 @@ export class VoicePool {
         this.voiceLimitFor(mode),
         Math.max(0, requestedLimit),
       )
-      : this.size;
+      : Math.min(this.size, this.voiceLimitFor(mode), Math.max(0, requestedLimit));
     const current = this.normalizeContinuousVoices(reduceVoiceContacts(voices, limit));
     const future = this.normalizeContinuousVoices(reduceVoiceContacts(nextVoices, limit));
     this.pendingVoices = current;
@@ -1210,6 +1253,31 @@ export class VoicePool {
       voice.key = null;
       voice.gain.gain.setTargetAtTime(0, now, RELEASE_TIME_CONSTANT);
     }
+  }
+
+  /** Scheduled polyphonic ADSR notes using the same sine/FM/PM/Shepard worklet. */
+  scheduleNotes(voices, { envelopePoints, startAt = this.context?.currentTime ?? 0, hold = false, joinInProgress = false, voiceLimit = this.size, mode = "sine" } = {}) {
+    if (!this.enabled || !this.context) return;
+    const points = sanitizePercussionEnvelope(envelopePoints);
+    const specs = voices.slice(0, 8);
+    this.usingTimedNotes = true;
+    this.setVoiceDemand(voiceLimit, mode);
+    const limit = Math.min(voiceLimit, this.voiceLimitFor(mode), this.maxVoiceLimit);
+    if (this.synthNode) {
+      this.synthNode.port.postMessage({
+        type: "notes", voices: specs, startAt, hold, joinInProgress, voiceLimit: limit, requestedVoiceCount: voiceLimit,
+        envelope: points.map(point => ({ time: percussionEnvelopeTimeMs(point.x) / 1000, level: point.y })),
+      });
+      this.lastSubmittedVoiceCount = Math.min(limit, this.lastSubmittedVoiceCount + specs.length);
+      this.pollPlaybackStats();
+    } else {
+      for (const spec of specs) this.strike(spec, { envelopePoints: points, startAt, attackCurve: "smooth", retriggerMode: "crossfade" });
+    }
+  }
+
+  releaseNotes() {
+    if (this.synthNode) this.synthNode.port.postMessage({ type: "release-notes" });
+    else this.silence();
   }
 
   /** Build one short reusable white-noise buffer for percussion attacks. */
@@ -1245,13 +1313,14 @@ export class VoicePool {
    * the sustained pool, a strike cannot linger merely because a playhead is
    * parked on a corner.
    * @param {VoiceSpec} spec
-   * @param {{attackSeconds?: number, decaySeconds?: number, envelopePoints?: unknown, attackNoise?: number, startDelaySeconds?: number, startAt?: number, retriggerMode?: "overlap"|"crossfade"|"ignore", crossfadeSeconds?: number}} [envelope]
+   * @param {{attackSeconds?: number, decaySeconds?: number, envelopePoints?: unknown, attackNoise?: number, attackCurve?: "exponential"|"smooth", startDelaySeconds?: number, startAt?: number, retriggerMode?: "overlap"|"crossfade"|"ignore", crossfadeSeconds?: number}} [envelope]
    */
   strike(spec, {
     attackSeconds = 0.004,
     decaySeconds = 0.08,
     envelopePoints,
     attackNoise = 0,
+    attackCurve = "exponential",
     startDelaySeconds = 0,
     startAt: requestedStartAt = null,
     retriggerMode = "overlap",
@@ -1290,9 +1359,11 @@ export class VoicePool {
         }
         if (previousStrike.noiseGain) {
           try {
-            const noiseParameter = previousStrike.noiseGain.gain;
-            noiseParameter.cancelScheduledValues(startAt);
-            noiseParameter.setTargetAtTime(0, startAt, fadeDuration / 4);
+            if (previousStrike.smoothNoiseRelease) releaseStrikeNoise(previousStrike, startAt, fadeDuration);
+            else {
+              previousStrike.noiseGain.gain.cancelScheduledValues(startAt);
+              previousStrike.noiseGain.gain.setTargetAtTime(0, startAt, fadeDuration / 4);
+            }
           } catch {
             // An already-ended noise burst needs no fade.
           }
@@ -1386,6 +1457,26 @@ export class VoicePool {
     oscillator.frequency.setValueAtTime(voice.frequency, startAt);
     pan.pan.setValueAtTime(voice.pan ?? 0, startAt);
     gain.gain.setValueAtTime(STRIKE_GAIN_FLOOR, startAt);
+    const scheduleAttack = (target, at) => {
+      if (attackCurve !== "smooth") {
+        gain.gain.exponentialRampToValueAtTime(target, at);
+        return;
+      }
+      // Shape opts into a rounded onset. An exponential rise from the nearly
+      // silent floor puts most of its level change in the final sub-millisecond
+      // of a short attack. A cosine-shaped rise distributes that change without
+      // adding a filter or changing the carrier/decay. Other callers retain
+      // their original exact exponential automation.
+      const segments = 24;
+      for (let segment = 1; segment <= segments; segment += 1) {
+        const progress = segment / segments;
+        const shaped = (1 - Math.cos(Math.PI * progress)) * 0.5;
+        gain.gain.linearRampToValueAtTime(
+          STRIKE_GAIN_FLOOR + (target - STRIKE_GAIN_FLOOR) * shaped,
+          startAt + (at - startAt) * progress,
+        );
+      }
+    };
     if (percussionEnvelope && envelopeTimes) {
       let previousTime = startAt;
       for (let index = 1; index < percussionEnvelope.length; index += 1) {
@@ -1395,19 +1486,21 @@ export class VoicePool {
           tonePeak * percussionEnvelope[index].y,
         );
         if (at <= previousTime) gain.gain.setValueAtTime(target, at);
+        else if (index === 1) scheduleAttack(target, at);
         else gain.gain.exponentialRampToValueAtTime(target, at);
         previousTime = at;
       }
     } else {
       // Preserve the original two-ramp envelope exactly for callers on other
       // pages that still provide attackSeconds/decaySeconds.
-      gain.gain.exponentialRampToValueAtTime(tonePeak, startAt + attack);
+      scheduleAttack(tonePeak, startAt + attack);
       gain.gain.exponentialRampToValueAtTime(STRIKE_GAIN_FLOOR, end);
     }
     gain.gain.setValueAtTime(0, end + 0.008);
     oscillator.connect(gain).connect(pan).connect(this.master);
 
     let noiseEndsAt = startAt;
+    let noiseEnvelope = null;
     if (noiseSource && noiseGain && noisePeak > 0) {
       const duration = Math.min(ATTACK_NOISE_SECONDS, end - startAt);
       const noiseAttack = Math.min(
@@ -1416,6 +1509,9 @@ export class VoicePool {
         Math.max(0.001, duration * 0.2),
       );
       noiseEndsAt = startAt + duration;
+      noiseEnvelope = [
+        { time: startAt, value: 0 }, { time: startAt + noiseAttack, value: noisePeak }, { time: noiseEndsAt, value: 0 },
+      ];
       noiseGain.gain.setValueAtTime(0, startAt);
       noiseGain.gain.linearRampToValueAtTime(noisePeak, startAt + noiseAttack);
       noiseGain.gain.linearRampToValueAtTime(0, startAt + duration);
@@ -1435,6 +1531,8 @@ export class VoicePool {
       noiseSource,
       noiseGain,
       noiseEndsAt,
+      noiseEnvelope,
+      smoothNoiseRelease: attackCurve === "smooth",
       startedAt: startAt,
       attackEndsAt: startAt + attack,
       endedAt: end,
@@ -1637,8 +1735,11 @@ export class VoicePool {
       }
       if (strike.noiseGain) {
         try {
-          strike.noiseGain.gain.cancelScheduledValues(now);
-          strike.noiseGain.gain.setTargetAtTime(0, now, 0.006);
+          if (strike.smoothNoiseRelease) releaseStrikeNoise(strike, now, 0.024);
+          else {
+            strike.noiseGain.gain.cancelScheduledValues(now);
+            strike.noiseGain.gain.setTargetAtTime(0, now, 0.006);
+          }
         } catch {
           // An already-ended noise burst needs no fade.
         }

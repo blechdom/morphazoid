@@ -18,8 +18,11 @@ changes.
 1. Read `AGENTS.md`, `QA_AUTOMATION.md`, the instrument's app/model/audio/tests,
    and `contracts/audio-transport-v1.md` when transport applies.
 2. Resolve the exact route, slug, control, and preset bank from the request,
-   active files, or reproduction context. When multiple candidates remain,
-   identify them and ask before expensive or mutating work; any read-only
+   active files, or reproduction context. Use the
+   [worktree/source map](../../../docs/agent-tooling.md#worktree-and-source-paths)
+   and the page's actual imports; a display name, archived path or old preview
+   port does not identify the current implementation. When multiple candidates
+   remain, identify them and ask before expensive or mutating work; any read-only
    characterization made in the meantime must remain explicitly conditional.
 3. State the instrument's intended identity and central visual-to-audio causal
    loop. If no explicit contract exists, infer it from labels, presets, docs,

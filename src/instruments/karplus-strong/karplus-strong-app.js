@@ -1,3 +1,5 @@
+import { registerHeaderPresets } from "../../site/header-presets.js";
+import { KARPLUS_STRONG_FULL_PRESETS, randomizeKarplusStrongPreset } from "./full-presets.js";
 import {
   KARPLUS_STRONG_DEFAULTS,
   KARPLUS_STRONG_PITCH_BEND_RANGE_CENTS,
@@ -721,4 +723,29 @@ resizeCanvas();
 
 window.addEventListener("pagehide", () => {
   void audio.close();
+});
+
+const fullPresets = registerHeaderPresets({
+  id: "karplus-strong",
+  presets: KARPLUS_STRONG_FULL_PRESETS,
+  randomize: randomizeKarplusStrongPreset,
+  capture: () => ({
+    settings: Object.fromEntries(Object.keys(KARPLUS_STRONG_DEFAULTS).map(key => [key, state[key]])),
+    tuning: Object.fromEntries(Object.keys(KARPLUS_STRONG_TUNING_DEFAULTS).map(key => [key, state[key]])),
+    selectedPresetId: state.selectedPresetId,
+  }),
+  apply(snapshot) {
+    const tuning = sanitizeKarplusStrongTuning(snapshot.tuning);
+    Object.assign(state, snapshot.settings, tuning);
+    state.selectedPresetId = snapshot.selectedPresetId;
+    for (const specification of CONTROL_SPECS) paintControl(specification);
+    $("level").value = String(state.level);
+    $("levelOut").textContent = formatPercent(state.level);
+    audio.setOutput(state.audioOn ? state.level : 0);
+    $("presetSummary").textContent = KARPLUS_STRONG_PRESETS.find(item => item.id === state.selectedPresetId)?.name ?? "Custom";
+    for (const button of $("presetGrid").querySelectorAll("button")) {
+      button.setAttribute("aria-pressed", String(button.dataset.presetId === state.selectedPresetId));
+    }
+    rebuildStringField();
+  },
 });

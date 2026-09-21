@@ -11,14 +11,19 @@ test("homepage and Choose share Faves order, with Creaturazoid immediately after
   const menu = await page.locator('.instrument-picker-group[data-group-id="faves"] .instrument-picker-link')
     .evaluateAll(links => links.map(link => link.dataset.toolId));
   expect(home).toEqual(FAVE_TOOL_IDS);
+  expect(home[0]).toBe("shapes");
+  for (const id of ["shape-synth", "solid-synth", "hyper-synth"]) {
+    expect(home).not.toContain(id);
+    await expect(page.locator(`.catalogue-group[data-category-id="geometric"] .instrument-card[data-instrument-id="${id}"]`)).toBeVisible();
+  }
   expect(menu).toEqual(home);
   expect(home[home.indexOf("hiccup-head") + 1]).toBe("creaturazoid");
   expect(home).not.toContain("spiral");
   await expect(page.locator('.catalogue-group[data-category-id="tesselation"] .instrument-card[data-instrument-id="spiral"]')).toBeVisible();
-  const next = page.getByRole("link", { name: "Next instrument: Shape", exact: true });
+  const next = page.getByRole("link", { name: "Next instrument: Shapes", exact: true });
   await expect(next).toBeVisible();
   await next.click();
-  await expect(page).toHaveURL(/\/shape-synth\.html$/);
+  await expect(page).toHaveURL(/\/shapes\.html(?:\?|$)/);
   await expect(page.locator("#audioButton")).toHaveAttribute("aria-pressed", "false");
 });
 
@@ -36,7 +41,7 @@ for (const layout of [
       const next = page.getByRole("link", { name: "Next instrument: Creaturazoid", exact: true });
       await expect(next).toBeVisible();
       const arrowBox = await next.boundingBox();
-      const menuBox = await page.locator(".instrument-picker-trigger").boundingBox();
+      const menuBox = await page.locator(".tabs .instrument-picker-trigger").boundingBox();
       expect(arrowBox.x).toBeGreaterThanOrEqual(menuBox.x + menuBox.width);
       expect(arrowBox.x + arrowBox.width).toBeLessThanOrEqual(layout.width);
       expect(Math.abs(arrowBox.y + arrowBox.height / 2 - menuBox.y - menuBox.height / 2)).toBeLessThan(2);
@@ -44,10 +49,10 @@ for (const layout of [
         expect(arrowBox.width).toBeGreaterThanOrEqual(48);
         expect(arrowBox.height).toBeGreaterThanOrEqual(48);
       }
-      await page.locator(".instrument-picker-trigger").click();
+      await page.locator(".tabs .instrument-picker-trigger").click();
       await expect(page.getByRole("searchbox", { name: "Filter instruments" })).toBeVisible();
       await page.keyboard.press("Escape");
-      await expect(page.locator(".instrument-picker")).not.toHaveAttribute("open", "");
+      await expect(page.locator(".tabs .instrument-picker")).not.toHaveAttribute("open", "");
       await next.focus();
       // The focused navigation control does not double as an instrument shortcut.
       await page.keyboard.press("Space");
@@ -55,7 +60,7 @@ for (const layout of [
       await expect(page.locator("#playButton")).toHaveAttribute("aria-pressed", "false");
       await page.keyboard.press("Enter");
       await expect(page).toHaveURL(/\/creaturazoid\.html$/);
-      await expect(page.locator(".instrument-picker")).toHaveAttribute("data-active-tool-id", "creaturazoid");
+      await expect(page.locator(".tabs .instrument-picker")).toHaveAttribute("data-active-tool-id", "creaturazoid");
       await expect(page.locator("#audioButton")).toHaveAttribute("aria-pressed", "false");
       expect((await readAudioStatus(page)).connectionCount).toBe(0);
       expect(pageDiagnosticMessages(diagnostics)).toEqual([]);

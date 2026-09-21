@@ -109,7 +109,9 @@ test("Shape's eight macros and sixteen Maschine pad commands are stable", () => 
 
 test("Shape applies the MIDI overlay to every rendered sound path and restores it across BFCache", async () => {
   const app = await readFile(new URL("../src/instruments/shape-synth/shape-synth-app.js", import.meta.url), "utf8");
-  assert.match(app, /gain: amplitudeGainForContact\(contact, path\) \* shapeMidiSnapshot\.gain/);
+  const sound = await readFile(new URL("../src/families/geometry-presets/shape-sound.js", import.meta.url), "utf8");
+  assert.match(app, /createShapeSoundModel\(state, \{ getMidiSnapshot: \(\) => shapeMidiSnapshot \}\)/);
+  assert.match(sound, /gain: amplitudeGainForContact\(contact, path\) \* getMidiSnapshot\(\)\.gain/);
   assert.match(app, /const frequency = synthFrequencyForMapping\(mapping\);/);
   assert.match(app, /gain: peak \* shapeMidiSnapshot\.gain/);
   assert.match(app, /if \(message\.logical\?\.type === "pad"\) \{[\s\S]*?if \(message\.type === "noteOn"\)/);

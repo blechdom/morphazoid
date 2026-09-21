@@ -1,4 +1,6 @@
 import { unlockAudioContext } from "../../audio.js";
+import { registerHeaderPresets } from "../../site/header-presets.js";
+import { AUTOMATA_FULL_PRESETS, captureAutomataPreset, validateAutomataPreset, randomizeAutomataPreset } from "./automata-presets.js";
 import { connectAudioOutput } from "../../audio-output-manager.js";
 import {
   ORBITAL_FERRIS_DEFAULTS,
@@ -554,6 +556,7 @@ const context2d = canvas?.getContext("2d", { alpha: true, desynchronized: true }
 const audio = new ExperimentAudio();
 const experiment = document.body?.dataset?.experiment ?? "moire";
 const controls = new Map();
+const presetControlPainters = new Map();
 const state = {
   audioOn: false,
   audioStarting: false,
@@ -743,6 +746,7 @@ function bindRange(id, key, formatter = (value) => compact(value)) {
   };
   element.addEventListener("input", sync);
   controls.set(id, sync);
+  presetControlPainters.set(key, () => { element.value = String(state[key]); if (output) output.textContent = formatter(state[key]); });
   sync();
 }
 
@@ -4205,3 +4209,26 @@ globalThis.addEventListener?.("pagehide", () => {
 });
 
 boot();
+
+if (experiment === "automata") registerHeaderPresets({
+  id: "cellular-automata", presets: AUTOMATA_FULL_PRESETS, randomize: randomizeAutomataPreset,
+  capture: () => captureAutomataPreset(state),
+  apply(snapshot) {
+    validateAutomataPreset(snapshot);
+    const elapsed = automatapoeiaRetimedAccumulator(state.caAccumulator, state.caGeneration,
+      state.caRate, state.caSwing, snapshot.parameters.caRate, snapshot.parameters.caSwing);
+    Object.assign(state, snapshot.parameters);
+    state.caSeedOrigin = snapshot.seedOrigin;
+    seedAutomata({ rebuildInitial: true });
+    state.caAccumulator = Math.min(elapsed, automatapoeiaSwingInterval(0, state.caRate, state.caSwing));
+    for (const [key, value] of Object.entries(snapshot.parameters)) if ($(key)) $(key).value = String(value);
+    for (const paint of presetControlPainters.values()) paint();
+    setText("levelOut", percent(state.level));
+    updateAutomataFamilyPresentation();
+    populateAutomataRuleAtlas();
+    updateAutomataRuleControls();
+    refreshAutomataSoundAnalysis();
+    updateCommonAudio();
+    updateSummaries();
+  },
+});

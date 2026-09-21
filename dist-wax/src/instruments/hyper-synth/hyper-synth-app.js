@@ -1,11 +1,13 @@
+import { createGeometryVoicePool } from "../../families/geometry-presets/audio-budget.js";
+import { geometryContactVoice } from "../../families/geometry-presets/geometry-sound.js";
+import { registerHeaderPresets } from "../../site/header-presets.js";
+import { createHyperInitialState, HYPER_FULL_PRESETS, captureGeometryPreset, validateGeometryPreset, randomizeGeometryPreset } from "../../families/geometry-presets/full-presets.js";
 import {
-  VoicePool,
   clamp,
   cornerAttackSeconds,
   cornerDecaySeconds,
   normalizeStrikeGains,
   pitch01ToFrequency,
-  synthParametersForMode,
 } from "../../audio.js";
 import { projectPoint3, rotatePoint3 } from "../../solid.js";
 import {
@@ -28,41 +30,9 @@ const MAX_CORNER_STRIKES = 16;
 const canvas = $("stage");
 const stageWrap = $("stageWrap");
 const context = canvas.getContext("2d", { desynchronized: true });
-const pool = new VoicePool(32, { continuousPeakCeiling: 0.78 });
+const pool = createGeometryVoicePool();
 const amplitudeControl = createAmplitudeControl($("amplitudeControl"), { onChange: scheduleFrame });
-const state = {
-  shapeType: "tesseract",
-  profileSides: 4,
-  profileShapeType: "polygon",
-  profileStarDepth: 0.48,
-  position: 0.5,
-  continuousPosition: 0.5,
-  speed: 0.1,
-  direction: 1,
-  playing: false,
-  rotationXW: 24,
-  rotationYW: -18,
-  rotationZW: 12,
-  rotationXWPlaying: false,
-  rotationYWPlaying: false,
-  rotationZWPlaying: false,
-  rotationXWSpeed: 0.06,
-  rotationYWSpeed: 0.04,
-  rotationZWSpeed: -0.02,
-  hyperScaleX: 1,
-  hyperScaleY: 1,
-  hyperScaleZ: 1,
-  hyperScaleW: 1,
-  audio: false,
-  soundMode: "sine",
-  level: 0.6,
-  baseFrequency: 82,
-  pitchRange: 4,
-  fmIndex: 3.5,
-  fmRatio: 1.5,
-  percussionAttack: 3,
-  percussionDecay: 120,
-};
+const state = createHyperInitialState();
 let cssWidth = 1;
 let cssHeight = 1;
 let pixelRatio = 1;
@@ -98,11 +68,13 @@ function resizeCanvas() {
 new ResizeObserver(resizeCanvas).observe(stageWrap);
 resizeCanvas();
 
+const presetRangeRefreshers = new Map();
 function bindRange(id, key, formatter, afterChange) {
   const input = $(id);
   const output = $(`${id}Out`);
   input.value = String(state[key]);
   const update = () => { output.textContent = formatter(state[key]); };
+  presetRangeRefreshers.set(key, () => { input.value = String(state[key]); update(); });
   input.addEventListener("input", () => {
     state[key] = Number(input.value);
     update();
@@ -134,6 +106,7 @@ for (const axis of ["X", "Y", "Z", "W"]) {
 }
 bindRange("baseFrequency", "baseFrequency", (value) => `${Math.round(value)} Hz`);
 bindRange("pitchRange", "pitchRange", (value) => `${value.toFixed(2)} oct`);
+bindRange("voiceLimit", "voiceLimit", (value) => `${Math.round(value)} voices`);
 bindRange("fmIndex", "fmIndex", (value) => `${value.toFixed(2)} max`);
 bindRange("fmRatio", "fmRatio", (value) => `${value.toFixed(2)} : 1`);
 bindRange("percussionAttack", "percussionAttack", (value) => `${Number(value).toFixed(value % 1 ? 1 : 0)} ms`);
@@ -269,6 +242,7 @@ $("soundMode").addEventListener("change", (event) => {
   $("fmControls").hidden = !["fm", "pm"].includes(state.soundMode);
   $("percussionArticulation").hidden = state.soundMode !== "percussion";
   amplitudeControl.setVisible(state.soundMode !== "percussion");
+  $("voiceLimitControl").hidden = state.soundMode === "percussion";
   pool.silence();
   previousSigns = null;
   scheduleFrame();
@@ -415,24 +389,7 @@ function drawScene(tesseract, contacts, offset) {
 }
 
 function contactVoice(contact, index) {
-  const projected = viewPoint(contact);
-  const pitch = clamp((projected.y + 1.2) / 2.4, 0, 1);
-  const drive = clamp((contact.w + 1.25) / 2.5, 0, 1);
-  return {
-    key: `hyper:${contact.edgeIndex ?? index}`,
-    frequency: pitch01ToFrequency(pitch, state.baseFrequency, state.pitchRange),
-    gain: amplitudeControl.sample(contact.t ?? 0, 0.18 + 0.64 * (contact.cornerStrength ?? 0)),
-    pan: clamp(projected.x, -1, 1),
-    waveform: "sine",
-    ...synthParametersForMode(state.soundMode, drive, {
-      fmIndex: state.fmIndex,
-      fmRatio: state.fmRatio,
-      pmIndex: state.fmIndex * 0.7,
-      pmRatio: state.fmRatio,
-      shepardRate: state.playing ? state.speed * state.direction : 0,
-      shepardWidth: 5,
-    }),
-  };
+  return geometryContactVoice("hyper", contact, index, state, (amount, peak) => amplitudeControl.sample(amount, peak));
 }
 
 function evenlySelect(items, limit) {
@@ -513,7 +470,7 @@ function frame(now) {
     emitCorners(tesseract, offset);
   }
   const continuous = state.soundMode !== "percussion";
-  const voicedContacts = evenlySelect(contacts, MAX_HYPER_VOICES);
+  const voicedContacts = evenlySelect(contacts, Math.min(MAX_HYPER_VOICES, state.voiceLimit));
   const voices = continuous ? voicedContacts.map(contactVoice) : [];
   if (state.audio) {
     if (continuous && moving) {
@@ -528,8 +485,8 @@ function frame(now) {
         future,
         currentHyperplaneOffset(future, futurePhase),
       );
-      const futureVoices = evenlySelect(futureContacts, MAX_HYPER_VOICES).map(contactVoice);
-      pool.setVoiceTrajectory(voices, futureVoices, lookahead);
+      const futureVoices = evenlySelect(futureContacts, Math.min(MAX_HYPER_VOICES, state.voiceLimit)).map(contactVoice);
+      pool.setVoiceTrajectory(voices, futureVoices, lookahead, { voiceLimit: state.voiceLimit });
     } else pool.setVoices([]);
   }
 
@@ -691,6 +648,7 @@ function resetShapesBank(bank) {
     for (const [id, value] of [
       ["baseFrequency", 82],
       ["pitchRange", 4],
+      ["voiceLimit", 20],
       ["fmIndex", 3.5],
       ["fmRatio", 1.5],
       ["percussionAttack", 3],
@@ -806,3 +764,37 @@ installShapesNativeBridge({
 window.addEventListener("pagehide", (event) => event.persisted ? pool.disable() : void pool.close());
 paintRotation();
 scheduleFrame();
+
+registerHeaderPresets({
+  id: "hyper-synth", presets: HYPER_FULL_PRESETS,
+  randomize: (current, random) => randomizeGeometryPreset("hyper", current, random),
+  capture: () => captureGeometryPreset("hyper", state, amplitudeControl.captureState()),
+  apply(snapshot) {
+    validateGeometryPreset("hyper", snapshot);
+    const wasMoving = state.playing || rotationIsMoving(), oldMode = state.soundMode;
+    Object.assign(state, snapshot.parameters);
+    if (!state.playing) {
+      state.position = 0.5;
+      state.continuousPosition = Math.floor(state.continuousPosition) + 0.5;
+    }
+    setPressed($("playButton"), state.playing);
+    $("playSummary").textContent = `W plane · ${state.playing ? "playing" : "paused"}`;
+    amplitudeControl.applyState(snapshot.envelope);
+    for (const refresh of presetRangeRefreshers.values()) refresh();
+    $("hyperShape").value = state.shapeType;
+    $("formSummary").textContent = SHAPE_LABELS[state.shapeType] ?? state.shapeType;
+    $("soundMode").value = state.soundMode;
+    $("soundSummary").textContent = state.soundMode.toUpperCase();
+    $("fmControls").hidden = !["fm", "pm"].includes(state.soundMode);
+    $("percussionArticulation").hidden = state.soundMode !== "percussion";
+    amplitudeControl.setVisible(state.soundMode !== "percussion");
+    $("voiceLimitControl").hidden = state.soundMode === "percussion";
+    $("directionButton").textContent = `Direction · ${state.direction > 0 ? "forward" : "reverse"}`;
+    previousSigns = null;
+    if (!wasMoving && (state.playing || rotationIsMoving())) resetClocks();
+    if (!(state.playing || rotationIsMoving()) || oldMode !== state.soundMode) pool.silence();
+    pool.setLevel(state.level);
+    paintRotation();
+    scheduleFrame();
+  },
+});

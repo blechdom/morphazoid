@@ -1,0 +1,1443 @@
+{
+  "schemaVersion": 1,
+  "date": "2026-09-21",
+  "branch": "codex/full-instrument-presets",
+  "source": "uncommitted working tree",
+  "counts": {
+    "implemented": 24,
+    "fullPresets": 451,
+    "favesImplemented": 13,
+    "activeRemaining": 64,
+    "regularRemaining": 123
+  },
+  "verification": {
+    "browser": "53 unique browser cases passed after two selector corrections; final additional swell and two seeded-random reruns passed. All 106 factory recalls/audio, 48 seeded random scenes, MIDI, storage/BFCache and phone layouts covered.",
+    "wax": "regenerated: 198 pages; clean-build parity passed",
+    "humanListening": "Owner audition of overlapping ADSR/swell, note timbres and trigger subdivisions remains required",
+    "repository": "npm run verify passed: 3935 passed, 6 skipped; syntax, SIMD, XYFlow and clean-build WAX parity passed"
+  },
+  "entries": [
+    {
+      "id": "shape-synth",
+      "label": "Shape",
+      "href": "shape-synth.html",
+      "category": "geometric",
+      "scope": "regular",
+      "presets": 36,
+      "status": "implemented-verification-pending"
+    },
+    {
+      "id": "solid-synth",
+      "label": "Solid",
+      "href": "solid-synth.html",
+      "category": "geometric",
+      "scope": "regular",
+      "presets": 20,
+      "status": "implemented-verification-pending"
+    },
+    {
+      "id": "hyper-synth",
+      "label": "Hyper",
+      "href": "hyper-synth.html",
+      "category": "geometric",
+      "scope": "regular",
+      "presets": 20,
+      "status": "implemented-verification-pending"
+    },
+    {
+      "id": "graph-synth",
+      "label": "Graph Synth",
+      "href": "graph-synth.html",
+      "category": "geometric",
+      "scope": "fave",
+      "presets": 12,
+      "status": "implemented-verification-pending"
+    },
+    {
+      "id": "shape-drum-machine",
+      "label": "Shape Drum Machine",
+      "href": "shape-drum-machine.html",
+      "category": "geometric",
+      "scope": "regular",
+      "presets": null,
+      "status": "unmigrated"
+    },
+    {
+      "id": "solid-drum-machine",
+      "label": "Solid Drum Machine",
+      "href": "solid-drum-machine.html",
+      "category": "geometric",
+      "scope": "regular",
+      "presets": null,
+      "status": "unmigrated"
+    },
+    {
+      "id": "hyper-drum-machine",
+      "label": "Hyper Drum Machine",
+      "href": "hyper-drum-machine.html",
+      "category": "geometric",
+      "scope": "regular",
+      "presets": null,
+      "status": "unmigrated"
+    },
+    {
+      "id": "graph-drum-machine",
+      "label": "Graph Drum Machine",
+      "href": "graph-drum-machine.html",
+      "category": "geometric",
+      "scope": "regular",
+      "presets": null,
+      "status": "unmigrated"
+    },
+    {
+      "id": "shapes",
+      "label": "Shapes",
+      "href": "shapes.html",
+      "category": "app",
+      "scope": "fave",
+      "presets": 106,
+      "status": "implemented-automated-verified"
+    },
+    {
+      "id": "l-systems",
+      "label": "L-Systems",
+      "href": "l-systems.html",
+      "category": "app",
+      "scope": "regular",
+      "presets": null,
+      "status": "unmigrated"
+    },
+    {
+      "id": "graphs",
+      "label": "Graphs",
+      "href": "graphs.html",
+      "category": "app",
+      "scope": "regular",
+      "presets": null,
+      "status": "unmigrated"
+    },
+    {
+      "id": "tesselation",
+      "label": "Tesselation",
+      "href": "tesselation.html",
+      "category": "app",
+      "scope": "regular",
+      "presets": null,
+      "status": "unmigrated"
+    },
+    {
+      "id": "lattice",
+      "label": "Lattice",
+      "href": "lattice.html",
+      "category": "tesselation",
+      "scope": "fave",
+      "presets": 12,
+      "status": "implemented-verification-pending"
+    },
+    {
+      "id": "spiral",
+      "label": "Spiral",
+      "href": "spiral.html",
+      "category": "tesselation",
+      "scope": "regular",
+      "presets": null,
+      "status": "unmigrated"
+    },
+    {
+      "id": "lattice-drum-machine",
+      "label": "Lattice Drum Machine",
+      "href": "lattice-drum-machine.html",
+      "category": "tesselation",
+      "scope": "regular",
+      "presets": null,
+      "status": "unmigrated"
+    },
+    {
+      "id": "spiral-drum-machine",
+      "label": "Spiral Drum Machine",
+      "href": "spiral-drum-machine.html",
+      "category": "tesselation",
+      "scope": "regular",
+      "presets": null,
+      "status": "unmigrated"
+    },
+    {
+      "id": "l-system-drum-machine",
+      "label": "L-System Drum Machine",
+      "href": "l-system-drum-machine.html",
+      "category": "fractal",
+      "scope": "regular",
+      "presets": null,
+      "status": "unmigrated"
+    },
+    {
+      "id": "l-system",
+      "label": "L-System",
+      "href": "l-system.html",
+      "category": "fractal",
+      "scope": "fave",
+      "presets": 14,
+      "status": "implemented-verification-pending"
+    },
+    {
+      "id": "julia",
+      "label": "Julia",
+      "href": "julia.html",
+      "category": "fractal",
+      "scope": "regular",
+      "presets": null,
+      "status": "unmigrated"
+    },
+    {
+      "id": "striped-staircase",
+      "label": "Striped Staircase",
+      "href": "striped-staircase.html",
+      "category": "fractal",
+      "scope": "regular",
+      "presets": null,
+      "status": "unmigrated"
+    },
+    {
+      "id": "rattlesnake-skin",
+      "label": "Rattlesnake Skin",
+      "href": "rattlesnake-skin.html",
+      "category": "instrument",
+      "scope": "regular",
+      "presets": null,
+      "status": "unmigrated"
+    },
+    {
+      "id": "fm-drums",
+      "label": "FM Drums",
+      "href": "fm-drums.html",
+      "category": "instrument",
+      "scope": "regular",
+      "presets": null,
+      "status": "unmigrated"
+    },
+    {
+      "id": "linear-drums",
+      "label": "Rattlesnake",
+      "href": "linear-drums.html",
+      "category": "instrument",
+      "scope": "regular",
+      "presets": null,
+      "status": "unmigrated"
+    },
+    {
+      "id": "karplus-strong",
+      "label": "Karplus Strong",
+      "href": "karplus-strong.html",
+      "category": "instrument",
+      "scope": "regular",
+      "presets": 16,
+      "status": "implemented-verification-pending"
+    },
+    {
+      "id": "karplus-carpet",
+      "label": "Karplus Carpet",
+      "href": "karplus-carpet.html",
+      "category": "instrument",
+      "scope": "regular",
+      "presets": null,
+      "status": "unmigrated"
+    },
+    {
+      "id": "sample-drums",
+      "label": "Sample Drums",
+      "href": "sample-drums.html",
+      "category": "instrument",
+      "scope": "regular",
+      "presets": null,
+      "status": "unmigrated"
+    },
+    {
+      "id": "object-forge",
+      "label": "Dentaphone",
+      "href": "dentaphone.html",
+      "category": "instrument",
+      "scope": "regular",
+      "presets": null,
+      "status": "unmigrated"
+    },
+    {
+      "id": "rubix",
+      "label": "Rubix Cube Sequencer",
+      "href": "rubix.html",
+      "category": "sequencer",
+      "scope": "fave",
+      "presets": 12,
+      "status": "implemented-verification-pending"
+    },
+    {
+      "id": "sliding-puzzle",
+      "label": "Sliding Puzzle",
+      "href": "sliding-puzzle.html",
+      "category": "sequencer",
+      "scope": "regular",
+      "presets": null,
+      "status": "unmigrated"
+    },
+    {
+      "id": "hocket-loom",
+      "label": "Hocket Luigi",
+      "href": "hocket-loom.html",
+      "category": "sequencer",
+      "scope": "regular",
+      "presets": null,
+      "status": "unmigrated"
+    },
+    {
+      "id": "hyper-rubix",
+      "label": "Hyper Rubix",
+      "href": "hyper-rubix.html",
+      "category": "sequencer",
+      "scope": "fave",
+      "presets": 12,
+      "status": "implemented-verification-pending"
+    },
+    {
+      "id": "jaw-jam",
+      "label": "Jaw Jam",
+      "href": "jaw-jam.html",
+      "category": "sequencer",
+      "scope": "regular",
+      "presets": null,
+      "status": "unmigrated"
+    },
+    {
+      "id": "enveloper",
+      "label": "Enveloper",
+      "href": "enveloper.html",
+      "category": "sequencer",
+      "scope": "regular",
+      "presets": null,
+      "status": "unmigrated"
+    },
+    {
+      "id": "webgpu-303",
+      "label": "WebGPU 303",
+      "href": "webgpu-303.html",
+      "category": "gpu-audio",
+      "scope": "regular",
+      "presets": null,
+      "status": "unmigrated"
+    },
+    {
+      "id": "webgpu-chiptune",
+      "label": "WebGPU Chiptune",
+      "href": "webgpu-chiptune.html",
+      "category": "gpu-audio",
+      "scope": "regular",
+      "presets": null,
+      "status": "unmigrated"
+    },
+    {
+      "id": "webgpu-synths",
+      "label": "GPU Shader Synths",
+      "href": "webgpu-synths.html",
+      "category": "gpu-audio",
+      "scope": "regular",
+      "presets": null,
+      "status": "unmigrated"
+    },
+    {
+      "id": "srtuss",
+      "label": "srtuss Master",
+      "href": "srtuss.html",
+      "category": "gpu-audio",
+      "scope": "regular",
+      "presets": null,
+      "status": "unmigrated"
+    },
+    {
+      "id": "shader-synth-playground",
+      "label": "Modular Shader Synth",
+      "href": "shader-synth-playground.html",
+      "category": "gpu-audio",
+      "scope": "regular",
+      "presets": null,
+      "status": "unmigrated"
+    },
+    {
+      "id": "simd-303",
+      "label": "SIMD 303",
+      "href": "simd-303.html",
+      "category": "simd-audio",
+      "scope": "regular",
+      "presets": null,
+      "status": "unmigrated"
+    },
+    {
+      "id": "simd-synth",
+      "label": "SIMD Synth",
+      "href": "simd-synth.html",
+      "category": "simd-audio",
+      "scope": "regular",
+      "presets": null,
+      "status": "unmigrated"
+    },
+    {
+      "id": "simd-resonator",
+      "label": "SIMD Resonator",
+      "href": "simd-resonator.html",
+      "category": "simd-audio",
+      "scope": "regular",
+      "presets": null,
+      "status": "unmigrated"
+    },
+    {
+      "id": "throatazoid",
+      "label": "Throatazoid",
+      "href": "throatazoid.html",
+      "category": "physical-model",
+      "scope": "regular",
+      "presets": null,
+      "status": "unmigrated"
+    },
+    {
+      "id": "pink-trombonazoid",
+      "label": "Pink Trombonazoid",
+      "href": "pink-trombonazoid.html",
+      "category": "physical-model",
+      "scope": "regular",
+      "presets": null,
+      "status": "unmigrated"
+    },
+    {
+      "id": "throat-singing",
+      "label": "Throat Singing",
+      "href": "throat-singing.html",
+      "category": "physical-model",
+      "scope": "regular",
+      "presets": null,
+      "status": "unmigrated"
+    },
+    {
+      "id": "monstroid",
+      "label": "Monstroid",
+      "href": "monstroid.html",
+      "category": "physical-model",
+      "scope": "regular",
+      "presets": null,
+      "status": "unmigrated"
+    },
+    {
+      "id": "jaw-harp",
+      "label": "Jaw Harp",
+      "href": "jaw-harp.html",
+      "category": "physical-model",
+      "scope": "fave",
+      "presets": 16,
+      "status": "implemented-verification-pending"
+    },
+    {
+      "id": "harmonica",
+      "label": "Harmonicazoid",
+      "href": "harmonica.html",
+      "category": "physical-model",
+      "scope": "regular",
+      "presets": null,
+      "status": "unmigrated"
+    },
+    {
+      "id": "julie-saw",
+      "label": "Julie Saw",
+      "href": "julie-saw.html",
+      "category": "physical-model",
+      "scope": "regular",
+      "presets": null,
+      "status": "unmigrated"
+    },
+    {
+      "id": "hiccup-head",
+      "label": "Hiccup Head",
+      "href": "hiccup-head.html",
+      "category": "physical-model",
+      "scope": "fave",
+      "presets": 25,
+      "status": "implemented-verification-pending"
+    },
+    {
+      "id": "syrinx",
+      "label": "Syrinx",
+      "href": "syrinx.html",
+      "category": "bioacoustic",
+      "scope": "regular",
+      "presets": null,
+      "status": "unmigrated"
+    },
+    {
+      "id": "tongued-beasts",
+      "label": "Tongued Beasts",
+      "href": "tongued-beasts.html",
+      "category": "bioacoustic",
+      "scope": "regular",
+      "presets": null,
+      "status": "unmigrated"
+    },
+    {
+      "id": "hybrinx",
+      "label": "Hybrinx",
+      "href": "hybrinx.html",
+      "category": "bioacoustic",
+      "scope": "fave",
+      "presets": 12,
+      "status": "implemented-verification-pending"
+    },
+    {
+      "id": "creaturazoid",
+      "label": "Creaturazoid",
+      "href": "creaturazoid.html",
+      "category": "bioacoustic",
+      "scope": "fave",
+      "presets": 12,
+      "status": "implemented-verification-pending"
+    },
+    {
+      "id": "quadruped",
+      "label": "Quadruped",
+      "href": "quadruped.html",
+      "category": "bioacoustic",
+      "scope": "regular",
+      "presets": null,
+      "status": "unmigrated"
+    },
+    {
+      "id": "roach-synth",
+      "label": "Roach Synth",
+      "href": "roach-synth.html",
+      "category": "bioacoustic",
+      "scope": "regular",
+      "presets": null,
+      "status": "unmigrated"
+    },
+    {
+      "id": "spider-synth",
+      "label": "Spider Synth",
+      "href": "spider-synth.html",
+      "category": "bioacoustic",
+      "scope": "regular",
+      "presets": null,
+      "status": "unmigrated"
+    },
+    {
+      "id": "blowhole",
+      "label": "Blowhole",
+      "href": "blowhole.html",
+      "category": "bioacoustic",
+      "scope": "regular",
+      "presets": null,
+      "status": "unmigrated"
+    },
+    {
+      "id": "digestazoid",
+      "label": "Digestazoid",
+      "href": "digestazoid.html",
+      "category": "bioacoustic",
+      "scope": "regular",
+      "presets": null,
+      "status": "unmigrated"
+    },
+    {
+      "id": "crickets",
+      "label": "Crickets",
+      "href": "crickets.html",
+      "category": "bioacoustic",
+      "scope": "deferred-lab",
+      "presets": null,
+      "status": "deferred"
+    },
+    {
+      "id": "vocalzoid",
+      "label": "Vocalzoid",
+      "href": "vocalzoid.html",
+      "category": "voice",
+      "scope": "regular",
+      "presets": null,
+      "status": "unmigrated"
+    },
+    {
+      "id": "lumber",
+      "label": "Lumber Loops",
+      "href": "lumber.html",
+      "category": "audio-effect",
+      "scope": "regular",
+      "presets": null,
+      "status": "unmigrated"
+    },
+    {
+      "id": "micmic",
+      "label": "L-system Delay",
+      "href": "l-mic.html",
+      "category": "audio-effect",
+      "scope": "fave",
+      "presets": 16,
+      "status": "implemented-verification-pending"
+    },
+    {
+      "id": "graph-delay",
+      "label": "Graph Delay",
+      "href": "graph-delay.html",
+      "category": "audio-effect",
+      "scope": "fave",
+      "presets": 14,
+      "status": "implemented-verification-pending"
+    },
+    {
+      "id": "shepard-risset",
+      "label": "Shepard\u2013Risset",
+      "href": "shepard-risset.html",
+      "category": "infinite-illusion",
+      "scope": "regular",
+      "presets": null,
+      "status": "unmigrated"
+    },
+    {
+      "id": "slippery-resynthesis",
+      "label": "Slippery Resynthesis",
+      "href": "slippery-resynthesis.html",
+      "category": "infinite-illusion",
+      "scope": "regular",
+      "presets": null,
+      "status": "unmigrated"
+    },
+    {
+      "id": "drum-roll-please",
+      "label": "Drum Roll Please!",
+      "href": "drum-roll-please.html",
+      "category": "infinite-illusion",
+      "scope": "regular",
+      "presets": null,
+      "status": "unmigrated"
+    },
+    {
+      "id": "ouroborousel",
+      "label": "Ouroborousel",
+      "href": "ouroborousel.html",
+      "category": "infinite-illusion",
+      "scope": "regular",
+      "presets": null,
+      "status": "unmigrated"
+    },
+    {
+      "id": "ourorourobouroboros",
+      "label": "Ourorourobouroboros",
+      "href": "ourorourobouroboros.html",
+      "category": "infinite-illusion",
+      "scope": "regular",
+      "presets": null,
+      "status": "unmigrated"
+    },
+    {
+      "id": "ouroboros",
+      "label": "Ouroboros",
+      "href": "ouroboros.html",
+      "category": "infinite-illusion",
+      "scope": "regular",
+      "presets": null,
+      "status": "unmigrated"
+    },
+    {
+      "id": "ouroboros-borealis",
+      "label": "Ouroboros Borealis",
+      "href": "ouroboros-borealis.html",
+      "category": "infinite-illusion",
+      "scope": "regular",
+      "presets": null,
+      "status": "unmigrated"
+    },
+    {
+      "id": "sandy-syrup-delay",
+      "label": "Sandy Syrup Delay",
+      "href": "sandy-syrup-delay.html",
+      "category": "infinite-illusion",
+      "scope": "regular",
+      "presets": null,
+      "status": "unmigrated"
+    },
+    {
+      "id": "candy-coil-delay",
+      "label": "Candy Coil Delay",
+      "href": "candy-coil-delay.html",
+      "category": "infinite-illusion",
+      "scope": "regular",
+      "presets": null,
+      "status": "unmigrated"
+    },
+    {
+      "id": "recursive-fm",
+      "label": "Recursive FM",
+      "href": "recursive-fm.html",
+      "category": "synthesizer",
+      "scope": "regular",
+      "presets": null,
+      "status": "unmigrated"
+    },
+    {
+      "id": "recursive-pm",
+      "label": "Recursive PM",
+      "href": "recursive-pm.html",
+      "category": "synthesizer",
+      "scope": "regular",
+      "presets": null,
+      "status": "unmigrated"
+    },
+    {
+      "id": "chaotic-fm",
+      "label": "Chaotic FM",
+      "href": "chaotic-fm.html",
+      "category": "synthesizer",
+      "scope": "regular",
+      "presets": null,
+      "status": "unmigrated"
+    },
+    {
+      "id": "chaotic-pm",
+      "label": "Chaotic PM",
+      "href": "chaotic-pm.html",
+      "category": "synthesizer",
+      "scope": "regular",
+      "presets": null,
+      "status": "unmigrated"
+    },
+    {
+      "id": "cascading-fm",
+      "label": "Cascading FM",
+      "href": "cascading-fm.html",
+      "category": "synthesizer",
+      "scope": "regular",
+      "presets": 12,
+      "status": "implemented-verification-pending"
+    },
+    {
+      "id": "cascading-pm",
+      "label": "Cascading PM",
+      "href": "cascading-pm.html",
+      "category": "synthesizer",
+      "scope": "regular",
+      "presets": 12,
+      "status": "implemented-verification-pending"
+    },
+    {
+      "id": "weierstrass",
+      "label": "Weierstrass",
+      "href": "weierstrass.html",
+      "category": "synthesizer",
+      "scope": "regular",
+      "presets": null,
+      "status": "unmigrated"
+    },
+    {
+      "id": "moire-drone",
+      "label": "Fabric Filter",
+      "href": "moire-drone.html",
+      "category": "noise",
+      "scope": "regular",
+      "presets": null,
+      "status": "unmigrated"
+    },
+    {
+      "id": "puggler",
+      "label": "Puggler the Punk Rock Jugger",
+      "href": "puggler.html",
+      "category": "graphic-ui",
+      "scope": "regular",
+      "presets": null,
+      "status": "unmigrated"
+    },
+    {
+      "id": "surround-field",
+      "label": "Surround for Safety",
+      "href": "surround-field.html",
+      "category": "dispersion",
+      "scope": "regular",
+      "presets": null,
+      "status": "unmigrated"
+    },
+    {
+      "id": "cellular-automata",
+      "label": "Automatapoeia",
+      "href": "automatapoeia.html",
+      "category": "algorithmic",
+      "scope": "fave",
+      "presets": 12,
+      "status": "implemented-verification-pending"
+    },
+    {
+      "id": "sorting-algorithms",
+      "label": "Sorting",
+      "href": "algorithmic-sequencers.html",
+      "category": "algorithmic",
+      "scope": "regular",
+      "presets": null,
+      "status": "unmigrated"
+    },
+    {
+      "id": "dijkstra",
+      "label": "DJ Dijkstra",
+      "href": "dijkstra.html",
+      "category": "algorithmic",
+      "scope": "regular",
+      "presets": 12,
+      "status": "implemented-verification-pending"
+    },
+    {
+      "id": "room-lobby",
+      "label": "Music Rooms",
+      "href": "music-rooms.html",
+      "category": "wip",
+      "scope": "deferred-lab",
+      "presets": null,
+      "status": "deferred"
+    },
+    {
+      "id": "vocal-effects-room",
+      "label": "Vocal Effects Room",
+      "href": "vocal-effects-room.html",
+      "category": "wip",
+      "scope": "deferred-lab",
+      "presets": null,
+      "status": "deferred"
+    },
+    {
+      "id": "instrument-share-room",
+      "label": "Instrument Share Room",
+      "href": "instrument-share-room.html",
+      "category": "wip",
+      "scope": "deferred-lab",
+      "presets": null,
+      "status": "deferred"
+    },
+    {
+      "id": "morphazoid-roulette",
+      "label": "Morphazoid Roulette",
+      "href": "morphazoid-roulette.html",
+      "category": "wip",
+      "scope": "deferred-lab",
+      "presets": null,
+      "status": "deferred"
+    },
+    {
+      "id": "moebius-synth",
+      "label": "M\u00f6bius",
+      "href": "moebius-synth.html",
+      "category": "wip",
+      "scope": "deferred-wip",
+      "presets": null,
+      "status": "deferred"
+    },
+    {
+      "id": "klein-bottle-synth",
+      "label": "Klein Bottle",
+      "href": "klein-bottle-synth.html",
+      "category": "wip",
+      "scope": "deferred-wip",
+      "presets": null,
+      "status": "deferred"
+    },
+    {
+      "id": "algorithmic-mazes",
+      "label": "Mazes",
+      "href": "algorithmic-mazes.html",
+      "category": "wip",
+      "scope": "deferred-wip",
+      "presets": null,
+      "status": "deferred"
+    },
+    {
+      "id": "paths",
+      "label": "Paths",
+      "href": "paths.html",
+      "category": "wip",
+      "scope": "deferred-wip",
+      "presets": null,
+      "status": "deferred"
+    },
+    {
+      "id": "breath-atlas",
+      "label": "Mouthophones",
+      "href": "mouthophones.html",
+      "category": "wip",
+      "scope": "deferred-wip",
+      "presets": null,
+      "status": "deferred"
+    },
+    {
+      "id": "spelling-synthesizer",
+      "label": "Spelling Synthesizer",
+      "href": "spelling-synthesizer.html",
+      "category": "wip",
+      "scope": "deferred-wip",
+      "presets": null,
+      "status": "deferred"
+    },
+    {
+      "id": "micromorph",
+      "label": "Micromorph",
+      "href": "micromorph.html",
+      "category": "wip",
+      "scope": "deferred-wip",
+      "presets": null,
+      "status": "deferred"
+    },
+    {
+      "id": "recursion",
+      "label": "Recursion",
+      "href": "recursion.html",
+      "category": "wip",
+      "scope": "deferred-wip",
+      "presets": null,
+      "status": "deferred"
+    },
+    {
+      "id": "playhead-paint",
+      "label": "Playhead Paint",
+      "href": "playhead-paint.html",
+      "category": "wip",
+      "scope": "deferred-wip",
+      "presets": null,
+      "status": "deferred"
+    },
+    {
+      "id": "boidzoid",
+      "label": "Boidzoid",
+      "href": "boidzoid.html",
+      "category": "wip",
+      "scope": "deferred-wip",
+      "presets": null,
+      "status": "deferred"
+    },
+    {
+      "id": "vector-flight",
+      "label": "Vector Flight",
+      "href": "vector-flight.html",
+      "category": "wip",
+      "scope": "deferred-wip",
+      "presets": null,
+      "status": "deferred"
+    },
+    {
+      "id": "gesturama",
+      "label": "Gesturama",
+      "href": "gesturama.html",
+      "category": "wip",
+      "scope": "deferred-wip",
+      "presets": null,
+      "status": "deferred"
+    },
+    {
+      "id": "image-to-instrument-3",
+      "label": "Wheel of Organs",
+      "href": "image-to-instrument-3.html",
+      "category": "wip",
+      "scope": "deferred-wip",
+      "presets": null,
+      "status": "deferred"
+    },
+    {
+      "id": "orbital-ferris",
+      "label": "Feral Fairy Ferris Ferry",
+      "href": "orbital-ferris.html",
+      "category": "wip",
+      "scope": "deferred-wip",
+      "presets": null,
+      "status": "deferred"
+    },
+    {
+      "id": "wave-pool",
+      "label": "Wave Pool",
+      "href": "wave-pool.html",
+      "category": "wip",
+      "scope": "deferred-wip",
+      "presets": null,
+      "status": "deferred"
+    },
+    {
+      "id": "penrose-tilings",
+      "label": "Penrose Tilings",
+      "href": "penrose-tilings.html",
+      "category": "wip",
+      "scope": "deferred-wip",
+      "presets": null,
+      "status": "deferred"
+    },
+    {
+      "id": "yoyodyne",
+      "label": "Yoyodyne",
+      "href": "yoyodyne.html",
+      "category": "wip",
+      "scope": "deferred-wip",
+      "presets": null,
+      "status": "deferred"
+    },
+    {
+      "id": "hanoi",
+      "label": "Hanoi Carillon",
+      "href": "hanoi.html",
+      "category": "wip",
+      "scope": "deferred-wip",
+      "presets": 12,
+      "status": "implemented-verification-pending"
+    },
+    {
+      "id": "minimax",
+      "label": "Alpha-Beta Minimax",
+      "href": "minimax.html",
+      "category": "wip",
+      "scope": "deferred-wip",
+      "presets": 12,
+      "status": "implemented-verification-pending"
+    },
+    {
+      "id": "nqueens",
+      "label": "N-Queens Backtracker",
+      "href": "nqueens.html",
+      "category": "wip",
+      "scope": "deferred-wip",
+      "presets": 12,
+      "status": "implemented-verification-pending"
+    },
+    {
+      "id": "euclid",
+      "label": "Euclidean Pulse",
+      "href": "euclid.html",
+      "category": "wip",
+      "scope": "deferred-wip",
+      "presets": 12,
+      "status": "implemented-verification-pending"
+    },
+    {
+      "id": "alien-larynx",
+      "label": "Alien Larynx",
+      "href": "alien-larynx.html",
+      "category": "wip",
+      "scope": "deferred-wip",
+      "presets": null,
+      "status": "deferred"
+    },
+    {
+      "id": "hyper-syrinx",
+      "label": "Hyper-Syrinx",
+      "href": "hyper-syrinx.html",
+      "category": "wip",
+      "scope": "deferred-wip",
+      "presets": null,
+      "status": "deferred"
+    },
+    {
+      "id": "morphynx",
+      "label": "Morphynx",
+      "href": "morphynx.html",
+      "category": "wip",
+      "scope": "deferred-wip",
+      "presets": null,
+      "status": "deferred"
+    },
+    {
+      "id": "escher-tessellation",
+      "label": "Escher",
+      "href": "escher-tessellation.html",
+      "category": "wip",
+      "scope": "deferred-wip",
+      "presets": null,
+      "status": "deferred"
+    },
+    {
+      "id": "plasma-ball",
+      "label": "Plasma Ball",
+      "href": "plasma-ball.html",
+      "category": "wip",
+      "scope": "deferred-wip",
+      "presets": null,
+      "status": "deferred"
+    },
+    {
+      "id": "order-tones",
+      "label": "Order Tones",
+      "href": "order-tones.html",
+      "category": "wip",
+      "scope": "deferred-wip",
+      "presets": null,
+      "status": "deferred"
+    },
+    {
+      "id": "morphazoidical",
+      "label": "Morphazoidical",
+      "href": "morphazoidical/",
+      "category": "wip",
+      "scope": "deferred-wip",
+      "presets": null,
+      "status": "deferred"
+    },
+    {
+      "id": "bell-square",
+      "label": "Bell Square",
+      "href": "bell-square.html",
+      "category": "wip",
+      "scope": "deferred-wip",
+      "presets": null,
+      "status": "deferred"
+    },
+    {
+      "id": "entanglement-dance",
+      "label": "Entanglement Dance",
+      "href": "entanglement-dance.html",
+      "category": "wip",
+      "scope": "deferred-wip",
+      "presets": null,
+      "status": "deferred"
+    },
+    {
+      "id": "quantum-square-dance",
+      "label": "Quantum Square Dance",
+      "href": "quantum-square-dance.html",
+      "category": "wip",
+      "scope": "deferred-wip",
+      "presets": null,
+      "status": "deferred"
+    },
+    {
+      "id": "annealogue",
+      "label": "Annealogue",
+      "href": "annealogue.html",
+      "category": "wip",
+      "scope": "deferred-wip",
+      "presets": null,
+      "status": "deferred"
+    },
+    {
+      "id": "gravity-walk",
+      "label": "Gravity Walk",
+      "href": "gravity-walk.html",
+      "category": "wip",
+      "scope": "deferred-wip",
+      "presets": null,
+      "status": "deferred"
+    },
+    {
+      "id": "ricochet",
+      "label": "Ricochet",
+      "href": "ricochet.html",
+      "category": "wip",
+      "scope": "deferred-wip",
+      "presets": null,
+      "status": "deferred"
+    },
+    {
+      "id": "rigidity",
+      "label": "Rigidity",
+      "href": "rigidity.html",
+      "category": "wip",
+      "scope": "deferred-wip",
+      "presets": null,
+      "status": "deferred"
+    },
+    {
+      "id": "rolling-measure",
+      "label": "Rolling Measure",
+      "href": "rolling-measure.html",
+      "category": "wip",
+      "scope": "deferred-wip",
+      "presets": null,
+      "status": "deferred"
+    },
+    {
+      "id": "falling-forms",
+      "label": "Falling Forms",
+      "href": "falling-forms.html",
+      "category": "wip",
+      "scope": "deferred-wip",
+      "presets": null,
+      "status": "deferred"
+    },
+    {
+      "id": "charge-garden",
+      "label": "Charge Garden",
+      "href": "charge-garden.html",
+      "category": "wip",
+      "scope": "deferred-wip",
+      "presets": null,
+      "status": "deferred"
+    },
+    {
+      "id": "packing-pressure",
+      "label": "Packing Pressure",
+      "href": "packing-pressure.html",
+      "category": "wip",
+      "scope": "deferred-wip",
+      "presets": null,
+      "status": "deferred"
+    },
+    {
+      "id": "geodesic-drift",
+      "label": "Geodesic Drift",
+      "href": "geodesic-drift.html",
+      "category": "wip",
+      "scope": "deferred-wip",
+      "presets": null,
+      "status": "deferred"
+    },
+    {
+      "id": "kinetic-hull",
+      "label": "Kinetic Hull",
+      "href": "kinetic-hull.html",
+      "category": "wip",
+      "scope": "deferred-wip",
+      "presets": null,
+      "status": "deferred"
+    },
+    {
+      "id": "moire-organ",
+      "label": "RISSET-MOIRE",
+      "href": "moire-organ.html",
+      "category": "wip",
+      "scope": "deferred-wip",
+      "presets": null,
+      "status": "deferred"
+    },
+    {
+      "id": "chladni-plate",
+      "label": "Chladni Plate",
+      "href": "chladni-plate.html",
+      "category": "wip",
+      "scope": "deferred-wip",
+      "presets": null,
+      "status": "deferred"
+    },
+    {
+      "id": "spring-choir",
+      "label": "Spring Choir",
+      "href": "spring-choir.html",
+      "category": "wip",
+      "scope": "deferred-wip",
+      "presets": null,
+      "status": "deferred"
+    },
+    {
+      "id": "gear-ratio-drums",
+      "label": "Gear Ratio Drums",
+      "href": "gear-ratio-drums.html",
+      "category": "wip",
+      "scope": "deferred-wip",
+      "presets": null,
+      "status": "deferred"
+    },
+    {
+      "id": "prime-sieve",
+      "label": "Prime Sieve",
+      "href": "prime-sieve.html",
+      "category": "wip",
+      "scope": "deferred-wip",
+      "presets": null,
+      "status": "deferred"
+    },
+    {
+      "id": "lissajous-orbits",
+      "label": "Lissajous Orbits",
+      "href": "lissajous-orbits.html",
+      "category": "wip",
+      "scope": "deferred-wip",
+      "presets": null,
+      "status": "deferred"
+    },
+    {
+      "id": "pendulum-wave",
+      "label": "Pendulum Wave",
+      "href": "pendulum-wave.html",
+      "category": "wip",
+      "scope": "deferred-wip",
+      "presets": null,
+      "status": "deferred"
+    },
+    {
+      "id": "double-pendulum",
+      "label": "Double Pendulum",
+      "href": "double-pendulum.html",
+      "category": "wip",
+      "scope": "deferred-wip",
+      "presets": null,
+      "status": "deferred"
+    },
+    {
+      "id": "reaction-diffusion",
+      "label": "Reaction-Diffusion",
+      "href": "reaction-diffusion.html",
+      "category": "wip",
+      "scope": "deferred-wip",
+      "presets": null,
+      "status": "deferred"
+    },
+    {
+      "id": "atomic-orbitals",
+      "label": "Atomic Orbitals",
+      "href": "atomic-orbitals.html",
+      "category": "wip",
+      "scope": "deferred-wip",
+      "presets": null,
+      "status": "deferred"
+    },
+    {
+      "id": "dna-translator",
+      "label": "DNA Translator",
+      "href": "dna-translator.html",
+      "category": "wip",
+      "scope": "deferred-wip",
+      "presets": null,
+      "status": "deferred"
+    },
+    {
+      "id": "neural-pulse",
+      "label": "Neural Pulse",
+      "href": "neural-pulse.html",
+      "category": "wip",
+      "scope": "deferred-wip",
+      "presets": null,
+      "status": "deferred"
+    },
+    {
+      "id": "fourier-epicycles",
+      "label": "Fourier Epicycles",
+      "href": "fourier-epicycles.html",
+      "category": "wip",
+      "scope": "deferred-wip",
+      "presets": null,
+      "status": "deferred"
+    },
+    {
+      "id": "gravity-lens",
+      "label": "Gravity Lens",
+      "href": "gravity-lens.html",
+      "category": "wip",
+      "scope": "deferred-wip",
+      "presets": null,
+      "status": "deferred"
+    },
+    {
+      "id": "cantor-lock",
+      "label": "Cantor Lock",
+      "href": "cantor-lock.html",
+      "category": "wip",
+      "scope": "deferred-wip",
+      "presets": null,
+      "status": "deferred"
+    },
+    {
+      "id": "escape-dust",
+      "label": "Escape Dust",
+      "href": "escape-dust.html",
+      "category": "wip",
+      "scope": "deferred-wip",
+      "presets": null,
+      "status": "deferred"
+    },
+    {
+      "id": "linebreaker",
+      "label": "Linebreaker",
+      "href": "linebreaker.html",
+      "category": "wip",
+      "scope": "deferred-wip",
+      "presets": null,
+      "status": "deferred"
+    },
+    {
+      "id": "acoustic-manifold",
+      "label": "Acoustic Manifold",
+      "href": "acoustic-manifold.html",
+      "category": "wip",
+      "scope": "deferred-lab",
+      "presets": null,
+      "status": "deferred"
+    },
+    {
+      "id": "adaptive-airway",
+      "label": "Adaptive Airway Lab",
+      "href": "adaptive-airway.html",
+      "category": "wip",
+      "scope": "deferred-lab",
+      "presets": null,
+      "status": "deferred"
+    },
+    {
+      "id": "birdsong-lab",
+      "label": "Strophe Lab",
+      "href": "birdsong-lab.html",
+      "category": "wip",
+      "scope": "deferred-lab",
+      "presets": null,
+      "status": "deferred"
+    },
+    {
+      "id": "nightingale-manifold",
+      "label": "Nightingale Manifolds",
+      "href": "nightingale-manifold.html",
+      "category": "wip",
+      "scope": "deferred-lab",
+      "presets": null,
+      "status": "deferred"
+    },
+    {
+      "id": "syrinx-ui",
+      "label": "Syrinx UI",
+      "href": "syrinx-ui.html",
+      "category": "wip",
+      "scope": "deferred-lab",
+      "presets": null,
+      "status": "deferred"
+    },
+    {
+      "id": "simd-lab",
+      "label": "SIMD Audio Lab",
+      "href": "simd-lab.html",
+      "category": "wip",
+      "scope": "deferred-lab",
+      "presets": null,
+      "status": "deferred"
+    },
+    {
+      "id": "tempo-tantrum",
+      "label": "Tempo Tantrum",
+      "href": "tempo-tantrum.html",
+      "category": "wip",
+      "scope": "deferred-wip",
+      "presets": null,
+      "status": "deferred"
+    },
+    {
+      "id": "tape-worm",
+      "label": "Tape Worm",
+      "href": "tape-worm.html",
+      "category": "wip",
+      "scope": "deferred-wip",
+      "presets": null,
+      "status": "deferred"
+    },
+    {
+      "id": "loop-soup",
+      "label": "Loop Soup",
+      "href": "loop-soup.html",
+      "category": "wip",
+      "scope": "deferred-wip",
+      "presets": null,
+      "status": "deferred"
+    },
+    {
+      "id": "habit-habitat",
+      "label": "Habit Habitat",
+      "href": "habit-habitat.html",
+      "category": "wip",
+      "scope": "deferred-wip",
+      "presets": null,
+      "status": "deferred"
+    },
+    {
+      "id": "hollowphonic",
+      "label": "Hollowphonic",
+      "href": "hollowphonic.html",
+      "category": "wip",
+      "scope": "deferred-wip",
+      "presets": null,
+      "status": "deferred"
+    }
+  ]
+}

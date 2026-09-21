@@ -26,6 +26,63 @@ Human documentation explains the system, and executable checks enforce it.
 One layer may point to another, but copying the same policy into every layer
 creates drift.
 
+## Worktree and source paths
+
+Run discovery from the candidate Morphazoid checkout before using a path from a
+handoff, old test log, or another machine:
+
+```sh
+git rev-parse --show-toplevel
+git branch --show-current
+git worktree list
+git status --short
+```
+
+Confirm the reported root contains Morphazoid's `AGENTS.md` and `package.json`.
+Run repository commands from that root. A parent creative workspace, skill
+directory, neighboring main checkout, or previously used preview directory is
+not interchangeable with it. A branch can be checked out in any directory name.
+A linked worktree can have a `.git` file rather than a `.git` directory; use Git's
+reported paths instead of constructing paths to its index or metadata.
+
+Code paths mentioned in repository guidance are relative to the selected
+repository root. Markdown links in skills/references are relative to their
+containing file; keep those links navigable rather than copying an absolute
+machine path into a skill.
+
+| Source of truth | Location / boundary |
+| --- | --- |
+| Public entry pages | Root `*.html`; intentionally nested applications such as `morphazoidical/` keep their own entries |
+| Instrument controllers, styles, selected helpers and preset banks | `src/instruments/<canonical-id>/`; read the page references, not a guessed `<display-name>-app.js` |
+| Multiple instruments sharing an implementation | `src/families/<family>/`; these folders are not catalogue categories |
+| Remaining shared models, DSP and worklets | Existing `src/` locations reached through imports; the controller move did not relocate every model |
+| Site registry and Faves | `src/site/instrument-registry.js` |
+| Public-ID / historical-route compatibility | `src/site/instrument-identities.js`; old storage and processor IDs are not incidental rename targets |
+| Catalogue descriptions and derived records | `src/instrument-catalog.js` |
+| Secondary tags and lab metadata | `src/site/catalogue-taxonomy.js` |
+| Shared UI / site behavior | `src/ui/` / `src/site/`; root `nav.js` remains the public navigation bootstrap and metadata re-export |
+| Public assets / artwork sources | Top-level `assets/` / `artwork/`, not copies inside instrument folders |
+| Global stylesheet / bootstrap entries | Root `style.css`, `nav.js`, `wax-page.js`, `shader-synth-playground-bootstrap.js` |
+| Explicit build inclusion and required files | `scripts/site/runtime-files.tsv`; policy details in `scripts/site/README.md` |
+| Generated artifacts | `dist-wax/` is regenerated and committed; `dist/` and `storybook-static/` are disposable outputs |
+
+The header preset rollout is incremental. Its current contract, implemented
+routes and outstanding verification are in `docs/full-instrument-preset-rollout.md`.
+Do not assume an instrument's presets still live in its rail, or assume every
+instrument is migrated because the shared header code exists.
+
+For previews, use `npm run dev` from the chosen root and inspect the URL it
+prints. Check `scripts/dev-server.py` and `playwright.config.mjs` for current
+defaults; set `MORPHAZOID_QA_BASE_URL` when testing an already-running nondefault
+preview. A successful HTTP response alone does not identify the checkout:
+compare a distinguishing served source/page with the file in the intended
+worktree. A frozen build needs its own explicit server root.
+
+Keep reusable skills and agent instructions free of machine-specific checkout
+paths. Absolute paths/ports in task reports remain valid provenance, but must
+be rediscovered before continuing work. Update guidance in the active branch;
+do not silently edit other worktrees or user-global skill copies.
+
 ## Read-only instrument discovery
 
 Run `node scripts/inspect-instrument.mjs puggler` before opening many unrelated
@@ -45,6 +102,9 @@ tracked file may still need a build allowlist entry. Use `npm run check:wax-dist
 for fresh-build parity. Test candidates and capability declarations are starting
 points, not proof of behavior. Select the commands appropriate to the edit;
 the helper's output is not a request to run every listed suite.
+If invoked through an absolute script path, ensure that script belongs to the
+intended worktree: its own location, not the caller's working directory, selects
+the checkout it inspects.
 
 ## Repository placement
 

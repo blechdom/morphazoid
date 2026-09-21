@@ -69,6 +69,161 @@ function largestStep(values) {
   return largest;
 }
 
+const noteEnvelope = (attack = 0.08, releaseAt = 0.9) => [
+  { time: 0, level: 0 }, { time: attack, level: 1 },
+  { time: attack + 0.12, level: 0.55 }, { time: releaseAt - 0.25, level: 0.55 },
+  { time: releaseAt, level: 0 },
+];
+function noteProcessor() {
+  return new ProcessorConstructor({ processorOptions: { maxVoices: 16, smoothVoiceStealing: true } });
+}
+function sendNote(processor, overrides = {}) {
+  processor.port.onmessage({ data: {
+    type: "notes", voices: [{ key: "marker", mode: "sine", frequency: 220, gain: 0.3, modulationIndex: 2, modulationRatio: 1.5 }],
+    envelope: noteEnvelope(), voiceLimit: 16, requestedVoiceCount: 16, startAt: processor.renderedSamples / sampleRate,
+    ...overrides,
+  } });
+}
+function noteBlock(processor) {
+  const channels = [new Float32Array(128), new Float32Array(128)];
+  processor.process([], [channels]);
+  assert.ok(processor.voices.size <= 16);
+  assert.ok(channels.every(channel => channel.every(value => Number.isFinite(value) && Math.abs(value) <= 0.780001)));
+  return channels[0];
+}
+
+test("notes honour their long ADSR instead of a fixed short strike, and eventually release", () => {
+  const processor = noteProcessor();
+  sendNote(processor);
+  let latePeak = 0;
+  for (let i = 0; i < 410; i++) {
+    const audio = noteBlock(processor);
+    if (i > 180 && i < 270) latePeak = Math.max(latePeak, ...audio.map(Math.abs));
+  }
+  assert.ok(latePeak > 0.03, "a note still sounds well after the former 50ms strike");
+  assert.equal(processor.voices.size, 0);
+});
+
+test("a swell rises before its marker and overlapping notes do not reset one another", () => {
+  const processor = noteProcessor();
+  // Marker at 200ms; the 100ms attack begins at 100ms.
+  sendNote(processor, { startAt: 0.1, envelope: noteEnvelope(0.1, 0.9) });
+  let beforeMarker = 0, peakGain = 0, peakAt = 0, firstVoice;
+  for (let i = 0; i < 110; i++) {
+    const now = processor.renderedSamples / sampleRate;
+    const audio = noteBlock(processor);
+    if (now < 0.095) assert.equal(Math.max(...audio.map(Math.abs)), 0);
+    if (now > 0.13 && now < 0.19) beforeMarker = Math.max(beforeMarker, ...audio.map(Math.abs));
+    firstVoice ??= [...processor.voices.values()][0];
+    if (firstVoice?.gain > peakGain) { peakGain = firstVoice.gain; peakAt = now; }
+  }
+  assert.ok(beforeMarker > 0.01);
+  assert.ok(peakAt >= 0.19 && peakAt <= 0.225, `smoothed envelope peaks near its 200ms marker, got ${peakAt}`);
+  sendNote(processor);
+  noteBlock(processor);
+  assert.equal(processor.voices.size, 2);
+  assert.equal(firstVoice.releasing, false, "the next marker does not reset the prior tail");
+});
+
+test("timed notes use genuinely distinct sine, FM, PM and Shepard renderers", () => {
+  const signals = ["sine", "fm", "pm", "shepard"].map(mode => {
+    const processor = noteProcessor();
+    sendNote(processor, { voices: [{ key: "same", mode, frequency: 220, gain: 0.3, modulationIndex: 2, modulationRatio: 1.5, shepardRate: 0.4 }] });
+    return Array.from({ length: 100 }, () => [...noteBlock(processor)]).flat();
+  });
+  for (let a = 0; a < signals.length; a++) for (let b = a + 1; b < signals.length; b++) {
+    assert.ok(differenceRms(signals[a], signals[b]) > 0.01);
+  }
+});
+
+test("held MIDI notes sustain and release through their ADSR; silence cancels future notes", () => {
+  const processor = noteProcessor();
+  sendNote(processor, { hold: true });
+  for (let i = 0; i < 450; i++) noteBlock(processor);
+  assert.ok([...processor.voices.values()][0].gain > 0.1);
+  processor.port.onmessage({ data: { type: "release-notes" } });
+  for (let i = 0; i < 150; i++) noteBlock(processor);
+  assert.equal(processor.voices.size, 0);
+  sendNote(processor, { startAt: 10 });
+  processor.port.onmessage({ data: { type: "voices", voices: [], voiceLimit: 16 } });
+  assert.equal(processor.noteQueue.length, 0);
+});
+
+test("geometry voice handoffs fade within the fixed pool instead of cutting full-volume tails", () => {
+  const exercise = smoothVoiceStealing => {
+    const processor = new ProcessorConstructor({ processorOptions: { maxVoices: 32, smoothVoiceStealing } });
+    const specs = prefix => Array.from({ length: 32 }, (_, index) => ({
+      key: `${prefix}:${index}`, mode: "sine", frequency: 110 + index * 0.5, gain: 0.02, pan: 0,
+    }));
+    const send = prefix => processor.port.onmessage({ data: { type: "voices", voices: specs(prefix), voiceLimit: 32, mode: "sine", durationSeconds: 0.075 } });
+    const block = () => {
+      const left = new Float32Array(128), right = new Float32Array(128);
+      processor.process([], [[left, right]]);
+      assert.ok(processor.voices.size <= 32, "release tails never add an extra DSP bank");
+      return left;
+    };
+    send("old");
+    let last;
+    for (let index = 0; index < 120; index++) last = block();
+    const steadyStep = largestStep(last), before = last.at(-1);
+    send("new");
+    const tails = [...processor.voices.values()].filter(v => v.releasing).length;
+    const first = block();
+    for (let index = 0; index < 24; index++) block();
+    assert.ok([...processor.voices.keys()].every(key => key.startsWith("new:")));
+    assert.equal(processor.pendingTargets.size, 0);
+    return { steadyStep, boundaryStep: Math.abs(first[0] - before), tails };
+  };
+  const legacy = exercise(false), smooth = exercise(true);
+  assert.equal(legacy.tails, 0, "the old full-pool path demonstrates the premature cut");
+  assert.equal(smooth.tails, 32, "all outgoing voices retain an actual release");
+  assert.ok(legacy.boundaryStep > legacy.steadyStep * 20);
+  assert.ok(smooth.boundaryStep < smooth.steadyStep * 2);
+  assert.ok(smooth.boundaryStep < legacy.boundaryStep * 0.05);
+});
+
+test("bounded handoff discards obsolete waiting geometry and retires cleanly on Audio off", () => {
+  const processor = new ProcessorConstructor({ processorOptions: { maxVoices: 8, smoothVoiceStealing: true } });
+  const send = (prefix, limit = 8) => processor.port.onmessage({ data: {
+    type: "voices", mode: "sine", voiceLimit: limit,
+    voices: Array.from({ length: limit }, (_, index) => ({ key: `${prefix}:${index}`, frequency: 220, gain: 0.05, mode: "sine" })),
+  } });
+  const block = () => processor.process([], [[new Float32Array(128), new Float32Array(128)]]);
+  send("old");
+  for (let i = 0; i < 30; i++) block();
+  send("obsolete");
+  assert.equal(processor.pendingTargets.size, 8);
+  send("latest", 3);
+  for (let i = 0; i < 30; i++) {
+    block();
+    assert.ok(processor.voices.size <= 8);
+    assert.ok(processor.pendingTargets.size <= 3);
+    assert.ok([...processor.voices.keys()].every(key => !key.startsWith("obsolete:")));
+  }
+  assert.equal(processor.voices.size, 3);
+  send("silence", 0);
+  for (let i = 0; i < 30; i++) block();
+  assert.equal(processor.voices.size, 0);
+  assert.equal(processor.pendingTargets.size, 0);
+});
+
+test("opt-in handoff leaves ongoing sine, FM, PM and Shepard voices sample-identical", () => {
+  for (const mode of ["sine", "fm", "pm", "shepard"]) {
+    const ordinary = new ProcessorConstructor({ processorOptions: { maxVoices: 8 } });
+    const smooth = new ProcessorConstructor({ processorOptions: { maxVoices: 8, smoothVoiceStealing: true } });
+    const data = { type: "voices", mode, voiceLimit: 8, durationSeconds: 0.075,
+      voices: [{ key: "retained", mode, frequency: 220, gain: 0.3, modulationIndex: 2, modulationRatio: 1.5, shepardRate: 0.1 }] };
+    for (const processor of [ordinary, smooth]) processor.port.onmessage({ data });
+    for (let block = 0; block < 64; block++) {
+      const buffers = [ordinary, smooth].map(processor => {
+        const channels = [new Float32Array(128), new Float32Array(128)];
+        processor.process([], [channels]); return channels;
+      });
+      assert.deepEqual(buffers[1], buffers[0], `${mode} block ${block}`);
+    }
+  }
+});
+
 function renderShepardTrajectory({
   start,
   end,

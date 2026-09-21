@@ -6,7 +6,19 @@ const previousFaves = prior.registry.FAVE_TOOL_IDS.map(id => byId.get(id)?.id ??
 // Explicit owner follow-up on September 20; keep the pre-sheet fixture intact.
 previousFaves.splice(previousFaves.indexOf("hiccup-head") + 1, 0, "creaturazoid");
 previousFaves.splice(previousFaves.indexOf("spiral"), 1);
-export const expectedFaveToolIds = Object.freeze(previousFaves);
+// Second owner follow-up: keep Creaturazoid after Hiccup, move the requested
+// three before Hyper Rubix, and exchange Automatapoeia/Lattice.
+const moved = ["hiccup-head", "creaturazoid", "hybrinx", "jaw-harp"];
+const reordered = previousFaves.filter(id => !moved.includes(id));
+reordered.splice(reordered.indexOf("hyper-rubix"), 0, ...moved);
+const latticeIndex = reordered.indexOf("lattice");
+const automataIndex = reordered.indexOf("cellular-automata");
+[reordered[latticeIndex], reordered[automataIndex]] = [reordered[automataIndex], reordered[latticeIndex]];
+// Shapes replaces the three individual geometry instruments in the first
+// Faves section. Their ordinary Geometric catalogue records remain intact.
+export const expectedFaveToolIds = Object.freeze([
+  "shapes", ...reordered.filter(id => !["shape-synth", "solid-synth", "hyper-synth"].includes(id)),
+]);
 const faves = new Set(expectedFaveToolIds);
 export function expectedTagIdsFor(id) {
   const row = byId.get(id);

@@ -30,7 +30,7 @@ export const COMBO_SOUNDS = Object.freeze({
 export function comboSelectionFor(geometry = "shape", sound = "synth") {
   const playingMode = sound === "drums"
     ? "triggers"
-    : sound === "notes" || sound === "triggers" || sound === "continuous"
+    : sound === "corners" || SHAPES_PLAYING_MODES.some(mode => mode.id === sound)
       ? sound
       : "continuous";
   const state = createShapesState({

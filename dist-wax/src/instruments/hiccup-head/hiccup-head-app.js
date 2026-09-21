@@ -34,9 +34,11 @@ import {
   sanitizeHiccupHeadState,
   sanitizeHiccupHeadVoice,
   sequenceStepIntervalSeconds,
-} from "../../hiccup-head.js?v=e6a50de821d4";
+} from "../../hiccup-head.js?v=75c67dec055e";
 import { connectAudioOutput } from "../../audio-output-manager.js";
 import { unlockAudioContext } from "../../audio.js";
+import { registerHeaderPresets } from "../../site/header-presets.js";
+import { HICCUP_HEAD_FULL_PRESETS, randomizeHiccupHeadPreset } from "./full-presets.js";
 
 const $ = (id) => document.getElementById(id);
 const canvas = $("stage");
@@ -269,8 +271,9 @@ function skinCheckerColorsForStep(step) {
   return SEQUENCE_SKIN_CHECKER_COLORS[numericStep % HICCUP_HEAD_STEP_COUNT];
 }
 
-// Visual skins are deliberately presentation-only. They never enter the
-// physical-model state, presets, sequence, or AudioWorklet configuration.
+// Skins are presentation-only and never enter physical-model/AudioWorklet
+// configuration. Main scene presets may select a built-in skin separately;
+// the local skin selector still changes appearance without changing sound.
 const HICCUP_HEAD_VISUAL_SKINS = Object.freeze([
   Object.freeze({
     id: "checker",
@@ -535,7 +538,7 @@ function syncVisualSkinPresentation() {
   canvas.dataset.visualSkin = skin.id;
   const description = $("visualSkinDescription");
   if (description) {
-    description.textContent = `${skin.description} Visual only; changing this skin does not change sound, sequence, presets, or controls.`;
+    description.textContent = `${skin.description} Changing this visual selector does not change sound, sequence, or face controls. Main presets can recall a built-in skin along with the complete instrument.`;
   }
   canvas.setAttribute(
     "aria-label",
@@ -562,6 +565,11 @@ function setVisualSkin(id, { announceChange = true, persist = true } = {}) {
   // actually applies instead of inheriting a 2× photographic canvas.
   resizeCanvas();
   if (announceChange) announce(`${currentVisualSkin().label} visual skin selected; sound is unchanged`);
+}
+
+function cycleVisualSkin() {
+  const index = HICCUP_HEAD_VISUAL_SKINS.findIndex(skin => skin.id === visualSkinId);
+  setVisualSkin(HICCUP_HEAD_VISUAL_SKINS[(index + 1) % HICCUP_HEAD_VISUAL_SKINS.length].id);
 }
 
 const WEBCAM_GUIDE_LABELS = Object.freeze({
@@ -1796,7 +1804,7 @@ async function createAudioGraph() {
     [, , warmRoomBuffers] = await Promise.all([
       earlyResume,
       context.audioWorklet.addModule(new URL(
-        "../../hiccup-head-processor.js?v=150aee324f2c",
+        "../../hiccup-head-processor.js?v=e4d91e40681d",
         import.meta.url,
       )),
       decodeWarmRoomBuffers(context),
@@ -3939,6 +3947,7 @@ function setPreset(id, { announceState = true } = {}) {
     swing: state.swing,
     humanize: state.humanize,
     level: state.level,
+    patternId: state.patternId,
   };
   state = withPersistentFaceEffects(hiccupHeadState(preset.id, transport), state);
   $("presetSelect").value = preset.id;
@@ -8024,6 +8033,7 @@ function bindControls() {
   $("visualSkinSelect")?.addEventListener("change", () => {
     setVisualSkin($("visualSkinSelect").value);
   });
+  $("nextVisualSkinButton")?.addEventListener("click", cycleVisualSkin);
   const workspace = document.querySelector(".hiccup-head-workspace");
   const splitter = $("workspaceSplitter");
   let splitterPointerId = null;
@@ -8230,3 +8240,61 @@ function initialize() {
 }
 
 initialize();
+
+const fullPresets = registerHeaderPresets({
+  id: "hiccup-head",
+  presets: HICCUP_HEAD_FULL_PRESETS,
+  randomize: randomizeHiccupHeadPreset,
+  // Retain local face, sequence, sound-bank and skin editors. Header scenes
+  // recall them together; the local sub-presets deliberately affect one part.
+  capture: () => ({
+    state, pattern, currentPatternId, sequenceLength, currentSoundBankId,
+    voiceCount, voiceSelectionMode, voiceSlots, faceEffectEnabled, eyebrowEmphasis, visualSkinId,
+  }),
+  apply(snapshot) {
+    if (!visualSkinById.has(snapshot.visualSkinId)) {
+      throw new TypeError("Unknown or unavailable Hiccup Head scene skin");
+    }
+    const nextState = sanitizeHiccupHeadState(snapshot.state);
+    const nextPattern = normalizePatternColumns(clonePattern(snapshot.pattern));
+    const nextVoices = snapshot.voiceSlots.map(slot => ({
+      ...slot, voice: sanitizeHiccupHeadVoice(slot.voice),
+    }));
+    // A deferred pointer/configuration update must not overwrite the new scene.
+    if (pendingCanvasStateFrame) cancelAnimationFrame(pendingCanvasStateFrame);
+    pendingCanvasStateFrame = 0;
+    pendingCanvasStateUpdate = null;
+    clearTimeout(manualConfigurationResetTimer);
+    manualConfigurationResetTimer = 0;
+    state = nextState;
+    pattern = nextPattern;
+    currentPatternId = snapshot.currentPatternId;
+    currentSoundBankId = snapshot.currentSoundBankId;
+    voiceCount = snapshot.voiceCount;
+    voiceSelectionMode = snapshot.voiceSelectionMode;
+    voiceSlots = nextVoices;
+    voiceCursor = 0;
+    activeVoiceSlot = -1;
+    eyebrowEmphasis = snapshot.eyebrowEmphasis;
+    Object.assign(faceEffectEnabled, snapshot.faceEffectEnabled);
+    $("presetSelect").value = state.presetId;
+    $("presetDescription").textContent = hiccupHeadPreset(state.presetId).description;
+    $("patternSelect").value = currentPatternId;
+    $("soundBankSelect").value = currentSoundBankId;
+    $("soundBankDescription").textContent = hiccupHeadSoundBank(currentSoundBankId).description;
+    $("voiceCount").value = String(voiceCount);
+    $("voiceCountOut").textContent = String(voiceCount);
+    $("voiceSelectionMode").value = voiceSelectionMode === "round-robin" ? "roundRobin" : voiceSelectionMode;
+    $("eyebrowEmphasis").value = String(eyebrowEmphasis);
+    $("eyebrowEmphasisOut").textContent = formatPercent(eyebrowEmphasis);
+    lastSequenceSoundId = firstPatternSoundId(pattern) ?? "bop";
+    setSequenceLength(snapshot.sequenceLength, { announceState: false });
+    buildVoiceRack({ preserveScroll: true });
+    syncFaceEffectButtons();
+    syncControls();
+    postConfiguration();
+    // Never open a photobooth or persist over the user's separate skin choice.
+    // A rollback may restore an already available session skin without capture.
+    setVisualSkin(snapshot.visualSkinId, { announceChange: false, persist: false });
+  },
+});

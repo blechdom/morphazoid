@@ -1,3 +1,4 @@
+import { CASCADING_PM_RHYTHM_PRESETS } from "./families/cascading/rhythm-presets.js";
 import { unlockAudioContext } from "./audio.js";
 import { connectAudioOutput } from "./audio-output-manager.js";
 
@@ -37,104 +38,11 @@ export const CASCADING_PM_LIMITS = Object.freeze({
   bandwidthSampleRateRatio: 0.45,
 });
 
-export const CASCADING_PM_DEFAULTS = Object.freeze({
-  stages: 4,
-  rootHz: 0.05,
-  cascadeRatio: 11.3,
-  phaseIndex: 2,
-  indexTaper: 0.58,
-});
-
-const freezePreset = (preset) => Object.freeze({
-  ...preset,
-  settings: Object.freeze({ ...preset.settings }),
-});
-
-// Keep the ids parallel with Cascading FM, but give each PM preset a different
-// structural job. Fewer stages and deliberately varied index contours prevent
-// every patch from collapsing into the same dense, low growl.
-export const CASCADING_PM_PRESETS = Object.freeze([
-  freezePreset({
-    id: "slow-cascade",
-    label: "Long Bloom",
-    motion: "evolving",
-    description: "Four widely spaced stages open around a 72 Hz bass over a calm 20-second cycle.",
-    settings: {
-      stages: 4,
-      rootHz: 0.05,
-      cascadeRatio: 11.3,
-      phaseIndex: 2,
-      indexTaper: 0.58,
-    },
-  }),
-  freezePreset({
-    id: "dense-wave",
-    label: "Low Lantern",
-    motion: "drone",
-    description: "Two audio-rate operators hold a warm 54 Hz drone with a light phase halo and no deep-chain growl.",
-    settings: {
-      stages: 2,
-      rootHz: 36,
-      cascadeRatio: 1.5,
-      phaseIndex: 0.24,
-      indexTaper: 1,
-    },
-  }),
-  freezePreset({
-    id: "wide-steps",
-    label: "Soft Alloy",
-    motion: "drone",
-    description: "Three golden-ratio stages sustain a clear 99 Hz drone with a fine, inharmonic shimmer.",
-    settings: {
-      stages: 3,
-      rootHz: 38,
-      cascadeRatio: 1.618,
-      phaseIndex: 0.55,
-      indexTaper: 0.7,
-    },
-  }),
-  freezePreset({
-    id: "bright-shimmer",
-    label: "Glass Current",
-    motion: "evolving",
-    description: "Five stages brighten and recede around 132 Hz, completing the slowest turn every 3.6 seconds.",
-    settings: {
-      stages: 5,
-      rootHz: 0.28,
-      cascadeRatio: 4.66,
-      phaseIndex: 1.2,
-      indexTaper: 1.05,
-    },
-  }),
-  freezePreset({
-    id: "deep-strata",
-    label: "Quickening Coil",
-    motion: "evolving",
-    description: "Six strengthening hand-offs swell around 107 Hz on a quicker 1.1-second cycle.",
-    settings: {
-      stages: 6,
-      rootHz: 0.88,
-      cascadeRatio: 2.61,
-      phaseIndex: 0.9,
-      indexTaper: 1.2,
-    },
-  }),
-  freezePreset({
-    id: "harmonic-rain",
-    label: "Clockwork Lace",
-    motion: "rhythmic",
-    description: "One deliberate nine-stage chain interlocks at 2.8 Hz around a rounded 64 Hz rhythmic bass.",
-    settings: {
-      stages: 9,
-      rootHz: 2.8,
-      cascadeRatio: 1.48,
-      phaseIndex: 1.5,
-      indexTaper: 0.95,
-    },
-  }),
-]);
-
-export const DEFAULT_CASCADING_PM_PRESET_ID = "slow-cascade";
+// Preset data is separate from DSP; the rhythmic bank is shared by startup,
+// Reset and the header. The synthesis and live-smoothing code below is unchanged.
+export { CASCADING_PM_RHYTHM_PRESETS as CASCADING_PM_PRESETS };
+export const CASCADING_PM_DEFAULTS = CASCADING_PM_RHYTHM_PRESETS[0].settings;
+export const DEFAULT_CASCADING_PM_PRESET_ID = CASCADING_PM_RHYTHM_PRESETS[0].id;
 
 function clamp(value, minimum, maximum) {
   return Math.min(maximum, Math.max(minimum, value));

@@ -61,8 +61,8 @@
           <span class="audio-copy"><b>Audio</b><small id="audioState">off</small></span>
         </button>
         <label class="header-level" for="level">
-          <span><b>Output</b><output id="levelOut" for="level">58%</output></span>
-          <input id="level" aria-label="Cascading FM master output level" type="range" min="0" max="1" step="0.01" value="0.58" />
+          <span><b>Output</b><output id="levelOut" for="level">48%</output></span>
+          <input id="level" aria-label="Cascading FM master output level" type="range" min="0" max="1" step="0.01" value="0.48" />
         </label>
       </div>
     </header>
@@ -86,7 +86,7 @@
           </div>
 
           <div class="stage-meta" aria-hidden="true">
-            <span id="stageReadout">8 STAGES · DRONE · OFF</span>
+            <span id="stageReadout">4 STAGES · FM CASCADE · OFF</span>
           </div>
 
           <div
@@ -101,92 +101,85 @@
       <aside class="panel cascading-fm-panel" aria-label="Cascading FM controls">
         <details class="group control-section cascading-fm-presets" open>
           <summary class="group-summary">
-            <h2 class="group-title">Character</h2>
-            <span class="section-state" id="presetState">Brass Choir</span>
+            <h2 class="group-title">Preset guide</h2>
+            <span class="section-state" id="presetState">Slow Steps</span>
           </summary>
           <div class="group-body">
-            <div class="cascading-fm-preset-grid" id="presetButtons" role="group" aria-label="Cascading FM presets">
-              <button type="button" data-preset="brass-choir" aria-pressed="true">Brass Choir</button>
-              <button type="button" data-preset="bell-tower" aria-pressed="false">Bell Tower</button>
-              <button type="button" data-preset="neon-reed" aria-pressed="false">Neon Reed</button>
-              <button type="button" data-preset="glass-forest" aria-pressed="false">Glass Forest</button>
-              <button type="button" data-preset="organ-pulse" aria-pressed="false">Organ Pulse</button>
-              <button type="button" data-preset="electric-wind" aria-pressed="false">Electric Wind</button>
-            </div>
             <p class="cascading-fm-preset-description" id="presetDescription">
-              Five harmonic stages rooted at 55 Hz with moderate depth and even taper, warm and brassy.
+              Start here. A two-second sway bends quicker steps into a soft bass pulse. Listen for the slower layer reshaping the faster one.
             </p>
+            <p class="control-note">Choose a preset beside the sound meters, then turn Audio on. Listen through a full slow cycle; the rhythm comes from the LFO cascade, not a sequencer. The next-preset arrow steps through the examples.</p>
           </div>
         </details>
 
         <details class="group control-section cascading-fm-structure" open>
           <summary class="group-summary">
             <h2 class="group-title">Cascade</h2>
-            <span class="section-state" id="structureState">5 stages · ×2 · rising</span>
+            <span class="section-state" id="structureState">4 stages · ×5 · rising</span>
           </summary>
           <div class="group-body">
             <label class="control" for="stages">
-              <span><b>Stages</b><output id="stagesOut" for="stages">5</output></span>
-              <input id="stages" type="range" min="2" max="12" step="1" value="5" />
+              <span><b>Stages</b><output id="stagesOut" for="stages">4</output></span>
+              <input id="stages" type="range" min="2" max="12" step="1" value="4" />
             </label>
             <small class="cascading-fm-control-note">Number of oscillators · 2 = two-osc FM · 12 = deep cascade · carrier pitch is preserved</small>
 
             <label class="control" for="rootHz">
-              <span><b>Root</b><output id="rootHzOut" for="rootHz">55 Hz</output></span>
+              <span><b>Root</b><output id="rootHzOut" for="rootHz">0.5 Hz</output></span>
               <input
                 id="rootHz"
                 type="range"
                 min="0"
                 max="1"
                 step="0.0001"
-                value="0.9195"
+                value="0.3737"
                 aria-describedby="rootHzNote"
               />
             </label>
             <small class="cascading-fm-control-note" id="rootHzNote">Logarithmic · 0.02 Hz to 110 Hz · base frequency of the first oscillator</small>
 
             <label class="control" for="cascadeRatio">
-              <span><b>Cascade ratio</b><output id="cascadeRatioOut" for="cascadeRatio">×2</output></span>
+              <span><b>Cascade ratio</b><output id="cascadeRatioOut" for="cascadeRatio">×5</output></span>
               <input
                 id="cascadeRatio"
                 type="range"
                 min="0"
                 max="1"
                 step="0.0001"
-                value="0.5168"
+                value="0.7445"
                 aria-describedby="cascadeRatioNote"
               />
             </label>
             <small class="cascading-fm-control-note" id="cascadeRatioNote">Focused logarithmic · 40% of the track covers ×1 to ×5 · below 1 falls, above 1 rises · extended range ×0.25 to ×200</small>
 
             <label class="control" for="modDepth">
-              <span><b>Mod depth</b><output id="modDepthOut" for="modDepth">220 Hz</output></span>
+              <span><b>Mod depth</b><output id="modDepthOut" for="modDepth">3 Hz</output></span>
               <input
                 id="modDepth"
                 type="range"
                 min="0"
                 max="1"
                 step="0.0001"
-                value="0.1173"
+                value="0.0137"
                 aria-describedby="modDepthNote"
               />
             </label>
             <small class="cascading-fm-control-note" id="modDepthNote">Quadratic · 0 to 16 kHz · modulation depth for stage 0 → 1</small>
 
             <label class="control" for="depthTaper">
-              <span><b>Depth taper</b><output id="depthTaperOut" for="depthTaper">0.80×</output></span>
-              <input id="depthTaper" type="range" min="0.05" max="4.0" step="0.01" value="0.8" />
+              <span><b>Depth taper</b><output id="depthTaperOut" for="depthTaper">4.00×</output></span>
+              <input id="depthTaper" type="range" min="0.05" max="4.0" step="0.01" value="4" />
             </label>
             <p class="cascading-fm-taper-hint" id="taperHint">
-              <b>Flat FM index</b> at this ratio is <b id="flatTaperReadout">2.00×</b>
+              <b>Flat FM index</b> at this ratio is <b id="flatTaperReadout">5.00×</b>
             </p>
 
             <div class="grammar-card cascading-fm-ledger chaotic-turn-ledger" aria-label="Current cascade model">
-              <span><b>Root</b><code id="rootReadout">55 Hz oscillator</code></span>
-              <span><b>Carrier</b><code id="carrierReadout">880 Hz</code></span>
-              <span><b>Stages</b><code id="stagesReadout">55 Hz → 110 Hz → 220 Hz → 440 Hz → 880 Hz</code></span>
-              <span><b>Depths</b><code id="depthsReadout">220 Hz → 176 Hz → 141 Hz → 113 Hz</code></span>
-              <span><b>Output</b><code id="outputReadout">stage 5 · 45% normalized</code></span>
+              <span><b>Root</b><code id="rootReadout">0.5 Hz LFO</code></span>
+              <span><b>Carrier</b><code id="carrierReadout">63 Hz</code></span>
+              <span><b>Stages</b><code id="stagesReadout">0.5 Hz → 2.5 Hz → 13 Hz → 63 Hz</code></span>
+              <span><b>Depths</b><code id="depthsReadout">3 Hz → 12 Hz → 48 Hz</code></span>
+              <span><b>Output</b><code id="outputReadout">stage 4 · 50% normalized</code></span>
             </div>
 
             <p class="cascading-fm-safety-note">

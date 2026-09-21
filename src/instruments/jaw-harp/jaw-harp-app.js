@@ -39,6 +39,8 @@ import {
 } from "../../jaw-harp.js";
 import { connectAudioOutput } from "../../audio-output-manager.js";
 import { unlockAudioContext } from "../../audio.js";
+import { registerHeaderPresets } from "../../site/header-presets.js";
+import { JAW_HARP_FULL_PRESETS, captureJawHarpPreset, validateJawHarpPreset, randomizeJawHarpPreset } from "./full-presets.js";
 
 const $ = (id) => document.getElementById(id);
 const canvas = $("stage");
@@ -2571,4 +2573,23 @@ globalThis.addEventListener("pageshow", () => {
   setAudioPresentation("off");
   updatePresentation();
   animationFrame = requestAnimationFrame(tick);
+});
+
+registerHeaderPresets({
+  id: "jaw-harp", presets: JAW_HARP_FULL_PRESETS, randomize: randomizeJawHarpPreset,
+  capture: () => captureJawHarpPreset(state),
+  apply(snapshot) {
+    validateJawHarpPreset(snapshot);
+    const now = performance.now(), phase = breathCyclePhaseAt(now);
+    state = sanitizeJawHarpState({ ...snapshot.parameters, repeat: state.repeat, breathFlow: state.breathFlow });
+    referencePerformanceBaseline = null;
+    referenceGestureStep %= Math.max(1, jawHarpStyle(state.styleId)?.gestureSteps?.length ?? 1);
+    activeVowelId = null;
+    if (state.vowelSequenceMode === "off") sequencedVowelId = null;
+    else setSequencedVowelStep(vowelSequenceActiveStep);
+    preserveBreathCyclePhase(phase, now);
+    commandedBreathFlow = breathFlowAt(now);
+    updatePresentation();
+    postConfiguration();
+  },
 });

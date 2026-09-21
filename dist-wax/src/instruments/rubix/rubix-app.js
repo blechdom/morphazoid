@@ -1,3 +1,6 @@
+import { registerHeaderPresets } from "../../site/header-presets.js";
+import { RUBIX_DEFAULTS as DEFAULTS, RUBIX_FACTORY_PRESETS as RUBIX_PRESETS } from "./factory-presets.js";
+import { RUBIX_FULL_PRESETS, RUBIX_PRESET_SETTING_KEYS, validateRubixFullPreset, randomizeRubixPreset } from "./full-presets.js";
 import {
   DEFAULT_FM_DRUM_VOICES,
   FM_DRUM_STORAGE_KEY,
@@ -178,22 +181,6 @@ const MORPHIX_FACE_NORMALS = Object.freeze([
   Object.freeze({ x: 1, y: 1, z: -1 }),
 ]);
 
-const DEFAULTS = Object.freeze({
-  ...rubixSimdPreset().controls,
-  tempo: 126,
-  swing: 0,
-  acidLevel: 0.58,
-  drumLevel: 0.54,
-  soundBank: "soft-fm",
-  acidEngine: DEFAULT_ACID_ENGINE,
-  simdPreset: DEFAULT_RUBIX_SIMD_PRESET,
-  simdPresetCustom: false,
-  stickerModulation: DEFAULT_STICKER_MODULATION,
-  visibilityDynamics: 1,
-  output: 0.56,
-  randomTwists: false,
-  randomTwistSpeed: RUBIX_TWIST_SPEED_DEFAULT_POSITION,
-});
 
 const SOUND_DEFAULTS = Object.freeze({
   tempo: DEFAULTS.tempo,
@@ -213,65 +200,6 @@ const SOUND_DEFAULTS = Object.freeze({
   output: DEFAULTS.output,
 });
 
-const RUBIX_PRESETS = Object.freeze({
-  classic: Object.freeze({
-    id: "classic",
-    label: "Classic cube",
-    shapeId: "cube",
-    size: 3,
-    readingMode: "parallel",
-    settings: Object.freeze({ ...DEFAULTS, soundBank: "soft-fm" }),
-  }),
-  "pocket-funk": Object.freeze({
-    id: "pocket-funk",
-    label: "Pocket funk",
-    shapeId: "cube",
-    size: 2,
-    readingMode: "snake",
-    settings: Object.freeze({
-      tempo: 108, swing: 0.16, visibilityDynamics: 1,
-      cutoff: 720, resonance: 8.8, acidDecay: 0.24, drive: 1.6,
-      soundBank: "analog", randomTwists: true, randomTwistSpeed: 48,
-    }),
-  }),
-  "modal-sphere": Object.freeze({
-    id: "modal-sphere",
-    label: "Modal orb",
-    shapeId: "orb",
-    size: 3,
-    readingMode: "face",
-    settings: Object.freeze({
-      tempo: 112, swing: 0.2, visibilityDynamics: 1,
-      cutoff: 620, resonance: 7.5, acidDecay: 0.28, drive: 1.35,
-      soundBank: "modal", randomTwists: true, randomTwistSpeed: 42,
-    }),
-  }),
-  "noise-grid": Object.freeze({
-    id: "noise-grid",
-    label: "Noise grid",
-    shapeId: "cube",
-    size: 4,
-    readingMode: "face",
-    settings: Object.freeze({
-      tempo: 138, swing: 0.04, visibilityDynamics: 1,
-      cutoff: 1860, resonance: 9, acidDecay: 0.11, drive: 1.7,
-      soundBank: "noise", randomTwists: true, randomTwistSpeed: 70,
-    }),
-  }),
-  "pyramid-drift": Object.freeze({
-    id: "pyramid-drift",
-    label: "Morphix drift",
-    shapeId: "morphix",
-    size: 3,
-    readingMode: "snake",
-    settings: Object.freeze({
-      ...rubixSimdPreset("morphix-bloom").controls,
-      tempo: 94, swing: 0.12, visibilityDynamics: 1,
-      soundBank: "acid-303", acidEngine: "simd-303", simdPreset: "morphix-bloom",
-      randomTwists: true, randomTwistSpeed: 32,
-    }),
-  }),
-});
 
 function cloneVector(source) {
   return { x: source.x, y: source.y, z: source.z };
@@ -3278,3 +3206,57 @@ export function rubixPlaybackSnapshot() {
   };
 }
 export { RubixAudioEngine };
+
+// Retain the old controller target for compatibility; the performance selector
+// now lives solely in the shared header. Kit/acid controls remain local.
+$("rubixPreset").closest(".rubix-preset-control").hidden = true;
+registerHeaderPresets({
+  id: "rubix", presets: RUBIX_FULL_PRESETS, randomize: randomizeRubixPreset,
+  capture: () => ({
+    settings: Object.fromEntries(RUBIX_PRESET_SETTING_KEYS.map(key => [key, state[key]])),
+    cube: state.cube, camera: state.camera, shapeId: state.shapeId,
+    readingMode: state.readingMode, drumVoices: voices,
+  }),
+  apply(snapshot) {
+    validateRubixFullPreset(snapshot);
+    // Do not use the old applyRubixPreset/selectSoundBank path: it stops and
+    // restarts the transport. Retain its live clock and update the same engine.
+    if (randomTwistTimer !== null) clearTimeout(randomTwistTimer);
+    randomTwistTimer = null;
+    soundBankLifecycleGeneration += 1;
+    soundBankTransportResumeRequested = false;
+    turnQueue = []; turnAnimation = null; previewTurn = null; pointerGesture = null; moveHistory = [];
+    Object.assign(state, snapshot.settings, {
+      cube: snapshot.cube, camera: snapshot.camera, shapeId: snapshot.shapeId,
+      readingMode: snapshot.readingMode, presetId: "",
+    });
+    voices.splice(0, voices.length, ...snapshot.drumVoices);
+    state.currentStep %= state.cube.size ** 2 * currentReadConfig().subdivisionsPerBeat;
+    nextStepIndex %= state.cube.size ** 2 * currentReadConfig().subdivisionsPerBeat;
+    state.selectedStickerId = null;
+    canvas.dataset.shape = currentShape().surface;
+    stageWrap.dataset.shape = currentShape().surface;
+    $("undoMove").disabled = true;
+    simd303Engine?.setPlaybackEnabled(state.playing && state.soundBank === "acid-303" && state.acidEngine === "simd-303");
+    setActiveAcidEngine(state.acidEngine);
+    audio.setSoundBank(state.soundBank, state);
+    audio.updateSettings(state);
+    audio.setOutput(state.output);
+    syncReadingModeControls();
+    updateSnapshot();
+    state.selectedStickerId = sequenceSnapshot.lanes.acid[middleFaceIndex()].id;
+    renderColorKey(); renderStepStrip(); updateReadouts(); updateSelectedUi(); updateCanvasAriaLabel();
+    if (state.randomTwists) scheduleRandomTwists();
+    syncSimd303Pattern({ force: true });
+    if (state.audioOn) {
+      const revision = soundBankLifecycleGeneration;
+      void activateSelectedSoundBank().then(() => {
+        if (revision !== soundBankLifecycleGeneration || !state.audioOn || !state.playing) return;
+        // Backend activation may need a new sample-clock origin, but never
+        // changes Audio or the user's performer levels.
+        return startTransport({ restart: true });
+      }).catch(showError);
+    }
+    requestDraw();
+  },
+});

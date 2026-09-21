@@ -1735,7 +1735,7 @@ test("physical presets and deterministic randomization produce distinct bounded 
 test("patterns expose an exclusive editable fifty-two-by-sixty-four face-pose grid", () => {
   assert.equal(HICCUP_HEAD_STEP_COUNT, 64);
   assert.deepEqual(HICCUP_HEAD_VELOCITIES, [0, 0.42, 0.72, 1]);
-  assert.equal(HICCUP_HEAD_PATTERNS.length, 19, "the expanded sound bank needs all nineteen rhythms");
+  assert.equal(HICCUP_HEAD_PATTERNS.length, 25, "retain all nineteen original rhythms plus six beat-focused additions");
   assert.equal(new Set(HICCUP_HEAD_PATTERNS.map(({ id }) => id)).size, HICCUP_HEAD_PATTERNS.length);
 
   for (const pattern of HICCUP_HEAD_PATTERNS) {

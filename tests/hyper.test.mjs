@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
+import { createHyperInitialState } from "../src/families/geometry-presets/initial-state.js";
 
 import {
   buildHyperPyramid,
@@ -134,7 +135,8 @@ test("Hyper exposes independent axis motion and maps canvas drag to XW/YW", asyn
   assert.match(html, /Klein bottle/);
   assert.match(html, /id="hyperScaleW"/);
   assert.match(html, /<option value="sine" selected>/);
-  assert.match(app, /soundMode: "sine"/);
+  assert.equal(createHyperInitialState().soundMode, "sine");
+  assert.match(app, /const state = createHyperInitialState\(\)/);
   assert.match(app, /const moving = state\.playing \|\| rotationIsMoving\(\)/);
   assert.match(app, /else pool\.setVoices\(\[\]\)/);
   assert.match(app, /transformedHyperShape\(state\.shapeType, nextRotation, hyperForm\(\)\)/);
@@ -143,8 +145,9 @@ test("Hyper exposes independent axis motion and maps canvas drag to XW/YW", asyn
   assert.match(app, /state\.direction > 0 \? minW : maxW/);
   assert.doesNotMatch(app, /1\.25 \* state\.hyperScaleW/);
   assert.match(app, /MAX_HYPER_VOICES = 20/);
-  assert.match(app, /evenlySelect\(contacts, MAX_HYPER_VOICES\)/);
-  assert.match(app, /new VoicePool\(32, \{ continuousPeakCeiling: 0\.78 \}\)/);
+  assert.match(app, /evenlySelect\(contacts, Math\.min\(MAX_HYPER_VOICES, state\.voiceLimit\)\)/);
+  assert.match(app, /const pool = createGeometryVoicePool\(\)/);
+  assert.match(app, /geometryContactVoice\("hyper", contact, index, state/);
   assert.match(app, /canvas\.addEventListener\("pointerdown"/);
   assert.match(app, /state\.rotationYW = normalizeDegrees/);
   assert.match(app, /state\.rotationXW = normalizeDegrees/);

@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
+import { createLatticeInitialState } from "../src/instruments/lattice/initial-state.js";
 
 const root = new URL("../", import.meta.url);
 
@@ -60,7 +61,8 @@ test("Lattice is one centered line instrument with no walk controls", async () =
   assert.match(app, /alignPeriodToDegrees: 180 \+ state\.patternDirectionAngle/);
   assert.match(app, /contactsForLine/);
   assert.match(app, /new VoicePool\(MAX_VOICES\)/);
-  assert.match(app, /traversalDirection: -1/);
+  assert.equal(createLatticeInitialState().traversalDirection, -1);
+  assert.match(app, /const state = createLatticeInitialState\(\)/);
   assert.match(app, /\$\("resetLineAngle"\)\.addEventListener\("click"/);
   assert.match(app, /if \(continuousMode && state\.playing\)/);
   assert.match(app, /pool\.setVoices\(data\.map/);

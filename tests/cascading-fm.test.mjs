@@ -16,6 +16,7 @@ import {
   ratioSliderValue,
   sanitizeCascadingFmSettings,
 } from "../src/cascading-fm.js";
+import { CASCADING_FM_FULL_PRESETS } from "../src/families/cascading/full-presets.js";
 
 const ROOT = new URL("../", import.meta.url);
 const RATIO_UNITY_POSITION = ratioSliderPosition(1);
@@ -45,8 +46,8 @@ test("Cascading FM settings and preset tuples stay bounded and immutable", () =>
   assert.equal(CASCADING_FM_LIMITS.minCascadeRatio, 0.25);
   assert.equal(CASCADING_FM_LIMITS.maxStages, 12);
   assert.equal(sanitizeCascadingFmSettings({ stages: 99 }).stages, 12);
-  assert.equal(DEFAULT_CASCADING_FM_PRESET_ID, "brass-choir");
-  assert.equal(CASCADING_FM_PRESETS.length, 6);
+  assert.equal(DEFAULT_CASCADING_FM_PRESET_ID, "slow-steps");
+  assert.equal(CASCADING_FM_PRESETS.length, 12);
   assert.ok(Object.isFrozen(CASCADING_FM_PRESETS));
   assert.ok(CASCADING_FM_PRESETS.every(Object.isFrozen));
   assert.ok(CASCADING_FM_PRESETS.every(({ settings }) => Object.isFrozen(settings)));
@@ -80,12 +81,11 @@ test("factory FM presets stay audible and clear of the ceiling clamp", () => {
   for (const preset of CASCADING_FM_PRESETS) {
     const stack = deriveCascadeStack(preset.settings);
     const carrierHz = stack.oscillators.at(-1).freq;
-    assert.ok(preset.settings.stages >= 3 && preset.settings.stages <= 8);
-    assert.ok(preset.settings.rootHz >= 55, `${preset.id} root is sub-audio`);
-    assert.ok(preset.settings.rootHz <= CASCADING_FM_LIMITS.maxRootHz);
-    assert.ok(preset.settings.cascadeRatio <= 4.5, `${preset.id} ratio is too steep`);
-    assert.ok(preset.settings.modDepth <= 1_800, `${preset.id} starts too deep`);
-    assert.ok(carrierHz >= 500 && carrierHz < CASCADING_FM_LIMITS.audioCeiling,
+    assert.ok(preset.settings.stages >= 2 && preset.settings.stages <= 7);
+    assert.ok(preset.settings.rootHz >= 0.125 && preset.settings.rootHz <= 3,
+      `${preset.id} must start with a real slow rhythmic LFO`);
+    assert.ok(preset.settings.modDepth <= 72, `${preset.id} first modulation is too deep`);
+    assert.ok(carrierHz >= 45 && carrierHz <= 160,
       `${preset.id} carrier is ${carrierHz} Hz`);
 
     for (let index = 0; index < stack.oscillators.length; index += 1) {
@@ -101,14 +101,14 @@ test("factory FM presets stay audible and clear of the ceiling clamp", () => {
     for (let index = 0; index < stack.connections.length; index += 1) {
       const depthHz = stack.connections[index].depthHz;
       const destinationHz = stack.oscillators[index + 1].freq;
-      assert.ok(depthHz <= 1_800, `${preset.id} stage ${index} depth is ${depthHz} Hz`);
+      assert.ok(depthHz <= 200, `${preset.id} stage ${index} depth is ${depthHz} Hz`);
       assert.ok(
-        depthHz / destinationHz <= 5,
+        depthHz / destinationHz <= 1.65,
         `${preset.id} stage ${index} deviation is ${(depthHz / destinationHz).toFixed(3)}× its centre`,
       );
     }
     assert.ok(
-      stack.connections.at(-1).depthHz / carrierHz <= 0.25,
+      stack.connections.at(-1).depthHz / carrierHz <= 1.65,
       `${preset.id} final deviation is too wide`,
     );
   }
@@ -278,9 +278,10 @@ test("preset clicks synchronize the complete UI tuple and the live audio graph",
   assert.ok(outputsIndex > audioIndex, "readouts should reflect the same stack sent to audio");
   assert.match(
     app,
-    /\$\("presetButtons"\)\.addEventListener\("click",[\s\S]*?applySettings\(preset\.settings,\s*\{\s*presetId:\s*preset\.id,\s*syncControls:\s*true\s*\}\)/,
+    /registerHeaderPresets\(\{[\s\S]*?apply\(snapshot\)[\s\S]*?applySettings\(snapshot\.settings,\s*\{\s*presetId:\s*snapshot\.activePresetId,\s*syncControls:\s*true\s*\}\)/,
     "preset selection must explicitly synchronize its complete tuple",
   );
+  assert.doesNotMatch(html, /id="presetButtons"|data-preset=/, "one main preset menu, no rejected duplicate bank");
   assert.match(
     app,
     /\$\("resetCascadingFm"\)\.addEventListener\("click",[\s\S]*?applySettings\(defaultPreset\.settings,\s*\{\s*presetId:\s*defaultPreset\.id,\s*syncControls:\s*true\s*\}\)/,
@@ -302,9 +303,9 @@ test("preset clicks synchronize the complete UI tuple and the live audio graph",
   assert.match(nonStageInputPath, /applySettings\(\{ \.\.\.state\.settings, \[key\]: value \}\)/);
   assert.doesNotMatch(nonStageInputPath, /syncControls|writeControlsFromState/);
 
-  for (const preset of CASCADING_FM_PRESETS) {
-    assert.match(html, new RegExp(`data-preset="${preset.id}"`));
-  }
+  assert.deepEqual(CASCADING_FM_FULL_PRESETS.map(preset => preset.id),
+    CASCADING_FM_PRESETS.map(preset => preset.id), "every factory preset reaches the header");
+  assert.match(app, /presets: CASCADING_FM_FULL_PRESETS/);
   assert.match(html, /id="stages"[^>]*max="12"/);
   const defaultRatioPosition = ratioSliderPosition(
     CASCADING_FM_PRESETS.find(({ id }) => id === DEFAULT_CASCADING_FM_PRESET_ID)

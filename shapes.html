@@ -87,7 +87,7 @@
             <div class="shapes-playing-mode" role="group" aria-label="Playing mode">
               <div class="choice-switch" id="playingMode">
                 <button type="button" data-playing-mode="continuous" aria-pressed="true">Continuous</button>
-                <button type="button" data-playing-mode="notes" aria-pressed="false">Notes</button>
+                <button type="button" data-playing-mode="notes" aria-pressed="false">Corners &amp; Notes</button>
                 <button type="button" data-playing-mode="triggers" aria-pressed="false">Triggers</button>
               </div>
             </div>
@@ -135,7 +135,7 @@
                   </div>
                   <label class="select-control shapes-engine-control" id="voiceEngineControl" for="voiceEngine">
                     <span class="field-label">Sound</span>
-                    <span class="select-shell"><select id="voiceEngine" aria-label="Sound engine"><option value="sine">Sine</option><option value="fm">FM</option><option value="pm">PM</option><option value="shepard">Shepard</option></select></span>
+                    <span class="select-shell"><select id="voiceEngine" aria-label="Sound engine"><option value="sine">Sine</option><option value="fm">FM</option><option value="pm">PM</option><option value="shepard">Shepard</option><option value="percussion">Corner percussion</option></select></span>
                   </label>
                   <label class="select-control shapes-engine-control" id="triggerSoundBankControl" for="triggerSoundBank" hidden>
                     <span class="field-label">Percussion</span>
@@ -251,6 +251,7 @@
               <button class="shapes-icon-button shapes-reset-button" id="resetRotation" type="button" aria-label="Reset rotation" title="Reset rotation"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M5 8V4m0 0h4M5 4l3.2 3.2A7 7 0 1 1 5 14" /></svg></button>
             </div>
             <div id="rotationControls" class="shapes-rotation-controls"></div>
+            <label class="select-control" id="rotationMotionControl"><span class="field-label">2D rotation motion</span><span class="select-shell"><select id="rotationMotion"><option value="loop">Loop</option><option value="pingpong">Ping-pong</option></select></span></label>
           </section>
 
           <section class="shapes-bank" id="mappingBankPanel" role="tabpanel" data-bank-panel="mapping" aria-labelledby="mappingBankTab" hidden>
@@ -275,9 +276,11 @@
                   <label class="control" for="tuningDepth"><span><b id="tuningDepthLabel">Morph range</b><output id="tuningDepthOut" for="tuningDepth">100%</output></span><input id="tuningDepth" type="range" min="0" max="24" step="1" value="12" /></label>
                   <label class="control" for="triggerCharacter"><span><b>Character depth</b><output id="triggerCharacterOut" for="triggerCharacter">70%</output></span><input id="triggerCharacter" type="range" min="0" max="1" step="0.01" value="0.7" /></label>
                   <label class="control" for="hitCap"><span><b>Hit cap</b><output id="hitCapOut" for="hitCap">6</output></span><input id="hitCap" type="range" min="1" max="16" step="1" value="6" /></label>
+                  <label class="control" for="triggerStrength"><span><b>Strike strength</b><output id="triggerStrengthOut" for="triggerStrength">100%</output></span><input id="triggerStrength" type="range" min="0" max="1" step="0.01" value="1" /></label>
                 </div>
               </section>
             </div>
+            <div id="shapesSoundControls"></div>
             <div class="shapes-reset-row"><button class="shapes-icon-button shapes-reset-button" id="resetAll" type="button" aria-label="Reset all Shapes controls" title="Reset all"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M5 8V4m0 0h4M5 4l3.2 3.2A7 7 0 1 1 5 14" /></svg></button></div>
           </section>
 

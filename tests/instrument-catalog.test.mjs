@@ -583,7 +583,8 @@ test("catalogue tag matching includes secondary tags", () => {
   assert.equal(instrumentMatchesTag(instrumentById("plasma-ball"), "geometry"), false);
   assert.equal(instrumentMatchesTag(instrumentById("fm-drums"), "drum-machine"), true);
   assert.equal(instrumentMatchesTag(instrumentById("moebius"), "synthesizer"), true);
-  assert.equal(instrumentMatchesTag(instrumentById("shape"), "faves"), true);
+  assert.equal(instrumentMatchesTag(instrumentById("shape"), "faves"), false);
+  assert.equal(instrumentMatchesTag(instrumentById("shapes"), "faves"), true);
   assert.equal(instrumentMatchesTag(instrumentById("lattice"), "faves"), true);
 });
 
@@ -677,7 +678,7 @@ test("home catalogue shows every category with Faves first and compact duplicate
     );
   }
 
-  const firstInstrument = orderedInstruments.find((instrument) => faveIds.has(instrument.id));
+  const firstInstrument = instrumentById(FAVE_TOOL_IDS[0]);
   const firstCard = rendered.cards[0];
   const [cardLink] = firstCard.children;
   const [visual, title] = cardLink.children;

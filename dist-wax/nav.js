@@ -8,6 +8,8 @@ import { instrumentMidiCapabilityForId } from "./src/instrument-midi-capabilitie
 import { initializeMidiOutputMonitor } from "./src/midi-output-preview.js";
 import { initializeChaoticViewportControls } from "./src/chaotic-viewport-controls.js";
 import { createMidiStatus, createStereoMeter } from "./src/ui/index.js";
+import { createChoosePickerShell } from "./src/ui/patterns/choose-picker-shell.js";
+import { mountHeaderPresets } from "./src/site/header-presets.js";
 import { FAVE_TOOL_IDS, TOOL_GROUPS, SITE_LINKS } from "./src/site/instrument-registry.js";
 
 // Preserve the existing navigation API without duplicating its records.
@@ -153,32 +155,14 @@ function staticCurrentHref(doc) {
 }
 
 function createInstrumentPicker(doc, activeTool, siteRoot, index) {
-  const details = element(doc, "details", "instrument-picker");
+  const { details, summary, panel, search, searchInput, list } = createChoosePickerShell(doc, {
+    current: activeTool?.label ?? "Choose",
+    label: activeTool ? `Choose instrument. Current: ${activeTool.label}` : "Choose instrument",
+    title: activeTool?.label ?? "Choose instrument",
+    panelId: `instrument-picker-panel-${index}`,
+    placeholder: "Type an instrument", filterLabel: "Filter instruments", listLabel: "Morphazoid instruments",
+  });
   details.setAttribute("data-active-tool-id", activeTool?.id ?? "");
-  const summary = element(doc, "summary", "instrument-picker-trigger");
-  summary.setAttribute(
-    "aria-label",
-    activeTool ? `Choose instrument. Current: ${activeTool.label}` : "Choose instrument",
-  );
-  summary.setAttribute("title", activeTool?.label ?? "Choose instrument");
-  summary.append(element(doc, "strong", "instrument-picker-current", activeTool?.label ?? "Choose"));
-  const chevron = element(doc, "span", "instrument-picker-chevron");
-  chevron.setAttribute("aria-hidden", "true");
-  summary.append(chevron);
-
-  const panel = element(doc, "div", "instrument-picker-panel");
-  panel.id = `instrument-picker-panel-${index}`;
-  const search = element(doc, "label", "instrument-picker-search");
-  const searchLabel = element(doc, "span", "instrument-picker-search-label", "Find");
-  const searchInput = element(doc, "input", "instrument-picker-search-input");
-  searchInput.type = "search";
-  searchInput.placeholder = "Type an instrument";
-  searchInput.autocomplete = "off";
-  searchInput.spellcheck = false;
-  searchInput.setAttribute("aria-label", "Filter instruments");
-  search.append(searchLabel, searchInput);
-  const list = element(doc, "div", "instrument-picker-list");
-  list.setAttribute("aria-label", "Morphazoid instruments");
   const groupRecords = [];
 
   for (const group of pickerGroups()) {
@@ -1462,6 +1446,7 @@ export function initializeSharedNavigation(doc = globalThis.document, runtime = 
     });
   }
   initializeAudioTransportContract(doc, runtime);
+  mountHeaderPresets(doc);
 
   for (const select of doc?.querySelectorAll?.(".mobile-instrument-select") ?? []) {
     select.addEventListener("change", () => {

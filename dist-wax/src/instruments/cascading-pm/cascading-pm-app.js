@@ -1,3 +1,5 @@
+import { registerHeaderPresets } from "../../site/header-presets.js";
+import { CASCADING_PM_FULL_PRESETS, randomizeCascadingPmPreset } from "../../families/cascading/full-presets.js";
 import {
   CASCADING_PM_LIMITS,
   CASCADING_PM_PRESETS,
@@ -21,7 +23,7 @@ import {
 import { canvasSizing } from "../../graphics/canvas-sizing.js";
 
 const $ = (id) => document.getElementById(id);
-const DEFAULT_LEVEL = 0.58;
+const DEFAULT_LEVEL = CASCADING_PM_PRESETS[0].level;
 const VISUAL_FRAME_INTERVAL = 1_000 / 30;
 
 const defaultPreset = CASCADING_PM_PRESETS.find(
@@ -71,25 +73,7 @@ function presetById(id) {
   return CASCADING_PM_PRESETS.find((preset) => preset.id === id) ?? null;
 }
 
-function renderPresetButtons() {
-  const group = $("presetButtons");
-  group.replaceChildren(...CASCADING_PM_PRESETS.map((preset) => {
-    const button = document.createElement("button");
-    button.type = "button";
-    button.dataset.preset = preset.id;
-    button.textContent = preset.label;
-    button.setAttribute("aria-pressed", "false");
-    return button;
-  }));
-}
-
-function updatePresetButtons() {
-  for (const button of $("presetButtons").querySelectorAll("[data-preset]")) {
-    button.setAttribute(
-      "aria-pressed",
-      String(button.dataset.preset === state.activePresetId),
-    );
-  }
+function updatePresetPresentation() {
   const preset = presetById(state.activePresetId);
   $("presetState").textContent = preset?.label ?? "Custom";
   $("presetDescription").textContent = preset?.description
@@ -391,7 +375,7 @@ function applySettings(rawSettings, { presetId = null, syncControls = false } = 
 
   if (syncControls) writeControlsFromState();
   const stack = engine.running ? engine.updateSettings(safe) : currentStack();
-  updatePresetButtons();
+  updatePresetPresentation();
   updateControlOutputs(stack);
   visualizationDirty = true;
   scheduleVisualization();
@@ -488,15 +472,6 @@ for (const [key, control] of Object.entries(controls)) {
   });
 }
 
-$("presetButtons").addEventListener("click", (event) => {
-  const button = event.target.closest("[data-preset]");
-  if (!button) return;
-  const preset = presetById(button.dataset.preset);
-  if (!preset) return;
-  clearError();
-  applySettings(preset.settings, { presetId: preset.id, syncControls: true });
-  $("liveStatus").textContent = `${preset.label} preset selected.`;
-});
 
 $("level").addEventListener("input", () => {
   state.level = Number($("level").value);
@@ -573,11 +548,28 @@ if ("ResizeObserver" in window) {
   window.addEventListener("resize", resizeCanvas);
 }
 
-renderPresetButtons();
 writeControlsFromState();
-updatePresetButtons();
+updatePresetPresentation();
 updateControlOutputs();
 resizeCanvas();
 
 // Useful for module-level smoke tests without exposing mutable state.
 export { buildFlowSvg, formatPhaseIndex };
+
+registerHeaderPresets({
+  id: "cascading-pm",
+  presets: CASCADING_PM_FULL_PRESETS,
+  randomize: randomizeCascadingPmPreset,
+  capture: () => ({ settings: state.settings, activePresetId: state.activePresetId, level: state.level }),
+  apply(snapshot) {
+    applySettings(snapshot.settings, { presetId: snapshot.activePresetId, syncControls: true });
+    state.activePresetId = snapshot.activePresetId;
+    state.level = snapshot.level;
+    $("level").value = String(state.level);
+    $("levelOut").textContent = `${Math.round(state.level * 100)}%`;
+    engine.setLevel(state.level);
+    const preset = CASCADING_PM_FULL_PRESETS.find(item => item.id === state.activePresetId);
+    $("presetState").textContent = preset?.label ?? "Custom";
+    $("presetDescription").textContent = preset?.description ?? "Custom cascade";
+  },
+});

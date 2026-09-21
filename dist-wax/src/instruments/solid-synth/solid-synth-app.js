@@ -1,11 +1,14 @@
+import { createGeometryVoicePool } from "../../families/geometry-presets/audio-budget.js";
+import { geometryContactVoice } from "../../families/geometry-presets/geometry-sound.js";
+import { registerHeaderPresets } from "../../site/header-presets.js";
+import { createSolidInitialState, SOLID_FULL_PRESETS, captureGeometryPreset, validateGeometryPreset, randomizeGeometryPreset } from "../../families/geometry-presets/full-presets.js";
 import {
-  VoicePool,
   clamp,
   cornerAttackSeconds,
   cornerDecaySeconds,
   normalizeStrikeGains,
+  reduceVoiceContacts,
   pitch01ToFrequency,
-  synthParametersForMode,
 } from "../../audio.js";
 import {
   buildSolid,
@@ -24,52 +27,13 @@ import { canvasSizing } from "../../graphics/canvas-sizing.js";
 
 const $ = (id) => document.getElementById(id);
 const TAU = Math.PI * 2;
-const pool = new VoicePool(32, { continuousPeakCeiling: 0.78 });
+const pool = createGeometryVoicePool();
 const amplitudeControl = createAmplitudeControl($("amplitudeControl"), { onChange: scheduleFrame });
 const canvas = $("stage");
 const stageWrap = $("stageWrap");
 const context = canvas.getContext("2d", { desynchronized: true });
 
-const state = {
-  solidType: "cube",
-  profileSides: 4,
-  profileShapeType: "polygon",
-  profileStarDepth: 0.48,
-  position: 0.5,
-  continuousPosition: 0.5,
-  speed: 0.12,
-  direction: 1,
-  playing: false,
-  rotationX: -24,
-  rotationY: 36,
-  rotationZ: 8,
-  rotationXPlaying: false,
-  rotationYPlaying: false,
-  rotationZPlaying: false,
-  rotationXSpeed: 0.03,
-  rotationYSpeed: 0.08,
-  rotationZSpeed: 0.02,
-  planeYaw: 45,
-  planePitch: -22,
-  planeYawPlaying: false,
-  planePitchPlaying: false,
-  planeYawSpeed: 0.04,
-  planePitchSpeed: 0.03,
-  formScaleX: 1,
-  formScaleY: 1,
-  formScaleZ: 1,
-  formSkewX: 0,
-  formSkewZ: 0,
-  audio: false,
-  soundMode: "sine",
-  level: 0.65,
-  baseFrequency: 110,
-  pitchRange: 3,
-  fmIndex: 3,
-  fmRatio: 2,
-  percussionAttack: 3,
-  percussionDecay: 110,
-};
+const state = createSolidInitialState();
 
 let cssWidth = 1;
 let cssHeight = 1;
@@ -112,6 +76,7 @@ function resizeCanvas() {
 new ResizeObserver(resizeCanvas).observe(stageWrap);
 resizeCanvas();
 
+const presetRangeRefreshers = new Map();
 function bindRange(id, key, formatter, afterChange) {
   const input = $(id);
   const output = $(`${id}Out`);
@@ -119,6 +84,7 @@ function bindRange(id, key, formatter, afterChange) {
   const update = () => {
     if (output) output.textContent = formatter(state[key]);
   };
+  presetRangeRefreshers.set(key, () => { input.value = String(state[key]); update(); });
   input.addEventListener("input", () => {
     state[key] = Number(input.value);
     update();
@@ -153,6 +119,7 @@ for (const key of ["formSkewX", "formSkewZ"]) {
 }
 bindRange("baseFrequency", "baseFrequency", (value) => `${Math.round(value)} Hz`);
 bindRange("pitchRange", "pitchRange", (value) => `${value.toFixed(2)} oct`);
+bindRange("voiceLimit", "voiceLimit", (value) => `${Math.round(value)} voices`);
 bindRange("fmIndex", "fmIndex", (value) => `${value.toFixed(2)} max`);
 bindRange("fmRatio", "fmRatio", (value) => `${value.toFixed(2)} : 1`);
 bindRange("percussionAttack", "percussionAttack", (value) => `${Number(value).toFixed(value % 1 ? 1 : 0)} ms`);
@@ -187,6 +154,7 @@ $("soundMode").addEventListener("change", (event) => {
   $("fmControls").hidden = !["fm", "pm"].includes(state.soundMode);
   $("percussionArticulation").hidden = state.soundMode !== "percussion";
   amplitudeControl.setVisible(state.soundMode !== "percussion");
+  $("voiceLimitControl").hidden = state.soundMode === "percussion";
   previousVertexSigns = null;
   scheduleFrame();
 });
@@ -441,24 +409,7 @@ function drawScene(solid, plane, contacts) {
 }
 
 function voiceForContact(contact, index, phase = state.continuousPosition) {
-  const pitch = clamp((contact.y + 1) * 0.5, 0, 1);
-  const drive = clamp((contact.z + 1) * 0.5, 0, 1);
-  const synth = synthParametersForMode(state.soundMode, drive, {
-    fmIndex: state.fmIndex,
-    fmRatio: state.fmRatio,
-    pmIndex: state.fmIndex * 0.7,
-    pmRatio: state.fmRatio,
-    shepardRate: state.playing ? state.speed * state.direction : 0,
-    shepardWidth: 4,
-  });
-  return {
-    key: `solid:${contact.edgeIndex ?? index}`,
-    frequency: pitch01ToFrequency(pitch, state.baseFrequency, state.pitchRange),
-    gain: amplitudeControl.sample(contact.t ?? 0, 0.25 + 0.55 * (contact.cornerStrength ?? 0)),
-    pan: clamp(contact.x, -1, 1),
-    waveform: "sine",
-    ...synth,
-  };
+  return geometryContactVoice("solid", contact, index, state, (amount, peak) => amplitudeControl.sample(amount, peak));
 }
 
 function emitVertexStrikes(solid, plane) {
@@ -527,7 +478,7 @@ function frame(now) {
   if (moving) emitVertexStrikes(solid, plane);
 
   const continuous = state.soundMode !== "percussion";
-  const voices = continuous ? contacts.map(voiceForContact) : [];
+  const voices = continuous ? reduceVoiceContacts(contacts.map(voiceForContact), state.voiceLimit) : [];
   if (state.audio) {
     if (continuous && moving) {
       const futurePhase = state.continuousPosition + (state.playing
@@ -546,9 +497,9 @@ function frame(now) {
         futureSolid,
       );
       const futureContacts = planeIntersections(futureSolid, futurePlane.normal, futurePlane.offset);
-      pool.setVoiceTrajectory(voices, futureContacts.map((contact, index) => (
+      pool.setVoiceTrajectory(voices, reduceVoiceContacts(futureContacts.map((contact, index) => (
         voiceForContact(contact, index, futurePhase)
-      )), 0.075);
+      )), state.voiceLimit), 0.075, { voiceLimit: state.voiceLimit });
     } else pool.setVoices([]);
   }
 
@@ -832,6 +783,7 @@ function resetShapesBank(bank) {
     for (const [id, value] of [
       ["baseFrequency", 110],
       ["pitchRange", 3],
+      ["voiceLimit", 32],
       ["fmIndex", 3],
       ["fmRatio", 2],
       ["percussionAttack", 3],
@@ -952,3 +904,37 @@ paintTransport();
 paintMotionControls();
 paintRotationTarget();
 scheduleFrame();
+
+registerHeaderPresets({
+  id: "solid-synth", presets: SOLID_FULL_PRESETS,
+  randomize: (current, random) => randomizeGeometryPreset("solid", current, random),
+  capture: () => captureGeometryPreset("solid", state, amplitudeControl.captureState()),
+  apply(snapshot) {
+    validateGeometryPreset("solid", snapshot);
+    const wasMoving = motionIsActive(), oldMode = state.soundMode;
+    Object.assign(state, snapshot.parameters);
+    // A shape-only scene needs a readable fixed slice, not an inherited slice
+    // beyond the form's boundary. Moving-playhead scenes retain their phase.
+    if (!state.playing) {
+      state.position = 0.5;
+      state.continuousPosition = Math.floor(state.continuousPosition) + 0.5;
+    }
+    amplitudeControl.applyState(snapshot.envelope);
+    for (const refresh of presetRangeRefreshers.values()) refresh();
+    $("solidType").value = state.solidType;
+    $("formSummary").textContent = state.solidType;
+    $("soundMode").value = state.soundMode;
+    $("soundSummary").textContent = state.soundMode.toUpperCase();
+    $("fmControls").hidden = !["fm", "pm"].includes(state.soundMode);
+    $("percussionArticulation").hidden = state.soundMode !== "percussion";
+    amplitudeControl.setVisible(state.soundMode !== "percussion");
+    $("voiceLimitControl").hidden = state.soundMode === "percussion";
+    $("directionButton").textContent = `Direction · ${state.direction > 0 ? "forward" : "reverse"}`;
+    previousVertexSigns = null;
+    if (!wasMoving && motionIsActive()) resetClocks();
+    if (!motionIsActive() || oldMode !== state.soundMode) pool.silence();
+    pool.setLevel(state.level);
+    paintMotionControls();
+    scheduleFrame();
+  },
+});

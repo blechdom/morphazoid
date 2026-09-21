@@ -1,3 +1,5 @@
+import { registerHeaderPresets } from "../../site/header-presets.js";
+import { CASCADING_FM_FULL_PRESETS, randomizeCascadingFmPreset } from "../../families/cascading/full-presets.js";
 import {
   CASCADING_FM_LIMITS,
   CASCADING_FM_PRESETS,
@@ -24,7 +26,7 @@ import { connectAudioOutput } from "../../audio-output-manager.js";
 import { canvasSizing } from "../../graphics/canvas-sizing.js";
 
 const $ = (id) => document.getElementById(id);
-const DEFAULT_LEVEL = 0.58;
+const DEFAULT_LEVEL = CASCADING_FM_PRESETS[0].level;
 const VISUAL_FRAME_INTERVAL = 1_000 / 30;
 const PARAMETER_SMOOTHING_SECONDS = 0.018;
 
@@ -645,19 +647,13 @@ function applySettings(rawSettings, { presetId = null, syncControls = false } = 
   // writing it back during an input event makes nonlinear sliders feel sticky.
   if (syncControls) writeControlsFromState();
   const stack = engine.running ? engine.updateSettings(safe) : currentStack();
-  updatePresetButtons();
+  updatePresetPresentation();
   updateControlOutputs(stack);
   visualizationDirty = true;
   scheduleVisualization();
 }
 
-function updatePresetButtons() {
-  for (const button of $("presetButtons").querySelectorAll("[data-preset]")) {
-    button.setAttribute(
-      "aria-pressed",
-      String(button.dataset.preset === state.activePresetId),
-    );
-  }
+function updatePresetPresentation() {
   const preset = CASCADING_FM_PRESETS.find(({ id }) => id === state.activePresetId);
   $("presetState").textContent = preset?.label ?? "Custom";
   $("presetDescription").textContent = preset?.description ?? "A custom cascade configuration.";
@@ -772,15 +768,6 @@ for (const [key, control] of Object.entries(controls)) {
   });
 }
 
-$("presetButtons").addEventListener("click", (event) => {
-  const button = event.target.closest("[data-preset]");
-  if (!button) return;
-  const preset = CASCADING_FM_PRESETS.find(({ id }) => id === button.dataset.preset);
-  if (!preset) return;
-  clearError();
-  applySettings(preset.settings, { presetId: preset.id, syncControls: true });
-  $("liveStatus").textContent = `${preset.label} preset selected.`;
-});
 
 $("level").addEventListener("input", () => {
   state.level = Number($("level").value);
@@ -861,6 +848,24 @@ if ("ResizeObserver" in window) {
 // ---------------------------------------------------------------------------
 
 writeControlsFromState();
-updatePresetButtons();
+updatePresetPresentation();
 updateControlOutputs();
 resizeCanvas();
+
+registerHeaderPresets({
+  id: "cascading-fm",
+  presets: CASCADING_FM_FULL_PRESETS,
+  randomize: randomizeCascadingFmPreset,
+  capture: () => ({ settings: state.settings, activePresetId: state.activePresetId, level: state.level }),
+  apply(snapshot) {
+    applySettings(snapshot.settings, { presetId: snapshot.activePresetId, syncControls: true });
+    state.activePresetId = snapshot.activePresetId;
+    state.level = snapshot.level;
+    $("level").value = String(state.level);
+    $("levelOut").textContent = `${Math.round(state.level * 100)}%`;
+    engine.setLevel(state.level);
+    const preset = CASCADING_FM_FULL_PRESETS.find(item => item.id === state.activePresetId);
+    $("presetState").textContent = preset?.label ?? "Custom";
+    $("presetDescription").textContent = preset?.description ?? "Custom cascade";
+  },
+});

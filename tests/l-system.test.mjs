@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
+import { DEFAULT_L_SYSTEM_STATE } from "../src/families/branch-presets/initial-state.js";
 import {
   L_SYSTEM_PRESETS,
   advanceLSystemTraversal,
@@ -353,7 +354,8 @@ test("L-system page exposes presets, traversal, mapping, adaptive synthesis, and
   assert.match(app, /branchAngleFrequency/);
   assert.match(app, /pitch01ToFrequency/);
   assert.match(app, /pool\.setVoiceTrajectory/);
-  assert.match(app, /speed:\s*0\.3/);
+  assert.equal(DEFAULT_L_SYSTEM_STATE.speed, 0.3);
+  assert.match(app, /const state = \{ \.\.\.DEFAULT_L_SYSTEM_STATE \}/);
   assert.match(app, /TRAVERSAL_SPEED_CURVE\s*=\s*3/);
   assert.match(app, /gainSmoothingSeconds:\s*0\.018/);
   assert.match(app, /releaseVoiceAllowance:\s*Math\.min\(256,\s*voiceLimit\)/);

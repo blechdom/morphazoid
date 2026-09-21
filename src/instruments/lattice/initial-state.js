@@ -1,0 +1,42 @@
+import { tilingInfo } from "../../lattice.js";
+export function createLatticeInitialState() {
+const DEFAULT_TILING_TYPE = 20, DEFAULT_DENSITY = 0.52;
+const defaultInfo = tilingInfo(DEFAULT_TILING_TYPE);
+return {
+  tilingType: DEFAULT_TILING_TYPE,
+  parameters: [...defaultInfo.defaultParameters],
+  edgeCurves: defaultInfo.edgeShapes.map(() => 0),
+  density: DEFAULT_DENSITY,
+  motionMode: "loop",
+  position: 0.5,
+  continuousPosition: 0.5,
+  speed: 0.08,
+  traversalDirection: -1,
+  patternDirectionAngle: 0,
+  angle: 90,
+  playing: false,
+  audio: false,
+  level: 0.65,
+  baseFrequency: 110,
+  pitchRange: 3.5,
+  contactLevel: 0.35,
+  intersectionAccent: 0.75,
+  voiceCap: 8,
+  soundMode: "sine",
+  synthSource: "incidence",
+  percussionAttack: 3,
+  percussionDecay: 110,
+  shepardCycles: 1,
+  shepardDirection: 1,
+  shepardWidth: 4,
+  fmIndex: 3,
+  fmRatio: 2,
+  pmIndex: 2,
+  pmRatio: 1,
+  pitchSource: "height",
+  pitchCurve: "linear",
+  levelSource: "incidence",
+  levelCurve: "linear",
+  stereoWidth: 1,
+};
+}

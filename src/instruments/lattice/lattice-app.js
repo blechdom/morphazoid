@@ -1,3 +1,5 @@
+import { registerHeaderPresets } from "../../site/header-presets.js";
+import { createLatticeInitialState, LATTICE_FULL_PRESETS, captureLatticePreset, validateLatticePreset, randomizeLatticePreset } from "./full-presets.js";
 import {
   VoicePool,
   clamp,
@@ -105,43 +107,7 @@ const MIDI_PREVIEW_RANGE_CONTROLS = Object.freeze([
 ]);
 
 const defaultInfo = tilingInfo(DEFAULT_TILING_TYPE);
-const state = {
-  tilingType: DEFAULT_TILING_TYPE,
-  parameters: [...defaultInfo.defaultParameters],
-  edgeCurves: defaultInfo.edgeShapes.map(() => 0),
-  density: DEFAULT_DENSITY,
-  motionMode: "loop",
-  position: 0.5,
-  continuousPosition: 0.5,
-  speed: 0.08,
-  traversalDirection: -1,
-  patternDirectionAngle: 0,
-  angle: 90,
-  playing: false,
-  audio: false,
-  level: 0.65,
-  baseFrequency: 110,
-  pitchRange: 3.5,
-  contactLevel: 0.35,
-  intersectionAccent: 0.75,
-  voiceCap: 8,
-  soundMode: "sine",
-  synthSource: "incidence",
-  percussionAttack: 3,
-  percussionDecay: 110,
-  shepardCycles: 1,
-  shepardDirection: 1,
-  shepardWidth: 4,
-  fmIndex: 3,
-  fmRatio: 2,
-  pmIndex: 2,
-  pmRatio: 1,
-  pitchSource: "height",
-  pitchCurve: "linear",
-  levelSource: "incidence",
-  levelCurve: "linear",
-  stereoWidth: 1,
-};
+const state = createLatticeInitialState();
 
 state.level = clamp(state.level, 0, 1);
 state.baseFrequency = clamp(state.baseFrequency, 20, 440);
@@ -533,6 +499,7 @@ function plural(count, singular, pluralForm = `${singular}s`) {
   return count === 1 ? singular : pluralForm;
 }
 
+const presetRangeRefreshers = new Map();
 function bindRange(id, key, formatter, afterChange) {
   const input = $(id);
   const output = $(`${id}Out`);
@@ -540,6 +507,7 @@ function bindRange(id, key, formatter, afterChange) {
     input.value = String(state[key]);
     if (output) output.textContent = formatter(state[key]);
   };
+  presetRangeRefreshers.set(key, paint);
   input.addEventListener("input", () => {
     state[key] = Number(input.value);
     if (key === "voiceCap") state.voiceCap = Math.round(state.voiceCap);
@@ -1943,3 +1911,28 @@ paintAudioState();
 queueLatticePhasePreview();
 publishLatticeTransportPreview();
 scheduleFrame();
+
+registerHeaderPresets({
+  id: "lattice", presets: LATTICE_FULL_PRESETS, randomize: randomizeLatticePreset,
+  capture: () => captureLatticePreset(state, amplitudeControl.captureState()),
+  apply(snapshot) {
+    validateLatticePreset(snapshot);
+    const previousMode = state.motionMode, previousSound = state.soundMode;
+    Object.assign(state, snapshot.parameters);
+    // Use the existing phase-rebasing path instead of restarting the scanner.
+    state.motionMode = previousMode;
+    setMotionMode(snapshot.parameters.motionMode, false);
+    state.soundMode = previousSound;
+    setSoundMode(snapshot.parameters.soundMode, false);
+    amplitudeControl.applyState(snapshot.envelope);
+    tilingSelect.value = String(state.tilingType);
+    configureTilingControls();
+    for (const refresh of presetRangeRefreshers.values()) refresh();
+    for (const key of ["synthSource", "pitchSource", "pitchCurve", "levelSource", "levelCurve", "shepardDirection"]) if ($(key)) $(key).value = String(state[key]);
+    pool.setLevel(state.level);
+    resetContactTracking();
+    invalidateGeometry();
+    paintSpeed(); paintPatternDirection(); updateTraversalDirection(); updateSummaries();
+    scheduleFrame();
+  },
+});

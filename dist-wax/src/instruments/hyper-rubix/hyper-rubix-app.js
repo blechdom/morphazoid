@@ -1,3 +1,6 @@
+import { registerHeaderPresets } from "../../site/header-presets.js";
+import { HYPER_RUBIX_PRESET_DEFAULTS as DEFAULTS } from "./preset-state.js";
+import { HYPER_RUBIX_FULL_PRESETS, HYPER_RUBIX_PRESET_KEYS, validateHyperRubixPreset, randomizeHyperRubixPreset } from "./full-presets.js";
 import {
   HYPER_RUBIX_AXES,
   HYPER_RUBIX_BOUNDARY_CELLS,
@@ -56,51 +59,7 @@ const AXIS_COLORS = Object.freeze({
   z: "#65e58a",
   w: "#c9a5ff",
 });
-const DEFAULTS = Object.freeze({
-  puzzleSize: 3,
-  selectedCell: "w+",
-  selectedPlane: "xy",
-  dragMode: "orbit",
-  autoRotate: false,
-  tempo: 112,
-  swing: 0.08,
-  subdivisionsPerBeat: 2,
-  sequenceMethod: "sticker-stream",
-  twistMotion: "auto",
-  patternId: "axis-break",
-  playbackMode: "forward",
-  twistDensity: 1,
-  rotationSpeed: 0.07,
-  projectionDepth: 4.2,
-  cellSeparation: 0.3,
-  stickerScale: 0.78,
-  output: 0.48,
-  voice: "pulse",
-  playbackPreset: "view-facing",
-  tone: 0.64,
-  decay: 0.58,
-  decayLink: "linked",
-  rattleEnabled: false,
-  rattleLevel: 0.34,
-  rattleRate: 4,
-  shapeInfluence: 0.72,
-  pitchInfluence: 0.72,
-  filterInfluence: 0.72,
-  stereoInfluence: 0.72,
-  neighborResponse: 1,
-  wInfluence: 0.72,
-  disorderInfluence: 0.6,
-  topologyMode: "mesh",
-  topologyLevel: 0.22,
-  topologySpan: 12,
-  topologyStrum: 0.018,
-  topologyRing: 0.58,
-  topologyWarp: 1,
-  cameraPitch: -17,
-  cameraYaw: 28,
-  cameraRoll: -2,
-  rotation: Object.freeze({ xy: 7, xz: -4, xw: 24, yz: -6, yw: -18, zw: 12 }),
-});
+
 const VOICE_LABELS = Object.freeze({
   pulse: "Hyper kit",
   glass: "Prism kit",
@@ -3811,10 +3770,12 @@ $("reseedPattern").addEventListener("click", () => {
   announce(`Random walk reseeded. Generation ${sequenceGeneration + 1}.`);
 });
 
+const presetRangeRefreshers = new Map();
 function bindRange(id, key, formatter, afterChange) {
   const input = $(id);
   const output = $(`${id}Out`);
   const update = () => { output.textContent = formatter(state[key]); };
+  presetRangeRefreshers.set(key, () => { input.value = String(state[key]); update(); });
   input.value = String(state[key]);
   input.addEventListener("input", () => {
     const previousValue = state[key];
@@ -4230,3 +4191,42 @@ paintMotionToggle();
 updateSelectionUI();
 updateProjectionReadout();
 scheduleFrame();
+
+registerHeaderPresets({
+  id: "hyper-rubix", presets: HYPER_RUBIX_FULL_PRESETS, randomize: randomizeHyperRubixPreset,
+  capture: () => ({
+    settings: Object.fromEntries(HYPER_RUBIX_PRESET_KEYS.map(key => [key, state[key]])),
+    puzzle: state.puzzle, sequenceGeneration, gateOverrides: Object.fromEntries(hyperbarGateOverrides),
+  }),
+  apply(snapshot) {
+    validateHyperRubixPreset(snapshot);
+    if (snapshot.settings.voice === "webgpu-303" && state.audio && !webGpu303Engine) throw new Error("Enable WebGPU explicitly before recalling its live state");
+    moveQueue = []; activeMove = null; turnPulse = null; pointerDrag = null; history = [];
+    clearSoundingStickerPulses();
+    Object.assign(state, snapshot.settings, { puzzle: snapshot.puzzle });
+    sequenceGeneration = snapshot.sequenceGeneration;
+    hyperbarGateOverrides = new Map(Object.entries(snapshot.gateOverrides));
+    hyperbarFocusStickerId = null;
+    transportPuzzle = state.puzzle;
+    webGpu303Engine?.setPlaybackEnabled(state.playing && state.voice === "webgpu-303");
+    if (!state.rattleEnabled) audio.silenceRattle();
+    audio.setLevel(state.audio ? state.output : 0);
+    audio.setTopologyLevel(state.topologyLevel);
+    for (const refresh of presetRangeRefreshers.values()) refresh();
+    for (const [id, value] of Object.entries({
+      puzzleSize: state.puzzle.size, sequenceMethod: state.sequenceMethod, sequencePattern: state.patternId,
+      playbackMode: state.playbackMode, twistRate: state.subdivisionsPerBeat, twistMotion: state.twistMotion,
+      voice: state.voice, playbackPreset: state.playbackPreset, topologyMode: state.topologyMode,
+      decayLink: state.decayLink, rattleRate: state.rattleRate,
+    })) $(id).value = String(value);
+    rebuildSequence({ resetPosition: false });
+    rebuildHyperbarSnapshot();
+    rebuildTransportStickerStream(sequenceMethodConfig(), state.puzzle);
+    refreshViewFacingCells({ force: true });
+    if (state.playing) invalidateTransportLookahead(state.puzzle);
+    paintSequenceMethod(); paintPlaybackScope(); paintPresetHelp(); paintSoundSummary(); paintFaceVoiceLabels();
+    paintDecayLink(); setDragMode(state.dragMode); paintMotionToggle(); updateSelectionUI(); updateProjectionReadout();
+    queueWebGpu303Sync({ force: true });
+    scheduleFrame();
+  },
+});

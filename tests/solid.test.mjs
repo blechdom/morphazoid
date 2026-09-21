@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
+import { createSolidInitialState } from "../src/families/geometry-presets/initial-state.js";
 
 import {
   buildSolid,
@@ -73,7 +74,8 @@ test("Solid defaults to Sine and silences continuous voices while stopped", asyn
     readFile(new URL("../src/instruments/solid-synth/solid-synth-app.js", import.meta.url), "utf8"),
   ]);
   assert.match(html, /<option value="sine" selected>/);
-  assert.match(app, /soundMode: "sine"/);
+  assert.equal(createSolidInitialState().soundMode, "sine");
+  assert.match(app, /const state = createSolidInitialState\(\)/);
   for (const axis of ["X", "Y", "Z"]) {
     assert.match(html, new RegExp(`id="rotation${axis}Play"`));
     assert.match(html, new RegExp(`id="rotation${axis}Speed"`));
@@ -87,7 +89,8 @@ test("Solid defaults to Sine and silences continuous voices while stopped", asyn
   assert.match(html, /id="formSkewZ"/);
   assert.match(app, /const moving = motionIsActive\(\)/);
   assert.match(app, /else pool\.setVoices\(\[\]\)/);
-  assert.match(app, /new VoicePool\(32, \{ continuousPeakCeiling: 0\.78 \}\)/);
+  assert.match(app, /const pool = createGeometryVoicePool\(\)/);
+  assert.match(app, /geometryContactVoice\("solid", contact, index, state/);
 });
 
 test("Solid opens with a dimensional shape and a visibly broad surface", async () => {
@@ -99,7 +102,8 @@ test("Solid opens with a dimensional shape and a visibly broad surface", async (
     ["rotationX", -24], ["rotationY", 36], ["rotationZ", 8],
     ["planeYaw", 45], ["planePitch", -22],
   ]) {
-    assert.match(app, new RegExp(`${key}: ${value}`));
+    assert.equal(createSolidInitialState()[key], value);
+    assert.match(app, /const state = createSolidInitialState\(\)/);
     assert.match(html, new RegExp(`id="${key}"[^>]+value="${value}"`));
   }
 

@@ -704,8 +704,10 @@ test("Rubix page exposes cube gestures, mutually exclusive banks across all six 
     "const SOUND_BANKS",
     "const READ_MODE_DESCRIPTIONS",
   );
-  const defaultsDefinition = sourceSection(app, "const DEFAULTS", "const RUBIX_PRESETS");
-  const presetDefinitions = sourceSection(app, "const RUBIX_PRESETS", "function cloneVector");
+  const factorySource = await readFile(new URL("../src/instruments/rubix/factory-presets.js", import.meta.url), "utf8");
+  assert.match(app, /RUBIX_DEFAULTS as DEFAULTS, RUBIX_FACTORY_PRESETS as RUBIX_PRESETS/);
+  const defaultsDefinition = sourceSection(factorySource, "export const RUBIX_DEFAULTS", "export const RUBIX_FACTORY_PRESETS");
+  const presetDefinitions = factorySource.slice(factorySource.indexOf("export const RUBIX_FACTORY_PRESETS"));
   const registeredSoundBanks = [
     ...soundBankDefinitions.matchAll(/^ {2}(?:"([^"]+)"|([a-z][\w-]*)):\s*Object\.freeze/gm),
   ].map((match) => match[1] ?? match[2]);
@@ -791,7 +793,7 @@ test("Rubix page exposes cube gestures, mutually exclusive banks across all six 
   const resetSoundAction = sourceSection(app, "function resetSound", "function pointFromEvent");
   assert.match(resetSoundAction, /Object\.assign\(state, SOUND_DEFAULTS\)/);
   assert.doesNotMatch(resetSoundAction, /state\.cube|state\.camera|moveHistory|stopRandomTwists/);
-  const soundDefaults = sourceSection(app, "const SOUND_DEFAULTS", "const RUBIX_PRESETS");
+  const soundDefaults = sourceSection(app, "const SOUND_DEFAULTS", "function cloneVector");
   assert.doesNotMatch(soundDefaults, /randomTwists|randomTwistSpeed|randomTwistTempo/);
   assert.doesNotMatch(app, /randomTwistTempo|\bTPM\b|twists?\s+per\s+minute/i);
   const randomTwistSpeedBindings = [

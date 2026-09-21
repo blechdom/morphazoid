@@ -1,12 +1,12 @@
+import { createGeometryVoicePool } from "../../families/geometry-presets/audio-budget.js";
+import { createShapeReaderModel } from "../../families/geometry-presets/shape-readers.js";
+import { createShapeSoundModel } from "../../families/geometry-presets/shape-sound.js";
+import { registerHeaderPresets } from "../../site/header-presets.js";
+import { planShapeCornerStrikes } from "./percussion-scheduling.js";
+import { createShapeInitialState, SHAPE_FULL_PRESETS, captureShapePresetParameters, applyShapePresetParameters, randomizeShapePreset } from "./full-presets.js";
 import {
   buildShape,
-  cumulativeSignedTurn,
-  horizontalIntersections,
-  mirroredCornerPhase,
   pingPong01,
-  pointAtPath,
-  rayIntersections,
-  verticalIntersections,
   wrap01,
 } from "../../geometry.js";
 import {
@@ -19,19 +19,12 @@ import {
 } from "../../articulation.js";
 import {
   amplitudeEnvelopePreset,
-  VoicePool,
   clamp,
   cornerStrikePeak,
-  mapCurve01,
-  mirroredAmplitudeEnvelopePhase,
   normalizeStrikeGains,
   percussionEnvelopePreset,
   percussionEnvelopeTimeMs,
-  pitch01ToFrequency,
-  sampleAmplitudeEnvelope,
-  scaleShapeVoiceGains,
   sanitizeAmplitudeEnvelope,
-  synthParametersForMode,
   updateAmplitudeEnvelopeNode,
   updatePercussionEnvelopeNode,
 } from "../../audio.js";
@@ -42,7 +35,6 @@ import {
   wrapOffset,
 } from "../../playheads.js";
 import {
-  evaluateMappingCurve,
   mappingCurvePreset,
   updateMappingCurveNode,
 } from "../../mapping.js";
@@ -140,68 +132,7 @@ function initialSidesAfterReset() {
   return Math.round(clamp(sides, 1, 32));
 }
 
-const state = {
-  sides: initialSidesAfterReset(),
-  curvature: 0,
-  shapeType: "polygon",
-  closedShapeType: "polygon",
-  starDepth: 0.48,
-  aspect: 0,
-  skew: 0,
-  rotation: 0,
-  continuousRotation: 0,
-  rotationMotionMode: "loop",
-  playMethod: "trace",
-  motionMode: "loop",
-  heads: 1,
-  headOffsets: [0],
-  scanLineAxes: Array(12).fill("vertical"),
-  traceHeadDirections: Array(12).fill(1),
-  radialHeadDirections: Array(12).fill(1),
-  traceHeadDirectionAdjustments: Array(12).fill(0),
-  radialHeadDirectionAdjustments: Array(12).fill(0),
-  autoRotate: false,
-  rotationSpeed: 0.12,
-  rotationDirection: 1,
-  audio: false,
-  playing: false,
-  position: 0,
-  continuousPosition: 0,
-  speed: 0.25,
-  traversalDirection: 1,
-  baseFrequency: 130,
-  pitchRange: 2.5,
-  level: 0.65,
-  soundMode: "sine",
-  amplitudeEnvelopeEnabled: true,
-  cornerSwell: false,
-  amplitudePreset: "segment",
-  amplitudeEnvelopePoints: amplitudeEnvelopePreset("segment"),
-  percussionStrikeLevel: 0.9,
-  percussionAttackNoise: 0,
-  percussionPreset: "pluck",
-  percussionEnvelopePoints: percussionEnvelopePreset("pluck"),
-  cornerAmplitudeSource: "fixed",
-  fmIndexSource: "fixed",
-  pmDepthSource: "fixed",
-  shepardCycles: 1,
-  shepardDirection: 1,
-  shepardMapping: "travel",
-  shepardTurnGlide: 0.35,
-  shepardWidth: 4,
-  fmIndex: 3,
-  fmRatio: 2,
-  pmIndex: 2,
-  pmRatio: 1,
-  stereoWidth: 1,
-  stereoSource: "horizontal",
-  stereoInverted: false,
-  pitchSource: "vertical",
-  pitchCurvePreset: "linear",
-  pitchCurveNodes: mappingCurvePreset("linear"),
-  percussionLevelSource: "corner",
-  percussionLevelCurve: "linear",
-};
+const state = createShapeInitialState(initialSidesAfterReset());
 
 state.baseFrequency = clamp(state.baseFrequency, 20, 440);
 state.pitchRange = clamp(state.pitchRange, 0, 6);
@@ -254,7 +185,7 @@ state.percussionLevelCurve = ["linear", "exponential", "logarithmic", "smooth", 
 const canvas = $("stage");
 const stageWrap = $("stageWrap");
 const context = canvas.getContext("2d", { desynchronized: true });
-const pool = new VoicePool(MAX_CONTINUOUS_VOICES, { continuousPeakCeiling: 0.78 });
+const pool = createGeometryVoicePool(MAX_CONTINUOUS_VOICES);
 const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
 const shapeMidiPerformance = new ShapeMidiPerformance();
 let shapeMidiSnapshot = shapeMidiPerformance.snapshot();
@@ -546,6 +477,8 @@ function setPressed(button, pressed) {
   button.setAttribute("aria-pressed", String(Boolean(pressed)));
 }
 
+const rangeDisplays = new Map();
+
 function bindRange(id, key, formatter, afterChange) {
   const input = $(id);
   const output = $(`${id}Out`);
@@ -561,6 +494,7 @@ function bindRange(id, key, formatter, afterChange) {
   });
   input.value = String(state[key]);
   updateOutput();
+  rangeDisplays.set(id, { input, key, updateOutput });
   return updateOutput;
 }
 
@@ -1863,152 +1797,7 @@ function shapeAtRotation(rotationDeg) {
   });
 }
 
-function directionalHeadTravel(position, headIndex, method = state.playMethod) {
-  const adjustment = directionAdjustmentsForMethod(method)[headIndex] ?? 0;
-  return headDirection(headIndex, method) * position
-    + phaseOffsetForHead(headIndex)
-    + adjustment;
-}
-
-function phaseForHead(position, headIndex, headCount, method = "trace") {
-  const travel = directionalHeadTravel(position, headIndex, method);
-  if (state.motionMode === "pingpong") return pingPong01(travel);
-  if (headIndex === 0 && Math.abs(travel - 1) < 1e-9) return 1;
-  return wrap01(travel);
-}
-
-function traceContact(path, phase) {
-  return pointAtPath(path, phase);
-}
-
-function scanAxisForHead(headIndex) {
-  return state.scanLineAxes[headIndex] === "horizontal" ? "horizontal" : "vertical";
-}
-
-function scanPhaseOffset(headIndex, headCount) {
-  return phaseOffsetForHead(headIndex);
-}
-
-function scanPhaseAt(position, headIndex, headCount) {
-  const offsetPosition = position + scanPhaseOffset(headIndex, headCount);
-  if (state.motionMode === "pingpong") return pingPong01(offsetPosition);
-  if (
-    headIndex === 0 &&
-    state.position === 1 &&
-    Math.abs(position - state.continuousPosition) < 1e-9
-  ) {
-    return 1;
-  }
-  return wrap01(offsetPosition);
-}
-
-function scannerAt(path, position, headIndex, headCount) {
-  const headTravel = position + scanPhaseOffset(headIndex, headCount);
-  const phase = scanPhaseAt(position, headIndex, headCount);
-  const axis = scanAxisForHead(headIndex);
-  const minimum = axis === "horizontal" ? path.bounds.minY : path.bounds.minX;
-  const maximum = axis === "horizontal" ? path.bounds.maxY : path.bounds.maxX;
-  const span = maximum - minimum;
-  return {
-    headIndex,
-    headTravel,
-    phase,
-    axis,
-    coordinate: span <= 1e-9
-      ? (minimum + maximum) / 2
-      : minimum + phase * span,
-  };
-}
-
-function radialAt(path, position, headIndex) {
-  const headTravel = directionalHeadTravel(position, headIndex, "radial");
-  const phase = state.motionMode === "pingpong" ? pingPong01(headTravel) : wrap01(headTravel);
-  const angle = phase * TAU - Math.PI * 0.5;
-  const rawIntersections = rayIntersections(path, angle).filter((contact) => (
-    path.closed || contact.rayDistance > 0.015
-  ));
-  if (!path.closed) {
-    if (rawIntersections.length > 2) {
-      const furthest = rawIntersections.reduce((selected, contact) => (
-        contact.rayDistance > selected.rayDistance ? contact : selected
-      ));
-      rawIntersections.splice(0, rawIntersections.length, furthest);
-    }
-    const beamWidth = 0.11;
-    for (const endpointPhase of [0, 1]) {
-      const contact = pointAtPath(path, endpointPhase);
-      const endpointAngle = Math.atan2(contact.y, contact.x);
-      const difference = Math.abs(Math.atan2(
-        Math.sin(endpointAngle - angle),
-        Math.cos(endpointAngle - angle),
-      ));
-      if (difference > beamWidth) continue;
-      const alignment = 1 - difference / beamWidth;
-      if (rawIntersections.some((item) => Math.hypot(item.x - contact.x, item.y - contact.y) < 1e-5)) {
-        continue;
-      }
-      rawIntersections.push({
-        ...contact,
-        cornerStrength: (contact.cornerStrength ?? contact.strength ?? 1) * alignment,
-        strength: (contact.strength ?? contact.cornerStrength ?? 1) * alignment,
-        rayDistance: Math.hypot(contact.x, contact.y),
-        rayPhase: phase,
-        radarAlignment: alignment,
-      });
-    }
-  }
-  const intersections = rawIntersections
-    .sort((first, second) => first.rayDistance - second.rayDistance)
-    .map((contact, contactIndex) => ({
-      ...contact,
-      headIndex,
-      headTravel,
-      headPhase: phase,
-      scanAxis: "radial",
-      voiceKey: `radial:${headIndex}:${contactIndex}`,
-    }));
-  return { headIndex, headTravel, phase, angle, contacts: intersections };
-}
-
-function collectContacts(path, position = state.continuousPosition) {
-  const contacts = [];
-  const heads = [];
-  const headCount = effectiveHeadCount();
-  for (let headIndex = 0; headIndex < headCount; headIndex += 1) {
-    if (state.playMethod === "scan") {
-      const scanner = scannerAt(path, position, headIndex, headCount);
-      const intersections = (scanner.axis === "horizontal"
-        ? horizontalIntersections(path, scanner.coordinate)
-        : verticalIntersections(path, scanner.coordinate)).map((contact, contactIndex) => ({
-        ...contact,
-        headIndex,
-        headTravel: scanner.headTravel,
-        headPhase: scanner.phase,
-        scanAxis: scanner.axis,
-        voiceKey: `scan:${scanner.axis}:${headIndex}:${contactIndex}`,
-      }));
-      heads.push({ ...scanner, contacts: intersections });
-      contacts.push(...intersections);
-    } else if (state.playMethod === "radial") {
-      const radial = radialAt(path, position, headIndex);
-      heads.push(radial);
-      contacts.push(...radial.contacts);
-    } else {
-      const phase = phaseForHead(position, headIndex, headCount);
-      const headTravel = directionalHeadTravel(position, headIndex, "trace");
-      const contact = {
-        ...traceContact(path, phase),
-        headIndex,
-        headTravel,
-        headPhase: phase,
-        voiceKey: `trace:${headIndex}`,
-      };
-      heads.push({ headIndex, phase, contact });
-      contacts.push(contact);
-    }
-  }
-  return { contacts, heads };
-}
+const { directionalHeadTravel, phaseForHead, traceContact, scanAxisForHead, scannerAt, collectContacts } = createShapeReaderModel(state);
 
 function addScannerPath(scanner, transform, extent) {
   context.beginPath();
@@ -2203,342 +1992,7 @@ function drawPlayer(path, transform) {
   return active.contacts;
 }
 
-function normalizedContactCoordinates(contact, path) {
-  return {
-    x: clamp((contact.x + 1) * 0.5, 0, 1),
-    y: clamp((contact.y + 1) * 0.5, 0, 1),
-  };
-}
-
-function tangentForContact(contact, path) {
-  if (contact.tangent && Number.isFinite(contact.tangent.x) && Number.isFinite(contact.tangent.y)) {
-    return contact.tangent;
-  }
-  const vertexIndex = contact.vertexIndex ?? contact.cornerIndex ?? 0;
-  const pointIndex = path.vertexIndices[vertexIndex] ?? 0;
-  const previous = path.points[(pointIndex - 1 + path.points.length) % path.points.length];
-  const next = path.points[(pointIndex + 1) % path.points.length];
-  const length = Math.hypot(next.x - previous.x, next.y - previous.y);
-  if (length <= 1e-9) return { x: 1, y: 0 };
-  return { x: (next.x - previous.x) / length, y: (next.y - previous.y) / length };
-}
-
-function contactMotionVelocity(contact, headIndex = contact.headIndex ?? 0, useIntent = false) {
-  const axis = contact.scanAxis ?? scanAxisForHead(headIndex);
-  const relativeDirection = state.playMethod === "scan" ? 1 : headDirection(headIndex);
-  const headTravel = Number.isFinite(contact.headTravel)
-    ? contact.headTravel
-    : state.playMethod === "scan"
-      ? state.continuousPosition + phaseOffsetForHead(headIndex)
-      : directionalHeadTravel(state.continuousPosition, headIndex);
-  const motionDirection = state.motionMode === "pingpong"
-    ? pingPongMotionDirection(headTravel, 1, relativeDirection)
-    : state.traversalDirection * relativeDirection;
-  let scanSpeed = state.playing ? motionDirection * state.speed : useIntent ? motionDirection : 0;
-  const rotationSpeed = state.autoRotate
-    ? currentRotationDirection() * state.rotationSpeed * TAU
-    : 0;
-  if (useIntent && Math.abs(scanSpeed) <= 1e-9 && Math.abs(rotationSpeed) <= 1e-9) {
-    scanSpeed = motionDirection;
-  }
-  let velocity = axis === "radial"
-    ? {
-      x: -contact.y * scanSpeed * TAU,
-      y: contact.x * scanSpeed * TAU,
-    }
-    : axis === "horizontal"
-    ? { x: 0, y: scanSpeed }
-    : { x: scanSpeed, y: 0 };
-  velocity = {
-    x: velocity.x + rotationSpeed * contact.y,
-    y: velocity.y - rotationSpeed * contact.x,
-  };
-  return { velocity, axis };
-}
-
-function incidenceForContact(contact, path, headIndex = contact.headIndex ?? 0) {
-  // A Point playhead travels along the contour, so it never crosses it.
-  if (state.playMethod === "trace") return 0;
-  const tangent = tangentForContact(contact, path);
-  const { velocity: initialVelocity, axis } = contactMotionVelocity(contact, headIndex);
-  let velocity = initialVelocity;
-  let length = Math.hypot(velocity.x, velocity.y);
-  if (length <= 1e-9) {
-    velocity = axis === "radial"
-      ? { x: -contact.y, y: contact.x }
-      : axis === "horizontal" ? { x: 0, y: 1 } : { x: 1, y: 0 };
-    length = 1;
-  }
-  const normal = { x: -tangent.y, y: tangent.x };
-  return clamp(Math.abs((velocity.x * normal.x + velocity.y * normal.y) / length), 0, 1);
-}
-
-function sourceValueForContact(source, contact, path, headIndex = contact.headIndex ?? 0) {
-  if (source === "fixed") return 1;
-  if (source === "corner") return clamp(contact.cornerStrength ?? contact.strength ?? 0, 0, 1);
-  if (source === "incidence") return incidenceForContact(contact, path, headIndex);
-  if (source === "center") return centerDistanceForContact(contact);
-  if (source === "horizontal") return normalizedContactCoordinates(contact, path).x;
-  if (source === "phase") {
-    return wrap01(contact.u ?? contact.pathPhase ?? 0);
-  }
-  const normalized = normalizedContactCoordinates(contact, path);
-  return clamp(normalized.y, 0, 1);
-}
-
-function centerDistanceForContact(contact) {
-  const distance = Number.isFinite(contact.rayDistance)
-    ? contact.rayDistance
-    : Math.hypot(contact.x, contact.y);
-  return clamp(distance, 0, 1);
-}
-
-function percussionLevelValue(contact, path, headIndex = contact.headIndex ?? 0) {
-  let raw;
-  if (state.percussionLevelSource === "fixed") raw = 1;
-  else if (state.percussionLevelSource === "signed") {
-    raw = clamp(((contact.turn ?? contact.cornerTurn ?? 0) + 1) * 0.5, 0, 1);
-  } else {
-    raw = sourceValueForContact(state.percussionLevelSource, contact, path, headIndex);
-  }
-  return mapCurve01(raw, state.percussionLevelCurve);
-}
-
-function mappingForContact(contact, path, headIndex = contact.headIndex ?? 0) {
-  const normalized = normalizedContactCoordinates(contact, path);
-  const sourcePitch = sourceValueForContact(state.pitchSource, contact, path, headIndex);
-  const pitchRaw = state.pitchSource === "vertical" ? 1 - sourcePitch : sourcePitch;
-  const panSource = state.stereoSource === "vertical"
-    ? normalized.y
-    : state.stereoSource === "center" ? centerDistanceForContact(contact) : normalized.x;
-  const panDirection = state.stereoInverted ? -1 : 1;
-  return {
-    pitchRaw,
-    pitch: evaluateMappingCurve(pitchRaw, state.pitchCurveNodes),
-    pan: clamp((panSource * 2 - 1) * panDirection * state.stereoWidth, -1, 1),
-    normalized,
-    incidence: incidenceForContact(contact, path, headIndex),
-  };
-}
-
-function synthFrequencyForMapping(mapping) {
-  const geometricFrequency = state.soundMode === "shepard"
-    ? state.baseFrequency
-    : pitch01ToFrequency(mapping.pitch, state.baseFrequency, state.pitchRange);
-  return clamp(geometricFrequency * shapeMidiSnapshot.pitchRatio, 10, 20_000);
-}
-
-function pingPongMotionDirection(travelPosition, multiplier = 1, relativeDirection = 1) {
-  const step = state.traversalDirection * relativeDirection * 1e-5;
-  const before = pingPong01(travelPosition * multiplier);
-  const after = pingPong01((travelPosition + step) * multiplier);
-  const delta = after - before;
-  return Math.abs(delta) > 1e-9
-    ? Math.sign(delta)
-    : state.traversalDirection * relativeDirection;
-}
-
-function currentRotationDirection() {
-  if (state.rotationMotionMode !== "pingpong") return state.rotationDirection;
-  const step = state.rotationDirection * 1e-5;
-  const delta = pingPong01(state.continuousRotation + step) - pingPong01(state.continuousRotation);
-  return Math.abs(delta) > 1e-9 ? Math.sign(delta) : -state.rotationDirection;
-}
-
-function pointContourDirection(contact, path) {
-  const relativeDirection = headDirection(contact.headIndex ?? 0, "trace");
-  if (state.motionMode === "pingpong") {
-    return pingPongMotionDirection(contact.headTravel, 1, relativeDirection);
-  }
-  return state.traversalDirection * relativeDirection;
-}
-
-function contactContourDirection(contact, path) {
-  if (state.playMethod === "trace") return pointContourDirection(contact, path);
-  const tangent = tangentForContact(contact, path);
-  const { velocity } = contactMotionVelocity(contact, contact.headIndex ?? 0, true);
-  const alongContour = velocity.x * tangent.x + velocity.y * tangent.y;
-  return Math.abs(alongContour) <= 1e-9 ? 1 : Math.sign(alongContour);
-}
-
-function cornerEnvelopeProfile(contact, path) {
-  if (state.cornerSwell) {
-    return {
-      strength: contact.cornerStrength ?? 0,
-      distance: mirroredCornerPhase(path, contact),
-      edgeFraction: 1 / Math.max(1, path.vertexCount),
-    };
-  }
-
-  // Every reader follows a directed corner interval. Line and Radar therefore
-  // rise only after crossing a corner unless the explicit swell mirror is on.
-  const distances = path.vertexDistances;
-  if (!distances.length || path.totalLength <= 1e-9) {
-    return { strength: contact.cornerStrength ?? 0, distance: 0, edgeFraction: 1 };
-  }
-
-  const distance = clamp(contact.distance, 0, path.totalLength);
-  const direction = contactContourDirection(contact, path);
-  const epsilon = 1e-9;
-
-  if (direction >= 0) {
-    let cornerIndex = 0;
-    for (let index = 1; index < distances.length; index += 1) {
-      if (distances[index] <= distance + epsilon) cornerIndex = index;
-      else break;
-    }
-    const start = distances[cornerIndex];
-    const end = cornerIndex + 1 < distances.length
-      ? distances[cornerIndex + 1]
-      : path.totalLength;
-    return {
-      strength: path.cornerStrengths[cornerIndex] ?? 0,
-      distance: end - start <= epsilon ? 0 : clamp((distance - start) / (end - start), 0, 1),
-      edgeFraction: (end - start) / path.totalLength,
-    };
-  }
-
-  let cornerIndex = distances.findIndex((value) => value >= distance - epsilon);
-  let target;
-  let start;
-  if (cornerIndex < 0) {
-    cornerIndex = 0;
-    target = path.totalLength;
-    start = distances[distances.length - 1];
-  } else if (cornerIndex === 0) {
-    target = 0;
-    start = path.closed ? distances[distances.length - 1] - path.totalLength : 0;
-  } else {
-    target = distances[cornerIndex];
-    start = distances[cornerIndex - 1];
-  }
-  return {
-    strength: path.cornerStrengths[cornerIndex] ?? 0,
-    distance: target - start <= epsilon
-      ? 0
-      : clamp((target - distance) / (target - start), 0, 1),
-    edgeFraction: (target - start) / path.totalLength,
-  };
-}
-
-function shepardContourProgress(contact, path) {
-  if (!usesShepardTurnMapping(path)) return null;
-  if (state.motionMode === "pingpong") {
-    return contact.headPhase ?? pingPong01(contact.headTravel ?? state.continuousPosition);
-  }
-  return Number.isFinite(contact.headTravel)
-    ? contact.headTravel
-    : contact.headPhase ?? contact.u ?? state.continuousPosition;
-}
-
-function shepardTravelForContact(contact, path) {
-  const contourProgress = shepardContourProgress(contact, path);
-  if (contourProgress !== null) {
-    return -cumulativeSignedTurn(path, contourProgress, {
-      glide: state.shepardTurnGlide,
-    }) / TAU * state.shepardCycles * state.shepardDirection;
-  }
-  const circuitTravel = state.motionMode === "pingpong"
-    ? (contact.headPhase ?? pingPong01(contact.headTravel ?? state.continuousPosition))
-    : Number.isFinite(contact.headTravel)
-      ? contact.headTravel
-      : contact.headPhase ?? contact.u ?? state.continuousPosition;
-  return circuitTravel * state.shepardCycles * state.shepardDirection;
-}
-
-function shepardRate(contact, path, headIndex = contact.headIndex ?? 0) {
-  if (!state.playing) return 0;
-  if (usesShepardTurnMapping(path)) {
-    const deltaSeconds = 0.001;
-    const relativeDirection = headDirection(headIndex, "trace");
-    const currentHeadTravel = Number.isFinite(contact.headTravel)
-      ? contact.headTravel
-      : directionalHeadTravel(state.continuousPosition, headIndex, "trace");
-    const nextHeadTravel = currentHeadTravel
-      + state.traversalDirection * relativeDirection * state.speed * deltaSeconds;
-    const nextContact = {
-      ...contact,
-      headTravel: nextHeadTravel,
-      headPhase: state.motionMode === "pingpong" ? pingPong01(nextHeadTravel) : wrap01(nextHeadTravel),
-    };
-    return (shepardTravelForContact(nextContact, path) - shepardTravelForContact(contact, path))
-      / deltaSeconds;
-  }
-  const visualLoopRate = state.motionMode === "pingpong"
-    ? state.speed * 0.5
-    : state.speed;
-  const relativeDirection = state.playMethod === "scan" ? 1 : headDirection(headIndex);
-  const travel = Number.isFinite(contact.headTravel)
-    ? contact.headTravel
-    : state.playMethod === "scan"
-      ? state.continuousPosition + phaseOffsetForHead(headIndex)
-      : directionalHeadTravel(state.continuousPosition, headIndex);
-  const motionDirection = state.motionMode === "pingpong"
-    ? pingPongMotionDirection(travel, 1, relativeDirection)
-    : state.traversalDirection * relativeDirection;
-  return visualLoopRate
-    * state.shepardCycles
-    * state.shepardDirection
-    * motionDirection;
-}
-
-function shepardPositionForContact(contact, path) {
-  return wrap01(shepardTravelForContact(contact, path));
-}
-
-function synthParametersForContact(contact, path, headIndex = contact.headIndex ?? 0) {
-  const drive = state.soundMode === "shepard"
-    ? 1
-    : sourceValueForContact(activeTimbreSource(), contact, path, headIndex);
-  const parameters = synthParametersForMode(state.soundMode, drive, {
-    fmIndex: state.fmIndex,
-    fmRatio: state.fmRatio,
-    pmIndex: state.pmIndex,
-    pmRatio: state.pmRatio,
-    shepardRate: shepardRate(contact, path, headIndex),
-    shepardWidth: state.shepardWidth,
-    shepardPosition: state.soundMode === "shepard"
-      ? shepardPositionForContact(contact, path)
-      : null,
-  });
-  return state.soundMode === "shepard"
-    ? { ...parameters, shepardTravel: shepardTravelForContact(contact, path) }
-    : parameters;
-}
-
-function amplitudeGainForContact(contact, path) {
-  if (path.shapeType === "circle") return 0.12;
-  let envelopeGain = 0.18;
-  if (state.amplitudeEnvelopeEnabled) {
-    const profile = cornerEnvelopeProfile(contact, path);
-    const attackPhase = state.amplitudeEnvelopePoints[1]?.x ?? 0;
-    const envelopePhase = state.cornerSwell
-      ? mirroredAmplitudeEnvelopePhase(profile.distance, attackPhase)
-      : profile.distance;
-    const envelope = state.amplitudePreset === "segment"
-      ? 1 - clamp(profile.distance, 0, 1)
-      : sampleAmplitudeEnvelope(envelopePhase, state.amplitudeEnvelopePoints);
-    const cornerPeak = 0.18 + 0.5 * clamp(profile.strength, 0, 1);
-    envelopeGain = cornerPeak * envelope;
-  }
-  const mappedLevel = sourceValueForContact(state.cornerAmplitudeSource, contact, path);
-  return clamp(envelopeGain * mappedLevel, 0, 1);
-}
-
-function continuousSynthVoices(contacts, path) {
-  return scaleShapeVoiceGains(contacts.map((contact) => {
-    const mapping = mappingForContact(contact, path);
-    const synth = synthParametersForContact(contact, path);
-    return {
-      key: `shape:${contact.voiceKey}`,
-      frequency: synthFrequencyForMapping(mapping),
-      gain: amplitudeGainForContact(contact, path) * shapeMidiSnapshot.gain,
-      pan: mapping.pan,
-      waveform: "sine",
-      ...synth,
-    };
-  }));
-}
+const { centerDistanceForContact, percussionLevelValue, mappingForContact, synthFrequencyForMapping, shepardRate, synthParametersForContact, amplitudeGainForContact, continuousSynthVoices } = createShapeSoundModel(state, { getMidiSnapshot: () => shapeMidiSnapshot });
 
 function makeCornerSnapshot(
   path,
@@ -2615,6 +2069,7 @@ function strikeCorner(path, vertex, headIndex, time01 = 0, head = null) {
   const envelope = {
     envelopePoints: state.percussionEnvelopePoints,
     attackNoise: state.percussionAttackNoise,
+    attackCurve: "smooth",
     retriggerMode: "crossfade",
   };
   const frequency = synthFrequencyForMapping(mapping);
@@ -2634,19 +2089,19 @@ function strikeCorner(path, vertex, headIndex, time01 = 0, head = null) {
 
 function flushCornerStrikes(frameSpanSeconds = 0) {
   if (!pendingCornerStrikes.length) return;
-  const intents = pendingCornerStrikes;
+  const intents = planShapeCornerStrikes(pendingCornerStrikes, frameSpanSeconds, pool.context?.currentTime ?? 0);
   pendingCornerStrikes = [];
+  if (!intents.length) return;
   const headroom = pool.availableStrikeHeadroom?.(STRIKE_BATCH_CEILING)
     ?? STRIKE_BATCH_CEILING;
   const normalizedSpecs = normalizeStrikeGains(
     intents.map((intent) => intent.spec),
     headroom,
   );
-  const spread = Math.min(Math.max(frameSpanSeconds, 0), 0.03);
   intents.forEach((intent, index) => {
     pool.strike(normalizedSpecs[index], {
       ...intent.envelope,
-      startDelaySeconds: intent.time01 * spread,
+      startAt: intent.startAt,
     });
   });
 }
@@ -3690,3 +3145,67 @@ lastFrameTime = performance.now();
 scheduleFrame();
 
 registerShapeMidiClient();
+
+function applyShapeFullPreset(snapshot) {
+  const wasMoving = state.playing || state.autoRotate;
+  const previousSoundMode = state.soundMode;
+  // Recall both motion switches with the musical settings, but never Audio or
+  // the evolving playhead position/rotation angle. Do not simulate button clicks:
+  // that could double-trigger a strike or reset an already running clock.
+  applyShapePresetParameters(state, snapshot.parameters);
+  setPressed($("playButton"), state.playing);
+  $("playButton").setAttribute("aria-label", state.playing ? "Pause playhead" : "Play playhead");
+  setPressed($("rotationPlayButton"), state.autoRotate);
+  $("rotationPlayButton").setAttribute("aria-label", state.autoRotate ? "Pause rotation" : "Start rotation");
+  const moving = state.playing || state.autoRotate;
+  if (!wasMoving && moving) {
+    lastFrameTime = performance.now();
+    lastAudioClockTime = pool.context?.currentTime ?? null;
+  }
+  for (const { input, key, updateOutput } of rangeDisplays.values()) {
+    input.value = String(state[key]);
+    updateOutput();
+  }
+  $("speed").value = String(sliderFromSpeed(state.speed));
+  $("shepardDirection").value = String(state.shepardDirection);
+  $("percussionLevelSource").value = state.percussionLevelSource;
+  $("percussionLevelCurve").value = state.percussionLevelCurve;
+  syncFormTopology(false);
+  setPlayMethod(state.playMethod, false);
+  setMotionMode(state.motionMode, false);
+  setRotationMotionMode(state.rotationMotionMode, false);
+  setRotationDirection(state.rotationDirection, false);
+  setTraversalDirection(state.traversalDirection, false);
+  // state.soundMode is already assigned. Synchronize the controls here and
+  // release a superseded mode exactly once below, using the existing fade.
+  setSoundMode(state.soundMode, false);
+  setPitchDimension(state.pitchSource, false);
+  setStereoDimension(state.stereoSource, false);
+  renderPitchCurve();
+  updateAmplitudeUi();
+  updatePercussionUi();
+  updateShepardMappingUi();
+  updateCornerAmplitudeMappingUi();
+  updateTimbreMappingUi();
+  updateHeadsOutput();
+  updateLineControls();
+  updatePlayheadReadouts();
+  updateCanvasLabel();
+  pool.setLevel(state.level);
+  // Old corner history cannot create attacks on the newly selected contour.
+  // A stopped scene or different sound mode releases the preceding voices,
+  // without closing the pool/context, disabling Audio, or resetting MIDI.
+  pendingCornerStrikes = [];
+  resetCornerTracking();
+  if (!moving || previousSoundMode !== state.soundMode) pool.silence();
+  lastAudioUpdate = -Infinity;
+  invalidate();
+}
+
+registerHeaderPresets({
+  id: "shape-synth",
+  presets: SHAPE_FULL_PRESETS,
+  randomize: randomizeShapePreset,
+  capture: () => ({ parameters: captureShapePresetParameters(state) }),
+  apply: applyShapeFullPreset,
+});

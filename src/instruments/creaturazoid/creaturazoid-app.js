@@ -43,6 +43,8 @@ import {
 import { connectAudioOutput } from "../../audio-output-manager.js";
 import { unlockAudioContext } from "../../audio.js";
 import { tongueAirwayAperture } from "../../tongue-physics.js";
+import { registerHeaderPresets } from "../../site/header-presets.js";
+import { CREATURAZOID_FULL_PRESETS, randomizeCreaturazoidPreset } from "./full-presets.js";
 
 const $ = (id) => document.getElementById(id);
 const canvas = $("stage");
@@ -4400,3 +4402,30 @@ function initialize() {
 }
 
 initialize();
+
+const fullPresets = registerHeaderPresets({
+  id: "creaturazoid",
+  presets: CREATURAZOID_FULL_PRESETS,
+  randomize: randomizeCreaturazoidPreset,
+  // Body and rhythm are independent editors at their original locations.
+  // The header recalls both; it must not take these sub-preset controls away.
+  capture: () => ({ state, pattern, currentPatternId, modulationTarget }),
+  apply(snapshot) {
+    // Prepare both halves before mutation; live transport and its clock are not
+    // part of the snapshot and are never stopped/recreated by a preset.
+    const nextState = sanitizeCreaturazoidState(snapshot.state);
+    const nextPattern = sanitizeCreaturazoidPattern(snapshot.pattern, snapshot.pattern.length);
+    state = nextState;
+    pattern = nextPattern;
+    currentPatternId = snapshot.currentPatternId;
+    modulationTarget = snapshot.modulationTarget;
+    bodyMutationCount = 0;
+    bodyMutationVisual = null;
+    document.body.classList.remove("is-body-mutating");
+    reconcileSequenceTimeline(pattern.length);
+    buildSequenceGrid({ preserveScroll: true });
+    syncControls();
+    updateMasterLevel();
+    retargetActiveSound();
+  },
+});

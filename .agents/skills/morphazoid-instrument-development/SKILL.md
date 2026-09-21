@@ -14,14 +14,20 @@ take precedence over this workflow.
 1. Read the repository `AGENTS.md`, `DESIGN_SYSTEM.md`, `QA_AUTOMATION.md`, and
    `contracts/audio-transport-v1.md`.
 2. Verify the repository root, branch/worktree, dirty state, and active preview
-   root. Preserve existing changes. Keep one writer per worktree or overlapping
-   file set; use parallel agents only for read-only work or isolated worktrees.
+   root using [worktree and source paths](../../../docs/agent-tooling.md#worktree-and-source-paths).
+   Resolve code paths from that checkout, not from this skill directory or an
+   earlier task's absolute paths. Preserve existing changes. Keep one writer per
+   worktree or overlapping file set; use parallel agents only for read-only work
+   or isolated worktrees.
    Run `node scripts/inspect-instrument.mjs <catalogue-id>` for the page or chosen
    siblings to collect actual entries, dependency edges (`--json`), registration,
    asset/WAX observations, and candidate commands in one read-only pass. It finds
    its checkout from the script path and reports the current Node executable;
    use the supported Node versions in `CONTRIBUTING.md`, not a remembered local
    installation path. Review its discovery limits before relying on the result.
+   Follow page/import references into `src/instruments/` or `src/families/`;
+   many models/worklets remain elsewhere in `src/`. Do not recreate root
+   controllers or derive filesystem names from catalogue categories.
 3. For creation or a core redesign, inspect at least two siblings chosen for
    relevant architecture or interaction patterns. Identify which parts to reuse
    and which musical mapping must remain unique. Treat siblings as evidence,
@@ -118,9 +124,16 @@ from validated physical/acoustic models.
   causal feedback. Move backend/kernel timing, lane counts, topology copy,
   explanatory slogans, and signal-path documentation out of permanent playing
   space unless the performer needs the information to make a musical decision.
-- Put Play, tempo, patch/preset recall, and deterministic recovery at the top of
-  the control rail for transport instruments. Separate deeper synthesis controls
-  below with spacing or thin dividers instead of nested bordered cards.
+- Keep Play, tempo and deterministic recovery immediately reachable. For a
+  header-preset migration, follow the current
+  [preset rollout contract](../../../docs/full-instrument-preset-rollout.md):
+  reuse Choose styling left of the meters and preserve instrument-owned state.
+  Keep independent body/face, rhythm, skin and other focused sub-presets in
+  their instrument sections; do not fold those editors into the main menu.
+  Do not treat not-yet-verified adapters as a completed site-wide migration.
+  For site-wide preset work, follow the rollout's active priority queue:
+  Faves first, then non-WIP instruments; defer WIP/labs unless reprioritized.
+  Shared-family convenience must not displace that order.
 - Do not render passive decoration with button affordance. If a step lane looks
   paintable, support a captured drag across the complete lane, interpolate cells
   skipped by fast pointer motion, and commit one undo snapshot per gesture.

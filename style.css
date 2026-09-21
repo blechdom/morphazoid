@@ -446,14 +446,17 @@ a {
 }
 
 .instrument-picker-next {
+  appearance: none;
   display: grid;
   width: 36px;
   height: 36px;
   flex: 0 0 36px;
   padding: 0;
   border: 1px solid var(--line-strong);
+  border-radius: 0;
   color: var(--accent);
   background: var(--bg-deep);
+  box-shadow: none;
   place-items: center;
   font: 600 11px/1 var(--mono);
   text-decoration: none;
@@ -464,11 +467,97 @@ a {
   background: color-mix(in oklab, var(--panel-high) 82%, var(--bg-deep));
 }
 
+.header-preset-controls {
+  display: flex;
+  min-width: 0;
+  width: clamp(192px, 22vw, 274px);
+  flex: 0 1 274px;
+  align-items: center;
+  gap: 6px;
+}
+
+.header-preset-controls > .instrument-picker {
+  width: auto;
+  flex: 1 1 0;
+}
+
+.header-preset-picker .instrument-picker-link {
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+}
+
+@media (max-width: 900px) {
+  body .masthead.has-header-presets {
+    height: auto;
+    min-height: 54px;
+    padding-top: 6px;
+    padding-bottom: 6px;
+    flex-wrap: wrap;
+    row-gap: 6px;
+  }
+
+  .masthead.has-header-presets .header-io-controls {
+    width: 100%;
+    flex: 1 0 100%;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .header-preset-controls {
+    width: clamp(176px, 35vw, 218px);
+    flex: 0 1 218px;
+  }
+}
+
+@media (max-width: 520px) {
+  .masthead.has-header-presets .header-io-controls {
+    display: grid;
+    grid-template-columns: minmax(156px, 1fr) 72px 48px;
+    grid-template-rows: auto auto;
+    gap: 6px;
+  }
+
+  .masthead.has-header-presets .header-preset-controls {
+    width: 100%;
+    min-width: 0;
+    grid-column: 1;
+    grid-row: 1;
+  }
+
+  .masthead.has-header-presets .header-io-controls > .midi-toolbar {
+    grid-column: 2;
+    grid-row: 1;
+  }
+
+  .masthead.has-header-presets .header-io-controls > .header-output-meter-shell {
+    grid-column: 3;
+    grid-row: 1;
+  }
+
+  .masthead.has-header-presets .header-io-controls > .audio-strip,
+  .masthead.has-header-presets .header-io-controls > .header-actions {
+    flex: 1 1 80px;
+    grid-column: 1 / 3;
+    grid-row: 2;
+    grid-template-columns: minmax(0, 1fr) var(--audio-control-width);
+    gap: 6px;
+  }
+
+  .masthead.has-header-presets .header-io-controls > .header-settings-menu {
+    grid-column: 3;
+    grid-row: 2;
+  }
+}
+
 @media (pointer: coarse) {
   .instrument-picker-next {
     width: 48px;
     height: 48px;
     flex-basis: 48px;
+  }
+  .instrument-picker-trigger {
+    min-height: 48px;
   }
 }
 
@@ -695,12 +784,19 @@ a {
 }
 
 .instrument-picker-link {
+  /* Presets are buttons; Choose entries are links. Reset native button paint
+     so both use the same transparent rows over the dark menu surface. */
+  appearance: none;
   display: flex;
   min-width: 0;
   min-height: 37px;
   padding: 5px 8px 5px 10px;
+  border: 0;
+  border-radius: 0;
   overflow: hidden;
   color: color-mix(in oklab, var(--ink) 76%, var(--muted));
+  background: transparent;
+  box-shadow: none;
   align-items: center;
   gap: 10px;
   font-size: 10px;
@@ -728,7 +824,8 @@ a {
 }
 
 .instrument-picker-link:hover,
-.instrument-picker-link[aria-current="page"] {
+.instrument-picker-link[aria-current="page"],
+.instrument-picker-link[aria-pressed="true"] {
   color: var(--accent);
   background: color-mix(in oklab, var(--accent) 5%, transparent);
 }

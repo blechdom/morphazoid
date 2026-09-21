@@ -62,6 +62,57 @@ matched by `#playButton` or `[data-primary-transport]` may be inside `<details>`
 only when that disclosure is open in the authored HTML, preserving the same
 route when modules fail or JavaScript is unavailable.
 
+## Explicit preset motion on Shape
+
+The owner requested that Shape's main presets restore Playhead and Rotation
+on/off, speeds, directions and relative head spacing. On `shape-synth.html`,
+main preset recall may therefore start or stop those visual/musical motions,
+but **never arms or disarms Audio**. Registering the preset bank on page load
+does not apply a scene: startup remains Audio off and both motions paused.
+
+Recall preserves the current physical playhead position and rotation angle,
+rebasing the continuous phase only when motion mode changes. Starting from
+rest resets timing references so elapsed idle time does not become an overdue
+burst. Already-running motion is not restarted. A scene that pauses both motions
+releases existing sound through the normal fade while leaving Audio armed.
+Direct Play/Rotate controls remain usable after recall.
+
+The owner's full-parameter randomization requirement also includes these
+musical Playhead/Rotate switches. Dice may select playhead-only, rotation-only
+or both, without arming Audio or resetting live phase. Other instruments'
+external play/stop flags remain outside their preset snapshots; a serialized
+algorithmic `loop` setting is a musical policy and may vary without restarting
+its running transport.
+
+Shape, Solid and Hyper have explicit owner-requested full-scene motion recall.
+This does not change the independent Audio boundary or authorize automatic
+transport changes on other instruments.
+
+## Other full-scene adapters
+
+Solid and Hyper presets now recall their primary Play flag and independent
+rotation/surface-motion switches, so playhead-only and shape-only scenes are
+unambiguous. Moving-playhead scenes retain the current phase. Shape-only scenes
+center the stationary slice at phase 0.5 instead of inheriting a potentially
+out-of-bounds slice; current rotation angles remain live. Neither recall nor
+randomization arms Audio. Startup still leaves all motion and Audio off.
+Shapes' mixed bank follows the same explicit motion exception. It preserves the
+user's master level, live angles and Audio arm; scene level is separate. Its
+existing persisted visual-motion state may resume silently at startup, but the
+header still shows Select Preset and does not apply a factory scene. Corners and
+Notes share one player: one subdivision retains corner/vertex anchors and higher
+values add intermediate notes. Original corner percussion remains a sound option;
+tonal notes have independent ADSR envelopes and optional pre-marker swell, without
+resetting prior tails at each marker. Continuous spatial swell is retained, and
+Triggers remains a separate drum-bank player. Device-learned polyphony limits are
+runtime-only, outside preset and persistent musical state.
+Puzzle, graph, L-System, Hybrinx and Jaw Harp adapters likewise retain their
+external primary player. Musical loop, automatic-motion, breath and read-path
+settings may vary as part of a full scene without silently arming Audio.
+Automatapoeia's new seed lineage is musical score data, not a new audio session.
+Microphone presets retain the existing stream/input-pause state; selecting a
+scene must never initiate device permission or silently choose a new backend.
+
 ## MIDI and WAX boundaries
 
 Browser MIDI input remains governed by the Web MIDI toolbar contract. Its

@@ -82,6 +82,7 @@ The package manifest is the source of truth for commands:
 | `npm run check:storybook-dist` | Validate an existing Storybook artifact at `dist/storybook`. |
 | `npm run analyze:julia-similarity` | Run the optional Julia-family similarity report. |
 | `npm run analyze:presets` | Inventory preset-related source/control candidates without executing instruments; not a preset-completeness gate. |
+| `npm run analyze:cascade-rhythm` | Render deterministic FM/PM model references and measure time-varying activity/spectra; not browser playback or listening approval. |
 
 `dist/` and `storybook-static/` are disposable build outputs. `dist-wax/` is a
 committed compatibility artifact: change authored sources, run

@@ -1,3 +1,5 @@
+import { registerHeaderPresets } from "../../site/header-presets.js";
+import { GRAPH_DELAY_INITIAL_STATE as INITIAL_STATE, GRAPH_DELAY_FULL_PRESETS, captureGraphDelayPreset, validateGraphDelayPreset, randomizeGraphDelayPreset } from "../../families/graph-presets/full-presets.js";
 import {
   GRAPH_DELAY_PATCHES,
   GRAPH_PRESETS,
@@ -33,42 +35,7 @@ const EDGE_SWITCH_HIT_RADIUS = 13;
 const NODE_RADIUS = 9;
 const NODE_HIT_RADIUS = 23;
 const SPEAKER_POSITION = Object.freeze({ x: 0.965, y: 0.5 });
-const INITIAL_STATE = Object.freeze({
-  graphPatch: "layeredGlass",
-  topology: "dag",
-  nodeCount: 10,
-  density: 0.34,
-  seed: 17,
-  baseDelay: 62,
-  timeScale: 58,
-  timeCurve: 0.9,
-  nodePass: 1,
-  pitchScale: 0.26,
-  pitchAsymmetry: 0,
-  pitchCurve: 1.35,
-  pitchSlew: 165,
-  nodeMotionMode: "wiggle",
-  nodeMotionSpeed: 0.12,
-  nodeMotionAmount: 0.07,
-  nodeMotionPhase: 0,
-  nodeMoving: false,
-  micMotionMode: "circle",
-  micMotionSpeed: 0.08,
-  micMotionSize: 0.42,
-  micMotionPhase: 0.5,
-  micMoving: false,
-  inputX: 0.08,
-  inputY: 0.5,
-  feedback: 0.72,
-  damping: 4800,
-  wet: 1.16,
-  dry: 0.2,
-  spread: 0.82,
-  inputTrim: 0.8,
-  level: 0.58,
-  mic: false,
-  starting: false,
-});
+
 const state = { ...INITIAL_STATE };
 const GRAPH_CONFIGURATION_KEYS = Object.freeze([
   "graphPatch",
@@ -855,8 +822,8 @@ function graphRoutingSignature(graph) {
   ].join("|");
 }
 
-function rebuildModel({ rebuildAudio = true } = {}) {
-  const safeResult = generateGraphWithinTurnBudget(
+function rebuildModel({ rebuildAudio = true, modelOverride = null } = {}) {
+  const safeResult = modelOverride ? { graph: modelOverride, limited: false } : generateGraphWithinTurnBudget(
     { ...state, type: state.topology },
     MAX_LIVE_TURN_ROUTES,
   );
@@ -2106,3 +2073,21 @@ new ResizeObserver(resizeCanvas).observe(stageWrap);
 resizeCanvas();
 updateUi();
 requestAnimationFrame(frame);
+
+$("graphPatchGrid")?.setAttribute("hidden", "");
+registerHeaderPresets({
+  id: "graph-delay", presets: GRAPH_DELAY_FULL_PRESETS, randomize: randomizeGraphDelayPreset,
+  capture: () => captureGraphDelayPreset(state, model, edgeSwitchStates),
+  apply(snapshot) {
+    validateGraphDelayPreset(snapshot);
+    const phase = state.nodeMotionPhase;
+    cancelScheduledGraphRebuild();
+    Object.assign(state, snapshot.parameters);
+    if (!rebuildModel({ modelOverride: snapshot.graph })) throw new Error("Graph replacement failed; previous audio retained");
+    state.nodeMotionPhase = phase;
+    edgeSwitchStates = new Map(Object.entries(snapshot.edgeSwitches));
+    applyAudioParameters();
+    syncControlsFromState();
+    updateUi();
+  },
+});

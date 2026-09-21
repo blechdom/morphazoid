@@ -18,7 +18,10 @@ command names.
 
 - Confirm the repository root, branch, worktree, dirty state, and intended
   preview or server root before editing. Never create Morphazoid files beneath
-  an unrelated repository.
+  an unrelated repository. Use `git rev-parse --show-toplevel`,
+  `git branch --show-current`, and `git worktree list` from the candidate checkout;
+  do not infer the active branch from a directory's name. Repository paths in
+  this guide are relative to that root, not the shell's initial directory.
 - Preserve pre-existing changes. Use one writer for a worktree or overlapping
   file set. Parallel agents may investigate read-only or work in isolated
   worktrees; integrate their changes serially.
@@ -28,14 +31,19 @@ command names.
 - For a browser instrument, `node scripts/inspect-instrument.mjs <catalogue-id>`
   inventories its entries, dependencies, registration, WAX copies, and test
   candidates without changing files; see `docs/agent-tooling.md` for its limits.
-- Instrument controllers/styles are moving into `src/instruments/` in batches.
-  Follow the actual HTML references or inspection output; do not assume a
-  controller still lives at the root or that navigation categories name folders.
+- Instrument-owned controllers/styles live in `src/instruments/<canonical-id>/`;
+  multi-instrument implementations live in `src/families/<family>/`, and site
+  metadata/controllers live in `src/site/`. Many shared models and worklets
+  retain their existing `src/` locations. Follow the actual HTML/import references
+  or inspection output; categories and display names are not filesystem paths.
+  Public HTML, global bootstrap scripts and `style.css` remain at the root;
+  runtime `assets/` stays top-level. See `docs/agent-tooling.md` for the path map.
 - For a browser preview, verify the responding endpoint and report the exact URL
-  and worktree. The dev server may choose a port after 3435, while Playwright
-  defaults to 3435 (overridable with `MORPHAZOID_QA_BASE_URL`) and can reuse an existing server. Verify what each port
-  serves and do not stop an unrelated process. Native and REAPER previews follow
-  `plugins/README.md`.
+  and worktree. The dev server can choose another available port; Playwright's
+  base URL can be overridden with `MORPHAZOID_QA_BASE_URL`. Check the current
+  server/configuration rather than treating a historical port as authoritative.
+  Verify what each port serves and do not stop an unrelated process. Native and
+  REAPER previews follow `plugins/README.md`.
 
 ## Product principles
 
@@ -64,9 +72,27 @@ command names.
 - Reserve permanent instrument real estate for playing and recovery. Keep backend,
   lane, kernel, budget, topology, implementation counts, slogans, and explanatory
   diagrams in diagnostics or documentation unless a performer needs them to act.
-- For transport instruments, keep Play, tempo, patch/preset recall, and safe reset
-  at the top of the control rail. The stage itself should remain the exploratory
-  graphic and gesture surface.
+- Keep transport and recovery immediately reachable. For instruments migrated
+  to the header preset contract, main preset recall belongs left of the sound
+  meters, using the Choose-menu UI. Keep the right-hand control order
+  preset menu → next → randomize (dice) → MIDI → meters → output/Audio →
+  settings; do not detach MIDI into the middle of the masthead. Each migrated
+  instrument supplies a bounded, pure full-state randomizer, not random preset
+  selection or a lightly mutated factory scene. Cover every preset-owned
+  musical parameter, including curves, mappings, effects and musical switches;
+  keep dependent values valid and test for unintentionally frozen fields.
+  Randomization preserves output level, live clocks and device state.
+  Preset-owned rotation/motion switches and loop policy are musical parameters,
+  so they participate; external Audio/primary-transport flags do not.
+  Shape, Solid, Hyper and the Shapes app's primary-playhead recall are explicit owner-requested
+  exceptions; registration still shows Select Preset without applying a scene. See
+  `contracts/audio-transport-v1.md` for per-family boundaries.
+  Randomization marks the result Custom and uses the same complete-state
+  apply/rollback contract. The header menu selects complete presets only;
+  independent body/face, sequence, skin and other focused sub-preset controls
+  remain in their instrument sections, not nested inside the main preset menu.
+  Check `docs/full-instrument-preset-rollout.md` for per-instrument migration and
+  verification status. The stage remains the graphic and gesture surface.
 - A sequencer that visually invites painting must support one continuous captured
   drag across steps, including interpolated skipped cells and one undo transaction.
   A pitched computer-key surface must show the actual physical key labels and use
@@ -87,9 +113,9 @@ command names.
 
 ## Browser and native contracts
 
-- Treat root application files, `src/`, `assets/`, and `morphazoidical/` as
-  source. Treat `dist-wax/` as generated, committed output: regenerate it with
-  `npm run build:wax` rather than editing it, and require
+- Treat authored public HTML/bootstrap files, `style.css`, `src/`, `assets/`,
+  and `morphazoidical/` as source. Treat `dist-wax/` as generated, committed
+  output: regenerate it with `npm run build:wax` rather than editing it, and require
   `npm run check:wax-dist` to match a clean build when runtime source changes.
 - Explicit pre-commit file inclusion and required artifact paths live in
   `scripts/site/runtime-files.tsv`. Declare each path once and preserve the
@@ -127,7 +153,8 @@ command names.
 
 - A stable catalogue ID joins `TOOL_GROUPS` in `src/site/instrument-registry.js`
   (re-exported by `nav.js`), `CATALOG_DETAILS` and
-  optional secondary tags in `src/instrument-catalog.js`, and every applicable
+  derived records in `src/instrument-catalog.js`, secondary tags in
+  `src/site/catalogue-taxonomy.js`, and every applicable
   capability classification in `src/instrument-midi-capabilities.js`. Compare
   IDs and records across these sources instead of pinning the current total;
   keep an explicit count only when cardinality itself is a reviewed product
@@ -211,6 +238,10 @@ Use repository skills when their descriptions match the task:
   `AGENTS.override.md` for an intentional Codex-only same-directory replacement.
   Put human explanations in `CONTRIBUTING.md` or focused docs and put enforceable
   behavior in source, tests, and CI.
+- Keep reusable guidance checkout-independent: use repository-relative paths
+  and actual worktree discovery, not fixed home directories, branch checkout
+  names, interpreter locations or preview ports. Historical reports may retain
+  exact paths as provenance; they are not commands for the current checkout.
 - Create a repository skill in `.agents/skills/<name>/SKILL.md` only for a
   specialized, repeatable, non-obvious workflow. Give it one job and a precise
   positive/negative trigger boundary. Update it when its commands, contracts,

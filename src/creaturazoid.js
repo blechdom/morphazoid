@@ -726,7 +726,7 @@ export function sanitizeCreaturazoidBodyState(source = {}, fallback = {}) {
   return Object.freeze(state);
 }
 
-const CREATURAZOID_SHAPE_LIMITS = Object.freeze({
+export const CREATURAZOID_SHAPE_LIMITS = Object.freeze({
   bodyScale: CREATURAZOID_LIMITS.bodyScale,
   bodyRoundness: CREATURAZOID_LIMITS.bodyRoundness,
   headScale: Object.freeze([0.55, 1.45]),

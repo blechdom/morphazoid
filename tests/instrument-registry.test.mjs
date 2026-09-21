@@ -9,6 +9,15 @@ import { INSTRUMENTS, INSTRUMENT_GROUPS } from "../src/instrument-catalog.js";
 
 const snapshot = JSON.parse(await readFile(new URL("./fixtures/instrument-registry-v1.json", import.meta.url)));
 
+test("Shapes leads Faves and Shape/Solid/Hyper remain only in Geometric", () => {
+  assert.equal(FAVE_TOOL_IDS[0], "shapes");
+  for (const id of ["shape-synth", "solid-synth", "hyper-synth"]) {
+    assert.equal(FAVE_TOOL_IDS.includes(id), false);
+    assert.deepEqual(TOOL_GROUPS.filter(group => group.tools.some(tool => tool.id === id)).map(group => group.id), ["geometric"]);
+    assert.equal(INSTRUMENTS.find(tool => tool.id === id).tags.some(tag => tag.id === "faves"), false);
+  }
+});
+
 test("catalogue renaming preserves existing musical descriptions, features, and assets", async () => {
   const before = JSON.parse(await readFile(new URL("./fixtures/catalogue-before-20260918.json", import.meta.url)));
   // Main's loop-network update postdates the owner-sheet baseline. Preserve

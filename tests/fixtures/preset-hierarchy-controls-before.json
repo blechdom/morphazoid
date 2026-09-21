@@ -1,0 +1,969 @@
+{
+  "sourceCommit": "15980a90f298586a5df41865b8d1ba8da2d9d1bb",
+  "scope": "Authored IDs, control types/ranges and option values before header migration; runtime-generated editors are verified separately.",
+  "pages": {
+    "creaturazoid": {
+      "ids": {
+        "audioButton": {
+          "tag": "button",
+          "type": "button"
+        },
+        "audioState": {
+          "tag": "small"
+        },
+        "levelOut": {
+          "tag": "output"
+        },
+        "level": {
+          "tag": "input",
+          "type": "range",
+          "min": "0",
+          "max": "0.82",
+          "step": "0.01"
+        },
+        "creaturazoid": {
+          "tag": "main"
+        },
+        "stageWrap": {
+          "tag": "div"
+        },
+        "stage": {
+          "tag": "canvas"
+        },
+        "stageSoundReadout": {
+          "tag": "output"
+        },
+        "stageMorphReadout": {
+          "tag": "output"
+        },
+        "audioError": {
+          "tag": "p"
+        },
+        "mobileMutateButton": {
+          "tag": "button",
+          "type": "button"
+        },
+        "mobileRandomPatternButton": {
+          "tag": "button",
+          "type": "button"
+        },
+        "playButton": {
+          "tag": "button",
+          "type": "button"
+        },
+        "playLabel": {
+          "tag": "b"
+        },
+        "playState": {
+          "tag": "small"
+        },
+        "restartButton": {
+          "tag": "button",
+          "type": "button"
+        },
+        "sequencerTitle": {
+          "tag": "h2"
+        },
+        "sequenceLengthLabel": {
+          "tag": "label"
+        },
+        "sequenceLengthEntry": {
+          "tag": "input",
+          "type": "number",
+          "min": "1",
+          "max": "64",
+          "step": "1"
+        },
+        "sequenceLength": {
+          "tag": "input",
+          "type": "range",
+          "min": "1",
+          "max": "64",
+          "step": "1"
+        },
+        "patternSelect": {
+          "tag": "select"
+        },
+        "nextPatternButton": {
+          "tag": "button",
+          "type": "button"
+        },
+        "randomPatternButton": {
+          "tag": "button",
+          "type": "button"
+        },
+        "clearPatternButton": {
+          "tag": "button",
+          "type": "button"
+        },
+        "tempoOut": {
+          "tag": "output"
+        },
+        "tempo": {
+          "tag": "input",
+          "type": "range",
+          "name": "tempo",
+          "min": "48",
+          "max": "360",
+          "step": "1"
+        },
+        "swingOut": {
+          "tag": "output"
+        },
+        "swing": {
+          "tag": "input",
+          "type": "range",
+          "min": "0",
+          "max": "0.46",
+          "step": "0.01"
+        },
+        "sequenceStepHelp": {
+          "tag": "p"
+        },
+        "sequenceGrid": {
+          "tag": "div"
+        },
+        "bodyPresetTitle": {
+          "tag": "span"
+        },
+        "presetSelect": {
+          "tag": "select"
+        },
+        "nextPresetButton": {
+          "tag": "button",
+          "type": "button"
+        },
+        "anatomySelect": {
+          "tag": "select"
+        },
+        "bodySizeReadout": {
+          "tag": "output"
+        },
+        "bodyMotionReadout": {
+          "tag": "output"
+        },
+        "randomizeButton": {
+          "tag": "button",
+          "type": "button"
+        },
+        "padBankTitle": {
+          "tag": "h2"
+        },
+        "padGrid": {
+          "tag": "div"
+        },
+        "soundReadout": {
+          "tag": "output"
+        },
+        "sourceReadout": {
+          "tag": "output"
+        },
+        "tractReadout": {
+          "tag": "output"
+        },
+        "pressureReadout": {
+          "tag": "output"
+        },
+        "bodySummary": {
+          "tag": "span"
+        },
+        "pressureOut": {
+          "tag": "output"
+        },
+        "pressure": {
+          "tag": "input",
+          "type": "range",
+          "min": "0.2",
+          "max": "1.8",
+          "step": "0.01"
+        },
+        "bodyScaleOut": {
+          "tag": "output"
+        },
+        "bodyScale": {
+          "tag": "input",
+          "type": "range",
+          "min": "0.55",
+          "max": "1.35",
+          "step": "0.01"
+        },
+        "bodyRoundnessOut": {
+          "tag": "output"
+        },
+        "bodyRoundness": {
+          "tag": "input",
+          "type": "range",
+          "min": "-1",
+          "max": "1",
+          "step": "0.01"
+        },
+        "morphOut": {
+          "tag": "output"
+        },
+        "morph": {
+          "tag": "input",
+          "type": "range",
+          "min": "0",
+          "max": "1",
+          "step": "0.01"
+        },
+        "tensionOut": {
+          "tag": "output"
+        },
+        "tension": {
+          "tag": "input",
+          "type": "range",
+          "min": "-1",
+          "max": "1",
+          "step": "0.01"
+        },
+        "pitchOut": {
+          "tag": "output"
+        },
+        "pitch": {
+          "tag": "input",
+          "type": "range",
+          "min": "-24",
+          "max": "24",
+          "step": "1"
+        },
+        "beakOut": {
+          "tag": "output"
+        },
+        "beak": {
+          "tag": "input",
+          "type": "range",
+          "min": "-1",
+          "max": "1",
+          "step": "0.01"
+        },
+        "tractOut": {
+          "tag": "output"
+        },
+        "tract": {
+          "tag": "input",
+          "type": "range",
+          "min": "0.3",
+          "max": "3.25",
+          "step": "0.01"
+        },
+        "attackMsOut": {
+          "tag": "output"
+        },
+        "attackMs": {
+          "tag": "input",
+          "type": "range",
+          "min": "8",
+          "max": "48",
+          "step": "1"
+        },
+        "cavitySummary": {
+          "tag": "span"
+        },
+        "cavityOut": {
+          "tag": "output"
+        },
+        "cavity": {
+          "tag": "input",
+          "type": "range",
+          "min": "-1",
+          "max": "1",
+          "step": "0.01"
+        },
+        "roughnessOut": {
+          "tag": "output"
+        },
+        "roughness": {
+          "tag": "input",
+          "type": "range",
+          "min": "-1",
+          "max": "1",
+          "step": "0.01"
+        },
+        "splitOut": {
+          "tag": "output"
+        },
+        "split": {
+          "tag": "input",
+          "type": "range",
+          "min": "-1",
+          "max": "1",
+          "step": "0.01"
+        },
+        "balanceOut": {
+          "tag": "output"
+        },
+        "balance": {
+          "tag": "input",
+          "type": "range",
+          "min": "-1",
+          "max": "1",
+          "step": "0.01"
+        },
+        "tongueReachOut": {
+          "tag": "output"
+        },
+        "tongueReach": {
+          "tag": "input",
+          "type": "range",
+          "min": "0",
+          "max": "1",
+          "step": "0.01"
+        },
+        "tongueMotionOut": {
+          "tag": "output"
+        },
+        "tongueMotion": {
+          "tag": "input",
+          "type": "range",
+          "min": "0",
+          "max": "1",
+          "step": "0.01"
+        },
+        "morphMsOut": {
+          "tag": "output"
+        },
+        "morphMs": {
+          "tag": "input",
+          "type": "range",
+          "min": "12",
+          "max": "240",
+          "step": "1"
+        },
+        "modulationSummary": {
+          "tag": "span"
+        },
+        "earSpreadOut": {
+          "tag": "output"
+        },
+        "earSpread": {
+          "tag": "input",
+          "type": "range",
+          "min": "0",
+          "max": "1",
+          "step": "0.01"
+        },
+        "vibratoRateOut": {
+          "tag": "output"
+        },
+        "vibratoRate": {
+          "tag": "input",
+          "type": "range",
+          "min": "0",
+          "max": "20",
+          "step": "0.1"
+        },
+        "vibratoDepthOut": {
+          "tag": "output"
+        },
+        "vibratoDepth": {
+          "tag": "input",
+          "type": "range",
+          "min": "0",
+          "max": "6",
+          "step": "0.05"
+        },
+        "timbreOut": {
+          "tag": "output"
+        },
+        "timbre": {
+          "tag": "input",
+          "type": "range",
+          "min": "-1",
+          "max": "1",
+          "step": "0.01"
+        },
+        "modulationTarget": {
+          "tag": "select"
+        },
+        "modulationShape": {
+          "tag": "select"
+        },
+        "modulationRateOut": {
+          "tag": "output"
+        },
+        "modulationRate": {
+          "tag": "input",
+          "type": "range",
+          "min": "0",
+          "max": "20",
+          "step": "0.05"
+        },
+        "modulationDepthOut": {
+          "tag": "output"
+        },
+        "modulationDepth": {
+          "tag": "input",
+          "type": "range",
+          "min": "0",
+          "max": "1",
+          "step": "0.01"
+        },
+        "resetButton": {
+          "tag": "button",
+          "type": "button"
+        },
+        "canvasInstructions": {
+          "tag": "p"
+        },
+        "liveStatus": {
+          "tag": "p"
+        }
+      },
+      "options": {
+        "patternSelect": [],
+        "presetSelect": [],
+        "anatomySelect": [
+          "scapular-wings",
+          "branchial-mantle",
+          "costal-glider"
+        ],
+        "modulationTarget": [
+          "cavity",
+          "roughness",
+          "beak",
+          "pressure",
+          "split",
+          "balance"
+        ],
+        "modulationShape": [
+          "sine",
+          "triangle",
+          "square",
+          "sample-hold"
+        ]
+      }
+    },
+    "hiccup-head": {
+      "ids": {
+        "audioButton": {
+          "tag": "button",
+          "type": "button"
+        },
+        "audioState": {
+          "tag": "small"
+        },
+        "levelOut": {
+          "tag": "output"
+        },
+        "level": {
+          "tag": "input",
+          "type": "range",
+          "min": "0",
+          "max": "0.82",
+          "step": "0.01"
+        },
+        "hiccup-head": {
+          "tag": "main"
+        },
+        "stageWrap": {
+          "tag": "div"
+        },
+        "stage": {
+          "tag": "canvas"
+        },
+        "resetEffectsButton": {
+          "tag": "button",
+          "type": "button"
+        },
+        "audioError": {
+          "tag": "p"
+        },
+        "workspaceSplitter": {
+          "tag": "div"
+        },
+        "playButton": {
+          "tag": "button",
+          "type": "button"
+        },
+        "playLabel": {
+          "tag": "b"
+        },
+        "playState": {
+          "tag": "small"
+        },
+        "restartButton": {
+          "tag": "button",
+          "type": "button"
+        },
+        "sequenceLengthLabel": {
+          "tag": "b"
+        },
+        "sequenceLengthEntry": {
+          "tag": "input",
+          "type": "number",
+          "min": "1",
+          "max": "64",
+          "step": "1"
+        },
+        "sequenceLength": {
+          "tag": "input",
+          "type": "range",
+          "min": "1",
+          "max": "64",
+          "step": "1"
+        },
+        "sequencerTitle": {
+          "tag": "h2"
+        },
+        "patternSelect": {
+          "tag": "select"
+        },
+        "nextPatternButton": {
+          "tag": "button",
+          "type": "button"
+        },
+        "randomPatternButton": {
+          "tag": "button",
+          "type": "button"
+        },
+        "clearPatternButton": {
+          "tag": "button",
+          "type": "button"
+        },
+        "tempoOut": {
+          "tag": "output"
+        },
+        "tempo": {
+          "tag": "input",
+          "type": "range",
+          "name": "tempo",
+          "min": "48",
+          "max": "520",
+          "step": "1"
+        },
+        "swingOut": {
+          "tag": "output"
+        },
+        "swing": {
+          "tag": "input",
+          "type": "range",
+          "min": "0",
+          "max": "0.46",
+          "step": "0.01"
+        },
+        "sequenceStepHelp": {
+          "tag": "p"
+        },
+        "sequenceGrid": {
+          "tag": "div"
+        },
+        "visualSkinSelect": {
+          "tag": "select"
+        },
+        "openWebcamSkinButton": {
+          "tag": "button",
+          "type": "button"
+        },
+        "visualSkinDescription": {
+          "tag": "p"
+        },
+        "presetSelect": {
+          "tag": "select"
+        },
+        "nextFacePresetButton": {
+          "tag": "button",
+          "type": "button"
+        },
+        "presetDescription": {
+          "tag": "p"
+        },
+        "randomizeButton": {
+          "tag": "button",
+          "type": "button"
+        },
+        "padBankTitle": {
+          "tag": "h2"
+        },
+        "padGrid": {
+          "tag": "div"
+        },
+        "voiceCollectionTitle": {
+          "tag": "h2"
+        },
+        "voiceCollectionHelp": {
+          "tag": "p"
+        },
+        "soundBankSelect": {
+          "tag": "select"
+        },
+        "nextSoundBankButton": {
+          "tag": "button",
+          "type": "button"
+        },
+        "soundBankDescription": {
+          "tag": "p"
+        },
+        "voiceCountOut": {
+          "tag": "output"
+        },
+        "voiceCount": {
+          "tag": "input",
+          "type": "range",
+          "min": "1",
+          "max": "8",
+          "step": "1"
+        },
+        "voiceSelectionMode": {
+          "tag": "select"
+        },
+        "mutateVoicesButton": {
+          "tag": "button",
+          "type": "button"
+        },
+        "voiceRack": {
+          "tag": "div"
+        },
+        "soundReadout": {
+          "tag": "output"
+        },
+        "cavityReadout": {
+          "tag": "output"
+        },
+        "tractReadout": {
+          "tag": "output"
+        },
+        "pressureReadout": {
+          "tag": "output"
+        },
+        "voicesReadout": {
+          "tag": "output"
+        },
+        "pressureSummary": {
+          "tag": "span"
+        },
+        "lungPressureOut": {
+          "tag": "output"
+        },
+        "lungPressure": {
+          "tag": "input",
+          "type": "range",
+          "min": "0",
+          "max": "1.6",
+          "step": "0.01"
+        },
+        "lipTensionOut": {
+          "tag": "output"
+        },
+        "lipTension": {
+          "tag": "input",
+          "type": "range",
+          "min": "-0.35",
+          "max": "1.65",
+          "step": "0.01"
+        },
+        "lipRoundingOut": {
+          "tag": "output"
+        },
+        "lipRounding": {
+          "tag": "input",
+          "type": "range",
+          "min": "-0.45",
+          "max": "1.8",
+          "step": "0.01"
+        },
+        "mouthOpeningOut": {
+          "tag": "output"
+        },
+        "mouthOpening": {
+          "tag": "input",
+          "type": "range",
+          "min": "0.01",
+          "max": "1.85",
+          "step": "0.01"
+        },
+        "dooPitchOut": {
+          "tag": "output"
+        },
+        "dooPitch": {
+          "tag": "input",
+          "type": "range",
+          "min": "-24",
+          "max": "24",
+          "step": "1"
+        },
+        "faceSummary": {
+          "tag": "span"
+        },
+        "cheekVolumeOut": {
+          "tag": "output"
+        },
+        "cheekVolume": {
+          "tag": "input",
+          "type": "range",
+          "min": "-0.4",
+          "max": "2",
+          "step": "0.01"
+        },
+        "cheekTensionOut": {
+          "tag": "output"
+        },
+        "cheekTension": {
+          "tag": "input",
+          "type": "range",
+          "min": "-0.35",
+          "max": "1.7",
+          "step": "0.01"
+        },
+        "tonguePositionOut": {
+          "tag": "output"
+        },
+        "tonguePosition": {
+          "tag": "input",
+          "type": "range",
+          "min": "-0.65",
+          "max": "1.65",
+          "step": "0.01"
+        },
+        "tongueCurlOut": {
+          "tag": "output"
+        },
+        "tongueCurl": {
+          "tag": "input",
+          "type": "range",
+          "min": "-0.7",
+          "max": "1.8",
+          "step": "0.01"
+        },
+        "tongueOutOut": {
+          "tag": "output"
+        },
+        "tongueOut": {
+          "tag": "input",
+          "type": "range",
+          "min": "0",
+          "max": "1.6",
+          "step": "0.01"
+        },
+        "cavitySummary": {
+          "tag": "span"
+        },
+        "tractLengthMOut": {
+          "tag": "output"
+        },
+        "tractLengthM": {
+          "tag": "input",
+          "type": "range",
+          "min": "0.035",
+          "max": "0.52",
+          "step": "0.001"
+        },
+        "nasalMixOut": {
+          "tag": "output"
+        },
+        "nasalMix": {
+          "tag": "input",
+          "type": "range",
+          "min": "0",
+          "max": "1",
+          "step": "0.01"
+        },
+        "earSpreadOut": {
+          "tag": "output"
+        },
+        "earSpread": {
+          "tag": "input",
+          "type": "range",
+          "min": "0",
+          "max": "1",
+          "step": "0.01"
+        },
+        "leftHairLengthOut": {
+          "tag": "output"
+        },
+        "leftHairLength": {
+          "tag": "input",
+          "type": "range",
+          "min": "0",
+          "max": "1",
+          "step": "0.01"
+        },
+        "leftHairAngleOut": {
+          "tag": "output"
+        },
+        "leftHairAngle": {
+          "tag": "input",
+          "type": "range",
+          "min": "-1",
+          "max": "1",
+          "step": "0.01"
+        },
+        "rightHairLengthOut": {
+          "tag": "output"
+        },
+        "rightHairLength": {
+          "tag": "input",
+          "type": "range",
+          "min": "0",
+          "max": "1",
+          "step": "0.01"
+        },
+        "rightHairAngleOut": {
+          "tag": "output"
+        },
+        "rightHairAngle": {
+          "tag": "input",
+          "type": "range",
+          "min": "-1",
+          "max": "1",
+          "step": "0.01"
+        },
+        "eyeDivergenceOut": {
+          "tag": "output"
+        },
+        "eyeDivergence": {
+          "tag": "input",
+          "type": "range",
+          "min": "-1",
+          "max": "1",
+          "step": "0.01"
+        },
+        "eyebrowEmphasisOut": {
+          "tag": "output"
+        },
+        "eyebrowEmphasis": {
+          "tag": "input",
+          "type": "range",
+          "min": "0",
+          "max": "0.9",
+          "step": "0.01"
+        },
+        "sillinessOut": {
+          "tag": "output"
+        },
+        "silliness": {
+          "tag": "input",
+          "type": "range",
+          "min": "0",
+          "max": "1",
+          "step": "0.01"
+        },
+        "decayOut": {
+          "tag": "output"
+        },
+        "decay": {
+          "tag": "input",
+          "type": "range",
+          "min": "0.35",
+          "max": "1.8",
+          "step": "0.01"
+        },
+        "humanizeOut": {
+          "tag": "output"
+        },
+        "humanize": {
+          "tag": "input",
+          "type": "range",
+          "min": "0",
+          "max": "0.45",
+          "step": "0.01"
+        },
+        "resetButton": {
+          "tag": "button",
+          "type": "button"
+        },
+        "webcamSkinDialog": {
+          "tag": "dialog"
+        },
+        "webcamSkinTitle": {
+          "tag": "h2"
+        },
+        "closeWebcamSkinButton": {
+          "tag": "button",
+          "type": "button"
+        },
+        "webcamSkinIntro": {
+          "tag": "p"
+        },
+        "webcamSkinPrivacy": {
+          "tag": "p"
+        },
+        "webcamSkinPreview": {
+          "tag": "div"
+        },
+        "webcamSkinVideo": {
+          "tag": "video"
+        },
+        "webcamSkinFrame": {
+          "tag": "canvas"
+        },
+        "webcamSkinGuides": {
+          "tag": "div"
+        },
+        "webcamGuideControls": {
+          "tag": "div"
+        },
+        "webcamGuideSelect": {
+          "tag": "select"
+        },
+        "webcamGuideSizeOut": {
+          "tag": "output"
+        },
+        "webcamGuideSize": {
+          "tag": "input",
+          "type": "range",
+          "min": "60",
+          "max": "160",
+          "step": "1"
+        },
+        "webcamSkinStatus": {
+          "tag": "p"
+        },
+        "webcamSkinError": {
+          "tag": "p"
+        },
+        "startWebcamButton": {
+          "tag": "button",
+          "type": "button"
+        },
+        "freezeWebcamButton": {
+          "tag": "button",
+          "type": "button"
+        },
+        "retakeWebcamButton": {
+          "tag": "button",
+          "type": "button"
+        },
+        "useWebcamSkinButton": {
+          "tag": "button",
+          "type": "button"
+        },
+        "forgetWebcamSkinButton": {
+          "tag": "button",
+          "type": "button"
+        },
+        "canvasInstructions": {
+          "tag": "p"
+        },
+        "liveStatus": {
+          "tag": "p"
+        }
+      },
+      "options": {
+        "patternSelect": [],
+        "visualSkinSelect": [
+          "checker",
+          "cutout-collage",
+          "photo-1904",
+          "food-portrait",
+          "ascii",
+          "wild-ink"
+        ],
+        "presetSelect": [],
+        "soundBankSelect": [],
+        "voiceSelectionMode": [
+          "roundRobin",
+          "random"
+        ],
+        "webcamGuideSelect": [
+          "head",
+          "hair",
+          "leftEye",
+          "rightEye",
+          "nose",
+          "mouth"
+        ]
+      }
+    }
+  }
+}

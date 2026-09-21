@@ -19,6 +19,7 @@ test("Shapes routes dimensions and playing modes as state rather than pages", ()
     [["2d", "2D"], ["3d", "3D"], ["4d", "4D"]],
   );
   assert.deepEqual(COMBO_PLAYING_MODES.map(({ id }) => id), ["continuous", "notes", "triggers"]);
+  assert.deepEqual(comboSelectionFor("hyper", "corners"), { dimension: "4d", playingMode: "notes" });
   assert.deepEqual(comboSelectionFor("solid", "drums"), { dimension: "3d", playingMode: "triggers" });
   assert.deepEqual(sanitizeComboFocus({ dimension: "4d", playingMode: "notes" }), {
     dimension: "4d",
@@ -99,7 +100,8 @@ test("Shapes is one native Morphazoid route with no embedded page dependencies",
   assert.match(app, /gain = 0\.12/);
   assert.match(app, /gain = \(0\.18 \+ 0\.5 \* clamp\(profile\.strength, 0, 1\)\) \* envelope/);
   assert.match(app, /scaleShapeVoiceGains\(specs\)/);
-  assert.match(app, /new VoicePool\(32, \{ continuousPeakCeiling: 0\.78 \}\)/);
+  assert.match(app, /const synthAudio = createGeometryVoicePool\(\)/);
+  assert.match(app, /from "\.\.\/\.\.\/families\/geometry-presets\/audio-budget\.js"/);
   assert.match(app, /new LinearDrumAudio\(globalThis\)/);
   assert.match(app, /RATTLESNAKE_PRESET\.settings/);
   assert.match(app, /rattlesnakeAudio\.trigger\([\s\S]*?startAt/);
@@ -116,7 +118,8 @@ test("Shapes is one native Morphazoid route with no embedded page dependencies",
   assert.match(app, /scrubPlayheadFromPointer\(event\)/);
   const frameBody = app.slice(app.indexOf("function frame(now)"), app.indexOf("async function prepareActiveAudio"));
   assert.doesNotMatch(frameBody, /resizeCanvas\(/, "the animation frame does not force layout measurement");
-  assert.match(app, /synthAudio\.strike\(spec, \{[\s\S]*?startAt,/);
+  assert.match(app, /synthAudio\.scheduleNotes\(specs, \{/);
+  assert.match(app, /function scheduleOriginalCorners/);
   assert.match(app, /drumAudio\.trigger\(voice, Number\.isFinite\(startAt\) \? \{ startAt \}/);
   assert.match(app, /if \(startAt < schedulableAfter\) continue/);
   assert.match(app, /document\.hidden[\s\S]*?stopDiscreteScheduler\(\)[\s\S]*?drumAudio\.silence\(\)/);
@@ -147,7 +150,7 @@ test("Shapes owns the fixed application picker and local 2D, 3D, 4D submenu", as
   assert.match(html, /data-playing-mode="notes"/);
   assert.match(html, /data-playing-mode="triggers"/);
   assert.match(html, /data-playing-mode="continuous"[^>]*>Continuous<\/button>/);
-  assert.match(html, /data-playing-mode="notes"[^>]*>Notes<\/button>/);
+  assert.match(html, /data-playing-mode="notes"[^>]*>Corners &amp; Notes<\/button>/);
   assert.match(html, /data-playing-mode="triggers"[^>]*>Triggers<\/button>/);
   assert.match(html, /id="divisionsControl"[^>]*for="divisions"[^>]*hidden/);
   assert.match(html, /id="divisions"[^>]*max="16"[^>]*value="2"/);

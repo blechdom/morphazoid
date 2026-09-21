@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
+import { HYPER_RUBIX_PRESET_DEFAULTS } from "../src/instruments/hyper-rubix/preset-state.js";
 
 const root = new URL("../", import.meta.url);
 
@@ -197,11 +198,16 @@ test("the open Shape loop exposes every read path and automated-twist control", 
   assert.equal(hasBooleanAttribute(openingTag(sequencePanel, "button", "reseedPattern"), "disabled"), true);
   assert.equal(hasBooleanAttribute(openingTag(sequencePanel, "input", "twistDensity"), "disabled"), true);
 
-  assert.match(app, /sequenceMethod: "sticker-stream"/);
-  assert.match(app, /twistMotion: "auto"/);
-  assert.match(app, /playbackMode: "forward"/);
-  assert.match(app, /playbackPreset: "view-facing"/);
-  assert.match(app, /autoRotate: false/);
+  assert.equal(HYPER_RUBIX_PRESET_DEFAULTS.sequenceMethod, "sticker-stream");
+  assert.match(app, /sequenceMethod: DEFAULTS\.sequenceMethod/);
+  assert.equal(HYPER_RUBIX_PRESET_DEFAULTS.twistMotion, "auto");
+  assert.equal(HYPER_RUBIX_PRESET_DEFAULTS.playbackMode, "forward");
+  assert.equal(HYPER_RUBIX_PRESET_DEFAULTS.playbackPreset, "view-facing");
+  assert.equal(HYPER_RUBIX_PRESET_DEFAULTS.autoRotate, false);
+  assert.match(app, /twistMotion: DEFAULTS\.twistMotion/);
+  assert.match(app, /playbackMode: DEFAULTS\.playbackMode/);
+  assert.match(app, /playbackPreset: DEFAULTS\.playbackPreset/);
+  assert.match(app, /autoRotate: reduceMotion \? false : DEFAULTS\.autoRotate/);
   assert.match(app, /"sticker-stream": Object\.freeze\([\s\S]*?serial: true[\s\S]*?autoTwist: false/);
   assert.match(app, /"sticker-hyperbar": Object\.freeze\([\s\S]*?autoTwist: true/);
   assert.match(app, /"hybrid-coil": Object\.freeze\([\s\S]*?autoTwist: true/);
@@ -284,7 +290,8 @@ test("shape position, independent tails, Rattlesnake, and WebGPU 303 stay mapped
     soundPanel,
     /Sets the melodic tail made by connected stickers when Separate neighbor tail is selected\./,
   );
-  assert.match(app, /decayLink: "linked"/);
+  assert.equal(HYPER_RUBIX_PRESET_DEFAULTS.decayLink, "linked");
+  assert.match(app, /decayLink: DEFAULTS\.decayLink/);
   assert.match(app, /\$\("decayLink"\)\.addEventListener\("change"/);
 
   for (const [id, value] of [

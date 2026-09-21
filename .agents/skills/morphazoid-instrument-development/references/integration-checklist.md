@@ -6,7 +6,12 @@ omitting them.
 
 ## Source surface
 
-- Page HTML, page stylesheet, application entry point, and pure model module.
+- Resolve source paths in the selected checkout using the
+  [worktree/source map](../../../../docs/agent-tooling.md#worktree-and-source-paths).
+  Public page HTML stays at its established URL; instrument-owned controllers
+  and styles are under `src/instruments/<canonical-id>/`, and shared family
+  implementations are under `src/families/<family>/`. Follow imports to the
+  actual pure model/worklet locations; do not assume every helper moved.
 - Optional audio engine, AudioWorklet processor, transport model, renderer, or
   device adapter.
 - Native labelled controls, `<output>` elements, accessible Canvas fallback,
@@ -17,12 +22,20 @@ omitting them.
 
 ## Discovery and capability records
 
-- `nav.js`: canonical tool ID, label, href/page slug, primary group, order,
-  fallback desktop/mobile nav, and Fave status only when requested. Membership
-  in the `experiments` group derives Works-in-progress status.
+- `src/site/instrument-registry.js`: canonical tool ID, label, href/page slug,
+  primary group, order, legacy hrefs, and Faves only when requested. `nav.js`
+  consumes/re-exports this data; it is not a second catalogue to edit.
+  Membership in the `wip` group derives Work in Progress status. Preserve the
+  explicit picker policy separately from homepage visibility.
 - `src/instrument-catalog.js`: factual kind, description, start action, base
-  features, optional plug-in link, and `ADDITIONAL_TAG_IDS` entries only for
-  intentional secondary catalogue groups.
+  features, optional plug-in link, and derived normal-instrument/lab records.
+- `src/site/catalogue-taxonomy.js`: `ADDITIONAL_TAG_IDS` for intentional
+  secondary tags and `LAB_CATALOGUE_DETAILS` for browseable labs. A browseable
+  lab does not automatically enter the regular instrument MIDI/WAX inventory.
+- `src/site/instrument-identities.js`: explicit canonical/legacy identity and
+  route mappings when IDs change. Retain old HTML redirects, query/hash
+  semantics, asset URLs, storage keys, and internal processor/MIDI identities
+  unless a separate migration is requested.
 - `src/instrument-midi-capabilities.js`: exactly one `NOTE_MODE_IDS` policy
   (`processor`, `drums`, `pitched`, or `sequence`) plus every applicable native
   client, page/no-generic keyboard, audio-input, processor-starts-audio, and
@@ -46,8 +59,10 @@ omitting them.
 
 - `scripts/build-site.sh` copies tracked runtime files. Confirm the clean output
   contains every dependency; do not assume that a brand-new untracked file was
-  copied. Stage/track it before building or update an explicit curated list only
-  when that list's contract actually requires the file.
+  copied. Explicit pre-commit inclusion and required artifact paths belong in
+  `scripts/site/runtime-files.tsv`, not a new shell filename list. Follow
+  `scripts/site/README.md` to distinguish `copy`, `require`, and `copy+require`;
+  staging is not a prerequisite or authorization implied by a build.
 - Route inventory is derived from source HTML, navigation, and catalogue data.
   Update focused deployment assertions only when their contract requires it;
   do not maintain a second hand-written global route list.
@@ -84,7 +99,9 @@ Playwright browser suite.
 ## Preview and publication
 
 - Start with `npm run dev` only when an interactive preview is needed. Verify
-  the endpoint and report its exact URL and worktree.
+  the endpoint's content and report its exact URL and worktree. Discover the
+  current port instead of copying a previous handoff; use
+  `MORPHAZOID_QA_BASE_URL` for an already-running nondefault test preview.
 - Before an authorized push, review the scoped diff, status, commit, and current
   remote tip. Do not sweep unrelated worktree changes into the commit.
 - After an authorized deployment, verify the public page and a distinctive

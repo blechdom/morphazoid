@@ -1,6 +1,14 @@
 # Morphazoid v2: preservation-first refactoring
 
-## Current status — September 20, 2026
+## Current status — September 21, 2026
+
+Preset priority is now **Faves first in menu order, then remaining non-WIP
+regular instruments**. WIP and labs are deferred from new preset work; existing
+implementations and regression coverage stay intact. The next new banks are
+the remaining non-WIP instruments: every current Fave now has an implemented
+bank/adapter, with browser/listening acceptance still pending. The
+[active queue](full-instrument-preset-rollout.md#active-priority-faves-first-works-in-progress-deferred)
+records the order and review policy.
 
 The file-layout refactor was rebased onto main `e042512` in an isolated worktree,
 preserving the newer loop-network instruments. The owner then requested a new
@@ -9,9 +17,37 @@ immediate publication. `codex/full-instrument-presets` contains the current
 checkpoint; main and the old review worktree remain untouched.
 
 The next-instrument arrow and Faves changes are implemented: Creaturazoid follows
-Hiccup Head, and Spiral is no longer a Fave. The all-instrument preset work is
-at the inventory/contract stage, not complete. See
+Hiccup Head, and Spiral is no longer a Fave. The next local batch moves Hiccup
+Head/Hybrinx/Jaw Harp before Hyper Rubix and exchanges Automatapoeia/Lattice.
+Complete header preset adapters and 345 states are implemented for 23 regular
+instruments; this is partial coverage, not a requirement to finish deferred WIP
+before the Faves. The latest geometry feedback pass completed the repository
+gate and 40 focused browser checks after approval-service access recovered.
+Broader mobile regression coverage and human audition remain pending. The latest fixes are not yet
+committed or pushed. See
 [the rollout contract and status](full-instrument-preset-rollout.md).
+Shape's bank now has 36 scenes with explicit Playhead/Rotate switches and varied
+head spacing, per owner request; Audio is still separate. This is a Shape-specific
+preset change, not a change to other instruments' transport contracts. The latest
+audition feedback restores Velvet wheel's square, removes Sweet orbit, adds
+Bowed line variants and balances rotation directions. Hiccup Head now has 25
+full scenes, including six new independent rhythm scores. Shape alone opts into
+a rounded percussion attack; click resolution still needs browser/listening
+confirmation. [Feedback changes and evidence](preset-audition-followup.md).
+
+The shared header now also includes a dice randomize button after its next arrow
+on all 23 migrated instruments. Randomizers create new parameter states
+within instrument-owned bounds, retaining master level, device state and live
+clocks. After the owner's clarification, every preset-owned musical parameter
+participates (including Shape's motion switches); this is no longer a small
+mutation of a factory scene. New
+preset adapters must supply this behavior; unmigrated instruments stay unchanged.
+See [the randomization contract and verification](header-preset-random.md).
+Solid and Hyper now have 20 scenes each, including interleaved single-motion
+examples. Their primary playhead switch participates in recall; Audio does not.
+The common header starts at Select Preset. See
+[the geometry feedback report](geometry-preset-feedback.md) for the scoped
+voice-budget change and actual browser measurements.
 
 ## Previous status — September 18, 2026
 

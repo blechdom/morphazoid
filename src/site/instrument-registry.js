@@ -7,21 +7,19 @@ const freezeGroup = (id, label, tools, metadata = {}) => Object.freeze({
 });
 
 export const FAVE_TOOL_IDS = Object.freeze([
-  "shape-synth",
-  "solid-synth",
-  "hyper-synth",
+  "shapes",
   "rubix",
-  "hyper-rubix",
-  "hybrinx",
   "hiccup-head",
   "creaturazoid",
+  "hybrinx",
   "jaw-harp",
+  "hyper-rubix",
   "micmic",
   "l-system",
   "graph-delay",
   "graph-synth",
-  "lattice",
-  "cellular-automata"
+  "cellular-automata",
+  "lattice"
 ]);
 
 export const TOOL_GROUPS = Object.freeze([

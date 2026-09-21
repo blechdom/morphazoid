@@ -598,6 +598,7 @@ body.shapes-page select optgroup {
 }
 
 .shapes-head-marker:disabled { cursor: default; opacity: 0.72; }
+.shapes-head-layout-track.has-head-options { height: 76px; margin-top: 12px; }
 
 .shapes-main-form-control { margin: 0 0 4px; }
 
@@ -842,6 +843,30 @@ body.shapes-page select optgroup {
   grid-template-columns: repeat(3, minmax(0, 1fr));
   grid-auto-columns: unset;
   gap: 0;
+}
+
+#shapesSoundControls {
+  display: grid;
+  gap: 14px;
+  min-width: 0;
+  padding-top: 14px;
+}
+#shapesSoundControls section { margin-block: 14px; min-width: 0; }
+#shapesSoundControls .shared-amplitude-editor { margin: 20px 12px; }
+#shapesSoundControls [hidden] { display: none !important; }
+#shapesSoundControls [data-pitch-editor] { touch-action: none; }
+#shapesSoundControls [data-pitch-node] {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--accent);
+  background: var(--panel-high);
+  color: var(--ink);
+  border-radius: 50%;
+}
+@media (pointer: coarse) {
+  #shapesSoundControls [data-pitch-node] { width: 40px; height: 40px; }
 }
 
 .shapes-panel .shapes-playing-mode .choice-switch button {
