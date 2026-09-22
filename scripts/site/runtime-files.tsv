@@ -4,6 +4,14 @@
 # require: require it in the artifact without granting an additional untracked-file inclusion.
 # Other tracked-file and asset-glob rules remain in scripts/build-site.sh.
 # Keep requirement order stable; every path is declared once. See README.md.
+copy+require	loopini.html
+copy+require	src/instruments/loopini/loopini-app.js
+copy+require	src/instruments/loopini/loopini.css
+copy+require	src/instruments/loopini/loopini.js
+copy+require	src/instruments/loopini/loopini-audio.js
+copy+require	src/instruments/loopini/loopini-processor.js
+copy+require	assets/instruments/loopini.webp
+copy+require	docs/loopini.md
 copy+require	spider-synth.html
 copy+require	src/instruments/spider-synth/spider-synth-model.js
 copy+require	src/instruments/spider-synth/spider-synth-processor.js

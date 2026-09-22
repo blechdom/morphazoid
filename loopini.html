@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+    <!-- morphazoid-social-preview:start -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Morphazoid" />
+    <meta property="og:title" content="Loopini · Morphazoid" />
+    <meta property="og:description" content="Loopini: six big recording circles. Tap loops on or off, add new sounds over old ones, and slow down to record layers that speed up when you return to normal." />
+    <meta property="og:url" content="https://morphazoid.com/loopini.html" />
+    <meta property="og:image" content="https://morphazoid.com/assets/social/morphazoid-card-20260917.png" />
+    <meta property="og:image:secure_url" content="https://morphazoid.com/assets/social/morphazoid-card-20260917.png" />
+    <meta property="og:image:type" content="image/png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="Morphazoid geometric wireframe logo on a dark background." />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Loopini · Morphazoid" />
+    <meta name="twitter:description" content="Loopini: six big recording circles. Tap loops on or off, add new sounds over old ones, and slow down to record layers that speed up when you return to normal." />
+    <meta name="twitter:image" content="https://morphazoid.com/assets/social/morphazoid-card-20260917.png" />
+    <meta name="twitter:image:alt" content="Morphazoid geometric wireframe logo on a dark background." />
+    <link rel="image_src" href="https://morphazoid.com/assets/social/morphazoid-card-20260917.png" />
+    <!-- morphazoid-social-preview:end -->
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#0b1119" />
+  <meta name="description" content="Loopini: six big recording circles. Tap loops on or off, add new sounds over old ones, and slow down to record layers that speed up when you return to normal." />
+  <title>Loopini · Morphazoid</title>
+  <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="src/instruments/loopini/loopini.css" />
+</head>
+<body class="loopini-page">
+  <header class="masthead">
+    <a class="wordmark" href="./" aria-label="Morphazoid home"><span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span><span>morphazoid</span></a>
+    <nav class="tabs" aria-label="Instrument"><a class="tab active" href="loopini.html" aria-current="page">Loopini</a><a class="tab" href="tape-worm.html">Tape Worm</a></nav>
+    <label class="mobile-instrument-nav"><span class="sr-only">Instrument</span><select class="mobile-instrument-select" aria-label="Instrument"><option value="loopini.html" selected>Loopini</option><option value="tape-worm.html">Tape Worm</option></select></label>
+    <div id="audioSlot"><button id="audioButton" type="button" aria-pressed="false" disabled>Audio off · JavaScript required</button></div>
+  </header>
+  <main class="loopini-shell" id="loopini">
+    <section class="loopini-stage" aria-label="Loopini recording circles">
+      <header class="loopini-heading">
+        <h1>loopini</h1>
+      </header>
+      <div class="loopini-lead">
+        <div><h2 id="nextStep">First, turn the sound on.</h2><p id="liveStatus" role="status" aria-live="polite">Tap the speaker at the top. Then pick a circle.</p></div>
+        <span id="micStatus" class="loopini-mic">Mic off</span>
+      </div>
+      <div class="loopini-toolbar">
+        <button id="playButton" class="loopini-play" data-primary-transport type="button" aria-pressed="false"><span aria-hidden="true">▶</span> Play loops</button>
+        <div id="speedControl" class="loopini-speed" role="group" aria-label="Tape speed">
+          <label class="loopini-speed-label" for="speed"><span>Speed</span>
+            <span class="loopini-knob"><span class="loopini-knob-face" aria-hidden="true"><i></i></span><input id="speed" type="range" min="0.5" max="2" step="0.01" value="1" aria-label="Playback and recording speed" aria-describedby="speedHelp" title="Drag up or right to speed up; down or left to slow down. Arrow keys also work." /></span>
+            <output id="speedOut" for="speed">1.00×</output>
+          </label>
+          <div class="loopini-speed-reset"><button id="normalSpeed" type="button">Normal · 1×</button><span class="loopini-speed-limits">½× slow · 2× fast</span></div>
+        </div>
+      </div>
+      <p id="speedHelp" class="loopini-speed-help">Slower + lower ↔ faster + higher</p>
+      <div id="pads" class="loopini-pads" role="group" aria-label="Six loops"></div>
+      <div class="loopini-bottom">
+        <div class="loopini-tools">
+          <button id="demoButton" type="button">Try a demo</button>
+          <button id="undoButton" type="button" disabled>Undo</button>
+          <button id="resetButton" type="button" data-reset-all data-reset-in-place>Start over</button>
+        </div>
+      </div>
+      <p id="audioError" role="alert" hidden></p>
+      <noscript><p>Loopini needs JavaScript. No microphone is enabled.</p></noscript>
+    </section>
+  </main>
+  <dialog id="resetDialog" class="loopini-dialog loopini-confirm" aria-labelledby="resetTitle">
+    <h2 id="resetTitle">Clear the circles?</h2><p>This clears the six circles and returns Speed to normal. You can bring your sounds back with Undo.</p>
+    <form method="dialog"><button value="cancel" autofocus>Keep my sounds</button><button value="reset">Start over</button></form>
+  </dialog>
+  <script type="module" src="src/instruments/loopini/loopini-app.js"></script>
+  <script type="module" src="nav.js"></script>
+</body>
+</html>

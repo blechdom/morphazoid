@@ -15,6 +15,12 @@ const define = (kind, description, start, features = [], pluginHref = null) => O
 });
 
 const CATALOG_DETAILS = Object.freeze({
+  "loopini": define(
+    "Simple recording looper",
+    "Six big recording circles with one-tap on/off mixing, in-loop replacement/overdub icons, and tape-speed recording. Slow down to record a layer, then return to normal for faster, higher playback.",
+    "Turn on Audio, tap a circle and allow the microphone. Make a sound, then tap again to loop it. Add more sounds or try the microphone-free demo.",
+    ["Microphone", "Looper", "Overdubbing", "Tape speed", "Pointer"],
+  ),
   "graph-3d": define(
     "Spatial graph synthesizer",
     "A rotatable 3D Graph Synth with directed note propagation, true spatial edge timing, height/depth/radius/bend pitch mappings, and bounded spring, repulsion, center, and shell forces.",

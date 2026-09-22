@@ -2,7 +2,10 @@ import { readFileSync } from 'node:fs';
 export const cataloguePlan = JSON.parse(readFileSync(new URL('../../docs/catalogue-update-decisions.json', import.meta.url), 'utf8'));
 const prior = JSON.parse(readFileSync(new URL('../fixtures/catalogue-before-20260918.json', import.meta.url), 'utf8'));
 const byId = new Map(cataloguePlan.rows.flatMap(row => [[row.oldId, row], [row.id, row]]));
-export const mainAdditions = JSON.parse(readFileSync(new URL('../fixtures/catalogue-main-d96793a.json', import.meta.url), 'utf8')).additions;
+export const mainAdditions = [
+  ...JSON.parse(readFileSync(new URL('../fixtures/catalogue-main-d96793a.json', import.meta.url), 'utf8')).additions,
+  ...JSON.parse(readFileSync(new URL('../fixtures/catalogue-loopini.json', import.meta.url), 'utf8')).additions,
+];
 for (const item of mainAdditions) byId.set(item.id, { id: item.id, oldId: item.id, categoryId: item.categoryId, categoryLabel: "Work in Progress", tags: [] });
 const previousFaves = prior.registry.FAVE_TOOL_IDS.map(id => byId.get(id)?.id ?? id);
 // Explicit owner follow-up on September 20; keep the pre-sheet fixture intact.

@@ -227,6 +227,7 @@ export const TOOL_GROUPS = Object.freeze([
     { id: "splice-ring", label: "Splice Ring", href: "splice-ring.html" },
     { id: "onset-atlas", label: "Onset Atlas", href: "onset-atlas.html" },
     { id: "synaptic-resonance", label: "Synaptic Resonance", href: "synaptic-resonance.html" },
+    { id: "loopini", label: "Loopini", href: "loopini.html" },
   ], { picker: false }),
 ]);
 

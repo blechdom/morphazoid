@@ -1,5 +1,11 @@
 # Morphazoid
 
+**[Loopini](loopini.html)** is a simple six-circle recording looper: make a
+sound, tap circles on/off, and use the in-loop **●** to replace a bad take or
+**+** to layer a recording over it. The **Speed** knob changes playback and recording together:
+record at half speed, then return to normal for a sped-up layer.
+[Controls, microphone privacy and limits](docs/loopini.md).
+
 **[Audio & MIDI Setup](settings.html)** checks individual stereo/surround
 channels, mono/stereo mic or line-input levels and software gain, and MIDI connections with an
 original retro-style “MIDI received” voice. Find it in an instrument's Settings

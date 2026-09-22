@@ -1,0 +1,14 @@
+{
+  "additions": [
+    {
+      "id": "loopini",
+      "kind": "Simple recording looper",
+      "description": "Six big recording circles with one-tap on/off mixing, in-loop replacement/overdub icons, and tape-speed recording. Slow down to record a layer, then return to normal for faster, higher playback.",
+      "start": "Turn on Audio, tap a circle and allow the microphone. Make a sound, then tap again to loop it. Add more sounds or try the microphone-free demo.",
+      "features": ["Microphone", "Looper", "Overdubbing", "Tape speed", "Pointer"],
+      "pluginHref": null,
+      "imageHref": "assets/instruments/loopini.webp",
+      "categoryId": "wip"
+    }
+  ]
+}
