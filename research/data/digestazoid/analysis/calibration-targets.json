@@ -1,0 +1,2493 @@
+{
+  "schemaVersion": 1,
+  "tool": "morphazoid-audio-calibration-targets",
+  "sourceAnalysis": "research/data/digestazoid/analysis/audio-analysis.json",
+  "excludes": [
+    "rmsDbfs",
+    "activeRmsDbfs",
+    "peakDbfs"
+  ],
+  "caveat": "Timing and normalized spectral shape are descriptive targets. Single references are anchors, detector-boundary values are censored, and absolute loudness is excluded because capture chains and mastering differ across datasets.",
+  "profiles": {
+    "bowel-single-burst": {
+      "id": "bowel-single-burst",
+      "title": "Bowel single burst",
+      "suggestedVoices": [
+        "bubble"
+      ],
+      "transfer": "body-contact recording",
+      "notes": "Use the timing and spectral distribution for solitary pinch, impact, or bubble-release events.",
+      "source": {
+        "unit": "event",
+        "datasetId": "bowel_sounds_signal",
+        "label": "SB",
+        "count": 119,
+        "confidence": "empirical-distribution"
+      },
+      "timing": {
+        "durationSeconds": {
+          "kind": "empirical-distribution",
+          "count": 119,
+          "outerLow": 0.0788625,
+          "low": 0.096375,
+          "center": 0.120438,
+          "high": 0.144563,
+          "outerHigh": 0.171088
+        },
+        "activeSeconds": {
+          "kind": "empirical-distribution",
+          "count": 119,
+          "outerLow": 0,
+          "low": 0.02,
+          "center": 0.02,
+          "high": 0.0485,
+          "outerHigh": 0.0712875
+        },
+        "macroEventCount": {
+          "kind": "empirical-distribution",
+          "count": 119,
+          "outerLow": 1,
+          "low": 1,
+          "center": 1,
+          "high": 1,
+          "outerHigh": 2
+        },
+        "macroEventRateHz": {
+          "kind": "empirical-distribution",
+          "count": 22,
+          "outerLow": 8.40909,
+          "low": 11.4583,
+          "center": 15.4762,
+          "high": 17.803,
+          "outerHigh": 20
+        },
+        "macroEventSpacingSeconds": {
+          "kind": "empirical-distribution",
+          "count": 22,
+          "outerLow": 0.05,
+          "low": 0.05625,
+          "center": 0.065,
+          "high": 0.0875,
+          "outerHigh": 0.119
+        },
+        "internalModulationRateHz": {
+          "kind": "empirical-distribution",
+          "count": 69,
+          "outerLow": 13.9286,
+          "low": 16.6667,
+          "center": 20,
+          "high": 25,
+          "outerHigh": 33.3333
+        },
+        "internalModulationSpacingSeconds": {
+          "kind": "empirical-distribution",
+          "count": 69,
+          "outerLow": 0.03,
+          "low": 0.04,
+          "center": 0.05,
+          "high": 0.06,
+          "outerHigh": 0.072
+        },
+        "onsetSpacingSeconds": {
+          "kind": "empirical-distribution",
+          "count": 69,
+          "outerLow": 0.03,
+          "low": 0.04,
+          "center": 0.05,
+          "high": 0.06,
+          "outerHigh": 0.072
+        },
+        "envelopePulseRateHz": {
+          "kind": "empirical-distribution",
+          "count": 88,
+          "outerLow": 6.66667,
+          "low": 8.17308,
+          "center": 11.1111,
+          "high": 12.9464,
+          "outerHigh": 14.2857
+        },
+        "attackSeconds": {
+          "kind": "empirical-distribution",
+          "count": 96,
+          "outerLow": 0,
+          "low": 0,
+          "center": 0,
+          "high": 0.01,
+          "outerHigh": 0.02
+        },
+        "releaseSeconds": {
+          "kind": "empirical-distribution",
+          "count": 96,
+          "outerLow": 0.01,
+          "low": 0.02,
+          "center": 0.02,
+          "high": 0.0410938,
+          "outerHigh": 0.0782187
+        },
+        "decayRt60Seconds": {
+          "kind": "empirical-distribution",
+          "count": 2,
+          "outerLow": 0.145521,
+          "low": 0.173808,
+          "center": 0.220953,
+          "high": 0.268098,
+          "outerHigh": 0.296385
+        }
+      },
+      "spectrum": {
+        "dominantHz": {
+          "kind": "empirical-distribution",
+          "count": 119,
+          "outerLow": 44.0996,
+          "low": 60.4294,
+          "center": 96.0723,
+          "high": 262.507,
+          "outerHigh": 341.1
+        },
+        "centroidHz": {
+          "kind": "empirical-distribution",
+          "count": 119,
+          "outerLow": 71.2327,
+          "low": 106.992,
+          "center": 145.607,
+          "high": 239.207,
+          "outerHigh": 287.641
+        },
+        "rolloff85Hz": {
+          "kind": "empirical-distribution",
+          "count": 119,
+          "outerLow": 106.25,
+          "low": 171.875,
+          "center": 234.375,
+          "high": 343.75,
+          "outerHigh": 406.25
+        },
+        "periodicityHz": {
+          "kind": "empirical-distribution",
+          "count": 109,
+          "outerLow": 38.1319,
+          "low": 44.1989,
+          "center": 116.788,
+          "high": 326.531,
+          "outerHigh": 380.952
+        },
+        "spectralSharpnessQ": {
+          "kind": "empirical-distribution",
+          "count": 119,
+          "outerLow": 0.979612,
+          "low": 1.33194,
+          "center": 2.09833,
+          "high": 4.36089,
+          "outerHigh": 6.57518
+        }
+      },
+      "bandEnergyShares": {
+        "representativeNormalized": {
+          "20-80Hz": 0.513249,
+          "80-150Hz": 0.0941639,
+          "150-500Hz": 0.387204,
+          "500-1500Hz": 0.00512927,
+          "1500-3000Hz": 0.000117663,
+          "3000-8000Hz": 0.000136802
+        },
+        "empiricalMarginalRanges": {
+          "20-80Hz": {
+            "kind": "empirical-distribution",
+            "count": 119,
+            "outerLow": 0.0701852,
+            "low": 0.219494,
+            "center": 0.454112,
+            "high": 0.650391,
+            "outerHigh": 0.811571
+          },
+          "80-150Hz": {
+            "kind": "empirical-distribution",
+            "count": 119,
+            "outerLow": 0.0142101,
+            "low": 0.0341879,
+            "center": 0.0833143,
+            "high": 0.191268,
+            "outerHigh": 0.280258
+          },
+          "150-500Hz": {
+            "kind": "empirical-distribution",
+            "count": 119,
+            "outerLow": 0.0736003,
+            "low": 0.194277,
+            "center": 0.34259,
+            "high": 0.617339,
+            "outerHigh": 0.870337
+          },
+          "500-1500Hz": {
+            "kind": "empirical-distribution",
+            "count": 119,
+            "outerLow": 0.000610397,
+            "low": 0.0017682,
+            "center": 0.00453827,
+            "high": 0.0136039,
+            "outerHigh": 0.0446975
+          },
+          "1500-3000Hz": {
+            "kind": "empirical-distribution",
+            "count": 119,
+            "outerLow": 0.000004242,
+            "low": 0.000032792,
+            "center": 0.000104106,
+            "high": 0.00055385,
+            "outerHigh": 0.00286041
+          },
+          "3000-8000Hz": {
+            "kind": "empirical-distribution",
+            "count": 119,
+            "outerLow": 0.00000479,
+            "low": 0.000033031,
+            "center": 0.00012104,
+            "high": 0.000342673,
+            "outerHigh": 0.00191582
+          }
+        }
+      }
+    },
+    "bowel-multiple-burst": {
+      "id": "bowel-multiple-burst",
+      "title": "Bowel multiple burst",
+      "suggestedVoices": [
+        "burble"
+      ],
+      "transfer": "body-contact recording",
+      "notes": "A packeted sequence target; duration and event spacing matter more than a fixed pitch.",
+      "source": {
+        "unit": "event",
+        "datasetId": "bowel_sounds_signal",
+        "label": "MB",
+        "count": 83,
+        "confidence": "empirical-distribution"
+      },
+      "timing": {
+        "durationSeconds": {
+          "kind": "empirical-distribution",
+          "count": 83,
+          "outerLow": 0.897825,
+          "low": 1.18097,
+          "center": 1.44531,
+          "high": 1.95678,
+          "outerHigh": 2.54849
+        },
+        "activeSeconds": {
+          "kind": "empirical-distribution",
+          "count": 83,
+          "outerLow": 0.22,
+          "low": 0.34,
+          "center": 0.46,
+          "high": 0.62,
+          "outerHigh": 0.77
+        },
+        "macroEventCount": {
+          "kind": "empirical-distribution",
+          "count": 83,
+          "outerLow": 4,
+          "low": 5.5,
+          "center": 7,
+          "high": 10,
+          "outerHigh": 13
+        },
+        "macroEventRateHz": {
+          "kind": "empirical-distribution",
+          "count": 82,
+          "outerLow": 3.6014,
+          "low": 4.1537,
+          "center": 4.98921,
+          "high": 5.78904,
+          "outerHigh": 6.83566
+        },
+        "macroEventSpacingSeconds": {
+          "kind": "empirical-distribution",
+          "count": 82,
+          "outerLow": 0.1,
+          "low": 0.12,
+          "center": 0.145,
+          "high": 0.19,
+          "outerHigh": 0.2195
+        },
+        "internalModulationRateHz": {
+          "kind": "empirical-distribution",
+          "count": 83,
+          "outerLow": 12.1988,
+          "low": 13.0841,
+          "center": 13.8686,
+          "high": 14.938,
+          "outerHigh": 15.9304
+        },
+        "internalModulationSpacingSeconds": {
+          "kind": "empirical-distribution",
+          "count": 83,
+          "outerLow": 0.055,
+          "low": 0.06,
+          "center": 0.06,
+          "high": 0.07,
+          "outerHigh": 0.079
+        },
+        "onsetSpacingSeconds": {
+          "kind": "empirical-distribution",
+          "count": 83,
+          "outerLow": 0.055,
+          "low": 0.06,
+          "center": 0.06,
+          "high": 0.07,
+          "outerHigh": 0.079
+        },
+        "envelopePulseRateHz": {
+          "kind": "empirical-distribution",
+          "count": 83,
+          "outerLow": 0.578035,
+          "low": 0.660131,
+          "center": 0.813008,
+          "high": 1.24228,
+          "outerHigh": 1.75115
+        },
+        "attackSeconds": {
+          "kind": "empirical-distribution",
+          "count": 83,
+          "outerLow": 0,
+          "low": 0,
+          "center": 0.01,
+          "high": 0.015,
+          "outerHigh": 0.056
+        },
+        "releaseSeconds": {
+          "kind": "empirical-distribution",
+          "count": 83,
+          "outerLow": 0.02,
+          "low": 0.02,
+          "center": 0.035,
+          "high": 0.05,
+          "outerHigh": 0.07
+        },
+        "decayRt60Seconds": {
+          "kind": "empirical-distribution",
+          "count": 10,
+          "outerLow": 0.152225,
+          "low": 0.175419,
+          "center": 0.237537,
+          "high": 0.260256,
+          "outerHigh": 0.293201
+        }
+      },
+      "spectrum": {
+        "dominantHz": {
+          "kind": "empirical-distribution",
+          "count": 83,
+          "outerLow": 63.5959,
+          "low": 92.5022,
+          "center": 122.9,
+          "high": 301.178,
+          "outerHigh": 333.35
+        },
+        "centroidHz": {
+          "kind": "empirical-distribution",
+          "count": 83,
+          "outerLow": 111.44,
+          "low": 127.756,
+          "center": 149.296,
+          "high": 218.776,
+          "outerHigh": 255.384
+        },
+        "rolloff85Hz": {
+          "kind": "empirical-distribution",
+          "count": 83,
+          "outerLow": 187.5,
+          "low": 218.75,
+          "center": 265.625,
+          "high": 335.938,
+          "outerHigh": 375
+        },
+        "periodicityHz": {
+          "kind": "empirical-distribution",
+          "count": 83,
+          "outerLow": 43.9866,
+          "low": 51.6334,
+          "center": 76.4001,
+          "high": 223.787,
+          "outerHigh": 343.567
+        },
+        "spectralSharpnessQ": {
+          "kind": "empirical-distribution",
+          "count": 83,
+          "outerLow": 0.611871,
+          "low": 0.789105,
+          "center": 1.31955,
+          "high": 3.4275,
+          "outerHigh": 4.57369
+        }
+      },
+      "bandEnergyShares": {
+        "representativeNormalized": {
+          "20-80Hz": 0.386472,
+          "80-150Hz": 0.1885,
+          "150-500Hz": 0.418839,
+          "500-1500Hz": 0.00606916,
+          "1500-3000Hz": 0.000057226,
+          "3000-8000Hz": 0.000062271
+        },
+        "empiricalMarginalRanges": {
+          "20-80Hz": {
+            "kind": "empirical-distribution",
+            "count": 83,
+            "outerLow": 0.108456,
+            "low": 0.21517,
+            "center": 0.350096,
+            "high": 0.477127,
+            "outerHigh": 0.628987
+          },
+          "80-150Hz": {
+            "kind": "empirical-distribution",
+            "count": 83,
+            "outerLow": 0.0567893,
+            "low": 0.0924135,
+            "center": 0.170758,
+            "high": 0.274499,
+            "outerHigh": 0.316651
+          },
+          "150-500Hz": {
+            "kind": "empirical-distribution",
+            "count": 83,
+            "outerLow": 0.187263,
+            "low": 0.307585,
+            "center": 0.379416,
+            "high": 0.628423,
+            "outerHigh": 0.782778
+          },
+          "500-1500Hz": {
+            "kind": "empirical-distribution",
+            "count": 83,
+            "outerLow": 0.00204631,
+            "low": 0.0035521,
+            "center": 0.00549791,
+            "high": 0.0103781,
+            "outerHigh": 0.0263686
+          },
+          "1500-3000Hz": {
+            "kind": "empirical-distribution",
+            "count": 83,
+            "outerLow": 0.00000952,
+            "low": 0.000020898,
+            "center": 0.00005184,
+            "high": 0.000106105,
+            "outerHigh": 0.00019157
+          },
+          "3000-8000Hz": {
+            "kind": "empirical-distribution",
+            "count": 83,
+            "outerLow": 0.000009497,
+            "low": 0.00002497,
+            "center": 0.00005641,
+            "high": 0.000111255,
+            "outerHigh": 0.000216274
+          }
+        }
+      }
+    },
+    "bowel-continuous-random": {
+      "id": "bowel-continuous-random",
+      "title": "Bowel continuous random sound",
+      "suggestedVoices": [
+        "slosh",
+        "burble"
+      ],
+      "transfer": "body-contact recording",
+      "notes": "Use for dense moving-slurry and irregular wall-contact behavior.",
+      "source": {
+        "unit": "event",
+        "datasetId": "bowel_sounds_signal",
+        "label": "CRS",
+        "count": 56,
+        "confidence": "empirical-distribution"
+      },
+      "timing": {
+        "durationSeconds": {
+          "kind": "empirical-distribution",
+          "count": 56,
+          "outerLow": 0.281781,
+          "low": 0.3975,
+          "center": 0.662469,
+          "high": 0.93975,
+          "outerHigh": 1.16744
+        },
+        "activeSeconds": {
+          "kind": "empirical-distribution",
+          "count": 56,
+          "outerLow": 0.12,
+          "low": 0.18,
+          "center": 0.25,
+          "high": 0.4225,
+          "outerHigh": 0.63
+        },
+        "macroEventCount": {
+          "kind": "empirical-distribution",
+          "count": 56,
+          "outerLow": 1,
+          "low": 2,
+          "center": 3,
+          "high": 4,
+          "outerHigh": 5
+        },
+        "macroEventRateHz": {
+          "kind": "empirical-distribution",
+          "count": 43,
+          "outerLow": 2.57143,
+          "low": 3.26125,
+          "center": 4.16667,
+          "high": 5.0641,
+          "outerHigh": 7.58242
+        },
+        "macroEventSpacingSeconds": {
+          "kind": "empirical-distribution",
+          "count": 43,
+          "outerLow": 0.1,
+          "low": 0.16,
+          "center": 0.21,
+          "high": 0.2925,
+          "outerHigh": 0.416
+        },
+        "internalModulationRateHz": {
+          "kind": "empirical-distribution",
+          "count": 55,
+          "outerLow": 8.93048,
+          "low": 10.7143,
+          "center": 12.1076,
+          "high": 14.4803,
+          "outerHigh": 17.6415
+        },
+        "internalModulationSpacingSeconds": {
+          "kind": "empirical-distribution",
+          "count": 55,
+          "outerLow": 0.05,
+          "low": 0.0575,
+          "center": 0.07,
+          "high": 0.08,
+          "outerHigh": 0.103
+        },
+        "onsetSpacingSeconds": {
+          "kind": "empirical-distribution",
+          "count": 55,
+          "outerLow": 0.05,
+          "low": 0.0575,
+          "center": 0.07,
+          "high": 0.08,
+          "outerHigh": 0.103
+        },
+        "envelopePulseRateHz": {
+          "kind": "empirical-distribution",
+          "count": 54,
+          "outerLow": 0.942266,
+          "low": 1.29049,
+          "center": 2.22662,
+          "high": 5.80065,
+          "outerHigh": 13.3333
+        },
+        "attackSeconds": {
+          "kind": "empirical-distribution",
+          "count": 56,
+          "outerLow": 0,
+          "low": 0.00375,
+          "center": 0.02,
+          "high": 0.05,
+          "outerHigh": 0.13
+        },
+        "releaseSeconds": {
+          "kind": "empirical-distribution",
+          "count": 56,
+          "outerLow": 0.04,
+          "low": 0.055,
+          "center": 0.12,
+          "high": 0.185,
+          "outerHigh": 0.285
+        },
+        "decayRt60Seconds": {
+          "kind": "empirical-distribution",
+          "count": 3,
+          "outerLow": 0.176132,
+          "low": 0.189379,
+          "center": 0.211459,
+          "high": 0.257295,
+          "outerHigh": 0.284797
+        }
+      },
+      "spectrum": {
+        "dominantHz": {
+          "kind": "empirical-distribution",
+          "count": 56,
+          "outerLow": 106.661,
+          "low": 218.379,
+          "center": 313.955,
+          "high": 341.802,
+          "outerHigh": 405.147
+        },
+        "centroidHz": {
+          "kind": "empirical-distribution",
+          "count": 56,
+          "outerLow": 154.677,
+          "low": 216.147,
+          "center": 270.148,
+          "high": 308.638,
+          "outerHigh": 342.879
+        },
+        "rolloff85Hz": {
+          "kind": "empirical-distribution",
+          "count": 56,
+          "outerLow": 257.813,
+          "low": 328.125,
+          "center": 367.188,
+          "high": 406.25,
+          "outerHigh": 468.75
+        },
+        "periodicityHz": {
+          "kind": "empirical-distribution",
+          "count": 55,
+          "outerLow": 50.6384,
+          "low": 75.6607,
+          "center": 203.83,
+          "high": 323.265,
+          "outerHigh": 354.01
+        },
+        "spectralSharpnessQ": {
+          "kind": "empirical-distribution",
+          "count": 56,
+          "outerLow": 1.72023,
+          "low": 2.69704,
+          "center": 4.18321,
+          "high": 5.3664,
+          "outerHigh": 7.48009
+        }
+      },
+      "bandEnergyShares": {
+        "representativeNormalized": {
+          "20-80Hz": 0.0956927,
+          "80-150Hz": 0.0548841,
+          "150-500Hz": 0.839317,
+          "500-1500Hz": 0.0100988,
+          "1500-3000Hz": 0.000004038,
+          "3000-8000Hz": 0.000003166
+        },
+        "empiricalMarginalRanges": {
+          "20-80Hz": {
+            "kind": "empirical-distribution",
+            "count": 56,
+            "outerLow": 0.00473122,
+            "low": 0.0164337,
+            "center": 0.0923051,
+            "high": 0.177067,
+            "outerHigh": 0.432337
+          },
+          "80-150Hz": {
+            "kind": "empirical-distribution",
+            "count": 56,
+            "outerLow": 0.0100406,
+            "low": 0.0250863,
+            "center": 0.0529412,
+            "high": 0.120647,
+            "outerHigh": 0.209014
+          },
+          "150-500Hz": {
+            "kind": "empirical-distribution",
+            "count": 56,
+            "outerLow": 0.323535,
+            "low": 0.607479,
+            "center": 0.809605,
+            "high": 0.892424,
+            "outerHigh": 0.961653
+          },
+          "500-1500Hz": {
+            "kind": "empirical-distribution",
+            "count": 56,
+            "outerLow": 0.00101418,
+            "low": 0.00177411,
+            "center": 0.00974127,
+            "high": 0.0405594,
+            "outerHigh": 0.113177
+          },
+          "1500-3000Hz": {
+            "kind": "empirical-distribution",
+            "count": 56,
+            "outerLow": 7.39e-7,
+            "low": 0.000001532,
+            "center": 0.000003895,
+            "high": 0.00001697,
+            "outerHigh": 0.000057755
+          },
+          "3000-8000Hz": {
+            "kind": "empirical-distribution",
+            "count": 56,
+            "outerLow": 5.12e-7,
+            "low": 0.000001238,
+            "center": 0.000003054,
+            "high": 0.000017232,
+            "outerHigh": 0.000054123
+          }
+        }
+      }
+    },
+    "bowel-harmonic": {
+      "id": "bowel-harmonic",
+      "title": "Bowel harmonic sound",
+      "suggestedVoices": [
+        "bubble",
+        "burble"
+      ],
+      "transfer": "body-contact recording; small sample",
+      "notes": "Only five annotated examples; keep the outer range deliberately soft.",
+      "source": {
+        "unit": "event",
+        "datasetId": "bowel_sounds_signal",
+        "label": "HS",
+        "count": 5,
+        "confidence": "small-sample"
+      },
+      "timing": {
+        "durationSeconds": {
+          "kind": "empirical-distribution",
+          "count": 5,
+          "outerLow": 0.158775,
+          "low": 0.19275,
+          "center": 0.192812,
+          "high": 0.322313,
+          "outerHigh": 0.374663
+        },
+        "activeSeconds": {
+          "kind": "empirical-distribution",
+          "count": 5,
+          "outerLow": 0.042,
+          "low": 0.06,
+          "center": 0.18,
+          "high": 0.23,
+          "outerHigh": 0.242
+        },
+        "macroEventCount": {
+          "kind": "empirical-distribution",
+          "count": 5,
+          "outerLow": 1,
+          "low": 1,
+          "center": 1,
+          "high": 1,
+          "outerHigh": 1.6
+        },
+        "macroEventRateHz": {
+          "kind": "single-reference-anchor",
+          "count": 1,
+          "low": 6.66667,
+          "center": 6.66667,
+          "high": 6.66667
+        },
+        "macroEventSpacingSeconds": {
+          "kind": "single-reference-anchor",
+          "count": 1,
+          "low": 0.15,
+          "center": 0.15,
+          "high": 0.15
+        },
+        "internalModulationRateHz": {
+          "kind": "empirical-distribution",
+          "count": 3,
+          "outerLow": 8.21429,
+          "low": 9.82143,
+          "center": 12.5,
+          "high": 22.9167,
+          "outerHigh": 29.1667
+        },
+        "internalModulationSpacingSeconds": {
+          "kind": "empirical-distribution",
+          "count": 3,
+          "outerLow": 0.04,
+          "low": 0.055,
+          "center": 0.08,
+          "high": 0.11,
+          "outerHigh": 0.128
+        },
+        "onsetSpacingSeconds": {
+          "kind": "empirical-distribution",
+          "count": 3,
+          "outerLow": 0.04,
+          "low": 0.055,
+          "center": 0.08,
+          "high": 0.11,
+          "outerHigh": 0.128
+        },
+        "envelopePulseRateHz": {
+          "kind": "empirical-distribution",
+          "count": 5,
+          "outerLow": 3.80117,
+          "low": 5.55556,
+          "center": 5.55556,
+          "high": 7.14286,
+          "outerHigh": 7.85714
+        },
+        "attackSeconds": {
+          "kind": "empirical-distribution",
+          "count": 5,
+          "outerLow": 0,
+          "low": 0,
+          "center": 0.01,
+          "high": 0.14,
+          "outerHigh": 0.146
+        },
+        "releaseSeconds": {
+          "kind": "empirical-distribution",
+          "count": 5,
+          "outerLow": 0.03,
+          "low": 0.03,
+          "center": 0.05,
+          "high": 0.11,
+          "outerHigh": 0.182
+        },
+        "decayRt60Seconds": null
+      },
+      "spectrum": {
+        "dominantHz": {
+          "kind": "empirical-distribution",
+          "count": 5,
+          "outerLow": 257.194,
+          "low": 312.265,
+          "center": 317.112,
+          "high": 327.77,
+          "outerHigh": 382.438
+        },
+        "centroidHz": {
+          "kind": "empirical-distribution",
+          "count": 5,
+          "outerLow": 254.557,
+          "low": 264.469,
+          "center": 318.511,
+          "high": 346.727,
+          "outerHigh": 384.029
+        },
+        "rolloff85Hz": {
+          "kind": "empirical-distribution",
+          "count": 5,
+          "outerLow": 290.625,
+          "low": 328.125,
+          "center": 343.75,
+          "high": 468.75,
+          "outerHigh": 487.5
+        },
+        "periodicityHz": {
+          "kind": "empirical-distribution",
+          "count": 5,
+          "outerLow": 71.4143,
+          "low": 82.9016,
+          "center": 250,
+          "high": 296.296,
+          "outerHigh": 308.636
+        },
+        "spectralSharpnessQ": {
+          "kind": "empirical-distribution",
+          "count": 5,
+          "outerLow": 4.91988,
+          "low": 5.24432,
+          "center": 6.66164,
+          "high": 6.76506,
+          "outerHigh": 8.06773
+        }
+      },
+      "bandEnergyShares": {
+        "representativeNormalized": {
+          "20-80Hz": 0.00744257,
+          "80-150Hz": 0.00819849,
+          "150-500Hz": 0.959259,
+          "500-1500Hz": 0.0250959,
+          "1500-3000Hz": 0.000001576,
+          "3000-8000Hz": 0.00000239
+        },
+        "empiricalMarginalRanges": {
+          "20-80Hz": {
+            "kind": "empirical-distribution",
+            "count": 5,
+            "outerLow": 0.000522521,
+            "low": 0.000998949,
+            "center": 0.0073234,
+            "high": 0.0103986,
+            "outerHigh": 0.0134346
+          },
+          "80-150Hz": {
+            "kind": "empirical-distribution",
+            "count": 5,
+            "outerLow": 0.000287518,
+            "low": 0.00055257,
+            "center": 0.00806721,
+            "high": 0.016182,
+            "outerHigh": 0.0295208
+          },
+          "150-500Hz": {
+            "kind": "empirical-distribution",
+            "count": 5,
+            "outerLow": 0.797181,
+            "low": 0.842356,
+            "center": 0.943899,
+            "high": 0.973729,
+            "outerHigh": 0.982657
+          },
+          "500-1500Hz": {
+            "kind": "empirical-distribution",
+            "count": 5,
+            "outerLow": 0.00576513,
+            "low": 0.0110697,
+            "center": 0.0246941,
+            "high": 0.142249,
+            "outerHigh": 0.18071
+          },
+          "1500-3000Hz": {
+            "kind": "empirical-distribution",
+            "count": 5,
+            "outerLow": 6.81e-7,
+            "low": 0.000001419,
+            "center": 0.000001551,
+            "high": 0.000004516,
+            "outerHigh": 0.000007634
+          },
+          "3000-8000Hz": {
+            "kind": "empirical-distribution",
+            "count": 5,
+            "outerLow": 6.14e-7,
+            "low": 0.00000119,
+            "center": 0.000002352,
+            "high": 0.000003703,
+            "outerHigh": 0.00001115
+          }
+        }
+      }
+    },
+    "boiling-background": {
+      "id": "boiling-background",
+      "title": "Boiling apparatus background",
+      "suggestedVoices": [],
+      "transfer": "diagnostic baseline only",
+      "notes": "Do not synthesize this as a noise layer; it describes the source rig before vigorous boiling.",
+      "source": {
+        "unit": "file",
+        "datasetId": "boiling_acoustic_regimes",
+        "label": "background",
+        "count": 6,
+        "confidence": "small-sample"
+      },
+      "timing": {
+        "durationSeconds": {
+          "kind": "empirical-distribution",
+          "count": 6,
+          "outerLow": 1,
+          "low": 1,
+          "center": 1,
+          "high": 1,
+          "outerHigh": 1
+        },
+        "activeSeconds": {
+          "kind": "empirical-distribution",
+          "count": 6,
+          "outerLow": 0.18,
+          "low": 0.4225,
+          "center": 1,
+          "high": 1,
+          "outerHigh": 1
+        },
+        "macroEventCount": {
+          "kind": "empirical-distribution",
+          "count": 6,
+          "outerLow": 1,
+          "low": 1,
+          "center": 1,
+          "high": 4.75,
+          "outerHigh": 8
+        },
+        "macroEventRateHz": {
+          "kind": "empirical-distribution",
+          "count": 2,
+          "outerLow": 5.77625,
+          "low": 6.46189,
+          "center": 7.60463,
+          "high": 8.74737,
+          "outerHigh": 9.43301
+        },
+        "macroEventSpacingSeconds": {
+          "kind": "empirical-distribution",
+          "count": 2,
+          "outerLow": 0.08,
+          "low": 0.095,
+          "center": 0.12,
+          "high": 0.145,
+          "outerHigh": 0.16
+        },
+        "internalModulationRateHz": {
+          "kind": "empirical-distribution",
+          "count": 6,
+          "outerLow": 3.81879,
+          "low": 4.43242,
+          "center": 5.42179,
+          "high": 8.76815,
+          "outerHigh": 9.73229
+        },
+        "internalModulationSpacingSeconds": {
+          "kind": "empirical-distribution",
+          "count": 6,
+          "outerLow": 0.08,
+          "low": 0.10375,
+          "center": 0.1625,
+          "high": 0.195,
+          "outerHigh": 0.29
+        },
+        "onsetSpacingSeconds": {
+          "kind": "empirical-distribution",
+          "count": 6,
+          "outerLow": 0.08,
+          "low": 0.10375,
+          "center": 0.1625,
+          "high": 0.195,
+          "outerHigh": 0.29
+        },
+        "envelopePulseRateHz": {
+          "kind": "empirical-distribution",
+          "count": 6,
+          "outerLow": 1.04167,
+          "low": 1.04441,
+          "center": 1.06395,
+          "high": 1.10215,
+          "outerHigh": 1.16531
+        },
+        "attackSeconds": {
+          "kind": "empirical-distribution",
+          "count": 6,
+          "outerLow": 0.015,
+          "low": 0.0375,
+          "center": 0.115,
+          "high": 0.17,
+          "outerHigh": 0.42
+        },
+        "releaseSeconds": {
+          "kind": "empirical-distribution",
+          "count": 6,
+          "outerLow": 0.0425,
+          "low": 0.12375,
+          "center": 0.58,
+          "high": 0.83,
+          "outerHigh": 0.9
+        },
+        "decayRt60Seconds": null
+      },
+      "spectrum": {
+        "dominantHz": {
+          "kind": "empirical-distribution",
+          "count": 6,
+          "outerLow": 78.5679,
+          "low": 99.5053,
+          "center": 110.463,
+          "high": 118.531,
+          "outerHigh": 157.902
+        },
+        "centroidHz": {
+          "kind": "empirical-distribution",
+          "count": 6,
+          "outerLow": 202.278,
+          "low": 216.89,
+          "center": 259.181,
+          "high": 280.349,
+          "outerHigh": 299.383
+        },
+        "rolloff85Hz": {
+          "kind": "empirical-distribution",
+          "count": 6,
+          "outerLow": 343.75,
+          "low": 347.656,
+          "center": 406.25,
+          "high": 476.563,
+          "outerHigh": 546.875
+        },
+        "periodicityHz": {
+          "kind": "empirical-distribution",
+          "count": 6,
+          "outerLow": 170.831,
+          "low": 195.509,
+          "center": 212.651,
+          "high": 238.309,
+          "outerHigh": 254.224
+        },
+        "spectralSharpnessQ": {
+          "kind": "empirical-distribution",
+          "count": 6,
+          "outerLow": 0.831479,
+          "low": 1.04783,
+          "center": 1.37267,
+          "high": 1.51719,
+          "outerHigh": 2.02115
+        }
+      },
+      "bandEnergyShares": {
+        "representativeNormalized": {
+          "20-80Hz": 0.314275,
+          "80-150Hz": 0.147393,
+          "150-500Hz": 0.406438,
+          "500-1500Hz": 0.121216,
+          "1500-3000Hz": 0.0106783
+        },
+        "empiricalMarginalRanges": {
+          "20-80Hz": {
+            "kind": "empirical-distribution",
+            "count": 6,
+            "outerLow": 0.238952,
+            "low": 0.252833,
+            "center": 0.2997,
+            "high": 0.44085,
+            "outerHigh": 0.523282
+          },
+          "80-150Hz": {
+            "kind": "empirical-distribution",
+            "count": 6,
+            "outerLow": 0.118162,
+            "low": 0.130957,
+            "center": 0.140557,
+            "high": 0.177712,
+            "outerHigh": 0.207669
+          },
+          "150-500Hz": {
+            "kind": "empirical-distribution",
+            "count": 6,
+            "outerLow": 0.24692,
+            "low": 0.307423,
+            "center": 0.387589,
+            "high": 0.413782,
+            "outerHigh": 0.42547
+          },
+          "500-1500Hz": {
+            "kind": "empirical-distribution",
+            "count": 6,
+            "outerLow": 0.0924636,
+            "low": 0.101504,
+            "center": 0.115594,
+            "high": 0.128692,
+            "outerHigh": 0.160898
+          },
+          "1500-3000Hz": {
+            "kind": "empirical-distribution",
+            "count": 6,
+            "outerLow": 0.00593699,
+            "low": 0.00707647,
+            "center": 0.0101831,
+            "high": 0.010413,
+            "outerHigh": 0.0107443
+          }
+        }
+      }
+    },
+    "boiling-nucleate": {
+      "id": "boiling-nucleate",
+      "title": "Nucleate boiling",
+      "suggestedVoices": [
+        "bubble",
+        "burble"
+      ],
+      "transfer": "hydrophone regime texture",
+      "notes": "Use normalized band balance and temporal density, not literal underwater pitch.",
+      "source": {
+        "unit": "file",
+        "datasetId": "boiling_acoustic_regimes",
+        "label": "nucleate",
+        "count": 6,
+        "confidence": "small-sample"
+      },
+      "timing": {
+        "durationSeconds": {
+          "kind": "empirical-distribution",
+          "count": 6,
+          "outerLow": 1,
+          "low": 1,
+          "center": 1,
+          "high": 1,
+          "outerHigh": 1
+        },
+        "activeSeconds": {
+          "kind": "empirical-distribution",
+          "count": 6,
+          "outerLow": 0.11,
+          "low": 0.1125,
+          "center": 0.56,
+          "high": 1,
+          "outerHigh": 1
+        },
+        "macroEventCount": {
+          "kind": "empirical-distribution",
+          "count": 6,
+          "outerLow": 1,
+          "low": 1,
+          "center": 4,
+          "high": 8.5,
+          "outerHigh": 9.5
+        },
+        "macroEventRateHz": {
+          "kind": "empirical-distribution",
+          "count": 3,
+          "outerLow": 7.01754,
+          "low": 7.54386,
+          "center": 8.42105,
+          "high": 8.80236,
+          "outerHigh": 9.03115
+        },
+        "macroEventSpacingSeconds": {
+          "kind": "empirical-distribution",
+          "count": 3,
+          "outerLow": 0.113,
+          "low": 0.1175,
+          "center": 0.125,
+          "high": 0.125,
+          "outerHigh": 0.125
+        },
+        "internalModulationRateHz": {
+          "kind": "empirical-distribution",
+          "count": 6,
+          "outerLow": 5.32151,
+          "low": 6.29731,
+          "center": 7.99373,
+          "high": 9.92579,
+          "outerHigh": 10.3652
+        },
+        "internalModulationSpacingSeconds": {
+          "kind": "empirical-distribution",
+          "count": 6,
+          "outerLow": 0.095,
+          "low": 0.09875,
+          "center": 0.1175,
+          "high": 0.13625,
+          "outerHigh": 0.175
+        },
+        "onsetSpacingSeconds": {
+          "kind": "empirical-distribution",
+          "count": 6,
+          "outerLow": 0.095,
+          "low": 0.09875,
+          "center": 0.1175,
+          "high": 0.13625,
+          "outerHigh": 0.175
+        },
+        "envelopePulseRateHz": {
+          "kind": "empirical-distribution",
+          "count": 6,
+          "outerLow": 1.0363,
+          "low": 1.05598,
+          "center": 1.10501,
+          "high": 1.17063,
+          "outerHigh": 1.21252
+        },
+        "attackSeconds": {
+          "kind": "empirical-distribution",
+          "count": 6,
+          "outerLow": 0,
+          "low": 0.0025,
+          "center": 0.01,
+          "high": 0.175,
+          "outerHigh": 0.23
+        },
+        "releaseSeconds": {
+          "kind": "empirical-distribution",
+          "count": 6,
+          "outerLow": 0.0425,
+          "low": 0.045,
+          "center": 0.4075,
+          "high": 0.77,
+          "outerHigh": 0.885
+        },
+        "decayRt60Seconds": null
+      },
+      "spectrum": {
+        "dominantHz": {
+          "kind": "empirical-distribution",
+          "count": 6,
+          "outerLow": 197.123,
+          "low": 201.804,
+          "center": 236.532,
+          "high": 265.034,
+          "outerHigh": 288.712
+        },
+        "centroidHz": {
+          "kind": "empirical-distribution",
+          "count": 6,
+          "outerLow": 188.905,
+          "low": 204.236,
+          "center": 223.081,
+          "high": 249.248,
+          "outerHigh": 255.265
+        },
+        "rolloff85Hz": {
+          "kind": "empirical-distribution",
+          "count": 6,
+          "outerLow": 296.875,
+          "low": 316.406,
+          "center": 335.938,
+          "high": 355.469,
+          "outerHigh": 359.375
+        },
+        "periodicityHz": {
+          "kind": "empirical-distribution",
+          "count": 6,
+          "outerLow": 257.363,
+          "low": 267.326,
+          "center": 275.862,
+          "high": 283.251,
+          "outerHigh": 285.714
+        },
+        "spectralSharpnessQ": {
+          "kind": "empirical-distribution",
+          "count": 6,
+          "outerLow": 1.38788,
+          "low": 1.72056,
+          "center": 3.01719,
+          "high": 4.21814,
+          "outerHigh": 4.25066
+        }
+      },
+      "bandEnergyShares": {
+        "representativeNormalized": {
+          "20-80Hz": 0.228206,
+          "80-150Hz": 0.0420176,
+          "150-500Hz": 0.681727,
+          "500-1500Hz": 0.0479977,
+          "1500-3000Hz": 0.000051571
+        },
+        "empiricalMarginalRanges": {
+          "20-80Hz": {
+            "kind": "empirical-distribution",
+            "count": 6,
+            "outerLow": 0.158135,
+            "low": 0.161243,
+            "center": 0.22711,
+            "high": 0.288101,
+            "outerHigh": 0.342012
+          },
+          "80-150Hz": {
+            "kind": "empirical-distribution",
+            "count": 6,
+            "outerLow": 0.0290982,
+            "low": 0.0346043,
+            "center": 0.0418158,
+            "high": 0.0460914,
+            "outerHigh": 0.0514835
+          },
+          "150-500Hz": {
+            "kind": "empirical-distribution",
+            "count": 6,
+            "outerLow": 0.577854,
+            "low": 0.627807,
+            "center": 0.678454,
+            "high": 0.716889,
+            "outerHigh": 0.722432
+          },
+          "500-1500Hz": {
+            "kind": "empirical-distribution",
+            "count": 6,
+            "outerLow": 0.0425057,
+            "low": 0.0462406,
+            "center": 0.0477672,
+            "high": 0.0692789,
+            "outerHigh": 0.0811801
+          },
+          "1500-3000Hz": {
+            "kind": "empirical-distribution",
+            "count": 6,
+            "outerLow": 0.000019546,
+            "low": 0.00002891,
+            "center": 0.000051323,
+            "high": 0.000065479,
+            "outerHigh": 0.000068726
+          }
+        }
+      }
+    },
+    "boiling-pre-crisis": {
+      "id": "boiling-pre-crisis",
+      "title": "Pre-critical boiling",
+      "suggestedVoices": [
+        "burble",
+        "slosh"
+      ],
+      "transfer": "hydrophone regime texture",
+      "notes": "A compact low-centered regime reference for congested, thick flow.",
+      "source": {
+        "unit": "file",
+        "datasetId": "boiling_acoustic_regimes",
+        "label": "pre_chf",
+        "count": 5,
+        "confidence": "small-sample"
+      },
+      "timing": {
+        "durationSeconds": {
+          "kind": "empirical-distribution",
+          "count": 5,
+          "outerLow": 1,
+          "low": 1,
+          "center": 1,
+          "high": 1,
+          "outerHigh": 1
+        },
+        "activeSeconds": {
+          "kind": "empirical-distribution",
+          "count": 5,
+          "outerLow": 0.104,
+          "low": 0.11,
+          "center": 0.13,
+          "high": 0.15,
+          "outerHigh": 0.156
+        },
+        "macroEventCount": {
+          "kind": "empirical-distribution",
+          "count": 5,
+          "outerLow": 5,
+          "low": 5,
+          "center": 6,
+          "high": 7,
+          "outerHigh": 7.6
+        },
+        "macroEventRateHz": {
+          "kind": "empirical-distribution",
+          "count": 5,
+          "outerLow": 4.75259,
+          "low": 5.06329,
+          "center": 5.49451,
+          "high": 6.81818,
+          "outerHigh": 6.9697
+        },
+        "macroEventSpacingSeconds": {
+          "kind": "empirical-distribution",
+          "count": 5,
+          "outerLow": 0.112,
+          "low": 0.115,
+          "center": 0.155,
+          "high": 0.19,
+          "outerHigh": 0.217
+        },
+        "internalModulationRateHz": {
+          "kind": "empirical-distribution",
+          "count": 5,
+          "outerLow": 8.31461,
+          "low": 8.98876,
+          "center": 9.78261,
+          "high": 10.101,
+          "outerHigh": 10.469
+        },
+        "internalModulationSpacingSeconds": {
+          "kind": "empirical-distribution",
+          "count": 5,
+          "outerLow": 0.06,
+          "low": 0.075,
+          "center": 0.09,
+          "high": 0.11,
+          "outerHigh": 0.128
+        },
+        "onsetSpacingSeconds": {
+          "kind": "empirical-distribution",
+          "count": 5,
+          "outerLow": 0.06,
+          "low": 0.075,
+          "center": 0.09,
+          "high": 0.11,
+          "outerHigh": 0.128
+        },
+        "envelopePulseRateHz": {
+          "kind": "empirical-distribution",
+          "count": 5,
+          "outerLow": 1.07786,
+          "low": 1.0989,
+          "center": 1.13636,
+          "high": 1.53846,
+          "outerHigh": 2.19433
+        },
+        "attackSeconds": {
+          "kind": "empirical-distribution",
+          "count": 5,
+          "outerLow": 0.002,
+          "low": 0.005,
+          "center": 0.015,
+          "high": 0.03,
+          "outerHigh": 0.039
+        },
+        "releaseSeconds": {
+          "kind": "empirical-distribution",
+          "count": 5,
+          "outerLow": 0.03,
+          "low": 0.03,
+          "center": 0.035,
+          "high": 0.035,
+          "outerHigh": 0.047
+        },
+        "decayRt60Seconds": null
+      },
+      "spectrum": {
+        "dominantHz": {
+          "kind": "empirical-distribution",
+          "count": 5,
+          "outerLow": 202.584,
+          "low": 203.168,
+          "center": 207.857,
+          "high": 236.205,
+          "outerHigh": 247.239
+        },
+        "centroidHz": {
+          "kind": "empirical-distribution",
+          "count": 5,
+          "outerLow": 82.2447,
+          "low": 98.5939,
+          "center": 118.897,
+          "high": 142.26,
+          "outerHigh": 152.388
+        },
+        "rolloff85Hz": {
+          "kind": "empirical-distribution",
+          "count": 5,
+          "outerLow": 206.25,
+          "low": 234.375,
+          "center": 250,
+          "high": 265.625,
+          "outerHigh": 284.375
+        },
+        "periodicityHz": {
+          "kind": "empirical-distribution",
+          "count": 5,
+          "outerLow": 232.849,
+          "low": 234.295,
+          "center": 246.154,
+          "high": 252.36,
+          "outerHigh": 263.679
+        },
+        "spectralSharpnessQ": {
+          "kind": "empirical-distribution",
+          "count": 5,
+          "outerLow": 4.16796,
+          "low": 5.43135,
+          "center": 6.47025,
+          "high": 6.50138,
+          "outerHigh": 7.13568
+        }
+      },
+      "bandEnergyShares": {
+        "representativeNormalized": {
+          "20-80Hz": 0.626373,
+          "80-150Hz": 0.0247664,
+          "150-500Hz": 0.332086,
+          "500-1500Hz": 0.0167279,
+          "1500-3000Hz": 0.000046716
+        },
+        "empiricalMarginalRanges": {
+          "20-80Hz": {
+            "kind": "empirical-distribution",
+            "count": 5,
+            "outerLow": 0.473389,
+            "low": 0.503155,
+            "center": 0.62638,
+            "high": 0.702302,
+            "outerHigh": 0.760256
+          },
+          "80-150Hz": {
+            "kind": "empirical-distribution",
+            "count": 5,
+            "outerLow": 0.0125886,
+            "low": 0.0209526,
+            "center": 0.0247667,
+            "high": 0.0574827,
+            "outerHigh": 0.0619015
+          },
+          "150-500Hz": {
+            "kind": "empirical-distribution",
+            "count": 5,
+            "outerLow": 0.220654,
+            "low": 0.268577,
+            "center": 0.33209,
+            "high": 0.41785,
+            "outerHigh": 0.434691
+          },
+          "500-1500Hz": {
+            "kind": "empirical-distribution",
+            "count": 5,
+            "outerLow": 0.00647415,
+            "low": 0.00811752,
+            "center": 0.0167281,
+            "high": 0.0214334,
+            "outerHigh": 0.0298911
+          },
+          "1500-3000Hz": {
+            "kind": "empirical-distribution",
+            "count": 5,
+            "outerLow": 0.000018517,
+            "low": 0.000030438,
+            "center": 0.000046717,
+            "high": 0.000066474,
+            "outerHigh": 0.00011607
+          }
+        }
+      }
+    },
+    "boiling-transition": {
+      "id": "boiling-transition",
+      "title": "Transition boiling",
+      "suggestedVoices": [
+        "burble",
+        "slosh"
+      ],
+      "transfer": "hydrophone regime texture",
+      "notes": "A brighter, unstable regime reference for overlapping rupture and collapse.",
+      "source": {
+        "unit": "file",
+        "datasetId": "boiling_acoustic_regimes",
+        "label": "transition",
+        "count": 5,
+        "confidence": "small-sample"
+      },
+      "timing": {
+        "durationSeconds": {
+          "kind": "empirical-distribution",
+          "count": 5,
+          "outerLow": 1,
+          "low": 1,
+          "center": 1,
+          "high": 1,
+          "outerHigh": 1
+        },
+        "activeSeconds": {
+          "kind": "empirical-distribution",
+          "count": 5,
+          "outerLow": 0.094,
+          "low": 0.1,
+          "center": 0.19,
+          "high": 0.98,
+          "outerHigh": 0.992
+        },
+        "macroEventCount": {
+          "kind": "empirical-distribution",
+          "count": 5,
+          "outerLow": 1,
+          "low": 1,
+          "center": 7,
+          "high": 11,
+          "outerHigh": 11
+        },
+        "macroEventRateHz": {
+          "kind": "empirical-distribution",
+          "count": 3,
+          "outerLow": 7.66778,
+          "low": 8.82462,
+          "center": 10.7527,
+          "high": 10.9319,
+          "outerHigh": 11.0394
+        },
+        "macroEventSpacingSeconds": {
+          "kind": "empirical-distribution",
+          "count": 3,
+          "outerLow": 0.071,
+          "low": 0.08,
+          "center": 0.095,
+          "high": 0.1,
+          "outerHigh": 0.103
+        },
+        "internalModulationRateHz": {
+          "kind": "empirical-distribution",
+          "count": 5,
+          "outerLow": 2.66984,
+          "low": 5.12821,
+          "center": 6.89655,
+          "high": 11.236,
+          "outerHigh": 12.8815
+        },
+        "internalModulationSpacingSeconds": {
+          "kind": "empirical-distribution",
+          "count": 5,
+          "outerLow": 0.078,
+          "low": 0.09,
+          "center": 0.115,
+          "high": 0.18,
+          "outerHigh": 0.654
+        },
+        "onsetSpacingSeconds": {
+          "kind": "empirical-distribution",
+          "count": 5,
+          "outerLow": 0.078,
+          "low": 0.09,
+          "center": 0.115,
+          "high": 0.18,
+          "outerHigh": 0.654
+        },
+        "envelopePulseRateHz": {
+          "kind": "empirical-distribution",
+          "count": 5,
+          "outerLow": 1.03093,
+          "low": 1.03093,
+          "center": 1.03093,
+          "high": 1.05263,
+          "outerHigh": 1.09521
+        },
+        "attackSeconds": {
+          "kind": "empirical-distribution",
+          "count": 5,
+          "outerLow": 0,
+          "low": 0,
+          "center": 0.005,
+          "high": 0.02,
+          "outerHigh": 0.59
+        },
+        "releaseSeconds": {
+          "kind": "empirical-distribution",
+          "count": 5,
+          "outerLow": 0.014,
+          "low": 0.02,
+          "center": 0.04,
+          "high": 0.06,
+          "outerHigh": 0.612
+        },
+        "decayRt60Seconds": null
+      },
+      "spectrum": {
+        "dominantHz": {
+          "kind": "empirical-distribution",
+          "count": 5,
+          "outerLow": 391.129,
+          "low": 414.776,
+          "center": 696.796,
+          "high": 785.623,
+          "outerHigh": 790.684
+        },
+        "centroidHz": {
+          "kind": "empirical-distribution",
+          "count": 5,
+          "outerLow": 411.243,
+          "low": 506.423,
+          "center": 605.242,
+          "high": 705.895,
+          "outerHigh": 721.857
+        },
+        "rolloff85Hz": {
+          "kind": "empirical-distribution",
+          "count": 5,
+          "outerLow": 650,
+          "low": 781.25,
+          "center": 875,
+          "high": 890.625,
+          "outerHigh": 918.75
+        },
+        "periodicityHz": {
+          "kind": "empirical-distribution",
+          "count": 5,
+          "outerLow": 65.2135,
+          "low": 70.4901,
+          "center": 98.7654,
+          "high": 160.234,
+          "outerHigh": 175.722
+        },
+        "spectralSharpnessQ": {
+          "kind": "empirical-distribution",
+          "count": 5,
+          "outerLow": 4.58032,
+          "low": 6.00583,
+          "center": 6.28498,
+          "high": 6.63642,
+          "outerHigh": 11.5736
+        }
+      },
+      "bandEnergyShares": {
+        "representativeNormalized": {
+          "20-80Hz": 0.010609,
+          "80-150Hz": 0.0279,
+          "150-500Hz": 0.384189,
+          "500-1500Hz": 0.575478,
+          "1500-3000Hz": 0.00182428
+        },
+        "empiricalMarginalRanges": {
+          "20-80Hz": {
+            "kind": "empirical-distribution",
+            "count": 5,
+            "outerLow": 0.000103808,
+            "low": 0.00011965,
+            "center": 0.0104543,
+            "high": 0.0292581,
+            "outerHigh": 0.0760521
+          },
+          "80-150Hz": {
+            "kind": "empirical-distribution",
+            "count": 5,
+            "outerLow": 0.00037357,
+            "low": 0.00040202,
+            "center": 0.0274931,
+            "high": 0.0416541,
+            "outerHigh": 0.0594233
+          },
+          "150-500Hz": {
+            "kind": "empirical-distribution",
+            "count": 5,
+            "outerLow": 0.117335,
+            "low": 0.138765,
+            "center": 0.378586,
+            "high": 0.383162,
+            "outerHigh": 0.540718
+          },
+          "500-1500Hz": {
+            "kind": "empirical-distribution",
+            "count": 5,
+            "outerLow": 0.336346,
+            "low": 0.514036,
+            "center": 0.567086,
+            "high": 0.856648,
+            "outerHigh": 0.879973
+          },
+          "1500-3000Hz": {
+            "kind": "empirical-distribution",
+            "count": 5,
+            "outerLow": 0.00102045,
+            "low": 0.00117918,
+            "center": 0.00179768,
+            "high": 0.00182176,
+            "outerHigh": 0.00298761
+          }
+        }
+      }
+    },
+    "herring-frt-timing": {
+      "id": "herring-frt-timing",
+      "title": "Herring fast repetitive ticks",
+      "suggestedVoices": [
+        "fart",
+        "long-fart"
+      ],
+      "transfer": "event grammar only",
+      "notes": "Underwater swim-bladder/anal-duct acoustics are not a human spectral model. Transfer only irregular pulse spacing, packet duration, and pressure-depletion behavior.",
+      "source": {
+        "unit": "file",
+        "datasetId": "herring_fast_repetitive_tick",
+        "label": "herring_fast_repetitive_tick",
+        "count": 1,
+        "confidence": "single-reference-anchor"
+      },
+      "timing": {
+        "durationSeconds": {
+          "kind": "single-reference-anchor",
+          "count": 1,
+          "low": 5.98306,
+          "center": 5.98306,
+          "high": 5.98306
+        },
+        "activeSeconds": {
+          "kind": "single-reference-anchor",
+          "count": 1,
+          "low": 0.76,
+          "center": 0.76,
+          "high": 0.76
+        },
+        "macroEventCount": {
+          "kind": "single-reference-anchor",
+          "count": 1,
+          "low": 40,
+          "center": 40,
+          "high": 40
+        },
+        "macroEventRateHz": {
+          "kind": "single-reference-anchor",
+          "count": 1,
+          "low": 6.7474,
+          "center": 6.7474,
+          "high": 6.7474
+        },
+        "macroEventSpacingSeconds": {
+          "kind": "single-reference-anchor",
+          "count": 1,
+          "low": 0.1,
+          "center": 0.1,
+          "high": 0.1
+        },
+        "internalModulationRateHz": {
+          "kind": "single-reference-anchor",
+          "count": 1,
+          "low": 11.704,
+          "center": 11.704,
+          "high": 11.704
+        },
+        "internalModulationSpacingSeconds": {
+          "kind": "single-reference-anchor",
+          "count": 1,
+          "low": 0.08,
+          "center": 0.08,
+          "high": 0.08
+        },
+        "onsetSpacingSeconds": {
+          "kind": "single-reference-anchor",
+          "count": 1,
+          "low": 0.08,
+          "center": 0.08,
+          "high": 0.08
+        },
+        "envelopePulseRateHz": {
+          "kind": "single-reference-anchor",
+          "count": 1,
+          "low": 0.884956,
+          "center": 0.884956,
+          "high": 0.884956
+        },
+        "attackSeconds": {
+          "kind": "single-reference-anchor",
+          "count": 1,
+          "low": 0.02,
+          "center": 0.02,
+          "high": 0.02
+        },
+        "releaseSeconds": {
+          "kind": "single-reference-anchor",
+          "count": 1,
+          "low": 0.03,
+          "center": 0.03,
+          "high": 0.03
+        },
+        "decayRt60Seconds": null
+      }
+    },
+    "human-burp": {
+      "id": "human-burp",
+      "title": "Natural human burp",
+      "suggestedVoices": [
+        "burp"
+      ],
+      "transfer": "direct human reference; one recording",
+      "notes": "Use as a first throat/mouth spectral and temporal anchor; introduce controlled variation rather than overfitting one take.",
+      "source": {
+        "unit": "event",
+        "datasetId": "human_burp_public_domain",
+        "label": "burp",
+        "count": 1,
+        "confidence": "single-reference-anchor"
+      },
+      "timing": {
+        "durationSeconds": {
+          "kind": "single-reference-anchor",
+          "count": 1,
+          "low": 0.62,
+          "center": 0.62,
+          "high": 0.62
+        },
+        "activeSeconds": {
+          "kind": "single-reference-anchor",
+          "count": 1,
+          "low": 0.43,
+          "center": 0.43,
+          "high": 0.43
+        },
+        "macroEventCount": {
+          "kind": "single-reference-anchor",
+          "count": 1,
+          "low": 1,
+          "center": 1,
+          "high": 1
+        },
+        "macroEventRateHz": null,
+        "macroEventSpacingSeconds": null,
+        "internalModulationRateHz": {
+          "kind": "single-reference-anchor",
+          "count": 1,
+          "low": 10.2564,
+          "center": 10.2564,
+          "high": 10.2564
+        },
+        "internalModulationSpacingSeconds": {
+          "kind": "single-reference-anchor",
+          "count": 1,
+          "low": 0.08,
+          "center": 0.08,
+          "high": 0.08
+        },
+        "onsetSpacingSeconds": {
+          "kind": "single-reference-anchor",
+          "count": 1,
+          "low": 0.08,
+          "center": 0.08,
+          "high": 0.08
+        },
+        "envelopePulseRateHz": null,
+        "attackSeconds": {
+          "kind": "single-reference-anchor",
+          "count": 1,
+          "low": 0,
+          "center": 0,
+          "high": 0
+        },
+        "releaseSeconds": {
+          "kind": "single-reference-anchor",
+          "count": 1,
+          "low": 0.43,
+          "center": 0.43,
+          "high": 0.43
+        },
+        "decayRt60Seconds": null
+      },
+      "spectrum": {
+        "dominantHz": {
+          "kind": "single-reference-anchor",
+          "count": 1,
+          "low": 610.662,
+          "center": 610.662,
+          "high": 610.662
+        },
+        "centroidHz": {
+          "kind": "single-reference-anchor",
+          "count": 1,
+          "low": 755.641,
+          "center": 755.641,
+          "high": 755.641
+        },
+        "rolloff85Hz": {
+          "kind": "single-reference-anchor",
+          "count": 1,
+          "low": 703.125,
+          "center": 703.125,
+          "high": 703.125
+        },
+        "periodicityHz": {
+          "kind": "single-reference-anchor",
+          "count": 1,
+          "low": 107.218,
+          "center": 107.218,
+          "high": 107.218
+        },
+        "spectralSharpnessQ": {
+          "kind": "single-reference-anchor",
+          "count": 1,
+          "low": 19.5412,
+          "center": 19.5412,
+          "high": 19.5412
+        }
+      },
+      "bandEnergyShares": {
+        "representativeNormalized": {
+          "20-80Hz": 0.000823153,
+          "80-150Hz": 0.0626106,
+          "150-500Hz": 0.1742,
+          "500-1500Hz": 0.688452,
+          "1500-3000Hz": 0.0292556,
+          "3000-8000Hz": 0.0446586
+        },
+        "empiricalMarginalRanges": {
+          "20-80Hz": {
+            "kind": "single-reference-anchor",
+            "count": 1,
+            "low": 0.000823153,
+            "center": 0.000823153,
+            "high": 0.000823153
+          },
+          "80-150Hz": {
+            "kind": "single-reference-anchor",
+            "count": 1,
+            "low": 0.0626106,
+            "center": 0.0626106,
+            "high": 0.0626106
+          },
+          "150-500Hz": {
+            "kind": "single-reference-anchor",
+            "count": 1,
+            "low": 0.1742,
+            "center": 0.1742,
+            "high": 0.1742
+          },
+          "500-1500Hz": {
+            "kind": "single-reference-anchor",
+            "count": 1,
+            "low": 0.688452,
+            "center": 0.688452,
+            "high": 0.688452
+          },
+          "1500-3000Hz": {
+            "kind": "single-reference-anchor",
+            "count": 1,
+            "low": 0.0292556,
+            "center": 0.0292556,
+            "high": 0.0292556
+          },
+          "3000-8000Hz": {
+            "kind": "single-reference-anchor",
+            "count": 1,
+            "low": 0.0446586,
+            "center": 0.0446586,
+            "high": 0.0446586
+          }
+        }
+      }
+    },
+    "human-wet-fart": {
+      "id": "human-wet-fart",
+      "title": "Diaper-muffled wet human fart",
+      "suggestedVoices": [
+        "fart",
+        "long-fart"
+      ],
+      "transfer": "direct human reference; infant and diaper filtered",
+      "notes": "Useful for a wet low/mid spectral anchor, but not representative of an unobstructed adult fart.",
+      "source": {
+        "unit": "event",
+        "datasetId": "wet_fart_tummy_rumble_public_domain",
+        "label": "wet_fart",
+        "count": 1,
+        "confidence": "single-reference-anchor"
+      },
+      "timing": {
+        "durationSeconds": {
+          "kind": "single-reference-anchor",
+          "count": 1,
+          "low": 1,
+          "center": 1,
+          "high": 1
+        },
+        "activeSeconds": {
+          "kind": "single-reference-anchor",
+          "count": 1,
+          "low": 0.39,
+          "center": 0.39,
+          "high": 0.39
+        },
+        "macroEventCount": {
+          "kind": "single-reference-anchor",
+          "count": 1,
+          "low": 5,
+          "center": 5,
+          "high": 5
+        },
+        "macroEventRateHz": {
+          "kind": "single-reference-anchor",
+          "count": 1,
+          "low": 4.16667,
+          "center": 4.16667,
+          "high": 4.16667
+        },
+        "macroEventSpacingSeconds": {
+          "kind": "single-reference-anchor",
+          "count": 1,
+          "low": 0.115,
+          "center": 0.115,
+          "high": 0.115
+        },
+        "internalModulationRateHz": {
+          "kind": "single-reference-anchor",
+          "count": 1,
+          "low": 7.29167,
+          "center": 7.29167,
+          "high": 7.29167
+        },
+        "internalModulationSpacingSeconds": {
+          "kind": "single-reference-anchor",
+          "count": 1,
+          "low": 0.06,
+          "center": 0.06,
+          "high": 0.06
+        },
+        "onsetSpacingSeconds": {
+          "kind": "single-reference-anchor",
+          "count": 1,
+          "low": 0.06,
+          "center": 0.06,
+          "high": 0.06
+        },
+        "envelopePulseRateHz": {
+          "kind": "single-reference-anchor",
+          "count": 1,
+          "low": 1.02041,
+          "center": 1.02041,
+          "high": 1.02041
+        },
+        "attackSeconds": {
+          "kind": "single-reference-anchor",
+          "count": 1,
+          "low": 0.1,
+          "center": 0.1,
+          "high": 0.1
+        },
+        "releaseSeconds": {
+          "kind": "single-reference-anchor",
+          "count": 1,
+          "low": 0.29,
+          "center": 0.29,
+          "high": 0.29
+        },
+        "decayRt60Seconds": null
+      },
+      "spectrum": {
+        "dominantHz": {
+          "kind": "single-reference-anchor",
+          "count": 1,
+          "low": 196.548,
+          "center": 196.548,
+          "high": 196.548
+        },
+        "centroidHz": {
+          "kind": "single-reference-anchor",
+          "count": 1,
+          "low": 241.552,
+          "center": 241.552,
+          "high": 241.552
+        },
+        "rolloff85Hz": {
+          "kind": "single-reference-anchor",
+          "count": 1,
+          "low": 343.75,
+          "center": 343.75,
+          "high": 343.75
+        },
+        "periodicityHz": {
+          "kind": "single-reference-anchor",
+          "count": 1,
+          "low": 86.4865,
+          "center": 86.4865,
+          "high": 86.4865
+        },
+        "spectralSharpnessQ": {
+          "kind": "single-reference-anchor",
+          "count": 1,
+          "low": 2.51581,
+          "center": 2.51581,
+          "high": 2.51581
+        }
+      },
+      "bandEnergyShares": {
+        "representativeNormalized": {
+          "20-80Hz": 0.0387346,
+          "80-150Hz": 0.176813,
+          "150-500Hz": 0.73178,
+          "500-1500Hz": 0.0518926,
+          "1500-3000Hz": 0.00075062,
+          "3000-8000Hz": 0.000028673
+        },
+        "empiricalMarginalRanges": {
+          "20-80Hz": {
+            "kind": "single-reference-anchor",
+            "count": 1,
+            "low": 0.0387346,
+            "center": 0.0387346,
+            "high": 0.0387346
+          },
+          "80-150Hz": {
+            "kind": "single-reference-anchor",
+            "count": 1,
+            "low": 0.176813,
+            "center": 0.176813,
+            "high": 0.176813
+          },
+          "150-500Hz": {
+            "kind": "single-reference-anchor",
+            "count": 1,
+            "low": 0.73178,
+            "center": 0.73178,
+            "high": 0.73178
+          },
+          "500-1500Hz": {
+            "kind": "single-reference-anchor",
+            "count": 1,
+            "low": 0.0518926,
+            "center": 0.0518926,
+            "high": 0.0518926
+          },
+          "1500-3000Hz": {
+            "kind": "single-reference-anchor",
+            "count": 1,
+            "low": 0.00075062,
+            "center": 0.00075062,
+            "high": 0.00075062
+          },
+          "3000-8000Hz": {
+            "kind": "single-reference-anchor",
+            "count": 1,
+            "low": 0.000028673,
+            "center": 0.000028673,
+            "high": 0.000028673
+          }
+        }
+      }
+    },
+    "human-tummy-rumble": {
+      "id": "human-tummy-rumble",
+      "title": "Human tummy rumble sequence",
+      "suggestedVoices": [
+        "growl",
+        "slosh",
+        "burble"
+      ],
+      "transfer": "direct external body recording; infant",
+      "notes": "Treat this as an extended internal-pulse texture, not as a single sustained oscillator.",
+      "source": {
+        "unit": "event",
+        "datasetId": "wet_fart_tummy_rumble_public_domain",
+        "label": "tummy_rumble",
+        "count": 1,
+        "confidence": "single-reference-anchor"
+      },
+      "timing": {
+        "durationSeconds": {
+          "kind": "single-reference-anchor",
+          "count": 1,
+          "low": 5.65,
+          "center": 5.65,
+          "high": 5.65
+        },
+        "activeSeconds": {
+          "kind": "single-reference-anchor",
+          "count": 1,
+          "low": 1.66,
+          "center": 1.66,
+          "high": 1.66
+        },
+        "macroEventCount": {
+          "kind": "single-reference-anchor",
+          "count": 1,
+          "low": 27,
+          "center": 27,
+          "high": 27
+        },
+        "macroEventRateHz": {
+          "kind": "single-reference-anchor",
+          "count": 1,
+          "low": 4.60993,
+          "center": 4.60993,
+          "high": 4.60993
+        },
+        "macroEventSpacingSeconds": {
+          "kind": "single-reference-anchor",
+          "count": 1,
+          "low": 0.135,
+          "center": 0.135,
+          "high": 0.135
+        },
+        "internalModulationRateHz": {
+          "kind": "single-reference-anchor",
+          "count": 1,
+          "low": 15.4529,
+          "center": 15.4529,
+          "high": 15.4529
+        },
+        "internalModulationSpacingSeconds": {
+          "kind": "single-reference-anchor",
+          "count": 1,
+          "low": 0.05,
+          "center": 0.05,
+          "high": 0.05
+        },
+        "onsetSpacingSeconds": {
+          "kind": "single-reference-anchor",
+          "count": 1,
+          "low": 0.05,
+          "center": 0.05,
+          "high": 0.05
+        },
+        "envelopePulseRateHz": {
+          "kind": "single-reference-anchor",
+          "count": 1,
+          "low": 20,
+          "center": 20,
+          "high": 20
+        },
+        "attackSeconds": {
+          "kind": "single-reference-anchor",
+          "count": 1,
+          "low": 0.05,
+          "center": 0.05,
+          "high": 0.05
+        },
+        "releaseSeconds": {
+          "kind": "single-reference-anchor",
+          "count": 1,
+          "low": 0.06,
+          "center": 0.06,
+          "high": 0.06
+        },
+        "decayRt60Seconds": null
+      },
+      "spectrum": {
+        "dominantHz": {
+          "kind": "single-reference-anchor",
+          "count": 1,
+          "low": 77.5162,
+          "center": 77.5162,
+          "high": 77.5162
+        },
+        "centroidHz": {
+          "kind": "single-reference-anchor",
+          "count": 1,
+          "low": 319.335,
+          "center": 319.335,
+          "high": 319.335
+        },
+        "rolloff85Hz": {
+          "kind": "single-reference-anchor",
+          "count": 1,
+          "low": 640.625,
+          "center": 640.625,
+          "high": 640.625
+        },
+        "periodicityHz": {
+          "kind": "single-reference-anchor",
+          "count": 1,
+          "low": 313.725,
+          "center": 313.725,
+          "high": 313.725
+        },
+        "spectralSharpnessQ": {
+          "kind": "single-reference-anchor",
+          "count": 1,
+          "low": 0.992207,
+          "center": 0.992207,
+          "high": 0.992207
+        }
+      },
+      "bandEnergyShares": {
+        "representativeNormalized": {
+          "20-80Hz": 0.280327,
+          "80-150Hz": 0.0637022,
+          "150-500Hz": 0.419531,
+          "500-1500Hz": 0.235991,
+          "1500-3000Hz": 0.000397314,
+          "3000-8000Hz": 0.00005127
+        },
+        "empiricalMarginalRanges": {
+          "20-80Hz": {
+            "kind": "single-reference-anchor",
+            "count": 1,
+            "low": 0.280327,
+            "center": 0.280327,
+            "high": 0.280327
+          },
+          "80-150Hz": {
+            "kind": "single-reference-anchor",
+            "count": 1,
+            "low": 0.0637022,
+            "center": 0.0637022,
+            "high": 0.0637022
+          },
+          "150-500Hz": {
+            "kind": "single-reference-anchor",
+            "count": 1,
+            "low": 0.419531,
+            "center": 0.419531,
+            "high": 0.419531
+          },
+          "500-1500Hz": {
+            "kind": "single-reference-anchor",
+            "count": 1,
+            "low": 0.235991,
+            "center": 0.235991,
+            "high": 0.235991
+          },
+          "1500-3000Hz": {
+            "kind": "single-reference-anchor",
+            "count": 1,
+            "low": 0.000397314,
+            "center": 0.000397314,
+            "high": 0.000397314
+          },
+          "3000-8000Hz": {
+            "kind": "single-reference-anchor",
+            "count": 1,
+            "low": 0.00005127,
+            "center": 0.00005127,
+            "high": 0.00005127
+          }
+        }
+      }
+    }
+  },
+  "coverage": {
+    "growl": "The infant tummy-rumble interval is an external body recording, but no isolated controlled wet-fold reference is present.",
+    "burp": "One public-domain natural human recording is present; gastric versus supragastric mechanism is not labeled.",
+    "fart": "One diaper-muffled infant wet fart supplies a direct anchor; Herring FRT contributes pulse grammar only. Adult and unobstructed tissue-flutter variation remains under-sampled.",
+    "slosh": "Bowel CRS and boiling regimes are analogues; neither is an isolated controlled intestinal slosh."
+  }
+}

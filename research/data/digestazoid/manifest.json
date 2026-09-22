@@ -1,0 +1,606 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-09-04",
+  "purpose": "Reference audio for independent measurement and calibration of Digestazoid sound families; not production playback assets.",
+  "sizeCapBytes": 104857600,
+  "includedSourceDataBytes": 70284603,
+  "datasets": [
+    {
+      "dataset": "bowel_sounds_signal",
+      "id": "figshare:28595741.v1",
+      "doi": "10.6084/m9.figshare.28595741.v1",
+      "title": "Bowel sounds signal",
+      "authors": ["Zahra Mansour"],
+      "citation": "Mansour, Zahra (2025). Bowel sounds signal. figshare. Media. https://doi.org/10.6084/m9.figshare.28595741.v1",
+      "sourceUrl": "https://figshare.com/articles/media/Bowel_sounds_signal/28595741",
+      "metadataUrl": "https://api.figshare.com/v2/articles/28595741",
+      "license": {
+        "name": "CC BY 4.0",
+        "url": "https://creativecommons.org/licenses/by/4.0/"
+      },
+      "fullArchiveBytes": 786819996,
+      "sourceInventory": {
+        "fileCount": 14,
+        "wavCount": 7,
+        "annotationCount": 7,
+        "smallestWavBytes": 66969344,
+        "largestWavBytes": 217073792,
+        "allFilesAvailableFrom": "https://api.figshare.com/v2/articles/28595741",
+        "files": [
+          {"id": "52988450", "name": "record_300424001_2.wav", "bytes": 74779904},
+          {"id": "52988420", "name": "record_080524002_2.txt", "bytes": 6803},
+          {"id": "52988441", "name": "record_080524002_2.wav", "bytes": 66969344},
+          {"id": "52988423", "name": "record_100524001_1.txt", "bytes": 18417},
+          {"id": "52988456", "name": "record_100524001_1.wav", "bytes": 217073792},
+          {"id": "52988426", "name": "record_100524001_2.txt", "bytes": 7426},
+          {"id": "52988459", "name": "record_100524001_2.wav", "bytes": 217073792},
+          {"id": "52988429", "name": "record_150524003_1.txt", "bytes": 11285},
+          {"id": "52988444", "name": "record_150524003_1.wav", "bytes": 67812608},
+          {"id": "52988432", "name": "record_300424001_1.txt", "bytes": 13377},
+          {"id": "52988447", "name": "record_300424001_1.wav", "bytes": 74779904},
+          {"id": "52988435", "name": "record_300424001_2.txt", "bytes": 14602},
+          {"id": "52988438", "name": "record_080524001_1.txt", "bytes": 3766},
+          {"id": "52988453", "name": "record_080524001_1.wav", "bytes": 68254976}
+        ]
+      },
+      "acquisitionNotes": "Selected the smallest complete WAV and its matching annotation file. Both are unchanged source files. The recording contains all four principal labels and one unsure_MB event.",
+      "selectionStats": {
+        "durationSeconds": 465.048,
+        "sampleRateHz": 48000,
+        "channels": 1,
+        "sampleFormat": "PCM signed 24-bit little-endian",
+        "annotationCounts": {
+          "SB": 119,
+          "MB": 83,
+          "CRS": 56,
+          "HS": 5,
+          "unsure_MB": 1
+        }
+      },
+      "files": [
+        {
+          "path": "research/data/digestazoid/bowel/record_080524002_2.wav",
+          "sourceFileId": "52988441",
+          "sourceName": "record_080524002_2.wav",
+          "sourceUrl": "https://ndownloader.figshare.com/files/52988441",
+          "type": "audio/wav",
+          "bytes": 66969344,
+          "checksum": {
+            "algorithm": "md5",
+            "value": "e57b98a5491bcb623c45043ac0b19409"
+          },
+          "sha256": "f843862d45366ac066bbfe7bc4bfca16cd36d45fe44a91308f563cef1ba7adcd",
+          "split": "calibration"
+        },
+        {
+          "path": "research/data/digestazoid/bowel/record_080524002_2.txt",
+          "sourceFileId": "52988420",
+          "sourceName": "record_080524002_2.txt",
+          "sourceUrl": "https://ndownloader.figshare.com/files/52988420",
+          "type": "text/tab-separated-values",
+          "bytes": 6803,
+          "checksum": {
+            "algorithm": "md5",
+            "value": "fc8eaff2f2cdd97b12f96ff0f20069c1"
+          },
+          "sha256": "2346443c365af6f42f092f35669bdfd7d7031a06fc2afb249fecedfdf9c74338",
+          "annotations": "start_seconds, end_seconds, label; paired with record_080524002_2.wav"
+        }
+      ]
+    },
+    {
+      "dataset": "boiling_acoustic_regimes",
+      "id": "mendeley:vnnzc7n97m.1",
+      "doi": "10.17632/vnnzc7n97m.1",
+      "title": "Dataset: Deep learning the sound of boiling for advance prediction of boiling crisis",
+      "authors": ["Rishi Raj"],
+      "citation": "Raj, Rishi (2021). Dataset: Deep learning the sound of boiling for advance prediction of boiling crisis. Mendeley Data, V1. https://doi.org/10.17632/vnnzc7n97m.1",
+      "sourceUrl": "https://data.mendeley.com/datasets/vnnzc7n97m/1",
+      "license": {
+        "name": "CC BY 4.0",
+        "url": "https://creativecommons.org/licenses/by/4.0/"
+      },
+      "fullArchiveBytes": 3633012464,
+      "sourceInventory": {
+        "fileCount": 2873,
+        "wavCount": 2859,
+        "folders": [
+          {
+            "name": "BKG",
+            "folderId": "6e9602f7-075c-417f-ac6c-d1e00d684768",
+            "fileCount": 1000,
+            "bytes": 20044000,
+            "metadataUrl": "https://data.mendeley.com/public-api/datasets/vnnzc7n97m/files?folder_id=6e9602f7-075c-417f-ac6c-d1e00d684768&version=1"
+          },
+          {
+            "name": "NB",
+            "folderId": "542649ba-cae1-4838-97a4-8c0a8f3c33eb",
+            "fileCount": 1000,
+            "bytes": 20044000,
+            "metadataUrl": "https://data.mendeley.com/public-api/datasets/vnnzc7n97m/files?folder_id=542649ba-cae1-4838-97a4-8c0a8f3c33eb&version=1"
+          },
+          {
+            "name": "Pre-CHF",
+            "folderId": "a6e0e73a-fabd-436d-8463-bc471bd9b95c",
+            "fileCount": 399,
+            "bytes": 7997556,
+            "metadataUrl": "https://data.mendeley.com/public-api/datasets/vnnzc7n97m/files?folder_id=a6e0e73a-fabd-436d-8463-bc471bd9b95c&version=1"
+          },
+          {
+            "name": "TB",
+            "folderId": "90729fa0-bd9c-4483-b67d-7ced866812bf",
+            "fileCount": 460,
+            "bytes": 9220240,
+            "metadataUrl": "https://data.mendeley.com/public-api/datasets/vnnzc7n97m/files?folder_id=90729fa0-bd9c-4483-b67d-7ced866812bf&version=1"
+          },
+          {
+            "name": "code-and-lists",
+            "folderId": "a3412684-1142-4f7e-9b7f-61f3718cc893",
+            "fileCount": 8,
+            "bytes": 154693,
+            "metadataUrl": "https://data.mendeley.com/public-api/datasets/vnnzc7n97m/files?folder_id=a3412684-1142-4f7e-9b7f-61f3718cc893&version=1",
+            "files": [
+              {"name": "CNN_TRAINING_CODE_FOR_ADVANCE_PREDICTION_OF_BOILING_CRISIS.m", "bytes": 7314},
+              {"name": "CNN_TRAINING_CODE_FOR_BOILING_REGIME_PREDICTION.m", "bytes": 7304},
+              {"name": "Readme.txt", "bytes": 931},
+              {"name": "testing_list.txt", "bytes": 66010},
+              {"name": "TESTING_THE_CNN_NETWORK.asv", "bytes": 2497},
+              {"name": "TESTING_THE_CNN_NETWORK.m", "bytes": 2338},
+              {"name": "validation_list.txt", "bytes": 66356},
+              {"name": "weightedClassificationLayer.m", "bytes": 1943}
+            ]
+          },
+          {
+            "name": "Transient Experiments Data",
+            "folderId": "90b65096-b9a4-44ed-a18d-28c05febf982",
+            "fileCount": 6,
+            "bytes": 3575551975,
+            "metadataUrl": "https://data.mendeley.com/public-api/datasets/vnnzc7n97m/files?folder_id=90b65096-b9a4-44ed-a18d-28c05febf982&version=1",
+            "files": [
+              {"name": "Read_me.txt", "bytes": 281},
+              {"name": "TIME_ACOUSTICS_HEAT_FLUX_AND_PERCENTAGE_CHF_DATA_FOR_CUF_AND_IONIC_LIQUID_SOLUTION_CASE.mat", "bytes": 750295403},
+              {"name": "TIME_ACOUSTICS_HEAT_FLUX_AND_PERCENTAGE_CHF_DATA_FOR_CUF_AND_SURFACTANT_SOLUTION_CASE.mat", "bytes": 520618986},
+              {"name": "TIME_ACOUSTICS_HEAT_FLUX_AND_PERCENTAGE_CHF_DATA_FOR_CUF_RAMPED_UP_HEATING_CASE.mat", "bytes": 1023473024},
+              {"name": "TIME_ACOUSTICS_HEAT_FLUX_AND_PERCENTAGE_CHF_DATA_FOR_NANOSTRUCTURED_COPPER_SURFACE.mat", "bytes": 674280786},
+              {"name": "TIME_ACOUSTICS_HEAT_FLUX_AND_PERCENTAGE_CHF_DATA_FOR_SUDDEN_STEPPED_UP_HEATING_CASE.mat", "bytes": 606883495}
+            ]
+          }
+        ],
+        "notes": "Every regime WAV is 20,044 bytes: one second, mono, 10 kHz, signed 16-bit PCM. Five transient MAT files account for 3,575,551,694 bytes of the archive and were excluded. Folder metadata endpoints enumerate every source filename, file ID, byte count, SHA-256 hash, and direct download URL."
+      },
+      "acquisitionNotes": "Unmodified source WAVs were selected at broadly spaced indices within every regime. Background includes both 2 W/cm2 and 5 W/cm2 naming groups; nucleate includes the single source file named 115Wcm2 (100).wav as well as five 106 W/cm2 examples. Local names were normalized; sourceName retains the deposited filename.",
+      "audioFormat": {
+        "durationSeconds": 1.0,
+        "sampleRateHz": 10000,
+        "channels": 1,
+        "sampleFormat": "PCM signed 16-bit little-endian"
+      },
+      "files": [
+        {
+          "path": "research/data/digestazoid/boiling/README.source.txt",
+          "sourceFileId": "a90d6442-7113-4b38-8e10-901e77f096b3",
+          "sourceName": "Readme.txt",
+          "sourceUrl": "https://data.mendeley.com/public-files/datasets/vnnzc7n97m/files/a90d6442-7113-4b38-8e10-901e77f096b3/file_downloaded",
+          "type": "text/plain",
+          "bytes": 931,
+          "sha256": "7133e48fc70c8f9c478621d512f5f2863a95dcf31b92f80d4dd57f18254f4637"
+        },
+        {
+          "path": "research/data/digestazoid/boiling/background/background_2w_0001.wav",
+          "sourceFileId": "c6ed7bfe-7f39-4612-96e7-b3962f8b36b2",
+          "sourceName": "2Wcm2 (1).wav",
+          "sourceUrl": "https://data.mendeley.com/public-files/datasets/vnnzc7n97m/files/c6ed7bfe-7f39-4612-96e7-b3962f8b36b2/file_downloaded",
+          "type": "audio/wav",
+          "bytes": 20044,
+          "sha256": "4208fb752a082c6277c8443029fc9a2e1292e5788102b59aa084a4c4b94fc45a",
+          "split": "background",
+          "annotations": "BKG, 2 W/cm2"
+        },
+        {
+          "path": "research/data/digestazoid/boiling/background/background_2w_0175.wav",
+          "sourceFileId": "4349cab9-1484-4a85-ad68-1b86a59af91b",
+          "sourceName": "2Wcm2 (175).wav",
+          "sourceUrl": "https://data.mendeley.com/public-files/datasets/vnnzc7n97m/files/4349cab9-1484-4a85-ad68-1b86a59af91b/file_downloaded",
+          "type": "audio/wav",
+          "bytes": 20044,
+          "sha256": "a183be951c4c4f77b705f866b311eb27be203674e4846c4ac8e2c6623e89b731",
+          "split": "background",
+          "annotations": "BKG, 2 W/cm2"
+        },
+        {
+          "path": "research/data/digestazoid/boiling/background/background_2w_0351.wav",
+          "sourceFileId": "40bd48c1-e8d9-4473-ba24-b1640129b46b",
+          "sourceName": "2Wcm2 (351).wav",
+          "sourceUrl": "https://data.mendeley.com/public-files/datasets/vnnzc7n97m/files/40bd48c1-e8d9-4473-ba24-b1640129b46b/file_downloaded",
+          "type": "audio/wav",
+          "bytes": 20044,
+          "sha256": "0ad89c2ac4bb92c6fa19c587aae2d24e06c02520598689cc05efc39044647286",
+          "split": "background",
+          "annotations": "BKG, 2 W/cm2"
+        },
+        {
+          "path": "research/data/digestazoid/boiling/background/background_5w_0001.wav",
+          "sourceFileId": "a66509b1-0263-416a-a9c3-8ace2a1102ac",
+          "sourceName": "5Wcm2_1_1.wav",
+          "sourceUrl": "https://data.mendeley.com/public-files/datasets/vnnzc7n97m/files/a66509b1-0263-416a-a9c3-8ace2a1102ac/file_downloaded",
+          "type": "audio/wav",
+          "bytes": 20044,
+          "sha256": "e1645327583fe6f52e1781fae3a7dadd44dcd8132beeadd78191a7daa90e7ee6",
+          "split": "background",
+          "annotations": "BKG, 5 W/cm2"
+        },
+        {
+          "path": "research/data/digestazoid/boiling/background/background_5w_0325.wav",
+          "sourceFileId": "ae2fcf25-d102-4162-a34e-aa32f279ba7a",
+          "sourceName": "5Wcm2_1_325.wav",
+          "sourceUrl": "https://data.mendeley.com/public-files/datasets/vnnzc7n97m/files/ae2fcf25-d102-4162-a34e-aa32f279ba7a/file_downloaded",
+          "type": "audio/wav",
+          "bytes": 20044,
+          "sha256": "62b6bf31639f6c9cf12eb73dd2471c8d696227cf1c67d1bf06d50c5ae740b1bc",
+          "split": "background",
+          "annotations": "BKG, 5 W/cm2"
+        },
+        {
+          "path": "research/data/digestazoid/boiling/background/background_5w_0649.wav",
+          "sourceFileId": "f4ef0b46-9135-4002-a90b-2f32b5d36e84",
+          "sourceName": "5Wcm2_1_649.wav",
+          "sourceUrl": "https://data.mendeley.com/public-files/datasets/vnnzc7n97m/files/f4ef0b46-9135-4002-a90b-2f32b5d36e84/file_downloaded",
+          "type": "audio/wav",
+          "bytes": 20044,
+          "sha256": "7cec90406e994a2b17b30f0bcbda0af0f156427129a362d2e636683e21a2df40",
+          "split": "background",
+          "annotations": "BKG, 5 W/cm2"
+        },
+        {
+          "path": "research/data/digestazoid/boiling/nucleate/nucleate_106w_0001.wav",
+          "sourceFileId": "022c053a-09f9-4c91-b3d1-4af1cc83f5a5",
+          "sourceName": "106Wcm2 (1).wav",
+          "sourceUrl": "https://data.mendeley.com/public-files/datasets/vnnzc7n97m/files/022c053a-09f9-4c91-b3d1-4af1cc83f5a5/file_downloaded",
+          "type": "audio/wav",
+          "bytes": 20044,
+          "sha256": "38962017e9fbfcb1c15c348cb67545e5f46fcfac817261bf59da4f407e39a2ff",
+          "split": "nucleate",
+          "annotations": "NB, 106 W/cm2"
+        },
+        {
+          "path": "research/data/digestazoid/boiling/nucleate/nucleate_106w_0250.wav",
+          "sourceFileId": "44719da2-fb66-420e-8e70-c6e0ecf32633",
+          "sourceName": "106Wcm2 (250).wav",
+          "sourceUrl": "https://data.mendeley.com/public-files/datasets/vnnzc7n97m/files/44719da2-fb66-420e-8e70-c6e0ecf32633/file_downloaded",
+          "type": "audio/wav",
+          "bytes": 20044,
+          "sha256": "03561cadefb50d20e2587b8a6e8b941824d20a72d720fcc75ff8078130b3788a",
+          "split": "nucleate",
+          "annotations": "NB, 106 W/cm2"
+        },
+        {
+          "path": "research/data/digestazoid/boiling/nucleate/nucleate_106w_0500.wav",
+          "sourceFileId": "4c414473-b116-46c6-a960-4a992975f554",
+          "sourceName": "106Wcm2 (500).wav",
+          "sourceUrl": "https://data.mendeley.com/public-files/datasets/vnnzc7n97m/files/4c414473-b116-46c6-a960-4a992975f554/file_downloaded",
+          "type": "audio/wav",
+          "bytes": 20044,
+          "sha256": "b9bf5ec1d8333d79aee81b93191e5a00d98fe5a0566db04ccb905cdbca2ecf6a",
+          "split": "nucleate",
+          "annotations": "NB, 106 W/cm2"
+        },
+        {
+          "path": "research/data/digestazoid/boiling/nucleate/nucleate_106w_0750.wav",
+          "sourceFileId": "683a7a4d-eb3c-46af-858e-ebbfe3b7619f",
+          "sourceName": "106Wcm2 (750).wav",
+          "sourceUrl": "https://data.mendeley.com/public-files/datasets/vnnzc7n97m/files/683a7a4d-eb3c-46af-858e-ebbfe3b7619f/file_downloaded",
+          "type": "audio/wav",
+          "bytes": 20044,
+          "sha256": "56a1f631fc68e4864848a7cb169b64b91ca6d83a466a74431d6b5bbfafbf7dd9",
+          "split": "nucleate",
+          "annotations": "NB, 106 W/cm2"
+        },
+        {
+          "path": "research/data/digestazoid/boiling/nucleate/nucleate_106w_0999.wav",
+          "sourceFileId": "4a31e170-49a5-4ed5-991f-22d1c32a7e5b",
+          "sourceName": "106Wcm2 (999).wav",
+          "sourceUrl": "https://data.mendeley.com/public-files/datasets/vnnzc7n97m/files/4a31e170-49a5-4ed5-991f-22d1c32a7e5b/file_downloaded",
+          "type": "audio/wav",
+          "bytes": 20044,
+          "sha256": "e3d1d2ef058af5e531619c4cf5eb6dd170a25970314b88faf5c099fc8f4e2ee5",
+          "split": "nucleate",
+          "annotations": "NB, 106 W/cm2"
+        },
+        {
+          "path": "research/data/digestazoid/boiling/nucleate/nucleate_115w_0100.wav",
+          "sourceFileId": "e4c794bd-24ba-4a95-9e2f-3bad9d160078",
+          "sourceName": "115Wcm2 (100).wav",
+          "sourceUrl": "https://data.mendeley.com/public-files/datasets/vnnzc7n97m/files/e4c794bd-24ba-4a95-9e2f-3bad9d160078/file_downloaded",
+          "type": "audio/wav",
+          "bytes": 20044,
+          "sha256": "9146f56a544a1512bd2ec11b003dca8a1d8cc4756e3c54c1d8697b91578892a4",
+          "split": "nucleate",
+          "annotations": "NB, source filename says 115 W/cm2"
+        },
+        {
+          "path": "research/data/digestazoid/boiling/pre_chf/pre_chf_145w_0001.wav",
+          "sourceFileId": "2a9c3d02-5809-4caa-a0ff-8d2f0a9d1ab6",
+          "sourceName": "145Wcm2 (1).wav",
+          "sourceUrl": "https://data.mendeley.com/public-files/datasets/vnnzc7n97m/files/2a9c3d02-5809-4caa-a0ff-8d2f0a9d1ab6/file_downloaded",
+          "type": "audio/wav",
+          "bytes": 20044,
+          "sha256": "5a0deada47d4bb226107c9722d317af3128cbea0900d167258276f15dfb84705",
+          "split": "pre_chf",
+          "annotations": "Pre-CHF, 145 W/cm2"
+        },
+        {
+          "path": "research/data/digestazoid/boiling/pre_chf/pre_chf_145w_0100.wav",
+          "sourceFileId": "5c3f91c3-8119-43cd-8a1e-d46ff58b3d85",
+          "sourceName": "145Wcm2 (100).wav",
+          "sourceUrl": "https://data.mendeley.com/public-files/datasets/vnnzc7n97m/files/5c3f91c3-8119-43cd-8a1e-d46ff58b3d85/file_downloaded",
+          "type": "audio/wav",
+          "bytes": 20044,
+          "sha256": "632fc0d780094c12aae291c60904380b4061479ac144587ef883f93959e6da1b",
+          "split": "pre_chf",
+          "annotations": "Pre-CHF, 145 W/cm2"
+        },
+        {
+          "path": "research/data/digestazoid/boiling/pre_chf/pre_chf_145w_0200.wav",
+          "sourceFileId": "cc123204-c1c3-45e9-ac6c-2003d20e3a18",
+          "sourceName": "145Wcm2 (200).wav",
+          "sourceUrl": "https://data.mendeley.com/public-files/datasets/vnnzc7n97m/files/cc123204-c1c3-45e9-ac6c-2003d20e3a18/file_downloaded",
+          "type": "audio/wav",
+          "bytes": 20044,
+          "sha256": "1427d7fa266cfd0e9111d51b3bbb1814ebca7c9d2ea9b3a8fb1ea833f97f3343",
+          "split": "pre_chf",
+          "annotations": "Pre-CHF, 145 W/cm2"
+        },
+        {
+          "path": "research/data/digestazoid/boiling/pre_chf/pre_chf_145w_0300.wav",
+          "sourceFileId": "ef1f3c0b-0f58-421b-96bb-c91af8a2c95e",
+          "sourceName": "145Wcm2 (300).wav",
+          "sourceUrl": "https://data.mendeley.com/public-files/datasets/vnnzc7n97m/files/ef1f3c0b-0f58-421b-96bb-c91af8a2c95e/file_downloaded",
+          "type": "audio/wav",
+          "bytes": 20044,
+          "sha256": "d8dd59a2bd2558bf76896d0c2cf6602cdf5d61085e458b4a5e33811812963c71",
+          "split": "pre_chf",
+          "annotations": "Pre-CHF, 145 W/cm2"
+        },
+        {
+          "path": "research/data/digestazoid/boiling/pre_chf/pre_chf_145w_0399.wav",
+          "sourceFileId": "a19234b4-1c74-44bf-901f-d3d2a61c1f38",
+          "sourceName": "145Wcm2 (399).wav",
+          "sourceUrl": "https://data.mendeley.com/public-files/datasets/vnnzc7n97m/files/a19234b4-1c74-44bf-901f-d3d2a61c1f38/file_downloaded",
+          "type": "audio/wav",
+          "bytes": 20044,
+          "sha256": "8f5fe82f53fd4a71b600523321f7b1664c76f3c58dabb6f227d18cc43e40f432",
+          "split": "pre_chf",
+          "annotations": "Pre-CHF, 145 W/cm2"
+        },
+        {
+          "path": "research/data/digestazoid/boiling/transition/transition_0001.wav",
+          "sourceFileId": "3ffcc0d1-f8ca-48de-8afc-bafafa5fcc06",
+          "sourceName": "Transition (1).wav",
+          "sourceUrl": "https://data.mendeley.com/public-files/datasets/vnnzc7n97m/files/3ffcc0d1-f8ca-48de-8afc-bafafa5fcc06/file_downloaded",
+          "type": "audio/wav",
+          "bytes": 20044,
+          "sha256": "7ca402fb0569ee7d5af24f08561e2f3eef41df1961bc285c12d3d903e0902ea1",
+          "split": "transition",
+          "annotations": "TB"
+        },
+        {
+          "path": "research/data/digestazoid/boiling/transition/transition_0115.wav",
+          "sourceFileId": "ff45179f-f51e-4ba9-b767-929cae5ca117",
+          "sourceName": "Transition (115).wav",
+          "sourceUrl": "https://data.mendeley.com/public-files/datasets/vnnzc7n97m/files/ff45179f-f51e-4ba9-b767-929cae5ca117/file_downloaded",
+          "type": "audio/wav",
+          "bytes": 20044,
+          "sha256": "9a2429fcdba7c5d07d242b1aac8e88c27b3066d2a35384726cec4b8750401f71",
+          "split": "transition",
+          "annotations": "TB"
+        },
+        {
+          "path": "research/data/digestazoid/boiling/transition/transition_0230.wav",
+          "sourceFileId": "83a3c5cb-4ab5-47ec-93b4-a9354299369a",
+          "sourceName": "Transition (230).wav",
+          "sourceUrl": "https://data.mendeley.com/public-files/datasets/vnnzc7n97m/files/83a3c5cb-4ab5-47ec-93b4-a9354299369a/file_downloaded",
+          "type": "audio/wav",
+          "bytes": 20044,
+          "sha256": "853e2a5849df11dbcd2c11b785a3031d287ce4e3e3dd074873543cf97975c036",
+          "split": "transition",
+          "annotations": "TB"
+        },
+        {
+          "path": "research/data/digestazoid/boiling/transition/transition_0345.wav",
+          "sourceFileId": "d7696530-6a95-47f1-9eac-e02f50380507",
+          "sourceName": "Transition (345).wav",
+          "sourceUrl": "https://data.mendeley.com/public-files/datasets/vnnzc7n97m/files/d7696530-6a95-47f1-9eac-e02f50380507/file_downloaded",
+          "type": "audio/wav",
+          "bytes": 20044,
+          "sha256": "98fb7065c4977b08e4563c9186a9790c0bf510ddb456da395a4546223debc98c",
+          "split": "transition",
+          "annotations": "TB"
+        },
+        {
+          "path": "research/data/digestazoid/boiling/transition/transition_0460.wav",
+          "sourceFileId": "629ef987-66fa-4003-a0bf-3c51ed77be13",
+          "sourceName": "Transition (460).wav",
+          "sourceUrl": "https://data.mendeley.com/public-files/datasets/vnnzc7n97m/files/629ef987-66fa-4003-a0bf-3c51ed77be13/file_downloaded",
+          "type": "audio/wav",
+          "bytes": 20044,
+          "sha256": "39f49a6e4b10492eb24bb5577fa144d39541dc53c6fe6bfb041d857aa7c2d03f",
+          "split": "transition",
+          "annotations": "TB"
+        }
+      ]
+    },
+    {
+      "dataset": "herring_fast_repetitive_tick",
+      "id": "biostudies:S-EPMC1809969",
+      "doi": "10.1098/rsbl.2003.0107",
+      "title": "Pacific and Atlantic herring produce burst pulse sounds",
+      "authors": ["Ben Wilson", "Robert S. Batty", "Lawrence M. Dill"],
+      "citation": "Wilson, B., Batty, R. S., & Dill, L. M. (2004). Pacific and Atlantic herring produce burst pulse sounds. Proceedings of the Royal Society B, 271(Suppl 3), S95-S97. https://doi.org/10.1098/rsbl.2003.0107",
+      "sourceUrl": "https://www.ebi.ac.uk/biostudies/studies/S-EPMC1809969",
+      "metadataUrl": "https://www.ebi.ac.uk/biostudies/api/v1/studies/S-EPMC1809969",
+      "license": {
+        "name": "CC BY for Royal Society electronic supplementary material",
+        "url": "https://royalsociety.org/journals/permissions/",
+        "notes": "The PMC record marks the 2004 article itself non-open-access. This license claim applies only to the electronic supplementary material under the Royal Society's stated supplementary-material policy."
+      },
+      "fullArchiveBytes": 2592653,
+      "sourceInventory": {
+        "fileCount": 3,
+        "files": [
+          {"name": "15101430supp.gif", "bytes": 2388947},
+          {"name": "15101430supp.pdf", "bytes": 70909},
+          {"name": "15101430supp.wav", "bytes": 132797}
+        ]
+      },
+      "acquisitionNotes": "Only the supplementary audio was acquired. It is unchanged from the BioStudies mirror.",
+      "files": [
+        {
+          "path": "research/data/digestazoid/herring/15101430supp.wav",
+          "sourceName": "15101430supp.wav",
+          "sourceUrl": "https://www.ebi.ac.uk/biostudies/files/S-EPMC1809969/15101430supp.wav",
+          "type": "audio/wav",
+          "bytes": 132797,
+          "sha256": "4de8b65902c7e89e66cc9788f85c8206fa882315f9a19234c3238a9852ef62c6",
+          "durationSeconds": 5.983084,
+          "sampleRateHz": 44100,
+          "channels": 1,
+          "sampleFormat": "Microsoft ADPCM, 4-bit"
+        }
+      ]
+    },
+    {
+      "dataset": "human_burp_public_domain",
+      "id": "wikimedia:Burp.ogg",
+      "title": "Burp",
+      "authors": ["ezwa"],
+      "citation": "ezwa. Burp. PDSounds recording 647, mirrored by Wikimedia Commons.",
+      "sourceUrl": "https://commons.wikimedia.org/wiki/File:Burp.ogg",
+      "license": {
+        "name": "Public domain",
+        "url": "https://commons.wikimedia.org/wiki/File:Burp.ogg"
+      },
+      "acquisitionNotes": "A natural human belch. The OGG is the unchanged Wikimedia Commons file; the WAV is a deterministic PCM16 analysis derivative with no trimming or normalization.",
+      "files": [
+        {
+          "path": "research/data/digestazoid/burp/ezwa-burp-public-domain.ogg",
+          "sourceName": "Burp.ogg",
+          "sourceUrl": "https://upload.wikimedia.org/wikipedia/commons/5/54/Burp.ogg",
+          "type": "audio/ogg",
+          "bytes": 33456,
+          "sha1": "c8646964b0f8dba958f7454b5c4878a791a93ace",
+          "sha256": "9134adc59131dc59fd96b8139bf342b5049c47c08eb5879a8b9487025af84067"
+        },
+        {
+          "path": "research/data/digestazoid/burp/ezwa-burp-public-domain.wav",
+          "sourceName": "Burp.ogg",
+          "sourceUrl": "https://upload.wikimedia.org/wikipedia/commons/5/54/Burp.ogg",
+          "type": "audio/wav",
+          "label": "burp",
+          "bytes": 159054,
+          "sha256": "1d27f947637710ec1583991a2ee1f68e7945fdbacd2ce711b7dc51c944fc035a",
+          "durationSeconds": 1.802449,
+          "sampleRateHz": 44100,
+          "channels": 1,
+          "sampleFormat": "PCM signed 16-bit little-endian",
+          "annotations": [
+            {
+              "startSeconds": 0.20,
+              "endSeconds": 0.82,
+              "label": "burp",
+              "basis": "Visible primary belch onset and decay in the recording spectrogram."
+            }
+          ],
+          "derivation": {
+            "sourcePath": "research/data/digestazoid/burp/ezwa-burp-public-domain.ogg",
+            "command": "ffmpeg -map 0:a:0 -map_metadata -1 -c:a pcm_s16le",
+            "normalized": false,
+            "trimmed": false
+          }
+        }
+      ]
+    },
+    {
+      "dataset": "wet_fart_tummy_rumble_public_domain",
+      "id": "wikimedia:Wet_fart_tummy_rumbles.ogg",
+      "title": "wet fart + tummy rumbles",
+      "authors": ["natalie"],
+      "citation": "natalie. wet fart + tummy rumbles. PDSounds recording 192, mirrored by Wikimedia Commons.",
+      "sourceUrl": "https://commons.wikimedia.org/wiki/File:Wet_fart_tummy_rumbles.ogg",
+      "license": {
+        "name": "Public domain",
+        "url": "https://commons.wikimedia.org/wiki/File:Wet_fart_tummy_rumbles.ogg"
+      },
+      "acquisitionNotes": "A natural two-month-old infant recording containing a diaper-muffled wet fart and tummy rumbles; it is not an isolated adult fart. The OGG is unchanged; the WAV is a deterministic PCM16 analysis derivative with no trimming or normalization.",
+      "files": [
+        {
+          "path": "research/data/digestazoid/fart/natalie-wet-fart-tummy-rumbles-public-domain.ogg",
+          "sourceName": "Wet fart tummy rumbles.ogg",
+          "sourceUrl": "https://upload.wikimedia.org/wikipedia/commons/1/17/Wet_fart_tummy_rumbles.ogg",
+          "type": "audio/ogg",
+          "bytes": 329332,
+          "sha1": "59dda9482cf9538be3b28665daaf5514d5137857",
+          "sha256": "169bcf07f0aebb02a87bf6dbb1411ca6dbd9d8d7428e9d422b6bdcf366370fa2"
+        },
+        {
+          "path": "research/data/digestazoid/fart/natalie-wet-fart-tummy-rumbles-public-domain.wav",
+          "sourceName": "Wet fart tummy rumbles.ogg",
+          "sourceUrl": "https://upload.wikimedia.org/wikipedia/commons/1/17/Wet_fart_tummy_rumbles.ogg",
+          "type": "audio/wav",
+          "label": "wet_fart_tummy_rumble",
+          "bytes": 2211918,
+          "sha256": "b6fd328a24bb2d48f6389973bc39ccccfa0763f2e5679363dc85ff6484b1e2f2",
+          "durationSeconds": 12.538776,
+          "sampleRateHz": 44100,
+          "channels": 2,
+          "sampleFormat": "PCM signed 16-bit little-endian",
+          "annotations": [
+            {
+              "startSeconds": 0.39,
+              "endSeconds": 1.39,
+              "label": "wet_fart",
+              "basis": "First named event and first sustained low-frequency spectrogram region."
+            },
+            {
+              "startSeconds": 2.53,
+              "endSeconds": 8.18,
+              "label": "tummy_rumble",
+              "basis": "Following extended sequence of low-frequency internal pulses."
+            }
+          ],
+          "derivation": {
+            "sourcePath": "research/data/digestazoid/fart/natalie-wet-fart-tummy-rumbles-public-domain.ogg",
+            "command": "ffmpeg -map 0:a:0 -map_metadata -1 -c:a pcm_s16le",
+            "normalized": false,
+            "trimmed": false
+          }
+        }
+      ]
+    },
+    {
+      "dataset": "cornell_complex_acoustic_bubbles",
+      "id": "cornell:complex-acoustic-bubbles-2016",
+      "title": "Toward Animating Water with Complex Acoustic Bubbles",
+      "authors": ["Timothy R. Langlois", "Changxi Zheng", "Doug L. James"],
+      "citation": "Langlois, T. R., Zheng, C., & James, D. L. (2016). Toward Animating Water with Complex Acoustic Bubbles. ACM Transactions on Graphics, 35(4).",
+      "sourceUrl": "https://www.cs.cornell.edu/projects/Sound/bubbles/",
+      "license": {
+        "name": "All rights reserved; non-commercial access; reposting prohibited without explicit permission",
+        "url": "https://www.cs.cornell.edu/projects/Sound/bubbles/"
+      },
+      "acquired": false,
+      "excludedReason": "The project page expressly prohibits reposting without permission. The 157,849,644-byte WAV also exceeds this subset's 100 MiB budget by itself.",
+      "sourceInventory": {
+        "fileCount": 5,
+        "bytes": 406353542,
+        "files": [
+          {"name": "bubbles.pdf", "bytes": 26108599, "url": "https://www.cs.cornell.edu/projects/Sound/bubbles/bubbles.pdf"},
+          {"name": "bubbles.mp4", "bytes": 222380996, "url": "https://www.cs.cornell.edu/projects/Sound/bubbles/bubbles.mp4"},
+          {"name": "uncompressedSound.wav", "bytes": 157849644, "url": "https://www.cs.cornell.edu/projects/Sound/bubbles/uncompressedSound.wav"},
+          {"name": "bubbleDemo.py", "bytes": 13879, "url": "https://www.cs.cornell.edu/projects/Sound/bubbles/bubbleDemo.py"},
+          {"name": "bibtex.txt", "bytes": 424, "url": "https://www.cs.cornell.edu/projects/Sound/bubbles/bibtex.txt"}
+        ]
+      },
+      "files": []
+    }
+  ]
+}

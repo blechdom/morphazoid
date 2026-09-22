@@ -1,0 +1,109 @@
+{
+  "schemaVersion": 1,
+  "sourceAnalysis": "research/data/digestazoid/analysis/audio-analysis.json",
+  "profiles": [
+    {
+      "id": "bowel-single-burst",
+      "title": "Bowel single burst",
+      "selector": { "unit": "event", "datasetId": "bowel_sounds_signal", "label": "SB" },
+      "suggestedVoices": ["bubble"],
+      "transfer": "body-contact recording",
+      "notes": "Use the timing and spectral distribution for solitary pinch, impact, or bubble-release events."
+    },
+    {
+      "id": "bowel-multiple-burst",
+      "title": "Bowel multiple burst",
+      "selector": { "unit": "event", "datasetId": "bowel_sounds_signal", "label": "MB" },
+      "suggestedVoices": ["burble"],
+      "transfer": "body-contact recording",
+      "notes": "A packeted sequence target; duration and event spacing matter more than a fixed pitch."
+    },
+    {
+      "id": "bowel-continuous-random",
+      "title": "Bowel continuous random sound",
+      "selector": { "unit": "event", "datasetId": "bowel_sounds_signal", "label": "CRS" },
+      "suggestedVoices": ["slosh", "burble"],
+      "transfer": "body-contact recording",
+      "notes": "Use for dense moving-slurry and irregular wall-contact behavior."
+    },
+    {
+      "id": "bowel-harmonic",
+      "title": "Bowel harmonic sound",
+      "selector": { "unit": "event", "datasetId": "bowel_sounds_signal", "label": "HS" },
+      "suggestedVoices": ["bubble", "burble"],
+      "transfer": "body-contact recording; small sample",
+      "notes": "Only five annotated examples; keep the outer range deliberately soft."
+    },
+    {
+      "id": "boiling-background",
+      "title": "Boiling apparatus background",
+      "selector": { "unit": "file", "datasetId": "boiling_acoustic_regimes", "label": "background" },
+      "suggestedVoices": [],
+      "transfer": "diagnostic baseline only",
+      "notes": "Do not synthesize this as a noise layer; it describes the source rig before vigorous boiling."
+    },
+    {
+      "id": "boiling-nucleate",
+      "title": "Nucleate boiling",
+      "selector": { "unit": "file", "datasetId": "boiling_acoustic_regimes", "label": "nucleate" },
+      "suggestedVoices": ["bubble", "burble"],
+      "transfer": "hydrophone regime texture",
+      "notes": "Use normalized band balance and temporal density, not literal underwater pitch."
+    },
+    {
+      "id": "boiling-pre-crisis",
+      "title": "Pre-critical boiling",
+      "selector": { "unit": "file", "datasetId": "boiling_acoustic_regimes", "label": "pre_chf" },
+      "suggestedVoices": ["burble", "slosh"],
+      "transfer": "hydrophone regime texture",
+      "notes": "A compact low-centered regime reference for congested, thick flow."
+    },
+    {
+      "id": "boiling-transition",
+      "title": "Transition boiling",
+      "selector": { "unit": "file", "datasetId": "boiling_acoustic_regimes", "label": "transition" },
+      "suggestedVoices": ["burble", "slosh"],
+      "transfer": "hydrophone regime texture",
+      "notes": "A brighter, unstable regime reference for overlapping rupture and collapse."
+    },
+    {
+      "id": "herring-frt-timing",
+      "title": "Herring fast repetitive ticks",
+      "selector": { "unit": "file", "datasetId": "herring_fast_repetitive_tick", "label": "herring_fast_repetitive_tick" },
+      "suggestedVoices": ["fart", "long-fart"],
+      "include": ["timing"],
+      "transfer": "event grammar only",
+      "notes": "Underwater swim-bladder/anal-duct acoustics are not a human spectral model. Transfer only irregular pulse spacing, packet duration, and pressure-depletion behavior."
+    },
+    {
+      "id": "human-burp",
+      "title": "Natural human burp",
+      "selector": { "unit": "event", "datasetId": "human_burp_public_domain", "label": "burp" },
+      "suggestedVoices": ["burp"],
+      "transfer": "direct human reference; one recording",
+      "notes": "Use as a first throat/mouth spectral and temporal anchor; introduce controlled variation rather than overfitting one take."
+    },
+    {
+      "id": "human-wet-fart",
+      "title": "Diaper-muffled wet human fart",
+      "selector": { "unit": "event", "datasetId": "wet_fart_tummy_rumble_public_domain", "label": "wet_fart" },
+      "suggestedVoices": ["fart", "long-fart"],
+      "transfer": "direct human reference; infant and diaper filtered",
+      "notes": "Useful for a wet low/mid spectral anchor, but not representative of an unobstructed adult fart."
+    },
+    {
+      "id": "human-tummy-rumble",
+      "title": "Human tummy rumble sequence",
+      "selector": { "unit": "event", "datasetId": "wet_fart_tummy_rumble_public_domain", "label": "tummy_rumble" },
+      "suggestedVoices": ["growl", "slosh", "burble"],
+      "transfer": "direct external body recording; infant",
+      "notes": "Treat this as an extended internal-pulse texture, not as a single sustained oscillator."
+    }
+  ],
+  "coverage": {
+    "growl": "The infant tummy-rumble interval is an external body recording, but no isolated controlled wet-fold reference is present.",
+    "burp": "One public-domain natural human recording is present; gastric versus supragastric mechanism is not labeled.",
+    "fart": "One diaper-muffled infant wet fart supplies a direct anchor; Herring FRT contributes pulse grammar only. Adult and unobstructed tissue-flutter variation remains under-sampled.",
+    "slosh": "Bowel CRS and boiling regimes are analogues; neither is an isolated controlled intestinal slosh."
+  }
+}
