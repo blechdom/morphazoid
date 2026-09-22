@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { assertReferenceVoices, REFERENCE_ROUNDING_FACTOR } from "./helpers/shapes-reference-voices.mjs";
+import {
+  assertReferenceVoices, REFERENCE_ABSOLUTE_TOLERANCE, REFERENCE_RELATIVE_TOLERANCE,
+} from "./helpers/shapes-reference-voices.mjs";
 
 const voice = Object.freeze({
   frequency: 294.0975479820248, gain: 0.2704090762795511, pan: 0.06861610629328291,
@@ -10,25 +12,42 @@ const voice = Object.freeze({
 });
 const compare = (patch, target = voice) => assertReferenceVoices([{ ...target, ...patch }], [target], "reference");
 
-test("the reported CI two-ULP frequency difference is accepted without editing either value", () => {
+test("both CI reports and their accumulated modulation-index delta fit the fixed numeric budget", () => {
   assert.notEqual(294.0975479820249, voice.frequency);
   assert.doesNotThrow(() => compare({ frequency: 294.0975479820249 }));
-  assert.equal(REFERENCE_ROUNDING_FACTOR, 8 * Number.EPSILON);
+  assert.doesNotThrow(() => compare(
+    { synthDrive: 0.5359942781539363, modulationIndex: 4.555951364308458 },
+    { ...voice, synthDrive: 0.5359942781539382, modulationIndex: 4.555951364308474 },
+  ));
+  assert.equal(REFERENCE_ABSOLUTE_TOLERANCE, 1e-12);
+  assert.equal(REFERENCE_RELATIVE_TOLERANCE, 1e-12);
 });
 
-test("rounding bounds stay near machine precision for large, small and near-zero computed values", () => {
-  assert.doesNotThrow(() => compare({ frequency: 512 + 8 * Number.EPSILON * 512 }, { ...voice, frequency: 512 }));
-  assert.throws(() => compare({ frequency: 512 + 16 * Number.EPSILON * 512 }, { ...voice, frequency: 512 }), /frequency/);
-  assert.doesNotThrow(() => compare({ pan: Number.EPSILON }, { ...voice, pan: 0 }));
-  assert.throws(() => compare({ pan: 1e-12 }, { ...voice, pan: 0 }), /pan/);
-  assert.throws(() => compare({ gain: 0.25 + 1e-12 }, { ...voice, gain: 0.25 }), /gain/);
+test("large, small and near-zero values are accepted inside the budget and rejected outside it", () => {
+  for (const frequency of [10, 512, 20_000]) {
+    assert.doesNotThrow(() => compare({ frequency: frequency * (1 + 0.5e-12) }, { ...voice, frequency }));
+    assert.throws(() => compare({ frequency: frequency * (1 + 2e-12) }, { ...voice, frequency }), /frequency/);
+  }
+  for (const pan of [-0.75, -1e-16, 0, 1e-16, 0.75]) {
+    assert.doesNotThrow(() => compare({ pan: pan + 0.5e-12 }, { ...voice, pan }));
+    assert.throws(() => compare({ pan: pan + 2e-12 }, { ...voice, pan }), /pan/);
+  }
+  assert.doesNotThrow(() => compare({ gain: 0.25 + 0.5e-12 }, { ...voice, gain: 0.25 }));
+  assert.throws(() => compare({ gain: 0.25 + 2e-12 }, { ...voice, gain: 0.25 }), /gain/);
 });
 
 test("tiny but larger-than-roundoff changes to every computed output still fail", () => {
   for (const key of ["frequency", "gain", "pan", "synthDrive", "modulationIndex", "shepardRate", "shepardPosition", "shepardTravel"]) {
     const reference = { ...voice, [key]: 0.25 };
-    assert.throws(() => compare({ [key]: 0.25 + 1e-9 }, reference), new RegExp(key));
+    assert.throws(() => compare({ [key]: 0.25 + 1e-10 }, reference), new RegExp(key));
   }
+});
+
+test("one failed comparison reports every divergent computed field rather than only the first", () => {
+  assert.throws(() => compare({ frequency: 440, gain: 0.5, synthDrive: 0.2 }), error => {
+    for (const field of ["frequency", "gain", "synthDrive"]) assert.match(error.message, new RegExp(field));
+    return true;
+  });
 });
 
 test("silence is exact even below the rounding allowance", () => {

@@ -129,11 +129,15 @@ See `test-results/shapes-density-clicks/` for source snapshots and measurements.
   saved pre-integration individual controllers, with SHA-256 provenance. Tests
   compare frequency, gain, pan and synth parameters at two phases of each
   continuous scene. Computed numeric outputs allow at most
-  `8 * Number.EPSILON * max(1, |actual|, |reference|)` to accommodate last-bit
-  differences in serialized doubles between runners. Voice counts, ordering,
+  `1e-12 * max(1, |actual|, |reference|)` to accommodate rounding accumulated
+  through geometry, trigonometry, interpolation and timbre calculations, rather
+  than using a single-operation ULP limit. At 20 kHz this permits a difference
+  of at most `2e-8 Hz`. Voice counts, ordering,
   field sets, modes, literal ratios/widths/smoothing times, nulls and exact
   silence remain strict. The saved reference bytes and synthesis are unchanged;
   negative tests reject nonfinite outputs and changes beyond this rounding bound.
+  All 122 cases are checked before reporting failure, including every divergent
+  computed field, so CI does not hide later differences behind the first one.
 - DSP tests cover long ADSR/release, pre-marker attack/peak, independent overlap,
   true sine/FM/PM/Shepard differences, MIDI hold/release, bounded waiting voices,
   stale-event cancellation and smooth dense-pool handoffs.

@@ -18,14 +18,22 @@ import { assertReferenceVoices } from "./helpers/shapes-reference-voices.mjs";
 
 const banks = { shape: SHAPE_FULL_PRESETS, solid: SOLID_FULL_PRESETS, hyper: HYPER_FULL_PRESETS };
 const reference = JSON.parse(readFileSync(new URL("fixtures/shapes-original-voices.json", import.meta.url), "utf8"));
-test("122 pre-integration reference voice sets retain frequencies, envelopes, pan and synth parameters within floating-point precision", () => {
+test("122 pre-integration reference voice sets retain frequencies, envelopes, pan and synth parameters within the numeric error budget", () => {
   assert.equal(reference.cases.length, 122);
+  const failures = [];
   for (const example of reference.cases) {
-    const state = applyShapesPreset(createShapesState(), SHAPES_FULL_PRESETS.find(p => p.id === example.id).snapshot);
-    state.play.continuousPhase = example.phase;
-    assertReferenceVoices(originalSynthSpecs(buildShapesScene(state), state).map(({ key, ...voice }) => voice),
-      example.voices, `${example.id} at phase ${example.phase}`);
+    const label = `${example.id} at phase ${example.phase}`;
+    try {
+      const state = applyShapesPreset(createShapesState(), SHAPES_FULL_PRESETS.find(p => p.id === example.id).snapshot);
+      state.play.continuousPhase = example.phase;
+      assertReferenceVoices(originalSynthSpecs(buildShapesScene(state), state).map(({ key, ...voice }) => voice),
+        example.voices, label);
+    } catch (error) {
+      failures.push(`${label}: ${error.message}`);
+    }
   }
+  assert.equal(failures.length, 0,
+    `${failures.length}/${reference.cases.length} reference cases failed on ${process.version} ${process.arch}:\n${failures.join("\n")}`);
 });
 test("106 unique presets retain the originals and merge corner/tonal playing with six dense Rattlesnake demos", () => {
   assert.equal(SHAPES_IMPORTED_PRESETS.length, 76);

@@ -134,7 +134,45 @@ The fresh full WAX check stalled during sandboxed bundling and was stopped;
 the outside-sandbox retry was rejected by the approval service before
 execution. A separate comparison using a Git subprocess was also blocked.
 Neither is reported as passing. Full hosted verification and production
-deployment remain to be confirmed for the follow-up commit.
+deployment had not yet been confirmed at that point.
+
+### AWS run 35674953968: accumulated numeric rounding
+
+The owner subsequently confirmed that `d487897` passed GitHub Pages but failed
+the separate AWS workflow. Its only failing test was the Shapes reference test:
+`shape-fractured-bell`, phase `0.617`, voice 1 had synth drive
+`0.5359942781539363` versus `0.5359942781539382`. The difference,
+`1.887379141862766e-15`, exceeded the initial `8 * Number.EPSILON` allowance.
+This failure is in `verify`; the dependent AWS deployment does not run.
+
+The exact mismatch was reproduced locally with the already-installed Node
+26.8.2 runtime; Node 22.23.2 matched the saved doubles exactly. A complete audit
+of all 122 cases / 904 voices additionally found a modulation-index difference
+of `1.5987211554602254e-14`, or `3.5090830160845836e-15` at normalized scale.
+There were no voice-count, field-set or nonnumeric-value differences. This
+explains why increasing the old threshold just enough for the first field
+would leave another failure hidden behind it.
+
+The second follow-up uses a fixed test-only accumulated-error budget:
+`1e-12 * max(1, |actual|, |reference|)`. Exact voice structure, literal settings,
+nulls and silence checks remain. Boundary/negative tests reject values outside
+the budget, including normalized parameter changes as small as `1e-10`.
+The reference test now evaluates every case before reporting failure, and its
+numeric comparison reports all divergent fields rather than only the first.
+
+Verification for this follow-up:
+
+- The 129 comparator and Shapes preset tests pass on Node 22.23.2 and 26.8.2,
+  both normally and with `--jitless` (four runs of each test).
+- Another 19 focused checks pass: social preview 7, QA preview policy 9, and
+  hierarchy 3 (including the 430-module original-byte proof).
+- No runtime, preset, asset, fixture, generated WAX, dependency or workflow
+  files changed. No WAX rebuild is required for these test/documentation edits.
+- Logs and the full numeric audit are local under
+  `test-results/shapes-reference-portability/`.
+- Downloading the exact AWS Node 24.20.0 runtime was blocked by the approval
+  service; Node 26 reproduction is not claimed as an exact Node 24 runner test.
+  Hosted AWS verification and deployment still need confirmation after push.
 
 ## Verification history
 
