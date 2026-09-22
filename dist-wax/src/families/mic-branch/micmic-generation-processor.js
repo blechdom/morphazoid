@@ -24,6 +24,7 @@ class MicmicGenerationProcessor extends AudioWorkletProcessor {
       sampleRate,
       historySeconds: options.processorOptions?.historySeconds,
       maxVoices: options.processorOptions?.maxVoices,
+      channels: options.processorOptions?.channels,
     });
     this.requestedVoices = 0;
     this.loadBlocks = 0;

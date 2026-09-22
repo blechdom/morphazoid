@@ -1,0 +1,76 @@
+/* Edit instrument settings in place; full diagnostics open separately. */
+.header-settings-standalone { margin-left: auto; flex: 0 0 auto; }
+.header-quick-settings .header-settings-panel {
+  width: min(300px, calc(100vw - 24px));
+  background: var(--panel, #0b0e11);
+  scrollbar-gutter: auto;
+}
+.header-quick-settings .header-settings-heading {
+  min-height: 32px;
+  padding-bottom: 8px;
+}
+.header-quick-settings .header-settings-heading h2 {
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: normal;
+  text-transform: none;
+}
+.header-settings-links { display: grid; padding: 5px 0; }
+.header-settings-link {
+  display: flex;
+  min-height: 42px;
+  padding: 10px 8px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  color: var(--ink, #dbe4e0);
+  font-size: 12px;
+  text-decoration: none;
+}
+.header-settings-link::after { content: "→"; color: var(--muted, #a1ada7); }
+.header-settings-link:hover {
+  color: var(--accent, var(--mint, #5fe8c4));
+  background: var(--panel-high, #0f1316);
+}
+.header-settings-link:focus-visible {
+  outline: 2px solid var(--accent, var(--mint, #5fe8c4));
+  outline-offset: -2px;
+}
+.header-quick-settings .io-setup-link {
+  min-height: 40px;
+  margin: 0;
+  padding: 8px;
+  color: var(--accent, var(--mint, #5fe8c4));
+  font-size: 12px;
+  text-transform: none;
+  letter-spacing: normal;
+}
+.header-settings-controls { min-width: 0; }
+.header-quick-settings .header-settings-panel:has(.header-settings-controls) {
+  width: min(340px, calc(100vw - 24px));
+}
+.header-quick-settings .header-settings-controls ~ .midi-profile-guide:not(.io-setup-link) {
+  min-height: 40px;
+  margin: 0;
+  padding: 8px;
+  border: 0;
+  color: var(--muted);
+  font-size: 10px;
+  text-transform: none;
+  letter-spacing: normal;
+}
+@media (max-width: 650px) {
+  .header-quick-settings .header-settings-panel {
+    left: auto;
+    right: 8px;
+    width: min(300px, calc(100vw - 16px));
+  }
+}
+@media (pointer: coarse) {
+  .header-settings-link,
+  .header-quick-settings .io-setup-link,
+  .header-quick-settings .midi-profile-guide { min-height: 48px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .header-quick-settings .header-settings-icon { transition: none; }
+}

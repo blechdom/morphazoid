@@ -1,5 +1,12 @@
 # Morphazoid
 
+**[Audio & MIDI Setup](settings.html)** checks individual stereo/surround
+channels, mono/stereo mic or line-input levels and software gain, and MIDI connections with an
+original retro-style “MIDI received” voice. Find it in an instrument's Settings
+gear or below the catalogue. Audio, microphone and MIDI start off.
+The delay effects share its input-device and mono/stereo selection.
+[Device support and safety notes](docs/io-settings.md).
+
 **[3D Graph](graph-3d.html)** places Graph Synth's directed note paths in a
 rotatable three-dimensional space, with 30 continuous-tuning presets and
 independent source → timing/pitch/timbre/stereo assignments. Dragged nodes stay

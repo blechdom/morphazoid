@@ -27,6 +27,7 @@ export class SignalsmithGenerationMixerDSP {
     historySeconds = 30,
     maxInputs = 4,
     maxVoices = 48,
+    channels = 1,
   } = {}) {
     this.sampleRate = clamp(sampleRate, 8_000, 192_000, DEFAULT_SAMPLE_RATE);
     this.maxInputs = Math.max(
@@ -40,6 +41,8 @@ export class SignalsmithGenerationMixerDSP {
       { length: this.maxInputs },
       () => new Float32Array(this.historyLength),
     );
+    this.rightHistories = channels === 2
+      ? Array.from({ length: this.maxInputs }, () => new Float32Array(this.historyLength)) : null;
     this.writeIndex = 0;
     this.recordedSamples = 0;
     this.voices = new Map();
@@ -115,7 +118,7 @@ export class SignalsmithGenerationMixerDSP {
     this.activeTargetCount = source.length;
   }
 
-  read(sourceIndex, delaySeconds, writePosition) {
+  read(sourceIndex, delaySeconds, writePosition, rightChannel = false) {
     const delaySamples = Math.max(1, delaySeconds * this.sampleRate);
     if (this.recordedSamples < Math.ceil(delaySamples) + 2) return 0;
     const position = writePosition - delaySamples;
@@ -123,16 +126,18 @@ export class SignalsmithGenerationMixerDSP {
     const fraction = position - floor;
     const left = ((floor % this.historyLength) + this.historyLength) % this.historyLength;
     const right = (left + 1) % this.historyLength;
-    const history = this.histories[sourceIndex] ?? this.histories[0];
+    const histories = rightChannel && this.rightHistories ? this.rightHistories : this.histories;
+    const history = histories[sourceIndex] ?? histories[0];
     return history[left] * (1 - fraction) + history[right] * fraction;
   }
 
-  process(inputs, outputLeft, outputRight) {
+  process(inputs, outputLeft, outputRight, rightInputs = null) {
     const gainSmoothing = 1 - Math.exp(-1 / (this.sampleRate * 0.02));
     const panSmoothing = 1 - Math.exp(-1 / (this.sampleRate * 0.03));
     for (let frame = 0; frame < outputLeft.length; frame += 1) {
       for (let input = 0; input < this.maxInputs; input += 1) {
         this.histories[input][this.writeIndex] = inputs[input]?.[frame] ?? 0;
+        if (this.rightHistories) this.rightHistories[input][this.writeIndex] = rightInputs?.[input]?.[frame] ?? inputs[input]?.[frame] ?? 0;
       }
       const writePosition = this.writeIndex;
       this.writeIndex = (this.writeIndex + 1) % this.historyLength;
@@ -150,6 +155,9 @@ export class SignalsmithGenerationMixerDSP {
           writePosition,
         );
         let sample = fromSample;
+        let rightSample = this.rightHistories
+          ? this.read(fromSource, voice.delayValues[voice.delayFrom], writePosition, true)
+          : fromSample;
         if (voice.delayFade < 1) {
           const toSample = this.read(
             voice.target.sourceIndex,
@@ -159,6 +167,10 @@ export class SignalsmithGenerationMixerDSP {
           const mix = Math.min(1, voice.delayFade);
           sample = fromSample * Math.cos(mix * Math.PI * 0.5)
             + toSample * Math.sin(mix * Math.PI * 0.5);
+          rightSample = this.rightHistories
+            ? rightSample * Math.cos(mix * Math.PI * 0.5)
+              + this.read(voice.target.sourceIndex, voice.delayValues[voice.delayTo], writePosition, true) * Math.sin(mix * Math.PI * 0.5)
+            : sample;
           voice.delayFade = Math.min(1, voice.delayFade + 1 / (this.sampleRate * 0.065));
           if (voice.delayFade >= 1) {
             voice.delayFrom = voice.delayTo;
@@ -166,7 +178,7 @@ export class SignalsmithGenerationMixerDSP {
           }
         }
         left += sample * voice.gain * Math.sqrt((1 - voice.pan) * 0.5);
-        right += sample * voice.gain * Math.sqrt((1 + voice.pan) * 0.5);
+        right += rightSample * voice.gain * Math.sqrt((1 + voice.pan) * 0.5);
       }
       outputLeft[frame] = clamp(left, -1, 1, 0);
       outputRight[frame] = clamp(right, -1, 1, 0);

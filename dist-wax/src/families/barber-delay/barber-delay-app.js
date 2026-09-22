@@ -11,6 +11,7 @@ import {
   sandySyrupTargetRate,
   sanitizeBarberDelayParams,
 } from "./barber-delay.js";
+import { audioInputDescription } from "../../audio-input-settings.js";
 
 const $ = (id) => document.getElementById(id);
 const TAU = Math.PI * 2;
@@ -243,12 +244,12 @@ function updateInterface({ drawNow = true } = {}) {
     ? `${Math.round(settings.blend * 100)}% syrup · ${Math.round(settings.dryWet * 100)}% wet`
     : `${Math.round(settings.feedback * 100)}% feedback · ${Math.round(settings.dryWet * 100)}% wet`;
   $("sourceSummary").textContent = state.source === "microphone"
-    ? "microphone · headphones"
+    ? audioInputDescription(audio.mediaStream)
     : state.fileLabel
       ? `file · ${state.loopFile ? "loop" : "once"}`
       : "file · choose audio";
   $("sourceNote").textContent = state.source === "microphone"
-    ? "Switch Audio on to allow microphone access. Use headphones—speaker-to-microphone feedback can become loud even with the internal loop bounded."
+    ? "Switch Audio on to allow microphone access (also used for line / interface input). Choose the device and mono/stereo in I/O setup. Use headphones when using a mic."
     : "Pick a local file, then switch Audio on. The file stays in this browser.";
   $("fileControls").hidden = state.source !== "file";
   $("fileName").textContent = state.fileLabel ?? "Choose local audio…";

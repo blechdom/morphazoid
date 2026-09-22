@@ -1,5 +1,14 @@
 # Third-party notices
 
+## I/O setup synthesized voice
+
+The original `assets/audio/midi-received.wav` announcement was generated with
+the separate eSpeak NG development tool and processed into a retro-style
+sample. It does not contain Apple or Macintosh system recordings. No eSpeak
+runtime code or voice data is distributed with this site. See
+`assets/audio/CREDITS.md` and `scripts/generate-midi-received.py` for provenance
+and regeneration.
+
 ## Roach Synth cockroach scan
 
 Roach Synth adapts **Cockroach (3D photogrammetry scan)** by

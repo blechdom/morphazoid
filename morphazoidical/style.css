@@ -486,6 +486,31 @@ canvas:focus-visible,
   outline-offset: 2px;
 }
 
+/* Keep the isolated workbench's no-presentation-import contract. */
+.session-state .header-settings-links { display: grid; padding: 5px 0; }
+.session-state .header-settings-link {
+  display: flex;
+  min-height: 44px;
+  padding: 10px 8px;
+  align-items: center;
+  justify-content: space-between;
+  color: var(--ink);
+  font: 12px/1.4 var(--mono);
+  text-decoration: none;
+}
+.session-state .header-settings-link::after { content: "→"; color: var(--muted); }
+.session-state .header-settings-link:hover { color: var(--mint); background: var(--panel-high); }
+.session-state .header-settings-link:focus-visible { outline: 2px solid var(--mint); outline-offset: -2px; }
+.session-state .header-settings-controls { min-width: 0; }
+.session-state .io-setup-link { font-size: 12px; text-transform: none; letter-spacing: normal; }
+@media (pointer: coarse) {
+  .session-state .header-settings-link,
+  .session-state .io-setup-link { min-height: 48px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .session-state .header-settings-icon { transition: none; }
+}
+
 .status-pill {
   display: inline-flex;
   align-items: center;

@@ -15,6 +15,7 @@ import {
 } from "./graph-delay.js?v=20260726-edge-switches";
 import { unlockAudioContext } from "../../audio.js";
 import { connectAudioOutput } from "../../audio-output-manager.js";
+import { audioInputConstraints, configureAudioInputNode, loadAudioInputSettings, audioInputDescription } from "../../audio-input-settings.js";
 import { canvasSizing } from "../../graphics/canvas-sizing.js";
 
 const $ = (id) => document.getElementById(id);
@@ -583,13 +584,14 @@ function buildAudioGraphNodes(
     const node = own(new AudioWorkletNode(audio, "morphazoid-graph-turns", {
       numberOfInputs: routing.sources.length,
       numberOfOutputs: routing.outputs.length,
-      outputChannelCount: Array(routing.outputs.length).fill(1),
-      channelCount: 1,
+      outputChannelCount: Array(routing.outputs.length).fill(loadAudioInputSettings().inputChannels),
+      channelCount: loadAudioInputSettings().inputChannels,
       channelCountMode: "explicit",
       processorOptions: {
         sourceCount: routing.sources.length,
         outputCount: routing.outputs.length,
         phaseSeed: spec.id,
+        channels: loadAudioInputSettings().inputChannels,
       },
     }));
     routing.sources.forEach((source, sourceIndex) => {
@@ -768,6 +770,7 @@ function resetEdgeSwitchesForNextGraph() {
 function connectMicrophoneToGraph(target = audioGraph) {
   if (!microphoneSource || !target || !audioContext) return;
   const trim = audioContext.createGain();
+  configureAudioInputNode(trim);
   trim.gain.value = state.inputTrim;
   target.disconnectables.push(trim);
   (inputAnalyser ?? microphoneSource).connect(trim).connect(target.input);
@@ -998,13 +1001,7 @@ async function startMicrophone() {
     await audioContext.resume();
     await preparePitchProcessor(audioContext);
     if (!audioGraph) audioGraph = buildAudioGraph(audioContext);
-    const requestedStream = await navigator.mediaDevices.getUserMedia({
-      audio: {
-        echoCancellation: { ideal: false },
-        noiseSuppression: { ideal: false },
-        autoGainControl: { ideal: false },
-      },
-    });
+    const requestedStream = await navigator.mediaDevices.getUserMedia(audioInputConstraints());
     if (
       startToken !== microphoneStartToken
       || !audioContext
@@ -1662,8 +1659,8 @@ function updateUi() {
   $("stopButton").disabled = !state.mic && !state.starting;
   $("panicButton").disabled = !state.mic && !state.starting;
   $("micButtonLabel").textContent = state.mic ? "Input live" : state.starting ? "Starting…" : "Start input";
-  $("micButtonHint").textContent = state.mic ? "microphone → graph → output" : "allow microphone access";
-  $("listenSummary").textContent = `microphone ${audioLabel}`;
+  $("micButtonHint").textContent = state.mic ? audioInputDescription(mediaStream) : "mic / line input · choose in I/O setup";
+  $("listenSummary").textContent = `audio input ${audioLabel}`;
   $("graphPatchDescription").textContent = patch?.description
     ?? "Custom graph, timing, pitch, feedback, and mix settings.";
   $("topologyDescription").textContent = preset.description;

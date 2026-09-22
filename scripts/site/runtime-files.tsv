@@ -1006,3 +1006,14 @@ copy+require	src/families/tract/throatazoid-tract-processor.js
 copy+require	src/families/tract/throatazoid.js
 copy+require	src/families/wave-lab/wave-lab-shell.js
 copy+require	src/instruments/webgpu-chiptune/webgpu-chiptune-dancers.js
+
+# Audio/MIDI setup and original voice asset.
+copy+require	settings.html
+copy+require	src/site/settings-app.js
+copy+require	src/site/styles/settings.css
+copy+require	src/site/io-settings.js
+copy+require	src/audio-input-settings.js
+copy+require	src/ui/patterns/settings-menu.css
+copy+require	assets/audio/midi-received.wav
+copy+require	assets/audio/CREDITS.md
+copy+require	docs/io-settings.md

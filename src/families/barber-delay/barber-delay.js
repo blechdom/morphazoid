@@ -1,5 +1,6 @@
 import { unlockAudioContext } from "../../audio.js";
 import { connectAudioOutput } from "../../audio-output-manager.js";
+import { audioInputConstraints, configureAudioInputNode } from "../../audio-input-settings.js";
 
 const PROCESSOR_NAME = "morphazoid-barber-delay";
 const DEFAULT_SAMPLE_RATE = 48_000;
@@ -1142,6 +1143,7 @@ export class BarberDelayAudio {
     this.mediaElementNodes = new WeakMap();
     this.enabled = false;
     this.suspendTimer = null;
+    this.sourceGeneration = 0;
   }
 
   get isInitialized() {
@@ -1243,7 +1245,7 @@ export class BarberDelayAudio {
     this.sourceKind = null;
   }
 
-  async connectSource(source) {
+  async connectSource(source, generation = this.sourceGeneration) {
     if (source?.kind === "microphone") {
       const getUserMedia = (
         this.runtime.navigator?.mediaDevices?.getUserMedia
@@ -1251,14 +1253,15 @@ export class BarberDelayAudio {
       if (typeof getUserMedia !== "function") {
         throw new Error("Microphone input is not available in this browser.");
       }
-      const stream = await getUserMedia({
-        audio: {
-          autoGainControl: false,
-          echoCancellation: false,
-          noiseSuppression: false,
-        },
-      });
+      const stream = await getUserMedia(audioInputConstraints(this.runtime));
+      if (generation !== this.sourceGeneration || !this.context || this.context.state === "closed") {
+        for (const track of stream.getTracks?.() ?? []) track.stop();
+        const error = new Error("Audio input start cancelled.");
+        error.name = "AbortError";
+        throw error;
+      }
       this.mediaStream = stream;
+      configureAudioInputNode(this.node, this.runtime);
       const sourceNode = this.context.createMediaStreamSource(stream);
       sourceNode.connect(this.node);
       this.sourceNode = sourceNode;
@@ -1267,6 +1270,7 @@ export class BarberDelayAudio {
     }
 
     if (source?.kind === "file" && source.element) {
+      configureAudioInputNode(this.node, this.runtime, { inputChannels: 2 });
       const element = source.element;
       let sourceNode = this.mediaElementNodes.get(element);
       if (!sourceNode) {
@@ -1285,14 +1289,17 @@ export class BarberDelayAudio {
   }
 
   async start(source) {
+    const generation = ++this.sourceGeneration;
     await this.initialize();
+    if (generation !== this.sourceGeneration) return;
     this.clearSuspendTimer();
     this.releaseSource();
     this.enabled = false;
     await this.context.resume();
 
     try {
-      await this.connectSource(source);
+      await this.connectSource(source, generation);
+      if (generation !== this.sourceGeneration) return;
       const now = this.context.currentTime;
       this.node.port.postMessage({ type: "reset" });
       this.node.port.postMessage({ type: "active", value: true });
@@ -1301,6 +1308,7 @@ export class BarberDelayAudio {
       this.master.gain.linearRampToValueAtTime(1, now + 0.035);
       this.enabled = true;
     } catch (error) {
+      if (generation !== this.sourceGeneration) return;
       this.releaseSource();
       this.node.port.postMessage({ type: "active", value: false });
       this.master.gain.value = 0;
@@ -1340,6 +1348,7 @@ export class BarberDelayAudio {
   }
 
   async stop() {
+    this.sourceGeneration++;
     this.clearSuspendTimer();
     this.releaseSource();
     if (!this.isInitialized) {
@@ -1361,6 +1370,7 @@ export class BarberDelayAudio {
   }
 
   async close() {
+    this.sourceGeneration++;
     this.clearSuspendTimer();
     this.releaseSource();
     this.enabled = false;

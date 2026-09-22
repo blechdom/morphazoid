@@ -30,8 +30,9 @@ export function createProtoShell({
     if (!audioButton) return;
     audioButton.disabled = false;
     audioButton.setAttribute("aria-pressed", String(state.armed));
-    audioButton.textContent = state.armed ? "Audio on" : "Audio off";
-    audioButton.dataset.audioState = state.armed ? "on" : "off";
+    // nav.js inserts the shared speaker icon and owns the button's accessible
+    // name from aria-pressed. Writing textContent here would delete that icon,
+    // so this only reports state.
   }
 
   function paintPlay() {

@@ -41,6 +41,7 @@ class MorphazoidGraphTurnProcessor extends AudioWorkletProcessor {
     this.sourceCount = Math.min(32, Math.max(1, Math.round(processorOptions.sourceCount ?? 1)));
     this.outputCount = Math.min(32, Math.max(1, Math.round(processorOptions.outputCount ?? 1)));
     this.routeCount = this.sourceCount * this.outputCount;
+    this.channels = processorOptions.channels === 2 ? 2 : 1;
     const requestedSampleRate = Number(globalThis.sampleRate);
     this.sampleRate = Number.isFinite(requestedSampleRate)
       ? clamp(requestedSampleRate, 8_000, 192_000)
@@ -60,6 +61,8 @@ class MorphazoidGraphTurnProcessor extends AudioWorkletProcessor {
       () => new Float32Array(this.bufferSize),
     );
     this.writeIndices = new Uint32Array(this.sourceCount);
+    this.rightBuffers = this.channels === 2
+      ? Array.from({ length: this.sourceCount }, () => new Float32Array(this.bufferSize)) : null;
     this.phases = new Float32Array(this.routeCount);
     this.currentSemitones = new Float32Array(this.routeCount);
     this.targetSemitones = new Float32Array(this.routeCount);
@@ -70,6 +73,7 @@ class MorphazoidGraphTurnProcessor extends AudioWorkletProcessor {
     this.shiftMixDeltas = new Float32Array(this.routeCount);
     this.endShiftMixes = new Float32Array(this.routeCount);
     this.samples = new Float32Array(this.sourceCount);
+    this.rightSamples = new Float32Array(this.sourceCount);
     for (let route = 0; route < this.routeCount; route += 1) {
       this.phases[route] = routePhase(processorOptions.phaseSeed, route);
     }
@@ -89,8 +93,8 @@ class MorphazoidGraphTurnProcessor extends AudioWorkletProcessor {
     };
   }
 
-  read(source, delaySamples) {
-    const buffer = this.buffers[source];
+  read(source, delaySamples, right = false) {
+    const buffer = right && this.rightBuffers ? this.rightBuffers[source] : this.buffers[source];
     const position = this.writeIndices[source] - delaySamples;
     const floor = Math.floor(position);
     const before = floor & this.bufferMask;
@@ -99,7 +103,7 @@ class MorphazoidGraphTurnProcessor extends AudioWorkletProcessor {
     return buffer[before] + (buffer[after] - buffer[before]) * mix;
   }
 
-  shiftedSample(source, route) {
+  shiftedSample(source, route, right = false) {
     const ratio = this.ratios[route];
     const phase = this.phases[route];
     const alternate = (phase + 0.5) % 1;
@@ -107,11 +111,8 @@ class MorphazoidGraphTurnProcessor extends AudioWorkletProcessor {
     const secondDelay = (ratio > 1 ? 1 - alternate : alternate) * this.windowSamples + 4;
     const firstWindow = WINDOW[Math.floor(phase * WINDOW_SIZE) % WINDOW_SIZE];
     const secondWindow = WINDOW[Math.floor(alternate * WINDOW_SIZE) % WINDOW_SIZE];
-    this.phases[route] = (
-      phase + Math.abs(1 - ratio) / this.windowSamples
-    ) % 1;
-    return this.read(source, firstDelay) * firstWindow
-      + this.read(source, secondDelay) * secondWindow;
+    return this.read(source, firstDelay, right) * firstWindow
+      + this.read(source, secondDelay, right) * secondWindow;
   }
 
   process(inputs, outputs) {
@@ -138,36 +139,49 @@ class MorphazoidGraphTurnProcessor extends AudioWorkletProcessor {
       this.endShiftMixes[route] = endShiftMix;
       this.shiftMixDeltas[route] = (endShiftMix - this.shiftMixes[route]) / frameCount;
     }
-    for (const output of outputs) output[0]?.fill(0);
+    for (const output of outputs) for (const channel of output) channel.fill(0);
     for (let frame = 0; frame < frameCount; frame += 1) {
       for (let source = 0; source < this.sourceCount; source += 1) {
         const sample = inputs[source]?.[0]?.[frame] ?? 0;
         this.samples[source] = sample;
         this.buffers[source][this.writeIndices[source]] = sample;
+        if (this.rightBuffers) {
+          const right = inputs[source]?.[1]?.[frame] ?? sample;
+          this.rightSamples[source] = right;
+          this.rightBuffers[source][this.writeIndices[source]] = right;
+        }
         this.writeIndices[source] = (this.writeIndices[source] + 1) & this.bufferMask;
       }
       for (let output = 0; output < this.outputCount; output += 1) {
         const channel = outputs[output]?.[0];
         if (!channel) continue;
         let mixed = 0;
+        let mixedRight = 0;
         for (let source = 0; source < this.sourceCount; source += 1) {
           const route = source * this.outputCount + output;
           const shiftMix = this.shiftMixes[route];
           if (shiftMix <= 0.0001) {
             mixed += this.samples[source];
+            mixedRight += this.rightSamples[source];
           } else {
             const shifted = this.shiftedSample(source, route);
+            const shiftedRight = this.rightBuffers ? this.shiftedSample(source, route, true) : 0;
             if (shiftMix >= 0.9999) {
               mixed += shifted;
+              mixedRight += shiftedRight;
             } else {
               mixed += this.samples[source] * Math.cos(shiftMix * Math.PI * 0.5)
                 + shifted * Math.sin(shiftMix * Math.PI * 0.5);
+              mixedRight += this.rightSamples[source] * Math.cos(shiftMix * Math.PI * 0.5)
+                + shiftedRight * Math.sin(shiftMix * Math.PI * 0.5);
             }
+            this.phases[route] = (this.phases[route] + Math.abs(1 - this.ratios[route]) / this.windowSamples) % 1;
           }
           this.ratios[route] += this.ratioDeltas[route];
           this.shiftMixes[route] += this.shiftMixDeltas[route];
         }
         channel[frame] = mixed * this.mixScale;
+        if (outputs[output]?.[1]) outputs[output][1][frame] = mixedRight * this.mixScale;
       }
     }
     this.ratios.set(this.endRatios);

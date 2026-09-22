@@ -11,6 +11,8 @@ import {
   initializeAudioTransportContract,
   initializeMidiToolbars,
   initializeSharedNavigation,
+  createHeaderSettingsMenu,
+  initializeSettingsMenus,
   normalizeNavigationPath,
   normalizeAudioButtonIcons,
   nextPickerTool,
@@ -1076,7 +1078,7 @@ test("one header MIDI control owns connection and controller profile selection",
     settingsSummary.getAttribute("aria-label"),
     "Morphazoid Settings",
   );
-  assert.equal(settingsSummary.getAttribute("title"), "Morphazoid Settings");
+  assert.equal(settingsSummary.getAttribute("title"), "Audio & MIDI settings");
   assert.equal(settingsSummary.children.length, 1);
   assert.equal(settingsSummary.children[0].className, "header-settings-icon");
   assert.equal(control.details.getAttribute("role"), null, "settings is a disclosure, not an ARIA menu");
@@ -1084,7 +1086,7 @@ test("one header MIDI control owns connection and controller profile selection",
     (node) => node.className === "header-settings-heading",
   )[0];
   assert.equal(settingsHeading.children.length, 1);
-  assert.equal(settingsHeading.children[0].textContent, "Morphazoid Settings");
+  assert.equal(settingsHeading.children[0].textContent, "Audio & MIDI");
   const settingsRows = control.details.findAll(
     (node) => node.classList.contains("header-settings-section"),
   );
@@ -1136,10 +1138,21 @@ test("one header MIDI control owns connection and controller profile selection",
   const guide = control.details.findAll((node) => node.className === "midi-profile-guide")[0];
   assert.equal(guide.textContent, "MIDI & WAX Plugin Guide");
   assert.match(guide.getAttribute("href"), /midi-guide\.html$/);
+  const setup = control.details.findAll((node) => node.classList.contains("io-setup-link"))[0];
+  assert.equal(setup.textContent, "Full I/O setup ↗");
+  assert.match(setup.getAttribute("href"), /settings\.html$/);
+  assert.equal(setup.getAttribute("target"), "_blank");
+  assert.equal(setup.getAttribute("rel"), "noopener");
+  assert.equal(setup.getAttribute("aria-label"), "Full I/O setup (opens in a new tab)");
+  const quickLinks = control.details.querySelector(".header-settings-links");
+  const routing = control.details.querySelector(".header-settings-controls");
+  assert.equal(quickLinks, null, "instrument settings do not require navigating away");
+  assert.equal(routing.tagName, "DIV", "controls are directly available, not in another disclosure");
+  assert.deepEqual(routing.children, settingsRows);
   assert.deepEqual(
     settingsHeading.parentNode.children.filter((node) => node.hidden !== true),
-    [settingsHeading, ...settingsRows, guide],
-    "the normal Settings view contains only its heading, five rows, and guide",
+    [settingsHeading, routing, guide, setup],
+    "the gear shows editable settings with full setup as its final link",
   );
   assert.equal(control.audioInputSelect.disabled, true);
   assert.equal(control.audioInputSelect.children[0].textContent, "Not used");
@@ -1183,7 +1196,7 @@ test("one header MIDI control owns connection and controller profile selection",
   unregisterClient();
   assert.equal(control.toolbar.hidden, true);
   assert.equal(control.meterShell.hidden, true);
-  assert.equal(control.details.hidden, true);
+  assert.equal(control.details.hidden, false, "I/O setup remains available even without a MIDI client");
   assert.equal(masthead.classList.contains("has-midi-toolbar"), false);
   control.destroy();
 });
@@ -1424,7 +1437,7 @@ test("header settings meter and browser output chooser report real shared output
   );
 
   control.details.open = true;
-  await control.details.listeners.get("toggle")[0]();
+  for (const listener of control.details.listeners.get("toggle")) await listener();
   assert.equal(refreshed, 1);
   assert.deepEqual(
     control.audioOutputSelect.children.map((option) => [option.value, option.textContent]),
@@ -1962,4 +1975,68 @@ test("storage accessors cannot abort navigation setup or reset", () => {
   assert.doesNotThrow(() => initializeSharedNavigation(doc, runtime));
   assert.doesNotThrow(() => listeners.get("click")());
   assert.equal(reloads, 1);
+});
+
+test("gear flyout supports hover, pinning, keyboard dismissal and listener cleanup", () => {
+  const doc = new FakeDocument();
+  const timers = new Map();
+  let timerId = 0;
+  const runtime = {
+    matchMedia: () => ({ matches: true }),
+    setTimeout(callback) { const id = ++timerId; timers.set(id, callback); return id; },
+    clearTimeout(id) { timers.delete(id); },
+  };
+  const menu = createHeaderSettingsMenu(doc, runtime);
+  assert.equal(menu.summary.getAttribute("aria-expanded"), "false");
+  menu.details.dispatch("pointerenter", { pointerType: "touch" });
+  assert.equal(menu.details.open, false, "touch does not get a hover-open menu");
+  menu.details.dispatch("pointerenter", { pointerType: "mouse" });
+  assert.equal(menu.details.open, true);
+  assert.equal(menu.summary.getAttribute("aria-expanded"), "true");
+  menu.details.dispatch("pointerleave");
+  assert.equal(timers.size, 1);
+  menu.panel.dispatch("pointerenter", { pointerType: "mouse" });
+  assert.equal(timers.size, 0, "moving into the flyout keeps it open");
+  let prevented = false;
+  menu.summary.dispatch("click", { preventDefault() { prevented = true; } });
+  assert.equal(prevented, true, "click pins an already hover-open menu");
+  menu.details.dispatch("pointerleave");
+  assert.equal(timers.size, 0);
+  doc.dispatch("pointerdown", { target: doc.panel });
+  assert.equal(menu.details.open, false);
+  doc.dispatch("keydown", { key: "ArrowDown", target: menu.summary, preventDefault() {} });
+  assert.equal(menu.details.open, true);
+  assert.equal(menu.links.children[0].focused, true);
+  doc.dispatch("keydown", { key: "Escape", preventDefault() {}, stopPropagation() {} });
+  assert.equal(menu.details.open, false);
+  assert.equal(menu.summary.focused, true);
+  assert.equal(menu.summary.getAttribute("aria-expanded"), "false");
+  menu.details.dispatch("pointerenter", { pointerType: "mouse" });
+  menu.details.dispatch("pointerleave");
+  const callback = [...timers.values()][0];
+  timers.clear();
+  callback();
+  assert.equal(menu.details.open, false);
+  menu.destroy();
+  menu.destroy();
+  assert.equal(timers.size, 0);
+  assert.equal(doc.listeners.get("pointerdown").length, 0);
+  assert.equal(doc.listeners.get("keydown").length, 0);
+  assert.equal(menu.details.listeners.get("pointerenter").length, 0);
+});
+
+test("catalogue/info headers get one standalone gear without MIDI activation", () => {
+  const doc = new FakeDocument();
+  const header = new FakeNode("header");
+  header.className = "masthead";
+  const originalQuery = doc.querySelectorAll.bind(doc);
+  doc.querySelectorAll = (selector) => selector === ".masthead" ? [header] : originalQuery(selector);
+  const menus = initializeSettingsMenus(doc, {});
+  assert.equal(menus.length, 1);
+  assert.equal(header.children.at(-1), menus[0].details);
+  assert.equal(menus[0].details.classList.contains("header-settings-standalone"), true);
+  assert.equal(initializeSettingsMenus(doc, {}).length, 0);
+  assert.deepEqual(menus[0].links.children.map((link) => link.textContent), ["Speakers", "Audio input", "MIDI"]);
+  assert.equal(header.querySelector(".midi-toolbar"), null);
+  menus[0].destroy();
 });

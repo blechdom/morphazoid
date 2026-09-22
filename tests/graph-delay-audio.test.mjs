@@ -385,7 +385,9 @@ test("Graph Delay falls back from a failed Worklet and updates non-structural st
   assert.ok(audio.audioGraph.routers.some((router) => router.gains?.length));
   assert.equal(created.mediaRequests.length, 1);
   assert.deepEqual(created.mediaRequests[0], {
+    video: false,
     audio: {
+      channelCount: { ideal: 1 },
       echoCancellation: { ideal: false },
       noiseSuppression: { ideal: false },
       autoGainControl: { ideal: false },

@@ -11,6 +11,7 @@ import { readRuntimeManifest } from "../scripts/site/runtime-manifest.mjs";
 const root = fileURLToPath(new URL("../", import.meta.url));
 const plan = JSON.parse(await readFile(new URL("../docs/source-module-layout.json", import.meta.url)));
 const proof = JSON.parse(await readFile(new URL("fixtures/module-hierarchy-runtime.json", import.meta.url)));
+const ioChanges = JSON.parse(await readFile(new URL("../docs/io-settings-runtime-changes.json", import.meta.url))).changes;
 const inverse = Object.fromEntries(Object.entries(plan.moves).map(([before, after]) => [after, before]));
 const sha = value => createHash("sha256").update(value).digest("hex");
 
@@ -26,14 +27,24 @@ test("all relocated instrument modules have one owner and explicit release inclu
   for (const file of plan.retainedSharedModules) assert.ok((await stat(path.join(root, file))).isFile(), file);
 });
 
-test("runtime modules reverse exactly apart from the reviewed Shepard selector and Spider asset-base/download fixes", async () => {
+test("runtime modules reverse exactly after explicit runtime fixes and reviewed stereo-input additions", async () => {
   assert.deepEqual(plan.reviewedRuntimeFixes.map(fix => fix.file), [
     "src/instruments/shepard-risset/shepard-risset-app.js",
     "src/instruments/spider-synth/spider-synth-app.js",
     "src/instruments/spider-synth/spider-synth-viewer.js",
+    "src/families/proto-graph/proto-shell.js",
   ]);
   for (const record of proof.files) {
     let current = await readFile(path.join(root, record.after), "utf8");
+    // Keep the relocation baseline frozen. Reverse only the exact, separately
+    // documented feature edits, whose behavior has focused DSP/browser tests.
+    for (const change of ioChanges.filter(change => change.file === record.after)) {
+      for (const testFile of change.regressionTests) assert.ok(existsSync(path.join(root, testFile)), testFile);
+      for (const replacement of [...change.replacements].reverse()) {
+        assert.equal(current.split(replacement.after).length - 1, 1, `exactly one reviewed I/O edit: ${change.file}`);
+        current = current.replace(replacement.after, replacement.before);
+      }
+    }
     for (const fix of plan.reviewedRuntimeFixes.filter(fix => fix.file === record.after)) {
       assert.equal(current.split(fix.after).length - 1, 1, `exactly one reviewed fix: ${fix.file}`);
       assert.ok(existsSync(path.join(root, fix.regressionTest)), fix.regressionTest);
@@ -41,6 +52,16 @@ test("runtime modules reverse exactly apart from the reviewed Shepard selector a
     }
     const restored = rewriteRepositoryPaths(rewriteModulePaths(current, record.after, inverse), inverse);
     assert.equal(sha(restored), record.sha256, record.after);
+  }
+});
+
+test("stereo-input amendments identify existing modules and focused regression evidence", () => {
+  assert.equal(new Set(ioChanges.map(change => change.file)).size, ioChanges.length);
+  for (const change of ioChanges) {
+    assert.ok(proof.files.some(record => record.after === change.file), change.file);
+    assert.match(change.reason, /stereo/);
+    assert.ok(change.replacements.length > 0, change.file);
+    assert.deepEqual(change.regressionTests, ["tests/stereo-audio-input.test.mjs", "e2e/io-settings.spec.mjs"]);
   }
 });
 

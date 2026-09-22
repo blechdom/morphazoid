@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 import { L_SYSTEM_PRESETS } from "../src/instruments/l-system/l-system.js";
+import { audioInputConstraints } from "../src/audio-input-settings.js";
 
 const root = new URL("../", import.meta.url);
 
@@ -198,7 +199,9 @@ test("L-system Delay exposes live recursion, current settings, safety, and an ec
   assert.match(html, /id="generationPitchScaleOut"[^>]*>100% \/ 180°<\/output>/);
 
   assert.match(app, /getUserMedia/);
-  assert.match(app, /echoCancellation:\s*\{ ideal: false \}/);
+  assert.match(app, /getUserMedia\(audioInputConstraints\(\)\)/);
+  assert.deepEqual(audioInputConstraints({}).audio.echoCancellation, { ideal: false });
+  assert.deepEqual(audioInputConstraints({}, { echoCancellation: true }).audio.echoCancellation, { ideal: true });
   assert.match(app, /createDelay\(6\)/);
   assert.match(app, /micmic-generation-processor/);
   assert.match(app, /generationVoiceSpecs/);

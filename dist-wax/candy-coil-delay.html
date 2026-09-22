@@ -117,7 +117,7 @@
           <div class="group-body">
             <span class="field-label">Input</span>
             <div class="choice-switch" id="sourceChoice" role="group" aria-label="Audio source" aria-describedby="sourceNote">
-              <button id="sourceMic" type="button" data-source="microphone" aria-pressed="true">Mic</button>
+              <button id="sourceMic" type="button" data-source="microphone" aria-pressed="true">Mic / Line</button>
               <button id="sourceFile" type="button" data-source="file" aria-pressed="false">File</button>
             </div>
 
@@ -138,6 +138,7 @@
               </button>
             </div>
             <audio id="fileAudio" loop preload="metadata"></audio>
+            <p class="barber-delay-note"><a href="settings.html">Mic / stereo line input setup →</a> Select your interface and mono/stereo capture. File playback keeps its original stereo.</p>
             <p class="barber-delay-note" id="sourceNote">
               Switch Audio on to allow microphone access. Use headphones—speaker-to-microphone feedback can become loud even with the internal loop bounded.
             </p>

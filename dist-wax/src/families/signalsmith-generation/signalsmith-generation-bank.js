@@ -17,7 +17,7 @@ function pitchKey(semitones) {
   return Math.abs(semitones) < 0.005 ? "0" : semitones.toFixed(2);
 }
 
-async function defaultMixerFactory(context, { maxInputs, maxVoices, historySeconds }) {
+async function defaultMixerFactory(context, { maxInputs, maxVoices, historySeconds, channels }) {
   const WorkletNode = globalThis.AudioWorkletNode;
   if (!context.audioWorklet?.addModule || !WorkletNode) {
     throw new Error("The bounded generation mixer requires AudioWorklet.");
@@ -29,7 +29,9 @@ async function defaultMixerFactory(context, { maxInputs, maxVoices, historySecon
     numberOfInputs: maxInputs,
     numberOfOutputs: 1,
     outputChannelCount: [2],
-    processorOptions: { maxInputs, maxVoices, historySeconds },
+    channelCount: channels,
+    channelCountMode: "explicit",
+    processorOptions: { maxInputs, maxVoices, historySeconds, channels },
   });
 }
 
@@ -47,6 +49,7 @@ export class SignalsmithGenerationBank {
     mixerFactory = defaultMixerFactory,
     onRenderLoad = null,
     onPitchDetail = null,
+    channels = 1,
   } = {}) {
     this.context = context;
     this.input = input;
@@ -59,6 +62,7 @@ export class SignalsmithGenerationBank {
     ));
     this.maxVoices = Math.max(1, Math.min(1024, Math.round(maxVoices)));
     this.historySeconds = clamp(historySeconds, 4, 40, 30);
+    this.channels = channels === 2 ? 2 : 1;
     this.stretchFactory = stretchFactory;
     this.mixerFactory = mixerFactory;
     this.onRenderLoad = typeof onRenderLoad === "function" ? onRenderLoad : null;
@@ -91,6 +95,7 @@ export class SignalsmithGenerationBank {
       maxInputs,
       maxVoices: this.maxVoices,
       historySeconds: this.historySeconds,
+      channels: this.channels,
     });
     this.input.connect(this.mixer, 0, 0);
     this.mixer.connect(this.output);
@@ -113,7 +118,9 @@ export class SignalsmithGenerationBank {
       const node = await this.stretchFactory(this.context, {
         numberOfInputs: 1,
         numberOfOutputs: 1,
-        outputChannelCount: [1],
+        outputChannelCount: [this.channels],
+        channelCount: this.channels,
+        channelCountMode: "explicit",
       });
       const slot = {
         node,

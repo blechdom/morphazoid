@@ -1,0 +1,219 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <script src="wax/wax-host-bootstrap.js" data-morphazoid-wax-bootstrap></script>
+    <!-- morphazoid-social-preview:start -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Morphazoid" />
+    <meta property="og:title" content="Audio &amp; MIDI Setup — Morphazoid" />
+    <meta property="og:description" content="A quick check for your speakers, mic or stereo line input, and MIDI connections." />
+    <meta property="og:url" content="https://morphazoid.com/settings.html" />
+    <meta property="og:image" content="https://morphazoid.com/assets/social/morphazoid-card-20260917.png" />
+    <meta property="og:image:secure_url" content="https://morphazoid.com/assets/social/morphazoid-card-20260917.png" />
+    <meta property="og:image:type" content="image/png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="Morphazoid geometric wireframe logo on a dark background." />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Audio &amp; MIDI Setup — Morphazoid" />
+    <meta name="twitter:description" content="A quick check for your speakers, mic or stereo line input, and MIDI connections." />
+    <meta name="twitter:image" content="https://morphazoid.com/assets/social/morphazoid-card-20260917.png" />
+    <meta name="twitter:image:alt" content="Morphazoid geometric wireframe logo on a dark background." />
+    <link rel="image_src" href="https://morphazoid.com/assets/social/morphazoid-card-20260917.png" />
+    <!-- morphazoid-social-preview:end -->
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#07090b" />
+    <meta name="description" content="A quick check for your speakers, mic or stereo line input, and MIDI connections." />
+    <title>Audio &amp; MIDI Setup — Morphazoid</title>
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="src/site/styles/settings.css" />
+  </head>
+  <body class="io-page">
+    <header class="masthead">
+      <a class="wordmark" href="./" aria-label="Morphazoid home">
+        <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+        <span>morphazoid</span>
+      </a>
+      <nav class="tabs" aria-label="Morphazoid main menu"></nav>
+      <label class="mobile-instrument-nav">
+        <span class="sr-only">Instrument</span>
+        <select class="mobile-instrument-select" aria-label="Instrument">
+          <option value="">choose</option>
+        </select>
+      </label>
+      <div class="io-header-actions">
+        <span id="audioState">Audio off</span>
+        <div id="audioControl"></div>
+      </div>
+    </header>
+
+    <main class="io-shell">
+      <header class="io-intro">
+        <div>
+          <p class="io-eyebrow">Settings</p>
+          <h1>Sound check.</h1>
+        </div>
+        <button type="button" id="stopAll" class="mz-button mz-button--quiet">Stop all <kbd>Esc</kbd></button>
+      </header>
+      <p id="setupStatus" class="io-status" role="status">Turn Audio on, then choose a test. Keep speaker volume low.</p>
+      <p id="setupError" class="io-error" role="alert" hidden></p>
+      <p id="hostNotice" class="io-note" hidden>In WAX, choose audio and MIDI devices in your DAW. Browser tests are disabled.</p>
+
+      <div class="io-menu">
+        <details class="io-test" id="speakerTest" name="io-test">
+          <summary class="io-test-heading">
+            <svg class="io-test-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9h4l5-4v14l-5-4H4zM17 8a6 6 0 0 1 0 8M20 5a10 10 0 0 1 0 14" /></svg>
+            <span class="io-test-title">Speakers<small>Hear a test sound</small></span>
+            <span class="io-badge" id="outputBadge">Off</span>
+          </summary>
+          <div class="io-test-body">
+            <label class="io-field">Output
+              <select id="outputDevice"><option value="">System default</option></select>
+            </label>
+            <div class="io-actions">
+              <button type="button" id="testAll" class="mz-button mz-button--primary" disabled>Play test sound</button>
+              <button type="button" id="stopTest" class="mz-button" disabled>Stop</button>
+            </div>
+            <p id="channelStatus" class="io-feedback" role="status">Turn Audio on to hear the test.</p>
+            <label class="io-range"><span>Test level</span>
+              <input id="outputLevel" type="range" min="-60" max="-12" step="1" value="-24" />
+              <output id="outputLevelValue" for="outputLevel">−24 dB</output>
+            </label>
+
+            <details class="io-options" id="speakerOptions">
+              <summary>Device &amp; surround options</summary>
+              <div class="io-options-body">
+                <button type="button" id="chooseOutput" class="mz-button">Choose / allow output device</button>
+                <p id="outputSupport" class="io-note">Checking browser capabilities…</p>
+                <div class="io-two-fields">
+                  <label class="io-field">Speaker layout
+                    <select id="speakerLayout">
+                      <option value="mono">Mono</option>
+                      <option value="stereo" selected>Stereo</option>
+                      <option value="quad">Quad · 4 channels</option>
+                      <option value="5.1">5.1 · 6 channels</option>
+                      <option value="7.1">7.1 · 8 channels</option>
+                    </select>
+                  </label>
+                  <label class="io-field">Test sound
+                    <select id="testSignal"><option value="tone">Tone</option><option value="noise">Soft noise</option></select>
+                  </label>
+                </div>
+                <p class="io-note">Test a single channel:</p>
+                <div id="speakerMap" class="io-speakers" role="group" aria-label="Individual speaker tests"></div>
+                <p id="outputInfo" class="io-note">Turn Audio on to check this device’s channel capacity.</p>
+              </div>
+            </details>
+          </div>
+        </details>
+
+        <details class="io-test" id="inputTest" name="io-test">
+          <summary class="io-test-heading">
+            <svg class="io-test-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 10v4m4-8v12m5-15v18m5-15v12m4-8v4" /></svg>
+            <span class="io-test-title">Audio input<small>Mic or stereo line in</small></span>
+            <span class="io-badge" id="inputBadge">Off</span>
+          </summary>
+          <div class="io-test-body">
+            <div class="io-input-fields">
+              <label class="io-field">Input
+                <select id="inputDevice"><option value="">System default</option></select>
+              </label>
+              <label class="io-field">Channels
+                <select id="inputChannels"><option value="1">Mono</option><option value="2">Stereo L / R</option></select>
+              </label>
+            </div>
+            <div class="io-actions">
+              <button type="button" id="micToggle" class="mz-button mz-button--primary" aria-pressed="false" disabled>Test input</button>
+            </div>
+            <p id="inputStatus" class="io-feedback" role="status">Turn Audio on, then test your input.</p>
+            <div class="io-meter-row"><label id="inputLeftLabel" for="adjustedMeter">Level</label><meter id="adjustedMeter" min="-60" max="0" low="-40" high="-6" optimum="-18" value="-60"></meter><output id="adjustedLevel">−∞ dBFS</output></div>
+            <div class="io-meter-row io-right-meter" hidden><label for="adjustedRightMeter">Right</label><meter id="adjustedRightMeter" min="-60" max="0" low="-40" high="-6" optimum="-18" value="-60"></meter><output id="adjustedRightLevel">−∞ dBFS</output></div>
+            <label class="io-range"><span>Input gain</span>
+              <input id="inputGain" type="range" min="-24" max="18" step="1" value="0" />
+              <output id="inputGainValue" for="inputGain">0 dB</output>
+            </label>
+            <p class="io-note">Speak or send audio. Nothing is recorded.</p>
+
+            <details class="io-options" id="inputOptions">
+              <summary>Monitoring &amp; input options</summary>
+              <div class="io-options-body">
+                <label class="io-check"><input id="monitorInput" type="checkbox" disabled /> Hear my input</label>
+                <p class="io-warning">Use headphones to avoid feedback. Monitoring starts off.</p>
+                <label class="io-check"><input id="echoCancellation" type="checkbox" /> Echo cancellation (restarts input)</label>
+                <button type="button" id="refreshDevices" class="mz-button">Refresh devices</button>
+                <p class="io-note">Before software gain:</p>
+                <div class="io-meter-row"><label for="rawMeter">Raw L / M</label><meter id="rawMeter" min="-60" max="0" low="-40" high="-6" optimum="-18" value="-60"></meter><output id="rawLevel">−∞ dBFS</output></div>
+                <div class="io-meter-row io-right-meter" hidden><label for="rawRightMeter">Raw R</label><meter id="rawRightMeter" min="-60" max="0" low="-40" high="-6" optimum="-18" value="-60"></meter><output id="rawRightLevel">−∞ dBFS</output></div>
+                <p class="io-note">Aim for −18 to −6 dBFS. If raw input clips, lower the hardware gain. This software gain applies to the test only.</p>
+                <p id="inputInfo" class="io-note">Device details appear when connected.</p>
+                <p class="io-note">Your input device and mono/stereo choice also apply to the delay effects on their next start.</p>
+              </div>
+            </details>
+          </div>
+        </details>
+
+        <details class="io-test" id="midiTest" name="io-test">
+          <summary class="io-test-heading">
+            <svg class="io-test-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="M7 15v.01M7 10v.01M12 7v.01M17 10v.01M17 15v.01" stroke-width="3" /></svg>
+            <span class="io-test-title">MIDI<small>Check your controller</small></span>
+            <span class="io-badge" id="midiBadge">Off</span>
+          </summary>
+          <div class="io-test-body">
+            <label class="io-field">MIDI input
+              <select id="midiInput" disabled><option value="">All inputs</option></select>
+            </label>
+            <div class="io-actions">
+              <button type="button" id="midiToggle" class="mz-button mz-button--primary" aria-pressed="false">Test MIDI</button>
+              <span id="midiActivity" class="io-activity"><i aria-hidden="true"></i><span id="midiCount">0 received</span></span>
+            </div>
+            <p id="midiStatus" class="io-feedback" role="status">Start the test, then play a key or move a control.</p>
+            <p id="midiLastMessage" class="io-last-message" hidden></p>
+            <div class="io-voice">
+              <label class="io-check"><input id="announceMidi" type="checkbox" checked /> Say “MIDI received”</label>
+              <button type="button" id="previewVoice" class="mz-button mz-button--quiet" disabled>Preview voice</button>
+            </div>
+
+            <details class="io-options" id="midiOptions">
+              <summary>MIDI output &amp; details</summary>
+              <div class="io-options-body">
+                <label class="io-field">Receive channel
+                  <select id="midiChannel"><option value="0">All channels</option></select>
+                </label>
+                <label class="io-field">MIDI output
+                  <select id="midiOutput" disabled><option value="">None · no MIDI sent</option></select>
+                </label>
+                <div class="io-actions">
+                  <label class="io-inline">Send channel <select id="sendChannel" aria-label="MIDI test send channel"><option value="1">1</option></select></label>
+                  <button type="button" id="sendNote" class="mz-button" disabled>Send C4 test note</button>
+                </div>
+                <p class="io-warning">Turn down external synths first. Sends one short note to the selected device; no MIDI thru.</p>
+                <div class="io-monitor-heading"><h2>Recent messages</h2><button type="button" id="clearMidi" class="mz-button mz-button--quiet">Clear</button></div>
+                <ol id="midiLog" aria-label="Recent MIDI messages" tabindex="0"></ol>
+                <p class="io-note">Most recent 40 messages. The voice needs Audio on. Clock and note releases stay quiet.</p>
+              </div>
+            </details>
+          </div>
+        </details>
+      </div>
+
+      <footer class="io-footer">
+        <details class="io-help">
+          <summary>Help &amp; device limits</summary>
+          <p>Line inputs and USB interfaces use the browser’s “microphone” permission too. Stereo requires two capture channels; device details show what was provided. Nothing is uploaded.</p>
+          <p>Surround tests use discrete outputs, not simulated surround. Configure your interface in system sound settings first. 5.1 order: L, R, C, LFE, rear L, rear R; 7.1 adds side L/R. Verify the physical wiring. The sub test uses 80 Hz.</p>
+          <p>Output selection is shared with compatible instruments. Input device, channels and echo cancellation apply to L-system Delay, Graph Delay, Sandy Syrup and Candy Coil. Each effect keeps its own gain.</p>
+          <p>Opening a menu does not start a device. Closing one keeps its connection active, but mutes live input monitoring. Stop all or Escape disconnects everything.</p>
+          <p id="savedStatus">Choices are saved on this browser. Audio, permissions and monitoring are never enabled automatically.</p>
+          <a href="midi-guide.html">MIDI &amp; WAX guide →</a>
+        </details>
+        <a class="io-back" href="./">Back to instruments →</a>
+      </footer>
+      <noscript><p>JavaScript is required for device tests. No devices are active.</p></noscript>
+    </main>
+    <script type="module" src="src/site/settings-app.js"></script>
+    <script type="module" src="nav.js"></script>
+    <script type="module" src="wax/wax-universal-adapter.js" data-morphazoid-wax-universal-adapter></script>
+</body>
+</html>

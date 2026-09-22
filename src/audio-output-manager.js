@@ -5,6 +5,14 @@ const METER_INTERVAL_MS = 1000 / 30;
 // only; the audible output path remains direct and untouched.
 const DEFAULT_FFT_SIZE = 2_048;
 const SILENCE_FLOOR = 0.001;
+export const AUDIO_OUTPUT_STORAGE_KEY = "morphazoid.audio-output.v1";
+
+function savedOutput(runtime) {
+  try {
+    if (runtime?.MorphazoidWAX) return "";
+    return String(runtime?.localStorage?.getItem(AUDIO_OUTPUT_STORAGE_KEY) || "").slice(0, 512);
+  } catch { return ""; }
+}
 
 function frozenOutputDevice(id, label) {
   return Object.freeze({
@@ -100,7 +108,7 @@ export class AudioOutputManager {
     this.timer = null;
     this.listeningForVisibility = false;
     this.listeningForDevices = false;
-    this.selectedOutputId = "";
+    this.selectedOutputId = savedOutput(this.runtime);
     this.outputDevices = [];
     this.lastLevel = silentLevel();
 
@@ -172,8 +180,10 @@ export class AudioOutputManager {
         ? "system-default"
         : "unavailable",
       canSelect,
-      selectedId: this.selectedOutputId,
-      label: device?.label || (this.selectedOutputId ? "Selected audio output" : "System default"),
+      selectedId: canSelect ? this.selectedOutputId : "",
+      label: canSelect
+        ? device?.label || (this.selectedOutputId ? "Selected audio output" : "System default")
+        : "System default",
     });
   }
 
@@ -399,7 +409,16 @@ export class AudioOutputManager {
     this.contexts.set(context, record);
 
     if (this.selectedOutputId && typeof context?.setSinkId === "function" && !this.isWaxHost()) {
-      Promise.resolve(context.setSinkId(this.selectedOutputId)).catch(() => {});
+      const requestedId = this.selectedOutputId;
+      Promise.resolve(context.setSinkId(requestedId)).catch(() => {
+        // Device grants can expire between pages. Report the actual fallback,
+        // rather than keeping an unavailable saved device selected in the UI.
+        if (this.selectedOutputId === requestedId) {
+          this.selectedOutputId = "";
+          this.persistOutput();
+          this.publish();
+        }
+      });
     }
     return record;
   }
@@ -528,6 +547,7 @@ export class AudioOutputManager {
     if (contexts.length === 0) {
       if (!this.supportsSinkSelection()) return false;
       this.selectedOutputId = id;
+      this.persistOutput();
       this.publish();
       return true;
     }
@@ -537,8 +557,15 @@ export class AudioOutputManager {
       return false;
     }
     this.selectedOutputId = id;
+    this.persistOutput();
     this.publish();
     return true;
+  }
+
+  persistOutput() {
+    if (this.isWaxHost()) return;
+    try { this.runtime?.localStorage?.setItem(AUDIO_OUTPUT_STORAGE_KEY, this.selectedOutputId); }
+    catch { /* Storage is optional; routing still works for this visit. */ }
   }
 }
 

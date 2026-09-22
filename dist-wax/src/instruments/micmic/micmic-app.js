@@ -22,6 +22,7 @@ import {
 } from "../../families/signalsmith-generation/granular-economy-renderer.js?v=20260725-presets";
 import { unlockAudioContext } from "../../audio.js";
 import { connectAudioOutput } from "../../audio-output-manager.js";
+import { audioInputConstraints, configureAudioInputNode, audioInputDescription, loadAudioInputSettings } from "../../audio-input-settings.js";
 import { SignalsmithGenerationBank } from "../../families/signalsmith-generation/signalsmith-generation-bank.js?v=20260725-presets";
 
 const $ = (id) => document.getElementById(id);
@@ -791,6 +792,7 @@ async function prepareGenerationProcessor(audio, audioGraph) {
         historySeconds: GENERATION_HISTORY_SECONDS,
         maxVoices: MAX_ADAPTIVE_GENERATION_VOICES,
         renderer: directRendererKind,
+        channels: loadAudioInputSettings().inputChannels,
       },
     });
     audioGraph.seedGate.connect(node);
@@ -852,6 +854,7 @@ async function prepareGenerationProcessor(audio, audioGraph) {
         maxVoices: MAX_ADAPTIVE_GENERATION_VOICES,
         historySeconds: GENERATION_HISTORY_SECONDS,
         onRenderLoad: observeGenerationRenderLoad,
+        channels: loadAudioInputSettings().inputChannels,
         onPitchDetail(report) {
           if (
             bankRevision !== generationBankRevision
@@ -934,6 +937,21 @@ async function prepareGenerationProcessor(audio, audioGraph) {
 async function ensureAudioGraph() {
   const AudioContextClass = globalThis.AudioContext ?? globalThis.webkitAudioContext;
   if (!AudioContextClass) throw new Error("Web Audio is not available in this browser.");
+  const inputChannels = loadAudioInputSettings().inputChannels;
+  // A stopped page may have stayed open while I/O setup changed in another
+  // tab. Rebuild only for channel-layout changes, never during live playback.
+  if (audioContext && graph && graph.captureChannels !== inputChannels) {
+    const previous = audioContext;
+    const previousGraph = graph;
+    audioContext = null;
+    graph = null;
+    generationBankRevision++;
+    stopGenerationCapacityMonitoring();
+    try { previousGraph.lfo?.stop?.(); } catch { /* Already stopped. */ }
+    previousGraph.releaseAudioOutput?.();
+    await previousGraph.generationBank?.dispose?.();
+    await previous.close?.();
+  }
   if (!audioContext || audioContext.state === "closed") {
     stopGenerationCapacityMonitoring();
     generationCapacityController = createGenerationCapacityController();
@@ -946,6 +964,7 @@ async function ensureAudioGraph() {
     unlockAudioContext(audioContext);
     await audioContext.resume();
     graph = buildAudioGraph(audioContext);
+    graph.captureChannels = inputChannels;
     inputWave = new Float32Array(graph.inputAnalyser.fftSize);
     safetyWave = new Float32Array(graph.safetyAnalyser.fftSize);
     audioContext.addEventListener?.("statechange", updateUi);
@@ -1110,15 +1129,7 @@ async function startMicrophone() {
     if (!globalThis.navigator?.mediaDevices?.getUserMedia) {
       throw new Error("Microphone access requires HTTPS or localhost.");
     }
-    const stream = await navigator.mediaDevices.getUserMedia({
-      video: false,
-      audio: {
-        channelCount: { ideal: 1 },
-        echoCancellation: { ideal: false },
-        noiseSuppression: { ideal: false },
-        autoGainControl: { ideal: false },
-      },
-    });
+    const stream = await navigator.mediaDevices.getUserMedia(audioInputConstraints());
     if (generation !== microphoneGeneration || document.hidden) {
       stopStream(stream);
       return;
@@ -1126,6 +1137,7 @@ async function startMicrophone() {
 
     releaseMicrophone();
     mediaStream = stream;
+    configureAudioInputNode(graph.input);
     microphoneSource = audio.createMediaStreamSource(stream);
     microphoneSource.connect(graph.input);
     for (const track of stream.getTracks?.() ?? []) {
@@ -1139,7 +1151,7 @@ async function startMicrophone() {
     state.frozen = false;
     applyAudioParameters();
     clearError();
-    announce("L-system Delay microphone on. Speak to seed the echo tree.");
+    announce(`L-system Delay audio input on. ${audioInputDescription(stream)}.`);
   } catch (error) {
     if (generation !== microphoneGeneration) return;
     state.mic = false;

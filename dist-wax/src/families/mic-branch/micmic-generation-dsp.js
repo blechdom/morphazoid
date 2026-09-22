@@ -26,9 +26,10 @@ function hashUnit(key) {
 
 /** A single rolling mic recorder with virtual, pitchable generation taps. */
 export class MicmicGenerationDSP {
-  constructor({ sampleRate = DEFAULT_SAMPLE_RATE, historySeconds = 60, maxVoices = 64 } = {}) {
+  constructor({ sampleRate = DEFAULT_SAMPLE_RATE, historySeconds = 60, maxVoices = 64, channels = 1 } = {}) {
     this.sampleRate = clamp(sampleRate, 8_000, 192_000, DEFAULT_SAMPLE_RATE);
     this.history = new Float32Array(Math.ceil(clamp(historySeconds, 4, 64, 60) * this.sampleRate));
+    this.historyRight = channels === 2 ? new Float32Array(this.history.length) : null;
     this.maximumDelay = (this.history.length - 3) / this.sampleRate;
     this.maxVoices = Math.max(1, Math.floor(clamp(maxVoices, 1, 1024, 64)));
     this.minimumGrainSamples = Math.max(64, Math.round(this.sampleRate * 0.008));
@@ -92,13 +93,13 @@ export class MicmicGenerationDSP {
     this.activeTargetCount = source.length;
   }
 
-  read(position) {
+  read(position, history = this.history) {
     const floor = Math.floor(position);
     const fraction = position - floor;
     const length = this.history.length;
     const left = ((floor % length) + length) % length;
     const right = (left + 1) % length;
-    return this.history[left] * (1 - fraction) + this.history[right] * fraction;
+    return history[left] * (1 - fraction) + history[right] * fraction;
   }
 
   grainLength(voice) {
@@ -107,32 +108,32 @@ export class MicmicGenerationDSP {
     return this.maximumGrainSamples;
   }
 
-  directDelay(voice, writePosition, delaySeconds) {
+  directDelay(voice, writePosition, delaySeconds, history = this.history) {
     const delaySamples = Math.max(1, delaySeconds * this.sampleRate);
     if (this.recordedSamples < Math.ceil(delaySamples) + 2) return 0;
-    return this.read(writePosition - delaySamples);
+    return this.read(writePosition - delaySamples, history);
   }
 
-  grain(voice, age, writePosition, grainSamples, delaySeconds) {
+  grain(voice, age, writePosition, grainSamples, delaySeconds, history = this.history) {
     const ageSamples = age * grainSamples;
     const requestedDelay = delaySeconds * this.sampleRate;
     const rateHeadroom = Math.max(0, voice.rate - 1) * grainSamples;
     const delay = Math.max(grainSamples * 1.25, requestedDelay + rateHeadroom);
     if (this.recordedSamples < delay + grainSamples) return 0;
-    return this.read(writePosition - delay + ageSamples * (voice.rate - 1));
+    return this.read(writePosition - delay + ageSamples * (voice.rate - 1), history);
   }
 
-  renderAtDelay(voice, writePosition, delaySeconds) {
+  renderAtDelay(voice, writePosition, delaySeconds, history = this.history) {
     const grainSamples = this.grainLength(voice);
     if (Math.abs(voice.rate - 1) < 0.0005) {
-      return this.directDelay(voice, writePosition, delaySeconds);
+      return this.directDelay(voice, writePosition, delaySeconds, history);
     }
     const otherPhase = (voice.phase + 0.5) % 1;
     const windowA = Math.sin(Math.PI * voice.phase) ** 2;
     const windowB = Math.sin(Math.PI * otherPhase) ** 2;
     return (
-      this.grain(voice, voice.phase, writePosition, grainSamples, delaySeconds) * windowA
-      + this.grain(voice, otherPhase, writePosition, grainSamples, delaySeconds) * windowB
+      this.grain(voice, voice.phase, writePosition, grainSamples, delaySeconds, history) * windowA
+      + this.grain(voice, otherPhase, writePosition, grainSamples, delaySeconds, history) * windowB
     ) / Math.max(0.5, windowA + windowB);
   }
 
@@ -142,7 +143,8 @@ export class MicmicGenerationDSP {
     for (let frame = 0; frame < outputLeft.length; frame += 1) {
       const leftIn = inputLeft?.[frame] ?? 0;
       const rightIn = inputRight?.[frame] ?? leftIn;
-      this.history[this.writeIndex] = Math.tanh((leftIn + rightIn) * 0.5);
+      this.history[this.writeIndex] = Math.tanh(this.historyRight ? leftIn : (leftIn + rightIn) * 0.5);
+      if (this.historyRight) this.historyRight[this.writeIndex] = Math.tanh(rightIn);
       const writePosition = this.writeIndex;
       this.writeIndex = (this.writeIndex + 1) % this.history.length;
       this.recordedSamples = Math.min(this.history.length, this.recordedSamples + 1);
@@ -163,6 +165,9 @@ export class MicmicGenerationDSP {
           voice.delayValues[voice.delayFrom],
         );
         let sample = fromSample;
+        let rightSample = this.historyRight
+          ? this.renderAtDelay(voice, writePosition, voice.delayValues[voice.delayFrom], this.historyRight)
+          : fromSample;
         if (voice.delayFade < 1) {
           const toSample = this.renderAtDelay(
             voice,
@@ -172,11 +177,15 @@ export class MicmicGenerationDSP {
           const mix = Math.min(1, voice.delayFade);
           sample = fromSample * Math.cos(mix * Math.PI * 0.5)
             + toSample * Math.sin(mix * Math.PI * 0.5);
+          rightSample = this.historyRight
+            ? rightSample * Math.cos(mix * Math.PI * 0.5)
+              + this.renderAtDelay(voice, writePosition, voice.delayValues[voice.delayTo], this.historyRight) * Math.sin(mix * Math.PI * 0.5)
+            : sample;
           voice.delayFade = Math.min(1, voice.delayFade + 1 / (this.sampleRate * 0.065));
           if (voice.delayFade >= 1) voice.delayFrom = voice.delayTo;
         }
         left += sample * voice.gain * Math.sqrt((1 - voice.pan) * 0.5);
-        right += sample * voice.gain * Math.sqrt((1 + voice.pan) * 0.5);
+        right += rightSample * voice.gain * Math.sqrt((1 + voice.pan) * 0.5);
       }
       outputLeft[frame] = Math.tanh(left);
       outputRight[frame] = Math.tanh(right);

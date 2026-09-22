@@ -1,0 +1,347 @@
+{
+  "baseCommit": "83ea203",
+  "changes": [
+    {
+      "file": "src/families/barber-delay/barber-delay-app.js",
+      "reason": "User-requested stereo line-input setup; retain mono behavior and instrument presets.",
+      "regressionTests": [
+        "tests/stereo-audio-input.test.mjs",
+        "e2e/io-settings.spec.mjs"
+      ],
+      "replacements": [
+        {
+          "before": "  sandySyrupTargetRate,\n  sanitizeBarberDelayParams,\n} from \"./barber-delay.js\";\n\nconst $ = (id) => document.getElementById(id);\nconst TAU = Math.PI * 2;\n",
+          "after": "  sandySyrupTargetRate,\n  sanitizeBarberDelayParams,\n} from \"./barber-delay.js\";\nimport { audioInputDescription } from \"../../audio-input-settings.js\";\n\nconst $ = (id) => document.getElementById(id);\nconst TAU = Math.PI * 2;\n"
+        },
+        {
+          "before": "    ? `${Math.round(settings.blend * 100)}% syrup · ${Math.round(settings.dryWet * 100)}% wet`\n    : `${Math.round(settings.feedback * 100)}% feedback · ${Math.round(settings.dryWet * 100)}% wet`;\n  $(\"sourceSummary\").textContent = state.source === \"microphone\"\n    ? \"microphone · headphones\"\n    : state.fileLabel\n      ? `file · ${state.loopFile ? \"loop\" : \"once\"}`\n      : \"file · choose audio\";\n  $(\"sourceNote\").textContent = state.source === \"microphone\"\n    ? \"Switch Audio on to allow microphone access. Use headphones—speaker-to-microphone feedback can become loud even with the internal loop bounded.\"\n    : \"Pick a local file, then switch Audio on. The file stays in this browser.\";\n  $(\"fileControls\").hidden = state.source !== \"file\";\n  $(\"fileName\").textContent = state.fileLabel ?? \"Choose local audio…\";\n",
+          "after": "    ? `${Math.round(settings.blend * 100)}% syrup · ${Math.round(settings.dryWet * 100)}% wet`\n    : `${Math.round(settings.feedback * 100)}% feedback · ${Math.round(settings.dryWet * 100)}% wet`;\n  $(\"sourceSummary\").textContent = state.source === \"microphone\"\n    ? audioInputDescription(audio.mediaStream)\n    : state.fileLabel\n      ? `file · ${state.loopFile ? \"loop\" : \"once\"}`\n      : \"file · choose audio\";\n  $(\"sourceNote\").textContent = state.source === \"microphone\"\n    ? \"Switch Audio on to allow microphone access (also used for line / interface input). Choose the device and mono/stereo in I/O setup. Use headphones when using a mic.\"\n    : \"Pick a local file, then switch Audio on. The file stays in this browser.\";\n  $(\"fileControls\").hidden = state.source !== \"file\";\n  $(\"fileName\").textContent = state.fileLabel ?? \"Choose local audio…\";\n"
+        }
+      ]
+    },
+    {
+      "file": "src/instruments/graph-delay/graph-delay-app.js",
+      "reason": "User-requested stereo line-input setup; retain mono behavior and instrument presets.",
+      "regressionTests": [
+        "tests/stereo-audio-input.test.mjs",
+        "e2e/io-settings.spec.mjs"
+      ],
+      "replacements": [
+        {
+          "before": "} from \"./graph-delay.js?v=20260726-edge-switches\";\nimport { unlockAudioContext } from \"../../audio.js\";\nimport { connectAudioOutput } from \"../../audio-output-manager.js\";\nimport { canvasSizing } from \"../../graphics/canvas-sizing.js\";\n\nconst $ = (id) => document.getElementById(id);\n",
+          "after": "} from \"./graph-delay.js?v=20260726-edge-switches\";\nimport { unlockAudioContext } from \"../../audio.js\";\nimport { connectAudioOutput } from \"../../audio-output-manager.js\";\nimport { audioInputConstraints, configureAudioInputNode, loadAudioInputSettings, audioInputDescription } from \"../../audio-input-settings.js\";\nimport { canvasSizing } from \"../../graphics/canvas-sizing.js\";\n\nconst $ = (id) => document.getElementById(id);\n"
+        },
+        {
+          "before": "    const node = own(new AudioWorkletNode(audio, \"morphazoid-graph-turns\", {\n      numberOfInputs: routing.sources.length,\n      numberOfOutputs: routing.outputs.length,\n      outputChannelCount: Array(routing.outputs.length).fill(1),\n      channelCount: 1,\n      channelCountMode: \"explicit\",\n      processorOptions: {\n        sourceCount: routing.sources.length,\n        outputCount: routing.outputs.length,\n        phaseSeed: spec.id,\n      },\n    }));\n    routing.sources.forEach((source, sourceIndex) => {\n",
+          "after": "    const node = own(new AudioWorkletNode(audio, \"morphazoid-graph-turns\", {\n      numberOfInputs: routing.sources.length,\n      numberOfOutputs: routing.outputs.length,\n      outputChannelCount: Array(routing.outputs.length).fill(loadAudioInputSettings().inputChannels),\n      channelCount: loadAudioInputSettings().inputChannels,\n      channelCountMode: \"explicit\",\n      processorOptions: {\n        sourceCount: routing.sources.length,\n        outputCount: routing.outputs.length,\n        phaseSeed: spec.id,\n        channels: loadAudioInputSettings().inputChannels,\n      },\n    }));\n    routing.sources.forEach((source, sourceIndex) => {\n"
+        },
+        {
+          "before": "function connectMicrophoneToGraph(target = audioGraph) {\n  if (!microphoneSource || !target || !audioContext) return;\n  const trim = audioContext.createGain();\n  trim.gain.value = state.inputTrim;\n  target.disconnectables.push(trim);\n  (inputAnalyser ?? microphoneSource).connect(trim).connect(target.input);\n",
+          "after": "function connectMicrophoneToGraph(target = audioGraph) {\n  if (!microphoneSource || !target || !audioContext) return;\n  const trim = audioContext.createGain();\n  configureAudioInputNode(trim);\n  trim.gain.value = state.inputTrim;\n  target.disconnectables.push(trim);\n  (inputAnalyser ?? microphoneSource).connect(trim).connect(target.input);\n"
+        },
+        {
+          "before": "    await audioContext.resume();\n    await preparePitchProcessor(audioContext);\n    if (!audioGraph) audioGraph = buildAudioGraph(audioContext);\n    const requestedStream = await navigator.mediaDevices.getUserMedia({\n      audio: {\n        echoCancellation: { ideal: false },\n        noiseSuppression: { ideal: false },\n        autoGainControl: { ideal: false },\n      },\n    });\n    if (\n      startToken !== microphoneStartToken\n      || !audioContext\n",
+          "after": "    await audioContext.resume();\n    await preparePitchProcessor(audioContext);\n    if (!audioGraph) audioGraph = buildAudioGraph(audioContext);\n    const requestedStream = await navigator.mediaDevices.getUserMedia(audioInputConstraints());\n    if (\n      startToken !== microphoneStartToken\n      || !audioContext\n"
+        },
+        {
+          "before": "  $(\"stopButton\").disabled = !state.mic && !state.starting;\n  $(\"panicButton\").disabled = !state.mic && !state.starting;\n  $(\"micButtonLabel\").textContent = state.mic ? \"Input live\" : state.starting ? \"Starting…\" : \"Start input\";\n  $(\"micButtonHint\").textContent = state.mic ? \"microphone → graph → output\" : \"allow microphone access\";\n  $(\"listenSummary\").textContent = `microphone ${audioLabel}`;\n  $(\"graphPatchDescription\").textContent = patch?.description\n    ?? \"Custom graph, timing, pitch, feedback, and mix settings.\";\n  $(\"topologyDescription\").textContent = preset.description;\n",
+          "after": "  $(\"stopButton\").disabled = !state.mic && !state.starting;\n  $(\"panicButton\").disabled = !state.mic && !state.starting;\n  $(\"micButtonLabel\").textContent = state.mic ? \"Input live\" : state.starting ? \"Starting…\" : \"Start input\";\n  $(\"micButtonHint\").textContent = state.mic ? audioInputDescription(mediaStream) : \"mic / line input · choose in I/O setup\";\n  $(\"listenSummary\").textContent = `audio input ${audioLabel}`;\n  $(\"graphPatchDescription\").textContent = patch?.description\n    ?? \"Custom graph, timing, pitch, feedback, and mix settings.\";\n  $(\"topologyDescription\").textContent = preset.description;\n"
+        }
+      ]
+    },
+    {
+      "file": "src/instruments/micmic/micmic-app.js",
+      "reason": "User-requested stereo line-input setup; retain mono behavior and instrument presets.",
+      "regressionTests": [
+        "tests/stereo-audio-input.test.mjs",
+        "e2e/io-settings.spec.mjs"
+      ],
+      "replacements": [
+        {
+          "before": "} from \"../../families/signalsmith-generation/granular-economy-renderer.js?v=20260725-presets\";\nimport { unlockAudioContext } from \"../../audio.js\";\nimport { connectAudioOutput } from \"../../audio-output-manager.js\";\nimport { SignalsmithGenerationBank } from \"../../families/signalsmith-generation/signalsmith-generation-bank.js?v=20260725-presets\";\n\nconst $ = (id) => document.getElementById(id);\n",
+          "after": "} from \"../../families/signalsmith-generation/granular-economy-renderer.js?v=20260725-presets\";\nimport { unlockAudioContext } from \"../../audio.js\";\nimport { connectAudioOutput } from \"../../audio-output-manager.js\";\nimport { audioInputConstraints, configureAudioInputNode, audioInputDescription, loadAudioInputSettings } from \"../../audio-input-settings.js\";\nimport { SignalsmithGenerationBank } from \"../../families/signalsmith-generation/signalsmith-generation-bank.js?v=20260725-presets\";\n\nconst $ = (id) => document.getElementById(id);\n"
+        },
+        {
+          "before": "        historySeconds: GENERATION_HISTORY_SECONDS,\n        maxVoices: MAX_ADAPTIVE_GENERATION_VOICES,\n        renderer: directRendererKind,\n      },\n    });\n    audioGraph.seedGate.connect(node);\n",
+          "after": "        historySeconds: GENERATION_HISTORY_SECONDS,\n        maxVoices: MAX_ADAPTIVE_GENERATION_VOICES,\n        renderer: directRendererKind,\n        channels: loadAudioInputSettings().inputChannels,\n      },\n    });\n    audioGraph.seedGate.connect(node);\n"
+        },
+        {
+          "before": "        maxVoices: MAX_ADAPTIVE_GENERATION_VOICES,\n        historySeconds: GENERATION_HISTORY_SECONDS,\n        onRenderLoad: observeGenerationRenderLoad,\n        onPitchDetail(report) {\n          if (\n            bankRevision !== generationBankRevision\n",
+          "after": "        maxVoices: MAX_ADAPTIVE_GENERATION_VOICES,\n        historySeconds: GENERATION_HISTORY_SECONDS,\n        onRenderLoad: observeGenerationRenderLoad,\n        channels: loadAudioInputSettings().inputChannels,\n        onPitchDetail(report) {\n          if (\n            bankRevision !== generationBankRevision\n"
+        },
+        {
+          "before": "async function ensureAudioGraph() {\n  const AudioContextClass = globalThis.AudioContext ?? globalThis.webkitAudioContext;\n  if (!AudioContextClass) throw new Error(\"Web Audio is not available in this browser.\");\n  if (!audioContext || audioContext.state === \"closed\") {\n    stopGenerationCapacityMonitoring();\n    generationCapacityController = createGenerationCapacityController();\n",
+          "after": "async function ensureAudioGraph() {\n  const AudioContextClass = globalThis.AudioContext ?? globalThis.webkitAudioContext;\n  if (!AudioContextClass) throw new Error(\"Web Audio is not available in this browser.\");\n  const inputChannels = loadAudioInputSettings().inputChannels;\n  // A stopped page may have stayed open while I/O setup changed in another\n  // tab. Rebuild only for channel-layout changes, never during live playback.\n  if (audioContext && graph && graph.captureChannels !== inputChannels) {\n    const previous = audioContext;\n    const previousGraph = graph;\n    audioContext = null;\n    graph = null;\n    generationBankRevision++;\n    stopGenerationCapacityMonitoring();\n    try { previousGraph.lfo?.stop?.(); } catch { /* Already stopped. */ }\n    previousGraph.releaseAudioOutput?.();\n    await previousGraph.generationBank?.dispose?.();\n    await previous.close?.();\n  }\n  if (!audioContext || audioContext.state === \"closed\") {\n    stopGenerationCapacityMonitoring();\n    generationCapacityController = createGenerationCapacityController();\n"
+        },
+        {
+          "before": "    unlockAudioContext(audioContext);\n    await audioContext.resume();\n    graph = buildAudioGraph(audioContext);\n    inputWave = new Float32Array(graph.inputAnalyser.fftSize);\n    safetyWave = new Float32Array(graph.safetyAnalyser.fftSize);\n    audioContext.addEventListener?.(\"statechange\", updateUi);\n",
+          "after": "    unlockAudioContext(audioContext);\n    await audioContext.resume();\n    graph = buildAudioGraph(audioContext);\n    graph.captureChannels = inputChannels;\n    inputWave = new Float32Array(graph.inputAnalyser.fftSize);\n    safetyWave = new Float32Array(graph.safetyAnalyser.fftSize);\n    audioContext.addEventListener?.(\"statechange\", updateUi);\n"
+        },
+        {
+          "before": "    if (!globalThis.navigator?.mediaDevices?.getUserMedia) {\n      throw new Error(\"Microphone access requires HTTPS or localhost.\");\n    }\n    const stream = await navigator.mediaDevices.getUserMedia({\n      video: false,\n      audio: {\n        channelCount: { ideal: 1 },\n        echoCancellation: { ideal: false },\n        noiseSuppression: { ideal: false },\n        autoGainControl: { ideal: false },\n      },\n    });\n    if (generation !== microphoneGeneration || document.hidden) {\n      stopStream(stream);\n      return;\n",
+          "after": "    if (!globalThis.navigator?.mediaDevices?.getUserMedia) {\n      throw new Error(\"Microphone access requires HTTPS or localhost.\");\n    }\n    const stream = await navigator.mediaDevices.getUserMedia(audioInputConstraints());\n    if (generation !== microphoneGeneration || document.hidden) {\n      stopStream(stream);\n      return;\n"
+        },
+        {
+          "before": "\n    releaseMicrophone();\n    mediaStream = stream;\n    microphoneSource = audio.createMediaStreamSource(stream);\n    microphoneSource.connect(graph.input);\n    for (const track of stream.getTracks?.() ?? []) {\n",
+          "after": "\n    releaseMicrophone();\n    mediaStream = stream;\n    configureAudioInputNode(graph.input);\n    microphoneSource = audio.createMediaStreamSource(stream);\n    microphoneSource.connect(graph.input);\n    for (const track of stream.getTracks?.() ?? []) {\n"
+        },
+        {
+          "before": "    state.frozen = false;\n    applyAudioParameters();\n    clearError();\n    announce(\"L-system Delay microphone on. Speak to seed the echo tree.\");\n  } catch (error) {\n    if (generation !== microphoneGeneration) return;\n    state.mic = false;\n",
+          "after": "    state.frozen = false;\n    applyAudioParameters();\n    clearError();\n    announce(`L-system Delay audio input on. ${audioInputDescription(stream)}.`);\n  } catch (error) {\n    if (generation !== microphoneGeneration) return;\n    state.mic = false;\n"
+        }
+      ]
+    },
+    {
+      "file": "src/families/barber-delay/barber-delay.js",
+      "reason": "User-requested stereo line-input setup; retain mono behavior and instrument presets.",
+      "regressionTests": [
+        "tests/stereo-audio-input.test.mjs",
+        "e2e/io-settings.spec.mjs"
+      ],
+      "replacements": [
+        {
+          "before": "import { unlockAudioContext } from \"../../audio.js\";\nimport { connectAudioOutput } from \"../../audio-output-manager.js\";\n\nconst PROCESSOR_NAME = \"morphazoid-barber-delay\";\nconst DEFAULT_SAMPLE_RATE = 48_000;\n",
+          "after": "import { unlockAudioContext } from \"../../audio.js\";\nimport { connectAudioOutput } from \"../../audio-output-manager.js\";\nimport { audioInputConstraints, configureAudioInputNode } from \"../../audio-input-settings.js\";\n\nconst PROCESSOR_NAME = \"morphazoid-barber-delay\";\nconst DEFAULT_SAMPLE_RATE = 48_000;\n"
+        },
+        {
+          "before": "    this.mediaElementNodes = new WeakMap();\n    this.enabled = false;\n    this.suspendTimer = null;\n  }\n\n  get isInitialized() {\n",
+          "after": "    this.mediaElementNodes = new WeakMap();\n    this.enabled = false;\n    this.suspendTimer = null;\n    this.sourceGeneration = 0;\n  }\n\n  get isInitialized() {\n"
+        },
+        {
+          "before": "    this.sourceKind = null;\n  }\n\n  async connectSource(source) {\n    if (source?.kind === \"microphone\") {\n      const getUserMedia = (\n        this.runtime.navigator?.mediaDevices?.getUserMedia\n",
+          "after": "    this.sourceKind = null;\n  }\n\n  async connectSource(source, generation = this.sourceGeneration) {\n    if (source?.kind === \"microphone\") {\n      const getUserMedia = (\n        this.runtime.navigator?.mediaDevices?.getUserMedia\n"
+        },
+        {
+          "before": "      if (typeof getUserMedia !== \"function\") {\n        throw new Error(\"Microphone input is not available in this browser.\");\n      }\n      const stream = await getUserMedia({\n        audio: {\n          autoGainControl: false,\n          echoCancellation: false,\n          noiseSuppression: false,\n        },\n      });\n      this.mediaStream = stream;\n      const sourceNode = this.context.createMediaStreamSource(stream);\n      sourceNode.connect(this.node);\n      this.sourceNode = sourceNode;\n",
+          "after": "      if (typeof getUserMedia !== \"function\") {\n        throw new Error(\"Microphone input is not available in this browser.\");\n      }\n      const stream = await getUserMedia(audioInputConstraints(this.runtime));\n      if (generation !== this.sourceGeneration || !this.context || this.context.state === \"closed\") {\n        for (const track of stream.getTracks?.() ?? []) track.stop();\n        const error = new Error(\"Audio input start cancelled.\");\n        error.name = \"AbortError\";\n        throw error;\n      }\n      this.mediaStream = stream;\n      configureAudioInputNode(this.node, this.runtime);\n      const sourceNode = this.context.createMediaStreamSource(stream);\n      sourceNode.connect(this.node);\n      this.sourceNode = sourceNode;\n"
+        },
+        {
+          "before": "    }\n\n    if (source?.kind === \"file\" && source.element) {\n      const element = source.element;\n      let sourceNode = this.mediaElementNodes.get(element);\n      if (!sourceNode) {\n",
+          "after": "    }\n\n    if (source?.kind === \"file\" && source.element) {\n      configureAudioInputNode(this.node, this.runtime, { inputChannels: 2 });\n      const element = source.element;\n      let sourceNode = this.mediaElementNodes.get(element);\n      if (!sourceNode) {\n"
+        },
+        {
+          "before": "  }\n\n  async start(source) {\n    await this.initialize();\n    this.clearSuspendTimer();\n    this.releaseSource();\n    this.enabled = false;\n    await this.context.resume();\n\n    try {\n      await this.connectSource(source);\n      const now = this.context.currentTime;\n      this.node.port.postMessage({ type: \"reset\" });\n      this.node.port.postMessage({ type: \"active\", value: true });\n",
+          "after": "  }\n\n  async start(source) {\n    const generation = ++this.sourceGeneration;\n    await this.initialize();\n    if (generation !== this.sourceGeneration) return;\n    this.clearSuspendTimer();\n    this.releaseSource();\n    this.enabled = false;\n    await this.context.resume();\n\n    try {\n      await this.connectSource(source, generation);\n      if (generation !== this.sourceGeneration) return;\n      const now = this.context.currentTime;\n      this.node.port.postMessage({ type: \"reset\" });\n      this.node.port.postMessage({ type: \"active\", value: true });\n"
+        },
+        {
+          "before": "      this.master.gain.linearRampToValueAtTime(1, now + 0.035);\n      this.enabled = true;\n    } catch (error) {\n      this.releaseSource();\n      this.node.port.postMessage({ type: \"active\", value: false });\n      this.master.gain.value = 0;\n",
+          "after": "      this.master.gain.linearRampToValueAtTime(1, now + 0.035);\n      this.enabled = true;\n    } catch (error) {\n      if (generation !== this.sourceGeneration) return;\n      this.releaseSource();\n      this.node.port.postMessage({ type: \"active\", value: false });\n      this.master.gain.value = 0;\n"
+        },
+        {
+          "before": "  }\n\n  async stop() {\n    this.clearSuspendTimer();\n    this.releaseSource();\n    if (!this.isInitialized) {\n",
+          "after": "  }\n\n  async stop() {\n    this.sourceGeneration++;\n    this.clearSuspendTimer();\n    this.releaseSource();\n    if (!this.isInitialized) {\n"
+        },
+        {
+          "before": "  }\n\n  async close() {\n    this.clearSuspendTimer();\n    this.releaseSource();\n    this.enabled = false;\n",
+          "after": "  }\n\n  async close() {\n    this.sourceGeneration++;\n    this.clearSuspendTimer();\n    this.releaseSource();\n    this.enabled = false;\n"
+        }
+      ]
+    },
+    {
+      "file": "src/instruments/graph-delay/graph-delay-audio.js",
+      "reason": "User-requested stereo line-input setup; retain mono behavior and instrument presets.",
+      "regressionTests": [
+        "tests/stereo-audio-input.test.mjs",
+        "e2e/io-settings.spec.mjs"
+      ],
+      "replacements": [
+        {
+          "before": "import { unlockAudioContext } from \"../../audio.js\";\nimport { connectAudioOutput } from \"../../audio-output-manager.js\";\nimport {\n  MAX_GRAPH_TURN_ROUTES,\n  edgeAudioParameters,\n",
+          "after": "import { unlockAudioContext } from \"../../audio.js\";\nimport { connectAudioOutput } from \"../../audio-output-manager.js\";\nimport { audioInputConstraints, configureAudioInputNode, loadAudioInputSettings } from \"../../audio-input-settings.js\";\nimport {\n  MAX_GRAPH_TURN_ROUTES,\n  edgeAudioParameters,\n"
+        },
+        {
+          "before": "      this.pitchProcessorReady = pitchProcessorReady;\n      const audioGraph = this.#buildGraph(context, this.graph, this.settings, this.switches, 1);\n      this.audioGraph = audioGraph;\n      const stream = await mediaDevices.getUserMedia({\n        audio: {\n          echoCancellation: { ideal: false },\n          noiseSuppression: { ideal: false },\n          autoGainControl: { ideal: false },\n        },\n      });\n      if (generation !== this.generation || context !== this.context || context.state === \"closed\") {\n        for (const track of stream.getTracks?.() ?? []) track.stop();\n        throw cancelledGraphDelayStart();\n",
+          "after": "      this.pitchProcessorReady = pitchProcessorReady;\n      const audioGraph = this.#buildGraph(context, this.graph, this.settings, this.switches, 1);\n      this.audioGraph = audioGraph;\n      const stream = await mediaDevices.getUserMedia(audioInputConstraints(this.runtime));\n      if (generation !== this.generation || context !== this.context || context.state === \"closed\") {\n        for (const track of stream.getTracks?.() ?? []) track.stop();\n        throw cancelledGraphDelayStart();\n"
+        },
+        {
+          "before": "    if (!target || !this.analyser || !this.context) return;\n    const trim = this.context.createGain();\n    try {\n      trim.gain.value = this.settings.inputTrim;\n      safeConnect(this.analyser, trim);\n      safeConnect(trim, target.input);\n",
+          "after": "    if (!target || !this.analyser || !this.context) return;\n    const trim = this.context.createGain();\n    try {\n      configureAudioInputNode(trim, this.runtime);\n      trim.gain.value = this.settings.inputTrim;\n      safeConnect(this.analyser, trim);\n      safeConnect(trim, target.input);\n"
+        },
+        {
+          "before": "        const processor = own(new AudioWorkletNodeConstructor(context, \"morphazoid-graph-turns\", {\n          numberOfInputs: routing.sources.length,\n          numberOfOutputs: routing.outputs.length,\n          outputChannelCount: Array(routing.outputs.length).fill(1),\n          channelCount: 1,\n          channelCountMode: \"explicit\",\n          processorOptions: {\n            sourceCount: routing.sources.length,\n            outputCount: routing.outputs.length,\n            phaseSeed: node.id,\n          },\n        }));\n        routing.sources.forEach((source, sourceIndex) => {\n",
+          "after": "        const processor = own(new AudioWorkletNodeConstructor(context, \"morphazoid-graph-turns\", {\n          numberOfInputs: routing.sources.length,\n          numberOfOutputs: routing.outputs.length,\n          outputChannelCount: Array(routing.outputs.length).fill(loadAudioInputSettings(this.runtime).inputChannels),\n          channelCount: loadAudioInputSettings(this.runtime).inputChannels,\n          channelCountMode: \"explicit\",\n          processorOptions: {\n            sourceCount: routing.sources.length,\n            outputCount: routing.outputs.length,\n            phaseSeed: node.id,\n            channels: loadAudioInputSettings(this.runtime).inputChannels,\n          },\n        }));\n        routing.sources.forEach((source, sourceIndex) => {\n"
+        }
+      ]
+    },
+    {
+      "file": "src/instruments/graph-delay/graph-turn-processor.js",
+      "reason": "User-requested stereo line-input setup; retain mono behavior and instrument presets.",
+      "regressionTests": [
+        "tests/stereo-audio-input.test.mjs",
+        "e2e/io-settings.spec.mjs"
+      ],
+      "replacements": [
+        {
+          "before": "    this.sourceCount = Math.min(32, Math.max(1, Math.round(processorOptions.sourceCount ?? 1)));\n    this.outputCount = Math.min(32, Math.max(1, Math.round(processorOptions.outputCount ?? 1)));\n    this.routeCount = this.sourceCount * this.outputCount;\n    const requestedSampleRate = Number(globalThis.sampleRate);\n    this.sampleRate = Number.isFinite(requestedSampleRate)\n      ? clamp(requestedSampleRate, 8_000, 192_000)\n",
+          "after": "    this.sourceCount = Math.min(32, Math.max(1, Math.round(processorOptions.sourceCount ?? 1)));\n    this.outputCount = Math.min(32, Math.max(1, Math.round(processorOptions.outputCount ?? 1)));\n    this.routeCount = this.sourceCount * this.outputCount;\n    this.channels = processorOptions.channels === 2 ? 2 : 1;\n    const requestedSampleRate = Number(globalThis.sampleRate);\n    this.sampleRate = Number.isFinite(requestedSampleRate)\n      ? clamp(requestedSampleRate, 8_000, 192_000)\n"
+        },
+        {
+          "before": "      () => new Float32Array(this.bufferSize),\n    );\n    this.writeIndices = new Uint32Array(this.sourceCount);\n    this.phases = new Float32Array(this.routeCount);\n    this.currentSemitones = new Float32Array(this.routeCount);\n    this.targetSemitones = new Float32Array(this.routeCount);\n",
+          "after": "      () => new Float32Array(this.bufferSize),\n    );\n    this.writeIndices = new Uint32Array(this.sourceCount);\n    this.rightBuffers = this.channels === 2\n      ? Array.from({ length: this.sourceCount }, () => new Float32Array(this.bufferSize)) : null;\n    this.phases = new Float32Array(this.routeCount);\n    this.currentSemitones = new Float32Array(this.routeCount);\n    this.targetSemitones = new Float32Array(this.routeCount);\n"
+        },
+        {
+          "before": "    this.shiftMixDeltas = new Float32Array(this.routeCount);\n    this.endShiftMixes = new Float32Array(this.routeCount);\n    this.samples = new Float32Array(this.sourceCount);\n    for (let route = 0; route < this.routeCount; route += 1) {\n      this.phases[route] = routePhase(processorOptions.phaseSeed, route);\n    }\n",
+          "after": "    this.shiftMixDeltas = new Float32Array(this.routeCount);\n    this.endShiftMixes = new Float32Array(this.routeCount);\n    this.samples = new Float32Array(this.sourceCount);\n    this.rightSamples = new Float32Array(this.sourceCount);\n    for (let route = 0; route < this.routeCount; route += 1) {\n      this.phases[route] = routePhase(processorOptions.phaseSeed, route);\n    }\n"
+        },
+        {
+          "before": "    };\n  }\n\n  read(source, delaySamples) {\n    const buffer = this.buffers[source];\n    const position = this.writeIndices[source] - delaySamples;\n    const floor = Math.floor(position);\n    const before = floor & this.bufferMask;\n",
+          "after": "    };\n  }\n\n  read(source, delaySamples, right = false) {\n    const buffer = right && this.rightBuffers ? this.rightBuffers[source] : this.buffers[source];\n    const position = this.writeIndices[source] - delaySamples;\n    const floor = Math.floor(position);\n    const before = floor & this.bufferMask;\n"
+        },
+        {
+          "before": "    return buffer[before] + (buffer[after] - buffer[before]) * mix;\n  }\n\n  shiftedSample(source, route) {\n    const ratio = this.ratios[route];\n    const phase = this.phases[route];\n    const alternate = (phase + 0.5) % 1;\n",
+          "after": "    return buffer[before] + (buffer[after] - buffer[before]) * mix;\n  }\n\n  shiftedSample(source, route, right = false) {\n    const ratio = this.ratios[route];\n    const phase = this.phases[route];\n    const alternate = (phase + 0.5) % 1;\n"
+        },
+        {
+          "before": "    const secondDelay = (ratio > 1 ? 1 - alternate : alternate) * this.windowSamples + 4;\n    const firstWindow = WINDOW[Math.floor(phase * WINDOW_SIZE) % WINDOW_SIZE];\n    const secondWindow = WINDOW[Math.floor(alternate * WINDOW_SIZE) % WINDOW_SIZE];\n    this.phases[route] = (\n      phase + Math.abs(1 - ratio) / this.windowSamples\n    ) % 1;\n    return this.read(source, firstDelay) * firstWindow\n      + this.read(source, secondDelay) * secondWindow;\n  }\n\n  process(inputs, outputs) {\n",
+          "after": "    const secondDelay = (ratio > 1 ? 1 - alternate : alternate) * this.windowSamples + 4;\n    const firstWindow = WINDOW[Math.floor(phase * WINDOW_SIZE) % WINDOW_SIZE];\n    const secondWindow = WINDOW[Math.floor(alternate * WINDOW_SIZE) % WINDOW_SIZE];\n    return this.read(source, firstDelay, right) * firstWindow\n      + this.read(source, secondDelay, right) * secondWindow;\n  }\n\n  process(inputs, outputs) {\n"
+        },
+        {
+          "before": "      this.endShiftMixes[route] = endShiftMix;\n      this.shiftMixDeltas[route] = (endShiftMix - this.shiftMixes[route]) / frameCount;\n    }\n    for (const output of outputs) output[0]?.fill(0);\n    for (let frame = 0; frame < frameCount; frame += 1) {\n      for (let source = 0; source < this.sourceCount; source += 1) {\n        const sample = inputs[source]?.[0]?.[frame] ?? 0;\n        this.samples[source] = sample;\n        this.buffers[source][this.writeIndices[source]] = sample;\n        this.writeIndices[source] = (this.writeIndices[source] + 1) & this.bufferMask;\n      }\n      for (let output = 0; output < this.outputCount; output += 1) {\n        const channel = outputs[output]?.[0];\n        if (!channel) continue;\n        let mixed = 0;\n        for (let source = 0; source < this.sourceCount; source += 1) {\n          const route = source * this.outputCount + output;\n          const shiftMix = this.shiftMixes[route];\n          if (shiftMix <= 0.0001) {\n            mixed += this.samples[source];\n          } else {\n            const shifted = this.shiftedSample(source, route);\n            if (shiftMix >= 0.9999) {\n              mixed += shifted;\n            } else {\n              mixed += this.samples[source] * Math.cos(shiftMix * Math.PI * 0.5)\n                + shifted * Math.sin(shiftMix * Math.PI * 0.5);\n            }\n          }\n          this.ratios[route] += this.ratioDeltas[route];\n          this.shiftMixes[route] += this.shiftMixDeltas[route];\n        }\n        channel[frame] = mixed * this.mixScale;\n      }\n    }\n    this.ratios.set(this.endRatios);\n",
+          "after": "      this.endShiftMixes[route] = endShiftMix;\n      this.shiftMixDeltas[route] = (endShiftMix - this.shiftMixes[route]) / frameCount;\n    }\n    for (const output of outputs) for (const channel of output) channel.fill(0);\n    for (let frame = 0; frame < frameCount; frame += 1) {\n      for (let source = 0; source < this.sourceCount; source += 1) {\n        const sample = inputs[source]?.[0]?.[frame] ?? 0;\n        this.samples[source] = sample;\n        this.buffers[source][this.writeIndices[source]] = sample;\n        if (this.rightBuffers) {\n          const right = inputs[source]?.[1]?.[frame] ?? sample;\n          this.rightSamples[source] = right;\n          this.rightBuffers[source][this.writeIndices[source]] = right;\n        }\n        this.writeIndices[source] = (this.writeIndices[source] + 1) & this.bufferMask;\n      }\n      for (let output = 0; output < this.outputCount; output += 1) {\n        const channel = outputs[output]?.[0];\n        if (!channel) continue;\n        let mixed = 0;\n        let mixedRight = 0;\n        for (let source = 0; source < this.sourceCount; source += 1) {\n          const route = source * this.outputCount + output;\n          const shiftMix = this.shiftMixes[route];\n          if (shiftMix <= 0.0001) {\n            mixed += this.samples[source];\n            mixedRight += this.rightSamples[source];\n          } else {\n            const shifted = this.shiftedSample(source, route);\n            const shiftedRight = this.rightBuffers ? this.shiftedSample(source, route, true) : 0;\n            if (shiftMix >= 0.9999) {\n              mixed += shifted;\n              mixedRight += shiftedRight;\n            } else {\n              mixed += this.samples[source] * Math.cos(shiftMix * Math.PI * 0.5)\n                + shifted * Math.sin(shiftMix * Math.PI * 0.5);\n              mixedRight += this.rightSamples[source] * Math.cos(shiftMix * Math.PI * 0.5)\n                + shiftedRight * Math.sin(shiftMix * Math.PI * 0.5);\n            }\n            this.phases[route] = (this.phases[route] + Math.abs(1 - this.ratios[route]) / this.windowSamples) % 1;\n          }\n          this.ratios[route] += this.ratioDeltas[route];\n          this.shiftMixes[route] += this.shiftMixDeltas[route];\n        }\n        channel[frame] = mixed * this.mixScale;\n        if (outputs[output]?.[1]) outputs[output][1][frame] = mixedRight * this.mixScale;\n      }\n    }\n    this.ratios.set(this.endRatios);\n"
+        }
+      ]
+    },
+    {
+      "file": "src/families/mic-branch/micmic-generation-dsp.js",
+      "reason": "User-requested stereo line-input setup; retain mono behavior and instrument presets.",
+      "regressionTests": [
+        "tests/stereo-audio-input.test.mjs",
+        "e2e/io-settings.spec.mjs"
+      ],
+      "replacements": [
+        {
+          "before": "\n/** A single rolling mic recorder with virtual, pitchable generation taps. */\nexport class MicmicGenerationDSP {\n  constructor({ sampleRate = DEFAULT_SAMPLE_RATE, historySeconds = 60, maxVoices = 64 } = {}) {\n    this.sampleRate = clamp(sampleRate, 8_000, 192_000, DEFAULT_SAMPLE_RATE);\n    this.history = new Float32Array(Math.ceil(clamp(historySeconds, 4, 64, 60) * this.sampleRate));\n    this.maximumDelay = (this.history.length - 3) / this.sampleRate;\n    this.maxVoices = Math.max(1, Math.floor(clamp(maxVoices, 1, 1024, 64)));\n    this.minimumGrainSamples = Math.max(64, Math.round(this.sampleRate * 0.008));\n",
+          "after": "\n/** A single rolling mic recorder with virtual, pitchable generation taps. */\nexport class MicmicGenerationDSP {\n  constructor({ sampleRate = DEFAULT_SAMPLE_RATE, historySeconds = 60, maxVoices = 64, channels = 1 } = {}) {\n    this.sampleRate = clamp(sampleRate, 8_000, 192_000, DEFAULT_SAMPLE_RATE);\n    this.history = new Float32Array(Math.ceil(clamp(historySeconds, 4, 64, 60) * this.sampleRate));\n    this.historyRight = channels === 2 ? new Float32Array(this.history.length) : null;\n    this.maximumDelay = (this.history.length - 3) / this.sampleRate;\n    this.maxVoices = Math.max(1, Math.floor(clamp(maxVoices, 1, 1024, 64)));\n    this.minimumGrainSamples = Math.max(64, Math.round(this.sampleRate * 0.008));\n"
+        },
+        {
+          "before": "    this.activeTargetCount = source.length;\n  }\n\n  read(position) {\n    const floor = Math.floor(position);\n    const fraction = position - floor;\n    const length = this.history.length;\n    const left = ((floor % length) + length) % length;\n    const right = (left + 1) % length;\n    return this.history[left] * (1 - fraction) + this.history[right] * fraction;\n  }\n\n  grainLength(voice) {\n",
+          "after": "    this.activeTargetCount = source.length;\n  }\n\n  read(position, history = this.history) {\n    const floor = Math.floor(position);\n    const fraction = position - floor;\n    const length = this.history.length;\n    const left = ((floor % length) + length) % length;\n    const right = (left + 1) % length;\n    return history[left] * (1 - fraction) + history[right] * fraction;\n  }\n\n  grainLength(voice) {\n"
+        },
+        {
+          "before": "    return this.maximumGrainSamples;\n  }\n\n  directDelay(voice, writePosition, delaySeconds) {\n    const delaySamples = Math.max(1, delaySeconds * this.sampleRate);\n    if (this.recordedSamples < Math.ceil(delaySamples) + 2) return 0;\n    return this.read(writePosition - delaySamples);\n  }\n\n  grain(voice, age, writePosition, grainSamples, delaySeconds) {\n    const ageSamples = age * grainSamples;\n    const requestedDelay = delaySeconds * this.sampleRate;\n    const rateHeadroom = Math.max(0, voice.rate - 1) * grainSamples;\n    const delay = Math.max(grainSamples * 1.25, requestedDelay + rateHeadroom);\n    if (this.recordedSamples < delay + grainSamples) return 0;\n    return this.read(writePosition - delay + ageSamples * (voice.rate - 1));\n  }\n\n  renderAtDelay(voice, writePosition, delaySeconds) {\n    const grainSamples = this.grainLength(voice);\n    if (Math.abs(voice.rate - 1) < 0.0005) {\n      return this.directDelay(voice, writePosition, delaySeconds);\n    }\n    const otherPhase = (voice.phase + 0.5) % 1;\n    const windowA = Math.sin(Math.PI * voice.phase) ** 2;\n    const windowB = Math.sin(Math.PI * otherPhase) ** 2;\n    return (\n      this.grain(voice, voice.phase, writePosition, grainSamples, delaySeconds) * windowA\n      + this.grain(voice, otherPhase, writePosition, grainSamples, delaySeconds) * windowB\n    ) / Math.max(0.5, windowA + windowB);\n  }\n\n",
+          "after": "    return this.maximumGrainSamples;\n  }\n\n  directDelay(voice, writePosition, delaySeconds, history = this.history) {\n    const delaySamples = Math.max(1, delaySeconds * this.sampleRate);\n    if (this.recordedSamples < Math.ceil(delaySamples) + 2) return 0;\n    return this.read(writePosition - delaySamples, history);\n  }\n\n  grain(voice, age, writePosition, grainSamples, delaySeconds, history = this.history) {\n    const ageSamples = age * grainSamples;\n    const requestedDelay = delaySeconds * this.sampleRate;\n    const rateHeadroom = Math.max(0, voice.rate - 1) * grainSamples;\n    const delay = Math.max(grainSamples * 1.25, requestedDelay + rateHeadroom);\n    if (this.recordedSamples < delay + grainSamples) return 0;\n    return this.read(writePosition - delay + ageSamples * (voice.rate - 1), history);\n  }\n\n  renderAtDelay(voice, writePosition, delaySeconds, history = this.history) {\n    const grainSamples = this.grainLength(voice);\n    if (Math.abs(voice.rate - 1) < 0.0005) {\n      return this.directDelay(voice, writePosition, delaySeconds, history);\n    }\n    const otherPhase = (voice.phase + 0.5) % 1;\n    const windowA = Math.sin(Math.PI * voice.phase) ** 2;\n    const windowB = Math.sin(Math.PI * otherPhase) ** 2;\n    return (\n      this.grain(voice, voice.phase, writePosition, grainSamples, delaySeconds, history) * windowA\n      + this.grain(voice, otherPhase, writePosition, grainSamples, delaySeconds, history) * windowB\n    ) / Math.max(0.5, windowA + windowB);\n  }\n\n"
+        },
+        {
+          "before": "    for (let frame = 0; frame < outputLeft.length; frame += 1) {\n      const leftIn = inputLeft?.[frame] ?? 0;\n      const rightIn = inputRight?.[frame] ?? leftIn;\n      this.history[this.writeIndex] = Math.tanh((leftIn + rightIn) * 0.5);\n      const writePosition = this.writeIndex;\n      this.writeIndex = (this.writeIndex + 1) % this.history.length;\n      this.recordedSamples = Math.min(this.history.length, this.recordedSamples + 1);\n",
+          "after": "    for (let frame = 0; frame < outputLeft.length; frame += 1) {\n      const leftIn = inputLeft?.[frame] ?? 0;\n      const rightIn = inputRight?.[frame] ?? leftIn;\n      this.history[this.writeIndex] = Math.tanh(this.historyRight ? leftIn : (leftIn + rightIn) * 0.5);\n      if (this.historyRight) this.historyRight[this.writeIndex] = Math.tanh(rightIn);\n      const writePosition = this.writeIndex;\n      this.writeIndex = (this.writeIndex + 1) % this.history.length;\n      this.recordedSamples = Math.min(this.history.length, this.recordedSamples + 1);\n"
+        },
+        {
+          "before": "          voice.delayValues[voice.delayFrom],\n        );\n        let sample = fromSample;\n        if (voice.delayFade < 1) {\n          const toSample = this.renderAtDelay(\n            voice,\n",
+          "after": "          voice.delayValues[voice.delayFrom],\n        );\n        let sample = fromSample;\n        let rightSample = this.historyRight\n          ? this.renderAtDelay(voice, writePosition, voice.delayValues[voice.delayFrom], this.historyRight)\n          : fromSample;\n        if (voice.delayFade < 1) {\n          const toSample = this.renderAtDelay(\n            voice,\n"
+        },
+        {
+          "before": "          const mix = Math.min(1, voice.delayFade);\n          sample = fromSample * Math.cos(mix * Math.PI * 0.5)\n            + toSample * Math.sin(mix * Math.PI * 0.5);\n          voice.delayFade = Math.min(1, voice.delayFade + 1 / (this.sampleRate * 0.065));\n          if (voice.delayFade >= 1) voice.delayFrom = voice.delayTo;\n        }\n        left += sample * voice.gain * Math.sqrt((1 - voice.pan) * 0.5);\n        right += sample * voice.gain * Math.sqrt((1 + voice.pan) * 0.5);\n      }\n      outputLeft[frame] = Math.tanh(left);\n      outputRight[frame] = Math.tanh(right);\n",
+          "after": "          const mix = Math.min(1, voice.delayFade);\n          sample = fromSample * Math.cos(mix * Math.PI * 0.5)\n            + toSample * Math.sin(mix * Math.PI * 0.5);\n          rightSample = this.historyRight\n            ? rightSample * Math.cos(mix * Math.PI * 0.5)\n              + this.renderAtDelay(voice, writePosition, voice.delayValues[voice.delayTo], this.historyRight) * Math.sin(mix * Math.PI * 0.5)\n            : sample;\n          voice.delayFade = Math.min(1, voice.delayFade + 1 / (this.sampleRate * 0.065));\n          if (voice.delayFade >= 1) voice.delayFrom = voice.delayTo;\n        }\n        left += sample * voice.gain * Math.sqrt((1 - voice.pan) * 0.5);\n        right += rightSample * voice.gain * Math.sqrt((1 + voice.pan) * 0.5);\n      }\n      outputLeft[frame] = Math.tanh(left);\n      outputRight[frame] = Math.tanh(right);\n"
+        }
+      ]
+    },
+    {
+      "file": "src/families/mic-branch/micmic-generation-processor.js",
+      "reason": "User-requested stereo line-input setup; retain mono behavior and instrument presets.",
+      "regressionTests": [
+        "tests/stereo-audio-input.test.mjs",
+        "e2e/io-settings.spec.mjs"
+      ],
+      "replacements": [
+        {
+          "before": "      sampleRate,\n      historySeconds: options.processorOptions?.historySeconds,\n      maxVoices: options.processorOptions?.maxVoices,\n    });\n    this.requestedVoices = 0;\n    this.loadBlocks = 0;\n",
+          "after": "      sampleRate,\n      historySeconds: options.processorOptions?.historySeconds,\n      maxVoices: options.processorOptions?.maxVoices,\n      channels: options.processorOptions?.channels,\n    });\n    this.requestedVoices = 0;\n    this.loadBlocks = 0;\n"
+        }
+      ]
+    },
+    {
+      "file": "src/families/signalsmith-generation/signalsmith-generation-bank.js",
+      "reason": "User-requested stereo line-input setup; retain mono behavior and instrument presets.",
+      "regressionTests": [
+        "tests/stereo-audio-input.test.mjs",
+        "e2e/io-settings.spec.mjs"
+      ],
+      "replacements": [
+        {
+          "before": "  return Math.abs(semitones) < 0.005 ? \"0\" : semitones.toFixed(2);\n}\n\nasync function defaultMixerFactory(context, { maxInputs, maxVoices, historySeconds }) {\n  const WorkletNode = globalThis.AudioWorkletNode;\n  if (!context.audioWorklet?.addModule || !WorkletNode) {\n    throw new Error(\"The bounded generation mixer requires AudioWorklet.\");\n",
+          "after": "  return Math.abs(semitones) < 0.005 ? \"0\" : semitones.toFixed(2);\n}\n\nasync function defaultMixerFactory(context, { maxInputs, maxVoices, historySeconds, channels }) {\n  const WorkletNode = globalThis.AudioWorkletNode;\n  if (!context.audioWorklet?.addModule || !WorkletNode) {\n    throw new Error(\"The bounded generation mixer requires AudioWorklet.\");\n"
+        },
+        {
+          "before": "    numberOfInputs: maxInputs,\n    numberOfOutputs: 1,\n    outputChannelCount: [2],\n    processorOptions: { maxInputs, maxVoices, historySeconds },\n  });\n}\n\n",
+          "after": "    numberOfInputs: maxInputs,\n    numberOfOutputs: 1,\n    outputChannelCount: [2],\n    channelCount: channels,\n    channelCountMode: \"explicit\",\n    processorOptions: { maxInputs, maxVoices, historySeconds, channels },\n  });\n}\n\n"
+        },
+        {
+          "before": "    mixerFactory = defaultMixerFactory,\n    onRenderLoad = null,\n    onPitchDetail = null,\n  } = {}) {\n    this.context = context;\n    this.input = input;\n",
+          "after": "    mixerFactory = defaultMixerFactory,\n    onRenderLoad = null,\n    onPitchDetail = null,\n    channels = 1,\n  } = {}) {\n    this.context = context;\n    this.input = input;\n"
+        },
+        {
+          "before": "    ));\n    this.maxVoices = Math.max(1, Math.min(1024, Math.round(maxVoices)));\n    this.historySeconds = clamp(historySeconds, 4, 40, 30);\n    this.stretchFactory = stretchFactory;\n    this.mixerFactory = mixerFactory;\n    this.onRenderLoad = typeof onRenderLoad === \"function\" ? onRenderLoad : null;\n",
+          "after": "    ));\n    this.maxVoices = Math.max(1, Math.min(1024, Math.round(maxVoices)));\n    this.historySeconds = clamp(historySeconds, 4, 40, 30);\n    this.channels = channels === 2 ? 2 : 1;\n    this.stretchFactory = stretchFactory;\n    this.mixerFactory = mixerFactory;\n    this.onRenderLoad = typeof onRenderLoad === \"function\" ? onRenderLoad : null;\n"
+        },
+        {
+          "before": "      maxInputs,\n      maxVoices: this.maxVoices,\n      historySeconds: this.historySeconds,\n    });\n    this.input.connect(this.mixer, 0, 0);\n    this.mixer.connect(this.output);\n",
+          "after": "      maxInputs,\n      maxVoices: this.maxVoices,\n      historySeconds: this.historySeconds,\n      channels: this.channels,\n    });\n    this.input.connect(this.mixer, 0, 0);\n    this.mixer.connect(this.output);\n"
+        },
+        {
+          "before": "      const node = await this.stretchFactory(this.context, {\n        numberOfInputs: 1,\n        numberOfOutputs: 1,\n        outputChannelCount: [1],\n      });\n      const slot = {\n        node,\n",
+          "after": "      const node = await this.stretchFactory(this.context, {\n        numberOfInputs: 1,\n        numberOfOutputs: 1,\n        outputChannelCount: [this.channels],\n        channelCount: this.channels,\n        channelCountMode: \"explicit\",\n      });\n      const slot = {\n        node,\n"
+        }
+      ]
+    },
+    {
+      "file": "src/families/signalsmith-generation/signalsmith-generation-mixer-dsp.js",
+      "reason": "User-requested stereo line-input setup; retain mono behavior and instrument presets.",
+      "regressionTests": [
+        "tests/stereo-audio-input.test.mjs",
+        "e2e/io-settings.spec.mjs"
+      ],
+      "replacements": [
+        {
+          "before": "    historySeconds = 30,\n    maxInputs = 4,\n    maxVoices = 48,\n  } = {}) {\n    this.sampleRate = clamp(sampleRate, 8_000, 192_000, DEFAULT_SAMPLE_RATE);\n    this.maxInputs = Math.max(\n",
+          "after": "    historySeconds = 30,\n    maxInputs = 4,\n    maxVoices = 48,\n    channels = 1,\n  } = {}) {\n    this.sampleRate = clamp(sampleRate, 8_000, 192_000, DEFAULT_SAMPLE_RATE);\n    this.maxInputs = Math.max(\n"
+        },
+        {
+          "before": "      { length: this.maxInputs },\n      () => new Float32Array(this.historyLength),\n    );\n    this.writeIndex = 0;\n    this.recordedSamples = 0;\n    this.voices = new Map();\n",
+          "after": "      { length: this.maxInputs },\n      () => new Float32Array(this.historyLength),\n    );\n    this.rightHistories = channels === 2\n      ? Array.from({ length: this.maxInputs }, () => new Float32Array(this.historyLength)) : null;\n    this.writeIndex = 0;\n    this.recordedSamples = 0;\n    this.voices = new Map();\n"
+        },
+        {
+          "before": "    this.activeTargetCount = source.length;\n  }\n\n  read(sourceIndex, delaySeconds, writePosition) {\n    const delaySamples = Math.max(1, delaySeconds * this.sampleRate);\n    if (this.recordedSamples < Math.ceil(delaySamples) + 2) return 0;\n    const position = writePosition - delaySamples;\n",
+          "after": "    this.activeTargetCount = source.length;\n  }\n\n  read(sourceIndex, delaySeconds, writePosition, rightChannel = false) {\n    const delaySamples = Math.max(1, delaySeconds * this.sampleRate);\n    if (this.recordedSamples < Math.ceil(delaySamples) + 2) return 0;\n    const position = writePosition - delaySamples;\n"
+        },
+        {
+          "before": "    const fraction = position - floor;\n    const left = ((floor % this.historyLength) + this.historyLength) % this.historyLength;\n    const right = (left + 1) % this.historyLength;\n    const history = this.histories[sourceIndex] ?? this.histories[0];\n    return history[left] * (1 - fraction) + history[right] * fraction;\n  }\n\n  process(inputs, outputLeft, outputRight) {\n    const gainSmoothing = 1 - Math.exp(-1 / (this.sampleRate * 0.02));\n    const panSmoothing = 1 - Math.exp(-1 / (this.sampleRate * 0.03));\n    for (let frame = 0; frame < outputLeft.length; frame += 1) {\n      for (let input = 0; input < this.maxInputs; input += 1) {\n        this.histories[input][this.writeIndex] = inputs[input]?.[frame] ?? 0;\n      }\n      const writePosition = this.writeIndex;\n      this.writeIndex = (this.writeIndex + 1) % this.historyLength;\n",
+          "after": "    const fraction = position - floor;\n    const left = ((floor % this.historyLength) + this.historyLength) % this.historyLength;\n    const right = (left + 1) % this.historyLength;\n    const histories = rightChannel && this.rightHistories ? this.rightHistories : this.histories;\n    const history = histories[sourceIndex] ?? histories[0];\n    return history[left] * (1 - fraction) + history[right] * fraction;\n  }\n\n  process(inputs, outputLeft, outputRight, rightInputs = null) {\n    const gainSmoothing = 1 - Math.exp(-1 / (this.sampleRate * 0.02));\n    const panSmoothing = 1 - Math.exp(-1 / (this.sampleRate * 0.03));\n    for (let frame = 0; frame < outputLeft.length; frame += 1) {\n      for (let input = 0; input < this.maxInputs; input += 1) {\n        this.histories[input][this.writeIndex] = inputs[input]?.[frame] ?? 0;\n        if (this.rightHistories) this.rightHistories[input][this.writeIndex] = rightInputs?.[input]?.[frame] ?? inputs[input]?.[frame] ?? 0;\n      }\n      const writePosition = this.writeIndex;\n      this.writeIndex = (this.writeIndex + 1) % this.historyLength;\n"
+        },
+        {
+          "before": "          writePosition,\n        );\n        let sample = fromSample;\n        if (voice.delayFade < 1) {\n          const toSample = this.read(\n            voice.target.sourceIndex,\n",
+          "after": "          writePosition,\n        );\n        let sample = fromSample;\n        let rightSample = this.rightHistories\n          ? this.read(fromSource, voice.delayValues[voice.delayFrom], writePosition, true)\n          : fromSample;\n        if (voice.delayFade < 1) {\n          const toSample = this.read(\n            voice.target.sourceIndex,\n"
+        },
+        {
+          "before": "          const mix = Math.min(1, voice.delayFade);\n          sample = fromSample * Math.cos(mix * Math.PI * 0.5)\n            + toSample * Math.sin(mix * Math.PI * 0.5);\n          voice.delayFade = Math.min(1, voice.delayFade + 1 / (this.sampleRate * 0.065));\n          if (voice.delayFade >= 1) {\n            voice.delayFrom = voice.delayTo;\n",
+          "after": "          const mix = Math.min(1, voice.delayFade);\n          sample = fromSample * Math.cos(mix * Math.PI * 0.5)\n            + toSample * Math.sin(mix * Math.PI * 0.5);\n          rightSample = this.rightHistories\n            ? rightSample * Math.cos(mix * Math.PI * 0.5)\n              + this.read(voice.target.sourceIndex, voice.delayValues[voice.delayTo], writePosition, true) * Math.sin(mix * Math.PI * 0.5)\n            : sample;\n          voice.delayFade = Math.min(1, voice.delayFade + 1 / (this.sampleRate * 0.065));\n          if (voice.delayFade >= 1) {\n            voice.delayFrom = voice.delayTo;\n"
+        },
+        {
+          "before": "          }\n        }\n        left += sample * voice.gain * Math.sqrt((1 - voice.pan) * 0.5);\n        right += sample * voice.gain * Math.sqrt((1 + voice.pan) * 0.5);\n      }\n      outputLeft[frame] = clamp(left, -1, 1, 0);\n      outputRight[frame] = clamp(right, -1, 1, 0);\n",
+          "after": "          }\n        }\n        left += sample * voice.gain * Math.sqrt((1 - voice.pan) * 0.5);\n        right += rightSample * voice.gain * Math.sqrt((1 + voice.pan) * 0.5);\n      }\n      outputLeft[frame] = clamp(left, -1, 1, 0);\n      outputRight[frame] = clamp(right, -1, 1, 0);\n"
+        }
+      ]
+    },
+    {
+      "file": "src/families/signalsmith-generation/signalsmith-generation-mixer-processor.js",
+      "reason": "User-requested stereo line-input setup; retain mono behavior and instrument presets.",
+      "regressionTests": [
+        "tests/stereo-audio-input.test.mjs",
+        "e2e/io-settings.spec.mjs"
+      ],
+      "replacements": [
+        {
+          "before": "      historySeconds: options.processorOptions?.historySeconds,\n      maxInputs: options.processorOptions?.maxInputs,\n      maxVoices: options.processorOptions?.maxVoices,\n    });\n    this.requestedVoices = 0;\n    this.loadBlocks = 0;\n",
+          "after": "      historySeconds: options.processorOptions?.historySeconds,\n      maxInputs: options.processorOptions?.maxInputs,\n      maxVoices: options.processorOptions?.maxVoices,\n      channels: options.processorOptions?.channels,\n    });\n    this.requestedVoices = 0;\n    this.loadBlocks = 0;\n"
+        },
+        {
+          "before": "    this.pendingControlMilliseconds = 0;\n    this.reportedTimingUnavailable = false;\n    this.monoInputs = new Array(this.renderer.maxInputs);\n    this.port.onmessage = ({ data }) => {\n      const startedAt = clockMilliseconds();\n      if (data?.type === \"voices\") {\n",
+          "after": "    this.pendingControlMilliseconds = 0;\n    this.reportedTimingUnavailable = false;\n    this.monoInputs = new Array(this.renderer.maxInputs);\n    this.rightInputs = new Array(this.renderer.maxInputs);\n    this.port.onmessage = ({ data }) => {\n      const startedAt = clockMilliseconds();\n      if (data?.type === \"voices\") {\n"
+        },
+        {
+          "before": "    const startedAt = clockMilliseconds();\n    for (let index = 0; index < this.monoInputs.length; index += 1) {\n      this.monoInputs[index] = inputs[index]?.[0];\n    }\n    const keepAlive = this.renderer.process(\n      this.monoInputs,\n      output[0],\n      output[1] ?? output[0],\n    );\n    this.recordRenderLoad(startedAt, output[0].length);\n    return keepAlive;\n",
+          "after": "    const startedAt = clockMilliseconds();\n    for (let index = 0; index < this.monoInputs.length; index += 1) {\n      this.monoInputs[index] = inputs[index]?.[0];\n      this.rightInputs[index] = inputs[index]?.[1] ?? inputs[index]?.[0];\n    }\n    const keepAlive = this.renderer.process(\n      this.monoInputs,\n      output[0],\n      output[1] ?? output[0],\n      this.rightInputs,\n    );\n    this.recordRenderLoad(startedAt, output[0].length);\n    return keepAlive;\n"
+        }
+      ]
+    }
+  ]
+}

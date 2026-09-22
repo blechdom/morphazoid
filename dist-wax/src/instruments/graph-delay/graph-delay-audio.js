@@ -1,5 +1,6 @@
 import { unlockAudioContext } from "../../audio.js";
 import { connectAudioOutput } from "../../audio-output-manager.js";
+import { audioInputConstraints, configureAudioInputNode, loadAudioInputSettings } from "../../audio-input-settings.js";
 import {
   MAX_GRAPH_TURN_ROUTES,
   edgeAudioParameters,
@@ -332,13 +333,7 @@ export class GraphDelayAudio {
       this.pitchProcessorReady = pitchProcessorReady;
       const audioGraph = this.#buildGraph(context, this.graph, this.settings, this.switches, 1);
       this.audioGraph = audioGraph;
-      const stream = await mediaDevices.getUserMedia({
-        audio: {
-          echoCancellation: { ideal: false },
-          noiseSuppression: { ideal: false },
-          autoGainControl: { ideal: false },
-        },
-      });
+      const stream = await mediaDevices.getUserMedia(audioInputConstraints(this.runtime));
       if (generation !== this.generation || context !== this.context || context.state === "closed") {
         for (const track of stream.getTracks?.() ?? []) track.stop();
         throw cancelledGraphDelayStart();
@@ -378,6 +373,7 @@ export class GraphDelayAudio {
     if (!target || !this.analyser || !this.context) return;
     const trim = this.context.createGain();
     try {
+      configureAudioInputNode(trim, this.runtime);
       trim.gain.value = this.settings.inputTrim;
       safeConnect(this.analyser, trim);
       safeConnect(trim, target.input);
@@ -494,13 +490,14 @@ export class GraphDelayAudio {
         const processor = own(new AudioWorkletNodeConstructor(context, "morphazoid-graph-turns", {
           numberOfInputs: routing.sources.length,
           numberOfOutputs: routing.outputs.length,
-          outputChannelCount: Array(routing.outputs.length).fill(1),
-          channelCount: 1,
+          outputChannelCount: Array(routing.outputs.length).fill(loadAudioInputSettings(this.runtime).inputChannels),
+          channelCount: loadAudioInputSettings(this.runtime).inputChannels,
           channelCountMode: "explicit",
           processorOptions: {
             sourceCount: routing.sources.length,
             outputCount: routing.outputs.length,
             phaseSeed: node.id,
+            channels: loadAudioInputSettings(this.runtime).inputChannels,
           },
         }));
         routing.sources.forEach((source, sourceIndex) => {

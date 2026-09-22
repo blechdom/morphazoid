@@ -22,6 +22,7 @@ class SignalsmithGenerationMixerProcessor extends AudioWorkletProcessor {
       historySeconds: options.processorOptions?.historySeconds,
       maxInputs: options.processorOptions?.maxInputs,
       maxVoices: options.processorOptions?.maxVoices,
+      channels: options.processorOptions?.channels,
     });
     this.requestedVoices = 0;
     this.loadBlocks = 0;
@@ -30,6 +31,7 @@ class SignalsmithGenerationMixerProcessor extends AudioWorkletProcessor {
     this.pendingControlMilliseconds = 0;
     this.reportedTimingUnavailable = false;
     this.monoInputs = new Array(this.renderer.maxInputs);
+    this.rightInputs = new Array(this.renderer.maxInputs);
     this.port.onmessage = ({ data }) => {
       const startedAt = clockMilliseconds();
       if (data?.type === "voices") {
@@ -95,11 +97,13 @@ class SignalsmithGenerationMixerProcessor extends AudioWorkletProcessor {
     const startedAt = clockMilliseconds();
     for (let index = 0; index < this.monoInputs.length; index += 1) {
       this.monoInputs[index] = inputs[index]?.[0];
+      this.rightInputs[index] = inputs[index]?.[1] ?? inputs[index]?.[0];
     }
     const keepAlive = this.renderer.process(
       this.monoInputs,
       output[0],
       output[1] ?? output[0],
+      this.rightInputs,
     );
     this.recordRenderLoad(startedAt, output[0].length);
     return keepAlive;

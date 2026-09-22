@@ -699,6 +699,173 @@ function headerSettingsSection(doc, id, title, control) {
   return section;
 }
 
+/** One gear/disclosure for mouse, touch and keyboard; never owns any devices. */
+export function createHeaderSettingsMenu(doc, runtime, { idSuffix = "", testLinks = true } = {}) {
+  const suffix = idSuffix ? `-${String(idSuffix).replace(/[^a-z\d_-]/gi, "-")}` : "";
+  const details = element(doc, "details", "header-settings-menu header-quick-settings");
+  const summary = element(doc, "summary", "header-settings-trigger");
+  summary.setAttribute("aria-label", "Morphazoid Settings");
+  summary.setAttribute("title", "Audio & MIDI settings");
+  summary.setAttribute("aria-controls", `headerSettingsPanel${suffix}`);
+  summary.setAttribute("aria-expanded", "false");
+  const icon = element(doc, "span", "header-settings-icon");
+  icon.setAttribute("aria-hidden", "true");
+  summary.append(icon);
+  const panel = element(doc, "div", "header-settings-panel");
+  panel.id = `headerSettingsPanel${suffix}`;
+  const heading = element(doc, "div", "header-settings-heading");
+  heading.append(element(doc, "h2", "", testLinks ? "Sound check" : "Audio & MIDI"));
+  const links = element(doc, "nav", "header-settings-links");
+  links.setAttribute("aria-label", "Audio and MIDI tests");
+  for (const [label, hash] of [
+    ["Speakers", "speakerTest"],
+    ["Audio input", "inputTest"],
+    ["MIDI", "midiTest"],
+  ]) {
+    const link = element(doc, "a", "header-settings-link", label);
+    link.setAttribute("href", new URL(`settings.html#${hash}`, NAVIGATION_BASE_URL).href);
+    links.append(link);
+  }
+  const setupLink = element(doc, "a", "io-setup-link midi-profile-guide", "Full I/O setup ↗");
+  setupLink.setAttribute("href", new URL("settings.html", NAVIGATION_BASE_URL).href);
+  setupLink.setAttribute("target", "_blank");
+  setupLink.setAttribute("rel", "noopener");
+  setupLink.setAttribute("aria-label", "Full I/O setup (opens in a new tab)");
+  setupLink.setAttribute("title", "Open full setup in a new tab; keep this instrument open");
+  panel.append(heading);
+  if (testLinks) panel.append(links);
+  panel.append(setupLink);
+  details.append(summary, panel);
+
+  const timers = typeof runtime?.setTimeout === "function" && typeof runtime?.clearTimeout === "function"
+    ? runtime : globalThis;
+  let closeTimer = null;
+  let inside = false;
+  let hoverOpened = false;
+  let pinned = false;
+  let disposed = false;
+  const clearClose = () => {
+    if (closeTimer !== null) timers.clearTimeout(closeTimer);
+    closeTimer = null;
+  };
+  const sync = () => summary.setAttribute("aria-expanded", String(details.open));
+  const close = () => {
+    clearClose();
+    pinned = hoverOpened = false;
+    details.open = false;
+    sync();
+  };
+  const enter = (event) => {
+    if (event.pointerType !== "mouse"
+      || !runtime?.matchMedia?.("(hover: hover) and (pointer: fine)")?.matches) return;
+    inside = true;
+    clearClose();
+    if (!details.open) {
+      hoverOpened = true;
+      details.open = true;
+      sync();
+    }
+  };
+  const leave = () => {
+    inside = false;
+    clearClose();
+    if (!pinned) {
+      // Bridge the small gap from the gear to its fixed-position flyout.
+      closeTimer = timers.setTimeout(() => {
+        closeTimer = null;
+        if (!inside && !pinned && !panel.contains(doc.activeElement)) close();
+      }, 220);
+      closeTimer?.unref?.();
+    }
+  };
+  const clickSummary = (event) => {
+    clearClose();
+    if (details.open && hoverOpened) {
+      // Hover may have opened it before the click arrived: pin, don't close.
+      event.preventDefault?.();
+      pinned = true;
+      hoverOpened = false;
+    } else {
+      pinned = !details.open;
+      hoverOpened = false;
+    }
+  };
+  const toggle = () => {
+    if (!details.open) { pinned = hoverOpened = false; clearClose(); }
+    sync();
+  };
+  const focusOut = (event) => {
+    if (!inside && !details.contains(event.relatedTarget)) close();
+  };
+  const keydown = (event) => {
+    if (event.key === "ArrowDown" && event.target === summary) {
+      event.preventDefault?.();
+      details.open = pinned = true;
+      hoverOpened = false;
+      sync();
+      const firstControl = panel.querySelector?.("select:not(:disabled)");
+      (firstControl ?? (testLinks ? links.children[0] : setupLink))?.focus?.();
+    } else if (event.key === "Escape" && details.open) {
+      event.preventDefault?.();
+      close();
+      summary.focus?.();
+      // Keep page-owned Escape panic/stop handlers reachable.
+    }
+  };
+  const outside = (event) => {
+    if (details.open && !details.contains(event.target)) close();
+  };
+  const clickLink = (event) => {
+    if (event.target?.closest?.("a[href]")) close();
+  };
+  const pageHide = (event) => {
+    close();
+    if (!event?.persisted) destroy();
+  };
+  const destroy = () => {
+    if (disposed) return;
+    disposed = true;
+    close();
+    details.removeEventListener?.("pointerenter", enter);
+    details.removeEventListener?.("pointerleave", leave);
+    details.removeEventListener?.("focusout", focusOut);
+    details.removeEventListener?.("toggle", toggle);
+    panel.removeEventListener?.("pointerenter", enter);
+    panel.removeEventListener?.("pointerleave", leave);
+    panel.removeEventListener?.("click", clickLink);
+    summary.removeEventListener?.("click", clickSummary);
+    doc.removeEventListener?.("keydown", keydown, true);
+    doc.removeEventListener?.("pointerdown", outside);
+    runtime?.removeEventListener?.("pagehide", pageHide);
+  };
+  details.addEventListener("pointerenter", enter);
+  details.addEventListener("pointerleave", leave);
+  details.addEventListener("focusout", focusOut);
+  details.addEventListener("toggle", toggle);
+  panel.addEventListener("pointerenter", enter);
+  panel.addEventListener("pointerleave", leave);
+  panel.addEventListener("click", clickLink);
+  summary.addEventListener("click", clickSummary);
+  doc.addEventListener?.("keydown", keydown, true);
+  doc.addEventListener?.("pointerdown", outside);
+  runtime?.addEventListener?.("pagehide", pageHide);
+  return { details, summary, panel, heading, links, setupLink, destroy };
+}
+
+/** Catalogue/info/setup pages get the same gear without MIDI subscriptions. */
+export function initializeSettingsMenus(doc, runtime) {
+  const menus = [];
+  for (const [index, header] of [...(doc?.querySelectorAll?.(".masthead") ?? [])].entries()) {
+    if (header.querySelector?.(".header-settings-menu")) continue;
+    const menu = createHeaderSettingsMenu(doc, runtime, { idSuffix: `site-${index + 1}` });
+    const controls = header.querySelector?.(".io-header-actions");
+    (controls ?? header).append(menu.details);
+    if (!controls) menu.details.classList.add("header-settings-standalone");
+    menus.push(menu);
+  }
+  return menus;
+}
+
 function syncSelectOptions(doc, select, choices, selectedValue = "") {
   const options = choices.map((choice) => ({
     value: String(choice.value ?? ""),
@@ -778,20 +945,11 @@ export function createMidiToolbar(
   // Keep the original `meter` handle as a backwards-compatible alias.
   const meter = leftMeter;
 
-  const details = element(doc, "details", "header-settings-menu");
-  details.hidden = true;
-  const summary = element(doc, "summary", "header-settings-trigger");
-  summary.setAttribute("aria-label", "Morphazoid Settings");
-  summary.setAttribute("title", "Morphazoid Settings");
-  summary.setAttribute("aria-controls", `headerSettingsPanel${suffix}`);
-  const settingsIcon = element(doc, "span", "header-settings-icon");
-  settingsIcon.setAttribute("aria-hidden", "true");
-  summary.append(settingsIcon);
-
-  const panel = element(doc, "div", "header-settings-panel");
-  panel.id = `headerSettingsPanel${suffix}`;
-  const heading = element(doc, "div", "header-settings-heading");
-  heading.append(element(doc, "h2", "", "Morphazoid Settings"));
+  const settingsMenu = createHeaderSettingsMenu(doc, runtime, { idSuffix, testLinks: false });
+  const { details, panel } = settingsMenu;
+  const routing = element(doc, "div", "header-settings-controls");
+  routing.setAttribute("role", "group");
+  routing.setAttribute("aria-label", "Current instrument settings");
 
   const audioOutputSelect = element(doc, "select", "audio-output-select");
   audioOutputSelect.id = `audioOutputSelect${suffix}`;
@@ -891,23 +1049,28 @@ export function createMidiToolbar(
   );
   const guide = element(doc, "a", "midi-profile-guide", "MIDI & WAX Plugin Guide");
   guide.setAttribute("href", new URL("midi-guide.html", NAVIGATION_BASE_URL).href);
+  guide.setAttribute("target", "_blank");
+  guide.setAttribute("rel", "noopener");
+  guide.setAttribute("aria-label", "MIDI & WAX Plugin Guide (opens in a new tab)");
   const error = element(doc, "p", "midi-profile-error");
   error.id = `sharedMidiError${suffix}`;
   error.setAttribute("role", "alert");
   error.hidden = true;
-  panel.append(
-    heading,
+  routing.append(
     audioOutSection,
     audioInputSection,
     midiInSection,
     midiOutSection,
     midiMapSection,
-    guide,
+  );
+  panel.append(
+    routing,
     audioOutputError,
     midiInputWarning,
     error,
+    guide,
+    settingsMenu.setupLink,
   );
-  details.append(summary, panel);
   toolbar.append(toggle);
 
   const paintMidiInput = (status) => {
@@ -969,7 +1132,9 @@ export function createMidiToolbar(
     const toolbarHost = host ?? toolbar.parentNode;
     toolbar.hidden = !visible;
     meterShell.hidden = !visible;
-    details.hidden = !visible;
+    details.hidden = false;
+    // Device settings remain directly reachable even without a MIDI client.
+    routing.hidden = false;
     if (visible) toolbarHost?.classList?.add("has-midi-toolbar");
     else {
       toolbarHost?.classList?.remove("has-midi-toolbar");
@@ -1189,7 +1354,8 @@ export function createMidiToolbar(
     if (typeof audioOutputManager?.setOutputDevice !== "function") return;
     audioOutputSelect.disabled = true;
     try {
-      await audioOutputManager.setOutputDevice(audioOutputSelect.value);
+      const selected = await audioOutputManager.setOutputDevice(audioOutputSelect.value);
+      if (selected === false) throw new Error("Could not select this output. Open Audio & MIDI setup to grant device access.");
       audioOutputError.hidden = true;
       audioOutputError.textContent = "";
     } catch (reason) {
@@ -1203,15 +1369,6 @@ export function createMidiToolbar(
     if (details.open) return refreshAudioOutputChoices();
     return undefined;
   };
-  const handleDetailsKeydown = (event) => {
-    if (event.key !== "Escape" || !details.open) return;
-    event.preventDefault?.();
-    details.open = false;
-    summary.focus?.();
-  };
-  const handleDocumentPointerdown = (event) => {
-    if (details.open && !details.contains(event.target)) details.open = false;
-  };
   let disposed = false;
   const destroy = () => {
     if (disposed) return;
@@ -1220,14 +1377,13 @@ export function createMidiToolbar(
     unsubscribeMessages();
     unsubscribeAudioOutput();
     clearActivity();
+    settingsMenu.destroy();
     midiStatus.destroy();
     toggle.removeEventListener?.("click", handleToggle);
     select.removeEventListener?.("change", handleProfileChange);
     midiInputSelect.removeEventListener?.("change", handleMidiInputChange);
     audioOutputSelect.removeEventListener?.("change", handleAudioOutputChange);
     details.removeEventListener?.("toggle", handleDetailsToggle);
-    details.removeEventListener?.("keydown", handleDetailsKeydown);
-    doc.removeEventListener?.("pointerdown", handleDocumentPointerdown);
     runtime.removeEventListener?.("pagehide", handlePageHide);
   };
   const handlePageHide = (event) => {
@@ -1239,8 +1395,6 @@ export function createMidiToolbar(
   midiInputSelect.addEventListener("change", handleMidiInputChange);
   audioOutputSelect.addEventListener("change", handleAudioOutputChange);
   details.addEventListener("toggle", handleDetailsToggle);
-  details.addEventListener("keydown", handleDetailsKeydown);
-  doc.addEventListener?.("pointerdown", handleDocumentPointerdown);
   runtime.addEventListener?.("pagehide", handlePageHide);
 
   return Object.freeze({
@@ -1445,6 +1599,7 @@ export function initializeSharedNavigation(doc = globalThis.document, runtime = 
       capability,
     });
   }
+  initializeSettingsMenus(doc, runtime);
   initializeAudioTransportContract(doc, runtime);
   mountHeaderPresets(doc);
 
