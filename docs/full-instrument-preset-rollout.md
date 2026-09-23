@@ -1,4 +1,8 @@
-# Full-instrument preset rollout — September 20, 2026
+# Full-instrument preset rollout
+
+Current queue reviewed September 22, 2026, against freshly fetched main
+`9a45aa0` (after the initial `83ea203` checkpoint). Older dated sections below are historical checkpoints, not the
+current Faves list or a substitute for current verification evidence.
 
 ## Active priority: Faves first; Works in Progress deferred
 
@@ -8,7 +12,7 @@ while the main collection remains unfinished.
 
 1. **Faves, in `FAVE_TOOL_IDS` order.** Finish pending recall, layout and
    preservation checks on already implemented Faves; do not recreate their
-   banks unnecessarily. All fifteen Faves now have source implementations;
+   banks unnecessarily. All thirteen Faves now have source implementations;
    finish their pending browser/listening/release gates before calling them
    accepted.
 2. **Remaining non-WIP regular instruments**, in registry/category order,
@@ -19,26 +23,38 @@ while the main collection remains unfinished.
 
 Current Faves order:
 
-1. Shape
-2. Solid
-3. Hyper
-4. Rubix Cube Sequencer
-5. Hiccup Head
-6. Creaturazoid
-7. Hybrinx
-8. Jaw Harp
-9. Hyper Rubix
-10. L-system Delay
-11. L-System
-12. Graph Delay
-13. Graph Synth
-14. Automatapoeia
-15. Lattice
+1. Shapes
+2. Rubix Cube Sequencer
+3. Hiccup Head
+4. Creaturazoid
+5. Hybrinx
+6. Jaw Harp
+7. Hyper Rubix
+8. L-system Delay
+9. L-System
+10. Graph Delay
+11. Graph Synth
+12. Automatapoeia
+13. Lattice
 
-The registry currently contains 84 non-WIP regular instruments: 15 Faves and
-69 others. The 63 WIP regular instruments and seven labs are deferred. Derive
+Shapes replaced the three standalone geometry instruments in Faves. Shape,
+Solid and Hyper remain in Geometric with their existing full presets and
+preservation tests; do not delete or recreate those banks.
+
+The registry currently contains 84 non-WIP regular instruments: 13 Faves and
+71 others. The 73 WIP regular instruments, seven labs and four non-instrument
+utility routes are deferred. Derive
 future queue membership from `src/site/instrument-registry.js` rather than
 treating these counts as permanent.
+
+`docs/preset-rollout-status.json` now includes registry-ordered queues.
+`node scripts/presets/rollout-status.mjs` checks membership and derived counts;
+after reviewing registry changes, use `--write` to refresh them. This preserves
+existing banks and verification records and never infers QA approval.
+The first unmigrated non-WIP batch is Shape, Solid, Hyper and Graph Drum
+Machines, followed by L-Systems, Graphs and Tesselation. Faves acceptance work
+still comes first. See [the September 22 continuation](presets-continuation-20260922.md)
+for this pass's exact evidence and remaining gates.
 
 Use shared family work only when it advances the current priority instruments,
 not as a reason to switch to easier WIP examples. Fix owner-reported regressions
@@ -50,7 +66,7 @@ priority change does not authorize weakening tests or skipping release checks.
 ## Current work: first full-preset batch implemented, final verification pending
 
 The next local batch now implements the shared Choose-styled header preset
-control for **24 of 156 regular instruments** (451 full-state presets):
+control for **24 of 157 regular instruments** (451 full-state presets):
 
 | Instrument | Full presets |
 | --- | ---: |
@@ -79,7 +95,7 @@ control for **24 of 156 regular instruments** (451 full-state presets):
 | Automatapoeia | 12 |
 | Lattice | 12 |
 
-This is not the all-instrument rollout completed: **132 regular instruments and
+This is not the all-instrument rollout completed: **133 regular instruments and
 the seven separately identified labs remain unmigrated.** That is a coverage
 count, not the active queue: unfinished WIP work is now deferred as described
 above. The table describes implemented adapters, not new listening approval.
@@ -119,7 +135,12 @@ Changes in this batch:
   changes only appearance. Webcam capture and live gesture state remain separate
   and are never requested by a factory preset.
 
-### Current verification boundary
+### Historical verification checkpoints
+
+For this continuation's final checks and remaining gates, use
+[the September 22 evidence](presets-continuation-20260922.md). The reports below
+retain their original dates and counts; a later pass does not retroactively
+make an earlier failed or unrun check pass.
 
 Latest geometry feedback: migrated headers start at **Select Preset**, not an
 auto-selected matching default. Shape's paused scene is removed. Solid/Hyper
@@ -248,7 +269,7 @@ repository gate, the applicable browser suites, and a fresh WAX build pass.
 Generated WAX currently predates the last phone-layout/label changes and must
 be regenerated, not hand-edited. Evidence is under `test-results/full-presets/`.
 
-The new Faves order is:
+At the earlier September 21 checkpoint, the Faves order was:
 Shape, Solid, Hyper, Rubix Cube Sequencer, Hiccup Head, Creaturazoid, Hybrinx,
 Jaw Harp, Hyper Rubix, L-system Delay, L-System, Graph Delay, Graph Synth,
 Automatapoeia, Lattice. This retains Creaturazoid immediately after Hiccup Head

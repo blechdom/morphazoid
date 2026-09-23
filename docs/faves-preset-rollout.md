@@ -1,5 +1,12 @@
 # Faves: full-instrument preset implementation
 
+**Historical batch report.** The current registry has thirteen Faves, led by
+Shapes rather than the three standalone geometry synths. See
+[the active rollout queue](full-instrument-preset-rollout.md) and
+[the September 22 continuation](presets-continuation-20260922.md) for current
+membership and verification. The implementation counts and pending checks
+below describe earlier checkpoints.
+
 **Later update:** Solid/Hyper now have 20 presets each, Shape has 36, and the
 implemented total is 345. See [the geometry feedback report](geometry-preset-feedback.md)
 for the subsequent browser/audio checks. Counts below record the initial Faves batch.
