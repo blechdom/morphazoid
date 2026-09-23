@@ -12,6 +12,7 @@ import { registerHeaderPresets } from "../../site/header-presets.js";
 import { SHAPES_FULL_PRESETS, captureShapesPreset, applyShapesPreset, randomizeShapesPreset } from "./full-presets.js";
 import { originalSynthSpecs, originalCornerSample, originalCornerIntents, noteSpecForContact } from "./original-audio.js";
 import { createShapesSoundControls } from "./sound-controls.js";
+import { beginShapes3dRotation, pickShapes3dDragTarget, updateShapes3dRotation } from "./stage-gestures.js";
 import { rebasePingPongPosition } from "../../articulation.js";
 import {
   cloneDefaultFmDrumVoices,
@@ -61,6 +62,7 @@ import {
 } from "./shapes-state.js";
 
 const TAU = Math.PI * 2;
+const FOUR_D_DRAG_PLANES = Object.freeze(["xw", "yw", "zw"]);
 const AUDIO_LOOKAHEAD_SECONDS = 0.075;
 const AUDIO_UPDATE_INTERVAL_MS = 24;
 const DISCRETE_SCHEDULER_INTERVAL_MS = 20;
@@ -634,7 +636,15 @@ function eventClock(now = performance.now()) {
 function markManualMotion(clock = "geometry", duration = 100) {
   manualMotionClock = clock;
   manualMotionUntil = performance.now() + duration;
-  invalidateDiscreteSchedule({ silence: true });
+  // Replace an automatic forecast once at takeover, never the voices/tails
+  // already sounding. Subsequent moves also retain the trigger debounce clock.
+  if (nextDiscreteSampleAt !== null) {
+    if (state.selection.playingMode === "triggers") {
+      if (state.trigger.soundBank === "rattlesnake") rattlesnakeAudio.cancelScheduledHits();
+      else drumAudio.cancelScheduledHits();
+    } else synthAudio.cancelScheduledNotes();
+    invalidateDiscreteSchedule();
+  }
 }
 
 function activeAudioContext() {
@@ -727,10 +737,12 @@ function noteSwellLead() {
     : state.synthesis.percussionAttack / 1000;
 }
 
-function scheduleGeometricNotes(intents, scene, sourceState, markerAt) {
-  const startAt = markerAt - noteSwellLead();
+function scheduleGeometricNotes(intents, scene, sourceState, markerAt, { anticipate = true } = {}) {
+  // Only automatic motion can predict a crossing. Manual notes start their
+  // complete attack now, even when pre-marker swell is enabled.
+  const startAt = markerAt - (anticipate ? noteSwellLead() : 0);
   if (state.voice.engine === "percussion") {
-    if (startAt < (synthAudio.context?.currentTime ?? 0)) return; // never squash an overdue pre-attack
+    if (anticipate && startAt < (synthAudio.context?.currentTime ?? 0)) return; // never squash an overdue pre-attack
     scheduleOriginalCorners(intents, startAt);
     return;
   }
@@ -739,7 +751,7 @@ function scheduleGeometricNotes(intents, scene, sourceState, markerAt) {
   if (!specs.length) return;
   synthAudio.scheduleNotes(specs, {
     startAt, envelopePoints: state.notes.envelopePoints, mode: state.voice.engine,
-    voiceLimit: state.voice.voiceLimit, joinInProgress: state.notes.swell,
+    voiceLimit: state.voice.voiceLimit, joinInProgress: anticipate && state.notes.swell,
   });
 }
 
@@ -860,7 +872,12 @@ function updateAudio(scene, now) {
   if (mode === "notes") {
     if (automaticMotionIsActive() && !manualDiscreteMotionIsActive(now)) return;
     const next = originalCornerSample(state, scene);
-    if (motionIsActive(now)) scheduleGeometricNotes(originalCornerIntents(manualCornerSample, next, state), scene, state, (synthAudio.context?.currentTime ?? 0) + 0.003);
+    if (motionIsActive(now)) {
+      scheduleGeometricNotes(
+        originalCornerIntents(manualCornerSample, next, state), scene, state,
+        (synthAudio.context?.currentTime ?? 0) + 0.003, { anticipate: false },
+      );
+    }
     manualCornerSample = next;
     return;
   }
@@ -920,7 +937,10 @@ function syncFastUi(scene) {
   const divisionLabel = state.selection.playingMode === "continuous"
     ? ""
     : ` · ${divisions} DIVISION${divisions === 1 ? "" : "S"}`;
-  $("stageReadout").textContent = `${scene.contacts.length} CONTACT${scene.contacts.length === 1 ? "" : "S"} · ${moving ? "MOVING" : "PAUSED"}${divisionLabel} · ${audioLabel}`;
+  const motionLabel = pointerRotation?.dimension === "3d"
+    ? `ROTATING ${pointerRotation.rotationStart.target === "reader" ? "SURFACE" : "SHAPE"}`
+    : moving ? "MOVING" : "PAUSED";
+  $("stageReadout").textContent = `${scene.contacts.length} CONTACT${scene.contacts.length === 1 ? "" : "S"} · ${motionLabel}${divisionLabel} · ${audioLabel}`;
   $("routeReadout").textContent = `${SHAPES_DIMENSIONS[state.selection.dimension].label} · ${modeLabel}`;
   $("engineReadout").textContent = state.selection.playingMode === "triggers"
     ? TRIGGER_SOUND_BANK_BY_ID.get(state.trigger.soundBank)?.label ?? "Rattlesnake"
@@ -1430,6 +1450,7 @@ function syncAllControls() {
   app.dataset.triggerSoundBank = state.trigger.soundBank;
   $("dimensionSelect").value = dimension;
   canvas.setAttribute("aria-label", `Interactive ${SHAPES_DIMENSIONS[dimension].label} ${SHAPES_DIMENSIONS[dimension].name} instrument canvas`);
+  syncCanvasDragUi();
   $("dimensionKicker").textContent = `${SHAPES_DIMENSIONS[dimension].label} · ${SHAPES_DIMENSIONS[dimension].name}`.toUpperCase();
   $("shapeReadout").textContent = shapesRepresentationLabel(state).toUpperCase();
   $("positionLabel").textContent = transportLanguage.position;
@@ -1657,6 +1678,7 @@ bindRange("level", (value) => {
   );
 });
 $("dimensionSelect").addEventListener("change", () => {
+  releaseCanvasGesture();
   selectShapesDimension(state, $("dimensionSelect").value);
   renderedMainFormDimension = null;
   renderedRotationDimension = null;
@@ -1839,6 +1861,7 @@ $("resetMapping").addEventListener("click", () => {
   afterMutation({ announceMessage: "Mappings reset." });
 });
 $("resetAll").addEventListener("click", async () => {
+  releaseCanvasGesture();
   const wasAudioOn = state.audio.enabled;
   if (wasAudioOn) await setAudioEnabled(false);
   state = createShapesState();
@@ -1968,6 +1991,14 @@ function pointerHitsTwoDimensionalShape(event) {
   return inside;
 }
 
+function threeDimensionalDragTarget(event) {
+  const scene = lastScene?.dimension === "3d" ? lastScene : buildShapesScene(state);
+  const transform = sceneTransform(scene);
+  return pickShapes3dDragTarget(canvasPointerPoint(event), scene.vertices.map(point => ({
+    x: transform.x(point.x), y: transform.y(point.y),
+  })));
+}
+
 function pointerAngleFromShapeCenter(event) {
   const point = canvasPointerPoint(event);
   return Math.atan2(point.y - cssHeight * 0.5, point.x - cssWidth * 0.5);
@@ -1978,26 +2009,101 @@ function scrubPlayheadFromPointer(event) {
   markManualMotion("phase", 120);
 }
 
+function fourDimensionalDragPlane() {
+  const plane = $("canvasDrag").value;
+  return state.selection.dimension === "4d" && FOUR_D_DRAG_PLANES.includes(plane) ? plane : null;
+}
+
+function syncCanvasDragUi() {
+  const dimension = state.selection.dimension, plane = fourDimensionalDragPlane();
+  $("canvasDragControl").hidden = dimension !== "4d";
+  canvas.dataset.dragMode = plane || dimension === "3d" ? "rotate" : "reader";
+  const action = plane
+    ? `Drag left or right to rotate ${plane[0].toUpperCase()}–W. Left and Right Arrow rotate that plane; hold Shift for larger steps.`
+    : dimension === "2d"
+      ? "Drag on or inside the shape to move the reader; drag outside the shape to rotate it. Left and Right Arrow move the reader."
+      : dimension === "3d"
+        ? "Drag outside the shape's outline to rotate the shape; drag inside to rotate the reading surface. Use the Rotate controls for keyboard rotation. Left and Right Arrow move the surface through the shape."
+        : "Drag the canvas to move the reader. Left and Right Arrow move the reader.";
+  $("canvasInstructions").textContent = `${action} Press Space to play or pause.${dimension === "4d" ? " Use Canvas drag to choose Reader, X–W, Y–W or Z–W rotation." : ""}`;
+}
+
+function setManualFourRotation(plane, angle) {
+  if (!FOUR_D_DRAG_PLANES.includes(plane) || !Number.isFinite(angle)) return;
+  const local = state.dimension["4d"];
+  // Take over this plane only, just as the individual rotation controls do.
+  // The reader and independently running planes retain their transports.
+  local.rotationRunning = false;
+  local.rotationMotion[plane].running = false;
+  local.rotation[plane] = ((angle + 180) % 360 + 360) % 360 - 180;
+  markManualMotion("geometry", 120);
+}
+
+function releaseCanvasGesture() {
+  const pointerId = pointerScrub ?? pointerRotation?.pointerId;
+  if (pointerId === undefined || pointerId === null) return false;
+  pointerScrub = null;
+  pointerRotation = null;
+  delete stageWrap.dataset.dragTarget;
+  stageWrap.classList.remove?.("is-spinning");
+  if (canvas.hasPointerCapture?.(pointerId)) canvas.releasePointerCapture(pointerId);
+  return true;
+}
+
+$("canvasDrag").addEventListener("change", () => {
+  if (releaseCanvasGesture()) queueSave();
+  syncCanvasDragUi();
+  const plane = fourDimensionalDragPlane();
+  announce(plane ? `Canvas drag rotates ${plane[0].toUpperCase()}–W. Swipe left or right.` : "Canvas drag moves the reader.");
+  scheduleFrame();
+});
+
 canvas.addEventListener("pointerdown", (event) => {
+  if (event.isPrimary === false || (event.button ?? 0) !== 0 || pointerScrub !== null || pointerRotation !== null) return;
   event.preventDefault();
-  const moveReader = pointerHitsTwoDimensionalShape(event);
-  if (moveReader) {
-    pointerScrub = event.pointerId;
-    scrubPlayheadFromPointer(event);
-  } else {
-    const local = state.dimension["2d"];
-    local.rotationRunning = false;
+  const plane = fourDimensionalDragPlane();
+  if (plane) {
     pointerRotation = {
-      pointerId: event.pointerId,
-      startAngle: pointerAngleFromShapeCenter(event),
-      startRotation: local.rotation,
+      dimension: "4d", plane, pointerId: event.pointerId,
+      startX: event.clientX, width: Math.max(1, canvas.getBoundingClientRect().width),
+      startRotation: state.dimension["4d"].rotation[plane],
     };
-    markManualMotion("geometry", 120);
+    setManualFourRotation(plane, pointerRotation.startRotation);
     stageWrap.classList.add?.("is-spinning");
+  } else if (state.selection.dimension === "3d") {
+    const target = threeDimensionalDragTarget(event);
+    const bounds = canvas.getBoundingClientRect();
+    pointerRotation = {
+      dimension: "3d", pointerId: event.pointerId,
+      startX: event.clientX, startY: event.clientY,
+      width: Math.max(1, bounds.width), height: Math.max(1, bounds.height),
+      rotationStart: beginShapes3dRotation(state, target),
+    };
+    stageWrap.dataset.dragTarget = target;
+    stageWrap.classList.add?.("is-spinning");
+    markManualMotion("geometry", 120);
+  } else {
+    const moveReader = state.selection.dimension !== "2d" || pointerHitsTwoDimensionalShape(event);
+    if (moveReader) {
+      pointerScrub = event.pointerId;
+      scrubPlayheadFromPointer(event);
+    } else {
+      const local = state.dimension["2d"];
+      local.rotationRunning = false;
+      pointerRotation = {
+        dimension: "2d", pointerId: event.pointerId,
+        startAngle: pointerAngleFromShapeCenter(event),
+        startRotation: local.rotation,
+      };
+      markManualMotion("geometry", 120);
+      stageWrap.classList.add?.("is-spinning");
+    }
   }
   canvas.setPointerCapture?.(event.pointerId);
   canvas.focus?.({ preventScroll: true });
-  afterMutation({ save: false });
+  afterMutation({ save: false, announceMessage: pointerRotation?.dimension === "3d"
+    ? `Rotating the ${pointerRotation.rotationStart.target === "reader" ? "reading surface" : "shape"}.`
+    : null });
 });
 canvas.addEventListener("pointermove", (event) => {
   if (pointerScrub === event.pointerId) {
@@ -2006,28 +2112,44 @@ canvas.addEventListener("pointermove", (event) => {
     return;
   }
   if (pointerRotation?.pointerId !== event.pointerId) return;
-  const angleDelta = Math.atan2(
-    Math.sin(pointerAngleFromShapeCenter(event) - pointerRotation.startAngle),
-    Math.cos(pointerAngleFromShapeCenter(event) - pointerRotation.startAngle),
-  );
-  state.dimension["2d"].rotation = (
-    (pointerRotation.startRotation + angleDelta * 180 / Math.PI + 180) % 360 + 360
-  ) % 360 - 180;
-  rebaseTwoRotation();
-  markManualMotion("geometry", 120);
+  if (pointerRotation.dimension !== state.selection.dimension) {
+    releaseCanvasGesture();
+    return;
+  }
+  if (pointerRotation.dimension === "4d") {
+    // Same normalized sensitivity as Hyper, without measuring layout on every move.
+    const degrees = (event.clientX - pointerRotation.startX) / pointerRotation.width * 240;
+    setManualFourRotation(pointerRotation.plane, pointerRotation.startRotation + degrees);
+  } else if (pointerRotation.dimension === "3d") {
+    updateShapes3dRotation(state, pointerRotation.rotationStart,
+      (event.clientX - pointerRotation.startX) / pointerRotation.width,
+      (event.clientY - pointerRotation.startY) / pointerRotation.height);
+    markManualMotion("geometry", 120);
+  } else {
+    const angleDelta = Math.atan2(
+      Math.sin(pointerAngleFromShapeCenter(event) - pointerRotation.startAngle),
+      Math.cos(pointerAngleFromShapeCenter(event) - pointerRotation.startAngle),
+    );
+    state.dimension["2d"].rotation = (
+      (pointerRotation.startRotation + angleDelta * 180 / Math.PI + 180) % 360 + 360
+    ) % 360 - 180;
+    rebaseTwoRotation();
+    markManualMotion("geometry", 120);
+  }
   scheduleFrame();
 });
 const finishCanvasGesture = (event) => {
-  if (pointerScrub === event.pointerId) pointerScrub = null;
-  else if (pointerRotation?.pointerId === event.pointerId) {
-    pointerRotation = null;
-    stageWrap.classList.remove?.("is-spinning");
-  } else return;
+  if (pointerScrub !== event.pointerId && pointerRotation?.pointerId !== event.pointerId) return;
+  releaseCanvasGesture();
   queueSave();
   scheduleFrame();
 };
 canvas.addEventListener("pointerup", finishCanvasGesture);
 canvas.addEventListener("pointercancel", finishCanvasGesture);
+canvas.addEventListener("lostpointercapture", finishCanvasGesture);
+window.addEventListener("blur", () => {
+  if (releaseCanvasGesture()) { queueSave(); scheduleFrame(); }
+});
 canvas.addEventListener("keydown", (event) => {
   if (event.key === " ") {
     event.preventDefault();
@@ -2036,13 +2158,18 @@ canvas.addEventListener("keydown", (event) => {
   }
   if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
   event.preventDefault();
-  state.play.continuousPhase += (event.key === "ArrowRight" ? 1 : -1) * (event.shiftKey ? 0.05 : 0.005);
-  markManualMotion("phase", 120);
+  const plane = fourDimensionalDragPlane(), direction = event.key === "ArrowRight" ? 1 : -1;
+  if (plane) setManualFourRotation(plane, state.dimension["4d"].rotation[plane] + direction * (event.shiftKey ? 10 : 1));
+  else {
+    state.play.continuousPhase += direction * (event.shiftKey ? 0.05 : 0.005);
+    markManualMotion("phase", 120);
+  }
   afterMutation();
 });
 
 document.addEventListener("visibilitychange", () => {
   if (document.hidden) {
+    if (releaseCanvasGesture()) queueSave();
     stopDiscreteScheduler();
     synthAudio.silence();
     drumAudio.silence();
@@ -2055,6 +2182,7 @@ document.addEventListener("visibilitychange", () => {
   }
 });
 window.addEventListener("pagehide", () => {
+  if (releaseCanvasGesture()) queueSave();
   globalThis.removeEventListener?.("morphazoid:midi-input", handleShapesMidiInput);
   stopDiscreteScheduler();
   clearTimeout(saveTimer);
@@ -2099,6 +2227,7 @@ scheduleFrame();
     id: "shapes", presets: SHAPES_FULL_PRESETS, capture: () => captureShapesPreset(state),
     randomize: randomizeShapesPreset,
     apply(snapshot) {
+      releaseCanvasGesture();
       state = applyShapesPreset(state, snapshot);
       const revision = ++presetAudioRevision;
       renderedMainFormDimension = null; renderedRotationDimension = null;

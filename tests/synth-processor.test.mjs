@@ -149,6 +149,39 @@ test("held MIDI notes sustain and release through their ADSR; silence cancels fu
   assert.equal(processor.noteQueue.length, 0);
 });
 
+test("manual takeover cancels only future notes and leaves sounding ADSRs sample-identical", () => {
+  for (const mode of ["sine", "fm", "pm", "shepard"]) {
+    const reference = noteProcessor(), manual = noteProcessor();
+    const voices = [{ key: "sounding", mode, frequency: 220, gain: 0.3, modulationIndex: 2, modulationRatio: 1.5 }];
+    for (const processor of [reference, manual]) sendNote(processor, { voices });
+    for (let block = 0; block < 90; block++) {
+      assert.deepEqual(noteBlock(manual), noteBlock(reference));
+    }
+    sendNote(manual, { voices, startAt: 0.5 });
+    assert.equal(manual.noteQueue.length, 1);
+    manual.port.onmessage({ data: { type: "cancel-scheduled-notes" } });
+    assert.equal(manual.noteQueue.length, 0);
+    for (let block = 0; block < 400; block++) {
+      assert.deepEqual(noteBlock(manual), noteBlock(reference), `${mode} tail block ${block}`);
+    }
+    assert.equal(manual.voices.size, 0);
+  }
+});
+
+test("cancelling a forecast retains immediate queued notes and in-progress swells", () => {
+  const processor = noteProcessor();
+  for (let block = 0; block < 100; block++) noteBlock(processor);
+  const now = processor.renderedSamples / sampleRate;
+  sendNote(processor, { startAt: now - 0.1, joinInProgress: true });
+  sendNote(processor, { startAt: now });
+  sendNote(processor, { startAt: now + 0.5 });
+  processor.port.onmessage({ data: { type: "cancel-scheduled-notes" } });
+  assert.equal(processor.noteQueue.length, 2);
+  noteBlock(processor);
+  assert.equal(processor.voices.size, 2);
+  assert.ok([...processor.voices.values()].every(voice => !voice.releasing));
+});
+
 test("geometry voice handoffs fade within the fixed pool instead of cutting full-volume tails", () => {
   const exercise = smoothVoiceStealing => {
     const processor = new ProcessorConstructor({ processorOptions: { maxVoices: 32, smoothVoiceStealing } });
@@ -560,4 +593,84 @@ test("unwrapped Shepard travel drives exact multi-octave trajectories", () => {
     voice.shepardPosition < 0.25,
     `expected two-octave downward motion, received ${voice.shepardPosition}`,
   );
+});
+
+for (const mode of ["triangle", "square"]) {
+  test(`${mode}: actual worklet tone is distinct, finite, bipolar and bounded across pitch range`, () => {
+    const sine = render("sine").left;
+    const wave = render(mode).left;
+    assert.ok(differenceRms(sine, wave) > 0.03);
+    for (const frequency of [20, 110, 440, 6000, 20000]) {
+      const samples = render(mode, { frequency }, 400).left.slice(12000);
+      assert.ok(samples.every(v => Number.isFinite(v) && Math.abs(v) <= 0.36));
+      assert.ok(rms(samples) > 0.02);
+      assert.ok(Math.abs(samples.reduce((a, b) => a + b, 0) / samples.length) < 0.008);
+    }
+    const processor = noteProcessor();
+    sendNote(processor, { voices: [{ mode, frequency: 220, gain: 0.3 }] });
+    let peak = 0;
+    for (let i = 0; i < 410; i++) peak = Math.max(peak, ...noteBlock(processor).map(Math.abs));
+    assert.ok(peak > 0.03);
+    assert.equal(processor.voices.size, 0);
+  });
+
+  test(`${mode}: polynomial correction reduces folded alias energy`, () => {
+    const processor = noteProcessor(), frequency = 5100;
+    const voice = { mode, frequency, phase: 0 };
+    const corrected = [], naive = [];
+    for (let i = 1; i <= 4800; i++) {
+      const phase = (i * frequency / sampleRate) % 1;
+      naive.push(mode === "square" ? (phase < 0.5 ? 1 : -1) : 1 - 4 * Math.abs(phase - 0.5));
+      corrected.push(processor.renderVoice(voice));
+    }
+    // Coherent DFT projection: remove only legal odd harmonics below Nyquist.
+    // Measure folded energy, not passband droop relative to an ideal brickwall.
+    const aliasEnergy = samples => {
+      let legalEnergy = 0;
+      for (let n = 1; n * frequency < sampleRate / 2; n += 2) {
+        let re = 0, im = 0;
+        samples.forEach((v, i) => {
+          const phase = 2 * Math.PI * n * frequency * (i + 1) / sampleRate;
+          re += v * Math.cos(phase); im += v * Math.sin(phase);
+        });
+        legalEnergy += 2 * (re * re + im * im) / samples.length ** 2;
+      }
+      return rms(samples) ** 2 - legalEnergy;
+    };
+    assert.ok(aliasEnergy(corrected) < aliasEnergy(naive) * 0.25);
+  });
+}
+
+test("FM starter tuning lowers measured level and normalized sample-step energy without changing the manual DSP", async t => {
+  const { SHAPES_FULL_PRESETS, SHAPES_IMPORTED_PRESETS } = await import("../src/instruments/shapes/full-presets.js");
+  const { levelToGain } = await import("../src/audio.js");
+  for (const id of ["shape-glass-star", "solid-prism-brass", "hyper-klein-reed"]) {
+    const old = SHAPES_IMPORTED_PRESETS.find(p => p.id === id).snapshot.parameters;
+    const next = SHAPES_FULL_PRESETS.find(p => p.id === id).snapshot.parameters;
+    const probe = state => render("fm", { frequency: 440, gain: 0.3 * levelToGain(state.voice.presetLevel), modulationIndex: state.synthesis.tone.fmIndex * 0.8, modulationRatio: state.synthesis.tone.fmRatio }, 200).left.slice(6000);
+    const a = probe(old), b = probe(next);
+    const roughness = wave => rms(wave.slice(1).map((v, i) => v - wave[i])) / rms(wave);
+    t.diagnostic(JSON.stringify({ id, beforeRms: rms(a), afterRms: rms(b), beforeStep: roughness(a), afterStep: roughness(b) }));
+    assert.ok(rms(b) < rms(a) * 0.9);
+    assert.ok(roughness(b) < roughness(a));
+  }
+});
+
+test("live triangle/square changes ramp through zero instead of jumping at the switch", () => {
+  for (const [from, to] of [["sine", "triangle"], ["sine", "square"], ["square", "triangle"], ["triangle", "fm"]]) {
+    const processor = noteProcessor();
+    const send = mode => processor.port.onmessage({ data: { type: "voices", voices: [{ key: "switch", mode, frequency: 20, gain: 0.3 }] } });
+    send(from);
+    for (let i = 0; i < 40; i++) noteBlock(processor);
+    // Place the oscillator away from an intentional square edge.
+    processor.voices.get("switch").phase = Math.PI * 0.3;
+    const before = noteBlock(processor);
+    send(to);
+    const after = noteBlock(processor);
+    assert.ok(Math.abs(after[0] - before.at(-1)) < 0.005, `${from} -> ${to}`);
+    assert.ok(processor.voices.get("switch").waveformFade < 1);
+    for (let i = 0; i < 8; i++) noteBlock(processor);
+    assert.equal(processor.voices.get("switch").mode, to);
+    assert.equal(processor.voices.get("switch").waveformFade, 1);
+  }
 });

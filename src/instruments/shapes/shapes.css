@@ -37,6 +37,8 @@ body.shapes-page select optgroup {
 .shapes-shell[data-dimension="4d"] { --accent: var(--shapes-4d); }
 
 .shapes-stage {
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
   min-width: 0;
   min-height: 0;
   border-right: 1px solid var(--line);
@@ -67,6 +69,23 @@ body.shapes-page select optgroup {
   min-height: 360px;
   cursor: ew-resize;
   touch-action: none;
+}
+
+/* A separate toolbar keeps the 4D gesture choice off the playable graphic. */
+.shapes-canvas-tools {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 12px;
+  border-top: 1px solid var(--line);
+  background: var(--panel);
+}
+.shapes-canvas-tools[hidden] { display: none; }
+.shapes-canvas-tools label { color: var(--muted); font-size: 11px; white-space: nowrap; }
+.shapes-canvas-tools select { width: auto; min-width: 142px; min-height: 34px; font-size: 12px; }
+.shapes-stage canvas[data-drag-mode="rotate"] { cursor: grab; }
+@media (pointer: coarse) {
+  .shapes-canvas-tools select { min-height: 48px; }
 }
 
 .shapes-stage canvas:focus-visible { outline-offset: -5px; }
@@ -940,6 +959,16 @@ body.shapes-page select optgroup {
     padding: 8px 12px;
   }
   .shapes-panel-scroll { padding-bottom: env(safe-area-inset-bottom); }
+}
+
+/* A stacked 230px stage plus the two headers exhausted short landscapes,
+   leaving a zero-height control scroller. Share the width, not the height. */
+@media (min-width: 601px) and (max-width: 900px) and (max-height: 520px) {
+  .shapes-shell {
+    grid-template-columns: minmax(0, 1fr) minmax(300px, 42%);
+    grid-template-rows: minmax(0, 1fr);
+  }
+  .shapes-stage { border-bottom: 0; border-right: 1px solid var(--line); }
 }
 
 @media (max-width: 600px) {

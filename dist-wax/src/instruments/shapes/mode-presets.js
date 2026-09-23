@@ -5,6 +5,8 @@ import { applyOriginalParameters } from "./parameter-bridge.js";
 import { percussionEnvelopeEditorX } from "../../audio.js";
 
 const NOTE_ARTICULATIONS = {
+  "triangle-corners": ["triangle", [0, 30, 120, 320, 800], 0.45, 2],
+  "square-corners": ["square", [0, 45, 160, 400, 950], 0.35, 2],
   "square-ticks": ["sine", [0, 18, 100, 260, 700], 0.45, 2],
   "box-bells": ["fm", [0, 8, 90, 180, 850], 0.2, 2, 2.4, 3.5],
   "folded-notes": ["pm", [0, 65, 240, 520, 1200], 0.6, 2, 2, 1.5],
@@ -63,7 +65,20 @@ function scene(kind, sourceId, mode, id, name, settings) {
   };
 }
 export function createShapesModeScenes() {
-  return [
+  const waves = [
+    scene("shape", "triangle-pad", "notes", "triangle-corners", "Triangle corners", { speed: 0.35, divisions: 2, baseHz: 165, range: 2 }),
+    scene("solid", "original-cube", "notes", "square-corners", "Square corners", { speed: 0.3, divisions: 2, baseHz: 130, range: 2 }),
+  ];
+  const continuous = waves.map(source => {
+    const copy = structuredClone(source);
+    copy.id = copy.id.replace("-corners", "-current");
+    copy.source.id = copy.source.id.replace("-corners", "-current");
+    copy.label = `${copy.state.voice.engine === "triangle" ? "Triangle" : "Square"} current · ${copy.state.selection.dimension.toUpperCase()} · Continuous`;
+    copy.description = "A moving geometric reader with a band-limited oscillator. Audio stays under your control.";
+    copy.state.selection.playingMode = "continuous";
+    return copy;
+  });
+  return [...waves, ...continuous,
     scene("shape", "square-study", "notes", "square-ticks", "Square ticks", { speed: 0.45, divisions: 2, baseHz: 130, heads: 1 }),
     scene("solid", "original-cube", "notes", "box-bells", "Box bells", { speed: 0.5, divisions: 2, baseHz: 98, range: 2 }),
     scene("hyper", "original-tesseract", "notes", "folded-notes", "Folded notes", { speed: 0.35, divisions: 2, baseHz: 82, range: 3 }),

@@ -860,7 +860,7 @@ export class LinearDrumAudio {
       }
       this.#addImpact(parameters, voice, now);
     }
-    this.#registerVoice(voice, now);
+    this.#registerVoice(voice);
     return parameters;
   }
 
@@ -868,7 +868,7 @@ export class LinearDrumAudio {
     const output = this.context.createGain();
     output.gain.setValueAtTime(.38 * velocity, now);
     output.connect(this.input);
-    return { output, sources: [], stopAt: now + .2 };
+    return { output, sources: [], startsAt: now, stopAt: now + .2, cleanupTimer: null };
   }
 
   #addKarplusStrongBody(parameters, voice, now) {
@@ -1162,7 +1162,8 @@ export class LinearDrumAudio {
     voice.stopAt = Math.max(voice.stopAt, now + impactDuration + .02);
   }
 
-  #registerVoice(voice, now) {
+  #registerVoice(voice) {
+    const now = this.context.currentTime;
     this.activeVoices = this.activeVoices.filter(({ stopAt }) => stopAt > now);
     while (this.activeVoices.length >= 24) {
       const oldest = this.activeVoices.shift();
@@ -1175,10 +1176,29 @@ export class LinearDrumAudio {
     }
     this.activeVoices.push(voice);
     const disconnectDelay = Math.max(0, voice.stopAt - now + .08) * 1_000;
-    this.runtime.setTimeout?.(() => {
+    voice.cleanupTimer = this.runtime.setTimeout?.(() => {
       try { voice.output.disconnect(); } catch { /* already disconnected */ }
       this.activeVoices = this.activeVoices.filter((candidate) => candidate !== voice);
     }, disconnectDelay);
+  }
+
+  /** Cancel only unstarted forecast hits; manual motion must retain live tails. */
+  cancelScheduledHits() {
+    if (!this.context) return;
+    const now = Number(this.context.currentTime) || 0;
+    this.activeVoices = this.activeVoices.filter(voice => {
+      if (voice.startsAt <= now + 1e-6) return true;
+      try {
+        voice.output.gain.cancelScheduledValues(now);
+        voice.output.gain.setValueAtTime(0, now);
+      } catch { /* Already ended. */ }
+      for (const source of voice.sources) {
+        try { source.stop(now); } catch { /* Already stopped. */ }
+      }
+      this.runtime.clearTimeout?.(voice.cleanupTimer);
+      try { voice.output.disconnect(); } catch { /* Already disconnected. */ }
+      return false;
+    });
   }
 
   /** Fade active and look-ahead-scheduled strikes without closing the engine. */

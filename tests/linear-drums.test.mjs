@@ -296,6 +296,7 @@ test("Linear Drum audio builds each body model and releases its graph", async ()
   let bufferSourceCount = 0;
   let resumeCount = 0;
   const sourceStartTimes = [];
+  const cleanupWindows = [];
   const parameter = (value = 0) => ({
     value,
     setValueAtTime(next) { this.value = next; },
@@ -365,7 +366,12 @@ test("Linear Drum audio builds each body model and releases its graph", async ()
 
   const runtime = {
     AudioContext: FakeContext,
-    setTimeout(callback) { callback(); return 1; },
+    setTimeout(callback, delay) {
+      const voice = audio.activeVoices.at(-1);
+      if (voice) cleanupWindows.push({ delay, startsAt: voice.startsAt, stopAt: voice.stopAt, now: audio.context.currentTime });
+      callback();
+      return 1;
+    },
   };
   const audio = new LinearDrumAudio(runtime);
   for (const [frequency, model] of [
@@ -397,6 +403,10 @@ test("Linear Drum audio builds each body model and releases its graph", async ()
     scheduledStarts.every((time) => time >= 2.075),
     "Rattlesnake preserves absolute look-ahead scheduling",
   );
+  const cleanup = cleanupWindows.at(-1);
+  assert.equal(cleanup.startsAt, 2.075);
+  assert.equal(cleanup.delay, (cleanup.stopAt - cleanup.now + .08) * 1000,
+    "cleanup is measured from the current audio time, not the future start");
   audio.context.state = "interrupted";
   await audio.start();
   assert.equal(audio.context.state, "running");
@@ -405,6 +415,39 @@ test("Linear Drum audio builds each body model and releases its graph", async ()
   assert.equal(audio.output, .85);
   await audio.close();
   assert.equal(audio.context, null);
+});
+
+test("Rattlesnake forecast cancellation preserves active tails and releases future voices", () => {
+  const cleared = [];
+  const audio = new LinearDrumAudio({ clearTimeout: id => cleared.push(id) });
+  assert.doesNotThrow(() => audio.cancelScheduledHits());
+  audio.context = { currentTime: 5 };
+  const makeVoice = (startsAt, cleanupTimer) => ({
+    startsAt, stopAt: startsAt + 2, cleanupTimer,
+    sources: [{ stops: [], stop(at) { this.stops.push(at); } }],
+    output: {
+      disconnected: false,
+      disconnect() { this.disconnected = true; },
+      gain: {
+        calls: [],
+        cancelScheduledValues(at) { this.calls.push(["cancel", at]); },
+        setValueAtTime(value, at) { this.calls.push(["value", value, at]); },
+      },
+    },
+  });
+  const sounding = makeVoice(4, 1), immediate = makeVoice(5, 2), future = makeVoice(5.1, 3);
+  audio.activeVoices = [sounding, immediate, future];
+  audio.cancelScheduledHits();
+  assert.deepEqual(audio.activeVoices, [sounding, immediate]);
+  for (const voice of [sounding, immediate]) {
+    assert.deepEqual(voice.sources[0].stops, []);
+    assert.deepEqual(voice.output.gain.calls, []);
+    assert.equal(voice.output.disconnected, false);
+  }
+  assert.deepEqual(future.sources[0].stops, [5]);
+  assert.deepEqual(future.output.gain.calls, [["cancel", 5], ["value", 0, 5]]);
+  assert.equal(future.output.disconnected, true);
+  assert.deepEqual(cleared, [3]);
 });
 
 test("Rattlesnake page exposes the continuous instrument and global controls", async () => {

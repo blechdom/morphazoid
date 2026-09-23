@@ -6,7 +6,7 @@ import { createShapesState, displayShapesPhase } from "./shapes-state.js";
 import { rebasePingPongPosition } from "../../articulation.js";
 import { applyOriginalParameters } from "./parameter-bridge.js";
 import { createShapesModeScenes } from "./mode-presets.js";
-import { ensurePlayableShapesRandom } from "./random-playability.js";
+import { ensurePlayableShapesRandom, prepareShapesStarterSound } from "./random-playability.js";
 import { percussionEnvelopeEditorX } from "../../audio.js";
 
 export function captureShapesPreset(state) {
@@ -76,9 +76,13 @@ export const SHAPES_IMPORTED_PRESETS = Object.freeze(banks.flatMap(([kind, bank]
 })).sort((a, b) => a.order - b.order).map(({ order, ...preset }) => Object.freeze(preset)));
 
 const tourModes = ["continuous", "notes", "triggers"];
+// Keep the raw adapters/reference bank intact; only the performer-facing
+// factory bank receives novice tuning. Saved/manual scenes never pass here.
 const allScenes = [...SHAPES_IMPORTED_PRESETS, ...createShapesModeScenes().map(({ state, ...scene }) => ({
-  ...scene, snapshot: validateShapesPreset(captureShapesPreset(state)),
-}))];
+  ...scene, snapshot: captureShapesPreset(state),
+}))].map(preset => ({ ...preset, snapshot: validateShapesPreset(captureShapesPreset(
+  prepareShapesStarterSound(createShapesState(preset.snapshot.parameters)),
+)) }));
 // Begin with all four modes and distribute the scarcer modes through the tour.
 export const SHAPES_FULL_PRESETS = Object.freeze(tourModes.flatMap((mode, group) => {
   let scenes = allScenes.filter(preset => preset.snapshot.parameters.selection.playingMode === mode);
@@ -92,7 +96,9 @@ export const SHAPES_FULL_PRESETS = Object.freeze(tourModes.flatMap((mode, group)
 export function randomizeShapesPreset(current, random = Math.random) {
   validateShapesPreset(current);
   const rng = presetRandom(random), state = createShapesState(current.parameters);
-  const originalLevel = state.voice.presetLevel;
+  // Generate a fresh scene level, never repeatedly attenuate the previous roll.
+  // The separate user output level is still excluded from every snapshot.
+  const originalLevel = rng.between(0.42, 0.6);
   // Generate every dimension's geometry from parameter schemas, never a factory row.
   const shape = randomizeShapePreset({ parameters: { ...captureShapePresetParameters(createShapeInitialState()), level: originalLevel } }, random);
   const originals = { shape };
@@ -105,7 +111,7 @@ export function randomizeShapesPreset(current, random = Math.random) {
   state.selection.playingMode = rng.pick(tourModes);
   state.synthesis.model = state.selection.playingMode === "triggers" ? "shapes" : "geometry";
   if (state.selection.playingMode !== "triggers") state.voice.engine = rng.pick([
-    "sine", "fm", "pm", "shepard", ...(state.selection.playingMode === "notes" ? ["percussion"] : []),
+    "sine", "triangle", "square", "fm", "pm", "shepard", ...(state.selection.playingMode === "notes" ? ["percussion"] : []),
   ]);
   state.voice.character = rng.unit();
   state.play.divisions = rng.integer(1, 8);
@@ -123,5 +129,6 @@ export function randomizeShapesPreset(current, random = Math.random) {
     envelopePoints: [0, attack, decay, hold, release].map((ms, index) => ({ x: percussionEnvelopeEditorX(ms), y: [0, 1, sustain, sustain, 0][index] })),
   };
   ensurePlayableShapesRandom(state);
+  prepareShapesStarterSound(state);
   return validateShapesPreset(captureShapesPreset(state));
 }

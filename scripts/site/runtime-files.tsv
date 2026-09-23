@@ -1008,6 +1008,7 @@ copy+require	src/instruments/recursion/recursion.js
 copy+require	src/instruments/scatter-ghost/scatter-ghost.js
 copy+require	src/instruments/shapes/shapes-scene.js
 copy+require	src/instruments/shapes/shapes-state.js
+copy+require	src/instruments/shapes/stage-gestures.js
 copy+require	src/families/signalsmith-generation/signalsmith-generation-bank.js
 copy+require	src/families/signalsmith-generation/signalsmith-generation-limits.js
 copy+require	src/families/signalsmith-generation/signalsmith-generation-mixer-dsp.js

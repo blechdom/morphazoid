@@ -20,7 +20,7 @@ import { AUDIO_STARTUP_TIMEOUT_MS, resumeAudioContext, withAudioTimeout } from "
  * @property {number} gain
  * @property {number} [pan]
  * @property {OscillatorChoice} [waveform]
- * @property {'sine'|'shepard'|'fm'|'pm'} [mode]
+ * @property {'sine'|'triangle'|'square'|'shepard'|'fm'|'pm'} [mode]
  * @property {number} [synthDrive]
  * @property {number} [modulationIndex]
  * @property {number} [modulationRatio]
@@ -48,7 +48,7 @@ const STRIKE_GAIN_FLOOR = 0.0001;
 const CONTINUOUS_VOICE_OPEN_FLOOR = 0.00001;
 const PERCUSSION_ENVELOPE_MAX_MS = 4_000;
 const ATTACK_NOISE_SECONDS = 0.04;
-const CONTINUOUS_SYNTH_MODES = new Set(["sine", "shepard", "fm", "pm"]);
+const CONTINUOUS_SYNTH_MODES = new Set(["sine", "triangle", "square", "shepard", "fm", "pm"]);
 
 /** @typedef {{x: number, y: number}} AmplitudeEnvelopeNode */
 
@@ -504,7 +504,8 @@ function sanitizeVoice(voice) {
     frequency: clamp(voice.frequency, MIN_FREQUENCY, MAX_FREQUENCY),
     gain: clamp(voice.gain, 0, 1),
     pan: clamp(voice.pan ?? 0, -1, 1),
-    waveform: voice.waveform ?? "sine",
+    // Explicit modes also select the native fallback; legacy waveform hints stay unchanged.
+    waveform: ["triangle", "square"].includes(voice.mode) ? voice.mode : voice.waveform ?? "sine",
     mode: sanitizeSynthMode(voice.mode),
     synthDrive: clamp(voice.synthDrive ?? 0, 0, 1),
     modulationIndex: clamp(voice.modulationIndex ?? 0, 0, 20),
@@ -1304,6 +1305,24 @@ export class VoicePool {
   releaseNotes() {
     if (this.synthNode) this.synthNode.port.postMessage({ type: "release-notes" });
     else this.silence();
+  }
+
+  /** Discard an obsolete lookahead without shortening notes already sounding. */
+  cancelScheduledNotes() {
+    if (!this.context) return;
+    this.synthNode?.port.postMessage({ type: "cancel-scheduled-notes" });
+    const now = this.context.currentTime;
+    for (const strike of this.activeStrikes) {
+      if (strike.startedAt <= now) continue;
+      try { strike.oscillator.stop(now); } catch { /* Already stopped. */ }
+      try { strike.noiseSource?.stop(now); } catch { /* Already stopped. */ }
+      this.activeStrikes.delete(strike);
+    }
+    for (const [key, strike] of this.activeStrikeByKey) {
+      if (strike.startedAt <= now) continue;
+      this.activeStrikeByKey.delete(key);
+      this.lastStrikeAtByKey.delete(key);
+    }
   }
 
   /** Build one short reusable white-noise buffer for percussion attacks. */

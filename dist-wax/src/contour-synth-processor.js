@@ -38,6 +38,19 @@ function wrapUnit(value) {
   return ((value % 1) + 1) % 1;
 }
 
+// Polynomial edge/corner corrections: constant work per voice, no extra
+// oscillators or leaky triangle integrator (which can drift during pitch bends).
+function polyBlep(phase, step) {
+  if (phase < step) { const t = phase / step - 1; return -t * t; }
+  if (phase > 1 - step) { const t = (phase - 1) / step + 1; return t * t; }
+  return 0;
+}
+function polyBlamp(phase, step) {
+  if (phase < step) { const t = 1 - phase / step; return t * t * t / 3; }
+  if (phase > 1 - step) { const t = (phase - 1) / step + 1; return t * t * t / 3; }
+  return 0;
+}
+
 function hashPhase(key) {
   let hash = 2166136261;
   for (let index = 0; index < key.length; index += 1) {
@@ -48,7 +61,7 @@ function hashPhase(key) {
 }
 
 function sanitizeSpec(spec, index) {
-  const mode = ["sine", "shepard", "fm", "pm"].includes(spec.mode)
+  const mode = ["sine", "triangle", "square", "shepard", "fm", "pm"].includes(spec.mode)
     ? spec.mode
     : "sine";
   return {
@@ -79,6 +92,7 @@ function makeVoice(spec) {
     trajectorySample: 0,
     trajectorySamples: 0,
     mode: spec.mode,
+    waveformFade: 1,
     frequency: spec.frequency,
     gain: 0,
     pan: spec.pan,
@@ -177,6 +191,10 @@ class MorphazoidContourSynth extends AudioWorkletProcessor {
         this.queueNotes(event.data);
         return;
       }
+      if (event.data?.type === "cancel-scheduled-notes") {
+        this.noteQueue = this.noteQueue.filter(note => note.start <= this.renderedSamples);
+        return;
+      }
       if (event.data?.type === "release-notes") {
         this.noteQueue = this.noteQueue.filter(note => !note.hold);
         for (const voice of this.voices.values()) {
@@ -197,7 +215,7 @@ class MorphazoidContourSynth extends AudioWorkletProcessor {
           0,
           this.maxVoices,
         ));
-        const nextMode = ["sine", "fm", "pm", "shepard"].includes(event.data.mode)
+        const nextMode = ["sine", "triangle", "square", "fm", "pm", "shepard"].includes(event.data.mode)
           ? event.data.mode
           : "sine";
         if (nextRuntimeLimit !== this.runtimeLimit || nextMode !== this.requestedMode) {
@@ -471,6 +489,16 @@ class MorphazoidContourSynth extends AudioWorkletProcessor {
       voice.phase = wrapPhase(voice.phase + carrierIncrement);
       return Math.sin(voice.phase);
     }
+    if (voice.mode === "triangle" || voice.mode === "square") {
+      voice.phase = wrapPhase(voice.phase + carrierIncrement);
+      const phase = wrapUnit(voice.phase / TAU), step = frequency / sampleRate;
+      const opposite = wrapUnit(phase + 0.5);
+      if (voice.mode === "square") {
+        return (phase < 0.5 ? 1 : -1) + polyBlep(phase, step) - polyBlep(opposite, step);
+      }
+      return 1 - 4 * Math.abs(phase - 0.5)
+        + 4 * step * (polyBlamp(phase, step) - polyBlamp(opposite, step));
+    }
     const modulationIncrement = carrierIncrement * voice.modulationRatio;
     voice.modulationPhase = wrapPhase(voice.modulationPhase + modulationIncrement);
     const modulation = Math.sin(voice.modulationPhase);
@@ -541,6 +569,7 @@ class MorphazoidContourSynth extends AudioWorkletProcessor {
     const frequencySlew = 1 - Math.exp(-1 / (sampleRate * 0.018));
     const parameterSlew = 1 - Math.exp(-1 / (sampleRate * 0.025));
     const modulationSlew = 1 - Math.exp(-1 / (sampleRate * 0.012));
+    const waveformFadeStep = 1 / (sampleRate * 0.006);
 
     for (const voice of this.voices.values()) {
       const target = voice.target;
@@ -562,7 +591,11 @@ class MorphazoidContourSynth extends AudioWorkletProcessor {
         nextTarget.shepardPosition ?? target.shepardPosition ?? 0,
         expectedShepardDelta,
       );
-      voice.mode = target.mode;
+      // New waveform changes pass through zero without rendering a second
+      // oscillator bank. Leave the pre-existing engine transitions unchanged.
+      const waveformChange = voice.mode === "triangle" || voice.mode === "square"
+        || target.mode === "triangle" || target.mode === "square";
+      if (!waveformChange) voice.mode = target.mode;
       for (let index = 0; index < left.length; index += 1) {
         if (voice.note && this.renderedSamples + index < voice.note.start) continue;
         const trajectoryAmount = voice.trajectorySamples > 0
@@ -608,7 +641,13 @@ class MorphazoidContourSynth extends AudioWorkletProcessor {
           );
         }
 
-        const sample = this.renderVoice(voice) * voice.gain;
+        if (voice.mode !== target.mode) {
+          voice.waveformFade = Math.max(0, voice.waveformFade - waveformFadeStep);
+          if (voice.waveformFade === 0) voice.mode = target.mode;
+        } else if (voice.waveformFade < 1) {
+          voice.waveformFade = Math.min(1, voice.waveformFade + waveformFadeStep);
+        }
+        const sample = this.renderVoice(voice) * voice.gain * voice.waveformFade;
         if (noteBus) this.noteGainBudget[index] += Math.abs(voice.gain)
           * (voice.mode === "shepard" ? Math.sqrt(Math.max(1, voice.shepardContributorCount || 1)) : 1);
         const panAngle = (clamp(voice.pan, -1, 1) + 1) * Math.PI * 0.25;

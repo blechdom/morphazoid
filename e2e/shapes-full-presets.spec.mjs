@@ -46,7 +46,7 @@ test("Shapes: each Point/Radar direction and Line axis is editable, with spacing
   await expect(page.locator("#audioButton")).toHaveAttribute("aria-pressed", "false");
 });
 
-test("Shapes: all 106 recalls are exact, update dimension/motion and never arm Audio", async ({ page, baseURL }) => {
+test("Shapes: all 110 recalls are exact, update dimension/motion and never arm Audio", async ({ page, baseURL }) => {
   test.setTimeout(120000);
   const diagnostics = watchPageDiagnostics(page, { baseURL });
   await page.goto("shapes.html");
@@ -205,7 +205,7 @@ test("Shapes: every factory scene produces bounded audio after an explicit Audio
       : (await sampleAudioEnvelope(page, { durationMs: 3000, intervalMs: 100 })).summary.maxRms;
     expect(maximum, preset.id).toBeGreaterThan(0.0001);
   }
-  await testInfo.attach("all-106-audio.json", { body: JSON.stringify(results, null, 2), contentType: "application/json" });
+  await testInfo.attach("all-110-audio.json", { body: JSON.stringify(results, null, 2), contentType: "application/json" });
   expect(pageDiagnosticMessages(diagnostics)).toEqual([]);
 });
 

@@ -103,8 +103,25 @@ header still shows Select Preset and does not apply a factory scene. Corners and
 Notes share one player: one subdivision retains corner/vertex anchors and higher
 values add intermediate notes. Original corner percussion remains a sound option;
 tonal notes have independent ADSR envelopes and optional pre-marker swell, without
-resetting prior tails at each marker. Continuous spatial swell is retained, and
-Triggers remains a separate drum-bank player. Device-learned polyphony limits are
+resetting prior tails at each marker. Manual rotation and scrubbing preserve
+those tails and start a complete envelope at each crossing; only predictable
+automatic motion anticipates a marker for swell. Manual takeover cancels
+unstarted forecast notes, not envelopes already sounding. The same manual-motion
+boundary applies in 2D, 3D and 4D: Continuous updates its existing voices smoothly,
+and both Triggers banks let hits finish while canceling only unstarted forecasts.
+Repeated drag updates preserve trigger debounce rather than resetting it.
+Continuous still fades when all motion stops; Audio off and explicit transport
+stops retain their normal release behavior. The 3D canvas picks against the shape’s projected outer outline: outside rotates
+the shape’s X/Y angles; inside rotates the reading surface’s yaw/pitch. The
+target stays fixed until release, and only its corresponding automatic axes
+are paused. Reader position remains available through its slider and arrow keys.
+The 4D canvas defaults to reader movement and has an explicit Canvas drag
+selector for X–W, Y–W or Z–W rotation. Dragging or using Left/Right Arrow takes
+over only the selected plane, preserving the reader and other planes' motion,
+and never arms Audio. The selector is interaction state, outside presets and
+randomization. Axis knobs and Rotate controls remain available.
+Continuous spatial swell is retained, and Triggers remains a separate drum-bank
+player. Device-learned polyphony limits are
 runtime-only, outside preset and persistent musical state.
 Puzzle, graph, L-System, Hybrinx and Jaw Harp adapters likewise retain their
 external primary player. Musical loop, automatic-motion, breath and read-path

@@ -949,6 +949,36 @@ test("strikes honor absolute AudioContext start times and clamp late requests", 
   assert.deepEqual(late.gain.gain.calls[0], ["value", 0.0001, 11]);
 });
 
+test("cancelling scheduled notes preserves active strikes and only stops future tone/noise sources", () => {
+  const pool = new VoicePool(0);
+  assert.doesNotThrow(() => pool.cancelScheduledNotes(), "safe before Audio is armed");
+  const messages = [];
+  pool.context = { currentTime: 10 };
+  pool.synthNode = { port: { postMessage: message => messages.push(message) } };
+  const strike = startedAt => ({
+    startedAt,
+    oscillator: { stops: [], stop(at) { this.stops.push(at); } },
+    noiseSource: { stops: [], stop(at) { this.stops.push(at); } },
+  });
+  const sounding = strike(9), immediate = strike(10), future = strike(10.05);
+  for (const [key, voice] of [["sounding", sounding], ["immediate", immediate], ["future", future]]) {
+    pool.activeStrikes.add(voice);
+    pool.activeStrikeByKey.set(key, voice);
+    pool.lastStrikeAtByKey.set(key, voice.startedAt);
+  }
+  pool.cancelScheduledNotes();
+  assert.deepEqual(messages, [{ type: "cancel-scheduled-notes" }]);
+  assert.deepEqual([...pool.activeStrikes], [sounding, immediate]);
+  assert.deepEqual([...pool.activeStrikeByKey.keys()], ["sounding", "immediate"]);
+  assert.deepEqual([...pool.lastStrikeAtByKey.keys()], ["sounding", "immediate"]);
+  for (const voice of [sounding, immediate]) {
+    assert.deepEqual(voice.oscillator.stops, []);
+    assert.deepEqual(voice.noiseSource.stops, []);
+  }
+  assert.deepEqual(future.oscillator.stops, [10]);
+  assert.deepEqual(future.noiseSource.stops, [10]);
+});
+
 test("keyed voices keep their oscillator slots when specs reorder", () => {
   const pool = new VoicePool(2);
   pool.context = { currentTime: 1 };
@@ -1380,3 +1410,27 @@ function nearAudio(actual, expected, epsilon = 1e-12) {
     `expected ${actual} to be within ${epsilon} of ${expected}`,
   );
 }
+
+test("explicit triangle/square modes reach native Continuous and Notes without changing legacy hints", () => {
+  for (const mode of ["triangle", "square"]) {
+    const pool = new VoicePool(1);
+    const oscillators = [];
+    pool.enabled = true;
+    pool.context = {
+      currentTime: 1,
+      createOscillator() {
+        const oscillator = fakeNode({ type: "sine", frequency: fakeParam(220), start() {}, stop() {} });
+        oscillators.push(oscillator); return oscillator;
+      },
+      createGain: () => fakeNode({ gain: fakeParam(0) }),
+      createStereoPanner: () => fakeNode({ pan: fakeParam(0) }),
+    };
+    pool.master = fakeNode();
+    pool.applyVoices([{ mode, waveform: "sine", frequency: 220, gain: 0.2 }]);
+    assert.equal(oscillators[0].type, mode);
+    pool.scheduleNotes([{ mode, waveform: "sine", frequency: 220, gain: 0.2 }], { mode });
+    assert.equal(oscillators.at(-1).type, mode);
+    pool.applyVoices([{ mode: "fm", waveform: "triangle", frequency: 220, gain: 0.2 }]);
+    assert.equal(oscillators[0].type, "triangle", "unrelated native FM hint is preserved");
+  }
+});

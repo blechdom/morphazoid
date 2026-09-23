@@ -113,7 +113,7 @@ test("Shapes is one native Morphazoid route with no embedded page dependencies",
   assert.match(app, /centerY = fixedTwoDimensionalFrame \? 0/);
   assert.match(app, /Math\.min\(cssWidth, cssHeight\) \* 0\.39/);
   assert.match(app, /function pointerHitsTwoDimensionalShape/);
-  assert.match(app, /const moveReader = pointerHitsTwoDimensionalShape\(event\)/);
+  assert.match(app, /const moveReader = state\.selection\.dimension !== "2d" \|\| pointerHitsTwoDimensionalShape\(event\)/);
   assert.match(app, /pointerRotation = \{/);
   assert.match(app, /scrubPlayheadFromPointer\(event\)/);
   const frameBody = app.slice(app.indexOf("function frame(now)"), app.indexOf("async function prepareActiveAudio"));

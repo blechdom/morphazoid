@@ -45,6 +45,40 @@ function vertexPhase(scene, vertex, axis) {
   return clamp(((horizontal ? vertex.y : vertex.x) - (horizontal ? bounds.minY : bounds.minX)) / span, 0, 1);
 }
 
+// A moving reader changes the crossing plane, not the shape's subdivision
+// points. Keep one immutable-in-use point cloud per higher dimension instead
+// of rebuilding thousands of points on every 1/256-second forecast sample.
+// Coordinate/topology snapshots also detect in-place geometry edits.
+const subdivisionCache = new Map();
+function subdivisionPoints(scene, divisions) {
+  const { vertices, edges } = scene.geometry;
+  const hyper = scene.dimension === "4d";
+  const cached = subdivisionCache.get(scene.dimension);
+  if (cached?.divisions === divisions && cached.vertices.length === vertices.length && cached.edges.length === edges.length
+    && vertices.every((point, i) => Object.is(point.x, cached.vertices[i].x)
+      && Object.is(point.y, cached.vertices[i].y) && Object.is(point.z, cached.vertices[i].z)
+      && (!hyper || Object.is(point.w, cached.vertices[i].w)))
+    && edges.every((edge, i) => edge.a === cached.edges[i].a && edge.b === cached.edges[i].b)) {
+    return cached.points;
+  }
+  const points = [];
+  for (let edgeIndex = 0; edgeIndex < edges.length; edgeIndex++) {
+    const edge = edges[edgeIndex], a = vertices[edge.a], b = vertices[edge.b];
+    for (let part = 1; part < divisions; part++) {
+      const t = part / divisions;
+      const x = a.x + (b.x - a.x) * t, y = a.y + (b.y - a.y) * t, z = a.z + (b.z - a.z) * t;
+      points.push(hyper
+        ? { x, y, z, w: a.w + (b.w - a.w) * t, edgeIndex, t }
+        : { x, y, z, edgeIndex, t });
+    }
+  }
+  subdivisionCache.set(scene.dimension, {
+    divisions, points, vertices: vertices.map(point => ({ ...point })),
+    edges: edges.map(({ a, b }) => ({ a, b })),
+  });
+  return points;
+}
+
 export function originalCornerSample(state, scene) {
   const two = scene.dimension === "2d";
   const divisions = shapesDivisionCount(state);
@@ -70,13 +104,7 @@ export function originalCornerSample(state, scene) {
       }
     }
   } else if (!two && divisions > 1) {
-    for (const [edgeIndex, edge] of scene.geometry.edges.entries()) {
-      const a = scene.geometry.vertices[edge.a], b = scene.geometry.vertices[edge.b];
-      for (let part = 1; part < divisions; part++) {
-        const t = part / divisions;
-        vertices.push({ ...Object.fromEntries(["x", "y", "z", ...(scene.dimension === "4d" ? ["w"] : [])].map(axis => [axis, a[axis] + (b[axis] - a[axis]) * t])), edgeIndex, t });
-      }
-    }
+    vertices = vertices.concat(subdivisionPoints(scene, divisions));
   }
   return {
     scene,

@@ -435,6 +435,25 @@ export class FmDrumAudio {
     }
   }
 
+  /** Discard an obsolete forecast without damping hits already sounding. */
+  cancelScheduledHits() {
+    if (!this.context) return;
+    const now = Number(this.context.currentTime) || 0;
+    for (const hit of [...this.activeHits]) {
+      if (hit.startsAt > now + 1e-6) this.#cancelHit(hit, now);
+    }
+  }
+
+  #cancelHit(hit, now) {
+    this.#cancelGain(hit.amplitude.gain, now);
+    if (hit.noiseLayer) this.#cancelGain(hit.noiseLayer.amplitude.gain, now);
+    this.#stopSource(hit.carrier, now);
+    this.#stopSource(hit.modulator, now);
+    this.#stopSource(hit.noiseLayer?.source, now);
+    // Also disconnect: some engines defer onended for canceled future starts.
+    this.#cleanupHit(hit);
+  }
+
   /** Fade audible hits and invalidate every hit that has not started yet. */
   silence() {
     const context = this.context;
@@ -449,14 +468,7 @@ export class FmDrumAudio {
         continue;
       }
       if (hit.startsAt > now + 1e-6) {
-        this.#cancelGain(hit.amplitude.gain, now);
-        if (hit.noiseLayer) this.#cancelGain(hit.noiseLayer.amplitude.gain, now);
-        this.#stopSource(hit.carrier, now);
-        this.#stopSource(hit.modulator, now);
-        this.#stopSource(hit.noiseLayer?.source, now);
-        // Disconnecting makes a future source silent even on engines that defer
-        // an onended callback for a start which was cancelled before it began.
-        this.#cleanupHit(hit);
+        this.#cancelHit(hit, now);
         continue;
       }
 

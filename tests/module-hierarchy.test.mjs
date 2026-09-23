@@ -15,6 +15,7 @@ const siteMoves = JSON.parse(await readFile(new URL("../docs/site-metadata-layou
 const proof = JSON.parse(await readFile(new URL("fixtures/module-hierarchy-runtime.json", import.meta.url)));
 const ioChanges = JSON.parse(await readFile(new URL("../docs/io-settings-runtime-changes.json", import.meta.url))).changes;
 const iphoneChanges = JSON.parse(await readFile(new URL("../docs/iphone-audio-runtime-changes.json", import.meta.url))).changes;
+const shapesChanges = JSON.parse(await readFile(new URL("../docs/shapes-manual-notes-runtime-changes.json", import.meta.url))).changes;
 const inverse = Object.fromEntries(Object.entries({ ...plan.moves, ...siteMoves }).map(([before, after]) => [after, before]));
 const sha = value => createHash("sha256").update(value).digest("hex");
 
@@ -30,7 +31,7 @@ test("all relocated instrument modules have one owner and explicit release inclu
   for (const file of plan.retainedSharedModules) assert.ok((await stat(path.join(root, siteMoves[file] ?? file))).isFile(), file);
 });
 
-test("runtime modules reverse exactly after explicit runtime fixes, stereo-input and iPhone startup additions", async () => {
+test("runtime modules reverse exactly after explicit runtime fixes and documented feature amendments", async () => {
   assert.deepEqual(plan.reviewedRuntimeFixes.map(fix => fix.file), [
     "src/instruments/shepard-risset/shepard-risset-app.js",
     "src/instruments/spider-synth/spider-synth-app.js",
@@ -50,10 +51,10 @@ test("runtime modules reverse exactly after explicit runtime fixes, stereo-input
     }
     // Keep the relocation baseline frozen. Reverse only the exact, separately
     // documented feature edits, whose behavior has focused DSP/browser tests.
-    for (const change of ioChanges.filter(change => change.file === record.after)) {
+    for (const change of [...ioChanges, ...shapesChanges].filter(change => change.file === record.after)) {
       for (const testFile of change.regressionTests) assert.ok(existsSync(path.join(root, testFile)), testFile);
       for (const replacement of [...change.replacements].reverse()) {
-        assert.equal(current.split(replacement.after).length - 1, 1, `exactly one reviewed I/O edit: ${change.file}`);
+        assert.equal(current.split(replacement.after).length - 1, 1, `exactly one documented feature edit: ${change.file}`);
         current = current.replace(replacement.after, replacement.before);
       }
     }
@@ -88,6 +89,41 @@ test("stereo-input amendments identify existing modules and focused regression e
     assert.match(change.reason, /stereo/);
     assert.ok(change.replacements.length > 0, change.file);
     assert.deepEqual(change.regressionTests, ["tests/stereo-audio-input.test.mjs", "e2e/io-settings.spec.mjs"]);
+  }
+});
+
+test("Shapes manual-audio amendments preserve the frozen baseline and name their regression evidence", () => {
+  const expected = [
+    ["src/instruments/shapes/shapes-app.js", 16, [
+      "tests/audio.test.mjs", "tests/synth-processor.test.mjs",
+      "e2e/shapes-manual-notes.spec.mjs", "e2e/shapes-manual-motion.spec.mjs", "e2e/shapes-4d-drag.spec.mjs",
+      "tests/shapes-stage-gestures.test.mjs", "e2e/shapes-3d-drag.spec.mjs",
+    ]],
+    ["src/instruments/fm-drums/fm-drums.js", 2, ["tests/fm-drums.test.mjs", "e2e/shapes-manual-motion.spec.mjs"]],
+    ["src/instruments/linear-drums/linear-drums.js", 4, ["tests/linear-drums.test.mjs", "e2e/shapes-manual-motion.spec.mjs"]],
+    ["src/instruments/shapes/original-audio.js", 2, [
+      "tests/shapes-subdivision-cache.test.mjs", "tests/shapes-full-presets.test.mjs",
+      "e2e/shapes-high-divisions.spec.mjs",
+    ]],
+    ["src/instruments/shapes/shapes-state.js", 1, [
+      "tests/shapes-starter-sounds.test.mjs", "tests/shapes-full-presets.test.mjs",
+      "tests/synth-processor.test.mjs", "e2e/shapes-waveforms.spec.mjs",
+    ]],
+    ["src/instruments/shapes/full-presets.js", 5, [
+      "tests/shapes-starter-sounds.test.mjs", "tests/shapes-full-presets.test.mjs",
+      "tests/synth-processor.test.mjs", "e2e/shapes-waveforms.spec.mjs",
+    ]],
+    ["src/instruments/shapes/mode-presets.js", 2, [
+      "tests/shapes-starter-sounds.test.mjs", "tests/shapes-full-presets.test.mjs",
+      "tests/synth-processor.test.mjs", "e2e/shapes-waveforms.spec.mjs",
+    ]],
+  ];
+  assert.deepEqual(shapesChanges.map(change => change.file), expected.map(([file]) => file));
+  for (const [index, change] of shapesChanges.entries()) {
+    assert.ok(proof.files.some(record => record.after === change.file), change.file);
+    assert.match(change.reason, /manual/);
+    assert.equal(change.replacements.length, expected[index][1]);
+    assert.deepEqual(change.regressionTests, expected[index][2]);
   }
 });
 

@@ -1,4 +1,37 @@
-/** Guard generated scenes, not manual experimentation or the original presets. */
+import { clamp } from "../../audio.js";
+
+/** Factory/dice policy only. Never call when sanitizing, recalling saved scenes
+ * or editing controls: the full manual instrument remains available. */
+export function prepareShapesStarterSound(state) {
+  const { voice, synthesis, play } = state, tone = synthesis.tone;
+  // All geometry pitch curves map into [baseHz, baseHz * 2^range]. This keeps
+  // even a curve flattened to its lowest point in a phone-friendly register,
+  // without quantizing any geometry-derived pitch or reshaping the curve.
+  voice.baseHz = Math.max(110, voice.baseHz);
+  voice.rangeOctaves = Math.min(voice.rangeOctaves, Math.log2(3200 / voice.baseHz));
+  if (state.selection.playingMode !== "triggers" && voice.engine === "fm") {
+    tone.fmIndex = Math.min(1.5, tone.fmIndex * 0.28);
+    tone.fmRatio = clamp(tone.fmRatio, 0.5, 2);
+    voice.presetLevel = Math.min(0.24, voice.presetLevel * 0.5);
+  } else if (state.selection.playingMode !== "triggers" && voice.engine === "square") {
+    voice.presetLevel = Math.min(0.3, voice.presetLevel);
+  }
+  // Preserve shape-only studies, but do not let an almost-static axis stand
+  // in for useful motion. Symmetric round forms need a moving reader too.
+  const local = state.dimension[state.selection.dimension];
+  if (state.selection.dimension === "2d") {
+    if (local.rotationRunning) local.rotationSpeed = Math.sign(local.rotationSpeed || 1) * Math.max(0.08, Math.abs(local.rotationSpeed));
+    if (!play.running && (!local.rotationRunning || state.profile.sides === 1)) play.running = true;
+  } else {
+    const moving = Object.values(local.rotationMotion).filter(motion => motion.running);
+    for (const motion of moving) motion.speed = Math.sign(motion.speed || 1) * Math.max(0.06, Math.abs(motion.speed));
+    if (!play.running && (!moving.length || ["sphere", "hypersphere"].includes(local.representation))) play.running = true;
+  }
+  if (play.running) play.rateCyclesPerSecond = Math.max(0.08, play.rateCyclesPerSecond);
+  return state;
+}
+
+/** Density/mapping guards for dice, not manual scenes or curated subdivision studies. */
 export function ensurePlayableShapesRandom(state) {
   const mode = state.selection.playingMode, two = state.selection.dimension === "2d";
   const local = state.dimension["2d"], tone = state.synthesis.tone;
@@ -25,8 +58,13 @@ export function ensurePlayableShapesRandom(state) {
     tone.amplitudeEnvelopePoints = tone.amplitudeEnvelopePoints.map(point => ({ ...point, y: Math.max(0.08, point.y) }));
     if (discrete) {
       const divisions = state.play.divisions;
-      const density = Math.max(1, state.profile.sides) * (state.profile.kind === "star" ? 2 : 1) * local.heads * divisions;
-      state.play.rateCyclesPerSecond = Math.max(3 / density, Math.min(state.play.rateCyclesPerSecond, 48 / density));
+      const vertices = Math.max(1, state.profile.sides) * (state.profile.kind === "star" ? 2 : 1);
+      // Reduce generated density before slowing a reader to a near standstill.
+      state.play.divisions = Math.min(divisions, Math.max(1, Math.floor(48 / (vertices * local.heads * 0.12))));
+      local.heads = Math.min(local.heads, Math.max(1, Math.floor(48 / (vertices * state.play.divisions * 0.12))));
+      local.headOffsets = local.headOffsets.slice(0, local.heads);
+      const density = vertices * local.heads * state.play.divisions;
+      state.play.rateCyclesPerSecond = Math.max(0.12, Math.min(state.play.rateCyclesPerSecond, 48 / density));
     }
   } else if (state.play.running) {
     state.play.rateCyclesPerSecond = Math.max(0.12, state.play.rateCyclesPerSecond);

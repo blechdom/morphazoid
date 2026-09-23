@@ -586,6 +586,29 @@ function makeGuardedFmRuntime({ failure = null } = {}) {
   return { runtime, created };
 }
 
+test("FM drum forecast cancellation leaves sounding hits intact and removes future sources", async () => {
+  const { runtime } = makeGuardedFmRuntime();
+  const audio = new FmDrumAudio(runtime);
+  assert.doesNotThrow(() => audio.cancelScheduledHits());
+  const voice = { ...cloneDefaultFmDrumVoices()[0], noise: .4 };
+  await audio.trigger(voice, { startAt: 1 });
+  await audio.trigger(voice, { startAt: 1.5 });
+  const [sounding, future] = [...audio.activeHits];
+  const originalEnd = sounding.stopAt;
+  const stops = sounding.sources.map(source => [...source.stops]);
+  audio.cancelScheduledHits();
+  assert.deepEqual([...audio.activeHits], [sounding]);
+  assert.equal(sounding.stopAt, originalEnd);
+  assert.equal(sounding.cleaned, false);
+  assert.deepEqual(sounding.sources.map(source => source.stops), stops);
+  assert.ok(sounding.nodes.every(node => node.disconnectCount === 0));
+  assert.equal(future.cleaned, true);
+  assert.ok(future.sources.every(source => source.stops.at(-1) === 1));
+  assert.ok(future.nodes.every(node => node.disconnectCount > 0));
+  assert.equal(audio.activeSourceCount, 3);
+  await audio.close();
+});
+
 test("FM drum output construction closes and disconnects a partial graph", async () => {
   const { runtime, created } = makeGuardedFmRuntime({ failure: "output-gain" });
   const audio = new FmDrumAudio(runtime);

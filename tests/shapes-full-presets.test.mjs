@@ -24,7 +24,7 @@ test("122 pre-integration reference voice sets retain frequencies, envelopes, pa
   for (const example of reference.cases) {
     const label = `${example.id} at phase ${example.phase}`;
     try {
-      const state = applyShapesPreset(createShapesState(), SHAPES_FULL_PRESETS.find(p => p.id === example.id).snapshot);
+      const state = applyShapesPreset(createShapesState(), SHAPES_IMPORTED_PRESETS.find(p => p.id === example.id).snapshot);
       state.play.continuousPhase = example.phase;
       assertReferenceVoices(originalSynthSpecs(buildShapesScene(state), state).map(({ key, ...voice }) => voice),
         example.voices, label);
@@ -35,14 +35,14 @@ test("122 pre-integration reference voice sets retain frequencies, envelopes, pa
   assert.equal(failures.length, 0,
     `${failures.length}/${reference.cases.length} reference cases failed on ${process.version} ${process.arch}:\n${failures.join("\n")}`);
 });
-test("106 unique presets retain the originals and merge corner/tonal playing with six dense Rattlesnake demos", () => {
+test("110 unique presets retain raw original adapters and tune the factory bank and merge corner/tonal playing with six dense Rattlesnake demos", () => {
   assert.equal(SHAPES_IMPORTED_PRESETS.length, 76);
-  assert.equal(SHAPES_FULL_PRESETS.length, 106);
-  assert.equal(new Set(SHAPES_FULL_PRESETS.map(p => p.id)).size, 106);
-  assert.equal(new Set(SHAPES_FULL_PRESETS.map(p => presetStateKey(p.snapshot))).size, 106);
+  assert.equal(SHAPES_FULL_PRESETS.length, 110);
+  assert.equal(new Set(SHAPES_FULL_PRESETS.map(p => p.id)).size, 110);
+  assert.equal(new Set(SHAPES_FULL_PRESETS.map(p => presetStateKey(p.snapshot))).size, 110);
   assert.deepEqual(SHAPES_FULL_PRESETS.slice(0, 3).map(p => p.snapshot.parameters.selection.playingMode), ["continuous", "notes", "triggers"]);
   for (const mode of ["notes", "triggers"]) {
-    assert.equal(SHAPES_FULL_PRESETS.filter(p => p.snapshot.parameters.selection.playingMode === mode).length, mode === "notes" ? 27 : 18);
+    assert.equal(SHAPES_FULL_PRESETS.filter(p => p.snapshot.parameters.selection.playingMode === mode).length, mode === "notes" ? 29 : 18);
     for (const dimension of ["2d", "3d", "4d"]) assert.ok(SHAPES_FULL_PRESETS.some(p => p.snapshot.parameters.selection.playingMode === mode && p.snapshot.parameters.selection.dimension === dimension));
   }
   for (let i = 0; i < 90; i += 10) assert.equal(new Set(SHAPES_FULL_PRESETS.slice(i, i + 10).map(p => p.snapshot.parameters.selection.playingMode)).size, 3);
@@ -51,8 +51,8 @@ test("106 unique presets retain the originals and merge corner/tonal playing wit
   assert.equal(rattles.length, 6);
   assert.ok(rattles.every(p => p.snapshot.parameters.play.divisions >= 4 && p.snapshot.parameters.trigger.soundBank === "rattlesnake"));
   const notes = SHAPES_FULL_PRESETS.filter(p => p.source.kind === "shapes" && p.snapshot.parameters.selection.playingMode === "notes");
-  assert.deepEqual([...new Set(notes.map(p => p.snapshot.parameters.voice.engine))].sort(), ["fm", "pm", "shepard", "sine"]);
-  assert.equal(new Set(notes.map(p => JSON.stringify(p.snapshot.parameters.notes.envelopePoints))).size, 12);
+  assert.deepEqual([...new Set(notes.map(p => p.snapshot.parameters.voice.engine))].sort(), ["fm", "pm", "shepard", "sine", "square", "triangle"]);
+  assert.equal(new Set(notes.map(p => JSON.stringify(p.snapshot.parameters.notes.envelopePoints))).size, 14);
   assert.ok(notes.some(p => p.snapshot.parameters.notes.swell));
 });
 
@@ -96,12 +96,13 @@ test("long swell forecasts advance all the way to their target without changing 
 });
 
 for (const preset of SHAPES_FULL_PRESETS) {
-  test(`${preset.id}: every source parameter survives adaptation, recall and live motion`, () => {
+  test(`${preset.id}: factory recall is exact; raw adaptation and live motion remain intact`, () => {
     const state = applyShapesPreset(createShapesState(), preset.snapshot);
     assert.deepEqual(captureShapesPreset(state), preset.snapshot);
     if (banks[preset.source.kind]) {
       const reference = banks[preset.source.kind].find(p => p.id === preset.source.id);
-      assert.deepEqual(captureOriginalParameters(state, preset.source.kind), reference.snapshot);
+      const raw = SHAPES_IMPORTED_PRESETS.find(p => p.id === preset.id);
+      assert.deepEqual(captureOriginalParameters(applyShapesPreset(createShapesState(), raw.snapshot), preset.source.kind), reference.snapshot);
     }
     advanceShapesMotion(state, 0.1);
     assert.deepEqual(captureShapesPreset(state), preset.snapshot, "evolving phase/angle never makes the preset Custom");
@@ -193,7 +194,7 @@ test("invalid/incomplete snapshots fail before mutating state", () => {
   }
 });
 
-test("seeded Random generates parameters, all dimensions and extra modes; preserves scene level", () => {
+test("seeded Random generates parameters, all dimensions and extra modes; tunes scene level independently of user output", () => {
   let seed = 93517;
   const random = () => ((seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0) / 2 ** 32);
   const current = captureShapesPreset(createShapesState());
@@ -202,7 +203,8 @@ test("seeded Random generates parameters, all dimensions and extra modes; preser
   const factory = new Set(SHAPES_FULL_PRESETS.map(p => presetStateKey(p.snapshot)));
   for (let i = 0; i < 300; i++) {
     const next = randomizeShapesPreset(current, random); validateShapesPreset(next);
-    assert.equal(next.parameters.voice.presetLevel, 0.37);
+    assert.ok(next.parameters.voice.presetLevel >= 0.21 && next.parameters.voice.presetLevel <= 0.6);
+    assert.equal("audio" in next.parameters, false);
     assert.equal(factory.has(presetStateKey(next)), false);
     dimensions.add(next.parameters.selection.dimension); modes.add(next.parameters.selection.playingMode);
     fm.add(next.parameters.synthesis.tone.fmRatio);

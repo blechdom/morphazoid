@@ -72,6 +72,15 @@
             <span id="stageReadout">1 CONTACT · PAUSED · AUDIO OFF</span>
           </div>
         </div>
+        <div class="shapes-canvas-tools" id="canvasDragControl" hidden>
+          <label for="canvasDrag">Canvas drag</label>
+          <select id="canvasDrag" aria-label="Canvas drag action" aria-describedby="canvasInstructions">
+            <option value="reader">Move reader</option>
+            <option value="xw">Rotate X–W</option>
+            <option value="yw">Rotate Y–W</option>
+            <option value="zw">Rotate Z–W</option>
+          </select>
+        </div>
       </section>
 
       <aside class="shapes-panel" aria-label="Shapes controls">
@@ -156,7 +165,7 @@
                   </div>
                   <label class="select-control shapes-engine-control" id="voiceEngineControl" for="voiceEngine">
                     <span class="field-label">Sound</span>
-                    <span class="select-shell"><select id="voiceEngine" aria-label="Sound engine"><option value="sine">Sine</option><option value="fm">FM</option><option value="pm">PM</option><option value="shepard">Shepard</option><option value="percussion">Corner percussion</option></select></span>
+                    <span class="select-shell"><select id="voiceEngine" aria-label="Sound engine"><option value="sine">Sine</option><option value="triangle">Triangle</option><option value="square">Square</option><option value="fm">FM</option><option value="pm">PM</option><option value="shepard">Shepard</option><option value="percussion">Corner percussion</option></select></span>
                   </label>
                   <label class="select-control shapes-engine-control" id="triggerSoundBankControl" for="triggerSoundBank" hidden>
                     <span class="field-label">Percussion</span>
@@ -317,7 +326,7 @@
         </div>
       </aside>
 
-      <p class="sr-only" id="canvasInstructions">In 2D, drag on or inside the shape to move the reader; drag outside the shape to rotate it. Press Space to play or pause. Use Left and Right Arrow to move the reader.</p>
+      <p class="sr-only" id="canvasInstructions">In 2D, drag on or inside the shape to move the reader; drag outside the shape to rotate it. In 3D, drag outside the shape to rotate it, or inside to rotate the reading surface. The position slider and arrow keys move the surface through the shape. In 4D, use Canvas drag to choose reader movement or X–W, Y–W, or Z–W rotation, then drag left or right. The Rotate controls also turn the shape. Press Space to play or pause. Use Left and Right Arrow to move the reader.</p>
       <p class="sr-only" id="liveStatus" aria-live="polite"></p>
     </main>
 

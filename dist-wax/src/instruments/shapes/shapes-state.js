@@ -29,6 +29,8 @@ export const SHAPES_PLAYING_MODES = Object.freeze([
 
 export const SHAPES_VOICE_ENGINES = Object.freeze([
   Object.freeze({ id: "sine", label: "Sine" }),
+  Object.freeze({ id: "triangle", label: "Triangle" }),
+  Object.freeze({ id: "square", label: "Square" }),
   Object.freeze({ id: "fm", label: "FM" }),
   Object.freeze({ id: "pm", label: "PM" }),
   Object.freeze({ id: "shepard", label: "Shepard" }),
