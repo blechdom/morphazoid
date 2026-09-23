@@ -20,8 +20,7 @@
       <label class="header-level" for="level"><span><b>Output</b><output id="levelOut" for="level">48%</output></span><input id="level" type="range" min="0" max="1" step="0.01" value="0.48" /></label>
     </div>
   </header>
-  <main class="puggler-shell">
-    <section class="puggler-performance" aria-labelledby="pageTitle">
+  <main class="puggler-shell" aria-labelledby="pageTitle">
       <div class="puggler-stage-wrap">
         <h1 id="pageTitle" class="puggler-title">Puggler the Punk Rock Jugger</h1>
         <canvas id="stage" width="1100" height="720" tabindex="0" role="application" aria-label="Puggler, Roxy, and Moss punk-show juggling stage" aria-describedby="instructions">Drag a performer or use the keyboard buttons below. Space pauses juggling. Enable Audio separately.</canvas>
@@ -29,7 +28,6 @@
       <div class="puggler-keyboards" id="keyboardControls" aria-label="Performer keyboard controls"></div>
       <p class="sr-only" id="instructions">Click a performer's name or press 1, 2, or 3 to show or hide them; at least one stays onstage. Each performer has a fixed keyboard cluster below the stage. Hold a movement or height key, kick, or throw to the crowd. The matching buttons also work by touch or click. Space pauses new juggling throws; riders and the audience stay active.</p>
       <p id="audioError" role="alert" hidden></p>
-    </section>
     <aside class="puggler-panel panel mz-ui" aria-label="Juggling and sound controls">
       <section class="puggler-control-section mz-control-section" aria-label="The act">
         <div class="puggler-transport"><button class="mz-button" id="playButton" data-primary-transport type="button" aria-pressed="true">Pause</button><div id="tempoControls"></div></div>
@@ -54,6 +52,7 @@
     </aside>
   </main>
   <script type="module" src="nav.js"></script>
+  <script type="module" src="src/instruments/puggler/puggler-layout.js"></script>
   <script type="module" src="src/instruments/puggler/puggler-app.js"></script>
 </body>
 </html>

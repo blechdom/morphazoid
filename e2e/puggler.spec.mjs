@@ -455,11 +455,15 @@ for (const viewport of [{ width:390, height:844 }, { width:844, height:390 }]) {
     const context=await browser.newContext({baseURL,viewport,hasTouch:true,isMobile:true});
     try {
       const page=await context.newPage();await openShow(page);
-      // Scroll in the outer gutter, outside the canvas's deliberate steering area.
+      // Scroll the parameter gutter, outside the canvas steering area. Portrait
+      // uses the page; short landscape uses its full-height parameter column.
       // Programmatic scrollIntoView can bypass overflow:hidden and miss this bug.
       await page.mouse.move(viewport.width-5,viewport.height*.8);
       await page.mouse.wheel(0,viewport.height*.6);
-      await expect.poll(()=>page.evaluate(()=>scrollY)).toBeGreaterThan(50);
+      await expect.poll(()=>page.evaluate(()=>{
+        const panel=document.querySelector('.puggler-panel');
+        return getComputedStyle(panel).overflowY==='auto'?panel.scrollTop:scrollY;
+      })).toBeGreaterThan(50);
       await page.locator('#skin').selectOption('future');
       await page.locator('#lighting').selectOption('sweep');
       expect(await state(page)).toMatchObject({skin:'future',lighting:'sweep',running:true,audioOn:false});
@@ -576,7 +580,9 @@ for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 
     await page.locator('#cast').selectOption('puggler');
     await page.locator('#stage').scrollIntoViewIfNeeded();
     const box = await page.locator('#stage').boundingBox();
-    expect(box.height).toBeGreaterThanOrEqual(400);
+    // Phones now deliberately use a compact stage; retain the desktop floor.
+    expect(box.height).toBeGreaterThanOrEqual(viewport.width > 960 ? 400 : 200);
+    if (viewport.width <= 960) expect(box.height).toBeLessThanOrEqual(viewport.height * .65);
     const start = (await state(page)).x;
     await page.mouse.move(box.x + box.width * .5, box.y + box.height * .5);
     await page.mouse.down();

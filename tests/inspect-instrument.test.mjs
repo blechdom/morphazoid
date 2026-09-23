@@ -45,7 +45,7 @@ const selected = new URL(\`../assets/demo/\${id}.wav\`, import.meta.url);
 
 test("Puggler inventory includes samples, provenance, live capability and mirrored source", async () => {
   const report = await inspectInstrument("puggler");
-  assert.deepEqual(report.entries, ["nav.js", "src/instruments/puggler/puggler-app.js"]);
+  assert.deepEqual(report.entries, ["nav.js", "src/instruments/puggler/puggler-app.js", "src/instruments/puggler/puggler-layout.js"]);
   assert.equal(report.registration.capability.computerKeyboardMode, "page");
   const recordings = report.files.filter(f => f.path.endsWith(".wav"));
   assert.equal(recordings.length, 8);
