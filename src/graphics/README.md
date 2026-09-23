@@ -1,4 +1,34 @@
-# Shared canvas sizing
+# Shared graphics calculations
+
+## Pointer coordinates
+
+`pointer-coordinates.js` shares only two existing calculations:
+
+- `canvasLocalPoint(event, bounds)` subtracts the measured rectangle's left/top
+  in CSS pixels. Rubix, Jaw Harp, the Graph controller and the Syrinx controller
+  retain this unscaled policy.
+- `canvasScaledPoint(event, bounds, size)` maps to logical drawing dimensions.
+  Hiccup Head and Creaturazoid retain multiplication **then** division, with the
+  existing `Math.max(1, measuredDimension)` denominator.
+
+Callers still measure their current canvas once per event and own hit testing,
+capture, focus, gesture state, parameter mapping and audio. Neither helper
+clamps captured drags, rounds, sanitizes, reads device pixel ratio or falls back
+to `offsetX`/`offsetY`.
+
+Do not substitute a precomputed scale ratio: its floating-point results can
+differ. Graph Delay's ratio-first calculation, Shapes' finite-coordinate
+fallback and world-space transforms remain local rather than being silently
+normalized into these two policies.
+
+`tests/pointer-coordinates.test.mjs` compares the real wrappers with frozen
+original functions and reverses each entire controller to its original bytes.
+`e2e/pointer-coordinates.spec.mjs` compares the actual private callbacks with
+the same independent reference in real browser layouts, CSS transforms,
+resize transitions and representative WAX pages. See
+`docs/pointer-coordinate-refactor.md` for scope and verification.
+
+## Canvas sizing
 
 `canvas-sizing.js` shares the **calculation**, not the instrument lifecycle.
 Callers still own bounds measurement, canvas/style writes, transforms, redraws,

@@ -1,14 +1,14 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
-import { CORES } from "../src/families/starting-instruments/cores.js";
-import { TempoTantrum, TEMPO_PRESETS } from "../src/families/starting-instruments/tempo-tantrum.js";
-import { TapeWorm } from "../src/families/starting-instruments/tape-worm.js";
-import { LoopSoup } from "../src/families/starting-instruments/loop-soup.js";
-import { HabitHabitat } from "../src/families/starting-instruments/habit-habitat.js";
-import { Hollowphonic } from "../src/families/starting-instruments/hollowphonic.js";
-import { STARTING_INSTRUMENTS } from "../src/families/starting-instruments/catalog.js";
-import { INSTRUMENT_HELP } from "../src/families/starting-instruments/help.js";
+import { CORES } from "../src/families/work-in-progress/cores.js";
+import { TempoTantrum, TEMPO_PRESETS } from "../src/families/work-in-progress/tempo-tantrum.js";
+import { TapeWorm } from "../src/families/work-in-progress/tape-worm.js";
+import { LoopSoup } from "../src/families/work-in-progress/loop-soup.js";
+import { HabitHabitat } from "../src/families/work-in-progress/habit-habitat.js";
+import { Hollowphonic } from "../src/families/work-in-progress/hollowphonic.js";
+import { STARTING_INSTRUMENTS } from "../src/families/work-in-progress/catalog.js";
+import { INSTRUMENT_HELP } from "../src/families/work-in-progress/help.js";
 import { instrumentById } from "../src/site/instrument-catalog.js";
 import { instrumentMidiCapabilityForId } from "../src/site/instrument-midi-capabilities.js";
 
@@ -163,7 +163,7 @@ test("all five entries are authored, classified, and use real WebP icons", async
     assert.ok(html.includes('data-reset-all'));
     assert.ok(html.includes('tabindex="0"'));
     const network = ["tape-worm", "loop-soup"].includes(id);
-    assert.ok(html.includes(network ? "src/families/starting-instruments/loop-network-app.js" : "src/families/starting-instruments/starting-instruments-app.js"));
+    assert.ok(html.includes(network ? "src/families/work-in-progress/loop-network-app.js" : "src/families/work-in-progress/work-in-progress-app.js"));
     assert.ok(html.includes(network ? 'aria-label="Scrollable loop network"' : 'aria-describedby="canvasInstructions modelStatus"'));
     assert.ok(html.includes('og:image'));
     const help = INSTRUMENT_HELP[id];

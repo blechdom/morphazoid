@@ -1,6 +1,6 @@
 import { writeFile } from "node:fs/promises";
-import { STARTING_INSTRUMENTS } from "../src/families/starting-instruments/catalog.js";
-import { INSTRUMENT_HELP, formatParameter } from "../src/families/starting-instruments/help.js";
+import { STARTING_INSTRUMENTS } from "../src/families/work-in-progress/catalog.js";
+import { INSTRUMENT_HELP, formatParameter } from "../src/families/work-in-progress/help.js";
 import { withSocialPreview } from "./social-preview.mjs";
 const escape = (s) => String(s).replaceAll("&", "&amp;").replaceAll('"', "&quot;").replaceAll("<", "&lt;");
 const root = new URL("../", import.meta.url);
@@ -23,7 +23,7 @@ for (const [id, spec] of Object.entries(STARTING_INSTRUMENTS)) {
   <title>${escape(spec.title)} · Morphazoid</title>
   <link rel="icon" href="favicon.svg" type="image/svg+xml" />
   <link rel="stylesheet" href="style.css" />
-  <link rel="stylesheet" href="src/families/starting-instruments/starting-instruments.css" />${network ? '\n  <link rel="stylesheet" href="src/families/starting-instruments/loop-network.css" />' : ""}
+  <link rel="stylesheet" href="src/families/work-in-progress/work-in-progress.css" />${network ? '\n  <link rel="stylesheet" href="src/families/work-in-progress/loop-network.css" />' : ""}
 </head>
 <body class="starting-instrument${network ? " loop-network-page" : ""}" data-starting-instrument="${id}" style="--accent:${spec.accent}">
   <header class="masthead">
@@ -62,12 +62,12 @@ for (const [id, spec] of Object.entries(STARTING_INSTRUMENTS)) {
         <h2>Keyboard</h2><p>${escape(help.keyboard)}</p>
         <h2>What this demo does not do</h2><p class="starting-limit">${escape(help.limits)}</p>
       </details>
-      <details><summary>About this starting instrument</summary><p>${escape(spec.disclaimer)}</p><p>Presets change parameters, not capabilities. Reset controls keeps recordings and learned routes. Demo material is synthesized locally.</p><a href="docs/starting-instruments.md">Model and limitations</a></details>
-      <nav class="starting-family" aria-label="Other starting instruments">${links}</nav>
+      <details><summary>About this work-in-progress instrument</summary><p>${escape(spec.disclaimer)}</p><p>Presets change parameters, not capabilities. Reset controls keeps recordings and learned routes. Demo material is synthesized locally.</p><a href="docs/starting-instruments.md">Model and limitations</a></details>
+      <nav class="starting-family" aria-label="Other work-in-progress instruments">${links}</nav>
       <noscript><p>This instrument needs JavaScript. Audio and microphone start off.</p></noscript>
     </aside>
   </main>
-  <script type="module" src="${network ? "src/families/starting-instruments/loop-network-app.js" : "src/families/starting-instruments/starting-instruments-app.js"}"></script>
+  <script type="module" src="${network ? "src/families/work-in-progress/loop-network-app.js" : "src/families/work-in-progress/work-in-progress-app.js"}"></script>
   <script type="module" src="nav.js"></script>
 </body>
 </html>`;

@@ -1,3 +1,4 @@
+import { canvasLocalPoint } from "../../graphics/pointer-coordinates.js";
 import {
   JAW_HARP_DEFAULTS,
   JAW_HARP_LIMITS,
@@ -2140,7 +2141,7 @@ function drawStage() {
 
 function canvasPoint(event) {
   const bounds = canvas.getBoundingClientRect();
-  return { x: event.clientX - bounds.left, y: event.clientY - bounds.top };
+  return canvasLocalPoint(event, bounds);
 }
 
 function nearestHandle(point) {

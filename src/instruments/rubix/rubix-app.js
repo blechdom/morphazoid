@@ -1,3 +1,4 @@
+import { canvasLocalPoint } from "../../graphics/pointer-coordinates.js";
 import { registerHeaderPresets } from "../../site/header-presets.js";
 import { RUBIX_DEFAULTS as DEFAULTS, RUBIX_FACTORY_PRESETS as RUBIX_PRESETS } from "./factory-presets.js";
 import { RUBIX_FULL_PRESETS, RUBIX_PRESET_SETTING_KEYS, validateRubixFullPreset, randomizeRubixPreset } from "./full-presets.js";
@@ -2450,10 +2451,7 @@ async function resetSound() {
 
 function pointFromEvent(event) {
   const bounds = canvas.getBoundingClientRect();
-  return {
-    x: event.clientX - bounds.left,
-    y: event.clientY - bounds.top,
-  };
+  return canvasLocalPoint(event, bounds);
 }
 
 function hitSticker(point) {

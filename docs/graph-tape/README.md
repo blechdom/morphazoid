@@ -4,7 +4,7 @@ Concept notes for a looper built on a graph. **The complete Graph Tape design
 below is not implemented.**
 
 **September 17 follow-up:** five separate
-[starting instruments](../starting-instruments.md) now explore driven phase
+[work-in-progress instruments](../starting-instruments.md) now explore driven phase
 locking, two-tape splicing, retaining loops, learned routes, and coupled
 resonators. They are bounded prototypes, not proof of the older period-collapse
 claims or a full implementation of this graph/tape architecture.

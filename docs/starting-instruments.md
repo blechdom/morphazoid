@@ -1,4 +1,12 @@
-# Five starting instruments — September 17, 2026
+# Five work-in-progress instruments
+
+The shared runtime for Tempo Tantrum, Tape Worm, Loop Soup, Habit Habitat and
+Hollowphonic lives in `src/families/work-in-progress/`. The owner requested this
+name on September 23, 2026, replacing the former `starting-instruments` family
+name. It describes this five-prototype package, not every WIP catalogue entry.
+This documentation URL remains unchanged so existing help links keep working.
+
+The instrument contracts below were introduced on September 17, 2026.
 
 ## September 18: editable loop networks
 

@@ -38,7 +38,9 @@ command names.
   See `docs/source-module-layout.json` for the explicit model/worklet move map.
   The subsequent site-metadata moves are in `docs/site-metadata-layout.json`.
   `docs/starting-family-layout.json` records the starting-instrument runtime
-  co-location with its existing family controllers.
+  co-location with its existing family controllers. Its subsequent owner-requested
+  rename to `src/families/work-in-progress/` is in `docs/prototype-family-layout.json`;
+  this shared five-prototype package is not a catch-all for all WIP instruments.
   Follow the actual HTML/import references
   or inspection output; categories and display names are not filesystem paths.
   Public HTML, global bootstrap scripts and `style.css` remain at the root;

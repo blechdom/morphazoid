@@ -1,0 +1,184 @@
+{
+  "baseCommit": "eb5b17e2a59225f7aef1eccb53176fffcbedfffc",
+  "files": [
+    {
+      "before": "habit-habitat.html",
+      "after": "habit-habitat.html",
+      "sha256": "3d2a61e2522680891db87c12deb601fbe8f99d63ce15318fa067101942e93b0e"
+    },
+    {
+      "before": "hollowphonic.html",
+      "after": "hollowphonic.html",
+      "sha256": "3d3d0454b47b3dee7fbcb7332629d1ef76c613e4c307e71605e24377febd427d"
+    },
+    {
+      "before": "loop-soup.html",
+      "after": "loop-soup.html",
+      "sha256": "c57d360c5ebef395313bee8564e6083208bfaf49d7bba54870d416e3f2126b3d"
+    },
+    {
+      "before": "src/families/starting-instruments/audio.js",
+      "after": "src/families/work-in-progress/audio.js",
+      "sha256": "1afc88fdbfb605f6d5e90f4a7cd97d7e7d0439fb7c0cb6208488aa5023ee124c",
+      "manifestPolicy": "copy"
+    },
+    {
+      "before": "src/families/starting-instruments/catalog.js",
+      "after": "src/families/work-in-progress/catalog.js",
+      "sha256": "c4efe66d34ed2ba1aef4470ed398bbdf0139b9f1c9c855198f2f183601cc171c",
+      "manifestPolicy": "copy"
+    },
+    {
+      "before": "src/families/starting-instruments/common.js",
+      "after": "src/families/work-in-progress/common.js",
+      "sha256": "cdc009360ac10b522c9326c9430f6f26a7eedb7cb2a9b8e4ede53e80682cb456",
+      "manifestPolicy": "copy"
+    },
+    {
+      "before": "src/families/starting-instruments/cores.js",
+      "after": "src/families/work-in-progress/cores.js",
+      "sha256": "0f581afd008575d002c5def0ada7742d277d376f63f932d637fcb77aa96b9b2d",
+      "manifestPolicy": "copy"
+    },
+    {
+      "before": "src/families/starting-instruments/habit-habitat.js",
+      "after": "src/families/work-in-progress/habit-habitat.js",
+      "sha256": "f72d5d5e7317ed9e3528885a7d32c8a83c7799a95a49f5dc54aa6ed2631f4cab",
+      "manifestPolicy": "copy"
+    },
+    {
+      "before": "src/families/starting-instruments/help.js",
+      "after": "src/families/work-in-progress/help.js",
+      "sha256": "5c24e002024a9f1b6d4b18e3eb5fd72a2789f2199cf01ddf013cd5300923b746",
+      "manifestPolicy": "copy"
+    },
+    {
+      "before": "src/families/starting-instruments/hollowphonic.js",
+      "after": "src/families/work-in-progress/hollowphonic.js",
+      "sha256": "d8c08895e565baf15968a9a6144a8c7d84783236972f1b4982e9d1a61712ffd8",
+      "manifestPolicy": "copy"
+    },
+    {
+      "before": "src/families/starting-instruments/loop-network-app.js",
+      "after": "src/families/work-in-progress/loop-network-app.js",
+      "sha256": "8d396483db3e34527a1c3732bab17be77427a6d8d66a877637eddac1b9a24179",
+      "manifestPolicy": "copy+require"
+    },
+    {
+      "before": "src/families/starting-instruments/loop-network.css",
+      "after": "src/families/work-in-progress/loop-network.css",
+      "sha256": "c3da85efce75ba8891880bc332afb30bfd89e493404afe1361d3c1b1dc38a956",
+      "manifestPolicy": "copy+require"
+    },
+    {
+      "before": "src/families/starting-instruments/loop-network.js",
+      "after": "src/families/work-in-progress/loop-network.js",
+      "sha256": "03b3fe8ddb73dce2b46276c27c070691bdb60d766b07d13950d8301ce59fb43f",
+      "manifestPolicy": "copy"
+    },
+    {
+      "before": "src/families/starting-instruments/loop-soup.js",
+      "after": "src/families/work-in-progress/loop-soup.js",
+      "sha256": "36df33c0014f43daa62f92c3fb8a9a9d7d27da3dec9747381184f10bff852ef5",
+      "manifestPolicy": "copy"
+    },
+    {
+      "before": "src/families/starting-instruments/network-ui-utils.js",
+      "after": "src/families/work-in-progress/network-ui-utils.js",
+      "sha256": "99e94df99bb781dc4b6bbe9e466d3d93652a98ca613fe9734aa93e6e17c08b8a",
+      "manifestPolicy": "copy"
+    },
+    {
+      "before": "src/families/starting-instruments/network-view.js",
+      "after": "src/families/work-in-progress/network-view.js",
+      "sha256": "291e4ef11c254a48583ba2dd77d6a1f21b793362e884fb73c0baa9638d1a9668",
+      "manifestPolicy": "copy"
+    },
+    {
+      "before": "src/families/starting-instruments/processor.js",
+      "after": "src/families/work-in-progress/processor.js",
+      "sha256": "4e4f6a923e5b653c8e4b01d711856bcb72257b9a44e7fc4e0bd4945818279243",
+      "manifestPolicy": "copy"
+    },
+    {
+      "before": "src/families/starting-instruments/render.js",
+      "after": "src/families/work-in-progress/render.js",
+      "sha256": "d761f2ee12004e204e0df2dadeb4a447b525a33091b31ad1fedf50e19d5de884",
+      "manifestPolicy": "copy"
+    },
+    {
+      "before": "src/families/starting-instruments/starting-instruments-app.js",
+      "after": "src/families/work-in-progress/work-in-progress-app.js",
+      "sha256": "dce87ea965a44d42a21fd98987742dde545ac71da492783f03df86e3572c6f45",
+      "manifestPolicy": "copy+require"
+    },
+    {
+      "before": "src/families/starting-instruments/starting-instruments.css",
+      "after": "src/families/work-in-progress/work-in-progress.css",
+      "sha256": "5babfd1be7c8d27c4904d029bc2796ddb0ee227f7e12e74f467c578f37a95d98",
+      "manifestPolicy": "copy+require"
+    },
+    {
+      "before": "src/families/starting-instruments/tape-worm.js",
+      "after": "src/families/work-in-progress/tape-worm.js",
+      "sha256": "449db6cd324f17a42128d6691695e6e163c35c988b9a7aa031e4cd59e92e093d",
+      "manifestPolicy": "copy"
+    },
+    {
+      "before": "src/families/starting-instruments/tempo-tantrum.js",
+      "after": "src/families/work-in-progress/tempo-tantrum.js",
+      "sha256": "963cd7d289ea62a63dac23baf3b1312a920481a7b7a466d286608867c1062504",
+      "manifestPolicy": "copy"
+    },
+    {
+      "before": "tape-worm.html",
+      "after": "tape-worm.html",
+      "sha256": "3c440b576e55ef509e6d2eec9ec62553fe7c87cc0d27de6d31ac2757bc39406c"
+    },
+    {
+      "before": "tempo-tantrum.html",
+      "after": "tempo-tantrum.html",
+      "sha256": "395837acc1e2323e604f132fbe88ce5523980654c3ef15cef05eaf818062a200"
+    },
+    {
+      "before": "crab-loom.html",
+      "after": "crab-loom.html",
+      "sha256": "8082d1d86e6187cca317f0c5c472586766520a980afa4b435e4fb5ecb28304a8"
+    },
+    {
+      "before": "exceptional.html",
+      "after": "exceptional.html",
+      "sha256": "07e22925eae0a12bf0c4671f43d186346b2526e1cda9fb61b408511a98700e96"
+    },
+    {
+      "before": "freeze-point.html",
+      "after": "freeze-point.html",
+      "sha256": "809119114e1d7f99dc6deba597f4203e4fe582fae65fcd169c20baae4fbc4285"
+    },
+    {
+      "before": "head-shed.html",
+      "after": "head-shed.html",
+      "sha256": "369e92a68772d712043fa3060ceedb725546bfb005a6a2fe6c14ded0d7f624da"
+    },
+    {
+      "before": "onset-atlas.html",
+      "after": "onset-atlas.html",
+      "sha256": "b7eb57b3d880183a0a7a069b56133fd4fc184b48447af5e9a7c82a31dc6d930f"
+    },
+    {
+      "before": "scatter-ghost.html",
+      "after": "scatter-ghost.html",
+      "sha256": "0672b942bdccc926bdad43994a6c02604952ae95af3d87eb66d8d30937a90133"
+    },
+    {
+      "before": "splice-ring.html",
+      "after": "splice-ring.html",
+      "sha256": "112def6ef0f9161575bafb631f643cfb3ac73cb495a5e7d78520764dd527b864"
+    },
+    {
+      "before": "synaptic-resonance.html",
+      "after": "synaptic-resonance.html",
+      "sha256": "8ede2689c8b43eab6d8c51c5a3a2818c583e4372b940427ee124e596ff72e9a1"
+    }
+  ]
+}

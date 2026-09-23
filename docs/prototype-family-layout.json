@@ -1,0 +1,57 @@
+{
+  "schemaVersion": 1,
+  "baseCommit": "eb5b17e2a59225f7aef1eccb53176fffcbedfffc",
+  "moves": {
+    "src/families/starting-instruments/audio.js": "src/families/work-in-progress/audio.js",
+    "src/families/starting-instruments/catalog.js": "src/families/work-in-progress/catalog.js",
+    "src/families/starting-instruments/common.js": "src/families/work-in-progress/common.js",
+    "src/families/starting-instruments/cores.js": "src/families/work-in-progress/cores.js",
+    "src/families/starting-instruments/habit-habitat.js": "src/families/work-in-progress/habit-habitat.js",
+    "src/families/starting-instruments/help.js": "src/families/work-in-progress/help.js",
+    "src/families/starting-instruments/hollowphonic.js": "src/families/work-in-progress/hollowphonic.js",
+    "src/families/starting-instruments/loop-network-app.js": "src/families/work-in-progress/loop-network-app.js",
+    "src/families/starting-instruments/loop-network.css": "src/families/work-in-progress/loop-network.css",
+    "src/families/starting-instruments/loop-network.js": "src/families/work-in-progress/loop-network.js",
+    "src/families/starting-instruments/loop-soup.js": "src/families/work-in-progress/loop-soup.js",
+    "src/families/starting-instruments/network-ui-utils.js": "src/families/work-in-progress/network-ui-utils.js",
+    "src/families/starting-instruments/network-view.js": "src/families/work-in-progress/network-view.js",
+    "src/families/starting-instruments/processor.js": "src/families/work-in-progress/processor.js",
+    "src/families/starting-instruments/render.js": "src/families/work-in-progress/render.js",
+    "src/families/starting-instruments/starting-instruments-app.js": "src/families/work-in-progress/work-in-progress-app.js",
+    "src/families/starting-instruments/starting-instruments.css": "src/families/work-in-progress/work-in-progress.css",
+    "src/families/starting-instruments/tape-worm.js": "src/families/work-in-progress/tape-worm.js",
+    "src/families/starting-instruments/tempo-tantrum.js": "src/families/work-in-progress/tempo-tantrum.js"
+  },
+  "pages": [
+    "tempo-tantrum.html",
+    "tape-worm.html",
+    "loop-soup.html",
+    "habit-habitat.html",
+    "hollowphonic.html"
+  ],
+  "visibleTextChanges": [
+    {
+      "before": "About this starting instrument",
+      "after": "About this work-in-progress instrument"
+    },
+    {
+      "before": "Other starting instruments",
+      "after": "Other work-in-progress instruments"
+    }
+  ],
+  "boundaries": [
+    "Rename the existing five-prototype family, not every instrument with WIP status.",
+    "Preserve public page/help URLs, DOM IDs/classes/data attributes, exports, storage keys and the morphazoid-starting-instrument processor identity.",
+    "No DSP, controls, preset content, recording behavior or transport changes."
+  ],
+  "dependentPages": [
+    "crab-loom.html",
+    "exceptional.html",
+    "freeze-point.html",
+    "head-shed.html",
+    "onset-atlas.html",
+    "scatter-ghost.html",
+    "splice-ring.html",
+    "synaptic-resonance.html"
+  ]
+}

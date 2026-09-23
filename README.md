@@ -21,7 +21,7 @@ center/shell attraction, depth spread and helical twist reorganize the structure
 Camera orbit is separate from musical geometry. Audio starts off.
 [Controls and model boundaries](docs/graph-3d.md).
 
-Five **starting instruments** explore the September concepts without combining
+Five **work-in-progress instruments** explore the September concepts without combining
 their engines: [Tempo Tantrum](tempo-tantrum.html) plays driven phases that lock
 and slip; [Tape Worm](tape-worm.html) splices one reader between intact recordings;
 [Loop Soup](loop-soup.html) retains and erases audio in editable lettered loops;

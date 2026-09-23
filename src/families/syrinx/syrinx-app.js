@@ -1,3 +1,4 @@
+import { canvasLocalPoint } from "../../graphics/pointer-coordinates.js";
 import {
   ANIMALS,
   CALL_GESTURES,
@@ -2809,10 +2810,7 @@ function handleAt(x, y) {
 
 function canvasPoint(event) {
   const bounds = canvas.getBoundingClientRect();
-  return {
-    x: event.clientX - bounds.left,
-    y: event.clientY - bounds.top,
-  };
+  return canvasLocalPoint(event, bounds);
 }
 
 function distanceToSegment(point, startX, startY, endX, endY) {

@@ -7,6 +7,7 @@ import test from "node:test";
 import { fileURLToPath } from "node:url";
 import { rewriteModulePaths, rewriteRepositoryPaths, relocateReference } from "../scripts/architecture/module-paths.mjs";
 import { readRuntimeManifest } from "../scripts/site/runtime-manifest.mjs";
+import { restorePointerExtraction } from "./helpers/pointer-extraction-reference.mjs";
 
 const root = fileURLToPath(new URL("../", import.meta.url));
 const plan = JSON.parse(await readFile(new URL("../docs/source-module-layout.json", import.meta.url)));
@@ -37,7 +38,9 @@ test("runtime modules reverse exactly after explicit runtime fixes, stereo-input
     "src/families/proto-graph/proto-shell.js",
   ]);
   for (const record of proof.files) {
-    let current = await readFile(path.join(root, record.after), "utf8");
+    let current = restorePointerExtraction(
+      await readFile(path.join(root, record.after), "utf8"), record.after,
+    );
     for (const change of iphoneChanges.filter(change => change.file === record.after)) {
       for (const testFile of change.regressionTests) assert.ok(existsSync(path.join(root, testFile)), testFile);
       for (const replacement of [...change.replacements].reverse()) {

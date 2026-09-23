@@ -1,3 +1,4 @@
+import { canvasLocalPoint } from "../../graphics/pointer-coordinates.js";
 import {
   cloneDefaultFmDrumVoices,
   FM_DRUM_STORAGE_KEY,
@@ -1942,10 +1943,7 @@ export function initializeGraphInstrument({
 
   function canvasPosition(event) {
     const bounds = canvas.getBoundingClientRect();
-    return {
-      x: event.clientX - bounds.left,
-      y: event.clientY - bounds.top,
-    };
+    return canvasLocalPoint(event, bounds);
   }
 
   function nodeAt(position) {

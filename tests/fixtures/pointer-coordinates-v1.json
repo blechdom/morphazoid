@@ -1,0 +1,88 @@
+{
+  "referenceCommit": "eb5b17e2a59225f7aef1eccb53176fffcbedfffc",
+  "description": "Frozen original pointer calculations and module hashes. Exact extraction reversal; never regenerate original references to accept behavior drift.",
+  "entries": [
+    {
+      "file": "src/instruments/rubix/rubix-app.js",
+      "name": "pointFromEvent",
+      "mode": "local",
+      "routes": [
+        "rubix.html"
+      ],
+      "helper": "canvasLocalPoint",
+      "importLine": "import { canvasLocalPoint } from \"../../graphics/pointer-coordinates.js\";\n",
+      "moduleSha256": "669135bc977ab7527934d21417edfb069331089d7fec90a6bc7b61a3743578f3",
+      "before": "function pointFromEvent(event) {\n  const bounds = canvas.getBoundingClientRect();\n  return {\n    x: event.clientX - bounds.left,\n    y: event.clientY - bounds.top,\n  };\n}",
+      "after": "function pointFromEvent(event) {\n  const bounds = canvas.getBoundingClientRect();\n  return canvasLocalPoint(event, bounds);\n}"
+    },
+    {
+      "file": "src/instruments/jaw-harp/jaw-harp-app.js",
+      "name": "canvasPoint",
+      "mode": "local",
+      "routes": [
+        "jaw-harp.html"
+      ],
+      "helper": "canvasLocalPoint",
+      "importLine": "import { canvasLocalPoint } from \"../../graphics/pointer-coordinates.js\";\n",
+      "moduleSha256": "3f5ede3d18a29e94f0e0068ca8d527b7b7709adac0a491ba7557021ac49164b4",
+      "before": "function canvasPoint(event) {\n  const bounds = canvas.getBoundingClientRect();\n  return { x: event.clientX - bounds.left, y: event.clientY - bounds.top };\n}",
+      "after": "function canvasPoint(event) {\n  const bounds = canvas.getBoundingClientRect();\n  return canvasLocalPoint(event, bounds);\n}"
+    },
+    {
+      "file": "src/instruments/hiccup-head/hiccup-head-app.js",
+      "name": "canvasPoint",
+      "mode": "scaled",
+      "routes": [
+        "hiccup-head.html"
+      ],
+      "helper": "canvasScaledPoint",
+      "importLine": "import { canvasScaledPoint } from \"../../graphics/pointer-coordinates.js\";\n",
+      "moduleSha256": "9b0870d3d6758a412dc0569a8d44a9612af46a5112a17fe9b28887cade8afcb6",
+      "before": "function canvasPoint(event) {\n  const rect = canvas.getBoundingClientRect();\n  return {\n    x: (event.clientX - rect.left) * cssWidth / Math.max(1, rect.width),\n    y: (event.clientY - rect.top) * cssHeight / Math.max(1, rect.height),\n  };\n}",
+      "after": "function canvasPoint(event) {\n  const rect = canvas.getBoundingClientRect();\n  return canvasScaledPoint(event, rect, { width: cssWidth, height: cssHeight });\n}"
+    },
+    {
+      "file": "src/instruments/creaturazoid/creaturazoid-app.js",
+      "name": "canvasCoordinates",
+      "mode": "scaled",
+      "routes": [
+        "creaturazoid.html"
+      ],
+      "helper": "canvasScaledPoint",
+      "importLine": "import { canvasScaledPoint } from \"../../graphics/pointer-coordinates.js\";\n",
+      "moduleSha256": "6dce108bbf88a25e607aaca3e8213d6aefeb568776d97a361451a3c46003fc9a",
+      "before": "function canvasCoordinates(event) {\n  const bounds = canvas.getBoundingClientRect();\n  return {\n    x: (event.clientX - bounds.left) * canvasMetrics.width / Math.max(1, bounds.width),\n    y: (event.clientY - bounds.top) * canvasMetrics.height / Math.max(1, bounds.height),\n  };\n}",
+      "after": "function canvasCoordinates(event) {\n  const bounds = canvas.getBoundingClientRect();\n  return canvasScaledPoint(event, bounds, canvasMetrics);\n}"
+    },
+    {
+      "file": "src/families/graph/graph-instrument-app.js",
+      "name": "canvasPosition",
+      "mode": "local",
+      "routes": [
+        "graph-synth.html",
+        "graph-drum-machine.html"
+      ],
+      "helper": "canvasLocalPoint",
+      "importLine": "import { canvasLocalPoint } from \"../../graphics/pointer-coordinates.js\";\n",
+      "moduleSha256": "fdb6b4b051e67292dcf4d25c4d43b1a8adcd3adacb147a3c41153a0ef838f235",
+      "before": "function canvasPosition(event) {\n    const bounds = canvas.getBoundingClientRect();\n    return {\n      x: event.clientX - bounds.left,\n      y: event.clientY - bounds.top,\n    };\n  }",
+      "after": "function canvasPosition(event) {\n    const bounds = canvas.getBoundingClientRect();\n    return canvasLocalPoint(event, bounds);\n  }"
+    },
+    {
+      "file": "src/families/syrinx/syrinx-app.js",
+      "name": "canvasPoint",
+      "mode": "local",
+      "routes": [
+        "hybrinx.html",
+        "syrinx.html",
+        "tongued-beasts.html",
+        "syrinx-ui.html"
+      ],
+      "helper": "canvasLocalPoint",
+      "importLine": "import { canvasLocalPoint } from \"../../graphics/pointer-coordinates.js\";\n",
+      "moduleSha256": "523b625436c6615b564649dd5db6b322ee9922ff331e35f1cb516e3c0ca8346d",
+      "before": "function canvasPoint(event) {\n  const bounds = canvas.getBoundingClientRect();\n  return {\n    x: event.clientX - bounds.left,\n    y: event.clientY - bounds.top,\n  };\n}",
+      "after": "function canvasPoint(event) {\n  const bounds = canvas.getBoundingClientRect();\n  return canvasLocalPoint(event, bounds);\n}"
+    }
+  ]
+}

@@ -1,7 +1,7 @@
 # Tape Worm and Loop Soup — editable networks
 
 September 18, 2026. These extend the existing two demos, not the other three
-starting instruments. App names and URLs are unchanged; loop labels are now
+work-in-progress instruments. App names and URLs are unchanged; loop labels are now
 letters in both apps and Loop Soup's preset labels are A/B/C/D.
 
 ## Play the surface
@@ -126,7 +126,7 @@ overdubbing. The erase brush can remove a region; a Write loop may refill it.
 
 ## Implementation contract
 
-Pure engines share `src/families/starting-instruments/loop-network.js` for stable IDs,
+Pure engines share `src/families/work-in-progress/loop-network.js` for stable IDs,
 bounded tape storage, topology and capture. Their playback/routing DSP stays
 separate. A dedicated `loop-network-app.js` owns native center controls and the
 scrollable workspace; the other three demos retain their original controller.

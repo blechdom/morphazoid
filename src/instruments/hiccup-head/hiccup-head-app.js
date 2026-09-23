@@ -1,3 +1,4 @@
+import { canvasScaledPoint } from "../../graphics/pointer-coordinates.js";
 import {
   HICCUP_HEAD_DEFAULTS,
   HICCUP_HEAD_LIMITS,
@@ -7675,10 +7676,7 @@ function resizeCanvas() {
 
 function canvasPoint(event) {
   const rect = canvas.getBoundingClientRect();
-  return {
-    x: (event.clientX - rect.left) * cssWidth / Math.max(1, rect.width),
-    y: (event.clientY - rect.top) * cssHeight / Math.max(1, rect.height),
-  };
+  return canvasScaledPoint(event, rect, { width: cssWidth, height: cssHeight });
 }
 
 function distanceSquared(point, target) {

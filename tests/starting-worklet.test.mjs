@@ -7,7 +7,7 @@ globalThis.AudioWorkletProcessor = class {
   constructor() { this.messages = []; this.port = { onmessage: null, postMessage: (m) => this.messages.push(m) }; }
 };
 globalThis.registerProcessor = (name, ctor) => { assert.equal(name, "morphazoid-starting-instrument"); Processor = ctor; };
-await import("../src/families/starting-instruments/processor.js");
+await import("../src/families/work-in-progress/processor.js");
 const send = (p, m) => p.port.onmessage({ data: m });
 function render(p, blocks, input = 0) {
   const output = [[new Float32Array(128), new Float32Array(128)]];

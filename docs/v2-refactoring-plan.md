@@ -1,6 +1,30 @@
 # Morphazoid v2: preservation-first refactoring
 
-## Current status — September 21, 2026
+## Current status — September 23, 2026
+
+Directory ownership checkpoint `eb5b17e` has been rebased onto fetched main
+`ef6e593` as `03619ff` on the review branch. Main's iPhone audio fixes and the
+pending rename/pointer work are retained. This has not been pushed or deployed;
+the neighboring main worktree remains untouched. See `rebase-main-20260923.md`. Site metadata and
+the starting-instrument runtime now live with their owners, while intentionally
+shared audio/MIDI/math and toolchain boundaries remain in place. The owner
+subsequently requested the name `work-in-progress` for the shared five-prototype
+family. Its paths and visible group labels are updated and verified without changing
+the individual instruments or their protocol identities; see
+`prototype-family-layout.json` and `prototype-family-rename.md`.
+
+Preset content remains frozen while the preservation-first refactor continues.
+The next small DRY batch shares two existing pointer-coordinate calculations
+across six controllers/ten routes, led by Faves. Gesture state and audio remain
+instrument-owned; different scaling/fallback policies are not unified.
+See [pointer extraction and evidence](pointer-coordinate-refactor.md).
+Existing preset-rollout drafts remain separate from this batch.
+Exact callback/browser comparisons and repository/WAX verification passed.
+The wider browser run retains an intermittent standalone Shape clipping-meter
+failure, independently reproduced on the unchanged committed baseline; it is
+not marked green or repaired through incidental sound changes.
+
+## Previous status — September 21, 2026
 
 Preset priority is now **Faves first in menu order, then remaining non-WIP
 regular instruments**. WIP and labs are deferred from new preset work; existing
@@ -277,6 +301,11 @@ and 48 pages. Existing caps, budgets, sub-one device-scale behavior, conditional
 canvas writes, transforms, redraws, and gesture effects are preserved. The
 remaining specialized/unreviewed sizing methods are not forced into this rule.
 See `../src/graphics/README.md` for the policy boundary.
+
+The September 23 pointer batch covers the exact unscaled and
+multiply-then-divide coordinate calculations used by Rubix, Jaw Harp, Hiccup
+Head, Creaturazoid, Graph and Syrinx controllers. This advances only the pointer
+part of step 5; status/control binding and other editor policies remain separate.
 
 ### 6. Extract instrument-family modules
 

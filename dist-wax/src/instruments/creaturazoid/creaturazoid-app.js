@@ -1,3 +1,4 @@
+import { canvasScaledPoint } from "../../graphics/pointer-coordinates.js";
 import {
   CREATURAZOID_ANATOMY_DESIGNS,
   CREATURAZOID_DYNAMICS,
@@ -4260,10 +4261,7 @@ function animationFrame(timestamp) {
 
 function canvasCoordinates(event) {
   const bounds = canvas.getBoundingClientRect();
-  return {
-    x: (event.clientX - bounds.left) * canvasMetrics.width / Math.max(1, bounds.width),
-    y: (event.clientY - bounds.top) * canvasMetrics.height / Math.max(1, bounds.height),
-  };
+  return canvasScaledPoint(event, bounds, canvasMetrics);
 }
 
 function distance(left, right) {
