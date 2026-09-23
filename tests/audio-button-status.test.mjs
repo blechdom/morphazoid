@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
+import vm from "node:vm";
+import { parse } from "acorn";
 
 const root = new URL("../", import.meta.url);
 const instrumentScripts = [
@@ -58,13 +60,34 @@ const instrumentScripts = [
   "morphazoidical/app.js",
 ];
 
-test("top-menu Audio status is always the binary on/off state", async () => {
+test("top-menu Audio status is binary for legacy engines and truthful for lifecycle-aware engines", async () => {
   for (const file of instrumentScripts) {
     const source = await readFile(new URL(file, root), "utf8").catch((error) => {
       if (file === "src/instruments/recursion/recursion-app.js" && error?.code === "ENOENT") return null;
       throw error;
     });
     if (source === null) continue;
+    if (source.includes('setAttribute("data-audio-state-owner", "engine")')) {
+      const declaration = parse(source, { sourceType: "module", ecmaVersion: "latest" }).body
+        .find(node => node.type === "FunctionDeclaration" && node.id.name === "setAudioPresentation");
+      assert.ok(declaration, `${file} declares its lifecycle presentation`);
+      for (const state of ["off", "starting", "on", "error", "interrupted"]) {
+        const nodes = new Map();
+        const node = id => {
+          if (!nodes.has(id)) nodes.set(id, {
+            attributes: {}, textContent: "", setAttribute(key, value) { this.attributes[key] = value; },
+          });
+          return nodes.get(id);
+        };
+        vm.runInNewContext(`${source.slice(declaration.start, declaration.end)}; setAudioPresentation(${JSON.stringify(state)});`, {
+          $: node, audioButton: node("audioButton"), audioOn: false, audioStatus: "off",
+        });
+        assert.equal(node("audioButton").attributes["data-audio-state"], state);
+        assert.equal(node("audioButton").attributes["aria-pressed"], String(state === "on"));
+        assert.equal(node("audioState").textContent, state);
+      }
+      continue;
+    }
     const statusLines = source
       .split("\n")
       .filter((line) => (

@@ -23,6 +23,7 @@ import {
 } from "./julie-saw.js";
 import { connectAudioOutput } from "../../audio-output-manager.js";
 import { unlockAudioContext } from "../../audio.js";
+import { resumeAudioContext, withAudioTimeout } from "../../audio-startup.js";
 
 const $ = (id) => document.getElementById(id);
 const canvas = $("stage");
@@ -121,9 +122,11 @@ function updateRangeFill(input) {
 function setAudioPresentation(status = "off", errorMessage = "") {
   audioStatus = status;
   const isOn = status === "on";
+  $("audioButton").setAttribute("data-audio-state-owner", "engine");
+  $("audioButton").setAttribute("data-audio-state", status);
   $("audioButton").setAttribute("aria-pressed", String(isOn));
   $("audioButton").disabled = status === "starting";
-  $("audioState").textContent = status === "starting" ? "starting" : isOn ? "on" : "off";
+  $("audioState").textContent = status;
   $("audioError").hidden = !errorMessage;
   $("audioError").textContent = errorMessage;
 }
@@ -277,7 +280,11 @@ async function createAudioGraph() {
   let releaseOutput = null;
   unlockAudioContext(context);
   try {
-    await context.audioWorklet.addModule(new URL("./julie-saw-processor.js", import.meta.url));
+    if (!context.audioWorklet) throw new Error("This instrument needs HTTPS and a browser with AudioWorklet.");
+    await Promise.all([
+      resumeAudioContext(context),
+      withAudioTimeout(context.audioWorklet.addModule(new URL("./julie-saw-processor.js", import.meta.url))),
+    ]);
     const sourceNode = new AudioWorkletNode(context, "julie-saw-physical-model", {
       numberOfInputs: 0,
       numberOfOutputs: 1,
@@ -356,7 +363,7 @@ async function ensureAudio() {
   const activeContext = audioContext;
   try {
     unlockAudioContext(activeContext);
-    await activeContext.resume();
+    await resumeAudioContext(activeContext);
     if (
       !pageIsActive
       || !audioDesiredOn

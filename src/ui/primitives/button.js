@@ -18,12 +18,13 @@ const BUTTON_VARIANTS = new Set([
   "audio",
 ]);
 const BUTTON_SIZES = new Set(["default", "compact", "square"]);
-const AUDIO_STATES = new Set(["off", "starting", "on", "error"]);
+const AUDIO_STATES = new Set(["off", "starting", "on", "error", "interrupted"]);
 const AUDIO_STATE_LABELS = {
   off: ["Turn audio on", "Audio off"],
   starting: ["Starting audio", "Starting audio"],
   on: ["Turn audio off", "Audio on"],
   error: ["Audio unavailable", "Audio unavailable"],
+  interrupted: ["Resume audio", "Audio interrupted — tap to resume"],
 };
 
 function normalizedChoice(value, choices, fallback) {
@@ -118,6 +119,7 @@ export function createButton(options = {}, doc = globalThis.document) {
   };
   const setAudioState = (state) => {
     const next = normalizedChoice(state, AUDIO_STATES, "off");
+    button.setAttribute("data-audio-state-owner", "engine");
     button.setAttribute("data-audio-state", next);
     if (variant === "audio") {
       setPressed(next === "on");

@@ -150,6 +150,8 @@ let manualMotionClock = "geometry";
 let pointerScrub = null;
 let pointerRotation = null;
 let audioRequest = 0;
+let audioUiRequest = 0;
+let observedAudioContext = null;
 const heldMidiNotes = new Set();
 let soundControls = null;
 let presetController = null;
@@ -963,16 +965,43 @@ async function prepareActiveAudio() {
   drumAudio.setHostGain(fmKitMode ? 1 : 0, 45);
   rattlesnakeAudio.setOutput(rattlesnakeMode ? state.audio.level * 0.85 : 0);
   if (!rattlesnakeMode) rattlesnakeAudio.silence();
+  observeActiveAudioContext();
   resetTransportClocks();
   syncDiscreteScheduler();
   scheduleFrame();
 }
 
+function showAudioNotice(message = "") {
+  const notice = $("audioStartupNotice");
+  if (!notice) return;
+  notice.textContent = message;
+  notice.hidden = !message;
+}
+
+function handleAudioContextStateChange() {
+  if (!state.audio.enabled || $("audioButton").dataset.audioState === "starting") return;
+  const running = observedAudioContext?.state === "running";
+  $("audioButton").dataset.audioState = running ? "on" : "interrupted";
+  showAudioNotice(running ? "" : "Audio interrupted — tap the speaker to resume.");
+  syncAudioUi();
+}
+
+function observeActiveAudioContext() {
+  const next = activeAudioContext();
+  if (next === observedAudioContext) return;
+  observedAudioContext?.removeEventListener?.("statechange", handleAudioContextStateChange);
+  observedAudioContext = next;
+  observedAudioContext?.addEventListener?.("statechange", handleAudioContextStateChange);
+}
+
 async function setAudioEnabled(enabled) {
+  const request = ++audioUiRequest;
   const button = $("audioButton");
   state.audio.enabled = Boolean(enabled);
-  button.disabled = state.audio.enabled;
+  // A second tap can cancel pending startup; do not trap the user behind resume().
+  button.disabled = false;
   button.dataset.audioState = state.audio.enabled ? "starting" : "off";
+  showAudioNotice(state.audio.enabled ? "Starting audio — tap the speaker again to cancel." : "");
   syncAudioUi();
   if (!state.audio.enabled) {
     audioRequest += 1;
@@ -990,11 +1019,13 @@ async function setAudioEnabled(enabled) {
   }
   try {
     await prepareActiveAudio();
-    if (!state.audio.enabled) return;
+    if (request !== audioUiRequest || !state.audio.enabled) return;
     resetEventClock();
     syncDiscreteScheduler();
     button.dataset.audioState = "on";
+    showAudioNotice("");
   } catch (error) {
+    if (request !== audioUiRequest) return;
     state.audio.enabled = false;
     stopDiscreteScheduler();
     synthAudio.disable();
@@ -1003,8 +1034,10 @@ async function setAudioEnabled(enabled) {
     rattlesnakeAudio.silence();
     rattlesnakeAudio.setOutput(0);
     button.dataset.audioState = "error";
+    showAudioNotice(error?.message ?? "Audio could not start. Tap the speaker to retry.");
     announce(error?.message ?? "Audio could not start.");
   } finally {
+    if (request !== audioUiRequest) return;
     button.disabled = false;
     syncAudioUi();
     queueSave();
@@ -1013,10 +1046,8 @@ async function setAudioEnabled(enabled) {
 
 function syncAudioUi() {
   const button = $("audioButton");
-  button.setAttribute("aria-pressed", String(state.audio.enabled));
-  $("audioState").textContent = button.dataset.audioState === "starting"
-    ? "starting"
-    : state.audio.enabled ? "on" : "off";
+  button.setAttribute("aria-pressed", String(state.audio.enabled && button.dataset.audioState === "on"));
+  $("audioState").textContent = button.dataset.audioState || "off";
   $("level").value = String(state.audio.level);
   $("levelOut").textContent = `${Math.round(state.audio.level * 100)}%`;
 }
@@ -1610,7 +1641,9 @@ function installKnobInteraction(button) {
   });
 }
 
-$("audioButton").addEventListener("click", () => setAudioEnabled(!state.audio.enabled));
+$("audioButton").addEventListener("click", () => setAudioEnabled(
+  $("audioButton").dataset.audioState === "interrupted" || !state.audio.enabled,
+));
 bindRange("level", (value) => {
   state.audio.level = value;
   syncSynthLevel();
@@ -2015,6 +2048,7 @@ document.addEventListener("visibilitychange", () => {
     drumAudio.silence();
     rattlesnakeAudio.silence();
   } else {
+    handleAudioContextStateChange();
     resetTransportClocks();
     syncDiscreteScheduler();
     scheduleFrame();
@@ -2028,6 +2062,9 @@ window.addEventListener("pagehide", () => {
   cancelAnimationFrame(animationFrame);
   animationFrame = 0;
   audioRequest += 1;
+  audioUiRequest += 1;
+  observedAudioContext?.removeEventListener?.("statechange", handleAudioContextStateChange);
+  observedAudioContext = null;
   presetAudioRevision += 1;
   heldMidiNotes.clear();
   state.audio.enabled = false;

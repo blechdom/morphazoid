@@ -21,6 +21,7 @@ import {
 } from "./morphynx.js";
 import { connectAudioOutput } from "../../audio-output-manager.js";
 import { unlockAudioContext } from "../../audio.js";
+import { resumeAudioContext, withAudioTimeout } from "../../audio-startup.js";
 
 const $ = (id) => document.getElementById(id);
 const canvas = $("stage");
@@ -310,95 +311,108 @@ function sourceModeGains(active = gateActive()) {
 
 function setAudioPresentation(status = "off") {
   audioOn = status === "on";
+  $("audioButton").setAttribute("data-audio-state-owner", "engine");
+  $("audioButton").setAttribute("data-audio-state", status);
   $("audioButton").setAttribute("aria-pressed", String(audioOn));
   $("audioButton").disabled = status === "starting";
-  $("audioState").textContent = status === "starting" ? "starting" : audioOn ? "on" : "off";
+  $("audioState").textContent = status;
 }
 
 async function createAudioGraph() {
   const Context = globalThis.AudioContext ?? globalThis.webkitAudioContext;
   if (!Context) throw new Error("This browser does not provide Web Audio.");
   const context = new Context({ latencyHint: "interactive", sampleRate: 48_000 });
+  let releaseOutput = null;
   unlockAudioContext(context);
-  await context.audioWorklet.addModule(new URL("../../families/syrinx/syrinx-processor.js", import.meta.url));
-  const configuration = morphynxConfiguration({
-    animal: state.animal,
-    voice: baseVoice(),
-    morph: state.morph,
-    active: false,
-  });
-  const createSourceNode = (source, tract, seed) => new AudioWorkletNode(
-    context,
-    "syrinx-physical-model",
-    {
-      numberOfInputs: 0,
-      numberOfOutputs: 1,
-      outputChannelCount: [2],
-      channelCount: 2,
-      channelCountMode: "explicit",
-      processorOptions: { configuration: { source, tract, seed } },
-    },
-  );
-  const animalNode = createSourceNode(
-    configuration.animalSource,
-    configuration.animalTract,
-    0x4d4f5250,
-  );
-  const humanNode = createSourceNode(
-    configuration.humanSource,
-    configuration.humanTract,
-    0x4c415259,
-  );
-  const animalMorphGain = context.createGain();
-  const humanMorphGain = context.createGain();
-  const internalGain = context.createGain();
-  const micGain = context.createGain();
-  const mixBus = context.createGain();
-  const masterGain = context.createGain();
-  const compressor = context.createDynamicsCompressor();
-  const analyser = context.createAnalyser();
-  const recordingDestination = context.createMediaStreamDestination();
-  animalMorphGain.gain.value = configuration.mix.animalGain;
-  humanMorphGain.gain.value = configuration.mix.humanGain;
-  internalGain.gain.value = 0;
-  micGain.gain.value = 0;
-  masterGain.gain.value = state.level;
-  compressor.threshold.value = -12;
-  compressor.knee.value = 14;
-  compressor.ratio.value = 5;
-  compressor.attack.value = 0.003;
-  compressor.release.value = 0.18;
-  analyser.fftSize = 1_024;
-  analyser.smoothingTimeConstant = 0.64;
-  animalNode.connect(animalMorphGain).connect(internalGain);
-  humanNode.connect(humanMorphGain).connect(internalGain);
-  internalGain.connect(mixBus);
-  micGain.connect(mixBus);
-  mixBus.connect(masterGain).connect(compressor).connect(analyser);
-  analyser.connect(recordingDestination);
-  const releaseOutput = connectAudioOutput(context, analyser, { runtime: globalThis });
-  animalNode.port.onmessage = (event) => receiveBranchTelemetry("animal", event.data);
-  humanNode.port.onmessage = (event) => receiveBranchTelemetry("human", event.data);
-  for (const sourceNode of [animalNode, humanNode]) {
-    sourceNode.onprocessorerror = () => showError("A Morphynx physical-model branch stopped. Reload to reset it.");
+  try {
+    if (!context.audioWorklet) throw new Error("This instrument needs HTTPS and a browser with AudioWorklet.");
+    await Promise.all([
+      resumeAudioContext(context),
+      withAudioTimeout(context.audioWorklet.addModule(new URL("../../families/syrinx/syrinx-processor.js", import.meta.url))),
+    ]);
+    const configuration = morphynxConfiguration({
+      animal: state.animal,
+      voice: baseVoice(),
+      morph: state.morph,
+      active: false,
+    });
+    const createSourceNode = (source, tract, seed) => new AudioWorkletNode(
+      context,
+      "syrinx-physical-model",
+      {
+        numberOfInputs: 0,
+        numberOfOutputs: 1,
+        outputChannelCount: [2],
+        channelCount: 2,
+        channelCountMode: "explicit",
+        processorOptions: { configuration: { source, tract, seed } },
+      },
+    );
+    const animalNode = createSourceNode(
+      configuration.animalSource,
+      configuration.animalTract,
+      0x4d4f5250,
+    );
+    const humanNode = createSourceNode(
+      configuration.humanSource,
+      configuration.humanTract,
+      0x4c415259,
+    );
+    const animalMorphGain = context.createGain();
+    const humanMorphGain = context.createGain();
+    const internalGain = context.createGain();
+    const micGain = context.createGain();
+    const mixBus = context.createGain();
+    const masterGain = context.createGain();
+    const compressor = context.createDynamicsCompressor();
+    const analyser = context.createAnalyser();
+    const recordingDestination = context.createMediaStreamDestination();
+    animalMorphGain.gain.value = configuration.mix.animalGain;
+    humanMorphGain.gain.value = configuration.mix.humanGain;
+    internalGain.gain.value = 0;
+    micGain.gain.value = 0;
+    masterGain.gain.value = state.level;
+    compressor.threshold.value = -12;
+    compressor.knee.value = 14;
+    compressor.ratio.value = 5;
+    compressor.attack.value = 0.003;
+    compressor.release.value = 0.18;
+    analyser.fftSize = 1_024;
+    analyser.smoothingTimeConstant = 0.64;
+    animalNode.connect(animalMorphGain).connect(internalGain);
+    humanNode.connect(humanMorphGain).connect(internalGain);
+    internalGain.connect(mixBus);
+    micGain.connect(mixBus);
+    mixBus.connect(masterGain).connect(compressor).connect(analyser);
+    analyser.connect(recordingDestination);
+    releaseOutput = connectAudioOutput(context, analyser, { runtime: globalThis });
+    animalNode.port.onmessage = (event) => receiveBranchTelemetry("animal", event.data);
+    humanNode.port.onmessage = (event) => receiveBranchTelemetry("human", event.data);
+    for (const sourceNode of [animalNode, humanNode]) {
+      sourceNode.onprocessorerror = () => showError("A Morphynx physical-model branch stopped. Reload to reset it.");
+    }
+    return {
+      context,
+      animalNode,
+      humanNode,
+      animalMorphGain,
+      humanMorphGain,
+      internalGain,
+      micGain,
+      mixBus,
+      masterGain,
+      compressor,
+      analyser,
+      recordingDestination,
+      releaseOutput,
+      micSource: null,
+      micFilters: [],
+    };
+  } catch (error) {
+    releaseOutput?.();
+    try { Promise.resolve(context.close()).catch(() => {}); } catch { /* failed startup */ }
+    throw error;
   }
-  return {
-    context,
-    animalNode,
-    humanNode,
-    animalMorphGain,
-    humanMorphGain,
-    internalGain,
-    micGain,
-    mixBus,
-    masterGain,
-    compressor,
-    analyser,
-    recordingDestination,
-    releaseOutput,
-    micSource: null,
-    micFilters: [],
-  };
 }
 
 async function ensureAudio() {
@@ -412,7 +426,7 @@ async function ensureAudio() {
     } catch (error) {
       console.error(error);
       showError(error?.message || "Unable to start Morphynx audio.");
-      setAudioPresentation("off");
+      setAudioPresentation("error");
       startingAudio = false;
       return false;
     }
@@ -420,7 +434,7 @@ async function ensureAudio() {
   }
   try {
     unlockAudioContext(audioContext);
-    await audioContext.resume();
+    await resumeAudioContext(audioContext);
     setAudioPresentation("on");
     showError("");
     if (state.sourceMode !== "internal") await ensureMicrophone();
@@ -429,6 +443,7 @@ async function ensureAudio() {
   } catch (error) {
     console.error(error);
     showError(error?.message || "The browser blocked audio startup.");
+    setAudioPresentation("error");
     return false;
   }
 }

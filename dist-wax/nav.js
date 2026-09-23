@@ -10,6 +10,7 @@ import { initializeChaoticViewportControls } from "./src/families/chaotic/chaoti
 import { createMidiStatus, createStereoMeter } from "./src/ui/index.js";
 import { createChoosePickerShell } from "./src/ui/patterns/choose-picker-shell.js";
 import { mountHeaderPresets } from "./src/site/header-presets.js";
+import { initializeAudioSessionPolicy, needsAutomaticAudioSession } from "./src/site/audio-session-policy.js";
 import { FAVE_TOOL_IDS, TOOL_GROUPS, SITE_LINKS } from "./src/site/instrument-registry.js";
 
 // Preserve the existing navigation API without duplicating its records.
@@ -400,20 +401,25 @@ function insertBeforeOrAppend(parent, node, reference) {
 function syncAudioButtonState(button) {
   const pressed = button.getAttribute?.("aria-pressed") === "true";
   const status = button.querySelector?.("#audioState")?.textContent?.trim().toLowerCase() ?? "";
-  const state = pressed
-    ? "on"
+  const explicit = button.getAttribute?.("data-audio-state");
+  const owned = button.getAttribute?.("data-audio-state-owner") === "engine";
+  const state = owned && ["on", "off", "starting", "error", "interrupted"].includes(explicit)
+    ? explicit
     : /start|load|wait|request|connect/.test(status)
       ? "starting"
       : /error|unavailable|failed|blocked|denied/.test(status)
         ? "error"
-        : "off";
+        : /interrupt|resume/.test(status)
+          ? "interrupted"
+          : pressed ? "on" : "off";
   const labels = {
     on: ["Turn audio off", "Audio on"],
     starting: ["Starting audio", "Starting audio"],
     error: ["Audio unavailable", "Audio unavailable"],
+    interrupted: ["Resume audio", "Audio interrupted — tap to resume"],
     off: ["Turn audio on", "Audio off"],
   };
-  button.setAttribute?.("data-audio-state", state);
+  if (button.getAttribute?.("data-audio-state") !== state) button.setAttribute?.("data-audio-state", state);
   button.setAttribute?.("aria-label", labels[state][0]);
   button.setAttribute?.("title", labels[state][1]);
 }
@@ -449,7 +455,7 @@ export function normalizeAudioButtonIcons(doc) {
       const observer = new Observer(() => syncAudioButtonState(button));
       observer.observe(button, {
         attributes: true,
-        attributeFilter: ["aria-pressed"],
+        attributeFilter: ["aria-pressed", "data-audio-state"],
         childList: true,
         characterData: true,
         subtree: true,
@@ -1584,6 +1590,9 @@ export function initializeSharedNavigation(doc = globalThis.document, runtime = 
     siteRoot,
   });
   loadInstrumentPageInfo(doc, siteRoot);
+  initializeAudioSessionPolicy(doc, runtime, {
+    audioInput: needsAutomaticAudioSession(instrumentMidiCapabilityForId(navigation.activeTool?.id)),
+  });
   initializeChaoticViewportControls(doc, runtime, {
     instrumentId: navigation.activeTool?.id,
   });

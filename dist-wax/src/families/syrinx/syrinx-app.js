@@ -17,6 +17,7 @@ import {
 } from "./syrinx.js?v=syrinx-ui-20260902-5";
 import { connectAudioOutput } from "../../audio-output-manager.js?v=syrinx-ui-20260819-1";
 import { unlockAudioContext } from "../../audio.js?v=syrinx-ui-20260819-1";
+import { resumeAudioContext, withAudioTimeout } from "../../audio-startup.js";
 import {
   DEFAULT_TONGUE_STATE,
   TONGUE_ANATOMIES,
@@ -473,9 +474,11 @@ function postConfiguration(soundingState = performanceState, resetTract = false)
 
 function setAudioPresentation(status = "off", message = "") {
   const on = status === "on";
+  audioButton.setAttribute("data-audio-state-owner", "engine");
+  audioButton.setAttribute("data-audio-state", status);
   audioButton.setAttribute("aria-pressed", String(on));
   const audioState = $("audioState");
-  audioState.textContent = on ? "on" : "off";
+  audioState.textContent = status;
   audioButton.disabled = status === "starting";
   const error = $("audioError");
   error.hidden = !message;
@@ -486,59 +489,70 @@ async function createAudioGraph() {
   const Context = globalThis.AudioContext ?? globalThis.webkitAudioContext;
   if (!Context) throw new Error("This browser does not provide Web Audio.");
   const context = new Context({ latencyHint: "interactive", sampleRate: 48_000 });
+  let releaseOutput = null;
   unlockAudioContext(context);
-  await context.audioWorklet.addModule(new URL("./syrinx-processor.js?v=tongue-live-20260820-1", import.meta.url));
+  try {
+    if (!context.audioWorklet) throw new Error("This instrument needs HTTPS and a browser with AudioWorklet.");
+    await Promise.all([
+      resumeAudioContext(context),
+      withAudioTimeout(context.audioWorklet.addModule(new URL("./syrinx-processor.js?v=tongue-live-20260820-1", import.meta.url))),
+    ]);
 
-  const sourceNode = new AudioWorkletNode(context, "syrinx-physical-model", {
-    numberOfInputs: 0,
-    numberOfOutputs: 1,
-    outputChannelCount: [2],
-    channelCount: 2,
-    channelCountMode: "explicit",
-    processorOptions: {
-      configuration: {
-        source: sourceConfiguration({ ...state, active: false }),
-        tract: tractConfiguration(state),
-        seed: 0x51f15e,
+    const sourceNode = new AudioWorkletNode(context, "syrinx-physical-model", {
+      numberOfInputs: 0,
+      numberOfOutputs: 1,
+      outputChannelCount: [2],
+      channelCount: 2,
+      channelCountMode: "explicit",
+      processorOptions: {
+        configuration: {
+          source: sourceConfiguration({ ...state, active: false }),
+          tract: tractConfiguration(state),
+          seed: 0x51f15e,
+        },
       },
-    },
-  });
-  const presetGain = context.createGain();
-  const masterGain = context.createGain();
-  const compressor = context.createDynamicsCompressor();
-  const analyser = context.createAnalyser();
-  presetGain.gain.value = resolveSyrinxPresetGain(state);
-  masterGain.gain.value = state.level;
-  compressor.threshold.value = -11;
-  compressor.knee.value = 12;
-  compressor.ratio.value = 5;
-  compressor.attack.value = 0.003;
-  compressor.release.value = 0.16;
-  analyser.fftSize = 1_024;
-  analyser.smoothingTimeConstant = 0.62;
-  sourceNode.connect(presetGain);
-  presetGain.connect(masterGain);
-  masterGain.connect(compressor);
-  compressor.connect(analyser);
-  const releaseOutput = connectAudioOutput(context, analyser, { runtime: globalThis });
+    });
+    const presetGain = context.createGain();
+    const masterGain = context.createGain();
+    const compressor = context.createDynamicsCompressor();
+    const analyser = context.createAnalyser();
+    presetGain.gain.value = resolveSyrinxPresetGain(state);
+    masterGain.gain.value = state.level;
+    compressor.threshold.value = -11;
+    compressor.knee.value = 12;
+    compressor.ratio.value = 5;
+    compressor.attack.value = 0.003;
+    compressor.release.value = 0.16;
+    analyser.fftSize = 1_024;
+    analyser.smoothingTimeConstant = 0.62;
+    sourceNode.connect(presetGain);
+    presetGain.connect(masterGain);
+    masterGain.connect(compressor);
+    compressor.connect(analyser);
+    releaseOutput = connectAudioOutput(context, analyser, { runtime: globalThis });
 
-  sourceNode.port.onmessage = (event) => {
-    if (event.data?.type !== "telemetry") return;
-    telemetry = { ...telemetry, ...event.data };
-  };
-  sourceNode.onprocessorerror = () => {
-    setAudioPresentation("error", "The physical-model audio processor stopped unexpectedly. Reload the page to reset it.");
-  };
+    sourceNode.port.onmessage = (event) => {
+      if (event.data?.type !== "telemetry") return;
+      telemetry = { ...telemetry, ...event.data };
+    };
+    sourceNode.onprocessorerror = () => {
+      setAudioPresentation("error", "The physical-model audio processor stopped unexpectedly. Reload the page to reset it.");
+    };
 
-  return {
-    context,
-    sourceNode,
-    presetGain,
-    masterGain,
-    compressor,
-    analyser,
-    releaseOutput,
-  };
+    return {
+      context,
+      sourceNode,
+      presetGain,
+      masterGain,
+      compressor,
+      analyser,
+      releaseOutput,
+    };
+  } catch (error) {
+    releaseOutput?.();
+    try { Promise.resolve(context.close()).catch(() => {}); } catch { /* failed startup */ }
+    throw error;
+  }
 }
 
 async function ensureAudio() {
@@ -559,7 +573,7 @@ async function ensureAudio() {
   }
   try {
     unlockAudioContext(audioContext);
-    await audioContext.resume();
+    await resumeAudioContext(audioContext);
     setAudioPresentation("on");
     audioDirty = true;
     postConfiguration(performanceState);

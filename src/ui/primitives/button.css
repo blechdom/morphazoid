@@ -318,7 +318,8 @@
   );
 }
 
-.audio-button[data-audio-state="error"] {
+.audio-button[data-audio-state="error"],
+.audio-button[data-audio-state="interrupted"] {
   border-color: color-mix(in oklab, var(--orange, var(--mz-color-orange)) 70%, transparent);
   color: var(--orange, var(--mz-color-orange));
 }

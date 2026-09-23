@@ -3,6 +3,7 @@ import {
   AdaptivePolyphonyController,
 } from "./adaptive-polyphony.js";
 import { connectAudioOutput } from "./audio-output-manager.js";
+import { AUDIO_STARTUP_TIMEOUT_MS, resumeAudioContext, withAudioTimeout } from "./audio-startup.js";
 
 /**
  * Lazy browser audio for the geometric instrument. Importing this module does
@@ -782,6 +783,9 @@ export class VoicePool {
     this.enabled = false;
     /** @type {Promise<void>|null} */
     this.startPromise = null;
+    this.startGeneration = 0;
+    this.startController = null;
+    this.startupTimeoutMs = options.startupTimeoutMs ?? AUDIO_STARTUP_TIMEOUT_MS;
     /** @type {VoiceSpec[]} */
     this.pendingVoices = [];
   }
@@ -959,12 +963,28 @@ export class VoicePool {
   /** Create/resume Web Audio after a user gesture and unmute the master bus. */
   async start() {
     if (this.startPromise) return this.startPromise;
-    this.startPromise = this.startInternal();
-    try {
-      await this.startPromise;
-    } finally {
-      this.startPromise = null;
-    }
+    const generation = ++this.startGeneration;
+    const controller = new AbortController();
+    this.startController = controller;
+    const pending = withAudioTimeout(this.startInternal(generation), {
+      timeoutMs: this.startupTimeoutMs, signal: controller.signal,
+    }).catch(error => {
+      if (generation === this.startGeneration) {
+        this.startGeneration += 1;
+        this.enabled = false;
+        const retiringContext = this.context;
+        this.resetGraph();
+        try { Promise.resolve(retiringContext?.close?.()).catch(() => {}); } catch { /* best effort */ }
+      }
+      throw error;
+    }).finally(() => {
+      if (this.startPromise === pending) {
+        this.startPromise = null;
+        this.startController = null;
+      }
+    });
+    this.startPromise = pending;
+    return pending;
   }
 
   /** Alias for start(), for an explicit audio on/off UI. */
@@ -972,7 +992,7 @@ export class VoicePool {
     await this.start();
   }
 
-  async startInternal() {
+  async startInternal(generation = this.startGeneration) {
     if (!this.context) this.buildGraph();
     if (!this.context || !this.master) {
       throw new Error("Web Audio could not be initialized.");
@@ -991,11 +1011,15 @@ export class VoicePool {
     // Loading an AudioWorklet first can consume that activation.
     if (context.state !== "running") {
       unlockAudioContext(context);
-      await context.resume();
+      await resumeAudioContext(context, { timeoutMs: this.startupTimeoutMs, signal: this.startController?.signal });
     }
+    if (generation !== this.startGeneration || context !== this.context) throw new DOMException("Audio startup cancelled.", "AbortError");
     await this.prepareContinuousSynth(context);
-    if (context.state !== "running" && context.state !== "closed") await context.resume();
-    if (this.context !== context || !this.master || context.state === "closed") {
+    if (generation !== this.startGeneration || this.context !== context) throw new DOMException("Audio startup cancelled.", "AbortError");
+    if (context.state !== "running" && context.state !== "closed") {
+      await resumeAudioContext(context, { timeoutMs: this.startupTimeoutMs, signal: this.startController?.signal });
+    }
+    if (generation !== this.startGeneration || this.context !== context || !this.master || context.state !== "running") {
       throw new Error("Audio start was interrupted.");
     }
 
@@ -1057,6 +1081,7 @@ export class VoicePool {
       };
       synthNode.port.start?.();
       synthNode.onprocessorerror = () => {
+        if (this.context !== context || this.synthNode !== synthNode) return;
         synthNode.disconnect();
         if (this.synthNode === synthNode) this.synthNode = null;
         this.workletUnavailable = true;
@@ -1068,6 +1093,7 @@ export class VoicePool {
       this.synthNode = synthNode;
       this.startRenderCapacityMonitoring(context);
     } catch {
+      if (this.context !== context || context.state === "closed") return;
       // The native sine pool below is a safe fallback for older Web Audio hosts.
       this.workletUnavailable = true;
       this.useAdaptiveFallback("native-fallback");
@@ -1756,6 +1782,7 @@ export class VoicePool {
 
   /** Mute without destroying the graph, so it can be enabled again cheaply. */
   disable() {
+    this.startController?.abort();
     this.enabled = false;
     this.silence();
     if (this.context && this.master) {
@@ -1769,6 +1796,8 @@ export class VoicePool {
 
   /** Stop and release all Web Audio resources. The pool may be started again. */
   async close() {
+    this.startController?.abort();
+    this.startGeneration += 1;
     const context = this.context;
     this.enabled = false;
     this.pendingVoices = [];

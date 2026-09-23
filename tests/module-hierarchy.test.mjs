@@ -12,6 +12,7 @@ const root = fileURLToPath(new URL("../", import.meta.url));
 const plan = JSON.parse(await readFile(new URL("../docs/source-module-layout.json", import.meta.url)));
 const proof = JSON.parse(await readFile(new URL("fixtures/module-hierarchy-runtime.json", import.meta.url)));
 const ioChanges = JSON.parse(await readFile(new URL("../docs/io-settings-runtime-changes.json", import.meta.url))).changes;
+const iphoneChanges = JSON.parse(await readFile(new URL("../docs/iphone-audio-runtime-changes.json", import.meta.url))).changes;
 const inverse = Object.fromEntries(Object.entries(plan.moves).map(([before, after]) => [after, before]));
 const sha = value => createHash("sha256").update(value).digest("hex");
 
@@ -27,7 +28,7 @@ test("all relocated instrument modules have one owner and explicit release inclu
   for (const file of plan.retainedSharedModules) assert.ok((await stat(path.join(root, file))).isFile(), file);
 });
 
-test("runtime modules reverse exactly after explicit runtime fixes and reviewed stereo-input additions", async () => {
+test("runtime modules reverse exactly after explicit runtime fixes, stereo-input and iPhone startup additions", async () => {
   assert.deepEqual(plan.reviewedRuntimeFixes.map(fix => fix.file), [
     "src/instruments/shepard-risset/shepard-risset-app.js",
     "src/instruments/spider-synth/spider-synth-app.js",
@@ -36,6 +37,13 @@ test("runtime modules reverse exactly after explicit runtime fixes and reviewed 
   ]);
   for (const record of proof.files) {
     let current = await readFile(path.join(root, record.after), "utf8");
+    for (const change of iphoneChanges.filter(change => change.file === record.after)) {
+      for (const testFile of change.regressionTests) assert.ok(existsSync(path.join(root, testFile)), testFile);
+      for (const replacement of [...change.replacements].reverse()) {
+        assert.equal(current.split(replacement.after).length - 1, 1, `exactly one iPhone startup edit: ${change.file}`);
+        current = current.replace(replacement.after, replacement.before);
+      }
+    }
     // Keep the relocation baseline frozen. Reverse only the exact, separately
     // documented feature edits, whose behavior has focused DSP/browser tests.
     for (const change of ioChanges.filter(change => change.file === record.after)) {
@@ -55,6 +63,20 @@ test("runtime modules reverse exactly after explicit runtime fixes and reviewed 
   }
 });
 
+test("iPhone amendments are scoped to the four startup controllers, with regression evidence", () => {
+  assert.deepEqual(iphoneChanges.map(change => change.file).sort(), [
+    "src/families/syrinx/syrinx-app.js",
+    "src/instruments/julie-saw/julie-saw-app.js",
+    "src/instruments/morphynx/morphynx-app.js",
+    "src/instruments/shapes/shapes-app.js",
+  ]);
+  for (const change of iphoneChanges) {
+    assert.ok(proof.files.some(record => record.after === change.file));
+    assert.match(change.reason, /iPhone/);
+    assert.ok(change.replacements.length > 0);
+    assert.deepEqual(change.regressionTests, ["tests/audio-startup.test.mjs", "e2e/iphone-audio-startup.spec.mjs"]);
+  }
+});
 test("stereo-input amendments identify existing modules and focused regression evidence", () => {
   assert.equal(new Set(ioChanges.map(change => change.file)).size, ioChanges.length);
   for (const change of ioChanges) {

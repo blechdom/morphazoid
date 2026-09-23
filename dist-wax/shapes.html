@@ -50,13 +50,14 @@
           <span><b>Master level</b><output id="levelOut" for="level">65%</output></span>
           <input id="level" aria-label="Master audio level" type="range" min="0" max="1" step="0.01" value="0.65" />
         </label>
-        <button class="audio-button" id="audioButton" type="button" aria-pressed="false" data-audio-state="off">
+        <button class="audio-button" id="audioButton" type="button" aria-pressed="false" data-audio-state="off" data-audio-state-owner="engine">
           <span class="audio-glyph" aria-hidden="true">◉</span>
           <span class="audio-copy"><b>Audio</b><small id="audioState">off</small></span>
         </button>
       </div>
     </header>
 
+    <p id="audioStartupNotice" class="audio-startup-notice" role="status" hidden></p>
     <main class="shapes-shell" id="shapesApp" data-dimension="2d" data-playing-mode="continuous">
       <section class="shapes-stage" aria-label="Shapes stage">
         <div class="shapes-stage-wrap" id="stageWrap">

@@ -981,3 +981,8 @@ body.shapes-page select optgroup {
   .shapes-knob,
   .shapes-stage-wrap { scroll-behavior: auto; }
 }
+.audio-startup-notice {
+  margin: 0.5rem 1rem;
+  color: var(--text, #eee);
+  font-size: 0.875rem;
+}
