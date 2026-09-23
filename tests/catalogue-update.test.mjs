@@ -1,10 +1,10 @@
 import assert from "node:assert/strict";
 import { readFile, readdir, stat } from "node:fs/promises";
 import test from "node:test";
-import { CATALOGUE_ITEMS, CATALOGUE_GROUPS, INSTRUMENTS, LABS, catalogueItemById, instrumentById } from "../src/instrument-catalog.js";
+import { CATALOGUE_ITEMS, CATALOGUE_GROUPS, INSTRUMENTS, LABS, catalogueItemById, instrumentById } from "../src/site/instrument-catalog.js";
 import { FAVE_TOOL_IDS, TOOL_GROUPS } from "../src/site/instrument-registry.js";
 import { canonicalInstrumentId, legacyInstrumentId } from "../src/site/instrument-identities.js";
-import { instrumentMidiCapabilityForId } from "../src/instrument-midi-capabilities.js";
+import { instrumentMidiCapabilityForId } from "../src/site/instrument-midi-capabilities.js";
 import { waxSupportForId } from "../src/instruments/wax/wax-instrument-roles.js";
 import { expectedFaveToolIds, mainAdditions } from "./helpers/catalogue-plan.mjs";
 

@@ -116,8 +116,8 @@ builder's tracked-file selection and asset-glob rules remain separate.
   the instrument.
 - Keep catalogue registration synchronized across `src/site/instrument-registry.js`
   (re-exported by `nav.js`),
-  `src/instrument-catalog.js`, and
-  `src/instrument-midi-capabilities.js`. Tests should compare IDs and records
+  `src/site/instrument-catalog.js`, and
+  `src/site/instrument-midi-capabilities.js`. Tests should compare IDs and records
   across those inventories rather than pinning the current total. Keep an
   explicit count only when cardinality itself is a reviewed product contract.
 - Preserve factual provenance and third-party licenses in source documentation

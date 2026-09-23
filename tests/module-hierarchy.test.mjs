@@ -10,10 +10,11 @@ import { readRuntimeManifest } from "../scripts/site/runtime-manifest.mjs";
 
 const root = fileURLToPath(new URL("../", import.meta.url));
 const plan = JSON.parse(await readFile(new URL("../docs/source-module-layout.json", import.meta.url)));
+const siteMoves = JSON.parse(await readFile(new URL("../docs/site-metadata-layout.json", import.meta.url))).moves;
 const proof = JSON.parse(await readFile(new URL("fixtures/module-hierarchy-runtime.json", import.meta.url)));
 const ioChanges = JSON.parse(await readFile(new URL("../docs/io-settings-runtime-changes.json", import.meta.url))).changes;
 const iphoneChanges = JSON.parse(await readFile(new URL("../docs/iphone-audio-runtime-changes.json", import.meta.url))).changes;
-const inverse = Object.fromEntries(Object.entries(plan.moves).map(([before, after]) => [after, before]));
+const inverse = Object.fromEntries(Object.entries({ ...plan.moves, ...siteMoves }).map(([before, after]) => [after, before]));
 const sha = value => createHash("sha256").update(value).digest("hex");
 
 test("all relocated instrument modules have one owner and explicit release inclusion", async () => {
@@ -25,7 +26,7 @@ test("all relocated instrument modules have one owner and explicit release inclu
     assert.ok((await stat(path.join(root, after))).isFile(), after);
     assert.ok(inventory.worktreeFiles.includes(after), `pre-commit build inclusion: ${after}`);
   }
-  for (const file of plan.retainedSharedModules) assert.ok((await stat(path.join(root, file))).isFile(), file);
+  for (const file of plan.retainedSharedModules) assert.ok((await stat(path.join(root, siteMoves[file] ?? file))).isFile(), file);
 });
 
 test("runtime modules reverse exactly after explicit runtime fixes, stereo-input and iPhone startup additions", async () => {

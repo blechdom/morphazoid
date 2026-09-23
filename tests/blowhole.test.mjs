@@ -27,11 +27,11 @@ import {
   randomizeBlowholeState,
   sanitizeBlowholeState,
 } from "../src/instruments/blowhole/blowhole.js";
-import { instrumentById } from "../src/instrument-catalog.js";
+import { instrumentById } from "../src/site/instrument-catalog.js";
 import {
   PAGE_KEYBOARD_INSTRUMENT_IDS,
   instrumentMidiCapabilityForId,
-} from "../src/instrument-midi-capabilities.js";
+} from "../src/site/instrument-midi-capabilities.js";
 
 const root = new URL("../", import.meta.url);
 const SAMPLE_RATE = 48_000;

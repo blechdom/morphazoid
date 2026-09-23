@@ -149,7 +149,7 @@ test("edits preserve motion and global surface/path changes relatch honestly", a
     read("src/instruments/quadruped/quadruped-app.js"),
     read("src/instruments/quadruped/quadruped.js"),
     read("src/instruments/quadruped/quadruped-motor.js"),
-    read("src/instrument-catalog.js"),
+    read("src/site/instrument-catalog.js"),
   ]);
   const keyboard = app.match(/function handleGridKeydown\(event\) \{([\s\S]*?)\n\}/)?.[1] ?? "";
   assert.match(keyboard, /setQuadrupedContact[\s\S]*?retimeTransport\(position, now, \{ preserveMotion: true \}\)/);

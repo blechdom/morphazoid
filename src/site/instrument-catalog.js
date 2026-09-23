@@ -1,10 +1,10 @@
 import {
   FAVE_TOOL_IDS,
   TOOL_GROUPS,
-} from "./site/instrument-registry.js";
+} from "./instrument-registry.js";
 import { instrumentMidiCapabilityForId } from "./instrument-midi-capabilities.js";
-import { canonicalInstrumentId } from "./site/instrument-identities.js";
-import { ADDITIONAL_TAG_IDS, CATALOGUE_TAGS, LAB_CATALOGUE_DETAILS } from "./site/catalogue-taxonomy.js";
+import { canonicalInstrumentId } from "./instrument-identities.js";
+import { ADDITIONAL_TAG_IDS, CATALOGUE_TAGS, LAB_CATALOGUE_DETAILS } from "./catalogue-taxonomy.js";
 
 const define = (kind, description, start, features = [], pluginHref = null) => Object.freeze({
   kind,

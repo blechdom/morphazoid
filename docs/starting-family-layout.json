@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "baseCommit": "9a45aa0ac6ea35d2086186bcc88313b6f3a735da",
+  "moves": {
+    "src/starting-instruments/audio.js": "src/families/starting-instruments/audio.js",
+    "src/starting-instruments/catalog.js": "src/families/starting-instruments/catalog.js",
+    "src/starting-instruments/common.js": "src/families/starting-instruments/common.js",
+    "src/starting-instruments/cores.js": "src/families/starting-instruments/cores.js",
+    "src/starting-instruments/habit-habitat.js": "src/families/starting-instruments/habit-habitat.js",
+    "src/starting-instruments/help.js": "src/families/starting-instruments/help.js",
+    "src/starting-instruments/hollowphonic.js": "src/families/starting-instruments/hollowphonic.js",
+    "src/starting-instruments/loop-network.js": "src/families/starting-instruments/loop-network.js",
+    "src/starting-instruments/loop-soup.js": "src/families/starting-instruments/loop-soup.js",
+    "src/starting-instruments/network-ui-utils.js": "src/families/starting-instruments/network-ui-utils.js",
+    "src/starting-instruments/network-view.js": "src/families/starting-instruments/network-view.js",
+    "src/starting-instruments/processor.js": "src/families/starting-instruments/processor.js",
+    "src/starting-instruments/render.js": "src/families/starting-instruments/render.js",
+    "src/starting-instruments/tape-worm.js": "src/families/starting-instruments/tape-worm.js",
+    "src/starting-instruments/tempo-tantrum.js": "src/families/starting-instruments/tempo-tantrum.js"
+  },
+  "boundaries": [
+    "Co-locate the existing runtime package with its two family controllers.",
+    "Change paths only; preserve all DSP, preset records, worklet identities, recordings and public HTML routes.",
+    "Retain existing copy-only versus required release policies."
+  ]
+}

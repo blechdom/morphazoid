@@ -23,6 +23,23 @@ async function randomizeAndCapture(page) {
   });
 }
 
+async function browserReferenceBank(page, entry) {
+  if (!["graph-delay", "graph-synth"].includes(entry.id)) return entry.bank;
+  // Graph layouts use transcendental math. Node and Chromium can differ by one
+  // floating-point bit, even with the same seed. Compare recall EXACTLY with
+  // the bank authored in this browser, not a rounded/tolerant capture. This
+  // imports the independent factory, never the state returned by the adapter.
+  const bank = await page.evaluate(async id => {
+    const presets = await import("/src/families/graph-presets/full-presets.js");
+    if (id === "graph-delay") return presets.GRAPH_DELAY_FULL_PRESETS;
+    const { graphInstrumentDefaultState } = await import("/src/families/graph/graph-instrument-app.js");
+    return presets.graphSynthFullPresets(graphInstrumentDefaultState());
+  }, entry.id);
+  expect(bank.map(({ id, label }) => ({ id, label })))
+    .toEqual(entry.bank.map(({ id, label }) => ({ id, label })));
+  return bank;
+}
+
 for (const entry of FAVES_PRESET_CASES) {
   test(`${entry.id}: all scenes and dice use complete state without arming Audio or permissions`, async ({ page, baseURL }) => {
     test.setTimeout(120000);
@@ -36,13 +53,15 @@ for (const entry of FAVES_PRESET_CASES) {
     });
     await page.goto(entry.href, { waitUntil: "load" });
     await settlePage(page);
+    const bank = await browserReferenceBank(page, entry);
     await expect(page.locator(".header-preset-controls")).toHaveCount(1);
     await expect(page.locator(".header-preset-picker button[data-full-preset]")).toHaveCount(entry.bank.length);
     await expect(page.locator(".header-preset-next")).toBeVisible();
     await expect(page.getByRole("button", { name: "Randomize instrument parameters", exact: true })).toBeVisible();
-    for (const preset of entry.bank) {
+    for (const preset of bank) {
       const actual = await recallAndCapture(page, preset.id);
       expect(actual.instrumentId).toBe(entry.id);
+      expect(actual.selectedId).toBe(preset.id);
       expect(actual.snapshot).toEqual(preset.snapshot);
       await expect(page.locator("#audioButton")).toHaveAttribute("aria-pressed", "false");
     }
@@ -52,7 +71,7 @@ for (const entry of FAVES_PRESET_CASES) {
       expect(() => entry.validate(actual.snapshot)).not.toThrow();
       await expect(page.locator("#audioButton")).toHaveAttribute("aria-pressed", "false");
     }
-    expect((await recallAndCapture(page, entry.bank[0].id)).snapshot).toEqual(entry.bank[0].snapshot);
+    expect((await recallAndCapture(page, bank[0].id)).snapshot).toEqual(bank[0].snapshot);
     expect(await page.evaluate(() => globalThis.__presetPermissionRequests)).toEqual([]);
     expect((await readAudioStatus(page)).connectionCount).toBe(0);
     expect(pageDiagnosticMessages(diagnostics)).toEqual([]);

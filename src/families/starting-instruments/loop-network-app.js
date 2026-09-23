@@ -1,9 +1,9 @@
-import { STARTING_INSTRUMENTS } from "../../starting-instruments/catalog.js";
-import { INSTRUMENT_HELP, formatParameter } from "../../starting-instruments/help.js";
-import { CORES } from "../../starting-instruments/cores.js";
-import { StartingAudio } from "../../starting-instruments/audio.js";
-import { NetworkView, ringPhase } from "../../starting-instruments/network-view.js";
-import { MAX_LOOPS, MAX_ROUTES, loopPosition, clampPosition } from "../../starting-instruments/network-ui-utils.js";
+import { STARTING_INSTRUMENTS } from "./catalog.js";
+import { INSTRUMENT_HELP, formatParameter } from "./help.js";
+import { CORES } from "./cores.js";
+import { StartingAudio } from "./audio.js";
+import { NetworkView, ringPhase } from "./network-view.js";
+import { MAX_LOOPS, MAX_ROUTES, loopPosition, clampPosition } from "./network-ui-utils.js";
 import { createAudioStrip } from "../../ui/patterns/audio-strip.js";
 
 const id = document.body.dataset.startingInstrument, tape = id === "tape-worm";

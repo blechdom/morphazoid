@@ -1,7 +1,7 @@
 import {
   CATALOGUE_GROUPS,
   CATALOGUE_ITEMS,
-} from "../instrument-catalog.js?v=catalog-20260914-1";
+} from "./instrument-catalog.js?v=catalog-20260914-1";
 import { FAVE_TOOL_IDS } from "./instrument-registry.js";
 
 const ALL_TAG_ID = "all";

@@ -18,8 +18,8 @@ import {
   CATALOGUE_GROUPS,
   catalogueItemById,
   instrumentById,
-} from "../src/instrument-catalog.js";
-import { instrumentMidiCapabilityForId } from "../src/instrument-midi-capabilities.js";
+} from "../src/site/instrument-catalog.js";
+import { instrumentMidiCapabilityForId } from "../src/site/instrument-midi-capabilities.js";
 
 const root = new URL("../", import.meta.url);
 

@@ -1,9 +1,9 @@
-import { STARTING_INSTRUMENTS } from "../../starting-instruments/catalog.js";
-import { INSTRUMENT_HELP, formatParameter } from "../../starting-instruments/help.js";
-import { CORES } from "../../starting-instruments/cores.js";
-import { StartingAudio } from "../../starting-instruments/audio.js";
-import { COLORS, renderInstrument, WORLD, polar, angleAt, tapeCenters, soupCenters, habitNodes } from "../../starting-instruments/render.js";
-import { clamp } from "../../starting-instruments/common.js";
+import { STARTING_INSTRUMENTS } from "./catalog.js";
+import { INSTRUMENT_HELP, formatParameter } from "./help.js";
+import { CORES } from "./cores.js";
+import { StartingAudio } from "./audio.js";
+import { COLORS, renderInstrument, WORLD, polar, angleAt, tapeCenters, soupCenters, habitNodes } from "./render.js";
+import { clamp } from "./common.js";
 import { createAudioStrip } from "../../ui/patterns/audio-strip.js";
 
 const id = document.body.dataset.startingInstrument;

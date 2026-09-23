@@ -1,7 +1,7 @@
 import {
   PLUGIN_CATALOG,
   latestPluginRelease,
-} from "../plugin-catalog.js";
+} from "./plugin-catalog.js";
 
 function element(tag, className, text) {
   const node = document.createElement(tag);

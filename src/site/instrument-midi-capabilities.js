@@ -1,4 +1,4 @@
-import { canonicalInstrumentId } from "./site/instrument-identities.js";
+import { canonicalInstrumentId } from "./instrument-identities.js";
 
 // Browser MIDI and WAX MIDI share this page classification. Keep it independent
 // of nav.js and instrument-catalog.js so navigation can install MIDI without an

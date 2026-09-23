@@ -1,0 +1,50 @@
+{
+  "baseCommit": "9a45aa0ac6ea35d2086186bcc88313b6f3a735da",
+  "files": [
+    {
+      "before": "nav.js",
+      "after": "nav.js",
+      "sha256": "2f863c24943c5e444f29ec8ea5419cf0d2bab302694a0385399bc3a4418c4eab"
+    },
+    {
+      "before": "src/browser-midi-adapter.js",
+      "after": "src/browser-midi-adapter.js",
+      "sha256": "4ac9f8e7cd28cad7b77cdfc7c372d5e72a3632a144a4f254934b6a8081f4fcef"
+    },
+    {
+      "before": "src/instrument-catalog.js",
+      "after": "src/site/instrument-catalog.js",
+      "sha256": "3625038901702c1e58b0d3ab969c81fb5a02acc6961fa139b39dde45ab9db54c"
+    },
+    {
+      "before": "src/instrument-midi-capabilities.js",
+      "after": "src/site/instrument-midi-capabilities.js",
+      "sha256": "9a676089925d2a277e575fdfa81696c2b2160c31f13a33445e49276c4a0f66a4"
+    },
+    {
+      "before": "src/instruments/wax/wax-instrument-roles.js",
+      "after": "src/instruments/wax/wax-instrument-roles.js",
+      "sha256": "b5e62dda6546c11ddd8f85cfd4711f13edb4ff5a3e4d0cccc1b1cbfeec2f0788"
+    },
+    {
+      "before": "src/plugin-catalog.js",
+      "after": "src/site/plugin-catalog.js",
+      "sha256": "9edef9830939b0ea58ed1d209d6018668c1926b6faac2d7efe37f87150eb6c50"
+    },
+    {
+      "before": "src/site/instrument-catalog-app.js",
+      "after": "src/site/instrument-catalog-app.js",
+      "sha256": "0686a63f7e33e72806c6838f274b1222c49030e5b076ff7d5cf03c39d9452de1"
+    },
+    {
+      "before": "src/site/plugins-app.js",
+      "after": "src/site/plugins-app.js",
+      "sha256": "3f7d79c2207c37ad10b827da0b1aceabd7c33fee1c0b83b11c61664a8f38cf14"
+    },
+    {
+      "before": "wax-page.js",
+      "after": "wax-page.js",
+      "sha256": "ba86ffe518a2c5ef10ec802e82ed1290ac7b4542a3b38139a0a739c32469829a"
+    }
+  ]
+}

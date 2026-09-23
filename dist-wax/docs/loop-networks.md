@@ -126,7 +126,7 @@ overdubbing. The erase brush can remove a region; a Write loop may refill it.
 
 ## Implementation contract
 
-Pure engines share `src/starting-instruments/loop-network.js` for stable IDs,
+Pure engines share `src/families/starting-instruments/loop-network.js` for stable IDs,
 bounded tape storage, topology and capture. Their playback/routing DSP stays
 separate. A dedicated `loop-network-app.js` owns native center controls and the
 scrollable workspace; the other three demos retain their original controller.

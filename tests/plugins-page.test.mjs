@@ -9,7 +9,7 @@ import {
   formatPluginBytes,
   latestPluginArtifact,
   latestPluginRelease,
-} from "../src/plugin-catalog.js";
+} from "../src/site/plugin-catalog.js";
 
 const root = new URL("../", import.meta.url);
 

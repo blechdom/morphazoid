@@ -4,7 +4,7 @@ import {
 } from "./src/midi-manager.js";
 import { getSharedAudioOutputManager } from "./src/audio-output-manager.js";
 import { installBrowserMidiAdapter } from "./src/browser-midi-adapter.js";
-import { instrumentMidiCapabilityForId } from "./src/instrument-midi-capabilities.js";
+import { instrumentMidiCapabilityForId } from "./src/site/instrument-midi-capabilities.js";
 import { initializeMidiOutputMonitor } from "./src/midi-output-preview.js";
 import { initializeChaoticViewportControls } from "./src/families/chaotic/chaotic-viewport-controls.js";
 import { createMidiStatus, createStereoMeter } from "./src/ui/index.js";
@@ -384,7 +384,7 @@ export function hydrateInstrumentPickers(
 
 function loadInstrumentPageInfo(doc, siteRoot) {
   if (!doc?.querySelector?.(".instrument-page-info")) return;
-  import("./src/instrument-catalog.js")
+  import("./src/site/instrument-catalog.js")
     .then(({ INSTRUMENTS }) => hydrateInstrumentPickers(doc, INSTRUMENTS, siteRoot))
     .catch(() => {
       for (const root of doc.querySelectorAll?.(".instrument-page-info") ?? []) {

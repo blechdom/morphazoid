@@ -1,6 +1,6 @@
 import { readFile } from "node:fs/promises";
 import { expect, test } from "@playwright/test";
-import { CATALOGUE_ITEMS, INSTRUMENTS } from "../src/instrument-catalog.js";
+import { CATALOGUE_ITEMS, INSTRUMENTS } from "../src/site/instrument-catalog.js";
 import { TOOL_GROUPS } from "../src/site/instrument-registry.js";
 import { canonicalInstrumentId } from "../src/site/instrument-identities.js";
 import { pageDiagnosticMessages, settlePage, watchPageDiagnostics } from "./helpers/diagnostics.mjs";
@@ -35,7 +35,7 @@ for (const row of renamed) {
       ));
       await settlePage(page);
       if (INSTRUMENTS.some(item => item.id === row.id)) {
-        await expect(page.locator(".instrument-picker")).toHaveAttribute("data-active-tool-id", canonicalInstrumentId(row.oldId));
+        await expect(page.locator(".tabs .instrument-picker")).toHaveAttribute("data-active-tool-id", canonicalInstrumentId(row.oldId));
         await expect(page.locator("#audioButton")).toHaveAttribute("aria-pressed", "false");
       }
     });

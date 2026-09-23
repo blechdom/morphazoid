@@ -3,7 +3,7 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 import { TOOL_GROUPS, resolveActiveTool } from "../nav.js";
-import { INSTRUMENTS } from "../src/instrument-catalog.js";
+import { INSTRUMENTS } from "../src/site/instrument-catalog.js";
 
 const root = new URL("../", import.meta.url);
 const siteRoot = "https://example.test/blechdom/morphazoid/";

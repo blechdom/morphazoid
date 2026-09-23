@@ -1,10 +1,10 @@
 import { expect, test } from "@playwright/test";
 
-import { INSTRUMENTS } from "../src/instrument-catalog.js";
+import { INSTRUMENTS } from "../src/site/instrument-catalog.js";
 import {
   INSTRUMENT_MIDI_CAPABILITIES,
   NATIVE_INSTRUMENT_MIDI_IDS,
-} from "../src/instrument-midi-capabilities.js";
+} from "../src/site/instrument-midi-capabilities.js";
 import {
   MIDI_BYTES,
   enableFakeMidi,

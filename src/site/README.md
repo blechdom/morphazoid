@@ -3,7 +3,7 @@
 `instrument-registry.js` owns the existing ordered `TOOL_GROUPS`,
 `FAVE_TOOL_IDS`, and `SITE_LINKS` records. It is data-only: importing it does not
 initialize navigation, register listeners, clear storage, or access browser
-globals. `src/instrument-catalog.js` derives the richer catalogue from it.
+globals. `src/site/instrument-catalog.js` derives the richer catalogue from it.
 
 Import metadata directly from the registry for tools and data consumers.
 Browser pages continue to load the existing root `nav.js` entry point for
@@ -39,8 +39,16 @@ chooser, preserving the existing picker policy.
 The catalogue and plugins page controllers/styles also live here. Auxiliary
 page styles are under `styles/`. They do not own audio engines or instruments.
 
+`instrument-catalog.js`, `instrument-midi-capabilities.js` and
+`plugin-catalog.js` now live beside those controllers. Their catalogue records,
+MIDI capability identities and public download URLs are unchanged. Shared MIDI
+runtime ownership remains in `src/browser-midi-adapter.js` and
+`src/midi-manager.js`; it is not part of this metadata move.
+
 Preservation checks:
 
+- `tests/site-metadata-layout.test.mjs` reverses the path-only follow-up against
+  independent fresh-main hashes; see `docs/site-metadata-layout.json`.
 - `tests/instrument-registry.test.mjs` compares all moved and derived records
   with an independent pre-extraction fixture and tests cold import purity.
 - `e2e/v2-site-bootstrap.spec.mjs` verifies data-only normal/WAX imports,

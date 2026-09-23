@@ -1,16 +1,16 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
-import { CORES } from "../src/starting-instruments/cores.js";
-import { TempoTantrum, TEMPO_PRESETS } from "../src/starting-instruments/tempo-tantrum.js";
-import { TapeWorm } from "../src/starting-instruments/tape-worm.js";
-import { LoopSoup } from "../src/starting-instruments/loop-soup.js";
-import { HabitHabitat } from "../src/starting-instruments/habit-habitat.js";
-import { Hollowphonic } from "../src/starting-instruments/hollowphonic.js";
-import { STARTING_INSTRUMENTS } from "../src/starting-instruments/catalog.js";
-import { INSTRUMENT_HELP } from "../src/starting-instruments/help.js";
-import { instrumentById } from "../src/instrument-catalog.js";
-import { instrumentMidiCapabilityForId } from "../src/instrument-midi-capabilities.js";
+import { CORES } from "../src/families/starting-instruments/cores.js";
+import { TempoTantrum, TEMPO_PRESETS } from "../src/families/starting-instruments/tempo-tantrum.js";
+import { TapeWorm } from "../src/families/starting-instruments/tape-worm.js";
+import { LoopSoup } from "../src/families/starting-instruments/loop-soup.js";
+import { HabitHabitat } from "../src/families/starting-instruments/habit-habitat.js";
+import { Hollowphonic } from "../src/families/starting-instruments/hollowphonic.js";
+import { STARTING_INSTRUMENTS } from "../src/families/starting-instruments/catalog.js";
+import { INSTRUMENT_HELP } from "../src/families/starting-instruments/help.js";
+import { instrumentById } from "../src/site/instrument-catalog.js";
+import { instrumentMidiCapabilityForId } from "../src/site/instrument-midi-capabilities.js";
 
 function run(core, seconds, input = () => 0) {
   const count = Math.round(seconds * core.rate);

@@ -1,5 +1,19 @@
 import { expect, test } from "@playwright/test";
 
+async function revealPaintLane(lane) {
+  // A bounding box may be inside the viewport but beneath the sticky mobile
+  // action bar. Center the actual playing surface, then prove the endpoints
+  // receive pointer input rather than accidentally clicking Mutate shape.
+  await lane.evaluate(node => node.scrollIntoView({ block: "center", inline: "nearest", behavior: "instant" }));
+  await expect.poll(() => lane.evaluate(node => {
+    const rect = node.getBoundingClientRect();
+    const owner = node.closest(".creaturazoid-step-cell") ?? node;
+    return [0.01, 0.99].every(fraction => owner.contains(document.elementFromPoint(
+      rect.x + rect.width / 2, rect.y + rect.height * fraction,
+    )));
+  })).toBe(true);
+}
+
 test.describe("Creaturazoid single-lane sequencer", () => {
   test.use({ viewport: { width: 390, height: 844 }, hasTouch: true });
 
@@ -65,7 +79,7 @@ test.describe("Creaturazoid single-lane sequencer", () => {
     await expect(firstSelector.locator("option:checked")).toHaveText("+");
     await expect(page.locator("#audioButton")).toHaveAttribute("aria-pressed", "false");
 
-    await soundLanes.first().scrollIntoViewIfNeeded();
+    await revealPaintLane(soundLanes.first());
     const emptySoundStart = await soundLanes.nth(0).boundingBox();
     const emptySoundEnd = await soundLanes.nth(2).boundingBox();
     await page.mouse.move(
@@ -92,6 +106,7 @@ test.describe("Creaturazoid single-lane sequencer", () => {
       "empty; add volume or choose from the pull-down first",
     );
 
+    await revealPaintLane(volumeLanes.first());
     const firstVolumeBox = await volumeLanes.first().boundingBox();
     await page.mouse.click(
       firstVolumeBox.x + firstVolumeBox.width / 2,
@@ -123,6 +138,7 @@ test.describe("Creaturazoid single-lane sequencer", () => {
     await expect(firstCell).toHaveAttribute("data-active", "false");
     await expect(firstSelector).toHaveValue("");
 
+    await revealPaintLane(volumeLanes.first());
     const paintStart = await volumeLanes.nth(0).boundingBox();
     const paintEnd = await volumeLanes.nth(5).boundingBox();
     await page.mouse.move(
@@ -148,6 +164,7 @@ test.describe("Creaturazoid single-lane sequencer", () => {
     await firstSelector.selectOption("growl");
     await secondSelector.focus();
     await secondSelector.selectOption("purr");
+    await revealPaintLane(volumeLanes.nth(1));
     const secondVolumeBox = await volumeLanes.nth(1).boundingBox();
     await page.mouse.move(
       secondVolumeBox.x + secondVolumeBox.width / 2,
@@ -180,7 +197,7 @@ test.describe("Creaturazoid single-lane sequencer", () => {
     const velocitiesBeforeSoundPaint = await cells.evaluateAll((items) => items.slice(0, 6).map(
       (cell) => Number(cell.style.getPropertyValue("--step-velocity")),
     ));
-    await soundLanes.first().scrollIntoViewIfNeeded();
+    await revealPaintLane(soundLanes.first());
     const soundPaintStart = await soundLanes.nth(0).boundingBox();
     const soundPaintEnd = await soundLanes.nth(5).boundingBox();
     expect(soundPaintStart.y + soundPaintStart.height).toBeLessThanOrEqual(844);

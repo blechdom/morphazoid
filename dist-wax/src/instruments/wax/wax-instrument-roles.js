@@ -1,9 +1,9 @@
 import { canonicalInstrumentId } from "../../site/instrument-identities.js";
-import { INSTRUMENTS } from "../../instrument-catalog.js";
+import { INSTRUMENTS } from "../../site/instrument-catalog.js";
 import {
   INSTRUMENT_MIDI_CAPABILITIES,
   instrumentMidiCapabilityForId,
-} from "../../instrument-midi-capabilities.js";
+} from "../../site/instrument-midi-capabilities.js";
 
 export const WAX_ROLE_IDS = Object.freeze({
   instrument: "instrument",

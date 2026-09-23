@@ -2,8 +2,8 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { readFile } from "node:fs/promises";
 import { Loopini, LOOPINI_LIMITS, readLoop, makeLoopiniDemo } from "../src/instruments/loopini/loopini.js";
-import { instrumentById } from "../src/instrument-catalog.js";
-import { instrumentMidiCapabilityForId } from "../src/instrument-midi-capabilities.js";
+import { instrumentById } from "../src/site/instrument-catalog.js";
+import { instrumentMidiCapabilityForId } from "../src/site/instrument-midi-capabilities.js";
 import { readRuntimeManifest } from "../scripts/site/runtime-manifest.mjs";
 
 const rate = 8000;

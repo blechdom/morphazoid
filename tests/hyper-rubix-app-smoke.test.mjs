@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { instrumentMidiCapabilityForId } from "../src/instrument-midi-capabilities.js";
+import { instrumentMidiCapabilityForId } from "../src/site/instrument-midi-capabilities.js";
 import {
   HYPER_RUBIX_BOUNDARY_CELLS,
   HYPER_RUBIX_CORNER_STREAM_LENGTH,

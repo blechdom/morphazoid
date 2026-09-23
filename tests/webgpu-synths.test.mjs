@@ -210,7 +210,7 @@ test("the page exposes 32 shuffled presets, persistent envelopes, direct note ed
     readFile(new URL("src/instruments/webgpu-synths/webgpu-synths-app.js", root), "utf8"),
     readFile(new URL("src/instruments/webgpu-synths/webgpu-synths.js", root), "utf8"),
     readFile(new URL("src/site/instrument-registry.js", root), "utf8"),
-    readFile(new URL("src/instrument-catalog.js", root), "utf8"),
+    readFile(new URL("src/site/instrument-catalog.js", root), "utf8"),
     readFile(new URL("scripts/site/runtime-files.tsv", root), "utf8"),
   ]);
   assert.match(html, /<h1 id="webgpuSynthsTitle">GPU Shader Synths<\/h1>/);

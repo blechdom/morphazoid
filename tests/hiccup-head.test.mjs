@@ -3,8 +3,8 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 import { TOOL_GROUPS } from "../nav.js";
-import { instrumentById } from "../src/instrument-catalog.js";
-import { instrumentMidiCapabilityForId } from "../src/instrument-midi-capabilities.js";
+import { instrumentById } from "../src/site/instrument-catalog.js";
+import { instrumentMidiCapabilityForId } from "../src/site/instrument-midi-capabilities.js";
 import {
   HICCUP_HEAD_DEFAULTS,
   HICCUP_HEAD_GESTURE_CHANNELS,

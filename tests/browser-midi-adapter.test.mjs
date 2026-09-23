@@ -20,8 +20,8 @@ import {
   NO_GENERIC_NOTE_KEYBOARD_IDS,
   PAGE_KEYBOARD_INSTRUMENT_IDS,
   instrumentMidiCapabilityForId,
-} from "../src/instrument-midi-capabilities.js";
-import { INSTRUMENTS } from "../src/instrument-catalog.js";
+} from "../src/site/instrument-midi-capabilities.js";
+import { INSTRUMENTS } from "../src/site/instrument-catalog.js";
 import { MidiClockTempoTracker } from "../src/instruments/wax/wax-midi-routing.js";
 
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -461,7 +461,7 @@ test("clean release builds include untracked browser MIDI runtime modules", asyn
   for (const runtimeModule of [
     "src/audio-output-manager.js",
     "src/browser-midi-adapter.js",
-    "src/instrument-midi-capabilities.js",
+    "src/site/instrument-midi-capabilities.js",
   ]) {
     assert.ok(inventory.worktreeFiles.includes(runtimeModule), `${runtimeModule} has pre-commit copy permission`);
     assert.ok(inventory.requiredFiles.includes(runtimeModule), `${runtimeModule} is required in the artifact`);

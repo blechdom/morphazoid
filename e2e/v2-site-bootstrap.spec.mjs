@@ -22,8 +22,8 @@ test("catalogue data imports alone do not initialize a page or clear storage", a
       return Reflect.apply(original, this, args);
     };
     try {
-      const browser = await import("/src/instrument-catalog.js?data-only-probe");
-      const wax = await import("/dist-wax/src/instrument-catalog.js?data-only-probe");
+      const browser = await import("/src/site/instrument-catalog.js?data-only-probe");
+      const wax = await import("/dist-wax/src/site/instrument-catalog.js?data-only-probe");
       return {
         listeners,
         markupUnchanged: markup === document.documentElement.outerHTML,
@@ -48,8 +48,8 @@ for (const id of ["shape", "solid", "l-system", "l-systems"]) {
     const diagnostics = watchPageDiagnostics(page, { baseURL });
     await page.goto(`${id}.html`, { waitUntil: "load" });
     await settlePage(page);
-    await page.evaluate(async () => { await import("/src/instrument-catalog.js?late-data-probe"); });
-    await expect(page.locator(".instrument-picker")).toHaveAttribute("data-active-tool-id", canonicalInstrumentId(id));
+    await page.evaluate(async () => { await import("/src/site/instrument-catalog.js?late-data-probe"); });
+    await expect(page.locator(".tabs .instrument-picker")).toHaveAttribute("data-active-tool-id", canonicalInstrumentId(id));
     await expect(page.locator("#audioButton")).toHaveAttribute("aria-pressed", "false");
     expect((await readAudioStatus(page)).connectionCount).toBe(0);
 

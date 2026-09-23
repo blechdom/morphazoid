@@ -1,6 +1,6 @@
 import { writeFile } from "node:fs/promises";
-import { STARTING_INSTRUMENTS } from "../src/starting-instruments/catalog.js";
-import { INSTRUMENT_HELP, formatParameter } from "../src/starting-instruments/help.js";
+import { STARTING_INSTRUMENTS } from "../src/families/starting-instruments/catalog.js";
+import { INSTRUMENT_HELP, formatParameter } from "../src/families/starting-instruments/help.js";
 import { withSocialPreview } from "./social-preview.mjs";
 const escape = (s) => String(s).replaceAll("&", "&amp;").replaceAll('"', "&quot;").replaceAll("<", "&lt;");
 const root = new URL("../", import.meta.url);

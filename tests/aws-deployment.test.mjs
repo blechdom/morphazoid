@@ -247,7 +247,7 @@ test("site builder publishes runtime files without development material", async 
       "plugins.html",
       "src/site/plugins.css",
       "src/site/plugins-app.js",
-      "src/plugin-catalog.js",
+      "src/site/plugin-catalog.js",
       "wax.html",
       "src/instruments/wax/wax.css",
       "wax-page.js",

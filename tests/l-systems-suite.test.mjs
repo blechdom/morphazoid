@@ -196,15 +196,15 @@ test("L-Systems app owns the audio engines and preserves shared state while swit
 test("L-Systems lives in the Morphazoid Apps section", async () => {
   const [nav, catalog, midi] = await Promise.all([
     readFile(new URL("src/site/instrument-registry.js", root), "utf8"),
-    readFile(new URL("src/instrument-catalog.js", root), "utf8"),
-    readFile(new URL("src/instrument-midi-capabilities.js", root), "utf8"),
+    readFile(new URL("src/site/instrument-catalog.js", root), "utf8"),
+    readFile(new URL("src/site/instrument-midi-capabilities.js", root), "utf8"),
     access(new URL("assets/instruments/l-systems.webp", root)),
   ]);
 
   assert.match(nav, /freezeGroup\("app", "App", \[[\s\S]*id: "l-systems", label: "L-Systems", href: "l-systems\.html"/);
   assert.match(catalog, /"l-systems": define\(/);
   assert.match(catalog, /Continuous, Notes, Triggers, and Mic playing modes/);
-  const { instrumentById } = await import("../src/instrument-catalog.js");
+  const { instrumentById } = await import("../src/site/instrument-catalog.js");
   assert.deepEqual(instrumentById("l-systems").tags.map(tag => tag.id), ["app", "fractal", "recursive", "drum-machine", "audio-effect"]);
   assert.match(midi, /sequence: Object\.freeze\(\[\s*"l-systems"/);
   assert.match(midi, /const audioInputIds = new Set\(\[\s*"l-systems"/);

@@ -1,0 +1,90 @@
+{
+  "baseCommit": "9a45aa0ac6ea35d2086186bcc88313b6f3a735da",
+  "files": [
+    {
+      "before": "src/families/starting-instruments/loop-network-app.js",
+      "after": "src/families/starting-instruments/loop-network-app.js",
+      "sha256": "2b7942af0d9650fa366d0ae46be143a4bfe63079037753a0816ab778af315662"
+    },
+    {
+      "before": "src/families/starting-instruments/starting-instruments-app.js",
+      "after": "src/families/starting-instruments/starting-instruments-app.js",
+      "sha256": "6b7313407f9d357df5ec970b28d6ded74f4eb3e3472cb85c6668b3c2c446fcbf"
+    },
+    {
+      "before": "src/starting-instruments/audio.js",
+      "after": "src/families/starting-instruments/audio.js",
+      "sha256": "c418b52524e9f26e9defc5cd6a4d97190ed22babc7b70655b72626c86cf6e6cf"
+    },
+    {
+      "before": "src/starting-instruments/catalog.js",
+      "after": "src/families/starting-instruments/catalog.js",
+      "sha256": "c4efe66d34ed2ba1aef4470ed398bbdf0139b9f1c9c855198f2f183601cc171c"
+    },
+    {
+      "before": "src/starting-instruments/common.js",
+      "after": "src/families/starting-instruments/common.js",
+      "sha256": "cdc009360ac10b522c9326c9430f6f26a7eedb7cb2a9b8e4ede53e80682cb456"
+    },
+    {
+      "before": "src/starting-instruments/cores.js",
+      "after": "src/families/starting-instruments/cores.js",
+      "sha256": "0f581afd008575d002c5def0ada7742d277d376f63f932d637fcb77aa96b9b2d"
+    },
+    {
+      "before": "src/starting-instruments/habit-habitat.js",
+      "after": "src/families/starting-instruments/habit-habitat.js",
+      "sha256": "f72d5d5e7317ed9e3528885a7d32c8a83c7799a95a49f5dc54aa6ed2631f4cab"
+    },
+    {
+      "before": "src/starting-instruments/help.js",
+      "after": "src/families/starting-instruments/help.js",
+      "sha256": "5c24e002024a9f1b6d4b18e3eb5fd72a2789f2199cf01ddf013cd5300923b746"
+    },
+    {
+      "before": "src/starting-instruments/hollowphonic.js",
+      "after": "src/families/starting-instruments/hollowphonic.js",
+      "sha256": "d8c08895e565baf15968a9a6144a8c7d84783236972f1b4982e9d1a61712ffd8"
+    },
+    {
+      "before": "src/starting-instruments/loop-network.js",
+      "after": "src/families/starting-instruments/loop-network.js",
+      "sha256": "03b3fe8ddb73dce2b46276c27c070691bdb60d766b07d13950d8301ce59fb43f"
+    },
+    {
+      "before": "src/starting-instruments/loop-soup.js",
+      "after": "src/families/starting-instruments/loop-soup.js",
+      "sha256": "36df33c0014f43daa62f92c3fb8a9a9d7d27da3dec9747381184f10bff852ef5"
+    },
+    {
+      "before": "src/starting-instruments/network-ui-utils.js",
+      "after": "src/families/starting-instruments/network-ui-utils.js",
+      "sha256": "99e94df99bb781dc4b6bbe9e466d3d93652a98ca613fe9734aa93e6e17c08b8a"
+    },
+    {
+      "before": "src/starting-instruments/network-view.js",
+      "after": "src/families/starting-instruments/network-view.js",
+      "sha256": "291e4ef11c254a48583ba2dd77d6a1f21b793362e884fb73c0baa9638d1a9668"
+    },
+    {
+      "before": "src/starting-instruments/processor.js",
+      "after": "src/families/starting-instruments/processor.js",
+      "sha256": "4e4f6a923e5b653c8e4b01d711856bcb72257b9a44e7fc4e0bd4945818279243"
+    },
+    {
+      "before": "src/starting-instruments/render.js",
+      "after": "src/families/starting-instruments/render.js",
+      "sha256": "d761f2ee12004e204e0df2dadeb4a447b525a33091b31ad1fedf50e19d5de884"
+    },
+    {
+      "before": "src/starting-instruments/tape-worm.js",
+      "after": "src/families/starting-instruments/tape-worm.js",
+      "sha256": "449db6cd324f17a42128d6691695e6e163c35c988b9a7aa031e4cd59e92e093d"
+    },
+    {
+      "before": "src/starting-instruments/tempo-tantrum.js",
+      "after": "src/families/starting-instruments/tempo-tantrum.js",
+      "sha256": "963cd7d289ea62a63dac23baf3b1312a920481a7b7a466d286608867c1062504"
+    }
+  ]
+}

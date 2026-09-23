@@ -36,6 +36,9 @@ command names.
   metadata/controllers live in `src/site/`. Shared audio/MIDI/math utilities and
   the existing WASM engine/toolchain boundaries retain their `src/` locations.
   See `docs/source-module-layout.json` for the explicit model/worklet move map.
+  The subsequent site-metadata moves are in `docs/site-metadata-layout.json`.
+  `docs/starting-family-layout.json` records the starting-instrument runtime
+  co-location with its existing family controllers.
   Follow the actual HTML/import references
   or inspection output; categories and display names are not filesystem paths.
   Public HTML, global bootstrap scripts and `style.css` remain at the root;
@@ -155,9 +158,9 @@ command names.
 
 - A stable catalogue ID joins `TOOL_GROUPS` in `src/site/instrument-registry.js`
   (re-exported by `nav.js`), `CATALOG_DETAILS` and
-  derived records in `src/instrument-catalog.js`, secondary tags in
+  derived records in `src/site/instrument-catalog.js`, secondary tags in
   `src/site/catalogue-taxonomy.js`, and every applicable
-  capability classification in `src/instrument-midi-capabilities.js`. Compare
+  capability classification in `src/site/instrument-midi-capabilities.js`. Compare
   IDs and records across these sources instead of pinning the current total;
   keep an explicit count only when cardinality itself is a reviewed product
   contract. Avoid import cycles. Add factual catalogue copy, correct

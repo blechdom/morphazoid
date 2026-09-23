@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { filterWaxSupport } from "../wax-page.js";
-import { INSTRUMENTS } from "../src/instrument-catalog.js";
+import { INSTRUMENTS } from "../src/site/instrument-catalog.js";
 import {
   WAX_INSTRUMENT_SUPPORT,
   WAX_ROLE_DEFINITIONS,

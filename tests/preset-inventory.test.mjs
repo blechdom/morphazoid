@@ -3,7 +3,7 @@ import { mkdtemp, mkdir, writeFile, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
-import { CATALOGUE_ITEMS } from "../src/instrument-catalog.js";
+import { CATALOGUE_ITEMS } from "../src/site/instrument-catalog.js";
 import { collectPresetInventory, inventoryMarkdown, localDependency, presetMarkupCandidates } from "../scripts/presets/inventory.mjs";
 
 test("preset inventory follows local source references without evaluating page code", async () => {

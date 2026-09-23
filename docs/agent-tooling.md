@@ -58,7 +58,7 @@ machine path into a skill.
 | Remaining shared infrastructure | Core audio/MIDI/math utilities and WASM engine/toolchain modules retain their `src/` paths; `docs/source-module-layout.json` lists the 281 model/worklet relocations and retained shared modules |
 | Site registry and Faves | `src/site/instrument-registry.js` |
 | Public-ID / historical-route compatibility | `src/site/instrument-identities.js`; old storage and processor IDs are not incidental rename targets |
-| Catalogue descriptions and derived records | `src/instrument-catalog.js` |
+| Catalogue descriptions and derived records | `src/site/instrument-catalog.js` |
 | Secondary tags and lab metadata | `src/site/catalogue-taxonomy.js` |
 | Shared UI / site behavior | `src/ui/` / `src/site/`; root `nav.js` remains the public navigation bootstrap and metadata re-export |
 | Public assets / artwork sources | Top-level `assets/` / `artwork/`, not copies inside instrument folders |

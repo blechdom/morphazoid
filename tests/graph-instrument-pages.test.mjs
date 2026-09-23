@@ -2,8 +2,8 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 import { TOOL_GROUPS } from "../nav.js";
-import { INSTRUMENTS } from "../src/instrument-catalog.js";
-import { instrumentMidiCapabilityForId } from "../src/instrument-midi-capabilities.js";
+import { INSTRUMENTS } from "../src/site/instrument-catalog.js";
+import { instrumentMidiCapabilityForId } from "../src/site/instrument-midi-capabilities.js";
 
 const root = new URL("../", import.meta.url);
 

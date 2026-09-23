@@ -4,7 +4,7 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 import { TOOL_GROUPS } from "../nav.js";
-import { instrumentById } from "../src/instrument-catalog.js";
+import { instrumentById } from "../src/site/instrument-catalog.js";
 
 const root = new URL("../", import.meta.url);
 const disclosure = "FINITE CLASSICAL FOURIER MODEL · NOT A PROOF · NOT QPU OUTPUT";

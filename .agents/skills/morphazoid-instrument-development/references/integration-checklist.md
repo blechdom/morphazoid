@@ -27,7 +27,7 @@ omitting them.
   consumes/re-exports this data; it is not a second catalogue to edit.
   Membership in the `wip` group derives Work in Progress status. Preserve the
   explicit picker policy separately from homepage visibility.
-- `src/instrument-catalog.js`: factual kind, description, start action, base
+- `src/site/instrument-catalog.js`: factual kind, description, start action, base
   features, optional plug-in link, and derived normal-instrument/lab records.
 - `src/site/catalogue-taxonomy.js`: `ADDITIONAL_TAG_IDS` for intentional
   secondary tags and `LAB_CATALOGUE_DETAILS` for browseable labs. A browseable
@@ -36,7 +36,7 @@ omitting them.
   route mappings when IDs change. Retain old HTML redirects, query/hash
   semantics, asset URLs, storage keys, and internal processor/MIDI identities
   unless a separate migration is requested.
-- `src/instrument-midi-capabilities.js`: exactly one `NOTE_MODE_IDS` policy
+- `src/site/instrument-midi-capabilities.js`: exactly one `NOTE_MODE_IDS` policy
   (`processor`, `drums`, `pitched`, or `sequence`) plus every applicable native
   client, page/no-generic keyboard, audio-input, processor-starts-audio, and
   MIDI-output inclusion or exclusion. Check the derived `midiInputMode`,

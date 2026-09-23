@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "baseCommit": "9a45aa0ac6ea35d2086186bcc88313b6f3a735da",
+  "moves": {
+    "src/instrument-catalog.js": "src/site/instrument-catalog.js",
+    "src/instrument-midi-capabilities.js": "src/site/instrument-midi-capabilities.js",
+    "src/plugin-catalog.js": "src/site/plugin-catalog.js"
+  },
+  "retainedRootAdditions": [
+    "src/audio-input-settings.js",
+    "src/audio-startup.js"
+  ],
+  "boundaries": [
+    "Move site metadata beside its registry and controllers; change only resource paths.",
+    "Preserve every public HTML route, catalogue field, preset, storage key and MIDI identity.",
+    "Keep shared audio/MIDI runtime utilities and the WASM engine/toolchain in their existing directories.",
+    "Regenerate dist-wax from source; do not edit generated files.",
+    "The earlier source-module-layout map remains a historical preservation layer; compose this follow-up when resolving its retained modules."
+  ]
+}

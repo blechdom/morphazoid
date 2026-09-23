@@ -1,0 +1,33 @@
+{
+  "baseCommit": "9a45aa0ac6ea35d2086186bcc88313b6f3a735da",
+  "featureCommit": "ef6e5939ef4de26471010b33dd7c1aaddf9a7f85",
+  "changes": [
+    {
+      "file": "nav.js",
+      "reason": "Preserve the fetched main iPhone session policy and truthful Audio state during the directory-refactor rebase, without replacing original reference hashes.",
+      "regressionTests": [
+        "tests/audio-startup.test.mjs",
+        "tests/audio-button-status.test.mjs",
+        "e2e/iphone-audio-startup.spec.mjs"
+      ],
+      "replacements": [
+        {
+          "before": "import { createMidiStatus, createStereoMeter } from \"./src/ui/index.js\";\nimport { createChoosePickerShell } from \"./src/ui/patterns/choose-picker-shell.js\";\nimport { mountHeaderPresets } from \"./src/site/header-presets.js\";\nimport { FAVE_TOOL_IDS, TOOL_GROUPS, SITE_LINKS } from \"./src/site/instrument-registry.js\";\n\n// Preserve the existing navigation API without duplicating its records.\n",
+          "after": "import { createMidiStatus, createStereoMeter } from \"./src/ui/index.js\";\nimport { createChoosePickerShell } from \"./src/ui/patterns/choose-picker-shell.js\";\nimport { mountHeaderPresets } from \"./src/site/header-presets.js\";\nimport { initializeAudioSessionPolicy, needsAutomaticAudioSession } from \"./src/site/audio-session-policy.js\";\nimport { FAVE_TOOL_IDS, TOOL_GROUPS, SITE_LINKS } from \"./src/site/instrument-registry.js\";\n\n// Preserve the existing navigation API without duplicating its records.\n"
+        },
+        {
+          "before": "function syncAudioButtonState(button) {\n  const pressed = button.getAttribute?.(\"aria-pressed\") === \"true\";\n  const status = button.querySelector?.(\"#audioState\")?.textContent?.trim().toLowerCase() ?? \"\";\n  const state = pressed\n    ? \"on\"\n    : /start|load|wait|request|connect/.test(status)\n      ? \"starting\"\n      : /error|unavailable|failed|blocked|denied/.test(status)\n        ? \"error\"\n        : \"off\";\n  const labels = {\n    on: [\"Turn audio off\", \"Audio on\"],\n    starting: [\"Starting audio\", \"Starting audio\"],\n    error: [\"Audio unavailable\", \"Audio unavailable\"],\n    off: [\"Turn audio on\", \"Audio off\"],\n  };\n  button.setAttribute?.(\"data-audio-state\", state);\n  button.setAttribute?.(\"aria-label\", labels[state][0]);\n  button.setAttribute?.(\"title\", labels[state][1]);\n}\n",
+          "after": "function syncAudioButtonState(button) {\n  const pressed = button.getAttribute?.(\"aria-pressed\") === \"true\";\n  const status = button.querySelector?.(\"#audioState\")?.textContent?.trim().toLowerCase() ?? \"\";\n  const explicit = button.getAttribute?.(\"data-audio-state\");\n  const owned = button.getAttribute?.(\"data-audio-state-owner\") === \"engine\";\n  const state = owned && [\"on\", \"off\", \"starting\", \"error\", \"interrupted\"].includes(explicit)\n    ? explicit\n    : /start|load|wait|request|connect/.test(status)\n      ? \"starting\"\n      : /error|unavailable|failed|blocked|denied/.test(status)\n        ? \"error\"\n        : /interrupt|resume/.test(status)\n          ? \"interrupted\"\n          : pressed ? \"on\" : \"off\";\n  const labels = {\n    on: [\"Turn audio off\", \"Audio on\"],\n    starting: [\"Starting audio\", \"Starting audio\"],\n    error: [\"Audio unavailable\", \"Audio unavailable\"],\n    interrupted: [\"Resume audio\", \"Audio interrupted — tap to resume\"],\n    off: [\"Turn audio on\", \"Audio off\"],\n  };\n  if (button.getAttribute?.(\"data-audio-state\") !== state) button.setAttribute?.(\"data-audio-state\", state);\n  button.setAttribute?.(\"aria-label\", labels[state][0]);\n  button.setAttribute?.(\"title\", labels[state][1]);\n}\n"
+        },
+        {
+          "before": "      const observer = new Observer(() => syncAudioButtonState(button));\n      observer.observe(button, {\n        attributes: true,\n        attributeFilter: [\"aria-pressed\"],\n        childList: true,\n        characterData: true,\n        subtree: true,\n",
+          "after": "      const observer = new Observer(() => syncAudioButtonState(button));\n      observer.observe(button, {\n        attributes: true,\n        attributeFilter: [\"aria-pressed\", \"data-audio-state\"],\n        childList: true,\n        characterData: true,\n        subtree: true,\n"
+        },
+        {
+          "before": "    siteRoot,\n  });\n  loadInstrumentPageInfo(doc, siteRoot);\n  initializeChaoticViewportControls(doc, runtime, {\n    instrumentId: navigation.activeTool?.id,\n  });\n",
+          "after": "    siteRoot,\n  });\n  loadInstrumentPageInfo(doc, siteRoot);\n  initializeAudioSessionPolicy(doc, runtime, {\n    audioInput: needsAutomaticAudioSession(instrumentMidiCapabilityForId(navigation.activeTool?.id)),\n  });\n  initializeChaoticViewportControls(doc, runtime, {\n    instrumentId: navigation.activeTool?.id,\n  });\n"
+        }
+      ]
+    }
+  ]
+}

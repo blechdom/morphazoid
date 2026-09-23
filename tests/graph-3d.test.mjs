@@ -8,8 +8,8 @@ import {
   GRAPH_3D_SOURCES, graph3DSource,
 } from "../src/instruments/graph-3d/graph-3d.js";
 import { generateGraph, edgeAudioParameters } from "../src/instruments/graph-delay/graph-delay.js";
-import { instrumentById } from "../src/instrument-catalog.js";
-import { instrumentMidiCapabilityForId } from "../src/instrument-midi-capabilities.js";
+import { instrumentById } from "../src/site/instrument-catalog.js";
+import { instrumentMidiCapabilityForId } from "../src/site/instrument-midi-capabilities.js";
 
 test("continuous defaults and 30 distinct presets cover voices, mappings, shapes and timing", () => {
   assert.equal(GRAPH_3D_DEFAULTS.rootMidiNote, 68);

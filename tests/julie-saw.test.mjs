@@ -459,8 +459,8 @@ test("Julie Saw page, research, navigation, and release lists expose the full in
     readFile(new URL("../src/instruments/julie-saw/julie-saw-processor.js", import.meta.url), "utf8"),
     readFile(new URL("../JULIE_SAW_RESEARCH.md", import.meta.url), "utf8"),
     readFile(new URL("../src/site/instrument-registry.js", import.meta.url), "utf8"),
-    readFile(new URL("../src/instrument-catalog.js", import.meta.url), "utf8"),
-    readFile(new URL("../src/instrument-midi-capabilities.js", import.meta.url), "utf8"),
+    readFile(new URL("../src/site/instrument-catalog.js", import.meta.url), "utf8"),
+    readFile(new URL("../src/site/instrument-midi-capabilities.js", import.meta.url), "utf8"),
     readRuntimeManifest(),
   ]);
   assert.match(html, /<h1>JULIE SAW<\/h1>/);

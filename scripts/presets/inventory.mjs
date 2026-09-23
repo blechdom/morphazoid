@@ -3,7 +3,7 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { CATALOGUE_ITEMS } from "../../src/instrument-catalog.js";
+import { CATALOGUE_ITEMS } from "../../src/site/instrument-catalog.js";
 
 const repositoryRoot = fileURLToPath(new URL("../../", import.meta.url));
 const presetWord = /preset|patch|bank|pattern|material|starting.?point/i;

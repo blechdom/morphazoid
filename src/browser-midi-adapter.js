@@ -1,6 +1,6 @@
 import { getSharedMidiManager } from "./midi-manager.js";
 import { MidiClockTempoTracker, midiNoteToFrequency, normalizedControlValue } from "./instruments/wax/wax-midi-routing.js";
-import { instrumentMidiCapabilityForId } from "./instrument-midi-capabilities.js";
+import { instrumentMidiCapabilityForId } from "./site/instrument-midi-capabilities.js";
 import { legacyInstrumentId } from "./site/instrument-identities.js";
 
 const ADAPTER_KEY = Symbol.for("morphazoid.browserMidiAdapter");

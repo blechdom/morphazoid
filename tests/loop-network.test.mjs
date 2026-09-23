@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { TapeWorm } from "../src/starting-instruments/tape-worm.js";
-import { LoopSoup } from "../src/starting-instruments/loop-soup.js";
-import { MAX_LOOPS, MAX_ROUTES } from "../src/starting-instruments/loop-network.js";
+import { TapeWorm } from "../src/families/starting-instruments/tape-worm.js";
+import { LoopSoup } from "../src/families/starting-instruments/loop-soup.js";
+import { MAX_LOOPS, MAX_ROUTES } from "../src/families/starting-instruments/loop-network.js";
 
 function run(c, seconds, input = 0) {
   let peak = 0, power = 0;

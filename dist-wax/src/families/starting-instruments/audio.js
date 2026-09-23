@@ -1,4 +1,4 @@
-import { connectAudioOutput } from "../audio-output-manager.js";
+import { connectAudioOutput } from "../../audio-output-manager.js";
 import { clamp } from "./common.js";
 
 /** Only explicit Audio creates a context; mic/file actions use that context. */

@@ -468,7 +468,7 @@ test("Hybrinx is a Tongued Beasts-derived page with its timeline below the viewp
     readFile(new URL("src/instruments/hybrinx/hybrinx-timeline.js", root), "utf8"),
     readFile(new URL("src/site/instrument-registry.js", root), "utf8"),
     readFile(new URL("scripts/site/runtime-files.tsv", root), "utf8"),
-    readFile(new URL("src/instrument-catalog.js", root), "utf8"),
+    readFile(new URL("src/site/instrument-catalog.js", root), "utf8"),
     readFile(new URL("assets/instruments/hybrinx.webp", root)),
     stat(new URL("assets/instruments/hybrinx.webp", root)),
   ]);

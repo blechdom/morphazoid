@@ -6,8 +6,8 @@ import { readFile, readdir, stat } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { TOOL_GROUPS } from "../src/site/instrument-registry.js";
-import { INSTRUMENTS, catalogueItemById } from "../src/instrument-catalog.js";
-import { instrumentMidiCapabilityForId } from "../src/instrument-midi-capabilities.js";
+import { INSTRUMENTS, catalogueItemById } from "../src/site/instrument-catalog.js";
+import { instrumentMidiCapabilityForId } from "../src/site/instrument-midi-capabilities.js";
 
 export const repositoryRoot = fileURLToPath(new URL("../", import.meta.url));
 const rootURL = pathToFileURL(repositoryRoot);

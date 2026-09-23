@@ -5,7 +5,7 @@ import test from "node:test";
 
 import * as registry from "../src/site/instrument-registry.js";
 import { FAVE_TOOL_IDS, TOOL_GROUPS, SITE_LINKS, NAVIGATION_BASE_URL } from "../nav.js";
-import { INSTRUMENTS, INSTRUMENT_GROUPS } from "../src/instrument-catalog.js";
+import { INSTRUMENTS, INSTRUMENT_GROUPS } from "../src/site/instrument-catalog.js";
 
 const snapshot = JSON.parse(await readFile(new URL("./fixtures/instrument-registry-v1.json", import.meta.url)));
 
@@ -24,7 +24,7 @@ test("catalogue renaming preserves existing musical descriptions, features, and 
   // its new descriptions without rewriting the historical fixture.
   const { updates } = JSON.parse(await readFile(new URL("./fixtures/catalogue-main-e042512.json", import.meta.url)));
   const main = JSON.parse(await readFile(new URL("./fixtures/catalogue-main-d96793a.json", import.meta.url)));
-  const { instrumentById } = await import("../src/instrument-catalog.js");
+  const { instrumentById } = await import("../src/site/instrument-catalog.js");
   for (const previous of before.INSTRUMENTS) {
     const current = instrumentById(previous.id);
     const expected = { ...previous, ...updates[previous.id], ...main.updates[previous.id] };
@@ -58,7 +58,7 @@ test("navigation retains its exports, immutable records, and published-root URL 
 
 test("cold registry/catalogue imports do not touch browser globals, storage, or audio", () => {
   const registryUrl = new URL("../src/site/instrument-registry.js", import.meta.url).href;
-  const catalogueUrl = new URL("../src/instrument-catalog.js", import.meta.url).href;
+  const catalogueUrl = new URL("../src/site/instrument-catalog.js", import.meta.url).href;
   const script = `
     for (const name of ["document", "window", "navigator", "localStorage", "sessionStorage", "AudioContext", "AudioWorkletNode"]) {
       Object.defineProperty(globalThis, name, {

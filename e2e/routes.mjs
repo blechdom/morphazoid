@@ -3,7 +3,7 @@ import { extname, join, relative, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { FAVE_TOOL_IDS, TOOL_GROUPS } from "../src/site/instrument-registry.js";
-import { INSTRUMENTS } from "../src/instrument-catalog.js";
+import { INSTRUMENTS } from "../src/site/instrument-catalog.js";
 
 const projectRoot = fileURLToPath(new URL("../", import.meta.url));
 const ignoredDirectoryNames = new Set([
