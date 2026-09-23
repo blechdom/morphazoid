@@ -4,6 +4,7 @@
 # require: require it in the artifact without granting an additional untracked-file inclusion.
 # Other tracked-file and asset-glob rules remain in scripts/build-site.sh.
 # Keep requirement order stable; every path is declared once. See README.md.
+copy+require	src/instruments/puggler/puggler-layout.js
 copy+require	src/audio-startup.js
 copy+require	src/site/audio-session-policy.js
 copy+require	loopini.html
