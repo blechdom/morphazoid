@@ -1047,3 +1047,22 @@ copy+require	src/instruments/shapes/control-availability.js
 copy+require	src/instruments/shapes/kit-audio.js
 copy+require	src/instruments/shapes/trigger-banks.js
 copy+require	src/instruments/cellular-automata/automatapoeia-clock.js
+
+# Gesticulating Hand: authored page, weighted rig, source choreography and voices.
+copy+require	gesticulating-hand.html
+copy+require	src/instruments/gesticulating-hand/hand-app.js
+copy+require	src/instruments/gesticulating-hand/hand.css
+copy+require	src/instruments/gesticulating-hand/hand-viewer.js
+copy+require	src/instruments/gesticulating-hand/hand-model.js
+copy+require	src/instruments/gesticulating-hand/hand-dsp.js
+copy+require	src/instruments/gesticulating-hand/hand-audio.js
+copy+require	src/instruments/gesticulating-hand/hand-processor.js
+copy+require	src/instruments/gesticulating-hand/hand-source-motion.js
+copy+require	src/instruments/gesticulating-hand/hand-source-motion-data.js
+copy+require	assets/gesticulating-hand/hand.glb
+copy+require	assets/gesticulating-hand/rig-report.json
+copy+require	assets/gesticulating-hand/SOURCE.LICENSE.txt
+copy+require	assets/gesticulating-hand/source-metadata.json
+copy+require	assets/gesticulating-hand/README.md
+copy+require	assets/instruments/gesticulating-hand.webp
+copy+require	docs/gesticulating-hand.md

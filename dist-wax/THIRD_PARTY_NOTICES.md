@@ -499,3 +499,7 @@ https://sketchfab.com/3d-models/cc0-orb-weaver-spider-a-bruennichi-bb646be39dad4
 See [exact provenance and license](assets/spider-synth/SOURCE.LICENSE.txt).
 Voice uses the existing KAL16 diphone atlas and CMU pronunciation resources;
 Spider Synth does not bundle new animal audio recordings.
+
+## Gesticulating Hand — Elena FF
+
+[“Rigged hand” by Elena FF](https://sketchfab.com/3d-models/rigged-hand-eae97cc2a742413cb5338ab942b12c1e), [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/). `assets/gesticulating-hand/hand.glb` retains the original mesh, textures, weighted rig and Open/Close animation, losslessly repacked from an attributed public distribution. `src/instruments/gesticulating-hand/hand-source-motion-data.js` contains derived quaternion animation data under the same license. The catalogue image is a rendered view of this model and also retains CC BY-SA 4.0. Original attribution, pinned source, changes and rebuild steps are in `assets/gesticulating-hand/README.md`. The separate runtime sampler and instrument implementation are MIT.

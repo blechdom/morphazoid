@@ -1,5 +1,7 @@
 # Morphazoid
 
+**[Gesticulating Hand](gesticulating-hand.html)** is a realistic, rigged 3D right hand. Individual finger joints and wrist gestures shape five continuous voices. Elena FF’s original Open/Close choreography joins six editable motion loops, fourteen complete presets, and independent Sound/Motion players. Audio starts off. [Controls, model and attribution](docs/gesticulating-hand.md).
+
 **[Loopini](loopini.html)** is a simple six-circle recording looper: make a
 sound, tap circles on/off, and use the in-loop **●** to replace a bad take or
 **+** to layer a recording over it. The **Speed** knob changes playback and recording together:

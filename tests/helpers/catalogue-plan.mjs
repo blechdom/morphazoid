@@ -5,8 +5,9 @@ const byId = new Map(cataloguePlan.rows.flatMap(row => [[row.oldId, row], [row.i
 export const mainAdditions = [
   ...JSON.parse(readFileSync(new URL('../fixtures/catalogue-main-d96793a.json', import.meta.url), 'utf8')).additions,
   ...JSON.parse(readFileSync(new URL('../fixtures/catalogue-loopini.json', import.meta.url), 'utf8')).additions,
+  ...JSON.parse(readFileSync(new URL('../fixtures/catalogue-gesticulating-hand.json', import.meta.url), 'utf8')).additions,
 ];
-for (const item of mainAdditions) byId.set(item.id, { id: item.id, oldId: item.id, categoryId: item.categoryId, categoryLabel: "Work in Progress", tags: [] });
+for (const item of mainAdditions) byId.set(item.id, { id: item.id, oldId: item.id, categoryId: item.categoryId, categoryLabel: item.categoryLabel ?? "Work in Progress", tags: item.tags ?? [] });
 const previousFaves = prior.registry.FAVE_TOOL_IDS.map(id => byId.get(id)?.id ?? id);
 // Explicit owner follow-up on September 20; keep the pre-sheet fixture intact.
 previousFaves.splice(previousFaves.indexOf("hiccup-head") + 1, 0, "creaturazoid");

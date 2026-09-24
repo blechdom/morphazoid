@@ -177,6 +177,12 @@ const CATALOG_DETAILS = Object.freeze({
     "Enable Audio. Fixed clickable keys control each rider: WASD for Puggler, IJKL for Roxy, numpad for Moss. Drag anyone. Pause holds new juggling throws while riders and the crowd stay active.",
     ["Pointer", "Built-in synth", "Computer keys", "Spatial audio"],
   ),
+  "gesticulating-hand": define(
+    "Articulated hand synthesizer",
+    "A fully articulated 3D hand with individual finger joints, wrist control and gesture choreography. Five finger voices continuously follow hand position, bending and spread to shape pitch, timbre and stereo pan.",
+    "Turn on Audio and Sound, then drag a finger joint or the wrist. Play Motion for gesture choreography, or enable MIDI and hold keys for temporary finger poses.",
+    ["Built-in synth", "3D model", "Pointer", "Finger voices", "Gesture choreography"],
+  ),
   "vector-flight": define(
     "Circular flight geometry",
     "Keeps a wireframe ship centered inside a full 360-degree star field, mapping a circular listening contour, azimuth, proximity, radial velocity, and tangential motion directly into continuous voices, free-pitch flybys, or triggers without a scale grid.",

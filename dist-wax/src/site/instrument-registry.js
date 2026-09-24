@@ -135,6 +135,7 @@ export const TOOL_GROUPS = Object.freeze([
   ]),
   freezeGroup("graphic-ui", "Graphic-UI", [
     { id: "puggler", label: "Puggler the Punk Rock Jugger", href: "puggler.html" },
+    { id: "gesticulating-hand", label: "Gesticulating Hand", href: "gesticulating-hand.html" },
   ]),
   freezeGroup("dispersion", "Dispersion", [
     { id: "surround-field", label: "Surround for Safety", href: "surround-field.html" },

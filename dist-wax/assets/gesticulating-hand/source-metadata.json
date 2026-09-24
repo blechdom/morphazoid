@@ -1,0 +1,22 @@
+{
+  "uid": "eae97cc2a742413cb5338ab942b12c1e",
+  "name": "Rigged hand",
+  "viewerUrl": "https://sketchfab.com/3d-models/rigged-hand-eae97cc2a742413cb5338ab942b12c1e",
+  "license": {
+    "uri": "https://api.sketchfab.com/v3/licenses/b9ddc40b93e34cdca1fc152f39b9f375",
+    "label": "CC Attribution-ShareAlike",
+    "fullName": "Creative Commons Attribution-ShareAlike",
+    "requirements": "Author must be credited. Modified versions must have the same license. Commercial use is allowed.",
+    "url": "http://creativecommons.org/licenses/by-sa/4.0/",
+    "slug": "by-sa"
+  },
+  "animationCount": 1,
+  "vertexCount": 14499,
+  "faceCount": 28994,
+  "isDownloadable": true,
+  "author": {
+    "displayName": "Elena FF",
+    "username": "elenaferfor",
+    "profileUrl": "https://sketchfab.com/elenaferfor"
+  }
+}

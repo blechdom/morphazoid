@@ -1,0 +1,20 @@
+{
+  "additions": [
+    {
+      "id": "gesticulating-hand",
+      "imageHref": "assets/instruments/gesticulating-hand.webp",
+      "categoryId": "graphic-ui",
+      "categoryLabel": "Graphic-UI",
+      "tags": [
+        {
+          "id": "3d",
+          "label": "3D"
+        },
+        {
+          "id": "synthesizer",
+          "label": "Synthesizer"
+        }
+      ]
+    }
+  ]
+}
