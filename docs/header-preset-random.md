@@ -1,4 +1,9 @@
-# Shared header: randomize instrument parameters
+# Full-instrument preset randomization
+
+**September 23 UI update:** Select Preset → next → dice now lives at the top of
+the right control panel. MIDI moved into Settings; the masthead uses a volume
+knob. See [Performance toolbar](performance-toolbar.md). The transaction and
+randomization rules below remain unchanged; earlier placement notes are historical.
 
 Local implementation on `codex/full-instrument-presets`, September 21, 2026.
 Not committed, pushed or deployed. The existing preset banks and earlier
@@ -6,9 +11,12 @@ Shape/Hiccup feedback changes are preserved.
 
 ## Visible behavior
 
-The shared right-hand control order is now:
+The first row of the right control panel is now:
 
-**Preset menu → next preset → dice → MIDI → meters → output/Audio → settings**
+**Preset menu → next preset → dice**
+
+The masthead has **Morphazoid → Choose → next instrument → flexible space →
+meters → volume knob → Audio → Settings**. MIDI on/off is inside Settings.
 
 The dice is a native button with a monochrome inline SVG. It inherits the
 existing Choose next-button surface and sizing, including 48px coarse-pointer
@@ -56,7 +64,7 @@ from the factory presets. Categorical model/bank/skin selections still use valid
 built-in choices, but no full factory snapshot is selected, mixed or mutated.
 The bounds are not a guarantee that
 every random result is musically desirable or equally loud. Preserving the
-output slider does not equalize perceived loudness across different timbres.
+output level does not equalize perceived loudness across different timbres.
 
 ## Adapter contract for subsequent instruments
 

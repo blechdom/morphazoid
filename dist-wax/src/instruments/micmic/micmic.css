@@ -696,3 +696,8 @@
     transition: none;
   }
 }
+
+/* The input controls remain instrument-owned, below the full-preset row. */
+.micmic-panel-input { padding: 10px 12px; border-bottom: 1px solid var(--line); }
+.micmic-panel-input .micmic-input-trigger { width: 100%; grid-template-columns: 28px 1fr; text-align: left; font: inherit; font-size: 11px; }
+.micmic-panel-input .micmic-input-popover { position: static; width: 100%; max-width: none; max-height: none; margin-top: 8px; }

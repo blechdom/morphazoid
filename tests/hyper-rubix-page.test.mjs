@@ -57,7 +57,7 @@ test("Hyper Rubix is a standalone accessible Morphazoid instrument", async () =>
   assert.match(html, /<script type="module" src="nav\.js"><\/script>/);
   assert.match(html, /<script type="module" src="src\/instruments\/hyper-rubix\/hyper-rubix-app\.js"><\/script>/);
   assert.match(html, /<main class="[^"]*\bhyper-rubix-shell\b[^"]*" id="hyperRubix">/);
-  assert.match(html, /<aside class="[^"]*\bhyper-rubix-panel\b[^"]*" aria-label="Hyper Rubix controls">/);
+  assert.match(html, /<aside class="[^"]*\bhyper-rubix-panel\b[^"]*" data-instrument-preset-host aria-label="Hyper Rubix controls">/);
 
   const canvas = openingTag(html, "canvas", "stage");
   assert.equal(attribute(canvas, "tabindex"), "0");

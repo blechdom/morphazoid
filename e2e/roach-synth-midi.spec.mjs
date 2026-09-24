@@ -221,6 +221,7 @@ test('turning Audio off prevents later MIDI notes from rearming it; MIDI Off and
   await sendMidi(page, MIDI_BYTES.noteOn(69)); await gate(page, 'head');
   await page.locator('#midiPanic').click(); await silentMidi(page); expect(players(await state(page))).toEqual({ sound: true, animation: true });
   await sendMidi(page, MIDI_BYTES.noteOn(69)); await gate(page, 'head');
+  if (!await page.locator('.header-settings-menu').evaluate(node => node.open)) await page.locator('.header-settings-trigger').click();
   await page.locator('#sharedMidiToggle').click(); await silentMidi(page); expect(players(await state(page))).toEqual({ sound: true, animation: true });
   const events = (await state(page)).audio.midiEvents;
   await sendMidi(page, MIDI_BYTES.noteOn(60)); expect((await state(page)).audio.midiEvents).toBe(events);

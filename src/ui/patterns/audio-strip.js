@@ -9,6 +9,7 @@ import {
   setClassState,
 } from "../internal.js";
 import { createButton } from "../primitives/button.js";
+import { enhanceRangeKnob } from "../primitives/range-knob.js";
 
 function defaultLevelFormat(value) {
   return `${Math.round(Number(value) * 100)}%`;
@@ -68,6 +69,7 @@ export function createAudioStrip(options = {}, doc = globalThis.document) {
   input.value = String(options.level ?? 0.56);
   if (options.levelName !== undefined) input.name = String(options.levelName);
   level.append(heading, input);
+  const knob = enhanceRangeKnob(input);
 
   const formatLevel = options.formatLevel ?? defaultLevelFormat;
   const readLevel = () => {
@@ -81,6 +83,7 @@ export function createAudioStrip(options = {}, doc = globalThis.document) {
       : String(formatLevel).replace("{}", String(value));
     output.value = String(formatted ?? "");
     output.textContent = output.value;
+    knob.update();
     return value;
   };
   const setLevel = (value, { emit = false, eventType = "input" } = {}) => {
@@ -105,7 +108,7 @@ export function createAudioStrip(options = {}, doc = globalThis.document) {
   input.addEventListener("input", handleInput);
   input.addEventListener("change", handleChange);
 
-  root.append(button, level);
+  root.append(level, button);
   setLevelDisabled(options.levelDisabled);
   update();
 
@@ -122,6 +125,7 @@ export function createAudioStrip(options = {}, doc = globalThis.document) {
     setLevelDisabled,
     update,
     destroy() {
+      knob.destroy();
       button.destroy();
       input.removeEventListener("input", handleInput);
       input.removeEventListener("change", handleChange);

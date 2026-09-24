@@ -84,8 +84,8 @@ export function registerHeaderPresets({
 export function mountHeaderPresets(doc) {
   const controller = registrations.get(doc);
   if (!controller || controller.view) return;
-  const meter = doc.querySelector?.(".header-output-meter-shell");
-  if (!meter?.parentNode) return;
+  const host = doc.querySelector?.("[data-instrument-preset-host]");
+  if (!host) return;
   const { bank, capture, apply, runtime } = controller;
   const abort = new runtime.AbortController();
   const listen = (node, type, handler, options = {}) => node.addEventListener(type, handler, { ...options, signal: abort.signal });
@@ -95,7 +95,9 @@ export function mountHeaderPresets(doc) {
   });
   const { details, summary, currentLabel, panel, search, searchInput, list } = shell;
   const root = doc.createElement("div");
-  root.className = "header-preset-controls";
+  root.className = "header-preset-controls instrument-preset-controls";
+  root.setAttribute("role", "group");
+  root.setAttribute("aria-label", "Instrument presets");
   root.dataset.instrumentId = controller.id;
   details.classList.add("header-preset-picker");
   summary.setAttribute("aria-keyshortcuts", "ArrowRight ArrowLeft ArrowDown ArrowUp");
@@ -135,12 +137,6 @@ export function mountHeaderPresets(doc) {
   status.className = "sr-only";
   status.setAttribute("role", "status");
   root.append(details, next, dice, status);
-  const masthead = doc.querySelector(".masthead");
-  const midiToolbar = meter.parentNode.querySelector(".midi-toolbar");
-  // Retain the original MIDI node, parent, listeners and enabled state.
-  // Presets precede MIDI and the meters in visual and keyboard order; without
-  // MIDI, presets simply precede the meters.
-  const presetAnchor = midiToolbar?.parentNode === meter.parentNode ? midiToolbar : meter;
   const buttons = [];
   const keys = new Map(bank.map(preset => [preset.id, presetStateKey(preset.snapshot)]));
   let applying = false;
@@ -262,8 +258,9 @@ export function mountHeaderPresets(doc) {
   }
   panel.append(search, list);
   details.append(summary, panel);
-  presetAnchor.before(root);
-  masthead?.classList.add("has-header-presets");
+  // Explicit instrument-owned placement, never guessed from category or title.
+  if (host.children[0]) host.children[0].before(root);
+  else host.append(root);
   const anchoredPanel = anchorChoosePickerPanel(shell, runtime);
   controller.view = {
     refresh, select, randomize,
@@ -272,7 +269,6 @@ export function mountHeaderPresets(doc) {
       abort.abort();
       anchoredPanel.destroy();
       root.remove();
-      masthead?.classList.remove("has-header-presets");
     },
   };
   listen(runtime, "pagehide", event => { if (!event.persisted) controller.destroy(); });

@@ -12,6 +12,7 @@
 @import "./primitives/motion-mode-group.css";
 @import "./primitives/step-button.css";
 @import "./patterns/audio-strip.css";
+@import "./primitives/range-knob.css";
 @import "./patterns/amplitude-control.css";
 @import "./patterns/midi-status.css";
 @import "./patterns/level-meter.css";

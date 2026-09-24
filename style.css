@@ -471,10 +471,24 @@ a {
 .header-preset-controls {
   display: flex;
   min-width: 0;
-  width: clamp(192px, 22vw, 274px);
-  flex: 0 1 274px;
+  width: 100%;
+  flex: 0 0 auto;
   align-items: center;
   gap: 6px;
+}
+
+[data-instrument-preset-host] > .instrument-preset-controls {
+  position: sticky;
+  z-index: 30;
+  top: 0;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--line);
+  background: var(--panel);
+}
+
+.shapes-panel-header > .instrument-preset-controls {
+  position: relative;
+  padding: 0 0 8px;
 }
 
 .header-preset-controls > .instrument-picker {
@@ -488,67 +502,9 @@ a {
   cursor: pointer;
 }
 
-@media (max-width: 900px) {
-  body .masthead.has-header-presets {
-    height: auto;
-    min-height: 54px;
-    padding-top: 6px;
-    padding-bottom: 6px;
-    flex-wrap: wrap;
-    row-gap: 6px;
-  }
-
-  .masthead.has-header-presets .header-io-controls {
-    width: 100%;
-    flex: 1 0 100%;
-    flex-wrap: wrap;
-    gap: 6px;
-  }
-
-  .header-preset-controls {
-    width: clamp(176px, 35vw, 218px);
-    flex: 0 1 218px;
-  }
-}
-
-@media (max-width: 520px) {
-  .masthead.has-header-presets .header-io-controls {
-    display: grid;
-    grid-template-columns: minmax(156px, 1fr) 72px 48px;
-    grid-template-rows: auto auto;
-    gap: 6px;
-  }
-
-  .masthead.has-header-presets .header-preset-controls {
-    width: 100%;
-    min-width: 0;
-    grid-column: 1;
-    grid-row: 1;
-  }
-
-  .masthead.has-header-presets .header-io-controls > .midi-toolbar {
-    grid-column: 2;
-    grid-row: 1;
-  }
-
-  .masthead.has-header-presets .header-io-controls > .header-output-meter-shell {
-    grid-column: 3;
-    grid-row: 1;
-  }
-
-  .masthead.has-header-presets .header-io-controls > .audio-strip,
-  .masthead.has-header-presets .header-io-controls > .header-actions {
-    flex: 1 1 80px;
-    grid-column: 1 / 3;
-    grid-row: 2;
-    grid-template-columns: minmax(0, 1fr) var(--audio-control-width);
-    gap: 6px;
-  }
-
-  .masthead.has-header-presets .header-io-controls > .header-settings-menu {
-    grid-column: 3;
-    grid-row: 2;
-  }
+.header-preset-picker .instrument-picker-panel:popover-open {
+  display: grid;
+  margin: 0;
 }
 
 @media (pointer: coarse) {
@@ -631,6 +587,7 @@ a {
   height: min(70dvh, 540px);
   overflow: hidden;
   border: 1px solid var(--line-strong);
+  color: var(--ink);
   background: var(--bg-deep);
   box-shadow: 0 22px 60px rgba(0, 0, 0, 0.5);
   grid-template-rows: auto minmax(0, 1fr);
@@ -4882,4 +4839,66 @@ select:hover {
     background: Highlight;
     color: HighlightText;
   }
+}
+
+/* Performance header: navigation, flexible space, meters, volume, Audio, Settings. */
+body .masthead.has-performance-header {
+  height: auto;
+  min-height: 58px;
+  flex-wrap: nowrap;
+  gap: clamp(8px, 1.5vw, 22px);
+  padding-top: 4px;
+  padding-bottom: 4px;
+}
+.masthead.has-performance-header .wordmark { width: auto; overflow: visible; flex: 0 0 auto; }
+.masthead.has-performance-header .wordmark > span:last-child { display: inline; }
+.masthead.has-performance-header .tabs.tools-nav {
+  display: flex;
+  width: clamp(180px, 24vw, 300px);
+  flex: 0 1 300px;
+  margin-right: 0;
+}
+.masthead.has-performance-header .tabs.tools-nav + .mobile-instrument-nav { display: none; }
+.masthead.has-performance-header .header-io-controls {
+  width: auto;
+  margin-left: auto;
+  flex: 0 0 auto;
+  flex-wrap: nowrap;
+  gap: 6px;
+}
+.masthead.has-performance-header .header-io-controls > .audio-strip,
+.masthead.has-performance-header .header-io-controls > .header-actions {
+  width: auto;
+  flex: 0 0 auto;
+  grid-template-columns: 44px var(--audio-control-width);
+  gap: 6px;
+}
+.masthead.has-performance-header .header-level.mz-range-knob {
+  display: block;
+  width: 44px;
+  min-width: 44px;
+  height: 44px;
+}
+.masthead.has-performance-header .mz-range-knob > input[type="range"] { height: 100%; }
+.masthead.has-performance-header .header-settings-panel { top: 57px; max-height: calc(100dvh - 69px); }
+.masthead.has-performance-header .instrument-picker-panel { top: 57px; }
+.header-settings-section > .midi-toolbar { justify-self: stretch; }
+.header-settings-section > .midi-toolbar > .midi-toggle { width: 100%; }
+@media (pointer: coarse) {
+  .masthead.has-performance-header .header-io-controls > .audio-strip,
+  .masthead.has-performance-header .header-io-controls > .header-actions {
+    grid-template-columns: 48px var(--audio-control-width);
+  }
+  .masthead.has-performance-header .header-level.mz-range-knob { width: 48px; min-width: 48px; height: 48px; }
+  .header-settings-section > .midi-toolbar > .midi-toggle { min-height: 48px; }
+}
+@media (max-width: 520px) {
+  body .masthead.has-performance-header { flex-wrap: wrap; gap: 4px 8px; }
+  .masthead.has-performance-header .wordmark { width: auto; overflow: visible; flex: 0 0 auto; }
+  .masthead.has-performance-header .wordmark > span:last-child { display: inline; }
+  .masthead.has-performance-header .wordmark .brand-mark { display: none; }
+  .masthead.has-performance-header .tabs.tools-nav { width: auto; flex: 1 1 180px; }
+  .masthead.has-performance-header .header-io-controls { flex: 1 0 100%; justify-content: flex-end; }
+  .masthead.has-performance-header .header-settings-panel { top: 108px; max-height: calc(100dvh - 120px); }
+  .masthead.has-performance-header .instrument-picker-panel { top: 108px; }
 }

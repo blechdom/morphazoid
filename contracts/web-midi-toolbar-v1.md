@@ -2,13 +2,14 @@
 
 ## One connection control
 
-Every playable catalog instrument exposes one MIDI toggle in its shared top
-bar. Morphazoidical hosts the same control in its custom workbench top bar. The
+Every playable catalog instrument exposes one MIDI toggle inside its shared
+Settings disclosure. Morphazoidical hosts the same Settings control in its
+custom workbench top bar. The
 toggle is the only control that requests Web MIDI permission.
 
-The compact bar keeps performance state visible in this order: MIDI In and its
-receive light, the actual pre-destination stereo L/R audio meter, master level, Audio, and
-a far-right Settings disclosure. The receive light flashes only for incoming
+The compact bar follows Morphazoid → Choose → next instrument → flexible space
+→ the actual pre-destination stereo L/R audio meter → master-volume knob → Audio
+→ Settings. MIDI In and its receive light live together inside Settings. The receive light flashes only for incoming
 hardware or computer-key messages. The meter is registered explicitly at each
 engine's final master/limiter output; it reports signal sent toward the browser
 or WAX destination, not the operating system's speaker volume. Left and right
@@ -32,7 +33,7 @@ are visible.
 
 The native Settings disclosure is titled `Morphazoid Settings`. It contains
 normal form controls rather than ARIA menu items: exactly five visible
-label/select rows in this order — Audio Out, Mic / Audio In, MIDI In, MIDI Out,
+labeled control rows in this order — Audio Out, Mic / Audio In, MIDI In, MIDI Out,
 and MIDI Map — followed by one `MIDI Guide` link. Routine status, setup, and
 mapping prose belongs in that guide, not in the compact panel. A row may show a
 short alert only when a real permission, hardware, or route error occurs.
@@ -47,7 +48,9 @@ short alert only when a real permission, hardware, or route error occurs.
   page controls; the shared row must not imply unsupported device selection.
 - MIDI In represents the manager's aggregate input state. The manager listens
   to all available inputs and does not pretend to offer per-device filtering.
-  The toolbar MIDI toggle and this row stay synchronized.
+  The original MIDI toggle and receive light now occupy this row. The hidden
+  aggregate-select compatibility handle stays synchronized; it is not a second
+  visible or keyboard-focusable connection control.
 - MIDI Out remains separate and off by default. A disabled option identifies
   instruments without output. Output-preview pages show the mobile-safe
   `Preview · no route` label and expose the full `preview only, not routed`

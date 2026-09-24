@@ -508,7 +508,11 @@ test.describe("touch settings gear", () => {
       await expect(menu).toHaveJSProperty("open", true);
       for (const link of await page.locator(".header-settings-link").all()) await expect(link).toBeInViewport();
       if (route === "recursive-fm.html") {
-        for (const select of await page.locator(".header-settings-controls select").all()) await expect(select).toBeInViewport();
+        const selects = page.locator(".header-settings-controls select:not([hidden])");
+        await expect(selects).toHaveCount(4);
+        for (const select of await selects.all()) await expect(select).toBeInViewport();
+        await expect(page.locator(".header-settings-controls .midi-toggle")).toBeInViewport();
+        await expect(page.locator(".midi-input-select")).toBeHidden();
       }
       await expect(page.locator(".io-setup-link")).toBeInViewport();
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);

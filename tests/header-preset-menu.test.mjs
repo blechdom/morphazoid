@@ -44,7 +44,7 @@ class Element {
   removeEventListener(type, callback) { this.listeners.get(type)?.delete(callback); }
   emit(type, event = {}) { for (const callback of this.listeners.get(type) ?? []) callback(event); }
   descendants() { return this.children.flatMap(child => [child, ...child.descendants()]); }
-  matches(selector) { return selector.startsWith(".") ? this.classList.contains(selector.slice(1)) : this.id === selector.slice(1); }
+  matches(selector) { if (selector.startsWith("[")) return this.attributes.has(selector.slice(1, -1)); return selector.startsWith(".") ? this.classList.contains(selector.slice(1)) : this.id === selector.slice(1); }
   querySelector(selector) { return this.descendants().find(node => node.matches(selector)) ?? null; }
   closest(selector) { return this.matches(selector) ? this : this.parentNode?.closest(selector) ?? null; }
   contains(target) { return target === this || this.descendants().includes(target); }
@@ -61,6 +61,7 @@ function randomFixture(options = {}) {
   const header = doc.createElement("header"), io = doc.createElement("div"), meter = doc.createElement("div");
   header.className = "masthead"; meter.className = "header-output-meter-shell";
   io.append(meter); header.append(io); doc.append(header);
+  const rail = doc.createElement("aside"); rail.setAttribute("data-instrument-preset-host", ""); doc.append(rail);
   const runtime = new Element("window", doc);
   runtime.AbortController = AbortController;
   runtime.queueMicrotask = callback => callback();
@@ -210,6 +211,7 @@ test(`main preset menu has only full scene choices and preserves control order (
   const originalIoOrder = [...io.children];
   const rail = doc.createElement("aside"), body = doc.createElement("select"), pattern = doc.createElement("select");
   body.id = "bodyPresets"; pattern.id = "sequencePresets";
+  rail.setAttribute("data-instrument-preset-host", "");
   rail.append(body, pattern); doc.append(header, rail);
   const presets = Array.from({ length: 12 }, (_, index) => ({
     id: `scene-${index}`, label: `Full scene ${index}`, snapshot: { value: index },
@@ -233,19 +235,19 @@ test(`main preset menu has only full scene choices and preserves control order (
     const picker = root.querySelector(".header-preset-picker");
     const list = picker.querySelector(".instrument-picker-list");
     assert.equal(recalls, 0, "registration must not change instrument settings");
-    assert.equal(root.parentNode, meter.parentNode);
+    assert.equal(root.parentNode, rail);
     assert.deepEqual(header.children, [io], "MIDI must not be pulled into the middle of the masthead");
-    assert.deepEqual(io.children, [root, ...originalIoOrder], "presets precede MIDI, meters and the unchanged remaining controls");
+    assert.deepEqual(io.children, originalIoOrder, "presets no longer displace header controls");
     assert.deepEqual(root.children.slice(0, 3).map(node => node.className),
       ["instrument-picker header-preset-picker", "instrument-picker-next header-preset-next",
-        "instrument-picker-next header-preset-random"], "dice is immediately after next, still before MIDI");
+        "instrument-picker-next header-preset-random"], "dice is immediately after next in the right panel");
     if (withMidi) {
       assert.equal(midi.parentNode, io);
       assert.equal(midiButton.attributes.get("aria-pressed"), "true", "moving the preset control must not reset enabled MIDI");
       midiButton.emit("click");
       assert.equal(midiClicks, 1, "the original MIDI button retains its handler");
     }
-    assert.deepEqual(rail.children, [body, pattern]);
+    assert.deepEqual(rail.children, [root, body, pattern]);
     assert.equal(picker.descendants().some(node => ["SELECT", "DETAILS"].includes(node.tagName)), false);
     assert.equal(list.children.length, 13, "twelve scene rows plus the empty-result message");
     const buttons = list.descendants().filter(node => node.tagName === "BUTTON");
@@ -262,7 +264,7 @@ test(`main preset menu has only full scene choices and preserves control order (
     assert.deepEqual(state, { value: 4.125 });
     assert.equal(controller.selectedId, null);
     assert.equal(root.dataset.presetId, "custom");
-    assert.deepEqual(rail.children, [body, pattern], "recall never moves local editors");
+    assert.deepEqual(rail.children, [root, body, pattern], "recall never moves local editors");
   } finally {
     controller.destroy();
   }
@@ -272,8 +274,8 @@ test(`main preset menu has only full scene choices and preserves control order (
   const remounted = registerHeaderPresets(options);
   try {
     assert.deepEqual(header.children, [io]);
-    assert.equal(io.children[0], doc.querySelector(".header-preset-controls"));
-    assert.deepEqual(io.children.slice(1), originalIoOrder, "reinitialization cannot duplicate or move MIDI");
+    assert.equal(rail.children[0], doc.querySelector(".header-preset-controls"));
+    assert.deepEqual(io.children, originalIoOrder, "reinitialization cannot duplicate or move MIDI");
     if (withMidi) {
       midiButton.emit("click");
       assert.equal(midiClicks, 2, "reinitialization does not double-bind the MIDI control");

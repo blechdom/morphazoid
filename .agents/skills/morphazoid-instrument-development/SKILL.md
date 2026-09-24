@@ -129,7 +129,7 @@ from validated physical/acoustic models.
 - Keep Play, tempo and deterministic recovery immediately reachable. For a
   header-preset migration, follow the current
   [preset rollout contract](../../../docs/full-instrument-preset-rollout.md):
-  reuse Choose styling left of the meters and preserve instrument-owned state.
+  reuse Choose styling in the first row of the right control panel and preserve instrument-owned state.
   Keep independent body/face, rhythm, skin and other focused sub-presets in
   their instrument sections; do not fold those editors into the main menu.
   Do not treat not-yet-verified adapters as a completed site-wide migration.

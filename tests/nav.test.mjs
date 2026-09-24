@@ -987,7 +987,7 @@ test("shared Space transport stays independent from Audio and guides Audio-off p
   assert.equal(doc.listeners.get("keydown").length, 0);
 });
 
-test("one header MIDI control owns connection and controller profile selection", async () => {
+test("one Settings MIDI control owns connection and controller profile selection", async () => {
   const doc = new FakeDocument();
   const masthead = new FakeNode("header");
   masthead.className = "masthead";
@@ -1055,6 +1055,8 @@ test("one header MIDI control owns connection and controller profile selection",
     onMessage: (message) => messages.push(message),
   });
   assert.equal(control.toolbar.hidden, false);
+  assert.equal(control.details.contains(control.toolbar), true, "MIDI lives inside Settings");
+  assert.equal(control.midiInputSelect.hidden, true, "the compatibility select is not a duplicate visible toggle");
   assert.equal(control.meterShell.hidden, false);
   assert.equal(control.details.hidden, false);
   assert.equal(masthead.classList.contains("has-midi-toolbar"), true);
@@ -1062,7 +1064,7 @@ test("one header MIDI control owns connection and controller profile selection",
   assert.equal(ioControls.className, "header-io-controls");
   assert.deepEqual(
     ioControls.children,
-    [control.toolbar, control.meterShell, audioStrip, control.details],
+    [control.meterShell, audioStrip, control.details],
   );
   assert.deepEqual(audioStrip.children, [outputLevel, audioButton]);
   assert.equal(initializeMidiToolbars(doc, runtime, manager).length, 0);
@@ -1107,10 +1109,12 @@ test("one header MIDI control owns connection and controller profile selection",
     ],
   );
   for (const row of settingsRows) {
-    assert.equal(row.children.length, 2, "each compact row is directly one label and one select");
+    const isMidi = row.children[1] === control.midiInputSelect;
+    assert.equal(row.children.length, isMidi ? 3 : 2, "MIDI substitutes its real toggle for the hidden compatibility select");
     assert.equal(row.children[0].tagName, "LABEL");
     assert.equal(row.children[1].tagName, "SELECT");
-    assert.equal(row.children[0].getAttribute("for"), row.children[1].id);
+    assert.equal(row.children[0].getAttribute("for"), isMidi ? control.toggle.id : row.children[1].id);
+    if (isMidi) assert.equal(row.children[2], control.toolbar);
   }
   for (const removedClass of [
     "header-settings-copy",
@@ -1319,15 +1323,15 @@ test("MIDI and audio controls keep one semantic order across shared header varia
   ].map((host) => host.querySelector(".header-io-controls"));
   assert.deepEqual(
     stripWrapper.children,
-    [controls[0].toolbar, controls[0].meterShell, strip.group, controls[0].details],
+    [controls[0].meterShell, strip.group, controls[0].details],
   );
   assert.deepEqual(
     actionWrapper.children,
-    [controls[1].toolbar, controls[1].meterShell, actions.group, controls[1].details],
+    [controls[1].meterShell, actions.group, controls[1].details],
   );
   assert.deepEqual(
     dedicatedWrapper.children,
-    [controls[2].toolbar, controls[2].meterShell, audioToggle, controls[2].details],
+    [controls[2].meterShell, audioToggle, controls[2].details],
   );
   assert.deepEqual(strip.group.children, [strip.level, strip.audioButton]);
   assert.deepEqual(actions.group.children, [actions.level, actions.audioButton]);
@@ -1784,10 +1788,7 @@ test("mapped tablet and phone headers keep MIDI and output controls visible", as
     css,
     /@media \(max-width: 900px\)[\s\S]*?\.wordmark > span:last-child \{\s+display: none;/,
   );
-  assert.doesNotMatch(
-    css,
-    /@media \(max-width: 650px\)[\s\S]*?\.wordmark > span:last-child \{\s+display: inline;/,
-  );
+  assert.match(css, /\.masthead\.has-performance-header \.wordmark \{ width: auto; overflow: visible; flex: 0 0 auto;/);
   assert.doesNotMatch(css, /\.instrument-picker-info\s*\{/);
   assert.doesNotMatch(css, /\.selected-instrument-info/);
   assert.doesNotMatch(css, /\.instrument-picker-preview/);

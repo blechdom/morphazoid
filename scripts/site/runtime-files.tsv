@@ -1029,3 +1029,6 @@ copy+require	src/ui/patterns/settings-menu.css
 copy+require	assets/audio/midi-received.wav
 copy+require	assets/audio/CREDITS.md
 copy+require	docs/io-settings.md
+
+copy+require	src/ui/primitives/range-knob.js
+copy+require	src/ui/primitives/range-knob.css

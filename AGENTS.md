@@ -79,11 +79,13 @@ command names.
 - Reserve permanent instrument real estate for playing and recovery. Keep backend,
   lane, kernel, budget, topology, implementation counts, slogans, and explanatory
   diagrams in diagnostics or documentation unless a performer needs them to act.
-- Keep transport and recovery immediately reachable. For instruments migrated
-  to the header preset contract, main preset recall belongs left of the sound
-  meters, using the Choose-menu UI. Keep the right-hand control order
-  preset menu → next → randomize (dice) → MIDI → meters → output/Audio →
-  settings; do not detach MIDI into the middle of the masthead. Each migrated
+- Keep transport and recovery immediately reachable. The performance masthead is
+  Morphazoid → Choose → next instrument → flexible space → stereo meters →
+  volume knob → Audio → Settings. MIDI on/off and receive activity belong inside
+  Settings. Main preset menu → next preset → randomize (dice) belongs in the
+  first row of the instrument's right control panel, using the Choose-menu UI.
+  See `docs/performance-toolbar.md`; retain native level values/events and do not
+  replace instrument-owned audio or preset state. Each migrated
   instrument supplies a bounded, pure full-state randomizer, not random preset
   selection or a lightly mutated factory scene. Cover every preset-owned
   musical parameter, including curves, mappings, effects and musical switches;
@@ -95,7 +97,7 @@ command names.
   exceptions; registration still shows Select Preset without applying a scene. See
   `contracts/audio-transport-v1.md` for per-family boundaries.
   Randomization marks the result Custom and uses the same complete-state
-  apply/rollback contract. The header menu selects complete presets only;
+  apply/rollback contract. The main preset menu selects complete presets only;
   independent body/face, sequence, skin and other focused sub-preset controls
   remain in their instrument sections, not nested inside the main preset menu.
   Check `docs/full-instrument-preset-rollout.md` for per-instrument migration and

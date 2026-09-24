@@ -105,6 +105,21 @@
   cursor: not-allowed;
 }
 
+.audio-strip:has(.mz-range-knob),
+.mz-audio-strip:has(.mz-range-knob) {
+  width: auto;
+  flex: 0 0 auto;
+  grid-template-columns: 44px var(--audio-control-width, var(--mz-control-height));
+  gap: 6px;
+}
+
+@media (pointer: coarse) {
+  .audio-strip:has(.mz-range-knob),
+  .mz-audio-strip:has(.mz-range-knob) {
+    grid-template-columns: 48px var(--audio-control-width, var(--mz-control-height));
+  }
+}
+
 @media (max-width: 650px) {
   .audio-strip,
   .mz-audio-strip {

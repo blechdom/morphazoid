@@ -38,6 +38,9 @@ for (const route of instrumentRoutes) {
         hasReset: Boolean(reset),
         hasPrimaryTransport: Boolean(transport),
         hasMasterLevel: Boolean(level),
+        hasVolumeKnob: Boolean(level?.closest(".mz-range-knob")),
+        midiInSettings: Boolean(document.querySelector(".header-settings-panel .midi-toggle")),
+        midiCount: document.querySelectorAll(".midi-toggle").length,
       };
     });
 
@@ -49,6 +52,9 @@ for (const route of instrumentRoutes) {
     expect(contract.audio, "every catalogue instrument needs a shared Audio control").not.toBeNull();
     expect(contract.audio?.pressed, "audio must be off before a user gesture").toBe("false");
     expect(contract.audio?.name, "the Audio control needs an accessible name").toBeTruthy();
+    expect(contract.midiInSettings, "MIDI activation belongs inside Settings").toBe(true);
+    expect(contract.midiCount, "one original MIDI permission owner").toBe(1);
+    if (contract.hasMasterLevel) expect(contract.hasVolumeKnob).toBe(true);
 
     if (route.id === "morphazoidical") {
       // The workbench deliberately owns a compact custom header. Keep that

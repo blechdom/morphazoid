@@ -1,3 +1,4 @@
+import { restorePresetToolbar } from "./helpers/preset-toolbar-reference.mjs";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { existsSync } from "node:fs";
@@ -48,7 +49,7 @@ test("every changed runtime module reverses byte-for-byte to the fresh-main refe
   }
   for (const record of proof.files) {
     const current = await readFile(new URL(record.after, root), "utf8");
-    const beforeIphone = restoreIphoneStartup(current, record.after);
+    const beforeIphone = restoreIphoneStartup(restorePresetToolbar(current, record.after), record.after);
     const restored = rewriteRepositoryPaths(rewriteModulePaths(beforeIphone, record.after, inverse), inverse);
     assert.equal(sha(restored), record.sha256, record.after);
     for (const reference of referencesIn(current, record.after)) {

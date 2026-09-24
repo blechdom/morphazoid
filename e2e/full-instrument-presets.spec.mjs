@@ -33,17 +33,18 @@ async function select(page, presetId) {
 
 async function expectPresetMidiMeterOrder(page) {
   const order = await page.locator(".header-preset-controls").evaluate(node => {
-    const midi = node.nextElementSibling;
-    const meter = midi?.nextElementSibling;
-    const header = node.closest(".masthead");
+    const host = document.querySelector("[data-instrument-preset-host]");
+    const header = document.querySelector(".masthead");
+    const io = header.querySelector(".header-io-controls");
     return {
-      inIoGroup: node.parentElement.classList.contains("header-io-controls"),
-      midiNext: midi?.classList.contains("midi-toolbar"),
-      metersNext: meter?.classList.contains("header-output-meter-shell"),
-      directHeaderMidi: [...header.children].some(child => child.classList.contains("midi-toolbar")),
+      firstInPanel: host.firstElementChild === node,
+      insideHeader: header.contains(node),
+      midiInSettings: Boolean(header.querySelector(".header-settings-panel .midi-toggle")),
+      meterFirst: io.firstElementChild.classList.contains("header-output-meter-shell"),
+      settingsLast: io.lastElementChild.classList.contains("header-settings-menu"),
     };
   });
-  expect(order).toEqual({ inIoGroup: true, midiNext: true, metersNext: true, directHeaderMidi: false });
+  expect(order).toEqual({ firstInPanel: true, insideHeader: false, midiInSettings: true, meterFirst: true, settingsLast: true });
 }
 
 async function expectPresetPanelAnchored(page) {
@@ -57,13 +58,18 @@ async function expectPresetPanelAnchored(page) {
     const bottom = top + (viewport?.height ?? document.documentElement.clientHeight);
     const expectedLeft = Math.max(left + 8, Math.min(trigger.left, right - 8 - panel.width));
     return {
-      gap: panel.top - trigger.bottom,
+      // Once resize/scroll takes the trigger offscreen, dock at that viewport
+      // edge rather than keep an impossible four-pixel offscreen gap.
+      verticalError: Math.min(
+        Math.abs(panel.top - Math.max(top + 8, Math.min(trigger.bottom + 4, bottom - 8))),
+        Math.abs(panel.bottom - Math.max(top + 8, Math.min(trigger.top - 4, bottom - 8))),
+      ),
       horizontalError: Math.abs(panel.left - expectedLeft),
       insideViewport: panel.left >= left + 7 && panel.right <= right - 7
-        && panel.bottom <= bottom - 7,
+        && panel.top >= top + 7 && panel.bottom <= bottom - 7,
     };
   });
-  await expect.poll(async () => (await placement()).gap).toBeCloseTo(4, 1);
+  await expect.poll(async () => (await placement()).verticalError).toBeLessThan(1);
   const result = await placement();
   expect(result.horizontalError).toBeLessThan(1);
   expect(result.insideViewport).toBe(true);
@@ -204,7 +210,7 @@ for (const layout of [
 ]) {
   test.describe(layout.name, () => {
     test.use({ viewport: { width: layout.width, height: layout.height }, hasTouch: layout.touch });
-    test("the preset control uses Choose styling and precedes MIDI and meters", async ({ page }, testInfo) => {
+    test("the preset control uses Choose styling at the top of the right panel", async ({ page }, testInfo) => {
       await page.goto("creaturazoid.html");
       await settlePage(page);
       await expect(page.locator(".header-preset-controls")).toBeVisible();
@@ -214,7 +220,6 @@ for (const layout of [
         const next = node.querySelector(".header-preset-next").getBoundingClientRect();
         const random = node.querySelector(".header-preset-random").getBoundingClientRect();
         const trigger = node.querySelector(".instrument-picker-trigger").getBoundingClientRect();
-        const midi = node.nextElementSibling.getBoundingClientRect();
         const preset = getComputedStyle(node.querySelector(".instrument-picker-trigger"));
         const choose = getComputedStyle(document.querySelector(".tabs .instrument-picker-trigger"));
         return {
@@ -223,17 +228,11 @@ for (const layout of [
           randomWidth: random.width, randomHeight: random.height,
           randomAfterNext: random.left >= next.right && random.right <= box.right,
           triggerWidth: trigger.width,
-          midiLeft: midi.left,
-          midiRight: midi.right,
-          midiCenterDelta: Math.abs(midi.y + midi.height / 2 - box.y - box.height / 2),
           sameStyle: ["fontFamily", "color", "backgroundColor", "borderTopWidth"].every(key => preset[key] === choose[key]),
         };
       });
       expect(actual.width).toBeLessThanOrEqual(layout.width);
       expect(actual.right).toBeLessThanOrEqual(layout.width);
-      expect(actual.midiLeft).toBeGreaterThanOrEqual(actual.right);
-      expect(actual.midiRight).toBeLessThanOrEqual(layout.width);
-      expect(actual.midiCenterDelta).toBeLessThan(2);
       expect(actual.sameStyle).toBe(true);
       expect(actual.randomAfterNext).toBe(true);
       expect(actual.triggerWidth).toBeGreaterThanOrEqual(48);
@@ -245,7 +244,8 @@ for (const layout of [
       await page.keyboard.press("Tab");
       await expect(page.locator(".header-preset-random")).toBeFocused();
       await page.keyboard.press("Tab");
-      await expect(page.locator(".header-io-controls .midi-toggle")).toBeFocused();
+      expect(await page.evaluate(() => Boolean(document.activeElement.closest("[data-instrument-preset-host]")))).toBe(true);
+      await expect(page.locator(".header-settings-panel .midi-toggle")).not.toBeFocused();
       await expect(page.locator("#audioButton")).toHaveAttribute("aria-pressed", "false");
       await page.locator(".header-preset-picker > summary").click();
       await expectPresetPanelAnchored(page);

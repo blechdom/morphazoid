@@ -32,7 +32,7 @@ export function createChoosePickerShell(doc, {
   return { details, summary, currentLabel, panel, search, searchInput, list };
 }
 
-/** Fixed popup coordinates: under its own trigger, clamped to the viewport. */
+/** Fixed popup coordinates: beside its trigger, or the nearest visible viewport edge. */
 export function choosePickerPanelBounds(anchor, viewport) {
   const margin = 8;
   const gap = 4;
@@ -48,10 +48,19 @@ export function choosePickerPanelBounds(anchor, viewport) {
     originX + width - insetX - panelWidth,
   ));
   const bottom = originY + height - insetY;
-  const top = Math.max(originY + insetY, Math.min(anchor.bottom + gap, bottom));
+  const belowTop = Math.max(originY + insetY, Math.min(anchor.bottom + gap, bottom));
+  const below = Math.max(0, bottom - belowTop);
+  const aboveBottom = Number.isFinite(anchor.top)
+    ? Math.max(originY + insetY, Math.min(anchor.top - gap, bottom))
+    : originY + insetY;
+  const above = aboveBottom - originY - insetY;
+  const desiredHeight = Math.min(540, height * 0.7);
+  const upward = below < Math.min(240, desiredHeight) && above > below;
+  const panelHeight = Math.min(desiredHeight, upward ? above : below);
+  const top = upward ? aboveBottom - panelHeight : belowTop;
   return {
     left, top, width: panelWidth,
-    height: Math.min(540, height * 0.7, Math.max(0, bottom - top)),
+    height: panelHeight,
   };
 }
 
@@ -64,6 +73,14 @@ export function anchorChoosePickerPanel({ details, summary, panel }, runtime = g
   const doc = summary.ownerDocument;
   const removers = [];
   let destroyed = false;
+  // A rail can establish containment or clip overflow. The top layer keeps
+  // this same DOM node, styling and keyboard ownership above that rail.
+  const topLayer = typeof panel.showPopover === "function";
+  if (topLayer) {
+    panel.setAttribute("popover", "manual");
+    panel.style.margin = "0";
+    panel.style.inset = "auto";
+  }
   const place = () => {
     if (destroyed) return;
     const viewport = runtime.visualViewport;
@@ -75,7 +92,13 @@ export function anchorChoosePickerPanel({ details, summary, panel }, runtime = g
     });
     for (const [key, value] of Object.entries(bounds)) panel.style[key] = `${value}px`;
   };
-  const update = () => { if (details.open) place(); };
+  const update = () => {
+    if (topLayer && details.open !== panel.matches(":popover-open")) {
+      if (details.open) panel.showPopover();
+      else panel.hidePopover();
+    }
+    if (details.open) place();
+  };
   const listen = (target, type, callback, options) => {
     target?.addEventListener?.(type, callback, options);
     removers.push(() => target?.removeEventListener?.(type, callback, options));
@@ -104,6 +127,7 @@ export function anchorChoosePickerPanel({ details, summary, panel }, runtime = g
     update,
     destroy() {
       destroyed = true;
+      if (topLayer && panel.matches(":popover-open")) panel.hidePopover();
       observer?.disconnect();
       for (const remove of removers) remove();
     },

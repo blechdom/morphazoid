@@ -59,21 +59,23 @@ test("L-system Delay exposes live recursion, current settings, safety, and an ec
     html.indexOf("</aside>"),
   );
   assert.match(mastheadMarkup, /class="header-io-controls micmic-header-controls"/);
-  assert.match(mastheadMarkup, /<details class="micmic-input-menu" id="inputMenu"/);
+  assert.match(panelMarkup, /<aside class="panel" data-instrument-preset-host/);
+  assert.match(panelMarkup, /<details class="micmic-input-menu" id="inputMenu"/);
+  assert.doesNotMatch(mastheadMarkup, /id="inputMenu"/);
   for (const id of [
     "micButton", "micButtonLabel", "micButtonHint", "freezeButton", "freezeLabel",
     "freezeHint", "inputMeterOut", "inputMeterBar", "inputPeakMarker", "inputTrim",
     "inputTrimOut", "audioError",
   ]) {
-    assert.match(mastheadMarkup, new RegExp(`id="${id}"`), `#${id} should live in the top menu`);
-    assert.doesNotMatch(panelMarkup, new RegExp(`id="${id}"`), `#${id} should not remain in the panel`);
+    assert.match(panelMarkup, new RegExp(`id="${id}"`), `#${id} should remain available in panel input controls`);
+    assert.doesNotMatch(mastheadMarkup, new RegExp(`id="${id}"`), `#${id} should not remain in the masthead`);
   }
   assert.ok(
-    mastheadMarkup.indexOf("micmic-headphone-warning")
-      < mastheadMarkup.indexOf('class="audio-strip"'),
-    "headphone warning should live in the header input menu before the audio controls",
+    panelMarkup.indexOf("micmic-headphone-warning")
+      < panelMarkup.indexOf('id="presetSection"'),
+    "headphone warning stays in the input menu above the existing instrument sections",
   );
-  assert.doesNotMatch(panelMarkup, /Use headphones/);
+  assert.match(panelMarkup, /Use headphones/);
   assert.match(html, /<b id="micButtonLabel">Start input<\/b>/);
   assert.match(html, /<b id="freezeLabel">Stop audio<\/b>/);
   assert.doesNotMatch(html, /Press Escape for an immediate panic stop|canvasInstructions/);

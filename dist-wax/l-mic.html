@@ -72,40 +72,7 @@
         </select>
       </label>
 
-      <div class="header-io-controls micmic-header-controls" role="group" aria-label="Microphone, MIDI, audio, and settings controls">
-        <details class="micmic-input-menu" id="inputMenu" data-input-state="off">
-          <summary class="micmic-input-trigger" id="inputMenuButton" aria-label="Microphone controls: microphone off">
-            <span class="fracta-mic-icon" aria-hidden="true"><i></i></span>
-          </summary>
-          <div class="micmic-input-popover" role="group" aria-label="Microphone input controls">
-            <p class="micmic-headphone-warning">
-              <strong>Use headphones.</strong> Speakers can feed the room back into the microphone before the digital recursion does.
-            </p>
-            <p class="micmic-headphone-warning"><a href="settings.html">Mic / stereo line input setup →</a> Choose your audio interface and mono/stereo there. Each delay keeps its own input trim.</p>
-            <div class="fracta-listen-actions">
-              <button class="fracta-mic-button" id="micButton" type="button" aria-pressed="false">
-                <span class="fracta-mic-icon" aria-hidden="true"><i></i></span>
-                <span><b id="micButtonLabel">Start input</b><small id="micButtonHint">microphone off</small></span>
-              </button>
-              <button class="fracta-freeze-button" id="freezeButton" type="button" aria-pressed="false" disabled>
-                <span aria-hidden="true">×</span>
-                <span><b id="freezeLabel">Stop audio</b><small id="freezeHint">tail clear</small></span>
-              </button>
-            </div>
-
-            <div class="fracta-meter" aria-label="Live microphone level">
-              <span><b>Input signal</b><output id="inputMeterOut">silent</output></span>
-              <div><i id="inputMeterBar"></i><em id="inputPeakMarker"></em></div>
-            </div>
-
-            <label class="control" for="inputTrim">
-              <span><b>Input trim</b><output id="inputTrimOut" for="inputTrim">85%</output></span>
-              <input id="inputTrim" type="range" min="0" max="1.25" step="0.01" value="0.85" />
-            </label>
-            <p class="audio-error" id="audioError" role="alert" hidden></p>
-          </div>
-        </details>
-
+      <div class="header-io-controls micmic-header-controls" role="group" aria-label="MIDI, audio, and settings controls">
         <div class="audio-strip" aria-label="Audio controls">
           <button class="audio-button" id="audioButton" type="button" aria-pressed="false">
             <span class="audio-glyph fracta-audio-glyph" aria-hidden="true">∞</span>
@@ -152,7 +119,41 @@
         </div>
       </section>
 
-      <aside class="panel" aria-label="L-system Delay controls">
+      <aside class="panel" data-instrument-preset-host aria-label="L-system Delay controls">
+        <div class="micmic-panel-input">
+          <details class="micmic-input-menu" id="inputMenu" data-input-state="off">
+            <summary class="micmic-input-trigger" id="inputMenuButton" aria-label="Microphone controls: microphone off">
+              <span class="fracta-mic-icon" aria-hidden="true"><i></i></span><span>Input controls</span>
+            </summary>
+            <div class="micmic-input-popover" role="group" aria-label="Microphone input controls">
+              <p class="micmic-headphone-warning">
+                <strong>Use headphones.</strong> Speakers can feed the room back into the microphone before the digital recursion does.
+              </p>
+              <p class="micmic-headphone-warning"><a href="settings.html">Mic / stereo line input setup →</a> Choose your audio interface and mono/stereo there. Each delay keeps its own input trim.</p>
+              <div class="fracta-listen-actions">
+                <button class="fracta-mic-button" id="micButton" type="button" aria-pressed="false">
+                  <span class="fracta-mic-icon" aria-hidden="true"><i></i></span>
+                  <span><b id="micButtonLabel">Start input</b><small id="micButtonHint">microphone off</small></span>
+                </button>
+                <button class="fracta-freeze-button" id="freezeButton" type="button" aria-pressed="false" disabled>
+                  <span aria-hidden="true">×</span>
+                  <span><b id="freezeLabel">Stop audio</b><small id="freezeHint">tail clear</small></span>
+                </button>
+              </div>
+
+              <div class="fracta-meter" aria-label="Live microphone level">
+                <span><b>Input signal</b><output id="inputMeterOut">silent</output></span>
+                <div><i id="inputMeterBar"></i><em id="inputPeakMarker"></em></div>
+              </div>
+
+              <label class="control" for="inputTrim">
+                <span><b>Input trim</b><output id="inputTrimOut" for="inputTrim">85%</output></span>
+                <input id="inputTrim" type="range" min="0" max="1.25" step="0.01" value="0.85" />
+              </label>
+              <p class="audio-error" id="audioError" role="alert" hidden></p>
+            </div>
+          </details>
+        </div>
         <details class="group control-section" id="presetSection" data-section="presets">
           <summary class="group-summary">
             <h2 class="group-title">Presets</h2>

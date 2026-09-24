@@ -84,6 +84,9 @@ export default {
 };
 
 export const HeaderAudio = {};
+export const SilentLevel = { args: { level: 0 } };
+export const MaximumLevel = { args: { level: 1 } };
+export const DisabledLevel = { args: { levelDisabled: true } };
 
 export const AudioOn = {
   args: {

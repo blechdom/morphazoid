@@ -1,5 +1,10 @@
 # Full-instrument preset rollout
 
+**September 23 UI update:** full-preset controls now occupy the first row of the
+right control panel; MIDI activation lives inside Settings and master volume
+is a knob. [Performance toolbar](performance-toolbar.md) supersedes older
+header-placement descriptions below without changing the preset contract.
+
 Current queue reviewed September 22, 2026, against freshly fetched main
 `9a45aa0` (after the initial `83ea203` checkpoint). Older dated sections below are historical checkpoints, not the
 current Faves list or a substitute for current verification evidence.
@@ -107,10 +112,10 @@ Changes in this batch:
 
 - Navigation and presets use `createChoosePickerShell()` and the existing
   Choose CSS, not two independently styled dropdowns.
-- Presets mount at the start of the right-hand control group, in the order
-  **preset menu → next → dice → MIDI → sound meters → output/Audio → settings**, without applying
-  a preset or arming Audio on page load. The original MIDI node stays with the
-  meters instead of being moved into the middle of the masthead.
+- Presets now mount at the start of the right control panel, in the order
+  **preset menu → next → dice**, without applying a preset or arming Audio on
+  page load. The existing MIDI toggle lives inside Settings; meters, master
+  volume and Audio remain in the masthead.
 - Main presets replace complete instrument-owned snapshots, with state
   comparison after recall and rollback on a failed recall.
 - Creaturazoid recalls anatomy/modulation and rhythm/tempo together. Hiccup

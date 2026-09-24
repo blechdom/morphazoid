@@ -155,3 +155,31 @@ test("positioning still works without optional viewport or ResizeObserver suppor
   assert.equal(panel.style.height, "273px");
   anchor.destroy();
 });
+
+test("panel presets open upward when their right-panel trigger is near the viewport bottom", () => {
+  const anchor = { left: 300, top: 730, bottom: 778 };
+  const bounds = choosePickerPanelBounds(anchor, { width: 390, height: 844 });
+  assert.equal(bounds.top + bounds.height, anchor.top - 4);
+  assert.equal(bounds.height, 540);
+  assert.ok(bounds.left >= 8 && bounds.left + bounds.width <= 382);
+  const landscape = choosePickerPanelBounds({ left: 550, top: 280, bottom: 328 }, { width: 844, height: 390 });
+  assert.equal(landscape.top + landscape.height, 276);
+  assert.ok(landscape.height > 240);
+});
+
+test("resize or rail scroll can move the trigger offscreen without losing its open popup", () => {
+  for (const viewport of [
+    { width: 844, height: 390 },
+    { width: 390, height: 400, offsetLeft: 100, offsetTop: 40 },
+  ]) for (const top of [-600, 1200]) {
+    const bounds = choosePickerPanelBounds({ left: 900, top, bottom: top + 48 }, viewport);
+    const left = viewport.offsetLeft ?? 0, upper = viewport.offsetTop ?? 0;
+    assert.ok(bounds.left >= left + 8);
+    assert.ok(bounds.left + bounds.width <= left + viewport.width - 8);
+    assert.ok(bounds.top >= upper + 8);
+    assert.ok(bounds.top + bounds.height <= upper + viewport.height - 8);
+    assert.ok(bounds.height >= 240, "the menu must remain usable, not collapse at the viewport edge");
+    if (top < upper) assert.equal(bounds.top, upper + 8);
+    else assert.equal(bounds.top + bounds.height, upper + viewport.height - 8);
+  }
+});

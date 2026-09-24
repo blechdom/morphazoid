@@ -93,8 +93,12 @@ circular transport, and `audio` for the square speaker switch. `default`
 remains a generic button and is not an alias for the smaller `mini-action`.
 Pass `toggle: false` to a play button used as a one-shot trigger.
 
-`createAudioStrip()` composes the production audio switch and master-level
-range without creating an `AudioContext`. Applications own the engine and feed
+`createAudioStrip()` composes the production audio switch and master-volume
+knob without creating an `AudioContext`. `enhanceRangeKnob()` presents the
+original native range as a rotary control, retaining its identity, range,
+keyboard operation and instrument-owned `input`/`change` listeners. Vertical
+drag adjusts the value; Shift makes the drag ten times finer. No wheel gesture
+is captured, and taking hold of the knob never jumps its value. Applications own the engine and feed
 its lifecycle back through `setAudioState()`.
 
 The same boundary applies to hardware and visual stories: MIDI examples never
@@ -164,3 +168,7 @@ the component layer while legacy page class names remain valid. Good next
 families are the repeated FM drum fields and static panel-section markup.
 Canvas editors, sequencers, and synthesis engines should stay instrument-owned
 and compose these primitives at their edges.
+
+The shared masthead and right-panel preset placement contract is documented in
+[Performance toolbar](docs/performance-toolbar.md). MIDI activation lives in
+Settings; full presets retain their instrument-owned transactions.

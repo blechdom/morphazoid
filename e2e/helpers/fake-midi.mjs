@@ -289,6 +289,11 @@ export async function enableFakeMidi(page, {
   timeout = 5000,
 } = {}) {
   const toggle = page.locator(toggleSelector).first();
+  await toggle.waitFor({ state: "attached", timeout });
+  const settings = toggle.locator('xpath=ancestor::details[contains(@class,"header-settings-menu")]');
+  if (await settings.count() && !await settings.evaluate(node => node.open)) {
+    await settings.locator(":scope > summary").click();
+  }
   await toggle.waitFor({ state: "visible", timeout });
   if (await toggle.getAttribute("aria-pressed") !== "true") await toggle.click();
   await page.waitForFunction((selector) => (

@@ -1,0 +1,44 @@
+{
+  "schemaVersion": 1,
+  "baseCommit": "ef9a19d39a7bed6067eea79e57fc986508d37e6b",
+  "baseSha256": "c4eee98030f189453c10d5bf5dfb0f8f0117e1c44287b6acb9426e4df8f356bb",
+  "purpose": "Owner-requested UI-only toolbar reorder, MIDI relocation and native range-knob presentation. Original runtime reference hashes remain frozen.",
+  "changes": [
+    {
+      "file": "nav.js",
+      "regressionTests": [
+        "tests/nav.test.mjs",
+        "tests/range-knob.test.mjs",
+        "tests/performance-toolbar.test.mjs",
+        "e2e/performance-toolbar.spec.mjs",
+        "e2e/midi-contract.spec.mjs"
+      ],
+      "replacements": [
+        {
+          "before": "import { createMidiStatus, createStereoMeter } from \"./src/ui/index.js\";\nimport { createChoosePickerShell } from \"./src/ui/patterns/choose-picker-shell.js\";\nimport { mountHeaderPresets } from \"./src/site/header-presets.js\";\nimport { initializeAudioSessionPolicy, needsAutomaticAudioSession } from \"./src/site/audio-session-policy.js\";\nimport { FAVE_TOOL_IDS, TOOL_GROUPS, SITE_LINKS } from \"./src/site/instrument-registry.js\";\n\n",
+          "after": "import { createMidiStatus, createStereoMeter } from \"./src/ui/index.js\";\nimport { createChoosePickerShell } from \"./src/ui/patterns/choose-picker-shell.js\";\nimport { mountHeaderPresets } from \"./src/site/header-presets.js\";\nimport { enhanceRangeKnob } from \"./src/ui/primitives/range-knob.js\";\nimport { initializeAudioSessionPolicy, needsAutomaticAudioSession } from \"./src/site/audio-session-policy.js\";\nimport { FAVE_TOOL_IDS, TOOL_GROUPS, SITE_LINKS } from \"./src/site/instrument-registry.js\";\n\n"
+        },
+        {
+          "before": "    host = null,\n    routeId = null,\n    audioOutputManager = getSharedAudioOutputManager(runtime),\n  } = {},\n) {\n  const suffix = idSuffix ? `-${String(idSuffix).replace(/[^a-z\\d_-]/gi, \"-\")}` : \"\";\n",
+          "after": "    host = null,\n    routeId = null,\n    audioOutputManager = getSharedAudioOutputManager(runtime),\n    onDestroy = () => {},\n  } = {},\n) {\n  const suffix = idSuffix ? `-${String(idSuffix).replace(/[^a-z\\d_-]/gi, \"-\")}` : \"\";\n"
+        },
+        {
+          "before": "    \"MIDI In\",\n    midiInputSelect,\n  );\n  const midiInputWarning = element(doc, \"p\", \"header-settings-error midi-input-warning\");\n  midiInputWarning.id = `sharedMidiInputWarning${suffix}`;\n  midiInputWarning.setAttribute(\"role\", \"alert\");\n",
+          "after": "    \"MIDI In\",\n    midiInputSelect,\n  );\n  // Keep the aggregate-select API synchronized, but expose only the existing\n  // connection button in Settings. No second permission owner.\n  midiInputSelect.hidden = true;\n  midiInSection.append(toolbar);\n  midiInSection.children[0].setAttribute(\"for\", toggle.id);\n  const midiInputWarning = element(doc, \"p\", \"header-settings-error midi-input-warning\");\n  midiInputWarning.id = `sharedMidiInputWarning${suffix}`;\n  midiInputWarning.setAttribute(\"role\", \"alert\");\n"
+        },
+        {
+          "before": "  const destroy = () => {\n    if (disposed) return;\n    disposed = true;\n    unsubscribe();\n    unsubscribeMessages();\n    unsubscribeAudioOutput();\n",
+          "after": "  const destroy = () => {\n    if (disposed) return;\n    disposed = true;\n    onDestroy();\n    unsubscribe();\n    unsubscribeMessages();\n    unsubscribeAudioOutput();\n"
+        },
+        {
+          "before": "  ])];\n  for (const [index, masthead] of mastheads.entries()) {\n    if (masthead.querySelector?.(\".midi-toolbar\")) continue;\n    const control = createMidiToolbar(doc, runtime, manager, {\n      idSuffix: index === 0 ? \"\" : String(index + 1),\n      host: masthead,\n      routeId,\n      audioOutputManager,\n    });\n    const audioControls = masthead.querySelector?.(\".audio-strip\")\n      ?? masthead.querySelector?.(\".header-actions\")\n",
+          "after": "  ])];\n  for (const [index, masthead] of mastheads.entries()) {\n    if (masthead.querySelector?.(\".midi-toolbar\")) continue;\n    const knobs = [];\n    const control = createMidiToolbar(doc, runtime, manager, {\n      idSuffix: index === 0 ? \"\" : String(index + 1),\n      host: masthead,\n      routeId,\n      audioOutputManager,\n      onDestroy: () => { for (const knob of knobs) knob.destroy(); },\n    });\n    const audioControls = masthead.querySelector?.(\".audio-strip\")\n      ?? masthead.querySelector?.(\".header-actions\")\n"
+        },
+        {
+          "before": "        insertBeforeOrAppend(masthead, ioControls, audioControls);\n        ioControls.append(audioControls);\n      }\n      insertBeforeOrAppend(ioControls, control.toolbar, audioControls);\n      insertBeforeOrAppend(ioControls, control.meterShell, audioControls);\n      const audioButton = audioControls.querySelector?.(\".audio-button\");\n      if (audioButton) audioControls.append(audioButton);\n      ioControls.append(control.details);\n    } else {\n      masthead.append?.(control.toolbar, control.meterShell, control.details);\n    }\n    masthead.classList?.add(\"has-header-settings\");\n    if (manager.status().clientCount > 0) masthead.classList?.add(\"has-midi-toolbar\");\n    controls.push(control);\n  }\n",
+          "after": "        insertBeforeOrAppend(masthead, ioControls, audioControls);\n        ioControls.append(audioControls);\n      }\n      insertBeforeOrAppend(ioControls, control.meterShell, audioControls);\n      const audioButton = audioControls.querySelector?.(\".audio-button\");\n      if (audioButton) audioControls.append(audioButton);\n      for (const field of audioControls.querySelectorAll?.(\".header-level\") ?? []) {\n        const input = field.querySelector?.('input[type=\"range\"]');\n        if (input) knobs.push(enhanceRangeKnob(input, { runtime }));\n      }\n      ioControls.append(control.details);\n    } else {\n      masthead.append?.(control.meterShell, control.details);\n    }\n    masthead.classList?.add(\"has-header-settings\");\n    masthead.classList?.add(\"has-performance-header\");\n    if (manager.status().clientCount > 0) masthead.classList?.add(\"has-midi-toolbar\");\n    controls.push(control);\n  }\n"
+        }
+      ]
+    }
+  ]
+}

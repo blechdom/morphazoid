@@ -10,6 +10,7 @@ import { initializeChaoticViewportControls } from "./src/families/chaotic/chaoti
 import { createMidiStatus, createStereoMeter } from "./src/ui/index.js";
 import { createChoosePickerShell } from "./src/ui/patterns/choose-picker-shell.js";
 import { mountHeaderPresets } from "./src/site/header-presets.js";
+import { enhanceRangeKnob } from "./src/ui/primitives/range-knob.js";
 import { initializeAudioSessionPolicy, needsAutomaticAudioSession } from "./src/site/audio-session-policy.js";
 import { FAVE_TOOL_IDS, TOOL_GROUPS, SITE_LINKS } from "./src/site/instrument-registry.js";
 
@@ -916,6 +917,7 @@ export function createMidiToolbar(
     host = null,
     routeId = null,
     audioOutputManager = getSharedAudioOutputManager(runtime),
+    onDestroy = () => {},
   } = {},
 ) {
   const suffix = idSuffix ? `-${String(idSuffix).replace(/[^a-z\d_-]/gi, "-")}` : "";
@@ -1003,6 +1005,11 @@ export function createMidiToolbar(
     "MIDI In",
     midiInputSelect,
   );
+  // Keep the aggregate-select API synchronized, but expose only the existing
+  // connection button in Settings. No second permission owner.
+  midiInputSelect.hidden = true;
+  midiInSection.append(toolbar);
+  midiInSection.children[0].setAttribute("for", toggle.id);
   const midiInputWarning = element(doc, "p", "header-settings-error midi-input-warning");
   midiInputWarning.id = `sharedMidiInputWarning${suffix}`;
   midiInputWarning.setAttribute("role", "alert");
@@ -1379,6 +1386,7 @@ export function createMidiToolbar(
   const destroy = () => {
     if (disposed) return;
     disposed = true;
+    onDestroy();
     unsubscribe();
     unsubscribeMessages();
     unsubscribeAudioOutput();
@@ -1438,11 +1446,13 @@ export function initializeMidiToolbars(
   ])];
   for (const [index, masthead] of mastheads.entries()) {
     if (masthead.querySelector?.(".midi-toolbar")) continue;
+    const knobs = [];
     const control = createMidiToolbar(doc, runtime, manager, {
       idSuffix: index === 0 ? "" : String(index + 1),
       host: masthead,
       routeId,
       audioOutputManager,
+      onDestroy: () => { for (const knob of knobs) knob.destroy(); },
     });
     const audioControls = masthead.querySelector?.(".audio-strip")
       ?? masthead.querySelector?.(".header-actions")
@@ -1456,15 +1466,19 @@ export function initializeMidiToolbars(
         insertBeforeOrAppend(masthead, ioControls, audioControls);
         ioControls.append(audioControls);
       }
-      insertBeforeOrAppend(ioControls, control.toolbar, audioControls);
       insertBeforeOrAppend(ioControls, control.meterShell, audioControls);
       const audioButton = audioControls.querySelector?.(".audio-button");
       if (audioButton) audioControls.append(audioButton);
+      for (const field of audioControls.querySelectorAll?.(".header-level") ?? []) {
+        const input = field.querySelector?.('input[type="range"]');
+        if (input) knobs.push(enhanceRangeKnob(input, { runtime }));
+      }
       ioControls.append(control.details);
     } else {
-      masthead.append?.(control.toolbar, control.meterShell, control.details);
+      masthead.append?.(control.meterShell, control.details);
     }
     masthead.classList?.add("has-header-settings");
+    masthead.classList?.add("has-performance-header");
     if (manager.status().clientCount > 0) masthead.classList?.add("has-midi-toolbar");
     controls.push(control);
   }
