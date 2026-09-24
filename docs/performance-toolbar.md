@@ -87,3 +87,32 @@ Local logs, original-main overlay comparisons and screenshots are under
 Human listening, physical MIDI hardware and real-phone gesture feel remain
 unperformed. No instrument JavaScript, DSP, preset banks or historical fixture
 hashes changed in this UI refactor.
+
+## Continuation order — September 24, 2026
+
+The owner requested **Faves → Apps → remaining instruments → Work in Progress
+last**. This is the current rollout order, including eventual WIP work, not a
+request to replace any existing bank or sound implementation.
+
+Rechecked against `b5020b3` plus the Automatapoeia transport changes:
+
+- All **13 Faves** already have first-row full-preset menu/Next/dice controls,
+  the masthead master knob, and MIDI activation in Settings. The existing
+  toolbar suite passed **39 checks** across desktop, portrait and landscape.
+- Shapes is also an App and is covered above. **L-Systems, Graphs and
+  Tesselation** are the next missing full-preset adapters. A browser inspection
+  confirms that all three already get their master knob and MIDI-in-Settings
+  from shared navigation, but none has a full-preset menu. Do not add duplicate
+  knobs, MIDI managers or gain stages.
+- Retain L-Systems' grammar and mix sub-presets, Graphs' topology/sound controls,
+  and Tesselation's tile editing. Their next step needs complete-state adapters
+  and genuine parameter randomizers, not merely relabeling partial sub-presets
+  or randomly selecting an existing scene.
+- Migrate the remaining non-WIP owners after Apps; author/migrate WIP presets
+  only after that. Resolve current membership from the registry, not older
+  rollout counts or filesystem names.
+
+No new Apps preset adapter is implemented by this checkpoint. Its UI inventory
+and inspection evidence are local under
+`test-results/automatapoeia-live-transport-20260924/`; mechanical layout checks
+are not listening acceptance.

@@ -64,16 +64,17 @@ for (const layout of layouts) {
       const response = await page.goto("./automatapoeia.html", { waitUntil: "domcontentloaded" });
       expect(response?.ok()).toBe(true);
       await settlePage(page);
+      await page.locator("#playButton").click();
       await expect.poll(() => generation(page)).toBeGreaterThanOrEqual(3);
       expectFullWidthSquareCells(await raster(page));
       await expect(page.locator("#audioButton")).toHaveAttribute("aria-pressed", "false");
 
-      for (const id of ["seedAutomata", "randomizeAutomata", "caRate", "caDensity", "caVoice"]) {
+      for (const id of ["playButton", "seedAutomata", "randomizeAutomata", "caRate", "caDensity", "caVoice"]) {
         expect(await inVisiblePanel(page.locator(`#${id}`)), `${id} should be available without scrolling`).toBe(true);
       }
       if (layout.mobile) {
         expect(await page.evaluate(() => matchMedia("(pointer: coarse)").matches)).toBe(true);
-        for (const id of ["audioButton", "seedAutomata", "randomizeAutomata"]) {
+        for (const id of ["audioButton", "playButton", "seedAutomata", "randomizeAutomata"]) {
           const box = await page.locator(`#${id}`).boundingBox();
           expect(box.width, `${id} touch width`).toBeGreaterThanOrEqual(48);
           expect(box.height, `${id} touch height`).toBeGreaterThanOrEqual(48);

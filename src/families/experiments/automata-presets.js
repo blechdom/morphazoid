@@ -49,7 +49,7 @@ export function validateAutomataPreset(snapshot) {
 function scene(id, label, overrides, seedOrigin = 1) {
   const parameters = { ...defaults, ...overrides,
     caRuleByFamily: { ...defaults.caRuleByFamily, [overrides.caFamily ?? defaults.caFamily]: overrides.caRule ?? defaults.caRule } };
-  return { id, label, description: `${label}: complete automaton, seed, voice, pitch/timbre mappings and envelope. New seed lineage; Audio remains unchanged.`,
+  return { id, label, description: `${label}: complete automaton, seed, voice, pitch/timbre mappings and envelope. Continues the existing row; Audio and Play remain unchanged.`,
     snapshot: validateAutomataPreset({ parameters, seedOrigin }) };
 }
 export const AUTOMATA_FULL_PRESETS = Object.freeze([

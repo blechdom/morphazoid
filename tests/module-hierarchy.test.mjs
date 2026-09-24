@@ -17,6 +17,9 @@ const proof = JSON.parse(await readFile(new URL("fixtures/module-hierarchy-runti
 const ioChanges = JSON.parse(await readFile(new URL("../docs/io-settings-runtime-changes.json", import.meta.url))).changes;
 const iphoneChanges = JSON.parse(await readFile(new URL("../docs/iphone-audio-runtime-changes.json", import.meta.url))).changes;
 const shapesChanges = JSON.parse(await readFile(new URL("../docs/shapes-manual-notes-runtime-changes.json", import.meta.url))).changes;
+const automataChanges = JSON.parse(await readFile(new URL("../docs/automatapoeia-preset-lifecycle-runtime-changes.json", import.meta.url))).changes;
+const automataTransportChanges = JSON.parse(await readFile(new URL("../docs/automatapoeia-live-transport-runtime-changes.json", import.meta.url))).changes;
+const automataClockChanges = JSON.parse(await readFile(new URL("../docs/automatapoeia-audio-clock-runtime-changes.json", import.meta.url))).changes;
 const pugglerChanges = JSON.parse(await readFile(new URL("../docs/puggler-expansion-runtime-changes.json", import.meta.url))).changes;
 const inverse = Object.fromEntries(Object.entries({ ...plan.moves, ...siteMoves }).map(([before, after]) => [after, before]));
 const sha = value => createHash("sha256").update(value).digest("hex");
@@ -62,7 +65,7 @@ test("runtime modules reverse exactly after explicit runtime fixes and documente
     }
     // Keep the relocation baseline frozen. Reverse only the exact, separately
     // documented feature edits, whose behavior has focused DSP/browser tests.
-    for (const change of [...ioChanges, ...shapesChanges].filter(change => change.file === record.after)) {
+    for (const change of [...ioChanges, ...shapesChanges, ...automataTransportChanges, ...automataClockChanges, ...automataChanges].filter(change => change.file === record.after)) {
       for (const testFile of change.regressionTests) assert.ok(existsSync(path.join(root, testFile)), testFile);
       for (const replacement of [...change.replacements].reverse()) {
         assert.equal(current.split(replacement.after).length - 1, 1, `exactly one documented feature edit: ${change.file}`);
@@ -77,6 +80,14 @@ test("runtime modules reverse exactly after explicit runtime fixes and documente
     const restored = rewriteRepositoryPaths(rewriteModulePaths(current, record.after, inverse), inverse);
     assert.equal(sha(restored), record.sha256, record.after);
   }
+});
+
+test("Automatapoeia preset lifecycle amendment is limited to its controller with regression evidence", () => {
+  assert.deepEqual(automataChanges.map(change => change.file), ["src/families/experiments/experiments-app.js"]);
+  assert.deepEqual(automataChanges[0].regressionTests, [
+    "tests/automatapoeia-preset-lifecycle.test.mjs", "e2e/automatapoeia-preset-lifecycle.spec.mjs",
+  ]);
+  assert.ok(automataChanges[0].replacements.length > 0);
 });
 
 test("iPhone amendments are scoped to the four startup controllers, with regression evidence", () => {

@@ -46,11 +46,6 @@
 }
 
 /* Automatapoeia keeps seed, speed and sound within the first control screen. */
-#automata #stageReadout {
-  padding: 4px 6px;
-  background: color-mix(in oklab, var(--bg-deep) 90%, transparent);
-}
-
 #automata .automata-compact-section > .experiment-card-heading {
   padding: 12px 16px 8px;
 }
@@ -65,20 +60,49 @@
   margin: 0;
 }
 
+#automata .automata-live-controls {
+  display: grid;
+  grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
+}
+
+#automata .automata-rate-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+#automata .automata-rate-row .control {
+  flex: 1;
+  min-width: 0;
+}
+
+#automata .automata-rate-row .play-button {
+  flex: 0 0 48px;
+  width: 48px;
+  height: 48px;
+}
+
+#automata .automata-rate-row .play-button[aria-pressed="true"] {
+  color: var(--bg-deep);
+}
+
 #automata .automata-control-pair {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
 }
 
-#automata .automata-control-pair .control > span {
+#automata :is(.automata-control-pair, .automata-live-controls) .control > span {
   display: grid;
   align-content: start;
   min-height: 32px;
   gap: 3px;
 }
 
-#automata .automata-control-pair output {
+#automata :is(.automata-control-pair, .automata-live-controls) output {
   text-align: left;
   white-space: normal;
 }
@@ -108,9 +132,6 @@
     grid-template-rows: minmax(180px, 46%) minmax(0, 1fr);
   }
 
-  #automata .stage-meta {
-    display: none;
-  }
 }
 
 @media (min-width: 600px) and (max-width: 960px) and (max-height: 560px) {
@@ -124,6 +145,21 @@
     border-right: 1px solid var(--line);
     border-bottom: 0;
     box-shadow: none;
+  }
+
+  /* Keep Play, seed recovery and the voice selector above the fold without
+     shrinking any touch target in short landscape viewports. */
+  #automata [data-instrument-preset-host] > .instrument-preset-controls {
+    padding-block: 6px;
+  }
+
+  #automata .automata-compact-section > .experiment-card-heading {
+    padding: 6px 16px 4px;
+  }
+
+  #automata .automata-compact-section > .group-body {
+    padding-bottom: 4px;
+    gap: 6px;
   }
 }
 

@@ -130,6 +130,7 @@ test("Automatapoeia switches to totalistic codes without restarting its history"
   await expect(ruleSlider).toHaveAttribute("max", "255");
   await expect(page.locator("#caRulePickerLabel")).toHaveText("Elementary R1 · Rule 30");
 
+  await page.locator("#playButton").click();
   await expect.poll(() => generation(page)).toBeGreaterThanOrEqual(3);
   const generationBeforeSwitch = await generation(page);
 

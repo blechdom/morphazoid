@@ -118,6 +118,8 @@ test("Automatapoeia preserves exact live evolution while exposing history-safe i
   ]);
   assert.match(legacy, /url=automatapoeia\.html/);
   assert.match(legacy, /href="automatapoeia\.html">Automatapoeia/);
+  assert.doesNotMatch(html, /class="(?:stage-meta|experiment-title)"/);
+  assert.match(html, /<div class="sr-only">\s*<h1>Automatapoeia<\/h1>/);
   assert.match(html, /NKS Open Problems/);
   assert.match(html, /https:\/\/www\.wolframscience\.com\/openproblems\/NKSOpenProblems\.pdf/);
   assert.match(html, /https:\/\/www\.wolframscience\.com\/nks\/notes-2-1--audio-representation-of-cellular-automata\//);
@@ -171,7 +173,7 @@ test("Automatapoeia preserves exact live evolution while exposing history-safe i
   const lookup = html.indexOf('class="automata-rule-lookup"');
   const why = html.indexOf('id="automataInterestTitle"');
   const nks = html.indexOf('id="nksOpenProblemsTitle"');
-  assert.ok(restart < reseed && reseed < rate && rate < density);
+  assert.ok(html.indexOf('id="playButton"') < rate && rate < density && density < restart && restart < reseed);
   assert.ok(density < soundControls && soundControls < voice && voice < sonificationMode);
   assert.ok(sonificationMode < frequencyMin && frequencyMin < frequencyMax && frequencyMax < soundDetails);
   assert.ok(soundDetails < release && release < familySelector);
@@ -290,12 +292,12 @@ test("Automatapoeia preserves exact live evolution while exposing history-safe i
   assert.match(sonification, /runs\.push\(\{/);
   assert.match(sonification, /runs\.map\(\(run\) => Object\.freeze\(run\)\)/);
   assert.doesNotMatch(sonification, /createStereoPanner|\.pan|PENTATONIC/);
-  assert.match(app, /const exactNext = automatapoeiaNextRow\(\s*previous,\s*state\.caRule,\s*state\.caBoundary,\s*state\.caFamily,\s*\)/);
-  assert.match(app, /automatapoeiaTransformRow\(exactNext, state\.caTransform, state\.caBoundary\)/);
+  assert.match(app, /const exactNext = automatapoeiaNextRow\(\s*previous,\s*target\.caRule,\s*target\.caBoundary,\s*target\.caFamily,\s*\)/);
+  assert.match(app, /automatapoeiaTransformRow\(exactNext, target\.caTransform, target\.caBoundary\)/);
   assert.match(app, /automatapoeiaResizeRow\(previous, desiredWidth\)/);
   assert.match(app, /automatapoeiaContourStats\(/);
   assert.match(app, /automatapoeiaRetimedAccumulator\(/);
-  assert.match(app, /state\.caGeneration \+= 1/);
+  assert.match(app, /target\.caGeneration \+= 1/);
   assert.match(app, /"caStrikeLength",\s*"caStrikeLength",\s*\(value\) => `\$\{Math\.round\(value \* 100\)\}%`/);
   const automataDrawing = app.slice(app.indexOf("function drawAutomata()"), app.indexOf("function resetPrimeSieve()"));
   assert.match(app, /createImageData/);
@@ -315,10 +317,10 @@ test("Automatapoeia preserves exact live evolution while exposing history-safe i
   assert.match(app, /caRowBoundaries:\s*\[\]/);
   assert.match(app, /caRowSeams:\s*\[\]/);
   assert.match(app, /caLineageStartIndex:\s*0/);
-  assert.match(app, /state\.caRowBoundaries\.push\(state\.caBoundary\)/);
-  assert.match(app, /state\.caRowBoundaries\.shift\(\)/);
-  assert.match(app, /state\.caRowSeams\.push\(newLineage\)/);
-  assert.match(app, /state\.caRowSeams\.shift\(\)/);
+  assert.match(app, /target\.caRowBoundaries\.push\(target\.caBoundary\)/);
+  assert.match(app, /target\.caRowBoundaries\.shift\(\)/);
+  assert.match(app, /target\.caRowSeams\.push\(newLineage\)/);
+  assert.match(app, /target\.caRowSeams\.shift\(\)/);
   const automataSound = app.slice(
     app.indexOf("function soundAutomataRow("),
     app.indexOf("\nfunction stepAutomata("),
@@ -331,9 +333,9 @@ test("Automatapoeia preserves exact live evolution while exposing history-safe i
   assert.match(automataTopology, /automatapoeiaConnectedForms\(rows/);
   assert.match(automataTopology, /state\.caRowBoundaries/);
   assert.match(automataSound, /automatapoeiaConnectedSoundUnits/);
-  assert.match(automataSound, /state\.caPolarity/);
-  assert.match(automataSound, /state\.caObjectMode/);
-  assert.match(automataSound, /family:\s*state\.caFamily/);
+  assert.match(automataSound, /target\.caPolarity/);
+  assert.match(automataSound, /target\.caObjectMode/);
+  assert.match(automataSound, /family:\s*target\.caFamily/);
 
   const genericRangeBinding = app.slice(
     app.indexOf("function bindRange("),
@@ -353,9 +355,9 @@ test("Automatapoeia preserves exact live evolution while exposing history-safe i
     app.indexOf("populateAutomataRuleAtlas();"),
   );
   assert.match(audioSelectBinding, /caSonificationMode[\s\S]*sanitizeAutomatapoeiaSonificationMode/);
-  assert.match(audioSelectBinding, /audio\.silence\(\)/);
-  assert.match(audioSelectBinding, /resetAutomataAudioStats\(\)/);
-  assert.match(audioSelectBinding, /soundAutomataRow\(row, null\)/);
+  assert.match(audioSelectBinding, /queueAutomataLiveChange\(\)/);
+  assert.doesNotMatch(audioSelectBinding, /audio\.silence\(\)/);
+  assert.doesNotMatch(audioSelectBinding, /resetAutomataAudioStats\(|soundAutomataRow\(/);
   assert.doesNotMatch(audioSelectBinding, /seedAutomata/);
   assert.match(audioSelectBinding, /caPolarity[\s\S]*sanitizeAutomatapoeiaPolarity/);
   assert.match(audioSelectBinding, /caObjectMode[\s\S]*sanitizeAutomatapoeiaObjectMode/);

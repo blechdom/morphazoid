@@ -68,6 +68,14 @@ after every file edit, but keep sound/state preservation gates intact. Standard
 repository verification still covers shared behavior and WIP regressions; this
 priority change does not authorize weakening tests or skipping release checks.
 
+## Automatapoeia continuation — September 24, 2026
+
+The owner now requests paused startup and a round Play/Pause beside Generation
+rate. Full presets/dice and parameter changes preserve existing seed cells and
+history, taking effect at the next row rather than reseeding. The twelve factory
+snapshots remain intact. This overrides earlier preset-recall seed-reset notes;
+see [the current behavior and evidence](automatapoeia-live-transport.md).
+
 ## Owner-requested extension — September 23, 2026
 
 Puggler now has a separate owner-requested 24-scene control-panel adapter, Next and a

@@ -1,0 +1,33 @@
+{
+  "baselineCommit": "41c7239e0f5025f22cfe3699c9e02a04adc86b71",
+  "scope": "Automatapoeia preset note-release bug only. Keep the original module-hierarchy SHA fixtures unchanged.",
+  "changes": [
+    {
+      "file": "src/families/experiments/experiments-app.js",
+      "baselineSha256": "da9bcb1c407f3039306cae4b8e58492043f0b7c3b5e7a7542ac2f90ef0bf1b69",
+      "reason": "Retire the previous seed lineage's held column oscillators and queued row buffers before full preset/dice recall; share native mode-dependent control presentation. Preserve DSP, factory snapshots, Audio session and accumulator retiming.",
+      "regressionTests": [
+        "tests/automatapoeia-preset-lifecycle.test.mjs",
+        "e2e/automatapoeia-preset-lifecycle.spec.mjs"
+      ],
+      "replacements": [
+        {
+          "before": "          audio.silence();\n          resetAutomataAudioStats();\n          const vertical = state.caSonificationMode === \"vertical-sine\";\n          for (const id of [\n            \"caObjectMode\",\n            \"caVoice\",\n            \"caPitchTrace\",\n            \"caTimbreSource\",\n            \"caTimbreAmount\",\n            \"caContourSource\",\n            \"caContourAmount\",\n            \"caPhraseShape\",\n            \"caRhythmDetail\",\n            \"caTimeSpread\",\n            \"caStrikeLength\",\n          ]) {\n            const control = $(id);\n            if (control) control.disabled = vertical;\n          }\n          const row = state.caRows.at(-1);\n          if (state.audioOn && row) soundAutomataRow(row, null);\n",
+          "after": "          audio.silence();\n          resetAutomataAudioStats();\n          updateAutomataSonificationControls();\n          const row = state.caRows.at(-1);\n          if (state.audioOn && row) soundAutomataRow(row, null);\n"
+        },
+        {
+          "before": "}\n\nfunction updateAutomataFamilyPresentation() {\n  const family = sanitizeAutomatapoeiaFamily(state.caFamily);\n",
+          "after": "}\n\nfunction updateAutomataSonificationControls() {\n  const vertical = state.caSonificationMode === \"vertical-sine\";\n  for (const id of [\n    \"caObjectMode\",\n    \"caVoice\",\n    \"caPitchTrace\",\n    \"caTimbreSource\",\n    \"caTimbreAmount\",\n    \"caContourSource\",\n    \"caContourAmount\",\n    \"caPhraseShape\",\n    \"caRhythmDetail\",\n    \"caTimeSpread\",\n    \"caStrikeLength\",\n  ]) {\n    const control = $(id);\n    if (control) control.disabled = vertical;\n  }\n}\n\nfunction updateAutomataFamilyPresentation() {\n  const family = sanitizeAutomatapoeiaFamily(state.caFamily);\n"
+        },
+        {
+          "before": "  apply(snapshot) {\n    validateAutomataPreset(snapshot);\n    const elapsed = automatapoeiaRetimedAccumulator(state.caAccumulator, state.caGeneration,\n      state.caRate, state.caSwing, snapshot.parameters.caRate, snapshot.parameters.caSwing);\n",
+          "after": "  apply(snapshot) {\n    validateAutomataPreset(snapshot);\n    // A new score must retire the old held columns and queued row buffers.\n    // Otherwise leaving vertical-sine bypasses its note-off transitions forever.\n    // Keep the Audio session running and retain the existing generation timing.\n    audio.silence();\n    const elapsed = automatapoeiaRetimedAccumulator(state.caAccumulator, state.caGeneration,\n      state.caRate, state.caSwing, snapshot.parameters.caRate, snapshot.parameters.caSwing);\n"
+        },
+        {
+          "before": "    for (const paint of presetControlPainters.values()) paint();\n    setText(\"levelOut\", percent(state.level));\n    updateAutomataFamilyPresentation();\n    populateAutomataRuleAtlas();\n",
+          "after": "    for (const paint of presetControlPainters.values()) paint();\n    setText(\"levelOut\", percent(state.level));\n    updateAutomataSonificationControls();\n    updateAutomataFamilyPresentation();\n    populateAutomataRuleAtlas();\n"
+        }
+      ]
+    }
+  ]
+}

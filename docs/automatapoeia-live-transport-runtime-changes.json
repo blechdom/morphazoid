@@ -1,0 +1,128 @@
+{
+  "changes": [
+    {
+      "file": "src/families/experiments/experiments-app.js",
+      "reason": "Owner-requested paused startup, independent Play/Pause and next-row preset/control edits that preserve seed/history. Preset descriptions only; factory snapshots unchanged. See docs/automatapoeia-live-transport.md.",
+      "regressionTests": [
+        "tests/automatapoeia-live-transport.test.mjs",
+        "e2e/automatapoeia-live-transport.spec.mjs"
+      ],
+      "replacements": [
+        {
+          "before": "    this.columnSourceEnvelopes = new Map();\n    this.columnSourceRetireTimes = new Map();\n    this.rowScanSources = new Set();\n    this.rowScanCursor = 0;\n    this.rowScanSerial = 0;\n    this.level = 0.45;\n",
+          "after": "    this.columnSourceEnvelopes = new Map();\n    this.columnSourceRetireTimes = new Map();\n    this.rowScanSources = new Set();\n    this.rowScanStartTimes = new Map();\n    this.columnSourceStartTimes = new Map();\n    this.rowScanCursor = 0;\n    this.rowScanSerial = 0;\n    this.level = 0.45;\n"
+        },
+        {
+          "before": "    source.buffer = buffer;\n    source.connect(this.master);\n    this.rowScanSources.add(source);\n    source.onended = () => this.rowScanSources.delete(source);\n    source.start(startTime);\n    source.stop(startTime + scan.renderDuration);\n    return stats;\n",
+          "after": "    source.buffer = buffer;\n    source.connect(this.master);\n    this.rowScanSources.add(source);\n    this.rowScanStartTimes.set(source, startTime);\n    source.onended = () => {\n      this.rowScanSources.delete(source);\n      this.rowScanStartTimes.delete(source);\n    };\n    source.start(startTime);\n    source.stop(startTime + scan.renderDuration);\n    return stats;\n"
+        },
+        {
+          "before": "      const voice = { envelope, oscillator };\n      this.columnVoices.set(event.key, voice);\n      this.columnSources.add(oscillator);\n      sourcesAtStart.add(oscillator);\n      this.columnSourceEnvelopes.set(oscillator, envelope);\n      oscillator.onended = () => {\n        this.columnSources.delete(oscillator);\n        this.columnSourceEnvelopes.delete(oscillator);\n        this.columnSourceRetireTimes.delete(oscillator);\n      };\n      while (sourcesAtStart.size > MAX_AUTOMATA_SINE_SOURCES) {\n        sourceCapped = true;\n",
+          "after": "      const voice = { envelope, oscillator };\n      this.columnVoices.set(event.key, voice);\n      this.columnSources.add(oscillator);\n      this.columnSourceStartTimes.set(oscillator, startTime);\n      sourcesAtStart.add(oscillator);\n      this.columnSourceEnvelopes.set(oscillator, envelope);\n      oscillator.onended = () => {\n        this.columnSources.delete(oscillator);\n        this.columnSourceEnvelopes.delete(oscillator);\n        this.columnSourceRetireTimes.delete(oscillator);\n        this.columnSourceStartTimes.delete(oscillator);\n      };\n      while (sourcesAtStart.size > MAX_AUTOMATA_SINE_SOURCES) {\n        sourceCapped = true;\n"
+        },
+        {
+          "before": "    };\n  }\n\n  silenceColumnSineBank() {\n    if (!this.context) {\n      this.columnVoices.clear();\n      this.columnSources.clear();\n",
+          "after": "    };\n  }\n\n  cancelAutomataFrom(when) {\n    // Replace only unplayed rows. Already sounding buffer tails keep their\n    // natural envelopes; columns crossfade at the row boundary because their\n    // logical bank has already advanced through the discarded lookahead.\n    for (const source of this.rowScanSources) {\n      if ((this.rowScanStartTimes.get(source) ?? -Infinity) < when) continue;\n      try { source.stop(when); } catch { /* already ended */ }\n    }\n    for (const source of this.columnSources) {\n      if ((this.columnSourceRetireTimes.get(source) ?? Infinity) <= when) continue;\n      const future = (this.columnSourceStartTimes.get(source) ?? -Infinity) >= when;\n      const gain = this.columnSourceEnvelopes.get(source)?.gain;\n      if (gain) {\n        if (!future && typeof gain.cancelAndHoldAtTime === \"function\") gain.cancelAndHoldAtTime(when);\n        else {\n          gain.cancelScheduledValues(when);\n          gain.setValueAtTime(future ? 0 : Math.max(0.0001, gain.value), when);\n        }\n        if (!future) gain.linearRampToValueAtTime(0.0001, when + 0.008);\n      }\n      try { source.stop(when + (future ? 0 : 0.012)); } catch { /* already ended */ }\n      this.columnSourceRetireTimes.set(source, when);\n    }\n    // Keep physical ownership until ended so rapid edits/pause still release\n    // all old nodes, including future voices that have never sounded.\n    this.columnVoices.clear();\n    this.columnBankBus?.gain.cancelScheduledValues(when);\n    this.rowScanCursor = when;\n  }\n\n  silenceColumnSineBank() {\n    this.columnSourceStartTimes.clear();\n    if (!this.context) {\n      this.columnVoices.clear();\n      this.columnSources.clear();\n"
+        },
+        {
+          "before": "      }\n    }\n    this.rowScanSources.clear();\n    this.silenceColumnSineBank();\n    this.rowScanCursor = now;\n    for (const voice of this.voices) voice?.gain.gain.setTargetAtTime(0, now, 0.035);\n",
+          "after": "      }\n    }\n    this.rowScanSources.clear();\n    this.rowScanStartTimes.clear();\n    this.silenceColumnSineBank();\n    this.rowScanCursor = now;\n    for (const voice of this.voices) voice?.gain.gain.setTargetAtTime(0, now, 0.035);\n"
+        },
+        {
+          "before": "  lastGearA: null,\n  lastGearB: null,\n  lastGearHit: 0,\n  caRows: [],\n  caRowBoundaries: [],\n  caRowSeams: [],\n",
+          "after": "  lastGearA: null,\n  lastGearB: null,\n  lastGearHit: 0,\n  caPlaying: false,\n  caInitialSeedOrigin: 1,\n  caRows: [],\n  caRowBoundaries: [],\n  caRowSeams: [],\n"
+        },
+        {
+          "before": "      recordAutomataEvolutionSegment();\n      filterAutomataRuleAtlas();\n    }\n    updateSummaries();\n  };\n  element.addEventListener(\"input\", sync);\n",
+          "after": "      recordAutomataEvolutionSegment();\n      filterAutomataRuleAtlas();\n    }\n    if (experiment === \"automata\" && previousValue !== nextValue) queueAutomataLiveChange();\n    updateSummaries();\n  };\n  element.addEventListener(\"input\", sync);\n"
+        },
+        {
+          "before": "      return randomUnit() < density ? 1 : 0;\n    });\n    state.caInitialDensity = density;\n  }\n  return [...state.caInitialRow];\n}\n",
+          "after": "      return randomUnit() < density ? 1 : 0;\n    });\n    state.caInitialDensity = density;\n    state.caInitialSeedOrigin = state.caSeedOrigin;\n  }\n  return [...state.caInitialRow];\n}\n"
+        },
+        {
+          "before": "function soundAutomataRow(row, previousRow, target = state, when = null) {\n  if (!target.audioOn) return;\n  if (target === state && audio.automataClock) {\n    // Explicit auditions (Audio on, mode change, reseed) begin a fresh queue.\n    audio.silence();\n    startAutomataAudioClock(true);\n    return;\n  }\n  const sharedOptions = {\n",
+          "after": "function soundAutomataRow(row, previousRow, target = state, when = null) {\n  if (!target.audioOn) return;\n  if (target === state && audio.automataClock) {\n    // Only explicit Play/Audio/reseed actions may audition the current row.\n    if (state.caPlaying) {\n      audio.silence();\n      startAutomataAudioClock(true);\n    }\n    return;\n  }\n  const sharedOptions = {\n"
+        },
+        {
+          "before": "}\n\nfunction stepAutomata(dt) {\n  if (state.audioOn && audio.automataClock?.running) return;\n  if (!state.caRows.length) seedAutomata();\n  state.caAccumulator += dt;\n",
+          "after": "}\n\nfunction stepAutomata(dt) {\n  if (!state.caPlaying) return;\n  if (state.audioOn && audio.automataClock?.running) return;\n  if (!state.caRows.length) seedAutomata();\n  state.caAccumulator += dt;\n"
+        },
+        {
+          "before": "          state.caBoundary = sanitizeAutomatapoeiaBoundary(boundaryControl.value);\n          boundaryControl.value = state.caBoundary;\n          recordAutomataEvolutionSegment();\n          updateSummaries();\n        };\n        boundaryControl.addEventListener(\"change\", syncBoundary);\n",
+          "after": "          state.caBoundary = sanitizeAutomatapoeiaBoundary(boundaryControl.value);\n          boundaryControl.value = state.caBoundary;\n          recordAutomataEvolutionSegment();\n          queueAutomataLiveChange();\n          updateSummaries();\n        };\n        boundaryControl.addEventListener(\"change\", syncBoundary);\n"
+        },
+        {
+          "before": "          state.caTransform = sanitizeAutomatapoeiaTransform(transformControl.value);\n          transformControl.value = state.caTransform;\n          recordAutomataEvolutionSegment();\n          updateSummaries();\n        };\n        transformControl.addEventListener(\"change\", syncTransform);\n",
+          "after": "          state.caTransform = sanitizeAutomatapoeiaTransform(transformControl.value);\n          transformControl.value = state.caTransform;\n          recordAutomataEvolutionSegment();\n          queueAutomataLiveChange();\n          updateSummaries();\n        };\n        transformControl.addEventListener(\"change\", syncTransform);\n"
+        },
+        {
+          "before": "        const syncVoice = () => {\n          state.caVoice = sanitizeAutomatapoeiaVoice(voiceControl.value);\n          voiceControl.value = state.caVoice;\n          updateSummaries();\n        };\n        voiceControl.addEventListener(\"change\", syncVoice);\n",
+          "after": "        const syncVoice = () => {\n          state.caVoice = sanitizeAutomatapoeiaVoice(voiceControl.value);\n          voiceControl.value = state.caVoice;\n          queueAutomataLiveChange();\n          updateSummaries();\n        };\n        voiceControl.addEventListener(\"change\", syncVoice);\n"
+        },
+        {
+          "before": "          state[key] = sanitize(control.value);\n          control.value = state[key];\n          afterSync?.();\n          updateSummaries();\n        };\n        control.addEventListener(\"change\", sync);\n",
+          "after": "          state[key] = sanitize(control.value);\n          control.value = state[key];\n          afterSync?.();\n          queueAutomataLiveChange();\n          updateSummaries();\n        };\n        control.addEventListener(\"change\", sync);\n"
+        },
+        {
+          "before": "        \"caSonificationMode\",\n        sanitizeAutomatapoeiaSonificationMode,\n        () => {\n          audio.silence();\n          resetAutomataAudioStats();\n          updateAutomataSonificationControls();\n          const row = state.caRows.at(-1);\n          if (state.audioOn && row) soundAutomataRow(row, null);\n        },\n      );\n      bindAudioSelect(\n",
+          "after": "        \"caSonificationMode\",\n        sanitizeAutomatapoeiaSonificationMode,\n        () => {\n          updateAutomataSonificationControls();\n        },\n      );\n      bindAudioSelect(\n"
+        },
+        {
+          "before": "      document.addEventListener(\"keydown\", handleAutomataRuleKey);\n      $(\"caRuleSearch\")?.addEventListener(\"input\", filterAutomataRuleAtlas);\n      $(\"caRuleFilter\")?.addEventListener(\"change\", filterAutomataRuleAtlas);\n      $(\"seedAutomata\")?.addEventListener(\"click\", () => {\n        audio.silence();\n        seedAutomata();\n        updateSummaries();\n      });\n      $(\"randomizeAutomata\")?.addEventListener(\"click\", () => {\n        reseedAutomata();\n        updateSummaries();\n      });\n",
+          "after": "      document.addEventListener(\"keydown\", handleAutomataRuleKey);\n      $(\"caRuleSearch\")?.addEventListener(\"input\", filterAutomataRuleAtlas);\n      $(\"caRuleFilter\")?.addEventListener(\"change\", filterAutomataRuleAtlas);\n      $(\"playButton\")?.addEventListener(\"click\", () => setAutomataPlaying(!state.caPlaying));\n      $(\"seedAutomata\")?.addEventListener(\"click\", () => {\n        audio.silence();\n        seedAutomata();\n        startAutomataAudioClock(false);\n        updateSummaries();\n      });\n      $(\"randomizeAutomata\")?.addEventListener(\"click\", () => {\n        audio.automataClock?.drain();\n        audio.silence();\n        reseedAutomata();\n        updateSummaries();\n      });\n"
+        },
+        {
+          "before": "    },\n    draw: drawAutomata,\n    summary() {\n      const boundaryLabel = automatapoeiaBoundaryLabel(state.caBoundary);\n      const family = sanitizeAutomatapoeiaFamily(state.caFamily);\n      const familyLabel = automatapoeiaFamilyLabel(family);\n",
+          "after": "    },\n    draw: drawAutomata,\n    summary() {\n      updateAutomataTransport();\n      const boundaryLabel = automatapoeiaBoundaryLabel(state.caBoundary);\n      const family = sanitizeAutomatapoeiaFamily(state.caFamily);\n      const familyLabel = automatapoeiaFamilyLabel(family);\n"
+        },
+        {
+          "before": "      const activeSegment = state.caEvolutionSegments.at(-1);\n      const initialLabel = state.caInitialDensity <= 0.001\n        ? \"single centered cell\"\n        : `${percent(state.caInitialDensity)} Bernoulli \u00b7 seed ${state.caSeedOrigin}`;\n      const currentWidth = state.caRows.at(-1)?.length ?? Math.round(state.caWidth);\n      setText(\"metricPrimary\", percent(state.caStats.density));\n      setText(\"metricSecondary\", `${state.caStats.transitions}`);\n",
+          "after": "      const activeSegment = state.caEvolutionSegments.at(-1);\n      const initialLabel = state.caInitialDensity <= 0.001\n        ? \"single centered cell\"\n        : `${percent(state.caInitialDensity)} Bernoulli \u00b7 seed ${state.caInitialSeedOrigin}`;\n      const currentWidth = state.caRows.at(-1)?.length ?? Math.round(state.caWidth);\n      setText(\"metricPrimary\", percent(state.caStats.density));\n      setText(\"metricSecondary\", `${state.caStats.transitions}`);\n"
+        },
+        {
+          "before": "      );\n      setText(\n        \"caLiveChangeSummary\",\n        `Family, ${ruleTerm.toLowerCase()}, boundary, transform, width, timing, and sound change live. Reseed appends a new lineage without clearing history.`,\n      );\n      setText(\n        \"caEvolutionSummary\",\n",
+          "after": "      );\n      setText(\n        \"caLiveChangeSummary\",\n        `Play continues the current seed. Presets and controls take effect on the next row; only Restart clears history. Seed density is used on Restart or Reseed.`,\n      );\n      setText(\n        \"caEvolutionSummary\",\n"
+        },
+        {
+          "before": "      );\n      setText(\n        \"stageReadout\",\n        `AUTOMATA \u00b7 ${familyShort.toUpperCase()} \u00b7 ${ruleTerm.toUpperCase()} ${rule} \u00b7 ROW ${state.caGeneration} \u00b7 ${boundaryLabel.toUpperCase()} \u00b7 ${state.caSonificationMode === \"vertical-sine\" ? \"VERTICAL SINE\" : state.caObjectMode === \"connected\" ? \"CONNECTED FORMS\" : \"RUNS\"} \u00b7 AUDIO ${state.audioOn ? \"ON\" : \"OFF\"}`,\n      );\n      const evolutionDescription = family === \"totalistic-r2\"\n        ? `Binary rows of radius-2 totalistic code ${rule}; each cell is computed from the sum of five neighboring cells.`\n",
+          "after": "      );\n      setText(\n        \"stageReadout\",\n        `AUTOMATA \u00b7 ${familyShort.toUpperCase()} \u00b7 ${ruleTerm.toUpperCase()} ${rule} \u00b7 ROW ${state.caGeneration} \u00b7 ${boundaryLabel.toUpperCase()} \u00b7 ${state.caSonificationMode === \"vertical-sine\" ? \"VERTICAL SINE\" : state.caObjectMode === \"connected\" ? \"CONNECTED FORMS\" : \"RUNS\"} \u00b7 ${state.caPlaying ? \"PLAYING\" : \"PAUSED\"} \u00b7 AUDIO ${state.audioOn ? \"ON\" : \"OFF\"}`,\n      );\n      const evolutionDescription = family === \"totalistic-r2\"\n        ? `Binary rows of radius-2 totalistic code ${rule}; each cell is computed from the sum of five neighboring cells.`\n"
+        },
+        {
+          "before": "  }\n  updateAutomataFamilyPresentation();\n  if (rebuildAtlas) populateAutomataRuleAtlas();\n  if (record && changed) recordAutomataEvolutionSegment();\n  updateSummaries();\n}\n\n",
+          "after": "  }\n  updateAutomataFamilyPresentation();\n  if (rebuildAtlas) populateAutomataRuleAtlas();\n  if (record && changed) {\n    recordAutomataEvolutionSegment();\n    queueAutomataLiveChange();\n  }\n  updateSummaries();\n}\n\n"
+        },
+        {
+          "before": "  if (slider) slider.value = String(rule);\n  setText(\"caRuleOut\", `${rule}`);\n  recordAutomataEvolutionSegment();\n  updateAutomataRuleControls();\n  filterAutomataRuleAtlas();\n  updateSummaries();\n",
+          "after": "  if (slider) slider.value = String(rule);\n  setText(\"caRuleOut\", `${rule}`);\n  recordAutomataEvolutionSegment();\n  queueAutomataLiveChange();\n  updateAutomataRuleControls();\n  filterAutomataRuleAtlas();\n  updateSummaries();\n"
+        },
+        {
+          "before": "  return structuredClone(Object.fromEntries(AUTOMATA_SCORE_KEYS.map(key => [key, target[key]])));\n}\n\nfunction startAutomataAudioClock(audition) {\n  if (!audio.automataClock || !state.audioOn || !audio.context || !state.caRows.length) return;\n  automataFuture = { ...state, ...captureAutomataScore(state) };\n  const interval = automatapoeiaSwingInterval(state.caGeneration, state.caRate, state.caSwing);\n  audio.automataClock.start({\n",
+          "after": "  return structuredClone(Object.fromEntries(AUTOMATA_SCORE_KEYS.map(key => [key, target[key]])));\n}\n\nfunction updateAutomataTransport() {\n  const button = $(\"playButton\");\n  button?.setAttribute(\"aria-pressed\", String(state.caPlaying));\n  button?.setAttribute(\"aria-label\", state.caPlaying ? \"Pause evolution\" : \"Start evolution\");\n  if (button) button.title = state.caPlaying ? \"Pause\" : \"Play\";\n}\n\nfunction setAutomataPlaying(playing) {\n  audio.automataClock?.drain();\n  state.caPlaying = Boolean(playing);\n  state.lastFrame = performance.now() / 1000;\n  if (state.caPlaying) startAutomataAudioClock(false);\n  else {\n    audio.silence();\n    resetAutomataAudioStats();\n  }\n  updateAutomataTransport();\n  updateSummaries();\n}\n\nfunction queueAutomataLiveChange() {\n  if (!state.caRows.length || !audio.automataClock?.running) return;\n  audio.automataClock.revise((when) => {\n    audio.cancelAutomataFrom(when);\n    automataFuture = { ...state, ...captureAutomataScore(state) };\n  });\n}\n\nfunction startAutomataAudioClock(audition) {\n  if (!audio.automataClock || !state.audioOn || !state.caPlaying || !audio.context || !state.caRows.length) return;\n  automataFuture = { ...state, ...captureAutomataScore(state) };\n  const interval = automatapoeiaSwingInterval(state.caGeneration, state.caRate, state.caSwing);\n  audio.automataClock.start({\n"
+        },
+        {
+          "before": "if (experiment === \"automata\") audio.automataClock = new AutomatapoeiaClock({\n  now: () => audio.context?.currentTime ?? 0,\n  advance(when, audible) {\n    // Live edits affect the next unqueued row. Already audible envelopes and\n    // the short, sample-timed queue are not chopped up by every knob event.\n    Object.assign(automataFuture, captureAutomataPreset(state).parameters);\n    recordAutomataEvolutionSegment(automataFuture);\n    stepAutomataRow(audible, automataFuture, when);\n",
+          "after": "if (experiment === \"automata\") audio.automataClock = new AutomatapoeiaClock({\n  now: () => audio.context?.currentTime ?? 0,\n  advance(when, audible) {\n    // The queue is revised at its next unheard row when live controls change.\n    // Every replacement is computed from the last presented, unchanged row.\n    Object.assign(automataFuture, captureAutomataPreset(state).parameters);\n    recordAutomataEvolutionSegment(automataFuture);\n    stepAutomataRow(audible, automataFuture, when);\n"
+        },
+        {
+          "before": "  capture: () => captureAutomataPreset(state),\n  apply(snapshot) {\n    validateAutomataPreset(snapshot);\n    // A new score must retire the old held columns and queued row buffers.\n    // Otherwise leaving vertical-sine bypasses its note-off transitions forever.\n    // Keep the Audio session running and retain the existing generation timing.\n    audio.silence();\n    const elapsed = automatapoeiaRetimedAccumulator(state.caAccumulator, state.caGeneration,\n      state.caRate, state.caSwing, snapshot.parameters.caRate, snapshot.parameters.caSwing);\n    Object.assign(state, snapshot.parameters);\n    state.caSeedOrigin = snapshot.seedOrigin;\n    seedAutomata({ rebuildInitial: true });\n    state.caAccumulator = Math.min(elapsed, automatapoeiaSwingInterval(0, state.caRate, state.caSwing));\n    for (const [key, value] of Object.entries(snapshot.parameters)) if ($(key)) $(key).value = String(value);\n    for (const paint of presetControlPainters.values()) paint();\n    setText(\"levelOut\", percent(state.level));\n",
+          "after": "  capture: () => captureAutomataPreset(state),\n  apply(snapshot) {\n    validateAutomataPreset(snapshot);\n    Object.assign(state, snapshot.parameters);\n    // Preserve the current cells/initial row. The preset's deterministic sound\n    // seed is retained without generating a new cellular lineage.\n    state.caSeedOrigin = snapshot.seedOrigin;\n    recordAutomataEvolutionSegment();\n    queueAutomataLiveChange();\n    for (const [key, value] of Object.entries(snapshot.parameters)) if ($(key)) $(key).value = String(value);\n    for (const paint of presetControlPainters.values()) paint();\n    setText(\"levelOut\", percent(state.level));\n"
+        }
+      ]
+    },
+    {
+      "file": "src/families/experiments/automata-presets.js",
+      "reason": "Owner-requested paused startup, independent Play/Pause and next-row preset/control edits that preserve seed/history. Preset descriptions only; factory snapshots unchanged. See docs/automatapoeia-live-transport.md.",
+      "regressionTests": [
+        "tests/automatapoeia-live-transport.test.mjs",
+        "e2e/automatapoeia-live-transport.spec.mjs"
+      ],
+      "replacements": [
+        {
+          "before": "function scene(id, label, overrides, seedOrigin = 1) {\n  const parameters = { ...defaults, ...overrides,\n    caRuleByFamily: { ...defaults.caRuleByFamily, [overrides.caFamily ?? defaults.caFamily]: overrides.caRule ?? defaults.caRule } };\n  return { id, label, description: `${label}: complete automaton, seed, voice, pitch/timbre mappings and envelope. New seed lineage; Audio remains unchanged.`,\n    snapshot: validateAutomataPreset({ parameters, seedOrigin }) };\n}\nexport const AUTOMATA_FULL_PRESETS = Object.freeze([\n",
+          "after": "function scene(id, label, overrides, seedOrigin = 1) {\n  const parameters = { ...defaults, ...overrides,\n    caRuleByFamily: { ...defaults.caRuleByFamily, [overrides.caFamily ?? defaults.caFamily]: overrides.caRule ?? defaults.caRule } };\n  return { id, label, description: `${label}: complete automaton, seed, voice, pitch/timbre mappings and envelope. Continues the existing row; Audio and Play remain unchanged.`,\n    snapshot: validateAutomataPreset({ parameters, seedOrigin }) };\n}\nexport const AUTOMATA_FULL_PRESETS = Object.freeze([\n"
+        }
+      ]
+    }
+  ]
+}

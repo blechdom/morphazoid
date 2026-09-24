@@ -76,16 +76,16 @@
           >
             Binary cellular automata row scanner.
           </canvas>
-          <div class="stage-meta" aria-hidden="true">
+          <div class="sr-only" aria-hidden="true">
             <span id="stageReadout">AUTOMATA · RULE 30 · FIXED ZERO · AUDIO OFF</span>
           </div>
-          <div class="experiment-title" aria-hidden="true">
+          <div class="sr-only">
             <h1>Automatapoeia</h1>
             <small id="stageCaption">elementary rule 30 · fixed zero boundary</small>
           </div>
         </div>
         <p class="sr-only" id="canvasInstructions">
-          Rows evolve downward. Family selects either the three-cell elementary neighborhood or the five-cell radius-2 total.
+          Press Play beside Generation rate to evolve rows downward; Audio is armed separately. Family selects either the three-cell elementary neighborhood or the five-cell radius-2 total.
           In Down-connected forms mode, thin vectors join selected cells to vertical or diagonal neighboring cells.
         </p>
         <p class="sr-only" id="liveStatus" aria-live="polite"></p>
@@ -98,19 +98,25 @@
             <span class="section-state" id="patternSummary">Rule 30</span>
           </div>
           <div class="group-body">
-            <div class="experiment-button-grid" role="group" aria-label="Restart or reseed">
-              <button id="seedAutomata" type="button" aria-label="Restart from the initial row">Restart</button>
-              <button class="automata-randomize" id="randomizeAutomata" type="button" aria-label="Append a new seed without clearing history">Reseed</button>
-            </div>
-            <div class="automata-control-pair">
-              <label class="control" for="caRate">
-                <span><b>Generation rate</b><output id="caRateOut" for="caRate">8.0 rows/s</output></span>
-                <input id="caRate" type="range" min="1" max="24" step="0.1" value="8" />
-              </label>
+            <div class="automata-live-controls">
+              <div class="automata-rate-row">
+                <button class="play-button" id="playButton" data-primary-transport type="button" aria-pressed="false" aria-label="Start evolution" title="Play">
+                  <svg class="transport-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5 18 12 8 18.5Z" /></svg>
+                  <svg class="transport-pause" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6v12M16 6v12" /></svg>
+                </button>
+                <label class="control" for="caRate">
+                  <span><b>Generation rate</b><output id="caRateOut" for="caRate">8.0 rows/s</output></span>
+                  <input id="caRate" type="range" min="1" max="24" step="0.1" value="8" />
+                </label>
+              </div>
               <label class="control" for="caDensity">
                 <span><b>Seed density</b><output id="caDensityOut" for="caDensity">one centered cell</output></span>
                 <input id="caDensity" type="range" min="0" max="1" step="0.01" value="0" />
               </label>
+            </div>
+            <div class="experiment-button-grid" role="group" aria-label="Restart or reseed">
+              <button id="seedAutomata" type="button" aria-label="Restart from the initial row">Restart</button>
+              <button class="automata-randomize" id="randomizeAutomata" type="button" aria-label="Append a new seed without clearing history">Reseed</button>
             </div>
           </div>
         </section>
