@@ -1,0 +1,14 @@
+{
+  "additions": [
+    {
+      "id": "simd-chiptune",
+      "imageHref": "assets/instruments/simd-chiptune.webp",
+      "categoryId": "simd-audio",
+      "categoryLabel": "SIMD Audio",
+      "tags": [
+        { "id": "synthesizer", "label": "Synthesizer" },
+        { "id": "sequencer", "label": "Sequencer" }
+      ]
+    }
+  ]
+}

@@ -2,39 +2,20 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <script src="wax/wax-host-bootstrap.js" data-morphazoid-wax-bootstrap></script>
-    <!-- morphazoid-social-preview:start -->
-    <meta property="og:type" content="website" />
-    <meta property="og:site_name" content="Morphazoid" />
-    <meta property="og:title" content="WebGPU Chiptune - Morphazoid" />
-    <meta property="og:description" content="Morphazoid WebGPU Chiptune — a playable WGSL port of srtuss's 2015 Shadertoy sound shader." />
-    <meta property="og:url" content="https://morphazoid.com/webgpu-chiptune.html" />
-    <meta property="og:image" content="https://morphazoid.com/assets/social/morphazoid-card-20260917.png" />
-    <meta property="og:image:secure_url" content="https://morphazoid.com/assets/social/morphazoid-card-20260917.png" />
-    <meta property="og:image:type" content="image/png" />
-    <meta property="og:image:width" content="1200" />
-    <meta property="og:image:height" content="630" />
-    <meta property="og:image:alt" content="Morphazoid geometric wireframe logo on a dark background." />
-    <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="WebGPU Chiptune - Morphazoid" />
-    <meta name="twitter:description" content="Morphazoid WebGPU Chiptune — a playable WGSL port of srtuss's 2015 Shadertoy sound shader." />
-    <meta name="twitter:image" content="https://morphazoid.com/assets/social/morphazoid-card-20260917.png" />
-    <meta name="twitter:image:alt" content="Morphazoid geometric wireframe logo on a dark background." />
-    <link rel="image_src" href="https://morphazoid.com/assets/social/morphazoid-card-20260917.png" />
-    <!-- morphazoid-social-preview:end -->
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="theme-color" content="#071015" />
     <meta
       name="description"
-      content="Morphazoid WebGPU Chiptune — a playable WGSL port of srtuss's 2015 Shadertoy sound shader."
+      content="Morphazoid SIMD Chiptune — a playable WebAssembly SIMD port of srtuss's 2015 Shadertoy sound shader."
     />
-    <title>WebGPU Chiptune - Morphazoid</title>
+    <title>SIMD Chiptune - Morphazoid</title>
     <link rel="icon" href="favicon.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="style.css" />
     <link rel="stylesheet" href="src/instruments/webgpu-303/webgpu-303.css" />
     <link rel="stylesheet" href="src/instruments/webgpu-chiptune/webgpu-chiptune.css" />
+    <link rel="stylesheet" href="src/instruments/simd-chiptune/simd-chiptune.css" />
   </head>
-  <body class="webgpu-303-page webgpu-chiptune-page">
+  <body class="webgpu-303-page webgpu-chiptune-page simd-chiptune-page" data-audio-backend="simd">
     <header class="masthead">
       <a class="wordmark" href="./" aria-label="Morphazoid home">
         <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
@@ -47,13 +28,12 @@
         <a class="tab" href="hyper-rubix.html">hyper rubix</a>
         <a class="tab webgpu-303-tab" href="webgpu-303.html">webgpu 303</a>
         <a
-          class="tab active webgpu-303-tab"
+          class="tab webgpu-303-tab"
           href="webgpu-chiptune.html"
-          aria-current="page"
         >webgpu chiptune</a>
         <a class="tab webgpu-303-tab" href="webgpu-synths.html">gpu shader synths</a>
         <a class="tab" href="srtuss.html">srtuss master</a>
-        <a class="tab" href="simd-chiptune.html">simd chiptune</a>
+        <a class="tab active" href="simd-chiptune.html" aria-current="page">simd chiptune</a>
       </nav>
       <label class="mobile-instrument-nav">
         <span class="sr-only">Instrument</span>
@@ -62,10 +42,10 @@
           <option value="sliding-puzzle.html">sliding puzzle</option>
           <option value="hyper-rubix.html">hyper rubix</option>
           <option value="webgpu-303.html">webgpu 303</option>
-          <option value="webgpu-chiptune.html" selected>webgpu chiptune</option>
+          <option value="webgpu-chiptune.html">webgpu chiptune</option>
           <option value="webgpu-synths.html">gpu shader synths</option>
           <option value="srtuss.html">srtuss master</option>
-          <option value="simd-chiptune.html">simd chiptune</option>
+          <option value="simd-chiptune.html" selected>simd chiptune</option>
         </select>
       </label>
 
@@ -79,9 +59,9 @@
             id="synthPlayButton"
             type="button"
             aria-pressed="false"
-            aria-label="Play WebGPU Chiptune"
+            aria-label="Play SIMD Chiptune"
             aria-keyshortcuts="Space"
-            title="Play WebGPU Chiptune (Space)"
+            title="Play SIMD Chiptune (Space)"
             data-primary-transport
           >
             <svg class="transport-play" viewBox="0 0 24 24" aria-hidden="true">
@@ -104,7 +84,7 @@
           <span><b>Output</b><output id="outputOut" for="output">55%</output></span>
           <input
             id="output"
-            aria-label="WebGPU Chiptune output level"
+            aria-label="SIMD Chiptune output level"
             type="range"
             min="0"
             max="1"
@@ -116,7 +96,7 @@
     </header>
 
     <main class="shell webgpu-303-shell" id="webgpuChiptune">
-      <h1 class="sr-only" id="webgpuChiptuneTitle">WebGPU Chiptune</h1>
+      <h1 class="sr-only" id="webgpuChiptuneTitle">SIMD Chiptune</h1>
       <section class="chiptune-character-panel" aria-labelledby="pixelEnsembleTitle">
         <header class="chiptune-character-header">
           <span>
@@ -216,7 +196,7 @@
 
           <div class="webgpu-303-heading">
             <p>SHADERTOY SOUND · WGSL COMPUTE</p>
-            <div class="chiptune-display-title" aria-hidden="true">WebGPU Chiptune</div>
+            <div class="chiptune-display-title" aria-hidden="true">SIMD Chiptune</div>
             <span id="engineBadge">WGSL sound shader</span>
           </div>
 
@@ -232,7 +212,7 @@
 
       </section>
 
-      <aside class="panel webgpu-303-panel" aria-label="WebGPU Chiptune controls">
+      <aside class="panel webgpu-303-panel" aria-label="SIMD Chiptune controls">
         <details
           class="group control-section webgpu-303-section chiptune-live-editor"
           data-section="editor"
@@ -424,7 +404,7 @@
             <div
               class="webgpu-knob-bank"
               id="knobControls"
-              aria-label="WebGPU Chiptune macro controls"
+              aria-label="SIMD Chiptune macro controls"
             ></div>
           </div>
         </details>
@@ -455,7 +435,7 @@
               class="webgpu-preset-grid"
               id="presetButtons"
               role="group"
-              aria-label="WebGPU Chiptune presets"
+              aria-label="SIMD Chiptune presets"
             ></div>
             <p class="chiptune-preset-description" id="presetDescription">
               The untouched 2015 shader arrangement: all five lanes follow its procedural contours.
@@ -551,8 +531,8 @@
               </span>
             </label>
             <p class="webgpu-credit-note">
-              The active Shadertoy sound path is translated from GLSL to WGSL and rendered
-              in bounded stereo chunks. Musically meaningful active-path values are editable;
+              The original chiptune sound path runs in a WebAssembly SIMD AudioWorklet,
+              with automatic scalar fallback and short fades for live edits. Musically meaningful active-path values are editable;
               numerical stability constants, 12-TET math, BLEP calibration, sample rate, and
               the safety ceiling remain fixed. Dormant source experiments are intentionally omitted.
             </p>
@@ -575,7 +555,7 @@
       </aside>
 
       <p class="sr-only" id="webgpuChiptuneDescription">
-        A WebGPU compute shader renders a procedural tracker composition with two upper pulse
+        A WebAssembly SIMD audio worklet renders a procedural tracker composition with two upper pulse
         voices, bass, lead, arpeggio, noise percussion, drums, and ping-pong echo into Web Audio.
         Its live horizontal editor shows the loaded preset as one pattern ready for customization.
       </p>
@@ -641,7 +621,6 @@
     </main>
 
     <script type="module" src="nav.js"></script>
-    <script type="module" src="src/instruments/webgpu-chiptune/webgpu-chiptune-app.js"></script>
-    <script type="module" src="wax/wax-universal-adapter.js" data-morphazoid-wax-universal-adapter></script>
-</body>
+    <script type="module" src="src/instruments/simd-chiptune/simd-chiptune-app.js"></script>
+  </body>
 </html>

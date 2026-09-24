@@ -1,5 +1,7 @@
 # Morphazoid
 
+**[SIMD Chiptune](simd-chiptune.html)** preserves WebGPU Chiptune’s six animated performers, nine 32-step sequencer lanes, Song/Pattern modes, complete presets and stereo echo. Its WebAssembly SIMD audio worklet runs without WebGPU and includes a scalar fallback. Audio starts off. [Controls and source analysis](docs/simd-chiptune.md).
+
 **[Loopini](loopini.html)** is a simple six-circle recording looper: make a
 sound, tap circles on/off, and use the in-loop **●** to replace a bad take or
 **+** to layer a recording over it. The **Speed** knob changes playback and recording together:

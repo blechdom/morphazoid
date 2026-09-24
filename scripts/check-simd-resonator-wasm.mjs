@@ -7,6 +7,8 @@ import { fileURLToPath } from "node:url";
 const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const temporary = await mkdtemp(join(tmpdir(), "morphazoid-simd-wasm-"));
 const artifacts = [
+  "simd-chiptune-scalar.wasm",
+  "simd-chiptune-simd.wasm",
   "simd-resonator-scalar.wasm",
   "simd-resonator-simd.wasm",
   "simd-303-scalar.wasm",

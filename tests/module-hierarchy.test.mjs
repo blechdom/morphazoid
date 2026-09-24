@@ -13,6 +13,7 @@ const plan = JSON.parse(await readFile(new URL("../docs/source-module-layout.jso
 const proof = JSON.parse(await readFile(new URL("fixtures/module-hierarchy-runtime.json", import.meta.url)));
 const ioChanges = JSON.parse(await readFile(new URL("../docs/io-settings-runtime-changes.json", import.meta.url))).changes;
 const iphoneChanges = JSON.parse(await readFile(new URL("../docs/iphone-audio-runtime-changes.json", import.meta.url))).changes;
+const chiptuneChanges = JSON.parse(await readFile(new URL("../docs/simd-chiptune-runtime-changes.json", import.meta.url))).changes;
 const inverse = Object.fromEntries(Object.entries(plan.moves).map(([before, after]) => [after, before]));
 const sha = value => createHash("sha256").update(value).digest("hex");
 
@@ -28,7 +29,7 @@ test("all relocated instrument modules have one owner and explicit release inclu
   for (const file of plan.retainedSharedModules) assert.ok((await stat(path.join(root, file))).isFile(), file);
 });
 
-test("runtime modules reverse exactly after explicit runtime fixes, stereo-input and iPhone startup additions", async () => {
+test("runtime modules reverse exactly after documented feature amendments", async () => {
   assert.deepEqual(plan.reviewedRuntimeFixes.map(fix => fix.file), [
     "src/instruments/shepard-risset/shepard-risset-app.js",
     "src/instruments/spider-synth/spider-synth-app.js",
@@ -37,6 +38,15 @@ test("runtime modules reverse exactly after explicit runtime fixes, stereo-input
   ]);
   for (const record of proof.files) {
     let current = await readFile(path.join(root, record.after), "utf8");
+    for (const change of chiptuneChanges.filter(change => change.file === record.after)) {
+      assert.equal(current, change.wrapper, `shared Chiptune entry: ${change.file}`);
+      current = await readFile(path.join(root, change.implementation), "utf8");
+      for (const testFile of change.regressionTests) assert.ok(existsSync(path.join(root, testFile)), testFile);
+      for (const replacement of [...change.replacements].reverse()) {
+        assert.equal(current.split(replacement.after).length - 1, 1, `exactly one shared Chiptune edit: ${change.file}`);
+        current = current.replace(replacement.after, replacement.before);
+      }
+    }
     for (const change of iphoneChanges.filter(change => change.file === record.after)) {
       for (const testFile of change.regressionTests) assert.ok(existsSync(path.join(root, testFile)), testFile);
       for (const replacement of [...change.replacements].reverse()) {
@@ -61,6 +71,15 @@ test("runtime modules reverse exactly after explicit runtime fixes, stereo-input
     const restored = rewriteRepositoryPaths(rewriteModulePaths(current, record.after, inverse), inverse);
     assert.equal(sha(restored), record.sha256, record.after);
   }
+});
+
+test("Chiptune sharing has two thin entries, explicit release inclusion and parity evidence", async () => {
+  assert.deepEqual(chiptuneChanges.map(change => change.file), ["src/instruments/webgpu-chiptune/webgpu-chiptune-app.js"]);
+  const change = chiptuneChanges[0];
+  assert.equal(change.implementation, "src/families/chiptune/chiptune-app.js");
+  assert.equal(await readFile(path.join(root, "src/instruments/simd-chiptune/simd-chiptune-app.js"), "utf8"), change.wrapper);
+  assert.ok((await readRuntimeManifest()).worktreeFiles.includes(change.implementation));
+  assert.ok(change.regressionTests.includes("e2e/simd-chiptune-parity.spec.mjs"));
 });
 
 test("iPhone amendments are scoped to the four startup controllers, with regression evidence", () => {

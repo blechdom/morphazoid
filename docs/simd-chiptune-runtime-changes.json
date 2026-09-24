@@ -1,0 +1,78 @@
+{
+  "changes": [
+    {
+      "file": "src/instruments/webgpu-chiptune/webgpu-chiptune-app.js",
+      "implementation": "src/families/chiptune/chiptune-app.js",
+      "wrapper": "import \"../../families/chiptune/chiptune-app.js\";\n",
+      "reason": "Share the unchanged musical controller with SIMD Chiptune; select audio backend, preserve backend labels, expose read-only state capture, and guard cancelled startup failures. Exact reversals retain the original relocation proof.",
+      "regressionTests": [
+        "tests/webgpu-chiptune.test.mjs",
+        "tests/simd-chiptune-audio.test.mjs",
+        "e2e/simd-chiptune-parity.spec.mjs",
+        "e2e/webgpu-chiptune.spec.mjs"
+      ],
+      "replacements": [
+        {
+          "before": "  webGpuChiptuneStageSnapshot,\n  webGpuChiptuneStepSnapshot,\n  webGpuChiptuneSupport,\n} from \"./webgpu-chiptune.js\";\n\nimport { CHIPTUNE_DANCER_IDENTITIES, drawChiptuneDancer } from \"./webgpu-chiptune-dancers.js\";\n\nconst $ = (id) => document.getElementById(id);\nconst clamp = (value, minimum, maximum) => Math.min(maximum, Math.max(minimum, Number(value) || 0));\n",
+          "after": "  webGpuChiptuneStageSnapshot,\n  webGpuChiptuneStepSnapshot,\n  webGpuChiptuneSupport,\n} from \"../../instruments/webgpu-chiptune/webgpu-chiptune.js\";\n\nimport { CHIPTUNE_DANCER_IDENTITIES, drawChiptuneDancer } from \"../../instruments/webgpu-chiptune/webgpu-chiptune-dancers.js\";\nimport { SimdChiptuneAudio, simdChiptuneSupport } from \"../../instruments/simd-chiptune/audio.js\";\n\nconst simdBackend = document.body.dataset.audioBackend === \"simd\";\nconst instrumentId = simdBackend ? \"simd-chiptune\" : \"webgpu-chiptune\";\nconst instrumentName = simdBackend ? \"SIMD Chiptune\" : \"WebGPU Chiptune\";\nconst backendName = simdBackend ? \"SIMD\" : \"WebGPU\";\nconst ChiptuneAudio = simdBackend ? SimdChiptuneAudio : WebGpuChiptuneAudio;\n\nconst $ = (id) => document.getElementById(id);\nconst clamp = (value, minimum, maximum) => Math.min(maximum, Math.max(minimum, Number(value) || 0));\n"
+        },
+        {
+          "before": "  texturePhase: [0, 127 / 128],\n});\n\nconst support = webGpuChiptuneSupport(globalThis);\nconst state = {\n  params: sanitizeWebGpuChiptuneParams(),\n  sequence: createWebGpuChiptunePattern(),\n",
+          "after": "  texturePhase: [0, 127 / 128],\n});\n\nconst support = simdBackend ? simdChiptuneSupport(globalThis) : webGpuChiptuneSupport(globalThis);\nconst state = {\n  params: sanitizeWebGpuChiptuneParams(),\n  sequence: createWebGpuChiptunePattern(),\n"
+        },
+        {
+          "before": "}\n\nfunction showError(error) {\n  $(\"audioError\").textContent = error instanceof Error ? error.message : String(error);\n  $(\"audioError\").hidden = false;\n}\n\nfunction clearError() {\n",
+          "after": "}\n\nfunction showError(error) {\n  const message = error instanceof Error ? error.message : String(error);\n  const alert = $(\"audioError\");\n  alert.textContent = message;\n  if (!simdBackend && /WebGPU|adapter/i.test(message)) {\n    const alternative = document.createElement(\"a\");\n    alternative.href = \"simd-chiptune.html\";\n    alternative.textContent = \"SIMD Chiptune\";\n    alert.append(\" Try \", alternative, \"; it runs without WebGPU.\");\n  }\n  alert.hidden = false;\n}\n\nfunction clearError() {\n"
+        },
+        {
+          "before": "function setRuntimeState() {\n  $(\"chunkDurationOut\").textContent = Math.round(state.chunkDuration * 1000) + \" ms\";\n  $(\"workgroupSizeOut\").textContent = state.workgroupSize + \" lanes\";\n  $(\"runtimeState\").textContent = state.workgroupSize + \" lanes\";\n}\n\nfunction setSupportState() {\n  if (!support.audio) {\n    $(\"gpuState\").textContent = \"Web Audio unavailable\";\n    $(\"streamState\").textContent = \"AudioContext missing\";\n  } else if (!support.webgpu) {\n    $(\"gpuState\").textContent = \"WebGPU unavailable\";\n    $(\"streamState\").textContent = \"navigator.gpu missing\";\n",
+          "after": "function setRuntimeState() {\n  $(\"chunkDurationOut\").textContent = Math.round(state.chunkDuration * 1000) + \" ms\";\n  $(\"workgroupSizeOut\").textContent = state.workgroupSize + \" lanes\";\n  $(\"runtimeState\").textContent = simdBackend ? \"SIMD audio worklet\" : state.workgroupSize + \" lanes\";\n}\n\nfunction setSupportState() {\n  if (!support.audio) {\n    $(\"gpuState\").textContent = \"Web Audio unavailable\";\n    $(\"streamState\").textContent = \"AudioContext missing\";\n  } else if (simdBackend) {\n    $(\"gpuState\").textContent = support.supported ? \"SIMD ready\" : \"SIMD audio unavailable\";\n    $(\"streamState\").textContent = !support.worklet ? \"AudioWorklet missing\" : !support.wasm ? \"WebAssembly missing\" : \"SIMD / scalar audio worklet\";\n  } else if (!support.webgpu) {\n    $(\"gpuState\").textContent = \"WebGPU unavailable\";\n    $(\"streamState\").textContent = \"navigator.gpu missing\";\n"
+        },
+        {
+          "before": "\nfunction paintAudioReadout() {\n  if (state.audioOn) {\n    $(\"engineBadge\").textContent = state.synthPlaying ? \"Shader song playing\" : \"WebGPU armed\";\n    $(\"stageReadout\").textContent = \"WEBGPU \u00b7 \"\n      + Math.round(engine?.sampleRate ?? 44100)\n      + \" HZ \u00b7 \"\n      + (state.synthPlaying ? \"TRACKER PLAYING\" : \"TRACKER PAUSED\");\n  } else {\n    $(\"engineBadge\").textContent = state.synthPlaying ? \"Visual tracker \u00b7 audio off\" : \"WGSL sound shader\";\n    $(\"stageReadout\").textContent = state.synthPlaying\n      ? \"VISUAL TRANSPORT PLAYING \u00b7 AUDIO OFF\"\n      : \"WEBGPU \u00b7 STANDBY \u00b7 AUDIO OFF\";\n  }\n  if (state.trackerView === \"sequence\") {\n    syncSequenceControls();\n",
+          "after": "\nfunction paintAudioReadout() {\n  if (state.audioOn) {\n    $(\"engineBadge\").textContent = state.synthPlaying ? (simdBackend ? \"Chiptune playing\" : \"Shader song playing\") : backendName + \" armed\";\n    $(\"stageReadout\").textContent = backendName.toUpperCase() + \" \u00b7 \"\n      + Math.round(engine?.sampleRate ?? 44100)\n      + \" HZ \u00b7 \"\n      + (state.synthPlaying ? \"TRACKER PLAYING\" : \"TRACKER PAUSED\");\n  } else {\n    $(\"engineBadge\").textContent = state.synthPlaying ? \"Visual tracker \u00b7 audio off\" : (simdBackend ? \"SIMD chiptune engine\" : \"WGSL sound shader\");\n    $(\"stageReadout\").textContent = state.synthPlaying\n      ? \"VISUAL TRANSPORT PLAYING \u00b7 AUDIO OFF\"\n      : backendName.toUpperCase() + \" \u00b7 STANDBY \u00b7 AUDIO OFF\";\n  }\n  if (state.trackerView === \"sequence\") {\n    syncSequenceControls();\n"
+        },
+        {
+          "before": "  $(\"audioButton\").setAttribute(\"aria-pressed\", String(state.audioOn));\n  $(\"audioState\").textContent = state.audioOn ? \"on\" : \"off\";\n  if (state.audioOn && engine) {\n    $(\"gpuState\").textContent = \"WebGPU streaming\";\n    $(\"streamState\").textContent = Math.round(engine.chunkDurationInSeconds * 1000)\n      + \" ms stereo chunks\";\n  } else {\n    setSupportState();\n  }\n",
+          "after": "  $(\"audioButton\").setAttribute(\"aria-pressed\", String(state.audioOn));\n  $(\"audioState\").textContent = state.audioOn ? \"on\" : \"off\";\n  if (state.audioOn && engine) {\n    $(\"gpuState\").textContent = simdBackend ? `${engine.backend.toUpperCase()} streaming` : \"WebGPU streaming\";\n    $(\"streamState\").textContent = simdBackend ? \"128-frame stereo AudioWorklet\" : Math.round(engine.chunkDurationInSeconds * 1000) + \" ms stereo chunks\";\n  } else {\n    setSupportState();\n  }\n"
+        },
+        {
+          "before": "}\n\nfunction setSynthPlayButtonState() {\n  const action = state.synthPlaying ? \"Pause WebGPU Chiptune\" : \"Play WebGPU Chiptune\";\n  const button = $(\"synthPlayButton\");\n  button.disabled = state.disposed;\n  button.setAttribute(\"aria-pressed\", String(state.synthPlaying));\n",
+          "after": "}\n\nfunction setSynthPlayButtonState() {\n  const action = (state.synthPlaying ? \"Pause \" : \"Play \") + instrumentName;\n  const button = $(\"synthPlayButton\");\n  button.disabled = state.disposed;\n  button.setAttribute(\"aria-pressed\", String(state.synthPlaying));\n"
+        },
+        {
+          "before": "  clearError();\n  $(\"audioButton\").disabled = true;\n  const generation = audioLifecycleGeneration;\n  const nextEngine = new WebGpuChiptuneAudio(globalThis, {\n    chunkDuration: state.chunkDuration,\n    workgroupSize: state.workgroupSize,\n  });\n",
+          "after": "  clearError();\n  $(\"audioButton\").disabled = true;\n  const generation = audioLifecycleGeneration;\n  const nextEngine = new ChiptuneAudio(globalThis, {\n    chunkDuration: state.chunkDuration,\n    workgroupSize: state.workgroupSize,\n  });\n"
+        },
+        {
+          "before": "    }\n    setAudioState(true);\n    announce(state.synthPlaying\n      ? \"WebGPU Chiptune audio on and tracker playing.\"\n      : \"WebGPU Chiptune audio ready.\");\n    return true;\n  }).catch(async (error) => {\n    if (engine === nextEngine) engine = null;\n    await nextEngine.stop().catch(() => {});\n    setAudioState(false);\n    showError(error);\n    return false;\n  }).finally(() => {\n    if (audioStartPromise === pending) audioStartPromise = null;\n",
+          "after": "    }\n    setAudioState(true);\n    announce(state.synthPlaying\n      ? instrumentName + \" audio on and tracker playing.\"\n      : instrumentName + \" audio ready.\");\n    return true;\n  }).catch(async (error) => {\n    const stillCurrent = generation === audioLifecycleGeneration && engine === nextEngine;\n    if (stillCurrent) engine = null;\n    await nextEngine.stop().catch(() => {});\n    if (stillCurrent) {\n      setAudioState(false);\n      showError(error);\n    }\n    return false;\n  }).finally(() => {\n    if (audioStartPromise === pending) audioStartPromise = null;\n"
+        },
+        {
+          "before": "  audioStartPromise = null;\n  if (previous) await previous.stop();\n  setAudioState(false);\n  if (!quiet) announce(\"WebGPU Chiptune audio off.\");\n}\n\nasync function toggleAudio() {\n",
+          "after": "  audioStartPromise = null;\n  if (previous) await previous.stop();\n  setAudioState(false);\n  if (!quiet) announce(instrumentName + \" audio off.\");\n}\n\nasync function toggleAudio() {\n"
+        },
+        {
+          "before": "  engine?.setPlaybackEnabled(false);\n  engine?.pause();\n  setSynthPlayButtonState();\n  if (!quiet) announce(\"WebGPU Chiptune paused.\");\n}\n\nasync function playTransport({ quiet = false } = {}) {\n",
+          "after": "  engine?.setPlaybackEnabled(false);\n  engine?.pause();\n  setSynthPlayButtonState();\n  if (!quiet) announce(instrumentName + \" paused.\");\n}\n\nasync function playTransport({ quiet = false } = {}) {\n"
+        },
+        {
+          "before": "  try {\n    const started = await restartSynchronizedAudio(activeEngine, offset, generation);\n    if (started) {\n      if (!quiet) announce(\"WebGPU Chiptune playing.\");\n    }\n  } catch (error) {\n    showError(error);\n",
+          "after": "  try {\n    const started = await restartSynchronizedAudio(activeEngine, offset, generation);\n    if (started) {\n      if (!quiet) announce(instrumentName + \" playing.\");\n    }\n  } catch (error) {\n    showError(error);\n"
+        },
+        {
+          "before": "  if (!wax || typeof wax.register !== \"function\") return;\n  try {\n    wax.register({\n      id: \"webgpu-chiptune\",\n      stateVersion: 7,\n      getState() {\n        return {\n",
+          "after": "  if (!wax || typeof wax.register !== \"function\") return;\n  try {\n    wax.register({\n      id: instrumentId,\n      stateVersion: 7,\n      getState() {\n        return {\n"
+        },
+        {
+          "before": "      },\n    });\n  } catch (error) {\n    console.warn(\"WebGPU Chiptune WAX registration failed.\", error);\n  }\n}\n\n",
+          "after": "      },\n    });\n  } catch (error) {\n    console.warn(instrumentName + \" WAX registration failed.\", error);\n  }\n}\n\n"
+        },
+        {
+          "before": "  setSynthPlayButtonState();\n  animationFrame = requestAnimationFrame(draw);\n});\n",
+          "after": "  setSynthPlayButtonState();\n  animationFrame = requestAnimationFrame(draw);\n});\n\n/** Read-only state capture for parity and performance regression checks. */\nexport function captureChiptuneState() {\n  return JSON.parse(JSON.stringify({\n    parameters: state.params, activePresetId: state.presetId, sequence: state.sequence,\n    voicePerformance: state.voicePerformance, performanceVersion: 2, drumMix: state.drumMix,\n    songSequence: state.sequence.mode === \"song\" ? state.sequence : state.songSequence,\n    patternSequence: state.sequence.mode === \"pattern\" ? state.sequence : state.patternSequence,\n    patternBaseline: state.patternBaseline,\n  }));\n}\n"
+        }
+      ]
+    }
+  ]
+}

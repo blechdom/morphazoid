@@ -1,0 +1,3 @@
+/* The complete performance surface is shared with WebGPU Chiptune. */
+.simd-chiptune-page label:has(#workgroupSize),
+.simd-chiptune-page label:has(#chunkDuration) { display: none; }
