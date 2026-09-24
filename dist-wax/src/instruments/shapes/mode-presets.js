@@ -1,10 +1,11 @@
-import { createShapesState, setShapes2dHeadCount } from "./shapes-state.js";
+import { createShapesState, setShapes2dHeadCount, SHAPES_TRIGGER_SOUND_BANKS } from "./shapes-state.js";
 import { SHAPE_FULL_PRESETS } from "../shape-synth/full-presets.js";
 import { SOLID_FULL_PRESETS, HYPER_FULL_PRESETS } from "../../families/geometry-presets/full-presets.js";
 import { applyOriginalParameters } from "./parameter-bridge.js";
 import { percussionEnvelopeEditorX } from "../../audio.js";
 
 const NOTE_ARTICULATIONS = {
+  "saw-corners": ["saw", [0, 55, 180, 380, 1000], 0.4, 2],
   "triangle-corners": ["triangle", [0, 30, 120, 320, 800], 0.45, 2],
   "square-corners": ["square", [0, 45, 160, 400, 950], 0.35, 2],
   "square-ticks": ["sine", [0, 18, 100, 260, 700], 0.45, 2],
@@ -60,12 +61,13 @@ function scene(kind, sourceId, mode, id, name, settings) {
     id: `shapes-${id}`, label: `${name} · ${state.selection.dimension.toUpperCase()} · ${mode === "notes" ? `Corners & Notes · ${state.voice.engine.toUpperCase()}` : "Triggers"}`,
     description: mode === "notes"
       ? "Polyphonic synth notes with their own editable ADSR tails. Corners at one subdivision; extra notes between them at higher subdivisions. Audio stays under your control."
-      : `${state.trigger.soundBank === "fm-kit" ? "FM drum kit" : "Rattlesnake percussion"} at reader divisions. Playhead only; Audio stays under your control.`,
+      : `${SHAPES_TRIGGER_SOUND_BANKS.find(bank => bank.id === state.trigger.soundBank)?.label ?? "Percussion"} at reader divisions. Playhead only; Audio stays under your control.`,
     source: { kind: "shapes", id }, state,
   };
 }
 export function createShapesModeScenes() {
   const waves = [
+    scene("hyper", "original-tesseract", "notes", "saw-corners", "Saw corners", { speed: 0.2, divisions: 2, baseHz: 165, range: 1.5 }),
     scene("shape", "triangle-pad", "notes", "triangle-corners", "Triangle corners", { speed: 0.35, divisions: 2, baseHz: 165, range: 2 }),
     scene("solid", "original-cube", "notes", "square-corners", "Square corners", { speed: 0.3, divisions: 2, baseHz: 130, range: 2 }),
   ];
@@ -73,12 +75,17 @@ export function createShapesModeScenes() {
     const copy = structuredClone(source);
     copy.id = copy.id.replace("-corners", "-current");
     copy.source.id = copy.source.id.replace("-corners", "-current");
-    copy.label = `${copy.state.voice.engine === "triangle" ? "Triangle" : "Square"} current · ${copy.state.selection.dimension.toUpperCase()} · Continuous`;
+    copy.label = `${copy.state.voice.engine === "triangle" ? "Triangle" : copy.state.voice.engine === "saw" ? "Saw" : "Square"} current · ${copy.state.selection.dimension.toUpperCase()} · Continuous`;
     copy.description = "A moving geometric reader with a band-limited oscillator. Audio stays under your control.";
     copy.state.selection.playingMode = "continuous";
     return copy;
   });
   return [...waves, ...continuous,
+    scene("shape", "square-study", "triggers", "analog-box", "Analog box", { speed: 0.25, divisions: 2, heads: 1, bank: "analog", hits: 1, tuning: 5, character: 0.25 }),
+    scene("solid", "original-cube", "triggers", "modal-cube", "Modal cube", { speed: 0.2, divisions: 2, bank: "modal", hits: 2, tuning: 8, character: 0.4 }),
+    scene("hyper", "original-tesseract", "triggers", "noise-folds", "Noise folds", { speed: 0.18, divisions: 1, bank: "noise", hits: 1, tuning: 4, character: 0.3 }),
+    scene("solid", "prism-brass", "triggers", "mallet-prism", "Mallet prism", { speed: 0.2, divisions: 2, bank: "pitched-morph", hits: 2, tuning: 9, character: 0.45 }),
+    scene("hyper", "pyramid-knocks", "triggers", "karplus-folds", "Karplus folds", { speed: 0.18, divisions: 2, bank: "karplus-strong", hits: 1, tuning: 12, character: 0.4 }),
     scene("shape", "square-study", "notes", "square-ticks", "Square ticks", { speed: 0.45, divisions: 2, baseHz: 130, heads: 1 }),
     scene("solid", "original-cube", "notes", "box-bells", "Box bells", { speed: 0.5, divisions: 2, baseHz: 98, range: 2 }),
     scene("hyper", "original-tesseract", "notes", "folded-notes", "Folded notes", { speed: 0.35, divisions: 2, baseHz: 82, range: 3 }),

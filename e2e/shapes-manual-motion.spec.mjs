@@ -9,8 +9,8 @@ const dimensions = [
   { dimension: "4d", target: "rotation.xw", start: 55, crossing: 61, auto: "rotationMotion.xw.running" },
 ];
 const cases = [
-  ...["sine", "triangle", "square", "fm", "pm", "shepard"].map(engine => ({ mode: "continuous", engine, name: `Continuous ${engine}` })),
-  ...["fm-kit", "rattlesnake"].map(bank => ({ mode: "triggers", bank, name: `Triggers ${bank}` })),
+  ...["sine", "triangle", "square", "saw", "fm", "pm", "shepard"].map(engine => ({ mode: "continuous", engine, name: `Continuous ${engine}` })),
+  ...["fm-kit", "rattlesnake", "analog", "modal", "noise", "pitched-morph", "karplus-strong"].map(bank => ({ mode: "triggers", bank, name: `Triggers ${bank}` })),
 ];
 
 async function setup(page, { dimension, mode, engine = "sine", bank = "fm-kit", arm = true, initialRotation = 60 }) {
@@ -31,7 +31,7 @@ async function setup(page, { dimension, mode, engine = "sine", bank = "fm-kit", 
   }, { key: SHAPES_STORAGE_KEY, state });
   for (const [module, name, pool, methods] of [
     ["audio.js", "VoicePool", "synth", ["silence", "setVoiceTrajectory", "scheduleNotes", "cancelScheduledNotes"]],
-    ["instruments/fm-drums/fm-drums.js", "FmDrumAudio", "fm-kit", ["silence", "trigger", "cancelScheduledHits"]],
+    ["instruments/shapes/kit-audio.js", "ShapesKitAudio", "fm-kit", ["silence", "trigger", "cancelScheduledHits"]],
     ["instruments/linear-drums/linear-drums.js", "LinearDrumAudio", "rattlesnake", ["silence", "trigger", "cancelScheduledHits"]],
   ]) {
     await page.route(`**/src/${module}`, async route => {
@@ -107,7 +107,7 @@ for (const geometry of dimensions) {
       if (scene.mode === "continuous") {
         expect(events.filter(event => event.method === "setVoiceTrajectory" && event.voiceCount > 0).length).toBeGreaterThan(1);
       } else {
-        expect(events.some(event => event.pool === scene.bank && event.method === "trigger")).toBe(true);
+        expect(events.some(event => event.pool === (scene.bank === "rattlesnake" ? "rattlesnake" : "fm-kit") && event.method === "trigger")).toBe(true);
       }
       expect(samples.every(sample => Number.isFinite(sample.rms) && !sample.clipped)).toBe(true);
       expect(Math.max(...samples.map(sample => sample.rms))).toBeGreaterThan(0.0001);
@@ -142,7 +142,7 @@ for (const geometry of dimensions) {
       expect(events.filter(event => event.method === "silence")).toEqual([]);
       const cancellations = events.filter(event => event.method === "cancelScheduledHits");
       expect(cancellations).toHaveLength(scene.mode === "triggers" ? 1 : 0);
-      if (scene.mode === "triggers") expect(cancellations[0].pool).toBe(scene.bank);
+      if (scene.mode === "triggers") expect(cancellations[0].pool).toBe(scene.bank === "rattlesnake" ? "rattlesnake" : "fm-kit");
       await page.locator("#mainBankTab").click();
       await page.locator(`[data-rotation-motion="${geometry.auto}"]`).click();
       await page.locator("#audioButton").click();
@@ -187,7 +187,8 @@ for (const geometry of dimensions) {
 for (const viewport of [{ width: 390, height: 844 }, { width: 844, height: 390 }]) {
   test.describe(`manual motion ${viewport.width}x${viewport.height}`, () => {
     test.use({ viewport, hasTouch: true });
-    test("Continuous and both Trigger banks retain sound through touch movement and cancel cleanly", async ({ page, baseURL }) => {
+    test("Continuous and all Trigger banks retain sound through touch movement and cancel cleanly", async ({ page, baseURL }) => {
+      test.setTimeout(60000);
       for (const scene of [cases[0], ...cases.filter(scene => scene.mode === "triggers")]) {
         const diagnostics = watchPageDiagnostics(page, { baseURL });
         await setup(page, { ...dimensions[0], ...scene });

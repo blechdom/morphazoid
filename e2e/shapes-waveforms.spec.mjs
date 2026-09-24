@@ -11,7 +11,7 @@ const viewports = [
 for (const viewport of viewports) test.describe(viewport.name, () => {
   test.use({ viewport: { width: viewport.width, height: viewport.height }, hasTouch: viewport.name !== "desktop" });
   for (const dimension of ["2d", "3d", "4d"]) {
-  test(`${viewport.name} ${dimension}: triangle/square Continuous and Notes remain armed, audible and bounded`, async ({ page, baseURL }, testInfo) => {
+  test(`${viewport.name} ${dimension}: triangle/square/saw Continuous and Notes remain armed, audible and bounded`, async ({ page, baseURL }, testInfo) => {
     test.setTimeout(45000);
     const diagnostics = watchPageDiagnostics(page, { baseURL });
     const state = createShapesState({ selection: { dimension }, play: { running: true, rateCyclesPerSecond: 0.65, divisions: 2 }, voice: { baseHz: 165, rangeOctaves: 2 }, synthesis: { model: "geometry" } });
@@ -25,7 +25,7 @@ for (const viewport of viewports) test.describe(viewport.name, () => {
     const results = [];
     for (const mode of ["continuous", "notes"]) {
       await page.locator(`#playingMode [data-playing-mode="${mode}"]`).click();
-      for (const engine of ["triangle", "square"]) {
+      for (const engine of ["triangle", "square", "saw"]) {
         await page.locator("#voiceEngine").selectOption(engine);
         await page.waitForTimeout(150);
         const signal = await sampleAudioEnvelope(page, { durationMs: 2200 });

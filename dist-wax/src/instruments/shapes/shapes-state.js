@@ -1,3 +1,4 @@
+import { SHAPES_PREPARED_KITS } from "./trigger-banks.js";
 import { normalizeSharedProfile } from "./shapes-profile.js";
 import { createShapesSynthesis } from "./synthesis-state.js";
 import { percussionEnvelopePreset, sanitizePercussionEnvelope } from "../../audio.js";
@@ -31,6 +32,7 @@ export const SHAPES_VOICE_ENGINES = Object.freeze([
   Object.freeze({ id: "sine", label: "Sine" }),
   Object.freeze({ id: "triangle", label: "Triangle" }),
   Object.freeze({ id: "square", label: "Square" }),
+  Object.freeze({ id: "saw", label: "Saw" }),
   Object.freeze({ id: "fm", label: "FM" }),
   Object.freeze({ id: "pm", label: "PM" }),
   Object.freeze({ id: "shepard", label: "Shepard" }),
@@ -39,7 +41,7 @@ export const SHAPES_VOICE_ENGINES = Object.freeze([
 
 export const SHAPES_TRIGGER_SOUND_BANKS = Object.freeze([
   Object.freeze({ id: "rattlesnake", label: "Rattlesnake" }),
-  Object.freeze({ id: "fm-kit", label: "FM drum kit" }),
+  ...SHAPES_PREPARED_KITS.map(({ id, label }) => Object.freeze({ id, label })),
 ]);
 
 export const SHAPES_BANKS = Object.freeze(["main", "form", "rotation", "mapping"]);

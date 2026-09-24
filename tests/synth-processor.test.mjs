@@ -595,7 +595,7 @@ test("unwrapped Shepard travel drives exact multi-octave trajectories", () => {
   );
 });
 
-for (const mode of ["triangle", "square"]) {
+for (const mode of ["triangle", "square", "saw"]) {
   test(`${mode}: actual worklet tone is distinct, finite, bipolar and bounded across pitch range`, () => {
     const sine = render("sine").left;
     const wave = render(mode).left;
@@ -620,14 +620,15 @@ for (const mode of ["triangle", "square"]) {
     const corrected = [], naive = [];
     for (let i = 1; i <= 4800; i++) {
       const phase = (i * frequency / sampleRate) % 1;
-      naive.push(mode === "square" ? (phase < 0.5 ? 1 : -1) : 1 - 4 * Math.abs(phase - 0.5));
+      naive.push(mode === "saw" ? 2 * phase - 1 : mode === "square" ? (phase < 0.5 ? 1 : -1) : 1 - 4 * Math.abs(phase - 0.5));
       corrected.push(processor.renderVoice(voice));
     }
-    // Coherent DFT projection: remove only legal odd harmonics below Nyquist.
+    // Coherent DFT projection: remove legal harmonics below Nyquist (odd only
+    // for triangle/square; saw also contains even harmonics).
     // Measure folded energy, not passband droop relative to an ideal brickwall.
     const aliasEnergy = samples => {
       let legalEnergy = 0;
-      for (let n = 1; n * frequency < sampleRate / 2; n += 2) {
+      for (let n = 1; n * frequency < sampleRate / 2; n += mode === "saw" ? 1 : 2) {
         let re = 0, im = 0;
         samples.forEach((v, i) => {
           const phase = 2 * Math.PI * n * frequency * (i + 1) / sampleRate;
@@ -656,8 +657,8 @@ test("FM starter tuning lowers measured level and normalized sample-step energy 
   }
 });
 
-test("live triangle/square changes ramp through zero instead of jumping at the switch", () => {
-  for (const [from, to] of [["sine", "triangle"], ["sine", "square"], ["square", "triangle"], ["triangle", "fm"]]) {
+test("live triangle/square/saw changes ramp through zero instead of jumping at the switch", () => {
+  for (const [from, to] of [["sine", "saw"], ["saw", "fm"], ["square", "saw"], ["sine", "triangle"], ["sine", "square"], ["square", "triangle"], ["triangle", "fm"]]) {
     const processor = noteProcessor();
     const send = mode => processor.port.onmessage({ data: { type: "voices", voices: [{ key: "switch", mode, frequency: 20, gain: 0.3 }] } });
     send(from);

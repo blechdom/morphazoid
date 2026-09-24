@@ -2,7 +2,7 @@ import { SHAPE_FULL_PRESETS, randomizeShapePreset, createShapeInitialState, capt
 import { SOLID_FULL_PRESETS, HYPER_FULL_PRESETS, randomizeGeometryPreset, captureGeometryPreset, createSolidInitialState, createHyperInitialState } from "../../families/geometry-presets/full-presets.js";
 import { presetStateKey } from "../../site/header-presets.js";
 import { presetRandom } from "../../site/preset-random.js";
-import { createShapesState, displayShapesPhase } from "./shapes-state.js";
+import { createShapesState, displayShapesPhase, SHAPES_TRIGGER_SOUND_BANKS } from "./shapes-state.js";
 import { rebasePingPongPosition } from "../../articulation.js";
 import { applyOriginalParameters } from "./parameter-bridge.js";
 import { createShapesModeScenes } from "./mode-presets.js";
@@ -111,12 +111,12 @@ export function randomizeShapesPreset(current, random = Math.random) {
   state.selection.playingMode = rng.pick(tourModes);
   state.synthesis.model = state.selection.playingMode === "triggers" ? "shapes" : "geometry";
   if (state.selection.playingMode !== "triggers") state.voice.engine = rng.pick([
-    "sine", "triangle", "square", "fm", "pm", "shepard", ...(state.selection.playingMode === "notes" ? ["percussion"] : []),
+    "sine", "triangle", "square", "saw", "fm", "pm", "shepard", ...(state.selection.playingMode === "notes" ? ["percussion"] : []),
   ]);
   state.voice.character = rng.unit();
   state.play.divisions = rng.integer(1, 8);
   state.trigger = {
-    soundBank: rng.pick(["rattlesnake", "fm-kit"]), mapping: rng.pick(["feature", "position", "incidence"]),
+    soundBank: rng.pick(SHAPES_TRIGGER_SOUND_BANKS.map(bank => bank.id)), mapping: rng.pick(["feature", "position", "incidence"]),
     tuningDepth: rng.between(0, 24), characterDepth: rng.unit(), hitCap: rng.integer(1, 8),
     strength: rng.between(0.35, 0.7),
   };

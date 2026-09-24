@@ -11,13 +11,11 @@ import { createGeometryVoicePool } from "../../families/geometry-presets/audio-b
 import { registerHeaderPresets } from "../../site/header-presets.js";
 import { SHAPES_FULL_PRESETS, captureShapesPreset, applyShapesPreset, randomizeShapesPreset } from "./full-presets.js";
 import { originalSynthSpecs, originalCornerSample, originalCornerIntents, noteSpecForContact } from "./original-audio.js";
+import { shapesControlAvailability } from "./control-availability.js";
 import { createShapesSoundControls } from "./sound-controls.js";
 import { beginShapes3dRotation, pickShapes3dDragTarget, updateShapes3dRotation } from "./stage-gestures.js";
 import { rebasePingPongPosition } from "../../articulation.js";
-import {
-  cloneDefaultFmDrumVoices,
-  FmDrumAudio,
-} from "../fm-drums/fm-drums.js";
+import { ShapesKitAudio, shapesKitVoice } from "./kit-audio.js";
 import {
   LINEAR_DRUM_PRESETS,
   LinearDrumAudio,
@@ -118,9 +116,8 @@ function loadState() {
 
 let state = loadState();
 const synthAudio = createGeometryVoicePool();
-const drumAudio = new FmDrumAudio(globalThis);
+const drumAudio = new ShapesKitAudio(globalThis);
 const rattlesnakeAudio = new LinearDrumAudio(globalThis);
-const drumVoices = cloneDefaultFmDrumVoices();
 const canvas = $("stage");
 const context = canvas.getContext("2d", { desynchronized: true });
 const app = $("shapesApp");
@@ -593,19 +590,19 @@ function emitTriggers(scene, {
     });
     return;
   }
-  scene.contacts.slice(0, hitCap).forEach((contact, index) => {
-    const baseVoice = drumVoices[triggerVoiceIndex(contact, index) % drumVoices.length];
+  const contacts = scene.contacts.slice(0, hitCap);
+  contacts.forEach((contact, index) => {
+    const baseVoice = shapesKitVoice(state.trigger.soundBank, triggerVoiceIndex(contact, index));
     const semitones = (contact.pitch01 - 0.5) * state.trigger.tuningDepth;
     const character = state.trigger.characterDepth;
     const voice = {
       ...baseVoice,
       frequency: baseVoice.frequency * 2 ** (semitones / 12),
-      modIndex: baseVoice.modIndex * (0.55 + character * 0.9),
-      noise: clamp(baseVoice.noise + (contact.drive01 - 0.5) * character * 0.35, 0, 1),
-      tone: clamp(baseVoice.tone + (contact.pan * 0.16 * character), 0, 1),
-      level: baseVoice.level * (0.68 + contact.strength * 0.32) * velocityGain,
+      tone: clamp(baseVoice.tone + (contact.drive01 - 0.5) * character * 0.7, 0, 1),
+      pan: contact.pan * 0.85,
+      level: baseVoice.level * (0.68 + contact.strength * 0.32) * velocityGain / Math.sqrt(contacts.length),
     };
-    drumAudio.trigger(voice, Number.isFinite(startAt) ? { startAt } : undefined).catch(() => {});
+    drumAudio.trigger(voice, { bank: state.trigger.soundBank, ...(Number.isFinite(startAt) ? { startAt } : {}) }).catch(() => {});
   });
 }
 
@@ -701,8 +698,8 @@ function eligibleDiscreteScene(scene, eventTimeSeconds) {
   const minimumIntervalSeconds = mode === "triggers" ? 0.012 : 0.016;
   const contacts = scene.contacts.filter((contact, index) => {
     const debounceKey = mode === "triggers"
-      ? state.trigger.soundBank === "fm-kit"
-        ? `trigger:fm-kit:${triggerVoiceIndex(contact, index)}`
+      ? state.trigger.soundBank !== "rattlesnake"
+        ? `trigger:${state.trigger.soundBank}:${triggerVoiceIndex(contact, index)}`
         : `trigger:rattlesnake:${contact.voiceKey ?? contact.eventKey ?? index}`
       : `note:${contact.voiceKey ?? contact.eventKey ?? index}`;
     const lastEventAt = lastEventAtByVoice.get(debounceKey) ?? -Infinity;
@@ -969,20 +966,22 @@ function frame(now) {
 
 async function prepareActiveAudio() {
   const request = ++audioRequest;
+  if (state.selection.playingMode !== "triggers" || state.trigger.soundBank === "rattlesnake") drumAudio.cancelPreparation();
   if (state.selection.playingMode === "triggers") {
     if (state.trigger.soundBank === "rattlesnake") await rattlesnakeAudio.start();
-    else await drumAudio.start();
+    else await drumAudio.start(state.trigger.soundBank);
   } else {
     await synthAudio.enable();
   }
   if (request !== audioRequest || !state.audio.enabled) return;
+  showAudioNotice("");
   syncSynthLevel();
   drumAudio.setOutput(state.audio.level * 0.9);
   const triggerMode = state.selection.playingMode === "triggers";
   const rattlesnakeMode = triggerMode && state.trigger.soundBank === "rattlesnake";
-  const fmKitMode = triggerMode && state.trigger.soundBank === "fm-kit";
+  const kitMode = triggerMode && state.trigger.soundBank !== "rattlesnake";
   synthAudio.setHostGain(triggerMode ? 0 : 1, 45);
-  drumAudio.setHostGain(fmKitMode ? 1 : 0, 45);
+  drumAudio.setHostGain(kitMode ? 1 : 0, 45);
   rattlesnakeAudio.setOutput(rattlesnakeMode ? state.audio.level * 0.85 : 0);
   if (!rattlesnakeMode) rattlesnakeAudio.silence();
   observeActiveAudioContext();
@@ -1025,6 +1024,7 @@ async function setAudioEnabled(enabled) {
   syncAudioUi();
   if (!state.audio.enabled) {
     audioRequest += 1;
+    drumAudio.cancelPreparation();
     stopDiscreteScheduler();
     synthAudio.disable();
     drumAudio.silence();
@@ -1503,7 +1503,9 @@ function syncAllControls() {
   $("profileSidesOut").textContent = String(state.profile.sides);
   $("starDepth").value = String(state.profile.starDepth);
   $("starDepthOut").textContent = `${Math.round(state.profile.starDepth * 100)}%`;
-  $("starDepthControl").hidden = state.profile.kind !== "star";
+  const available = shapesControlAvailability(state);
+  $("sharedProfileControls").hidden = !available.profile;
+  $("starDepthControl").hidden = !available.starDepth;
   $("curvature").value = String(state.dimension["2d"].curvature);
   $("curvatureOut").textContent = `${Math.round(state.dimension["2d"].curvature * 100)}%`;
   $("aspect").value = String(state.dimension["2d"].aspect);
@@ -1541,13 +1543,13 @@ function syncAllControls() {
     stereoSpread: [`${Math.round(state.voice.spread * 100)}%`, state.voice.spread],
   };
   for (const [id, [label, value]] of Object.entries(voiceOutputs)) { $(id).value = String(value); $(`${id}Out`).textContent = label; }
-  $("voiceCharacter").closest("label").hidden = state.synthesis.model !== "shapes";
+  $("voiceCharacter").closest("label").hidden = !available.character;
   $("shapesSoundControls").hidden = triggerMode;
   soundControls?.sync();
   $("voiceMappingSection").hidden = triggerMode;
   $("triggerMappingSection").hidden = !triggerMode;
-  $("triggerMappingControl").hidden = state.trigger.soundBank !== "fm-kit";
-  $("triggerMapping").disabled = state.trigger.soundBank !== "fm-kit";
+  $("triggerMappingControl").hidden = state.trigger.soundBank === "rattlesnake";
+  $("triggerMapping").disabled = state.trigger.soundBank === "rattlesnake";
   $("triggerMapping").value = state.trigger.mapping;
   $("tuningDepthLabel").textContent = state.trigger.soundBank === "rattlesnake"
     ? "Morph range"
@@ -1566,7 +1568,6 @@ function syncAllControls() {
 }
 
 function afterMutation({ save = true, route = false, announceMessage = null } = {}) {
-  if (state.dimension["2d"].reader !== "points" || state.profile.sides === 2) state.synthesis.tone.shepardMapping = "travel";
   syncAllControls();
   if (route) updateRoute();
   if (save) queueSave();
@@ -1594,6 +1595,7 @@ function syncLiveRangeControl(id) {
     $("profileSides").value = String(state.profile.sides);
     $("profileSidesOut").textContent = String(state.profile.sides);
     $("profileKind").value = twoDimensionalFormValue();
+    $("starDepthControl").hidden = !shapesControlAvailability(state).starDepth;
     populateMainForm();
     configureLiveKnobs();
   } else if (id === "starDepth") output.textContent = percent();
@@ -1751,10 +1753,15 @@ $("triggerSoundBank").addEventListener("change", async () => {
     announceMessage: `${TRIGGER_SOUND_BANK_BY_ID.get(state.trigger.soundBank)?.label ?? "Percussion bank"} selected.`,
   });
   if (!state.audio.enabled || state.selection.playingMode !== "triggers") return;
+  const requestedBank = state.trigger.soundBank;
+  showAudioNotice("Preparing sound bank…");
   try {
     await prepareActiveAudio();
+    if (state.trigger.soundBank !== requestedBank || !state.audio.enabled) return;
+    showAudioNotice("");
     syncDiscreteScheduler();
   } catch (error) {
+    if (state.trigger.soundBank !== requestedBank || !state.audio.enabled) return;
     announce(error?.message ?? "The percussion bank could not start.");
     await setAudioEnabled(false);
   }

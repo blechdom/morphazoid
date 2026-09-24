@@ -20,7 +20,7 @@ import { AUDIO_STARTUP_TIMEOUT_MS, resumeAudioContext, withAudioTimeout } from "
  * @property {number} gain
  * @property {number} [pan]
  * @property {OscillatorChoice} [waveform]
- * @property {'sine'|'triangle'|'square'|'shepard'|'fm'|'pm'} [mode]
+ * @property {'sine'|'triangle'|'square'|'saw'|'shepard'|'fm'|'pm'} [mode]
  * @property {number} [synthDrive]
  * @property {number} [modulationIndex]
  * @property {number} [modulationRatio]
@@ -48,7 +48,7 @@ const STRIKE_GAIN_FLOOR = 0.0001;
 const CONTINUOUS_VOICE_OPEN_FLOOR = 0.00001;
 const PERCUSSION_ENVELOPE_MAX_MS = 4_000;
 const ATTACK_NOISE_SECONDS = 0.04;
-const CONTINUOUS_SYNTH_MODES = new Set(["sine", "triangle", "square", "shepard", "fm", "pm"]);
+const CONTINUOUS_SYNTH_MODES = new Set(["sine", "triangle", "square", "saw", "shepard", "fm", "pm"]);
 
 /** @typedef {{x: number, y: number}} AmplitudeEnvelopeNode */
 
@@ -505,7 +505,7 @@ function sanitizeVoice(voice) {
     gain: clamp(voice.gain, 0, 1),
     pan: clamp(voice.pan ?? 0, -1, 1),
     // Explicit modes also select the native fallback; legacy waveform hints stay unchanged.
-    waveform: ["triangle", "square"].includes(voice.mode) ? voice.mode : voice.waveform ?? "sine",
+    waveform: voice.mode === "saw" ? "sawtooth" : ["triangle", "square"].includes(voice.mode) ? voice.mode : voice.waveform ?? "sine",
     mode: sanitizeSynthMode(voice.mode),
     synthDrive: clamp(voice.synthDrive ?? 0, 0, 1),
     modulationIndex: clamp(voice.modulationIndex ?? 0, 0, 20),

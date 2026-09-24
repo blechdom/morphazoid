@@ -6,7 +6,7 @@ import { watchPageDiagnostics, pageDiagnosticMessages } from "./helpers/diagnost
 
 test.use({ viewport: { width: 390, height: 844 }, hasTouch: true });
 
-for (const dimension of ["3d", "4d"]) for (const rotating of [false, true]) for (const engine of ["pm", "shepard", "percussion", "triangle", "square"]) {
+for (const dimension of ["3d", "4d"]) for (const rotating of [false, true]) for (const engine of ["pm", "shepard", "percussion", "triangle", "square", "saw"]) {
   test(`Shapes ${dimension} ${engine}: 16 subdivisions stay audible under CPU slowdown (${rotating ? "rotating" : "reader only"})`, async ({ page, baseURL }, testInfo) => {
     const diagnostics = watchPageDiagnostics(page, { baseURL });
     const state = createShapesState({

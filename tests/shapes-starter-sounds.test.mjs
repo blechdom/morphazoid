@@ -9,7 +9,7 @@ import { createGeometryVoicePool } from "../src/families/geometry-presets/audio-
 function seeded(seed) { return () => ((seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0) / 2 ** 32); }
 
 test("waveform engines reach geometry Continuous and Notes in every dimension, with bounded independent budgets", () => {
-  for (const engine of ["triangle", "square", "shepard"]) {
+  for (const engine of ["triangle", "square", "saw", "shepard"]) {
     for (const dimension of ["2d", "3d", "4d"]) {
       const state = createShapesState({ selection: { dimension }, voice: { engine }, play: { continuousPhase: 0.4 } });
       const scene = buildShapesScene(state);
@@ -54,7 +54,7 @@ test("factory and chained dice scenes keep audible registers, gentler FM and use
     current = randomizeShapesPreset(current, random); scenes.push(current);
     modes[current.parameters.selection.playingMode]?.add(current.parameters.voice.engine);
   }
-  for (const mode of Object.values(modes)) for (const engine of ["triangle", "square", "shepard"]) assert.ok(mode.has(engine));
+  for (const mode of Object.values(modes)) for (const engine of ["triangle", "square", "saw", "shepard"]) assert.ok(mode.has(engine));
   for (const snapshot of scenes) {
     const s = createShapesState(snapshot.parameters), local = s.dimension[s.selection.dimension];
     assert.ok(s.voice.baseHz >= 110);

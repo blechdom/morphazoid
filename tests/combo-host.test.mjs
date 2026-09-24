@@ -106,7 +106,8 @@ test("Shapes is one native Morphazoid route with no embedded page dependencies",
   assert.match(app, /RATTLESNAKE_PRESET\.settings/);
   assert.match(app, /rattlesnakeAudio\.trigger\([\s\S]*?startAt/);
   assert.match(app, /state\.trigger\.soundBank === "rattlesnake"/);
-  assert.match(app, /state\.trigger\.soundBank === "fm-kit"/);
+  assert.match(app, /new ShapesKitAudio\(globalThis\)/);
+  assert.match(app, /drumAudio\.start\(state\.trigger\.soundBank\)/);
   assert.match(app, /phaseRate: sourceState\.play\.running[\s\S]*?: intendedPhaseDirection/);
   assert.match(app, /fixedTwoDimensionalFrame = scene\.dimension === "2d"/);
   assert.match(app, /centerX = fixedTwoDimensionalFrame \? 0/);
@@ -120,7 +121,7 @@ test("Shapes is one native Morphazoid route with no embedded page dependencies",
   assert.doesNotMatch(frameBody, /resizeCanvas\(/, "the animation frame does not force layout measurement");
   assert.match(app, /synthAudio\.scheduleNotes\(specs, \{/);
   assert.match(app, /function scheduleOriginalCorners/);
-  assert.match(app, /drumAudio\.trigger\(voice, Number\.isFinite\(startAt\) \? \{ startAt \}/);
+  assert.match(app, /drumAudio\.trigger\(voice, \{ bank: state\.trigger\.soundBank, \.\.\.\(Number\.isFinite\(startAt\) \? \{ startAt \}/);
   assert.match(app, /if \(startAt < schedulableAfter\) continue/);
   assert.match(app, /document\.hidden[\s\S]*?stopDiscreteScheduler\(\)[\s\S]*?drumAudio\.silence\(\)/);
   assert.match(app, /morphazoid:midi-input/);
@@ -193,8 +194,8 @@ test("Shapes uses an original-style hierarchy with restrained control chrome", a
   }
   assert.doesNotMatch(html, />Traversal<|>Spin<|>Voice engine</);
   assert.match(html, /id="rotationTransport"[^>]*aria-label="Shape rotation transport"/);
-  assert.match(html, /id="triggerSoundBank"[^>]*aria-label="Percussion sound bank"[\s\S]*?Rattlesnake[\s\S]*?FM drum kit/);
-  assert.match(html, /id="triggerMappingControl"[^>]*hidden[^>]*>[\s\S]*?FM kit assignment/);
+  assert.match(html, /id="triggerSoundBank"[^>]*aria-label="Percussion sound bank"[\s\S]*?Rattlesnake[\s\S]*?Soft FM kit[\s\S]*?Karplus–Strong/);
+  assert.match(html, /id="triggerMappingControl"[^>]*hidden[^>]*>[\s\S]*?Kit assignment/);
   assert.match(html, /id="removePlayhead"[^>]*aria-label="Remove one playhead"/);
   assert.match(html, /id="addPlayhead"[^>]*aria-label="Add one playhead"/);
   assert.match(html, /id="headLayoutTrack"[^>]*aria-label="Relative playhead spacing"/);

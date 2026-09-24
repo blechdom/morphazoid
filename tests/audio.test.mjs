@@ -1412,7 +1412,7 @@ function nearAudio(actual, expected, epsilon = 1e-12) {
 }
 
 test("explicit triangle/square modes reach native Continuous and Notes without changing legacy hints", () => {
-  for (const mode of ["triangle", "square"]) {
+  for (const mode of ["triangle", "square", "saw"]) {
     const pool = new VoicePool(1);
     const oscillators = [];
     pool.enabled = true;
@@ -1427,9 +1427,9 @@ test("explicit triangle/square modes reach native Continuous and Notes without c
     };
     pool.master = fakeNode();
     pool.applyVoices([{ mode, waveform: "sine", frequency: 220, gain: 0.2 }]);
-    assert.equal(oscillators[0].type, mode);
+    assert.equal(oscillators[0].type, mode === "saw" ? "sawtooth" : mode);
     pool.scheduleNotes([{ mode, waveform: "sine", frequency: 220, gain: 0.2 }], { mode });
-    assert.equal(oscillators.at(-1).type, mode);
+    assert.equal(oscillators.at(-1).type, mode === "saw" ? "sawtooth" : mode);
     pool.applyVoices([{ mode: "fm", waveform: "triangle", frequency: 220, gain: 0.2 }]);
     assert.equal(oscillators[0].type, "triangle", "unrelated native FM hint is preserved");
   }

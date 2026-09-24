@@ -1,9 +1,10 @@
-const MODES = Object.freeze(["sine", "triangle", "square", "fm", "pm", "shepard"]);
+const MODES = Object.freeze(["sine", "triangle", "square", "saw", "fm", "pm", "shepard"]);
 
 export const ADAPTIVE_POLYPHONY_HARD_LIMITS = Object.freeze({
   sine: 4096,
   triangle: 4096,
   square: 4096,
+  saw: 4096,
   fm: 2048,
   pm: 2048,
   shepard: 512,

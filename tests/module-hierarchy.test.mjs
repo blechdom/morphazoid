@@ -7,6 +7,7 @@ import test from "node:test";
 import { fileURLToPath } from "node:url";
 import { rewriteModulePaths, rewriteRepositoryPaths, relocateReference } from "../scripts/architecture/module-paths.mjs";
 import { readRuntimeManifest } from "../scripts/site/runtime-manifest.mjs";
+import { restoreShapesSoundBanks, shapesSoundBankChanges as shapeBankChanges } from "./helpers/shapes-sound-banks-reference.mjs";
 import { restorePointerExtraction } from "./helpers/pointer-extraction-reference.mjs";
 
 const root = fileURLToPath(new URL("../", import.meta.url));
@@ -40,9 +41,11 @@ test("runtime modules reverse exactly after explicit runtime fixes and documente
     "src/families/proto-graph/proto-shell.js",
   ]);
   for (const record of proof.files) {
-    let current = restorePointerExtraction(
-      await readFile(path.join(root, record.after), "utf8"), record.after,
-    );
+    let current = await readFile(path.join(root, record.after), "utf8");
+    for (const change of shapeBankChanges.filter(change => change.file === record.after)) {
+      for (const testFile of change.regressionTests) assert.ok(existsSync(path.join(root, testFile)), testFile);
+    }
+    current = restorePointerExtraction(restoreShapesSoundBanks(current, record.after), record.after);
     for (const change of pugglerChanges.filter(change => change.file === record.after)) {
       for (const testFile of change.regressionTests) assert.ok(existsSync(path.join(root, testFile)), testFile);
       for (const replacement of [...change.replacements].reverse()) {
@@ -157,5 +160,18 @@ test("Puggler expansion amendments are limited to its six existing feature owner
     assert.ok(change.replacements.length > 0);
     assert.ok(change.regressionTests.includes("e2e/puggler-expansion.spec.mjs"));
     assert.ok(change.regressionTests.includes("tests/puggler-audio.test.mjs"));
+  }
+});
+
+test("Shapes bank amendments stay scoped and preserve all frozen relocation records", () => {
+  assert.deepEqual(shapeBankChanges.map(change => change.file), [
+    "src/instruments/rubix/rubix-app.js", "src/instruments/shapes/full-presets.js",
+    "src/instruments/shapes/mode-presets.js", "src/instruments/shapes/shapes-app.js",
+    "src/instruments/shapes/shapes-state.js",
+  ]);
+  for (const change of shapeBankChanges) {
+    assert.ok(proof.files.some(record => record.after === change.file));
+    assert.ok(change.replacements.length);
+    assert.ok(change.regressionTests.includes("e2e/shapes-sound-banks.spec.mjs"));
   }
 });

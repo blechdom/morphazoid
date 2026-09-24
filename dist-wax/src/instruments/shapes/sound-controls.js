@@ -1,3 +1,4 @@
+import { shapesControlAvailability } from "./control-availability.js";
 import { createAmplitudeControl } from "../../amplitude-control.js";
 import { mappingCurvePreset, updateMappingCurveNode } from "../../mapping.js";
 import { sanitizePercussionEnvelope } from "../../audio.js";
@@ -139,6 +140,7 @@ export function createShapesSoundControls(host, { getState, onChange }) {
     syncing = true;
     const s = state(), t = tone(), two = s.selection.dimension === "2d", notes = s.selection.playingMode === "notes";
     const corners = notes && s.voice.engine === "percussion";
+    const available = shapesControlAvailability(s);
     host.querySelector("#shapesSoundModel").value = s.synthesis.model;
     host.querySelector("#shapesSoundModel").disabled = notes;
     host.querySelector('[data-voice="voiceLimit"]').closest("label").hidden = corners;
@@ -171,6 +173,17 @@ export function createShapesSoundControls(host, { getState, onChange }) {
       node.style.left = `${point.x * 100}%`; node.style.top = `${(1 - point.y) * 100}%`;
       node.setAttribute("aria-valuetext", `Input ${Math.round(point.x * 100)}%, output ${Math.round(point.y * 100)}%`);
     });
+    for (const key of ["fmIndex", "fmRatio", "fmIndexSource", "pmIndex", "pmRatio", "pmDepthSource", "shepardTurnGlide", "shepardMapping"]) {
+      const visible = key === "fmIndexSource" ? available.fmSource
+        : key.startsWith("fm") ? available.fm : key.startsWith("pm") ? available.pm
+        : key === "shepardMapping" ? available.shepardTurn : available.shepardTurnGlide;
+      host.querySelector(`[data-tone="${key}"]`).closest("label").hidden = !visible;
+    }
+    for (const [key, label] of [["fmIndex", two ? "FM index" : "FM / PM index"], ["fmRatio", two ? "FM ratio" : "FM / PM ratio"]]) {
+      const field = host.querySelector(`[data-tone="${key}"]`);
+      field.setAttribute("aria-label", label);
+      field.closest("label").querySelector("b").textContent = label;
+    }
     const turn = host.querySelector('[data-tone="shepardMapping"] option[value="turn"]');
     turn.disabled = s.dimension["2d"].reader !== "points" || s.profile.sides === 2;
     syncing = false;

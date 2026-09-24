@@ -87,7 +87,7 @@ async function canvasRotation(page, { touch = false, cancel = false } = {}) {
   await expect(page.locator("#stageWrap")).not.toHaveClass(/is-spinning/);
 }
 
-for (const engine of ["sine", "triangle", "square", "fm", "pm", "shepard", "percussion"]) {
+for (const engine of ["sine", "triangle", "square", "saw", "fm", "pm", "shepard", "percussion"]) {
   for (const swell of [false, true]) {
     test(`Shapes manual rotation: ${engine}, swell ${swell} keeps the full note envelope`, async ({ page, baseURL }, testInfo) => {
       const diagnostics = watchPageDiagnostics(page, { baseURL });

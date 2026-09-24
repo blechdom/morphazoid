@@ -61,7 +61,7 @@ function hashPhase(key) {
 }
 
 function sanitizeSpec(spec, index) {
-  const mode = ["sine", "triangle", "square", "shepard", "fm", "pm"].includes(spec.mode)
+  const mode = ["sine", "triangle", "square", "saw", "shepard", "fm", "pm"].includes(spec.mode)
     ? spec.mode
     : "sine";
   return {
@@ -215,7 +215,7 @@ class MorphazoidContourSynth extends AudioWorkletProcessor {
           0,
           this.maxVoices,
         ));
-        const nextMode = ["sine", "triangle", "square", "fm", "pm", "shepard"].includes(event.data.mode)
+        const nextMode = ["sine", "triangle", "square", "saw", "fm", "pm", "shepard"].includes(event.data.mode)
           ? event.data.mode
           : "sine";
         if (nextRuntimeLimit !== this.runtimeLimit || nextMode !== this.requestedMode) {
@@ -489,9 +489,10 @@ class MorphazoidContourSynth extends AudioWorkletProcessor {
       voice.phase = wrapPhase(voice.phase + carrierIncrement);
       return Math.sin(voice.phase);
     }
-    if (voice.mode === "triangle" || voice.mode === "square") {
+    if (voice.mode === "triangle" || voice.mode === "square" || voice.mode === "saw") {
       voice.phase = wrapPhase(voice.phase + carrierIncrement);
       const phase = wrapUnit(voice.phase / TAU), step = frequency / sampleRate;
+      if (voice.mode === "saw") return 2 * phase - 1 - polyBlep(phase, step);
       const opposite = wrapUnit(phase + 0.5);
       if (voice.mode === "square") {
         return (phase < 0.5 ? 1 : -1) + polyBlep(phase, step) - polyBlep(opposite, step);
@@ -593,8 +594,8 @@ class MorphazoidContourSynth extends AudioWorkletProcessor {
       );
       // New waveform changes pass through zero without rendering a second
       // oscillator bank. Leave the pre-existing engine transitions unchanged.
-      const waveformChange = voice.mode === "triangle" || voice.mode === "square"
-        || target.mode === "triangle" || target.mode === "square";
+      const waveformChange = voice.mode === "triangle" || voice.mode === "square" || voice.mode === "saw"
+        || target.mode === "triangle" || target.mode === "square" || target.mode === "saw";
       if (!waveformChange) voice.mode = target.mode;
       for (let index = 0; index < left.length; index += 1) {
         if (voice.note && this.renderedSamples + index < voice.note.start) continue;

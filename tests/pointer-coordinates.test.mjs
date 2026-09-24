@@ -4,6 +4,7 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 import { parse } from "acorn";
 import { canvasLocalPoint, canvasScaledPoint } from "../src/graphics/pointer-coordinates.js";
+import { restoreShapesSoundBanks } from "./helpers/shapes-sound-banks-reference.mjs";
 import { pointerReference, restorePointerExtraction } from "./helpers/pointer-extraction-reference.mjs";
 import { restoreIphoneStartup } from "./helpers/iphone-startup-reference.mjs";
 import { readRuntimeManifest } from "../scripts/site/runtime-manifest.mjs";
@@ -74,9 +75,9 @@ for (const entry of pointerReference.entries) {
     }
   });
 
-  test(`${entry.file}: surrounding code matches the reference plus reviewed main iPhone updates`, async () => {
+  test(`${entry.file}: surrounding code matches the reference plus reviewed iPhone and Shapes kit updates`, async () => {
     const source = await readFile(new URL(entry.file, root), "utf8");
-    const beforeExtraction = restorePointerExtraction(source, entry.file);
+    const beforeExtraction = restorePointerExtraction(restoreShapesSoundBanks(source, entry.file), entry.file);
     assert.equal(sha(restoreIphoneStartup(beforeExtraction, entry.file)), entry.moduleSha256);
   });
 }

@@ -145,11 +145,11 @@
                   </div>
                   <label class="select-control shapes-engine-control" id="voiceEngineControl" for="voiceEngine">
                     <span class="field-label">Sound</span>
-                    <span class="select-shell"><select id="voiceEngine" aria-label="Sound engine"><option value="sine">Sine</option><option value="triangle">Triangle</option><option value="square">Square</option><option value="fm">FM</option><option value="pm">PM</option><option value="shepard">Shepard</option><option value="percussion">Corner percussion</option></select></span>
+                    <span class="select-shell"><select id="voiceEngine" aria-label="Sound engine"><option value="sine">Sine</option><option value="triangle">Triangle</option><option value="square">Square</option><option value="saw">Saw</option><option value="fm">FM</option><option value="pm">PM</option><option value="shepard">Shepard</option><option value="percussion">Corner percussion</option></select></span>
                   </label>
                   <label class="select-control shapes-engine-control" id="triggerSoundBankControl" for="triggerSoundBank" hidden>
                     <span class="field-label">Percussion</span>
-                    <span class="select-shell"><select id="triggerSoundBank" aria-label="Percussion sound bank"><option value="rattlesnake" selected>Rattlesnake</option><option value="fm-kit">FM drum kit</option></select></span>
+                    <span class="select-shell"><select id="triggerSoundBank" aria-label="Percussion sound bank"><option value="rattlesnake" selected>Rattlesnake</option><option value="fm-kit">Soft FM kit</option><option value="analog">Analog drums</option><option value="modal">Modal drums</option><option value="noise">Noise percussion</option><option value="pitched-morph">Mallets · Pitched Morph</option><option value="karplus-strong">Karplus–Strong</option></select></span>
                   </label>
                 </div>
               </section>
@@ -216,7 +216,7 @@
               <h2 id="formBankTitle">Form</h2>
               <button class="shapes-icon-button shapes-reset-button" id="resetForm" type="button" aria-label="Reset form" title="Reset form"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M5 8V4m0 0h4M5 4l3.2 3.2A7 7 0 1 1 5 14" /></svg></button>
             </div>
-            <div class="shapes-parameter-grid">
+            <div class="shapes-parameter-grid" id="sharedProfileControls">
               <label class="select-control" for="profileKind">
                 <span class="field-label">Shared profile</span>
                 <span class="select-shell"><select id="profileKind"><option value="polygon">Polygon</option><option value="star">Star</option><option value="circle">Circle</option><option value="line">Open line</option></select></span>
@@ -281,7 +281,7 @@
               </section>
               <section id="triggerMappingSection" aria-labelledby="triggerMappingTitle" hidden>
                 <h3 id="triggerMappingTitle">Percussion</h3>
-                <label class="select-control" id="triggerMappingControl" for="triggerMapping" hidden><span class="field-label">FM kit assignment</span><span class="select-shell"><select id="triggerMapping"><option value="feature">Feature</option><option value="position">Position</option><option value="incidence">Incidence</option></select></span></label>
+                <label class="select-control" id="triggerMappingControl" for="triggerMapping" hidden><span class="field-label">Kit assignment</span><span class="select-shell"><select id="triggerMapping"><option value="feature">Feature</option><option value="position">Position</option><option value="incidence">Incidence</option></select></span></label>
                 <div class="shapes-parameter-grid">
                   <label class="control" for="tuningDepth"><span><b id="tuningDepthLabel">Morph range</b><output id="tuningDepthOut" for="tuningDepth">100%</output></span><input id="tuningDepth" type="range" min="0" max="24" step="1" value="12" /></label>
                   <label class="control" for="triggerCharacter"><span><b>Character depth</b><output id="triggerCharacterOut" for="triggerCharacter">70%</output></span><input id="triggerCharacter" type="range" min="0" max="1" step="0.01" value="0.7" /></label>

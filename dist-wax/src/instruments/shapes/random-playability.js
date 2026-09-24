@@ -13,7 +13,7 @@ export function prepareShapesStarterSound(state) {
     tone.fmIndex = Math.min(1.5, tone.fmIndex * 0.28);
     tone.fmRatio = clamp(tone.fmRatio, 0.5, 2);
     voice.presetLevel = Math.min(0.24, voice.presetLevel * 0.5);
-  } else if (state.selection.playingMode !== "triggers" && voice.engine === "square") {
+  } else if (state.selection.playingMode !== "triggers" && ["square", "saw"].includes(voice.engine)) {
     voice.presetLevel = Math.min(0.3, voice.presetLevel);
   }
   // Preserve shape-only studies, but do not let an almost-static axis stand

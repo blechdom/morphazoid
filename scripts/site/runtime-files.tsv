@@ -1040,3 +1040,9 @@ copy+require	docs/io-settings.md
 
 copy+require	src/ui/primitives/range-knob.js
 copy+require	src/ui/primitives/range-knob.css
+
+# Shapes sound-bank expansion
+copy+require	src/families/percussion/drum-renderer.js
+copy+require	src/instruments/shapes/control-availability.js
+copy+require	src/instruments/shapes/kit-audio.js
+copy+require	src/instruments/shapes/trigger-banks.js

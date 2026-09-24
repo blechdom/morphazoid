@@ -35,14 +35,14 @@ test("122 pre-integration reference voice sets retain frequencies, envelopes, pa
   assert.equal(failures.length, 0,
     `${failures.length}/${reference.cases.length} reference cases failed on ${process.version} ${process.arch}:\n${failures.join("\n")}`);
 });
-test("110 unique presets retain raw original adapters and tune the factory bank and merge corner/tonal playing with six dense Rattlesnake demos", () => {
+test("117 unique presets retain raw original adapters and tune the factory bank and merge corner/tonal playing with six dense Rattlesnake demos", () => {
   assert.equal(SHAPES_IMPORTED_PRESETS.length, 76);
-  assert.equal(SHAPES_FULL_PRESETS.length, 110);
-  assert.equal(new Set(SHAPES_FULL_PRESETS.map(p => p.id)).size, 110);
-  assert.equal(new Set(SHAPES_FULL_PRESETS.map(p => presetStateKey(p.snapshot))).size, 110);
+  assert.equal(SHAPES_FULL_PRESETS.length, 117);
+  assert.equal(new Set(SHAPES_FULL_PRESETS.map(p => p.id)).size, 117);
+  assert.equal(new Set(SHAPES_FULL_PRESETS.map(p => presetStateKey(p.snapshot))).size, 117);
   assert.deepEqual(SHAPES_FULL_PRESETS.slice(0, 3).map(p => p.snapshot.parameters.selection.playingMode), ["continuous", "notes", "triggers"]);
   for (const mode of ["notes", "triggers"]) {
-    assert.equal(SHAPES_FULL_PRESETS.filter(p => p.snapshot.parameters.selection.playingMode === mode).length, mode === "notes" ? 29 : 18);
+    assert.equal(SHAPES_FULL_PRESETS.filter(p => p.snapshot.parameters.selection.playingMode === mode).length, mode === "notes" ? 30 : 23);
     for (const dimension of ["2d", "3d", "4d"]) assert.ok(SHAPES_FULL_PRESETS.some(p => p.snapshot.parameters.selection.playingMode === mode && p.snapshot.parameters.selection.dimension === dimension));
   }
   for (let i = 0; i < 90; i += 10) assert.equal(new Set(SHAPES_FULL_PRESETS.slice(i, i + 10).map(p => p.snapshot.parameters.selection.playingMode)).size, 3);
@@ -51,8 +51,8 @@ test("110 unique presets retain raw original adapters and tune the factory bank 
   assert.equal(rattles.length, 6);
   assert.ok(rattles.every(p => p.snapshot.parameters.play.divisions >= 4 && p.snapshot.parameters.trigger.soundBank === "rattlesnake"));
   const notes = SHAPES_FULL_PRESETS.filter(p => p.source.kind === "shapes" && p.snapshot.parameters.selection.playingMode === "notes");
-  assert.deepEqual([...new Set(notes.map(p => p.snapshot.parameters.voice.engine))].sort(), ["fm", "pm", "shepard", "sine", "square", "triangle"]);
-  assert.equal(new Set(notes.map(p => JSON.stringify(p.snapshot.parameters.notes.envelopePoints))).size, 14);
+  assert.deepEqual([...new Set(notes.map(p => p.snapshot.parameters.voice.engine))].sort(), ["fm", "pm", "saw", "shepard", "sine", "square", "triangle"]);
+  assert.equal(new Set(notes.map(p => JSON.stringify(p.snapshot.parameters.notes.envelopePoints))).size, 15);
   assert.ok(notes.some(p => p.snapshot.parameters.notes.swell));
 });
 
