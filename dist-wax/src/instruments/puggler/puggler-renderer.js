@@ -1,6 +1,6 @@
 import { drawEraPosters } from './puggler-era-posters.js';
 import { futureCrowdMember, futureHeadwear, drawFutureCrowdHead, drawFutureCrowdHand } from './puggler-future-crowd.js';
-import { WORLD, flightPosition } from './puggler.js';
+import { WORLD } from './puggler.js';
 import { PugglerCollage } from './puggler-collage.js';
 import { historicalCrowdMember, historyHeadwear, drawHistoryCrowdHead, drawHistoryCrowdHand } from './puggler-history-crowd.js';
 import { PugglerCrowd } from './puggler-crowd.js';
@@ -771,7 +771,7 @@ export function drawPyrotechnics(c,w,h,view,pyro,time) {
 }
 export class PugglerRenderer {
   constructor(canvas) {
-    this.canvas=canvas;this.c=canvas.getContext('2d',{alpha:false});this.top=1200;
+    this.canvas=canvas;this.c=canvas.getContext('2d',{alpha:false});
     this.view={scale:1,scaleY:1,ox:0,oy:0};
     this.collage=new PugglerCollage();
     this.crowd=new PugglerCrowd();
@@ -793,22 +793,13 @@ export class PugglerRenderer {
     const skin=skinFor(params.skin).id;
     const bodyLook=o=>({...o,prop:presentProp(o.prop,skin)});
     const bodies=(model.objects??[]).filter(o=>o.phase!=='waiting'&&o.phase!=='gone').map(bodyLook);
-    let highest=720;
-    for(const o of bodies) {
-      if(!['air','replacement','audience'].includes(o.phase))continue;
-      highest=Math.max(highest,o.y+100);
-      if(o.flight) {
-        const f=o.flight,apex=f.k<1e-6?f.vy/f.g:Math.log1p(Math.max(0,f.vy)*f.k/f.g)/f.k;
-        const at=flightPosition(f,Math.min(o.duration??apex,Math.max(0,apex))).y;
-        if(Number.isFinite(at))highest=Math.max(highest,at+100);
-      }
-    }
-    this.top=highest>this.top?highest:this.top+(highest-this.top)*.035;
     const activePlayers=Array.isArray(model.activePlayers)?model.activePlayers:(model.activeIds??[0]).map(id=>model.players?.[id]??model);
     const sx=w/1030,sy=Math.max(.22,Math.min(.8,(h-80)*.59/510)),ox=(w-WORLD.width*sx)/2,oy=h-56;
-    const shoulder=540,shoulderPixels=shoulder*sy,upperPixels=Math.max(25,oy-shoulderPixels-31);
-    const compressedTop=Math.log1p(Math.max(1,this.top-shoulder)/280);
-    const yMap=y=>y<=shoulder?y*sy:shoulderPixels+Math.log1p((y-shoulder)/280)/compressedTop*upperPixels;
+    const handPixels=WORLD.handY*sy,upperPixels=Math.max(30,oy-handPixels-24);
+    const throwValue=Math.max(model.config.count,...(model.pattern?.values??[]));
+    // Never fit to live apex: that cancelled the visible effect of throw height.
+    const referenceRise=Math.max(130,WORLD.gravity*1.8*((throwValue-.38)/3)**2/8);
+    const yMap=y=>y<=WORLD.handY?y*sy:handPixels+upperPixels*(-Math.expm1(-(y-WORLD.handY)/referenceRise));
     const point=(x,y)=>({x:ox+x*sx,y:oy-yMap(y)});
     this.view={scale:sx,scaleY:sy,ox,oy,point};
     if(!drawSkinStage(c,w,h,model,this.view,this.collage,skin))stage(c,w,h,model,this.view,this.collage);

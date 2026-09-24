@@ -13,9 +13,9 @@ async function open(page) {
 const geometry = page => page.evaluate(() => {
   const rect = selector => {
     const element = document.querySelector(selector), r = element.getBoundingClientRect(), css = getComputedStyle(element);
-    return { x:r.x, y:r.y, width:r.width, height:r.height, bottom:r.bottom, right:r.right, border:css.borderWidth, radius:css.borderRadius, shadow:css.boxShadow };
+    return { x:r.x, y:r.y, width:r.width, height:r.height, bottom:r.bottom, right:r.right, border:css.borderWidth, radius:css.borderRadius, shadow:css.boxShadow, scrollTop:element.scrollTop };
   };
-  return { header:rect('.masthead'), wrap:rect('.puggler-stage-wrap'), canvas:rect('#stage'), panel:rect('.puggler-panel'), scrollY, width:innerWidth, height:innerHeight, scrollWidth:document.documentElement.scrollWidth };
+  return { header:rect('.masthead'), wrap:rect('.puggler-stage-wrap'), canvas:rect('#stage'), panel:rect('.puggler-panel'), controls:rect('.puggler-performance-controls'), scrollY, width:innerWidth, height:innerHeight, scrollWidth:document.documentElement.scrollWidth };
 });
 
 for (const viewport of viewports) {
@@ -29,6 +29,7 @@ for (const viewport of viewports) {
       expect(before.wrap.border).toBe('0px');expect(before.canvas.border).toBe('0px');
       expect(before.wrap.radius).toBe('0px');expect(before.wrap.shadow).toBe('none');
       expect(before.wrap.y).toBeCloseTo(before.header.bottom,0);
+      expect(before.controls.y).toBeCloseTo(before.wrap.bottom,0);
       expect(before.scrollWidth).toBeLessThanOrEqual(viewport.width+1);
       if(portrait){
         expect(before.canvas.width).toBeCloseTo(viewport.width,0);
@@ -36,7 +37,7 @@ for (const viewport of viewports) {
         expect(before.canvas.width/before.canvas.height).toBeGreaterThanOrEqual(1.5);
         expect(before.canvas.width/before.canvas.height).toBeLessThanOrEqual(1.9);
         expect(viewport.height-before.wrap.bottom).toBeGreaterThanOrEqual(200);
-        if(viewport.width>=375)expect(before.panel.y).toBeLessThan(viewport.height-200);
+        if(viewport.width>=375)expect(await page.locator('.puggler-performance-controls').evaluate(el=>el.getBoundingClientRect().y)).toBeLessThan(viewport.height-200);
       }else{
         expect(before.canvas.right).toBeCloseTo(before.panel.x,0);
         expect(before.panel.right).toBeCloseTo(viewport.width,0);
@@ -52,6 +53,16 @@ for (const viewport of viewports) {
       const scrolled=await geometry(page);
       expect(scrolled.wrap.y).toBeCloseTo(before.wrap.y,0);
       expect(scrolled.canvas.height).toBeCloseTo(before.canvas.height,0);
+      if(!portrait){
+        expect(scrolled.controls).toEqual(before.controls);
+        // Sidebar content can change height without reflowing the left column.
+        const lights=page.locator('.puggler-panel > details.puggler-control-section');
+        await expect(lights).toHaveAttribute('open','');
+        await lights.evaluate(el=>{el.open=false;});
+        await expect(lights).not.toHaveAttribute('open');
+        expect((await geometry(page)).controls).toEqual(before.controls);
+      }
+      const panelBeforeLeftScroll=(await geometry(page)).panel;
       const control=page.locator('#decay');
       await control.scrollIntoViewIfNeeded();
       await control.focus();
@@ -59,7 +70,13 @@ for (const viewport of viewports) {
       await control.press('ArrowLeft');
       expect(Number(await control.inputValue())).toBeLessThan(oldValue);
       const controlBox=await control.boundingBox(), current=await geometry(page);
-      expect(controlBox.y).toBeGreaterThanOrEqual((portrait?current.wrap.bottom:current.header.bottom)-1);
+      expect(controlBox.y).toBeGreaterThanOrEqual(current.wrap.bottom-1);
+      if(!portrait){
+        expect(current.panel).toEqual(panelBeforeLeftScroll);
+        expect(current.wrap.y).toBeCloseTo(before.wrap.y,0);
+        expect(current.controls.y).toBeCloseTo(before.wrap.bottom,0);
+        if(viewport.height<560)expect(current.controls.scrollTop).toBeGreaterThan(0);
+      }
       expect(controlBox.y+controlBox.height).toBeLessThanOrEqual(viewport.height+1);
       expect(await page.evaluate(()=>{
         const node=document.querySelector('#decay'),r=node.getBoundingClientRect();

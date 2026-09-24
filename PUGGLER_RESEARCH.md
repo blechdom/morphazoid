@@ -21,8 +21,8 @@ performers, a filthy venue, musical phrases, passing, and crowd boos.
 ## Fixed and phrased patterns
 
 The Pattern menu always offers every fixed pattern for the current object count.
-During automatic rhythm forms it displays “Verse phrases” or “Evolving phrases”;
-choosing a fixed pattern switches Rhythm form to “Repeat a juggling pattern”.
+The same menu includes “Verse / fill / break” and “Evolving phrases”;
+choosing a fixed pattern switches to repeating that pattern. The adjacent arrow cycles all choices.
 This re-racks the throws while preserving transport, Audio, and sound choices.
 
 | Objects | Fixed patterns | Compatible phrase chunks |
@@ -68,7 +68,7 @@ Future pairs a future man, a cyber woman, and an alien. Each new skin remaps all
 drag, contact timing, and drum/riff assignments. A skin change restyles existing
 flights and their recorded trails without re-racking or resetting the model.
 Starting acts preserve the chosen skin and lights; Reset returns to Trashpunk
-and house lights. Cast names and keyboard labels follow the selected skin.
+and house lights. Cast name buttons follow the selected skin.
 Vocal objects also use the selected character's voice treatment, as described
 below; physical trajectories and drum/riff assignments remain unchanged.
 
@@ -115,22 +115,30 @@ automated level, separation, continuity, and lifecycle checks.
   velocity brightens and pushes phrase rate. Material mass changes drag, spin,
   release impulse, body reaction, and contact energy. Common gravity is never
   made heavier for a heavier prop.
-- A/D slowly steer Puggler; Q/E ride faster; W/S change his next throw height.
-  Roxy uses J/L slow, U/O fast, I/K high/low, H kick, N to crowd. Moss uses
-  numpad 4/6 slow, 7/9 fast, 8/2 high/low, 5 kick, 0 to crowd. F/G kick/throw
-  for Puggler. Each key has a clickable, holdable button that lights while held.
-  All seven nonempty performer combinations are available with stable identities.
-- Any rider can be dragged, including automatic partners; three touches can
-  steer all three. Assistance yields during direct steering and for 0.65 seconds
-  afterward. Space uses shared transport. Native controls retain keyboard behavior.
+- Name buttons (or 1/2/3) toggle membership; at least one juggler stays onstage.
+  Eight shared stage knobs control riding speed, object count, juggling/music
+  tempo, throw height, catch reach, wildness, gravity and wind. Sound knobs are
+  alongside them in one wrapping bank (lime motion outlines, cyan sound outlines).
+  Drag knobs vertically; arrows still edit their native ranges. Ride speed and tempo are independent.
+- The old High/Low buttons only changed later throws; Kick required a low object
+  inside rescue reach. These hard-to-see actions and the individual keypads are
+  removed from the UI. The model retains rescue logic for existing simulation tests.
+- Stage dragging or Left/Right steers the whole active cast. One captured pointer
+  owns the ensemble gesture; extra touches cannot split the cast. Assistance yields
+  during steering and for 0.65 seconds afterward. Cancellation/blur releases it.
+  Space uses shared transport; native controls retain keyboard behavior.
 - Pause gates new automatic throws and freezes the siteswap beat. Existing
   objects land naturally; riding, manual crowd exchanges and model-timed audience
   reactions continue. Armed Audio keeps crowd sounds and contact tails available.
   Audio off, output zero, hidden pages and teardown silence all sources.
-- The compact panel orders transport/tempo, 22 starting acts, cast, count/pattern,
-  rhythm, multi-rider passing, random objects/flyers, physics, sound, and object
-  assignments. The page intentionally omits the shared Audio-off prose at the
-  user's request; the explicit masthead Audio state remains visible.
+- The stage stays borderless and sticky; its controls scroll, not the graphic.
+  Desktop and short-landscape columns scroll independently; portrait stacks
+  them with native page scrolling. On every layout shared controls begin directly
+  below the graphic, with compact actions that wrap and a circular Play/Pause control. Knob labels sit
+  below the dial, with smaller values underneath, following SIMD-303’s ordering.
+  The right panel starts with full scenes, then focused choreography/riding,
+  stage/lights and individual object assignments. The page intentionally omits
+  shared Audio-off prose at the user's request; masthead Audio remains explicit.
 - Released trajectories stay in world space. Moving under them changes whether
   a hand catches. Descending contacts use a swept collision test to avoid
   skipping a hand at 1,200 beats/min. Catches attach props immediately and trigger
@@ -144,7 +152,7 @@ automated level, separation, continuity, and lifecycle checks.
   prop upward from world y=32; its arc rises above the hands, then descends into
   the receiver's catch region. It retains its drum/riff slot and future beat.
   Moving away can miss the incoming prop, which drops and is replaced again.
-- G/N/numpad0 sends an owned held object to the crowd, or queues the action for
+- G or the shared To crowd button sends each rider’s held object to the crowd, or queues the action for
   the next available throw. Its outbound arc ends in a crowd hand, awards a
   crowd catch, and is followed by a different prop lobbed back onto the stage.
   Each prop's musical identity survives that exchange. This is cartoon catch
@@ -152,13 +160,13 @@ automated level, separation, continuity, and lifecycle checks.
 - A blocked reservation pauses phrase progress until its required prop returns;
   other released objects continue moving. This is forgiving musical game timing.
 - Throw height and tempo are separate musical controls. Launch gravity uses
-  `2200 × gravity × loft × riderLoft × (tempo/180)²`, preserving high arcs as tempo rises.
+  `2200 × gravity × (1.8 × (loft/1.8)^1.7) × riderLoft × (tempo/180)²`, preserving high arcs as tempo rises.
   Audience lobs use a slower, readable 1.15-second arc. This is explicitly
   arcade time scaling, not unchanged terrestrial gravity. Existing flights keep
   their launch coefficients when settings change.
 - A nonlinear camera projection compresses very high sky space toward the top
-  of the frame without shrinking the riders. Physical trajectories remain
-  unchanged. Long arms reach incoming props; torso lean/recoil, pedals, wheels,
+  of the frame without shrinking the riders. Its reference is the pattern size,
+  not the current apex: auto-framing no longer cancels the visible loft change. Long arms reach incoming props; torso lean/recoil, pedals, wheels,
   facial expressions, and mouths respond to motion and contact.
 - Venue geometry includes battered amps, drum kit, 40 authored punk/thrash/gross
   poster slogans, leaking pipe,
@@ -185,7 +193,7 @@ bypass that compressor into the final saturator with a stronger, accented onset.
 A final unity clip guard catches oversampling reconstruction peaks before the
 unchanged output headroom.
 Every audible catch briefly ducks the other riffs for 45 ms. Catch-drums zero
-keeps that duck inactive, and crowd boos do not trigger it. Ten-percent output
+keeps that duck inactive for catches. Background boos do not trigger it; actual drops do. Ten-percent output
 headroom and smoothed parameters bound the mix. Density compensation above four
 voices preserves headroom. Catch events
 explicitly gate their own riff even if a short held state falls between timer
@@ -204,7 +212,7 @@ contact output-preview hooks are retained; browser MIDI routing is not claimed.
 Automated tests cover legal reservations, exact flight solutions, material
 extremes, swept catches, replacement catch/miss, independent steering, immutable
 configuration inputs, finite/bounded audio, recorded sample loading, phrase
-continuation, onset/mute/pause, layout, three-player keyboard/pointer cancellation, crowd round trips, and cleanup.
+continuation, onset/mute/pause, layout, ensemble keyboard/pointer cancellation, crowd round trips, and cleanup.
 Automation does **not** establish timbral authenticity, intelligibility of the
 sampled chant, musical usefulness, or physical touch/controller feel. Human
 listening and device play remain unperformed.
@@ -399,7 +407,7 @@ all original focused acts and the full manual control ranges remain available.
 The **Scene level** control remains smoothed attenuation after the ceiling;
 Audio arm, Play, master Output and explicit flash consent are never recalled.
 
-The first control-panel row has 24 complete scenes (eight per skin), Next and a generative dice
+The first control-panel row has 48 complete scenes (16 per skin, interleaved), Next and a generative dice
 button. Snapshots include object/sound assignments, cast, physics, juggling and
 ride patterns, rhythm, tempo, sound mix, skin, lights, trails and poster seed.
 The body **Juggling act** remains a focused physics/pattern selector. Full recall
@@ -424,3 +432,54 @@ stage text, not claims about historical events or cultural traditions.
 Focused PCM, routing, preset, resource, lighting and browser checks are separate
 from listening acceptance. Physical iPhone testing and human judgments of sound
 identity, balance, harshness and performance feel still require owner review.
+
+## September 2026 shared controls / drop feedback pass
+
+The main bank mixes eras and density instead of three skin blocks. Added scenes
+include still wheels with fast shredding, fast wheels with slow bass, low throws,
+high aerial relays, mono/choked basement mixes, gong space, chamber strings,
+call-and-response, reverse scatter and dense hyper-wave scenes. Output, Audio,
+Play, flashing consent and live clocks remain outside recall. Scene level is
+still nominally 80%; dynamic variety is not implemented as arbitrary master jumps.
+
+Actual drops now use the original CC0 human boo with two envelope syllables and
+falling playback-rate sweeps (0.84 to 0.60×). They have a separate Drops / boos
+control (default 70%) and stronger foreground gain; incidental crowd reactions
+retain Audience. Both paths retain the shared ceiling and master mute. Audience
+and Drops now each have a smoothed live gain, separate from a clip's envelope:
+turning either knob changes an already-playing voice, including while juggling
+is paused, without restarting it. Scene level attenuates the whole mix (objects,
+catches, drop boos and audience), then the header Output provides the overall
+level; Scene level at zero silences everything. These relationships are also
+available as knob tooltips/accessibility descriptions. No new recordings or
+voice-identity claims. Scene snapshots are v2; exact v1 shapes
+migrate with the default drop level without mutating the saved input.
+
+Automated checks exercise model timing, fixed projection height leverage,
+real recorded drop rendering, every shared knob, touch cancellation, five layout
+sizes, audio lifecycle and preset/dice levels. Mechanical evidence does not
+approve the timbre or phone feel; human listening and physical-device review
+remain required.
+
+The compact controls sit directly at the stage's lower edge. Desktop and short
+landscape have independent left-control and right-panel scrollers; resizing or
+collapsing the right panel does not move the left controls. Portrait keeps the
+borderless graphic sticky while the page scrolls. Motion and sound share one
+wrapping knob bank, distinguished by lime/cyan dial outlines, with labels below
+the dials and smaller values below the labels. The transport is circular (48px
+on touch), and the bordered To crowd action is beside Objects. There is no
+visible drag-instruction strip or sound disclosure.
+
+The live-level regression renders the original boo, woo and crash recordings
+at 48 kHz, changes the gain at 250 ms without retriggering, and compares the
+450–800 ms window to an unchanged render. Audience, Drops and whole-scene
+attenuation retain proportional 0/25/100% amplitude, source continuity and
+cleanup. This is automated characterization, not listening approval.
+
+
+Audience now extends to 300% (three times its former maximum gain, approximately
++9.5 dB before the shared ceiling). The original 0–100% response, 28% default,
+factory mixes and 12–30% dice range are unchanged. Custom scenes can retain the
+boosted value; Drops stays separate at 0–100%. Both new attacks and live edits
+use the expanded, bounded range. The ceiling, Scene level and header Output
+remain unchanged; their protection may limit the gain increase in dense mixes.

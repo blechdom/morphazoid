@@ -249,7 +249,7 @@ export class PugglerModel {
   emit(kind,o,extra={}) {
     this.events.push({kind,time:this.time,x:o.x,y:o.y,vx:o.vx,vy:o.vy,prop:o.prop??propFor('balloon'),id:o.id,owner:o.owner??0,drum:o.drum,riff:o.riff,...extra});
   }
-  effectiveGravity(owner=0) {return WORLD.gravity*this.config.gravity*this.config.loft*this.players[owner].loft*(this.config.tempo/180)**2;}
+  effectiveGravity(owner=0) {return WORLD.gravity*this.config.gravity*(1.8*(this.config.loft/1.8)**1.7)*this.players[owner].loft*(this.config.tempo/180)**2;}
   throwBeat(beat,events=this.patternEvents(beat)) {
     for(const e of events){
       const o=this.objects.find(o=>o.due===beat&&o.hand===e.hand);

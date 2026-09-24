@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { drawProp, drawObjectEchoes, drawPyrotechnics, MAX_TRAIL_ECHOES, posterLayout, PugglerRenderer } from '../src/instruments/puggler/puggler-renderer.js';
-import { PugglerModel, PROPS } from '../src/instruments/puggler/puggler.js';
+import { PugglerModel, PROPS, WORLD, flightPosition } from '../src/instruments/puggler/puggler.js';
 import { PugglerPyro, MAX_PYRO_PARTICLES } from '../src/instruments/puggler/puggler-pyro.js';
 
 function context() {
@@ -176,4 +176,24 @@ for(const [skin,atlas,hands] of [['history','historyCrowd',['candle','fan','palm
   assert.ok(renderer.collage.venue.filter(call=>/crowd/i.test(call[0])).every(call=>call[0]===atlas));
   assert.ok(calls.flat().filter(value=>typeof value==='number').every(Number.isFinite));
   renderer.dispose();
+});
+
+test('throw height changes visible apex at fixed camera scale without changing beat duration',()=>{
+  for(const [width,height] of [[390,219],[1030,612]]){
+    const positions=[],durations=[];
+    for(const loft of [.6,1.8,3]){
+      const {c}=context(),canvas={getContext:()=>c,getBoundingClientRect:()=>({width,height,left:0}),width:0,height:0};
+      const renderer=new PugglerRenderer(canvas);renderer.collage.dispose();renderer.collage=photographs();
+      const model=new PugglerModel({count:6,loft,tempo:360,cast:'trio',autoRide:true,chaos:0,assist:120});
+      model.throwBeat(0);const o=model.objects.find(o=>o.phase==='air'),f=o.flight;
+      const apex=Math.log1p(f.vy*f.k/f.g)/f.k,y=flightPosition(f,apex).y;
+      renderer.draw(model,{});positions.push(renderer.view.point(o.x,y).y);durations.push(o.duration);
+      const same=renderer.view.point(500,1000);o.y=999999;renderer.draw(model,{});
+      assert.deepEqual(renderer.view.point(500,1000),same,'airborne apex must not auto-normalize the camera');
+      assert.ok(renderer.view.point(500,999999).y>=20);renderer.dispose();
+    }
+    assert.ok(positions[0]-positions[2]>height*.18,JSON.stringify(positions));
+    assert.ok(positions[0]>positions[1]&&positions[1]>positions[2]);
+    assert.equal(new Set(durations).size,1);
+  }
 });

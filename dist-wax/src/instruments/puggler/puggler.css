@@ -1,39 +1,51 @@
 @import url('../../ui/index.css');
 .puggler-page { --accent:#c2ec81; --green:#c2ec81; --text:#f1e4ec; --muted:#baa8b8; --line:#4c394e; --puggler-header-height:58px; background:#15101c; color:var(--text); }
-/* Native page scrolling on phones. The sticky stage shares a containing block
-   with all controls, so it stays pinned after the keyboards scroll away. */
-html:has(> .puggler-page) { height:auto; min-height:100%; overflow:auto; }
+/* Desktop columns have independent scrollers. Portrait uses native page
+   scrolling, with the graphic pinned above both sets of controls. */
+html:has(> .puggler-page) { height:auto; min-height:100%; overflow:auto; scroll-padding-top:var(--puggler-sticky-offset,360px); }
 body.puggler-page { height:auto; min-height:100dvh; overflow:visible; }
 .puggler-page .masthead { position:sticky; top:0; background:#15101c; }
-.puggler-shell { display:grid; grid-template-columns:minmax(0,1fr) 340px; grid-template-areas:"stage panel" "keys panel" "error panel"; grid-template-rows:min-content min-content auto; gap:0; width:100%; max-width:none; margin:0; padding:0; align-items:start; }
-.puggler-stage-wrap { grid-area:stage; position:sticky; top:var(--puggler-header-height); z-index:20; min-width:0; overflow:hidden; border:0; border-radius:0; box-shadow:none; background:#15101c; }
-.puggler-page #stage { display:block; width:100%; height:auto; aspect-ratio:16 / 9; min-height:210px; max-height:min(68svh,calc(100svh - var(--puggler-header-height) - 180px)); border:0; border-radius:0; box-shadow:none; touch-action:none; outline-offset:-4px; }
+.puggler-shell { display:grid; grid-template-columns:minmax(0,1fr) 340px; grid-template-areas:"performance panel"; grid-template-rows:minmax(0,1fr); gap:0; width:100%; height:calc(100svh - var(--puggler-header-height)); max-width:none; margin:0; padding:0; align-items:stretch; overflow:hidden; }
+.puggler-performance { grid-area:performance; display:grid; grid-template-areas:"stage" "keys" "error"; grid-template-rows:auto minmax(0,1fr) auto; min-width:0; min-height:0; height:100%; align-content:start; }
+.puggler-stage-wrap { grid-area:stage; position:relative; z-index:20; min-width:0; overflow:hidden; border:0; border-radius:0; box-shadow:none; background:#15101c; }
+.puggler-page #stage { display:block; width:100%; height:auto; aspect-ratio:16 / 9; min-height:210px; max-height:min(56svh,calc(100svh - var(--puggler-header-height) - 310px)); border:0; border-radius:0; box-shadow:none; touch-action:none; outline-offset:-4px; }
 .puggler-stage-wrap canvas:focus-visible { outline:2px solid #c2ec81; }
 .puggler-title { margin:0; padding:8px 12px; color:#dbf097; font:900 clamp(16px,2.2vw,32px)/1.12 Impact,'Arial Black',sans-serif; letter-spacing:-.3px; text-transform:uppercase; text-shadow:2px 2px #b72b67; }
 .puggler-page button:where(:not(.mz-button)) { cursor:pointer; font-family:inherit; border:1px solid #654a66; border-radius:5px; background:#39263d; color:#f2deec; }
 .puggler-page button:disabled { cursor:default; opacity:.45; }
 .puggler-page button:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
-.puggler-keyboards { grid-area:keys; display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:14px; width:100%; max-width:710px; margin:12px auto 0; padding:0 12px 12px; }
-.rider-keyboard { min-width:0; }
-.rider-keyboard h2 { margin:0 0 7px; color:#dac4d4; font:11px ui-monospace,monospace; }
-.rider-keyboard.inactive h2 { color:#978393; }
-.rider-toggle { display:flex; align-items:center; gap:7px; width:100%; min-height:34px; padding:5px 8px; text-align:left; font-size:11px; }
-.rider-toggle kbd { font:700 11px ui-monospace,monospace; opacity:.75; }
+.puggler-performance-controls { grid-area:keys; align-self:stretch; min-width:0; min-height:0; overflow-y:auto; overscroll-behavior-y:contain; scroll-padding-block:6px; scrollbar-width:thin; scrollbar-color:#654663 transparent; padding:6px 12px 12px; background:#1b1420; --mz-color-ink:var(--text); --mz-color-muted:var(--muted); --mz-color-accent:var(--accent); }
+/* Content-sized actions share a row when there is room; no full-width buttons. */
+.puggler-stage-toolbar { display:flex; flex-wrap:wrap; align-items:center; justify-content:flex-start; gap:6px 10px; margin:0 0 10px; }
+.puggler-cast-row { display:flex; align-items:center; gap:8px; min-width:0; max-width:100%; }
+.puggler-cast-row #playButton { flex:0 0 auto; width:40px; min-width:40px; height:40px; min-height:40px; padding:0; border-radius:50%; font-size:0; }
+/* Native Pause/Play text remains the accessible name; the icon is CSS geometry. */
+.puggler-cast-row #playButton::before { content:""; box-sizing:border-box; display:block; width:12px; height:14px; border-left:4px solid currentColor; border-right:4px solid currentColor; }
+.puggler-cast-row #playButton[aria-pressed=false]::before { width:0; height:0; margin-left:3px; border:7px solid transparent; border-right:0; border-left:11px solid currentColor; }
+#keyboardControls { display:flex; gap:5px; min-width:0; }
+.rider-toggle { display:flex; justify-content:center; align-items:center; gap:4px; min-width:62px; max-width:120px; min-height:32px; padding:4px 8px; font-size:11px; line-height:1.2; }
+.rider-toggle kbd { font:10px ui-monospace,monospace; opacity:.7; }
 .rider-toggle[aria-pressed=true] { background:#324028; color:#ddf3b2; border-color:#819755; }
 .puggler-page .rider-toggle:disabled { opacity:1; }
-.rider-keyboard.inactive .key-grid { opacity:.6; }
-.key-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:4px; }
-.key-grid button { display:flex; align-items:center; justify-content:center; gap:5px; min-width:0; min-height:31px; padding:4px; font-size:9px; touch-action:none; user-select:none; }
-.key-grid button:last-child { grid-column:span 2; }
-.key-grid kbd { font:700 11px ui-monospace,monospace; color:#d5eead; }
-.key-grid button.held,.key-grid button:active { background:#c6eb8c; color:#20331b; border-color:#d9ffab; box-shadow:0 0 10px #c6eb8c44; }
-.key-grid button.held kbd,.key-grid button:active kbd { color:#20331b; }
+.puggler-pattern-row { display:grid; grid-template-columns:minmax(0,1fr) 32px; flex:0 1 240px; min-width:140px; max-width:300px; gap:4px; align-items:center; }
+.puggler-pattern-row .puggler-field { margin:0; gap:0; min-width:0; }
+.puggler-stage-toolbar .mz-button:not(#playButton) { min-height:32px; padding:4px 6px; font-size:10px; letter-spacing:0; white-space:nowrap; }
+.puggler-pattern-row select { min-height:32px; height:32px; padding:3px 24px 3px 6px; font-size:10px; white-space:nowrap; }
+/* One wrapping bank: color marks the two families, not boxes or disclosures. */
+.puggler-knob-bank { display:grid; grid-template-columns:repeat(auto-fill,minmax(68px,1fr)); align-items:start; justify-content:start; gap:8px; }
+.puggler-knobs { display:contents; }
+#soundControls { --accent:#80dfe5; }
+.puggler-knobs .mz-range-knob { width:100%; min-width:0; max-width:88px; height:82px; margin:0; justify-self:center; }
+.puggler-knobs .mz-range-knob__dial { top:2px; width:36px; height:36px; }
+.puggler-knobs .mz-field__heading { top:43px; bottom:auto; display:flex; flex-direction:column; align-items:center; gap:3px; text-align:center; }
+.puggler-knobs .mz-field__label { position:static; width:100%; color:var(--text); font-size:10px; font-weight:700; line-height:1.1; letter-spacing:0; text-transform:uppercase; white-space:normal; }
+.puggler-knobs .mz-field__output { position:static; width:100%; color:var(--muted); font-size:8px; line-height:1.1; letter-spacing:0; }
 .puggler-panel.panel {
   --mz-color-ink:var(--text); --mz-color-muted:var(--muted);
   --mz-color-bg-deep:#1b1420; --mz-color-line:#473247; --mz-color-line-strong:#634d61;
   --mz-color-accent:var(--accent);
-  grid-area:panel; position:sticky; top:var(--puggler-header-height);
-  display:block; width:auto; min-width:0; max-height:calc(100svh - var(--puggler-header-height)); overflow-y:auto;
+  grid-area:panel; position:static; height:100%;
+  display:block; width:auto; min-width:0; max-height:none; overflow-y:auto;
   padding:var(--mz-space-4); padding-bottom:max(var(--mz-space-4),env(safe-area-inset-bottom)); scrollbar-width:thin; scrollbar-color:#654663 transparent;
   background:transparent; border:0; border-radius:0;
 }
@@ -46,15 +58,8 @@ body.puggler-page { height:auto; min-height:100dvh; overflow:visible; }
 .puggler-field[hidden] { display:none; }
 .puggler-page .masthead select { width:100%; min-width:0; height:33px; min-height:33px; padding:4px 6px; border:1px solid #5a4056; border-radius:4px; background:#2b1f31; color:#eee1e9; font:11px system-ui,sans-serif; }
 .puggler-panel select { min-width:0; }
-.puggler-two-fields { display:grid; grid-template-columns:70px minmax(0,1fr); gap:var(--mz-space-3); }
 .puggler-look-fields { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:var(--mz-space-3); }
-.puggler-two-fields #count { padding-inline:var(--mz-space-3) var(--mz-space-7); }
-.puggler-transport { display:grid; grid-template-columns:76px minmax(0,1fr); gap:var(--mz-space-4); align-items:center; margin-bottom:var(--mz-space-5); }
-.puggler-transport #playButton { min-height:48px; font-size:var(--mz-font-size-md); }
-.puggler-page #tempoControls .mz-range-field { margin:0; }
 .puggler-page input[type=range] { accent-color:#c3e68b; }
-.puggler-random-row { display:grid; grid-template-columns:1fr 1fr; gap:var(--mz-space-3); }
-.puggler-random-row .mz-button { min-width:0; padding-inline:var(--mz-space-3); }
 .puggler-checks { display:flex; flex-wrap:wrap; gap:var(--mz-space-3) var(--mz-space-4); margin-top:var(--mz-space-3); }
 .puggler-check { display:flex; align-items:center; gap:var(--mz-space-2); min-height:var(--mz-control-height-compact); color:var(--mz-color-ink); font-size:var(--mz-font-size-md); }
 .puggler-check input { width:16px; height:16px; margin:0; accent-color:var(--accent); }
@@ -66,24 +71,37 @@ body.puggler-page { height:auto; min-height:100dvh; overflow:visible; }
 /* This page intentionally omits the transport notice at the user's request. */
 .puggler-page .transport-audio-attention,
 .puggler-page .midi-output-monitor { display:none; }
-@media(max-width:1050px) { .puggler-shell { grid-template-columns:minmax(0,1fr) 310px; } .puggler-keyboards { gap:8px; } .key-grid button { flex-direction:column; gap:2px; } }
+@media(max-width:1050px) { .puggler-shell { grid-template-columns:minmax(0,1fr) 310px; } }
 @media(max-width:720px) {
-  html:has(> .puggler-page) { scroll-padding-top:var(--puggler-sticky-offset,360px); }
-  .puggler-shell { grid-template-columns:minmax(0,1fr); grid-template-areas:"stage" "keys" "error" "panel"; }
-  .puggler-panel.panel { position:static; max-height:none; overflow:visible; padding:12px max(12px,env(safe-area-inset-right)) max(18px,env(safe-area-inset-bottom)) max(12px,env(safe-area-inset-left)); }
+  .puggler-shell { height:auto; overflow:visible; grid-template-columns:minmax(0,1fr); grid-template-areas:"stage" "keys" "error" "panel"; grid-template-rows:repeat(4,min-content); }
+  .puggler-performance { display:contents; }
+  .puggler-stage-wrap { position:sticky; top:var(--puggler-header-height); }
+  .puggler-performance-controls { align-self:start; overflow:visible; }
+  .puggler-panel.panel { height:auto; max-height:none; overflow:visible; padding:12px max(12px,env(safe-area-inset-right)) max(18px,env(safe-area-inset-bottom)) max(12px,env(safe-area-inset-left)); }
+  .puggler-cast-row { flex-basis:100%; }
+  #keyboardControls { flex:1; }
+  .rider-toggle { flex:1; min-width:0; max-width:none; padding-inline:5px; }
+  .puggler-stage-toolbar { gap:6px; }
+  .puggler-pattern-row { flex:1 1 0; min-width:120px; max-width:none; }
   .puggler-title { font-size:16px; }
-  .puggler-keyboards { gap:7px; }
-  .key-grid button { min-height:39px; font-size:8px; }
   .puggler-page .masthead select { height:35px; }
 }
-/* Short landscape phones keep a full-height control column rather than trapping
-   parameters below a viewport-filling canvas. */
+/* Short landscape keeps two independent columns and room for one complete
+   knob row under the graphic, rather than moving those knobs to the sidebar. */
 @media(max-width:960px) and (max-height:560px) and (orientation:landscape) {
-  html:has(> .puggler-page) { scroll-padding-top:0; }
-  .puggler-shell { grid-template-columns:minmax(0,1fr) clamp(250px,38vw,320px); grid-template-areas:"stage panel" "keys panel" "error panel"; }
-  .puggler-panel.panel { position:sticky; max-height:calc(100svh - var(--puggler-header-height)); overflow-y:auto; padding:12px; }
+  .puggler-shell { height:calc(100svh - var(--puggler-header-height)); overflow:hidden; grid-template-columns:minmax(0,1fr) clamp(250px,38vw,320px); grid-template-areas:"performance panel"; grid-template-rows:minmax(0,1fr); }
+  .puggler-performance { display:grid; }
+  .puggler-stage-wrap { position:relative; top:auto; }
+  .puggler-page #stage { min-height:170px; max-height:calc(100svh - var(--puggler-header-height) - 138px); }
+  .puggler-performance-controls { align-self:stretch; overflow-y:auto; }
+  .puggler-panel.panel { height:100%; max-height:none; overflow-y:auto; padding:12px; }
   .puggler-title { font-size:16px; }
 }
-@media(pointer:coarse) { .puggler-page .audio-button,.puggler-page [data-primary-transport] { min-width:48px; min-height:48px; } .key-grid button { min-height:40px; } }
+@media(pointer:coarse) { .puggler-page .audio-button,.puggler-page [data-primary-transport] { min-width:48px; min-height:48px; } }
 
 .puggler-flash-note { color:var(--muted); font-size:11px; line-height:1.4; margin:4px 0 12px; }
+
+
+@media(pointer:coarse) {
+  .puggler-cast-row #playButton { width:48px; min-width:48px; height:48px; min-height:48px; }
+}

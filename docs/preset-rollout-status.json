@@ -5,7 +5,7 @@
   "source": "Review branch directory checkpoint 03619ff rebased onto origin/main ef6e593; pending pointer, family rename and preset drafts restored; no push or deployment",
   "counts": {
     "implemented": 25,
-    "fullPresets": 475,
+    "fullPresets": 499,
     "favesImplemented": 13,
     "activeRemaining": 63,
     "regularRemaining": 132
@@ -743,7 +743,7 @@
       "href": "puggler.html",
       "category": "graphic-ui",
       "scope": "regular",
-      "presets": 24,
+      "presets": 48,
       "status": "implemented-verification-pending"
     },
     {

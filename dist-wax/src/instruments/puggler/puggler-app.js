@@ -1,14 +1,15 @@
 import { sonicSkin } from "./puggler-sonic-skins.js";
-import { PugglerModel, PROPS, PATTERNS, OBJECT_SOUND_CHOICES, DRUMS, RIFFS, MAX_OBJECTS, RIDER_NAMES, CASTS, clamp, soundMapping } from "./puggler.js";
+import { PugglerModel, PROPS, PATTERNS, OBJECT_SOUND_CHOICES, DRUMS, RIFFS, MAX_OBJECTS, RIDER_NAMES, RIDE_PATTERNS, CASTS, clamp, soundMapping } from "./puggler.js";
 import { PAGE_DEFAULTS, PRESETS } from "./puggler-presets.js";
 import { PugglerAudio } from "./puggler-audio.js";
 import { PugglerRenderer } from "./puggler-renderer.js";
-import { RIDER_KEYS, GAME_KEYS, drivingControls } from "./puggler-controls.js";
+import { GAME_KEYS, drivingControls } from "./puggler-controls.js";
 import { SKINS, skinFor, presentProp } from "./puggler-skins.js";
 import { LIGHTING_SCENES } from "./puggler-lighting.js";
 import { objectSoundLabel } from './puggler-object-sounds.js';
 import { SOUND_DEFAULTS, PUGGLER_FULL_PRESETS, capturePugglerPreset, applyPugglerPreset, randomizePugglerPreset } from './puggler-full-presets.js';
 import { registerHeaderPresets } from '../../site/header-presets.js';
+import { enhanceRangeKnob } from "../../ui/primitives/range-knob.js";
 import { createRangeField } from "../../ui/index.js";
 
 const $ = id => document.getElementById(id);
@@ -18,8 +19,9 @@ let headerPresets;
 const motionPreference=matchMedia('(prefers-reduced-motion: reduce)');
 const params = { ...soundDefaults, reducedMotion:motionPreference.matches };
 let running=true,starting=false,disposed=false,frame=0,timer=0,lastClock=performance.now()/1000,accumulator=0;
-const targets=[null,null,null],pointers=new Map(),buttonPointers=new Map(),buttonStarts=new Map(),buttonKeys=new Set(),pulses=new Map();
-const keys=new Set(),cleanups=[],ranges=new Map(),objectRows=[],keyButtons=new Map();
+const targets=[null,null,null];
+let stagePointer=null;
+const keys=new Set(),cleanups=[],ranges=new Map(),objectRows=[],knobs=[];
 const riderToggles=[],toggleKeys=['Digit1','Digit2','Digit3'];
 const listen=(element,type,handler,options)=>{element.addEventListener(type,handler,options);cleanups.push(()=>element.removeEventListener(type,handler,options));};
 const percent=v=>`${Math.round(v*100)}%`;
@@ -33,20 +35,33 @@ function clock(){return audio.on&&audio.context?.state==='running'?audio.context
 function addRange(container,id,label,min,max,step,value,formatter,destination){
   const field=createRangeField({id,label,min,max,step,value,formatValue:formatter,onInput:v=>{
     if(destination==='model')model.apply({[id]:v});else params[id]=v;
+    if(id==='count')syncSelectors();
+    headerPresets?.refresh();
   }});$(container).append(field);ranges.set(id,field);
+  if($(container).classList.contains('puggler-knobs'))knobs.push(enhanceRangeKnob(field.input));
 }
-addRange('tempoControls','tempo','Tempo',100,1200,1,PAGE_DEFAULTS.tempo,v=>`${v} BPM`,'model');
-addRange('physicsControls','loft','Throw height',.6,3,.05,1.8,v=>`${v.toFixed(2)}×`,'model');
-addRange('physicsControls','assist','Catch reach',20,120,1,PAGE_DEFAULTS.assist,v=>`${v}`,'model');
-addRange('physicsControls','chaos','Throw wildness',0,100,1,PAGE_DEFAULTS.chaos,v=>`${v}%`,'model');
-addRange('physicsControls','gravity','Gravity',.45,1.65,.01,1,v=>`${v.toFixed(2)}×`,'model');
-addRange('physicsControls','wind','Crosswind',-12,12,.1,0,v=>`${v>0?'+':''}${v.toFixed(1)}`,'model');
+addRange('performanceKnobs','rideSpeed','Ride speed',0,2.5,.05,PAGE_DEFAULTS.rideSpeed,v=>v===0?'Still':`${v.toFixed(2)}×`,'model');
+addRange('performanceKnobs','count','Objects',1,10,1,PAGE_DEFAULTS.count,v=>`${v}`,'model');
+addRange('performanceKnobs','tempo','Juggle / music',100,1200,1,PAGE_DEFAULTS.tempo,v=>`${v} BPM`,'model');
+addRange('performanceKnobs','loft','Throw height',.6,3,.05,1.8,v=>`${v.toFixed(2)}×`,'model');
+addRange('performanceKnobs','assist','Catch reach',20,120,1,PAGE_DEFAULTS.assist,v=>`${v}`,'model');
+addRange('performanceKnobs','chaos','Wildness',0,100,1,PAGE_DEFAULTS.chaos,v=>`${v}%`,'model');
+addRange('performanceKnobs','gravity','Gravity',.45,1.65,.01,1,v=>`${v.toFixed(2)}×`,'model');
+addRange('performanceKnobs','wind','Crosswind',-12,12,.1,0,v=>`${v>0?'+':''}${v.toFixed(1)}`,'model');
 addRange('lightingControls','lightIntensity','Light intensity',0,1,.01,params.lightIntensity,percent);
 addRange('lightingControls','lightSpeed','Light motion',.2,2.5,.05,params.lightSpeed,v=>`${v.toFixed(2)}×`);
 addRange('soundControls','sceneGain','Scene level',0,1,.01,params.sceneGain,percent);
 addRange('soundControls','flight','Airborne riffs',0,1,.01,params.flight,percent);
 addRange('soundControls','impacts','Catch impacts',0,2,.01,params.impacts,percent);
-addRange('soundControls','boo','Audience',0,1,.01,params.boo,percent);
+addRange('soundControls','drops','Drops / boos',0,1,.01,params.drops,percent);
+addRange('soundControls','boo','Audience',0,3,.01,params.boo,percent);
+for(const [id,description] of Object.entries({
+  sceneGain:'Whole scene: objects, catches, drop boos and audience. Multiplied by the header Output level.',
+  drops:'Foreground boos when an object drops. Separate from Audience; follows Scene level.',
+  boo:'Crowd cheers and boos, up to 300% gain. Separate from Drops / boos; follows Scene level.',
+})){
+  ranges.get(id).title=description;$(id).setAttribute('aria-description',description);
+}
 addRange('soundControls','height','Height → pitch',0,1.5,.01,.65,v=>`${v.toFixed(2)}×`);
 addRange('soundControls','stereo','Stereo width',0,1,.01,1,percent);
 addRange('soundControls','grit','Amp filth',0,1,.01,params.grit,percent);
@@ -54,7 +69,8 @@ addRange('soundControls','motion','Speed → brightness',0,12,.1,params.motion,v
 addRange('soundControls','decay','Impact tail',.2,1,.05,1,v=>v===1?'Full':percent(v));
 $('preset').replaceChildren(new Option('Custom juggling act',''),...PRESETS.map(p=>new Option(p.name,p.id)));
 $('preset').value='ballet';
-$('cast').replaceChildren(...CASTS.map(c=>new Option(c.name,c.id)));
+$('ridePattern').replaceChildren(...RIDE_PATTERNS.map(id=>new Option(id.replaceAll('-',' '),id)));
+addRange('ridingControls','rideRange','Riding distance',0,100,1,PAGE_DEFAULTS.rideRange,v=>`${Math.round(v)}%`,'model');
 $('skin').replaceChildren(...SKINS.map(skin=>new Option(skin.name,skin.id)));
 $('lighting').replaceChildren(...LIGHTING_SCENES.map(scene=>new Option(scene.name,scene.id)));
 function syncSkinLabels(){
@@ -62,20 +78,14 @@ function syncSkinLabels(){
   const skin=skinFor(params.skin),names=skin.riders;
   $('skin').value=skin.id;$('lighting').value=params.lighting;
   $('postersButton').textContent='↻ Random flyers';
-  $('cast').replaceChildren(...CASTS.map(c=>new Option(c.riders.map(owner=>names[owner]).join(' + '),c.id)));
-  document.querySelectorAll('.rider-keyboard').forEach((group,owner)=>group.setAttribute('aria-label',`${names[owner]} keyboard controls`));
   riderToggles.forEach((button,owner)=>button.querySelector('span').textContent=names[owner]);
-  for(const [code,{button,owner,action}] of keyButtons){
-    const label=code.replace('Key','').replace('Numpad','');
-    button.setAttribute('aria-label',`${names[owner]} ${keyLabels[action]} (${code.startsWith('Numpad')?'numpad ':''}${label})`);
-  }
-  $('stage').setAttribute('aria-label',`${skin.name} juggling stage. Steer the unicycles with the keyboard controls below or drag a performer.`);
+  $('stage').setAttribute('aria-label',`${skin.name} juggling stage. Drag or use Left and Right to steer all jugglers together.`);
 }
 const patternNotation=p=>p.count>4?(p.sync?`(${p.values[0]}, ${p.values[0]})`:p.values.join(' · ')):p.notation;
 function syncSelectors(){
   syncSkinLabels();
   $('count').value=String(model.config.count);
-  for(const id of ['cast','phrase','passMode'])$(id).value=model.config[id];
+  for(const id of ['ridePattern','passMode'])$(id).value=model.config[id];
   $('passingField').hidden=model.riderCount===1;
   $('autoRide').checked=model.config.autoRide;
   $('trails').checked=params.trails;
@@ -83,15 +93,10 @@ function syncSelectors(){
   $('allowFlashes').disabled=params.reducedMotion;
   $('flashNote').textContent=params.reducedMotion?'Flashes disabled by reduced-motion preference.':'Optional flashing accents (up to 2 per second). Leave off if sensitive to flashes.';
   const patterns=PATTERNS.filter(p=>p.count===model.config.count).map(p=>new Option(`${p.name} · ${patternNotation(p)}`,p.id));
-  if(model.config.phrase!=='loop'){
-    const automatic=new Option(model.config.phrase==='verse'?'Verse phrases':'Evolving phrases','');
-    automatic.disabled=true;patterns.unshift(automatic);
-  }
+  patterns.unshift(new Option('Verse / fill / break','phrase:verse'),new Option('Evolving phrases','phrase:evolve'));
   $('pattern').replaceChildren(...patterns);
-  $('pattern').value=model.config.phrase==='loop'?model.pattern.id:'';
+  $('pattern').value=model.config.phrase==='loop'?model.pattern.id:`phrase:${model.config.phrase}`;
   for(const [id,field] of ranges)field.setValue(id in model.config?model.config[id]:params[id]);
-  for(const {button,owner} of keyButtons.values())button.disabled=!model.activeIds.includes(owner);
-  document.querySelectorAll('.rider-keyboard').forEach((group,i)=>group.classList.toggle('inactive',!model.activeIds.includes(i)));
   riderToggles.forEach((button,owner)=>{
     const active=model.activeIds.includes(owner),last=active&&model.riderCount===1;
     button.setAttribute('aria-pressed',String(active));button.disabled=last;
@@ -123,12 +128,15 @@ function syncObjects(){
   });syncObjectValues();
 }
 function syncObjectValues(){model.objects.forEach((o,i)=>{const r=objectRows[i];if(!r)return;const prop=presentProp(o.prop,params.skin);r.select.value=prop.id;r.select.title=`${prop.name} · ${prop.mass>=1?`${prop.mass} kg`:`${Math.round(prop.mass*1000)} g`}`;r.row.style.setProperty('--prop-color',prop.color);for(const kind of ['drums','riffs']){const select=r.row.querySelector(`#${kind}${i}`);select.options[0].textContent=objectSoundLabel(params.skin,'object',o.prop.id,kind==='drums'?'catch':'air');select.title=select.selectedOptions[0]?.textContent??'';}});}
-for(const id of ['count','pattern','cast','phrase','passMode'])listen($(id),'change',()=>{
-  const options={[id]:id==='count'?Number($(id).value):$(id).value};
-  if(id==='pattern')options.phrase='loop';
-  model.apply(options);
-  if(id==='cast')releaseControls();syncSelectors();
+function selectPattern(value){
+  model.apply(value.startsWith('phrase:')?{phrase:value.slice(7)}:{pattern:value,phrase:'loop'});
+  syncSelectors();updateAudio();
+}
+listen($('pattern'),'change',()=>selectPattern($('pattern').value));
+listen($('nextPattern'),'click',()=>{
+  const select=$('pattern');selectPattern(select.options[(select.selectedIndex+1)%select.options.length].value);
 });
+for(const id of ['passMode','ridePattern'])listen($(id),'change',()=>{model.apply({[id]:$(id).value});syncSelectors();});
 listen($('autoRide'),'change',()=>model.apply({autoRide:$('autoRide').checked}));
 listen($('skin'),'change',()=>{params.skin=skinFor($('skin').value).id;syncSelectors();});
 listen($('lighting'),'change',()=>{params.lighting=LIGHTING_SCENES.find(scene=>scene.id===$('lighting').value)?.id??'house';});
@@ -157,71 +165,44 @@ listen($('audioButton'),'click',async()=>{
   catch(error){audio.mute();$('audioState').textContent='off';$('audioError').textContent=`Audio could not start: ${error.message}`;$('audioError').hidden=false;}
   finally{starting=false;if(!disposed){$('audioButton').disabled=false;lastClock=clock();status();}}
 });
-function perform(action,owner){
-  if(!model.activeIds.includes(owner))return;
-  model.events=[];model[action](owner);handleEvents(model.events,(audio.context?.currentTime??0)+.01);
+function throwToCrowd(){
+  model.events=[];
+  for(const owner of model.activeIds)model.throwToAudience(owner);
+  handleEvents(model.events,(audio.context?.currentTime??0)+.01);
 }
-const keyLabels={fastLeft:'Fast ←',up:'High',fastRight:'Fast →',left:'←',down:'Low',right:'→',kick:'Kick',crowd:'To crowd'};
-function refreshKey(code){const entry=keyButtons.get(code);if(!entry)return;const held=keys.has(code)||buttonKeys.has(code)||[...buttonPointers.values()].includes(code)||pulses.has(code);entry.button.classList.toggle('held',held);entry.button.setAttribute('aria-pressed',String(held));}
-function pulseKey(code){
-  if(pulses.has(code))clearTimeout(pulses.get(code));
-  pulses.set(code,setTimeout(()=>{pulses.delete(code);refreshKey(code);},180));refreshKey(code);
-}
-function pressAction(code){
-  const entry=keyButtons.get(code);if(!entry||!model.activeIds.includes(entry.owner))return;
-  if(['left','right','fastLeft','fastRight'].includes(entry.action))targets[entry.owner]=null;
-  if(entry.action==='kick')perform('kick',entry.owner);
-  if(entry.action==='crowd')perform('throwToAudience',entry.owner);
-}
-RIDER_KEYS.forEach((cluster,owner)=>{
-  const group=document.createElement('div');group.className='rider-keyboard';group.setAttribute('role','group');group.setAttribute('aria-label',`${RIDER_NAMES[owner]} keyboard controls`);
-  const title=document.createElement('h2'),toggle=document.createElement('button');toggle.type='button';toggle.className='rider-toggle';toggle.dataset.rider=String(owner);toggle.id=`rider-${owner}`;
+listen($('crowdButton'),'click',throwToCrowd);
+RIDER_NAMES.forEach((name,owner)=>{
+  const toggle=document.createElement('button');toggle.type='button';toggle.className='rider-toggle';toggle.dataset.rider=String(owner);toggle.id=`rider-${owner}`;
   toggle.setAttribute('aria-controls','stage');toggle.setAttribute('aria-keyshortcuts',String(owner+1));
   const shortcut=document.createElement('kbd');shortcut.textContent=String(owner+1);
-  const name=document.createElement('span');name.textContent=RIDER_NAMES[owner];toggle.append(shortcut,name);
-  listen(toggle,'click',()=>toggleRider(owner));riderToggles.push(toggle);title.append(toggle);group.append(title);
-  const grid=document.createElement('div');grid.className='key-grid';
-  for(const action of ['fastLeft','up','fastRight','left','down','right','kick','crowd']){
-    const code=cluster[action],label=code.replace('Key','').replace('Numpad','');
-    const button=document.createElement('button');button.type='button';button.dataset.key=code;button.dataset.action=action;
-    button.id=`key-${code}`;button.setAttribute('aria-label',`${RIDER_NAMES[owner]} ${keyLabels[action]} (${code.startsWith('Numpad')?'numpad ':''}${label})`);button.setAttribute('aria-pressed','false');
-    const key=document.createElement('kbd');key.textContent=code.startsWith('Numpad')?`#${label}`:label;
-    const caption=document.createElement('span');caption.textContent=keyLabels[action];button.append(key,caption);
-    if(owner===0&&action==='kick')button.dataset.midiTrigger='step';
-    keyButtons.set(code,{button,owner,action});
-    listen(button,'pointerdown',e=>{if(e.button!==0)return;e.preventDefault();buttonPointers.set(e.pointerId,code);buttonStarts.set(e.pointerId,performance.now());button.setPointerCapture(e.pointerId);pressAction(code);refreshKey(code);});
-    const release=e=>{if(e.type==='pointerup'&&buttonPointers.has(e.pointerId)&&performance.now()-buttonStarts.get(e.pointerId)<150)pulseKey(code);buttonPointers.delete(e.pointerId);buttonStarts.delete(e.pointerId);refreshKey(code);};
-    for(const type of ['pointerup','pointercancel','lostpointercapture'])listen(button,type,release);
-    // Native keyboard/assistive clicks and a simple click get a short useful hold.
-    listen(button,'keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();if(!e.repeat)pressAction(code);buttonKeys.add(code);refreshKey(code);}});
-    listen(button,'keyup',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();buttonKeys.delete(code);refreshKey(code);}});
-    listen(button,'blur',()=>{buttonKeys.delete(code);refreshKey(code);});
-    listen(button,'click',e=>{if(e.detail>0&&e.pointerType)return;pressAction(code);pulseKey(code);});
-    grid.append(button);
-  }
-  group.append(grid);$('keyboardControls').append(group);
+  const caption=document.createElement('span');caption.textContent=name;toggle.append(shortcut,caption);
+  listen(toggle,'click',()=>toggleRider(owner));riderToggles.push(toggle);$('keyboardControls').append(toggle);
 });
-function controlTarget(e){return e.target?.closest('input,select,textarea,a,summary,[contenteditable=true],[role=slider],button:not([data-key])');}
+function controlTarget(e){return e.target?.closest('input,select,textarea,a,summary,[contenteditable=true],[role=slider],button');}
 listen(window,'keydown',e=>{
   if(controlTarget(e)||e.ctrlKey||e.metaKey||e.altKey||e.isComposing)return;
   const toggleOwner=toggleKeys.indexOf(e.code);
   if(toggleOwner>=0){e.preventDefault();if(!e.repeat)toggleRider(toggleOwner);return;}
   if(!GAME_KEYS.has(e.code))return;
-  e.preventDefault();if(!keys.has(e.code)&&!e.repeat)pressAction(e.code);keys.add(e.code);refreshKey(e.code);
+  e.preventDefault();if(e.code==='KeyG'&&!e.repeat)throwToCrowd();keys.add(e.code);
 });
-listen(window,'keyup',e=>{keys.delete(e.code);refreshKey(e.code);});
+listen(window,'keyup',e=>keys.delete(e.code));
 function releaseControls(){
-  keys.clear();targets.fill(null);pointers.clear();buttonPointers.clear();buttonStarts.clear();buttonKeys.clear();for(const timeout of pulses.values())clearTimeout(timeout);pulses.clear();
-  for(const code of keyButtons.keys())refreshKey(code);
+  keys.clear();targets.fill(null);
+  if(stagePointer!==null&&$('stage').hasPointerCapture(stagePointer))$('stage').releasePointerCapture(stagePointer);
+  stagePointer=null;
 }
 listen(window,'blur',releaseControls);
+function steerStage(e){
+  const fraction=clamp(renderer.worldX(e.clientX)/1000,0,1);
+  for(const owner of model.activeIds){const [low,high]=model.playerBounds(owner);targets[owner]=low+(high-low)*fraction;}
+}
 listen($('stage'),'pointerdown',e=>{
-  if(e.button!==0)return;const x=renderer.worldX(e.clientX);
-  const owner=model.activePlayers.reduce((nearest,p)=>Math.abs(x-p.x)<Math.abs(x-model.players[nearest].x)?p.id:nearest,model.activeIds[0]);
-  pointers.set(e.pointerId,owner);$('stage').setPointerCapture(e.pointerId);targets[owner]=clamp(x,...model.playerBounds(owner));$('stage').focus({preventScroll:true});
+  if(e.button!==0||stagePointer!==null)return;
+  stagePointer=e.pointerId;$('stage').setPointerCapture(e.pointerId);steerStage(e);$('stage').focus({preventScroll:true});
 });
-listen($('stage'),'pointermove',e=>{if(pointers.has(e.pointerId)){const owner=pointers.get(e.pointerId);targets[owner]=clamp(renderer.worldX(e.clientX),...model.playerBounds(owner));}});
-for(const type of ['pointerup','pointercancel','lostpointercapture'])listen($('stage'),type,e=>{const owner=pointers.get(e.pointerId);if(owner!==undefined)targets[owner]=null;pointers.delete(e.pointerId);});
+listen($('stage'),'pointermove',e=>{if(stagePointer===e.pointerId)steerStage(e);});
+for(const type of ['pointerup','pointercancel','lostpointercapture'])listen($('stage'),type,e=>{if(stagePointer===e.pointerId){stagePointer=null;targets.fill(null);}});
 listen(document,'visibilitychange',()=>{releaseControls();lastClock=clock();accumulator=0;updateAudio();});
 // The independent fixed-step clock keeps manual riding and the audience alive
 // while the transport gates only automatic juggling throws and its beat.
@@ -230,7 +211,7 @@ function tick(){
   const now=clock(),dt=clamp(now-lastClock,0,.1);lastClock=now;
   if(document.hidden){updateAudio();return;}
   accumulator+=dt;const events=[];
-  const held=new Set([...keys,...buttonKeys,...buttonPointers.values(),...pulses.keys()]);
+  const held=keys;
   while(accumulator>=1/120){events.push(...model.step(1/120,drivingControls(held,targets,model.activeIds),null,0,null,running));accumulator-=1/120;}
   params.tempo=model.config.tempo;handleEvents(events,(audio.context?.currentTime??0)+.035);updateAudio();
 }
@@ -246,7 +227,7 @@ function handleEvents(events,audioTime){
   }
 }
 function draw(){if(disposed)return;if(!document.hidden)renderer.draw(model,params);frame=requestAnimationFrame(draw);}
-function teardown(){if(disposed)return;disposed=true;releaseControls();clearInterval(timer);cancelAnimationFrame(frame);cleanups.forEach(fn=>fn());headerPresets?.destroy();ranges.forEach(field=>field.destroy());renderer.dispose();void audio.close();}
+function teardown(){if(disposed)return;disposed=true;releaseControls();clearInterval(timer);cancelAnimationFrame(frame);cleanups.forEach(fn=>fn());headerPresets?.destroy();knobs.forEach(knob=>knob.destroy());ranges.forEach(field=>field.destroy());renderer.dispose();void audio.close();}
 listen(window,'pagehide',teardown,{once:true});
 window.addEventListener('pageshow',e=>{if(e.persisted)location.reload();});
 syncSelectors();status();timer=setInterval(tick,20);frame=requestAnimationFrame(draw);
@@ -259,4 +240,4 @@ headerPresets=registerHeaderPresets({
   },
   randomize:randomizePugglerPreset,
 });
-window.__puggler=Object.freeze({snapshot:()=>({level:params.level,sceneGain:params.sceneGain,allowFlashes:params.allowFlashes,reducedMotion:params.reducedMotion,rhythmicNotes:audio.noteCount,objectBufferCount:Object.keys(audio.objectBuffers??{}).length,airTails:audio.airTails.size,skin:params.skin,lighting:params.lighting,riderNames:[...skinFor(params.skin).riders],time:model.time,running,audioOn:audio.on,x:model.x,beat:model.beat,pattern:model.pattern.id,count:model.objects.length,catches:model.catches,drops:model.drops,passes:model.passes,crowdCatches:model.crowdCatches,riders:model.riderCount,activeIds:[...model.activeIds],chaos:model.config.chaos,posterSeed:model.posterSeed,phrase:model.config.phrase,cast:model.config.cast,autoRide:model.config.autoRide,ridePattern:model.config.ridePattern,rideSpeed:model.config.rideSpeed,rideRange:model.config.rideRange,steeringTargets:[...targets],trails:params.trails,tempo:model.config.tempo,loft:model.config.loft,players:model.players.map(p=>({...p})),attacks:audio.attacks.size,sonics:audio.voices.filter(Boolean).map(v=>({slot:v.slot,key:v.key,skin:v.skin,speaker:v.speaker,role:v.role,noteBeat:v.noteBeat??null,startedAt:v.startedAt,rate:v.rate})),hitSounds:[...audio.attacks].map(v=>v.key),vocals:audio.voices.filter(v=>v?.character).map(v=>({slot:v.slot,character:v.character,speaker:v.speaker,role:v.role,startedAt:v.startedAt})),collage:renderer.collageStatus(),crowd:renderer.crowdSnapshot(model.time),pyro:renderer.pyroSnapshot(model.time),objects:model.objects.map(o=>({id:o.id,start:o.start,x:o.x,y:o.y,vx:o.vx,vy:o.vy,phase:o.phase,prop:o.prop.id,name:presentProp(o.prop,params.skin).name,owner:o.owner,fromOwner:o.fromOwner,voiceOwner:o.voiceOwner,drum:o.drum,riff:o.riff})),disposed})});
+window.__puggler=Object.freeze({snapshot:()=>({level:params.level,dropLevel:params.drops,sceneGain:params.sceneGain,allowFlashes:params.allowFlashes,reducedMotion:params.reducedMotion,rhythmicNotes:audio.noteCount,objectBufferCount:Object.keys(audio.objectBuffers??{}).length,airTails:audio.airTails.size,skin:params.skin,lighting:params.lighting,riderNames:[...skinFor(params.skin).riders],time:model.time,running,audioOn:audio.on,x:model.x,beat:model.beat,pattern:model.pattern.id,count:model.objects.length,catches:model.catches,drops:model.drops,passes:model.passes,crowdCatches:model.crowdCatches,riders:model.riderCount,activeIds:[...model.activeIds],chaos:model.config.chaos,posterSeed:model.posterSeed,phrase:model.config.phrase,cast:model.config.cast,autoRide:model.config.autoRide,ridePattern:model.config.ridePattern,rideSpeed:model.config.rideSpeed,rideRange:model.config.rideRange,steeringTargets:[...targets],trails:params.trails,tempo:model.config.tempo,loft:model.config.loft,players:model.players.map(p=>({...p})),attacks:audio.attacks.size,sonics:audio.voices.filter(Boolean).map(v=>({slot:v.slot,key:v.key,skin:v.skin,speaker:v.speaker,role:v.role,noteBeat:v.noteBeat??null,startedAt:v.startedAt,rate:v.rate})),hitSounds:[...audio.attacks].map(v=>v.key),vocals:audio.voices.filter(v=>v?.character).map(v=>({slot:v.slot,character:v.character,speaker:v.speaker,role:v.role,startedAt:v.startedAt})),collage:renderer.collageStatus(),crowd:renderer.crowdSnapshot(model.time),pyro:renderer.pyroSnapshot(model.time),objects:model.objects.map(o=>({id:o.id,start:o.start,x:o.x,y:o.y,vx:o.vx,vy:o.vy,phase:o.phase,prop:o.prop.id,name:presentProp(o.prop,params.skin).name,owner:o.owner,fromOwner:o.fromOwner,voiceOwner:o.voiceOwner,drum:o.drum,riff:o.riff})),disposed})});
