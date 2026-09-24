@@ -293,6 +293,10 @@ export const ADDITIONAL_TAG_IDS = Object.freeze(Object.fromEntries(Object.entrie
     "acid",
     "303"
   ],
+  "simd-chiptune": [
+    "synthesizer",
+    "sequencer"
+  ],
   "simd-synth": [
     "synthesizer",
     "sequencer"

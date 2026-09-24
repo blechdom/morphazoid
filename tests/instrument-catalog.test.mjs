@@ -248,6 +248,24 @@ test("Modular Shader Synth is a sequencer instrument with shared GPU artwork", (
   assert.equal(midi?.computerKeyboardMode, "midi");
 });
 
+test("SIMD Chiptune preserves WebGPU Chiptune's tracker and MIDI policies in SIMD Audio", () => {
+  const group = INSTRUMENT_GROUPS.find(({ id }) => id === "simd-audio");
+  const ids = group.tools.map(({ id }) => id);
+  assert.equal(ids[ids.indexOf("simd-303") + 1], "simd-chiptune");
+  const instrument = instrumentById("simd-chiptune");
+  assert.equal(instrument?.label, "SIMD Chiptune");
+  assert.equal(instrument?.href, "simd-chiptune.html");
+  assert.equal(instrument?.status, null);
+  for (const feature of ["WebAssembly SIMD", "AudioWorklet", "Step sequencer", "Animated performers", "MIDI"]) {
+    assert.ok(instrument?.features.includes(feature), feature);
+  }
+  assert.equal(instrument?.features.includes("Computer keys"), false);
+  assert.equal(instrument?.features.includes("Wave drawing"), false);
+  assert.deepEqual(instrumentMidiCapabilityForId("simd-chiptune"), {
+    ...instrumentMidiCapabilityForId("webgpu-chiptune"), id: "simd-chiptune",
+  });
+});
+
 test("SIMD SYNTH is a pitched, configurable WebAssembly instrument", () => {
   const instrument = instrumentById("simd-synth");
   assert.equal(instrument?.label, "SIMD Synth");

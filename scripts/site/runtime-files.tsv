@@ -426,6 +426,16 @@ copy+require	src/simd-303-user-presets.js
 copy+require	src/simd-303-processor.js
 copy+require	assets/wasm/simd-303-scalar.wasm
 copy+require	assets/wasm/simd-303-simd.wasm
+copy+require	simd-chiptune.html
+copy+require	src/instruments/simd-chiptune/simd-chiptune-app.js
+copy+require	src/instruments/simd-chiptune/simd-chiptune.css
+copy+require	src/families/chiptune/chiptune-app.js
+copy+require	src/instruments/simd-chiptune/audio.js
+copy+require	src/instruments/simd-chiptune/processor.js
+copy+require	assets/wasm/simd-chiptune-scalar.wasm
+copy+require	assets/wasm/simd-chiptune-simd.wasm
+copy+require	assets/instruments/simd-chiptune.webp
+copy+require	docs/simd-chiptune.md
 copy+require	simd-synth.html
 copy+require	src/instruments/simd-synth/simd-synth.css
 copy+require	src/instruments/simd-synth/simd-synth-app.js
