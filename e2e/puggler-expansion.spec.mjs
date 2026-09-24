@@ -10,7 +10,7 @@ async function open(page,path='puggler.html'){
 for(const path of ['puggler.html','dist-wax/puggler.html'])test(`panel scenes are complete, ordered and preserve paused/muted state: ${path}`,async({page})=>{
   test.setTimeout(60000);const errors=[];page.on('pageerror',e=>errors.push(e.message));await open(page,path);
   await expect(page.locator('.header-preset-picker summary')).toHaveText(/Select Preset/);
-  await expect(page.locator('[data-full-preset]')).toHaveCount(24);
+  await expect(page.locator('[data-full-preset]')).toHaveCount(48);
   expect(await page.evaluate(()=>{
     const presets=document.querySelector('.header-preset-controls'),host=document.querySelector('[data-instrument-preset-host]'),header=document.querySelector('.masthead');
     return host?.firstElementChild===presets&&!header.contains(presets)
@@ -36,7 +36,7 @@ test('auto voices follow object and skin; explicit voices survive prop changes',
   await open(page);await page.locator('#playButton').click();
   // Pause lets existing flights land and audience replacements return. Re-rack
   // one held prop so this selector test is not racing those deliberate events.
-  await page.locator('#count').selectOption('1');
+  await range(page,'count','1');
   expect((await state(page)).objects[0].phase).toBe('held');
   await expect(page.locator('#riffs0')).toHaveValue('object');await expect(page.locator('#drums0')).toHaveValue('object');
   await page.locator('#object0').selectOption('fish');await page.locator('#skin').selectOption('future');
@@ -65,7 +65,7 @@ test('live scene/skin changes reuse the audio bank and stay bounded at dense set
     await expect.poll(async()=>(await state(page)).sonics.some(v=>v.key.startsWith(`object:${id.split('-')[0]}:`))).toBe(true);
     const measured=await sampleAudioEnvelope(page,{durationMs:1000});expect(measured.summary.finite).toBe(true);expect(measured.summary.maxPeak).toBeGreaterThan(.003);expect(measured.summary.clippedSamples).toBe(0);
   }
-  await page.locator('#count').selectOption('10');await range(page,'tempo',1200);await range(page,'level',1);await range(page,'sceneGain',1);await range(page,'flight',1);await range(page,'impacts',2);
+  await range(page,'count','10');await range(page,'tempo',1200);await range(page,'level',1);await range(page,'sceneGain',1);await range(page,'flight',1);await range(page,'impacts',2);await range(page,'boo',3);
   for(let i=0;i<9;i++){
     await page.locator('#skin').selectOption(['punk','history','future'][i%3]);
     await page.locator('#lighting').selectOption(['party','disco','lasers'][i%3]);

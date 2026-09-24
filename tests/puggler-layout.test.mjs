@@ -25,9 +25,9 @@ test('layout tracks wrapped header/stage sizes and cleans up without touching au
   assert.doesNotMatch(source,/AudioContext|\.resume\(|\.suspend\(|setInterval/);
 });
 
-test('the stage and parameter panel share one sticky containing block',async()=>{
+test('the performance column wraps the graphic and its controls independently of the sidebar',async()=>{
   const html=await readFile(new URL('../puggler.html',import.meta.url),'utf8');
-  assert.doesNotMatch(html,/class="puggler-performance"/);
+  assert.match(html,/class="puggler-performance"/);
   assert.match(html,/<main class="puggler-shell" aria-labelledby="pageTitle">/);
   assert.match(html,/puggler-layout\.js/);
 });

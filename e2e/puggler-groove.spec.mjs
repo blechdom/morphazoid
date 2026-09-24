@@ -8,7 +8,7 @@ async function level(page){return page.evaluate(async()=>{
   const active=rows.filter(s=>s.rms>.0003);return {mean:active.reduce((n,s)=>n+s.rms,0)/Math.max(1,active.length),peak:Math.max(...rows.map(s=>s.peak)),finite:rows.every(s=>Number.isFinite(s.rms)&&Number.isFinite(s.peak)),clipped:rows.some(s=>s.clipped)};
 });}
 test('complete scenes and seeded dice remain audible at one unchanged output level',async({page},testInfo)=>{
-  test.setTimeout(180000);
+  test.setTimeout(300000);
   await page.addInitScript(()=>{let seed=9193;window.__seedPugglerDice=value=>{seed=value;};Math.random=()=>((seed=(Math.imul(seed,1664525)+1013904223)>>>0)/2**32);});
   const errors=[];page.on('pageerror',e=>errors.push(e.message));await open(page);await range(page,'level',.48);
   const ids=await page.locator('[data-full-preset]').evaluateAll(nodes=>nodes.map(n=>n.dataset.presetId)),rows=[];
@@ -19,14 +19,14 @@ test('complete scenes and seeded dice remain audible at one unchanged output lev
     expect(await state(page)).toMatchObject({level:.48,audioOn:true,running:true,objectBufferCount:198});
   }
   const spread=items=>20*Math.log10(Math.max(...items.map(s=>s.mean))/Math.min(...items.map(s=>s.mean)));
-  await testInfo.attach('preset-and-dice-levels',{body:JSON.stringify({rows,presetSpreadDb:spread(rows.slice(0,24)),diceSpreadDb:spread(rows.slice(24))},null,2),contentType:'application/json'});
+  await testInfo.attach('preset-and-dice-levels',{body:JSON.stringify({rows,presetSpreadDb:spread(rows.slice(0,ids.length)),diceSpreadDb:spread(rows.slice(ids.length))},null,2),contentType:'application/json'});
   // The rejected version measured ~29 dB across its factory scenes. This gate
   // allows real articulation/rest differences but rejects that order-of-magnitude jump.
-  expect(spread(rows.slice(0,24))).toBeLessThan(12);expect(spread(rows.slice(24))).toBeLessThan(14);
+  expect(spread(rows.slice(0,ids.length))).toBeLessThan(12);expect(spread(rows.slice(ids.length))).toBeLessThan(14);
   expect(errors).toEqual([]);
 });
 test('pitch sweeps keep notes tied to the juggling beat and rapid edits keep resources bounded',async({page})=>{
-  test.setTimeout(45000);await open(page);await page.locator('#count').selectOption('3');await page.locator('#phrase').selectOption('loop');await page.locator('#pattern').selectOption('cascade');await range(page,'tempo',240);await range(page,'chaos',0);await range(page,'assist',120);
+  test.setTimeout(45000);await open(page);await range(page,'count','3');await page.locator('#pattern').selectOption('cascade');await range(page,'tempo',240);await range(page,'chaos',0);await range(page,'assist',120);
   await page.locator('#object0').selectOption('guitar');const before=await state(page);
   for(let i=0;i<12;i++){
     await range(page,'height',i%2?1.5:0);await range(page,'loft',i%2?2.5:.8);

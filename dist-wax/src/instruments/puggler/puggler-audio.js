@@ -19,6 +19,9 @@ const SAMPLE_IDS = [...PUNK_DRUMS, 'oi', 'woo', 'boo', 'mic-check', 'count-in'];
 const DRUM_GAIN = { kick: 1.15, snare: 1.03, crash: .55, tom: 1.05, hat: .62 };
 const isVocal = role => role === 'oi' || role === 'woo';
 const finite = (value, fallback = 0) => Number.isFinite(Number(value)) ? Number(value) : fallback;
+// Audience can be pushed above its original unity gain; Drops keeps its own
+// calibrated range. Both remain upstream of the shared ceiling and master.
+const crowdAmount = (kind, parameters) => clamp(finite(kind==='drop' ? parameters.drops : parameters.crowd ?? parameters.boo, kind==='drop' ? .7 : 1),0,kind==='drop'?1:3);
 
 export function vocalPerformer(object = {}) {
   // A pass belongs to its thrower until the receiving rider launches it again.
@@ -191,6 +194,12 @@ export class PugglerAudio {
     this.ensemble=ensembleGain(objects.length,parameters.tempo??360);
     this.master.gain.setTargetAtTime(audible ? this.level * .9 * clamp(finite(parameters.sceneGain, 1), 0, 1) : 0, t, .012);
     if (!audible) { this.releaseAll(); return; }
+    // Level controls must affect a cheer already sounding, not only the next
+    // audience event seconds later. Keep this separate from its attack/release.
+    for(const voice of this.attacks)if(voice.mix){
+      const amount=crowdAmount(voice.crowdKind,parameters);
+      if(amount!==voice.amount){voice.mix.gain.setTargetAtTime(amount,t,.012);voice.amount=amount;}
+    }
     // Pause belongs to juggling, not the room: release riffs but retain catch
     // tails and model-triggered crowd reactions. Audio/level/visibility mute all.
     if (!running) { this.releaseRiffs(); return; }
@@ -294,8 +303,8 @@ export class PugglerAudio {
     try { v.source.stop(t + (fast ? CATCH_GATE : .05)); } catch {}
   }
   duckRiffs(t, amount) {
-    // Only a physical catch requests this 45-ms dip. No tempo timer or backing
-    // rhythm owns it; impacts=0 leaves the other airborne voices untouched.
+    // Physical catches and drops request this 45-ms dip; no timer or backing
+    // rhythm owns it. A zero level for that event leaves other riffs untouched.
     const gain = this.airDuck.gain;
     if (typeof gain.cancelAndHoldAtTime === 'function') gain.cancelAndHoldAtTime(t);
     else { gain.cancelScheduledValues(t); gain.setValueAtTime(gain.value, t); }
@@ -317,12 +326,13 @@ export class PugglerAudio {
       this.gateUntil[event.id] = Math.max(this.gateUntil[event.id], t + CATCH_GATE);
       this.releaseAir(event.id, t, true);
     }
+    const missed = event.kind === 'drop';
     const drop = event.kind === 'drop' || event.kind === 'crowd-boo', cheer = event.kind === 'crowd-woo', crowd = drop || cheer;
     const id = cheer ? 'woo' : drop ? 'boo' : event.kind === 'kick' ? 'kick'
       : PUNK_DRUMS.includes(event.drum) ? event.drum : PUNK_DRUMS[clamp(Math.floor(finite(event.id)), 0, MAX_PUGGLER_VOICES - 1) % PUNK_DRUMS.length];
-    const amount = clamp(finite(crowd ? (parameters.crowd ?? parameters.boo) : parameters.impacts, crowd ? 1 : 1.25), 0, crowd ? 1 : 2);
+    const amount = crowd ? crowdAmount(event.kind,parameters) : clamp(finite(parameters.impacts,1.25),0,2);
     if (amount === 0) return;
-    if (['catch', 'crowd-catch'].includes(event.kind)) this.duckRiffs(t, amount);
+    if (['catch', 'crowd-catch'].includes(event.kind)||missed) this.duckRiffs(t, amount);
     if (this.attacks.size >= MAX_PUGGLER_ATTACKS) this.disconnectVoice(this.attacks.values().next().value);
     if (crowd) {
       const boos = [...this.attacks].filter(v => ['boo', 'woo'].includes(v.role) && !v.releasing);
@@ -333,19 +343,35 @@ export class PugglerAudio {
     const skin = sonicSkin(parameters.skin), propVoice = !crowd && event.kind!=='kick' ? objectSoundId(event.drum,event.prop?.id) : null;
     const key = propVoice ? objectSoundKey(skin.id,propVoice,'catch') : crowd || skin.id === 'punk' ? id : `${skin.id}:${id}`;
     source.buffer = propVoice ? this.objectBuffers[key] : crowd || skin.id === 'punk' ? this.buffers[id] : this.eraBuffers[key];
-    const rate = crowd ? clamp(.95 + finite(event.id) * .015, .85, 1.1) : clamp(1 + (m.energy - .5) * .045, .95, 1.05);
-    source.playbackRate.value = rate; pan.pan.value = crowd ? m.pan * .3 : m.pan;
+    const rate = missed ? .84 : crowd ? clamp(.95 + finite(event.id) * .015, .85, 1.1) : clamp(1 + (m.energy - .5) * .045, .95, 1.05);
+    source.playbackRate.value = rate;
+    if(missed){
+      // A falling two-syllable "wuh-wuh" from the original human boo, not a laser.
+      source.playbackRate.setValueAtTime(rate,t);
+      source.playbackRate.linearRampToValueAtTime(.68,t+.22);
+      source.playbackRate.linearRampToValueAtTime(.84,t+.27);
+      source.playbackRate.linearRampToValueAtTime(.6,t+.62);
+    }
+    pan.pan.value = crowd ? m.pan * .3 : m.pan;
     const duration = Math.max(.05, Math.min(source.buffer.duration / rate, crowd ? 2 : source.buffer.duration * clamp(finite(parameters.decay, 1), .2, 2)));
-    const peak = amount * (crowd ? (cheer ? .42 : .46) : propVoice ? .24*this.ensemble*(.8+.2*m.energy) : .33*this.ensemble*DRUM_GAIN[id] * skin.impact * (.72 + .28 * m.energy));
+    const peak = (crowd ? 1 : amount) * (crowd ? (missed ? 1.15 : cheer ? .42 : .46) : propVoice ? .24*this.ensemble*(.8+.2*m.energy) : .33*this.ensemble*DRUM_GAIN[id] * skin.impact * (.72 + .28 * m.energy));
     gain.gain.setValueAtTime(0, t); gain.gain.linearRampToValueAtTime(peak * (crowd ? 1 : 1.35), t + .002);
+    if (missed && duration>.65) {
+      gain.gain.setValueAtTime(peak,t+.12);
+      gain.gain.linearRampToValueAtTime(peak*.22,t+.24);
+      gain.gain.linearRampToValueAtTime(peak,t+.3);
+    }
     if (!crowd) {
       gain.gain.setValueAtTime(peak * 1.35, t + .012);
       gain.gain.linearRampToValueAtTime(peak, t + Math.min(.042, duration * .45));
     }
     gain.gain.setValueAtTime(peak, t + Math.max(crowd ? .004 : .043, duration - .045));
     gain.gain.linearRampToValueAtTime(0, t + duration);
-    source.connect(gain); gain.connect(pan); pan.connect(crowd ? this.bus : this.drumBus);
-    const voice = { role: propVoice?'object':id, key, skin: crowd ? 'crowd' : skin.id, source, gain, pan }; this.attacks.add(voice);
+    const mix=crowd?c.createGain():null;
+    source.connect(gain);
+    if(mix){mix.gain.value=amount;gain.connect(mix);mix.connect(pan);}else gain.connect(pan);
+    pan.connect(crowd ? this.bus : this.drumBus);
+    const voice = { role: propVoice?'object':id, key, skin: crowd ? 'crowd' : skin.id, source, gain, pan, mix, crowdKind:crowd?event.kind:null, amount }; this.attacks.add(voice);
     source.onended = () => this.disconnectVoice(voice); source.start(t); source.stop(t + duration + .01);
   }
   disconnectVoice(v) {
@@ -353,7 +379,7 @@ export class PugglerAudio {
     this.attacks.delete(v); this.airTails.delete(v);
     if(this.voices[v.slot]===v)this.voices[v.slot]=null;
     v.source.onended = null; try { v.source.stop(); } catch {}
-    for (const node of [v.source, v.filter, v.gain, v.drive, v.dirt, v.pan]) node?.disconnect();
+    for (const node of [v.source, v.filter, v.gain, v.drive, v.dirt, v.pan, v.mix]) node?.disconnect();
   }
   releaseRiffs() {
     this.objectTicks.fill(null);

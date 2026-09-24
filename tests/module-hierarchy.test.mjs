@@ -151,9 +151,9 @@ test("path rewriting preserves queries, templates, resources and non-path slash 
   assert.equal(relocateReference("./audio.js", "src/voice.js", moves, { exists }), "../../audio.js");
 });
 
-test("Puggler expansion amendments are limited to its six existing feature owners", () => {
+test("Puggler expansion amendments are limited to its seven existing feature owners (including the shared-controls redesign)", () => {
   assert.deepEqual(pugglerChanges.map(change => change.file).sort(), [
-    "puggler-app.js", "puggler-audio.js", "puggler-lighting.js", "puggler-presets.js", "puggler-renderer.js", "puggler.js",
+    "puggler-app.js", "puggler-audio.js", "puggler-controls.js", "puggler-lighting.js", "puggler-presets.js", "puggler-renderer.js", "puggler.js",
   ].map(file => `src/instruments/puggler/${file}`));
   for (const change of pugglerChanges) {
     assert.ok(proof.files.some(record => record.after === change.file));

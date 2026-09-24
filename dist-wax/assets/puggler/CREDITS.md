@@ -269,3 +269,10 @@ recordings of African chant, Kecak, opera, historical laughter or other cultural
 performances. String/modal/wind voices, glass/tambourine/clatter approximations
 and future synthesis are original MIT-licensed code. No new external recordings
 were downloaded for this revision. All browser sound assets remain local.
+
+### Drop reaction treatment (shared-controls pass)
+
+Actual drops reuse `boo.wav` above: a two-syllable gain envelope and falling
+0.84–0.60× rate sweeps make a theatrical “wuh-wuh.” No new recording was added.
+Background crowd boos keep their quieter treatment; foreground drops now have
+an independent level control. This is DSP treatment, not newly recorded speech.

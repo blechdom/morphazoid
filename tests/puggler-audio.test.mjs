@@ -278,7 +278,7 @@ test('unarmed, muted, zero-impact catches and audience boos never duck the other
   assert.equal(audio.airDuck, undefined);
   await audio.arm();
   audio.strike({ ...object(0), kind: 'catch' }, { impacts: 0 }, audio.context.currentTime);
-  audio.strike({ ...object(0), kind: 'drop' }, { boo: 1 }, audio.context.currentTime);
+  audio.strike({ ...object(0), kind: 'crowd-boo' }, { boo: 1 }, audio.context.currentTime);
   assert.equal(audio.airDuck.gain.events.length, 0);
   audio.mute();
   audio.strike({ ...object(0), kind: 'catch' }, { impacts: 2 }, audio.context.currentTime);
@@ -475,4 +475,54 @@ test('very fast relaunches remain note-rate bounded and handoffs preserve the be
   }
   assert.ok(audio.noteCount-start<=13);assert.ok(audio.airTails.size<=20);
   assert.ok(audio.voices.filter(Boolean).length<=10);
+}));
+
+test('actual drops are foreground two-syllable boos independent of quiet ambience, still bounded and muteable',async()=>withAudio(async audio=>{
+  await audio.arm();audio.update([object(0)],{level:.48},true);
+  audio.strike({...object(0),kind:'crowd-boo'},{boo:.28});
+  const ambience=[...audio.attacks].at(-1),peak=v=>v.mix.gain.value*Math.max(...v.gain.gain.events.filter(e=>e[0]==='ramp').map(e=>e[1]));
+  audio.strike({...object(0),kind:'drop'},{boo:0,drops:.7});
+  const drop=[...audio.attacks].at(-1);
+  assert.equal(drop.source.buffer,audio.buffers.boo);assert.ok(peak(drop)>peak(ambience)*5);assert.ok(peak(drop)<1);
+  assert.equal(drop.source.playbackRate.events.filter(e=>e[0]==='ramp').length,3);
+  assert.ok(audio.ducking);
+  const count=audio.attacks.size;audio.strike({...object(0),kind:'drop'},{drops:0});assert.equal(audio.attacks.size,count);
+  audio.mute();audio.strike({...object(0),kind:'drop'},{drops:1});assert.equal(audio.attacks.size,count);
+}));
+
+test('Audience and Drops adjust existing crowd voices live while Scene level scales the entire room',async()=>withAudio(async audio=>{
+  await audio.arm();audio.update([],{level:.4,sceneGain:.8,boo:.28,drops:.7},false);
+  audio.strike({...object(0),kind:'crowd-woo'},{boo:.28});
+  audio.strike({...object(1),kind:'drop'},{drops:.7});
+  const [cheer,drop]=[...audio.attacks],sources=[cheer.source,drop.source],envelopes=[JSON.stringify(cheer.gain.gain.events),JSON.stringify(drop.gain.gain.events)];
+  for(const amount of [0,.3,1,2,3]){
+    audio.context.currentTime+=.05;audio.update([],{level:.4,sceneGain:.2,boo:amount,drops:.6},false);
+    assert.equal(cheer.mix.gain.value,amount);assert.equal(drop.mix.gain.value,.6);
+    assert.deepEqual([cheer.source,drop.source],sources);
+    assert.deepEqual([JSON.stringify(cheer.gain.gain.events),JSON.stringify(drop.gain.gain.events)],envelopes);
+    assert.equal(audio.master.gain.value,.4*.9*.2);
+  }
+  audio.update([],{level:.4,sceneGain:0,boo:1,drops:1},false);
+  assert.equal(audio.master.gain.value,0);assert.equal(audio.level,.4);
+  audio.disconnectVoice(cheer);audio.disconnectVoice(drop);
+  assert.ok(cheer.mix.disconnected&&drop.mix.disconnected);assert.equal(audio.attacks.size,0);
+}));
+
+
+test('Audience boosts new cheers and boos to 300% with clamping, without increasing Drops or Output',async()=>withAudio(async audio=>{
+  await audio.arm();audio.update([],{level:.4,sceneGain:.8},false);
+  const master=audio.master.gain.value;
+  for(const kind of ['crowd-woo','crowd-boo'])for(const [input,expected] of [[.28,.28],[1,1],[2,2],[3,3],[99,3]]){
+    audio.strike({...object(0),kind},{boo:input});
+    const voice=[...audio.attacks].at(-1);
+    assert.equal(voice.mix.gain.value,expected);
+    assert.equal(audio.master.gain.value,master);
+    audio.disconnectVoice(voice);
+  }
+  audio.strike({...object(0),kind:'crowd-woo'},{boo:0});assert.equal(audio.attacks.size,0);
+  audio.strike({...object(0),kind:'crowd-boo'},{boo:-1});assert.equal(audio.attacks.size,0);
+  audio.strike({...object(0),kind:'drop'},{boo:3,drops:99});
+  assert.equal([...audio.attacks][0].mix.gain.value,1);
+  audio.update([],{level:.4,sceneGain:.8,boo:99,drops:99},false);
+  assert.equal([...audio.attacks][0].mix.gain.value,1);assert.equal(audio.level,.4);
 }));
