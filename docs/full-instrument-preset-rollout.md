@@ -70,7 +70,7 @@ priority change does not authorize weakening tests or skipping release checks.
 
 ## Owner-requested extension — September 23, 2026
 
-Puggler now has a separate owner-requested 24-scene header adapter, Next and a
+Puggler now has a separate owner-requested 24-scene control-panel adapter, Next and a
 pure generative randomizer. It covers complete juggling, prop/voice, sound and
 light state while preserving Audio, Play, master Output and flash consent.
 The existing 22 body acts remain focused sub-presets. The September 23 sound

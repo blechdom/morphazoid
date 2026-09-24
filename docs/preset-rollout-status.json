@@ -4,11 +4,11 @@
   "branch": "codex/presets-continue-20260922",
   "source": "Review branch directory checkpoint 03619ff rebased onto origin/main ef6e593; pending pointer, family rename and preset drafts restored; no push or deployment",
   "counts": {
-    "implemented": 24,
-    "fullPresets": 451,
+    "implemented": 25,
+    "fullPresets": 475,
     "favesImplemented": 13,
-    "activeRemaining": 64,
-    "regularRemaining": 133
+    "activeRemaining": 63,
+    "regularRemaining": 132
   },
   "verification": {
     "browser": "Fresh-main 9a45aa0 combined gate: 402 passed across 13 Chromium suites, including all 209 public HTML routes, all 451 existing full-state preset recalls, Shapes' 106-scene audio sweep, Faves/UI/gesture checks, I/O setup and incoming Loopini regressions. Human/device acceptance remains separate; see docs/presets-continuation-20260922.md",
@@ -743,8 +743,8 @@
       "href": "puggler.html",
       "category": "graphic-ui",
       "scope": "regular",
-      "presets": null,
-      "status": "unmigrated"
+      "presets": 24,
+      "status": "implemented-verification-pending"
     },
     {
       "id": "surround-field",
@@ -1608,7 +1608,6 @@
       "chaotic-pm",
       "weierstrass",
       "moire-drone",
-      "puggler",
       "surround-field",
       "sorting-algorithms"
     ],

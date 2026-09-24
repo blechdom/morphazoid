@@ -399,7 +399,7 @@ all original focused acts and the full manual control ranges remain available.
 The **Scene level** control remains smoothed attenuation after the ceiling;
 Audio arm, Play, master Output and explicit flash consent are never recalled.
 
-The header has 24 complete scenes (eight per skin), Next and a generative dice
+The first control-panel row has 24 complete scenes (eight per skin), Next and a generative dice
 button. Snapshots include object/sound assignments, cast, physics, juggling and
 ride patterns, rhythm, tempo, sound mix, skin, lights, trails and poster seed.
 The body **Juggling act** remains a focused physics/pattern selector. Full recall

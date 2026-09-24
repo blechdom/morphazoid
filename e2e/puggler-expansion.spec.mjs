@@ -7,13 +7,15 @@ async function open(page,path='puggler.html'){
   await page.goto(path);await page.waitForFunction(()=>window.__puggler?.snapshot().collage.ready);
   await expect(page.locator('.header-preset-controls')).toBeVisible();
 }
-for(const path of ['puggler.html','dist-wax/puggler.html'])test(`header scenes are complete, ordered and preserve paused/muted state: ${path}`,async({page})=>{
+for(const path of ['puggler.html','dist-wax/puggler.html'])test(`panel scenes are complete, ordered and preserve paused/muted state: ${path}`,async({page})=>{
   test.setTimeout(60000);const errors=[];page.on('pageerror',e=>errors.push(e.message));await open(page,path);
   await expect(page.locator('.header-preset-picker summary')).toHaveText(/Select Preset/);
   await expect(page.locator('[data-full-preset]')).toHaveCount(24);
   expect(await page.evaluate(()=>{
-    const a=document.querySelector('.header-preset-controls'),b=document.querySelector('.midi-toolbar'),c=document.querySelector('.header-output-meter-shell');
-    return !!(a.compareDocumentPosition(b)&Node.DOCUMENT_POSITION_FOLLOWING)&&!!(b.compareDocumentPosition(c)&Node.DOCUMENT_POSITION_FOLLOWING);
+    const presets=document.querySelector('.header-preset-controls'),host=document.querySelector('[data-instrument-preset-host]'),header=document.querySelector('.masthead');
+    return host?.firstElementChild===presets&&!header.contains(presets)
+      &&!!header.querySelector('.header-settings-panel .midi-toggle')
+      &&!!header.querySelector('.mz-range-knob #level');
   })).toBe(true);
   await page.locator('#playButton').click();await range(page,'level',.13);
   for(const preset of PUGGLER_FULL_PRESETS){
@@ -32,6 +34,10 @@ for(const path of ['puggler.html','dist-wax/puggler.html'])test(`header scenes a
 });
 test('auto voices follow object and skin; explicit voices survive prop changes',async({page})=>{
   await open(page);await page.locator('#playButton').click();
+  // Pause lets existing flights land and audience replacements return. Re-rack
+  // one held prop so this selector test is not racing those deliberate events.
+  await page.locator('#count').selectOption('1');
+  expect((await state(page)).objects[0].phase).toBe('held');
   await expect(page.locator('#riffs0')).toHaveValue('object');await expect(page.locator('#drums0')).toHaveValue('object');
   await page.locator('#object0').selectOption('fish');await page.locator('#skin').selectOption('future');
   await expect(page.locator('#riffs0 option:checked')).toHaveText('Own · Backwards underwater alien');
