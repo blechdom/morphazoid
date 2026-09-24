@@ -4,6 +4,7 @@ import { existsSync, readFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
+import { readRuntimeManifest } from "../scripts/site/runtime-manifest.mjs";
 import { inspectInstrument, localPath, referencesIn, repositoryRoot } from "../scripts/inspect-instrument.mjs";
 
 test("local paths reject encoded separators, traversal and malformed escapes before any file access", () => {
@@ -48,8 +49,17 @@ test("Puggler inventory includes samples, provenance, live capability and mirror
   assert.deepEqual(report.entries, ["nav.js", "src/instruments/puggler/puggler-app.js", "src/instruments/puggler/puggler-layout.js"]);
   assert.equal(report.registration.capability.computerKeyboardMode, "page");
   const recordings = report.files.filter(f => f.path.endsWith(".wav"));
-  assert.equal(recordings.length, 8);
-  assert.ok(recordings.every(f => f.present && f.tracked));
+  const original = ["boo", "crash", "hat", "kick", "oi", "snare", "tom", "woo"].map(id => `assets/puggler/${id}.wav`);
+  const speech = ["count-in", "mic-check"].map(id => `assets/puggler/${id}.wav`);
+  assert.deepEqual(recordings.map(f => f.path).sort(), [...original, ...speech].sort());
+  assert.ok(recordings.every(f => f.present));
+  assert.ok(recordings.filter(f => original.includes(f.path)).every(f => f.tracked));
+  // Discovery must be truthful even before the new assets are committed. The
+  // explicit release entries make them available to pre-commit builds too.
+  const tracked = new Set(execFileSync("git", ["-C", repositoryRoot, "ls-files", "-z"], { encoding: "utf8" }).split("\0"));
+  for (const file of recordings) assert.equal(file.tracked, tracked.has(file.path), file.path);
+  const manifest = await readRuntimeManifest();
+  for (const file of speech) assert.equal(manifest.entries.find(e => e.path === file)?.policy, "copy+require");
   assert.ok(recordings.every(f => f.discoveredBy.includes("template-candidate")));
   const credits = report.files.find(f => f.path === "assets/puggler/CREDITS.md");
   assert.ok(credits?.present);

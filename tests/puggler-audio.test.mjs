@@ -184,9 +184,9 @@ test('vocal motion preserves the recorded register even at extreme tempos and us
 test('transport and strikes stay silent until explicitly armed; arm loads only local assets once', async () => withAudio(async (audio, urls) => {
   audio.update([object(0)], {}, true); audio.strike({ ...object(0), kind: 'catch' }, {}, 0); audio.mute();
   assert.equal(audio.context, null); assert.equal(urls.length, 0);
-  await audio.arm(); assert.equal(audio.on, true); assert.equal(urls.length, 8);
+  await audio.arm(); assert.equal(audio.on, true); assert.equal(urls.length, 10);
   assert.ok(urls.every(url => url.includes('/assets/puggler/') && url.endsWith('.wav')));
-  await audio.arm(); assert.equal(urls.length, 8);
+  await audio.arm(); assert.equal(urls.length, 10);
 }));
 
 test('only airborne, replacement, or outbound audience objects own riff loops', async () => withAudio(async audio => {
@@ -359,7 +359,7 @@ test('fast catch storms remain bounded and mute/close stop and disconnect all so
 
 
 test('era banks cover each performer and drum without new fetches or live regeneration', async () => withAudio(async (audio, urls) => {
-  await audio.arm(); assert.equal(urls.length, 8);
+  await audio.arm(); assert.equal(urls.length, 10);
   const bank = audio.eraBuffers; assert.equal(Object.keys(bank).length, 22);
   for (const skin of ['history', 'future']) {
     for (let owner = 0; owner < 3; owner++) for (const role of ['guitar', 'bass']) {
@@ -386,7 +386,7 @@ test('era banks cover each performer and drum without new fetches or live regene
   const punk = audio.voices[0];
   audio.update([{...object(0),voiceOwner:2}], {skin:'unknown'}, true);
   assert.equal(audio.voices[0], punk, 'original punk guitar stays common to its performers');
-  assert.equal(audio.eraBuffers, bank); assert.equal(urls.length, 8);
+  assert.equal(audio.eraBuffers, bank); assert.equal(urls.length, 10);
   await audio.close(); assert.equal(audio.eraBuffers, null);
 }));
 
@@ -426,3 +426,53 @@ test('high-rate device decoding retains all three complete OI calls and their du
     assert.ok(Math.abs(rms(chant.slice(at,at+source.length))/rms(source)-level)<1e-6);
   }
 });
+
+test('every prop owns an air/catch pair, passes retain it, replacements follow it, and manual voices override it',async()=>withAudio(async(audio,urls)=>{
+  await audio.arm();const bank=audio.objectBuffers;assert.equal(Object.keys(bank).length,198);
+  for(const skin of ['punk','history','future'])for(const prop of PROPS){
+    const o={...object(0),prop,riff:'object',drum:'object',voiceOwner:0};
+    audio.context.currentTime+=.15;audio.update([o],{skin,beat:0},true);
+    const v=audio.voices[0];assert.equal(v.key,`object:${skin}:${prop.id}:air`);assert.equal(v.source.buffer,bank[v.key]);
+    o.voiceOwner=2;audio.context.currentTime+=.15;audio.update([o],{skin,beat:0},true);assert.equal(audio.voices[0],v);
+    audio.strike({...o,kind:'catch'},{skin},audio.context.currentTime+.01);
+    const hit=[...audio.attacks].at(-1);assert.equal(hit.key,`object:${skin}:${prop.id}:catch`);assert.equal(hit.source.buffer,bank[hit.key]);
+  }
+  const o={...object(0),prop:PROPS[0],riff:'object:bell',drum:'object:bell'};
+  audio.context.currentTime+=.15;audio.update([o],{skin:'history',beat:0},true);const manual=audio.voices[0];
+  o.prop=PROPS[1];audio.update([o],{skin:'history',beat:0},true);assert.equal(audio.voices[0],manual);
+  audio.strike({...o,kind:'catch'},{skin:'history'});assert.equal([...audio.attacks].at(-1).key,'object:history:bell:catch');
+  assert.equal(audio.objectBuffers,bank);assert.equal(urls.length,10,'no new fetches during playback');
+  assert.ok(audio.voices.filter(Boolean).length<=10);assert.ok(audio.attacks.size<=48);assert.ok(audio.airTails.size<=20);
+  await audio.close();assert.equal(audio.objectBuffers,null);assert.equal(audio.attacks.size,0);assert.equal(audio.airTails.size,0);
+}));
+test('scene level attenuates after the limiter without changing master output ownership',async()=>withAudio(async audio=>{
+  await audio.arm();const o={...object(0),riff:'object'};
+  for(const sceneGain of [0,.2,1]){
+    audio.update([o],{level:.4,sceneGain},true);
+    assert.equal(audio.level,.4);assert.equal(audio.master.gain.value,.4*.9*sceneGain);
+  }
+  assert.ok(audio.peakGuard.connections.includes(audio.master));
+}));
+
+test('beat-clock object notes articulate independently of pitch and skip stale pulses after a stall',async()=>withAudio(async audio=>{
+  await audio.arm();const o={...object(0),prop:PROPS.find(p=>p.id==='guitar'),riff:'object'};
+  audio.update([o],{skin:'punk',beat:0,tempo:240},true);
+  const a=audio.voices[0];assert.equal(a.source.loop,false);assert.equal(a.noteBeat,0);
+  audio.context.currentTime+=.03;
+  audio.update([{...o,y:o.y+200}],{skin:'punk',beat:.12,tempo:240,height:1.4},true);
+  assert.equal(audio.voices[0],a);assert.ok(a.rate>1);
+  audio.context.currentTime+=.095;audio.update([o],{skin:'punk',beat:.5,tempo:240},true);
+  const b=audio.voices[0];assert.notEqual(a,b);assert.equal(b.noteBeat,.5);assert.ok(a.source.stops.length);
+  const n=audio.noteCount;audio.context.currentTime+=4;audio.update([o],{skin:'punk',beat:16.5,tempo:240},true);
+  assert.ok(audio.noteCount-n<=1,'no burst of replayed notes');
+  audio.update([o],{skin:'punk',beat:16.5,tempo:240},false);assert.equal(audio.voices[0],null);
+}));
+test('very fast relaunches remain note-rate bounded and handoffs preserve the beat clock',async()=>withAudio(async audio=>{
+  await audio.arm();let t=1;const o={...object(0),riff:'object'};const start=audio.noteCount;
+  for(let i=0;i<200;i++){
+    audio.context.currentTime=t+i*.005;
+    audio.update([{...o,phase:i%10<2?'held':'air',voiceOwner:i%3}],{skin:'future',tempo:1200,beat:i*.1},true);
+  }
+  assert.ok(audio.noteCount-start<=13);assert.ok(audio.airTails.size<=20);
+  assert.ok(audio.voices.filter(Boolean).length<=10);
+}));

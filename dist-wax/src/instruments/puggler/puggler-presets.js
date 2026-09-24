@@ -1,6 +1,6 @@
 import { DEFAULTS } from './puggler.js';
 const posterSeedFor = id => [...id].reduce((seed,letter)=>Math.imul(seed^letter.charCodeAt(0),16777619)>>>0,2166136261);
-export const PAGE_DEFAULTS = { ...DEFAULTS, count:6, pattern:'many-6', tempo:360, loft:1.8, cast:'trio', autoRide:true, phrase:'verse', assist:42, chaos:40, ridePattern:'double-step',rideSpeed:.85,rideRange:44,posterSeed:posterSeedFor('ballet'), propIds:['guitar','can','boot','vinyl','cassette','plushrat','skateboard','mic','brick','cone'] };
+export const PAGE_DEFAULTS = { ...DEFAULTS, count:6, drums:Array(10).fill('object'), riffs:Array(10).fill('object'), pattern:'many-6', tempo:360, loft:1.8, cast:'trio', autoRide:true, phrase:'verse', assist:42, chaos:40, ridePattern:'double-step',rideSpeed:.85,rideRange:44,posterSeed:posterSeedFor('ballet'), propIds:['guitar','can','boot','vinyl','cassette','plushrat','skateboard','mic','brick','cone'] };
 const act=(id,name,config)=>({id,name,config:{...PAGE_DEFAULTS,...config,posterSeed:posterSeedFor(id)}});
 export const PRESETS = Object.freeze([
   act('ballet','Trash trio',{}),

@@ -16,6 +16,7 @@ const proof = JSON.parse(await readFile(new URL("fixtures/module-hierarchy-runti
 const ioChanges = JSON.parse(await readFile(new URL("../docs/io-settings-runtime-changes.json", import.meta.url))).changes;
 const iphoneChanges = JSON.parse(await readFile(new URL("../docs/iphone-audio-runtime-changes.json", import.meta.url))).changes;
 const shapesChanges = JSON.parse(await readFile(new URL("../docs/shapes-manual-notes-runtime-changes.json", import.meta.url))).changes;
+const pugglerChanges = JSON.parse(await readFile(new URL("../docs/puggler-expansion-runtime-changes.json", import.meta.url))).changes;
 const inverse = Object.fromEntries(Object.entries({ ...plan.moves, ...siteMoves }).map(([before, after]) => [after, before]));
 const sha = value => createHash("sha256").update(value).digest("hex");
 
@@ -42,6 +43,13 @@ test("runtime modules reverse exactly after explicit runtime fixes and documente
     let current = restorePointerExtraction(
       await readFile(path.join(root, record.after), "utf8"), record.after,
     );
+    for (const change of pugglerChanges.filter(change => change.file === record.after)) {
+      for (const testFile of change.regressionTests) assert.ok(existsSync(path.join(root, testFile)), testFile);
+      for (const replacement of [...change.replacements].reverse()) {
+        assert.equal(current.split(replacement.after).length - 1, 1, `exactly one Puggler expansion edit: ${change.file}`);
+        current = current.replace(replacement.after, replacement.before);
+      }
+    }
     for (const change of iphoneChanges.filter(change => change.file === record.after)) {
       for (const testFile of change.regressionTests) assert.ok(existsSync(path.join(root, testFile)), testFile);
       for (const replacement of [...change.replacements].reverse()) {
@@ -138,4 +146,16 @@ test("path rewriting preserves queries, templates, resources and non-path slash 
   assert.equal(rewriteModulePaths('const key = "/"; const text = `/${id}/`;', "src/voice.js", moves, { exists }),
     'const key = "/"; const text = `/${id}/`;');
   assert.equal(relocateReference("./audio.js", "src/voice.js", moves, { exists }), "../../audio.js");
+});
+
+test("Puggler expansion amendments are limited to its six existing feature owners", () => {
+  assert.deepEqual(pugglerChanges.map(change => change.file).sort(), [
+    "puggler-app.js", "puggler-audio.js", "puggler-lighting.js", "puggler-presets.js", "puggler-renderer.js", "puggler.js",
+  ].map(file => `src/instruments/puggler/${file}`));
+  for (const change of pugglerChanges) {
+    assert.ok(proof.files.some(record => record.after === change.file));
+    assert.ok(change.replacements.length > 0);
+    assert.ok(change.regressionTests.includes("e2e/puggler-expansion.spec.mjs"));
+    assert.ok(change.regressionTests.includes("tests/puggler-audio.test.mjs"));
+  }
 });

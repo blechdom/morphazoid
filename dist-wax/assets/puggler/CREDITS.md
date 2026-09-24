@@ -1,6 +1,6 @@
 # Puggler asset credits
 
-All eight bundled recordings are **CC0 1.0 Universal**. See
+The eight original drum/audience recordings are **CC0 1.0 Universal**. See
 [the included license](CC0-1.0.txt) and
 [Creative Commons' CC0 deed](https://creativecommons.org/publicdomain/zero/1.0/).
 No audio is taken from *Xavier: Renegade Angel*, a commercial song, or a game.
@@ -248,3 +248,24 @@ in [HISTORY_CROWD_CREDITS.md](HISTORY_CROWD_CREDITS.md) and
 
 The rear-view future audience, including cyborgs, aliens, women, children and a
 baby, has its artwork and exact prompt in [FUTURE_CROWD_CREDITS.md](FUTURE_CROWD_CREDITS.md).
+
+
+## September 23 sound-palette revision
+
+`mic-check.wav` and `count-in.wav` are original **synthetic speech**, generated
+locally by `scripts/generate-puggler-mic-check.py` with the system eSpeak NG
+English US voice. Their text is “Check, check. Is this thing on?” and
+“One! Two! Three! Four!” They are not recordings of actors, copyrighted dialogue,
+or imitations of named people. Leading/trailing silence is trimmed, peak is
+normalized to 0.65 and 4/20 ms edge fades are applied; mono PCM16 is stored at
+22.05 kHz. The original generated assets are provided under this repository's
+MIT license. eSpeak NG is a separate GPL-3.0-or-later development tool; no engine
+code or voice database is bundled: https://github.com/espeak-ng/espeak-ng.
+
+`puggler-object-sounds.js` / `puggler-voice-dsp.js` now reuse the original local
+CC0 drums and OI/WOO clips for prop percussion and human-vocal colors. Pitched,
+gated, doubled or reversed versions are artistic transformations, not new
+recordings of African chant, Kecak, opera, historical laughter or other cultural
+performances. String/modal/wind voices, glass/tambourine/clatter approximations
+and future synthesis are original MIT-licensed code. No new external recordings
+were downloaded for this revision. All browser sound assets remain local.

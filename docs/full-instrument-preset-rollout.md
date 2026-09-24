@@ -68,6 +68,19 @@ after every file edit, but keep sound/state preservation gates intact. Standard
 repository verification still covers shared behavior and WIP regressions; this
 priority change does not authorize weakening tests or skipping release checks.
 
+## Owner-requested extension — September 23, 2026
+
+Puggler now has a separate owner-requested 24-scene header adapter, Next and a
+pure generative randomizer. It covers complete juggling, prop/voice, sound and
+light state while preserving Audio, Play, master Output and flash consent.
+The existing 22 body acts remain focused sub-presets. The September 23 sound
+revision separates acoustic/punk/future voices, ties new instrumental notes to
+the juggling beat and narrows factory/dice level ranges. See
+`tests/puggler-full-presets.test.mjs`, `e2e/puggler-expansion.spec.mjs` and
+[Puggler's model/limits](../PUGGLER_RESEARCH.md). Human listening and physical
+phone acceptance remain pending. The first-batch counts below are its historical
+rollout snapshot, not an updated total including this extension.
+
 ## Current work: first full-preset batch implemented, final verification pending
 
 The next local batch now implements the shared Choose-styled header preset

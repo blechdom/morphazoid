@@ -85,3 +85,23 @@ body.puggler-page { height:auto; min-height:100dvh; overflow:visible; }
   .puggler-title { font-size:16px; }
 }
 @media(pointer:coarse) { .puggler-page .audio-button,.puggler-page [data-primary-transport] { min-width:48px; min-height:48px; } .key-grid button { min-height:40px; } }
+
+.puggler-flash-note { color:var(--muted); font-size:11px; line-height:1.4; margin:4px 0 12px; }
+/* A full-scene header must not consume a third phone row. The instrument
+   remains available through Choose; only its redundant next-instrument arrow
+   is omitted here. Preset menu/next/dice, MIDI, meters and Audio stay visible. */
+@media(max-width:520px), (max-width:960px) and (max-height:560px) and (orientation:landscape) {
+  .puggler-page .masthead.has-header-presets { padding:6px 8px; gap:6px; }
+  .puggler-page .masthead.has-header-presets .header-io-controls { display:contents; }
+  .puggler-page .masthead.has-header-presets .tabs { flex:0 0 72px; width:72px; min-width:0; }
+  .puggler-page .masthead.has-header-presets .tabs > .instrument-picker { width:100%; min-width:0; }
+  .puggler-page .masthead.has-header-presets .tabs > .instrument-picker-next { display:none; }
+  .puggler-page .masthead.has-header-presets .header-preset-controls { flex:1 0 calc(100% - 112px); width:auto; min-width:156px; }
+  .puggler-page .masthead.has-header-presets .header-io-controls > .audio-strip { flex:1 1 110px; width:auto; min-width:110px; grid-template-columns:minmax(45px,1fr) 48px; gap:6px; }
+  .puggler-page .masthead.has-header-presets .header-io-controls > .header-settings-menu { margin-left:0; }
+}
+@media(max-width:960px) and (max-height:560px) and (orientation:landscape) {
+  .puggler-page .masthead.has-header-presets { flex-wrap:nowrap; padding-block:4px; }
+  .puggler-page .masthead.has-header-presets .header-preset-controls { flex:1 1 156px; }
+  .puggler-page .masthead.has-header-presets .header-io-controls > .audio-strip { flex:0 1 128px; }
+}

@@ -151,7 +151,9 @@ test('Puggler passes keep the thrower voice for the whole flight then give the r
   await page.locator('#autoRide').uncheck();await range(page,'tempo',100);await range(page,'chaos',0);await range(page,'assist',120);
   await page.locator('#riffs0').selectOption('oi');await page.locator('#audioButton').click();
   await expect(page.locator('#audioButton')).toHaveAttribute('aria-pressed','true',{timeout:15000});
-  await expect.poll(async()=>{const s=await state(page);return s.objects[0].phase==='air'&&s.time-s.objects[0].start<.35&&s.objects[0].voiceOwner===1&&s.vocals[0]?.character==='punk-roxy';},{timeout:8000}).toBe(true);
+  // Sample the 350-ms launch window rather than aliasing it with the default
+  // one-second polling backoff (Audio startup may join anywhere in the cycle).
+  await expect.poll(async()=>{const s=await state(page);return s.objects[0].phase==='air'&&s.time-s.objects[0].start<.35&&s.objects[0].voiceOwner===1&&s.vocals[0]?.character==='punk-roxy';},{timeout:8000,intervals:[25]}).toBe(true);
   const first=await state(page),flight=first.objects[0].start;
   const snapshots=await page.evaluate(async()=>{
     const samples=[];const start=performance.now();
@@ -351,7 +353,7 @@ test('ten live objects keep their drum and riff edits across phrase and speed ch
   expect((await state(page)).running).toBe(true);
   await page.locator('#resetButton').click();
   expect(await state(page)).toMatchObject({ count: 6, pattern: 'many-6', cast: 'trio', autoRide: true, phrase: 'verse', tempo: 360, loft: 1.8, chaos: 40, audioOn: false });
-  expect((await state(page)).objects[0]).toMatchObject({ drum: 'kick', riff: 'guitar' });
+  expect((await state(page)).objects[0]).toMatchObject({ drum: 'object', riff: 'object' });
   await expect(page.locator('#pattern')).toBeEnabled();
   await expect(page.locator('#pattern')).toHaveValue('');
 });
@@ -695,6 +697,8 @@ test('Puggler sonic skins change instruments, vocal colors and impact voices dur
   await range(page,'assist',120);await page.locator('#autoRide').uncheck();
   await page.locator('#skin').selectOption('history');
   expect((await state(page)).audioOn).toBe(false);
+  // Explicit legacy assignments retain their original skin-dependent sound roles.
+  await page.locator('#riffs0').selectOption('guitar');await page.locator('#drums0').selectOption('kick');
   await expect(page.locator('#riffs0 option:checked')).toHaveText('Harpsichord');
   await expect(page.locator('#drums0 option:checked')).toHaveText('Timpani');
   const historyObjects=await page.locator('#object0 option').allTextContents();

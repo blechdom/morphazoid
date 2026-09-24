@@ -1,3 +1,4 @@
+import { drawEraPosters } from './puggler-era-posters.js';
 import { futureCrowdMember, futureHeadwear, drawFutureCrowdHead, drawFutureCrowdHand } from './puggler-future-crowd.js';
 import { WORLD, flightPosition } from './puggler.js';
 import { PugglerCollage } from './puggler-collage.js';
@@ -811,7 +812,8 @@ export class PugglerRenderer {
     const point=(x,y)=>({x:ox+x*sx,y:oy-yMap(y)});
     this.view={scale:sx,scaleY:sy,ox,oy,point};
     if(!drawSkinStage(c,w,h,model,this.view,this.collage,skin))stage(c,w,h,model,this.view,this.collage);
-    renderStageLighting(c,w,h,model,this.view,params.lighting,skin);
+    if(skin!=='punk')drawEraPosters(c,w,h,model.posterSeed,skin);
+    renderStageLighting(c,w,h,model,this.view,params.lighting,skin,params);
     drawPyrotechnics(c,w,h,this.view,this.pyro,model.time);
     if(params.trails)drawObjectEchoes(c,bodies,this.view,this.collage,model.time);
     // Arm geometry is uniformly scaled; only position/palm endpoints span world X.

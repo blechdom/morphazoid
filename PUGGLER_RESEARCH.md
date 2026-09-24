@@ -329,3 +329,98 @@ between level-matched phrases and hits, era/performer routing, phrase continuity
 transport, teardown and the ten-object/1,200-BPM mix. Those checks do not establish
 perceived instrument identity, operatic quality or musical balance. Human
 listening and physical-device play remain unperformed.
+
+## Prop voices, light shows and complete scenes (September 23, 2026)
+
+The default Catch and Air selections are now **Own**: each of the 33 physical
+prop types has its own voice in each skin (99 identities, 198 cached air/contact
+samples). Motion continues to control rate, brightness and pan; catches interrupt
+that prop's flight sound and trigger its matching hit. Passing preserves prop
+identity; audience replacement changes an Own voice with the visible prop.
+Explicit voice choices remain fixed when the object changes. Original recorded
+kit, guitar/bass and performer-owned OI/WOO selections remain available.
+
+The revised sound bank separates the eras rather than sharing FM/chirp recipes:
+
+- **History:** Chinese plucked-zither color, sitar-like bridge buzz and sympathetic
+  partials, detuned bronze/gong pairs, tabla-like modal percussion, harpsichord
+  Alberti bass and trills, piano scales/cadences, harp arpeggios, vibrato strings,
+  timpani, tuba/trombone, flute, oboe and penny whistle. Vocal colors use the
+  existing licensed human OI/WOO clips: call-and-response, cak-like syllabic
+  gating, pitched operatic arpeggios, chamber laughter and low grunts. These are
+  theatrical approximations, **not recordings of traditional performers** or
+  authenticated reconstructions. The syllabic proxy is not a Kecak performance;
+  see [Hocket Luigi's cultural framing](HOCKET_LOOM_RESEARCH.md).
+- **Punk:** picked bass, palm-muted/power-chord/shredding electric strings, ebow
+  excitation and moving-delay whammy bends; the existing acoustic drum and
+  cymbal recordings; stomps, tambourine/glass/clatter approximations, sampled
+  shouts and screams, and harmonic amp feedback. No FM/laser voice families are
+  assigned to punk. Two original eSpeak-generated mic-check/count-in clips add
+  “check check / is this thing on?” and “one two three four”; they are **synthetic
+  speech**, not new actor recordings. [Asset provenance](assets/puggler/CREDITS.md).
+- **Future:** coupled-phase “gizzle” packets, targeting glides, beep-beep pulses,
+  seven-step unquantized contours, ring-modulated textures, swept filters,
+  reversed voice fragments and two finite echoes. “Gizzle” is a sound-design
+  nickname, not a claim about a separate hardware synthesis engine.
+
+Guitar strings use recirculating pick-excited delay lines. Historical instruments
+use decaying partials, membrane modes, paired beating, breath/rosin noise and
+harmonic wind/string bodies. These follow the broad synthesis ideas in Julius
+O. Smith's [Virtual Musical Instruments](https://www.dsprelated.com/freebooks/pasp/Virtual_Musical_Instruments.html),
+not a validated physical model of each named instrument. The owner's explicit
+request for Alberti bass, scales, cadences and operatic arpeggios authorizes those
+**local classical scores**; they do not quantize the other instruments or future
+voices onto a Western/pentatonic scale.
+
+Instrumental object notes now take their onset from the **juggling beat**, while
+pitch is a separate playback-rate control. Raising an object no longer speeds
+up its entire phrase. At extreme tempos, power-of-two subdivisions preserve a
+relationship to catches while capping new attacks at 12 per prop per second.
+After a UI stall only a current pulse can start: missed notes are not replayed.
+Catches still interrupt the object's air sound and trigger its contact voice.
+Legacy OI/WOO/lead/bass loops and the longer spoken mic-check clips retain their
+paused sample cursors across catches, so words are not restarted at every throw.
+
+Every new mono buffer is edge-faded, peak-capped at 0.68 and normalized using its
+active energy, not its silent padding. A small prefix-energy table calibrates
+short audible note windows; no sample synthesis or energy scanning occurs in the
+update loop. Fixed family trims and a count/tempo-based ensemble gain reduce
+mix differences without a signal-following AGC that might amplify silence.
+Added pre-ceiling headroom and lower contact gains keep ordinary acoustic voices
+away from the safety ceiling. Limits remain 10 air voices, 20 crossfade tails
+and 48 contacts. The two new speech WAVs total under 200 KB. The 198-buffer bank
+and its small energy tables are built during explicit Audio startup and reused.
+
+Factory scenes no longer use 22–100% scene-level changes as their soft/loud
+contrast: they share 80% Scene level and comparable air/contact mixes. Dice uses
+77–83%, favors denser 5–10-object acts (with occasional 2–4-object acts), limits
+throw wildness and selects within the prop voice palette. Manual sound choices,
+all original focused acts and the full manual control ranges remain available.
+The **Scene level** control remains smoothed attenuation after the ceiling;
+Audio arm, Play, master Output and explicit flash consent are never recalled.
+
+The header has 24 complete scenes (eight per skin), Next and a generative dice
+button. Snapshots include object/sound assignments, cast, physics, juggling and
+ride patterns, rhythm, tempo, sound mix, skin, lights, trails and poster seed.
+The body **Juggling act** remains a focused physics/pattern selector. Full recall
+preserves live time; changes of count/cast/pattern re-rack using the existing
+model semantics. Dice varies every scene-owned field within explicit bounds.
+
+Eleven light looks include colored fans, footlights, blacklight, mirror-ball
+spots, party beams, lasers, prism and aether curtains. Intensity and motion speed
+are independently adjustable. Strobe and light-riot accents require the separate
+**Enable flashing lights** checkbox, start off and cannot be enabled by presets
+or dice. Their shared pulse is capped at two flashes/second and disabled by the
+OS reduced-motion preference, which also freezes new light movement. This is
+not a guarantee of medical safety: leave flashes off if sensitive. The relevant
+accessibility reference is W3C's
+[Three Flashes or Below Threshold](https://www.w3.org/WAI/WCAG22/Understanding/three-flashes-or-below-threshold.html).
+The drawing budget is fixed at eight beams, 24 spots and a small mirror-ball grid.
+
+Twenty original fictional historical flyers and twenty futuristic flyers join
+the untouched punk bills. Random flyers works in all skins. They are playful
+stage text, not claims about historical events or cultural traditions.
+
+Focused PCM, routing, preset, resource, lighting and browser checks are separate
+from listening acceptance. Physical iPhone testing and human judgments of sound
+identity, balance, harshness and performance feel still require owner review.

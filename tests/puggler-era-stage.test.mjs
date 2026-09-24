@@ -38,7 +38,7 @@ test('future reactor motion is bounded, deterministic, smooth and responds local
   }
 });
 
-test('future lighting is fluorescent across the existing four looks while intensity stays gentle',()=>{
+test('future lighting retains fluorescent palettes with bounded smooth non-flashing transitions',()=>{
   const model={time:10,activePlayers:[{lastCatch:9.4}]},view={oy:556};
   for(const scene of LIGHTING_SCENES){
     const state=lightingState(1030,612,model,view,scene.id,'future');
@@ -46,7 +46,7 @@ test('future lighting is fluorescent across the existing four looks while intens
     for(const [i,beam] of state.beams.entries()){
       const channels=beam.color.slice(1).match(/../g).map(value=>parseInt(value,16));
       assert.ok(Math.max(...channels)-Math.min(...channels)>130);
-      assert.ok(beam.alpha<=.15&&Math.abs(beam.alpha-next.beams[i].alpha)<.003);
+      assert.ok(beam.alpha<=.75&&Math.abs(beam.alpha-next.beams[i].alpha)<.01);
     }
   }
   assert.ok(lightingState(1030,612,model,view,'house','future').beams[0].alpha>lightingState(1030,612,model,view,'house','history').beams[0].alpha);

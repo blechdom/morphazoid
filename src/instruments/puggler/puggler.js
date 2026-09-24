@@ -124,6 +124,7 @@ export const PHRASE_CHUNKS = Object.freeze({
 export const VERSES = Object.freeze({1:'3001400030050000',2:'3133031420440031',3:'3334415314235223',4:'4445555064244444',...Object.fromEntries(Array.from({length:6},(_,i)=>{const n=i+5;return [n,[...Array(12-n).fill(n),...Array(n-1).fill(n+2),2,0,n+1,n+1,n-2].map(notation).join('')];}))});
 export const DRUMS = Object.freeze(['kick','snare','crash','tom','hat']);
 export const RIFFS = Object.freeze(['guitar','bass','oi','woo']);
+export const OBJECT_SOUND_CHOICES = Object.freeze(['object', ...PROPS.map(prop => `object:${prop.id}`)]);
 // Expressive riding paths, not a biomechanics solver. Zero speed is useful for
 // an isolated stationary juggling scene; ordinary defaults keep the wheel alive.
 export const RIDE_PATTERNS = Object.freeze(['rock','sweep','double-step','lurch','surge']);
@@ -193,8 +194,8 @@ export class PugglerModel {
     }
     for(let i=0;i<this.objects.length;i++){
       this.objects[i].prop=propFor(this.config.propIds[i]);
-      this.objects[i].drum=DRUMS.includes(this.config.drums[i])?this.config.drums[i]:DRUMS[i%DRUMS.length];
-      this.objects[i].riff=RIFFS.includes(this.config.riffs[i])?this.config.riffs[i]:RIFFS[i%RIFFS.length];
+      this.objects[i].drum=(DRUMS.includes(this.config.drums[i])||OBJECT_SOUND_CHOICES.includes(this.config.drums[i]))?this.config.drums[i]:DRUMS[i%DRUMS.length];
+      this.objects[i].riff=(RIFFS.includes(this.config.riffs[i])||OBJECT_SOUND_CHOICES.includes(this.config.riffs[i]))?this.config.riffs[i]:RIFFS[i%RIFFS.length];
     }
   }
   reRack() {

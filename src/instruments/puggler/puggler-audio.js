@@ -1,3 +1,6 @@
+import { voiceWindowLevels, voiceWindowGain } from './puggler-voice-dsp.js';
+import { propNoteAt, objectPitchRate, ensembleGain, propTimbreGain, MAX_PROP_NOTE_RATE } from './puggler-rhythm.js';
+import { prepareObjectSoundData, objectSoundId, objectSoundKey, objectSoundProfile, OBJECT_SOUND_RATE } from './puggler-object-sounds.js';
 import { connectAudioOutput } from '../../audio-output-manager.js';
 import { clamp, soundMapping, WORLD } from './puggler.js';
 import { PUNK_DRUMS, PUNK_RIFFS, PHRASE_TEMPO, renderPunkPhrase, renderVocalChant } from './puggler-samples.js';
@@ -12,7 +15,7 @@ export const MAX_PUGGLER_VOICES = 10;
 export const MAX_PUGGLER_ATTACKS = 48;
 export const MAX_PUGGLER_AIR_TAILS = 20;
 const CATCH_GATE = .018;
-const SAMPLE_IDS = [...PUNK_DRUMS, 'oi', 'woo', 'boo'];
+const SAMPLE_IDS = [...PUNK_DRUMS, 'oi', 'woo', 'boo', 'mic-check', 'count-in'];
 const DRUM_GAIN = { kick: 1.15, snare: 1.03, crash: .55, tom: 1.05, hat: .62 };
 const isVocal = role => role === 'oi' || role === 'woo';
 const finite = (value, fallback = 0) => Number.isFinite(Number(value)) ? Number(value) : fallback;
@@ -88,9 +91,10 @@ export class PugglerAudio {
   constructor() {
     this.context = null; this.on = false; this.voices = Array(MAX_PUGGLER_VOICES).fill(null);
     this.phrasePositions = Array(MAX_PUGGLER_VOICES).fill(null);
+    this.objectTicks = Array(MAX_PUGGLER_VOICES).fill(null); this.ensemble = 1; this.noteCount = 0; this.objectLastAt = Array(MAX_PUGGLER_VOICES).fill(-Infinity);
     this.gateUntil = Array(MAX_PUGGLER_VOICES).fill(0);
     this.attacks = new Set(); this.airTails = new Set(); this.disposed = false;
-    this.buffers = null; this.vocalBuffers = null; this.eraBuffers = null; this.loading = null; this.armSerial = 0; this.running = false; this.active = true; this.level = .38;
+    this.buffers = null; this.vocalBuffers = null; this.eraBuffers = null; this.objectBuffers = null; this.objectLevels = null; this.loading = null; this.armSerial = 0; this.running = false; this.active = true; this.level = .38;
   }
   async arm() {
     if (this.disposed) return;
@@ -99,7 +103,7 @@ export class PugglerAudio {
       const AudioContext = globalThis.AudioContext ?? globalThis.webkitAudioContext;
       this.context = new AudioContext();
       const c = this.context;
-      this.bus = c.createGain(); this.master = c.createGain(); this.master.gain.value = 0;
+      this.bus = c.createGain(); this.bus.gain.value = .55; this.master = c.createGain(); this.master.gain.value = 0;
       this.airBus = c.createGain(); this.airDuck = c.createGain(); this.airDuck.gain.value = 1;
       this.vocalBus = c.createGain(); this.vocalCompressor = c.createDynamicsCompressor();
       this.vocalCompressor.threshold.value = -8; this.vocalCompressor.knee.value = 10; this.vocalCompressor.ratio.value = 2;
@@ -137,6 +141,7 @@ export class PugglerAudio {
       return [id, await c.decodeAudioData(await response.arrayBuffer())];
     }));
     if (this.disposed) return;
+    const recordings=Object.fromEntries(entries.map(([id,buffer])=>[id,{data:buffer.getChannelData(0),rate:buffer.sampleRate}]));
     const oiIndex = entries.findIndex(([id]) => id === 'oi'), oi = entries[oiIndex][1];
     const chant = renderVocalChant(oi.getChannelData(0), oi.sampleRate);
     const chantBuffer = c.createBuffer(1, chant.length, oi.sampleRate); chantBuffer.copyToChannel(chant, 0);
@@ -164,6 +169,12 @@ export class PugglerAudio {
         cache(eraPhraseKey(skin, role, owner), renderEraPhrase(skin, role, owner, rate));
       for (const drum of PUNK_DRUMS) cache(`${skin}:${drum}`, renderEraDrum(skin, drum, rate));
     }
+    const objectData=await prepareObjectSoundData(recordings);
+    if(this.disposed)return;
+    this.objectBuffers={};this.objectLevels={};
+    for(const [key,data] of Object.entries(objectData)){
+      const buffer=c.createBuffer(1,data.length,OBJECT_SOUND_RATE);buffer.copyToChannel(data,0);this.objectBuffers[key]=buffer;this.objectLevels[key]=voiceWindowLevels(data,OBJECT_SOUND_RATE);
+    }
     this.buffers = buffers; this.vocalBuffers = vocals; this.eraBuffers = eras;
   }
   mute() {
@@ -177,7 +188,8 @@ export class PugglerAudio {
     this.active = parameters.active !== false; this.level = clamp(finite(parameters.level, .38), 0, 1);
     const audible = this.on && this.active && this.level > 0 && Boolean(this.buffers);
     this.running = Boolean(running);
-    this.master.gain.setTargetAtTime(audible ? this.level * .9 : 0, t, .012);
+    this.ensemble=ensembleGain(objects.length,parameters.tempo??360);
+    this.master.gain.setTargetAtTime(audible ? this.level * .9 * clamp(finite(parameters.sceneGain, 1), 0, 1) : 0, t, .012);
     if (!audible) { this.releaseAll(); return; }
     // Pause belongs to juggling, not the room: release riffs but retain catch
     // tails and model-triggered crowd reactions. Audio/level/visibility mute all.
@@ -186,31 +198,66 @@ export class PugglerAudio {
     const flightMix = Math.min(1, Math.sqrt(4 / Math.max(1, flightCount)));
     for (let i = 0; i < MAX_PUGGLER_VOICES; i++) {
       const object = objects.find((o, index) => (o.id ?? index) === i);
-      const role = PUNK_RIFFS.includes(object?.riff) ? object.riff : PUNK_RIFFS[i % PUNK_RIFFS.length];
+      const propVoice=objectSoundId(object?.riff,object?.prop?.id);
+      const role = propVoice ? 'object' : PUNK_RIFFS.includes(object?.riff) ? object.riff : PUNK_RIFFS[i % PUNK_RIFFS.length];
       if (!object || !['air', 'replacement', 'audience'].includes(object.phase) || finite(parameters.flight, .7) <= 0) {
-        this.releaseAir(i); continue;
+        this.releaseAir(i); this.objectTicks[i]=null; continue;
       }
       const skin = sonicSkin(parameters.skin), owner = vocalPerformer(object);
+      const profile=propVoice?objectSoundProfile(skin.id,propVoice):null;
+      if(profile&&!profile.speech){this.updateObjectNote(object,parameters,profile,t);continue;}
+      this.objectTicks[i]=null;
       const character = isVocal(role) ? vocalCharacter(skin.id, owner) : null;
-      const key = character ? `${character.id}:${role}` : eraPhraseKey(skin.id, role, owner);
-      if (this.voices[i]?.key !== key) { this.releaseAir(i); this.voices[i] = this.startAir(role, t, i, character, skin.id, owner); }
+      const key = propVoice ? objectSoundKey(skin.id,propVoice) : character ? `${character.id}:${role}` : eraPhraseKey(skin.id, role, owner);
+      if (this.voices[i]?.key !== key) { this.releaseAir(i); this.voices[i] = this.startAir(role, t, i, character, skin.id, owner, propVoice); }
       const v = this.voices[i], m = sonicMotion(object, parameters, role);
+      if(profile?.speech)m.rate=clamp(objectPitchRate(object,parameters),.94,1.08);
       this.advancePhrase(v, t); v.rate = m.rate;
       v.source.playbackRate.setTargetAtTime(m.rate, t, .035);
       v.filter.frequency.setTargetAtTime(m.tone, t, .025);
       v.filter.Q.setTargetAtTime(m.resonance, t, .025);
       v.pan.pan.setTargetAtTime(m.pan, t, .02);
-      v.gain.gain.setTargetAtTime(clamp(finite(parameters.flight, .7), 0, 1) * skin.gains[role] * m.level * flightMix, Math.max(t, v.startedAt), .012);
+      v.gain.gain.setTargetAtTime(clamp(finite(parameters.flight, .7), 0, 1) * (role==='object' ? .65*this.ensemble : skin.gains[role]) * m.level * (role==='object'?1:flightMix), Math.max(t, v.startedAt), .012);
       v.drive?.gain.setTargetAtTime(1 + clamp(finite(parameters.grit, .65), 0, 1) * (skin.id === 'future' ? .9 : role === 'guitar' ? 2.6 : 1.2), t, .025);
     }
   }
-  startAir(role, t, slot, character = null, skin = 'punk', owner = 0) {
+  updateObjectNote(object,parameters,profile,t) {
+    const slot=object.id,tempo=clamp(finite(parameters.tempo,360),100,1200),beat=finite(parameters.beat,t*tempo/60);
+    const note=propNoteAt(profile,beat,tempo,slot),key=objectSoundKey(profile.skin,profile.propId),token=`${key}:${note.token}`;
+    const m=sonicMotion(object,parameters,'object');m.rate=clamp(note.ratio*objectPitchRate(object,parameters),.45,3);
+    if(this.objectTicks[slot]!==token){
+      const joining=this.objectTicks[slot]===null||!this.objectTicks[slot]?.startsWith(key);
+      const scheduled=t+.035+(note.atBeat-beat)*60/tempo;
+      // One current pulse only: a long UI stall must never replay missed notes.
+      if(joining||scheduled>=t-.025){
+        const at=joining?t+.004:Math.max(t+.002,scheduled);
+        if(at-this.objectLastAt[slot]<1/MAX_PROP_NOTE_RATE-.002)return;
+        this.objectLastAt[slot]=at;this.objectTicks[slot]=token;
+        this.releaseAir(slot,at,true);
+        const v=this.startAir('object',at-.002,slot,null,profile.skin,vocalPerformer(object),profile.propId,note);
+        v.rate=m.rate;v.source.playbackRate.setValueAtTime(m.rate,v.startedAt);
+        const duration=Math.max(.045,Math.min(note.gateSeconds,v.source.buffer.duration/m.rate));
+        const calibration=voiceWindowGain(this.objectLevels[key],duration*m.rate);
+        const gain=clamp(finite(parameters.flight,.8),0,1)*.5*this.ensemble*note.accent*calibration*propTimbreGain(profile);
+        v.gain.gain.setValueAtTime(0,v.startedAt);v.gain.gain.linearRampToValueAtTime(gain,v.startedAt+.004);
+        v.gain.gain.setTargetAtTime(0,v.startedAt+Math.max(.008,duration-.025),.006);
+        v.source.stop(v.startedAt+duration);v.noteBeat=joining?beat:note.atBeat;this.voices[slot]=v;this.noteCount++;
+      }else this.objectTicks[slot]=token;
+    }
+    const v=this.voices[slot];if(!v)return;
+    v.rate=m.rate;v.source.playbackRate.setTargetAtTime(m.rate,t,.025);
+    v.filter.frequency.setTargetAtTime(m.tone,t,.025);v.filter.Q.setTargetAtTime(m.resonance,t,.025);
+    v.pan.pan.setTargetAtTime(m.pan,t,.02);
+    v.drive?.gain.setTargetAtTime(1+clamp(finite(parameters.grit,.65),0,1)*1.3,t,.025);
+  }
+  startAir(role, t, slot, character = null, skin = 'punk', owner = 0, propVoice = null, note = null) {
     const c = this.context, source = c.createBufferSource(), filter = c.createBiquadFilter();
     const gain = c.createGain(), pan = c.createStereoPanner();
-    const vocal = isVocal(role), clean = vocal || skin === 'history';
+    const profile=propVoice?objectSoundProfile(skin,propVoice):null;
+    const vocal = isVocal(role), clean = vocal || skin === 'history' || (profile&&(!['guitar','shred','ebow','whammy','bass','bass-slide','scrape','feedback'].includes(profile.family)||skin!=='punk'));
     const drive = clean ? null : c.createGain(), dirt = clean ? null : c.createWaveShaper();
-    const key = character ? `${character.id}:${role}` : eraPhraseKey(skin, role, owner);
-    source.buffer = character ? this.vocalBuffers[key] : skin === 'punk' ? this.buffers[role] : this.eraBuffers[key]; source.loop = true;
+    const key = propVoice ? objectSoundKey(skin,propVoice) : character ? `${character.id}:${role}` : eraPhraseKey(skin, role, owner);
+    source.buffer = propVoice ? this.objectBuffers[key] : character ? this.vocalBuffers[key] : skin === 'punk' ? this.buffers[role] : this.eraBuffers[key]; source.loop = !note;
     filter.type = 'lowpass'; filter.Q.value = .55; filter.frequency.value = vocal ? 7200 : 4200;
     gain.gain.value = 0; source.connect(filter);
     if (clean) filter.connect(gain);
@@ -219,7 +266,7 @@ export class PugglerAudio {
     const position = this.phrasePositions[slot];
     // Preserve relative phrase progress when a different character's treatment
     // changes the clip duration. Catches still pause the object's own cursor.
-    const offset = position?.role !== role ? 0 : position.duration === source.buffer.duration
+    const offset = note || position?.role !== role ? 0 : position.duration === source.buffer.duration
       ? position.offset : (position.offset / position.duration * source.buffer.duration) % source.buffer.duration;
     const startedAt = Math.max(t + .002, this.gateUntil[slot]);
     const voice = { role, key, skin, character:character?.id ?? null, speaker:owner, source, filter, gain, drive, dirt, pan, slot, offset, lastTime: startedAt, startedAt, rate: 1 };
@@ -283,12 +330,13 @@ export class PugglerAudio {
     }
     const m = punkMotion(event, parameters);
     const source = c.createBufferSource(), gain = c.createGain(), pan = c.createStereoPanner();
-    const skin = sonicSkin(parameters.skin), key = crowd || skin.id === 'punk' ? id : `${skin.id}:${id}`;
-    source.buffer = crowd || skin.id === 'punk' ? this.buffers[id] : this.eraBuffers[key];
+    const skin = sonicSkin(parameters.skin), propVoice = !crowd && event.kind!=='kick' ? objectSoundId(event.drum,event.prop?.id) : null;
+    const key = propVoice ? objectSoundKey(skin.id,propVoice,'catch') : crowd || skin.id === 'punk' ? id : `${skin.id}:${id}`;
+    source.buffer = propVoice ? this.objectBuffers[key] : crowd || skin.id === 'punk' ? this.buffers[id] : this.eraBuffers[key];
     const rate = crowd ? clamp(.95 + finite(event.id) * .015, .85, 1.1) : clamp(1 + (m.energy - .5) * .045, .95, 1.05);
     source.playbackRate.value = rate; pan.pan.value = crowd ? m.pan * .3 : m.pan;
     const duration = Math.max(.05, Math.min(source.buffer.duration / rate, crowd ? 2 : source.buffer.duration * clamp(finite(parameters.decay, 1), .2, 2)));
-    const peak = amount * (crowd ? (cheer ? .58 : .64) : DRUM_GAIN[id] * skin.impact * (.72 + .28 * m.energy));
+    const peak = amount * (crowd ? (cheer ? .42 : .46) : propVoice ? .24*this.ensemble*(.8+.2*m.energy) : .33*this.ensemble*DRUM_GAIN[id] * skin.impact * (.72 + .28 * m.energy));
     gain.gain.setValueAtTime(0, t); gain.gain.linearRampToValueAtTime(peak * (crowd ? 1 : 1.35), t + .002);
     if (!crowd) {
       gain.gain.setValueAtTime(peak * 1.35, t + .012);
@@ -297,16 +345,18 @@ export class PugglerAudio {
     gain.gain.setValueAtTime(peak, t + Math.max(crowd ? .004 : .043, duration - .045));
     gain.gain.linearRampToValueAtTime(0, t + duration);
     source.connect(gain); gain.connect(pan); pan.connect(crowd ? this.bus : this.drumBus);
-    const voice = { role: id, key, skin: crowd ? 'crowd' : skin.id, source, gain, pan }; this.attacks.add(voice);
+    const voice = { role: propVoice?'object':id, key, skin: crowd ? 'crowd' : skin.id, source, gain, pan }; this.attacks.add(voice);
     source.onended = () => this.disconnectVoice(voice); source.start(t); source.stop(t + duration + .01);
   }
   disconnectVoice(v) {
     if (!v || v.disconnected) return; v.disconnected = true;
     this.attacks.delete(v); this.airTails.delete(v);
+    if(this.voices[v.slot]===v)this.voices[v.slot]=null;
     v.source.onended = null; try { v.source.stop(); } catch {}
     for (const node of [v.source, v.filter, v.gain, v.drive, v.dirt, v.pan]) node?.disconnect();
   }
   releaseRiffs() {
+    this.objectTicks.fill(null);
     for (let i = 0; i < MAX_PUGGLER_VOICES; i++) this.releaseAir(i);
     for (const v of this.airTails) if (v.releaseAt > this.context.currentTime) this.fadeVoice(v);
     if (this.ducking) {
@@ -323,7 +373,7 @@ export class PugglerAudio {
   async close() {
     if (this.disposed) return; this.disposed = true; this.on = false; ++this.armSerial; this.abort?.abort();
     for (const voice of [...this.attacks, ...this.airTails, ...this.voices]) this.disconnectVoice(voice);
-    this.voices = []; this.buffers = null; this.vocalBuffers = null; this.eraBuffers = null; this.releaseOutput?.();
+    this.voices = []; this.buffers = null; this.vocalBuffers = null; this.eraBuffers = null; this.objectBuffers = null; this.objectLevels = null; this.releaseOutput?.();
     for (const node of [this.airBus, this.airDuck, this.vocalBus, this.vocalCompressor, this.drumBus, this.bus, this.compressor, this.ceiling, this.peakGuard, this.master]) node?.disconnect();
     if (this.context?.state !== 'closed') await this.context?.close();
   }
