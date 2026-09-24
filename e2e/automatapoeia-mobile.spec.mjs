@@ -96,7 +96,7 @@ for (const layout of layouts) {
       expect(await generation(page)).toBeGreaterThanOrEqual(beforeRate);
       await expect.poll(async () => {
         const draw = await raster(page);
-        return draw.canvasHeight - draw.height <= draw.width / draw.columns + 2;
+        return draw.height >= draw.canvasHeight - 1;
       }, { timeout: 15_000 }).toBe(true);
       const filled = await raster(page);
       expectFullWidthSquareCells(filled);

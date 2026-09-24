@@ -126,9 +126,12 @@ runtime-only, outside preset and persistent musical state.
 Puzzle, graph, L-System, Hybrinx and Jaw Harp adapters likewise retain their
 external primary player. Musical loop, automatic-motion, breath and read-path
 settings may vary as part of a full scene without silently arming Audio.
-Automatapoeia starts paused with a separate round Play/Pause beside Generation
-rate. Presets and live controls continue from existing cells/history at the next
-row boundary, preserving Play and Audio. Only explicit Restart clears history;
+Automatapoeia starts paused on an empty stage with a separate round Play/Pause
+beside Generation rate. First Play presents the seed at the bottom and, when
+Audio is armed, sounds it before any descendant. Every new row enters at the
+bottom and moves earlier rows upward immediately. Presets and live controls
+continue from existing cells/history at the next row boundary, preserving Play
+and Audio. Only explicit Restart clears history;
 Reseed appends a seed lineage. Paused edits stay silent. See
 `docs/automatapoeia-live-transport.md`.
 Microphone presets retain the existing stream/input-pause state; selecting a

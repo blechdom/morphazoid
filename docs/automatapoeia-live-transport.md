@@ -5,12 +5,18 @@ preset-reseed behavior in the earlier note-release fix.
 
 ## Performer contract
 
-- Load paused with one initial seed row and Audio off. The shared round
+- Load paused with an empty dark stage and Audio off. The prepared seed is not
+  displayed or sounded until Play. The shared round
   Play/Pause control sits beside Generation rate, outside disclosures. Space
   uses the site's existing protected-focus transport shortcut.
 - The graphic has no visible title, caption or status text overlays. Its
   accessible heading, canvas instructions and readout metadata remain intact.
-- Play advances the existing automaton. Audio is a separate arm: Play never
+- First Play schedules the seed itself as generation zero, before its first
+  descendant. It enters at the bottom; every subsequent row enters below it and
+  shifts the existing history upward immediately, even before the viewport fills.
+  With Audio armed, the seed is sounded by the same audio-clock event that
+  presents it. Rendering never creates a seed or advances the score.
+- Play thereafter advances the existing automaton. Audio is a separate arm: Play never
   enables Audio, and enabling Audio while paused never advances or auditions a
   row. Pausing releases sound/queued attacks and preserves rows and position.
   Resuming continues the current lineage, rather than restarting at row zero.
@@ -25,12 +31,16 @@ preset-reseed behavior in the earlier note-release fix.
   earlier rows remain intact. Family/rule/boundary/transform changes evolve
   directly from the latest cells.
 - Seed density remains an initial-condition control: it does not randomly
-  replace living cells on a parameter edit. Restart/Reseed use it explicitly.
+  replace living cells on a parameter edit. Before first Play (while the history
+  is empty), current width/density set the initial row. Restart/Reseed also use
+  them explicitly.
   Presets retain their deterministic sound-seed metadata, but do not rebuild
   `caInitialRow` or generate a new cellular lineage. The original seed-row
   metadata remains separate from that preset sound seed.
-- **Restart** deliberately clears history. **Reseed** deliberately appends a
-  new seed lineage without clearing earlier rows. Neither changes Play or
+- **Restart** deliberately clears to an empty stage and queues the seed if
+  playing, or waits for Play if paused. **Reseed** deliberately appends a
+  new seed lineage without clearing earlier rows; on an empty paused stage it
+  only prepares a seed. Neither changes Play or
   Audio. An extinct row stays extinct under a rule that cannot revive it;
   choosing a preset no longer secretly repairs it by reseeding.
 
@@ -108,3 +118,40 @@ was rebased again without changing Automatapoeia runtime or its browser tests.
 The full gate was rerun: **4,239 passed, six skipped**, no failures; WAX parity
 and a fresh production-site build passed. Earlier browser evidence above still
 covers the byte-identical Automatapoeia/Faves runtime.
+
+## Bottom-entry follow-up — September 24, 2026
+
+Owner request: start from nothing, hear the first seed row, and scroll upward
+from the bottom immediately rather than first filling downward. This supersedes
+the former visible-seed startup. The startup lead remains 60 ms on the audio
+clock; original within-row onset offsets, swing, tails and DSP are unchanged.
+Pausing before the first deadline cancels its queued sound and leaves the stage
+empty; resuming schedules that seed again. Once heard, normal pause/resume does
+not repeat the seed. Edits made before the first deadline replace that same
+seed slot rather than skipping to a descendant.
+
+`automatapoeia-bottom-entry-runtime-changes.json` records only this additional
+controller amendment, reversed before the existing frozen amendments. Focused
+Node tests exercise the real controller and clock with a deterministic time
+source; browser tests inspect actual canvas pixels/draw positions, native audio
+buffers and output activity on source/WAX at all three viewports.
+
+### Bottom-entry verification
+
+- `npm run verify`: **4,244 passed, six skipped**, no failures; source/SIMD,
+  XYFlow and clean-build WAX parity passed on Node 22.23.2.
+- `npm run build:site`: passed, including 209 generated WAX pages.
+- Six focused Automatapoeia browser suites: **23 passed**, including source/WAX
+  first-seed audio and bottom placement, next-row edits, held-note release,
+  stopped-RAF/UI-stall timing, totalistic rules and mobile control reachability.
+- Shared experiments-family route smoke: **16 passed**.
+- Focused Node/controller/preservation checks: **88 passed**.
+- Empty, one-seed and growing-history screenshots inspected at desktop
+  1440×900, portrait 390×844 and landscape 844×390. First-seed captures all
+  contain exactly one row at generation zero. The legacy fill test now waits
+  for actual viewport fill; its final square-cell and crop assertions remain
+  unchanged.
+
+Evidence is machine-local under
+`test-results/automatapoeia-bottom-entry-20260924/`. These are automated and
+visual checks, not human listening, physical-phone or MIDI acceptance.

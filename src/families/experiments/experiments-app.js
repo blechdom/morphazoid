@@ -1329,11 +1329,11 @@ function resetAutomataAudioStats() {
   };
 }
 
-function seedAutomata({ rebuildInitial = false, randomize = false } = {}) {
+function seedAutomata({ rebuildInitial = false, randomize = false, defer = false } = {}) {
   const row = createAutomataSeedRow({ rebuildInitial, randomize });
-  state.caRows = [row];
-  state.caRowBoundaries = [state.caBoundary];
-  state.caRowSeams = [true];
+  state.caRows = defer ? [] : [row];
+  state.caRowBoundaries = defer ? [] : [state.caBoundary];
+  state.caRowSeams = defer ? [] : [true];
   state.caLineageStartIndex = 0;
   state.caAccumulator = 0;
   state.caGeneration = 0;
@@ -1346,7 +1346,7 @@ function seedAutomata({ rebuildInitial = false, randomize = false } = {}) {
     transform: state.caTransform,
   }];
   resetAutomataAudioStats();
-  updateCaStats(row, null);
+  updateCaStats(defer ? [] : row, null);
 }
 
 function appendAutomataRow(
@@ -1376,6 +1376,10 @@ function appendAutomataRow(
 }
 
 function reseedAutomata() {
+  if (!state.caRows.length) {
+    seedAutomata({ rebuildInitial: true, randomize: true, defer: true });
+    return;
+  }
   const row = createAutomataSeedRow({ rebuildInitial: true, randomize: true });
   state.caEvolutionSegments.push({
     boundary: state.caBoundary,
@@ -1483,7 +1487,18 @@ function updateCaStats(row, previousRow, target = state) {
 }
 
 function stepAutomataRow(audition = true, target = state, when = null) {
-  if (!target.caRows.length) seedAutomata();
+  if (!target.caRows.length) {
+    // The first clock event is the seed itself, not its first descendant.
+    // Build only the future score here; the audio clock presents it when due.
+    const row = [...target.caInitialRow];
+    target.caRows = [row];
+    target.caRowBoundaries = [target.caBoundary];
+    target.caRowSeams = [true];
+    target.caRenderRevision += 1;
+    updateCaStats(row, null, target);
+    if (audition) soundAutomataRow(row, null, target, when);
+    return;
+  }
   const previous = target.caRows[target.caRows.length - 1];
   const desiredWidth = Math.round(target.caWidth || previous.length);
   if (previous.length !== desiredWidth) {
@@ -1576,7 +1591,10 @@ function soundAutomataRow(row, previousRow, target = state, when = null) {
 function stepAutomata(dt) {
   if (!state.caPlaying) return;
   if (state.audioOn && audio.automataClock?.running) return;
-  if (!state.caRows.length) seedAutomata();
+  if (!state.caRows.length) {
+    stepAutomataRow();
+    return;
+  }
   state.caAccumulator += dt;
   const maxSteps = 6;
   let steps = 0;
@@ -1629,16 +1647,17 @@ function updateAutomataRaster(width, rowsVisible, startRow) {
 function drawAutomata() {
   const ctx = context2d;
   clearStage();
-  if (!state.caRows.length) seedAutomata();
+  if (!state.caRows.length) return;
   const width = Math.max(1, ...state.caRows.map((row) => row.length));
-  // Fill the viewport with square cells; crop only the oldest partial row.
+  // Every new row enters at the bottom, moving earlier rows up immediately.
+  // Keep square cells and crop only the oldest partial row once history fills.
   // History and the audio clock stay independent of the display dimensions.
   const cell = canvasWidth / width;
   const rowsVisible = Math.min(state.caRows.length, Math.ceil(canvasHeight / cell));
   const startRow = Math.max(0, state.caRows.length - rowsVisible);
   const gridWidth = canvasWidth;
   const x0 = 0;
-  const y0 = Math.min(0, canvasHeight - rowsVisible * cell);
+  const y0 = canvasHeight - rowsVisible * cell;
   const raster = updateAutomataRaster(width, rowsVisible, startRow);
   ctx.save();
   ctx.imageSmoothingEnabled = false;
@@ -3385,7 +3404,7 @@ const EXPERIMENTS = {
       $("playButton")?.addEventListener("click", () => setAutomataPlaying(!state.caPlaying));
       $("seedAutomata")?.addEventListener("click", () => {
         audio.silence();
-        seedAutomata();
+        seedAutomata({ defer: true });
         startAutomataAudioClock(false);
         updateSummaries();
       });
@@ -3395,7 +3414,7 @@ const EXPERIMENTS = {
         reseedAutomata();
         updateSummaries();
       });
-      seedAutomata();
+      seedAutomata({ defer: true });
       updateAutomataRuleControls();
       const panel = document.querySelector(".experiment-panel");
       const nksCard = $("nksOpenProblemsTitle")?.closest("section");
@@ -4350,8 +4369,12 @@ function setAutomataPlaying(playing) {
   audio.automataClock?.drain();
   state.caPlaying = Boolean(playing);
   state.lastFrame = performance.now() / 1000;
-  if (state.caPlaying) startAutomataAudioClock(false);
-  else {
+  if (state.caPlaying) {
+    // Before the first row, the seed controls are initial conditions. Once a
+    // lineage exists, Play only resumes it and never reseeds on a live edit.
+    if (!state.caRows.length) createAutomataSeedRow();
+    startAutomataAudioClock(false);
+  } else {
     audio.silence();
     resetAutomataAudioStats();
   }
@@ -4360,7 +4383,7 @@ function setAutomataPlaying(playing) {
 }
 
 function queueAutomataLiveChange() {
-  if (!state.caRows.length || !audio.automataClock?.running) return;
+  if (!audio.automataClock?.running) return;
   audio.automataClock.revise((when) => {
     audio.cancelAutomataFrom(when);
     automataFuture = { ...state, ...captureAutomataScore(state) };
@@ -4368,12 +4391,12 @@ function queueAutomataLiveChange() {
 }
 
 function startAutomataAudioClock(audition) {
-  if (!audio.automataClock || !state.audioOn || !state.caPlaying || !audio.context || !state.caRows.length) return;
+  if (!audio.automataClock || !state.audioOn || !state.caPlaying || !audio.context) return;
   automataFuture = { ...state, ...captureAutomataScore(state) };
   const interval = automatapoeiaSwingInterval(state.caGeneration, state.caRate, state.caSwing);
   audio.automataClock.start({
-    delay: Math.max(0, interval - state.caAccumulator),
-    initial: audition ? (when) => {
+    delay: state.caRows.length ? Math.max(0, interval - state.caAccumulator) : 0,
+    initial: audition && state.caRows.length ? (when) => {
       soundAutomataRow(automataFuture.caRows.at(-1), null, automataFuture, when);
       return { interval, view: captureAutomataScore(automataFuture) };
     } : null,

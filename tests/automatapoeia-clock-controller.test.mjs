@@ -9,7 +9,12 @@ import { AUTOMATA_FULL_PRESETS } from "../src/families/experiments/automata-pres
 const source = await readFile(new URL("../src/families/experiments/experiments-app.js", import.meta.url), "utf8");
 const amendments = JSON.parse(await readFile(new URL("../docs/automatapoeia-audio-clock-runtime-changes.json", import.meta.url), "utf8"));
 const transportChanges = JSON.parse(await readFile(new URL("../docs/automatapoeia-live-transport-runtime-changes.json", import.meta.url), "utf8"));
+const bottomChanges = JSON.parse(await readFile(new URL("../docs/automatapoeia-bottom-entry-runtime-changes.json", import.meta.url), "utf8"));
 let baseline = source;
+for (const edit of [...bottomChanges.changes[0].replacements].reverse()) {
+  assert.equal(baseline.split(edit.after).length - 1, 1);
+  baseline = baseline.replace(edit.after, edit.before);
+}
 for (const edit of [...transportChanges.changes[0].replacements].reverse()) {
   assert.equal(baseline.split(edit.after).length - 1, 1);
   baseline = baseline.replace(edit.after, edit.before);

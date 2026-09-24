@@ -25,6 +25,7 @@ for (const prefix of ["", "/dist-wax"]) {
     const initial = await snapshot(page);
     expect(initial.playing).toBe(false);
     expect(initial.generation).toBe(0);
+    expect(initial.rows).toEqual([]);
     expect(initial.contextCount).toBe(0);
     const play = page.locator("#playButton");
     await expect(play).toHaveClass(/play-button/);
@@ -117,7 +118,7 @@ for (const prefix of ["", "/dist-wax"]) {
     expect((await snapshot(page)).playing).toBe(false);
     // Explicit Restart is still the one deliberate clear-history command.
     await page.locator("#seedAutomata").click();
-    expect((await snapshot(page)).rows).toHaveLength(1);
+    expect((await snapshot(page)).rows).toHaveLength(0);
     expect((await snapshot(page)).generation).toBe(0);
     expect((await snapshot(page)).playing).toBe(false);
     expect(pageDiagnosticMessages(diagnostics)).toEqual([]);

@@ -398,7 +398,7 @@ test("Automatapoeia preserves exact live evolution while exposing history-safe i
   assert.match(app, /const displayKey = `\$\{family\}:\$\{rule\}`/);
   assert.match(app, /automatapoeiaPreviewRows\(\s*rule,\s*\{ family, width: 31, height: 18 \}/);
   assert.match(app, /startGeneration: state\.caGeneration \+ 1/);
-  assert.match(app, /audio\.silence\(\);\s*seedAutomata\(\);/);
+  assert.match(app, /audio\.silence\(\);\s*seedAutomata\(\{ defer: true \}\);/);
   assert.match(app, /randomizeAutomata"[\s\S]*reseedAutomata\(\)/);
   assert.doesNotMatch(app, /audio\.silence\(\);\s*seedAutomata\(\{ rebuildInitial: true, randomize: true \}\);/);
   assert.match(app, /function reseedAutomata\(\)[\s\S]*appendAutomataRow\(row, \{ newLineage: true \}\)/);

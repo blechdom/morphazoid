@@ -1,0 +1,58 @@
+{
+  "changes": [
+    {
+      "file": "src/families/experiments/experiments-app.js",
+      "reason": "Owner-requested empty startup, audible first seed at Play, and immediate bottom-entry upward scrolling. No row DSP or factory snapshot changes. See docs/automatapoeia-live-transport.md.",
+      "regressionTests": [
+        "tests/automatapoeia-bottom-entry.test.mjs",
+        "e2e/automatapoeia-bottom-entry.spec.mjs"
+      ],
+      "replacements": [
+        {
+          "before": "  };\n}\n\nfunction seedAutomata({ rebuildInitial = false, randomize = false } = {}) {\n  const row = createAutomataSeedRow({ rebuildInitial, randomize });\n  state.caRows = [row];\n  state.caRowBoundaries = [state.caBoundary];\n  state.caRowSeams = [true];\n  state.caLineageStartIndex = 0;\n  state.caAccumulator = 0;\n  state.caGeneration = 0;\n",
+          "after": "  };\n}\n\nfunction seedAutomata({ rebuildInitial = false, randomize = false, defer = false } = {}) {\n  const row = createAutomataSeedRow({ rebuildInitial, randomize });\n  state.caRows = defer ? [] : [row];\n  state.caRowBoundaries = defer ? [] : [state.caBoundary];\n  state.caRowSeams = defer ? [] : [true];\n  state.caLineageStartIndex = 0;\n  state.caAccumulator = 0;\n  state.caGeneration = 0;\n"
+        },
+        {
+          "before": "    transform: state.caTransform,\n  }];\n  resetAutomataAudioStats();\n  updateCaStats(row, null);\n}\n\nfunction appendAutomataRow(\n",
+          "after": "    transform: state.caTransform,\n  }];\n  resetAutomataAudioStats();\n  updateCaStats(defer ? [] : row, null);\n}\n\nfunction appendAutomataRow(\n"
+        },
+        {
+          "before": "}\n\nfunction reseedAutomata() {\n  const row = createAutomataSeedRow({ rebuildInitial: true, randomize: true });\n  state.caEvolutionSegments.push({\n    boundary: state.caBoundary,\n",
+          "after": "}\n\nfunction reseedAutomata() {\n  if (!state.caRows.length) {\n    seedAutomata({ rebuildInitial: true, randomize: true, defer: true });\n    return;\n  }\n  const row = createAutomataSeedRow({ rebuildInitial: true, randomize: true });\n  state.caEvolutionSegments.push({\n    boundary: state.caBoundary,\n"
+        },
+        {
+          "before": "}\n\nfunction stepAutomataRow(audition = true, target = state, when = null) {\n  if (!target.caRows.length) seedAutomata();\n  const previous = target.caRows[target.caRows.length - 1];\n  const desiredWidth = Math.round(target.caWidth || previous.length);\n  if (previous.length !== desiredWidth) {\n",
+          "after": "}\n\nfunction stepAutomataRow(audition = true, target = state, when = null) {\n  if (!target.caRows.length) {\n    // The first clock event is the seed itself, not its first descendant.\n    // Build only the future score here; the audio clock presents it when due.\n    const row = [...target.caInitialRow];\n    target.caRows = [row];\n    target.caRowBoundaries = [target.caBoundary];\n    target.caRowSeams = [true];\n    target.caRenderRevision += 1;\n    updateCaStats(row, null, target);\n    if (audition) soundAutomataRow(row, null, target, when);\n    return;\n  }\n  const previous = target.caRows[target.caRows.length - 1];\n  const desiredWidth = Math.round(target.caWidth || previous.length);\n  if (previous.length !== desiredWidth) {\n"
+        },
+        {
+          "before": "function stepAutomata(dt) {\n  if (!state.caPlaying) return;\n  if (state.audioOn && audio.automataClock?.running) return;\n  if (!state.caRows.length) seedAutomata();\n  state.caAccumulator += dt;\n  const maxSteps = 6;\n  let steps = 0;\n",
+          "after": "function stepAutomata(dt) {\n  if (!state.caPlaying) return;\n  if (state.audioOn && audio.automataClock?.running) return;\n  if (!state.caRows.length) {\n    stepAutomataRow();\n    return;\n  }\n  state.caAccumulator += dt;\n  const maxSteps = 6;\n  let steps = 0;\n"
+        },
+        {
+          "before": "function drawAutomata() {\n  const ctx = context2d;\n  clearStage();\n  if (!state.caRows.length) seedAutomata();\n  const width = Math.max(1, ...state.caRows.map((row) => row.length));\n  // Fill the viewport with square cells; crop only the oldest partial row.\n  // History and the audio clock stay independent of the display dimensions.\n  const cell = canvasWidth / width;\n  const rowsVisible = Math.min(state.caRows.length, Math.ceil(canvasHeight / cell));\n  const startRow = Math.max(0, state.caRows.length - rowsVisible);\n  const gridWidth = canvasWidth;\n  const x0 = 0;\n  const y0 = Math.min(0, canvasHeight - rowsVisible * cell);\n  const raster = updateAutomataRaster(width, rowsVisible, startRow);\n  ctx.save();\n  ctx.imageSmoothingEnabled = false;\n",
+          "after": "function drawAutomata() {\n  const ctx = context2d;\n  clearStage();\n  if (!state.caRows.length) return;\n  const width = Math.max(1, ...state.caRows.map((row) => row.length));\n  // Every new row enters at the bottom, moving earlier rows up immediately.\n  // Keep square cells and crop only the oldest partial row once history fills.\n  // History and the audio clock stay independent of the display dimensions.\n  const cell = canvasWidth / width;\n  const rowsVisible = Math.min(state.caRows.length, Math.ceil(canvasHeight / cell));\n  const startRow = Math.max(0, state.caRows.length - rowsVisible);\n  const gridWidth = canvasWidth;\n  const x0 = 0;\n  const y0 = canvasHeight - rowsVisible * cell;\n  const raster = updateAutomataRaster(width, rowsVisible, startRow);\n  ctx.save();\n  ctx.imageSmoothingEnabled = false;\n"
+        },
+        {
+          "before": "      $(\"playButton\")?.addEventListener(\"click\", () => setAutomataPlaying(!state.caPlaying));\n      $(\"seedAutomata\")?.addEventListener(\"click\", () => {\n        audio.silence();\n        seedAutomata();\n        startAutomataAudioClock(false);\n        updateSummaries();\n      });\n",
+          "after": "      $(\"playButton\")?.addEventListener(\"click\", () => setAutomataPlaying(!state.caPlaying));\n      $(\"seedAutomata\")?.addEventListener(\"click\", () => {\n        audio.silence();\n        seedAutomata({ defer: true });\n        startAutomataAudioClock(false);\n        updateSummaries();\n      });\n"
+        },
+        {
+          "before": "        reseedAutomata();\n        updateSummaries();\n      });\n      seedAutomata();\n      updateAutomataRuleControls();\n      const panel = document.querySelector(\".experiment-panel\");\n      const nksCard = $(\"nksOpenProblemsTitle\")?.closest(\"section\");\n",
+          "after": "        reseedAutomata();\n        updateSummaries();\n      });\n      seedAutomata({ defer: true });\n      updateAutomataRuleControls();\n      const panel = document.querySelector(\".experiment-panel\");\n      const nksCard = $(\"nksOpenProblemsTitle\")?.closest(\"section\");\n"
+        },
+        {
+          "before": "  audio.automataClock?.drain();\n  state.caPlaying = Boolean(playing);\n  state.lastFrame = performance.now() / 1000;\n  if (state.caPlaying) startAutomataAudioClock(false);\n  else {\n    audio.silence();\n    resetAutomataAudioStats();\n  }\n",
+          "after": "  audio.automataClock?.drain();\n  state.caPlaying = Boolean(playing);\n  state.lastFrame = performance.now() / 1000;\n  if (state.caPlaying) {\n    // Before the first row, the seed controls are initial conditions. Once a\n    // lineage exists, Play only resumes it and never reseeds on a live edit.\n    if (!state.caRows.length) createAutomataSeedRow();\n    startAutomataAudioClock(false);\n  } else {\n    audio.silence();\n    resetAutomataAudioStats();\n  }\n"
+        },
+        {
+          "before": "}\n\nfunction queueAutomataLiveChange() {\n  if (!state.caRows.length || !audio.automataClock?.running) return;\n  audio.automataClock.revise((when) => {\n    audio.cancelAutomataFrom(when);\n    automataFuture = { ...state, ...captureAutomataScore(state) };\n",
+          "after": "}\n\nfunction queueAutomataLiveChange() {\n  if (!audio.automataClock?.running) return;\n  audio.automataClock.revise((when) => {\n    audio.cancelAutomataFrom(when);\n    automataFuture = { ...state, ...captureAutomataScore(state) };\n"
+        },
+        {
+          "before": "}\n\nfunction startAutomataAudioClock(audition) {\n  if (!audio.automataClock || !state.audioOn || !state.caPlaying || !audio.context || !state.caRows.length) return;\n  automataFuture = { ...state, ...captureAutomataScore(state) };\n  const interval = automatapoeiaSwingInterval(state.caGeneration, state.caRate, state.caSwing);\n  audio.automataClock.start({\n    delay: Math.max(0, interval - state.caAccumulator),\n    initial: audition ? (when) => {\n      soundAutomataRow(automataFuture.caRows.at(-1), null, automataFuture, when);\n      return { interval, view: captureAutomataScore(automataFuture) };\n    } : null,\n",
+          "after": "}\n\nfunction startAutomataAudioClock(audition) {\n  if (!audio.automataClock || !state.audioOn || !state.caPlaying || !audio.context) return;\n  automataFuture = { ...state, ...captureAutomataScore(state) };\n  const interval = automatapoeiaSwingInterval(state.caGeneration, state.caRate, state.caSwing);\n  audio.automataClock.start({\n    delay: state.caRows.length ? Math.max(0, interval - state.caAccumulator) : 0,\n    initial: audition && state.caRows.length ? (when) => {\n      soundAutomataRow(automataFuture.caRows.at(-1), null, automataFuture, when);\n      return { interval, view: captureAutomataScore(automataFuture) };\n    } : null,\n"
+        }
+      ]
+    }
+  ]
+}
