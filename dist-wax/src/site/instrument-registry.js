@@ -35,6 +35,7 @@ export const TOOL_GROUPS = Object.freeze([
   ]),
   freezeGroup("app", "App", [
     { id: "shapes", label: "Shapes", href: "shapes.html", legacyHrefs: ["combo.html"], imageHref: "assets/instruments/combo.webp" },
+    { id: "rubixoids", label: "Rubixoids", href: "rubixoids.html", imageHref: "assets/instruments/rubixoids.webp" },
     { id: "l-systems", label: "L-Systems", href: "l-systems.html" },
     { id: "graphs", label: "Graphs", href: "graphs.html" },
     { id: "tesselation", label: "Tesselation", href: "tesselation.html", legacyHrefs: ["tiles.html"], imageHref: "assets/instruments/tiles-app.webp" },

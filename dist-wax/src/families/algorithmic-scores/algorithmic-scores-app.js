@@ -12,6 +12,9 @@ import { connectAudioOutput } from "../../audio-output-manager.js";
 import { registerHeaderPresets } from "../../site/header-presets.js";
 import { algorithmicFullPresets, randomizeAlgorithmicPreset } from "./full-presets.js";
 
+import { SequencerVoiceBank, appendSequencerVoiceOptions } from "../../sequencer-voices.js";
+
+const voiceBank = new SequencerVoiceBank();
 const $ = (id) => document.getElementById(id);
 const FRAME_INTERVAL = 1_000 / 30;
 const requestedInstrumentId = document.body?.dataset.algorithm;
@@ -202,6 +205,7 @@ function updateAudioStatus() {
 }
 
 function updateControls() {
+  if (controls.voice) controls.voice.value = state.settings.voice;
   const settings = state.settings;
   controls.output.value = String(settings.output);
   controls.outputOut.value = percent(settings.output);
@@ -275,6 +279,7 @@ function updateReadouts() {
 }
 
 function stopPlayback({ update = true } = {}) {
+  voiceBank.stop();
   state.playing = false;
   state.nextEventAt = 0;
   state.rhythmParity = 0;
@@ -411,6 +416,7 @@ async function ensureAudioContext() {
 async function toggleAudio() {
   if (state.audioOn) {
     state.audioOn = false;
+    voiceBank.setMuted(true);
     updateReadouts();
     return;
   }
@@ -420,6 +426,16 @@ async function toggleAudio() {
   try {
     const audioContext = await ensureAudioContext();
     await audioContext.resume?.();
+    if (!state.sharedVoiceBus) {
+      state.sharedVoiceBus = audioContext.createGain();
+      state.sharedVoiceSend = audioContext.createGain();
+      state.sharedVoiceSend.gain.value = .28;
+      state.sharedVoiceBus.connect(state.dryBus);
+      state.sharedVoiceBus.connect(state.sharedVoiceSend).connect(state.delayInput);
+    }
+    await voiceBank.prepare(audioContext, state.sharedVoiceBus);
+    if (state.disposed) { voiceBank.dispose(); return; }
+    voiceBank.setMuted(false);
     state.audioOn = true;
   } catch (error) {
     state.audioOn = false;
@@ -510,6 +526,17 @@ function playAlgorithmEvent(event) {
   const startTime = state.audioContext.currentTime + 0.006;
   const voices = deriveAlgorithmicEventVoices(event, state.settings);
   voices.forEach((voice) => {
+    if (state.settings.voice !== "original") {
+      voiceBank.trigger({ voice: state.settings.voice, when: startTime,
+        frequency: voice.frequencyHz * 2 ** ((voice.detuneCents ?? 0) / 1200),
+        velocity: Math.min(1, voice.gain * 4), duration: voice.durationSeconds,
+        pan: voice.pan, brightness: state.settings.brightness,
+        cutoff: voice.filterHz, character: state.settings.roughness,
+        drive: 1 + state.settings.roughness * 2,
+        attack: voice.attackSeconds, release: .025 + state.settings.space * .08,
+      });
+      return;
+    }
     if (voice.type === "noise") playNoiseVoice(voice, startTime);
     else playOscillatorVoice(voice, startTime);
   });
@@ -945,6 +972,10 @@ function scrubFromPointer(event, audible) {
 }
 
 function installEventHandlers() {
+  controls.voice?.addEventListener("change", () => {
+    voiceBank.stop();
+    setSettings({ voice: controls.voice.value });
+  });
   audioButton.addEventListener("click", toggleAudio);
   buttons.mutate.addEventListener("click", mutateScore);
   buttons.play.addEventListener("click", togglePlayback);
@@ -1052,6 +1083,9 @@ function installEventHandlers() {
   });
   globalThis.addEventListener?.("pagehide", () => {
     state.disposed = true;
+    voiceBank.dispose();
+    state.sharedVoiceBus?.disconnect();
+    state.sharedVoiceSend?.disconnect();
     if (frameId !== null) cancelAnimationFrame(frameId);
     state.audioOn = false;
     state.outputRelease?.();
@@ -1061,6 +1095,18 @@ function installEventHandlers() {
 }
 
 function populateLabels() {
+  const group = document.querySelector(".algorithmic-score-timbre .group-body");
+  if (group) {
+    const label = document.createElement("label");
+    label.className = "control";
+    label.htmlFor = "sequenceVoice";
+    const title = document.createElement("span"); title.textContent = "Voice";
+    const select = document.createElement("select"); select.id = "sequenceVoice";
+    const original = document.createElement("option");
+    original.value = "original"; original.textContent = "Original instrument";
+    select.append(original); appendSequencerVoiceOptions(select);
+    label.append(title, select); group.prepend(label); controls.voice = select;
+  }
   buttons.mutate.textContent = instrument.mutationLabel;
   document.querySelectorAll("button[data-algorithm]").forEach((button) => {
     const preset = ALGORITHMIC_SCORE_PRESETS.find(({ id }) => id === button.dataset.algorithm);

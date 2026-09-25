@@ -122,6 +122,40 @@ for (const [size, notesPerCell] of [[2, 8], [3, 27], [4, 64]]) {
   });
 }
 
+for (const size of [2, 3, 4]) {
+  test(`order-${size} GPU corner loops match native scope, order, and musical mapping`, () => {
+    const solved = createSolvedHyperRubix(size);
+    const turned = turnHyperRubixBoundaryCell(solved, { cell: "w+", plane: "xy", quarterTurns: 1 });
+    for (const puzzle of [solved, turned]) {
+      for (const cellIds of [["y-"], ["x+", "y-", "z+", "w-"], HYPER_RUBIX_CELL_ORDER]) {
+        const options = { cellIds, tempo: 137, subdivisionsPerBeat: 4, swing: 0.17 };
+        const complete = createHyperRubixWebGpu303Pattern(puzzle, options);
+        const pattern = createHyperRubixWebGpu303Pattern(puzzle, { ...options, cornersOnly: true });
+        const expected = createHyperRubixStickerStream(puzzle, { cornersOnly: true })
+          .filter(({ cell }) => cellIds.includes(cell));
+        assertFinitePattern(pattern);
+        assert.equal(pattern.steps.length, 8 * cellIds.length);
+        assert.equal(pattern.params.timeMod, expected.length, "GPU phase wraps at the native compact loop length");
+        assert.equal(pattern.requiredSequenceCapacity, expected.length);
+        assert.deepEqual(pattern.steps.map(({ stickerId }) => stickerId), expected.map(({ stickerId }) => stickerId),
+          "scope and order agree with the native corner stream after manual turns");
+        assert.deepEqual(new Set(pattern.steps.map(({ cell }) => cell)), new Set(cellIds));
+        const completeById = new Map(complete.steps.map(step => [step.stickerId, step]));
+        for (const step of pattern.steps) {
+          const original = completeById.get(step.stickerId);
+          assert.equal(step.pitchMidi, original.pitchMidi, "compaction preserves each sticker's pitch");
+          assert.deepEqual(step.modulation, original.modulation, "compaction preserves gains and geometry modulation");
+        }
+        assert.ok(pattern.stepModulation.every(([gain]) => gain > 0), "compaction inserts no silent placeholder pulses");
+      }
+      const unscoped = createHyperRubixWebGpu303Pattern(puzzle, { cornersOnly: true });
+      assert.equal(unscoped.steps.length, 64);
+      assert.deepEqual(unscoped.steps.map(({ stickerId }) => stickerId),
+        createHyperRubixStickerStream(puzzle, { cornersOnly: true }).map(({ stickerId }) => stickerId));
+    }
+  });
+}
+
 test("rotation-driven view-facing changes replace GPU sticker IDs and fingerprint", () => {
   const puzzle = createSolvedHyperRubix(3);
   const stillCellIds = ["x+", "y+", "z+", "w+"];
@@ -239,6 +273,10 @@ test("Hyper Rubix WebGPU mapper rejects malformed option containers and rotation
   assert.throws(
     () => createHyperRubixWebGpu303Pattern(puzzle, { rotation: [] }),
     /rotation must be an object/,
+  );
+  assert.throws(
+    () => createHyperRubixWebGpu303Pattern(puzzle, { cornersOnly: "true" }),
+    /cornersOnly option must be a boolean/,
   );
   assert.throws(
     () => createHyperRubixWebGpu303Pattern(puzzle, { cellIds: [] }),

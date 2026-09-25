@@ -2,6 +2,8 @@
 
 **[Gesticules](gesticules.html)** is a realistic, rigged 3D right hand. Individual finger joints and wrist gestures shape five continuous voices. Elena FF’s original Open/Close choreography joins 30 programmed motion loops, complete presets, and independent Sound/Motion players. Audio starts off. [Controls, model and attribution](docs/gesticulating-hand.md).
 
+**[Rubixoids](rubixoids.html)** brings Sliding Puzzle, Rubix Cube and Hyper Rubix into an independent 2D / 3D / 4D app with its own instrument engines, opening in 3D. Shared controls and eleven sound engines, including SIMD Chiptune and SIMD 303, carry across dimensions while each puzzle keeps its arrangement. [Controls and engine notes](docs/rubixoids.md).
+
 **[Loopini](loopini.html)** is a simple six-circle recording looper: make a
 sound, tap circles on/off, and use the in-loop **●** to replace a bad take or
 **+** to layer a recording over it. The **Speed** knob changes playback and recording together:

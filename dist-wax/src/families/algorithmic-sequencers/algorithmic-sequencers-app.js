@@ -8,6 +8,9 @@ import {
 import { unlockAudioContext } from "../../audio.js";
 import { connectAudioOutput } from "../../audio-output-manager.js";
 
+import { SequencerVoiceBank, appendSequencerVoiceOptions } from "../../sequencer-voices.js";
+
+const voiceBank = new SequencerVoiceBank();
 const $ = (id) => document.getElementById(id);
 const FRAME_INTERVAL = 1_000 / 30;
 const DEFAULTS = sanitizeSortSequencerParams({
@@ -162,6 +165,7 @@ function resizeCanvas() {
 
 function updateControlValues() {
   const settings = state.settings;
+  if (controls.voice) controls.voice.value = settings.voice;
   controls.arraySize.value = String(settings.size);
   controls.arraySizeOut.value = `${settings.size} values`;
   controls.tempo.value = String(settings.tempo);
@@ -253,6 +257,7 @@ function setSettings(patch, options) {
 }
 
 function stopPlayback() {
+  voiceBank.stop();
   state.playing = false;
   state.lastAdvanceTime = 0;
   updateReadouts();
@@ -312,6 +317,7 @@ async function ensureAudioContext() {
 async function toggleAudio() {
   if (state.audioOn) {
     state.audioOn = false;
+    voiceBank.setMuted(true);
     updateReadouts();
     return;
   }
@@ -321,6 +327,9 @@ async function toggleAudio() {
     const audioContext = await ensureAudioContext();
     unlockAudioContext(audioContext);
     await audioContext.resume?.();
+    await voiceBank.prepare(audioContext, state.masterGain);
+    if (state.disposed) { voiceBank.dispose(); return; }
+    voiceBank.setMuted(false);
     state.audioOn = true;
   } catch (error) {
     const message = error instanceof Error ? error.message : "Audio could not start.";
@@ -354,6 +363,14 @@ function playOscillator({
   if (!state.audioContext || !state.masterGain) return;
   const audioContext = state.audioContext;
   const startTime = audioContext.currentTime + delaySeconds;
+  if (state.settings.voice !== "original") {
+    voiceBank.trigger({ voice: state.settings.voice, when: startTime,
+      frequency: frequencyHz, velocity: Math.min(1, gain * 4),
+      duration: durationSeconds, pan, brightness: type === "triangle" ? .8 : .45,
+      character: type === "triangle" ? .65 : .2,
+    });
+    return;
+  }
   const endTime = startTime + durationSeconds;
   const oscillator = audioContext.createOscillator();
   const envelope = audioContext.createGain();
@@ -551,6 +568,11 @@ function animationFrame(now) {
 }
 
 function installEventHandlers() {
+  controls.voice?.addEventListener("change", () => {
+    voiceBank.stop();
+    state.settings = { ...sanitizeSortSequencerParams({ ...state.settings, voice: controls.voice.value }) };
+    updateReadouts();
+  });
   audioButton.addEventListener("click", toggleAudio);
   buttons.play.addEventListener("click", togglePlayback);
   buttons.step.addEventListener("click", stepOnce);
@@ -600,6 +622,7 @@ function installEventHandlers() {
   });
   globalThis.addEventListener?.("pagehide", () => {
     state.disposed = true;
+    voiceBank.dispose();
     if (frameId !== null) cancelAnimationFrame(frameId);
     state.audioOn = false;
     state.releaseAudioOutput?.();
@@ -609,6 +632,21 @@ function installEventHandlers() {
 }
 
 function populateStaticLabels() {
+  const group = document.querySelector(".algorithmic-sound .group-body");
+  if (group) {
+    const label = document.createElement("label");
+    label.className = "control";
+    label.htmlFor = "sequenceVoice";
+    const title = document.createElement("span");
+    title.textContent = "Voice";
+    const select = document.createElement("select");
+    select.id = "sequenceVoice";
+    const original = document.createElement("option");
+    original.value = "original"; original.textContent = "Original sorting tones";
+    select.append(original);
+    appendSequencerVoiceOptions(select);
+    label.append(title, select); group.prepend(label); controls.voice = select;
+  }
   document.querySelectorAll("[data-algorithm]").forEach((button) => {
     const algorithm = algorithmById(button.dataset.algorithm);
     button.title = `${algorithm.label}: ${algorithm.signature}`;

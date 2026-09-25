@@ -3,6 +3,7 @@ export const cataloguePlan = JSON.parse(readFileSync(new URL('../../docs/catalog
 const prior = JSON.parse(readFileSync(new URL('../fixtures/catalogue-before-20260918.json', import.meta.url), 'utf8'));
 const byId = new Map(cataloguePlan.rows.flatMap(row => [[row.oldId, row], [row.id, row]]));
 export const mainAdditions = [
+  ...JSON.parse(readFileSync(new URL('../fixtures/catalogue-rubixoids.json', import.meta.url), 'utf8')).additions,
   ...JSON.parse(readFileSync(new URL('../fixtures/catalogue-main-d96793a.json', import.meta.url), 'utf8')).additions,
   ...JSON.parse(readFileSync(new URL('../fixtures/catalogue-loopini.json', import.meta.url), 'utf8')).additions,
   ...JSON.parse(readFileSync(new URL('../fixtures/catalogue-gesticulating-hand.json', import.meta.url), 'utf8')).additions,

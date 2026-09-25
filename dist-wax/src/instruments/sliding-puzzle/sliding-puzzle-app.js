@@ -3,8 +3,10 @@ import {
   FM_DRUM_STORAGE_KEY,
   sanitizeFmDrumVoice,
 } from "../fm-drums/fm-drums.js";
+import { SequencerVoiceBank, SEQUENCER_VOICES } from "../../sequencer-voices.js";
 import { unlockAudioContext } from "../../audio.js";
 import { connectAudioOutput } from "../../audio-output-manager.js";
+import { createRubixOutputStage } from "../rubix/rubix-mix.js";
 import {
   RUBIX_ACID_MIDI_BY_COLOR,
   RUBIX_DRUM_LEFT_VOICE_BY_COLOR,
@@ -37,6 +39,13 @@ import {
   slidingTileColor,
 } from "./sliding-puzzle.js";
 
+const mountContext = null;
+const document = mountContext?.document ?? globalThis.document;
+const RUBIXOIDS_EMBEDDED = Boolean(mountContext) || new URLSearchParams(location.search).get("embed") === "rubixoids";
+let rubixoidsEmbeddedActive = true;
+let rubixoidsPendingMotion = null;
+let rubixoidsActivation = 0;
+let rubixoidsAudioTask = null;
 const $ = (id) => document.getElementById(id);
 const clamp = (value, minimum, maximum) => (
   Math.min(maximum, Math.max(minimum, Number(value) || 0))
@@ -69,6 +78,9 @@ const COLOR_INSTRUMENT_LABELS = Object.freeze({
 });
 
 const SOUND_BANKS = Object.freeze({
+  ...Object.fromEntries(SEQUENCER_VOICES.map(({ id, label }) => [`shared-${id}`, Object.freeze({
+    id: `shared-${id}`, label, description: `${label} follows tile tuning, position, neighbor response, brightness and decay. The empty cell remains a rest.`,
+  })])),
   "soft-fm": Object.freeze({
     id: "soft-fm",
     label: "Soft FM kit",
@@ -257,8 +269,11 @@ class SlidingPuzzleAudio {
   constructor(runtime = globalThis, voices = DEFAULT_FM_DRUM_VOICES) {
     this.runtime = runtime;
     this.voices = voices;
+    this.sharedVoices = new SequencerVoiceBank({ runtime, maxVoices: 48 });
+    this.voiceSelectionGeneration = 0;
     this.context = null;
     this.compressor = null;
+    this.outputStage = null;
     this.transportBus = null;
     this.gestureBus = null;
     this.master = null;
@@ -293,6 +308,10 @@ class SlidingPuzzleAudio {
       error.name = "AbortError";
       throw error;
     }
+    if (settings.soundBank.startsWith("shared-")) await this.sharedVoices.prepare(context, this.compressor);
+    if (lifecycleGeneration !== this.lifecycleGeneration || context !== this.context) {
+      throw Object.assign(new Error("Sliding puzzle audio start was cancelled."), { name: "AbortError" });
+    }
     this.setOutput(settings.output);
     return context;
   }
@@ -318,7 +337,9 @@ class SlidingPuzzleAudio {
 
     this.transportBus.connect(this.compressor);
     this.gestureBus.connect(this.compressor);
-    this.compressor.connect(this.master);
+    this.outputStage = createRubixOutputStage(context, 2);
+    this.compressor.connect(this.outputStage.makeup);
+    this.outputStage.output.connect(this.master);
     this.master.connect(this.analyser);
     this.releaseAudioOutput = connectAudioOutput(context, this.analyser, { runtime: this.runtime });
 
@@ -403,7 +424,16 @@ class SlidingPuzzleAudio {
     const level = clamp(options.level ?? 1, 0, 1.2);
     const modulatedSettings = eventSettings(event, settings);
     const destination = this.destination(event, modulatedSettings, audition);
-    if (modulatedSettings.soundBank === "acid-303") {
+    if (modulatedSettings.soundBank.startsWith("shared-")) {
+      this.sharedVoices.trigger({
+        voice: modulatedSettings.soundBank.slice(7), when, destination,
+        frequency: midiFrequency(modulatedSettings.pitchMidi),
+        velocity: clamp(level * 0.78, 0, 1),
+        duration: clamp(stepDuration * (0.55 + modulatedSettings.decay), 0.025, 1.5),
+        release: modulatedSettings.decay * 0.22, brightness: modulatedSettings.brightness,
+        character: modulatedSettings.colorDepth,
+      });
+    } else if (modulatedSettings.soundBank === "acid-303") {
       this.scheduleAcid(event, when, stepDuration, modulatedSettings, destination, level);
     } else if (modulatedSettings.soundBank === "analog") {
       this.scheduleAnalog(event, when, stepDuration, modulatedSettings, destination, level);
@@ -642,11 +672,13 @@ class SlidingPuzzleAudio {
 
   async close() {
     this.lifecycleGeneration += 1;
+    this.sharedVoices.dispose();
     const context = this.context;
     this.releaseAudioOutput?.();
     this.releaseAudioOutput = null;
     this.context = null;
     this.compressor = null;
+    this.outputStage = null;
     this.transportBus = null;
     this.gestureBus = null;
     this.master = null;
@@ -854,6 +886,7 @@ function currentRotationDegrees() {
 }
 
 function renderBoard() {
+  if (!rubixoidsEmbeddedActive) return;
   const board = $("puzzleBoard");
   const frame = $("puzzleFrame");
   if (!board || !frame) return;
@@ -1124,6 +1157,7 @@ function flashInvalidMove() {
 }
 
 function auditionTile(tileId) {
+  if (!rubixoidsEmbeddedActive) return;
   if (!state.audioOn || !audio.context || tileId <= 0) return;
   const event = currentSequence().find((candidate) => candidate.tileId === tileId);
   if (!event) return;
@@ -1163,6 +1197,7 @@ function requestTileMove(tileId) {
 }
 
 function cancelMotionSequence() {
+  rubixoidsPendingMotion = null;
   motionGeneration += 1;
   if (motionTimer !== null) clearTimeout(motionTimer);
   motionTimer = null;
@@ -1183,6 +1218,7 @@ function runMotionSequence(moves, options = {}) {
   let index = 0;
   const advance = () => {
     if (generation !== motionGeneration) return;
+    if (!rubixoidsEmbeddedActive) { rubixoidsPendingMotion = advance; return; }
     const tileId = queue[index];
     commitTileMove(tileId, {
       announce: false,
@@ -1195,10 +1231,12 @@ function runMotionSequence(moves, options = {}) {
       return;
     }
     motionTimer = null;
+    rubixoidsPendingMotion = null;
     state.busy = false;
     renderAll();
     options.onComplete?.();
   };
+  rubixoidsPendingMotion = advance;
   advance();
 }
 
@@ -1218,6 +1256,7 @@ function setAutoSlide(active, options = {}) {
 }
 
 function scheduleAutoSlide() {
+  if (!rubixoidsEmbeddedActive) return;
   if (!state.autoSlide || state.busy) return;
   if (autoSlideTimer !== null) clearTimeout(autoSlideTimer);
   autoSlideTimer = setTimeout(() => {
@@ -1382,6 +1421,7 @@ function schedulerNow() {
 }
 
 function resyncRunningScheduler() {
+  if (!rubixoidsEmbeddedActive) return;
   if (!state.playing) return;
   reconcileTransportCursor();
   if (schedulerTimer !== null) clearTimeout(schedulerTimer);
@@ -1481,6 +1521,7 @@ function scheduleVisualStep(step, when, scheduledDirection, scheduledPulse) {
 }
 
 function schedulerTick() {
+  if (!rubixoidsEmbeddedActive) return;
   if (!state.playing) return;
   const now = schedulerNow();
   if (nextStepTime < now - LOOKAHEAD_SECONDS) {
@@ -1578,6 +1619,14 @@ function restartLoop(options = {}) {
 }
 
 async function setAudioOn(active) {
+  const task = applyAudioOn(active);
+  rubixoidsAudioTask = task;
+  const clear = () => { if (rubixoidsAudioTask === task) rubixoidsAudioTask = null; };
+  task.then(clear, clear);
+  return task;
+}
+
+async function applyAudioOn(active) {
   const generation = ++audioLifecycleGeneration;
   const button = $("audioButton");
   const error = $("audioError");
@@ -1606,6 +1655,11 @@ async function setAudioOn(active) {
     renderReadouts();
     resyncRunningScheduler();
     announce(`Audio on. ${state.playing ? "The running puzzle is now audible." : "Press Play puzzle or slide a tile."}`);
+    if (!rubixoidsEmbeddedActive && audio.context) {
+      audio.master.gain.cancelScheduledValues(audio.context.currentTime);
+      audio.master.gain.setValueAtTime(0, audio.context.currentTime);
+      await audio.context.suspend();
+    }
   } catch (caught) {
     if (generation !== audioLifecycleGeneration) return;
     const isAbortError = caught?.name === "AbortError";
@@ -1737,10 +1791,18 @@ function bindControls() {
     restartLoop({ announce: false });
     announce(`${state.playbackDirection} playback direction selected; the loop restarted at its new first step.`);
   });
-  $("soundBank").addEventListener("change", (event) => {
-    state.soundBank = Object.hasOwn(SOUND_BANKS, event.target.value)
-      ? event.target.value
-      : DEFAULTS.soundBank;
+  $("soundBank").addEventListener("change", async (event) => {
+    const selectionGeneration = ++audio.voiceSelectionGeneration;
+    const requested = Object.hasOwn(SOUND_BANKS, event.target.value) ? event.target.value : DEFAULTS.soundBank;
+    if (requested.startsWith("shared-") && audio.context) {
+      event.target.setAttribute("aria-busy", "true");
+      try { await audio.sharedVoices.prepare(audio.context, audio.compressor); }
+      catch (error) { announce(error.message); event.target.value = state.soundBank; return; }
+      finally { event.target.removeAttribute("aria-busy"); }
+    }
+    if (selectionGeneration !== audio.voiceSelectionGeneration) return;
+    audio.sharedVoices.stop();
+    state.soundBank = requested;
     renderAll();
     announce(`${SOUND_BANKS[state.soundBank].label} selected.`);
   });
@@ -1788,7 +1850,8 @@ function bindControls() {
     if (state.autoSlide) scheduleAutoSlide();
   });
 
-  globalThis.addEventListener("keydown", (event) => {
+  (mountContext ? document : globalThis).addEventListener("keydown", (event) => {
+    if (!rubixoidsEmbeddedActive) return;
     if (event.code !== "Space" || event.defaultPrevented || event.repeat) return;
     const target = event.target;
     if (target instanceof HTMLElement && target.closest("button, input, select, textarea, [contenteditable]")) {
@@ -1798,7 +1861,9 @@ function bindControls() {
     setPlaying(!state.playing);
   });
 
-  globalThis.addEventListener("pagehide", cleanup);
+  globalThis.addEventListener("pagehide", event => {
+    if (!mountContext || !event.persisted) cleanup();
+  });
   globalThis.addEventListener("resize", renderBoard);
 }
 
@@ -1816,3 +1881,109 @@ createColorKey();
 bindControls();
 renderControls();
 renderAll();
+
+
+/** Rubixoids mount: keep the native tile, transport and synthesis state. */
+export const rubixoidsNative = {
+  capture() {
+    const dimensions = slidingPuzzleDimensions(state.puzzle);
+    return {
+      active: rubixoidsEmbeddedActive, playing: state.playing, audioOn: state.audioOn,
+      settings: {
+        ...Object.fromEntries(Object.keys(DEFAULTS).map(key => [key, state[key]])),
+        playbackMode: state.playbackMode, pathId: state.pathId, squareLock: state.squareLock,
+        rows: dimensions.rows, columns: dimensions.columns, autoSlide: state.autoSlide,
+        rotationTurns: state.rotationTurns,
+      },
+      native: JSON.parse(JSON.stringify({
+        puzzle: state.puzzle, history: state.history, rotationTurns: state.rotationTurns,
+        currentStep: state.currentStep, busy: state.busy, autoSlide: state.autoSlide,
+        transportStep, transportDirection, transportPulse,
+      })),
+      diagnostics: {
+        contextState: audio.context?.state ?? "none", schedulerActive: schedulerTimer !== null,
+        autoMotionActive: autoSlideTimer !== null, motionActive: motionTimer !== null,
+        motionPending: Boolean(rubixoidsPendingMotion),
+      },
+    };
+  },
+  async applySettings(patch = {}) {
+    for (const [key, value] of Object.entries(patch)) {
+      if (key === "playbackMode" || key === "pathId") {
+        const attribute = key === "pathId" ? "read-path" : "playback-mode";
+        const button = document.querySelector(`[data-${attribute}="${CSS.escape(String(value))}"]`);
+        button?.dispatchEvent(new MouseEvent("click", { bubbles: true })); continue;
+      }
+      if (key === "squareLock" || key === "autoSlide") {
+        if (Boolean(value) !== state[key]) $(key).click(); continue;
+      }
+      if (![...Object.keys(DEFAULTS), "rows", "columns"].includes(key)) continue;
+      const control = $(key);
+      if (!control || !control.matches("input, select")) continue;
+      if (control.tagName === "SELECT" && ![...control.options].some(option => option.value === String(value))) continue;
+      control.value = String(value);
+      control.dispatchEvent(new Event(control.tagName === "SELECT" ? "change" : "input", { bubbles: true }));
+      if (key === "rows" || key === "columns") control.dispatchEvent(new Event("change", { bubbles: true }));
+      if (key === "soundBank") {
+        // The native handler prepares its voice before changing the active bank.
+        while (control.hasAttribute("aria-busy")) await new Promise(resolve => setTimeout(resolve, 10));
+      }
+    }
+    return this.capture();
+  },
+  async deactivate() {
+    if (!RUBIXOIDS_EMBEDDED || !rubixoidsEmbeddedActive) return this.capture();
+    rubixoidsEmbeddedActive = false;
+    rubixoidsActivation += 1;
+    if (state.playing) reconcileTransportCursor();
+    if (schedulerTimer !== null) clearTimeout(schedulerTimer);
+    schedulerTimer = null;
+    clearVisualTimers();
+    if (autoSlideTimer !== null) clearTimeout(autoSlideTimer);
+    autoSlideTimer = null;
+    if (motionTimer !== null) clearTimeout(motionTimer);
+    motionTimer = null;
+    // An explicit Audio click may still be preparing its bank when the player
+    // changes dimensions. Finish that intent before the shell reads this state.
+    if (rubixoidsAudioTask) await rubixoidsAudioTask.catch(() => {});
+    audio.sharedVoices.stop();
+    audio.resetTransportBus(false);
+    if (audio.context && audio.master) {
+      const now = audio.context.currentTime;
+      audio.master.gain.cancelScheduledValues(now);
+      audio.master.gain.setValueAtTime(0, audio.context.currentTime);
+      // Detach the gesture bus too; old auditions cannot reappear on resume.
+      audio.gestureBus?.disconnect();
+      audio.gestureBus = audio.context.createGain();
+      audio.gestureBus.gain.value = 0.42;
+      audio.gestureBus.connect(audio.compressor);
+      await audio.context.suspend();
+    }
+    return this.capture();
+  },
+  async activate({ audioOn = state.audioOn, playing = state.playing } = {}) {
+    const generation = ++rubixoidsActivation;
+    rubixoidsEmbeddedActive = true;
+    if (Boolean(audioOn) !== state.audioOn) await setAudioOn(Boolean(audioOn));
+    if (generation !== rubixoidsActivation || !rubixoidsEmbeddedActive) return this.capture();
+    if (state.audioOn && audio.context) {
+      await audio.context.resume();
+      if (generation !== rubixoidsActivation || !rubixoidsEmbeddedActive) return this.capture();
+      audio.setOutput(state.output);
+    }
+    state.playing = Boolean(playing);
+    $("playButton").setAttribute("aria-pressed", String(state.playing));
+    $("playLabel").textContent = state.playing ? "Pause puzzle" : "Play puzzle";
+    $("playState").textContent = state.playing ? "clock running" : `${sequenceSnapshot.length}-step loop`;
+    audio.resetTransportBus(state.playing && state.audioOn);
+    if (state.playing) {
+      nextStepTime = schedulerNow() + 0.045;
+      schedulerTick();
+    }
+    if (state.busy && rubixoidsPendingMotion) rubixoidsPendingMotion();
+    if (state.autoSlide && autoSlideTimer === null) scheduleAutoSlide();
+    renderAll();
+    return this.capture();
+  },
+};
+if (RUBIXOIDS_EMBEDDED && !mountContext) globalThis.rubixoidsNative = rubixoidsNative;

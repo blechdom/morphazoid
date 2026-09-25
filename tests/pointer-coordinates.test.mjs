@@ -11,6 +11,7 @@ import { readRuntimeManifest } from "../scripts/site/runtime-manifest.mjs";
 import { runtimeSourceFiles } from "../scripts/check-runtime-source.mjs";
 
 const root = new URL("../", import.meta.url);
+const rubixoidsChanges = JSON.parse(await readFile(new URL("../docs/rubixoids-runtime-changes.json", import.meta.url))).changes;
 const sha = text => createHash("sha256").update(text).digest("hex");
 
 function namedFunctions(node, name, found = []) {
@@ -75,9 +76,16 @@ for (const entry of pointerReference.entries) {
     }
   });
 
-  test(`${entry.file}: surrounding code matches the reference plus reviewed iPhone and Shapes kit updates`, async () => {
+  test(`${entry.file}: surrounding code matches the reference plus reviewed iPhone, Shapes and Rubixoids updates`, async () => {
     const source = await readFile(new URL(entry.file, root), "utf8");
-    const beforeExtraction = restorePointerExtraction(restoreShapesSoundBanks(source, entry.file), entry.file);
+    let beforeRubixoids = source;
+    for (const change of rubixoidsChanges.filter(change => change.file === entry.file)) {
+      for (const replacement of [...change.replacements].reverse()) {
+        assert.equal(beforeRubixoids.split(replacement.after).length - 1, 1, `${entry.file}: exact Rubixoids amendment`);
+        beforeRubixoids = beforeRubixoids.replace(replacement.after, replacement.before);
+      }
+    }
+    const beforeExtraction = restorePointerExtraction(restoreShapesSoundBanks(beforeRubixoids, entry.file), entry.file);
     assert.equal(sha(restoreIphoneStartup(beforeExtraction, entry.file)), entry.moduleSha256);
   });
 }

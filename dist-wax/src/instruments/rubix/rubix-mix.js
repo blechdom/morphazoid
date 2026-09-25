@@ -60,18 +60,13 @@ export class RubixStickerMixer {
   }
 }
 
-/** A soft-knee mix compressor, followed by a fixed, bounded safety curve. */
-export function createRubixDynamics(context) {
-  const compressor = context.createDynamicsCompressor();
-  compressor.threshold.value = -24;
-  compressor.knee.value = 18;
-  compressor.ratio.value = 5;
-  compressor.attack.value = 0.003;
-  compressor.release.value = 0.18;
+/** Fixed output calibration. Quiet passages keep their dynamics; the safety
+ * curve only softens peaks above -6 dB and remains bounded under dense chords. */
+export function createRubixOutputStage(context, gain = 2.8, { peakCeiling = null } = {}) {
   // Fixed makeup restores working level after compression. This is not preset
   // state or an AGC: quiet/hidden geometry never receives adaptive boosting.
   const makeup = context.createGain();
-  makeup.gain.value = 2.8;
+  makeup.gain.value = gain;
   const safety = context.createWaveShaper();
   safety.oversample = "4x";
   safety.curve = Float32Array.from({ length: 4097 }, (_, i) => {
@@ -81,7 +76,31 @@ export function createRubixDynamics(context) {
       ? Math.abs(x)
       : 0.5 + 0.3 * Math.tanh((Math.abs(x) - 0.5) / 0.3));
   });
-  compressor.connect(makeup);
   makeup.connect(safety);
-  return { compressor, makeup, output: safety };
+  if (Number.isFinite(peakCeiling) && peakCeiling > 0 && peakCeiling < 1) {
+    // Oversampling reconstruction can overshoot the bounded soft curve.
+    // A unity-slope final guard catches those peaks without processing ordinary
+    // levels again. This guard itself must not oversample and ring afterward.
+    const ceiling = context.createWaveShaper();
+    ceiling.oversample = "none";
+    ceiling.curve = Float32Array.from({ length: 4097 }, (_, i) => (
+      Math.max(-peakCeiling, Math.min(peakCeiling, i / 2048 - 1))
+    ));
+    safety.connect(ceiling);
+    return { makeup, safety, output: ceiling };
+  }
+  return { makeup, output: safety };
+}
+
+/** A soft-knee mix compressor, followed by a fixed, bounded safety curve. */
+export function createRubixDynamics(context) {
+  const compressor = context.createDynamicsCompressor();
+  compressor.threshold.value = -24;
+  compressor.knee.value = 18;
+  compressor.ratio.value = 5;
+  compressor.attack.value = 0.003;
+  compressor.release.value = 0.18;
+  const stage = createRubixOutputStage(context);
+  compressor.connect(stage.makeup);
+  return { compressor, ...stage };
 }

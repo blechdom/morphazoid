@@ -1,3 +1,5 @@
+import { SEQUENCER_VOICES } from "../../sequencer-voices.js";
+
 const DEFAULT_SEED = 0x51c0ffee;
 const DEFAULT_SAMPLE_RATE = 48_000;
 
@@ -322,6 +324,7 @@ function finalizeEvents(algorithmId, events) {
 
 export function sanitizeAlgorithmicScoreParams(params = {}) {
   return Object.freeze({
+    voice: SEQUENCER_VOICES.some(({ id }) => id === params.voice) ? params.voice : "original",
     algorithmId: presetById(params.algorithmId).id,
     seed: normalizeSeed(params.seed),
     complexity: clampInteger(

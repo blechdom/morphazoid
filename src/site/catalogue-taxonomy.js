@@ -262,6 +262,7 @@ export const ADDITIONAL_TAG_IDS = Object.freeze(Object.fromEntries(Object.entrie
   "rattlesnake-skin": [
     "drum-machine"
   ],
+  "rubixoids": ["sequencer", "drum-machine", "2d", "3d", "4d", "puzzle"],
   "rubix": [
     "drum-machine",
     "3d",

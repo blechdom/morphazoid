@@ -1,3 +1,4 @@
+import { SEQUENCER_VOICES } from "../src/sequencer-voice-renderer.js";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
@@ -188,8 +189,8 @@ test("Rubix controls keep shape, size, visibility dynamics, and panel order expl
   const soundBankOptions = selectOptions(soundBank, "soundBank");
   assert.deepEqual(
     soundBankOptions.map(({ value }) => value),
-    ["soft-fm", "analog", "modal", "noise", "rattlesnake", "pitched-morph", "karplus-strong", "acid-303"],
-    "the top-level selector should expose seven drum banks and one acid bank",
+    ["soft-fm", "analog", "modal", "noise", "rattlesnake", "pitched-morph", "karplus-strong", "acid-303", ...SEQUENCER_VOICES.map(({ id }) => `shared-${id}`)],
+    "the top-level selector should retain legacy banks and expose every shared voice engine",
   );
   assert.deepEqual(
     soundBankOptions.filter(({ selected }) => selected).map(({ value }) => value),

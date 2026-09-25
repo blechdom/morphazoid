@@ -1018,7 +1018,7 @@ export class WebMidiManager {
       || event?.ctrlKey
       || event?.metaKey
       || event?.altKey
-      || isComputerKeyboardEditableTarget(event?.target)
+      || isComputerKeyboardEditableTarget(event?.composedPath?.()[0] ?? event?.target)
     ) return null;
 
     if (event?.repeat) {

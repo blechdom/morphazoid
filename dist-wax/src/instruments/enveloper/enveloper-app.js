@@ -9,6 +9,7 @@ import {
   sanitizeEnveloperState,
   updateEnveloperNode,
 } from "./enveloper.js";
+import { appendSequencerVoiceOptions } from "../../sequencer-voices.js";
 import { EnveloperAudio } from "./enveloper-audio.js";
 import {
   ENVELOPER_AUDIO_TIMING,
@@ -56,6 +57,7 @@ const state = {
   baseMidi: DEFAULT_UI.baseMidi,
   pitchSpan: DEFAULT_UI.pitchSpan,
   fmAmount: DEFAULT_UI.fmAmount,
+  voice: "original",
   activePresetId: DEFAULT_ENVELOPER_PRESET_ID,
   playing: false,
   transportFrozen: false,
@@ -1073,6 +1075,7 @@ function syncSelectionUi() {
 }
 
 function syncGlobalControls() {
+  if ($("sequenceVoice")) $("sequenceVoice").value = state.voice;
   $("level").value = String(state.level);
   $("levelOut").textContent = `${Math.round(state.level * 100)}%`;
   $("cycleSeconds").value = String(state.tree.cycleSeconds);
@@ -1605,6 +1608,8 @@ function evenSplits() {
 }
 
 function resetAll() {
+  state.voice = "original";
+  void audio.setVoice("original");
   clearAudioReconciliation();
   stopAudioScheduler();
   audio.silence();
@@ -1957,6 +1962,23 @@ window.addEventListener("pageshow", (event) => {
 });
 
 bindControls();
+const voiceGroup = document.querySelector(".enveloper-sound .group-body");
+if (voiceGroup) {
+  const label = document.createElement("label"); label.className = "control"; label.htmlFor = "sequenceVoice";
+  const title = document.createElement("span"); title.textContent = "Voice";
+  const select = document.createElement("select"); select.id = "sequenceVoice";
+  const original = document.createElement("option"); original.value = "original"; original.textContent = "Original FM";
+  select.append(original); appendSequencerVoiceOptions(select); label.append(title, select); voiceGroup.prepend(label);
+  select.addEventListener("change", async () => {
+    select.disabled = true;
+    try {
+      state.voice = await audio.setVoice(select.value);
+      queueAudioReconciliation({ immediate: true, reason: "voice" });
+      syncUi();
+    } catch (error) { select.value = state.voice; showError(error); }
+    finally { select.disabled = false; }
+  });
+}
 syncUi();
 if (typeof ResizeObserver === "function") new ResizeObserver(resizeCanvas).observe(stageWrap);
 else window.addEventListener("resize", resizeCanvas);

@@ -524,7 +524,7 @@ test("shared navigation creates a searchable accordion picker and preserves the 
   assert.deepEqual(
     appsGroup.findAll((node) => node.classList.contains("instrument-picker-link"))
       .map((link) => link.getAttribute("data-tool-id")),
-    ["shapes", "l-systems", "graphs", "tesselation"],
+    ["shapes", "rubixoids", "l-systems", "graphs", "tesselation"],
   );
   assert.equal(groupNodes[0].open, true);
   assert.equal(
@@ -609,7 +609,7 @@ test("shared navigation creates a searchable accordion picker and preserves the 
   assert.equal(doc.select.children.indexOf(appsOptionGroup), 1);
   assert.deepEqual(
     appsOptionGroup.children.map((option) => option.textContent),
-    ["Shapes", "L-Systems", "Graphs", "Tesselation"],
+    ["Shapes", "Rubixoids", "L-Systems", "Graphs", "Tesselation"],
   );
   const selectedOptions = doc.select.findAll((node) => node.tagName === "OPTION" && node.selected);
   const orbitalFerrisOption = doc.select.findAll(
@@ -903,8 +903,8 @@ test("shared Space transport stays independent from Audio and guides Audio-off p
   contract.sync();
   assert.equal(contract.status.hidden, true);
 
-  doc.dispatch("click", { target: playButton });
-  assert.equal(contract.status.hidden, false, "a rejected Audio-off Play request gets guidance");
+  doc.dispatch("click", { target: surface, composedPath: () => [playButton, surface] });
+  assert.equal(contract.status.hidden, false, "a retargeted rejected Play request gets guidance");
   doc.dispatch("click", { target: playButton });
   assert.equal(
     contract.status.hidden,
@@ -934,17 +934,21 @@ test("shared Space transport stays independent from Audio and guides Audio-off p
   ignoredTargets.push(nestedButtonIcon);
 
   for (const target of ignoredTargets) {
-    let ignoredPrevented = false;
-    let ignoredStopped = false;
-    doc.dispatch("keydown", {
-      code: "Space",
-      key: " ",
-      target,
-      preventDefault() { ignoredPrevented = true; },
-      stopImmediatePropagation() { ignoredStopped = true; },
-    });
-    assert.equal(ignoredPrevented, false, `${target.tagName} keeps its native Space behavior`);
-    assert.equal(ignoredStopped, false, `${target.tagName} remains available to page handlers`);
+    for (const shadow of [false, true]) {
+      let ignoredPrevented = false;
+      let ignoredStopped = false;
+      doc.dispatch("keydown", {
+        code: "Space",
+        key: " ",
+        target: shadow ? surface : target,
+        ...(shadow ? { composedPath: () => [target, surface] } : {}),
+        preventDefault() { ignoredPrevented = true; },
+        stopImmediatePropagation() { ignoredStopped = true; },
+      });
+      assert.equal(ignoredPrevented, false, `${target.tagName} keeps native Space, shadow=${shadow}`);
+      assert.equal(ignoredStopped, false, `${target.tagName} keeps its handlers, shadow=${shadow}`);
+      assert.equal(playClicks, 1, "focused native controls never toggle global transport");
+    }
   }
 
   for (const override of [

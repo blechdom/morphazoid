@@ -519,8 +519,9 @@ function isKeyboardOwnedTarget(target) {
 }
 
 function eventTargetsControl(event, controls) {
+  const target = event?.composedPath?.()[0] ?? event?.target;
   return controls.find((control) => (
-    control === event?.target || control?.contains?.(event?.target)
+    control === target || control?.contains?.(target)
   )) ?? null;
 }
 
@@ -628,7 +629,8 @@ export function initializeAudioTransportContract(doc, runtime = globalThis) {
   };
   const handleKeydown = (event) => {
     const isSpace = event?.code === "Space" || event?.key === " ";
-    if (!isSpace || isKeyboardOwnedTarget(event.target) || !primaryTransport) return;
+    const target = event.composedPath?.()[0] ?? event.target;
+    if (!isSpace || isKeyboardOwnedTarget(target) || !primaryTransport) return;
 
     const shortcutIsGuarded = Boolean(
       event.defaultPrevented

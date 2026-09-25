@@ -1,3 +1,5 @@
+import { SEQUENCER_VOICES } from "../../sequencer-voices.js";
+
 const DEFAULT_SIZE = 48;
 const DEFAULT_DATA_SEED = 0x5eed1234;
 const DEFAULT_SAMPLE_RATE = 48_000;
@@ -222,6 +224,7 @@ export function shuffleSortValues(size = DEFAULT_SIZE, dataSeed = DEFAULT_DATA_S
 
 export function sanitizeSortSequencerParams(params = {}) {
   return Object.freeze({
+    voice: SEQUENCER_VOICES.some(({ id }) => id === params.voice) ? params.voice : "original",
     algorithmId: objectById(SORT_ALGORITHM_PRESETS, params.algorithmId, 4).id,
     dataSeed: normalizeDataSeed(params.dataSeed),
     size: clampInteger(

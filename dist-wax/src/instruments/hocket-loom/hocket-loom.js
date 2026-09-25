@@ -1,4 +1,10 @@
 // Pure state, preset, and interlock analysis for Hocket Luigi.
+import { SEQUENCER_VOICES } from "../../sequencer-voice-renderer.js";
+
+export const HOCKET_SOUND_ENGINES = Object.freeze([
+  Object.freeze({ id: "original", label: "Original markers" }),
+  ...SEQUENCER_VOICES,
+]);
 
 export const HOCKET_STEP_OPTIONS = Object.freeze([8, 12, 16, 24]);
 export const HOCKET_VOICE_COLORS = Object.freeze([
@@ -309,6 +315,9 @@ export function sanitizeHocketState(input = {}) {
     soundSet: ["relay", "wood", "metal", "breath"].includes(source.soundSet)
       ? source.soundSet
       : "relay",
+    soundEngine: HOCKET_SOUND_ENGINES.some(engine => engine.id === source.soundEngine)
+      ? source.soundEngine
+      : "original",
     focusMode: ["balanced", "call-answer", "rotating"].includes(source.focusMode)
       ? source.focusMode
       : "balanced",
@@ -335,6 +344,7 @@ export function createHocketState(presetId = HOCKET_PRESETS[0].id) {
     level: 0.32,
     preserveComposite: true,
     soundSet: "relay",
+    soundEngine: "original",
     focusMode: "balanced",
   });
 }

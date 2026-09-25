@@ -1,0 +1,10 @@
+{
+  "additions": [{
+    "id": "rubixoids", "categoryId": "app", "categoryLabel": "App",
+    "imageHref": "assets/instruments/rubixoids.webp",
+    "tags": [
+      {"id":"sequencer","label":"Sequencer"}, {"id":"drum-machine","label":"Drum Machine"},
+      {"id":"2d","label":"2D"}, {"id":"3d","label":"3D"}, {"id":"4d","label":"4D"}, {"id":"puzzle","label":"Puzzle"}
+    ]
+  }]
+}

@@ -25,6 +25,10 @@ import {
 import { connectAudioOutput } from "../../audio-output-manager.js";
 import { unlockAudioContext } from "../../audio.js";
 
+import { appendSequencerVoiceOptions } from "../../sequencer-voices.js";
+import { JawJamSharedVoices, jawJamSharedVoice } from "./jaw-jam-shared-voices.js";
+
+const sharedVoices = new JawJamSharedVoices();
 const $ = (id) => document.getElementById(id);
 const prefersReducedMotion = globalThis.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches ?? false;
 const compactLayout = globalThis.matchMedia?.("(max-width: 720px), (pointer: coarse)");
@@ -477,7 +481,7 @@ function updatePerformerReadout(index, step, material, resolvedMidi) {
   if ($("performerGesture")) $("performerGesture").textContent = step.action === "rest"
     ? "choke / rest"
     : `${step.action} · ${resolvedMidi === null ? "no pitch" : noteName(resolvedMidi)}`;
-  if ($("performerVoice")) $("performerVoice").textContent = material.family;
+  if ($("performerVoice")) $("performerVoice").textContent = jawJamSharedVoice(step.soundPresetId)?.label ?? material.family;
   if ($("performerVowel")) $("performerVowel").textContent = vowel?.phoneme ?? `/${step.vowelId}/`;
   if ($("performerPull")) $("performerPull").textContent = formatPercent(step.action === "pluck" ? step.pluckIntensity : 0);
   if ($("performerAir")) $("performerAir").textContent = formatPercent(step.action === "rest" ? 0 : step.breathPower);
@@ -657,7 +661,8 @@ async function createAudioGraph() {
     masterGain.gain.value = outputLevel;
     analyser.fftSize = 1024;
     analyser.smoothingTimeConstant = 0.56;
-    sourceNode.connect(compressor);
+    const nativeGate = context.createGain();
+    sourceNode.connect(nativeGate).connect(compressor);
     compressor.connect(masterGain);
     masterGain.connect(analyser);
     releaseOutput = connectAudioOutput(context, analyser, { runtime: globalThis });
@@ -666,7 +671,7 @@ async function createAudioGraph() {
       stopSequence({ silence: false, announceState: false });
       setAudioPresentation("error", "The Jaw Jam physical model stopped unexpectedly. Reload the page to reset it.");
     };
-    return { context, sourceNode, compressor, masterGain, analyser, releaseOutput };
+    return { context, sourceNode, nativeGate, compressor, masterGain, analyser, releaseOutput };
   } catch (error) {
     releaseOutput?.();
     try { await context.close?.(); } catch { /* Preserve the startup error. */ }
@@ -710,6 +715,7 @@ async function ensureAudio() {
   try {
     unlockAudioContext(activeContext);
     await activeContext.resume();
+    await sharedVoices.prepare(activeContext, activeGraph.compressor);
     if (
       !pageIsActive
       || !audioDesiredOn
@@ -799,6 +805,8 @@ function scheduleStep(stepIndex, stepNumber, when) {
       position: strike.position,
     };
   }
+  const shared = sharedVoices.schedule(pattern, stepIndex, stepNumber, when);
+  graph.nativeGate.gain.setTargetAtTime(shared ? 0 : 1, when, .002);
   graph.sourceNode.port.postMessage(message);
   scheduledLedger.push({
     generation: transportGeneration,
@@ -827,6 +835,12 @@ function scheduleSequenceAhead() {
 }
 
 function flushScheduledEvents({ silence = false } = {}) {
+  if (silence) sharedVoices.stop(); else sharedVoices.cancelScheduled();
+  if (graph?.nativeGate && audioContext) {
+    const gain = graph.nativeGate.gain;
+    if (gain.cancelAndHoldAtTime) gain.cancelAndHoldAtTime(audioContext.currentTime);
+    else gain.cancelScheduledValues(audioContext.currentTime);
+  }
   transportGeneration += 1;
   scheduledLedger = [];
   graph?.sourceNode?.port.postMessage({
@@ -963,6 +977,8 @@ function soundPresetLabel(preset) {
 }
 
 function soundPresetFor(id) {
+  const shared = jawJamSharedVoice(id);
+  if (shared) return { ...shared, initialVowelId: "a", presetId: "khomus", materialId: "khomus" };
   return JAW_JAM_SOUND_PRESETS.find((preset) => preset.id === id) ?? JAW_JAM_SOUND_PRESETS[0];
 }
 
@@ -1054,6 +1070,10 @@ function buildInspectorOptions() {
     groups.get(materialId).append(option);
   }
   soundSelect.replaceChildren(...groups.values());
+  const engines = document.createElement("optgroup");
+  engines.label = "Sound engines";
+  appendSequencerVoiceOptions(engines);
+  soundSelect.append(engines);
 }
 
 function updateInspector() {
@@ -1756,6 +1776,8 @@ async function auditionSelectedStep() {
       position: strike.position,
     };
   }
+  const shared = sharedVoices.schedule(pattern, selectedStep, selectedStep, message.when, { preview: true });
+  graph.nativeGate.gain.setTargetAtTime(shared ? 0 : 1, message.when, .002);
   graph.sourceNode.port.postMessage(message);
   if (action === "pluck") triggerPerformerPluck(step.action === "pluck" ? step.pluckIntensity : 0.78);
   announce(step.action === "rest" ? `Step ${selectedStep + 1} stopped the reed` : `Auditioning step ${selectedStep + 1}`);
@@ -1973,6 +1995,7 @@ document.addEventListener("visibilitychange", () => {
 
 globalThis.addEventListener("pagehide", () => {
   pageIsActive = false;
+  sharedVoices.dispose();
   pageLifecycleGeneration += 1;
   requestAudioState(false);
   stopSequence({ silence: true, announceState: false });

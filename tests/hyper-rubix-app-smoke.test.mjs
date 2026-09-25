@@ -862,6 +862,14 @@ test("a WebGPU scope restart keeps the single phase calculated for its scheduled
   );
   assert.equal(fixture.elements.get("playbackCount").textContent, "1 CELL · 27 NOTES");
   assert.equal(fixture.elements.get("playButton").getAttribute("aria-pressed"), "true");
+
+  await setControl(fixture, "sequenceMethod", "corner-stream");
+  await flushMicrotasks();
+  clock.advanceBy(0);
+  await flushMicrotasks();
+  assert.equal(engine.params.timeMod, 8, "the running GPU loop wraps at the same corner count as the UI");
+  assert.equal(fixture.elements.get("playbackCount").textContent, "1 CELL · 8 NOTES");
+  assert.equal(fixture.elements.get("playButton").getAttribute("aria-pressed"), "true");
 });
 
 test("Hyper Rubix keeps projection gestures silent, auditions twists, and survives BFCache", async (t) => {
@@ -897,7 +905,16 @@ test("Hyper Rubix keeps projection gestures silent, auditions twists, and surviv
   assert.equal(FakeAudioContext.instances.length, 1);
   const audioContext = FakeAudioContext.instances[0];
   assert.equal(fixture.elements.get("audioButton").getAttribute("aria-pressed"), "true");
-  assert.equal(audioContext.compressors[0].connections.includes(audioContext.destination), true);
+  const makeup = audioContext.compressors[0].connections[0];
+  assert.equal(makeup.kind, "gain");
+  assert.equal(makeup.gain.value, 3, "fixed calibration leaves the performer output control separate");
+  const safety = makeup.connections[0];
+  assert.equal(safety.kind, "waveshaper");
+  const guard = safety.connections[0];
+  assert.equal(guard.connections.includes(audioContext.destination), true);
+  assert.equal(guard.oversample, "none", "the last stage cannot create reconstruction overshoot");
+  assert.equal(safety.curve[2048], 0, "silence stays silent");
+  assert.equal(guard.curve[2048], 0);
   const persistentTopology = audioContext.oscillators.filter(({ stops }) => stops.length === 0);
   assert.equal(persistentTopology.length, 48, "only the bounded topology strings stay persistent");
   assert.equal(audioContext.oscillators.length, 48, "there is no separate fold or orbit oscillator");
@@ -1457,3 +1474,50 @@ test("the sticker hyperbar addresses eight colored events across 27 sparse steps
     return count > 1 && count < 8;
   }), "the authored hyperbar includes multi-voice syncopation without filling every lane");
 });
+
+for (const size of [2, 3, 4]) {
+  test(`corner stream compacts every scope to real corner notes at order ${size}`, async (t) => {
+    const fixture = runtimeFixture();
+    const clock = new FakeClock(40_000);
+    const runtime = installRuntimeEnvironment(t, fixture, clock);
+    await import("../src/instruments/hyper-rubix/hyper-rubix-app.js?corner-stream=" + size + "-" + Date.now());
+    runtime.runFrame();
+    await setControl(fixture, "puzzleSize", size);
+    await setControl(fixture, "sequenceMethod", "corner-stream");
+    await setControl(fixture, "tempo", 120, "input");
+    await setControl(fixture, "twistRate", 4);
+    await setControl(fixture, "swing", 0, "input");
+    await setControl(fixture, "topologyMode", "off");
+    await fixture.elements.get("audioButton").emit("click");
+
+    const corners = createHyperRubixStickerStream(createSolvedHyperRubix(size), { cornersOnly: true });
+    for (const [scopeIndex, scope] of ["selected-cell", "view-facing", "whole-shape"].entries()) {
+      const previous = scopeIndex ? currentStickerPosition(fixture) : null;
+      await setControl(fixture, "playbackPreset", scope);
+      if (previous) {
+        assert.equal(currentStickerPosition(fixture).index, previous.index,
+          "changing scope preserves the current musical position");
+        assert.equal(fixture.elements.get("playButton").getAttribute("aria-pressed"), "true");
+      } else await fixture.elements.get("playButton").emit("click");
+      const cells = fixture.elements.get("stage").dataset.audibleCellIds.split(" ");
+      const expected = corners.filter(({ cell }) => cells.includes(cell));
+      assert.equal(expected.length, 8 * cells.length);
+      assert.equal(Number(fixture.elements.get("stage").dataset.audibleStickerCount), expected.length);
+      assert.equal(inScopeGridButtons(fixture).length, expected.length);
+      clock.advanceBy(previous ? 30 : 55);
+      let lastIndex = null;
+      for (let tick = 0; tick < expected.length + 1; tick += 1) {
+        if (tick) clock.advanceBy(125);
+        const position = currentStickerPosition(fixture);
+        const current = gridButtons(fixture).find(button => button.getAttribute("aria-current") === "step");
+        assert.equal(position.length, expected.length, "the displayed loop length equals the compact score");
+        if (lastIndex !== null) assert.equal(position.index, (lastIndex + 1) % expected.length);
+        assert.equal(current?.dataset.stickerId, expected[position.index].stickerId,
+          "every clock tick plays an in-scope corner, with no inserted face/edge/center rests");
+        lastIndex = position.index;
+      }
+    }
+    await fixture.elements.get("playButton").emit("click");
+    assert.equal(fixture.elements.get("audioButton").getAttribute("aria-pressed"), "true");
+  });
+}

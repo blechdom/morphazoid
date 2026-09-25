@@ -1,0 +1,729 @@
+{
+  "version": 1,
+  "description": "Rubixoids-owned runtime copied from the preserved native instruments. Inverse relocation reconstructs the frozen donor bytes; standalone files are not a live source of truth. Explicit reviewed amendments isolate saved kits and integrate the subsequently requested shared musical clock while preserving instrument models and DSP.",
+  "moves": {
+    "src/instruments/fm-drums/fm-drums.js": "src/instruments/rubixoids/fm-drums/fm-drums.js",
+    "src/instruments/hyper-rubix/full-presets.js": "src/instruments/rubixoids/hyper-rubix/full-presets.js",
+    "src/instruments/hyper-rubix/hyper-rubix-app.js": "src/instruments/rubixoids/hyper-rubix/hyper-rubix-app.js",
+    "src/instruments/hyper-rubix/hyper-rubix-webgpu-303.js": "src/instruments/rubixoids/hyper-rubix/hyper-rubix-webgpu-303.js",
+    "src/instruments/hyper-rubix/hyper-rubix.css": "src/instruments/rubixoids/hyper-rubix/hyper-rubix.css",
+    "src/instruments/hyper-rubix/hyper-rubix.js": "src/instruments/rubixoids/hyper-rubix/hyper-rubix.js",
+    "src/instruments/hyper-rubix/preset-state.js": "src/instruments/rubixoids/hyper-rubix/preset-state.js",
+    "src/instruments/karplus-strong/karplus-strong.js": "src/instruments/rubixoids/karplus-strong/karplus-strong.js",
+    "src/instruments/linear-drums/linear-drums.js": "src/instruments/rubixoids/linear-drums/linear-drums.js",
+    "src/instruments/rubix/factory-presets.js": "src/instruments/rubixoids/rubix/factory-presets.js",
+    "src/instruments/rubix/full-presets.js": "src/instruments/rubixoids/rubix/full-presets.js",
+    "src/instruments/rubix/rubix-app.js": "src/instruments/rubixoids/rubix/rubix-app.js",
+    "src/instruments/rubix/rubix-mix.js": "src/instruments/rubixoids/rubix/rubix-mix.js",
+    "src/instruments/rubix/rubix-percussion.js": "src/instruments/rubixoids/rubix/rubix-percussion.js",
+    "src/instruments/rubix/rubix-simd-303-processor.js": "src/instruments/rubixoids/rubix/rubix-simd-303-processor.js",
+    "src/instruments/rubix/rubix-simd-presets.js": "src/instruments/rubixoids/rubix/rubix-simd-presets.js",
+    "src/instruments/rubix/rubix-simd-surface.js": "src/instruments/rubixoids/rubix/rubix-simd-surface.js",
+    "src/instruments/rubix/rubix-visibility.js": "src/instruments/rubixoids/rubix/rubix-visibility.js",
+    "src/instruments/rubix/rubix-webgpu-303.js": "src/instruments/rubixoids/rubix/rubix-webgpu-303.js",
+    "src/instruments/rubix/rubix.css": "src/instruments/rubixoids/rubix/rubix.css",
+    "src/instruments/rubix/rubix.js": "src/instruments/rubixoids/rubix/rubix.js",
+    "src/instruments/sliding-puzzle/sliding-puzzle-app.js": "src/instruments/rubixoids/sliding-puzzle/sliding-puzzle-app.js",
+    "src/instruments/sliding-puzzle/sliding-puzzle.css": "src/instruments/rubixoids/sliding-puzzle/sliding-puzzle.css",
+    "src/instruments/sliding-puzzle/sliding-puzzle.js": "src/instruments/rubixoids/sliding-puzzle/sliding-puzzle.js",
+    "src/sequencer-voices.js": "src/instruments/rubixoids/audio/sequencer-voices.js",
+    "src/sequencer-voice-renderer.js": "src/instruments/rubixoids/audio/sequencer-voice-renderer.js"
+  },
+  "files": [
+    {
+      "before": "src/instruments/fm-drums/fm-drums.js",
+      "after": "src/instruments/rubixoids/fm-drums/fm-drums.js",
+      "sourceSha256": "ae16682b630cbbbc59194c4874b5655493c26c450254e1970686c3fd7fecb84f",
+      "copySha256": "604c73d27e027802ac486a475860a1bb7dcc569627772c489bf2da67b4342cdd",
+      "sourceBytes": 22461,
+      "copyBytes": 22467,
+      "amendments": [
+        {
+          "reason": "Isolate the Rubixoids kit while preserving the current bank through one-time seeding.",
+          "before": "export const FM_DRUM_STORAGE_KEY = \"morphazoid:fm-drums:bank:v1\";",
+          "after": "export { RUBIXOIDS_DRUM_BANK_KEY as FM_DRUM_STORAGE_KEY } from \"../bank-storage.js\";"
+        }
+      ]
+    },
+    {
+      "before": "src/instruments/hyper-rubix/full-presets.js",
+      "after": "src/instruments/rubixoids/hyper-rubix/full-presets.js",
+      "sourceSha256": "5faa8ad6e5493d5b464f7bfb2713ba455c59f8f22e396a733ee99789d7b979fa",
+      "copySha256": "1c11a02cd154e434cc05387e8717d72f4f977404f90d6673de46987d6c538776",
+      "sourceBytes": 8490,
+      "copyBytes": 8499
+    },
+    {
+      "before": "src/instruments/hyper-rubix/hyper-rubix-app.js",
+      "after": "src/instruments/rubixoids/hyper-rubix/hyper-rubix-app.js",
+      "sourceSha256": "69d8ae8ba67be8d65ace77f43160814359981dadac2b278b3a1beb1896f1a881",
+      "copySha256": "e2024f04a77400b45785d698b5a3e664bfd6c866909d581848f4252851f0d799",
+      "sourceBytes": 180748,
+      "copyBytes": 180753,
+      "amendments": [
+        {
+          "reason": "Shared Rubixoids clock: preserve native score/DSP while sharing tempo, swing and audio-time phase.",
+          "before": "import { nativeInstrumentContext } from \"../native-context.js\";\nimport { registerHeaderPresets } from \"../../../site/header-presets.js\";\nimport { HYPER_RUBIX_PRESET_DEFAULTS as DEFAULTS } from \"./preset-state.js\";\nimport { HYPER_RUBIX_FULL_PRESETS, HYPER_RUBIX_PRESET_KEYS, validateHyperRubixPreset, randomizeHyperRubixPreset } from \"./full-presets.js\";\n",
+          "after": "import { nativeInstrumentContext } from \"../native-context.js\";\nimport { rubixoidsClock } from \"../clock.js\";\nimport { registerHeaderPresets } from \"../../../site/header-presets.js\";\nimport { HYPER_RUBIX_PRESET_DEFAULTS as DEFAULTS } from \"./preset-state.js\";\nimport { HYPER_RUBIX_FULL_PRESETS, HYPER_RUBIX_PRESET_KEYS, validateHyperRubixPreset, randomizeHyperRubixPreset } from \"./full-presets.js\";\n"
+        },
+        {
+          "reason": "Shared Rubixoids clock: preserve native score/DSP while sharing tempo, swing and audio-time phase.",
+          "before": "let transportRandomOrder = [];\nlet transportRandomCycle = -1;\nlet transportPosition = 0;\nlet nextStepAtMs = 0;\nlet schedulerTimer = null;\nlet visualTimers = new Set();\nlet webGpu303Engine = null;\n",
+          "after": "let transportRandomOrder = [];\nlet transportRandomCycle = -1;\nlet transportPosition = 0;\nlet nextClockGrid = null;\nlet scheduledClockPulses = [];\nlet lastElapsedClockPulse = null;\nlet webGpu303ClockStart = null;\nlet webGpu303ClockGeneration = 0;\nlet lastClockAlignment = null;\nlet schedulerTimer = null;\nlet visualTimers = new Set();\nlet webGpu303Engine = null;\n"
+        },
+        {
+          "reason": "Shared Rubixoids clock: preserve native score/DSP while sharing tempo, swing and audio-time phase.",
+          "before": "  }\n\n  disable() {\n    this.sharedVoices.stop();\n    if (!this.master || !this.context) return;\n    const now = this.context.currentTime;\n",
+          "after": "  }\n\n  disable() {\n    rubixoidsClock.detach(\"4d\");\n    this.sharedVoices.stop();\n    if (!this.master || !this.context) return;\n    const now = this.context.currentTime;\n"
+        },
+        {
+          "reason": "Shared Rubixoids clock: preserve native score/DSP while sharing tempo, swing and audio-time phase.",
+          "before": "  }\n\n  async suspend() {\n    this.cancelTransportAudio(this.context?.currentTime, { hard: true });\n    if (this.context?.state === \"running\") await this.context.suspend();\n  }\n",
+          "after": "  }\n\n  async suspend() {\n    rubixoidsClock.detach(\"4d\");\n    this.cancelTransportAudio(this.context?.currentTime, { hard: true });\n    if (this.context?.state === \"running\") await this.context.suspend();\n  }\n"
+        },
+        {
+          "reason": "Shared Rubixoids clock: preserve native score/DSP while sharing tempo, swing and audio-time phase.",
+          "before": "      await this.suspend();\n      return;\n    }\n    this.setLevel(state.output, true);\n  }\n\n",
+          "after": "      await this.suspend();\n      return;\n    }\n    attachTransportClock();\n    this.setLevel(state.output, true);\n  }\n\n"
+        },
+        {
+          "reason": "Shared Rubixoids clock: preserve native score/DSP while sharing tempo, swing and audio-time phase.",
+          "before": "      }\n      this.openHatGains.clear();\n    }\n    this.silenceRattle(cancelAt, { immediate: hard });\n    this.silenceTopology(cancelAt, { immediate: hard });\n  }\n",
+          "after": "      }\n      this.openHatGains.clear();\n    }\n    if (hard) this.sharedVoices.stop();\n    else this.sharedVoices.cancelScheduled(cancelAt);\n    this.silenceRattle(cancelAt, { immediate: hard });\n    this.silenceTopology(cancelAt, { immediate: hard });\n  }\n"
+        },
+        {
+          "reason": "Shared Rubixoids clock: preserve native score/DSP while sharing tempo, swing and audio-time phase.",
+          "before": "  };\n}\n\nfunction normalizedLoopPosition(position, length = activePlaybackNoteCount()) {\n  return ((Math.trunc(Number(position) || 0) % length) + length) % length;\n}\n",
+          "after": "  };\n}\n\n// Keep the score cursor independent of the common pulse grid. A parked puzzle\n// retains its next note; returning to it joins the already running musical beat.\nfunction clockGridOptions() { return { division: state.subdivisionsPerBeat }; }\n\nfunction attachTransportClock() {\n  if (!rubixoidsEmbeddedActive) return;\n  rubixoidsClock.attach(\"4d\", state.audio ? audio.context : null);\n  if (state.playing) rubixoidsClock.play();\n}\n\nfunction elapsedClockPulse(now = rubixoidsClock.now()) {\n  for (const pulse of scheduledClockPulses) {\n    if (pulse.time <= now && (!lastElapsedClockPulse || pulse.time >= lastElapsedClockPulse.time)) {\n      lastElapsedClockPulse = pulse;\n    }\n  }\n  return lastElapsedClockPulse;\n}\n\nfunction retainElapsedClockPulse() {\n  const elapsed = elapsedClockPulse();\n  scheduledClockPulses = elapsed ? [elapsed] : [];\n}\n\nfunction selectNextClockGrid(minTime = rubixoidsClock.now() + 0.012) {\n  let grid = rubixoidsClock.next({ ...clockGridOptions(), minTime });\n  const firstOrdinal = grid.ordinal;\n  // The unchanged WebGPU voice uses its note cursor for long/short swing and\n  // phrase modulation. Join the matching pair half, at most one pulse later,\n  // instead of rotating the score or changing its synthesis phase mappings.\n  if (isWebGpu303Preset() && Math.abs(grid.ordinal % 2) !== Math.abs(transportPosition % 2)) {\n    grid = rubixoidsClock.grid(grid.ordinal + 1, clockGridOptions());\n  }\n  nextClockGrid = grid;\n  lastClockAlignment = { minTime, firstOrdinal, ordinal: grid.ordinal,\n    waitPulses: grid.ordinal - firstOrdinal, position: transportPosition,\n    division: state.subdivisionsPerBeat, revision: grid.revision };\n  return grid;\n}\n\nfunction syncNativeClockValues() {\n  state.tempo = rubixoidsClock.tempo;\n  state.swing = rubixoidsClock.swing;\n  presetRangeRefreshers.get(\"tempo\")?.();\n  presetRangeRefreshers.get(\"swing\")?.();\n  paintTransport();\n}\n\nfunction configureTransportClock({ regrid = true } = {}) {\n  if (!rubixoidsEmbeddedActive) return;\n  const revision = rubixoidsClock.revision;\n  rubixoidsClock.configure({ tempo: state.tempo, swing: state.swing });\n  if (regrid && state.playing && rubixoidsClock.revision !== revision) resumeTransportClock();\n}\n\nfunction clockPulseAtOrAfter(minTime) {\n  const scheduled = scheduledClockPulses.find(pulse => pulse.revision === rubixoidsClock.revision && pulse.time >= minTime);\n  if (scheduled) return scheduled;\n  const base = nextClockGrid?.revision === rubixoidsClock.revision\n    ? nextClockGrid\n    : rubixoidsClock.next({ ...clockGridOptions(), minTime });\n  const grid = base.time >= minTime ? base : rubixoidsClock.next({ ...clockGridOptions(), minTime });\n  return { ...grid, position: transportPosition + grid.ordinal - base.ordinal };\n}\n\nfunction clockPhaseAnchor(time) {\n  const scheduled = scheduledClockPulses.filter(pulse => pulse.revision === rubixoidsClock.revision);\n  return scheduled.findLast(pulse => pulse.time <= time)\n    ?? scheduled[0]\n    ?? (nextClockGrid && { ...nextClockGrid, position: transportPosition })\n    ?? lastElapsedClockPulse;\n}\n\nfunction normalizedLoopPosition(position, length = activePlaybackNoteCount()) {\n  return ((Math.trunc(Number(position) || 0) % length) + length) % length;\n}\n"
+        },
+        {
+          "reason": "Shared Rubixoids clock: preserve native score/DSP while sharing tempo, swing and audio-time phase.",
+          "before": "}\n\nfunction webGpu303StraightPhaseAtDelay(delayMs = 0) {\n  const length = activePlaybackNoteCount();\n  if (transportVisualPosition < 0) return 0;\n  const target = performance.now() + Math.max(0, Number(delayMs) || 0);\n  let position = transportVisualPosition;\n  let onset = transportVisualStartedAtMs;\n  let duration = hyperRubixStepDurationSeconds(\n    state.tempo,\n    state.subdivisionsPerBeat,\n    state.swing,\n    position,\n  ) * 1_000;\n  for (let count = 0; count < length && onset + duration <= target; count += 1) {\n    onset += duration;\n    position += 1;\n    duration = hyperRubixStepDurationSeconds(\n      state.tempo,\n      state.subdivisionsPerBeat,\n      state.swing,\n      position,\n    ) * 1_000;\n  }\n  const normalized = normalizedLoopPosition(position, length);\n  const fraction = clamp((target - onset) / Math.max(1, duration), 0, 0.999999);\n  const swungWidth = normalized % 2\n    ? 1 - clamp(state.swing, 0, 0.42)\n    : 1 + clamp(state.swing, 0, 0.42);\n  return straightStepBoundary(normalized) + fraction * swungWidth;\n}\n\nfunction alignWebGpu303Phase({\n",
+          "after": "}\n\nfunction webGpu303StraightPhaseAtDelay(delayMs = 0) {\n  const target = rubixoidsClock.now() + Math.max(0, Number(delayMs) || 0) / 1_000;\n  const pulse = clockPhaseAnchor(target);\n  if (!pulse) return 0;\n  return straightStepBoundary(pulse.position)\n    + (rubixoidsClock.beatAt(target) - pulse.beat) * state.subdivisionsPerBeat;\n}\n\nfunction alignWebGpu303Phase({\n"
+        },
+        {
+          "reason": "Shared Rubixoids clock: preserve native score/DSP while sharing tempo, swing and audio-time phase.",
+          "before": "    ? Number(straightPhase)\n    : straightStepBoundary(normalizedLoopPosition(stepIndex, length));\n  const raw = targetPhase - Math.max(0, Number(playbackTime) || 0) * rate;\n  webGpu303SequencePhase = ((raw % length) + length) % length;\n  return webGpu303SequencePhase;\n}\n\n",
+          "after": "    ? Number(straightPhase)\n    : straightStepBoundary(normalizedLoopPosition(stepIndex, length));\n  const raw = targetPhase - Math.max(0, Number(playbackTime) || 0) * rate;\n  // Odd-length scores need two loops before note order and swing parity repeat.\n  const phasePeriod = length % 2 ? length * 2 : length;\n  webGpu303SequencePhase = ((raw % phasePeriod) + phasePeriod) % phasePeriod;\n  return webGpu303SequencePhase;\n}\n\n"
+        },
+        {
+          "reason": "Shared Rubixoids clock: preserve native score/DSP while sharing tempo, swing and audio-time phase.",
+          "before": "}\n\nasync function stopWebGpu303Engine() {\n  webGpu303LifecycleGeneration += 1;\n  webGpu303StartPromise = null;\n  webGpu303PatternKey = \"\";\n",
+          "after": "}\n\nasync function stopWebGpu303Engine() {\n  webGpu303ClockGeneration += 1;\n  webGpu303LifecycleGeneration += 1;\n  webGpu303StartPromise = null;\n  webGpu303PatternKey = \"\";\n"
+        },
+        {
+          "reason": "Shared Rubixoids clock: preserve native score/DSP while sharing tempo, swing and audio-time phase.",
+          "before": "\nasync function resumeWebGpu303Timeline({ restartAtFirst = false } = {}) {\n  const engine = webGpu303Engine;\n  if (!engine || !state.audio || !state.playing || !isWebGpu303Preset()) return false;\n  try {\n    const startDelaySeconds = 0.055;\n    alignWebGpu303Phase({\n      straightPhase: restartAtFirst ? 0 : webGpu303StraightPhaseAtDelay(startDelaySeconds * 1_000),\n      playbackTime: 0,\n    });\n    syncWebGpu303Pattern({ force: true });\n    engine.setPlaybackEnabled(false);\n    await engine.restartTimeline({\n      startAt: audio.context.currentTime + startDelaySeconds,\n      offset: 0,\n    });\n    if (engine !== webGpu303Engine || !state.playing || !isWebGpu303Preset()) return false;\n    engine.setPlaybackEnabled(true);\n    return true;\n  } catch (error) {\n",
+          "after": "\nasync function resumeWebGpu303Timeline({ restartAtFirst = false } = {}) {\n  const engine = webGpu303Engine;\n  if (!engine || !rubixoidsEmbeddedActive || !state.audio || !state.playing || !isWebGpu303Preset()) return false;\n  const generation = ++webGpu303ClockGeneration;\n  const revision = rubixoidsClock.revision;\n  try {\n    const pulse = clockPulseAtOrAfter(rubixoidsClock.now() + 0.055);\n    webGpu303ClockStart = { ...pulse, audioTime: rubixoidsClock.audioTime(audio.context, pulse.time) };\n    alignWebGpu303Phase({\n      straightPhase: straightStepBoundary(pulse.position),\n      playbackTime: 0,\n    });\n    syncWebGpu303Pattern({ force: true });\n    engine.setPlaybackEnabled(false);\n    await engine.restartTimeline({\n      startAt: webGpu303ClockStart.audioTime,\n      offset: 0,\n    });\n    if (generation !== webGpu303ClockGeneration || revision !== rubixoidsClock.revision\n      || !rubixoidsEmbeddedActive || engine !== webGpu303Engine || !state.playing || !isWebGpu303Preset()) return false;\n    engine.setPlaybackEnabled(true);\n    return true;\n  } catch (error) {\n"
+        },
+        {
+          "reason": "Shared Rubixoids clock: preserve native score/DSP while sharing tempo, swing and audio-time phase.",
+          "before": "    return false;\n  }\n  alignWebGpu303Phase({\n    straightPhase: restartAtFirst ? 0 : webGpu303StraightPhaseAtDelay(55),\n    playbackTime: 0,\n  });\n  const pattern = currentWebGpu303Pattern();\n",
+          "after": "    return false;\n  }\n  alignWebGpu303Phase({\n    straightPhase: straightStepBoundary(clockPulseAtOrAfter(rubixoidsClock.now() + 0.055).position),\n    playbackTime: 0,\n  });\n  const pattern = currentWebGpu303Pattern();\n"
+        },
+        {
+          "reason": "Shared Rubixoids clock: preserve native score/DSP while sharing tempo, swing and audio-time phase.",
+          "before": "  schedulerTimer = null;\n  clearVisualTimers();\n  clearSoundingStickerPulses();\n  audio.cancelTransportAudio(undefined, { hard: hardAudio });\n}\n\nfunction nextPositionAfterAudiblePulse() {\n  return transportVisualPosition >= 0 ? transportVisualPosition + 1 : 0;\n}\n\nfunction resumeTransportClock({ delayMs = 55, hardAudio = false } = {}) {\n  if (!rubixoidsEmbeddedActive || !state.playing) return;\n  clearScheduler({ hardAudio });\n  transportPuzzle = state.puzzle;\n  rebuildTransportStickerStream(sequenceMethodConfig(), state.puzzle);\n  nextStepAtMs = performance.now() + Math.max(12, Number(delayMs) || 0);\n  schedulerTick();\n  if (isWebGpu303Preset() && state.audio) {\n    void startWebGpu303Engine({ alignToTransport: true });\n",
+          "after": "  schedulerTimer = null;\n  clearVisualTimers();\n  clearSoundingStickerPulses();\n  retainElapsedClockPulse();\n  audio.cancelTransportAudio(undefined, { hard: hardAudio });\n}\n\nfunction nextPositionAfterAudiblePulse() {\n  const elapsed = elapsedClockPulse();\n  return elapsed ? elapsed.position + 1 : scheduledClockPulses[0]?.position ?? transportPosition;\n}\n\nfunction resumeTransportClock({ delayMs = 12, hardAudio = false } = {}) {\n  if (!rubixoidsEmbeddedActive || !state.playing) return;\n  transportPosition = nextPositionAfterAudiblePulse();\n  clearScheduler({ hardAudio });\n  attachTransportClock();\n  syncNativeClockValues();\n  transportPuzzle = state.puzzle;\n  rebuildTransportStickerStream(sequenceMethodConfig(), state.puzzle);\n  selectNextClockGrid(rubixoidsClock.now() + Math.max(12, Number(delayMs) || 0) / 1_000);\n  schedulerTick();\n  if (isWebGpu303Preset() && state.audio) {\n    void startWebGpu303Engine({ alignToTransport: true });\n"
+        },
+        {
+          "reason": "Shared Rubixoids clock: preserve native score/DSP while sharing tempo, swing and audio-time phase.",
+          "before": "  scheduleFrame();\n}\n\nfunction transportBoundaryAfterCurrentPulse(nowMs = performance.now()) {\n  if (transportVisualPosition < 0 || !Number.isFinite(transportVisualStartedAtMs)) {\n    return nowMs + 12;\n  }\n  const durationMs = hyperRubixStepDurationSeconds(\n    state.tempo,\n    state.subdivisionsPerBeat,\n    state.swing,\n    transportVisualPosition,\n  ) * 1_000;\n  return Math.max(nowMs + 12, transportVisualStartedAtMs + durationMs);\n}\n\nfunction invalidateTransportLookahead(puzzle = state.puzzle) {\n  if (!state.playing) return false;\n  const resumeAtMs = transportBoundaryAfterCurrentPulse();\n  transportPosition = nextPositionAfterAudiblePulse();\n  clearScheduler();\n  transportPuzzle = puzzle;\n  rebuildTransportStickerStream(sequenceMethodConfig(), puzzle);\n  nextStepAtMs = resumeAtMs;\n  schedulerTick();\n  return true;\n}\n\n",
+          "after": "  scheduleFrame();\n}\n\nfunction invalidateTransportLookahead(puzzle = state.puzzle) {\n  if (!state.playing) return false;\n  transportPosition = nextPositionAfterAudiblePulse();\n  clearScheduler();\n  attachTransportClock();\n  transportPuzzle = puzzle;\n  rebuildTransportStickerStream(sequenceMethodConfig(), puzzle);\n  selectNextClockGrid();\n  schedulerTick();\n  if (isWebGpu303Preset() && state.audio) void startWebGpu303Engine({ alignToTransport: true });\n  return true;\n}\n\n"
+        },
+        {
+          "reason": "Shared Rubixoids clock: preserve native score/DSP while sharing tempo, swing and audio-time phase.",
+          "before": "  streamIndex,\n  streamEvent,\n  motionDue,\n) {\n  if (!state.playing) return;\n  transportVisualPosition = transportStepPosition;\n  transportVisualStartedAtMs = performance.now();\n  const method = sequenceMethodConfig();\n  updateTimelineReadout(method, {\n    stepIndex,\n",
+          "after": "  streamIndex,\n  streamEvent,\n  motionDue,\n  scheduledAtMs,\n) {\n  if (!state.playing) return;\n  transportVisualPosition = transportStepPosition;\n  transportVisualStartedAtMs = scheduledAtMs;\n  const method = sequenceMethodConfig();\n  updateTimelineReadout(method, {\n    stepIndex,\n"
+        },
+        {
+          "reason": "Shared Rubixoids clock: preserve native score/DSP while sharing tempo, swing and audio-time phase.",
+          "before": "  if (method.serial) updateHyperbarEventPlayhead(streamEvent, streamIndex, method.length);\n  else if (method.hyperbar) updateHyperbarPlayhead(hyperbarStepIndex);\n  if (Array.isArray(soundingStickerIds)) {\n    pulseSoundingStickerIds(soundingStickerIds, soundingDuration, performance.now(), {\n      retainTrail: method.serial,\n    });\n  }\n",
+          "after": "  if (method.serial) updateHyperbarEventPlayhead(streamEvent, streamIndex, method.length);\n  else if (method.hyperbar) updateHyperbarPlayhead(hyperbarStepIndex);\n  if (Array.isArray(soundingStickerIds)) {\n    pulseSoundingStickerIds(soundingStickerIds, soundingDuration, scheduledAtMs, {\n      retainTrail: method.serial,\n    });\n  }\n"
+        },
+        {
+          "reason": "Shared Rubixoids clock: preserve native score/DSP while sharing tempo, swing and audio-time phase.",
+          "before": "      streamIndex,\n      streamEvent,\n      motionDue,\n    );\n  }, delay);\n  timer?.unref?.();\n",
+          "after": "      streamIndex,\n      streamEvent,\n      motionDue,\n      targetTimeMs,\n    );\n  }, delay);\n  timer?.unref?.();\n"
+        },
+        {
+          "reason": "Shared Rubixoids clock: preserve native score/DSP while sharing tempo, swing and audio-time phase.",
+          "before": "\nfunction schedulerTick() {\n  if (!rubixoidsEmbeddedActive || !state.playing) return;\n  const nowMs = performance.now();\n  if (!Number.isFinite(nextStepAtMs) || nextStepAtMs < nowMs - 50) {\n    nextStepAtMs = nowMs + 30;\n  }\n  const horizon = nowMs + LOOKAHEAD_MS;\n  let scheduledSteps = 0;\n  while (nextStepAtMs < horizon && scheduledSteps < 24) {\n    const position = transportPosition;\n    const method = sequenceMethodConfig();\n    if (method.serial && position > 0\n",
+          "after": "\nfunction schedulerTick() {\n  if (!rubixoidsEmbeddedActive || !state.playing) return;\n  if (!nextClockGrid || nextClockGrid.revision !== rubixoidsClock.revision) {\n    resumeTransportClock();\n    return;\n  }\n  const now = rubixoidsClock.now();\n  if (nextClockGrid.time < now - 0.015) {\n    // A stalled UI rejoins a future beat; it never emits a stale attack burst.\n    resumeTransportClock();\n    return;\n  }\n  elapsedClockPulse(now);\n  const horizon = now + LOOKAHEAD_MS / 1_000;\n  let scheduledSteps = 0;\n  while (nextClockGrid.time < horizon && scheduledSteps < 24) {\n    const position = transportPosition;\n    const method = sequenceMethodConfig();\n    if (method.serial && position > 0\n"
+        },
+        {
+          "reason": "Shared Rubixoids clock: preserve native score/DSP while sharing tempo, swing and audio-time phase.",
+          "before": "      puzzleMetrics(transportPuzzle ?? state.puzzle).hyperbarLength,\n      Math.random,\n    );\n    const stepDurationMs = hyperRubixStepDurationSeconds(\n      state.tempo,\n      state.subdivisionsPerBeat,\n      state.swing,\n      position,\n    ) * 1_000;\n    const motionStride = transportMotionStride(method);\n    const motionDue = Number.isFinite(motionStride) && position % motionStride === 0;\n    const streamIndex = method.serial\n",
+          "after": "      puzzleMetrics(transportPuzzle ?? state.puzzle).hyperbarLength,\n      Math.random,\n    );\n    const pulse = { ...nextClockGrid, position,\n      audioTime: state.audio && audio.context ? rubixoidsClock.audioTime(audio.context, nextClockGrid.time) : null };\n    scheduledClockPulses.push(pulse);\n    if (scheduledClockPulses.length > 64) scheduledClockPulses.splice(0, scheduledClockPulses.length - 64);\n    const stepDurationMs = pulse.duration * 1_000;\n    const motionStride = transportMotionStride(method);\n    const motionDue = Number.isFinite(motionStride) && position % motionStride === 0;\n    const streamIndex = method.serial\n"
+        },
+        {
+          "reason": "Shared Rubixoids clock: preserve native score/DSP while sharing tempo, swing and audio-time phase.",
+          "before": "      ? streamEvent && hyperbarEventIsActive(streamEvent, true) ? [streamEvent] : []\n      : (hyperbarSlot?.events ?? []).filter((event) => hyperbarEventIsActive(event, false));\n    if (state.audio && audio.context) {\n      const scheduledWhen = audio.context.currentTime\n        + Math.max(0, nextStepAtMs - nowMs) / 1_000;\n      audio.withTransportScope(() => {\n        if (method.legacy && step?.active && step.move) {\n          if (method.hyperbar) {\n",
+          "after": "      ? streamEvent && hyperbarEventIsActive(streamEvent, true) ? [streamEvent] : []\n      : (hyperbarSlot?.events ?? []).filter((event) => hyperbarEventIsActive(event, false));\n    if (state.audio && audio.context) {\n      const scheduledWhen = pulse.audioTime;\n      audio.withTransportScope(() => {\n        if (method.legacy && step?.active && step.move) {\n          if (method.hyperbar) {\n"
+        },
+        {
+          "reason": "Shared Rubixoids clock: preserve native score/DSP while sharing tempo, swing and audio-time phase.",
+          "before": "      position,\n      stepIndex,\n      resolvedHyperbarStepIndex,\n      nextStepAtMs,\n      transportAnimationDuration(stepDurationMs, Number.isFinite(motionStride) ? motionStride : 1),\n      method.hyperbar ? topologyVisualStickerIds(method, activeHyperbarEvents) : null,\n      stickerSoundPulseDuration(stepDurationMs),\n",
+          "after": "      position,\n      stepIndex,\n      resolvedHyperbarStepIndex,\n      rubixoidsClock.performanceTime(pulse.time),\n      transportAnimationDuration(stepDurationMs, Number.isFinite(motionStride) ? motionStride : 1),\n      method.hyperbar ? topologyVisualStickerIds(method, activeHyperbarEvents) : null,\n      stickerSoundPulseDuration(stepDurationMs),\n"
+        },
+        {
+          "reason": "Shared Rubixoids clock: preserve native score/DSP while sharing tempo, swing and audio-time phase.",
+          "before": "      transportHyperbarPuzzle = null;\n      transportHyperbarSnapshot = null;\n    }\n    nextStepAtMs += stepDurationMs;\n    transportPosition += 1;\n    scheduledSteps += 1;\n  }\n",
+          "after": "      transportHyperbarPuzzle = null;\n      transportHyperbarSnapshot = null;\n    }\n    nextClockGrid = rubixoidsClock.grid(nextClockGrid.ordinal + 1, clockGridOptions());\n    transportPosition += 1;\n    scheduledSteps += 1;\n  }\n"
+        },
+        {
+          "reason": "Shared Rubixoids clock: preserve native score/DSP while sharing tempo, swing and audio-time phase.",
+          "before": "function restartTransportClock({ announceRestart = false } = {}) {\n  clearScheduler();\n  transportPosition = 0;\n  transportVisualPosition = -1;\n  transportVisualStartedAtMs = 0;\n  webGpu303SequencePhase = 0;\n",
+          "after": "function restartTransportClock({ announceRestart = false } = {}) {\n  clearScheduler();\n  transportPosition = 0;\n  scheduledClockPulses = [];\n  lastElapsedClockPulse = null;\n  transportVisualPosition = -1;\n  transportVisualStartedAtMs = 0;\n  webGpu303SequencePhase = 0;\n"
+        },
+        {
+          "reason": "Shared Rubixoids clock: preserve native score/DSP while sharing tempo, swing and audio-time phase.",
+          "before": "  const remainingMoveMs = activeMove?.source === \"transport\"\n    ? Math.max(0, (1 - activeMove.progress) * activeMove.duration)\n    : 0;\n  nextStepAtMs = performance.now() + Math.max(55, remainingMoveMs + 24);\n  updateSequencePlayhead(hyperRubixSequenceIndex(\n    state.playbackMode,\n    0,\n",
+          "after": "  const remainingMoveMs = activeMove?.source === \"transport\"\n    ? Math.max(0, (1 - activeMove.progress) * activeMove.duration)\n    : 0;\n  attachTransportClock();\n  selectNextClockGrid(rubixoidsClock.now() + Math.max(12, remainingMoveMs > 0 ? remainingMoveMs + 24 : 12) / 1_000);\n  updateSequencePlayhead(hyperRubixSequenceIndex(\n    state.playbackMode,\n    0,\n"
+        },
+        {
+          "reason": "Shared Rubixoids clock: preserve native score/DSP while sharing tempo, swing and audio-time phase.",
+          "before": "    return;\n  }\n  state.playing = false;\n  clearScheduler({ hardAudio });\n  moveQueue = moveQueue.filter((item) => item.source !== \"transport\");\n  transportPuzzle = null;\n",
+          "after": "    return;\n  }\n  state.playing = false;\n  webGpu303ClockGeneration += 1;\n  clearScheduler({ hardAudio });\n  moveQueue = moveQueue.filter((item) => item.source !== \"transport\");\n  transportPuzzle = null;\n"
+        },
+        {
+          "reason": "Shared Rubixoids clock: preserve native score/DSP while sharing tempo, swing and audio-time phase.",
+          "before": "    ? rate\n    : DEFAULTS.subdivisionsPerBeat;\n  paintTransport();\n  if (state.playing && state.subdivisionsPerBeat > previousRate) {\n    const fasterStepMs = hyperRubixStepDurationSeconds(\n      state.tempo,\n      state.subdivisionsPerBeat,\n      state.swing,\n      transportPosition,\n    ) * 1_000;\n    nextStepAtMs = Math.min(nextStepAtMs, performance.now() + Math.min(55, fasterStepMs));\n  }\n  realignRunningWebGpu303Phase();\n  queueWebGpu303Sync({ force: true });\n  announce(`${RATE_LABELS[state.subdivisionsPerBeat]} pulse rate selected: ${state.subdivisionsPerBeat} pulse${state.subdivisionsPerBeat === 1 ? \"\" : \"s\"} per quarter-note beat.`);\n",
+          "after": "    ? rate\n    : DEFAULTS.subdivisionsPerBeat;\n  paintTransport();\n  if (state.playing && state.subdivisionsPerBeat !== previousRate) resumeTransportClock();\n  realignRunningWebGpu303Phase();\n  queueWebGpu303Sync({ force: true });\n  announce(`${RATE_LABELS[state.subdivisionsPerBeat]} pulse rate selected: ${state.subdivisionsPerBeat} pulse${state.subdivisionsPerBeat === 1 ? \"\" : \"s\"} per quarter-note beat.`);\n"
+        },
+        {
+          "reason": "Shared Rubixoids clock: preserve native score/DSP while sharing tempo, swing and audio-time phase.",
+          "before": "bindRange(\"output\", \"output\", (value) => `${Math.round(value * 100)}%`, () => {\n  if (state.audio) audio.setLevel(state.output);\n});\nbindRange(\"tempo\", \"tempo\", (value) => `${Math.round(value)} BPM`, (previousTempo) => {\n  paintTransport();\n  if (state.playing && state.tempo > previousTempo) {\n    const fasterStepMs = hyperRubixStepDurationSeconds(\n      state.tempo,\n      state.subdivisionsPerBeat,\n      state.swing,\n      transportPosition,\n    ) * 1_000;\n    nextStepAtMs = Math.min(nextStepAtMs, performance.now() + Math.min(55, fasterStepMs));\n  }\n  realignRunningWebGpu303Phase();\n  queueWebGpu303Sync();\n});\nbindRange(\"swing\", \"swing\", (value) => `${Math.round(value * 100)}%`, () => {\n  realignRunningWebGpu303Phase();\n  queueWebGpu303Sync();\n});\n",
+          "after": "bindRange(\"output\", \"output\", (value) => `${Math.round(value * 100)}%`, () => {\n  if (state.audio) audio.setLevel(state.output);\n});\nbindRange(\"tempo\", \"tempo\", (value) => `${Math.round(value)} BPM`, () => {\n  paintTransport();\n  configureTransportClock();\n  realignRunningWebGpu303Phase();\n  queueWebGpu303Sync();\n});\nbindRange(\"swing\", \"swing\", (value) => `${Math.round(value * 100)}%`, () => {\n  configureTransportClock();\n  realignRunningWebGpu303Phase();\n  queueWebGpu303Sync();\n});\n"
+        },
+        {
+          "reason": "Shared Rubixoids clock: preserve native score/DSP while sharing tempo, swing and audio-time phase.",
+          "before": "    state.audio = false;\n    void stopWebGpu303Engine();\n    audio.disable();\n  } else {\n    try {\n      await audio.enable();\n      state.audio = true;\n      if (isWebGpu303Preset()) {\n        await startWebGpu303Engine({ alignToTransport: state.playing });\n      }\n",
+          "after": "    state.audio = false;\n    void stopWebGpu303Engine();\n    audio.disable();\n    attachTransportClock();\n  } else {\n    try {\n      await audio.enable();\n      state.audio = true;\n      attachTransportClock();\n      if (isWebGpu303Preset()) {\n        await startWebGpu303Engine({ alignToTransport: state.playing });\n      }\n"
+        },
+        {
+          "reason": "Shared Rubixoids clock: preserve native score/DSP while sharing tempo, swing and audio-time phase.",
+          "before": "  state.tempo = DEFAULTS.tempo;\n  state.swing = DEFAULTS.swing;\n  state.subdivisionsPerBeat = DEFAULTS.subdivisionsPerBeat;\n  state.sequenceMethod = DEFAULTS.sequenceMethod;\n  state.twistMotion = DEFAULTS.twistMotion;\n  state.patternId = DEFAULTS.patternId;\n",
+          "after": "  state.tempo = DEFAULTS.tempo;\n  state.swing = DEFAULTS.swing;\n  state.subdivisionsPerBeat = DEFAULTS.subdivisionsPerBeat;\n  configureTransportClock({ regrid: false });\n  state.sequenceMethod = DEFAULTS.sequenceMethod;\n  state.twistMotion = DEFAULTS.twistMotion;\n  state.patternId = DEFAULTS.patternId;\n"
+        },
+        {
+          "reason": "Shared Rubixoids clock: preserve native score/DSP while sharing tempo, swing and audio-time phase.",
+          "before": "    clearSoundingStickerPulses();\n    audio.sharedVoices.stop();\n    Object.assign(state, snapshot.settings, { puzzle: snapshot.puzzle });\n    if (state.voice.startsWith(\"shared-\") && state.audio && audio.context && !audio.sharedVoices.ready) {\n      const requested = state.voice;\n      void audio.sharedVoices.prepare(audio.context, audio.master).then(() => {\n",
+          "after": "    clearSoundingStickerPulses();\n    audio.sharedVoices.stop();\n    Object.assign(state, snapshot.settings, { puzzle: snapshot.puzzle });\n    configureTransportClock({ regrid: false });\n    if (state.voice.startsWith(\"shared-\") && state.audio && audio.context && !audio.sharedVoices.ready) {\n      const requested = state.voice;\n      void audio.sharedVoices.prepare(audio.context, audio.master).then(() => {\n"
+        },
+        {
+          "reason": "Shared Rubixoids clock: preserve native score/DSP while sharing tempo, swing and audio-time phase.",
+          "before": "      })),\n      diagnostics: { contextState: audio.context?.state ?? 'none',\n        schedulerActive: schedulerTimer !== null, animationActive: Boolean(frameRequest),\n        sharedVoices: audio.sharedVoices.diagnostics() },\n    };\n  },\n  async applySettings(patch = {}) {\n",
+          "after": "      })),\n      diagnostics: { contextState: audio.context?.state ?? 'none',\n        schedulerActive: schedulerTimer !== null, animationActive: Boolean(frameRequest),\n        sharedVoices: audio.sharedVoices.diagnostics(),\n        clock: { ...rubixoidsClock.snapshot(), division: state.subdivisionsPerBeat,\n          next: nextClockGrid && { ...nextClockGrid, position: transportPosition },\n          elapsed: elapsedClockPulse() && { ...lastElapsedClockPulse },\n          scheduled: scheduledClockPulses.map(pulse => ({ ...pulse })),\n          webGpuStart: webGpu303ClockStart && { ...webGpu303ClockStart },\n          alignment: lastClockAlignment && { ...lastClockAlignment },\n          parityWaitMaximumPulses: 1 } },\n    };\n  },\n  async applySettings(patch = {}) {\n"
+        },
+        {
+          "reason": "Shared Rubixoids clock: preserve native score/DSP while sharing tempo, swing and audio-time phase.",
+          "before": "  },\n  async deactivate() {\n    if (!RUBIXOIDS_EMBED || !rubixoidsEmbeddedActive) return this.capture();\n    rubixoidsEmbeddedActive = false;\n    rubixoidsActivation += 1;\n    rubixoidsHiddenAt = performance.now();\n",
+          "after": "  },\n  async deactivate() {\n    if (!RUBIXOIDS_EMBED || !rubixoidsEmbeddedActive) return this.capture();\n    rubixoidsClock.detach(\"4d\");\n    webGpu303ClockGeneration += 1;\n    rubixoidsEmbeddedActive = false;\n    rubixoidsActivation += 1;\n    rubixoidsHiddenAt = performance.now();\n"
+        },
+        {
+          "reason": "Shared Rubixoids clock: preserve native score/DSP while sharing tempo, swing and audio-time phase.",
+          "before": "      return this.capture();\n    }\n    state.playing = Boolean(playing);\n    $('audioButton').setAttribute('aria-pressed', String(state.audio));\n    $('audioState').textContent = state.audio ? 'on' : 'off';\n    paintTransport();\n",
+          "after": "      return this.capture();\n    }\n    state.playing = Boolean(playing);\n    attachTransportClock();\n    $('audioButton').setAttribute('aria-pressed', String(state.audio));\n    $('audioState').textContent = state.audio ? 'on' : 'off';\n    paintTransport();\n"
+        }
+      ]
+    },
+    {
+      "before": "src/instruments/hyper-rubix/hyper-rubix-webgpu-303.js",
+      "after": "src/instruments/rubixoids/hyper-rubix/hyper-rubix-webgpu-303.js",
+      "sourceSha256": "50e8ed2f3f4aedee5ff275ebf52854f7e4393658e8fe1d14387e64e886c7d3ab",
+      "copySha256": "5825041a75c629d026389ec4b61ea4ac84a6548d6c9fc679f8b92cfd99d8407e",
+      "sourceBytes": 9909,
+      "copyBytes": 9912
+    },
+    {
+      "before": "src/instruments/hyper-rubix/hyper-rubix.css",
+      "after": "src/instruments/rubixoids/hyper-rubix/hyper-rubix.css",
+      "sourceSha256": "cfa10932211885f7aba29db5ba667f75d19cf4472cb19ef482665ff481646b73",
+      "copySha256": "cfa10932211885f7aba29db5ba667f75d19cf4472cb19ef482665ff481646b73",
+      "sourceBytes": 35011,
+      "copyBytes": 35011
+    },
+    {
+      "before": "src/instruments/hyper-rubix/hyper-rubix.js",
+      "after": "src/instruments/rubixoids/hyper-rubix/hyper-rubix.js",
+      "sourceSha256": "c1f80fe167cf2cd601ae2d888746fc68c99e9a48cf55c76139c214424a9d10f8",
+      "copySha256": "c1f80fe167cf2cd601ae2d888746fc68c99e9a48cf55c76139c214424a9d10f8",
+      "sourceBytes": 50929,
+      "copyBytes": 50929
+    },
+    {
+      "before": "src/instruments/hyper-rubix/preset-state.js",
+      "after": "src/instruments/rubixoids/hyper-rubix/preset-state.js",
+      "sourceSha256": "8bc2319cbee3cd96607ff160f407b64090d6c3740bb105a3141a5e0324492d68",
+      "copySha256": "8bc2319cbee3cd96607ff160f407b64090d6c3740bb105a3141a5e0324492d68",
+      "sourceBytes": 1060,
+      "copyBytes": 1060
+    },
+    {
+      "before": "src/instruments/karplus-strong/karplus-strong.js",
+      "after": "src/instruments/rubixoids/karplus-strong/karplus-strong.js",
+      "sourceSha256": "e9f582419a73c39b28cc293add5f372f5931868baedf7982162510fc2de6a199",
+      "copySha256": "62694f7f1b2b937a142bc3849b1a00945dbdf0965ebbad0ebc414cb2a4502701",
+      "sourceBytes": 27301,
+      "copyBytes": 27307
+    },
+    {
+      "before": "src/instruments/linear-drums/linear-drums.js",
+      "after": "src/instruments/rubixoids/linear-drums/linear-drums.js",
+      "sourceSha256": "7ecf1a46482b3f589c6b76a8115cca0a2dbb2069f26f31fafc69c59446008bd4",
+      "copySha256": "7d4d4e4e17170390ea65d9db9f4377aff47b1f7a935ea2002f58dcd5c7da14c5",
+      "sourceBytes": 50628,
+      "copyBytes": 50634
+    },
+    {
+      "before": "src/instruments/rubix/factory-presets.js",
+      "after": "src/instruments/rubixoids/rubix/factory-presets.js",
+      "sourceSha256": "a181ee7138b2c04e781606f39dae6bea4ad4837abede2f26fa8def46131decb0",
+      "copySha256": "a181ee7138b2c04e781606f39dae6bea4ad4837abede2f26fa8def46131decb0",
+      "sourceBytes": 2515,
+      "copyBytes": 2515
+    },
+    {
+      "before": "src/instruments/rubix/full-presets.js",
+      "after": "src/instruments/rubixoids/rubix/full-presets.js",
+      "sourceSha256": "b066ab62cc55eaa1371dd46a2aca0f140db26fc2ab6449e29c49f6948693061f",
+      "copySha256": "c96bab386811320b28a229f9299bdbec75cfc831994725b57b15a39fefb37d13",
+      "sourceBytes": 7738,
+      "copyBytes": 7747
+    },
+    {
+      "before": "src/instruments/rubix/rubix-app.js",
+      "after": "src/instruments/rubixoids/rubix/rubix-app.js",
+      "sourceSha256": "449cccbe2df75b1d21de0d092be67e1cfd39a701aad3d8548ab3321096e3259b",
+      "copySha256": "358211e936c08931cb4da2b989d03df8fd33fc5c55548bf95cbe7db362d978f3",
+      "sourceBytes": 130975,
+      "copyBytes": 130983,
+      "amendments": [
+        {
+          "reason": "Shared Rubixoids clock: preserve native score/DSP while sharing tempo, swing and audio-time phase.",
+          "before": "import { nativeInstrumentContext } from \"../native-context.js\";\nimport { registerHeaderPresets } from \"../../../site/header-presets.js\";\nimport { RUBIX_DEFAULTS as DEFAULTS, RUBIX_FACTORY_PRESETS as RUBIX_PRESETS } from \"./factory-presets.js\";\nimport { RUBIX_FULL_PRESETS, RUBIX_PRESET_SETTING_KEYS, validateRubixFullPreset, randomizeRubixPreset } from \"./full-presets.js\";\nimport {\n  DEFAULT_FM_DRUM_VOICES,\n  FM_DRUM_STORAGE_KEY,\n",
+          "after": "import { nativeInstrumentContext } from \"../native-context.js\";\nimport { rubixoidsClock } from \"../clock.js\";\nimport { registerHeaderPresets } from \"../../../site/header-presets.js\";\nimport { RUBIX_DEFAULTS as DEFAULTS, RUBIX_FACTORY_PRESETS as RUBIX_PRESETS } from \"./factory-presets.js\";\nimport { RUBIX_FULL_PRESETS, RUBIX_PRESET_SETTING_KEYS, validateRubixFullPreset, randomizeRubixPreset } from \"./full-presets.js\";\nimport {\n  DEFAULT_FM_DRUM_VOICES,\n  FM_DRUM_STORAGE_KEY,\n"
+        },
+        {
+          "reason": "Shared Rubixoids clock: preserve native score/DSP while sharing tempo, swing and audio-time phase.",
+          "before": "const document = mountContext?.document ?? globalThis.document;\nconst RUBIXOIDS_EMBEDDED = Boolean(mountContext) || new URLSearchParams(location.search).get(\"embed\") === \"rubixoids\";\nlet rubixoidsEmbeddedActive = true;\nlet rubixoidsHiddenAt = 0;\nlet rubixoidsResumeStep = null;\nlet rubixoidsActivation = 0;\nconst $ = (id) => document.getElementById(id);\nconst clamp = (value, minimum, maximum) => Math.min(maximum, Math.max(minimum, Number(value) || 0));\nconst TAU = Math.PI * 2;\nconst QUARTER_TURN = Math.PI / 2;\nconst LOOKAHEAD_SECONDS = 0.12;\nconst SCHEDULER_INTERVAL_MS = 24;\n",
+          "after": "const document = mountContext?.document ?? globalThis.document;\nconst RUBIXOIDS_EMBEDDED = Boolean(mountContext) || new URLSearchParams(location.search).get(\"embed\") === \"rubixoids\";\nlet rubixoidsEmbeddedActive = true;\nlet rubixoidsHiddenAt = 0;\nlet rubixoidsResumeStep = null;\nlet rubixoidsActivation = 0;\nlet rubixoidsActivating = 0;\nconst $ = (id) => document.getElementById(id);\nconst clamp = (value, minimum, maximum) => Math.min(maximum, Math.max(minimum, Number(value) || 0));\nconst TAU = Math.PI * 2;\nconst QUARTER_TURN = Math.PI / 2;\nconst LOOKAHEAD_SECONDS = 0.12;\nconst SCHEDULER_INTERVAL_MS = 24;\n"
+        },
+        {
+          "reason": "Shared Rubixoids clock: preserve native score/DSP while sharing tempo, swing and audio-time phase.",
+          "before": "let schedulerTimer = null;\nlet randomTwistTimer = null;\nlet lastRandomMove = null;\nlet nextStepTime = 0;\nlet nextStepIndex = 0;\nlet nextSwingStep = 0;\nlet visualTimers = new Set();\nlet visibilityProfile = Object.freeze({});\n\nconst canvas = $(\"stage\");\nconst stageWrap = $(\"stageWrap\");\nconst drawing = canvas.getContext(\"2d\", { alpha: false });\n",
+          "after": "let schedulerTimer = null;\nlet randomTwistTimer = null;\nlet lastRandomMove = null;\nlet nextStepTime = 0;\nlet nextStepIndex = 0;\nlet nextSwingStep = 0;\nlet nextGridOrdinal = null;\nlet clockRevision = -1;\nlet scheduledClockSteps = [];\nlet visualTimers = new Set();\nlet visibilityProfile = Object.freeze({});\n\nconst canvas = $(\"stage\");\nconst stageWrap = $(\"stageWrap\");\nconst drawing = canvas.getContext(\"2d\", { alpha: false });\n"
+        },
+        {
+          "reason": "Shared Rubixoids clock: preserve native score/DSP while sharing tempo, swing and audio-time phase.",
+          "before": "  if (state.playing && changed && audio.context) {\n    if (activeAcidEngine === \"simd-303\") {\n      syncSimd303Pattern({ force: true });\n    } else {\n      if (schedulerTimer !== null) clearTimeout(schedulerTimer);\n      schedulerTimer = null;\n      clearVisualTimers();\n      nextStepTime = audio.context.currentTime + LOOKAHEAD_SECONDS + 0.025;\n      schedulerTick();\n    }\n  }\n  if (shouldAnnounce) {\n    const frame = currentReadFrame();\n    announce(config.roleMode === \"all\"\n",
+          "after": "  if (state.playing && changed && audio.context) {\n    if (activeAcidEngine === \"simd-303\") {\n      syncSimd303Pattern({ force: true });\n    } else {\n      if (schedulerTimer !== null) clearTimeout(schedulerTimer);\n      schedulerTimer = null;\n      cancelQueuedClockSteps({ restoreCursor: false });\n      joinRubixoidsGrid(0);\n      schedulerTick();\n    }\n  }\n  if (shouldAnnounce) {\n    const frame = currentReadFrame();\n    announce(config.roleMode === \"all\"\n"
+        },
+        {
+          "reason": "Shared Rubixoids clock: preserve native score/DSP while sharing tempo, swing and audio-time phase.",
+          "before": "  if (state.playing && audio.context) {\n    if (activeAcidEngine === \"simd-303\") {\n      syncSimd303Pattern({ force: true });\n    } else {\n      if (schedulerTimer !== null) clearTimeout(schedulerTimer);\n      schedulerTimer = null;\n      clearVisualTimers();\n      nextStepTime = audio.context.currentTime + LOOKAHEAD_SECONDS + 0.025;\n      schedulerTick();\n    }\n  }\n  if (shouldAnnounce) {\n    announce(`${currentFormLabel(shape, safeSize)} loaded as a solved visual form. ${safeSize * safeSize} stickers per face; ${currentReadConfig().label.toLowerCase()} uses ${currentReadLengthLabel()}.`);\n  }\n",
+          "after": "  if (state.playing && audio.context) {\n    if (activeAcidEngine === \"simd-303\") {\n      syncSimd303Pattern({ force: true });\n    } else {\n      if (schedulerTimer !== null) clearTimeout(schedulerTimer);\n      schedulerTimer = null;\n      cancelQueuedClockSteps({ restoreCursor: false });\n      joinRubixoidsGrid(0);\n      schedulerTick();\n    }\n  }\n  if (shouldAnnounce) {\n    announce(`${currentFormLabel(shape, safeSize)} loaded as a solved visual form. ${safeSize * safeSize} stickers per face; ${currentReadConfig().label.toLowerCase()} uses ${currentReadLengthLabel()}.`);\n  }\n"
+        },
+        {
+          "reason": "Shared Rubixoids clock: preserve native score/DSP while sharing tempo, swing and audio-time phase.",
+          "before": "  const wasPlaying = state.playing;\n  if (wasPlaying) stopTransport();\n  if (randomTwistTimer !== null) clearTimeout(randomTwistTimer);\n  randomTwistTimer = null;\n  state.presetId = preset.id;\n  Object.assign(state, DEFAULTS, preset.settings, levels);\n  state.simdPresetCustom = Object.entries(rubixSimdPreset(state.simdPreset).controls)\n    .some(([key, value]) => state[key] !== value);\n  setRubixForm({ shapeId: preset.shapeId, size: preset.size }, false);\n  setReadingMode(preset.readingMode, false);\n  await selectSoundBank(state.soundBank, {\n    announceChange: false,\n",
+          "after": "  const wasPlaying = state.playing;\n  if (wasPlaying) stopTransport();\n  if (randomTwistTimer !== null) clearTimeout(randomTwistTimer);\n  randomTwistTimer = null;\n  state.presetId = preset.id;\n  Object.assign(state, DEFAULTS, preset.settings, levels);\n  configureRubixoidsClock();\n  state.simdPresetCustom = Object.entries(rubixSimdPreset(state.simdPreset).controls)\n    .some(([key, value]) => state[key] !== value);\n  setRubixForm({ shapeId: preset.shapeId, size: preset.size }, false);\n  setReadingMode(preset.readingMode, false);\n  await selectSoundBank(state.soundBank, {\n    announceChange: false,\n"
+        },
+        {
+          "reason": "Shared Rubixoids clock: preserve native score/DSP while sharing tempo, swing and audio-time phase.",
+          "before": "}\n\nasync function resetSound() {\n  const wasPlaying = state.playing;\n  if (wasPlaying) stopTransport();\n  Object.assign(state, SOUND_DEFAULTS);\n  state.presetId = \"\";\n  audio.updateSettings(state);\n  audio.setOutput(state.output);\n  setReadingMode(DEFAULT_READING_MODE, false);\n  await selectSoundBank(DEFAULTS.soundBank, {\n    announceChange: false,\n",
+          "after": "}\n\nasync function resetSound() {\n  const wasPlaying = state.playing;\n  if (wasPlaying) stopTransport();\n  Object.assign(state, SOUND_DEFAULTS);\n  refreshRubixoidsClock();\n  state.presetId = \"\";\n  audio.updateSettings(state);\n  audio.setOutput(state.output);\n  setReadingMode(DEFAULT_READING_MODE, false);\n  await selectSoundBank(DEFAULTS.soundBank, {\n    announceChange: false,\n"
+        },
+        {
+          "reason": "Shared Rubixoids clock: preserve native score/DSP while sharing tempo, swing and audio-time phase.",
+          "before": "  }\n  beginTurn(moveFromSticker(sticker, dimension, directionSign), {\n    label: `${dimension === \"horizontal\" ? \"row\" : \"column\"} ${directionSign > 0 ? \"forward\" : \"back\"}`,\n  });\n}\n\nfunction sixteenthDurationSeconds(step = nextSwingStep) {\n  const base = 60 / clamp(state.tempo, TEMPO_MIN_BPM, TEMPO_MAX_BPM) / 4;\n  const swingOffset = clamp(state.swing, 0, 0.42);\n  return base * (step % 2 === 0 ? 1 + swingOffset : 1 - swingOffset);\n}\n\nfunction scheduleVisualStep(step, when) {\n  const delay = Math.max(0, (when - audio.context.currentTime) * 1000);\n  const timer = setTimeout(() => {\n    visualTimers.delete(timer);\n    if (state.playing) updatePlayhead(step);\n  }, delay);\n  visualTimers.add(timer);\n}\n\nfunction schedulerTick() {\n  if (!rubixoidsEmbeddedActive) return;\n  if (!state.playing || !audio.context) return;\n  const now = audio.context.currentTime;\n  if (!Number.isFinite(nextStepTime) || nextStepTime < now - 0.05) {\n    nextStepTime = now + 0.03;\n  }\n  const horizon = now + LOOKAHEAD_SECONDS;\n  let scheduledSteps = 0;\n  while (nextStepTime < horizon && scheduledSteps < 32) {\n    const step = nextStepIndex;\n    const frame = currentReadFrame(step);\n    const subdivisionsPerBeat = currentReadConfig().subdivisionsPerBeat;\n    const beatDuration = sixteenthDurationSeconds();\n    const stepDuration = beatDuration / subdivisionsPerBeat;\n    const acidBankActive = state.soundBank === \"acid-303\";\n    for (const role of frame.activeRoles) {\n      for (const event of performanceEventsForRole(role, frame)) {\n        // Schedule hidden faces too. Their live sticker gates are zero until\n        // revealed; there is no retrigger or old-lookahead leak on camera moves.\n        if (acidBankActive && activeAcidEngine === \"web-audio\") {\n          audio.scheduleAcid(event.value, event.sticker, nextStepTime, beatDuration, state, 0.7);\n        } else if (!acidBankActive) {\n          audio.scheduleDrum(event.value, nextStepTime, 0.8, state.soundBank, event.sticker);\n        }\n      }\n    }\n    scheduleVisualStep(frame.transportStep, nextStepTime);\n    nextStepTime += stepDuration;\n    nextStepIndex = (nextStepIndex + 1) % frame.stepCount;\n    if ((frame.transportStep + 1) % subdivisionsPerBeat === 0) nextSwingStep += 1;\n    scheduledSteps += 1;\n  }\n  schedulerTimer = setTimeout(schedulerTick, SCHEDULER_INTERVAL_MS);\n}\n\nfunction clearVisualTimers() {\n",
+          "after": "  }\n  beginTurn(moveFromSticker(sticker, dimension, directionSign), {\n    label: `${dimension === \"horizontal\" ? \"row\" : \"column\"} ${directionSign > 0 ? \"forward\" : \"back\"}`,\n  });\n}\n\nfunction rubixClockOptions() {\n  return { division: 4, subdivisions: currentReadConfig().subdivisionsPerBeat };\n}\n\nfunction configureRubixoidsClock() {\n  if (!rubixoidsEmbeddedActive) return false;\n  const previous = rubixoidsClock.revision;\n  rubixoidsClock.configure({ tempo: state.tempo, swing: state.swing });\n  return previous !== rubixoidsClock.revision;\n}\n\nfunction attachRubixoidsClock() {\n  if (!rubixoidsEmbeddedActive || !audio.context) return;\n  rubixoidsClock.attach(\"3d\", audio.context);\n  configureRubixoidsClock();\n}\n\nfunction pendingRubixCursor() {\n  const now = audio.context?.currentTime ?? 0;\n  const pending = scheduledClockSteps.find(event => event.when > now + 1e-6);\n  if (activeAcidEngine !== \"simd-303\") return pending?.step ?? nextStepIndex;\n  return simd303Engine?.nextStepAt(now) ?? nextStepIndex;\n}\n\nfunction cancelQueuedClockSteps({ restoreCursor = true } = {}) {\n  const now = audio.context?.currentTime ?? 0;\n  const pending = scheduledClockSteps.find(event => event.when > now + 1e-6);\n  if (restoreCursor && pending) nextStepIndex = pending.step;\n  scheduledClockSteps = scheduledClockSteps.filter(event => event.when <= now + 1e-6);\n  // Cancel attacks already submitted under the old grid, retaining ringing tails.\n  // All native and shared buffer/oscillator voices carry these same timestamps.\n  for (const source of audio.activeSources) {\n    if (!(source.rubixStartAt > now + 1e-6)) continue;\n    try { source.stop(now); } catch { /* already ended */ }\n  }\n  clearVisualTimers();\n}\n\nfunction joinRubixoidsGrid(step = nextStepIndex) {\n  const grid = rubixoidsClock.next({ ...rubixClockOptions(), minTime: rubixoidsClock.now() + 0.012 });\n  nextGridOrdinal = grid.ordinal;\n  nextStepIndex = ((step % currentReadFrame().stepCount) + currentReadFrame().stepCount) % currentReadFrame().stepCount;\n  nextStepTime = rubixoidsClock.audioTime(audio.context, grid.time);\n  nextSwingStep = Math.floor(grid.ordinal / currentReadConfig().subdivisionsPerBeat);\n  clockRevision = rubixoidsClock.revision;\n  return grid;\n}\n\nfunction syncRubixoidsSimdClock({ grid = null, step = null } = {}) {\n  if (!simd303Engine || !audio.context || !rubixoidsEmbeddedActive) return;\n  // A grid anchor also represents the initial Play lead, during which beatAt(now)\n  // is held. Extrapolating from \"now\" there would start the cube one lead ahead.\n  const reference = grid ?? rubixoidsClock.next({ ...rubixClockOptions(), minTime: rubixoidsClock.now() });\n  const audioTime = rubixoidsClock.audioTime(audio.context, reference.time);\n  simd303Engine.syncClock({\n    audioTime, quarterBeat: reference.beat,\n    tempo: rubixoidsClock.tempo, swing: rubixoidsClock.swing,\n    revision: rubixoidsClock.revision,\n    ...(grid ? { startAt: audioTime } : {}),\n    ...(Number.isFinite(step) ? { step } : {}),\n  });\n  clockRevision = rubixoidsClock.revision;\n}\n\nfunction refreshRubixoidsClock() {\n  if (!rubixoidsEmbeddedActive) return;\n  configureRubixoidsClock();\n  // The host may have configured the clock before dispatching this control.\n  if (rubixoidsActivating || clockRevision === rubixoidsClock.revision || !state.playing || !audio.context) return;\n  if (activeAcidEngine === \"simd-303\" && simd303Engine) {\n    syncRubixoidsSimdClock();\n  } else {\n    if (schedulerTimer !== null) clearTimeout(schedulerTimer);\n    schedulerTimer = null;\n    cancelQueuedClockSteps();\n    joinRubixoidsGrid();\n    schedulerTick();\n  }\n}\n\nfunction rubixClockSnapshot() {\n  return {\n    revision: clockRevision, nextGridOrdinal, nextStepTime, nextStepIndex,\n    clock: rubixoidsClock.snapshot(),\n    scheduled: scheduledClockSteps.map(event => ({ ...event })),\n    simd: simd303Engine?.clock ? { ...simd303Engine.clock,\n      scorePhaseOffset: simd303Engine.scorePhaseOffset,\n      currentStep: simd303Engine.currentStepAt(), nextStep: simd303Engine.nextStepAt() } : null,\n  };\n}\n\nfunction scheduleVisualStep(step, when) {\n  const delay = Math.max(0, (when - audio.context.currentTime) * 1000);\n  const timer = setTimeout(() => {\n    visualTimers.delete(timer);\n    if (state.playing) updatePlayhead(step);\n  }, delay);\n  visualTimers.add(timer);\n}\n\nfunction schedulerTick() {\n  if (!rubixoidsEmbeddedActive || !state.playing || !audio.context) return;\n  const now = audio.context.currentTime;\n  if (clockRevision !== rubixoidsClock.revision) {\n    cancelQueuedClockSteps();\n    joinRubixoidsGrid();\n  } else if (nextGridOrdinal === null || !Number.isFinite(nextStepTime) || nextStepTime < now - 0.05) {\n    // Rendering/UI stalls skip stale attacks, then resume on the common grid.\n    cancelQueuedClockSteps();\n    joinRubixoidsGrid();\n  }\n  scheduledClockSteps = scheduledClockSteps.filter(event => event.when >= now - 0.5).slice(-64);\n  const horizon = now + LOOKAHEAD_SECONDS;\n  let scheduledSteps = 0;\n  while (nextStepTime < horizon && scheduledSteps < 32) {\n    const grid = rubixoidsClock.grid(nextGridOrdinal, rubixClockOptions());\n    nextStepTime = rubixoidsClock.audioTime(audio.context, grid.time);\n    if (nextStepTime >= horizon) break;\n    const step = nextStepIndex;\n    const frame = currentReadFrame(step);\n    const acidBankActive = state.soundBank === \"acid-303\";\n    for (const role of frame.activeRoles) {\n      for (const event of performanceEventsForRole(role, frame)) {\n        // Schedule hidden faces too. Live sticker gates still own visibility.\n        if (acidBankActive && activeAcidEngine === \"web-audio\") {\n          audio.scheduleAcid(event.value, event.sticker, nextStepTime, grid.pulseDuration, state, 0.7);\n        } else if (!acidBankActive) {\n          audio.scheduleDrum(event.value, nextStepTime, 0.8, state.soundBank, event.sticker);\n        }\n      }\n    }\n    scheduledClockSteps.push({ step, ordinal: grid.ordinal, when: nextStepTime,\n      time: grid.time, beat: grid.beat, duration: grid.duration, revision: grid.revision });\n    if (scheduledClockSteps.length > 96) scheduledClockSteps.shift();\n    scheduleVisualStep(frame.transportStep, nextStepTime);\n    nextGridOrdinal += 1;\n    nextStepIndex = (nextStepIndex + 1) % frame.stepCount;\n    nextSwingStep = Math.floor(nextGridOrdinal / currentReadConfig().subdivisionsPerBeat);\n    nextStepTime = rubixoidsClock.audioTime(audio.context, rubixoidsClock.grid(nextGridOrdinal, rubixClockOptions()).time);\n    scheduledSteps += 1;\n  }\n  schedulerTimer = setTimeout(schedulerTick, SCHEDULER_INTERVAL_MS);\n}\n\nfunction clearVisualTimers() {\n"
+        },
+        {
+          "reason": "Shared Rubixoids clock: preserve native score/DSP while sharing tempo, swing and audio-time phase.",
+          "before": "  simd303Engine = null;\n  if (starting && starting !== engine) await starting.stop().catch(() => {});\n  setActiveAcidEngine(\"web-audio\");\n  if (engine) await engine.stop().catch(() => {});\n}\n\nasync function fallbackFromSimd303(error) {\n  const wasSelected = state.acidEngine === \"simd-303\";\n  if (error) {\n    simd303FailureMessage = \"SIMD 303 could not start or continue \u00b7 using Web Audio 303\";\n  }\n  state.acidEngine = \"web-audio\";\n  await stopSimd303Engine();\n  if (state.playing && audio.context) {\n    if (schedulerTimer !== null) clearTimeout(schedulerTimer);\n    clearVisualTimers();\n    nextStepIndex = state.currentStep;\n    nextStepTime = audio.context.currentTime + 0.012;\n    schedulerTick();\n  }\n  updateReadouts();\n  setAudioState(state.audioOn);\n  if (wasSelected) {\n    announce(\"SIMD 303 could not continue. Using the classic Web Audio 303.\");\n",
+          "after": "  simd303Engine = null;\n  if (starting && starting !== engine) await starting.stop().catch(() => {});\n  setActiveAcidEngine(\"web-audio\");\n  if (engine) await engine.stop().catch(() => {});\n}\n\nasync function fallbackFromSimd303(error, { schedule = true } = {}) {\n  const resumeStep = pendingRubixCursor();\n  const wasSelected = state.acidEngine === \"simd-303\";\n  if (error) {\n    simd303FailureMessage = \"SIMD 303 could not start or continue \u00b7 using Web Audio 303\";\n  }\n  state.acidEngine = \"web-audio\";\n  await stopSimd303Engine();\n  if (schedule && !rubixoidsActivating && rubixoidsEmbeddedActive && state.playing && audio.context) {\n    if (schedulerTimer !== null) clearTimeout(schedulerTimer);\n    cancelQueuedClockSteps({ restoreCursor: false });\n    joinRubixoidsGrid(resumeStep);\n    schedulerTick();\n  }\n  updateReadouts();\n  setAudioState(state.audioOn);\n  if (wasSelected) {\n    announce(\"SIMD 303 could not continue. Using the classic Web Audio 303.\");\n"
+        },
+        {
+          "reason": "Shared Rubixoids clock: preserve native score/DSP while sharing tempo, swing and audio-time phase.",
+          "before": "    ) {\n      await candidate.stop().catch(() => {});\n      return false;\n    }\n    simd303Engine = candidate;\n    candidate.setStepHandler((step) => {\n      if (simd303Engine === candidate && state.playing) updatePlayhead(step);\n    });\n    candidate.updateVisibility(visibilityProfile, state.visibilityDynamics);\n    simd303PatternKey = simd303PatternFingerprint(pattern);\n    candidate.setErrorHandler((renderError) => {\n      if (simd303Engine === candidate) void fallbackFromSimd303(renderError);\n    });\n",
+          "after": "    ) {\n      await candidate.stop().catch(() => {});\n      return false;\n    }\n    simd303Engine = candidate;\n    candidate.setStepHandler((step) => {\n      if (simd303Engine !== candidate || !state.playing) return;\n      nextStepIndex = (step + 1) % currentReadFrame().stepCount;\n      updatePlayhead(step);\n    });\n    candidate.updateVisibility(visibilityProfile, state.visibilityDynamics);\n    simd303PatternKey = simd303PatternFingerprint(pattern);\n    candidate.setErrorHandler((renderError) => {\n      if (simd303Engine === candidate) void fallbackFromSimd303(renderError);\n    });\n"
+        },
+        {
+          "reason": "Shared Rubixoids clock: preserve native score/DSP while sharing tempo, swing and audio-time phase.",
+          "before": "    if (generation !== audioLifecycleGeneration || context !== audio.context) return false;\n    audio.setOutput(state.output);\n    setActiveAcidEngine(\"web-audio\");\n    await activateSelectedSoundBank({ audioEnabled: true });\n    if (generation !== audioLifecycleGeneration || context !== audio.context) return false;\n    setAudioState(true);\n    if (!rubixoidsEmbeddedActive) {\n      audio.setOutput(0);\n      audio.setTransportActive(false);\n      await context.suspend();\n    }\n    return true;\n  }).catch((error) => {\n    if (generation === audioLifecycleGeneration && error?.name !== \"AbortError\") showError(error);\n    return false;\n  }).finally(() => {\n    if (audioStartPromise === pending) audioStartPromise = null;\n  });\n  audioStartPromise = pending;\n  return pending;\n",
+          "after": "    if (generation !== audioLifecycleGeneration || context !== audio.context) return false;\n    audio.setOutput(state.output);\n    setActiveAcidEngine(\"web-audio\");\n    await activateSelectedSoundBank({ audioEnabled: true });\n    if (generation !== audioLifecycleGeneration || context !== audio.context) return false;\n    setAudioState(true);\n    if (rubixoidsEmbeddedActive) attachRubixoidsClock();\n    if (!rubixoidsEmbeddedActive) {\n      rubixoidsClock.detach(\"3d\");\n      audio.setOutput(0);\n      audio.setTransportActive(false);\n      await context.suspend();\n    }\n    return true;\n  }).catch((error) => {\n    if (generation === audioLifecycleGeneration) {\n      rubixoidsClock.detach(\"3d\");\n      if (error?.name !== \"AbortError\") showError(error);\n    }\n    return false;\n  }).finally(() => {\n    if (audioStartPromise === pending) audioStartPromise = null;\n  });\n  audioStartPromise = pending;\n  return pending;\n"
+        },
+        {
+          "reason": "Shared Rubixoids clock: preserve native score/DSP while sharing tempo, swing and audio-time phase.",
+          "before": "  stopTransport();\n  soundBankLifecycleGeneration += 1;\n  soundBankTransportResumeRequested = false;\n  audioLifecycleGeneration += 1;\n  audioStartPromise = null;\n  setAudioState(false);\n  await stopSimd303Engine();\n  await audio.close().catch(() => {});\n}\n\nasync function startTransport({ restart = false } = {}) {\n  if (!rubixoidsEmbeddedActive) return false;\n  if (state.playing && !restart) return;\n  if (!state.audioOn || !audio.context) {\n    announce(\"Turn Audio on before playing the Rubix sequencer.\");\n    return false;\n  }\n  const generation = ++transportLifecycleGeneration;\n  if (schedulerTimer !== null) clearTimeout(schedulerTimer);\n  clearVisualTimers();\n  let transportStartTime = audio.context.currentTime + 0.055;\n  const simdEngine = simd303Engine;\n  if (\n    state.soundBank === \"acid-303\"\n    && activeAcidEngine === \"simd-303\"\n    && simdEngine\n  ) {\n    try {\n      // Audio preparation already configured unchanged patterns. Validate edits\n      // through the existing cache without rebuilding all six voices on Play.\n      syncSimd303Pattern();\n      simdEngine.setPlaybackEnabled(false);\n      const simdStartTime = await simdEngine.restartTimeline({\n        startAt: audio.context.currentTime + 0.012,\n        offset: 0,\n      });\n      if (\n        generation !== transportLifecycleGeneration\n        || !state.audioOn\n        || state.soundBank !== \"acid-303\"\n        || simdEngine !== simd303Engine\n        || activeAcidEngine !== \"simd-303\"\n      ) return false;\n      if (Number.isFinite(simdStartTime)) transportStartTime = simdStartTime;\n      simdEngine.setPlaybackEnabled(true);\n    } catch (error) {\n      await fallbackFromSimd303(error);\n      transportStartTime = audio.context.currentTime + 0.055;\n    }\n  }\n  if (generation !== transportLifecycleGeneration || !state.audioOn || !audio.context || !rubixoidsEmbeddedActive) return false;\n  state.playing = true;\n  nextStepIndex = 0;\n  nextSwingStep = 0;\n  nextStepTime = transportStartTime;\n  audio.setTransportActive(true);\n  $(\"playButton\").setAttribute(\"aria-pressed\", \"true\");\n  $(\"playLabel\").textContent = \"Pause cube\";\n  $(\"playState\").textContent = `${Math.round(state.tempo)} BPM \u00b7 running`;\n  if (activeAcidEngine !== \"simd-303\") schedulerTick();\n  announce(restart ? \"Rubix loop restarted at step one.\" : \"Rubix sequencer playing.\");\n  return true;\n}\n\nfunction stopTransport() {\n  transportLifecycleGeneration += 1;\n  state.playing = false;\n  if (schedulerTimer !== null) clearTimeout(schedulerTimer);\n  schedulerTimer = null;\n  clearVisualTimers();\n  simd303Engine?.setPlaybackEnabled(false);\n  simd303Engine?.pauseTimeline();\n  audio.setTransportActive(false);\n  $(\"playButton\").setAttribute(\"aria-pressed\", \"false\");\n  $(\"playLabel\").textContent = \"Play cube\";\n  $(\"playState\").textContent = currentReadLengthLabel();\n",
+          "after": "  stopTransport();\n  soundBankLifecycleGeneration += 1;\n  soundBankTransportResumeRequested = false;\n  audioLifecycleGeneration += 1;\n  audioStartPromise = null;\n  setAudioState(false);\n  rubixoidsClock.detach(\"3d\");\n  await stopSimd303Engine();\n  await audio.close().catch(() => {});\n}\n\nasync function startTransport({ restart = false, resetCursor = false } = {}) {\n  if (!rubixoidsEmbeddedActive || rubixoidsActivating) return false;\n  if (state.playing && !restart) return;\n  if (!state.audioOn || !audio.context) {\n    announce(\"Turn Audio on before playing the Rubix sequencer.\");\n    return false;\n  }\n  const generation = ++transportLifecycleGeneration;\n  if (schedulerTimer !== null) clearTimeout(schedulerTimer);\n  schedulerTimer = null;\n  cancelQueuedClockSteps();\n  if (resetCursor) nextStepIndex = 0;\n  attachRubixoidsClock();\n  rubixoidsClock.play();\n  let grid = joinRubixoidsGrid();\n  let transportStartTime = nextStepTime;\n  const simdEngine = simd303Engine;\n  if (\n    state.soundBank === \"acid-303\"\n    && activeAcidEngine === \"simd-303\"\n    && simdEngine\n  ) {\n    try {\n      // Audio preparation already configured unchanged patterns. Validate edits\n      // through the existing cache without rebuilding all six voices on Play.\n      syncSimd303Pattern();\n      simdEngine.setPlaybackEnabled(false);\n      syncRubixoidsSimdClock({ grid, step: nextStepIndex });\n      const simdStartTime = nextStepTime;\n      if (\n        generation !== transportLifecycleGeneration\n        || !state.audioOn\n        || state.soundBank !== \"acid-303\"\n        || simdEngine !== simd303Engine\n        || activeAcidEngine !== \"simd-303\"\n      ) return false;\n      if (Number.isFinite(simdStartTime)) transportStartTime = simdStartTime;\n      simdEngine.setPlaybackEnabled(true);\n    } catch (error) {\n      await fallbackFromSimd303(error, { schedule: false });\n      grid = joinRubixoidsGrid();\n      transportStartTime = nextStepTime;\n    }\n  }\n  if (generation !== transportLifecycleGeneration || !state.audioOn || !audio.context || !rubixoidsEmbeddedActive) return false;\n  state.playing = true;\n  nextStepTime = transportStartTime;\n  audio.setTransportActive(true);\n  $(\"playButton\").setAttribute(\"aria-pressed\", \"true\");\n  $(\"playLabel\").textContent = \"Pause cube\";\n  $(\"playState\").textContent = `${Math.round(state.tempo)} BPM \u00b7 running`;\n  if (activeAcidEngine !== \"simd-303\") schedulerTick();\n  announce(resetCursor ? \"Rubix loop restarted at step one.\" : \"Rubix sequencer playing.\");\n  return true;\n}\n\nfunction stopTransport() {\n  transportLifecycleGeneration += 1;\n  if (state.playing) nextStepIndex = pendingRubixCursor();\n  state.playing = false;\n  if (schedulerTimer !== null) clearTimeout(schedulerTimer);\n  schedulerTimer = null;\n  clearVisualTimers();\n  scheduledClockSteps = [];\n  nextGridOrdinal = null;\n  simd303Engine?.setPlaybackEnabled(false);\n  simd303Engine?.pauseTimeline();\n  audio.setTransportActive(false);\n  $(\"playButton\").setAttribute(\"aria-pressed\", \"false\");\n  $(\"playLabel\").textContent = \"Play cube\";\n  $(\"playState\").textContent = currentReadLengthLabel();\n"
+        },
+        {
+          "reason": "Shared Rubixoids clock: preserve native score/DSP while sharing tempo, swing and audio-time phase.",
+          "before": "    const output = $(`${id}Out`);\n    if (output) output.textContent = format(state[key]);\n    onInput(state[key]);\n    audio.updateSettings(state);\n    updateReadouts();\n    syncSimd303Pattern();\n  });\n}\n\n\n$(\"audioButton\").addEventListener(\"click\", async () => {\n  if (state.audioOn) {\n",
+          "after": "    const output = $(`${id}Out`);\n    if (output) output.textContent = format(state[key]);\n    onInput(state[key]);\n    audio.updateSettings(state);\n    updateReadouts();\n    syncSimd303Pattern();\n    if (key === \"tempo\" || key === \"swing\") refreshRubixoidsClock();\n  });\n}\n\n\n$(\"audioButton\").addEventListener(\"click\", async () => {\n  if (state.audioOn) {\n"
+        },
+        {
+          "reason": "Shared Rubixoids clock: preserve native score/DSP while sharing tempo, swing and audio-time phase.",
+          "before": "  void resetSound();\n});\n\n$(\"restartLoop\").addEventListener(\"click\", async () => {\n  if (state.playing) {\n    stopTransport();\n    await startTransport({ restart: true });\n  } else {\n    nextStepIndex = 0;\n    nextSwingStep = 0;\n    updatePlayhead(0);\n    announce(\"Rubix playhead returned to step one.\");\n  }\n",
+          "after": "  void resetSound();\n});\n\n$(\"restartLoop\").addEventListener(\"click\", async () => {\n  if (state.playing) {\n    stopTransport();\n    await startTransport({ restart: true, resetCursor: true });\n  } else {\n    nextStepIndex = 0;\n    nextSwingStep = 0;\n    updatePlayhead(0);\n    announce(\"Rubix playhead returned to step one.\");\n  }\n"
+        },
+        {
+          "reason": "Shared Rubixoids clock: preserve native score/DSP while sharing tempo, swing and audio-time phase.",
+          "before": "  simd303LifecycleGeneration += 1;\n  simd303StartPromise = null;\n  simd303PatternKey = \"\";\n  const simdEngine = simd303Engine;\n  simd303Engine = null;\n  setAudioState(false);\n  void (async () => {\n    await simdEngine?.stop().catch(() => {});\n    await simd303StartingEngine?.stop().catch(() => {});\n    simd303StartingEngine = null;\n    await audio.close().catch(() => {});\n  })();\n",
+          "after": "  simd303LifecycleGeneration += 1;\n  simd303StartPromise = null;\n  simd303PatternKey = \"\";\n  const simdEngine = simd303Engine;\n  simd303Engine = null;\n  setAudioState(false);\n  rubixoidsClock.detach(\"3d\");\n  void (async () => {\n    await simdEngine?.stop().catch(() => {});\n    await simd303StartingEngine?.stop().catch(() => {});\n    simd303StartingEngine = null;\n    await audio.close().catch(() => {});\n  })();\n"
+        },
+        {
+          "reason": "Shared Rubixoids clock: preserve native score/DSP while sharing tempo, swing and audio-time phase.",
+          "before": "        visible, points: points.map((point) => ({ ...point })),\n      })) },\n    })),\n    viewport: { width: cssWidth, height: cssHeight },\n    compressorReduction: audio.compressor?.reduction ?? 0,\n    sharedVoices: audio.sharedVoices.diagnostics(),\n    simdVoices: simd303Engine?.faceCount ?? 0,\n    simdBackend: simd303Engine?.backend ?? \"none\",\n    simdStatus: simd303Engine?.lastStatus ?? null,\n    simdTimelineStart: simd303Engine?.timelineStart ?? null,\n    audioTime: now,\n    acidEngine: state.acidEngine,\n",
+          "after": "        visible, points: points.map((point) => ({ ...point })),\n      })) },\n    })),\n    viewport: { width: cssWidth, height: cssHeight },\n    compressorReduction: audio.compressor?.reduction ?? 0,\n    sharedVoices: audio.sharedVoices.diagnostics(),\n    timing: rubixClockSnapshot(),\n    simdVoices: simd303Engine?.faceCount ?? 0,\n    simdBackend: simd303Engine?.backend ?? \"none\",\n    simdStatus: simd303Engine?.lastStatus ?? null,\n    simdTimelineStart: simd303Engine?.timelineStart ?? null,\n    audioTime: now,\n    acidEngine: state.acidEngine,\n"
+        },
+        {
+          "reason": "Shared Rubixoids clock: preserve native score/DSP while sharing tempo, swing and audio-time phase.",
+          "before": "    syncReadingModeControls();\n    updateSnapshot();\n    state.selectedStickerId = sequenceSnapshot.lanes.acid[middleFaceIndex()].id;\n    renderColorKey(); renderStepStrip(); updateReadouts(); updateSelectedUi(); updateCanvasAriaLabel();\n    if (state.randomTwists) scheduleRandomTwists();\n    syncSimd303Pattern({ force: true });\n    if (state.audioOn && needsActivation) {\n      const revision = soundBankLifecycleGeneration;\n      void activateSelectedSoundBank().then(() => {\n        if (revision !== soundBankLifecycleGeneration || !state.audioOn || !state.playing) return;\n        // Backend activation may need a new sample-clock origin, but never\n        // changes Audio or the user's performer levels.\n",
+          "after": "    syncReadingModeControls();\n    updateSnapshot();\n    state.selectedStickerId = sequenceSnapshot.lanes.acid[middleFaceIndex()].id;\n    renderColorKey(); renderStepStrip(); updateReadouts(); updateSelectedUi(); updateCanvasAriaLabel();\n    if (state.randomTwists) scheduleRandomTwists();\n    syncSimd303Pattern({ force: true });\n    refreshRubixoidsClock();\n    if (state.audioOn && needsActivation) {\n      const revision = soundBankLifecycleGeneration;\n      void activateSelectedSoundBank().then(() => {\n        if (revision !== soundBankLifecycleGeneration || !state.audioOn || !state.playing) return;\n        // Backend activation may need a new sample-clock origin, but never\n        // changes Audio or the user's performer levels.\n"
+        },
+        {
+          "reason": "Shared Rubixoids clock: preserve native score/DSP while sharing tempo, swing and audio-time phase.",
+          "before": "        randomTwists: state.randomTwists, nextStepIndex, nextSwingStep,\n      })),\n      diagnostics: {\n        contextState: audio.context?.state ?? \"none\", schedulerActive: schedulerTimer !== null,\n        animationActive: Boolean(scheduledFrame), autoMotionActive: randomTwistTimer !== null,\n        simdBackend: simd303Engine?.backend ?? \"none\", activeSources: audio.activeSources.size,\n      },\n    };\n  },\n  async applySettings(patch = {}) {\n    for (const [key, value] of Object.entries(patch)) {\n      if (key === \"soundBank\") { await selectSoundBank(value, { announceChange: false }); continue; }\n",
+          "after": "        randomTwists: state.randomTwists, nextStepIndex, nextSwingStep,\n      })),\n      diagnostics: {\n        contextState: audio.context?.state ?? \"none\", schedulerActive: schedulerTimer !== null,\n        animationActive: Boolean(scheduledFrame), autoMotionActive: randomTwistTimer !== null,\n        simdBackend: simd303Engine?.backend ?? \"none\", activeSources: audio.activeSources.size,\n        timing: rubixClockSnapshot(),\n      },\n    };\n  },\n  async applySettings(patch = {}) {\n    for (const [key, value] of Object.entries(patch)) {\n      if (key === \"soundBank\") { await selectSoundBank(value, { announceChange: false }); continue; }\n"
+        },
+        {
+          "reason": "Shared Rubixoids clock: preserve native score/DSP while sharing tempo, swing and audio-time phase.",
+          "before": "  async deactivate() {\n    if (!RUBIXOIDS_EMBEDDED || !rubixoidsEmbeddedActive) return this.capture();\n    const resumePlaying = state.playing || soundBankTransportResumeRequested;\n    rubixoidsEmbeddedActive = false;\n    rubixoidsActivation += 1;\n    rubixoidsHiddenAt = performance.now();\n    rubixoidsResumeStep = resumePlaying\n      ? (state.currentStep + 1) % currentReadFrame().stepCount : null;\n    if (schedulerTimer !== null) clearTimeout(schedulerTimer);\n    schedulerTimer = null;\n    clearVisualTimers();\n    if (randomTwistTimer !== null) clearTimeout(randomTwistTimer);\n    randomTwistTimer = null;\n    if (scheduledFrame) cancelAnimationFrame(scheduledFrame);\n",
+          "after": "  async deactivate() {\n    if (!RUBIXOIDS_EMBEDDED || !rubixoidsEmbeddedActive) return this.capture();\n    const resumePlaying = state.playing || soundBankTransportResumeRequested;\n    rubixoidsEmbeddedActive = false;\n    rubixoidsActivation += 1;\n    rubixoidsHiddenAt = performance.now();\n    rubixoidsResumeStep = resumePlaying ? pendingRubixCursor() : nextStepIndex;\n    nextStepIndex = rubixoidsResumeStep;\n    scheduledClockSteps = [];\n    nextGridOrdinal = null;\n    rubixoidsClock.detach(\"3d\");\n    if (schedulerTimer !== null) clearTimeout(schedulerTimer);\n    schedulerTimer = null;\n    clearVisualTimers();\n    if (randomTwistTimer !== null) clearTimeout(randomTwistTimer);\n    randomTwistTimer = null;\n    if (scheduledFrame) cancelAnimationFrame(scheduledFrame);\n"
+        },
+        {
+          "reason": "Shared Rubixoids clock: preserve native score/DSP while sharing tempo, swing and audio-time phase.",
+          "before": "      await audio.context.suspend();\n    }\n    return this.capture();\n  },\n  async activate({ audioOn = state.audioOn, playing = state.playing } = {}) {\n    const generation = ++rubixoidsActivation;\n    const wasHidden = !rubixoidsEmbeddedActive;\n    rubixoidsEmbeddedActive = true;\n    if (wasHidden && turnAnimation) turnAnimation.startedAt += performance.now() - rubixoidsHiddenAt;\n    if (audioOn && !state.audioOn) await enableAudio();\n    if (!audioOn && state.audioOn) await disableAudio();\n    if (generation !== rubixoidsActivation || !rubixoidsEmbeddedActive) return this.capture();\n    if (state.audioOn && audio.context) {\n      await audio.context.resume();\n      if (generation !== rubixoidsActivation || !rubixoidsEmbeddedActive) return this.capture();\n      audio.setOutput(state.output);\n    }\n    state.playing = Boolean(playing && state.audioOn && audio.context);\n    if (state.playing) {\n      nextStepIndex = rubixoidsResumeStep ?? state.currentStep;\n      nextStepTime = audio.context.currentTime + 0.045;\n      audio.setTransportActive(true);\n      if (activeAcidEngine === \"simd-303\" && simd303Engine) {\n        const divisions = currentReadConfig().subdivisionsPerBeat;\n        const rate = clamp(state.tempo, TEMPO_MIN_BPM, TEMPO_MAX_BPM) / 60 * 4;\n        const beat = nextStepIndex / divisions;\n        const pair = Math.floor(beat / 2);\n        const within = beat - pair * 2;\n        const swing = clamp(state.swing, 0, 0.42);\n        const offset = (pair * 2 + (within < 1 ? within * (1 + swing) : 1 + swing + (within - 1) * (1 - swing))) / rate;\n        await simd303Engine.restartTimeline({ startAt: nextStepTime, offset });\n        if (generation !== rubixoidsActivation || !rubixoidsEmbeddedActive) return this.capture();\n        simd303Engine.setPlaybackEnabled(true);\n      } else schedulerTick();\n    } else {\n      audio.setTransportActive(false);\n      simd303Engine?.pauseTimeline();\n    }\n    $(\"playButton\").setAttribute(\"aria-pressed\", String(state.playing));\n    $(\"playLabel\").textContent = state.playing ? \"Pause cube\" : \"Play cube\";\n    $(\"playState\").textContent = state.playing ? `${Math.round(state.tempo)} BPM \u00b7 running` : currentReadLengthLabel();\n    if (state.randomTwists && randomTwistTimer === null) scheduleRandomTwists();\n    resizeCanvas();\n    requestDraw();\n    return this.capture();\n  },\n};\nif (RUBIXOIDS_EMBEDDED && !mountContext) globalThis.rubixoidsNative = rubixoidsNative;\n",
+          "after": "      await audio.context.suspend();\n    }\n    return this.capture();\n  },\n  async activate({ audioOn = state.audioOn, playing = state.playing } = {}) {\n    const generation = ++rubixoidsActivation;\n    rubixoidsActivating = generation;\n    try {\n      const wasHidden = !rubixoidsEmbeddedActive;\n      rubixoidsEmbeddedActive = true;\n      if (wasHidden && turnAnimation) turnAnimation.startedAt += performance.now() - rubixoidsHiddenAt;\n      if (audioOn && !state.audioOn) await enableAudio();\n      if (!audioOn && state.audioOn) await disableAudio();\n      if (generation !== rubixoidsActivation || !rubixoidsEmbeddedActive) return this.capture();\n      if (state.audioOn && audio.context) {\n        await audio.context.resume();\n        if (generation !== rubixoidsActivation || !rubixoidsEmbeddedActive) return this.capture();\n        audio.setOutput(state.output);\n      }\n      configureRubixoidsClock();\n      state.playing = Boolean(playing && state.audioOn && audio.context);\n      if (state.playing) {\n        attachRubixoidsClock();\n        rubixoidsClock.play();\n        // Activation owns one scheduling pass, including slow preparation/fallback.\n        if (schedulerTimer !== null) clearTimeout(schedulerTimer);\n        schedulerTimer = null;\n        cancelQueuedClockSteps({ restoreCursor: false });\n        const grid = joinRubixoidsGrid(rubixoidsResumeStep ?? nextStepIndex);\n        rubixoidsResumeStep = null;\n        audio.setTransportActive(true);\n        if (activeAcidEngine === \"simd-303\" && simd303Engine) {\n          syncRubixoidsSimdClock({ grid, step: nextStepIndex });\n          if (generation !== rubixoidsActivation || !rubixoidsEmbeddedActive) return this.capture();\n          simd303Engine.setPlaybackEnabled(true);\n        } else schedulerTick();\n      } else {\n        if (state.audioOn && audio.context) attachRubixoidsClock();\n        audio.setTransportActive(false);\n        simd303Engine?.pauseTimeline();\n      }\n      $(\"playButton\").setAttribute(\"aria-pressed\", String(state.playing));\n      $(\"playLabel\").textContent = state.playing ? \"Pause cube\" : \"Play cube\";\n      $(\"playState\").textContent = state.playing ? `${Math.round(state.tempo)} BPM \u00b7 running` : currentReadLengthLabel();\n      if (state.randomTwists && randomTwistTimer === null) scheduleRandomTwists();\n      resizeCanvas();\n      requestDraw();\n      return this.capture();\n    } finally {\n      if (rubixoidsActivating === generation) rubixoidsActivating = 0;\n    }\n  },\n};\nif (RUBIXOIDS_EMBEDDED && !mountContext) globalThis.rubixoidsNative = rubixoidsNative;\n"
+        }
+      ]
+    },
+    {
+      "before": "src/instruments/rubix/rubix-mix.js",
+      "after": "src/instruments/rubixoids/rubix/rubix-mix.js",
+      "sourceSha256": "fbbe571dfd04a1195fdf98421b03d18746c0b9637049c6181ec4c8bb014a9988",
+      "copySha256": "fbbe571dfd04a1195fdf98421b03d18746c0b9637049c6181ec4c8bb014a9988",
+      "sourceBytes": 3791,
+      "copyBytes": 3791
+    },
+    {
+      "before": "src/instruments/rubix/rubix-percussion.js",
+      "after": "src/instruments/rubixoids/rubix/rubix-percussion.js",
+      "sourceSha256": "c18ef23b16c2abe134231eb81da4d6072121646c9606694f472efcd0ce86db3f",
+      "copySha256": "c18ef23b16c2abe134231eb81da4d6072121646c9606694f472efcd0ce86db3f",
+      "sourceBytes": 3607,
+      "copyBytes": 3607
+    },
+    {
+      "before": "src/instruments/rubix/rubix-simd-303-processor.js",
+      "after": "src/instruments/rubixoids/rubix/rubix-simd-303-processor.js",
+      "sourceSha256": "8e0274c3a80fc7f74f831f6d980e385ac8d5de17b79104c197ca064620e80254",
+      "copySha256": "a0900e6cf68385b96771d8d0baef58cedc7345ff70318bf5530e20b2f982056c",
+      "sourceBytes": 11553,
+      "copyBytes": 11556,
+      "amendments": [
+        {
+          "reason": "Shared Rubixoids clock: preserve native score/DSP while sharing tempo, swing and audio-time phase.",
+          "before": "// simd-303.js is browser-global-free at import time. Reuse its actual Wasm ABI\n// views and configuration writer, rather than maintaining a second synth model.\nimport { createSimd303KernelViews, writeSimd303Configuration } from \"../../../simd-303.js\";\n\nconst BLOCK_SIZE = 128;\nconst MAX_STICKERS = 216;\nconst finite = (value, fallback = 0) => Number.isFinite(Number(value)) ? Number(value) : fallback;\nconst unit = (value) => Math.max(0, Math.min(1, finite(value)));\n\n/** Piecewise-linear swung transport, split at note boundaries before rendering. */\nexport function rubixSimdClock(beat, rate, swing, divisions = 1) {\n  const pair = Math.floor(beat / 2);\n  const within = beat - pair * 2;\n  const long = within < 1 + swing;\n  const duration = long ? 1 + swing : 1 - swing;\n  const phase = (pair * 2 + (long ? within / duration : 1 + (within - 1 - swing) / duration)) * divisions;\n  const slope = rate * divisions / duration;\n  return { phase, slope, secondsToNext: (Math.floor(phase + 1e-9) + 1 - phase) / slope };\n}\n\nexport class RubixSimd303Processor extends AudioWorkletProcessor {\n  constructor() {\n",
+          "after": "// simd-303.js is browser-global-free at import time. Reuse its actual Wasm ABI\n// views and configuration writer, rather than maintaining a second synth model.\nimport { createSimd303KernelViews, writeSimd303Configuration } from \"../../../simd-303.js\";\nimport { rubixSimdClock } from \"./rubix-clock.js\";\nexport { rubixSimdClock } from \"./rubix-clock.js\";\n\nconst BLOCK_SIZE = 128;\nconst MAX_STICKERS = 216;\nconst finite = (value, fallback = 0) => Number.isFinite(Number(value)) ? Number(value) : fallback;\nconst unit = (value) => Math.max(0, Math.min(1, finite(value)));\n\nexport class RubixSimd303Processor extends AudioWorkletProcessor {\n  constructor() {\n"
+        },
+        {
+          "reason": "Shared Rubixoids clock: preserve native score/DSP while sharing tempo, swing and audio-time phase.",
+          "before": "    this.visibility = {};\n    this.timbres = {};\n    this.beat = 0;\n    this.elapsed = 0;\n    this.startAt = Infinity;\n    this.lastStep = -1;\n",
+          "after": "    this.visibility = {};\n    this.timbres = {};\n    this.beat = 0;\n    this.externalClock = null;\n    this.scorePhaseOffset = 0;\n    this.elapsed = 0;\n    this.startAt = Infinity;\n    this.lastStep = -1;\n"
+        },
+        {
+          "reason": "Shared Rubixoids clock: preserve native score/DSP while sharing tempo, swing and audio-time phase.",
+          "before": "    const oldGains = new Map(this.ids.map((id, index) => [id, this.gains[index]]));\n    const oldTone = new Map(this.ids.map((id, index) => [id, [this.filters[index], this.pans[index]]]));\n    const oldBeatCount = this.stepCount ? this.stepCount / this.divisions : null;\n    this.ids = ids;\n    this.gains.fill(0);\n    this.targets.fill(0);\n",
+          "after": "    const oldGains = new Map(this.ids.map((id, index) => [id, this.gains[index]]));\n    const oldTone = new Map(this.ids.map((id, index) => [id, [this.filters[index], this.pans[index]]]));\n    const oldBeatCount = this.stepCount ? this.stepCount / this.divisions : null;\n    const oldDivisions = this.divisions;\n    this.ids = ids;\n    this.gains.fill(0);\n    this.targets.fill(0);\n"
+        },
+        {
+          "reason": "Shared Rubixoids clock: preserve native score/DSP while sharing tempo, swing and audio-time phase.",
+          "before": "    const first = faces[0];\n    this.divisions = first.divisions === 3 ? 3 : 1;\n    this.stepCount = first.stepStickerIds.length;\n    this.rate = Math.max(2, Math.min(20, first.configuration.params.timeScale / this.divisions));\n    this.swing = Math.max(0, Math.min(0.42, first.configuration.params.swing));\n    if (oldBeatCount && oldBeatCount !== this.stepCount / this.divisions) {\n      this.beat %= this.stepCount / this.divisions;\n    }\n    this.setVisibility(this.visibility);\n    this.setTimbres(this.timbres);\n",
+          "after": "    const first = faces[0];\n    this.divisions = first.divisions === 3 ? 3 : 1;\n    this.stepCount = first.stepStickerIds.length;\n    if (this.externalClock) {\n      // Score edits retain the host's unbounded beat and global swing parity.\n      // An integer offset keeps all note boundaries on the shared grid when\n      // changing between parallel steps and three opposite-face subdivisions.\n      if (oldDivisions && oldDivisions !== this.divisions) {\n        this.scorePhaseOffset = Math.round(this.scorePhaseOffset / oldDivisions * this.divisions);\n      }\n    } else {\n      this.rate = Math.max(2, Math.min(20, first.configuration.params.timeScale / this.divisions));\n      this.swing = Math.max(0, Math.min(0.42, first.configuration.params.swing));\n      if (oldBeatCount && oldBeatCount !== this.stepCount / this.divisions) {\n        this.beat %= this.stepCount / this.divisions;\n      }\n    }\n    this.setVisibility(this.visibility);\n    this.setTimbres(this.timbres);\n"
+        },
+        {
+          "reason": "Shared Rubixoids clock: preserve native score/DSP while sharing tempo, swing and audio-time phase.",
+          "before": "      this.output = unit(message.value) * 0.7;\n    } else if (message.type === \"playback\") {\n      this.enabled = Boolean(message.enabled);\n    } else if (message.type === \"restart\") {\n      this.startAt = Math.max(currentTime, finite(message.startAt, currentTime));\n      this.beat = Math.max(0, finite(message.offset)) * this.rate;\n      this.elapsed = Math.max(0, finite(message.offset));\n",
+          "after": "      this.output = unit(message.value) * 0.7;\n    } else if (message.type === \"playback\") {\n      this.enabled = Boolean(message.enabled);\n    } else if (message.type === \"clock\") {\n      const audioTime = finite(message.audioTime, currentTime);\n      const beat = finite(message.quarterBeat) * 4;\n      const rate = Math.max(2, Math.min(20, finite(message.tempo, 120) / 15));\n      const swing = Math.max(0, Math.min(0.42, finite(message.swing)));\n      this.externalClock = { audioTime, beat, rate, swing, revision: message.revision };\n      this.rate = rate;\n      this.swing = swing;\n      if (Number.isFinite(message.startAt)) {\n        this.startAt = Math.max(currentTime, message.startAt);\n      }\n      if (Number.isFinite(message.step)) {\n        const alignAt = Number.isFinite(message.startAt) ? message.startAt : currentTime;\n        const globalBeat = beat + (alignAt - audioTime) * rate;\n        const globalPhase = rubixSimdClock(globalBeat, rate, swing, this.divisions).phase;\n        this.scorePhaseOffset = message.step - globalPhase;\n        // Grid snapshots can accumulate sub-sample floating-point noise.\n        if (Math.abs(this.scorePhaseOffset - Math.round(this.scorePhaseOffset)) < 1e-6) {\n          this.scorePhaseOffset = Math.round(this.scorePhaseOffset);\n        }\n        this.lastStep = -1;\n      }\n      // DSP elapsed time, filters, envelopes and oscillators stay intact.\n      this.beat = beat + (currentTime - audioTime) * rate;\n    } else if (message.type === \"restart\") {\n      this.externalClock = null;\n      this.scorePhaseOffset = 0;\n      this.startAt = Math.max(currentTime, finite(message.startAt, currentTime));\n      this.beat = Math.max(0, finite(message.offset)) * this.rate;\n      this.elapsed = Math.max(0, finite(message.offset));\n"
+        },
+        {
+          "reason": "Shared Rubixoids clock: preserve native score/DSP while sharing tempo, swing and audio-time phase.",
+          "before": "    const right = output[1] ?? left;\n    try {\n      while (offset < frames) {\n        const clock = rubixSimdClock(this.beat, this.rate, this.swing, this.divisions);\n        const count = Math.min(frames - offset, Math.max(1, Math.ceil(clock.secondsToNext * sampleRate - 1e-6)));\n        const step = Math.floor(clock.phase + 1e-9) % this.stepCount;\n        if (step !== this.lastStep) {\n          this.lastStep = step;\n          this.port.postMessage({ type: \"step\", step, time: currentTime + offset / sampleRate });\n",
+          "after": "    const right = output[1] ?? left;\n    try {\n      while (offset < frames) {\n        if (this.externalClock) {\n          const anchor = this.externalClock;\n          this.beat = anchor.beat + (currentTime + offset / sampleRate - anchor.audioTime) * anchor.rate;\n        }\n        const clock = rubixSimdClock(this.beat, this.rate, this.swing, this.divisions);\n        const scorePhase = clock.phase + this.scorePhaseOffset;\n        const count = Math.min(frames - offset, Math.max(1, Math.ceil(clock.secondsToNext * sampleRate - 1e-6)));\n        const step = ((Math.floor(scorePhase + 1e-9) % this.stepCount) + this.stepCount) % this.stepCount;\n        if (step !== this.lastStep) {\n          this.lastStep = step;\n          this.port.postMessage({ type: \"step\", step, time: currentTime + offset / sampleRate });\n"
+        },
+        {
+          "reason": "Shared Rubixoids clock: preserve native score/DSP while sharing tempo, swing and audio-time phase.",
+          "before": "          const id = stepIds[step];\n          if (id < 0 || (this.gains[id] === 0 && this.targets[id] === 0)) continue;\n          kernel.params[3] = clock.slope;\n          kernel.params[16] = (clock.phase % this.stepCount) - this.elapsed * clock.slope;\n          const filter = this.filters[id] + this.filterDeltas[id] * Math.min(count * 0.5, this.toneRemaining[id]);\n          kernel.stepModulation[step * 4 + 1] = baseFilters[step] + filter;\n          kernel.exports.process(count, sampleRate, this.elapsed);\n",
+          "after": "          const id = stepIds[step];\n          if (id < 0 || (this.gains[id] === 0 && this.targets[id] === 0)) continue;\n          kernel.params[3] = clock.slope;\n          kernel.params[16] = ((scorePhase % this.stepCount) + this.stepCount) % this.stepCount - this.elapsed * clock.slope;\n          const filter = this.filters[id] + this.filterDeltas[id] * Math.min(count * 0.5, this.toneRemaining[id]);\n          kernel.stepModulation[step * 4 + 1] = baseFilters[step] + filter;\n          kernel.exports.process(count, sampleRate, this.elapsed);\n"
+        },
+        {
+          "reason": "Shared Rubixoids clock: preserve native score/DSP while sharing tempo, swing and audio-time phase.",
+          "before": "      this.port.postMessage({\n        type: \"status\", backend: this.backend, faceCount: this.voices.length,\n        step: this.lastStep, beat: this.beat, time: currentTime + frames / sampleRate,\n        gates: this.voices.map(({ face, stepIds }) => {\n          const index = stepIds[this.lastStep];\n          return {\n",
+          "after": "      this.port.postMessage({\n        type: \"status\", backend: this.backend, faceCount: this.voices.length,\n        step: this.lastStep, beat: this.beat, time: currentTime + frames / sampleRate,\n        clockRevision: this.externalClock?.revision ?? null, scorePhaseOffset: this.scorePhaseOffset,\n        gates: this.voices.map(({ face, stepIds }) => {\n          const index = stepIds[this.lastStep];\n          return {\n"
+        }
+      ]
+    },
+    {
+      "before": "src/instruments/rubix/rubix-simd-presets.js",
+      "after": "src/instruments/rubixoids/rubix/rubix-simd-presets.js",
+      "sourceSha256": "043ca4b1d152456387cc607da09e8f05d053e76e6bc68504960477d26ab70672",
+      "copySha256": "043ca4b1d152456387cc607da09e8f05d053e76e6bc68504960477d26ab70672",
+      "sourceBytes": 5434,
+      "copyBytes": 5434
+    },
+    {
+      "before": "src/instruments/rubix/rubix-simd-surface.js",
+      "after": "src/instruments/rubixoids/rubix/rubix-simd-surface.js",
+      "sourceSha256": "37bfaa3051739d1b34413e0df7b1a047258c122b8e4533d61def9135572f821a",
+      "copySha256": "0e6057d51a2a48fc4da6c2e3ba8662e0540e6f4c36164c9029f396d99a138429",
+      "sourceBytes": 11440,
+      "copyBytes": 11449,
+      "amendments": [
+        {
+          "reason": "Shared Rubixoids clock: preserve native score/DSP while sharing tempo, swing and audio-time phase.",
+          "before": "import { createSimd303Configuration } from \"../../../simd-303.js\";\nimport { RUBIX_FACE_ROLES } from \"./rubix-mix.js\";\nimport { RUBIX_ACID_NORMALIZED_BY_COLOR, rubixReadFrame } from \"./rubix.js\";\nimport { createRubixWebGpu303Pattern } from \"./rubix-webgpu-303.js\";\n",
+          "after": "import { createSimd303Configuration } from \"../../../simd-303.js\";\nimport { rubixSimdClock } from \"./rubix-clock.js\";\nimport { RUBIX_FACE_ROLES } from \"./rubix-mix.js\";\nimport { RUBIX_ACID_NORMALIZED_BY_COLOR, rubixReadFrame } from \"./rubix.js\";\nimport { createRubixWebGpu303Pattern } from \"./rubix-webgpu-303.js\";\n"
+        },
+        {
+          "reason": "Shared Rubixoids clock: preserve native score/DSP while sharing tempo, swing and audio-time phase.",
+          "before": "    this.faceCount = 0;\n    this.timelineStart = null;\n    this.lastStatus = null;\n    this.readyTimeout = null;\n    this.cancelReady = null;\n    this.abortController = null;\n",
+          "after": "    this.faceCount = 0;\n    this.timelineStart = null;\n    this.lastStatus = null;\n    this.clock = null;\n    this.scorePhaseOffset = 0;\n    this.clockDivisions = 1;\n    this.readyTimeout = null;\n    this.cancelReady = null;\n    this.abortController = null;\n"
+        },
+        {
+          "reason": "Shared Rubixoids clock: preserve native score/DSP while sharing tempo, swing and audio-time phase.",
+          "before": "\n  updateSurfacePatterns(patterns) {\n    const faces = rubixSimdConfigurations(patterns);\n    this.patterns = patterns;\n    this.faces = faces;\n    this.node?.port.postMessage({ type: \"configure\", faces });\n",
+          "after": "\n  updateSurfacePatterns(patterns) {\n    const faces = rubixSimdConfigurations(patterns);\n    const divisions = faces[0].divisions;\n    if (this.clock && this.clockDivisions !== divisions) {\n      this.scorePhaseOffset = Math.round(this.scorePhaseOffset / this.clockDivisions * divisions);\n    }\n    this.clockDivisions = divisions;\n    this.patterns = patterns;\n    this.faces = faces;\n    this.node?.port.postMessage({ type: \"configure\", faces });\n"
+        },
+        {
+          "reason": "Shared Rubixoids clock: preserve native score/DSP while sharing tempo, swing and audio-time phase.",
+          "before": "    this.node.port.postMessage({ type: \"visibility\", gains, timbres: surface });\n  }\n\n  async restartTimeline({ startAt, offset = 0 } = {}) {\n    if (!this.context || !this.node) throw new Error(\"Rubix SIMD is not ready.\");\n    // Two render quanta of message-delivery headroom, not a 250 ms chunk queue.\n    const start = Math.max(Number(startAt) || 0, this.context.currentTime + 256 / this.context.sampleRate);\n    this.timelineStart = start;\n    this.node.port.postMessage({ type: \"restart\", startAt: start, offset });\n    return start;\n  }\n",
+          "after": "    this.node.port.postMessage({ type: \"visibility\", gains, timbres: surface });\n  }\n\n  /** Score position comes from audio time, never delayed UI/port callbacks. */\n  scoreStepAt(time = this.context?.currentTime ?? 0) {\n    if (!this.clock || !this.faces?.[0]) return null;\n    const rate = this.clock.tempo / 15;\n    const beat = this.clock.quarterBeat * 4 + (time - this.clock.audioTime) * rate;\n    const phase = rubixSimdClock(beat, rate, this.clock.swing, this.clockDivisions).phase + this.scorePhaseOffset;\n    const count = this.faces[0].stepStickerIds.length;\n    return ((Math.floor(phase + 1e-9) % count) + count) % count;\n  }\n\n  currentStepAt(time = this.context?.currentTime ?? 0) {\n    if (time < (this.clock?.startAt ?? Infinity)) return null;\n    return this.scoreStepAt(time);\n  }\n\n  nextStepAt(time = this.context?.currentTime ?? 0) {\n    if (!this.clock || !this.faces?.[0]) return null;\n    if (time < this.clock.startAt) return this.scoreStepAt(this.clock.startAt);\n    return (this.scoreStepAt(time) + 1) % this.faces[0].stepStickerIds.length;\n  }\n\n  /** Join Rubixoids' musical clock without resetting six sounding kernels. */\n  syncClock({ audioTime, quarterBeat, tempo, swing, startAt, step, revision } = {}) {\n    if (!this.context || !this.node) throw new Error(\"Rubix SIMD is not ready.\");\n    const message = { audioTime, quarterBeat, tempo, swing, revision };\n    if (Number.isFinite(startAt)) {\n      message.startAt = startAt;\n      this.timelineStart = startAt;\n    }\n    if (Number.isFinite(step)) {\n      message.step = step;\n      const rate = tempo / 15;\n      const at = Number.isFinite(startAt) ? startAt : this.context.currentTime;\n      const beat = quarterBeat * 4 + (at - audioTime) * rate;\n      const phase = rubixSimdClock(beat, rate, swing, this.clockDivisions).phase;\n      this.scorePhaseOffset = step - phase;\n      if (Math.abs(this.scorePhaseOffset - Math.round(this.scorePhaseOffset)) < 1e-6) {\n        this.scorePhaseOffset = Math.round(this.scorePhaseOffset);\n      }\n    }\n    this.clock = { ...this.clock, ...message };\n    this.node.port.postMessage({ type: \"clock\", ...message });\n    return Number.isFinite(startAt) ? startAt : audioTime;\n  }\n\n  async restartTimeline({ startAt, offset = 0 } = {}) {\n    if (!this.context || !this.node) throw new Error(\"Rubix SIMD is not ready.\");\n    // Two render quanta of message-delivery headroom, not a 250 ms chunk queue.\n    const start = Math.max(Number(startAt) || 0, this.context.currentTime + 256 / this.context.sampleRate);\n    this.timelineStart = start;\n    this.clock = null;\n    this.scorePhaseOffset = 0;\n    this.node.port.postMessage({ type: \"restart\", startAt: start, offset });\n    return start;\n  }\n"
+        },
+        {
+          "reason": "Shared Rubixoids clock: preserve native score/DSP while sharing tempo, swing and audio-time phase.",
+          "before": "    this.visibilityKey = \"\";\n    this.lastStatus = null;\n    this.timelineStart = null;\n  }\n}\n",
+          "after": "    this.visibilityKey = \"\";\n    this.lastStatus = null;\n    this.timelineStart = null;\n    this.clock = null;\n    this.scorePhaseOffset = 0;\n    this.clockDivisions = 1;\n  }\n}\n"
+        }
+      ]
+    },
+    {
+      "before": "src/instruments/rubix/rubix-visibility.js",
+      "after": "src/instruments/rubixoids/rubix/rubix-visibility.js",
+      "sourceSha256": "daddf15b4beac1fc07fb23fd98c88e056d8915b074d275f0469b5245417daf4e",
+      "copySha256": "daddf15b4beac1fc07fb23fd98c88e056d8915b074d275f0469b5245417daf4e",
+      "sourceBytes": 7394,
+      "copyBytes": 7394
+    },
+    {
+      "before": "src/instruments/rubix/rubix-webgpu-303.js",
+      "after": "src/instruments/rubixoids/rubix/rubix-webgpu-303.js",
+      "sourceSha256": "25cb295dbdcc0135fbd9b07c64d526c3f58adef4c48ce9681b90419e6edef55a",
+      "copySha256": "e73ee5eaf295b766c4b769719f047b2fd0322c2de5e5ede5e13309ea7e0346c6",
+      "sourceBytes": 5889,
+      "copyBytes": 5892
+    },
+    {
+      "before": "src/instruments/rubix/rubix.css",
+      "after": "src/instruments/rubixoids/rubix/rubix.css",
+      "sourceSha256": "a7f35e9dcd8911fc9490765fa252d13de53fecbd59d173288883e91101221aac",
+      "copySha256": "a7f35e9dcd8911fc9490765fa252d13de53fecbd59d173288883e91101221aac",
+      "sourceBytes": 28825,
+      "copyBytes": 28825
+    },
+    {
+      "before": "src/instruments/rubix/rubix.js",
+      "after": "src/instruments/rubixoids/rubix/rubix.js",
+      "sourceSha256": "32d869bee074248f677d91a75f4d5bbdc204616f33ee9c910cbb4aa091a06298",
+      "copySha256": "32d869bee074248f677d91a75f4d5bbdc204616f33ee9c910cbb4aa091a06298",
+      "sourceBytes": 23743,
+      "copyBytes": 23743
+    },
+    {
+      "before": "src/instruments/sliding-puzzle/sliding-puzzle-app.js",
+      "after": "src/instruments/rubixoids/sliding-puzzle/sliding-puzzle-app.js",
+      "sourceSha256": "76e049585d622c9731f439dde72f2a855d12337a0a7a3137d87c9c039db36576",
+      "copySha256": "e628f1c53191d6bfc6b6f93f35ddd23930aa4214f6ac1a03858f6edea213ea18",
+      "sourceBytes": 79238,
+      "copyBytes": 79237,
+      "amendments": [
+        {
+          "reason": "Shared Rubixoids clock: preserve native score/DSP while sharing tempo, swing and audio-time phase.",
+          "before": "import { nativeInstrumentContext } from \"../native-context.js\";\nimport {\n  DEFAULT_FM_DRUM_VOICES,\n",
+          "after": "import { rubixoidsClock } from \"../clock.js\";\nimport { nativeInstrumentContext } from \"../native-context.js\";\nimport {\n  DEFAULT_FM_DRUM_VOICES,\n"
+        },
+        {
+          "reason": "Shared Rubixoids clock: preserve native score/DSP while sharing tempo, swing and audio-time phase.",
+          "before": "let rubixoidsEmbeddedActive = true;\nlet rubixoidsPendingMotion = null;\nlet rubixoidsActivation = 0;\nlet rubixoidsAudioTask = null;\nconst $ = (id) => document.getElementById(id);\nconst clamp = (value, minimum, maximum) => (\n",
+          "after": "let rubixoidsEmbeddedActive = true;\nlet rubixoidsPendingMotion = null;\nlet rubixoidsActivation = 0;\nlet rubixoidsActivating = false;\nlet rubixoidsAudioTask = null;\nconst $ = (id) => document.getElementById(id);\nconst clamp = (value, minimum, maximum) => (\n"
+        },
+        {
+          "reason": "Shared Rubixoids clock: preserve native score/DSP while sharing tempo, swing and audio-time phase.",
+          "before": "    this.analyser = null;\n    this.noiseBuffer = null;\n    this.panners = new Map();\n    this.releaseAudioOutput = null;\n    this.output = DEFAULTS.output;\n    this.transportActive = false;\n",
+          "after": "    this.analyser = null;\n    this.noiseBuffer = null;\n    this.panners = new Map();\n    this.scheduledSources = new Map();\n    this.releaseAudioOutput = null;\n    this.output = DEFAULTS.output;\n    this.transportActive = false;\n"
+        },
+        {
+          "reason": "Shared Rubixoids clock: preserve native score/DSP while sharing tempo, swing and audio-time phase.",
+          "before": "    return panner;\n  }\n\n  schedule(event, when, stepDuration, settings, options = {}) {\n    if (!this.context || !event || event.isRest) return;\n    const audition = options.audition === true;\n    const level = clamp(options.level ?? 1, 0, 1.2);\n    const modulatedSettings = eventSettings(event, settings);\n    const destination = this.destination(event, modulatedSettings, audition);\n",
+          "after": "    return panner;\n  }\n\n  trackSource(source, when) {\n    this.scheduledSources.set(source, { when, audition: this.schedulingAudition });\n    source.addEventListener(\"ended\", () => this.scheduledSources.delete(source), { once: true });\n  }\n\n  cancelScheduled(after = this.context?.currentTime ?? 0) {\n    this.sharedVoices.cancelScheduled(after);\n    for (const [source, event] of this.scheduledSources) {\n      if (event.audition || event.when <= after) continue;\n      try { source.stop(after); } catch { /* already ended */ }\n      this.scheduledSources.delete(source);\n    }\n  }\n\n  schedule(event, when, stepDuration, settings, options = {}) {\n    if (!this.context || !event || event.isRest) return;\n    const audition = options.audition === true;\n    this.schedulingAudition = audition;\n    const level = clamp(options.level ?? 1, 0, 1.2);\n    const modulatedSettings = eventSettings(event, settings);\n    const destination = this.destination(event, modulatedSettings, audition);\n"
+        },
+        {
+          "reason": "Shared Rubixoids clock: preserve native score/DSP while sharing tempo, swing and audio-time phase.",
+          "before": "    carrier.connect(amplitude);\n    amplitude.connect(filter);\n    filter.connect(destination);\n    carrier.start(when);\n    modulator.start(when);\n    carrier.stop(stopAt);\n    modulator.stop(stopAt);\n",
+          "after": "    carrier.connect(amplitude);\n    amplitude.connect(filter);\n    filter.connect(destination);\n    this.trackSource(carrier, when);\n    carrier.start(when);\n    this.trackSource(modulator, when);\n    modulator.start(when);\n    carrier.stop(stopAt);\n    modulator.stop(stopAt);\n"
+        },
+        {
+          "reason": "Shared Rubixoids clock: preserve native score/DSP while sharing tempo, swing and audio-time phase.",
+          "before": "    oscillator.connect(amplitude);\n    amplitude.connect(filter);\n    filter.connect(destination);\n    oscillator.start(when);\n    oscillator.stop(when + decay + 0.06);\n    if ([1, 3, 5].includes(colorIndex)) {\n",
+          "after": "    oscillator.connect(amplitude);\n    amplitude.connect(filter);\n    filter.connect(destination);\n    this.trackSource(oscillator, when);\n    oscillator.start(when);\n    oscillator.stop(when + decay + 0.06);\n    if ([1, 3, 5].includes(colorIndex)) {\n"
+        },
+        {
+          "reason": "Shared Rubixoids clock: preserve native score/DSP while sharing tempo, swing and audio-time phase.",
+          "before": "      amplitude.gain.exponentialRampToValueAtTime(0.0001, when + partialDecay);\n      oscillator.connect(amplitude);\n      amplitude.connect(filter);\n      oscillator.start(when);\n      oscillator.stop(when + partialDecay + 0.05);\n    });\n  }\n",
+          "after": "      amplitude.gain.exponentialRampToValueAtTime(0.0001, when + partialDecay);\n      oscillator.connect(amplitude);\n      amplitude.connect(filter);\n      this.trackSource(oscillator, when);\n    oscillator.start(when);\n      oscillator.stop(when + partialDecay + 0.05);\n    });\n  }\n"
+        },
+        {
+          "reason": "Shared Rubixoids clock: preserve native score/DSP while sharing tempo, swing and audio-time phase.",
+          "before": "    subLevel.connect(filter);\n    filter.connect(amplitude);\n    amplitude.connect(destination);\n    saw.start(when);\n    sub.start(when);\n    saw.stop(stopAt);\n    sub.stop(stopAt);\n",
+          "after": "    subLevel.connect(filter);\n    filter.connect(amplitude);\n    amplitude.connect(destination);\n    this.trackSource(saw, when);\n    saw.start(when);\n    this.trackSource(sub, when);\n    sub.start(when);\n    saw.stop(stopAt);\n    sub.stop(stopAt);\n"
+        },
+        {
+          "reason": "Shared Rubixoids clock: preserve native score/DSP while sharing tempo, swing and audio-time phase.",
+          "before": "    amplitude.connect(destination);\n    const stopAt = when + decay + 0.04;\n    const offset = Math.random() * Math.max(0, this.noiseBuffer.duration - (stopAt - when));\n    source.start(when, offset);\n    source.stop(stopAt);\n  }\n",
+          "after": "    amplitude.connect(destination);\n    const stopAt = when + decay + 0.04;\n    const offset = Math.random() * Math.max(0, this.noiseBuffer.duration - (stopAt - when));\n    this.trackSource(source, when);\n    source.start(when, offset);\n    source.stop(stopAt);\n  }\n"
+        },
+        {
+          "reason": "Shared Rubixoids clock: preserve native score/DSP while sharing tempo, swing and audio-time phase.",
+          "before": "    this.noiseBuffer = null;\n    this.transportActive = false;\n    this.panners.clear();\n    if (context && context.state !== \"closed\") await context.close();\n  }\n}\n",
+          "after": "    this.noiseBuffer = null;\n    this.transportActive = false;\n    this.panners.clear();\n    this.scheduledSources.clear();\n    if (context && context.state !== \"closed\") await context.close();\n  }\n}\n"
+        },
+        {
+          "reason": "Shared Rubixoids clock: preserve native score/DSP while sharing tempo, swing and audio-time phase.",
+          "before": "let audioLifecycleGeneration = 0;\nlet schedulerTimer = null;\nlet nextStepTime = 0;\nlet transportStep = 0;\nlet transportDirection = 1;\nlet transportPulse = 0;\n",
+          "after": "let audioLifecycleGeneration = 0;\nlet schedulerTimer = null;\nlet nextStepTime = 0;\nlet sharedGridOrdinal = null;\nlet sharedClockRevision = -1;\nlet sharedGridDivision = null;\nlet scheduledPulses = [];\nlet transportStep = 0;\nlet transportDirection = 1;\nlet transportPulse = 0;\n"
+        },
+        {
+          "reason": "Shared Rubixoids clock: preserve native score/DSP while sharing tempo, swing and audio-time phase.",
+          "before": "}\n\nfunction schedulerNow() {\n  return state.audioOn && audio.context\n    ? audio.context.currentTime\n    : performance.now() / 1000;\n}\n\nfunction resyncRunningScheduler() {\n  if (!rubixoidsEmbeddedActive) return;\n  if (!state.playing) return;\n  reconcileTransportCursor();\n  if (schedulerTimer !== null) clearTimeout(schedulerTimer);\n  schedulerTimer = null;\n  clearVisualTimers();\n  audio.resetTransportBus(state.audioOn);\n  nextStepTime = schedulerNow() + 0.045;\n  schedulerTick();\n}\n\nfunction stepDurationSeconds(step) {\n  const base = 60 / clamp(state.tempo, 36, 260) * (4 / clamp(state.pulseDivision, 4, 64));\n  const swing = clamp(state.swing, 0, 0.42);\n  return base * (step % 2 === 0 ? 1 + swing : 1 - swing);\n}\n\nfunction rebuildRandomTransportOrder(length) {\n",
+          "after": "}\n\nfunction schedulerNow() {\n  return rubixoidsClock.now();\n}\n\nfunction configureSharedClock() {\n  if (rubixoidsEmbeddedActive) rubixoidsClock.configure({ tempo: state.tempo, swing: state.swing });\n}\n\nfunction joinSharedClock(leadSeconds = .012) {\n  rubixoidsClock.attach('2d', state.audioOn ? audio.context : null);\n  configureSharedClock();\n  rubixoidsClock.play();\n  const division = state.pulseDivision / 4;\n  const point = rubixoidsClock.next({ division, minTime: schedulerNow() + leadSeconds });\n  sharedGridOrdinal = point.ordinal;\n  sharedGridDivision = division;\n  sharedClockRevision = rubixoidsClock.revision;\n  nextStepTime = point.time;\n}\n\nfunction resyncRunningScheduler({ preserveTails = false } = {}) {\n  if (!rubixoidsEmbeddedActive || rubixoidsActivating || !state.playing) return;\n  reconcileTransportCursor();\n  if (schedulerTimer !== null) clearTimeout(schedulerTimer);\n  schedulerTimer = null;\n  clearVisualTimers();\n  audio.cancelScheduled();\n  if (!preserveTails) audio.resetTransportBus(state.audioOn);\n  scheduledPulses = scheduledPulses.filter(pulse => pulse.time <= schedulerNow());\n  joinSharedClock();\n  schedulerTick();\n}\n\nfunction rebuildRandomTransportOrder(length) {\n"
+        },
+        {
+          "reason": "Shared Rubixoids clock: preserve native score/DSP while sharing tempo, swing and audio-time phase.",
+          "before": "}\n\nfunction reconcileTransportCursor() {\n  const length = Math.max(1, sequenceSnapshot.length);\n  transportStep = ((state.currentStep % length) + length) % length;\n  randomTransportOrder = [];\n  randomTransportIndex = 0;\n  if (!transportHasCommitted) {\n    transportDirection = state.playbackDirection === \"reverse\" ? -1 : 1;\n    transportPulse = 0;\n    return;\n  }\n  transportPulse = committedTransportPulse + 1;\n  if (state.playbackDirection === \"random\") return;\n  transportDirection = state.playbackDirection === \"pendulum\"\n    ? committedTransportDirection\n    : state.playbackDirection === \"reverse\" ? -1 : 1;\n  advanceTransportStep(length);\n}\n\nfunction clearVisualTimers() {\n",
+          "after": "}\n\nfunction reconcileTransportCursor() {\n  const now = schedulerNow();\n  const pending = scheduledPulses.find(pulse => pulse.time > now + .00001);\n  const sounded = scheduledPulses.filter(pulse => pulse.time <= now + .00001).at(-1);\n  const pulse = pending ?? sounded;\n  if (pulse) {\n    transportStep = pulse.step;\n    transportDirection = pulse.direction;\n    transportPulse = pulse.pulse + (pending ? 0 : 1);\n    if (state.playbackDirection === 'random') {\n      randomTransportOrder = [...pulse.randomOrder];\n      randomTransportIndex = pulse.randomIndex + (pending ? 0 : 1);\n    } else if (!pending) advanceTransportStep(Math.max(1, sequenceSnapshot.length));\n    return;\n  }\n  const length = Math.max(1, sequenceSnapshot.length);\n  transportStep = ((state.currentStep % length) + length) % length;\n  randomTransportOrder = [];\n  randomTransportIndex = 0;\n  transportDirection = state.playbackDirection === 'reverse' ? -1 : 1;\n  if (!transportHasCommitted) { transportPulse = 0; return; }\n  transportPulse = committedTransportPulse + 1;\n  if (state.playbackDirection !== 'random') {\n    transportDirection = state.playbackDirection === 'pendulum' ? committedTransportDirection : transportDirection;\n    advanceTransportStep(length);\n  }\n}\n\nfunction clearVisualTimers() {\n"
+        },
+        {
+          "reason": "Shared Rubixoids clock: preserve native score/DSP while sharing tempo, swing and audio-time phase.",
+          "before": "  if (!rubixoidsEmbeddedActive) return;\n  if (!state.playing) return;\n  const now = schedulerNow();\n  if (nextStepTime < now - LOOKAHEAD_SECONDS) {\n    nextStepTime = now + 0.045;\n  }\n  const horizon = now + LOOKAHEAD_SECONDS;\n  const frames = sequenceSnapshot;\n",
+          "after": "  if (!rubixoidsEmbeddedActive) return;\n  if (!state.playing) return;\n  const now = schedulerNow();\n  if (sharedClockRevision !== rubixoidsClock.revision || sharedGridDivision !== state.pulseDivision / 4) {\n    resyncRunningScheduler({ preserveTails: true });\n    return;\n  }\n  if (nextStepTime < now - .01 || sharedGridOrdinal === null) {\n    reconcileTransportCursor();\n    scheduledPulses = scheduledPulses.filter(pulse => pulse.time <= now);\n    joinSharedClock();\n  }\n  const horizon = now + LOOKAHEAD_SECONDS;\n  const frames = sequenceSnapshot;\n"
+        },
+        {
+          "reason": "Shared Rubixoids clock: preserve native score/DSP while sharing tempo, swing and audio-time phase.",
+          "before": "      ? randomStepForSchedule(frames.length)\n      : ((transportStep % frames.length) + frames.length) % frames.length;\n    const frame = frames[step];\n    const duration = stepDurationSeconds(transportPulse);\n    const soundingEvents = frame.events.filter((event) => !event.isRest);\n    if (state.audioOn && soundingEvents.length) {\n      const parallelLevel = 1 / Math.sqrt(soundingEvents.length);\n",
+          "after": "      ? randomStepForSchedule(frames.length)\n      : ((transportStep % frames.length) + frames.length) % frames.length;\n    const frame = frames[step];\n    const point = rubixoidsClock.grid(sharedGridOrdinal, { division: state.pulseDivision / 4 });\n    nextStepTime = point.time;\n    const duration = point.duration;\n    scheduledPulses.push({ time: point.time, beat: point.beat, ordinal: point.ordinal,\n      step, direction: transportDirection, pulse: transportPulse,\n      randomOrder: state.playbackDirection === 'random' ? [...randomTransportOrder] : [],\n      randomIndex: Math.max(0, randomTransportIndex - 1), revision: point.revision });\n    if (scheduledPulses.length > 128) scheduledPulses.shift();\n    const soundingEvents = frame.events.filter((event) => !event.isRest);\n    if (state.audioOn && soundingEvents.length) {\n      const parallelLevel = 1 / Math.sqrt(soundingEvents.length);\n"
+        },
+        {
+          "reason": "Shared Rubixoids clock: preserve native score/DSP while sharing tempo, swing and audio-time phase.",
+          "before": "      frame.events.forEach((event) => {\n        if (event.isRest) return;\n        const strum = strumSpread * event.screenRow / lastLane;\n        audio.schedule(event, nextStepTime + strum, duration, settings, {\n          level: parallelLevel * bankTrim,\n        });\n      });\n    }\n    scheduleVisualStep(step, nextStepTime, transportDirection, transportPulse);\n    nextStepTime += duration;\n    if (state.playbackDirection !== \"random\") advanceTransportStep(frames.length);\n    transportPulse += 1;\n    scheduled += 1;\n",
+          "after": "      frame.events.forEach((event) => {\n        if (event.isRest) return;\n        const strum = strumSpread * event.screenRow / lastLane;\n        audio.schedule(event, rubixoidsClock.audioTime(audio.context, nextStepTime + strum), duration, settings, {\n          level: parallelLevel * bankTrim,\n        });\n      });\n    }\n    scheduleVisualStep(step, nextStepTime, transportDirection, transportPulse);\n    sharedGridOrdinal += 1;\n    nextStepTime = rubixoidsClock.grid(sharedGridOrdinal, { division: state.pulseDivision / 4 }).time;\n    if (state.playbackDirection !== \"random\") advanceTransportStep(frames.length);\n    transportPulse += 1;\n    scheduled += 1;\n"
+        },
+        {
+          "reason": "Shared Rubixoids clock: preserve native score/DSP while sharing tempo, swing and audio-time phase.",
+          "before": "    : `${sequenceSnapshot.length}-step ${state.playbackMode === \"parallel\" ? \"line\" : \"tile\"} loop`;\n  if (next) {\n    if (options.restart === true) {\n      transportStep = state.playbackDirection === \"reverse\"\n        ? Math.max(0, sequenceSnapshot.length - 1)\n        : 0;\n",
+          "after": "    : `${sequenceSnapshot.length}-step ${state.playbackMode === \"parallel\" ? \"line\" : \"tile\"} loop`;\n  if (next) {\n    if (options.restart === true) {\n      scheduledPulses = [];\n      transportStep = state.playbackDirection === \"reverse\"\n        ? Math.max(0, sequenceSnapshot.length - 1)\n        : 0;\n"
+        },
+        {
+          "reason": "Shared Rubixoids clock: preserve native score/DSP while sharing tempo, swing and audio-time phase.",
+          "before": "      transportHasCommitted = false;\n    }\n    audio.resetTransportBus(state.audioOn);\n    nextStepTime = schedulerNow() + 0.045;\n    schedulerTick();\n  } else {\n    audio.resetTransportBus(false);\n  }\n  if (options.announce !== false) {\n",
+          "after": "      transportHasCommitted = false;\n    }\n    audio.resetTransportBus(state.audioOn);\n    joinSharedClock();\n    schedulerTick();\n  } else {\n    audio.cancelScheduled();\n    scheduledPulses = scheduledPulses.filter(pulse => pulse.time <= schedulerNow());\n    audio.resetTransportBus(false);\n  }\n  if (options.announce !== false) {\n"
+        },
+        {
+          "reason": "Shared Rubixoids clock: preserve native score/DSP while sharing tempo, swing and audio-time phase.",
+          "before": "}\n\nfunction restartLoop(options = {}) {\n  const firstStep = state.playbackDirection === \"reverse\"\n    ? Math.max(0, sequenceSnapshot.length - 1)\n    : 0;\n",
+          "after": "}\n\nfunction restartLoop(options = {}) {\n  scheduledPulses = [];\n  const firstStep = state.playbackDirection === \"reverse\"\n    ? Math.max(0, sequenceSnapshot.length - 1)\n    : 0;\n"
+        },
+        {
+          "reason": "Shared Rubixoids clock: preserve native score/DSP while sharing tempo, swing and audio-time phase.",
+          "before": "  const error = $(\"audioError\");\n  error.hidden = true;\n  if (!active) {\n    state.audioOn = false;\n    button.setAttribute(\"aria-pressed\", \"false\");\n    $(\"audioState\").textContent = \"off\";\n",
+          "after": "  const error = $(\"audioError\");\n  error.hidden = true;\n  if (!active) {\n    rubixoidsClock.detach('2d');\n    state.audioOn = false;\n    button.setAttribute(\"aria-pressed\", \"false\");\n    $(\"audioState\").textContent = \"off\";\n"
+        },
+        {
+          "reason": "Shared Rubixoids clock: preserve native score/DSP while sharing tempo, swing and audio-time phase.",
+          "before": "  } catch (caught) {\n    if (generation !== audioLifecycleGeneration) return;\n    const isAbortError = caught?.name === \"AbortError\";\n    state.audioOn = false;\n    button.setAttribute(\"aria-pressed\", \"false\");\n    $(\"audioState\").textContent = \"off\";\n",
+          "after": "  } catch (caught) {\n    if (generation !== audioLifecycleGeneration) return;\n    const isAbortError = caught?.name === \"AbortError\";\n    rubixoidsClock.detach('2d');\n    state.audioOn = false;\n    button.setAttribute(\"aria-pressed\", \"false\");\n    $(\"audioState\").textContent = \"off\";\n"
+        },
+        {
+          "reason": "Shared Rubixoids clock: preserve native score/DSP while sharing tempo, swing and audio-time phase.",
+          "before": "\nfunction resetSound() {\n  Object.assign(state, DEFAULTS);\n  audio.setOutput(state.output);\n  updateSequenceSnapshot();\n  transportStep = 0;\n",
+          "after": "\nfunction resetSound() {\n  Object.assign(state, DEFAULTS);\n  configureSharedClock();\n  audio.setOutput(state.output);\n  updateSequenceSnapshot();\n  transportStep = 0;\n"
+        },
+        {
+          "reason": "Shared Rubixoids clock: preserve native score/DSP while sharing tempo, swing and audio-time phase.",
+          "before": "  }\n\n  $(\"tempo\").addEventListener(\"input\", (event) => {\n    state.tempo = clamp(event.target.value, 36, 260);\n    $(\"tempoOut\").textContent = `${Math.round(state.tempo)} BPM`;\n    renderReadouts();\n  });\n  $(\"swing\").addEventListener(\"input\", (event) => {\n    state.swing = clamp(event.target.value, 0, 0.42);\n    $(\"swingOut\").textContent = `${Math.round(state.swing * 100)}%`;\n    renderReadouts();\n  });\n",
+          "after": "  }\n\n  $(\"tempo\").addEventListener(\"input\", (event) => {\n    state.tempo = clamp(event.target.value, 30, 300);\n    configureSharedClock();\n    resyncRunningScheduler({ preserveTails: true });\n    $(\"tempoOut\").textContent = `${Math.round(state.tempo)} BPM`;\n    renderReadouts();\n  });\n  $(\"swing\").addEventListener(\"input\", (event) => {\n    state.swing = clamp(event.target.value, 0, 0.42);\n    configureSharedClock();\n    resyncRunningScheduler({ preserveTails: true });\n    $(\"swingOut\").textContent = `${Math.round(state.swing * 100)}%`;\n    renderReadouts();\n  });\n"
+        },
+        {
+          "reason": "Shared Rubixoids clock: preserve native score/DSP while sharing tempo, swing and audio-time phase.",
+          "before": "}\n\nfunction cleanup() {\n  globalThis.removeEventListener(\"resize\", renderBoard);\n  setAutoSlide(false, { announce: false });\n  cancelMotionSequence();\n",
+          "after": "}\n\nfunction cleanup() {\n  rubixoidsClock.detach('2d');\n  globalThis.removeEventListener(\"resize\", renderBoard);\n  setAutoSlide(false, { announce: false });\n  cancelMotionSequence();\n"
+        },
+        {
+          "reason": "Shared Rubixoids clock: preserve native score/DSP while sharing tempo, swing and audio-time phase.",
+          "before": "      })),\n      diagnostics: {\n        contextState: audio.context?.state ?? \"none\", schedulerActive: schedulerTimer !== null,\n        autoMotionActive: autoSlideTimer !== null, motionActive: motionTimer !== null,\n        motionPending: Boolean(rubixoidsPendingMotion),\n      },\n",
+          "after": "      })),\n      diagnostics: {\n        contextState: audio.context?.state ?? \"none\", schedulerActive: schedulerTimer !== null,\n        clock: { ...rubixoidsClock.snapshot(), nextOrdinal: sharedGridOrdinal,\n          division: sharedGridDivision, revision: sharedClockRevision,\n          scheduled: scheduledPulses.map(({ randomOrder, ...pulse }) => pulse) },\n        autoMotionActive: autoSlideTimer !== null, motionActive: motionTimer !== null,\n        motionPending: Boolean(rubixoidsPendingMotion),\n      },\n"
+        },
+        {
+          "reason": "Shared Rubixoids clock: preserve native score/DSP while sharing tempo, swing and audio-time phase.",
+          "before": "  },\n  async deactivate() {\n    if (!RUBIXOIDS_EMBEDDED || !rubixoidsEmbeddedActive) return this.capture();\n    rubixoidsEmbeddedActive = false;\n    rubixoidsActivation += 1;\n    if (state.playing) reconcileTransportCursor();\n    if (schedulerTimer !== null) clearTimeout(schedulerTimer);\n    schedulerTimer = null;\n    clearVisualTimers();\n",
+          "after": "  },\n  async deactivate() {\n    if (!RUBIXOIDS_EMBEDDED || !rubixoidsEmbeddedActive) return this.capture();\n    rubixoidsClock.detach('2d');\n    rubixoidsEmbeddedActive = false;\n    rubixoidsActivation += 1;\n    if (state.playing) reconcileTransportCursor();\n    scheduledPulses = [];\n    if (schedulerTimer !== null) clearTimeout(schedulerTimer);\n    schedulerTimer = null;\n    clearVisualTimers();\n"
+        },
+        {
+          "reason": "Shared Rubixoids clock: preserve native score/DSP while sharing tempo, swing and audio-time phase.",
+          "before": "  },\n  async activate({ audioOn = state.audioOn, playing = state.playing } = {}) {\n    const generation = ++rubixoidsActivation;\n    rubixoidsEmbeddedActive = true;\n    if (Boolean(audioOn) !== state.audioOn) await setAudioOn(Boolean(audioOn));\n    if (generation !== rubixoidsActivation || !rubixoidsEmbeddedActive) return this.capture();\n",
+          "after": "  },\n  async activate({ audioOn = state.audioOn, playing = state.playing } = {}) {\n    const generation = ++rubixoidsActivation;\n    rubixoidsActivating = true;\n    try {\n    rubixoidsEmbeddedActive = true;\n    if (Boolean(audioOn) !== state.audioOn) await setAudioOn(Boolean(audioOn));\n    if (generation !== rubixoidsActivation || !rubixoidsEmbeddedActive) return this.capture();\n"
+        },
+        {
+          "reason": "Shared Rubixoids clock: preserve native score/DSP while sharing tempo, swing and audio-time phase.",
+          "before": "    $(\"playState\").textContent = state.playing ? \"clock running\" : `${sequenceSnapshot.length}-step loop`;\n    audio.resetTransportBus(state.playing && state.audioOn);\n    if (state.playing) {\n      nextStepTime = schedulerNow() + 0.045;\n      schedulerTick();\n    }\n    if (state.busy && rubixoidsPendingMotion) rubixoidsPendingMotion();\n    if (state.autoSlide && autoSlideTimer === null) scheduleAutoSlide();\n    renderAll();\n    return this.capture();\n  },\n};\nif (RUBIXOIDS_EMBEDDED && !mountContext) globalThis.rubixoidsNative = rubixoidsNative;\n",
+          "after": "    $(\"playState\").textContent = state.playing ? \"clock running\" : `${sequenceSnapshot.length}-step loop`;\n    audio.resetTransportBus(state.playing && state.audioOn);\n    if (state.playing) {\n      joinSharedClock();\n      schedulerTick();\n    }\n    if (state.busy && rubixoidsPendingMotion) rubixoidsPendingMotion();\n    if (state.autoSlide && autoSlideTimer === null) scheduleAutoSlide();\n    renderAll();\n    return this.capture();\n    } finally { rubixoidsActivating = false; }\n  },\n};\nif (RUBIXOIDS_EMBEDDED && !mountContext) globalThis.rubixoidsNative = rubixoidsNative;\n"
+        }
+      ]
+    },
+    {
+      "before": "src/instruments/sliding-puzzle/sliding-puzzle.css",
+      "after": "src/instruments/rubixoids/sliding-puzzle/sliding-puzzle.css",
+      "sourceSha256": "e284282a435f2c404de3424b7b478993c45505c668e9b59868682d8ff621b9fc",
+      "copySha256": "e284282a435f2c404de3424b7b478993c45505c668e9b59868682d8ff621b9fc",
+      "sourceBytes": 28824,
+      "copyBytes": 28824
+    },
+    {
+      "before": "src/instruments/sliding-puzzle/sliding-puzzle.js",
+      "after": "src/instruments/rubixoids/sliding-puzzle/sliding-puzzle.js",
+      "sourceSha256": "338598dbd0963d5182919d1e36c700627eef255bf47234b2e3d66022a01c5597",
+      "copySha256": "338598dbd0963d5182919d1e36c700627eef255bf47234b2e3d66022a01c5597",
+      "sourceBytes": 19279,
+      "copyBytes": 19279
+    },
+    {
+      "before": "src/sequencer-voices.js",
+      "after": "src/instruments/rubixoids/audio/sequencer-voices.js",
+      "sourceSha256": "d38f2386519a706e8a175155f5b8f6e95672a1584815acd245ba3bd8dc77fae3",
+      "copySha256": "d38f2386519a706e8a175155f5b8f6e95672a1584815acd245ba3bd8dc77fae3",
+      "sourceBytes": 11299,
+      "copyBytes": 11299
+    },
+    {
+      "before": "src/sequencer-voice-renderer.js",
+      "after": "src/instruments/rubixoids/audio/sequencer-voice-renderer.js",
+      "sourceSha256": "87f3aade67443364b462e50c4766389d38e030569b5b9df5e68da298cfb255f7",
+      "copySha256": "3073a72a9859f81666e08404daa63983e715107efd15c88fc431d3a640b69515",
+      "sourceBytes": 12632,
+      "copyBytes": 12633
+    }
+  ]
+}

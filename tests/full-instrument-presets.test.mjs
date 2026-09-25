@@ -123,3 +123,17 @@ test("the replacement cascade banks match their single rhythm-first factory inve
     }
   }
 });
+
+
+test("preset arrows leave shadow-root controls and canvases to the instrument", () => {
+  const host = { closest: () => null };
+  for (const selector of ["input", "select", "textarea", "canvas", "button", "[role='slider']"]) {
+    const nativeControl = { closest: selectors => selectors.includes(selector) ? nativeControl : null };
+    assert.equal(presetArrowDirection({
+      key: "ArrowRight", target: host, composedPath: () => [nativeControl, host],
+    }), 0, selector);
+  }
+  assert.equal(presetArrowDirection({
+    key: "ArrowLeft", target: host, composedPath: () => [host],
+  }), -1, "unclaimed instrument surfaces retain preset keyboard navigation");
+});

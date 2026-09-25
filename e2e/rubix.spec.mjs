@@ -538,3 +538,65 @@ test("SIMD level remains usable across all cube sizes and protects maximum setti
   await info.attach("size-levels.json", { body: JSON.stringify({ results, loud }), contentType: "application/json" });
   await page.locator("#audioButton").click();
 });
+
+
+test('Rubix Play reuses prepared SIMD patterns and keeps paused score and tone edits exact', async ({ page }) => {
+  await page.goto('/rubix.html');
+  await page.evaluate(async () => {
+    const { RubixSurfaceSimd303 } = await import('/src/instruments/rubix/rubix-simd-surface.js');
+    const update = RubixSurfaceSimd303.prototype.updateSurfacePatterns;
+    window.__rubixPatternUpdates = 0;
+    RubixSurfaceSimd303.prototype.updateSurfacePatterns = function (patterns) {
+      window.__rubixPatternUpdates += 1;
+      window.__rubixPatternEngine = this;
+      return update.call(this, patterns);
+    };
+  });
+  await page.locator('#soundBank').selectOption('acid-303');
+  await page.locator('#audioButton').click();
+  await expect(page.locator('#audioButton')).toHaveAttribute('aria-pressed', 'true');
+  await expect.poll(async () => (await snapshot(page)).simdVoices).toBe(6);
+  const matchesNativeScore = () => page.evaluate(async () => {
+    const [{ rubixoidsNative }, { createRubixSequenceSnapshot }, { createRubixSimdSurfacePatterns }, { rubixSimdVoiceParams }] = await Promise.all([
+      import('/src/instruments/rubix/rubix-app.js'), import('/src/instruments/rubix/rubix.js'),
+      import('/src/instruments/rubix/rubix-simd-surface.js'), import('/src/instruments/rubix/rubix-simd-presets.js'),
+    ]);
+    const { settings, native } = rubixoidsNative.capture();
+    const score = createRubixSequenceSnapshot(native.cube, native.camera);
+    const expected = createRubixSimdSurfacePatterns(score, {
+      readingMode: settings.readingMode, tempo: settings.tempo,
+      amount: settings.stickerModulation, presetId: settings.simdPreset,
+      baseParams: rubixSimdVoiceParams(settings),
+    });
+    return JSON.stringify(window.__rubixPatternEngine.patterns) === JSON.stringify(expected);
+  });
+  expect(await matchesNativeScore()).toBe(true);
+  const preparedCount = await page.evaluate(() => window.__rubixPatternUpdates);
+  await page.locator('#playButton').click();
+  await expect(page.locator('#playButton')).toHaveAttribute('aria-pressed', 'true');
+  expect(await page.evaluate(() => window.__rubixPatternUpdates)).toBe(preparedCount);
+  expect(await matchesNativeScore()).toBe(true);
+  await page.locator('#playButton').click();
+  await page.locator('#moveRight').click();
+  await expect(page.locator('#undoMove')).toBeEnabled();
+  await expect.poll(matchesNativeScore).toBe(true);
+  const turnedCount = await page.evaluate(() => window.__rubixPatternUpdates);
+  expect(turnedCount).toBeGreaterThan(preparedCount);
+  // Change size/tone and press Play in one task, before any rendering callback
+  // can refresh the score. The Play cache must still validate those edits.
+  await page.evaluate(() => {
+    const size = document.getElementById('rubixSize');
+    size.value = '4'; size.dispatchEvent(new Event('change', { bubbles: true }));
+    const cutoff = document.getElementById('cutoff');
+    cutoff.value = '1700'; cutoff.dispatchEvent(new Event('input', { bubbles: true }));
+    document.getElementById('playButton').click();
+  });
+  await expect(page.locator('#playButton')).toHaveAttribute('aria-pressed', 'true');
+  expect(await matchesNativeScore()).toBe(true);
+  expect(await page.evaluate(() => window.__rubixPatternUpdates)).toBeGreaterThan(turnedCount);
+  expect((await snapshot(page)).simdVoices).toBe(6);
+  const envelope = await sampleAudioEnvelope(page, { durationMs: 500 });
+  expect(envelope.summary.finite).toBe(true);
+  expect(envelope.summary.maxPeak).toBeGreaterThan(.001);
+  expect(envelope.summary.clippedSamples).toBe(0);
+});

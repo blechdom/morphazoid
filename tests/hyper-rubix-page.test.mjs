@@ -1,3 +1,4 @@
+import { SEQUENCER_VOICES } from "../src/sequencer-voice-renderer.js";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
@@ -127,6 +128,7 @@ test("the open Shape loop exposes every read path and automated-twist control", 
     ["dust", "Bit kit"],
     ["webgpu-303", "WebGPU 303"],
     ["rattlesnake", "Rattlesnake"],
+    ...SEQUENCER_VOICES.map(({ id, label }) => [`shared-${id}`, label]),
   ]);
   assert.equal(
     instrumentPresets.find(({ tag }) => hasBooleanAttribute(tag, "selected"))?.value,

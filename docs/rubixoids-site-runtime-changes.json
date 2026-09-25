@@ -1,0 +1,53 @@
+{
+  "schemaVersion": 1,
+  "baseCommit": "fbab137196dd0c67f9e537da78aedd5c6cdae9f5",
+  "purpose": "Preserve the site metadata move and performance toolbar while adding Rubixoids and handling its scoped native controls.",
+  "changes": [
+    {
+      "file": "nav.js",
+      "reason": "Resolve the original target of ShadowRoot keyboard/control events so Rubixoids native inputs retain their gestures.",
+      "regressionTests": [
+        "tests/nav.test.mjs",
+        "e2e/rubixoids.spec.mjs"
+      ],
+      "replacements": [
+        {
+          "before": "}\n\nfunction eventTargetsControl(event, controls) {\n  return controls.find((control) => (\n    control === event?.target || control?.contains?.(event?.target)\n  )) ?? null;\n}\n\n",
+          "after": "}\n\nfunction eventTargetsControl(event, controls) {\n  const target = event?.composedPath?.()[0] ?? event?.target;\n  return controls.find((control) => (\n    control === target || control?.contains?.(target)\n  )) ?? null;\n}\n\n"
+        },
+        {
+          "before": "  };\n  const handleKeydown = (event) => {\n    const isSpace = event?.code === \"Space\" || event?.key === \" \";\n    if (!isSpace || isKeyboardOwnedTarget(event.target) || !primaryTransport) return;\n\n    const shortcutIsGuarded = Boolean(\n      event.defaultPrevented\n",
+          "after": "  };\n  const handleKeydown = (event) => {\n    const isSpace = event?.code === \"Space\" || event?.key === \" \";\n    const target = event.composedPath?.()[0] ?? event.target;\n    if (!isSpace || isKeyboardOwnedTarget(target) || !primaryTransport) return;\n\n    const shortcutIsGuarded = Boolean(\n      event.defaultPrevented\n"
+        }
+      ]
+    },
+    {
+      "file": "src/site/instrument-catalog.js",
+      "reason": "Add the independent Rubixoids app without changing existing catalogue metadata.",
+      "regressionTests": [
+        "tests/instrument-catalog.test.mjs",
+        "e2e/rubixoids.spec.mjs"
+      ],
+      "replacements": [
+        {
+          "before": "});\n\nconst CATALOG_DETAILS = Object.freeze({\n  \"loopini\": define(\n    \"Simple recording looper\",\n    \"Six big recording circles with one-tap on/off mixing, in-loop replacement/overdub icons, and tape-speed recording. Slow down to record a layer, then return to normal for faster, higher playback.\",\n",
+          "after": "});\n\nconst CATALOG_DETAILS = Object.freeze({\n  \"rubixoids\": define(\n    \"2D / 3D / 4D puzzle sequencer\",\n    \"The complete Sliding Puzzle, Rubix Cube and Hyper Rubix instruments share a color palette, additional sound engines and transferable controls. Each dimension retains its puzzle, native capabilities and history when switching.\",\n    \"Enable Audio and Play. Slide or twist the colored stickers, switch dimensions, and explore shared sound, mapping and motion controls.\",\n    [\"Built-in synth\", \"Pointer\", \"Native instruments\", \"Self-contained app\"],\n  ),\n  \"loopini\": define(\n    \"Simple recording looper\",\n    \"Six big recording circles with one-tap on/off mixing, in-loop replacement/overdub icons, and tape-speed recording. Slow down to record a layer, then return to normal for faster, higher playback.\",\n"
+        }
+      ]
+    },
+    {
+      "file": "src/site/instrument-midi-capabilities.js",
+      "reason": "Register Rubixoids for the shared generic note MIDI adapter.",
+      "regressionTests": [
+        "tests/instrument-catalog.test.mjs",
+        "e2e/rubixoids.spec.mjs"
+      ],
+      "replacements": [
+        {
+          "before": "    \"l-systems\",\n    \"graphs\",\n    \"tesselation\",\n    \"algorithmic-mazes\",\n    \"paths\",\n    \"boidzoid\",\n",
+          "after": "    \"l-systems\",\n    \"graphs\",\n    \"tesselation\",\n    \"rubixoids\",\n    \"algorithmic-mazes\",\n    \"paths\",\n    \"boidzoid\",\n"
+        }
+      ]
+    }
+  ]
+}

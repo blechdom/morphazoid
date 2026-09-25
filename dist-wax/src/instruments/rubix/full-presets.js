@@ -1,3 +1,4 @@
+import { SEQUENCER_VOICES } from "../../sequencer-voice-renderer.js";
 import { RUBIX_DEFAULTS, RUBIX_FACTORY_PRESETS } from "./factory-presets.js";
 import { createSolvedRubixCube, turnRubixLayer, rubixLayersForSize, DEFAULT_RUBIX_CAMERA, createRubixSequenceSnapshot } from "./rubix.js";
 import { DEFAULT_FM_DRUM_VOICES, sanitizeFmDrumVoice } from "../fm-drums/fm-drums.js";
@@ -14,7 +15,7 @@ const numeric = {
   stickerModulation: [0, 1], visibilityDynamics: [0, 1], randomTwistSpeed: [0, 100],
 };
 const shapes = ["cube", "morphix", "diamond", "stella", "orb"];
-const banks = ["soft-fm", "analog", "modal", "noise", "acid-303", "rattlesnake", "pitched-morph", "karplus-strong"];
+const banks = [...SEQUENCER_VOICES.map(({ id }) => `shared-${id}`), "soft-fm", "analog", "modal", "noise", "acid-303", "rattlesnake", "pitched-morph", "karplus-strong"];
 function arrangedCube(size, count, seed) {
   let cube = createSolvedRubixCube(size);
   const layers = rubixLayersForSize(size);

@@ -1,0 +1,39 @@
+.rubixoids-page { --accent: #f5c95c; margin: 0; height: 100dvh; display: flex; flex-direction: column; overflow: hidden; }
+.rubixoids-page > .masthead { flex: 0 0 auto; }
+.rubixoids-bar { display: flex; align-items: center; gap: 14px; padding: 0 18px; min-height: 48px; flex: 0 0 auto; background: #0b0f13; border-bottom: 1px solid #34404a; }
+.rubixoids-bar h1 { font-size: 17px; font-weight: 600; margin: 0; letter-spacing: -.04em; }
+.rubixoids-dimensions { display: flex; align-self: stretch; gap: 5px; margin-left: auto; }
+.rubixoids-dimensions button { font: inherit; color: #b4bec7; background: transparent; border: 0; border-bottom: 2px solid transparent; min-height: 48px; min-width: 74px; padding: 7px 14px; cursor: pointer; }
+.rubixoids-dimensions button[aria-pressed="true"] { color: #f5c95c; border-bottom-color: currentColor; background: #f5c95c0c; }
+.rubixoids-dimensions button:hover { background: #222d36; }
+.rubixoids-dimensions button:focus-visible, .rubixoids-play:focus-visible { outline: 2px solid #f5c95c; outline-offset: -4px; }
+.rubixoids-dimensions span { font-size: 10px; margin-left: 5px; }
+.rubixoids-play { color: #f5c95c; background: transparent; border: 1px solid #f5c95c66; min-width: 76px; min-height: 36px; font: inherit; font-size: 11px; cursor: pointer; }
+#rubixoids { position: relative; flex: 1 1 0; min-height: 0; min-width: 0; overflow: hidden; }
+.rubixoids-pane { display: block; height: 100%; width: 100%; min-height: 0; min-width: 0; }
+.rubixoids-pane[hidden] { display: none; }
+#rubixoidsStatus { position: absolute; inset: auto 12px 8px; z-index: 5; margin: 0; color: #f5c95c; font-size: 12px; pointer-events: none; }
+#rubixoidsStatus:empty { display: none; }
+@media (max-width: 520px) {
+  .rubixoids-bar { padding: 0 8px; gap: 5px; }
+  .rubixoids-bar h1 { font-size: 13px; }
+  .rubixoids-dimensions { gap: 1px; }
+  .rubixoids-dimensions button { min-width: 52px; padding: 5px 6px; }
+  .rubixoids-dimensions span { display: block; font-size: 9px; margin: 2px 0 0; }
+  .rubixoids-play { min-width: 58px; min-height: 48px; }
+}
+@media (pointer: coarse) { .rubixoids-play { min-height: 48px; } }
+
+.rubixoids-clock { display: flex; gap: 16px; margin-left: auto; flex: 0 1 340px; min-width: 190px; }
+.rubixoids-clock label { display: grid; gap: 3px; flex: 1; min-width: 0; color: #aeb8bf; font-size: 10px; }
+.rubixoids-clock label > span { display: flex; justify-content: space-between; gap: 6px; }
+.rubixoids-clock output { color: #f5c95c; font-variant-numeric: tabular-nums; }
+.rubixoids-clock input { width: 100%; margin: 0; height: 22px; accent-color: #f5c95c; }
+.rubixoids-clock input:focus-visible { outline: 2px solid #f5c95c; outline-offset: 2px; }
+.rubixoids-clock + .rubixoids-dimensions { margin-left: 0; }
+@media (max-width: 650px) {
+  .rubixoids-bar { flex-wrap: wrap; column-gap: 5px; row-gap: 0; }
+  .rubixoids-bar h1 { margin-right: auto; }
+  .rubixoids-clock { order: 4; flex: 1 0 100%; padding: 7px 2px 5px; margin: 0; }
+  .rubixoids-clock input { height: 28px; }
+}

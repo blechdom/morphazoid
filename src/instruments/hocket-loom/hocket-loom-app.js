@@ -1,3 +1,4 @@
+import { SequencerVoiceBank, appendSequencerVoiceOptions } from "../../sequencer-voices.js";
 import { connectAudioOutput } from "../../audio-output-manager.js";
 import { unlockAudioContext } from "../../audio.js";
 import { createMotionModeGroup } from "../../ui/index.js";
@@ -6,6 +7,7 @@ import {
   HOCKET_MARKER_SOURCE_LIMIT,
   hocketMarkerPlan,
   scheduleHocketMarker,
+  hocketSharedVoiceEvent,
 } from "./hocket-loom-audio.js";
 import {
   HOCKET_PRESETS,
@@ -56,6 +58,7 @@ const dom = {
   pulseLength: $("#pulseLength"),
   pulseLengthOut: $("#pulseLengthOut"),
   soundSet: $("#soundSet"),
+  soundEngine: $("#soundEngine"),
   focusMode: $("#focusMode"),
   structureSummary: $("#structureSummary"),
   timeSummary: $("#timeSummary"),
@@ -97,6 +100,7 @@ let schedulerTimer = 0;
 let resizeObserver = null;
 let pointerDragKey = "";
 let destroyed = false;
+let engineChangeGeneration = 0;
 let motionModeControl = null;
 
 function mod(value, divisor) {
@@ -120,6 +124,7 @@ class HocketAudio {
     this.scheduledPatternSteps = [];
     this.activeSourceCount = 0;
     this.strikeHistory = [];
+    this.sharedVoices = null;
   }
 
   get armed() {
@@ -138,6 +143,7 @@ class HocketAudio {
     const context = this.context;
     unlockAudioContext(context);
     if (context.state === "suspended") await context.resume();
+    await this.prepareEngine(settings);
     if (generation !== this.generation || context !== this.context || context.state === "closed") {
       const error = new Error("Audio start was cancelled.");
       error.name = "AbortError";
@@ -145,6 +151,18 @@ class HocketAudio {
     }
     this.update(settings);
     return context;
+  }
+
+  async prepareEngine(settings) {
+    if (settings.soundEngine === "original" || !this.armed) return;
+    const context = this.context, generation = this.generation;
+    this.sharedVoices ??= new SequencerVoiceBank({ runtime: this.runtime, maxVoices: 32 });
+    await this.sharedVoices.prepare(context, this.master);
+    if (generation !== this.generation || context !== this.context || context.state === "closed") {
+      const error = new Error("Sound engine preparation was cancelled.");
+      error.name = "AbortError";
+      throw error;
+    }
   }
 
   build(settings) {
@@ -236,6 +254,19 @@ class HocketAudio {
     const start = Math.max(context.currentTime + 0.001, when);
     const plan = preparedPlan ?? this.markerPlan(event, settings, peak);
     if (this.activeSourceCount + plan.sourceCount > HOCKET_MARKER_SOURCE_LIMIT) return;
+    if (settings.soundEngine !== "original") {
+      const handle = this.sharedVoices?.trigger({ ...hocketSharedVoiceEvent(event, settings, peak, plan), when: start });
+      if (handle) {
+        this.strikeHistory.push({
+          material: settings.soundEngine, voice: event.voice, tone: event.tone,
+          sourceKinds: ["shared-engine"], sourceCount: 1,
+          durationMs: Math.round(plan.durationSeconds * 1000),
+          startTime: handle.when, endTime: handle.stopAt,
+        });
+        if (this.strikeHistory.length > 48) this.strikeHistory.shift();
+      }
+      return;
+    }
     const scheduled = scheduleHocketMarker(context, this.master, plan, {
       when: start,
       noiseBuffer: this.noiseBuffer,
@@ -294,6 +325,9 @@ class HocketAudio {
   }
 
   cancelFuture(cutoff = this.context?.currentTime ?? 0) {
+    for (const handle of this.sharedVoices?.active ?? []) {
+      if (handle.when >= cutoff + 0.008) this.sharedVoices.releaseVoice(handle, cutoff);
+    }
     for (const group of [...this.groups]) {
       if (group.startTime < cutoff + 0.008) continue;
       group.sources.forEach((source) => {
@@ -308,6 +342,7 @@ class HocketAudio {
   }
 
   panic() {
+    this.sharedVoices?.stop();
     if (!this.context) return;
     const now = this.context.currentTime;
     const releaseAt = now + 0.012;
@@ -350,6 +385,8 @@ class HocketAudio {
     this.stateChangeHandler = null;
     const releasingGroups = this.groups.size > 0;
     this.panic();
+    this.sharedVoices?.dispose();
+    this.sharedVoices = null;
     if (context && releasingGroups && context.state === "running") {
       await new Promise((resolve) => this.runtime.setTimeout(resolve, 18));
     }
@@ -781,6 +818,7 @@ function renderControls() {
   dom.swing.value = String(state.swing);
   dom.pulseLength.value = String(state.pulseLengthMs);
   dom.soundSet.value = state.soundSet;
+  dom.soundEngine.value = state.soundEngine;
   dom.focusMode.value = state.focusMode;
   dom.preserveComposite.checked = state.preserveComposite;
   dom.level.value = String(state.level);
@@ -794,7 +832,8 @@ function renderControls() {
     state.swing < 0.01 ? "straight" : `${Math.round(state.swing * 100)}% swing`
   } · ${Math.round(state.pulseLengthMs)} ms`;
   const soundLabel = dom.soundSet.selectedOptions[0]?.textContent || state.soundSet;
-  dom.soundSummary.value = `${soundLabel} · ${state.focusMode.replace("-", " ")}`;
+  const engineLabel = state.soundEngine === "original" ? soundLabel : dom.soundEngine.selectedOptions[0]?.textContent;
+  dom.soundSummary.value = `${engineLabel} · ${state.focusMode.replace("-", " ")}`;
   dom.pulseTool.setAttribute("aria-pressed", String(editTool === "pulse"));
   dom.restTool.setAttribute("aria-pressed", String(editTool === "rest"));
 }
@@ -1093,9 +1132,10 @@ function clearPattern() {
 }
 
 function loadPreset(presetId, message = "") {
-  const level = state.level;
+  const level = state.level, soundEngine = state.soundEngine;
   state = createHocketState(presetId);
   state.level = level;
+  state.soundEngine = soundEngine;
   commit(state, message || `${presetForHocket(presetId).name} loaded.`);
 }
 
@@ -1201,6 +1241,28 @@ for (const [element, key, format] of [
   });
 }
 
+dom.soundEngine.addEventListener("change", async () => {
+  const generation = ++engineChangeGeneration;
+  const next = sanitizeHocketState({ ...state, soundEngine: dom.soundEngine.value });
+  const engineLabel = [...dom.soundEngine.options].find(option => option.value === next.soundEngine)?.textContent || next.soundEngine;
+  hideAudioError();
+  try {
+    if (audio.armed) await audio.prepareEngine(next);
+    if (generation !== engineChangeGeneration || destroyed) return;
+    // Only replace the requested sound field: editing the score while an engine
+    // prepares must never roll that newer score back to the previous snapshot.
+    commit(markVariation({ ...state, soundEngine: next.soundEngine }), `${engineLabel} selected.`);
+  } catch (error) {
+    if (generation !== engineChangeGeneration || destroyed) return;
+    if (error?.name === "AbortError" && !audio.armed) {
+      commit(markVariation({ ...state, soundEngine: next.soundEngine }), "Sound engine selected. Audio remains off.");
+    } else {
+      renderControls();
+      if (error?.name !== "AbortError") showAudioError(error);
+    }
+  }
+});
+
 dom.soundSet.addEventListener("change", () => {
   commit(
     markVariation({ ...state, soundSet: dom.soundSet.value }),
@@ -1283,6 +1345,8 @@ globalThis.__HOCKET_LOOM__ = Object.freeze({
   resumeAudio: () => audio.context?.resume(),
   getDebugState: () => Object.freeze({
     audioArmed: audio.armed,
+    soundEngine: state.soundEngine,
+    sharedVoices: audio.sharedVoices?.diagnostics() ?? null,
     audioClosing: audio.closing,
     audioContextState: audio.context?.state ?? "closed",
     audioCurrentTime: audio.context?.currentTime ?? 0,
@@ -1357,6 +1421,7 @@ motionModeControl = createMotionModeGroup({
 });
 dom.motionModeMount.replaceChildren(motionModeControl);
 
+appendSequencerVoiceOptions(dom.soundEngine);
 populatePresetOptions();
 renderState();
 renderTransport();

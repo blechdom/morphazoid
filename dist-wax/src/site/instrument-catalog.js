@@ -15,6 +15,12 @@ const define = (kind, description, start, features = [], pluginHref = null) => O
 });
 
 const CATALOG_DETAILS = Object.freeze({
+  "rubixoids": define(
+    "2D / 3D / 4D puzzle sequencer",
+    "The complete Sliding Puzzle, Rubix Cube and Hyper Rubix instruments share a color palette, additional sound engines and transferable controls. Each dimension retains its puzzle, native capabilities and history when switching.",
+    "Enable Audio and Play. Slide or twist the colored stickers, switch dimensions, and explore shared sound, mapping and motion controls.",
+    ["Built-in synth", "Pointer", "Native instruments", "Self-contained app"],
+  ),
   "loopini": define(
     "Simple recording looper",
     "Six big recording circles with one-tap on/off mixing, in-loop replacement/overdub icons, and tape-speed recording. Slow down to record a layer, then return to normal for faster, higher playback.",

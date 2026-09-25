@@ -45,7 +45,7 @@ export function presetArrowDirection(event, { withinPicker = false } = {}) {
     || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return 0;
   const direction = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 }[event.key] ?? 0;
   if (!direction) return 0;
-  const target = event.target;
+  const target = event.composedPath?.()[0] ?? event.target;
   if (target?.closest?.("input,select,textarea,[contenteditable]:not([contenteditable='false'])")) return 0;
   if (!withinPicker && target?.closest?.(
     "button,a,summary,canvas,audio,video,[role='grid'],[role='slider'],[role='listbox'],[role='dialog'],[tabindex]:not([tabindex='-1'])",
@@ -62,7 +62,7 @@ export function presetArrowDirection(event, { withinPicker = false } = {}) {
  */
 export function registerHeaderPresets({
   id, presets, capture, apply, randomize, random = Math.random,
-  document: doc = globalThis.document, runtime = globalThis,
+  document: doc = globalThis.document, runtime = globalThis, host = null,
 }) {
   validateFullPresetBank(presets);
   if (typeof capture !== "function" || typeof apply !== "function") throw new TypeError("A complete-state capture/apply adapter is required");
@@ -70,7 +70,7 @@ export function registerHeaderPresets({
   const bank = JSON.parse(JSON.stringify(presets));
   presetStateKey(capture());
   registrations.get(doc)?.destroy();
-  const controller = { id, bank, capture, apply, randomize, random, runtime, doc, view: null, selectedId: null, hasPresetInteraction: false };
+  const controller = { id, bank, capture, apply, randomize, random, runtime, doc, host, view: null, selectedId: null, hasPresetInteraction: false };
   controller.destroy = () => {
     controller.view?.destroy();
     if (registrations.get(doc) === controller) registrations.delete(doc);
@@ -84,7 +84,7 @@ export function registerHeaderPresets({
 export function mountHeaderPresets(doc) {
   const controller = registrations.get(doc);
   if (!controller || controller.view) return;
-  const host = doc.querySelector?.("[data-instrument-preset-host]");
+  const host = controller.host ?? doc.querySelector?.("[data-instrument-preset-host]");
   if (!host) return;
   const { bank, capture, apply, runtime } = controller;
   const abort = new runtime.AbortController();
