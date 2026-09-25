@@ -1,3 +1,4 @@
+import { choosePugglerPattern as choosePattern } from './helpers/puggler-pattern.mjs';
 import { expect, test } from '@playwright/test';
 import { sampleAudioEnvelope } from './helpers/audio-probe.mjs';
 import { COLLAGE_ATLASES } from '../src/instruments/puggler/puggler-collage.js';
@@ -20,7 +21,7 @@ async function cast(page, name) {
   for(const owner of wanted)if(!(await state(page)).activeIds.includes(owner))await page.locator(`#rider-${owner}`).click();
   for(const owner of (await state(page)).activeIds)if(!wanted.includes(owner))await page.locator(`#rider-${owner}`).click();
 }
-async function phrase(page, value){await page.locator('#pattern').selectOption(value==='loop'?(await state(page)).pattern:`phrase:${value}`);}
+async function phrase(page, value){await choosePattern(page,value==='loop'?(await state(page)).pattern:`phrase:${value}`);}
 
 async function openShow(page) {
   await page.goto('puggler.html');
@@ -54,6 +55,7 @@ test('Puggler starts a silent six-object trio verse with automatic passing', asy
 });
 
 test('Puggler exposes every compatible pattern from automatic rhythm forms and selects it immediately', async ({ page }) => {
+  test.setTimeout(60000);
   await openShow(page);
   for (const count of Array.from({ length: 10 }, (_, i) => i + 1)) {
     await range(page,'count',String(count));
@@ -68,12 +70,12 @@ test('Puggler exposes every compatible pattern from automatic rhythm forms and s
         .toEqual(['phrase:verse','phrase:evolve',...patterns.map(pattern => pattern.id)]);
       // Even the previously stored pattern must be selectable from phrases.
       const before = await state(page);
-      await menu.selectOption(before.pattern);
+      await choosePattern(page,before.pattern);
       expect((await state(page)).phrase).toBe('loop');
       expect(await state(page)).toMatchObject({ count, pattern: before.pattern, phrase: 'loop', running: true, audioOn: false });
     }
     for (const pattern of patterns) {
-      await page.locator('#pattern').selectOption(pattern.id);
+      await choosePattern(page,pattern.id);
       expect(await state(page)).toMatchObject({ count, pattern: pattern.id, phrase: 'loop', running: true, audioOn: false });
     }
   }
@@ -81,7 +83,7 @@ test('Puggler exposes every compatible pattern from automatic rhythm forms and s
   await expect(page.locator('#audioButton')).toHaveAttribute('aria-pressed', 'true', { timeout: 15000 });
   await page.locator('#playButton').click();
   await phrase(page,'evolve');
-  await page.locator('#pattern').selectOption('shower-10');
+  await choosePattern(page,'shower-10');
   expect(await state(page)).toMatchObject({ pattern: 'shower-10', phrase: 'loop', running: false, audioOn: true });
 });
 
@@ -132,7 +134,7 @@ test('Puggler separates explicit Audio, output level, mute, pause, and teardown'
 test('Puggler gives every solo character its own recorded vocal treatment', async ({ page }) => {
   const errors=[];page.on('pageerror',error=>errors.push(error.message));
   await openShow(page);await range(page,'count','1');
-  await page.locator('#pattern').selectOption('single');await page.locator('#autoRide').uncheck();
+  await choosePattern(page,'single');await page.locator('#autoRide').uncheck();
   await range(page,'chaos',0);await range(page,'assist',120);await range(page,'tempo',180);
   await page.locator('#riffs0').selectOption('oi');await range(page,'impacts',0);await range(page,'boo',0);
   await page.locator('#audioButton').click();
@@ -155,7 +157,7 @@ test('Puggler gives every solo character its own recorded vocal treatment', asyn
 
 test('Puggler passes keep the thrower voice for the whole flight then give the receiver the next phrase', async ({ page }) => {
   await openShow(page);await range(page,'count','1');
-  await page.locator('#pattern').selectOption('single');await cast(page,'roxy-moss');
+  await choosePattern(page,'single');await cast(page,'roxy-moss');
   await page.locator('#autoRide').uncheck();await range(page,'tempo',100);await range(page,'chaos',0);await range(page,'assist',120);
   await page.locator('#riffs0').selectOption('oi');await page.locator('#audioButton').click();
   await expect(page.locator('#audioButton')).toHaveAttribute('aria-pressed','true',{timeout:15000});
@@ -226,11 +228,11 @@ test('ride speed and juggling tempo are separate shared knobs, and pattern arrow
     await expect.poll(async()=>(await state(page)).players.every((p,i)=>p.ridePhase>before.players[i].ridePhase+.3)).toBe(true);
     expect((await state(page)).tempo).toBe(200);
     const ride=(await state(page)).rideSpeed;await range(page,'tempo',900);expect((await state(page)).rideSpeed).toBe(ride);
-    await page.locator('#pattern').selectOption('phrase:verse');await page.locator('#nextPattern').click();
+    await choosePattern(page,'phrase:verse');await page.locator('#nextPattern').click();
     expect((await state(page)).phrase).toBe('evolve');await page.locator('#nextPattern').click();
     expect((await state(page)).phrase).toBe('loop');expect((await state(page)).audioOn).toBe(false);
     const ids=await page.locator('#pattern option').evaluateAll(nodes=>nodes.map(n=>n.value));
-    await page.locator('#pattern').selectOption(ids.at(-1));await page.locator('#nextPattern').click();
+    await choosePattern(page,ids.at(-1));await page.locator('#nextPattern').click();
     await expect(page.locator('#pattern')).toHaveValue('phrase:verse');
   });
 
@@ -239,7 +241,7 @@ test('throwing to the audience returns a different sound object on a rising arc'
   await cast(page,'puggler');
   await range(page,'count','1');
   await phrase(page,'loop');
-  await page.locator('#pattern').selectOption('single');
+  await choosePattern(page,'single');
   await range(page, 'chaos', 0);
   await range(page, 'assist', 120);
   await page.locator('#stage').focus();
@@ -295,7 +297,7 @@ test('ten live objects keep their drum and riff edits across phrase and speed ch
   expect(selectedProps).toEqual(newProps);
   await phrase(page,'loop');
   await expect(page.locator('#pattern')).toBeEnabled();
-  await page.locator('#pattern').selectOption('shower-10');
+  await choosePattern(page,'shower-10');
   expect(await state(page)).toMatchObject({ phrase: 'loop', pattern: 'shower-10' });
   await range(page, 'tempo', 1200);
   await range(page, 'loft', 3);
@@ -420,14 +422,15 @@ for (const viewport of [{ width:390, height:844 }, { width:844, height:390 }]) {
     const context=await browser.newContext({baseURL,viewport,hasTouch:true,isMobile:true});
     try {
       const page=await context.newPage();await openShow(page);
-      // Scroll the parameter gutter, outside the canvas steering area. Portrait
-      // uses the page; short landscape uses its full-height parameter column.
+      // Scroll the controls below the stage, outside the canvas steering area.
+      // Portrait uses the page; landscape has an independent left scroller.
       // Programmatic scrollIntoView can bypass overflow:hidden and miss this bug.
-      await page.mouse.move(viewport.width-5,viewport.height*.8);
+      const controls=await page.locator('.puggler-performance-controls').boundingBox();
+      await page.mouse.move(controls.x+controls.width-5,Math.min(viewport.height-20,controls.y+80));
       await page.mouse.wheel(0,viewport.height*.6);
       await expect.poll(()=>page.evaluate(()=>{
-        const panel=document.querySelector('.puggler-panel');
-        return getComputedStyle(panel).overflowY==='auto'?panel.scrollTop:scrollY;
+        const controls=document.querySelector('.puggler-performance-controls');
+        return getComputedStyle(controls).overflowY==='auto'?controls.scrollTop:scrollY;
       })).toBeGreaterThan(50);
       await page.locator('#skin').selectOption('future');
       await page.locator('#lighting').selectOption('sweep');
@@ -610,7 +613,7 @@ test('one captured touch steers the whole cast; extra touches cannot split it an
 test('Puggler sonic skins change instruments, vocal colors and impact voices during a live act', async ({ page }) => {
   const errors=[];page.on('pageerror',error=>errors.push(error.message));
   await openShow(page);await range(page,'count','4');
-  await page.locator('#pattern').selectOption('fountain');await range(page,'chaos',0);
+  await choosePattern(page,'fountain');await range(page,'chaos',0);
   await range(page,'assist',120);await page.locator('#autoRide').uncheck();
   await page.locator('#skin').selectOption('history');
   expect((await state(page)).audioOn).toBe(false);

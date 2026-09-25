@@ -8,6 +8,7 @@ import { SKINS, skinFor, presentProp } from "./puggler-skins.js";
 import { LIGHTING_SCENES } from "./puggler-lighting.js";
 import { objectSoundLabel } from './puggler-object-sounds.js';
 import { SOUND_DEFAULTS, PUGGLER_FULL_PRESETS, capturePugglerPreset, applyPugglerPreset, randomizePugglerPreset } from './puggler-full-presets.js';
+import { anchorChoosePickerPanel, createChoosePickerShell } from '../../ui/patterns/choose-picker-shell.js';
 import { registerHeaderPresets } from '../../site/header-presets.js';
 import { enhanceRangeKnob } from "../../ui/primitives/range-knob.js";
 import { createRangeField } from "../../ui/index.js";
@@ -27,7 +28,7 @@ const listen=(element,type,handler,options)=>{element.addEventListener(type,hand
 const percent=v=>`${Math.round(v*100)}%`;
 function updateAudio(){audio.update(model.objects,{...params,tempo:model.config.tempo,beat:model.beat,active:!document.hidden},running&&!document.hidden);}
 function status(){
-  $('playButton').textContent=running?'Pause':'Play';
+  $('playButton').querySelector('.mz-button__label').textContent=running?'Pause':'Play';
   $('playButton').setAttribute('aria-pressed',String(running));
 }
 function togglePlay(){running=!running;accumulator=0;lastClock=clock();updateAudio();status();}
@@ -41,6 +42,7 @@ function addRange(container,id,label,min,max,step,value,formatter,destination){
   if($(container).classList.contains('puggler-knobs'))knobs.push(enhanceRangeKnob(field.input));
 }
 addRange('performanceKnobs','rideSpeed','Ride speed',0,2.5,.05,PAGE_DEFAULTS.rideSpeed,v=>v===0?'Still':`${v.toFixed(2)}×`,'model');
+addRange('performanceKnobs','rideRange','Riding distance',0,100,1,PAGE_DEFAULTS.rideRange,v=>`${Math.round(v)}%`,'model');
 addRange('performanceKnobs','count','Objects',1,10,1,PAGE_DEFAULTS.count,v=>`${v}`,'model');
 addRange('performanceKnobs','tempo','Juggle / music',100,1200,1,PAGE_DEFAULTS.tempo,v=>`${v} BPM`,'model');
 addRange('performanceKnobs','loft','Throw height',.6,3,.05,1.8,v=>`${v.toFixed(2)}×`,'model');
@@ -70,9 +72,9 @@ addRange('soundControls','decay','Impact tail',.2,1,.05,1,v=>v===1?'Full':percen
 $('preset').replaceChildren(new Option('Custom juggling act',''),...PRESETS.map(p=>new Option(p.name,p.id)));
 $('preset').value='ballet';
 $('ridePattern').replaceChildren(...RIDE_PATTERNS.map(id=>new Option(id.replaceAll('-',' '),id)));
-addRange('ridingControls','rideRange','Riding distance',0,100,1,PAGE_DEFAULTS.rideRange,v=>`${Math.round(v)}%`,'model');
 $('skin').replaceChildren(...SKINS.map(skin=>new Option(skin.name,skin.id)));
 $('lighting').replaceChildren(...LIGHTING_SCENES.map(scene=>new Option(scene.name,scene.id)));
+const patternPicker=createPatternPicker();
 function syncSkinLabels(){
   ranges.get('grit').querySelector('.mz-field__label').textContent=sonicSkin(params.skin).grit;
   const skin=skinFor(params.skin),names=skin.riders;
@@ -96,6 +98,7 @@ function syncSelectors(){
   patterns.unshift(new Option('Verse / fill / break','phrase:verse'),new Option('Evolving phrases','phrase:evolve'));
   $('pattern').replaceChildren(...patterns);
   $('pattern').value=model.config.phrase==='loop'?model.pattern.id:`phrase:${model.config.phrase}`;
+  patternPicker.refresh();
   for(const [id,field] of ranges)field.setValue(id in model.config?model.config[id]:params[id]);
   riderToggles.forEach((button,owner)=>{
     const active=model.activeIds.includes(owner),last=active&&model.riderCount===1;
@@ -128,6 +131,60 @@ function syncObjects(){
   });syncObjectValues();
 }
 function syncObjectValues(){model.objects.forEach((o,i)=>{const r=objectRows[i];if(!r)return;const prop=presentProp(o.prop,params.skin);r.select.value=prop.id;r.select.title=`${prop.name} · ${prop.mass>=1?`${prop.mass} kg`:`${Math.round(prop.mass*1000)} g`}`;r.row.style.setProperty('--prop-color',prop.color);for(const kind of ['drums','riffs']){const select=r.row.querySelector(`#${kind}${i}`);select.options[0].textContent=objectSoundLabel(params.skin,'object',o.prop.id,kind==='drums'?'catch':'air');select.title=select.selectedOptions[0]?.textContent??'';}});}
+function createPatternPicker(){
+  const select=$('pattern'),root=select.closest('.puggler-pattern-row');
+  const shell=createChoosePickerShell(document,{
+    current:'Juggling pattern',label:'Choose juggling pattern',title:'Juggling patterns',
+    panelId:'puggler-pattern-panel',placeholder:'Type a pattern',filterLabel:'Filter juggling patterns',listLabel:'Juggling patterns',
+  });
+  const {details,summary,currentLabel,panel,search,searchInput,list}=shell;
+  details.classList.add('puggler-pattern-picker');
+  panel.append(search,list);details.append(summary,panel);root.prepend(details);
+  const empty=document.createElement('p');empty.className='instrument-picker-empty';empty.textContent='No patterns found';
+  let signature='';
+  const filter=()=>{
+    const query=searchInput.value.trim().toLocaleLowerCase();let visible=0;
+    for(const row of list.querySelectorAll('.instrument-picker-row')){
+      row.hidden=!row.textContent.toLocaleLowerCase().includes(query);if(!row.hidden)visible++;
+    }
+    empty.hidden=visible>0;
+  };
+  const refresh=()=>{
+    const options=[...select.options],key=JSON.stringify(options.map(o=>[o.value,o.text]));
+    if(key!==signature){
+      signature=key;list.replaceChildren();
+      for(const option of options){
+        const row=document.createElement('div');row.className='instrument-picker-row';
+        const button=document.createElement('button');button.type='button';button.className='instrument-picker-link';
+        button.dataset.pattern=option.value;button.textContent=option.text;
+        row.append(button);list.append(row);
+      }
+      list.append(empty);
+    }
+    currentLabel.textContent=select.selectedOptions[0]?.text??'Juggling pattern';summary.title=currentLabel.textContent;
+    for(const button of list.querySelectorAll('[data-pattern]'))button.setAttribute('aria-pressed',String(button.dataset.pattern===select.value));
+    filter();
+  };
+  listen(list,'click',event=>{
+    const button=event.target.closest('[data-pattern]');if(!button)return;
+    select.value=button.dataset.pattern;select.dispatchEvent(new Event('change',{bubbles:true}));
+    details.open=false;summary.focus({preventScroll:true});
+  });
+  listen(searchInput,'input',filter);
+  listen(details,'toggle',()=>{if(!details.open){searchInput.value='';filter();}});
+  listen(document,'pointerdown',event=>{if(details.open&&!root.contains(event.target))details.open=false;});
+  listen(root,'keydown',event=>{
+    event.stopPropagation();
+    if(event.key==='Escape'&&details.open){
+      event.preventDefault();
+      if(searchInput.value){searchInput.value='';filter();searchInput.focus();}
+      else{details.open=false;summary.focus({preventScroll:true});}
+    }
+  });
+  const anchored=anchorChoosePickerPanel(shell);
+  cleanups.push(()=>anchored.destroy());
+  return {refresh};
+}
 function selectPattern(value){
   model.apply(value.startsWith('phrase:')?{phrase:value.slice(7)}:{pattern:value,phrase:'loop'});
   syncSelectors();updateAudio();

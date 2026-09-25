@@ -6,12 +6,14 @@ import { restorePresetToolbar, toolbarAmendments } from "./helpers/preset-toolba
 import { readRuntimeManifest } from "../scripts/site/runtime-manifest.mjs";
 const read = file => readFile(new URL(`../${file}`, import.meta.url), "utf8");
 
-test("every implemented full-preset owner declares exactly one right-panel host", async () => {
+test("every implemented full-preset owner declares exactly one explicit preset host", async () => {
   const rollout = JSON.parse(await read("docs/preset-rollout-status.json"));
   for (const entry of rollout.entries.filter(entry => entry.status.startsWith("implemented-"))) {
     const html = await read(entry.href);
     assert.equal((html.match(/data-instrument-preset-host/g) ?? []).length, 1, entry.id);
-    assert.match(html, entry.id === "shapes" ? /<header class="shapes-panel-header" data-instrument-preset-host/ : /<aside[^>]+data-instrument-preset-host/, entry.id);
+    assert.match(html, entry.id === "shapes" ? /<header class="shapes-panel-header" data-instrument-preset-host/
+      : entry.id === "puggler" ? /<div class="puggler-preset-host" data-instrument-preset-host/ // Owner-requested mobile reparenting.
+      : /<aside[^>]+data-instrument-preset-host/, entry.id);
   }
 });
 

@@ -18,3 +18,29 @@ if (header && stage) {
     window.removeEventListener("resize", update);
   }, { once: true });
 }
+
+// Owner-requested mobile placement. Move the one host (even before presets
+// register), never clone controls or re-register/recall instrument state.
+const presetHost = document.querySelector('.puggler-preset-host');
+const mobileSlot = document.querySelector('#mobilePresets');
+const panelSlot = document.querySelector('#panelPresets');
+if (presetHost && mobileSlot && panelSlot) {
+  const mobile = window.matchMedia('(max-width:720px), (max-width:960px) and (max-height:560px) and (orientation:landscape)');
+  const placePresets = () => {
+    const target = mobile.matches ? mobileSlot : panelSlot;
+    if (presetHost.parentElement === target) return;
+    const focused = document.activeElement;
+    const restoreFocus = presetHost.contains(focused);
+    // Reparenting dismisses a top-layer popup. Close its disclosure too.
+    for (const picker of presetHost.querySelectorAll('details[open]')) picker.open = false;
+    target.append(presetHost);
+    if (restoreFocus) {
+      const nextFocus = focused.closest('.instrument-picker-panel')
+        ? presetHost.querySelector('summary') : focused;
+      nextFocus?.focus({ preventScroll:true });
+    }
+  };
+  mobile.addEventListener('change', placePresets);
+  placePresets();
+  window.addEventListener('pagehide', () => mobile.removeEventListener('change', placePresets), { once:true });
+}

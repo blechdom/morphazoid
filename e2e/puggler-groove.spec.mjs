@@ -1,3 +1,4 @@
+import { choosePugglerPattern as choosePattern } from './helpers/puggler-pattern.mjs';
 import {test,expect} from '@playwright/test';
 const state=page=>page.evaluate(()=>window.__puggler.snapshot());
 const range=(page,id,value)=>page.locator(`#${id}`).evaluate((node,v)=>{node.value=v;node.dispatchEvent(new Event('input',{bubbles:true}));},String(value));
@@ -26,7 +27,7 @@ test('complete scenes and seeded dice remain audible at one unchanged output lev
   expect(errors).toEqual([]);
 });
 test('pitch sweeps keep notes tied to the juggling beat and rapid edits keep resources bounded',async({page})=>{
-  test.setTimeout(45000);await open(page);await range(page,'count','3');await page.locator('#pattern').selectOption('cascade');await range(page,'tempo',240);await range(page,'chaos',0);await range(page,'assist',120);
+  test.setTimeout(45000);await open(page);await range(page,'count','3');await choosePattern(page,'cascade');await range(page,'tempo',240);await range(page,'chaos',0);await range(page,'assist',120);
   await page.locator('#object0').selectOption('guitar');const before=await state(page);
   for(let i=0;i<12;i++){
     await range(page,'height',i%2?1.5:0);await range(page,'loft',i%2?2.5:.8);
