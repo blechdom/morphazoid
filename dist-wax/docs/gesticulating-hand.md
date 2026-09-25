@@ -132,8 +132,11 @@ is capped at 40 frames/second, 1.6 device-pixel ratio and about 1.45 million pix
 - Reset recalls the initial scene without changing output or player
   switches. Audio off releases sound. Blur releases transient manual/MIDI holds.
 
-Skin choices are **Natural, Porcelain, Copper, Jade, Violet, and Cyan**.
-Lighting choices are **Studio, Warm, Cool, Noir, Neon, and Soft**. These material
+Skin tints are **Natural, Porcelain, Copper, Jade, Violet, and Cyan**. Each color
+multiplies the original textured material, retaining fingernails, joint creases,
+skin detail and the original roughness and specular response. Natural restores
+the original color exactly.
+Lighting choices are **Studio, Warm, Cool, Noir, Neon, and Soft**. These tint
 and light treatments change the view; joint motion continues to own synthesis.
 Older saved configurations use Natural skin, Studio lighting and the palm camera.
 Camera orbit, angle and zoom belong to each complete preset.

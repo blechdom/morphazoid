@@ -1,11 +1,11 @@
-// Visual finishes affect materials and lighting only; the hand's weighted rig
-// and texture resources remain owned by the viewer.
+// Tints multiply the artist's textured skin color; maps and surface response
+// stay intact. The hand's weighted rig and resources remain owned by the viewer.
 const SKINS = Object.freeze({
-  porcelain: { color: 0xe8e4db, roughness: .30, metalness: .02 },
-  copper: { color: 0xcc7043, roughness: .33, metalness: .58 },
-  jade: { color: 0x409a79, roughness: .31, metalness: .10 },
-  violet: { color: 0x9661d1, roughness: .36, metalness: .16 },
-  cyan: { color: 0x3fc9df, roughness: .28, metalness: .20 },
+  porcelain: 0xddeaff,
+  copper: 0xffba88,
+  jade: 0x83ecd3,
+  violet: 0xb8adff,
+  cyan: 0x82e4ff,
 });
 
 // [sky, ground, hemisphere strength], then [color, strength, x, y, z]
@@ -44,17 +44,13 @@ const LIGHTING = Object.freeze({
 });
 
 /** Create after the GLTF materials have received the viewer's defaults.
- * Call dispose before disposing the scene, so temporarily hidden original maps
- * are once again attached to their materials for normal texture cleanup. */
+ * Original textures stay attached through every tint and lighting change. */
 export function createHandLook({ meshes, ambient, keyLight, fill, rim }) {
   const materials = [...new Set(meshes.flatMap(mesh =>
     Array.isArray(mesh.material) ? mesh.material : [mesh.material]
   ).filter(material => material?.color))].map(material => ({
     material,
     color: material.color.clone(),
-    map: material.map,
-    roughness: material.roughness,
-    metalness: material.metalness,
   }));
   const lights = [ambient, keyLight, fill, rim];
   const originalLights = lights.map(light => ({
@@ -66,15 +62,7 @@ export function createHandLook({ meshes, ambient, keyLight, fill, rim }) {
   let skin = 'natural', lighting = 'studio', disposed = false;
 
   function restoreMaterials() {
-    for (const original of materials) {
-      const material = original.material;
-      const changedMapPresence = Boolean(material.map) !== Boolean(original.map);
-      material.color.copy(original.color);
-      material.map = original.map;
-      material.roughness = original.roughness;
-      material.metalness = original.metalness;
-      if (changedMapPresence) material.needsUpdate = true;
-    }
+    for (const { material, color } of materials) material.color.copy(color);
   }
   function restoreLights() {
     lights.forEach((light, index) => {
@@ -93,16 +81,11 @@ export function createHandLook({ meshes, ambient, keyLight, fill, rim }) {
     if (nextSkin !== skin) {
       if (nextSkin === 'natural') restoreMaterials();
       else {
-        const finish = SKINS[nextSkin];
-        for (const { material } of materials) {
-          // Keep the artist's normal and roughness textures for surface detail.
-          // The skin's albedo tint would muddy porcelain and colored finishes.
-          const hadMap = Boolean(material.map);
-          material.map = null;
-          material.color.setHex(finish.color);
-          material.roughness = finish.roughness;
-          material.metalness = finish.metalness;
-          if (hadMap) material.needsUpdate = true;
+        for (const { material, color } of materials) {
+          // The original color map carries the nails and joint creases. Tint it
+          // in linear color space, always starting from the captured base color
+          // so switching finishes never accumulates tint or loses surface detail.
+          material.color.setHex(SKINS[nextSkin]).multiply(color);
         }
       }
       skin = nextSkin;
