@@ -1,6 +1,6 @@
 # Morphazoid
 
-**[Gesticules](gesticules.html)** is a realistic, rigged 3D right hand. Individual finger joints and wrist gestures shape five continuous voices. Elena FF’s original Open/Close choreography joins 30 programmed motion loops, complete presets, and independent Sound/Motion players. Audio starts off. [Controls, model and attribution](docs/gesticulating-hand.md).
+**[Gesticules](gesticules.html)** is a realistic, rigged 3D right hand with eight sound engines across five finger voices. Its 35 animations include Elena FF’s original Open/Close and four complex motion patterns, with tempo up to 1,100 BPM, 0.1–4× Speed, and targeted tremor/vibrato. Twenty-four complete presets recall sound, motion, tempo, speed, camera, skin and lighting. Audio starts off. [Controls, model and attribution](docs/gesticulating-hand.md).
 
 **[Loopini](loopini.html)** is a simple six-circle recording looper: make a
 sound, tap circles on/off, and use the in-loop **●** to replace a bad take or
