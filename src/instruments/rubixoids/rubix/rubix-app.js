@@ -1719,7 +1719,6 @@ function stickerParticipates(sticker, turn) {
   return Boolean(
     turn
     && sticker.position[turn.axis] === turn.layer
-    && !(turn.layer === 0 && sticker.isCenter)
   );
 }
 

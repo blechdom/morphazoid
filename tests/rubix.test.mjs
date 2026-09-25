@@ -51,12 +51,6 @@ function sourceSection(source, startMarker, endMarker) {
   return source.slice(start, end);
 }
 
-const centerState = (cube) => Object.fromEntries(
-  cube.stickers
-    .filter(({ isCenter }) => isCenter)
-    .map(({ id, position, normal }) => [id, { position, normal }]),
-);
-
 test("solved Rubix cube has 54 unique stickers and nine of each color", () => {
   const cube = createSolvedRubixCube();
   assert.equal(cube.size, 3);
@@ -267,23 +261,6 @@ test("every representative non-default cube layer turns exactly and validates ag
     () => turnRubixLayer(duplicateCell, { axis: "x", layer: -0.5, direction: 1 }),
     /unique up face cell/,
   );
-});
-
-test("middle-slice turns move their ring while all six face centers remain fixed", () => {
-  const solved = createSolvedRubixCube();
-  const centers = centerState(solved);
-  for (const axis of RUBIX_AXES) {
-    const turned = turnRubixLayer(solved, { axis, layer: 0, direction: 1 });
-    assert.deepEqual(centerState(turned), centers);
-    assert.ok(turned.stickers.some((sticker, index) => (
-      !sticker.isCenter
-      && sticker.position[axis] === 0
-      && sticker !== solved.stickers[index]
-    )));
-    for (const face of RUBIX_FACE_ORDER) {
-      assert.equal(extractRubixFace(turned, face).length, 9);
-    }
-  }
 });
 
 test("quarter-vector and Euler camera helpers preserve their documented conventions", () => {

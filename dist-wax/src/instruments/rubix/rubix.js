@@ -352,11 +352,7 @@ export function rotateRubixQuarterVector(source, axis, direction = 1) {
   return vector(cleanZero(rotated.x), cleanZero(rotated.y), cleanZero(rotated.z));
 }
 
-/**
- * Immutably turn one x/y/z layer. On odd cubes, face centers belong to the
- * fixed core and therefore do not travel when the selected layer is the
- * middle slice. Even cubes have no fixed center sticker.
- */
+/** Immutably turn every sticker in one x/y/z layer, including its face centers. */
 export function turnRubixLayer(cube, {
   axis,
   layer,
@@ -377,9 +373,7 @@ export function turnRubixLayer(cube, {
   }
 
   const stickers = source.stickers.map((sticker) => {
-    const selected = sticker.position[axis] === layer;
-    const fixedOddCenter = source.size % 2 === 1 && layer === 0 && sticker.isCenter;
-    if (!selected || fixedOddCenter) return sticker;
+    if (sticker.position[axis] !== layer) return sticker;
     return freezeSticker({
       ...sticker,
       position: rotateRubixQuarterVector(sticker.position, axis, direction),

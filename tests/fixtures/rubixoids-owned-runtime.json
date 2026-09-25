@@ -290,7 +290,19 @@
       "sourceSha256": "b066ab62cc55eaa1371dd46a2aca0f140db26fc2ab6449e29c49f6948693061f",
       "copySha256": "c96bab386811320b28a229f9299bdbec75cfc831994725b57b15a39fefb37d13",
       "sourceBytes": 7738,
-      "copyBytes": 7747
+      "copyBytes": 7747,
+      "amendments": [
+        {
+          "reason": "User-requested complete middle-slice turns: move the center stickers with preview, animation and committed state, preserving existing factory scores and audio.",
+          "before": "function arrangedCube(size, count, seed) {\n  let cube = createSolvedRubixCube(size);",
+          "after": "function arrangedCube(size, count, seed) {\n  const solved = createSolvedRubixCube(size);\n  let cube = solved;"
+        },
+        {
+          "reason": "User-requested complete middle-slice turns: move the center stickers with preview, animation and committed state, preserving existing factory scores and audio.",
+          "before": "  return cube;\n}\nfunction fullScene",
+          "after": "  // Factory scores predate movable middle-slice centers. Preserve their exact\n  // original notes; live turns and randomization use the complete slice.\n  return Object.freeze({ ...cube, stickers: Object.freeze(cube.stickers.map(\n    (sticker, index) => sticker.isCenter ? solved.stickers[index] : sticker,\n  )) });\n}\nfunction fullScene"
+        }
+      ]
     },
     {
       "before": "src/instruments/rubix/rubix-app.js",
@@ -399,6 +411,11 @@
           "reason": "Shared Rubixoids clock: preserve native score/DSP while sharing tempo, swing and audio-time phase.",
           "before": "      await audio.context.suspend();\n    }\n    return this.capture();\n  },\n  async activate({ audioOn = state.audioOn, playing = state.playing } = {}) {\n    const generation = ++rubixoidsActivation;\n    const wasHidden = !rubixoidsEmbeddedActive;\n    rubixoidsEmbeddedActive = true;\n    if (wasHidden && turnAnimation) turnAnimation.startedAt += performance.now() - rubixoidsHiddenAt;\n    if (audioOn && !state.audioOn) await enableAudio();\n    if (!audioOn && state.audioOn) await disableAudio();\n    if (generation !== rubixoidsActivation || !rubixoidsEmbeddedActive) return this.capture();\n    if (state.audioOn && audio.context) {\n      await audio.context.resume();\n      if (generation !== rubixoidsActivation || !rubixoidsEmbeddedActive) return this.capture();\n      audio.setOutput(state.output);\n    }\n    state.playing = Boolean(playing && state.audioOn && audio.context);\n    if (state.playing) {\n      nextStepIndex = rubixoidsResumeStep ?? state.currentStep;\n      nextStepTime = audio.context.currentTime + 0.045;\n      audio.setTransportActive(true);\n      if (activeAcidEngine === \"simd-303\" && simd303Engine) {\n        const divisions = currentReadConfig().subdivisionsPerBeat;\n        const rate = clamp(state.tempo, TEMPO_MIN_BPM, TEMPO_MAX_BPM) / 60 * 4;\n        const beat = nextStepIndex / divisions;\n        const pair = Math.floor(beat / 2);\n        const within = beat - pair * 2;\n        const swing = clamp(state.swing, 0, 0.42);\n        const offset = (pair * 2 + (within < 1 ? within * (1 + swing) : 1 + swing + (within - 1) * (1 - swing))) / rate;\n        await simd303Engine.restartTimeline({ startAt: nextStepTime, offset });\n        if (generation !== rubixoidsActivation || !rubixoidsEmbeddedActive) return this.capture();\n        simd303Engine.setPlaybackEnabled(true);\n      } else schedulerTick();\n    } else {\n      audio.setTransportActive(false);\n      simd303Engine?.pauseTimeline();\n    }\n    $(\"playButton\").setAttribute(\"aria-pressed\", String(state.playing));\n    $(\"playLabel\").textContent = state.playing ? \"Pause cube\" : \"Play cube\";\n    $(\"playState\").textContent = state.playing ? `${Math.round(state.tempo)} BPM \u00b7 running` : currentReadLengthLabel();\n    if (state.randomTwists && randomTwistTimer === null) scheduleRandomTwists();\n    resizeCanvas();\n    requestDraw();\n    return this.capture();\n  },\n};\nif (RUBIXOIDS_EMBEDDED && !mountContext) globalThis.rubixoidsNative = rubixoidsNative;\n",
           "after": "      await audio.context.suspend();\n    }\n    return this.capture();\n  },\n  async activate({ audioOn = state.audioOn, playing = state.playing } = {}) {\n    const generation = ++rubixoidsActivation;\n    rubixoidsActivating = generation;\n    try {\n      const wasHidden = !rubixoidsEmbeddedActive;\n      rubixoidsEmbeddedActive = true;\n      if (wasHidden && turnAnimation) turnAnimation.startedAt += performance.now() - rubixoidsHiddenAt;\n      if (audioOn && !state.audioOn) await enableAudio();\n      if (!audioOn && state.audioOn) await disableAudio();\n      if (generation !== rubixoidsActivation || !rubixoidsEmbeddedActive) return this.capture();\n      if (state.audioOn && audio.context) {\n        await audio.context.resume();\n        if (generation !== rubixoidsActivation || !rubixoidsEmbeddedActive) return this.capture();\n        audio.setOutput(state.output);\n      }\n      configureRubixoidsClock();\n      state.playing = Boolean(playing && state.audioOn && audio.context);\n      if (state.playing) {\n        attachRubixoidsClock();\n        rubixoidsClock.play();\n        // Activation owns one scheduling pass, including slow preparation/fallback.\n        if (schedulerTimer !== null) clearTimeout(schedulerTimer);\n        schedulerTimer = null;\n        cancelQueuedClockSteps({ restoreCursor: false });\n        const grid = joinRubixoidsGrid(rubixoidsResumeStep ?? nextStepIndex);\n        rubixoidsResumeStep = null;\n        audio.setTransportActive(true);\n        if (activeAcidEngine === \"simd-303\" && simd303Engine) {\n          syncRubixoidsSimdClock({ grid, step: nextStepIndex });\n          if (generation !== rubixoidsActivation || !rubixoidsEmbeddedActive) return this.capture();\n          simd303Engine.setPlaybackEnabled(true);\n        } else schedulerTick();\n      } else {\n        if (state.audioOn && audio.context) attachRubixoidsClock();\n        audio.setTransportActive(false);\n        simd303Engine?.pauseTimeline();\n      }\n      $(\"playButton\").setAttribute(\"aria-pressed\", String(state.playing));\n      $(\"playLabel\").textContent = state.playing ? \"Pause cube\" : \"Play cube\";\n      $(\"playState\").textContent = state.playing ? `${Math.round(state.tempo)} BPM \u00b7 running` : currentReadLengthLabel();\n      if (state.randomTwists && randomTwistTimer === null) scheduleRandomTwists();\n      resizeCanvas();\n      requestDraw();\n      return this.capture();\n    } finally {\n      if (rubixoidsActivating === generation) rubixoidsActivating = 0;\n    }\n  },\n};\nif (RUBIXOIDS_EMBEDDED && !mountContext) globalThis.rubixoidsNative = rubixoidsNative;\n"
+        },
+        {
+          "reason": "User-requested complete middle-slice turns: move the center stickers with preview, animation and committed state, preserving existing factory scores and audio.",
+          "before": "    turn\n    && sticker.position[turn.axis] === turn.layer\n    && !(turn.layer === 0 && sticker.isCenter)\n",
+          "after": "    turn\n    && sticker.position[turn.axis] === turn.layer\n"
         }
       ]
     },
@@ -541,7 +558,19 @@
       "sourceSha256": "32d869bee074248f677d91a75f4d5bbdc204616f33ee9c910cbb4aa091a06298",
       "copySha256": "32d869bee074248f677d91a75f4d5bbdc204616f33ee9c910cbb4aa091a06298",
       "sourceBytes": 23743,
-      "copyBytes": 23743
+      "copyBytes": 23743,
+      "amendments": [
+        {
+          "reason": "User-requested complete middle-slice turns: move the center stickers with preview, animation and committed state, preserving existing factory scores and audio.",
+          "before": "/**\n * Immutably turn one x/y/z layer. On odd cubes, face centers belong to the\n * fixed core and therefore do not travel when the selected layer is the\n * middle slice. Even cubes have no fixed center sticker.\n */",
+          "after": "/** Immutably turn every sticker in one x/y/z layer, including its face centers. */"
+        },
+        {
+          "reason": "User-requested complete middle-slice turns: move the center stickers with preview, animation and committed state, preserving existing factory scores and audio.",
+          "before": "    const selected = sticker.position[axis] === layer;\n    const fixedOddCenter = source.size % 2 === 1 && layer === 0 && sticker.isCenter;\n    if (!selected || fixedOddCenter) return sticker;",
+          "after": "    if (sticker.position[axis] !== layer) return sticker;"
+        }
+      ]
     },
     {
       "before": "src/instruments/sliding-puzzle/sliding-puzzle-app.js",

@@ -556,10 +556,12 @@
     },
     {
       "file": "src/instruments/rubix/full-presets.js",
-      "reason": "User-requested shared sequencer sound engines for Rubixoids and existing sequencers. Original paths and synthesis remain available.",
+      "reason": "User-requested shared sequencer sound engines for Rubixoids and existing sequencers. Original paths and synthesis remain available. User-requested complete middle-slice turns: move the center stickers with preview, animation and committed state, preserving existing factory scores and audio.",
       "regressionTests": [
         "tests/sequencer-voices.test.mjs",
-        "e2e/sequencer-voices.spec.mjs"
+        "e2e/sequencer-voices.spec.mjs",
+        "tests/rubix-middle-slice.test.mjs",
+        "e2e/rubix-middle-slice.spec.mjs"
       ],
       "replacements": [
         {
@@ -569,12 +571,20 @@
         {
           "before": "const numeric = {\n  tempo: [30, 300], swing: [0, 0.42], cutoff: [160, 4200], resonance: [0, 18],\n  acidDecay: [0.06, 0.72], drive: [0.5, 6],\n  stickerModulation: [0, 1], visibilityDynamics: [0, 1], randomTwistSpeed: [0, 100],\n};\nconst shapes = [\"cube\", \"morphix\", \"diamond\", \"stella\", \"orb\"];\nconst banks = [\"soft-fm\", \"analog\", \"modal\", \"noise\", \"acid-303\", \"rattlesnake\", \"pitched-morph\", \"karplus-strong\"];\nfunction arrangedCube(size, count, seed) {\n  let cube = createSolvedRubixCube(size);\n  const layers = rubixLayersForSize(size);\n  for (let index = 0; index < count; index++) {\n    cube = turnRubixLayer(cube, { axis: [\"x\", \"y\", \"z\"][(index + seed) % 3],\n      layer: layers[(index * 3 + seed) % layers.length], direction: (index + seed) % 2 ? -1 : 1 });\n",
           "after": "const numeric = {\n  tempo: [30, 300], swing: [0, 0.42], cutoff: [160, 4200], resonance: [0, 18],\n  acidDecay: [0.06, 0.72], drive: [0.5, 6],\n  stickerModulation: [0, 1], visibilityDynamics: [0, 1], randomTwistSpeed: [0, 100],\n};\nconst shapes = [\"cube\", \"morphix\", \"diamond\", \"stella\", \"orb\"];\nconst banks = [...SEQUENCER_VOICES.map(({ id }) => `shared-${id}`), \"soft-fm\", \"analog\", \"modal\", \"noise\", \"acid-303\", \"rattlesnake\", \"pitched-morph\", \"karplus-strong\"];\nfunction arrangedCube(size, count, seed) {\n  let cube = createSolvedRubixCube(size);\n  const layers = rubixLayersForSize(size);\n  for (let index = 0; index < count; index++) {\n    cube = turnRubixLayer(cube, { axis: [\"x\", \"y\", \"z\"][(index + seed) % 3],\n      layer: layers[(index * 3 + seed) % layers.length], direction: (index + seed) % 2 ? -1 : 1 });\n"
+        },
+        {
+          "before": "function arrangedCube(size, count, seed) {\n  let cube = createSolvedRubixCube(size);",
+          "after": "function arrangedCube(size, count, seed) {\n  const solved = createSolvedRubixCube(size);\n  let cube = solved;"
+        },
+        {
+          "before": "  return cube;\n}\nfunction fullScene",
+          "after": "  // Factory scores predate movable middle-slice centers. Preserve their exact\n  // original notes; live turns and randomization use the complete slice.\n  return Object.freeze({ ...cube, stickers: Object.freeze(cube.stickers.map(\n    (sticker, index) => sticker.isCenter ? solved.stickers[index] : sticker,\n  )) });\n}\nfunction fullScene"
         }
       ]
     },
     {
       "file": "src/instruments/rubix/rubix-app.js",
-      "reason": "Additive shared engines and direct scoped Rubixoids mounting and native lifecycle adapter; preserve the original animated twists, geometric surfaces, sticker mixer, sound banks, controls and preset ownership. Reuse unchanged prepared SIMD patterns on Play while retaining exact score/tone invalidation and the original scheduling lead. Integrate after the shared Shapes drum-renderer extraction; reversing this change preserves that existing renderer and pointer helper.",
+      "reason": "Additive shared engines and direct scoped Rubixoids mounting and native lifecycle adapter; preserve the original animated twists, geometric surfaces, sticker mixer, sound banks, controls and preset ownership. Reuse unchanged prepared SIMD patterns on Play while retaining exact score/tone invalidation and the original scheduling lead. Integrate after the shared Shapes drum-renderer extraction; reversing this change preserves that existing renderer and pointer helper. User-requested complete middle-slice turns: move the center stickers with preview, animation and committed state, preserving existing factory scores and audio.",
       "regressionTests": [
         "tests/sequencer-voices.test.mjs",
         "e2e/sequencer-voices.spec.mjs",
@@ -582,7 +592,9 @@
         "tests/rubixoids-native-settings.test.mjs",
         "tests/rubixoids-native-views.test.mjs",
         "e2e/rubixoids-polish.spec.mjs",
-        "e2e/rubix.spec.mjs"
+        "e2e/rubix.spec.mjs",
+        "tests/rubix-middle-slice.test.mjs",
+        "e2e/rubix-middle-slice.spec.mjs"
       ],
       "replacements": [
         {
@@ -688,6 +700,10 @@
         {
           "before": "    requestDraw();\n  },\n});\n",
           "after": "    requestDraw();\n  },\n});\n\n\n/** Rubixoids mount: preserve the native renderer, score, mixer and presets. */\nexport const rubixoidsNative = {\n  capture() {\n    return {\n      active: rubixoidsEmbeddedActive, playing: state.playing || soundBankTransportResumeRequested, audioOn: state.audioOn,\n      settings: {\n        ...Object.fromEntries(Object.keys(DEFAULTS).map(key => [key, state[key]])),\n        readingMode: state.readingMode, shape: state.shapeId, rubixSize: state.cube.size,\n      },\n      native: JSON.parse(JSON.stringify({\n        cube: state.cube, camera: state.camera, voices, selectedStickerId: state.selectedStickerId,\n        currentStep: state.currentStep, moveHistory, turnQueue, turnAnimation,\n        randomTwists: state.randomTwists, nextStepIndex, nextSwingStep,\n      })),\n      diagnostics: {\n        contextState: audio.context?.state ?? \"none\", schedulerActive: schedulerTimer !== null,\n        animationActive: Boolean(scheduledFrame), autoMotionActive: randomTwistTimer !== null,\n        simdBackend: simd303Engine?.backend ?? \"none\", activeSources: audio.activeSources.size,\n      },\n    };\n  },\n  async applySettings(patch = {}) {\n    for (const [key, value] of Object.entries(patch)) {\n      if (key === \"soundBank\") { await selectSoundBank(value, { announceChange: false }); continue; }\n      if (key === \"acidEngine\") { await selectAcidEngine(value, { announceChange: false }); continue; }\n      if (key === \"readingMode\") {\n        document.querySelector(`[data-read-mode=\"${CSS.escape(String(value))}\"]`)?.click(); continue;\n      }\n      if (key === \"randomTwists\") {\n        if (Boolean(value) !== state.randomTwists) $(\"randomTwists\").click(); continue;\n      }\n      if (![...Object.keys(DEFAULTS), \"shape\", \"rubixSize\"].includes(key)) continue;\n      const control = $(key);\n      if (!control || !control.matches(\"input, select\")) continue;\n      if (control.tagName === \"SELECT\" && ![...control.options].some(option => option.value === String(value))) continue;\n      control.value = String(value);\n      control.dispatchEvent(new Event(control.tagName === \"SELECT\" || key === \"rubixSize\" ? \"change\" : \"input\", { bubbles: true }));\n    }\n    return this.capture();\n  },\n  async deactivate() {\n    if (!RUBIXOIDS_EMBEDDED || !rubixoidsEmbeddedActive) return this.capture();\n    const resumePlaying = state.playing || soundBankTransportResumeRequested;\n    rubixoidsEmbeddedActive = false;\n    rubixoidsActivation += 1;\n    rubixoidsHiddenAt = performance.now();\n    rubixoidsResumeStep = resumePlaying\n      ? (state.currentStep + 1) % currentReadFrame().stepCount : null;\n    if (schedulerTimer !== null) clearTimeout(schedulerTimer);\n    schedulerTimer = null;\n    clearVisualTimers();\n    if (randomTwistTimer !== null) clearTimeout(randomTwistTimer);\n    randomTwistTimer = null;\n    if (scheduledFrame) cancelAnimationFrame(scheduledFrame);\n    scheduledFrame = 0;\n    simd303Engine?.pauseTimeline();\n    audio.setTransportActive(false);\n    if (audioStartPromise) await audioStartPromise.catch(() => {});\n    if (simd303StartPromise) await simd303StartPromise.catch(() => {});\n    // Engine selection temporarily pauses native transport while preserving the\n    // player's request. Parking the dimension must preserve that request too.\n    state.playing = resumePlaying;\n    // Retire queued attacks before suspending the sample clock, so they cannot\n    // leak into the beginning of this dimension's next visit.\n    for (const source of audio.activeSources) {\n      try { source.stop(audio.context.currentTime); } catch { /* already ended */ }\n    }\n    if (audio.context && audio.master) {\n      const now = audio.context.currentTime;\n      audio.master.gain.cancelScheduledValues(now);\n      audio.master.gain.setValueAtTime(0, now);\n      await audio.context.suspend();\n    }\n    return this.capture();\n  },\n  async activate({ audioOn = state.audioOn, playing = state.playing } = {}) {\n    const generation = ++rubixoidsActivation;\n    const wasHidden = !rubixoidsEmbeddedActive;\n    rubixoidsEmbeddedActive = true;\n    if (wasHidden && turnAnimation) turnAnimation.startedAt += performance.now() - rubixoidsHiddenAt;\n    if (audioOn && !state.audioOn) await enableAudio();\n    if (!audioOn && state.audioOn) await disableAudio();\n    if (generation !== rubixoidsActivation || !rubixoidsEmbeddedActive) return this.capture();\n    if (state.audioOn && audio.context) {\n      await audio.context.resume();\n      if (generation !== rubixoidsActivation || !rubixoidsEmbeddedActive) return this.capture();\n      audio.setOutput(state.output);\n    }\n    state.playing = Boolean(playing && state.audioOn && audio.context);\n    if (state.playing) {\n      nextStepIndex = rubixoidsResumeStep ?? state.currentStep;\n      nextStepTime = audio.context.currentTime + 0.045;\n      audio.setTransportActive(true);\n      if (activeAcidEngine === \"simd-303\" && simd303Engine) {\n        const divisions = currentReadConfig().subdivisionsPerBeat;\n        const rate = clamp(state.tempo, TEMPO_MIN_BPM, TEMPO_MAX_BPM) / 60 * 4;\n        const beat = nextStepIndex / divisions;\n        const pair = Math.floor(beat / 2);\n        const within = beat - pair * 2;\n        const swing = clamp(state.swing, 0, 0.42);\n        const offset = (pair * 2 + (within < 1 ? within * (1 + swing) : 1 + swing + (within - 1) * (1 - swing))) / rate;\n        await simd303Engine.restartTimeline({ startAt: nextStepTime, offset });\n        if (generation !== rubixoidsActivation || !rubixoidsEmbeddedActive) return this.capture();\n        simd303Engine.setPlaybackEnabled(true);\n      } else schedulerTick();\n    } else {\n      audio.setTransportActive(false);\n      simd303Engine?.pauseTimeline();\n    }\n    $(\"playButton\").setAttribute(\"aria-pressed\", String(state.playing));\n    $(\"playLabel\").textContent = state.playing ? \"Pause cube\" : \"Play cube\";\n    $(\"playState\").textContent = state.playing ? `${Math.round(state.tempo)} BPM \u00b7 running` : currentReadLengthLabel();\n    if (state.randomTwists && randomTwistTimer === null) scheduleRandomTwists();\n    resizeCanvas();\n    requestDraw();\n    return this.capture();\n  },\n};\nif (RUBIXOIDS_EMBEDDED && !mountContext) globalThis.rubixoidsNative = rubixoidsNative;\n"
+        },
+        {
+          "before": "    turn\n    && sticker.position[turn.axis] === turn.layer\n    && !(turn.layer === 0 && sticker.isCenter)\n",
+          "after": "    turn\n    && sticker.position[turn.axis] === turn.layer\n"
         }
       ]
     },
@@ -834,6 +850,24 @@
         {
           "before": "    Math.round(finiteOr(options.subdivisionsPerBeat, 2)),\n    1,\n    16,\n  );\n  const disorder = hyperRubixDisorder(puzzle);\n  const signals = rotationSignals(rotation);\n  const stream = options.cellIds === undefined\n    ? createHyperRubixStickerStream(puzzle)\n    : createHyperRubixScopedStickerStream(puzzle, options.cellIds);\n  const steps = Object.freeze(stream.map((event, stepIndex) => stepFromEvent(\n    event,\n    stepIndex,\n    metrics,\n    rotation,\n    settings,\n",
           "after": "    Math.round(finiteOr(options.subdivisionsPerBeat, 2)),\n    1,\n    16,\n  );\n  const disorder = hyperRubixDisorder(puzzle);\n  const signals = rotationSignals(rotation);\n  const scopedStream = options.cellIds === undefined\n    ? createHyperRubixStickerStream(puzzle)\n    : createHyperRubixScopedStickerStream(puzzle, options.cellIds);\n  const stream = cornersOnly\n    ? scopedStream.filter(({ configuration }) => configuration.radialClass === \"corner\")\n    : scopedStream;\n  const steps = Object.freeze(stream.map((event, stepIndex) => stepFromEvent(\n    event,\n    stepIndex,\n    metrics,\n    rotation,\n    settings,\n"
+        }
+      ]
+    },
+    {
+      "file": "src/instruments/rubix/rubix.js",
+      "reason": "User-requested complete middle-slice turns: move the center stickers with preview, animation and committed state, preserving existing factory scores and audio.",
+      "regressionTests": [
+        "tests/rubix-middle-slice.test.mjs",
+        "e2e/rubix-middle-slice.spec.mjs"
+      ],
+      "replacements": [
+        {
+          "before": "/**\n * Immutably turn one x/y/z layer. On odd cubes, face centers belong to the\n * fixed core and therefore do not travel when the selected layer is the\n * middle slice. Even cubes have no fixed center sticker.\n */",
+          "after": "/** Immutably turn every sticker in one x/y/z layer, including its face centers. */"
+        },
+        {
+          "before": "    const selected = sticker.position[axis] === layer;\n    const fixedOddCenter = source.size % 2 === 1 && layer === 0 && sticker.isCenter;\n    if (!selected || fixedOddCenter) return sticker;",
+          "after": "    if (sticker.position[axis] !== layer) return sticker;"
         }
       ]
     }
