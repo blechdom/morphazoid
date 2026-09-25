@@ -39,6 +39,7 @@ export const LEGACY_INSTRUMENT_IDS = Object.freeze({
   "simd-lab": "simd-audio-lab"
 });
 export const ROUTE_INSTRUMENT_IDS = Object.freeze({
+  "gesticules": "gesticulating-hand",
   "shape-synth": "shape-synth",
   "shape": "shape-synth",
   "solid-synth": "solid-synth",

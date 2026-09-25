@@ -29,7 +29,7 @@ export function createHandViewer(canvas,{onSelect=()=>{},onGesture=()=>{},onChan
   const abort=new AbortController(), signal=abort.signal;
   const raycaster=new THREE.Raycaster(),pointer=new THREE.Vector2();
   const temporary=new THREE.Vector3(), worldNormal=new THREE.Vector3(), inverse=new THREE.Quaternion();
-  const markers=[],bones=[],meshes=[],deformMap=new Map(),calibration=new Map();
+  const fingertips=[],markers=[],bones=[],meshes=[],deformMap=new Map(),calibration=new Map();
   const markerGeometry=new THREE.SphereGeometry(.022,12,8);
   let loaded=false,disposed=false,selected=1,selectedJoint='mcp',showJoints=true,drag=null;
   let distance=5.8,yaw=.12,pitch=.03,zoomFactor=1,width=0,height=0,baseDistance=5.8;
@@ -43,7 +43,10 @@ export function createHandViewer(canvas,{onSelect=()=>{},onGesture=()=>{},onChan
     const ratio=Math.min(devicePixelRatio||1,1.6,Math.sqrt(1450000/(width*height)));
     renderer.setPixelRatio(ratio);renderer.setSize(width,height,false);
     camera.aspect=width/height;camera.updateProjectionMatrix();
-    baseDistance=Math.max(bounds.y/(2*Math.tan(camera.fov*RAD/2)),bounds.x/(2*Math.tan(camera.fov*RAD/2)*camera.aspect))*1.27;
+    // Wrist sweeps extend beyond the open hand's rest bounds. Reserve extra
+    // horizontal room on portrait screens without chasing the pose each frame.
+    const motionMargin=1.27+.95*clamp((1-camera.aspect)/.35,0,1);
+    baseDistance=Math.max(bounds.y/(2*Math.tan(camera.fov*RAD/2)),bounds.x/(2*Math.tan(camera.fov*RAD/2)*camera.aspect))*motionMargin;
     updateCamera();
   }
   function updateCamera() {
@@ -216,6 +219,7 @@ export function createHandViewer(canvas,{onSelect=()=>{},onGesture=()=>{},onChan
     wrist.userData.twistAxis=new THREE.Vector3(0,1,0).applyQuaternion(inverse).normalize();
     for(let f=0;f<5;f++)for(let j=0;j<3;j++)marker(f,KEYS[j],findBone(`${DIGITS[f]}_0${j+1}`));
     marker(5,'mcp',wrist);
+    for(const digit of DIGITS){const tip=bones.find(b=>b.name.startsWith(digit+'_03R_end'));if(tip)fingertips.push(tip);}
     loaded=true;resize();if(latestPose)setPose(latestPose);refreshMarkers();render();onStatus('');onReady();onChange();
   }
   function disposeObject(object){object.geometry?.dispose();for(const material of object.material?(Array.isArray(object.material)?object.material:[object.material]):[]){for(const value of Object.values(material))if(value?.isTexture)value.dispose();material.dispose();}}
@@ -225,6 +229,7 @@ export function createHandViewer(canvas,{onSelect=()=>{},onGesture=()=>{},onChan
     getState:()=>({loaded,boneCount:deformMap.size,vertices:meshes.reduce((n,m)=>n+(m.geometry.attributes.position?.count??0),0),
       triangles:meshes.reduce((n,m)=>n+((m.geometry.index?.count??m.geometry.attributes.position?.count??0)/3),0),
       selected,selectedJoint,showJoints,markers:markers.map(m=>({finger:m.userData.finger,joint:m.userData.joint,position:m.position.toArray(),screen:m.position.clone().project(camera).toArray()})),
+      fingertips:fingertips.map(b=>b.getWorldPosition(new THREE.Vector3()).project(camera).toArray()),
       size:[width,height],pixelRatio:renderer.getPixelRatio(),camera:camera.position.toArray()}),
   };
 }

@@ -131,12 +131,12 @@ test("former Misc entries use their explicitly selected categories", () => {
   }
 });
 
-test("Gesticulating Hand is a pitched gesture instrument alongside Puggler", () => {
+test("Gesticules is a pitched gesture instrument alongside Puggler", () => {
   const ids = INSTRUMENT_GROUPS.find(({ id }) => id === "graphic-ui").tools.map(({ id }) => id);
   assert.equal(ids[ids.indexOf("puggler") + 1], "gesticulating-hand");
   const instrument = instrumentById("gesticulating-hand");
-  assert.equal(instrument?.label, "Gesticulating Hand");
-  assert.equal(instrument?.href, "gesticulating-hand.html");
+  assert.equal(instrument?.label, "Gesticules");
+  assert.equal(instrument?.href, "gesticules.html");
   assert.equal(instrument?.imageHref, "assets/instruments/gesticulating-hand.webp");
   assert.equal(instrument?.status, null);
   assert.equal(FAVE_TOOL_IDS.includes(instrument.id), false);

@@ -1,0 +1,33 @@
+{
+  "schemaVersion": 1,
+  "baseCommit": "9a45aa0ac6ea35d2086186bcc88313b6f3a735da",
+  "purpose": "Record only the new Gesticules catalogue details and pitched MIDI identity; keep the site-metadata relocation references frozen.",
+  "changes": [
+    {
+      "file": "src/site/instrument-catalog.js",
+      "regressionTests": [
+        "tests/instrument-catalog.test.mjs",
+        "e2e/gesticulating-hand.spec.mjs"
+      ],
+      "replacements": [
+        {
+          "before": "  \"vector-flight\": define(\n",
+          "after": "  \"gesticulating-hand\": define(\n    \"Articulated hand synthesizer\",\n    \"A fully articulated 3D hand with individual finger joints, wrist control, 31 gesture animations and adjustable speed. Eight sound engines across five finger voices continuously follow hand position, bending and spread to shape pitch, timbre and stereo pan.\",\n    \"Turn on Audio and Sound, then drag a finger joint or the wrist. Play Motion for gesture choreography, or enable MIDI and hold keys for temporary finger poses.\",\n    [\"Built-in synth\", \"3D model\", \"Pointer\", \"Finger voices\", \"Gesture choreography\"],\n  ),\n  \"vector-flight\": define(\n"
+        }
+      ]
+    },
+    {
+      "file": "src/site/instrument-midi-capabilities.js",
+      "regressionTests": [
+        "tests/instrument-catalog.test.mjs",
+        "e2e/gesticulating-hand.spec.mjs"
+      ],
+      "replacements": [
+        {
+          "before": "    \"spider-synth\",\n    \"shapes\",\n",
+          "after": "    \"spider-synth\",\n    \"gesticulating-hand\",\n    \"shapes\",\n"
+        }
+      ]
+    }
+  ]
+}

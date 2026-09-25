@@ -36,7 +36,7 @@ export class HandAudio {
     if (this.node) return true;
     if (this.buildPromise) return this.buildPromise;
     const promise = (async () => {
-      if (!context.audioWorklet?.addModule || typeof this.runtime.AudioWorkletNode !== "function") throw new Error("Gesticulating Hand requires AudioWorklet support.");
+      if (!context.audioWorklet?.addModule || typeof this.runtime.AudioWorkletNode !== "function") throw new Error("Gesticules requires AudioWorklet support.");
       await context.audioWorklet.addModule(new URL("./hand-processor.js", import.meta.url));
       if (context !== this.context || context.state === "closed") return false;
       const node = new this.runtime.AudioWorkletNode(context, "gesticulating-hand", {

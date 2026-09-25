@@ -4,8 +4,8 @@
   "branch": "codex/presets-continue-20260922",
   "source": "Review branch directory checkpoint 03619ff rebased onto origin/main ef6e593; pending pointer, family rename and preset drafts restored; no push or deployment",
   "counts": {
-    "implemented": 25,
-    "fullPresets": 499,
+    "implemented": 26,
+    "fullPresets": 519,
     "favesImplemented": 13,
     "activeRemaining": 63,
     "regularRemaining": 132
@@ -745,6 +745,16 @@
       "scope": "regular",
       "presets": 48,
       "status": "implemented-verification-pending"
+    },
+    {
+      "id": "gesticulating-hand",
+      "label": "Gesticules",
+      "href": "gesticules.html",
+      "category": "graphic-ui",
+      "scope": "regular",
+      "presets": 20,
+      "status": "implemented-verification-pending",
+      "evidence": "Instrument-owned complete-state adapter and bounded randomizer; tests/gesticulating-hand-model.test.mjs and e2e/gesticulating-hand.spec.mjs. Human listening and physical-device acceptance remain separate."
     },
     {
       "id": "surround-field",

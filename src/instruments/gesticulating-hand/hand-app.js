@@ -1,6 +1,6 @@
 import { createHandViewer, FINGER_COLORS } from './hand-viewer.js';
 import { FINGERS, VOICE_SOURCES, HAND_DEFAULTS, HAND_LIMITS, HAND_POSES, HAND_MOTIONS, HAND_PRESETS,
-  normalizeHandConfig, evaluateHandPose, randomizeHandConfig } from './hand-model.js';
+  normalizeHandConfig, evaluateHandPose, randomizeHandConfig, handMotionPeriod } from './hand-model.js';
 import { HandAudio } from './hand-audio.js';
 import { registerHeaderPresets } from '../../site/header-presets.js';
 
@@ -136,7 +136,7 @@ function buildJointControls() {
   }
 }
 function syncControls() {
-  const controls = { tempo: state.config.motion.tempo, motionAmount: state.config.motion.amount,
+  const controls = { speed: state.config.motion.speed, tempo: state.config.motion.tempo, motionAmount: state.config.motion.amount,
     wristFlex: state.config.pose.wrist.flex, wristSide: state.config.pose.wrist.side, wristTwist: state.config.pose.wrist.twist,
     ...state.config.sound };
   for (const [id,value] of Object.entries(controls)) {
@@ -156,10 +156,20 @@ function syncControls() {
 function updateOutput(id,value) {
   if (!el(`${id}Out`)) return;
   el(`${id}Out`).value = id.startsWith('wrist') ? `${Math.round(value)}°`
-    : id === 'tempo' ? String(Math.round(value)) : id === 'rootHz' ? `${Math.round(value)} Hz`
+    : id === 'speed' ? `${Number(value.toFixed(2))}×` : id === 'tempo' ? String(Math.round(value)) : id === 'rootHz' ? `${Math.round(value)} Hz`
     : ['attack','release'].includes(id) ? `${Math.round(value*1000)} ms` : `${Math.round(value*100)}%`;
 }
-function updateConfiguration(mutator) { mutator(state.config); publish(); syncControls(); }
+function applyConfiguration(value) {
+  const next = normalizeHandConfig(value);
+  // Rebase seconds to preserve the cycle position when tempo, speed or cycle
+  // length changes. The audio worklet and silent viewer receive one anchor.
+  const time = currentTime() * handMotionPeriod(next.motion) / handMotionPeriod(state.config.motion);
+  state.config = next; anchor(time); publish();
+  audio.setTransport({ time, playing: state.playing }); syncControls();
+}
+function updateConfiguration(mutator) {
+  const next = clone(state.config); mutator(next); applyConfiguration(next);
+}
 function editJoint({ finger, joint, bend, spread, start, end }) {
   if (start) {
     if(finger<5)selectFinger(finger,joint);else el('selectionReadout').textContent='Wrist';
@@ -172,6 +182,12 @@ function editJoint({ finger, joint, bend, spread, start, end }) {
     const digit = state.config.pose.fingers[finger]; digit[joint] += bend;
     digit.spread += spread;
     if (state.linked && joint === 'mcp') { digit.pip += bend * .85; digit.dip += bend * .55; }
+  }
+  if (state.pointerMask && (bend || spread)) {
+    // Direct edits have no automatic-motion derivative. Excite the changed
+    // finger explicitly so a sustained drag can keep ringing Metal voices.
+    if (finger < 5) audio.auditionFinger(finger, .15);
+    else for (let i = 0; i < 5; i++) audio.auditionFinger(i, .15);
   }
   publish(); syncControls();
 }
@@ -192,8 +208,8 @@ function buildMixer() {
 }
 function reset() {
   // Recovery resets musical state; output and both players remain under their controls.
-  state.config = normalizeHandConfig(HAND_DEFAULTS); state.midi.clear(); state.pointerMask=0;
-  syncHeld(); publish(); syncControls(); selectFinger(1,'mcp'); viewer?.setView('palm');
+  state.midi.clear(); state.pointerMask=0;
+  syncHeld(); applyConfiguration(HAND_DEFAULTS); selectFinger(1,'mcp'); viewer?.setView('palm');
 }
 function releaseNotes() { state.midi.clear(); state.pointerMask=0; audio.setConfig(state.config); syncHeld(); requestDraw(); }
 function midiKey(message) { return `${message.sourceId??'midi'}:${message.channel??0}:${message.note}`; }
@@ -230,17 +246,20 @@ listen(el('posePreset'),'change',event=>{
   const pose=HAND_POSES.find(p=>p.id===event.target.value);
   if(pose) updateConfiguration(c=>{c.pose=clone(pose.pose);});
 });
-for(const id of ['tempo','motionAmount','rootHz','brightness','roughness','space','attack','release','wristFlex','wristSide','wristTwist']) {
+for(const id of ['speed','tempo','motionAmount','rootHz','brightness','roughness','space','attack','release','wristFlex','wristSide','wristTwist']) {
   listen(el(id),'input',event=>{
     const value=Number(event.target.value);
-    if(id==='tempo') state.config.motion.tempo=value;
+    if(id==='tempo'||id==='speed') { updateConfiguration(c=>{c.motion[id]=value;}); return; }
     else if(id==='motionAmount') state.config.motion.amount=value;
-    else if(id.startsWith('wrist')) state.config.pose.wrist[id.slice(5).toLowerCase()]=value;
+    else if(id.startsWith('wrist')) {
+      state.config.pose.wrist[id.slice(5).toLowerCase()]=value;
+      for(let i=0;i<5;i++) audio.auditionFinger(i,.15);
+    }
     else state.config.sound[id]=value;
     updateOutput(id,value); publish();
   });
 }
-for(const [id,bounds] of Object.entries({tempo:HAND_LIMITS.motion.tempo,motionAmount:HAND_LIMITS.motion.amount,
+for(const [id,bounds] of Object.entries({speed:HAND_LIMITS.motion.speed,tempo:HAND_LIMITS.motion.tempo,motionAmount:HAND_LIMITS.motion.amount,
   ...HAND_LIMITS.sound,wristFlex:HAND_LIMITS.wrist.flex,wristSide:HAND_LIMITS.wrist.side,wristTwist:HAND_LIMITS.wrist.twist})){
   if(el(id)){el(id).min=bounds[0];el(id).max=bounds[1];}
 }
@@ -285,7 +304,7 @@ listen(window,'pageshow',event=>{
 });
 presets=registerHeaderPresets({id:'gesticulating-hand',presets:HAND_PRESETS,
   capture:()=>clone(state.config),
-  apply:snapshot=>{state.config=normalizeHandConfig(snapshot);publish();syncControls();},
+  apply:applyConfiguration,
   randomize:(snapshot,random)=>randomizeHandConfig(snapshot,random),
 });
 audio.setConfig(state.config);audio.setOutput(Number(el('outputLevel').value));
@@ -305,7 +324,7 @@ try {
 
 // Read-only seam for interaction, lifecycle and audio/visual causality checks.
 window.__gesticulatingHand = {
-  snapshot:()=>({config:clone(state.config),pose:effectivePose(currentTime()),time:currentTime(),
+  snapshot:()=>{const time=currentTime();return {config:clone(state.config),pose:effectivePose(time),time,
     playing:state.playing,soundPlaying:state.soundPlaying,audioOn:state.audioOn,loaded:state.loaded,
-    selected:state.selected,held:state.pointerMask|midiMask(),audio:audio.getState(),viewer:viewer?.getState()}),
+    selected:state.selected,held:state.pointerMask|midiMask(),audio:audio.getState(),viewer:viewer?.getState()};},
 };

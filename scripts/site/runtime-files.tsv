@@ -1048,7 +1048,8 @@ copy+require	src/instruments/shapes/kit-audio.js
 copy+require	src/instruments/shapes/trigger-banks.js
 copy+require	src/instruments/cellular-automata/automatapoeia-clock.js
 
-# Gesticulating Hand: authored page, weighted rig, source choreography and voices.
+# Gesticules: authored page, weighted rig, source choreography and voices.
+copy+require	gesticules.html
 copy+require	gesticulating-hand.html
 copy+require	src/instruments/gesticulating-hand/hand-app.js
 copy+require	src/instruments/gesticulating-hand/hand.css

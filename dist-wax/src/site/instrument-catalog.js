@@ -179,7 +179,7 @@ const CATALOG_DETAILS = Object.freeze({
   ),
   "gesticulating-hand": define(
     "Articulated hand synthesizer",
-    "A fully articulated 3D hand with individual finger joints, wrist control and gesture choreography. Five finger voices continuously follow hand position, bending and spread to shape pitch, timbre and stereo pan.",
+    "A fully articulated 3D hand with individual finger joints, wrist control, 31 gesture animations and adjustable speed. Eight sound engines across five finger voices continuously follow hand position, bending and spread to shape pitch, timbre and stereo pan.",
     "Turn on Audio and Sound, then drag a finger joint or the wrist. Play Motion for gesture choreography, or enable MIDI and hold keys for temporary finger poses.",
     ["Built-in synth", "3D model", "Pointer", "Finger voices", "Gesture choreography"],
   ),

@@ -1,6 +1,6 @@
-# Gesticulating Hand
+# Gesticules
 
-A standalone, articulated 3D hand instrument. The artist's skinned hand, its
+Open [Gesticules](../gesticules.html), a standalone, articulated 3D hand instrument. The artist's skinned hand, its
 editable joints and its five synthesized finger voices share one pose timeline.
 
 Turn **Audio** on, then **Sound** to hold the sound of the current pose. **Motion**
@@ -29,6 +29,23 @@ Finger flexion values for synthesis are measured from those same rotations.
 Other named motions are original, bounded Morphazoid choreography, not motion
 capture or imported Microsoft clips.
 
+There are **31 animated movements**, plus Still: the original Open/Close, the
+six earlier wave/beckon/roll/pinch/count/flourish loops, and these 24 additions:
+
+| Movement family | Added choreography |
+| --- | --- |
+| Finger sequences | Finger fan, Ripple open, Ripple close, Finger drumming, Spider walk, Air piano |
+| Thumb and pinch | Index tap, Thumb pulse, Thumb orbit, Opposition walk, Pinch ladder, Circle pinch |
+| Grasp and wrist | Claw pulse, Squeeze and release, Wrist circle, Wrist nod, Wrist turn, Figure eight |
+| Expressive loops | Spiral flourish, Flick, Finger scissors, Double beckon, Two-finger walk, Ring pulse |
+
+**Speed** multiplies the choreography tempo from **0.1× to 4×**, default **1×**.
+Tempo remains adjustable from 20 to 220 beats per minute. Changing either rate
+preserves the current cycle position while running or paused; both the visible
+rig and audio worklet use the same rebased timeline. Speed changes motion and
+therefore the rate of its pitch, tone and excitation changes. It does not resample
+the audio output. Older saved configurations without Speed use 1×.
+
 The selected finger exposes each joint separately. For the four fingers these
 are knuckle (MCP), middle (PIP), tip (DIP), and knuckle spread. The thumb uses its
 base (CMC), knuckle (MCP), tip (IP), and base opposition. Bending a knuckle by
@@ -52,8 +69,11 @@ not a clinical hand model, sign-language dictionary or validated hand tracker.
 | Wrist side motion | Shared color and stereo movement |
 | Speed of automatic finger movement | Additional voice excitation |
 
-Each finger chooses Glass, Reed, Wire, Pulse or Air, with its own level, mute and
-solo. These are original synthesis types, not recordings of a hand. Pitch remains
+Each finger chooses one of **eight sound engines**, with its own level, mute and
+solo: Glass, Reed, Wire, Pulse, Air, **Bowed**, **Vowel**, or **Metal**. Bowed uses
+a damped string loop with friction-like excitation. Vowel sends a voiced source
+through moving formants. Metal excites inharmonic ringing modes on finger motion
+and note onset; a motionless held hand lets those rings decay. These are original synthesis types, not recordings of a hand. Pitch remains
 continuous without a scale or pentatonic quantizer. Register, brightness, grain,
 space, attack and release belong to the complete preset state.
 
@@ -71,8 +91,9 @@ is capped at 40 frames/second, 1.6 device-pixel ratio and about 1.45 million pix
   the selected finger. Shift makes a smaller change. Sliders provide the same
   controls without direct 3D manipulation.
 - Space toggles Motion. Sound and Audio remain separate.
-- The shared header presets recall complete hand, motion and sound settings;
-  the adjacent dice randomizes musical parameters within their bounds.
+- The control-panel presets recall complete hand, motion and sound settings;
+  the adjacent dice randomizes musical parameters within their bounds. Twenty
+  complete presets include six scenes for the new engines and movements.
 - Reset recalls the initial musical state without changing output or player
   switches. Audio off releases sound. Blur releases transient manual/MIDI holds.
 

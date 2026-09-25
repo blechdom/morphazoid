@@ -9,6 +9,7 @@ import { readRuntimeManifest } from "../scripts/site/runtime-manifest.mjs";
 import { runtimeSourceFiles } from "../scripts/check-runtime-source.mjs";
 import { localPath, referencesIn } from "../scripts/inspect-instrument.mjs";
 import { restoreIphoneStartup } from "./helpers/iphone-startup-reference.mjs";
+import { gesticulesMetadataAmendments, restoreGesticulesMetadata } from "./helpers/gesticules-metadata-reference.mjs";
 
 const root = new URL("../", import.meta.url);
 const plan = JSON.parse(await readFile(new URL("../docs/site-metadata-layout.json", import.meta.url)));
@@ -49,7 +50,8 @@ test("every changed runtime module reverses byte-for-byte to the fresh-main refe
   }
   for (const record of proof.files) {
     const current = await readFile(new URL(record.after, root), "utf8");
-    const beforeIphone = restoreIphoneStartup(restorePresetToolbar(current, record.after), record.after);
+    const beforeGesticules = restoreGesticulesMetadata(current, record.after);
+    const beforeIphone = restoreIphoneStartup(restorePresetToolbar(beforeGesticules, record.after), record.after);
     const restored = rewriteRepositoryPaths(rewriteModulePaths(beforeIphone, record.after, inverse), inverse);
     assert.equal(sha(restored), record.sha256, record.after);
     for (const reference of referencesIn(current, record.after)) {
@@ -58,4 +60,29 @@ test("every changed runtime module reverses byte-for-byte to the fresh-main refe
       if (target) assert.ok(existsSync(new URL(target, root)), `${record.after} -> ${target}`);
     }
   }
+});
+
+
+test("Gesticules metadata amendments are exact and limited to its catalogue and MIDI additions", async () => {
+  assert.equal(gesticulesMetadataAmendments.baseCommit, proof.baseCommit);
+  assert.deepEqual(gesticulesMetadataAmendments.changes.map(change => change.file), [
+    "src/site/instrument-catalog.js", "src/site/instrument-midi-capabilities.js",
+  ]);
+  for (const change of gesticulesMetadataAmendments.changes) {
+    assert.ok(proof.files.some(record => record.after === change.file));
+    assert.equal(change.replacements.length, 1);
+    assert.ok(change.regressionTests.length >= 2);
+    for (const file of change.regressionTests) await readFile(new URL(file, root));
+    const source = await readFile(new URL(change.file, root), "utf8");
+    const restored = restoreGesticulesMetadata(source, change.file);
+    assert.notEqual(restored, source);
+    for (const replacement of change.replacements) {
+      assert.ok(replacement.before.length && replacement.after.length);
+      assert.doesNotMatch(replacement.before, /gesticulating-hand/);
+      assert.match(replacement.after, /gesticulating-hand/);
+      assert.throws(() => restoreGesticulesMetadata(source.replace(replacement.after, ""), change.file), /exact Gesticules metadata amendment/);
+      assert.throws(() => restoreGesticulesMetadata(source + replacement.after, change.file), /exact Gesticules metadata amendment/);
+    }
+  }
+  assert.equal(restoreGesticulesMetadata("untouched", "unrelated.js"), "untouched");
 });
