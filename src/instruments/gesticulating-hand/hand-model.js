@@ -6,7 +6,7 @@ import { sampleSourceGrasp } from "./hand-source-motion.js";
  * thumb spread is basal opposition. Sound is an original artistic mapping.
  */
 export const FINGERS = Object.freeze(["thumb", "index", "middle", "ring", "little"]);
-export const VOICE_SOURCES = Object.freeze(["glass", "reed", "wire", "pulse", "air"]);
+export const VOICE_SOURCES = Object.freeze(["glass", "reed", "wire", "pulse", "air", "bowed", "vowel", "metal"]);
 const TAU = Math.PI * 2;
 const record = value => value && typeof value === "object" ? value : {};
 export function handNumber(value, fallback = 0) {
@@ -22,7 +22,7 @@ export const HAND_LIMITS = freeze({
   finger: { mcp: [-15, 90], pip: [-2, 110], dip: [-15, 85], spread: [-25, 25] },
   thumb: { mcp: [-12, 85], pip: [0, 80], dip: [-6, 75], spread: [-25, 25] },
   wrist: { flex: [-55, 65], side: [-30, 30], twist: [-70, 70] },
-  motion: { tempo: [20, 220], amount: [0, 1] },
+  motion: { tempo: [20, 220], amount: [0, 1], speed: [.1, 4] },
   sound: { rootHz: [35, 1000], brightness: [0, 1], roughness: [0, 1], space: [0, 1], attack: [.004, 1.2], release: [.04, 3.5] },
 });
 const fingers = (bends, spreads = [12, -8, 0, 5, 13]) => bends.map((bend, i) => ({ mcp: bend[0], pip: bend[1], dip: bend[2], spread: spreads[i] }));
@@ -45,20 +45,53 @@ export const HAND_MOTIONS = freeze([
   { id: "pinch", label: "Pinch and release", beats: 4 },
   { id: "count", label: "Counting fingers", beats: 10 },
   { id: "flourish", label: "Flourish", beats: 8 },
+  { id: "finger-fan", label: "Fan and gather", beats: 4 },
+  { id: "ripple-open", label: "Opening ripple", beats: 8 },
+  { id: "ripple-close", label: "Closing ripple", beats: 8 },
+  { id: "finger-drumming", label: "Finger drumming", beats: 8 },
+  { id: "spider-walk", label: "Spider walk", beats: 8 },
+  { id: "air-piano", label: "Air piano", beats: 8 },
+  { id: "index-tap", label: "Index tapping", beats: 4 },
+  { id: "thumb-pulse", label: "Thumb pulse", beats: 4 },
+  { id: "thumb-orbit", label: "Thumb orbit", beats: 4 },
+  { id: "opposition-walk", label: "Thumb visits fingers", beats: 8 },
+  { id: "pinch-ladder", label: "Climbing pinches", beats: 8 },
+  { id: "circle-pinch", label: "Circling pinch", beats: 8 },
+  { id: "claw-pulse", label: "Claw and uncurl", beats: 4 },
+  { id: "squeeze-release", label: "Squeeze and release", beats: 8 },
+  { id: "wrist-circle", label: "Wrist circles", beats: 8 },
+  { id: "wrist-nod", label: "Wrist nodding", beats: 4 },
+  { id: "wrist-turn", label: "Palm to back", beats: 8 },
+  { id: "figure-eight", label: "Figure eight", beats: 8 },
+  { id: "flourish-spiral", label: "Spiral flourish", beats: 8 },
+  { id: "flick", label: "Finger flicks", beats: 8 },
+  { id: "finger-scissors", label: "Finger scissors", beats: 4 },
+  { id: "double-beckon", label: "Two-finger beckon", beats: 4 },
+  { id: "two-finger-walk", label: "Two-finger walk", beats: 8 },
+  { id: "ring-pulse", label: "Ring-finger bow", beats: 4 },
 ]);
+const MOTION_BEATS = new Map(HAND_MOTIONS.map(motion => [motion.id, motion.beats]));
+/** Cycle length in beats; unknown legacy values use the original four beats. */
+export const handMotionBeats = id => MOTION_BEATS.get(id) ?? 4;
+/** Cycle length in seconds. Speed multiplies tempo and defaults to 1 for v1 scenes. */
+export function handMotionPeriod(value = {}) {
+  const motion = record(value);
+  return handMotionBeats(motion.id) * 60 / (clampHand(motion.tempo, 20, 220, 72) * clampHand(motion.speed, .1, 4, 1));
+}
 const DEFAULT_POSE = HAND_POSES.find(pose => pose.id === "source-open").pose;
 export const HAND_DEFAULTS = freeze({
   version: 1,
   pose: { fingers: DEFAULT_POSE.fingers.map(f => ({ ...f })), wrist: { ...DEFAULT_POSE.wrist } },
-  motion: { id: "source-grasp", tempo: 72, amount: .85 },
+  motion: { id: "source-grasp", tempo: 72, amount: .85, speed: 1 },
   sound: { rootHz: 137, brightness: .46, roughness: .16, space: .28, attack: .045, release: .45 },
-  voices: VOICE_SOURCES.map((source, i) => ({ source, level: i === 4 ? .5 : .7, mute: false, solo: false })),
+  voices: FINGERS.map((_, i) => ({ source: VOICE_SOURCES[i], level: i === 4 ? .5 : .7, mute: false, solo: false })),
 });
 export function createHandPose() {
   return { fingers: Array.from({ length: 5 }, () => ({ mcp: 0, pip: 0, dip: 0, spread: 0 })), wrist: { flex: 0, side: 0, twist: 0 } };
 }
 export function normalizeHandConfig(value = {}) {
   const input = record(value), pose = record(input.pose), wrist = record(pose.wrist), motion = record(input.motion), sound = record(input.sound);
+  // Speed is additive to v1: absent values restore the original 1× timing.
   const next = { version: 1, pose: createHandPose(), motion: {}, sound: {}, voices: [] };
   for (let i = 0; i < 5; i++) {
     const f = record(pose.fingers?.[i]), bounds = i === 0 ? HAND_LIMITS.thumb : HAND_LIMITS.finger;
@@ -100,14 +133,14 @@ function sourceForPose(out, phase, amount) {
 export function evaluateHandPose(value = HAND_DEFAULTS, time = 0, out = createHandPose()) {
   const config = record(value), pose = record(config.pose), motion = record(config.motion);
   const id = motion.id, amount = id === "still" ? 0 : clampHand(motion.amount, 0, 1, HAND_DEFAULTS.motion.amount);
-  const beats = id === "count" ? 10 : id === "flourish" ? 8 : 4;
-  const beat = (clampHand(time, 0, 1e9) * clampHand(motion.tempo, 20, 220, 72) / 60) % beats;
+  const beats = handMotionBeats(id);
+  const beat = (clampHand(time, 0, 1e9) * clampHand(motion.tempo, 20, 220, 72) * clampHand(motion.speed, .1, 4, 1) / 60) % beats;
   const phase = beat / beats * TAU;
   out.source = null;
   const source = id === "source-grasp" ? sourceForPose(out, beat / beats, amount) : null;
   for (let i = 0; i < 5; i++) {
     const base = record(pose.fingers?.[i]), f = out.fingers[i], fallback = HAND_DEFAULTS.pose.fingers[i];
-    let curl = 0, tip = 0, spread = 0;
+    let curl = 0, tip = 0, spread = 0, distal = null;
     if (source) { curl = source.fingers[i].mcp; tip = source.fingers[i].pip; spread = source.fingers[i].spread; }
     else if (id === "wave") { curl = 11 * Math.sin(phase - i * .34); tip = 7 * Math.sin(phase - i * .34 - .35); spread = 4 * Math.cos(phase + i * .4); }
     else if (id === "beckon") { const bend = .5 - .5 * Math.cos(phase * 2 - i * .15); curl = (i === 0 ? 12 : 49) * bend; tip = (i === 0 ? 8 : 50) * bend; }
@@ -118,10 +151,143 @@ export function evaluateHandPose(value = HAND_DEFAULTS, time = 0, out = createHa
       const closed = 1 - rise + fall;
       curl = (i === 0 ? 30 : 54) * closed; tip = (i === 0 ? 30 : 61) * closed; spread = -6 * closed;
     } else if (id === "flourish") { curl = 20 * Math.sin(phase * 2 - i * .65) + 8 * Math.cos(phase); tip = 25 * Math.sin(phase * 2 - i * .65 - .4); spread = 10 * Math.sin(phase + i * .45); }
+    // These are authored periodic joint offsets, not captured human motion.
+    // Integer harmonics and smooth cosine pulses keep every loop seam continuous.
+    else switch (id) {
+      case "finger-fan": {
+        const open = .5 - .5 * Math.cos(phase);
+        curl = (i + 1) * 1.5 * (1 - open); tip = 4 * (1 - open);
+        spread = (i === 0 ? 24 : i === 1 ? -22 : i === 2 ? -3 : i === 3 ? 13 : 24) * open;
+        break;
+      }
+      case "ripple-open": {
+        const closed = .5 + .5 * Math.cos(phase - i * .92);
+        curl = (i === 0 ? 35 : 56) * closed; tip = (i === 0 ? 40 : 74) * closed * closed;
+        spread = (i - 2) * 3 * (1 - closed); break;
+      }
+      case "ripple-close": {
+        const closed = .5 - .5 * Math.cos(phase + (4 - i) * .92);
+        curl = (i === 0 ? 39 : 63) * closed * closed; tip = (i === 0 ? 38 : 62) * closed;
+        spread = (2 - i) * 2.5 * closed; break;
+      }
+      case "finger-drumming": {
+        const tap = (.5 + .5 * Math.cos(phase * 2 - i * TAU / 5)) ** 4;
+        curl = (i === 0 ? 13 : 40) * tap; tip = (i === 0 ? 9 : 21) * tap;
+        distal = 7 * tap; spread = (i - 2) * 2; break;
+      }
+      case "spider-walk": {
+        const step = .5 + .5 * Math.sin(phase * 2 + i * Math.PI / 2);
+        curl = i === 0 ? 18 + 12 * step : 21 + 31 * step;
+        tip = i === 0 ? 18 : 68 - 41 * step; distal = 9 + 25 * (1 - step);
+        spread = (i - 2) * 4 + 5 * Math.sin(phase * 2 + i); break;
+      }
+      case "air-piano": {
+        const press = (.5 - .5 * Math.cos(phase * (i === 0 ? 1 : i % 3 + 1) - i * 1.15)) ** 3;
+        curl = (i === 0 ? 18 : 34) * press; tip = 9 + 13 * press;
+        distal = 4 + 5 * press; spread = (i - 2) * 3; break;
+      }
+      case "index-tap": {
+        const tap = (.5 - .5 * Math.cos(phase * 2)) ** 2;
+        curl = i === 1 ? 46 * tap : i === 0 ? 17 : 27 + i * 3;
+        tip = i === 1 ? 16 * tap : i === 0 ? 12 : 33;
+        distal = i === 1 ? 3 * tap : 17; break;
+      }
+      case "thumb-pulse": {
+        const press = .5 - .5 * Math.cos(phase * 2);
+        curl = i === 0 ? 45 * press : 5; tip = i === 0 ? 42 * press : 8;
+        spread = i === 0 ? -23 * press : (i - 2) * 2; break;
+      }
+      case "thumb-orbit": {
+        curl = i === 0 ? 28 + 24 * Math.sin(phase) : 7;
+        tip = i === 0 ? 17 + 12 * Math.sin(phase - .8) : 11;
+        distal = i === 0 ? 10 + 8 * Math.sin(phase - 1.2) : 6;
+        spread = i === 0 ? 22 * Math.cos(phase) : (i - 2) * 3; break;
+      }
+      case "opposition-walk": {
+        const meet = (.5 + .5 * Math.cos(phase - (i - 1) * Math.PI / 2)) ** 3;
+        curl = i === 0 ? 35 + 10 * Math.sin(phase) : 47 * meet;
+        tip = i === 0 ? 25 + 11 * Math.cos(phase) : 56 * meet;
+        spread = i === 0 ? -12 + 11 * Math.sin(phase - .6) : (2 - i) * 3 * meet; break;
+      }
+      case "pinch-ladder": {
+        const meet = (.5 + .5 * Math.cos(phase + (i - 1) * Math.PI / 2)) ** 4;
+        curl = i === 0 ? 27 + 13 * (.5 - .5 * Math.cos(phase * 4)) : (32 + i * 4) * meet;
+        tip = i === 0 ? 31 : (43 + i * 4) * meet;
+        spread = i === 0 ? -16 - 7 * Math.cos(phase) : (2 - i) * 5 * meet; break;
+      }
+      case "circle-pinch": {
+        const close = .65 + .35 * Math.sin(phase * 2);
+        curl = (i < 2 ? 39 : 8 + i * 2) * close;
+        tip = (i < 2 ? 43 : 13) * close; spread = i === 0 ? -22 * close : i === 1 ? -8 * close : (i - 2) * 6;
+        break;
+      }
+      case "claw-pulse": {
+        const claw = .5 - .5 * Math.cos(phase);
+        curl = (i === 0 ? 18 : -9) * claw; tip = (i === 0 ? 53 : 87) * claw;
+        distal = (i === 0 ? 37 : 59) * claw; spread = (i === 0 ? 20 : (i - 2) * 8) * claw; break;
+      }
+      case "squeeze-release": {
+        const squeeze = (.5 - .5 * Math.cos(phase)) ** 2;
+        const settle = 1 + .06 * Math.sin(phase * 3 - i * .12);
+        curl = (i === 0 ? 42 : 73) * squeeze * settle;
+        tip = (i === 0 ? 44 : 88) * squeeze; distal = (i === 0 ? 31 : 59) * squeeze;
+        spread = (i === 0 ? -18 : (2 - i) * 2) * squeeze; break;
+      }
+      case "wrist-circle": {
+        curl = 9 + i * 2 + 5 * Math.sin(phase - i * .2); tip = 15 + 6 * Math.sin(phase - i * .2 - .4);
+        spread = (i - 2) * 4; break;
+      }
+      case "wrist-nod": {
+        curl = 6 + 5 * Math.sin(phase - .4); tip = 8 + 5 * Math.sin(phase - .8); break;
+      }
+      case "wrist-turn": {
+        curl = 13 + 9 * Math.sin(phase - i * .22); tip = 17 + 10 * Math.sin(phase - i * .22 - .5);
+        spread = (i === 0 ? 17 : (i - 2) * 5) * (.7 + .3 * Math.cos(phase)); break;
+      }
+      case "figure-eight": {
+        curl = 14 + 11 * Math.sin(phase - i * .4); tip = 16 + 13 * Math.sin(phase - i * .4 - .3);
+        spread = 7 * Math.sin(phase * 2 + i * .3); break;
+      }
+      case "flourish-spiral": {
+        const spiral = .5 + .5 * Math.sin(phase * 2 - i * 1.1);
+        curl = 44 * spiral; tip = 58 * spiral * spiral;
+        spread = (i === 0 ? 21 : (i - 2) * 9) * Math.sin(phase - i * .15); break;
+      }
+      case "flick": {
+        const release = (.5 + .5 * Math.cos(phase * 2 - i * .48)) ** 6;
+        curl = (i === 0 ? 28 : 48) * (1 - release); tip = (i === 0 ? 23 : 61) * (1 - release);
+        distal = (i === 0 ? 18 : 39) * (1 - release); spread = (i - 2) * 4 * release; break;
+      }
+      case "finger-scissors": {
+        const apart = .5 - .5 * Math.cos(phase * 2);
+        curl = i === 1 || i === 2 ? 4 : i === 0 ? 31 : 66;
+        tip = i === 1 || i === 2 ? 4 : i === 0 ? 30 : 77;
+        spread = i === 1 ? -22 * apart : i === 2 ? 16 * apart : 0; break;
+      }
+      case "double-beckon": {
+        const bend = .5 - .5 * Math.cos(phase * 2 - (i === 2 ? .35 : 0));
+        curl = i === 1 || i === 2 ? 45 * bend : i === 0 ? 24 : 61;
+        tip = i === 1 || i === 2 ? 64 * bend : i === 0 ? 21 : 72;
+        spread = i === 1 ? -7 : i === 2 ? 5 : 0; break;
+      }
+      case "two-finger-walk": {
+        const step = .5 + .5 * Math.sin(phase * 2 + (i === 2 ? Math.PI : 0));
+        curl = i === 1 || i === 2 ? 19 + 41 * step : i === 0 ? 31 : 69;
+        tip = i === 1 || i === 2 ? 46 - 37 * step : i === 0 ? 28 : 81;
+        distal = i === 1 || i === 2 ? 8 + 17 * (1 - step) : 39;
+        spread = i === 1 ? -9 : i === 2 ? 7 : 0; break;
+      }
+      case "ring-pulse": {
+        const bow = .5 - .5 * Math.cos(phase);
+        curl = i === 3 ? 63 * bow : i === 4 ? 15 * bow : i === 2 ? 9 * bow : 6;
+        tip = i === 3 ? 74 * bow : i === 4 ? 21 * bow : i === 2 ? 12 * bow : 8;
+        spread = i === 3 ? 5 * Math.sin(phase) : (i - 2) * 3; break;
+      }
+    }
     const bounds = i === 0 ? HAND_LIMITS.thumb : HAND_LIMITS.finger;
     f.mcp = clampHand(clampHand(base.mcp, ...bounds.mcp, fallback.mcp) + curl * amount, ...bounds.mcp);
     f.pip = clampHand(clampHand(base.pip, ...bounds.pip, fallback.pip) + tip * amount, ...bounds.pip);
-    f.dip = clampHand(clampHand(base.dip, ...bounds.dip, fallback.dip) + (source ? source.fingers[i].dip : tip * .62) * amount, ...bounds.dip);
+    f.dip = clampHand(clampHand(base.dip, ...bounds.dip, fallback.dip) + (source ? source.fingers[i].dip : distal ?? tip * .62) * amount, ...bounds.dip);
     f.spread = clampHand(clampHand(base.spread, ...bounds.spread, fallback.spread) + spread * amount, ...bounds.spread);
   }
   const baseWrist = record(pose.wrist);
@@ -130,6 +296,31 @@ export function evaluateHandPose(value = HAND_DEFAULTS, time = 0, out = createHa
   if (id === "beckon") flex = 13 * Math.sin(phase * 2 - .5);
   if (id === "pinch") twist = 12 * Math.sin(phase);
   if (id === "flourish") { flex = 24 * Math.sin(phase); side = 19 * Math.cos(phase); twist = 44 * Math.sin(phase - .5); }
+  switch (id) {
+    case "finger-fan": flex = -7 * (.5 - .5 * Math.cos(phase)); break;
+    case "ripple-open": flex = 7 * Math.sin(phase - .8); break;
+    case "ripple-close": flex = -9 * Math.sin(phase + .7); break;
+    case "finger-drumming": flex = -7 + 3 * Math.sin(phase * 2); side = 6 * Math.sin(phase); break;
+    case "spider-walk": flex = 13 + 7 * Math.sin(phase * 4); side = 9 * Math.sin(phase * 2); break;
+    case "air-piano": flex = -6 + 4 * Math.cos(phase * 2); side = 10 * Math.sin(phase); break;
+    case "index-tap": flex = 4 * Math.sin(phase * 2 - .4); break;
+    case "thumb-pulse": twist = 6 * Math.sin(phase * 2 - .3); break;
+    case "opposition-walk": side = 8 * Math.sin(phase); twist = 13 * Math.cos(phase); break;
+    case "pinch-ladder": flex = 8 * Math.sin(phase); side = -13 * Math.cos(phase); break;
+    case "circle-pinch": flex = 21 * Math.sin(phase); side = 18 * Math.cos(phase); twist = 22 * Math.sin(phase + .6); break;
+    case "claw-pulse": flex = 18 * (.5 - .5 * Math.cos(phase)); break;
+    case "squeeze-release": flex = 17 * (.5 - .5 * Math.cos(phase)); twist = 8 * Math.sin(phase); break;
+    case "wrist-circle": flex = 32 * Math.sin(phase); side = 25 * Math.cos(phase); break;
+    case "wrist-nod": flex = 42 * Math.sin(phase); break;
+    case "wrist-turn": flex = -8; twist = 64 * Math.sin(phase); break;
+    case "figure-eight": flex = 29 * Math.sin(phase); side = 23 * Math.sin(phase * 2); twist = 31 * Math.cos(phase); break;
+    case "flourish-spiral": flex = 23 * Math.sin(phase); side = 21 * Math.cos(phase); twist = 53 * Math.sin(phase - .7); break;
+    case "flick": flex = 15 * Math.sin(phase * 2 - .6); twist = 11 * Math.sin(phase); break;
+    case "finger-scissors": twist = 9 * Math.sin(phase); break;
+    case "double-beckon": flex = 9 * Math.sin(phase * 2 - .4); twist = -10; break;
+    case "two-finger-walk": flex = 20 + 5 * Math.sin(phase * 4); side = 6 * Math.sin(phase * 2); break;
+    case "ring-pulse": side = 7 * Math.sin(phase - .4); break;
+  }
   out.wrist.flex = clampHand(handNumber(baseWrist.flex) + flex * amount, ...HAND_LIMITS.wrist.flex);
   out.wrist.side = clampHand(handNumber(baseWrist.side) + side * amount, ...HAND_LIMITS.wrist.side);
   out.wrist.twist = clampHand(handNumber(baseWrist.twist) + twist * amount, ...HAND_LIMITS.wrist.twist);
@@ -173,11 +364,17 @@ const PRESET_DEFINITIONS = [
   ["little-machinery", "Little machinery", "pinch", "beckon", 186, .48, 126, .81, .81, .23, .006, .17, ["pulse", "wire", "reed", "pulse", "air"]],
   ["original-grasp", "Original grasp", "source-open", "source-grasp", 75, 1, 151, .49, .13, .3, .04, .58, ["glass", "wire", "reed", "glass", "air"]],
   ["breathing-hand", "Breathing hand", "source-open", "source-grasp", 34, 1, 79, .24, .06, .71, .38, 1.8, ["air", "reed", "air", "wire", "air"]],
+  ["bowed-spiral", "Rosin spiral", "source-open", "flourish-spiral", 74, .82, 92, .51, .37, .48, .16, .93, ["bowed", "bowed", "wire", "bowed", "glass"], .65],
+  ["vowel-opposition", "Talking fingertips", "source-open", "opposition-walk", 89, .91, 118, .63, .21, .21, .032, .38, ["vowel", "vowel", "reed", "vowel", "air"], 1.1],
+  ["metal-drumming", "Tin fingernails", "source-open", "finger-drumming", 122, .92, 173, .83, .47, .17, .006, .22, ["metal", "metal", "wire", "metal", "pulse"], 1.4],
+  ["bowed-eight", "Cello figure eight", "relaxed", "figure-eight", 51, .68, 57, .28, .18, .56, .31, 1.65, ["bowed", "reed", "bowed", "bowed", "air"], .45],
+  ["vowel-fan", "Palm choir", "source-open", "finger-fan", 62, .95, 204, .34, .08, .74, .44, 1.9, ["vowel", "vowel", "air", "vowel", "glass"], .8],
+  ["metal-walk", "Clockwork fingers", "source-open", "two-finger-walk", 111, .76, 81, .71, .61, .29, .009, .31, ["metal", "pulse", "metal", "wire", "metal"], 1.7],
 ];
-export const HAND_PRESETS = freeze(PRESET_DEFINITIONS.map(([id, label, poseId, motionId, tempo, amount, rootHz, brightness, roughness, space, attack, release, sources], index) => ({
+export const HAND_PRESETS = freeze(PRESET_DEFINITIONS.map(([id, label, poseId, motionId, tempo, amount, rootHz, brightness, roughness, space, attack, release, sources, speed = 1], index) => ({
   id, label, snapshot: normalizeHandConfig({
     pose: HAND_POSES.find(p => p.id === poseId).pose,
-    motion: { id: motionId, tempo, amount }, sound: { rootHz, brightness, roughness, space, attack, release },
+    motion: { id: motionId, tempo, amount, speed }, sound: { rootHz, brightness, roughness, space, attack, release },
     voices: sources.map((source, i) => ({ source, level: source === "air" ? .43 : .56 + ((index + i) % 4) * .085, mute: false, solo: false })),
   }),
 })));
@@ -192,7 +389,7 @@ export function randomizeHandConfig(_current = HAND_DEFAULTS, random = Math.rand
     next.voices[i] = { source: VOICE_SOURCES[Math.floor(unit() * VOICE_SOURCES.length)], level: between(.24, .91), mute: unit() < .09, solo: unit() < .08 };
   }
   for (const [key, bounds] of Object.entries(HAND_LIMITS.wrist)) next.pose.wrist[key] = between(...bounds);
-  next.motion = { id: HAND_MOTIONS[Math.floor(unit() * HAND_MOTIONS.length)].id, tempo: between(20, 220), amount: unit() };
+  next.motion = { id: HAND_MOTIONS[Math.floor(unit() * HAND_MOTIONS.length)].id, tempo: between(20, 220), amount: unit(), speed: .1 * 40 ** unit() };
   next.sound = { rootHz: 35 * (1000 / 35) ** unit(), brightness: unit(), roughness: unit(), space: unit(),
     attack: .004 * 300 ** unit(), release: .04 * 87.5 ** unit() };
   if (next.voices.every(v => v.mute)) next.voices[Math.floor(unit() * 5)].mute = false;
