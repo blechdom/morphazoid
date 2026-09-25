@@ -720,3 +720,102 @@ test("exact geometry preview controls are excluded before shared navigation init
     }
   }
 });
+
+test("combined pages keep one native preview in the active panel and retire its listeners and pending work", () => {
+  const page = new FakeDocument();
+  page.body.setAttribute("data-midi-output-monitor", "manual");
+  const first = new FakeDocument(), second = new FakeDocument();
+  const runtime = fakeRuntime();
+  const timers = new Map(), frames = new Map(), microtasks = [], observers = new Set();
+  let sequence = 0;
+  runtime.setTimeout = callback => { timers.set(++sequence, callback); return sequence; };
+  runtime.clearTimeout = id => timers.delete(id);
+  runtime.requestAnimationFrame = callback => { frames.set(++sequence, callback); return sequence; };
+  runtime.cancelAnimationFrame = id => frames.delete(id);
+  runtime.queueMicrotask = callback => microtasks.push(callback);
+  runtime.MutationObserver = class {
+    constructor(callback) { this.callback = callback; }
+    observe(target) { this.target = target; observers.add(this); }
+    disconnect() { observers.delete(this); }
+  };
+  const addRange = (doc, id, value, readout) => {
+    const input = doc.createElement("input");
+    Object.assign(input, { id, type: "range", min: "0", max: "300", value: String(value) });
+    const output = doc.createElement("output");
+    output.setAttribute("for", id); output.textContent = readout;
+    doc.panel.append(input, output);
+    return input;
+  };
+  const addTransport = doc => {
+    const play = doc.createElement("button");
+    play.id = "playButton"; play.setAttribute("aria-pressed", "false"); doc.panel.append(play);
+    return play;
+  };
+  const firstPlay = addTransport(first);
+  addTransport(second);
+  const tempo = addRange(first, "tempo", 180, "180 BPM");
+  addRange(page, "tempo", 90, "90 BPM");
+  const output = addRange(page, "output", 60, "60%");
+  // A real shadow control retains the outer ownerDocument but its own DOM root.
+  tempo.ownerDocument = page;
+  tempo.getRootNode = () => first;
+  const fire = (doc, control) => {
+    const event = { isTrusted: true, target: page.body, composedPath: () => [control, page.body] };
+    for (const listener of doc.listeners.get("input") ?? []) listener(event);
+  };
+  const flushMicrotasks = () => { while (microtasks.length) microtasks.shift()(); };
+  const capability = { midiOutput: true };
+  assert.equal(initializeMidiOutputMonitor(page, runtime, { routeId: "rubixoids", capability }), null);
+  assert.equal(page.panel.querySelector(".midi-output-monitor"), null, "manual ownership never creates an outer layout row");
+  const monitor = initializeMidiOutputMonitor(first, runtime, {
+    routeId: "rubix", capability, controlEventTargets: [page],
+  });
+  assert.equal(monitor.monitor.parentNode, first.panel);
+  assert.equal(runtime.listeners.get(MIDI_OUTPUT_PREVIEW_EVENT).length, 1);
+  emitMidiOutputPreview({ kind: "note", routeId: "hyper-rubix", note: 60, velocity: 100 }, runtime);
+  assert.equal(monitor.state.note, null, "inactive native route events are rejected");
+  emitMidiOutputPreview({ kind: "note", routeId: "rubix", note: 69, velocity: 100, durationMs: 1000 }, runtime);
+  assert.equal(monitor.state.note.note, 69);
+  fire(first, tempo); fire(page, tempo); flushMicrotasks();
+  assert.equal(monitor.state.controls.length, 1, "retargeted event capture is deduplicated across root and page");
+  assert.equal(monitor.state.controls[0].displayValue, "180 BPM", "readouts resolve inside the native shadow root");
+  assert.equal(monitor.state.clocks[0].bpm, 180);
+  fire(page, output); flushMicrotasks();
+  assert.equal(monitor.state.controls[0].sourceId, "output", "shared header volume remains visible in the native preview");
+  firstPlay.setAttribute("aria-pressed", "true");
+  for (const observer of observers) observer.callback();
+  assert.equal(monitor.state.transport.state, "start");
+  assert.ok(timers.size > 0 && frames.size > 0);
+  fire(first, tempo); // A control microtask can still be queued when a dimension changes.
+  const eventCount = monitor.state.eventCount;
+  monitor.details.open = false;
+  const rememberedOpen = monitor.details.open;
+  monitor.destroy();
+  flushMicrotasks();
+  assert.equal(monitor.state.eventCount, eventCount, "queued control work cannot revive a parked monitor");
+  assert.equal(timers.size, 0);
+  assert.equal(frames.size, 0);
+  assert.equal(observers.size, 0);
+  assert.equal(first.panel.querySelector(".midi-output-monitor"), null);
+  assert.equal(first.listeners.get("input").length, 0);
+  assert.equal(page.listeners.get("input").length, 0);
+  assert.equal(runtime.listeners.get(MIDI_OUTPUT_PREVIEW_EVENT).length, 0);
+
+  const next = initializeMidiOutputMonitor(second, runtime, {
+    routeId: "hyper-rubix", capability, controlEventTargets: [page],
+  });
+  next.details.open = rememberedOpen;
+  assert.equal(next.details.open, false);
+  assert.equal(next.monitor.parentNode, second.panel);
+  assert.equal(runtime.listeners.get(MIDI_OUTPUT_PREVIEW_EVENT).length, 1);
+  assert.equal(page.listeners.get("input").length, 1);
+  emitMidiOutputPreview({ kind: "note", routeId: "rubix", note: 70, velocity: 100 }, runtime);
+  assert.equal(next.state.note, null);
+  emitMidiOutputPreview({ kind: "note", routeId: "hyper-rubix", note: 62, velocity: 100 }, runtime);
+  assert.equal(next.state.note.note, 62);
+  next.destroy();
+  assert.equal(timers.size, 0);
+  assert.equal(frames.size, 0);
+  assert.equal(observers.size, 0);
+  assert.equal(page.listeners.get("input").length, 0);
+});

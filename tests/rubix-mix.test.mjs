@@ -111,8 +111,10 @@ test("compression preserves quiet linear output and has a bounded symmetric safe
   };
   const { compressor, makeup, output } = createRubixDynamics(context);
   assert.equal(makeup.gain.value, 2.8, "fixed makeup is separate from performer volume");
-  assert.ok(compressor.threshold.value <= -20);
-  assert.ok(compressor.ratio.value >= 4);
+  assert.deepEqual(Object.fromEntries(["threshold", "knee", "ratio", "attack", "release"].map(key => [key, compressor[key].value])), {
+    threshold: -24, knee: 18, ratio: 5, attack: 0.003, release: 0.18,
+  }, "the original 3D dynamics remain unchanged");
+  assert.equal(output.oversample, "4x");
   assert.equal(output.curve[2048], 0);
   assert.equal(output.curve[2560], 0.25);
   assert.ok([...output.curve].every((value) => Number.isFinite(value) && Math.abs(value) < 0.8));

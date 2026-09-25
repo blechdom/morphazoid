@@ -7,8 +7,8 @@
     "implemented": 26,
     "fullPresets": 523,
     "favesImplemented": 13,
-    "activeRemaining": 63,
-    "regularRemaining": 132
+    "activeRemaining": 64,
+    "regularRemaining": 133
   },
   "verification": {
     "browser": "Fresh-main 9a45aa0 combined gate: 402 passed across 13 Chromium suites, including all 209 public HTML routes, all 451 existing full-state preset recalls, Shapes' 106-scene audio sweep, Faves/UI/gesture checks, I/O setup and incoming Loopini regressions. Human/device acceptance remains separate; see docs/presets-continuation-20260922.md",
@@ -97,6 +97,15 @@
       "scope": "fave",
       "presets": 106,
       "status": "implemented-automated-verified"
+    },
+    {
+      "id": "rubixoids",
+      "label": "Rubixoids",
+      "href": "rubixoids.html",
+      "category": "app",
+      "scope": "regular",
+      "presets": null,
+      "status": "unmigrated"
     },
     {
       "id": "l-systems",
@@ -1561,6 +1570,7 @@
       "solid-drum-machine",
       "hyper-drum-machine",
       "graph-drum-machine",
+      "rubixoids",
       "l-systems",
       "graphs",
       "tesselation",

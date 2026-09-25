@@ -206,11 +206,16 @@ function sanitizeVariableStepModulation(stepModulation) {
  * Convert one Hyper Rubix state into a continuously gated WebGPU 303 loop.
  * Every included sticker gets one forward serial pulse. `cellIds` can scope
  * the same instrument to view-facing or selected current cells without
- * inserting silent placeholders into the GPU timeline.
+ * inserting silent placeholders into the GPU timeline. `cornersOnly` keeps
+ * the same compact corner score as the native and shared voices.
  */
 export function createHyperRubixWebGpu303Pattern(puzzle, options = {}) {
   if (!options || typeof options !== "object" || Array.isArray(options)) {
     throw new TypeError("Hyper Rubix WebGPU pattern options must be an object.");
+  }
+  const cornersOnly = options.cornersOnly ?? false;
+  if (typeof cornersOnly !== "boolean") {
+    throw new TypeError("Hyper Rubix WebGPU cornersOnly option must be a boolean.");
   }
   const metrics = hyperRubixSizeMetrics(puzzle);
   const rotation = normalizedRotation(options.rotation);
@@ -234,9 +239,12 @@ export function createHyperRubixWebGpu303Pattern(puzzle, options = {}) {
   );
   const disorder = hyperRubixDisorder(puzzle);
   const signals = rotationSignals(rotation);
-  const stream = options.cellIds === undefined
+  const scopedStream = options.cellIds === undefined
     ? createHyperRubixStickerStream(puzzle)
     : createHyperRubixScopedStickerStream(puzzle, options.cellIds);
+  const stream = cornersOnly
+    ? scopedStream.filter(({ configuration }) => configuration.radialClass === "corner")
+    : scopedStream;
   const steps = Object.freeze(stream.map((event, stepIndex) => stepFromEvent(
     event,
     stepIndex,

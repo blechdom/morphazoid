@@ -423,3 +423,25 @@ export function scheduleHocketMarker(
     throw error;
   }
 }
+
+/** The shared engines use the same lane/tone identity, marker duration, focus
+ * normalization and stereo placement as the original score. No AudioContext
+ * or scheduler is created by this pure event adapter. */
+export function hocketSharedVoiceEvent(event, settings, peak = 0.18, plan = null) {
+  const marker = plan ?? hocketMarkerPlan({
+    soundSet: settings.soundSet, pulseLengthMs: settings.pulseLengthMs,
+    voice: event.voice, tone: event.tone, voiceCount: settings.voiceCount, peak,
+  });
+  return {
+    voice: settings.soundEngine,
+    frequency: [128, 174, 232, 310][marker.voice] * 2 ** ((marker.tone - 1) / 8),
+    velocity: clamp(marker.peak * 2.6, 0, .78),
+    duration: marker.durationSeconds,
+    pan: marker.panStart,
+    brightness: { wood: .42, metal: .82, breath: .3 }[marker.material],
+    attack: marker.material === "breath" ? .018 : .003,
+    release: marker.material === "metal" ? .055 : .018,
+    character: (marker.tone - 1) / 7,
+    seed: marker.voice * 17 + marker.tone,
+  };
+}

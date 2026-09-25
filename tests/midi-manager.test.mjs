@@ -510,6 +510,11 @@ test("computer keys ignore repeats, shortcuts, and editable targets while contro
   ];
   for (const target of editableTargets) {
     document.emit("keydown", computerKey("KeyQ", { target }));
+    const host = { tagName: "DIV" };
+    const shadowEvent = computerKey("KeyQ", { target: host, composedPath: () => [target, host] });
+    document.emit("keydown", shadowEvent);
+    assert.equal(shadowEvent.prevented, false, "shadow-root fields keep native text/control keys");
+    assert.equal(shadowEvent.immediateStopped, false, "editable shadow events remain available to controls");
   }
   for (const extras of [
     { repeat: true },
@@ -535,7 +540,9 @@ test("computer keys ignore repeats, shortcuts, and editable targets while contro
   assert.equal(duplicateDown.immediateStopped, true, "duplicate downs cannot leak to page keys");
   assert.equal(repeatedDown.immediateStopped, true, "held-key repeats cannot leak to page keys");
 
-  const editableUp = computerKey("KeyQ", { target: { tagName: "INPUT" }, ctrlKey: true });
+  const editableUp = computerKey("KeyQ", {
+    target: { tagName: "DIV" }, composedPath: () => [{ tagName: "INPUT" }], ctrlKey: true,
+  });
   document.emit("keyup", editableUp);
   assert.equal(messages.length, 2, "keyup must release a note after focus moves into a field");
   assert.equal(messages.at(-1).type, "noteOff");

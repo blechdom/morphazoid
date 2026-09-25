@@ -8,6 +8,7 @@ import {
   FM_DRUM_STORAGE_KEY,
   sanitizeFmDrumVoice,
 } from "../fm-drums/fm-drums.js";
+import { SequencerVoiceBank, SEQUENCER_VOICES } from "../../sequencer-voices.js";
 import { unlockAudioContext } from "../../audio.js";
 import { connectAudioOutput } from "../../audio-output-manager.js";
 import { RUBIX_FACE_ROLES, RubixStickerMixer, createRubixDynamics } from "./rubix-mix.js";
@@ -46,6 +47,13 @@ import {
   turnRubixLayer,
 } from "./rubix.js";
 
+const mountContext = null;
+const document = mountContext?.document ?? globalThis.document;
+const RUBIXOIDS_EMBEDDED = Boolean(mountContext) || new URLSearchParams(location.search).get("embed") === "rubixoids";
+let rubixoidsEmbeddedActive = true;
+let rubixoidsHiddenAt = 0;
+let rubixoidsResumeStep = null;
+let rubixoidsActivation = 0;
 const $ = (id) => document.getElementById(id);
 const clamp = (value, minimum, maximum) => Math.min(maximum, Math.max(minimum, Number(value) || 0));
 const TAU = Math.PI * 2;
@@ -102,6 +110,9 @@ const ROLE_AUDIO_VALUE = Object.freeze({
 });
 
 const SOUND_BANKS = Object.freeze({
+  ...Object.fromEntries(SEQUENCER_VOICES.map(({ id, label }) => [`shared-${id}`, Object.freeze({
+    id: `shared-${id}`, label, detail: "clocked sticker pitches with live visibility gates", role: "percussion",
+  })])),
   "soft-fm": Object.freeze({
     id: "soft-fm",
     label: "Soft FM kit",
@@ -321,6 +332,7 @@ class RubixAudioEngine {
   constructor(runtime = globalThis, voices = DEFAULT_FM_DRUM_VOICES) {
     this.runtime = runtime;
     this.voices = voices;
+    this.sharedVoices = new SequencerVoiceBank({ runtime, maxVoices: 64 });
     this.context = null;
     this.compressor = null;
     this.transportGain = null;
@@ -420,6 +432,7 @@ class RubixAudioEngine {
   updateSettings(settings) {
     if (!this.context) return;
     const now = this.context.currentTime;
+    this.sharedSettings = { ...settings };
     this.soundBank = Object.hasOwn(SOUND_BANKS, settings.soundBank)
       ? settings.soundBank
       : DEFAULTS.soundBank;
@@ -460,6 +473,7 @@ class RubixAudioEngine {
   }
 
   setSoundBank(bankId, settings) {
+    if (bankId !== this.soundBank) this.sharedVoices.stop();
     this.soundBank = Object.hasOwn(SOUND_BANKS, bankId) ? bankId : DEFAULTS.soundBank;
     this.updateSettings({ ...settings, soundBank: this.soundBank });
   }
@@ -492,6 +506,7 @@ class RubixAudioEngine {
     this.transportGain.gain.cancelScheduledValues(now);
     this.transportGain.gain.setTargetAtTime(active ? 1 : 0, now, active ? 0.008 : 0.008);
     if (!active) {
+      this.sharedVoices.stop();
       this.transportGain.gain.setValueAtTime(0, now + 0.04);
       for (const source of this.activeSources) {
         try { source.stop(now + 0.025); } catch { /* ended */ }
@@ -570,6 +585,7 @@ class RubixAudioEngine {
 
   async prepareKit(bankId) {
     if (!this.context || !PERCUSSION_SOUND_BANK_IDS.includes(bankId)) return;
+    if (bankId.startsWith("shared-")) return this.sharedVoices.prepare(this.context, this.compressor);
     if (this.kitBuffers.has(bankId)) return this.kitBuffers.get(bankId);
     const liveContext = this.context;
     const noiseBuffer = this.noiseBuffer;
@@ -642,6 +658,23 @@ class RubixAudioEngine {
     if (!destination) return;
     const safeGain = clamp(laneGain, 0, 1.4);
     if (safeGain <= 0) return;
+    if (bankId.startsWith("shared-")) {
+      const settings = this.sharedSettings ?? DEFAULTS;
+      const midi = (RUBIX_ACID_MIDI_BY_COLOR[sticker?.color] ?? 40) + 12;
+      const handle = this.sharedVoices.trigger({
+        voice: bankId.slice(7), when, destination, frequency: midiFrequency(midi), velocity: safeGain * 0.72,
+        duration: clamp(settings.acidDecay, 0.04, 0.72), release: 0.055,
+        brightness: clamp((settings.cutoff - 160) / 4040, 0, 1), resonance: settings.resonance, drive: settings.drive,
+      });
+      if (handle) {
+        handle.source.rubixStickerId = sticker?.id;
+        handle.source.rubixStartAt = when;
+        handle.source.rubixStopAt = handle.stopAt;
+        this.activeSources.add(handle.source);
+        handle.source.addEventListener("ended", () => this.activeSources.delete(handle.source), { once: true });
+      }
+      return;
+    }
     const buffers = this.kitBuffers.get(bankId);
     if (!Array.isArray(buffers)) return;
     const source = this.context.createBufferSource();
@@ -655,6 +688,7 @@ class RubixAudioEngine {
 
   async close() {
     this.lifecycleGeneration += 1;
+    this.sharedVoices.dispose();
     const context = this.context;
     this.releaseAudioOutput?.();
     this.releaseAudioOutput = null;
@@ -1010,7 +1044,10 @@ function syncSimd303Pattern({ force = false } = {}) {
     if (!force && sourceKey === simd303SourceKey) return true;
     const pattern = currentSimd303Pattern();
     const key = simd303PatternFingerprint(pattern);
-    if (!force && key === simd303PatternKey) return true;
+    if (!force && key === simd303PatternKey) {
+      simd303SourceKey = sourceKey;
+      return true;
+    }
     simd303PatternKey = key;
     simd303Engine.updateSurfacePatterns(pattern.faces);
     simd303SourceKey = sourceKey;
@@ -1464,6 +1501,7 @@ function transformedVector(source, sticker, turn) {
 }
 
 function resizeCanvas() {
+  if (!rubixoidsEmbeddedActive) return;
   const bounds = stageWrap.getBoundingClientRect();
   const nextCssWidth = Math.max(1, Math.round(bounds.width));
   const nextCssHeight = Math.max(1, Math.round(bounds.height));
@@ -1894,6 +1932,7 @@ function drawCube() {
 }
 
 function drawFrame(now = performance.now()) {
+  if (!rubixoidsEmbeddedActive) { scheduledFrame = 0; return; }
   scheduledFrame = 0;
   applyPendingCanvasSize();
   flushOrbitPerformanceSnapshot();
@@ -1910,6 +1949,7 @@ function drawFrame(now = performance.now()) {
 }
 
 function requestDraw() {
+  if (!rubixoidsEmbeddedActive) return;
   if (!scheduledFrame) scheduledFrame = requestAnimationFrame(drawFrame);
 }
 
@@ -2022,6 +2062,7 @@ function nextRandomTwistMove() {
 }
 
 function scheduleRandomTwists() {
+  if (!rubixoidsEmbeddedActive) return;
   if (!state.randomTwists) return;
   const interval = rubixTwistIntervalMs(state.randomTwistSpeed);
   randomTwistTimer = setTimeout(() => {
@@ -2364,6 +2405,7 @@ function scheduleVisualStep(step, when) {
 }
 
 function schedulerTick() {
+  if (!rubixoidsEmbeddedActive) return;
   if (!state.playing || !audio.context) return;
   const now = audio.context.currentTime;
   if (!Number.isFinite(nextStepTime) || nextStepTime < now - 0.05) {
@@ -2653,6 +2695,11 @@ async function enableAudio() {
     await activateSelectedSoundBank({ audioEnabled: true });
     if (generation !== audioLifecycleGeneration || context !== audio.context) return false;
     setAudioState(true);
+    if (!rubixoidsEmbeddedActive) {
+      audio.setOutput(0);
+      audio.setTransportActive(false);
+      await context.suspend();
+    }
     return true;
   }).catch((error) => {
     if (generation === audioLifecycleGeneration && error?.name !== "AbortError") showError(error);
@@ -2676,6 +2723,7 @@ async function disableAudio() {
 }
 
 async function startTransport({ restart = false } = {}) {
+  if (!rubixoidsEmbeddedActive) return false;
   if (state.playing && !restart) return;
   if (!state.audioOn || !audio.context) {
     announce("Turn Audio on before playing the Rubix sequencer.");
@@ -2692,7 +2740,9 @@ async function startTransport({ restart = false } = {}) {
     && simdEngine
   ) {
     try {
-      syncSimd303Pattern({ force: true });
+      // Audio preparation already configured unchanged patterns. Validate edits
+      // through the existing cache without rebuilding all six voices on Play.
+      syncSimd303Pattern();
       simdEngine.setPlaybackEnabled(false);
       const simdStartTime = await simdEngine.restartTimeline({
         startAt: audio.context.currentTime + 0.012,
@@ -2712,7 +2762,7 @@ async function startTransport({ restart = false } = {}) {
       transportStartTime = audio.context.currentTime + 0.055;
     }
   }
-  if (generation !== transportLifecycleGeneration || !state.audioOn || !audio.context) return false;
+  if (generation !== transportLifecycleGeneration || !state.audioOn || !audio.context || !rubixoidsEmbeddedActive) return false;
   state.playing = true;
   nextStepIndex = 0;
   nextSwingStep = 0;
@@ -2855,6 +2905,7 @@ bindRange("output", "output", (value) => `${Math.round(value * 100)}%`, (value) 
 });
 
 document.addEventListener("keydown", (event) => {
+  if (!rubixoidsEmbeddedActive) return;
   if (event.defaultPrevented || event.metaKey || event.ctrlKey || event.altKey) return;
   if (event.target?.closest?.("input, select, button, a, summary")) return;
   const key = event.key.toLowerCase();
@@ -2878,7 +2929,8 @@ document.addEventListener("keydown", (event) => {
   }
 });
 
-window.addEventListener("pagehide", () => {
+window.addEventListener("pagehide", event => {
+  if (mountContext && event.persisted) return;
   stopRandomTwists(false);
   stopTransport();
   audioLifecycleGeneration += 1;
@@ -2900,7 +2952,8 @@ window.addEventListener("pagehide", () => {
 });
 
 window.addEventListener("pageshow", (event) => {
-  if (!event.persisted) return;
+  if (mountContext) return;
+  if (!rubixoidsEmbeddedActive || !event.persisted) return;
   setAudioState(false);
   updateSnapshot();
 });
@@ -2971,6 +3024,7 @@ export function rubixPlaybackSnapshot() {
     })),
     viewport: { width: cssWidth, height: cssHeight },
     compressorReduction: audio.compressor?.reduction ?? 0,
+    sharedVoices: audio.sharedVoices.diagnostics(),
     simdVoices: simd303Engine?.faceCount ?? 0,
     simdBackend: simd303Engine?.backend ?? "none",
     simdStatus: simd303Engine?.lastStatus ?? null,
@@ -2984,7 +3038,7 @@ export { RubixAudioEngine };
 // Retain the old controller target for compatibility; the performance selector
 // now lives solely in the shared header. Kit/acid controls remain local.
 $("rubixPreset").closest(".rubix-preset-control").hidden = true;
-registerHeaderPresets({
+(mountContext?.registerPresets ?? registerHeaderPresets)({
   id: "rubix", presets: RUBIX_FULL_PRESETS, randomize: randomizeRubixPreset,
   capture: () => ({
     settings: Object.fromEntries(RUBIX_PRESET_SETTING_KEYS.map(key => [key, state[key]])),
@@ -3037,3 +3091,124 @@ registerHeaderPresets({
     requestDraw();
   },
 });
+
+
+/** Rubixoids mount: preserve the native renderer, score, mixer and presets. */
+export const rubixoidsNative = {
+  capture() {
+    return {
+      active: rubixoidsEmbeddedActive, playing: state.playing || soundBankTransportResumeRequested, audioOn: state.audioOn,
+      settings: {
+        ...Object.fromEntries(Object.keys(DEFAULTS).map(key => [key, state[key]])),
+        readingMode: state.readingMode, shape: state.shapeId, rubixSize: state.cube.size,
+      },
+      native: JSON.parse(JSON.stringify({
+        cube: state.cube, camera: state.camera, voices, selectedStickerId: state.selectedStickerId,
+        currentStep: state.currentStep, moveHistory, turnQueue, turnAnimation,
+        randomTwists: state.randomTwists, nextStepIndex, nextSwingStep,
+      })),
+      diagnostics: {
+        contextState: audio.context?.state ?? "none", schedulerActive: schedulerTimer !== null,
+        animationActive: Boolean(scheduledFrame), autoMotionActive: randomTwistTimer !== null,
+        simdBackend: simd303Engine?.backend ?? "none", activeSources: audio.activeSources.size,
+      },
+    };
+  },
+  async applySettings(patch = {}) {
+    for (const [key, value] of Object.entries(patch)) {
+      if (key === "soundBank") { await selectSoundBank(value, { announceChange: false }); continue; }
+      if (key === "acidEngine") { await selectAcidEngine(value, { announceChange: false }); continue; }
+      if (key === "readingMode") {
+        document.querySelector(`[data-read-mode="${CSS.escape(String(value))}"]`)?.click(); continue;
+      }
+      if (key === "randomTwists") {
+        if (Boolean(value) !== state.randomTwists) $("randomTwists").click(); continue;
+      }
+      if (![...Object.keys(DEFAULTS), "shape", "rubixSize"].includes(key)) continue;
+      const control = $(key);
+      if (!control || !control.matches("input, select")) continue;
+      if (control.tagName === "SELECT" && ![...control.options].some(option => option.value === String(value))) continue;
+      control.value = String(value);
+      control.dispatchEvent(new Event(control.tagName === "SELECT" || key === "rubixSize" ? "change" : "input", { bubbles: true }));
+    }
+    return this.capture();
+  },
+  async deactivate() {
+    if (!RUBIXOIDS_EMBEDDED || !rubixoidsEmbeddedActive) return this.capture();
+    const resumePlaying = state.playing || soundBankTransportResumeRequested;
+    rubixoidsEmbeddedActive = false;
+    rubixoidsActivation += 1;
+    rubixoidsHiddenAt = performance.now();
+    rubixoidsResumeStep = resumePlaying
+      ? (state.currentStep + 1) % currentReadFrame().stepCount : null;
+    if (schedulerTimer !== null) clearTimeout(schedulerTimer);
+    schedulerTimer = null;
+    clearVisualTimers();
+    if (randomTwistTimer !== null) clearTimeout(randomTwistTimer);
+    randomTwistTimer = null;
+    if (scheduledFrame) cancelAnimationFrame(scheduledFrame);
+    scheduledFrame = 0;
+    simd303Engine?.pauseTimeline();
+    audio.setTransportActive(false);
+    if (audioStartPromise) await audioStartPromise.catch(() => {});
+    if (simd303StartPromise) await simd303StartPromise.catch(() => {});
+    // Engine selection temporarily pauses native transport while preserving the
+    // player's request. Parking the dimension must preserve that request too.
+    state.playing = resumePlaying;
+    // Retire queued attacks before suspending the sample clock, so they cannot
+    // leak into the beginning of this dimension's next visit.
+    for (const source of audio.activeSources) {
+      try { source.stop(audio.context.currentTime); } catch { /* already ended */ }
+    }
+    if (audio.context && audio.master) {
+      const now = audio.context.currentTime;
+      audio.master.gain.cancelScheduledValues(now);
+      audio.master.gain.setValueAtTime(0, now);
+      await audio.context.suspend();
+    }
+    return this.capture();
+  },
+  async activate({ audioOn = state.audioOn, playing = state.playing } = {}) {
+    const generation = ++rubixoidsActivation;
+    const wasHidden = !rubixoidsEmbeddedActive;
+    rubixoidsEmbeddedActive = true;
+    if (wasHidden && turnAnimation) turnAnimation.startedAt += performance.now() - rubixoidsHiddenAt;
+    if (audioOn && !state.audioOn) await enableAudio();
+    if (!audioOn && state.audioOn) await disableAudio();
+    if (generation !== rubixoidsActivation || !rubixoidsEmbeddedActive) return this.capture();
+    if (state.audioOn && audio.context) {
+      await audio.context.resume();
+      if (generation !== rubixoidsActivation || !rubixoidsEmbeddedActive) return this.capture();
+      audio.setOutput(state.output);
+    }
+    state.playing = Boolean(playing && state.audioOn && audio.context);
+    if (state.playing) {
+      nextStepIndex = rubixoidsResumeStep ?? state.currentStep;
+      nextStepTime = audio.context.currentTime + 0.045;
+      audio.setTransportActive(true);
+      if (activeAcidEngine === "simd-303" && simd303Engine) {
+        const divisions = currentReadConfig().subdivisionsPerBeat;
+        const rate = clamp(state.tempo, TEMPO_MIN_BPM, TEMPO_MAX_BPM) / 60 * 4;
+        const beat = nextStepIndex / divisions;
+        const pair = Math.floor(beat / 2);
+        const within = beat - pair * 2;
+        const swing = clamp(state.swing, 0, 0.42);
+        const offset = (pair * 2 + (within < 1 ? within * (1 + swing) : 1 + swing + (within - 1) * (1 - swing))) / rate;
+        await simd303Engine.restartTimeline({ startAt: nextStepTime, offset });
+        if (generation !== rubixoidsActivation || !rubixoidsEmbeddedActive) return this.capture();
+        simd303Engine.setPlaybackEnabled(true);
+      } else schedulerTick();
+    } else {
+      audio.setTransportActive(false);
+      simd303Engine?.pauseTimeline();
+    }
+    $("playButton").setAttribute("aria-pressed", String(state.playing));
+    $("playLabel").textContent = state.playing ? "Pause cube" : "Play cube";
+    $("playState").textContent = state.playing ? `${Math.round(state.tempo)} BPM · running` : currentReadLengthLabel();
+    if (state.randomTwists && randomTwistTimer === null) scheduleRandomTwists();
+    resizeCanvas();
+    requestDraw();
+    return this.capture();
+  },
+};
+if (RUBIXOIDS_EMBEDDED && !mountContext) globalThis.rubixoidsNative = rubixoidsNative;

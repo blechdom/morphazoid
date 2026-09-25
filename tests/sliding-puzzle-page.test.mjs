@@ -559,7 +559,7 @@ test("audio toggles resync the running scheduler and page cleanup removes resize
   assert.match(busReset, /this\.transportBus\.connect\(this\.compressor\)/);
 
   const controls = sourceSection(app, "function bindControls()", "function cleanup()");
-  assert.match(controls, /globalThis\.addEventListener\("pagehide", cleanup\)/);
+  assert.match(controls, /globalThis\.addEventListener\("pagehide", event => \{\s*if \(!mountContext \|\| !event\.persisted\) cleanup\(\);\s*\}\)/);
   assert.match(controls, /globalThis\.addEventListener\("resize", renderBoard\)/);
   const cleanup = sourceSection(app, "function cleanup()", "\n\ncreateBoardDom()");
   assert.match(cleanup, /globalThis\.removeEventListener\("resize", renderBoard\)/);

@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#07090b" />
+    <meta name="description" content="Rubixoids combines the complete Sliding Puzzle, Rubix Cube and Hyper Rubix instruments in one 2D, 3D and 4D app." />
+    <title>Rubixoids — Morphazoid</title>
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="src/instruments/rubixoids/rubixoids.css" />
+  </head>
+  <body class="rubixoids-page" data-midi-output-monitor="manual">
+    <header class="masthead">
+      <a class="wordmark" href="./" aria-label="Morphazoid home">
+        <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+        <span>morphazoid</span>
+      </a>
+      <nav class="tabs" aria-label="Instrument">
+        <a class="tab active" href="rubixoids.html" aria-current="page">Rubixoids</a>
+      </nav>
+      <label class="mobile-instrument-nav">
+        <span class="sr-only">Instrument</span>
+        <select class="mobile-instrument-select" aria-label="Instrument">
+          <option value="rubixoids.html" selected>Rubixoids</option>
+        </select>
+      </label>
+      <div class="audio-strip" aria-label="Audio controls">
+        <label class="header-level" for="output">
+          <span><b>Output</b><output id="outputOut" for="output">56%</output></span>
+          <input id="output" aria-label="Output level" type="range" min="0" max="0.9" step="0.01" value="0.56" disabled />
+        </label>
+        <button class="audio-button" id="audioButton" type="button" aria-pressed="false" data-audio-state-owner="engine" disabled>
+          <span class="audio-glyph" aria-hidden="true">◆</span>
+          <span class="audio-copy"><b>Audio</b><small id="audioState">off</small></span>
+        </button>
+      </div>
+    </header>
+    <section class="rubixoids-bar" aria-label="Rubixoids performance">
+      <h1>Rubixoids</h1>
+      <div class="rubixoids-clock" role="group" aria-label="Shared clock">
+        <label for="tempo"><span>Tempo <output id="tempoOut" for="tempo">126 BPM</output></span><input id="tempo" type="range" min="30" max="300" step="1" value="126" disabled /></label>
+        <label for="swing"><span>Swing <output id="swingOut" for="swing">0%</output></span><input id="swing" type="range" min="0" max="0.42" step="0.01" value="0" disabled /></label>
+      </div>
+      <nav class="rubixoids-dimensions" aria-label="Puzzle dimension">
+        <button type="button" data-dimension="2d" aria-pressed="false">2D <span>Sliding</span></button>
+        <button type="button" data-dimension="3d" aria-pressed="true">3D <span>Rubix</span></button>
+        <button type="button" data-dimension="4d" aria-pressed="false">4D <span>Hyper</span></button>
+      </nav>
+      <button id="playButton" class="rubixoids-play" data-primary-transport type="button" aria-pressed="false" disabled><span aria-hidden="true">▶</span> <span id="playLabel">Play</span></button>
+    </section>
+    <div id="rubixoids" data-dimension="3d" aria-label="Rubixoids instrument"></div>
+    <p id="rubixoidsStatus" role="status">Loading Rubix cube…</p>
+    <script type="module" src="nav.js"></script>
+    <script type="module" src="src/instruments/rubixoids/rubixoids-app.js"></script>
+  </body>
+</html>

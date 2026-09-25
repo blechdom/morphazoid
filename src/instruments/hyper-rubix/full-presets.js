@@ -1,3 +1,4 @@
+import { SEQUENCER_VOICES } from "../../sequencer-voice-renderer.js";
 import { HYPER_RUBIX_PRESET_DEFAULTS as defaults } from "./preset-state.js";
 import {
   createSolvedHyperRubix, createHyperRubixScramble, createSeededHyperRubixRandom, turnHyperRubixBoundaryCell,
@@ -22,7 +23,7 @@ const choices = {
   dragMode: ["orbit", "fold"], subdivisionsPerBeat: [1, 2, 4, 8, 16],
   sequenceMethod: ["twist-tape", "sticker-hyperbar", "hybrid-coil", "sticker-stream", "corner-stream"],
   twistMotion: ["auto", "beat", "bar", "off"], patternId: Object.keys(HYPER_RUBIX_SEQUENCE_PATTERNS),
-  playbackMode: ["forward", "reverse", "pendulum", "random"], voice: ["pulse", "glass", "dust", "rattlesnake", "webgpu-303"],
+  playbackMode: ["forward", "reverse", "pendulum", "random"], voice: [...SEQUENCER_VOICES.map(({ id }) => `shared-${id}`), "pulse", "glass", "dust", "rattlesnake", "webgpu-303"],
   playbackPreset: ["view-facing", "selected-cell", "whole-shape"], decayLink: ["linked", "independent"],
   rattleRate: [2, 4, 8], topologyMode: ["mesh", "cohesion", "faults", "off"],
 };
@@ -47,7 +48,7 @@ export const HYPER_RUBIX_FULL_PRESETS = Object.freeze([
   scene("prism-lullaby", "Prism · Slow lanterns", { voice: "glass", tempo: 68, decay: 1.1, topologyRing: 1.1, tone: 0.38, subdivisionsPerBeat: 1, topologyMode: "cohesion", output: 0.4, autoRotate: true, rotationSpeed: 0.025 }, 2, 4, 12),
   scene("corner-club", "Corners · Tight club", { sequenceMethod: "corner-stream", tempo: 138, subdivisionsPerBeat: 4, decay: 0.12, topologyRing: 0.12, tone: 0.6, topologyLevel: 0.1, twistMotion: "bar", output: 0.42 }, 3, 8, 21),
   scene("bit-faults", "Bits · Broken fault lines", { voice: "dust", tempo: 122, swing: 0.19, playbackMode: "pendulum", topologyMode: "faults", topologyLevel: 0.2, topologyWarp: 1.5, output: 0.38 }, 3, 11, 23, 7),
-  scene("single-cell-bell", "One cell · Glass reply", { voice: "glass", playbackPreset: "selected-cell", selectedCell: "y-", tempo: 86, sequenceMethod: "sticker-hyperbar", subdivisionsPerBeat: 2, topologyMode: "off", tone: 0.48, output: 0.42 }, 2, 3, 41),
+  scene("single-cell-bell", "One cell · Glass reply", { voice: "glass", playbackPreset: "selected-cell", selectedCell: "y-", tempo: 86, sequenceMethod: "sticker-stream", subdivisionsPerBeat: 2, topologyMode: "off", tone: 0.48, output: 0.42 }, 2, 3, 41),
   scene("seed-shell", "Rattlesnake · Seed shell", { voice: "rattlesnake", rattleEnabled: true, rattleRate: 2, rattleLevel: 0.35, tempo: 104, decay: 0.3, topologyRing: 0.3, tone: 0.48, output: 0.4 }, 2, 7, 51),
   scene("w-swerve", "Fourth axis · W swerve", { patternId: "w-pressure", sequenceMethod: "twist-tape", tempo: 124, subdivisionsPerBeat: 2, twistMotion: "beat", wInfluence: 1.6, topologyStrum: 0.04, output: 0.4 }, 3, 5, 61),
   scene("whole-cloud", "Whole shape · Prism cloud", { voice: "glass", playbackPreset: "whole-shape", tempo: 58, subdivisionsPerBeat: 1, topologyLevel: 0.14, decay: 1.4, topologyRing: 1.4, autoRotate: true, rotationSpeed: 0.03, output: 0.34 }, 4, 9, 71, 5),

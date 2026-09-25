@@ -275,7 +275,7 @@ function controlLabel(control) {
 
 function formattedControlValue(control) {
   const id = text(control.id);
-  const doc = control.ownerDocument;
+  const doc = control.getRootNode?.() ?? control.ownerDocument;
   const associated = id ? doc?.querySelector?.(`output[for="${id}"]`) : null;
   return text(associated?.textContent, text(control.value));
 }
@@ -423,9 +423,10 @@ function monitorHost(doc) {
 export function initializeMidiOutputMonitor(
   doc = globalThis.document,
   runtime = globalThis,
-  { routeId = "", capability = null } = {},
+  { routeId = "", capability = null, controlEventTargets = [] } = {},
 ) {
-  if (!doc || capability?.midiOutput !== true || runtime?.MorphazoidWAX) return null;
+  if (!doc || capability?.midiOutput !== true || runtime?.MorphazoidWAX
+    || doc.body?.getAttribute?.("data-midi-output-monitor") === "manual") return null;
   if (OUTPUT_MONITORS.has(doc)) return OUTPUT_MONITORS.get(doc);
   const host = monitorHost(doc);
   if (!host || typeof doc.createElement !== "function") return null;
@@ -469,6 +470,7 @@ export function initializeMidiOutputMonitor(
   doc.body?.classList?.add?.("has-midi-output-monitor");
 
   let state = createMidiOutputPreviewState();
+  let destroyed = false;
   let renderFrame = null;
   const timers = new Map();
   const noteTimers = new Map();
@@ -564,6 +566,7 @@ export function initializeMidiOutputMonitor(
     }
   };
   const accept = (detail) => {
+    if (destroyed) return null;
     if (detail?.routeId && routeId && canonicalInstrumentId(detail.routeId) !== canonicalInstrumentId(routeId)) return null;
     state = reduceMidiOutputPreview(state, detail);
     if (state.last.kind === "note") {
@@ -594,11 +597,12 @@ export function initializeMidiOutputMonitor(
 
   const handleControl = (event) => {
     if (event?.isTrusted !== true) return;
-    const control = event.target;
+    const control = event.composedPath?.()[0] ?? event.target;
     const detail = numericControlDetail(control, routeId);
     if (!detail) return;
     const enqueue = runtime?.queueMicrotask ?? globalThis.queueMicrotask;
     const publish = () => {
+      if (destroyed) return;
       const current = numericControlDetail(control, routeId);
       if (!current) return;
       const signature = `${current.rawValue}\u0000${current.displayValue}`;
@@ -612,8 +616,13 @@ export function initializeMidiOutputMonitor(
     else Promise.resolve().then(publish);
   };
   eventTarget?.addEventListener?.(MIDI_OUTPUT_PREVIEW_EVENT, handlePreview);
-  doc.addEventListener?.("input", handleControl, true);
-  doc.addEventListener?.("change", handleControl, true);
+  // Combined pages may expose a shared header control outside their native root.
+  // The signature cache deduplicates native events observed at both boundaries.
+  const controlTargets = [...new Set([doc, ...controlEventTargets])];
+  for (const target of controlTargets) {
+    target.addEventListener?.("input", handleControl, true);
+    target.addEventListener?.("change", handleControl, true);
+  }
 
   const transport = primaryTransport(doc);
   let transportState = null;
@@ -655,7 +664,6 @@ export function initializeMidiOutputMonitor(
   });
   render();
 
-  let destroyed = false;
   let initialTimingTimer = null;
   if (typeof runtime?.setTimeout === "function") {
     initialTimingTimer = runtime.setTimeout(() => {
@@ -683,8 +691,10 @@ export function initializeMidiOutputMonitor(
       destroyed = true;
       eventTarget?.removeEventListener?.(MIDI_OUTPUT_PREVIEW_EVENT, handlePreview);
       eventTarget?.removeEventListener?.("pagehide", handlePageHide);
-      doc.removeEventListener?.("input", handleControl, true);
-      doc.removeEventListener?.("change", handleControl, true);
+      for (const target of controlTargets) {
+        target.removeEventListener?.("input", handleControl, true);
+        target.removeEventListener?.("change", handleControl, true);
+      }
       transportObserver?.disconnect?.();
       if (renderFrame != null) runtime.cancelAnimationFrame?.(renderFrame);
       if (initialTimingTimer != null) runtime.clearTimeout?.(initialTimingTimer);

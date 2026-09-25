@@ -1,3 +1,4 @@
+import { activeInstrumentControls, INSTRUMENT_ROOT_CHANGE_EVENT } from "../src/ui/active-instrument-controls.js";
 import { getSharedMidiManager } from "../src/midi-manager.js";
 import { waxSupportForId } from "../src/instruments/wax/wax-instrument-roles.js";
 import { instrumentIdForRouteName, legacyInstrumentId } from "../src/site/instrument-identities.js";
@@ -449,6 +450,7 @@ export function installUniversalWaxAdapter(runtime = globalThis, documentObject 
   const support = waxSupportForId(routeId);
   if (!support) return null;
 
+  const controlDocument = activeInstrumentControls(documentObject);
   addStylesheet(documentObject);
   const manager = getSharedMidiManager(runtime);
   let routingState = normalizeWaxRoutingState({}, support);
@@ -521,7 +523,7 @@ export function installUniversalWaxAdapter(runtime = globalThis, documentObject 
       routingState.hostSync && ["midi", "both"].includes(routingState.outputMode),
     );
     if (routingState.outputMode === "midi") {
-      setPressedControl(firstElement(documentObject, AUDIO_SELECTORS), false);
+      setPressedControl(firstElement(controlDocument, AUDIO_SELECTORS), false);
     }
     if (previous.outputMode !== routingState.outputMode && source !== "wax-hydration") {
       panicOutput("output-mode-change");
@@ -560,7 +562,7 @@ export function installUniversalWaxAdapter(runtime = globalThis, documentObject 
     }
     const clockState = clockStateFor(message);
     applyGenericMidi(
-      documentObject,
+      controlDocument,
       runtime,
       support,
       message,
@@ -581,21 +583,33 @@ export function installUniversalWaxAdapter(runtime = globalThis, documentObject 
     onMessage: onMidiMessage,
   });
 
-  mappableControls(documentObject).forEach((control, index) => {
-    const eventType = control.tagName === "SELECT" ? "change" : "input";
-    const onUserControl = (event) => {
-      if (event?.isTrusted !== true || !["midi", "both"].includes(routingState.outputMode)) return;
-      const message = automationMessageForControl(
-        control,
-        index,
-        documentObject,
-        routingState.channel,
-      );
-      if (message) manager.send?.(message);
-    };
-    control.addEventListener?.(eventType, onUserControl);
-    controlOutputCleanups.push(() => control.removeEventListener?.(eventType, onUserControl));
-  });
+  const bindControlOutputs = () => {
+    for (const remove of controlOutputCleanups.splice(0)) remove();
+    mappableControls(controlDocument).forEach((control, index) => {
+      // A shared header may expose a native parameter through a visible alias.
+      // Keep its parameter index while accepting the original trusted gesture;
+      // the synthetic event forwarded into the native control must not echo.
+      const alias = control.id ? documentObject.getElementById?.(control.id) : null;
+      const sources = alias && alias !== control && isUniversalMidiControl(alias) ? [control, alias] : [control];
+      for (const source of sources) {
+        const eventType = source.tagName === "SELECT" ? "change" : "input";
+        const onUserControl = (event) => {
+          if (event?.isTrusted !== true || !["midi", "both"].includes(routingState.outputMode)) return;
+          const message = automationMessageForControl(
+            source,
+            index,
+            controlDocument,
+            routingState.channel,
+          );
+          if (message) manager.send?.(message);
+        };
+        source.addEventListener?.(eventType, onUserControl);
+        controlOutputCleanups.push(() => source.removeEventListener?.(eventType, onUserControl));
+      }
+    });
+  };
+  bindControlOutputs();
+  runtime.addEventListener?.(INSTRUMENT_ROOT_CHANGE_EVENT, bindControlOutputs);
 
   const unsubscribeStatus = manager.subscribeStatus?.((status) => {
     if (
@@ -623,11 +637,11 @@ export function installUniversalWaxAdapter(runtime = globalThis, documentObject 
 
   const playControl = (pressed) => {
     if (!routingState.hostSync || !shouldDriveNativeAudio(routingState)) return;
-    setPressedControl(firstElement(documentObject, PLAY_SELECTORS), pressed);
+    setPressedControl(firstElement(controlDocument, PLAY_SELECTORS), pressed);
   };
   const setTempo = (bpm) => {
     if (!routingState.hostSync) return;
-    const tempo = firstElement(documentObject, TEMPO_SELECTORS);
+    const tempo = firstElement(controlDocument, TEMPO_SELECTORS);
     if (!tempo) return;
     const next = clamp(
       finite(bpm, finite(tempo.value, 120)),
@@ -659,7 +673,7 @@ export function installUniversalWaxAdapter(runtime = globalThis, documentObject 
       playhead(playhead) {
         if (!routingState.hostSync) return;
         if (playhead.bpm) setTempo(playhead.bpm);
-        const signature = pageControlSignature(documentObject);
+        const signature = pageControlSignature(controlDocument);
         const events = scheduler.update(playhead, (step, fallback) => ({
           note: clamp(fallback.note + (signature % 5) - 2, 0, 127),
           velocity: clamp(fallback.velocity + (signature % 17) - 8, 1, 127),
@@ -684,6 +698,7 @@ export function installUniversalWaxAdapter(runtime = globalThis, documentObject 
     unregisterWax?.();
     unregisterMidi?.();
     unsubscribeStatus?.();
+    runtime.removeEventListener?.(INSTRUMENT_ROOT_CHANGE_EVENT, bindControlOutputs);
     for (const remove of controlOutputCleanups.splice(0)) remove();
     documentObject.documentElement?.removeAttribute?.("data-morphazoid-wax-output-mode");
     runtime.removeEventListener?.("pagehide", onPageHide);

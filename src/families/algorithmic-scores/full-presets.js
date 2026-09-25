@@ -1,4 +1,5 @@
 import { ALGORITHMIC_INSTRUMENTS, sanitizeAlgorithmicScoreParams } from "./algorithmic-scores.js";
+import { SEQUENCER_VOICES } from "../../sequencer-voices.js";
 import { presetRandom } from "../../site/preset-random.js";
 
 // Explicit score/sound studies, applied to each instrument's own algorithm and
@@ -44,6 +45,7 @@ export function randomizeAlgorithmicPreset(current, random = Math.random) {
       space: rng.between(0, 0.75), baseFrequencyHz: rng.between(55, 220),
       pitchSpanOctaves: rng.between(1.5, 4.5), seed: rng.integer(1, 0xffffffff),
       loop: rng.pick([true, false]),
+      voice: rng.pick(["original", ...SEQUENCER_VOICES.map(({ id }) => id)]),
     }),
   };
 }

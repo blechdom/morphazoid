@@ -1,3 +1,4 @@
+import { SEQUENCER_VOICES } from "../../sequencer-voices.js";
 import {
   JAW_HARP_LIMITS,
   JAW_HARP_PRESETS,
@@ -178,7 +179,7 @@ export const JAW_JAM_SOUND_PRESETS = Object.freeze(JAW_HARP_PRESETS.flatMap((mat
   }))
 )));
 
-const SOUND_PRESET_IDS = new Set(JAW_JAM_SOUND_PRESETS.map(({ id }) => id));
+const SOUND_PRESET_IDS = new Set([...JAW_JAM_SOUND_PRESETS, ...SEQUENCER_VOICES].map(({ id }) => id));
 const DEFAULT_SOUND_PRESET_ID = "khomus-open-a";
 const DEFAULT_STEP = Object.freeze({
   action: "pluck",

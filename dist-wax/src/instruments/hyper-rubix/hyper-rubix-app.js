@@ -5,7 +5,7 @@ import {
   HYPER_RUBIX_AXES,
   HYPER_RUBIX_BOUNDARY_CELLS,
   HYPER_RUBIX_CELL_ORDER,
-  HYPER_RUBIX_COLORS,
+  HYPER_RUBIX_COLORS as ORIGINAL_HYPER_RUBIX_COLORS,
   HYPER_RUBIX_PLANE_DRUMS,
   HYPER_RUBIX_SEQUENCE_LENGTH,
   HYPER_RUBIX_SEQUENCE_PATTERNS,
@@ -35,6 +35,7 @@ import {
   selectHyperRubixViewFacingCells,
   turnHyperRubixBoundaryCell,
 } from "./hyper-rubix.js";
+import { SequencerVoiceBank, SEQUENCER_VOICES } from "../../sequencer-voices.js";
 import { unlockAudioContext } from "../../audio.js";
 import { connectAudioOutput } from "../../audio-output-manager.js";
 import { WebGpu303Audio, webGpu303Support } from "../../webgpu-303.js";
@@ -43,7 +44,10 @@ import {
   createHyperRubixWebGpu303Pattern,
 } from "./hyper-rubix-webgpu-303.js";
 import { projectedPolygonArea } from "../rubix/rubix-visibility.js";
+import { createRubixOutputStage } from "../rubix/rubix-mix.js";
 
+const mountContext = null;
+const document = mountContext?.document ?? globalThis.document;
 const $ = (id) => document.getElementById(id);
 const clamp = (value, minimum, maximum) => Math.min(maximum, Math.max(minimum, value));
 const TAU = Math.PI * 2;
@@ -53,6 +57,23 @@ const UNWIND_DURATION = 180;
 const PROJECTION_DEPTH_MIN = 3.4;
 const LOOKAHEAD_MS = 110;
 const SCHEDULER_INTERVAL_MS = 24;
+const RUBIXOIDS_EMBED = Boolean(mountContext) || new URLSearchParams(window.location?.search ?? "").get("embed") === "rubixoids";
+// Only the finish changes. The eight original sticker, cell and voice identities
+// remain intact; W stickers use a visible mark to distinguish the repeated hues.
+const HYPER_RUBIX_COLORS = RUBIXOIDS_EMBED ? Object.freeze({
+  white: "#edf6ee", yellow: "#f5c95c", green: "#70e06f",
+  blue: "#458cff", red: "#ff5f72", orange: "#ff784f",
+  violet: "#edf6ee", cyan: "#f5c95c",
+}) : ORIGINAL_HYPER_RUBIX_COLORS;
+const boundaryFill = (cell) => HYPER_RUBIX_COLORS[cell.color] ?? cell.fill;
+let stickerAppearance = RUBIXOIDS_EMBED ? "solid" : "glass";
+// View preferences stay independent of musical presets and audio scheduling.
+let nonPlayingTransparency = 0;
+let nonPlayingFadeMode = "sounding";
+let rubixoidsEmbeddedActive = true;
+let rubixoidsHiddenAt = 0;
+let rubixoidsActivation = 0;
+let rubixoidsAudioTask = null;
 const AXIS_COLORS = Object.freeze({
   x: "#ff6b72",
   y: "#f7cf5b",
@@ -61,6 +82,7 @@ const AXIS_COLORS = Object.freeze({
 });
 
 const VOICE_LABELS = Object.freeze({
+  ...Object.fromEntries(SEQUENCER_VOICES.map(({ id, label }) => [`shared-${id}`, label])),
   pulse: "Hyper kit",
   glass: "Prism kit",
   dust: "Bit kit",
@@ -347,6 +369,8 @@ function projectToCanvas(point) {
     x: cssWidth * 0.51 + viewed.x * scale * factor3,
     y: cssHeight * 0.52 - viewed.y * scale * factor3,
     depth: viewed.z,
+    viewX: viewed.x,
+    viewY: viewed.y,
     factor3,
     factor4: projected4.factor,
     rotatedW: rotated.w,
@@ -354,10 +378,12 @@ function projectToCanvas(point) {
 }
 
 function scheduleFrame() {
+  if (!rubixoidsEmbeddedActive) return;
   if (!frameRequest) frameRequest = requestAnimationFrame(drawFrame);
 }
 
 function resizeCanvas() {
+  if (!rubixoidsEmbeddedActive) return;
   const bounds = stageWrap.getBoundingClientRect();
   cssWidth = Math.max(1, Math.round(bounds.width));
   cssHeight = Math.max(1, Math.round(bounds.height));
@@ -440,11 +466,18 @@ function activePlaybackCellIds() {
 }
 
 function createCurrentPlaybackStream(puzzle = state.puzzle) {
-  return createHyperRubixScopedStickerStream(puzzle, [...activePlaybackCellIds()]);
+  const stream = createHyperRubixScopedStickerStream(puzzle, [...activePlaybackCellIds()]);
+  return state.sequenceMethod === "corner-stream"
+    ? stream.filter(({ configuration }) => configuration.radialClass === "corner")
+    : stream;
+}
+
+function playbackNotesPerCell() {
+  return state.sequenceMethod === "corner-stream" ? 8 : puzzleMetrics().stickersPerCell;
 }
 
 function activePlaybackNoteCount() {
-  return puzzleMetrics().stickersPerCell * activePlaybackCellIds().length;
+  return playbackNotesPerCell() * activePlaybackCellIds().length;
 }
 
 function playbackPresetLabel() {
@@ -454,7 +487,7 @@ function playbackPresetLabel() {
 
 function paintPlaybackScope() {
   const cells = [...activePlaybackCellIds()];
-  const count = puzzleMetrics().stickersPerCell * cells.length;
+  const count = activePlaybackNoteCount();
   const select = $("playbackPreset");
   if (select) select.value = state.playbackPreset;
   const cellsOutput = $("playbackCells");
@@ -611,7 +644,7 @@ function drawWireframe() {
     context.moveTo(first.x, first.y);
     context.lineTo(second.x, second.y);
     context.strokeStyle = selected
-      ? rgba(hyperRubixBoundaryCell(state.selectedCell).fill, 0.54)
+      ? rgba(boundaryFill(hyperRubixBoundaryCell(state.selectedCell)), 0.54)
       : rgba(AXIS_COLORS[edge.axis], edge.axis === "w" ? 0.28 : 0.15);
     context.lineWidth = selected ? 1.15 : edge.axis === "w" ? 0.9 : 0.65;
     if (edge.axis === "w" && !selected) context.setLineDash([3, 5]);
@@ -629,7 +662,7 @@ function drawSelectedWireframe() {
   const cell = wireframe.cells.find(({ id }) => id === state.selectedCell);
   if (!cell) return;
   const vertices = wireframe.vertices.map(projectToCanvas);
-  const color = hyperRubixBoundaryCell(state.selectedCell).fill;
+  const color = boundaryFill(hyperRubixBoundaryCell(state.selectedCell));
   context.save();
   context.beginPath();
   for (const edgeIndex of cell.edgeIndices) {
@@ -650,6 +683,191 @@ function drawSelectedWireframe() {
 const CUBOID_EDGES = Object.freeze(Array.from({ length: 8 }, (_, index) => (
   [0, 1, 2].map((bit) => [index, index ^ (1 << bit)]).filter(([first, second]) => first < second)
 )).flat());
+
+// A hyper-sticker is the same cubical 4D patch as before. Its six faces use
+// the original eight animated/projected corners, with back-face removal in 3D.
+const CUBOID_FACES = Object.freeze([
+  [0, 2, 6, 4], [1, 5, 7, 3], [0, 4, 5, 1],
+  [2, 3, 7, 6], [0, 1, 3, 2], [4, 6, 7, 5],
+]);
+
+function solidStickerFaces(item) {
+  const delta = (a, b) => [a.viewX - b.viewX, a.viewY - b.viewY, a.depth - b.depth];
+  const dot = (a, b) => a.reduce((sum, value, index) => sum + value * b[index], 0);
+  return CUBOID_FACES.flatMap((indices) => {
+    const hull = indices.map((index) => item.projected[index]);
+    const center = {
+      x: 0, y: 0, viewX: 0, viewY: 0, depth: 0,
+    };
+    for (const point of hull) {
+      for (const key of Object.keys(center)) center[key] += point[key] / hull.length;
+    }
+    const a = delta(hull[1], hull[0]);
+    const b = delta(hull[2], hull[0]);
+    let normal = [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+    if (dot(normal, delta(center, item.center)) < 0) normal = normal.map((value) => -value);
+    if (dot(normal, [-center.viewX, -center.viewY, 5.3 - center.depth]) <= 0) return [];
+    const area = projectedPolygonArea(hull);
+    if (area < 0.2) return [];
+    const length = Math.hypot(...normal);
+    const light = clamp(dot(normal, [-0.25, 0.45, 0.86]) / Math.max(length, 1e-9), -1, 1);
+    return [{ ...item, hull, center, depth: center.depth, area, light }];
+  });
+}
+
+function shadedStickerColor(hex, amount) {
+  const color = rgb(hex);
+  const shade = (value) => Math.round(amount >= 0
+    ? value + (255 - value) * amount
+    : value * (1 + amount));
+  return `rgb(${shade(color.r)}, ${shade(color.g)}, ${shade(color.b)})`;
+}
+
+function drawSolidSticker(item, time) {
+  const color = HYPER_RUBIX_COLORS[item.sticker.color];
+  const soundingStrength = soundingStickerStrength(item.sticker.id, time);
+  const center = item.center;
+  const inset = item.hull.map((point) => ({
+    x: center.x + (point.x - center.x) * 0.9,
+    y: center.y + (point.y - center.y) * 0.9,
+  }));
+  const x = item.hull.map((point) => point.x);
+  const y = item.hull.map((point) => point.y);
+  const light = item.light * 0.08 + (item.inPlayback ? 0 : -0.13);
+  context.save();
+  context.globalAlpha = item.opacity ?? 1;
+  pathPolygon(item.hull);
+  context.fillStyle = "#030405";
+  context.fill();
+  context.strokeStyle = "rgba(226,241,233,0.15)";
+  context.lineWidth = 0.75;
+  context.stroke();
+  const fill = context.createLinearGradient(Math.min(...x), Math.min(...y), Math.max(...x), Math.max(...y));
+  fill.addColorStop(0, shadedStickerColor(color, 0.14 + light));
+  fill.addColorStop(0.55, shadedStickerColor(color, light));
+  fill.addColorStop(1, shadedStickerColor(color, -0.22 + light));
+  pathPolygon(inset);
+  context.fillStyle = fill;
+  context.fill();
+  context.strokeStyle = soundingStrength > 0 ? "#ffffff"
+    : item.affected ? "rgba(255,255,255,0.85)"
+      : item.selected ? "rgba(255,255,255,0.7)" : "rgba(0,0,0,0.52)";
+  context.lineWidth = soundingStrength > 0 ? 1.8 + soundingStrength : item.selected ? 1.1 : 0.65;
+  context.stroke();
+  // W± keeps its own puzzle and sound identity even after sharing a Rubix hue.
+  const mark = item.sticker.color === "violet" ? "W+" : item.sticker.color === "cyan" ? "W−" : "";
+  if (mark && item.area > 110) {
+    context.clip();
+    context.fillStyle = "rgba(3,8,10,0.76)";
+    context.font = `700 ${clamp(Math.sqrt(item.area) * 0.23, 6, 11)}px ui-monospace, monospace`;
+    context.textAlign = "center";
+    context.textBaseline = "middle";
+    context.fillText(mark, center.x, center.y);
+  }
+  context.restore();
+}
+
+function installStickerAppearanceControl() {
+  if (!RUBIXOIDS_EMBED) return;
+  const control = document.createElement("label");
+  control.className = "select-control";
+  control.htmlFor = "stickerAppearance";
+  control.innerHTML = `<span class="field-label">Sticker view</span>
+    <span class="select-shell"><select id="stickerAppearance">
+      <option value="solid">Solid</option>
+      <option value="selected">Selected cell</option>
+      <option value="glass">Glass</option>
+    </select></span>
+    <small>Selected cell reveals the chosen boundary cell; Glass shows the original transparent view.</small>`;
+  $("stickerScale").closest("label").before(control);
+  $("stickerAppearance").value = stickerAppearance;
+  $("stickerAppearance").addEventListener("change", (event) => {
+    stickerAppearance = event.target.value;
+    scheduleFrame();
+  });
+  const opacityControl = document.createElement("div");
+  opacityControl.className = "hyper-rubix-transparency-control";
+  opacityControl.innerHTML = `
+    <div class="hyper-rubix-opacity-knob">
+      <span class="hyper-rubix-opacity-dial" aria-hidden="true"></span>
+      <input id="nonPlayingTransparency" type="range" min="0" max="100" step="1" value="0"
+        aria-labelledby="nonPlayingTransparencyLabel" aria-describedby="nonPlayingTransparencyHelp" />
+    </div>
+    <div class="hyper-rubix-opacity-copy">
+      <label id="nonPlayingTransparencyLabel" for="nonPlayingTransparency">Non-playing cubes</label>
+      <output id="nonPlayingTransparencyOut" for="nonPlayingTransparency">0% transparent</output>
+      <label class="sr-only" for="nonPlayingFadeMode">Cubes to fade</label>
+      <select id="nonPlayingFadeMode">
+        <option value="sounding">Not currently sounding</option>
+        <option value="scope">Outside playback scope</option>
+      </select>
+    </div>
+    <small id="nonPlayingTransparencyHelp">Drag up/down. 0% solid · 100% hidden. Sounding cubes stay clear; the complete puzzle returns when paused.</small>`;
+  control.after(opacityControl);
+  const knob = $("nonPlayingTransparency");
+  const paint = () => {
+    const percent = Math.round(nonPlayingTransparency * 100);
+    knob.value = String(percent);
+    knob.setAttribute("aria-valuetext", `${percent}% transparent`);
+    opacityControl.style.setProperty("--opacity-angle", `${-135 + percent * 2.7}deg`);
+    opacityControl.style.setProperty("--opacity-fill", `${percent * 0.75}%`);
+    $("nonPlayingTransparencyOut").textContent = `${percent}% transparent`;
+    canvas.dataset.nonPlayingTransparency = String(percent);
+    canvas.dataset.nonPlayingFadeMode = nonPlayingFadeMode;
+    scheduleFrame();
+  };
+  knob.addEventListener("input", () => {
+    nonPlayingTransparency = clamp(Number(knob.value) / 100, 0, 1);
+    paint();
+  });
+  $("nonPlayingFadeMode").addEventListener("change", (event) => {
+    nonPlayingFadeMode = event.target.value === "scope" ? "scope" : "sounding";
+    $("nonPlayingTransparencyHelp").textContent = nonPlayingFadeMode === "scope"
+      ? "Drag up/down. Fade cubes outside the playback scope; sounding cubes stay clear."
+      : "Drag up/down. 0% solid · 100% hidden. Sounding cubes stay clear; the complete puzzle returns when paused.";
+    paint();
+  });
+  let drag = null;
+  knob.addEventListener("pointerdown", (event) => {
+    if (event.button !== undefined && event.button !== 0) return;
+    event.preventDefault();
+    knob.focus({ preventScroll: true });
+    drag = { pointerId: event.pointerId, y: event.clientY, value: nonPlayingTransparency };
+    knob.setPointerCapture(event.pointerId);
+  });
+  knob.addEventListener("pointermove", (event) => {
+    if (!drag || drag.pointerId !== event.pointerId) return;
+    event.preventDefault();
+    knob.value = String(Math.round(clamp(drag.value + (drag.y - event.clientY) / 130, 0, 1) * 100));
+    knob.dispatchEvent(new Event("input", { bubbles: true }));
+  });
+  const finish = (event) => {
+    if (drag?.pointerId !== event.pointerId) return;
+    drag = null;
+    if (knob.hasPointerCapture(event.pointerId)) knob.releasePointerCapture(event.pointerId);
+  };
+  for (const event of ["pointerup", "pointercancel", "lostpointercapture"]) knob.addEventListener(event, finish);
+  paint();
+}
+
+function stickerViewOpacity(item, time) {
+  if (!RUBIXOIDS_EMBED || nonPlayingTransparency === 0) return 1;
+  // Read existing clock/tail cues only. Rendering never changes gates or gain.
+  if (soundingStickerStrength(item.sticker.id, time) > 0) return 1;
+  if (nonPlayingFadeMode === "scope") {
+    // Match the score's scope, including compact corners. Parallel hyperbars
+    // use all cells; projection shading alone does not define the audio scope.
+    const method = SEQUENCE_METHODS[state.sequenceMethod] ?? SEQUENCE_METHODS[DEFAULTS.sequenceMethod];
+    if (!method.serial) return 1;
+    const cell = hyperRubixCellForNormal(item.sticker.normal);
+    const inScope = cell && activePlaybackCellIds().includes(cell.id)
+      && (!method.cornersOnly || cell.tangentAxes.every(
+        axis => Math.abs(item.sticker.position[axis]) === state.puzzle.radius,
+      ));
+    return inScope ? 1 : 1 - nonPlayingTransparency;
+  }
+  return state.playing ? 1 - nonPlayingTransparency : 1;
+}
 
 function paintStageReadout() {
   const soundingIds = [...soundingStickerPulses.keys()];
@@ -733,6 +951,7 @@ function drawSticker(item, time) {
   ) * playbackVisibility;
 
   context.save();
+  context.globalAlpha = item.opacity ?? 1;
   if (soundingStrength > 0) {
     context.shadowColor = rgba(color, 0.98);
     context.shadowBlur = 18 + soundingStrength * 18;
@@ -790,7 +1009,7 @@ function drawTurnArc(time) {
     return;
   }
   const progress = activeMove ? activeMove.progress : pulseAge;
-  const color = hyperRubixBoundaryCell(move.cell).fill;
+  const color = boundaryFill(hyperRubixBoundaryCell(move.cell));
   const radius = Math.min(cssWidth, cssHeight) * (0.255 + progress * 0.018);
   const direction = move.quarterTurns < 0 ? -1 : 1;
   const start = -Math.PI * 0.65;
@@ -826,15 +1045,30 @@ function drawScene(time) {
   drawWireframe();
   drawTurnArc(time);
 
-  renderedStickers = state.puzzle.stickers
-    .map(stickerGeometry)
-    .filter(Boolean)
-    .sort((first, second) => first.depth - second.depth);
-  for (const item of renderedStickers) drawSticker(item, time);
-  drawSelectedWireframe();
+  const geometry = [];
+  for (const sticker of state.puzzle.stickers) {
+    const item = stickerGeometry(sticker);
+    if (!item) continue;
+    item.opacity = stickerViewOpacity(item, time);
+    if (item.opacity > 0) geometry.push(item);
+  }
+  canvas.dataset.stickerAppearance = stickerAppearance;
+  if (stickerAppearance === "glass") {
+    renderedStickers = geometry.sort((first, second) => first.depth - second.depth);
+    for (const item of renderedStickers) drawSticker(item, time);
+    drawSelectedWireframe();
+  } else {
+    // Wireframes stay behind opaque surfaces. Face depth also determines picking,
+    // so a hidden sticker cannot steal a click from the surface covering it.
+    renderedStickers = geometry
+      .filter((item) => stickerAppearance !== "selected" || item.selected)
+      .flatMap(solidStickerFaces)
+      .sort((first, second) => first.depth - second.depth);
+    for (const item of renderedStickers) drawSolidSticker(item, time);
+  }
 
   if (activeMove) {
-    const color = hyperRubixBoundaryCell(activeMove.move.cell).fill;
+    const color = boundaryFill(hyperRubixBoundaryCell(activeMove.move.cell));
     const width = Math.min(cssWidth * 0.38, 330);
     const x = cssWidth * 0.51 - width * 0.5;
     const y = cssHeight - (cssWidth < 620 ? 76 : 88);
@@ -893,10 +1127,13 @@ function audioGeometryForStickerEvent(event, pulseIndex = 0) {
 
 class HyperRubixAudio {
   constructor() {
+    this.sharedVoices = new SequencerVoiceBank({ maxVoices: 48 });
+    this.voiceSelectionGeneration = 0;
     this.context = null;
     this.master = null;
     this.drumBus = null;
     this.compressor = null;
+    this.outputStage = null;
     this.noiseBuffer = null;
     this.rattleSource = null;
     this.rattleHighpass = null;
@@ -930,7 +1167,9 @@ class HyperRubixAudio {
       this.drumBus.gain.value = 1;
       this.drumBus.connect(this.master);
       this.master.connect(this.compressor);
-      this.releaseAudioOutput = connectAudioOutput(this.context, this.compressor, {
+      this.outputStage = createRubixOutputStage(this.context, 3, { peakCeiling: 0.9 });
+      this.compressor.connect(this.outputStage.makeup);
+      this.releaseAudioOutput = connectAudioOutput(this.context, this.outputStage.output, {
         runtime: globalThis,
       });
       this.noiseBuffer = this.context.createBuffer(1, this.context.sampleRate, this.context.sampleRate);
@@ -947,6 +1186,7 @@ class HyperRubixAudio {
       unlockAudioContext(this.context);
       await this.context.resume();
     }
+    if (state.voice.startsWith("shared-")) await this.sharedVoices.prepare(this.context, this.master);
     this.setLevel(state.output, true);
     this.setTopologyLevel(state.topologyLevel, true);
   }
@@ -960,6 +1200,7 @@ class HyperRubixAudio {
   }
 
   disable() {
+    this.sharedVoices.stop();
     if (!this.master || !this.context) return;
     const now = this.context.currentTime;
     this.cancelTransportAudio(now, { hard: true });
@@ -974,12 +1215,18 @@ class HyperRubixAudio {
   }
 
   async resume() {
-    if (!this.context) return;
+    if (!this.context || !rubixoidsEmbeddedActive) return;
     if (this.context.state === "suspended") await this.context.resume();
+    if (!rubixoidsEmbeddedActive) {
+      this.setLevel(0, true);
+      await this.suspend();
+      return;
+    }
     this.setLevel(state.output, true);
   }
 
   async dispose() {
+    this.sharedVoices.dispose();
     const audioContext = this.context;
     this.disable();
     this.releaseAudioOutput?.();
@@ -1008,6 +1255,9 @@ class HyperRubixAudio {
       this.drumBus?.disconnect();
       this.master?.disconnect();
       this.compressor?.disconnect();
+      this.outputStage?.makeup.disconnect();
+      this.outputStage?.output.disconnect();
+      this.outputStage?.safety?.disconnect();
     } catch {
       // The browser may already have torn the graph down during navigation.
     }
@@ -1015,6 +1265,7 @@ class HyperRubixAudio {
     this.master = null;
     this.drumBus = null;
     this.compressor = null;
+    this.outputStage = null;
     this.noiseBuffer = null;
     this.rattleSource = null;
     this.rattleHighpass = null;
@@ -1368,7 +1619,9 @@ class HyperRubixAudio {
       3,
       12,
     );
-    const baseLevel = rattleAmount
+    // The selected seed-shell is the main voice, so its body and grains need
+    // the same working level as the kits they replace. Preserve their ratio.
+    const baseLevel = rattleAmount * 6
       * (0.016 + activity * 0.018)
       * (1 + disorder * 0.18 + diversity * neighborInfluence * 0.26);
     const bodyFrequency = 46 * (2 ** (vertical * 4.05))
@@ -1492,6 +1745,15 @@ class HyperRubixAudio {
     }
   }
 
+  triggerSharedVoice({ when, frequency, duration, velocity, pan = 0, brightness = state.tone, destination = this.drumBus }) {
+    const handle = this.sharedVoices.trigger({
+      voice: state.voice.slice(7), when, frequency, duration, velocity, pan, brightness, destination,
+      release: clamp(state.decay * 0.2, 0.015, 0.65), character: state.shapeInfluence,
+    });
+    if (handle) this.trackOneShotSource(handle.source, when);
+    return handle;
+  }
+
   strike(move, scheduledWhen = this.context?.currentTime, stepAccent = 1) {
     if (!state.audio || !this.context || !this.master) return;
     const drum = HYPER_RUBIX_PLANE_DRUMS[move.plane] ?? HYPER_RUBIX_PLANE_DRUMS.xy;
@@ -1502,6 +1764,11 @@ class HyperRubixAudio {
     const directionGain = move.quarterTurns > 0 ? 1 : 0.72;
     const accent = clamp(stepAccent, 0.45, 1.35) * directionGain;
     const pan = cell.sign * (0.18 + (cellIndex % 4) * 0.08);
+    if (state.voice.startsWith("shared-")) {
+      const parameters = hyperRubixTechnoVoiceParameters(move, audioGeometryForCell(move.cell, move.plane));
+      this.triggerSharedVoice({ when, frequency: parameters.pitchHz, duration: clamp(state.decay * 0.48, 0.035, 1.8), velocity: clamp(accent * 0.76, 0, 1), pan });
+      return;
+    }
     const { node: output, release } = this.outputNode(pan);
     const decayScale = clamp(state.decay / 0.58, 0.35, 2.4);
     const bank = state.voice === "glass"
@@ -1747,6 +2014,13 @@ class HyperRubixAudio {
       filterHz: filterFrequency,
       accent,
     });
+    if (state.voice.startsWith("shared-")) {
+      this.triggerSharedVoice({ when, frequency: configuredPitch, duration,
+        velocity: clamp(accent * driveGain * 0.6, 0, 1), pan: parameters.pan,
+        brightness: clamp(Math.log2(Math.max(70, filterFrequency) / 70) / 8, 0, 1),
+      });
+      return;
+    }
     const { node: output, release } = this.outputNode(parameters.pan);
     const finish = () => release();
 
@@ -1975,6 +2249,7 @@ function realignRunningWebGpu303Phase() {
 function currentWebGpu303Pattern() {
   const pattern = createHyperRubixWebGpu303Pattern(state.puzzle, {
     cellIds: [...activePlaybackCellIds()],
+    cornersOnly: sequenceMethodConfig().cornersOnly ?? false,
     rotation: audibleWebGpuRotation(),
     tempo: state.tempo,
     subdivisionsPerBeat: state.subdivisionsPerBeat,
@@ -2024,7 +2299,9 @@ function paintPresetHelp(message = "") {
     "webgpu-303": `${activePlaybackNoteCount()} in-scope sticker pitches run through the shared WebGPU acid engine; orbit and Fold W change its score, filter, resonance, and stereo field.`,
     rattlesnake: "Each sticker excites the continuous seed-shell. XYZW position, cohesion, faults, displacement, and disorder shape its grain motion.",
   };
-  help.textContent = descriptions[state.voice] ?? descriptions.pulse;
+  help.textContent = state.voice.startsWith("shared-")
+    ? `${VOICE_LABELS[state.voice]} reads the same sticker score. Position, neighbors, tone, decay and stereo retain their sound mappings.`
+    : descriptions[state.voice] ?? descriptions.pulse;
 }
 
 function syncWebGpu303Pattern({ force = false } = {}) {
@@ -2101,6 +2378,7 @@ async function resumeWebGpu303Timeline({ restartAtFirst = false } = {}) {
 }
 
 async function startWebGpu303Engine({ alignToTransport = true, restartAtFirst = false } = {}) {
+  if (!rubixoidsEmbeddedActive) return false;
   if (!isWebGpu303Preset() || !state.audio || !audio.context || !audio.drumBus) return false;
   if (webGpu303Engine) {
     syncWebGpu303Pattern({ force: true });
@@ -2136,7 +2414,7 @@ async function startWebGpu303Engine({ alignToTransport = true, restartAtFirst = 
     autoStart: false,
   }).then(async () => {
     if (generation !== webGpu303LifecycleGeneration || !isWebGpu303Preset()
-      || candidate.context !== audio.context) {
+      || !rubixoidsEmbeddedActive || candidate.context !== audio.context) {
       await candidate.stop().catch(() => {});
       return false;
     }
@@ -2173,7 +2451,7 @@ function sequenceMethodConfig() {
     help: typeof definition.help === "function" ? definition.help(metrics) : definition.help,
     length: typeof definition.length === "function" ? definition.length(metrics) : definition.length,
   };
-  if (config.serial && state.sequenceMethod === "sticker-stream") {
+  if (config.serial) {
     config.length = activePlaybackNoteCount();
     config.help = `${playbackPresetLabel()} · ${config.length} clocked stickers`;
   }
@@ -2184,13 +2462,19 @@ function puzzleOrderLabel(size = puzzleMetrics().size) {
   return Array.from({ length: 4 }, () => size).join(" × ");
 }
 
+function stickerColorLabel(color) {
+  if (!RUBIXOIDS_EMBED) return color;
+  return color === "violet" ? "white W+" : color === "cyan" ? "yellow W−" : color;
+}
+
 function presetVoiceName(cellId) {
   const voice = HYPER_RUBIX_TECHNO_VOICES[cellId];
-  if (state.voice === "glass") return `${voice?.color ?? "color"} prism`;
-  if (state.voice === "dust") return `${voice?.color ?? "color"} bit`;
-  if (state.voice === "webgpu-303") return `${voice?.color ?? "color"} acid`;
-  if (state.voice === "rattlesnake") return `${voice?.color ?? "color"} scales`;
-  return `${voice?.color ?? "color"} ${voice?.label ?? "voice"}`;
+  const color = stickerColorLabel(voice?.color ?? "color");
+  if (state.voice === "glass") return `${color} prism`;
+  if (state.voice === "dust") return `${color} bit`;
+  if (state.voice === "webgpu-303") return `${color} acid`;
+  if (state.voice === "rattlesnake") return `${color} scales`;
+  return `${color} ${voice?.label ?? "voice"}`;
 }
 
 function paintFaceVoiceLabels() {
@@ -2198,11 +2482,12 @@ function paintFaceVoiceLabels() {
     const cellId = button.dataset.face;
     const boundary = hyperRubixBoundaryCell(cellId);
     const label = presetVoiceName(cellId);
+    if (RUBIXOIDS_EMBED) button.style.setProperty("--face-color", boundaryFill(boundary));
     const small = button.querySelector("small");
     if (small) small.textContent = label;
     button.setAttribute(
       "aria-label",
-      `${cellId.toUpperCase()} boundary cell, ${boundary.color}, ${label}`,
+      `${cellId.toUpperCase()} boundary cell, ${stickerColorLabel(boundary.color)}, ${label}`,
     );
   }
 }
@@ -2210,10 +2495,11 @@ function paintFaceVoiceLabels() {
 function paintPuzzleMetrics() {
   const metrics = puzzleMetrics();
   const noteCount = activePlaybackNoteCount();
+  const notesPerCell = playbackNotesPerCell();
   const order = puzzleOrderLabel(metrics.size);
   $("puzzleSize").value = String(metrics.size);
   $("puzzleSizeHelp").textContent = `${metrics.size} per axis · ${metrics.stickerCount} stickers · ${metrics.hyperbarLength} spatial pulses`;
-  $("playbackPresetHelp").textContent = `Choose which current boundary cells enter the clock: ${metrics.stickersPerCell} notes for Selected cell, ${metrics.stickersPerCell * 4} for View-facing cells, or ${metrics.stickerCount} for Whole shape.`;
+  $("playbackPresetHelp").textContent = `Choose which current boundary cells enter the clock: ${notesPerCell} notes for Selected cell, ${notesPerCell * 4} for View-facing cells, or ${notesPerCell * 8} for Whole shape.`;
   $("puzzleOrderHeading").textContent = `${order} / PUZZLE INSTRUMENT`;
   canvas.setAttribute(
     "aria-label",
@@ -2224,7 +2510,7 @@ function paintPuzzleMetrics() {
   $("stickerHyperbarMethodOption").textContent = `Sticker hyperbar · ${metrics.hyperbarLength}`;
   $("hybridCoilMethodOption").textContent = `Hybrid coil · 16 × ${metrics.hyperbarLength}`;
   $("hyperbarMatrixLabel").textContent = `${noteCount}-note ${playbackPresetLabel().toLowerCase()} loop`;
-  $("hyperbarMatrixSummary").textContent = `${activePlaybackCellIds().length} heard cells × ${metrics.hyperbarLength} addresses · one note per sticker`;
+  $("hyperbarMatrixSummary").textContent = `${activePlaybackCellIds().length} heard cells × ${notesPerCell} ${state.sequenceMethod === "corner-stream" ? "corners" : "addresses"} · one note per sticker`;
   $("rattleVoiceLabel").textContent = "Rattlesnake preset";
   $("puzzleGeometryGuide").textContent = `A tesseract has eight cubic boundary cells. Each one carries a ${metrics.size} × ${metrics.size} × ${metrics.size} field of color, so this order-${metrics.size} puzzle has ${metrics.stickerCount} stickers.`;
   $("hyperbarGeometryGuide").textContent = `The matrix keeps all eight colored boundary cells editable across ${metrics.hyperbarLength} spatial addresses. ${playbackPresetLabel()} currently contributes ${noteCount} clocked notes; dim rows remain available for mute editing.`;
@@ -2368,7 +2654,7 @@ function renderSequenceStrip() {
     marker.dataset.sequenceStep = String(index);
     marker.style.setProperty(
       "--step-color",
-      move ? hyperRubixBoundaryCell(move.cell).fill : "var(--faint)",
+      move ? boundaryFill(hyperRubixBoundaryCell(move.cell)) : "var(--faint)",
     );
     marker.setAttribute(
       "aria-label",
@@ -2484,7 +2770,7 @@ function renderHyperbarGrid() {
     row.setAttribute("role", "row");
     row.setAttribute("aria-label", `${cellId.toUpperCase()} voice lane`);
     row.setAttribute("aria-rowindex", String(rowIndex + 1));
-    row.style.setProperty("--voice-color", boundary.fill);
+    row.style.setProperty("--voice-color", boundaryFill(boundary));
     const rowLabel = document.createElement("b");
     rowLabel.textContent = cellId.toUpperCase();
     rowLabel.setAttribute("aria-hidden", "true");
@@ -2514,7 +2800,7 @@ function renderHyperbarGrid() {
         `${cellId.toUpperCase()} position, address ${slot.index + 1}, ${voiceLabel}, ${event.configuration.radialClass}, ${event.configuration.sameColorNeighbors} of ${event.configuration.neighborCount} neighbors match, ${gateEnabled ? "on" : "muted"}${inScope ? ", in the current playback preset" : ", outside the current playback preset"}`,
       );
       button.title = `${String(slot.index + 1).padStart(2, "0")} · ${voiceLabel} · ${event.configuration.radialClass} · ${Math.round(event.configuration.neighborDiversity * 100)}% mixed`;
-      button.style.setProperty("--voice-color", eventBoundary.fill);
+      button.style.setProperty("--voice-color", boundaryFill(eventBoundary));
       button.addEventListener("focus", () => setHyperbarTabStop(button));
       button.addEventListener("keydown", (keyEvent) => {
         moveHyperbarFocus(keyEvent, rowIndex, slot.index);
@@ -2783,7 +3069,7 @@ function nextPositionAfterAudiblePulse() {
 }
 
 function resumeTransportClock({ delayMs = 55, hardAudio = false } = {}) {
-  if (!state.playing) return;
+  if (!rubixoidsEmbeddedActive || !state.playing) return;
   clearScheduler({ hardAudio });
   transportPuzzle = state.puzzle;
   rebuildTransportStickerStream(sequenceMethodConfig(), state.puzzle);
@@ -3034,7 +3320,7 @@ function scheduleVisualSequenceStep(
 }
 
 function schedulerTick() {
-  if (!state.playing) return;
+  if (!rubixoidsEmbeddedActive || !state.playing) return;
   const nowMs = performance.now();
   if (!Number.isFinite(nextStepAtMs) || nextStepAtMs < nowMs - 50) {
     nextStepAtMs = nowMs + 30;
@@ -3236,6 +3522,8 @@ function stopTransport({ announceStop = false, hardAudio = false } = {}) {
   paintTransport();
   updateStatus();
   if (announceStop) announce("Shape loop paused.");
+  // Pausing between notes still restores the non-playing sticker display.
+  scheduleFrame();
 }
 
 function moveLabel(move, compact = false) {
@@ -3257,7 +3545,7 @@ function updateMoveTrace() {
   for (const move of history.slice(-9)) {
     const marker = document.createElement("i");
     marker.textContent = moveLabel(move, true);
-    marker.style.setProperty("--move-color", hyperRubixBoundaryCell(move.cell).fill);
+    marker.style.setProperty("--move-color", boundaryFill(hyperRubixBoundaryCell(move.cell)));
     fragment.append(marker);
   }
   trace.replaceChildren(fragment);
@@ -3334,8 +3622,8 @@ function updateSelectionUI() {
   $("twistSummary").textContent = `${state.selectedCell.toUpperCase()} · ${state.selectedPlane.toUpperCase()} plane`;
   $("turnPlaneDiagram").textContent = state.selectedPlane.toUpperCase();
   $("turnCellDiagram").textContent = state.selectedCell.toUpperCase();
-  $("turnCounterclockwise").style.setProperty("--accent", cell.fill);
-  $("turnClockwise").style.setProperty("--accent", cell.fill);
+  $("turnCounterclockwise").style.setProperty("--accent", boundaryFill(cell));
+  $("turnClockwise").style.setProperty("--accent", boundaryFill(cell));
   updateStatus();
 }
 
@@ -3686,6 +3974,7 @@ $("sequenceMethod").addEventListener("change", (event) => {
   paintTransport();
   if (state.playing) restartTransportClock();
   announce(`${sequenceMethodConfig().label} sequencing method selected. ${sequenceMethodConfig().help}.${wasPlaying && hasManualMotion ? " Playback paused until the manual turn completes." : ""}`);
+  scheduleFrame();
 });
 
 $("restartLoop").addEventListener("click", () => {
@@ -3906,12 +4195,23 @@ $("playbackPreset").addEventListener("change", (event) => {
   announce(`${playbackPresetLabel()} playback selected: ${activePlaybackNoteCount()} clocked stickers through the unchanged ${VOICE_LABELS[state.voice]} instrument.`);
 });
 
-$("voice").addEventListener("change", (event) => {
+$("voice").addEventListener("change", async (event) => {
+    const selectionGeneration = ++audio.voiceSelectionGeneration;
+  const control = event.currentTarget;
+  const requested = control.value;
+  if (requested.startsWith("shared-") && audio.context) {
+    control.setAttribute("aria-busy", "true");
+    try { await audio.sharedVoices.prepare(audio.context, audio.master); }
+    catch (error) { announce(error.message); control.value = state.voice; return; }
+    finally { control.removeAttribute("aria-busy"); }
+  }
+  if (selectionGeneration !== audio.voiceSelectionGeneration) return;
+  audio.sharedVoices.stop();
   const previousVoice = state.voice;
-  state.voice = Object.hasOwn(VOICE_LABELS, event.currentTarget.value)
-    ? event.currentTarget.value
+  state.voice = Object.hasOwn(VOICE_LABELS, control.value)
+    ? control.value
     : DEFAULTS.voice;
-  event.currentTarget.value = state.voice;
+  control.value = state.voice;
   state.rattleEnabled = isRattlesnakePreset();
   if (!state.rattleEnabled) audio.silenceRattle();
   remapRunningPreset();
@@ -3988,7 +4288,7 @@ $("rattleRate").addEventListener("change", (event) => {
   announce(`${RATTLE_RATE_LABELS[state.rattleRate]} rattlesnake grain density selected.`);
 });
 
-$("audioButton").addEventListener("click", async () => {
+async function toggleHyperAudio() {
   $("audioError").hidden = true;
   if (state.audio) {
     state.audio = false;
@@ -4012,6 +4312,11 @@ $("audioButton").addEventListener("click", async () => {
   announce(state.audio
     ? `${state.playing ? `${VOICE_LABELS[state.voice]} joined the running shape loop` : `${VOICE_LABELS[state.voice]} audio enabled`}.`
     : `Audio disabled${state.playing ? "; the shape cursor continues silently" : ""}.`);
+}
+$("audioButton").addEventListener("click", () => {
+  const task = toggleHyperAudio();
+  rubixoidsAudioTask = task;
+  void task.finally(() => { if (rubixoidsAudioTask === task) rubixoidsAudioTask = null; });
 });
 
 function resetAll() {
@@ -4094,6 +4399,7 @@ function resetAll() {
 }
 
 $("resetAll").addEventListener("click", resetAll);
+installStickerAppearanceControl();
 
 function updateMoveAnimation(time) {
   startNextMove(time);
@@ -4107,6 +4413,7 @@ function updateMoveAnimation(time) {
 
 function drawFrame(time) {
   frameRequest = 0;
+  if (!rubixoidsEmbeddedActive) return;
   const elapsed = Math.min(80, Math.max(0, time - previousFrameTime));
   previousFrameTime = time;
   if (state.autoRotate && !pointerDrag) {
@@ -4130,6 +4437,7 @@ function drawFrame(time) {
 }
 
 document.addEventListener("visibilitychange", () => {
+  if (!rubixoidsEmbeddedActive) return;
   previousFrameTime = performance.now();
   if (document.hidden) {
     pointerDrag = null;
@@ -4151,6 +4459,7 @@ document.addEventListener("visibilitychange", () => {
 });
 
 window.addEventListener("pagehide", (event) => {
+  if (mountContext && event.persisted) return;
   pointerDrag = null;
   canvas.classList.remove("is-dragging");
   clearSoundingStickerPulses();
@@ -4168,7 +4477,8 @@ window.addEventListener("pagehide", (event) => {
 });
 
 window.addEventListener("pageshow", (event) => {
-  if (!event.persisted) return;
+  if (mountContext) return;
+  if (!rubixoidsEmbeddedActive || !event.persisted) return;
   if (state.audio) {
     void audio.resume().then(() => {
       if (state.playing && schedulerTimer === null) resumeTransportClock();
@@ -4192,7 +4502,7 @@ updateSelectionUI();
 updateProjectionReadout();
 scheduleFrame();
 
-registerHeaderPresets({
+(mountContext?.registerPresets ?? registerHeaderPresets)({
   id: "hyper-rubix", presets: HYPER_RUBIX_FULL_PRESETS, randomize: randomizeHyperRubixPreset,
   capture: () => ({
     settings: Object.fromEntries(HYPER_RUBIX_PRESET_KEYS.map(key => [key, state[key]])),
@@ -4203,7 +4513,14 @@ registerHeaderPresets({
     if (snapshot.settings.voice === "webgpu-303" && state.audio && !webGpu303Engine) throw new Error("Enable WebGPU explicitly before recalling its live state");
     moveQueue = []; activeMove = null; turnPulse = null; pointerDrag = null; history = [];
     clearSoundingStickerPulses();
+    audio.sharedVoices.stop();
     Object.assign(state, snapshot.settings, { puzzle: snapshot.puzzle });
+    if (state.voice.startsWith("shared-") && state.audio && audio.context && !audio.sharedVoices.ready) {
+      const requested = state.voice;
+      void audio.sharedVoices.prepare(audio.context, audio.master).then(() => {
+        if (state.voice === requested && state.audio) remapRunningPreset();
+      }).catch(error => announce(error.message));
+    }
     sequenceGeneration = snapshot.sequenceGeneration;
     hyperbarGateOverrides = new Map(Object.entries(snapshot.gateOverrides));
     hyperbarFocusStickerId = null;
@@ -4230,3 +4547,88 @@ registerHeaderPresets({
     scheduleFrame();
   },
 });
+
+
+/** Preserve the complete Hyper controller while its Rubixoids mount is parked. */
+export const rubixoidsNative = {
+  capture() {
+    return {
+      active: rubixoidsEmbeddedActive, playing: state.playing, audioOn: state.audio,
+      settings: { ...JSON.parse(JSON.stringify(state)), puzzleSize: state.puzzle.size },
+      native: JSON.parse(JSON.stringify({
+        puzzle: state.puzzle, history, moveQueue, activeMove, transportPosition,
+        currentStep: state.currentStep, currentStreamStep: state.currentStreamStep,
+        gateOverrides: Object.fromEntries(hyperbarGateOverrides), rotation: state.rotation,
+        stickerAppearance, nonPlayingTransparency, nonPlayingFadeMode,
+      })),
+      diagnostics: { contextState: audio.context?.state ?? 'none',
+        schedulerActive: schedulerTimer !== null, animationActive: Boolean(frameRequest),
+        sharedVoices: audio.sharedVoices.diagnostics() },
+    };
+  },
+  async applySettings(patch = {}) {
+    for (const [key, value] of Object.entries(patch)) {
+      const id = key === 'subdivisionsPerBeat' ? 'twistRate' : key;
+      const control = $(id);
+      if (!control?.matches('input, select')) continue;
+      if (control.tagName === 'SELECT' && ![...control.options].some(option => option.value === String(value))) continue;
+      control.value = String(value);
+      control.dispatchEvent(new Event(control.tagName === 'SELECT' ? 'change' : 'input', { bubbles: true }));
+      if (key === 'voice') while (control.hasAttribute('aria-busy')) await new Promise(resolve => setTimeout(resolve, 10));
+    }
+    return this.capture();
+  },
+  async deactivate() {
+    if (!RUBIXOIDS_EMBED || !rubixoidsEmbeddedActive) return this.capture();
+    rubixoidsEmbeddedActive = false;
+    rubixoidsActivation += 1;
+    rubixoidsHiddenAt = performance.now();
+    if (state.playing) transportPosition = nextPositionAfterAudiblePulse();
+    clearScheduler({ hardAudio: true });
+    if (frameRequest) cancelAnimationFrame(frameRequest);
+    frameRequest = 0;
+    if (webGpu303SyncTimer !== null) clearTimeout(webGpu303SyncTimer);
+    webGpu303SyncTimer = null;
+    pointerDrag = null;
+    canvas.classList.remove('is-dragging');
+    if (rubixoidsAudioTask) await rubixoidsAudioTask.catch(() => {});
+    if (webGpu303StartPromise) await webGpu303StartPromise.catch(() => {});
+    webGpu303Engine?.setPlaybackEnabled(false);
+    webGpu303Engine?.pauseTimeline();
+    audio.sharedVoices.stop();
+    audio.silenceTopology(undefined, { immediate: true });
+    audio.silenceRattle();
+    audio.setLevel(0, true);
+    await audio.suspend();
+    return this.capture();
+  },
+  async activate({ audioOn = state.audio, playing = state.playing } = {}) {
+    const generation = ++rubixoidsActivation;
+    const wasHidden = !rubixoidsEmbeddedActive;
+    rubixoidsEmbeddedActive = true;
+    if (wasHidden && activeMove) activeMove.startedAt += performance.now() - rubixoidsHiddenAt;
+    previousFrameTime = performance.now();
+    if (audioOn) {
+      await audio.enable();
+      state.audio = true;
+    } else {
+      state.audio = false;
+      audio.disable();
+    }
+    if (generation !== rubixoidsActivation || !rubixoidsEmbeddedActive) {
+      audio.setLevel(0, true);
+      await audio.suspend();
+      return this.capture();
+    }
+    state.playing = Boolean(playing);
+    $('audioButton').setAttribute('aria-pressed', String(state.audio));
+    $('audioState').textContent = state.audio ? 'on' : 'off';
+    paintTransport();
+    if (state.playing) resumeTransportClock();
+    updateStatus();
+    resizeCanvas();
+    scheduleFrame();
+    return this.capture();
+  },
+};
+if (RUBIXOIDS_EMBED && !mountContext) globalThis.rubixoidsNative = rubixoidsNative;

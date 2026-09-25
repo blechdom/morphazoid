@@ -16,6 +16,7 @@ const siteMoves = JSON.parse(await readFile(new URL("../docs/site-metadata-layou
 const proof = JSON.parse(await readFile(new URL("fixtures/module-hierarchy-runtime.json", import.meta.url)));
 const ioChanges = JSON.parse(await readFile(new URL("../docs/io-settings-runtime-changes.json", import.meta.url))).changes;
 const iphoneChanges = JSON.parse(await readFile(new URL("../docs/iphone-audio-runtime-changes.json", import.meta.url))).changes;
+const sequencerChanges = JSON.parse(await readFile(new URL("../docs/rubixoids-runtime-changes.json", import.meta.url))).changes;
 const shapesChanges = JSON.parse(await readFile(new URL("../docs/shapes-manual-notes-runtime-changes.json", import.meta.url))).changes;
 const automataChanges = JSON.parse(await readFile(new URL("../docs/automatapoeia-preset-lifecycle-runtime-changes.json", import.meta.url))).changes;
 const automataBottomChanges = JSON.parse(await readFile(new URL("../docs/automatapoeia-bottom-entry-runtime-changes.json", import.meta.url))).changes;
@@ -46,6 +47,15 @@ test("runtime modules reverse exactly after explicit runtime fixes and documente
   ]);
   for (const record of proof.files) {
     let current = await readFile(path.join(root, record.after), "utf8");
+    // Rubixoids was integrated after the shared Shapes renderer extraction.
+    // Reverse its exact additions before restoring those earlier amendments.
+    for (const change of sequencerChanges.filter(change => change.file === record.after)) {
+      for (const testFile of change.regressionTests) assert.ok(existsSync(path.join(root, testFile)), testFile);
+      for (const replacement of [...change.replacements].reverse()) {
+        assert.equal(current.split(replacement.after).length - 1, 1, `exactly one sequencer-engine edit: ${change.file}`);
+        current = current.replace(replacement.after, replacement.before);
+      }
+    }
     for (const change of shapeBankChanges.filter(change => change.file === record.after)) {
       for (const testFile of change.regressionTests) assert.ok(existsSync(path.join(root, testFile)), testFile);
     }

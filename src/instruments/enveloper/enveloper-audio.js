@@ -1,3 +1,4 @@
+import { SequencerVoiceBank, SEQUENCER_VOICES } from "../../sequencer-voices.js";
 import { GraphSynthAudio } from "../../families/graph/graph-synth-audio.js";
 
 export const ENVELOPER_AUDIO_LIMITS = Object.freeze({
@@ -145,6 +146,8 @@ export function deriveEnveloperLeafTrigger(event = {}) {
 export class EnveloperAudio {
   constructor(runtime = globalThis, { engine = null } = {}) {
     this.engine = engine ?? new GraphSynthAudio(runtime);
+    this.voices = new SequencerVoiceBank({ runtime });
+    this.voice = "original";
     this.level = DEFAULT_LEVEL;
     this.engine.setOutput?.(this.level);
   }
@@ -169,8 +172,17 @@ export class EnveloperAudio {
     // GraphSynthAudio creates/resumes its context synchronously up to the first
     // await, so callers should invoke this directly from the Audio button tap.
     const context = await this.engine.start();
+    if (this.voice !== "original") await this.voices.prepare(context, this.engine.input);
     this.engine.setOutput?.(this.level);
     return context;
+  }
+
+  async setVoice(id) {
+    const next = SEQUENCER_VOICES.some((voice) => voice.id === id) ? id : "original";
+    if (next !== "original" && this.engineRunning) await this.voices.prepare(this.context, this.engine.input);
+    this.silence();
+    this.voice = next;
+    return this.voice;
   }
 
   setLevel(value) {
@@ -196,6 +208,35 @@ export class EnveloperAudio {
         skipReason: "audio-not-running",
       }));
     }
+    if (this.voice !== "original") {
+      const when = Math.max(this.currentTime, finite(startAt, this.currentTime));
+      const voice = trigger.voice;
+      const envelope = trigger.envelope;
+      const handle = this.voices.trigger({
+        voice: this.voice, when, frequency: voice.frequency, velocity: voice.gain * 2,
+        duration: envelope.gateSeconds, release: envelope.releaseSeconds,
+        attack: envelope.attackSeconds, decay: envelope.decaySeconds, sustain: envelope.sustainLevel,
+        pan: voice.pan, brightness: voice.brightness, resonance: voice.filterQ,
+        character: voice.timbre, drive: .5 + voice.modulationIndex / 4,
+      });
+      if (handle) {
+        for (const [points, parameter, map] of [
+          [voice.frequencyEnvelope, handle.source.playbackRate, (value) => value / handle.referenceFrequency],
+          [voice.modulationIndexEnvelope, handle.filter.frequency, (value) => 160 + value / 12 * 12000],
+          [voice.modulationIndexEnvelope, handle.driveGain.gain, (value) => .35 + value / 12 * 3.65],
+        ]) {
+          if (!points?.length) continue;
+          parameter.cancelScheduledValues(when);
+          points.forEach((point, index) => {
+            const at = when + point.time * voice.durationSeconds;
+            if (index === 0) parameter.setValueAtTime(map(point.value), at);
+            else parameter.linearRampToValueAtTime(map(point.value), at);
+          });
+        }
+      }
+      return Promise.resolve(Object.freeze({ ...voice, startAt: when,
+        scheduled: Boolean(handle), ...(handle ? {} : { skipReason: "voice-not-ready" }) }));
+    }
     return this.engine.trigger(trigger.voice, {
       ...trigger.envelope,
       startAt: finite(startAt, this.currentTime),
@@ -203,10 +244,12 @@ export class EnveloperAudio {
   }
 
   silence() {
+    this.voices.stop();
     return this.engine.silence?.();
   }
 
   cancelScheduled() {
+    this.voices.cancelScheduled();
     if (typeof this.engine.cancelScheduled === "function") {
       return this.engine.cancelScheduled();
     }
@@ -214,6 +257,7 @@ export class EnveloperAudio {
   }
 
   async close() {
+    this.voices.dispose();
     await this.engine.close?.();
   }
 }

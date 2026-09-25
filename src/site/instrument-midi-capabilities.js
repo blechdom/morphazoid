@@ -116,6 +116,7 @@ const NOTE_MODE_IDS = Object.freeze({
     "l-systems",
     "graphs",
     "tesselation",
+    "rubixoids",
     "algorithmic-mazes",
     "paths",
     "boidzoid",
