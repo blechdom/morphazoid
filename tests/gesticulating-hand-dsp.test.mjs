@@ -116,16 +116,17 @@ test("worklet advances the same pose from audio time without graphics messages a
     globalThis.sampleRate = 24000; globalThis.currentTime = 0;
     await import("../src/instruments/gesticulating-hand/hand-processor.js");
     const processor = new Processor(), send = data => processor.port.onmessage({ data });
-    const config = normalizeHandConfig({ motion: { id: "flourish", tempo: 73, amount: .8 }, sound: { space: 0 } });
+    const config = normalizeHandConfig({ motion: { id: "flourish", tempo: 73, amount: .8 }, tremor: { amount: 12.5, rate: 3.7 }, sound: { space: 0 } });
     send({ type: "config", config }); send({ type: "enabled", enabled: true }); send({ type: "sound", playing: true });
-    send({ type: "transport", transport: { time: 1.2, playing: true }, audioTime: 0 });
+    send({ type: "transport", transport: { time: 1.2, playing: true, tremorOffset: .15 }, audioTime: 0 });
+    assert.equal(processor.dsp.tremorOffset, .15);
     const left = new Float32Array(128), right = new Float32Array(128); let max = 0;
     for (let block = 0; block < 300; block++) {
       globalThis.currentTime = block * 128 / 24000; processor.process([], [[left, right]]); max = Math.max(max, peak(left));
     }
     assert.ok(max > .02);
     const evaluatedAt = currentTime + 96 / sampleRate;
-    assert.ok(Math.abs(processor.dsp.targets[2].frequency - evaluateHandVoices(config, 1.2 + evaluatedAt)[2].frequency) < 1e-9);
+    assert.ok(Math.abs(processor.dsp.targets[2].frequency - evaluateHandVoices(config, 1.2 + evaluatedAt, undefined, undefined, undefined, 1.2 + evaluatedAt + .15)[2].frequency) < 1e-9);
     send({ type: "sound", playing: false }); send({ type: "audition", index: 1, seconds: .1, audioTime: 0 });
     assert.equal(processor.dsp.voices[1].auditionUntil, -1);
     assert.ok(processor.messages.length > 10 && processor.messages.length < 25);
@@ -241,4 +242,58 @@ test("original source clip keeps shaping audible finger voices when no visual up
   const signal = render(dsp, .3);
   assert.deepEqual(dsp.pose, stopped); assert.ok(rms(signal.left) > .005);
   assert.notDeepEqual(pose, stopped, "pause anchors at the message time, not the previous control sample");
+});
+
+test("DSP holds tremor phase across a paused tempo rebase and retains omitted transport offsets", () => {
+  const config = normalizeHandConfig({ pose: HAND_POSES.find(pose => pose.id === "relaxed").pose,
+    motion: { id: "wave", tempo: 60, speed: 1, amount: .5 }, tremor: { finger: "all", joint: "tip", amount: 12.5, rate: 3.7 } });
+  const dsp = engine(config); dsp.setTransport({ time: .2, playing: false }); dsp.updateTargets(dsp.clock);
+  const held = structuredClone(dsp.pose), voices = structuredClone(dsp.targets);
+  dsp.setConfig({ ...config, motion: { ...config.motion, speed: 4 } });
+  dsp.setTransport({ time: .05, tremorOffset: .15 }); dsp.updateTargets(dsp.clock);
+  assert.deepEqual(dsp.pose, held); assert.deepEqual(dsp.targets, voices);
+  dsp.setTransport({ playing: false }); assert.equal(dsp.tremorOffset, .15);
+  render(dsp, .25); assert.deepEqual(dsp.pose, held); assert.ok(dsp.targets.every(voice => voice.excitation === 0));
+  dsp.setConfig({ ...config, tremorOffset: 400 }); assert.equal(dsp.tremorOffset, .15); assert.equal(dsp.config.tremorOffset, undefined);
+  for (const tremorOffset of [undefined, NaN, Infinity, Symbol(), null]) {
+    dsp.setTransport({ tremorOffset }); assert.equal(dsp.tremorOffset, .15);
+  }
+  dsp.setTransport({ tremorOffset: -1e12 }); assert.equal(dsp.tremorOffset, -1e9);
+  dsp.setTransport({ tremorOffset: 1e12 }); assert.equal(dsp.tremorOffset, 1e9);
+  dsp.setTransport({ tremorOffset: 0 }); assert.equal(dsp.tremorOffset, 0);
+});
+
+test("running tremor advances in seconds independently of choreography tempo and speed", () => {
+  const config = normalizeHandConfig({ pose: HAND_POSES.find(pose => pose.id === "relaxed").pose,
+    motion: { id: "still", tempo: 72, speed: 1 }, tremor: { finger: "all", joint: "whole", amount: 12.5, rate: 3.7 }, sound: { space: 0 } });
+  const reference = engine(config), actual = engine({ ...config, motion: { ...config.motion, tempo: 1100, speed: 4 } });
+  reference.setTransport({ time: .2, playing: true }); actual.setTransport({ time: .05, playing: true, tremorOffset: .15 });
+  const expected = render(reference, .7), rendered = render(actual, .7);
+  assert.ok(difference(expected.left, rendered.left) < 1e-7); assert.ok(difference(expected.right, rendered.right) < 1e-7);
+  assert.ok(rms(rendered.left) > .005);
+  assert.ok(Math.abs(reference.getMotionTime() - (actual.getMotionTime() + actual.tremorOffset)) < 1e-10);
+});
+
+test("audio wrapper forwards tremor offsets and retains them through arm, mute, close and reopen", async () => {
+  const { runtime, contexts, nodes, state } = fakeRuntime(), audio = new HandAudio(runtime);
+  audio.setTransport({ time: .05, playing: false, tremorOffset: .15 });
+  assert.equal(audio.getState().tremorOffset, .15); assert.equal(audio.getState().tremorTime, .2);
+  assert.equal(await audio.arm(), true);
+  assert.deepEqual(nodes[0].sent.findLast(message => message.type === "transport").transport,
+    { time: .05, playing: false, tremorOffset: .15 });
+  audio.setTransport({ playing: true });
+  assert.equal(nodes[0].sent.findLast(message => message.type === "transport").transport.tremorOffset, .15);
+  contexts[0].currentTime = .2; assert.equal(audio.getState().tremorTime, .4);
+  audio.mute(); assert.equal(await audio.arm(), true); assert.equal(nodes.length, 1);
+  assert.equal(nodes[0].sent.findLast(message => message.type === "transport").transport.tremorOffset, .15);
+  await audio.close(); assert.equal(audio.tremorOffset, .15);
+  state.now += 1000; assert.equal(await audio.arm(), true); assert.equal(nodes.length, 2);
+  const transport = nodes[1].sent.findLast(message => message.type === "transport").transport;
+  assert.equal(transport.tremorOffset, .15); assert.equal(transport.time, 1.25); assert.equal(audio.getState().tremorTime, 1.4);
+  audio.setConfig({ ...scene(), tremorOffset: 900 }); assert.equal(audio.tremorOffset, .15); assert.equal(audio.config.tremorOffset, undefined);
+  audio.setTransport({ tremorOffset: Symbol() }); assert.equal(audio.tremorOffset, .15);
+  audio.setTransport({ tremorOffset: -1e12 }); assert.equal(audio.tremorOffset, -1e9);
+  audio.setTransport({ tremorOffset: 1e12 }); assert.equal(audio.tremorOffset, 1e9);
+  audio.setTransport({ tremorOffset: 0 }); assert.equal(audio.tremorOffset, 0);
+  await audio.close();
 });

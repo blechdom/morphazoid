@@ -355,3 +355,27 @@ test("complete presets and random scenes recall tremor, skin, lighting, camera, 
   assert.equal(variants.skin.size, HAND_SKINS.length); assert.equal(variants.lighting.size, HAND_LIGHTINGS.length);
   assert.equal(variants.amount.size, 600); assert.equal(variants.rate.size, 600);
 });
+
+test("rebasing choreography from .2 to .05 retains tremor phase through an independent clock", () => {
+  const config = normalizeHandConfig({ pose: HAND_POSES.find(pose => pose.id === "relaxed").pose,
+    motion: { id: "wave", tempo: 60, speed: 1, amount: .5 }, tremor: { finger: "all", joint: "tip", amount: 12.5, rate: 3.7 } });
+  const faster = normalizeHandConfig({ ...config, motion: { ...config.motion, speed: 4 } });
+  const before = evaluateHandPose(config, .2), after = evaluateHandPose(faster, .05, createHandPose(), .05 + .15);
+  assert.ok(poseDistance(before, after) < 1e-10);
+  assert.ok(poseDistance(before, evaluateHandPose(faster, .05)) > 10, "this fixture detects the old tremor jump");
+  const oldVoices = evaluateHandVoices(config, .2), newVoices = evaluateHandVoices(faster, .05, createHandVoices(), createHandPose(), createHandPose(), .2);
+  for (let i = 0; i < 5; i++) for (const key of ["frequency", "brightness", "roughness", "pan", "level"]) assert.ok(Math.abs(oldVoices[i][key] - newVoices[i][key]) < 1e-9);
+  assert.equal(normalizeHandConfig({ ...config, tremorOffset: .15, tremorTime: .2 }).tremorOffset, undefined);
+  assert.equal(normalizeHandConfig({ ...config, tremorOffset: .15, tremorTime: .2 }).tremorTime, undefined);
+});
+
+test("tremor velocity uses its own previous time while rate edits can retain its visible phase", () => {
+  const config = normalizeHandConfig({ pose: HAND_POSES.find(pose => pose.id === "relaxed").pose,
+    motion: { id: "still" }, tremor: { finger: "all", joint: "whole", amount: 12.5, rate: 3.7 } });
+  const before = evaluateHandVoices(config, .2), rebased = evaluateHandVoices(config, .05, createHandVoices(), createHandPose(), createHandPose(), .2);
+  assert.deepEqual(rebased, before, "excitation uses tremorTime-.01 instead of the rebased choreography time");
+  const faster = normalizeHandConfig({ ...config, tremor: { ...config.tremor, rate: 17.1 } });
+  assert.ok(poseDistance(evaluateHandPose(config, .2), evaluateHandPose(faster, .2, createHandPose(), .2 * 3.7 / 17.1)) < 1e-10);
+  assert.ok(poseDistance(evaluateHandPose(config, 0, createHandPose(), -.123), evaluateHandPose(config, 0, createHandPose(), -.123 + 1 / 3.7)) < 1e-10,
+    "signed tremor times keep the oscillator continuous across zero");
+});

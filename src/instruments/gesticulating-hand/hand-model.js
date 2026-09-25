@@ -182,8 +182,9 @@ function sourceForPose(out, phase, amount) {
 /** Additive choreography preserves every base joint's effect during playback.
  * Optional output storage lets both the viewer and the worklet avoid allocation.
  * Pausing means retaining time; it does not select the base pose or zero motion.
+ * An independent tremor time preserves its Hz phase when choreography is rebased.
  */
-export function evaluateHandPose(value = HAND_DEFAULTS, time = 0, out = createHandPose()) {
+export function evaluateHandPose(value = HAND_DEFAULTS, time = 0, out = createHandPose(), tremorTime = time) {
   const config = record(value), pose = record(config.pose), motion = record(config.motion);
   const id = motion.id, amount = id === "still" ? 0 : clampHand(motion.amount, 0, 1, HAND_DEFAULTS.motion.amount);
   const beats = handMotionBeats(id), seconds = clampHand(time, 0, 1e9), tremorPitch = tremorPitchForPose(out);
@@ -421,16 +422,18 @@ export function evaluateHandPose(value = HAND_DEFAULTS, time = 0, out = createHa
   out.wrist.flex = clampHand(handNumber(baseWrist.flex) + flex * amount, ...HAND_LIMITS.wrist.flex);
   out.wrist.side = clampHand(handNumber(baseWrist.side) + side * amount, ...HAND_LIMITS.wrist.side);
   out.wrist.twist = clampHand(handNumber(baseWrist.twist) + twist * amount, ...HAND_LIMITS.wrist.twist);
-  applyHandTremor(config.tremor, seconds, out, tremorPitch);
+  applyHandTremor(config.tremor, clampHand(tremorTime, -1e9, 1e9, seconds), out, tremorPitch);
   return out;
 }
 export function createHandVoices() {
   return Array.from({ length: 5 }, () => ({ frequency: 100, brightness: 0, roughness: 0, pan: 0, level: 0, source: "glass", excitation: 0 }));
 }
 const REGISTER_RATIOS = Object.freeze([.79, 1.19, 1, 1.09, 1.42]);
-export function evaluateHandVoices(value = HAND_DEFAULTS, time = 0, out = createHandVoices(), pose = createHandPose(), previous = createHandPose()) {
+export function evaluateHandVoices(value = HAND_DEFAULTS, time = 0, out = createHandVoices(), pose = createHandPose(), previous = createHandPose(), tremorTime = time) {
   const config = record(value), sound = record(config.sound), voices = config.voices;
-  evaluateHandPose(config, time, pose); evaluateHandPose(config, Math.max(0, handNumber(time) - .01), previous);
+  const tremorSeconds = clampHand(tremorTime, -1e9, 1e9, clampHand(time, 0, 1e9));
+  evaluateHandPose(config, time, pose, tremorSeconds);
+  evaluateHandPose(config, Math.max(0, handNumber(time) - .01), previous, tremorSeconds - .01);
   const tremorPitch = tremorPitchByPose.get(pose);
   let solo = false;
   for (let i = 0; i < 5; i++) if (voices?.[i]?.solo === true && voices?.[i]?.mute !== true) solo = true;

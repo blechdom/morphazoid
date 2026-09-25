@@ -141,7 +141,7 @@ export class HandDSP {
     this.sampleRate = clampHand(sampleRate, 8000, 192000, 48000);
     this.config = normalizeHandConfig(HAND_DEFAULTS);
     this.enabled = false; this.soundPlaying = false; this.heldFingers = 0;
-    this.playing = false; this.anchorTime = 0; this.anchorClock = 0; this.clock = 0;
+    this.playing = false; this.anchorTime = 0; this.anchorClock = 0; this.clock = 0; this.tremorOffset = 0;
     this.pose = createHandPose(); this.previousPose = createHandPose(); this.targets = createHandVoices();
     this.voices = Array.from({ length: 5 }, (_, i) => ({
       phase: .073 * i, modPhase: .137 * i, frequency: 137, brightness: .4, roughness: .1, pan: 0, level: 0,
@@ -176,6 +176,7 @@ export class HandDSP {
     const time = this.getMotionTime(at);
     this.anchorClock = clampHand(at, 0, 1e9, this.clock);
     this.anchorTime = clampHand(value?.time, 0, 1e9, time);
+    this.tremorOffset = clampHand(value?.tremorOffset, -1e9, 1e9, this.tremorOffset);
     if (typeof value?.playing === "boolean") this.playing = value.playing;
   }
   getMotionTime(at = this.clock) { return this.anchorTime + (this.playing ? Math.max(0, handNumber(at, this.clock) - this.anchorClock) : 0); }
@@ -186,7 +187,8 @@ export class HandDSP {
     return true;
   }
   updateTargets(at) {
-    evaluateHandVoices(this.config, this.getMotionTime(at), this.targets, this.pose, this.previousPose);
+    const time = this.getMotionTime(at);
+    evaluateHandVoices(this.config, time, this.targets, this.pose, this.previousPose, time + this.tremorOffset);
     for (let i = 0; i < 5; i++) {
       const voice = this.voices[i], target = this.targets[i];
       if (target.source !== voice.source) {

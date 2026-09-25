@@ -9,7 +9,7 @@ export class HandAudio {
     this.runtime = runtime; this.context = null; this.node = null; this.master = null;
     this.armed = false; this.level = .52; this.config = normalizeHandConfig(HAND_DEFAULTS);
     this.soundPlaying = false; this.heldFingers = 0;
-    this.playing = false; this.anchorTime = 0; this.anchorClock = this.clock();
+    this.playing = false; this.anchorTime = 0; this.anchorClock = this.clock(); this.tremorOffset = 0;
     this.generation = 0; this.starting = null; this.startingToken = -1; this.buildPromise = null;
     this.releaseOutput = null; this.onStateChange = () => {}; this.onTelemetry = () => {};
     this.telemetry = { rms: 0, peak: 0, levels: [0, 0, 0, 0, 0], motionTime: 0, audioTime: 0 };
@@ -19,8 +19,12 @@ export class HandAudio {
   get running() { return this.armed && this.context?.state === "running" && Boolean(this.node); }
   clock() { return this.context ? this.context.currentTime : handNumber(this.runtime.performance?.now?.(), Date.now()) / 1000; }
   getMotionTime() { return this.anchorTime + (this.playing ? Math.max(0, this.clock() - this.anchorClock) : 0); }
-  getState() { return { ...this.telemetry, armed: this.armed, running: this.running, playing: this.playing,
-    soundPlaying: this.soundPlaying, heldFingers: this.heldFingers, time: this.getMotionTime(), contextState: this.context?.state ?? "uninitialized" }; }
+  getState() {
+    const time = this.getMotionTime();
+    return { ...this.telemetry, armed: this.armed, running: this.running, playing: this.playing,
+      soundPlaying: this.soundPlaying, heldFingers: this.heldFingers, time, tremorOffset: this.tremorOffset,
+      tremorTime: time + this.tremorOffset, contextState: this.context?.state ?? "uninitialized" };
+  }
   post(data) { this.node?.port.postMessage(data); }
   initialize() { return this.arm(); }
   arm() {
@@ -79,7 +83,7 @@ export class HandAudio {
       if (token !== this.generation || context !== this.context || !built) return false;
       if (context.state !== "running") throw new Error("Audio is suspended. Turn Audio on again.");
       this.post({ type: "config", config: this.config });
-      this.post({ type: "transport", transport: { time: this.getMotionTime(), playing: this.playing }, audioTime: this.currentTime });
+      this.post({ type: "transport", transport: { time: this.getMotionTime(), playing: this.playing, tremorOffset: this.tremorOffset }, audioTime: this.currentTime });
       this.post({ type: "sound", playing: this.soundPlaying });
       this.post({ type: "held", mask: this.heldFingers });
       this.post({ type: "enabled", enabled: true });
@@ -94,8 +98,9 @@ export class HandAudio {
   setConfig(config) { this.config = normalizeHandConfig(config); this.post({ type: "config", config: this.config }); }
   setTransport(value = {}) {
     this.anchorTime = clampHand(value?.time, 0, 1e9, this.getMotionTime()); this.anchorClock = this.clock();
+    this.tremorOffset = clampHand(value?.tremorOffset, -1e9, 1e9, this.tremorOffset);
     if (typeof value?.playing === "boolean") this.playing = value.playing;
-    this.post({ type: "transport", transport: { time: this.anchorTime, playing: this.playing }, audioTime: this.currentTime });
+    this.post({ type: "transport", transport: { time: this.anchorTime, playing: this.playing, tremorOffset: this.tremorOffset }, audioTime: this.currentTime });
   }
   setSoundPlaying(playing) { this.soundPlaying = playing === true; this.post({ type: "sound", playing: this.soundPlaying }); }
   setHeldFingers(mask) { this.heldFingers = Math.round(clampHand(mask, 0, 31)); this.post({ type: "held", mask: this.heldFingers }); }
