@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" class="hand-document">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
@@ -22,30 +22,32 @@
     </header>
     <main class="hand-shell">
       <section class="hand-performance" aria-labelledby="handTitle">
-        <div class="hand-transports">
-          <button id="soundPlayButton" type="button" aria-pressed="false" title="Hold the sound of the hand's current pose"><span aria-hidden="true">▶</span> Sound</button>
-          <button id="motionButton" type="button" aria-pressed="false" data-primary-transport title="Play gesture choreography (Space)"><span aria-hidden="true">▶</span> Motion</button>
-          <label class="hand-speed" for="speed"><span>Speed <output id="speedOut" for="speed">1×</output></span><input id="speed" type="range" min="0.1" max="4" step="0.05" value="1" /></label>
-          <button id="resetAll" class="hand-reset" type="button" data-reset-all data-reset-in-place>Reset</button>
-        </div>
-        <div class="hand-viewport" id="handViewport">
-          <h1 id="handTitle">Gesticules</h1>
-          <canvas id="handCanvas" tabindex="0" aria-label="Articulated 3D hand. Drag a finger joint to bend it; drag the palm to move the wrist; drag empty space to rotate the view. Use 1 to 5 to select a finger and arrow keys to bend or spread it." aria-describedby="gestureHelp">An articulated hand. All joints can also be adjusted with the finger and wrist controls.</canvas>
-          <p id="modelStatus" class="hand-model-status" role="status">Loading the hand…</p>
-          <div class="hand-camera" role="group" aria-label="Hand view">
-            <button type="button" data-view="palm" aria-pressed="true">Palm</button><button type="button" data-view="back" aria-pressed="false">Back</button><button type="button" data-view="side" aria-pressed="false">Side</button>
-            <button type="button" id="zoomOut" aria-label="Zoom out">−</button><button type="button" id="zoomIn" aria-label="Zoom in">+</button>
+        <div class="hand-stage" id="handStage">
+          <div class="hand-transports">
+            <button id="soundPlayButton" type="button" aria-pressed="false" title="Hold the sound of the hand's current pose"><span aria-hidden="true">▶</span> Sound</button>
+            <button id="motionButton" type="button" aria-pressed="false" data-primary-transport title="Play gesture choreography (Space)"><span aria-hidden="true">▶</span> Motion</button>
+            <label class="hand-speed" for="speed"><span>Speed <output id="speedOut" for="speed">1×</output></span><input id="speed" type="range" min="0.1" max="4" step="0.05" value="1" /></label>
+            <button id="resetAll" class="hand-reset" type="button" data-reset-all data-reset-in-place>Reset</button>
           </div>
-          <div class="hand-stage-footer"><output id="selectionReadout" aria-live="polite">Index · knuckle</output><label><input id="showJoints" type="checkbox" checked /> Joints</label></div>
+          <div class="hand-viewport" id="handViewport">
+            <h1 id="handTitle">Gesticules</h1>
+            <canvas id="handCanvas" tabindex="0" aria-label="Articulated 3D hand. Drag a finger joint to bend it; drag the palm to move the wrist; drag empty space to rotate the view. Use 1 to 5 to select a finger and arrow keys to bend or spread it." aria-describedby="gestureHelp">An articulated hand. All joints can also be adjusted with the finger and wrist controls.</canvas>
+            <p id="modelStatus" class="hand-model-status" role="status">Loading the hand…</p>
+            <div class="hand-camera" role="group" aria-label="Hand view">
+              <button type="button" data-view="palm" aria-pressed="true">Palm</button><button type="button" data-view="back" aria-pressed="false">Back</button><button type="button" data-view="side" aria-pressed="false">Side</button>
+              <button type="button" id="zoomOut" aria-label="Zoom out">−</button><button type="button" id="zoomIn" aria-label="Zoom in">+</button>
+            </div>
+            <div class="hand-stage-footer"><output id="selectionReadout" aria-live="polite">Index · knuckle</output><label><input id="showJoints" type="checkbox" checked /> Joints</label></div>
+          </div>
+          <p id="liveStatus" class="hand-notice" role="status"></p>
         </div>
         <p id="gestureHelp" class="hand-gesture-help">Drag the joints to play. Drag the background to turn the hand.</p>
-        <p id="liveStatus" class="hand-notice" role="status"></p>
         <section class="hand-voices" aria-labelledby="voicesTitle"><div class="hand-section-title"><h2 id="voicesTitle">Five fingers · five voices</h2><button type="button" id="clearSolo">Clear solos</button></div><div id="fingerMixer" class="hand-finger-mixer"></div></section>
       </section>
       <aside class="hand-panel" data-instrument-preset-host aria-label="Hand, movement and sound controls">
         <section class="hand-control-block" aria-labelledby="movementTitle">
           <h2 id="movementTitle">Movement</h2>
-          <label class="hand-control" for="tempo"><span>Tempo <output id="tempoOut" for="tempo">72</output></span><input id="tempo" type="range" min="20" max="220" step="1" value="72" /></label>
+          <label class="hand-control" for="tempo"><span>Tempo <output id="tempoOut" for="tempo">72</output></span><input id="tempo" type="range" min="20" max="1100" step="1" value="72" /></label>
           <label class="hand-select" for="motionPreset"><span>Choreography</span><select id="motionPreset"></select></label>
           <label class="hand-control" for="motionAmount"><span>Movement size <output id="motionAmountOut" for="motionAmount">70%</output></span><input id="motionAmount" type="range" min="0" max="1" step="0.01" value="0.7" /></label>
           <label class="hand-select" for="posePreset"><span>Starting pose</span><select id="posePreset"></select></label>
@@ -56,6 +58,16 @@
           <div id="jointControls"></div>
           <p class="hand-joint-note">Joint offsets are added to the selected movement.</p>
           <label class="hand-check"><input id="linkJoints" type="checkbox" checked /> Bend joints together when dragging</label>
+        </section>
+        <section class="hand-control-block" aria-labelledby="tremorTitle">
+          <h2 id="tremorTitle">Tremors</h2>
+          <div class="hand-control-pair"><label class="hand-select" for="tremorFinger"><span>Fingers</span><select id="tremorFinger"></select></label><label class="hand-select" for="tremorJoint"><span>Joints</span><select id="tremorJoint"></select></label></div>
+          <label class="hand-control" for="tremorAmount"><span>Shake depth <output id="tremorAmountOut" for="tremorAmount">0°</output></span><input id="tremorAmount" type="range" min="0" max="15" step="0.1" value="0" /></label>
+          <label class="hand-control" for="tremorRate"><span>Tremor rate <output id="tremorRateOut" for="tremorRate">8 Hz</output></span><input id="tremorRate" type="range" min="0.5" max="40" step="0.1" value="8" /></label>
+        </section>
+        <section class="hand-control-block" aria-labelledby="lookTitle">
+          <h2 id="lookTitle">Skin &amp; light</h2>
+          <div class="hand-control-pair"><label class="hand-select" for="skin"><span>Skin</span><select id="skin"></select></label><label class="hand-select" for="lighting"><span>Lighting</span><select id="lighting"></select></label></div>
         </section>
         <details class="hand-control-block" open><summary>Wrist</summary>
           <label class="hand-control" for="wristFlex"><span>Bend <output id="wristFlexOut" for="wristFlex">0°</output></span><input id="wristFlex" type="range" min="-55" max="65" step="1" value="0" /></label>

@@ -66,7 +66,8 @@ The joint choices are Tip, Middle, Knuckle, Whole finger, and Wrist. Whole finge
 moves its three bending joints together; Wrist shakes bend, side and turn.
 Tip and middle tremor also add gentle continuous vibrato from the actual visible
 deflection. Knuckle and wrist tremor use their existing pitch mappings. Tremor
-rate is expressed in Hz independently of Tempo and Speed. Motion pause holds both
+rate is expressed in Hz independently of Tempo and Speed. Changing Tempo, Speed
+or tremor rate preserves its current phase. Motion pause holds both
 choreography and tremor at their current position; Sound can sustain that pose.
 Tremor defaults to zero, including when loading older saved configurations.
 

@@ -1,5 +1,5 @@
 import { createHandViewer, FINGER_COLORS } from './hand-viewer.js';
-import { FINGERS, VOICE_SOURCES, HAND_DEFAULTS, HAND_LIMITS, HAND_POSES, HAND_MOTIONS, HAND_PRESETS,
+import { FINGERS, VOICE_SOURCES, HAND_DEFAULTS, HAND_LIMITS, HAND_POSES, HAND_MOTIONS, HAND_PRESETS, TREMOR_FINGERS, TREMOR_JOINTS, HAND_SKINS, HAND_LIGHTINGS,
   normalizeHandConfig, evaluateHandPose, randomizeHandConfig, handMotionPeriod } from './hand-model.js';
 import { HandAudio } from './hand-audio.js';
 import { registerHeaderPresets } from '../../site/header-presets.js';
@@ -11,8 +11,8 @@ const labels = ['Thumb', 'Index', 'Middle', 'Ring', 'Little'];
 const state = {
   config: normalizeHandConfig(HAND_DEFAULTS), selected: 1, joint: 'mcp',
   playing: false, soundPlaying: false, audioOn: false, starting: false,
-  phase: 0, epoch: performance.now(), pointerMask: 0, midi: new Map(),
-  loaded: false, disposed: false, view: 'palm', linked: true,
+  phase: 0, tremorOffset: 0, epoch: performance.now(), pointerMask: 0, midi: new Map(),
+  loaded: false, disposed: false, linked: true,
 };
 const audio = new HandAudio();
 let viewer, frame = 0, lastDraw = -Infinity, presets, audioRequest = 0, jointAbort;
@@ -20,6 +20,25 @@ const sourceId = source => typeof source === 'string' ? source : source.id;
 const sourceLabel = source => typeof source === 'string' ? source[0].toUpperCase() + source.slice(1) : source.label;
 const clamp = (v, low, high) => Math.max(low, Math.min(high, Number(v) || 0));
 const clone = value => structuredClone(value);
+const root = document.documentElement;
+let headerHeight=-1, stickyOffset=-1;
+function measureHandLayout() {
+  const header=document.querySelector('.masthead').getBoundingClientRect().height;
+  const offset=header+el('handStage').getBoundingClientRect().height;
+  if(header!==headerHeight){headerHeight=header;root.style.setProperty('--hand-header-height',`${header}px`);}
+  if(offset!==stickyOffset){stickyOffset=offset;root.style.setProperty('--hand-sticky-offset',`${offset}px`);}
+}
+const layoutObserver=new ResizeObserver(measureHandLayout);
+layoutObserver.observe(document.querySelector('.masthead'));layoutObserver.observe(el('handStage'));
+measureHandLayout();
+function syncViewButtons() {
+  const current=state.config.view;
+  if(!current)return;
+  for(const button of document.querySelectorAll('[data-view]')) {
+    const yaw={palm:.12,back:-Math.PI+.12,side:Math.PI/2}[button.dataset.view];
+    button.setAttribute('aria-pressed',String(Math.abs(current.yaw-yaw)<.001&&Math.abs(current.pitch-.035)<.001));
+  }
+}
 
 function currentTime() {
   if (state.audioOn && audio.running) return audio.getMotionTime();
@@ -60,7 +79,7 @@ function publish() {
 }
 function setPlaying(playing) {
   anchor(); state.playing = Boolean(playing);
-  audio.setTransport({ time: state.phase, playing: state.playing });
+  audio.setTransport({ time: state.phase, tremorOffset: state.tremorOffset, playing: state.playing });
   syncTransport(); requestDraw();
 }
 function setSoundPlaying(playing) {
@@ -80,7 +99,7 @@ async function setAudio(active) {
     if (state.disposed || request !== audioRequest || armed === false) return;
     const time = currentTime();
     state.audioOn = true; state.starting = false;
-    audio.setConfig(performanceConfig()); audio.setTransport({ time, playing: state.playing });
+    audio.setConfig(performanceConfig()); audio.setTransport({ time, tremorOffset: state.tremorOffset, playing: state.playing });
     audio.setSoundPlaying(state.soundPlaying); syncHeld(); anchor(time);
     syncTransport(); requestDraw();
   } catch (error) {
@@ -91,7 +110,7 @@ async function setAudio(active) {
 }
 function requestDraw() { if (!frame && !state.disposed) frame = requestAnimationFrame(draw); }
 function effectivePose(time) {
-  return evaluateHandPose(performanceConfig(), time);
+  return evaluateHandPose(performanceConfig(), time, undefined, time + state.tremorOffset);
 }
 function draw(now) {
   frame = 0;
@@ -136,7 +155,7 @@ function buildJointControls() {
   }
 }
 function syncControls() {
-  const controls = { speed: state.config.motion.speed, tempo: state.config.motion.tempo, motionAmount: state.config.motion.amount,
+  const controls = { tremorAmount: state.config.tremor.amount, tremorRate: state.config.tremor.rate, speed: state.config.motion.speed, tempo: state.config.motion.tempo, motionAmount: state.config.motion.amount,
     wristFlex: state.config.pose.wrist.flex, wristSide: state.config.pose.wrist.side, wristTwist: state.config.pose.wrist.twist,
     ...state.config.sound };
   for (const [id,value] of Object.entries(controls)) {
@@ -144,6 +163,9 @@ function syncControls() {
     el(id).value = value; updateOutput(id, value);
   }
   el('motionPreset').value = state.config.motion.id;
+  el('tremorFinger').value=state.config.tremor.finger;el('tremorJoint').value=state.config.tremor.joint;
+  el('tremorFinger').disabled=state.config.tremor.joint==='wrist';
+  el('skin').value=state.config.appearance.skin;el('lighting').value=state.config.appearance.lighting;
   el('posePreset').value = HAND_POSES.find(p=>JSON.stringify(p.pose)===JSON.stringify(state.config.pose))?.id??'custom';
   for (let i=0;i<5;i++) {
     const voice = state.config.voices[i];
@@ -151,21 +173,26 @@ function syncControls() {
     el(`mute-${i}`).setAttribute('aria-pressed',String(voice.mute));
     el(`solo-${i}`).setAttribute('aria-pressed',String(voice.solo));
   }
-  buildJointControls();
+  buildJointControls();syncViewButtons();
 }
 function updateOutput(id,value) {
   if (!el(`${id}Out`)) return;
   el(`${id}Out`).value = id.startsWith('wrist') ? `${Math.round(value)}°`
-    : id === 'speed' ? `${Number(value.toFixed(2))}×` : id === 'tempo' ? String(Math.round(value)) : id === 'rootHz' ? `${Math.round(value)} Hz`
+    : id === 'tremorAmount' ? `${Number(value.toFixed(1))}°`
+    : id === 'tremorRate' ? `${Number(value.toFixed(1))} Hz` : id === 'speed' ? `${Number(value.toFixed(2))}×` : id === 'tempo' ? String(Math.round(value)) : id === 'rootHz' ? `${Math.round(value)} Hz`
     : ['attack','release'].includes(id) ? `${Math.round(value*1000)} ms` : `${Math.round(value*100)}%`;
 }
 function applyConfiguration(value) {
   const next = normalizeHandConfig(value);
   // Rebase seconds to preserve the cycle position when tempo, speed or cycle
   // length changes. The audio worklet and silent viewer receive one anchor.
-  const time = currentTime() * handMotionPeriod(next.motion) / handMotionPeriod(state.config.motion);
-  state.config = next; anchor(time); publish();
-  audio.setTransport({ time, playing: state.playing }); syncControls();
+  const previousTime = currentTime();
+  const time = previousTime * handMotionPeriod(next.motion) / handMotionPeriod(state.config.motion);
+  // Tremor runs in real Hz. Retain its phase independently when choreography
+  // seconds are rebased, including while paused and when its own rate changes.
+  state.tremorOffset = (previousTime + state.tremorOffset) * state.config.tremor.rate / next.tremor.rate - time;
+  state.config = next; anchor(time); viewer?.setCameraView(next.view); viewer?.setAppearance(next.appearance); publish();
+  audio.setTransport({ time, tremorOffset: state.tremorOffset, playing: state.playing }); syncControls();
 }
 function updateConfiguration(mutator) {
   const next = clone(state.config); mutator(next); applyConfiguration(next);
@@ -209,7 +236,7 @@ function buildMixer() {
 function reset() {
   // Recovery resets musical state; output and both players remain under their controls.
   state.midi.clear(); state.pointerMask=0;
-  syncHeld(); applyConfiguration(HAND_DEFAULTS); selectFinger(1,'mcp'); viewer?.setView('palm');
+  syncHeld(); applyConfiguration(HAND_DEFAULTS); selectFinger(1,'mcp');
 }
 function releaseNotes() { state.midi.clear(); state.pointerMask=0; audio.setConfig(state.config); syncHeld(); requestDraw(); }
 function midiKey(message) { return `${message.sourceId??'midi'}:${message.channel??0}:${message.note}`; }
@@ -235,6 +262,13 @@ function onMidi(event) {
 }
 
 buildMixer();
+for(const [id,options] of [['tremorFinger',TREMOR_FINGERS],['tremorJoint',TREMOR_JOINTS],['skin',HAND_SKINS],['lighting',HAND_LIGHTINGS]]) {
+  const names={all:'All fingers',alternating:'Alternating',tip:'Tips',middle:id==='tremorJoint'?'Middle joints':'Middle',knuckle:'Knuckles',whole:'Whole fingers'};
+  for(const value of options)el(id).add(new Option(names[value]??sourceLabel(value),value));
+}
+for(const [id,key] of [['tremorFinger','finger'],['tremorJoint','joint']])listen(el(id),'change',event=>updateConfiguration(c=>{c.tremor[key]=event.target.value;}));
+for(const [id,key] of [['tremorAmount','amount'],['tremorRate','rate']])listen(el(id),'input',event=>updateConfiguration(c=>{c.tremor[key]=Number(event.target.value);}));
+for(const id of ['skin','lighting'])listen(el(id),'change',event=>updateConfiguration(c=>{c.appearance[id]=event.target.value;}));
 for(const motion of HAND_MOTIONS) el('motionPreset').add(new Option(motion.label,motion.id));
 el('posePreset').add(new Option('Custom pose','custom'));
 for(const pose of HAND_POSES) el('posePreset').add(new Option(pose.label,pose.id));
@@ -271,8 +305,7 @@ listen(el('clearSolo'),'click',()=>updateConfiguration(c=>{for(const voice of c.
 listen(el('relaxFinger'),'click',()=>updateConfiguration(c=>{c.pose.fingers[state.selected]=clone(HAND_DEFAULTS.pose.fingers[state.selected]);}));
 listen(el('resetAll'),'click',reset);
 for(const button of document.querySelectorAll('[data-view]')) listen(button,'click',()=>{
-  state.view=button.dataset.view;viewer?.setView(state.view);
-  for(const b of document.querySelectorAll('[data-view]'))b.setAttribute('aria-pressed',String(b===button));
+  viewer?.setView(button.dataset.view);syncViewButtons();
   requestDraw();
 });
 listen(el('zoomIn'),'click',()=>{viewer?.zoom(.85);requestDraw();});
@@ -297,10 +330,10 @@ listen(window,'pagehide',event=>{
     releaseNotes();audio.close();syncTransport();return;
   }
   state.disposed=true;audioRequest++;cancelAnimationFrame(frame);releaseNotes();presets?.destroy();
-  jointAbort?.abort();abort.abort();viewer?.dispose();audio.close();
+  jointAbort?.abort();layoutObserver.disconnect();abort.abort();viewer?.dispose();audio.close();
 });
 listen(window,'pageshow',event=>{
-  if(event.persisted&&!state.disposed){anchor(state.phase);audio.setTransport({time:state.phase,playing:state.playing});syncTransport();requestDraw();}
+  if(event.persisted&&!state.disposed){anchor(state.phase);audio.setTransport({time:state.phase,tremorOffset:state.tremorOffset,playing:state.playing});syncTransport();requestDraw();}
 });
 presets=registerHeaderPresets({id:'gesticulating-hand',presets:HAND_PRESETS,
   capture:()=>clone(state.config),
@@ -316,15 +349,16 @@ syncControls();syncTransport();selectFinger(1,'mcp');
 try {
   viewer=createHandViewer(el('handCanvas'),{
     onSelect:selectFinger,onGesture:editJoint,onChange:requestDraw,
+    onViewChange:view=>{state.config.view=view;syncViewButtons();presets?.refresh();},
     onStatus:message=>{el('modelStatus').textContent=message;el('modelStatus').hidden=!message;},
     onReady:()=>{state.loaded=true;requestDraw();},
   });
-  requestDraw();
+  viewer.setCameraView(state.config.view);viewer.setAppearance(state.config.appearance);requestDraw();
 } catch(error) {el('modelStatus').textContent=`The 3D view could not start: ${error.message}. The joint controls remain playable.`;}
 
 // Read-only seam for interaction, lifecycle and audio/visual causality checks.
 window.__gesticulatingHand = {
-  snapshot:()=>{const time=currentTime();return {config:clone(state.config),pose:effectivePose(time),time,
+  snapshot:()=>{const time=currentTime();return {config:clone(state.config),pose:effectivePose(time),time,tremorTime:time+state.tremorOffset,
     playing:state.playing,soundPlaying:state.soundPlaying,audioOn:state.audioOn,loaded:state.loaded,
     selected:state.selected,held:state.pointerMask|midiMask(),audio:audio.getState(),viewer:viewer?.getState()};},
 };

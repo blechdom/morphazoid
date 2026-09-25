@@ -69,3 +69,33 @@
 @media (prefers-reduced-motion: reduce) { .hand-shell * { scroll-behavior: auto; transition: none !important; } }
 
 .hand-joint-note { font-size: 10px; line-height: 1.5; color: var(--hand-muted); margin: 12px 0 0; }
+
+/* One pinned stage; both parameter groups keep the same native page scroller. */
+@media (max-width: 960px) {
+  html.hand-document { height: auto; min-height: 100%; overflow-x: clip; overflow-y: auto; scroll-padding-top: calc(var(--hand-sticky-offset, 440px) + 12px); }
+  body.hand-page { height: auto; min-height: 100svh; overflow: visible; }
+  .hand-page > .masthead { position: sticky; top: 0; }
+  .hand-shell { display: block; flex: none; width: 100%; padding: 0 max(12px, env(safe-area-inset-right)) max(24px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left)); }
+  .hand-performance { display: contents; }
+  .hand-stage { position: sticky; top: var(--hand-header-height, 109px); z-index: 20; display: grid; grid-template-rows: auto minmax(0, 1fr) auto; height: min(52svh, calc(100svh - var(--hand-header-height, 109px) - 170px)); padding-bottom: 8px; background: #101014; box-shadow: 0 10px 12px #101014; }
+  .hand-transports { display: grid; grid-template-columns: auto auto minmax(0, 1fr) auto; min-height: 60px; padding: 6px 0; gap: 6px; }
+  .hand-transports button { min-height: 48px; font-size: 12px; padding: 6px 9px; }
+  .hand-speed { width: auto; min-width: 0; max-width: none; margin: 0; }
+  .hand-page .hand-speed input[type="range"] { height: 28px; min-height: 28px; margin: 0; }
+  .hand-reset { margin-left: 0; }
+  .hand-viewport { height: auto; min-height: 0; }
+  .hand-viewport h1 { left: 16px; top: 14px; font-size: clamp(22px, 5.6vw, 32px); }
+  .hand-camera { left: 12px; bottom: 46px; }
+  .hand-stage-footer { left: 16px; bottom: 13px; }
+  .hand-notice { margin: 4px 0 0; font-size: 11px; }
+  .hand-panel { display: block; max-height: none; overflow: visible; border-left: 0; border-top: 1px solid var(--hand-line); margin-top: 22px; padding: 20px 0 0; }
+  .hand-panel > .instrument-preset-controls { position: relative; top: auto; z-index: 0; }
+  .hand-control-block { margin-bottom: 22px; }
+  .hand-voices :is(button,input,select,summary), .hand-panel :is(button,input,select,summary) { scroll-margin-bottom: 16px; }
+}
+@media (max-width: 960px) and (max-height: 500px) and (orientation: landscape) {
+  .hand-stage { height: min(55svh, calc(100svh - var(--hand-header-height, 58px) - 110px)); }
+  .hand-viewport h1 { top: 10px; font-size: 21px; }
+  .hand-camera { left: 12px; bottom: 10px; }
+  .hand-stage-footer { left: auto; right: 12px; bottom: 12px; }
+}

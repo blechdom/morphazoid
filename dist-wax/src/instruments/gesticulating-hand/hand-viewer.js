@@ -2,6 +2,7 @@ import * as THREE from '../../../vendor/three/three.module.min.js';
 import { sampleSourceGrasp, SOURCE_BONE_NAMES, SOURCE_ANCESTOR_NAMES,
   SOURCE_OPEN_ROTATIONS, SOURCE_OPEN_ANCESTOR_ROTATIONS } from './hand-source-motion.js';
 import { GLTFLoader } from '../../../vendor/three/loaders/GLTFLoader.js';
+import { createHandLook } from './hand-look.js';
 
 export const FINGER_COLORS = Object.freeze(['#e7a574','#dfcf83','#83c6b4','#87aadb','#c3a0d1']);
 const RAD = Math.PI/180;
@@ -13,7 +14,7 @@ const quat = value => new THREE.Quaternion().fromArray(value);
 
 /** Skinning uses the artist's weighted deform bones, calibrated against her
  * original Open/Close animation. Unweighted Blender control bones are not IK. */
-export function createHandViewer(canvas,{onSelect=()=>{},onGesture=()=>{},onChange=()=>{},onStatus=()=>{},onReady=()=>{}}={}) {
+export function createHandViewer(canvas,{onSelect=()=>{},onGesture=()=>{},onChange=()=>{},onStatus=()=>{},onReady=()=>{},onViewChange=()=>{}}={}) {
   const renderer = new THREE.WebGLRenderer({canvas,antialias:true,alpha:false,powerPreference:'low-power'});
   renderer.setClearColor(0x141418,1); renderer.outputColorSpace=THREE.SRGBColorSpace;
   renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.08;
@@ -34,7 +35,8 @@ export function createHandViewer(canvas,{onSelect=()=>{},onGesture=()=>{},onChan
   let loaded=false,disposed=false,selected=1,selectedJoint='mcp',showJoints=true,drag=null;
   let distance=5.8,yaw=.12,pitch=.03,zoomFactor=1,width=0,height=0,baseDistance=5.8;
   let bounds=new THREE.Vector3(2,3,1),model,mixer,wrist,wristRest,palm,restNormal=new THREE.Vector3(0,0,1);
-  let latestPose=null, sourceSample, palmRest, pickBoundsDirty=true;
+  let latestPose=null, sourceSample, palmRest, pickBoundsDirty=true, look;
+  let appearance={skin:'natural',lighting:'studio'};
   const rotation=new THREE.Quaternion(), sourceRotation=new THREE.Quaternion();
 
   const listen=(type,callback,opts={})=>canvas.addEventListener(type,callback,{...opts,signal});
@@ -43,10 +45,11 @@ export function createHandViewer(canvas,{onSelect=()=>{},onGesture=()=>{},onChan
     const ratio=Math.min(devicePixelRatio||1,1.6,Math.sqrt(1450000/(width*height)));
     renderer.setPixelRatio(ratio);renderer.setSize(width,height,false);
     camera.aspect=width/height;camera.updateProjectionMatrix();
-    // Wrist sweeps extend beyond the open hand's rest bounds. Reserve extra
-    // horizontal room on portrait screens without chasing the pose each frame.
-    const motionMargin=1.27+.95*clamp((1-camera.aspect)/.35,0,1);
-    baseDistance=Math.max(bounds.y/(2*Math.tan(camera.fov*RAD/2)),bounds.x/(2*Math.tan(camera.fov*RAD/2)*camera.aspect))*motionMargin;
+    // Wrist sweeps extend sideways beyond the open hand's rest bounds. Fit
+    // each axis independently so shorter pinned stages retain that clearance.
+    const verticalFit=bounds.y/(2*Math.tan(camera.fov*RAD/2));
+    const horizontalFit=bounds.x/(2*Math.tan(camera.fov*RAD/2)*camera.aspect);
+    baseDistance=Math.max(verticalFit*1.5,horizontalFit*2.5);
     updateCamera();
   }
   function updateCamera() {
@@ -55,8 +58,16 @@ export function createHandViewer(canvas,{onSelect=()=>{},onGesture=()=>{},onChan
     camera.position.set(distance*Math.sin(yaw)*Math.cos(pitch),distance*Math.sin(pitch),distance*Math.cos(yaw)*Math.cos(pitch)).add(target);
     camera.lookAt(target);camera.updateMatrixWorld();onChange();
   }
-  function setView(view) {yaw={palm:.12,back:Math.PI+.12,side:Math.PI/2}[view]??.12;pitch=.035;zoomFactor=1;updateCamera();}
-  function zoom(factor) {zoomFactor=clamp(zoomFactor*factor,.62,2);updateCamera();}
+  function getCameraView() { return {yaw:((yaw+Math.PI)%(2*Math.PI)+2*Math.PI)%(2*Math.PI)-Math.PI,pitch,zoom:zoomFactor}; }
+  function setCameraView(view={}) {
+    yaw=Number.isFinite(view.yaw)?clamp(view.yaw,-Math.PI,Math.PI):.12;
+    pitch=Number.isFinite(view.pitch)?clamp(view.pitch,-1.15,1.15):.035;
+    zoomFactor=Number.isFinite(view.zoom)?clamp(view.zoom,.62,2):1;
+    updateCamera();
+  }
+  function setView(view) {yaw={palm:.12,back:Math.PI+.12,side:Math.PI/2}[view]??.12;pitch=.035;zoomFactor=1;updateCamera();onViewChange(getCameraView());}
+  function zoom(factor) {zoomFactor=clamp(zoomFactor*factor,.62,2);updateCamera();onViewChange(getCameraView());}
+  function setAppearance(value={}) {appearance={...value};look?.apply(appearance);onChange();}
   function marker(finger,joint,bone) {
     const color=finger===5?0xe7dfd4:FINGER_COLORS[finger];
     const material=new THREE.MeshBasicMaterial({color,transparent:true,opacity:.73,depthTest:false,depthWrite:false});
@@ -165,7 +176,7 @@ export function createHandViewer(canvas,{onSelect=()=>{},onGesture=()=>{},onChan
     if(!drag||event.pointerId!==drag.id){if(loaded)canvas.style.cursor=pick(event)?'grab':'move';return;}
     const dx=event.clientX-drag.x,dy=event.clientY-drag.y;drag.x=event.clientX;drag.y=event.clientY;
     if(drag.hit)onGesture({...drag.hit,bend:dy*.48,spread:dx*.24});
-    else{yaw-=dx*.008;pitch=clamp(pitch+dy*.008,-1.15,1.15);updateCamera();}
+    else{yaw-=dx*.008;pitch=clamp(pitch+dy*.008,-1.15,1.15);updateCamera();onViewChange(getCameraView());}
     onChange();
   });
   function release(event){if(!drag||(event&&event.pointerId!==drag.id))return;const prior=drag;drag=null;if(prior.hit)onGesture({...prior.hit,bend:0,spread:0,end:true});if(canvas.hasPointerCapture(prior.id))canvas.releasePointerCapture(prior.id);onChange();}
@@ -192,6 +203,7 @@ export function createHandViewer(canvas,{onSelect=()=>{},onGesture=()=>{},onChan
         }
       }
     });
+    look=createHandLook({meshes,ambient,keyLight,fill,rim});look.apply(appearance);
     const importedLights=[];model.traverse(o=>{if(o.isLight||o.isCamera)importedLights.push(o);});for(const o of importedLights)o.removeFromParent();
     if(!meshes.some(m=>m.isSkinnedMesh)||bones.length<20)throw new Error('The hand is missing its skinning rig.');
     mixer=new THREE.AnimationMixer(model);if(gltf.animations[0]){mixer.clipAction(gltf.animations[0]).play();mixer.setTime(0);}
@@ -223,13 +235,13 @@ export function createHandViewer(canvas,{onSelect=()=>{},onGesture=()=>{},onChan
     loaded=true;resize();if(latestPose)setPose(latestPose);refreshMarkers();render();onStatus('');onReady();onChange();
   }
   function disposeObject(object){object.geometry?.dispose();for(const material of object.material?(Array.isArray(object.material)?object.material:[object.material]):[]){for(const value of Object.values(material))if(value?.isTexture)value.dispose();material.dispose();}}
-  function dispose(){if(disposed)return;disposed=true;release();abort.abort();resizeObserver.disconnect();mixer?.stopAllAction();if(model)mixer?.uncacheRoot(model);scene.traverse(disposeObject);markerGeometry.dispose();renderer.dispose();}
+  function dispose(){if(disposed)return;disposed=true;release();abort.abort();resizeObserver.disconnect();mixer?.stopAllAction();if(model)mixer?.uncacheRoot(model);look?.dispose();scene.traverse(disposeObject);markerGeometry.dispose();renderer.dispose();}
   load().catch(error=>{if(!disposed)onStatus(`The hand could not load: ${error.message}. Reload to try again.`);});
-  return {setPose,render,resize,setView,zoom,selectFinger,setShowJoints,dispose,
+  return {setPose,render,resize,setView,setCameraView,setAppearance,zoom,selectFinger,setShowJoints,dispose,
     getState:()=>({loaded,boneCount:deformMap.size,vertices:meshes.reduce((n,m)=>n+(m.geometry.attributes.position?.count??0),0),
       triangles:meshes.reduce((n,m)=>n+((m.geometry.index?.count??m.geometry.attributes.position?.count??0)/3),0),
       selected,selectedJoint,showJoints,markers:markers.map(m=>({finger:m.userData.finger,joint:m.userData.joint,position:m.position.toArray(),screen:m.position.clone().project(camera).toArray()})),
       fingertips:fingertips.map(b=>b.getWorldPosition(new THREE.Vector3()).project(camera).toArray()),
-      size:[width,height],pixelRatio:renderer.getPixelRatio(),camera:camera.position.toArray()}),
+      view:getCameraView(),appearance:{...appearance},size:[width,height],pixelRatio:renderer.getPixelRatio(),camera:camera.position.toArray()}),
   };
 }

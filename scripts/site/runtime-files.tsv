@@ -1054,6 +1054,7 @@ copy+require	gesticulating-hand.html
 copy+require	src/instruments/gesticulating-hand/hand-app.js
 copy+require	src/instruments/gesticulating-hand/hand.css
 copy+require	src/instruments/gesticulating-hand/hand-viewer.js
+copy+require	src/instruments/gesticulating-hand/hand-look.js
 copy+require	src/instruments/gesticulating-hand/hand-model.js
 copy+require	src/instruments/gesticulating-hand/hand-dsp.js
 copy+require	src/instruments/gesticulating-hand/hand-audio.js

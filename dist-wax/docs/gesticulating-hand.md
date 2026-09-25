@@ -29,28 +29,47 @@ Finger flexion values for synthesis are measured from those same rotations.
 Other named motions are original, bounded Morphazoid choreography, not motion
 capture or imported Microsoft clips.
 
-There are **31 animated movements**, plus Still: the original Open/Close, the
-six earlier wave/beckon/roll/pinch/count/flourish loops, and these 24 additions:
+There are **35 animated movements**, plus **Still**: the original Open/Close,
+Wave, Beckon, Finger roll, Pinch and release, Counting fingers, Flourish, and the
+28 movements below.
 
-| Movement family | Added choreography |
+| Movement family | Choreography |
 | --- | --- |
-| Finger sequences | Finger fan, Ripple open, Ripple close, Finger drumming, Spider walk, Air piano |
-| Thumb and pinch | Index tap, Thumb pulse, Thumb orbit, Opposition walk, Pinch ladder, Circle pinch |
-| Grasp and wrist | Claw pulse, Squeeze and release, Wrist circle, Wrist nod, Wrist turn, Figure eight |
-| Expressive loops | Spiral flourish, Flick, Finger scissors, Double beckon, Two-finger walk, Ring pulse |
+| Finger sequences | Fan and gather, Opening ripple, Closing ripple, Finger drumming, Spider walk, Air piano |
+| Thumb and pinch | Index tapping, Thumb pulse, Thumb orbit, Thumb visits fingers, Climbing pinches, Circling pinch |
+| Grasp and wrist | Claw and uncurl, Squeeze and release, Wrist circles, Wrist nodding, Palm to back, Figure eight |
+| Expressive loops | Spiral flourish, Finger flicks, Finger scissors, Two-finger beckon, Two-finger walk, Ring-finger bow |
+| Complex patterns | Polyrhythmic tangle, Finger swarm, Frantic orbit, Scatter |
 
-**Speed** multiplies the choreography tempo from **0.1× to 4×**, default **1×**.
-Tempo remains adjustable from 20 to 220 beats per minute. Changing either rate
-preserves the current cycle position while running or paused; both the visible
-rig and audio worklet use the same rebased timeline. Speed changes motion and
-therefore the rate of its pitch, tone and excitation changes. It does not resample
-the audio output. Older saved configurations without Speed use 1×.
+The four complex patterns combine independent finger and wrist cycles. Knuckles,
+middle joints, tips and spread can move at different rates and in opposing
+directions. Frantic orbit and Scatter also vary the phase within their loops.
+Their curves are deterministic, continuous and bounded by the same joint limits.
+
+**Tempo** ranges from **20 to 1,100 BPM**. **Speed** multiplies it from **0.1× to
+4×**, default **1×**; the maximum combination runs at 4,400 effective beats per
+minute. Changing either rate preserves the choreography's current cycle position
+while running or paused; both the visible rig and audio worklet use the same
+rebased timeline. Faster motion changes the rate of pitch, tone and excitation
+movement. It does not resample the audio output. Older saved configurations
+without Speed use 1×. Presets recall both Tempo and Speed.
 
 The selected finger exposes each joint separately. For the four fingers these
 are knuckle (MCP), middle (PIP), tip (DIP), and knuckle spread. The thumb uses its
 base (CMC), knuckle (MCP), tip (IP), and base opposition. Bending a knuckle by
 dragging can also bend its downstream joints; uncheck **Bend joints together**
 to isolate it. Wrist bend, side motion and hand turn are separate controls.
+
+**Tremor** adds a shake to selected joints: **0–15 degrees** at **0.5–40 Hz**.
+Choose one finger, all fingers, or alternating fingers moving in opposite phase.
+The joint choices are Tip, Middle, Knuckle, Whole finger, and Wrist. Whole finger
+moves its three bending joints together; Wrist shakes bend, side and turn.
+Tip and middle tremor also add gentle continuous vibrato from the actual visible
+deflection. Knuckle and wrist tremor use their existing pitch mappings. Tremor
+rate is expressed in Hz independently of Tempo and Speed. Changing Tempo, Speed
+or tremor rate preserves its current phase. Motion pause holds both
+choreography and tremor at their current position; Sound can sustain that pose.
+Tremor defaults to zero, including when loading older saved configurations.
 
 These are calibrated, bounded controls on an artist's rig. They do not simulate
 every tendon, contact force or bone collision. Extreme mixed poses may intersect.
@@ -64,6 +83,7 @@ not a clinical hand model, sign-language dictionary or validated hand tracker.
 | --- | --- |
 | Finger knuckle/base bend | Continuous exponential pitch movement |
 | Middle and tip bends | Brightness and roughness |
+| Middle and tip tremor | Additional continuous vibrato from visible joint deflection |
 | Finger spread | Stereo position |
 | Wrist bend and turn | Shared pitch/register movement |
 | Wrist side motion | Shared color and stereo movement |
@@ -91,11 +111,22 @@ is capped at 40 frames/second, 1.6 device-pixel ratio and about 1.45 million pix
   the selected finger. Shift makes a smaller change. Sliders provide the same
   controls without direct 3D manipulation.
 - Space toggles Motion. Sound and Audio remain separate.
-- The control-panel presets recall complete hand, motion and sound settings;
-  the adjacent dice randomizes musical parameters within their bounds. Twenty
-  complete presets include six scenes for the new engines and movements.
-- Reset recalls the initial musical state without changing output or player
+- The **24 complete presets** recall joints, sound engines and levels, envelopes,
+  choreography, Tempo, Speed, tremor, camera angle/zoom, skin and lighting. The
+  four complex-motion scenes showcase higher tempos with different Speed values.
+  The adjacent dice randomizes these settings within their bounds.
+- Reset recalls the initial scene without changing output or player
   switches. Audio off releases sound. Blur releases transient manual/MIDI holds.
+
+Skin choices are **Natural, Porcelain, Copper, Jade, Violet, and Cyan**.
+Lighting choices are **Studio, Warm, Cool, Noir, Neon, and Soft**. These material
+and light treatments change the view; joint motion continues to own synthesis.
+Older saved configurations use Natural skin, Studio lighting and the palm camera.
+Camera orbit, angle and zoom belong to each complete preset.
+
+On phones, the hand stage stays visible beneath the masthead while the mixer and
+parameter controls scroll below it. The hand remains available for direct gestures
+as sound, motion and appearance settings are edited.
 
 MIDI notes map to five temporary finger gestures, with velocity controlling
 their bend. Independent sources and note releases are tracked. Pitch bend moves
