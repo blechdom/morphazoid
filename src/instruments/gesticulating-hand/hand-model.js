@@ -29,7 +29,7 @@ export const HAND_LIMITS = freeze({
   tremor: { amount: [0, 15], rate: [.5, 40] },
   view: { yaw: [-Math.PI, Math.PI], pitch: [-1.15, 1.15], zoom: [.62, 2] },
   motion: { tempo: [20, 1100], amount: [0, 1], speed: [.1, 4] },
-  sound: { rootHz: [35, 1000], brightness: [0, 1], roughness: [0, 1], space: [0, 1], attack: [.004, 1.2], release: [.04, 3.5] },
+  sound: { rootHz: [35, 1000], brightness: [0, 1], roughness: [0, 1], space: [0, 1], rotationFx: [0, 1], attack: [.004, 1.2], release: [.04, 3.5] },
 });
 const fingers = (bends, spreads = [12, -8, 0, 5, 13]) => bends.map((bend, i) => ({ mcp: bend[0], pip: bend[1], dip: bend[2], spread: spreads[i] }));
 export const HAND_POSES = freeze([
@@ -93,7 +93,7 @@ export const HAND_DEFAULTS = freeze({
   version: 1,
   pose: { fingers: DEFAULT_POSE.fingers.map(f => ({ ...f })), wrist: { ...DEFAULT_POSE.wrist } },
   motion: { id: "source-grasp", tempo: 72, amount: .85, speed: 1 },
-  sound: { rootHz: 137, brightness: .46, roughness: .16, space: .28, attack: .045, release: .45 },
+  sound: { rootHz: 137, brightness: .46, roughness: .16, space: .28, rotationFx: .65, attack: .045, release: .45 },
   voices: FINGERS.map((_, i) => ({ source: VOICE_SOURCES[i], level: i === 4 ? .5 : .7, mute: false, solo: false })),
   view: { yaw: .12, pitch: .035, zoom: 1 },
   tremor: { finger: "all", joint: "tip", amount: 0, rate: 8 },
@@ -524,11 +524,19 @@ const PRESET_APPEARANCES = {
   "orbit-frenzy": { skin: "cyan", lighting: "neon" },
   "scattered-sparks": { skin: "copper", lighting: "noir" },
 };
+const PRESET_ROTATION_FX = {
+  "glass-wave": .68, "reed-beckon": .42, "wire-roll": .76, "pinch-sparks": .54,
+  "counting-air": .38, "flourish-copper": .92, "low-claw": .34, "hushed-palm": .28,
+  "point-transmission": .81, "slow-unfurl": .57, "closed-bell": .18, "little-machinery": .72,
+  "original-grasp": .65, "breathing-hand": .31, "bowed-spiral": .86, "vowel-opposition": .46,
+  "metal-drumming": .61, "bowed-eight": .78, "vowel-fan": .43, "metal-walk": .74,
+  "tangled-polyrhythm": .88, "swarming-fingers": .71, "orbit-frenzy": 1, "scattered-sparks": .83,
+};
 export const HAND_PRESETS = freeze(PRESET_DEFINITIONS.map(([id, label, poseId, motionId, tempo, amount, rootHz, brightness, roughness, space, attack, release, sources, speed = 1], index) => ({
   id, label, snapshot: normalizeHandConfig({
     pose: HAND_POSES.find(p => p.id === poseId).pose, view: PRESET_VIEWS[id],
     tremor: PRESET_TREMORS[id], appearance: PRESET_APPEARANCES[id],
-    motion: { id: motionId, tempo, amount, speed }, sound: { rootHz, brightness, roughness, space, attack, release },
+    motion: { id: motionId, tempo, amount, speed }, sound: { rootHz, brightness, roughness, space, rotationFx: PRESET_ROTATION_FX[id], attack, release },
     voices: sources.map((source, i) => ({ source, level: source === "air" ? .43 : .56 + ((index + i) % 4) * .085, mute: false, solo: false })),
   }),
 })));
@@ -548,7 +556,7 @@ export function randomizeHandConfig(_current = HAND_DEFAULTS, random = Math.rand
     joint: TREMOR_JOINTS[Math.floor(unit() * TREMOR_JOINTS.length)], amount: between(0, 15), rate: .5 * 80 ** unit() };
   next.appearance = { skin: HAND_SKINS[Math.floor(unit() * HAND_SKINS.length)], lighting: HAND_LIGHTINGS[Math.floor(unit() * HAND_LIGHTINGS.length)] };
   next.motion = { id: HAND_MOTIONS[Math.floor(unit() * HAND_MOTIONS.length)].id, tempo: between(20, 1100), amount: unit(), speed: .1 * 40 ** unit() };
-  next.sound = { rootHz: 35 * (1000 / 35) ** unit(), brightness: unit(), roughness: unit(), space: unit(),
+  next.sound = { rootHz: 35 * (1000 / 35) ** unit(), brightness: unit(), roughness: unit(), space: unit(), rotationFx: unit(),
     attack: .004 * 300 ** unit(), release: .04 * 87.5 ** unit() };
   if (next.voices.every(v => v.mute)) next.voices[Math.floor(unit() * 5)].mute = false;
   return normalizeHandConfig(next);
