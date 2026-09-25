@@ -138,17 +138,22 @@ for(const armed of [false,true]) {
       for(const [id,values] of [['speed',[.1,4,1]],['tempo',[20,1100,72]]])for(const value of values) {
         const result=await page.evaluate(async({id,value})=>{
           const {evaluateHandPose,handMotionPeriod}=await import("/src/instruments/gesticulating-hand/hand-model.js");
+          const started=performance.now();
           const before=window.__gesticulatingHand.snapshot(),input=document.querySelector('#'+id);
           input.value=String(value);input.dispatchEvent(new Event('input',{bubbles:true}));
-          const after=window.__gesticulatingHand.snapshot();
-          const oldTime=after.time*handMotionPeriod(before.config.motion)/handMotionPeriod(after.config.motion);
-          return {before,after,oldTime,expected:evaluateHandPose(before.config,oldTime,undefined,after.tremorTime)};
+          const after=window.__gesticulatingHand.snapshot(),elapsed=(performance.now()-started)/1000;
+          const periodRatio=handMotionPeriod(before.config.motion)/handMotionPeriod(after.config.motion);
+          const oldTime=after.time*periodRatio;
+          return {before,after,oldTime,elapsed,periodRatio,expected:evaluateHandPose(before.config,oldTime,undefined,after.tremorTime)};
         },{id,value});
-        const {before,after,expected,oldTime}=result;
+        const {before,after,expected,oldTime,elapsed,periodRatio}=result;
         expect(after.config.motion[id]).toBe(value);
         expect(after.playing).toBe(playing);expect(after.soundPlaying).toBe(true);expect(after.audioOn).toBe(armed);
-        expect(Math.abs(oldTime-before.time)).toBeLessThan(.04);
-        expect(Math.abs(after.tremorTime-before.tremorTime)).toBeLessThan(.04);
+        // Converting back to the old period also scales time spent updating the
+        // DOM (up to 55× here). Chromium's audio clock advances in batched quanta.
+        const clockAllowance=armed?.012:.0002;
+        expect(Math.abs(oldTime-before.time)).toBeLessThan(playing?(elapsed+clockAllowance)*Math.max(1,periodRatio):1e-8);
+        expect(Math.abs(after.tremorTime-before.tremorTime)).toBeLessThan(playing?elapsed+clockAllowance:1e-8);
         for(let i=0;i<5;i++) for(const key of ['mcp','pip','dip','spread']) {
           // Compare at the same phase: the live audio clock keeps advancing during DOM updates.
           expect(Math.abs(after.pose.fingers[i][key]-expected.fingers[i][key])).toBeLessThan(.0001);
@@ -364,7 +369,7 @@ test.describe('pinned mobile stage',()=>{
       for(let step=1;step<=8;step++)await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x,y:from+(to-from)*step/8}]});
       await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
       await expect.poll(async()=>(await geometry()).scroll).toBeGreaterThan(30);
-      for(const id of ['source-4','tempo','skin','lighting','release']) {
+      for(const id of ['tempo','speed','rotationFx','skin','lighting','release','source-4']) {
         await page.locator('#'+id).evaluate(input=>{input.scrollIntoView({block:'center'});input.focus({preventScroll:true});});
         const current=await geometry();
         expect(current.stage.y).toBeCloseTo(initial.stage.y,0);expect(current.canvas.x).toBeCloseTo(initial.canvas.x,0);
@@ -373,7 +378,7 @@ test.describe('pinned mobile stage',()=>{
         });
         expect(control.top).toBeGreaterThanOrEqual(current.stage.bottom);expect(control.bottom).toBeLessThan(viewport.height);expect(control.hit).toBe(true);
       }
-      await page.evaluate(()=>window.scrollTo(0,650));
+      await page.locator('#motionButton').evaluate(button=>button.scrollIntoView({block:'center'}));
       expect(await page.locator('#motionButton').evaluate(button=>{const r=button.getBoundingClientRect();return button.contains(document.elementFromPoint(r.x+r.width/2,r.y+r.height/2));})).toBe(true);
       const before=(await snapshot(page)).config.view,rect=await page.locator('#handCanvas').boundingBox();
       await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x:rect.x+rect.width-15,y:rect.y+50}]});
@@ -388,4 +393,53 @@ test.describe('pinned mobile stage',()=>{
       await cdp.detach();
     });
   }
+});
+
+
+test('right-panel players use aligned Shape transport icons and keep separate ownership',async({page})=>{
+  for(const id of ['soundPlayButton','motionButton','speed','tempo']) {
+    await expect(page.locator(`.hand-panel #${id}`)).toHaveCount(1);
+    await expect(page.locator(`#handStage #${id}`)).toHaveCount(0);
+  }
+  const layout=await page.evaluate(()=>{
+    const rect=id=>document.getElementById(id).getBoundingClientRect().toJSON();
+    const ids=['soundPlayButton','motionButton','tempo','speed'];
+    return {boxes:Object.fromEntries(ids.map(id=>[id,rect(id)])),radius:getComputedStyle(document.getElementById('motionButton')).borderRadius};
+  });
+  expect(layout.radius).toBe('50%');
+  expect(layout.boxes.soundPlayButton.y).toBeCloseTo(layout.boxes.motionButton.y,0);
+  expect(layout.boxes.tempo.y).toBeCloseTo(layout.boxes.motionButton.y,0);
+  expect(layout.boxes.speed.y).toBeGreaterThan(layout.boxes.tempo.bottom);
+  await page.locator('#soundPlayButton').click();
+  await expect(page.locator('#soundPlayButton .transport-pause')).toBeVisible();
+  await expect(page.locator('#soundPlayButton .transport-play')).toBeHidden();
+  const sound=await snapshot(page);expect(sound.soundPlaying).toBe(true);expect(sound.playing).toBe(false);expect(sound.audioOn).toBe(false);
+  await page.locator('#motionButton').click();await page.locator('#soundPlayButton').click();
+  const motion=await snapshot(page);expect(motion.soundPlaying).toBe(false);expect(motion.playing).toBe(true);expect(motion.audioOn).toBe(false);
+  await expect(page.locator('#motionButton .transport-pause')).toBeVisible();
+});
+
+test('rotation reaches the worklet and auditions the hand only after Audio is armed',async({page})=>{
+  await page.locator('[data-view="side"]').click();
+  expect((await snapshot(page)).audio.contextState).toBe('uninitialized');
+  await page.locator('#audioButton').click();await expect(page.locator('#audioButton')).toHaveAttribute('aria-pressed','true');
+  await range(page,'release',.04);await range(page,'space',0);
+  await page.locator('[data-view="back"]').click();
+  await expect.poll(async()=>(await snapshot(page)).audio.rms).toBeGreaterThan(.001);
+  const rotated=await snapshot(page);
+  expect(rotated.soundPlaying||rotated.playing).toBe(false);
+  await expect.poll(async()=>(await snapshot(page)).audio.rms).toBeLessThan(.0001);
+  await page.locator('#zoomIn').click();await page.waitForTimeout(130);
+  expect((await snapshot(page)).audio.rms).toBeLessThan(.0001);
+  await range(page,'rotationFx',0);await page.locator('[data-view="palm"]').click();await page.waitForTimeout(130);
+  expect((await snapshot(page)).audio.rms).toBeLessThan(.0001);
+  await range(page,'rotationFx',1);
+  const rect=await page.locator('#handCanvas').boundingBox();
+  await page.mouse.move(rect.x+rect.width-20,rect.y+60);await page.mouse.down();
+  await page.mouse.move(rect.x+rect.width-90,rect.y+85,{steps:5});await page.mouse.up();
+  await expect.poll(async()=>(await snapshot(page)).audio.rms).toBeGreaterThan(.001);
+  expect((await snapshot(page)).audio.peak).toBeLessThan(.95);
+  await chooseScene(page,'Finger swarm');const saved=(await snapshot(page)).config.sound.rotationFx;
+  await range(page,'rotationFx',saved===1?0:1);await chooseScene(page,'Finger swarm');
+  expect((await snapshot(page)).config.sound.rotationFx).toBe(saved);
 });

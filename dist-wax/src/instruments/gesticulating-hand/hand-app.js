@@ -55,8 +55,8 @@ function syncTransport() {
   el('audioState').textContent = state.starting ? 'starting' : state.audioOn ? 'on' : 'off';
   for (const [id, active, label] of [['soundPlayButton', state.soundPlaying, 'Sound'], ['motionButton', state.playing, 'Motion']]) {
     el(id).setAttribute('aria-pressed', String(active));
-    el(id).innerHTML = `<span aria-hidden="true">${active ? 'Ⅱ' : '▶'}</span> ${label}`;
     el(id).setAttribute('aria-label', `${active ? 'Pause' : 'Play'} ${label.toLowerCase()}`);
+    el(id).title = `${active ? 'Pause' : 'Play'} ${label.toLowerCase()}`;
   }
   transportNotice();
 }
@@ -280,7 +280,7 @@ listen(el('posePreset'),'change',event=>{
   const pose=HAND_POSES.find(p=>p.id===event.target.value);
   if(pose) updateConfiguration(c=>{c.pose=clone(pose.pose);});
 });
-for(const id of ['speed','tempo','motionAmount','rootHz','brightness','roughness','space','attack','release','wristFlex','wristSide','wristTwist']) {
+for(const id of ['speed','tempo','motionAmount','rootHz','brightness','roughness','rotationFx','space','attack','release','wristFlex','wristSide','wristTwist']) {
   listen(el(id),'input',event=>{
     const value=Number(event.target.value);
     if(id==='tempo'||id==='speed') { updateConfiguration(c=>{c.motion[id]=value;}); return; }
@@ -349,7 +349,15 @@ syncControls();syncTransport();selectFinger(1,'mcp');
 try {
   viewer=createHandViewer(el('handCanvas'),{
     onSelect:selectFinger,onGesture:editJoint,onChange:requestDraw,
-    onViewChange:view=>{state.config.view=view;syncViewButtons();presets?.refresh();},
+    onViewChange:view=>{
+      const prior=state.config.view;
+      const turned=Math.abs(Math.atan2(Math.sin(view.yaw-prior.yaw),Math.cos(view.yaw-prior.yaw)))>1e-6 || Math.abs(view.pitch-prior.pitch)>1e-6;
+      state.config.view=view;syncViewButtons();presets?.refresh();
+      if(turned){
+        audio.setConfig(performanceConfig());
+        if(state.config.sound.rotationFx>0)for(let finger=0;finger<5;finger++)audio.auditionFinger(finger,.18);
+      }
+    },
     onStatus:message=>{el('modelStatus').textContent=message;el('modelStatus').hidden=!message;},
     onReady:()=>{state.loaded=true;requestDraw();},
   });

@@ -133,6 +133,73 @@ function waveform(source, voice, random, sampleRate) {
     + .12 * Math.sin(phase);
 }
 
+const PHASER_RATIOS = Object.freeze([.44, .64, .92, 1.3, 1.84, 2.6]);
+/** Six all-pass stages per ear make three moving notches. Orientation supplies
+ * the sweep; there is no free-running LFO or display-frame scheduling. Feedback
+ * remains below .36 and coefficients are smoothed inside the audio callback.
+ */
+class HandRotationPhaser {
+  constructor(rate) {
+    this.rate = rate; this.smooth = coefficients(rate, .018);
+    this.depth = this.targetDepth = this.feedback = this.targetFeedback = 0;
+    this.left = this.right = 0; this.active = false;
+    this.channels = Array.from({ length: 2 }, () => ({ memory: new Float64Array(6),
+      coefficients: new Float64Array(6), targets: new Float64Array(6), last: 0 }));
+  }
+  setTargets(config, pose, enabled) {
+    this.targetDepth = enabled ? config.sound.rotationFx : 0;
+    const yaw = config.view.yaw - HAND_DEFAULTS.view.yaw + pose.wrist.twist * Math.PI / 180;
+    const tilt = config.view.pitch - HAND_DEFAULTS.view.pitch + pose.wrist.flex * Math.PI / 180;
+    // Sine/cosine coordinates make -pi and +pi meet without sweeping through
+    // the front view. Opposing left/right sweeps retain the finger stereo mix.
+    const turning = .23 * Math.sin(yaw), facing = .15 * Math.cos(yaw), leaning = .12 * Math.sin(tilt);
+    this.targetFeedback = .18 + .18 * (.5 + .5 * Math.cos(yaw + tilt * .8));
+    for (let ear = 0; ear < 2; ear++) {
+      const position = .46 + facing + leaning + (ear === 0 ? turning : -turning);
+      const center = 60 * 90 ** position;
+      const channel = this.channels[ear];
+      for (let stage = 0; stage < 6; stage++) {
+        const frequency = Math.min(this.rate * .38, center * PHASER_RATIOS[stage]);
+        const g = Math.tan(Math.PI * frequency / this.rate);
+        channel.targets[stage] = (g - 1) / (g + 1);
+      }
+    }
+  }
+  reset() {
+    this.depth = this.targetDepth; this.feedback = this.targetFeedback; this.active = this.depth > 0;
+    this.left = this.right = 0;
+    for (const channel of this.channels) { channel.memory.fill(0); channel.last = 0; channel.coefficients.set(channel.targets); }
+  }
+  process(left, right) {
+    this.depth += (this.targetDepth - this.depth) * this.smooth;
+    this.feedback += (this.targetFeedback - this.feedback) * this.smooth;
+    if (this.targetDepth === 0 && this.depth < 1e-7) {
+      this.depth = 0;
+      if (this.active) {
+        for (const channel of this.channels) { channel.memory.fill(0); channel.last = 0; }
+        this.active = false;
+      }
+      this.left = left; this.right = right; return;
+    }
+    this.active = true;
+    for (let ear = 0; ear < 2; ear++) {
+      const dry = ear === 0 ? left : right, channel = this.channels[ear];
+      let wet = dry + this.feedback * channel.last;
+      for (let stage = 0; stage < 6; stage++) {
+        const a = channel.coefficients[stage] += (channel.targets[stage] - channel.coefficients[stage]) * this.smooth;
+        const next = a * wet + channel.memory[stage];
+        channel.memory[stage] = wet - a * next;
+        wet = next;
+      }
+      channel.last = Math.abs(wet) < 1e-20 ? 0 : wet;
+      // Keep the original signal present even at full depth. Normalizing the
+      // resonant branch limits static feedback gain without changing the dry path.
+      const output = dry * (1 - this.depth * .2) + wet * (1 - this.feedback) * this.depth * .42;
+      if (ear === 0) this.left = output; else this.right = output;
+    }
+  }
+}
+
 /** Five fixed voices, bounded stereo delay, no render-loop event queue.
  * Choreography is evaluated here from the audio clock, without display frames.
  */
@@ -150,12 +217,14 @@ export class HandDSP {
       filter: 0, lastInput: 0, dc: 0, cutoff: 1000, gated: false, ...createEngines(this.sampleRate),
     }));
     this.smooth = coefficients(this.sampleRate, .014); this.pitchSmooth = coefficients(this.sampleRate, .009);
+    this.rotation = new HandRotationPhaser(this.sampleRate);
     this.attackCoefficient = 0; this.releaseCoefficient = 0; this.muteCoefficient = coefficients(this.sampleRate, .025, 6.9);
     this.delayLeft = new Float32Array(Math.ceil(this.sampleRate * .41));
     this.delayRight = new Float32Array(Math.ceil(this.sampleRate * .41));
     this.delayWrite = 0; this.space = 0; this.voiceLevels = new Float32Array(5); this.peak = 0; this.rms = 0;
     this.setConfig(this.config);
     this.updateTargets(0); // Warm source sampler storage before the audio callback.
+    this.rotation.reset();
   }
   setConfig(value) {
     this.config = normalizeHandConfig(value);
@@ -189,6 +258,7 @@ export class HandDSP {
   updateTargets(at) {
     const time = this.getMotionTime(at);
     evaluateHandVoices(this.config, time, this.targets, this.pose, this.previousPose, time + this.tremorOffset);
+    this.rotation.setTargets(this.config, this.pose, this.enabled);
     for (let i = 0; i < 5; i++) {
       const voice = this.voices[i], target = this.targets[i];
       if (target.source !== voice.source) {
@@ -215,6 +285,7 @@ export class HandDSP {
       tuneEngines(voice, this.sampleRate);
     }
     this.delayLeft.fill(0); this.delayRight.fill(0); this.delayWrite = 0; this.space = 0; this.peak = this.rms = 0;
+    this.rotation.reset();
   }
   process(left, right = left, audioTime = this.clock) {
     if (!left?.length) return;
@@ -272,6 +343,7 @@ export class HandDSP {
         const angle = (voice.pan + 1) * Math.PI / 4;
         mixLeft += sample * Math.cos(angle); mixRight += sample * Math.sin(angle);
       }
+      this.rotation.process(mixLeft, mixRight); mixLeft = this.rotation.left; mixRight = this.rotation.right;
       this.space += ((this.enabled ? this.config.sound.space : 0) - this.space) * this.smooth;
       const readL = (this.delayWrite - delayL + delaySize) % delaySize;
       const readR = (this.delayWrite - delayR + delaySize) % delaySize;
