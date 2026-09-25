@@ -22,11 +22,12 @@ for(const viewport of [{width:1440,height:900},{width:390,height:844},{width:844
     expect(presentation.crowd.width).toBeLessThan(110);expect(presentation.objects.width).toBeLessThan(110);
     for(const knob of presentation.knobs){
       expect(knob.label.y).toBeGreaterThan(knob.dial.bottom);
+      expect(knob.labelSize).toBeLessThanOrEqual(9);
       expect(knob.output.y).toBeGreaterThan(knob.label.bottom);expect(knob.valueSize).toBeLessThan(knob.labelSize);
     }
-    expect(presentation.knobs[0].color).not.toBe(presentation.knobs[8].color);
+    expect(presentation.knobs[0].color).not.toBe(presentation.knobs[9].color);
     if(viewport.width===1440)expect(presentation.knobs.filter(k=>k.dial.y===presentation.knobs[0].dial.y).length).toBeGreaterThan(8);
-    await expect(page.locator('.puggler-performance-controls details')).toHaveCount(0);
+    await expect(page.locator('.puggler-knob-bank details')).toHaveCount(0);
     expect(await page.locator('.puggler-performance-controls').innerText()).not.toMatch(/drag up|drag down|drag.*up.*down/i);
     await expect(page.locator('#playButton')).toHaveAccessibleName('Pause');
     await page.locator('#playButton').click();
@@ -34,10 +35,10 @@ for(const viewport of [{width:1440,height:900},{width:390,height:844},{width:844
     await expect(page.locator('#playButton')).toHaveAttribute('aria-pressed','false');
     const before=await state(page);
     await expect(page.locator('.puggler-panel #loft, .puggler-panel #soundControls, .key-grid')).toHaveCount(0);
-    await expect(page.locator('#performanceKnobs input[type=range]')).toHaveCount(8);
+    await expect(page.locator('#performanceKnobs input[type=range]')).toHaveCount(9);
     await expect(page.locator('#soundControls input[type=range]')).toHaveCount(10);
     await expect(page.locator('#boo')).toHaveAttribute('max','3');
-    for(const id of ['rideSpeed','tempo','count','loft','assist','chaos','gravity','wind','sceneGain','flight','impacts','drops','boo','height','stereo','grit','motion','decay']){
+    for(const id of ['rideSpeed','tempo','count','loft','assist','chaos','gravity','wind','rideRange','sceneGain','flight','impacts','drops','boo','height','stereo','grit','motion','decay']){
       const input=page.locator(`#${id}`);await input.scrollIntoViewIfNeeded();
       const limits=await input.evaluate(i=>[Number(i.min),Number(i.max),Number(i.step)]);
       for(const value of [limits[0],limits[0]+Math.round((limits[1]-limits[0])/2/limits[2])*limits[2],limits[1]]){

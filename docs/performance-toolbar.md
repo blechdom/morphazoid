@@ -17,6 +17,9 @@ This supersedes the earlier rule that placed presets and MIDI beside the meters.
 All 24 existing full-preset owners declare an explicit
 `data-instrument-preset-host`; this includes existing WIP adapters, not new WIP
 preset authoring. Shapes places the row above its dimension/bank controls.
+Puggler has an owner-requested mobile exception: the same preset host moves to
+the first row below its graphic in phone portrait and short landscape, returning
+to the sidebar on desktop. No preset or transport state is recalled on resize.
 Focused sound, sequence, skin, material and other sub-presets stay in place.
 The L-system Delay input controls move intact below its full-preset row rather
 than remain an extra masthead item. Its trim is not a master-volume knob.

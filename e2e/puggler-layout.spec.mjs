@@ -44,12 +44,13 @@ for (const viewport of viewports) {
         expect(before.panel.height).toBeGreaterThanOrEqual(viewport.height*.75);
       }
       await page.screenshot({path:testInfo.outputPath('initial.png')});
+      const overflow=await page.locator('.puggler-panel').evaluate(panel=>panel.scrollHeight-panel.clientHeight);
       await page.mouse.move(viewport.width-5,viewport.height-20);
       await page.mouse.wheel(0,700);
       await expect.poll(()=>page.evaluate(()=>{
         const panel=document.querySelector('.puggler-panel');
         return getComputedStyle(panel).overflowY==='auto'?panel.scrollTop:scrollY;
-      })).toBeGreaterThan(100);
+      })).toBeGreaterThan(portrait?100:Math.min(100,overflow-1));
       const scrolled=await geometry(page);
       expect(scrolled.wrap.y).toBeCloseTo(before.wrap.y,0);
       expect(scrolled.canvas.height).toBeCloseTo(before.canvas.height,0);
