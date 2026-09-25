@@ -27,7 +27,7 @@ test("normalization produces independent finite bounded full scenes without runt
   assert.equal(config.motion.tempo, 180); assert.equal(config.motion.amount, 1);
   assert.equal(config.sound.release, .04); assert.equal(config.voices[0].level, 1); assert.equal(config.voices[0].mute, false);
   assert.ok(Object.values(leaves(config)).every(v => typeof v !== "number" || Number.isFinite(v)));
-  assert.deepEqual(Object.keys(config), ["version", "pose", "motion", "sound", "voices"]);
+  assert.deepEqual(Object.keys(config), ["version", "pose", "motion", "sound", "voices", "view", "tremor", "appearance"]);
   const fresh = normalizeHandConfig(HAND_DEFAULTS); fresh.pose.fingers[0].mcp = 999; fresh.voices[0].source = "other";
   assert.notEqual(HAND_DEFAULTS.pose.fingers[0].mcp, 999); assert.notEqual(HAND_DEFAULTS.voices[0].source, "other");
 });
