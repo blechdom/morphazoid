@@ -2,18 +2,12 @@
 .hand-page .masthead { background: #101014; border-bottom-color: var(--hand-line); }
 .hand-shell { display: grid; grid-template-columns: minmax(0, 1fr) 310px; gap: 0; max-width: 1800px; margin: auto; padding: 0 20px 28px; }
 .hand-performance { min-width: 0; padding: 0 22px 0 0; }
-.hand-transports { display: flex; align-items: center; gap: 9px; min-height: 72px; padding: 12px 0; }
 .hand-page button, .hand-page select { font: inherit; }
 .hand-shell button, .hand-shell select { min-height: 34px; color: var(--hand-paper); background: #ffffff06; border: 1px solid #ffffff20; border-radius: 5px; padding: 6px 11px; cursor: pointer; }
 .hand-shell button:hover { background: #ffffff12; border-color: #ffffff45; }
 .hand-shell button[aria-pressed="true"] { background: #dea97820; border-color: #dea97880; color: #f3cfab; }
-.hand-transports button { min-height: 42px; }
-.hand-transports button span { margin-right: 5px; font-size: 10px; }
-.hand-speed { display: grid; gap: 4px; width: 165px; margin-left: 8px; font-size: 11px; color: var(--hand-muted); }
-.hand-speed span { display: flex; justify-content: space-between; }
 .hand-shell input[type="range"] { width: 100%; accent-color: var(--hand-accent); margin: 3px 0; min-width: 0; cursor: ew-resize; }
 .hand-shell output { font-variant-numeric: tabular-nums; color: var(--hand-paper); font-size: 11px; }
-.hand-reset { margin-left: auto; }
 .hand-viewport { height: clamp(420px, calc(100dvh - 330px), 780px); position: relative; min-width: 0; overflow: hidden; border-radius: 8px; background: #141418; }
 .hand-viewport h1 { position: absolute; left: 25px; top: 22px; z-index: 2; margin: 0; font-family: inherit; font-weight: 500; font-size: clamp(22px, 2.55vw, 40px); letter-spacing: -.055em; color: var(--hand-paper); pointer-events: none; }
 #handCanvas { display: block; width: 100%; height: 100%; touch-action: none; outline-offset: -3px; }
@@ -61,10 +55,10 @@
 .hand-voice label { display: block; font-size: 10px; color: var(--hand-muted); margin-top: 8px; }
 .hand-voice meter { display: block; width: 100%; height: 4px; margin: 8px 0 0; opacity: .7; }
 @media (min-width: 1050px) { .hand-panel { max-height: calc(100dvh - 78px); overflow-y: auto; scrollbar-width: thin; padding-right: 9px; } .hand-performance { position: sticky; align-self: start; top: 0; } }
-@media (max-width: 1049px) { .hand-shell { grid-template-columns: minmax(0, 1fr) 280px; padding: 0 14px 20px; } .hand-performance { padding-right: 15px; } .hand-panel { padding-left: 16px; } .hand-speed { width: 105px; margin-left: 0; } .hand-finger-mixer { gap: 6px; } .hand-viewport { height: 530px; } }
-@media (max-width: 760px) { .hand-shell { display: block; padding: 0 12px 24px; } .hand-performance { padding: 0; } .hand-transports { min-height: 65px; gap: 6px; } .hand-transports button { font-size: 12px; padding: 6px 10px; } .hand-speed { flex: 1; max-width: 160px; } .hand-reset { padding: 6px 7px !important; } .hand-viewport { height: min(63dvh, 590px); min-height: 365px; } .hand-viewport h1 { left: 18px; top: 18px; font-size: clamp(23px, 5.6vw, 36px); } .hand-panel { border-left: 0; border-top: 1px solid var(--hand-line); margin-top: 22px; padding: 20px 0 0; display: grid; grid-template-columns: 1fr 1fr; gap: 20px; } .hand-control-block { margin: 0; } .hand-notes { grid-column: 1 / -1; } .hand-camera { left: 13px; } .hand-stage-footer { left: 16px; } }
+@media (max-width: 1049px) { .hand-shell { grid-template-columns: minmax(0, 1fr) 280px; padding: 0 14px 20px; } .hand-performance { padding-right: 15px; } .hand-panel { padding-left: 16px; } .hand-finger-mixer { gap: 6px; } .hand-viewport { height: 530px; } }
+@media (max-width: 760px) { .hand-shell { display: block; padding: 0 12px 24px; } .hand-performance { padding: 0; } .hand-viewport { height: min(63dvh, 590px); min-height: 365px; } .hand-viewport h1 { left: 18px; top: 18px; font-size: clamp(23px, 5.6vw, 36px); } .hand-panel { border-left: 0; border-top: 1px solid var(--hand-line); margin-top: 22px; padding: 20px 0 0; display: grid; grid-template-columns: 1fr 1fr; gap: 20px; } .hand-control-block { margin: 0; } .hand-notes { grid-column: 1 / -1; } .hand-camera { left: 13px; } .hand-stage-footer { left: 16px; } }
 @media (max-width: 450px) { .hand-panel { display: block; } .hand-control-block { margin-bottom: 22px; } .hand-finger-mixer { gap: 5px; } .hand-voice select { font-size: 10px; padding: 4px 1px; } .hand-voice-name { font-size: 11px !important; } .hand-section-title h2 { font-size: 11px; } .hand-mix-actions { flex-wrap: wrap; } .hand-mix-actions button { min-width: 26px; } .hand-gesture-help { font-size: 10px; } }
-@media (max-height: 500px) and (orientation: landscape) { .hand-shell { grid-template-columns: minmax(0, 1fr) 265px; } .hand-viewport { height: 360px; min-height: 0; } .hand-transports { min-height: 60px; } .hand-viewport h1 { font-size: 23px; top: 14px; left: 16px; } .hand-camera { bottom: 45px; } }
+@media (max-height: 500px) and (orientation: landscape) { .hand-shell { grid-template-columns: minmax(0, 1fr) 265px; } .hand-viewport { height: 360px; min-height: 0; } .hand-viewport h1 { font-size: 23px; top: 14px; left: 16px; } .hand-camera { bottom: 45px; } }
 @media (pointer: coarse) { .hand-page #audioButton, .hand-page [data-primary-transport], .hand-page #soundPlayButton { min-width: 48px; min-height: 48px; } .hand-shell input[type="range"] { min-height: 28px; } .hand-finger-tabs button { min-height: 44px; } .hand-camera button { min-height: 40px; } }
 @media (prefers-reduced-motion: reduce) { .hand-shell * { scroll-behavior: auto; transition: none !important; } }
 
@@ -75,14 +69,12 @@
   html.hand-document { height: auto; min-height: 100%; overflow-x: clip; overflow-y: auto; scroll-padding-top: calc(var(--hand-sticky-offset, 440px) + 12px); }
   body.hand-page { height: auto; min-height: 100svh; overflow: visible; }
   .hand-page > .masthead { position: sticky; top: 0; }
-  .hand-shell { display: block; flex: none; width: 100%; padding: 0 max(12px, env(safe-area-inset-right)) max(24px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left)); }
+  .hand-shell { display: flex; flex-direction: column; flex: none; width: 100%; padding: 0 max(12px, env(safe-area-inset-right)) max(24px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left)); }
   .hand-performance { display: contents; }
-  .hand-stage { position: sticky; top: var(--hand-header-height, 109px); z-index: 20; display: grid; grid-template-rows: auto minmax(0, 1fr) auto; height: min(52svh, calc(100svh - var(--hand-header-height, 109px) - 170px)); padding-bottom: 8px; background: #101014; box-shadow: 0 10px 12px #101014; }
-  .hand-transports { display: grid; grid-template-columns: auto auto minmax(0, 1fr) auto; min-height: 60px; padding: 6px 0; gap: 6px; }
-  .hand-transports button { min-height: 48px; font-size: 12px; padding: 6px 9px; }
-  .hand-speed { width: auto; min-width: 0; max-width: none; margin: 0; }
-  .hand-page .hand-speed input[type="range"] { height: 28px; min-height: 28px; margin: 0; }
-  .hand-reset { margin-left: 0; }
+  .hand-stage { position: sticky; top: var(--hand-header-height, 109px); z-index: 20; display: grid; grid-template-rows: minmax(0, 1fr) auto; flex: none; height: min(52svh, calc(100svh - var(--hand-header-height, 109px) - 170px)); padding-bottom: 8px; background: #101014; box-shadow: 0 10px 12px #101014; }
+  .hand-gesture-help { order: 1; }
+  .hand-panel { order: 2; }
+  .hand-voices { order: 3; }
   .hand-viewport { height: auto; min-height: 0; }
   .hand-viewport h1 { left: 16px; top: 14px; font-size: clamp(22px, 5.6vw, 32px); }
   .hand-camera { left: 12px; bottom: 46px; }
@@ -99,3 +91,13 @@
   .hand-camera { left: 12px; bottom: 10px; }
   .hand-stage-footer { left: auto; right: 12px; bottom: 12px; }
 }
+
+/* Shape's play/pause slots and labelled ranges, with independent hand players. */
+.hand-transport-row { --hand-play-size: 44px; display: grid; grid-template-columns: var(--hand-play-size) var(--hand-play-size) minmax(0, 1fr); align-items: end; gap: 14px; }
+.hand-player { display: grid; gap: 5px; justify-items: center; font-size: 11px; color: var(--hand-muted); }
+.hand-shell .hand-player .play-button { width: var(--hand-play-size); height: var(--hand-play-size); min-width: var(--hand-play-size); min-height: var(--hand-play-size); padding: 0; border-radius: 50%; }
+.hand-transports .hand-section-title { margin-bottom: 12px; }
+.hand-transports .hand-control { margin-top: 0; }
+.hand-page .hand-tempo input[type="range"] { height: var(--hand-play-size); min-height: var(--hand-play-size); margin: 0; }
+.hand-transports .hand-speed { margin-top: 12px; }
+@media (pointer: coarse) { .hand-transport-row { --hand-play-size: 48px; } }

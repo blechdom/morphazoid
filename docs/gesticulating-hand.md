@@ -7,7 +7,11 @@ Turn **Audio** on, then **Sound** to hold the sound of the current pose. **Motio
 runs the selected choreography independently. Dragging a finger or its joint
 markers auditions that finger while Audio is armed. Audio starts off; gestures,
 Space and motion playback never arm it. Turning Audio off leaves visual motion
-running silently. Presets preserve Audio, output level and both players.
+running silently. Presets preserve Audio, output level and both players. Sound and
+Motion have
+independent play/pause buttons at the top of the right panel, beside Tempo, with
+Speed directly below. Their circular buttons and labelled ranges follow Shape's
+transport layout.
 
 ## Hand and movement
 
@@ -87,6 +91,7 @@ not a clinical hand model, sign-language dictionary or validated hand tracker.
 | Finger spread | Stereo position |
 | Wrist bend and turn | Shared pitch/register movement |
 | Wrist side motion | Shared color and stereo movement |
+| Turning or tilting the hand | Stereo phaser sweep |
 | Speed of automatic finger movement | Additional voice excitation |
 
 Each finger chooses one of **eight sound engines**, with its own level, mute and
@@ -97,6 +102,14 @@ and note onset; a motionless held hand lets those rings decay. These are origina
 continuous without a scale or pentatonic quantizer. Register, brightness, grain,
 space, attack and release belong to the complete preset state.
 
+**Rotation sound** controls a stereo phaser driven by the hand's orientation.
+Dragging empty space turns and tilts the hand, sweeping the effect across the
+voices. Animated wrist turns and bends also move the sweep. The amount control
+ranges from dry at zero to the full effect at 100%; it belongs to presets and
+randomization. Zoom and lighting do not change the sound. With Rotation sound
+above zero and Audio armed, manual rotation briefly auditions the hand even when
+Sound is paused.
+
 An AudioWorklet evaluates motion and synthesis on the audio clock. The renderer
 reads that same timeline; animation frames do not schedule audio. There are five
 bounded voices, smoothed controls and a bounded stereo effect. Geometry rendering
@@ -106,7 +119,8 @@ is capped at 40 frames/second, 1.6 device-pixel ratio and about 1.45 million pix
 
 - Drag a marker or finger segment to bend it; horizontal drag adds spread.
 - Drag the palm for wrist bend and turn. Drag empty space to orbit the camera.
-- Palm, Back and Side restore views. The plus/minus buttons and wheel zoom.
+- Palm, Back and Side restore views and sweep the rotation effect. The plus/minus
+  buttons and wheel zoom without changing sound.
 - With the hand focused, 1–5 select fingers, arrows bend/spread, and Home relaxes
   the selected finger. Shift makes a smaller change. Sliders provide the same
   controls without direct 3D manipulation.
@@ -118,14 +132,18 @@ is capped at 40 frames/second, 1.6 device-pixel ratio and about 1.45 million pix
 - Reset recalls the initial scene without changing output or player
   switches. Audio off releases sound. Blur releases transient manual/MIDI holds.
 
-Skin choices are **Natural, Porcelain, Copper, Jade, Violet, and Cyan**.
-Lighting choices are **Studio, Warm, Cool, Noir, Neon, and Soft**. These material
+Skin tints are **Natural, Porcelain, Copper, Jade, Violet, and Cyan**. Each color
+multiplies the original textured material, retaining fingernails, joint creases,
+skin detail and the original roughness and specular response. Natural restores
+the original color exactly.
+Lighting choices are **Studio, Warm, Cool, Noir, Neon, and Soft**. These tint
 and light treatments change the view; joint motion continues to own synthesis.
 Older saved configurations use Natural skin, Studio lighting and the palm camera.
 Camera orbit, angle and zoom belong to each complete preset.
 
 On phones, the hand stage stays visible beneath the masthead while the mixer and
-parameter controls scroll below it. The hand remains available for direct gestures
+parameter controls scroll below it. The transport and parameter panel comes
+before the finger mixer on phones. The hand remains available for direct gestures
 as sound, motion and appearance settings are edited.
 
 MIDI notes map to five temporary finger gestures, with velocity controlling
