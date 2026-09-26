@@ -413,7 +413,7 @@ function runtimeFixture({ webGpu = false } = {}) {
     "pitchInfluence", "pitchInfluenceOut", "filterInfluence", "filterInfluenceOut",
     "stereoInfluence", "stereoInfluenceOut", "neighborResponse", "neighborResponseOut",
     "wInfluence", "wInfluenceOut", "disorderInfluence", "disorderInfluenceOut",
-    "clockSummary", "playButton", "playLabel", "playState", "restartLoop", "restartInstructions", "stepStrip",
+    "clockSummary", "playButton", "twistPlayButton", "playLabel", "playState", "restartLoop", "restartInstructions", "stepStrip",
     "sequenceNow", "sequenceVoice", "sequenceMethod", "sequenceMethodHelp", "sequencePattern",
     "playbackMode", "twistRate", "twistMotion", "hyperbarPanel", "hyperbarGrid", "hyperbarReadout",
     "tempo", "tempoOut", "reseedPattern", "swing", "swingOut", "twistDensity",
@@ -422,7 +422,7 @@ function runtimeFixture({ webGpu = false } = {}) {
   const elements = new Map(elementIds.map((id) => [id, new FakeNode("div", id)]));
   for (const id of [
     "audioButton", "turnCounterclockwise", "turnClockwise", "scramblePuzzle", "undoMove",
-    "unwindPuzzle", "autoRotate", "resetView", "randomView", "resetAll", "playButton",
+    "unwindPuzzle", "autoRotate", "resetView", "randomView", "resetAll", "playButton", "twistPlayButton",
     "restartLoop", "reseedPattern", "rattleButton",
   ]) elements.get(id).tagName = "BUTTON";
   for (const id of [

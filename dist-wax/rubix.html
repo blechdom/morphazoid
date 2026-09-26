@@ -114,62 +114,64 @@
       </section>
 
       <aside class="panel rubix-panel" data-instrument-preset-host aria-label="Rubix Cube Sequencer controls">
-        <div class="rubix-status-strip" aria-live="polite">
-          <b id="engineState">Shared Web Audio engine</b>
-          <small id="sequenceState">27 visible stickers · 3 lanes × 9 steps</small>
-        </div>
+        <div hidden aria-hidden="true"><b id="engineState"></b><small id="sequenceState"></small></div>
 
-        <details class="group control-section rubix-control-section" data-section="play" open>
-          <summary class="group-summary">
-            <h2 class="group-title">Clock</h2>
-            <span class="section-state" id="clockSummary">126 BPM · straight</span>
-          </summary>
-          <div class="group-body">
-            <div class="rubix-clock-transport" role="group" aria-label="Sequencer transport">
-              <button class="rubix-play-button" id="playButton" type="button" aria-pressed="false">
+        <section class="puzzle-performance" aria-label="Playback and motion">
+          <div class="position-row puzzle-play-row">
+            <button class="play-button" id="playButton" aria-labelledby="playLabel" type="button" aria-pressed="false">
                 <svg class="transport-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5 18 12 8 18.5Z" /></svg>
                 <svg class="transport-pause" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6v12M16 6v12" /></svg>
-                <span><b id="playLabel">Play cube</b><small id="playState">9-step loop</small></span>
+                <span class="sr-only"><b id="playLabel">Play cube</b><small id="playState">9-step loop</small></span>
               </button>
-              <div class="rubix-step-strip" id="stepStrip" role="img" aria-label="Sequence playhead"></div>
-              <div class="rubix-now-playing" aria-live="off">
-                <span id="acidNow">ACID · BANK OFF</span>
-                <span id="drumNow">DRUMS · SOFT FM KIT</span>
-              </div>
-            </div>
-            <label class="select-control rubix-preset-control" for="rubixPreset">
-              <span>
-                <b>Performance preset</b>
-                <output id="rubixPresetState" for="rubixPreset">Classic cube</output>
-              </span>
-              <span class="select-shell">
-                <select id="rubixPreset" aria-label="Rubix performance preset">
-                  <option value="" disabled>Custom settings</option>
-                  <option value="classic" selected>Classic cube</option>
-                  <option value="pocket-funk">Pocket funk</option>
-                  <option value="modal-sphere">Modal orb</option>
-                  <option value="noise-grid">Noise grid</option>
-                  <option value="pyramid-drift">Morphix drift</option>
-                </select>
-              </span>
-            </label>
-            <div class="rubix-read-heading">
-              <b>Read path</b>
-              <span id="readModeState">rows together · 9 steps</span>
-            </div>
-            <div class="rubix-read-modes" role="group" aria-label="Visible face read path">
-              <button type="button" data-read-mode="parallel" aria-pressed="true">
-                <b>Rows together</b><small>default · all 6 faces</small>
-              </button>
-              <button type="button" data-read-mode="snake" aria-pressed="false">
-                <b>Snake together</b><small>all 6 faces · 9 steps</small>
-              </button>
-              <button type="button" data-read-mode="face" aria-pressed="false">
-                <b>Alternate faces</b><small>opposite pairs · 27 steps</small>
-              </button>
-            </div>
-            <label
-              class="control rubix-visibility-dynamics"
+            <div class="puzzle-tempo-control"><label class="control" for="tempo">
+                <span><b>Tempo</b><output id="tempoOut" for="tempo">126 BPM</output></span>
+                <input id="tempo" type="range" min="30" max="300" step="1" value="126" />
+              </label><button
+                class="rubix-restart-button"
+                id="restartLoop"
+                type="button"
+                aria-label="Restart loop at step 1"
+                title="Restart loop at step 1"
+              >
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8M3 3v5h5" /></svg>
+              </button></div>
+          </div>
+          <div class="puzzle-swing-row"><label class="control" for="swing">
+              <span><b>Swing</b><output id="swingOut" for="swing">0%</output></span>
+              <input id="swing" type="range" min="0" max="0.42" step="0.01" value="0" />
+            </label></div>
+          <div class="position-row puzzle-twist-row"><button id="randomTwists" class="play-button" type="button" aria-pressed="false" aria-label="Start random twists" title="Start random twists">
+                <span class="rubix-random-twist-icon" aria-hidden="true">
+                  <svg class="transport-play" viewBox="0 0 24 24"><path d="M8 5.5 18 12 8 18.5Z" /></svg>
+                  <svg class="transport-pause" viewBox="0 0 24 24"><path d="M8 6v12M16 6v12" /></svg>
+                </span>
+                <span class="sr-only"><b>Twists</b><small id="randomTwistState">off</small></span>
+              </button><label class="control" for="randomTwistSpeed">
+                <span>
+                  <b>Twists</b>
+                  <output id="randomTwistSpeedOut" for="randomTwistSpeed">1×</output>
+                </span>
+                <input
+                  id="randomTwistSpeed"
+                  type="range"
+                  min="0"
+                  max="100"
+                  step="1"
+                  value="36"
+                  aria-valuetext="1 times normal speed"
+                  aria-describedby="randomTwistHelp"
+                />
+              </label></div>
+          <label class="select-control puzzle-read-path" for="readPath">
+            <span class="field-label">Read path</span>
+            <span class="select-shell"><select id="readPath" aria-label="Read path">
+              <option value="parallel" selected>Rows</option>
+              <option value="snake">Snake</option>
+              <option value="face">Face pairs</option>
+            </select></span>
+          </label>
+        <label
+              class="control"
               for="visibilityDynamics"
               title="0% keeps every visible sticker at equal level; 100% follows its projected square area."
             >
@@ -185,29 +187,26 @@
                 step="0.01"
                 value="1"
               />
-              <small>0% equal level · 100% projected square area</small>
-            </label>
-            <div class="rubix-tempo-row">
-              <label class="control" for="tempo">
-                <span><b>Tempo</b><output id="tempoOut" for="tempo">126 BPM</output></span>
-                <input id="tempo" type="range" min="30" max="300" step="1" value="126" />
-              </label>
-              <button
-                class="rubix-restart-button"
-                id="restartLoop"
-                type="button"
-                aria-label="Restart loop at step 1"
-                title="Restart loop at step 1"
-              >
-                <span aria-hidden="true">↶ 1</span>
-              </button>
-            </div>
-            <label class="control" for="swing">
-              <span><b>Swing</b><output id="swingOut" for="swing">0%</output></span>
-              <input id="swing" type="range" min="0" max="0.42" step="0.01" value="0" />
-            </label>
-          </div>
-        </details>
+            </label></section><div hidden aria-hidden="true">
+          <span id="clockSummary"></span><span id="readModeState"></span>
+          <div id="stepStrip" hidden></div><span id="acidNow"></span><span id="drumNow"></span>
+          <small id="randomTwistHelp">Automatic movement speed, independent of tempo.</small>
+          <label class="select-control rubix-preset-control" for="rubixPreset">
+              <span>
+                <b>Performance preset</b>
+                <output id="rubixPresetState" for="rubixPreset">Classic cube</output>
+              </span>
+              <span class="select-shell">
+                <select id="rubixPreset" aria-label="Rubix performance preset">
+                  <option value="" disabled>Custom settings</option>
+                  <option value="classic" selected>Classic cube</option>
+                  <option value="pocket-funk">Pocket funk</option>
+                  <option value="modal-sphere">Modal orb</option>
+                  <option value="noise-grid">Noise grid</option>
+                  <option value="pyramid-drift">Morphix drift</option>
+                </select>
+              </span>
+            </label></div>
 
         <details class="group control-section rubix-control-section" data-section="form" open>
           <summary class="group-summary">
@@ -257,32 +256,7 @@
               <button class="mini-action" id="undoMove" type="button" disabled>Undo move</button>
               <button class="mini-action" id="resetView" type="button">Reset view</button>
             </div>
-            <div class="rubix-random-twists">
-              <button id="randomTwists" type="button" aria-pressed="false" aria-label="Start random twists" title="Start random twists">
-                <span class="rubix-random-twist-icon" aria-hidden="true">
-                  <svg class="transport-play" viewBox="0 0 24 24"><path d="M8 5.5 18 12 8 18.5Z" /></svg>
-                  <svg class="transport-pause" viewBox="0 0 24 24"><path d="M8 6v12M16 6v12" /></svg>
-                </span>
-                <span><b>Random twists</b><small id="randomTwistState">off</small></span>
-              </button>
-              <label class="control" for="randomTwistSpeed">
-                <span>
-                  <b>Twist speed</b>
-                  <output id="randomTwistSpeedOut" for="randomTwistSpeed">1×</output>
-                </span>
-                <input
-                  id="randomTwistSpeed"
-                  type="range"
-                  min="0"
-                  max="100"
-                  step="1"
-                  value="36"
-                  aria-valuetext="1 times normal speed"
-                  aria-describedby="randomTwistHelp"
-                />
-              </label>
-              <small id="randomTwistHelp">Automatic movement speed · independent of sequencer tempo</small>
-            </div>
+
             <div class="rubix-selected-sticker">
               <span><b>Selected sticker</b><small id="selectedSticker">tap a tile</small></span>
               <i id="selectedSwatch" aria-hidden="true"></i>
@@ -361,12 +335,7 @@
                 <span><b>Kit level</b><output id="drumLevelOut" for="drumLevel">54%</output></span>
                 <input id="drumLevel" type="range" min="0" max="1" step="0.01" value="0.54" />
               </label>
-              <p class="rubix-engine-note">
-                Sticker colors choose kick, snare, tom, and hat voices. Only the
-                selected kit sounds; the 303 bank remains silent. Rattlesnake,
-                Mallets and Karplus Strong reuse the larger app’s synthesis engines.
-                Attack-level matching and master compression tame dense mixes.
-              </p>
+
             </fieldset>
 
             <fieldset
@@ -453,30 +422,12 @@
                 <span><b>303 level</b><output id="acidLevelOut" for="acidLevel">58%</output></span>
                 <input id="acidLevel" type="range" min="0" max="1" step="0.01" value="0.58" />
               </label>
-              <p class="rubix-engine-note">
-                Colors set pitch and articulation. Visible height, depth and shape
-                steer tone; screen position steers stereo. Hidden stickers are silent.
-                Sound presets keep your volume and cube unchanged.
-              </p>
+
             </fieldset>
           </div>
         </details>
 
-        <details class="group control-section rubix-control-section rubix-score-section" data-section="mapping" open>
-          <summary class="group-summary">
-            <h2 class="group-title">Visible score</h2>
-            <span class="section-state" id="scoreSummary">Soft FM kit · all faces</span>
-          </summary>
-          <div class="group-body">
-            <p class="rubix-causal-copy" id="scoreDescription">
-              All six face sequences keep running. Only uncovered, on-screen stickers
-              are audible. Their screen area sets their relative level, even during turns.
-              Hidden stickers are silent.
-            </p>
-            <div class="rubix-lane-list" id="laneList" role="group" aria-label="All six cube faces and their visibility"></div>
-            <div class="rubix-color-key" id="colorKey" role="group" aria-label="Selected bank sticker color mapping"></div>
-          </div>
-        </details>
+        <div hidden aria-hidden="true"><span id="scoreSummary"></span><p id="scoreDescription"></p><div id="laneList" hidden></div><div id="colorKey" hidden></div></div>
 
         <p class="audio-error" id="audioError" role="alert" hidden></p>
         <div class="reset-all-row rubix-reset-sound-row">
@@ -499,7 +450,7 @@
         selected sticker's row or column and Space to play or pause. Random Twists
         uses its own derived speed curve, independent of sequencer tempo. Choose Rows
         together, Snake together, or Alternate faces
-        in the Clock section to change how the visible stickers are read. Alternate
+        with Read path to change how the visible stickers are read. Alternate
         faces divides each beat into opposite face pairs: up/down, front/back,
         then left/right. Choose exactly one Sound bank for all six face sequences.
         Only uncovered stickers in the viewport sound, including their ringing tails. The Classic Web Audio and SIMD choices are available only

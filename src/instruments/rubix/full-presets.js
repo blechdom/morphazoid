@@ -17,13 +17,18 @@ const numeric = {
 const shapes = ["cube", "morphix", "diamond", "stella", "orb"];
 const banks = [...SEQUENCER_VOICES.map(({ id }) => `shared-${id}`), "soft-fm", "analog", "modal", "noise", "acid-303", "rattlesnake", "pitched-morph", "karplus-strong"];
 function arrangedCube(size, count, seed) {
-  let cube = createSolvedRubixCube(size);
+  const solved = createSolvedRubixCube(size);
+  let cube = solved;
   const layers = rubixLayersForSize(size);
   for (let index = 0; index < count; index++) {
     cube = turnRubixLayer(cube, { axis: ["x", "y", "z"][(index + seed) % 3],
       layer: layers[(index * 3 + seed) % layers.length], direction: (index + seed) % 2 ? -1 : 1 });
   }
-  return cube;
+  // Factory scores predate movable middle-slice centers. Preserve their exact
+  // original notes; live turns and randomization use the complete slice.
+  return Object.freeze({ ...cube, stickers: Object.freeze(cube.stickers.map(
+    (sticker, index) => sticker.isCenter ? solved.stickers[index] : sticker,
+  )) });
 }
 function fullScene(id, label, shapeId, size, readingMode, settings, turns = 0, seed = 0, camera = DEFAULT_RUBIX_CAMERA) {
   const values = { ...RUBIX_DEFAULTS, ...settings };

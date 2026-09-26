@@ -113,40 +113,72 @@
       </section>
 
       <aside class="panel hyper-rubix-panel" data-instrument-preset-host aria-label="Hyper Rubix controls">
-        <div class="hyper-rubix-status" aria-label="Puzzle status">
-          <div>
-            <span>PUZZLE STATE</span>
-            <b id="puzzleState">Solved</b>
+        <section class="puzzle-performance" aria-label="Playback and motion">
+          <div class="position-row puzzle-play-row">
+            <button
+                class="play-button"
+                id="playButton" aria-labelledby="playLabel"
+                type="button"
+                aria-pressed="false"
+                data-primary-transport
+              >
+                <svg class="transport-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5 18 12 8 18.5Z" /></svg>
+                <svg class="transport-pause" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6v12M16 6v12" /></svg>
+                <span class="sr-only"><b id="playLabel">Play shape loop</b><small id="playState">108 view-facing stickers · one note each</small></span>
+              </button>
+            <div class="puzzle-tempo-control"><label class="control" for="tempo">
+                <span><b>Tempo</b><output id="tempoOut" for="tempo">112 BPM</output></span>
+                <input id="tempo" type="range" min="30" max="300" step="1" value="112" />
+              </label><button
+                class="hyper-rubix-restart-button"
+                id="restartLoop"
+                type="button"
+                aria-label="Restart shape loop at its first sticker"
+                title="Restart shape loop at its first sticker"
+              >
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8M3 3v5h5" /></svg>
+              </button></div>
           </div>
-          <div>
-            <span>DISORDER</span>
-            <b id="disorderState">0%</b>
-          </div>
-          <div>
-            <span>MOVES</span>
-            <b id="moveCount">00</b>
-          </div>
-        </div>
+          <div class="puzzle-swing-row"><label class="control" for="swing">
+              <span><b>Swing</b><output id="swingOut" for="swing">8%</output></span>
+              <input id="swing" type="range" min="0" max="0.42" step="0.01" value="0.08" />
+            </label></div>
+          <div class="position-row puzzle-twist-row"><button class="play-button" id="twistPlayButton" type="button" aria-pressed="false" aria-label="Start twists" title="Start twists" disabled>
+            <svg class="transport-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5 18 12 8 18.5Z" /></svg>
+            <svg class="transport-pause" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6v12M16 6v12" /></svg>
+          </button><label class="select-control" for="twistMotion">
+                <span class="field-label">Twists</span>
+                <span class="select-shell">
+                  <select id="twistMotion" aria-describedby="twistMotionHelp" disabled>
+                    <option value="auto">Auto</option>
+                    <option value="beat">Per beat</option>
+                    <option value="bar">Per bar</option>
+                    <option value="off" selected>Off</option>
+                  </select>
+                </span>
+              </label></div>
+          <label class="select-control hyper-rubix-method-select" for="sequenceMethod">
+              <span class="field-label">Read path</span>
+              <span class="select-shell">
+                <select id="sequenceMethod" aria-describedby="sequenceMethodHelp">
+                  <option value="sticker-stream" selected id="stickerStreamMethodOption">Sticker loop</option>
+                  <option id="cornerStreamMethodOption" value="corner-stream">Corner stream</option>
+                  <option id="stickerHyperbarMethodOption" value="sticker-hyperbar">Hyperbar</option>
+                  <option id="hybridCoilMethodOption" value="hybrid-coil">Hybrid coil</option>
+                  <option value="twist-tape">Twist tape</option>
+                </select>
+              </span>
+              <small id="sequenceMethodHelp" hidden>Every sticker sounds once in a fixed forward loop.</small>
+            </label>
+        </section>
 
         <details class="group control-section hyper-rubix-control-section" data-section="sequence" open>
           <summary class="group-summary">
-            <h2 class="group-title">Shape loop</h2>
-            <span class="section-state" id="clockSummary">108 notes · 112 BPM · 1/8</span>
+            <h2 class="group-title">Sequence</h2>
+            <span class="section-state" id="clockSummary" hidden>108 notes · 112 BPM · 1/8</span>
           </summary>
           <div class="group-body">
-            <label class="select-control hyper-rubix-method-select" for="sequenceMethod">
-              <span class="field-label">Sticker read path</span>
-              <span class="select-shell">
-                <select id="sequenceMethod" aria-describedby="sequenceMethodHelp">
-                  <option value="sticker-stream" selected id="stickerStreamMethodOption">Sticker loop · 216</option>
-                  <option id="cornerStreamMethodOption" value="corner-stream">Corner stream · 64</option>
-                  <option id="stickerHyperbarMethodOption" value="sticker-hyperbar">Sticker hyperbar · 27</option>
-                  <option id="hybridCoilMethodOption" value="hybrid-coil">Hybrid coil · 16 × 27</option>
-                  <option value="twist-tape">Twist tape · 16</option>
-                </select>
-              </span>
-              <small id="sequenceMethodHelp">Every sticker sounds once in a fixed forward loop.</small>
-            </label>
+
 
             <label class="select-control hyper-rubix-preset-select" for="voice">
               <span class="field-label">Instrument preset</span>
@@ -190,26 +222,7 @@
               <output id="playbackCount">108 notes</output>
             </div>
 
-            <div class="hyper-rubix-transport" aria-label="Shape-loop transport">
-              <button
-                class="hyper-rubix-play-button"
-                id="playButton"
-                type="button"
-                aria-pressed="false"
-                data-primary-transport
-              >
-                <svg class="transport-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5 18 12 8 18.5Z" /></svg>
-                <svg class="transport-pause" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6v12M16 6v12" /></svg>
-                <span><b id="playLabel">Play shape loop</b><small id="playState">108 view-facing stickers · one note each</small></span>
-              </button>
-              <button
-                class="hyper-rubix-restart-button"
-                id="restartLoop"
-                type="button"
-                aria-label="Restart shape loop at its first sticker"
-                title="Restart shape loop at its first sticker"
-              ><span aria-hidden="true">↶</span></button>
-            </div>
+
 
             <div class="hyper-rubix-step-strip" id="stepStrip" role="group" aria-label="Legacy twist playhead" hidden></div>
             <div class="hyper-rubix-now-playing" aria-live="off">
@@ -271,34 +284,15 @@
                   </select>
                 </span>
               </label>
-              <label class="select-control" for="twistMotion">
-                <span class="field-label">Automated twists</span>
-                <span class="select-shell">
-                  <select id="twistMotion" aria-describedby="twistMotionHelp" disabled>
-                    <option value="auto">Auto · max 4/s</option>
-                    <option value="beat">Once per beat</option>
-                    <option value="bar">Once per bar</option>
-                    <option value="off" selected>Off</option>
-                  </select>
-                </span>
-              </label>
+
             </div>
             <div class="hyper-rubix-timing-help">
               <small id="pulseRateHelp">Pulse divisions set spacing: 1/4 fires once per quarter-note beat; 1/8 twice, through 1/64 sixteen times.</small>
               <small id="twistMotionHelp">Sticker loop and Corner stream stay still. Hyperbar, Hybrid coil, and Twist tape can apply the selected twist tape automatically.</small>
             </div>
 
-            <div class="hyper-rubix-tempo-row">
-              <label class="control" for="tempo">
-                <span><b>Tempo</b><output id="tempoOut" for="tempo">112 BPM</output></span>
-                <input id="tempo" type="range" min="30" max="300" step="1" value="112" />
-              </label>
-              <button class="mini-action" id="reseedPattern" type="button" disabled>Reseed</button>
-            </div>
-            <label class="control" for="swing">
-              <span><b>Swing</b><output id="swingOut" for="swing">8%</output></span>
-              <input id="swing" type="range" min="0" max="0.42" step="0.01" value="0.08" />
-            </label>
+            <button class="mini-action" id="reseedPattern" type="button" disabled>Reseed</button>
+
             <label class="control" for="twistDensity">
               <span><b>Twist density</b><output id="twistDensityOut" for="twistDensity">100%</output></span>
               <input id="twistDensity" type="range" min="0.25" max="1" step="0.01" value="1" disabled />
@@ -312,7 +306,20 @@
             <h2 class="group-title">Twist a cubic cell</h2>
             <span class="section-state" id="twistSummary">W+ · XY plane</span>
           </summary>
-          <div class="group-body">
+          <div class="group-body"><div class="hyper-rubix-status" aria-label="Puzzle status">
+          <div>
+            <span>PUZZLE STATE</span>
+            <b id="puzzleState">Solved</b>
+          </div>
+          <div>
+            <span>DISORDER</span>
+            <b id="disorderState">0%</b>
+          </div>
+          <div>
+            <span>MOVES</span>
+            <b id="moveCount">00</b>
+          </div>
+        </div>
             <label class="select-control" for="puzzleSize">
               <span class="field-label">Size / side</span>
               <span class="select-shell">

@@ -5,8 +5,8 @@ import { enforceRubixoidsOwnership } from './helpers/rubixoids-ownership.mjs';
 enforceRubixoidsOwnership(test, expect);
 const snapshot = page => page.evaluate(() => window.__rubixoidsSnapshot());
 const audio = page => page.locator('body > .masthead #audioButton');
-const play = page => page.locator('body > .rubixoids-bar #playButton');
-const setClock = async (page, id, value) => page.locator(`body > .rubixoids-bar #${id}`).evaluate((input, value) => {
+const play = page => page.locator('.rubixoids-pane:not([hidden]) #playButton');
+const setClock = async (page, id, value) => page.locator(`.rubixoids-pane:not([hidden]) #${id}`).evaluate((input, value) => {
   input.value = String(value);
   input.dispatchEvent(new Event('input', { bubbles: true }));
 }, value);

@@ -135,6 +135,7 @@ test('owned SIMD live tempo and swing edits follow the shared anchor and retain 
   processor.handleMessage({ type: 'configure', faces: rubixSimdConfigurations(faces({ tempo: 211, swing: .16 })) });
   assert.equal(processor.rate, oldRate, 'pattern configuration must not become a separate tempo source');
   const beforeBeat = clock.beatAt();
+  const previousSwing = processor.swing;
   clock.configure({ tempo: 211, swing: .16 });
   assert.equal(clock.beatAt(), beforeBeat);
   align();
@@ -144,12 +145,18 @@ test('owned SIMD live tempo and swing edits follow the shared anchor and retain 
   assert.equal(resets(), 0);
   processor.messages.length = 0;
   const updateTime = currentTime;
+  const swingAtBeat = processor.pendingSwing?.beat;
+  const swingAtTime = Number.isFinite(swingAtBeat)
+    ? clock.anchorTime + (swingAtBeat / 4 - clock.anchorBeat) * 60 / clock.tempo : updateTime;
   assertSound(render(processor, 8192, 12_288));
-  const steps = processor.messages.filter(message => message.type === 'step' && message.time > updateTime + .03);
+  const steps = processor.messages.filter(message => message.type === 'step' && message.time >= updateTime);
   assert.ok(steps.length >= 5);
-  for (const step of steps) {
-    const expected = clock.next({ ...options, minTime: step.time - 2 / sampleRate });
+  for (const [index, step] of steps.entries()) {
+    const effectiveClock = Object.create(clock);
+    effectiveClock.swing = step.time < swingAtTime - 1 / sampleRate ? previousSwing : clock.swing;
+    const expected = effectiveClock.next({ ...options, minTime: step.time - 2 / sampleRate });
     assert.ok(Math.abs(step.time - expected.time) < 2 / sampleRate);
+    if (index > 0) assert.equal(step.step, (steps[index - 1].step + 1) % processor.stepCount);
   }
   assert.ok(Math.abs(processor.beat - clock.beatAt() * 4) < 2 / sampleRate * processor.rate);
   assert.equal(resets(), 0);
@@ -197,4 +204,65 @@ test('parked SIMD cursor follows audio time when every worklet/visual callback i
   assert.equal(surface.nextStepAt(), (processor.lastStep + 1) % 9);
   assert.equal(surface.lastStatus, null);
   assert.equal(resets(), 0);
+});
+
+
+test('owned SIMD coalesces live swing without replay while its cursor receives no processor callbacks', () => {
+  for (const readingMode of ['parallel', 'face']) {
+    const { processor, clock, context, options, resets } = rig({ readingMode, tempo: 120, swing: 0 });
+    const surface = new RubixSurfaceSimd303();
+    surface.updateSurfacePatterns(faces({ readingMode, tempo: 120, swing: 0 }));
+    surface.context = context;
+    surface.node = { port: { postMessage: message => processor.handleMessage(message) } };
+    const sync = (initial = false) => {
+      const grid = clock.next({ ...options, minTime: clock.now() });
+      const audioTime = clock.audioTime(context, grid.time);
+      surface.syncClock({ audioTime, quarterBeat: grid.beat,
+        tempo: clock.tempo, swing: clock.swing, revision: clock.revision,
+        ...(initial ? { startAt: audioTime, step: 0 } : {}) });
+    };
+    sync(true);
+    surface.setPlaybackEnabled(true);
+    const kernels = processor.voices.map(voice => voice.kernel);
+    let edit = 0;
+    let previousBoundary = null;
+    let energy = 0;
+    for (let block = 0; block < 600; block += 1) {
+      globalThis.currentTime = block * 128 / sampleRate;
+      if (block > 30 && block % 7 === 0) {
+        clock.configure({ swing: [.42, .2, .35, .08][edit++ % 4], tempo: 120 + (block % 4) * 7 });
+        sync();
+        if (previousBoundary && processor.beat < previousBoundary - 1e-8) {
+          assert.equal(processor.pendingSwing?.beat, previousBoundary);
+        }
+        previousBoundary = processor.pendingSwing?.beat ?? null;
+      }
+      const samples = render(processor, block * 128, 128);
+      assert.ok(samples.every(Number.isFinite));
+      energy += samples.reduce((sum, sample) => sum + sample * sample, 0);
+      if ((block * 128 + 127) / sampleRate >= surface.clock.startAt) {
+        assert.equal(surface.currentStepAt((block * 128 + 127) / sampleRate), processor.lastStep,
+          'score cursor must track pending swing using audio time while every return message is delayed');
+      }
+    }
+    assert.equal(surface.lastStatus, null);
+    assert.ok(energy > 1);
+    assert.equal(resets(), 0);
+    assert.deepEqual(processor.voices.map(voice => voice.kernel), kernels);
+    const steps = processor.messages.filter(message => message.type === 'step');
+    assert.ok(steps.length >= 12);
+    for (let index = 1; index < steps.length; index += 1) {
+      assert.equal(steps[index].step, (steps[index - 1].step + 1) % processor.stepCount,
+        'rapid clock edits must not repeat, skip, or reverse the score');
+    }
+    surface.setPlaybackEnabled(false);
+    clock.configure({ tempo: 143, swing: .11 });
+    sync();
+    assert.equal(surface.swing, .11);
+    assert.equal(processor.swing, .11);
+    assert.equal(surface.pendingSwing, null);
+    assert.equal(processor.pendingSwing, null);
+    assert.equal(processor.enabled, false);
+    assert.equal(processor.messages.filter(message => message.type === 'error').length, 0);
+  }
 });

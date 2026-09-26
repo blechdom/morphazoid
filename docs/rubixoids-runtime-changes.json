@@ -319,7 +319,7 @@
     },
     {
       "file": "src/instruments/hyper-rubix/hyper-rubix-app.js",
-      "reason": "Additive shared engines and direct scoped Rubixoids mounting and native lifecycle adapter; preserve native instruments, add Rubixoids sticker appearance and audio-independent non-playing transparency, compact corner sequences, and calibrate quiet 4D output and native rattle voices. Redraw once when pausing between notes to restore the complete non-playing sticker display.",
+      "reason": "Additive shared engines and direct scoped Rubixoids mounting and native lifecycle adapter; preserve native instruments, add Rubixoids sticker appearance and audio-independent non-playing transparency, compact corner sequences, and calibrate quiet 4D output and native rattle voices. Redraw once when pausing between notes to restore the complete non-playing sticker display. User-requested Shape-style side-panel transport, compact read paths, and removal of passive score graphics/prose. Existing audio, timing, preset and gesture behavior is retained; the Hyper Twists button delegates to the existing motion control.",
       "regressionTests": [
         "tests/sequencer-voices.test.mjs",
         "e2e/sequencer-voices.spec.mjs",
@@ -327,7 +327,10 @@
         "tests/rubixoids-native-settings.test.mjs",
         "tests/hyper-rubix-app-smoke.test.mjs",
         "e2e/rubixoids-polish.spec.mjs",
-        "tests/rubixoids-native-views.test.mjs"
+        "tests/rubixoids-native-views.test.mjs",
+        "tests/rubix-controls.test.mjs",
+        "tests/hyper-rubix-page.test.mjs",
+        "e2e/rubix-panel-layout.spec.mjs"
       ],
       "replacements": [
         {
@@ -501,6 +504,26 @@
         {
           "before": "    paintSequenceMethod(); paintPlaybackScope(); paintPresetHelp(); paintSoundSummary(); paintFaceVoiceLabels();\n    paintDecayLink(); setDragMode(state.dragMode); paintMotionToggle(); updateSelectionUI(); updateProjectionReadout();\n    queueWebGpu303Sync({ force: true });\n    scheduleFrame();\n  },\n});\n",
           "after": "    paintSequenceMethod(); paintPlaybackScope(); paintPresetHelp(); paintSoundSummary(); paintFaceVoiceLabels();\n    paintDecayLink(); setDragMode(state.dragMode); paintMotionToggle(); updateSelectionUI(); updateProjectionReadout();\n    queueWebGpu303Sync({ force: true });\n    scheduleFrame();\n  },\n});\n\n\n/** Preserve the complete Hyper controller while its Rubixoids mount is parked. */\nexport const rubixoidsNative = {\n  capture() {\n    return {\n      active: rubixoidsEmbeddedActive, playing: state.playing, audioOn: state.audio,\n      settings: { ...JSON.parse(JSON.stringify(state)), puzzleSize: state.puzzle.size },\n      native: JSON.parse(JSON.stringify({\n        puzzle: state.puzzle, history, moveQueue, activeMove, transportPosition,\n        currentStep: state.currentStep, currentStreamStep: state.currentStreamStep,\n        gateOverrides: Object.fromEntries(hyperbarGateOverrides), rotation: state.rotation,\n        stickerAppearance, nonPlayingTransparency, nonPlayingFadeMode,\n      })),\n      diagnostics: { contextState: audio.context?.state ?? 'none',\n        schedulerActive: schedulerTimer !== null, animationActive: Boolean(frameRequest),\n        sharedVoices: audio.sharedVoices.diagnostics() },\n    };\n  },\n  async applySettings(patch = {}) {\n    for (const [key, value] of Object.entries(patch)) {\n      const id = key === 'subdivisionsPerBeat' ? 'twistRate' : key;\n      const control = $(id);\n      if (!control?.matches('input, select')) continue;\n      if (control.tagName === 'SELECT' && ![...control.options].some(option => option.value === String(value))) continue;\n      control.value = String(value);\n      control.dispatchEvent(new Event(control.tagName === 'SELECT' ? 'change' : 'input', { bubbles: true }));\n      if (key === 'voice') while (control.hasAttribute('aria-busy')) await new Promise(resolve => setTimeout(resolve, 10));\n    }\n    return this.capture();\n  },\n  async deactivate() {\n    if (!RUBIXOIDS_EMBED || !rubixoidsEmbeddedActive) return this.capture();\n    rubixoidsEmbeddedActive = false;\n    rubixoidsActivation += 1;\n    rubixoidsHiddenAt = performance.now();\n    if (state.playing) transportPosition = nextPositionAfterAudiblePulse();\n    clearScheduler({ hardAudio: true });\n    if (frameRequest) cancelAnimationFrame(frameRequest);\n    frameRequest = 0;\n    if (webGpu303SyncTimer !== null) clearTimeout(webGpu303SyncTimer);\n    webGpu303SyncTimer = null;\n    pointerDrag = null;\n    canvas.classList.remove('is-dragging');\n    if (rubixoidsAudioTask) await rubixoidsAudioTask.catch(() => {});\n    if (webGpu303StartPromise) await webGpu303StartPromise.catch(() => {});\n    webGpu303Engine?.setPlaybackEnabled(false);\n    webGpu303Engine?.pauseTimeline();\n    audio.sharedVoices.stop();\n    audio.silenceTopology(undefined, { immediate: true });\n    audio.silenceRattle();\n    audio.setLevel(0, true);\n    await audio.suspend();\n    return this.capture();\n  },\n  async activate({ audioOn = state.audio, playing = state.playing } = {}) {\n    const generation = ++rubixoidsActivation;\n    const wasHidden = !rubixoidsEmbeddedActive;\n    rubixoidsEmbeddedActive = true;\n    if (wasHidden && activeMove) activeMove.startedAt += performance.now() - rubixoidsHiddenAt;\n    previousFrameTime = performance.now();\n    if (audioOn) {\n      await audio.enable();\n      state.audio = true;\n    } else {\n      state.audio = false;\n      audio.disable();\n    }\n    if (generation !== rubixoidsActivation || !rubixoidsEmbeddedActive) {\n      audio.setLevel(0, true);\n      await audio.suspend();\n      return this.capture();\n    }\n    state.playing = Boolean(playing);\n    $('audioButton').setAttribute('aria-pressed', String(state.audio));\n    $('audioState').textContent = state.audio ? 'on' : 'off';\n    paintTransport();\n    if (state.playing) resumeTransportClock();\n    updateStatus();\n    resizeCanvas();\n    scheduleFrame();\n    return this.capture();\n  },\n};\nif (RUBIXOIDS_EMBED && !mountContext) globalThis.rubixoidsNative = rubixoidsNative;\n"
+        },
+        {
+          "before": "    \"aria-label\",\n    `Interactive projected ${order} four-dimensional Rubix puzzle with ${metrics.stickerCount} colored hyper-stickers.`,\n  );\n  $(\"stickerStreamMethodOption\").textContent = `Sticker loop \u00b7 ${metrics.stickerStreamLength}`;\n  $(\"cornerStreamMethodOption\").textContent = `Corner stream \u00b7 ${metrics.cornerStreamLength}`;\n  $(\"stickerHyperbarMethodOption\").textContent = `Sticker hyperbar \u00b7 ${metrics.hyperbarLength}`;\n  $(\"hybridCoilMethodOption\").textContent = `Hybrid coil \u00b7 16 \u00d7 ${metrics.hyperbarLength}`;\n  $(\"hyperbarMatrixLabel\").textContent = `${noteCount}-note ${playbackPresetLabel().toLowerCase()} loop`;\n  $(\"hyperbarMatrixSummary\").textContent = `${activePlaybackCellIds().length} heard cells \u00d7 ${notesPerCell} ${state.sequenceMethod === \"corner-stream\" ? \"corners\" : \"addresses\"} \u00b7 one note per sticker`;\n  $(\"rattleVoiceLabel\").textContent = \"Rattlesnake preset\";\n",
+          "after": "    \"aria-label\",\n    `Interactive projected ${order} four-dimensional Rubix puzzle with ${metrics.stickerCount} colored hyper-stickers.`,\n  );\n  $(\"stickerStreamMethodOption\").textContent = \"Sticker loop\";\n  $(\"cornerStreamMethodOption\").textContent = \"Corner stream\";\n  $(\"stickerHyperbarMethodOption\").textContent = \"Hyperbar\";\n  $(\"hybridCoilMethodOption\").textContent = \"Hybrid coil\";\n  $(\"hyperbarMatrixLabel\").textContent = `${noteCount}-note ${playbackPresetLabel().toLowerCase()} loop`;\n  $(\"hyperbarMatrixSummary\").textContent = `${activePlaybackCellIds().length} heard cells \u00d7 ${notesPerCell} ${state.sequenceMethod === \"corner-stream\" ? \"corners\" : \"addresses\"} \u00b7 one note per sticker`;\n  $(\"rattleVoiceLabel\").textContent = \"Rattlesnake preset\";\n"
+        },
+        {
+          "before": "  $(\"sequenceMethodHelp\").textContent = `${method.help}${twistHelp}`;\n}\n\nfunction paintSequenceMethod() {\n  paintPuzzleMetrics();\n  const method = sequenceMethodConfig();\n",
+          "after": "  $(\"sequenceMethodHelp\").textContent = `${method.help}${twistHelp}`;\n}\n\nlet lastTwistMotion = \"auto\";\nfunction paintTwistTransport() {\n  const enabled = sequenceMethodConfig().autoTwist;\n  const running = enabled && state.twistMotion !== \"off\";\n  if (state.twistMotion !== \"off\") lastTwistMotion = state.twistMotion;\n  const button = $(\"twistPlayButton\");\n  button.disabled = !enabled;\n  button.setAttribute(\"aria-pressed\", String(running));\n  button.setAttribute(\"aria-label\", running ? \"Pause twists\" : \"Start twists\");\n  button.title = enabled ? (running ? \"Pause twists\" : \"Start twists\")\n    : \"Twists are available with Hyperbar, Hybrid coil or Twist tape\";\n}\n\nfunction paintSequenceMethod() {\n  paintPuzzleMetrics();\n  const method = sequenceMethodConfig();\n"
+        },
+        {
+          "before": "  $(\"sequencePattern\").disabled = !method.autoTwist;\n  $(\"twistDensity\").disabled = !method.autoTwist;\n  if ($(\"twistMotion\")) $(\"twistMotion\").disabled = !method.autoTwist;\n  $(\"playbackPreset\").disabled = !method.serial;\n  $(\"playbackScopeReadout\").hidden = !method.serial;\n  if (method.hyperbar) renderHyperbarGrid();\n",
+          "after": "  $(\"sequencePattern\").disabled = !method.autoTwist;\n  $(\"twistDensity\").disabled = !method.autoTwist;\n  if ($(\"twistMotion\")) $(\"twistMotion\").disabled = !method.autoTwist;\n  paintTwistTransport();\n  $(\"playbackPreset\").disabled = !method.serial;\n  $(\"playbackScopeReadout\").hidden = !method.serial;\n  if (method.hyperbar) renderHyperbarGrid();\n"
+        },
+        {
+          "before": "}\n\nfunction paintTransport() {\n  const rate = RATE_LABELS[state.subdivisionsPerBeat] ?? \"1/8\";\n  const mode = PLAYBACK_LABELS[state.playbackMode] ?? \"Forward\";\n  const method = sequenceMethodConfig();\n",
+          "after": "}\n\nfunction paintTransport() {\n  paintTwistTransport();\n  const rate = RATE_LABELS[state.subdivisionsPerBeat] ?? \"1/8\";\n  const mode = PLAYBACK_LABELS[state.playbackMode] ?? \"Forward\";\n  const method = sequenceMethodConfig();\n"
+        },
+        {
+          "before": "  announce(`${RATE_LABELS[state.subdivisionsPerBeat]} pulse rate selected: ${state.subdivisionsPerBeat} pulse${state.subdivisionsPerBeat === 1 ? \"\" : \"s\"} per quarter-note beat.`);\n});\n\n$(\"twistMotion\").addEventListener(\"change\", (event) => {\n  state.twistMotion = Object.hasOwn(TWIST_MOTION_LABELS, event.currentTarget.value)\n    ? event.currentTarget.value\n",
+          "after": "  announce(`${RATE_LABELS[state.subdivisionsPerBeat]} pulse rate selected: ${state.subdivisionsPerBeat} pulse${state.subdivisionsPerBeat === 1 ? \"\" : \"s\"} per quarter-note beat.`);\n});\n\n$(\"twistPlayButton\").addEventListener(\"click\", () => {\n  const control = $(\"twistMotion\");\n  if (control.disabled) return;\n  control.value = state.twistMotion === \"off\" ? lastTwistMotion : \"off\";\n  control.dispatchEvent(new Event(\"change\", { bubbles: true }));\n});\n\n$(\"twistMotion\").addEventListener(\"change\", (event) => {\n  state.twistMotion = Object.hasOwn(TWIST_MOTION_LABELS, event.currentTarget.value)\n    ? event.currentTarget.value\n"
         }
       ]
     },
@@ -556,10 +579,12 @@
     },
     {
       "file": "src/instruments/rubix/full-presets.js",
-      "reason": "User-requested shared sequencer sound engines for Rubixoids and existing sequencers. Original paths and synthesis remain available.",
+      "reason": "User-requested shared sequencer sound engines for Rubixoids and existing sequencers. Original paths and synthesis remain available. User-requested complete middle-slice turns: move the center stickers with preview, animation and committed state, preserving existing factory scores and audio.",
       "regressionTests": [
         "tests/sequencer-voices.test.mjs",
-        "e2e/sequencer-voices.spec.mjs"
+        "e2e/sequencer-voices.spec.mjs",
+        "tests/rubix-middle-slice.test.mjs",
+        "e2e/rubix-middle-slice.spec.mjs"
       ],
       "replacements": [
         {
@@ -569,12 +594,20 @@
         {
           "before": "const numeric = {\n  tempo: [30, 300], swing: [0, 0.42], cutoff: [160, 4200], resonance: [0, 18],\n  acidDecay: [0.06, 0.72], drive: [0.5, 6],\n  stickerModulation: [0, 1], visibilityDynamics: [0, 1], randomTwistSpeed: [0, 100],\n};\nconst shapes = [\"cube\", \"morphix\", \"diamond\", \"stella\", \"orb\"];\nconst banks = [\"soft-fm\", \"analog\", \"modal\", \"noise\", \"acid-303\", \"rattlesnake\", \"pitched-morph\", \"karplus-strong\"];\nfunction arrangedCube(size, count, seed) {\n  let cube = createSolvedRubixCube(size);\n  const layers = rubixLayersForSize(size);\n  for (let index = 0; index < count; index++) {\n    cube = turnRubixLayer(cube, { axis: [\"x\", \"y\", \"z\"][(index + seed) % 3],\n      layer: layers[(index * 3 + seed) % layers.length], direction: (index + seed) % 2 ? -1 : 1 });\n",
           "after": "const numeric = {\n  tempo: [30, 300], swing: [0, 0.42], cutoff: [160, 4200], resonance: [0, 18],\n  acidDecay: [0.06, 0.72], drive: [0.5, 6],\n  stickerModulation: [0, 1], visibilityDynamics: [0, 1], randomTwistSpeed: [0, 100],\n};\nconst shapes = [\"cube\", \"morphix\", \"diamond\", \"stella\", \"orb\"];\nconst banks = [...SEQUENCER_VOICES.map(({ id }) => `shared-${id}`), \"soft-fm\", \"analog\", \"modal\", \"noise\", \"acid-303\", \"rattlesnake\", \"pitched-morph\", \"karplus-strong\"];\nfunction arrangedCube(size, count, seed) {\n  let cube = createSolvedRubixCube(size);\n  const layers = rubixLayersForSize(size);\n  for (let index = 0; index < count; index++) {\n    cube = turnRubixLayer(cube, { axis: [\"x\", \"y\", \"z\"][(index + seed) % 3],\n      layer: layers[(index * 3 + seed) % layers.length], direction: (index + seed) % 2 ? -1 : 1 });\n"
+        },
+        {
+          "before": "function arrangedCube(size, count, seed) {\n  let cube = createSolvedRubixCube(size);",
+          "after": "function arrangedCube(size, count, seed) {\n  const solved = createSolvedRubixCube(size);\n  let cube = solved;"
+        },
+        {
+          "before": "  return cube;\n}\nfunction fullScene",
+          "after": "  // Factory scores predate movable middle-slice centers. Preserve their exact\n  // original notes; live turns and randomization use the complete slice.\n  return Object.freeze({ ...cube, stickers: Object.freeze(cube.stickers.map(\n    (sticker, index) => sticker.isCenter ? solved.stickers[index] : sticker,\n  )) });\n}\nfunction fullScene"
         }
       ]
     },
     {
       "file": "src/instruments/rubix/rubix-app.js",
-      "reason": "Additive shared engines and direct scoped Rubixoids mounting and native lifecycle adapter; preserve the original animated twists, geometric surfaces, sticker mixer, sound banks, controls and preset ownership. Reuse unchanged prepared SIMD patterns on Play while retaining exact score/tone invalidation and the original scheduling lead. Integrate after the shared Shapes drum-renderer extraction; reversing this change preserves that existing renderer and pointer helper.",
+      "reason": "Additive shared engines and direct scoped Rubixoids mounting and native lifecycle adapter; preserve the original animated twists, geometric surfaces, sticker mixer, sound banks, controls and preset ownership. Reuse unchanged prepared SIMD patterns on Play while retaining exact score/tone invalidation and the original scheduling lead. Integrate after the shared Shapes drum-renderer extraction; reversing this change preserves that existing renderer and pointer helper. User-requested complete middle-slice turns: move the center stickers with preview, animation and committed state, preserving existing factory scores and audio. User-requested Shape-style side-panel transport, compact read paths, and removal of passive score graphics/prose. Existing audio, timing, preset and gesture behavior is retained; the Hyper Twists button delegates to the existing motion control. User-reported live Swing hiccups: preserve committed attacks and score order, apply SIMD Swing at a fixed beat-pair boundary, use lightweight timing messages, and avoid unchanged audio work. Simplify Visibility dynamics to the standard plain slider. Sound engines, presets, synthesis mappings and kernels are preserved.",
       "regressionTests": [
         "tests/sequencer-voices.test.mjs",
         "e2e/sequencer-voices.spec.mjs",
@@ -582,7 +615,15 @@
         "tests/rubixoids-native-settings.test.mjs",
         "tests/rubixoids-native-views.test.mjs",
         "e2e/rubixoids-polish.spec.mjs",
-        "e2e/rubix.spec.mjs"
+        "e2e/rubix.spec.mjs",
+        "tests/rubix-middle-slice.test.mjs",
+        "e2e/rubix-middle-slice.spec.mjs",
+        "tests/rubix-controls.test.mjs",
+        "tests/hyper-rubix-page.test.mjs",
+        "e2e/rubix-panel-layout.spec.mjs",
+        "tests/rubix-simd.test.mjs",
+        "tests/rubixoids-shared-clock-simd.test.mjs",
+        "e2e/rubix-live-controls.spec.mjs"
       ],
       "replacements": [
         {
@@ -688,6 +729,50 @@
         {
           "before": "    requestDraw();\n  },\n});\n",
           "after": "    requestDraw();\n  },\n});\n\n\n/** Rubixoids mount: preserve the native renderer, score, mixer and presets. */\nexport const rubixoidsNative = {\n  capture() {\n    return {\n      active: rubixoidsEmbeddedActive, playing: state.playing || soundBankTransportResumeRequested, audioOn: state.audioOn,\n      settings: {\n        ...Object.fromEntries(Object.keys(DEFAULTS).map(key => [key, state[key]])),\n        readingMode: state.readingMode, shape: state.shapeId, rubixSize: state.cube.size,\n      },\n      native: JSON.parse(JSON.stringify({\n        cube: state.cube, camera: state.camera, voices, selectedStickerId: state.selectedStickerId,\n        currentStep: state.currentStep, moveHistory, turnQueue, turnAnimation,\n        randomTwists: state.randomTwists, nextStepIndex, nextSwingStep,\n      })),\n      diagnostics: {\n        contextState: audio.context?.state ?? \"none\", schedulerActive: schedulerTimer !== null,\n        animationActive: Boolean(scheduledFrame), autoMotionActive: randomTwistTimer !== null,\n        simdBackend: simd303Engine?.backend ?? \"none\", activeSources: audio.activeSources.size,\n      },\n    };\n  },\n  async applySettings(patch = {}) {\n    for (const [key, value] of Object.entries(patch)) {\n      if (key === \"soundBank\") { await selectSoundBank(value, { announceChange: false }); continue; }\n      if (key === \"acidEngine\") { await selectAcidEngine(value, { announceChange: false }); continue; }\n      if (key === \"readingMode\") {\n        document.querySelector(`[data-read-mode=\"${CSS.escape(String(value))}\"]`)?.click(); continue;\n      }\n      if (key === \"randomTwists\") {\n        if (Boolean(value) !== state.randomTwists) $(\"randomTwists\").click(); continue;\n      }\n      if (![...Object.keys(DEFAULTS), \"shape\", \"rubixSize\"].includes(key)) continue;\n      const control = $(key);\n      if (!control || !control.matches(\"input, select\")) continue;\n      if (control.tagName === \"SELECT\" && ![...control.options].some(option => option.value === String(value))) continue;\n      control.value = String(value);\n      control.dispatchEvent(new Event(control.tagName === \"SELECT\" || key === \"rubixSize\" ? \"change\" : \"input\", { bubbles: true }));\n    }\n    return this.capture();\n  },\n  async deactivate() {\n    if (!RUBIXOIDS_EMBEDDED || !rubixoidsEmbeddedActive) return this.capture();\n    const resumePlaying = state.playing || soundBankTransportResumeRequested;\n    rubixoidsEmbeddedActive = false;\n    rubixoidsActivation += 1;\n    rubixoidsHiddenAt = performance.now();\n    rubixoidsResumeStep = resumePlaying\n      ? (state.currentStep + 1) % currentReadFrame().stepCount : null;\n    if (schedulerTimer !== null) clearTimeout(schedulerTimer);\n    schedulerTimer = null;\n    clearVisualTimers();\n    if (randomTwistTimer !== null) clearTimeout(randomTwistTimer);\n    randomTwistTimer = null;\n    if (scheduledFrame) cancelAnimationFrame(scheduledFrame);\n    scheduledFrame = 0;\n    simd303Engine?.pauseTimeline();\n    audio.setTransportActive(false);\n    if (audioStartPromise) await audioStartPromise.catch(() => {});\n    if (simd303StartPromise) await simd303StartPromise.catch(() => {});\n    // Engine selection temporarily pauses native transport while preserving the\n    // player's request. Parking the dimension must preserve that request too.\n    state.playing = resumePlaying;\n    // Retire queued attacks before suspending the sample clock, so they cannot\n    // leak into the beginning of this dimension's next visit.\n    for (const source of audio.activeSources) {\n      try { source.stop(audio.context.currentTime); } catch { /* already ended */ }\n    }\n    if (audio.context && audio.master) {\n      const now = audio.context.currentTime;\n      audio.master.gain.cancelScheduledValues(now);\n      audio.master.gain.setValueAtTime(0, now);\n      await audio.context.suspend();\n    }\n    return this.capture();\n  },\n  async activate({ audioOn = state.audioOn, playing = state.playing } = {}) {\n    const generation = ++rubixoidsActivation;\n    const wasHidden = !rubixoidsEmbeddedActive;\n    rubixoidsEmbeddedActive = true;\n    if (wasHidden && turnAnimation) turnAnimation.startedAt += performance.now() - rubixoidsHiddenAt;\n    if (audioOn && !state.audioOn) await enableAudio();\n    if (!audioOn && state.audioOn) await disableAudio();\n    if (generation !== rubixoidsActivation || !rubixoidsEmbeddedActive) return this.capture();\n    if (state.audioOn && audio.context) {\n      await audio.context.resume();\n      if (generation !== rubixoidsActivation || !rubixoidsEmbeddedActive) return this.capture();\n      audio.setOutput(state.output);\n    }\n    state.playing = Boolean(playing && state.audioOn && audio.context);\n    if (state.playing) {\n      nextStepIndex = rubixoidsResumeStep ?? state.currentStep;\n      nextStepTime = audio.context.currentTime + 0.045;\n      audio.setTransportActive(true);\n      if (activeAcidEngine === \"simd-303\" && simd303Engine) {\n        const divisions = currentReadConfig().subdivisionsPerBeat;\n        const rate = clamp(state.tempo, TEMPO_MIN_BPM, TEMPO_MAX_BPM) / 60 * 4;\n        const beat = nextStepIndex / divisions;\n        const pair = Math.floor(beat / 2);\n        const within = beat - pair * 2;\n        const swing = clamp(state.swing, 0, 0.42);\n        const offset = (pair * 2 + (within < 1 ? within * (1 + swing) : 1 + swing + (within - 1) * (1 - swing))) / rate;\n        await simd303Engine.restartTimeline({ startAt: nextStepTime, offset });\n        if (generation !== rubixoidsActivation || !rubixoidsEmbeddedActive) return this.capture();\n        simd303Engine.setPlaybackEnabled(true);\n      } else schedulerTick();\n    } else {\n      audio.setTransportActive(false);\n      simd303Engine?.pauseTimeline();\n    }\n    $(\"playButton\").setAttribute(\"aria-pressed\", String(state.playing));\n    $(\"playLabel\").textContent = state.playing ? \"Pause cube\" : \"Play cube\";\n    $(\"playState\").textContent = state.playing ? `${Math.round(state.tempo)} BPM \u00b7 running` : currentReadLengthLabel();\n    if (state.randomTwists && randomTwistTimer === null) scheduleRandomTwists();\n    resizeCanvas();\n    requestDraw();\n    return this.capture();\n  },\n};\nif (RUBIXOIDS_EMBEDDED && !mountContext) globalThis.rubixoidsNative = rubixoidsNative;\n"
+        },
+        {
+          "before": "    turn\n    && sticker.position[turn.axis] === turn.layer\n    && !(turn.layer === 0 && sticker.isCenter)\n",
+          "after": "    turn\n    && sticker.position[turn.axis] === turn.layer\n"
+        },
+        {
+          "before": "}\n\nfunction renderStepStrip() {\n  const config = currentReadConfig();\n  const currentFrame = currentReadFrame();\n  const cellCount = sequenceSnapshot.lanes.acid.length;\n",
+          "after": "}\n\nfunction renderStepStrip() {\n  if ($(\"stepStrip\").hidden) return;\n  const config = currentReadConfig();\n  const currentFrame = currentReadFrame();\n  const cellCount = sequenceSnapshot.lanes.acid.length;\n"
+        },
+        {
+          "before": "}\n\nfunction renderColorKey() {\n  const soundBank = currentSoundBank();\n  const fragment = document.createDocumentFragment();\n  for (const color of RUBIX_COLOR_ORDER) {\n",
+          "after": "}\n\nfunction renderColorKey() {\n  if ($(\"colorKey\").hidden) return;\n  const soundBank = currentSoundBank();\n  const fragment = document.createDocumentFragment();\n  for (const color of RUBIX_COLOR_ORDER) {\n"
+        },
+        {
+          "before": "}\n\nfunction renderLaneList() {\n  const frame = currentReadFrame();\n  const audibleRoles = soundBankRoleSet();\n  const lanes = Object.entries(sequenceSnapshot.faceLanes)\n",
+          "after": "}\n\nfunction renderLaneList() {\n  if ($(\"laneList\").hidden) return;\n  const frame = currentReadFrame();\n  const audibleRoles = soundBankRoleSet();\n  const lanes = Object.entries(sequenceSnapshot.faceLanes)\n"
+        },
+        {
+          "before": "}\n\nfunction syncReadingModeControls() {\n  for (const button of document.querySelectorAll(\"[data-read-mode]\")) {\n    const mode = button.dataset.readMode;\n    const config = RUBIX_READ_MODES[mode] ?? RUBIX_READ_MODES.parallel;\n    const frame = rubixReadFrame(mode, 0, sequenceSnapshot.lanes.acid.length);\n    button.setAttribute(\"aria-pressed\", String(mode === state.readingMode));\n    const detail = button.querySelector(\"small\");\n    if (detail) {\n      detail.textContent = mode === \"parallel\"\n        ? `default \u00b7 all 6 \u00b7 ${frame.stepCount} steps`\n        : mode === \"snake\"\n          ? `all 6 faces \u00b7 ${frame.stepCount} steps`\n          : `A \u2192 B \u2192 C \u00b7 ${frame.stepCount} subdivisions`;\n    }\n    button.title = mode === \"face\"\n      ? `${config.label}: ${frame.stepCount} subdivisions across ${frame.stepCount / config.subdivisionsPerBeat} beats`\n      : `${config.label}: ${frame.stepCount} steps`;\n  }\n}\n\nfunction setReadingMode(mode, shouldAnnounce = true) {\n",
+          "after": "}\n\nfunction syncReadingModeControls() {\n  $(\"readPath\").value = state.readingMode;\n}\n\nfunction setReadingMode(mode, shouldAnnounce = true) {\n"
+        },
+        {
+          "before": "  }\n});\n\nfor (const button of document.querySelectorAll(\"[data-read-mode]\")) {\n  button.addEventListener(\"click\", () => {\n    markPresetCustom();\n    setReadingMode(button.dataset.readMode);\n  });\n}\n\n$(\"shape\").addEventListener(\"change\", (event) => {\n  markPresetCustom();\n",
+          "after": "  }\n});\n\n$(\"readPath\").addEventListener(\"change\", (event) => {\n  markPresetCustom();\n  setReadingMode(event.currentTarget.value);\n});\n\n$(\"shape\").addEventListener(\"change\", (event) => {\n  markPresetCustom();\n"
+        },
+        {
+          "before": "      if (key === \"soundBank\") { await selectSoundBank(value, { announceChange: false }); continue; }\n      if (key === \"acidEngine\") { await selectAcidEngine(value, { announceChange: false }); continue; }\n      if (key === \"readingMode\") {\n        document.querySelector(`[data-read-mode=\"${CSS.escape(String(value))}\"]`)?.click(); continue;\n      }\n      if (key === \"randomTwists\") {\n        if (Boolean(value) !== state.randomTwists) $(\"randomTwists\").click(); continue;\n",
+          "after": "      if (key === \"soundBank\") { await selectSoundBank(value, { announceChange: false }); continue; }\n      if (key === \"acidEngine\") { await selectAcidEngine(value, { announceChange: false }); continue; }\n      if (key === \"readingMode\") {\n        if (Object.hasOwn(RUBIX_READ_MODES, String(value))) {\n          const control = $(\"readPath\");\n          control.value = String(value);\n          control.dispatchEvent(new Event(\"change\", { bubbles: true }));\n        }\n        continue;\n      }\n      if (key === \"randomTwists\") {\n        if (Boolean(value) !== state.randomTwists) $(\"randomTwists\").click(); continue;\n"
+        },
+        {
+          "before": "      acidSelected && this.acidEngine === \"simd-303\" ? acidLevel : 0,\n      now,\n    );\n    this.acidShaper.curve = this.distortionCurve(settings.drive);\n  }\n\n  setBankGain(bus, value, now = this.context?.currentTime ?? 0) {\n    const gain = bus?.gain;\n    if (!gain) return;\n    const target = clamp(value, 0, 1);\n    gain.cancelScheduledValues?.(now);\n    if (gain.setTargetAtTime) {\n      gain.setTargetAtTime(target, now, target > 0 ? 0.012 : 0.006);\n",
+          "after": "      acidSelected && this.acidEngine === \"simd-303\" ? acidLevel : 0,\n      now,\n    );\n    // Unchanged controls must not rebuild a waveshaper or re-arm gain ramps.\n    if (this.acidShaper.rubixDrive !== settings.drive) {\n      this.acidShaper.curve = this.distortionCurve(settings.drive);\n      this.acidShaper.rubixDrive = settings.drive;\n    }\n  }\n\n  setBankGain(bus, value, now = this.context?.currentTime ?? 0) {\n    const gain = bus?.gain;\n    if (!gain) return;\n    const target = clamp(value, 0, 1);\n    if (bus.rubixGainTarget === target) return;\n    bus.rubixGainTarget = target;\n    gain.cancelScheduledValues?.(now);\n    if (gain.setTargetAtTime) {\n      gain.setTargetAtTime(target, now, target > 0 ? 0.012 : 0.006);\n"
+        },
+        {
+          "before": "  try {\n    const snapshot = performanceSnapshots[0] ?? sequenceSnapshot;\n    const sourceKey = [\n      state.readingMode, state.tempo, state.swing, state.cutoff, state.resonance,\n      state.acidDecay, state.drive, state.stickerModulation,\n      state.simdPreset,\n      ...Object.values(snapshot.faceLanes).flat().map(({ id }) => id),\n",
+          "after": "  try {\n    const snapshot = performanceSnapshots[0] ?? sequenceSnapshot;\n    const sourceKey = [\n      state.readingMode, state.cutoff, state.resonance,\n      state.acidDecay, state.drive, state.stickerModulation,\n      state.simdPreset,\n      ...Object.values(snapshot.faceLanes).flat().map(({ id }) => id),\n"
+        },
+        {
+          "before": "      return false;\n    }\n    simd303Engine = candidate;\n    candidate.setStepHandler((step) => {\n      if (simd303Engine === candidate && state.playing) updatePlayhead(step);\n    });\n",
+          "after": "      return false;\n    }\n    simd303Engine = candidate;\n    candidate.updateTiming({ tempo: state.tempo, swing: state.swing });\n    candidate.setStepHandler((step) => {\n      if (simd303Engine === candidate && state.playing) updatePlayhead(step);\n    });\n"
+        },
+        {
+          "before": "    if (Object.hasOwn(rubixSimdPreset().controls, key)) state.simdPresetCustom = true;\n    const output = $(`${id}Out`);\n    if (output) output.textContent = format(state[key]);\n    onInput(state[key]);\n    audio.updateSettings(state);\n    updateReadouts();\n    syncSimd303Pattern();\n  });\n}\n\n",
+          "after": "    if (Object.hasOwn(rubixSimdPreset().controls, key)) state.simdPresetCustom = true;\n    const output = $(`${id}Out`);\n    if (output) output.textContent = format(state[key]);\n    if (key === \"tempo\" || key === \"swing\") {\n      // Clock edits go straight to audio; no score rebuild or panel repaint.\n      simd303Engine?.updateTiming({ tempo: state.tempo, swing: state.swing });\n      if (state.playing) $(\"playState\").textContent = `${Math.round(state.tempo)} BPM \u00b7 running`;\n      return;\n    }\n    onInput(state[key]);\n    audio.updateSettings(state);\n    syncSimd303Pattern();\n    updateReadouts();\n  });\n}\n\n"
         }
       ]
     },
@@ -834,6 +919,117 @@
         {
           "before": "    Math.round(finiteOr(options.subdivisionsPerBeat, 2)),\n    1,\n    16,\n  );\n  const disorder = hyperRubixDisorder(puzzle);\n  const signals = rotationSignals(rotation);\n  const stream = options.cellIds === undefined\n    ? createHyperRubixStickerStream(puzzle)\n    : createHyperRubixScopedStickerStream(puzzle, options.cellIds);\n  const steps = Object.freeze(stream.map((event, stepIndex) => stepFromEvent(\n    event,\n    stepIndex,\n    metrics,\n    rotation,\n    settings,\n",
           "after": "    Math.round(finiteOr(options.subdivisionsPerBeat, 2)),\n    1,\n    16,\n  );\n  const disorder = hyperRubixDisorder(puzzle);\n  const signals = rotationSignals(rotation);\n  const scopedStream = options.cellIds === undefined\n    ? createHyperRubixStickerStream(puzzle)\n    : createHyperRubixScopedStickerStream(puzzle, options.cellIds);\n  const stream = cornersOnly\n    ? scopedStream.filter(({ configuration }) => configuration.radialClass === \"corner\")\n    : scopedStream;\n  const steps = Object.freeze(stream.map((event, stepIndex) => stepFromEvent(\n    event,\n    stepIndex,\n    metrics,\n    rotation,\n    settings,\n"
+        }
+      ]
+    },
+    {
+      "file": "src/instruments/rubix/rubix.js",
+      "reason": "User-requested complete middle-slice turns: move the center stickers with preview, animation and committed state, preserving existing factory scores and audio.",
+      "regressionTests": [
+        "tests/rubix-middle-slice.test.mjs",
+        "e2e/rubix-middle-slice.spec.mjs"
+      ],
+      "replacements": [
+        {
+          "before": "/**\n * Immutably turn one x/y/z layer. On odd cubes, face centers belong to the\n * fixed core and therefore do not travel when the selected layer is the\n * middle slice. Even cubes have no fixed center sticker.\n */",
+          "after": "/** Immutably turn every sticker in one x/y/z layer, including its face centers. */"
+        },
+        {
+          "before": "    const selected = sticker.position[axis] === layer;\n    const fixedOddCenter = source.size % 2 === 1 && layer === 0 && sticker.isCenter;\n    if (!selected || fixedOddCenter) return sticker;",
+          "after": "    if (sticker.position[axis] !== layer) return sticker;"
+        }
+      ]
+    },
+    {
+      "file": "src/instruments/rubix/rubix.css",
+      "reason": "User-requested Shape-style side-panel transport, compact read paths, and removal of passive score graphics/prose. Existing audio, timing, preset and gesture behavior is retained; the Hyper Twists button delegates to the existing motion control. User-reported live Swing hiccups: preserve committed attacks and score order, apply SIMD Swing at a fixed beat-pair boundary, use lightweight timing messages, and avoid unchanged audio work. Simplify Visibility dynamics to the standard plain slider. Sound engines, presets, synthesis mappings and kernels are preserved.",
+      "regressionTests": [
+        "tests/rubix-controls.test.mjs",
+        "tests/hyper-rubix-page.test.mjs",
+        "e2e/rubix-panel-layout.spec.mjs",
+        "tests/rubix-simd.test.mjs",
+        "tests/rubixoids-shared-clock-simd.test.mjs",
+        "e2e/rubix-live-controls.spec.mjs"
+      ],
+      "replacements": [
+        {
+          "before": "    transition: none;\n  }\n}\n",
+          "after": "    transition: none;\n  }\n}\n\n/* Compact performance rows use Shape's shared circular play control. */\n.puzzle-performance { display: grid; gap: 12px; padding: 14px 16px; }\n.puzzle-performance .position-row { display: grid; grid-template-columns: var(--mz-control-height) minmax(0, 1fr); align-items: end; gap: 14px; margin: 0; }\n.puzzle-performance .control, .puzzle-performance .select-control { min-width: 0; margin: 0; }\n.puzzle-tempo-control { display: grid; min-width: 0; grid-template-columns: minmax(0, 1fr) 32px; align-items: end; gap: 8px; }\n.puzzle-tempo-control > button { width: 32px; height: 32px; min-height: 32px; margin-bottom: 4px; padding: 0; font-size: 12px; }\n.puzzle-swing-row { padding-left: calc(var(--mz-control-height) + 14px); }\n.puzzle-performance .puzzle-read-path, .puzzle-performance .hyper-rubix-method-select { padding: 0; border: 0; background: transparent; }\n.puzzle-performance > .select-control { display: grid; grid-template-columns: 72px minmax(0, 1fr); align-items: center; gap: 10px; }\n.puzzle-performance .play-button svg { width: 18px; height: 18px; }\n.puzzle-twist-row > .play-button > span:first-child { display: contents; }\n@media (pointer: coarse) {\n  .puzzle-performance { --mz-control-height: 48px; }\n  .puzzle-tempo-control { grid-template-columns: minmax(0, 1fr) 48px; }\n  .puzzle-tempo-control > button { width: 48px; height: 48px; min-height: 48px; margin-bottom: 0; }\n}\n"
+        },
+        {
+          "before": "  font-size: 6px;\n  line-height: 1.25;\n  opacity: 1;\n}\n\n.rubix-visibility-dynamics {\n  margin: 0 0 12px;\n  padding: 9px 10px 4px;\n  border: 1px solid color-mix(in oklab, var(--accent) 22%, var(--line-strong));\n  background:\n    linear-gradient(90deg, color-mix(in oklab, var(--accent) 5%, transparent), transparent 62%),\n    var(--bg-deep);\n}\n\n.rubix-visibility-dynamics > span {\n  margin-bottom: 0;\n}\n\n.rubix-visibility-dynamics > span b {\n  color: var(--accent);\n  font-size: 8px;\n  letter-spacing: 0.065em;\n  text-transform: uppercase;\n}\n\n.rubix-visibility-dynamics > small {\n  margin: -5px 0 3px;\n  color: var(--faint);\n  font-size: 7px;\n  letter-spacing: 0.025em;\n  line-height: 1.35;\n}\n\n.rubix-status-strip {\n",
+          "after": "  font-size: 6px;\n  line-height: 1.25;\n  opacity: 1;\n}\n\n.rubix-status-strip {\n"
+        },
+        {
+          "before": "  .rubix-preset-control,\n  .rubix-sound-bank-control,\n  .rubix-acid-engine-control,\n  .rubix-bank-subcontrols,\n  .rubix-visibility-dynamics {\n    padding-right: 8px;\n    padding-left: 8px;\n  }\n",
+          "after": "  .rubix-preset-control,\n  .rubix-sound-bank-control,\n  .rubix-acid-engine-control,\n  .rubix-bank-subcontrols {\n    padding-right: 8px;\n    padding-left: 8px;\n  }\n"
+        }
+      ]
+    },
+    {
+      "file": "src/instruments/hyper-rubix/hyper-rubix.css",
+      "reason": "User-requested Shape-style side-panel transport, compact read paths, and removal of passive score graphics/prose. Existing audio, timing, preset and gesture behavior is retained; the Hyper Twists button delegates to the existing motion control.",
+      "regressionTests": [
+        "tests/rubix-controls.test.mjs",
+        "tests/hyper-rubix-page.test.mjs",
+        "e2e/rubix-panel-layout.spec.mjs"
+      ],
+      "replacements": [
+        {
+          "before": "    animation-iteration-count: 1 !important;\n  }\n}\n",
+          "after": "    animation-iteration-count: 1 !important;\n  }\n}\n\n/* Compact performance rows use Shape's shared circular play control. */\n.puzzle-performance { display: grid; gap: 12px; padding: 14px 16px; }\n.puzzle-performance .position-row { display: grid; grid-template-columns: var(--mz-control-height) minmax(0, 1fr); align-items: end; gap: 14px; margin: 0; }\n.puzzle-performance .control, .puzzle-performance .select-control { min-width: 0; margin: 0; }\n.puzzle-tempo-control { display: grid; min-width: 0; grid-template-columns: minmax(0, 1fr) 32px; align-items: end; gap: 8px; }\n.puzzle-tempo-control > button { width: 32px; height: 32px; min-height: 32px; margin-bottom: 4px; padding: 0; font-size: 12px; }\n.puzzle-swing-row { padding-left: calc(var(--mz-control-height) + 14px); }\n.puzzle-performance .puzzle-read-path, .puzzle-performance .hyper-rubix-method-select { padding: 0; border: 0; background: transparent; }\n.puzzle-performance > .select-control { display: grid; grid-template-columns: 72px minmax(0, 1fr); align-items: center; gap: 10px; }\n.puzzle-performance .play-button svg { width: 18px; height: 18px; }\n.puzzle-twist-row > .play-button > span:first-child { display: contents; }\n@media (pointer: coarse) {\n  .puzzle-performance { --mz-control-height: 48px; }\n  .puzzle-tempo-control { grid-template-columns: minmax(0, 1fr) 48px; }\n  .puzzle-tempo-control > button { width: 48px; height: 48px; min-height: 48px; margin-bottom: 0; }\n}\n"
+        }
+      ]
+    },
+    {
+      "file": "src/instruments/rubix/rubix-simd-303-processor.js",
+      "reason": "User-reported live Swing hiccups: preserve committed attacks and score order, apply SIMD Swing at a fixed beat-pair boundary, use lightweight timing messages, and avoid unchanged audio work. Simplify Visibility dynamics to the standard plain slider. Sound engines, presets, synthesis mappings and kernels are preserved.",
+      "regressionTests": [
+        "tests/rubix-controls.test.mjs",
+        "tests/rubix-simd.test.mjs",
+        "tests/rubixoids-shared-clock-simd.test.mjs",
+        "e2e/rubix-live-controls.spec.mjs"
+      ],
+      "replacements": [
+        {
+          "before": "  const phase = (pair * 2 + (long ? within / duration : 1 + (within - 1 - swing) / duration)) * divisions;\n  const slope = rate * divisions / duration;\n  return { phase, slope, secondsToNext: (Math.floor(phase + 1e-9) + 1 - phase) / slope };\n}\n\nexport class RubixSimd303Processor extends AudioWorkletProcessor {\n",
+          "after": "  const phase = (pair * 2 + (long ? within / duration : 1 + (within - 1 - swing) / duration)) * divisions;\n  const slope = rate * divisions / duration;\n  return { phase, slope, secondsToNext: (Math.floor(phase + 1e-9) + 1 - phase) / slope };\n}\n\n\n/** Finish the current long/short pair before changing its swing shape. */\nexport function rubixSimdSwingEdit(beat, swing, pendingSwing, target, active = true, applyAt) {\n  if (pendingSwing && beat >= pendingSwing.beat - 1e-8) {\n    swing = pendingSwing.swing;\n    pendingSwing = null;\n  }\n  if (!active || applyAt === null || !Number.isFinite(swing)) {\n    return { swing: target, pendingSwing: null };\n  }\n  if (target === swing && !pendingSwing) return { swing, pendingSwing: null };\n  const boundary = Number.isFinite(applyAt) ? applyAt\n    : pendingSwing?.beat ?? (Math.floor(beat / 2 + 1e-8) + 1) * 2;\n  if (boundary <= beat + 1e-8) return { swing: target, pendingSwing: null };\n  return { swing, pendingSwing: { beat: boundary, swing: target } };\n}\n\nexport class RubixSimd303Processor extends AudioWorkletProcessor {\n"
+        },
+        {
+          "before": "    this.visibility = {};\n    this.timbres = {};\n    this.beat = 0;\n    this.elapsed = 0;\n    this.startAt = Infinity;\n    this.lastStep = -1;\n",
+          "after": "    this.visibility = {};\n    this.timbres = {};\n    this.beat = 0;\n    this.pendingSwing = null;\n    this.elapsed = 0;\n    this.startAt = Infinity;\n    this.lastStep = -1;\n"
+        },
+        {
+          "before": "    const first = faces[0];\n    this.divisions = first.divisions === 3 ? 3 : 1;\n    this.stepCount = first.stepStickerIds.length;\n    this.rate = Math.max(2, Math.min(20, first.configuration.params.timeScale / this.divisions));\n    this.swing = Math.max(0, Math.min(0.42, first.configuration.params.swing));\n    if (oldBeatCount && oldBeatCount !== this.stepCount / this.divisions) {\n      this.beat %= this.stepCount / this.divisions;\n    }\n    this.setVisibility(this.visibility);\n    this.setTimbres(this.timbres);\n  }\n\n  setVisibility(gains = {}) {\n",
+          "after": "    const first = faces[0];\n    this.divisions = first.divisions === 3 ? 3 : 1;\n    this.stepCount = first.stepStickerIds.length;\n    if (oldBeatCount && oldBeatCount !== this.stepCount / this.divisions) {\n      this.beat %= this.stepCount / this.divisions;\n      this.pendingSwing = null;\n    }\n    this.updateTiming(first.configuration.params.timeScale / this.divisions * 15,\n      first.configuration.params.swing);\n    this.setVisibility(this.visibility);\n    this.setTimbres(this.timbres);\n  }\n\n  updateTiming(tempo, swing) {\n    this.rate = Math.max(2, Math.min(20, finite(tempo, 120) / 15));\n    const target = Math.max(0, Math.min(0.42, finite(swing)));\n    Object.assign(this, rubixSimdSwingEdit(this.beat, this.swing, this.pendingSwing, target,\n      this.enabled && currentTime >= this.startAt));\n  }\n\n  applyPendingSwing() {\n    if (this.pendingSwing && this.beat >= this.pendingSwing.beat - 1e-8) {\n      this.swing = this.pendingSwing.swing;\n      this.pendingSwing = null;\n    }\n  }\n\n  setVisibility(gains = {}) {\n"
+        },
+        {
+          "before": "      }\n      this.port.postMessage({ type: \"ready\", backend: this.backend, faceCount: this.voices.length });\n    } else if (message.type === \"configure\") {\n      this.configure(message.faces);\n      this.lastStep = -1;\n    } else if (message.type === \"visibility\") {\n      this.setVisibility(message.gains);\n      this.setTimbres(message.timbres);\n",
+          "after": "      }\n      this.port.postMessage({ type: \"ready\", backend: this.backend, faceCount: this.voices.length });\n    } else if (message.type === \"configure\") {\n      const previousStepCount = this.stepCount;\n      const previousDivisions = this.divisions;\n      this.configure(message.faces);\n      if (previousStepCount !== this.stepCount || previousDivisions !== this.divisions) this.lastStep = -1;\n    } else if (message.type === \"timing\") {\n      this.updateTiming(message.tempo, message.swing);\n    } else if (message.type === \"visibility\") {\n      this.setVisibility(message.gains);\n      this.setTimbres(message.timbres);\n"
+        },
+        {
+          "before": "      this.output = unit(message.value) * 0.7;\n    } else if (message.type === \"playback\") {\n      this.enabled = Boolean(message.enabled);\n    } else if (message.type === \"restart\") {\n      this.startAt = Math.max(currentTime, finite(message.startAt, currentTime));\n      this.beat = Math.max(0, finite(message.offset)) * this.rate;\n      this.elapsed = Math.max(0, finite(message.offset));\n",
+          "after": "      this.output = unit(message.value) * 0.7;\n    } else if (message.type === \"playback\") {\n      this.enabled = Boolean(message.enabled);\n      if (!this.enabled && this.pendingSwing) {\n        this.swing = this.pendingSwing.swing;\n        this.pendingSwing = null;\n      }\n    } else if (message.type === \"restart\") {\n      this.swing = this.pendingSwing?.swing ?? this.swing;\n      this.pendingSwing = null;\n      this.startAt = Math.max(currentTime, finite(message.startAt, currentTime));\n      this.beat = Math.max(0, finite(message.offset)) * this.rate;\n      this.elapsed = Math.max(0, finite(message.offset));\n"
+        },
+        {
+          "before": "    const right = output[1] ?? left;\n    try {\n      while (offset < frames) {\n        const clock = rubixSimdClock(this.beat, this.rate, this.swing, this.divisions);\n        const count = Math.min(frames - offset, Math.max(1, Math.ceil(clock.secondsToNext * sampleRate - 1e-6)));\n        const step = Math.floor(clock.phase + 1e-9) % this.stepCount;\n",
+          "after": "    const right = output[1] ?? left;\n    try {\n      while (offset < frames) {\n        this.applyPendingSwing();\n        const clock = rubixSimdClock(this.beat, this.rate, this.swing, this.divisions);\n        const count = Math.min(frames - offset, Math.max(1, Math.ceil(clock.secondsToNext * sampleRate - 1e-6)));\n        const step = Math.floor(clock.phase + 1e-9) % this.stepCount;\n"
+        }
+      ]
+    },
+    {
+      "file": "src/instruments/rubix/rubix-simd-surface.js",
+      "reason": "User-reported live Swing hiccups: preserve committed attacks and score order, apply SIMD Swing at a fixed beat-pair boundary, use lightweight timing messages, and avoid unchanged audio work. Simplify Visibility dynamics to the standard plain slider. Sound engines, presets, synthesis mappings and kernels are preserved.",
+      "regressionTests": [
+        "tests/rubix-controls.test.mjs",
+        "tests/rubix-simd.test.mjs",
+        "tests/rubixoids-shared-clock-simd.test.mjs",
+        "e2e/rubix-live-controls.spec.mjs"
+      ],
+      "replacements": [
+        {
+          "before": "    this.faces = faces;\n    this.node?.port.postMessage({ type: \"configure\", faces });\n    this.updateVisibility(this.profile, this.amount, this.timbres);\n  }\n\n  setErrorHandler(handler) { this.onError = handler; }\n",
+          "after": "    this.faces = faces;\n    this.node?.port.postMessage({ type: \"configure\", faces });\n    this.updateVisibility(this.profile, this.amount, this.timbres);\n  }\n\n  /** Timing edits do not rebuild six faces or touch synthesis configuration. */\n  updateTiming({ tempo, swing } = {}) {\n    this.node?.port.postMessage({ type: \"timing\", tempo, swing });\n  }\n\n  setErrorHandler(handler) { this.onError = handler; }\n"
         }
       ]
     }

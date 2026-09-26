@@ -1,7 +1,7 @@
 // simd-303.js is browser-global-free at import time. Reuse its actual Wasm ABI
 // views and configuration writer, rather than maintaining a second synth model.
 import { createSimd303KernelViews, writeSimd303Configuration } from "../../../simd-303.js";
-import { rubixSimdClock } from "./rubix-clock.js";
+import { rubixSimdClock, rubixSimdSwingEdit } from "./rubix-clock.js";
 export { rubixSimdClock } from "./rubix-clock.js";
 
 const BLOCK_SIZE = 128;
@@ -30,6 +30,7 @@ export class RubixSimd303Processor extends AudioWorkletProcessor {
     this.visibility = {};
     this.timbres = {};
     this.beat = 0;
+    this.pendingSwing = null;
     this.externalClock = null;
     this.scorePhaseOffset = 0;
     this.elapsed = 0;
@@ -102,14 +103,29 @@ export class RubixSimd303Processor extends AudioWorkletProcessor {
         this.scorePhaseOffset = Math.round(this.scorePhaseOffset / oldDivisions * this.divisions);
       }
     } else {
-      this.rate = Math.max(2, Math.min(20, first.configuration.params.timeScale / this.divisions));
-      this.swing = Math.max(0, Math.min(0.42, first.configuration.params.swing));
       if (oldBeatCount && oldBeatCount !== this.stepCount / this.divisions) {
         this.beat %= this.stepCount / this.divisions;
+        this.pendingSwing = null;
       }
+      this.updateTiming(first.configuration.params.timeScale / this.divisions * 15,
+        first.configuration.params.swing);
     }
     this.setVisibility(this.visibility);
     this.setTimbres(this.timbres);
+  }
+
+  updateTiming(tempo, swing) {
+    this.rate = Math.max(2, Math.min(20, finite(tempo, 120) / 15));
+    const target = Math.max(0, Math.min(0.42, finite(swing)));
+    Object.assign(this, rubixSimdSwingEdit(this.beat, this.swing, this.pendingSwing, target,
+      this.enabled && currentTime >= this.startAt));
+  }
+
+  applyPendingSwing() {
+    if (this.pendingSwing && this.beat >= this.pendingSwing.beat - 1e-8) {
+      this.swing = this.pendingSwing.swing;
+      this.pendingSwing = null;
+    }
   }
 
   setVisibility(gains = {}) {
@@ -157,8 +173,13 @@ export class RubixSimd303Processor extends AudioWorkletProcessor {
       }
       this.port.postMessage({ type: "ready", backend: this.backend, faceCount: this.voices.length });
     } else if (message.type === "configure") {
+      const previousStepCount = this.stepCount;
+      const previousDivisions = this.divisions;
       this.configure(message.faces);
-      this.lastStep = -1;
+      if (previousStepCount !== this.stepCount || previousDivisions !== this.divisions) this.lastStep = -1;
+    } else if (message.type === "timing") {
+      // A mounted clock remains the sole authority for owned playback.
+      if (!this.externalClock) this.updateTiming(message.tempo, message.swing);
     } else if (message.type === "visibility") {
       this.setVisibility(message.gains);
       this.setTimbres(message.timbres);
@@ -166,6 +187,10 @@ export class RubixSimd303Processor extends AudioWorkletProcessor {
       this.output = unit(message.value) * 0.7;
     } else if (message.type === "playback") {
       this.enabled = Boolean(message.enabled);
+      if (!this.enabled && this.pendingSwing) {
+        this.swing = this.pendingSwing.swing;
+        this.pendingSwing = null;
+      }
     } else if (message.type === "clock") {
       const audioTime = finite(message.audioTime, currentTime);
       const beat = finite(message.quarterBeat) * 4;
@@ -173,14 +198,18 @@ export class RubixSimd303Processor extends AudioWorkletProcessor {
       const swing = Math.max(0, Math.min(0.42, finite(message.swing)));
       this.externalClock = { audioTime, beat, rate, swing, revision: message.revision };
       this.rate = rate;
-      this.swing = swing;
+      this.beat = beat + (currentTime - audioTime) * rate;
+      Object.assign(this, rubixSimdSwingEdit(this.beat, this.swing, this.pendingSwing, swing,
+        this.enabled && currentTime >= this.startAt, message.swingAtBeat));
       if (Number.isFinite(message.startAt)) {
         this.startAt = Math.max(currentTime, message.startAt);
       }
       if (Number.isFinite(message.step)) {
         const alignAt = Number.isFinite(message.startAt) ? message.startAt : currentTime;
         const globalBeat = beat + (alignAt - audioTime) * rate;
-        const globalPhase = rubixSimdClock(globalBeat, rate, swing, this.divisions).phase;
+        const alignSwing = this.pendingSwing && globalBeat >= this.pendingSwing.beat - 1e-8
+          ? this.pendingSwing.swing : this.swing;
+        const globalPhase = rubixSimdClock(globalBeat, rate, alignSwing, this.divisions).phase;
         this.scorePhaseOffset = message.step - globalPhase;
         // Grid snapshots can accumulate sub-sample floating-point noise.
         if (Math.abs(this.scorePhaseOffset - Math.round(this.scorePhaseOffset)) < 1e-6) {
@@ -193,6 +222,8 @@ export class RubixSimd303Processor extends AudioWorkletProcessor {
     } else if (message.type === "restart") {
       this.externalClock = null;
       this.scorePhaseOffset = 0;
+      this.swing = this.pendingSwing?.swing ?? this.swing;
+      this.pendingSwing = null;
       this.startAt = Math.max(currentTime, finite(message.startAt, currentTime));
       this.beat = Math.max(0, finite(message.offset)) * this.rate;
       this.elapsed = Math.max(0, finite(message.offset));
@@ -240,6 +271,7 @@ export class RubixSimd303Processor extends AudioWorkletProcessor {
           const anchor = this.externalClock;
           this.beat = anchor.beat + (currentTime + offset / sampleRate - anchor.audioTime) * anchor.rate;
         }
+        this.applyPendingSwing();
         const clock = rubixSimdClock(this.beat, this.rate, this.swing, this.divisions);
         const scorePhase = clock.phase + this.scorePhaseOffset;
         const count = Math.min(frames - offset, Math.max(1, Math.ceil(clock.secondsToNext * sampleRate - 1e-6)));

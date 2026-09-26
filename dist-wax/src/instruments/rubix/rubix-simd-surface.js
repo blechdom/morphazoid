@@ -110,6 +110,11 @@ export class RubixSurfaceSimd303 {
     this.updateVisibility(this.profile, this.amount, this.timbres);
   }
 
+  /** Timing edits do not rebuild six faces or touch synthesis configuration. */
+  updateTiming({ tempo, swing } = {}) {
+    this.node?.port.postMessage({ type: "timing", tempo, swing });
+  }
+
   setErrorHandler(handler) { this.onError = handler; }
   setStepHandler(handler) { this.onStep = handler; }
   setOutput(value) {

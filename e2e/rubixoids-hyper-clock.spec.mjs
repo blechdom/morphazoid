@@ -4,7 +4,7 @@ import { enforceRubixoidsOwnership } from './helpers/rubixoids-ownership.mjs';
 
 enforceRubixoidsOwnership(test, expect);
 const audioButton = page => page.locator('body > .masthead #audioButton');
-const playButton = page => page.locator('body > .rubixoids-bar #playButton');
+const playButton = page => page.locator('.rubixoids-pane:not([hidden]) #playButton');
 async function read(page) {
   return page.evaluate(async () => {
     const { rubixoidsInstrument } = await import('/src/instruments/rubixoids/rubixoids-app.js');

@@ -2505,10 +2505,10 @@ function paintPuzzleMetrics() {
     "aria-label",
     `Interactive projected ${order} four-dimensional Rubix puzzle with ${metrics.stickerCount} colored hyper-stickers.`,
   );
-  $("stickerStreamMethodOption").textContent = `Sticker loop · ${metrics.stickerStreamLength}`;
-  $("cornerStreamMethodOption").textContent = `Corner stream · ${metrics.cornerStreamLength}`;
-  $("stickerHyperbarMethodOption").textContent = `Sticker hyperbar · ${metrics.hyperbarLength}`;
-  $("hybridCoilMethodOption").textContent = `Hybrid coil · 16 × ${metrics.hyperbarLength}`;
+  $("stickerStreamMethodOption").textContent = "Sticker loop";
+  $("cornerStreamMethodOption").textContent = "Corner stream";
+  $("stickerHyperbarMethodOption").textContent = "Hyperbar";
+  $("hybridCoilMethodOption").textContent = "Hybrid coil";
   $("hyperbarMatrixLabel").textContent = `${noteCount}-note ${playbackPresetLabel().toLowerCase()} loop`;
   $("hyperbarMatrixSummary").textContent = `${activePlaybackCellIds().length} heard cells × ${notesPerCell} ${state.sequenceMethod === "corner-stream" ? "corners" : "addresses"} · one note per sticker`;
   $("rattleVoiceLabel").textContent = "Rattlesnake preset";
@@ -2943,6 +2943,19 @@ function paintSequenceMethodHelp() {
   $("sequenceMethodHelp").textContent = `${method.help}${twistHelp}`;
 }
 
+let lastTwistMotion = "auto";
+function paintTwistTransport() {
+  const enabled = sequenceMethodConfig().autoTwist;
+  const running = enabled && state.twistMotion !== "off";
+  if (state.twistMotion !== "off") lastTwistMotion = state.twistMotion;
+  const button = $("twistPlayButton");
+  button.disabled = !enabled;
+  button.setAttribute("aria-pressed", String(running));
+  button.setAttribute("aria-label", running ? "Pause twists" : "Start twists");
+  button.title = enabled ? (running ? "Pause twists" : "Start twists")
+    : "Twists are available with Hyperbar, Hybrid coil or Twist tape";
+}
+
 function paintSequenceMethod() {
   paintPuzzleMetrics();
   const method = sequenceMethodConfig();
@@ -2953,6 +2966,7 @@ function paintSequenceMethod() {
   $("sequencePattern").disabled = !method.autoTwist;
   $("twistDensity").disabled = !method.autoTwist;
   if ($("twistMotion")) $("twistMotion").disabled = !method.autoTwist;
+  paintTwistTransport();
   $("playbackPreset").disabled = !method.serial;
   $("playbackScopeReadout").hidden = !method.serial;
   if (method.hyperbar) renderHyperbarGrid();
@@ -3020,6 +3034,7 @@ function updateTimelineReadout(method, {
 }
 
 function paintTransport() {
+  paintTwistTransport();
   const rate = RATE_LABELS[state.subdivisionsPerBeat] ?? "1/8";
   const mode = PLAYBACK_LABELS[state.playbackMode] ?? "Forward";
   const method = sequenceMethodConfig();
@@ -4040,6 +4055,13 @@ $("twistRate").addEventListener("change", (event) => {
   realignRunningWebGpu303Phase();
   queueWebGpu303Sync({ force: true });
   announce(`${RATE_LABELS[state.subdivisionsPerBeat]} pulse rate selected: ${state.subdivisionsPerBeat} pulse${state.subdivisionsPerBeat === 1 ? "" : "s"} per quarter-note beat.`);
+});
+
+$("twistPlayButton").addEventListener("click", () => {
+  const control = $("twistMotion");
+  if (control.disabled) return;
+  control.value = state.twistMotion === "off" ? lastTwistMotion : "off";
+  control.dispatchEvent(new Event("change", { bubbles: true }));
 });
 
 $("twistMotion").addEventListener("change", (event) => {
