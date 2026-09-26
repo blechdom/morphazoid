@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { observeAutomataState } from "./helpers/automatapoeia-probe.mjs";
 
 import {
   pageDiagnosticMessages,
@@ -116,6 +117,7 @@ test("Automatapoeia switches to totalistic codes without restarting its history"
   const diagnostics = watchPageDiagnostics(page);
   await page.setViewportSize({ width: 1440, height: 900 });
 
+  await observeAutomataState(page);
   const response = await page.goto("/automatapoeia.html", { waitUntil: "domcontentloaded" });
   expect(response?.ok(), "Automatapoeia returned HTTP " + response?.status()).toBe(true);
   await settlePage(page);
@@ -154,8 +156,12 @@ test("Automatapoeia switches to totalistic codes without restarting its history"
   expect(await generation(page)).toBeGreaterThanOrEqual(generationBeforeSwitch);
   await expect.poll(() => generation(page)).toBeGreaterThan(generationBeforeSwitch);
   await expect(audioButton).toHaveAttribute("aria-pressed", initialAudioState);
-  await expect(page.locator("#caEvolutionSummary")).toContainText("Elementary R1 · Rule 30");
-  await expect(page.locator("#caEvolutionSummary")).toContainText("Totalistic R2 · Code 20");
+  // History remains intact even though its verbose Evolution readout was removed.
+  const evolution = await page.evaluate(() => __caSnapshot().evolution);
+  expect(evolution).toEqual(expect.arrayContaining([
+    expect.objectContaining({ family: "elementary", rule: 30 }),
+    expect.objectContaining({ family: "totalistic-r2", rule: 20 }),
+  ]));
 
   await ruleSlider.evaluate((control) => {
     control.value = "63";

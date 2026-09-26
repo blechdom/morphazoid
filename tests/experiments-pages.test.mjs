@@ -120,9 +120,6 @@ test("Automatapoeia preserves exact live evolution while exposing history-safe i
   assert.match(legacy, /href="automatapoeia\.html">Automatapoeia/);
   assert.doesNotMatch(html, /class="(?:stage-meta|experiment-title)"/);
   assert.match(html, /<div class="sr-only">\s*<h1>Automatapoeia<\/h1>/);
-  assert.match(html, /NKS Open Problems/);
-  assert.match(html, /https:\/\/www\.wolframscience\.com\/openproblems\/NKSOpenProblems\.pdf/);
-  assert.match(html, /https:\/\/www\.wolframscience\.com\/nks\/notes-2-1--audio-representation-of-cellular-automata\//);
   assert.match(html, /Domain walls/);
   assert.match(html, /id="caFamily"/);
   assert.match(html, /value="elementary" selected>Elementary · radius 1 · 256/);
@@ -171,22 +168,28 @@ test("Automatapoeia preserves exact live evolution while exposing history-safe i
   const release = html.indexOf('id="caRelease"');
   const readout = html.indexOf('id="experimentTitle"');
   const lookup = html.indexOf('class="automata-rule-lookup"');
-  const why = html.indexOf('id="automataInterestTitle"');
-  const nks = html.indexOf('id="nksOpenProblemsTitle"');
+  const envelope = html.indexOf('id="caEnvelopeControl"');
   assert.ok(html.indexOf('id="playButton"') < rate && rate < density && density < restart && restart < reseed);
-  assert.ok(density < soundControls && soundControls < voice && voice < sonificationMode);
-  assert.ok(sonificationMode < frequencyMin && frequencyMin < frequencyMax && frequencyMax < soundDetails);
-  assert.ok(soundDetails < release && release < familySelector);
-  assert.ok(familySelector < rulePicker && rulePicker < ruleSlider);
+  assert.ok(reseed < rulePicker && rulePicker < soundControls && soundControls < voice && voice < sonificationMode);
+  assert.ok(sonificationMode < frequencyMin && frequencyMin < frequencyMax && frequencyMax < envelope);
+  assert.ok(envelope < release && release < soundDetails && soundDetails < familySelector);
+  assert.ok(familySelector < ruleSlider);
   assert.ok(ruleSlider < boundary && boundary < transform && transform < width);
   assert.ok(width < reset && reset < readout);
   assert.match(html, /<details\b[^>]*id="caSoundDetails"/);
-  assert.ok(readout < lookup && lookup < why && why < nks);
-  assert.equal(nks, html.lastIndexOf('id="nksOpenProblemsTitle"'));
+  assert.ok(readout < lookup);
+  assert.match(html, /<span>Rules<\/span>/);
+  assert.match(html, /data-instrument-info="off"/);
+  assert.doesNotMatch(html, /data-midi-output-monitor="manual"/);
+  assert.doesNotMatch(html, /automataInterestTitle|nksOpenProblemsTitle|Why this is interesting|NKS Open Problems|Official audio note|Official problem list/);
+  for (const section of ["sound", "mapping", "form", "structure"]) {
+    assert.match(html, new RegExp(`<details[^>]*data-section="${section}"[^>]*>\\s*<summary class="group-summary"`));
+  }
+  for (const key of ["caAttack", "caDecay", "caSustain", "caRelease"]) {
+    assert.match(html, new RegExp(`role="slider" data-envelope="${key}"`));
+    assert.match(html, new RegExp(`id="${key}" type="range"`));
+  }
   assert.match(html, /class="reset-all-row"[\s\S]*class="reset-all-button"[^>]*data-reset-all/);
-  assert.match(html, /Why this is interesting[\s\S]*Tiny local rules/);
-  assert.match(html, /Elementary:[\s\S]*256 \/ 256[\s\S]*Binary radius-2 totalistic:[\s\S]*64 \/ 64/);
-  assert.match(html, /NKS audio experiment maps each generation to a chord/);
   assert.doesNotMatch(html, /automata-rule-atlas-note|automata-live-change-copy|automata-method-copy/);
   assert.match(html, /id="caTransform"/);
   assert.match(html, /value="shift-left">Shift \/ ring left/);
@@ -235,7 +238,7 @@ test("Automatapoeia preserves exact live evolution while exposing history-safe i
   assert.match(html, /id="caDecay"/);
   assert.match(html, /id="caSustain"/);
   assert.match(html, /id="caRelease"/);
-  assert.match(html, /id="caEvolutionSummary"/);
+  assert.doesNotMatch(html, /id="ca(?:Evolution|Run)Summary"/);
   const rowScan = app.slice(app.indexOf("triggerRowScan(cells"), app.indexOf("\n  triggerColumnSineBank("));
   const rowScheduler = app.slice(
     app.indexOf("nextAutomataRowTime("),

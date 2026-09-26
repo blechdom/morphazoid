@@ -13,7 +13,7 @@ amendments to the frozen relocation proof are recorded in
 `docs/io-settings-runtime-changes.json`, rather than replacing its baseline.
 
 The **top-right gear** is available on catalogue, setup, guide and shared-header
-instrument pages. On an instrument, hover or click/tap the gear to edit its
+instrument pages. On an instrument, click/tap the gear to edit its
 **Audio Out**, **Mic / Audio In**, **MIDI In**, **MIDI Out**, and **MIDI Map**
 controls directly, with the instrument still visible behind it. Availability
 follows the instrument and browser: disabled routes remain honestly unavailable.
@@ -22,7 +22,8 @@ or input lifecycle. The catalogue and setup-page gear retain their test shortcut
 Keyboard users can press Enter/Space to open the gear, Tab through controls, or
 Arrow Down to focus the first available control. Escape dismisses it and returns focus to the gear, while
 preserving page panic/stop behavior (including Stop all on this setup page).
-An outside click or tabbing away also dismisses it. Clicking a hover-open gear pins it.
+An outside click or tabbing away also dismisses it. Hover never opens or closes
+the menu; clicking the gear again closes it.
 The **Full I/O setup ↗** link is always at the bottom and opens in a new tab,
 leaving the instrument page and its state in place. The guide opens separately
 too. Browser/instrument background-audio policies still apply when switching
