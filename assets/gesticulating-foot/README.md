@@ -2,6 +2,13 @@
 
 This asset crops the official MakeHuman base mesh at the right ankle and retains the default skeleton's real five toe chains. The big toe has two joints (`mcp`, `dip`); the other toes each have three (`mcp`, `pip`, `dip`). `foot_R` is the ankle hinge. Two stationary calf anchors preserve the original ankle blend weights, making 17 skin joints in total: 14 toe joints, one foot and two calf anchors.
 
+Gesticules adds three weighted arch bones when loading this asset, producing a
+20-bone runtime rig. They distribute arch bend and twist between ankle and toes;
+length scaling supplies stretch. Elastic motion animates those same controls.
+The added bones and redistributed ankle weights are runtime adaptations: the
+17-joint source GLB, exported toe weights, and neutral surface remain the asset
+recorded below. These expressive deformations are not extra anatomical joints.
+
 - `foot.glb`: 1,893,064 bytes; 34,352 triangles; 17,830 exported vertices (17,178 before UV/material splits); three embedded texture maps.
 - `rig-report.json`: every bone's source name, parent, rest transform, bend/spread axes, heads/tails, toe endpoints, mesh bounds and conversion evidence.
 - `source-metadata.json`: pinned upstream model commit, URLs, SHA-256 checksums and the original asset-pack record confirming the skin's CC0 license.
@@ -43,6 +50,6 @@ The original 2048×2048 skin maps are cropped without resampling to `[44,1697,39
 
 ## Verification and limits
 
-Chromium loaded the GLB with the repository's Three GLTFLoader with no page errors. Both skinned primitives share the expected 17-joint rig. All 14 toe joints individually displaced a strongly weighted vertex at 30 degrees, with finite results. Open toes, simultaneously curled toes and ankle flexion were rendered and inspected. The GLB rebuild was byte-identical.
+Chromium loaded the GLB with the repository's Three GLTFLoader with no page errors. Both skinned primitives share the expected 17-joint source rig before the runtime arch extension. All 14 toe joints individually displaced a strongly weighted vertex at 30 degrees, with finite results. Open toes, simultaneously curled toes and ankle flexion were rendered and inspected. The GLB rebuild was byte-identical.
 
 The foot has distinct toes, recognizable toe joints, nail patches and skin/crease detail at normal instrument size. Its original foot texture region is only 352×336 pixels: close zooms are softer than the separately scanned hand's full-resolution texture. The mesh is an artist-authored human base, not a clinical biomechanical model or a tendon/contact simulation. Extreme toe combinations can intersect or pinch the interpolated skin. The ankle is deliberately capped where the limb is cropped. The retained calf anchors should normally stay at rest while `foot_R` controls ankle movement.

@@ -185,8 +185,8 @@ const CATALOG_DETAILS = Object.freeze({
   ),
   "gesticulating-hand": define(
     "Articulated hand and foot synthesizer",
-    "An articulated 3D hand or foot with 35 gesture animations, tempo up to 1,100 BPM, 4x speed and targeted tremor. Eight engines across five finger or toe voices follow joint movement; complete presets recall the model, sound, motion, camera, skin and lighting.",
-    "Choose Hand or Foot, turn on Audio and Sound, then drag a joint. Play Motion for gesture choreography, or enable MIDI and hold keys for temporary finger or toe poses.",
+    "A rigged 3D hand or elastic foot with 35 gesture animations, eight sound engines and 52 mixed presets. Joint motion, arch, twist, stretch and independently timed tremors shape five finger or toe voices; continuous Color and Light settings recall with each scene.",
+    "Start with Finger loom, turn on Audio and Sound, then drag a joint. Choose Hand or Foot and play Motion for choreography; MIDI keys hold temporary finger or toe poses.",
     ["Built-in synth", "3D model", "Pointer", "Finger voices", "Gesture choreography"],
   ),
   "vector-flight": define(
