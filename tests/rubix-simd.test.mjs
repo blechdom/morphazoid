@@ -198,3 +198,66 @@ test("surface start cancellation aborts loads, closes no borrowed context, and c
   assert.equal(nodes, 0);
   assert.equal(engine.context, null);
 });
+
+
+test("timing-only SIMD edits finish the sounding swing pair and never replay a sticker", () => {
+  for (const readingMode of ["parallel", "face"]) {
+    const { instance, source } = processor({ tempo: 120, readingMode });
+    reveal(instance, source, 0.5);
+    start(instance, 0);
+    const surface = new RubixSurfaceSimd303();
+    const sent = [];
+    surface.node = { port: { postMessage(message) { sent.push(message); instance.handleMessage(message); } } };
+    const kernels = instance.voices.map(voice => voice.kernel);
+    let edit = 0;
+    let previousBoundary = null;
+    let energy = 0;
+    for (let block = 0; block < 600; block += 1) {
+      globalThis.currentTime = block * 128 / sampleRate;
+      if (block > 30 && block % 7 === 0) {
+        const target = [0.42, 0.2, 0.35, 0.08][edit++ % 4];
+        surface.updateTiming({ swing: target, tempo: 120 + (block % 4) * 7 });
+        if (previousBoundary && instance.beat < previousBoundary - 1e-8) {
+          assert.equal(instance.pendingSwing?.beat, previousBoundary, "dragging must not postpone the pending pair boundary");
+        }
+        previousBoundary = instance.pendingSwing?.beat ?? null;
+      }
+      const samples = render(instance, block * 128).samples;
+      assert.ok(samples.every(Number.isFinite));
+      energy += samples.reduce((sum, sample) => sum + sample * sample, 0);
+    }
+    const steps = instance.messages.filter(message => message.type === "step");
+    assert.ok(steps.length >= 12);
+    for (let index = 1; index < steps.length; index += 1) {
+      assert.equal(steps[index].step, (steps[index - 1].step + 1) % instance.stepCount,
+        "a live edit cannot replay, skip, or reverse a sticker");
+    }
+    assert.ok(energy > 1, "audio remains non-silent throughout the sweep");
+    assert.ok(instance.elapsed > 1.5);
+    assert.deepEqual(instance.voices.map(voice => voice.kernel), kernels);
+    assert.ok(sent.every(message => message.type === "timing"), "timing never rebuilds six synth configurations");
+    assert.equal(instance.messages.filter(message => message.type === "error").length, 0);
+
+    // Let the most recent target reach its already chosen pair boundary.
+    globalThis.currentTime = 600 * 128 / sampleRate;
+    const due = instance.pendingSwing;
+    if (due) {
+      const startFrame = 600 * 128;
+      const blocks = Math.ceil((due.beat - instance.beat) / instance.rate * sampleRate / 128) + 2;
+      render(instance, startFrame, blocks * 128);
+      assert.equal(instance.swing, due.swing);
+      assert.equal(instance.pendingSwing, null);
+    }
+    surface.setPlaybackEnabled(false);
+    surface.updateTiming({ tempo: 143, swing: 0.11 });
+    assert.equal(instance.swing, 0.11, "paused edits apply immediately");
+    assert.equal(instance.pendingSwing, null);
+    assert.equal(instance.enabled, false);
+    const elapsed = instance.elapsed;
+    surface.updateTiming({ tempo: 143, swing: 0.4 });
+    assert.equal(instance.elapsed, elapsed, "paused edits never reset DSP elapsed time");
+    const lastStep = instance.lastStep;
+    instance.handleMessage({ type: "configure", faces: rubixSimdConfigurations(patterns({ tempo: 143, swing: 0.4, readingMode })) });
+    assert.equal(instance.lastStep, lastStep, "same score configuration cannot manufacture a new step");
+  }
+});

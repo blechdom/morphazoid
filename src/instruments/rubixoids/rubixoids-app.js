@@ -37,6 +37,8 @@ let presetController = null;
 let midiOutputMonitor = null;
 let chromePending = false;
 let busy = false;
+let relayingPlayIntent = false;
+let dispatchingNativePlay = false;
 
 function current() { return instances.get(dimension); }
 
@@ -205,6 +207,17 @@ async function getInstance(dim) {
   const instance = { dimension: dim, id: view.id, pane, root, context, bridge,
     baseline: {}, applied: {}, presetPosition: {}, initialized: false };
   instances.set(dim, instance);
+  const nativePlay = root.getElementById('playButton');
+  nativePlay.setAttribute('aria-keyshortcuts', 'Space');
+  // Let the shared header report Audio-off play intent, while the original
+  // native click continues to its controller exactly once.
+  root.addEventListener('click', event => {
+    if (dispatchingNativePlay || current() !== instance
+      || !event.composedPath().includes(nativePlay)) return;
+    relayingPlayIntent = true;
+    try { playButton.click(); }
+    finally { relayingPlayIntent = false; }
+  }, { capture: true });
   // Watch only controls, never canvas/score animation mutations. Audio stays
   // independent of the shared chrome and visual frame rate.
   const observer = new MutationObserver(() => { if (current() === instance) queueChrome(); });
@@ -300,7 +313,14 @@ for (const button of document.querySelectorAll('.rubixoids-dimensions button')) 
   button.addEventListener('click', () => { void selectRubixoidsDimension(button.dataset.dimension); });
 }
 audioButton.addEventListener('click', () => { current()?.root.getElementById('audioButton').click(); queueChrome(); });
-playButton.addEventListener('click', () => { current()?.root.getElementById('playButton').click(); queueChrome(); });
+playButton.addEventListener('click', () => {
+  if (!relayingPlayIntent) {
+    dispatchingNativePlay = true;
+    try { current()?.root.getElementById('playButton').click(); }
+    finally { dispatchingNativePlay = false; }
+  }
+  queueChrome();
+});
 output.addEventListener('input', () => {
   const control = current()?.root.getElementById('output');
   if (!control) return;

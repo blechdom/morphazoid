@@ -6,7 +6,7 @@ enforceRubixoidsOwnership(test, expect);
 
 const appPath = '/src/instruments/rubixoids/rubixoids-app.js';
 const mainAudio = page => page.locator('body > .masthead #audioButton');
-const mainPlay = page => page.locator('body > .rubixoids-bar #playButton');
+const mainPlay = page => page.locator('.rubixoids-pane:not([hidden]) #playButton');
 const snapshot = page => page.evaluate(() => window.__rubixoidsSnapshot());
 
 async function openPlayingCube(page) {

@@ -456,13 +456,19 @@ class RubixAudioEngine {
       acidSelected && this.acidEngine === "simd-303" ? acidLevel : 0,
       now,
     );
-    this.acidShaper.curve = this.distortionCurve(settings.drive);
+    // Unchanged controls must not rebuild a waveshaper or re-arm gain ramps.
+    if (this.acidShaper.rubixDrive !== settings.drive) {
+      this.acidShaper.curve = this.distortionCurve(settings.drive);
+      this.acidShaper.rubixDrive = settings.drive;
+    }
   }
 
   setBankGain(bus, value, now = this.context?.currentTime ?? 0) {
     const gain = bus?.gain;
     if (!gain) return;
     const target = clamp(value, 0, 1);
+    if (bus.rubixGainTarget === target) return;
+    bus.rubixGainTarget = target;
     gain.cancelScheduledValues?.(now);
     if (gain.setTargetAtTime) {
       gain.setTargetAtTime(target, now, target > 0 ? 0.012 : 0.006);
@@ -1034,7 +1040,7 @@ function syncSimd303Pattern({ force = false } = {}) {
   try {
     const snapshot = performanceSnapshots[0] ?? sequenceSnapshot;
     const sourceKey = [
-      state.readingMode, state.tempo, state.swing, state.cutoff, state.resonance,
+      state.readingMode, state.cutoff, state.resonance,
       state.acidDecay, state.drive, state.stickerModulation,
       state.simdPreset,
       ...Object.values(snapshot.faceLanes).flat().map(({ id }) => id),
@@ -1064,6 +1070,7 @@ function currentReadModeDescription() {
 }
 
 function renderStepStrip() {
+  if ($("stepStrip").hidden) return;
   const config = currentReadConfig();
   const currentFrame = currentReadFrame();
   const cellCount = sequenceSnapshot.lanes.acid.length;
@@ -1101,6 +1108,7 @@ function renderStepStrip() {
 }
 
 function renderColorKey() {
+  if ($("colorKey").hidden) return;
   const soundBank = currentSoundBank();
   const fragment = document.createDocumentFragment();
   for (const color of RUBIX_COLOR_ORDER) {
@@ -1125,6 +1133,7 @@ function renderColorKey() {
 }
 
 function renderLaneList() {
+  if ($("laneList").hidden) return;
   const frame = currentReadFrame();
   const audibleRoles = soundBankRoleSet();
   const lanes = Object.entries(sequenceSnapshot.faceLanes)
@@ -1330,23 +1339,7 @@ function updateReadouts() {
 }
 
 function syncReadingModeControls() {
-  for (const button of document.querySelectorAll("[data-read-mode]")) {
-    const mode = button.dataset.readMode;
-    const config = RUBIX_READ_MODES[mode] ?? RUBIX_READ_MODES.parallel;
-    const frame = rubixReadFrame(mode, 0, sequenceSnapshot.lanes.acid.length);
-    button.setAttribute("aria-pressed", String(mode === state.readingMode));
-    const detail = button.querySelector("small");
-    if (detail) {
-      detail.textContent = mode === "parallel"
-        ? `default · all 6 · ${frame.stepCount} steps`
-        : mode === "snake"
-          ? `all 6 faces · ${frame.stepCount} steps`
-          : `A → B → C · ${frame.stepCount} subdivisions`;
-    }
-    button.title = mode === "face"
-      ? `${config.label}: ${frame.stepCount} subdivisions across ${frame.stepCount / config.subdivisionsPerBeat} beats`
-      : `${config.label}: ${frame.stepCount} steps`;
-  }
+  $("readPath").value = state.readingMode;
 }
 
 function setReadingMode(mode, shouldAnnounce = true) {
@@ -2525,6 +2518,7 @@ async function startSimd303Engine() {
       return false;
     }
     simd303Engine = candidate;
+    candidate.updateTiming({ tempo: state.tempo, swing: state.swing });
     candidate.setStepHandler((step) => {
       if (simd303Engine === candidate && state.playing) updatePlayhead(step);
     });
@@ -2798,10 +2792,16 @@ function bindRange(id, key, format, onInput = () => {}) {
     if (Object.hasOwn(rubixSimdPreset().controls, key)) state.simdPresetCustom = true;
     const output = $(`${id}Out`);
     if (output) output.textContent = format(state[key]);
+    if (key === "tempo" || key === "swing") {
+      // Clock edits go straight to audio; no score rebuild or panel repaint.
+      simd303Engine?.updateTiming({ tempo: state.tempo, swing: state.swing });
+      if (state.playing) $("playState").textContent = `${Math.round(state.tempo)} BPM · running`;
+      return;
+    }
     onInput(state[key]);
     audio.updateSettings(state);
-    updateReadouts();
     syncSimd303Pattern();
+    updateReadouts();
   });
 }
 
@@ -2824,12 +2824,10 @@ $("playButton").addEventListener("click", async () => {
   }
 });
 
-for (const button of document.querySelectorAll("[data-read-mode]")) {
-  button.addEventListener("click", () => {
-    markPresetCustom();
-    setReadingMode(button.dataset.readMode);
-  });
-}
+$("readPath").addEventListener("change", (event) => {
+  markPresetCustom();
+  setReadingMode(event.currentTarget.value);
+});
 
 $("shape").addEventListener("change", (event) => {
   markPresetCustom();
@@ -3118,7 +3116,12 @@ export const rubixoidsNative = {
       if (key === "soundBank") { await selectSoundBank(value, { announceChange: false }); continue; }
       if (key === "acidEngine") { await selectAcidEngine(value, { announceChange: false }); continue; }
       if (key === "readingMode") {
-        document.querySelector(`[data-read-mode="${CSS.escape(String(value))}"]`)?.click(); continue;
+        if (Object.hasOwn(RUBIX_READ_MODES, String(value))) {
+          const control = $("readPath");
+          control.value = String(value);
+          control.dispatchEvent(new Event("change", { bubbles: true }));
+        }
+        continue;
       }
       if (key === "randomTwists") {
         if (Boolean(value) !== state.randomTwists) $("randomTwists").click(); continue;

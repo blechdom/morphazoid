@@ -22,7 +22,7 @@ for (const owned of [false, true]) {
       await page.goto(`/${route}.html`);
       const pane = owned ? page.locator('.rubixoids-pane[data-dimension="3d"]') : page.locator('body');
       const audio = owned ? page.locator('body > .masthead #audioButton') : page.locator('#audioButton');
-      const play = owned ? page.locator('body > .rubixoids-bar #playButton') : page.locator('#playButton');
+      const play = owned ? page.locator('.rubixoids-pane:not([hidden]) #playButton') : page.locator('#playButton');
       await pane.locator('#soundBank').selectOption('acid-303');
       await audio.click();
       await expect(audio).toHaveAttribute('aria-pressed', 'true');

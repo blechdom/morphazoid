@@ -91,7 +91,7 @@ test("Hyper Rubix is a standalone accessible Morphazoid instrument", async () =>
   }
 });
 
-test("the open Shape loop exposes every read path and automated-twist control", async () => {
+test("playback and twist controls precede the compact read path while retaining the sequence controls", async () => {
   const { html, app } = await pageSources();
   const sequencePanel = sourceSection(
     html,
@@ -99,19 +99,38 @@ test("the open Shape loop exposes every read path and automated-twist control", 
     "</details>",
   );
 
-  assert.match(sequencePanel, /<h2 class="group-title">Shape loop<\/h2>/);
-  assert.match(sequencePanel, /id="clockSummary">108 notes · 112 BPM · 1\/8<\/span>/);
-  assert.match(
-    sequencePanel,
-    /<label\b[^>]*for="sequenceMethod"[^>]*>[\s\S]*?<span class="field-label">Sticker read path<\/span>/,
+  const performancePanel = sourceSection(
+    html,
+    '<section class="puzzle-performance" aria-label="Playback and motion">',
+    "</section>",
   );
-  const readPaths = selectOptions(sequencePanel, "sequenceMethod");
+  assert.match(html, /data-instrument-preset-host[^>]*>\s*<section class="puzzle-performance"/);
+  const performanceIds = ["playButton", "tempo", "swing", "twistPlayButton", "twistMotion", "sequenceMethod"];
+  for (let index = 1; index < performanceIds.length; index += 1) {
+    assert.ok(
+      performancePanel.indexOf(`id="${performanceIds[index - 1]}"`)
+        < performancePanel.indexOf(`id="${performanceIds[index]}"`),
+      `${performanceIds[index - 1]} precedes ${performanceIds[index]}`,
+    );
+  }
+  assert.match(sequencePanel, /<h2 class="group-title">Sequence<\/h2>/);
+  assert.equal(hasBooleanAttribute(openingTag(sequencePanel, "span", "clockSummary"), "hidden"), true);
+  assert.doesNotMatch(performancePanel, /<h[1-6]\b/);
+  const twistPlay = openingTag(performancePanel, "button", "twistPlayButton");
+  assert.equal(attribute(twistPlay, "aria-pressed"), "false");
+  assert.equal(attribute(twistPlay, "aria-label"), "Start twists");
+  assert.equal(hasBooleanAttribute(twistPlay, "disabled"), true);
+  assert.match(
+    performancePanel,
+    /<label\b[^>]*for="sequenceMethod"[^>]*>[\s\S]*?<span class="field-label">Read path<\/span>/,
+  );
+  const readPaths = selectOptions(performancePanel, "sequenceMethod");
   assert.deepEqual(readPaths.map(({ value, label }) => [value, label]), [
-    ["sticker-stream", "Sticker loop · 216"],
-    ["corner-stream", "Corner stream · 64"],
-    ["sticker-hyperbar", "Sticker hyperbar · 27"],
-    ["hybrid-coil", "Hybrid coil · 16 × 27"],
-    ["twist-tape", "Twist tape · 16"],
+    ["sticker-stream", "Sticker loop"],
+    ["corner-stream", "Corner stream"],
+    ["sticker-hyperbar", "Hyperbar"],
+    ["hybrid-coil", "Hybrid coil"],
+    ["twist-tape", "Twist tape"],
   ]);
   assert.equal(
     readPaths.find(({ tag }) => hasBooleanAttribute(tag, "selected"))?.value,
@@ -149,9 +168,9 @@ test("the open Shape loop exposes every read path and automated-twist control", 
     playbackPresets.find(({ tag }) => hasBooleanAttribute(tag, "selected"))?.value,
     "view-facing",
   );
-  assert.ok(sequencePanel.indexOf('id="sequenceMethod"') < sequencePanel.indexOf('id="voice"'));
+  assert.ok(html.indexOf('id="sequenceMethod"') < html.indexOf('id="voice"'));
   assert.ok(sequencePanel.indexOf('id="voice"') < sequencePanel.indexOf('id="playbackPreset"'));
-  assert.ok(sequencePanel.indexOf('id="playbackPreset"') < sequencePanel.indexOf('id="playButton"'));
+  assert.ok(html.indexOf('id="playButton"') < html.indexOf('id="playbackPreset"'));
   assert.doesNotMatch(sequencePanel, /<div hidden aria-hidden="true">/);
   assert.equal(
     hasBooleanAttribute(openingTag(sequencePanel, "select", "playbackPreset"), "hidden"),
@@ -161,12 +180,12 @@ test("the open Shape loop exposes every read path and automated-twist control", 
   assert.match(sequencePanel, /id="playbackCells">four view-facing cells<\/small>/);
   assert.match(sequencePanel, /id="playbackCount">108 notes<\/output>/);
 
-  const play = openingTag(sequencePanel, "button", "playButton");
+  const play = openingTag(performancePanel, "button", "playButton");
   assert.equal(attribute(play, "aria-pressed"), "false");
   assert.equal(hasBooleanAttribute(play, "data-primary-transport"), true);
-  assert.match(sequencePanel, /id="playLabel">Play shape loop<\/b>/);
-  assert.match(sequencePanel, /id="playState">108[^<]*(?:notes|stickers)[^<]*<\/small>/i);
-  const restart = openingTag(sequencePanel, "button", "restartLoop");
+  assert.match(performancePanel, /id="playLabel">Play shape loop<\/b>/);
+  assert.match(performancePanel, /id="playState">108[^<]*(?:notes|stickers)[^<]*<\/small>/i);
+  const restart = openingTag(performancePanel, "button", "restartLoop");
   assert.match(attribute(restart, "aria-label") ?? "", /first sticker/i);
 
   const grid = openingTag(sequencePanel, "div", "hyperbarGrid");
@@ -179,7 +198,7 @@ test("the open Shape loop exposes every read path and automated-twist control", 
   assert.equal(hasBooleanAttribute(openingTag(sequencePanel, "div", "hyperbarPanel"), "hidden"), false);
   assert.match(sequencePanel, /108[^<]*(?:note|sticker)[^<]*view-facing/i);
 
-  const tempo = openingTag(sequencePanel, "input", "tempo");
+  const tempo = openingTag(performancePanel, "input", "tempo");
   assert.deepEqual(
     ["type", "min", "max", "step", "value"].map((name) => attribute(tempo, name)),
     ["range", "30", "300", "1", "112"],
@@ -193,10 +212,10 @@ test("the open Shape loop exposes every read path and automated-twist control", 
   assert.deepEqual(selectOptions(sequencePanel, "playbackMode").map(({ value }) => value), [
     "forward", "reverse", "pendulum", "random",
   ]);
-  assert.deepEqual(selectOptions(sequencePanel, "twistMotion").map(({ value }) => value), [
+  assert.deepEqual(selectOptions(performancePanel, "twistMotion").map(({ value }) => value), [
     "auto", "beat", "bar", "off",
   ]);
-  assert.match(sequencePanel, /<span class="field-label">Automated twists<\/span>/);
+  assert.match(performancePanel, /<span class="field-label">Twists<\/span>/);
   assert.equal(hasBooleanAttribute(openingTag(sequencePanel, "button", "reseedPattern"), "disabled"), true);
   assert.equal(hasBooleanAttribute(openingTag(sequencePanel, "input", "twistDensity"), "disabled"), true);
 

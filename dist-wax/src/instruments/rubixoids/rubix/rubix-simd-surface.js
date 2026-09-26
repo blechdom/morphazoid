@@ -1,5 +1,5 @@
 import { createSimd303Configuration } from "../../../simd-303.js";
-import { rubixSimdClock } from "./rubix-clock.js";
+import { rubixSimdClock, rubixSimdSwingEdit } from "./rubix-clock.js";
 import { RUBIX_FACE_ROLES } from "./rubix-mix.js";
 import { RUBIX_ACID_NORMALIZED_BY_COLOR, rubixReadFrame } from "./rubix.js";
 import { createRubixWebGpu303Pattern } from "./rubix-webgpu-303.js";
@@ -100,6 +100,8 @@ export class RubixSurfaceSimd303 {
     this.lastStatus = null;
     this.clock = null;
     this.scorePhaseOffset = 0;
+    this.swing = undefined;
+    this.pendingSwing = null;
     this.clockDivisions = 1;
     this.readyTimeout = null;
     this.cancelReady = null;
@@ -119,6 +121,11 @@ export class RubixSurfaceSimd303 {
     this.updateVisibility(this.profile, this.amount, this.timbres);
   }
 
+  /** Timing edits do not rebuild six faces or touch synthesis configuration. */
+  updateTiming({ tempo, swing } = {}) {
+    this.node?.port.postMessage({ type: "timing", tempo, swing });
+  }
+
   setErrorHandler(handler) { this.onError = handler; }
   setStepHandler(handler) { this.onStep = handler; }
   setOutput(value) {
@@ -127,6 +134,10 @@ export class RubixSurfaceSimd303 {
   }
   setPlaybackEnabled(enabled) {
     this.enabled = Boolean(enabled);
+    if (!this.enabled && this.pendingSwing) {
+      this.swing = this.pendingSwing.swing;
+      this.pendingSwing = null;
+    }
     this.node?.port.postMessage({ type: "playback", enabled: this.enabled });
   }
 
@@ -227,7 +238,9 @@ export class RubixSurfaceSimd303 {
     if (!this.clock || !this.faces?.[0]) return null;
     const rate = this.clock.tempo / 15;
     const beat = this.clock.quarterBeat * 4 + (time - this.clock.audioTime) * rate;
-    const phase = rubixSimdClock(beat, rate, this.clock.swing, this.clockDivisions).phase + this.scorePhaseOffset;
+    const swing = this.pendingSwing && beat >= this.pendingSwing.beat - 1e-8
+      ? this.pendingSwing.swing : this.swing ?? this.clock.swing;
+    const phase = rubixSimdClock(beat, rate, swing, this.clockDivisions).phase + this.scorePhaseOffset;
     const count = this.faces[0].stepStickerIds.length;
     return ((Math.floor(phase + 1e-9) % count) + count) % count;
   }
@@ -251,12 +264,21 @@ export class RubixSurfaceSimd303 {
       message.startAt = startAt;
       this.timelineStart = startAt;
     }
+    const at = this.context.currentTime;
+    const beat = quarterBeat * 4 + (at - audioTime) * tempo / 15;
+    Object.assign(this, rubixSimdSwingEdit(beat, this.swing, this.pendingSwing, swing,
+      this.enabled && at >= (startAt ?? this.clock?.startAt ?? Infinity)));
+    // Explicit activation beat keeps the processor and cursor identical even
+    // when delivery crosses the boundary; null means an immediate/parked edit.
+    message.swingAtBeat = this.pendingSwing?.beat ?? null;
     if (Number.isFinite(step)) {
       message.step = step;
       const rate = tempo / 15;
       const at = Number.isFinite(startAt) ? startAt : this.context.currentTime;
       const beat = quarterBeat * 4 + (at - audioTime) * rate;
-      const phase = rubixSimdClock(beat, rate, swing, this.clockDivisions).phase;
+      const alignSwing = this.pendingSwing && beat >= this.pendingSwing.beat - 1e-8
+        ? this.pendingSwing.swing : this.swing;
+      const phase = rubixSimdClock(beat, rate, alignSwing, this.clockDivisions).phase;
       this.scorePhaseOffset = step - phase;
       if (Math.abs(this.scorePhaseOffset - Math.round(this.scorePhaseOffset)) < 1e-6) {
         this.scorePhaseOffset = Math.round(this.scorePhaseOffset);
@@ -273,6 +295,8 @@ export class RubixSurfaceSimd303 {
     const start = Math.max(Number(startAt) || 0, this.context.currentTime + 256 / this.context.sampleRate);
     this.timelineStart = start;
     this.clock = null;
+    this.swing = this.pendingSwing?.swing ?? this.swing;
+    this.pendingSwing = null;
     this.scorePhaseOffset = 0;
     this.node.port.postMessage({ type: "restart", startAt: start, offset });
     return start;
@@ -304,6 +328,8 @@ export class RubixSurfaceSimd303 {
     this.lastStatus = null;
     this.timelineStart = null;
     this.clock = null;
+    this.pendingSwing = null;
+    this.swing = undefined;
     this.scorePhaseOffset = 0;
     this.clockDivisions = 1;
   }

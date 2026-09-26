@@ -559,31 +559,31 @@ test("Rubix page exposes cube gestures, mutually exclusive banks across all six 
   assert.match(html, /id="moveRight"/);
   assert.match(html, /id="moveUp"/);
   assert.match(html, /id="moveDown"/);
-  assert.match(html, /data-read-mode="parallel"[^>]+aria-pressed="true"/);
-  assert.match(html, /data-read-mode="snake"/);
+  assert.match(html, /<option value="parallel" selected>Rows<\/option>/);
+  assert.match(html, /<option value="snake">Snake<\/option>/);
   assert.match(
     html,
-    /data-read-mode="face"[^>]*>[\s\S]*?<b>Alternate faces<\/b>/,
+    /<option value="face">Face pairs<\/option>/,
   );
   assert.match(html, /303[\s\S]*every visible face/i);
   assert.match(html, /all six faces run/i);
   assert.match(html, /one (?:sound )?bank (?:plays )?at a time/i);
   assert.match(html, /hidden stickers are silent/i);
   assert.match(html, /src="src\/instruments\/rubix\/rubix-app\.js"/);
-  const clockPosition = html.indexOf('data-section="play"');
+  const clockPosition = html.indexOf('class="puzzle-performance"');
   const playPosition = html.indexOf('id="playButton"');
   const movesPosition = html.indexOf('data-section="form"');
   const soundBankPosition = html.indexOf('data-section="sound"');
-  const scorePosition = html.indexOf('data-section="mapping"');
+  const resetPosition = html.indexOf('id="resetSound"');
   assert.ok(clockPosition < playPosition && playPosition < movesPosition);
   assert.ok(
-    movesPosition < soundBankPosition && soundBankPosition < scorePosition,
+    movesPosition < soundBankPosition && soundBankPosition < resetPosition,
   );
   assert.doesNotMatch(html.slice(0, clockPosition), /id="playButton"/);
   assert.match(css, /\.rubix-stage-wrap/);
-  assert.match(css, /\.rubix-clock-transport/);
-  assert.match(css, /\.rubix-read-modes/);
-  assert.match(css, /\.rubix-mini-face/);
+  assert.match(css, /\.puzzle-play-row|\.puzzle-performance/);
+  assert.match(html, /id="readPath"/);
+  assert.match(html, /id="laneList" hidden/);
   assert.match(css, /@media \(max-width: 650px\)/);
   assert.match(app, /from "\.\/rubix\.js"/);
   assert.match(app, /rubixReadFrame/);

@@ -1,5 +1,6 @@
 import { nativeInstrumentContext } from "../native-context.js";
 import { rubixoidsClock } from "../clock.js";
+import { rubixRetimedOrdinal, rubixLiveGridDeadline } from "./rubix-clock.js";
 import { registerHeaderPresets } from "../../../site/header-presets.js";
 import { RUBIX_DEFAULTS as DEFAULTS, RUBIX_FACTORY_PRESETS as RUBIX_PRESETS } from "./factory-presets.js";
 import { RUBIX_FULL_PRESETS, RUBIX_PRESET_SETTING_KEYS, validateRubixFullPreset, randomizeRubixPreset } from "./full-presets.js";
@@ -457,13 +458,19 @@ class RubixAudioEngine {
       acidSelected && this.acidEngine === "simd-303" ? acidLevel : 0,
       now,
     );
-    this.acidShaper.curve = this.distortionCurve(settings.drive);
+    // Unchanged controls must not rebuild a waveshaper or re-arm gain ramps.
+    if (this.acidShaper.rubixDrive !== settings.drive) {
+      this.acidShaper.curve = this.distortionCurve(settings.drive);
+      this.acidShaper.rubixDrive = settings.drive;
+    }
   }
 
   setBankGain(bus, value, now = this.context?.currentTime ?? 0) {
     const gain = bus?.gain;
     if (!gain) return;
     const target = clamp(value, 0, 1);
+    if (bus.rubixGainTarget === target) return;
+    bus.rubixGainTarget = target;
     gain.cancelScheduledValues?.(now);
     if (gain.setTargetAtTime) {
       gain.setTargetAtTime(target, now, target > 0 ? 0.012 : 0.006);
@@ -983,6 +990,7 @@ let nextStepTime = 0;
 let nextStepIndex = 0;
 let nextSwingStep = 0;
 let nextGridOrdinal = null;
+let clockSubdivisions = 1;
 let clockRevision = -1;
 let scheduledClockSteps = [];
 let visualTimers = new Set();
@@ -1263,7 +1271,7 @@ function syncSimd303Pattern({ force = false } = {}) {
   try {
     const snapshot = performanceSnapshots[0] ?? sequenceSnapshot;
     const sourceKey = [
-      state.readingMode, state.tempo, state.swing, state.cutoff, state.resonance,
+      state.readingMode, state.cutoff, state.resonance,
       state.acidDecay, state.drive, state.stickerModulation,
       state.simdPreset,
       ...Object.values(snapshot.faceLanes).flat().map(({ id }) => id),
@@ -1293,6 +1301,7 @@ function currentReadModeDescription() {
 }
 
 function renderStepStrip() {
+  if ($("stepStrip").hidden) return;
   const config = currentReadConfig();
   const currentFrame = currentReadFrame();
   const cellCount = sequenceSnapshot.lanes.acid.length;
@@ -1330,6 +1339,7 @@ function renderStepStrip() {
 }
 
 function renderColorKey() {
+  if ($("colorKey").hidden) return;
   const soundBank = currentSoundBank();
   const fragment = document.createDocumentFragment();
   for (const color of RUBIX_COLOR_ORDER) {
@@ -1354,6 +1364,7 @@ function renderColorKey() {
 }
 
 function renderLaneList() {
+  if ($("laneList").hidden) return;
   const frame = currentReadFrame();
   const audibleRoles = soundBankRoleSet();
   const lanes = Object.entries(sequenceSnapshot.faceLanes)
@@ -1559,23 +1570,7 @@ function updateReadouts() {
 }
 
 function syncReadingModeControls() {
-  for (const button of document.querySelectorAll("[data-read-mode]")) {
-    const mode = button.dataset.readMode;
-    const config = RUBIX_READ_MODES[mode] ?? RUBIX_READ_MODES.parallel;
-    const frame = rubixReadFrame(mode, 0, sequenceSnapshot.lanes.acid.length);
-    button.setAttribute("aria-pressed", String(mode === state.readingMode));
-    const detail = button.querySelector("small");
-    if (detail) {
-      detail.textContent = mode === "parallel"
-        ? `default · all 6 · ${frame.stepCount} steps`
-        : mode === "snake"
-          ? `all 6 faces · ${frame.stepCount} steps`
-          : `A → B → C · ${frame.stepCount} subdivisions`;
-    }
-    button.title = mode === "face"
-      ? `${config.label}: ${frame.stepCount} subdivisions across ${frame.stepCount / config.subdivisionsPerBeat} beats`
-      : `${config.label}: ${frame.stepCount} steps`;
-  }
+  $("readPath").value = state.readingMode;
 }
 
 function setReadingMode(mode, shouldAnnounce = true) {
@@ -2663,6 +2658,7 @@ function cancelQueuedClockSteps({ restoreCursor = true } = {}) {
 function joinRubixoidsGrid(step = nextStepIndex) {
   const grid = rubixoidsClock.next({ ...rubixClockOptions(), minTime: rubixoidsClock.now() + 0.012 });
   nextGridOrdinal = grid.ordinal;
+  clockSubdivisions = currentReadConfig().subdivisionsPerBeat;
   nextStepIndex = ((step % currentReadFrame().stepCount) + currentReadFrame().stepCount) % currentReadFrame().stepCount;
   nextStepTime = rubixoidsClock.audioTime(audio.context, grid.time);
   nextSwingStep = Math.floor(grid.ordinal / currentReadConfig().subdivisionsPerBeat);
@@ -2690,16 +2686,33 @@ function refreshRubixoidsClock() {
   if (!rubixoidsEmbeddedActive) return;
   configureRubixoidsClock();
   // The host may have configured the clock before dispatching this control.
-  if (rubixoidsActivating || clockRevision === rubixoidsClock.revision || !state.playing || !audio.context) return;
+  const subdivisionsChanged = clockSubdivisions !== currentReadConfig().subdivisionsPerBeat;
+  if (rubixoidsActivating || (!subdivisionsChanged && clockRevision === rubixoidsClock.revision) || !state.playing || !audio.context) return;
   if (activeAcidEngine === "simd-303" && simd303Engine) {
     syncRubixoidsSimdClock();
   } else {
-    if (schedulerTimer !== null) clearTimeout(schedulerTimer);
-    schedulerTimer = null;
-    cancelQueuedClockSteps();
-    joinRubixoidsGrid();
-    schedulerTick();
+    retimeUnscheduledRubixStep();
   }
+}
+
+function retimeUnscheduledRubixStep() {
+  // Keep every committed attack and the next score ordinal. Rejoining on each
+  // input used to cancel notes just before they sounded and replay that cursor.
+  const subdivisions = currentReadConfig().subdivisionsPerBeat;
+  nextGridOrdinal = rubixRetimedOrdinal(nextGridOrdinal, clockSubdivisions, subdivisions);
+  clockSubdivisions = subdivisions;
+  if (nextGridOrdinal !== null) {
+    nextStepTime = rubixGridDeadline(rubixoidsClock.grid(nextGridOrdinal, rubixClockOptions()));
+  }
+  clockRevision = rubixoidsClock.revision;
+}
+
+function rubixGridDeadline(grid) {
+  const previous = scheduledClockSteps.at(-1);
+  const interval = rubixoidsClock.grid(Math.max(0, grid.ordinal - 1), rubixClockOptions()).duration;
+  return rubixLiveGridDeadline(
+    rubixoidsClock.audioTime(audio.context, grid.time), audio.context.currentTime, previous, interval,
+  );
 }
 
 function rubixClockSnapshot() {
@@ -2726,8 +2739,7 @@ function schedulerTick() {
   if (!rubixoidsEmbeddedActive || !state.playing || !audio.context) return;
   const now = audio.context.currentTime;
   if (clockRevision !== rubixoidsClock.revision) {
-    cancelQueuedClockSteps();
-    joinRubixoidsGrid();
+    retimeUnscheduledRubixStep();
   } else if (nextGridOrdinal === null || !Number.isFinite(nextStepTime) || nextStepTime < now - 0.05) {
     // Rendering/UI stalls skip stale attacks, then resume on the common grid.
     cancelQueuedClockSteps();
@@ -2738,7 +2750,7 @@ function schedulerTick() {
   let scheduledSteps = 0;
   while (nextStepTime < horizon && scheduledSteps < 32) {
     const grid = rubixoidsClock.grid(nextGridOrdinal, rubixClockOptions());
-    nextStepTime = rubixoidsClock.audioTime(audio.context, grid.time);
+    nextStepTime = rubixGridDeadline(grid);
     if (nextStepTime >= horizon) break;
     const step = nextStepIndex;
     const frame = currentReadFrame(step);
@@ -2760,7 +2772,7 @@ function schedulerTick() {
     nextGridOrdinal += 1;
     nextStepIndex = (nextStepIndex + 1) % frame.stepCount;
     nextSwingStep = Math.floor(nextGridOrdinal / currentReadConfig().subdivisionsPerBeat);
-    nextStepTime = rubixoidsClock.audioTime(audio.context, rubixoidsClock.grid(nextGridOrdinal, rubixClockOptions()).time);
+    nextStepTime = rubixGridDeadline(rubixoidsClock.grid(nextGridOrdinal, rubixClockOptions()));
     scheduledSteps += 1;
   }
   schedulerTimer = setTimeout(schedulerTick, SCHEDULER_INTERVAL_MS);
@@ -2852,6 +2864,7 @@ async function startSimd303Engine() {
       return false;
     }
     simd303Engine = candidate;
+    candidate.updateTiming({ tempo: state.tempo, swing: state.swing });
     candidate.setStepHandler((step) => {
       if (simd303Engine !== candidate || !state.playing) return;
       nextStepIndex = (step + 1) % currentReadFrame().stepCount;
@@ -3138,11 +3151,16 @@ function bindRange(id, key, format, onInput = () => {}) {
     if (Object.hasOwn(rubixSimdPreset().controls, key)) state.simdPresetCustom = true;
     const output = $(`${id}Out`);
     if (output) output.textContent = format(state[key]);
+    if (key === "tempo" || key === "swing") {
+      // Clock edits go straight to audio; no score rebuild or panel repaint.
+      refreshRubixoidsClock();
+      if (state.playing) $("playState").textContent = `${Math.round(state.tempo)} BPM · running`;
+      return;
+    }
     onInput(state[key]);
     audio.updateSettings(state);
-    updateReadouts();
     syncSimd303Pattern();
-    if (key === "tempo" || key === "swing") refreshRubixoidsClock();
+    updateReadouts();
   });
 }
 
@@ -3165,12 +3183,10 @@ $("playButton").addEventListener("click", async () => {
   }
 });
 
-for (const button of document.querySelectorAll("[data-read-mode]")) {
-  button.addEventListener("click", () => {
-    markPresetCustom();
-    setReadingMode(button.dataset.readMode);
-  });
-}
+$("readPath").addEventListener("change", (event) => {
+  markPresetCustom();
+  setReadingMode(event.currentTarget.value);
+});
 
 $("shape").addEventListener("change", (event) => {
   markPresetCustom();
@@ -3463,7 +3479,12 @@ export const rubixoidsNative = {
       if (key === "soundBank") { await selectSoundBank(value, { announceChange: false }); continue; }
       if (key === "acidEngine") { await selectAcidEngine(value, { announceChange: false }); continue; }
       if (key === "readingMode") {
-        document.querySelector(`[data-read-mode="${CSS.escape(String(value))}"]`)?.click(); continue;
+        if (Object.hasOwn(RUBIX_READ_MODES, String(value))) {
+          const control = $("readPath");
+          control.value = String(value);
+          control.dispatchEvent(new Event("change", { bubbles: true }));
+        }
+        continue;
       }
       if (key === "randomTwists") {
         if (Boolean(value) !== state.randomTwists) $("randomTwists").click(); continue;
