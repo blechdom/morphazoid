@@ -7,8 +7,8 @@
     "implemented": 26,
     "fullPresets": 523,
     "favesImplemented": 13,
-    "activeRemaining": 64,
-    "regularRemaining": 133
+    "activeRemaining": 65,
+    "regularRemaining": 134
   },
   "verification": {
     "browser": "Fresh-main 9a45aa0 combined gate: 402 passed across 13 Chromium suites, including all 209 public HTML routes, all 451 existing full-state preset recalls, Shapes' 106-scene audio sweep, Faves/UI/gesture checks, I/O setup and incoming Loopini regressions. Human/device acceptance remains separate; see docs/presets-continuation-20260922.md",
@@ -372,6 +372,15 @@
       "id": "simd-303",
       "label": "SIMD 303",
       "href": "simd-303.html",
+      "category": "simd-audio",
+      "scope": "regular",
+      "presets": null,
+      "status": "unmigrated"
+    },
+    {
+      "id": "simd-chiptune",
+      "label": "SIMD Chiptune",
+      "href": "simd-chiptune.html",
       "category": "simd-audio",
       "scope": "regular",
       "presets": null,
@@ -1596,6 +1605,7 @@
       "srtuss",
       "shader-synth-playground",
       "simd-303",
+      "simd-chiptune",
       "simd-synth",
       "simd-resonator",
       "throatazoid",
