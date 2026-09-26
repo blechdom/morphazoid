@@ -148,8 +148,8 @@ class HandRotationPhaser {
   }
   setTargets(config, pose, enabled) {
     this.targetDepth = enabled ? config.sound.rotationFx : 0;
-    const yaw = config.view.yaw - HAND_DEFAULTS.view.yaw + pose.wrist.twist * Math.PI / 180;
-    const tilt = config.view.pitch - HAND_DEFAULTS.view.pitch + pose.wrist.flex * Math.PI / 180;
+    const yaw = config.view.yaw - HAND_DEFAULTS.view.yaw + (pose.wrist.twist + (pose.foot?.twist ?? 0) * .6) * Math.PI / 180;
+    const tilt = config.view.pitch - HAND_DEFAULTS.view.pitch + (pose.wrist.flex + (pose.foot?.arch ?? 0) * .6) * Math.PI / 180;
     // Sine/cosine coordinates make -pi and +pi meet without sweeping through
     // the front view. Opposing left/right sweeps retain the finger stereo mix.
     const turning = .23 * Math.sin(yaw), facing = .15 * Math.cos(yaw), leaning = .12 * Math.sin(tilt);

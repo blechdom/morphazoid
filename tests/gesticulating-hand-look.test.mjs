@@ -53,8 +53,8 @@ test("late model registration applies the current appearance and retains each or
   const hand = material("hand skin", 0xd7ad91, .67), handMesh = mesh(hand);
   const handOriginal = remember([hand]), studio = lightState(lights);
   look.addMeshes([handMesh]);
-  assert.equal(look.apply({ skin: "jade", lighting: "cool" }), true);
-  assertColors(handOriginal, 0x83ecd3);
+  assert.equal(look.apply({ skin: .38, lighting: .4 }), true);
+  assertColors(handOriginal, 0x36a87c);
   const cool = lightState(lights); assert.notDeepEqual(cool, studio);
 
   // The second model finishes loading after the performer has changed appearance.
@@ -62,27 +62,27 @@ test("late model registration applies the current appearance and retains each or
   const originals = [...handOriginal, ...remember([foot, nails])];
   const footMeshes = [mesh([foot, nails, hand]), mesh(foot)];
   look.addMeshes(footMeshes);
-  assertColors(originals, 0x83ecd3); assertSurfaceDetails(originals);
+  assertColors(originals, 0x36a87c); assertSurfaceDetails(originals);
   assert.deepEqual(lightState(lights), cool, "loading another model preserves the active light rig");
 
   // Cached model switches and shared materials must not capture an already tinted base.
   for (let i = 0; i < 3; i++) look.addMeshes([handMesh, ...footMeshes]);
-  assertColors(originals, 0x83ecd3);
-  assert.equal(look.apply({ skin: "copper", lighting: "noir" }), true);
-  assertColors(originals, 0xffba88); assertSurfaceDetails(originals);
-  assert.equal(look.apply({ skin: "natural", lighting: "studio" }), true);
-  assertColors(originals); assertSurfaceDetails(originals);
-  assert.deepEqual(lightState(lights), studio, "Studio restores original colors, strengths and positions");
-  assert.equal(look.apply({ skin: "natural", lighting: "studio" }), false);
+  assertColors(originals, 0x36a87c);
+  assert.equal(look.apply({ skin: 0, lighting: .6 }), true);
+  assertColors(originals, 0xb96836); assertSurfaceDetails(originals);
+  assert.equal(look.apply({ skin: 0, lighting: 0 }), true);
+  assertColors(originals, 0xb96836); assertSurfaceDetails(originals);
+  assert.deepEqual(lightState(lights), studio, "Default light restores original colors, strengths and positions");
+  assert.equal(look.apply({ skin: 0, lighting: 0 }), false);
 });
 
 test("disposal restores dynamically registered models and lights without disposing viewer resources", t => {
   const { look, lights, material, mesh, disposals } = fixture(t);
   const hand = material("hand skin", 0xd0a28b, .72), foot = material("foot skin", 0x9b755c, .84);
   const originals = remember([hand, foot]), studio = lightState(lights);
-  look.apply({ skin: "violet", lighting: "warm" });
+  look.apply({ skin: .76, lighting: .2 });
   look.addMeshes([mesh(hand)]); look.addMeshes([mesh([foot, hand])]);
-  assertColors(originals, 0xb8adff); assert.notDeepEqual(lightState(lights), studio);
+  assertColors(originals, 0x8750bd); assert.notDeepEqual(lightState(lights), studio);
   look.dispose();
   assertColors(originals); assertSurfaceDetails(originals);
   assert.deepEqual(lightState(lights), studio);
@@ -90,8 +90,24 @@ test("disposal restores dynamically registered models and lights without disposi
 
   const late = material("load completed after teardown", 0xb39076, .91), lateOriginal = remember([late]);
   look.addMeshes([mesh(late), mesh(hand)]);
-  assert.equal(look.apply({ skin: "cyan", lighting: "neon" }), false);
+  assert.equal(look.apply({ skin: .55, lighting: .8 }), false);
   look.dispose();
   assertColors([...originals, ...lateOriginal]); assertSurfaceDetails([...originals, ...lateOriginal]);
   assert.deepEqual(lightState(lights), studio); assert.deepEqual(disposals, []);
+});
+
+
+test("continuous sliders interpolate saturated tints and lighting without pale or untinted finishes", t => {
+  const {look,lights,material,mesh}=fixture(t),skin=material('textured surface',0xffffff,.7);
+  look.addMeshes([mesh(skin)]);const colors=new Set();
+  for(let step=0;step<=40;step++){
+    look.apply({skin:step/40,lighting:step/40});const rgb=skin.color.toArray();colors.add(rgb.join(','));
+    assert.ok(rgb.every(Number.isFinite));assert.ok(Math.max(...rgb)-Math.min(...rgb)>.08);
+    assert.ok(Math.max(...rgb)<.6,'tint never reaches an untinted/pale white multiplier');
+  }
+  assert.ok(colors.size>=39);
+  look.apply({skin:.275,lighting:.3});assert.ok(Math.abs(lights[1].intensity-3.6)<1e-12);
+  const between=skin.color.clone();look.apply({skin:.276,lighting:.301});
+  assert.ok(between.toArray().some((value,i)=>value!==skin.color.toArray()[i]));
+  assert.ok(Math.max(...between.toArray().map((value,i)=>Math.abs(value-skin.color.toArray()[i])))<.01);
 });

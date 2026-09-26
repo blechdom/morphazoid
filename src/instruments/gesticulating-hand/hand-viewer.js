@@ -29,7 +29,7 @@ export function createHandViewer(canvas,{onSelect=()=>{},onGesture=()=>{},onChan
   const raycaster=new THREE.Raycaster(),pointer=new THREE.Vector2(),temporary=new THREE.Vector3();
   let rig=null,form='hand',requestedForm='hand',loaded=false,disposed=false,selected=1,selectedJoint='mcp',showJoints=true,drag=null;
   let yaw=.12,pitch=.03,zoomFactor=1,width=0,height=0,baseDistance=5.8,latestPose=null,pickBoundsDirty=true,loadGeneration=0;
-  let appearance={skin:'natural',lighting:'studio'};
+  let appearance={skin:0,lighting:0},footFrameScale=1,footFrameOffset=0;
   const listen=(type,callback,options={})=>canvas.addEventListener(type,callback,{...options,signal});
 
   function resize() {
@@ -47,9 +47,19 @@ export function createHandViewer(canvas,{onSelect=()=>{},onGesture=()=>{},onChan
     updateCamera();
   }
   function updateCamera() {
-    const distance=baseDistance*zoomFactor,target=new THREE.Vector3(0,-.04,0);
+    const distance=baseDistance*zoomFactor*(form==='foot'?footFrameScale:1),target=new THREE.Vector3(0,-.04+(form==='foot'?footFrameOffset:0),0);
     camera.position.set(distance*Math.sin(yaw)*Math.cos(pitch),distance*Math.sin(pitch),distance*Math.cos(yaw)*Math.cos(pitch)).add(target);
     camera.lookAt(target);camera.updateMatrixWorld();onChange();
+  }
+  // Fit the configured deformation envelope once per edit, so elastic motion
+  // stays visible without making the camera breathe on every animation frame.
+  function setFraming(config={}) {
+    const shape=config.pose?.foot??{},motion=config.motion??{};
+    const elastic=config.form==='foot'&&motion.id!=='still'?clamp(Number(motion.elasticity)||0,0,1)*clamp(Number(motion.amount)||0,0,1):0;
+    const maximumStretch=clamp((Number(shape.stretch)||0)+.6*elastic,0,1);
+    const maximumAbsArch=Math.max(Math.abs(clamp((Number(shape.arch)||0)-55*elastic,-70,85)),Math.abs(clamp((Number(shape.arch)||0)+55*elastic,-70,85)));
+    footFrameScale=Math.max(1+.85*maximumStretch,1+.65*maximumAbsArch/85);
+    footFrameOffset=.9*maximumStretch;updateCamera();
   }
   function getCameraView(){return {yaw:((yaw+Math.PI)%(2*Math.PI)+2*Math.PI)%(2*Math.PI)-Math.PI,pitch,zoom:zoomFactor};}
   function setCameraView(view={}) {
@@ -62,7 +72,7 @@ export function createHandViewer(canvas,{onSelect=()=>{},onGesture=()=>{},onChan
   function setAppearance(value={}){appearance={...value};look.apply(appearance);onChange();}
   function clearMarkers(){for(const dot of markers){markerGroup.remove(dot);dot.material.dispose();}markers.length=0;}
   function addMarker(finger,joint,bone){
-    const material=new THREE.MeshBasicMaterial({color:finger===5?0xe7dfd4:FINGER_COLORS[finger],transparent:true,opacity:.73,depthTest:false,depthWrite:false});
+    const material=new THREE.MeshBasicMaterial({color:finger>=5?0xe7dfd4:FINGER_COLORS[finger],transparent:true,opacity:.73,depthTest:false,depthWrite:false});
     const dot=new THREE.Mesh(markerGeometry,material);dot.renderOrder=10;dot.userData={finger,joint,bone};markerGroup.add(dot);markers.push(dot);
   }
   function refreshMarkers(){
@@ -144,6 +154,7 @@ export function createHandViewer(canvas,{onSelect=()=>{},onGesture=()=>{},onChan
       const nextRig=await cache.get(next);if(disposed||generation!==loadGeneration)return false;
       rig=nextRig;form=next;rig.group.visible=true;clearMarkers();
       rig.digits.forEach((digit,index)=>digit.forEach(entry=>addMarker(index,entry.key,entry.bone)));addMarker(5,'mcp',rig.wrist);
+      for(const entry of rig.extras??[])addMarker(6,entry.key,entry.bone);
       loaded=true;markerGroup.visible=true;resize();if(latestPose)setPose(latestPose);refreshMarkers();render();onStatus('');onReady(form);onChange();return true;
     }catch(error){if(!disposed&&generation===loadGeneration){onStatus(`The ${next} could not load: ${error.message}. Choose another model or reload.`);onChange();}return false;}
   }
@@ -151,7 +162,7 @@ export function createHandViewer(canvas,{onSelect=()=>{},onGesture=()=>{},onChan
   function dispose(){if(disposed)return;disposed=true;loaded=false;loadGeneration++;release();abort.abort();resizeObserver.disconnect();look.dispose();
     clearMarkers();for(const loadedRig of loadedRigs)loadedRig.dispose?.();loadedRigs.clear();for(const child of scene.children)if(child!==markerGroup)disposeTree(child);markerGeometry.dispose();cache.clear();renderer.dispose();}
   setForm('hand');
-  return {setForm,setPose,render,resize,setView,setCameraView,setAppearance,zoom,selectFinger,setShowJoints,dispose,
+  return {setForm,setPose,render,resize,setView,setCameraView,setFraming,setAppearance,zoom,selectFinger,setShowJoints,dispose,
     getState:()=>({loaded,form,requestedForm,rigCount:cache.size,boneCount:rig?.deformMap.size??0,
       vertices:rig?.meshes.reduce((n,m)=>n+(m.geometry.attributes.position?.count??0),0)??0,
       triangles:rig?.meshes.reduce((n,m)=>n+((m.geometry.index?.count??m.geometry.attributes.position?.count??0)/3),0)??0,

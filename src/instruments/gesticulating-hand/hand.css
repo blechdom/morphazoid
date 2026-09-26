@@ -103,3 +103,5 @@
 @media (pointer: coarse) { .hand-transport-row { --hand-play-size: 48px; } }
 
 .hand-transports .hand-form { margin: 0 0 14px; }
+
+.hand-control-block[hidden] { display: none; }

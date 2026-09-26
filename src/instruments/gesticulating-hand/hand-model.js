@@ -1,4 +1,6 @@
 import { sampleSourceGrasp } from "./hand-source-motion.js";
+import { createHandPresets } from "./hand-presets.js";
+import { createHandTremor } from "./hand-tremor.js";
 
 /** Shared choreography and sound mapping. Angles are degrees, time is seconds.
  * The ranges are conservative playable rig limits, not clinical measurements.
@@ -17,9 +19,18 @@ export const handDigitLabels = form => form === "foot" ? FOOT_DIGIT_LABELS : HAN
 export const handJointKeys = (form, index) => form === "foot" && index === 0 ? BIG_TOE_KEYS : DIGIT_KEYS;
 export const VOICE_SOURCES = Object.freeze(["glass", "reed", "wire", "pulse", "air", "bowed", "vowel", "metal"]);
 export const TREMOR_FINGERS = Object.freeze(["all", ...FINGERS, "alternating"]);
-export const TREMOR_JOINTS = Object.freeze(["tip", "middle", "knuckle", "whole", "wrist"]);
-export const HAND_SKINS = Object.freeze(["natural", "porcelain", "copper", "jade", "violet", "cyan"]);
-export const HAND_LIGHTINGS = Object.freeze(["studio", "warm", "cool", "noir", "neon", "soft"]);
+export const TREMOR_JOINTS = Object.freeze(["tip", "middle", "knuckle", "whole", "spread", "wrist"]);
+export const HAND_SKINS = Object.freeze([0, .17, .38, .55, .76, .9, 1]);
+export const HAND_LIGHTINGS = Object.freeze([0, .2, .4, .6, .8, 1]);
+const LEGACY_COLORS = Object.freeze({copper:0,jade:.38,cyan:.55,violet:.76});
+const LEGACY_LIGHTS = Object.freeze({studio:0,warm:.2,cool:.4,noir:.6,neon:.8,soft:1});
+export function normalizeHandAppearance(value = {}) {
+  const input = record(value);
+  return {
+    skin: clampHand(typeof input.skin === 'string' && Object.hasOwn(LEGACY_COLORS,input.skin) ? LEGACY_COLORS[input.skin] : input.skin,0,1,0),
+    lighting: clampHand(typeof input.lighting === 'string' && Object.hasOwn(LEGACY_LIGHTS,input.lighting) ? LEGACY_LIGHTS[input.lighting] : input.lighting,0,1,0),
+  };
+}
 const TAU = Math.PI * 2;
 const record = value => value && typeof value === "object" ? value : {};
 export function handNumber(value, fallback = 0) {
@@ -35,15 +46,16 @@ export const HAND_LIMITS = freeze({
   finger: { mcp: [-15, 90], pip: [-2, 110], dip: [-15, 85], spread: [-25, 25] },
   thumb: { mcp: [-12, 85], pip: [0, 80], dip: [-6, 75], spread: [-25, 25] },
   wrist: { flex: [-55, 65], side: [-30, 30], twist: [-70, 70] },
-  tremor: { amount: [0, 15], rate: [.5, 40] },
+  tremor: { amount: [0, 45], rate: [.1, 120], rateSpread: [0, 1], phaseSpread: [0, 1] },
   view: { yaw: [-Math.PI, Math.PI], pitch: [-1.15, 1.15], zoom: [.62, 2] },
-  motion: { tempo: [20, 1100], amount: [0, 1], speed: [.1, 4] },
+  motion: { tempo: [20, 1100], amount: [0, 1], speed: [.1, 4], elasticity: [0, 1] },
   sound: { rootHz: [35, 1000], brightness: [0, 1], roughness: [0, 1], space: [0, 1], rotationFx: [0, 1], attack: [.004, 1.2], release: [.04, 3.5] },
 });
 export const FOOT_LIMITS = freeze({
   bigToe: { mcp: [-55, 40], pip: [0, 0], dip: [0, 70], spread: [-12, 12] },
   toe: { mcp: [-40, 40], pip: [0, 90], dip: [0, 60], spread: [-10, 10] },
   ankle: { flex: [-20, 45], side: [-15, 25], twist: [-12, 12] },
+  shape: { arch: [-70, 85], twist: [-55, 55], stretch: [-.4, 1] },
 });
 export const handDigitLimits = (form, index) => form === "foot"
   ? index === 0 ? FOOT_LIMITS.bigToe : FOOT_LIMITS.toe
@@ -151,12 +163,12 @@ const DEFAULT_POSE = HAND_POSES.find(pose => pose.id === "source-open").pose;
 export const HAND_DEFAULTS = freeze({
   version: 1, form: "hand",
   pose: { fingers: DEFAULT_POSE.fingers.map(f => ({ ...f })), wrist: { ...DEFAULT_POSE.wrist } },
-  motion: { id: "source-grasp", tempo: 72, amount: .85, speed: 1 },
+  motion: { id: "source-grasp", tempo: 72, amount: .85, speed: 1, elasticity: 0 },
   sound: { rootHz: 137, brightness: .46, roughness: .16, space: .28, rotationFx: .65, attack: .045, release: .45 },
   voices: FINGERS.map((_, i) => ({ source: VOICE_SOURCES[i], level: i === 4 ? .5 : .7, mute: false, solo: false })),
   view: { yaw: .12, pitch: .035, zoom: 1 },
-  tremor: { finger: "all", joint: "tip", amount: 0, rate: 8 },
-  appearance: { skin: "natural", lighting: "studio" },
+  tremor: { finger: "all", joint: "tip", amount: 0, rate: 8, rateSpread: 0, phaseSpread: 0 },
+  appearance: { skin: 0, lighting: 0 },
 });
 export function createHandPose() {
   return { fingers: Array.from({ length: 5 }, () => ({ mcp: 0, pip: 0, dip: 0, spread: 0 })), wrist: { flex: 0, side: 0, twist: 0 } };
@@ -173,13 +185,17 @@ export function normalizeHandConfig(value = {}) {
       level: clampHand(v.level, 0, 1, fallback.level), mute: v.mute === true, solo: v.solo === true });
   }
   for (const [key, bounds] of Object.entries(handWristLimits(next.form))) next.pose.wrist[key] = clampHand(wrist[key], ...bounds, HAND_DEFAULTS.pose.wrist[key]);
+  if (next.form === "foot") {
+    next.pose.foot = {};
+    const shape = record(pose.foot);
+    for (const [key, bounds] of Object.entries(FOOT_LIMITS.shape)) next.pose.foot[key] = clampHand(shape[key], ...bounds, 0);
+  }
   for (const [key, bounds] of Object.entries(HAND_LIMITS.view)) next.view[key] = clampHand(view[key], ...bounds, HAND_DEFAULTS.view[key]);
   next.tremor.finger = TREMOR_FINGERS.includes(tremor.finger) ? tremor.finger : HAND_DEFAULTS.tremor.finger;
   next.tremor.joint = TREMOR_JOINTS.includes(tremor.joint) ? tremor.joint : HAND_DEFAULTS.tremor.joint;
   if (next.form === "foot" && next.tremor.finger === "thumb" && next.tremor.joint === "middle") next.tremor.joint = "tip";
   for (const [key, bounds] of Object.entries(HAND_LIMITS.tremor)) next.tremor[key] = clampHand(tremor[key], ...bounds, HAND_DEFAULTS.tremor[key]);
-  next.appearance.skin = HAND_SKINS.includes(appearance.skin) ? appearance.skin : HAND_DEFAULTS.appearance.skin;
-  next.appearance.lighting = HAND_LIGHTINGS.includes(appearance.lighting) ? appearance.lighting : HAND_DEFAULTS.appearance.lighting;
+  next.appearance = normalizeHandAppearance(appearance);
   next.motion.id = HAND_MOTIONS.some(item => item.id === motion.id) ? motion.id : HAND_DEFAULTS.motion.id;
   for (const [key, bounds] of Object.entries(HAND_LIMITS.motion)) next.motion[key] = clampHand(motion[key], ...bounds, HAND_DEFAULTS.motion[key]);
   for (const [key, bounds] of Object.entries(HAND_LIMITS.sound)) next.sound[key] = clampHand(sound[key], ...bounds, HAND_DEFAULTS.sound[key]);
@@ -198,33 +214,9 @@ function tremorPitchForPose(out) {
   offsets.fill(0);
   return offsets;
 }
-function applyHandTremor(value, time, out, pitchOffsets, form) {
-  const settings = record(value), amount = clampHand(settings.amount, 0, 15, 0);
-  if (amount === 0) return;
-  const finger = TREMOR_FINGERS.includes(settings.finger) ? settings.finger : "all";
-  const selectedJoint = TREMOR_JOINTS.includes(settings.joint) ? settings.joint : "tip";
-  const joint = form === "foot" && finger === "thumb" && selectedJoint === "middle" ? "tip" : selectedJoint;
-  const phase = time * clampHand(settings.rate, .5, 40, 8) * TAU;
-  if (joint === "wrist") {
-    const bounds = handWristLimits(form);
-    out.wrist.flex = clampHand(out.wrist.flex + amount * Math.sin(phase), ...bounds.flex);
-    out.wrist.side = clampHand(out.wrist.side + amount * .55 * Math.sin(phase + .9), ...bounds.side);
-    out.wrist.twist = clampHand(out.wrist.twist + amount * .7 * Math.sin(phase + 1.8), ...bounds.twist);
-    return;
-  }
-  for (let i = 0; i < 5; i++) {
-    if (finger !== "all" && finger !== "alternating" && finger !== FINGERS[i]) continue;
-    const f = out.fingers[i], bounds = handDigitLimits(form, i);
-    const delta = amount * Math.sin(phase + (finger === "alternating" && i % 2 ? Math.PI : 0));
-    const oldMiddle = f.pip, oldTip = f.dip;
-    if (joint === "knuckle" || joint === "whole") f.mcp = clampHand(f.mcp + delta, ...bounds.mcp);
-    if (joint === "middle" || joint === "whole") f.pip = clampHand(f.pip + delta, ...bounds.pip);
-    if (joint === "tip" || joint === "whole") f.dip = clampHand(f.dip + delta, ...bounds.dip);
-    // Tip/middle tremor adds gentle vibrato from the actual visible deflection;
-    // ordinary manual edits retain their original timbre mapping at amount 0.
-    pitchOffsets[i] = (f.pip - oldMiddle) * .0035 + (f.dip - oldTip) * .0028;
-  }
-}
+const applyHandTremor = createHandTremor({
+  clampHand, handDigitLimits, handWristLimits, FINGERS, TREMOR_FINGERS, TREMOR_JOINTS,
+});
 function sourceForPose(out, phase, amount) {
   let cache = sourceCaches.get(out);
   if (!cache) {
@@ -494,6 +486,17 @@ export function evaluateHandPose(value = HAND_DEFAULTS, time = 0, out = createHa
   out.wrist.flex = clampHand(handNumber(baseWrist.flex) + flex * amount, ...wristBounds.flex);
   out.wrist.side = clampHand(handNumber(baseWrist.side) + side * amount, ...wristBounds.side);
   out.wrist.twist = clampHand(handNumber(baseWrist.twist) + twist * amount, ...wristBounds.twist);
+  if (foot) {
+    const shape = record(pose.foot), elastic = clampHand(motion.elasticity, 0, 1, 0) * amount;
+    const complex = id === "polyrhythmic-tangle" || id === "finger-swarm" || id === "frantic-orbit" || id === "scatter";
+    const sway = phase * (complex ? 3 : 1), ripple = phase * (complex ? 5 : 2);
+    out.foot ??= { arch: 0, twist: 0, stretch: 0 };
+    // Artistic elastic rigging follows the same audio-clock phase as the toes.
+    // Base shape remains directly editable; zero elasticity preserves older scenes.
+    out.foot.arch = clampHand(handNumber(shape.arch) + elastic * 55 * (.75 * Math.sin(sway) + .25 * Math.sin(ripple)), ...FOOT_LIMITS.shape.arch);
+    out.foot.twist = clampHand(handNumber(shape.twist) + elastic * 35 * (.7 * Math.sin(ripple) + .3 * Math.sin(phase * 7)), ...FOOT_LIMITS.shape.twist);
+    out.foot.stretch = clampHand(handNumber(shape.stretch) + elastic * .6 * (.8 * Math.sin(sway) - .2 * Math.sin(ripple)), ...FOOT_LIMITS.shape.stretch);
+  } else if (out.foot) delete out.foot;
   applyHandTremor(config.tremor, clampHand(tremorTime, -1e9, 1e9, seconds), out, tremorPitch, config.form);
   return out;
 }
@@ -520,120 +523,21 @@ export function evaluateHandVoices(value = HAND_DEFAULTS, time = 0, out = create
     target.level = voice.mute === true || (solo && voice.solo !== true) ? 0 : clampHand(voice.level, 0, 1, fallback.level);
     target.source = VOICE_SOURCES.includes(voice.source) ? voice.source : fallback.source;
     target.excitation = clampHand((Math.abs(f.mcp - old.mcp) + .55 * Math.abs(f.pip - old.pip) + .35 * Math.abs(f.dip - old.dip)) / 3.5, 0, 1);
+    if (config.form === "foot") {
+      const shape = pose.foot, oldShape = previous.foot;
+      // Stretch lowers register like a longer resonator; arch lifts its pitch and
+      // brightness. Torsion widens/pans the sound and adds a little grain.
+      target.frequency = clampHand(target.frequency * Math.exp(shape.arch * .006 - Math.log1p(shape.stretch) * .6), 25, 4200);
+      target.brightness = clampHand(target.brightness + shape.arch / 260 + shape.stretch * .12, 0, 1);
+      target.roughness = clampHand(target.roughness + Math.abs(shape.twist) / 260, 0, 1);
+      target.pan = clampHand(target.pan + shape.twist / 140, -.97, .97);
+      target.excitation = clampHand(target.excitation + (Math.abs(shape.arch - oldShape.arch) * .32
+        + Math.abs(shape.twist - oldShape.twist) * .16 + Math.abs(shape.stretch - oldShape.stretch) * 22) / 3.5, 0, 1);
+    }
   }
   return out;
 }
-const PRESET_DEFINITIONS = [
-  ["glass-wave", "Glass greeting", "open", "wave", 67, .72, 181, .44, .06, .42, .04, .85, ["glass", "glass", "glass", "wire", "air"]],
-  ["reed-beckon", "Come closer", "relaxed", "beckon", 79, .82, 101, .55, .22, .16, .024, .25, ["reed", "reed", "wire", "reed", "air"]],
-  ["wire-roll", "Finger loom", "relaxed", "finger-roll", 104, .77, 83, .69, .3, .33, .01, .32, ["wire", "wire", "wire", "wire", "glass"]],
-  ["pinch-sparks", "Pinch sparks", "open", "pinch", 92, .9, 226, .72, .19, .12, .008, .13, ["pulse", "glass", "wire", "air", "glass"]],
-  ["counting-air", "Count the air", "open", "count", 131, .88, 149, .27, .09, .68, .22, 1.1, ["air", "reed", "air", "glass", "air"]],
-  ["flourish-copper", "Copper flourish", "fan", "flourish", 61, .8, 119, .74, .52, .46, .07, .65, ["wire", "reed", "pulse", "wire", "reed"]],
-  ["low-claw", "Velvet claw", "claw", "finger-roll", 38, .33, 48, .17, .12, .2, .34, 1.4, ["reed", "pulse", "reed", "wire", "air"]],
-  ["hushed-palm", "Hushed palm", "open", "wave", 29, .54, 312, .16, .02, .82, .65, 2.2, ["air", "glass", "air", "air", "glass"]],
-  ["point-transmission", "Point transmission", "point", "flourish", 157, .38, 73, .86, .65, .06, .004, .085, ["pulse", "pulse", "wire", "pulse", "reed"]],
-  ["slow-unfurl", "Slow unfurl", "relaxed", "count", 49, .66, 207, .39, .27, .59, .48, 1.75, ["glass", "wire", "reed", "air", "glass"]],
-  ["closed-bell", "Bell in a fist", "fist", "still", 88, 0, 63, .61, .08, .37, .018, 1.3, ["glass", "glass", "glass", "glass", "glass"]],
-  ["little-machinery", "Little machinery", "pinch", "beckon", 186, .48, 126, .81, .81, .23, .006, .17, ["pulse", "wire", "reed", "pulse", "air"]],
-  ["original-grasp", "Original grasp", "source-open", "source-grasp", 75, 1, 151, .49, .13, .3, .04, .58, ["glass", "wire", "reed", "glass", "air"]],
-  ["breathing-hand", "Breathing hand", "source-open", "source-grasp", 34, 1, 79, .24, .06, .71, .38, 1.8, ["air", "reed", "air", "wire", "air"]],
-  ["bowed-spiral", "Rosin spiral", "source-open", "flourish-spiral", 74, .82, 92, .51, .37, .48, .16, .93, ["bowed", "bowed", "wire", "bowed", "glass"], .65],
-  ["vowel-opposition", "Talking fingertips", "source-open", "opposition-walk", 89, .91, 118, .63, .21, .21, .032, .38, ["vowel", "vowel", "reed", "vowel", "air"], 1.1],
-  ["metal-drumming", "Tin fingernails", "source-open", "finger-drumming", 122, .92, 173, .83, .47, .17, .006, .22, ["metal", "metal", "wire", "metal", "pulse"], 1.4],
-  ["bowed-eight", "Cello figure eight", "relaxed", "figure-eight", 51, .68, 57, .28, .18, .56, .31, 1.65, ["bowed", "reed", "bowed", "bowed", "air"], .45],
-  ["vowel-fan", "Palm choir", "source-open", "finger-fan", 62, .95, 204, .34, .08, .74, .44, 1.9, ["vowel", "vowel", "air", "vowel", "glass"], .8],
-  ["metal-walk", "Clockwork fingers", "source-open", "two-finger-walk", 111, .76, 81, .71, .61, .29, .009, .31, ["metal", "pulse", "metal", "wire", "metal"], 1.7],
-  ["tangled-polyrhythm", "Polyrhythmic tangle", "source-open", "polyrhythmic-tangle", 610, .86, 97, .67, .34, .29, .014, .21, ["wire", "metal", "vowel", "bowed", "glass"], 1.7],
-  ["swarming-fingers", "Finger swarm", "source-open", "finger-swarm", 820, .78, 71, .75, .41, .22, .007, .15, ["pulse", "wire", "metal", "pulse", "air"], 2.4],
-  ["orbit-frenzy", "Frantic orbit", "source-open", "frantic-orbit", 1060, .88, 113, .57, .49, .18, .009, .18, ["vowel", "bowed", "metal", "wire", "pulse"], 2.8],
-  ["scattered-sparks", "Scattered sparks", "source-open", "scatter", 950, .93, 188, .86, .62, .13, .004, .09, ["metal", "pulse", "glass", "metal", "wire"], 3.1],
-];
-// Camera choices belong to full scenes; omitted entries retain the palm view.
-const PRESET_VIEWS = {
-  "reed-beckon": { yaw: -.65, pitch: .12, zoom: 1.05 },
-  "wire-roll": { yaw: .75, pitch: -.12, zoom: 1.06 },
-  "pinch-sparks": { yaw: -.9, pitch: .2, zoom: 1.15 },
-  "flourish-copper": { yaw: .45, pitch: -.3, zoom: .88 },
-  "low-claw": { yaw: 1.18, pitch: .15, zoom: 1 },
-  "hushed-palm": { yaw: -.15, pitch: .16, zoom: .92 },
-  "point-transmission": { yaw: -1.1, pitch: .06, zoom: 1.05 },
-  "closed-bell": { yaw: .9, pitch: .25, zoom: 1.12 },
-  "vowel-opposition": { yaw: -.7, pitch: .13, zoom: 1.1 },
-  "metal-drumming": { yaw: 1.08, pitch: -.28, zoom: 1 },
-  "bowed-eight": { yaw: 2.5, pitch: -.08, zoom: .92 },
-  "metal-walk": { yaw: -1.15, pitch: .15, zoom: 1.06 },
-  "tangled-polyrhythm": { yaw: -.45, pitch: .25, zoom: .9 },
-  "swarming-fingers": { yaw: 1.32, pitch: .05, zoom: .88 },
-  "orbit-frenzy": { yaw: -2.2, pitch: -.12, zoom: .82 },
-  "scattered-sparks": { yaw: .7, pitch: .34, zoom: .92 },
-};
-const PRESET_TREMORS = {
-  "reed-beckon": { finger: "thumb", joint: "knuckle", amount: 2.2, rate: 4.7 },
-  "glass-wave": { finger: "all", joint: "tip", amount: 1.6, rate: 5.8 },
-  "bowed-spiral": { finger: "alternating", joint: "whole", amount: 1.9, rate: 6.4 },
-  "vowel-opposition": { finger: "index", joint: "middle", amount: 3.2, rate: 7.8 },
-  "metal-drumming": { finger: "ring", joint: "tip", amount: 4, rate: 13 },
-  "bowed-eight": { finger: "all", joint: "tip", amount: 1.2, rate: 5.2 },
-  "tangled-polyrhythm": { finger: "alternating", joint: "whole", amount: 2.8, rate: 17 },
-  "swarming-fingers": { finger: "alternating", joint: "tip", amount: 6.2, rate: 27 },
-  "orbit-frenzy": { finger: "all", joint: "wrist", amount: 4.5, rate: 12 },
-  "scattered-sparks": { finger: "little", joint: "middle", amount: 8, rate: 33 },
-};
-const PRESET_APPEARANCES = {
-  "glass-wave": { skin: "porcelain", lighting: "cool" },
-  "reed-beckon": { skin: "natural", lighting: "warm" },
-  "wire-roll": { skin: "copper", lighting: "studio" },
-  "pinch-sparks": { skin: "cyan", lighting: "neon" },
-  "counting-air": { skin: "violet", lighting: "soft" },
-  "flourish-copper": { skin: "copper", lighting: "warm" },
-  "low-claw": { skin: "jade", lighting: "noir" },
-  "hushed-palm": { skin: "porcelain", lighting: "soft" },
-  "point-transmission": { skin: "cyan", lighting: "cool" },
-  "closed-bell": { skin: "porcelain", lighting: "warm" },
-  "tangled-polyrhythm": { skin: "jade", lighting: "neon" },
-  "swarming-fingers": { skin: "violet", lighting: "cool" },
-  "orbit-frenzy": { skin: "cyan", lighting: "neon" },
-  "scattered-sparks": { skin: "copper", lighting: "noir" },
-};
-const PRESET_ROTATION_FX = {
-  "glass-wave": .68, "reed-beckon": .42, "wire-roll": .76, "pinch-sparks": .54,
-  "counting-air": .38, "flourish-copper": .92, "low-claw": .34, "hushed-palm": .28,
-  "point-transmission": .81, "slow-unfurl": .57, "closed-bell": .18, "little-machinery": .72,
-  "original-grasp": .65, "breathing-hand": .31, "bowed-spiral": .86, "vowel-opposition": .46,
-  "metal-drumming": .61, "bowed-eight": .78, "vowel-fan": .43, "metal-walk": .74,
-  "tangled-polyrhythm": .88, "swarming-fingers": .71, "orbit-frenzy": 1, "scattered-sparks": .83,
-};
-const ORIGINAL_HAND_PRESETS = PRESET_DEFINITIONS.map(([id, label, poseId, motionId, tempo, amount, rootHz, brightness, roughness, space, attack, release, sources, speed = 1], index) => ({
-  id, label, snapshot: normalizeHandConfig({
-    pose: HAND_POSES.find(p => p.id === poseId).pose, view: PRESET_VIEWS[id],
-    tremor: PRESET_TREMORS[id], appearance: PRESET_APPEARANCES[id],
-    motion: { id: motionId, tempo, amount, speed }, sound: { rootHz, brightness, roughness, space, rotationFx: PRESET_ROTATION_FX[id], attack, release },
-    voices: sources.map((source, i) => ({ source, level: source === "air" ? .43 : .56 + ((index + i) % 4) * .085, mute: false, solo: false })),
-  }),
-}));
-const FOOT_PRESET_DEFINITIONS = [
-  { id: "foot-velvet-curl", label: "Velvet toe curl", pose: "source-open", motion: { id: "source-grasp", tempo: 58, amount: .92, speed: .8 },
-    sound: { rootHz: 73, brightness: .4, roughness: .18, space: .4, rotationFx: .58, attack: .08, release: .72 },
-    sources: ["bowed", "reed", "wire", "bowed", "air"], appearance: { skin: "natural", lighting: "warm" }, view: { yaw: -.35, pitch: .2, zoom: 1 },
-    tremor: { finger: "thumb", joint: "tip", amount: 1.4, rate: 4.3 } },
-  { id: "foot-glass-ripple", label: "Glass toe ripple", pose: "open", motion: { id: "ripple-open", tempo: 83, amount: .85, speed: 1.1 },
-    sound: { rootHz: 193, brightness: .54, roughness: .09, space: .65, rotationFx: .74, attack: .035, release: .93 },
-    sources: ["glass", "vowel", "glass", "wire", "air"], appearance: { skin: "cyan", lighting: "cool" }, view: { yaw: .62, pitch: -.12, zoom: 1.05 },
-    tremor: { finger: "alternating", joint: "tip", amount: 2.1, rate: 6.7 } },
-  { id: "foot-tin-drumming", label: "Tin toe drumming", pose: "source-open", motion: { id: "finger-drumming", tempo: 151, amount: 1, speed: 1.6 },
-    sound: { rootHz: 121, brightness: .78, roughness: .48, space: .19, rotationFx: .83, attack: .006, release: .2 },
-    sources: ["metal", "pulse", "metal", "wire", "metal"], appearance: { skin: "copper", lighting: "studio" }, view: { yaw: -.8, pitch: .3, zoom: .96 },
-    tremor: { finger: "little", joint: "knuckle", amount: 2.6, rate: 11 } },
-  { id: "foot-ankle-orbit", label: "Ankle choir", pose: "relaxed", motion: { id: "figure-eight", tempo: 47, amount: .95, speed: .6 },
-    sound: { rootHz: 97, brightness: .33, roughness: .14, space: .73, rotationFx: .95, attack: .26, release: 1.5 },
-    sources: ["vowel", "bowed", "vowel", "reed", "air"], appearance: { skin: "violet", lighting: "soft" }, view: { yaw: 1.15, pitch: .08, zoom: .9 },
-    tremor: { finger: "all", joint: "wrist", amount: 1.7, rate: 3.4 } },
-];
-export const HAND_PRESETS = freeze([...ORIGINAL_HAND_PRESETS, ...FOOT_PRESET_DEFINITIONS.map(({ id, label, pose, sources, ...config }) => ({
-  id, label, snapshot: normalizeHandConfig({ ...config, form: "foot", pose: handPoseForForm(pose, "foot"),
-    voices: sources.map((source, i) => ({ source, level: source === "air" ? .43 : .6 + i * .025, mute: false, solo: false })) }),
-}))]);
+export const HAND_PRESETS = createHandPresets({ normalizeHandConfig, HAND_POSES, handPoseForForm });
 /** A full-state randomizer: no factory-scene selection or runtime ownership. */
 export function randomizeHandConfig(_current = HAND_DEFAULTS, random = Math.random) {
   const unit = () => clampHand(typeof random === "function" ? random() : .5, 0, .999999, .5);
@@ -647,8 +551,8 @@ export function randomizeHandConfig(_current = HAND_DEFAULTS, random = Math.rand
   for (const [key, bounds] of Object.entries(HAND_LIMITS.wrist)) next.pose.wrist[key] = between(...bounds);
   for (const [key, bounds] of Object.entries(HAND_LIMITS.view)) next.view[key] = between(...bounds);
   next.tremor = { finger: TREMOR_FINGERS[Math.floor(unit() * TREMOR_FINGERS.length)],
-    joint: TREMOR_JOINTS[Math.floor(unit() * TREMOR_JOINTS.length)], amount: between(0, 15), rate: .5 * 80 ** unit() };
-  next.appearance = { skin: HAND_SKINS[Math.floor(unit() * HAND_SKINS.length)], lighting: HAND_LIGHTINGS[Math.floor(unit() * HAND_LIGHTINGS.length)] };
+    joint: TREMOR_JOINTS[Math.floor(unit() * TREMOR_JOINTS.length)], amount: between(0, 45), rate: .1 * 1200 ** unit(), rateSpread: unit(), phaseSpread: unit() };
+  next.appearance = { skin: unit(), lighting: unit() };
   next.motion = { id: HAND_MOTIONS[Math.floor(unit() * HAND_MOTIONS.length)].id, tempo: between(20, 1100), amount: unit(), speed: .1 * 40 ** unit() };
   next.sound = { rootHz: 35 * (1000 / 35) ** unit(), brightness: unit(), roughness: unit(), space: unit(), rotationFx: unit(),
     attack: .004 * 300 ** unit(), release: .04 * 87.5 ** unit() };
@@ -657,6 +561,9 @@ export function randomizeHandConfig(_current = HAND_DEFAULTS, random = Math.rand
   if (next.form === "foot") {
     for (let i = 0; i < 5; i++) for (const [key, bounds] of Object.entries(handDigitLimits("foot", i))) next.pose.fingers[i][key] = between(...bounds);
     for (const [key, bounds] of Object.entries(FOOT_LIMITS.ankle)) next.pose.wrist[key] = between(...bounds);
+    next.pose.foot = {};
+    for (const [key, bounds] of Object.entries(FOOT_LIMITS.shape)) next.pose.foot[key] = between(...bounds);
+    next.motion.elasticity = unit();
   }
   return normalizeHandConfig(next);
 }

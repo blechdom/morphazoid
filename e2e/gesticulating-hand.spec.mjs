@@ -17,8 +17,9 @@ test('loads the real weighted hand and starts with no AudioContext',async({page}
   const state=await snapshot(page);
   expect(state.viewer.boneCount).toBe(22);expect(state.viewer.triangles).toBe(28994);
   expect(state.audio.contextState).toBe('uninitialized');expect(state.audioOn).toBe(false);
-  expect(state.config.motion.id).toBe('source-grasp');expect(state.pose.source.amount).toBe(.85);
-  expect(await page.locator('#posePreset').inputValue()).toBe('source-open');
+  expect(state.config.motion.id).toBe('finger-roll');expect(state.pose.source).toBeNull();
+  await expect(page.locator('.header-preset-picker summary')).toContainText('Finger loom');
+  expect(await page.locator('#posePreset').inputValue()).toBe('relaxed');
   await expect(page.locator('h1')).toHaveText('Gesticules');
   await expect(page.locator('[data-instrument-preset-host] .header-preset-picker')).toBeVisible();
   expect(await page.locator('#motionPreset option').count()).toBe(36);
@@ -268,7 +269,7 @@ test('full presets restore tempo, speed, camera, tremors, skin and lighting afte
     expect(captured.selectedId).toBe(null);
     await expect(page.locator('.header-preset-picker summary')).toContainText('Custom');
     await range(page,'tempo',40);await range(page,'speed',.2);await range(page,'tremorAmount',.7);
-    await page.locator('#skin').selectOption('natural');await page.locator('#lighting').selectOption('soft');
+    await range(page,'skin',.83);await range(page,'lighting',.71);
     await chooseScene(page,label);
     const restored=await snapshot(page);
     expect(restored.config).toEqual(saved.config);
@@ -311,20 +312,26 @@ test('tremor animates the chosen finger joints and freezes on Motion pause',asyn
   await page.locator('#tremorJoint').selectOption('wrist');await expect(page.locator('#tremorFinger')).toBeDisabled();
 });
 
-test('every skin and lighting selection changes the rendered hand and Natural Studio restores it',async({page})=>{
+test('continuous Color and Light sliders change both surfaces and restore their saved positions',async({page})=>{
   const canvas=page.locator('#handCanvas'),original=await canvas.screenshot();
-  for(const skin of ['porcelain','copper','jade','violet','cyan']) {
-    await page.locator('#skin').selectOption(skin);await page.waitForTimeout(70);
-    expect((await canvas.screenshot()).equals(original),skin).toBe(false);
+  await expect(page.locator('#skin')).toHaveAttribute('type','range');await expect(page.locator('#lighting')).toHaveAttribute('type','range');
+  await expect(page.locator('#lookTitle')).toHaveText('Color & light');
+  for(const skin of [.137,.38,.552,.763,.912]) {
+    await range(page,'skin',skin);await page.waitForTimeout(70);
+    expect((await canvas.screenshot()).equals(original),String(skin)).toBe(false);
+    expect((await snapshot(page)).config.appearance.skin).toBeCloseTo(skin,8);
   }
-  await page.locator('#skin').selectOption('natural');await page.waitForTimeout(70);
-  expect((await canvas.screenshot()).equals(original)).toBe(true);
-  for(const lighting of ['warm','cool','noir','neon','soft']) {
-    await page.locator('#lighting').selectOption(lighting);await page.waitForTimeout(70);
-    expect((await canvas.screenshot()).equals(original),lighting).toBe(false);
+  await range(page,'skin',0);await page.waitForTimeout(70);expect((await canvas.screenshot()).equals(original)).toBe(true);
+  for(const lighting of [.117,.36,.57,.8,.937]) {
+    await range(page,'lighting',lighting);await page.waitForTimeout(70);
+    expect((await canvas.screenshot()).equals(original),String(lighting)).toBe(false);
   }
-  await page.locator('#lighting').selectOption('studio');await page.waitForTimeout(70);
-  expect((await canvas.screenshot()).equals(original)).toBe(true);
+  await range(page,'lighting',0);await page.waitForTimeout(70);expect((await canvas.screenshot()).equals(original)).toBe(true);
+  await page.locator('#bodyForm').selectOption('foot');
+  await page.waitForFunction(()=>window.__gesticulatingHand.snapshot().viewer.form==='foot');
+  const foot=await canvas.screenshot();await range(page,'skin',.621);await range(page,'lighting',.337);await page.waitForTimeout(70);
+  expect((await canvas.screenshot()).equals(foot)).toBe(false);
+  expect((await snapshot(page)).config.appearance).toEqual({skin:.621,lighting:.337});
 });
 
 test('maximum tempo, speed and tremor sustain all complex patterns through a rendering stall',async({page})=>{
