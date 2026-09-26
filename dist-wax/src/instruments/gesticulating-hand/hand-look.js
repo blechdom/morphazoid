@@ -1,15 +1,12 @@
-// Tints multiply the artist's textured skin color; maps and surface response
-// stay intact. The hand's weighted rig and resources remain owned by the viewer.
-const SKINS = Object.freeze({
-  porcelain: 0xddeaff,
-  copper: 0xffba88,
-  jade: 0x83ecd3,
-  violet: 0xb8adff,
-  cyan: 0x82e4ff,
-});
+import { Color } from '../../../vendor/three/three.module.min.js';
+import { normalizeHandAppearance } from './hand-model.js';
 
-// [sky, ground, hemisphere strength], then [color, strength, x, y, z]
-// for the key, fill and rim. All rigs remain static until another is selected.
+// Saturated tints multiply the source skin/nail textures. The wheel deliberately
+// contains no untinted or pale finish; material detail and surface maps remain.
+const COLOR_STOPS = [
+  [0,0xb96836],[.17,0xc19a2f],[.38,0x36a87c],[.55,0x368fb8],
+  [.76,0x8750bd],[.9,0xc44f88],[1,0xb96836],
+].map(([position,hex])=>({position,color:new Color(hex)}));
 const LIGHTING = Object.freeze({
   warm: {
     ambient: [0xffe5bb, 0x432326, 1.6],
@@ -43,86 +40,51 @@ const LIGHTING = Object.freeze({
   },
 });
 
-/** Create after the GLTF materials have received the viewer's defaults.
- * Original textures stay attached through every tint and lighting change. */
 export function createHandLook({ meshes, ambient, keyLight, fill, rim }) {
-  const materials = [], knownMaterials = new Set();
-  const lights = [ambient, keyLight, fill, rim];
-  const originalLights = lights.map(light => ({
-    color: light.color.clone(),
-    groundColor: light.groundColor?.clone(),
-    intensity: light.intensity,
-    position: light.position.clone(),
-  }));
-  let skin = 'natural', lighting = 'studio', disposed = false;
-
-  function addMeshes(nextMeshes) {
-    if (disposed) return;
-    for (const mesh of nextMeshes) for (const material of Array.isArray(mesh.material) ? mesh.material : [mesh.material]) {
-      if (!material?.color || knownMaterials.has(material)) continue;
-      knownMaterials.add(material);
-      const original = { material, color: material.color.clone() };
-      materials.push(original);
-      if (skin !== 'natural') material.color.setHex(SKINS[skin]).multiply(original.color);
+  const materials=[],knownMaterials=new Set(),lights=[ambient,keyLight,fill,rim];
+  const originalLights=lights.map(light=>({color:light.color.clone(),groundColor:light.groundColor?.clone(),
+    intensity:light.intensity,position:light.position.clone()}));
+  const lightStops=[originalLights,...Object.values(LIGHTING).map(rig=>[
+    {color:new Color(rig.ambient[0]),groundColor:new Color(rig.ambient[1]),intensity:rig.ambient[2],position:originalLights[0].position},
+    ...[rig.key,rig.fill,rig.rim].map((values,index)=>({color:new Color(values[0]),intensity:values[1],
+      position:originalLights[index+1].position.clone().set(values[2],values[3],values[4])})),
+  ])];
+  const tint=new Color();
+  let skin=0,lighting=0,disposed=false;
+  function updateTint(){
+    const upper=COLOR_STOPS.findIndex(stop=>stop.position>=skin),b=COLOR_STOPS[Math.max(1,upper)],a=COLOR_STOPS[Math.max(0,upper-1)];
+    if(skin===b.position)tint.copy(b.color);else tint.copy(a.color).lerp(b.color,(skin-a.position)/(b.position-a.position));
+  }
+  updateTint();
+  function addMeshes(nextMeshes){
+    if(disposed)return;
+    for(const mesh of nextMeshes)for(const material of Array.isArray(mesh.material)?mesh.material:[mesh.material]){
+      if(!material?.color||knownMaterials.has(material))continue;
+      knownMaterials.add(material);const original={material,color:material.color.clone()};materials.push(original);
+      material.color.copy(original.color).multiply(tint);
     }
   }
   addMeshes(meshes);
-
-
-  function restoreMaterials() {
-    for (const { material, color } of materials) material.color.copy(color);
-  }
-  function restoreLights() {
-    lights.forEach((light, index) => {
-      const original = originalLights[index];
-      light.color.copy(original.color);
-      if (original.groundColor) light.groundColor.copy(original.groundColor);
-      light.intensity = original.intensity;
-      light.position.copy(original.position);
-    });
-  }
-  function apply({ skin: requestedSkin = 'natural', lighting: requestedLighting = 'studio' } = {}) {
-    if (disposed) return false;
-    const nextSkin = Object.hasOwn(SKINS, requestedSkin) ? requestedSkin : 'natural';
-    const nextLighting = Object.hasOwn(LIGHTING, requestedLighting) ? requestedLighting : 'studio';
-    let changed = false;
-    if (nextSkin !== skin) {
-      if (nextSkin === 'natural') restoreMaterials();
-      else {
-        for (const { material, color } of materials) {
-          // The original color map carries the nails and joint creases. Tint it
-          // in linear color space, always starting from the captured base color
-          // so switching finishes never accumulates tint or loses surface detail.
-          material.color.setHex(SKINS[nextSkin]).multiply(color);
-        }
-      }
-      skin = nextSkin;
-      changed = true;
-    }
-    if (nextLighting !== lighting) {
-      if (nextLighting === 'studio') restoreLights();
-      else {
-        const rig = LIGHTING[nextLighting];
-        ambient.color.setHex(rig.ambient[0]);
-        ambient.groundColor.setHex(rig.ambient[1]);
-        ambient.intensity = rig.ambient[2];
-        [keyLight, fill, rim].forEach((light, index) => {
-          const values = [rig.key, rig.fill, rig.rim][index];
-          light.color.setHex(values[0]);
-          light.intensity = values[1];
-          light.position.set(values[2], values[3], values[4]);
-        });
-      }
-      lighting = nextLighting;
-      changed = true;
+  function apply(value={}){
+    if(disposed)return false;
+    const next=normalizeHandAppearance(value);let changed=false;
+    if(next.skin!==skin){skin=next.skin;updateTint();for(const {material,color} of materials)material.color.copy(color).multiply(tint);changed=true;}
+    if(next.lighting!==lighting){
+      lighting=next.lighting;const position=lighting*(lightStops.length-1),index=Math.min(lightStops.length-2,Math.floor(position)),mix=position-index;
+      lights.forEach((light,i)=>{
+        const a=lightStops[index][i],b=lightStops[index+1][i];light.color.copy(a.color).lerp(b.color,mix);
+        if(a.groundColor)light.groundColor.copy(a.groundColor).lerp(b.groundColor,mix);
+        light.intensity=a.intensity+(b.intensity-a.intensity)*mix;light.position.copy(a.position).lerp(b.position,mix);
+      });changed=true;
     }
     return changed;
   }
-  function dispose() {
-    if (disposed) return;
-    restoreMaterials();
-    restoreLights();
-    disposed = true;
+  function dispose(){
+    if(disposed)return;
+    for(const {material,color} of materials)material.color.copy(color);
+    lights.forEach((light,i)=>{const original=originalLights[i];light.color.copy(original.color);
+      if(original.groundColor)light.groundColor.copy(original.groundColor);light.intensity=original.intensity;light.position.copy(original.position);});
+    disposed=true;
   }
-  return { apply, addMeshes, dispose };
+  return {apply,addMeshes,dispose};
 }

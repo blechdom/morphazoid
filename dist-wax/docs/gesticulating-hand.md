@@ -3,9 +3,9 @@
 Open [Gesticules](../gesticules.html), a standalone 3D instrument with **Hand** and **Foot** models. Their textured skin,
 editable joints and five synthesized finger or toe voices share one pose timeline.
 Choose the model above Sound and Motion. Switching keeps both players, sound
-settings, Tempo, Speed, tremor, skin tint, lighting and camera; it remembers each
+settings, Tempo, Speed, tremor, Color, Light and camera; it remembers each
 model’s manual base pose separately for the current page session. Audio remains off
-until explicitly enabled. Older saved configurations default to Hand.
+until explicitly enabled. The initial scene is **Finger loom**. Older saved configurations default to Hand.
 
 Turn **Audio** on, then **Sound** to hold the sound of the current pose. **Motion**
 runs the selected choreography independently. Dragging a finger or its joint
@@ -68,16 +68,24 @@ base (CMC), knuckle (MCP), tip (IP), and base opposition. Bending a knuckle by
 dragging can also bend its downstream joints; uncheck **Bend joints together**
 to isolate it. Wrist bend, side motion and hand turn are separate controls.
 
-**Tremor** adds a shake to selected joints: **0–15 degrees** at **0.5–40 Hz**.
-Choose one finger, all fingers, or alternating fingers moving in opposite phase.
-The joint choices are Tip, Middle, Knuckle, Whole finger, and Wrist. Whole finger
-moves its three bending joints together; Wrist shakes bend, side and turn.
+**Tremor** adds a shake to selected joints: **0–45 degrees** with a **0.1–120 Hz**
+base rate. Choose one finger, all fingers, or alternating fingers moving in
+opposite phase. The joint choices are Tip, Middle, Knuckle, Whole finger,
+sideways Spread, and Wrist. Whole finger moves its three bending joints together;
+Spread splays the digits sideways; Wrist shakes bend, side and turn.
+**Rate spread** and **Phase spread**, each 0–100%, distribute rates and phase
+positions across individual digits, or across the three wrist/ankle axes. They
+range from synchronized motion to independent, offset oscillations. Actual
+bends remain bounded by each joint’s range; a high base rate with rate spread
+can drive some digits faster than 120 Hz.
 Tip and middle tremor also add gentle continuous vibrato from the actual visible
 deflection. Knuckle and wrist tremor use their existing pitch mappings. Tremor
 rate is expressed in Hz independently of Tempo and Speed. Changing Tempo, Speed
 or tremor rate preserves its current phase. Motion pause holds both
 choreography and tremor at their current position; Sound can sustain that pose.
-Tremor defaults to zero, including when loading older saved configurations.
+Missing tremor depth, rate spread and phase spread default to zero. Existing
+scenes retain their original tremor settings; the new scenes include gentle
+subhertz movement, deep shakes and fast sideways splay.
 
 These are calibrated, bounded controls on an artist's rig. They do not simulate
 every tendon, contact force or bone collision. Extreme mixed poses may intersect.
@@ -88,11 +96,23 @@ not a clinical hand model, sign-language dictionary or validated hand tracker.
 ## Foot and toes
 
 The **Foot** option uses an ankle crop of the official **MakeHuman CC0** mesh and
-skeleton, with **Mindfront’s Aksel CC0 skin**. Its 17 weighted bones include
-14 toe joints, an ankle and two stationary calf anchors. The big toe has base
+skeleton, with **Mindfront’s Aksel CC0 skin**. The source GLB has 17 weighted bones:
+14 toe joints, an ankle and two stationary calf anchors. The instrument adds
+three weighted arch bones at runtime, giving **20 runtime bones** while retaining
+the source GLB and its neutral surface. The big toe has base
 (MTP) and tip (IP) controls; each smaller toe has base (MTP), middle (PIP) and tip
 (DIP) controls. Each toe also splays sideways. There is no extra middle joint on
 the big toe. Ankle bend, side and turn replace the wrist controls.
+
+**Arch** (−70° to 85°), **Twist** (−55° to 55°), and **Stretch** (−40% to 100%)
+deform the foot between ankle and toes. Drag the arch marker vertically to bend
+or horizontally to stretch; sliders expose all three dimensions. **Elastic motion**
+(0–100%) adds deterministic arch, twist and stretch cycles that follow the
+selected choreography, Tempo and Speed. The manual shape remains editable.
+Arch raises pitch and brightness, stretch lowers register and changes brightness,
+and twist changes roughness and stereo position. Their movement also excites the
+voices. These elastic deformations are expressive extensions of the source rig.
+Older foot scenes keep a neutral shape and zero elastic motion.
 
 All 35 motions are adapted to the foot’s smaller ranges, including toe curls,
 ripples, drumming, splaying and ankle circles. These are expressive adaptations,
@@ -101,12 +121,14 @@ applied to the foot; its corresponding foot motion is **Toe curl · adapted**.
 Targeted tremor works on the same toe controls. A big-toe middle-joint tremor
 becomes tip tremor, while an all-toes middle tremor skips the big toe.
 
-Four complete foot presets join the unchanged 24 hand presets: **Velvet toe curl**,
-**Glass toe ripple**, **Tin toe drumming**, and **Ankle choir**. Preset recall includes the
-model; manually choosing another model retains the current sound and view.
-**Top / Sole / Side** replace Palm / Back / Side. Rotation keeps the same stereo
-phaser, and all eight engines, six skin tints, six lighting choices and five-voice
-MIDI controls work with either model.
+The library has **16 foot scenes and 36 hand scenes**, interleaved in one menu.
+The four original foot scenes—**Velvet toe curl**, **Glass toe ripple**,
+**Tin toe drumming**, and **Ankle choir**—retain their musical settings. Twelve
+new foot scenes combine elastic shapes with varied engines and tremors. Preset
+recall includes the model; manually choosing another model retains the current
+sound and view. **Top / Sole / Side** replace Palm / Back / Side. Rotation keeps
+the same stereo phaser, and all eight engines, continuous Color and Light
+controls, and five-voice MIDI controls work with either model.
 
 The foot has 34,352 triangles and a 1.89 MB GLB. Its 352×336 foot texture crop
 retains the source nail and crease detail without upscaling, so close zooms look
@@ -121,7 +143,11 @@ can intersect. The foot does not claim clinical accuracy.
 | Finger knuckle/base bend | Continuous exponential pitch movement |
 | Middle and tip bends | Brightness and roughness |
 | Middle and tip tremor | Additional continuous vibrato from visible joint deflection |
-| Finger spread | Stereo position |
+| Finger/toe spread and sideways tremor | Stereo position |
+| Foot arch | Pitch and brightness |
+| Foot stretch | Lower register and changed brightness |
+| Foot twist | Roughness and stereo position |
+| Speed of elastic foot deformation | Additional voice excitation |
 | Wrist bend and turn | Shared pitch/register movement |
 | Wrist side motion | Shared color and stereo movement |
 | Turning or tilting the hand | Stereo phaser sweep |
@@ -158,23 +184,26 @@ is capped at 40 frames/second, 1.6 device-pixel ratio and about 1.45 million pix
   the selected finger. Shift makes a smaller change. Sliders provide the same
   controls without direct 3D manipulation.
 - Space toggles Motion. Sound and Audio remain separate.
-- The **28 complete presets** recall the model, joints, sound engines and levels, envelopes,
-  choreography, Tempo, Speed, tremor, camera angle/zoom, skin and lighting. The
-  four complex-motion scenes showcase higher tempos with different Speed values.
-  The adjacent dice randomizes these settings within their bounds.
-- Reset recalls the initial scene without changing output or player
+- The **52 complete presets** (36 hand, 16 foot) recall the model, joints, foot
+  shape, elastic motion, sound engines and levels, envelopes, choreography,
+  Tempo, Speed, all tremor controls, camera angle/zoom, Color and Light. Each six
+  neighboring scenes, including the menu wrap, contain hand and foot, fast and
+  slow, smooth and shaky choices. The original 28 scenes retain their musical
+  settings; 12 hand and 12 foot scenes add new combinations. The adjacent dice
+  randomizes these settings within their bounds.
+- Reset recalls **Finger loom** without changing output or player
   switches. Audio off releases sound. Blur releases transient manual/MIDI holds.
 
-Skin tints are **Natural, Porcelain, Copper, Jade, Violet, and Cyan**. Each color
-multiplies the original textured material, retaining finger/toe nails, joint creases,
-skin detail and the original roughness and specular response. Natural restores
-the original color exactly.
-Lighting choices are **Studio, Warm, Cool, Noir, Neon, and Soft**. These tint
-and light treatments change the view; joint motion continues to own synthesis.
-Older saved configurations use Natural skin, Studio lighting and the palm camera.
+**Color** and **Light** are continuous 0–100% sliders with no named palette or
+lighting menus. Color moves through saturated hues while retaining textured
+nails, joint creases, skin detail and the original material response. Light
+interpolates the illumination. Neither changes synthesis; visible joint motion
+continues to own the sound. Saved appearance values are numeric positions from
+0 to 1; older named settings migrate to these positions, with removed pale
+colors mapped to the saturated starting color.
 Camera orbit, angle and zoom belong to each complete preset. Each model is loaded
 on first selection and cached; both share one renderer, lights and appearance
-controller. Tint changes always start from each material’s original color.
+controller. Color changes always start from each material’s original color.
 
 On phones, the hand or foot stage stays visible beneath the masthead while the mixer and
 parameter controls scroll below it. The transport and parameter panel comes
