@@ -64,7 +64,7 @@ for (const target of targets) test(`${target.name} compact controls preserve sou
   await scope.locator(target.kind === 'rubix' ? '#soundBank' : '#voice').selectOption('shared-simd-chiptune');
   await scope.locator('#playButton').click();
   await expect(audio).toHaveAttribute('aria-pressed', 'false');
-  await expect(page.locator('#transportAudioAttention')).toBeVisible();
+  await expect(page.locator('#transportAudioAttention')).toHaveCount(0);
   await expect(audio).toHaveAttribute('data-audio-attention', 'true');
   await audio.click();
   await expect(audio).toHaveAttribute('aria-pressed', 'true');
