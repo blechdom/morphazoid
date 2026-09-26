@@ -1054,6 +1054,8 @@ copy+require	gesticulating-hand.html
 copy+require	src/instruments/gesticulating-hand/hand-app.js
 copy+require	src/instruments/gesticulating-hand/hand.css
 copy+require	src/instruments/gesticulating-hand/hand-viewer.js
+copy+require	src/instruments/gesticulating-hand/hand-rig.js
+copy+require	src/instruments/gesticulating-hand/foot-rig.js
 copy+require	src/instruments/gesticulating-hand/hand-look.js
 copy+require	src/instruments/gesticulating-hand/hand-model.js
 copy+require	src/instruments/gesticulating-hand/hand-dsp.js
@@ -1066,6 +1068,11 @@ copy+require	assets/gesticulating-hand/rig-report.json
 copy+require	assets/gesticulating-hand/SOURCE.LICENSE.txt
 copy+require	assets/gesticulating-hand/source-metadata.json
 copy+require	assets/gesticulating-hand/README.md
+copy+require	assets/gesticulating-foot/foot.glb
+copy+require	assets/gesticulating-foot/rig-report.json
+copy+require	assets/gesticulating-foot/SOURCE.LICENSE.txt
+copy+require	assets/gesticulating-foot/source-metadata.json
+copy+require	assets/gesticulating-foot/README.md
 copy+require	assets/instruments/gesticulating-hand.webp
 copy+require	docs/gesticulating-hand.md
 

@@ -101,3 +101,5 @@
 .hand-page .hand-tempo input[type="range"] { height: var(--hand-play-size); min-height: var(--hand-play-size); margin: 0; }
 .hand-transports .hand-speed { margin-top: 12px; }
 @media (pointer: coarse) { .hand-transport-row { --hand-play-size: 48px; } }
+
+.hand-transports .hand-form { margin: 0 0 14px; }

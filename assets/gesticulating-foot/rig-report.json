@@ -1,0 +1,1273 @@
+{
+  "version": 1,
+  "asset": "MakeHuman articulated right foot",
+  "license": "CC0-1.0",
+  "meshLicense": "CC0-1.0",
+  "textureLicense": "CC0-1.0",
+  "makehumanCommit": "a8bc2d54ff0ac92e78ff71431b1023eda42bf482",
+  "meshSource": "https://github.com/makehumancommunity/makehuman/tree/a8bc2d54ff0ac92e78ff71431b1023eda42bf482/makehuman/data",
+  "skinSource": "https://static.makehumancommunity.org/assets/assetpacks/skins02.html",
+  "skinAuthor": "Mindfront (Aksel skin), distributed in the official MakeHuman CC0 skins02 pack",
+  "skinPack": "https://files2.makehumancommunity.org/asset_packs/skins02/skins02_cc0.zip",
+  "subdivision": "Two offline Catmull-Clark steps; face-varying bilinear UVs; interpolated source skin weights",
+  "sourceUnits": "MakeHuman decimeters; Y up, +Z toward toe tips, right foot is -X in source body. Rest joint rotations identity, so listed axes are parent-local global-at-rest axes.",
+  "crop": {
+    "sourceCutoffY": -7.15,
+    "rightSideMaxX": -1.25,
+    "cap": "One ankle-rim n-gon before subdivision; rim flattened at cutoff; cap has separate plain skin material",
+    "sourceVertices": 1080,
+    "sourceFacesIncludingCap": 1069
+  },
+  "mesh": {
+    "vertices": 17830,
+    "geometricVertices": 17178,
+    "triangles": 34352,
+    "bounds": {
+      "min": [
+        -2.6984327636718755,
+        -8.158395093749998,
+        -0.49884765624999994
+      ],
+      "max": [
+        -1.7528609375,
+        -7.152025158294595,
+        1.9060347656249998
+      ]
+    }
+  },
+  "skin": {
+    "joints": 17,
+    "toeJoints": 14,
+    "stationaryCalfAnchors": [
+      "lowerleg01_R",
+      "lowerleg02_R"
+    ],
+    "toeWeightTypoCorrections": [
+      {
+        "vertex": 6535,
+        "from": "toe2-3.L",
+        "to": "toe2-3.R",
+        "weight": 0.002,
+        "reason": "Tiny contralateral source-weight typo on the right second toe"
+      }
+    ],
+    "maxDroppedInfluenceWeight": 0.1036787336948557,
+    "verticesReducedToFourWeights": 3644,
+    "textureCropPixels": [
+      44,
+      1697,
+      396,
+      2033
+    ],
+    "sourceTextureSize": [
+      2048,
+      2048
+    ]
+  },
+  "ankle": {
+    "bone": "foot_R",
+    "head": [
+      -2.1962,
+      -7.44785,
+      -0.0091
+    ],
+    "tail": [
+      -2.1974,
+      -7.774675,
+      0.599675
+    ],
+    "bendAxis": [
+      1,
+      0,
+      0
+    ],
+    "sideAxis": [
+      0,
+      0,
+      1
+    ],
+    "twistAxis": [
+      0,
+      1,
+      0
+    ]
+  },
+  "bones": {
+    "lowerleg01_R": {
+      "sourceBone": "lowerleg01.R",
+      "parent": null,
+      "head": [
+        -1.58115,
+        -3.694825,
+        0.32025
+      ],
+      "tail": [
+        -1.8886749999999999,
+        -5.5713375,
+        0.155575
+      ],
+      "restTranslation": [
+        -1.58115,
+        -3.694825,
+        0.32025
+      ],
+      "restQuaternion": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "bendAxis": [
+        -0.4720642937063196,
+        0.0,
+        0.8815641227996712
+      ],
+      "spreadAxis": [
+        0,
+        1,
+        0
+      ]
+    },
+    "lowerleg02_R": {
+      "sourceBone": "lowerleg02.R",
+      "parent": "lowerleg01_R",
+      "head": [
+        -1.8886749999999999,
+        -5.5713375,
+        0.155575
+      ],
+      "tail": [
+        -2.1962,
+        -7.44785,
+        -0.0091
+      ],
+      "restTranslation": [
+        -0.3075249999999998,
+        -1.8765125000000005,
+        -0.164675
+      ],
+      "restQuaternion": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "bendAxis": [
+        -0.472064293706319,
+        0.0,
+        0.8815641227996714
+      ],
+      "spreadAxis": [
+        0,
+        1,
+        0
+      ]
+    },
+    "foot_R": {
+      "sourceBone": "foot.R",
+      "parent": "lowerleg02_R",
+      "head": [
+        -2.1962,
+        -7.44785,
+        -0.0091
+      ],
+      "tail": [
+        -2.1974,
+        -7.774675,
+        0.599675
+      ],
+      "restTranslation": [
+        -0.30752500000000027,
+        -1.8765124999999996,
+        -0.164675
+      ],
+      "restQuaternion": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "bendAxis": [
+        0.9999980572468933,
+        0.0,
+        0.001971167785628746
+      ],
+      "spreadAxis": [
+        0,
+        1,
+        0
+      ]
+    },
+    "toe1_1_R": {
+      "sourceBone": "toe1-1.R",
+      "parent": "foot_R",
+      "head": [
+        -1.8885,
+        -8.00405,
+        1.35575
+      ],
+      "tail": [
+        -1.9139,
+        -8.00395,
+        1.61995
+      ],
+      "restTranslation": [
+        0.3077000000000001,
+        -0.5561999999999996,
+        1.3648500000000001
+      ],
+      "restQuaternion": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "bendAxis": [
+        0.9954104095902424,
+        0.0,
+        0.0956980484617412
+      ],
+      "spreadAxis": [
+        0,
+        1,
+        0
+      ]
+    },
+    "toe1_2_R": {
+      "sourceBone": "toe1-2.R",
+      "parent": "toe1_1_R",
+      "head": [
+        -1.9139,
+        -8.00395,
+        1.61995
+      ],
+      "tail": [
+        -1.956,
+        -8.0038,
+        1.91705
+      ],
+      "restTranslation": [
+        -0.025399999999999867,
+        9.999999999976694e-05,
+        0.2642
+      ],
+      "restQuaternion": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "bendAxis": [
+        0.9901088241084095,
+        0.0,
+        0.1403015196733897
+      ],
+      "spreadAxis": [
+        0,
+        1,
+        0
+      ]
+    },
+    "toe2_1_R": {
+      "sourceBone": "toe2-1.R",
+      "parent": "foot_R",
+      "head": [
+        -2.133975,
+        -8.00315,
+        1.38445
+      ],
+      "tail": [
+        -2.1502999999999997,
+        -8.0031,
+        1.60395
+      ],
+      "restTranslation": [
+        0.0622250000000002,
+        -0.5552999999999999,
+        1.39355
+      ],
+      "restQuaternion": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "bendAxis": [
+        0.9972457067039994,
+        0.0,
+        0.07416872966716397
+      ],
+      "spreadAxis": [
+        0,
+        1,
+        0
+      ]
+    },
+    "toe2_2_R": {
+      "sourceBone": "toe2-2.R",
+      "parent": "toe2_1_R",
+      "head": [
+        -2.1502999999999997,
+        -8.0031,
+        1.60395
+      ],
+      "tail": [
+        -2.1538,
+        -8.0031,
+        1.74285
+      ],
+      "restTranslation": [
+        -0.0163249999999997,
+        4.999999999988347e-05,
+        0.21950000000000003
+      ],
+      "restQuaternion": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "bendAxis": [
+        0.9996826818971991,
+        0.0,
+        0.025189988384740656
+      ],
+      "spreadAxis": [
+        0,
+        1,
+        0
+      ]
+    },
+    "toe2_3_R": {
+      "sourceBone": "toe2-3.R",
+      "parent": "toe2_2_R",
+      "head": [
+        -2.1538,
+        -8.0031,
+        1.74285
+      ],
+      "tail": [
+        -2.16385,
+        -8.00305,
+        1.91665
+      ],
+      "restTranslation": [
+        -0.0035000000000002807,
+        0.0,
+        0.13890000000000002
+      ],
+      "restQuaternion": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "bendAxis": [
+        0.9983323107735687,
+        0.0,
+        0.05772865203264949
+      ],
+      "spreadAxis": [
+        0,
+        1,
+        0
+      ]
+    },
+    "toe3_1_R": {
+      "sourceBone": "toe3-1.R",
+      "parent": "foot_R",
+      "head": [
+        -2.3086,
+        -8.0025,
+        1.35305
+      ],
+      "tail": [
+        -2.31505,
+        -8.0025,
+        1.55575
+      ],
+      "restTranslation": [
+        -0.11240000000000006,
+        -0.5546499999999996,
+        1.3621500000000002
+      ],
+      "restQuaternion": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "bendAxis": [
+        0.9994941144389625,
+        0.0,
+        0.03180432677913633
+      ],
+      "spreadAxis": [
+        0,
+        1,
+        0
+      ]
+    },
+    "toe3_2_R": {
+      "sourceBone": "toe3-2.R",
+      "parent": "toe3_1_R",
+      "head": [
+        -2.31505,
+        -8.0025,
+        1.55575
+      ],
+      "tail": [
+        -2.312175,
+        -8.0025,
+        1.68235
+      ],
+      "restTranslation": [
+        -0.006449999999999623,
+        0.0,
+        0.20269999999999988
+      ],
+      "restQuaternion": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "bendAxis": [
+        0.999742243068998,
+        0.0,
+        -0.022703467210294856
+      ],
+      "spreadAxis": [
+        0,
+        1,
+        0
+      ]
+    },
+    "toe3_3_R": {
+      "sourceBone": "toe3-3.R",
+      "parent": "toe3_2_R",
+      "head": [
+        -2.312175,
+        -8.0025,
+        1.68235
+      ],
+      "tail": [
+        -2.3137,
+        -8.0025,
+        1.8169
+      ],
+      "restTranslation": [
+        0.002874999999999961,
+        0.0,
+        0.12660000000000005
+      ],
+      "restQuaternion": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "bendAxis": [
+        0.999935775542064,
+        0.0,
+        0.011333348626545127
+      ],
+      "spreadAxis": [
+        0,
+        1,
+        0
+      ]
+    },
+    "toe4_1_R": {
+      "sourceBone": "toe4-1.R",
+      "parent": "foot_R",
+      "head": [
+        -2.46205,
+        -8.00195,
+        1.27165
+      ],
+      "tail": [
+        -2.465375,
+        -8.00195,
+        1.42955
+      ],
+      "restTranslation": [
+        -0.2658499999999999,
+        -0.5541000000000009,
+        1.28075
+      ],
+      "restQuaternion": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "bendAxis": [
+        0.9997783617866799,
+        0.0,
+        0.021052964236482
+      ],
+      "spreadAxis": [
+        0,
+        1,
+        0
+      ]
+    },
+    "toe4_2_R": {
+      "sourceBone": "toe4-2.R",
+      "parent": "toe4_1_R",
+      "head": [
+        -2.465375,
+        -8.00195,
+        1.42955
+      ],
+      "tail": [
+        -2.45455,
+        -8.002,
+        1.55315
+      ],
+      "restTranslation": [
+        -0.0033249999999998003,
+        0.0,
+        0.15790000000000015
+      ],
+      "restQuaternion": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "bendAxis": [
+        0.9961867155762485,
+        0.0,
+        -0.08724693524363253
+      ],
+      "spreadAxis": [
+        0,
+        1,
+        0
+      ]
+    },
+    "toe4_3_R": {
+      "sourceBone": "toe4-3.R",
+      "parent": "toe4_2_R",
+      "head": [
+        -2.45455,
+        -8.002,
+        1.55315
+      ],
+      "tail": [
+        -2.461775,
+        -8.00195,
+        1.66555
+      ],
+      "restTranslation": [
+        0.010825000000000085,
+        -4.999999999988347e-05,
+        0.12359999999999993
+      ],
+      "restQuaternion": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "bendAxis": [
+        0.9979404620374859,
+        0.0,
+        0.06414697364965186
+      ],
+      "spreadAxis": [
+        0,
+        1,
+        0
+      ]
+    },
+    "toe5_1_R": {
+      "sourceBone": "toe5-1.R",
+      "parent": "foot_R",
+      "head": [
+        -2.60765,
+        -8.0014,
+        1.23075
+      ],
+      "tail": [
+        -2.60785,
+        -8.0014,
+        1.34815
+      ],
+      "restTranslation": [
+        -0.41144999999999987,
+        -0.5535500000000004,
+        1.2398500000000001
+      ],
+      "restQuaternion": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "bendAxis": [
+        0.9999985489149875,
+        0.0,
+        0.0017035750407408481
+      ],
+      "spreadAxis": [
+        0,
+        1,
+        0
+      ]
+    },
+    "toe5_2_R": {
+      "sourceBone": "toe5-2.R",
+      "parent": "toe5_1_R",
+      "head": [
+        -2.60785,
+        -8.0014,
+        1.34815
+      ],
+      "tail": [
+        -2.59485,
+        -8.001475000000001,
+        1.43185
+      ],
+      "restTranslation": [
+        -0.00019999999999997797,
+        0.0,
+        0.11739999999999995
+      ],
+      "restQuaternion": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "bendAxis": [
+        0.9881523037077715,
+        0.0,
+        -0.15347646294146852
+      ],
+      "spreadAxis": [
+        0,
+        1,
+        0
+      ]
+    },
+    "toe5_3_R": {
+      "sourceBone": "toe5-3.R",
+      "parent": "toe5_2_R",
+      "head": [
+        -2.59485,
+        -8.001475000000001,
+        1.43185
+      ],
+      "tail": [
+        -2.59545,
+        -8.00145,
+        1.54495
+      ],
+      "restTranslation": [
+        0.0129999999999999,
+        -7.500000000071338e-05,
+        0.08370000000000011
+      ],
+      "restQuaternion": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "bendAxis": [
+        0.9999859285734382,
+        0.0,
+        0.005304965138320044
+      ],
+      "spreadAxis": [
+        0,
+        1,
+        0
+      ]
+    }
+  },
+  "digits": [
+    {
+      "id": "big",
+      "label": "Big toe",
+      "bones": {
+        "mcp": "toe1_1_R",
+        "pip": null,
+        "dip": "toe1_2_R"
+      },
+      "tip": [
+        -1.956,
+        -8.0038,
+        1.91705
+      ],
+      "joints": {
+        "mcp": {
+          "sourceBone": "toe1-1.R",
+          "parent": "foot_R",
+          "head": [
+            -1.8885,
+            -8.00405,
+            1.35575
+          ],
+          "tail": [
+            -1.9139,
+            -8.00395,
+            1.61995
+          ],
+          "restTranslation": [
+            0.3077000000000001,
+            -0.5561999999999996,
+            1.3648500000000001
+          ],
+          "restQuaternion": [
+            0,
+            0,
+            0,
+            1
+          ],
+          "bendAxis": [
+            0.9954104095902424,
+            0.0,
+            0.0956980484617412
+          ],
+          "spreadAxis": [
+            0,
+            1,
+            0
+          ]
+        },
+        "dip": {
+          "sourceBone": "toe1-2.R",
+          "parent": "toe1_1_R",
+          "head": [
+            -1.9139,
+            -8.00395,
+            1.61995
+          ],
+          "tail": [
+            -1.956,
+            -8.0038,
+            1.91705
+          ],
+          "restTranslation": [
+            -0.025399999999999867,
+            9.999999999976694e-05,
+            0.2642
+          ],
+          "restQuaternion": [
+            0,
+            0,
+            0,
+            1
+          ],
+          "bendAxis": [
+            0.9901088241084095,
+            0.0,
+            0.1403015196733897
+          ],
+          "spreadAxis": [
+            0,
+            1,
+            0
+          ]
+        }
+      }
+    },
+    {
+      "id": "second",
+      "label": "Second toe",
+      "bones": {
+        "mcp": "toe2_1_R",
+        "pip": "toe2_2_R",
+        "dip": "toe2_3_R"
+      },
+      "tip": [
+        -2.16385,
+        -8.00305,
+        1.91665
+      ],
+      "joints": {
+        "mcp": {
+          "sourceBone": "toe2-1.R",
+          "parent": "foot_R",
+          "head": [
+            -2.133975,
+            -8.00315,
+            1.38445
+          ],
+          "tail": [
+            -2.1502999999999997,
+            -8.0031,
+            1.60395
+          ],
+          "restTranslation": [
+            0.0622250000000002,
+            -0.5552999999999999,
+            1.39355
+          ],
+          "restQuaternion": [
+            0,
+            0,
+            0,
+            1
+          ],
+          "bendAxis": [
+            0.9972457067039994,
+            0.0,
+            0.07416872966716397
+          ],
+          "spreadAxis": [
+            0,
+            1,
+            0
+          ]
+        },
+        "pip": {
+          "sourceBone": "toe2-2.R",
+          "parent": "toe2_1_R",
+          "head": [
+            -2.1502999999999997,
+            -8.0031,
+            1.60395
+          ],
+          "tail": [
+            -2.1538,
+            -8.0031,
+            1.74285
+          ],
+          "restTranslation": [
+            -0.0163249999999997,
+            4.999999999988347e-05,
+            0.21950000000000003
+          ],
+          "restQuaternion": [
+            0,
+            0,
+            0,
+            1
+          ],
+          "bendAxis": [
+            0.9996826818971991,
+            0.0,
+            0.025189988384740656
+          ],
+          "spreadAxis": [
+            0,
+            1,
+            0
+          ]
+        },
+        "dip": {
+          "sourceBone": "toe2-3.R",
+          "parent": "toe2_2_R",
+          "head": [
+            -2.1538,
+            -8.0031,
+            1.74285
+          ],
+          "tail": [
+            -2.16385,
+            -8.00305,
+            1.91665
+          ],
+          "restTranslation": [
+            -0.0035000000000002807,
+            0.0,
+            0.13890000000000002
+          ],
+          "restQuaternion": [
+            0,
+            0,
+            0,
+            1
+          ],
+          "bendAxis": [
+            0.9983323107735687,
+            0.0,
+            0.05772865203264949
+          ],
+          "spreadAxis": [
+            0,
+            1,
+            0
+          ]
+        }
+      }
+    },
+    {
+      "id": "middle",
+      "label": "Middle toe",
+      "bones": {
+        "mcp": "toe3_1_R",
+        "pip": "toe3_2_R",
+        "dip": "toe3_3_R"
+      },
+      "tip": [
+        -2.3137,
+        -8.0025,
+        1.8169
+      ],
+      "joints": {
+        "mcp": {
+          "sourceBone": "toe3-1.R",
+          "parent": "foot_R",
+          "head": [
+            -2.3086,
+            -8.0025,
+            1.35305
+          ],
+          "tail": [
+            -2.31505,
+            -8.0025,
+            1.55575
+          ],
+          "restTranslation": [
+            -0.11240000000000006,
+            -0.5546499999999996,
+            1.3621500000000002
+          ],
+          "restQuaternion": [
+            0,
+            0,
+            0,
+            1
+          ],
+          "bendAxis": [
+            0.9994941144389625,
+            0.0,
+            0.03180432677913633
+          ],
+          "spreadAxis": [
+            0,
+            1,
+            0
+          ]
+        },
+        "pip": {
+          "sourceBone": "toe3-2.R",
+          "parent": "toe3_1_R",
+          "head": [
+            -2.31505,
+            -8.0025,
+            1.55575
+          ],
+          "tail": [
+            -2.312175,
+            -8.0025,
+            1.68235
+          ],
+          "restTranslation": [
+            -0.006449999999999623,
+            0.0,
+            0.20269999999999988
+          ],
+          "restQuaternion": [
+            0,
+            0,
+            0,
+            1
+          ],
+          "bendAxis": [
+            0.999742243068998,
+            0.0,
+            -0.022703467210294856
+          ],
+          "spreadAxis": [
+            0,
+            1,
+            0
+          ]
+        },
+        "dip": {
+          "sourceBone": "toe3-3.R",
+          "parent": "toe3_2_R",
+          "head": [
+            -2.312175,
+            -8.0025,
+            1.68235
+          ],
+          "tail": [
+            -2.3137,
+            -8.0025,
+            1.8169
+          ],
+          "restTranslation": [
+            0.002874999999999961,
+            0.0,
+            0.12660000000000005
+          ],
+          "restQuaternion": [
+            0,
+            0,
+            0,
+            1
+          ],
+          "bendAxis": [
+            0.999935775542064,
+            0.0,
+            0.011333348626545127
+          ],
+          "spreadAxis": [
+            0,
+            1,
+            0
+          ]
+        }
+      }
+    },
+    {
+      "id": "fourth",
+      "label": "Fourth toe",
+      "bones": {
+        "mcp": "toe4_1_R",
+        "pip": "toe4_2_R",
+        "dip": "toe4_3_R"
+      },
+      "tip": [
+        -2.461775,
+        -8.00195,
+        1.66555
+      ],
+      "joints": {
+        "mcp": {
+          "sourceBone": "toe4-1.R",
+          "parent": "foot_R",
+          "head": [
+            -2.46205,
+            -8.00195,
+            1.27165
+          ],
+          "tail": [
+            -2.465375,
+            -8.00195,
+            1.42955
+          ],
+          "restTranslation": [
+            -0.2658499999999999,
+            -0.5541000000000009,
+            1.28075
+          ],
+          "restQuaternion": [
+            0,
+            0,
+            0,
+            1
+          ],
+          "bendAxis": [
+            0.9997783617866799,
+            0.0,
+            0.021052964236482
+          ],
+          "spreadAxis": [
+            0,
+            1,
+            0
+          ]
+        },
+        "pip": {
+          "sourceBone": "toe4-2.R",
+          "parent": "toe4_1_R",
+          "head": [
+            -2.465375,
+            -8.00195,
+            1.42955
+          ],
+          "tail": [
+            -2.45455,
+            -8.002,
+            1.55315
+          ],
+          "restTranslation": [
+            -0.0033249999999998003,
+            0.0,
+            0.15790000000000015
+          ],
+          "restQuaternion": [
+            0,
+            0,
+            0,
+            1
+          ],
+          "bendAxis": [
+            0.9961867155762485,
+            0.0,
+            -0.08724693524363253
+          ],
+          "spreadAxis": [
+            0,
+            1,
+            0
+          ]
+        },
+        "dip": {
+          "sourceBone": "toe4-3.R",
+          "parent": "toe4_2_R",
+          "head": [
+            -2.45455,
+            -8.002,
+            1.55315
+          ],
+          "tail": [
+            -2.461775,
+            -8.00195,
+            1.66555
+          ],
+          "restTranslation": [
+            0.010825000000000085,
+            -4.999999999988347e-05,
+            0.12359999999999993
+          ],
+          "restQuaternion": [
+            0,
+            0,
+            0,
+            1
+          ],
+          "bendAxis": [
+            0.9979404620374859,
+            0.0,
+            0.06414697364965186
+          ],
+          "spreadAxis": [
+            0,
+            1,
+            0
+          ]
+        }
+      }
+    },
+    {
+      "id": "little",
+      "label": "Little toe",
+      "bones": {
+        "mcp": "toe5_1_R",
+        "pip": "toe5_2_R",
+        "dip": "toe5_3_R"
+      },
+      "tip": [
+        -2.59545,
+        -8.00145,
+        1.54495
+      ],
+      "joints": {
+        "mcp": {
+          "sourceBone": "toe5-1.R",
+          "parent": "foot_R",
+          "head": [
+            -2.60765,
+            -8.0014,
+            1.23075
+          ],
+          "tail": [
+            -2.60785,
+            -8.0014,
+            1.34815
+          ],
+          "restTranslation": [
+            -0.41144999999999987,
+            -0.5535500000000004,
+            1.2398500000000001
+          ],
+          "restQuaternion": [
+            0,
+            0,
+            0,
+            1
+          ],
+          "bendAxis": [
+            0.9999985489149875,
+            0.0,
+            0.0017035750407408481
+          ],
+          "spreadAxis": [
+            0,
+            1,
+            0
+          ]
+        },
+        "pip": {
+          "sourceBone": "toe5-2.R",
+          "parent": "toe5_1_R",
+          "head": [
+            -2.60785,
+            -8.0014,
+            1.34815
+          ],
+          "tail": [
+            -2.59485,
+            -8.001475000000001,
+            1.43185
+          ],
+          "restTranslation": [
+            -0.00019999999999997797,
+            0.0,
+            0.11739999999999995
+          ],
+          "restQuaternion": [
+            0,
+            0,
+            0,
+            1
+          ],
+          "bendAxis": [
+            0.9881523037077715,
+            0.0,
+            -0.15347646294146852
+          ],
+          "spreadAxis": [
+            0,
+            1,
+            0
+          ]
+        },
+        "dip": {
+          "sourceBone": "toe5-3.R",
+          "parent": "toe5_2_R",
+          "head": [
+            -2.59485,
+            -8.001475000000001,
+            1.43185
+          ],
+          "tail": [
+            -2.59545,
+            -8.00145,
+            1.54495
+          ],
+          "restTranslation": [
+            0.0129999999999999,
+            -7.500000000071338e-05,
+            0.08370000000000011
+          ],
+          "restQuaternion": [
+            0,
+            0,
+            0,
+            1
+          ],
+          "bendAxis": [
+            0.9999859285734382,
+            0.0,
+            0.005304965138320044
+          ],
+          "spreadAxis": [
+            0,
+            1,
+            0
+          ]
+        }
+      }
+    }
+  ],
+  "sha256": {
+    "base.obj": "8e761e6624b8f54536409135d1636da63b32486a90d4897f84e121d144f6fb4c",
+    "default.mhskel": "99f179bce0aa850b45d4191a1d0d234c5851f881c057439470ded3bddf729a24",
+    "default_weights.mhw": "0f3641d651ae3d00ad6b4ccee43142edb109d3bd909d27d9e4139ef1beed8625",
+    "aksel/Aksel_Skin_diffuse.png": "268ee6d1ea9665f8050d040c7b47971884428628021418ae52f68912859f5e60",
+    "aksel/Aksel_Skin_NRM.png": "2bf3632a4bfb1631d9ae15568c7de5c7254c780e5168f1546827f32d50f5212d",
+    "aksel/Aksel_Skin_SPEC.png": "d34638826d48d6fdb632f3a18296999630edf2879e7301356dfa60e6d61808f7"
+  },
+  "glbSha256": "26b982805339623a0fa7e7c64e15839278e8771dc0ed9a30eccb56663e794272"
+}

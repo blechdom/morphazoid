@@ -184,9 +184,9 @@ const CATALOG_DETAILS = Object.freeze({
     ["Pointer", "Built-in synth", "Computer keys", "Spatial audio"],
   ),
   "gesticulating-hand": define(
-    "Articulated hand synthesizer",
-    "A fully articulated 3D hand with 35 gesture animations, tempo up to 1,100 BPM, 4x speed and targeted tremor. Eight engines across five finger voices follow joint movement; complete presets recall sound, motion, camera, skin and lighting.",
-    "Turn on Audio and Sound, then drag a finger joint or the wrist. Play Motion for gesture choreography, or enable MIDI and hold keys for temporary finger poses.",
+    "Articulated hand and foot synthesizer",
+    "An articulated 3D hand or foot with 35 gesture animations, tempo up to 1,100 BPM, 4x speed and targeted tremor. Eight engines across five finger or toe voices follow joint movement; complete presets recall the model, sound, motion, camera, skin and lighting.",
+    "Choose Hand or Foot, turn on Audio and Sound, then drag a joint. Play Motion for gesture choreography, or enable MIDI and hold keys for temporary finger or toe poses.",
     ["Built-in synth", "3D model", "Pointer", "Finger voices", "Gesture choreography"],
   ),
   "vector-flight": define(

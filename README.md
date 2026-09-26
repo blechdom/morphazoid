@@ -1,6 +1,6 @@
 # Morphazoid
 
-**[Gesticules](gesticules.html)** is a realistic, rigged 3D right hand with eight sound engines across five finger voices. Its 35 animations include Elena FF’s original Open/Close and four complex motion patterns, with tempo up to 1,100 BPM, 0.1–4× Speed, and targeted tremor/vibrato. Twenty-four complete presets recall sound, motion, tempo, speed, camera, skin and lighting. Audio starts off. [Controls, model and attribution](docs/gesticulating-hand.md).
+**[Gesticules](gesticules.html)** plays a textured, rigged 3D hand or foot with eight sound engines across five finger or toe voices. Its 35 animations include Elena FF’s original hand Open/Close, adapted toe choreography and four complex motion patterns, with tempo up to 1,100 BPM, 0.1–4× Speed, and targeted tremor/vibrato. Twenty-eight complete presets recall the model, sound, motion, tempo, speed, camera, skin and lighting. Audio starts off. [Controls, models and attribution](docs/gesticulating-hand.md).
 
 **[Rubixoids](rubixoids.html)** brings Sliding Puzzle, Rubix Cube and Hyper Rubix into an independent 2D / 3D / 4D app with its own instrument engines, opening in 3D. Shared controls and eleven sound engines, including SIMD Chiptune and SIMD 303, carry across dimensions while each puzzle keeps its arrangement. [Controls and engine notes](docs/rubixoids.md).
 

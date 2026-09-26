@@ -1,7 +1,11 @@
 # Gesticules
 
-Open [Gesticules](../gesticules.html), a standalone, articulated 3D hand instrument. The artist's skinned hand, its
-editable joints and its five synthesized finger voices share one pose timeline.
+Open [Gesticules](../gesticules.html), a standalone 3D instrument with **Hand** and **Foot** models. Their textured skin,
+editable joints and five synthesized finger or toe voices share one pose timeline.
+Choose the model above Sound and Motion. Switching keeps both players, sound
+settings, Tempo, Speed, tremor, skin tint, lighting and camera; it remembers each
+model’s manual base pose separately for the current page session. Audio remains off
+until explicitly enabled. Older saved configurations default to Hand.
 
 Turn **Audio** on, then **Sound** to hold the sound of the current pose. **Motion**
 runs the selected choreography independently. Dragging a finger or its joint
@@ -81,6 +85,35 @@ The turn control represents forearm rotation expressed at the available wrist
 rig; it is not a claim that a real wrist has an independent axial hinge. This is
 not a clinical hand model, sign-language dictionary or validated hand tracker.
 
+## Foot and toes
+
+The **Foot** option uses an ankle crop of the official **MakeHuman CC0** mesh and
+skeleton, with **Mindfront’s Aksel CC0 skin**. Its 17 weighted bones include
+14 toe joints, an ankle and two stationary calf anchors. The big toe has base
+(MTP) and tip (IP) controls; each smaller toe has base (MTP), middle (PIP) and tip
+(DIP) controls. Each toe also splays sideways. There is no extra middle joint on
+the big toe. Ankle bend, side and turn replace the wrist controls.
+
+All 35 motions are adapted to the foot’s smaller ranges, including toe curls,
+ripples, drumming, splaying and ankle circles. These are expressive adaptations,
+not imported foot motion capture. The hand’s source quaternion animation is never
+applied to the foot; its corresponding foot motion is **Toe curl · adapted**.
+Targeted tremor works on the same toe controls. A big-toe middle-joint tremor
+becomes tip tremor, while an all-toes middle tremor skips the big toe.
+
+Four complete foot presets join the unchanged 24 hand presets: **Velvet toe curl**,
+**Glass toe ripple**, **Tin toe drumming**, and **Ankle choir**. Preset recall includes the
+model; manually choosing another model retains the current sound and view.
+**Top / Sole / Side** replace Palm / Back / Side. Rotation keeps the same stereo
+phaser, and all eight engines, six skin tints, six lighting choices and five-voice
+MIDI controls work with either model.
+
+The foot has 34,352 triangles and a 1.68 MB GLB. Its 352×336 foot texture crop
+retains the source nail and crease detail without upscaling, so close zooms look
+softer than the hand. The cropped ankle is capped. These are bounded controls on
+an artist-authored mesh, not a tendon/contact simulation; extreme combinations
+can intersect. The foot does not claim clinical accuracy.
+
 ## Sound mapping
 
 | Visible change | Sound consequence |
@@ -125,7 +158,7 @@ is capped at 40 frames/second, 1.6 device-pixel ratio and about 1.45 million pix
   the selected finger. Shift makes a smaller change. Sliders provide the same
   controls without direct 3D manipulation.
 - Space toggles Motion. Sound and Audio remain separate.
-- The **24 complete presets** recall joints, sound engines and levels, envelopes,
+- The **28 complete presets** recall the model, joints, sound engines and levels, envelopes,
   choreography, Tempo, Speed, tremor, camera angle/zoom, skin and lighting. The
   four complex-motion scenes showcase higher tempos with different Speed values.
   The adjacent dice randomizes these settings within their bounds.
@@ -133,15 +166,17 @@ is capped at 40 frames/second, 1.6 device-pixel ratio and about 1.45 million pix
   switches. Audio off releases sound. Blur releases transient manual/MIDI holds.
 
 Skin tints are **Natural, Porcelain, Copper, Jade, Violet, and Cyan**. Each color
-multiplies the original textured material, retaining fingernails, joint creases,
+multiplies the original textured material, retaining finger/toe nails, joint creases,
 skin detail and the original roughness and specular response. Natural restores
 the original color exactly.
 Lighting choices are **Studio, Warm, Cool, Noir, Neon, and Soft**. These tint
 and light treatments change the view; joint motion continues to own synthesis.
 Older saved configurations use Natural skin, Studio lighting and the palm camera.
-Camera orbit, angle and zoom belong to each complete preset.
+Camera orbit, angle and zoom belong to each complete preset. Each model is loaded
+on first selection and cached; both share one renderer, lights and appearance
+controller. Tint changes always start from each material’s original color.
 
-On phones, the hand stage stays visible beneath the masthead while the mixer and
+On phones, the hand or foot stage stays visible beneath the masthead while the mixer and
 parameter controls scroll below it. The transport and parameter panel comes
 before the finger mixer on phones. The hand remains available for direct gestures
 as sound, motion and appearance settings are edited.
@@ -171,6 +206,15 @@ Model distribution, exact attribution, hashes and rebuild commands are recorded
 in [the asset notes](../assets/gesticulating-hand/README.md). The model and derived
 animation data retain CC BY-SA 4.0; the separate sampler and instrument code use
 the repository's MIT license.
+
+The foot was selected after checking the hand artist’s catalogue and dedicated
+free foot models. Obtainable MakeHuman source offered five existing weighted toe
+chains and documented CC0 licensing. The mesh was cropped, capped and subdivided
+offline; source weights were interpolated, normalized and pruned to four
+influences per exported vertex. One small left/right source-weight error was
+corrected. Normal detail is retained; specular intensity becomes roughness.
+Exact provenance, conversion limits, hashes and the reproducible Python build
+are in [the foot asset notes](../assets/gesticulating-foot/README.md).
 
 ## Acceptance boundaries
 

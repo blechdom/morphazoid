@@ -1,13 +1,13 @@
 import { createHandViewer, FINGER_COLORS } from './hand-viewer.js';
 import { FINGERS, VOICE_SOURCES, HAND_DEFAULTS, HAND_LIMITS, HAND_POSES, HAND_MOTIONS, HAND_PRESETS, TREMOR_FINGERS, TREMOR_JOINTS, HAND_SKINS, HAND_LIGHTINGS,
-  normalizeHandConfig, evaluateHandPose, randomizeHandConfig, handMotionPeriod } from './hand-model.js';
+  normalizeHandConfig, evaluateHandPose, randomizeHandConfig, handMotionPeriod, handDigitLabels, handDigitLimits, handWristLimits, handJointKeys, handJointLabel, handMotionLabel, handPoseLabel, handPoseForForm } from './hand-model.js';
 import { HandAudio } from './hand-audio.js';
 import { registerHeaderPresets } from '../../site/header-presets.js';
 
 const el = id => document.getElementById(id);
 const abort = new AbortController();
 const listen = (node, type, callback) => node.addEventListener(type, callback, { signal: abort.signal });
-const labels = ['Thumb', 'Index', 'Middle', 'Ring', 'Little'];
+let labels = handDigitLabels('hand');
 const state = {
   config: normalizeHandConfig(HAND_DEFAULTS), selected: 1, joint: 'mcp',
   playing: false, soundPlaying: false, audioOn: false, starting: false,
@@ -20,6 +20,8 @@ const sourceId = source => typeof source === 'string' ? source : source.id;
 const sourceLabel = source => typeof source === 'string' ? source[0].toUpperCase() + source.slice(1) : source.label;
 const clamp = (v, low, high) => Math.max(low, Math.min(high, Number(v) || 0));
 const clone = value => structuredClone(value);
+const formPoses = new Map([['hand', clone(HAND_DEFAULTS.pose)]]);
+let displayedForm = null;
 const root = document.documentElement;
 let headerHeight=-1, stickyOffset=-1;
 function measureHandLayout() {
@@ -67,9 +69,16 @@ function performanceConfig() {
   const config = clone(state.config);
   for (const note of state.midi.values()) {
     const finger = config.pose.fingers[note.finger];
-    finger.mcp = Math.max(finger.mcp, 18 + note.velocity * 42);
-    finger.pip = Math.max(finger.pip, 16 + note.velocity * 58);
-    finger.dip = Math.max(finger.dip, 12 + note.velocity * 42);
+    if (config.form === 'foot') {
+      const bounds = handDigitLimits('foot', note.finger);
+      finger.mcp = Math.max(finger.mcp, 8 + note.velocity * (bounds.mcp[1] - 8));
+      finger.pip = note.finger === 0 ? 0 : Math.max(finger.pip, 10 + note.velocity * (bounds.pip[1] * .75 - 10));
+      finger.dip = Math.max(finger.dip, 8 + note.velocity * (bounds.dip[1] * .75 - 8));
+    } else {
+      finger.mcp = Math.max(finger.mcp, 18 + note.velocity * 42);
+      finger.pip = Math.max(finger.pip, 16 + note.velocity * 58);
+      finger.dip = Math.max(finger.dip, 12 + note.velocity * 42);
+    }
   }
   return normalizeHandConfig(config);
 }
@@ -121,31 +130,30 @@ function draw(now) {
   if (state.playing) requestDraw();
 }
 function selectFinger(index, joint = state.joint) {
-  state.selected = clamp(index, 0, 4); state.joint = ['mcp', 'pip', 'dip', 'spread'].includes(joint) ? joint : 'mcp';
+  state.selected = clamp(index, 0, 4); state.joint = handJointKeys(state.config.form, state.selected).includes(joint) ? joint : joint === 'pip' ? 'dip' : 'mcp';
   for (const node of document.querySelectorAll('button[data-finger]')) node.setAttribute('aria-pressed', String(Number(node.dataset.finger) === state.selected));
-  const jointName = state.selected === 0 ? { mcp: 'base', pip: 'knuckle', dip: 'tip', spread: 'opposition' } : { mcp: 'knuckle', pip: 'middle joint', dip: 'tip', spread: 'spread' };
+  const jointName = state.config.form === 'foot' ? {mcp:'base',pip:'middle joint',dip:'tip',spread:'spread'} : state.selected === 0 ? { mcp: 'base', pip: 'knuckle', dip: 'tip', spread: 'opposition' } : { mcp: 'knuckle', pip: 'middle joint', dip: 'tip', spread: 'spread' };
   el('selectionReadout').textContent = `${labels[state.selected]} · ${jointName[state.joint]}`;
   viewer?.selectFinger(state.selected, state.joint); buildJointControls(); requestDraw();
 }
 function jointLimits(index, joint) {
-  return (index === 0 ? HAND_LIMITS.thumb : HAND_LIMITS.finger)[joint];
+  return handDigitLimits(state.config.form,index)[joint];
 }
 function buildJointControls() {
-  if (el('jointControls').dataset.finger === String(state.selected)) {
-    for (const key of ['mcp','pip','dip','spread']) {
+  if (el('jointControls').dataset.finger === String(state.selected) && el('jointControls').dataset.form === state.config.form) {
+    for (const key of handJointKeys(state.config.form,state.selected)) {
       el('joint-'+key).value=state.config.pose.fingers[state.selected][key];
       el('joint-'+key+'Out').value=Math.round(state.config.pose.fingers[state.selected][key])+'°';
     }
     return;
   }
   jointAbort?.abort();jointAbort=new AbortController();
-  el('jointControls').dataset.finger=String(state.selected);
+  el('jointControls').dataset.finger=String(state.selected);el('jointControls').dataset.form=state.config.form;
   el('jointControls').replaceChildren();
-  const names = state.selected === 0 ? ['Base bend', 'Knuckle bend', 'Tip bend', 'Opposition'] : ['Knuckle bend', 'Middle joint', 'Tip joint', 'Spread'];
-  for (const [n, key] of ['mcp','pip','dip','spread'].entries()) {
+  for (const key of handJointKeys(state.config.form,state.selected)) {
     const [min,max] = jointLimits(state.selected,key), id = `joint-${key}`;
     const label = document.createElement('label'); label.className = 'hand-control'; label.htmlFor = id;
-    label.innerHTML = `<span>${names[n]} <output id="${id}Out" for="${id}">${Math.round(state.config.pose.fingers[state.selected][key])}°</output></span><input id="${id}" type="range" min="${min}" max="${max}" step="1" value="${state.config.pose.fingers[state.selected][key]}" />`;
+    label.innerHTML = `<span>${handJointLabel(state.config.form,state.selected,key)} <output id="${id}Out" for="${id}">${Math.round(state.config.pose.fingers[state.selected][key])}°</output></span><input id="${id}" type="range" min="${min}" max="${max}" step="1" value="${state.config.pose.fingers[state.selected][key]}" />`;
     el('jointControls').append(label);
     label.querySelector('input').addEventListener('input',event => {
       state.config.pose.fingers[state.selected][key] = Number(event.target.value);
@@ -154,7 +162,50 @@ function buildJointControls() {
     }, {signal:jointAbort.signal});
   }
 }
+function syncFormControls() {
+  const foot=state.config.form==='foot';
+  if(displayedForm===state.config.form)return;
+  displayedForm=state.config.form;labels=handDigitLabels(state.config.form);
+  el('bodyForm').value=state.config.form;
+  el('voicesTitle').textContent=foot?'Five toes · five voices':'Five fingers · five voices';
+  el('jointsTitle').textContent=foot?'Toe joints':'Finger joints';
+  el('wristTitle').textContent=foot?'Ankle':'Wrist';
+  el('tremorFingerLabel').textContent=foot?'Toes':'Fingers';
+  el('fingerTabs').setAttribute('aria-label',foot?'Selected toe':'Selected finger');
+  document.querySelector('.hand-camera').setAttribute('aria-label',foot?'Foot view':'Hand view');
+  document.querySelector('[data-view="palm"]').textContent=foot?'Top':'Palm';
+  document.querySelector('[data-view="back"]').textContent=foot?'Sole':'Back';
+  el('gestureHelp').textContent=`Drag the joints to play. Drag the background to turn the ${foot?'foot':'hand'} and sweep its sound.`;
+  el('handCanvas').setAttribute('aria-label',foot
+    ?'Articulated 3D foot. Drag a toe joint to bend it; drag the foot to move the ankle; drag empty space to rotate the foot and sweep its tone. Use 1 to 5 to select a toe and arrow keys to bend or spread it.'
+    :"Articulated 3D hand. Drag a finger joint to bend it; drag the palm to move the wrist; drag empty space to rotate the hand and sweep its tone. Use 1 to 5 to select a finger and arrow keys to bend or spread it.");
+  for(let i=0;i<5;i++){
+    for(const button of document.querySelectorAll(`button[data-finger="${i}"]`))button.textContent=labels[i];
+    el(`source-${i}`).setAttribute('aria-label',`${labels[i]} sound`);
+    el(`voice-level-${i}`).parentElement.querySelector('.sr-only').textContent=`${labels[i]} level`;
+    for(const action of ['mute','solo'])el(`${action}-${i}`).setAttribute('aria-label',`${sourceLabel(action)} ${labels[i].toLowerCase()}`);
+  }
+  for(const option of el('motionPreset').options)option.textContent=handMotionLabel(option.value,state.config.form);
+  for(const option of el('posePreset').options)option.textContent=option.value==='custom'?'Custom pose':handPoseLabel(option.value,state.config.form);
+  for(const option of el('tremorFinger').options){
+    const index=FINGERS.indexOf(option.value);
+    option.textContent=index>=0?labels[index]:option.value==='all'?(foot?'All toes':'All fingers'):'Alternating';
+  }
+  for(const option of el('tremorJoint').options)option.textContent={tip:'Tips',middle:'Middle joints',knuckle:foot?'Toe bases':'Knuckles',whole:foot?'Whole toes':'Whole fingers',wrist:foot?'Ankle':'Wrist'}[option.value];
+  for(const [id,key] of [['wristFlex','flex'],['wristSide','side'],['wristTwist','twist']]){
+    const bounds=handWristLimits(state.config.form)[key];el(id).min=bounds[0];el(id).max=bounds[1];
+  }
+  el('playingNotes').textContent=foot
+    ?'Enable Audio. Hold Sound to hear the pose, or drag a toe to play it. Motion repeats adapted toe choreography; Speed changes its pace without jumping to a different pose. Toe bends change pitch and tone; spread changes stereo position. Ankle movements shape all five voices. Turning and tilting sweeps the same stereo phaser.'
+    :"Enable Audio. Hold Sound to hear the pose, or drag a finger to play it. Motion repeats the selected choreography; Speed changes its pace without jumping to a different pose. Finger bends change pitch and tone; spread changes stereo position. Wrist movements shape all five voices. Turning and tilting the hand sweeps a stereo phaser; Rotation sound controls its depth.";
+  el('keyboardNotes').textContent=`On the ${foot?'foot':'hand'}: 1–5 select a ${foot?'toe':'finger'}, ↑/↓ bend, ←/→ spread, Home relaxes it. The sliders provide individual joint control. MIDI plays ${foot?'toe':'finger'} gestures; the shared MIDI switch enables the two-row computer keyboard.`;
+  el('modelCredit').innerHTML=foot
+    ?'<p>Right foot adapted from <a href="https://github.com/makehumancommunity/makehuman">MakeHuman Community</a> · <a href="https://creativecommons.org/publicdomain/zero/1.0/">CC0</a>. Adapted toe rig with Mindfront’s Aksel skin; cropped and smoothed for Gesticules. <a href="assets/gesticulating-foot/README.md">Foot source and preparation</a>.</p>'
+    :'<p>Right hand by <a href="https://sketchfab.com/elenaferfor">Elena FF</a> · <a href="https://sketchfab.com/3d-models/rigged-hand-eae97cc2a742413cb5338ab942b12c1e">Rigged hand</a> · <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a>. Original skin, deform rig and Open/Close animation. Morphazoid adds joint controls and sound.</p>';
+  selectFinger(state.selected,state.joint);
+}
 function syncControls() {
+  syncFormControls();
   const controls = { tremorAmount: state.config.tremor.amount, tremorRate: state.config.tremor.rate, speed: state.config.motion.speed, tempo: state.config.motion.tempo, motionAmount: state.config.motion.amount,
     wristFlex: state.config.pose.wrist.flex, wristSide: state.config.pose.wrist.side, wristTwist: state.config.pose.wrist.twist,
     ...state.config.sound };
@@ -165,8 +216,9 @@ function syncControls() {
   el('motionPreset').value = state.config.motion.id;
   el('tremorFinger').value=state.config.tremor.finger;el('tremorJoint').value=state.config.tremor.joint;
   el('tremorFinger').disabled=state.config.tremor.joint==='wrist';
+  el('tremorJoint').querySelector('[value="middle"]').disabled=state.config.form==='foot'&&state.config.tremor.finger==='thumb';
   el('skin').value=state.config.appearance.skin;el('lighting').value=state.config.appearance.lighting;
-  el('posePreset').value = HAND_POSES.find(p=>JSON.stringify(p.pose)===JSON.stringify(state.config.pose))?.id??'custom';
+  el('posePreset').value = HAND_POSES.find(p=>JSON.stringify(handPoseForForm(p.id,state.config.form))===JSON.stringify(state.config.pose))?.id??'custom';
   for (let i=0;i<5;i++) {
     const voice = state.config.voices[i];
     el(`source-${i}`).value = voice.source; el(`voice-level-${i}`).value = voice.level;
@@ -191,15 +243,20 @@ function applyConfiguration(value) {
   // Tremor runs in real Hz. Retain its phase independently when choreography
   // seconds are rebased, including while paused and when its own rate changes.
   state.tremorOffset = (previousTime + state.tremorOffset) * state.config.tremor.rate / next.tremor.rate - time;
-  state.config = next; anchor(time); viewer?.setCameraView(next.view); viewer?.setAppearance(next.appearance); publish();
-  audio.setTransport({ time, tremorOffset: state.tremorOffset, playing: state.playing }); syncControls();
+  if(next.form!==state.config.form)formPoses.set(state.config.form,clone(state.config.pose));
+  const formChanged=next.form!==state.config.form;
+  state.config = next;formPoses.set(next.form,clone(next.pose));anchor(time);
+  if(formChanged)viewer?.setForm(next.form);
+  viewer?.setCameraView(next.view);viewer?.setAppearance(next.appearance);publish();
+  viewer?.setPose(effectivePose(time));
+  audio.setTransport({ time, tremorOffset: state.tremorOffset, playing: state.playing });syncControls();
 }
 function updateConfiguration(mutator) {
   const next = clone(state.config); mutator(next); applyConfiguration(next);
 }
 function editJoint({ finger, joint, bend, spread, start, end }) {
   if (start) {
-    if(finger<5)selectFinger(finger,joint);else el('selectionReadout').textContent='Wrist';
+    if(finger<5)selectFinger(finger,joint);else el('selectionReadout').textContent=state.config.form==='foot'?'Ankle':'Wrist';
     state.pointerMask = finger < 5 ? 1<<finger : 31; syncHeld();
   }
   if (end) { state.pointerMask = 0; syncHeld(); return; }
@@ -208,7 +265,7 @@ function editJoint({ finger, joint, bend, spread, start, end }) {
   } else {
     const digit = state.config.pose.fingers[finger]; digit[joint] += bend;
     digit.spread += spread;
-    if (state.linked && joint === 'mcp') { digit.pip += bend * .85; digit.dip += bend * .55; }
+    if (state.linked && joint === 'mcp') { if(state.config.form!=='foot'||finger!==0)digit.pip += bend * .85; digit.dip += bend * .55; }
   }
   if (state.pointerMask && (bend || spread)) {
     // Direct edits have no automatic-motion derivative. Excite the changed
@@ -256,7 +313,7 @@ function onMidi(event) {
   } else if (message.type==='controlChange' && [120,123].includes(message.controller??message.control)) {
     event.preventDefault(); releaseNotes();
   } else if (message.type==='pitchBend') {
-    event.preventDefault(); updateConfiguration(c=>{ c.pose.wrist.twist=clamp(message.normalized,-1,1)*55; });
+    event.preventDefault(); updateConfiguration(c=>{ c.pose.wrist.twist=clamp(message.normalized,-1,1)*(c.form==='foot'?12:55); });
   } else if (message.type==='start' || message.type==='continue') { event.preventDefault(); setPlaying(true); }
   else if (message.type==='stop') { event.preventDefault(); setPlaying(false); releaseNotes(); }
 }
@@ -277,9 +334,12 @@ listen(el('soundPlayButton'),'click',()=>setSoundPlaying(!state.soundPlaying));
 listen(el('motionButton'),'click',()=>setPlaying(!state.playing));
 listen(el('motionPreset'),'change',event=>updateConfiguration(c=>{c.motion.id=event.target.value;}));
 listen(el('posePreset'),'change',event=>{
-  const pose=HAND_POSES.find(p=>p.id===event.target.value);
-  if(pose) updateConfiguration(c=>{c.pose=clone(pose.pose);});
+  if(HAND_POSES.some(p=>p.id===event.target.value))updateConfiguration(c=>{c.pose=handPoseForForm(event.target.value,c.form);});
 });
+listen(el('bodyForm'),'change',event=>updateConfiguration(c=>{
+  c.form=event.target.value==='foot'?'foot':'hand';
+  c.pose=clone(formPoses.get(c.form)??handPoseForForm('source-open',c.form));
+}));
 for(const id of ['speed','tempo','motionAmount','rootHz','brightness','roughness','rotationFx','space','attack','release','wristFlex','wristSide','wristTwist']) {
   listen(el(id),'input',event=>{
     const value=Number(event.target.value);
@@ -302,7 +362,7 @@ listen(el('outputLevel'),'input',event=>{audio.setOutput(Number(event.target.val
 listen(el('linkJoints'),'change',event=>{state.linked=event.target.checked;});
 listen(el('showJoints'),'change',event=>{viewer?.setShowJoints(event.target.checked);requestDraw();});
 listen(el('clearSolo'),'click',()=>updateConfiguration(c=>{for(const voice of c.voices)voice.solo=false;}));
-listen(el('relaxFinger'),'click',()=>updateConfiguration(c=>{c.pose.fingers[state.selected]=clone(HAND_DEFAULTS.pose.fingers[state.selected]);}));
+listen(el('relaxFinger'),'click',()=>updateConfiguration(c=>{c.pose.fingers[state.selected]=handPoseForForm('source-open',c.form).fingers[state.selected];}));
 listen(el('resetAll'),'click',reset);
 for(const button of document.querySelectorAll('[data-view]')) listen(button,'click',()=>{
   viewer?.setView(button.dataset.view);syncViewButtons();
@@ -344,7 +404,6 @@ audio.setConfig(state.config);audio.setOutput(Number(el('outputLevel').value));
 audio.onStateChange=()=>{
   if(!state.disposed&&state.audioOn&&!audio.running){anchor(audio.getMotionTime());state.audioOn=false;syncTransport();notify('Audio was interrupted — turn it on to resume.');requestDraw();}
 };
-el('modelCredit').innerHTML='<p>Right hand by <a href="https://sketchfab.com/elenaferfor">Elena FF</a> · <a href="https://sketchfab.com/3d-models/rigged-hand-eae97cc2a742413cb5338ab942b12c1e">Rigged hand</a> · <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a>. Original skin, deform rig and Open/Close animation. Morphazoid adds joint controls and sound.</p>';
 syncControls();syncTransport();selectFinger(1,'mcp');
 try {
   viewer=createHandViewer(el('handCanvas'),{
@@ -359,6 +418,7 @@ try {
       }
     },
     onStatus:message=>{el('modelStatus').textContent=message;el('modelStatus').hidden=!message;},
+    onLoading:()=>{state.loaded=false;},
     onReady:()=>{state.loaded=true;requestDraw();},
   });
   viewer.setCameraView(state.config.view);viewer.setAppearance(state.config.appearance);requestDraw();
