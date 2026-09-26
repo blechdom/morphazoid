@@ -45,10 +45,7 @@
   gap: 12px;
 }
 
-/* Automatapoeia keeps seed, speed and sound within the first control screen. */
-#automata .automata-compact-section > .experiment-card-heading {
-  padding: 12px 16px 8px;
-}
+/* Automatapoeia keeps transport and seed recovery immediately reachable. */
 
 #automata .automata-compact-section > .group-body {
   display: grid;
@@ -107,21 +104,60 @@
   white-space: normal;
 }
 
-#automata .automata-sound-details > summary {
-  display: list-item;
-  padding: 12px 0;
-  color: var(--accent);
-  cursor: pointer;
-  font-size: 11px;
+/* Reuse Shape's accent-bar section delimiters and +/- disclosures. */
+#automata .automata-compact-section > .group-summary {
+  min-height: 44px;
+  padding: 0 16px;
 }
-
-#automata .automata-sound-details-body {
+#automata .automata-compact-section > .group-body {
+  padding-top: 12px;
+}
+#automata .automata-envelope {
+  min-width: 0;
+}
+#automata .automata-envelope .curve-editor {
+  height: 104px;
+  margin: 20px 16px;
+  width: calc(100% - 32px);
+}
+#automata .automata-envelope .amplitude-node {
+  width: 28px;
+  min-width: 28px;
+  height: 28px;
+  min-height: 28px;
+}
+#automata .automata-envelope .amplitude-node span {
+  font-size: 10px;
+}
+#automata .automata-envelope-values {
   display: grid;
-  padding: 4px 0 8px;
-  gap: 12px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+  text-align: center;
+}
+#automata .automata-envelope-values > div {
+  display: grid;
+  gap: 3px;
+}
+#automata .automata-envelope-values span {
+  color: var(--muted);
+  font-size: 9px;
+}
+#automata .automata-envelope-values output {
+  color: var(--accent);
+  font-size: 10px;
+}
+#automata .automata-envelope [hidden] {
+  display: none;
 }
 
 @media (pointer: coarse) {
+  #automata .automata-envelope .amplitude-node {
+    width: 32px;
+    min-width: 32px;
+    height: 32px;
+    min-height: 32px;
+  }
   #automata :is(.experiment-button-grid button, select, summary) {
     min-height: 48px;
   }
@@ -147,14 +183,10 @@
     box-shadow: none;
   }
 
-  /* Keep Play, seed recovery and the voice selector above the fold without
+  /* Keep Play and seed recovery above the fold without
      shrinking any touch target in short landscape viewports. */
   #automata [data-instrument-preset-host] > .instrument-preset-controls {
     padding-block: 6px;
-  }
-
-  #automata .automata-compact-section > .experiment-card-heading {
-    padding: 6px 16px 4px;
   }
 
   #automata .automata-compact-section > .group-body {

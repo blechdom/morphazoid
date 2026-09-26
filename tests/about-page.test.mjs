@@ -127,7 +127,7 @@ test("MIDI and WAX guide keeps browser MIDI and DAW plug-in routing clear", asyn
   assert.match(visibleText, /receive light flash for incoming notes and controls/);
   assert.match(visibleText, /L\/R meter to see the two channels reaching the audio destination/);
   assert.match(visibleText, /panning and channel imbalance stay visible/);
-  assert.match(visibleText, /Hover or click the gear at the top right to update audio and MIDI settings while keeping the instrument open behind it/);
+  assert.match(visibleText, /Click or tap the gear at the top right to update audio and MIDI settings while keeping the instrument open behind it/);
   assert.match(visibleText, /Full I\/O setup ↗ link opens a separate tab/);
   assert.match(
     visibleText,

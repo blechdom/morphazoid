@@ -59,7 +59,8 @@ export const AUTOMATA_FULL_PRESETS = Object.freeze([
   scene("mirror-150", "Rule 150 · Mirror phrases", { caRule: 150, caTransform: "reflect", caPhraseShape: "centers", caPitchCurve: "reverse", caRate: 10, caFrequencyMax: 2800, caSwing: -0.15, level: 0.4 }),
   scene("connected-54", "Rule 54 · Connected bodies", { caRule: 54, caObjectMode: "connected", caContourSource: "expansion", caContourAmount: 0.75, caDensity: 0.24, caRate: 7, caFrequencyMax: 3400, level: 0.4 }, 54),
   scene("slow-45", "Rule 45 · Slow droplets", { caRule: 45, caRate: 2, caWidth: 41, caTimeSpread: 0.95, caVoice: "karplus-carpet", caFrequencyMax: 1400, caStrikeLength: 1.7, level: 0.42 }, 45),
-  scene("fast-60", "Rule 60 · Fast clockwork", { caRule: 60, caRate: 18, caWidth: 61, caRelease: 0.07, caDecay: 0.04, caStrikeLength: 0.35, caTimeSpread: 0.3, caRhythmDetail: 6, caFrequencyMax: 2400, level: 0.34 }),
+  // Millisecond gates need a matching short attack, not a silent partial ramp.
+  scene("fast-60", "Rule 60 · Fast clockwork", { caRule: 60, caRate: 18, caWidth: 61, caAttack: 0.002, caRelease: 0.07, caDecay: 0.04, caStrikeLength: 0.65, caTimeSpread: 0.3, caRhythmDetail: 6, caFrequencyMax: 2400, level: 0.34 }),
   scene("negative-126", "Rule 126 · Dark negative", { caRule: 126, caPolarity: "zero", caBoundary: "periodic", caTimbreSource: "row-walls", caDensity: 0.35, caPitchCurve: "late", caFrequencyMax: 1800, level: 0.36 }, 126),
   scene("radius-two", "Radius two · Broad bands", { caFamily: "totalistic-r2", caRule: 20, caWidth: 97, caRate: 6, caTimbreSource: "symmetry", caFrequencyMax: 2400, caDensity: 0.12, level: 0.36 }, 20),
   scene("radius-skip", "Radius two · Skipping seams", { caFamily: "totalistic-r2", caRule: 45, caTransform: "shift-left", caBoundary: "periodic", caSwing: 0.24, caPitchCurve: "early", caRate: 11, caFrequencyMax: 3200, level: 0.38 }, 451),

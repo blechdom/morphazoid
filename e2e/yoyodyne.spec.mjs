@@ -129,8 +129,7 @@ for(const viewport of [{width:1440,height:900},{width:390,height:844},{width:844
     overflow:getComputedStyle(panel).overflowY,stage:size("#noteStage"),audio:size("#audioButton"),play:size("#playButton")};
   });
   expect(metrics.scroll).toBeLessThanOrEqual(metrics.width+1);expect(metrics.panelScroll).toBeLessThanOrEqual(metrics.panelWidth+1);
-  const notice=await phone.locator("#transportAudioAttention").boundingBox(),transport=await phone.locator(".yd-transport").boundingBox();
-  expect(notice.y+notice.height).toBeLessThanOrEqual(transport.y);
+  await expect(phone.locator("#transportAudioAttention")).toHaveCount(0);
   expect(metrics.stage[0]).toBeGreaterThan(300);expect(metrics.stage[1]).toBeGreaterThanOrEqual(350);
   if(viewport.width<1000){expect(Math.min(...metrics.audio)).toBeGreaterThanOrEqual(48);expect(Math.min(...metrics.play)).toBeGreaterThanOrEqual(48);}
   for(const selector of ["#tempo",'[data-trick="around-world"]',"#tone","#resetAll"]){

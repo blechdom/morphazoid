@@ -816,7 +816,7 @@ test("top Audio buttons expose icon-only accessible on/off speaker controls", as
   );
 });
 
-test("shared Space transport stays independent from Audio and guides Audio-off playback", () => {
+test("shared Space transport stays independent from Audio without an Audio-off popup", () => {
   const doc = new FakeDocument();
   const masthead = new FakeNode("header");
   masthead.className = "masthead";
@@ -866,10 +866,8 @@ test("shared Space transport stays independent from Audio and guides Audio-off p
   );
   assert.equal(initializeAudioTransportContract(doc, runtime), contract);
   assert.equal(doc.listeners.get("keydown").length, 1);
-  assert.equal(contract.status.parentNode, masthead);
-  assert.equal(contract.status.getAttribute("role"), "status");
-  assert.equal(contract.status.getAttribute("aria-live"), "polite");
-  assert.equal(contract.status.hidden, true);
+  assert.equal(contract.status, null);
+  assert.deepEqual(masthead.children, [audioButton, playButton], "no Audio-off popup is created");
 
   const surface = new FakeNode("main");
   let prevented = 0;
@@ -886,30 +884,29 @@ test("shared Space transport stays independent from Audio and guides Audio-off p
   assert.equal(stopped, 1);
   assert.equal(playButton.getAttribute("aria-pressed"), "true");
   assert.equal(audioButton.getAttribute("aria-pressed"), "false");
-  assert.equal(contract.status.hidden, false);
-  assert.equal(contract.status.textContent, "Audio is off — turn it on to hear playback");
+  assert.equal(contract.status, null);
   assert.equal(audioButton.getAttribute("data-audio-attention"), "true");
 
   audioButton.setAttribute("aria-pressed", "true");
   doc.dispatch("click", { target: audioButton });
-  assert.equal(contract.status.hidden, true);
+  assert.equal(contract.status, null);
   assert.equal(audioButton.getAttribute("data-audio-attention"), null);
 
   audioButton.setAttribute("aria-pressed", "false");
   contract.sync();
-  assert.equal(contract.status.hidden, false, "an already-running silent transport stays explained");
+  assert.equal(audioButton.getAttribute("data-audio-attention"), "true", "silent playback highlights only the Audio button");
   doc.dispatch("click", { target: playButton });
   playButton.setAttribute("aria-pressed", "false");
   contract.sync();
-  assert.equal(contract.status.hidden, true);
+  assert.equal(contract.status, null);
 
   doc.dispatch("click", { target: surface, composedPath: () => [playButton, surface] });
-  assert.equal(contract.status.hidden, false, "a retargeted rejected Play request gets guidance");
+  assert.equal(audioButton.getAttribute("data-audio-attention"), "true", "a retargeted rejected Play request highlights Audio");
   doc.dispatch("click", { target: playButton });
   assert.equal(
-    contract.status.hidden,
-    false,
-    "repeated rejected Play requests do not alternate the Audio-off guidance",
+    audioButton.getAttribute("data-audio-attention"),
+    "true",
+    "repeated rejected Play requests do not alternate the Audio-button highlight",
   );
 
   const ignoredTargets = [
@@ -1982,52 +1979,52 @@ test("storage accessors cannot abort navigation setup or reset", () => {
   assert.equal(reloads, 1);
 });
 
-test("gear flyout supports hover, pinning, keyboard dismissal and listener cleanup", () => {
+test("gear flyout never opens on hover and preserves native activation, dismissal and cleanup", () => {
   const doc = new FakeDocument();
-  const timers = new Map();
-  let timerId = 0;
   const runtime = {
     matchMedia: () => ({ matches: true }),
-    setTimeout(callback) { const id = ++timerId; timers.set(id, callback); return id; },
-    clearTimeout(id) { timers.delete(id); },
+    setTimeout() { assert.fail("click-only menus must not schedule hover timers"); },
+    clearTimeout() {},
   };
   const menu = createHeaderSettingsMenu(doc, runtime);
   assert.equal(menu.summary.getAttribute("aria-expanded"), "false");
-  menu.details.dispatch("pointerenter", { pointerType: "touch" });
-  assert.equal(menu.details.open, false, "touch does not get a hover-open menu");
-  menu.details.dispatch("pointerenter", { pointerType: "mouse" });
-  assert.equal(menu.details.open, true);
-  assert.equal(menu.summary.getAttribute("aria-expanded"), "true");
-  menu.details.dispatch("pointerleave");
-  assert.equal(timers.size, 1);
-  menu.panel.dispatch("pointerenter", { pointerType: "mouse" });
-  assert.equal(timers.size, 0, "moving into the flyout keeps it open");
+  for (const pointerType of ["touch", "mouse", "pen"]) {
+    menu.details.dispatch("pointerenter", { pointerType });
+    menu.panel.dispatch("pointerenter", { pointerType });
+    assert.equal(menu.details.open, false, `${pointerType} hover must not open Settings`);
+  }
   let prevented = false;
   menu.summary.dispatch("click", { preventDefault() { prevented = true; } });
-  assert.equal(prevented, true, "click pins an already hover-open menu");
+  assert.equal(prevented, false, "native summary activation is not intercepted");
+  // The lightweight DOM has no default actions; exercise the native toggle
+  // callback here and cover actual click/tap/keyboard activation in Playwright.
+  menu.details.open = true;
+  menu.details.dispatch("toggle");
+  assert.equal(menu.summary.getAttribute("aria-expanded"), "true");
   menu.details.dispatch("pointerleave");
-  assert.equal(timers.size, 0);
+  assert.equal(menu.details.open, true, "moving away does not close a clicked menu");
+  doc.dispatch("pointerdown", { target: menu.summary });
+  assert.equal(menu.details.open, true, "inside clicks leave native toggling to the summary");
   doc.dispatch("pointerdown", { target: doc.panel });
   assert.equal(menu.details.open, false);
   doc.dispatch("keydown", { key: "ArrowDown", target: menu.summary, preventDefault() {} });
   assert.equal(menu.details.open, true);
   assert.equal(menu.links.children[0].focused, true);
+  menu.details.dispatch("focusout", { relatedTarget: menu.links.children[0] });
+  assert.equal(menu.details.open, true, "focus moving within the panel keeps it open");
   doc.dispatch("keydown", { key: "Escape", preventDefault() {}, stopPropagation() {} });
   assert.equal(menu.details.open, false);
   assert.equal(menu.summary.focused, true);
   assert.equal(menu.summary.getAttribute("aria-expanded"), "false");
-  menu.details.dispatch("pointerenter", { pointerType: "mouse" });
-  menu.details.dispatch("pointerleave");
-  const callback = [...timers.values()][0];
-  timers.clear();
-  callback();
-  assert.equal(menu.details.open, false);
+  menu.details.open = true;
+  menu.details.dispatch("focusout", { relatedTarget: doc.panel });
+  assert.equal(menu.details.open, false, "tabbing away dismisses Settings");
   menu.destroy();
   menu.destroy();
-  assert.equal(timers.size, 0);
   assert.equal(doc.listeners.get("pointerdown").length, 0);
   assert.equal(doc.listeners.get("keydown").length, 0);
-  assert.equal(menu.details.listeners.get("pointerenter").length, 0);
+  assert.equal(menu.details.listeners.get("toggle").length, 0);
+  assert.equal(menu.details.listeners.get("pointerenter")?.length ?? 0, 0);
 });
 
 test("catalogue/info headers get one standalone gear without MIDI activation", () => {

@@ -1063,6 +1063,7 @@ copy+require	src/instruments/shapes/control-availability.js
 copy+require	src/instruments/shapes/kit-audio.js
 copy+require	src/instruments/shapes/trigger-banks.js
 copy+require	src/instruments/cellular-automata/automatapoeia-clock.js
+copy+require	src/instruments/cellular-automata/automatapoeia-envelope.js
 
 # Gesticules: authored page, weighted rig, source choreography and voices.
 copy+require	gesticules.html

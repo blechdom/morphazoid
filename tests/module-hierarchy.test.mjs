@@ -18,6 +18,7 @@ const ioChanges = JSON.parse(await readFile(new URL("../docs/io-settings-runtime
 const iphoneChanges = JSON.parse(await readFile(new URL("../docs/iphone-audio-runtime-changes.json", import.meta.url))).changes;
 const sequencerChanges = JSON.parse(await readFile(new URL("../docs/rubixoids-runtime-changes.json", import.meta.url))).changes;
 const shapesChanges = JSON.parse(await readFile(new URL("../docs/shapes-manual-notes-runtime-changes.json", import.meta.url))).changes;
+const automataControlsChanges = JSON.parse(await readFile(new URL("../docs/automatapoeia-controls-runtime-changes.json", import.meta.url))).changes;
 const automataChanges = JSON.parse(await readFile(new URL("../docs/automatapoeia-preset-lifecycle-runtime-changes.json", import.meta.url))).changes;
 const automataBottomChanges = JSON.parse(await readFile(new URL("../docs/automatapoeia-bottom-entry-runtime-changes.json", import.meta.url))).changes;
 const automataTransportChanges = JSON.parse(await readFile(new URL("../docs/automatapoeia-live-transport-runtime-changes.json", import.meta.url))).changes;
@@ -86,7 +87,7 @@ test("runtime modules reverse exactly after explicit runtime fixes and documente
     }
     // Keep the relocation baseline frozen. Reverse only the exact, separately
     // documented feature edits, whose behavior has focused DSP/browser tests.
-    for (const change of [...ioChanges, ...shapesChanges, ...automataBottomChanges, ...automataTransportChanges, ...automataClockChanges, ...automataChanges].filter(change => change.file === record.after)) {
+    for (const change of [...automataControlsChanges, ...ioChanges, ...shapesChanges, ...automataBottomChanges, ...automataTransportChanges, ...automataClockChanges, ...automataChanges].filter(change => change.file === record.after)) {
       for (const testFile of change.regressionTests) assert.ok(existsSync(path.join(root, testFile)), testFile);
       for (const replacement of [...change.replacements].reverse()) {
         assert.equal(current.split(replacement.after).length - 1, 1, `exactly one documented feature edit: ${change.file}`);
@@ -205,6 +206,18 @@ test("Shapes bank amendments stay scoped and preserve all frozen relocation reco
     assert.ok(proof.files.some(record => record.after === change.file));
     assert.ok(change.replacements.length);
     assert.ok(change.regressionTests.includes("e2e/shapes-sound-banks.spec.mjs"));
+  }
+});
+
+test("Automatapoeia controls amendments are scoped to its preset bank and existing family controller", () => {
+  assert.deepEqual(automataControlsChanges.map(change => change.file), [
+    "src/families/experiments/automata-presets.js", "src/families/experiments/experiments-app.js",
+  ]);
+  for (const change of automataControlsChanges) {
+    assert.ok(proof.files.some(record => record.after === change.file));
+    assert.ok(change.replacements.length);
+    assert.ok(change.regressionTests.includes("tests/automatapoeia-envelope.test.mjs"));
+    assert.ok(change.regressionTests.includes("e2e/automatapoeia-envelope.spec.mjs"));
   }
 });
 
