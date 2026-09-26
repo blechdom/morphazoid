@@ -46,12 +46,7 @@ const LIGHTING = Object.freeze({
 /** Create after the GLTF materials have received the viewer's defaults.
  * Original textures stay attached through every tint and lighting change. */
 export function createHandLook({ meshes, ambient, keyLight, fill, rim }) {
-  const materials = [...new Set(meshes.flatMap(mesh =>
-    Array.isArray(mesh.material) ? mesh.material : [mesh.material]
-  ).filter(material => material?.color))].map(material => ({
-    material,
-    color: material.color.clone(),
-  }));
+  const materials = [], knownMaterials = new Set();
   const lights = [ambient, keyLight, fill, rim];
   const originalLights = lights.map(light => ({
     color: light.color.clone(),
@@ -60,6 +55,19 @@ export function createHandLook({ meshes, ambient, keyLight, fill, rim }) {
     position: light.position.clone(),
   }));
   let skin = 'natural', lighting = 'studio', disposed = false;
+
+  function addMeshes(nextMeshes) {
+    if (disposed) return;
+    for (const mesh of nextMeshes) for (const material of Array.isArray(mesh.material) ? mesh.material : [mesh.material]) {
+      if (!material?.color || knownMaterials.has(material)) continue;
+      knownMaterials.add(material);
+      const original = { material, color: material.color.clone() };
+      materials.push(original);
+      if (skin !== 'natural') material.color.setHex(SKINS[skin]).multiply(original.color);
+    }
+  }
+  addMeshes(meshes);
+
 
   function restoreMaterials() {
     for (const { material, color } of materials) material.color.copy(color);
@@ -116,5 +124,5 @@ export function createHandLook({ meshes, ambient, keyLight, fill, rim }) {
     restoreLights();
     disposed = true;
   }
-  return { apply, dispose };
+  return { apply, addMeshes, dispose };
 }

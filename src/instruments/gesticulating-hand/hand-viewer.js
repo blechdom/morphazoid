@@ -39,7 +39,12 @@ export function createHandViewer(canvas,{onSelect=()=>{},onGesture=()=>{},onChan
     const bounds=rig?.bounds??new THREE.Vector3(2,3,1);
     const verticalFit=bounds.y/(2*Math.tan(camera.fov*RAD/2));
     const horizontalFit=bounds.x/(2*Math.tan(camera.fov*RAD/2)*camera.aspect);
-    baseDistance=Math.max(verticalFit*1.5,horizontalFit*2.5);updateCamera();
+    // Reserve room for the view controls on the shortest portrait stages.
+    // Projection framing is separate from preset zoom and musical rotation.
+    const compactFoot=form==='foot'&&width<480&&height<340;
+    baseDistance=Math.max(verticalFit*1.5,horizontalFit*2.5)*(compactFoot?1.3:1);
+    if(compactFoot)camera.setViewOffset(width,height,0,height*.075,width,height);else camera.clearViewOffset();
+    updateCamera();
   }
   function updateCamera() {
     const distance=baseDistance*zoomFactor,target=new THREE.Vector3(0,-.04,0);

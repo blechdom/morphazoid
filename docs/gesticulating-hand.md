@@ -108,9 +108,9 @@ model; manually choosing another model retains the current sound and view.
 phaser, and all eight engines, six skin tints, six lighting choices and five-voice
 MIDI controls work with either model.
 
-The foot has 34,352 triangles and a 1.68 MB GLB. Its 352×336 foot texture crop
+The foot has 34,352 triangles and a 1.89 MB GLB. Its 352×336 foot texture crop
 retains the source nail and crease detail without upscaling, so close zooms look
-softer than the hand. The cropped ankle is capped. These are bounded controls on
+softer than the hand. The cropped ankle is capped, with smoothed shading and colors matched to the adjoining skin. These are bounded controls on
 an artist-authored mesh, not a tendon/contact simulation; extreme combinations
 can intersect. The foot does not claim clinical accuracy.
 
