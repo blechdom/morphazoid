@@ -20,10 +20,11 @@ not silently change the Audio control.
   glow. Starting and error states remain visually distinct. The canonical
   accessible name and title describe the state and corresponding action, so
   state is never conveyed by color alone.
-- If a primary transport is started or requested while Audio is off, a visible
-  polite live status says: “Audio is off — turn it on to hear playback”. This
-  stays truthful when an instrument declines to start until Audio is armed. The
-  instruction remains until Audio is on or the transport is stopped again.
+- Starting or requesting a primary transport while Audio is off does not show
+  a global popup or overlay. The Audio button retains its off icon, accessible
+  name and optional attention highlight. The owner removed the distracting
+  masthead reminder; this does not change explicit Audio arming or an
+  instrument's own inline status/error messages.
 
 The explicit Audio action is also the browser user gesture that creates or
 resumes Web Audio. An implementation should perform that work directly from the

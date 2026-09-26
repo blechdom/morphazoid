@@ -24,7 +24,6 @@ const LEGACY_SETTINGS_KEYS = [
 ];
 const RESET_SHAPE_SIDES_KEY = "morphazoid:shape:reset:sides";
 const AUDIO_TRANSPORT_CONTRACTS = new WeakMap();
-const AUDIO_OFF_TRANSPORT_MESSAGE = "Audio is off — turn it on to hear playback";
 const OUTPUT_METER_SILENCE_FLOOR = 0.001;
 const ARIA_WIDGET_ROLES = new Set([
   "button",
@@ -525,18 +524,6 @@ function eventTargetsControl(event, controls) {
   )) ?? null;
 }
 
-function nearestHeader(node, doc) {
-  return nodeOrAncestor(node, (candidate) => (
-    candidate.tagName === "HEADER"
-    || candidate.classList?.contains?.("masthead")
-    || candidate.classList?.contains?.("topbar")
-    || candidate.getAttribute?.("data-midi-toolbar-host") != null
-  ))
-    ?? doc?.querySelector?.(".masthead")
-    ?? doc?.querySelector?.("[data-midi-toolbar-host]")
-    ?? null;
-}
-
 function enqueueContractSync(runtime, callback) {
   const enqueue = runtime?.queueMicrotask ?? globalThis.queueMicrotask;
   if (typeof enqueue === "function") enqueue.call(runtime, callback);
@@ -548,7 +535,7 @@ function enqueueContractSync(runtime, callback) {
  *
  * Space owns only the primary transport and only when focus is outside native
  * or ARIA widgets. Audio remains a separate explicit control; starting a
- * transport while it is off exposes a persistent, live masthead instruction.
+ * transport while it is off highlights the Audio button without a popup.
  */
 export function initializeAudioTransportContract(doc, runtime = globalThis) {
   if (!doc || (typeof doc !== "object" && typeof doc !== "function")) return null;
@@ -565,21 +552,6 @@ export function initializeAudioTransportContract(doc, runtime = globalThis) {
 
   for (const control of transports) control.setAttribute?.("aria-keyshortcuts", "Space");
 
-  let status = null;
-  const header = nearestHeader(audioButton, doc);
-  if (audioButton && primaryTransport && header && typeof doc.createElement === "function") {
-    status = header.querySelector?.(".transport-audio-attention") ?? null;
-    if (!status) {
-      status = element(doc, "p", "transport-audio-attention", AUDIO_OFF_TRANSPORT_MESSAGE);
-      status.id = "transportAudioAttention";
-      status.hidden = true;
-      status.setAttribute?.("role", "status");
-      status.setAttribute?.("aria-live", "polite");
-      status.setAttribute?.("aria-atomic", "true");
-      header.append?.(status);
-    }
-  }
-
   let assumedControl = null;
   let assumedPlaying = false;
   let keyboardClickControl = null;
@@ -593,12 +565,6 @@ export function initializeAudioTransportContract(doc, runtime = globalThis) {
     const audioOn = audioIsOn();
     if (audioOn) assumedControl = null;
     const needsAudioAttention = !audioOn && transports.some(transportIsActiveOrRequested);
-    if (status) {
-      if (status.textContent !== AUDIO_OFF_TRANSPORT_MESSAGE) {
-        status.textContent = AUDIO_OFF_TRANSPORT_MESSAGE;
-      }
-      status.hidden = !needsAudioAttention;
-    }
     if (needsAudioAttention) audioButton?.setAttribute?.("data-audio-attention", "true");
     else audioButton?.removeAttribute?.("data-audio-attention");
     return needsAudioAttention;
@@ -606,7 +572,7 @@ export function initializeAudioTransportContract(doc, runtime = globalThis) {
   const noteTransportIntent = (control) => {
     // Derive each request from the control's real state. If an instrument
     // rejects Play while Audio is off and leaves aria-pressed=false, repeated
-    // requests must keep the Audio guidance visible instead of alternating it.
+    // requests must keep the Audio button highlighted instead of alternating it.
     const wasPlaying = isPressedControl(control);
     assumedControl = control;
     assumedPlaying = !wasPlaying;
@@ -684,7 +650,7 @@ export function initializeAudioTransportContract(doc, runtime = globalThis) {
   const contract = Object.freeze({
     audioButton,
     primaryTransport,
-    status,
+    status: null, // Kept in the public adapter shape; no masthead popup is created.
     sync,
     destroy() {
       if (destroyed) return;
@@ -746,71 +712,21 @@ export function createHeaderSettingsMenu(doc, runtime, { idSuffix = "", testLink
   panel.append(setupLink);
   details.append(summary, panel);
 
-  const timers = typeof runtime?.setTimeout === "function" && typeof runtime?.clearTimeout === "function"
-    ? runtime : globalThis;
-  let closeTimer = null;
-  let inside = false;
-  let hoverOpened = false;
-  let pinned = false;
   let disposed = false;
-  const clearClose = () => {
-    if (closeTimer !== null) timers.clearTimeout(closeTimer);
-    closeTimer = null;
-  };
   const sync = () => summary.setAttribute("aria-expanded", String(details.open));
   const close = () => {
-    clearClose();
-    pinned = hoverOpened = false;
     details.open = false;
     sync();
   };
-  const enter = (event) => {
-    if (event.pointerType !== "mouse"
-      || !runtime?.matchMedia?.("(hover: hover) and (pointer: fine)")?.matches) return;
-    inside = true;
-    clearClose();
-    if (!details.open) {
-      hoverOpened = true;
-      details.open = true;
-      sync();
-    }
-  };
-  const leave = () => {
-    inside = false;
-    clearClose();
-    if (!pinned) {
-      // Bridge the small gap from the gear to its fixed-position flyout.
-      closeTimer = timers.setTimeout(() => {
-        closeTimer = null;
-        if (!inside && !pinned && !panel.contains(doc.activeElement)) close();
-      }, 220);
-      closeTimer?.unref?.();
-    }
-  };
-  const clickSummary = (event) => {
-    clearClose();
-    if (details.open && hoverOpened) {
-      // Hover may have opened it before the click arrived: pin, don't close.
-      event.preventDefault?.();
-      pinned = true;
-      hoverOpened = false;
-    } else {
-      pinned = !details.open;
-      hoverOpened = false;
-    }
-  };
-  const toggle = () => {
-    if (!details.open) { pinned = hoverOpened = false; clearClose(); }
-    sync();
-  };
+  // Native <summary> activation handles click, tap, Enter and Space. Merely
+  // hovering or focusing the gear must never open it or schedule a close.
   const focusOut = (event) => {
-    if (!inside && !details.contains(event.relatedTarget)) close();
+    if (!details.contains(event.relatedTarget)) close();
   };
   const keydown = (event) => {
     if (event.key === "ArrowDown" && event.target === summary) {
       event.preventDefault?.();
-      details.open = pinned = true;
-      hoverOpened = false;
+      details.open = true;
       sync();
       const firstControl = panel.querySelector?.("select:not(:disabled)");
       (firstControl ?? (testLinks ? links.children[0] : setupLink))?.focus?.();
@@ -835,26 +751,16 @@ export function createHeaderSettingsMenu(doc, runtime, { idSuffix = "", testLink
     if (disposed) return;
     disposed = true;
     close();
-    details.removeEventListener?.("pointerenter", enter);
-    details.removeEventListener?.("pointerleave", leave);
     details.removeEventListener?.("focusout", focusOut);
-    details.removeEventListener?.("toggle", toggle);
-    panel.removeEventListener?.("pointerenter", enter);
-    panel.removeEventListener?.("pointerleave", leave);
+    details.removeEventListener?.("toggle", sync);
     panel.removeEventListener?.("click", clickLink);
-    summary.removeEventListener?.("click", clickSummary);
     doc.removeEventListener?.("keydown", keydown, true);
     doc.removeEventListener?.("pointerdown", outside);
     runtime?.removeEventListener?.("pagehide", pageHide);
   };
-  details.addEventListener("pointerenter", enter);
-  details.addEventListener("pointerleave", leave);
   details.addEventListener("focusout", focusOut);
-  details.addEventListener("toggle", toggle);
-  panel.addEventListener("pointerenter", enter);
-  panel.addEventListener("pointerleave", leave);
+  details.addEventListener("toggle", sync);
   panel.addEventListener("click", clickLink);
-  summary.addEventListener("click", clickSummary);
   doc.addEventListener?.("keydown", keydown, true);
   doc.addEventListener?.("pointerdown", outside);
   runtime?.addEventListener?.("pagehide", pageHide);
