@@ -78,6 +78,7 @@ export const TOOL_GROUPS = Object.freeze([
   ]),
   freezeGroup("simd-audio", "SIMD Audio", [
     { id: "simd-303", label: "SIMD 303", href: "simd-303.html", imageHref: "assets/instruments/simd-303.webp" },
+    { id: "simd-chiptune", label: "SIMD Chiptune", href: "simd-chiptune.html" },
     { id: "simd-synth", label: "SIMD Synth", href: "simd-synth.html" },
     { id: "simd-resonator", label: "SIMD Resonator", href: "simd-resonator.html" },
   ]),

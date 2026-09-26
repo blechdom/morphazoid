@@ -384,7 +384,7 @@ test("quick menu fits the first screen and opens one test at a time without star
   expect((await fakeMidiSnapshot(page)).requests).toHaveLength(0);
 });
 
-test("top-right gear opens on hover, pins on click and links directly to unarmed tests", async ({ page }) => {
+test("top-right gear requires a click and links directly to unarmed tests", async ({ page }) => {
   await installAudioDevices(page);
   await installFakeMidi(page);
   await page.goto("/index.html");
@@ -395,11 +395,17 @@ test("top-right gear opens on hover, pins on click and links directly to unarmed
   const position = await gear.boundingBox();
   expect(position.x).toBeGreaterThan(1300);
   await gear.hover();
+  await page.waitForTimeout(300);
+  await expect(menu).toHaveJSProperty("open", false);
+  await expect(gear).toHaveAttribute("aria-expanded", "false");
+  await gear.click();
   await expect(gear).toHaveAttribute("aria-expanded", "true");
   await expect(links).toHaveText(["Speakers", "Audio input", "MIDI"]);
   await links.nth(1).hover();
   await expect(menu).toHaveJSProperty("open", true);
   await page.mouse.move(600, 250);
+  await expect(menu).toHaveJSProperty("open", true);
+  await gear.click();
   await expect(menu).toHaveJSProperty("open", false);
   await gear.click();
   await page.mouse.move(600, 250);
@@ -442,6 +448,8 @@ test("instrument gear exposes settings in place, with full setup at the bottom",
     await page.goto(`/${route}`);
     await expect(page.locator(".header-settings-trigger")).toHaveCount(1);
     await page.locator(".header-settings-trigger").hover();
+    await expect(page.locator(".header-settings-menu")).toHaveJSProperty("open", false);
+    await page.locator(".header-settings-trigger").click();
     await expect(page.locator(".header-settings-link")).toHaveCount(0);
     await expect(page.locator(".header-settings-controls")).toBeVisible();
     await expect(page.locator(".header-settings-controls")).toHaveAttribute("role", "group");

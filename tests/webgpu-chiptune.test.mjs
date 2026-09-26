@@ -2094,7 +2094,7 @@ test("WebGPU Chiptune ships as a separate accessible and credited page", async (
   const [html, css, app, source, notices, readme, buildScript] = await Promise.all([
     readFile(new URL("webgpu-chiptune.html", root), "utf8"),
     readFile(new URL("src/instruments/webgpu-chiptune/webgpu-chiptune.css", root), "utf8"),
-    readFile(new URL("src/instruments/webgpu-chiptune/webgpu-chiptune-app.js", root), "utf8"),
+    readFile(new URL("src/families/chiptune/chiptune-app.js", root), "utf8"),
     readFile(new URL("src/instruments/webgpu-chiptune/webgpu-chiptune.js", root), "utf8"),
     readFile(new URL("THIRD_PARTY_NOTICES.md", root), "utf8"),
     readFile(new URL("README.md", root), "utf8"),
@@ -2213,9 +2213,10 @@ test("WebGPU Chiptune ships as a separate accessible and credited page", async (
   assert.match(css, /chiptune-live-editor/);
   assert.match(css, /grid-template-columns: repeat\(3, minmax\(0, 1fr\)\)/);
   assert.match(css, /@media \(pointer: coarse\)[\s\S]*?min-height: 48px/);
-  assert.match(app, /new WebGpuChiptuneAudio\(globalThis/);
+  assert.match(app, /new ChiptuneAudio\(globalThis/);
   assert.match(app, /Audio is off — turn it on to hear playback\./);
-  assert.match(app, /id: "webgpu-chiptune"/);
+  assert.match(app, /id: instrumentId/);
+  assert.match(app, /simdBackend \? "simd-chiptune" : "webgpu-chiptune"/);
   assert.match(app, /subscribeState/);
   assert.match(app, /pointercancel/);
   assert.match(app, /stageKeyDown/);
@@ -2300,7 +2301,7 @@ test("WebGPU Chiptune ships as a separate accessible and credited page", async (
   assert.match(app, /sequencePointFromPointer/);
   assert.match(app, /WEBGPU_CHIPTUNE_SEQUENCE_STEPS/);
   assert.match(app, /engine\?\.updateSequence\(state\.sequence\)/);
-  assert.match(app, /stateVersion: 7/);
+  assert.match(app, /stateVersion: simdBackend \? 10 : 7/);
   assert.match(app, /voicePerformance: state\.voicePerformance/);
   assert.match(app, /sequence: state\.sequence/);
   assert.match(app, /WEBGPU_CHIPTUNE_DEFAULT_SEQUENCE/);

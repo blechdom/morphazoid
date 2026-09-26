@@ -1,0 +1,534 @@
+/* One playing surface: global sound, independent voice faces, then the sequence. */
+.simd-chiptune-page {
+  --simd-card-width: 184px;
+  --simd-card-height: 334px;
+  --simd-knob-size: 42px;
+}
+
+.simd-chiptune-page .webgpu-303-shell {
+  display: flex;
+  min-width: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  flex-direction: column;
+  overscroll-behavior-y: contain;
+}
+
+.simd-chiptune-page .webgpu-303-shell > * { flex-shrink: 0; }
+.simd-chiptune-page [hidden] { display: none !important; }
+
+.simd-performance-controls {
+  position: sticky;
+  z-index: 12;
+  top: 0;
+  display: flex;
+  min-width: 0;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--line-strong);
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 14px;
+  background: #101920;
+}
+
+.simd-preset-controls {
+  display: flex;
+  min-width: 210px;
+  flex: 1 1 235px;
+  align-items: center;
+  gap: 5px;
+}
+
+.simd-preset-controls .instrument-picker,
+.simd-preset-fallback { min-width: 0; width: auto; flex: 1 1 0; }
+.simd-preset-controls .instrument-picker-current { overflow: hidden; text-overflow: ellipsis; }
+.simd-preset-controls .instrument-picker-next { width: 36px; min-width: 36px; height: 36px; flex: 0 0 36px; }
+.simd-preset-controls .instrument-picker-trigger { min-height: 36px; }
+.simd-preset-controls select { width: 100%; }
+
+.simd-tempo-transport {
+  display: flex;
+  min-width: 108px;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 10px;
+}
+
+.simd-chiptune-page #synthPlayButton {
+  width: 48px;
+  height: 48px;
+  min-width: 48px;
+  min-height: 48px;
+  margin: 0;
+  padding: 0;
+}
+
+.simd-chiptune-page #simdTempoControls { display: flex; padding: 0; gap: 0; }
+.simd-chiptune-page #simdTempoControls .control { width: 128px; margin: 0; }
+.simd-chiptune-page #simdTempoControls input[type="range"] { width: 128px; }
+.simd-chiptune-page #simdTempoControls .webgpu-knob { width: 64px; }
+
+.simd-structure-row { display: flex; min-width: 0; flex: 0 1 auto; align-items: center; gap: 6px; }
+.simd-composition-picker { min-width: 0; }
+.simd-composition-picker select { width: 100%; }
+.simd-chiptune-page .simd-structure-row .chiptune-view-switch { display: flex; width: auto; min-width: 0; margin: 0; padding: 0; gap: 2px; }
+.simd-chiptune-page .simd-structure-row .chiptune-view-switch span { min-height: 36px; padding: 6px 7px; font-size: 10px; white-space: nowrap; }
+
+.simd-pattern-section { display: flex; min-width: 0; align-items: center; gap: 5px; }
+.simd-pattern-section label { display: grid; min-width: 0; gap: 3px; }
+.simd-pattern-section label > span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+.simd-pattern-section select { width: 96px; }
+.simd-pattern-section .mini-action { margin: 0; min-height: 36px; padding: 4px 8px; font-size: 10px; white-space: nowrap; }
+
+.simd-quick-actions { display: flex; min-width: 0; align-items: center; gap: 8px; }
+.simd-chiptune-page .simd-quick-actions .mini-action { min-height: 36px; margin: 0; padding: 4px 10px; font-size: 10px; }
+.simd-skin-picker { display: grid; min-width: 0; gap: 3px; }
+.simd-skin-picker > span { color: var(--muted); font-size: 8px; line-height: 1; }
+.simd-chiptune-page .simd-skin-picker select { min-height: 26px; max-width: 140px; padding: 2px 5px; font-size: 10px; }
+
+.simd-chiptune-page .simd-performance-controls select,
+.simd-chiptune-page #sequenceZoom,
+.simd-chiptune-page .simd-voice-controls select,
+.simd-chiptune-page .simd-sequence-knobs select {
+  min-width: 0;
+  min-height: 34px;
+  padding: 4px 7px;
+  border: 1px solid var(--line-strong);
+  border-radius: 3px;
+  color: var(--ink);
+  background: var(--bg-deep);
+  font-size: 10px;
+}
+
+/* Every global group uses the same compact knobs; inactive groups stay mounted. */
+.simd-global-controls { display: grid; min-width: 0; padding: 9px 12px 8px; border-bottom: 1px solid var(--line-strong); gap: 5px; background: #0c151c; }
+.simd-global-tabs,
+.simd-voice-controls [role="tablist"],
+.simd-voice-tabs { display: flex; min-width: 0; flex-wrap: wrap; align-items: center; gap: 4px; }
+.simd-global-tabs:empty { display: none; }
+.simd-global-tabs button,
+.simd-voice-controls [role="tab"],
+.simd-voice-tabs button {
+  min-width: 0;
+  min-height: 28px;
+  margin: 0;
+  padding: 3px 9px;
+  border: 1px solid var(--line-strong);
+  border-radius: 3px;
+  color: var(--muted);
+  background: #101a22;
+  font: 700 10px/1.1 ui-monospace, SFMono-Regular, Consolas, monospace;
+  cursor: pointer;
+}
+.simd-global-tabs button[aria-selected="true"],
+.simd-global-tabs button[aria-pressed="true"],
+.simd-voice-controls [role="tab"][aria-selected="true"],
+.simd-voice-tabs button[aria-pressed="true"] { border-color: var(--accent); color: var(--ink); background: color-mix(in srgb, var(--accent) 12%, #101a22); }
+
+.simd-chiptune-page #knobControls,
+.simd-chiptune-page .simd-knob-bank,
+.simd-chiptune-page .simd-global-controls [role="tabpanel"],
+.simd-chiptune-page .simd-voice-controls [role="tabpanel"] {
+  --knob-size: var(--simd-knob-size);
+  display: flex;
+  min-width: 0;
+  max-width: 100%;
+  width: 100%;
+  margin: 0;
+  padding: 4px 3px 5px;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: flex-start;
+  gap: 7px;
+}
+.simd-chiptune-page #knobControls { min-height: 76px; }
+.simd-chiptune-page #knobControls:has(> [role="tabpanel"]) { padding: 0; }
+.simd-chiptune-page .simd-knob-group { display: grid; min-width: 0; margin: 0; padding: 0; border: 0; gap: 4px; }
+.simd-chiptune-page .simd-knob-group > legend,
+.simd-chiptune-page .simd-knob-group > h3 { margin: 0; color: var(--muted); font: 700 9px/1.2 ui-monospace, SFMono-Regular, Consolas, monospace; text-transform: uppercase; }
+.simd-chiptune-page .webgpu-knob { --knob-size: var(--simd-knob-size); width: 62px; min-width: 0; flex: 0 0 62px; gap: 4px; }
+.simd-chiptune-page .webgpu-knob-dial { width: var(--knob-size); height: var(--knob-size); }
+.simd-chiptune-page .webgpu-knob-dial::before { inset: 6px; }
+.simd-chiptune-page .webgpu-knob-dial::after { top: 5px; height: 13px; transform-origin: 1px calc(var(--knob-size) / 2 - 6px); }
+.simd-chiptune-page .webgpu-knob-label { width: 100%; color: #c4d6d0; font-size: 9px; line-height: 1.1; white-space: normal; text-align: center; }
+.simd-chiptune-page .webgpu-knob-value { color: #aebfb9; font-size: 9px; line-height: 1; }
+
+/* A shared pixel canvas sits behind seven independently switchable control faces. */
+.simd-chiptune-page .chiptune-character-panel {
+  display: block;
+  min-width: 0;
+  height: var(--simd-card-height);
+  overflow-x: auto;
+  overflow-y: hidden;
+  border-right: 0;
+  box-shadow: none;
+  scrollbar-color: var(--faint) transparent;
+  scrollbar-width: thin;
+  scroll-snap-type: x proximity;
+  overscroll-behavior-x: contain;
+}
+.simd-chiptune-page .chiptune-character-screen { min-width: calc(var(--simd-card-width) * 7); height: 100%; }
+.simd-chiptune-page #characterStage { width: 100%; height: 100%; }
+.simd-chiptune-page .chiptune-character-bay-controls { inset: 0; height: 100%; padding: 0; grid-template-columns: repeat(7, minmax(0, 1fr)); grid-template-rows: minmax(0, 1fr); background: none; }
+.simd-chiptune-page .chiptune-character-bay-control { --volume-color: #53f6ff; position: relative; min-height: 0; height: 100%; padding: 0; grid-template-rows: 40px minmax(0, 1fr) 98px; align-items: stretch; justify-items: stretch; gap: 0; scroll-snap-align: start; }
+.simd-chiptune-page .chiptune-character-bay-control[data-active="true"] { background: transparent; box-shadow: inset 0 -3px var(--volume-color); }
+.simd-chiptune-page .chiptune-character-bay-control[data-audible="false"] { opacity: 1; }
+.simd-chiptune-page [data-character-voice="drums"] { --volume-color: #ff775e; }
+.simd-chiptune-page [data-character-voice="bass"] { --volume-color: #9c8dff; }
+.simd-chiptune-page [data-character-voice="arp"] { --volume-color: #f4c95d; }
+.simd-chiptune-page [data-character-voice="lead"] { --volume-color: #ff65bd; }
+.simd-chiptune-page [data-character-voice="upperTwo"] { --volume-color: #9dff57; }
+.simd-chiptune-page [data-character-voice="noise"] { --volume-color: #b5b3ff; }
+.simd-voice-header { display: flex; min-width: 0; padding: 6px 7px; grid-row: 1; align-items: center; justify-content: space-between; gap: 4px; background: rgba(7, 14, 20, .92); pointer-events: auto; }
+.simd-chiptune-page .chiptune-character-name { color: var(--ink); font: 900 14px/1 ui-monospace, SFMono-Regular, Consolas, monospace; letter-spacing: 0; text-transform: uppercase; }
+.simd-voice-view { min-width: 60px; min-height: 28px; padding: 3px 5px; border: 1px solid var(--line-strong); border-radius: 3px; color: var(--muted); background: #111d25; font: 700 9px/1.1 ui-monospace, SFMono-Regular, Consolas, monospace; cursor: pointer; }
+.simd-voice-view[aria-pressed="true"] { border-color: var(--volume-color); color: var(--volume-color); }
+.simd-voice-controls { position: relative; min-width: 0; min-height: 0; padding: 7px 6px; overflow-x: hidden; overflow-y: auto; grid-row: 2; background: #0b151c; scrollbar-width: thin; scrollbar-color: var(--faint) transparent; overscroll-behavior-y: contain; pointer-events: auto; }
+.simd-voice-controls [role="tablist"],
+.simd-voice-tabs { position: sticky; z-index: 2; top: -7px; margin: -7px -6px 5px; padding: 5px 4px; background: #0b151c; gap: 3px; }
+.simd-voice-controls [role="tab"],
+.simd-voice-tabs button { min-height: 26px; padding: 3px 5px; font-size: 9px; }
+.simd-chiptune-page .simd-voice-controls .webgpu-knob { width: 48px; flex-basis: 48px; }
+.simd-chiptune-page .simd-voice-controls .simd-knob-bank,
+.simd-chiptune-page .simd-voice-controls [role="tabpanel"] { justify-content: space-between; gap: 8px 5px; }
+.simd-chiptune-page .simd-voice-controls .webgpu-knob-label { font-size: 8px; }
+.simd-voice-footer { display: grid; min-width: 0; padding: 6px 8px 7px; grid-row: 3; grid-template-columns: 1fr; align-content: start; justify-items: center; gap: 5px; background: linear-gradient(transparent, rgba(4, 10, 15, .94) 18%); pointer-events: auto; }
+.simd-chiptune-page .chiptune-character-button-pair { display: grid; width: auto; grid-template-columns: 32px 32px 34px; align-items: center; gap: 5px; }
+.simd-chiptune-page .chiptune-character-button-pair button { min-width: 32px; min-height: 32px; font-size: 11px; }
+.simd-chiptune-page .chiptune-character-bay-control output { display: none; }
+.simd-voice-length { display: flex; min-width: 0; width: 100%; align-items: center; justify-content: center; gap: 6px; color: #c3d5ce; font: 750 10px/1 ui-monospace, SFMono-Regular, Consolas, monospace; }
+.simd-voice-length input { width: 48px; min-height: 28px; padding: 2px 3px 2px 7px; border: 1px solid var(--line-strong); border-radius: 3px; color: var(--volume-color); background: #0b141c; font: 800 13px/1 ui-monospace, SFMono-Regular, Consolas, monospace; text-align: center; pointer-events: auto; }
+.simd-noise-mode { margin-top: 6px; color: var(--muted); font: 700 9px/1.2 ui-monospace, SFMono-Regular, Consolas, monospace; }
+
+/* Mix remains reachable in both views, including each individual drum. */
+.simd-character-volume,
+.simd-drum-volume { display: grid; min-width: 0; align-items: center; justify-items: center; pointer-events: auto; }
+.simd-chiptune-page .simd-volume-dial { --volume-angle: -135deg; --volume-fill: 0%; --volume-size: 34px; position: relative; display: block; width: var(--volume-size); height: var(--volume-size); min-width: var(--volume-size); min-height: var(--volume-size); padding: 0; border: 1px solid color-mix(in srgb, var(--volume-color) 65%, #283639); border-radius: 50%; cursor: ns-resize; background: radial-gradient(circle, #0b131a 0 53%, transparent 55%), conic-gradient(from -135deg, var(--volume-color) 0 var(--volume-fill), #25343a var(--volume-fill) 75%, #0b131a 75% 100%); touch-action: none; pointer-events: auto; }
+.simd-chiptune-page .simd-volume-dial::after { position: absolute; top: 5px; left: calc(50% - 1px); width: 2px; height: 8px; border-radius: 1px; background: var(--volume-color); content: ""; transform: rotate(var(--volume-angle)); transform-origin: 1px calc(var(--volume-size) / 2 - 6px); }
+.simd-chiptune-page .simd-volume-dial:hover,
+.simd-chiptune-page .simd-volume-dial:focus-visible { border-color: var(--volume-color); outline: 2px solid var(--volume-color); outline-offset: 2px; }
+.simd-drum-volumes { display: grid; width: 100%; grid-template-columns: repeat(4, 1fr); justify-content: center; gap: 4px; pointer-events: auto; }
+.simd-chiptune-page [data-character-voice="drums"] .simd-voice-footer { grid-template-columns: auto auto; column-gap: 5px; }
+.simd-chiptune-page [data-character-voice="drums"] .chiptune-character-button-pair { grid-template-columns: 27px 27px 32px; gap: 2px; }
+.simd-chiptune-page [data-character-voice="drums"] .chiptune-character-button-pair button { min-width: 27px; }
+.simd-chiptune-page [data-character-voice="drums"] .simd-voice-length { width: auto; flex-direction: column; gap: 3px; font-size: 8px; }
+.simd-chiptune-page [data-character-voice="drums"] .simd-voice-length input { width: 43px; min-height: 25px; }
+.simd-chiptune-page [data-character-voice="drums"] .simd-drum-volumes { grid-column: 1 / -1; }
+.simd-chiptune-page .simd-drum-volume .simd-volume-dial { --volume-size: 27px; }
+.simd-chiptune-page .simd-drum-volume .simd-volume-dial::after { top: 3px; height: 6px; transform-origin: 1px 9.5px; }
+.simd-drum-volume > span { color: var(--ink); font: 750 8px/10px ui-monospace, SFMono-Regular, Consolas, monospace; white-space: nowrap; }
+
+/* The selected sequence spans the instrument width. */
+.simd-chiptune-page .webgpu-303-stage { position: relative; min-height: 330px; border-right: 0; box-shadow: none; }
+.simd-chiptune-page .webgpu-303-stage-wrap,
+.simd-chiptune-page #stage { min-height: 250px; }
+.simd-graphic-editor-controls { display: grid; flex: 0 0 auto; padding: 8px 12px; border-bottom: 1px solid var(--line); gap: 7px; background: #0b1219; }
+.simd-chiptune-page .chiptune-sequence-toolbar { position: static; display: flex; min-width: 0; margin: 0; padding: 0; overflow: visible; flex-wrap: wrap; align-items: center; gap: 8px 14px; background: transparent; border: 0; }
+.simd-chiptune-page .chiptune-sequence-toolbar > .mini-action { flex: 0 0 auto; margin: 0; min-width: 86px; min-height: 32px; padding: 3px 8px; font-size: 9px; }
+.simd-chiptune-page .chiptune-sequence-toolbar > .control { display: flex; width: auto; min-width: 0; margin: 0; align-items: center; gap: 6px; }
+.simd-chiptune-page .chiptune-sequence-toolbar .control > span { width: auto; flex: 0 0 auto; margin: 0; font-size: 9px; }
+.simd-chiptune-page .chiptune-sequence-toolbar input[type="range"] { width: 110px; }
+.simd-chiptune-page #sequenceZoom { width: 90px; }
+.simd-sequence-knobs { display: flex; min-width: 0; flex-wrap: wrap; align-items: center; gap: 6px 12px; }
+.simd-sequence-knobs:empty { display: none; }
+.simd-chiptune-page .chiptune-voice-tabs { display: flex; min-width: 0; flex: 0 0 auto; flex-wrap: wrap; gap: 6px; }
+.simd-chiptune-page .chiptune-voice-tabs:empty { display: none; }
+.simd-chiptune-page .chiptune-voice-tabs > button { min-width: 64px; }
+.simd-chiptune-page .chiptune-drum-mix-row { flex: 1 1 145px; }
+.simd-chiptune-page .chiptune-sequence-pages { justify-content: flex-end; }
+.simd-chiptune-page .chiptune-lane-picker:has(.chiptune-voice-tabs[data-performer]:not([data-performer="drums"])) { display: none; }
+.simd-chiptune-page .chiptune-morph-workspace { min-width: 0; padding: 8px 12px; }
+.simd-chiptune-page .chiptune-pattern-timing { display: flex; min-width: 0; margin: 0; padding: 0; flex-wrap: wrap; gap: 8px 12px; }
+.simd-chiptune-page .chiptune-sequence-actions { margin: 0; }
+.simd-chiptune-page .chiptune-sequence-actions .mini-action { margin: 0; min-height: 32px; }
+.simd-workspace-footer { display: flex; min-width: 0; padding: 8px 12px; border-top: 1px solid var(--line); flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 20px; background: #0b1219; }
+.simd-chiptune-page .reset-all-row { padding: 0; border: 0; }
+.simd-chiptune-page .reset-all-button { min-height: 32px; padding: 4px 10px; font-size: 9px; }
+.simd-chiptune-page .webgpu-303-credit { display: flex; padding: 0; border: 0; flex-wrap: wrap; gap: 4px 8px; font-size: 9px; }
+.simd-chiptune-page .webgpu-303-credit a { font-size: 9px; }
+.simd-chiptune-page .audio-error { flex: 1 1 100%; margin: 0; }
+
+@media (max-width: 1100px) {
+  .simd-performance-controls { gap: 6px 10px; }
+  .simd-preset-controls { flex-grow: 1; }
+  .simd-quick-actions { margin-left: auto; }
+}
+
+@media (max-width: 650px) {
+  .simd-chiptune-page { --simd-card-width: 184px; --simd-card-height: 346px; }
+  .simd-performance-controls { position: sticky; padding: 7px 9px; gap: 6px 9px; }
+  .simd-preset-controls { min-width: 0; flex: 1 1 calc(100% - 132px); }
+  .simd-tempo-transport { min-width: 117px; flex: 0 0 117px; gap: 5px; }
+  .simd-chiptune-page #simdTempoControls .control { width: 74px; }
+  .simd-chiptune-page #simdTempoControls input[type="range"] { width: 74px; }
+  .simd-structure-row { flex: 1 1 165px; }
+  .simd-composition-picker { flex: 1 1 auto; }
+  .simd-pattern-section { flex: 0 1 169px; }
+  .simd-pattern-section select { width: 77px; }
+  .simd-pattern-section .mini-action { padding-inline: 6px; font-size: 9px; }
+  .simd-quick-actions { width: 100%; margin-left: 0; justify-content: space-between; }
+  .simd-skin-picker { display: flex; align-items: center; gap: 7px; }
+  .simd-chiptune-page .simd-skin-picker select { max-width: 150px; }
+  .simd-global-controls { padding: 7px 9px 6px; }
+  .simd-global-tabs { gap: 3px; }
+  .simd-global-tabs button { min-height: 32px; padding: 3px 6px; font-size: 9px; }
+  .simd-chiptune-page #knobControls { flex-wrap: nowrap; overflow-x: auto; overflow-y: hidden; scrollbar-width: thin; }
+  .simd-chiptune-page .simd-global-controls [role="tabpanel"] { width: max-content; flex: 0 0 auto; flex-wrap: nowrap; }
+  .simd-chiptune-page .chiptune-character-name { font-size: 13px; }
+  .simd-chiptune-page .webgpu-303-stage { min-height: 355px; }
+  .simd-chiptune-page .webgpu-303-stage:has(.chiptune-voice-tabs[data-performer="drums"]) { min-height: 440px; }
+  .simd-chiptune-page .webgpu-303-stage-wrap,
+  .simd-chiptune-page #stage { min-height: 250px; }
+  .simd-graphic-editor-controls { padding: 7px 9px; }
+  .simd-chiptune-page .chiptune-sequence-toolbar { gap: 5px 8px; }
+  .simd-chiptune-page .chiptune-sequence-toolbar input[type="range"] { width: 85px; }
+  .simd-workspace-footer { padding: 9px; }
+}
+
+@media (pointer: coarse) {
+  .simd-chiptune-page { --simd-knob-size: 48px; }
+  .simd-preset-controls .instrument-picker-next { width: 40px; min-width: 40px; min-height: 44px; flex-basis: 40px; }
+  .simd-chiptune-page .simd-preset-controls .instrument-picker-trigger { min-height: 44px; }
+  .simd-chiptune-page .simd-performance-controls select,
+  .simd-chiptune-page .simd-quick-actions .mini-action { min-height: 34px; }
+  .simd-voice-view { min-height: 32px; }
+  .simd-voice-length input { min-height: 32px; }
+  .simd-chiptune-page .simd-voice-controls .webgpu-knob { width: 50px; flex-basis: 50px; }
+  .simd-chiptune-page .simd-voice-controls .simd-knob-bank,
+  .simd-chiptune-page .simd-voice-controls [role="tabpanel"] { gap: 9px 4px; }
+}
+
+@media (max-height: 500px) and (min-width: 651px) {
+  .simd-performance-controls { position: relative; }
+  .simd-chiptune-page { --simd-card-height: 324px; }
+}
+
+/* Controller-owned grouped parameter decks. */
+.simd-deck-tabs { display: flex; min-width: 0; flex-wrap: wrap; gap: 4px; }
+.simd-deck-tabs button { min-width: 0; min-height: 28px; margin: 0; padding: 3px 8px; border: 1px solid var(--line-strong); border-radius: 3px; color: var(--muted); background: #101a22; font: 700 10px/1.1 ui-monospace, SFMono-Regular, Consolas, monospace; cursor: pointer; }
+.simd-deck-tabs button[aria-selected="true"] { border-color: var(--accent); color: var(--ink); background: color-mix(in srgb, var(--accent) 12%, #101a22); }
+.simd-chiptune-page .simd-global-controls .simd-deck-panel,
+.simd-chiptune-page .simd-voice-controls .simd-deck-panel { display: grid; width: 100%; min-width: 0; gap: 6px; }
+.simd-chiptune-page .simd-knob-grid { display: grid; width: 100%; min-width: 0; grid-template-columns: repeat(3, minmax(0, 1fr)); align-items: start; justify-items: center; gap: 8px 4px; }
+.simd-chiptune-page .simd-knob-grid .webgpu-knob { width: 100%; max-width: 62px; }
+.simd-chiptune-page .simd-global-controls .simd-knob-grid { display: flex; flex-wrap: wrap; justify-content: flex-start; gap: 8px 10px; }
+.simd-chiptune-page .simd-global-controls .simd-knob-grid > .webgpu-knob { width: 62px; flex: 0 0 62px; }
+.simd-knob-details { min-width: 0; margin: 2px 0 0; border-top: 1px solid var(--line); }
+.simd-knob-details > summary { padding: 6px 2px; color: #b3c4bd; font: 700 9px/1.2 ui-monospace, SFMono-Regular, Consolas, monospace; cursor: pointer; }
+.simd-knob-details[open] > summary { color: var(--volume-color, var(--accent)); }
+.simd-deck-note { margin: 2px 0 4px; color: #afc3ba; font: 500 10px/1.4 ui-monospace, SFMono-Regular, Consolas, monospace; }
+.simd-voice-controls .simd-deck-tabs { gap: 3px; }
+.simd-voice-controls .simd-deck-tabs button { min-height: 26px; padding: 3px 5px; font-size: 9px; }
+.simd-voice-controls .simd-deck-tabs button[aria-selected="true"] { border-color: var(--volume-color); color: var(--volume-color); }
+@media (max-width: 650px) {
+  .simd-chiptune-page #knobControls:has(.simd-deck-panel) { display: block; overflow-x: auto; }
+  .simd-chiptune-page .simd-global-controls .simd-deck-panel { min-width: 100%; width: max-content; }
+  .simd-chiptune-page .simd-global-controls .simd-knob-grid { width: max-content; flex-wrap: nowrap; }
+  .simd-chiptune-page .simd-global-controls .simd-knob-details { width: 100%; }
+}
+
+/* Tabs stay outside the scrolling knobs so the first row never slides beneath them. */
+.simd-chiptune-page .simd-voice-controls {
+  display: flex;
+  padding: 0;
+  overflow: hidden;
+  flex-direction: column;
+}
+.simd-chiptune-page .simd-voice-controls > .simd-deck-tabs {
+  position: static;
+  margin: 0;
+  padding: 5px 4px;
+  flex: 0 0 auto;
+}
+.simd-chiptune-page .simd-voice-controls > .simd-deck-panel {
+  display: block;
+  min-height: 0;
+  padding: 5px 6px 8px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  flex: 1 1 auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--faint) transparent;
+  overscroll-behavior-y: contain;
+}
+.simd-chiptune-page .simd-voice-controls > .simd-deck-note { margin: 7px; }
+.simd-chiptune-page .simd-voice-controls .simd-pattern-rhythm { margin-bottom: 8px; }
+
+/* Sequence navigation, view knobs, drum parts and tools share one wrapping strip. */
+.simd-chiptune-page .simd-graphic-editor-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 12px;
+}
+.simd-chiptune-page #sequenceToolbar,
+.simd-chiptune-page #simdSequenceControls { flex: 0 0 auto; }
+.simd-chiptune-page #simdSequenceControls { gap: 6px; }
+.simd-chiptune-page .simd-graphic-editor-controls .chiptune-lane-picker { min-width: 0; flex: 1 1 450px; }
+.simd-chiptune-page .simd-graphic-editor-controls .chiptune-voice-tabs { gap: 5px; }
+.simd-chiptune-page .simd-graphic-editor-controls .chiptune-drum-mix-row { grid-template-columns: minmax(50px, 1fr) 35px 35px; flex: 1 1 145px; gap: 3px; }
+.simd-chiptune-page .simd-graphic-editor-controls .chiptune-drum-mix-row button { min-width: 0; min-height: 32px; padding: 3px; font-size: 8px; }
+.simd-chiptune-page .simd-sequence-options { min-width: 0; flex: 0 0 auto; }
+.simd-chiptune-page .simd-sequence-options > summary { padding: 9px 3px; color: #a4b5af; font: 700 10px/1.2 ui-monospace, SFMono-Regular, Consolas, monospace; cursor: pointer; }
+.simd-chiptune-page .simd-sequence-options[open] { flex: 1 0 100%; }
+.simd-chiptune-page .simd-sequence-options .chiptune-control-stack { margin: 0; padding: 4px 0; }
+.simd-chiptune-page .simd-sequence-options .chiptune-sequence-actions { display: flex; flex-wrap: wrap; gap: 5px; }
+.simd-chiptune-page .simd-sequence-options .chiptune-fraction-control { max-width: 230px; margin: 8px 0 0; }
+
+.simd-chiptune-page .simd-global-tabs button,
+.simd-chiptune-page .simd-deck-tabs button,
+.simd-chiptune-page .simd-voice-view { color: #a4b5af; }
+.simd-chiptune-page .simd-global-tabs button[aria-selected="true"],
+.simd-chiptune-page .simd-deck-tabs button[aria-selected="true"] { color: var(--ink); }
+.simd-chiptune-page .simd-voice-controls .simd-deck-tabs button[aria-selected="true"],
+.simd-chiptune-page .simd-voice-view[aria-pressed="true"] { color: var(--volume-color); }
+
+@media (max-width: 650px) {
+  .simd-chiptune-page .simd-graphic-editor-controls { gap: 6px 9px; }
+  .simd-chiptune-page .simd-graphic-editor-controls .chiptune-lane-picker { flex-basis: 100%; }
+}
+
+/* Small, single-color dials share one visual language throughout the instrument. */
+.simd-chiptune-page { --simd-dial-target: 40px; --simd-dial-visual: 27px; }
+.simd-chiptune-page .webgpu-knob {
+  --knob-size: var(--simd-dial-target);
+  gap: 2px;
+}
+.simd-chiptune-page .webgpu-knob-dial {
+  --dial-color: var(--volume-color, var(--webgpu-cyan));
+  position: relative;
+  display: block;
+  width: var(--simd-dial-target);
+  height: var(--simd-dial-target);
+  min-width: var(--simd-dial-target);
+  min-height: var(--simd-dial-target);
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  box-shadow: none;
+}
+.simd-chiptune-page .webgpu-knob-dial::before {
+  position: absolute;
+  inset: auto;
+  top: 50%;
+  left: 50%;
+  width: var(--simd-dial-visual);
+  height: var(--simd-dial-visual);
+  border: 1px solid color-mix(in srgb, var(--dial-color) 55%, #25343a);
+  border-radius: 50%;
+  background:
+    radial-gradient(circle, #0b131a 0 54%, transparent 57%),
+    conic-gradient(from -135deg, var(--dial-color) 0 var(--knob-fill), #29383e var(--knob-fill) 75%, #0b131a 75% 100%);
+  box-shadow: none;
+  content: "";
+  transform: translate(-50%, -50%);
+}
+.simd-chiptune-page .webgpu-knob-dial::after {
+  top: calc(50% - 10px);
+  left: calc(50% - 1px);
+  width: 2px;
+  height: 7px;
+  border-radius: 1px;
+  background: var(--dial-color);
+  box-shadow: none;
+  transform: rotate(var(--knob-angle));
+  transform-origin: 1px 10px;
+}
+.simd-chiptune-page .webgpu-knob-dial:hover,
+.simd-chiptune-page .webgpu-knob-dial:focus-visible {
+  border: 0;
+  outline: 1px solid var(--dial-color);
+  outline-offset: -3px;
+  box-shadow: none;
+}
+.simd-chiptune-page .webgpu-knob-label {
+  color: #c4d6d0;
+  font-size: 9px;
+  line-height: 1.1;
+  overflow: visible;
+  text-overflow: clip;
+}
+.simd-chiptune-page .webgpu-knob-value {
+  display: block;
+  color: #b9cbc3;
+  font-size: 9px;
+  line-height: 1.1;
+}
+.simd-chiptune-page .simd-voice-controls .webgpu-knob-label { font-size: 8px; }
+.simd-chiptune-page .simd-knob-grid { row-gap: 8px; }
+.simd-chiptune-page #knobControls { min-height: 62px; }
+.simd-chiptune-page .simd-control-group:empty { display: none; }
+
+/* Flat voice decks scroll as a single panel; only drum parts need a tab strip. */
+.simd-chiptune-page .simd-voice-controls > .simd-deck-panel {
+  padding: 4px 5px 7px;
+}
+.simd-chiptune-page .simd-voice-controls .simd-pattern-rhythm { margin-bottom: 8px; }
+.simd-chiptune-page .simd-voice-controls .simd-control-group + .simd-control-group { margin-top: 8px; }
+.simd-chiptune-page .chiptune-character-bay-control { grid-template-rows: 40px minmax(0, 1fr) 80px; }
+.simd-chiptune-page .chiptune-character-bay-control[data-character-voice="drums"] { grid-template-rows: 40px minmax(0, 1fr) 110px; }
+.simd-chiptune-page .simd-voice-footer {
+  grid-template-columns: 1fr;
+  padding: 4px 7px 5px;
+  align-content: start;
+  gap: 3px;
+}
+.simd-chiptune-page .simd-voice-footer .chiptune-character-button-pair {
+  grid-template-columns: 32px 32px 48px;
+  align-items: start;
+  gap: 5px;
+}
+.simd-chiptune-page .simd-voice-footer .chiptune-character-button-pair > button { margin-top: 4px; }
+.simd-chiptune-page .simd-voice-footer .webgpu-knob { width: 100%; max-width: none; gap: 1px; }
+.simd-chiptune-page .simd-voice-footer .webgpu-knob-label { font-size: 8px; line-height: 10px; text-transform: none; }
+.simd-chiptune-page .simd-voice-footer .webgpu-knob-value { display: block; font-size: 9px; line-height: 10px; }
+.simd-chiptune-page .simd-voice-footer .simd-noise-mode { margin-top: 0; font-size: 8px; }
+
+/* Five drum levels share one row: bus, kick, snare, hats and shaker. */
+.simd-chiptune-page [data-character-voice="drums"] .simd-voice-footer {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-rows: 30px auto;
+  align-items: start;
+  column-gap: 1px;
+  row-gap: 3px;
+}
+.simd-chiptune-page [data-character-voice="drums"] .simd-voice-footer .chiptune-character-button-pair,
+.simd-chiptune-page [data-character-voice="drums"] .simd-drum-volumes { display: contents; }
+.simd-chiptune-page [data-character-voice="drums"] .simd-voice-footer [data-character-mute] { grid-column: 1 / 3; grid-row: 1; width: 100%; min-height: 27px; margin: 0; }
+.simd-chiptune-page [data-character-voice="drums"] .simd-voice-footer [data-character-solo] { grid-column: 4 / 6; grid-row: 1; width: 100%; min-height: 27px; margin: 0; }
+.simd-chiptune-page [data-character-voice="drums"] .simd-character-volume { grid-column: 1; grid-row: 2; }
+.simd-chiptune-page [data-character-voice="drums"] .simd-drum-volume { grid-row: 2; }
+.simd-chiptune-page [data-character-voice="drums"] .simd-drum-volume:nth-child(1) { grid-column: 2; }
+.simd-chiptune-page [data-character-voice="drums"] .simd-drum-volume:nth-child(2) { grid-column: 3; }
+.simd-chiptune-page [data-character-voice="drums"] .simd-drum-volume:nth-child(3) { grid-column: 4; }
+.simd-chiptune-page [data-character-voice="drums"] .simd-drum-volume:nth-child(4) { grid-column: 5; }
+.simd-chiptune-page [data-character-voice="drums"] .simd-voice-footer .webgpu-knob-dial { --simd-dial-target: 32px; }
+.simd-chiptune-page [data-character-voice="drums"] .simd-voice-footer .webgpu-knob-label { font-size: 7px; }
+.simd-chiptune-page [data-character-voice="drums"] .simd-voice-footer .webgpu-knob-value { font-size: 8px; }
+
+.simd-voice-meter {
+  --voice-level: 0;
+  display: block;
+  min-width: 12px;
+  height: 4px;
+  overflow: hidden;
+  border-radius: 1px;
+  background: #29353b;
+}
+.simd-voice-meter-fill {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: var(--volume-color, var(--webgpu-cyan));
+  transform: scaleX(var(--voice-level));
+  transform-origin: left center;
+}
+.simd-voice-header > .simd-voice-meter { max-width: 32px; flex: 1 1 16px; }
+.simd-drum-volume > .simd-voice-meter { width: 100%; height: 3px; margin-top: 3px; }
+
+@media (pointer: coarse) {
+  .simd-chiptune-page { --simd-dial-target: 44px; }
+}
+.simd-chiptune-page .simd-voice-controls .webgpu-knob-value { display: block; }

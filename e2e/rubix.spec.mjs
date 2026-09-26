@@ -269,7 +269,7 @@ test("Rubix SIMD runs six audio-clock face voices without WebGPU or chunk primin
   expect(envelope.summary.maxPeak).toBeGreaterThan(0.001);
   expect(envelope.summary.clippedSamples).toBe(0);
   const originalStart = (await snapshot(page)).simdTimelineStart;
-  await page.locator('[data-read-mode="face"]').click();
+  await page.locator('#readPath').selectOption('face');
   await setRange(page, "swing", 0.3);
   await setRange(page, "tempo", 180);
   expect((await snapshot(page)).simdTimelineStart).toBe(originalStart);

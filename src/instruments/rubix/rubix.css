@@ -492,34 +492,6 @@
   opacity: 1;
 }
 
-.rubix-visibility-dynamics {
-  margin: 0 0 12px;
-  padding: 9px 10px 4px;
-  border: 1px solid color-mix(in oklab, var(--accent) 22%, var(--line-strong));
-  background:
-    linear-gradient(90deg, color-mix(in oklab, var(--accent) 5%, transparent), transparent 62%),
-    var(--bg-deep);
-}
-
-.rubix-visibility-dynamics > span {
-  margin-bottom: 0;
-}
-
-.rubix-visibility-dynamics > span b {
-  color: var(--accent);
-  font-size: 8px;
-  letter-spacing: 0.065em;
-  text-transform: uppercase;
-}
-
-.rubix-visibility-dynamics > small {
-  margin: -5px 0 3px;
-  color: var(--faint);
-  font-size: 7px;
-  letter-spacing: 0.025em;
-  line-height: 1.35;
-}
-
 .rubix-status-strip {
   display: grid;
   min-height: 57px;
@@ -1294,8 +1266,7 @@
   .rubix-preset-control,
   .rubix-sound-bank-control,
   .rubix-acid-engine-control,
-  .rubix-bank-subcontrols,
-  .rubix-visibility-dynamics {
+  .rubix-bank-subcontrols {
     padding-right: 8px;
     padding-left: 8px;
   }
@@ -1361,4 +1332,21 @@
   .rubix-mini-sticker {
     transition: none;
   }
+}
+
+/* Compact performance rows use Shape's shared circular play control. */
+.puzzle-performance { display: grid; gap: 12px; padding: 14px 16px; }
+.puzzle-performance .position-row { display: grid; grid-template-columns: var(--mz-control-height) minmax(0, 1fr); align-items: end; gap: 14px; margin: 0; }
+.puzzle-performance .control, .puzzle-performance .select-control { min-width: 0; margin: 0; }
+.puzzle-tempo-control { display: grid; min-width: 0; grid-template-columns: minmax(0, 1fr) 32px; align-items: end; gap: 8px; }
+.puzzle-tempo-control > button { width: 32px; height: 32px; min-height: 32px; margin-bottom: 4px; padding: 0; font-size: 12px; }
+.puzzle-swing-row { padding-left: calc(var(--mz-control-height) + 14px); }
+.puzzle-performance .puzzle-read-path, .puzzle-performance .hyper-rubix-method-select { padding: 0; border: 0; background: transparent; }
+.puzzle-performance > .select-control { display: grid; grid-template-columns: 72px minmax(0, 1fr); align-items: center; gap: 10px; }
+.puzzle-performance .play-button svg { width: 18px; height: 18px; }
+.puzzle-twist-row > .play-button > span:first-child { display: contents; }
+@media (pointer: coarse) {
+  .puzzle-performance { --mz-control-height: 48px; }
+  .puzzle-tempo-control { grid-template-columns: minmax(0, 1fr) 48px; }
+  .puzzle-tempo-control > button { width: 48px; height: 48px; min-height: 48px; margin-bottom: 0; }
 }

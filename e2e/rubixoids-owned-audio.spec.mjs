@@ -5,7 +5,7 @@ import { enforceRubixoidsOwnership } from './helpers/rubixoids-ownership.mjs';
 enforceRubixoidsOwnership(test, expect);
 
 const mainAudio = page => page.locator('body > .masthead #audioButton');
-const mainPlay = page => page.locator('body > .rubixoids-bar #playButton');
+const mainPlay = page => page.locator('.rubixoids-pane:not([hidden]) #playButton');
 const pane = (page, dimension) => page.locator(`.rubixoids-pane[data-dimension="${dimension}"]`);
 const cubeSnapshot = page => page.evaluate(async () => (
   await import('/src/instruments/rubixoids/rubix/rubix-app.js')

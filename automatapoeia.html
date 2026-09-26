@@ -13,7 +13,7 @@
     <link rel="stylesheet" href="style.css" />
     <link rel="stylesheet" href="src/families/experiments/experiments.css" />
   </head>
-  <body class="experiment-page" data-experiment="automata" data-tool-id="cellular-automata">
+  <body class="experiment-page" data-experiment="automata" data-tool-id="cellular-automata" data-instrument-info="off">
     <header class="masthead">
       <a class="wordmark" href="./" aria-label="Morphazoid home">
         <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
@@ -72,8 +72,8 @@
       </section>
 
       <aside class="panel experiment-panel" data-instrument-preset-host aria-label="Automatapoeia controls">
-        <section class="group control-section automata-compact-section" aria-labelledby="automataLiveTitle">
-          <div class="experiment-card-heading">
+        <section class="group control-section automata-compact-section" data-section="play" aria-labelledby="automataLiveTitle">
+          <div class="group-summary static-group-summary">
             <h2 class="group-title" id="automataLiveTitle">Live</h2>
             <span class="section-state" id="patternSummary">Rule 30</span>
           </div>
@@ -98,14 +98,56 @@
               <button id="seedAutomata" type="button" aria-label="Restart from the initial row">Restart</button>
               <button class="automata-randomize" id="randomizeAutomata" type="button" aria-label="Append a new seed without clearing history">Reseed</button>
             </div>
+            <details class="automata-rule-picker" id="caRulePicker">
+              <summary>
+                <span class="automata-rule-picker-copy">
+                  <span>Rules</span>
+                  <strong id="caRulePickerLabel" aria-live="polite">Elementary R1 · Rule 30</strong>
+                </span>
+                <svg
+                  class="automata-rule-current-preview"
+                  id="caRuleCurrentPreview"
+                  viewBox="0 0 31 18"
+                  preserveAspectRatio="none"
+                  role="img"
+                  aria-labelledby="caRuleCurrentPreviewTitle"
+                >
+                  <title id="caRuleCurrentPreviewTitle">Periodic preview of Elementary R1 · Rule 30</title>
+                  <path id="caRuleCurrentPath"></path>
+                </svg>
+                <span class="automata-rule-picker-chevron" aria-hidden="true">⌄</span>
+              </summary>
+              <div class="automata-rule-picker-panel">
+                <div class="automata-rule-atlas-controls">
+                  <label for="caRuleSearch">
+                    <span id="caRuleSearchLabel">Rule or 8-bit code</span>
+                    <input id="caRuleSearch" type="search" inputmode="numeric" placeholder="30 or 00011110" />
+                  </label>
+                  <label for="caRuleFilter">
+                    <span>Show</span>
+                    <select id="caRuleFilter">
+                      <option id="caRuleFilterAll" value="all">All 256 rules</option>
+                      <option id="caRuleFilterRepresentatives" value="representatives">88 symmetry representatives</option>
+                      <option id="caRuleFilterFamily" value="family">Selected symmetry family</option>
+                    </select>
+                  </label>
+                </div>
+                <p class="automata-rule-atlas-status" id="caRuleAtlasStatus" aria-live="polite">256 elementary rules</p>
+                <div class="automata-rule-atlas-grid" id="caRuleAtlasGrid" role="group" aria-label="Elementary cellular automaton rules"></div>
+              </div>
+            </details>
+            <div class="experiment-button-grid automata-rule-stepper" id="caRuleStepper" role="group" aria-label="Step through elementary rules">
+              <button id="previousAutomataRule" type="button" aria-keyshortcuts="ArrowLeft">← Previous</button>
+              <button id="nextAutomataRule" type="button" aria-keyshortcuts="ArrowRight">Next →</button>
+            </div>
           </div>
         </section>
 
-        <section class="group control-section automata-compact-section" aria-labelledby="automataVoiceTitle">
-          <div class="experiment-card-heading">
+        <details class="group control-section automata-compact-section" data-section="sound" open aria-labelledby="automataVoiceTitle">
+          <summary class="group-summary">
             <h2 class="group-title" id="automataVoiceTitle">Sound</h2>
             <span class="section-state" id="caVoiceSummary">Rattlesnake × Carpet</span>
-          </div>
+          </summary>
           <div class="group-body">
             <label class="select-control" for="caVoice">
               <span class="field-label">Synthesis technique</span>
@@ -147,134 +189,156 @@
                 <input id="caFrequencyMax" type="range" min="400" max="12000" step="25" value="6400" />
               </label>
             </div>
-            <details class="automata-sound-details" id="caSoundDetails">
-              <summary>Sound shaping</summary>
-              <div class="automata-sound-details-body">
-                <h3 class="automata-control-heading">Sound geometry</h3>
-                <label class="select-control" for="caPolarity">
-                  <span class="field-label">Sonify cells</span>
-                  <span class="select-shell">
-                    <select id="caPolarity">
-                      <option value="one" selected>Off-white · state 1</option>
-                      <option value="zero">Black · state 0</option>
-                    </select>
-                  </span>
-                </label>
-                <label class="select-control" for="caObjectMode">
-                  <span class="field-label">Sound objects</span>
-                  <span class="select-shell">
-                    <select id="caObjectMode">
-                      <option value="runs" selected>Horizontal runs</option>
-                      <option value="connected">Down-connected forms</option>
-                    </select>
-                  </span>
-                </label>
-                <h3 class="automata-control-heading">Timbre and pitch</h3>
-                <label class="select-control" for="caPitchCurve">
-                  <span class="field-label">Pitch response</span>
-                  <span class="select-shell">
-                    <select id="caPitchCurve">
-                      <option value="linear" selected>Linear left → right</option>
-                      <option value="early">Early rise</option>
-                      <option value="late">Late rise</option>
-                      <option value="smooth">Smooth S-curve</option>
-                      <option value="reverse">Reverse right → left</option>
-                    </select>
-                  </span>
-                </label>
-                <label class="control" for="caPitchTrace">
-                  <span><b>Pitch motion trace</b><output id="caPitchTraceOut" for="caPitchTrace">70%</output></span>
-                  <input id="caPitchTrace" type="range" min="0" max="1" step="0.01" value="0.7" />
-                </label>
-                <label class="select-control" for="caTimbreSource">
-                  <span class="field-label">Timbre driven by</span>
-                  <span class="select-shell">
-                    <select id="caTimbreSource">
-                      <option value="run-length">Live-run length</option>
-                      <option value="local-walls" selected>Local domain walls</option>
-                      <option value="row-density">Row density</option>
-                      <option value="row-walls">Row domain walls</option>
-                      <option value="activity">Generation activity</option>
-                      <option value="persistence">Vertical persistence</option>
-                      <option value="expansion">Run expansion</option>
-                      <option value="edge-flux">Edge flux</option>
-                      <option value="symmetry">Mirror symmetry</option>
-                    </select>
-                  </span>
-                </label>
-                <label class="control" for="caTimbreAmount">
-                  <span><b>Timbre amount</b><output id="caTimbreAmountOut" for="caTimbreAmount">80%</output></span>
-                  <input id="caTimbreAmount" type="range" min="0" max="1" step="0.01" value="0.8" />
-                </label>
-                <h3 class="automata-control-heading">Cellular contour</h3>
-                <label class="select-control" for="caContourSource">
-                  <span class="field-label">Contour driven by</span>
-                  <span class="select-shell">
-                    <select id="caContourSource">
-                      <option value="motion" selected>Run motion</option>
-                      <option value="expansion">Run expansion</option>
-                      <option value="edge-flux">Edge flux</option>
-                      <option value="persistence">Vertical persistence</option>
-                      <option value="birth-death">Birth–death balance</option>
-                    </select>
-                  </span>
-                </label>
-                <label class="control" for="caContourAmount">
-                  <span><b>Contour depth</b><output id="caContourAmountOut" for="caContourAmount">42%</output></span>
-                  <input id="caContourAmount" type="range" min="0" max="1" step="0.01" value="0.42" />
-                </label>
-                <h3 class="automata-control-heading">Timing</h3>
-                <label class="select-control" for="caPhraseShape">
-                  <span class="field-label">Phrase shape</span>
-                  <span class="select-shell">
-                    <select id="caPhraseShape">
-                      <option value="bands" selected>Object spans</option>
-                      <option value="centers">Object centers</option>
-                    </select>
-                  </span>
-                </label>
-                <label class="control" for="caRhythmDetail">
-                  <span><b>Rhythm detail</b><output id="caRhythmDetailOut" for="caRhythmDetail">8 objects</output></span>
-                  <input id="caRhythmDetail" type="range" min="1" max="16" step="1" value="8" />
-                </label>
-                <label class="control" for="caTimeSpread">
-                  <span><b>Horizontal time spread</b><output id="caTimeSpreadOut" for="caTimeSpread">76%</output></span>
-                  <input id="caTimeSpread" type="range" min="0" max="1" step="0.01" value="0.76" />
-                </label>
-                <label class="control" for="caSwing">
-                  <span><b>Row swing</b><output id="caSwingOut" for="caSwing">+8%</output></span>
-                  <input id="caSwing" type="range" min="-0.42" max="0.42" step="0.01" value="0.08" />
-                </label>
-                <label class="control" for="caStrikeLength">
-                  <span><b>Gate / overlap</b><output id="caStrikeLengthOut" for="caStrikeLength">115%</output></span>
-                  <input id="caStrikeLength" type="range" min="0.1" max="2" step="0.01" value="1.15" />
-                </label>
-                <h3 class="automata-control-heading">Amplitude envelope</h3>
+
+            <div id="caEnvelopeControl" class="automata-envelope" role="group" aria-label="Amplitude ADSR">
+              <h3 class="automata-control-heading">Amplitude ADSR</h3>
+              <div class="curve-editor amplitude-curve-editor" id="caEnvelopeEditor" aria-label="ADSR curve">
+                <svg viewBox="0 0 240 96" preserveAspectRatio="none" aria-hidden="true">
+                  <path class="curve-grid" d="M0 48H240M60 0V96M120 0V96M180 0V96" />
+                  <path class="curve-path" id="caEnvelopePath" />
+                </svg>
+                <button class="curve-node amplitude-node" type="button" role="slider" data-envelope="caAttack" aria-label="Attack" aria-orientation="horizontal"><span>A</span></button>
+                <button class="curve-node amplitude-node" type="button" role="slider" data-envelope="caDecay" aria-label="Decay" aria-orientation="horizontal"><span>D</span></button>
+                <button class="curve-node amplitude-node" type="button" role="slider" data-envelope="caSustain" aria-label="Sustain" aria-orientation="vertical"><span>S</span></button>
+                <button class="curve-node amplitude-node" type="button" role="slider" data-envelope="caRelease" aria-label="Release" aria-orientation="horizontal"><span>R</span></button>
+              </div>
+              <div class="automata-envelope-values">
+                <div><span>Attack</span><output id="caAttackOut" for="caAttack">12 ms</output></div>
+                <div><span>Decay</span><output id="caDecayOut" for="caDecay">120 ms</output></div>
+                <div><span>Sustain</span><output id="caSustainOut" for="caSustain">72%</output></div>
+                <div><span>Release</span><output id="caReleaseOut" for="caRelease">320 ms</output></div>
+              </div>
+              <div hidden>
                 <label class="control" for="caAttack">
-                  <span><b>Attack</b><output id="caAttackOut" for="caAttack">12 ms</output></span>
+                  <span><b>Attack</b></span>
                   <input id="caAttack" type="range" min="0.001" max="0.4" step="0.001" value="0.012" />
                 </label>
                 <label class="control" for="caDecay">
-                  <span><b>Decay</b><output id="caDecayOut" for="caDecay">120 ms</output></span>
+                  <span><b>Decay</b></span>
                   <input id="caDecay" type="range" min="0.005" max="1.5" step="0.005" value="0.12" />
                 </label>
                 <label class="control" for="caSustain">
-                  <span><b>Sustain</b><output id="caSustainOut" for="caSustain">72%</output></span>
+                  <span><b>Sustain</b></span>
                   <input id="caSustain" type="range" min="0" max="1" step="0.01" value="0.72" />
                 </label>
                 <label class="control" for="caRelease">
-                  <span><b>Release</b><output id="caReleaseOut" for="caRelease">320 ms</output></span>
+                  <span><b>Release</b></span>
                   <input id="caRelease" type="range" min="0.005" max="2" step="0.005" value="0.32" />
                 </label>
               </div>
-            </details>
+            </div>
           </div>
-        </section>
+        </details>
 
-        <section class="group control-section automata-compact-section" aria-labelledby="automataRuleTitle">
-          <div class="experiment-card-heading">
-            <h2 class="group-title" id="automataRuleTitle">Rule</h2>
+        <details class="group control-section automata-compact-section" data-section="mapping" id="caSoundDetails">
+          <summary class="group-summary"><h2 class="group-title">Sound shaping</h2></summary>
+          <div class="group-body">
+            <h3 class="automata-control-heading">Sound geometry</h3>
+            <label class="select-control" for="caPolarity">
+              <span class="field-label">Sonify cells</span>
+              <span class="select-shell">
+                <select id="caPolarity">
+                  <option value="one" selected>Off-white · state 1</option>
+                  <option value="zero">Black · state 0</option>
+                </select>
+              </span>
+            </label>
+            <label class="select-control" for="caObjectMode">
+              <span class="field-label">Sound objects</span>
+              <span class="select-shell">
+                <select id="caObjectMode">
+                  <option value="runs" selected>Horizontal runs</option>
+                  <option value="connected">Down-connected forms</option>
+                </select>
+              </span>
+            </label>
+            <h3 class="automata-control-heading">Timbre and pitch</h3>
+            <label class="select-control" for="caPitchCurve">
+              <span class="field-label">Pitch response</span>
+              <span class="select-shell">
+                <select id="caPitchCurve">
+                  <option value="linear" selected>Linear left → right</option>
+                  <option value="early">Early rise</option>
+                  <option value="late">Late rise</option>
+                  <option value="smooth">Smooth S-curve</option>
+                  <option value="reverse">Reverse right → left</option>
+                </select>
+              </span>
+            </label>
+            <label class="control" for="caPitchTrace">
+              <span><b>Pitch motion trace</b><output id="caPitchTraceOut" for="caPitchTrace">70%</output></span>
+              <input id="caPitchTrace" type="range" min="0" max="1" step="0.01" value="0.7" />
+            </label>
+            <label class="select-control" for="caTimbreSource">
+              <span class="field-label">Timbre driven by</span>
+              <span class="select-shell">
+                <select id="caTimbreSource">
+                  <option value="run-length">Live-run length</option>
+                  <option value="local-walls" selected>Local domain walls</option>
+                  <option value="row-density">Row density</option>
+                  <option value="row-walls">Row domain walls</option>
+                  <option value="activity">Generation activity</option>
+                  <option value="persistence">Vertical persistence</option>
+                  <option value="expansion">Run expansion</option>
+                  <option value="edge-flux">Edge flux</option>
+                  <option value="symmetry">Mirror symmetry</option>
+                </select>
+              </span>
+            </label>
+            <label class="control" for="caTimbreAmount">
+              <span><b>Timbre amount</b><output id="caTimbreAmountOut" for="caTimbreAmount">80%</output></span>
+              <input id="caTimbreAmount" type="range" min="0" max="1" step="0.01" value="0.8" />
+            </label>
+            <h3 class="automata-control-heading">Cellular contour</h3>
+            <label class="select-control" for="caContourSource">
+              <span class="field-label">Contour driven by</span>
+              <span class="select-shell">
+                <select id="caContourSource">
+                  <option value="motion" selected>Run motion</option>
+                  <option value="expansion">Run expansion</option>
+                  <option value="edge-flux">Edge flux</option>
+                  <option value="persistence">Vertical persistence</option>
+                  <option value="birth-death">Birth–death balance</option>
+                </select>
+              </span>
+            </label>
+            <label class="control" for="caContourAmount">
+              <span><b>Contour depth</b><output id="caContourAmountOut" for="caContourAmount">42%</output></span>
+              <input id="caContourAmount" type="range" min="0" max="1" step="0.01" value="0.42" />
+            </label>
+            <h3 class="automata-control-heading">Timing</h3>
+            <label class="select-control" for="caPhraseShape">
+              <span class="field-label">Phrase shape</span>
+              <span class="select-shell">
+                <select id="caPhraseShape">
+                  <option value="bands" selected>Object spans</option>
+                  <option value="centers">Object centers</option>
+                </select>
+              </span>
+            </label>
+            <label class="control" for="caRhythmDetail">
+              <span><b>Rhythm detail</b><output id="caRhythmDetailOut" for="caRhythmDetail">8 objects</output></span>
+              <input id="caRhythmDetail" type="range" min="1" max="16" step="1" value="8" />
+            </label>
+            <label class="control" for="caTimeSpread">
+              <span><b>Horizontal time spread</b><output id="caTimeSpreadOut" for="caTimeSpread">76%</output></span>
+              <input id="caTimeSpread" type="range" min="0" max="1" step="0.01" value="0.76" />
+            </label>
+            <label class="control" for="caSwing">
+              <span><b>Row swing</b><output id="caSwingOut" for="caSwing">+8%</output></span>
+              <input id="caSwing" type="range" min="-0.42" max="0.42" step="0.01" value="0.08" />
+            </label>
+            <label class="control" for="caStrikeLength">
+              <span><b>Gate / overlap</b><output id="caStrikeLengthOut" for="caStrikeLength">115%</output></span>
+              <input id="caStrikeLength" type="range" min="0.1" max="2" step="0.01" value="1.15" />
+            </label>
           </div>
+        </details>
+
+        <details class="group control-section automata-compact-section" data-section="form" open aria-labelledby="automataRuleTitle">
+          <summary class="group-summary">
+            <h2 class="group-title" id="automataRuleTitle">Rule settings</h2>
+          </summary>
           <div class="group-body">
             <label class="select-control" for="caFamily">
               <span class="field-label">Automaton family</span>
@@ -285,48 +349,6 @@
                 </select>
               </span>
             </label>
-            <details class="automata-rule-picker" id="caRulePicker">
-              <summary>
-                <span class="automata-rule-picker-copy">
-                  <span>Rule atlas</span>
-                  <strong id="caRulePickerLabel" aria-live="polite">Elementary R1 · Rule 30</strong>
-                </span>
-                <svg
-                  class="automata-rule-current-preview"
-                  id="caRuleCurrentPreview"
-                  viewBox="0 0 31 18"
-                  preserveAspectRatio="none"
-                  role="img"
-                  aria-labelledby="caRuleCurrentPreviewTitle"
-                >
-                  <title id="caRuleCurrentPreviewTitle">Periodic preview of Elementary R1 · Rule 30</title>
-                  <path id="caRuleCurrentPath"></path>
-                </svg>
-                <span class="automata-rule-picker-chevron" aria-hidden="true">⌄</span>
-              </summary>
-              <div class="automata-rule-picker-panel">
-                <div class="automata-rule-atlas-controls">
-                  <label for="caRuleSearch">
-                    <span id="caRuleSearchLabel">Rule or 8-bit code</span>
-                    <input id="caRuleSearch" type="search" inputmode="numeric" placeholder="30 or 00011110" />
-                  </label>
-                  <label for="caRuleFilter">
-                    <span>Show</span>
-                    <select id="caRuleFilter">
-                      <option id="caRuleFilterAll" value="all">All 256 rules</option>
-                      <option id="caRuleFilterRepresentatives" value="representatives">88 symmetry representatives</option>
-                      <option id="caRuleFilterFamily" value="family">Selected symmetry family</option>
-                    </select>
-                  </label>
-                </div>
-                <p class="automata-rule-atlas-status" id="caRuleAtlasStatus" aria-live="polite">256 elementary rules</p>
-                <div class="automata-rule-atlas-grid" id="caRuleAtlasGrid" role="group" aria-label="Elementary cellular automaton rules"></div>
-              </div>
-            </details>
-            <div class="experiment-button-grid automata-rule-stepper" id="caRuleStepper" role="group" aria-label="Step through elementary rules">
-              <button id="previousAutomataRule" type="button" aria-keyshortcuts="ArrowLeft">← Previous</button>
-              <button id="nextAutomataRule" type="button" aria-keyshortcuts="ArrowRight">Next →</button>
-            </div>
             <label class="control" for="caRule">
               <span><b id="caRuleNumberLabel">Rule number</b><output id="caRuleOut" for="caRule">30</output></span>
               <input id="caRule" type="range" min="0" max="255" step="1" value="30" />
@@ -357,17 +379,17 @@
               <input id="caWidth" type="range" min="25" max="127" step="2" value="73" />
             </label>
           </div>
-        </section>
+        </details>
 
         <div class="reset-all-row">
           <button class="reset-all-button" type="button" data-reset-all>Reset all parameters</button>
         </div>
 
-        <section class="group experiment-card" aria-labelledby="experimentTitle">
-          <div class="experiment-card-heading">
+        <details class="group control-section automata-compact-section" data-section="structure" open aria-labelledby="experimentTitle">
+          <summary class="group-summary">
             <h2 class="group-title" id="experimentTitle">Readout</h2>
             <span class="section-state" id="experimentSummary">binary evolution</span>
-          </div>
+          </summary>
           <dl class="experiment-meter-grid">
             <div><dt>Live density</dt><dd id="metricPrimary">1%</dd></div>
             <div><dt>Domain walls</dt><dd id="metricSecondary">2</dd></div>
@@ -382,41 +404,8 @@
             <p class="automata-initial-summary automata-rule-family-summary">
               <b id="caRuleFamilyHeading">Symmetry family</b><span id="caRuleFamilySummary">4-rule family · 30 · 86 · 135 · 149</span>
             </p>
-            <p class="automata-initial-summary automata-rule-family-summary">
-              <b>Evolution</b><span id="caEvolutionSummary">Rule 30 · fixed zero from generation 1</span>
-            </p>
-            <p class="automata-initial-summary automata-rule-family-summary">
-              <b>Render</b><span id="caRunSummary">audio off</span>
-            </p>
           </div>
-        </section>
-
-        <section class="group experiment-card" aria-labelledby="automataInterestTitle">
-          <div class="experiment-card-heading">
-            <h2 class="group-title" id="automataInterestTitle">Why this is interesting</h2>
-          </div>
-          <p class="automata-reference-copy">Tiny local rules can freeze, repeat, turn turbulent, or carry long-lived structures. Sustained columns become continuous sound, making persistence and collisions audible as well as visible.</p>
-        </section>
-
-        <section class="group experiment-card" aria-labelledby="nksOpenProblemsTitle">
-          <div class="experiment-card-heading">
-            <h2 class="group-title" id="nksOpenProblemsTitle">NKS Open Problems</h2>
-          </div>
-          <p class="automata-reference-copy">Elementary: <b>256 / 256</b>. Binary radius-2 totalistic: <b>64 / 64</b>. Broader cellular-automaton families remain open.</p>
-          <p class="automata-reference-copy">The NKS audio experiment maps each generation to a chord. Its open problem asks whether listening can reveal regularities the picture hides—or simply make interesting sounds.</p>
-          <a
-            class="experiment-action experiment-reference-link"
-            href="https://www.wolframscience.com/nks/notes-2-1--audio-representation-of-cellular-automata/"
-            target="_blank"
-            rel="noopener noreferrer"
-          >Official audio note <span aria-hidden="true">↗</span></a>
-          <a
-            class="experiment-action experiment-reference-link"
-            href="https://www.wolframscience.com/openproblems/NKSOpenProblems.pdf"
-            target="_blank"
-            rel="noopener noreferrer"
-          >Official problem list <span aria-hidden="true">↗</span></a>
-        </section>
+        </details>
 
       </aside>
     </main>

@@ -18,6 +18,23 @@ export function rubixSimdClock(beat, rate, swing, divisions = 1) {
   return { phase, slope, secondsToNext: (Math.floor(phase + 1e-9) + 1 - phase) / slope };
 }
 
+
+/** Finish the current long/short pair before changing its swing shape. */
+export function rubixSimdSwingEdit(beat, swing, pendingSwing, target, active = true, applyAt) {
+  if (pendingSwing && beat >= pendingSwing.beat - 1e-8) {
+    swing = pendingSwing.swing;
+    pendingSwing = null;
+  }
+  if (!active || applyAt === null || !Number.isFinite(swing)) {
+    return { swing: target, pendingSwing: null };
+  }
+  if (target === swing && !pendingSwing) return { swing, pendingSwing: null };
+  const boundary = Number.isFinite(applyAt) ? applyAt
+    : pendingSwing?.beat ?? (Math.floor(beat / 2 + 1e-8) + 1) * 2;
+  if (boundary <= beat + 1e-8) return { swing: target, pendingSwing: null };
+  return { swing, pendingSwing: { beat: boundary, swing: target } };
+}
+
 export class RubixSimd303Processor extends AudioWorkletProcessor {
   constructor() {
     super();
@@ -39,6 +56,7 @@ export class RubixSimd303Processor extends AudioWorkletProcessor {
     this.visibility = {};
     this.timbres = {};
     this.beat = 0;
+    this.pendingSwing = null;
     this.elapsed = 0;
     this.startAt = Infinity;
     this.lastStep = -1;
@@ -100,13 +118,28 @@ export class RubixSimd303Processor extends AudioWorkletProcessor {
     const first = faces[0];
     this.divisions = first.divisions === 3 ? 3 : 1;
     this.stepCount = first.stepStickerIds.length;
-    this.rate = Math.max(2, Math.min(20, first.configuration.params.timeScale / this.divisions));
-    this.swing = Math.max(0, Math.min(0.42, first.configuration.params.swing));
     if (oldBeatCount && oldBeatCount !== this.stepCount / this.divisions) {
       this.beat %= this.stepCount / this.divisions;
+      this.pendingSwing = null;
     }
+    this.updateTiming(first.configuration.params.timeScale / this.divisions * 15,
+      first.configuration.params.swing);
     this.setVisibility(this.visibility);
     this.setTimbres(this.timbres);
+  }
+
+  updateTiming(tempo, swing) {
+    this.rate = Math.max(2, Math.min(20, finite(tempo, 120) / 15));
+    const target = Math.max(0, Math.min(0.42, finite(swing)));
+    Object.assign(this, rubixSimdSwingEdit(this.beat, this.swing, this.pendingSwing, target,
+      this.enabled && currentTime >= this.startAt));
+  }
+
+  applyPendingSwing() {
+    if (this.pendingSwing && this.beat >= this.pendingSwing.beat - 1e-8) {
+      this.swing = this.pendingSwing.swing;
+      this.pendingSwing = null;
+    }
   }
 
   setVisibility(gains = {}) {
@@ -154,8 +187,12 @@ export class RubixSimd303Processor extends AudioWorkletProcessor {
       }
       this.port.postMessage({ type: "ready", backend: this.backend, faceCount: this.voices.length });
     } else if (message.type === "configure") {
+      const previousStepCount = this.stepCount;
+      const previousDivisions = this.divisions;
       this.configure(message.faces);
-      this.lastStep = -1;
+      if (previousStepCount !== this.stepCount || previousDivisions !== this.divisions) this.lastStep = -1;
+    } else if (message.type === "timing") {
+      this.updateTiming(message.tempo, message.swing);
     } else if (message.type === "visibility") {
       this.setVisibility(message.gains);
       this.setTimbres(message.timbres);
@@ -163,7 +200,13 @@ export class RubixSimd303Processor extends AudioWorkletProcessor {
       this.output = unit(message.value) * 0.7;
     } else if (message.type === "playback") {
       this.enabled = Boolean(message.enabled);
+      if (!this.enabled && this.pendingSwing) {
+        this.swing = this.pendingSwing.swing;
+        this.pendingSwing = null;
+      }
     } else if (message.type === "restart") {
+      this.swing = this.pendingSwing?.swing ?? this.swing;
+      this.pendingSwing = null;
       this.startAt = Math.max(currentTime, finite(message.startAt, currentTime));
       this.beat = Math.max(0, finite(message.offset)) * this.rate;
       this.elapsed = Math.max(0, finite(message.offset));
@@ -207,6 +250,7 @@ export class RubixSimd303Processor extends AudioWorkletProcessor {
     const right = output[1] ?? left;
     try {
       while (offset < frames) {
+        this.applyPendingSwing();
         const clock = rubixSimdClock(this.beat, this.rate, this.swing, this.divisions);
         const count = Math.min(frames - offset, Math.max(1, Math.ceil(clock.secondsToNext * sampleRate - 1e-6)));
         const step = Math.floor(clock.phase + 1e-9) % this.stepCount;

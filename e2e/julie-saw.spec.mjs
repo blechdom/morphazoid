@@ -22,7 +22,7 @@ test("Julie Saw exposes recoverable performances and keeps Play separate from Au
   await page.locator("#playButton").click();
   await expect(page.locator("#playButton")).toHaveAttribute("aria-pressed", "true");
   await expect(page.locator("#audioButton")).toHaveAttribute("aria-pressed", "false");
-  await expect(page.locator("#transportAudioAttention")).toBeVisible();
+  await expect(page.locator("#transportAudioAttention")).toHaveCount(0);
 
   await page.locator("#presetSelect").selectOption("rough-rosin");
   await expect(page.locator("#techniqueSelect")).toHaveValue("continuous-bow");

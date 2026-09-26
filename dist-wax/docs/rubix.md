@@ -10,6 +10,8 @@ the complementary drum mapping, while Y and Z faces use the first mapping.
 Twists change the sticker arrangement at the committed quarter-turn. During a
 drag or animation the original score continues, and the moving surface mixes it.
 
+Play/Tempo and Swing sit directly below Select Preset, followed by Twists/Speed and a compact Read path menu (Rows, Snake, Face pairs). The circular transport buttons follow Shape’s controls. The circular restart-arrow button returns the loop to step one. Visibility dynamics uses the same plain slider styling as the other performance controls. The passive step strip, engine-status strip and Visible score panel are omitted; the cube remains the live score display.
+
 ## Visibility and dynamics
 
 Rubix measures the same projected triangle fans and back-to-front paint order
@@ -96,7 +98,7 @@ There is no GPU device, chunk queue, or 250 ms buffer-priming wait. The page
 requests playback 12 ms ahead; one shared worklet clock renders notes, applies
 swing to whole beats, alternates face pairs, and publishes the display playhead.
 Visibility changes reach the next processed block and use the same 12 ms gain
-ramp as the drum mix. Score, tempo, swing and timbre edits update atomically
+ramp as the drum mix. Score and timbre edits update atomically
 without restarting SIMD playback. Rendering and UI stalls do not own the note
 clock. This describes internal scheduling, not measured device-output latency.
 
@@ -132,3 +134,5 @@ Drift audibility, all cube sizes, maximum-level protection and an offline
 sustained-note gain measurement. The SIMD browser checks run with GPU access forbidden. Automated
 evidence is not approval of timbre, click quality or
 physical touch feel; those require a human listening/device pass.
+
+Live Tempo/Swing edits send small timing messages instead of rebuilding all six face scores. SIMD Swing takes effect at the next long/short beat-pair boundary, retaining the current note and oscillator/envelope state. Repeated edits replace the pending value without postponing that boundary. The Web Audio scheduler retains its submitted attacks and score cursor during edits.

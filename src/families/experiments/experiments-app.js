@@ -1,3 +1,5 @@
+import { emitMidiOutputPreview } from "../../midi-output-preview.js";
+import { mountAutomatapoeiaEnvelope } from "../../instruments/cellular-automata/automatapoeia-envelope.js";
 import { unlockAudioContext } from "../../audio.js";
 import { registerHeaderPresets } from "../../site/header-presets.js";
 import { AUTOMATA_FULL_PRESETS, captureAutomataPreset, validateAutomataPreset, randomizeAutomataPreset } from "./automata-presets.js";
@@ -620,6 +622,7 @@ const audio = new ExperimentAudio();
 const experiment = document.body?.dataset?.experiment ?? "moire";
 const controls = new Map();
 const presetControlPainters = new Map();
+let automataEnvelope = null;
 const state = {
   audioOn: false,
   audioStarting: false,
@@ -3312,6 +3315,18 @@ const EXPERIMENTS = {
       bindRange("caDecay", "caDecay", (value) => `${Math.round(value * 1_000)} ms`);
       bindRange("caSustain", "caSustain", percent);
       bindRange("caRelease", "caRelease", (value) => `${Math.round(value * 1_000)} ms`);
+      automataEnvelope = mountAutomatapoeiaEnvelope($("caEnvelopeControl"), {
+        // Native ranges quantize their thumbs, but preset state can be finer.
+        readValue: (input) => state[input.id],
+        // Graph gestures dispatch native parameter events, but those synthetic
+        // events are intentionally ignored by the monitor's trusted-input path.
+        onInput: (input) => emitMidiOutputPreview({
+          kind: "control", routeId: "cellular-automata", sourceId: input.id,
+          source: input.labels[0].querySelector("b").textContent,
+          rawValue: Number(input.value), min: Number(input.min), max: Number(input.max),
+          displayValue: $(`${input.id}Out`).textContent,
+        }),
+      });
       const boundaryControl = $("caBoundary");
       if (boundaryControl) {
         const syncBoundary = () => {
@@ -3416,17 +3431,6 @@ const EXPERIMENTS = {
       });
       seedAutomata({ defer: true });
       updateAutomataRuleControls();
-      const panel = document.querySelector(".experiment-panel");
-      const nksCard = $("nksOpenProblemsTitle")?.closest("section");
-      if (panel && nksCard) {
-        const keepNksLast = () => {
-          if (panel.lastElementChild !== nksCard) panel.append(nksCard);
-        };
-        keepNksLast();
-        state.caPanelObserver?.disconnect();
-        state.caPanelObserver = new MutationObserver(keepNksLast);
-        state.caPanelObserver.observe(panel, { childList: true });
-      }
     },
     update(dt) {
       stepAutomata(dt);
@@ -3434,6 +3438,7 @@ const EXPERIMENTS = {
     draw: drawAutomata,
     summary() {
       updateAutomataTransport();
+      automataEnvelope?.refresh();
       const boundaryLabel = automatapoeiaBoundaryLabel(state.caBoundary);
       const family = sanitizeAutomatapoeiaFamily(state.caFamily);
       const familyLabel = automatapoeiaFamilyLabel(family);
@@ -4343,7 +4348,7 @@ function boot() {
 
 globalThis.addEventListener?.("pagehide", () => {
   cancelAnimationFrame(animationFrame);
-  state.caPanelObserver?.disconnect();
+  automataEnvelope?.destroy();
   audio.dispose();
 });
 

@@ -1,0 +1,56 @@
+{
+  "baselineCommit": "fd50a90",
+  "changes": [
+    {
+      "file": "src/families/experiments/automata-presets.js",
+      "reason": "Owner-requested Fast clockwork audibility fix: match its millisecond gates with a 2 ms attack and 65% gate; preserve Output and all other factory scenes.",
+      "regressionTests": [
+        "tests/automatapoeia-envelope.test.mjs",
+        "e2e/automatapoeia-envelope.spec.mjs"
+      ],
+      "replacements": [
+        {
+          "before": "  scene(\"mirror-150\", \"Rule 150 \u00b7 Mirror phrases\", { caRule: 150, caTransform: \"reflect\", caPhraseShape: \"centers\", caPitchCurve: \"reverse\", caRate: 10, caFrequencyMax: 2800, caSwing: -0.15, level: 0.4 }),\n  scene(\"connected-54\", \"Rule 54 \u00b7 Connected bodies\", { caRule: 54, caObjectMode: \"connected\", caContourSource: \"expansion\", caContourAmount: 0.75, caDensity: 0.24, caRate: 7, caFrequencyMax: 3400, level: 0.4 }, 54),\n  scene(\"slow-45\", \"Rule 45 \u00b7 Slow droplets\", { caRule: 45, caRate: 2, caWidth: 41, caTimeSpread: 0.95, caVoice: \"karplus-carpet\", caFrequencyMax: 1400, caStrikeLength: 1.7, level: 0.42 }, 45),\n  scene(\"fast-60\", \"Rule 60 \u00b7 Fast clockwork\", { caRule: 60, caRate: 18, caWidth: 61, caRelease: 0.07, caDecay: 0.04, caStrikeLength: 0.35, caTimeSpread: 0.3, caRhythmDetail: 6, caFrequencyMax: 2400, level: 0.34 }),\n  scene(\"negative-126\", \"Rule 126 \u00b7 Dark negative\", { caRule: 126, caPolarity: \"zero\", caBoundary: \"periodic\", caTimbreSource: \"row-walls\", caDensity: 0.35, caPitchCurve: \"late\", caFrequencyMax: 1800, level: 0.36 }, 126),\n  scene(\"radius-two\", \"Radius two \u00b7 Broad bands\", { caFamily: \"totalistic-r2\", caRule: 20, caWidth: 97, caRate: 6, caTimbreSource: \"symmetry\", caFrequencyMax: 2400, caDensity: 0.12, level: 0.36 }, 20),\n  scene(\"radius-skip\", \"Radius two \u00b7 Skipping seams\", { caFamily: \"totalistic-r2\", caRule: 45, caTransform: \"shift-left\", caBoundary: \"periodic\", caSwing: 0.24, caPitchCurve: \"early\", caRate: 11, caFrequencyMax: 3200, level: 0.38 }, 451),\n",
+          "after": "  scene(\"mirror-150\", \"Rule 150 \u00b7 Mirror phrases\", { caRule: 150, caTransform: \"reflect\", caPhraseShape: \"centers\", caPitchCurve: \"reverse\", caRate: 10, caFrequencyMax: 2800, caSwing: -0.15, level: 0.4 }),\n  scene(\"connected-54\", \"Rule 54 \u00b7 Connected bodies\", { caRule: 54, caObjectMode: \"connected\", caContourSource: \"expansion\", caContourAmount: 0.75, caDensity: 0.24, caRate: 7, caFrequencyMax: 3400, level: 0.4 }, 54),\n  scene(\"slow-45\", \"Rule 45 \u00b7 Slow droplets\", { caRule: 45, caRate: 2, caWidth: 41, caTimeSpread: 0.95, caVoice: \"karplus-carpet\", caFrequencyMax: 1400, caStrikeLength: 1.7, level: 0.42 }, 45),\n  // Millisecond gates need a matching short attack, not a silent partial ramp.\n  scene(\"fast-60\", \"Rule 60 \u00b7 Fast clockwork\", { caRule: 60, caRate: 18, caWidth: 61, caAttack: 0.002, caRelease: 0.07, caDecay: 0.04, caStrikeLength: 0.65, caTimeSpread: 0.3, caRhythmDetail: 6, caFrequencyMax: 2400, level: 0.34 }),\n  scene(\"negative-126\", \"Rule 126 \u00b7 Dark negative\", { caRule: 126, caPolarity: \"zero\", caBoundary: \"periodic\", caTimbreSource: \"row-walls\", caDensity: 0.35, caPitchCurve: \"late\", caFrequencyMax: 1800, level: 0.36 }, 126),\n  scene(\"radius-two\", \"Radius two \u00b7 Broad bands\", { caFamily: \"totalistic-r2\", caRule: 20, caWidth: 97, caRate: 6, caTimbreSource: \"symmetry\", caFrequencyMax: 2400, caDensity: 0.12, level: 0.36 }, 20),\n  scene(\"radius-skip\", \"Radius two \u00b7 Skipping seams\", { caFamily: \"totalistic-r2\", caRule: 45, caTransform: \"shift-left\", caBoundary: \"periodic\", caSwing: 0.24, caPitchCurve: \"early\", caRate: 11, caFrequencyMax: 3200, level: 0.38 }, 451),\n"
+        }
+      ]
+    },
+    {
+      "file": "src/families/experiments/experiments-app.js",
+      "reason": "Owner-requested graphical ADSR using the existing parameter events, explicit monitor-only MIDI preview, refresh/teardown, and removal of the obsolete NKS-card observer. Audio clock and evolution remain unchanged.",
+      "regressionTests": [
+        "tests/automatapoeia-envelope.test.mjs",
+        "tests/experiments-pages.test.mjs",
+        "e2e/automatapoeia-envelope.spec.mjs",
+        "e2e/automatapoeia-mobile.spec.mjs",
+        "e2e/automatapoeia-totalistic.spec.mjs"
+      ],
+      "replacements": [
+        {
+          "before": "import { unlockAudioContext } from \"../../audio.js\";\nimport { registerHeaderPresets } from \"../../site/header-presets.js\";\nimport { AUTOMATA_FULL_PRESETS, captureAutomataPreset, validateAutomataPreset, randomizeAutomataPreset } from \"./automata-presets.js\";\n",
+          "after": "import { emitMidiOutputPreview } from \"../../midi-output-preview.js\";\nimport { mountAutomatapoeiaEnvelope } from \"../../instruments/cellular-automata/automatapoeia-envelope.js\";\nimport { unlockAudioContext } from \"../../audio.js\";\nimport { registerHeaderPresets } from \"../../site/header-presets.js\";\nimport { AUTOMATA_FULL_PRESETS, captureAutomataPreset, validateAutomataPreset, randomizeAutomataPreset } from \"./automata-presets.js\";\n"
+        },
+        {
+          "before": "const experiment = document.body?.dataset?.experiment ?? \"moire\";\nconst controls = new Map();\nconst presetControlPainters = new Map();\nconst state = {\n  audioOn: false,\n  audioStarting: false,\n",
+          "after": "const experiment = document.body?.dataset?.experiment ?? \"moire\";\nconst controls = new Map();\nconst presetControlPainters = new Map();\nlet automataEnvelope = null;\nconst state = {\n  audioOn: false,\n  audioStarting: false,\n"
+        },
+        {
+          "before": "      bindRange(\"caDecay\", \"caDecay\", (value) => `${Math.round(value * 1_000)} ms`);\n      bindRange(\"caSustain\", \"caSustain\", percent);\n      bindRange(\"caRelease\", \"caRelease\", (value) => `${Math.round(value * 1_000)} ms`);\n      const boundaryControl = $(\"caBoundary\");\n      if (boundaryControl) {\n        const syncBoundary = () => {\n",
+          "after": "      bindRange(\"caDecay\", \"caDecay\", (value) => `${Math.round(value * 1_000)} ms`);\n      bindRange(\"caSustain\", \"caSustain\", percent);\n      bindRange(\"caRelease\", \"caRelease\", (value) => `${Math.round(value * 1_000)} ms`);\n      automataEnvelope = mountAutomatapoeiaEnvelope($(\"caEnvelopeControl\"), {\n        // Native ranges quantize their thumbs, but preset state can be finer.\n        readValue: (input) => state[input.id],\n        // Graph gestures dispatch native parameter events, but those synthetic\n        // events are intentionally ignored by the monitor's trusted-input path.\n        onInput: (input) => emitMidiOutputPreview({\n          kind: \"control\", routeId: \"cellular-automata\", sourceId: input.id,\n          source: input.labels[0].querySelector(\"b\").textContent,\n          rawValue: Number(input.value), min: Number(input.min), max: Number(input.max),\n          displayValue: $(`${input.id}Out`).textContent,\n        }),\n      });\n      const boundaryControl = $(\"caBoundary\");\n      if (boundaryControl) {\n        const syncBoundary = () => {\n"
+        },
+        {
+          "before": "      });\n      seedAutomata({ defer: true });\n      updateAutomataRuleControls();\n      const panel = document.querySelector(\".experiment-panel\");\n      const nksCard = $(\"nksOpenProblemsTitle\")?.closest(\"section\");\n      if (panel && nksCard) {\n        const keepNksLast = () => {\n          if (panel.lastElementChild !== nksCard) panel.append(nksCard);\n        };\n        keepNksLast();\n        state.caPanelObserver?.disconnect();\n        state.caPanelObserver = new MutationObserver(keepNksLast);\n        state.caPanelObserver.observe(panel, { childList: true });\n      }\n    },\n    update(dt) {\n      stepAutomata(dt);\n",
+          "after": "      });\n      seedAutomata({ defer: true });\n      updateAutomataRuleControls();\n    },\n    update(dt) {\n      stepAutomata(dt);\n"
+        },
+        {
+          "before": "    draw: drawAutomata,\n    summary() {\n      updateAutomataTransport();\n      const boundaryLabel = automatapoeiaBoundaryLabel(state.caBoundary);\n      const family = sanitizeAutomatapoeiaFamily(state.caFamily);\n      const familyLabel = automatapoeiaFamilyLabel(family);\n",
+          "after": "    draw: drawAutomata,\n    summary() {\n      updateAutomataTransport();\n      automataEnvelope?.refresh();\n      const boundaryLabel = automatapoeiaBoundaryLabel(state.caBoundary);\n      const family = sanitizeAutomatapoeiaFamily(state.caFamily);\n      const familyLabel = automatapoeiaFamilyLabel(family);\n"
+        },
+        {
+          "before": "\nglobalThis.addEventListener?.(\"pagehide\", () => {\n  cancelAnimationFrame(animationFrame);\n  state.caPanelObserver?.disconnect();\n  audio.dispose();\n});\n\n",
+          "after": "\nglobalThis.addEventListener?.(\"pagehide\", () => {\n  cancelAnimationFrame(animationFrame);\n  automataEnvelope?.destroy();\n  audio.dispose();\n});\n\n"
+        }
+      ]
+    }
+  ]
+}

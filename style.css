@@ -2202,28 +2202,6 @@ a {
   grid-row: 1;
 }
 
-.transport-audio-attention {
-  position: absolute;
-  z-index: 84;
-  top: calc(100% + 6px);
-  right: clamp(12px, 2.5vw, 32px);
-  max-width: min(320px, calc(100vw - 24px));
-  margin: 0;
-  padding: 8px 10px;
-  border: 1px solid color-mix(in oklab, var(--orange) 58%, var(--line-strong));
-  color: var(--ink);
-  background: color-mix(in oklab, var(--bg-deep) 94%, var(--orange));
-  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.42);
-  font-size: 9px;
-  letter-spacing: 0.035em;
-  line-height: 1.35;
-  pointer-events: none;
-}
-
-.transport-audio-attention[hidden] {
-  display: none;
-}
-
 /* Shared Web MIDI */
 
 .midi-toolbar {

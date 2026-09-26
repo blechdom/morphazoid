@@ -6,7 +6,7 @@ export async function observeAutomataState(page) {
     const body = await response.text();
     await route.fulfill({ response, body: body + `\n
 globalThis.__caSnapshot = () => structuredClone({
-  rows: state.caRows, generation: state.caGeneration, initial: state.caInitialRow,
+  evolution: state.caEvolutionSegments, rows: state.caRows, generation: state.caGeneration, initial: state.caInitialRow,
   parameters: captureAutomataPreset(state).parameters, playing: state.caPlaying,
   audioOn: state.audioOn, contextTime: audio.context?.currentTime,
   next: audio.automataClock?.queue[0], nextDeadline: audio.automataClock?.queue.find(row => row.time > audio.context.currentTime)?.time ?? audio.automataClock?.nextTime, nextTime: audio.automataClock?.nextTime,

@@ -9,6 +9,18 @@ const compiler = join(repositoryRoot, "node_modules", "assemblyscript", "bin", "
 
 const builds = [
   {
+    source: "src/simd-chiptune-scalar.ts",
+    output: "simd-chiptune-scalar.wasm",
+    options: [],
+    memoryPages: 2,
+  },
+  {
+    source: "src/simd-chiptune-simd.ts",
+    output: "simd-chiptune-simd.wasm",
+    options: ["--enable", "simd"],
+    memoryPages: 2,
+  },
+  {
     source: "src/simd-resonator-scalar.ts",
     output: "simd-resonator-scalar.wasm",
     options: [],

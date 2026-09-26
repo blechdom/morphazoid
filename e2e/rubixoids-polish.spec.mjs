@@ -13,7 +13,7 @@ async function hyperView(page) {
   return view;
 }
 const mainAudio = page => page.locator('body > .masthead #audioButton');
-const mainPlay = page => page.locator('body > .rubixoids-bar #playButton');
+const mainPlay = page => page.locator('.rubixoids-pane:not([hidden]) #playButton');
 const captureHyper = page => page.evaluate(async () => {
   const { rubixoidsInstrument } = await import('/src/instruments/rubixoids/rubixoids-app.js');
   return rubixoidsInstrument('4d').bridge.capture();
@@ -197,7 +197,7 @@ test('Pausing between 4D pulses restores opaque stickers without relying on an a
         const frames = evidence.frames;
         // Trigger the real shared button in this same task; another scheduled
         // note cannot slip between detecting the quiet interval and pausing.
-        document.querySelector('body > .rubixoids-bar #playButton').click();
+        document.querySelector('.rubixoids-pane:not([hidden])').shadowRoot.getElementById('playButton').click();
         resolve(frames);
       } else if (performance.now() > deadline) {
         reject(new Error('No between-note interval without an active animation'));
@@ -230,7 +230,7 @@ test('Native keyboard gestures keep form ownership and affect only the active Ru
     return page.locator(`.rubixoids-pane[data-dimension="${dimension}"]`);
   };
   const editTempo = async (view, dimension) => {
-    const tempo = page.locator('body > .rubixoids-bar #tempo');
+    const tempo = page.locator('.rubixoids-pane:not([hidden]) #tempo');
     const before = Number(await tempo.inputValue());
     const step = Number(await tempo.getAttribute('step')) || 1;
     await tempo.press('ArrowUp');

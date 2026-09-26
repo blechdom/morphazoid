@@ -38,17 +38,18 @@
     </header>
     <section class="rubixoids-bar" aria-label="Rubixoids performance">
       <h1>Rubixoids</h1>
-      <div class="rubixoids-clock" role="group" aria-label="Shared clock">
-        <label for="tempo"><span>Tempo <output id="tempoOut" for="tempo">126 BPM</output></span><input id="tempo" type="range" min="30" max="300" step="1" value="126" disabled /></label>
-        <label for="swing"><span>Swing <output id="swingOut" for="swing">0%</output></span><input id="swing" type="range" min="0" max="0.42" step="0.01" value="0" disabled /></label>
-      </div>
+
       <nav class="rubixoids-dimensions" aria-label="Puzzle dimension">
         <button type="button" data-dimension="2d" aria-pressed="false">2D <span>Sliding</span></button>
         <button type="button" data-dimension="3d" aria-pressed="true">3D <span>Rubix</span></button>
         <button type="button" data-dimension="4d" aria-pressed="false">4D <span>Hyper</span></button>
       </nav>
-      <button id="playButton" class="rubixoids-play" data-primary-transport type="button" aria-pressed="false" disabled><span aria-hidden="true">▶</span> <span id="playLabel">Play</span></button>
+
     </section>
+    <div hidden aria-hidden="true"><div class="rubixoids-clock" role="group" aria-label="Shared clock">
+        <label for="tempo"><span>Tempo <output id="tempoOut" for="tempo">126 BPM</output></span><input id="tempo" type="range" min="30" max="300" step="1" value="126" disabled /></label>
+        <label for="swing"><span>Swing <output id="swingOut" for="swing">0%</output></span><input id="swing" type="range" min="0" max="0.42" step="0.01" value="0" disabled /></label>
+      </div><button id="playButton" class="rubixoids-play" data-primary-transport type="button" aria-pressed="false" disabled><span aria-hidden="true">▶</span> <span id="playLabel">Play</span></button></div>
     <div id="rubixoids" data-dimension="3d" aria-label="Rubixoids instrument"></div>
     <p id="rubixoidsStatus" role="status">Loading Rubix cube…</p>
     <script type="module" src="nav.js"></script>

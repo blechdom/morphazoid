@@ -69,7 +69,7 @@ for (const layout of layouts) {
       expectFullWidthSquareCells(await raster(page));
       await expect(page.locator("#audioButton")).toHaveAttribute("aria-pressed", "false");
 
-      for (const id of ["playButton", "seedAutomata", "randomizeAutomata", "caRate", "caDensity", "caVoice"]) {
+      for (const id of ["playButton", "seedAutomata", "randomizeAutomata", "caRate", "caDensity"]) {
         expect(await inVisiblePanel(page.locator(`#${id}`)), `${id} should be available without scrolling`).toBe(true);
       }
       if (layout.mobile) {
@@ -107,11 +107,16 @@ for (const layout of layouts) {
       // Every retained sound/rule parameter remains reachable through native disclosure and panel scrolling.
       await page.locator("#caSoundDetails > summary").click();
       const controlIds = await page.locator(".experiment-panel input[id], .experiment-panel select[id]")
-        .evaluateAll((controls) => controls.filter((control) => !control.closest("#caRulePicker")).map((control) => control.id));
+        .evaluateAll((controls) => controls.filter((control) => !control.closest("#caRulePicker, [hidden]")).map((control) => control.id));
       for (const id of controlIds) {
         const control = page.locator(`#${id}`);
         await control.scrollIntoViewIfNeeded();
         expect(await inVisiblePanel(control), `${id} should be reachable by panel scrolling`).toBe(true);
+      }
+      for (const key of ["caAttack", "caDecay", "caSustain", "caRelease"]) {
+        const handle = page.locator(`[data-envelope="${key}"]`);
+        await handle.scrollIntoViewIfNeeded();
+        expect(await inVisiblePanel(handle), `${key} graphic handle should be reachable`).toBe(true);
       }
       expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(1);
       expect(await page.locator(".experiment-panel").evaluate((panel) => panel.scrollWidth - panel.clientWidth)).toBeLessThanOrEqual(1);

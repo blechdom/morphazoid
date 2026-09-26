@@ -15,7 +15,7 @@ const NATIVE = Object.freeze({
 });
 
 const mainAudio = page => page.locator('body > .masthead #audioButton');
-const mainPlay = page => page.locator('body > .rubixoids-bar #playButton');
+const mainPlay = page => page.locator('.rubixoids-pane:not([hidden]) #playButton');
 const snapshot = page => page.evaluate(() => window.__rubixoidsSnapshot());
 const setRange = (view, id, value) => view.locator(`#${id}`).evaluate((input, value) => {
   input.value = String(value);
@@ -102,10 +102,9 @@ for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 
       await expect(view.locator(`#${NATIVE[dimension].voice} option[value="shared-simd-chiptune"]`)).toHaveCount(1);
       await expect(mainAudio(page)).toBeVisible();
       await expect(mainPlay(page)).toBeVisible();
-      await expect(page.locator('body > .rubixoids-bar #tempo')).toBeVisible();
-      await expect(page.locator('body > .rubixoids-bar #swing')).toBeVisible();
-      await expect(view.locator('#tempo')).toBeHidden();
-      await expect(view.locator('#swing')).toBeHidden();
+      await expect(page.locator('.rubixoids-bar input, .rubixoids-bar #playButton')).toHaveCount(0);
+      await expect(view.locator('#tempo')).toBeVisible();
+      await expect(view.locator('#swing')).toBeVisible();
       for (const selector of ['#playButton', `#${NATIVE[dimension].voice}`]) {
         await view.locator(selector).scrollIntoViewIfNeeded();
         await expect(view.locator(selector)).toBeVisible();

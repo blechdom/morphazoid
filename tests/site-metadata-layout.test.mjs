@@ -1,3 +1,5 @@
+import { restoreSimdChiptuneSite, simdChiptuneSiteAmendments } from "./helpers/simd-chiptune-site-reference.mjs";
+import { restoreHeaderInteractions, headerInteractionAmendments } from "./helpers/header-interactions-reference.mjs";
 import { restoreRubixoidsSite, rubixoidsSiteAmendments } from "./helpers/rubixoids-site-reference.mjs";
 import { restorePresetToolbar } from "./helpers/preset-toolbar-reference.mjs";
 import assert from "node:assert/strict";
@@ -51,7 +53,7 @@ test("every changed runtime module reverses byte-for-byte to the fresh-main refe
   }
   for (const record of proof.files) {
     const current = await readFile(new URL(record.after, root), "utf8");
-    const beforeGesticules = restoreGesticulesMetadata(restoreRubixoidsSite(current, record.after), record.after);
+    const beforeGesticules = restoreGesticulesMetadata(restoreRubixoidsSite(restoreHeaderInteractions(restoreSimdChiptuneSite(current, record.after), record.after), record.after), record.after);
     const beforeIphone = restoreIphoneStartup(restorePresetToolbar(beforeGesticules, record.after), record.after);
     const restored = rewriteRepositoryPaths(rewriteModulePaths(beforeIphone, record.after, inverse), inverse);
     assert.equal(sha(restored), record.sha256, record.after);
@@ -107,4 +109,40 @@ test("Rubixoids site amendments retain exact, independently checked metadata and
     }
   }
   assert.equal(restoreRubixoidsSite("untouched", "unrelated.js"), "untouched");
+});
+
+test("header-interaction amendments preserve the frozen navigation baseline with focused evidence", async () => {
+  assert.deepEqual(headerInteractionAmendments.changes.map(change => change.file), ["nav.js"]);
+  for (const change of headerInteractionAmendments.changes) {
+    assert.ok(proof.files.some(record => record.after === change.file));
+    assert.ok(change.replacements.length > 0);
+    for (const file of change.regressionTests) await readFile(new URL(file, root));
+    const current = await readFile(new URL(change.file, root), "utf8");
+    assert.notEqual(restoreHeaderInteractions(current, change.file), current);
+    const first = change.replacements[0];
+    assert.throws(() => restoreHeaderInteractions(current.replace(first.after, ""), change.file), /exact header-interaction amendment/);
+    assert.throws(() => restoreHeaderInteractions(current + first.after, change.file), /exact header-interaction amendment/);
+  }
+  assert.equal(restoreHeaderInteractions("untouched", "unrelated.js"), "untouched");
+});
+
+test("SIMD Chiptune site amendments preserve existing metadata with exact regression evidence", async () => {
+  assert.deepEqual(simdChiptuneSiteAmendments.changes.map(change => change.file), [
+    "src/site/instrument-catalog.js", "src/site/instrument-midi-capabilities.js",
+  ]);
+  for (const change of simdChiptuneSiteAmendments.changes) {
+    assert.ok(proof.files.some(record => record.after === change.file), change.file);
+    assert.ok(change.regressionTests.length >= 2);
+    for (const file of change.regressionTests) await readFile(new URL(file, root));
+    const source = await readFile(new URL(change.file, root), "utf8");
+    assert.notEqual(restoreSimdChiptuneSite(source, change.file), source);
+    for (const replacement of change.replacements) {
+      assert.ok(replacement.before.length && replacement.after.length);
+      assert.doesNotMatch(replacement.before, /simd-chiptune/);
+      assert.match(replacement.after, /simd-chiptune/);
+      assert.throws(() => restoreSimdChiptuneSite(source.replace(replacement.after, ""), change.file), /exact SIMD Chiptune site amendment/);
+      assert.throws(() => restoreSimdChiptuneSite(source + replacement.after, change.file), /exact SIMD Chiptune site amendment/);
+    }
+  }
+  assert.equal(restoreSimdChiptuneSite("untouched", "unrelated.js"), "untouched");
 });

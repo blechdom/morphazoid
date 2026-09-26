@@ -98,7 +98,4 @@
   }
 }
 
-/* One app clock; hidden native controls remain the controller's parameter API.
-   Restart, sequence layout and pulse division stay with their native instrument. */
-label[for="tempo"], label[for="swing"] { display: none !important; }
-.sliding-tempo-row, .rubix-tempo-row, .hyper-rubix-tempo-row { display: flex; justify-content: flex-end; }
+/* Native panel controls address the same shared audio clock in every dimension. */

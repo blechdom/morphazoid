@@ -18,11 +18,14 @@ const ioChanges = JSON.parse(await readFile(new URL("../docs/io-settings-runtime
 const iphoneChanges = JSON.parse(await readFile(new URL("../docs/iphone-audio-runtime-changes.json", import.meta.url))).changes;
 const sequencerChanges = JSON.parse(await readFile(new URL("../docs/rubixoids-runtime-changes.json", import.meta.url))).changes;
 const shapesChanges = JSON.parse(await readFile(new URL("../docs/shapes-manual-notes-runtime-changes.json", import.meta.url))).changes;
+const lSystemNotesChanges = JSON.parse(await readFile(new URL("../docs/l-systems-notes-runtime-changes.json", import.meta.url))).changes;
+const automataControlsChanges = JSON.parse(await readFile(new URL("../docs/automatapoeia-controls-runtime-changes.json", import.meta.url))).changes;
 const automataChanges = JSON.parse(await readFile(new URL("../docs/automatapoeia-preset-lifecycle-runtime-changes.json", import.meta.url))).changes;
 const automataBottomChanges = JSON.parse(await readFile(new URL("../docs/automatapoeia-bottom-entry-runtime-changes.json", import.meta.url))).changes;
 const automataTransportChanges = JSON.parse(await readFile(new URL("../docs/automatapoeia-live-transport-runtime-changes.json", import.meta.url))).changes;
 const automataClockChanges = JSON.parse(await readFile(new URL("../docs/automatapoeia-audio-clock-runtime-changes.json", import.meta.url))).changes;
 const pugglerChanges = JSON.parse(await readFile(new URL("../docs/puggler-expansion-runtime-changes.json", import.meta.url))).changes;
+const chiptuneChanges = JSON.parse(await readFile(new URL("../docs/simd-chiptune-runtime-changes.json", import.meta.url))).changes;
 const inverse = Object.fromEntries(Object.entries({ ...plan.moves, ...siteMoves }).map(([before, after]) => [after, before]));
 const sha = value => createHash("sha256").update(value).digest("hex");
 
@@ -47,6 +50,15 @@ test("runtime modules reverse exactly after explicit runtime fixes and documente
   ]);
   for (const record of proof.files) {
     let current = await readFile(path.join(root, record.after), "utf8");
+    for (const change of chiptuneChanges.filter(change => change.file === record.after)) {
+      assert.equal(current, change.wrapper, `shared Chiptune entry: ${change.file}`);
+      current = await readFile(path.join(root, change.implementation), "utf8");
+      for (const testFile of change.regressionTests) assert.ok(existsSync(path.join(root, testFile)), testFile);
+      for (const replacement of [...change.replacements].reverse()) {
+        assert.equal(current.split(replacement.after).length - 1, 1, `exactly one shared Chiptune edit: ${change.file}`);
+        current = current.replace(replacement.after, replacement.before);
+      }
+    }
     // Rubixoids was integrated after the shared Shapes renderer extraction.
     // Reverse its exact additions before restoring those earlier amendments.
     for (const change of sequencerChanges.filter(change => change.file === record.after)) {
@@ -76,7 +88,7 @@ test("runtime modules reverse exactly after explicit runtime fixes and documente
     }
     // Keep the relocation baseline frozen. Reverse only the exact, separately
     // documented feature edits, whose behavior has focused DSP/browser tests.
-    for (const change of [...ioChanges, ...shapesChanges, ...automataBottomChanges, ...automataTransportChanges, ...automataClockChanges, ...automataChanges].filter(change => change.file === record.after)) {
+    for (const change of [...automataControlsChanges, ...ioChanges, ...shapesChanges, ...lSystemNotesChanges, ...automataBottomChanges, ...automataTransportChanges, ...automataClockChanges, ...automataChanges].filter(change => change.file === record.after)) {
       for (const testFile of change.regressionTests) assert.ok(existsSync(path.join(root, testFile)), testFile);
       for (const replacement of [...change.replacements].reverse()) {
         assert.equal(current.split(replacement.after).length - 1, 1, `exactly one documented feature edit: ${change.file}`);
@@ -196,4 +208,31 @@ test("Shapes bank amendments stay scoped and preserve all frozen relocation reco
     assert.ok(change.replacements.length);
     assert.ok(change.regressionTests.includes("e2e/shapes-sound-banks.spec.mjs"));
   }
+});
+
+test("Automatapoeia controls amendments are scoped to its preset bank and existing family controller", () => {
+  assert.deepEqual(automataControlsChanges.map(change => change.file), [
+    "src/families/experiments/automata-presets.js", "src/families/experiments/experiments-app.js",
+  ]);
+  for (const change of automataControlsChanges) {
+    assert.ok(proof.files.some(record => record.after === change.file));
+    assert.ok(change.replacements.length);
+    assert.ok(change.regressionTests.includes("tests/automatapoeia-envelope.test.mjs"));
+    assert.ok(change.regressionTests.includes("e2e/automatapoeia-envelope.spec.mjs"));
+  }
+});
+
+test("L-Systems Notes amendment is scoped to its controller and retains frozen relocation references", () => {
+  assert.deepEqual(lSystemNotesChanges.map(change => change.file), ["src/instruments/l-systems/l-systems-app.js"]);
+  assert.deepEqual(lSystemNotesChanges[0].regressionTests, ["tests/l-systems-notes.test.mjs", "e2e/l-systems-notes.spec.mjs"]);
+  assert.ok(lSystemNotesChanges[0].replacements.length > 0);
+});
+
+test("Chiptune sharing has two thin entries, explicit release inclusion and parity evidence", async () => {
+  assert.deepEqual(chiptuneChanges.map(change => change.file), ["src/instruments/webgpu-chiptune/webgpu-chiptune-app.js"]);
+  const change = chiptuneChanges[0];
+  assert.equal(change.implementation, "src/families/chiptune/chiptune-app.js");
+  assert.equal(await readFile(path.join(root, "src/instruments/simd-chiptune/simd-chiptune-app.js"), "utf8"), change.wrapper);
+  assert.ok((await readRuntimeManifest()).worktreeFiles.includes(change.implementation));
+  assert.ok(change.regressionTests.includes("e2e/simd-chiptune-parity.spec.mjs"));
 });
