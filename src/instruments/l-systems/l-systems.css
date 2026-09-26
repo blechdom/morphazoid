@@ -570,3 +570,28 @@ body.l-systems-app-page #playButton {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
+
+/* A stacked 360px stage leaves no usable control viewport on a landscape
+   phone. Keep the graphic and the independently scrolling controls alongside. */
+@media (min-width: 640px) and (max-width: 1100px) and (max-height: 600px) and (orientation: landscape) {
+  .l-systems-app {
+    grid-template-columns: minmax(0, 1fr) minmax(320px, 44%);
+    grid-template-rows: minmax(0, 1fr);
+    min-height: 0;
+    overflow: hidden;
+  }
+  .l-systems-stage { height: 100%; min-height: 0; }
+  .l-systems-panel { border-top: 0; border-left: 1px solid rgba(255, 255, 255, .09); }
+}
+
+@media (pointer: coarse) {
+  body.l-systems-app-page #playButton,
+  body.l-systems-app-page .l-systems-icon-toggle {
+    flex-basis: 48px;
+    width: 48px;
+    min-width: 48px;
+    height: 48px;
+    min-height: 48px;
+  }
+  .l-systems-motion-bank { grid-template-columns: repeat(3, 48px); height: 48px; }
+}

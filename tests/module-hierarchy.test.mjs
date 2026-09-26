@@ -18,6 +18,7 @@ const ioChanges = JSON.parse(await readFile(new URL("../docs/io-settings-runtime
 const iphoneChanges = JSON.parse(await readFile(new URL("../docs/iphone-audio-runtime-changes.json", import.meta.url))).changes;
 const sequencerChanges = JSON.parse(await readFile(new URL("../docs/rubixoids-runtime-changes.json", import.meta.url))).changes;
 const shapesChanges = JSON.parse(await readFile(new URL("../docs/shapes-manual-notes-runtime-changes.json", import.meta.url))).changes;
+const lSystemNotesChanges = JSON.parse(await readFile(new URL("../docs/l-systems-notes-runtime-changes.json", import.meta.url))).changes;
 const automataControlsChanges = JSON.parse(await readFile(new URL("../docs/automatapoeia-controls-runtime-changes.json", import.meta.url))).changes;
 const automataChanges = JSON.parse(await readFile(new URL("../docs/automatapoeia-preset-lifecycle-runtime-changes.json", import.meta.url))).changes;
 const automataBottomChanges = JSON.parse(await readFile(new URL("../docs/automatapoeia-bottom-entry-runtime-changes.json", import.meta.url))).changes;
@@ -77,7 +78,7 @@ test("runtime modules reverse exactly after explicit runtime fixes and documente
     }
     // Keep the relocation baseline frozen. Reverse only the exact, separately
     // documented feature edits, whose behavior has focused DSP/browser tests.
-    for (const change of [...automataControlsChanges, ...ioChanges, ...shapesChanges, ...automataBottomChanges, ...automataTransportChanges, ...automataClockChanges, ...automataChanges].filter(change => change.file === record.after)) {
+    for (const change of [...automataControlsChanges, ...ioChanges, ...shapesChanges, ...lSystemNotesChanges, ...automataBottomChanges, ...automataTransportChanges, ...automataClockChanges, ...automataChanges].filter(change => change.file === record.after)) {
       for (const testFile of change.regressionTests) assert.ok(existsSync(path.join(root, testFile)), testFile);
       for (const replacement of [...change.replacements].reverse()) {
         assert.equal(current.split(replacement.after).length - 1, 1, `exactly one documented feature edit: ${change.file}`);
@@ -209,4 +210,10 @@ test("Automatapoeia controls amendments are scoped to its preset bank and existi
     assert.ok(change.regressionTests.includes("tests/automatapoeia-envelope.test.mjs"));
     assert.ok(change.regressionTests.includes("e2e/automatapoeia-envelope.spec.mjs"));
   }
+});
+
+test("L-Systems Notes amendment is scoped to its controller and retains frozen relocation references", () => {
+  assert.deepEqual(lSystemNotesChanges.map(change => change.file), ["src/instruments/l-systems/l-systems-app.js"]);
+  assert.deepEqual(lSystemNotesChanges[0].regressionTests, ["tests/l-systems-notes.test.mjs", "e2e/l-systems-notes.spec.mjs"]);
+  assert.ok(lSystemNotesChanges[0].replacements.length > 0);
 });

@@ -1114,3 +1114,6 @@ copy+require	assets/instruments/rubixoids.webp
 copy+require	src/instruments/rubixoids/bank-storage.js
 copy+require	src/instruments/rubixoids/clock.js
 copy+require	src/instruments/rubixoids/rubix/rubix-clock.js
+
+# L-Systems shared subdivision clock and timed Notes
+copy+require	src/instruments/l-systems/discrete-audio.js
