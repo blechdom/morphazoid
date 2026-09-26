@@ -1,0 +1,39 @@
+{
+  "schemaVersion": 1,
+  "baseCommit": "251d27ee58ce3154c1cfc062ccb2ad11712d0da8",
+  "purpose": "Integrate SIMD Chiptune with the relocated site metadata without changing older frozen references.",
+  "changes": [
+    {
+      "file": "src/site/instrument-catalog.js",
+      "reason": "Register SIMD Chiptune while preserving existing site metadata.",
+      "regressionTests": [
+        "tests/instrument-catalog.test.mjs",
+        "e2e/simd-chiptune-parity.spec.mjs"
+      ],
+      "replacements": [
+        {
+          "before": "    \"Turn on Audio, press Play synth, shape the pattern and effects, or save named patches to My presets in this browser.\",\n    [\"WebAssembly SIMD\", \"AudioWorklet\", \"Built-in synth\", \"Step sequencer\", \"Effects\", \"Pointer\"],\n  ),\n  \"simd-synth\": define(\n    \"Configurable WebAssembly SIMD synth\",\n    \"Combines two of eight synthesis models through selectable blend, ring, phase, shaping, filter-routing, modulation, and dual-effects stages in an eight-voice AudioWorklet.\",\n",
+          "after": "    \"Turn on Audio, press Play synth, shape the pattern and effects, or save named patches to My presets in this browser.\",\n    [\"WebAssembly SIMD\", \"AudioWorklet\", \"Built-in synth\", \"Step sequencer\", \"Effects\", \"Pointer\"],\n  ),\n  \"simd-chiptune\": define(\n    \"WebAssembly SIMD tracker synth\",\n    \"Preserves WebGPU Chiptune's original sounds and presets with smooth tempo changes, seven pixel performers with independent Dance/Controls views, single level controls, per-voice audio meters, compact global and voice knobs, nine 32-step lanes, selectable song sections and eight-tap stereo echo.\",\n    \"Turn on Audio and press Play, choose a preset, then switch any character to Controls. Mute, solo, level and audio meters stay visible; Steps and sound controls share each voice’s control view. Noise plays in Song mode.\",\n    [\"WebAssembly SIMD\", \"AudioWorklet\", \"Pointer\", \"Built-in synth\", \"Shared transport\", \"Step sequencer\", \"Animated performers\", \"Presets\"],\n  ),\n  \"simd-synth\": define(\n    \"Configurable WebAssembly SIMD synth\",\n    \"Combines two of eight synthesis models through selectable blend, ring, phase, shaping, filter-routing, modulation, and dual-effects stages in an eight-voice AudioWorklet.\",\n"
+        }
+      ]
+    },
+    {
+      "file": "src/site/instrument-midi-capabilities.js",
+      "reason": "Register SIMD Chiptune while preserving existing site metadata.",
+      "regressionTests": [
+        "tests/instrument-catalog.test.mjs",
+        "e2e/simd-chiptune-parity.spec.mjs"
+      ],
+      "replacements": [
+        {
+          "before": "    \"vocalzoid\",\n    \"sliding-puzzle\",\n    \"webgpu-chiptune\",\n    \"hyper-rubix\",\n    \"webgpu-synths\",\n    \"srtuss\",\n",
+          "after": "    \"vocalzoid\",\n    \"sliding-puzzle\",\n    \"webgpu-chiptune\",\n    \"simd-chiptune\",\n    \"hyper-rubix\",\n    \"webgpu-synths\",\n    \"srtuss\",\n"
+        },
+        {
+          "before": "  \"pink-trombonazoid\",\n  \"vocalzoid\",\n  \"webgpu-chiptune\",\n  \"sliding-puzzle\",\n  \"hyper-rubix\",\n  \"webgpu-synths\",\n",
+          "after": "  \"pink-trombonazoid\",\n  \"vocalzoid\",\n  \"webgpu-chiptune\",\n  \"simd-chiptune\",\n  \"sliding-puzzle\",\n  \"hyper-rubix\",\n  \"webgpu-synths\",\n"
+        }
+      ]
+    }
+  ]
+}

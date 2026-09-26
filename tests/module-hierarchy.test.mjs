@@ -216,4 +216,3 @@ test("Chiptune sharing has two thin entries, explicit release inclusion and pari
   assert.ok((await readRuntimeManifest()).worktreeFiles.includes(change.implementation));
   assert.ok(change.regressionTests.includes("e2e/simd-chiptune-parity.spec.mjs"));
 });
-
