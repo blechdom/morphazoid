@@ -1,6 +1,5 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createHash } from 'node:crypto';
 import { createHandTremor } from '../src/instruments/gesticulating-hand/hand-tremor.js';
 import { clampHand, handDigitLimits, handWristLimits, FINGERS, TREMOR_FINGERS, TREMOR_JOINTS,
   normalizeHandConfig, evaluateHandVoices } from '../src/instruments/gesticulating-hand/hand-model.js';
@@ -22,17 +21,50 @@ function bounded(pose,offsets,form){
   assert.ok(offsets.every(Number.isFinite));
 }
 
+// Frozen pre-expansion implementation from 87a275e. Evaluate the reference in
+// the same runtime: transcendental rounding differs across CPU architectures,
+// so hashing unrounded floats captured on another machine is not portable.
+const record=value=>value&&typeof value==='object'?value:{};
+const TAU=Math.PI*2;
+function applyLegacyHandTremor(value, time, out, pitchOffsets, form) {
+  const settings = record(value), amount = clampHand(settings.amount, 0, 15, 0);
+  if (amount === 0) return;
+  const finger = TREMOR_FINGERS.includes(settings.finger) ? settings.finger : "all";
+  const selectedJoint = TREMOR_JOINTS.includes(settings.joint) ? settings.joint : "tip";
+  const joint = form === "foot" && finger === "thumb" && selectedJoint === "middle" ? "tip" : selectedJoint;
+  const phase = time * clampHand(settings.rate, .5, 40, 8) * TAU;
+  if (joint === "wrist") {
+    const bounds = handWristLimits(form);
+    out.wrist.flex = clampHand(out.wrist.flex + amount * Math.sin(phase), ...bounds.flex);
+    out.wrist.side = clampHand(out.wrist.side + amount * .55 * Math.sin(phase + .9), ...bounds.side);
+    out.wrist.twist = clampHand(out.wrist.twist + amount * .7 * Math.sin(phase + 1.8), ...bounds.twist);
+    return;
+  }
+  for (let i = 0; i < 5; i++) {
+    if (finger !== "all" && finger !== "alternating" && finger !== FINGERS[i]) continue;
+    const f = out.fingers[i], bounds = handDigitLimits(form, i);
+    const delta = amount * Math.sin(phase + (finger === "alternating" && i % 2 ? Math.PI : 0));
+    const oldMiddle = f.pip, oldTip = f.dip;
+    if (joint === "knuckle" || joint === "whole") f.mcp = clampHand(f.mcp + delta, ...bounds.mcp);
+    if (joint === "middle" || joint === "whole") f.pip = clampHand(f.pip + delta, ...bounds.pip);
+    if (joint === "tip" || joint === "whole") f.dip = clampHand(f.dip + delta, ...bounds.dip);
+    // Tip/middle tremor adds gentle vibrato from the actual visible deflection;
+    // ordinary manual edits retain their original timbre mapping at amount 0.
+    pitchOffsets[i] = (f.pip - oldMiddle) * .0035 + (f.dip - oldTip) * .0028;
+  }
+}
+
 test('zero spreads preserve all legacy targets numerically across both anatomies and joint clipping',()=>{
-  // Golden hashes were captured from the unmodified applyHandTremor in d4b9a54:
-  // 2,205 poses + pitch-offset arrays per form. This covers every legacy target,
-  // signed times, all/alternating phases, whole digits, wrist and clipped joints.
-  const expected={hand:'74aa73f4f3257e575dbee33620d81884c2fd11aa1306ceb82dd9ab63af4f01ef',foot:'ee82b141c92adcf490add4e5572108b61382b2539c8268d9ade717f31d9439a4'};
+  // 2,205 cases per anatomy, with both omitted and explicit zero spreads.
+  // Keep exact equality for every joint and pitch offset against legacy math.
   for(const form of ['hand','foot'])for(const spreads of [{},{rateSpread:0,phaseSpread:0}]){
-    const hash=createHash('sha256');
     for(const finger of TREMOR_FINGERS)for(const joint of JOINTS)for(const time of [0,1/32,-.173,.00137,.537,12.375,99.731])for(const rate of [.5,8,40])for(const amount of [0,4,15]){
-      const {pose,offsets}=sample({finger,joint,amount,rate,...spreads},time,form,base(form));hash.update(JSON.stringify([pose,Array.from(offsets)]));
+      const settings={finger,joint,amount,rate,...spreads};
+      const actual=sample(settings,time,form,base(form));
+      const expected={pose:base(form),offsets:new Float64Array(5)};
+      applyLegacyHandTremor(settings,time,expected.pose,expected.offsets,form);
+      assert.deepEqual(actual,expected,`${form}/${finger}/${joint} time=${time} rate=${rate} amount=${amount}`);
     }
-    assert.equal(hash.digest('hex'),expected[form]);
   }
 });
 
