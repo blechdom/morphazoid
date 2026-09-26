@@ -27,7 +27,7 @@ test("normalization produces independent finite bounded full scenes without runt
   assert.equal(config.motion.tempo, 180); assert.equal(config.motion.amount, 1);
   assert.equal(config.sound.release, .04); assert.equal(config.voices[0].level, 1); assert.equal(config.voices[0].mute, false);
   assert.ok(Object.values(leaves(config)).every(v => typeof v !== "number" || Number.isFinite(v)));
-  assert.deepEqual(Object.keys(config), ["version", "pose", "motion", "sound", "voices", "view", "tremor", "appearance"]);
+  assert.deepEqual(Object.keys(config), ["version", "form", "pose", "motion", "sound", "voices", "view", "tremor", "appearance"]);
   const fresh = normalizeHandConfig(HAND_DEFAULTS); fresh.pose.fingers[0].mcp = 999; fresh.voices[0].source = "other";
   assert.notEqual(HAND_DEFAULTS.pose.fingers[0].mcp, 999); assert.notEqual(HAND_DEFAULTS.voices[0].source, "other");
 });
@@ -170,7 +170,7 @@ test("source grasp is additive and exactly reports its unclamped contribution fo
 test("startup and original-grasp scenes use an unmodified open base with motion and sound separate", () => {
   assert.equal(HAND_DEFAULTS.motion.id, "source-grasp"); assert.equal(HAND_DEFAULTS.motion.amount, .85);
   assert.ok(Object.values(leaves(HAND_DEFAULTS.pose)).every(value => value === 0));
-  const sourcePresets = HAND_PRESETS.filter(p => p.snapshot.motion.id === "source-grasp");
+  const sourcePresets = HAND_PRESETS.filter(p => p.snapshot.form === "hand" && p.snapshot.motion.id === "source-grasp");
   assert.ok(sourcePresets.length >= 2);
   for (const { snapshot } of sourcePresets) {
     assert.equal(snapshot.motion.amount, 1); assert.ok(Object.values(leaves(snapshot.pose)).every(value => value === 0));

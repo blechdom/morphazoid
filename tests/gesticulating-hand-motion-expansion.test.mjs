@@ -224,8 +224,8 @@ test("the faster range preserves old preset timings and normal startup", () => {
     ["vowel-fan", 62, .8], ["metal-walk", 111, 1.7],
   ];
   assert.deepEqual(HAND_PRESETS.slice(0, 20).map(({ id, snapshot }) => [id, snapshot.motion.tempo, snapshot.motion.speed]), previousTimings);
-  assert.deepEqual(HAND_PRESETS.slice(20).map(({ snapshot }) => snapshot.motion.id), COMPLEX_MOTIONS);
-  assert.ok(HAND_PRESETS.slice(20).every(({ snapshot }) => snapshot.motion.tempo > 220));
+  assert.deepEqual(HAND_PRESETS.slice(20, 24).map(({ snapshot }) => snapshot.motion.id), COMPLEX_MOTIONS);
+  assert.ok(HAND_PRESETS.slice(20, 24).every(({ snapshot }) => snapshot.motion.tempo > 220));
   const values = Array.from({ length: 300 }, (_, i) => randomizeHandConfig(HAND_DEFAULTS, random(i + 1)).motion.tempo);
   assert.ok(values.some(value => value > 900)); assert.ok(values.every(value => value >= 20 && value <= 1100));
 });
