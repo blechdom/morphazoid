@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
-  FINGERS, VOICE_SOURCES, TREMOR_FINGERS, TREMOR_JOINTS, HAND_SKINS, HAND_LIGHTINGS, HAND_DEFAULTS, HAND_LIMITS, HAND_POSES, HAND_MOTIONS, HAND_PRESETS,
+  FINGERS, VOICE_SOURCES, TREMOR_FINGERS, TREMOR_JOINTS, HAND_DEFAULTS, HAND_LIMITS, HAND_POSES, HAND_MOTIONS, HAND_PRESETS,
   normalizeHandConfig, createHandPose, createHandVoices, evaluateHandPose, evaluateHandVoices,
   handMotionBeats, handMotionPeriod, randomizeHandConfig,
 } from "../src/instruments/gesticulating-hand/hand-model.js";
@@ -213,7 +213,7 @@ test("complex choreographies have independently articulated fingers and counter-
 });
 
 test("the faster range preserves old preset timings and normal startup", () => {
-  assert.deepEqual(HAND_DEFAULTS.motion, { id: "source-grasp", tempo: 72, amount: .85, speed: 1 });
+  assert.deepEqual(HAND_DEFAULTS.motion, { id: "source-grasp", tempo: 72, amount: .85, speed: 1, elasticity: 0 });
   assert.equal(handMotionPeriod(HAND_DEFAULTS.motion), 240 / 72);
   const previousTimings = [
     ["glass-wave", 67, 1], ["reed-beckon", 79, 1], ["wire-roll", 104, 1], ["pinch-sparks", 92, 1],
@@ -223,9 +223,16 @@ test("the faster range preserves old preset timings and normal startup", () => {
     ["vowel-opposition", 89, 1.1], ["metal-drumming", 122, 1.4], ["bowed-eight", 51, .45],
     ["vowel-fan", 62, .8], ["metal-walk", 111, 1.7],
   ];
-  assert.deepEqual(HAND_PRESETS.slice(0, 20).map(({ id, snapshot }) => [id, snapshot.motion.tempo, snapshot.motion.speed]), previousTimings);
-  assert.deepEqual(HAND_PRESETS.slice(20, 24).map(({ snapshot }) => snapshot.motion.id), COMPLEX_MOTIONS);
-  assert.ok(HAND_PRESETS.slice(20, 24).every(({ snapshot }) => snapshot.motion.tempo > 220));
+  for (const [id, tempo, speed] of previousTimings) {
+    const preset = HAND_PRESETS.find(preset => preset.id === id); assert.ok(preset, `${id} must remain available`);
+    assert.equal(preset.snapshot.form, "hand");
+    assert.deepEqual([preset.snapshot.motion.tempo, preset.snapshot.motion.speed], [tempo, speed], id);
+  }
+  const complexPresets = ["tangled-polyrhythm", "swarming-fingers", "orbit-frenzy", "scattered-sparks"]
+    .map(id => HAND_PRESETS.find(preset => preset.id === id));
+  assert.ok(complexPresets.every(Boolean), "original complex scenes must remain available");
+  assert.deepEqual(complexPresets.map(({ snapshot }) => snapshot.motion.id), COMPLEX_MOTIONS);
+  assert.ok(complexPresets.every(({ snapshot }) => snapshot.form === "hand" && snapshot.motion.tempo > 220));
   const values = Array.from({ length: 300 }, (_, i) => randomizeHandConfig(HAND_DEFAULTS, random(i + 1)).motion.tempo);
   assert.ok(values.some(value => value > 900)); assert.ok(values.every(value => value >= 20 && value <= 1100));
 });
@@ -258,21 +265,28 @@ test("v1 camera migration restores palm framing and bounds independently owned p
 test("v1 migration restores zero tremor and normalizes hostile appearance values", () => {
   const legacy = structuredClone(HAND_DEFAULTS); delete legacy.view; delete legacy.motion.speed; delete legacy.tremor; delete legacy.appearance;
   assert.deepEqual(normalizeHandConfig(legacy), HAND_DEFAULTS);
-  assert.deepEqual(HAND_DEFAULTS.tremor, { finger: "all", joint: "tip", amount: 0, rate: 8 });
-  assert.deepEqual(HAND_DEFAULTS.appearance, { skin: "natural", lighting: "studio" });
+  assert.deepEqual(HAND_DEFAULTS.tremor, { finger: "all", joint: "tip", amount: 0, rate: 8, rateSpread: 0, phaseSpread: 0 });
+  assert.deepEqual(HAND_DEFAULTS.appearance, { skin: 0, lighting: 0 });
+  for (const [skin, position] of Object.entries({ natural: 0, porcelain: 0, copper: 0, jade: .38, cyan: .55, violet: .76 })) {
+    assert.deepEqual(normalizeHandConfig({ appearance: { skin, lighting: "cool" } }).appearance, { skin: position, lighting: .4 });
+  }
+  for (const [lighting, position] of Object.entries({ studio: 0, warm: .2, cool: .4, noir: .6, neon: .8, soft: 1 })) {
+    assert.deepEqual(normalizeHandConfig({ appearance: { skin: .417, lighting } }).appearance, { skin: .417, lighting: position });
+  }
+  assert.deepEqual(normalizeHandConfig({ appearance: { skin: -1, lighting: 5 } }).appearance, { skin: 0, lighting: 1 });
   for (const value of [null, undefined, Symbol(), "bad", 72, false]) {
     const normalized = normalizeHandConfig({ tremor: value, appearance: value });
     assert.deepEqual(normalized.tremor, HAND_DEFAULTS.tremor); assert.deepEqual(normalized.appearance, HAND_DEFAULTS.appearance);
   }
   const invalid = normalizeHandConfig({ tremor: { finger: "unknown", joint: {}, amount: Infinity, rate: Symbol() }, appearance: { skin: "red", lighting: [] } });
   assert.deepEqual(invalid.tremor, HAND_DEFAULTS.tremor); assert.deepEqual(invalid.appearance, HAND_DEFAULTS.appearance);
-  assert.deepEqual(normalizeHandConfig({ tremor: { amount: 300, rate: "500" } }).tremor, { ...HAND_DEFAULTS.tremor, amount: 15, rate: 40 });
-  assert.deepEqual(normalizeHandConfig({ tremor: { amount: -8, rate: -4 } }).tremor, { ...HAND_DEFAULTS.tremor, amount: 0, rate: .5 });
+  assert.deepEqual(normalizeHandConfig({ tremor: { amount: 300, rate: "500" } }).tremor, { ...HAND_DEFAULTS.tremor, amount: 45, rate: 120 });
+  assert.deepEqual(normalizeHandConfig({ tremor: { amount: -8, rate: -4 } }).tremor, { ...HAND_DEFAULTS.tremor, amount: 0, rate: .1 });
   for (const finger of TREMOR_FINGERS) for (const joint of TREMOR_JOINTS) {
     const config = normalizeHandConfig({ tremor: { finger, joint, amount: 4.25, rate: 13.75 } });
-    assert.deepEqual(config.tremor, { finger, joint, amount: 4.25, rate: 13.75 });
+    assert.deepEqual(config.tremor, { finger, joint, amount: 4.25, rate: 13.75, rateSpread: 0, phaseSpread: 0 });
   }
-  for (const skin of HAND_SKINS) for (const lighting of HAND_LIGHTINGS) assert.deepEqual(normalizeHandConfig({ appearance: { skin, lighting } }).appearance, { skin, lighting });
+  for (const skin of [0, .173, .58, 1]) for (const lighting of [0, .361, .73, 1]) assert.deepEqual(normalizeHandConfig({ appearance: { skin, lighting } }).appearance, { skin, lighting });
 });
 
 test("tremor moves only its selected finger parts and alternating fingers oppose each other", () => {
@@ -317,10 +331,10 @@ test("tip and middle tremor produce vibrato from the actual visible deflection",
   }
 });
 
-test("40 Hz tremor remains deterministic and bounded with the fastest complex motion", () => {
+test("120 Hz tremor remains deterministic and bounded with the fastest complex motion", () => {
   const out = createHandPose(), fingers = out.fingers, wrist = out.wrist;
   for (const id of COMPLEX_MOTIONS) for (const joint of TREMOR_JOINTS) {
-    const config = normalizeHandConfig({ motion: { id, tempo: 1100, speed: 4, amount: 1 }, tremor: { finger: "alternating", joint, amount: 15, rate: 40 } });
+    const config = normalizeHandConfig({ motion: { id, tempo: 1100, speed: 4, amount: 1 }, tremor: { finger: "alternating", joint, amount: 45, rate: 120, rateSpread: .7, phaseSpread: .8 } });
     for (let step = 0; step <= 128; step++) {
       evaluateHandPose(config, step / 503, out); assert.equal(out.fingers, fingers); assert.equal(out.wrist, wrist);
       for (let i = 0; i < 5; i++) for (const key of JOINTS) {
@@ -332,8 +346,8 @@ test("40 Hz tremor remains deterministic and bounded with the fastest complex mo
     assert.deepEqual(evaluateHandVoices(config, .317), evaluateHandVoices(config, .317));
   }
   const slow = normalizeHandConfig({ motion: { id: "still" }, tremor: { finger: "all", joint: "whole", amount: 3, rate: 2 } });
-  const fast = normalizeHandConfig({ ...slow, tremor: { ...slow.tremor, rate: 40 } });
-  assert.ok(poseDistance(evaluateHandPose(slow, .073), evaluateHandPose(fast, .073 / 20)) < 1e-10, "the tremor rate is expressed in Hz");
+  const fast = normalizeHandConfig({ ...slow, tremor: { ...slow.tremor, rate: 120 } });
+  assert.ok(poseDistance(evaluateHandPose(slow, .073), evaluateHandPose(fast, .073 / 60)) < 1e-10, "the tremor rate is expressed in Hz");
 });
 
 test("complete presets and random scenes recall tremor, skin, lighting, camera, tempo and speed", () => {
@@ -341,19 +355,23 @@ test("complete presets and random scenes recall tremor, skin, lighting, camera, 
     assert.ok(Object.isFrozen(snapshot.tremor) && Object.isFrozen(snapshot.appearance));
     assert.deepEqual(snapshot, normalizeHandConfig(snapshot));
   }
-  assert.equal(new Set(HAND_PRESETS.map(({ snapshot }) => snapshot.appearance.skin)).size, HAND_SKINS.length);
-  assert.equal(new Set(HAND_PRESETS.map(({ snapshot }) => snapshot.appearance.lighting)).size, HAND_LIGHTINGS.length);
+  assert.ok(new Set(HAND_PRESETS.map(({ snapshot }) => snapshot.appearance.skin)).size >= 4);
+  assert.ok(new Set(HAND_PRESETS.map(({ snapshot }) => snapshot.appearance.lighting)).size >= 4);
   assert.equal(new Set(HAND_PRESETS.filter(({ snapshot }) => snapshot.tremor.amount > 0).map(({ snapshot }) => snapshot.tremor.joint)).size, TREMOR_JOINTS.length);
-  const rng = random(174), variants = { finger: new Set(), joint: new Set(), amount: new Set(), rate: new Set(), skin: new Set(), lighting: new Set() };
+  const rng = random(174), variants = { finger: new Set(), joint: new Set(), amount: new Set(), rate: new Set(), rateSpread: new Set(), phaseSpread: new Set(), skin: new Set(), lighting: new Set() };
   for (let index = 0; index < 600; index++) {
     const config = randomizeHandConfig(HAND_DEFAULTS, rng);
-    for (const key of ["finger", "joint", "amount", "rate"]) variants[key].add(config.tremor[key]);
+    for (const key of ["finger", "joint", "amount", "rate", "rateSpread", "phaseSpread"]) variants[key].add(config.tremor[key]);
     variants.skin.add(config.appearance.skin); variants.lighting.add(config.appearance.lighting);
     assert.deepEqual(config, normalizeHandConfig(config));
   }
   assert.equal(variants.finger.size, TREMOR_FINGERS.length); assert.equal(variants.joint.size, TREMOR_JOINTS.length);
-  assert.equal(variants.skin.size, HAND_SKINS.length); assert.equal(variants.lighting.size, HAND_LIGHTINGS.length);
-  assert.equal(variants.amount.size, 600); assert.equal(variants.rate.size, 600);
+  for (const key of ["skin", "lighting"]) {
+    assert.ok(variants[key].size > 100, `${key} randomization should use the continuous range`);
+    assert.ok([...variants[key]].every(value => Number.isFinite(value) && value >= 0 && value <= 1));
+    assert.ok(Math.min(...variants[key]) < .05 && Math.max(...variants[key]) > .95);
+  }
+  for (const key of ["amount", "rate", "rateSpread", "phaseSpread"]) assert.equal(variants[key].size, 600, `${key} should vary across randomized scenes`);
 });
 
 test("rebasing choreography from .2 to .05 retains tremor phase through an independent clock", () => {

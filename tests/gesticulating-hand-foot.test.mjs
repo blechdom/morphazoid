@@ -5,8 +5,8 @@ import { FINGERS, GESTICULES_FORMS, FOOT_LIMITS, HAND_DEFAULTS, HAND_POSES, HAND
   handDigitLabels, handDigitLimits, handWristLimits, handJointKeys, handJointLabel, handMotionLabel, handPoseLabel, handPoseForForm,
   normalizeHandConfig, createHandPose, evaluateHandPose, evaluateHandVoices, handMotionPeriod, randomizeHandConfig } from "../src/instruments/gesticulating-hand/hand-model.js";
 const copy = value => structuredClone(value);
-const geometry = pose => ({ fingers: pose.fingers, wrist: pose.wrist });
-const vector = pose => [...pose.fingers.flatMap(f => [f.mcp, f.pip, f.dip, f.spread]), ...Object.values(pose.wrist)];
+const geometry = pose => ({ fingers: pose.fingers, wrist: pose.wrist, ...(pose.foot ? { foot: pose.foot } : {}) });
+const vector = pose => [...pose.fingers.flatMap(f => [f.mcp, f.pip, f.dip, f.spread]), ...Object.values(pose.wrist), ...Object.values(pose.foot ?? {})];
 const distance = (a, b) => Math.max(...vector(a).map((value, i) => Math.abs(value - vector(b)[i])));
 const rms = values => Math.sqrt(values.reduce((sum, value) => sum + value * value, 0) / values.length);
 const peak = values => values.reduce((maximum, value) => Math.max(maximum, Math.abs(value)), 0);
@@ -18,6 +18,7 @@ function checkFoot(pose) {
     const value = pose.fingers[i][key]; assert.ok(Number.isFinite(value) && value >= bounds[0] && value <= bounds[1], `toe ${i} ${key}: ${value}`);
   }
   for (const [key, bounds] of Object.entries(FOOT_LIMITS.ankle)) assert.ok(Number.isFinite(pose.wrist[key]) && pose.wrist[key] >= bounds[0] && pose.wrist[key] <= bounds[1]);
+  for (const [key, bounds] of Object.entries(FOOT_LIMITS.shape)) assert.ok(Number.isFinite(pose.foot[key]) && pose.foot[key] >= bounds[0] && pose.foot[key] <= bounds[1]);
 }
 function scene(source = "wire") {
   return normalizeHandConfig({ form: "foot", pose: handPoseForForm("relaxed", "foot"), motion: { id: "still" },
@@ -106,20 +107,26 @@ test("toe tremor affects only existing selected joints in actual degrees and hon
   }
   const middle = evaluateHandPose(normalizeHandConfig({ ...base, tremor: { finger: "all", joint: "middle", amount: 4, rate: 8 } }), time);
   assert.deepEqual(middle.fingers[0], plain.fingers[0]);
-  for (const joint of ["knuckle", "middle", "tip", "whole", "wrist"]) {
-    const config = normalizeHandConfig({ ...base, motion: { id: "frantic-orbit", tempo: 1100, speed: 4, amount: 1 }, tremor: { finger: "alternating", joint, amount: 15, rate: 40 } });
+  for (const joint of ["knuckle", "middle", "tip", "whole", "spread", "wrist"]) {
+    const config = normalizeHandConfig({ ...base, motion: { id: "frantic-orbit", tempo: 1100, speed: 4, amount: 1 }, tremor: { finger: "alternating", joint, amount: 45, rate: 120, rateSpread: .7, phaseSpread: .8 } });
     for (let step = 0; step < 120; step++) checkFoot(evaluateHandPose(config, step / 173));
   }
 });
 
-test("four complete foot scenes follow the original 24 hands and full randomization samples both anatomies", () => {
-  assert.equal(HAND_PRESETS.length, 28); assert.ok(HAND_PRESETS.slice(0, 24).every(p => p.snapshot.form === "hand"));
-  const feet = HAND_PRESETS.slice(24); assert.ok(feet.every(p => p.snapshot.form === "foot"));
-  assert.deepEqual(feet.map(p => p.snapshot.motion.id), ["source-grasp", "ripple-open", "finger-drumming", "figure-eight"]);
-  assert.equal(new Set(feet.map(p => JSON.stringify(p.snapshot))).size, 4);
+test("the expanded mixed bank preserves original foot scenes and randomization samples both anatomies", () => {
+  assert.equal(HAND_PRESETS.length, 52);
+  const feet = HAND_PRESETS.filter(preset => preset.snapshot.form === "foot");
+  const originalFootMotions = { "foot-velvet-curl": "source-grasp", "foot-glass-ripple": "ripple-open",
+    "foot-tin-drumming": "finger-drumming", "foot-ankle-orbit": "figure-eight" };
+  for (const [id, motion] of Object.entries(originalFootMotions)) {
+    const preset = feet.find(preset => preset.id === id); assert.ok(preset, `${id} must remain available`);
+    assert.equal(preset.snapshot.motion.id, motion); assert.ok(preset.snapshot.sound.rotationFx > 0);
+  }
+  assert.ok(feet.length > Object.keys(originalFootMotions).length);
+  assert.equal(new Set(feet.map(p => JSON.stringify(p.snapshot))).size, feet.length);
   for (const { snapshot } of feet) {
     checkFoot(snapshot.pose); assert.deepEqual(snapshot, normalizeHandConfig(snapshot));
-    assert.ok(Object.isFrozen(snapshot.pose.fingers[0])); assert.ok(snapshot.sound.rotationFx > 0);
+    assert.ok(Object.isFrozen(snapshot.pose.fingers[0])); assert.ok(Object.isFrozen(snapshot.pose.foot));
     assert.equal(snapshot.playing, undefined); assert.equal(snapshot.tremorOffset, undefined);
   }
   const random = rng(), counts = { hand: 0, foot: 0 }, footRanges = { mcp: [], dip: [], flex: [] };
@@ -172,16 +179,17 @@ test("five toe voices preserve held-note, mute, solo, release and transport owne
   dsp.setEnabled(false); render(dsp, .4); assert.ok(peak(render(dsp, .1)) < 1e-7);
 });
 
-test("all eight engines and four foot presets produce bounded audio from toe motion without graphics frames", () => {
+test("all eight engines and every foot preset produce bounded audio without graphics frames", () => {
   for (const rate of [8000, 48000, 192000]) for (const source of VOICE_SOURCES) {
     const config = scene(source); config.motion = { id: "frantic-orbit", amount: 1, tempo: 1100, speed: 4 };
     Object.assign(config.sound, { rootHz: 1000, brightness: 1, roughness: 1, rotationFx: 1, space: 1 });
     const dsp = engine(config, rate); dsp.setTransport({ time: .37, playing: true });
     assert.ok(rms(render(dsp, .12)) > .001, `${source} ${rate}`); assert.equal(dsp.pose.source, null); checkFoot(dsp.pose);
   }
-  for (const { snapshot } of HAND_PRESETS.slice(24)) {
+  for (const { snapshot } of HAND_PRESETS.filter(preset => preset.snapshot.form === "foot")) {
     const dsp = engine(snapshot); dsp.setTransport({ playing: true }); assert.ok(rms(render(dsp, .5)) > .005);
-    const moving = copy(geometry(dsp.pose)); render(dsp, .3); assert.notDeepEqual(geometry(dsp.pose), moving);
+    const moving = copy(geometry(dsp.pose)); render(dsp, .3);
+    if (snapshot.motion.id !== "still" && snapshot.motion.amount > 0 || snapshot.tremor.amount > 0) assert.notDeepEqual(geometry(dsp.pose), moving);
     dsp.setTransport({ playing: false }); render(dsp, .01); const stopped = copy(dsp.pose); render(dsp, .1); assert.deepEqual(dsp.pose, stopped);
   }
 });
