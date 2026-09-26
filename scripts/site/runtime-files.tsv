@@ -430,7 +430,13 @@ copy+require	simd-chiptune.html
 copy+require	src/instruments/simd-chiptune/simd-chiptune-app.js
 copy+require	src/instruments/simd-chiptune/simd-chiptune.css
 copy+require	src/families/chiptune/chiptune-app.js
+copy+require	src/instruments/simd-chiptune/performance.js
+copy+require	src/instruments/simd-chiptune/skins.js
+copy+require	src/instruments/simd-chiptune/ui.js
+copy+require	src/instruments/simd-chiptune/control-deck.js
+copy+require	src/instruments/simd-chiptune/parameter-groups.js
 copy+require	src/instruments/simd-chiptune/audio.js
+copy+require	src/instruments/simd-chiptune/tempo-clock.js
 copy+require	src/instruments/simd-chiptune/processor.js
 copy+require	assets/wasm/simd-chiptune-scalar.wasm
 copy+require	assets/wasm/simd-chiptune-simd.wasm

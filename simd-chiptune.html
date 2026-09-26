@@ -50,32 +50,7 @@
       </label>
 
       <div class="audio-strip" aria-label="Playback and audio controls">
-        <div
-          class="webgpu-303-transport-row chiptune-top-transport"
-          data-chiptune-top-transport
-        >
-          <button
-            class="play-button webgpu-303-play-button"
-            id="synthPlayButton"
-            type="button"
-            aria-pressed="false"
-            aria-label="Play SIMD Chiptune"
-            aria-keyshortcuts="Space"
-            title="Play SIMD Chiptune (Space)"
-            data-primary-transport
-          >
-            <svg class="transport-play" viewBox="0 0 24 24" aria-hidden="true">
-              <path d="M8 5.5 18 12 8 18.5Z" />
-            </svg>
-            <svg class="transport-pause" viewBox="0 0 24 24" aria-hidden="true">
-              <path d="M8 6v12M16 6v12" />
-            </svg>
-          </button>
-          <span class="webgpu-303-transport-copy">
-            <b id="synthPlayLabel">Play chiptune</b>
-            <small id="synthPlayState">paused · Space</small>
-          </span>
-        </div>
+
         <button class="audio-button" id="audioButton" type="button" aria-pressed="false">
           <span class="audio-glyph webgpu-303-audio-glyph" aria-hidden="true">◆</span>
           <span class="audio-copy"><b>Audio</b><small id="audioState">off</small></span>
@@ -97,92 +72,191 @@
 
     <main class="shell webgpu-303-shell" id="webgpuChiptune">
       <h1 class="sr-only" id="webgpuChiptuneTitle">SIMD Chiptune</h1>
-      <section class="chiptune-character-panel" aria-labelledby="pixelEnsembleTitle">
-        <header class="chiptune-character-header">
-          <span>
-            <small>VOICE-DRIVEN CHOREOGRAPHY</small>
-            <h2 id="pixelEnsembleTitle">Pixel Ensemble</h2>
-          </span>
-          <div class="chiptune-character-preset-nav" aria-label="Character performance preset">
-            <button id="previousPreset" type="button" aria-label="Previous preset">◀</button>
-            <output id="characterPreset">Source Tracker</output>
-            <button id="nextPreset" type="button" aria-label="Next preset">▶</button>
-          </div>
-        </header>
-        <div class="chiptune-character-screen">
-          <canvas
+<section class="simd-performance-controls" aria-label="Live performance controls">
+  <div class="simd-preset-controls" aria-label="Instrument preset">
+    <label class="simd-preset-fallback" for="simdPresetSelect"><span class="sr-only">Preset</span><select id="simdPresetSelect" aria-label="Preset"><option value="source">Source Tracker</option></select></label>
+    <button id="nextPreset" class="instrument-picker-next" type="button" aria-label="Next preset"><span aria-hidden="true">▶</span></button>
+    <button id="randomizePatch" class="instrument-picker-next" type="button" aria-label="Randomize patch" title="Randomize patch"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2" fill="none" stroke="currentColor" stroke-width="1.6"/><g fill="currentColor"><circle cx="7.5" cy="7.5" r="1.4"/><circle cx="16.5" cy="7.5" r="1.4"/><circle cx="12" cy="12" r="1.4"/><circle cx="7.5" cy="16.5" r="1.4"/><circle cx="16.5" cy="16.5" r="1.4"/></g></svg></button>
+  </div>
+  <div class="simd-tempo-transport" aria-label="Playback and tempo"><button
+            class="play-button webgpu-303-play-button"
+            id="synthPlayButton"
+            type="button"
+            aria-pressed="false"
+            aria-label="Play SIMD Chiptune"
+            aria-keyshortcuts="Space"
+            title="Play (Space)"
+            data-primary-transport
+          >
+            <svg class="transport-play" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M8 5.5 18 12 8 18.5Z" />
+            </svg>
+            <svg class="transport-pause" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M8 6v12M16 6v12" />
+            </svg>
+          </button><div id="simdTempoControls" class="chiptune-control-stack"></div></div>
+  <div class="simd-structure-row"><label class="simd-composition-picker" for="compositionMode"><span class="sr-only">Playback structure</span><select id="compositionMode"><option value="pattern">Independent loops</option><option value="song">Song arrangement</option></select></label><fieldset class="chiptune-view-switch">
+              <legend class="sr-only">Editor view</legend>
+              <label>
+                <input id="trackerViewSequence" name="trackerView" type="radio" value="sequence" checked />
+                <span>Sequence</span>
+              </label>
+              <label>
+                <input id="trackerViewMorph" name="trackerView" type="radio" value="morph" />
+                <span>Pattern pad</span>
+              </label>
+            </fieldset></div>
+  <div class="simd-pattern-section" id="patternSectionControls"><label for="patternSection"><span>Song loop</span><select id="patternSection" aria-label="Song loop to use in independent loops"><option value="0">Intro</option></select></label><button class="mini-action" id="patternNextSection" type="button" aria-label="Next song loop">Next loop ▶</button></div>
+  <div class="simd-quick-actions">
+    <button class="mini-action" id="mutatePatch" type="button">Mutate</button>
+    <label class="simd-skin-picker" for="characterSkin"><span>Characters</span><select id="characterSkin"><option value="original">Original pixels</option><option value="animals">Cute animals</option><option value="blobs">Weird blobs</option><option value="arcade">Arcade heroes</option></select></label>
+  </div>
+</section>
+<section class="simd-global-controls" id="simdGlobalControls" aria-label="Global sound controls">
+  <div class="simd-global-tabs" id="simdGlobalTabs" role="group" aria-label="Global control group"></div>
+  <div class="webgpu-knob-bank" id="knobControls" aria-label="Global sound knobs"></div>
+</section>
+<section class="chiptune-character-panel" aria-label="Voice controls and animated performers">
+  <div class="chiptune-character-screen">
+    <canvas
             id="characterStage"
-            width="240"
-            height="72"
+            width="560"
+            height="128"
             role="application"
             tabindex="0"
             aria-keyshortcuts="ArrowLeft ArrowRight ArrowUp ArrowDown PageUp PageDown Home M S"
-            aria-label="Six interactive arcade invader effect bays. Upper A selected. Click a performer to open its sequence editor. Drag to change its two effects."
+            aria-label="Seven interactive performers: Drums, Bass, Arp, Lead, Upper A, Upper B, and Noise. Select a performer to edit it; drag to change its effects."
             aria-describedby="characterStageDescription characterVoiceLegend characterPerformanceInstructions liveStatus"
             data-space-key-owner
-          >
-            Click one of six low-resolution arcade invaders to edit that performer. Drag to control its effects.
-          </canvas>
-          <div class="chiptune-character-bay-controls" id="characterBayControls" role="list" aria-label="Voice and drum mute, solo, and live effect values">
-            <div class="chiptune-character-bay-control" data-character-voice="upperOne" role="listitem">
-              <strong class="chiptune-character-name">UPPER A</strong>
-              <div class="chiptune-character-button-pair" role="group" aria-label="Upper A mix controls">
-                <button type="button" data-character-mute="upperOne" aria-pressed="false" aria-label="Mute Upper A" title="Mute Upper A">M</button>
-                <button type="button" data-character-solo="upperOne" aria-pressed="false" aria-label="Solo Upper A" title="Solo Upper A">S</button>
-              </div>
-              <output data-character-fx-output="upperOne" aria-label="Upper A live effects">TONE ↔ · LEVEL ↕</output>
-            </div>
-            <div class="chiptune-character-bay-control" data-character-voice="upperTwo" role="listitem">
-              <strong class="chiptune-character-name">UPPER B</strong>
-              <div class="chiptune-character-button-pair" role="group" aria-label="Upper B mix controls">
-                <button type="button" data-character-mute="upperTwo" aria-pressed="false" aria-label="Mute Upper B" title="Mute Upper B">M</button>
-                <button type="button" data-character-solo="upperTwo" aria-pressed="false" aria-label="Solo Upper B" title="Solo Upper B">S</button>
-              </div>
-              <output data-character-fx-output="upperTwo" aria-label="Upper B live effects">TONE ↔ · LEVEL ↕</output>
-            </div>
-            <div class="chiptune-character-bay-control" data-character-voice="bass" role="listitem">
-              <strong class="chiptune-character-name">BASS</strong>
-              <div class="chiptune-character-button-pair" role="group" aria-label="Bass mix controls">
-                <button type="button" data-character-mute="bass" aria-pressed="false" aria-label="Mute Bass" title="Mute Bass">M</button>
-                <button type="button" data-character-solo="bass" aria-pressed="false" aria-label="Solo Bass" title="Solo Bass">S</button>
-              </div>
-              <output data-character-fx-output="bass" aria-label="Bass live effects">BODY ↔ · SUB ↕</output>
-            </div>
-            <div class="chiptune-character-bay-control" data-character-voice="lead" role="listitem">
-              <strong class="chiptune-character-name">LEAD</strong>
-              <div class="chiptune-character-button-pair" role="group" aria-label="Lead mix controls">
-                <button type="button" data-character-mute="lead" aria-pressed="false" aria-label="Mute Lead" title="Mute Lead">M</button>
-                <button type="button" data-character-solo="lead" aria-pressed="false" aria-label="Solo Lead" title="Solo Lead">S</button>
-              </div>
-              <output data-character-fx-output="lead" aria-label="Lead live effects">TONE ↔ · LEVEL ↕</output>
-            </div>
-            <div class="chiptune-character-bay-control" data-character-voice="arp" role="listitem">
-              <strong class="chiptune-character-name">ARP</strong>
-              <div class="chiptune-character-button-pair" role="group" aria-label="Arp mix controls">
-                <button type="button" data-character-mute="arp" aria-pressed="false" aria-label="Mute Arp" title="Mute Arp">M</button>
-                <button type="button" data-character-solo="arp" aria-pressed="false" aria-label="Solo Arp" title="Solo Arp">S</button>
-              </div>
-              <output data-character-fx-output="arp" aria-label="Arp live effects">TONE ↔ · LEVEL ↕</output>
-            </div>
-            <div class="chiptune-character-bay-control" data-character-voice="drums" role="listitem">
-              <strong class="chiptune-character-name">DRUMS</strong>
-              <div class="chiptune-character-button-pair" role="group" aria-label="Drum mix controls">
-                <button type="button" data-character-mute="drums" aria-pressed="false" aria-label="Mute Drums" title="Mute Drums">M</button>
-                <button type="button" data-character-solo="drums" aria-pressed="false" aria-label="Solo Drums" title="Solo Drums">S</button>
-              </div>
-              <output data-character-fx-output="drums" aria-label="Drum live effects">SNAP ↔ · TAIL ↕</output>
-            </div>
+          >Select a performer, then drag to control its effects.</canvas>
+    <div class="chiptune-character-bay-controls" id="characterBayControls" role="list" aria-label="Performer sound, mute, solo, and loop controls">
+      <div class="chiptune-character-bay-control" data-character-voice="drums" data-view="dance" role="listitem">
+        <header class="simd-voice-header">
+          <strong class="chiptune-character-name">Drums</strong>
+          <button class="simd-voice-view" type="button" data-voice-view="drums" aria-pressed="false" aria-controls="simdVoiceControls-drums" aria-label="Show Drums controls">Controls</button>
+        </header>
+        <div class="simd-voice-controls" id="simdVoiceControls-drums" data-voice="drums" aria-label="Drums sound controls" hidden></div>
+        <div class="simd-voice-footer">
+          <div class="chiptune-character-button-pair" role="group" aria-label="Drums mix controls">
+            <button type="button" data-character-mute="drums" aria-pressed="false" aria-label="Mute Drums" title="Mute Drums">M</button>
+            <button type="button" data-character-solo="drums" aria-pressed="false" aria-label="Solo Drums" title="Solo Drums">S</button>
           </div>
+          <output data-character-fx-output="drums" hidden></output>
         </div>
-      </section>
-      <section class="stage webgpu-303-stage" aria-labelledby="webgpuChiptuneTitle">
-        <div
-          class="stage-wrap webgpu-303-stage-wrap"
-          id="stageWrap"
-          data-tracker-view="sequence"
-          data-sequence-page="0"
-        >
-          <canvas
+      </div>
+      <div class="chiptune-character-bay-control" data-character-voice="bass" data-view="dance" role="listitem">
+        <header class="simd-voice-header">
+          <strong class="chiptune-character-name">Bass</strong>
+          <button class="simd-voice-view" type="button" data-voice-view="bass" aria-pressed="false" aria-controls="simdVoiceControls-bass" aria-label="Show Bass controls">Controls</button>
+        </header>
+        <div class="simd-voice-controls" id="simdVoiceControls-bass" data-voice="bass" aria-label="Bass sound controls" hidden></div>
+        <div class="simd-voice-footer">
+          <div class="chiptune-character-button-pair" role="group" aria-label="Bass mix controls">
+            <button type="button" data-character-mute="bass" aria-pressed="false" aria-label="Mute Bass" title="Mute Bass">M</button>
+            <button type="button" data-character-solo="bass" aria-pressed="false" aria-label="Solo Bass" title="Solo Bass">S</button>
+          </div>
+          <output data-character-fx-output="bass" hidden></output>
+        </div>
+      </div>
+      <div class="chiptune-character-bay-control" data-character-voice="arp" data-view="dance" role="listitem">
+        <header class="simd-voice-header">
+          <strong class="chiptune-character-name">Arp</strong>
+          <button class="simd-voice-view" type="button" data-voice-view="arp" aria-pressed="false" aria-controls="simdVoiceControls-arp" aria-label="Show Arp controls">Controls</button>
+        </header>
+        <div class="simd-voice-controls" id="simdVoiceControls-arp" data-voice="arp" aria-label="Arp sound controls" hidden></div>
+        <div class="simd-voice-footer">
+          <div class="chiptune-character-button-pair" role="group" aria-label="Arp mix controls">
+            <button type="button" data-character-mute="arp" aria-pressed="false" aria-label="Mute Arp" title="Mute Arp">M</button>
+            <button type="button" data-character-solo="arp" aria-pressed="false" aria-label="Solo Arp" title="Solo Arp">S</button>
+          </div>
+          <output data-character-fx-output="arp" hidden></output>
+        </div>
+      </div>
+      <div class="chiptune-character-bay-control" data-character-voice="lead" data-view="dance" role="listitem">
+        <header class="simd-voice-header">
+          <strong class="chiptune-character-name">Lead</strong>
+          <button class="simd-voice-view" type="button" data-voice-view="lead" aria-pressed="false" aria-controls="simdVoiceControls-lead" aria-label="Show Lead controls">Controls</button>
+        </header>
+        <div class="simd-voice-controls" id="simdVoiceControls-lead" data-voice="lead" aria-label="Lead sound controls" hidden></div>
+        <div class="simd-voice-footer">
+          <div class="chiptune-character-button-pair" role="group" aria-label="Lead mix controls">
+            <button type="button" data-character-mute="lead" aria-pressed="false" aria-label="Mute Lead" title="Mute Lead">M</button>
+            <button type="button" data-character-solo="lead" aria-pressed="false" aria-label="Solo Lead" title="Solo Lead">S</button>
+          </div>
+          <output data-character-fx-output="lead" hidden></output>
+        </div>
+      </div>
+      <div class="chiptune-character-bay-control" data-character-voice="upperOne" data-view="dance" role="listitem">
+        <header class="simd-voice-header">
+          <strong class="chiptune-character-name">Upper A</strong>
+          <button class="simd-voice-view" type="button" data-voice-view="upperOne" aria-pressed="false" aria-controls="simdVoiceControls-upperOne" aria-label="Show Upper A controls">Controls</button>
+        </header>
+        <div class="simd-voice-controls" id="simdVoiceControls-upperOne" data-voice="upperOne" aria-label="Upper A sound controls" hidden></div>
+        <div class="simd-voice-footer">
+          <div class="chiptune-character-button-pair" role="group" aria-label="Upper A mix controls">
+            <button type="button" data-character-mute="upperOne" aria-pressed="false" aria-label="Mute Upper A" title="Mute Upper A">M</button>
+            <button type="button" data-character-solo="upperOne" aria-pressed="false" aria-label="Solo Upper A" title="Solo Upper A">S</button>
+          </div>
+          <output data-character-fx-output="upperOne" hidden></output>
+        </div>
+      </div>
+      <div class="chiptune-character-bay-control" data-character-voice="upperTwo" data-view="dance" role="listitem">
+        <header class="simd-voice-header">
+          <strong class="chiptune-character-name">Upper B</strong>
+          <button class="simd-voice-view" type="button" data-voice-view="upperTwo" aria-pressed="false" aria-controls="simdVoiceControls-upperTwo" aria-label="Show Upper B controls">Controls</button>
+        </header>
+        <div class="simd-voice-controls" id="simdVoiceControls-upperTwo" data-voice="upperTwo" aria-label="Upper B sound controls" hidden></div>
+        <div class="simd-voice-footer">
+          <div class="chiptune-character-button-pair" role="group" aria-label="Upper B mix controls">
+            <button type="button" data-character-mute="upperTwo" aria-pressed="false" aria-label="Mute Upper B" title="Mute Upper B">M</button>
+            <button type="button" data-character-solo="upperTwo" aria-pressed="false" aria-label="Solo Upper B" title="Solo Upper B">S</button>
+          </div>
+          <output data-character-fx-output="upperTwo" hidden></output>
+        </div>
+      </div>
+      <div class="chiptune-character-bay-control" data-character-voice="noise" data-view="dance" role="listitem">
+        <header class="simd-voice-header">
+          <strong class="chiptune-character-name">Noise</strong>
+          <button class="simd-voice-view" type="button" data-voice-view="noise" aria-pressed="false" aria-controls="simdVoiceControls-noise" aria-label="Show Noise controls">Controls</button>
+        </header>
+        <div class="simd-voice-controls" id="simdVoiceControls-noise" data-voice="noise" aria-label="Noise sound controls" hidden></div>
+        <div class="simd-voice-footer">
+          <div class="chiptune-character-button-pair" role="group" aria-label="Noise mix controls">
+            <button type="button" data-character-mute="noise" aria-pressed="false" aria-label="Mute Noise" title="Mute Noise">M</button>
+            <button type="button" data-character-solo="noise" aria-pressed="false" aria-label="Solo Noise" title="Solo Noise">S</button>
+          </div>
+          <span class="simd-noise-mode">Song texture</span>
+          <output data-character-fx-output="noise" hidden></output>
+        </div>
+      </div>    </div>
+  </div>
+</section>
+<section class="stage webgpu-303-stage" aria-labelledby="webgpuChiptuneTitle">
+<div id="sequenceWorkspace" class="simd-graphic-editor-controls" aria-label="Sequence view controls">
+ <div class="chiptune-sequence-toolbar" id="sequenceToolbar"><button class="mini-action chiptune-follow-button" id="sequenceFollow" type="button" aria-pressed="true">
+                  FOLLOW: ON
+                </button><label class="control" for="sequenceZoom"><span><b>Zoom</b></span><select id="sequenceZoom"><option value="32">32 steps</option><option value="16">16 steps</option><option value="8">8 steps</option></select></label><label class="control" for="sequencePan"><span><b>X pan</b></span><input id="sequencePan" type="range" min="0" max="0" step="1" value="0" /></label></div>
+ <div class="simd-sequence-knobs" id="simdSequenceControls" aria-label="Selected sequence controls"></div>
+ <div class="chiptune-lane-picker"><div class="chiptune-voice-tabs" id="sequenceVoiceTabs" role="group" aria-label="Drum part to edit"></div></div>
+ <div
+                  class="chiptune-sequence-pages"
+                  id="sequencePageControls"
+                  role="group"
+                  aria-label="Sequence page"
+                >
+                  <button id="sequencePageOne" type="button" aria-pressed="true">01–16</button>
+                  <button id="sequencePageTwo" type="button" aria-pressed="false">17–32</button>
+                  <button id="sequencePageThree" type="button" aria-pressed="false" hidden>17–24</button>
+                  <button id="sequencePageFour" type="button" aria-pressed="false" hidden>25–32</button>
+                </div>
+</div>
+  <section class="chiptune-morph-workspace" id="morphWorkspace" hidden>
+    <div class="chiptune-control-stack" id="morphControls" hidden></div>
+    <div class="chiptune-sequence-actions"><button class="mini-action" id="morphLaneSource" type="button">Reset lane edits</button><button class="mini-action" id="morphVoicesSource" type="button">Reset all voice edits</button></div>
+    <output id="morphSourceCoverage" hidden></output>
+  </section>
+<div class="stage-wrap webgpu-303-stage-wrap" id="stageWrap" data-tracker-view="sequence" data-sequence-page="0">
+<canvas
             id="stage"
             role="application"
             tabindex="0"
@@ -193,110 +267,30 @@
           >
             Select a performer above, then draw its focused voice or drum sequence here.
           </canvas>
-
-          <div class="webgpu-303-heading">
-            <p>SHADERTOY SOUND · WGSL COMPUTE</p>
-            <div class="chiptune-display-title" aria-hidden="true">SIMD Chiptune</div>
-            <span id="engineBadge">WGSL sound shader</span>
-          </div>
-
-          <div class="chiptune-gesture-card" aria-hidden="true">
-            <b>PATTERN MORPH PAD</b>
-            <span id="gestureReadout">seed 1.794 · range 1.00x</span>
-          </div>
-
-          <div class="stage-meta" aria-hidden="true">
-            <span id="stageReadout">WEBGPU · STANDBY · AUDIO OFF</span>
-          </div>
+</div>
+</section>
+<footer class="simd-workspace-footer">
+<div class="reset-all-row">
+          <button
+            class="reset-all-button"
+            id="resetPatch"
+            type="button"
+            data-reset-all
+            data-reset-in-place
+          >
+            Reload default preset
+          </button>
         </div>
-
-      </section>
-
-      <aside class="panel webgpu-303-panel" aria-label="SIMD Chiptune controls">
-        <details
-          class="group control-section webgpu-303-section chiptune-live-editor"
-          data-section="editor"
-          open
-        >
-          <summary class="group-summary">
-            <h2 class="group-title">Live Editor</h2>
-            <span class="section-state" id="editorState">Upper A · edit next</span>
-          </summary>
-          <div class="group-body chiptune-editor-panel">
-            <fieldset class="chiptune-view-switch">
-              <legend class="sr-only">Editor view</legend>
-              <label>
-                <input id="trackerViewSequence" name="trackerView" type="radio" value="sequence" checked />
-                <span>Sequence</span>
-              </label>
-              <label>
-                <input id="trackerViewMorph" name="trackerView" type="radio" value="morph" />
-                <span>Pattern pad</span>
-              </label>
-            </fieldset>
-
-            <label class="control chiptune-composition-mode" for="compositionMode">
-              <span><b>PLAYBACK STRUCTURE</b></span>
-              <select id="compositionMode"><option value="pattern">Pattern — independent loops</option><option value="song">Song — original arrangement</option></select>
-            </label>
-            <p class="chiptune-editor-help" id="compositionDescription"></p>
-
-            <div class="chiptune-selected-performer" id="selectedPerformer" data-performer="upperOne">
-              <span>EDITING PERFORMER</span>
-              <strong id="selectedPerformerName">UPPER A</strong>
-              <small id="selectedPerformerHint">Draw note height to customize this preset. Reload the preset to restore its original notes.</small>
-            </div>
-
-            <div class="chiptune-lane-picker">
-              <span id="sequenceLanePickerLabel">UPPER A SEQUENCE — CLICK A CHARACTER TO SWITCH VOICE</span>
-              <div
-                class="chiptune-voice-tabs"
-                id="sequenceVoiceTabs"
-                role="group"
-                aria-label="Lane to inspect and edit"
-              ></div>
-            </div>
-
-            <section
-              class="chiptune-sequence-workspace"
-              id="sequenceWorkspace"
-              aria-label="Focused live voice and drum sequence editor"
-            >
-              <p class="chiptune-step-tool-label">EDIT SELECTED STEP</p>
-              <div
-                class="chiptune-sequence-state-buttons"
-                role="group"
-                aria-label="Apply state to selected step and choose Canvas draw tool"
-              >
-                <button id="sequenceStateAuto" type="button" aria-pressed="false">RESET STEP ↺</button>
-                <button id="sequenceStateNote" type="button" aria-pressed="true">DRAW NOTE ●</button>
-                <button id="sequenceStateRest" type="button" aria-pressed="false">SILENCE ×</button>
-              </div>
-
-              <label class="chiptune-sequence-value" for="sequenceValueRange">
-                <span><b id="sequenceValueLabel">Semitone offset</b><output id="sequenceValueOut">+0 · A4</output></span>
-                <input id="sequenceValueRange" type="range" min="-72" max="72" step="1" value="0" />
-                <input id="sequenceValue" type="number" min="-72" max="72" step="1" value="0" inputmode="text" aria-label="Exact sequence value" />
-              </label>
-
-              <label class="control" id="sequenceVelocityControl" for="sequenceVelocity">
-                <span><b>Selected step volume</b><output id="sequenceVelocityOut">100%</output></span>
-                <input id="sequenceVelocity" type="range" min="0" max="100" step="1" value="100" />
-              </label>
-              <div class="chiptune-editor-readouts">
-                <output class="chiptune-sequence-status" id="sequenceStatus">
-                  UPPER A · STEP 01/32 · PRESET NOTE
-                </output>
-                <output class="chiptune-sequence-timing" id="sequenceTimingStatus">
-                  PLAY 01 · EDIT NEXT 02
-                </output>
-              </div>
-
-              <div class="chiptune-sequence-toolbar" id="sequenceToolbar">
-                <button class="mini-action chiptune-follow-button" id="sequenceFollow" type="button" aria-pressed="true">
-                  FOLLOW: ON
-                </button>
-                <label class="chiptune-lane-length" for="sequenceLength">
+<p class="audio-error" id="audioError" role="alert" hidden></p>
+<div class="webgpu-303-credit" aria-label="Original shader credit">
+          <span>Original sound shader</span>
+          <a href="https://www.shadertoy.com/view/MljSRt">
+            Chiptune (sound) by srtuss, 2015 · Shadertoy MljSRt
+          </a>
+        </div>
+</footer>
+<div class="simd-legacy-controls" id="simdLegacyControls" hidden>
+<label class="chiptune-lane-length" for="sequenceLength">
                   <span>Loop length</span>
                   <input
                     id="sequenceLength"
@@ -308,182 +302,59 @@
                     inputmode="numeric"
                   />
                 </label>
-                <div
-                  class="chiptune-sequence-pages"
-                  id="sequencePageControls"
-                  role="group"
-                  aria-label="Sequence page"
-                >
-                  <button id="sequencePageOne" type="button" aria-pressed="true">01–16</button>
-                  <button id="sequencePageTwo" type="button" aria-pressed="false">17–32</button>
-                  <button id="sequencePageThree" type="button" aria-pressed="false" hidden>17–24</button>
-                  <button id="sequencePageFour" type="button" aria-pressed="false" hidden>25–32</button>
-                </div>
-              </div>
-
-              <div id="patternTimingControls" class="chiptune-pattern-timing">
-                <label class="control" for="sequenceStepFraction"><span><b>Each step = fraction of one master unit</b></span><select id="sequenceStepFraction"></select></label>
+<section class="simd-voice-editor" aria-label="Selected performer controls">
+  <details class="chiptune-focused-sound" open><summary id="voiceSoundTitle">Voice sound</summary>
+              <div class="chiptune-control-stack" id="focusedVoiceControls"></div>
+            </details>
+  <div id="patternTimingControls" class="chiptune-pattern-timing">
+                <label class="control" for="sequenceStepFraction"><span><b>Step fraction</b></span><select id="sequenceStepFraction"></select></label>
                 <fieldset class="control chiptune-fraction-control" id="sequenceStepCustom"><legend>Custom step fraction</legend>
                   <div class="chiptune-fraction-fields"><input id="sequenceStepNumerator" type="number" min="1" max="2048" step="1" value="1" aria-label="Step fraction numerator" /><span aria-hidden="true">/</span><input id="sequenceStepDenominator" type="number" min="1" max="128" step="1" value="4" aria-label="Step fraction denominator" /></div>
                 </fieldset>
-                <label class="control" for="sequenceGate"><span><b>This voice: note length within each step</b><output id="sequenceGateOut">80%</output></span><input id="sequenceGate" type="range" min="5" max="100" step="1" value="80" /></label>
+                <label class="control" for="sequenceGate"><span><b>Note length</b><output id="sequenceGateOut">80%</output></span><input id="sequenceGate" type="range" min="5" max="100" step="1" value="80" /></label>
               </div>
-              <output id="sequenceLoopSummary" class="chiptune-sequence-timing"></output>
-              <details class="chiptune-clock-comparison"><summary>Compare all voice loop lengths</summary>
-                <p>One shared master clock. Different step fractions and lengths create different loop durations; voices do not have to finish together.</p>
-                <table><thead><tr><th>Voice</th><th>Steps</th><th>Step fraction</th><th>Loop units</th></tr></thead><tbody id="sequenceClockComparison"></tbody></table>
-              </details>
-              <div class="chiptune-pattern-timing">
-                <label class="control" for="sequenceZoom"><span><b>X zoom</b></span><select id="sequenceZoom"><option value="32">Fit all 32 stored steps</option><option value="16">16 steps — 2 pages</option><option value="8">8 steps — 4 pages</option></select></label>
-                <label class="control" for="sequencePan"><span><b>X pan / page</b></span><input id="sequencePan" type="range" min="0" max="0" step="1" value="0" /></label>
-              </div>
-              <p class="chiptune-editor-help">
-                Click selects; double-click toggles ON/OFF. Drag note height for pitch and lower bars
-                for volume. Drums use height for strength. Changes sound on the next sequenced hit,
-                never as an extra preview. Dimmed steps lie outside the chosen loop length.
-              </p>
-              <p class="chiptune-editor-help" hidden>
-                The canvas is one current pattern: the loaded preset plus your edits. Draw directly
-                to customize it, choose Silence to remove a step, or Reset Step to recover that
-                preset value. Clicking the same preset again restores its full original pattern.
-                Edits play only with the running sequence. Character XY pads change tone and level;
-                they never trigger extra notes or move the sequence clock.
-              </p>
-
-              <label class="chiptune-pitch-span" for="sequencePitchSpan">
-                <span><b>Visible pitch range</b><output id="sequencePitchSpanOut">±36 semitones</output></span>
+  <details class="simd-sequence-options"><summary>Sequence tools</summary><div class="chiptune-control-stack"><label class="chiptune-pitch-span" for="sequencePitchSpan">
+                <span><b>Pitch range</b><output id="sequencePitchSpanOut">±36 semitones</output></span>
                 <input id="sequencePitchSpan" type="range" min="12" max="72" step="12" value="36" />
               </label>
-
-              <label class="control" for="sequencePitchCenter"><span><b>Y pan — pitch center</b></span><input id="sequencePitchCenter" type="range" min="-36" max="36" step="1" value="0" /></label>
-              <div class="chiptune-sequence-actions" aria-label="Sequence transformations">
+<label class="control" for="sequencePitchCenter"><span><b>Y pan</b></span><input id="sequencePitchCenter" type="range" min="-36" max="36" step="1" value="0" /></label><div class="chiptune-sequence-actions" aria-label="Sequence transformations">
                 <button class="mini-action" id="rotateSequenceLeft" type="button">Rotate −1</button>
                 <button class="mini-action" id="rotateSequenceRight" type="button">Rotate +1</button>
                 <button class="mini-action" id="reverseSequenceLane" type="button">Reverse</button>
                 <button class="mini-action" id="varySequenceLane" type="button">Vary lane</button>
                 <button class="mini-action chiptune-source-action" id="clearSequenceLane" type="button">Reset lane edits</button>
-              </div>
-              <p class="chiptune-source-coverage" id="sequenceSourceCoverage">0 custom edits in the active preset sequence.</p>
-            </section>
+              </div></div></details>
 
-            <details class="chiptune-focused-sound" open><summary id="voiceSoundTitle">SELECTED VOICE SOUND</summary>
-              <div class="chiptune-control-stack" id="focusedVoiceControls"></div>
-            </details>
-            <p class="chiptune-editor-help">The controls above belong to the selected voice. Shared tempo, scale, pulse/PWM, drum-bus and echo controls are labelled in the sections below. Phrase/song-only controls are disabled in Pattern mode.</p>
-            <section class="chiptune-morph-workspace" id="morphWorkspace" hidden>
-              <div class="chiptune-control-stack" id="morphControls"></div>
-              <p class="chiptune-editor-help">
-                <b>PATTERN PAD</b> — X changes pattern seed; Y changes pitch range. It reshapes the
-                preset's unedited steps while your customized notes and silences stay fixed.
-              </p>
-              <p class="chiptune-source-coverage" id="morphSourceCoverage">0 custom voice edits.</p>
-              <div class="chiptune-sequence-actions">
-                <button class="mini-action" id="morphLaneSource" type="button">Reset active lane edits</button>
-                <button class="mini-action chiptune-source-action" id="morphVoicesSource" type="button">Reset all voice edits</button>
-              </div>
-            </section>
-          </div>
-        </details>
+</section>
 
-        <details
-          class="group control-section webgpu-303-section chiptune-quick-controls"
-          data-section="quick"
-        >
+<details class="group control-section webgpu-303-section" data-section="play"><summary class="group-summary"><h2 class="group-title">Song timing</h2></summary><div class="group-body chiptune-control-stack" id="patternControls"></div></details>
+<details class="group control-section webgpu-303-section" data-section="structure">
           <summary class="group-summary">
-            <h2 class="group-title">Quick Patch</h2>
-            <span class="section-state">16 SHADER MACROS</span>
-          </summary>
-          <div class="group-body chiptune-quick-body">
-            <p class="chiptune-editor-help">
-              Fast copies of key controls from the complete sections below.
-            </p>
-            <div class="chiptune-quick-actions" aria-label="Patch parameter actions">
-              <button class="mini-action" id="randomizePatch" type="button">Randomize patch</button>
-              <button class="mini-action" id="mutatePatch" type="button">Mutate patch</button>
-            </div>
-            <div
-              class="webgpu-knob-bank"
-              id="knobControls"
-              aria-label="SIMD Chiptune macro controls"
-            ></div>
-          </div>
-        </details>
-
-        <div class="webgpu-status-strip" aria-live="polite">
-          <b id="gpuState">Checking WebGPU</b>
-          <small id="streamState">WGSL tracker engine</small>
-        </div>
-
-        <div class="webgpu-303-credit" aria-label="Original shader credit">
-          <span>Original sound shader</span>
-          <a href="https://www.shadertoy.com/view/MljSRt">
-            Chiptune (sound) by srtuss, 2015 · Shadertoy MljSRt
-          </a>
-        </div>
-
-        <details
-          class="group control-section webgpu-303-section webgpu-303-presets"
-          data-section="play"
-          open
-        >
-          <summary class="group-summary">
-            <h2 class="group-title">Shared Tempo + Song Gates</h2>
-            <span class="section-state" id="patternState">78 BPM · Source Tracker</span>
-          </summary>
-          <div class="group-body">
-            <div
-              class="webgpu-preset-grid"
-              id="presetButtons"
-              role="group"
-              aria-label="SIMD Chiptune presets"
-            ></div>
-            <p class="chiptune-preset-description" id="presetDescription">
-              The untouched 2015 shader arrangement: all five lanes follow its procedural contours.
-            </p>
-            <div class="chiptune-control-stack" id="patternControls"></div>
-          </div>
-        </details>
-
-        <details class="group control-section webgpu-303-section" data-section="structure">
-          <summary class="group-summary">
-            <h2 class="group-title">All Voices + Shared Pulse / PWM</h2>
+            <h2 class="group-title">Shared voice controls</h2>
             <span class="section-state" id="voiceState">seed 1.794</span>
           </summary>
           <div class="group-body chiptune-control-stack" id="voiceControls"></div>
         </details>
-
-        <details class="group control-section webgpu-303-section" data-section="sound">
+<details class="group control-section webgpu-303-section" data-section="sound">
           <summary class="group-summary">
-            <h2 class="group-title">All Drums + Shared Drum Bus</h2>
+            <h2 class="group-title">Drum bus</h2>
             <span class="section-state" id="drumState">bus 100%</span>
           </summary>
           <div class="group-body chiptune-control-stack" id="drumControls"></div>
         </details>
-
-        <details class="group control-section webgpu-303-section" data-section="mapping">
+<details class="group control-section webgpu-303-section" data-section="mapping">
           <summary class="group-summary">
-            <h2 class="group-title">Shared Echo + Mix</h2>
+            <h2 class="group-title">Echo and mix</h2>
             <span class="section-state" id="echoState">8 taps</span>
           </summary>
           <div class="group-body chiptune-control-stack" id="echoControls"></div>
         </details>
-
-        <details class="group control-section webgpu-303-section" data-section="advanced">
+<details class="group control-section webgpu-303-section" data-section="advanced">
           <summary class="group-summary">
-            <h2 class="group-title">Phrase / Song + Advanced Sound</h2>
+            <h2 class="group-title">Sound and arrangement</h2>
             <span class="section-state" id="advancedState">7-note scale · editable gates</span>
           </summary>
           <div class="group-body">
-            <p class="webgpu-credit-note">
-              Customize the loaded preset: four variable note lanes, an Arp shape lane, four
-              hit or silent drum lanes, exact fraction clocks and phases, independent loop
-              lengths, pitch classes, gates, drum circuits, internal Lead and Arp motion, and routing.
-            </p>
-            <p class="webgpu-credit-note chiptune-live-note">
-              Sound changes refresh upcoming shader chunks; the current chunk and any render already
-              in flight may finish first.
-              Intro fade and curve are heard only when playback begins from 0:00.
-            </p>
             <div id="scaleControls"></div>
             <div id="gateControls"></div>
             <div
@@ -493,21 +364,52 @@
           </div>
         </details>
 
-        <details
-          class="group control-section webgpu-303-section webgpu-runtime-section"
-          data-section="output"
-        >
-          <summary class="group-summary">
-            <h2 class="group-title">GPU Stream</h2>
-            <span class="section-state" id="runtimeState">256 lanes</span>
-          </summary>
-          <div class="group-body">
-            <label class="control" for="chunkDuration">
-              <span>
-                <b>Chunk length</b>
-                <output id="chunkDurationOut" for="chunkDuration">100 ms</output>
-              </span>
-              <input
+<button id="previousPreset" type="button" aria-label="Previous preset">◀</button>
+<output id="characterPreset">Source Tracker</output>
+<b id="synthPlayLabel">Play chiptune</b>
+<small id="synthPlayState">paused · Space</small>
+<span class="section-state" id="editorState">Upper A · edit next</span>
+<p class="chiptune-editor-help" id="compositionDescription"></p>
+<div class="chiptune-selected-performer" id="selectedPerformer" data-performer="upperOne">
+              <span>EDITING PERFORMER</span>
+              <strong id="selectedPerformerName">UPPER A</strong>
+              <small id="selectedPerformerHint">Draw note height to customize this preset. Reload the preset to restore its original notes.</small>
+            </div>
+<span id="sequenceLanePickerLabel">UPPER A SEQUENCE — CLICK A CHARACTER TO SWITCH VOICE</span>
+<button id="sequenceStateAuto" type="button" aria-pressed="false">RESET STEP ↺</button>
+<button id="sequenceStateNote" type="button" aria-pressed="true">DRAW NOTE ●</button>
+<button id="sequenceStateRest" type="button" aria-pressed="false">SILENCE ×</button>
+<label class="chiptune-sequence-value" for="sequenceValueRange"><b id="sequenceValueLabel">Semitone offset</b>
+<output id="sequenceValueOut">+0 · A4</output>
+<input id="sequenceValueRange" type="range" min="-72" max="72" step="1" value="0" />
+<input id="sequenceValue" type="number" min="-72" max="72" step="1" value="0" inputmode="text" aria-label="Exact sequence value" /></label>
+<label class="control" id="sequenceVelocityControl" for="sequenceVelocity">
+                <span><b>Selected step volume</b><output id="sequenceVelocityOut">100%</output></span>
+                <input id="sequenceVelocity" type="range" min="0" max="100" step="1" value="100" />
+              </label>
+<output class="chiptune-sequence-status" id="sequenceStatus">
+                  UPPER A · STEP 01/32 · PRESET NOTE
+                </output>
+<output class="chiptune-sequence-timing" id="sequenceTimingStatus">
+                  PLAY 01 · EDIT NEXT 02
+                </output>
+<output id="sequenceLoopSummary" class="chiptune-sequence-timing"></output>
+<table><tbody id="sequenceClockComparison"></tbody></table>
+<p class="chiptune-source-coverage" id="sequenceSourceCoverage">0 custom edits in the active preset sequence.</p>
+<b id="gpuState">Checking WebGPU</b>
+<small id="streamState">WGSL tracker engine</small>
+<span class="section-state" id="patternState">78 BPM · Source Tracker</span>
+<div
+              class="webgpu-preset-grid"
+              id="presetButtons"
+              role="group"
+              aria-label="SIMD Chiptune presets"
+            ></div>
+<p class="chiptune-preset-description" id="presetDescription">
+              The untouched 2015 shader arrangement: all five lanes follow its procedural contours.
+            </p>
+<span class="section-state" id="runtimeState">256 lanes</span>
+<input
                 id="chunkDuration"
                 type="range"
                 min="0.03"
@@ -515,109 +417,25 @@
                 step="0.01"
                 value="0.10"
               />
-            </label>
-            <label class="select-control" for="workgroupSize">
-              <span>
-                <b>Workgroup</b>
-                <output id="workgroupSizeOut" for="workgroupSize">256 lanes</output>
-              </span>
-              <span class="select-shell">
-                <select id="workgroupSize" aria-label="WebGPU workgroup size">
+<output id="chunkDurationOut" for="chunkDuration">100 ms</output>
+<select id="workgroupSize" aria-label="WebGPU workgroup size">
                   <option value="32">32 lanes</option>
                   <option value="64">64 lanes</option>
                   <option value="128">128 lanes</option>
                   <option value="256" selected>256 lanes</option>
                 </select>
-              </span>
-            </label>
-            <p class="webgpu-credit-note">
-              The original chiptune sound path runs in a WebAssembly SIMD AudioWorklet,
-              with automatic scalar fallback and short fades for live edits. Musically meaningful active-path values are editable;
-              numerical stability constants, 12-TET math, BLEP calibration, sample rate, and
-              the safety ceiling remain fixed. Dormant source experiments are intentionally omitted.
-            </p>
-          </div>
-        </details>
-
-        <div class="reset-all-row">
-          <button
-            class="reset-all-button"
-            id="resetPatch"
-            type="button"
-            data-reset-all
-            data-reset-in-place
-          >
-            Reload default preset
-          </button>
-        </div>
-
-        <p class="audio-error" id="audioError" role="alert" hidden></p>
-      </aside>
-
-      <p class="sr-only" id="webgpuChiptuneDescription">
-        A WebAssembly SIMD audio worklet renders a procedural tracker composition with two upper pulse
-        voices, bass, lead, arpeggio, noise percussion, drums, and ping-pong echo into Web Audio.
-        Its live horizontal editor shows the loaded preset as one pattern ready for customization.
-      </p>
-      <p class="sr-only" id="characterStageDescription">
-        Six original code-drawn, low-resolution arcade invaders occupy separate performance bays
-        and share the shader's master transport. The first five characters read only their own
-        pitched voice sequence. The sixth reads the kick, snare, hats, and shaker sequences.
-        Divisions of each real step position drive whole-body jumps and pulses, independent left
-        and right arm waves, alternating leg kicks, eyes, expressions, accessories, and beat lamps.
-        Level changes size and brightness; register and notes change height and color; waveform,
-        pulse shape, articulation, and voice-specific timbre change each silhouette and movement.
-        Slow grouped body phrases and faster limb accents stay on that same voice clock; there is
-        no separate animation clock. Rests dim sound accents without snapping the slow pose.
-        On the drum dancer, kick drives jumps and chest pulses, snare alternates the stick arms,
-        hats drive feet and cymbal antennae, and shaker drives side-to-side movement. Echo makes
-        afterimages, kick sends floor bands, snare throws blocks, and hats and shaker make edge sparks.
-      </p>
-      <p class="sr-only" id="characterVoiceLegend">
-        Upper A is a cyan sensor-crab invader performing precise angular freezes and scanner hits.
-        Upper B is a lime beetle-runner invader gliding laterally with counterweighted fins. Bass
-        is a purple horned boss invader using grounded contractions and heavy stomps. Lead is a pink crowned
-        blade invader making long theatrical reaches and sword sweeps. Arp is an amber winged moth
-        invader using suspended wing fans and orbiting turns. Drums is a red-orange beat robot with
-        cymbal antennae, drumsticks, a pulsing kick-drum chest, and four independently driven limbs.
-      </p>
-      <p class="sr-only" id="characterPerformanceInstructions">
-        Click a character bay to select that performer and open its sequence editor. A click does
-        not change effects. Drag at least a few pixels to change the two live effects instead.
-        Horizontal movement controls the effect shown with a left-right arrow; vertical movement
-        controls the effect shown with an up-down arrow. The center preserves the preset exactly,
-        while the edges reach the parameter's correctly distributed low and high limits. With the
-        character canvas focused, arrow keys adjust the selected bay, Shift plus arrows makes larger
-        changes, Page Up and Page Down select another performer, and Home returns that bay to its neutral
-        center. Press M to mute or unmute the selected voice and S to add or remove it from the solo
-        group. Mute wins over Solo. These controls do not enable Audio or start or stop transport.
-      </p>
-      <p class="sr-only" id="trackerInstructions">
-        In Pattern Pad, drag horizontally to change the deterministic pattern seed and vertically to
-        change pitch range. The right panel mirrors both axes with exact controls and reports how
-        many custom voice edits are fixed in place. Unedited preset steps are reshaped live.
-      </p>
-      <p class="sr-only" id="sequenceInstructions">
-        Click a performer to open its sequence and voice-specific sound controls. Pattern mode
-        repeats independent editable loops; Song mode preserves the original arrangement and
-        phrase behavior. Switching modes retains each sequence separately. Reloading a preset
-        resets both. Loop length sets 1 to 32 active steps. Step fractions use one shared master
-        unit, with independent fractions and loop durations for each voice. Compare all voice
-        loop lengths in the right panel.
-        Click a grid step to select it. Double-click, Enter, or Space turns it on or off. Drag
-        vertically to change pitch; the Arp contour is pitch, not volume. The lower bars and
-        Selected Step Volume slider control loudness separately. Drum height is 0–100 percent
-        hit strength; each drum has its own mute and solo. Solo selects within the drum kit.
-        Live drum edits, and pitched edits in Pattern mode, wait until the edited step's next
-        occurrence; they never trigger preview notes or restart transport.
-        X zoom fits all 32 stored steps or enlarges 16 or 8 steps. Use X pan or page buttons to
-        reach the other steps. Dimmed steps are stored outside the active loop. Y pan and Visible
-        Pitch Range adjust the pitch view. Left and right select steps; up and down change values;
-        Shift changes pitched lanes by an octave. Page Up and Page Down select voices. A or Delete
-        resets a step, N or H enables it, and R or O writes silence. In Song mode, the white Lead
-        and Arp traces show the extra phrase-driven pitch; these traces are absent in Pattern mode.
-      </p>
-      <p class="sr-only" id="liveStatus" aria-live="polite"></p>
+<output id="workgroupSizeOut" for="workgroupSize">256 lanes</output>
+<span id="engineBadge">WGSL sound shader</span>
+<span id="gestureReadout">seed 1.794 · range 1.00x</span>
+<span id="stageReadout">WEBGPU · STANDBY · AUDIO OFF</span>
+</div>
+<p class="sr-only" id="webgpuChiptuneDescription">A chiptune instrument with five pitched voices, drums, a noise sweep, and stereo echo. Select a performer to edit its sound and sequence.</p>
+<p class="sr-only" id="characterStageDescription">Seven performers dance to the notes and rhythms of their own sounding parts. Select a character to open its editor. Use Controls to replace any dancer with its sound knobs. Mix and step controls remain available in either view. Character skins change appearance without changing sound.</p>
+<p class="sr-only" id="characterVoiceLegend">From left to right: Drums, Bass, Arp, Lead, Upper A, Upper B, and Noise.</p>
+<p class="sr-only" id="characterPerformanceInstructions">Click a character to select it; drag horizontally and vertically to adjust its effects. Arrow keys adjust effects; Page Up and Page Down select performers; Home restores the neutral position. M toggles mute; S toggles solo. Muting wins over solo.</p>
+<p class="sr-only" id="trackerInstructions">In Pattern pad, horizontal movement changes pattern seed and vertical movement changes pitch range.</p>
+<p class="sr-only" id="sequenceInstructions">Drag notes for pitch and the lower bars for volume. Double-click, Enter, or Space toggles a step. Follow tracks the sounding step; Each character’s Steps control chooses 1 to 32 active steps. Zoom and X pan control the visible steps. Song arrangement follows the original composition; Independent loops repeats editable patterns and lets you choose a song loop. Arrow keys select or change notes, Page Up and Page Down switch lanes, A resets a step, N enables it, and R silences it. Changes keep playback running.</p>
+<p class="sr-only" id="liveStatus" aria-live="polite"></p>
     </main>
 
     <script type="module" src="nav.js"></script>

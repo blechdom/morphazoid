@@ -1,6 +1,6 @@
 # Morphazoid
 
-**[SIMD Chiptune](simd-chiptune.html)** preserves WebGPU Chiptune’s six animated performers, nine 32-step sequencer lanes, Song/Pattern modes, complete presets and stereo echo. Its WebAssembly SIMD audio worklet runs without WebGPU and includes a scalar fallback. Audio starts off. [Controls and source analysis](docs/simd-chiptune.md).
+**[SIMD Chiptune](simd-chiptune.html)** preserves WebGPU Chiptune’s original sounds, presets, nine sequencer lanes and stereo echo in a full-width workspace. Seven pixel performers independently switch between Dance and Controls, with single level controls, audio meters and step counts in their control views. Compact knobs replace the sidebar, and tempo moves preserve the beat through a smooth ramp. Edit Song arrangements or load later song sections into independent loops. Its WebAssembly SIMD AudioWorklet runs without WebGPU and includes a scalar fallback. Audio starts off. [Controls and source analysis](docs/simd-chiptune.md).
 
 **[Gesticules](gesticules.html)** is a realistic, rigged 3D right hand with eight sound engines across five finger voices. Its 35 animations include Elena FF’s original Open/Close and four complex motion patterns, with tempo up to 1,100 BPM, 0.1–4× Speed, and targeted tremor/vibrato. Twenty-four complete presets recall sound, motion, tempo, speed, camera, skin and lighting. Audio starts off. [Controls, model and attribution](docs/gesticulating-hand.md).
 

@@ -18,6 +18,120 @@ const PARAMS: usize = memory.data(PARAM_COUNT * 4, 16);
 const META: usize = memory.data(192, 16);
 const CELLS: usize = memory.data(288 * 32, 16);
 const TIME_INFO: usize = memory.data(16, 16);
+// Optional live transport clock. Original direct kernel rendering leaves this
+// disabled and follows the unmodified WebGPU time formulas exactly.
+const TEMPO_CLOCK: usize = memory.data(2048 * 5 * 8, 16);
+let tempoClockCount: i32 = 0;
+export function tempo_clock_ptr(): usize { return TEMPO_CLOCK; }
+export function set_tempo_clock(count: i32): void { tempoClockCount = count > 1 ? (count > 2048 ? 2048 : count) : 0; }
+function clockValue(index: i32, field: i32): f64 { return load<f64>(TEMPO_CLOCK + <usize>((index * 5 + field) * 8)); }
+function clockIndex(value: f64, field: i32): i32 {
+  let lo = 0, hi = tempoClockCount - 1;
+  while (lo < hi) {
+    const mid = (lo + hi + 1) >> 1;
+    if (clockValue(mid, field) <= value) lo = mid; else hi = mid - 1;
+  }
+  return lo;
+}
+function clockBeat(time: f64): f64 {
+  const i = clockIndex(time, 0), start = clockValue(i, 0), beat = clockValue(i, 1);
+  const from = clockValue(i, 2), to = clockValue(i, 3), duration = clockValue(i, 4);
+  const elapsed = time - start;
+  if (elapsed <= 0 || duration == 0) return beat + elapsed * from;
+  const ramp = Math.min(duration, elapsed);
+  return beat + from * ramp + (to - from) * ramp * ramp / (2 * duration) + to * Math.max(0, elapsed - duration);
+}
+function clockTime(beat: f64): f64 {
+  const i = clockIndex(beat, 1), start = clockValue(i, 0), initial = clockValue(i, 1);
+  const from = clockValue(i, 2), to = clockValue(i, 3), duration = clockValue(i, 4);
+  const distance = beat - initial;
+  if (distance <= 0 || duration == 0) return start + distance / from;
+  const rampBeats = (from + to) * duration / 2;
+  if (distance >= rampBeats) return start + duration + (distance - rampBeats) / to;
+  const slope = (to - from) / duration;
+  return start + 2 * distance / (from + Math.sqrt(from * from + 2 * slope * distance));
+}
+export function musicalBeat(time: f32): f32 {
+  return tempoClockCount ? <f32>clockBeat(time) : time * params().tempo;
+}
+export function musicalTempo(time: f32): f32 {
+  if (!tempoClockCount) return params().tempo;
+  const i = clockIndex(time, 0), duration = clockValue(i, 4);
+  const from = clockValue(i, 2), to = clockValue(i, 3);
+  return <f32>(duration > 0 ? from + (to - from) * Math.max(0, Math.min(1, (<f64>time - clockValue(i, 0)) / duration)) : to);
+}
+function elapsedDrumTime(time: f32, phase: f32, rate: f32): f32 {
+  if (!tempoClockCount) return phase / (params().tempo * rate);
+  return <f32>(<f64>time - clockTime(clockBeat(time) - <f64>phase / <f64>rate));
+}
+
+// Actual stereo stem meters. Order: drums, bass, arp, lead, upperOne,
+// upperTwo, noise, kick, snare, hats, shaker. These buffers never feed audio.
+export const STEM_COUNT: i32 = 11;
+const STEM_PEAKS: usize = memory.data(STEM_COUNT * 4, 16);
+const STEM_LEFT: usize = memory.data(STEM_COUNT * 4, 16);
+const STEM_RIGHT: usize = memory.data(STEM_COUNT * 4, 16);
+export const STEM_OSC_LEFT: usize = memory.data(32, 16);
+export const STEM_OSC_RIGHT: usize = memory.data(32, 16);
+const STEM_DRUMS: usize = memory.data(16, 16);
+const STEM_DRY_DRUMS: usize = memory.data(16, 16);
+export let stemMetering: bool = true;
+export function stem_peaks_ptr(): usize { return STEM_PEAKS; }
+export function stem_count(): i32 { return STEM_COUNT; }
+export function set_metering(enabled: i32): void { stemMetering = enabled != 0; clear_stem_peaks(); }
+export function clear_stem_peaks(): void { memory.fill(STEM_PEAKS, 0, STEM_COUNT * 4); }
+export function begin_synth_meter(): void {
+  if (!stemMetering) return;
+  memory.fill(STEM_OSC_LEFT, 0, 32); memory.fill(STEM_OSC_RIGHT, 0, 32);
+}
+export function begin_sample_meter(): void {
+  if (!stemMetering) return;
+  memory.fill(STEM_LEFT, 0, STEM_COUNT * 4); memory.fill(STEM_RIGHT, 0, STEM_COUNT * 4);
+}
+function addStem(index: i32, left: f32, right: f32): void {
+  const offset = <usize>(index << 2);
+  store<f32>(STEM_LEFT + offset, load<f32>(STEM_LEFT + offset) + left);
+  store<f32>(STEM_RIGHT + offset, load<f32>(STEM_RIGHT + offset) + right);
+}
+export function meter_synth_echo(amplitude: f32, wet: f32, swapped: bool, crossfeed: f32, p: AudioParam): void {
+  if (!stemMetering || p.synthMix == 0) return;
+  const scale: f32 = .2 * p.synthMix;
+  for (let lane = 0; lane < 6; lane++) {
+    const offset = <usize>(lane << 2);
+    let left = lane == 5 ? texture : load<f32>(STEM_OSC_LEFT + offset);
+    let right = lane == 5 ? texture : load<f32>(STEM_OSC_RIGHT + offset);
+    if (lane < 5 && <f32>lane == time_info.preview_lane) {
+      left += load<f32>(STEM_OSC_LEFT + 20); right += load<f32>(STEM_OSC_RIGHT + 20);
+    }
+    left *= scale; right *= scale;
+    const sourceLeft = swapped ? right : left, sourceRight = swapped ? left : right;
+    const wide = widenStereo(pair(sourceLeft * (swapped ? crossfeed : 1), sourceRight * (swapped ? 1 : crossfeed)), p.echoStereo);
+    const index = lane == 0 ? 4 : lane == 1 ? 5 : lane == 2 ? 1 : lane == 3 ? 3 : lane == 4 ? 2 : 6;
+    addStem(index, pairX(wide) * amplitude * wet, pairY(wide) * amplitude * wet);
+  }
+}
+export function capture_dry_drum_meters(): void {
+  if (stemMetering) memory.copy(STEM_DRY_DRUMS, STEM_DRUMS, 16);
+}
+export function meter_drums(drums: f32, ghosts: f32, pan: f32, duck: f32, p: AudioParam): void {
+  if (!stemMetering) return;
+  addStem(0, (drums * .8 + ghosts * .25 * (1-pan) * p.ghostDrums) * p.drumMix * duck,
+    (drums * .8 + ghosts * .25 * (1+pan) * p.ghostDrums) * p.drumMix * duck);
+  for (let part = 0; part < 4; part++) {
+    const offset = <usize>(part << 2), dry = load<f32>(STEM_DRY_DRUMS + offset), ghost = load<f32>(STEM_DRUMS + offset);
+    addStem(7 + part, (dry * .8 + ghost * .25 * (1-pan) * p.ghostDrums) * p.drumMix * duck,
+      (dry * .8 + ghost * .25 * (1+pan) * p.ghostDrums) * p.drumMix * duck);
+  }
+}
+export function finish_sample_meter(fade: f32, gain: f32): void {
+  if (!stemMetering) return;
+  for (let stem = 0; stem < STEM_COUNT; stem++) {
+    const offset = <usize>(stem << 2);
+    const peak = max(abs(load<f32>(STEM_LEFT + offset) * fade * gain), abs(load<f32>(STEM_RIGHT + offset) * fade * gain));
+    if (isFinite(peak)) store<f32>(STEM_PEAKS + offset, max(load<f32>(STEM_PEAKS + offset), min(1, peak)));
+  }
+}
+
 export const FREQUENCY: usize = memory.data(32, 16);
 export const WIDTH: usize = memory.data(32, 16);
 export const TONE: usize = memory.data(32, 16);
@@ -218,6 +332,8 @@ export function set_sample_rate(value: f32): void { SAMPLE_RATE = max(8000, min(
 export function reset(): void {
   memory.fill(OUTPUT_LEFT, 0, BLOCK_SIZE * 4); memory.fill(OUTPUT_RIGHT, 0, BLOCK_SIZE * 4);
   memory.fill(LEVEL_LEFT, 0, 32); memory.fill(LEVEL_RIGHT, 0, 32);
+  tempoClockCount = 0;
+  clear_stem_peaks();
   time_info.offset = 0; time_info.preview_lane = -1; time_info.preview_value = 0; time_info.preview_start = -100;
 }
 export function put_sample(index: i32, left: f32, right: f32): void {
@@ -275,9 +391,9 @@ export function voiceBalance(right: bool,p: AudioParam): u64 {
   const crossfeed=clamp(p.voiceCrossfeed,0,1); const normalization: f32=1.5/(1+crossfeed);
   return right ? pair(crossfeed*normalization,normalization) : pair(normalization,crossfeed*normalization);
 }
-export function drumSequenceTiming(lane: u32,beat: f32,rate: f32,tempo: f32,sourceTime: f32): u64 {
+export function drumSequenceTiming(lane: u32,beat: f32,rate: f32,tempo: f32,sourceTime: f32,time: f32): u64 {
   sequenceCellAt(lane,beat,rate,0);
-  const manualTime=sequenceStepTime(lane,beat,rate,tempo);
+  const manualTime=sequenceStepTime(lane,beat,rate,tempo,time);
   const duration: f32=1/max(tempo*laneRate(lane,rate),.000001);
   const fadeStart=max(0,duration-min(.004,duration*.25));
   const tail: f32=1-smoothstep(fadeStart,duration,manualTime);
@@ -293,11 +409,13 @@ export function sequenceStepTime(
   master_beat: f32,
   rate: f32,
   tempo_hz: f32,
+  time: f32,
 ) : f32 {
   let length = sequenceLength(lane);
   let effective_rate = laneRate(lane, rate);
   let position = modulo(master_beat * effective_rate, f32(length));
-  return fract(position) / max(tempo_hz * effective_rate, 0.000001);
+  return tempoClockCount ? elapsedDrumTime(time,fract(position),effective_rate)
+    : fract(position) / max(tempo_hz * effective_rate, 0.000001);
 }
 
 export function stepValue(edge: f32, x: f32) : f32 {
@@ -436,19 +554,20 @@ export function voiceTone(wave: f32, fundamental: f32, tone: f32) : f32 {
 }
 
 export function beatTwo(time: f32, p: AudioParam) : f32 {
-  let tempo = p.tempo * max(p.drumRate, 0.01);
-  let master_beat = time * p.tempo;
+  let tempo = musicalTempo(time) * max(p.drumRate, 0.01);
+  let master_beat = musicalBeat(time);
+  const drumBeat = tempoClockCount ? master_beat * max(p.drumRate, 0.01) : time * tempo;
   let sequence_rate = max(p.drumRate, 0.01) * 4.0;
   let decay = max(p.drumDecay, 0.1);
   let value: f32 = 0.0;
 
   let tb = modulo(
-    time * tempo - p.kickPhase * p.kickCycle,
+    drumBeat - p.kickPhase * p.kickCycle,
     max(p.kickCycle, 0.05),
   );
-  tb = modulo(tb, max(p.kickSubcycle, 0.05)) / tempo;
+  tb = elapsedDrumTime(time,modulo(tb, max(p.kickSubcycle, 0.05)),max(p.drumRate,0.01));
   let kick_sequence = drumSequenceTiming(
-    5, master_beat, sequence_rate, p.tempo, tb,
+    5, master_beat, sequence_rate, musicalTempo(time), tb, time,
   );
   tb = pairX(kick_sequence);
   let kick = sin(
@@ -459,20 +578,22 @@ export function beatTwo(time: f32, p: AudioParam) : f32 {
   ) * exp(tb * (-p.kickDecayRate / decay));
   kick = smoothAny(-p.kickClipKnee, p.kickClipKnee, kick) * 2.0 - 1.0;
   value = kick * pairY(kick_sequence) * 0.3 * p.kickLevel;
+  if (stemMetering) store<f32>(STEM_DRUMS, value);
 
   tb = modulo(
-    time * tempo - p.snarePhase * p.snareCycle,
+    drumBeat - p.snarePhase * p.snareCycle,
     max(p.snareCycle, 0.01),
-  ) / tempo;
+  );
+  tb = elapsedDrumTime(time,tb,max(p.drumRate,0.01));
   let snare_sequence = drumSequenceTiming(
-    6, master_beat, sequence_rate, p.tempo, tb,
+    6, master_beat, sequence_rate, musicalTempo(time), tb, time,
   );
   tb = pairX(snare_sequence);
   let snare_envelope = exp(
     max(tb - p.snareHoldTime, 0.0) * (-p.snareDecayRate / decay),
   );
   let snare_mix = clamp(p.snareNoiseMix, 0.0, 1.0);
-  value += (
+  const snareValue = (
     hpns(
       exp(-tb * p.snareNoiseSweep) * p.snareNoiseRate,
       0.0002 * p.snareNoiseColor,
@@ -485,51 +606,61 @@ export function beatTwo(time: f32, p: AudioParam) : f32 {
     )
       * snare_envelope * 0.9 * (1.0 - snare_mix)
   ) * pairY(snare_sequence) * 0.6 * p.snareLevel;
+  value += snareValue;
+  if (stemMetering) store<f32>(STEM_DRUMS + 4, snareValue);
 
   tb = modulo(
-    time * tempo + p.hatAPhase * p.hatACycle,
+    drumBeat + p.hatAPhase * p.hatACycle,
     max(p.hatACycle, 0.01),
   );
   tb = modulo(tb, max(p.hatASubcycle, 0.01));
   tb = modulo(
     tb - 1.0 - p.hatARepeatPhase * p.hatARepeat,
     max(p.hatARepeat, 0.01),
-  ) / tempo;
+  );
+  tb = elapsedDrumTime(time,tb,max(p.drumRate,0.01));
   let hat_a_sequence = drumSequenceTiming(
-    7, master_beat, sequence_rate, p.tempo, tb,
+    7, master_beat, sequence_rate, musicalTempo(time), tb, time,
   );
   tb = pairX(hat_a_sequence);
   let hat_mix = clamp(p.hatBalance, 0.0, 1.0);
-  value += hpns(tb * p.hatANoiseRate, 0.0002 * p.hatANoiseColor, p)
+  const hatAValue = hpns(tb * p.hatANoiseRate, 0.0002 * p.hatANoiseColor, p)
     * exp(tb * (-p.hatADecayRate / decay))
     * pairY(hat_a_sequence) * 0.45 * (1.0 - hat_mix) * p.hatLevel;
+  value += hatAValue;
 
   tb = modulo(
-    time * tempo - p.hatBPhase * p.hatBCycle,
+    drumBeat - p.hatBPhase * p.hatBCycle,
     max(p.hatBCycle, 0.01),
-  ) / tempo;
+  );
+  tb = elapsedDrumTime(time,tb,max(p.drumRate,0.01));
   let hat_b_sequence = drumSequenceTiming(
-    7, master_beat, sequence_rate, p.tempo, tb,
+    7, master_beat, sequence_rate, musicalTempo(time), tb, time,
   );
   tb = pairX(hat_b_sequence);
-  value += (
+  const hatBValue = (
     hpns(tb * p.hatBLowNoiseRate, 0.00002 * p.hatBNoiseColor, p)
       + hpns(tb * p.hatBHighNoiseRate, 0.002 * p.hatBNoiseColor, p)
         * p.hatBHighMix
   ) * exp(tb * (-p.hatBDecayRate / decay))
     * pairY(hat_b_sequence) * 0.45 * hat_mix * p.hatLevel;
+  value += hatBValue;
+  if (stemMetering) store<f32>(STEM_DRUMS + 8, hatAValue + hatBValue);
 
   tb = modulo(
-    time * tempo - p.shakerPhase * p.shakerCycle,
+    drumBeat - p.shakerPhase * p.shakerCycle,
     max(p.shakerCycle, 0.01),
-  ) / tempo;
+  );
+  tb = elapsedDrumTime(time,tb,max(p.drumRate,0.01));
   let shaker_sequence = drumSequenceTiming(
-    8, master_beat, sequence_rate, p.tempo, tb,
+    8, master_beat, sequence_rate, musicalTempo(time), tb, time,
   );
   tb = pairX(shaker_sequence);
-  value += hpns(tb * p.shakerNoiseRate, 0.0002 * p.shakerNoiseColor, p)
+  const shakerValue = hpns(tb * p.shakerNoiseRate, 0.0002 * p.shakerNoiseColor, p)
     * exp(tb * (-p.shakerDecayRate / decay))
     * pairY(shaker_sequence) * 0.3 * p.shakerLevel;
+  value += shakerValue;
+  if (stemMetering) store<f32>(STEM_DRUMS + 12, shakerValue);
   return value;
 }
 
@@ -553,7 +684,7 @@ function sourceInput(lane: u32,beat: f32,clock: f32,phase: f32,span: f32,p: Audi
 }
 function activity(): f32 { return cellState==2 ? 0 : cellVelocity; }
 function preparePattern(time: f32,p: AudioParam,width: f32): void {
-  const beat=time*p.tempo;
+  const beat=musicalBeat(time);
   for(let lane: u32=0;lane<5;lane++) {
     sequenceCellAt(lane,beat,1,0);
     if(cellState==2 || cellVelocity<=0) continue;
@@ -564,7 +695,7 @@ function preparePattern(time: f32,p: AudioParam,width: f32): void {
     if(lane==3) { voiceRegister=p.leadRegister; level=p.leadLevel*1.5; tone=p.leadTone; }
     if(lane==4) { voiceRegister=p.arpRegister; offset*=p.arpSpan*p.pitchRange; level=p.arpLevel; tone=p.arpTone; }
     const frequency=noteFrequency(scaleLock(offset,p.scaleMask)+voiceRegister+p.transpose,p);
-    const envelope=patternEnvelope(lane,beat,p.tempo)*cellVelocity;
+    const envelope=patternEnvelope(lane,beat,musicalTempo(time))*cellVelocity;
     if(lane==2) { writeBass(<i32>lane,frequency,envelope,p); continue; }
     let balance=pair(1,1);
     if(lane==0) balance=widenStereo(voiceBalance(false,p),p.stereoWidth);
@@ -576,7 +707,7 @@ function preparePreview(time: f32,p: AudioParam,width: f32,bassBasis: f32): void
   const envelope=previewEnvelope(time);
   if(time_info.preview_lane<0 || envelope<=0) return;
   const lane=<u32>clamp(round(time_info.preview_lane),0,4);
-  const beat=time*p.tempo;
+  const beat=musicalBeat(time);
   let note=scaleLock(time_info.preview_value,p.scaleMask);
   let level=p.upperOneLevel; let voiceRegister=p.upperOneRegister;
   let balance=widenStereo(voiceBalance(false,p),p.stereoWidth);
@@ -606,7 +737,7 @@ export function prepare_synth(time: f32): void {
   const p=params();
   memory.fill(LEVEL_LEFT,0,32); memory.fill(LEVEL_RIGHT,0,32);
   texture=0;
-  const beat=time*p.tempo;
+  const beat=musicalBeat(time);
   const width=clamp(sin(time*p.pwmRate)*p.pwmDepth+p.pulseWidth,.02,.98);
   if(patternMode()) { preparePattern(time,p,width); return; }
   const shortSwitch=fract(beat/max(p.gateSwitchShortUnits,.01)+p.gateSwitchShortPhase);

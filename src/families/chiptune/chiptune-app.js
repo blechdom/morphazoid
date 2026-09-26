@@ -1,9 +1,9 @@
 import {
   WEBGPU_CHIPTUNE_DEFAULTS,
   WEBGPU_CHIPTUNE_DEFAULT_SEQUENCE,
-  WEBGPU_CHIPTUNE_PERFORMANCE_AXES,
-  WEBGPU_CHIPTUNE_PERFORMANCE_DEFAULTS,
-  WEBGPU_CHIPTUNE_PERFORMANCE_LANES,
+  WEBGPU_CHIPTUNE_PERFORMANCE_AXES as Original_WEBGPU_CHIPTUNE_PERFORMANCE_AXES,
+  WEBGPU_CHIPTUNE_PERFORMANCE_DEFAULTS as Original_WEBGPU_CHIPTUNE_PERFORMANCE_DEFAULTS,
+  WEBGPU_CHIPTUNE_PERFORMANCE_LANES as Original_WEBGPU_CHIPTUNE_PERFORMANCE_LANES,
   WEBGPU_CHIPTUNE_INTEGER_PARAMS,
   WEBGPU_CHIPTUNE_DRUM_SEQUENCE_LANES,
   WEBGPU_CHIPTUNE_VOICE_SEQUENCE_LANES,
@@ -16,17 +16,17 @@ import {
   WEBGPU_CHIPTUNE_RUNTIME_DEFAULTS,
   WEBGPU_CHIPTUNE_WORKGROUP_SIZES,
   WebGpuChiptuneAudio,
-  applyWebGpuChiptunePerformance,
-  applyWebGpuChiptuneDrumMix,
-  sanitizeWebGpuChiptuneDrumMix,
+  applyWebGpuChiptunePerformance as Original_applyWebGpuChiptunePerformance,
+  applyWebGpuChiptuneDrumMix as Original_applyWebGpuChiptuneDrumMix,
+  sanitizeWebGpuChiptuneDrumMix as Original_sanitizeWebGpuChiptuneDrumMix,
   createWebGpuChiptunePattern,
-  migrateWebGpuChiptunePerformance,
+  migrateWebGpuChiptunePerformance as Original_migrateWebGpuChiptunePerformance,
   createWebGpuChiptuneSequence,
   formatWebGpuChiptuneValue,
   paintWebGpuChiptuneSequenceSegment,
   sanitizeWebGpuChiptuneSequence,
   sanitizeWebGpuChiptuneParams,
-  sanitizeWebGpuChiptunePerformance,
+  sanitizeWebGpuChiptunePerformance as Original_sanitizeWebGpuChiptunePerformance,
   webGpuChiptuneParamFromUnit,
   webGpuChiptuneParamToUnit,
   webGpuChiptuneBeatSnapshot,
@@ -39,7 +39,7 @@ import {
   webGpuChiptuneSequenceCellIndex,
   webGpuChiptuneSequenceEditorUnit,
   webGpuChiptuneSequenceEditorValue,
-  webGpuChiptuneStageSnapshot,
+  webGpuChiptuneStageSnapshot as Original_webGpuChiptuneStageSnapshot,
   webGpuChiptuneStepSnapshot,
   webGpuChiptuneSupport,
 } from "../../instruments/webgpu-chiptune/webgpu-chiptune.js";
@@ -47,11 +47,38 @@ import {
 import { CHIPTUNE_DANCER_IDENTITIES, drawChiptuneDancer } from "../../instruments/webgpu-chiptune/webgpu-chiptune-dancers.js";
 import { SimdChiptuneAudio, simdChiptuneSupport } from "../../instruments/simd-chiptune/audio.js";
 
+import { SIMD_CHIPTUNE_PERFORMANCE_AXES, SIMD_CHIPTUNE_PERFORMANCE_DEFAULTS, SIMD_CHIPTUNE_PERFORMANCE_LANES,
+  applySimdChiptunePerformance, sanitizeSimdChiptunePerformance, migrateSimdChiptunePerformance,
+  applySimdChiptuneDrumMix, sanitizeSimdChiptuneDrumMix,
+  simdChiptuneStageSnapshot, createSimdChiptunePatternSection, SIMD_CHIPTUNE_LEVEL_KEYS, SIMD_CHIPTUNE_DRUM_LEVELS,
+  readSimdChiptuneLevels, setSimdChiptuneLevel } from "../../instruments/simd-chiptune/performance.js";
+import { PARAM_GROUPS, PARAM_MODES, PARAM_SPECIAL, PARAM_LABELS, PARAM_NOTES } from "../../instruments/simd-chiptune/parameter-groups.js";
+import { createSimdControlDeck, createSequenceKnob } from "../../instruments/simd-chiptune/control-deck.js";
+import { SKINS, drawSimdChiptuneDancer } from "../../instruments/simd-chiptune/skins.js";
+import { createSimdPresetPicker, drawNoiseSweep } from "../../instruments/simd-chiptune/ui.js";
+
 const simdBackend = document.body.dataset.audioBackend === "simd";
 const instrumentId = simdBackend ? "simd-chiptune" : "webgpu-chiptune";
 const instrumentName = simdBackend ? "SIMD Chiptune" : "WebGPU Chiptune";
 const backendName = simdBackend ? "SIMD" : "WebGPU";
 const ChiptuneAudio = simdBackend ? SimdChiptuneAudio : WebGpuChiptuneAudio;
+
+const WEBGPU_CHIPTUNE_PERFORMANCE_AXES = simdBackend ? SIMD_CHIPTUNE_PERFORMANCE_AXES : Original_WEBGPU_CHIPTUNE_PERFORMANCE_AXES;
+const WEBGPU_CHIPTUNE_PERFORMANCE_DEFAULTS = simdBackend ? SIMD_CHIPTUNE_PERFORMANCE_DEFAULTS : Original_WEBGPU_CHIPTUNE_PERFORMANCE_DEFAULTS;
+const WEBGPU_CHIPTUNE_PERFORMANCE_LANES = simdBackend ? SIMD_CHIPTUNE_PERFORMANCE_LANES : Original_WEBGPU_CHIPTUNE_PERFORMANCE_LANES;
+const applyWebGpuChiptunePerformance = simdBackend ? applySimdChiptunePerformance : Original_applyWebGpuChiptunePerformance;
+const sanitizeWebGpuChiptunePerformance = simdBackend ? sanitizeSimdChiptunePerformance : Original_sanitizeWebGpuChiptunePerformance;
+const migrateWebGpuChiptunePerformance = simdBackend ? migrateSimdChiptunePerformance : Original_migrateWebGpuChiptunePerformance;
+const webGpuChiptuneStageSnapshot = simdBackend ? simdChiptuneStageSnapshot : Original_webGpuChiptuneStageSnapshot;
+const sanitizeWebGpuChiptuneDrumMix = simdBackend ? sanitizeSimdChiptuneDrumMix : Original_sanitizeWebGpuChiptuneDrumMix;
+const applyWebGpuChiptuneDrumMix = simdBackend ? applySimdChiptuneDrumMix : Original_applyWebGpuChiptuneDrumMix;
+let simdPresetPicker = null;
+const simdVolumeKnobs = new Map();
+const simdVoiceMeters = new Map();
+let simdLevelCache = null;
+let simdMeterTime = 0;
+let simdControlDeck = null;
+const simdEditorKnobs = new Map();
 
 const $ = (id) => document.getElementById(id);
 const clamp = (value, minimum, maximum) => Math.min(maximum, Math.max(minimum, Number(value) || 0));
@@ -1258,6 +1285,7 @@ const SAFE_RANDOM_RANGES = Object.freeze({
 const support = simdBackend ? simdChiptuneSupport(globalThis) : webGpuChiptuneSupport(globalThis);
 const state = {
   params: sanitizeWebGpuChiptuneParams(),
+  characterSkin: "original", patternSection: 0, patternSections: {}, voiceViews: Object.fromEntries(WEBGPU_CHIPTUNE_PERFORMANCE_LANES.map(voice => [voice, "dance"])),
   sequence: createWebGpuChiptunePattern(),
   songSequence: createWebGpuChiptuneSequence(),
   patternSequence: null,
@@ -1457,6 +1485,7 @@ function notifyWaxState() {
     songSequence: state.sequence.mode === "song" ? state.sequence : state.songSequence,
     patternSequence: state.sequence.mode === "pattern" ? state.sequence : state.patternSequence,
     patternBaseline: state.patternBaseline,
+    ...simdSavedState(),
   });
 }
 
@@ -1498,6 +1527,7 @@ function characterEffectDescription(lane, effective = effectiveVoiceParams()) {
 }
 
 function syncCharacterPerformanceControls() {
+  for (const knob of simdVolumeKnobs.values()) knob.sync();
   const effective = effectiveVoiceParams();
   for (const lane of WEBGPU_CHIPTUNE_PERFORMANCE_LANES) {
     const definition = WEBGPU_CHIPTUNE_PERFORMANCE_AXES[lane];
@@ -1528,7 +1558,7 @@ function syncCharacterPerformanceControls() {
   const selected = WEBGPU_CHIPTUNE_PERFORMANCE_AXES[state.activeCharacterVoice];
   $("characterStage").setAttribute(
     "aria-label",
-    "Six interactive arcade invader effect bays. " + selected.label
+    (simdBackend ? "Seven interactive character effect bays. " : "Six interactive arcade invader effect bays. ") + selected.label
       + " selected. Click a performer to open its sequence editor. "
       + "Drag past the click threshold to change that performer's two effects.",
   );
@@ -1604,6 +1634,7 @@ function syncPresetOutputs() {
     + " BPM · "
     + label;
   $("characterPreset").textContent = label;
+  simdPresetPicker?.sync(state.presetId);
   $("presetDescription").textContent = preset?.description
     ?? "Custom performance · the cast follows your live shader and sequence edits.";
   for (const button of $("presetButtons").querySelectorAll("button")) {
@@ -1710,11 +1741,22 @@ function syncParamOutputs() {
   syncSequenceControls();
 }
 
+function preserveVisualBeatAtTempo(tempo) {
+  if (!simdBackend || tempo === state.params.tempo) return;
+  if (state.audioOn && state.synthPlaying && engine) return;
+  state.transportOffset = transportTime() * state.params.tempo / tempo;
+  state.transportStartedAt = performance.now() / 1000;
+}
+
 function applyParams(nextParams, presetId = "custom", { notify = true } = {}) {
-  state.params = sanitizeWebGpuChiptuneParams(nextParams);
+  const next = sanitizeWebGpuChiptuneParams(nextParams);
+  preserveVisualBeatAtTempo(next.tempo);
+  state.params = next;
   state.presetId = presetId;
+  // Beat-based displays must read the engine after its tempo clock is updated.
+  if (simdBackend) updateEffectiveVoiceParams();
   syncParamOutputs();
-  updateEffectiveVoiceParams();
+  if (!simdBackend) updateEffectiveVoiceParams();
   syncCharacterPerformanceControls();
   if (notify) notifyWaxState();
 }
@@ -1735,9 +1777,11 @@ function applySequence(
 }
 
 function applyPreset(preset) {
+  preserveVisualBeatAtTempo(preset.params.tempo);
   state.params = sanitizeWebGpuChiptuneParams(preset.params);
   const mode = state.sequence.mode;
   state.songSequence = sanitizeWebGpuChiptuneSequence(preset.sequence);
+  state.patternSection = 0; state.patternSections = {};
   state.patternSequence = createWebGpuChiptunePattern(state.params, state.songSequence);
   state.patternBaseline = state.patternSequence;
   state.sequence = mode === "song" ? state.songSequence : state.patternSequence;
@@ -1745,8 +1789,10 @@ function applyPreset(preset) {
   trackerCacheParams = null;
   trackerCacheSequence = null;
   trackerNoteCache.clear();
+  // Beat-based displays must read the engine after its tempo clock is updated.
+  if (simdBackend) updateEffectiveVoiceParams();
   syncParamOutputs();
-  updateEffectiveVoiceParams();
+  if (!simdBackend) updateEffectiveVoiceParams();
   engine?.updateSequence(state.sequence, { deferDrums: false });
   syncSequenceControls();
   syncCharacterPerformanceControls();
@@ -2329,6 +2375,14 @@ function setTrackerView(view, { focus = false, quiet = false } = {}) {
 
 function focusCharacterEditor(lane, { focus = false, announceChange = true } = {}) {
   if (!WEBGPU_CHIPTUNE_PERFORMANCE_LANES.includes(lane)) return;
+  if (simdBackend && lane === "noise") {
+    state.activeCharacterVoice = lane;
+    $("stageWrap").dataset.performer = lane;
+    syncSequenceControls(); syncCharacterPerformanceControls();
+    if (announceChange) announce("Noise selected. Sweep and level control the Song texture.");
+    return;
+  }
+  $("stageWrap").dataset.performer = lane;
   const performerLanes = webGpuChiptuneSequenceLanesForPerformer(lane);
   const preferredLane = lane === "drums" ? lastDrumSequenceLane : performerLanes[0];
   state.activeCharacterVoice = lane;
@@ -2833,7 +2887,7 @@ function syncSequenceControls() {
   $("sequenceFollow").setAttribute("aria-pressed", String(state.sequenceFollowLive));
   $("sequenceFollow").textContent = state.sequenceFollowLive ? "FOLLOW: ON" : "FOLLOW: OFF";
   $("selectedPerformerName").textContent = selectedPerformerLabel();
-  $("selectedPerformerName").title = CHIPTUNE_DANCER_IDENTITIES[performer].name;
+  $("selectedPerformerName").title = CHIPTUNE_DANCER_IDENTITIES[performer]?.name ?? selectedPerformerLabel();
   $("selectedPerformerHint").textContent = performerEditorHint(performer, lane);
   $("selectedPerformer").style.setProperty("--performer-color", definition.color);
   $("selectedPerformer").dataset.performer = performer;
@@ -2841,7 +2895,20 @@ function syncSequenceControls() {
     ? selectedPerformerLabel() + (state.sequenceFollowLive ? " · edit next" : " · locked")
     : "seed × pitch range";
   syncSequenceTimingOutput();
-  if (state.trackerView === "sequence") {
+  const noise = simdBackend && performer === "noise";
+  if (simdBackend) {
+    $("stage").setAttribute("aria-keyshortcuts", noise
+      ? "ArrowLeft ArrowRight ArrowUp ArrowDown PageUp PageDown Home M S"
+      : "ArrowLeft ArrowRight ArrowUp ArrowDown PageUp PageDown Home End Enter Space A N R Delete");
+    $("stage").setAttribute("aria-describedby", noise
+      ? "characterPerformanceInstructions liveStatus"
+      : state.trackerView === "sequence" ? "webgpuChiptuneDescription sequenceInstructions liveStatus"
+        : "webgpuChiptuneDescription trackerInstructions liveStatus");
+  }
+  if (noise) {
+    $("stage").setAttribute("aria-label", "Noise sweep. Arrow keys adjust sweep and level; M mutes, S solos, and Page Up or Page Down selects another performer."
+      + (state.sequence.mode === "pattern" ? " Noise texture plays in Song mode." : ""));
+  } else if (state.trackerView === "sequence") {
     $("stage").setAttribute(
       "aria-label",
       "Focused live Chiptune sequence editor for "
@@ -2930,6 +2997,223 @@ function setStepVelocity(step, value, lane = state.activeSequenceLane) {
   applySequence(sequenceLaneWithChanges(lane, { cells }), { notify: false });
 }
 
+
+function syncSimdKnobs() {
+  if (!simdControlDeck) return;
+  simdControlDeck.sync();
+  for (const [key, knob] of simdEditorKnobs) {
+    knob.sync();
+    knob.element.hidden = key === "pan" ? state.sequenceZoomSteps === 32
+      : (key === "pitch" || key === "center") && activeSequenceSpec().kind !== "steps";
+  }
+  for (const [key, dial] of knobControls) {
+    const value = state.params[key], unit = webGpuChiptuneParamToUnit(key, value);
+    const text = formatWebGpuChiptuneValue(key, value);
+    dial.style.setProperty("--knob-angle", (-135 + unit * 270) + "deg");
+    dial.style.setProperty("--knob-fill", unit * 75 + "%");
+    dial.setAttribute("aria-valuenow", String(value)); dial.setAttribute("aria-valuetext", text);
+    knobOutputs.get(key).textContent = text;
+  }
+
+}
+
+function selectedPerformerLabelFor(voice) { return WEBGPU_CHIPTUNE_PERFORMANCE_AXES[voice]?.label ?? voice; }
+
+function syncSimdWorkspace() {
+  const pattern = state.sequence.mode === "pattern", noise = state.activeCharacterVoice === "noise";
+  $("stageWrap").dataset.performer = state.activeCharacterVoice;
+  $("trackerViewSequence").closest("fieldset").hidden = pattern || noise;
+  $("patternSectionControls")?.toggleAttribute("hidden", !pattern);
+  if ($("patternSection")) $("patternSection").value = String(state.patternSection);
+  $("sequenceWorkspace").hidden = noise || state.trackerView !== "sequence";
+  $("morphWorkspace").hidden = noise || state.trackerView !== "morph";
+  document.querySelector(".simd-sequence-options")?.toggleAttribute("hidden", noise);
+  if ($("characterSkin")) $("characterSkin").value = state.characterSkin;
+  for (const voice of WEBGPU_CHIPTUNE_PERFORMANCE_LANES) {
+    const controls = state.voiceViews[voice] === "controls";
+    const card = document.querySelector(`[data-character-voice="${voice}"]`);
+    const button = document.querySelector(`[data-voice-view="${voice}"]`);
+    const face = document.querySelector(`.simd-voice-controls[data-voice="${voice}"]`);
+    if (card) card.dataset.view = controls ? "controls" : "dance";
+    if (face) face.hidden = !state.voiceViews[voice] || !controls;
+    if (button) {
+      button.textContent = controls ? "Dance" : "Controls";
+      button.setAttribute("aria-pressed", String(controls));
+      button.setAttribute("aria-label", (controls ? "Show dance for " : "Show controls for ") + selectedPerformerLabelFor(voice));
+    }
+  }
+}
+
+function choosePatternSection(index) {
+  const next = Math.round(clamp(index, 0, 31));
+  if (state.sequence.mode !== "pattern") switchCompositionMode("pattern");
+  state.patternSections[state.patternSection] = { sequence: state.sequence, baseline: state.patternBaseline };
+  state.patternSection = next;
+  const cached = state.patternSections[next];
+  const baseline = cached?.baseline ?? createSimdChiptunePatternSection(state.params, state.songSequence, next);
+  state.patternBaseline = baseline;
+  state.patternSequence = cached?.sequence ?? baseline;
+  applySequence(state.patternSequence, { markCustom: false, presetId: state.presetId });
+  announce("Song section " + (next + 1) + " loaded into independent loops.");
+}
+
+function simdMixerLevels() {
+  const { params, voicePerformance, drumMix } = state;
+  if (!simdLevelCache || simdLevelCache.params !== params || simdLevelCache.performance !== voicePerformance || simdLevelCache.drumMix !== drumMix) {
+    simdLevelCache = { params, performance: voicePerformance, drumMix,
+      levels: readSimdChiptuneLevels(params, voicePerformance, drumMix) };
+  }
+  return simdLevelCache.levels;
+}
+
+function createSimdLevelKnob(lane, label) {
+  const key = SIMD_CHIPTUNE_LEVEL_KEYS[lane] ?? SIMD_CHIPTUNE_DRUM_LEVELS[lane];
+  const part = Boolean(SIMD_CHIPTUNE_DRUM_LEVELS[lane]);
+  const owner = part ? "drums" : lane;
+  const knob = createSequenceKnob(document, {
+    label, min: 0, max: key ? controlSpecsByKey.get(key).max : 1, step: .01, travel: 120, pageStep: .1,
+    reset: key ? WEBGPU_CHIPTUNE_DEFAULTS[key] : 1,
+    read: () => simdMixerLevels()[lane], format: value => Math.round(value * 100) + "%",
+    change(value) {
+      if (part) selectSequenceLane(lane);
+      else if (state.activeCharacterVoice !== owner) focusCharacterEditor(owner, { announceChange: false });
+      const next = setSimdChiptuneLevel(state.params, state.voicePerformance, state.drumMix, lane, value);
+      state.voicePerformance = next.performance; state.drumMix = next.drumMix;
+      applyParams(next.parameters);
+    },
+    capture: () => ({ value: key && state.params[key], voice: { ...(part ? state.drumMix : state.voicePerformance)[lane] } }),
+    restore(before) {
+      const group = part ? "drumMix" : "voicePerformance";
+      const voice = state[group][lane];
+      state[group] = (part ? sanitizeWebGpuChiptuneDrumMix : sanitizeWebGpuChiptunePerformance)({
+        ...state[group], [lane]: { ...voice, volume: before.voice.volume, ...(!part && key && WEBGPU_CHIPTUNE_PERFORMANCE_AXES[lane].y.key === key ? { y: before.voice.y } : {}) },
+      });
+      applyParams(key ? { ...state.params, [key]: before.value } : state.params);
+    },
+  });
+  const dial = knob.element.querySelector('[role="slider"]');
+  dial.setAttribute("aria-label", (part ? lane : selectedPerformerLabelFor(lane)) + " volume");
+  if (key) dial.dataset.paramKey = key;
+  return knob;
+}
+
+function createSimdVoiceMeter(lane, part) {
+  const meter = document.createElement("span"); meter.className = "simd-voice-meter";
+  meter.dataset[part ? "drumMeter" : "voiceMeter"] = lane;
+  meter.setAttribute("role", "meter"); meter.setAttribute("aria-label", (part ? lane : selectedPerformerLabelFor(lane)) + " sound level");
+  meter.setAttribute("aria-valuemin", "0"); meter.setAttribute("aria-valuemax", "1"); meter.setAttribute("aria-valuenow", "0");
+  const fill = document.createElement("span"); fill.className = "simd-voice-meter-fill"; meter.append(fill);
+  simdVoiceMeters.set(lane, { meter, value: 0 }); return meter;
+}
+
+function syncSimdVoiceMeters() {
+  const now = performance.now() / 1000, elapsed = Math.max(0, now - simdMeterTime);
+  if (elapsed < 1 / 30) return;
+  simdMeterTime = now;
+  const telemetry = engine?.workletTelemetry;
+  const live = state.audioOn && state.synthPlaying && engine?.running && engine.context?.state === "running"
+    && telemetry && engine.context.currentTime - telemetry.audioTime < .25;
+  const keys = [...WEBGPU_CHIPTUNE_PERFORMANCE_LANES, ...WEBGPU_CHIPTUNE_DRUM_SEQUENCE_LANES];
+  keys.forEach((key, index) => {
+    const item = simdVoiceMeters.get(key); if (!item) return;
+    const peak = live ? clamp((telemetry.stemPeaks?.[index] ?? 0) * engine.output, 0, 1) : 0;
+    item.value = live ? Math.max(peak, item.value * Math.exp(-elapsed * 14)) : 0;
+    const display = item.value > .0001 ? clamp((20 * Math.log10(item.value) + 60) / 60, 0, 1) : 0;
+    item.meter.style.setProperty("--voice-level", String(display));
+    item.meter.setAttribute("aria-valuenow", String(Number(item.value.toFixed(6))));
+    item.meter.setAttribute("aria-valuetext", item.value > .0001 ? (20 * Math.log10(item.value)).toFixed(0) + " dBFS" : "Silent");
+  });
+}
+
+function initializeSimdWorkspace() {
+  knobControls.clear(); knobOutputs.clear();
+  $("simdTempoControls").replaceChildren(createKnobControl("tempo"));
+  simdControlDeck = createSimdControlDeck(document, {
+    groups: PARAM_GROUPS, modes: PARAM_MODES, special: PARAM_SPECIAL, labels: PARAM_LABELS, notes: PARAM_NOTES,
+    createKnob: createKnobControl, params: () => state.params, sequence: () => state.sequence,
+    footerKeys: [...Object.values(SIMD_CHIPTUNE_LEVEL_KEYS), ...Object.values(SIMD_CHIPTUNE_DRUM_LEVELS)],
+    setParam: (key, value) => applyControlValue(controlSpecsByKey.get(key), value),
+    specialControls: { "pitch-classes": $("scaleControls"), "gate-durations": $("gateControls") },
+    focusVoice: (voice, lane) => {
+      if (lane) selectSequenceLane(lane);
+      else if (state.activeCharacterVoice !== voice) focusCharacterEditor(voice, { announceChange: false });
+    },
+    setLane: (lane, changes) => applySequence(sequenceLaneWithChanges(lane, changes)),
+  });
+  const zooms = [8, 16, 32];
+  const editorSpecs = {
+    zoom: { label: "Zoom", min: 0, max: 2, read: () => zooms.indexOf(state.sequenceZoomSteps),
+      format: value => zooms[value] + " steps", change: value => { state.sequenceZoomSteps = zooms[value]; syncSequenceControls(); } },
+    pan: { label: "X pan", min: 0, max: 3, read: () => state.sequencePage,
+      format: value => "Step " + (value * state.sequenceZoomSteps + 1), change: setSequencePage },
+    pitch: { label: "Pitch view", min: 12, max: 72, step: 12, read: () => state.sequencePitchSpan,
+      format: value => "±" + value + " st", change: value => { state.sequencePitchSpan = value; syncSequenceControls(); } },
+    center: { label: "Y pan", min: -36, max: 36, read: () => state.sequencePitchCenter,
+      format: value => value + " st", change: value => { state.sequencePitchCenter = value; syncSequenceControls(); } },
+  };
+  for (const [key, spec] of Object.entries(editorSpecs)) {
+    const knob = createSequenceKnob(document, spec); knob.element.dataset.editorKnob = key;
+    simdEditorKnobs.set(key, knob); $("simdSequenceControls").append(knob.element);
+  }
+  $("sequenceZoom").closest("label").hidden = true; $("sequencePan").closest("label").hidden = true;
+  const sequenceTools = document.querySelector(".simd-sequence-options");
+  $("sequenceWorkspace").append(sequenceTools);
+  sequenceTools.querySelectorAll('label').forEach(label => $("simdLegacyControls").append(label));
+  sequenceTools.querySelector('.chiptune-control-stack').append($("sequenceStepCustom"));
+  for (const button of document.querySelectorAll("[data-voice-view]")) {
+    button.addEventListener("click", () => {
+      const voice = button.dataset.voiceView;
+      state.voiceViews[voice] = state.voiceViews[voice] === "controls" ? "dance" : "controls";
+      focusCharacterEditor(voice, { announceChange: false }); syncSimdWorkspace(); notifyWaxState();
+    });
+  }
+  for (const face of document.querySelectorAll(".simd-voice-controls")) {
+    face.addEventListener("pointerdown", () => {
+      if (state.activeCharacterVoice !== face.dataset.voice) focusCharacterEditor(face.dataset.voice, { announceChange: false });
+    });
+  }
+  for (const lane of WEBGPU_CHIPTUNE_PERFORMANCE_LANES) {
+    const card = document.querySelector(`[data-character-voice="${lane}"]`);
+    const knob = createSimdLevelKnob(lane, lane === "drums" ? "Bus" : "Vol");
+    knob.element.classList.add("simd-character-volume"); knob.element.dataset.performerVolume = lane;
+    card.querySelector(".chiptune-character-button-pair").append(knob.element);
+    const meter = createSimdVoiceMeter(lane, false);
+    card.querySelector(".simd-voice-header").insertBefore(meter, card.querySelector("[data-voice-view]"));
+    simdVolumeKnobs.set("voice:" + lane, knob);
+  }
+  const drums = document.createElement("div"); drums.className = "simd-drum-volumes";
+  drums.setAttribute("role", "group"); drums.setAttribute("aria-label", "Drum volumes");
+  for (const [lane, label] of Object.entries({ kick: "Kick", snare: "Snare", hats: "Hat", shaker: "Shaker" })) {
+    const knob = createSimdLevelKnob(lane, label);
+    knob.element.classList.add("simd-drum-volume"); knob.element.dataset.drumVolume = lane;
+    knob.element.append(createSimdVoiceMeter(lane, true));
+    drums.append(knob.element); simdVolumeKnobs.set("drum:" + lane, knob);
+  }
+  document.querySelector('[data-character-voice="drums"] .simd-voice-footer').append(drums);
+  simdPresetPicker = createSimdPresetPicker($("simdPresetSelect"), presets, applyPreset);
+  simdPresetPicker.sync(state.presetId);
+  $("characterSkin").replaceChildren(...SKINS.map(skin => {
+    const option = document.createElement("option"); option.value = skin.id; option.textContent = skin.label; return option;
+  }));
+  $("characterSkin").addEventListener("change", event => {
+    state.characterSkin = event.target.value; notifyWaxState();
+  });
+  $("patternSection").replaceChildren(...Array.from({ length: 32 }, (_, index) => {
+    const option = document.createElement("option"); option.value = String(index);
+    option.textContent = index === 0 ? "1 — Intro" : String(index + 1); return option;
+  }));
+  $("patternSection").addEventListener("change", event => choosePatternSection(event.target.value));
+  $("patternNextSection").addEventListener("click", () => choosePatternSection((state.patternSection + 1) % 32));
+  syncSimdWorkspace();
+}
+
+function simdSavedState() {
+  if (!simdBackend) return {};
+  return { characterSkin: state.characterSkin, voiceViews: { ...state.voiceViews }, patternSection: state.patternSection,
+    patternSections: { ...state.patternSections,
+      [state.patternSection]: { sequence: state.sequence.mode === "pattern" ? state.sequence : state.patternSequence, baseline: state.patternBaseline } } };
+}
+
 let focusedSoundKey = "";
 const patternSoundKeys = new Set([
   "tempo", "transpose", "scaleMask", "tuningCents", "pulseWidth", "pwmDepth", "pwmRate",
@@ -2941,6 +3225,7 @@ const patternSoundKeys = new Set([
     && !/(Cycle|Subcycle|Repeat|Phase)$/.test(key)),
 ]);
 function syncFocusedSoundControls() {
+  if (simdBackend) { syncSimdKnobs(); return; }
   const lane = state.activeSequenceLane, pattern = state.sequence.mode === "pattern";
   const key = lane + ":" + state.sequence.mode;
   if (focusedSoundKey !== key) {
@@ -2978,6 +3263,7 @@ function syncFocusedSoundControls() {
   }
 }
 function syncPatternWorkspace() {
+  if (simdBackend) syncSimdWorkspace();
   const pattern = state.sequence.mode === "pattern", lane = state.sequence.lanes[state.activeSequenceLane];
   $("compositionMode").value = state.sequence.mode;
   $("compositionDescription").textContent = pattern
@@ -3033,6 +3319,13 @@ function syncPatternWorkspace() {
   const quick = document.querySelector('[data-section="quick"]');
   if (quick) quick.hidden = pattern;
   syncFocusedSoundControls();
+  if (simdBackend) {
+    syncSimdWorkspace();
+    if (state.activeCharacterVoice === "noise") $("patternTimingControls").hidden = true;
+    $("sequenceStepCustom").hidden = !pattern;
+    $("sequencePitchSpan").closest("label").hidden = true;
+    $("sequencePitchCenter").closest("label").hidden = true;
+  }
 }
 function bindPatternWorkspace() {
   $("compositionMode").addEventListener("change", (event) => switchCompositionMode(event.target.value));
@@ -3262,7 +3555,12 @@ function createKnobControl(key) {
 
   const label = document.createElement("span");
   label.className = "webgpu-knob-label";
-  label.textContent = knobLabels[key] ?? spec.label;
+  const shortNames = { bassPulseLevel: "Pulse mix", bassSineLevel: "Sub mix", echoTaps: "Taps", echoWet: "Return", echoCrossfeed: "Crossfeed", echoAlternate: "Alternate",
+    ghostDrums: "Ghosts", ghostDelayDivisor: "Ghost time", ghostPan: "Ghost pan", fadeIn: "Fade in", fadeCurve: "Fade curve",
+    texturePeriod: "Period", textureDecay: "Noise decay", textureSweep: "Sweep", texturePhase: "Noise phase", noiseLevel: "Noise",
+    noiseRate: "Clock", noiseColor: "Color", transpose: "Transpose" };
+  label.textContent = simdBackend ? shortNames[key] ?? knobLabels[key] ?? spec.label.replace(/^(Upper [AB]|Lead|Arpeggio|Bass) /, "") : knobLabels[key] ?? spec.label;
+  label.title = spec.label;
 
   const output = document.createElement("output");
   output.className = "webgpu-knob-value";
@@ -3314,6 +3612,7 @@ function balancedKnobColumnCount(totalKnobs, maximumColumns) {
 }
 
 function balanceKnobRows() {
+  if (simdBackend) return;
   const bank = $("knobControls");
   const firstKnob = bank.querySelector(".webgpu-knob");
   const bankBounds = bank.getBoundingClientRect();
@@ -3647,6 +3946,10 @@ async function startAudio() {
 async function stopAudio({ quiet = false } = {}) {
   audioLifecycleGeneration += 1;
   const previous = engine;
+  if (simdBackend && previous && state.synthPlaying) {
+    state.transportOffset = transportTime();
+    state.transportStartedAt = performance.now() / 1000;
+  }
   engine = null;
   audioStartPromise = null;
   if (previous) await previous.stop();
@@ -3665,7 +3968,8 @@ function pauseTransport({ quiet = false } = {}) {
   transportGeneration += 1;
   state.synthPlaying = false;
   engine?.setPlaybackEnabled(false);
-  engine?.pause();
+  const pausedOffset = engine?.pause();
+  if (simdBackend && Number.isFinite(pausedOffset)) state.transportOffset = pausedOffset;
   setSynthPlayButtonState();
   if (!quiet) announce(instrumentName + " paused.");
 }
@@ -3722,6 +4026,7 @@ function runtimeChanged() {
 function resetPatch() {
   state.drumMix = sanitizeWebGpuChiptuneDrumMix();
   state.songSequence = WEBGPU_CHIPTUNE_DEFAULT_SEQUENCE;
+  state.patternSection = 0; state.patternSections = {};
   state.patternSequence = createWebGpuChiptunePattern();
   state.patternBaseline = state.patternSequence;
   state.voicePerformance = sanitizeWebGpuChiptunePerformance(
@@ -4038,14 +4343,16 @@ function sequenceEditorMetrics(width, height) {
   const left = narrow ? 45 : 66;
   const right = narrow ? 5 : 10;
   const top = narrow ? 38 : 42;
-  const overviewHeight = clamp(height * 0.23, 66, 88);
-  const overviewBottom = height - 17;
-  const overviewTop = overviewBottom - overviewHeight;
-  const bottom = Math.max(top + 120, overviewTop - 15);
+  const drumLayout = simdBackend && state.activeCharacterVoice === "drums";
+  const overviewHeight = drumLayout ? Math.max(100, height - 170) : clamp(height * 0.23, 66, 88);
+  const overviewBottom = drumLayout ? top + overviewHeight : height - 17;
+  const overviewTop = drumLayout ? top : overviewBottom - overviewHeight;
+  const bottom = drumLayout ? height - 17 : Math.max(top + 120, overviewTop - 15);
   const definition = activeSequenceDefinition();
-  const row = Object.freeze({ definition, top, height: Math.max(1, bottom - top) });
+  const rowTop = drumLayout ? overviewBottom + 24 : top;
+  const row = Object.freeze({ definition, top: rowTop, height: Math.max(1, bottom - rowTop) });
   const overviewLabelWidth = narrow ? 31 : 48;
-  const volumeView = state.activeCharacterVoice !== "drums";
+  const volumeView = simdBackend || state.activeCharacterVoice !== "drums";
   const overviewLeft = volumeView ? left : overviewLabelWidth;
   const overviewGridWidth = Math.max(1, width - overviewLeft - right);
   const overviewHeader = 13;
@@ -4503,7 +4810,7 @@ function drawSequenceOverview(context, metrics, time) {
   context.fillStyle = "rgba(216,231,231,0.58)";
   context.fillText(
     state.activeCharacterVoice === "drums"
-      ? "CURRENT DRUM PATTERN · TAP A PART OR STEP"
+      ? (simdBackend ? "DRUM NOTES · DOUBLE-CLICK ON/OFF" : "CURRENT DRUM PATTERN · TAP A PART OR STEP")
       : "STEP VOLUME · DRAG BARS · DOUBLE-CLICK ON/OFF",
     5, overview.top + 6);
 
@@ -4535,11 +4842,12 @@ function drawSequenceOverview(context, metrics, time) {
         const level = definition.kind === "drums" ? currentDrumLevel(lane, step) : cell.velocity;
         context.fillStyle = definition.color;
         context.globalAlpha = .78;
+        const barLevel = simdBackend && definition.kind === "drums" ? 0.64 : level;
         if (level > 0) context.fillRect(
           x + 1,
-          row.top + row.height - 1 - Math.max(1, (row.height - 2) * level),
+          row.top + row.height - 1 - Math.max(1, (row.height - 2) * barLevel),
           Math.max(1, overview.cellWidth - 2),
-          Math.max(1, (row.height - 2) * level),
+          Math.max(1, (row.height - 2) * barLevel),
         );
         context.globalAlpha = 1;
       } else {
@@ -4690,8 +4998,10 @@ function drawSequenceEditor(context, width, height, time) {
       context.font = "800 " + Math.max(8, Math.min(11, metrics.cellWidth * 0.24))
         + "px ui-monospace, SFMono-Regular, Consolas, monospace";
       context.textAlign = "center";
-      context.fillText(level > 0 ? Math.round(level * 100) + "%" : "OFF",
-        x + metrics.cellWidth * 0.5, Math.max(metrics.row.top + 8, top - 10));
+      if (!simdBackend || selected || metrics.cellWidth >= 28) {
+        context.fillText(level > 0 ? Math.round(level * 100) + "%" : "OFF",
+          x + metrics.cellWidth * 0.5, Math.max(metrics.row.top + 8, top - 10));
+      }
       context.globalAlpha = 1;
     } else if (cell.state === "rest") {
       drawRestCell(context, x, metrics.row.top, metrics.cellWidth, metrics.row.height);
@@ -4751,6 +5061,11 @@ function drawSequenceEditor(context, width, height, time) {
 
   if (lane === "lead" && state.sequence.mode === "song") drawResolvedLeadTrace(context, metrics, metrics.row);
   if (lane === "arp" && state.sequence.mode === "song") drawResolvedArpTrace(context, metrics, metrics.row);
+  if (simdBackend && definition.kind === "drums") {
+    context.textAlign = "left"; context.fillStyle = definition.color;
+    context.font = "700 10px ui-monospace, monospace";
+    context.fillText(definition.label + " VOLUME", 6, metrics.row.top - 9);
+  }
   context.restore();
   drawSequenceOverview(context, metrics, time);
 }
@@ -4792,7 +5107,8 @@ function pixelRect(context, x, y, width, height, color) {
 }
 
 function actorColors(actor, index) {
-  const base = characterPalettes[index].hue;
+  const originalIndex = Original_WEBGPU_CHIPTUNE_PERFORMANCE_LANES.indexOf(actor.key);
+  const base = simdBackend ? (originalIndex < 0 ? 242 : characterPalettes[originalIndex].hue) : characterPalettes[index].hue;
   const hue = positiveModulo(base + (actor.hue - 0.5) * 64, 360);
   const lightness = 38 + actor.levelUnit * 24;
   return Object.freeze({
@@ -4831,7 +5147,8 @@ function drawPixelActor(context, actor, index, x, ground, unit, alpha, reducedMo
   context.save();
   context.globalAlpha = alpha;
   pixelRect(context, x - 5 * unit, ground + unit, 10 * unit, unit * .5, colors.shadow);
-  drawChiptuneDancer(context, actor, x, ground, unit, colors, reducedMotion);
+  if (simdBackend) drawSimdChiptuneDancer(context, actor, x, ground, unit, colors, reducedMotion, state.characterSkin);
+  else drawChiptuneDancer(context, actor, x, ground, unit, colors, reducedMotion);
   context.restore();
 }
 
@@ -4915,7 +5232,7 @@ function drawArcadeBayFrame(context, bay, actor, index, height, floor, unit) {
     + "px ui-monospace, SFMono-Regular, Consolas, monospace";
   context.textAlign = "center";
   context.textBaseline = "bottom";
-  context.fillText(actor.label, bay.center, bottom - 1);
+  if (!simdBackend) context.fillText(actor.label, bay.center, bottom - 1);
   context.restore();
 }
 
@@ -4956,14 +5273,14 @@ function drawCharacterPerformanceReticle(
   pixelRect(context, x, y - 2, 1, 5, color);
   pixelRect(context, x - 1, y - 1, 3, 3, "#071015");
   pixelRect(context, x, y, 1, 1, color);
-  if (!audible) {
+  if (!audible || (simdBackend && performance.solo)) {
     context.globalAlpha = 0.82;
     context.fillStyle = color;
     context.font = Math.max(5, Math.min(7, Math.floor(bay.width / 9)))
       + "px ui-monospace, SFMono-Regular, Consolas, monospace";
     context.textAlign = "center";
     context.textBaseline = "top";
-    context.fillText(performance.muted ? "MUTED" : "SOLO CUT", bay.center, top + 2);
+    context.fillText(performance.muted ? "MUTED" : performance.solo ? "SOLO" : "SOLO CUT", bay.center, top + 2);
   }
   context.restore();
 }
@@ -5094,8 +5411,9 @@ function drawCharacterStage(time) {
   const desiredCssUnit = cssWidth > 980 ? 24 : cssWidth > 620 ? 16 : 8;
   const desiredUnit = Math.max(1, Math.round(desiredCssUnit / pixelScale));
   const bayTop = Math.max(2, Math.floor(height * 0.12));
-  const baseline = Math.round(height * 0.78);
-  const widthBudget = 18;
+  const controlsHeight = simdBackend ? Math.max(...[...document.querySelectorAll(".simd-voice-footer")].map(element => element.getBoundingClientRect().height), 0) : 0;
+  const baseline = simdBackend ? Math.round(height - (controlsHeight + 4) / pixelScale) : Math.round(height * 0.78);
+  const widthBudget = simdBackend ? 20 : 18;
   const heightBudget = 22;
   const widthFit = Math.max(1, (narrowestBay - 2) / widthBudget);
   const heightFit = Math.max(1, (baseline - bayTop) / heightBudget);
@@ -5176,8 +5494,12 @@ function draw() {
   const time = transportTime();
   context.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
   drawCharacterStage(time);
+  if (simdBackend) syncSimdVoiceMeters();
   drawBackground(context, width, height);
-  if (state.trackerView === "sequence") drawSequenceEditor(context, width, height, time);
+  if (simdBackend && state.activeCharacterVoice === "noise") {
+    const actor = webGpuChiptuneStageSnapshot(time, effectiveVoiceParams(), state.sequence).actors.at(-1);
+    drawNoiseSweep(context, width, height, actor, effectiveVoiceParams(), state.sequence.mode === "pattern");
+  } else if (state.trackerView === "sequence") drawSequenceEditor(context, width, height, time);
   else drawMorphTracker(context, width, height, time);
   syncSequencePlayhead(time);
   animationFrame = requestAnimationFrame(draw);
@@ -5406,6 +5728,7 @@ function paintSequencePoint(point, previous = point) {
 }
 
 function stagePointerDown(event) {
+  if (simdBackend && state.activeCharacterVoice === "noise") return;
   if (event.button !== undefined && event.button !== 0) return;
   event.preventDefault();
   $("stage").focus({ preventScroll: true });
@@ -5507,6 +5830,7 @@ function stagePointerEnd(event) {
 }
 
 function stageDoubleClick(event) {
+  if (simdBackend && state.activeCharacterVoice === "noise") return;
   if (state.trackerView !== "sequence") return;
   const point = sequencePointFromPointer(event);
   if (!point || point.gutter) return;
@@ -5584,6 +5908,7 @@ function sequenceStageKeyDown(event) {
 }
 
 function stageKeyDown(event) {
+  if (simdBackend && state.activeCharacterVoice === "noise") { characterStageKeyDown(event); return; }
   if (state.trackerView === "sequence") {
     sequenceStageKeyDown(event);
     return;
@@ -5642,7 +5967,7 @@ function registerWaxHostAdapter() {
   try {
     wax.register({
       id: instrumentId,
-      stateVersion: 7,
+      stateVersion: simdBackend ? 10 : 7,
       getState() {
         return {
           parameters: { ...state.params },
@@ -5654,6 +5979,7 @@ function registerWaxHostAdapter() {
           songSequence: state.sequence.mode === "song" ? state.sequence : state.songSequence,
           patternSequence: state.sequence.mode === "pattern" ? state.sequence : state.patternSequence,
           patternBaseline: state.patternBaseline,
+          ...simdSavedState(),
         };
       },
       applyState(snapshot) {
@@ -5664,6 +5990,17 @@ function registerWaxHostAdapter() {
           : "custom";
         const migrated = migrateWebGpuChiptunePerformance(snapshot);
         state.voicePerformance = migrated.performance;
+        if (simdBackend) {
+          state.voiceViews = Object.fromEntries(WEBGPU_CHIPTUNE_PERFORMANCE_LANES.map(voice => [voice,
+            snapshot.voiceViews?.[voice] === "controls" ? "controls" : "dance"]));
+          state.characterSkin = SKINS.some(skin => skin.id === snapshot.characterSkin) ? snapshot.characterSkin : "original";
+          state.patternSection = Math.round(clamp(snapshot.patternSection, 0, 31));
+          state.patternSections = {};
+          for (const [key, section] of Object.entries(snapshot.patternSections ?? {})) {
+            if (!/^([0-9]|[12][0-9]|3[01])$/.test(key) || !section?.sequence || !section?.baseline) continue;
+            state.patternSections[key] = { sequence: sanitizeWebGpuChiptuneSequence(section.sequence), baseline: sanitizeWebGpuChiptuneSequence(section.baseline) };
+          }
+        }
         state.drumMix = sanitizeWebGpuChiptuneDrumMix(snapshot.drumMix);
         state.songSequence = sanitizeWebGpuChiptuneSequence(snapshot.songSequence ?? snapshot.sequence);
         state.patternSequence = snapshot.patternSequence ? sanitizeWebGpuChiptuneSequence(snapshot.patternSequence)
@@ -5695,6 +6032,7 @@ function registerWaxHostAdapter() {
 }
 
 renderControls();
+if (simdBackend) initializeSimdWorkspace();
 renderSequenceControls();
 setTrackerView("sequence", { quiet: true });
 setRuntimeState();
@@ -5809,5 +6147,6 @@ export function captureChiptuneState() {
     songSequence: state.sequence.mode === "song" ? state.sequence : state.songSequence,
     patternSequence: state.sequence.mode === "pattern" ? state.sequence : state.patternSequence,
     patternBaseline: state.patternBaseline,
+    ...simdSavedState(),
   }));
 }

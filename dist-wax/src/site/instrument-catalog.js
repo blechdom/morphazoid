@@ -641,8 +641,8 @@ const CATALOG_DETAILS = Object.freeze({
   ),
   "simd-chiptune": define(
     "WebAssembly SIMD tracker synth",
-    "Recreates WebGPU Chiptune's six animated performers, five pitched parts plus drums, nine 32-step lanes, Song and Pattern modes, original presets, and eight-tap ping-pong echo in a WebAssembly SIMD AudioWorklet.",
-    "Start the tracker, turn on Audio to hear it, then select a performer, edit its pattern or sound, or choose one of the original Song and Pattern presets.",
+    "Preserves WebGPU Chiptune's original sounds and presets with smooth tempo changes, seven pixel performers with independent Dance/Controls views, single level controls, per-voice audio meters, compact global and voice knobs, nine 32-step lanes, selectable song sections and eight-tap stereo echo.",
+    "Turn on Audio and press Play, choose a preset, then switch any character to Controls. Mute, solo, level and audio meters stay visible; Steps and sound controls share each voice’s control view. Noise plays in Song mode.",
     ["WebAssembly SIMD", "AudioWorklet", "Pointer", "Built-in synth", "Shared transport", "Step sequencer", "Animated performers", "Presets"],
   ),
   "simd-synth": define(

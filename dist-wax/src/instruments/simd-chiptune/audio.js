@@ -1,7 +1,8 @@
 import {
   WebGpuChiptuneAudio, WEBGPU_CHIPTUNE_DEFAULTS, WEBGPU_CHIPTUNE_PARAM_ORDER,
-  webGpuChiptuneParamArray, packWebGpuChiptuneSequence,
+  webGpuChiptuneParamArray, packWebGpuChiptuneSequence, sanitizeWebGpuChiptuneParams,
 } from '../webgpu-chiptune/webgpu-chiptune.js';
+import { ChiptuneTempoClock } from './tempo-clock.js';
 
 export function simdChiptuneSupport(runtime = globalThis) {
   const Ctor = runtime.AudioContext ?? runtime.webkitAudioContext;
@@ -23,6 +24,8 @@ export class SimdChiptuneAudio extends WebGpuChiptuneAudio {
     this.workletTelemetry = null;
     this.cancelStart = null;
     this.readyCleanup = null;
+    this.tempoClock = new ChiptuneTempoClock(this.params.tempo);
+    this.tempoEvent = null; this.tempoEventSerial = 0; this.pausedAudioSeconds = null; this.previewAudioAnchor = null;
   }
 
   configuration() {
@@ -31,9 +34,14 @@ export class SimdChiptuneAudio extends WebGpuChiptuneAudio {
       this.pendingPreview = Object.freeze({ ...this.pendingPreview, startOffset: this.sequenceEditSafeTime() });
     }
     const preview = this.pendingPreview;
-    return { params: webGpuChiptuneParamArray(this.params), meta: packed.meta,
+    if (!preview) this.previewAudioAnchor = null;
+    else if (this.previewAudioAnchor?.serial !== preview.serial) {
+      this.previewAudioAnchor = { serial: preview.serial, seconds: this.tempoClock.timeAtBeat(preview.startOffset * this.params.tempo) };
+    }
+    const previewStart = this.previewAudioAnchor?.seconds ?? -1;
+    return { tempoEvent: this.tempoEvent, params: webGpuChiptuneParamArray(this.params), meta: packed.meta,
       cells: new Uint8Array(packed.cells),
-      time: new Float32Array([0, preview?.lane ?? -1, preview?.value ?? 0, preview?.startOffset ?? -1]) };
+      time: new Float32Array([0, preview?.lane ?? -1, preview?.value ?? 0, previewStart]) };
   }
 
   async start(params = WEBGPU_CHIPTUNE_DEFAULTS, options = {}) {
@@ -117,7 +125,23 @@ export class SimdChiptuneAudio extends WebGpuChiptuneAudio {
     this.node?.port.postMessage({ type: 'configure', configuration: this.configuration() });
   }
 
-  updateParams(params) {
+  updateParams(params = this.params) {
+    const previousTempo = this.params.tempo;
+    const nextTempo = sanitizeWebGpuChiptuneParams(params).tempo;
+    if (nextTempo !== previousTempo) {
+      const seconds = this.currentAudioSeconds();
+      this.tempoClock.setTempo(nextTempo, seconds);
+      this.tempoEvent = { seconds, tempo: nextTempo, serial: ++this.tempoEventSerial };
+      // The original edit API expresses activation in beat / selected-tempo
+      // seconds. Rebase those coordinates without moving their musical beat.
+      for (const [key, transition] of this.sequenceTransitions) {
+        this.sequenceTransitions.set(key, Object.freeze({ ...transition, applyAt: transition.applyAt * previousTempo / nextTempo }));
+      }
+      if (Number.isFinite(this.pendingPreview?.startOffset)) {
+        this.pendingPreview = Object.freeze({ ...this.pendingPreview, startOffset: this.pendingPreview.startOffset * previousTempo / nextTempo });
+      }
+      if (!this.running && this.pausedAudioSeconds !== null) this.renderOffset = this.tempoClock.beatAt(seconds) / nextTempo;
+    }
     super.updateParams(params);
     if (!this.running) this.scheduleRenderRefresh();
   }
@@ -128,20 +152,32 @@ export class SimdChiptuneAudio extends WebGpuChiptuneAudio {
   }
 
   sequenceEditSafeTime() {
-    return Math.max(0, this.currentPlaybackTime() ?? this.renderOffset) + 128 / (this.sampleRate || 48000);
+    const seconds = this.currentAudioSeconds() + 128 / (this.sampleRate || 48000);
+    return this.tempoClock.beatAt(seconds) / this.params.tempo;
   }
 
-  currentPlaybackTime() {
-    if (!this.context || !this.running) return null;
+  currentAudioSeconds() {
+    if (!this.context || !this.running) return this.pausedAudioSeconds ?? this.renderOffset;
     return this.timelineOffset + Math.max(0, this.context.currentTime - this.timelineStart);
   }
 
+  currentPlaybackBeat() {
+    if (!this.context || !this.running) return null;
+    return this.tempoClock.beatAt(this.currentAudioSeconds());
+  }
+
+  currentPlaybackTime() {
+    const beat = this.currentPlaybackBeat();
+    return beat === null ? null : beat / this.params.tempo;
+  }
+
   pause() {
+    this.pausedAudioSeconds = this.currentAudioSeconds();
     this.renderOffset = this.currentPlaybackTime() ?? this.renderOffset;
     this.running = false;
     this.sequenceTransitions.clear();
     this.pendingPreview = null;
-    this.node?.port.postMessage({ type: 'transport', playing: false, offset: this.renderOffset });
+    this.node?.port.postMessage({ type: 'transport', playing: false, offset: this.pausedAudioSeconds });
     this.scheduleRenderRefresh();
     return this.renderOffset;
   }
@@ -150,12 +186,17 @@ export class SimdChiptuneAudio extends WebGpuChiptuneAudio {
     if (!this.context || !this.node) throw new Error('Turn Audio on before restarting the chiptune engine.');
     this.sequenceTransitions.clear();
     this.pendingPreview = null;
-    this.timelineOffset = this.renderOffset = Math.max(0, Number(offset) || 0);
+    const requestedOffset = Math.max(0, Number(offset) || 0);
+    const resume = this.pausedAudioSeconds !== null && Math.abs(requestedOffset - this.renderOffset) < 0.00001;
+    this.timelineOffset = resume ? this.pausedAudioSeconds : requestedOffset;
+    if (!resume) this.tempoClock.reset(this.params.tempo);
+    this.renderOffset = requestedOffset;
+    this.pausedAudioSeconds = null;
     this.timelineStart = Math.max(this.context.currentTime + 0.012, Number(startAt) || 0);
     this.workletTelemetry = null;
     this.scheduleRenderRefresh();
     this.running = true;
-    this.node.port.postMessage({ type: 'transport', playing: true, offset: this.timelineOffset, startAt: this.timelineStart });
+    this.node.port.postMessage({ type: 'transport', playing: true, offset: this.timelineOffset, startAt: this.timelineStart, clock: this.tempoClock.segments });
     return this.timelineStart;
   }
 
@@ -170,6 +211,7 @@ export class SimdChiptuneAudio extends WebGpuChiptuneAudio {
     this.workletTelemetry = null;
     await super.stop();
     this.backend = 'off';
+    this.tempoClock.reset(this.params.tempo); this.tempoEvent = null; this.pausedAudioSeconds = null;
   }
 }
 

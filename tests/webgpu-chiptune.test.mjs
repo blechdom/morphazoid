@@ -2301,7 +2301,7 @@ test("WebGPU Chiptune ships as a separate accessible and credited page", async (
   assert.match(app, /sequencePointFromPointer/);
   assert.match(app, /WEBGPU_CHIPTUNE_SEQUENCE_STEPS/);
   assert.match(app, /engine\?\.updateSequence\(state\.sequence\)/);
-  assert.match(app, /stateVersion: 7/);
+  assert.match(app, /stateVersion: simdBackend \? 10 : 7/);
   assert.match(app, /voicePerformance: state\.voicePerformance/);
   assert.match(app, /sequence: state\.sequence/);
   assert.match(app, /WEBGPU_CHIPTUNE_DEFAULT_SEQUENCE/);

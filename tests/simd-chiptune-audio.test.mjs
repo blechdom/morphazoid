@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import vm from 'node:vm';
 import { readFile } from 'node:fs/promises';
+import { ChiptuneTempoClock, TEMPO_CLOCK_CAPACITY, TEMPO_CLOCK_FIELDS } from '../src/instruments/simd-chiptune/tempo-clock.js';
 import { SimdChiptuneAudio, simdChiptuneSupport } from '../src/instruments/simd-chiptune/audio.js';
 import { WEBGPU_CHIPTUNE_DEFAULTS, createWebGpuChiptunePattern } from '../src/instruments/webgpu-chiptune/webgpu-chiptune.js';
 
@@ -115,12 +116,13 @@ const bytes = Object.fromEntries(await Promise.all(['scalar', 'simd'].map(async 
 function worklet({ scalar = false } = {}) {
   let Processor;
   const messages = [];
-  const scope = vm.createContext({ WebAssembly, Float32Array, Uint32Array, Uint8Array, Number, Math, Object,
+  const scope = vm.createContext({ WebAssembly, Float32Array, Float64Array, Uint32Array, Uint8Array, Number, Math, Object,
+    ChiptuneTempoClock, TEMPO_CLOCK_CAPACITY, TEMPO_CLOCK_FIELDS,
     sampleRate: 48000, currentTime: 0,
     AudioWorkletProcessor: class { constructor() { this.port = { postMessage: message => messages.push(message) }; } },
     registerProcessor: (_name, ctor) => { Processor = ctor; },
   });
-  vm.runInContext(source, scope);
+  vm.runInContext(source.replace(/^import .*?;\n/m, ''), scope);
   const processor = new Processor();
   const engine = new SimdChiptuneAudio();
   engine.updateSequence(createWebGpuChiptunePattern(), { deferDrums: false });
@@ -182,10 +184,108 @@ test('malformed SIMD installation falls back; invalid patches and scalar failure
   assert.equal(processor.backend, 'scalar');
   processor.port.onmessage({ data: { type: 'configure', configuration: {} } });
   assert.match(messages.at(-1).message, /Invalid chiptune/);
-  processor.kernel = { ...processor.scalar, exports: { process() { throw Error('render failed'); } } };
+  processor.kernel = { ...processor.scalar, exports: { ...processor.scalar.exports, process() { throw Error('render failed'); } } };
   processor.scalar = processor.kernel;
   processor.message({ type: 'transport', playing: true, offset: 10 });
   assert.equal(peak(tick().left), 0);
   assert.equal(processor.ready, false);
   assert.match(messages.at(-1).message, /render failed/);
+});
+
+test('tempo moves preserve the musical beat, oscillator clock, and pause/resume position', async () => {
+  const { engine, contexts, nodes } = fakeRuntime();
+  await engine.start({ ...WEBGPU_CHIPTUNE_DEFAULTS, tempo: 1.3 }, { autoStart: false });
+  const start = await engine.restart({ offset: 600 });
+  contexts[0].currentTime = start + 0.125;
+  const beat = engine.currentPlaybackBeat();
+  const audioSeconds = engine.currentAudioSeconds();
+  engine.updateParams({ ...engine.params, tempo: 3.7 });
+  assert.ok(Math.abs(engine.currentPlaybackTime() * engine.params.tempo - beat) < 1e-10);
+  assert.equal(engine.currentAudioSeconds(), audioSeconds);
+  assert.equal(engine.tempoClock.tempoAt(audioSeconds), 1.3);
+  contexts[0].currentTime += 0.06;
+  assert.ok(Math.abs(engine.tempoClock.tempoAt(engine.currentAudioSeconds()) - 2.5) < 1e-9);
+  const paused = engine.pause(), pausedAudio = engine.currentAudioSeconds();
+  contexts[0].currentTime += 10;
+  assert.equal(engine.currentAudioSeconds(), pausedAudio);
+  const resumed = await engine.restart({ offset: paused });
+  contexts[0].currentTime = resumed;
+  assert.equal(engine.currentAudioSeconds(), pausedAudio);
+  assert.ok(Math.abs(engine.currentPlaybackTime() - paused) < 1e-10);
+  const message = nodes[0].messages.at(-1);
+  assert.equal(message.offset, pausedAudio);
+  assert.equal(message.clock.length, 2);
+  await engine.stop();
+});
+
+test('deferred sequence edits and previews retain musical activation through a tempo ramp', async () => {
+  const { engine, contexts } = fakeRuntime();
+  const sequence = createWebGpuChiptunePattern();
+  await engine.start(WEBGPU_CHIPTUNE_DEFAULTS, { autoStart: false, sequence });
+  engine.setPlaybackEnabled(true);
+  const start = await engine.restart({ offset: 0.01 });
+  contexts[0].currentTime = start + 0.01;
+  const next = structuredClone(sequence);
+  next.lanes.upperOne.cells[0] = { ...next.lanes.upperOne.cells[0], state: 'note', value: 12 };
+  engine.updateSequence(next);
+  const priorBeat = engine.sequenceEditActivationTime('upperOne', 0) * engine.params.tempo;
+  engine.auditionSequenceCell('bass', -12);
+  const previewSeconds = engine.configuration().time[3];
+  engine.updateParams({ ...engine.params, tempo: 2.5 });
+  const afterBeat = engine.sequenceEditActivationTime('upperOne', 0) * engine.params.tempo;
+  assert.ok(Math.abs(afterBeat - priorBeat) < 1e-9);
+  assert.ok(engine.sequenceEditActivationTime('upperOne', 0) > engine.currentPlaybackTime());
+  assert.equal(engine.configuration().time[3], previewSeconds);
+  assert.deepEqual(engine.sequenceAtTime(engine.currentPlaybackTime()).lanes.upperOne.cells[0], sequence.lanes.upperOne.cells[0]);
+  await engine.stop();
+});
+
+test('rapid live tempo sweeps after ten minutes never rewind beats or interrupt either backend', () => {
+  for (const scalar of [false, true]) {
+    const { processor, tick, messages, engine } = worklet({ scalar });
+    processor.message({ type: 'transport', playing: true, offset: 600, startAt: 0 });
+    let previousBeat = processor.tempoClock.beatAt(600), energy = 0;
+    for (let block = 0; block < 240; block++) {
+      if (block % 6 === 0) {
+        // Include several queued controls between render quanta: their clock
+        // history must survive even when the musical patch is coalesced.
+        for (let change = 0; change < 2; change++) {
+          const tempo = .4 + 3.4 * (.5 + .5 * Math.sin(block * .23 + change));
+          engine.updateParams({ ...engine.params, tempo });
+          const configuration = engine.configuration();
+          configuration.tempoEvent = { seconds: processor.position || 600, tempo, serial: block * 2 + change };
+          processor.message({ type: 'configure', configuration });
+        }
+      }
+      const output = tick();
+      const beat = processor.tempoClock.beatAt(processor.position);
+      assert.ok(beat >= previousBeat && beat - previousBeat <= 4 * 128 / 48000 + 1e-9);
+      assert.ok(Math.abs(processor.kernel.exports.musicalBeat(processor.position) - beat) < .0002);
+      previousBeat = beat;
+      for (const value of output.left) { assert.ok(Number.isFinite(value) && Math.abs(value) <= .98); energy += value * value; }
+      if (block % 40 === 39) { assert.ok(energy > .001, 'tempo automation must not insert silent windows'); energy = 0; }
+    }
+    assert.equal(processor.ready, true);
+    assert.equal(messages.some(message => message.type === 'error'), false);
+  }
+});
+
+test('worklet sends bounded rendered stem peaks at the existing telemetry rate and clears mute tails', () => {
+  for (const scalar of [false, true]) {
+    const { processor, tick, messages, engine } = worklet({ scalar });
+    processor.message({ type: 'transport', playing: true, offset: 10, startAt: 0 });
+    for (let block = 0; block < 104; block++) tick();
+    const telemetry = messages.filter(message => message.type === 'telemetry');
+    assert.equal(telemetry.length, 8);
+    assert.ok(telemetry.some(message => message.stemPeaks.some(peak => peak > .00001)));
+    for (const [index, message] of telemetry.entries()) {
+      assert.equal(message.stemPeaks.length, 11);
+      assert.ok(message.stemPeaks.every(peak => Number.isFinite(peak) && peak >= 0 && peak <= 1));
+      if (index) assert.ok(message.audioTime - telemetry[index - 1].audioTime >= 1 / 30);
+    }
+    engine.updateParams({ ...engine.params, synthMix: 0, drumMix: 0 });
+    processor.message({ type: 'configure', configuration: engine.configuration() });
+    for (let block = 0; block < 40; block++) tick();
+    assert.ok(messages.filter(message => message.type === 'telemetry').at(-1).stemPeaks.every(peak => peak === 0));
+  }
 });

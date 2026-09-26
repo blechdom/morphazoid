@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
+import { ChiptuneTempoClock, TEMPO_CLOCK_CAPACITY, TEMPO_CLOCK_FIELDS } from '../src/instruments/simd-chiptune/tempo-clock.js';
 import {
   WEBGPU_CHIPTUNE_PARAM_ORDER as ORDER,
   WEBGPU_CHIPTUNE_DEFAULTS as DEFAULTS,
@@ -276,6 +277,82 @@ test('pitched stems and tonal drums closely match real original WebGPU output', 
       const actual=render(kernel(backend,params,sequence),10,128,48000,true);
       const error=difference(actual,expected);
       assert.ok(error<(fixture.id==='arp-song'?.002:.00012),`${fixture.id}/${backend}: GPU RMS error ${error}`);
+    }
+  }
+});
+
+
+function setTempoClock(engine, clock) {
+  const buffer = new Float64Array(engine.exports.memory.buffer, engine.exports.tempo_clock_ptr(), TEMPO_CLOCK_CAPACITY * TEMPO_CLOCK_FIELDS);
+  engine.exports.set_tempo_clock(clock.writeTo(buffer));
+}
+
+test('live tempo ramps leave a sustained original oscillator waveform unchanged', () => {
+  const params = isolated({ upperOneLevel: 1, upperOneTone: -.6, tempo: 1.3, pwmDepth: .12 });
+  const sequence = structuredClone(notePattern());
+  sequence.lanes.upperOne.stepBeats = 4;
+  sequence.lanes.upperOne.gate = .95;
+  const offset = 600.25;
+  const clock = new ChiptuneTempoClock(params.tempo);
+  clock.setTempo(3.5, offset);
+  for (const type of ['scalar', 'simd']) {
+    const reference = render(kernel(type, params, sequence), offset, 4096);
+    const changing = kernel(type, { ...params, tempo: 3.5 }, sequence);
+    setTempoClock(changing, clock);
+    const actual = render(changing, offset, 4096);
+    assert.ok(rms(actual) > .01);
+    assert.deepEqual(actual, reference, 'tempo automation must not alter oscillator phase, pitch or PWM seconds');
+  }
+});
+
+test('tempo changes preserve an in-flight tonal drum hit instead of bending its phase', () => {
+  const params = isolated({ tempo: 1.3, synthMix: 0, drumMix: 1, kickLevel: 0, snareLevel: 1, hatLevel: 0, shakerLevel: 0, snareNoiseMix: 0, ghostDrums: 0 });
+  const sequence = notePattern('snare', 1);
+  const offset = 10.21;
+  const clock = new ChiptuneTempoClock(params.tempo);
+  clock.setTempo(2.5, offset);
+  for (const type of ['scalar', 'simd']) {
+    const reference = render(kernel(type, params, sequence), offset, 2048);
+    const changing = kernel(type, { ...params, tempo: 2.5 }, sequence);
+    setTempoClock(changing, clock);
+    const actual = render(changing, offset, 2048);
+    const oldJump = render(kernel(type, { ...params, tempo: 2.5 }, sequence), offset, 2048);
+    assert.ok(difference(actual, reference) < .001, `drum phase error ${difference(actual, reference)}`);
+    assert.ok(difference(actual, reference) < difference(oldJump, reference) / 100, `drum fixed=${difference(actual, reference)}, previous=${difference(oldJump, reference)}`);
+  }
+});
+
+test('source Song continuity improves over the previous tempo-times-elapsed seek', () => {
+  const params = isolated({ upperOneLevel: 1, tempo: 1.3, pitchClock: .5, leadSectionShare: 0, gateA0: 65535, gateA1: 65535, gateA2: 65535, gateA3: 65535, gateLength: 2 });
+  let fixedError = 0, oldError = 0;
+  for (const offset of [123.137, 249.73, 367.337, 482.223, 600.837]) {
+    const reference = render(kernel('simd', params), offset, 128);
+    const changedParams = { ...params, tempo: 2.2 };
+    const clock = new ChiptuneTempoClock(params.tempo);
+    clock.setTempo(changedParams.tempo, offset);
+    const changing = kernel('simd', changedParams);
+    setTempoClock(changing, clock);
+    fixedError += difference(render(changing, offset, 128), reference);
+    oldError += difference(render(kernel('simd', changedParams), offset, 128), reference);
+  }
+  assert.ok(oldError > .01, `reference error ${oldError}`);
+  assert.ok(fixedError < oldError / 100, `continuity errors fixed=${fixedError}, previous=${oldError}`);
+});
+
+
+test('analytic echoes read their historical beat rather than the newly selected tempo', () => {
+  const params = isolated({ upperOneLevel: .4, tempo: 1.3, pitchClock: .5, leadSectionShare: 0, gateA0: 65535, gateA1: 65535, gateA2: 65535, gateA3: 65535, gateLength: 2 });
+  const clock = new ChiptuneTempoClock(params.tempo);
+  clock.setTempo(3.5, 123.137);
+  for (const type of ['scalar', 'simd']) {
+    const changing = kernel(type, { ...params, tempo: 3.5 });
+    setTempoClock(changing, clock);
+    for (const delay of [.33, 2, 6, 14, 16]) {
+      const sourceTime = 123.15 - delay;
+      const actual = render(changing, sourceTime, 128);
+      const expected = render(kernel(type, params), sourceTime, 128);
+      assert.ok(rms(expected) > .005);
+      assert.ok(difference(actual, expected) < 1e-7, `historical echo ${delay} seconds must retain its original note and phase`);
     }
   }
 });
