@@ -24,11 +24,8 @@ import {
   traceLSystem,
 } from "../l-system/l-system.js";
 import {
-  advanceLSystemDrumTraversal,
-  groupedLSystemDrumEvents,
   L_SYSTEM_DRUM_MAPPING_MODES,
   L_SYSTEM_DRUM_STYLES,
-  lSystemDrumEventsForTraversal,
   lSystemDrumSubdivisionCount,
   lSystemDrumTraversalStepSize,
   lSystemDrumVoiceIndex,
@@ -40,6 +37,7 @@ import { MicBranchEngine } from "../../families/mic-branch/mic-branch-engine.js"
 import {
   lSystemPlayingModeFor,
 } from "./l-systems-suite.js";
+import { LSystemEventClock, L_SYSTEM_NOTE_VOICES, lSystemNoteDuration, lSystemNoteEnvelope, lSystemNoteVoice } from "./discrete-audio.js";
 import { canvasSizing } from "../../graphics/canvas-sizing.js";
 
 const TAU = Math.PI * 2;
@@ -173,7 +171,15 @@ let lastVoiceSubmissionTime = -Infinity;
 let lastSoundingVoiceCount = 0;
 let lastSubmittedVoiceLimit = -1;
 let lastSubmittedSoundMode = "";
-let activeEventKeys = new Set();
+let discreteClock = null;
+let discreteTimer = null;
+let discreteContext = null;
+let discreteIncludeStart = true;
+let discreteBudget = null;
+let discreteBudgetContext = null;
+let audioReady = false;
+let audioRequest = 0;
+let lastDiscretePaint = -Infinity;
 let hitCount = 0;
 let iterationTraces = buildIterationTraces(currentPreset(), state.iterations, sharedTraceOverrides());
 let drumTraversalStepSize = lSystemDrumTraversalStepSize(
@@ -375,6 +381,7 @@ function bindSelect(id, path, afterChange) {
 }
 
 function scheduleFrame() {
+  syncDiscreteScheduler();
   if (!scheduledFrame) scheduledFrame = requestAnimationFrame(frame);
 }
 
@@ -459,26 +466,35 @@ function silenceAudioRoutes(rampMilliseconds = 45) {
 
 async function prepareActiveAudio() {
   if (!state.audio) return false;
+  const request = ++audioRequest;
+  audioReady = false;
+  invalidateDiscreteScheduler();
   clearError();
   // Mute the outgoing route before an engine start or microphone permission
   // prompt can suspend this handoff.
   silenceAudioRoutes();
   if (activeAudioKind() === "synth") {
     await synthPool.enable();
+    if (request !== audioRequest || !state.audio) return false;
     synthPool.setLevel(clamp(state.level * modeGain(), 0, 1));
     synthPool.setHostGain(1, 45);
     if (state.mode === "notes") synthPool.silence();
+    audioReady = true;
     return true;
   }
   if (state.mode === "triggers") {
     await drumAudio.start();
+    if (request !== audioRequest || !state.audio) return false;
     drumAudio.setOutput(clamp(state.level * modeGain("triggers") * 0.9, 0, 0.9));
     drumAudio.setHostGain(1, 45);
+    audioReady = true;
     return true;
   }
   await micEngine.enable();
+  if (request !== audioRequest || !state.audio) return false;
   micEngine.setFeedback(state.mic.feedback);
   micEngine.setLevel(clamp(state.level * state.mic.inputTrim * modeGain("mic"), 0, 1));
+  audioReady = true;
   return true;
 }
 
@@ -494,6 +510,9 @@ async function enableAudio() {
 }
 
 async function disableAudio() {
+  audioRequest += 1;
+  audioReady = false;
+  invalidateDiscreteScheduler();
   setAudioUi(false);
   synthPool.silence();
   synthPool.disable();
@@ -501,7 +520,7 @@ async function disableAudio() {
   await drumAudio.close();
   micEngine.disable();
   resetVoiceSubmission();
-  activeEventKeys = new Set();
+  invalidateDiscreteScheduler();
   scheduleFrame();
 }
 
@@ -513,9 +532,9 @@ async function setMode(modeId) {
   const requestedMode = lSystemPlayingModeFor(modeId);
   const nextMode = requestedMode.id;
   if (nextMode === state.mode) return;
+  invalidateDiscreteScheduler();
   const previousMode = state.mode;
   state.mode = nextMode;
-  activeEventKeys = new Set();
   resetVoiceSubmission();
   paintMode();
   paintReadoutOnly();
@@ -525,7 +544,7 @@ async function setMode(modeId) {
       text("liveStatus", `${activeMode().title} selected; audio still on`);
     } catch (error) {
       state.mode = previousMode;
-      activeEventKeys = new Set();
+      invalidateDiscreteScheduler();
       resetVoiceSubmission();
       paintMode();
       paintReadoutOnly();
@@ -548,7 +567,6 @@ async function setMode(modeId) {
 }
 
 function rebuildTrace() {
-  activeEventKeys = new Set();
   resetVoiceSubmission();
   try {
     iterationTraces = buildIterationTraces(
@@ -568,6 +586,7 @@ function rebuildTrace() {
 
 function resetSystem() {
   const defaults = createDefaultState();
+  discreteClock?.configure({ position: defaults.position, direction: defaults.direction });
   state.presetId = defaults.presetId;
   state.iterations = defaults.iterations;
   state.angle = defaults.angle;
@@ -586,6 +605,7 @@ function resetSystem() {
 async function resetAll() {
   const next = createDefaultState();
   const audioWasOn = state.audio;
+  invalidateDiscreteScheduler();
   Object.assign(state, next);
   state.synth = { ...next.synth };
   state.drums = { ...next.drums };
@@ -677,6 +697,7 @@ function paintMode() {
   }
   $("synthBank").setAttribute("aria-labelledby", state.mode === "notes" ? "modeNotes" : "modeContinuous");
   text("synthBankTitle", state.mode === "notes" ? "Notes" : "Continuous");
+  $("subdivisionsControl").hidden = !["notes", "triggers", "mic"].includes(state.mode);
 }
 
 function paintPreset() {
@@ -1081,75 +1102,18 @@ function updateSynthAudio(playheads, phaseRate, now) {
   paintSynthReadouts(requestedVoices, lastSoundingVoiceCount);
 }
 
-function notePitchValue(event) {
-  if (state.synth.pitchSource === "angle") return null;
-  if (state.synth.pitchSource === "depth") {
-    return (Number(event.depth) || 0) / Math.max(1, Number(event.maxForkDepth) || 1);
+function triggerNoteEvents(entries) {
+  const amplitude = amplitudeControl.captureState();
+  for (const { event, eventCount, startAt } of entries) {
+    if (startAt < synthPool.context.currentTime - 0.015) continue;
+    const voice = lSystemNoteVoice(event, eventCount, state, amplitude.level);
+    synthPool.scheduleNotes([voice], {
+      startAt, joinInProgress: false, voiceLimit: L_SYSTEM_NOTE_VOICES,
+      mode: state.synth.soundMode,
+      envelopePoints: lSystemNoteEnvelope(lSystemNoteDuration(state, eventCount), amplitude),
+    });
   }
-  if (state.synth.pitchSource === "progress") return Number(event.progress) || 0;
-  return Number(event.normalizedY) || 0;
-}
-
-function noteVoiceForEvent(event, eventCount) {
-  const depth = (Number(event.depth) || 0) / Math.max(1, Number(event.maxForkDepth) || 1);
-  const drive = clamp(depth * state.synth.depthAmount, 0, 1);
-  const mappedPitch = notePitchValue(event);
-  const frequency = state.synth.pitchSource === "angle"
-    ? branchAngleFrequency(event.cumulativeTurn, state.synth.baseFrequency, state.synth.pitchRange)
-    : pitch01ToFrequency(mappedPitch, state.synth.baseFrequency, state.synth.pitchRange);
-  const headroom = 1 / Math.sqrt(Math.max(1, Number(eventCount) || 1));
-  const boundary = lSystemTraversalBoundaryGain(
-    clamp((Number(event.subdivisionIndex) || 0) / Math.max(1, Number(event.subdivisions) || 1), 0, 1),
-    state.traversalBehavior,
-  );
-  return {
-    key: `l-system-suite:note:${event.key}`,
-    frequency,
-    gain: clamp((0.16 + drive * 0.16 + Math.sqrt(event.powerShare || 0) * 0.18) * headroom * boundary, 0.001, 0.56),
-    pan: clamp(((Number(event.normalizedX) || 0.5) * 2 - 1) * state.synth.stereoSpread, -1, 1),
-    waveform: state.synth.soundMode === "pm" ? "sawtooth" : state.synth.soundMode === "fm" ? "triangle" : "sine",
-    gainSmoothingSeconds: 0.006,
-    ...synthParametersForMode(state.synth.soundMode, drive, {
-      fmIndex: state.synth.modulationIndex,
-      fmRatio: 1.5,
-      pmIndex: state.synth.modulationIndex,
-      pmRatio: 1.5,
-      shepardRate: state.speed * state.direction,
-      shepardWidth: 4,
-      shepardPosition: Number(event.progress) || 0,
-    }),
-  };
-}
-
-function noteDurationSeconds(eventCount) {
-  const eventSeconds = eventIntervalSeconds(eventCount);
-  return clamp(eventSeconds * (0.58 + state.synth.depthAmount * 0.18), 0.035, 0.7);
-}
-
-function triggerNoteEvent(event, eventCount) {
-  const voice = noteVoiceForEvent(event, eventCount);
-  const fired = synthPool.strike(voice, {
-    attackSeconds: 0.004,
-    decaySeconds: noteDurationSeconds(eventCount),
-    attackNoise: state.synth.soundMode === "fm" ? 0.06 : 0,
-    retriggerMode: "crossfade",
-  });
-  if (!fired) return;
-  text("mappingReadout", [
-    `I${event.iteration}`,
-    `SEG ${event.segmentIndex}`,
-    `SUB ${event.subdivisionIndex + 1}/${event.subdivisions}`,
-    `NOTE ${Math.round(voice.frequency)}HZ`,
-  ].join(" - "));
-}
-
-function triggerNoteEvents(events, maxEvents) {
-  const grouped = groupedLSystemDrumEvents(events, {
-    mode: state.drums.mappingMode,
-    maxEvents,
-  });
-  for (const { event, eventCount } of grouped) triggerNoteEvent(event, eventCount);
-  paintSynthReadouts(events.length, Math.min(events.length, maxEvents));
+  paintSynthReadouts(entries.length, entries.length);
 }
 
 function updateMicAudio(playheads) {
@@ -1164,7 +1128,7 @@ function updateMicAudio(playheads) {
 function triggerEvent(event, eventCount, voiceIndex = lSystemDrumVoiceIndex(
   event,
   { mode: state.drums.mappingMode },
-)) {
+), startAt) {
   const mappedVoice = mappedLSystemDrumVoice(drumVoices[voiceIndex], event, {
     pitchDepth: state.drums.pitchDepth,
     anglePitchDepth: state.drums.anglePitchDepth,
@@ -1181,18 +1145,68 @@ function triggerEvent(event, eventCount, voiceIndex = lSystemDrumVoiceIndex(
     `-> ${voice.name}`,
     `HITS ${hitCount}`,
   ].join(" - "));
-  drumAudio.trigger(voice).catch(showError);
+  drumAudio.trigger(voice, { startAt }).catch(showError);
   flashVoice(voiceIndex);
 }
 
-function triggerEvents(events, maxEvents) {
-  const grouped = groupedLSystemDrumEvents(events, {
-    mode: state.drums.mappingMode,
-    maxEvents,
-  });
-  for (const { event, eventCount, voiceIndex } of grouped) {
-    triggerEvent(event, eventCount, voiceIndex);
+function triggerEvents(entries) {
+  for (const { event, eventCount, voiceIndex, startAt } of entries) {
+    if (startAt < drumAudio.context.currentTime - 0.015) continue;
+    triggerEvent(event, eventCount, voiceIndex, startAt);
   }
+}
+
+function syncDiscretePosition() {
+  if (!discreteClock || !discreteContext) return;
+  Object.assign(state, discreteClock.positionAt(discreteContext.currentTime));
+}
+
+function invalidateDiscreteScheduler({ includeStart = false } = {}) {
+  syncDiscretePosition();
+  if (discreteTimer !== null) clearInterval(discreteTimer);
+  discreteTimer = null;
+  discreteClock = null;
+  discreteContext = null;
+  discreteIncludeStart = includeStart;
+  synthPool.cancelScheduledNotes();
+  drumAudio.cancelScheduledHits();
+}
+
+function discreteTick() {
+  if (!discreteClock || !discreteContext || discreteContext.state !== "running") return;
+  const entries = discreteClock.read(discreteContext.currentTime);
+  if (!entries.length) return;
+  if (state.mode === "notes") triggerNoteEvents(entries);
+  else triggerEvents(entries);
+}
+
+function syncDiscreteScheduler() {
+  const eligible = state.audio && audioReady && state.playing
+    && ["notes", "triggers"].includes(state.mode);
+  if (!eligible) return;
+  const configuration = {
+    traces: iterationTraces, rate: state.speed, behavior: state.traversalBehavior,
+    structureMode: state.structureMode, subdivisions: state.drums.subdivisions,
+    mappingMode: state.drums.mappingMode, maxPhaseStep: drumTraversalStepSize,
+  };
+  if (discreteClock) {
+    discreteClock.configure(configuration);
+    return;
+  }
+  if (!(state.speed > 0)) return;
+  const audioContext = state.mode === "notes" ? synthPool.context : drumAudio.context;
+  if (!audioContext || audioContext.state !== "running") return;
+  discreteContext = audioContext;
+  if (discreteBudgetContext !== audioContext) discreteBudget = null;
+  discreteBudgetContext = audioContext;
+  discreteClock = new LSystemEventClock({
+    ...configuration, position: state.position, direction: state.direction,
+    now: audioContext.currentTime, includeStart: discreteIncludeStart, budget: discreteBudget,
+  });
+  discreteBudget = discreteClock.budget;
+  discreteIncludeStart = false;
+  discreteTick();
+  discreteTimer = setInterval(discreteTick, 25);
 }
 
 function renderDrumMap() {
@@ -1246,42 +1260,20 @@ function frame(now) {
   );
 
   if (state.playing) {
-    let advanced;
-    if (state.audio && ["notes", "triggers"].includes(state.mode)) {
-      advanced = advanceLSystemDrumTraversal(
-        state.position,
-        state.direction,
-        phaseRate * delta,
-        {
-          behavior: state.traversalBehavior,
-          maxPhaseStep: drumTraversalStepSize,
-        },
-      );
-      const sweptEvents = lSystemDrumEventsForTraversal(
-        iterationTraces,
-        advanced.samples,
-        {
-          structureMode: state.structureMode,
-          subdivisions: state.drums.subdivisions,
-          activeEventKeys,
-        },
-      );
-      activeEventKeys = sweptEvents.activeEventKeys;
-      if (sweptEvents.events.length) {
-        if (state.mode === "notes") triggerNoteEvents(sweptEvents.events, 40);
-        else triggerEvents(sweptEvents.events, 48);
-      }
-    } else {
-      advanced = advanceLSystemTraversal(
-        state.position,
-        state.direction,
-        phaseRate * delta,
-        state.traversalBehavior,
-      );
+    if (discreteClock) syncDiscretePosition();
+    else {
+      const advanced = advanceLSystemTraversal(state.position, state.direction,
+        phaseRate * delta, state.traversalBehavior);
+      Object.assign(state, advanced);
     }
-    state.position = advanced.position;
-    if (advanced.direction !== state.direction) state.direction = advanced.direction;
   }
+  // Dense tree paint is secondary to audio. The independent scheduler keeps
+  // its audio-clock cadence even when the graphic runs at 24 fps.
+  if (discreteClock && iterationTraces.at(-1).segments.length > 256 && now - lastDiscretePaint < 1000 / 24) {
+    scheduledFrame = requestAnimationFrame(frame);
+    return;
+  }
+  lastDiscretePaint = now;
 
   const playback = iterationPlaybackAtPhase(
     iterationTraces,
@@ -1294,7 +1286,7 @@ function frame(now) {
   if (state.audio && state.playing && state.mode === "continuous") {
     updateSynthAudio(playheads, phaseRate, now);
   } else if (state.audio && state.playing && state.mode === "notes") {
-    synthPool.setVoices([], { mode: state.synth.soundMode });
+    // Timed notes own their envelopes; do not clear them on each paint.
     paintMicReadouts(0, 0);
     resetVoiceSubmission();
   } else if (state.audio && state.playing && state.mode === "mic") {
@@ -1308,7 +1300,7 @@ function frame(now) {
   } else if (state.audio) {
     if (["continuous", "notes"].includes(state.mode)) synthPool.setVoices([], { mode: state.synth.soundMode });
     if (state.mode === "mic") micEngine.silence();
-    activeEventKeys = new Set();
+    invalidateDiscreteScheduler();
     resetVoiceSubmission();
     paintSynthReadouts(0, 0);
     paintMicReadouts(0, 0);
@@ -1332,9 +1324,8 @@ function setupControls() {
   $("mixPreset").value = state.mix.presetId;
 
   bindRange("level", "level", formatPercent, applyGlobalLevel);
-  bindRange("position", "position", (value) => `${(value * 100).toFixed(1)}%`, () => {
-    activeEventKeys = new Set();
-  });
+  bindRange("position", "position", (value) => `${(value * 100).toFixed(1)}%`,
+    (position) => discreteClock?.configure({ position }));
   bindRange("speed", "speed", (value) => `${Number(value).toFixed(2)} cyc/s`);
   bindRange("iterations", "iterations", (value) => String(Math.round(value)), (value) => {
     state.iterations = Math.round(value);
@@ -1354,7 +1345,6 @@ function setupControls() {
   bindRange("stereoSpread", "synth.stereoSpread", formatPercent);
   bindRange("subdivisions", "drums.subdivisions", (value) => String(lSystemDrumSubdivisionCount(value)), (value) => {
     state.drums.subdivisions = lSystemDrumSubdivisionCount(value);
-    activeEventKeys = new Set();
     refreshDrumTraversalStepSize();
   });
   bindRange("pitchDepth", "drums.pitchDepth", (value) => `${Math.round(value)} st`);
@@ -1370,13 +1360,11 @@ function setupControls() {
   bindRange("micWet", "mic.wet", formatPercent);
 
   bindSelect("structureMode", "structureMode", () => {
-    activeEventKeys = new Set();
     refreshDrumTraversalStepSize();
   });
   bindSelect("pitchSource", "synth.pitchSource");
   bindSelect("soundMode", "synth.soundMode", resetVoiceSubmission);
   bindSelect("mappingMode", "drums.mappingMode", () => {
-    activeEventKeys = new Set();
     paintMapping();
   });
   bindSelect("percussionStyle", "drums.percussionStyle", () => {
@@ -1393,9 +1381,10 @@ function setupControls() {
     text("liveStatus", `${currentMixPreset().label} mix loaded`);
   });
   $("playButton").addEventListener("click", () => {
+    invalidateDiscreteScheduler({ includeStart: !state.playing });
     state.playing = !state.playing;
+    if (!state.playing) { synthPool.releaseNotes(); drumAudio.silence(); }
     lastFrameTime = performance.now();
-    activeEventKeys = new Set();
     paintMotion();
     scheduleFrame();
   });
@@ -1405,7 +1394,7 @@ function setupControls() {
   });
   $("traversalDirection").addEventListener("click", () => {
     state.direction *= -1;
-    activeEventKeys = new Set();
+    discreteClock?.configure({ direction: state.direction });
     paintMotion();
     scheduleFrame();
   });
@@ -1413,7 +1402,6 @@ function setupControls() {
     const button = event.target.closest?.("[data-motion]");
     if (!button) return;
     state.traversalBehavior = button.dataset.motion;
-    activeEventKeys = new Set();
     paintMotion();
     scheduleFrame();
   });
@@ -1430,6 +1418,7 @@ function setupAmplitude() {
   amplitudeControl = createAmplitudeControl($("amplitudeControl"), {
     label: "Synth branch amplitude",
     onChange: () => {
+      // New notes read the current envelope; sounding and queued notes finish.
       resetVoiceSubmission();
       scheduleFrame();
     },
@@ -1449,6 +1438,8 @@ function boot() {
   synthPool.onPolyphonyStatus = scheduleFrame;
   micEngine.onPolyphonyStatus = scheduleFrame;
   window.addEventListener("pagehide", () => {
+    audioReady = false;
+    invalidateDiscreteScheduler();
     synthPool.close?.();
     drumAudio.close?.();
     micEngine.close?.();

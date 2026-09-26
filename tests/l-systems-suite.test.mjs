@@ -155,8 +155,8 @@ test("L-Systems app owns the audio engines and preserves shared state while swit
   assert.match(app, /id: "percussive-grid"/);
   assert.match(app, /traceLSystem/);
   assert.match(app, /advanceLSystemTraversal/);
-  assert.match(app, /advanceLSystemDrumTraversal/);
-  assert.match(app, /lSystemDrumEventsForTraversal/);
+  assert.match(app, /new LSystemEventClock/);
+  assert.match(app, /setInterval\(discreteTick, 25\)/);
   assert.match(app, /micBranchPlaybackRate/);
   assert.match(app, /lSystemPlayingModeFor/);
   assert.match(app, /async function setMode\(modeId\)/);
@@ -174,7 +174,9 @@ test("L-Systems app owns the audio engines and preserves shared state while swit
   assert.match(app, /state\.structureMode/);
   assert.match(app, /for \(const bank of document\.querySelectorAll\("\[data-mode-bank\]"\)\)/);
   assert.match(app, /for \(const button of \$\("playingMode"\)\.querySelectorAll\("\[data-playing-mode\]"\)\)/);
-  assert.match(app, /triggerNoteEvents\(sweptEvents\.events, 40\)/);
+  assert.match(app, /triggerNoteEvents\(entries\)/);
+  assert.match(app, /synthPool\.scheduleNotes/);
+  assert.doesNotMatch(app, /synthPool\.strike/);
   assert.match(app, /eventIntervalSeconds\(eventCount\) \* state\.mic\.interval/);
   assert.match(app, /state\.level \* state\.mic\.inputTrim \* modeGain\("mic"\)/);
   assert.doesNotMatch(app, /\biframe\b/i);
