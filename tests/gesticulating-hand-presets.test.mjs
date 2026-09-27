@@ -19,7 +19,9 @@ const RHYTHMIC_IDS = [
   "foot-glass-steps", "foot-wire-upbeat", "foot-bowed-waltz", "foot-copper-breaks",
 ];
 const legacyIds = new Set(LEGACY_IDS), rhythmicIds = new Set(RHYTHMIC_IDS);
-const added = HAND_PRESETS.filter(preset => !legacyIds.has(preset.id) && !rhythmicIds.has(preset.id));
+const showcaseIds = new Set(["hand-lingering-choir", "foot-marimba-trails"]);
+const showcases = HAND_PRESETS.filter(preset => showcaseIds.has(preset.id));
+const added = HAND_PRESETS.filter(preset => !legacyIds.has(preset.id) && !rhythmicIds.has(preset.id) && !showcaseIds.has(preset.id));
 const rhythmic = HAND_PRESETS.filter(preset => rhythmicIds.has(preset.id));
 const effectiveTempo = preset => preset.snapshot.motion.tempo * preset.snapshot.motion.speed;
 const smooth = preset => preset.snapshot.tremor.amount < 1;
@@ -33,14 +35,15 @@ function assertDeepFrozen(value, path = "preset") {
   for (const [key, child] of Object.entries(value)) assertDeepFrozen(child, `${path}.${key}`);
 }
 
-test("scene factory retains the previous banks and adds four rhythmic scenes for each form", () => {
-  assert.equal(HAND_PRESETS.length, 60);
-  assert.equal(distinct(HAND_PRESETS, preset => preset.id), 60);
-  assert.equal(distinct(HAND_PRESETS, preset => preset.label), 60);
+test("scene factory retains previous banks and adds choir and marimba showcase scenes", () => {
+  assert.equal(HAND_PRESETS.length, 62);
+  assert.equal(distinct(HAND_PRESETS, preset => preset.id), 62);
+  assert.equal(distinct(HAND_PRESETS, preset => preset.label), 62);
   for (const id of LEGACY_IDS) assert.ok(HAND_PRESETS.some(preset => preset.id === id), id);
-  assert.equal(HAND_PRESETS.filter(preset => preset.snapshot.form === "hand").length, 40);
-  assert.equal(HAND_PRESETS.filter(preset => preset.snapshot.form === "foot").length, 20);
+  assert.equal(HAND_PRESETS.filter(preset => preset.snapshot.form === "hand").length, 41);
+  assert.equal(HAND_PRESETS.filter(preset => preset.snapshot.form === "foot").length, 21);
   assert.equal(added.length, 24);
+  assert.equal(showcases.length, 2);
   assert.equal(rhythmic.length, 8);
   for (const form of ["hand", "foot"]) assert.equal(rhythmic.filter(preset => preset.snapshot.form === form).length, 4, form);
   for (const form of ["hand", "foot"]) assert.equal(added.filter(preset => preset.snapshot.form === form).length, 12, form);
@@ -86,8 +89,8 @@ test("both forms have new slow and fast scenes independent of tremor intensity",
 });
 
 test("new scenes span engines, choreography, envelopes, view, color and light", () => {
-  assert.deepEqual([...new Set(added.flatMap(preset => preset.snapshot.voices.map(voice => voice.source)))].sort(), [...VOICE_SOURCES].sort());
-  assert.deepEqual([...new Set(added.map(preset => preset.snapshot.voices[2].source))].sort(), [...VOICE_SOURCES].sort());
+  assert.deepEqual([...new Set([...added, ...showcases].flatMap(preset => preset.snapshot.voices.map(voice => voice.source)))].sort(), [...VOICE_SOURCES].sort());
+  assert.deepEqual([...new Set([...added, ...showcases].map(preset => preset.snapshot.voices[2].source))].sort(), [...VOICE_SOURCES].sort());
   assert.ok(distinct(added, preset => preset.snapshot.motion.id) >= 18);
   assert.ok(distinct(added, preset => JSON.stringify(preset.snapshot.voices)) >= 20);
   assert.ok(distinct(added, preset => JSON.stringify(preset.snapshot.tremor)) >= 20);
@@ -101,7 +104,7 @@ test("new scenes span engines, choreography, envelopes, view, color and light", 
     assert.ok(Math.min(...positions) < .1 && Math.max(...positions) > .9, key);
   }
   // Appearance-only variants do not count as new musical scenes.
-  assert.equal(distinct(HAND_PRESETS, ({ snapshot: { pose, motion, sound, voices } }) => JSON.stringify({ pose, motion, sound, voices })), 60);
+  assert.equal(distinct(HAND_PRESETS, ({ snapshot: { pose, motion, sound, voices } }) => JSON.stringify({ pose, motion, sound, voices })), 62);
 });
 
 test("legacy scenes retain neutral elastic deformation while new feet author bounded moving shapes", () => {
@@ -179,7 +182,7 @@ test("eight rhythmic scenes provide bright registers and genuine note patterns w
       assert.ok(snapshot.motion.elasticity > 0 && snapshot.motion.elasticity <= .2, `${id}: gentle elasticity`);
     }
   }
-  for (const { id, snapshot } of HAND_PRESETS.filter(preset => !rhythmicIds.has(preset.id))) {
+  for (const { id, snapshot } of HAND_PRESETS.filter(preset => !rhythmicIds.has(preset.id) && !showcaseIds.has(preset.id))) {
     assert.equal(snapshot.sound.rhythm, "continuous", `${id}: original sustain`);
     assert.equal(snapshot.sound.noteLength, .45, `${id}: neutral new note length`);
   }

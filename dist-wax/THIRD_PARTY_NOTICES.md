@@ -273,7 +273,8 @@ the installed, lockfile-pinned packages at
 The shared classic 44-section vocal-tract geometry used by Throatazoid, Pink
 Trombonazoid, Spelling Synthesizer, and Hiccup Head, including its tongue-rest curve,
 reflection coefficients, and two-step waveguide behavior, is adapted from Neil
-Thapen's Pink Trombone:
+Thapen's Pink Trombone. Gesticules' Choir also adapts its Liljencrants–Fant
+glottal source through Morphazoid's Hiccup Head and Throatazoid implementations:
 
 - https://dood.al/pinktrombone/
 - https://github.com/IMAGINARY/pink-trombone

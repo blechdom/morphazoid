@@ -143,13 +143,13 @@ applied to the foot; its corresponding foot motion is **Toe curl · adapted**.
 Targeted tremor works on the same toe controls. A big-toe middle-joint tremor
 becomes tip tremor, while an all-toes middle tremor skips the big toe.
 
-The library has **20 foot scenes and 40 hand scenes**, interleaved in one menu.
+The library has **21 foot scenes and 41 hand scenes**, interleaved in one menu.
 The four original foot scenes—**Velvet toe curl**, **Glass toe ripple**,
 **Tin toe drumming**, and **Ankle choir**—retain their musical settings. Twelve
 new foot scenes combine elastic shapes with varied engines and tremors. Preset
 recall includes the model; manually choosing another model retains the current
 sound and view. **Top / Sole / Side** replace Palm / Back / Side. Rotation keeps
-the same stereo phaser, and all eight engines, continuous Color and Light
+the same stereo phaser, and all ten engines, continuous Color and Light
 controls, and five-voice MIDI controls work with either model.
 
 The foot has 34,352 triangles and a 1.89 MB GLB. Its 352×336 foot texture crop
@@ -175,22 +175,34 @@ can intersect. The foot does not claim clinical accuracy.
 | Turning or tilting the hand | Stereo phaser sweep |
 | Speed of automatic finger movement | Additional voice excitation |
 
-Each finger chooses one of **eight sound engines**, with its own level, mute and
-solo: Glass, Reed, Wire, Pulse, Air, **Bowed**, **Vowel**, or **Metal**. Bowed uses
+Each finger chooses one of **ten sound engines**, with its own level, mute and
+solo: Glass, Reed, Wire, Pulse, Air, **Bowed**, **Vowel**, **Metal**, **Choir**, or **Marimba**. Bowed uses
 a damped string loop with friction-like excitation. Vowel sends a voiced source
 through moving formants. Metal excites inharmonic ringing modes on finger motion
-and note onset; a motionless held hand lets those rings decay. These are original synthesis types, not recordings of a hand. Pitch remains
+and note onset; a motionless held hand lets those rings decay. Choir adapts the
+glottal pulse used by Hiccup Head and Throatazoid, with moving singing formants
+from Puggler’s vocal layer. Joint tremors modulate its pitch as vibrato. Marimba
+adapts Linear Drums’ damped wooden-bar modes, struck by notes and joint movement.
+These are synthesis models rather than recordings of a hand. Pitch remains
 continuous without a scale or pentatonic quantizer. Register, brightness, grain,
-space, attack and release belong to the complete preset state. Register spans
+Trails, attack and release belong to the complete preset state. Register spans
 **35–1,600 Hz**, with bounded synthesized voice frequencies up to 4,200 Hz.
 
 **Rhythm** offers Continuous, Walking notes, Offbeat taps, Three against four,
 and Broken phrases. The four written patterns open and close individual voice
 gates, creating attacks and rests while the corresponding digits tap visibly.
-**Note length** sets 8–90% of each note cell; Attack, Release and Space shape its
+**Note length** sets 8–90% of each note cell; Attack, Release and Trails shape its
 onset and tail. These patterns use the same Tempo and freeze with Motion.
 Manual held notes and auditions can sound through a written rest. Eight new
 hand/foot presets demonstrate the rhythms without tremor.
+
+**Trails** links fading visual afterimages with stereo echoes. Zero clears the
+image history and turns off the audible delay; higher settings increase both.
+It uses the existing saved `sound.space` value, so older presets retain their
+echo settings. History clears on form changes, reset, resizing and hiding the
+page. The live hand/foot keeps its original skin, lighting and joint markers.
+**Lingering choir** demonstrates singing vibrato with long trails;
+**Marimba footprints** combines toe rhythms and mallet echoes.
 
 The output has a fixed 4× (+12.04 dB) gain lift after synthesis and effects,
 followed by a linked stereo peak limiter with 1.5 ms lookahead, 80 ms release,
@@ -222,7 +234,7 @@ is capped at 40 frames/second, 1.6 device-pixel ratio and about 1.45 million pix
   the selected finger. Shift makes a smaller change. Sliders provide the same
   controls without direct 3D manipulation.
 - Space toggles Motion. Sound and Audio remain separate.
-- The **60 complete presets** (40 hand, 20 foot) recall the model, joints, foot
+- The **62 complete presets** (41 hand, 21 foot) recall the model, joints, foot
   shape, elastic motion, sound engines and levels, envelopes, choreography,
   Tempo, rhythm, note length, drawn joint contours, all tremor controls, camera angle/zoom, Color and Light. Each six
   neighboring scenes, including the menu wrap, contain hand and foot, fast and

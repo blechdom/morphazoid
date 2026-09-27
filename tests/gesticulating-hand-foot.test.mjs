@@ -114,7 +114,7 @@ test("toe tremor affects only existing selected joints in actual degrees and hon
 });
 
 test("the expanded mixed bank preserves original foot scenes and randomization samples both anatomies", () => {
-  assert.equal(HAND_PRESETS.length, 60);
+  assert.equal(HAND_PRESETS.length, 62);
   const feet = HAND_PRESETS.filter(preset => preset.snapshot.form === "foot");
   const originalFootMotions = { "foot-velvet-curl": "source-grasp", "foot-glass-ripple": "ripple-open",
     "foot-tin-drumming": "finger-drumming", "foot-ankle-orbit": "figure-eight" };
@@ -179,7 +179,7 @@ test("five toe voices preserve held-note, mute, solo, release and transport owne
   dsp.setEnabled(false); render(dsp, .4); assert.ok(peak(render(dsp, .1)) < 1e-7);
 });
 
-test("all eight engines and every foot preset produce bounded audio without graphics frames", () => {
+test("all ten engines and every foot preset produce bounded audio without graphics frames", () => {
   for (const rate of [8000, 48000, 192000]) for (const source of VOICE_SOURCES) {
     const config = scene(source); config.motion = { id: "frantic-orbit", amount: 1, tempo: 1100, speed: 4 };
     Object.assign(config.sound, { rootHz: 1000, brightness: 1, roughness: 1, rotationFx: 1, space: 1 });

@@ -1,6 +1,9 @@
 import { HAND_DEFAULTS, VOICE_SOURCES, clampHand, handNumber, normalizeHandConfig, createHandPose, createHandVoices, evaluateHandVoices, handEffectiveTempo } from "./hand-model.js";
 
 import { handRhythmPhase } from "./hand-rhythm.js";
+import { createChoirState, tuneChoir, resetChoir, sampleChoir, createMarimbaState, tuneMarimba, resetMarimba, sampleMarimba } from "./hand-voice-engines.js";
+
+const CHOIR_INDEX = VOICE_SOURCES.indexOf("choir"), MARIMBA_INDEX = VOICE_SOURCES.indexOf("marimba");
 
 const TAU = 2 * Math.PI;
 const coefficients = (rate, seconds, depth = 1) => 1 - Math.exp(-depth / (rate * seconds));
@@ -18,6 +21,7 @@ function noise(voice) {
 const METAL_RATIOS = Object.freeze([1, 2.756, 5.404, 8.933, 13.34]);
 function createEngines(rate) {
   return {
+    choir: createChoirState(rate), marimba: createMarimbaState(rate),
     bow: { buffer: new Float32Array(Math.ceil(rate / 25) + 4), write: 0, low: 0 },
     vowel: Array.from({ length: 3 }, () => ({ ic1: 0, ic2: 0, a1: 0, a2: 0, a3: 0, damping: .2 })),
     metal: { modes: METAL_RATIOS.map(() => ({ re: 0, im: 0, c: 1, s: 0, radius: 0, gain: 0 })),
@@ -25,6 +29,8 @@ function createEngines(rate) {
   };
 }
 function resetEngine(voice, source) {
+  if (source === "choir") resetChoir(voice.choir);
+  if (source === "marimba") resetMarimba(voice.marimba);
   if (source === "bowed") { voice.bow.buffer.fill(0); voice.bow.write = 0; voice.bow.low = 0; }
   if (source === "vowel") for (const mode of voice.vowel) mode.ic1 = mode.ic2 = 0;
   if (source === "metal") {
@@ -35,6 +41,8 @@ function resetEngine(voice, source) {
 // Control-rate coefficients feed stable TPT formants and damped complex modes.
 // Every oscillator/filter is kept below Nyquist, including at an 8 kHz rate.
 function tuneEngines(voice, rate) {
+  if (voice.source === "choir" || voice.sourceWeights[CHOIR_INDEX] > 0) tuneChoir(voice, rate);
+  if (voice.source === "marimba" || voice.sourceWeights[MARIMBA_INDEX] > 0) tuneMarimba(voice, rate);
   const tone = voice.brightness, grain = voice.roughness;
   for (let i = 0; i < 3; i++) {
     // A continuous oo -> ah -> ee trajectory, independent of the finger pitch.
@@ -127,6 +135,8 @@ function waveform(source, voice, random, sampleRate) {
     // Remove the duty-cycle DC term before the common DC blocker.
     return .58 * (pulse - (width * 2 - 1)) + grain * .14 * Math.sin(voice.modPhase * TAU);
   }
+  if (source === "choir") return sampleChoir(voice, random, sampleRate);
+  if (source === "marimba") return sampleMarimba(voice, random, sampleRate);
   if (source === "bowed") return bowed(voice, random, sampleRate);
   if (source === "vowel") return vowel(voice, random, sampleRate);
   if (source === "metal") return metal(voice, sampleRate);
@@ -237,12 +247,12 @@ export class HandDSP {
   }
   setEnabled(enabled) {
     this.enabled = enabled === true;
-    if (!this.enabled) for (const voice of this.voices) { voice.auditionUntil = -1; voice.metal.pending = 0; }
+    if (!this.enabled) for (const voice of this.voices) { voice.auditionUntil = -1; voice.metal.pending = voice.marimba.pending = 0; }
   }
   setSoundPlaying(playing) { this.soundPlaying = playing === true; }
   setHeldFingers(mask) {
     const next = Math.round(clampHand(mask, 0, 31)), rising = next & ~this.heldFingers;
-    for (let i = 0; i < 5; i++) if (rising & (1 << i)) this.voices[i].metal.pending = .7;
+    for (let i = 0; i < 5; i++) if (rising & (1 << i)) this.voices[i].metal.pending = this.voices[i].marimba.pending = .7;
     this.heldFingers = next;
   }
   setTransport(value = {}, at = this.clock) {
@@ -256,7 +266,7 @@ export class HandDSP {
   auditionFinger(index, seconds = .18, at = this.clock) {
     if (!this.enabled || !Number.isInteger(index) || index < 0 || index >= 5) return false;
     this.voices[index].auditionUntil = clampHand(at, 0, 1e9, this.clock) + clampHand(seconds, .015, 2, .18);
-    this.voices[index].metal.pending = .68;
+    this.voices[index].metal.pending = this.voices[index].marimba.pending = .68;
     return true;
   }
   updateTargets(at) {
@@ -286,6 +296,7 @@ export class HandDSP {
       voice.pan = target.pan; voice.excitation = 0; voice.cutoff = 1000;
       voice.sourceWeights.fill(0); voice.sourceWeights[voice.sourceIndex] = 1;
       resetEngine(voice, "bowed"); resetEngine(voice, "vowel"); resetEngine(voice, "metal");
+      resetEngine(voice, "choir"); resetEngine(voice, "marimba");
       tuneEngines(voice, this.sampleRate);
     }
     this.delayLeft.fill(0); this.delayRight.fill(0); this.delayWrite = 0; this.space = 0; this.peak = this.rms = 0;
@@ -338,8 +349,9 @@ export class HandDSP {
           if (weight === 0) continue;
           const id = VOICE_SOURCES[source];
           raw += waveform(id, voice, random, rate) * weight;
-          cutoff += weight * (id === "vowel" ? 1700 + voice.brightness * 4600
-            : voice.frequency * (id === "metal" ? 4 + 16 * voice.brightness : 1.9 + 10 * voice.brightness));
+          cutoff += weight * (id === "choir" ? 2400 + voice.brightness * 4300
+            : id === "vowel" ? 1700 + voice.brightness * 4600
+            : voice.frequency * ((id === "metal" || id === "marimba") ? 4 + 16 * voice.brightness : 1.9 + 10 * voice.brightness));
         }
         voice.cutoff += (Math.min(rate * .35, cutoff) - voice.cutoff) * this.smooth;
         voice.filter += (raw - voice.filter) * (1 - Math.exp(-TAU * voice.cutoff / rate));

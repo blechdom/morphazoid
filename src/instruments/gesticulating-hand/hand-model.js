@@ -20,7 +20,7 @@ const DIGIT_KEYS = Object.freeze(["mcp", "pip", "dip", "spread"]);
 const BIG_TOE_KEYS = Object.freeze(["mcp", "dip", "spread"]);
 export const handDigitLabels = form => form === "foot" ? FOOT_DIGIT_LABELS : HAND_DIGIT_LABELS;
 export const handJointKeys = (form, index) => form === "foot" && index === 0 ? BIG_TOE_KEYS : DIGIT_KEYS;
-export const VOICE_SOURCES = Object.freeze(["glass", "reed", "wire", "pulse", "air", "bowed", "vowel", "metal"]);
+export const VOICE_SOURCES = Object.freeze(["glass", "reed", "wire", "pulse", "air", "bowed", "vowel", "metal", "choir", "marimba"]);
 export const TREMOR_FINGERS = Object.freeze(["all", ...FINGERS, "alternating"]);
 export const TREMOR_JOINTS = Object.freeze(["tip", "middle", "knuckle", "whole", "spread", "wrist"]);
 export const HAND_SKINS = Object.freeze([0, .17, .38, .55, .76, .9, 1]);

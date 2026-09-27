@@ -23,7 +23,7 @@ test('loads the real weighted hand and starts with no AudioContext',async({page}
   await expect(page.locator('h1')).toHaveText('Gesticules');
   await expect(page.locator('[data-instrument-preset-host] .header-preset-picker')).toBeVisible();
   expect(await page.locator('#motionPreset option').count()).toBe(37);
-  expect(await page.locator('#source-0 option').count()).toBe(8);
+  expect(await page.locator('#source-0 option').count()).toBe(10);
   await expect(page.locator('#speed')).toHaveCount(0);
   await expect(page.locator('#tempo')).toHaveAttribute('min','2');
   await expect(page.locator('#tempo')).toHaveAttribute('max','4400');
@@ -35,7 +35,7 @@ test('loads the real weighted hand and starts with no AudioContext',async({page}
   await expect(page.locator('#note-length')).toHaveAttribute('max','0.9');
   await expect(page.getByRole('link',{name:'Model, movement and sound notes',exact:true})).toHaveCount(0);
   const bank=await page.evaluate(async()=>{const {HAND_PRESETS}=await import('/src/instruments/gesticulating-hand/hand-model.js');return HAND_PRESETS.map(scene=>scene.snapshot.form);});
-  expect(bank).toHaveLength(60);expect(bank.filter(form=>form==='hand')).toHaveLength(40);expect(bank.filter(form=>form==='foot')).toHaveLength(20);
+  expect(bank).toHaveLength(62);expect(bank.filter(form=>form==='hand')).toHaveLength(41);expect(bank.filter(form=>form==='foot')).toHaveLength(21);
   const result=await new AxeBuilder({page}).withTags(['wcag2a','wcag2aa','wcag21aa']).analyze();
   expect(result.violations).toEqual([]);
 });
@@ -329,6 +329,8 @@ test('tremor animates the chosen finger joints and freezes on Motion pause',asyn
 });
 
 test('continuous Color and Light sliders change both surfaces and restore their saved positions',async({page})=>{
+  // Compare restored materials without transient afterimages; trails have separate pixel coverage.
+  await range(page,'space',0);
   const canvas=page.locator('#handCanvas'),original=await canvas.screenshot();
   await expect(page.locator('#skin')).toHaveAttribute('type','range');await expect(page.locator('#lighting')).toHaveAttribute('type','range');
   await expect(page.locator('#lookTitle')).toHaveText('Color & light');

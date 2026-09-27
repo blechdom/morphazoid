@@ -82,7 +82,7 @@ function performanceConfig() {
 }
 function publish() {
   state.config = normalizeHandConfig(state.config);
-  viewer?.setFraming(state.config);
+  viewer?.setFraming(state.config);viewer?.setTrails(state.config.sound.space);
   audio.setConfig(performanceConfig()); presets?.refresh(); requestDraw();
 }
 function setPlaying(playing) {
@@ -123,10 +123,10 @@ function effectivePose(time) {
 function draw(now) {
   frame = 0;
   if (state.disposed) return;
-  if (now - lastDraw >= 1000 / 40 || !state.playing) {
-    const time=currentTime();viewer?.setPose(effectivePose(time));viewer?.render();contourEditor?.draw(time);lastDraw=now;
+  if (now - lastDraw >= 1000 / 40 || (!state.playing && !viewer?.hasTrailTail(now))) {
+    const time=currentTime();viewer?.setPose(effectivePose(time));viewer?.render(now);contourEditor?.draw(time);lastDraw=now;
   }
-  if (state.playing) requestDraw();
+  if (state.playing || viewer?.hasTrailTail(now)) requestDraw();
 }
 function selectFinger(index, joint = state.joint) {
   state.bodyJoint = null;
@@ -237,7 +237,7 @@ function updateOutput(id,value) {
   el(`${id}Out`).value = id==='footStretch'?`${value>0?'+':''}${Math.round(value*100)}%` : id.startsWith('wrist')||id==='footArch'||id==='footTwist' ? `${Math.round(value)}°`
     : id === 'tremorAmount' ? `${Number(value.toFixed(1))}°`
     : id === 'tremorRate' ? `${Number(value.toFixed(1))} Hz` : id === 'tempo' ? `${Number(value.toFixed(1))} BPM` : id === 'rootHz' ? `${Math.round(value)} Hz`
-    : ['attack','release'].includes(id) ? `${Math.round(value*1000)} ms` : `${Math.round(value*100)}%`;
+    : id === 'space' && value === 0 ? 'Off' : ['attack','release'].includes(id) ? `${Math.round(value*1000)} ms` : `${Math.round(value*100)}%`;
 }
 function applyConfiguration(value) {
   const next = normalizeHandConfig(value);
@@ -299,6 +299,7 @@ function buildMixer() {
   }
 }
 function reset() {
+  viewer?.clearTrails();
   // Recovery resets musical state; output and both players remain under their controls.
   state.midi.clear(); state.pointerMask=0;contourEditor?.clearHistory();
   syncHeld(); applyConfiguration(initialConfig); selectFinger(1,'mcp');
@@ -425,9 +426,10 @@ listen(el('handCanvas'),'keydown',event=>{
 });
 listen(window,'morphazoid:midi-input',onMidi);
 listen(window,'blur',releaseNotes);
-listen(document,'visibilitychange',()=>{if(document.hidden)releaseNotes();else requestDraw();});
+listen(document,'visibilitychange',()=>{if(document.hidden){viewer?.clearTrails();releaseNotes();}else requestDraw();});
 listen(window,'resize',()=>{viewer?.resize();requestDraw();});
 listen(window,'pagehide',event=>{
+  viewer?.clearTrails();
   if(event.persisted){
     anchor();cancelAnimationFrame(frame);frame=0;state.audioOn=state.starting=false;audioRequest++;
     releaseNotes();audio.close();syncTransport();return;
@@ -440,7 +442,7 @@ listen(window,'pageshow',event=>{
 });
 presets=registerHeaderPresets({id:'gesticulating-hand',presets:HAND_PRESETS,
   capture:()=>clone(state.config),
-  apply:value=>{contourEditor.clearHistory();applyConfiguration(value);},
+  apply:value=>{viewer?.clearTrails();contourEditor.clearHistory();applyConfiguration(value);},
   randomize:(snapshot,random)=>randomizeHandConfig(snapshot,random),
 });
 audio.setConfig(state.config);audio.setOutput(Number(el('outputLevel').value));
@@ -464,7 +466,7 @@ try {
     onLoading:()=>{state.loaded=false;},
     onReady:()=>{state.loaded=true;requestDraw();},
   });
-  viewer.setFraming(state.config);viewer.setCameraView(state.config.view);viewer.setAppearance(state.config.appearance);requestDraw();
+  viewer.setTrails(state.config.sound.space);viewer.setFraming(state.config);viewer.setCameraView(state.config.view);viewer.setAppearance(state.config.appearance);requestDraw();
 } catch(error) {el('modelStatus').textContent=`The 3D view could not start: ${error.message}. The joint controls remain playable.`;}
 
 // The owner chose Finger loom as the initial complete scene.

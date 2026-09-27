@@ -120,7 +120,7 @@ test("old v1 scenes retain normal speed and new source choices never create extr
   assert.equal(normalizeHandConfig({ motion: { speed: 0 } }).motion.speed, .1);
   assert.equal(normalizeHandConfig({ motion: { speed: 12 } }).motion.speed, 4);
   assert.equal(normalizeHandConfig({ motion: { speed: "1.25" } }).motion.speed, 1.25);
-  assert.deepEqual(VOICE_SOURCES, ["glass", "reed", "wire", "pulse", "air", "bowed", "vowel", "metal"]);
+  assert.deepEqual(VOICE_SOURCES, ["glass", "reed", "wire", "pulse", "air", "bowed", "vowel", "metal", "choir", "marimba"]);
   assert.equal(HAND_DEFAULTS.voices.length, 5);
   const config = normalizeHandConfig({ voices: VOICE_SOURCES.map(source => ({ source })) });
   assert.equal(config.voices.length, 5);
@@ -131,7 +131,7 @@ test("old v1 scenes retain normal speed and new source choices never create extr
   }
 });
 
-test("complete presets and seeded randomization include speed, all movements, and all eight sources", () => {
+test("complete presets and seeded randomization include speed, all movements, and all ten sources", () => {
   const observed = { speeds: new Set(), motions: new Set(), sources: new Set() }, rng = random(931);
   for (const { snapshot } of HAND_PRESETS) {
     assert.deepEqual(snapshot, normalizeHandConfig(snapshot));

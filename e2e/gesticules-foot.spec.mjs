@@ -105,11 +105,11 @@ test('switching forms restores each independently edited base pose, including th
   }
 });
 
-test('all twenty full foot presets restore form, shape, engines, combined tempo, rhythm, camera, tremor and appearance', async ({ page }) => {
+test('all twenty-one full foot presets restore form, shape, engines, combined tempo, rhythm, camera, tremor and appearance', async ({ page }) => {
   test.setTimeout(60000);
   await range(page, 'outputLevel', .19); await page.locator('#soundPlayButton').click(); await page.locator('#motionButton').click();
   const scenes = await page.evaluate(async () => (await import('/src/instruments/gesticulating-hand/hand-model.js')).HAND_PRESETS.filter(preset => preset.snapshot.form === 'foot'));
-  expect(scenes).toHaveLength(20);
+  expect(scenes).toHaveLength(21);
   for (const scene of scenes) {
     await chooseForm(page, 'foot');
     await range(page, 'footArch', -61); await range(page, 'footTwist', 42); await range(page, 'footStretch', .84); await range(page, 'footElasticity', .19);

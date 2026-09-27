@@ -34,7 +34,7 @@ test("rotation depth migrates old scenes, rejects hostile values and varies in p
   assert.equal(randomizeHandConfig(undefined, () => .83).sound.rotationFx, .83);
 });
 
-test("yaw and tilt change all eight engines while depth increases deviation from dry", () => {
+test("yaw and tilt change all ten engines while depth increases deviation from dry", () => {
   for (const source of VOICE_SOURCES) {
     const dry = render(engine(scene(source, 0))).left;
     const normal = render(engine(scene(source, .65))).left;

@@ -211,6 +211,17 @@ const ADDED_SCENES = [
     sound: { rootHz: 251, brightness: .37, roughness: .06, space: .69, rotationFx: .47, attack: .36, release: 1.7 },
     sources: ["glass", "vowel", "air", "bowed", "glass"], levels: [.66, .63, .4, .7, .55],
     appearance: { skin: 0.71, lighting: 0.89 }, view: { yaw: 1.66, pitch: .27, zoom: .94 }, tremor: { finger: "all", joint: "tip", amount: .5, rate: .67 } },
+  { id: "hand-lingering-choir", label: "Lingering choir", form: "hand", pose: "relaxed",
+    motion: { id: "wave", tempo: 52, amount: .34, speed: 1 },
+    sound: { rootHz: 157, brightness: .53, roughness: .08, space: .8, rotationFx: .3, attack: .12, release: .9 },
+    sources: ["choir", "choir", "choir", "bowed", "air"], levels: [.57, .47, .69, .42, .34],
+    appearance: { skin: .8, lighting: 1.18 }, view: { yaw: -.45, pitch: .12, zoom: 1.02 },
+    tremor: { finger: "all", joint: "tip", amount: 4.2, rate: 5.4, rateSpread: .04, phaseSpread: .24 } },
+  { id: "foot-marimba-trails", label: "Marimba footprints", form: "foot", pose: "open", foot: { arch: 5, twist: -7, stretch: .06 },
+    motion: { id: "two-finger-walk", tempo: 192, amount: .62, speed: 1.8, elasticity: .18 },
+    sound: { rootHz: 263, brightness: .67, roughness: .1, space: .58, rotationFx: .35, attack: .004, release: .65, rhythm: "walk", noteLength: .32 },
+    sources: ["marimba", "wire", "marimba", "glass", "marimba"], levels: [.72, .5, .78, .51, .47],
+    appearance: { skin: .43, lighting: 1.15 }, view: { yaw: .55, pitch: .08, zoom: 1.08 }, tremor: { amount: 0 } },
 ];
 
 
@@ -261,7 +272,7 @@ const RHYTHMIC_SCENES = [
 // Every six neighboring choices (including the wrap) include Foot, >300 and
 // <75 effective BPM, <1° tremor and ≥4° tremor. Keep Finger loom first.
 const PRESET_ORDER = [
-  "wire-roll", "hand-tin-skips", "foot-fizzing-fan", "glass-wave",
+  "wire-roll", "hand-lingering-choir", "foot-marimba-trails", "hand-tin-skips", "foot-fizzing-fan", "glass-wave",
   "reed-beckon", "foot-toe-origami", "vowel-fan", "hand-crystal-staccato",
   "hand-five-way-stumble", "bowed-spiral", "foot-tin-drumming", "hand-silk-count",
   "vowel-opposition", "breathing-hand", "foot-rubber-march", "foot-bowed-waltz",
