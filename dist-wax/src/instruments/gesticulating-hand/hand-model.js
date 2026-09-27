@@ -52,7 +52,7 @@ export const HAND_LIMITS = freeze({
   tremor: { amount: [0, 45], rate: [.1, 120], rateSpread: [0, 1], phaseSpread: [0, 1] },
   view: { yaw: [-Math.PI, Math.PI], pitch: [-1.15, 1.15], zoom: [.62, 2] },
   motion: { tempo: [20, 1100], amount: [0, 1], speed: [.1, 4], elasticity: [0, 1] },
-  sound: { noteLength: [.08, .9], rootHz: [35, 1600], brightness: [0, 1], roughness: [0, 1], space: [0, 1], rotationFx: [0, 1], attack: [.004, 1.2], release: [.04, 3.5] },
+  sound: { noteLength: [.08, .9], rootHz: [35, 1600], pitchSpread: [0, 4], brightness: [0, 1], roughness: [0, 1], space: [0, 1], rotationFx: [0, 1], attack: [.004, 1.2], release: [.04, 3.5] },
 });
 export const FOOT_LIMITS = freeze({
   bigToe: { mcp: [-55, 40], pip: [0, 0], dip: [0, 70], spread: [-12, 12] },
@@ -168,7 +168,7 @@ export const HAND_DEFAULTS = freeze({
   pose: { fingers: DEFAULT_POSE.fingers.map(f => ({ ...f })), wrist: { ...DEFAULT_POSE.wrist } },
   motion: { id: "source-grasp", tempo: 72, amount: .85, speed: 1, elasticity: 0, custom: false,
     contours: FINGERS.map(() => Object.fromEntries(DIGIT_KEYS.map(key => [key, Array(HAND_CONTOUR_POINTS).fill(0)]))) },
-  sound: { rhythm: "continuous", noteLength: .45, rootHz: 137, brightness: .46, roughness: .16, space: .28, rotationFx: .65, attack: .045, release: .45 },
+  sound: { rhythm: "continuous", noteLength: .45, rootHz: 137, pitchSpread: 1, brightness: .46, roughness: .16, space: .28, rotationFx: .65, attack: .045, release: .45 },
   voices: FINGERS.map((_, i) => ({ source: VOICE_SOURCES[i], level: i === 4 ? .5 : .7, mute: false, solo: false })),
   view: { yaw: .12, pitch: .035, zoom: 1 },
   tremor: { finger: "all", joint: "tip", amount: 0, rate: 8, rateSpread: 0, phaseSpread: 0 },
@@ -583,6 +583,7 @@ export function evaluateHandVoices(value = HAND_DEFAULTS, time = 0, out = create
   // even the fastest independently spread toe tremor; normalize to velocity.
   evaluateHandPose(config, Math.max(0, handNumber(time) - .001), previous, tremorSeconds - .001);
   const wrist = pose.wrist, oldWrist = previous.wrist;
+  const pitchSpread = clampHand(sound.pitchSpread, 0, 4, 1);
   const bodyTravel = .32 * Math.abs(wrist.flex - oldWrist.flex) + .25 * Math.abs(wrist.side - oldWrist.side)
     + .22 * Math.abs(wrist.twist - oldWrist.twist);
   let solo = false;
@@ -612,7 +613,9 @@ export function evaluateHandVoices(value = HAND_DEFAULTS, time = 0, out = create
       travel += Math.abs(shape.arch - oldShape.arch) * .32 + Math.abs(shape.twist - oldShape.twist) * .16
         + Math.abs(shape.stretch - oldShape.stretch) * 22;
     }
-    target.frequency = handPlayableFrequency(clampHand(sound.rootHz, 35, 1600, 137) * REGISTER_RATIOS[i] * Math.exp(pitch));
+    // Spread changes the fixed voice intervals; a zero-width register never
+    // disables the independent joint bends, tremor or whole-body pitch gestures.
+    target.frequency = handPlayableFrequency(clampHand(sound.rootHz, 35, 1600, 137) * REGISTER_RATIOS[i] ** pitchSpread * Math.exp(pitch));
     target.brightness = responsiveRange(brightness, 0, 1, .12);
     target.roughness = responsiveRange(roughness, 0, 1, .12);
     target.pan = responsiveRange(pan, -.97, .97, .24);
@@ -641,7 +644,7 @@ export function randomizeHandConfig(_current = HAND_DEFAULTS, random = Math.rand
   next.motion = { id: HAND_MOTIONS[Math.floor(unit() * HAND_MOTIONS.length)].id, tempo: between(20, 1100), amount: unit(), speed: .1 * 40 ** unit() };
   next.motion.custom = unit() < .3;
   next.motion.contours = FINGERS.map(() => Object.fromEntries(DIGIT_KEYS.map(key => [key, randomizeHandContour(unit)])));
-  next.sound = { rhythm: HAND_RHYTHMS[Math.floor(unit() * HAND_RHYTHMS.length)].id, noteLength: between(.08,.9), rootHz: 35 * (1600 / 35) ** unit(), brightness: unit(), roughness: unit(), space: unit(), rotationFx: unit(),
+  next.sound = { rhythm: HAND_RHYTHMS[Math.floor(unit() * HAND_RHYTHMS.length)].id, noteLength: between(.08,.9), rootHz: 35 * (1600 / 35) ** unit(), pitchSpread: between(0, 4), brightness: unit(), roughness: unit(), space: unit(), rotationFx: unit(),
     attack: .004 * 300 ** unit(), release: .04 * 87.5 ** unit() };
   if (next.voices.every(v => v.mute)) next.voices[Math.floor(unit() * 5)].mute = false;
   next.form = unit() < .5 ? "hand" : "foot";

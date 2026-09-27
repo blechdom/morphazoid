@@ -196,6 +196,15 @@ continuous without a scale or pentatonic quantizer. Register, brightness, grain,
 Trails, attack and release belong to the complete preset state. Register spans
 **35–1,600 Hz**, with bounded synthesized voice frequencies up to 4,200 Hz.
 
+**Pitch spread**, beside Register, scales the spacing of the five voices’ starting
+pitches from **0–400%**. **100%** keeps the original non-scale intervals; **0%**
+puts their starting pitches together; higher values widen them around the middle
+voice. Register moves their shared tuning reference. Joint bends, vibrato and
+wrist/ankle/foot pitch gestures remain active even at zero spread. The setting
+is saved with presets, included in randomization, and retained when switching
+between hand and foot. Older saved scenes default to 100%. Finger loom stays
+at 100%; Lingering choir narrows to 30% and Marimba footprints widens to 225%.
+
 **Rhythm** offers Continuous, Walking notes, Offbeat taps, Three against four,
 and Broken phrases. The four written patterns open and close individual voice
 gates, creating attacks and rests while the corresponding digits tap visibly.

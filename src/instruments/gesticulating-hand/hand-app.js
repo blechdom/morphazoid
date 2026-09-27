@@ -365,7 +365,7 @@ listen(el('bodyForm'),'change',event=>updateConfiguration(c=>{
   c.form=event.target.value==='foot'?'foot':'hand';
   c.pose=clone(formPoses.get(c.form)??handPoseForForm('source-open',c.form));
 }));
-for(const id of ['tempo','motionAmount','rootHz','brightness','roughness','rotationFx','space','attack','release','wristFlex','wristSide','wristTwist']) {
+for(const id of ['tempo','motionAmount','rootHz','pitchSpread','brightness','roughness','rotationFx','space','attack','release','wristFlex','wristSide','wristTwist']) {
   listen(el(id),'input',event=>{
     const value=Number(event.target.value);
     if(id==='tempo') { updateConfiguration(c=>setHandEffectiveTempo(c.motion,value)); return; }
