@@ -3,12 +3,16 @@ import test from "node:test";
 import {
   CHIPTUNE_DANCER_IDENTITIES,
   drawChiptuneDancer,
+  chiptuneDancerPose,
 } from "../src/instruments/webgpu-chiptune/webgpu-chiptune-dancers.js";
 import {
   SKINS,
+  simdChiptuneDancePose,
   normalizeChiptuneSkin,
   drawSimdChiptuneDancer,
 } from "../src/instruments/simd-chiptune/skins.js";
+
+import { simdChiptuneStageSnapshot } from "../src/instruments/simd-chiptune/performance.js";
 
 const originalKeys = Object.keys(CHIPTUNE_DANCER_IDENTITIES);
 const colors = Object.freeze({
@@ -63,10 +67,10 @@ function extendBounds(bounds, calls) {
 }
 const emptyBounds = () => ({ left: Infinity, top: Infinity, right: -Infinity, bottom: -Infinity });
 
-test("Original is the default; all six original dancers retain exact raster calls", () => {
+test("Original is the default; its resting and reduced-motion artwork retains exact raster calls", () => {
   assert.equal(SKINS[0].id, "original");
   for (const key of originalKeys) {
-    for (const pose of poses) {
+    for (const pose of poses.filter(pose => pose.resting || pose.reducedMotion)) {
       const actor = actorFor(key, pose);
       for (const unit of [1, 2.3, 5]) {
         const options = { unit, reducedMotion: pose.reducedMotion ?? false };
@@ -79,6 +83,25 @@ test("Original is the default; all six original dancers retain exact raster call
           );
         }
       }
+    }
+  }
+});
+
+test("SIMD Original increases low-level hip travel and alternating foot lifts without changing audible actors", () => {
+  for (const key of originalKeys) {
+    const before = [], after = [];
+    for (let frame = 0; frame < 64; frame++) {
+      const actor = actorFor(key, { dancePhase: frame / 64, levelUnit: .2 });
+      const snapshot = structuredClone(actor);
+      before.push(chiptuneDancerPose(actor));
+      after.push(simdChiptuneDancePose(actor));
+      assert.deepEqual(actor, snapshot);
+    }
+    const span = (poses, select) => Math.max(...poses.map(select)) - Math.min(...poses.map(select));
+    assert.ok(span(after, pose => pose.sway) > span(before, pose => pose.sway) * 1.5, key + ": hip travel");
+    for (let leg = 0; leg < 2; leg++) {
+      assert.ok(span(after, pose => pose.legs[leg].foot[1]) > span(before, pose => pose.legs[leg].foot[1]) + 2,
+        key + ": visible alternating high steps");
     }
   }
 });
@@ -138,6 +161,12 @@ test("Every skin fits the existing stage's pixel budget through the complete dan
           dancePhase: frame / 32, onset: 1, levelUnit: 1,
           bodyMotion: { leftArm: 1, rightArm: 1, squash: 1, jump: 1, jiggle: 1, leftLeg: 1, rightLeg: 1 },
         });
+        extendBounds(bounds, drawCalls(drawSimdChiptuneDancer, actor, { unit: 5, skin }));
+      }
+    }
+    // Real default musical taps and lower voice levels differ from the max-tap rig.
+    for (let frame = 0; frame < 96; frame++) {
+      for (const actor of simdChiptuneStageSnapshot(frame / 8).actors) {
         extendBounds(bounds, drawCalls(drawSimdChiptuneDancer, actor, { unit: 5, skin }));
       }
     }

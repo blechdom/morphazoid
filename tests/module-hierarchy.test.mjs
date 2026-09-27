@@ -28,6 +28,7 @@ const automataTransportChanges = JSON.parse(await readFile(new URL("../docs/auto
 const automataClockChanges = JSON.parse(await readFile(new URL("../docs/automatapoeia-audio-clock-runtime-changes.json", import.meta.url))).changes;
 const pugglerChanges = JSON.parse(await readFile(new URL("../docs/puggler-expansion-runtime-changes.json", import.meta.url))).changes;
 const chiptuneChanges = JSON.parse(await readFile(new URL("../docs/simd-chiptune-runtime-changes.json", import.meta.url))).changes;
+const chiptuneDanceChanges = JSON.parse(await readFile(new URL("../docs/simd-chiptune-dance-runtime-changes.json", import.meta.url))).changes;
 const inverse = Object.fromEntries(Object.entries({ ...plan.moves, ...siteMoves }).map(([before, after]) => [after, before]));
 const sha = value => createHash("sha256").update(value).digest("hex");
 
@@ -91,7 +92,7 @@ test("runtime modules reverse exactly after explicit runtime fixes and documente
     }
     // Keep the relocation baseline frozen. Reverse only the exact, separately
     // documented feature edits, whose behavior has focused DSP/browser tests.
-    for (const change of [...automataControlsChanges, ...ioChanges, ...shapesChanges, ...lSystemPresetsChanges, ...lSystemNotesChanges, ...automataBottomChanges, ...automataTransportChanges, ...automataClockChanges, ...automataChanges].filter(change => change.file === record.after)) {
+    for (const change of [...chiptuneDanceChanges, ...automataControlsChanges, ...ioChanges, ...shapesChanges, ...lSystemPresetsChanges, ...lSystemNotesChanges, ...automataBottomChanges, ...automataTransportChanges, ...automataClockChanges, ...automataChanges].filter(change => change.file === record.after)) {
       for (const testFile of change.regressionTests) assert.ok(existsSync(path.join(root, testFile)), testFile);
       for (const replacement of [...change.replacements].reverse()) {
         assert.equal(current.split(replacement.after).length - 1, 1, `exactly one documented feature edit: ${change.file}`);

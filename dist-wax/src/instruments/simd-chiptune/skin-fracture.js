@@ -236,10 +236,48 @@ function shrapnelComet(brush, m) {
 const SCULPTURES = [percussionMobile, bassMonolith, stairHarp, brokenGramophone,
   splitMaskTower, accordionScissor, shrapnelComet];
 
+// Stride rate, lean rate, lean, crouch, hop, kick and phrase offset. Percussion
+// bounces, Bass stomps, Arp leaps, Lead leans, Upper A pops, Upper B shuffles,
+// and Noise judders; all seven still follow their own audible phrase.
+const GAITS = [
+  [2, 1, 7, .18, 3, 8, 0], [1, 1, 9, .29, 1, 9, .35],
+  [2, 1, 8, .13, 6, 13, .5], [1, 1, 10, .19, 1, 11, -.45],
+  [2, 1, 10, .23, 2, 10, .9], [2, 2, 8, .18, 3, 12, 1.3],
+  [3, 2, 9, .21, 3, 9, .4],
+];
+
+function danceBrush(brush, pose, angle, gait, beat) {
+  const [, leanRate, leanRange, crouchRange, hopRange, , phaseOffset] = gait;
+  const lean = clamp(Math.sin(angle * leanRate + phaseOffset) * leanRange + pose.sway * .8, -10, 10);
+  const crouch = (1 - Math.cos(angle * gait[0] + phaseOffset)) * .5;
+  const hop = Math.max(0, beat) * hopRange + clamp(-pose.hipY - 13, 0, 3) * .45;
+  // Squash makes room for the hop; narrowing makes room for the lean. Nothing
+  // is clipped off the sculpture at the sides or the top of its existing bay.
+  const height = Math.min(.96 - crouch * crouchRange - clamp(pose.hipY + 13, 0, 6) * .012,
+    (46 - hop) / 48);
+  const width = .88 - Math.abs(lean) * .019;
+  const point = ([x, y]) => {
+    const high = (2 - y) / 46;
+    const foot = Math.max(0, 1 - high * 3);
+    const reach = Math.sign(x) * Math.max(0, x < 0 ? beat : -beat) * 3;
+    return [x * width + lean * (high - .36) + reach * foot, 2 + (y - 2) * height - hop];
+  };
+  return {
+    rect: (x, y, w, h, color) => brush.facet([[x, y], [x + w, y], [x + w, y + h], [x, y + h]].map(point), color),
+    line: (a, b, size, color) => brush.line(point(a), point(b), Math.max(1, size * width), color),
+    facet: (points, color) => brush.facet(points.map(point), color),
+  };
+}
+
 export function drawFractureSkin(brush, pose, index) {
   const moving = Boolean(pose.moving);
-  const foot = side => moving ? Math.round(clamp(-pose.legs[side].foot[1], 0, 5)) : 0;
-  const arm = side => moving ? Math.round(clamp((pose.arms[side].wrist[1] - pose.shoulderY) * .2, -1, 1)) : 0;
+  const role = Math.max(0, Math.min(6, Math.floor(Number(index) || 0)));
+  const gait = GAITS[role], angle = clamp(pose.phase, 0, 1) * Math.PI * 2;
+  const beat = moving ? Math.sin(angle * gait[0] + gait[6]) : 0;
+  const foot = side => moving ? Math.round(clamp(-pose.legs[side].foot[1] * .45
+    + Math.max(0, side ? -beat : beat) * gait[5], 0, 14)) : 0;
+  const arm = side => moving ? Math.round(clamp((pose.arms[side].wrist[1] - pose.shoulderY) * .25
+    + (side ? -beat : beat) * 2, -3, 3)) : 0;
   const motion = {
     sway: moving ? Math.round(clamp(pose.sway * .5, -1, 1)) : 0,
     bob: moving ? Math.round(clamp((pose.hipY + 13) * .35, -1, 1)) : 0,
@@ -247,11 +285,11 @@ export function drawFractureSkin(brush, pose, index) {
     hit: moving ? Math.round(clamp(pose.expression, 0, 1)) : 0,
     // Phrase travel keeps the instruments articulating when body taps quantize
     // to the same pixels. The supplied phase follows the audible performer.
-    pluck: moving ? Math.round(Math.sin(clamp(pose.phase, 0, 1) * Math.PI * 2) * 2) : 0,
-    jitter: moving ? Math.round(clamp(pose.jiggle, -1, 1)) : 0,
+    pluck: moving ? Math.round(Math.sin(angle + gait[6]) * 4) : 0,
+    jitter: moving ? Math.round(clamp(pose.jiggle, -1, 1) * 3) : 0,
     step: moving ? pose.frame : 0,
     blink: moving && pose.blink,
     look: moving && pose.frame % 4 >= 2 ? 1 : 0,
   };
-  SCULPTURES[Math.max(0, Math.min(6, Math.floor(Number(index) || 0)))](brush, motion);
+  SCULPTURES[role](moving ? danceBrush(brush, pose, angle, gait, beat) : brush, motion);
 }

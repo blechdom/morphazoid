@@ -24,6 +24,7 @@ async function open(page, baseURL) {
   expect((await page.goto("simd-chiptune.html"))?.ok()).toBe(true);
   await settlePage(page);
   await expect(page.locator("#characterSkin option")).toHaveCount(4);
+  await expect(page.locator("#characterSkin option")).toHaveText(["Original characters", "Fracture parade", "Nightmare kaiju", "Cosmic worms"]);
   expect(await page.locator("#characterSkin option").evaluateAll(options => options.map(option => option.value))).toEqual(skins);
   await expect(page.locator("#audioButton")).toHaveAttribute("aria-pressed", "false");
   await expect(page.locator("#synthPlayButton")).toHaveAttribute("aria-pressed", "false");

@@ -65,8 +65,8 @@ export function chiptuneDancerPose(actor, reducedMotion = false) {
     jiggle: clamp(taps.jiggle, -1, 1), moving };
 }
 
-export function drawChiptuneDancer(context, actor, x, ground, unit, colors, reducedMotion) {
-  const p = chiptuneDancerPose(actor, reducedMotion);
+export function drawChiptuneDancer(context, actor, x, ground, unit, colors, reducedMotion, suppliedPose) {
+  const p = suppliedPose ?? chiptuneDancerPose(actor, reducedMotion);
   const px = unit * .5;
   const rect = (gx, gy, w, h, color) => {
     context.fillStyle = color;

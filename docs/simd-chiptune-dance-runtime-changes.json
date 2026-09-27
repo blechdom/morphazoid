@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "scope": "Owner-requested stronger SIMD Chiptune dance. Keep frozen module-relocation hashes unchanged; the existing WebGPU renderer keeps its default pose path.",
+  "changes": [
+    {
+      "file": "src/instruments/webgpu-chiptune/webgpu-chiptune-dancers.js",
+      "reason": "Accept an optional visual pose so SIMD can amplify the original joint choreography without copying the renderer or changing WebGPU poses, audio or actors. Existing callers still compute the same pose. Default raster output was compared with the pre-change source across 1152 phase/scale/reduced-motion cases.",
+      "regressionTests": [
+        "tests/simd-chiptune-skins.test.mjs",
+        "tests/webgpu-chiptune.test.mjs",
+        "e2e/simd-chiptune-skins.spec.mjs"
+      ],
+      "replacements": [
+        {
+          "before": "export function drawChiptuneDancer(context, actor, x, ground, unit, colors, reducedMotion) {\n  const p = chiptuneDancerPose(actor, reducedMotion);",
+          "after": "export function drawChiptuneDancer(context, actor, x, ground, unit, colors, reducedMotion, suppliedPose) {\n  const p = suppliedPose ?? chiptuneDancerPose(actor, reducedMotion);"
+        }
+      ]
+    }
+  ]
+}
