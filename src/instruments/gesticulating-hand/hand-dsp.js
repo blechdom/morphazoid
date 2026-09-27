@@ -1,4 +1,6 @@
-import { HAND_DEFAULTS, VOICE_SOURCES, clampHand, handNumber, normalizeHandConfig, createHandPose, createHandVoices, evaluateHandVoices } from "./hand-model.js";
+import { HAND_DEFAULTS, VOICE_SOURCES, clampHand, handNumber, normalizeHandConfig, createHandPose, createHandVoices, evaluateHandVoices, handEffectiveTempo } from "./hand-model.js";
+
+import { handRhythmPhase } from "./hand-rhythm.js";
 
 const TAU = 2 * Math.PI;
 const coefficients = (rate, seconds, depth = 1) => 1 - Math.exp(-depth / (rate * seconds));
@@ -208,7 +210,7 @@ export class HandDSP {
     this.sampleRate = clampHand(sampleRate, 8000, 192000, 48000);
     this.config = normalizeHandConfig(HAND_DEFAULTS);
     this.enabled = false; this.soundPlaying = false; this.heldFingers = 0;
-    this.playing = false; this.anchorTime = 0; this.anchorClock = 0; this.clock = 0; this.tremorOffset = 0;
+    this.playing = false; this.anchorTime = 0; this.anchorClock = 0; this.clock = 0; this.tremorOffset = 0; this.controlFrame = 0;
     this.pose = createHandPose(); this.previousPose = createHandPose(); this.targets = createHandVoices();
     this.voices = Array.from({ length: 5 }, (_, i) => ({
       phase: .073 * i, modPhase: .137 * i, frequency: 137, brightness: .4, roughness: .1, pan: 0, level: 0,
@@ -228,6 +230,8 @@ export class HandDSP {
   }
   setConfig(value) {
     this.config = normalizeHandConfig(value);
+    this.controlFrame = 0; // Apply a live edit at its next audio sample.
+    this.beatsPerSecond = handEffectiveTempo(this.config.motion) / 60;
     this.attackCoefficient = coefficients(this.sampleRate, this.config.sound.attack, 4.6);
     this.releaseCoefficient = coefficients(this.sampleRate, this.config.sound.release, 6.9);
   }
@@ -285,17 +289,20 @@ export class HandDSP {
       tuneEngines(voice, this.sampleRate);
     }
     this.delayLeft.fill(0); this.delayRight.fill(0); this.delayWrite = 0; this.space = 0; this.peak = this.rms = 0;
-    this.rotation.reset();
+    this.rotation.reset(); this.controlFrame = 0;
   }
   process(left, right = left, audioTime = this.clock) {
     if (!left?.length) return;
     const rate = this.sampleRate, now = clampHand(audioTime, 0, 1e9, this.clock);
     const stereo = right !== left, frames = Math.min(left.length, right?.length ?? left.length);
+    const firstFrame = Math.round(now * rate);
     const delayL = Math.round(rate * .173), delayR = Math.round(rate * .239), delaySize = this.delayLeft.length;
     let energy = 0, peak = 0;
     for (let frame = 0; frame < frames; frame++) {
-      const at = now + frame / rate;
-      if ((frame & 31) === 0) this.updateTargets(at);
+      const at = (firstFrame + frame) / rate;
+      if (this.controlFrame === 0) this.updateTargets(at);
+      this.controlFrame = (this.controlFrame + 1) & 31;
+      const beat = this.getMotionTime(at) * this.beatsPerSecond;
       let mixLeft = 0, mixRight = 0;
       for (let i = 0; i < 5; i++) {
         const voice = this.voices[i], target = this.targets[i];
@@ -305,7 +312,9 @@ export class HandDSP {
         voice.pan += (target.pan - voice.pan) * this.smooth;
         voice.level += (target.level - voice.level) * this.smooth;
         voice.excitation += (target.excitation - voice.excitation) * this.smooth;
-        const gated = this.enabled && (this.soundPlaying || (this.heldFingers & (1 << i)) !== 0 || at < voice.auditionUntil);
+        const phase = handRhythmPhase(this.config.sound.rhythm, beat, i);
+        const note = this.config.sound.rhythm === "continuous" || (phase >= 0 && phase < this.config.sound.noteLength);
+        const gated = this.enabled && ((this.soundPlaying && note) || (this.heldFingers & (1 << i)) !== 0 || at < voice.auditionUntil);
         voice.gated = gated;
         const envelopeTarget = gated ? 1 : 0;
         const coefficient = !this.enabled ? this.muteCoefficient : gated ? this.attackCoefficient : this.releaseCoefficient;
@@ -358,6 +367,6 @@ export class HandDSP {
       if (stereo) right[frame] = outR;
       energy += (outL * outL + outR * outR) * .5; peak = Math.max(peak, Math.abs(outL), Math.abs(outR));
     }
-    this.clock = now + frames / rate; this.rms = Math.sqrt(energy / frames); this.peak = peak;
+    this.clock = (firstFrame + frames) / rate; this.rms = Math.sqrt(energy / frames); this.peak = peak;
   }
 }

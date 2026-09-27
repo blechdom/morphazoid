@@ -213,21 +213,68 @@ const ADDED_SCENES = [
     appearance: { skin: 0.71, lighting: 0.89 }, view: { yaw: 1.66, pitch: .27, zoom: .94 }, tremor: { finger: "all", joint: "tip", amount: .5, rate: .67 } },
 ];
 
+
+// Short note windows articulate independent attacks and rests on the shared beat.
+const RHYTHMIC_SCENES = [
+  { id: "hand-crystal-staccato", label: "Crystal staccato", form: "hand", pose: "open",
+    motion: { id: "finger-drumming", tempo: 142, amount: .64, speed: 1.2 },
+    sound: { rootHz: 659, brightness: .84, roughness: .08, space: .09, rotationFx: .36, attack: .004, release: .075, rhythm: "walk", noteLength: .18 },
+    sources: ["glass", "wire", "glass", "metal", "glass"], levels: [.61, .55, .69, .46, .58],
+    appearance: { skin: .57, lighting: 1.28 }, view: { yaw: -.36, pitch: .14, zoom: 1.06 }, tremor: { amount: 0 } },
+  { id: "hand-wire-backbeat", label: "Wire backbeat", form: "hand", pose: "source-open",
+    motion: { id: "finger-fan", tempo: 189, amount: .69, speed: 1.7 },
+    sound: { rootHz: 523, brightness: .76, roughness: .23, space: .06, rotationFx: .52, attack: .006, release: .065, rhythm: "offbeat", noteLength: .21 },
+    sources: ["wire", "pulse", "wire", "glass", "metal"], levels: [.66, .49, .71, .58, .53],
+    appearance: { skin: .16, lighting: 1.06 }, view: { yaw: .52, pitch: -.09, zoom: 1.03 }, tremor: { amount: 0 } },
+  { id: "hand-singing-triplet", label: "Singing triplet", form: "hand", pose: "relaxed",
+    motion: { id: "figure-eight", tempo: 62, amount: .57, speed: 1 },
+    sound: { rootHz: 392, brightness: .58, roughness: .11, space: .23, rotationFx: .48, attack: .024, release: .16, rhythm: "three-four", noteLength: .38 },
+    sources: ["vowel", "bowed", "vowel", "glass", "wire"], levels: [.67, .61, .72, .55, .52],
+    appearance: { skin: .78, lighting: .72 }, view: { yaw: -.64, pitch: .2, zoom: 1.09 }, tremor: { amount: 0 } },
+  { id: "hand-tin-skips", label: "Tin skips", form: "hand", pose: "source-open",
+    motion: { id: "index-tap", tempo: 148, amount: .73, speed: 1.25 },
+    sound: { rootHz: 881, brightness: .9, roughness: .34, space: .04, rotationFx: .28, attack: .004, release: .085, rhythm: "broken", noteLength: .13 },
+    sources: ["metal", "glass", "pulse", "metal", "wire"], levels: [.57, .65, .48, .63, .54],
+    appearance: { skin: .07, lighting: 1.43 }, view: { yaw: .28, pitch: .08, zoom: 1.04 }, tremor: { amount: 0 } },
+  { id: "foot-glass-steps", label: "Glass steps", form: "foot", pose: "open", foot: { arch: 8, twist: -4, stretch: .03 },
+    motion: { id: "two-finger-walk", tempo: 128, amount: .62, speed: 1.35, elasticity: .12 },
+    sound: { rootHz: 587, brightness: .81, roughness: .07, space: .11, rotationFx: .42, attack: .005, release: .08, rhythm: "walk", noteLength: .2 },
+    sources: ["glass", "wire", "metal", "glass", "pulse"], levels: [.68, .58, .49, .64, .46],
+    appearance: { skin: .49, lighting: 1.17 }, view: { yaw: -.3, pitch: .14, zoom: 1.12 }, tremor: { amount: 0 } },
+  { id: "foot-wire-upbeat", label: "Wire upbeat", form: "foot", pose: "source-open", foot: { arch: -6, twist: 5, stretch: .04 },
+    motion: { id: "finger-drumming", tempo: 181, amount: .66, speed: 1.9, elasticity: .08 },
+    sound: { rootHz: 739, brightness: .86, roughness: .18, space: .07, rotationFx: .33, attack: .004, release: .07, rhythm: "offbeat", noteLength: .17 },
+    sources: ["wire", "pulse", "glass", "wire", "metal"], levels: [.69, .48, .63, .62, .51],
+    appearance: { skin: .29, lighting: 1.36 }, view: { yaw: .46, pitch: -.08, zoom: 1.1 }, tremor: { amount: 0 } },
+  { id: "foot-bowed-waltz", label: "Bowed waltz", form: "foot", pose: "relaxed", foot: { arch: 11, twist: 7, stretch: -.03 },
+    motion: { id: "wrist-nod", tempo: 58, amount: .48, speed: 1, elasticity: .18 },
+    sound: { rootHz: 349, brightness: .51, roughness: .13, space: .2, rotationFx: .55, attack: .028, release: .18, rhythm: "three-four", noteLength: .42 },
+    sources: ["bowed", "vowel", "bowed", "glass", "wire"], levels: [.71, .64, .68, .52, .57],
+    appearance: { skin: .85, lighting: .94 }, view: { yaw: -.51, pitch: .18, zoom: 1.14 }, tremor: { amount: 0 } },
+  { id: "foot-copper-breaks", label: "Copper breaks", form: "foot", pose: "open", foot: { arch: -8, twist: -5, stretch: .06 },
+    motion: { id: "index-tap", tempo: 163, amount: .7, speed: 1.15, elasticity: .1 },
+    sound: { rootHz: 783, brightness: .88, roughness: .29, space: .05, rotationFx: .39, attack: .004, release: .095, rhythm: "broken", noteLength: .15 },
+    sources: ["metal", "wire", "pulse", "glass", "metal"], levels: [.62, .58, .47, .67, .56],
+    appearance: { skin: .04, lighting: 1.52 }, view: { yaw: .61, pitch: .1, zoom: 1.08 }, tremor: { amount: 0 } },
+];
+
 // Every six neighboring choices (including the wrap) include Foot, >300 and
 // <75 effective BPM, <1° tremor and ≥4° tremor. Keep Finger loom first.
 const PRESET_ORDER = [
-  "wire-roll", "foot-fizzing-fan", "glass-wave", "reed-beckon",
-  "foot-toe-origami", "vowel-fan", "hand-five-way-stumble", "bowed-spiral",
-  "foot-tin-drumming", "hand-silk-count", "vowel-opposition", "breathing-hand",
-  "foot-rubber-march", "hand-satellite-fan", "point-transmission", "hand-paper-waltz",
-  "foot-velvet-curl", "scattered-sparks", "hand-velvet-scissors", "foot-glass-ripple",
+  "wire-roll", "hand-tin-skips", "foot-fizzing-fan", "glass-wave",
+  "reed-beckon", "foot-toe-origami", "vowel-fan", "hand-crystal-staccato",
+  "hand-five-way-stumble", "bowed-spiral", "foot-tin-drumming", "hand-silk-count",
+  "vowel-opposition", "breathing-hand", "foot-rubber-march", "foot-bowed-waltz",
+  "hand-satellite-fan", "point-transmission", "hand-paper-waltz", "foot-velvet-curl",
+  "scattered-sparks", "hand-velvet-scissors", "hand-wire-backbeat", "foot-glass-ripple",
   "counting-air", "hand-copper-shiver", "foot-copper-skip", "hushed-palm",
-  "little-machinery", "foot-beetle-step", "slow-unfurl", "hand-tin-morse",
-  "low-claw", "foot-porcelain-pendulum", "metal-walk", "hand-throat-lattice",
-  "foot-corkscrew", "bowed-eight", "closed-bell", "pinch-sparks",
-  "foot-ankle-orbit", "hand-radio-swarm", "metal-drumming", "foot-neon-tap",
-  "tangled-polyrhythm", "hand-porcelain-flicker", "foot-slow-arch", "flourish-copper",
-  "foot-threadbare-sway", "orbit-frenzy", "hand-bowed-tide", "foot-sole-whisper",
+  "little-machinery", "foot-beetle-step", "foot-copper-breaks", "slow-unfurl",
+  "hand-tin-morse", "low-claw", "foot-porcelain-pendulum", "metal-walk",
+  "hand-throat-lattice", "foot-corkscrew", "foot-glass-steps", "bowed-eight",
+  "closed-bell", "pinch-sparks", "foot-ankle-orbit", "hand-radio-swarm",
+  "hand-singing-triplet", "metal-drumming", "foot-neon-tap", "tangled-polyrhythm",
+  "hand-porcelain-flicker", "foot-slow-arch", "flourish-copper", "foot-threadbare-sway",
+  "orbit-frenzy", "foot-wire-upbeat", "hand-bowed-tide", "foot-sole-whisper",
   "swarming-fingers", "hand-held-current", "foot-padded-ripple", "original-grasp",
 ];
 const freeze = value => {
@@ -247,7 +294,7 @@ export function createHandPresets({ normalizeHandConfig, HAND_POSES, handPoseFor
     id, label, snapshot: normalizeHandConfig({ ...config, form: "foot", pose: handPoseForForm(pose, "foot"),
       voices: sources.map((source, i) => ({ source, level: source === "air" ? .43 : .6 + i * .025, mute: false, solo: false })) }),
   }));
-  const added = ADDED_SCENES.map(({ id, label, form, pose: poseId, foot, sources, levels, ...config }) => {
+  const added = [...ADDED_SCENES, ...RHYTHMIC_SCENES].map(({ id, label, form, pose: poseId, foot, sources, levels, ...config }) => {
     const pose = handPoseForForm(poseId, form);
     if (form === "foot") pose.foot = { ...foot };
     return { id, label, snapshot: normalizeHandConfig({ ...config, form, pose,

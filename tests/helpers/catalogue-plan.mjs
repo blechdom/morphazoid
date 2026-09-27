@@ -26,6 +26,8 @@ const automataIndex = reordered.indexOf("cellular-automata");
 // Faves section. Their ordinary Geometric catalogue records remain intact.
 export const expectedFaveToolIds = Object.freeze([
   "shapes", ...reordered.filter(id => !["shape-synth", "solid-synth", "hyper-synth"].includes(id)),
+  // Owner follow-up on September 26: add Gesticules without moving existing Faves.
+  "gesticulating-hand",
 ]);
 const faves = new Set(expectedFaveToolIds);
 export function expectedTagIdsFor(id) {

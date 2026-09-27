@@ -3,7 +3,7 @@
 Open [Gesticules](../gesticules.html), a standalone 3D instrument with **Hand** and **Foot** models. Their textured skin,
 editable joints and five synthesized finger or toe voices share one pose timeline.
 Choose the model above Sound and Motion. Switching keeps both players, sound
-settings, Tempo, Speed, tremor, Color, Light and camera; it remembers each
+settings, Tempo, tremor, Color, Light and camera; it remembers each
 model’s manual base pose separately for the current page session. Audio remains off
 until explicitly enabled. The initial scene is **Finger loom**. Older saved configurations default to Hand.
 
@@ -13,8 +13,7 @@ markers auditions that finger while Audio is armed. Audio starts off; gestures,
 Space and motion playback never arm it. Turning Audio off leaves visual motion
 running silently. Presets preserve Audio, output level and both players. Sound and
 Motion have
-independent play/pause buttons at the top of the right panel, beside Tempo, with
-Speed directly below. Their circular buttons and labelled ranges follow Shape's
+independent play/pause buttons at the top of the right panel, beside one Tempo slider. Their circular buttons and labelled ranges follow Shape's
 transport layout.
 
 ## Hand and movement
@@ -54,13 +53,35 @@ middle joints, tips and spread can move at different rates and in opposing
 directions. Frantic orbit and Scatter also vary the phase within their loops.
 Their curves are deterministic, continuous and bounded by the same joint limits.
 
-**Tempo** ranges from **20 to 1,100 BPM**. **Speed** multiplies it from **0.1× to
-4×**, default **1×**; the maximum combination runs at 4,400 effective beats per
-minute. Changing either rate preserves the choreography's current cycle position
-while running or paused; both the visible rig and audio worklet use the same
-rebased timeline. Faster motion changes the rate of pitch, tone and excitation
-movement. It does not resample the audio output. Older saved configurations
-without Speed use 1×. Presets recall both Tempo and Speed.
+**Tempo** is one slider from **2 to 4,400 BPM**, combining the old Tempo and
+Speed controls. Presets retain exactly their previous effective rate. Changing
+Tempo preserves the current loop position while running or paused; the rig and
+worklet share one rebased timeline. Faster motion changes pitch, tone and
+excitation movement without resampling audio. Older saved tempo/speed pairs
+remain compatible; their product is displayed as the single Tempo value.
+
+## Drawing your own animation
+
+Each compact voice row has M/S, level, sound, and overlaid movement contours.
+Select a joint in the row, then draw its highlighted curve; the other joints
+remain visible. Drawing converts the current choreography into an editable
+**four-beat loop**, with 16 points per joint and smooth, continuous interpolation.
+Curves add bounded bend or spread to the starting pose, scaled by Movement size.
+The big toe has base, tip and spread curves; it has no middle joint.
+
+Dragging paints every point crossed, with one undo per stroke. On a focused
+curve, left/right selects a point, up/down changes its value, Shift makes a
+larger change, and Home/Delete returns that point to zero. Clear resets only the
+selected joint curve; Undo restores the previous edit. Choosing **Drawn contours**
+under Choreography returns to the edited curves; choosing another choreography
+keeps them stored in the scene. Motion plays the loop, while Sound and Audio
+remain independent. The curves feed the same pose evaluator in the renderer and
+AudioWorklet, so joint movement changes the same voice pitch, tone and spread.
+
+**Save** downloads an animation JSON containing the model, starting pose,
+choreography, curves and tempo; **Load** restores it without changing Audio,
+Sound, Motion, output level, sound settings, lighting or camera. Preset changes
+recall their complete motion state, so save a drawing before changing presets.
 
 The selected finger exposes each joint separately. For the four fingers these
 are knuckle (MCP), middle (PIP), tip (DIP), and knuckle spread. The thumb uses its
@@ -80,7 +101,7 @@ bends remain bounded by each joint’s range; a high base rate with rate spread
 can drive some digits faster than 120 Hz.
 Tip and middle tremor also add gentle continuous vibrato from the actual visible
 deflection. Knuckle and wrist tremor use their existing pitch mappings. Tremor
-rate is expressed in Hz independently of Tempo and Speed. Changing Tempo, Speed
+rate is expressed in Hz independently of Tempo. Changing Tempo
 or tremor rate preserves its current phase. Motion pause holds both
 choreography and tremor at their current position; Sound can sustain that pose.
 Missing tremor depth, rate spread and phase spread default to zero. Existing
@@ -108,7 +129,7 @@ the big toe. Ankle bend, side and turn replace the wrist controls.
 deform the foot between ankle and toes. Drag the arch marker vertically to bend
 or horizontally to stretch; sliders expose all three dimensions. **Elastic motion**
 (0–100%) adds deterministic arch, twist and stretch cycles that follow the
-selected choreography, Tempo and Speed. The manual shape remains editable.
+selected choreography and Tempo. The manual shape remains editable.
 Arch raises pitch and brightness, stretch lowers register and changes brightness,
 and twist changes roughness and stereo position. Their movement also excites the
 voices. These elastic deformations are expressive extensions of the source rig.
@@ -121,7 +142,7 @@ applied to the foot; its corresponding foot motion is **Toe curl · adapted**.
 Targeted tremor works on the same toe controls. A big-toe middle-joint tremor
 becomes tip tremor, while an all-toes middle tremor skips the big toe.
 
-The library has **16 foot scenes and 36 hand scenes**, interleaved in one menu.
+The library has **20 foot scenes and 40 hand scenes**, interleaved in one menu.
 The four original foot scenes—**Velvet toe curl**, **Glass toe ripple**,
 **Tin toe drumming**, and **Ankle choir**—retain their musical settings. Twelve
 new foot scenes combine elastic shapes with varied engines and tremors. Preset
@@ -159,7 +180,23 @@ a damped string loop with friction-like excitation. Vowel sends a voiced source
 through moving formants. Metal excites inharmonic ringing modes on finger motion
 and note onset; a motionless held hand lets those rings decay. These are original synthesis types, not recordings of a hand. Pitch remains
 continuous without a scale or pentatonic quantizer. Register, brightness, grain,
-space, attack and release belong to the complete preset state.
+space, attack and release belong to the complete preset state. Register spans
+**35–1,600 Hz**, with bounded synthesized voice frequencies up to 4,200 Hz.
+
+**Rhythm** offers Continuous, Walking notes, Offbeat taps, Three against four,
+and Broken phrases. The four written patterns open and close individual voice
+gates, creating attacks and rests while the corresponding digits tap visibly.
+**Note length** sets 8–90% of each note cell; Attack, Release and Space shape its
+onset and tail. These patterns use the same Tempo and freeze with Motion.
+Manual held notes and auditions can sound through a written rest. Eight new
+hand/foot presets demonstrate the rhythms without tremor.
+
+The output has a fixed 4× (+12.04 dB) gain lift after synthesis and effects,
+followed by a linked stereo peak limiter with 1.5 ms lookahead, 80 ms release,
+and a .89 sample ceiling (about −1 dBFS). The master ranges from zero to unity;
+maximum output is about 14 dB above the previous maximum. Quieter scene dynamics
+remain intact below limiting. These are measured output bounds, not a human
+listening assessment or an oversampled true-peak guarantee.
 
 **Rotation sound** controls a stereo phaser driven by the hand's orientation.
 Dragging empty space turns and tilts the hand, sweeping the effect across the
@@ -184,12 +221,12 @@ is capped at 40 frames/second, 1.6 device-pixel ratio and about 1.45 million pix
   the selected finger. Shift makes a smaller change. Sliders provide the same
   controls without direct 3D manipulation.
 - Space toggles Motion. Sound and Audio remain separate.
-- The **52 complete presets** (36 hand, 16 foot) recall the model, joints, foot
+- The **60 complete presets** (40 hand, 20 foot) recall the model, joints, foot
   shape, elastic motion, sound engines and levels, envelopes, choreography,
-  Tempo, Speed, all tremor controls, camera angle/zoom, Color and Light. Each six
+  Tempo, rhythm, note length, drawn joint contours, all tremor controls, camera angle/zoom, Color and Light. Each six
   neighboring scenes, including the menu wrap, contain hand and foot, fast and
   slow, smooth and shaky choices. The original 28 scenes retain their musical
-  settings; 12 hand and 12 foot scenes add new combinations. The adjacent dice
+  settings; 12 hand and 12 foot scenes add new combinations, with eight additional higher-register rhythmic scenes. The adjacent dice
   randomizes these settings within their bounds.
 - Reset recalls **Finger loom** without changing output or player
   switches. Audio off releases sound. Blur releases transient manual/MIDI holds.
@@ -208,8 +245,8 @@ on first selection and cached; both share one renderer, lights and appearance
 controller. Color changes always start from each material’s original color.
 
 On phones, the hand or foot stage stays visible beneath the masthead while the mixer and
-parameter controls scroll below it. The transport and parameter panel comes
-before the finger mixer on phones. The hand remains available for direct gestures
+parameter controls scroll below it. The compact voice and contour rows come
+before the transport and parameter panel on phones. The hand remains available for direct gestures
 as sound, motion and appearance settings are edited.
 
 MIDI notes map to five temporary finger gestures, with velocity controlling

@@ -6,7 +6,7 @@
   "counts": {
     "implemented": 26,
     "fullPresets": 523,
-    "favesImplemented": 13,
+    "favesImplemented": 14,
     "activeRemaining": 65,
     "regularRemaining": 134
   },
@@ -769,7 +769,7 @@
       "label": "Gesticules",
       "href": "gesticules.html",
       "category": "graphic-ui",
-      "scope": "regular",
+      "scope": "fave",
       "presets": 24,
       "status": "implemented-verification-pending",
       "evidence": "Instrument-owned complete-state adapter and bounded randomizer cover sound, motion, Tempo, Speed, tremor, camera, skin and lighting; tests/gesticulating-hand-model.test.mjs, tests/gesticulating-hand-motion-expansion.test.mjs and e2e/gesticulating-hand.spec.mjs. Human listening and physical-device acceptance remain separate."
@@ -1572,7 +1572,8 @@
       "graph-delay",
       "graph-synth",
       "cellular-automata",
-      "lattice"
+      "lattice",
+      "gesticulating-hand"
     ],
     "nonWipUnmigrated": [
       "shape-drum-machine",

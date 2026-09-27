@@ -1,6 +1,7 @@
 import { createHandViewer, FINGER_COLORS } from './hand-viewer.js';
-import { FINGERS, VOICE_SOURCES, HAND_DEFAULTS, HAND_LIMITS, FOOT_LIMITS, HAND_POSES, HAND_MOTIONS, HAND_PRESETS, TREMOR_FINGERS, TREMOR_JOINTS,
-  normalizeHandConfig, evaluateHandPose, randomizeHandConfig, handMotionPeriod, handDigitLabels, handDigitLimits, handWristLimits, handJointKeys, handJointLabel, handMotionLabel, handPoseLabel, handPoseForForm } from './hand-model.js';
+import { FINGERS, VOICE_SOURCES, HAND_DEFAULTS, HAND_LIMITS, FOOT_LIMITS, HAND_POSES, HAND_MOTIONS, HAND_PRESETS, HAND_RHYTHMS, TREMOR_FINGERS, TREMOR_JOINTS,
+  normalizeHandConfig, evaluateHandPose, randomizeHandConfig, handMotionPeriod, handEffectiveTempo, setHandEffectiveTempo, handDigitLabels, handDigitLimits, handWristLimits, handJointKeys, handJointLabel, handMotionLabel, handPoseLabel, handPoseForForm } from './hand-model.js';
+import { createHandContourEditor } from './hand-contour-editor.js';
 import { HandAudio } from './hand-audio.js';
 import { registerHeaderPresets } from '../../site/header-presets.js';
 
@@ -16,7 +17,7 @@ const state = {
   loaded: false, disposed: false, linked: true,
 };
 const audio = new HandAudio();
-let viewer, frame = 0, lastDraw = -Infinity, presets, audioRequest = 0, jointAbort;
+let viewer, contourEditor, frame = 0, lastDraw = -Infinity, presets, audioRequest = 0, jointAbort;
 const sourceId = source => typeof source === 'string' ? source : source.id;
 const sourceLabel = source => typeof source === 'string' ? source[0].toUpperCase() + source.slice(1) : source.label;
 const clamp = (v, low, high) => Math.max(low, Math.min(high, Number(v) || 0));
@@ -127,7 +128,7 @@ function draw(now) {
   frame = 0;
   if (state.disposed) return;
   if (now - lastDraw >= 1000 / 40 || !state.playing) {
-    viewer?.setPose(effectivePose(currentTime())); viewer?.render(); lastDraw = now;
+    const time=currentTime();viewer?.setPose(effectivePose(time));viewer?.render();contourEditor?.draw(time);lastDraw=now;
   }
   if (state.playing) requestDraw();
 }
@@ -195,7 +196,7 @@ function syncFormControls() {
     el(`voice-level-${i}`).parentElement.querySelector('.sr-only').textContent=`${labels[i]} level`;
     for(const action of ['mute','solo'])el(`${action}-${i}`).setAttribute('aria-label',`${sourceLabel(action)} ${labels[i].toLowerCase()}`);
   }
-  for(const option of el('motionPreset').options)option.textContent=handMotionLabel(option.value,state.config.form);
+  for(const option of el('motionPreset').options)option.textContent=option.value==='drawn'?'Drawn contours':handMotionLabel(option.value,state.config.form);
   for(const option of el('posePreset').options)option.textContent=option.value==='custom'?'Custom pose':handPoseLabel(option.value,state.config.form);
   for(const option of el('tremorFinger').options){
     const index=FINGERS.indexOf(option.value);
@@ -206,8 +207,8 @@ function syncFormControls() {
     const bounds=handWristLimits(state.config.form)[key];el(id).min=bounds[0];el(id).max=bounds[1];
   }
   el('playingNotes').textContent=foot
-    ?'Enable Audio. Hold Sound to hear the pose, or drag a toe to play it. Motion repeats adapted toe choreography; Speed changes its pace without jumping to a different pose. Toe bends change pitch and tone; spread changes stereo position. Arch bend raises pitch and brightness; stretching lowers pitch; twist moves stereo color. Elastic motion bends and stretches the rig with the choreography. Ankle movements shape all five voices. Turning and tilting sweeps the same stereo phaser.'
-    :"Enable Audio. Hold Sound to hear the pose, or drag a finger to play it. Motion repeats the selected choreography; Speed changes its pace without jumping to a different pose. Finger bends change pitch and tone; spread changes stereo position. Wrist movements shape all five voices. Turning and tilting the hand sweeps a stereo phaser; Rotation sound controls its depth.";
+    ?'Enable Audio. Hold Sound to hear the pose, or drag a toe to play it. Motion repeats adapted toe choreography; Tempo changes its pace without jumping to a different pose. Toe bends change pitch and tone; spread changes stereo position. Arch bend raises pitch and brightness; stretching lowers pitch; twist moves stereo color. Elastic motion bends and stretches the rig with the choreography. Ankle movements shape all five voices. Turning and tilting sweeps the same stereo phaser.'
+    :"Enable Audio. Hold Sound to hear the pose, or drag a finger to play it. Motion repeats the selected choreography; Tempo changes its pace without jumping to a different pose. Finger bends change pitch and tone; spread changes stereo position. Wrist movements shape all five voices. Turning and tilting the hand sweeps a stereo phaser; Rotation sound controls its depth.";
   el('keyboardNotes').textContent=`On the ${foot?'foot':'hand'}: 1–5 select a ${foot?'toe':'finger'}, ↑/↓ bend, ←/→ spread, Home relaxes it.${foot?' 6 selects the arch: ↑/↓ bend, ←/→ stretch; Home relaxes the foot shape.':''} The sliders provide individual joint control. MIDI plays ${foot?'toe':'finger'} gestures; the shared MIDI switch enables the two-row computer keyboard.`;
   el('modelCredit').innerHTML=foot
     ?'<p>Right foot adapted from <a href="https://github.com/makehumancommunity/makehuman">MakeHuman Community</a> · <a href="https://creativecommons.org/publicdomain/zero/1.0/">CC0</a>. Adapted toe rig with Mindfront’s Aksel skin; cropped and smoothed for Gesticules. <a href="assets/gesticulating-foot/README.md">Foot source and preparation</a>.</p>'
@@ -216,14 +217,14 @@ function syncFormControls() {
 }
 function syncControls() {
   syncFormControls();
-  const controls = { footArch: state.config.pose.foot?.arch??0, footTwist: state.config.pose.foot?.twist??0, footStretch: state.config.pose.foot?.stretch??0, footElasticity:state.config.motion.elasticity, tremorAmount: state.config.tremor.amount, tremorRate: state.config.tremor.rate, tremorRateSpread:state.config.tremor.rateSpread, tremorPhaseSpread:state.config.tremor.phaseSpread, speed: state.config.motion.speed, tempo: state.config.motion.tempo, motionAmount: state.config.motion.amount,
+  const controls = { footArch: state.config.pose.foot?.arch??0, footTwist: state.config.pose.foot?.twist??0, footStretch: state.config.pose.foot?.stretch??0, footElasticity:state.config.motion.elasticity, tremorAmount: state.config.tremor.amount, tremorRate: state.config.tremor.rate, tremorRateSpread:state.config.tremor.rateSpread, tremorPhaseSpread:state.config.tremor.phaseSpread, tempo: handEffectiveTempo(state.config.motion), motionAmount: state.config.motion.amount,
     wristFlex: state.config.pose.wrist.flex, wristSide: state.config.pose.wrist.side, wristTwist: state.config.pose.wrist.twist,
-    ...state.config.sound };
+    ...state.config.sound, "note-length": state.config.sound.noteLength };
   for (const [id,value] of Object.entries(controls)) {
     if (!el(id)) continue;
     el(id).value = value; updateOutput(id, value);
   }
-  el('motionPreset').value = state.config.motion.id;
+  el('motionPreset').value = state.config.motion.custom?'drawn':state.config.motion.id;
   el('tremorFinger').value=state.config.tremor.finger;el('tremorJoint').value=state.config.tremor.joint;
   el('tremorFinger').disabled=state.config.tremor.joint==='wrist';
   el('tremorJoint').querySelector('[value="middle"]').disabled=state.config.form==='foot'&&state.config.tremor.finger==='thumb';
@@ -235,13 +236,13 @@ function syncControls() {
     el(`mute-${i}`).setAttribute('aria-pressed',String(voice.mute));
     el(`solo-${i}`).setAttribute('aria-pressed',String(voice.solo));
   }
-  buildJointControls();syncViewButtons();
+  buildJointControls();syncViewButtons();contourEditor?.sync(state.config);
 }
 function updateOutput(id,value) {
   if (!el(`${id}Out`)) return;
   el(`${id}Out`).value = id==='footStretch'?`${value>0?'+':''}${Math.round(value*100)}%` : id.startsWith('wrist')||id==='footArch'||id==='footTwist' ? `${Math.round(value)}°`
     : id === 'tremorAmount' ? `${Number(value.toFixed(1))}°`
-    : id === 'tremorRate' ? `${Number(value.toFixed(1))} Hz` : id === 'speed' ? `${Number(value.toFixed(2))}×` : id === 'tempo' ? String(Math.round(value)) : id === 'rootHz' ? `${Math.round(value)} Hz`
+    : id === 'tremorRate' ? `${Number(value.toFixed(1))} Hz` : id === 'tempo' ? `${Number(value.toFixed(1))} BPM` : id === 'rootHz' ? `${Math.round(value)} Hz`
     : ['attack','release'].includes(id) ? `${Math.round(value*1000)} ms` : `${Math.round(value*100)}%`;
 }
 function applyConfiguration(value) {
@@ -255,6 +256,7 @@ function applyConfiguration(value) {
   state.tremorOffset = (previousTime + state.tremorOffset) * state.config.tremor.rate / next.tremor.rate - time;
   if(next.form!==state.config.form)formPoses.set(state.config.form,clone(state.config.pose));
   const formChanged=next.form!==state.config.form;
+  if(formChanged)contourEditor?.clearHistory();
   state.config = next;formPoses.set(next.form,clone(next.pose));anchor(time);
   if(formChanged)viewer?.setForm(next.form);
   viewer?.setCameraView(next.view);viewer?.setAppearance(next.appearance);publish();
@@ -293,7 +295,7 @@ function buildMixer() {
     tab.style.setProperty('--finger-color',FINGER_COLORS[i]); tab.textContent=labels[i];
     listen(tab,'click',()=>selectFinger(i)); el('fingerTabs').append(tab);
     const row = document.createElement('div'); row.className='hand-voice'; row.style.setProperty('--finger-color',FINGER_COLORS[i]);
-    row.innerHTML = `<button type="button" class="hand-voice-name" data-finger="${i}" aria-pressed="false">${labels[i]}</button><select id="source-${i}" aria-label="${labels[i]} sound"></select><label for="voice-level-${i}"><span class="sr-only">${labels[i]} level</span><input id="voice-level-${i}" type="range" min="0" max="1" step="0.01" value="0.6" /></label><div class="hand-mix-actions"><button type="button" id="mute-${i}" aria-label="Mute ${labels[i].toLowerCase()}" aria-pressed="false">Mute</button><button type="button" id="solo-${i}" aria-label="Solo ${labels[i].toLowerCase()}" aria-pressed="false">Solo</button></div>`;
+    row.innerHTML = `<div class="hand-voice-controls"><button type="button" class="hand-voice-name" data-finger="${i}" aria-pressed="false">${labels[i]}</button><select id="source-${i}" aria-label="${labels[i]} sound"></select><label for="voice-level-${i}"><span class="sr-only">${labels[i]} level</span><input id="voice-level-${i}" type="range" min="0" max="1" step="0.01" value="0.6" /></label><div class="hand-mix-actions"><button type="button" id="mute-${i}" aria-label="Mute ${labels[i].toLowerCase()}" aria-pressed="false">M</button><button type="button" id="solo-${i}" aria-label="Solo ${labels[i].toLowerCase()}" aria-pressed="false">S</button></div></div><div class="hand-contour-lane"><div class="hand-contour-tools"><select id="contour-joint-${i}" aria-label="${labels[i]} contour joint"></select><output id="contour-value-${i}" class="sr-only" aria-live="polite"></output><button type="button" id="contour-clear-${i}" aria-label="Clear selected ${labels[i].toLowerCase()} curve">Clear</button></div><canvas id="contour-${i}" class="hand-contour" tabindex="0" role="slider" aria-valuemin="-100" aria-valuemax="100" aria-describedby="contourHelp">Draw the selected joint movement. Left and right select a point; up and down adjust its bend.</canvas></div>`;
     el('fingerMixer').append(row);
     for (const source of VOICE_SOURCES) el(`source-${i}`).add(new Option(sourceLabel(source),sourceId(source)));
     listen(row.querySelector('[data-finger]'),'click',()=>selectFinger(i));
@@ -304,7 +306,7 @@ function buildMixer() {
 }
 function reset() {
   // Recovery resets musical state; output and both players remain under their controls.
-  state.midi.clear(); state.pointerMask=0;
+  state.midi.clear(); state.pointerMask=0;contourEditor?.clearHistory();
   syncHeld(); applyConfiguration(initialConfig); selectFinger(1,'mcp');
 }
 function releaseNotes() { state.midi.clear(); state.pointerMask=0; audio.setConfig(state.config); syncHeld(); requestDraw(); }
@@ -331,6 +333,7 @@ function onMidi(event) {
 }
 
 buildMixer();
+contourEditor=createHandContourEditor({read:()=>state.config,commit:applyConfiguration,listen,selectFinger});
 for(const [id,options] of [['tremorFinger',TREMOR_FINGERS],['tremorJoint',TREMOR_JOINTS]]) {
   const names={all:'All fingers',alternating:'Alternating',tip:'Tips',middle:id==='tremorJoint'?'Middle joints':'Middle',knuckle:'Knuckles',whole:'Whole fingers',spread:'Sideways splay'};
   for(const value of options)el(id).add(new Option(names[value]??sourceLabel(value),value));
@@ -338,13 +341,32 @@ for(const [id,options] of [['tremorFinger',TREMOR_FINGERS],['tremorJoint',TREMOR
 for(const [id,key] of [['tremorFinger','finger'],['tremorJoint','joint']])listen(el(id),'change',event=>updateConfiguration(c=>{c.tremor[key]=event.target.value;}));
 for(const [id,key] of [['tremorAmount','amount'],['tremorRate','rate'],['tremorRateSpread','rateSpread'],['tremorPhaseSpread','phaseSpread']])listen(el(id),'input',event=>updateConfiguration(c=>{c.tremor[key]=Number(event.target.value);}));
 for(const id of ['skin','lighting'])listen(el(id),'input',event=>{const value=Number(event.target.value);updateConfiguration(c=>{c.appearance[id]=value;});});
+for(const rhythm of HAND_RHYTHMS) el('rhythm').add(new Option(rhythm.label,rhythm.id));
+listen(el('rhythm'),'change',event=>updateConfiguration(c=>{c.sound.rhythm=event.target.value;}));
+listen(el('note-length'),'input',event=>updateConfiguration(c=>{c.sound.noteLength=Number(event.target.value);}));
 for(const motion of HAND_MOTIONS) el('motionPreset').add(new Option(motion.label,motion.id));
+el('motionPreset').add(new Option('Drawn contours','drawn'));
 el('posePreset').add(new Option('Custom pose','custom'));
 for(const pose of HAND_POSES) el('posePreset').add(new Option(pose.label,pose.id));
+listen(el('saveMotion'),'click',()=>{
+  const {form,pose,motion}=state.config;
+  const blob=new Blob([JSON.stringify({type:'gesticules-animation',version:1,form,pose,motion},null,2)],{type:'application/json'});
+  const url=URL.createObjectURL(blob),link=document.createElement('a');link.href=url;link.download='gesticules-animation.json';link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
+});
+listen(el('loadMotion'),'click',()=>el('motionFile').click());
+listen(el('motionFile'),'change',async event=>{
+  const file=event.target.files?.[0];event.target.value='';if(!file)return;
+  try {
+    if(file.size>1000000)throw new Error('file is too large');
+    const saved=JSON.parse(await file.text());
+    if(saved?.type!=='gesticules-animation'||saved.version!==1||!saved.motion||!saved.pose)throw new Error('choose a Gesticules animation file');
+    updateConfiguration(c=>{c.form=saved.form;c.pose=saved.pose;c.motion=saved.motion;});contourEditor.clearHistory();notify('Animation loaded.');
+  } catch(error) {notify(`Animation could not load: ${error.message}`);}
+});
 listen(el('audioButton'),'click',()=>setAudio(!(state.audioOn||state.starting)));
 listen(el('soundPlayButton'),'click',()=>setSoundPlaying(!state.soundPlaying));
 listen(el('motionButton'),'click',()=>setPlaying(!state.playing));
-listen(el('motionPreset'),'change',event=>updateConfiguration(c=>{c.motion.id=event.target.value;}));
+listen(el('motionPreset'),'change',event=>{contourEditor.clearHistory();updateConfiguration(c=>{c.motion.custom=event.target.value==='drawn';if(!c.motion.custom)c.motion.id=event.target.value;});});
 listen(el('posePreset'),'change',event=>{
   if(HAND_POSES.some(p=>p.id===event.target.value))updateConfiguration(c=>{c.pose=handPoseForForm(event.target.value,c.form);});
 });
@@ -352,10 +374,10 @@ listen(el('bodyForm'),'change',event=>updateConfiguration(c=>{
   c.form=event.target.value==='foot'?'foot':'hand';
   c.pose=clone(formPoses.get(c.form)??handPoseForForm('source-open',c.form));
 }));
-for(const id of ['speed','tempo','motionAmount','rootHz','brightness','roughness','rotationFx','space','attack','release','wristFlex','wristSide','wristTwist']) {
+for(const id of ['tempo','motionAmount','rootHz','brightness','roughness','rotationFx','space','attack','release','wristFlex','wristSide','wristTwist']) {
   listen(el(id),'input',event=>{
     const value=Number(event.target.value);
-    if(id==='tempo'||id==='speed') { updateConfiguration(c=>{c.motion[id]=value;}); return; }
+    if(id==='tempo') { updateConfiguration(c=>setHandEffectiveTempo(c.motion,value)); return; }
     else if(id==='motionAmount') state.config.motion.amount=value;
     else if(id.startsWith('wrist')) {
       state.config.pose.wrist[id.slice(5).toLowerCase()]=value;
@@ -365,7 +387,7 @@ for(const id of ['speed','tempo','motionAmount','rootHz','brightness','roughness
     updateOutput(id,value); publish();
   });
 }
-for(const [id,bounds] of Object.entries({speed:HAND_LIMITS.motion.speed,tempo:HAND_LIMITS.motion.tempo,motionAmount:HAND_LIMITS.motion.amount,
+for(const [id,bounds] of Object.entries({tempo:[2,4400],motionAmount:HAND_LIMITS.motion.amount,
   ...HAND_LIMITS.sound,wristFlex:HAND_LIMITS.wrist.flex,wristSide:HAND_LIMITS.wrist.side,wristTwist:HAND_LIMITS.wrist.twist})){
   if(el(id)){el(id).min=bounds[0];el(id).max=bounds[1];}
 }
@@ -424,7 +446,7 @@ listen(window,'pageshow',event=>{
 });
 presets=registerHeaderPresets({id:'gesticulating-hand',presets:HAND_PRESETS,
   capture:()=>clone(state.config),
-  apply:applyConfiguration,
+  apply:value=>{contourEditor.clearHistory();applyConfiguration(value);},
   randomize:(snapshot,random)=>randomizeHandConfig(snapshot,random),
 });
 audio.setConfig(state.config);audio.setOutput(Number(el('outputLevel').value));

@@ -14,8 +14,13 @@ const LEGACY_IDS = [
   "vowel-fan", "metal-walk", "tangled-polyrhythm", "swarming-fingers", "orbit-frenzy", "scattered-sparks",
   "foot-velvet-curl", "foot-glass-ripple", "foot-tin-drumming", "foot-ankle-orbit",
 ];
-const legacyIds = new Set(LEGACY_IDS);
-const added = HAND_PRESETS.filter(preset => !legacyIds.has(preset.id));
+const RHYTHMIC_IDS = [
+  "hand-crystal-staccato", "hand-wire-backbeat", "hand-singing-triplet", "hand-tin-skips",
+  "foot-glass-steps", "foot-wire-upbeat", "foot-bowed-waltz", "foot-copper-breaks",
+];
+const legacyIds = new Set(LEGACY_IDS), rhythmicIds = new Set(RHYTHMIC_IDS);
+const added = HAND_PRESETS.filter(preset => !legacyIds.has(preset.id) && !rhythmicIds.has(preset.id));
+const rhythmic = HAND_PRESETS.filter(preset => rhythmicIds.has(preset.id));
 const effectiveTempo = preset => preset.snapshot.motion.tempo * preset.snapshot.motion.speed;
 const smooth = preset => preset.snapshot.tremor.amount < 1;
 const shaky = preset => preset.snapshot.tremor.amount >= 4;
@@ -28,14 +33,16 @@ function assertDeepFrozen(value, path = "preset") {
   for (const [key, child] of Object.entries(value)) assertDeepFrozen(child, `${path}.${key}`);
 }
 
-test("scene factory retains all legacy identities and adds twelve scenes for each form", () => {
-  assert.equal(HAND_PRESETS.length, 52);
-  assert.equal(distinct(HAND_PRESETS, preset => preset.id), 52);
-  assert.equal(distinct(HAND_PRESETS, preset => preset.label), 52);
+test("scene factory retains the previous banks and adds four rhythmic scenes for each form", () => {
+  assert.equal(HAND_PRESETS.length, 60);
+  assert.equal(distinct(HAND_PRESETS, preset => preset.id), 60);
+  assert.equal(distinct(HAND_PRESETS, preset => preset.label), 60);
   for (const id of LEGACY_IDS) assert.ok(HAND_PRESETS.some(preset => preset.id === id), id);
-  assert.equal(HAND_PRESETS.filter(preset => preset.snapshot.form === "hand").length, 36);
-  assert.equal(HAND_PRESETS.filter(preset => preset.snapshot.form === "foot").length, 16);
+  assert.equal(HAND_PRESETS.filter(preset => preset.snapshot.form === "hand").length, 40);
+  assert.equal(HAND_PRESETS.filter(preset => preset.snapshot.form === "foot").length, 20);
   assert.equal(added.length, 24);
+  assert.equal(rhythmic.length, 8);
+  for (const form of ["hand", "foot"]) assert.equal(rhythmic.filter(preset => preset.snapshot.form === form).length, 4, form);
   for (const form of ["hand", "foot"]) assert.equal(added.filter(preset => preset.snapshot.form === form).length, 12, form);
 
   const rebuilt = createHandPresets({ normalizeHandConfig, HAND_POSES, handPoseForForm });
@@ -47,7 +54,10 @@ test("scene factory retains all legacy identities and adds twelve scenes for eac
     assert.deepEqual(Object.keys(snapshot).sort(), ["appearance", "form", "motion", "pose", "sound", "tremor", "version", "view", "voices"]);
     assert.equal(snapshot.voices.length, 5, id);
     assert.ok(snapshot.voices.every(voice => VOICE_SOURCES.includes(voice.source) && voice.level > 0 && !voice.mute && !voice.solo), id);
-    for (const value of Object.values(snapshot.appearance)) assert.ok(Number.isFinite(value) && value >= 0 && value <= 1, id);
+    for (const [key, max] of [["skin", 1], ["lighting", 1.6]]) {
+      const value = snapshot.appearance[key];
+      assert.ok(Number.isFinite(value) && value >= 0 && value <= max, `${id}: ${key}`);
+    }
   }
 });
 
@@ -91,7 +101,7 @@ test("new scenes span engines, choreography, envelopes, view, color and light", 
     assert.ok(Math.min(...positions) < .1 && Math.max(...positions) > .9, key);
   }
   // Appearance-only variants do not count as new musical scenes.
-  assert.equal(distinct(HAND_PRESETS, ({ snapshot: { pose, motion, sound, voices } }) => JSON.stringify({ pose, motion, sound, voices })), 52);
+  assert.equal(distinct(HAND_PRESETS, ({ snapshot: { pose, motion, sound, voices } }) => JSON.stringify({ pose, motion, sound, voices })), 60);
 });
 
 test("legacy scenes retain neutral elastic deformation while new feet author bounded moving shapes", () => {
@@ -142,5 +152,35 @@ test("new tremor scenes include independently timed toes, sideways splay and gen
   for (const { id, snapshot } of HAND_PRESETS) {
     assert.ok(snapshot.tremor.rateSpread >= 0 && snapshot.tremor.rateSpread <= 1, id);
     assert.ok(snapshot.tremor.phaseSpread >= 0 && snapshot.tremor.phaseSpread <= 1, id);
+  }
+});
+
+
+test("eight rhythmic scenes provide bright registers and genuine note patterns without tremor", () => {
+  for (const id of RHYTHMIC_IDS) assert.ok(rhythmic.some(preset => preset.id === id), id);
+  for (const form of ["hand", "foot"]) {
+    assert.deepEqual(rhythmic.filter(preset => preset.snapshot.form === form).map(preset => preset.snapshot.sound.rhythm).sort(),
+      ["broken", "offbeat", "three-four", "walk"]);
+  }
+  assert.ok(rhythmic.filter(preset => preset.snapshot.sound.rootHz >= 450 && preset.snapshot.sound.rootHz <= 900).length >= 5);
+  const sources = new Set(rhythmic.flatMap(preset => preset.snapshot.voices.map(voice => voice.source)));
+  for (const source of ["glass", "wire", "pulse", "metal", "vowel", "bowed"]) assert.ok(sources.has(source), source);
+  assert.ok(rhythmic.some(preset => preset.snapshot.appearance.lighting > 1));
+  assert.ok(rhythmic.some(preset => preset.snapshot.appearance.lighting < 1));
+  for (const { id, snapshot } of rhythmic) {
+    assert.equal(snapshot.tremor.amount, 0, id);
+    assert.ok(snapshot.sound.attack <= .03, `${id}: defined attack`);
+    assert.ok(snapshot.sound.release <= .18, `${id}: short release`);
+    assert.ok(snapshot.sound.noteLength >= .08 && snapshot.sound.noteLength <= .45, `${id}: note window leaves rests`);
+    assert.ok(snapshot.sound.space <= .25, `${id}: room leaves notes distinct`);
+    assert.ok(snapshot.view.zoom >= (snapshot.form === "foot" ? 1.05 : 1), `${id}: framing`);
+    if (snapshot.form === "foot") {
+      assert.ok(Math.abs(snapshot.pose.foot.arch) <= 12 && Math.abs(snapshot.pose.foot.twist) <= 8 && Math.abs(snapshot.pose.foot.stretch) <= .08, `${id}: gentle shape`);
+      assert.ok(snapshot.motion.elasticity > 0 && snapshot.motion.elasticity <= .2, `${id}: gentle elasticity`);
+    }
+  }
+  for (const { id, snapshot } of HAND_PRESETS.filter(preset => !rhythmicIds.has(preset.id))) {
+    assert.equal(snapshot.sound.rhythm, "continuous", `${id}: original sustain`);
+    assert.equal(snapshot.sound.noteLength, .45, `${id}: neutral new note length`);
   }
 });

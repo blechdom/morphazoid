@@ -17,6 +17,10 @@ test("homepage and Choose share Faves order, with Creaturazoid immediately after
     await expect(page.locator(`.catalogue-group[data-category-id="geometric"] .instrument-card[data-instrument-id="${id}"]`)).toBeVisible();
   }
   expect(menu).toEqual(home);
+  expect(home.filter(id => id === "gesticulating-hand")).toHaveLength(1);
+  await expect(page.locator('.catalogue-group[data-category-id="faves"] .instrument-card[data-instrument-id="gesticulating-hand"] .instrument-card-link')).toHaveAttribute("href", "gesticules.html");
+  await expect(page.locator('.instrument-picker-group[data-group-id="faves"] .instrument-picker-link[data-tool-id="gesticulating-hand"]')).toHaveAttribute("href", /\/gesticules\.html$/);
+  await expect(page.locator('.catalogue-group[data-category-id="graphic-ui"] .instrument-card[data-instrument-id="gesticulating-hand"]')).toBeVisible();
   expect(home[home.indexOf("hiccup-head") + 1]).toBe("creaturazoid");
   expect(home).not.toContain("spiral");
   await expect(page.locator('.catalogue-group[data-category-id="tesselation"] .instrument-card[data-instrument-id="spiral"]')).toBeVisible();

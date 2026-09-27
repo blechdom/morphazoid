@@ -1142,3 +1142,9 @@ copy+require	src/instruments/rubixoids/rubix/rubix-clock.js
 
 # L-Systems shared subdivision clock and timed Notes
 copy+require	src/instruments/l-systems/discrete-audio.js
+
+copy+require	src/instruments/gesticulating-hand/hand-rhythm.js
+copy+require	src/instruments/gesticulating-hand/hand-output.js
+
+copy+require	src/instruments/gesticulating-hand/hand-contour.js
+copy+require	src/instruments/gesticulating-hand/hand-contour-editor.js

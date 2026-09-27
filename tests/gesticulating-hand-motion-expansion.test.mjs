@@ -213,7 +213,9 @@ test("complex choreographies have independently articulated fingers and counter-
 });
 
 test("the faster range preserves old preset timings and normal startup", () => {
-  assert.deepEqual(HAND_DEFAULTS.motion, { id: "source-grasp", tempo: 72, amount: .85, speed: 1, elasticity: 0 });
+  const {custom,contours,...legacyMotion}=HAND_DEFAULTS.motion;
+  assert.deepEqual(legacyMotion, { id: "source-grasp", tempo: 72, amount: .85, speed: 1, elasticity: 0 });
+  assert.equal(custom,false);assert.ok(contours.every(joints=>Object.values(joints).every(curve=>curve.every(value=>value===0))));
   assert.equal(handMotionPeriod(HAND_DEFAULTS.motion), 240 / 72);
   const previousTimings = [
     ["glass-wave", 67, 1], ["reed-beckon", 79, 1], ["wire-roll", 104, 1], ["pinch-sparks", 92, 1],

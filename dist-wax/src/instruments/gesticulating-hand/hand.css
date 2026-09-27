@@ -99,9 +99,42 @@
 .hand-transports .hand-section-title { margin-bottom: 12px; }
 .hand-transports .hand-control { margin-top: 0; }
 .hand-page .hand-tempo input[type="range"] { height: var(--hand-play-size); min-height: var(--hand-play-size); margin: 0; }
-.hand-transports .hand-speed { margin-top: 12px; }
 @media (pointer: coarse) { .hand-transport-row { --hand-play-size: 48px; } }
 
 .hand-transports .hand-form { margin: 0 0 14px; }
 
 .hand-control-block[hidden] { display: none; }
+
+/* Compact voice rows with overlaid joint contours. */
+.hand-finger-mixer { grid-template-columns: minmax(0,1fr); gap: 5px; }
+.hand-voice { display: grid; grid-template-columns: 175px minmax(0,1fr); align-items: center; gap: 12px; padding: 6px 0; border-top: 0; border-left: 2px solid var(--finger-color); padding-left: 9px; }
+.hand-voice-controls { display: grid; grid-template-columns: minmax(0,1fr) 58px; gap: 3px 6px; align-items: center; }
+.hand-voice-name { grid-column: 1 / -1; font-size: 11px !important; min-height: 20px !important; }
+.hand-voice-controls > select { grid-column: 1 / -1; min-height: 26px; padding: 2px 4px; }
+.hand-voice label, .hand-voice .hand-mix-actions { margin: 0; }
+.hand-voice input[type="range"] { height: 24px; margin: 0; }
+.hand-mix-actions { flex-wrap: nowrap; }
+.hand-mix-actions button { min-width: 25px; min-height: 27px; }
+.hand-contour-lane { min-width: 0; }
+.hand-contour-tools { display: flex; align-items: center; gap: 8px; height: 25px; margin-bottom: 3px; }
+.hand-contour-tools select { max-width: 145px; min-height: 24px; height: 24px; padding: 1px 3px; border: 0; background: transparent; font-size: 10px; }
+.hand-contour-tools button { margin-left: auto; padding: 2px 3px; min-height: 24px; border: 0; background: transparent; font-size: 10px; color: var(--hand-muted); }
+.hand-contour { display: block; width: 100%; height: 57px; background: #ffffff04; border-radius: 3px; touch-action: none; cursor: crosshair; }
+.hand-contour:focus-visible { outline: 2px solid var(--finger-color); outline-offset: 2px; }
+.hand-contour-actions { display: flex; align-items: center; gap: 8px; }
+.hand-voices .hand-section-title { margin-bottom: 3px; flex-wrap: wrap; }
+.hand-voices .hand-gesture-help { margin: 4px 0 8px; }
+@media(min-width:961px) { .hand-viewport { height: clamp(330px,calc(100dvh - 530px),650px); } }
+@media(max-width:960px) { .hand-voices { order: 1; padding-top: 6px; } .hand-voice { grid-template-columns: 120px minmax(0,1fr); gap: 8px; } }
+@media(max-width:450px) { .hand-voice { grid-template-columns: 94px minmax(0,1fr); gap: 6px; padding-left: 6px; } .hand-voice-controls { grid-template-columns: minmax(0,1fr) 52px; gap: 2px; } .hand-contour { height: 66px; } .hand-contour-actions { gap: 9px; } }
+@media(pointer:coarse) { .hand-contour-tools { height: 32px; } .hand-contour-tools select, .hand-contour-tools button { min-height: 32px; height: 32px; } .hand-voice .hand-mix-actions button { min-height: 32px; } .hand-contour-actions button { min-height: 32px; } }
+
+@media(min-width:961px) and (pointer:fine) {
+  .hand-viewport { height: clamp(300px,calc(100dvh - 565px),650px); }
+  .hand-voice { padding-top: 4px; padding-bottom: 4px; }
+  .hand-voice-controls { grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: 3px 6px; }
+  .hand-voice-name { grid-column: 1; }
+  .hand-voice-controls > select { grid-column: 2; }
+  .hand-contour-tools { height: 22px; }
+  .hand-contour { height: 42px; }
+}

@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
-import { readAudioStatus } from './helpers/audio-probe.mjs';
+import { readAudioStatus, sampleAudioEnvelope } from './helpers/audio-probe.mjs';
 
 const snapshot=page=>page.evaluate(()=>window.__gesticulatingHand.snapshot());
 const range=(page,id,value)=>page.locator('#'+id).evaluate((input,value)=>{
@@ -22,9 +22,20 @@ test('loads the real weighted hand and starts with no AudioContext',async({page}
   expect(await page.locator('#posePreset').inputValue()).toBe('relaxed');
   await expect(page.locator('h1')).toHaveText('Gesticules');
   await expect(page.locator('[data-instrument-preset-host] .header-preset-picker')).toBeVisible();
-  expect(await page.locator('#motionPreset option').count()).toBe(36);
+  expect(await page.locator('#motionPreset option').count()).toBe(37);
   expect(await page.locator('#source-0 option').count()).toBe(8);
-  expect(await page.locator('#speed').inputValue()).toBe('1');
+  await expect(page.locator('#speed')).toHaveCount(0);
+  await expect(page.locator('#tempo')).toHaveAttribute('min','2');
+  await expect(page.locator('#tempo')).toHaveAttribute('max','4400');
+  await expect(page.locator('#tempo')).toHaveAttribute('step','0.1');
+  expect(Math.abs(Number(await page.locator('#tempo').inputValue())-state.config.motion.tempo*state.config.motion.speed)).toBeLessThanOrEqual(.051);
+  await expect(page.locator('#outputLevel')).toHaveAttribute('max','1');
+  await expect(page.locator('#rhythm')).toHaveValue('continuous');
+  await expect(page.locator('#note-length')).toHaveAttribute('min','0.08');
+  await expect(page.locator('#note-length')).toHaveAttribute('max','0.9');
+  await expect(page.getByRole('link',{name:'Model, movement and sound notes',exact:true})).toHaveCount(0);
+  const bank=await page.evaluate(async()=>{const {HAND_PRESETS}=await import('/src/instruments/gesticulating-hand/hand-model.js');return HAND_PRESETS.map(scene=>scene.snapshot.form);});
+  expect(bank).toHaveLength(60);expect(bank.filter(form=>form==='hand')).toHaveLength(40);expect(bank.filter(form=>form==='foot')).toHaveLength(20);
   const result=await new AxeBuilder({page}).withTags(['wcag2a','wcag2aa','wcag21aa']).analyze();
   expect(result.violations).toEqual([]);
 });
@@ -75,7 +86,7 @@ test('preset recall covers its full ranges and preserves both players and output
   await page.getByRole('button',{name:'Little machinery',exact:true}).click();
   const state=await snapshot(page);expect(state.playing&&state.soundPlaying).toBe(true);expect(state.audioOn).toBe(false);
   expect(await page.locator('#outputLevel').inputValue()).toBe('0.23');
-  expect(Number(await page.locator('#tempo').inputValue())).toBe(state.config.motion.tempo);
+  expect(Math.abs(Number(await page.locator('#tempo').inputValue())-state.config.motion.tempo*state.config.motion.speed)).toBeLessThanOrEqual(.051);
   await page.locator('.header-preset-picker summary').click();
   await page.getByRole('button',{name:'Hushed palm',exact:true}).click();
   expect(Number(await page.locator('#release').inputValue())).toBe(2.2);
@@ -125,7 +136,7 @@ test('the previous address preserves queries and fragments when redirecting to G
 });
 
 for(const armed of [false,true]) {
-  test(`speed and tempo preserve gesture and tremor with Audio ${armed?'on':'off'}`,async({page})=>{
+  test(`combined tempo preserves gesture and tremor with Audio ${armed?'on':'off'}`,async({page})=>{
     if(armed) {
       await page.locator('#audioButton').click();
       await expect(page.locator('#audioButton')).toHaveAttribute('aria-pressed','true');
@@ -136,7 +147,8 @@ for(const armed of [false,true]) {
     await page.waitForTimeout(320);
     for(const playing of [true,false]) {
       if(!playing)await page.locator('#motionButton').click();
-      for(const [id,values] of [['speed',[.1,4,1]],['tempo',[20,1100,72]]])for(const value of values) {
+      for(const value of [2,4400,72.3,72]) {
+        const id='tempo';
         const result=await page.evaluate(async({id,value})=>{
           const {evaluateHandPose,handMotionPeriod}=await import("/src/instruments/gesticulating-hand/hand-model.js");
           const started=performance.now();
@@ -148,10 +160,10 @@ for(const armed of [false,true]) {
           return {before,after,oldTime,elapsed,periodRatio,expected:evaluateHandPose(before.config,oldTime,undefined,after.tremorTime)};
         },{id,value});
         const {before,after,expected,oldTime,elapsed,periodRatio}=result;
-        expect(after.config.motion[id]).toBe(value);
+        expect(after.config.motion.tempo*after.config.motion.speed).toBeCloseTo(value,8);
         expect(after.playing).toBe(playing);expect(after.soundPlaying).toBe(true);expect(after.audioOn).toBe(armed);
         // Converting back to the old period also scales time spent updating the
-        // DOM (up to 55× here). Chromium's audio clock advances in batched quanta.
+        // DOM (up to 2,200× here). Chromium's audio clock advances in batched quanta.
         const clockAllowance=armed?.012:.0002;
         expect(Math.abs(oldTime-before.time)).toBeLessThan(playing?(elapsed+clockAllowance)*Math.max(1,periodRatio):1e-8);
         expect(Math.abs(after.tremorTime-before.tremorTime)).toBeLessThan(playing?elapsed+clockAllowance:1e-8);
@@ -160,7 +172,7 @@ for(const armed of [false,true]) {
           expect(Math.abs(after.pose.fingers[i][key]-expected.fingers[i][key])).toBeLessThan(.0001);
           if(!playing)expect(Math.abs(after.pose.fingers[i][key]-before.pose.fingers[i][key])).toBeLessThan(.0001);
         }
-        await expect(page.locator('#'+id+'Out')).toHaveText(id==='speed'?`${value}×`:String(value));
+        await expect(page.locator('#tempoOut')).toHaveText(`${value} BPM`);
       }
     }
     if(!armed)expect((await snapshot(page)).audio.contextState).toBe('uninitialized');
@@ -183,7 +195,9 @@ test('new engines play through the worklet and all choreography choices remain e
   for(const motion of motions) {
     await page.locator('#motionPreset').selectOption(motion);
     const current=await snapshot(page);
-    expect(current.config.motion.id).toBe(motion);expect(current.playing&&current.soundPlaying).toBe(true);
+    if(motion==='drawn')expect(current.config.motion.custom).toBe(true);
+    else {expect(current.config.motion.id).toBe(motion);expect(current.config.motion.custom).toBe(false);}
+    expect(current.playing&&current.soundPlaying).toBe(true);
   }
   await page.locator('#audioButton').click();await page.waitForTimeout(200);
   expect((await snapshot(page)).audio.rms).toBeLessThan(.0001);
@@ -249,7 +263,7 @@ const chooseScene=async(page,label)=>{
   await page.getByRole('button',{name:label,exact:true}).click();
 };
 
-test('full presets restore tempo, speed, camera, tremors, skin and lighting after live edits',async({page})=>{
+test('full presets restore combined tempo, rhythm, camera, tremors, skin and lighting after live edits',async({page})=>{
   await range(page,'outputLevel',.23);
   await page.locator('#soundPlayButton').click();await page.locator('#motionButton').click();
   for(const label of ['Finger swarm','Scattered sparks']) {
@@ -258,8 +272,9 @@ test('full presets restore tempo, speed, camera, tremors, skin and lighting afte
     expect(saved.config.motion.tempo).toBeGreaterThan(220);
     expect(saved.config.motion.speed).toBeGreaterThan(1);
     expect(saved.config.tremor.amount).toBeGreaterThan(0);
-    expect(Number(await page.locator('#tempo').inputValue())).toBe(saved.config.motion.tempo);
-    expect(Number(await page.locator('#speed').inputValue())).toBe(saved.config.motion.speed);
+    expect(Math.abs(Number(await page.locator('#tempo').inputValue())-saved.config.motion.tempo*saved.config.motion.speed)).toBeLessThanOrEqual(.051);
+    await expect(page.locator('#rhythm')).toHaveValue(saved.config.sound.rhythm);
+    expect(Number(await page.locator('#note-length').inputValue())).toBeCloseTo(saved.config.sound.noteLength,3);
     await page.locator('[data-view="back"]').click();await page.locator('#zoomIn').click();
     const camera=(await snapshot(page)).config.view;
     const captured=await page.evaluate(async()=>{
@@ -268,7 +283,8 @@ test('full presets restore tempo, speed, camera, tremors, skin and lighting afte
     expect(captured.snapshot.view).toEqual(camera);
     expect(captured.selectedId).toBe(null);
     await expect(page.locator('.header-preset-picker summary')).toContainText('Custom');
-    await range(page,'tempo',40);await range(page,'speed',.2);await range(page,'tremorAmount',.7);
+    await range(page,'tempo',8);await range(page,'tremorAmount',.7);
+    await page.locator('#rhythm').selectOption('broken');await range(page,'note-length',.83);
     await range(page,'skin',.83);await range(page,'lighting',.71);
     await chooseScene(page,label);
     const restored=await snapshot(page);
@@ -335,9 +351,9 @@ test('continuous Color and Light sliders change both surfaces and restore their 
   expect((await snapshot(page)).config.appearance).toEqual({skin:.621,lighting:1.337});
 });
 
-test('maximum tempo, speed and tremor sustain all complex patterns through a rendering stall',async({page})=>{
+test('maximum combined tempo and tremor sustain all complex patterns through a rendering stall',async({page})=>{
   await page.locator('#audioButton').click();await expect(page.locator('#audioButton')).toHaveAttribute('aria-pressed','true');
-  await range(page,'tempo',1100);await range(page,'speed',4);await range(page,'tremorAmount',15);await range(page,'tremorRate',40);
+  await range(page,'tempo',4400);await range(page,'tremorAmount',15);await range(page,'tremorRate',40);
   await page.locator('#tremorJoint').selectOption('whole');await page.locator('#tremorFinger').selectOption('alternating');
   await page.locator('#soundPlayButton').click();await page.locator('#motionButton').click();
   for(const motion of ['polyrhythmic-tangle','finger-swarm','frantic-orbit','scatter']) {
@@ -377,7 +393,7 @@ test.describe('pinned mobile stage',()=>{
       for(let step=1;step<=8;step++)await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x,y:from+(to-from)*step/8}]});
       await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
       await expect.poll(async()=>(await geometry()).scroll).toBeGreaterThan(30);
-      for(const id of ['tempo','speed','rotationFx','skin','lighting','release','source-4']) {
+      for(const id of ['tempo','rhythm','note-length','rotationFx','skin','lighting','release','source-4','contour-joint-0','contour-0','contour-4']) {
         await page.locator('#'+id).evaluate(input=>{input.scrollIntoView({block:'center'});input.focus({preventScroll:true});});
         const current=await geometry();
         expect(current.stage.y).toBeCloseTo(initial.stage.y,0);expect(current.canvas.x).toBeCloseTo(initial.canvas.x,0);
@@ -405,19 +421,19 @@ test.describe('pinned mobile stage',()=>{
 
 
 test('right-panel players use aligned Shape transport icons and keep separate ownership',async({page})=>{
-  for(const id of ['soundPlayButton','motionButton','speed','tempo']) {
+  for(const id of ['soundPlayButton','motionButton','tempo']) {
     await expect(page.locator(`.hand-panel #${id}`)).toHaveCount(1);
     await expect(page.locator(`#handStage #${id}`)).toHaveCount(0);
   }
   const layout=await page.evaluate(()=>{
     const rect=id=>document.getElementById(id).getBoundingClientRect().toJSON();
-    const ids=['soundPlayButton','motionButton','tempo','speed'];
+    const ids=['soundPlayButton','motionButton','tempo'];
     return {boxes:Object.fromEntries(ids.map(id=>[id,rect(id)])),radius:getComputedStyle(document.getElementById('motionButton')).borderRadius};
   });
   expect(layout.radius).toBe('50%');
   expect(layout.boxes.soundPlayButton.y).toBeCloseTo(layout.boxes.motionButton.y,0);
   expect(layout.boxes.tempo.y).toBeCloseTo(layout.boxes.motionButton.y,0);
-  expect(layout.boxes.speed.y).toBeGreaterThan(layout.boxes.tempo.bottom);
+  await expect(page.locator('#speed')).toHaveCount(0);
   await page.locator('#soundPlayButton').click();
   await expect(page.locator('#soundPlayButton .transport-pause')).toBeVisible();
   await expect(page.locator('#soundPlayButton .transport-play')).toBeHidden();
@@ -450,4 +466,187 @@ test('rotation reaches the worklet and auditions the hand only after Audio is ar
   await chooseScene(page,'Finger swarm');const saved=(await snapshot(page)).config.sound.rotationFx;
   await range(page,'rotationFx',saved===1?0:1);await chooseScene(page,'Finger swarm');
   expect((await snapshot(page)).config.sound.rotationFx).toBe(saved);
+});
+
+test('rhythm controls keep transport independent and turn held sound into separated notes',async({page})=>{
+  await expect(page.locator('#rhythm option')).toHaveCount(5);
+  const choices=await page.locator('#rhythm option').evaluateAll(options=>options.map(option=>option.value));
+  expect(choices).toEqual(['continuous','walk','offbeat','three-four','broken']);
+  await page.locator('#soundPlayButton').click();await page.locator('#motionButton').click();
+  for(const rhythm of choices) {
+    await page.locator('#rhythm').selectOption(rhythm);await range(page,'note-length',.18);
+    const state=await snapshot(page);
+    expect(state.config.sound.rhythm).toBe(rhythm);expect(state.config.sound.noteLength).toBe(.18);
+    expect(state.soundPlaying&&state.playing).toBe(true);expect(state.audio.contextState).toBe('uninitialized');
+  }
+  await page.locator('#rhythm').selectOption('continuous');await range(page,'tempo',120);
+  await range(page,'attack',.004);await range(page,'release',.04);await range(page,'space',0);await range(page,'rotationFx',0);
+  for(let i=0;i<5;i++)await page.locator(`#source-${i}`).selectOption('reed');
+  await page.locator('#audioButton').click();await expect(page.locator('#audioButton')).toHaveAttribute('aria-pressed','true');
+  await expect.poll(async()=>(await readAudioStatus(page)).rms).toBeGreaterThan(.005);
+  const sustained=await sampleAudioEnvelope(page,{durationMs:800,intervalMs:25});
+  await page.locator('#rhythm').selectOption('walk');await range(page,'note-length',.08);await page.waitForTimeout(160);
+  const separated=await sampleAudioEnvelope(page,{durationMs:2400,intervalMs:25});
+  expect(separated.summary.finite).toBe(true);expect(separated.summary.clippedSamples).toBe(0);
+  expect(separated.summary.maxRms).toBeGreaterThan(.001);
+  expect(separated.summary.meanRms).toBeLessThan(sustained.summary.meanRms*.7);
+  expect(separated.samples.filter(sample=>sample.rms<separated.summary.maxRms*.08).length).toBeGreaterThan(3);
+  await range(page,'note-length',.9);await page.waitForTimeout(160);
+  const longer=await sampleAudioEnvelope(page,{durationMs:1800,intervalMs:25});
+  expect(longer.summary.meanRms).toBeGreaterThan(separated.summary.meanRms*1.25);
+  const state=await snapshot(page);expect(state.audioOn&&state.soundPlaying&&state.playing).toBe(true);
+  expect((await readAudioStatus(page)).connectionCount).toBe(1);
+  await page.locator('#audioButton').click();
+  await expect.poll(async()=>(await readAudioStatus(page)).peak).toBeLessThan(.00001);
+  expect((await snapshot(page)).playing).toBe(true);
+});
+
+test('four rhythmic hand presets recall their complete articulation and precise combined tempo',async({page})=>{
+  const labels=['Crystal staccato','Wire backbeat','Singing triplet','Tin skips'];
+  const scenes=await page.evaluate(async labels=>{
+    const {HAND_PRESETS}=await import('/src/instruments/gesticulating-hand/hand-model.js');
+    return labels.map(label=>HAND_PRESETS.find(scene=>scene.label===label));
+  },labels);
+  expect(scenes.every(Boolean)).toBe(true);
+  await range(page,'outputLevel',.23);await page.locator('#soundPlayButton').click();await page.locator('#motionButton').click();
+  for(const scene of scenes) {
+    await range(page,'tempo',2);await page.locator('#rhythm').selectOption('continuous');await range(page,'note-length',.9);
+    await chooseScene(page,scene.label);
+    const restored=await snapshot(page);expect(restored.config).toEqual(scene.snapshot);
+    expect(restored.soundPlaying&&restored.playing).toBe(true);expect(restored.audio.contextState).toBe('uninitialized');
+    await expect(page.locator('#outputLevel')).toHaveValue('0.23');await expect(page.locator('#rhythm')).toHaveValue(scene.snapshot.sound.rhythm);
+    expect(Number(await page.locator('#note-length').inputValue())).toBeCloseTo(scene.snapshot.sound.noteLength,3);
+    const expectedTempo=scene.snapshot.motion.tempo*scene.snapshot.motion.speed;
+    expect(Math.abs(Number(await page.locator('#tempo').inputValue())-expectedTempo)).toBeLessThanOrEqual(.051);
+  }
+});
+
+test('the output control reaches unity and mutes the actual speaker route at zero',async({page})=>{
+  await page.locator('#outputLevel').focus();await page.locator('#outputLevel').press('End');
+  await expect(page.locator('#outputLevel')).toHaveValue('1');await expect(page.locator('#outputLevelOut')).toHaveText('100%');
+  expect((await snapshot(page)).audio.contextState).toBe('uninitialized');
+  await page.locator('#audioButton').click();await page.locator('#soundPlayButton').click();
+  await expect.poll(async()=>(await readAudioStatus(page)).rms).toBeGreaterThan(.005);
+  const audible=await sampleAudioEnvelope(page,{durationMs:600,intervalMs:30});
+  expect(audible.summary.finite).toBe(true);expect(audible.summary.clippedSamples).toBe(0);
+  expect(audible.summary.maxPeak).toBeLessThanOrEqual(.890001);
+  await page.locator('#outputLevel').focus();await page.locator('#outputLevel').press('Home');
+  await expect(page.locator('#outputLevel')).toHaveValue('0');
+  await expect.poll(async()=>(await readAudioStatus(page)).peak).toBe(0);
+  expect((await snapshot(page)).audioOn).toBe(true);expect((await snapshot(page)).soundPlaying).toBe(true);
+});
+
+test('one captured contour drag fills skipped points, edits only its joint and undoes as one action',async({page})=>{
+  await page.locator('#motionPreset').selectOption('still');
+  await page.locator('#contour-joint-1').selectOption('pip');
+  const before=await snapshot(page),canvas=page.locator('#contour-1');
+  await canvas.scrollIntoViewIfNeeded();const rect=await canvas.boundingBox();
+  await page.mouse.move(rect.x+rect.width*2/16,rect.y+rect.height*.2);await page.mouse.down();
+  const pointerId=await canvas.evaluate(canvas=>[1,2,3].find(id=>canvas.hasPointerCapture(id)));
+  expect(pointerId).toBeDefined();
+  await page.mouse.move(rect.x+rect.width*14/16,rect.y+rect.height*.8,{steps:1});
+  const drawn=await snapshot(page),curve=drawn.config.motion.contours[1].pip;
+  expect(drawn.config.motion.custom).toBe(true);await expect(page.locator('#motionPreset')).toHaveValue('drawn');
+  expect(curve[2]).toBeGreaterThan(.5);expect(curve[14]).toBeLessThan(-.5);
+  for(let point=3;point<14;point++)expect(curve[point]).toBeCloseTo(curve[2]+(curve[14]-curve[2])*(point-2)/12,8);
+  for(let finger=0;finger<5;finger++)for(const joint of ['mcp','pip','dip','spread']) {
+    if(finger!==1||joint!=='pip')expect(drawn.config.motion.contours[finger][joint]).toEqual(before.config.motion.contours[finger][joint]);
+  }
+  await page.mouse.move(rect.x+rect.width+20,rect.y+rect.height*.5);
+  await canvas.dispatchEvent('pointercancel',{pointerId});await page.mouse.up();
+  expect(await canvas.evaluate((canvas,id)=>canvas.hasPointerCapture(id),pointerId)).toBe(false);
+  await expect(page.locator('#contourUndo')).toBeEnabled();await page.locator('#contourUndo').click();
+  expect((await snapshot(page)).config.motion).toEqual(before.config.motion);await expect(page.locator('#contourUndo')).toBeDisabled();
+  expect((await snapshot(page)).audio.contextState).toBe('uninitialized');
+});
+
+test('contour keyboard edits and animation save/load preserve each joint and keep Audio off',async({page})=>{
+  await page.locator('#motionPreset').selectOption('still');await page.locator('#contour-joint-2').selectOption('spread');
+  const canvas=page.locator('#contour-2');await canvas.scrollIntoViewIfNeeded();await canvas.focus();
+  await canvas.press('ArrowRight');await canvas.press('ArrowUp');await canvas.press('Shift+ArrowUp');
+  const edited=await snapshot(page),curve=edited.config.motion.contours[2].spread;
+  expect(curve[1]).toBeCloseTo(.125,8);expect(curve.filter(value=>value!==0)).toHaveLength(1);
+  expect(edited.config.motion.contours[2].mcp.every(value=>value===0)).toBe(true);
+  await expect(canvas).toHaveAttribute('aria-valuetext',/Point 2 of 16/);
+  await range(page,'tempo',143.2);
+  const saved=await snapshot(page),downloadPromise=page.waitForEvent('download');await page.locator('#saveMotion').click();
+  const download=await downloadPromise;expect(download.suggestedFilename()).toBe('gesticules-animation.json');
+  const stream=await download.createReadStream(),chunks=[];for await(const chunk of stream)chunks.push(chunk);
+  const bytes=Buffer.concat(chunks),animation=JSON.parse(bytes.toString());
+  expect(animation.type).toBe('gesticules-animation');expect(animation.version).toBe(1);
+  expect(animation.motion).toEqual(saved.config.motion);expect(animation.pose).toEqual(saved.config.pose);
+  await page.locator('#contour-clear-2').click();expect((await snapshot(page)).config.motion.contours[2].spread.every(value=>value===0)).toBe(true);
+  await page.locator('#bodyForm').selectOption('foot');await page.waitForFunction(()=>window.__gesticulatingHand.snapshot().viewer.form==='foot');
+  await range(page,'tempo',4400);
+  await page.locator('#motionFile').setInputFiles({name:'gesture.json',mimeType:'application/json',buffer:bytes});
+  await page.waitForFunction(()=>window.__gesticulatingHand.snapshot().viewer.form==='hand');
+  await expect(page.locator('#liveStatus')).toHaveText('Animation loaded.');
+  const restored=await snapshot(page);expect(restored.config.motion).toEqual(saved.config.motion);expect(restored.config.pose).toEqual(saved.config.pose);
+  expect(restored.config.form).toBe(saved.config.form);expect(restored.audio.contextState).toBe('uninitialized');expect(restored.audioOn).toBe(false);
+  await expect(page.locator('#contourUndo')).toBeDisabled();await expect(page.locator('#tempo')).toHaveValue('143.2');
+});
+
+test('desktop shows the hand and all five compact editing lanes together',async({page})=>{
+  await page.setViewportSize({width:1440,height:900});
+  const layout=await page.evaluate(()=>({
+    height:innerHeight,width:innerWidth,scrollWidth:document.documentElement.scrollWidth,
+    hand:document.querySelector('#handCanvas').getBoundingClientRect().toJSON(),
+    rows:[...document.querySelectorAll('.hand-voice')].map(row=>({
+      bounds:row.getBoundingClientRect().toJSON(),curve:row.querySelector('.hand-contour').getBoundingClientRect().toJSON(),
+    })),
+  }));
+  expect(layout.scrollWidth).toBeLessThanOrEqual(layout.width);expect(layout.hand.top).toBeGreaterThanOrEqual(0);
+  expect(layout.hand.height).toBeGreaterThanOrEqual(280);expect(layout.rows).toHaveLength(5);
+  for(const row of layout.rows) {
+    expect(row.bounds.top).toBeGreaterThanOrEqual(layout.hand.bottom);
+    expect(row.bounds.bottom).toBeLessThanOrEqual(layout.height);
+    expect(row.curve.width).toBeGreaterThan(300);expect(row.curve.height).toBeGreaterThanOrEqual(38);
+  }
+});
+
+async function drawUndoContour(page,finger=1) {
+  const canvas=page.locator(`#contour-${finger}`);await canvas.scrollIntoViewIfNeeded();
+  const rect=await canvas.boundingBox();
+  await page.mouse.move(rect.x+rect.width*.2,rect.y+rect.height*.2);await page.mouse.down();
+  await page.mouse.move(rect.x+rect.width*.8,rect.y+rect.height*.8,{steps:1});await page.mouse.up();
+  await expect(page.locator('#contourUndo')).toBeEnabled();
+}
+
+for(const form of ['hand','foot']) {
+  test(`contour Undo preserves later tempo and movement controls for ${form}`,async({page})=>{
+    if(form==='foot') {
+      await page.locator('#bodyForm').selectOption('foot');await page.waitForFunction(()=>window.__gesticulatingHand.snapshot().viewer.form==='foot');
+    }
+    await page.locator('#motionPreset').selectOption('still');const before=await snapshot(page);
+    await drawUndoContour(page);expect((await snapshot(page)).config.motion.custom).toBe(true);
+    await range(page,'tempo',317.6);await range(page,'motionAmount',.37);
+    if(form==='foot')await range(page,'footElasticity',.64);
+    await page.locator('#soundPlayButton').click();await page.locator('#motionButton').click();
+    const latest=await snapshot(page);await page.locator('#contourUndo').click();const restored=await snapshot(page);
+    expect(restored.config.motion).toEqual({...latest.config.motion,custom:before.config.motion.custom,contours:before.config.motion.contours});
+    expect(restored.config.motion.tempo*restored.config.motion.speed).toBeCloseTo(317.6,8);
+    await expect(page.locator('#tempo')).toHaveValue('317.6');await expect(page.locator('#motionAmount')).toHaveValue('0.37');
+    if(form==='foot')await expect(page.locator('#footElasticity')).toHaveValue('0.64');
+    expect(restored.playing&&restored.soundPlaying).toBe(true);expect(restored.audio.contextState).toBe('uninitialized');
+    await expect(page.locator('#contourUndo')).toBeDisabled();
+  });
+}
+
+test('presets, form switches and choreography changes clear prior contour Undo history',async({page})=>{
+  const assertHistoryCleared=async()=>{
+    await expect(page.locator('#contourUndo')).toBeDisabled();const current=(await snapshot(page)).config;
+    // A stale stack must not be recoverable even through a dispatched event.
+    await page.locator('#contourUndo').dispatchEvent('click');expect((await snapshot(page)).config).toEqual(current);
+    expect((await snapshot(page)).audio.contextState).toBe('uninitialized');
+  };
+  await drawUndoContour(page);await chooseScene(page,'Crystal staccato');
+  expect((await snapshot(page)).config.form).toBe('hand');await assertHistoryCleared();
+  for(const form of ['foot','hand']) {
+    await drawUndoContour(page);await page.locator('#bodyForm').selectOption(form);
+    await page.waitForFunction(form=>window.__gesticulatingHand.snapshot().viewer.form===form,form);
+    expect((await snapshot(page)).config.form).toBe(form);await assertHistoryCleared();
+  }
+  await drawUndoContour(page);await page.locator('#motionPreset').selectOption('wave');
+  expect((await snapshot(page)).config.motion.id).toBe('wave');expect((await snapshot(page)).config.motion.custom).toBe(false);
+  await assertHistoryCleared();
 });
