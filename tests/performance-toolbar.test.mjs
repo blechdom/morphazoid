@@ -14,6 +14,7 @@ test("every implemented full-preset owner declares exactly one explicit preset h
     const html = await read(entry.href);
     assert.equal((html.match(/data-instrument-preset-host/g) ?? []).length, 1, entry.id);
     assert.match(html, entry.id === "shapes" ? /<header class="shapes-panel-header" data-instrument-preset-host/
+      : entry.id === "l-systems" ? /<header class="l-systems-panel-header">\s*<div id="mainPresets" data-instrument-preset-host/ // Sticky scene row before the mode tabs; responsive placement is browser-tested.
       : entry.id === "puggler" ? /<div class="puggler-preset-host" data-instrument-preset-host/ // Owner-requested mobile reparenting.
       : /<aside[^>]+data-instrument-preset-host/, entry.id);
   }

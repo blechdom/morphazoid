@@ -57,6 +57,8 @@
 
       <aside class="l-systems-panel" aria-label="L-Systems controls">
         <header class="l-systems-panel-header">
+          <div id="mainPresets" data-instrument-preset-host aria-label="L-Systems presets"></div>
+          <small class="l-systems-preset-bank-label" id="presetBankLabel">Continuous · Notes · Triggers</small>
           <div class="l-systems-mode-switch" id="playingMode" role="tablist" aria-label="L-System playing mode">
             <button id="modeContinuous" type="button" role="tab" data-playing-mode="continuous" aria-selected="true" aria-controls="synthBank">Continuous</button>
             <button id="modeNotes" type="button" role="tab" data-playing-mode="notes" aria-selected="false" aria-controls="synthBank" tabindex="-1">Notes</button>
@@ -108,28 +110,58 @@
           <section class="l-systems-rack" aria-labelledby="systemRackTitle">
             <header><h2 id="systemRackTitle">L-system</h2></header>
             <div class="l-systems-grid">
+              <label class="select-control" for="geometryModel"><span class="field-label">Growth model</span><span class="select-shell"><select id="geometryModel"><option value="rewrite">Grammar rewrite</option><option value="generations">Delay generations</option></select></span></label>
               <label class="select-control" for="preset">
-                <span class="field-label">Preset</span>
+                <span class="field-label">L-system type</span>
                 <span class="select-shell"><select id="preset"></select></span>
               </label>
+              <h3 class="l-systems-param-heading">Branching</h3>
               <label class="control" for="iterations">
-                <span><b>Iterations</b><output id="iterationsOut" for="iterations">7</output></span>
+                <span><b id="iterationsLabel">Iterations</b><output id="iterationsOut" for="iterations">7</output></span>
                 <input id="iterations" type="range" min="0" max="11" step="1" value="7" />
               </label>
-              <label class="control" for="angle">
-                <span><b>Branch angle</b><output id="angleOut" for="angle">45 deg</output></span>
-                <input id="angle" type="range" min="0" max="150" step="0.1" value="45" />
+              <label class="control" for="pruningBias">
+                <span><b>Pruning priority</b><output id="pruningBiasOut" for="pruningBias"></output></span>
+                <input id="pruningBias" type="range" min="-1" max="1" step="0.01" value="0" />
+              </label>
+              <label class="control" for="branchDecay">
+                <span><b>Branch decay</b><output id="branchDecayOut" for="branchDecay"></output></span>
+                <input id="branchDecay" type="range" min="0" max="1" step="0.01" value="1" />
               </label>
               <label class="control" for="lengthScale">
                 <span><b>Length scale</b><output id="lengthScaleOut" for="lengthScale">72%</output></span>
                 <input id="lengthScale" type="range" min="0.2" max="1.2" step="0.01" value="0.72" />
               </label>
+              <p class="control-note l-systems-wide" id="pruningNote">Pruning chooses trunks or twigs when the voice or event limit is reached.</p>
+              <h3 class="l-systems-param-heading">Timing</h3>
+              <label class="control" for="childTimeRatio">
+                <span><b>Child time ratio</b><output id="childTimeRatioOut" for="childTimeRatio"></output></span>
+                <input id="childTimeRatio" type="range" min="0.2" max="2" step="0.01" value="1" />
+              </label>
+              <label class="control" for="micIntervalMs">
+                <span><b>Time fold</b><output id="micIntervalMsOut" for="micIntervalMs"></output></span>
+                <input id="micIntervalMs" type="range" min="1" max="3000" step="1" value="240" />
+              </label>
+              <h3 class="l-systems-param-heading">Pitch</h3>
+              <label class="control" for="angle">
+                <span><b>Branch angle</b><output id="angleOut" for="angle">45 deg</output></span>
+                <input id="angle" type="range" min="0" max="180" step="0.1" value="45" />
+              </label>
+              <label class="control" for="micPitchScale">
+                <span><b>Pitch scale</b><output id="micPitchScaleOut" for="micPitchScale"></output></span>
+                <input id="micPitchScale" type="range" min="0" max="4" step="0.01" value="1" />
+              </label>
+              <h3 class="l-systems-param-heading">Variation</h3>
               <label class="control l-systems-wide" for="turnAsymmetry">
                 <span><b>Turn asymmetry</b><output id="turnAsymmetryOut" for="turnAsymmetry">even</output></span>
                 <input id="turnAsymmetry" type="range" min="-0.8" max="0.8" step="0.01" value="0" />
               </label>
+              <label class="control" for="mutation">
+                <span><b>Mutation</b><output id="mutationOut" for="mutation"></output></span>
+                <input id="mutation" type="range" min="0" max="1" step="0.01" value="0" />
+              </label>
             </div>
-            <div class="l-systems-grammar-card">
+            <div class="l-systems-grammar-card" id="grammarReadout">
               <span>Axiom</span>
               <code id="axiomReadout">FX</code>
               <span>Rules</span>
@@ -141,7 +173,7 @@
             <button class="mini-action" id="resetSystem" type="button">Reset system</button>
           </section>
 
-          <section class="l-systems-rack" aria-labelledby="structureRackTitle">
+          <section class="l-systems-rack" id="structureRack" aria-labelledby="structureRackTitle">
             <header><h2 id="structureRackTitle">Structure</h2></header>
             <label class="select-control" for="structureMode">
               <span class="field-label">Playback structure</span>
@@ -180,6 +212,9 @@
                 <span class="select-shell">
                   <select id="soundMode">
                     <option value="sine">Sine</option>
+                    <option value="triangle">Triangle</option>
+                    <option value="square">Square</option>
+                    <option value="saw">Saw</option>
                     <option value="fm">FM</option>
                     <option value="pm">PM</option>
                     <option value="shepard">Shepard</option>
@@ -201,6 +236,23 @@
               <label class="control" for="modulationIndex">
                 <span><b>Mod index</b><output id="modulationIndexOut" for="modulationIndex">3.0</output></span>
                 <input id="modulationIndex" type="range" min="0" max="12" step="0.1" value="3" />
+              </label>
+<label class="control" for="modulationRatio">
+                <span><b>Mod ratio</b><output id="modulationRatioOut" for="modulationRatio"></output></span>
+                <input id="modulationRatio" type="range" min="0.125" max="16" step="0.001" value="1.5" />
+              </label>
+<label class="control" for="cutoff">
+                <span><b>Tone cutoff</b><output id="cutoffOut" for="cutoff"></output></span>
+                <input id="cutoff" type="range" min="80" max="20000" step="1" value="9000" />
+              </label>
+<label class="control" for="resonance">
+                <span><b>Resonance</b><output id="resonanceOut" for="resonance"></output></span>
+                <input id="resonance" type="range" min="0.1" max="8" step="0.01" value="0.6" />
+              </label>
+<label class="select-control" for="articulation"><span class="field-label">Note timing</span><span class="select-shell"><select id="articulation"><option value="density">Follow subdivision density</option><option value="fixed">Fixed duration</option></select></span></label>
+<label class="control" for="noteDuration">
+                <span><b>Note duration</b><output id="noteDurationOut" for="noteDuration"></output></span>
+                <input id="noteDuration" type="range" min="0.04" max="4" step="0.01" value="0.28" />
               </label>
               <label class="control l-systems-wide" for="stereoSpread">
                 <span><b>Stereo spread</b><output id="stereoSpreadOut" for="stereoSpread">90%</output></span>
@@ -256,6 +308,11 @@
           <section class="l-systems-rack l-systems-mode-bank" id="micBank" role="tabpanel" aria-labelledby="modeMic" data-mode-bank="mic" hidden>
             <header><h2>Mic</h2></header>
             <div class="l-systems-grid">
+              <label class="select-control" for="micPitchSource">
+                <span class="field-label">Mic pitch source</span><span class="select-shell"><select id="micPitchSource">
+                  <option value="angle">Turn angle</option><option value="height">Stage height</option><option value="depth">Branch depth</option><option value="progress">Segment progress</option>
+                </select></span>
+              </label>
               <label class="control" for="inputTrim">
                 <span><b>Input trim</b><output id="inputTrimOut" for="inputTrim">100%</output></span>
                 <input id="inputTrim" type="range" min="0" max="1.25" step="0.01" value="1" />
@@ -279,6 +336,10 @@
               <label class="control" for="micSpread">
                 <span><b>Stereo spread</b><output id="micSpreadOut" for="micSpread">90%</output></span>
                 <input id="micSpread" type="range" min="0" max="1" step="0.01" value="0.9" />
+              </label>
+<label class="control" for="micDry">
+                <span><b>Dry input</b><output id="micDryOut" for="micDry"></output></span>
+                <input id="micDry" type="range" min="0" max="0.5" step="0.01" value="0" />
               </label>
               <label class="control l-systems-wide" for="micWet">
                 <span><b>Branch send</b><output id="micWetOut" for="micWet">92%</output></span>

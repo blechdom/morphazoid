@@ -19,6 +19,7 @@ const ioChanges = JSON.parse(await readFile(new URL("../docs/io-settings-runtime
 const iphoneChanges = JSON.parse(await readFile(new URL("../docs/iphone-audio-runtime-changes.json", import.meta.url))).changes;
 const sequencerChanges = JSON.parse(await readFile(new URL("../docs/rubixoids-runtime-changes.json", import.meta.url))).changes;
 const shapesChanges = JSON.parse(await readFile(new URL("../docs/shapes-manual-notes-runtime-changes.json", import.meta.url))).changes;
+const lSystemPresetsChanges = JSON.parse(await readFile(new URL("../docs/l-systems-presets-runtime-changes.json", import.meta.url))).changes;
 const lSystemNotesChanges = JSON.parse(await readFile(new URL("../docs/l-systems-notes-runtime-changes.json", import.meta.url))).changes;
 const automataControlsChanges = JSON.parse(await readFile(new URL("../docs/automatapoeia-controls-runtime-changes.json", import.meta.url))).changes;
 const automataChanges = JSON.parse(await readFile(new URL("../docs/automatapoeia-preset-lifecycle-runtime-changes.json", import.meta.url))).changes;
@@ -90,7 +91,7 @@ test("runtime modules reverse exactly after explicit runtime fixes and documente
     }
     // Keep the relocation baseline frozen. Reverse only the exact, separately
     // documented feature edits, whose behavior has focused DSP/browser tests.
-    for (const change of [...automataControlsChanges, ...ioChanges, ...shapesChanges, ...lSystemNotesChanges, ...automataBottomChanges, ...automataTransportChanges, ...automataClockChanges, ...automataChanges].filter(change => change.file === record.after)) {
+    for (const change of [...automataControlsChanges, ...ioChanges, ...shapesChanges, ...lSystemPresetsChanges, ...lSystemNotesChanges, ...automataBottomChanges, ...automataTransportChanges, ...automataClockChanges, ...automataChanges].filter(change => change.file === record.after)) {
       for (const testFile of change.regressionTests) assert.ok(existsSync(path.join(root, testFile)), testFile);
       for (const replacement of [...change.replacements].reverse()) {
         assert.equal(current.split(replacement.after).length - 1, 1, `exactly one documented feature edit: ${change.file}`);
@@ -237,4 +238,16 @@ test("Chiptune sharing has two thin entries, explicit release inclusion and pari
   assert.equal(await readFile(path.join(root, "src/instruments/simd-chiptune/simd-chiptune-app.js"), "utf8"), change.wrapper);
   assert.ok((await readRuntimeManifest()).worktreeFiles.includes(change.implementation));
   assert.ok(change.regressionTests.includes("e2e/simd-chiptune-parity.spec.mjs"));
+});
+
+
+test("L-Systems preset amendments retain the frozen controller and metadata baselines", () => {
+  assert.deepEqual(lSystemPresetsChanges.map(change => change.file), [
+    "src/instruments/l-systems/l-systems-app.js", "src/instruments/l-systems/l-systems-suite.js",
+  ]);
+  for (const change of lSystemPresetsChanges) {
+    assert.ok(change.replacements.length > 0);
+    assert.ok(change.regressionTests.includes("tests/l-systems-presets.test.mjs"));
+    assert.ok(change.regressionTests.includes("e2e/l-systems-presets.spec.mjs"));
+  }
 });

@@ -1,5 +1,4 @@
 import {
-  VoicePool,
   clamp,
   pitch01ToFrequency,
   synthParametersForMode,
@@ -8,12 +7,10 @@ import { createAmplitudeControl } from "../../amplitude-control.js";
 import {
   cloneDefaultFmDrumVoices,
   FM_DRUM_STORAGE_KEY,
-  FmDrumAudio,
   sanitizeFmDrumVoice,
 } from "../fm-drums/fm-drums.js";
 import {
   advanceLSystemTraversal,
-  allocateIterationVoiceHeads,
   branchAngleFrequency,
   branchVoiceGain,
   iterationPlaybackAtPhase,
@@ -21,76 +18,29 @@ import {
   L_SYSTEM_PRESETS,
   lSystemTraversalBoundaryGain,
   normalizeLSystemPoint,
-  traceLSystem,
 } from "../l-system/l-system.js";
 import {
   L_SYSTEM_DRUM_MAPPING_MODES,
-  L_SYSTEM_DRUM_STYLES,
   lSystemDrumSubdivisionCount,
   lSystemDrumTraversalStepSize,
   lSystemDrumVoiceIndex,
   mappedLSystemDrumVoice,
-  styledLSystemDrumVoice,
 } from "../l-system-drum-machine/l-system-drum-machine.js";
 import { micBranchPlaybackRate } from "../../families/mic-branch/mic-branch-dsp.js";
-import { MicBranchEngine } from "../../families/mic-branch/mic-branch-engine.js";
+import { LSystemsMicDelayAudio } from "./mic-delay-audio.js";
+import { LSystemsSynthAudio, LSystemsDrumAudio, L_SYSTEMS_TRIGGER_STYLES, lSystemsPercussionVoice, lSystemTimbreGain } from "./sound-engines.js";
+import { lSystemsTrace, allocateLSystemsHeads, branchDecayGain, micGenerationVoices } from "./branch-parameters.js";
+import { L_SYSTEMS_FULL_PRESETS, L_SYSTEMS_MIC_PRESETS, captureLSystemsPreset, validateLSystemsPreset, randomizeLSystemsPreset } from "./full-presets.js";
+import { registerHeaderPresets } from "../../site/header-presets.js";
 import {
   lSystemPlayingModeFor,
 } from "./l-systems-suite.js";
 import { LSystemEventClock, L_SYSTEM_NOTE_VOICES, lSystemNoteDuration, lSystemNoteEnvelope, lSystemNoteVoice } from "./discrete-audio.js";
 import { canvasSizing } from "../../graphics/canvas-sizing.js";
 
+import { createDefaultState } from "./state.js";
+
 const TAU = Math.PI * 2;
-const DEFAULT_SYNTH_STATE = Object.freeze({
-  pitchSource: "angle",
-  baseFrequency: 220,
-  pitchRange: 2,
-  depthAmount: 0.65,
-  soundMode: "sine",
-  modulationIndex: 3,
-  stereoSpread: 0.9,
-});
-const DEFAULT_DRUM_STATE = Object.freeze({
-  subdivisions: 4,
-  mappingMode: "branch-depth-turn",
-  percussionStyle: "drum-bank",
-  pitchDepth: 12,
-  anglePitchDepth: 12,
-  angleRange: 90,
-  characterDepth: 0.72,
-});
-const DEFAULT_MIC_STATE = Object.freeze({
-  inputTrim: 1,
-  feedback: 0.38,
-  interval: 1,
-  timeRatio: 1,
-  pitchRange: 1.2,
-  spread: 0.9,
-  wet: 0.92,
-});
-const DEFAULT_MIX_STATE = Object.freeze({
-  presetId: "balanced",
-  continuous: 1,
-  notes: 1,
-  triggers: 0.95,
-  mic: 1.12,
-});
-const DEFAULT_STATE = Object.freeze({
-  mode: "continuous",
-  presetId: "pythagorean",
-  iterations: 7,
-  angle: 45,
-  turnAsymmetry: 0,
-  lengthScale: 0.72,
-  position: 0,
-  speed: 0.3,
-  direction: 1,
-  traversalBehavior: "loop",
-  structureMode: "final",
-  playing: false,
-  audio: false,
-  level: 0.58,
-});
 const MODE_COPY = Object.freeze({
   continuous: Object.freeze({
     map: "ANGLE PITCH",
@@ -154,18 +104,24 @@ const stageWrap = $("stageWrap");
 const context = canvas.getContext("2d");
 const presetById = new Map(L_SYSTEM_PRESETS.map((preset) => [preset.id, preset]));
 const mappingById = new Map(L_SYSTEM_DRUM_MAPPING_MODES.map((mode) => [mode.id, mode]));
-const styleById = new Map(L_SYSTEM_DRUM_STYLES.map((style) => [style.id, style]));
-const synthPool = new VoicePool(128, { adaptive: true, maxVoices: 4096 });
-const drumAudio = new FmDrumAudio(globalThis);
-const micEngine = new MicBranchEngine(128, { adaptive: true, maxVoices: 4096 });
+const styleById = new Map(L_SYSTEMS_TRIGGER_STYLES.map((style) => [style.id, style]));
+const synthPool = new LSystemsSynthAudio(128, { adaptive: true, maxVoices: 4096 });
+const drumAudio = new LSystemsDrumAudio(globalThis);
+const micEngine = new LSystemsMicDelayAudio(128, { adaptive: true, maxVoices: 4096 });
 const drumVoices = loadDrumBank();
 const state = createDefaultState();
 const rangeBindings = [];
 let amplitudeControl = null;
+let presetController = null;
+let presetBankIsMic = null;
+let applyingScene = false;
+let generationMicVoices = null;
+let generationMicSubmitted = false;
 let cssWidth = 1;
 let cssHeight = 1;
 let pixelRatio = 1;
 let scheduledFrame = 0;
+let disposed = false;
 let lastFrameTime = performance.now();
 let lastVoiceSubmissionTime = -Infinity;
 let lastSoundingVoiceCount = 0;
@@ -188,15 +144,6 @@ let drumTraversalStepSize = lSystemDrumTraversalStepSize(
   state.structureMode,
 );
 
-function createDefaultState() {
-  return {
-    ...DEFAULT_STATE,
-    synth: { ...DEFAULT_SYNTH_STATE },
-    drums: { ...DEFAULT_DRUM_STATE },
-    mic: { ...DEFAULT_MIC_STATE },
-    mix: { ...DEFAULT_MIX_STATE },
-  };
-}
 
 function text(id, value) {
   const element = $(id);
@@ -275,7 +222,7 @@ function buildIterationTraces(preset, iterations, overrides = {}) {
     ? Array.from({ length: finalIteration }, (_value, index) => index + 1)
     : [0];
   return iterationNumbers.map((iteration) => ({
-    ...traceLSystem({ ...preset, ...overrides, iterations: iteration }),
+    ...lSystemsTrace({ ...preset, ...overrides }, iteration, state),
     iteration,
   }));
 }
@@ -381,6 +328,7 @@ function bindSelect(id, path, afterChange) {
 }
 
 function scheduleFrame() {
+  if (applyingScene || disposed) return;
   syncDiscreteScheduler();
   if (!scheduledFrame) scheduledFrame = requestAnimationFrame(frame);
 }
@@ -448,6 +396,7 @@ function activeAudioKind(modeId = state.mode) {
 function applyGlobalLevel() {
   text("levelOut", formatPercent(state.level));
   const synthMode = activeAudioKind() === "synth";
+  synthPool.setTone(state.synth.cutoff, state.synth.resonance);
   synthPool.setLevel(clamp(state.level * (synthMode ? modeGain() : 0), 0, 1));
   drumAudio.setOutput(clamp(state.level * modeGain("triggers") * 0.9, 0, 0.9));
   drumAudio.setHostGain(state.audio && state.mode === "triggers" ? 1 : 0, 45);
@@ -490,8 +439,11 @@ async function prepareActiveAudio() {
     audioReady = true;
     return true;
   }
+  micEngine.setGeometryModel(state.geometryModel);
+  generationMicSubmitted = false;
   await micEngine.enable();
   if (request !== audioRequest || !state.audio) return false;
+  micEngine.setGeometryModel(state.geometryModel);
   micEngine.setFeedback(state.mic.feedback);
   micEngine.setLevel(clamp(state.level * state.mic.inputTrim * modeGain("mic"), 0, 1));
   audioReady = true;
@@ -500,10 +452,12 @@ async function prepareActiveAudio() {
 
 async function enableAudio() {
   setAudioUi(true);
+  const request = audioRequest + 1;
   try {
     await prepareActiveAudio();
     scheduleFrame();
   } catch (error) {
+    if (request !== audioRequest) return;
     showError(error);
     setAudioUi(false);
   }
@@ -517,8 +471,8 @@ async function disableAudio() {
   synthPool.silence();
   synthPool.disable();
   drumAudio.setHostGain(0, 0);
-  await drumAudio.close();
   micEngine.disable();
+  await drumAudio.close();
   resetVoiceSubmission();
   invalidateDiscreteScheduler();
   scheduleFrame();
@@ -534,16 +488,23 @@ async function setMode(modeId) {
   if (nextMode === state.mode) return;
   invalidateDiscreteScheduler();
   const previousMode = state.mode;
+  if (previousMode === "mic") micEngine.disable();
+  generationMicSubmitted = false;
   state.mode = nextMode;
   resetVoiceSubmission();
+  setupPresetBank();
   paintMode();
   paintReadoutOnly();
   if (state.audio) {
+    const request = audioRequest + 1;
     try {
       await prepareActiveAudio();
+      if (request !== audioRequest) return;
       text("liveStatus", `${activeMode().title} selected; audio still on`);
     } catch (error) {
+      if (request !== audioRequest) return;
       state.mode = previousMode;
+      setupPresetBank();
       invalidateDiscreteScheduler();
       resetVoiceSubmission();
       paintMode();
@@ -567,6 +528,8 @@ async function setMode(modeId) {
 }
 
 function rebuildTrace() {
+  generationMicVoices = null;
+  generationMicSubmitted = false;
   resetVoiceSubmission();
   try {
     iterationTraces = buildIterationTraces(
@@ -587,6 +550,12 @@ function rebuildTrace() {
 function resetSystem() {
   const defaults = createDefaultState();
   discreteClock?.configure({ position: defaults.position, direction: defaults.direction });
+  state.geometryModel = defaults.geometryModel;
+  state.branchDecay = defaults.branchDecay;
+  state.childTimeRatio = defaults.childTimeRatio;
+  state.mutation = defaults.mutation;
+  state.pruningBias = defaults.pruningBias;
+  micEngine.setGeometryModel(state.geometryModel);
   state.presetId = defaults.presetId;
   state.iterations = defaults.iterations;
   state.angle = defaults.angle;
@@ -612,6 +581,9 @@ async function resetAll() {
   state.mic = { ...next.mic };
   state.mix = { ...next.mix };
   hitCount = 0;
+  micEngine.disable();
+  micEngine.setGeometryModel(state.geometryModel);
+  setupPresetBank();
   updateIterationLimit();
   syncRangeBindings();
   syncSelects();
@@ -664,7 +636,9 @@ function updateIterationLimit() {
   const preset = currentPreset();
   const input = $("iterations");
   if (!input) return;
-  input.max = String(preset.maxIterations ?? Math.max(1, preset.iterations ?? state.iterations));
+  input.min = state.geometryModel === "generations" ? "1" : "0";
+  input.max = String(state.geometryModel === "generations" ? 13 : preset.maxIterations ?? Math.max(1, preset.iterations ?? state.iterations));
+  state.iterations = Math.max(Number(input.min), state.iterations);
   if (state.iterations > Number(input.max)) {
     state.iterations = Number(input.max);
     syncRangeBindings();
@@ -672,6 +646,9 @@ function updateIterationLimit() {
 }
 
 function syncSelects() {
+  $("geometryModel").value = state.geometryModel;
+  $("micPitchSource").value = state.mic.pitchSource;
+  $("articulation").value = state.synth.articulation;
   $("preset").value = state.presetId;
   $("structureMode").value = state.structureMode;
   $("mixPreset").value = state.mix.presetId;
@@ -697,7 +674,24 @@ function paintMode() {
   }
   $("synthBank").setAttribute("aria-labelledby", state.mode === "notes" ? "modeNotes" : "modeContinuous");
   text("synthBankTitle", state.mode === "notes" ? "Notes" : "Continuous");
-  $("subdivisionsControl").hidden = !["notes", "triggers", "mic"].includes(state.mode);
+  const generationMic = isGenerationMic();
+  $("subdivisionsControl").hidden = generationMic || !["notes", "triggers", "mic"].includes(state.mode);
+  for (const id of ["speed", "position"]) $(id).closest("label").hidden = generationMic;
+  $("playheadMotion").hidden = generationMic;
+  $("structureRack").hidden = generationMic;
+  $("lengthScale").closest("label").hidden = state.geometryModel === "generations";
+  $("taperNote").hidden = state.geometryModel === "generations";
+  $("grammarReadout").hidden = state.geometryModel === "generations";
+  text("iterationsLabel", state.geometryModel === "generations" ? "Generations" : "Iterations");
+  for (const id of ["micPitchSource", "micFeedback", "micInterval", "micTimeRatio", "micPitchRange"]) $(id).closest("label").hidden = generationMic;
+  for (const id of ["micIntervalMs", "micPitchScale", "micDry"]) $(id).closest("label").hidden = !generationMic;
+  for (const id of ["modulationIndex", "modulationRatio"]) $(id).closest("label").hidden = !["fm", "pm"].includes(state.synth.soundMode);
+  $("depthAmount").closest("label").hidden = state.mode !== "notes" && !["fm", "pm", "shepard"].includes(state.synth.soundMode);
+  $("articulation").closest("label").hidden = state.mode !== "notes";
+  $("noteDuration").closest("label").hidden = state.mode !== "notes" || state.synth.articulation !== "fixed";
+  const hasBranches = iterationTraces.at(-1)?.maxForkDepth > 0;
+  for (const id of ["branchDecay", "pruningBias"]) $(id).closest("label").hidden = !hasBranches && !generationMic;
+  $("pruningNote").hidden = !hasBranches && !generationMic;
 }
 
 function paintPreset() {
@@ -771,7 +765,7 @@ function paintMotion() {
 
 function paintMapping() {
   const mapping = mappingById.get(state.drums.mappingMode) ?? L_SYSTEM_DRUM_MAPPING_MODES[0];
-  const style = styleById.get(state.drums.percussionStyle) ?? L_SYSTEM_DRUM_STYLES[0];
+  const style = styleById.get(state.drums.percussionStyle) ?? L_SYSTEMS_TRIGGER_STYLES[0];
   text("mappingDescription", mapping.description);
   mapping.legend.forEach((entry, index) => {
     text(`mappingLegendLabel${index}`, entry.label);
@@ -908,7 +902,7 @@ function drawScene(playback, playheads) {
     const iterationHue = baseHue + entryIndex * 96 / Math.max(1, playback.entries.length - 1);
     entry.trace.segments.forEach((segment) => {
       const depth = segment.forkDepth / sourceDepth;
-      const completed = segment.endDistance <= entry.snapshot.distance;
+      const completed = isGenerationMic() || segment.endDistance <= entry.snapshot.distance;
       drawSegment(
         segment,
         transform,
@@ -960,7 +954,7 @@ function synthPitchValue(playhead, normalized) {
 function synthVoiceForPlayhead(playhead, activePower, combinedGain) {
   const normalized = normalizeLSystemPoint(playhead, playhead.sourceTrace.bounds);
   const depth = playhead.depth / Math.max(1, playhead.sourceTrace.maxForkDepth);
-  const drive = clamp(depth * state.synth.depthAmount, 0, 1);
+  const drive = clamp((0.2 + depth * 0.8) * state.synth.depthAmount, 0, 1);
   const mappedPitch = synthPitchValue(playhead, normalized);
   const frequency = state.synth.pitchSource === "angle"
     ? branchAngleFrequency(playhead.cumulativeTurn, state.synth.baseFrequency, state.synth.pitchRange)
@@ -973,6 +967,8 @@ function synthVoiceForPlayhead(playhead, activePower, combinedGain) {
     key: `l-system-suite:synth:${playhead.voiceKey}`,
     frequency,
     gain: branchVoiceGain(playhead.powerShare, activePower, combinedGain)
+      * branchDecayGain(playhead.depth, state.branchDecay)
+      * lSystemTimbreGain(state.synth.soundMode)
       * amplitudeControl.sample(playhead.progress ?? 0, 1)
       * lSystemTraversalBoundaryGain(playhead.localPhase, topologyBoundaryBehavior),
     pan: clamp((normalized.x * 2 - 1) * state.synth.stereoSpread, -1, 1),
@@ -980,9 +976,9 @@ function synthVoiceForPlayhead(playhead, activePower, combinedGain) {
     gainSmoothingSeconds: 0.018,
     ...synthParametersForMode(state.synth.soundMode, drive, {
       fmIndex: state.synth.modulationIndex,
-      fmRatio: 1.5,
+      fmRatio: state.synth.modulationRatio,
       pmIndex: state.synth.modulationIndex,
-      pmRatio: 1.5,
+      pmRatio: state.synth.modulationRatio,
       shepardRate: state.playing ? state.speed * state.direction : 0,
       shepardWidth: 5,
       shepardPosition: playhead.localPhase,
@@ -991,7 +987,7 @@ function synthVoiceForPlayhead(playhead, activePower, combinedGain) {
 }
 
 function synthVoicesForPlayheads(playheads, maxVoices = synthPool.voiceLimitFor(state.synth.soundMode)) {
-  const selected = allocateIterationVoiceHeads(playheads, maxVoices);
+  const selected = allocateLSystemsHeads(playheads, maxVoices, state.pruningBias);
   const groups = new Map();
   for (const playhead of selected) {
     const group = groups.get(playhead.iteration) ?? [];
@@ -1015,11 +1011,11 @@ function eventIntervalSeconds(eventCount = 1) {
 function micVoiceForPlayhead(playhead, activePower, combinedGain, eventCount = 1) {
   const normalized = normalizeLSystemPoint(playhead, playhead.sourceTrace.bounds);
   const depth01 = playhead.depth / Math.max(1, playhead.sourceTrace.maxForkDepth);
-  const pitchValue = state.synth.pitchSource === "angle"
+  const pitchValue = state.mic.pitchSource === "angle"
     ? playhead.cumulativeTurn / TAU
-    : state.synth.pitchSource === "progress"
+    : state.mic.pitchSource === "progress"
       ? playhead.localPhase - 0.5
-      : state.synth.pitchSource === "depth"
+      : state.mic.pitchSource === "depth"
         ? depth01 - 0.5
         : normalized.y - 0.5;
   const depthRatio = 1 + (state.mic.timeRatio - 1) * depth01;
@@ -1036,6 +1032,7 @@ function micVoiceForPlayhead(playhead, activePower, combinedGain, eventCount = 1
     key: `l-system-suite:mic:${playhead.voiceKey}`,
     rate: micBranchPlaybackRate(pitchValue, state.mic.pitchRange, 1),
     gain: branchVoiceGain(playhead.powerShare, activePower, combinedGain)
+      * branchDecayGain(playhead.depth, state.branchDecay)
       * lSystemTraversalBoundaryGain(playhead.localPhase, topologyBoundaryBehavior),
     pan: clamp((normalized.x * 2 - 1) * state.mic.spread, -1, 1),
     depth: playhead.depth,
@@ -1046,7 +1043,7 @@ function micVoiceForPlayhead(playhead, activePower, combinedGain, eventCount = 1
 }
 
 function micVoicesForPlayheads(playheads, maxVoices = micEngine.voiceLimit) {
-  const selected = allocateIterationVoiceHeads(playheads, maxVoices);
+  const selected = allocateLSystemsHeads(playheads, maxVoices, state.pruningBias);
   const groups = new Map();
   for (const playhead of selected) {
     const group = groups.get(playhead.iteration) ?? [];
@@ -1116,7 +1113,24 @@ function triggerNoteEvents(entries) {
   paintSynthReadouts(entries.length, entries.length);
 }
 
+function isGenerationMic() { return state.mode === "mic" && state.geometryModel === "generations"; }
+
+function invalidateMicVoices() {
+  generationMicVoices = null;
+  generationMicSubmitted = false;
+}
+
 function updateMicAudio(playheads) {
+  if (isGenerationMic()) {
+    if (!generationMicSubmitted) {
+      generationMicVoices ??= micGenerationVoices(state, 128);
+      micEngine.setVoices(generationMicVoices.map(voice => ({ ...voice, gain: voice.gain * state.mic.wet })), { requestedVoiceCount: generationMicVoices.length });
+      micEngine.setDry(state.mic.dry);
+      generationMicSubmitted = true;
+    }
+    paintMicReadouts(generationMicVoices?.length ?? 0, generationMicVoices?.length ?? 0);
+    return;
+  }
   const requestedVoices = playheads.length;
   const voiceLimit = micEngine.setVoiceDemand(requestedVoices);
   const voices = micVoicesForPlayheads(playheads, voiceLimit);
@@ -1136,7 +1150,9 @@ function triggerEvent(event, eventCount, voiceIndex = lSystemDrumVoiceIndex(
     characterDepth: state.drums.characterDepth,
     eventCount,
   });
-  const voice = styledLSystemDrumVoice(mappedVoice, { style: state.drums.percussionStyle });
+  const descendantGain = branchDecayGain(event.depth, state.branchDecay);
+  if (descendantGain === 0) return;
+  const voice = lSystemsPercussionVoice({ ...mappedVoice, voiceIndex, level: mappedVoice.level * descendantGain }, { style: state.drums.percussionStyle });
   hitCount += 1;
   text("mappingReadout", [
     `I${event.iteration}`,
@@ -1187,7 +1203,7 @@ function syncDiscreteScheduler() {
   const configuration = {
     traces: iterationTraces, rate: state.speed, behavior: state.traversalBehavior,
     structureMode: state.structureMode, subdivisions: state.drums.subdivisions,
-    mappingMode: state.drums.mappingMode, maxPhaseStep: drumTraversalStepSize,
+    mappingMode: state.drums.mappingMode, pruningBias: state.pruningBias, maxPhaseStep: drumTraversalStepSize,
   };
   if (discreteClock) {
     discreteClock.configure(configuration);
@@ -1212,7 +1228,7 @@ function syncDiscreteScheduler() {
 function renderDrumMap() {
   const map = $("drumMap");
   map.innerHTML = drumVoices.map((voice, index) => {
-    const styledVoice = styledLSystemDrumVoice(voice, { style: state.drums.percussionStyle });
+    const styledVoice = lSystemsPercussionVoice({ ...voice, voiceIndex: index }, { style: state.drums.percussionStyle });
     return `<button class="l-system-drum-cell" type="button" data-voice-index="${index}" data-voice-id="${escapeHtml(voice.id)}" style="--voice-color: ${escapeHtml(voice.color)}">`
       + `<b>${escapeHtml(styledVoice.name)}</b><small>${escapeHtml(voice.key.toUpperCase())} - ${escapeHtml(styledVoice.family)}</small>`
       + "</button>";
@@ -1221,10 +1237,12 @@ function renderDrumMap() {
     button.addEventListener("click", async () => {
       const index = Number(button.dataset.voiceIndex) || 0;
       try {
-        if (!state.audio) await enableAudio();
-        else if (state.mode === "triggers") await prepareActiveAudio();
-        const voice = styledLSystemDrumVoice(
-          drumVoices[index],
+        if (!state.audio || state.mode !== "triggers") {
+          text("liveStatus", "Enable Audio to audition a trigger voice.");
+          return;
+        }
+        const voice = lSystemsPercussionVoice(
+          { ...drumVoices[index], voiceIndex: index },
           { style: state.drums.percussionStyle },
         );
         await drumAudio.trigger(voice);
@@ -1259,7 +1277,7 @@ function frame(now) {
     state.speed,
   );
 
-  if (state.playing) {
+  if (state.playing && !isGenerationMic()) {
     if (discreteClock) syncDiscretePosition();
     else {
       const advanced = advanceLSystemTraversal(state.position, state.direction,
@@ -1281,7 +1299,7 @@ function frame(now) {
     state.structureMode,
   );
   const playheads = playbackHeads(playback);
-  drawScene(playback, playheads);
+  drawScene(playback, isGenerationMic() ? [] : playheads);
 
   if (state.audio && state.playing && state.mode === "continuous") {
     updateSynthAudio(playheads, phaseRate, now);
@@ -1299,7 +1317,7 @@ function frame(now) {
     resetVoiceSubmission();
   } else if (state.audio) {
     if (["continuous", "notes"].includes(state.mode)) synthPool.setVoices([], { mode: state.synth.soundMode });
-    if (state.mode === "mic") micEngine.silence();
+    if (state.mode === "mic") { micEngine.silence(); generationMicSubmitted = false; }
     invalidateDiscreteScheduler();
     resetVoiceSubmission();
     paintSynthReadouts(0, 0);
@@ -1315,11 +1333,59 @@ function frame(now) {
   if (state.playing) scheduleFrame();
 }
 
+function applyFullPreset(snapshot) {
+  validateLSystemsPreset(snapshot, state.mode === "mic");
+  const previousMode = state.mode;
+  syncDiscretePosition();
+  if (snapshot.mode !== previousMode) invalidateDiscreteScheduler();
+  applyingScene = true;
+  try {
+    Object.assign(state, snapshot.shared);
+    if (snapshot.mode === "mic") {
+      Object.assign(state.mic, snapshot.mic);
+      state.mix.mic = snapshot.micLevel;
+    } else {
+      Object.assign(state.synth, snapshot.synth);
+      Object.assign(state.drums, snapshot.drums);
+      Object.assign(state.mix, snapshot.levels);
+      amplitudeControl.applyState(snapshot.envelope);
+    }
+    micEngine.setGeometryModel(state.geometryModel);
+    updateIterationLimit();
+    rebuildTrace();
+    syncRangeBindings();
+    syncSelects();
+    renderDrumMap();
+    applyGlobalLevel();
+    discreteClock?.configure({ direction: state.direction });
+  } finally { applyingScene = false; }
+  // setMode changes the snapshot's mode synchronously; async engine preparation
+  // is only necessary across routes, never for an ordinary same-mode recall.
+  if (snapshot.mode !== previousMode) void setMode(snapshot.mode);
+  paintReadoutOnly();
+  scheduleFrame();
+}
+
+function setupPresetBank() {
+  const microphone = state.mode === "mic";
+  if (presetController && microphone === presetBankIsMic) return;
+  presetBankIsMic = microphone;
+  presetController = registerHeaderPresets({
+    id: microphone ? "l-systems-mic" : "l-systems",
+    presets: microphone ? L_SYSTEMS_MIC_PRESETS : L_SYSTEMS_FULL_PRESETS,
+    capture: () => captureLSystemsPreset(state, amplitudeControl.captureState(), microphone),
+    apply: applyFullPreset,
+    randomize: randomizeLSystemsPreset,
+    host: $("mainPresets"),
+  });
+  text("presetBankLabel", microphone ? "Mic presets · L-System Delay" : "Continuous · Notes · Triggers");
+}
+
 function setupControls() {
   fillSelect("preset", L_SYSTEM_PRESETS, (preset) => preset.name);
   fillSelect("mixPreset", MIX_PRESETS, (preset) => preset.label);
   fillSelect("mappingMode", L_SYSTEM_DRUM_MAPPING_MODES);
-  fillSelect("percussionStyle", L_SYSTEM_DRUM_STYLES);
+  fillSelect("percussionStyle", L_SYSTEMS_TRIGGER_STYLES);
   $("preset").value = state.presetId;
   $("mixPreset").value = state.mix.presetId;
 
@@ -1334,6 +1400,10 @@ function setupControls() {
   bindRange("angle", "angle", formatDeg, rebuildTrace);
   bindRange("turnAsymmetry", "turnAsymmetry", formatTurnPair, rebuildTrace);
   bindRange("lengthScale", "lengthScale", formatPercent, rebuildTrace);
+  bindRange("branchDecay", "branchDecay", formatPercent, invalidateMicVoices);
+  bindRange("childTimeRatio", "childTimeRatio", formatRatio, rebuildTrace);
+  bindRange("mutation", "mutation", formatPercent, rebuildTrace);
+  bindRange("pruningBias", "pruningBias", value => value < 0 ? `${formatPercent(-value)} trunks` : `${formatPercent(value)} twigs`, invalidateMicVoices);
   bindRange("continuousLevel", "mix.continuous", formatPercent, applyGlobalLevel);
   bindRange("noteLevel", "mix.notes", formatPercent, applyGlobalLevel);
   bindRange("triggerLevel", "mix.triggers", formatPercent, applyGlobalLevel);
@@ -1342,6 +1412,10 @@ function setupControls() {
   bindRange("pitchRange", "synth.pitchRange", formatOct);
   bindRange("depthAmount", "synth.depthAmount", formatPercent);
   bindRange("modulationIndex", "synth.modulationIndex", (value) => Number(value).toFixed(1));
+  bindRange("modulationRatio", "synth.modulationRatio", formatRatio);
+  bindRange("cutoff", "synth.cutoff", formatHz, applyGlobalLevel);
+  bindRange("resonance", "synth.resonance", value => Number(value).toFixed(2), applyGlobalLevel);
+  bindRange("noteDuration", "synth.noteDuration", value => `${Number(value).toFixed(2)} s`);
   bindRange("stereoSpread", "synth.stereoSpread", formatPercent);
   bindRange("subdivisions", "drums.subdivisions", (value) => String(lSystemDrumSubdivisionCount(value)), (value) => {
     state.drums.subdivisions = lSystemDrumSubdivisionCount(value);
@@ -1356,8 +1430,17 @@ function setupControls() {
   bindRange("micInterval", "mic.interval", formatRatio);
   bindRange("micTimeRatio", "mic.timeRatio", formatRatio);
   bindRange("micPitchRange", "mic.pitchRange", formatOct);
-  bindRange("micSpread", "mic.spread", formatPercent);
-  bindRange("micWet", "mic.wet", formatPercent);
+  bindRange("micSpread", "mic.spread", formatPercent, invalidateMicVoices);
+  bindRange("micWet", "mic.wet", formatPercent, invalidateMicVoices);
+  bindRange("micIntervalMs", "mic.intervalMs", value => `${Math.round(value)} ms`, invalidateMicVoices);
+  bindRange("micPitchScale", "mic.pitchScale", formatOct, invalidateMicVoices);
+  bindRange("micDry", "mic.dry", formatPercent, invalidateMicVoices);
+  bindSelect("micPitchSource", "mic.pitchSource");
+  bindSelect("articulation", "synth.articulation");
+  bindSelect("geometryModel", "geometryModel", () => {
+    micEngine.setGeometryModel(state.geometryModel);
+    updateIterationLimit(); syncRangeBindings(); rebuildTrace();
+  });
 
   bindSelect("structureMode", "structureMode", () => {
     refreshDrumTraversalStepSize();
@@ -1383,7 +1466,8 @@ function setupControls() {
   $("playButton").addEventListener("click", () => {
     invalidateDiscreteScheduler({ includeStart: !state.playing });
     state.playing = !state.playing;
-    if (!state.playing) { synthPool.releaseNotes(); drumAudio.silence(); }
+    if (!state.playing) { synthPool.releaseNotes(); drumAudio.silence(); micEngine.silence(); }
+    generationMicSubmitted = false;
     lastFrameTime = performance.now();
     paintMotion();
     scheduleFrame();
@@ -1428,6 +1512,7 @@ function setupAmplitude() {
 function boot() {
   setupControls();
   setupAmplitude();
+  setupPresetBank();
   updateIterationLimit();
   renderDrumMap();
   paintMode();
@@ -1437,7 +1522,14 @@ function boot() {
   setupResizeObserver();
   synthPool.onPolyphonyStatus = scheduleFrame;
   micEngine.onPolyphonyStatus = scheduleFrame;
+  micEngine.onError = error => {
+    if (state.mode === "mic") { audioReady = false; setAudioUi(false); }
+    showError(error);
+  };
   window.addEventListener("pagehide", () => {
+    disposed = true;
+    cancelAnimationFrame(scheduledFrame);
+    audioRequest += 1;
     audioReady = false;
     invalidateDiscreteScheduler();
     synthPool.close?.();

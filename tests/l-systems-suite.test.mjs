@@ -147,24 +147,24 @@ test("L-Systems page is a native combined app, not a frame host", async () => {
 test("L-Systems app owns the audio engines and preserves shared state while switching modes", async () => {
   const app = await readFile(new URL("src/instruments/l-systems/l-systems-app.js", root), "utf8");
 
-  assert.match(app, /new VoicePool\(128, \{ adaptive: true, maxVoices: 4096 \}\)/);
-  assert.match(app, /new FmDrumAudio\(globalThis\)/);
-  assert.match(app, /new MicBranchEngine\(128, \{ adaptive: true, maxVoices: 4096 \}\)/);
+  assert.match(app, /new LSystemsSynthAudio\(128, \{ adaptive: true, maxVoices: 4096 \}\)/);
+  assert.match(app, /new LSystemsDrumAudio\(globalThis\)/);
+  assert.match(app, /new LSystemsMicDelayAudio\(128, \{ adaptive: true, maxVoices: 4096 \}\)/);
   assert.match(app, /const MIX_PRESETS = Object\.freeze/);
   assert.match(app, /id: "balanced"/);
   assert.match(app, /id: "percussive-grid"/);
-  assert.match(app, /traceLSystem/);
+  assert.match(app, /lSystemsTrace/);
   assert.match(app, /advanceLSystemTraversal/);
   assert.match(app, /new LSystemEventClock/);
   assert.match(app, /setInterval\(discreteTick, 25\)/);
   assert.match(app, /micBranchPlaybackRate/);
   assert.match(app, /lSystemPlayingModeFor/);
   assert.match(app, /async function setMode\(modeId\)/);
-  assert.match(app, /if \(state\.audio\) \{\s*try \{\s*await prepareActiveAudio\(\);/);
+  assert.match(app, /if \(state\.audio\) \{\s*const request = audioRequest \+ 1;\s*try \{\s*await prepareActiveAudio\(\);/);
   assert.match(app, /function silenceAudioRoutes\(rampMilliseconds = 45\)/);
   assert.match(app, /clearError\(\);\s*\/\/ Mute the outgoing route[\s\S]*?silenceAudioRoutes\(\);\s*if \(activeAudioKind\(\) === "synth"\) \{\s*await synthPool\.enable\(\);/);
-  assert.match(app, /const previousMode = state\.mode;\s*state\.mode = nextMode/);
-  assert.match(app, /catch \(error\) \{\s*state\.mode = previousMode;[\s\S]*?restored = await prepareActiveAudio\(\);[\s\S]*?showError\(error\);/);
+  assert.match(app, /const previousMode = state\.mode;[\s\S]*?state\.mode = nextMode/);
+  assert.match(app, /catch \(error\) \{\s*if \(request !== audioRequest\) return;\s*state\.mode = previousMode;[\s\S]*?restored = await prepareActiveAudio\(\);[\s\S]*?showError\(error\);/);
   assert.match(app, /state\.mode = nextMode/);
   assert.match(app, /state\.presetId/);
   assert.match(app, /state\.iterations/);
@@ -186,7 +186,8 @@ test("L-Systems app owns the audio engines and preserves shared state while swit
   const setModeBody = app.match(/async function setMode\(modeId\) \{(?<body>[\s\S]*?)\n\}/)?.groups.body ?? "";
   assert.doesNotMatch(setModeBody, /state\.audio\s*=\s*false/);
   assert.doesNotMatch(setModeBody, /\.close\(/);
-  assert.doesNotMatch(setModeBody, /\.disable\(/);
+  assert.doesNotMatch(setModeBody, /(?:synthPool|drumAudio)\.disable\(/);
+  assert.match(setModeBody, /if \(previousMode === "mic"\) micEngine\.disable\(\)/);
   assert.doesNotMatch(setModeBody, /presetId\s*=/);
   assert.doesNotMatch(setModeBody, /iterations\s*=/);
   assert.doesNotMatch(setModeBody, /angle\s*=/);

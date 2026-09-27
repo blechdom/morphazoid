@@ -1,3 +1,5 @@
+import { branchDecayGain } from "./branch-parameters.js";
+import { lSystemTimbreGain } from "./sound-engines.js";
 import { clamp, percussionEnvelopeEditorX, pitch01ToFrequency, synthParametersForMode } from "../../audio.js";
 import { advanceLSystemTraversal, branchAngleFrequency } from "../l-system/l-system.js";
 import {
@@ -15,8 +17,8 @@ const STARTS_PER_SECOND = 128;
  * Keep audio time independent of paint; never replay an overdue frame's attacks.
  * Existing traversal/model bounds cap each sweep at about 64 samples. */
 export class LSystemEventClock {
-  constructor({ traces, position, direction, rate, behavior, structureMode, subdivisions, mappingMode, maxPhaseStep, now, includeStart = true, budget = null }) {
-    Object.assign(this, { traces, position, direction, rate, behavior, structureMode, subdivisions, mappingMode, maxPhaseStep });
+  constructor({ traces, position, direction, rate, behavior, structureMode, subdivisions, mappingMode, maxPhaseStep, now, includeStart = true, budget = null, pruningBias = 0 }) {
+    Object.assign(this, { traces, position, direction, rate, behavior, structureMode, subdivisions, mappingMode, maxPhaseStep, pruningBias });
     this.until = now + LEAD;
     this.motion = [{ at: this.until, position, direction, rate, behavior }];
     this.pending = {};
@@ -34,7 +36,7 @@ export class LSystemEventClock {
   configure(settings) {
     // A drag may send many changes between polls. Only the latest values join
     // the next unscheduled window; no cancellation, lost budget, or restart.
-    for (const key of ["traces", "rate", "behavior", "structureMode", "subdivisions", "mappingMode", "maxPhaseStep", "position", "direction"]) {
+    for (const key of ["traces", "rate", "behavior", "structureMode", "subdivisions", "mappingMode", "maxPhaseStep", "position", "direction", "pruningBias"]) {
       if (settings[key] !== undefined && settings[key] !== (this.pending[key] ?? this[key])) this.pending[key] = settings[key];
     }
   }
@@ -93,6 +95,7 @@ export class LSystemEventClock {
     this.activeEventKeys = swept.activeEventKeys;
     Object.assign(this, { position: advanced.position, direction: advanced.direction, until: end });
     const groups = groupedLSystemDrumEvents(swept.events, { mode: this.mappingMode, maxEvents: 64 });
+    if (this.pruningBias) groups.sort((a,b) => times[a.event.transportSampleIndex] - times[b.event.transportSampleIndex] || -this.pruningBias * (a.event.depth - b.event.depth));
     const admitted = [], perSample = new Map();
     for (const entry of groups) {
       const startAt = times[entry.event.transportSampleIndex];
@@ -109,6 +112,7 @@ export class LSystemEventClock {
 }
 
 export function lSystemNoteDuration(state, eventCount = 1) {
+  if (state.synth.articulation === "fixed") return clamp(state.synth.noteDuration, 0.04, 4);
   const density = lSystemDrumSubdivisionCount(state.drums.subdivisions) * Math.sqrt(Math.max(1, eventCount));
   const interval = 1 / (Math.max(0.015, Math.abs(state.speed)) * density);
   return clamp(interval * (0.58 + state.synth.depthAmount * 0.18), 0.09, 0.7);
@@ -130,7 +134,7 @@ export function lSystemNoteEnvelope(duration, amplitude = {}) {
 
 export function lSystemNoteVoice(event, eventCount, state, amplitudeLevel = 1) {
   const depth = (Number(event.depth) || 0) / Math.max(1, Number(event.maxForkDepth) || 1);
-  const drive = clamp(depth * state.synth.depthAmount, 0, 1);
+  const drive = clamp((0.2 + depth * 0.8) * state.synth.depthAmount, 0, 1);
   const pitch = state.synth.pitchSource === "depth" ? depth
     : state.synth.pitchSource === "progress" ? Number(event.progress) || 0 : Number(event.normalizedY) || 0;
   const frequency = state.synth.pitchSource === "angle"
@@ -142,12 +146,12 @@ export function lSystemNoteVoice(event, eventCount, state, amplitudeLevel = 1) {
     // Leave overlap headroom as well as normalizing simultaneous branches. This does not
     // shorten old tails or turn the first subdivision into an inaudible note.
     gain: clamp((0.16 + drive * 0.16 + Math.sqrt(event.powerShare || 0) * 0.18)
-      * amplitudeLevel / Math.sqrt(Math.max(1, eventCount)) * 0.65, 0, 0.36),
+      * amplitudeLevel * branchDecayGain(event.depth, state.branchDecay ?? 1) * lSystemTimbreGain(state.synth.soundMode) / Math.sqrt(Math.max(1, eventCount)) * 0.65, 0, 0.36),
     pan: clamp(((Number.isFinite(event.normalizedX) ? event.normalizedX : 0.5) * 2 - 1) * state.synth.stereoSpread, -1, 1),
     waveform: "sine",
     ...synthParametersForMode(state.synth.soundMode, drive, {
-      fmIndex: state.synth.modulationIndex, fmRatio: 1.5,
-      pmIndex: state.synth.modulationIndex, pmRatio: 1.5,
+      fmIndex: state.synth.modulationIndex, fmRatio: state.synth.modulationRatio ?? 1.5,
+      pmIndex: state.synth.modulationIndex, pmRatio: state.synth.modulationRatio ?? 1.5,
       shepardRate: state.speed * state.direction, shepardWidth: 4, shepardPosition: Number(event.progress) || 0,
     }),
   };

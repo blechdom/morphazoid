@@ -595,3 +595,11 @@ body.l-systems-app-page #playButton {
   }
   .l-systems-motion-bank { grid-template-columns: repeat(3, 48px); height: 48px; }
 }
+
+/* One scene row above the mode switch; microphone has its own bank. */
+.l-systems-preset-bank-label { color: rgba(224,238,232,.65); font: 10px/1.4 var(--mono); }
+.l-systems-param-heading { grid-column: 1 / -1; margin: 8px 0 0; color: var(--suite-accent); font: 700 10px/1.4 var(--mono); text-transform: uppercase; letter-spacing: .08em; }
+.l-systems-panel [hidden] { display: none !important; }
+@media (pointer: coarse) {
+  .l-systems-panel .l-systems-mode-switch button { min-height: 48px; }
+}

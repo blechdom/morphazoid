@@ -77,6 +77,17 @@ after every file edit, but keep sound/state preservation gates intact. Standard
 repository verification still covers shared behavior and WIP regressions; this
 priority change does not authorize weakening tests or skipping release checks.
 
+## L-Systems app — September 26, 2026
+
+Owner-requested expansion: 48 main full scenes (16 Continuous, 16 Notes, 16
+Triggers) and a separate bank importing all 16 L-System Delay scenes. Presets,
+Next and true Random occupy the top control-panel row. Both banks preserve
+master/Audio/Play, the other bank's sound settings, and live scheduling/history
+within an active mode. Graph-inspired synth tone/modulation/articulation and
+shared physical percussion are integrated without replacing the bounded synth
+worklet. See [implementation and validation scope](l-systems-presets.md). Human
+listening and physical-device acceptance remain separate from automated checks.
+
 ## Automatapoeia continuation — September 24, 2026
 
 The owner now requests paused startup and a round Play/Pause beside Generation

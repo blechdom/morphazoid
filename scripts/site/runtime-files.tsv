@@ -1150,3 +1150,10 @@ copy+require	src/instruments/gesticulating-hand/hand-contour.js
 copy+require	src/instruments/gesticulating-hand/hand-contour-editor.js
 copy+require	docs/hybrinx-volume-meter.md
 copy+require	docs/hybrinx-preset-loop.md
+
+# L-Systems full-state scenes, branch controls and shared sound banks
+copy+require	src/instruments/l-systems/state.js
+copy+require	src/instruments/l-systems/branch-parameters.js
+copy+require	src/instruments/l-systems/sound-engines.js
+copy+require	src/instruments/l-systems/mic-delay-audio.js
+copy+require	src/instruments/l-systems/full-presets.js

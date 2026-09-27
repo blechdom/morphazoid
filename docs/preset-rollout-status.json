@@ -4,11 +4,11 @@
   "branch": "codex/presets-continue-20260922",
   "source": "Review branch directory checkpoint 03619ff rebased onto origin/main ef6e593; pending pointer, family rename and preset drafts restored; no push or deployment",
   "counts": {
-    "implemented": 26,
-    "fullPresets": 523,
+    "implemented": 27,
+    "fullPresets": 587,
     "favesImplemented": 14,
-    "activeRemaining": 65,
-    "regularRemaining": 134
+    "activeRemaining": 64,
+    "regularRemaining": 133
   },
   "verification": {
     "browser": "Fresh-main 9a45aa0 combined gate: 402 passed across 13 Chromium suites, including all 209 public HTML routes, all 451 existing full-state preset recalls, Shapes' 106-scene audio sweep, Faves/UI/gesture checks, I/O setup and incoming Loopini regressions. Human/device acceptance remains separate; see docs/presets-continuation-20260922.md",
@@ -113,8 +113,9 @@
       "href": "l-systems.html",
       "category": "app",
       "scope": "regular",
-      "presets": null,
-      "status": "unmigrated"
+      "presets": 64,
+      "status": "implemented-verification-pending",
+      "evidence": "docs/l-systems-presets.md; 48 main scenes and separate 16-scene Mic bank; human/device acceptance unperformed"
     },
     {
       "id": "graphs",
@@ -1583,7 +1584,6 @@
       "hyper-drum-machine",
       "graph-drum-machine",
       "rubixoids",
-      "l-systems",
       "graphs",
       "tesselation",
       "spiral",
