@@ -608,12 +608,13 @@ test('one captured contour drag fills skipped points, edits only its joint and u
   const pointerId=await canvas.evaluate(canvas=>[1,2,3].find(id=>canvas.hasPointerCapture(id)));
   expect(pointerId).toBeDefined();
   await page.mouse.move(rect.x+rect.width*14/16,rect.y+rect.height*.8,{steps:1});
-  const drawn=await snapshot(page),curve=drawn.config.motion.contours[1].pip;
-  expect(drawn.config.motion.custom).toBe(true);await expect(page.locator('#motionPreset')).toHaveValue('drawn');
-  expect(curve[2]).toBeGreaterThan(.5);expect(curve[14]).toBeLessThan(-.5);
+  const drawn=await snapshot(page),curve=drawn.config.motion.edits.fingers[1].pip;
+  expect(drawn.config.motion.custom).toBe(false);await expect(page.locator('#motionPreset')).toHaveValue('still');
+  expect(drawn.config.motion.contours).toEqual(before.config.motion.contours);
+  expect(curve[2]-curve[14]).toBeGreaterThan(.5);
   for(let point=3;point<14;point++)expect(curve[point]).toBeCloseTo(curve[2]+(curve[14]-curve[2])*(point-2)/12,8);
   for(let finger=0;finger<5;finger++)for(const joint of ['mcp','pip','dip','spread']) {
-    if(finger!==1||joint!=='pip')expect(drawn.config.motion.contours[finger][joint]).toEqual(before.config.motion.contours[finger][joint]);
+    if(finger!==1||joint!=='pip')expect(drawn.config.motion.edits.fingers?.[finger]?.[joint]).toEqual(before.config.motion.edits.fingers?.[finger]?.[joint]);
   }
   await page.mouse.move(rect.x+rect.width+20,rect.y+rect.height*.5);
   await canvas.dispatchEvent('pointercancel',{pointerId});await page.mouse.up();
@@ -627,39 +628,44 @@ test('contour keyboard edits and animation save/load preserve each joint and kee
   await page.locator('#motionPreset').selectOption('still');await page.locator('#contour-joint-2').selectOption('spread');
   const canvas=page.locator('#contour-2');await canvas.scrollIntoViewIfNeeded();await canvas.focus();
   await canvas.press('ArrowRight');await canvas.press('ArrowUp');await canvas.press('Shift+ArrowUp');
-  const edited=await snapshot(page),curve=edited.config.motion.contours[2].spread;
+  const edited=await snapshot(page),curve=edited.config.motion.edits.fingers[2].spread;
   expect(curve[1]).toBeCloseTo(.125,8);expect(curve.filter(value=>value!==0)).toHaveLength(1);
-  expect(edited.config.motion.contours[2].mcp.every(value=>value===0)).toBe(true);
+  expect(edited.config.motion.edits.fingers[2].mcp).toBeUndefined();
   await expect(canvas).toHaveAttribute('aria-valuetext',/Point 2 of 16/);
-  await range(page,'tempo',143.2);
+  await range(page,'tempo',143.2);await range(page,'tremorAmount',4.2);await range(page,'tremorRate',17.3);
+  await page.locator('#rhythm').selectOption('broken');await range(page,'note-length',.62);
   const saved=await snapshot(page),downloadPromise=page.waitForEvent('download');await page.locator('#saveMotion').click();
   const download=await downloadPromise;expect(download.suggestedFilename()).toBe('gesticules-animation.json');
   const stream=await download.createReadStream(),chunks=[];for await(const chunk of stream)chunks.push(chunk);
   const bytes=Buffer.concat(chunks),animation=JSON.parse(bytes.toString());
-  expect(animation.type).toBe('gesticules-animation');expect(animation.version).toBe(1);
+  expect(animation.type).toBe('gesticules-animation');expect(animation.version).toBe(2);
+  expect(animation.tremor).toEqual(saved.config.tremor);
+  expect(animation.sound).toEqual({rhythm:saved.config.sound.rhythm,noteLength:saved.config.sound.noteLength});
   expect(animation.motion).toEqual(saved.config.motion);expect(animation.pose).toEqual(saved.config.pose);
-  await page.locator('#contour-clear-2').click();expect((await snapshot(page)).config.motion.contours[2].spread.every(value=>value===0)).toBe(true);
+  await page.locator('#contour-clear-2').click();expect((await snapshot(page)).config.motion.edits.fingers?.[2]?.spread).toBeUndefined();
   await page.locator('#bodyForm').selectOption('foot');await page.waitForFunction(()=>window.__gesticulatingHand.snapshot().viewer.form==='foot');
-  await range(page,'tempo',4400);
+  await range(page,'tempo',4400);await range(page,'tremorAmount',0);await page.locator('#rhythm').selectOption('continuous');
   await page.locator('#motionFile').setInputFiles({name:'gesture.json',mimeType:'application/json',buffer:bytes});
   await page.waitForFunction(()=>window.__gesticulatingHand.snapshot().viewer.form==='hand');
   await expect(page.locator('#liveStatus')).toHaveText('Animation loaded.');
   const restored=await snapshot(page);expect(restored.config.motion).toEqual(saved.config.motion);expect(restored.config.pose).toEqual(saved.config.pose);
+  expect(restored.config.tremor).toEqual(saved.config.tremor);
+  expect(restored.config.sound.rhythm).toBe(saved.config.sound.rhythm);expect(restored.config.sound.noteLength).toBe(saved.config.sound.noteLength);
   expect(restored.config.form).toBe(saved.config.form);expect(restored.audio.contextState).toBe('uninitialized');expect(restored.audioOn).toBe(false);
   await expect(page.locator('#contourUndo')).toBeDisabled();await expect(page.locator('#tempo')).toHaveValue('143.2');
 });
 
-test('desktop shows the hand and all five compact editing lanes together',async({page})=>{
+test('desktop shows the hand, all five digit lanes and wrist together',async({page})=>{
   await page.setViewportSize({width:1440,height:900});
   const layout=await page.evaluate(()=>({
     height:innerHeight,width:innerWidth,scrollWidth:document.documentElement.scrollWidth,
     hand:document.querySelector('#handCanvas').getBoundingClientRect().toJSON(),
-    rows:[...document.querySelectorAll('.hand-voice')].map(row=>({
+    rows:[...document.querySelectorAll('.hand-voice:not([hidden])')].map(row=>({
       bounds:row.getBoundingClientRect().toJSON(),curve:row.querySelector('.hand-contour').getBoundingClientRect().toJSON(),
     })),
   }));
   expect(layout.scrollWidth).toBeLessThanOrEqual(layout.width);expect(layout.hand.top).toBeGreaterThanOrEqual(0);
-  expect(layout.hand.height).toBeGreaterThanOrEqual(280);expect(layout.rows).toHaveLength(5);
+  expect(layout.hand.height).toBeGreaterThanOrEqual(280);expect(layout.rows).toHaveLength(6);
   for(const row of layout.rows) {
     expect(row.bounds.top).toBeGreaterThanOrEqual(layout.hand.bottom);
     expect(row.bounds.bottom).toBeLessThanOrEqual(layout.height);
@@ -681,12 +687,13 @@ for(const form of ['hand','foot']) {
       await page.locator('#bodyForm').selectOption('foot');await page.waitForFunction(()=>window.__gesticulatingHand.snapshot().viewer.form==='foot');
     }
     await page.locator('#motionPreset').selectOption('still');const before=await snapshot(page);
-    await drawUndoContour(page);expect((await snapshot(page)).config.motion.custom).toBe(true);
+    await drawUndoContour(page);expect((await snapshot(page)).config.motion.custom).toBe(false);
+    expect(Object.keys((await snapshot(page)).config.motion.edits).length).toBeGreaterThan(0);
     await range(page,'tempo',317.6);await range(page,'motionAmount',.37);
     if(form==='foot')await range(page,'footElasticity',.64);
     await page.locator('#soundPlayButton').click();await page.locator('#motionButton').click();
     const latest=await snapshot(page);await page.locator('#contourUndo').click();const restored=await snapshot(page);
-    expect(restored.config.motion).toEqual({...latest.config.motion,custom:before.config.motion.custom,contours:before.config.motion.contours});
+    expect(restored.config.motion).toEqual({...latest.config.motion,edits:before.config.motion.edits});
     expect(restored.config.motion.tempo*restored.config.motion.speed).toBeCloseTo(317.6,8);
     await expect(page.locator('#tempo')).toHaveValue('317.6');await expect(page.locator('#motionAmount')).toHaveValue('0.37');
     if(form==='foot')await expect(page.locator('#footElasticity')).toHaveValue('0.64');
@@ -712,4 +719,57 @@ test('presets, form switches and choreography changes clear prior contour Undo h
   await drawUndoContour(page);await page.locator('#motionPreset').selectOption('wave');
   expect((await snapshot(page)).config.motion.id).toBe('wave');expect((await snapshot(page)).config.motion.custom).toBe(false);
   await assertHistoryCleared();
+});
+
+for (const form of ['hand', 'foot']) {
+  test(`loaded ${form} animation shows every joint including body lanes, with isolated body edits`, async ({page}) => {
+    if (form === 'foot') {
+      await page.locator('#bodyForm').selectOption('foot');
+      await page.waitForFunction(() => window.__gesticulatingHand.snapshot().loaded && window.__gesticulatingHand.snapshot().viewer.form === 'foot');
+    }
+    await page.locator('#motionPreset').selectOption('still');
+    await range(page, 'motionAmount', 0); await range(page, 'tremorAmount', 0);
+    const original = await snapshot(page);
+    await expect(page.locator('.hand-voice:visible')).toHaveCount(form === 'foot' ? 7 : 6);
+    await expect(page.locator('#body-lane-5')).toHaveText(form === 'foot' ? 'Ankle' : 'Wrist');
+    if (form === 'foot') await expect(page.locator('#contour-joint-0 option[value="pip"]')).toHaveCount(0);
+    for (const [index, group, joints] of [[5, 'wrist', ['flex', 'side', 'twist']], ...(form === 'foot' ? [[6, 'foot', ['arch', 'twist', 'stretch']]] : [])]) {
+      const canvas = page.locator(`#contour-${index}`);
+      for (const joint of joints) {
+        await page.locator(`#contour-joint-${index}`).selectOption(joint);
+        await expect.poll(async () => Number(await canvas.getAttribute('aria-valuenow'))).toBeCloseTo(original.pose[group][joint], 3);
+        await expect(page.locator(`#contour-value-${index}`)).toHaveText(joint === 'stretch' ? `${Math.round(original.pose[group][joint] * 100)}%` : `${Math.round(original.pose[group][joint])}°`);
+        await canvas.focus(); await canvas.press('ArrowUp');
+        const edited = await snapshot(page);
+        expect(edited.config.motion.id).toBe('still'); expect(edited.config.motion.custom).toBe(false);
+        expect(edited.config.motion.amount).toBe(0); expect(edited.config.motion.contours).toEqual(original.config.motion.contours);
+        expect(edited.config.motion.edits[group][joint][0]).toBeCloseTo(.025, 8);
+        expect(edited.pose[group][joint]).toBeGreaterThan(original.pose[group][joint]);
+        expect(edited.pose.fingers).toEqual(original.pose.fingers);
+        await page.locator(`#contour-clear-${index}`).click();
+        const reset = await snapshot(page);
+        expect(reset.config.motion).toEqual(original.config.motion); expect(reset.pose).toEqual(original.pose);
+      }
+    }
+    expect((await snapshot(page)).audio.contextState).toBe('uninitialized');
+  });
+}
+
+test('legacy animation files retain their four-beat curves without replacing current tremor or sound', async ({page}) => {
+  const legacy = await page.evaluate(async () => {
+    const {normalizeHandConfig} = await import('/src/instruments/gesticulating-hand/hand-model.js');
+    const config = normalizeHandConfig({motion:{id:'wave',custom:true,tempo:96}});
+    config.motion.contours[1].pip[4] = .31;
+    delete config.motion.edits;
+    return {type:'gesticules-animation',version:1,form:config.form,pose:config.pose,motion:config.motion};
+  });
+  await range(page, 'tremorAmount', 3.4); await page.locator('#rhythm').selectOption('broken');
+  const before = await snapshot(page);
+  await page.locator('#motionFile').setInputFiles({name:'legacy.json',mimeType:'application/json',buffer:Buffer.from(JSON.stringify(legacy))});
+  await expect(page.locator('#liveStatus')).toHaveText('Animation loaded.');
+  const loaded = await snapshot(page);
+  expect(loaded.config.motion.custom).toBe(true); expect(loaded.config.motion.contours[1].pip[4]).toBe(.31);
+  expect(loaded.config.motion.edits).toEqual({}); expect(loaded.config.tremor).toEqual(before.config.tremor);
+  expect(loaded.config.sound).toEqual(before.config.sound); expect(loaded.config.voices).toEqual(before.config.voices);
+  expect(loaded.audio.contextState).toBe('uninitialized');
 });

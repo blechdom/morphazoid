@@ -106,7 +106,9 @@ test('switching forms restores each independently edited base pose, including th
 });
 
 test('all twenty-one full foot presets restore form, shape, engines, combined tempo, rhythm, camera, tremor and appearance', async ({ page }) => {
-  test.setTimeout(60000);
+  // Each scene exercises live form switches and every motion control; allow
+  // the complete bank to run with tracing without shortening its coverage.
+  test.setTimeout(180000);
   await range(page, 'outputLevel', .19); await page.locator('#soundPlayButton').click(); await page.locator('#motionButton').click();
   const scenes = await page.evaluate(async () => (await import('/src/instruments/gesticulating-hand/hand-model.js')).HAND_PRESETS.filter(preset => preset.snapshot.form === 'foot'));
   expect(scenes).toHaveLength(21);
@@ -173,6 +175,11 @@ test('the arch handle bends and stretches all voices with cancellation and keybo
   await page.locator('#handCanvas').focus(); await page.keyboard.press('6');
   const selected = await snapshot(page); expect(selected.bodyJoint).toBe('arch');
   await page.keyboard.press('ArrowUp'); expect((await snapshot(page)).config.pose.foot.arch).not.toBe(selected.config.pose.foot.arch);
+  const bent = await snapshot(page);
+  await page.keyboard.press('ArrowRight'); const stretched = await snapshot(page);
+  expect(stretched.config.pose.foot.stretch).toBeGreaterThan(bent.config.pose.foot.stretch);
+  expect(stretched.config.pose.foot.arch).toBe(bent.config.pose.foot.arch);
+  await page.keyboard.press('ArrowLeft'); expect((await snapshot(page)).config.pose.foot.stretch).toBeCloseTo(bent.config.pose.foot.stretch, 8);
   await page.keyboard.press('Home'); expect((await snapshot(page)).config.pose.foot).toEqual({ arch: 0, twist: 0, stretch: 0 });
   await page.locator('#audioButton').click(); await expect(page.locator('#audioButton')).toHaveAttribute('aria-pressed', 'true');
   const armed = await snapshot(page), fresh = coordinate(rect, armed.viewer.markers.find(marker => marker.finger === 6).screen);
@@ -191,8 +198,17 @@ test('all-toe spread tremor uses independent rate and phase controls and pauses 
   await range(page, 'tremorAmount', 35); await range(page, 'tremorRate', 3);
   await range(page, 'tremorRateSpread', .65); await range(page, 'tremorPhaseSpread', .8);
   await page.locator('#motionButton').click();
-  const samples = [];
-  for (let i = 0; i < 12; i++) { await page.waitForTimeout(95); samples.push(await snapshot(page)); }
+  // Sample in the browser at staggered intervals: traced round trips can
+  // otherwise lock onto one toe's independent tremor period.
+  const samples = await page.evaluate(async () => {
+    const samples = [];
+    for (const delay of [53, 127, 79, 163, 41, 103, 149, 67, 181, 89, 137, 59]) {
+      await new Promise(resolve => setTimeout(resolve, delay));
+      await new Promise(resolve => requestAnimationFrame(resolve));
+      samples.push(window.__gesticulatingHand.snapshot());
+    }
+    return samples;
+  });
   for (let toe = 0; toe < 5; toe++) {
     const values = samples.map(state => state.pose.fingers[toe].spread);
     expect(Math.max(...values) - Math.min(...values), `toe ${toe} visibly splays`).toBeGreaterThan(2);

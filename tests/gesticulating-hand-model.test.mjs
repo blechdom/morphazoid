@@ -116,7 +116,10 @@ test("full randomization varies every musical field and remains deterministic an
       if (!observed.has(key)) observed.set(key, new Set()); observed.get(key).add(value);
     }
   }
-  for (const [key, values] of observed) if (key !== "version") assert.ok(values.size > 1, `${key} is accidentally frozen`);
+  for (const [key, values] of observed) {
+    if (key === "view.zoom") assert.deepEqual([...values], [1], "dice keeps the model at the shared framing scale");
+    else if (key !== "version") assert.ok(values.size > 1, `${key} is accidentally frozen`);
+  }
   assert.deepEqual(original, normalizeHandConfig());
   assert.deepEqual(randomizeHandConfig(original, rng(25)), randomizeHandConfig(original, rng(25)));
   assert.deepEqual(randomizeHandConfig(original, () => NaN), normalizeHandConfig(randomizeHandConfig(original, () => NaN)));

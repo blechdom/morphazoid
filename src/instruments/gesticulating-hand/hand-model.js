@@ -3,6 +3,8 @@ import { createHandPresets } from "./hand-presets.js";
 import { createHandTremor } from "./hand-tremor.js";
 import { HAND_RHYTHMS, handRhythmPhase } from "./hand-rhythm.js";
 import { HAND_CONTOUR_POINTS, HAND_CONTOUR_BEATS, normalizeHandContour, sampleHandContour, randomizeHandContour } from "./hand-contour.js";
+import { normalizeHandMotionEdits, getHandAnimationEdit, setHandAnimationEdit } from './hand-motion-edits.js';
+export { getHandAnimationEdit, setHandAnimationEdit };
 export { HAND_RHYTHMS } from "./hand-rhythm.js";
 
 /** Shared choreography and sound mapping. Angles are degrees, time is seconds.
@@ -68,7 +70,18 @@ export const handWristLimits = form => form === "foot" ? FOOT_LIMITS.ankle : HAN
 const DIGIT_JOINT_LABELS = freeze({ mcp: "Knuckle bend", pip: "Middle joint", dip: "Tip joint", spread: "Spread" });
 const THUMB_JOINT_LABELS = freeze({ mcp: "Base bend", pip: "Knuckle bend", dip: "Tip bend", spread: "Opposition" });
 const TOE_JOINT_LABELS = freeze({ mcp: "Base bend", pip: "Middle joint", dip: "Tip joint", spread: "Spread" });
+const HAND_ANIMATION_LANES = freeze([...HAND_DIGIT_LABELS.map((label, index) => ({index, label, keys: DIGIT_KEYS})),
+  {index: 5, label: 'Wrist', keys: WRIST_KEYS}]);
+const FOOT_ANIMATION_LANES = freeze([...FOOT_DIGIT_LABELS.map((label, index) => ({index, label, keys: index === 0 ? BIG_TOE_KEYS : DIGIT_KEYS})),
+  {index: 5, label: 'Ankle', keys: WRIST_KEYS}, {index: 6, label: 'Foot shape', keys: ['arch', 'twist', 'stretch']}]);
+export const handAnimationLanes = form => form === 'foot' ? FOOT_ANIMATION_LANES : HAND_ANIMATION_LANES;
+export const handAnimationBounds = (form, index, joint) =>
+  (index < 5 ? handDigitLimits(form, index) : index === 5 ? handWristLimits(form) : FOOT_LIMITS.shape)[joint];
+export const handAnimationValue = (pose, index, joint) =>
+  (index < 5 ? pose.fingers?.[index] : pose[index === 5 ? 'wrist' : 'foot'])?.[joint] ?? 0;
 export function handJointLabel(form, index, key) {
+  if (index === 5) return {flex: 'Bend', side: 'Side to side', twist: 'Turn'}[key] ?? '';
+  if (index === 6) return {arch: 'Arch bend', twist: 'Twist', stretch: 'Stretch'}[key] ?? '';
   if (form === "foot" && index === 0 && key === "pip") return "";
   return (form === "foot" ? TOE_JOINT_LABELS : index === 0 ? THUMB_JOINT_LABELS : DIGIT_JOINT_LABELS)[key] ?? "";
 }
@@ -183,7 +196,7 @@ const DEFAULT_POSE = HAND_POSES.find(pose => pose.id === "source-open").pose;
 export const HAND_DEFAULTS = freeze({
   version: 1, form: "hand",
   pose: { fingers: DEFAULT_POSE.fingers.map(f => ({ ...f })), wrist: { ...DEFAULT_POSE.wrist } },
-  motion: { id: "source-grasp", tempo: 72, amount: .85, speed: 1, elasticity: 0, custom: false,
+  motion: { id: "source-grasp", tempo: 72, amount: .85, speed: 1, elasticity: 0, custom: false, edits: {},
     contours: FINGERS.map(() => Object.fromEntries(DIGIT_KEYS.map(key => [key, Array(HAND_CONTOUR_POINTS).fill(0)]))) },
   sound: { rhythm: "continuous", noteLength: .45, rootHz: 137, pitchSpread: 1, brightness: .46, roughness: .16, space: .28, rotationFx: .65, attack: .045, release: .45 },
   voices: FINGERS.map((_, i) => ({ source: VOICE_SOURCES[i], level: i === 4 ? .5 : .7, mute: false, solo: false })),
@@ -240,6 +253,7 @@ export function normalizeHandConfig(value = {}) {
   // the recalled Tempo, then retain that reference through edits and saves.
   next.tremor.referenceTempo = clampHand(tremor.referenceTempo, 2, 4400, handEffectiveTempo(next.motion));
   next.motion.custom = motion.custom === true;
+  next.motion.edits = normalizeHandMotionEdits(motion.edits);
   next.motion.contours = FINGERS.map((_, i) => Object.fromEntries(DIGIT_KEYS.map(key =>
     [key, normalizeHandContour(motion.contours?.[i]?.[key])])));
   next.sound.rhythm = HAND_RHYTHMS.some(item => item.id === sound.rhythm) ? sound.rhythm : "continuous";
@@ -609,6 +623,18 @@ export function evaluateHandPose(value = HAND_DEFAULTS, time = 0, out = createHa
       f.dip = clampHand(f.dip + tap * 12, ...bounds.dip);
     }
   }
+  // Per-joint drawing corrects the fully evaluated pose, retaining procedural
+  // detail, imported quaternions, shakes, note taps and the native loop length.
+  if (motion.edits) for (const lane of handAnimationLanes(config.form)) {
+    const target = lane.index < 5 ? out.fingers[lane.index] : out[lane.index === 5 ? 'wrist' : 'foot'];
+    for (const joint of lane.keys) {
+      const curve = getHandAnimationEdit(config, lane.index, joint);
+      if (!curve) continue;
+      const bounds = handAnimationBounds(config.form, lane.index, joint);
+      const offset = sampleHandContour(curve, beat / beats * HAND_CONTOUR_BEATS) * (bounds[1] - bounds[0]);
+      target[joint] = clampHand(target[joint] + offset, ...bounds);
+    }
+  }
   return out;
 }
 /** Curve heights are signed offsets from the editable starting pose. */
@@ -726,6 +752,12 @@ export function randomizeHandConfig(_current = HAND_DEFAULTS, random = Math.rand
     next.pose.foot = {};
     for (const [key, bounds] of Object.entries(FOOT_LIMITS.shape)) next.pose.foot[key] = between(...bounds);
     next.motion.elasticity = unit();
+  }
+  // Comparable framing is intentional across dice results. Retain the random
+  // draw above so all other random parameters keep their existing sequence.
+  next.view.zoom = 1;
+  for (const lane of handAnimationLanes(next.form)) for (const joint of lane.keys) {
+    if (unit() < .35) setHandAnimationEdit(next, lane.index, joint, randomizeHandContour(unit).map(value => value * .12));
   }
   return normalizeHandConfig(next);
 }

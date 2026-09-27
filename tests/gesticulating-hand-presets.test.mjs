@@ -178,7 +178,7 @@ test("eight rhythmic scenes provide bright registers and genuine note patterns w
     assert.ok(snapshot.sound.release <= .18, `${id}: short release`);
     assert.ok(snapshot.sound.noteLength >= .08 && snapshot.sound.noteLength <= .45, `${id}: note window leaves rests`);
     assert.ok(snapshot.sound.space <= .25, `${id}: room leaves notes distinct`);
-    assert.ok(snapshot.view.zoom >= (snapshot.form === "foot" ? 1.05 : 1), `${id}: framing`);
+    assert.equal(snapshot.view.zoom, 1, `${id}: shared framing`);
     if (snapshot.form === "foot") {
       assert.ok(Math.abs(snapshot.pose.foot.arch) <= 12 && Math.abs(snapshot.pose.foot.twist) <= 8 && Math.abs(snapshot.pose.foot.stretch) <= .08, `${id}: gentle shape`);
       assert.ok(snapshot.motion.elasticity > 0 && snapshot.motion.elasticity <= .2, `${id}: gentle elasticity`);

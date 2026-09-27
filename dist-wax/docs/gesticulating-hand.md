@@ -78,28 +78,44 @@ worklet share one rebased timeline. Faster motion changes pitch, tone and
 excitation movement without resampling audio. Older saved tempo/speed pairs
 remain compatible; their product is displayed as the single Tempo value.
 
+Factory presets and dice results use the same zoom scale. Camera rotation still
+belongs to each preset; the viewer fits the full moving surface inside the frame.
+Manual zoom and saved custom camera views remain available within that fit.
+
 ## Drawing your own animation
 
-Each compact voice row has M/S, level, sound, and overlaid movement contours.
-Select a joint in the row, then draw its highlighted curve; the other joints
-remain visible. Drawing converts the current choreography into an editable
-**four-beat loop**, with 16 points per joint and smooth, continuous interpolation.
-Curves add bounded bend or spread to the starting pose, scaled by Movement size.
+Each finger or toe has its own compact row with M/S, level, sound, and
+colored joint curves. Wrist/ankle and foot shape have separate rows on the same
+timeline. Select a joint to highlight and edit it; the others remain visible.
+Curve height shows the actual joint position, including starting pose,
+choreography, tremor and note taps. Readouts use degrees, or percent for stretch.
 The big toe has base, tip and spread curves; it has no middle joint.
 
-Dragging paints every point crossed, with one undo per stroke. On a focused
-curve, left/right selects a point, up/down changes its value, Shift makes a
-larger change, and Home/Delete returns that point to zero. Clear resets only the
-selected joint curve; Undo restores the previous edit. Choosing **Drawn contours**
-under Choreography returns to the edited curves; choosing another choreography
-keeps them stored in the scene. Motion plays the loop, while Sound and Audio
-remain independent. The curves feed the same pose evaluator in the renderer and
-AudioWorklet, so joint movement changes the same voice pitch, tone and spread.
+Most presets store an animation recipe, not a frame-by-frame recording: starting
+pose, named choreography, native beat count, Tempo, movement amount, elasticity,
+tremor and rhythmic taps. The original grasp additionally samples imported
+quaternion keyframes. The editor plots the current loop from the same pose
+evaluator as the rig and audio, with a shared playhead. Fast shakes use sampled
+range envelopes when individual oscillations are too dense to resolve; this
+only affects drawing, never playback.
 
-**Save** downloads an animation JSON containing the model, starting pose,
-choreography, curves and tempo; **Load** restores it without changing Audio,
-Sound, Motion, output level, sound settings, lighting or camera. Preset changes
-recall their complete motion state, so save a drawing before changing presets.
+Drawing adds a **correction for the selected joint** over that recipe. It keeps
+the original choreography, native loop length, imported rig motion, tremor and
+all unedited joints intact. Corrections use 16 bounded points per native cycle
+with smooth interpolation. The global legacy **Drawn contours** mode and its
+four-beat curves remain compatible. New drawings also work over Still.
+
+Dragging paints all crossed points with one Undo transaction. Left/right
+selects a point; up/down adjusts its position, and Shift makes a larger change.
+Home/Delete restores the selected point's original movement. Reset removes only
+the selected joint's correction; Undo preserves later Tempo and sound edits.
+
+**Save** downloads a version-2 animation JSON containing model, starting pose,
+choreography, legacy curves, per-joint corrections, Tempo, tremor and rhythmic
+motion settings. **Load** accepts versions 1 and 2, retaining voices, other sound
+settings, lighting, camera, output level and Audio/Sound/Motion transport.
+Version-1 files keep their earlier behavior and do not replace tremor or rhythm.
+Presets recall their complete state, so save edits before changing presets.
 
 The selected finger exposes each joint separately. For the four fingers these
 are knuckle (MCP), middle (PIP), tip (DIP), and knuckle spread. The thumb uses its

@@ -139,3 +139,20 @@
   .hand-contour-tools { height: 22px; }
   .hand-contour { height: 42px; }
 }
+
+/* Body lanes share the animation timeline without adding extra sound voices. */
+.hand-voice[hidden] { display: none; }
+.hand-body-lane > .hand-voice-name { grid-column: 1; text-align: left; align-self: center; }
+.hand-contour-tools .hand-contour-value { margin-left: auto; white-space: nowrap; font-size: 10px; color: var(--hand-muted); }
+.hand-contour-tools button { margin-left: 0; flex-shrink: 0; }
+.hand-contour-tools select { min-width: 0; flex: 0 1 145px; }
+@media(max-width:450px) {
+  .hand-contour-tools { gap: 3px; }
+  .hand-contour-tools select { max-width: 95px; font-size: 9px; }
+  .hand-contour-tools .hand-contour-value { font-size: 9px; }
+}
+@media(min-width:961px) and (pointer:fine) {
+  .hand-body-lane .hand-contour { height: 38px; }
+  .hand-voice { padding-top: 2px; padding-bottom: 2px; }
+  .hand-viewport { height: clamp(304px,calc(100dvh - 620px),620px); }
+}

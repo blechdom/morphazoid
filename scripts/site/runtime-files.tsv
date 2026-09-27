@@ -1076,6 +1076,8 @@ copy+require	src/instruments/gesticulating-hand/hand-rig.js
 copy+require	src/instruments/gesticulating-hand/foot-rig.js
 copy+require	src/instruments/gesticulating-hand/hand-look.js
 copy+require	src/instruments/gesticulating-hand/hand-model.js
+copy+require	src/instruments/gesticulating-hand/hand-motion-edits.js
+copy+require	src/instruments/gesticulating-hand/hand-animation-display.js
 copy+require	src/instruments/gesticulating-hand/hand-presets.js
 copy+require	src/instruments/gesticulating-hand/hand-tremor.js
 copy+require	src/instruments/gesticulating-hand/hand-dsp.js

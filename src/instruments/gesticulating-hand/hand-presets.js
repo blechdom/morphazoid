@@ -347,5 +347,8 @@ export function createHandPresets({ normalizeHandConfig, HAND_POSES, handPoseFor
       voices: sources.map((source, i) => ({ source, level: levels[i], mute: false, solo: false })) }) };
   });
   const byId = new Map([...originalHands, ...originalFeet, ...added].map(preset => [preset.id, preset]));
-  return freeze(PRESET_ORDER.map(id => byId.get(id)));
+  // Rotation is part of each scene; scale stays consistent across the bank.
+  return freeze(PRESET_ORDER.map(id => {
+    const preset = byId.get(id); preset.snapshot.view.zoom = 1; return preset;
+  }));
 }

@@ -214,7 +214,8 @@ test("complex choreographies have independently articulated fingers and counter-
 });
 
 test("the faster range preserves old preset timings and normal startup", () => {
-  const {custom,contours,...legacyMotion}=HAND_DEFAULTS.motion;
+  const {custom,contours,edits,...legacyMotion}=HAND_DEFAULTS.motion;
+  assert.deepEqual(edits, {});
   assert.deepEqual(legacyMotion, { id: "source-grasp", tempo: 72, amount: .85, speed: 1, elasticity: 0 });
   assert.equal(custom,false);assert.ok(contours.every(joints=>Object.values(joints).every(curve=>curve.every(value=>value===0))));
   assert.equal(handMotionPeriod(HAND_DEFAULTS.motion), 240 / 72);
@@ -259,7 +260,8 @@ test("v1 camera migration restores palm framing and bounds independently owned p
     assert.ok(Object.isFrozen(snapshot.view));
     assert.deepEqual(snapshot.view, normalizeHandConfig(snapshot).view);
   }
-  for (const key of ["yaw", "pitch", "zoom"]) assert.ok(new Set(HAND_PRESETS.map(({ snapshot }) => snapshot.view[key])).size >= 6, `${key} should distinguish full scene framing`);
+  for (const key of ["yaw", "pitch"]) assert.ok(new Set(HAND_PRESETS.map(({ snapshot }) => snapshot.view[key])).size >= 6, `${key} should distinguish full scene framing`);
+  assert.ok(HAND_PRESETS.every(({snapshot}) => snapshot.view.zoom === 1), "presets share one framing scale");
   const alternate = normalizeHandConfig({ ...original, view: { yaw: 2.2, pitch: .5, zoom: 1.7 } });
   assert.deepEqual(evaluateHandPose(alternate, .37), evaluateHandPose(original, .37));
   assert.deepEqual(evaluateHandVoices(alternate, .37), evaluateHandVoices(original, .37), "camera recall must not change joint-to-sound mapping");

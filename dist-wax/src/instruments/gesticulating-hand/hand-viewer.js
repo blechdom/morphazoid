@@ -4,14 +4,50 @@ import { createHandRig } from './hand-rig.js';
 import { createFootRig } from './foot-rig.js';
 import { createHandLook } from './hand-look.js';
 import { createHandTrails } from './hand-trails.js';
+import { evaluateHandPose, handMotionPeriod, handTremorRate } from './hand-model.js';
 
 export const FINGER_COLORS = Object.freeze(['#e7a574','#dfcf83','#83c6b4','#87aadb','#c3a0d1']);
 const RAD=Math.PI/180;
+const FRAME_MARGIN=1.14;
 const clamp=(value,min,max)=>Math.max(min,Math.min(max,value));
 const ASSETS={
   hand:{model:'../../../assets/gesticulating-hand/hand.glb',report:'../../../assets/gesticulating-hand/rig-report.json',create:createHandRig},
   foot:{model:'../../../assets/gesticulating-foot/foot.glb',report:'../../../assets/gesticulating-foot/rig-report.json',create:createFootRig},
 };
+
+/** A skinned vertex is a convex blend of its bone-space positions. Bounding
+ * every influence therefore contains the whole surface, including palm/heel
+ * vertices that are not represented by joint markers or fingertips. */
+function createSkinBounds(rig) {
+  const entries=[],point=new THREE.Vector3(),local=new THREE.Vector3();
+  for(const mesh of rig.meshes){
+    const {position,skinIndex,skinWeight}=mesh.geometry.attributes;
+    if(!mesh.isSkinnedMesh){mesh.geometry.computeBoundingSphere();entries.push({object:mesh,sphere:mesh.geometry.boundingSphere.clone()});continue;}
+    const boxes=new Map();
+    for(let vertex=0;vertex<position.count;vertex++){
+      point.fromBufferAttribute(position,vertex).applyMatrix4(mesh.bindMatrix);
+      for(let slot=0;slot<4;slot++)if(skinWeight.getComponent(vertex,slot)>0){
+        const index=skinIndex.getComponent(vertex,slot);
+        if(!boxes.has(index))boxes.set(index,new THREE.Box3());
+        boxes.get(index).expandByPoint(local.copy(point).applyMatrix4(mesh.skeleton.boneInverses[index]));
+      }
+    }
+    for(const [index,box] of boxes)entries.push({object:mesh.skeleton.bones[index],sphere:box.getBoundingSphere(new THREE.Sphere())});
+  }
+  const sphere=new THREE.Sphere();
+  return callback=>{
+    for(const entry of entries){
+      const matrix=entry.object.matrixWorld,e=matrix.elements;
+      // Rotated descendants of a stretched arch can shear. The maximum row
+      // sum of AᵀA bounds its largest eigenvalue even for those transforms;
+      // maximum column length alone would underestimate some foot surfaces.
+      const xx=e[0]*e[0]+e[1]*e[1]+e[2]*e[2],yy=e[4]*e[4]+e[5]*e[5]+e[6]*e[6],zz=e[8]*e[8]+e[9]*e[9]+e[10]*e[10];
+      const xy=Math.abs(e[0]*e[4]+e[1]*e[5]+e[2]*e[6]),xz=Math.abs(e[0]*e[8]+e[1]*e[9]+e[2]*e[10]),yz=Math.abs(e[4]*e[8]+e[5]*e[9]+e[6]*e[10]);
+      sphere.center.copy(entry.sphere.center).applyMatrix4(matrix);
+      sphere.radius=entry.sphere.radius*Math.sqrt(Math.max(xx+xy+xz,yy+xy+yz,zz+xz+yz));callback(sphere);
+    }
+  };
+}
 
 /** One renderer, light rig and camera serve both weighted anatomy models. */
 export function createHandViewer(canvas,{onSelect=()=>{},onGesture=()=>{},onChange=()=>{},onStatus=()=>{},onReady=()=>{},onLoading=()=>{},onViewChange=()=>{}}={}) {
@@ -31,7 +67,8 @@ export function createHandViewer(canvas,{onSelect=()=>{},onGesture=()=>{},onChan
   const raycaster=new THREE.Raycaster(),pointer=new THREE.Vector2(),temporary=new THREE.Vector3();
   let rig=null,form='hand',requestedForm='hand',loaded=false,disposed=false,selected=1,selectedJoint='mcp',showJoints=true,drag=null;
   let yaw=.12,pitch=.03,zoomFactor=1,width=0,height=0,baseDistance=5.8,latestPose=null,pickBoundsDirty=true,loadGeneration=0;
-  let appearance={skin:0,lighting:0},footFrameScale=1,footFrameOffset=0;
+  let appearance={skin:0,lighting:0},framingConfig=null,framingSignature='',skinBounds=null,frameRadius=1.8;
+  const frameCenter=new THREE.Vector3(),frameBox=new THREE.Box3(),frameSpheres=[],frameScratch=new THREE.Vector3();
   let poseSignature='',cameraSignature='';
   const listen=(type,callback,options={})=>canvas.addEventListener(type,callback,{...options,signal});
 
@@ -40,31 +77,56 @@ export function createHandViewer(canvas,{onSelect=()=>{},onGesture=()=>{},onChan
     const box=canvas.getBoundingClientRect();width=Math.max(1,box.width);height=Math.max(1,box.height);
     renderer.setPixelRatio(Math.min(devicePixelRatio||1,1.6,Math.sqrt(1450000/(width*height))));renderer.setSize(width,height,false);
     camera.aspect=width/height;camera.updateProjectionMatrix();
-    const bounds=rig?.bounds??new THREE.Vector3(2,3,1);
-    const verticalFit=bounds.y/(2*Math.tan(camera.fov*RAD/2));
-    const horizontalFit=bounds.x/(2*Math.tan(camera.fov*RAD/2)*camera.aspect);
-    // Reserve room for the view controls on the shortest portrait stages.
-    // Projection framing is separate from preset zoom and musical rotation.
-    const compactFoot=form==='foot'&&width<480&&height<340;
-    baseDistance=Math.max(verticalFit*1.5,horizontalFit*2.5)*(compactFoot?1.3:1);
-    if(compactFoot)camera.setViewOffset(width,height,0,height*.075,width,height);else camera.clearViewOffset();
+    // Keep an unobstructed strip above the controls on compact stages.
+    const bottomInset=Math.min(height*.28,width<480?76:height<230?42:20);
+    camera.setViewOffset(width,height,0,bottomInset/2,width,height);
     updateCamera();
   }
   function updateCamera() {
-    const distance=baseDistance*zoomFactor*(form==='foot'?footFrameScale:1),target=new THREE.Vector3(0,-.04+(form==='foot'?footFrameOffset:0),0);
-    camera.position.set(distance*Math.sin(yaw)*Math.cos(pitch),distance*Math.sin(pitch),distance*Math.cos(yaw)*Math.cos(pitch)).add(target);
-    camera.lookAt(target);camera.updateMatrixWorld();onChange();
+    const bottomInset=camera.view?.offsetY*2||0;
+    const halfVertical=Math.atan(Math.tan(camera.fov*RAD/2)*(1-bottomInset/height));
+    const halfHorizontal=Math.atan(Math.tan(camera.fov*RAD/2)*camera.aspect);
+    const fittedDistance=frameRadius/Math.sin(Math.min(halfVertical,halfHorizontal));
+    baseDistance=fittedDistance*FRAME_MARGIN;
+    // Explicit zoom still works, but cannot move through the reserved envelope.
+    const distance=Math.max(fittedDistance,baseDistance*zoomFactor);
+    camera.position.set(distance*Math.sin(yaw)*Math.cos(pitch),distance*Math.sin(pitch),distance*Math.cos(yaw)*Math.cos(pitch)).add(frameCenter);
+    camera.lookAt(frameCenter);camera.updateMatrixWorld();onChange();
     const signature=camera.matrixWorld.elements.join(',');if(signature!==cameraSignature){cameraSignature=signature;trails.changed();}
   }
-  // Fit the configured deformation envelope once per edit, so elastic motion
-  // stays visible without making the camera breathe on every animation frame.
+  // Sample a complete choreography before displaying it, using the real rig's
+  // skin bounds. This fixes one centered envelope for the performance instead of
+  // zooming in and out as fingers curl. The live guard below covers manual/MIDI
+  // edits and independent tremor phases between these samples.
+  function prepareFraming() {
+    if(!loaded||!framingConfig||framingConfig.form!==form)return;
+    const config=framingConfig,period=handMotionPeriod(config.motion),rate=handTremorRate(config);
+    frameBox.makeEmpty();frameSpheres.length=0;
+    let pose;
+    const samples=64;
+    for(let i=0;i<samples;i++){
+      pose=evaluateHandPose(config,period*i/samples,pose,rate>0?i*.61803398875/rate:0);rig.setPose(pose);
+      skinBounds(sphere=>{frameSpheres.push(sphere.clone());frameBox.expandByPoint(frameScratch.copy(sphere.center).addScalar(sphere.radius));frameBox.expandByPoint(frameScratch.copy(sphere.center).addScalar(-sphere.radius));});
+    }
+    frameBox.getCenter(frameCenter);frameRadius=0;
+    for(const sphere of frameSpheres)frameRadius=Math.max(frameRadius,frameCenter.distanceTo(sphere.center)+sphere.radius);
+    frameRadius*=1.07;frameSpheres.length=0;
+    if(latestPose)rig.setPose(latestPose);
+    updateCamera();
+  }
+  function guardFraming(){
+    let required=frameRadius;
+    skinBounds(sphere=>{required=Math.max(required,frameCenter.distanceTo(sphere.center)+sphere.radius);});
+    // Never contract during playback: even an unanticipated extreme remains
+    // contained without repeatedly pumping the camera as the gesture relaxes.
+    if(required>frameRadius+1e-6){frameRadius=required*1.025;updateCamera();}
+  }
   function setFraming(config={}) {
-    const shape=config.pose?.foot??{},motion=config.motion??{};
-    const elastic=config.form==='foot'&&motion.id!=='still'?clamp(Number(motion.elasticity)||0,0,1)*clamp(Number(motion.amount)||0,0,1):0;
-    const maximumStretch=clamp((Number(shape.stretch)||0)+.6*elastic,0,1);
-    const maximumAbsArch=Math.max(Math.abs(clamp((Number(shape.arch)||0)-55*elastic,-70,85)),Math.abs(clamp((Number(shape.arch)||0)+55*elastic,-70,85)));
-    footFrameScale=Math.max(1+.85*maximumStretch,1+.65*maximumAbsArch/85);
-    footFrameOffset=.9*maximumStretch;updateCamera();
+    framingConfig=config;
+    const motion=config.motion??{},tremor=config.tremor??{};
+    const signature=JSON.stringify([config.form,config.pose,{...motion,tempo:undefined,speed:undefined},
+      {...tremor,rate:undefined,referenceTempo:undefined}]);
+    if(signature!==framingSignature){framingSignature=signature;prepareFraming();}
   }
   function getCameraView(){return {yaw:((yaw+Math.PI)%(2*Math.PI)+2*Math.PI)%(2*Math.PI)-Math.PI,pitch,zoom:zoomFactor};}
   function setCameraView(view={}) {
@@ -73,7 +135,7 @@ export function createHandViewer(canvas,{onSelect=()=>{},onGesture=()=>{},onChan
     zoomFactor=Number.isFinite(view.zoom)?clamp(view.zoom,.62,2):1;updateCamera();
   }
   function setView(view){yaw={palm:.12,back:Math.PI+.12,side:Math.PI/2}[view]??.12;pitch=.035;zoomFactor=1;updateCamera();onViewChange(getCameraView());}
-  function zoom(factor){zoomFactor=clamp(zoomFactor*factor,.62,2);updateCamera();onViewChange(getCameraView());}
+  function zoom(factor){zoomFactor=clamp(Math.max(zoomFactor,1/FRAME_MARGIN)*factor,1/FRAME_MARGIN,2);updateCamera();onViewChange(getCameraView());}
   function setAppearance(value={}){if(value.skin!==appearance.skin||value.lighting!==appearance.lighting)clearTrails();appearance={...value};look.apply(appearance);onChange();}
   function clearMarkers(){for(const dot of markers){markerGroup.remove(dot);dot.material.dispose();}markers.length=0;}
   function addMarker(finger,joint,bone){
@@ -87,7 +149,7 @@ export function createHandViewer(canvas,{onSelect=()=>{},onGesture=()=>{},onChan
   }
   function selectFinger(finger,joint='mcp'){selected=finger;selectedJoint=joint;refreshMarkers();}
   function setShowJoints(show){showJoints=Boolean(show);refreshMarkers();}
-  function setPose(pose){latestPose=pose;if(!loaded)return;rig.setPose(pose);pickBoundsDirty=true;refreshMarkers();
+  function setPose(pose){latestPose=pose;if(!loaded)return;rig.setPose(pose);guardFraming();pickBoundsDirty=true;refreshMarkers();
     const signature=JSON.stringify([pose.fingers,pose.wrist,form==='foot'?pose.foot:pose.source]);
     if(signature!==poseSignature){poseSignature=signature;trails.changed();}
   }
@@ -163,22 +225,32 @@ export function createHandViewer(canvas,{onSelect=()=>{},onGesture=()=>{},onChan
     if(!cache.has(next))cache.set(next,loadRig(next).catch(error=>{cache.delete(next);throw error;}));
     try{
       const nextRig=await cache.get(next);if(disposed||generation!==loadGeneration)return false;
-      rig=nextRig;form=next;rig.group.visible=true;clearMarkers();
+      rig=nextRig;form=next;rig.group.visible=true;skinBounds=rig.skinBounds??=createSkinBounds(rig);clearMarkers();
       rig.digits.forEach((digit,index)=>digit.forEach(entry=>addMarker(index,entry.key,entry.bone)));addMarker(5,'mcp',rig.wrist);
       for(const entry of rig.extras??[])addMarker(6,entry.key,entry.bone);
-      loaded=true;markerGroup.visible=true;resize();if(latestPose)setPose(latestPose);refreshMarkers();render();onStatus('');onReady(form);onChange();return true;
+      loaded=true;markerGroup.visible=true;prepareFraming();resize();if(latestPose)setPose(latestPose);refreshMarkers();render();onStatus('');onReady(form);onChange();return true;
     }catch(error){if(!disposed&&generation===loadGeneration){onStatus(`The ${next} could not load: ${error.message}. Choose another model or reload.`);onChange();}return false;}
+  }
+  function measureSurfaceBounds(){
+    if(!loaded)return null;
+    const box=new THREE.Box3(),point=new THREE.Vector3();let vertices=0;
+    for(const mesh of rig.meshes)for(let i=0;i<mesh.geometry.attributes.position.count;i++){
+      mesh.getVertexPosition(i,point).applyMatrix4(mesh.matrixWorld).project(camera);box.expandByPoint(point);vertices++;
+    }
+    return {min:box.min.toArray(),max:box.max.toArray(),vertices};
   }
   const resizeObserver=new ResizeObserver(resize);resizeObserver.observe(canvas.parentElement);resize();
   function dispose(){if(disposed)return;disposed=true;loaded=false;loadGeneration++;release();abort.abort();resizeObserver.disconnect();trails.dispose();look.dispose();
     clearMarkers();for(const loadedRig of loadedRigs)loadedRig.dispose?.();loadedRigs.clear();for(const child of scene.children)if(child!==markerGroup)disposeTree(child);markerGeometry.dispose();cache.clear();renderer.dispose();}
   setForm('hand');
   return {setForm,setPose,render,resize,setView,setCameraView,setFraming,setAppearance,setTrails,clearTrails,hasTrailTail,zoom,selectFinger,setShowJoints,dispose,
-    getState:()=>({loaded,form,requestedForm,rigCount:cache.size,boneCount:rig?.deformMap.size??0,
+    getState:({includeSurfaceBounds=false}={})=>({loaded,form,requestedForm,rigCount:cache.size,boneCount:rig?.deformMap.size??0,
       vertices:rig?.meshes.reduce((n,m)=>n+(m.geometry.attributes.position?.count??0),0)??0,
       triangles:rig?.meshes.reduce((n,m)=>n+((m.geometry.index?.count??m.geometry.attributes.position?.count??0)/3),0)??0,
       selected,selectedJoint,showJoints,markers:loaded?markers.map(m=>({finger:m.userData.finger,joint:m.userData.joint,position:m.position.toArray(),screen:m.position.clone().project(camera).toArray()})):[],
       fingertips:loaded?rig.tips.map(b=>b.getWorldPosition(new THREE.Vector3()).project(camera).toArray()):[],
+      surfaceBounds:includeSurfaceBounds?measureSurfaceBounds():undefined,
+      framing:{center:frameCenter.toArray(),radius:frameRadius,distance:camera.position.distanceTo(frameCenter)},
       view:getCameraView(),appearance:{...appearance},trails:trails.getState(),size:[width,height],pixelRatio:renderer.getPixelRatio(),camera:camera.position.toArray()}),
   };
 }

@@ -1,119 +1,228 @@
-import { HAND_CONTOUR_POINTS, HAND_CONTOUR_BEATS, sampleHandContour } from './hand-contour.js';
-import { captureHandContours, handDigitLabels, handJointKeys, handJointLabel, handMotionPeriod } from './hand-model.js';
+import { HAND_CONTOUR_POINTS, normalizeHandContour } from './hand-contour.js';
+import { evaluateHandPose, handAnimationLanes, handAnimationBounds, handAnimationValue,
+  getHandAnimationEdit, setHandAnimationEdit, handJointLabel, handMotionPeriod } from './hand-model.js';
+import { sampleHandAnimationDisplay } from './hand-animation-display.js';
 
-const COLORS = { mcp: '#e5b16f', pip: '#6ed3cb', dip: '#cb9cf1', spread: '#ef91ad' };
+const COLORS = { mcp: '#e5b16f', pip: '#6ed3cb', dip: '#cb9cf1', spread: '#ef91ad',
+  flex: '#e5b16f', side: '#6ed3cb', twist: '#cb9cf1', arch: '#e5b16f', stretch: '#ef91ad' };
+const PAD = 5;
 const clamp = (value, low, high) => Math.max(low, Math.min(high, value));
 const clone = value => structuredClone(value);
+const sameCurve = (a, b) => a == null || b == null ? a == null && b == null
+  : a.length === b.length && a.every((value, index) => value === b[index]);
+const compact = (lane, value) => lane.joint === 'stretch' ? `${Math.round(value * 100)}%` : `${Math.round(value)}°`;
+const spoken = (lane, value) => lane.joint === 'stretch' ? `${Math.round(value * 100)} percent stretch` : `${Number(value.toFixed(1))} degrees`;
 
-/** Five overlaid curve surfaces. Editing owns one captured drag/undo transaction;
- * the audio clock owns playback, and a display stall cannot delay the animation. */
+/** Show the evaluated performance and edit sparse corrections to one joint.
+ * Pointer strokes freeze their underlying generator/window; audio and transport
+ * remain owned by the application. Undo restores corrections only. */
 export function createHandContourEditor({ read, commit, listen, selectFinger }) {
-  const lanes = [], undo = [];
-  let config, curves, drag = null, lastTime = 0;
-  const undoButton = document.getElementById('contourUndo');
-  function remember(motion) {
-    undo.push(clone({custom:motion.custom,contours:motion.contours})); if (undo.length > 32) undo.shift(); undoButton.disabled = false;
+  const lanes = [], undo = [], undoButton = document.getElementById('contourUndo');
+  let config, drag = null, lastTime = 0, lastTremorTime = 0, preview = null;
+  const activeLanes = () => lanes.filter(lane => lane.definition);
+  const invalidate = () => { preview = null; };
+  function frameFor(value = config) {
+    if (drag) return drag.frame;
+    const period = handMotionPeriod(value.motion);
+    return { startTime: Math.floor(lastTime / period) * period, period, tremorOffset: lastTremorTime - lastTime };
   }
-  function edit(finger, joint, mutate, first = true) {
+  function pointValue(lane, value = config, frame = frameFor(value)) {
+    const time = frame.startTime + lane.cursor / HAND_CONTOUR_POINTS * frame.period;
+    return handAnimationValue(evaluateHandPose(value, time, undefined, time + frame.tremorOffset), lane.index, lane.joint);
+  }
+  function updateA11y(lane, value) {
+    if (!config || !lane.definition) return;
+    const [low, high] = handAnimationBounds(config.form, lane.index, lane.joint);
+    const angle = value ?? pointValue(lane);
+    const name = `${lane.definition.label} ${handJointLabel(config.form, lane.index, lane.joint)}`;
+    lane.canvas.setAttribute('aria-label', `${name} animation`);
+    lane.canvas.setAttribute('aria-valuemin', String(low));
+    lane.canvas.setAttribute('aria-valuemax', String(high));
+    lane.canvas.setAttribute('aria-valuenow', String(Number(angle.toFixed(4))));
+    lane.canvas.setAttribute('aria-valuetext', `Point ${lane.cursor + 1} of ${HAND_CONTOUR_POINTS}, ${spoken(lane, angle)}`);
+    lane.readout.textContent = compact(lane, angle);
+    lane.selector.style.color = COLORS[lane.joint];
+  }
+  function remember(edits) {
+    undo.push(clone(edits ?? {})); if (undo.length > 32) undo.shift(); undoButton.disabled = false;
+  }
+  function applyCurve(lane, curve, transaction) {
     const next = clone(read());
-    if (first) remember(next.motion);
-    next.motion.contours = captureHandContours(next);
-    next.motion.custom = true;
-    mutate(next.motion.contours[finger][joint]);
-    commit(next);
-  }
-  function updateA11y(lane) {
-    const label = handDigitLabels(config.form)[lane.index];
-    lane.canvas.setAttribute('aria-label', `${label} ${handJointLabel(config.form,lane.index,lane.joint)} movement contour`);
-    const curve = curves[lane.index][lane.joint];
-    lane.readout.textContent = `${lane.cursor + 1}/16 · ${Math.round(curve[lane.cursor] * 100)}%`;
-    lane.canvas.setAttribute('aria-valuenow',String(Math.round(curve[lane.cursor]*100)));
-    lane.canvas.setAttribute('aria-valuetext', `Point ${lane.cursor + 1} of 16, ${Math.round(curve[lane.cursor] * 100)} percent`);
-  }
-  function drawLane(lane, time) {
-    const canvas = lane.canvas, width = canvas.clientWidth, height = canvas.clientHeight;
-    if (!width || !height) return;
-    const dpr = Math.min(2, window.devicePixelRatio || 1);
-    if (canvas.width !== Math.round(width*dpr) || canvas.height !== Math.round(height*dpr)) {
-      canvas.width = Math.round(width*dpr); canvas.height = Math.round(height*dpr);
+    const normalized = curve == null ? null : normalizeHandContour(curve);
+    const replacement = normalized?.some(value => value !== 0) ? normalized : null;
+    if (sameCurve(getHandAnimationEdit(next, lane.index, lane.joint), replacement)) return false;
+    if (!transaction?.remembered) {
+      remember(next.motion.edits);
+      if (transaction) transaction.remembered = true;
     }
-    const context = canvas.getContext('2d'); context.setTransform(dpr,0,0,dpr,0,0);
-    context.clearRect(0,0,width,height);
-    context.strokeStyle = '#ffffff12'; context.lineWidth = 1;
-    context.beginPath();
-    for(let point=0;point<HAND_CONTOUR_POINTS;point++) { const x=point/HAND_CONTOUR_POINTS*width; context.moveTo(x,0);context.lineTo(x,height); }
-    context.moveTo(0,height/2);context.lineTo(width,height/2);context.stroke();
-    const keys=handJointKeys(config.form,lane.index), ordered=[...keys.filter(key=>key!==lane.joint),lane.joint];
-    for(const joint of ordered) {
-      const selected=joint===lane.joint;context.globalAlpha=selected?1:.38;
-      context.strokeStyle=COLORS[joint];context.lineWidth=selected?2:1.1;context.beginPath();
-      for(let x=0;x<=width;x+=2) {
-        const value=sampleHandContour(curves[lane.index][joint],x/width*HAND_CONTOUR_BEATS);
-        const y=height/2-value*(height/2-5);if(x===0)context.moveTo(x,y);else context.lineTo(x,y);
+    setHandAnimationEdit(next, lane.index, lane.joint, replacement);
+    commit(next); // sync invalidates the display; the next draw samples all lanes once.
+    return true;
+  }
+  function capture(lane) {
+    const baseline = clone(read()), frame = { ...frameFor(baseline) };
+    const underlying = clone(baseline);
+    setHandAnimationEdit(underlying, lane.index, lane.joint, null);
+    const base = Array.from({ length: HAND_CONTOUR_POINTS }, (_, index) => {
+      const time = frame.startTime + index / HAND_CONTOUR_POINTS * frame.period;
+      return handAnimationValue(evaluateHandPose(underlying, time, undefined, time + frame.tremorOffset), lane.index, lane.joint);
+    });
+    return { frame, baseline, base, curve: normalizeHandContour(getHandAnimationEdit(baseline, lane.index, lane.joint)),
+      bounds: handAnimationBounds(baseline.form, lane.index, lane.joint), remembered: false };
+  }
+  function point(lane, event, bounds) {
+    const rect = lane.canvas.getBoundingClientRect(), height = Math.max(1, rect.height - PAD * 2);
+    return { index: clamp(Math.round((event.clientX - rect.left) / Math.max(1, rect.width) * HAND_CONTOUR_POINTS), 0, HAND_CONTOUR_POINTS - 1),
+      angle: clamp(bounds[1] - (event.clientY - rect.top - PAD) / height * (bounds[1] - bounds[0]), ...bounds) };
+  }
+  function paint(lane, event) {
+    const next = point(lane, event, drag.bounds), previous = drag.last ?? next;
+    const distance = Math.abs(next.index - previous.index), span = drag.bounds[1] - drag.bounds[0];
+    for (let step = 0; step <= distance; step++) {
+      const amount = distance ? step / distance : 1, index = previous.index + Math.sign(next.index - previous.index) * step;
+      const target = previous.angle + (next.angle - previous.angle) * amount;
+      drag.curve[index] = span > 0 ? clamp((target - drag.base[index]) / span, -1, 1) : 0;
+    }
+    lane.cursor = next.index; drag.last = next;
+    applyCurve(lane, drag.curve, drag); updateA11y(lane, next.angle);
+  }
+  function finishDrag(event) {
+    if (!drag || (event && event.pointerId !== drag.pointer)) return;
+    const { lane, pointer } = drag; drag = null; invalidate();
+    if (lane.canvas.hasPointerCapture(pointer)) lane.canvas.releasePointerCapture(pointer);
+  }
+  function samplePreview() {
+    const active = activeLanes(), frame = frameFor();
+    // Multiple-of-16 columns retain exact edit-point anchors without extra model evaluations.
+    const width = Math.max(1, ...active.map(lane => lane.canvas.clientWidth));
+    const columns = clamp(Math.ceil(width / 2 / HAND_CONTOUR_POINTS) * HAND_CONTOUR_POINTS, 32, 192);
+    if (!preview || preview.columns !== columns || preview.startTime !== frame.startTime || preview.period !== frame.period
+      || Math.abs(preview.tremorOffset - frame.tremorOffset) > 1e-9) {
+      preview = sampleHandAnimationDisplay(config, { ...frame, columns });
+    }
+    return preview;
+  }
+  function drawLane(lane, time, display) {
+    const canvas = lane.canvas, width = canvas.clientWidth, height = canvas.clientHeight;
+    const sampled = display.lanes.find(item => item.index === lane.index);
+    if (!width || !height || !sampled) return;
+    const dpr = Math.min(2, window.devicePixelRatio || 1);
+    if (canvas.width !== Math.round(width * dpr) || canvas.height !== Math.round(height * dpr)) {
+      canvas.width = Math.round(width * dpr); canvas.height = Math.round(height * dpr);
+    }
+    const context = canvas.getContext('2d'); if (!context) return;
+    context.setTransform(dpr, 0, 0, dpr, 0, 0); context.clearRect(0, 0, width, height);
+    const yFor = (value, bounds) => PAD + (bounds[1] - value) / Math.max(1e-9, bounds[1] - bounds[0]) * (height - PAD * 2);
+    const selectedBounds = handAnimationBounds(config.form, lane.index, lane.joint);
+    context.strokeStyle = '#ffffff12'; context.lineWidth = 1; context.beginPath();
+    for (let point = 0; point < HAND_CONTOUR_POINTS; point++) {
+      const x = point / HAND_CONTOUR_POINTS * width; context.moveTo(x, 0); context.lineTo(x, height);
+    }
+    if (selectedBounds[0] <= 0 && selectedBounds[1] >= 0) {
+      const y = yFor(0, selectedBounds); context.moveTo(0, y); context.lineTo(width, y);
+    }
+    context.stroke();
+    const ordered = [...lane.definition.keys.filter(key => key !== lane.joint), lane.joint];
+    for (const joint of ordered) {
+      const curve = sampled.curves[joint], selected = joint === lane.joint;
+      const bounds = handAnimationBounds(config.form, lane.index, joint), step = width / display.columns;
+      context.fillStyle = COLORS[joint]; context.globalAlpha = selected ? .18 : .055;
+      for (let x = 0; x < display.columns; x++) {
+        const top = yFor(curve.max[x], bounds), bottom = yFor(curve.min[x], bounds);
+        if (bottom - top > .6) context.fillRect(x * step, top, step + .5, bottom - top);
+      }
+      context.globalAlpha = selected ? 1 : .32; context.strokeStyle = COLORS[joint]; context.lineWidth = selected ? 2 : 1.1; context.beginPath();
+      for (let x = 0; x <= display.columns; x++) {
+        const y = yFor(curve.values[x], bounds);
+        if (x === 0) context.moveTo(0, y); else context.lineTo(x * step, y);
       }
       context.stroke();
     }
-    context.globalAlpha=1;
-    const progress=((time/handMotionPeriod(config.motion))%1+1)%1;
-    context.strokeStyle='#ffffffaa';context.lineWidth=1;context.beginPath();context.moveTo(progress*width,0);context.lineTo(progress*width,height);context.stroke();
-    if(document.activeElement===canvas) {
-      const x=lane.cursor/HAND_CONTOUR_POINTS*width,y=height/2-curves[lane.index][lane.joint][lane.cursor]*(height/2-5);
-      context.fillStyle=COLORS[lane.joint];context.beginPath();context.arc(x,y,4,0,Math.PI*2);context.fill();
+    context.globalAlpha = 1;
+    const progress = ((time / display.period) % 1 + 1) % 1;
+    context.strokeStyle = '#ffffffaa'; context.lineWidth = 1; context.beginPath();
+    context.moveTo(progress * width, 0); context.lineTo(progress * width, height); context.stroke();
+    const value = sampled.curves[lane.joint].values[lane.cursor * display.columns / HAND_CONTOUR_POINTS];
+    updateA11y(lane, value);
+    if (document.activeElement === canvas) {
+      context.fillStyle = COLORS[lane.joint]; context.beginPath();
+      context.arc(lane.cursor / HAND_CONTOUR_POINTS * width, yFor(value, selectedBounds), 4, 0, Math.PI * 2); context.fill();
     }
   }
-  function point(lane,event) {
-    const rect=lane.canvas.getBoundingClientRect();
-    return { index:clamp(Math.round((event.clientX-rect.left)/rect.width*HAND_CONTOUR_POINTS),0,HAND_CONTOUR_POINTS-1),
-      value:clamp((rect.height/2-(event.clientY-rect.top))/(rect.height/2-5),-1,1) };
+  function draw(time = lastTime, tremorTime = lastTremorTime) {
+    lastTime = Number.isFinite(time) ? time : lastTime;
+    lastTremorTime = Number.isFinite(tremorTime) ? tremorTime : lastTime;
+    if (!config) return;
+    const display = samplePreview();
+    for (const lane of activeLanes()) drawLane(lane, lastTime, display);
   }
-  function paint(lane,event,first=false) {
-    const next=point(lane,event), previous=first?next:drag.last;
-    edit(lane.index,lane.joint,curve=>{
-      const distance=Math.abs(next.index-previous.index);
-      for(let step=0;step<=distance;step++) {
-        const amount=distance?step/distance:1,index=previous.index+Math.sign(next.index-previous.index)*step;
-        curve[index]=previous.value+(next.value-previous.value)*amount;
+  function select(index, joint) {
+    const lane = lanes.find(lane => lane.index === index);
+    if (!lane?.definition) return;
+    if (lane.definition.keys.includes(joint)) {
+      if (drag?.lane === lane && lane.joint !== joint) finishDrag();
+      lane.joint = joint;
+    }
+    lane.selector.value = lane.joint; updateA11y(lane);
+    if (preview) drawLane(lane, lastTime, preview);
+  }
+  for (let index = 0; index < 7; index++) {
+    const canvas = document.getElementById(`contour-${index}`), selector = document.getElementById(`contour-joint-${index}`);
+    if (!canvas || !selector) continue;
+    const lane = { index, canvas, selector, joint: index < 5 ? 'mcp' : index === 5 ? 'flex' : 'arch', cursor: 0,
+      readout: document.getElementById(`contour-value-${index}`), definition: null }; lanes.push(lane);
+    listen(selector, 'change', () => { select(index, selector.value); selectFinger(index, lane.joint); });
+    listen(canvas, 'pointerdown', event => {
+      if (event.button !== 0 || drag || !lane.definition) return;
+      event.preventDefault(); canvas.focus({ preventScroll: true });
+      drag = { ...capture(lane), lane, pointer: event.pointerId, last: null };
+      canvas.setPointerCapture(event.pointerId); selectFinger(index, lane.joint); paint(lane, event);
+    });
+    listen(canvas, 'pointermove', event => { if (drag?.lane === lane && event.pointerId === drag.pointer) paint(lane, event); });
+    for (const type of ['pointerup', 'pointercancel', 'lostpointercapture']) listen(canvas, type, finishDrag);
+    listen(canvas, 'focus', () => { if (config) draw(); }); listen(canvas, 'blur', () => { if (config) draw(); });
+    listen(canvas, 'keydown', event => {
+      if (!lane.definition || !['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'Delete', 'Backspace'].includes(event.key)) return;
+      event.preventDefault(); event.stopPropagation(); finishDrag();
+      if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
+        lane.cursor = (lane.cursor + (event.key === 'ArrowRight' ? 1 : HAND_CONTOUR_POINTS - 1)) % HAND_CONTOUR_POINTS;
+      } else {
+        const transaction = capture(lane), reset = ['Home', 'Delete', 'Backspace'].includes(event.key);
+        if (reset) transaction.curve[lane.cursor] = 0;
+        else {
+          const span = transaction.bounds[1] - transaction.bounds[0], delta = span * (event.shiftKey ? .1 : .025);
+          const target = clamp(pointValue(lane, transaction.baseline, transaction.frame)
+            + (event.key === 'ArrowUp' ? 1 : -1) * delta, ...transaction.bounds);
+          transaction.curve[lane.cursor] = span > 0 ? clamp((target - transaction.base[lane.cursor]) / span, -1, 1) : 0;
+        }
+        applyCurve(lane, transaction.curve);
       }
-    },first);
-    lane.cursor=next.index;drag.last=next;updateA11y(lane);
-  }
-  for(let index=0;index<5;index++) {
-    const canvas=document.getElementById(`contour-${index}`),selector=document.getElementById(`contour-joint-${index}`);
-    const lane={ index,canvas,selector,joint:'mcp',cursor:0,readout:document.getElementById(`contour-value-${index}`) };lanes.push(lane);
-    listen(selector,'change',()=>{lane.joint=selector.value;updateA11y(lane);drawLane(lane,lastTime);selectFinger(index,lane.joint);});
-    listen(canvas,'pointerdown',event=>{
-      if(event.button!==0||drag)return;event.preventDefault();canvas.focus({preventScroll:true});
-      drag={lane,pointer:event.pointerId,last:null};canvas.setPointerCapture(event.pointerId);selectFinger(index,lane.joint);paint(lane,event,true);
+      updateA11y(lane); draw();
     });
-    listen(canvas,'pointermove',event=>{if(drag?.lane===lane&&event.pointerId===drag.pointer)paint(lane,event);});
-    const finish=event=>{if(drag?.lane===lane&&event.pointerId===drag.pointer){drag=null;if(canvas.hasPointerCapture(event.pointerId))canvas.releasePointerCapture(event.pointerId);}};
-    listen(canvas,'pointerup',finish);listen(canvas,'pointercancel',finish);listen(canvas,'lostpointercapture',finish);
-    listen(canvas,'focus',()=>drawLane(lane,lastTime));listen(canvas,'blur',()=>drawLane(lane,lastTime));
-    listen(canvas,'keydown',event=>{
-      if(!['ArrowLeft','ArrowRight','ArrowUp','ArrowDown','Home','Delete','Backspace'].includes(event.key))return;
-      event.preventDefault();event.stopPropagation();
-      if(event.key==='ArrowLeft'||event.key==='ArrowRight')lane.cursor=(lane.cursor+(event.key==='ArrowRight'?1:15))%16;
-      else edit(index,lane.joint,curve=>{curve[lane.cursor]=event.key==='Home'||event.key==='Delete'||event.key==='Backspace'?0:clamp(curve[lane.cursor]+(event.key==='ArrowUp'?1:-1)*(event.shiftKey ? .1 : .025),-1,1);});
-      updateA11y(lane);drawLane(lane,lastTime);
-    });
-    listen(document.getElementById(`contour-clear-${index}`),'click',()=>edit(index,lane.joint,curve=>curve.fill(0)));
+    const reset = document.getElementById(`contour-clear-${index}`);
+    if (reset) listen(reset, 'click', () => { finishDrag(); applyCurve(lane, null); updateA11y(lane); draw(); });
   }
-  listen(undoButton,'click',()=>{
-    if(!undo.length)return;const next=clone(read());Object.assign(next.motion,undo.pop());undoButton.disabled=!undo.length;commit(next);
+  listen(undoButton, 'click', () => {
+    if (!undo.length) return;
+    finishDrag(); const next = clone(read()); next.motion.edits = clone(undo.pop());
+    undoButton.disabled = !undo.length; commit(next);
   });
   return {
     sync(next) {
-      config=next;curves=captureHandContours(next);
-      for(const lane of lanes) {
-        const keys=handJointKeys(next.form,lane.index);
-        if(!keys.includes(lane.joint))lane.joint=keys[0];
-        lane.selector.replaceChildren(...keys.map(key=>new Option(handJointLabel(next.form,lane.index,key),key)));
-        lane.selector.value=lane.joint;lane.selector.style.color=COLORS[lane.joint];
-        lane.selector.setAttribute('aria-label',`${handDigitLabels(next.form)[lane.index]} contour joint`);
-        updateA11y(lane);drawLane(lane,lastTime);
+      if (config && config.form !== next.form) finishDrag();
+      config = next; invalidate();
+      const definitions = handAnimationLanes(next.form);
+      for (const lane of lanes) {
+        const previous = lane.definition; lane.definition = definitions.find(item => item.index === lane.index);
+        if (!lane.definition) continue;
+        const { keys, label } = lane.definition;
+        if (!keys.includes(lane.joint)) lane.joint = keys[0];
+        if (previous !== lane.definition) lane.selector.replaceChildren(...keys.map(key => new Option(handJointLabel(next.form, lane.index, key), key)));
+        lane.selector.value = lane.joint; lane.selector.setAttribute('aria-label', `${label} animation joint`); updateA11y(lane);
       }
     },
-    draw(time) { lastTime=time;if(config)for(const lane of lanes)drawLane(lane,time); },
-    clearHistory() {undo.length=0;undoButton.disabled=true;},
+    draw(time, tremorTime = time) { draw(time, tremorTime); },
+    select,
+    clearHistory() { finishDrag(); undo.length = 0; undoButton.disabled = true; },
   };
 }
