@@ -5,7 +5,7 @@ const EMPTY = Object.freeze({});
  * Rate/phase spread separate the five digit oscillators without taking ownership
  * of their clock. Zero spread retains the original synchronous/alternating motion.
  * The caller supplies initialized pose storage and cleared pitch offsets. */
-export function createHandTremor({ clampHand, handDigitLimits, handWristLimits, FINGERS, TREMOR_FINGERS, TREMOR_JOINTS }) {
+export function createHandTremor({ clampHand, clampWrist = clampHand, handDigitLimits, handWristLimits, FINGERS, TREMOR_FINGERS, TREMOR_JOINTS }) {
   return function applyHandTremor(value, time, out, pitchOffsets, form) {
     const settings = value && typeof value === 'object' ? value : EMPTY;
     const amount = clampHand(settings.amount, 0, 45, 0);
@@ -20,9 +20,9 @@ export function createHandTremor({ clampHand, handDigitLimits, handWristLimits, 
       const bounds = handWristLimits(form);
       const sidePhase = rateSpread === 0 ? phase : phase * 2 ** (.45 * rateSpread);
       const turnPhase = rateSpread === 0 ? phase : phase * 2 ** (.9 * rateSpread);
-      out.wrist.flex = clampHand(out.wrist.flex + amount * Math.sin(phase), ...bounds.flex);
-      out.wrist.side = clampHand(out.wrist.side + amount * .55 * Math.sin(sidePhase + .9 + TAU / 3 * phaseSpread), ...bounds.side);
-      out.wrist.twist = clampHand(out.wrist.twist + amount * .7 * Math.sin(turnPhase + 1.8 + TAU * 2 / 3 * phaseSpread), ...bounds.twist);
+      out.wrist.flex = clampWrist(out.wrist.flex + amount * Math.sin(phase), ...bounds.flex);
+      out.wrist.side = clampWrist(out.wrist.side + amount * .55 * Math.sin(sidePhase + .9 + TAU / 3 * phaseSpread), ...bounds.side);
+      out.wrist.twist = clampWrist(out.wrist.twist + amount * .7 * Math.sin(turnPhase + 1.8 + TAU * 2 / 3 * phaseSpread), ...bounds.twist);
       return;
     }
     for (let i = 0; i < 5; i++) {

@@ -17,6 +17,7 @@ export const GESTICULES_FORMS = Object.freeze(["hand", "foot"]);
 const HAND_DIGIT_LABELS = Object.freeze(["Thumb", "Index", "Middle", "Ring", "Little"]);
 const FOOT_DIGIT_LABELS = Object.freeze(["Big toe", "Second toe", "Third toe", "Fourth toe", "Little toe"]);
 const DIGIT_KEYS = Object.freeze(["mcp", "pip", "dip", "spread"]);
+const WRIST_KEYS = Object.freeze(["flex", "side", "twist"]);
 const BIG_TOE_KEYS = Object.freeze(["mcp", "dip", "spread"]);
 export const handDigitLabels = form => form === "foot" ? FOOT_DIGIT_LABELS : HAND_DIGIT_LABELS;
 export const handJointKeys = (form, index) => form === "foot" && index === 0 ? BIG_TOE_KEYS : DIGIT_KEYS;
@@ -232,7 +233,8 @@ function tremorPitchForPose(out) {
   return offsets;
 }
 const applyHandTremor = createHandTremor({
-  clampHand, handDigitLimits, handWristLimits, FINGERS, TREMOR_FINGERS, TREMOR_JOINTS,
+  // Compose wrist choreography and tremor before applying their shared limit.
+  clampWrist: value => value, clampHand, handDigitLimits, handWristLimits, FINGERS, TREMOR_FINGERS, TREMOR_JOINTS,
 });
 function sourceForPose(out, phase, amount) {
   let cache = sourceCaches.get(out);
@@ -249,6 +251,20 @@ function sourceForPose(out, phase, amount) {
   }
   out.source = cache.metadata;
   return cache.sample;
+}
+// Leave ordinary additive movement intact. Near an end stop, ease the motion
+// into the available travel while retaining at least 15% manual sensitivity.
+// Unlike hard clipping, each slider step still moves the rig and its sound;
+// inward motion at either endpoint and an unmodulated base angle stay intact.
+function wristWithMotion(base, offset, min, max) {
+  base = clampHand(base, min, max, 0);
+  if (offset === 0) return base;
+  const towardMax = offset > 0, remaining = towardMax ? max - base : base - min;
+  const minimumResponse = .15, knee = 4 * Math.abs(offset) / (3 * (1 - minimumResponse));
+  if (remaining >= knee) return base + offset;
+  const fraction = remaining / knee;
+  const distance = remaining * (minimumResponse + (1 - minimumResponse) * fraction * fraction * fraction / 4);
+  return towardMax ? max - distance : min + distance;
 }
 /** Additive choreography preserves every base joint's effect during playback.
  * Optional output storage lets both the viewer and the worklet avoid allocation.
@@ -500,9 +516,9 @@ export function evaluateHandPose(value = HAND_DEFAULTS, time = 0, out = createHa
   }
   if (foot) { flex *= FOOT_MOTION_SCALE.flex; side *= FOOT_MOTION_SCALE.side; twist *= FOOT_MOTION_SCALE.twist; }
   const wristBounds = handWristLimits(config.form);
-  out.wrist.flex = clampHand(handNumber(baseWrist.flex) + flex * amount, ...wristBounds.flex);
-  out.wrist.side = clampHand(handNumber(baseWrist.side) + side * amount, ...wristBounds.side);
-  out.wrist.twist = clampHand(handNumber(baseWrist.twist) + twist * amount, ...wristBounds.twist);
+  out.wrist.flex = clampHand(baseWrist.flex, ...wristBounds.flex, 0) + flex * amount;
+  out.wrist.side = clampHand(baseWrist.side, ...wristBounds.side, 0) + side * amount;
+  out.wrist.twist = clampHand(baseWrist.twist, ...wristBounds.twist, 0) + twist * amount;
   if (foot) {
     const shape = record(pose.foot), elastic = clampHand(motion.elasticity, 0, 1, 0) * amount;
     const complex = id === "polyrhythmic-tangle" || id === "finger-swarm" || id === "frantic-orbit" || id === "scatter";
@@ -524,6 +540,10 @@ export function evaluateHandPose(value = HAND_DEFAULTS, time = 0, out = createHa
     }
   }
   applyHandTremor(config.tremor, clampHand(tremorTime, -1e9, 1e9, seconds), out, tremorPitch, config.form);
+  for (const key of WRIST_KEYS) {
+    const base = clampHand(baseWrist[key], ...wristBounds[key], 0);
+    out.wrist[key] = wristWithMotion(base, out.wrist[key] - base, ...wristBounds[key]);
+  }
   if (config.sound?.rhythm && config.sound.rhythm !== 'continuous') {
     const rhythmBeat = seconds * handEffectiveTempo(motion) / 60;
     const length = clampHand(config.sound.noteLength, .08, .9, .45);

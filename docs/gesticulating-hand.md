@@ -110,6 +110,11 @@ subhertz movement, deep shakes and fast sideways splay.
 
 These are calibrated, bounded controls on an artist's rig. They do not simulate
 every tendon, contact force or bone collision. Extreme mixed poses may intersect.
+Wrist and ankle motion combines choreography and tremor before easing near the
+joint limits. Manual bend, side and turn controls retain movement throughout
+their travel, including in a paused animated pose. Still poses retain their
+exact base angles, and inward animation remains available at either endpoint.
+
 The turn control represents forearm rotation expressed at the available wrist
 rig; it is not a claim that a real wrist has an independent axial hinge. This is
 not a clinical hand model, sign-language dictionary or validated hand tracker.
