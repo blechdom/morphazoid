@@ -114,7 +114,7 @@ test("toe tremor affects only existing selected joints in actual degrees and hon
 });
 
 test("the expanded mixed bank preserves original foot scenes and randomization samples both anatomies", () => {
-  assert.equal(HAND_PRESETS.length, 67);
+  assert.equal(HAND_PRESETS.length, 68);
   const feet = HAND_PRESETS.filter(preset => preset.snapshot.form === "foot");
   const originalFootMotions = { "foot-velvet-curl": "source-grasp", "foot-glass-ripple": "ripple-open",
     "foot-tin-drumming": "finger-drumming", "foot-ankle-orbit": "figure-eight" };

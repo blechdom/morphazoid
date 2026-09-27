@@ -24,7 +24,7 @@ function random(seed) {
 }
 
 test("24 additional gestures have distinct full-pose trajectories and visible motion", () => {
-  assert.deepEqual(HAND_MOTIONS.map(motion => motion.id), [...ORIGINAL_MOTIONS, ...ADDED_MOTIONS, ...COMPLEX_MOTIONS, ...SYMBOLIC_MOTIONS]);
+  assert.deepEqual(HAND_MOTIONS.map(motion => motion.id), [...ORIGINAL_MOTIONS, ...ADDED_MOTIONS, ...COMPLEX_MOTIONS, ...SYMBOLIC_MOTIONS, "puppet-mouth"]);
   assert.equal(new Set(HAND_MOTIONS.map(motion => motion.label)).size, HAND_MOTIONS.length);
   const trajectories = [];
   for (const motion of HAND_MOTIONS) {

@@ -252,6 +252,11 @@ const GESTURE_SCENES = [
     sound: { rootHz: 277, pitchSpread: 1.45, brightness: .52, roughness: .07, space: .72, rotationFx: .56, attack: .12, release: 1.4 },
     sources: ["glass", "air", "choir", "choir", "glass"], levels: [.43, .66, .7, .64, .55],
     appearance: { skin: .69, lighting: 1.36 }, view: { yaw: .12, pitch: .035, zoom: .8 }, tremor: { finger: "all", joint: "wrist", amount: .2, rate: 2.4 } },
+  { id: "gesture-puppet-mouth", label: "Puppet mouth", form: "hand", pose: "puppet-mouth",
+    motion: { id: "puppet-mouth", tempo: 64, amount: 1, speed: 1 },
+    sound: { rootHz: 143, pitchSpread: .25, brightness: .46, roughness: .13, space: .2, rotationFx: .55, attack: .015, release: .18 },
+    sources: ["vowel", "choir", "vowel", "choir", "reed"], levels: [.68, .5, .62, .48, .3],
+    appearance: { skin: .39, lighting: 1.32 }, view: { yaw: 1.2, pitch: 0, zoom: .7 }, tremor: { finger: "all", joint: "wrist", amount: 0, rate: 4 } },
 ];
 // Short note windows articulate independent attacks and rests on the shared beat.
 const RHYTHMIC_SCENES = [
@@ -306,7 +311,7 @@ const PRESET_ORDER = [
   "vowel-opposition", "breathing-hand", "foot-rubber-march", "foot-bowed-waltz",
   "hand-satellite-fan", "point-transmission", "hand-paper-waltz", "foot-velvet-curl",
   "scattered-sparks", "gesture-hang-loose", "hand-velvet-scissors", "hand-wire-backbeat", "foot-glass-ripple",
-  "counting-air", "hand-copper-shiver", "foot-copper-skip", "hushed-palm",
+  "counting-air", "hand-copper-shiver", "gesture-puppet-mouth", "foot-copper-skip", "hushed-palm",
   "little-machinery", "foot-beetle-step", "foot-copper-breaks", "slow-unfurl",
   "hand-tin-morse", "gesture-i-love-you", "low-claw", "foot-porcelain-pendulum", "metal-walk",
   "hand-throat-lattice", "foot-corkscrew", "foot-glass-steps", "bowed-eight",
