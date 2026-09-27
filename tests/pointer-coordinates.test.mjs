@@ -1,3 +1,4 @@
+import { restoreHybrinxVolumeMeter } from "./helpers/hybrinx-volume-meter-reference.mjs";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
@@ -78,7 +79,7 @@ for (const entry of pointerReference.entries) {
 
   test(`${entry.file}: surrounding code matches the reference plus reviewed iPhone, Shapes and Rubixoids updates`, async () => {
     const source = await readFile(new URL(entry.file, root), "utf8");
-    let beforeRubixoids = source;
+    let beforeRubixoids = restoreHybrinxVolumeMeter(source, entry.file);
     for (const change of rubixoidsChanges.filter(change => change.file === entry.file)) {
       for (const replacement of [...change.replacements].reverse()) {
         assert.equal(beforeRubixoids.split(replacement.after).length - 1, 1, `${entry.file}: exact Rubixoids amendment`);

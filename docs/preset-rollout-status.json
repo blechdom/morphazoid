@@ -501,7 +501,9 @@
       "category": "bioacoustic",
       "scope": "fave",
       "presets": 12,
-      "status": "implemented-verification-pending"
+      "status": "implemented-verification-pending",
+      "documentation": "docs/hybrinx-preset-loop.md",
+      "verification": "Master volume and Loop stay live across full presets and dice, including mute and Loop-off. All other musical scene data and seeded random values are retained. Canonical shared output metering is restored. Source/WAX on/off, multiple-call, master/meter, teardown and layout regressions cover this correction; human/device/host acceptance remains separate."
     },
     {
       "id": "creaturazoid",

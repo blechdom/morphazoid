@@ -16,7 +16,8 @@ import {
   sampleModulationWave,
   sanitizeSyrinxState,
 } from "./syrinx.js?v=syrinx-ui-20260902-5";
-import { connectAudioOutput } from "../../audio-output-manager.js?v=syrinx-ui-20260819-1";
+// Share the same output manager as nav.js; query variants create separate meters.
+import { connectAudioOutput } from "../../audio-output-manager.js";
 import { unlockAudioContext } from "../../audio.js?v=syrinx-ui-20260819-1";
 import { resumeAudioContext, withAudioTimeout } from "../../audio-startup.js";
 import {
@@ -40,7 +41,7 @@ import {
   createHybrinxGestureStore,
 } from "../../instruments/hybrinx/hybrinx-timeline.js?v=hybrinx-20260821-3";
 import { registerHeaderPresets } from "../../site/header-presets.js";
-import { HYBRINX_FULL_PRESETS, captureHybrinxPreset, validateHybrinxFullPreset, randomizeHybrinxPreset } from "./full-presets.js";
+import { HYBRINX_FULL_PRESETS, captureHybrinxPreset, applyHybrinxPresetState, validateHybrinxFullPreset, randomizeHybrinxPreset } from "./full-presets.js";
 
 const $ = (id) => document.getElementById(id);
 const animalSelect = $("animalSelect");
@@ -3225,8 +3226,8 @@ if (HYBRINX_MODE) registerHeaderPresets({
   capture: () => captureHybrinxPreset(state, tongueState, activeGesture(), modulators),
   apply(snapshot) {
     validateHybrinxFullPreset(snapshot);
-    const active = state.active, previousModel = state.sourceModel;
-    state = sanitizeSyrinxState({ ...snapshot.state, active });
+    const previousModel = state.sourceModel;
+    state = applyHybrinxPresetState(snapshot.state, state);
     tongueState = sanitizeTongueState(snapshot.tongue);
     performanceTongueState = tongueState;
     hybrinxGestureStore.replace(state.callId, snapshot.gesture);

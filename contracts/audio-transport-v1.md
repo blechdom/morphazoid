@@ -89,6 +89,18 @@ Shape, Solid and Hyper have explicit owner-requested full-scene motion recall.
 This does not change the independent Audio boundary or authorize automatic
 transport changes on other instruments.
 
+## Hybrinx live Loop
+
+Hybrinx's Loop on/off switch is live transport state, per the September 26
+owner request. Full presets, Next, arrows and dice retain its current value in
+both directions, alongside master volume and the existing Audio/Play boundary.
+Capture and factory/dice snapshots omit Loop; legacy stored values are ignored
+on apply. Turning Loop on/off does not invalidate scene identity. Call contours,
+gesture rate and the loop-gap duration still belong to the musical scene.
+Already-playing calls retain the existing phase-continuous recall; choosing a
+sound does not start a paused player. Explicit Stop and Loop-off completion
+continue to work. This is not a change to other instruments' loop policies.
+
 ## Other full-scene adapters
 
 Solid and Hyper presets now recall their primary Play flag and independent

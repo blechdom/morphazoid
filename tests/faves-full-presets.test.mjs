@@ -12,7 +12,7 @@ import { createAmplitudeControl } from "../src/amplitude-control.js";
 import { createHybrinxGestureStore, normalizeHybrinxPresetGesture, applyHybrinxTimelinePerformance } from "../src/instruments/hybrinx/hybrinx-timeline.js";
 import { CALL_GESTURES, animalState, sanitizeSyrinxState, interpolateGesture, modulateSyrinxState, resolveGestureTimeline } from "../src/families/syrinx/syrinx.js";
 import { DEFAULT_TONGUE_STATE, sanitizeTongueState } from "../src/families/syrinx/tongue-physics.js";
-import { captureHybrinxPreset, validateHybrinxFullPreset, HYBRINX_FULL_PRESETS, randomizeHybrinxPreset } from "../src/families/syrinx/full-presets.js";
+import { captureHybrinxPreset, applyHybrinxPresetState, validateHybrinxFullPreset, HYBRINX_FULL_PRESETS, randomizeHybrinxPreset } from "../src/families/syrinx/full-presets.js";
 import { RUBIX_FACTORY_PRESETS, RUBIX_DEFAULTS } from "../src/instruments/rubix/factory-presets.js";
 import { RUBIX_PRESET_SETTING_KEYS } from "../src/instruments/rubix/full-presets.js";
 import { rubixSimdPreset } from "../src/instruments/rubix/rubix-simd-presets.js";
@@ -64,7 +64,10 @@ test("dice preserves a muted master on every newly migrated instrument", () => {
     const parameters = current.parameters ?? current.settings ?? current.state;
     parameters[Object.hasOwn(parameters, "output") ? "output" : "level"] = 0;
     const result = entry.randomize(current, seeded(0x811c9dc5));
-    assert.equal(level(result), 0, entry.id);
+    if (entry.id === "hybrinx") {
+      assert.equal(Object.hasOwn(result.state, "level"), false);
+      assert.equal(applyHybrinxPresetState(result.state, { active: false, level: 0 }).level, 0);
+    } else assert.equal(level(result), 0, entry.id);
     entry.validate(result);
   }
 });
@@ -141,19 +144,19 @@ test("Hybrinx's actual adapter and performance update recall clips without treat
   const ast = parse(source, { sourceType: "module", ecmaVersion: "latest" });
   const registration = ast.body.find(node => node.type === "IfStatement" && node.test.name === "HYBRINX_MODE").consequent.expression.arguments[0];
   const performance = ast.body.find(node => node.type === "FunctionDeclaration" && node.id.name === "updatePerformance");
-  for (const playing of [false, true]) for (const preset of HYBRINX_FULL_PRESETS) {
+  for (const playing of [false, true]) for (const loop of [false, true]) for (const preset of HYBRINX_FULL_PRESETS) {
     const store = createHybrinxGestureStore(CALL_GESTURES);
     let posts = 0;
     const context = vm.createContext({
       HYBRINX_MODE: true, TONGUE_MODE: true, UI_MODE: true,
-      state: animalState("raven", { biologicalLock: false }), tongueState: { ...DEFAULT_TONGUE_STATE },
+      state: animalState("raven", { biologicalLock: false, loop }), tongueState: { ...DEFAULT_TONGUE_STATE },
       performanceState: {}, performanceTongueState: {}, tongueArticulation: {},
       tongueMotionId: "", tongueMotionStartTime: 0, IDLE_TONGUE_ARTICULATION: { active: false },
       gesturePlaying: playing, gesturePhase: 0.35, gestureStartTime: 0, loopGapRemainingMs: 0,
       audioDirty: false, lastConfigurationTime: -Infinity, manualBreath: false,
       modulators: clonePresetData(preset.snapshot.modulators), hybrinxGestureStore: store,
       performance: { now: () => 10000 },
-      HYBRINX_FULL_PRESETS, randomizeHybrinxPreset, captureHybrinxPreset, validateHybrinxFullPreset,
+      HYBRINX_FULL_PRESETS, randomizeHybrinxPreset, captureHybrinxPreset, applyHybrinxPresetState, validateHybrinxFullPreset,
       sanitizeSyrinxState, sanitizeTongueState, interpolateGesture, modulateSyrinxState,
       resolveGestureTimeline, applyHybrinxTimelinePerformance,
       parameterModulatorsFor: () => [], hasActiveParameterModulators: () => false,
@@ -169,6 +172,7 @@ test("Hybrinx's actual adapter and performance update recall clips without treat
     adapter.apply(clonePresetData(preset.snapshot));
     assert.equal(presetStateKey(adapter.capture()), presetStateKey(preset.snapshot), preset.id);
     assert.equal(context.gesturePlaying, playing);
+    assert.equal(context.state.loop, loop, "preset recall retains the live Loop switch");
     if (playing) assert.ok(Math.abs(context.gesturePhase - 0.35) < 1e-8);
     else assert.equal(context.tongueMotionId, "", "paused transport has no active clip highlight");
     assert.ok(posts > 0);
