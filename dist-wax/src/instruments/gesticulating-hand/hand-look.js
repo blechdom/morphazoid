@@ -38,6 +38,24 @@ const LIGHTING = Object.freeze({
     fill: [0xdce6ff, 1.3, 4, 2, 3],
     rim: [0xffffff, .8, -2, 3, -4],
   },
+  bright: {
+    ambient: [0xf4f4f2, 0x999c9f, 4.2],
+    key: [0xfff6ed, 4.2, -3, 5, 5],
+    fill: [0xe6efff, 2.4, 4, 2, 4],
+    rim: [0xffffff, 1.4, -2, 3, -4],
+  },
+  brightWarm: {
+    ambient: [0xfff1d9, 0xa59586, 4.8],
+    key: [0xffe9cc, 5.0, -3, 5, 5],
+    fill: [0xf4f6ff, 3.2, 4, 2, 4],
+    rim: [0xfff3df, 2.0, -2, 3, -4],
+  },
+  brightCool: {
+    ambient: [0xe7f2ff, 0xa9b8ce, 5.5],
+    key: [0xf4faff, 5.4, -3, 5, 5],
+    fill: [0xffffff, 4.2, 4, 2, 4],
+    rim: [0xe5f3ff, 2.5, -2, 3, -4],
+  },
 });
 
 export function createHandLook({ meshes, ambient, keyLight, fill, rim }) {
@@ -70,7 +88,8 @@ export function createHandLook({ meshes, ambient, keyLight, fill, rim }) {
     const next=normalizeHandAppearance(value);let changed=false;
     if(next.skin!==skin){skin=next.skin;updateTint();for(const {material,color} of materials)material.color.copy(color).multiply(tint);changed=true;}
     if(next.lighting!==lighting){
-      lighting=next.lighting;const position=lighting*(lightStops.length-1),index=Math.min(lightStops.length-2,Math.floor(position)),mix=position-index;
+      // Keep the original stops at 0–100%; brighter stops extend the same spacing.
+      lighting=next.lighting;const position=lighting*5,index=Math.min(lightStops.length-2,Math.floor(position)),mix=position-index;
       lights.forEach((light,i)=>{
         const a=lightStops[index][i],b=lightStops[index+1][i];light.color.copy(a.color).lerp(b.color,mix);
         if(a.groundColor)light.groundColor.copy(a.groundColor).lerp(b.groundColor,mix);

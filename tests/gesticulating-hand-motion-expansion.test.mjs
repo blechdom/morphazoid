@@ -273,7 +273,7 @@ test("v1 migration restores zero tremor and normalizes hostile appearance values
   for (const [lighting, position] of Object.entries({ studio: 0, warm: .2, cool: .4, noir: .6, neon: .8, soft: 1 })) {
     assert.deepEqual(normalizeHandConfig({ appearance: { skin: .417, lighting } }).appearance, { skin: .417, lighting: position });
   }
-  assert.deepEqual(normalizeHandConfig({ appearance: { skin: -1, lighting: 5 } }).appearance, { skin: 0, lighting: 1 });
+  assert.deepEqual(normalizeHandConfig({ appearance: { skin: -1, lighting: 5 } }).appearance, { skin: 0, lighting: 1.6 });
   for (const value of [null, undefined, Symbol(), "bad", 72, false]) {
     const normalized = normalizeHandConfig({ tremor: value, appearance: value });
     assert.deepEqual(normalized.tremor, HAND_DEFAULTS.tremor); assert.deepEqual(normalized.appearance, HAND_DEFAULTS.appearance);
@@ -286,7 +286,7 @@ test("v1 migration restores zero tremor and normalizes hostile appearance values
     const config = normalizeHandConfig({ tremor: { finger, joint, amount: 4.25, rate: 13.75 } });
     assert.deepEqual(config.tremor, { finger, joint, amount: 4.25, rate: 13.75, rateSpread: 0, phaseSpread: 0 });
   }
-  for (const skin of [0, .173, .58, 1]) for (const lighting of [0, .361, .73, 1]) assert.deepEqual(normalizeHandConfig({ appearance: { skin, lighting } }).appearance, { skin, lighting });
+  for (const skin of [0, .173, .58, 1]) for (const lighting of [0, .361, .73, 1, 1.17, 1.4, 1.6]) assert.deepEqual(normalizeHandConfig({ appearance: { skin, lighting } }).appearance, { skin, lighting });
 });
 
 test("tremor moves only its selected finger parts and alternating fingers oppose each other", () => {
@@ -368,8 +368,9 @@ test("complete presets and random scenes recall tremor, skin, lighting, camera, 
   assert.equal(variants.finger.size, TREMOR_FINGERS.length); assert.equal(variants.joint.size, TREMOR_JOINTS.length);
   for (const key of ["skin", "lighting"]) {
     assert.ok(variants[key].size > 100, `${key} randomization should use the continuous range`);
-    assert.ok([...variants[key]].every(value => Number.isFinite(value) && value >= 0 && value <= 1));
-    assert.ok(Math.min(...variants[key]) < .05 && Math.max(...variants[key]) > .95);
+    const maximum = key === "lighting" ? 1.6 : 1;
+    assert.ok([...variants[key]].every(value => Number.isFinite(value) && value >= 0 && value <= maximum));
+    assert.ok(Math.min(...variants[key]) < .05 && Math.max(...variants[key]) > maximum * .95);
   }
   for (const key of ["amount", "rate", "rateSpread", "phaseSpread"]) assert.equal(variants[key].size, 600, `${key} should vary across randomized scenes`);
 });

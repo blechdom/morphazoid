@@ -194,12 +194,14 @@ is capped at 40 frames/second, 1.6 device-pixel ratio and about 1.45 million pix
 - Reset recalls **Finger loom** without changing output or player
   switches. Audio off releases sound. Blur releases transient manual/MIDI holds.
 
-**Color** and **Light** are continuous 0–100% sliders with no named palette or
-lighting menus. Color moves through saturated hues while retaining textured
+**Color** (0–100%) and **Light** (0–160%) are continuous sliders with no named
+palette or lighting menus. The Light range above 100% adds brighter neutral, warm
+and cool illumination; the original 0–100% settings retain their positions. Color moves through saturated hues while retaining textured
 nails, joint creases, skin detail and the original material response. Light
 interpolates the illumination. Neither changes synthesis; visible joint motion
 continues to own the sound. Saved appearance values are numeric positions from
-0 to 1; older named settings migrate to these positions, with removed pale
+0 to 1 for Color and 0 to 1.6 for Light; older named settings migrate to their
+original positions, with removed pale
 colors mapped to the saturated starting color.
 Camera orbit, angle and zoom belong to each complete preset. Each model is loaded
 on first selection and cached; both share one renderer, lights and appearance

@@ -316,22 +316,23 @@ test('continuous Color and Light sliders change both surfaces and restore their 
   const canvas=page.locator('#handCanvas'),original=await canvas.screenshot();
   await expect(page.locator('#skin')).toHaveAttribute('type','range');await expect(page.locator('#lighting')).toHaveAttribute('type','range');
   await expect(page.locator('#lookTitle')).toHaveText('Color & light');
+  await expect(page.locator('#lighting')).toHaveAttribute('max','1.6');
   for(const skin of [.137,.38,.552,.763,.912]) {
     await range(page,'skin',skin);await page.waitForTimeout(70);
     expect((await canvas.screenshot()).equals(original),String(skin)).toBe(false);
     expect((await snapshot(page)).config.appearance.skin).toBeCloseTo(skin,8);
   }
   await range(page,'skin',0);await page.waitForTimeout(70);expect((await canvas.screenshot()).equals(original)).toBe(true);
-  for(const lighting of [.117,.36,.57,.8,.937]) {
+  for(const lighting of [.117,.36,.57,.8,.937,1.2,1.4,1.6]) {
     await range(page,'lighting',lighting);await page.waitForTimeout(70);
     expect((await canvas.screenshot()).equals(original),String(lighting)).toBe(false);
   }
   await range(page,'lighting',0);await page.waitForTimeout(70);expect((await canvas.screenshot()).equals(original)).toBe(true);
   await page.locator('#bodyForm').selectOption('foot');
   await page.waitForFunction(()=>window.__gesticulatingHand.snapshot().viewer.form==='foot');
-  const foot=await canvas.screenshot();await range(page,'skin',.621);await range(page,'lighting',.337);await page.waitForTimeout(70);
+  const foot=await canvas.screenshot();await range(page,'skin',.621);await range(page,'lighting',1.337);await page.waitForTimeout(70);
   expect((await canvas.screenshot()).equals(foot)).toBe(false);
-  expect((await snapshot(page)).config.appearance).toEqual({skin:.621,lighting:.337});
+  expect((await snapshot(page)).config.appearance).toEqual({skin:.621,lighting:1.337});
 });
 
 test('maximum tempo, speed and tremor sustain all complex patterns through a rendering stall',async({page})=>{

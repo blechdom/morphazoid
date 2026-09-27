@@ -21,14 +21,14 @@ export const VOICE_SOURCES = Object.freeze(["glass", "reed", "wire", "pulse", "a
 export const TREMOR_FINGERS = Object.freeze(["all", ...FINGERS, "alternating"]);
 export const TREMOR_JOINTS = Object.freeze(["tip", "middle", "knuckle", "whole", "spread", "wrist"]);
 export const HAND_SKINS = Object.freeze([0, .17, .38, .55, .76, .9, 1]);
-export const HAND_LIGHTINGS = Object.freeze([0, .2, .4, .6, .8, 1]);
+export const HAND_LIGHTINGS = Object.freeze([0, .2, .4, .6, .8, 1, 1.2, 1.4, 1.6]);
 const LEGACY_COLORS = Object.freeze({copper:0,jade:.38,cyan:.55,violet:.76});
 const LEGACY_LIGHTS = Object.freeze({studio:0,warm:.2,cool:.4,noir:.6,neon:.8,soft:1});
 export function normalizeHandAppearance(value = {}) {
   const input = record(value);
   return {
     skin: clampHand(typeof input.skin === 'string' && Object.hasOwn(LEGACY_COLORS,input.skin) ? LEGACY_COLORS[input.skin] : input.skin,0,1,0),
-    lighting: clampHand(typeof input.lighting === 'string' && Object.hasOwn(LEGACY_LIGHTS,input.lighting) ? LEGACY_LIGHTS[input.lighting] : input.lighting,0,1,0),
+    lighting: clampHand(typeof input.lighting === 'string' && Object.hasOwn(LEGACY_LIGHTS,input.lighting) ? LEGACY_LIGHTS[input.lighting] : input.lighting,0,HAND_LIGHTINGS.at(-1),0),
   };
 }
 const TAU = Math.PI * 2;
@@ -552,7 +552,7 @@ export function randomizeHandConfig(_current = HAND_DEFAULTS, random = Math.rand
   for (const [key, bounds] of Object.entries(HAND_LIMITS.view)) next.view[key] = between(...bounds);
   next.tremor = { finger: TREMOR_FINGERS[Math.floor(unit() * TREMOR_FINGERS.length)],
     joint: TREMOR_JOINTS[Math.floor(unit() * TREMOR_JOINTS.length)], amount: between(0, 45), rate: .1 * 1200 ** unit(), rateSpread: unit(), phaseSpread: unit() };
-  next.appearance = { skin: unit(), lighting: unit() };
+  next.appearance = { skin: unit(), lighting: unit() * HAND_LIGHTINGS.at(-1) };
   next.motion = { id: HAND_MOTIONS[Math.floor(unit() * HAND_MOTIONS.length)].id, tempo: between(20, 1100), amount: unit(), speed: .1 * 40 ** unit() };
   next.sound = { rootHz: 35 * (1000 / 35) ** unit(), brightness: unit(), roughness: unit(), space: unit(), rotationFx: unit(),
     attack: .004 * 300 ** unit(), release: .04 * 87.5 ** unit() };
