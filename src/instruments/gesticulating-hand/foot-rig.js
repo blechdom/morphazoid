@@ -69,7 +69,8 @@ function createArchRig(meshes,wrist,digits,report){
   }
   const rotation=new THREE.Quaternion(),bend=new THREE.Vector3(1,0,0),twist=new THREE.Vector3(0,0,1);
   function setShape(shape){
-    const arch=clamp(Number.isFinite(shape?.arch)?shape.arch:0,-70,85)*RAD/3;
+    // Soften the visible arch by one third for every pose and animation.
+    const arch=clamp(Number.isFinite(shape?.arch)?shape.arch:0,-70,85)*RAD*(2/3)/3;
     const torsion=clamp(Number.isFinite(shape?.twist)?shape.twist:0,-55,55)*RAD/3;
     const stretch=clamp(Number.isFinite(shape?.stretch)?shape.stretch:0,-.4,1);
     for(const bone of archBones)bone.quaternion.setFromAxisAngle(bend,-arch).multiply(rotation.setFromAxisAngle(twist,torsion));

@@ -126,7 +126,8 @@ the source GLB and its neutral surface. The big toe has base
 the big toe. Ankle bend, side and turn replace the wrist controls.
 
 **Arch** (−70° to 85°), **Twist** (−55° to 55°), and **Stretch** (−40% to 100%)
-deform the foot between ankle and toes. Drag the arch marker vertically to bend
+deform the foot between ankle and toes. The visible arch bend is softened to
+two-thirds of its setting. Drag the arch marker vertically to bend
 or horizontally to stretch; sliders expose all three dimensions. **Elastic motion**
 (0–100%) adds deterministic arch, twist and stretch cycles that follow the
 selected choreography and Tempo. The manual shape remains editable.
