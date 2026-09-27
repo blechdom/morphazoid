@@ -1,0 +1,62 @@
+[
+  {
+    "id": "first-croak",
+    "legacyLevel": 0.44,
+    "musicalSha256": "118f47bafe91b49669b2f5e06a396289c419732a3eb2bb47c014f989a85a3db3"
+  },
+  {
+    "id": "velvet-coo",
+    "legacyLevel": 0.44,
+    "musicalSha256": "ee33b4963020712b0416edd11d6c728140073c974bb7b1af13a9e2cde49b24ee"
+  },
+  {
+    "id": "rolling-wolf",
+    "legacyLevel": 0.44,
+    "musicalSha256": "cea426ed114b764ed443c17e6014854d83063b2ab493e0750a3e61e632bd29db"
+  },
+  {
+    "id": "tiny-trill",
+    "legacyLevel": 0.35,
+    "musicalSha256": "bf75ea5436377726d4af498f68c1600212936b116d15da09f9b30712977681e5"
+  },
+  {
+    "id": "frog-gate",
+    "legacyLevel": 0.44,
+    "musicalSha256": "2f7c46e54dcbed3aebc10e01e4535e435952d3009628c2eb046b180532131c12"
+  },
+  {
+    "id": "mouse-morse",
+    "legacyLevel": 0.35,
+    "musicalSha256": "bb11d8516f550c1bae5af7782bf2735cd7ef487548291fa71d630e14828bc213"
+  },
+  {
+    "id": "owl-lullaby",
+    "legacyLevel": 0.44,
+    "musicalSha256": "a41d03e4b3046fe111cc907d8da1efab89b67788772ffd94fab2d87415883886"
+  },
+  {
+    "id": "lion-raspberry",
+    "legacyLevel": 0.34,
+    "musicalSha256": "1e295f2fa81635da96ff20eb2026bbef9e5c5b010fa9d649b4a55830554d90aa"
+  },
+  {
+    "id": "cow-vowels",
+    "legacyLevel": 0.44,
+    "musicalSha256": "a20daf54aa6278664347542512a19d104e1a130d687e58e72f0ae88821209e64"
+  },
+  {
+    "id": "hyena-gyration",
+    "legacyLevel": 0.38,
+    "musicalSha256": "80f8eac604b8d6d178160a89b37e8db13c7b6d6ab68197917a12ff7b65a8a8c3"
+  },
+  {
+    "id": "raven-modulated",
+    "legacyLevel": 0.44,
+    "musicalSha256": "ef597bd0d09a1a25d57cd93004174b96b60c99fb034e276fb21a7f3476736252"
+  },
+  {
+    "id": "elephant-whisper",
+    "legacyLevel": 0.34,
+    "musicalSha256": "f08ecaf11baf21025b00f42bda600e3d9e1f243c17081658449f08cbef41fd0d"
+  }
+]

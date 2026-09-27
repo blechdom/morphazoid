@@ -1,5 +1,14 @@
 # Performance toolbar and panel presets
 
+## September 26 Hybrinx performer-state and meter correction
+
+[Hybrinx master volume and output meters](hybrinx-volume-meter.md) and
+[live Loop](hybrinx-preset-loop.md): presets, Next, arrows and dice preserve the
+performer's master volume and Loop choice. All twelve other musical scenes and
+seeded dice values remain unchanged. The shared Syrinx controller now uses the
+header's canonical output manager, restoring post-master metering without
+changing DSP, gain or timing. Human listening/device acceptance is separate.
+
 Owner-requested September 23, 2026, based on freshly fetched main `ef9a19d`.
 This supersedes the earlier rule that placed presets and MIDI beside the meters.
 

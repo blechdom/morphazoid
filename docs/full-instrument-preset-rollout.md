@@ -1,5 +1,14 @@
 # Full-instrument preset rollout
 
+## September 26 Hybrinx performer-state and meter correction
+
+[Hybrinx master volume and output meters](hybrinx-volume-meter.md) and
+[live Loop](hybrinx-preset-loop.md): presets, Next, arrows and dice preserve the
+performer's master volume and Loop choice. All twelve other musical scenes and
+seeded dice values remain unchanged. The shared Syrinx controller now uses the
+header's canonical output manager, restoring post-master metering without
+changing DSP, gain or timing. Human listening/device acceptance is separate.
+
 **September 23 UI update:** full-preset controls now occupy the first row of the
 right control panel; MIDI activation lives inside Settings and master volume
 is a knob. [Performance toolbar](performance-toolbar.md) supersedes older

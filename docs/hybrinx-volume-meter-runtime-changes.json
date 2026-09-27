@@ -1,0 +1,116 @@
+{
+  "version": 1,
+  "base": "251d27ee58ce3154c1cfc062ccb2ad11712d0da8",
+  "changes": [
+    {
+      "file": "src/families/syrinx/full-presets.js",
+      "reason": "Owner-requested Hybrinx master-volume exclusion; preserve all 12 musical scenes, calibrated call trims, active transport and native DSP. September 26: the owner also keeps Loop live on preset recall and dice; retain all other musical data and the seeded random stream.",
+      "regressionTests": [
+        "tests/hybrinx-preset-volume-meter.test.mjs",
+        "e2e/hybrinx-preset-volume-meter.spec.mjs",
+        "tests/hybrinx-preset-loop.test.mjs",
+        "e2e/hybrinx-preset-loop.spec.mjs"
+      ],
+      "replacements": [
+        {
+          "before": "const withoutActive = state => { const { active, ...settings } = state; return settings; };",
+          "after": "// Master output and live activity belong to the performer, not to a scene.\nexport function captureHybrinxPresetState(state) {\n  const { active, level, ...settings } = state;\n  return settings;\n}\n\nexport function applyHybrinxPresetState(presetState, liveState) {\n  // Ignore legacy stored master levels, including when the performer is muted.\n  return sanitizeSyrinxState({ ...presetState, active: liveState.active, level: liveState.level });\n}"
+        },
+        {
+          "before": "state: withoutActive(animalState(animalId, { biologicalLock: false, loop: true, loopGapMs: 160, level: 0.44, callId, ...host }))",
+          "after": "state: captureHybrinxPresetState(animalState(animalId, { biologicalLock: false, loop: true, loopGapMs: 160, callId, ...host }))"
+        },
+        {
+          "before": ", loopGapMs: 80, level: 0.35 }",
+          "after": ", loopGapMs: 80 }"
+        },
+        {
+          "before": ", loopGapMs: 250, level: 0.35 }",
+          "after": ", loopGapMs: 250 }"
+        },
+        {
+          "before": "{ roughness: 0.7, pressure: 0.8, level: 0.34 }",
+          "after": "{ roughness: 0.7, pressure: 0.8 }"
+        },
+        {
+          "before": "{ gestureRate: 1.65, asymmetry: 0.65, level: 0.38 }",
+          "after": "{ gestureRate: 1.65, asymmetry: 0.65 }"
+        },
+        {
+          "before": ", loopGapMs: 600, level: 0.34 }",
+          "after": ", loopGapMs: 600 }"
+        },
+        {
+          "before": "state: withoutActive(state)",
+          "after": "state: captureHybrinxPresetState(state)"
+        },
+        {
+          "before": "  if (presetStateKey(withoutActive(sanitizeSyrinxState(s.state))) !== presetStateKey(s.state)",
+          "after": "  const { level, ...musicalState } = s.state; // Accept older snapshots without recalling their master.\n  if (presetStateKey(captureHybrinxPresetState(sanitizeSyrinxState(s.state))) !== presetStateKey(musicalState)"
+        },
+        {
+          "before": "const state = withoutActive(sanitizeSyrinxState({",
+          "after": "const state = captureHybrinxPresetState(sanitizeSyrinxState({"
+        },
+        {
+          "before": "loop: rng.pick([true, false]), level: current.state.level,",
+          "after": "loop: rng.pick([true, false]),"
+        },
+        {
+          "before": "// Master output and live activity belong to the performer, not to a scene.",
+          "after": "// Master output, Loop and live activity belong to the performer, not to a scene."
+        },
+        {
+          "before": "const { active, level, ...settings } = state;",
+          "after": "const { active, level, loop, ...settings } = state;"
+        },
+        {
+          "before": "// Ignore legacy stored master levels, including when the performer is muted.",
+          "after": "// Ignore legacy master/Loop values; retain mute and continuous audition."
+        },
+        {
+          "before": "return sanitizeSyrinxState({ ...presetState, active: liveState.active, level: liveState.level });",
+          "after": "return sanitizeSyrinxState({ ...presetState, active: liveState.active, level: liveState.level, loop: liveState.loop });"
+        },
+        {
+          "before": "{ biologicalLock: false, loop: true, loopGapMs: 160, callId, ...host }",
+          "after": "{ biologicalLock: false, loopGapMs: 160, callId, ...host }"
+        },
+        {
+          "before": "const { level, ...musicalState } = s.state; // Accept older snapshots without recalling their master.",
+          "after": "const { level, loop, ...musicalState } = s.state; // Older master/Loop values are accepted but not recalled."
+        },
+        {
+          "before": "animalId: animal.id, callId, biologicalLock: rng.pick([true, false]), loop: rng.pick([true, false]),",
+          "after": "animalId: animal.id, callId, biologicalLock: rng.pick([true, false]),"
+        },
+        {
+          "before": "  const tongue = sanitizeTongueState({ ...randomParameterValues(TONGUE_PARAMETER_LIMITS, rng),",
+          "after": "  // Reserve the former Loop draw so seeded musical parameters stay unchanged.\n  rng.unit();\n  const tongue = sanitizeTongueState({ ...randomParameterValues(TONGUE_PARAMETER_LIMITS, rng),"
+        }
+      ]
+    },
+    {
+      "file": "src/families/syrinx/syrinx-app.js",
+      "reason": "Keep Hybrinx master level live and reconnect the Syrinx-family final output to the canonical header meter manager. No DSP, gain, compressor, scheduling or output topology changes.",
+      "regressionTests": [
+        "tests/hybrinx-preset-volume-meter.test.mjs",
+        "e2e/hybrinx-preset-volume-meter.spec.mjs"
+      ],
+      "replacements": [
+        {
+          "before": "import { connectAudioOutput } from \"../../audio-output-manager.js?v=syrinx-ui-20260819-1\";",
+          "after": "// Share the same output manager as nav.js; query variants create separate meters.\nimport { connectAudioOutput } from \"../../audio-output-manager.js\";"
+        },
+        {
+          "before": "HYBRINX_FULL_PRESETS, captureHybrinxPreset, validateHybrinxFullPreset, randomizeHybrinxPreset }",
+          "after": "HYBRINX_FULL_PRESETS, captureHybrinxPreset, applyHybrinxPresetState, validateHybrinxFullPreset, randomizeHybrinxPreset }"
+        },
+        {
+          "before": "const active = state.active, previousModel = state.sourceModel;\n    state = sanitizeSyrinxState({ ...snapshot.state, active });",
+          "after": "const previousModel = state.sourceModel;\n    state = applyHybrinxPresetState(snapshot.state, state);"
+        }
+      ]
+    }
+  ]
+}

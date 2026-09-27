@@ -5,7 +5,16 @@ import { normalizeHybrinxPresetGesture } from "../../instruments/hybrinx/hybrinx
 import { clonePresetData, presetRandom, randomParameterValues } from "../../site/preset-random.js";
 import { presetStateKey } from "../../site/header-presets.js";
 
-const withoutActive = state => { const { active, ...settings } = state; return settings; };
+// Master output, Loop and live activity belong to the performer, not to a scene.
+export function captureHybrinxPresetState(state) {
+  const { active, level, loop, ...settings } = state;
+  return settings;
+}
+
+export function applyHybrinxPresetState(presetState, liveState) {
+  // Ignore legacy master/Loop values; retain mute and continuous audition.
+  return sanitizeSyrinxState({ ...presetState, active: liveState.active, level: liveState.level, loop: liveState.loop });
+}
 const motions = ["sine", "triangle", "square", "sample-hold"];
 function scene(id, label, animalId, callIndex, host, tongue, motion = "", durationScale = 1, modulation = {}) {
   const animal = ANIMALS[animalId], callId = animal.callIds[Math.min(callIndex, animal.callIds.length - 1)];
@@ -16,7 +25,7 @@ function scene(id, label, animalId, callIndex, host, tongue, motion = "", durati
     modulations: modulation,
   });
   const snapshot = {
-    state: withoutActive(animalState(animalId, { biologicalLock: false, loop: true, loopGapMs: 160, level: 0.44, callId, ...host })),
+    state: captureHybrinxPresetState(animalState(animalId, { biologicalLock: false, loopGapMs: 160, callId, ...host })),
     tongue: sanitizeTongueState({ ...DEFAULT_TONGUE_STATE, ...tongue }),
     gesture,
     modulators: [
@@ -32,24 +41,25 @@ export const HYBRINX_FULL_PRESETS = Object.freeze([
   scene("first-croak", "Raven · First croak", "raven", 0, {}, {}),
   scene("velvet-coo", "Dove · Velvet coo", "dove", 0, { roughness: 0.02, gestureRate: 0.65, loopGapMs: 520 }, { tongueAnatomy: "avian", tongueHeight: 0.35 }, "", 1.3),
   scene("rolling-wolf", "Wolf · Rolling howl", "wolf", 0, { gestureRate: 0.8, roughness: 0.24 }, { tongueAnatomy: "canine" }, "rolled-r", 1.2),
-  scene("tiny-trill", "Songbird · Tiny trill", "songbird", 1, { gestureRate: 1.8, loopGapMs: 80, level: 0.35 }, { tongueAnatomy: "avian" }, "wiggle", 0.7),
+  scene("tiny-trill", "Songbird · Tiny trill", "songbird", 1, { gestureRate: 1.8, loopGapMs: 80 }, { tongueAnatomy: "avian" }, "wiggle", 0.7),
   scene("frog-gate", "Bullfrog · Rubber gate", "bullfrog", 0, { pressure: 0.7, gestureRate: 1.2 }, { tongueHeight: 0.72, tongueCurl: 0.8 }, "b"),
-  scene("mouse-morse", "Mouse · Tongue telegram", "mouse", 0, { gestureRate: 1.5, loopGapMs: 250, level: 0.35 }, { tongueAnatomy: "macaque" }, "p", 0.8),
+  scene("mouse-morse", "Mouse · Tongue telegram", "mouse", 0, { gestureRate: 1.5, loopGapMs: 250 }, { tongueAnatomy: "macaque" }, "p", 0.8),
   scene("owl-lullaby", "Owl · Hollow lullaby", "owl", 0, { gestureRate: 0.55, loopGapMs: 900, cavityCoupling: 0.68 }, { tonguePosition: 0.28, tongueHeight: 0.22 }, "l", 1.5),
-  scene("lion-raspberry", "Lion · Nasty raspberry", "lion", 0, { roughness: 0.7, pressure: 0.8, level: 0.34 }, { tongueAnatomy: "canine", tongueExtension: 0.6 }, "raspberry"),
+  scene("lion-raspberry", "Lion · Nasty raspberry", "lion", 0, { roughness: 0.7, pressure: 0.8 }, { tongueAnatomy: "canine", tongueExtension: 0.6 }, "raspberry"),
   scene("cow-vowels", "Cow · Wandering vowels", "cow", 0, { gestureRate: 0.75, sourceBalance: 0.7, loopGapMs: 300 }, { tonguePosition: 0.55, tongueHeight: 0.45 }, "la-la", 1.4),
-  scene("hyena-gyration", "Hyena · Elastic chatter", "hyena", 0, { gestureRate: 1.65, asymmetry: 0.65, level: 0.38 }, { tongueAnatomy: "human" }, "gyrate", 0.85),
+  scene("hyena-gyration", "Hyena · Elastic chatter", "hyena", 0, { gestureRate: 1.65, asymmetry: 0.65 }, { tongueAnatomy: "human" }, "gyrate", 0.85),
   scene("raven-modulated", "Raven · Uneven rattle", "raven", 1, { gestureRate: 1.1, loopGapMs: 40 }, {}, "wiggle", 1, {
     tension: { enabled: true, shape: "triangle", phase: 0.2, speed: [[0, 1.5], [1, 7]], depth: [[0, 0.1], [0.55, 0.4], [1, 0.12]] },
   }),
-  scene("elephant-whisper", "Elephant · Slow strange breath", "elephant", 1, { gestureRate: 0.5, sourceScale: 0.75, loopGapMs: 600, level: 0.34 }, { tongueEnabled: false }, "", 1.5),
+  scene("elephant-whisper", "Elephant · Slow strange breath", "elephant", 1, { gestureRate: 0.5, sourceScale: 0.75, loopGapMs: 600 }, { tongueEnabled: false }, "", 1.5),
 ]);
 export function captureHybrinxPreset(state, tongue, gesture, modulators) {
-  return clonePresetData({ state: withoutActive(state), tongue, gesture: normalizeHybrinxPresetGesture(gesture), modulators });
+  return clonePresetData({ state: captureHybrinxPresetState(state), tongue, gesture: normalizeHybrinxPresetGesture(gesture), modulators });
 }
 export function validateHybrinxFullPreset(s) {
   presetStateKey(s);
-  if (presetStateKey(withoutActive(sanitizeSyrinxState(s.state))) !== presetStateKey(s.state)
+  const { level, loop, ...musicalState } = s.state; // Older master/Loop values are accepted but not recalled.
+  if (presetStateKey(captureHybrinxPresetState(sanitizeSyrinxState(s.state))) !== presetStateKey(musicalState)
     || presetStateKey(sanitizeTongueState(s.tongue)) !== presetStateKey(s.tongue)
     || s.gesture?.id !== s.state.callId
     || presetStateKey(normalizeHybrinxPresetGesture(s.gesture)) !== presetStateKey(s.gesture)) throw new TypeError("Invalid complete Hybrinx scene");
@@ -60,10 +70,12 @@ export function validateHybrinxFullPreset(s) {
 export function randomizeHybrinxPreset(current, random = Math.random) {
   const rng = presetRandom(random), animal = rng.pick(Object.values(ANIMALS));
   const callId = rng.pick(animal.callIds), native = CALL_GESTURES[callId];
-  const state = withoutActive(sanitizeSyrinxState({
+  const state = captureHybrinxPresetState(sanitizeSyrinxState({
     ...randomParameterValues({ ...CONTROL_LIMITS, pressure: [0.3, 0.85], tractLengthM: [0.05, 0.5], roughness: [0, 0.7], gestureRate: [0.5, 2], loopGapMs: [0, 1000] }, rng),
-    animalId: animal.id, callId, biologicalLock: rng.pick([true, false]), loop: rng.pick([true, false]), level: current.state.level,
+    animalId: animal.id, callId, biologicalLock: rng.pick([true, false]),
   }));
+  // Reserve the former Loop draw so seeded musical parameters stay unchanged.
+  rng.unit();
   const tongue = sanitizeTongueState({ ...randomParameterValues(TONGUE_PARAMETER_LIMITS, rng),
     tongueEnabled: rng.pick([true, false]), tongueAnatomy: rng.pick(Object.keys(TONGUE_ANATOMIES)) });
   const tongueMotionId = rng.pick(["", ...Object.keys(TONGUE_MOTION_PRESETS)]);

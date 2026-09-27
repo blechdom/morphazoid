@@ -1148,3 +1148,5 @@ copy+require	src/instruments/gesticulating-hand/hand-output.js
 
 copy+require	src/instruments/gesticulating-hand/hand-contour.js
 copy+require	src/instruments/gesticulating-hand/hand-contour-editor.js
+copy+require	docs/hybrinx-volume-meter.md
+copy+require	docs/hybrinx-preset-loop.md
