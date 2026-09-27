@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { HandDSP } from "../src/instruments/gesticulating-hand/hand-dsp.js";
 import { HAND_DEFAULTS, VOICE_SOURCES, normalizeHandConfig } from "../src/instruments/gesticulating-hand/hand-model.js";
 
-const ADDED = ["bowed", "vowel", "metal"];
+const ADDED = ["bowed", "vowel", "metal", "choir", "marimba"];
 const rms = samples => Math.sqrt(samples.reduce((sum, value) => sum + value * value, 0) / samples.length);
 const peak = samples => samples.reduce((maximum, value) => Math.max(maximum, Math.abs(value)), 0);
 const difference = (a, b) => rms(a.map((value, i) => value - b[i]));
@@ -62,16 +62,16 @@ function spectrum(samples, rate = 24000) {
 }
 const spectralDistance = (a, b) => Math.sqrt(a.reduce((sum, value, i) => sum + (value - b[i]) ** 2, 0));
 
-test("three added engines remain independently selectable on five anatomical voices", () => {
+test("added engines remain independently selectable on five anatomical voices", () => {
   for (const source of ADDED) {
     assert.ok(VOICE_SOURCES.includes(source));
     assert.ok(scene(source).voices.every(voice => voice.source === source));
   }
-  assert.equal(VOICE_SOURCES.length, 8); assert.equal(HAND_DEFAULTS.voices.length, 5);
+  assert.equal(VOICE_SOURCES.length, 10); assert.equal(HAND_DEFAULTS.voices.length, 5);
   assert.equal(new HandDSP().voices.length, 5);
 });
 
-test("Bowed, Vowel and Metal have different normalized spectra from all existing engines", () => {
+test("added engines have different normalized spectra from all existing engines", () => {
   const profiles = new Map();
   for (const source of VOICE_SOURCES) {
     const repeated = [];
@@ -108,7 +108,7 @@ test("every added engine responds to pitch, brightness, roughness and articulate
 });
 
 test("low and high pitch, full motion and extreme controls are bounded at every supported rate", () => {
-  for (const rate of [8000, 44100, 48000, 96000, 192000]) for (const source of ADDED) for (const rootHz of [35, 1000]) {
+  for (const rate of [8000, 44100, 48000, 96000, 192000]) for (const source of ADDED) for (const rootHz of [35, 1600]) {
     const config = scene(source);
     Object.assign(config.sound, { rootHz, brightness: 1, roughness: 1, space: 1, attack: .004, release: 3.5 });
     Object.assign(config.motion, { id: "flourish", tempo: 220, amount: 1 }); config.voices.forEach(voice => { voice.level = 1; });
