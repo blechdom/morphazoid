@@ -14,10 +14,11 @@ export function normalizeChiptuneSkin(value) {
     : Object.hasOwn(LEGACY_SKINS, value) ? LEGACY_SKINS[value] : "original";
 }
 
-const INK = "#19152d", WHITE = "#fff5df", PEACH = "#ffd0b2", PINK = "#ff739f";
+const INK = "#19152d", WHITE = "#fff5df", PINK = "#ff739f";
 const VOICES = ["drums", "bass", "arp", "lead", "upperOne", "upperTwo", "noise"];
 const CUBIST = ["#ff7960", "#e9b844", "#6ad5c2", "#b496f4", "#60a8f2", "#f1a7c8", "#caed79"];
 const HAIR = ["#ffc55d", "#c5a2ff", "#ff94c8", "#73dedd", "#a3b4ff", "#f4a77c", "#b6e686"];
+const COMPLEXIONS = ["#8a4f36", "#6b3829", "#ae6c45", "#75402e", "#995b3e", "#593328", "#87503a"];
 
 function pixelBrush(context, x, ground, unit) {
   const px = unit * .5;
@@ -110,7 +111,8 @@ function cubistFigure(brush, pose, index) {
 function animeFigure(brush, pose, index) {
   const { rect, facet } = brush;
   const hair = HAIR[index], uniform = CUBIST[(index + 4) % CUBIST.length];
-  figure(brush, pose, uniform, hair, PEACH);
+  const skin = COMPLEXIONS[index];
+  figure(brush, pose, uniform, hair, skin);
   const sx = pose.sway, sy = pose.shoulderY, w = pose.identity.shoulders;
   facet([[sx - w, sy], [sx, sy + 4], [sx + w, sy]], WHITE);
   rect(sx - 2, sy + 2, 2, 2, PINK); rect(sx + 1, sy + 2, 2, 2, PINK);
@@ -120,8 +122,8 @@ function animeFigure(brush, pose, index) {
   rect(x - 5, y - 8, 10, 1, INK);
   rect(x - 7, y - 7, 14, 10, INK);
   rect(x - 6, y - 7, 12, 10, hair);
-  rect(x - 6, y - 4, 12, 8, PEACH);
-  rect(x - 5, y + 4, 10, 1, PEACH);
+  rect(x - 6, y - 4, 12, 8, skin);
+  rect(x - 5, y + 4, 10, 1, skin);
   rect(x - 4, y + 5, 8, 1, INK);
   rect(x - 6, y - 6, 12, 2, hair);
   for (let n = 0; n < 4; n++) rect(x - 6 + n * 3, y - 5, 2, 1 + (n + index) % 3, hair);
