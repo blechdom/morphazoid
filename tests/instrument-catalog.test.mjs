@@ -131,7 +131,7 @@ test("former Misc entries use their explicitly selected categories", () => {
   }
 });
 
-test("Gesticules is a pitched gesture instrument alongside Puggler", () => {
+test("Gesticules is a Fave and remains a pitched gesture instrument alongside Puggler", () => {
   const ids = INSTRUMENT_GROUPS.find(({ id }) => id === "graphic-ui").tools.map(({ id }) => id);
   assert.equal(ids[ids.indexOf("puggler") + 1], "gesticulating-hand");
   const instrument = instrumentById("gesticulating-hand");
@@ -139,8 +139,8 @@ test("Gesticules is a pitched gesture instrument alongside Puggler", () => {
   assert.equal(instrument?.href, "gesticules.html");
   assert.equal(instrument?.imageHref, "assets/instruments/gesticulating-hand.webp");
   assert.equal(instrument?.status, null);
-  assert.equal(FAVE_TOOL_IDS.includes(instrument.id), false);
-  assert.deepEqual(instrument.tags.map(({ id }) => id), ["graphic-ui", "3d", "synthesizer"]);
+  assert.equal(FAVE_TOOL_IDS.filter(id => id === instrument.id).length, 1);
+  assert.deepEqual(instrument.tags.map(({ id }) => id), ["graphic-ui", "3d", "synthesizer", "faves"]);
   for (const feature of ["Built-in synth", "3D model", "Pointer", "Gesture choreography", "MIDI", "Computer keys"]) {
     assert.ok(instrument.features.includes(feature), feature);
   }

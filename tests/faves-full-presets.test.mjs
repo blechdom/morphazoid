@@ -47,7 +47,8 @@ test("startup retains original settings with voice caps equal to the previous fi
 });
 
 test("the implemented batches cover current Faves and retain tests for the demoted geometry instruments", () => {
-  const implemented = new Set([...FAVES_PRESET_CASES.map(p => p.id), "shape-synth", "shapes", "hiccup-head", "creaturazoid"]);
+  // Gesticules has dedicated model/preset and browser coverage in gesticulating-hand* suites.
+  const implemented = new Set([...FAVES_PRESET_CASES.map(p => p.id), "shape-synth", "shapes", "hiccup-head", "creaturazoid", "gesticulating-hand"]);
   assert.ok(FAVE_TOOL_IDS.every(id => implemented.has(id)));
   assert.equal(FAVE_TOOL_IDS[0], "shapes");
   assert.ok(["shape-synth", "solid-synth", "hyper-synth"].every(id => !FAVE_TOOL_IDS.includes(id)));
