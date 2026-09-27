@@ -29,7 +29,7 @@ test("Shapes leads Faves while individual geometry instruments remain category-o
     "shapes", "rubix", "hiccup-head",
     "creaturazoid", "hybrinx", "jaw-harp", "hyper-rubix", "micmic",
     "l-system", "graph-delay", "graph-synth", "cellular-automata", "lattice",
-    "gesticulating-hand",
+    "gesticulating-hand", "simd-chiptune",
   ]);
 });
 

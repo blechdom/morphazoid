@@ -383,7 +383,7 @@
       "label": "SIMD Chiptune",
       "href": "simd-chiptune.html",
       "category": "simd-audio",
-      "scope": "regular",
+      "scope": "fave",
       "presets": null,
       "status": "unmigrated"
     },
@@ -1576,7 +1576,8 @@
       "graph-synth",
       "cellular-automata",
       "lattice",
-      "gesticulating-hand"
+      "gesticulating-hand",
+      "simd-chiptune"
     ],
     "nonWipUnmigrated": [
       "shape-drum-machine",
@@ -1608,7 +1609,6 @@
       "srtuss",
       "shader-synth-playground",
       "simd-303",
-      "simd-chiptune",
       "simd-synth",
       "simd-resonator",
       "throatazoid",

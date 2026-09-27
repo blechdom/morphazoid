@@ -432,6 +432,9 @@ copy+require	src/instruments/simd-chiptune/simd-chiptune.css
 copy+require	src/families/chiptune/chiptune-app.js
 copy+require	src/instruments/simd-chiptune/performance.js
 copy+require	src/instruments/simd-chiptune/skins.js
+copy+require	src/instruments/simd-chiptune/skin-kaiju.js
+copy+require	src/instruments/simd-chiptune/skin-fracture.js
+copy+require	src/instruments/simd-chiptune/skin-worms.js
 copy+require	src/instruments/simd-chiptune/ui.js
 copy+require	src/instruments/simd-chiptune/control-deck.js
 copy+require	src/instruments/simd-chiptune/parameter-groups.js

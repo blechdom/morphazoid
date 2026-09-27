@@ -253,6 +253,8 @@ test("SIMD Chiptune preserves WebGPU Chiptune's tracker and MIDI policies in SIM
   const ids = group.tools.map(({ id }) => id);
   assert.equal(ids[ids.indexOf("simd-303") + 1], "simd-chiptune");
   const instrument = instrumentById("simd-chiptune");
+  assert.equal(FAVE_TOOL_IDS.filter(id => id === "simd-chiptune").length, 1);
+  assert.deepEqual(instrument?.tags.map(({ id }) => id), ["simd-audio", "synthesizer", "sequencer", "faves"]);
   assert.equal(instrument?.label, "SIMD Chiptune");
   assert.equal(instrument?.href, "simd-chiptune.html");
   assert.equal(instrument?.status, null);

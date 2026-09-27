@@ -28,6 +28,8 @@ export const expectedFaveToolIds = Object.freeze([
   "shapes", ...reordered.filter(id => !["shape-synth", "solid-synth", "hyper-synth"].includes(id)),
   // Owner follow-up on September 26: add Gesticules without moving existing Faves.
   "gesticulating-hand",
+  // Owner follow-up on September 27: promote SIMD Chiptune into Faves.
+  "simd-chiptune",
 ]);
 const faves = new Set(expectedFaveToolIds);
 export function expectedTagIdsFor(id) {

@@ -23,13 +23,23 @@ replaces that dancer with compact rotary controls; switch back to Dance at any
 time. On a phone, swipe horizontally through the seven cards and scroll inside a
 control face to reach its remaining knobs. The character menu
 defaults to **Original characters**: the original six WebGPU dancers render
-unchanged, with a matching pixel character for Noise. **Picasso pixels** uses
-asymmetric faces and bold cubist color planes; **Cute anime** adds big eyes,
-pastel hair and tiny uniforms; **8-bit swirlies** uses neon spirals, diamonds
-and geometric limbs. Each uses the original pixel grid and musical poses.
-Choosing a skin reveals every dancer, even when Controls views were open, and
-leaves sound and transport unchanged. Saved animal, blob and arcade skin choices
-migrate to anime, swirlies and cubist characters respectively.
+unchanged, with a matching pixel character for Noise. The other skins each
+redraw all seven performers with distinct silhouettes:
+
+- **Fracture parade**: walking cut-paper sculptures, suspended face fragments,
+  crooked harps, an accordion and a broken gramophone.
+- **Candy kaiju**: oversized candy creatures, including a drum-crab, grin-toad,
+  cyclops jellyfish, vampire moth, conjoined bonbons, bunny snail and sugar puffball.
+- **Cosmic worms**: hollow coils, tangled ribbon loops, climbing helices,
+  eye-stalk jellyfish and a shredded signal eel.
+
+All three use the original pixel grid. Their movement follows each voice's
+musical phrase and body taps; pausing freezes them and reduced motion remains
+available. Choosing a skin reveals every dancer, even when Controls views were
+open, and leaves sound and transport unchanged. Saved cubist/anime/swirl IDs
+remain compatible; older arcade/animal/blob choices resolve to Fracture parade,
+Candy kaiju and Cosmic worms respectively. SIMD Chiptune appears in **Faves**
+and **SIMD Audio**.
 
 Each performer has Mute and Solo buttons plus one small level knob, with **MUTED**
 and **SOLO** indicators inside its bay. Drums keeps Bus, Kick, Snare, Hat and

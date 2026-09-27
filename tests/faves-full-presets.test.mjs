@@ -46,10 +46,20 @@ test("startup retains original settings with voice caps equal to the previous fi
   assert.deepEqual(lattice, originalLatticeParameters, "Original net must retain the actual original sound parameters");
 });
 
-test("the implemented batches cover current Faves and retain tests for the demoted geometry instruments", () => {
+test("Faves retain implemented batch coverage and explicitly track the newly promoted legacy bank", async () => {
   // Gesticules has dedicated model/preset and browser coverage in gesticulating-hand* suites.
   const implemented = new Set([...FAVES_PRESET_CASES.map(p => p.id), "shape-synth", "shapes", "hiccup-head", "creaturazoid", "gesticulating-hand"]);
-  assert.ok(FAVE_TOOL_IDS.every(id => implemented.has(id)));
+  // SIMD Chiptune keeps its existing 24-preset bank and dedicated parity suite.
+  // Promotion is not a claim that its shared-header migration has happened.
+  const pending = FAVE_TOOL_IDS.filter(id => !implemented.has(id));
+  assert.deepEqual(pending, ["simd-chiptune"]);
+  const rollout = JSON.parse(await readFile(new URL("../docs/preset-rollout-status.json", import.meta.url), "utf8"));
+  for (const id of pending) {
+    const entry = rollout.entries.find(entry => entry.id === id);
+    assert.equal(entry.scope, "fave");
+    assert.equal(entry.status, "unmigrated");
+    assert.equal(entry.presets, null);
+  }
   assert.equal(FAVE_TOOL_IDS[0], "shapes");
   assert.ok(["shape-synth", "solid-synth", "hyper-synth"].every(id => !FAVE_TOOL_IDS.includes(id)));
   assert.equal(FAVES_PRESET_CASES.reduce((sum, item) => sum + item.bank.length, 0), 172);

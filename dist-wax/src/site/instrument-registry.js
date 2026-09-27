@@ -20,7 +20,8 @@ export const FAVE_TOOL_IDS = Object.freeze([
   "graph-synth",
   "cellular-automata",
   "lattice",
-  "gesticulating-hand"
+  "gesticulating-hand",
+  "simd-chiptune"
 ]);
 
 export const TOOL_GROUPS = Object.freeze([

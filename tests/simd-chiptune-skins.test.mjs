@@ -103,6 +103,9 @@ test("Skins have distinct raster output while preserving deterministic musical p
         const pixels = new Set([...images[a].keys(), ...images[b].keys()]);
         const changed = [...pixels].filter(pixel => images[a].get(pixel) !== images[b].get(pixel)).length;
         assert.ok(changed / pixels.size > .35, key + ": styles must redraw the figure, not add tiny accents");
+        const silhouetteChange = [...pixels].filter(pixel => images[a].has(pixel) !== images[b].has(pixel)).length;
+        assert.ok(silhouetteChange / pixels.size > .25,
+          `${key}/${SKINS[a].id}/${SKINS[b].id}: skins need distinct silhouettes independent of color`);
       }
       assert.deepEqual(actor, before, "Drawing must not change audible performer state");
     }
@@ -114,6 +117,14 @@ test("Skins have distinct raster output while preserving deterministic musical p
         drawCalls(drawSimdChiptuneDancer, later, { skin, reducedMotion: true }));
       assert.deepEqual(drawCalls(drawSimdChiptuneDancer, { ...first, resting: true }, { skin }),
         drawCalls(drawSimdChiptuneDancer, { ...later, resting: true }, { skin }));
+      if (skin !== "original") {
+        // Incoming note onsets must not sneak animation into reduced-motion or rest.
+        const quiet = { ...first, onset: 0 }, attack = { ...later, onset: 1 };
+        assert.deepEqual(drawCalls(drawSimdChiptuneDancer, quiet, { skin, reducedMotion: true }),
+          drawCalls(drawSimdChiptuneDancer, attack, { skin, reducedMotion: true }));
+        assert.deepEqual(drawCalls(drawSimdChiptuneDancer, { ...quiet, resting: true }, { skin }),
+          drawCalls(drawSimdChiptuneDancer, { ...attack, resting: true }, { skin }));
+      }
     }
   }
 });
