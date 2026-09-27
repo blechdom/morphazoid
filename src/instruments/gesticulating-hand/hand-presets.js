@@ -225,6 +225,34 @@ const ADDED_SCENES = [
 ];
 
 
+// Store each sign in the base pose so the joint controls directly reshape it.
+const GESTURE_SCENES = [
+  { id: "gesture-middle-finger", label: "Middle finger", form: "hand", pose: "middle-finger",
+    motion: { id: "middle-finger", tempo: 68, amount: 1, speed: 1 },
+    sound: { rootHz: 164, pitchSpread: 2.4, brightness: .73, roughness: .43, space: .16, rotationFx: .78, attack: .008, release: .27 },
+    sources: ["metal", "pulse", "wire", "metal", "pulse"], levels: [.45, .54, .76, .5, .46],
+    appearance: { skin: .53, lighting: 1.24 }, view: { yaw: .12, pitch: .035, zoom: .8 }, tremor: { finger: "all", joint: "wrist", amount: .35, rate: 5.1 } },
+  { id: "gesture-hang-loose", label: "Hang loose", form: "hand", pose: "hang-loose",
+    motion: { id: "hang-loose", tempo: 58, amount: 1, speed: 1 },
+    sound: { rootHz: 107, pitchSpread: .55, brightness: .36, roughness: .11, space: .46, rotationFx: .72, attack: .07, release: .82 },
+    sources: ["glass", "reed", "bowed", "air", "wire"], levels: [.68, .39, .46, .4, .7],
+    appearance: { skin: .21, lighting: 1.4 }, view: { yaw: .12, pitch: .035, zoom: .8 }, tremor: { finger: "all", joint: "wrist", amount: .15, rate: 3.2 } },
+  { id: "gesture-i-love-you", label: "I love you", form: "hand", pose: "i-love-you",
+    motion: { id: "i-love-you", tempo: 64, amount: 1, speed: 1 },
+    sound: { rootHz: 211, pitchSpread: .45, brightness: .55, roughness: .08, space: .64, rotationFx: .48, attack: .14, release: 1.1 },
+    sources: ["choir", "glass", "bowed", "vowel", "choir"], levels: [.7, .6, .5, .45, .64],
+    appearance: { skin: .8, lighting: 1.1 }, view: { yaw: .12, pitch: .035, zoom: .8 }, tremor: { finger: "all", joint: "wrist", amount: .28, rate: 4.7 } },
+  { id: "gesture-rock-and-roll", label: "Rock and roll", form: "hand", pose: "rock-and-roll",
+    motion: { id: "rock-and-roll", tempo: 72, amount: 1, speed: 1 },
+    sound: { rootHz: 109, pitchSpread: 2.6, brightness: .78, roughness: .65, space: .18, rotationFx: .8, attack: .006, release: .3 },
+    sources: ["pulse", "wire", "metal", "pulse", "wire"], levels: [.48, .66, .54, .44, .69],
+    appearance: { skin: .08, lighting: 1.06 }, view: { yaw: .12, pitch: .035, zoom: .8 }, tremor: { finger: "all", joint: "wrist", amount: .65, rate: 5.8 } },
+  { id: "gesture-vulcan-salute", label: "Vulcan salute", form: "hand", pose: "vulcan-salute",
+    motion: { id: "vulcan-salute", tempo: 48, amount: 1, speed: 1 },
+    sound: { rootHz: 277, pitchSpread: 1.45, brightness: .52, roughness: .07, space: .72, rotationFx: .56, attack: .12, release: 1.4 },
+    sources: ["glass", "air", "choir", "choir", "glass"], levels: [.43, .66, .7, .64, .55],
+    appearance: { skin: .69, lighting: 1.36 }, view: { yaw: .12, pitch: .035, zoom: .8 }, tremor: { finger: "all", joint: "wrist", amount: .2, rate: 2.4 } },
+];
 // Short note windows articulate independent attacks and rests on the shared beat.
 const RHYTHMIC_SCENES = [
   { id: "hand-crystal-staccato", label: "Crystal staccato", form: "hand", pose: "open", joints: { 4: { spread: 18 } },
@@ -272,20 +300,20 @@ const RHYTHMIC_SCENES = [
 // Every six neighboring choices (including the wrap) include Foot, >300 and
 // <75 effective BPM, <1° tremor and ≥4° tremor. Keep Finger loom first.
 const PRESET_ORDER = [
-  "wire-roll", "hand-lingering-choir", "foot-marimba-trails", "hand-tin-skips", "foot-fizzing-fan", "glass-wave",
+  "wire-roll", "hand-lingering-choir", "foot-marimba-trails", "gesture-middle-finger", "hand-tin-skips", "foot-fizzing-fan", "glass-wave",
   "reed-beckon", "foot-toe-origami", "vowel-fan", "hand-crystal-staccato",
   "hand-five-way-stumble", "bowed-spiral", "foot-tin-drumming", "hand-silk-count",
   "vowel-opposition", "breathing-hand", "foot-rubber-march", "foot-bowed-waltz",
   "hand-satellite-fan", "point-transmission", "hand-paper-waltz", "foot-velvet-curl",
-  "scattered-sparks", "hand-velvet-scissors", "hand-wire-backbeat", "foot-glass-ripple",
+  "scattered-sparks", "gesture-hang-loose", "hand-velvet-scissors", "hand-wire-backbeat", "foot-glass-ripple",
   "counting-air", "hand-copper-shiver", "foot-copper-skip", "hushed-palm",
   "little-machinery", "foot-beetle-step", "foot-copper-breaks", "slow-unfurl",
-  "hand-tin-morse", "low-claw", "foot-porcelain-pendulum", "metal-walk",
+  "hand-tin-morse", "gesture-i-love-you", "low-claw", "foot-porcelain-pendulum", "metal-walk",
   "hand-throat-lattice", "foot-corkscrew", "foot-glass-steps", "bowed-eight",
-  "closed-bell", "pinch-sparks", "foot-ankle-orbit", "hand-radio-swarm",
+  "closed-bell", "pinch-sparks", "foot-ankle-orbit", "hand-radio-swarm", "gesture-rock-and-roll",
   "hand-singing-triplet", "metal-drumming", "foot-neon-tap", "tangled-polyrhythm",
   "hand-porcelain-flicker", "foot-slow-arch", "flourish-copper", "foot-threadbare-sway",
-  "orbit-frenzy", "foot-wire-upbeat", "hand-bowed-tide", "foot-sole-whisper",
+  "orbit-frenzy", "gesture-vulcan-salute", "foot-wire-upbeat", "hand-bowed-tide", "foot-sole-whisper",
   "swarming-fingers", "hand-held-current", "foot-padded-ripple", "original-grasp",
 ];
 const freeze = value => {
@@ -305,7 +333,7 @@ export function createHandPresets({ normalizeHandConfig, HAND_POSES, handPoseFor
     id, label, snapshot: normalizeHandConfig({ ...config, form: "foot", pose: handPoseForForm(pose, "foot"),
       voices: sources.map((source, i) => ({ source, level: source === "air" ? .43 : .6 + i * .025, mute: false, solo: false })) }),
   }));
-  const added = [...ADDED_SCENES, ...RHYTHMIC_SCENES].map(({ id, label, form, pose: poseId, foot, joints, sources, levels, ...config }) => {
+  const added = [...ADDED_SCENES, ...RHYTHMIC_SCENES, ...GESTURE_SCENES].map(({ id, label, form, pose: poseId, foot, joints, sources, levels, ...config }) => {
     const pose = handPoseForForm(poseId, form);
     if (form === "foot") pose.foot = { ...foot };
     // Leave room for live edits in scenes with a sustained choreographed bend.

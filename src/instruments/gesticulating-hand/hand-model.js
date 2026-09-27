@@ -76,6 +76,14 @@ export function handJointLabel(form, index, key) {
 const FOOT_MOTION_SCALE = freeze({ mcp: .5, pip: .75, dip: .7, spread: .4, flex: .55, side: .55, twist: .18 });
 const footTipOffset = (index, pip, dip) => index === 0 ? .85 * (.45 * pip + .55 * dip) : dip * FOOT_MOTION_SCALE.dip;
 const fingers = (bends, spreads = [12, -8, 0, 5, 13]) => bends.map((bend, i) => ({ mcp: bend[0], pip: bend[1], dip: bend[2], spread: spreads[i] }));
+const SYMBOLIC_POSES = freeze([
+  { id: "middle-finger", label: "Middle finger", pose: { fingers: fingers([[50, 48, 38], [76, 92, 64], [0, 0, 0], [78, 94, 64], [76, 90, 62]], [-15, -3, 0, 2, 5]), wrist: { flex: 0, side: 0, twist: 0 } } },
+  { id: "hang-loose", label: "Hang loose", pose: { fingers: fingers([[2, 2, 0], [76, 92, 64], [78, 94, 64], [78, 94, 64], [0, 0, 0]], [-22, -3, 0, 2, 25]), wrist: { flex: 0, side: 0, twist: 0 } } },
+  { id: "i-love-you", label: "I love you", pose: { fingers: fingers([[2, 2, 0], [0, 0, 0], [78, 94, 64], [78, 94, 64], [0, 0, 0]], [-22, -12, 0, 2, 4]), wrist: { flex: 0, side: 0, twist: 0 } } },
+  { id: "rock-and-roll", label: "Rock and roll", pose: { fingers: fingers([[50, 48, 38], [0, 0, 0], [78, 94, 64], [78, 94, 64], [0, 0, 0]], [-15, -12, 0, 2, 4]), wrist: { flex: 0, side: 0, twist: 0 } } },
+  { id: "vulcan-salute", label: "Vulcan salute", pose: { fingers: fingers([[2, 2, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0]], [-22, -10, -16, 18, 4]), wrist: { flex: 0, side: 0, twist: 0 } } },
+]);
+const SYMBOLIC_POSE_BY_ID = new Map(SYMBOLIC_POSES.map(({id,pose}) => [id,pose]));
 export const HAND_POSES = freeze([
   { id: "source-open", label: "Open hand · original", pose: { fingers: fingers([[0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0]], [0, 0, 0, 0, 0]), wrist: { flex: 0, side: 0, twist: 0 } } },
   { id: "relaxed", label: "Relaxed", pose: { fingers: fingers([[18, 16, 12], [16, 24, 12], [18, 28, 16], [22, 32, 20], [26, 35, 23]]), wrist: { flex: 0, side: 0, twist: 0 } } },
@@ -85,6 +93,7 @@ export const HAND_POSES = freeze([
   { id: "pinch", label: "Pinch", pose: { fingers: fingers([[40, 30, 26], [48, 66, 39], [20, 25, 14], [25, 32, 19], [32, 38, 23]], [-20, -13, 0, 10, 18]), wrist: { flex: -5, side: 4, twist: 18 } } },
   { id: "claw", label: "Claw", pose: { fingers: fingers([[22, 54, 42], [-7, 84, 58], [-10, 88, 62], [-5, 82, 56], [0, 76, 52]], [20, -17, 0, 14, 24]), wrist: { flex: 18, side: 0, twist: -8 } } },
   { id: "fan", label: "Finger fan", pose: { fingers: fingers([[8, 6, 5], [8, 12, 8], [12, 16, 10], [17, 20, 12], [22, 25, 16]], [25, -25, -5, 16, 25]), wrist: { flex: -16, side: 10, twist: 24 } } },
+  ...SYMBOLIC_POSES,
 ]);
 export const HAND_MOTIONS = freeze([
   { id: "source-grasp", label: "Open / close · original", beats: 4 },
@@ -123,9 +132,12 @@ export const HAND_MOTIONS = freeze([
   { id: "finger-swarm", label: "Finger swarm", beats: 16 },
   { id: "frantic-orbit", label: "Frantic orbit", beats: 16 },
   { id: "scatter", label: "Scatter", beats: 16 },
+  ...SYMBOLIC_POSES.map(({id,label}) => ({id,label,beats:8,pose:id})),
 ]);
 const FOOT_POSE_LABELS = freeze({ "source-open": "Toes at rest", relaxed: "Relaxed toes", open: "Open toes", fist: "Toe curl",
-  point: "Second toe extended", pinch: "Gathered toes", claw: "Toe claw", fan: "Toe fan" });
+  point: "Second toe extended", pinch: "Gathered toes", claw: "Toe claw", fan: "Toe fan",
+  "middle-finger": "Third toe extended", "hang-loose": "Big and little toes", "i-love-you": "Three-toe fan",
+  "rock-and-roll": "Second and little toes", "vulcan-salute": "Split toe fan" });
 const FOOT_MOTION_LABELS = freeze({
   "source-grasp": "Toe curl · adapted", wave: "Toe wave", beckon: "Toe beckon", "finger-roll": "Toe roll",
   pinch: "Gather and release", count: "Counting toes", flourish: "Foot flourish", "finger-drumming": "Toe drumming",
@@ -134,6 +146,8 @@ const FOOT_MOTION_LABELS = freeze({
   "wrist-circle": "Ankle circles", "wrist-nod": "Ankle rocking", "wrist-turn": "Foot turning", "flourish-spiral": "Ankle spiral",
   flick: "Toe flicks", "finger-scissors": "Toe scissors", "double-beckon": "Two-toe beckon", "two-finger-walk": "Two-toe stepping",
   "ring-pulse": "Fourth-toe bow", "finger-swarm": "Toe swarm",
+  "middle-finger": "Third-toe lift", "hang-loose": "Outer-toe sway", "i-love-you": "Three-toe wave",
+  "rock-and-roll": "Toe horns", "vulcan-salute": "Split-toe greeting",
 });
 export function handMotionLabel(id, form = "hand") {
   return (form === "foot" ? FOOT_MOTION_LABELS[id] : null) ?? HAND_MOTIONS.find(motion => motion.id === id)?.label ?? "Still";
@@ -279,13 +293,22 @@ export function evaluateHandPose(value = HAND_DEFAULTS, time = 0, out = createHa
   const phase = beat / beats * TAU;
   out.source = null;
   const source = id === "source-grasp" ? sourceForPose(out, beat / beats, amount) : null;
+  const symbolic = SYMBOLIC_POSE_BY_ID.get(id), breathe = symbolic ? .5 - .5 * Math.cos(phase) : 0;
   // Foot choreography adapts scalar curves only. Hand quaternion metadata must
   // never enter the foot rig or subtract its original hand offsets a second time.
   if (foot) out.source = null;
   for (let i = 0; i < 5; i++) {
     const base = record(pose.fingers?.[i]), f = out.fingers[i], fallback = HAND_DEFAULTS.pose.fingers[i];
     let curl = 0, tip = 0, spread = 0, distal = null;
-    if (source) { curl = source.fingers[i].mcp; tip = source.fingers[i].pip; spread = source.fingers[i].spread; }
+    if (symbolic) {
+      // The sign lives in the editable base pose. Animate small offsets only,
+      // leaving calibrated finger pairs intact and the full joint range usable.
+      const digit = symbolic.fingers[i], folded = digit.mcp + digit.pip + digit.dip > 90;
+      curl = (folded ? -6 : 3) * breathe;
+      tip = (folded ? -4 : 2) * breathe;
+      distal = (folded ? -3 : 1) * breathe;
+    }
+    else if (source) { curl = source.fingers[i].mcp; tip = source.fingers[i].pip; spread = source.fingers[i].spread; }
     else if (id === "wave") { curl = 11 * Math.sin(phase - i * .34); tip = 7 * Math.sin(phase - i * .34 - .35); spread = 4 * Math.cos(phase + i * .4); }
     else if (id === "beckon") { const bend = .5 - .5 * Math.cos(phase * 2 - i * .15); curl = (i === 0 ? 12 : 49) * bend; tip = (i === 0 ? 8 : 50) * bend; }
     else if (id === "finger-roll") { const bend = Math.sin(phase - i * .88); curl = 25 * bend + 12; tip = 30 * Math.sin(phase - i * .88 - .3) + 12; spread = 5 * Math.sin(phase - i * .6); }
@@ -513,6 +536,13 @@ export function evaluateHandPose(value = HAND_DEFAULTS, time = 0, out = createHa
       flex = 24 * Math.sin(phase * 3 + .7 * Math.sin(phase * 2));
       side = 23 * Math.sin(phase * 5 - .6 * Math.sin(phase));
       twist = 55 * Math.sin(phase * 2 + .5 * Math.sin(phase * 7)); break;
+  }
+  switch (id) {
+    case "middle-finger": flex = 10 * Math.sin(phase); side = 3 * Math.sin(phase * 2); twist = 6 * Math.sin(phase); break;
+    case "hang-loose": flex = 3 * Math.sin(phase * 2); side = 10 * Math.sin(phase); twist = 24 * Math.sin(phase); break;
+    case "i-love-you": flex = 4 * Math.sin(phase); side = 16 * Math.sin(phase); twist = 9 * Math.sin(phase * 2); break;
+    case "rock-and-roll": flex = 16 * Math.sin(phase * 2); side = 4 * Math.sin(phase); twist = 12 * Math.sin(phase); break;
+    case "vulcan-salute": flex = 6 * Math.sin(phase); side = 7 * Math.sin(phase); twist = 12 * Math.sin(phase); break;
   }
   if (foot) { flex *= FOOT_MOTION_SCALE.flex; side *= FOOT_MOTION_SCALE.side; twist *= FOOT_MOTION_SCALE.twist; }
   const wristBounds = handWristLimits(config.form);

@@ -19,9 +19,10 @@ const RHYTHMIC_IDS = [
   "foot-glass-steps", "foot-wire-upbeat", "foot-bowed-waltz", "foot-copper-breaks",
 ];
 const legacyIds = new Set(LEGACY_IDS), rhythmicIds = new Set(RHYTHMIC_IDS);
+const gestureIds = new Set(["gesture-middle-finger", "gesture-hang-loose", "gesture-i-love-you", "gesture-rock-and-roll", "gesture-vulcan-salute"]);
 const showcaseIds = new Set(["hand-lingering-choir", "foot-marimba-trails"]);
 const showcases = HAND_PRESETS.filter(preset => showcaseIds.has(preset.id));
-const added = HAND_PRESETS.filter(preset => !legacyIds.has(preset.id) && !rhythmicIds.has(preset.id) && !showcaseIds.has(preset.id));
+const added = HAND_PRESETS.filter(preset => !legacyIds.has(preset.id) && !rhythmicIds.has(preset.id) && !showcaseIds.has(preset.id) && !gestureIds.has(preset.id));
 const rhythmic = HAND_PRESETS.filter(preset => rhythmicIds.has(preset.id));
 const effectiveTempo = preset => preset.snapshot.motion.tempo * preset.snapshot.motion.speed;
 const smooth = preset => preset.snapshot.tremor.amount < 1;
@@ -35,15 +36,16 @@ function assertDeepFrozen(value, path = "preset") {
   for (const [key, child] of Object.entries(value)) assertDeepFrozen(child, `${path}.${key}`);
 }
 
-test("scene factory retains previous banks and adds choir and marimba showcase scenes", () => {
-  assert.equal(HAND_PRESETS.length, 62);
-  assert.equal(distinct(HAND_PRESETS, preset => preset.id), 62);
-  assert.equal(distinct(HAND_PRESETS, preset => preset.label), 62);
+test("scene factory retains previous banks and adds five recognizable gesture scenes", () => {
+  assert.equal(HAND_PRESETS.length, 67);
+  assert.equal(distinct(HAND_PRESETS, preset => preset.id), 67);
+  assert.equal(distinct(HAND_PRESETS, preset => preset.label), 67);
   for (const id of LEGACY_IDS) assert.ok(HAND_PRESETS.some(preset => preset.id === id), id);
-  assert.equal(HAND_PRESETS.filter(preset => preset.snapshot.form === "hand").length, 41);
+  assert.equal(HAND_PRESETS.filter(preset => preset.snapshot.form === "hand").length, 46);
   assert.equal(HAND_PRESETS.filter(preset => preset.snapshot.form === "foot").length, 21);
   assert.equal(added.length, 24);
   assert.equal(showcases.length, 2);
+  assert.equal(HAND_PRESETS.filter(preset => gestureIds.has(preset.id)).length, 5);
   assert.equal(rhythmic.length, 8);
   for (const form of ["hand", "foot"]) assert.equal(rhythmic.filter(preset => preset.snapshot.form === form).length, 4, form);
   for (const form of ["hand", "foot"]) assert.equal(added.filter(preset => preset.snapshot.form === form).length, 12, form);
@@ -104,7 +106,7 @@ test("new scenes span engines, choreography, envelopes, view, color and light", 
     assert.ok(Math.min(...positions) < .1 && Math.max(...positions) > .9, key);
   }
   // Appearance-only variants do not count as new musical scenes.
-  assert.equal(distinct(HAND_PRESETS, ({ snapshot: { pose, motion, sound, voices } }) => JSON.stringify({ pose, motion, sound, voices })), 62);
+  assert.equal(distinct(HAND_PRESETS, ({ snapshot: { pose, motion, sound, voices } }) => JSON.stringify({ pose, motion, sound, voices })), 67);
 });
 
 test("legacy scenes retain neutral elastic deformation while new feet author bounded moving shapes", () => {

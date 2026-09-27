@@ -36,9 +36,9 @@ Finger flexion values for synthesis are measured from those same rotations.
 Other named motions are original, bounded Morphazoid choreography, not motion
 capture or imported Microsoft clips.
 
-There are **35 animated movements**, plus **Still**: the original Open/Close,
+There are **40 animated movements**, plus **Still**: the original Open/Close,
 Wave, Beckon, Finger roll, Pinch and release, Counting fingers, Flourish, and the
-28 movements below.
+33 movements below.
 
 | Movement family | Choreography |
 | --- | --- |
@@ -47,6 +47,18 @@ Wave, Beckon, Finger roll, Pinch and release, Counting fingers, Flourish, and th
 | Grasp and wrist | Claw and uncurl, Squeeze and release, Wrist circles, Wrist nodding, Palm to back, Figure eight |
 | Expressive loops | Spiral flourish, Finger flicks, Finger scissors, Two-finger beckon, Two-finger walk, Ring-finger bow |
 | Complex patterns | Polyrhythmic tangle, Finger swarm, Frantic orbit, Scatter |
+| Hand signs | Middle finger, Hang loose, I love you, Rock and roll, Vulcan salute |
+
+The five hand signs are also available as static poses and complete sound
+presets. Selecting one of these movements loads its editable sign pose. Its loop adds
+small joint motion and wrist gestures, so the joint sliders can still reshape
+the entire sign. **Hang loose** extends the thumb and little
+finger. **I love you** extends thumb, index and little finger; **Rock and roll**
+folds the thumb. **Vulcan salute** pairs index/middle and ring/little around a
+central split, with the thumb extended. The five scenes recall their own sound,
+pitch spread, Tempo, Color, Light, Trails and palm-facing view. Their toe
+adaptations have separate labels; these are expressive rigs, not validated sign
+language or anatomical demonstrations.
 
 The four complex patterns combine independent finger and wrist cycles. Knuckles,
 middle joints, tips and spread can move at different rates and in opposing
@@ -141,14 +153,14 @@ and twist changes roughness and stereo position. Their movement also excites the
 voices. These elastic deformations are expressive extensions of the source rig.
 Older foot scenes keep a neutral shape and zero elastic motion.
 
-All 35 motions are adapted to the foot’s smaller ranges, including toe curls,
+All 40 motions are adapted to the foot’s smaller ranges, including toe curls,
 ripples, drumming, splaying and ankle circles. These are expressive adaptations,
 not imported foot motion capture. The hand’s source quaternion animation is never
 applied to the foot; its corresponding foot motion is **Toe curl · adapted**.
 Targeted tremor works on the same toe controls. A big-toe middle-joint tremor
 becomes tip tremor, while an all-toes middle tremor skips the big toe.
 
-The library has **21 foot scenes and 41 hand scenes**, interleaved in one menu.
+The library has **21 foot scenes and 46 hand scenes**, interleaved in one menu.
 The four original foot scenes—**Velvet toe curl**, **Glass toe ripple**,
 **Tin toe drumming**, and **Ankle choir**—retain their musical settings. Twelve
 new foot scenes combine elastic shapes with varied engines and tremors. Preset
@@ -256,7 +268,7 @@ is capped at 40 frames/second, 1.6 device-pixel ratio and about 1.45 million pix
   the selected finger. Shift makes a smaller change. Sliders provide the same
   controls without direct 3D manipulation.
 - Space toggles Motion. Sound and Audio remain separate.
-- The **62 complete presets** (41 hand, 21 foot) recall the model, joints, foot
+- The **67 complete presets** (46 hand, 21 foot) recall the model, joints, foot
   shape, elastic motion, sound engines and levels, envelopes, choreography,
   Tempo, rhythm, note length, drawn joint contours, all tremor controls, camera angle/zoom, Color and Light. Each six
   neighboring scenes, including the menu wrap, contain hand and foot, fast and

@@ -357,7 +357,17 @@ listen(el('motionFile'),'change',async event=>{
 listen(el('audioButton'),'click',()=>setAudio(!(state.audioOn||state.starting)));
 listen(el('soundPlayButton'),'click',()=>setSoundPlaying(!state.soundPlaying));
 listen(el('motionButton'),'click',()=>setPlaying(!state.playing));
-listen(el('motionPreset'),'change',event=>{contourEditor.clearHistory();updateConfiguration(c=>{c.motion.custom=event.target.value==='drawn';if(!c.motion.custom)c.motion.id=event.target.value;});});
+listen(el('motionPreset'),'change',event=>{
+  contourEditor.clearHistory();
+  updateConfiguration(c=>{
+    c.motion.custom=event.target.value==='drawn';
+    if(!c.motion.custom){
+      c.motion.id=event.target.value;
+      const poseId=HAND_MOTIONS.find(m=>m.id===c.motion.id)?.pose;
+      if(poseId)c.pose=handPoseForForm(poseId,c.form);
+    }
+  });
+});
 listen(el('posePreset'),'change',event=>{
   if(HAND_POSES.some(p=>p.id===event.target.value))updateConfiguration(c=>{c.pose=handPoseForForm(event.target.value,c.form);});
 });

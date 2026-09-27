@@ -185,7 +185,7 @@ const CATALOG_DETAILS = Object.freeze({
   ),
   "gesticulating-hand": define(
     "Articulated hand and foot synthesizer",
-    "A rigged 3D hand or elastic foot with editable joint contours, 35 gesture animations, ten sound engines and 62 mixed presets. Mix Choir or Marimba with five finger or toe voices, draw motion loops, and link visual trails with stereo echoes.",
+    "A rigged 3D hand or elastic foot with editable joint contours, 40 gesture animations, ten sound engines and 67 mixed presets. Mix Choir or Marimba with five finger or toe voices, draw motion loops, and link visual trails with stereo echoes.",
     "Start with Finger loom and enable Audio and Sound. Play Motion, adjust the single Tempo slider, or select a joint curve and draw your own animation. MIDI keys hold finger or toe poses.",
     ["Built-in synth", "3D model", "Pointer", "Finger voices", "Gesture choreography"],
   ),

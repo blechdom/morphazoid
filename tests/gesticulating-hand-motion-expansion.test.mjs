@@ -12,6 +12,7 @@ const ADDED_MOTIONS = ["finger-fan", "ripple-open", "ripple-close", "finger-drum
   "squeeze-release", "wrist-circle", "wrist-nod", "wrist-turn", "figure-eight", "flourish-spiral", "flick",
   "finger-scissors", "double-beckon", "two-finger-walk", "ring-pulse"];
 const COMPLEX_MOTIONS = ["polyrhythmic-tangle", "finger-swarm", "frantic-orbit", "scatter"];
+const SYMBOLIC_MOTIONS = ["middle-finger", "hang-loose", "i-love-you", "rock-and-roll", "vulcan-salute"];
 const JOINTS = ["mcp", "pip", "dip", "spread"], WRIST = ["flex", "side", "twist"];
 const poseVector = pose => [...pose.fingers.flatMap(f => JOINTS.map(key => f[key])), ...WRIST.map(key => pose.wrist[key])];
 function poseDistance(a, b) {
@@ -23,7 +24,7 @@ function random(seed) {
 }
 
 test("24 additional gestures have distinct full-pose trajectories and visible motion", () => {
-  assert.deepEqual(HAND_MOTIONS.map(motion => motion.id), [...ORIGINAL_MOTIONS, ...ADDED_MOTIONS, ...COMPLEX_MOTIONS]);
+  assert.deepEqual(HAND_MOTIONS.map(motion => motion.id), [...ORIGINAL_MOTIONS, ...ADDED_MOTIONS, ...COMPLEX_MOTIONS, ...SYMBOLIC_MOTIONS]);
   assert.equal(new Set(HAND_MOTIONS.map(motion => motion.label)).size, HAND_MOTIONS.length);
   const trajectories = [];
   for (const motion of HAND_MOTIONS) {
