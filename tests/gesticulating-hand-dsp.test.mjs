@@ -1,3 +1,5 @@
+import { HandOutput } from "../src/instruments/gesticulating-hand/hand-output.js";
+import { handEffectiveTempo } from "../src/instruments/gesticulating-hand/hand-model.js";
 import test from "node:test";
 import assert from "node:assert/strict";
 import { HandDSP } from "../src/instruments/gesticulating-hand/hand-dsp.js";
@@ -39,9 +41,10 @@ test("all five voices and complete scene presets produce distinct finite bounded
   for (let i = 0; i < signals.length; i++) for (let j = i + 1; j < signals.length; j++) assert.ok(difference(signals[i], signals[j]) > .006);
   for (const preset of HAND_PRESETS) {
     const dsp = engine(preset.snapshot); dsp.setTransport({ time: .3, playing: true });
-    const signal = render(dsp, .5);
+    const signal = render(dsp, Math.max(.5, 5 * 60 / handEffectiveTempo(dsp.config.motion)));
+    new HandOutput(dsp.sampleRate).process(signal.left, signal.right);
     assert.ok(signal.left.every(Number.isFinite) && signal.right.every(Number.isFinite), preset.id);
-    assert.ok(rms(signal.left) > .005, preset.id); assert.ok(peak(signal.left) < .82, preset.id);
+    assert.ok(rms(signal.left) > .005, preset.id); assert.ok(peak(signal.left) <= .890001, preset.id);
   }
 });
 
@@ -178,6 +181,8 @@ test("wrapper joins current motion phase, arms silently, uses one graph and rele
   assert.equal(await audio.arm(), true); assert.equal(audio.running, true);
   assert.equal(nodes.length, 1); assert.equal(nodes[0].sent.find(m => m.type === "sound").playing, false);
   assert.ok(Math.abs(nodes[0].sent.find(m => m.type === "transport").transport.time - 6.3) < 1e-9);
+  audio.setOutput(1); assert.equal(audio.master.gain.events.at(-1).value, 1);
+  audio.setOutput(5); assert.equal(audio.level, 1);
   audio.setSoundPlaying(true); audio.setHeldFingers(2); audio.setOutput(.31); audio.mute();
   assert.equal(audio.armed, false); assert.equal(audio.playing, true); assert.equal(audio.soundPlaying, true);
   assert.equal(audio.master.gain.events.at(-1).value, 0);

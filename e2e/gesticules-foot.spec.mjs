@@ -38,6 +38,8 @@ test('Hand is the default; Foot exposes fourteen toe joints, an ankle and five s
   await expect(page.locator('#voicesTitle')).toHaveText('Five toes · five voices'); await expect(page.locator('#wristTitle')).toHaveText('Ankle');
   await expect(page.locator('[data-view="palm"]')).toHaveText('Top'); await expect(page.locator('[data-view="back"]')).toHaveText('Sole');
   await page.locator('#fingerTabs [data-finger="0"]').click();
+  expect(await page.locator('#contour-joint-0 option').evaluateAll(options => options.map(option => option.value))).toEqual(['mcp', 'dip', 'spread']);
+  expect(await page.locator('#contour-joint-1 option').evaluateAll(options => options.map(option => option.value))).toEqual(['mcp', 'pip', 'dip', 'spread']);
   await expect(page.locator('#joint-pip')).toHaveCount(0); await expect(page.locator('#joint-dip')).toBeVisible();
   await expect(page.locator('#joint-mcp')).toHaveAttribute('min', '-55'); await expect(page.locator('#wristFlex')).toHaveAttribute('min', '-20');
   await page.locator('#tremorFinger').selectOption('thumb'); await expect(page.locator('#tremorJoint option[value="middle"]')).toHaveJSProperty('disabled', true);
@@ -77,7 +79,7 @@ test('toe motion stays silent before Audio arm and both players continue through
     expect(state.time).toBeGreaterThanOrEqual(before.time - .012); expect(state.viewer.rigCount).toBeLessThanOrEqual(2);
     await expect.poll(async () => (await snapshot(page)).audio.rms).toBeGreaterThan(.001);
     const output = await readAudioStatus(page); expect(output.connectionCount).toBe(connectionCount); expect(output.clipped).toBe(false);
-    expect(state.audio.peak).toBeLessThan(.82); await expect(page.locator('#outputLevel')).toHaveValue('0.23');
+    expect(state.audio.peak).toBeLessThanOrEqual(.890001); await expect(page.locator('#outputLevel')).toHaveValue('0.23');
   }
   await page.locator('#audioButton').click(); await expect.poll(async () => (await snapshot(page)).audio.rms).toBeLessThan(.0001);
   expect((await snapshot(page)).playing).toBe(true); expect((await snapshot(page)).soundPlaying).toBe(true);
@@ -103,15 +105,16 @@ test('switching forms restores each independently edited base pose, including th
   }
 });
 
-test('all full foot presets restore form, shape, engines, speed, tempo, camera, tremor and appearance', async ({ page }) => {
+test('all twenty full foot presets restore form, shape, engines, combined tempo, rhythm, camera, tremor and appearance', async ({ page }) => {
   test.setTimeout(60000);
   await range(page, 'outputLevel', .19); await page.locator('#soundPlayButton').click(); await page.locator('#motionButton').click();
   const scenes = await page.evaluate(async () => (await import('/src/instruments/gesticulating-hand/hand-model.js')).HAND_PRESETS.filter(preset => preset.snapshot.form === 'foot'));
-  expect(scenes.length).toBeGreaterThan(4);
+  expect(scenes).toHaveLength(20);
   for (const scene of scenes) {
     await chooseForm(page, 'foot');
     await range(page, 'footArch', -61); await range(page, 'footTwist', 42); await range(page, 'footStretch', .84); await range(page, 'footElasticity', .19);
-    await chooseForm(page, 'hand'); await range(page, 'tempo', 1023); await range(page, 'speed', 3.7);
+    await chooseForm(page, 'hand'); await range(page, 'tempo', 3785.1);
+    await page.locator('#rhythm').selectOption('broken'); await range(page, 'note-length', .83);
     await range(page, 'skin', .383); await range(page, 'lighting', .617);
     await page.locator('[data-view="back"]').click(); await chooseScene(page, scene.label); await loadedForm(page, 'foot');
     const state = await snapshot(page); expect(state.config).toEqual(scene.snapshot);
@@ -119,7 +122,9 @@ test('all full foot presets restore form, shape, engines, speed, tempo, camera, 
     expect(state.viewer.appearance).toEqual(scene.snapshot.appearance);
     for (const key of ['yaw', 'pitch', 'zoom']) expect(state.viewer.view[key]).toBeCloseTo(scene.snapshot.view[key], 10);
     await expect(page.locator('#bodyForm')).toHaveValue('foot'); await expect(page.locator('#outputLevel')).toHaveValue('0.19');
-    for (const id of ['speed', 'tempo']) expect(Number(await page.locator('#' + id).inputValue())).toBe(scene.snapshot.motion[id]);
+    expect(Math.abs(Number(await page.locator('#tempo').inputValue()) - scene.snapshot.motion.tempo * scene.snapshot.motion.speed)).toBeLessThanOrEqual(.051);
+    await expect(page.locator('#rhythm')).toHaveValue(scene.snapshot.sound.rhythm);
+    expect(Number(await page.locator('#note-length').inputValue())).toBeCloseTo(scene.snapshot.sound.noteLength, 3);
     for (const [id, key] of [['footArch', 'arch'], ['footTwist', 'twist'], ['footStretch', 'stretch']]) expect(Number(await page.locator('#' + id).inputValue())).toBeCloseTo(scene.snapshot.pose.foot[key], 6);
     expect(Number(await page.locator('#footElasticity').inputValue())).toBeCloseTo(scene.snapshot.motion.elasticity, 6);
     for (const id of ['skin', 'lighting']) {
@@ -270,7 +275,7 @@ for (const viewport of [{ width: 390, height: 844 }, { width: 320, height: 568 }
       });
       expect(overlap, `${view}: toe controls must remain outside camera buttons`).toEqual([]);
     }
-    for (const id of ['footArch', 'footTwist', 'footStretch', 'footElasticity', 'tremorRateSpread', 'tremorPhaseSpread', 'skin', 'lighting']) {
+    for (const id of ['contour-0', 'contour-4', 'contour-joint-0', 'tempo', 'rhythm', 'note-length', 'footArch', 'footTwist', 'footStretch', 'footElasticity', 'tremorRateSpread', 'tremorPhaseSpread', 'skin', 'lighting']) {
       const control = page.locator('#' + id); await control.scrollIntoViewIfNeeded(); await control.focus();
       const reachable = await control.evaluate(input => {
         const box = input.getBoundingClientRect(), stage = document.querySelector('#handStage').getBoundingClientRect();

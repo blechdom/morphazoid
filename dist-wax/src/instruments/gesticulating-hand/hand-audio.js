@@ -110,7 +110,7 @@ export class HandAudio {
     return true;
   }
   setOutput(value) {
-    this.level = clampHand(value, 0, .85, .52);
+    this.level = clampHand(value, 0, 1, .52);
     if (!this.master) return;
     const gain = this.master.gain, now = this.currentTime;
     if (typeof gain.cancelAndHoldAtTime === "function") gain.cancelAndHoldAtTime(now);
