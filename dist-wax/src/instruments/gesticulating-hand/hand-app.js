@@ -58,6 +58,7 @@ function syncTransport() {
     el(id).setAttribute('aria-label', `${active ? 'Pause' : 'Play'} ${label.toLowerCase()}`);
     el(id).title = `${active ? 'Pause' : 'Play'} ${label.toLowerCase()}`;
   }
+  notify();
 }
 function midiMask() { let mask = 0; for (const note of state.midi.values()) mask |= 1 << note.finger; return mask; }
 function syncHeld() { audio.setHeldFingers(state.pointerMask | midiMask()); }
