@@ -3,6 +3,7 @@ import { GLTFLoader } from '../../../vendor/three/loaders/GLTFLoader.js';
 import { createHandRig } from './hand-rig.js';
 import { createFootRig } from './foot-rig.js';
 import { createHandLook } from './hand-look.js';
+import { createHandTrails } from './hand-trails.js';
 
 export const FINGER_COLORS = Object.freeze(['#e7a574','#dfcf83','#83c6b4','#87aadb','#c3a0d1']);
 const RAD=Math.PI/180;
@@ -24,15 +25,18 @@ export function createHandViewer(canvas,{onSelect=()=>{},onGesture=()=>{},onChan
   const rim=new THREE.DirectionalLight(0xffffff,1.6);rim.position.set(-2,3,-4);scene.add(rim);
   const look=createHandLook({meshes:[],ambient,keyLight,fill,rim});
   const markerGroup=new THREE.Group();scene.add(markerGroup);
+  const trails=createHandTrails(renderer);
   const markerGeometry=new THREE.SphereGeometry(.022,12,8),markers=[];
   const abort=new AbortController(),signal=abort.signal,cache=new Map(),loadedRigs=new Set();
   const raycaster=new THREE.Raycaster(),pointer=new THREE.Vector2(),temporary=new THREE.Vector3();
   let rig=null,form='hand',requestedForm='hand',loaded=false,disposed=false,selected=1,selectedJoint='mcp',showJoints=true,drag=null;
   let yaw=.12,pitch=.03,zoomFactor=1,width=0,height=0,baseDistance=5.8,latestPose=null,pickBoundsDirty=true,loadGeneration=0;
   let appearance={skin:0,lighting:0},footFrameScale=1,footFrameOffset=0;
+  let poseSignature='',cameraSignature='';
   const listen=(type,callback,options={})=>canvas.addEventListener(type,callback,{...options,signal});
 
   function resize() {
+    clearTrails();
     const box=canvas.getBoundingClientRect();width=Math.max(1,box.width);height=Math.max(1,box.height);
     renderer.setPixelRatio(Math.min(devicePixelRatio||1,1.6,Math.sqrt(1450000/(width*height))));renderer.setSize(width,height,false);
     camera.aspect=width/height;camera.updateProjectionMatrix();
@@ -50,6 +54,7 @@ export function createHandViewer(canvas,{onSelect=()=>{},onGesture=()=>{},onChan
     const distance=baseDistance*zoomFactor*(form==='foot'?footFrameScale:1),target=new THREE.Vector3(0,-.04+(form==='foot'?footFrameOffset:0),0);
     camera.position.set(distance*Math.sin(yaw)*Math.cos(pitch),distance*Math.sin(pitch),distance*Math.cos(yaw)*Math.cos(pitch)).add(target);
     camera.lookAt(target);camera.updateMatrixWorld();onChange();
+    const signature=camera.matrixWorld.elements.join(',');if(signature!==cameraSignature){cameraSignature=signature;trails.changed();}
   }
   // Fit the configured deformation envelope once per edit, so elastic motion
   // stays visible without making the camera breathe on every animation frame.
@@ -69,7 +74,7 @@ export function createHandViewer(canvas,{onSelect=()=>{},onGesture=()=>{},onChan
   }
   function setView(view){yaw={palm:.12,back:Math.PI+.12,side:Math.PI/2}[view]??.12;pitch=.035;zoomFactor=1;updateCamera();onViewChange(getCameraView());}
   function zoom(factor){zoomFactor=clamp(zoomFactor*factor,.62,2);updateCamera();onViewChange(getCameraView());}
-  function setAppearance(value={}){appearance={...value};look.apply(appearance);onChange();}
+  function setAppearance(value={}){if(value.skin!==appearance.skin||value.lighting!==appearance.lighting)clearTrails();appearance={...value};look.apply(appearance);onChange();}
   function clearMarkers(){for(const dot of markers){markerGroup.remove(dot);dot.material.dispose();}markers.length=0;}
   function addMarker(finger,joint,bone){
     const material=new THREE.MeshBasicMaterial({color:finger>=5?0xe7dfd4:FINGER_COLORS[finger],transparent:true,opacity:.73,depthTest:false,depthWrite:false});
@@ -82,8 +87,14 @@ export function createHandViewer(canvas,{onSelect=()=>{},onGesture=()=>{},onChan
   }
   function selectFinger(finger,joint='mcp'){selected=finger;selectedJoint=joint;refreshMarkers();}
   function setShowJoints(show){showJoints=Boolean(show);refreshMarkers();}
-  function setPose(pose){latestPose=pose;if(!loaded)return;rig.setPose(pose);pickBoundsDirty=true;refreshMarkers();}
-  function render(){if(!disposed)renderer.render(scene,camera);}
+  function setPose(pose){latestPose=pose;if(!loaded)return;rig.setPose(pose);pickBoundsDirty=true;refreshMarkers();
+    const signature=JSON.stringify([pose.fingers,pose.wrist,form==='foot'?pose.foot:pose.source]);
+    if(signature!==poseSignature){poseSignature=signature;trails.changed();}
+  }
+  function setTrails(amount){if(disposed)return;trails.setAmount(amount);onChange();}
+  function clearTrails(){trails.clear();poseSignature=cameraSignature='';}
+  function hasTrailTail(now){return trails.hasTail(now);}
+  function render(now){if(!disposed&&(!loaded||!trails.render(scene,camera,markerGroup,now)))renderer.render(scene,camera);}
   function pick(event){
     const rect=canvas.getBoundingClientRect();pointer.set((event.clientX-rect.left)/rect.width*2-1,-(event.clientY-rect.top)/rect.height*2+1);
     raycaster.setFromCamera(pointer,camera);
@@ -147,7 +158,7 @@ export function createHandViewer(canvas,{onSelect=()=>{},onGesture=()=>{},onChan
   async function setForm(value='hand'){
     if(disposed)return false;
     const next=value==='foot'?'foot':'hand';if(next===requestedForm&&loaded)return true;
-    const generation=++loadGeneration;requestedForm=next;loaded=false;release();if(rig)rig.group.visible=false;markerGroup.visible=false;
+    const generation=++loadGeneration;requestedForm=next;loaded=false;release();clearTrails();if(rig)rig.group.visible=false;markerGroup.visible=false;
     onLoading(next);onStatus(`Loading the ${next}…`);onChange();
     if(!cache.has(next))cache.set(next,loadRig(next).catch(error=>{cache.delete(next);throw error;}));
     try{
@@ -159,15 +170,15 @@ export function createHandViewer(canvas,{onSelect=()=>{},onGesture=()=>{},onChan
     }catch(error){if(!disposed&&generation===loadGeneration){onStatus(`The ${next} could not load: ${error.message}. Choose another model or reload.`);onChange();}return false;}
   }
   const resizeObserver=new ResizeObserver(resize);resizeObserver.observe(canvas.parentElement);resize();
-  function dispose(){if(disposed)return;disposed=true;loaded=false;loadGeneration++;release();abort.abort();resizeObserver.disconnect();look.dispose();
+  function dispose(){if(disposed)return;disposed=true;loaded=false;loadGeneration++;release();abort.abort();resizeObserver.disconnect();trails.dispose();look.dispose();
     clearMarkers();for(const loadedRig of loadedRigs)loadedRig.dispose?.();loadedRigs.clear();for(const child of scene.children)if(child!==markerGroup)disposeTree(child);markerGeometry.dispose();cache.clear();renderer.dispose();}
   setForm('hand');
-  return {setForm,setPose,render,resize,setView,setCameraView,setFraming,setAppearance,zoom,selectFinger,setShowJoints,dispose,
+  return {setForm,setPose,render,resize,setView,setCameraView,setFraming,setAppearance,setTrails,clearTrails,hasTrailTail,zoom,selectFinger,setShowJoints,dispose,
     getState:()=>({loaded,form,requestedForm,rigCount:cache.size,boneCount:rig?.deformMap.size??0,
       vertices:rig?.meshes.reduce((n,m)=>n+(m.geometry.attributes.position?.count??0),0)??0,
       triangles:rig?.meshes.reduce((n,m)=>n+((m.geometry.index?.count??m.geometry.attributes.position?.count??0)/3),0)??0,
       selected,selectedJoint,showJoints,markers:loaded?markers.map(m=>({finger:m.userData.finger,joint:m.userData.joint,position:m.position.toArray(),screen:m.position.clone().project(camera).toArray()})):[],
       fingertips:loaded?rig.tips.map(b=>b.getWorldPosition(new THREE.Vector3()).project(camera).toArray()):[],
-      view:getCameraView(),appearance:{...appearance},size:[width,height],pixelRatio:renderer.getPixelRatio(),camera:camera.position.toArray()}),
+      view:getCameraView(),appearance:{...appearance},trails:trails.getState(),size:[width,height],pixelRatio:renderer.getPixelRatio(),camera:camera.position.toArray()}),
   };
 }
