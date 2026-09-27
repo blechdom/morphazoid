@@ -6,6 +6,7 @@ import {
 } from "../src/instruments/webgpu-chiptune/webgpu-chiptune-dancers.js";
 import {
   SKINS,
+  normalizeChiptuneSkin,
   drawSimdChiptuneDancer,
 } from "../src/instruments/simd-chiptune/skins.js";
 
@@ -82,49 +83,67 @@ test("Original is the default; all six original dancers retain exact raster call
   }
 });
 
-test("Every costume keeps the original articulated pose and integer pixel grid, including Noise", () => {
-  assert.deepEqual(SKINS.map(({ id }) => id), ["original", "animals", "blobs", "arcade"]);
+test("Skins have distinct raster output while preserving deterministic musical poses", () => {
+  assert.deepEqual(SKINS.map(({ id }) => id), ["original", "cubist", "anime", "swirl"]);
+  const raster = calls => {
+    const pixels = new Map();
+    for (const [x, y, width, height, color] of calls) {
+      for (let px = x; px < x + width; px++) for (let py = y; py < y + height; py++) {
+        pixels.set(px + "," + py, color);
+      }
+    }
+    return pixels;
+  };
   for (const key of [...originalKeys, "noise"]) {
     for (const pose of poses) {
-      const actor = actorFor(key, pose);
-      const before = structuredClone(actor);
-      const originalActor = key === "noise" ? { ...actor, key: "upperOne" } : actor;
+      const actor = actorFor(key, pose), before = structuredClone(actor);
       const options = { reducedMotion: pose.reducedMotion ?? false };
-      const skeleton = drawCalls(drawChiptuneDancer, originalActor, options);
-      for (const { id: skin } of SKINS) {
-        const calls = drawCalls(drawSimdChiptuneDancer, actor, { ...options, skin });
-        // Costumes may decorate heads and torsos, but must retain the complete
-        // original pose, limbs and proportions beneath those small accents.
-        assert.deepEqual(calls.slice(0, skeleton.length), skeleton, `${key}/${skin}`);
-        if (skin !== "original" || key === "noise") {
-          assert.ok(calls.length > skeleton.length, `${key}/${skin} must add its costume`);
-        }
+      const images = SKINS.map(({ id }) => raster(drawCalls(drawSimdChiptuneDancer, actor, { ...options, skin: id })));
+      for (let a = 0; a < images.length; a++) for (let b = a + 1; b < images.length; b++) {
+        const pixels = new Set([...images[a].keys(), ...images[b].keys()]);
+        const changed = [...pixels].filter(pixel => images[a].get(pixel) !== images[b].get(pixel)).length;
+        assert.ok(changed / pixels.size > .35, key + ": styles must redraw the figure, not add tiny accents");
       }
-      assert.deepEqual(actor, before, "Drawing must not change the audible performer state");
+      assert.deepEqual(actor, before, "Drawing must not change audible performer state");
+    }
+    for (const { id: skin } of SKINS) {
+      const first = actorFor(key, { dancePhase: .19 }), later = { ...first, dancePhase: .63 };
+      assert.notDeepEqual(drawCalls(drawSimdChiptuneDancer, first, { skin }),
+        drawCalls(drawSimdChiptuneDancer, later, { skin }), key + "/" + skin + ": follow the musical pose");
+      assert.deepEqual(drawCalls(drawSimdChiptuneDancer, first, { skin, reducedMotion: true }),
+        drawCalls(drawSimdChiptuneDancer, later, { skin, reducedMotion: true }));
+      assert.deepEqual(drawCalls(drawSimdChiptuneDancer, { ...first, resting: true }, { skin }),
+        drawCalls(drawSimdChiptuneDancer, { ...later, resting: true }, { skin }));
     }
   }
 });
 
-test("All costumes and the Noise performer fit the original cast's pixel drawing bounds", () => {
-  const reference = emptyBounds();
-  const variants = new Map(SKINS.map(({ id }) => [id, emptyBounds()]));
-  for (const key of [...originalKeys, "noise"]) {
-    for (let frame = 0; frame < 32; frame++) {
-      const actor = actorFor(key, {
-        dancePhase: frame / 32, onset: 1, levelUnit: 1,
-        bodyMotion: {
-          leftArm: 1, rightArm: 1, squash: 1, jump: 1,
-          jiggle: 1, leftLeg: 1, rightLeg: 1,
-        },
-      });
-      const originalActor = key === "noise" ? { ...actor, key: "upperOne" } : actor;
-      extendBounds(reference, drawCalls(drawChiptuneDancer, originalActor, { unit: 5 }));
-      for (const [skin, bounds] of variants) {
+test("Every skin fits the existing stage's pixel budget through the complete dance", () => {
+  for (const { id: skin } of SKINS) {
+    const bounds = emptyBounds();
+    for (const key of [...originalKeys, "noise"]) {
+      for (let frame = 0; frame < 32; frame++) {
+        const actor = actorFor(key, {
+          dancePhase: frame / 32, onset: 1, levelUnit: 1,
+          bodyMotion: { leftArm: 1, rightArm: 1, squash: 1, jump: 1, jiggle: 1, leftLeg: 1, rightLeg: 1 },
+        });
         extendBounds(bounds, drawCalls(drawSimdChiptuneDancer, actor, { unit: 5, skin }));
       }
     }
+    // Existing bays allocate 20 units across, 22 above the floor; no larger canvas.
+    assert.ok(bounds.left >= Math.round(101.4 - 50) && bounds.right <= Math.round(101.4 + 50), skin + ": bay width");
+    assert.ok(bounds.top >= Math.round(235.2 - 110) && bounds.bottom <= Math.round(235.2 + 10), skin + ": bay height");
   }
-  for (const [skin, bounds] of variants) {
-    assert.deepEqual(bounds, reference, `${skin} must preserve the original cast's drawing budget`);
+});
+
+test("Legacy saved skin IDs migrate to the replacement styles", () => {
+  for (const [before, after] of Object.entries({ animals: "anime", blobs: "swirl", arcade: "cubist" })) {
+    assert.equal(normalizeChiptuneSkin(before), after);
+    assert.deepEqual(drawCalls(drawSimdChiptuneDancer, actorFor("lead"), { skin: before }),
+      drawCalls(drawSimdChiptuneDancer, actorFor("lead"), { skin: after }));
+  }
+  for (const { id } of SKINS) assert.equal(normalizeChiptuneSkin(id), id);
+  for (const value of [undefined, null, "", "missing", "toString", "__proto__"]) {
+    assert.equal(normalizeChiptuneSkin(value), "original");
   }
 });

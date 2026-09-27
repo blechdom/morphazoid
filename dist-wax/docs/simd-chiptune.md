@@ -23,9 +23,13 @@ replaces that dancer with compact rotary controls; switch back to Dance at any
 time. On a phone, swipe horizontally through the seven cards and scroll inside a
 control face to reach its remaining knobs. The character menu
 defaults to **Original characters**: the original six WebGPU dancers render
-unchanged, with a matching pixel character for Noise. **Pixel animals**, **Pixel
-blobs** and **Arcade crew** add small costumes on the same skeleton and pixel
-grid. All skins follow the original musical motion and leave the sound unchanged.
+unchanged, with a matching pixel character for Noise. **Picasso pixels** uses
+asymmetric faces and bold cubist color planes; **Cute anime** adds big eyes,
+pastel hair and tiny uniforms; **8-bit swirlies** uses neon spirals, diamonds
+and geometric limbs. Each uses the original pixel grid and musical poses.
+Choosing a skin reveals every dancer, even when Controls views were open, and
+leaves sound and transport unchanged. Saved animal, blob and arcade skin choices
+migrate to anime, swirlies and cubist characters respectively.
 
 Each performer has Mute and Solo buttons plus one small level knob, with **MUTED**
 and **SOLO** indicators inside its bay. Drums keeps Bus, Kick, Snare, Hat and

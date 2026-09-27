@@ -54,7 +54,7 @@ import { SIMD_CHIPTUNE_PERFORMANCE_AXES, SIMD_CHIPTUNE_PERFORMANCE_DEFAULTS, SIM
   readSimdChiptuneLevels, setSimdChiptuneLevel } from "../../instruments/simd-chiptune/performance.js";
 import { PARAM_GROUPS, PARAM_MODES, PARAM_SPECIAL, PARAM_LABELS, PARAM_NOTES } from "../../instruments/simd-chiptune/parameter-groups.js";
 import { createSimdControlDeck, createSequenceKnob } from "../../instruments/simd-chiptune/control-deck.js";
-import { SKINS, drawSimdChiptuneDancer } from "../../instruments/simd-chiptune/skins.js";
+import { SKINS, drawSimdChiptuneDancer, normalizeChiptuneSkin } from "../../instruments/simd-chiptune/skins.js";
 import { createSimdPresetPicker, drawNoiseSweep } from "../../instruments/simd-chiptune/ui.js";
 
 const simdBackend = document.body.dataset.audioBackend === "simd";
@@ -3028,7 +3028,13 @@ function syncSimdWorkspace() {
   $("sequenceWorkspace").hidden = noise || state.trackerView !== "sequence";
   $("morphWorkspace").hidden = noise || state.trackerView !== "morph";
   document.querySelector(".simd-sequence-options")?.toggleAttribute("hidden", noise);
-  if ($("characterSkin")) $("characterSkin").value = state.characterSkin;
+  const skinPicker = $("characterSkin");
+  // Follow/playhead refreshes must not overwrite a native selection in flight.
+  // Only a changed model value (including host recall) synchronizes the picker.
+  if (skinPicker && skinPicker.dataset.skin !== state.characterSkin) {
+    if (skinPicker.value !== state.characterSkin) skinPicker.value = state.characterSkin;
+    skinPicker.dataset.skin = state.characterSkin;
+  }
   for (const voice of WEBGPU_CHIPTUNE_PERFORMANCE_LANES) {
     const controls = state.voiceViews[voice] === "controls";
     const card = document.querySelector(`[data-character-voice="${voice}"]`);
@@ -3195,9 +3201,17 @@ function initializeSimdWorkspace() {
   $("characterSkin").replaceChildren(...SKINS.map(skin => {
     const option = document.createElement("option"); option.value = skin.id; option.textContent = skin.label; return option;
   }));
-  $("characterSkin").addEventListener("change", event => {
-    state.characterSkin = event.target.value; notifyWaxState();
-  });
+  const selectCharacterSkin = event => {
+    const next = normalizeChiptuneSkin(event.currentTarget.value);
+    if (next === state.characterSkin) return;
+    state.characterSkin = next;
+    // Choosing an appearance should show it, even when every control face is open.
+    for (const voice of WEBGPU_CHIPTUNE_PERFORMANCE_LANES) state.voiceViews[voice] = "dance";
+    syncSimdWorkspace();
+    notifyWaxState();
+  };
+  $("characterSkin").addEventListener("input", selectCharacterSkin);
+  $("characterSkin").addEventListener("change", selectCharacterSkin);
   $("patternSection").replaceChildren(...Array.from({ length: 32 }, (_, index) => {
     const option = document.createElement("option"); option.value = String(index);
     option.textContent = index === 0 ? "1 — Intro" : String(index + 1); return option;
@@ -5967,7 +5981,7 @@ function registerWaxHostAdapter() {
   try {
     wax.register({
       id: instrumentId,
-      stateVersion: simdBackend ? 10 : 7,
+      stateVersion: simdBackend ? 11 : 7,
       getState() {
         return {
           parameters: { ...state.params },
@@ -5993,7 +6007,7 @@ function registerWaxHostAdapter() {
         if (simdBackend) {
           state.voiceViews = Object.fromEntries(WEBGPU_CHIPTUNE_PERFORMANCE_LANES.map(voice => [voice,
             snapshot.voiceViews?.[voice] === "controls" ? "controls" : "dance"]));
-          state.characterSkin = SKINS.some(skin => skin.id === snapshot.characterSkin) ? snapshot.characterSkin : "original";
+          state.characterSkin = normalizeChiptuneSkin(snapshot.characterSkin);
           state.patternSection = Math.round(clamp(snapshot.patternSection, 0, 31));
           state.patternSections = {};
           for (const [key, section] of Object.entries(snapshot.patternSections ?? {})) {

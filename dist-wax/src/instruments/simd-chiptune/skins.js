@@ -1,224 +1,222 @@
-import {
-  CHIPTUNE_DANCER_IDENTITIES,
-  chiptuneDancerPose,
-  drawChiptuneDancer,
-} from "../webgpu-chiptune/webgpu-chiptune-dancers.js";
+import { chiptuneDancerPose, drawChiptuneDancer } from "../webgpu-chiptune/webgpu-chiptune-dancers.js";
 
-// Costumes for the original articulated pixel dancers. The original renderer
-// supplies every limb, proportion and pose; accents use its exact half-unit grid.
-// No clocks, audio, random state, images, vector paths or smoothing live here.
+// Complete figures on the original half-unit pixel grid. Poses still come from
+// the audible performer; skins own no clock, audio, or musical state.
 export const SKINS = Object.freeze([
   Object.freeze({ id: "original", label: "Original characters" }),
-  Object.freeze({ id: "animals", label: "Pixel animals" }),
-  Object.freeze({ id: "blobs", label: "Pixel blobs" }),
-  Object.freeze({ id: "arcade", label: "Arcade crew" }),
+  Object.freeze({ id: "cubist", label: "Picasso pixels" }),
+  Object.freeze({ id: "anime", label: "Cute anime" }),
+  Object.freeze({ id: "swirl", label: "8-bit swirlies" }),
 ]);
+const LEGACY_SKINS = Object.freeze({ animals: "anime", blobs: "swirl", arcade: "cubist" });
+export function normalizeChiptuneSkin(value) {
+  return SKINS.some(skin => skin.id === value) ? value
+    : Object.hasOwn(LEGACY_SKINS, value) ? LEGACY_SKINS[value] : "original";
+}
 
-const WHITE = "#effcff";
-const PINK = "#ff98bd";
+const INK = "#19152d", WHITE = "#fff5df", PEACH = "#ffd0b2", PINK = "#ff739f";
+const VOICES = ["drums", "bass", "arp", "lead", "upperOne", "upperTwo", "noise"];
+const CUBIST = ["#ff7960", "#e9b844", "#6ad5c2", "#b496f4", "#60a8f2", "#f1a7c8", "#caed79"];
+const HAIR = ["#ffc55d", "#c5a2ff", "#ff94c8", "#73dedd", "#a3b4ff", "#f4a77c", "#b6e686"];
 
 function pixelBrush(context, x, ground, unit) {
   const px = unit * .5;
-  // Keep this rounding identical to drawChiptuneDancer: no additional backing
-  // resolution, transforms or antialiasing are introduced when changing skins.
-  return (gx, gy, width, height, color) => {
+  const rect = (gx, gy, width, height, color) => {
     context.fillStyle = color;
     const left = Math.round(x + gx * px), top = Math.round(ground + gy * px);
     context.fillRect(left, top,
       Math.max(1, Math.round(x + (gx + width) * px) - left),
       Math.max(1, Math.round(ground + (gy + height) * px) - top));
   };
-}
-
-function eyes(rect, pose, colors, { single = false, visor = false } = {}) {
-  const [x, y] = pose.head;
-  if (single) {
-    rect(x - 3, y - 3, 6, pose.blink ? 1 : 5, WHITE);
-    if (!pose.blink) rect(x - 1 + (pose.frame % 4 < 2 ? 1 : 0), y - 2, 2, 3, colors.outline);
-    return;
-  }
-  const wide = pose.key === "arp" || pose.key === "bass";
-  if (visor) rect(x - (wide ? 5 : 4), y - 3, wide ? 10 : 8, 5, colors.outline);
-  for (const side of [-1, 1]) {
-    const ex = x + side * (wide ? 3 : 2) - (wide ? 2 : 1);
-    const width = wide ? 4 : 3;
-    rect(ex, y - 2, width, pose.blink ? 1 : 4, visor ? colors.spark : WHITE);
-    if (!pose.blink) rect(ex + (pose.frame % 4 < 2 ? 1 : 0), y - 1, 2, 2, colors.outline);
-  }
-}
-
-function face(rect, pose, colors, options) {
-  const [x, y] = pose.head, width = pose.identity.head;
-  rect(x - width, y - 4, width * 2, 8, colors.body);
-  rect(x - width, y - 4, width * 2, 1, colors.mid);
-  eyes(rect, pose, colors, options);
-  rect(x - 2, y + 3, 4, 1 + Math.round(pose.expression), colors.outline);
-}
-
-function chest(rect, pose, colors, skin) {
-  const x = pose.sway, y = pose.shoulderY;
-  if (skin === "animals") {
-    rect(x - 2, y + 3, 4, Math.max(3, pose.identity.torso - 5), colors.highlight);
-    rect(x - 1, y + 3, 2, 2, WHITE);
-  } else if (skin === "blobs") {
-    rect(x - 2, y + 2, 2, 3, colors.highlight);
-    rect(x + 1, y + 5, 2, 2, colors.spark);
-    rect(x - 2, pose.hipY - 2, 1, 2, colors.body);
-    rect(x + 1, pose.hipY - 2, 1, 2, colors.body);
-  } else {
-    rect(x - pose.identity.shoulders, y + 2, pose.identity.shoulders * 2, 2, colors.mid);
-    rect(x - 1, y + 2, 2, 3, colors.spark);
-    rect(x - 2, pose.hipY - 2, 4, 1, colors.highlight);
-  }
-}
-
-function animalAccents(rect, pose, colors, key) {
-  const [x, y] = pose.head, width = pose.identity.head;
-  face(rect, pose, colors);
-  chest(rect, pose, colors, "animals");
-  if (key === "drums") {
-    // Frog: raised square eye sockets and a wide cheek line above the drum.
-    rect(x - 2, y - 7, 4, 3, colors.body);
-    for (const side of [-1, 1]) {
-      const ex = x + side * 4 - 2;
-      rect(ex - 1, y - 8, 5, 5, colors.outline);
-      rect(ex, y - 7, 3, 4, colors.body);
-      rect(ex, y - 6, 3, pose.blink ? 1 : 3, WHITE);
-      if (!pose.blink) rect(ex + 1, y - 5, 1, 2, colors.outline);
-      rect(x + side * 4 - 1, y + 1, 2, 1, PINK);
+  const line = (a, b, width, color) => {
+    const steps = Math.max(1, Math.ceil(Math.max(Math.abs(a[0] - b[0]), Math.abs(a[1] - b[1]))));
+    for (let n = 0; n <= steps; n++) {
+      rect(Math.round(a[0] + (b[0] - a[0]) * n / steps) - width / 2,
+        Math.round(a[1] + (b[1] - a[1]) * n / steps) - width / 2, width, width, color);
     }
-    rect(x - 4, y - 2, 8, 3, colors.body);
-    rect(x - 3, y + 3, 6, 1, colors.outline);
-  } else if (key === "bass") {
-    // Bear: the original horns become small block ears; legs stay Thump's.
-    for (const side of [-1, 1]) {
-      rect(x + side * 6 - 2, y - 8, 4, 4, colors.outline);
-      rect(x + side * 6 - 1, y - 7, 2, 3, colors.highlight);
-      rect(x + side * 6 - 1, y - 6, 2, 1, PINK);
-    }
-    rect(x - 3, y + 2, 6, 3, colors.highlight);
-    rect(x - 1, y + 2, 2, 1, colors.outline);
-    rect(x, y + 3, 1, 2, colors.outline);
-  } else if (key === "arp") {
-    // Rabbit: Orbit's satellite stalks become ears, at the same height.
-    for (const side of [-1, 1]) {
-      rect(x + side * 7 - 1, y - 9, 3, 6, colors.outline);
-      rect(x + side * 7, y - 8, 1, 5, colors.highlight);
-      rect(x + side * 7, y - 7, 1, 3, PINK);
-    }
-    rect(x - 1, y + 2, 2, 1, PINK);
-    rect(x - 1, y + 4, 2, 2, WHITE);
-  } else if (key === "lead") {
-    // Cat: pointed pixel ears, small whiskers, and the original vogue hands.
-    for (const side of [-1, 1]) {
-      rect(x + side * 4 - 1, y - 8, 2, 4, colors.outline);
-      rect(x + side * 4 - 1, y - 6, 2, 2, PINK);
-      rect(x + side * 4 - (side < 0 ? 2 : 0), y + 1, 3, 1, colors.highlight);
-    }
-    rect(x - 1, y + 2, 2, 1, PINK);
-  } else if (key === "upperOne") {
-    // Owl: compact ear tufts and a light facial disk around Circuit's eyes.
-    for (const side of [-1, 1]) {
-      rect(x + side * 4 - 1, y - 7, 2, 3, colors.mid);
-      rect(x + side * 3 - 2, y - 3, 4, 5, colors.highlight);
-    }
-    eyes(rect, pose, colors);
-    rect(x, y + 2, 1, 2, colors.spark);
-    rect(x - 1, y + 2, 3, 1, colors.spark);
-  } else if (key === "upperTwo") {
-    // Fox: Dash keeps its swept forelock, with pointed ears and pale cheeks.
-    for (const side of [-1, 1]) {
-      rect(x + side * 4 - 1, y - 8, 2, 4, colors.outline);
-      rect(x + side * 4 - 1, y - 6, 2, 2, PINK);
-      rect(x + side * 3 - 1, y + 1, 3, 3, colors.highlight);
-    }
-    rect(x - 1, y + 2, 2, 2, colors.outline);
-  } else {
-    // Axolotl: six tiny gills, still within the original satellite-ear width.
-    for (const side of [-1, 1]) {
-      for (let row = 0; row < 3; row++) {
-        rect(x + side * (width + 2) - 1, y - 5 + row * 3, 3, 1, PINK);
-        rect(x + side * (width + 1), y - 4 + row * 2, 1, 1, colors.highlight);
+  };
+  // Scan-convert facets into pixel rows instead of antialiased vector paths.
+  const facet = (points, color) => {
+    const top = Math.floor(Math.min(...points.map(point => point[1])));
+    const bottom = Math.ceil(Math.max(...points.map(point => point[1])));
+    for (let y = top; y < bottom; y++) {
+      const cuts = [];
+      for (let i = 0; i < points.length; i++) {
+        const a = points[i], b = points[(i + 1) % points.length], scan = y + .5;
+        if ((a[1] <= scan && b[1] > scan) || (b[1] <= scan && a[1] > scan)) {
+          cuts.push(a[0] + (scan - a[1]) * (b[0] - a[0]) / (b[1] - a[1]));
+        }
+      }
+      cuts.sort((a, b) => a - b);
+      for (let i = 0; i + 1 < cuts.length; i += 2) {
+        const left = Math.round(cuts[i]), right = Math.round(cuts[i + 1]);
+        if (right > left) rect(left, y, right - left, 1, color);
       }
     }
-    rect(x - 4, y + 1, 2, 1, PINK);
-    rect(x + 3, y + 1, 2, 1, PINK);
-  }
+  };
+  return { rect, line, facet };
 }
 
-function blobAccents(rect, pose, colors, key) {
-  const [x, y] = pose.head, width = pose.identity.head;
-  face(rect, pose, colors, { single: key === "lead" });
-  chest(rect, pose, colors, "blobs");
-  // A gummy hood follows each original hairstyle, rather than changing body size.
-  const lobe = { drums: -2, bass: 2, arp: 0, lead: -1, upperOne: 1, upperTwo: -2, noise: 0 }[key];
-  rect(x + lobe - 2, y - 7, 4, 3, colors.body);
-  rect(x + lobe - 1, y - 7, 2, 1, colors.highlight);
-  rect(x - width + 1, y - 3, 1, 2, colors.highlight);
-  rect(x + width - 2, y + 2, 2, 2, colors.mid);
-  for (const side of [-1, 1]) rect(x + side * (width - 1) - 1, y + 4, 2, 2, colors.body);
-  if (key === "drums") {
-    rect(x - 4, y + 1, 2, 1, PINK); rect(x + 3, y + 1, 2, 1, PINK);
-  } else if (key === "bass") {
-    rect(x - 5, y - 3, 4, 1, colors.mid); rect(x + 2, y - 3, 4, 1, colors.mid);
-    rect(x - 1, y + 4, 2, 1, WHITE);
-  } else if (key === "arp") {
-    rect(x - 1, y - 6, 3, 2, colors.spark);
-    rect(x + 1, y - 5, 1, 1, colors.outline);
-  } else if (key === "upperOne") {
-    rect(x - 1, y - 6, 3, 2, WHITE); rect(x, y - 6, 1, 2, colors.outline);
-  } else if (key === "upperTwo") {
-    rect(x - width - 1, y - 5, width * 2 + 3, 2, colors.mid);
-    rect(x - 2, y - 5, 2, 1, colors.spark);
-  } else if (key === "noise") {
-    for (const side of [-1, 1]) {
-      rect(x + side * 3, y + 4, 1, 3, colors.highlight);
-      rect(x + side * 3 + 1, y + 6, 1, 1, colors.mid);
+function figure(brush, pose, body, accent, hands) {
+  const { rect, line } = brush;
+  const limb = (a, joint, b, color) => {
+    const width = pose.key === "bass" ? 4 : 2;
+    line(a, joint, width + 2, INK); line(joint, b, width + 2, INK);
+    line(a, joint, width, color); line(joint, b, width, color);
+    rect(joint[0] - 1, joint[1] - 1, 2, 2, accent);
+  };
+  pose.legs.forEach((leg, i) => {
+    limb(leg.hip, leg.knee, leg.foot, accent);
+    rect(leg.foot[0] - (i ? 1 : 4), leg.foot[1], 5, 3, INK);
+    rect(leg.foot[0] - (i ? 0 : 3), leg.foot[1], 4, 2, WHITE);
+  });
+  const w = pose.identity.shoulders;
+  rect(pose.sway - w - 1, pose.shoulderY - 1, w * 2 + 2, pose.identity.torso + 2, INK);
+  rect(pose.sway - w, pose.shoulderY, w * 2, pose.identity.torso, body);
+  pose.arms.forEach((arm, i) => {
+    limb(arm.shoulder, arm.elbow, arm.wrist, body);
+    rect(arm.wrist[0] - 2, arm.wrist[1] - 1, 4, 3, hands);
+    if (pose.key === "drums") line(arm.wrist,
+      [arm.wrist[0] + (i ? 1 : -1) * (3 + pose.jiggle), arm.wrist[1] - 6], 1, WHITE);
+  });
+}
+
+function cubistFigure(brush, pose, index) {
+  const { rect, line, facet } = brush;
+  const main = CUBIST[index], other = CUBIST[(index + 2) % CUBIST.length];
+  figure(brush, pose, main, "#5586ce", "#eacb7a");
+  const sx = pose.sway, sy = pose.shoulderY, w = pose.identity.shoulders;
+  facet([[sx - w, sy], [sx + w, sy + 3], [sx - w, pose.hipY]], other);
+  rect(sx, sy + 2, 1, pose.identity.torso - 3, INK);
+  rect(sx + 1, pose.hipY - 3, Math.max(1, w - 1), 2, WHITE);
+  const [x, y] = pose.head;
+  facet([[x - 7, y - 7], [x + 2, y - 9], [x + 6, y - 5],
+    [x + 7, y + 2], [x + 1, y + 5], [x - 6, y + 3]], INK);
+  facet([[x - 6, y - 6], [x, y - 8], [x + 1, y + 4], [x - 5, y + 2]], main);
+  facet([[x, y - 8], [x + 5, y - 4], [x + 6, y + 1], [x + 1, y + 4]], "#efcb6b");
+  facet([[x - 6, y - 6], [x - 1, y - 7], [x - 4, y - 2]], other);
+  // A frontal eye and higher profile eye/nose show two viewpoints in one face.
+  rect(x - 5, y - 3, 4, pose.blink ? 1 : 3, WHITE);
+  rect(x - 3, y - 3, 1, pose.blink ? 1 : 3, INK);
+  rect(x + 1, y - 5, 4, pose.blink ? 1 : 2, WHITE);
+  rect(x + 2, y - 5, 1, 2, INK);
+  line([x, y - 3], [x + 2, y + 1], 1, INK);
+  rect(x + 1, y + 1, 3, 1, INK);
+  rect(x - 3, y + 2, 3, 1, "#d95164");
+  rect(x - 2, y + 3, 3, 1, INK);
+  rect(x - 5, y, 2, 1, other);
+}
+
+function animeFigure(brush, pose, index) {
+  const { rect, facet } = brush;
+  const hair = HAIR[index], uniform = CUBIST[(index + 4) % CUBIST.length];
+  figure(brush, pose, uniform, hair, PEACH);
+  const sx = pose.sway, sy = pose.shoulderY, w = pose.identity.shoulders;
+  facet([[sx - w, sy], [sx, sy + 4], [sx + w, sy]], WHITE);
+  rect(sx - 2, sy + 2, 2, 2, PINK); rect(sx + 1, sy + 2, 2, 2, PINK);
+  rect(sx, sy + 3, 1, 3, WHITE);
+  rect(sx - w, pose.hipY - 2, w * 2, 2, hair);
+  const [x, y] = pose.head;
+  rect(x - 5, y - 8, 10, 1, INK);
+  rect(x - 7, y - 7, 14, 10, INK);
+  rect(x - 6, y - 7, 12, 10, hair);
+  rect(x - 6, y - 4, 12, 8, PEACH);
+  rect(x - 5, y + 4, 10, 1, PEACH);
+  rect(x - 4, y + 5, 8, 1, INK);
+  rect(x - 6, y - 6, 12, 2, hair);
+  for (let n = 0; n < 4; n++) rect(x - 6 + n * 3, y - 5, 2, 1 + (n + index) % 3, hair);
+  for (const side of [-1, 1]) {
+    const ex = x + (side < 0 ? -5 : 2);
+    rect(ex, y - 2, 3, 1, INK);
+    if (!pose.blink) {
+      rect(ex, y - 1, 3, 4, WHITE);
+      rect(ex + (side < 0 ? 1 : 0), y, 2, 3, "#6862b8");
+      rect(ex + 1, y, 1, 2, INK);
+      rect(ex, y - 1, 1, 1, WHITE);
     }
+    rect(x + (side < 0 ? -6 : 4), y + 3, 2, 1, PINK);
+  }
+  rect(x - 1, y + 3, 2, 1 + Math.round(pose.expression), "#c86280");
+  if (index % 3 === 0) {
+    for (const side of [-1, 1]) {
+      rect(x + side * 6 - 1, y - 8, 3, 3, INK);
+      rect(x + side * 6, y - 8, 2, 2, hair);
+      rect(x + side * 6, y - 5, 2, 2, WHITE);
+    }
+  } else if (index % 3 === 1) {
+    rect(x - 5, y - 7, 10, 2, WHITE);
+    rect(x + 3, y - 6, 2, 2, PINK);
+  } else {
+    rect(x - 7, y - 5, 2, 9, hair); rect(x + 5, y - 5, 2, 9, hair);
+    rect(x - 5, y - 7, 3, 1, WHITE);
   }
 }
 
-function arcadeAccents(rect, pose, colors, key) {
-  const [x, y] = pose.head, width = pose.identity.head;
-  face(rect, pose, colors, { visor: key === "drums" || key === "arp" });
-  chest(rect, pose, colors, "arcade");
-  if (key === "drums") {
-    rect(x - width, y - 4, width * 2, 2, colors.highlight);
-    rect(x - 2, y + 3, 4, 1, colors.mid);
-    for (const side of [-1, 1]) rect(x + side * (width + 1) - 1, y - 2, 2, 4, colors.spark);
-  } else if (key === "bass") {
-    rect(x - width, y - 4, width * 2, 2, colors.mid);
-    rect(x - 3, y - 4, 1, 2, colors.outline);
-    rect(x + 2, y - 4, 1, 2, colors.outline);
-    rect(x - 4, y + 3, 3, 1, colors.highlight);
-    rect(x + 2, y + 3, 3, 1, colors.highlight);
-  } else if (key === "arp") {
-    rect(x - width, y - 4, width * 2, 1, WHITE);
-    rect(x - width, y - 4, 1, 8, WHITE);
-    rect(x + width - 1, y - 4, 1, 8, WHITE);
-    rect(x - width, y + 3, width * 2, 1, WHITE);
-  } else if (key === "lead") {
-    rect(x - width - 1, y - 5, width * 2 + 2, 2, colors.mid);
-    rect(x - 2, y - 5, 3, 1, colors.spark);
-    rect(pose.sway - 3, pose.shoulderY, 6, 2, colors.spark);
-    rect(pose.sway + 2, pose.shoulderY + 2, 2, 4, colors.spark);
-  } else if (key === "upperOne") {
-    // A short stepped hat fits Circuit's original antenna height.
-    rect(x - 1, y - 9, 2, 2, colors.mid);
-    rect(x - 2, y - 7, 4, 2, colors.mid);
-    rect(x - width, y - 5, width * 2, 2, colors.mid);
-    rect(x, y - 7, 1, 1, colors.spark);
-    rect(x - 1, y + 4, 3, 2, WHITE);
-  } else if (key === "upperTwo") {
-    rect(x - width - 1, y - 3, width * 2 + 2, 1, colors.spark);
-    rect(x - 1, y - 5, 2, 2, colors.highlight);
-    rect(pose.sway - 1, pose.shoulderY + 4, 2, 3, WHITE);
-  } else {
-    rect(x - width + 1, y - 4, width * 2 - 2, 2, colors.highlight);
-    for (let index = 0; index < 3; index++) rect(x - 3 + index * 3, y + 4, 1, 2, colors.spark);
-    rect(pose.sway - 2, pose.shoulderY + 3, 4, 3, colors.outline);
-    rect(pose.sway - 1, pose.shoulderY + 4, 2, 1, colors.spark);
+function swirlFigure(brush, pose, index) {
+  const { rect, line } = brush;
+  const neon = ["#63f5e3", "#ff7fc4", "#ffe276", "#a697ff"];
+  const a = neon[index % 4], b = neon[(index + 1) % 4], c = neon[(index + 2) % 4];
+  const diamond = (x, y, radius, color) => {
+    for (let row = -radius; row <= radius; row++) {
+      const half = radius - Math.abs(row);
+      rect(x - half, y + row, half * 2 + 1, 1, color);
+    }
+  };
+  for (const limb of [...pose.legs.map(leg => [leg.hip, leg.knee, leg.foot]),
+    ...pose.arms.map(arm => [arm.shoulder, arm.elbow, arm.wrist])]) {
+    line(limb[0], limb[1], 3, INK); line(limb[1], limb[2], 3, INK);
+    line(limb[0], limb[1], 1, a); line(limb[1], limb[2], 1, b);
+    diamond(...limb[1], 2, c); diamond(...limb[2], 2, b);
+    rect(limb[2][0], limb[2][1], 1, 1, INK);
   }
+  const turn = (pose.moving ? pose.frame : 0) + index;
+  const spiral = (cx, cy, radius, color, rotation) => {
+    const transform = ([x, y]) => {
+      for (let n = 0; n < rotation % 4; n++) [x, y] = [-y, x];
+      return [cx + x, cy + y];
+    };
+    let point = [-radius, radius];
+    for (let r = radius; r >= 1; r -= 2) {
+      for (const next of [[-r, -r], [r, -r], [r, r - 2], [-r + 2, r - 2]]) {
+        line(transform(point), transform(next), 1, color); point = next;
+      }
+    }
+  };
+  const cy = (pose.shoulderY + pose.hipY) / 2;
+  diamond(pose.sway, cy, 5, INK);
+  diamond(pose.sway, cy, 4, a);
+  diamond(pose.sway, cy, 2, INK);
+  spiral(pose.sway, cy, 3, c, turn);
+  const [x, y] = pose.head;
+  if (index % 2) {
+    diamond(x, y - 1, 7, INK); diamond(x, y - 1, 6, b);
+    diamond(x, y - 1, 4, INK);
+  } else {
+    rect(x - 7, y - 8, 15, 15, INK);
+    rect(x - 6, y - 7, 13, 13, b);
+    rect(x - 5, y - 6, 11, 11, INK);
+  }
+  spiral(x, y - 1, 5, a, turn);
+  rect(x, y - 1, 2, 2, c);
+  rect(x - 6, y - 7, 2, 2, WHITE);
+}
+
+/** The default still renders the original six dancers pixel-for-pixel. */
+export function drawSimdChiptuneDancer(context, actor, x, ground, unit, colors, reducedMotion, skin = "original") {
+  const variant = normalizeChiptuneSkin(skin);
+  const originalActor = actor.key === "noise" ? { ...actor, key: "upperOne" } : actor;
+  if (variant === "original") {
+    drawChiptuneDancer(context, originalActor, x, ground, unit, colors, reducedMotion);
+    if (actor.key === "noise") noiseAccents(pixelBrush(context, x, ground, unit).rect,
+      chiptuneDancerPose(originalActor, reducedMotion), colors);
+    return;
+  }
+  const pose = chiptuneDancerPose(originalActor, reducedMotion);
+  const brush = pixelBrush(context, x, ground, unit);
+  const index = Math.max(0, VOICES.indexOf(actor.key));
+  if (variant === "cubist") cubistFigure(brush, pose, index);
+  else if (variant === "anime") animeFigure(brush, pose, index);
+  else swirlFigure(brush, pose, index);
 }
 
 function noiseAccents(rect, pose, colors) {
@@ -237,20 +235,4 @@ function noiseAccents(rect, pose, colors) {
     const height = 1 + (index + bars) % 3;
     rect(pose.sway - 1 + index, pose.shoulderY + 5 - height, 1, height, colors.spark);
   }
-}
-
-/** Original six characters remain pixel-for-pixel identical in the default skin. */
-export function drawSimdChiptuneDancer(context, actor, x, ground, unit, colors, reducedMotion, skin = "original") {
-  const variant = SKINS.some(entry => entry.id === skin) ? skin : "original";
-  const noise = actor.key === "noise";
-  const originalActor = noise ? { ...actor, key: "upperOne" } : actor;
-  drawChiptuneDancer(context, originalActor, x, ground, unit, colors, reducedMotion);
-  if (variant === "original" && !noise) return;
-  if (!noise && !CHIPTUNE_DANCER_IDENTITIES[actor.key]) return;
-  const pose = chiptuneDancerPose(originalActor, reducedMotion);
-  const rect = pixelBrush(context, x, ground, unit);
-  if (variant === "animals") animalAccents(rect, pose, colors, actor.key);
-  else if (variant === "blobs") blobAccents(rect, pose, colors, actor.key);
-  else if (variant === "arcade") arcadeAccents(rect, pose, colors, actor.key);
-  else noiseAccents(rect, pose, colors);
 }
