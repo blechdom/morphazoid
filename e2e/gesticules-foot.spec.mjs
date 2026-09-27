@@ -35,7 +35,7 @@ test('Hand is the default; Foot exposes fourteen toe joints, an ankle and five s
   expect(state.viewer.fingertips).toHaveLength(5); expect(state.config.voices).toHaveLength(5); expect(state.pose.source).toBeNull();
   expect(toeMarkers.filter(marker => marker.finger === 0).map(marker => marker.joint)).toEqual(['mcp', 'dip']);
   for (let finger = 1; finger < 5; finger++) expect(toeMarkers.filter(marker => marker.finger === finger).map(marker => marker.joint)).toEqual(['mcp', 'pip', 'dip']);
-  await expect(page.locator('#voicesTitle')).toHaveText('Five toes · five voices'); await expect(page.locator('#wristTitle')).toHaveText('Ankle');
+  await expect(page.locator('.hand-voices')).toHaveAccessibleName('Movement contours and voices'); await expect(page.locator('#wristTitle')).toHaveText('Ankle');
   await expect(page.locator('[data-view="palm"]')).toHaveText('Top'); await expect(page.locator('[data-view="back"]')).toHaveText('Sole');
   await page.locator('#fingerTabs [data-finger="0"]').click();
   expect(await page.locator('#contour-joint-0 option').evaluateAll(options => options.map(option => option.value))).toEqual(['mcp', 'dip', 'spread']);

@@ -50,10 +50,6 @@ function currentTime() {
 }
 function anchor(time = currentTime()) { state.phase = time; state.epoch = performance.now(); }
 function notify(message = '') { el('liveStatus').textContent = message; }
-function transportNotice() {
-  notify(!state.audioOn && (state.playing || state.soundPlaying)
-    ? 'Audio is off — turn it on to hear playback' : '');
-}
 function syncTransport() {
   el('audioButton').setAttribute('aria-pressed', String(state.audioOn));
   el('audioState').textContent = state.starting ? 'starting' : state.audioOn ? 'on' : 'off';
@@ -62,7 +58,6 @@ function syncTransport() {
     el(id).setAttribute('aria-label', `${active ? 'Pause' : 'Play'} ${label.toLowerCase()}`);
     el(id).title = `${active ? 'Pause' : 'Play'} ${label.toLowerCase()}`;
   }
-  transportNotice();
 }
 function midiMask() { let mask = 0; for (const note of state.midi.values()) mask |= 1 << note.finger; return mask; }
 function syncHeld() { audio.setHeldFingers(state.pointerMask | midiMask()); }
@@ -178,7 +173,6 @@ function syncFormControls() {
   if(displayedForm===state.config.form)return;
   displayedForm=state.config.form;labels=handDigitLabels(state.config.form);
   el('bodyForm').value=state.config.form;el('footShape').hidden=!foot;
-  el('voicesTitle').textContent=foot?'Five toes · five voices':'Five fingers · five voices';
   el('jointsTitle').textContent=foot?'Toe joints':'Finger joints';
   el('wristTitle').textContent=foot?'Ankle':'Wrist';
   el('tremorFingerLabel').textContent=foot?'Toes':'Fingers';
@@ -186,7 +180,6 @@ function syncFormControls() {
   document.querySelector('.hand-camera').setAttribute('aria-label',foot?'Foot view':'Hand view');
   document.querySelector('[data-view="palm"]').textContent=foot?'Top':'Palm';
   document.querySelector('[data-view="back"]').textContent=foot?'Sole':'Back';
-  el('gestureHelp').textContent=foot?'Drag toes or the arch to play. Drag the background to turn the foot.':'Drag the joints to play. Drag the background to turn the hand and sweep its sound.';
   el('handCanvas').setAttribute('aria-label',foot
     ?'Articulated 3D foot. Drag a toe joint to bend it; drag the foot to move the ankle; drag empty space to rotate the foot and sweep its tone. Use 1 to 5 to select a toe; 6 selects the arch. Arrow keys bend or spread a toe, or bend and stretch the arch.'
     :"Articulated 3D hand. Drag a finger joint to bend it; drag the palm to move the wrist; drag empty space to rotate the hand and sweep its tone. Use 1 to 5 to select a finger and arrow keys to bend or spread it.");

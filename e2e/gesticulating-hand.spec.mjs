@@ -43,7 +43,7 @@ test('loads the real weighted hand and starts with no AudioContext',async({page}
 test('motion and keyboard gestures remain silent until explicit Audio arm',async({page})=>{
   await page.locator('#motionButton').click();await page.waitForTimeout(350);
   expect((await snapshot(page)).time).toBeGreaterThan(.2);
-  await expect(page.locator('#liveStatus')).toContainText('Audio is off');
+  await expect(page.locator('#liveStatus')).toBeEmpty();
   await page.locator('#handCanvas').focus();await page.keyboard.press('Space');
   expect((await snapshot(page)).playing).toBe(false);
   await page.keyboard.press('3');await page.keyboard.press('ArrowDown');

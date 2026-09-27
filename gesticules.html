@@ -25,7 +25,7 @@
         <div class="hand-stage" id="handStage">
           <div class="hand-viewport" id="handViewport">
             <h1 id="handTitle">Gesticules</h1>
-            <canvas id="handCanvas" tabindex="0" aria-label="Articulated 3D hand. Drag a finger joint to bend it; drag the palm to move the wrist; drag empty space to rotate the hand and sweep its tone. Use 1 to 5 to select a finger and arrow keys to bend or spread it." aria-describedby="gestureHelp">An articulated hand. All joints can also be adjusted with the finger and wrist controls.</canvas>
+            <canvas id="handCanvas" tabindex="0" aria-label="Articulated 3D hand. Drag a finger joint to bend it; drag the palm to move the wrist; drag empty space to rotate the hand and sweep its tone. Use 1 to 5 to select a finger and arrow keys to bend or spread it.">An articulated hand. All joints can also be adjusted with the finger and wrist controls.</canvas>
             <p id="modelStatus" class="hand-model-status" role="status">Loading the hand…</p>
             <div class="hand-camera" role="group" aria-label="Hand view">
               <button type="button" data-view="palm" aria-pressed="true">Palm</button><button type="button" data-view="back" aria-pressed="false">Back</button><button type="button" data-view="side" aria-pressed="false">Side</button>
@@ -35,8 +35,7 @@
           </div>
           <p id="liveStatus" class="hand-notice" role="status"></p>
         </div>
-        <p id="gestureHelp" class="hand-gesture-help">Drag the joints to play. Drag the background to turn the hand and sweep its sound.</p>
-        <section class="hand-voices" aria-labelledby="voicesTitle"><div class="hand-section-title"><h2 id="voicesTitle">Five fingers · five voices</h2><div class="hand-contour-actions"><button type="button" id="contourUndo" disabled>Undo</button><button type="button" id="saveMotion" aria-label="Save animation">Save</button><button type="button" id="loadMotion" aria-label="Load animation">Load</button><input id="motionFile" type="file" accept=".json,application/json" hidden /><button type="button" id="clearSolo">Clear solos</button></div></div><p id="contourHelp" class="hand-gesture-help">Select a joint and draw its curve. Four-beat loop. ←/→ choose a point; ↑/↓ bend it.</p><div id="fingerMixer" class="hand-finger-mixer"></div></section>
+        <section class="hand-voices" aria-label="Movement contours and voices"><div class="hand-section-title"><div class="hand-contour-actions"><button type="button" id="contourUndo" disabled>Undo</button><button type="button" id="saveMotion" aria-label="Save animation">Save</button><button type="button" id="loadMotion" aria-label="Load animation">Load</button><input id="motionFile" type="file" accept=".json,application/json" hidden /><button type="button" id="clearSolo">Clear solos</button></div></div><p id="contourHelp" class="hand-gesture-help">Select a joint and draw its curve. Four-beat loop. ←/→ choose a point; ↑/↓ bend it.</p><div id="fingerMixer" class="hand-finger-mixer"></div></section>
       </section>
       <aside class="hand-panel" data-instrument-preset-host aria-label="Model, movement and sound controls">
         <section class="hand-control-block hand-transports" aria-labelledby="playTitle">
