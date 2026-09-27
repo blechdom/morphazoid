@@ -6,14 +6,14 @@ const EMPTY = Object.freeze({});
  * of their clock. Zero spread retains the original synchronous/alternating motion.
  * The caller supplies initialized pose storage and cleared pitch offsets. */
 export function createHandTremor({ clampHand, clampWrist = clampHand, handDigitLimits, handWristLimits, FINGERS, TREMOR_FINGERS, TREMOR_JOINTS }) {
-  return function applyHandTremor(value, time, out, pitchOffsets, form) {
+  return function applyHandTremor(value, time, out, pitchOffsets, form, timeScale = 1) {
     const settings = value && typeof value === 'object' ? value : EMPTY;
     const amount = clampHand(settings.amount, 0, 45, 0);
     if (amount === 0) return;
     const finger = TREMOR_FINGERS.includes(settings.finger) ? settings.finger : 'all';
     const selectedJoint = TREMOR_JOINTS.includes(settings.joint) ? settings.joint : 'tip';
     const joint = form === 'foot' && finger === 'thumb' && selectedJoint === 'middle' ? 'tip' : selectedJoint;
-    const phase = clampHand(time, -1e9, 1e9, 0) * clampHand(settings.rate, .1, 120, 8) * TAU;
+    const phase = clampHand(time, -1e9, 1e9, 0) * clampHand(timeScale, 1 / 2200, 2200, 1) * clampHand(settings.rate, .1, 120, 8) * TAU;
     const rateSpread = clampHand(settings.rateSpread, 0, 1, 0);
     const phaseSpread = clampHand(settings.phaseSpread, 0, 1, 0);
     if (joint === 'wrist') {

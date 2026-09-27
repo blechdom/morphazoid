@@ -252,26 +252,27 @@ test("original source clip keeps shaping audible finger voices when no visual up
 test("DSP holds tremor phase across a paused tempo rebase and retains omitted transport offsets", () => {
   const config = normalizeHandConfig({ pose: HAND_POSES.find(pose => pose.id === "relaxed").pose,
     motion: { id: "wave", tempo: 60, speed: 1, amount: .5 }, tremor: { finger: "all", joint: "tip", amount: 12.5, rate: 3.7 } });
-  const dsp = engine(config); dsp.setTransport({ time: .2, playing: false }); dsp.updateTargets(dsp.clock);
+  const dsp = engine(config); dsp.setTransport({ time: .2, playing: false, tremorOffset: .12 }); dsp.updateTargets(dsp.clock);
   const held = structuredClone(dsp.pose), voices = structuredClone(dsp.targets);
   dsp.setConfig({ ...config, motion: { ...config.motion, speed: 4 } });
-  dsp.setTransport({ time: .05, tremorOffset: .15 }); dsp.updateTargets(dsp.clock);
+  dsp.setTransport({ time: .05, tremorOffset: .03 }); dsp.updateTargets(dsp.clock);
   assert.deepEqual(dsp.pose, held); assert.deepEqual(dsp.targets, voices);
-  dsp.setTransport({ playing: false }); assert.equal(dsp.tremorOffset, .15);
+  dsp.setTransport({ playing: false }); assert.equal(dsp.tremorOffset, .03);
   render(dsp, .25); assert.deepEqual(dsp.pose, held); assert.ok(dsp.targets.every(voice => voice.excitation === 0));
-  dsp.setConfig({ ...config, tremorOffset: 400 }); assert.equal(dsp.tremorOffset, .15); assert.equal(dsp.config.tremorOffset, undefined);
+  dsp.setConfig({ ...config, tremorOffset: 400 }); assert.equal(dsp.tremorOffset, .03); assert.equal(dsp.config.tremorOffset, undefined);
   for (const tremorOffset of [undefined, NaN, Infinity, Symbol(), null]) {
-    dsp.setTransport({ tremorOffset }); assert.equal(dsp.tremorOffset, .15);
+    dsp.setTransport({ tremorOffset }); assert.equal(dsp.tremorOffset, .03);
   }
   dsp.setTransport({ tremorOffset: -1e12 }); assert.equal(dsp.tremorOffset, -1e9);
   dsp.setTransport({ tremorOffset: 1e12 }); assert.equal(dsp.tremorOffset, 1e9);
   dsp.setTransport({ tremorOffset: 0 }); assert.equal(dsp.tremorOffset, 0);
 });
 
-test("running tremor advances in seconds independently of choreography tempo and speed", () => {
+test("halving Tempo renders the same Still-scene vibrato as halving tremor rate", () => {
   const config = normalizeHandConfig({ pose: HAND_POSES.find(pose => pose.id === "relaxed").pose,
     motion: { id: "still", tempo: 72, speed: 1 }, tremor: { finger: "all", joint: "whole", amount: 12.5, rate: 3.7 }, sound: { space: 0 } });
-  const reference = engine(config), actual = engine({ ...config, motion: { ...config.motion, tempo: 1100, speed: 4 } });
+  const reference = engine({ ...config, tremor: { ...config.tremor, rate: 1.85 } });
+  const actual = engine({ ...config, motion: { ...config.motion, tempo: 36 } });
   reference.setTransport({ time: .2, playing: true }); actual.setTransport({ time: .05, playing: true, tremorOffset: .15 });
   const expected = render(reference, .7), rendered = render(actual, .7);
   assert.ok(difference(expected.left, rendered.left) < 1e-7); assert.ok(difference(expected.right, rendered.right) < 1e-7);

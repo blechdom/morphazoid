@@ -119,11 +119,16 @@ bends remain bounded by each joint’s range; a high base rate with rate spread
 can drive some digits faster than 120 Hz.
 Tip and middle tremor also add gentle continuous vibrato from the actual visible
 deflection. Knuckle and wrist tremor use their existing pitch mappings. Tremor
-rate is expressed in Hz independently of Tempo. Changing Tempo
-or tremor rate preserves its current phase. Motion pause holds both
+follows Tempo along with choreography and rhythmic taps: halving Tempo halves
+all finger, toe, wrist and ankle shake rates. Tremor rate still adjusts the
+shake independently, and its readout shows the actual base Hz at the current
+Tempo (individual digits may differ with Rate spread). Changing Tempo or
+Tremor rate preserves the current phase. Motion pause holds both
 choreography and tremor at their current position; Sound can sustain that pose.
 Missing tremor depth, rate spread and phase spread default to zero. Existing
-scenes retain their original tremor settings; the new scenes include gentle
+scenes retain their original tremor settings and speed on recall. Each scene
+saves a reference Tempo with its nominal tremor rate, so slowing down and back
+up never loses the original rate at slider limits. The new scenes include gentle
 subhertz movement, deep shakes and fast sideways splay.
 
 These are calibrated, bounded controls on an artist's rig. They do not simulate

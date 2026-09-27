@@ -1,6 +1,6 @@
 import { createHandViewer, FINGER_COLORS } from './hand-viewer.js';
 import { FINGERS, VOICE_SOURCES, HAND_DEFAULTS, HAND_LIMITS, FOOT_LIMITS, HAND_POSES, HAND_MOTIONS, HAND_PRESETS, HAND_RHYTHMS, TREMOR_FINGERS, TREMOR_JOINTS,
-  normalizeHandConfig, evaluateHandPose, randomizeHandConfig, handMotionPeriod, handEffectiveTempo, setHandEffectiveTempo, handDigitLabels, handDigitLimits, handWristLimits, handJointKeys, handJointLabel, handMotionLabel, handPoseLabel, handPoseForForm } from './hand-model.js';
+  normalizeHandConfig, evaluateHandPose, randomizeHandConfig, handMotionPeriod, handEffectiveTempo, setHandEffectiveTempo, handTremorRate, handDigitLabels, handDigitLimits, handWristLimits, handJointKeys, handJointLabel, handMotionLabel, handPoseLabel, handPoseForForm } from './hand-model.js';
 import { createHandContourEditor } from './hand-contour-editor.js';
 import { HandAudio } from './hand-audio.js';
 import { registerHeaderPresets } from '../../site/header-presets.js';
@@ -232,8 +232,9 @@ function updateOutput(id,value) {
   if (!el(`${id}Out`)) return;
   el(`${id}Out`).value = id==='footStretch'?`${value>0?'+':''}${Math.round(value*100)}%` : id.startsWith('wrist')||id==='footArch'||id==='footTwist' ? `${Math.round(value)}°`
     : id === 'tremorAmount' ? `${Number(value.toFixed(1))}°`
-    : id === 'tremorRate' ? `${Number(value.toFixed(1))} Hz` : id === 'tempo' ? `${Number(value.toFixed(1))} BPM` : id === 'rootHz' ? `${Math.round(value)} Hz`
+    : id === 'tremorRate' ? `${Number(handTremorRate(state.config).toPrecision(3))} Hz` : id === 'tempo' ? `${Number(value.toFixed(1))} BPM` : id === 'rootHz' ? `${Math.round(value)} Hz`
     : id === 'space' && value === 0 ? 'Off' : ['attack','release'].includes(id) ? `${Math.round(value*1000)} ms` : `${Math.round(value*100)}%`;
+  if (id === 'tremorRate') el(id).setAttribute('aria-valuetext', el(`${id}Out`).value);
 }
 function applyConfiguration(value) {
   const next = normalizeHandConfig(value);
@@ -241,9 +242,9 @@ function applyConfiguration(value) {
   // length changes. The audio worklet and silent viewer receive one anchor.
   const previousTime = currentTime();
   const time = previousTime * handMotionPeriod(next.motion) / handMotionPeriod(state.config.motion);
-  // Tremor runs in real Hz. Retain its phase independently when choreography
-  // seconds are rebased, including while paused and when its own rate changes.
-  state.tremorOffset = (previousTime + state.tremorOffset) * state.config.tremor.rate / next.tremor.rate - time;
+  // Tempo scales every shake as well as choreography. Preserve tremor phase
+  // through that clock change, its own rate edits, and different cycle lengths.
+  state.tremorOffset = (previousTime + state.tremorOffset) * handTremorRate(state.config) / handTremorRate(next) - time;
   if(next.form!==state.config.form)formPoses.set(state.config.form,clone(state.config.pose));
   const formChanged=next.form!==state.config.form;
   if(formChanged)contourEditor?.clearHistory();

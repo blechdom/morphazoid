@@ -150,23 +150,24 @@ for(const armed of [false,true]) {
       for(const value of [2,4400,72.3,72]) {
         const id='tempo';
         const result=await page.evaluate(async({id,value})=>{
-          const {evaluateHandPose,handMotionPeriod}=await import("/src/instruments/gesticulating-hand/hand-model.js");
+          const {evaluateHandPose,handMotionPeriod,handTremorRate}=await import("/src/instruments/gesticulating-hand/hand-model.js");
           const started=performance.now();
           const before=window.__gesticulatingHand.snapshot(),input=document.querySelector('#'+id);
           input.value=String(value);input.dispatchEvent(new Event('input',{bubbles:true}));
           const after=window.__gesticulatingHand.snapshot(),elapsed=(performance.now()-started)/1000;
           const periodRatio=handMotionPeriod(before.config.motion)/handMotionPeriod(after.config.motion);
           const oldTime=after.time*periodRatio;
-          return {before,after,oldTime,elapsed,periodRatio,expected:evaluateHandPose(before.config,oldTime,undefined,after.tremorTime)};
+          const oldTremorTime=after.tremorTime*handTremorRate(after.config)/handTremorRate(before.config);
+          return {before,after,oldTime,oldTremorTime,elapsed,periodRatio,expected:evaluateHandPose(before.config,oldTime,undefined,oldTremorTime)};
         },{id,value});
-        const {before,after,expected,oldTime,elapsed,periodRatio}=result;
+        const {before,after,expected,oldTime,oldTremorTime,elapsed,periodRatio}=result;
         expect(after.config.motion.tempo*after.config.motion.speed).toBeCloseTo(value,8);
         expect(after.playing).toBe(playing);expect(after.soundPlaying).toBe(true);expect(after.audioOn).toBe(armed);
         // Converting back to the old period also scales time spent updating the
         // DOM (up to 2,200× here). Chromium's audio clock advances in batched quanta.
         const clockAllowance=armed?.012:.0002;
         expect(Math.abs(oldTime-before.time)).toBeLessThan(playing?(elapsed+clockAllowance)*Math.max(1,periodRatio):1e-8);
-        expect(Math.abs(after.tremorTime-before.tremorTime)).toBeLessThan(playing?elapsed+clockAllowance:1e-8);
+        expect(Math.abs(oldTremorTime-before.tremorTime)).toBeLessThan(playing?(elapsed+clockAllowance)*Math.max(1,periodRatio):1e-8);
         for(let i=0;i<5;i++) for(const key of ['mcp','pip','dip','spread']) {
           // Compare at the same phase: the live audio clock keeps advancing during DOM updates.
           expect(Math.abs(after.pose.fingers[i][key]-expected.fingers[i][key])).toBeLessThan(.0001);
@@ -176,6 +177,66 @@ for(const armed of [false,true]) {
       }
     }
     if(!armed)expect((await snapshot(page)).audio.contextState).toBe('uninitialized');
+  });
+}
+
+// Exercise the actual dice/app path, including its captured random source.
+for (const armed of [false, true]) {
+  test(`Tempo slows severe randomized shakes with Audio ${armed ? 'on' : 'off'}`, async ({page}) => {
+    await page.addInitScript(() => {
+      const random = Math.random;
+      Math.random = () => {
+        if (window.__diceSeed === undefined) return random();
+        window.__diceSeed = (Math.imul(window.__diceSeed, 1664525) + 1013904223) >>> 0;
+        return window.__diceSeed / 4294967296;
+      };
+    });
+    await page.reload();
+    await page.waitForFunction(() => window.__gesticulatingHand?.snapshot().loaded);
+    if (armed) await page.locator('#audioButton').click();
+    await page.locator('#motionButton').click();
+    await page.locator('#soundPlayButton').click();
+    const observe = reference => page.evaluate(async reference => {
+      const {evaluateHandPose, handEffectiveTempo} = await import('/src/instruments/gesticulating-hand/hand-model.js');
+      const joints = pose => [...pose.fingers.flatMap(f => [f.mcp, f.pip, f.dip, f.spread]),
+        ...Object.values(pose.wrist), ...Object.values(pose.foot ?? {})];
+      let error = 0, travel = 0, previous = joints(window.__gesticulatingHand.snapshot().pose);
+      for (let i = 0; i < 24; i++) {
+        await new Promise(resolve => setTimeout(resolve, 20));
+        const state = window.__gesticulatingHand.snapshot(), actual = joints(state.pose);
+        const ratio = 2 / handEffectiveTempo(reference.motion);
+        const expected = joints(evaluateHandPose(reference, state.time * ratio, undefined, state.tremorTime * ratio));
+        error = Math.max(error, ...actual.map((value, j) => Math.abs(value - expected[j])));
+        travel += actual.reduce((sum, value, j) => sum + Math.abs(value - previous[j]), 0);
+        previous = actual;
+      }
+      return {error, travel};
+    }, reference);
+    for (const [seed, form] of [[38, 'hand'], [69, 'hand'], [103, 'foot']]) {
+      await page.evaluate(seed => {
+        window.__diceSeed = seed;
+        try { document.querySelector('.header-preset-random').click(); }
+        finally { delete window.__diceSeed; }
+      }, seed);
+      await page.waitForFunction(() => window.__gesticulatingHand.snapshot().loaded);
+      const before = await snapshot(page);
+      expect(before.config.form).toBe(form);
+      expect(before.config.tremor.rate).toBeGreaterThan(70);
+      await range(page, 'tempo', 2);
+      const after = await snapshot(page), observed = await observe(before.config);
+      expect(after.playing).toBe(true); expect(after.audioOn).toBe(armed);
+      expect(after.config.tremor).toEqual(before.config.tremor);
+      // Compare the entire live path with the original scene stretched in time.
+      // Frame-sampled speed ratios alias the original 75–200 Hz shakes.
+      expect(observed.error).toBeLessThan(.0001);
+      expect(observed.travel).toBeGreaterThan(0);
+      const effectiveHz = before.config.tremor.rate * 2 / before.config.tremor.referenceTempo;
+      await expect(page.locator('#tremorRateOut')).toHaveText(`${Number(effectiveHz.toPrecision(3))} Hz`);
+      await expect(page.locator('#tremorRate')).toHaveAttribute('aria-valuetext', `${Number(effectiveHz.toPrecision(3))} Hz`);
+      await range(page, 'tempo', before.config.motion.tempo * before.config.motion.speed);
+      expect((await snapshot(page)).config.tremor).toEqual(before.config.tremor);
+    }
+    if (!armed) expect((await snapshot(page)).audio.contextState).toBe('uninitialized');
   });
 }
 

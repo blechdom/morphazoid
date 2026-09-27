@@ -188,7 +188,7 @@ export const HAND_DEFAULTS = freeze({
   sound: { rhythm: "continuous", noteLength: .45, rootHz: 137, pitchSpread: 1, brightness: .46, roughness: .16, space: .28, rotationFx: .65, attack: .045, release: .45 },
   voices: FINGERS.map((_, i) => ({ source: VOICE_SOURCES[i], level: i === 4 ? .5 : .7, mute: false, solo: false })),
   view: { yaw: .12, pitch: .035, zoom: 1 },
-  tremor: { finger: "all", joint: "tip", amount: 0, rate: 8, rateSpread: 0, phaseSpread: 0 },
+  tremor: { finger: "all", joint: "tip", amount: 0, rate: 8, rateSpread: 0, phaseSpread: 0, referenceTempo: 72 },
   appearance: { skin: 0, lighting: 0 },
 });
 export function handEffectiveTempo(motion = {}) {
@@ -199,6 +199,14 @@ export function setHandEffectiveTempo(motion, value) {
   motion.tempo = clampHand(effective, 20, 1100);
   motion.speed = effective / motion.tempo;
   return motion;
+}
+/** Saved scenes keep their authored Hz; Tempo scales their complete performance. */
+export function handTremorTimeScale(value = {}) {
+  const config = record(value), tempo = handEffectiveTempo(record(config.motion));
+  return tempo / clampHand(record(config.tremor).referenceTempo, 2, 4400, tempo);
+}
+export function handTremorRate(value = {}) {
+  return clampHand(record(record(value).tremor).rate, .1, 120, 8) * handTremorTimeScale(value);
 }
 export function createHandPose() {
   return { fingers: Array.from({ length: 5 }, () => ({ mcp: 0, pip: 0, dip: 0, spread: 0 })), wrist: { flex: 0, side: 0, twist: 0 } };
@@ -228,6 +236,9 @@ export function normalizeHandConfig(value = {}) {
   next.appearance = normalizeHandAppearance(appearance);
   next.motion.id = HAND_MOTIONS.some(item => item.id === motion.id) ? motion.id : HAND_DEFAULTS.motion.id;
   for (const [key, bounds] of Object.entries(HAND_LIMITS.motion)) next.motion[key] = clampHand(motion[key], ...bounds, HAND_DEFAULTS.motion[key]);
+  // Missing references belong to legacy scenes: keep their original rate at
+  // the recalled Tempo, then retain that reference through edits and saves.
+  next.tremor.referenceTempo = clampHand(tremor.referenceTempo, 2, 4400, handEffectiveTempo(next.motion));
   next.motion.custom = motion.custom === true;
   next.motion.contours = FINGERS.map((_, i) => Object.fromEntries(DIGIT_KEYS.map(key =>
     [key, normalizeHandContour(motion.contours?.[i]?.[key])])));
@@ -285,7 +296,7 @@ function wristWithMotion(base, offset, min, max) {
 /** Additive choreography preserves every base joint's effect during playback.
  * Optional output storage lets both the viewer and the worklet avoid allocation.
  * Pausing means retaining time; it does not select the base pose or zero motion.
- * An independent tremor time preserves its Hz phase when choreography is rebased.
+ * A separate tremor anchor preserves phase through tempo, rate and cycle edits.
  */
 export function evaluateHandPose(value = HAND_DEFAULTS, time = 0, out = createHandPose(), tremorTime = time) {
   const config = record(value), pose = record(config.pose), motion = record(config.motion), foot = config.form === "foot";
@@ -580,7 +591,7 @@ export function evaluateHandPose(value = HAND_DEFAULTS, time = 0, out = createHa
       }
     }
   }
-  applyHandTremor(config.tremor, clampHand(tremorTime, -1e9, 1e9, seconds), out, tremorPitch, config.form);
+  applyHandTremor(config.tremor, clampHand(tremorTime, -1e9, 1e9, seconds), out, tremorPitch, config.form, handTremorTimeScale(config));
   for (const key of WRIST_KEYS) {
     const base = clampHand(baseWrist[key], ...wristBounds[key], 0);
     out.wrist[key] = wristWithMotion(base, out.wrist[key] - base, ...wristBounds[key]);
@@ -640,8 +651,8 @@ export function evaluateHandVoices(value = HAND_DEFAULTS, time = 0, out = create
   const config = record(value), sound = record(config.sound), voices = config.voices;
   const tremorSeconds = clampHand(tremorTime, -1e9, 1e9, clampHand(time, 0, 1e9));
   evaluateHandPose(config, time, pose, tremorSeconds);
-  // A 10 ms difference cancels 100 Hz shakes exactly. One millisecond resolves
-  // even the fastest independently spread toe tremor; normalize to velocity.
+  // A 10 ms difference cancels 100 Hz shakes exactly. Use a shorter real-time
+  // difference so Tempo changes also scale motion-driven excitation.
   evaluateHandPose(config, Math.max(0, handNumber(time) - .001), previous, tremorSeconds - .001);
   const wrist = pose.wrist, oldWrist = previous.wrist;
   const pitchSpread = clampHand(sound.pitchSpread, 0, 4, 1);

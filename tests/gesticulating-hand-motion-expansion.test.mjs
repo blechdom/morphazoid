@@ -268,7 +268,7 @@ test("v1 camera migration restores palm framing and bounds independently owned p
 test("v1 migration restores zero tremor and normalizes hostile appearance values", () => {
   const legacy = structuredClone(HAND_DEFAULTS); delete legacy.view; delete legacy.motion.speed; delete legacy.tremor; delete legacy.appearance;
   assert.deepEqual(normalizeHandConfig(legacy), HAND_DEFAULTS);
-  assert.deepEqual(HAND_DEFAULTS.tremor, { finger: "all", joint: "tip", amount: 0, rate: 8, rateSpread: 0, phaseSpread: 0 });
+  assert.deepEqual(HAND_DEFAULTS.tremor, { finger: "all", joint: "tip", amount: 0, rate: 8, rateSpread: 0, phaseSpread: 0, referenceTempo: 72 });
   assert.deepEqual(HAND_DEFAULTS.appearance, { skin: 0, lighting: 0 });
   for (const [skin, position] of Object.entries({ natural: 0, porcelain: 0, copper: 0, jade: .38, cyan: .55, violet: .76 })) {
     assert.deepEqual(normalizeHandConfig({ appearance: { skin, lighting: "cool" } }).appearance, { skin: position, lighting: .4 });
@@ -287,7 +287,7 @@ test("v1 migration restores zero tremor and normalizes hostile appearance values
   assert.deepEqual(normalizeHandConfig({ tremor: { amount: -8, rate: -4 } }).tremor, { ...HAND_DEFAULTS.tremor, amount: 0, rate: .1 });
   for (const finger of TREMOR_FINGERS) for (const joint of TREMOR_JOINTS) {
     const config = normalizeHandConfig({ tremor: { finger, joint, amount: 4.25, rate: 13.75 } });
-    assert.deepEqual(config.tremor, { finger, joint, amount: 4.25, rate: 13.75, rateSpread: 0, phaseSpread: 0 });
+    assert.deepEqual(config.tremor, { finger, joint, amount: 4.25, rate: 13.75, rateSpread: 0, phaseSpread: 0, referenceTempo: 72 });
   }
   for (const skin of [0, .173, .58, 1]) for (const lighting of [0, .361, .73, 1, 1.17, 1.4, 1.6]) assert.deepEqual(normalizeHandConfig({ appearance: { skin, lighting } }).appearance, { skin, lighting });
 });
@@ -378,14 +378,14 @@ test("complete presets and random scenes recall tremor, skin, lighting, camera, 
   for (const key of ["amount", "rate", "rateSpread", "phaseSpread"]) assert.equal(variants[key].size, 600, `${key} should vary across randomized scenes`);
 });
 
-test("rebasing choreography from .2 to .05 retains tremor phase through an independent clock", () => {
+test("rebasing choreography from .2 to .05 also scales tremor without a phase jump", () => {
   const config = normalizeHandConfig({ pose: HAND_POSES.find(pose => pose.id === "relaxed").pose,
     motion: { id: "wave", tempo: 60, speed: 1, amount: .5 }, tremor: { finger: "all", joint: "tip", amount: 12.5, rate: 3.7 } });
   const faster = normalizeHandConfig({ ...config, motion: { ...config.motion, speed: 4 } });
-  const before = evaluateHandPose(config, .2), after = evaluateHandPose(faster, .05, createHandPose(), .05 + .15);
+  const before = evaluateHandPose(config, .2), after = evaluateHandPose(faster, .05);
   assert.ok(poseDistance(before, after) < 1e-10);
-  assert.ok(poseDistance(before, evaluateHandPose(faster, .05)) > 10, "this fixture detects the old tremor jump");
-  const oldVoices = evaluateHandVoices(config, .2), newVoices = evaluateHandVoices(faster, .05, createHandVoices(), createHandPose(), createHandPose(), .2);
+  assert.ok(poseDistance(before, evaluateHandPose(faster, .05, createHandPose(), .2)) > .1, "keeping the old independent clock would jump");
+  const oldVoices = evaluateHandVoices(config, .2), newVoices = evaluateHandVoices(faster, .05, createHandVoices(), createHandPose(), createHandPose(), .05);
   for (let i = 0; i < 5; i++) for (const key of ["frequency", "brightness", "roughness", "pan", "level"]) assert.ok(Math.abs(oldVoices[i][key] - newVoices[i][key]) < 1e-9);
   assert.equal(normalizeHandConfig({ ...config, tremorOffset: .15, tremorTime: .2 }).tremorOffset, undefined);
   assert.equal(normalizeHandConfig({ ...config, tremorOffset: .15, tremorTime: .2 }).tremorTime, undefined);
