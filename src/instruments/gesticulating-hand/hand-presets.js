@@ -135,7 +135,7 @@ const ADDED_SCENES = [
     sound: { rootHz: 197, brightness: .43, roughness: .23, space: .58, rotationFx: .96, attack: .22, release: 1.45 },
     sources: ["air", "wire", "bowed", "vowel", "glass"], levels: [.41, .61, .68, .6, .5],
     appearance: { skin: 0.51, lighting: 0.96 }, view: { yaw: 2.12, pitch: -.11, zoom: 1.02 }, tremor: { finger: "all", joint: "wrist", amount: 6.2, rate: 3.9 } },
-  { id: "hand-tin-morse", label: "Tin Morse", form: "hand", pose: "claw", motion: { id: "finger-drumming", tempo: 233, amount: .95, speed: 3.1 },
+  { id: "hand-tin-morse", label: "Tin Morse", form: "hand", pose: "claw", joints: { 4: { spread: 16 } }, motion: { id: "finger-drumming", tempo: 233, amount: .95, speed: 3.1 },
     sound: { rootHz: 227, brightness: .88, roughness: .71, space: .12, rotationFx: .63, attack: .004, release: .075 },
     sources: ["metal", "metal", "pulse", "metal", "wire"], levels: [.67, .57, .55, .72, .51],
     appearance: { skin: 0.03, lighting: 0.45 }, view: { yaw: -1.65, pitch: .17, zoom: .86 }, tremor: { finger: "ring", joint: "tip", amount: 4.3, rate: 13.6 } },
@@ -166,7 +166,7 @@ const ADDED_SCENES = [
     sound: { rootHz: 211, brightness: .16, roughness: .03, space: .83, rotationFx: .79, attack: .42, release: 1.9 },
     sources: ["air", "reed", "air", "vowel", "bowed"], levels: [.46, .57, .43, .65, .6],
     appearance: { skin: 0.67, lighting: 0.41 }, view: { yaw: -2.63, pitch: .12, zoom: .98 }, tremor: { finger: "all", joint: "wrist", amount: 4.8, rate: .31 } },
-  { id: "foot-neon-tap", label: "Neon tap", form: "foot", pose: "point", foot: { arch: 14, twist: 21, stretch: .08 },
+  { id: "foot-neon-tap", label: "Neon tap", form: "foot", pose: "point", joints: { 2: { mcp: 21, pip: 54 }, 3: { mcp: 22, pip: 55 }, 4: { mcp: 18, pip: 54 } }, foot: { arch: 14, twist: 21, stretch: .08 },
     motion: { id: "index-tap", tempo: 207, amount: .91, speed: 2.1, elasticity: .65 },
     sound: { rootHz: 183, brightness: .91, roughness: .43, space: .14, rotationFx: .82, attack: .004, release: .11 },
     sources: ["metal", "glass", "pulse", "metal", "wire"], levels: [.59, .73, .54, .64, .55],
@@ -181,7 +181,7 @@ const ADDED_SCENES = [
     sound: { rootHz: 83, brightness: .29, roughness: .08, space: .56, rotationFx: .38, attack: .31, release: 1.35 },
     sources: ["reed", "bowed", "glass", "air", "reed"], levels: [.64, .71, .56, .4, .57],
     appearance: { skin: 0.46, lighting: 0.32 }, view: { yaw: .42, pitch: -.29, zoom: 1.04 }, tremor: { finger: "all", joint: "tip", amount: .3, rate: .42 } },
-  { id: "foot-beetle-step", label: "Beetle step", form: "foot", pose: "claw", foot: { arch: -16, twist: 18, stretch: .1 },
+  { id: "foot-beetle-step", label: "Beetle step", form: "foot", pose: "claw", joints: { 4: { spread: 7 } }, foot: { arch: -16, twist: 18, stretch: .1 },
     motion: { id: "spider-walk", tempo: 97, amount: .86, speed: 1.8, elasticity: .62 },
     sound: { rootHz: 61, brightness: .53, roughness: .45, space: .24, rotationFx: .66, attack: .018, release: .28 },
     sources: ["metal", "wire", "bowed", "metal", "pulse"], levels: [.62, .67, .71, .58, .51],
@@ -227,7 +227,7 @@ const ADDED_SCENES = [
 
 // Short note windows articulate independent attacks and rests on the shared beat.
 const RHYTHMIC_SCENES = [
-  { id: "hand-crystal-staccato", label: "Crystal staccato", form: "hand", pose: "open",
+  { id: "hand-crystal-staccato", label: "Crystal staccato", form: "hand", pose: "open", joints: { 4: { spread: 18 } },
     motion: { id: "finger-drumming", tempo: 142, amount: .64, speed: 1.2 },
     sound: { rootHz: 659, brightness: .84, roughness: .08, space: .09, rotationFx: .36, attack: .004, release: .075, rhythm: "walk", noteLength: .18 },
     sources: ["glass", "wire", "glass", "metal", "glass"], levels: [.61, .55, .69, .46, .58],
@@ -305,9 +305,11 @@ export function createHandPresets({ normalizeHandConfig, HAND_POSES, handPoseFor
     id, label, snapshot: normalizeHandConfig({ ...config, form: "foot", pose: handPoseForForm(pose, "foot"),
       voices: sources.map((source, i) => ({ source, level: source === "air" ? .43 : .6 + i * .025, mute: false, solo: false })) }),
   }));
-  const added = [...ADDED_SCENES, ...RHYTHMIC_SCENES].map(({ id, label, form, pose: poseId, foot, sources, levels, ...config }) => {
+  const added = [...ADDED_SCENES, ...RHYTHMIC_SCENES].map(({ id, label, form, pose: poseId, foot, joints, sources, levels, ...config }) => {
     const pose = handPoseForForm(poseId, form);
     if (form === "foot") pose.foot = { ...foot };
+    // Leave room for live edits in scenes with a sustained choreographed bend.
+    for (const [index, values] of Object.entries(joints ?? {})) Object.assign(pose.fingers[index], values);
     return { id, label, snapshot: normalizeHandConfig({ ...config, form, pose,
       voices: sources.map((source, i) => ({ source, level: levels[i], mute: false, solo: false })) }) };
   });

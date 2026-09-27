@@ -163,17 +163,25 @@ can intersect. The foot does not claim clinical accuracy.
 | Visible change | Sound consequence |
 | --- | --- |
 | Finger knuckle/base bend | Continuous exponential pitch movement |
-| Middle and tip bends | Brightness and roughness |
-| Middle and tip tremor | Additional continuous vibrato from visible joint deflection |
-| Finger/toe spread and sideways tremor | Stereo position |
+| Middle bends | Brightness/formant movement and a smaller pitch bend |
+| Tip bends | Texture and a smaller pitch bend |
+| Middle and tip tremor | Continuous vibrato through the same bend-to-pitch mapping |
+| Finger/toe spread and sideways tremor | Stereo position and signed tonal color, also audible in mono |
 | Foot arch | Pitch and brightness |
 | Foot stretch | Lower register and changed brightness |
-| Foot twist | Roughness and stereo position |
+| Foot twist | Brightness, roughness and stereo position |
 | Speed of elastic foot deformation | Additional voice excitation |
 | Wrist bend and turn | Shared pitch/register movement |
 | Wrist side motion | Shared color and stereo movement |
 | Turning or tilting the hand | Stereo phaser sweep |
-| Speed of automatic finger movement | Additional voice excitation |
+| Speed of finger/toe bends, spread and wrist/ankle movement | Additional voice excitation, including Metal and Marimba strikes |
+
+All physical joint controls feed every engine. Pitch, tone and pan compress smoothly
+near their sound limits instead of becoming flat; the anatomical rig still has
+its visible end stops. Short velocity sampling retains percussion excitation
+through fast tremors, including 100 Hz. Tin Morse, Neon tap, Crystal staccato and
+Beetle step leave more room for edits around their starting poses. Muted,
+zero-level or excluded-by-solo voices remain silent.
 
 Each finger chooses one of **ten sound engines**, with its own level, mute and
 solo: Glass, Reed, Wire, Pulse, Air, **Bowed**, **Vowel**, **Metal**, **Choir**, or **Marimba**. Bowed uses

@@ -1,4 +1,4 @@
-import { HAND_DEFAULTS, VOICE_SOURCES, clampHand, handNumber, normalizeHandConfig, createHandPose, createHandVoices, evaluateHandVoices, handEffectiveTempo } from "./hand-model.js";
+import { HAND_DEFAULTS, VOICE_SOURCES, clampHand, handNumber, normalizeHandConfig, createHandPose, createHandVoices, evaluateHandVoices, handEffectiveTempo, handPlayableFrequency } from "./hand-model.js";
 
 import { handRhythmPhase } from "./hand-rhythm.js";
 import { createChoirState, tuneChoir, resetChoir, sampleChoir, createMarimbaState, tuneMarimba, resetMarimba, sampleMarimba } from "./hand-voice-engines.js";
@@ -122,6 +122,7 @@ function waveform(source, voice, random, sampleRate) {
   const phase = voice.phase * TAU, tone = voice.brightness, grain = voice.roughness;
   if (source === "glass") return (.74 * Math.sin(phase)
     + (.04 + tone * .28) * Math.sin(voice.modPhase * TAU) * (voice.frequency * 2.731 < sampleRate * .42 ? 1 : 0)
+    + grain * .12 * Math.sin(phase * 2)
     + tone * .14 * Math.sin(phase * 4) * (voice.frequency * 4 < sampleRate * .42 ? 1 : 0)) / 1.16;
   if (source === "reed") return (.68 * Math.sin(phase + grain * .32 * Math.sin(voice.modPhase * TAU))
     + (.08 + .3 * tone) * Math.sin(phase * 2) * (voice.frequency * 2 < sampleRate * .42 ? 1 : 0)
@@ -281,7 +282,7 @@ export class HandDSP {
       }
       tuneEngines(voice, this.sampleRate);
       if (!this.playing) target.excitation = 0;
-      target.frequency = Math.min(target.frequency, this.sampleRate * .17);
+      if (this.sampleRate * .17 < 4200) target.frequency = handPlayableFrequency(target.frequency, this.sampleRate * .17);
     }
   }
   reset() {

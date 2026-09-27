@@ -559,6 +559,18 @@ export function captureHandContours(value) {
   }
   return contours;
 }
+// Identity through the useful middle, with algebraic shoulders instead of hard
+// plateaus. Even high/low presets retain a response to further visible movement.
+function responsiveRange(value, min, max, shoulder) {
+  const low = min + shoulder, high = max - shoulder;
+  if (value < low) return min + shoulder * shoulder / (shoulder + low - value);
+  if (value > high) return max - shoulder * shoulder / (shoulder + value - high);
+  return value;
+}
+/** Smooth in log-Hz so pitch gestures still work at the sample-rate ceiling. */
+export function handPlayableFrequency(frequency, ceiling = 4200) {
+  return Math.exp(responsiveRange(Math.log(frequency), Math.log(25), Math.log(ceiling), .5));
+}
 export function createHandVoices() {
   return Array.from({ length: 5 }, () => ({ frequency: 100, brightness: 0, roughness: 0, pan: 0, level: 0, source: "glass", excitation: 0 }));
 }
@@ -567,32 +579,46 @@ export function evaluateHandVoices(value = HAND_DEFAULTS, time = 0, out = create
   const config = record(value), sound = record(config.sound), voices = config.voices;
   const tremorSeconds = clampHand(tremorTime, -1e9, 1e9, clampHand(time, 0, 1e9));
   evaluateHandPose(config, time, pose, tremorSeconds);
-  evaluateHandPose(config, Math.max(0, handNumber(time) - .01), previous, tremorSeconds - .01);
-  const tremorPitch = tremorPitchByPose.get(pose);
+  // A 10 ms difference cancels 100 Hz shakes exactly. One millisecond resolves
+  // even the fastest independently spread toe tremor; normalize to velocity.
+  evaluateHandPose(config, Math.max(0, handNumber(time) - .001), previous, tremorSeconds - .001);
+  const wrist = pose.wrist, oldWrist = previous.wrist;
+  const bodyTravel = .32 * Math.abs(wrist.flex - oldWrist.flex) + .25 * Math.abs(wrist.side - oldWrist.side)
+    + .22 * Math.abs(wrist.twist - oldWrist.twist);
   let solo = false;
   for (let i = 0; i < 5; i++) if (voices?.[i]?.solo === true && voices?.[i]?.mute !== true) solo = true;
   for (let i = 0; i < 5; i++) {
     const f = pose.fingers[i], old = previous.fingers[i], voice = record(voices?.[i]), fallback = HAND_DEFAULTS.voices[i], target = out[i];
-    // Continuous exponential bend and deliberately non-scale finger registers.
-    target.frequency = clampHand(clampHand(sound.rootHz, 35, 1600, 137) * REGISTER_RATIOS[i]
-      * Math.exp(f.mcp * .0122 + pose.wrist.flex * .008 + pose.wrist.twist * .002 + tremorPitch[i]), 25, 4200);
-    target.brightness = clampHand(clampHand(sound.brightness, 0, 1, .46) * .58 + f.pip / 110 * .26 + f.dip / 80 * .16 + pose.wrist.side * .002, 0, 1);
-    target.roughness = clampHand(clampHand(sound.roughness, 0, 1, .16) * .8 + f.dip / 80 * .2, 0, 1);
-    target.pan = clampHand((i - 2) * .26 + f.spread / 42 + pose.wrist.side / 100, -.97, .97);
-    target.level = voice.mute === true || (solo && voice.solo !== true) ? 0 : clampHand(voice.level, 0, 1, fallback.level);
-    target.source = VOICE_SOURCES.includes(voice.source) ? voice.source : fallback.source;
-    target.excitation = clampHand((Math.abs(f.mcp - old.mcp) + .55 * Math.abs(f.pip - old.pip) + .35 * Math.abs(f.dip - old.dip)) / 3.5, 0, 1);
+    const spread = f.spread / handDigitLimits(config.form, i).spread[1];
+    // Every bend changes resonator pitch as well as tone, including on sources
+    // whose high harmonics must disappear near Nyquist. Middle/tip coefficients
+    // also supply their existing visible tremor vibrato, without doubling it.
+    let pitch = f.mcp * .0122 + f.pip * .0035 + f.dip * .0028 + wrist.flex * .008 + wrist.twist * .002;
+    let brightness = clampHand(sound.brightness, 0, 1, .46) * .58 + f.pip / 110 * .26 + f.dip / 80 * .16 + wrist.side * .002 + spread * .09;
+    // Splay has a signed tone destination as well as stereo placement, so it
+    // remains playable on one speaker and when a voice is already far to a side.
+    let roughness = clampHand(sound.roughness, 0, 1, .16) * .8 + f.dip / 80 * .2 + spread * .12;
+    let pan = (i - 2) * .26 + f.spread / 42 + wrist.side / 100;
+    let travel = Math.abs(f.mcp - old.mcp) + .55 * Math.abs(f.pip - old.pip) + .35 * Math.abs(f.dip - old.dip)
+      + .7 * Math.abs(f.spread - old.spread) + bodyTravel;
     if (config.form === "foot") {
       const shape = pose.foot, oldShape = previous.foot;
-      // Stretch lowers register like a longer resonator; arch lifts its pitch and
-      // brightness. Torsion widens/pans the sound and adds a little grain.
-      target.frequency = clampHand(target.frequency * Math.exp(shape.arch * .006 - Math.log1p(shape.stretch) * .6), 25, 4200);
-      target.brightness = clampHand(target.brightness + shape.arch / 260 + shape.stretch * .12, 0, 1);
-      target.roughness = clampHand(target.roughness + Math.abs(shape.twist) / 260, 0, 1);
-      target.pan = clampHand(target.pan + shape.twist / 140, -.97, .97);
-      target.excitation = clampHand(target.excitation + (Math.abs(shape.arch - oldShape.arch) * .32
-        + Math.abs(shape.twist - oldShape.twist) * .16 + Math.abs(shape.stretch - oldShape.stretch) * 22) / 3.5, 0, 1);
+      // Combine the complete pose before limiting: an arch/ankle can no longer
+      // pin pitch or tone before the individual toes get a chance to shape it.
+      pitch += shape.arch * .006 - Math.log1p(shape.stretch) * .6;
+      brightness += shape.arch / 260 + shape.stretch * .12 + shape.twist / 600;
+      roughness += Math.abs(shape.twist) / 260;
+      pan += shape.twist / 140;
+      travel += Math.abs(shape.arch - oldShape.arch) * .32 + Math.abs(shape.twist - oldShape.twist) * .16
+        + Math.abs(shape.stretch - oldShape.stretch) * 22;
     }
+    target.frequency = handPlayableFrequency(clampHand(sound.rootHz, 35, 1600, 137) * REGISTER_RATIOS[i] * Math.exp(pitch));
+    target.brightness = responsiveRange(brightness, 0, 1, .12);
+    target.roughness = responsiveRange(roughness, 0, 1, .12);
+    target.pan = responsiveRange(pan, -.97, .97, .24);
+    target.level = voice.mute === true || (solo && voice.solo !== true) ? 0 : clampHand(voice.level, 0, 1, fallback.level);
+    target.source = VOICE_SOURCES.includes(voice.source) ? voice.source : fallback.source;
+    target.excitation = clampHand(travel / .35, 0, 1);
   }
   return out;
 }

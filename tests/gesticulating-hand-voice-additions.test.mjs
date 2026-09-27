@@ -60,6 +60,8 @@ function fundamental(samples, root) {
 }
 
 test("choir tip tremor changes rendered fundamental pitch, independently of amplitude", () => {
+  // The 35-degree middle and tip base bends now contribute pitch continuously.
+  const basePitch = 180 * Math.exp(35 * (.0035 + .0028));
   const roots = [];
   for (const amount of [0, 30]) {
     const measured = [];
@@ -71,9 +73,9 @@ test("choir tip tremor changes rendered fundamental pitch, independently of ampl
       const dsp = engine(config, { time: phase / 3 });
       render(dsp, .3); const signal = render(dsp, .25);
       assert.ok(rms(signal) > .003, "the pitch fixture must be audible");
-      const hz = fundamental(signal, 180), expected = 180 * Math.exp(sign * amount * .0028);
+      const hz = fundamental(signal, basePitch), expected = basePitch * Math.exp(sign * amount * .0028);
       assert.ok(Math.abs(hz / expected - 1) < .02, `${amount} degree tremor: ${hz} Hz, expected ${expected} Hz`);
-      assert.ok(Math.abs(fundamental(signal.map(sample => sample * .17), 180) - hz) < 1e-5,
+      assert.ok(Math.abs(fundamental(signal.map(sample => sample * .17), basePitch) - hz) < 1e-5,
         "changing amplitude must not masquerade as a changed fundamental");
       measured.push(hz);
     }
