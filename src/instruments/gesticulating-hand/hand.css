@@ -4,6 +4,7 @@
 .hand-performance { min-width: 0; padding: 0 22px 0 0; }
 .hand-page button, .hand-page select { font: inherit; }
 .hand-shell button, .hand-shell select { min-height: 34px; color: var(--hand-paper); background: #ffffff06; border: 1px solid #ffffff20; border-radius: 5px; padding: 6px 11px; cursor: pointer; }
+.hand-shell .instrument-picker-next { padding: 0; }
 .hand-shell button:hover { background: #ffffff12; border-color: #ffffff45; }
 .hand-shell button[aria-pressed="true"] { background: #dea97820; border-color: #dea97880; color: #f3cfab; }
 .hand-shell input[type="range"] { width: 100%; accent-color: var(--hand-accent); margin: 3px 0; min-width: 0; cursor: ew-resize; }
