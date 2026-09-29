@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createHash } from 'node:crypto';
+import { readFileSync } from 'node:fs';
 import { HandDSP } from '../src/instruments/gesticulating-hand/hand-dsp.js';
 import { HandAudio } from '../src/instruments/gesticulating-hand/hand-audio.js';
 import {
@@ -159,20 +159,30 @@ test('saved overrides survive id/custom changes while null continues to follow t
   }
 });
 
-const canonical = value => Array.isArray(value) ? value.map(canonical)
-  : value && typeof value === 'object' ? Object.fromEntries(Object.keys(value).sort().map(key => [key, canonical(value[key])])) : value;
+function compareScene(actual, expected, path = 'scene') {
+  if (typeof expected === 'number') {
+    assert.ok(Number.isFinite(actual), `${path}: finite number`);
+    if (Number.isInteger(expected)) assert.equal(actual, expected, path);
+    else {
+      // Pow/sin may differ by a few ULPs across supported Node versions/CPUs.
+      const tolerance = 32 * Number.EPSILON * Math.max(1, Math.abs(expected));
+      assert.ok(Math.abs(actual - expected) <= tolerance, `${path}: ${actual} != ${expected}`);
+    }
+  } else if (expected && typeof expected === 'object') {
+    assert.ok(actual && typeof actual === 'object', path);
+    assert.equal(Array.isArray(actual), Array.isArray(expected), path);
+    if (Array.isArray(expected)) assert.equal(actual.length, expected.length, path);
+    assert.deepEqual(Object.keys(actual).sort(), Object.keys(expected).sort(), `${path}: fields`);
+    for (const key of Object.keys(expected)) compareScene(actual[key], expected[key], `${path}.${key}`);
+  } else assert.equal(actual, expected, path);
+}
 test('random loop lengths cover the range without changing any previously seeded scene field', () => {
-  // Recorded from f7ab236 before adding loopBeats; no randomizer implementation is duplicated here.
-  const oldHashes = new Map([
-    [1, '53956c5d3354fa641046e8c765596eff22b8cd861bb8e45c41a166e066b47897'],
-    [42, '86c26ff63dd0c4591ccb0fcc27cfb74e4b5f17f3436534dfd1ebfb0a9e89a647'],
-    [12345, '299b634fecdbdf2783eac11e5d6d5ac3a97f7482d7a48aaf24f03477f030ff20'],
-    [0xdeadbeef, '195e2b5c4ed15a12ba76f71ea2dd16df36753f57bee8b61aaa9d182058ecba64'],
-  ]);
-  for (const [seed, expected] of oldHashes) {
+  // Recorded from f7ab236 before adding loopBeats; compare every original field.
+  const { cases: baselines } = JSON.parse(readFileSync(new URL('./fixtures/gesticulating-hand-seeded-scenes.json', import.meta.url), 'utf8'));
+  for (const { seed, config: expected } of baselines) {
     const config = randomizeHandConfig(undefined, seeded(seed));
     delete config.motion.loopBeats;
-    assert.equal(createHash('sha256').update(JSON.stringify(canonical(config))).digest('hex'), expected, String(seed));
+    compareScene(config, expected, `seed ${seed}`);
   }
   const lengths = new Set();
   for (let seed = 1; seed <= 512; seed++) {
