@@ -73,15 +73,12 @@
   .hand-shell { display: flex; flex-direction: column; flex: none; width: 100%; padding: 0 max(12px, env(safe-area-inset-right)) max(24px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left)); }
   .hand-performance { display: contents; }
   .hand-stage { position: sticky; top: var(--hand-header-height, 109px); z-index: 20; display: grid; grid-template-rows: minmax(0, 1fr) auto; flex: none; height: min(52svh, calc(100svh - var(--hand-header-height, 109px) - 170px)); padding-bottom: 8px; background: #101014; box-shadow: 0 10px 12px #101014; }
-  .hand-gesture-help { order: 1; }
-  .hand-panel { order: 2; }
-  .hand-voices { order: 3; }
   .hand-viewport { height: auto; min-height: 0; }
   .hand-viewport h1 { left: 16px; top: 14px; font-size: clamp(22px, 5.6vw, 32px); }
   .hand-camera { left: 12px; bottom: 46px; }
   .hand-stage-footer { left: 16px; bottom: 13px; }
   .hand-notice { margin: 4px 0 0; font-size: 11px; }
-  .hand-panel { display: block; max-height: none; overflow: visible; border-left: 0; border-top: 1px solid var(--hand-line); margin-top: 22px; padding: 20px 0 0; }
+  .hand-panel { display: block; max-height: none; overflow: visible; border-left: 0; border-top: 1px solid var(--hand-line); margin-top: 0; padding: 0; }
   .hand-panel > .instrument-preset-controls { position: relative; top: auto; z-index: 0; }
   .hand-control-block { margin-bottom: 22px; }
   .hand-voices :is(button,input,select,summary), .hand-panel :is(button,input,select,summary) { scroll-margin-bottom: 16px; }
@@ -134,7 +131,7 @@
 .hand-body-lane > .hand-voice-name { grid-column: 1; text-align: left; align-self: center; }
 
 @media(min-width:961px) { .hand-viewport { height: clamp(330px,calc(100dvh - 530px),650px); } }
-@media(max-width:960px) { .hand-voices { order: 1; padding-top: 6px; } .hand-voice { grid-template-columns: 120px minmax(0,1fr); gap: 8px; } }
+@media(max-width:960px) { .hand-voices { padding-top: 0; margin-bottom: 22px; } .hand-voice { grid-template-columns: 120px minmax(0,1fr); gap: 8px; } }
 @media(max-width:450px) {
   .hand-voice { grid-template-columns: 108px minmax(0,1fr); gap: 6px; padding-left: 6px; }
   .hand-voice-controls { grid-template-columns: 48px minmax(0,1fr); gap: 2px 4px; }

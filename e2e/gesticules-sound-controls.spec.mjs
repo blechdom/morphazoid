@@ -169,6 +169,19 @@ for (const viewport of [{width: 390, height: 844}, {width: 844, height: 390}, {w
       await page.waitForFunction(form => window.__gesticulatingHand.snapshot().loaded && window.__gesticulatingHand.snapshot().viewer.form === form, form);
       await page.evaluate(() => scrollTo(0, 0));
       const stageTop = await page.locator('#handStage').evaluate(node => node.getBoundingClientRect().top);
+      const order = await page.evaluate(() => {
+        const nodes = ['#handStage', '.instrument-preset-controls', '.hand-transports', '.hand-voices', '#voiceSound']
+          .map(selector => document.querySelector(selector));
+        const bounds = nodes.map(node => node.getBoundingClientRect());
+        return {
+          visual: bounds.every((box, i) => !i || box.top >= bounds[i - 1].bottom - 1),
+          reading: nodes.every((node, i) => !i || Boolean(nodes[i - 1].compareDocumentPosition(node) & Node.DOCUMENT_POSITION_FOLLOWING)),
+          presetGap: bounds[1].top - bounds[0].bottom,
+          presetBottom: bounds[1].bottom,
+        };
+      });
+      expect(order.visual).toBe(true);expect(order.reading).toBe(true);
+      expect(order.presetGap).toBeLessThanOrEqual(2);expect(order.presetBottom).toBeLessThan(viewport.height);
       await page.locator('#fingerMixer [data-finger="4"]').click();await expectVoiceSync(page, 4);
       const revealed = await page.locator('#voiceSoundTitle').evaluate(node => ({title: node.getBoundingClientRect().toJSON(), stageBottom: document.getElementById('handStage').getBoundingClientRect().bottom, height: innerHeight}));
       expect(revealed.title.top).toBeGreaterThanOrEqual(revealed.stageBottom - 1);expect(revealed.title.bottom).toBeLessThanOrEqual(revealed.height);

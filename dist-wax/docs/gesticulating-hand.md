@@ -340,8 +340,9 @@ on first selection and cached; both share one renderer, lights and appearance
 controller. Color changes always start from each material’s original color.
 
 On phones, the hand or foot stage stays visible beneath the masthead while the mixer and
-parameter controls scroll below it. The compact voice and contour rows come
-before the transport and parameter panel on phones. The hand remains available for direct gestures
+parameter controls scroll below it. Presets and Play come first, followed by the
+compact voice and contour rows, then sound, motion and appearance parameters.
+Keyboard and reading order follow that same layout. The hand remains available for direct gestures
 as sound, motion and appearance settings are edited.
 
 MIDI notes map to five temporary finger gestures, with velocity controlling

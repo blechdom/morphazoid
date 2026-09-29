@@ -478,6 +478,19 @@ test.describe('pinned mobile stage',()=>{
       const rotated=await geometry();expect(rotated.overflow).toBeLessThanOrEqual(rotated.width+1);
       const state=await snapshot(page);expect(state.playing&&state.soundPlaying&&state.audioOn).toBe(true);
       expect(state.audio.rms).toBeGreaterThan(.001);
+      const contour=await page.locator('#contour-0').elementHandle();
+      await contour.focus();
+      const config=(await snapshot(page)).config;
+      for(const size of [{width:1440,height:900},viewport]) {
+        await page.setViewportSize(size);
+        await expect.poll(()=>page.locator('.hand-voices').evaluate(node=>node.parentElement.className))
+          .toBe(size.width>960?'hand-performance':'hand-panel');
+        expect(await contour.evaluate(node=>document.activeElement===node&&document.getElementById('contour-0')===node)).toBe(true);
+        await expect(page.locator('#fingerMixer')).toHaveCount(1);
+        for(const id of ['soundPlayButton','motionButton','tempo']) await expect(page.locator('#'+id)).toHaveCount(1);
+        const resized=await snapshot(page);expect(resized.config).toEqual(config);
+        expect(resized.playing&&resized.soundPlaying&&resized.audioOn).toBe(true);
+      }
       await cdp.detach();
     });
   }

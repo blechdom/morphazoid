@@ -28,6 +28,19 @@ const clone = value => structuredClone(value);
 const formPoses = new Map([['hand', clone(initialConfig.pose)]]);
 let displayedForm = null;
 const root = document.documentElement;
+const mobileLayout = matchMedia('(max-width: 960px)');
+const voicesSection = document.querySelector('.hand-voices');
+function placeHandVoices() {
+  // Keep reading and keyboard order aligned with the mobile playing controls.
+  const preceding = mobileLayout.matches ? document.querySelector('.hand-transports') : el('handStage');
+  if (preceding.nextElementSibling === voicesSection) return;
+  const focused = document.activeElement;
+  const restoreFocus = voicesSection.contains(focused);
+  preceding.after(voicesSection);
+  if (restoreFocus && document.activeElement !== focused) focused.focus({ preventScroll: true });
+}
+listen(mobileLayout, 'change', placeHandVoices);
+placeHandVoices();
 let headerHeight=-1, stickyOffset=-1;
 function measureHandLayout() {
   const header=document.querySelector('.masthead').getBoundingClientRect().height;
