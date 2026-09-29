@@ -1171,3 +1171,13 @@ copy+require	src/instruments/rubix/kit-cache.js
 copy+require	src/instruments/rubixoids/rubix/sound-params.js
 copy+require	src/instruments/rubixoids/rubix/sound-panel.js
 copy+require	src/instruments/rubixoids/rubix/kit-cache.js
+copy+require	wasm-garden.html
+copy+require	src/instruments/wasm-garden/garden-app.js
+copy+require	src/instruments/wasm-garden/garden-model.js
+copy+require	src/instruments/wasm-garden/garden-view.js
+copy+require	src/instruments/wasm-garden/garden.css
+copy+require	src/instruments/wasm-garden/garden-processor.js
+copy+require	src/instruments/wasm-garden/dsp.js
+copy+require	assets/wasm/wasm-garden.wasm
+copy+require	assets/instruments/wasm-garden.webp
+copy+require	docs/wasm-garden.md

@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+    <script src="wax/wax-host-bootstrap.js" data-morphazoid-wax-bootstrap></script>
+    <!-- morphazoid-social-preview:start -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Morphazoid" />
+    <meta property="og:title" content="Volumetric Rain — Morphazoid" />
+    <meta property="og:description" content="Metallic resonances with continuous pitch, overlapping strikes, and adjustable density." />
+    <meta property="og:url" content="https://morphazoid.com/wasm-garden.html" />
+    <meta property="og:image" content="https://morphazoid.com/assets/social/morphazoid-card-20260917.png" />
+    <meta property="og:image:secure_url" content="https://morphazoid.com/assets/social/morphazoid-card-20260917.png" />
+    <meta property="og:image:type" content="image/png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="Morphazoid geometric wireframe logo on a dark background." />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Volumetric Rain — Morphazoid" />
+    <meta name="twitter:description" content="Metallic resonances with continuous pitch, overlapping strikes, and adjustable density." />
+    <meta name="twitter:image" content="https://morphazoid.com/assets/social/morphazoid-card-20260917.png" />
+    <meta name="twitter:image:alt" content="Morphazoid geometric wireframe logo on a dark background." />
+    <link rel="image_src" href="https://morphazoid.com/assets/social/morphazoid-card-20260917.png" />
+    <!-- morphazoid-social-preview:end -->
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#101211">
+  <meta name="description" content="Metallic resonances with continuous pitch, overlapping strikes, and adjustable density.">
+  <title>Volumetric Rain — Morphazoid</title>
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="src/instruments/wasm-garden/garden.css">
+</head>
+<body class="wasm-garden-page">
+  <header class="masthead" data-audio-output-meter="db">
+    <a class="wordmark" href="./" aria-label="Morphazoid home"><span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span><span>morphazoid</span></a>
+    <nav class="tabs" aria-label="Instrument"><a class="tab active" href="wasm-garden.html" aria-current="page">Volumetric Rain</a><a class="tab" href="simd-lab.html">SIMD Audio Lab</a></nav>
+    <label class="mobile-instrument-nav"><span class="sr-only">Instrument</span><select class="mobile-instrument-select" aria-label="Instrument"><option value="wasm-garden.html" selected>Volumetric Rain</option><option value="simd-lab.html">SIMD Audio Lab</option></select></label>
+    <div class="audio-strip" aria-label="Audio controls">
+      <label class="header-level" for="outputLevel"><span>Volume <output id="outputLevelOut" for="outputLevel">80%</output></span><input id="outputLevel" type="range" min="0" max="1" step="0.01" value="0.8" aria-label="Volume"></label>
+      <button id="audioButton" class="audio-button" type="button" aria-pressed="false"><span>Audio</span><small id="audioState">off</small></button>
+    </div>
+  </header>
+  <main class="garden-shell">
+    <section class="garden-stage" aria-label="Playable resonance bank">
+      <div class="garden-title"><h1>Volumetric Rain</h1></div>
+      <canvas id="gardenCanvas" tabindex="0" role="application" aria-label="Resonance bank. Left and right change excitation position; up and down change spectral emphasis; Enter strikes. Turn on Audio first." aria-keyshortcuts="ArrowLeft ArrowRight ArrowUp ArrowDown Enter">Drag the surface to strike it. Arrow keys move the contact point; Enter strikes. Turn on Audio first.</canvas>
+    </section>
+    <aside class="garden-panel" aria-label="Instrument controls">
+      <div id="presetControls" class="header-preset-controls instrument-preset-controls" role="group" aria-label="Presets">
+        <select id="presetSelect" aria-label="Preset" hidden><optgroup label="Resonances"><option value="original" selected>Metal</option><option value="originalGlass">Glass</option><option value="originalWood">Damped</option><option value="originalDense">Dense</option></optgroup><optgroup label="Tines"><option value="steel">Steel · mallet</option><option value="bronze">Bronze · pick</option><option value="weighted">Weighted strikes</option><option value="damped">Damped metal</option><option value="scrape">Scraped metal</option></optgroup><option value="custom" hidden>Custom</option></select>
+        <button id="nextPresetButton" class="instrument-picker-next header-preset-next" type="button" title="Next preset" aria-label="Next preset"><span aria-hidden="true">▶</span></button>
+        <button id="randomPresetButton" class="instrument-picker-next header-preset-random" type="button" title="Randomize parameters" aria-label="Randomize parameters"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2" fill="none" stroke="currentColor" stroke-width="1.6"/><g fill="currentColor"><circle cx="7.5" cy="7.5" r="1.4"/><circle cx="16.5" cy="7.5" r="1.4"/><circle cx="12" cy="12" r="1.4"/><circle cx="7.5" cy="16.5" r="1.4"/><circle cx="16.5" cy="16.5" r="1.4"/></g></svg></button>
+      </div>
+      <div class="garden-transport">
+        <button id="playButton" type="button" data-primary-transport aria-pressed="false" aria-label="Play" title="Play"><span id="playIcon" aria-hidden="true">▶</span></button>
+        <label for="rate"><span>Rain rate <output id="rateOut">3 / s</output></span><input id="rate" type="range" min="0.5" max="2048" step="0.5" value="3"></label>
+      </div>
+      <p id="liveStatus" role="status">Turn on Audio, then press Play or drag the surface.</p>
+      <p id="audioError" role="alert" hidden></p>
+      <section class="garden-controls" aria-label="Material and excitation">
+        <label id="exciterControl" for="exciter" hidden><span>Exciter</span><select id="exciter"><option value="impulse">Impulse</option><option value="mallet">Soft mallet</option><option value="pick">Pick</option><option value="scraper">Scraper teeth</option></select></label>
+        <label for="pattern"><span id="patternLabel">Excitation</span><select id="pattern"><option value="random" selected>Random excitation</option><option value="sweep">Sweep</option><option value="selected">Selected position</option><option value="weighted">Weighted chance</option></select></label>
+        <fieldset id="pitchChance" class="garden-chance" hidden>
+          <legend id="chanceLegend">Next-strike probability</legend>
+          <label for="pitchFocus"><span><span id="focusLabel">Spectral focus</span> <output id="pitchFocusOut">164 Hz</output></span><input id="pitchFocus" type="range" min="0" max="1" step="0.01" value="0.5"></label>
+          <label for="chanceWidth"><span>Chance width <output id="chanceWidthOut">50%</output></span><input id="chanceWidth" type="range" min="0" max="1" step="0.01" value="0.5"></label>
+          <div id="pitchChanceBars" class="garden-chance-bars" role="img" aria-label="Probability for each of the 32 tines"></div>
+          <div class="garden-chance-axis"><span id="chanceLow">Low</span><span id="chanceHigh">High</span></div>
+          <p class="garden-small">Bar height = relative chance of the next strike. Ringing tails still overlap.</p>
+        </fieldset>
+        <label for="baseFrequency"><span><span id="rootLabel">Root</span> <output id="baseFrequencyOut">82 Hz</output></span><input id="baseFrequency" type="range" min="45" max="360" step="1" value="82"></label>
+        <label for="pitchSpread"><span>Pitch spread <output id="pitchSpreadOut">2.00 oct</output></span><input id="pitchSpread" type="range" min="0" max="4" step="0.01" value="2"></label>
+        <label for="decay"><span><span id="decayLabel">Ring</span> <output id="decayOut">4.5 s</output></span><input id="decay" type="range" min="0.2" max="12" step="0.1" value="4.5"></label>
+        <label for="dispersion"><span><span id="metalLabel">Metal</span> <output id="dispersionOut">100%</output></span><input id="dispersion" type="range" min="0" max="1" step="0.01" value="1"></label>
+        <label for="brightness"><span><span id="brightnessLabel">Brightness</span> <output id="brightnessOut">72%</output></span><input id="brightness" type="range" min="0" max="1" step="0.01" value="0.72"></label>
+        <label for="modes"><span>Density <output id="modesOut">4,096</output></span><select id="modes"><option value="32">32</option><option value="64">64</option><option value="128">128 · sparse</option><option value="256" selected>256</option><option value="512">512</option><option value="1024">1,024</option><option value="2048">2,048</option><option value="4096">4,096</option><option value="8192">8,192</option><option value="16384">16,384 · dense</option><option value="32768">32,768 · extreme</option></select></label>
+      </section>
+      <button id="resetButton" class="garden-reset" type="button" title="Reset to Metal">Reset</button>
+      <p id="capacityHint" class="garden-small" hidden>Extreme detail can exceed this device’s audio budget. Lower Density or Rain rate if playback breaks up.</p>
+      <details class="garden-notes">
+        <summary>About the material</summary>
+        <p class="garden-small">Overlapping resonances, from ringing metal to short, damped impacts.</p>
+        <p class="garden-small">Drag the surface to change position and brightness. Metal scatters the tuning; Density sets the number of resonances.</p>
+        <a href="docs/wasm-garden.md">Controls and synthesis</a>
+      </details>
+    </aside>
+  </main>
+  <script type="module" src="nav.js"></script>
+  <script type="module" src="src/instruments/wasm-garden/garden-app.js"></script>
+  <script type="module" src="wax/wax-universal-adapter.js" data-morphazoid-wax-universal-adapter></script>
+</body>
+</html>

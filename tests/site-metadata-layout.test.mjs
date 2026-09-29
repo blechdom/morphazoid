@@ -1,3 +1,4 @@
+import { restoreRainVolumeMeters } from './helpers/rain-volume-meter-reference.mjs';
 import { restoreSimdChiptuneSite, simdChiptuneSiteAmendments } from "./helpers/simd-chiptune-site-reference.mjs";
 import { restoreHeaderInteractions, headerInteractionAmendments } from "./helpers/header-interactions-reference.mjs";
 import { restoreRubixoidsSite, rubixoidsSiteAmendments } from "./helpers/rubixoids-site-reference.mjs";
@@ -53,7 +54,7 @@ test("every changed runtime module reverses byte-for-byte to the fresh-main refe
   }
   for (const record of proof.files) {
     const current = await readFile(new URL(record.after, root), "utf8");
-    const beforeGesticules = restoreGesticulesMetadata(restoreRubixoidsSite(restoreHeaderInteractions(restoreSimdChiptuneSite(current, record.after), record.after), record.after), record.after);
+    const beforeGesticules = restoreGesticulesMetadata(restoreRubixoidsSite(restoreHeaderInteractions(restoreSimdChiptuneSite(restoreRainVolumeMeters(current, record.after), record.after), record.after), record.after), record.after);
     const beforeIphone = restoreIphoneStartup(restorePresetToolbar(beforeGesticules, record.after), record.after);
     const restored = rewriteRepositoryPaths(rewriteModulePaths(beforeIphone, record.after, inverse), inverse);
     assert.equal(sha(restored), record.sha256, record.after);

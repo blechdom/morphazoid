@@ -1,3 +1,4 @@
+import { restoreRainVolumeMeters } from './helpers/rain-volume-meter-reference.mjs';
 import { restoreHeaderInteractions } from "./helpers/header-interactions-reference.mjs";
 import { restoreRubixoidsSite } from "./helpers/rubixoids-site-reference.mjs";
 import assert from "node:assert/strict";
@@ -21,7 +22,7 @@ test("every implemented full-preset owner declares exactly one explicit preset h
 });
 
 test("navigation reverses only the exact requested UI changes to independently captured fresh main", async () => {
-  const source = restoreRubixoidsSite(restoreHeaderInteractions(await read("nav.js"), "nav.js"), "nav.js");
+  const source = restoreRubixoidsSite(restoreHeaderInteractions(restoreRainVolumeMeters(await read("nav.js"), "nav.js"), "nav.js"), "nav.js");
   const restored = restorePresetToolbar(source, "nav.js");
   assert.equal(createHash("sha256").update(restored).digest("hex"), toolbarAmendments.baseSha256);
   const block = toolbarAmendments.changes[0].replacements[0].after;

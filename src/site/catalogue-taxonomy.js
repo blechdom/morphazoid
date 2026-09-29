@@ -598,6 +598,7 @@ export const ADDITIONAL_TAG_IDS = Object.freeze(Object.fromEntries(Object.entrie
   "simd-lab": [
     "simd-audio"
   ],
+  "wasm-garden": ["resonator"],
   "tempo-tantrum": [],
   "tape-worm": [],
   "loop-soup": [],
@@ -605,6 +606,13 @@ export const ADDITIONAL_TAG_IDS = Object.freeze(Object.fromEntries(Object.entrie
   "hollowphonic": []
 }).map(([id, tags]) => [id, Object.freeze(tags)])));
 export const LAB_CATALOGUE_DETAILS = Object.freeze(Object.fromEntries(Object.entries({
+  "wasm-garden": {
+    "kind": "Material instrument",
+    "description": "Metallic resonances with continuous pitch, overlapping strikes, and adjustable density.",
+    "start": "Turn on Audio and press Play, or drag the surface to strike.",
+    "features": ["WebAssembly", "AudioWorklet", "Touch", "Computer keys"],
+    "pluginHref": null
+  },
   "acoustic-manifold": {
     "kind": "Audio lab",
     "description": "Acoustic Manifold maps local bioacoustic occurrences into a playable 3D graph, then resynthesizes and extrapolates their timing, pitch, body, texture, and order.",

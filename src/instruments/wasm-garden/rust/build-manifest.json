@@ -1,0 +1,25 @@
+{
+  "schema": 1,
+  "compiler": "rustc 1.98.1 (48a229cea 2026-09-01)",
+  "source": "src/instruments/wasm-garden/rust/kernel.rs",
+  "output": "assets/wasm/wasm-garden.wasm",
+  "flags": [
+    "--edition=2021",
+    "--crate-type=cdylib",
+    "--crate-name=wasm_garden",
+    "--target=wasm32-unknown-unknown",
+    "-Copt-level=3",
+    "-Cpanic=abort",
+    "-Ctarget-feature=+simd128",
+    "-Clto=fat",
+    "-Ccodegen-units=1",
+    "-Cstrip=symbols",
+    "-Clink-arg=--stack-first",
+    "-Clink-arg=-zstack-size=65536",
+    "-Clink-arg=--initial-memory=4194304",
+    "-Clink-arg=--max-memory=4194304"
+  ],
+  "sourceSha256": "78433ec58f3713cf5ec6f6c0e592e52be5d575ba6b568d593ad11fb7099ee79b",
+  "wasmSha256": "f9d2403f53518e9634277a362fac2ef533f1c2bc5dd12d372420e819d1f421ff",
+  "wasmBytes": 3855
+}

@@ -858,6 +858,13 @@ export function createMidiToolbar(
   const rightOutput = { channel: meterShell.rightChannel, meter: meterShell.rightMeter };
   const leftMeter = leftOutput.meter;
   const rightMeter = rightOutput.meter;
+  const decibelOutputMeter = host?.getAttribute?.("data-audio-output-meter") === "db";
+  if (decibelOutputMeter) {
+    for (const channelMeter of [leftMeter, rightMeter]) {
+      channelMeter.min = -60; channelMeter.max = 0;
+      channelMeter.low = -36; channelMeter.high = -6; channelMeter.optimum = -12;
+    }
+  }
   // Keep the original `meter` handle as a backwards-compatible alias.
   const meter = leftMeter;
 
@@ -1052,7 +1059,9 @@ export function createMidiToolbar(
     const visible = clientCount > 0;
     const toolbarHost = host ?? toolbar.parentNode;
     toolbar.hidden = !visible;
-    meterShell.hidden = !visible;
+    // Audio-only instruments can show their real stereo meters without
+    // registering a MIDI client.
+    meterShell.hidden = !visible && !host?.hasAttribute?.("data-audio-output-meter");
     details.hidden = false;
     // Device settings remain directly reachable even without a MIDI client.
     routing.hidden = false;
@@ -1101,16 +1110,17 @@ export function createMidiToolbar(
       const displayedValue = value >= OUTPUT_METER_SILENCE_FLOOR ? value : 0;
       const percentage = Math.round(displayedValue * 100);
       const active = displayedValue > 0;
-      channelMeter.value = displayedValue;
-      channelMeter.textContent = `${percentage}%`;
-      channelMeter.setAttribute("value", String(displayedValue));
-      channelMeter.setAttribute("aria-valuenow", String(displayedValue));
+      const meterValue = decibelOutputMeter ? Math.max(-60, 20 * Math.log10(displayedValue || 0.001)) : displayedValue;
+      channelMeter.value = meterValue;
+      channelMeter.textContent = decibelOutputMeter ? `${meterValue.toFixed(1)} dBFS` : `${percentage}%`;
+      channelMeter.setAttribute("value", String(meterValue));
+      channelMeter.setAttribute("aria-valuenow", String(meterValue));
       channelMeter.setAttribute(
         "aria-valuetext",
         clipped
           ? `${side} channel clipping at ${percentage}%`
           : active
-          ? `${side} channel ${percentage}% output signal`
+          ? decibelOutputMeter ? `${side} channel ${meterValue.toFixed(1)} dBFS` : `${side} channel ${percentage}% output signal`
           : `${side} channel has no output signal`,
       );
       if (active) {
@@ -1143,7 +1153,9 @@ export function createMidiToolbar(
       || rightValue >= OUTPUT_METER_SILENCE_FLOOR,
     );
     meterShell.title = hasSignal
-      ? `Stereo audio output · L ${leftPercentage}%${leftClipped ? " CLIP" : ""} · R ${rightPercentage}%${rightClipped ? " CLIP" : ""}`
+      ? decibelOutputMeter
+        ? `Stereo audio output · L ${leftMeter.value.toFixed(1)} dBFS${leftClipped ? " CLIP" : ""} · R ${rightMeter.value.toFixed(1)} dBFS${rightClipped ? " CLIP" : ""}`
+        : `Stereo audio output · L ${leftPercentage}%${leftClipped ? " CLIP" : ""} · R ${rightPercentage}%${rightClipped ? " CLIP" : ""}`
       : "Stereo audio output · inactive";
     if (hasSignal) meterShell.classList.add("is-active");
     else meterShell.classList.remove("is-active");

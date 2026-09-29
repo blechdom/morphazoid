@@ -39,6 +39,15 @@ presentation; no new gain stage or invented volume parameter is introduced on
 pages without such a control. Custom workbench transports remain owned by their
 existing application.
 
+Audio-only pages can put `data-audio-output-meter` on their masthead to keep
+stereo output meters visible without registering a MIDI client. The value `db`
+selects a −60–0 dBFS peak display, useful for quieter material resonances; silence
+sits at the floor. This opt-in changes meter presentation only and keeps the
+same post-master output-manager connection. Existing pages retain their current
+visibility and linear meter scale. The exact amendment is recorded in
+`rain-volume-meter-runtime-changes.json`; historical baseline hashes remain
+unchanged.
+
 ## Preservation
 
 The volume knob retains the **same native range element**, ID, accessible name,

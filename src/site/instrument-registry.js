@@ -219,6 +219,7 @@ export const TOOL_GROUPS = Object.freeze([
     { id: "nightingale-manifold", label: "Nightingale Manifolds", href: "nightingale-manifold.html", catalogue: false, browse: true, entryType: "lab", imageHref: "assets/instruments/lab-placeholder.webp" },
     { id: "syrinx-ui", label: "Syrinx UI", href: "syrinx-ui.html", catalogue: false, browse: true, entryType: "lab", imageHref: "assets/instruments/syrinx-ui.webp" },
     { id: "simd-lab", label: "SIMD Audio Lab", href: "simd-lab.html", imageHref: "assets/instruments/simd-resonator.webp", catalogue: false, legacyHrefs: ["simd-audio-lab.html"], browse: true, entryType: "lab" },
+    { id: "wasm-garden", label: "Volumetric Rain", href: "wasm-garden.html", imageHref: "assets/instruments/wasm-garden.webp", catalogue: false, browse: true, entryType: "lab" },
     { id: "tempo-tantrum", label: "Tempo Tantrum", href: "tempo-tantrum.html" },
     { id: "tape-worm", label: "Tape Worm", href: "tape-worm.html" },
     { id: "loop-soup", label: "Loop Soup", href: "loop-soup.html" },

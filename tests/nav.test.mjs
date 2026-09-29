@@ -1208,6 +1208,35 @@ test("one Settings MIDI control owns connection and controller profile selection
   control.destroy();
 });
 
+test("audio-only instruments can keep real stereo meters visible without a MIDI client", () => {
+  const doc = new FakeDocument();
+  const masthead = new FakeNode("header");
+  masthead.className = "masthead";
+  masthead.setAttribute("data-audio-output-meter", "db");
+  const audioStrip = new FakeNode("div"); audioStrip.className = "audio-strip";
+  masthead.append(audioStrip);
+  const baseQuery = doc.querySelectorAll.bind(doc);
+  doc.querySelectorAll = selector => selector === ".masthead" ? [masthead] : baseQuery(selector);
+  const runtime = { navigator: {}, addEventListener() {}, removeEventListener() {} };
+  const manager = new WebMidiManager(runtime);
+  let reportOutput;
+  const audioOutputManager = { subscribe(listener) { reportOutput = listener; listener({}); return () => {}; } };
+  const [control] = initializeMidiToolbars(doc, runtime, manager, { audioOutputManager });
+  assert.equal(manager.status().clientCount, 0);
+  assert.equal(control.toolbar.hidden, true);
+  assert.equal(control.meterShell.hidden, false);
+  assert.equal(control.leftMeter.value, -60);
+  reportOutput({ leftPeak: 0.1, rightPeak: 0.01 });
+  assert.equal(control.leftMeter.value, -20);
+  assert.equal(control.rightMeter.value, -40);
+  assert.match(control.leftMeter.getAttribute("aria-valuetext"), /-20.0 dBFS/);
+  const unregister = manager.registerClient({ id: "temporary-client" });
+  unregister();
+  assert.equal(control.toolbar.hidden, true);
+  assert.equal(control.meterShell.hidden, false, "MIDI changes do not hide an audio-only meter");
+  control.destroy();
+});
+
 test("MIDI toolbar IDs stay unique and repeated initialization adds no subscriptions", () => {
   const doc = new FakeDocument();
   const mastheads = [new FakeNode("header"), new FakeNode("header")];

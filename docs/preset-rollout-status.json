@@ -1426,6 +1426,15 @@
       "status": "deferred"
     },
     {
+      "id": "wasm-garden",
+      "label": "Volumetric Rain",
+      "href": "wasm-garden.html",
+      "category": "wip",
+      "scope": "deferred-lab",
+      "presets": null,
+      "status": "deferred"
+    },
+    {
       "id": "tempo-tantrum",
       "label": "Tempo Tantrum",
       "href": "tempo-tantrum.html",
@@ -1715,6 +1724,7 @@
       "nightingale-manifold",
       "syrinx-ui",
       "simd-lab",
+      "wasm-garden",
       "tempo-tantrum",
       "tape-worm",
       "loop-soup",

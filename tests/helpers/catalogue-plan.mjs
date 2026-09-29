@@ -9,6 +9,11 @@ export const mainAdditions = [
   ...JSON.parse(readFileSync(new URL('../fixtures/catalogue-gesticulating-hand.json', import.meta.url), 'utf8')).additions,
   ...JSON.parse(readFileSync(new URL('../fixtures/catalogue-simd-chiptune.json', import.meta.url), 'utf8')).additions,
 ];
+// Browseable demonstrations remain separate from MIDI/WAX instruments.
+export const labAdditions = [
+  { id: 'wasm-garden', categoryId: 'wip', categoryLabel: 'Work in Progress', tags: [{ id: 'resonator', label: 'Resonator' }] },
+];
+for (const item of labAdditions) byId.set(item.id, { ...item, oldId: item.id });
 for (const item of mainAdditions) byId.set(item.id, { id: item.id, oldId: item.id, categoryId: item.categoryId, categoryLabel: item.categoryLabel ?? "Work in Progress", tags: item.tags ?? [] });
 const previousFaves = prior.registry.FAVE_TOOL_IDS.map(id => byId.get(id)?.id ?? id);
 // Explicit owner follow-up on September 20; keep the pre-sheet fixture intact.

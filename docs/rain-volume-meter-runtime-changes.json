@@ -1,0 +1,33 @@
+{
+  "baselineCommit": "f7ab23608b21b7ca64b27b58058fe27b306ef5df",
+  "baseSha256": "de3668ca0a72125de306907664fa9f9b3c5a7de3ca1e3b3f28922178a8831205",
+  "changes": [
+    {
+      "file": "nav.js",
+      "reason": "Owner-requested stereo meters for the audio-only Rain Volume instrument. An explicit masthead attribute preserves meter visibility without a MIDI client and optionally selects calibrated dB display; other pages keep their current behavior.",
+      "regressionTests": [
+        "tests/nav.test.mjs",
+        "e2e/wasm-garden.spec.mjs",
+        "tests/rain-volume-meter-reference.test.mjs"
+      ],
+      "replacements": [
+        {
+          "before": "  const rightOutput = { channel: meterShell.rightChannel, meter: meterShell.rightMeter };\n  const leftMeter = leftOutput.meter;\n  const rightMeter = rightOutput.meter;\n  // Keep the original `meter` handle as a backwards-compatible alias.\n  const meter = leftMeter;\n\n",
+          "after": "  const rightOutput = { channel: meterShell.rightChannel, meter: meterShell.rightMeter };\n  const leftMeter = leftOutput.meter;\n  const rightMeter = rightOutput.meter;\n  const decibelOutputMeter = host?.getAttribute?.(\"data-audio-output-meter\") === \"db\";\n  if (decibelOutputMeter) {\n    for (const channelMeter of [leftMeter, rightMeter]) {\n      channelMeter.min = -60; channelMeter.max = 0;\n      channelMeter.low = -36; channelMeter.high = -6; channelMeter.optimum = -12;\n    }\n  }\n  // Keep the original `meter` handle as a backwards-compatible alias.\n  const meter = leftMeter;\n\n"
+        },
+        {
+          "before": "    const visible = clientCount > 0;\n    const toolbarHost = host ?? toolbar.parentNode;\n    toolbar.hidden = !visible;\n    meterShell.hidden = !visible;\n    details.hidden = false;\n    // Device settings remain directly reachable even without a MIDI client.\n    routing.hidden = false;\n",
+          "after": "    const visible = clientCount > 0;\n    const toolbarHost = host ?? toolbar.parentNode;\n    toolbar.hidden = !visible;\n    // Audio-only instruments can show their real stereo meters without\n    // registering a MIDI client.\n    meterShell.hidden = !visible && !host?.hasAttribute?.(\"data-audio-output-meter\");\n    details.hidden = false;\n    // Device settings remain directly reachable even without a MIDI client.\n    routing.hidden = false;\n"
+        },
+        {
+          "before": "      const displayedValue = value >= OUTPUT_METER_SILENCE_FLOOR ? value : 0;\n      const percentage = Math.round(displayedValue * 100);\n      const active = displayedValue > 0;\n      channelMeter.value = displayedValue;\n      channelMeter.textContent = `${percentage}%`;\n      channelMeter.setAttribute(\"value\", String(displayedValue));\n      channelMeter.setAttribute(\"aria-valuenow\", String(displayedValue));\n      channelMeter.setAttribute(\n        \"aria-valuetext\",\n        clipped\n          ? `${side} channel clipping at ${percentage}%`\n          : active\n          ? `${side} channel ${percentage}% output signal`\n          : `${side} channel has no output signal`,\n      );\n      if (active) {\n",
+          "after": "      const displayedValue = value >= OUTPUT_METER_SILENCE_FLOOR ? value : 0;\n      const percentage = Math.round(displayedValue * 100);\n      const active = displayedValue > 0;\n      const meterValue = decibelOutputMeter ? Math.max(-60, 20 * Math.log10(displayedValue || 0.001)) : displayedValue;\n      channelMeter.value = meterValue;\n      channelMeter.textContent = decibelOutputMeter ? `${meterValue.toFixed(1)} dBFS` : `${percentage}%`;\n      channelMeter.setAttribute(\"value\", String(meterValue));\n      channelMeter.setAttribute(\"aria-valuenow\", String(meterValue));\n      channelMeter.setAttribute(\n        \"aria-valuetext\",\n        clipped\n          ? `${side} channel clipping at ${percentage}%`\n          : active\n          ? decibelOutputMeter ? `${side} channel ${meterValue.toFixed(1)} dBFS` : `${side} channel ${percentage}% output signal`\n          : `${side} channel has no output signal`,\n      );\n      if (active) {\n"
+        },
+        {
+          "before": "      || rightValue >= OUTPUT_METER_SILENCE_FLOOR,\n    );\n    meterShell.title = hasSignal\n      ? `Stereo audio output \u00b7 L ${leftPercentage}%${leftClipped ? \" CLIP\" : \"\"} \u00b7 R ${rightPercentage}%${rightClipped ? \" CLIP\" : \"\"}`\n      : \"Stereo audio output \u00b7 inactive\";\n    if (hasSignal) meterShell.classList.add(\"is-active\");\n    else meterShell.classList.remove(\"is-active\");\n",
+          "after": "      || rightValue >= OUTPUT_METER_SILENCE_FLOOR,\n    );\n    meterShell.title = hasSignal\n      ? decibelOutputMeter\n        ? `Stereo audio output \u00b7 L ${leftMeter.value.toFixed(1)} dBFS${leftClipped ? \" CLIP\" : \"\"} \u00b7 R ${rightMeter.value.toFixed(1)} dBFS${rightClipped ? \" CLIP\" : \"\"}`\n        : `Stereo audio output \u00b7 L ${leftPercentage}%${leftClipped ? \" CLIP\" : \"\"} \u00b7 R ${rightPercentage}%${rightClipped ? \" CLIP\" : \"\"}`\n      : \"Stereo audio output \u00b7 inactive\";\n    if (hasSignal) meterShell.classList.add(\"is-active\");\n    else meterShell.classList.remove(\"is-active\");\n"
+        }
+      ]
+    }
+  ]
+}

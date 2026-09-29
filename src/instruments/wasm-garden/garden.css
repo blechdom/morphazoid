@@ -1,0 +1,61 @@
+.wasm-garden-page { --garden-accent: #edaf72; --garden-green: #b8cddf; background: #101318; color: #e4e9ee; }
+.garden-shell { display: grid; grid-template-columns: minmax(0, 1fr) 330px; height: calc(100dvh - var(--masthead-height, 70px)); min-height: 540px; padding: 12px; gap: 14px; }
+.garden-stage { min-width: 0; min-height: 0; position: relative; overflow: hidden; background: #131820; }
+.garden-title { position: absolute; z-index: 1; pointer-events: none; top: 28px; left: 30px; }
+.garden-title h1 { font-family: inherit; font-size: clamp(28px, 4vw, 58px); font-weight: 650; color: var(--garden-accent); margin: 0; letter-spacing: -.04em; line-height: 1.05; }
+.garden-title span { display: block; font-size: 12px; letter-spacing: .12em; text-transform: uppercase; color: #a3b3a6; margin-top: 10px; }
+#gardenCanvas { width: 100%; height: 100%; display: block; touch-action: none; cursor: crosshair; outline-offset: -5px; }
+#gardenCanvas:focus-visible { outline: 2px solid var(--garden-accent); }
+.garden-panel { min-width: 0; overflow-y: auto; padding: 8px 9px 24px 0; scrollbar-width: thin; }
+.garden-panel select, .garden-panel button { font: inherit; min-height: 38px; border-radius: 6px; color: #e8efe4; border: 1px solid #48534b; background: #1c252e; padding: 7px 10px; }
+.garden-panel button { cursor: pointer; }
+.garden-panel button:hover { background: #2b3845; }
+.garden-panel button:disabled { opacity: .55; cursor: wait; }
+.garden-panel button[aria-pressed="true"] { color: #101811; background: var(--garden-green); }
+.garden-panel label { display: flex; flex-direction: column; gap: 8px; font-size: 12px; }
+.garden-panel label > span { display: flex; justify-content: space-between; align-items: baseline; }
+.garden-panel label output { color: #c0cbbb; font-variant-numeric: tabular-nums; }
+.garden-panel input[type="range"] { width: 100%; margin: 0; accent-color: var(--garden-accent); }
+#liveStatus, #audioError { margin: 12px 0 0; font-size: 11px; line-height: 1.45; min-height: 16px; }
+#audioError { color: #ffbaae; }
+.garden-controls { display: grid; gap: 17px; padding: 20px 0; }
+.garden-notes { border-top: 1px solid #39434c; padding-top: 14px; }
+.garden-notes summary { color: var(--garden-accent); cursor: pointer; font-size: 12px; }
+.garden-small { color: #b0b9c2; font-size: 12px; line-height: 1.5; }
+.garden-notes a { color: var(--garden-accent); font-size: 12px; }
+@media (max-width: 760px) {
+  .garden-shell { display: block; flex: 1; height: auto; min-height: 0; overflow-y: auto; overscroll-behavior-y: contain; padding: 8px; }
+  .garden-stage { height: min(54dvh, 440px); min-height: 290px; }
+  .garden-panel { overflow: visible; padding: 0 8px 30px; margin-top: 14px; }
+  .garden-title { top: 19px; left: 19px; }
+  .garden-title h1 { font-size: 36px; }
+  .garden-title span { font-size: 10px; }
+  .garden-controls { grid-template-columns: 1fr 1fr; gap: 20px 18px; }
+
+  .garden-panel button { min-height: 48px; }
+}
+@media (max-height: 500px) and (min-width: 761px) {
+  .garden-shell { height: calc(100dvh - 64px); min-height: 285px; grid-template-columns: minmax(0, 1fr) 290px; }
+  .garden-title { top: 15px; left: 18px; }
+  .garden-title h1 { font-size: 32px; }
+}
+
+.garden-chance { grid-column: 1 / -1; border: 0; padding: 2px 0 0; margin: 0; min-width: 0; display: grid; gap: 16px; }
+.garden-chance[hidden] { display: none; }
+.garden-chance legend { color: var(--garden-accent); font-size: 12px; padding: 0 0 14px; }
+.garden-chance-bars { display: flex; align-items: flex-end; gap: 2px; height: 48px; border-bottom: 1px solid #53616d; }
+.garden-chance-bars span { flex: 1; background: #aac7dc; min-width: 0; }
+.garden-chance-axis { display: flex; justify-content: space-between; font-size: 10px; color: #a8b8c4; margin-top: -12px; }
+.garden-chance .garden-small { margin: -6px 0 0; }
+.garden-chance input:disabled { opacity: .4; }
+
+.garden-panel [hidden] { display: none; }
+#presetControls { margin-bottom: 12px; }
+#presetControls .instrument-picker { min-width: 0; }
+#presetControls .instrument-picker-next { padding: 0; }
+#presetControls .instrument-picker-link { width: 100%; text-align: left; }
+.garden-transport { display: grid; grid-template-columns: 48px minmax(0, 1fr); align-items: center; gap: 12px; }
+.garden-transport #playButton { width: 48px; height: 48px; padding: 0; font-size: 18px; }
+.garden-transport input[type="range"] { min-height: 24px; }
+.garden-reset { margin: 0 0 14px; }
+@media (pointer: coarse) { #audioButton, #playButton { min-width: 48px; min-height: 48px; } .garden-panel input[type="range"] { min-height: 28px; } }

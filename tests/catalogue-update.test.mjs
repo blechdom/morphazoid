@@ -6,7 +6,7 @@ import { FAVE_TOOL_IDS, TOOL_GROUPS } from "../src/site/instrument-registry.js";
 import { canonicalInstrumentId, legacyInstrumentId } from "../src/site/instrument-identities.js";
 import { instrumentMidiCapabilityForId } from "../src/site/instrument-midi-capabilities.js";
 import { waxSupportForId } from "../src/instruments/wax/wax-instrument-roles.js";
-import { expectedFaveToolIds, mainAdditions } from "./helpers/catalogue-plan.mjs";
+import { expectedFaveToolIds, mainAdditions, labAdditions } from "./helpers/catalogue-plan.mjs";
 
 const root = new URL("../", import.meta.url);
 const plan = JSON.parse(await readFile(new URL("docs/catalogue-update-decisions.json", root)));
@@ -26,7 +26,7 @@ test("the owner-confirmed retained IDs and Rattlesnake name remain unchanged", (
 });
 
 test("the current catalogue implements every effective sheet row without dropping newer main entries", () => {
-  assert.deepEqual(new Set(CATALOGUE_ITEMS.map(item => item.id)), new Set([...plan.rows.map(row => row.id), ...mainAdditions.map(item => item.id)]));
+  assert.deepEqual(new Set(CATALOGUE_ITEMS.map(item => item.id)), new Set([...plan.rows.map(row => row.id), ...mainAdditions.map(item => item.id), ...labAdditions.map(item => item.id)]));
   assert.equal(new Set(CATALOGUE_ITEMS.map(item => item.id)).size, CATALOGUE_ITEMS.length);
   assert.deepEqual(CATALOGUE_GROUPS.map(group => group.id), plan.categoryOrder);
   for (const row of plan.rows) {
@@ -64,7 +64,7 @@ test("ID aliases retain every existing MIDI/WAX policy and legacy protocol ident
 });
 
 test("existing labs are browseable without being misrepresented as verified MIDI instruments", () => {
-  assert.equal(LABS.length, 7);
+  assert.deepEqual(new Set(LABS.map(lab => lab.id)), new Set([...plan.rows.filter(row => row.kind === "lab").map(row => row.id), ...labAdditions.map(lab => lab.id)]));
   for (const lab of LABS) {
     assert.equal(lab.entryType, "lab");
     assert.equal(instrumentById(lab.id), null);
