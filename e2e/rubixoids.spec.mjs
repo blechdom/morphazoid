@@ -178,7 +178,8 @@ test('3D turns show intermediate geometry before committing and undo restores th
 test('Dimensional switches preserve puzzle edits, native mappings, projection and undo history', async ({ page }) => {
   await page.goto('/rubixoids.html');
   const cube = await nativeView(page, '3d');
-  await cube.locator('#moveRight').click();
+  await cube.locator('#stage').focus();
+  await page.keyboard.press('ArrowRight');
   await expect(cube.locator('#undoMove')).toBeEnabled();
   await cube.locator('#shape').selectOption('stella');
   const cubeState = (await capturePreset(page)).snapshot;
@@ -464,7 +465,10 @@ test('Page-transition lifecycle fixture preserves native state and sound through
   await page.goto('/rubixoids.html');
   for (const dimension of ['3d', '2d', '4d']) {
     const view = await selectDimension(page, dimension);
-    if (dimension === '3d') await view.locator('#moveRight').click();
+    if (dimension === '3d') {
+      await view.locator('#stage').focus();
+      await page.keyboard.press('ArrowRight');
+    }
     else if (dimension === '2d') await view.locator('.sliding-tile.can-slide').first().click();
     else await view.locator('#turnClockwise').click();
     await expect.poll(async () => (await captureMounted())[dimension].history.length).toBe(1);

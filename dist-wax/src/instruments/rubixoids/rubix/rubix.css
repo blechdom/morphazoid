@@ -759,15 +759,18 @@
   box-shadow: 0 0 5px color-mix(in oklab, var(--key-color) 38%, transparent);
 }
 
+.rubix-stage-wrap [hidden],
+.rubix-panel [hidden] {
+  display: none !important;
+}
+
 .rubix-geometry-control {
   display: grid;
   min-width: 0;
   margin: 0 0 10px;
-  padding: 9px;
-  border: 1px solid color-mix(in oklab, var(--accent) 25%, var(--line-strong));
-  background:
-    linear-gradient(100deg, color-mix(in oklab, var(--accent) 6%, transparent), transparent 68%),
-    var(--bg-deep);
+  padding: 0;
+  border: 0;
+  background: none;
   grid-template-columns: minmax(0, 1.15fr) minmax(112px, 0.85fr);
   align-items: start;
   gap: 7px;
@@ -839,15 +842,22 @@
   text-transform: uppercase;
 }
 
-.rubix-preset-control,
-.rubix-sound-bank-control,
-.rubix-acid-engine-control {
+.rubix-preset-control {
   margin: 0 0 12px;
   padding: 8px 9px;
   border: 1px solid color-mix(in oklab, var(--accent) 22%, var(--line-strong));
   background:
     linear-gradient(100deg, color-mix(in oklab, var(--accent) 5%, transparent), transparent 70%),
     var(--bg-deep);
+  gap: 6px;
+}
+
+.rubix-sound-bank-control,
+.rubix-acid-engine-control {
+  margin: 0 0 12px;
+  padding: 0;
+  border: 0;
+  background: none;
   gap: 6px;
 }
 
@@ -918,15 +928,13 @@
 .rubix-bank-subcontrols {
   min-width: 0;
   margin: 0 0 12px;
-  padding: 10px 10px 4px;
-  border: 1px solid color-mix(in oklab, var(--accent) 22%, var(--line-strong));
-  background:
-    linear-gradient(100deg, color-mix(in oklab, var(--accent) 4%, transparent), transparent 72%),
-    var(--bg-deep);
+  padding: 0;
+  border: 0;
+  background: none;
 }
 
 .rubix-bank-subcontrols legend {
-  padding: 0 6px;
+  padding: 0;
   color: var(--accent);
   font-size: 8px;
   font-weight: 700;
@@ -939,20 +947,6 @@
   color: var(--muted);
   font-size: 7px;
   line-height: 1.45;
-}
-
-.rubix-kit-bank-controls {
-  border-color: color-mix(in oklab, var(--rubix-cyan) 28%, var(--line-strong));
-}
-
-.rubix-acid-bank-controls {
-  border-color: color-mix(in oklab, var(--rubix-pink) 34%, var(--line-strong));
-}
-
-.rubix-bank-subcontrols:disabled,
-.rubix-bank-subcontrols.is-disabled {
-  border-color: var(--line-strong);
-  background: var(--bg-deep);
 }
 
 .rubix-bank-subcontrols:disabled > :not(legend):not(.rubix-bank-help) {
@@ -1262,11 +1256,7 @@
     font-size: 6px;
   }
 
-  .rubix-geometry-control,
-  .rubix-preset-control,
-  .rubix-sound-bank-control,
-  .rubix-acid-engine-control,
-  .rubix-bank-subcontrols {
+  .rubix-preset-control {
     padding-right: 8px;
     padding-left: 8px;
   }
@@ -1349,4 +1339,11 @@
   .puzzle-performance { --mz-control-height: 48px; }
   .puzzle-tempo-control { grid-template-columns: minmax(0, 1fr) 48px; }
   .puzzle-tempo-control > button { width: 48px; height: 48px; min-height: 48px; margin-bottom: 0; }
+}
+
+#bankSoundControls .select-control {
+  margin: 0 0 12px;
+  padding: 0;
+  border: 0;
+  background: none;
 }

@@ -114,7 +114,8 @@ test("Rubix puts Shape-style transport, twists, and read path first while retain
   for (const id of [
     "engineState", "sequenceState", "clockSummary", "readModeState", "stepStrip",
     "acidNow", "drumNow", "randomTwistHelp", "rubixPreset", "scoreSummary",
-    "scoreDescription", "laneList", "colorKey",
+    "scoreDescription", "laneList", "colorKey", "selectedSticker", "selectedSwatch",
+    "moveUp", "moveDown", "moveLeft", "moveRight",
   ]) {
     assert.ok(
       hidden.some((container) => container.includes(`id="${id}"`)),
@@ -132,16 +133,18 @@ test("Rubix puts Shape-style transport, twists, and read path first while retain
     { value: "stella", selected: false, label: "Stella · 8-point star" },
     { value: "orb", selected: false, label: "Orb · sphere" },
   ]);
-  assert.match(cubeMoves, /id="shapeState"[^>]*for="shape">Cube<\/output>/);
+  assert.match(openingTag(cubeMoves, "output", "shapeState"), /\bhidden\b/);
+  assert.match(openingTag(cubeMoves, "span", "moveSummary"), /\bhidden\b/);
   const rubixSize = openingTag(cubeMoves, "input", "rubixSize");
   assert.equal(attribute(rubixSize, "type"), "range");
   assert.equal(attribute(rubixSize, "min"), "2");
   assert.equal(attribute(rubixSize, "max"), "6");
   assert.equal(attribute(rubixSize, "step"), "1");
   assert.equal(attribute(rubixSize, "value"), "3");
-  assert.equal(attribute(rubixSize, "aria-describedby"), "rubixFormHelp");
+  assert.equal(attribute(rubixSize, "aria-describedby"), null);
   assert.match(cubeMoves, /id="rubixSizeOut"[^>]*for="rubixSize">3 × 3<\/output>/);
-  assert.match(cubeMoves, /id="rubixFormHelp">Cube turns · visual form · release Size to load<\/small>/);
+  assert.doesNotMatch(cubeMoves, /Cube turns · visual form/);
+  assert.match(openingTag(cubeMoves, "small", "rubixFormHelp"), /\bhidden\b/);
   assert.ok(
     cubeMoves.indexOf('id="shape"') < cubeMoves.indexOf('id="rubixSize"'),
     "Shape should precede Size in Cube moves",

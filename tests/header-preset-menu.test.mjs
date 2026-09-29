@@ -285,3 +285,28 @@ test(`main preset menu has only full scene choices and preserves control order (
   }
 });
 }
+
+
+test("shadow-host retargeting preserves preset clicks and arrow shortcuts, while outside clicks dismiss", () => {
+  const fixture = randomFixture();
+  try {
+    const root = fixture.doc.querySelector(".header-preset-controls");
+    const picker = fixture.doc.querySelector(".header-preset-picker");
+    const summary = fixture.doc.querySelector(".instrument-picker-trigger");
+    const button = fixture.doc.querySelector(".instrument-picker-link");
+    const shadowHost = fixture.doc.createElement("section");
+    picker.open = true;
+    fixture.doc.emit("pointerdown", { target: shadowHost, composedPath: () => [button, picker, root, shadowHost] });
+    assert.equal(picker.open, true, "pointerdown inside the shadow menu must leave its click target visible");
+    button.emit("click");
+    assert.equal(fixture.controller.selectedId, "p-0");
+    fixture.doc.emit("keydown", {
+      key: "ArrowRight", target: shadowHost, composedPath: () => [summary, picker, root, shadowHost],
+      preventDefault() {}, stopImmediatePropagation() {},
+    });
+    assert.equal(fixture.controller.selectedId, "p-1");
+    picker.open = true;
+    fixture.doc.emit("pointerdown", { target: shadowHost, composedPath: () => [shadowHost] });
+    assert.equal(picker.open, false);
+  } finally { fixture.controller.destroy(); }
+});

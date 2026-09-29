@@ -49,6 +49,19 @@ for (const target of targets) for (const viewport of [{ width: 1440, height: 900
         await expect(panel).not.toContainText('Sticker colors choose kick');
         await expect(panel.locator('summary')).not.toContainText(['Clock', 'Visible score']);
         await expect(scope.locator('#readPath option')).toHaveText(['Rows', 'Snake', 'Face pairs']);
+        for (const selector of ['#shapeState', '#moveSummary', '.rubix-selected-sticker', '.rubix-move-pad']) {
+          await expect(scope.locator(selector)).toBeHidden();
+        }
+        await expect(scope.locator('#rubixFormHelp')).toBeHidden();
+        for (const id of ['shape', 'rubixSize', 'scrambleCube', 'solveCube', 'undoMove', 'resetView']) {
+          await scope.locator(`#${id}`).scrollIntoViewIfNeeded();
+          await expect(scope.locator(`#${id}`)).toBeInViewport();
+        }
+        const shapeGroup = scope.locator('.rubix-shape-size-controls');
+        await expect(shapeGroup).toHaveCSS('border-top-width', '0px');
+        await expect(shapeGroup).toHaveCSS('padding-top', '0px');
+        await expect(shapeGroup).toHaveCSS('padding-left', '0px');
+        await expect(shapeGroup).toHaveCSS('background-image', 'none');
       }
       await expect(scope.locator('#playButton')).toHaveClass('play-button');
       await scope.locator('#tempo').scrollIntoViewIfNeeded();

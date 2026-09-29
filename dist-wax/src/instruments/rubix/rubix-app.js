@@ -1,3 +1,6 @@
+import { RubixKitCache } from "./kit-cache.js";
+import { createRubixSoundPanel } from "./sound-panel.js";
+import { RUBIX_BANK_CONTROLS, rubixBankParams, changeRubixBankParam, cloneRubixBankParams, rubixRenderedParams, rubixVoiceWithParams, rubixExtraSettings, rubixBankFrequency } from "./sound-params.js";
 import { MorphazoidDrumRenderer } from "../../families/percussion/drum-renderer.js";
 import { canvasLocalPoint } from "../../graphics/pointer-coordinates.js";
 import { registerHeaderPresets } from "../../site/header-presets.js";
@@ -355,7 +358,9 @@ class RubixAudioEngine {
     this.lastAcidFrequency = midiFrequency(52);
     this.lifecycleGeneration = 0;
     this.stickerMixer = null;
-    this.kitBuffers = new Map();
+    this.kitCache = new RubixKitCache();
+    this.kitBuffers = this.kitCache.buffers;
+    this.kitRefreshTimer = null;
     this.activeSources = new Set();
     this.acidFrequencies = new Map();
   }
@@ -383,6 +388,7 @@ class RubixAudioEngine {
       error.name = "AbortError";
       throw error;
     }
+    this.sharedSettings = { ...settings };
     if (settings.soundBank !== "acid-303") await this.prepareKit(settings.soundBank);
     this.updateSettings(settings);
     return context;
@@ -437,6 +443,12 @@ class RubixAudioEngine {
       ? settings.soundBank
       : DEFAULTS.soundBank;
     const acidSelected = this.soundBank === "acid-303";
+    this.soundParameters = rubixBankParams(this.soundBank, settings.bankParams, settings);
+    const bankDrive = this.soundBank === "karplus-strong" ? this.soundParameters.drive : 1;
+    if (this.bankDrive !== bankDrive) {
+      this.bankDrive = bankDrive;
+      this.bankDriveCurve = bankDrive > 1 ? this.distortionCurve(bankDrive) : null;
+    }
     this.setBankGain(
       this.drumBus,
       acidSelected ? 0 : clamp(settings.drumLevel, 0, 1),
@@ -589,32 +601,44 @@ class RubixAudioEngine {
     this.trackSource(oscillator, [sawGain, subGain, filter, shaper, vca], sticker, when, decayEnd + 0.03);
   }
 
+  refreshKit(bankId = this.soundBank) {
+    if (this.kitRefreshTimer != null) this.runtime.clearTimeout(this.kitRefreshTimer);
+    this.kitRefreshTimer = null;
+    if (!this.context || bankId.startsWith("shared-") || bankId === "acid-303") return;
+    this.kitRefreshTimer = this.runtime.setTimeout(() => {
+      this.kitRefreshTimer = null;
+      void this.prepareKit(bankId).catch(error => { if (this.context) showError(error); });
+    }, 100);
+  }
+
   async prepareKit(bankId) {
     if (!this.context || !PERCUSSION_SOUND_BANK_IDS.includes(bankId)) return;
     if (bankId.startsWith("shared-")) return this.sharedVoices.prepare(this.context, this.compressor);
-    if (this.kitBuffers.has(bankId)) return this.kitBuffers.get(bankId);
     const liveContext = this.context;
     const noiseBuffer = this.noiseBuffer;
     const sampleRate = liveContext.sampleRate;
     const OfflineContext = this.runtime.OfflineAudioContext ?? this.runtime.webkitOfflineAudioContext;
     if (!OfflineContext) throw new Error("Offline audio rendering is unavailable.");
-    const pending = (async () => {
+    const params = { ...rubixBankParams(bankId, this.sharedSettings?.bankParams, this.sharedSettings) };
+    const sourceVoices = this.voices.map(voice => sanitizeFmDrumVoice(voice));
+    const key = JSON.stringify([sourceVoices, rubixRenderedParams(bankId, params)]);
+    const result = await this.kitCache.request(bankId, key, async current => {
       const buffers = [];
       const usedVoices = new Set([
         ...Object.values(RUBIX_DRUM_LEFT_VOICE_BY_COLOR),
         ...Object.values(RUBIX_DRUM_RIGHT_VOICE_BY_COLOR),
       ]);
       for (const voiceIndex of usedVoices) {
-        if (this.context !== liveContext) {
-          const error = new Error("Rubix kit rendering cancelled.");
-          error.name = "AbortError";
-          throw error;
-        }
-        const voice = sanitizeFmDrumVoice(this.voices[voiceIndex]);
+        if (!current() || this.context !== liveContext) return null;
+        // String generation stays on its original prepared path. Live string
+        // edits use source envelopes/filters, avoiding synchronous JS synthesis.
+        const voice = bankId === "karplus-strong" ? sourceVoices[voiceIndex]
+          : sanitizeFmDrumVoice(rubixVoiceWithParams(sourceVoices[voiceIndex], params));
         const context = new OfflineContext(2, Math.ceil(sampleRate * 1.8), sampleRate);
         let buffer;
         if (Object.hasOwn(RUBIX_EXTRA_KITS, bankId)) {
-          buffer = await renderRubixExtraDrum(context, voice, bankId);
+          const extra = bankId === "karplus-strong" ? {} : rubixExtraSettings(bankId, params);
+          buffer = await renderRubixExtraDrum(context, voice, bankId, extra);
         } else {
           const renderer = new MorphazoidDrumRenderer(context, noiseBuffer);
           const method = {
@@ -624,19 +648,15 @@ class RubixAudioEngine {
           renderer[method](voice, 0, 1, context.destination);
           buffer = await context.startRendering();
         }
+        if (!current() || this.context !== liveContext) return null;
         buffers[voiceIndex] = trimRubixDrumBuffer(liveContext, normalizeRubixDrumBuffer(buffer));
+        // Let the audio scheduler run between bounded offline voice renders.
+        await new Promise(resolve => this.runtime.setTimeout(resolve, 0));
       }
       return buffers;
-    })();
-    this.kitBuffers.set(bankId, pending);
-    try {
-      const buffers = await pending;
-      if (this.kitBuffers.get(bankId) === pending) this.kitBuffers.set(bankId, buffers);
-      return buffers;
-    } catch (error) {
-      if (this.kitBuffers.get(bankId) === pending) this.kitBuffers.delete(bankId);
-      throw error;
-    }
+    });
+    if (!result && this.context === liveContext) return this.prepareKit(bankId);
+    return result;
   }
 
   trackSource(source, nodes = [], sticker = null, startAt = 0, stopAt = Infinity) {
@@ -662,15 +682,17 @@ class RubixAudioEngine {
     const bus = this.drumBankBuses.get(bankId);
     const destination = sticker ? this.stickerMixer.destination(sticker.id, bus) : bus;
     if (!destination) return;
+    const params = bankId === this.soundBank && this.soundParameters
+      ? this.soundParameters : rubixBankParams(bankId, this.sharedSettings?.bankParams, this.sharedSettings);
     const safeGain = clamp(laneGain, 0, 1.4);
     if (safeGain <= 0) return;
     if (bankId.startsWith("shared-")) {
-      const settings = this.sharedSettings ?? DEFAULTS;
       const midi = (RUBIX_ACID_MIDI_BY_COLOR[sticker?.color] ?? 40) + 12;
       const handle = this.sharedVoices.trigger({
-        voice: bankId.slice(7), when, destination, frequency: midiFrequency(midi), velocity: safeGain * 0.72,
-        duration: clamp(settings.acidDecay, 0.04, 0.72), release: 0.055,
-        brightness: clamp((settings.cutoff - 160) / 4040, 0, 1), resonance: settings.resonance, drive: settings.drive,
+        voice: bankId.slice(7), when, destination, frequency: rubixBankFrequency(midiFrequency(midi), sticker?.color, params), velocity: safeGain * 0.72,
+        duration: params.duration, attack: params.attack, decay: params.decay, sustain: params.sustain, release: params.release,
+        brightness: params.brightness, cutoff: params.cutoff, resonance: params.resonance, drive: params.drive,
+        character: params.character, pan: params.pan,
       });
       if (handle) {
         handle.source.rubixStickerId = sticker?.id;
@@ -685,11 +707,44 @@ class RubixAudioEngine {
     if (!Array.isArray(buffers)) return;
     const source = this.context.createBufferSource();
     source.buffer = buffers[voiceIndex] ?? buffers[0];
+    const voice = this.voices[voiceIndex] ?? this.voices[0];
+    const rate = rubixBankFrequency(voice.frequency, sticker?.color, params) / voice.frequency;
+    source.playbackRate.setValueAtTime(rate, when);
+    const naturalDuration = source.buffer.duration / rate;
+    const duration = Math.min(6, naturalDuration * (params.length ?? 1));
+    const shorten = duration < naturalDuration;
     const level = this.context.createGain();
+    const nodes = [level];
     level.gain.value = safeGain;
-    source.connect(level).connect(destination);
+    if (params.attack > 0) {
+      level.gain.setValueAtTime(0, when);
+      level.gain.linearRampToValueAtTime(safeGain, when + Math.min(params.attack, duration * .4));
+    }
+    if (shorten) {
+      level.gain.setValueAtTime(safeGain, when + Math.max(duration * .5, duration - .025));
+      level.gain.linearRampToValueAtTime(0, when + duration);
+    }
+    let tail = source;
+    if (params.filter < 20000 || params.resonance > 0) {
+      const filter = this.context.createBiquadFilter(); filter.type = "lowpass";
+      filter.frequency.value = Math.min(this.context.sampleRate * .44, params.filter);
+      filter.Q.value = params.resonance;
+      tail.connect(filter); tail = filter; nodes.push(filter);
+    }
+    if (params.drive > 1) {
+      const shaper = this.context.createWaveShaper();
+      // Curves are prepared by the edit handler, never inside the note scheduler.
+      shaper.curve = this.bankDriveCurve;
+      tail.connect(shaper); tail = shaper; nodes.push(shaper);
+    }
+    tail.connect(level);
+    if (params.pan && this.context.createStereoPanner) {
+      const panner = this.context.createStereoPanner(); panner.pan.value = params.pan;
+      level.connect(panner).connect(destination); nodes.push(panner);
+    } else level.connect(destination);
     source.start(when);
-    this.trackSource(source, [level], sticker, when, when + source.buffer.duration);
+    if (shorten) source.stop(when + duration + .002);
+    this.trackSource(source, nodes, sticker, when, when + duration);
   }
 
   async close() {
@@ -701,7 +756,9 @@ class RubixAudioEngine {
     this.context = null;
     this.stickerMixer?.dispose();
     this.stickerMixer = null;
-    this.kitBuffers.clear();
+    if (this.kitRefreshTimer != null) this.runtime.clearTimeout(this.kitRefreshTimer);
+    this.kitRefreshTimer = null;
+    this.kitCache.clear();
     this.activeSources.clear();
     this.acidFrequencies.clear();
     this.compressor = null;
@@ -735,8 +792,16 @@ const state = {
   readingMode: DEFAULT_READING_MODE,
   shapeId: DEFAULT_SHAPE_ID,
   presetId: "classic",
+  bankParams: null,
   ...DEFAULTS,
 };
+
+const soundPanel = createRubixSoundPanel(document, (bank, key, value) => {
+  state.bankParams = changeRubixBankParam(state.bankParams, bank, key, value, state);
+  markPresetCustom();
+  audio.updateSettings(state);
+  if (RUBIX_BANK_CONTROLS[bank].find(control => control.key === key)?.render) audio.refreshKit(bank);
+});
 
 let sequenceSnapshot = createRubixSequenceSnapshot(state.cube, state.camera);
 state.selectedStickerId = sequenceSnapshot.lanes.acid[middleFaceIndex()].id;
@@ -756,6 +821,7 @@ let activeAcidEngine = DEFAULT_ACID_ENGINE;
 let soundBankLifecycleGeneration = 0;
 let soundBankTransportResumeRequested = false;
 let transportLifecycleGeneration = 0;
+let transportStartPending = false;
 let schedulerTimer = null;
 let randomTwistTimer = null;
 let lastRandomMove = null;
@@ -1179,6 +1245,7 @@ function renderLaneList() {
 }
 
 function renderFaceBadges() {
+  if ($("faceBadges").hidden) return;
   const entries = Object.keys(sequenceSnapshot.faceLanes).map((face) => [RUBIX_FACE_ROLES[face], face]);
   const fragment = document.createDocumentFragment();
   const audibleRoles = soundBankRoleSet();
@@ -1315,10 +1382,12 @@ function updateReadouts() {
     ["acidBankControls", !acidBankSelected],
   ]) {
     const fieldset = $(id);
+    fieldset.hidden = disabled;
     fieldset.disabled = disabled;
     fieldset.classList.toggle("is-disabled", disabled);
     fieldset.setAttribute("aria-disabled", String(disabled));
   }
+  soundPanel.update(state.soundBank, state.bankParams, state);
   updateAcidEngineUi();
   renderColorKey();
   $("randomTwistSpeed").value = String(state.randomTwistSpeed);
@@ -1408,6 +1477,7 @@ function updateSnapshot({ announceChange = false } = {}) {
 }
 
 function updateNowPlaying(frame = currentReadFrame()) {
+  if ($("stageReadout").closest("[hidden]") && $("faceBadges").hidden) return;
   const events = frame.activeRoles.flatMap((role) => performanceEventsForRole(role, frame))
     .filter(({ gain }) => gain > 0);
   const readout = events.map(({ face, gain }) => `${FACE_SHORT[face]} ${Math.round(gain * 100)}%`).join(" · ");
@@ -2198,6 +2268,7 @@ async function applyRubixPreset(presetId, shouldAnnounce = true) {
   randomTwistTimer = null;
   state.presetId = preset.id;
   Object.assign(state, DEFAULTS, preset.settings, levels);
+  state.bankParams = null;
   state.simdPresetCustom = Object.entries(rubixSimdPreset(state.simdPreset).controls)
     .some(([key, value]) => state[key] !== value);
   setRubixForm({ shapeId: preset.shapeId, size: preset.size }, false);
@@ -2244,6 +2315,7 @@ async function resetSound() {
   const wasPlaying = state.playing;
   if (wasPlaying) stopTransport();
   Object.assign(state, SOUND_DEFAULTS);
+  state.bankParams = null;
   state.presetId = "";
   audio.updateSettings(state);
   audio.setOutput(state.output);
@@ -2718,11 +2790,19 @@ async function disableAudio() {
 async function startTransport({ restart = false } = {}) {
   if (!rubixoidsEmbeddedActive) return false;
   if (state.playing && !restart) return;
+  const generation = ++transportLifecycleGeneration;
+  // Play may follow an explicit Audio click before preparation finishes.
+  // Wait for that existing request; Play never creates or resumes Audio itself.
+  if (audioStartPromise && !state.audioOn) {
+    setTransportStartPending(true);
+    try { await audioStartPromise; }
+    finally { if (generation === transportLifecycleGeneration) setTransportStartPending(false); }
+    if (generation !== transportLifecycleGeneration || !rubixoidsEmbeddedActive) return false;
+  }
   if (!state.audioOn || !audio.context) {
     announce("Turn Audio on before playing the Rubix sequencer.");
     return false;
   }
-  const generation = ++transportLifecycleGeneration;
   if (schedulerTimer !== null) clearTimeout(schedulerTimer);
   clearVisualTimers();
   let transportStartTime = audio.context.currentTime + 0.055;
@@ -2769,8 +2849,16 @@ async function startTransport({ restart = false } = {}) {
   return true;
 }
 
+function setTransportStartPending(pending) {
+  transportStartPending = pending;
+  if (pending) $("playButton").setAttribute("aria-busy", "true");
+  else $("playButton").removeAttribute("aria-busy");
+  if (!state.playing) $("playLabel").textContent = pending ? "Cancel play" : "Play cube";
+}
+
 function stopTransport() {
   transportLifecycleGeneration += 1;
+  setTransportStartPending(false);
   state.playing = false;
   if (schedulerTimer !== null) clearTimeout(schedulerTimer);
   schedulerTimer = null;
@@ -2807,7 +2895,7 @@ function bindRange(id, key, format, onInput = () => {}) {
 
 
 $("audioButton").addEventListener("click", async () => {
-  if (state.audioOn) {
+  if (state.audioOn || audioStartPromise) {
     await disableAudio();
     announce("Rubix audio off.");
   } else if (await enableAudio()) {
@@ -2816,7 +2904,7 @@ $("audioButton").addEventListener("click", async () => {
 });
 
 $("playButton").addEventListener("click", async () => {
-  if (state.playing) {
+  if (state.playing || transportStartPending) {
     stopTransport();
     announce("Rubix sequencer paused.");
   } else {
@@ -3041,9 +3129,11 @@ $("rubixPreset").closest(".rubix-preset-control").hidden = true;
     settings: Object.fromEntries(RUBIX_PRESET_SETTING_KEYS.map(key => [key, state[key]])),
     cube: state.cube, camera: state.camera, shapeId: state.shapeId,
     readingMode: state.readingMode, drumVoices: voices,
+    ...(state.bankParams ? { bankParams: cloneRubixBankParams(state.bankParams) } : {}),
   }),
   apply(snapshot) {
     validateRubixFullPreset(snapshot);
+    state.bankParams = cloneRubixBankParams(snapshot.bankParams);
     const previousEngine = activeAcidEngine;
     const needsActivation = state.soundBank !== snapshot.settings.soundBank
       || state.acidEngine !== snapshot.settings.acidEngine;
@@ -3070,6 +3160,7 @@ $("rubixPreset").closest(".rubix-preset-control").hidden = true;
     audio.setSoundBank(state.soundBank, state);
     audio.updateSettings(state);
     audio.setOutput(state.output);
+    audio.refreshKit(state.soundBank);
     syncReadingModeControls();
     updateSnapshot();
     state.selectedStickerId = sequenceSnapshot.lanes.acid[middleFaceIndex()].id;
@@ -3098,6 +3189,7 @@ export const rubixoidsNative = {
       settings: {
         ...Object.fromEntries(Object.keys(DEFAULTS).map(key => [key, state[key]])),
         readingMode: state.readingMode, shape: state.shapeId, rubixSize: state.cube.size,
+        ...(state.bankParams ? { bankParams: cloneRubixBankParams(state.bankParams) } : {}),
       },
       native: JSON.parse(JSON.stringify({
         cube: state.cube, camera: state.camera, voices, selectedStickerId: state.selectedStickerId,
@@ -3113,6 +3205,12 @@ export const rubixoidsNative = {
   },
   async applySettings(patch = {}) {
     for (const [key, value] of Object.entries(patch)) {
+      if (key === "bankParams") {
+        state.bankParams = cloneRubixBankParams(value);
+        audio.updateSettings(state); audio.refreshKit(state.soundBank);
+        soundPanel.update(state.soundBank, state.bankParams, state);
+        continue;
+      }
       if (key === "soundBank") { await selectSoundBank(value, { announceChange: false }); continue; }
       if (key === "acidEngine") { await selectAcidEngine(value, { announceChange: false }); continue; }
       if (key === "readingMode") {
@@ -3138,6 +3236,8 @@ export const rubixoidsNative = {
   async deactivate() {
     if (!RUBIXOIDS_EMBEDDED || !rubixoidsEmbeddedActive) return this.capture();
     const resumePlaying = state.playing || soundBankTransportResumeRequested;
+    transportLifecycleGeneration += 1;
+    setTransportStartPending(false);
     rubixoidsEmbeddedActive = false;
     rubixoidsActivation += 1;
     rubixoidsHiddenAt = performance.now();

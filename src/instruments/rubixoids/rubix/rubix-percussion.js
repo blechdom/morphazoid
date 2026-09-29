@@ -12,7 +12,7 @@ export const RUBIX_EXTRA_KITS = Object.freeze({
  * Render the existing Rattlesnake/Karplus engine once per voice, never on the
  * real-time scheduler. Rubix owns the context, gain, visibility and transport.
  */
-export async function renderRubixExtraDrum(context, voice, bankId) {
+export async function renderRubixExtraDrum(context, voice, bankId, soundSettings = {}) {
   const engine = new LinearDrumAudio({});
   engine.context = context;
   engine.input = context.destination;
@@ -30,6 +30,7 @@ export async function renderRubixExtraDrum(context, voice, bankId) {
     brightness: voice.tone,
     // Short, bounded strings rather than the long standalone instrument tails.
     karplusMorphOrder: ["muted", "nylon", "kalimba", "rubber"],
+    ...soundSettings,
   }, { startAt: 0, velocity: 0.9, preserveDuration: true });
   return context.startRendering();
 }

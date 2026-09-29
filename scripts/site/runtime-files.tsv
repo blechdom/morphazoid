@@ -1165,3 +1165,9 @@ copy+require	src/instruments/l-systems/branch-parameters.js
 copy+require	src/instruments/l-systems/sound-engines.js
 copy+require	src/instruments/l-systems/mic-delay-audio.js
 copy+require	src/instruments/l-systems/full-presets.js
+copy+require	src/instruments/rubix/sound-params.js
+copy+require	src/instruments/rubix/sound-panel.js
+copy+require	src/instruments/rubix/kit-cache.js
+copy+require	src/instruments/rubixoids/rubix/sound-params.js
+copy+require	src/instruments/rubixoids/rubix/sound-panel.js
+copy+require	src/instruments/rubixoids/rubix/kit-cache.js

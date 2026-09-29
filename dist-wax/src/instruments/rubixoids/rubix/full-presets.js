@@ -1,3 +1,4 @@
+import { validateRubixBankParams, randomizeRubixBankParams } from "./sound-params.js";
 import { SEQUENCER_VOICES } from "../audio/sequencer-voice-renderer.js";
 import { RUBIX_DEFAULTS, RUBIX_FACTORY_PRESETS } from "./factory-presets.js";
 import { createSolvedRubixCube, turnRubixLayer, rubixLayersForSize, DEFAULT_RUBIX_CAMERA, createRubixSequenceSnapshot } from "./rubix.js";
@@ -62,6 +63,8 @@ export const RUBIX_FULL_PRESETS = Object.freeze([
 
 export function validateRubixFullPreset(snapshot) {
   presetStateKey(snapshot);
+  if (Object.hasOwn(snapshot, "bankParams") && snapshot.bankParams == null) throw new TypeError("Omit empty Rubix bank parameters");
+  validateRubixBankParams(snapshot.bankParams);
   const { settings: s, cube, camera, drumVoices } = snapshot;
   if (!s || Object.keys(s).length !== RUBIX_PRESET_SETTING_KEYS.length
     || RUBIX_PRESET_SETTING_KEYS.some(key => !Object.hasOwn(s, key))) throw new TypeError("Incomplete Rubix settings");
@@ -96,6 +99,7 @@ export function randomizeRubixPreset(current, random = Math.random) {
   simdPreset: rng.pick(RUBIX_SIMD_PRESETS).id, simdPresetCustom: true,
   soundBank: rng.pick(banks), randomTwists: rng.pick([true, false]) };
   return validateRubixFullPreset({
+    bankParams: randomizeRubixBankParams(rng),
     settings: s, cube: clonePresetData(cube), shapeId: rng.pick(shapes), readingMode: rng.pick(["parallel", "snake", "face"]),
     camera: { x: rng.between(-55, 55), y: rng.between(-180, 180), z: rng.between(-25, 25) },
     // Modify only the in-memory copies; never write over the user's saved bank.

@@ -95,18 +95,18 @@
           </canvas>
 
           <div class="rubix-heading">
-            <p>GEOMETRY · ONE SOUND BANK</p>
+            <p hidden>GEOMETRY · ONE SOUND BANK</p>
             <h1 id="rubixTitle">Rubix</h1>
-            <span>what is visible is what is heard</span>
+            <span hidden>what is visible is what is heard</span>
           </div>
 
-          <div class="rubix-face-badges" id="faceBadges" aria-hidden="true"></div>
+          <div class="rubix-face-badges" id="faceBadges" aria-hidden="true" hidden></div>
 
-          <div class="stage-meta" aria-hidden="true">
+          <div class="stage-meta" aria-hidden="true" hidden>
             <span id="stageReadout">VISIBLE U / F / R · STEP 1/9 · AUDIO OFF</span>
           </div>
 
-          <div class="rubix-gesture-hint" id="gestureHint" aria-hidden="true">
+          <div class="rubix-gesture-hint" id="gestureHint" aria-hidden="true" hidden>
             <span>DRAG A STICKER TO TWIST · DRAG EMPTY SPACE TO ORBIT</span>
           </div>
         </div>
@@ -211,7 +211,7 @@
         <details class="group control-section rubix-control-section" data-section="form" open>
           <summary class="group-summary">
             <h2 class="group-title">Cube moves</h2>
-            <span class="section-state" id="moveSummary">manual · no selection</span>
+            <span class="section-state" id="moveSummary" hidden>manual · no selection</span>
           </summary>
           <div class="group-body">
             <fieldset class="rubix-geometry-control rubix-shape-size-controls">
@@ -219,7 +219,7 @@
               <label class="select-control rubix-shape-control" for="shape">
                 <span>
                   <b>Shape</b>
-                  <output id="shapeState" for="shape">Cube</output>
+                  <output id="shapeState" for="shape" hidden>Cube</output>
                 </span>
                 <span class="select-shell">
                   <select id="shape" aria-label="Puzzle visual shape">
@@ -244,11 +244,10 @@
                   step="1"
                   value="3"
                   aria-valuetext="3 by 3, 3 layers per face"
-                  aria-describedby="rubixFormHelp"
                 />
                 <small class="rubix-size-limits" aria-hidden="true"><span>2</span><span>6</span></small>
               </label>
-              <small class="rubix-form-note" id="rubixFormHelp">Cube turns · visual form · release Size to load</small>
+              <small id="rubixFormHelp" hidden></small>
             </fieldset>
             <div class="rubix-cube-actions" role="group" aria-label="Cube arrangement actions">
               <button class="mini-action" id="scrambleCube" type="button">Scramble 18</button>
@@ -257,11 +256,11 @@
               <button class="mini-action" id="resetView" type="button">Reset view</button>
             </div>
 
-            <div class="rubix-selected-sticker">
+            <div class="rubix-selected-sticker" hidden>
               <span><b>Selected sticker</b><small id="selectedSticker">tap a tile</small></span>
               <i id="selectedSwatch" aria-hidden="true"></i>
             </div>
-            <div class="rubix-move-pad" role="group" aria-label="Selected slice controls">
+            <div class="rubix-move-pad" role="group" aria-label="Selected slice controls" hidden>
               <button id="moveUp" type="button" aria-label="Move selected column up">↑<small>column</small></button>
               <button id="moveLeft" type="button" aria-label="Move selected row left">←<small>row</small></button>
               <span aria-hidden="true">SLICE</span>
@@ -274,13 +273,13 @@
         <details class="group control-section rubix-control-section rubix-sound-bank-section" data-section="sound" open>
           <summary class="group-summary">
             <h2 class="group-title">Sound bank</h2>
-            <span class="section-state" id="soundBankSummary">Soft FM kit</span>
+            <span class="section-state" id="soundBankSummary" hidden>Soft FM kit</span>
           </summary>
           <div class="group-body">
             <label class="select-control rubix-sound-bank-control" for="soundBank">
               <span>
                 <b>Active bank</b>
-                <output id="soundBankState" for="soundBank">Soft FM kit</output>
+                <output id="soundBankState" for="soundBank" hidden>Soft FM kit</output>
               </span>
               <span class="select-shell">
                 <select
@@ -309,7 +308,7 @@
                   <option value="shared-sine">Sine</option>
                 </select>
               </span>
-              <small id="soundBankHelp">
+              <small id="soundBankHelp" hidden>
                 One bank plays at a time · all six faces run · only visible stickers sound
               </small>
             </label>
@@ -318,7 +317,7 @@
               id="soundBankStatus"
               role="status"
               aria-live="polite"
-            >
+             hidden>
               Soft FM kit active · all visible faces · 303 muted
             </small>
 
@@ -327,31 +326,33 @@
               id="kitBankControls"
               aria-describedby="kitBankHelp"
             >
-              <legend>Drum kit controls</legend>
-              <p class="rubix-bank-help" id="kitBankHelp">
+              <legend class="sr-only">Sound controls</legend>
+              <p class="rubix-bank-help" id="kitBankHelp" hidden>
                 Selected kit · all visible faces · 303 muted
               </p>
               <label class="control" for="drumLevel">
-                <span><b>Kit level</b><output id="drumLevelOut" for="drumLevel">54%</output></span>
+                <span><b>Level</b><output id="drumLevelOut" for="drumLevel">54%</output></span>
                 <input id="drumLevel" type="range" min="0" max="1" step="0.01" value="0.54" />
               </label>
+              <div id="bankSoundControls"></div>
 
             </fieldset>
 
             <fieldset
               class="rubix-bank-subcontrols rubix-acid-bank-controls is-disabled"
               id="acidBankControls"
+              hidden
               aria-describedby="acidBankHelp"
               disabled
             >
-              <legend>303 acid controls</legend>
-              <p class="rubix-bank-help" id="acidBankHelp">
+              <legend class="sr-only">303 acid controls</legend>
+              <p class="rubix-bank-help" id="acidBankHelp" hidden>
                 Classic or SIMD 303 · all visible faces · drum kit muted
               </p>
               <label class="select-control rubix-acid-engine-control" for="acidEngine">
                 <span>
                   <b>303 engine</b>
-                  <output id="acidEngineState" for="acidEngine">SIMD 303</output>
+                  <output id="acidEngineState" for="acidEngine" hidden>SIMD 303</output>
                 </span>
                 <span class="select-shell">
                   <select
@@ -363,21 +364,21 @@
                     <option value="simd-303" selected>SIMD · sticker modulation</option>
                   </select>
                 </span>
-                <small id="acidEngineHelp">
+                <small id="acidEngineHelp" hidden>
                   Classic uses color pitch · SIMD also maps row, column, edge, face, and visibility
                 </small>
               </label>
               <label class="select-control rubix-acid-engine-control" for="simdPreset">
                 <span>
                   <b>SIMD sound</b>
-                  <output id="simdPresetState" for="simdPreset">Color circuit</output>
+                  <output id="simdPresetState" for="simdPreset" hidden>Color circuit</output>
                 </span>
                 <span class="select-shell">
                   <select id="simdPreset" aria-label="SIMD 303 sound preset" aria-describedby="simdPresetHelp">
                     <option value="" disabled>Custom sound</option>
                   </select>
                 </span>
-                <small id="simdPresetHelp">Sound only · keeps volume, cube, tempo and transport.</small>
+                <small id="simdPresetHelp" hidden>Sound only · keeps volume, cube, tempo and transport.</small>
               </label>
               <label
                 class="control rubix-sticker-modulation is-disabled"
@@ -399,7 +400,7 @@
                   disabled
                 />
               </label>
-              <small class="rubix-acid-engine-status" id="acidEngineStatus" role="status" aria-live="polite">
+              <small class="rubix-acid-engine-status" id="acidEngineStatus" role="status" aria-live="polite" hidden>
                 SIMD support is checked in this browser
               </small>
               <label class="control" for="cutoff">

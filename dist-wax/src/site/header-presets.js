@@ -236,7 +236,11 @@ export function mountHeaderPresets(doc) {
   listen(details, "toggle", () => {
     if (!details.open && searchInput.value) { searchInput.value = ""; filter(); }
   });
-  listen(doc, "pointerdown", event => { if (details.open && !root.contains(event.target)) details.open = false; });
+  listen(doc, "pointerdown", event => {
+    // Events from owned app views are retargeted to their shadow host.
+    const inside = event.composedPath?.().includes(root) || root.contains(event.target);
+    if (details.open && !inside) details.open = false;
+  });
   listen(root, "keydown", event => {
     // Do not let legacy performance shortcuts turn a header key into a note.
     event.stopPropagation();
@@ -247,7 +251,8 @@ export function mountHeaderPresets(doc) {
     }
   });
   listen(doc, "keydown", event => {
-    const direction = presetArrowDirection(event, { withinPicker: event.target === summary || event.target === next || event.target === dice });
+    const target = event.composedPath?.()[0] ?? event.target;
+    const direction = presetArrowDirection(event, { withinPicker: target === summary || target === next || target === dice });
     if (!direction) return;
     event.preventDefault();
     event.stopImmediatePropagation();

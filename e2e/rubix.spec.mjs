@@ -577,7 +577,8 @@ test('Rubix Play reuses prepared SIMD patterns and keeps paused score and tone e
   expect(await page.evaluate(() => window.__rubixPatternUpdates)).toBe(preparedCount);
   expect(await matchesNativeScore()).toBe(true);
   await page.locator('#playButton').click();
-  await page.locator('#moveRight').click();
+  await page.locator('#stage').focus();
+  await page.keyboard.press('ArrowRight');
   await expect(page.locator('#undoMove')).toBeEnabled();
   await expect.poll(matchesNativeScore).toBe(true);
   const turnedCount = await page.evaluate(() => window.__rubixPatternUpdates);

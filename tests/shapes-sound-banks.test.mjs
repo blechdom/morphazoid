@@ -123,7 +123,15 @@ test("feature reversal rejects missing or duplicated edits rather than weakening
   const {readFile} = await import("node:fs/promises");
   const {restoreShapesSoundBanks,shapesSoundBankChanges} = await import("./helpers/shapes-sound-banks-reference.mjs");
   const change = shapesSoundBankChanges[0];
-  const source = await readFile(new URL(`../${change.file}`,import.meta.url),"utf8");
+  let source = await readFile(new URL(`../${change.file}`,import.meta.url),"utf8");
+  // Later Rubix edits must be reversed before testing the frozen Shapes edit.
+  const later = JSON.parse(await readFile(new URL("../docs/rubixoids-runtime-changes.json", import.meta.url))).changes;
+  for (const amendment of later.filter(entry => entry.file === change.file)) {
+    for (const replacement of [...amendment.replacements].reverse()) {
+      assert.equal(source.split(replacement.after).length - 1, 1, "exactly one later Rubix amendment");
+      source = source.replace(replacement.after, replacement.before);
+    }
+  }
   const block = change.replacements[0].after;
   assert.notEqual(restoreShapesSoundBanks(source,change.file),source);
   assert.throws(() => restoreShapesSoundBanks(source.replace(block,""),change.file));
