@@ -53,7 +53,7 @@ import { SIMD_CHIPTUNE_PERFORMANCE_AXES, SIMD_CHIPTUNE_PERFORMANCE_DEFAULTS, SIM
   simdChiptuneStageSnapshot, createSimdChiptunePatternSection, SIMD_CHIPTUNE_LEVEL_KEYS, SIMD_CHIPTUNE_DRUM_LEVELS,
   readSimdChiptuneLevels, setSimdChiptuneLevel } from "../../instruments/simd-chiptune/performance.js";
 import { PARAM_GROUPS, PARAM_MODES, PARAM_SPECIAL, PARAM_LABELS, PARAM_NOTES } from "../../instruments/simd-chiptune/parameter-groups.js";
-import { createSimdControlDeck, createSequenceKnob } from "../../instruments/simd-chiptune/control-deck.js";
+import { createSimdControlDeck, createSequenceKnob, createSequenceScrollbar } from "../../instruments/simd-chiptune/control-deck.js";
 import { SKINS, drawSimdChiptuneDancer, normalizeChiptuneSkin } from "../../instruments/simd-chiptune/skins.js";
 import { createSimdPresetPicker, drawNoiseSweep } from "../../instruments/simd-chiptune/ui.js";
 
@@ -79,6 +79,7 @@ let simdLevelCache = null;
 let simdMeterTime = 0;
 let simdControlDeck = null;
 const simdEditorKnobs = new Map();
+const simdEditorScrollbars = new Map();
 
 const $ = (id) => document.getElementById(id);
 const clamp = (value, minimum, maximum) => Math.min(maximum, Math.max(minimum, Number(value) || 0));
@@ -1336,6 +1337,8 @@ let animationFrame = 0;
 let activeKnobDrag = null;
 let activeCharacterDrag = null;
 let activeSequenceDrag = null;
+const drumSequenceUndo = [];
+const drumSequenceRedo = [];
 let activeSequenceValueStep = null;
 let sequencePlayhead = -1;
 let lastSequenceTimingUi = 0;
@@ -2175,7 +2178,9 @@ function activeSequenceSpec() {
 }
 
 function performerEditorHint(performer, lane = state.activeSequenceLane) {
-  if (performer === "drums") return "Click selects. Double-click turns ON/OFF. Drag height for hit strength. Edits take effect on the next hit, without retriggering.";
+  if (performer === "drums") return simdBackend
+    ? "All four rows are editable. Tap a step for ON/OFF; drag height for volume, or across steps to paint. Edits take effect on the next hit."
+    : "Click selects. Double-click turns ON/OFF. Drag height for hit strength. Edits take effect on the next hit, without retriggering.";
   if (state.sequence.mode === "pattern") return lane === "arp"
     ? "Height is PITCH CONTOUR, not volume. Lower bars set step volume. Double-click toggles a step. No hidden octave motion or song gates."
     : "Height is PITCH. Lower bars set step volume. Double-click toggles a step. Each enabled step plays once; there are no hidden song gates.";
@@ -2737,10 +2742,10 @@ function syncSequenceControls() {
   $("sequenceVoiceTabs").style.setProperty("--visible-lane-count", String(performerLanes.length));
   $("sequenceVoiceTabs").setAttribute(
     "aria-label",
-    performer === "drums" ? "Drum part to edit" : selectedPerformerLabel() + " sequence",
+    performer === "drums" ? (simdBackend ? "Drum keyboard focus and mix" : "Drum part to edit") : selectedPerformerLabel() + " sequence",
   );
   $("sequenceLanePickerLabel").textContent = performer === "drums"
-    ? "DRUM KIT — CHOOSE ONE PART"
+    ? (simdBackend ? "DRUM KIT — ALL FOUR ROWS EDITABLE" : "DRUM KIT — CHOOSE ONE PART")
     : selectedPerformerLabel() + " SEQUENCE — CLICK A CHARACTER TO SWITCH VOICE";
   $("selectedPerformer").hidden = state.trackerView !== "sequence";
   const pageButtons = [
@@ -2899,7 +2904,8 @@ function syncSequenceControls() {
   if (simdBackend) {
     $("stage").setAttribute("aria-keyshortcuts", noise
       ? "ArrowLeft ArrowRight ArrowUp ArrowDown PageUp PageDown Home M S"
-      : "ArrowLeft ArrowRight ArrowUp ArrowDown PageUp PageDown Home End Enter Space A N R Delete");
+      : "ArrowLeft ArrowRight ArrowUp ArrowDown PageUp PageDown Home End Enter Space A N R Delete"
+        + (performer === "drums" ? " Control+Z Meta+Z Control+Shift+Z Meta+Shift+Z Control+Y Meta+Y" : ""));
     $("stage").setAttribute("aria-describedby", noise
       ? "characterPerformanceInstructions liveStatus"
       : state.trackerView === "sequence" ? "webgpuChiptuneDescription sequenceInstructions liveStatus"
@@ -2911,7 +2917,7 @@ function syncSequenceControls() {
   } else if (state.trackerView === "sequence") {
     $("stage").setAttribute(
       "aria-label",
-      "Focused live Chiptune sequence editor for "
+      (simdBackend && performer === "drums" ? "Four-row drum sequencer for " : "Focused live Chiptune sequence editor for ")
         + selectedPerformerLabel()
         + ". "
         + describeSequenceCell(lane, state.activeSequenceStep, selected, laneState.activeLength)
@@ -3003,8 +3009,7 @@ function syncSimdKnobs() {
   simdControlDeck.sync();
   for (const [key, knob] of simdEditorKnobs) {
     knob.sync();
-    knob.element.hidden = key === "pan" ? state.sequenceZoomSteps === 32
-      : (key === "pitch" || key === "center") && activeSequenceSpec().kind !== "steps";
+    knob.element.hidden = key === "pitch" && activeSequenceSpec().kind !== "steps";
   }
   for (const [key, dial] of knobControls) {
     const value = state.params[key], unit = webGpuChiptuneParamToUnit(key, value);
@@ -3019,9 +3024,16 @@ function syncSimdKnobs() {
 
 function selectedPerformerLabelFor(voice) { return WEBGPU_CHIPTUNE_PERFORMANCE_AXES[voice]?.label ?? voice; }
 
+function syncSimdScrollbars() {
+  const pitchLimit = 72 - state.sequencePitchSpan;
+  state.sequencePitchCenter = clamp(state.sequencePitchCenter, -pitchLimit, pitchLimit);
+  for (const scrollbar of simdEditorScrollbars.values()) scrollbar.sync();
+}
+
 function syncSimdWorkspace() {
   const pattern = state.sequence.mode === "pattern", noise = state.activeCharacterVoice === "noise";
   $("stageWrap").dataset.performer = state.activeCharacterVoice;
+  syncSimdScrollbars();
   $("trackerViewSequence").closest("fieldset").hidden = pattern || noise;
   $("patternSectionControls")?.toggleAttribute("hidden", !pattern);
   if ($("patternSection")) $("patternSection").value = String(state.patternSection);
@@ -3150,17 +3162,36 @@ function initializeSimdWorkspace() {
   const editorSpecs = {
     zoom: { label: "Zoom", min: 0, max: 2, read: () => zooms.indexOf(state.sequenceZoomSteps),
       format: value => zooms[value] + " steps", change: value => { state.sequenceZoomSteps = zooms[value]; syncSequenceControls(); } },
-    pan: { label: "X pan", min: 0, max: 3, read: () => state.sequencePage,
-      format: value => "Step " + (value * state.sequenceZoomSteps + 1), change: setSequencePage },
     pitch: { label: "Pitch view", min: 12, max: 72, step: 12, read: () => state.sequencePitchSpan,
       format: value => "±" + value + " st", change: value => { state.sequencePitchSpan = value; syncSequenceControls(); } },
-    center: { label: "Y pan", min: -36, max: 36, read: () => state.sequencePitchCenter,
-      format: value => value + " st", change: value => { state.sequencePitchCenter = value; syncSequenceControls(); } },
   };
   for (const [key, spec] of Object.entries(editorSpecs)) {
     const knob = createSequenceKnob(document, spec); knob.element.dataset.editorKnob = key;
+    knob.element.title = key === "pitch" ? "Visible pitch range only; does not change the notes or sound." : "Number of steps visible in the editor.";
     simdEditorKnobs.set(key, knob); $("simdSequenceControls").append(knob.element);
   }
+  const sequenceVisible = () => state.trackerView === "sequence" && state.activeCharacterVoice !== "noise";
+  const horizontalScroll = createSequenceScrollbar(document, {
+    label: "Scroll sequence steps", read: () => state.sequencePage,
+    bounds: () => ({ min: 0, max: sequenceVisible() ? 32 / state.sequenceZoomSteps - 1 : 0,
+      visible: state.sequenceZoomSteps, total: 32, pageStep: 1 }),
+    format: value => "Steps " + (value * state.sequenceZoomSteps + 1) + "–" + ((value + 1) * state.sequenceZoomSteps),
+    change: value => setSequencePage(value, { focus: false }),
+  });
+  horizontalScroll.element.id = "simdSequenceScrollX";
+  $("stageWrap").after(horizontalScroll.element);
+  simdEditorScrollbars.set("x", horizontalScroll);
+  const verticalScroll = createSequenceScrollbar(document, {
+    label: "Scroll pitch range", orientation: "vertical",
+    read: () => 72 - state.sequencePitchSpan - state.sequencePitchCenter,
+    bounds: () => ({ min: 0, max: sequenceVisible() && activeSequenceSpec().kind === "steps" ? 144 - state.sequencePitchSpan * 2 : 0,
+      visible: state.sequencePitchSpan * 2, total: 144, pageStep: 12 }),
+    format: () => { const [low, high] = sequenceVisiblePitchBounds(state.activeSequenceLane); return low + " to " + high + " semitones"; },
+    change: value => { state.sequencePitchCenter = 72 - state.sequencePitchSpan - value; syncSequenceControls(); },
+  });
+  verticalScroll.element.id = "simdSequenceScrollY";
+  $("stageWrap").append(verticalScroll.element);
+  simdEditorScrollbars.set("y", verticalScroll);
   $("sequenceZoom").closest("label").hidden = true; $("sequencePan").closest("label").hidden = true;
   const sequenceTools = document.querySelector(".simd-sequence-options");
   $("sequenceWorkspace").append(sequenceTools);
@@ -3311,7 +3342,7 @@ function syncPatternWorkspace() {
     return row;
   }));
   $("sequenceZoom").value = String(state.sequenceZoomSteps);
-  $("sequencePageControls").hidden = state.sequenceZoomSteps === 32;
+  $("sequencePageControls").hidden = simdBackend || state.sequenceZoomSteps === 32;
   $("sequencePan").max = String(32 / state.sequenceZoomSteps - 1);
   $("sequencePan").value = String(state.sequencePage);
   $("sequencePan").disabled = state.sequenceZoomSteps === 32;
@@ -3409,8 +3440,8 @@ function renderSequenceControls() {
       ));
       const index = availableDefinitions.findIndex(({ key }) => key === definition.key);
       let nextIndex = null;
-      if (event.key === "ArrowRight") nextIndex = (index + 1) % availableDefinitions.length;
-      else if (event.key === "ArrowLeft") {
+      if (event.key === "ArrowRight" || (simdBackend && definition.kind === "drums" && event.key === "ArrowDown")) nextIndex = (index + 1) % availableDefinitions.length;
+      else if (event.key === "ArrowLeft" || (simdBackend && definition.kind === "drums" && event.key === "ArrowUp")) {
         nextIndex = (index - 1 + availableDefinitions.length) % availableDefinitions.length;
       } else if (event.key === "Home") nextIndex = 0;
       else if (event.key === "End") nextIndex = availableDefinitions.length - 1;
@@ -3426,13 +3457,15 @@ function renderSequenceControls() {
     row.dataset.drumRow = definition.key;
     row.setAttribute("role", "group");
     row.setAttribute("aria-label", definition.label + " sequence and mix");
+    if (simdBackend) row.style.setProperty("--drum-row-color", definition.color);
     row.append(button);
     for (const action of ["mute", "solo"]) {
       const control = document.createElement("button");
       control.type = "button";
       control.dataset[action === "mute" ? "drumMute" : "drumSolo"] = definition.key;
-      control.textContent = action.toUpperCase();
+      control.textContent = simdBackend ? action[0].toUpperCase() : action.toUpperCase();
       control.setAttribute("aria-label", (action === "mute" ? "Mute " : "Solo ") + definition.label + (action === "solo" ? " within drum kit" : ""));
+      if (simdBackend) control.title = control.getAttribute("aria-label");
       control.setAttribute("aria-pressed", "false");
       control.addEventListener("click", () => {
         const voice = state.drumMix[definition.key], key = action === "mute" ? "muted" : "solo";
@@ -4354,16 +4387,31 @@ function sequenceWindowForWidth(width) {
 function sequenceEditorMetrics(width, height) {
   const narrow = width <= 620;
   const { startStep, stepCount } = sequenceWindowForWidth(width);
-  const left = narrow ? 45 : 66;
+  const left = simdBackend && state.activeCharacterVoice === "drums" ? 86 : narrow ? 45 : 66;
   const right = narrow ? 5 : 10;
   const top = narrow ? 38 : 42;
-  const drumLayout = simdBackend && state.activeCharacterVoice === "drums";
-  const overviewHeight = drumLayout ? Math.max(100, height - 170) : clamp(height * 0.23, 66, 88);
-  const overviewBottom = drumLayout ? top + overviewHeight : height - 17;
-  const overviewTop = drumLayout ? top : overviewBottom - overviewHeight;
-  const bottom = drumLayout ? height - 17 : Math.max(top + 120, overviewTop - 15);
+  if (simdBackend && state.activeCharacterVoice === "drums") {
+    const bottom = height - 17;
+    const rowHeight = (bottom - top) / WEBGPU_CHIPTUNE_DRUM_SEQUENCE_LANES.length;
+    const rows = WEBGPU_CHIPTUNE_DRUM_SEQUENCE_LANES.map((lane, index) => Object.freeze({
+      definition: sequenceLaneDefinitions.find(({ key }) => key === lane),
+      top: top + index * rowHeight,
+      height: rowHeight,
+    }));
+    return Object.freeze({
+      drumRows: true, left, right, top, bottom, startStep, stepCount,
+      width: Math.max(1, width - left - right),
+      cellWidth: Math.max(1, (width - left - right) / stepCount),
+      row: rows.find(({ definition }) => definition.key === state.activeSequenceLane) ?? rows[0],
+      rows: Object.freeze(rows),
+    });
+  }
+  const overviewHeight = clamp(height * 0.23, 66, 88);
+  const overviewBottom = height - 17;
+  const overviewTop = overviewBottom - overviewHeight;
+  const bottom = Math.max(top + 120, overviewTop - 15);
   const definition = activeSequenceDefinition();
-  const rowTop = drumLayout ? overviewBottom + 24 : top;
+  const rowTop = top;
   const row = Object.freeze({ definition, top: rowTop, height: Math.max(1, bottom - rowTop) });
   const overviewLabelWidth = narrow ? 31 : 48;
   const volumeView = simdBackend || state.activeCharacterVoice !== "drums";
@@ -4888,8 +4936,99 @@ function drawSequenceOverview(context, metrics, time) {
   context.restore();
 }
 
+function drawDrumSequenceEditor(context, width, height, metrics, time) {
+  // Native controls share the renderer's gutter and row bounds, including resize.
+  const rail = $("drumSequenceMix");
+  const railLayout = [metrics.left, metrics.top, height - metrics.bottom].join(",");
+  if (rail.dataset.layout !== railLayout) {
+    rail.style.width = metrics.left + "px";
+    rail.style.top = metrics.top + "px";
+    rail.style.bottom = (height - metrics.bottom) + "px";
+    rail.dataset.layout = railLayout;
+  }
+  const effective = effectiveVoiceParams();
+  context.save();
+  context.fillStyle = "rgba(2,5,8,0.72)";
+  context.fillRect(0, 0, width, height);
+  context.textBaseline = "middle";
+  context.textAlign = "left";
+  context.font = "800 10px ui-monospace, monospace";
+  context.fillStyle = "#f4c95d";
+  context.fillText("DRUMS", 6, 15);
+  context.font = "700 8px ui-monospace, monospace";
+  context.textAlign = "right";
+  const selectedLevel = currentDrumLevel(state.activeSequenceLane, state.activeSequenceStep);
+  context.fillText(selectedLevel > 0 ? Math.round(selectedLevel * 100) + "%" : "OFF", metrics.left - 6, 15);
+  context.textAlign = "left";
+  context.fillStyle = "rgba(216,231,231,0.7)";
+  context.fillText("TAP ON/OFF · DRAG VOLUME", metrics.left + 8, 15);
+  context.textAlign = "right";
+  context.fillText((metrics.startStep + 1) + "–" + (metrics.startStep + metrics.stepCount), width - 7, 15);
+  for (let offset = 0; offset < metrics.stepCount; offset++) {
+    const x = metrics.left + offset * metrics.cellWidth;
+    context.fillStyle = "rgba(216,231,231,0.65)";
+    context.textAlign = "center";
+    context.fillText(String(metrics.startStep + offset + 1).padStart(2, "0"),
+      x + metrics.cellWidth / 2, metrics.top - 8);
+  }
+  for (const row of metrics.rows) {
+    const { key: lane, color } = row.definition;
+    const mixAlpha = effective.drumMix > 0 && effective[SIMD_CHIPTUNE_DRUM_LEVELS[lane]] > 0 ? 1 : .28;
+    const laneState = state.sequence.lanes[lane];
+    const selectedLane = lane === state.activeSequenceLane;
+    const playhead = webGpuChiptuneSequenceCellIndex(lane, time * state.params.tempo, state.params, state.sequence);
+    const bottom = sequenceLaneY(lane, 0, row), fullTop = sequenceLaneY(lane, 1, row);
+    context.fillStyle = selectedLane ? "rgba(244,201,93,0.045)" : "rgba(255,255,255,0.016)";
+    context.fillRect(0, row.top, width, row.height);
+    for (let offset = 0; offset < metrics.stepCount; offset++) {
+      const step = metrics.startStep + offset, x = metrics.left + offset * metrics.cellWidth;
+      const cell = laneState.cells[step], outsideLoop = step >= laneState.activeLength;
+      const selected = selectedLane && step === state.activeSequenceStep;
+      const level = currentDrumLevel(lane, step), barTop = sequenceLaneY(lane, level, row);
+      const inset = Math.max(1.5, Math.min(5, metrics.cellWidth * .12));
+      const barWidth = Math.max(1, metrics.cellWidth - inset * 2);
+      context.globalAlpha = (outsideLoop ? .25 : 1) * mixAlpha;
+      context.fillStyle = "rgba(255,255,255,0.04)";
+      context.fillRect(x + inset, fullTop, barWidth, bottom - fullTop);
+      context.fillStyle = color;
+      context.globalAlpha *= cell.state === "auto" ? .5 : .8;
+      if (level > 0) context.fillRect(x + inset, barTop, barWidth, Math.max(1, bottom - barTop));
+      context.globalAlpha = (outsideLoop ? .25 : 1) * mixAlpha;
+      context.fillStyle = level > 0 ? color : "rgba(216,231,231,0.35)";
+      context.fillRect(x + inset, barTop - 1, barWidth, 2);
+      if (metrics.cellWidth >= 28) {
+        context.fillStyle = "rgba(243,250,255,0.85)";
+        context.textAlign = "center";
+        context.font = "700 8px ui-monospace, monospace";
+        context.fillText(level > 0 ? Math.round(level * 100) + "%" : "OFF", x + metrics.cellWidth / 2,
+          Math.max(row.top + 9, barTop - 8));
+      }
+      context.globalAlpha = 1;
+      context.strokeStyle = step % 4 === 0 ? "rgba(244,201,93,0.28)" : "rgba(255,255,255,0.08)";
+      context.beginPath(); context.moveTo(x, row.top); context.lineTo(x, row.top + row.height); context.stroke();
+      if (step === playhead) {
+        context.fillStyle = "rgba(255,255,255,0.1)";
+        context.fillRect(x, row.top, metrics.cellWidth, row.height);
+        context.fillStyle = "rgba(255,255,255,0.7)";
+        context.fillRect(x, row.top, 1.5, row.height);
+      }
+      if (selected) {
+        context.strokeStyle = "#f4c95d";
+        context.strokeRect(x + 1, row.top + 1, Math.max(1, metrics.cellWidth - 2), row.height - 2);
+      }
+    }
+    context.strokeStyle = "rgba(255,255,255,0.16)";
+    context.beginPath(); context.moveTo(0, row.top + row.height); context.lineTo(width, row.top + row.height); context.stroke();
+  }
+  context.restore();
+}
+
 function drawSequenceEditor(context, width, height, time) {
   const metrics = sequenceEditorMetrics(width, height);
+  if (metrics.drumRows) {
+    drawDrumSequenceEditor(context, width, height, metrics, time);
+    return;
+  }
   const definition = metrics.row.definition;
   const lane = definition.key;
   const laneState = state.sequence.lanes[lane];
@@ -5667,6 +5806,18 @@ function sequencePointFromPointer(event, lockedLane = null) {
   const metrics = sequenceEditorMetrics(rect.width, rect.height);
   const localX = event.clientX - rect.left;
   const localY = event.clientY - rect.top;
+  if (metrics.drumRows) {
+    const row = metrics.rows.find(({ definition, top, height }) => lockedLane
+      ? definition.key === lockedLane : localY >= top && localY < top + height);
+    if (!row) return null;
+    const step = metrics.startStep + Math.floor(clamp(localX - metrics.left, 0, metrics.width - .001) / metrics.cellWidth);
+    return Object.freeze({
+      lane: row.definition.key, step,
+      value: sequenceValueForY(row.definition.key, localY, row),
+      gutter: !lockedLane && localX < metrics.left,
+      drumRow: true,
+    });
+  }
   const volumeDrag = activeSequenceDrag?.velocity === true;
   const volumeView = state.activeCharacterVoice !== "drums";
   if ((!lockedLane && localY >= metrics.overview.top && localY < metrics.overview.bottom) || volumeDrag) {
@@ -5721,7 +5872,7 @@ function paintSequencePoint(point, previous = point) {
     point.lane,
     previous.step,
     point.step,
-    previous.value,
+    previous.step === point.step ? point.value : previous.value,
     point.value,
     state.sequenceEditMode,
   );
@@ -5742,6 +5893,7 @@ function paintSequencePoint(point, previous = point) {
 }
 
 function stagePointerDown(event) {
+  if (simdBackend && activeSequenceDrag) return;
   if (simdBackend && state.activeCharacterVoice === "noise") return;
   if (event.button !== undefined && event.button !== 0) return;
   event.preventDefault();
@@ -5774,6 +5926,10 @@ function stagePointerDown(event) {
     state.sequenceFollowLive = false;
     const originalSequence = state.sequence;
     const originalPresetId = state.presetId;
+    if (point.drumRow) {
+      state.activeSequenceLane = point.lane;
+      lastDrumSequenceLane = point.lane;
+    }
     activeSequenceDrag = {
       pointerId: event.pointerId,
       lane: point.lane,
@@ -5782,7 +5938,9 @@ function stagePointerDown(event) {
       originalPresetId,
       startX: event.clientX,
       startY: event.clientY,
-      isDrum: activeSequenceSpec().kind === "drums",
+      isDrum: WEBGPU_CHIPTUNE_SEQUENCE_EDITOR_SPECS[point.lane].kind === "drums",
+      drumRow: point.drumRow === true,
+      originalEditMode: state.sequenceEditMode,
       velocity: point.velocity === true,
       moved: false,
     };
@@ -5822,6 +5980,8 @@ function stagePointerEnd(event) {
   if (activeSequenceDrag?.pointerId === event.pointerId) {
     event.preventDefault();
     const drag = activeSequenceDrag;
+    if (drag.drumRow && !drag.moved) cycleSequenceCell(drag.lastPoint.step);
+    if (drag.drumRow) rememberDrumGesture(drag);
     activeSequenceDrag = null;
     $("stage").releasePointerCapture?.(event.pointerId);
     notifyWaxState();
@@ -5847,7 +6007,7 @@ function stageDoubleClick(event) {
   if (simdBackend && state.activeCharacterVoice === "noise") return;
   if (state.trackerView !== "sequence") return;
   const point = sequencePointFromPointer(event);
-  if (!point || point.gutter) return;
+  if (!point || point.gutter || point.drumRow) return;
   event.preventDefault();
   state.activeSequenceLane = point.lane;
   state.activeSequenceStep = point.step;
@@ -5860,6 +6020,7 @@ function stagePointerCancel(event) {
     const drag = activeSequenceDrag;
     activeSequenceDrag = null;
     $("stage").releasePointerCapture?.(event.pointerId);
+    if (drag.drumRow) state.sequenceEditMode = drag.originalEditMode;
     applySequence(drag.originalSequence, {
       markCustom: false,
       presetId: drag.originalPresetId,
@@ -5870,7 +6031,47 @@ function stagePointerCancel(event) {
   stagePointerEnd(event);
 }
 
+// A completed drum gesture is one undo entry, regardless of pointer event count.
+// Compare musical state before restoring so later presets/loop changes cannot
+// accidentally resurrect an edit from another performance.
+function rememberDrumGesture(drag) {
+  const before = JSON.stringify(drag.originalSequence), after = JSON.stringify(state.sequence);
+  if (before === after) return;
+  if (drumSequenceUndo.length && drumSequenceUndo.at(-1).after !== before) drumSequenceUndo.length = 0;
+  drumSequenceUndo.push({ before, after, beforePreset: drag.originalPresetId, afterPreset: state.presetId,
+    params: state.params, baseline: state.patternBaseline, lane: drag.lane, step: state.activeSequenceStep });
+  if (drumSequenceUndo.length > 32) drumSequenceUndo.shift();
+  drumSequenceRedo.length = 0;
+}
+
+function undoDrumGesture(redo = false) {
+  if (activeSequenceDrag) return;
+  const source = redo ? drumSequenceRedo : drumSequenceUndo;
+  const destination = redo ? drumSequenceUndo : drumSequenceRedo;
+  const entry = source.at(-1);
+  if (!entry) return;
+  if (JSON.stringify(state.sequence) !== (redo ? entry.before : entry.after)
+    || state.patternBaseline !== entry.baseline) {
+    drumSequenceUndo.length = 0; drumSequenceRedo.length = 0;
+    return;
+  }
+  source.pop(); destination.push(entry);
+  state.activeSequenceLane = entry.lane;
+  lastDrumSequenceLane = entry.lane;
+  state.activeSequenceStep = entry.step;
+  state.sequenceFollowLive = false;
+  applySequence(JSON.parse(redo ? entry.after : entry.before), { markCustom: false,
+    presetId: state.params === entry.params ? (redo ? entry.afterPreset : entry.beforePreset) : "custom" });
+  announce(redo ? "Drum edit redone." : "Drum edit undone.");
+}
+
 function sequenceStageKeyDown(event) {
+  if (simdBackend && state.activeCharacterVoice === "drums" && (event.ctrlKey || event.metaKey)
+    && ["z", "y"].includes(event.key.toLowerCase())) {
+    event.preventDefault(); event.stopPropagation();
+    undoDrumGesture(event.key.toLowerCase() === "y" || event.shiftKey);
+    return;
+  }
   const laneIndex = sequenceLaneDefinitions.findIndex(
     ({ key }) => key === state.activeSequenceLane,
   );
@@ -6120,6 +6321,9 @@ $("stage").addEventListener("pointerdown", stagePointerDown);
 $("stage").addEventListener("pointermove", stagePointerMove);
 $("stage").addEventListener("pointerup", stagePointerEnd);
 $("stage").addEventListener("pointercancel", stagePointerCancel);
+$("stage").addEventListener("lostpointercapture", (event) => {
+  if (activeSequenceDrag?.drumRow && activeSequenceDrag.pointerId === event.pointerId) stagePointerCancel(event);
+});
 $("stage").addEventListener("keydown", stageKeyDown);
 document.addEventListener("keydown", pageKeyDown);
 

@@ -67,14 +67,37 @@ another performer excludes the sweep. Noise remains **Song-only**, as in the
 original sound engine. Selecting it shows the sweep envelope instead of a note
 lane; Independent loops does not synthesize that texture.
 
-The sequence graphic supports continuous painting and keyboard editing. Notes
-appear above volume controls for pitched voices and drums alike. Follow,
-Zoom, X pan and pitch view sit directly above the graphic. Drums expose their
-four parts and individual mute/solo controls there. Each pitched card’s control
+The characters and global knobs stay in a pinned live-control area while the
+sequencer scrolls independently. On short landscape screens, the voices sit
+beside the sequencer; preset, tempo and global controls scroll above the voices.
+Swipe the sequencer’s right-edge gutter to scroll without painting notes, or
+focus the sequencer region and use Page Up / Page Down. Voice controls and the
+horizontal character strip keep their own scroll positions.
+
+The sequence graphic supports continuous painting and keyboard editing. Pitched notes
+appear above their volume controls. Drums use four combined hit/volume rows:
+tap any step for on/off, drag its height for volume, or paint across steps. All
+four parts are directly editable; no part selection is required. The bottom is
+off. Each row has **M** (mute) and **S** (solo) beside its name. Solo multiple
+parts to hear them together within the kit; mute takes priority. Silenced rows
+dim without changing their programmed hits or volumes. The Drums character’s
+Mute/Solo still controls the whole kit. Ctrl/Cmd Z undoes a complete drum gesture,
+and Ctrl/Cmd Shift Z redoes it. Follow,
+Zoom and Pitch view sit directly above the compact graphic. The bottom scrollbar
+moves between step pages when zoomed in; the right scrollbar moves the visible
+pitch range. These view controls do not change the notes or sound. Each pitched card’s control
 view has Steps, Step time and Note length in Independent loops. Kick, Snare,
 Hats and Shaker each have their own step count and timing in their drum tab;
 use decay controls to shape hit length. Sequence tools beneath the editor retain
 transformations and custom step fractions.
+
+For longer Arp notes in Independent loops, open the Arp character’s **Controls**
+and raise **Note length**; **Step time** increases duration and spacing together.
+**Pitch spread** widens its pitch range in both modes. In Song, reduce Arp’s
+**Gate depth** for a more continuous sound, or adjust the shared Song gate length.
+Global **Stereo spread** widens Arp and Upper A/B together. Pitched Pattern notes
+are limited to one step, with no ties or overlaps; individual attack/release and
+per-voice stereo-width controls are not currently available.
 
 **Song arrangement** preserves the original procedural composition and phrase
 motion; its Sequence/Pattern pad switch selects the editor. **Independent loops**

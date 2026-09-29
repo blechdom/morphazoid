@@ -21,11 +21,11 @@
   position: sticky;
   z-index: 12;
   top: 0;
-  display: flex;
+  display: grid;
   min-width: 0;
   padding: 8px 12px;
   border-bottom: 1px solid var(--line-strong);
-  flex-wrap: wrap;
+  grid-template-columns: auto minmax(0, 1fr) clamp(210px, 27vw, 360px);
   align-items: center;
   gap: 8px 14px;
   background: #101920;
@@ -33,7 +33,9 @@
 
 .simd-preset-controls {
   display: flex;
-  min-width: 210px;
+  grid-column: 3;
+  grid-row: 1;
+  min-width: 0;
   flex: 1 1 235px;
   align-items: center;
   gap: 5px;
@@ -48,6 +50,8 @@
 
 .simd-tempo-transport {
   display: flex;
+  grid-column: 1;
+  grid-row: 1;
   min-width: 108px;
   align-items: center;
   justify-content: flex-start;
@@ -61,6 +65,11 @@
   min-height: 48px;
   margin: 0;
   padding: 0;
+}
+
+/* Keep the active transport glyph readable when touch leaves hover engaged. */
+.simd-chiptune-page #synthPlayButton[aria-pressed="true"] {
+  color: var(--bg-deep, var(--mz-color-bg-deep));
 }
 
 .simd-chiptune-page #simdTempoControls { display: flex; padding: 0; gap: 0; }
@@ -234,7 +243,6 @@
 .simd-chiptune-page .chiptune-voice-tabs { display: flex; min-width: 0; flex: 0 0 auto; flex-wrap: wrap; gap: 6px; }
 .simd-chiptune-page .chiptune-voice-tabs:empty { display: none; }
 .simd-chiptune-page .chiptune-voice-tabs > button { min-width: 64px; }
-.simd-chiptune-page .chiptune-drum-mix-row { flex: 1 1 145px; }
 .simd-chiptune-page .chiptune-sequence-pages { justify-content: flex-end; }
 .simd-chiptune-page .chiptune-lane-picker:has(.chiptune-voice-tabs[data-performer]:not([data-performer="drums"])) { display: none; }
 .simd-chiptune-page .chiptune-morph-workspace { min-width: 0; padding: 8px 12px; }
@@ -354,7 +362,7 @@
 .simd-chiptune-page .simd-voice-controls > .simd-deck-note { margin: 7px; }
 .simd-chiptune-page .simd-voice-controls .simd-pattern-rhythm { margin-bottom: 8px; }
 
-/* Sequence navigation, view knobs, drum parts and tools share one wrapping strip. */
+/* Sequence navigation, view knobs and tools share one wrapping strip. */
 .simd-chiptune-page .simd-graphic-editor-controls {
   display: flex;
   flex-wrap: wrap;
@@ -364,10 +372,6 @@
 .simd-chiptune-page #sequenceToolbar,
 .simd-chiptune-page #simdSequenceControls { flex: 0 0 auto; }
 .simd-chiptune-page #simdSequenceControls { gap: 6px; }
-.simd-chiptune-page .simd-graphic-editor-controls .chiptune-lane-picker { min-width: 0; flex: 1 1 450px; }
-.simd-chiptune-page .simd-graphic-editor-controls .chiptune-voice-tabs { gap: 5px; }
-.simd-chiptune-page .simd-graphic-editor-controls .chiptune-drum-mix-row { grid-template-columns: minmax(50px, 1fr) 35px 35px; flex: 1 1 145px; gap: 3px; }
-.simd-chiptune-page .simd-graphic-editor-controls .chiptune-drum-mix-row button { min-width: 0; min-height: 32px; padding: 3px; font-size: 8px; }
 .simd-chiptune-page .simd-sequence-options { min-width: 0; flex: 0 0 auto; }
 .simd-chiptune-page .simd-sequence-options > summary { padding: 9px 3px; color: #a4b5af; font: 700 10px/1.2 ui-monospace, SFMono-Regular, Consolas, monospace; cursor: pointer; }
 .simd-chiptune-page .simd-sequence-options[open] { flex: 1 0 100%; }
@@ -385,7 +389,6 @@
 
 @media (max-width: 650px) {
   .simd-chiptune-page .simd-graphic-editor-controls { gap: 6px 9px; }
-  .simd-chiptune-page .simd-graphic-editor-controls .chiptune-lane-picker { flex-basis: 100%; }
 }
 
 /* Small, single-color dials share one visual language throughout the instrument. */
@@ -532,3 +535,245 @@
   .simd-chiptune-page { --simd-dial-target: 44px; }
 }
 .simd-chiptune-page .simd-voice-controls .webgpu-knob-value { display: block; }
+
+/* Four directly editable drum rows keep a compact, touch-sized height. */
+.simd-chiptune-page #stageWrap[data-performer="drums"][data-tracker-view="sequence"] {
+  height: 300px;
+  flex: 0 0 300px;
+}
+@media (max-height: 500px) and (min-width: 651px) {
+  .simd-chiptune-page #stageWrap[data-performer="drums"][data-tracker-view="sequence"] {
+    height: 250px;
+    flex-basis: 250px;
+  }
+}
+
+/* Compact note/contour viewport. Scrollbars navigate the view, not the sound. */
+.simd-chiptune-page #stageWrap[data-tracker-view="sequence"]:not([data-performer="noise"]) {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  height: 300px;
+  flex: 0 0 300px;
+}
+.simd-chiptune-page #stageWrap[data-tracker-view="sequence"]:not([data-performer="noise"]) #stage {
+  min-width: 0;
+  min-height: 0;
+  width: 100%;
+  height: 100%;
+  scroll-margin-bottom: 44px;
+}
+.simd-chiptune-page .simd-sequence-scrollbar {
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  flex: 0 0 auto;
+  background: #0b141b;
+  touch-action: none;
+  cursor: pointer;
+  user-select: none;
+}
+.simd-chiptune-page .simd-sequence-scrollbar[hidden] { display: none; }
+.simd-sequence-scrollbar[aria-orientation="horizontal"] { height: 22px; padding: 5px 8px; }
+.simd-sequence-scrollbar[aria-orientation="vertical"] { width: 22px; padding: 8px 5px; }
+.simd-scroll-track { display: block; position: relative; border-radius: 4px; background: #243039; }
+.simd-sequence-scrollbar[aria-orientation="horizontal"] .simd-scroll-track { width: 100%; height: 8px; }
+.simd-sequence-scrollbar[aria-orientation="vertical"] .simd-scroll-track { width: 8px; height: 100%; }
+.simd-scroll-thumb { position: absolute; display: block; border-radius: 4px; background: #789795; }
+.simd-sequence-scrollbar[aria-orientation="horizontal"] .simd-scroll-thumb {
+  top: 0; height: 100%; left: var(--scroll-start); width: var(--scroll-size);
+}
+.simd-sequence-scrollbar[aria-orientation="vertical"] .simd-scroll-thumb {
+  left: 0; width: 100%; top: var(--scroll-start); height: var(--scroll-size);
+}
+.simd-sequence-scrollbar:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.simd-sequence-scrollbar:focus-visible .simd-scroll-thumb,
+.simd-sequence-scrollbar:hover .simd-scroll-thumb { background: var(--accent); }
+@media (pointer: coarse) {
+  .simd-sequence-scrollbar[aria-orientation="horizontal"] { height: 36px; padding-block: 12px; }
+  .simd-sequence-scrollbar[aria-orientation="vertical"] { width: 36px; padding-inline: 12px; }
+}
+@media (max-height: 500px) and (min-width: 651px) {
+  .simd-chiptune-page #stageWrap[data-tracker-view="sequence"]:not([data-performer="noise"]) {
+    height: 250px;
+    flex-basis: 250px;
+  }
+}
+
+/* Keep the live deck in place; only the sequence workspace scrolls beneath it. */
+.simd-chiptune-page .webgpu-303-shell {
+  overflow: hidden;
+}
+.simd-live-deck {
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  max-height: calc(100% - 210px);
+  flex: 0 1 auto;
+  flex-direction: column;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+  scrollbar-width: thin;
+  scrollbar-color: var(--faint) #0b141b;
+}
+.simd-live-deck > * { flex-shrink: 0; }
+.simd-chiptune-page .simd-live-deck { --simd-card-height: clamp(230px, 30dvh, 280px); }
+.simd-chiptune-page .simd-live-deck .simd-performance-controls { position: relative; }
+.simd-chiptune-page .simd-global-tabs {
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+.simd-chiptune-page .simd-global-tabs > button { flex: 0 0 auto; }
+.simd-chiptune-page #knobControls:has(.simd-deck-panel) {
+  display: block;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: thin;
+}
+.simd-chiptune-page .simd-global-controls .simd-deck-panel {
+  min-width: 100%;
+  width: max-content;
+}
+.simd-chiptune-page .simd-global-controls .simd-knob-grid {
+  width: max-content;
+  flex-wrap: nowrap;
+}
+.simd-chiptune-page .simd-sequencer-scroll {
+  min-width: 0;
+  min-height: 0;
+  flex: 1 1 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  scrollbar-gutter: stable;
+  scrollbar-color: var(--faint) #0b141b;
+  overscroll-behavior-y: contain;
+}
+.simd-sequencer-scroll:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.simd-chiptune-page .simd-sequencer-scroll > .webgpu-303-stage { min-height: 0; }
+@media (max-width: 650px) {
+  .simd-chiptune-page .simd-live-deck { --simd-card-height: 230px; }
+}
+/* Short screens put the pinned voices beside the independently scrolling roll. */
+@media (max-height: 560px) and (min-width: 651px) {
+  .simd-chiptune-page .webgpu-303-shell { flex-direction: row; }
+  .simd-chiptune-page .simd-live-deck {
+    width: clamp(290px, 38%, 380px);
+    max-height: none;
+    flex: 0 0 auto;
+    border-right: 1px solid var(--line-strong);
+    --simd-card-height: 250px;
+  }
+  .simd-chiptune-page .simd-performance-controls { padding-inline: 9px; gap: 6px 8px; }
+  .simd-chiptune-page .simd-preset-controls { min-width: 0; flex: 1 1 155px; }
+  .simd-chiptune-page .simd-tempo-transport { min-width: 108px; gap: 5px; }
+  .simd-chiptune-page .simd-structure-row { flex: 1 1 160px; }
+  .simd-chiptune-page .simd-quick-actions { width: 100%; justify-content: space-between; }
+  .simd-chiptune-page .simd-skin-picker { display: flex; align-items: center; gap: 7px; }
+}
+
+/* Play/Tempo lead the row; the complete preset group anchors its right edge. */
+.simd-performance-options {
+  display: flex;
+  min-width: 0;
+  grid-column: 2;
+  grid-row: 1;
+  overflow-x: auto;
+  align-items: center;
+  gap: 10px;
+  scrollbar-width: thin;
+}
+.simd-chiptune-page .simd-performance-options > * { width: auto; flex: 0 0 auto; }
+.simd-chiptune-page .simd-performance-options .simd-quick-actions { margin: 0; }
+.simd-chiptune-page .simd-global-controls .chiptune-advanced-editor { margin-top: 0; }
+.simd-chiptune-page .simd-global-controls .chiptune-scale-grid { grid-template-columns: repeat(12, minmax(24px, 1fr)); }
+@media (max-width: 1100px), (max-height: 560px) {
+  .simd-chiptune-page .simd-performance-controls { grid-template-columns: auto minmax(0, 1fr); }
+  .simd-chiptune-page .simd-preset-controls { grid-column: 2; }
+  .simd-chiptune-page .simd-performance-options {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+}
+
+.simd-live-settings { display: contents; }
+@media (max-height: 560px) and (min-width: 651px) {
+  .simd-chiptune-page .simd-live-deck { overflow-y: hidden; }
+  .simd-chiptune-page .simd-live-settings {
+    display: flex;
+    min-height: 0;
+    flex: 1 1 0;
+    flex-direction: column;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior-y: contain;
+    scrollbar-width: thin;
+    scrollbar-color: var(--faint) #0b141b;
+  }
+  .simd-live-settings > * { flex-shrink: 0; }
+  .simd-live-settings:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+  .simd-chiptune-page .simd-live-deck .chiptune-character-panel {
+    height: min(250px, calc(100% - 82px));
+  }
+}
+
+/* Touch scrolling stays available even when the note canvas fills the pane. */
+@media (pointer: coarse) {
+  .simd-chiptune-page .simd-sequencer-scroll {
+    padding-right: 24px;
+    background: linear-gradient(to left, #29414a 0 3px, #0b141b 3px 24px, transparent 24px);
+  }
+}
+
+/* Native drum M/S buttons live in the canvas gutter, aligned to its four rows. */
+.simd-chiptune-page .simd-drum-row-controls {
+  grid-template-rows: minmax(0, 1fr);
+  min-height: 0;
+  position: absolute;
+  left: 0;
+  z-index: 2;
+  min-width: 0;
+  gap: 0;
+}
+.simd-chiptune-page #stageWrap:not([data-performer="drums"]) .simd-drum-row-controls,
+.simd-chiptune-page #stageWrap:not([data-tracker-view="sequence"]) .simd-drum-row-controls { display: none; }
+.simd-chiptune-page .simd-drum-row-controls .chiptune-voice-tabs {
+  display: grid;
+  min-height: 0;
+  height: 100%;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: repeat(4, minmax(0, 1fr));
+  gap: 0;
+}
+.simd-chiptune-page .simd-drum-row-controls .chiptune-drum-mix-row {
+  box-sizing: border-box;
+  min-width: 0;
+  min-height: 0;
+  padding: 2px 4px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-rows: minmax(0, 1fr) 32px;
+  gap: 0 4px;
+}
+.simd-chiptune-page .simd-drum-row-controls button {
+  min-width: 0;
+  min-height: 0;
+  padding: 0 2px;
+  font: 800 11px/1 ui-monospace, SFMono-Regular, Consolas, monospace;
+}
+.simd-chiptune-page .simd-drum-row-controls button[data-lane] {
+  grid-column: 1 / -1;
+  border: 1px solid transparent;
+  color: var(--drum-row-color);
+  background: transparent;
+  font-size: 10px;
+}
+.simd-chiptune-page .simd-drum-row-controls button[data-lane][aria-pressed="true"] {
+  border-color: var(--drum-row-color);
+  background: color-mix(in srgb, var(--drum-row-color) 12%, transparent);
+}
+.simd-chiptune-page .simd-drum-row-controls button:focus-visible {
+  outline: 2px solid #f4c95d;
+  outline-offset: -2px;
+}

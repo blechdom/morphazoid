@@ -45,6 +45,97 @@ export function createSequenceKnob(doc, { label, min, max, step = 1, read, chang
   sync(); return { element, sync };
 }
 
+
+export function createSequenceScrollbar(doc, {
+  label, orientation = 'horizontal', controls = 'stage', read, change, bounds, format = String,
+}) {
+  const vertical = orientation === 'vertical';
+  const element = doc.createElement('div'); element.className = 'simd-sequence-scrollbar'; element.tabIndex = 0;
+  element.setAttribute('role', 'scrollbar'); element.setAttribute('aria-label', label);
+  element.setAttribute('aria-controls', controls); element.setAttribute('aria-orientation', vertical ? 'vertical' : 'horizontal');
+  const track = doc.createElement('span'); track.className = 'simd-scroll-track';
+  const thumb = doc.createElement('span'); thumb.className = 'simd-scroll-thumb';
+  track.append(thumb); element.append(track);
+  let drag = null;
+  const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
+  const range = () => {
+    const { min, max, visible, total, step = 1, pageStep } = bounds();
+    const fraction = total > 0 ? clamp(visible / total, 0, 1) : 1;
+    return { min, max, step, fraction, pageStep: pageStep ?? step * 5 };
+  };
+  const sync = () => {
+    const { min, max, fraction } = range(), value = clamp(read(), min, max);
+    const start = max > min ? (value - min) / (max - min) * (1 - fraction) : 0;
+    element.hidden = max <= min || fraction >= 1;
+    element.style.setProperty('--scroll-start', start * 100 + '%');
+    element.style.setProperty('--scroll-size', fraction * 100 + '%');
+    element.setAttribute('aria-valuemin', String(min)); element.setAttribute('aria-valuemax', String(max));
+    element.setAttribute('aria-valuenow', String(value)); element.setAttribute('aria-valuetext', format(value));
+  };
+  const apply = value => {
+    const { min, max, step } = range();
+    const next = clamp(min + Math.round((value - min) / step) * step, min, max);
+    if (next !== read()) change(next);
+    sync();
+  };
+  const position = event => vertical ? event.clientY : event.clientX;
+  const geometry = () => {
+    const rect = track.getBoundingClientRect();
+    return { start: vertical ? rect.top : rect.left, size: vertical ? rect.height : rect.width };
+  };
+  const move = event => {
+    const { min, max, fraction } = range(), { start, size } = geometry();
+    const travel = size * (1 - fraction);
+    if (travel <= 0) return;
+    const unit = (position(event) - start - drag.grab * size * fraction) / travel;
+    apply(min + clamp(unit, 0, 1) * (max - min));
+  };
+  element.addEventListener('pointerdown', event => {
+    if (drag || element.hidden || (event.button !== undefined && event.button !== 0)) return;
+    const { min, max, fraction } = range(), { start, size } = geometry();
+    if (max <= min || size <= 0 || fraction >= 1) return;
+    event.preventDefault(); event.stopPropagation(); element.focus({ preventScroll: true });
+    const value = read(), offset = (value - min) / (max - min) * size * (1 - fraction);
+    const grab = thumb.contains(event.target) && fraction > 0
+      ? clamp((position(event) - start - offset) / (size * fraction), 0, 1) : .5;
+    drag = { id: event.pointerId, value, grab };
+    element.setPointerCapture(event.pointerId);
+    move(event);
+  });
+  element.addEventListener('pointermove', event => {
+    if (drag?.id !== event.pointerId) return;
+    event.preventDefault(); event.stopPropagation(); move(event);
+  });
+  const end = (event, cancelled) => {
+    if (drag?.id !== event.pointerId) return;
+    event.preventDefault(); event.stopPropagation();
+    if (!cancelled) move(event);
+    const original = drag.value; drag = null;
+    if (element.hasPointerCapture(event.pointerId)) element.releasePointerCapture(event.pointerId);
+    if (cancelled) { change(original); sync(); }
+  };
+  element.addEventListener('pointerup', event => end(event, false));
+  element.addEventListener('pointercancel', event => end(event, true));
+  element.addEventListener('lostpointercapture', event => end(event, true));
+  element.addEventListener('keydown', event => {
+    const { min, max, step, pageStep } = range(), value = read();
+    const next = { ArrowLeft: value - step, ArrowUp: value - step, ArrowRight: value + step,
+      ArrowDown: value + step, Home: min, End: max, PageUp: value - pageStep, PageDown: value + pageStep }[event.key];
+    if (next === undefined) return;
+    event.preventDefault(); event.stopPropagation();
+    if (!drag) apply(next);
+  });
+  element.addEventListener('wheel', event => {
+    if (drag || element.hidden) return;
+    const { min, max, step } = range(), value = read();
+    const delta = vertical ? event.deltaY : event.deltaX || event.deltaY;
+    const next = clamp(value + Math.sign(delta) * step, min, max);
+    if (next === value) return;
+    event.preventDefault(); event.stopPropagation(); apply(next);
+  }, { passive: false });
+  sync(); return { element, sync };
+}
+
 function tabs(doc, mount, definitions, { navigation = null } = {}) {
   const bar = navigation ?? doc.createElement('div'); bar.classList.add('simd-deck-tabs');
   bar.setAttribute('role', 'tablist'); bar.setAttribute('aria-label', 'Control group');
@@ -146,9 +237,11 @@ export function createSimdControlDeck(doc, {
         format: () => fractionText(sequence().lanes[lane].stepBeats) + ' beat', change: value => update({ stepBeats: fractions[value] }) },
     ];
     if (owner !== 'drums') specs.push({ label: 'Note length', min: 5, max: 100, patternOnly: true,
+      title: '% of each step; increase Step time for longer, slower notes.',
       read: () => Math.round(sequence().lanes[lane].gate * 100), format: value => value + '%', change: value => update({ gate: value / 100 }) });
     for (const spec of specs) {
       const knob = createSequenceKnob(doc, spec); knob.element.dataset.sequenceParam = spec.label;
+      if (spec.title) knob.element.title = spec.title;
       if (spec.label === 'Steps') knob.element.title = 'Independent loops: lane length. Song: length of the repeating edited-step overlay.';
       grid.append(knob.element); sequenceKnobs.push({ ...knob, patternOnly: spec.patternOnly });
     }

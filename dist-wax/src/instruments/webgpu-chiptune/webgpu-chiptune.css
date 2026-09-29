@@ -1726,8 +1726,9 @@
   }
 }
 
-/* Keep the primary transport visible beside Audio while the control rail scrolls. */
-.webgpu-chiptune-page .audio-strip {
+/* Reserve a transport column only when Play is actually in this audio strip.
+   SIMD's Play lives in its control deck, so its shared header uses two columns. */
+.webgpu-chiptune-page .audio-strip:where(:has(> .chiptune-top-transport)) {
   grid-template-columns:
     max-content
     minmax(84px, 124px)
@@ -1735,7 +1736,7 @@
   gap: 10px;
 }
 
-.webgpu-chiptune-page .audio-strip > .chiptune-top-transport {
+.webgpu-chiptune-page .audio-strip:where(:has(> .chiptune-top-transport)) > .chiptune-top-transport {
   min-width: 112px;
   margin: 0;
   grid-column: 1;
@@ -1744,12 +1745,12 @@
   gap: 8px;
 }
 
-.webgpu-chiptune-page .audio-strip > .header-level {
+.webgpu-chiptune-page .audio-strip:where(:has(> .chiptune-top-transport)) > .header-level {
   grid-column: 2;
   grid-row: 1;
 }
 
-.webgpu-chiptune-page .audio-strip > .audio-button {
+.webgpu-chiptune-page .audio-strip:where(:has(> .chiptune-top-transport)) > .audio-button {
   grid-column: 3;
   grid-row: 1;
 }
@@ -1767,7 +1768,7 @@
 }
 
 @media (max-width: 650px) {
-  .webgpu-chiptune-page .audio-strip {
+  .webgpu-chiptune-page .audio-strip:where(:has(> .chiptune-top-transport)) {
     width: min(188px, 50vw);
     grid-template-columns: 48px minmax(62px, 1fr) 48px;
     gap: 6px;
@@ -1775,12 +1776,12 @@
 
   .webgpu-chiptune-page
     .masthead.has-midi-toolbar
-    .header-io-controls > .audio-strip {
+    .header-io-controls > .audio-strip:where(:has(> .chiptune-top-transport)) {
     grid-template-columns: 48px minmax(62px, 1fr) 48px;
     gap: 6px;
   }
 
-  .webgpu-chiptune-page .audio-strip > .chiptune-top-transport {
+  .webgpu-chiptune-page .audio-strip:where(:has(> .chiptune-top-transport)) > .chiptune-top-transport {
     display: block;
     min-width: 48px;
   }

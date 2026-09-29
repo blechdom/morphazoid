@@ -92,12 +92,9 @@
 
     <main class="shell webgpu-303-shell" id="webgpuChiptune">
       <h1 class="sr-only" id="webgpuChiptuneTitle">SIMD Chiptune</h1>
+<div class="simd-live-deck" role="region" aria-label="Pinned live controls">
+<div class="simd-live-settings" role="region" aria-label="Preset, tempo, and global controls" tabindex="0">
 <section class="simd-performance-controls" aria-label="Live performance controls">
-  <div class="simd-preset-controls" aria-label="Instrument preset">
-    <label class="simd-preset-fallback" for="simdPresetSelect"><span class="sr-only">Preset</span><select id="simdPresetSelect" aria-label="Preset"><option value="source">Source Tracker</option></select></label>
-    <button id="nextPreset" class="instrument-picker-next" type="button" aria-label="Next preset"><span aria-hidden="true">▶</span></button>
-    <button id="randomizePatch" class="instrument-picker-next" type="button" aria-label="Randomize patch" title="Randomize patch"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2" fill="none" stroke="currentColor" stroke-width="1.6"/><g fill="currentColor"><circle cx="7.5" cy="7.5" r="1.4"/><circle cx="16.5" cy="7.5" r="1.4"/><circle cx="12" cy="12" r="1.4"/><circle cx="7.5" cy="16.5" r="1.4"/><circle cx="16.5" cy="16.5" r="1.4"/></g></svg></button>
-  </div>
   <div class="simd-tempo-transport" aria-label="Playback and tempo"><button
             class="play-button webgpu-303-play-button"
             id="synthPlayButton"
@@ -115,6 +112,7 @@
               <path d="M8 6v12M16 6v12" />
             </svg>
           </button><div id="simdTempoControls" class="chiptune-control-stack"></div></div>
+  <div class="simd-performance-options">
   <div class="simd-structure-row"><label class="simd-composition-picker" for="compositionMode"><span class="sr-only">Playback structure</span><select id="compositionMode"><option value="pattern">Independent loops</option><option value="song">Song arrangement</option></select></label><fieldset class="chiptune-view-switch">
               <legend class="sr-only">Editor view</legend>
               <label>
@@ -129,13 +127,20 @@
   <div class="simd-pattern-section" id="patternSectionControls"><label for="patternSection"><span>Song loop</span><select id="patternSection" aria-label="Song loop to use in independent loops"><option value="0">Intro</option></select></label><button class="mini-action" id="patternNextSection" type="button" aria-label="Next song loop">Next loop ▶</button></div>
   <div class="simd-quick-actions">
     <button class="mini-action" id="mutatePatch" type="button">Mutate</button>
-    <label class="simd-skin-picker" for="characterSkin"><span>Characters</span><select id="characterSkin"><option value="original">Original characters</option><option value="cubist">Fracture parade</option><option value="anime">Nightmare kaiju</option><option value="swirl">Cosmic worms</option></select></label>
+    <label class="simd-skin-picker" for="characterSkin"><span class="sr-only">Characters</span><select id="characterSkin"><option value="original">Original characters</option><option value="cubist">Fracture parade</option><option value="anime">Nightmare kaiju</option><option value="swirl">Cosmic worms</option></select></label>
+  </div>
+  </div>
+  <div class="simd-preset-controls" aria-label="Instrument preset">
+    <label class="simd-preset-fallback" for="simdPresetSelect"><span class="sr-only">Preset</span><select id="simdPresetSelect" aria-label="Preset"><option value="source">Source Tracker</option></select></label>
+    <button id="nextPreset" class="instrument-picker-next" type="button" aria-label="Next preset"><span aria-hidden="true">▶</span></button>
+    <button id="randomizePatch" class="instrument-picker-next" type="button" aria-label="Randomize patch" title="Randomize patch"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2" fill="none" stroke="currentColor" stroke-width="1.6"/><g fill="currentColor"><circle cx="7.5" cy="7.5" r="1.4"/><circle cx="16.5" cy="7.5" r="1.4"/><circle cx="12" cy="12" r="1.4"/><circle cx="7.5" cy="16.5" r="1.4"/><circle cx="16.5" cy="16.5" r="1.4"/></g></svg></button>
   </div>
 </section>
 <section class="simd-global-controls" id="simdGlobalControls" aria-label="Global sound controls">
   <div class="simd-global-tabs" id="simdGlobalTabs" role="group" aria-label="Global control group"></div>
   <div class="webgpu-knob-bank" id="knobControls" aria-label="Global sound knobs"></div>
 </section>
+</div>
 <section class="chiptune-character-panel" aria-label="Voice controls and animated performers">
   <div class="chiptune-character-screen">
     <canvas
@@ -251,13 +256,14 @@
       </div>    </div>
   </div>
 </section>
+</div>
+<div class="simd-sequencer-scroll" data-midi-output-monitor-host role="region" aria-label="Scrollable sequencer" aria-describedby="sequencerScrollInstructions" tabindex="0">
 <section class="stage webgpu-303-stage" aria-labelledby="webgpuChiptuneTitle">
 <div id="sequenceWorkspace" class="simd-graphic-editor-controls" aria-label="Sequence view controls">
  <div class="chiptune-sequence-toolbar" id="sequenceToolbar"><button class="mini-action chiptune-follow-button" id="sequenceFollow" type="button" aria-pressed="true">
                   FOLLOW: ON
                 </button><label class="control" for="sequenceZoom"><span><b>Zoom</b></span><select id="sequenceZoom"><option value="32">32 steps</option><option value="16">16 steps</option><option value="8">8 steps</option></select></label><label class="control" for="sequencePan"><span><b>X pan</b></span><input id="sequencePan" type="range" min="0" max="0" step="1" value="0" /></label></div>
  <div class="simd-sequence-knobs" id="simdSequenceControls" aria-label="Selected sequence controls"></div>
- <div class="chiptune-lane-picker"><div class="chiptune-voice-tabs" id="sequenceVoiceTabs" role="group" aria-label="Drum part to edit"></div></div>
  <div
                   class="chiptune-sequence-pages"
                   id="sequencePageControls"
@@ -276,6 +282,7 @@
     <output id="morphSourceCoverage" hidden></output>
   </section>
 <div class="stage-wrap webgpu-303-stage-wrap" id="stageWrap" data-tracker-view="sequence" data-sequence-page="0">
+<div class="chiptune-lane-picker simd-drum-row-controls" id="drumSequenceMix"><div class="chiptune-voice-tabs" id="sequenceVoiceTabs" role="group" aria-label="Drum keyboard focus and mix"></div></div>
 <canvas
             id="stage"
             role="application"
@@ -309,6 +316,8 @@
           </a>
         </div>
 </footer>
+</div>
+<p class="sr-only" id="sequencerScrollInstructions">The sequencer scrolls independently of the live controls. Swipe the right edge to scroll without editing notes, or focus this region and use Page Up and Page Down.</p>
 <div class="simd-legacy-controls" id="simdLegacyControls" hidden>
 <label class="chiptune-lane-length" for="sequenceLength">
                   <span>Loop length</span>
@@ -454,7 +463,7 @@
 <p class="sr-only" id="characterVoiceLegend">From left to right: Drums, Bass, Arp, Lead, Upper A, Upper B, and Noise.</p>
 <p class="sr-only" id="characterPerformanceInstructions">Click a character to select it; drag horizontally and vertically to adjust its effects. Arrow keys adjust effects; Page Up and Page Down select performers; Home restores the neutral position. M toggles mute; S toggles solo. Muting wins over solo.</p>
 <p class="sr-only" id="trackerInstructions">In Pattern pad, horizontal movement changes pattern seed and vertical movement changes pitch range.</p>
-<p class="sr-only" id="sequenceInstructions">Drag notes for pitch and the lower bars for volume. Double-click, Enter, or Space toggles a step. Follow tracks the sounding step; Each character’s Steps control chooses 1 to 32 active steps. Zoom and X pan control the visible steps. Song arrangement follows the original composition; Independent loops repeats editable patterns and lets you choose a song loop. Arrow keys select or change notes, Page Up and Page Down switch lanes, A resets a step, N enables it, and R silences it. Changes keep playback running.</p>
+<p class="sr-only" id="sequenceInstructions">For drums, all four rows are editable: tap a step to toggle it, or drag its height for volume and across steps to paint. The bottom is off. Each drum row has Mute and Solo buttons beside its name; multiple solos work together within the kit, and mute wins. Select a row name for keyboard editing; Up and Down switch row names. Ctrl or Command Z undoes one drum gesture; add Shift to redo. For pitched voices, drag notes for pitch and the lower bars for volume; double-click toggles a step. Enter or Space toggles the focused step. Follow tracks the sounding step; Each character’s Steps control chooses 1 to 32 active steps. Zoom chooses the number of visible steps; the bottom scrollbar moves between pages. Pitch view and the right scrollbar navigate the visible pitches without changing notes. Song arrangement follows the original composition; Independent loops repeats editable patterns and lets you choose a song loop. Arrow keys select or change notes, Page Up and Page Down switch lanes, A resets a step, N enables it, and R silences it. Changes keep playback running.</p>
 <p class="sr-only" id="liveStatus" aria-live="polite"></p>
     </main>
 
