@@ -58,73 +58,96 @@
         <section class="hand-voices" aria-label="Movement contours and voices"><p id="contourHelp" class="hand-gesture-help">Choose a Joint, then draw its highlighted curve. ←/→ choose a point; ↑/↓ bend it.</p><div id="fingerMixer" class="hand-finger-mixer"></div></section>
       </section>
       <aside class="hand-panel" data-instrument-preset-host aria-label="Model, movement and sound controls">
-        <section class="hand-control-block hand-transports" aria-labelledby="playTitle">
-          <div class="hand-section-title"><h2 id="playTitle">Play</h2><button id="resetAll" class="hand-reset" type="button" data-reset-all data-reset-in-place>Reset</button></div>
-          <label class="hand-select hand-form" for="bodyForm"><span>Model</span><select id="bodyForm"><option value="hand">Hand</option><option value="foot">Foot</option></select></label>
-          <div class="hand-transport-row">
-            <div class="hand-player"><span>Sound</span><button class="play-button" id="soundPlayButton" type="button" aria-pressed="false" aria-label="Play sound" title="Hold the sound of the hand's current pose"><svg class="transport-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5 18 12 8 18.5Z" /></svg><svg class="transport-pause" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6v12M16 6v12" /></svg></button></div>
-            <div class="hand-player"><span>Motion</span><button class="play-button" id="motionButton" type="button" aria-pressed="false" aria-label="Play motion" data-primary-transport title="Play gesture choreography (Space)"><svg class="transport-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5 18 12 8 18.5Z" /></svg><svg class="transport-pause" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6v12M16 6v12" /></svg></button></div>
-            <label class="hand-control hand-tempo" for="tempo"><span>Tempo <output id="tempoOut" for="tempo">72</output></span><input id="tempo" type="range" min="2" max="4400" step="0.1" value="72" /></label>
+        <details class="group control-section hand-control-block hand-transports" aria-labelledby="playTitle" data-section="play" open>
+          <summary class="group-summary"><h2 class="group-title" id="playTitle">Play</h2></summary>
+          <div class="group-body">
+            <label class="hand-select hand-form" for="bodyForm"><span>Model</span><select id="bodyForm"><option value="hand">Hand</option><option value="foot">Foot</option></select></label>
+            <div class="hand-transport-row">
+              <div class="hand-player"><span>Sound</span><button class="play-button" id="soundPlayButton" type="button" aria-pressed="false" aria-label="Play sound" title="Hold the sound of the hand's current pose"><svg class="transport-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5 18 12 8 18.5Z" /></svg><svg class="transport-pause" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6v12M16 6v12" /></svg></button></div>
+              <div class="hand-player"><span>Motion</span><button class="play-button" id="motionButton" type="button" aria-pressed="false" aria-label="Play motion" data-primary-transport title="Play gesture choreography (Space)"><svg class="transport-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5 18 12 8 18.5Z" /></svg><svg class="transport-pause" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6v12M16 6v12" /></svg></button></div>
+              <label class="hand-control hand-tempo" for="tempo"><span>Tempo <output id="tempoOut" for="tempo">72</output></span><input id="tempo" type="range" min="2" max="4400" step="0.1" value="72" /></label>
+            </div>
+            <button id="resetAll" class="hand-section-action hand-reset" type="button" data-reset-all data-reset-in-place>Reset</button>
           </div>
-        </section>
-        <section id="voiceSound" class="hand-control-block hand-voice-sound" aria-labelledby="voiceSoundTitle">
-          <h2 id="voiceSoundTitle">Finger sound</h2>
-          <div id="voiceTabs" class="hand-finger-tabs" role="group" aria-label="Sound voice"></div>
-          <label class="hand-select" for="voiceSource"><span>Engine</span><select id="voiceSource"></select></label>
-          <div id="voiceTweakControls" class="hand-voice-sound-grid"></div>
-        </section>
-        <section class="hand-control-block hand-sound-controls" aria-labelledby="soundTitle"><h2 id="soundTitle">All voices</h2>
-          <div class="hand-sound-grid">
-          <label class="hand-select" for="rhythm"><span>Rhythm</span><select id="rhythm"></select></label>
-          <label class="hand-control" for="note-length"><span>Note length <output id="note-lengthOut" for="note-length">45%</output></span><input id="note-length" type="range" min="0.08" max="0.9" step="0.01" value="0.45" /></label>
-          <label class="hand-control" for="rootHz"><span>Register <output id="rootHzOut" for="rootHz">140 Hz</output></span><input id="rootHz" type="range" min="35" max="1600" step="0.1" value="140" /></label>
-          <label class="hand-control" for="pitchSpread"><span>Pitch spread <output id="pitchSpreadOut" for="pitchSpread">100%</output></span><input id="pitchSpread" type="range" min="0" max="4" step="0.01" value="1" /></label>
-          <label class="hand-control" for="brightness"><span>Brightness <output id="brightnessOut" for="brightness">45%</output></span><input id="brightness" type="range" min="0" max="1" step="0.01" value="0.45" /></label>
-          <label class="hand-control" for="roughness"><span>Grain <output id="roughnessOut" for="roughness">20%</output></span><input id="roughness" type="range" min="0" max="1" step="0.01" value="0.2" /></label>
-          <label class="hand-control" for="rotationFx"><span>Rotation sound <output id="rotationFxOut" for="rotationFx">65%</output></span><input id="rotationFx" type="range" min="0" max="1" step="0.01" value="0.65" /></label>
-          <label class="hand-control" for="space"><span>Trails <output id="spaceOut" for="space">25%</output></span><input id="space" title="Visual afterimages and stereo echoes; zero turns both off" type="range" min="0" max="1" step="0.01" value="0.25" /></label>
-          <label class="hand-control" for="attack"><span>Attack <output id="attackOut" for="attack">40 ms</output></span><input id="attack" type="range" min="0.005" max="1" step="0.005" value="0.04" /></label><label class="hand-control" for="release"><span>Release <output id="releaseOut" for="release">450 ms</output></span><input id="release" type="range" min="0.03" max="2" step="0.01" value="0.45" /></label>
-          </div>
-        </section>
-        <section class="hand-control-block" aria-labelledby="movementTitle">
-          <h2 id="movementTitle">Movement</h2>
-          <label class="hand-select" for="motionPreset"><span>Choreography</span><select id="motionPreset"></select></label>
-          <label class="hand-control" for="motionAmount"><span>Movement size <output id="motionAmountOut" for="motionAmount">70%</output></span><input id="motionAmount" type="range" min="0" max="1" step="0.01" value="0.7" /></label>
-          <label class="hand-select" for="posePreset"><span>Starting pose</span><select id="posePreset"></select></label>
-        </section>
-        <section class="hand-control-block" aria-labelledby="jointsTitle">
-          <div class="hand-section-title"><h2 id="jointsTitle">Finger joints</h2><button id="relaxFinger" type="button">Relax</button></div>
-          <div id="fingerTabs" class="hand-finger-tabs" role="group" aria-label="Selected finger"></div>
-          <div id="jointControls"></div>
-          <p class="hand-joint-note">Joint offsets are added to the selected movement.</p>
-          <label class="hand-check"><input id="linkJoints" type="checkbox" checked /> Bend joints together when dragging</label>
-        </section>
-        <section class="hand-control-block" aria-labelledby="tremorTitle">
-          <h2 id="tremorTitle">Tremors</h2>
-          <div class="hand-control-pair"><label class="hand-select" for="tremorFinger"><span id="tremorFingerLabel">Fingers</span><select id="tremorFinger"></select></label><label class="hand-select" for="tremorJoint"><span>Joints</span><select id="tremorJoint"></select></label></div>
-          <label class="hand-control" for="tremorAmount"><span>Shake depth <output id="tremorAmountOut" for="tremorAmount">0°</output></span><input id="tremorAmount" type="range" min="0" max="45" step="0.1" value="0" /></label>
-          <label class="hand-control" for="tremorRate"><span>Tremor rate <output id="tremorRateOut" for="tremorRate">8 Hz</output></span><input id="tremorRate" type="range" min="0.1" max="120" step="0.1" value="8" /></label>
-          <label class="hand-control" for="tremorRateSpread"><span>Rate spread <output id="tremorRateSpreadOut" for="tremorRateSpread">0%</output></span><input id="tremorRateSpread" type="range" min="0" max="1" step="0.01" value="0" /></label>
-          <label class="hand-control" for="tremorPhaseSpread"><span>Phase spread <output id="tremorPhaseSpreadOut" for="tremorPhaseSpread">0%</output></span><input id="tremorPhaseSpread" type="range" min="0" max="1" step="0.01" value="0" /></label>
-        </section>
-        <section class="hand-control-block" aria-labelledby="lookTitle">
-          <h2 id="lookTitle">Color &amp; light</h2>
-          <label class="hand-control" for="skin"><span>Color <output id="skinOut" for="skin">0%</output></span><input id="skin" type="range" min="0" max="1" step="0.001" value="0" /></label><label class="hand-control" for="lighting"><span>Light <output id="lightingOut" for="lighting">0%</output></span><input id="lighting" type="range" min="0" max="1.6" step="0.001" value="0" /></label>
-        </section>
-        <details class="hand-control-block" open><summary id="wristTitle">Wrist</summary>
-          <label class="hand-control" for="wristFlex"><span>Bend <output id="wristFlexOut" for="wristFlex">0°</output></span><input id="wristFlex" type="range" min="-55" max="65" step="1" value="0" /></label>
-          <label class="hand-control" for="wristSide"><span>Side to side <output id="wristSideOut" for="wristSide">0°</output></span><input id="wristSide" type="range" min="-20" max="30" step="1" value="0" /></label>
-          <label class="hand-control" for="wristTwist"><span>Turn <output id="wristTwistOut" for="wristTwist">0°</output></span><input id="wristTwist" type="range" min="-80" max="80" step="1" value="0" /></label>
         </details>
-        <section id="footShape" class="hand-control-block" aria-labelledby="footShapeTitle" hidden>
-          <div class="hand-section-title"><h2 id="footShapeTitle">Foot shape</h2><button id="relaxFoot" type="button">Relax</button></div>
-          <label class="hand-control" for="footArch"><span>Arch bend <output id="footArchOut" for="footArch">0°</output></span><input id="footArch" type="range" min="-70" max="85" step="1" value="0" /></label>
-          <label class="hand-control" for="footTwist"><span>Twist <output id="footTwistOut" for="footTwist">0°</output></span><input id="footTwist" type="range" min="-55" max="55" step="1" value="0" /></label>
-          <label class="hand-control" for="footStretch"><span>Stretch <output id="footStretchOut" for="footStretch">0%</output></span><input id="footStretch" type="range" min="-0.4" max="1" step="0.01" value="0" /></label>
-          <label class="hand-control" for="footElasticity"><span>Elastic motion <output id="footElasticityOut" for="footElasticity">0%</output></span><input id="footElasticity" type="range" min="0" max="1" step="0.01" value="0" /></label>
-          <p class="hand-joint-note">Drag the arch up/down to bend, sideways to stretch. Elastic motion follows the choreography.</p>
-        </section>
-        <details class="hand-notes"><summary>Model credits</summary><div id="modelCredit"></div></details>
+        <details id="voiceSound" class="group control-section hand-control-block hand-voice-sound" aria-labelledby="voiceSoundTitle" data-section="sound" open>
+          <summary class="group-summary"><h2 class="group-title" id="voiceSoundTitle">Finger sound</h2></summary>
+          <div class="group-body">
+            <div id="voiceTabs" class="hand-finger-tabs" role="group" aria-label="Sound voice"></div>
+            <label class="hand-select" for="voiceSource"><span>Engine</span><select id="voiceSource"></select></label>
+            <div id="voiceTweakControls" class="hand-voice-sound-grid"></div>
+          </div>
+        </details>
+        <details class="group control-section hand-control-block hand-sound-controls" aria-labelledby="soundTitle" data-section="sound" open>
+          <summary class="group-summary"><h2 class="group-title" id="soundTitle">All voices</h2></summary>
+          <div class="group-body">
+            <div class="hand-sound-grid">
+            <label class="hand-select" for="rhythm"><span>Rhythm</span><select id="rhythm"></select></label>
+            <label class="hand-control" for="note-length"><span>Note length <output id="note-lengthOut" for="note-length">45%</output></span><input id="note-length" type="range" min="0.08" max="0.9" step="0.01" value="0.45" /></label>
+            <label class="hand-control" for="rootHz"><span>Register <output id="rootHzOut" for="rootHz">140 Hz</output></span><input id="rootHz" type="range" min="35" max="1600" step="0.1" value="140" /></label>
+            <label class="hand-control" for="pitchSpread"><span>Pitch spread <output id="pitchSpreadOut" for="pitchSpread">100%</output></span><input id="pitchSpread" type="range" min="0" max="4" step="0.01" value="1" /></label>
+            <label class="hand-control" for="brightness"><span>Brightness <output id="brightnessOut" for="brightness">45%</output></span><input id="brightness" type="range" min="0" max="1" step="0.01" value="0.45" /></label>
+            <label class="hand-control" for="roughness"><span>Grain <output id="roughnessOut" for="roughness">20%</output></span><input id="roughness" type="range" min="0" max="1" step="0.01" value="0.2" /></label>
+            <label class="hand-control" for="rotationFx"><span>Rotation sound <output id="rotationFxOut" for="rotationFx">65%</output></span><input id="rotationFx" type="range" min="0" max="1" step="0.01" value="0.65" /></label>
+            <label class="hand-control" for="space"><span>Trails <output id="spaceOut" for="space">25%</output></span><input id="space" title="Visual afterimages and stereo echoes; zero turns both off" type="range" min="0" max="1" step="0.01" value="0.25" /></label>
+            <label class="hand-control" for="attack"><span>Attack <output id="attackOut" for="attack">40 ms</output></span><input id="attack" type="range" min="0.005" max="1" step="0.005" value="0.04" /></label><label class="hand-control" for="release"><span>Release <output id="releaseOut" for="release">450 ms</output></span><input id="release" type="range" min="0.03" max="2" step="0.01" value="0.45" /></label>
+            </div>
+          </div>
+        </details>
+        <details class="group control-section hand-control-block" aria-labelledby="movementTitle" data-section="rotation" open>
+          <summary class="group-summary"><h2 class="group-title" id="movementTitle">Movement</h2></summary>
+          <div class="group-body">
+            <label class="hand-select" for="motionPreset"><span>Choreography</span><select id="motionPreset"></select></label>
+            <label class="hand-control" for="motionAmount"><span>Movement size <output id="motionAmountOut" for="motionAmount">70%</output></span><input id="motionAmount" type="range" min="0" max="1" step="0.01" value="0.7" /></label>
+            <label class="hand-select" for="posePreset"><span>Starting pose</span><select id="posePreset"></select></label>
+          </div>
+        </details>
+        <details class="group control-section hand-control-block" aria-labelledby="jointsTitle" data-section="form" open>
+          <summary class="group-summary"><h2 class="group-title" id="jointsTitle">Finger joints</h2></summary>
+          <div class="group-body">
+            <div id="fingerTabs" class="hand-finger-tabs" role="group" aria-label="Selected finger"></div>
+            <div id="jointControls"></div>
+            <p class="hand-joint-note">Joint offsets are added to the selected movement.</p>
+            <label class="hand-check"><input id="linkJoints" type="checkbox" checked /> Bend joints together when dragging</label>
+            <button class="hand-section-action" id="relaxFinger" type="button">Relax</button>
+          </div>
+        </details>
+        <details class="group control-section hand-control-block" aria-labelledby="tremorTitle" data-section="winding" open>
+          <summary class="group-summary"><h2 class="group-title" id="tremorTitle">Tremors</h2></summary>
+          <div class="group-body">
+            <div class="hand-control-pair"><label class="hand-select" for="tremorFinger"><span id="tremorFingerLabel">Fingers</span><select id="tremorFinger"></select></label><label class="hand-select" for="tremorJoint"><span>Joints</span><select id="tremorJoint"></select></label></div>
+            <label class="hand-control" for="tremorAmount"><span>Shake depth <output id="tremorAmountOut" for="tremorAmount">0°</output></span><input id="tremorAmount" type="range" min="0" max="45" step="0.1" value="0" /></label>
+            <label class="hand-control" for="tremorRate"><span>Tremor rate <output id="tremorRateOut" for="tremorRate">8 Hz</output></span><input id="tremorRate" type="range" min="0.1" max="120" step="0.1" value="8" /></label>
+            <label class="hand-control" for="tremorRateSpread"><span>Rate spread <output id="tremorRateSpreadOut" for="tremorRateSpread">0%</output></span><input id="tremorRateSpread" type="range" min="0" max="1" step="0.01" value="0" /></label>
+            <label class="hand-control" for="tremorPhaseSpread"><span>Phase spread <output id="tremorPhaseSpreadOut" for="tremorPhaseSpread">0%</output></span><input id="tremorPhaseSpread" type="range" min="0" max="1" step="0.01" value="0" /></label>
+          </div>
+        </details>
+        <details class="group control-section hand-control-block" aria-labelledby="lookTitle" data-section="mapping" open>
+          <summary class="group-summary"><h2 class="group-title" id="lookTitle">Color &amp; light</h2></summary>
+          <div class="group-body">
+            <label class="hand-control" for="skin"><span>Color <output id="skinOut" for="skin">0%</output></span><input id="skin" type="range" min="0" max="1" step="0.001" value="0" /></label><label class="hand-control" for="lighting"><span>Light <output id="lightingOut" for="lighting">0%</output></span><input id="lighting" type="range" min="0" max="1.6" step="0.001" value="0" /></label>
+          </div>
+        </details>
+        <details class="group control-section hand-control-block" data-section="rotation" aria-labelledby="wristTitle" open>
+          <summary class="group-summary"><h2 class="group-title" id="wristTitle">Wrist</h2></summary>
+          <div class="group-body">
+            <label class="hand-control" for="wristFlex"><span>Bend <output id="wristFlexOut" for="wristFlex">0°</output></span><input id="wristFlex" type="range" min="-55" max="65" step="1" value="0" /></label>
+            <label class="hand-control" for="wristSide"><span>Side to side <output id="wristSideOut" for="wristSide">0°</output></span><input id="wristSide" type="range" min="-20" max="30" step="1" value="0" /></label>
+            <label class="hand-control" for="wristTwist"><span>Turn <output id="wristTwistOut" for="wristTwist">0°</output></span><input id="wristTwist" type="range" min="-80" max="80" step="1" value="0" /></label>
+          </div>
+        </details>
+        <details id="footShape" class="group control-section hand-control-block" aria-labelledby="footShapeTitle" hidden data-section="form" open>
+          <summary class="group-summary"><h2 class="group-title" id="footShapeTitle">Foot shape</h2></summary>
+          <div class="group-body">
+            <label class="hand-control" for="footArch"><span>Arch bend <output id="footArchOut" for="footArch">0°</output></span><input id="footArch" type="range" min="-70" max="85" step="1" value="0" /></label>
+            <label class="hand-control" for="footTwist"><span>Twist <output id="footTwistOut" for="footTwist">0°</output></span><input id="footTwist" type="range" min="-55" max="55" step="1" value="0" /></label>
+            <label class="hand-control" for="footStretch"><span>Stretch <output id="footStretchOut" for="footStretch">0%</output></span><input id="footStretch" type="range" min="-0.4" max="1" step="0.01" value="0" /></label>
+            <label class="hand-control" for="footElasticity"><span>Elastic motion <output id="footElasticityOut" for="footElasticity">0%</output></span><input id="footElasticity" type="range" min="0" max="1" step="0.01" value="0" /></label>
+            <p class="hand-joint-note">Drag the arch up/down to bend, sideways to stretch. Elastic motion follows the choreography.</p>
+            <button class="hand-section-action" id="relaxFoot" type="button">Relax</button>
+          </div>
+        </details>
+        <details class="group control-section hand-notes" data-section="output"><summary class="group-summary"><h2 class="group-title">Model credits</h2></summary><div id="modelCredit" class="group-body"></div></details>
       </aside>
     </main>
     <script type="module" src="nav.js"></script>

@@ -201,7 +201,7 @@ can intersect. The foot does not claim clinical accuracy.
 
 ## Sound controls
 
-Sound shaping is always open below the players, ahead of movement and appearance.
+Sound shaping starts open below the players, ahead of movement and appearance.
 Select a finger or toe in the **sound tabs**, its contour row, or the rig to edit
 that voice. Clicking a row’s name also brings its sound controls into view.
 The Engine menu stays synchronized with its row.
@@ -342,7 +342,8 @@ controller. Color changes always start from each material’s original color.
 On phones, the hand or foot stage stays visible beneath the masthead while the mixer and
 parameter controls scroll below it. Presets and Play come first, followed by the
 compact voice and contour rows, then sound, motion and appearance parameters.
-Keyboard and reading order follow that same layout. The hand remains available for direct gestures
+Sections use Shape’s colored header bars and native +/− toggles, with parameter
+sections open initially. Keyboard and reading order follow that same layout. The hand remains available for direct gestures
 as sound, motion and appearance settings are edited.
 
 MIDI notes map to five temporary finger gestures, with velocity controlling

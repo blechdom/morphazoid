@@ -323,7 +323,9 @@ function buildMixer() {
     row.innerHTML = `<div class="hand-voice-controls"><button type="button" class="hand-voice-name" data-finger="${i}" aria-pressed="false" aria-controls="voiceSound" title="Show sound controls">${labels[i]}</button><select id="source-${i}" aria-label="${labels[i]} sound"></select><label class="hand-voice-level" for="voice-level-${i}"><span><b class="sr-only">${labels[i]} level</b><output id="voice-level-${i}Out" for="voice-level-${i}">60%</output></span><input id="voice-level-${i}" type="range" min="0" max="1" step="0.01" value="0.6" /></label><div class="hand-mix-actions"><button type="button" id="mute-${i}" aria-label="Mute ${labels[i].toLowerCase()}" aria-pressed="false">M</button><button type="button" id="solo-${i}" aria-label="Solo ${labels[i].toLowerCase()}" aria-pressed="false">S</button></div></div><div class="hand-contour-lane"><div class="hand-contour-tools"><label class="hand-contour-joint" for="contour-joint-${i}"><span>Joint</span><select id="contour-joint-${i}" aria-label="${labels[i]} contour joint"></select></label><output id="contour-value-${i}" class="hand-contour-value" aria-live="polite"></output></div><canvas id="contour-${i}" class="hand-contour" tabindex="0" role="slider" aria-valuemin="-100" aria-valuemax="100" aria-describedby="contourHelp">Draw the selected joint movement. Left and right select a point; up and down adjust its bend.</canvas></div>`;
     el('fingerMixer').append(row);
     for (const source of VOICE_SOURCES) el(`source-${i}`).add(new Option(sourceLabel(source),sourceId(source)));
-    listen(row.querySelector('[data-finger]'),'click',()=>{selectFinger(i);el('voiceSound').scrollIntoView({block:'nearest'});});
+    listen(row.querySelector('[data-finger]'),'click',()=>{
+      selectFinger(i);el('voiceSound').open=true;el('voiceSound').scrollIntoView({block:'nearest'});
+    });
     listen(el(`source-${i}`),'focus',()=>selectFinger(i));
     listen(el(`voice-level-${i}`),'focus',()=>selectFinger(i));
     listen(el(`source-${i}`),'change',event=>{selectFinger(i);updateConfiguration(c=>{c.voices[i].source=event.target.value;});});

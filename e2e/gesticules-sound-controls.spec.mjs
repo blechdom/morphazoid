@@ -56,12 +56,12 @@ test('selected voice and shared sound controls are open directly after Play', as
     await expect(input).toHaveAccessibleName(/\S/);
   }
   const layout = await page.evaluate(ids => {
-    const sections = ['playTitle', 'voiceSoundTitle', 'soundTitle', 'movementTitle'].map(id => document.getElementById(id).closest('section'));
+    const sections = ['playTitle', 'voiceSoundTitle', 'soundTitle', 'movementTitle'].map(id => document.getElementById(id).closest('.hand-control-block'));
     return {ordered: sections.every((section, index) => !index || Boolean(sections[index - 1].compareDocumentPosition(section) & Node.DOCUMENT_POSITION_FOLLOWING)),
       closed: sections.some(section => section.closest('details:not([open]), [hidden]')),
       globalIds: [...document.querySelectorAll('.hand-sound-grid input, .hand-sound-grid select')].map(node => node.id),
       columns: getComputedStyle(document.querySelector('.hand-sound-grid')).gridTemplateColumns.split(/\s+/).length,
-      allOwned: ids.every(id => document.getElementById(id).closest('section') === sections[2])};
+      allOwned: ids.every(id => document.getElementById(id).closest('.hand-control-block') === sections[2])};
   }, GLOBAL_IDS);
   expect(layout).toEqual({ordered: true, closed: false, globalIds: GLOBAL_IDS, columns: 2, allOwned: true});
   await expectVoiceSync(page, (await snapshot(page)).selected);
@@ -72,7 +72,10 @@ test('row names, joint menus and engine focus select the same sound bank in both
   for (const form of ['hand', 'foot']) {
     await page.locator('#bodyForm').selectOption(form);
     await page.waitForFunction(form => window.__gesticulatingHand.snapshot().loaded && window.__gesticulatingHand.snapshot().viewer.form === form, form);
+    await page.locator('#voiceSound > summary').click();
+    await expect(page.locator('#voiceSource')).toBeHidden();
     await page.locator('#fingerMixer [data-finger="3"]').click();await expectVoiceSync(page, 3);
+    await expect(page.locator('#voiceSource')).toBeVisible();
     await page.locator('#contour-joint-1').selectOption('pip');await expectVoiceSync(page, 1);
     await page.locator('#source-4').focus();await expectVoiceSync(page, 4);
     const before = await snapshot(page);
