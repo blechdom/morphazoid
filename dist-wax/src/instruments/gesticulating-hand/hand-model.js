@@ -57,6 +57,12 @@ export const HAND_LIMITS = freeze({
   motion: { tempo: [20, 1100], amount: [0, 1], speed: [.1, 4], elasticity: [0, 1] },
   sound: { noteLength: [.08, .9], rootHz: [35, 1600], pitchSpread: [0, 4], brightness: [0, 1], roughness: [0, 1], space: [0, 1], rotationFx: [0, 1], attack: [.004, 1.2], release: [.04, 3.5] },
 });
+/** Neutral voice trims retain the original shared sound and articulated response. */
+export const HAND_VOICE_LIMITS = freeze({
+  pitch: [-2, 2], tone: [-1, 1], grain: [-1, 1], pan: [-1, 1],
+  attackScale: [.25, 4], releaseScale: [.25, 4],
+});
+export const HAND_VOICE_DEFAULTS = freeze({ pitch: 0, tone: 0, grain: 0, pan: 0, attackScale: 1, releaseScale: 1 });
 export const FOOT_LIMITS = freeze({
   bigToe: { mcp: [-55, 40], pip: [0, 0], dip: [0, 70], spread: [-12, 12] },
   toe: { mcp: [-40, 40], pip: [0, 90], dip: [0, 60], spread: [-10, 10] },
@@ -199,7 +205,7 @@ export const HAND_DEFAULTS = freeze({
   motion: { id: "source-grasp", tempo: 72, amount: .85, speed: 1, elasticity: 0, custom: false, edits: {},
     contours: FINGERS.map(() => Object.fromEntries(DIGIT_KEYS.map(key => [key, Array(HAND_CONTOUR_POINTS).fill(0)]))) },
   sound: { rhythm: "continuous", noteLength: .45, rootHz: 137, pitchSpread: 1, brightness: .46, roughness: .16, space: .28, rotationFx: .65, attack: .045, release: .45 },
-  voices: FINGERS.map((_, i) => ({ source: VOICE_SOURCES[i], level: i === 4 ? .5 : .7, mute: false, solo: false })),
+  voices: FINGERS.map((_, i) => ({ source: VOICE_SOURCES[i], level: i === 4 ? .5 : .7, mute: false, solo: false, ...HAND_VOICE_DEFAULTS })),
   view: { yaw: .12, pitch: .035, zoom: 1 },
   tremor: { finger: "all", joint: "tip", amount: 0, rate: 8, rateSpread: 0, phaseSpread: 0, referenceTempo: 72 },
   appearance: { skin: 0, lighting: 0 },
@@ -232,8 +238,10 @@ export function normalizeHandConfig(value = {}) {
     const f = record(pose.fingers?.[i]), bounds = handDigitLimits(next.form, i);
     for (const key of ["mcp", "pip", "dip", "spread"]) next.pose.fingers[i][key] = clampHand(f[key], ...bounds[key], HAND_DEFAULTS.pose.fingers[i][key]);
     const v = record(input.voices?.[i]), fallback = HAND_DEFAULTS.voices[i];
-    next.voices.push({ source: VOICE_SOURCES.includes(v.source) ? v.source : fallback.source,
-      level: clampHand(v.level, 0, 1, fallback.level), mute: v.mute === true, solo: v.solo === true });
+    const voice = { source: VOICE_SOURCES.includes(v.source) ? v.source : fallback.source,
+      level: clampHand(v.level, 0, 1, fallback.level), mute: v.mute === true, solo: v.solo === true };
+    for (const [key, limits] of Object.entries(HAND_VOICE_LIMITS)) voice[key] = clampHand(v[key], ...limits, HAND_VOICE_DEFAULTS[key]);
+    next.voices.push(voice);
   }
   for (const [key, bounds] of Object.entries(handWristLimits(next.form))) next.pose.wrist[key] = clampHand(wrist[key], ...bounds, HAND_DEFAULTS.pose.wrist[key]);
   if (next.form === "foot") {
@@ -713,10 +721,13 @@ export function evaluateHandVoices(value = HAND_DEFAULTS, time = 0, out = create
     }
     // Spread changes the fixed voice intervals; a zero-width register never
     // disables the independent joint bends, tremor or whole-body pitch gestures.
-    target.frequency = handPlayableFrequency(clampHand(sound.rootHz, 35, 1600, 137) * REGISTER_RATIOS[i] ** pitchSpread * Math.exp(pitch));
-    target.brightness = responsiveRange(brightness, 0, 1, .12);
-    target.roughness = responsiveRange(roughness, 0, 1, .12);
-    target.pan = responsiveRange(pan, -.97, .97, .24);
+    // Voice edits join the complete gesture before the responsive shoulders:
+    // even extreme trims retain independent joint and body modulation.
+    target.frequency = handPlayableFrequency(clampHand(sound.rootHz, 35, 1600, 137) * REGISTER_RATIOS[i] ** pitchSpread * Math.exp(pitch)
+      * 2 ** clampHand(voice.pitch, ...HAND_VOICE_LIMITS.pitch, 0));
+    target.brightness = responsiveRange(brightness + clampHand(voice.tone, ...HAND_VOICE_LIMITS.tone, 0), 0, 1, .12);
+    target.roughness = responsiveRange(roughness + clampHand(voice.grain, ...HAND_VOICE_LIMITS.grain, 0), 0, 1, .12);
+    target.pan = responsiveRange(pan + clampHand(voice.pan, ...HAND_VOICE_LIMITS.pan, 0), -.97, .97, .24);
     target.level = voice.mute === true || (solo && voice.solo !== true) ? 0 : clampHand(voice.level, 0, 1, fallback.level);
     target.source = VOICE_SOURCES.includes(voice.source) ? voice.source : fallback.source;
     target.excitation = clampHand(travel / .35, 0, 1);
@@ -758,6 +769,12 @@ export function randomizeHandConfig(_current = HAND_DEFAULTS, random = Math.rand
   next.view.zoom = 1;
   for (const lane of handAnimationLanes(next.form)) for (const joint of lane.keys) {
     if (unit() < .35) setHandAnimationEdit(next, lane.index, joint, randomizeHandContour(unit).map(value => value * .12));
+  }
+  // Add voice variation after the established scene draws so the other
+  // parameters keep their sequence for an existing deterministic random seed.
+  for (const voice of next.voices) {
+    voice.pitch = between(-1.25, 1.25); voice.tone = between(-.5, .5); voice.grain = between(-.5, .5);
+    voice.pan = between(-.5, .5); voice.attackScale = .5 * 4 ** unit(); voice.releaseScale = .5 * 4 ** unit();
   }
   return normalizeHandConfig(next);
 }

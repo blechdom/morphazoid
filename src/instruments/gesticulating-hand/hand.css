@@ -155,3 +155,20 @@
   .hand-voice-controls > select { grid-column: 2; }
   .hand-contour { height: 38px; }
 }
+
+/* Sound shaping stays beside playback, ahead of movement and appearance. */
+.hand-voice-sound h2 { color: var(--voice-color, var(--hand-paper)); margin-bottom: 8px; }
+.hand-voice-sound .hand-select { margin-top: 8px; }
+.hand-voice-sound-grid { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 8px 6px; margin-top: 12px; }
+.hand-sound-param { min-width: 0; display: grid; justify-items: center; gap: 3px; }
+.hand-sound-param > label { font-size: 11px; color: var(--hand-muted); }
+.hand-sound-knob { --accent: var(--voice-color); --bg-deep: #1b1b21; width: 100%; }
+.hand-sound-knob > input[type="range"] { height: 100%; margin: 0; cursor: ns-resize; }
+.hand-sound-knob output { font-size: 10px; }
+.hand-sound-grid { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); align-items: end; gap: 10px 12px; }
+.hand-sound-grid > label { margin: 0; }
+.hand-sound-controls h2 { margin-bottom: 12px; }
+.hand-sound-grid input[type="range"] { min-height: 28px; }
+
+.hand-voice-name[aria-controls="voiceSound"]::after { content: '↗'; margin-left: 6px; font-size: 10px; color: var(--hand-muted); }
+@media(min-width:600px) and (max-width:960px) { .hand-voice-sound-grid { grid-template-columns: repeat(6, minmax(0,1fr)); } }

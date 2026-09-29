@@ -199,6 +199,30 @@ softer than the hand. The cropped ankle is capped, with smoothed shading and col
 an artist-authored mesh, not a tendon/contact simulation; extreme combinations
 can intersect. The foot does not claim clinical accuracy.
 
+## Sound controls
+
+Sound shaping is always open below the players, ahead of movement and appearance.
+Select a finger or toe in the **sound tabs**, its contour row, or the rig to edit
+that voice. Clicking a row’s name also brings its sound controls into view.
+The Engine menu stays synchronized with its row.
+
+Six knobs provide independent **Tune** (−2 to +2 octaves), **Tone**, **Grain**,
+**Pan**, **Attack**, and **Release**. Tone, Grain and Pan are signed offsets from
+the shared settings and gesture mappings; zero keeps the preset’s original
+mapping. Attack and Release scale the shared envelope from one-quarter to four
+times its duration, with the resulting time shown on each knob. Tune is a
+continuous octave offset. Joint motion continues to shape all engines.
+
+Tone changes harmonic color and filtering; it also moves vowel shapes in Vowel
+and Choir, pulse width in Pulse, and modulation depth in Wire. Grain changes
+noise, modulation or damping according to the engine. These are the engines’
+existing synthesis controls, with independent offsets for each voice.
+
+The **All voices** controls set shared register, pitch spread, brightness, grain,
+attack and release, along with rhythm, note length, rotation sound and Trails.
+Full presets recall all voice controls. Older presets use neutral voice offsets
+and retain their original sound; changing Hand/Foot keeps the sound settings.
+
 ## Sound mapping
 
 | Visible change | Sound consequence |

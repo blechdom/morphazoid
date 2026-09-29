@@ -225,7 +225,7 @@ export class HandDSP {
     this.pose = createHandPose(); this.previousPose = createHandPose(); this.targets = createHandVoices();
     this.voices = Array.from({ length: 5 }, (_, i) => ({
       phase: .073 * i, modPhase: .137 * i, frequency: 137, brightness: .4, roughness: .1, pan: 0, level: 0,
-      excitation: 0, envelope: 0, auditionUntil: -1, source: VOICE_SOURCES[i], sourceIndex: i, sourceWeights: Float64Array.from(VOICE_SOURCES, (_, j) => i === j ? 1 : 0),
+      excitation: 0, envelope: 0, attackCoefficient: 0, releaseCoefficient: 0, auditionUntil: -1, source: VOICE_SOURCES[i], sourceIndex: i, sourceWeights: Float64Array.from(VOICE_SOURCES, (_, j) => i === j ? 1 : 0),
       seed: (0x9e3779b9 ^ (i + 1) * 0x35a89) >>> 0, airLow: 0, airBand: 0,
       filter: 0, lastInput: 0, dc: 0, cutoff: 1000, gated: false, ...createEngines(this.sampleRate),
     }));
@@ -245,6 +245,15 @@ export class HandDSP {
     this.beatsPerSecond = handEffectiveTempo(this.config.motion) / 60;
     this.attackCoefficient = coefficients(this.sampleRate, this.config.sound.attack, 4.6);
     this.releaseCoefficient = coefficients(this.sampleRate, this.config.sound.release, 6.9);
+    for (let i = 0; i < 5; i++) {
+      const voice = this.voices[i], settings = this.config.voices[i];
+      // Reuse the original coefficients at neutral trims. Live edits change
+      // envelope slope without resetting the envelope, gate or transport.
+      voice.attackCoefficient = settings.attackScale === 1 ? this.attackCoefficient
+        : coefficients(this.sampleRate, this.config.sound.attack * settings.attackScale, 4.6);
+      voice.releaseCoefficient = settings.releaseScale === 1 ? this.releaseCoefficient
+        : coefficients(this.sampleRate, this.config.sound.release * settings.releaseScale, 6.9);
+    }
   }
   setEnabled(enabled) {
     this.enabled = enabled === true;
@@ -329,7 +338,7 @@ export class HandDSP {
         const gated = this.enabled && ((this.soundPlaying && note) || (this.heldFingers & (1 << i)) !== 0 || at < voice.auditionUntil);
         voice.gated = gated;
         const envelopeTarget = gated ? 1 : 0;
-        const coefficient = !this.enabled ? this.muteCoefficient : gated ? this.attackCoefficient : this.releaseCoefficient;
+        const coefficient = !this.enabled ? this.muteCoefficient : gated ? voice.attackCoefficient : voice.releaseCoefficient;
         voice.envelope += (envelopeTarget - voice.envelope) * coefficient;
         if (voice.envelope < 1e-8) voice.envelope = 0;
         voice.phase = (voice.phase + voice.frequency / rate) % 1;

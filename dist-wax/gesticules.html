@@ -67,6 +67,25 @@
             <label class="hand-control hand-tempo" for="tempo"><span>Tempo <output id="tempoOut" for="tempo">72</output></span><input id="tempo" type="range" min="2" max="4400" step="0.1" value="72" /></label>
           </div>
         </section>
+        <section id="voiceSound" class="hand-control-block hand-voice-sound" aria-labelledby="voiceSoundTitle">
+          <h2 id="voiceSoundTitle">Finger sound</h2>
+          <div id="voiceTabs" class="hand-finger-tabs" role="group" aria-label="Sound voice"></div>
+          <label class="hand-select" for="voiceSource"><span>Engine</span><select id="voiceSource"></select></label>
+          <div id="voiceTweakControls" class="hand-voice-sound-grid"></div>
+        </section>
+        <section class="hand-control-block hand-sound-controls" aria-labelledby="soundTitle"><h2 id="soundTitle">All voices</h2>
+          <div class="hand-sound-grid">
+          <label class="hand-select" for="rhythm"><span>Rhythm</span><select id="rhythm"></select></label>
+          <label class="hand-control" for="note-length"><span>Note length <output id="note-lengthOut" for="note-length">45%</output></span><input id="note-length" type="range" min="0.08" max="0.9" step="0.01" value="0.45" /></label>
+          <label class="hand-control" for="rootHz"><span>Register <output id="rootHzOut" for="rootHz">140 Hz</output></span><input id="rootHz" type="range" min="35" max="1600" step="0.1" value="140" /></label>
+          <label class="hand-control" for="pitchSpread"><span>Pitch spread <output id="pitchSpreadOut" for="pitchSpread">100%</output></span><input id="pitchSpread" type="range" min="0" max="4" step="0.01" value="1" /></label>
+          <label class="hand-control" for="brightness"><span>Brightness <output id="brightnessOut" for="brightness">45%</output></span><input id="brightness" type="range" min="0" max="1" step="0.01" value="0.45" /></label>
+          <label class="hand-control" for="roughness"><span>Grain <output id="roughnessOut" for="roughness">20%</output></span><input id="roughness" type="range" min="0" max="1" step="0.01" value="0.2" /></label>
+          <label class="hand-control" for="rotationFx"><span>Rotation sound <output id="rotationFxOut" for="rotationFx">65%</output></span><input id="rotationFx" type="range" min="0" max="1" step="0.01" value="0.65" /></label>
+          <label class="hand-control" for="space"><span>Trails <output id="spaceOut" for="space">25%</output></span><input id="space" title="Visual afterimages and stereo echoes; zero turns both off" type="range" min="0" max="1" step="0.01" value="0.25" /></label>
+          <label class="hand-control" for="attack"><span>Attack <output id="attackOut" for="attack">40 ms</output></span><input id="attack" type="range" min="0.005" max="1" step="0.005" value="0.04" /></label><label class="hand-control" for="release"><span>Release <output id="releaseOut" for="release">450 ms</output></span><input id="release" type="range" min="0.03" max="2" step="0.01" value="0.45" /></label>
+          </div>
+        </section>
         <section class="hand-control-block" aria-labelledby="movementTitle">
           <h2 id="movementTitle">Movement</h2>
           <label class="hand-select" for="motionPreset"><span>Choreography</span><select id="motionPreset"></select></label>
@@ -104,17 +123,6 @@
           <label class="hand-control" for="footStretch"><span>Stretch <output id="footStretchOut" for="footStretch">0%</output></span><input id="footStretch" type="range" min="-0.4" max="1" step="0.01" value="0" /></label>
           <label class="hand-control" for="footElasticity"><span>Elastic motion <output id="footElasticityOut" for="footElasticity">0%</output></span><input id="footElasticity" type="range" min="0" max="1" step="0.01" value="0" /></label>
           <p class="hand-joint-note">Drag the arch up/down to bend, sideways to stretch. Elastic motion follows the choreography.</p>
-        </section>
-        <section class="hand-control-block" aria-labelledby="soundTitle"><h2 id="soundTitle">Sound</h2>
-          <label class="hand-select" for="rhythm"><span>Rhythm</span><select id="rhythm"></select></label>
-          <label class="hand-control" for="note-length"><span>Note length <output id="note-lengthOut" for="note-length">45%</output></span><input id="note-length" type="range" min="0.08" max="0.9" step="0.01" value="0.45" /></label>
-          <label class="hand-control" for="rootHz"><span>Register <output id="rootHzOut" for="rootHz">140 Hz</output></span><input id="rootHz" type="range" min="35" max="1600" step="0.1" value="140" /></label>
-          <label class="hand-control" for="pitchSpread"><span>Pitch spread <output id="pitchSpreadOut" for="pitchSpread">100%</output></span><input id="pitchSpread" type="range" min="0" max="4" step="0.01" value="1" /></label>
-          <label class="hand-control" for="brightness"><span>Brightness <output id="brightnessOut" for="brightness">45%</output></span><input id="brightness" type="range" min="0" max="1" step="0.01" value="0.45" /></label>
-          <label class="hand-control" for="roughness"><span>Grain <output id="roughnessOut" for="roughness">20%</output></span><input id="roughness" type="range" min="0" max="1" step="0.01" value="0.2" /></label>
-          <label class="hand-control" for="rotationFx"><span>Rotation sound <output id="rotationFxOut" for="rotationFx">65%</output></span><input id="rotationFx" type="range" min="0" max="1" step="0.01" value="0.65" /></label>
-          <label class="hand-control" for="space"><span>Trails <output id="spaceOut" for="space">25%</output></span><input id="space" title="Visual afterimages and stereo echoes; zero turns both off" type="range" min="0" max="1" step="0.01" value="0.25" /></label>
-          <div class="hand-control-pair"><label class="hand-control" for="attack"><span>Attack <output id="attackOut" for="attack">40 ms</output></span><input id="attack" type="range" min="0.005" max="1" step="0.005" value="0.04" /></label><label class="hand-control" for="release"><span>Release <output id="releaseOut" for="release">450 ms</output></span><input id="release" type="range" min="0.03" max="2" step="0.01" value="0.45" /></label></div>
         </section>
         <details class="hand-notes"><summary>Model credits</summary><div id="modelCredit"></div></details>
       </aside>
