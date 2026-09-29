@@ -93,8 +93,17 @@ Curve height shows the actual joint position, including starting pose,
 choreography, tremor and note taps. Readouts use degrees, or percent for stretch.
 The big toe has base, tip and spread curves; it has no middle joint.
 
+**Loop length**, above the contour rows, sets one complete motion cycle to
+**1–64 beats**. Its duration readout follows Tempo, and the numbered beat ruler
+lines up with every joint curve. A longer loop stretches the complete gesture
+and your drawn corrections; it does not discard points or repeat a shorter
+fragment. The playhead retains its place when the length changes. Rhythmic note
+patterns keep their beat clock, and tremors keep their phase and rate.
+Factory presets show their original loop lengths; an edited length stays with
+the current scene and is included in complete preset capture and randomization.
+
 Most presets store an animation recipe, not a frame-by-frame recording: starting
-pose, named choreography, native beat count, Tempo, movement amount, elasticity,
+pose, named choreography, loop length (native unless overridden), Tempo, movement amount, elasticity,
 tremor and rhythmic taps. The original grasp additionally samples imported
 quaternion keyframes. The editor plots the current loop from the same pose
 evaluator as the rig and audio, with a shared playhead. Fast shakes use sampled
@@ -102,10 +111,10 @@ range envelopes when individual oscillations are too dense to resolve; this
 only affects drawing, never playback.
 
 Drawing adds a **correction for the selected joint** over that recipe. It keeps
-the original choreography, native loop length, imported rig motion, tremor and
-all unedited joints intact. Corrections use 16 bounded points per native cycle
+the original choreography, selected loop length, imported rig motion, tremor and
+all unedited joints intact. Corrections use 16 bounded points per cycle
 with smooth interpolation. The global legacy **Drawn contours** mode and its
-four-beat curves remain compatible. New drawings also work over Still.
+four-beat curve data remain compatible and stretch to the selected loop length. New drawings also work over Still.
 
 Dragging paints all crossed points as one edit. With a contour focused,
 Ctrl/Cmd+Z undoes the whole stroke without changing later Tempo or sound edits. Left/right

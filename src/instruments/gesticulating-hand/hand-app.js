@@ -1,6 +1,6 @@
 import { createHandViewer, FINGER_COLORS } from './hand-viewer.js';
 import { FINGERS, VOICE_SOURCES, HAND_DEFAULTS, HAND_LIMITS, FOOT_LIMITS, HAND_POSES, HAND_MOTIONS, HAND_PRESETS, HAND_RHYTHMS, TREMOR_FINGERS, TREMOR_JOINTS,
-  normalizeHandConfig, evaluateHandPose, randomizeHandConfig, handMotionPeriod, handEffectiveTempo, setHandEffectiveTempo, handTremorRate, handAnimationLanes, handAnimationBounds, handDigitLabels, handDigitLimits, handWristLimits, handJointKeys, handJointLabel, handMotionLabel, handPoseLabel, handPoseForForm } from './hand-model.js';
+  normalizeHandConfig, evaluateHandPose, randomizeHandConfig, handMotionPeriod, handLoopBeats, handEffectiveTempo, setHandEffectiveTempo, handTremorRate, handAnimationLanes, handAnimationBounds, handDigitLabels, handDigitLimits, handWristLimits, handJointKeys, handJointLabel, handMotionLabel, handPoseLabel, handPoseForForm } from './hand-model.js';
 import { createHandContourEditor } from './hand-contour-editor.js';
 import { createHandSoundControls } from './hand-sound-controls.js';
 import { HandAudio } from './hand-audio.js';
@@ -15,7 +15,7 @@ const initialConfig=HAND_PRESETS.find(preset=>preset.id==='wire-roll').snapshot;
 const state = {
   config: normalizeHandConfig(initialConfig), selected: 1, joint: 'mcp', bodyJoint: null,
   playing: false, soundPlaying: false, audioOn: false, starting: false,
-  phase: 0, tremorOffset: 0, epoch: performance.now(), pointerMask: 0, midi: new Map(),
+  phase: 0, tremorOffset: 0, rhythmOffset: 0, epoch: performance.now(), pointerMask: 0, midi: new Map(),
   loaded: false, disposed: false, linked: true,
 };
 const audio = new HandAudio();
@@ -103,7 +103,7 @@ function publish() {
 }
 function setPlaying(playing) {
   anchor(); state.playing = Boolean(playing);
-  audio.setTransport({ time: state.phase, tremorOffset: state.tremorOffset, playing: state.playing });
+  audio.setTransport({ time: state.phase, tremorOffset: state.tremorOffset, rhythmOffset: state.rhythmOffset, playing: state.playing });
   syncTransport(); requestDraw();
 }
 function setSoundPlaying(playing) {
@@ -123,7 +123,7 @@ async function setAudio(active) {
     if (state.disposed || request !== audioRequest || armed === false) return;
     const time = currentTime();
     state.audioOn = true; state.starting = false;
-    audio.setConfig(performanceConfig()); audio.setTransport({ time, tremorOffset: state.tremorOffset, playing: state.playing });
+    audio.setConfig(performanceConfig()); audio.setTransport({ time, tremorOffset: state.tremorOffset, rhythmOffset: state.rhythmOffset, playing: state.playing });
     audio.setSoundPlaying(state.soundPlaying); syncHeld(); anchor(time);
     syncTransport(); requestDraw();
   } catch (error) {
@@ -134,13 +134,13 @@ async function setAudio(active) {
 }
 function requestDraw() { if (!frame && !state.disposed) frame = requestAnimationFrame(draw); }
 function effectivePose(time) {
-  return evaluateHandPose(performanceConfig(), time, undefined, time + state.tremorOffset);
+  return evaluateHandPose(performanceConfig(), time, undefined, time + state.tremorOffset, time + state.rhythmOffset);
 }
 function draw(now) {
   frame = 0;
   if (state.disposed) return;
   if (now - lastDraw >= 1000 / 40 || (!state.playing && !viewer?.hasTrailTail(now))) {
-    const time=currentTime();viewer?.setPose(effectivePose(time));viewer?.render(now);contourEditor?.draw(time, time + state.tremorOffset);lastDraw=now;
+    const time=currentTime();viewer?.setPose(effectivePose(time));viewer?.render(now);contourEditor?.draw(time, time + state.tremorOffset, time + state.rhythmOffset);lastDraw=now;
   }
   if (state.playing || viewer?.hasTrailTail(now)) requestDraw();
 }
@@ -237,13 +237,15 @@ function syncFormControls() {
 }
 function syncControls() {
   syncFormControls();
-  const controls = { footArch: state.config.pose.foot?.arch??0, footTwist: state.config.pose.foot?.twist??0, footStretch: state.config.pose.foot?.stretch??0, footElasticity:state.config.motion.elasticity, tremorAmount: state.config.tremor.amount, tremorRate: state.config.tremor.rate, tremorRateSpread:state.config.tremor.rateSpread, tremorPhaseSpread:state.config.tremor.phaseSpread, tempo: handEffectiveTempo(state.config.motion), motionAmount: state.config.motion.amount,
+  const controls = { footArch: state.config.pose.foot?.arch??0, footTwist: state.config.pose.foot?.twist??0, footStretch: state.config.pose.foot?.stretch??0, footElasticity:state.config.motion.elasticity, tremorAmount: state.config.tremor.amount, tremorRate: state.config.tremor.rate, tremorRateSpread:state.config.tremor.rateSpread, tremorPhaseSpread:state.config.tremor.phaseSpread, tempo: handEffectiveTempo(state.config.motion), loopBeats: handLoopBeats(state.config.motion), motionAmount: state.config.motion.amount,
     wristFlex: state.config.pose.wrist.flex, wristSide: state.config.pose.wrist.side, wristTwist: state.config.pose.wrist.twist,
     ...state.config.sound, "note-length": state.config.sound.noteLength };
   for (const [id,value] of Object.entries(controls)) {
     if (!el(id)) continue;
     el(id).value = value; updateOutput(id, value);
   }
+  const period = handMotionPeriod(state.config.motion);
+  el('loopDuration').value = period < 1 ? `${Math.round(period * 1000)} ms` : `${Number(period.toFixed(2))} s`;
   el('motionPreset').value = state.config.motion.custom?'drawn':state.config.motion.id;
   el('tremorFinger').value=state.config.tremor.finger;el('tremorJoint').value=state.config.tremor.joint;
   el('tremorFinger').disabled=state.config.tremor.joint==='wrist';
@@ -265,10 +267,11 @@ function syncControls() {
 function updateOutput(id,value) {
   if (!el(`${id}Out`)) return;
   el(`${id}Out`).value = id==='footStretch'?`${value>0?'+':''}${Math.round(value*100)}%` : id.startsWith('wrist')||id==='footArch'||id==='footTwist' ? `${Math.round(value)}°`
+    : id === 'loopBeats' ? `${value} ${value === 1 ? 'beat' : 'beats'}`
     : id === 'tremorAmount' ? `${Number(value.toFixed(1))}°`
     : id === 'tremorRate' ? `${Number(handTremorRate(state.config).toPrecision(3))} Hz` : id === 'tempo' ? `${Number(value.toFixed(1))} BPM` : id === 'rootHz' ? `${Math.round(value)} Hz`
     : id === 'space' && value === 0 ? 'Off' : ['attack','release'].includes(id) ? `${Math.round(value*1000)} ms` : `${Math.round(value*100)}%`;
-  if (id === 'tremorRate') el(id).setAttribute('aria-valuetext', el(`${id}Out`).value);
+  if (id === 'tremorRate' || id === 'loopBeats') el(id).setAttribute('aria-valuetext', el(`${id}Out`).value);
 }
 function applyConfiguration(value) {
   const next = normalizeHandConfig(value);
@@ -279,6 +282,8 @@ function applyConfiguration(value) {
   // Tempo scales every shake as well as choreography. Preserve tremor phase
   // through that clock change, its own rate edits, and different cycle lengths.
   state.tremorOffset = (previousTime + state.tremorOffset) * handTremorRate(state.config) / handTremorRate(next) - time;
+  // Loop length changes the gesture clock without moving the rhythmic attacks.
+  state.rhythmOffset = (previousTime + state.rhythmOffset) * handEffectiveTempo(state.config.motion) / handEffectiveTempo(next.motion) - time;
   if(next.form!==state.config.form)formPoses.set(state.config.form,clone(state.config.pose));
   const formChanged=next.form!==state.config.form;
   if(formChanged)contourEditor?.clearHistory();
@@ -286,7 +291,7 @@ function applyConfiguration(value) {
   if(formChanged)viewer?.setForm(next.form);
   viewer?.setCameraView(next.view);viewer?.setAppearance(next.appearance);publish();
   viewer?.setPose(effectivePose(time));
-  audio.setTransport({ time, tremorOffset: state.tremorOffset, playing: state.playing });syncControls();
+  audio.setTransport({ time, tremorOffset: state.tremorOffset, rhythmOffset: state.rhythmOffset, playing: state.playing });syncControls();
 }
 function updateConfiguration(mutator) {
   const next = clone(state.config); mutator(next); applyConfiguration(next);
@@ -384,6 +389,7 @@ for(const id of ['skin','lighting'])listen(el(id),'input',event=>{const value=Nu
 for(const rhythm of HAND_RHYTHMS) el('rhythm').add(new Option(rhythm.label,rhythm.id));
 listen(el('rhythm'),'change',event=>updateConfiguration(c=>{c.sound.rhythm=event.target.value;}));
 listen(el('note-length'),'input',event=>updateConfiguration(c=>{c.sound.noteLength=Number(event.target.value);}));
+listen(el('loopBeats'),'input',event=>updateConfiguration(c=>{c.motion.loopBeats=Number(event.target.value);}));
 for(const motion of HAND_MOTIONS) el('motionPreset').add(new Option(motion.label,motion.id));
 el('motionPreset').add(new Option('Drawn contours','drawn'));
 el('posePreset').add(new Option('Custom pose','custom'));
@@ -496,7 +502,7 @@ listen(window,'pagehide',event=>{
   jointAbort?.abort();layoutObserver.disconnect();abort.abort();viewer?.dispose();audio.close();
 });
 listen(window,'pageshow',event=>{
-  if(event.persisted&&!state.disposed){anchor(state.phase);audio.setTransport({time:state.phase,tremorOffset:state.tremorOffset,playing:state.playing});syncTransport();requestDraw();}
+  if(event.persisted&&!state.disposed){anchor(state.phase);audio.setTransport({time:state.phase,tremorOffset:state.tremorOffset,rhythmOffset:state.rhythmOffset,playing:state.playing});syncTransport();requestDraw();}
 });
 presets=registerHeaderPresets({id:'gesticulating-hand',presets:HAND_PRESETS,
   capture:()=>clone(state.config),
@@ -532,7 +538,7 @@ presets.view?.select('wire-roll');
 
 // Read-only seam for interaction, lifecycle and audio/visual causality checks.
 window.__gesticulatingHand = {
-  snapshot:()=>{const time=currentTime();return {config:clone(state.config),pose:effectivePose(time),time,tremorTime:time+state.tremorOffset,
+  snapshot:()=>{const time=currentTime();return {config:clone(state.config),pose:effectivePose(time),time,tremorTime:time+state.tremorOffset,rhythmTime:time+state.rhythmOffset,
     playing:state.playing,soundPlaying:state.soundPlaying,audioOn:state.audioOn,loaded:state.loaded,
     selected:state.selected,bodyJoint:state.bodyJoint,held:state.pointerMask|midiMask(),audio:audio.getState(),viewer:viewer?.getState()};},
 };

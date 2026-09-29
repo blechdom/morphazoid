@@ -42,7 +42,7 @@
 .hand-notes { font-size: 11px; color: var(--hand-muted); }
 .hand-notes > .group-body { line-height: 1.7; }
 .hand-notes a { color: #e2bc99; }
-.hand-voices { padding-top: 16px; }
+.hand-voices { --hand-voice-controls: 175px; --hand-voice-gap: 12px; --hand-voice-inset: 11px; padding-top: 16px; }
 .hand-finger-mixer { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px; }
 .hand-voice { min-width: 0; padding-top: 10px; border-top: 2px solid var(--finger-color); }
 .hand-voice-name { width: 100%; text-align: left; padding: 0 !important; border: 0 !important; background: transparent !important; font-size: 12px !important; min-height: 28px !important; }
@@ -99,9 +99,23 @@
 
 .hand-control-block[hidden] { display: none; }
 
+/* The shared loop control and beat ruler stay with the contour sequencer. */
+.hand-contour-header { display: flex; align-items: center; gap: 12px; margin-bottom: 4px; }
+.hand-loop-control { display: flex; align-items: center; gap: 8px; min-width: 0; flex: 0 1 330px; }
+.hand-loop-control > span { display: flex; gap: 6px; flex: none; align-items: baseline; font-size: 11px; white-space: nowrap; }
+.hand-loop-control output { color: var(--hand-accent); }
+.hand-shell .hand-loop-control input[type="range"] { flex: 1; width: 100%; min-width: 50px; height: 28px; min-height: 28px; margin: 0; }
+.hand-loop-duration { flex: none; min-width: 48px; text-align: right; white-space: nowrap; }
+.hand-contour-header .hand-gesture-help { flex: 1; min-width: 0; }
+.hand-contour-ruler { position: relative; height: 16px; margin: 0 0 1px calc(var(--hand-voice-controls) + var(--hand-voice-gap) + var(--hand-voice-inset)); border-bottom: 1px solid var(--hand-line); }
+.hand-loop-tick { position: absolute; top: 0; transform: translateX(-50%); color: var(--hand-muted); font-size: 9px; line-height: 13px; }
+.hand-loop-start { transform: none; }
+.hand-loop-end { transform: translateX(-100%); }
+.hand-loop-playhead { position: absolute; bottom: -2px; width: 1px; height: 5px; background: var(--hand-paper); pointer-events: none; }
+
 /* Compact voice rows with overlaid joint contours. */
 .hand-finger-mixer { grid-template-columns: minmax(0,1fr); gap: 5px; }
-.hand-voice { display: grid; grid-template-columns: 175px minmax(0,1fr); align-items: center; gap: 12px; padding: 6px 0 6px 9px; border-top: 0; border-left: 2px solid var(--finger-color); }
+.hand-voice { display: grid; grid-template-columns: var(--hand-voice-controls) minmax(0,1fr); align-items: center; gap: var(--hand-voice-gap); padding: 6px 0 6px 9px; border-top: 0; border-left: 2px solid var(--finger-color); }
 .hand-voice-controls { display: grid; grid-template-columns: minmax(0,1fr) 58px; gap: 3px 6px; align-items: center; }
 .hand-voice-name { grid-column: 1 / -1; font-size: 11px !important; min-height: 20px !important; }
 .hand-voice-controls > select { grid-column: 1 / -1; min-height: 26px; padding: 2px 4px; }
@@ -120,28 +134,37 @@
 .hand-contour-tools .hand-contour-value { margin-left: auto; white-space: nowrap; font-size: 10px; color: var(--hand-muted); }
 .hand-contour { display: block; width: 100%; height: 57px; background: #ffffff04; border-radius: 3px; touch-action: none; cursor: crosshair; }
 .hand-contour:focus-visible { outline: 2px solid var(--finger-color); outline-offset: 2px; }
-.hand-voices .hand-gesture-help { margin: 4px 0 8px; }
+.hand-voices .hand-gesture-help { margin: 0; font-size: 10px; }
 
 /* Body lanes share the animation timeline without adding extra sound voices. */
 .hand-voice[hidden] { display: none; }
 .hand-body-lane > .hand-voice-name { grid-column: 1; text-align: left; align-self: center; }
 
 @media(min-width:961px) { .hand-viewport { height: clamp(330px,calc(100dvh - 530px),650px); } }
-@media(max-width:960px) { .hand-voices { padding-top: 0; margin-bottom: 22px; } .hand-voice { grid-template-columns: 120px minmax(0,1fr); gap: 8px; } }
+@media(max-width:960px) {
+  .hand-voices { --hand-voice-controls: 120px; --hand-voice-gap: 8px; padding-top: 0; margin-bottom: 22px; }
+  .hand-contour-header { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 6px 10px; }
+  .hand-loop-control { display: grid; gap: 2px; }
+  .hand-loop-duration { align-self: end; padding-bottom: 7px; }
+  .hand-contour-header .hand-gesture-help { grid-column: 1 / -1; }
+}
 @media(max-width:450px) {
-  .hand-voice { grid-template-columns: 108px minmax(0,1fr); gap: 6px; padding-left: 6px; }
+  .hand-voices { --hand-voice-controls: 108px; --hand-voice-gap: 6px; --hand-voice-inset: 8px; }
+  .hand-voice { padding-left: 6px; }
   .hand-voice-controls { grid-template-columns: 48px minmax(0,1fr); gap: 2px 4px; }
   .hand-contour { height: 66px; }
   .hand-contour-tools { gap: 4px; }
   .hand-contour-tools .hand-contour-joint { gap: 4px; }
 }
 @media(pointer:coarse) {
+  .hand-shell .hand-loop-control input[type="range"] { height: 44px; min-height: 44px; }
   .hand-contour-tools, .hand-contour-tools select { min-height: 44px; }
   .hand-contour-tools select { height: 44px; }
   .hand-voice .hand-mix-actions button { min-height: 32px; }
 }
 @media(min-width:961px) and (pointer:fine) {
   .hand-viewport { height: clamp(304px,calc(100dvh - 620px),620px); }
+  .hand-voices { padding-top: 0; }
   .hand-voice { padding-top: 2px; padding-bottom: 2px; }
   .hand-voice-controls { grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: 3px 6px; }
   .hand-voice-name { grid-column: 1; }

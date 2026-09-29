@@ -193,16 +193,26 @@ export function handPoseForForm(id, form = "hand") {
 const MOTION_BEATS = new Map(HAND_MOTIONS.map(motion => [motion.id, motion.beats]));
 /** Cycle length in beats; unknown legacy values use the original four beats. */
 export const handMotionBeats = id => MOTION_BEATS.get(id) ?? 4;
+const normalizeLoopBeats = value => {
+  const beats = handNumber(value, null);
+  return beats === null || (typeof value === "string" && !value.trim())
+    ? null : Math.round(clampHand(beats, 1, 64));
+};
+/** An omitted override follows the chosen choreography's authored loop. */
+export function handLoopBeats(value = {}) {
+  const motion = record(value);
+  return normalizeLoopBeats(motion.loopBeats) ?? (motion.custom ? HAND_CONTOUR_BEATS : handMotionBeats(motion.id));
+}
 /** Cycle length in seconds. Speed multiplies tempo and defaults to 1 for v1 scenes. */
 export function handMotionPeriod(value = {}) {
   const motion = record(value);
-  return (motion.custom ? HAND_CONTOUR_BEATS : handMotionBeats(motion.id)) * 60 / (clampHand(motion.tempo, 20, 1100, 72) * clampHand(motion.speed, .1, 4, 1));
+  return handLoopBeats(motion) * 60 / (clampHand(motion.tempo, 20, 1100, 72) * clampHand(motion.speed, .1, 4, 1));
 }
 const DEFAULT_POSE = HAND_POSES.find(pose => pose.id === "source-open").pose;
 export const HAND_DEFAULTS = freeze({
   version: 1, form: "hand",
   pose: { fingers: DEFAULT_POSE.fingers.map(f => ({ ...f })), wrist: { ...DEFAULT_POSE.wrist } },
-  motion: { id: "source-grasp", tempo: 72, amount: .85, speed: 1, elasticity: 0, custom: false, edits: {},
+  motion: { id: "source-grasp", tempo: 72, amount: .85, speed: 1, elasticity: 0, loopBeats: null, custom: false, edits: {},
     contours: FINGERS.map(() => Object.fromEntries(DIGIT_KEYS.map(key => [key, Array(HAND_CONTOUR_POINTS).fill(0)]))) },
   sound: { rhythm: "continuous", noteLength: .45, rootHz: 137, pitchSpread: 1, brightness: .46, roughness: .16, space: .28, rotationFx: .65, attack: .045, release: .45 },
   voices: FINGERS.map((_, i) => ({ source: VOICE_SOURCES[i], level: i === 4 ? .5 : .7, mute: false, solo: false, ...HAND_VOICE_DEFAULTS })),
@@ -261,6 +271,7 @@ export function normalizeHandConfig(value = {}) {
   // the recalled Tempo, then retain that reference through edits and saves.
   next.tremor.referenceTempo = clampHand(tremor.referenceTempo, 2, 4400, handEffectiveTempo(next.motion));
   next.motion.custom = motion.custom === true;
+  next.motion.loopBeats = normalizeLoopBeats(motion.loopBeats);
   next.motion.edits = normalizeHandMotionEdits(motion.edits);
   next.motion.contours = FINGERS.map((_, i) => Object.fromEntries(DIGIT_KEYS.map(key =>
     [key, normalizeHandContour(motion.contours?.[i]?.[key])])));
@@ -318,13 +329,17 @@ function wristWithMotion(base, offset, min, max) {
 /** Additive choreography preserves every base joint's effect during playback.
  * Optional output storage lets both the viewer and the worklet avoid allocation.
  * Pausing means retaining time; it does not select the base pose or zero motion.
- * A separate tremor anchor preserves phase through tempo, rate and cycle edits.
+ * Separate tremor and rhythm anchors preserve phase through tempo and loop edits.
  */
-export function evaluateHandPose(value = HAND_DEFAULTS, time = 0, out = createHandPose(), tremorTime = time) {
+export function evaluateHandPose(value = HAND_DEFAULTS, time = 0, out = createHandPose(), tremorTime = time, rhythmTime = time) {
   const config = record(value), pose = record(config.pose), motion = record(config.motion), foot = config.form === "foot";
   const id = motion.custom ? "drawn" : motion.id, amount = id === "still" ? 0 : clampHand(motion.amount, 0, 1, HAND_DEFAULTS.motion.amount);
   const beats = motion.custom ? HAND_CONTOUR_BEATS : handMotionBeats(id), seconds = clampHand(time, 0, 1e9), tremorPitch = tremorPitchForPose(out);
-  const beat = (seconds * clampHand(motion.tempo, 20, 1100, 72) * clampHand(motion.speed, .1, 4, 1) / 60) % beats;
+  const rawBeat = seconds * clampHand(motion.tempo, 20, 1100, 72) * clampHand(motion.speed, .1, 4, 1) / 60;
+  const loopBeats = handLoopBeats(motion);
+  // Count and legacy curves retain authored beat units as the full loop stretches.
+  // Native lengths keep the original arithmetic and sampled sound unchanged.
+  const beat = (loopBeats === beats ? rawBeat : rawBeat * (beats / loopBeats)) % beats;
   const phase = beat / beats * TAU;
   out.source = null;
   const source = id === "source-grasp" ? sourceForPose(out, beat / beats, amount) : null;
@@ -619,7 +634,7 @@ export function evaluateHandPose(value = HAND_DEFAULTS, time = 0, out = createHa
     out.wrist[key] = wristWithMotion(base, out.wrist[key] - base, ...wristBounds[key]);
   }
   if (config.sound?.rhythm && config.sound.rhythm !== 'continuous') {
-    const rhythmBeat = seconds * handEffectiveTempo(motion) / 60;
+    const rhythmBeat = clampHand(rhythmTime, -1e9, 1e9, seconds) * handEffectiveTempo(motion) / 60;
     const length = clampHand(config.sound.noteLength, .08, .9, .45);
     for (let i = 0; i < 5; i++) {
       const phase = handRhythmPhase(config.sound.rhythm, rhythmBeat, i);
@@ -681,13 +696,14 @@ export function createHandVoices() {
   return Array.from({ length: 5 }, () => ({ frequency: 100, brightness: 0, roughness: 0, pan: 0, level: 0, source: "glass", excitation: 0 }));
 }
 const REGISTER_RATIOS = Object.freeze([.79, 1.19, 1, 1.09, 1.42]);
-export function evaluateHandVoices(value = HAND_DEFAULTS, time = 0, out = createHandVoices(), pose = createHandPose(), previous = createHandPose(), tremorTime = time) {
+export function evaluateHandVoices(value = HAND_DEFAULTS, time = 0, out = createHandVoices(), pose = createHandPose(), previous = createHandPose(), tremorTime = time, rhythmTime = time) {
   const config = record(value), sound = record(config.sound), voices = config.voices;
   const tremorSeconds = clampHand(tremorTime, -1e9, 1e9, clampHand(time, 0, 1e9));
-  evaluateHandPose(config, time, pose, tremorSeconds);
+  const rhythmSeconds = clampHand(rhythmTime, -1e9, 1e9, clampHand(time, 0, 1e9));
+  evaluateHandPose(config, time, pose, tremorSeconds, rhythmSeconds);
   // A 10 ms difference cancels 100 Hz shakes exactly. Use a shorter real-time
   // difference so Tempo changes also scale motion-driven excitation.
-  evaluateHandPose(config, Math.max(0, handNumber(time) - .001), previous, tremorSeconds - .001);
+  evaluateHandPose(config, Math.max(0, handNumber(time) - .001), previous, tremorSeconds - .001, rhythmSeconds - .001);
   const wrist = pose.wrist, oldWrist = previous.wrist;
   const pitchSpread = clampHand(sound.pitchSpread, 0, 4, 1);
   const bodyTravel = .32 * Math.abs(wrist.flex - oldWrist.flex) + .25 * Math.abs(wrist.side - oldWrist.side)
@@ -776,5 +792,7 @@ export function randomizeHandConfig(_current = HAND_DEFAULTS, random = Math.rand
     voice.pitch = between(-1.25, 1.25); voice.tone = between(-.5, .5); voice.grain = between(-.5, .5);
     voice.pan = between(-.5, .5); voice.attackScale = .5 * 4 ** unit(); voice.releaseScale = .5 * 4 ** unit();
   }
+  // Draw last so introducing loop length does not change other seeded settings.
+  next.motion.loopBeats = 1 + Math.floor(unit() * 64);
   return normalizeHandConfig(next);
 }

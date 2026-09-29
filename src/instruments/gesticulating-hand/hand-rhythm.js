@@ -11,6 +11,14 @@ const WALK = [1, 2, 4, 8, 16, 8, 4, 2, 1, 0];
 const OFFBEAT = [1, 0, 2, 0, 4, 8, 0, 2, 16, 0, 4, 0, 1, 8, 0, 16];
 const BROKEN = [1, 0, 4, 2, 0, 8, 0, 16, 1, 0, 6, 0, 16, 0, 8, 0];
 const POLYRHYTHM = [1, 3, 4, 2, 1], OFFSETS = [0, 0, 0, .5, .5];
+const clock = (rate, offset = 0) => Object.freeze({ rate, offset });
+const EMPTY_CLOCKS = Object.freeze([]), WALK_CLOCKS = Object.freeze([clock(2)]), FAST_CLOCKS = Object.freeze([clock(4)]);
+const POLY_CLOCKS = Object.freeze(POLYRHYTHM.map((rate, finger) => clock(rate / 4, OFFSETS[finger])));
+/** Distinct note-cell clocks for display sampling, including cells written as rests. */
+export function handRhythmClocks(id) {
+  return id === 'three-four' ? POLY_CLOCKS : id === 'walk' ? WALK_CLOCKS
+    : id === 'offbeat' || id === 'broken' ? FAST_CLOCKS : EMPTY_CLOCKS;
+}
 export function handRhythmPhase(id, beat, finger) {
   if (!Number.isFinite(beat) || !Number.isInteger(finger) || finger < 0 || finger > 4) return -1;
   beat = Math.max(0, beat);

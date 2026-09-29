@@ -55,7 +55,15 @@
           </div>
           <p id="liveStatus" class="hand-notice" role="status"></p>
         </div>
-        <section class="hand-voices" aria-label="Movement contours and voices"><p id="contourHelp" class="hand-gesture-help">Choose a Joint, then draw its highlighted curve. ←/→ choose a point; ↑/↓ bend it.</p><div id="fingerMixer" class="hand-finger-mixer"></div></section>
+        <section class="hand-voices" aria-label="Movement contours and voices">
+          <div class="hand-contour-header">
+            <label class="hand-loop-control" for="loopBeats"><span>Loop length <output id="loopBeatsOut" for="loopBeats">4 beats</output></span><input id="loopBeats" type="range" min="1" max="64" step="1" value="4" /></label>
+            <output id="loopDuration" class="hand-loop-duration" for="loopBeats tempo">2.31 s</output>
+            <p id="contourHelp" class="hand-gesture-help">Choose a joint, then draw. ←/→ point · ↑/↓ bend</p>
+          </div>
+          <div id="loopRuler" class="hand-contour-ruler" role="img" aria-label="4-beat motion loop"></div>
+          <div id="fingerMixer" class="hand-finger-mixer"></div>
+        </section>
       </section>
       <aside class="hand-panel" data-instrument-preset-host aria-label="Model, movement and sound controls">
         <details class="group control-section hand-control-block hand-transports" aria-labelledby="playTitle" data-section="play" open>

@@ -286,7 +286,7 @@ test("audio wrapper forwards tremor offsets and retains them through arm, mute, 
   assert.equal(audio.getState().tremorOffset, .15); assert.equal(audio.getState().tremorTime, .2);
   assert.equal(await audio.arm(), true);
   assert.deepEqual(nodes[0].sent.findLast(message => message.type === "transport").transport,
-    { time: .05, playing: false, tremorOffset: .15 });
+    { time: .05, playing: false, tremorOffset: .15, rhythmOffset: 0 });
   audio.setTransport({ playing: true });
   assert.equal(nodes[0].sent.findLast(message => message.type === "transport").transport.tremorOffset, .15);
   contexts[0].currentTime = .2; assert.equal(audio.getState().tremorTime, .4);

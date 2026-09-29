@@ -1,7 +1,8 @@
 import {
   FINGERS, HAND_DEFAULTS, clampHand, createHandPose, evaluateHandPose,
-  handAnimationLanes, handAnimationValue, handMotionPeriod, handTremorRate,
+  handAnimationLanes, handAnimationValue, handMotionPeriod, handTremorRate, handEffectiveTempo,
 } from './hand-model.js';
+import { handRhythmClocks } from './hand-rhythm.js';
 
 export const HAND_ANIMATION_DISPLAY_MAX_COLUMNS = 256;
 export const HAND_ANIMATION_DISPLAY_MAX_SAMPLES = 4096;
@@ -13,6 +14,29 @@ function fastestTremor(config) {
   const spread = clampHand(settings.rateSpread, 0, 1, 0);
   const exponent = settings.joint === 'wrist' || finger < 0 ? .9 : (finger - 2) * .45;
   return handTremorRate(config) * 2 ** (exponent * spread);
+}
+
+// Short note taps can fall between every regular sample in a long loop.
+// Reserve bounded samples at cell peaks; the shared pose evaluator supplies rests
+// and all other animation layers. Ordinary 1–64 beat loops include every peak.
+function rhythmPeaks(config, startTime, period, rhythmOffset) {
+  const clocks = handRhythmClocks(config.sound?.rhythm), peaks = [];
+  const budget = Math.floor(512 / Math.max(1, clocks.length));
+  const notePeak = clampHand(config.sound?.noteLength, .08, .9, .45) / 2;
+  const beatRate = handEffectiveTempo(config.motion) / 60;
+  const start = Math.max(0, startTime + rhythmOffset), end = startTime + period + rhythmOffset;
+  if (end < start) return peaks;
+  for (const { rate, offset } of clocks) {
+    const frequency = beatRate * rate;
+    const first = Math.ceil(start * frequency + offset - notePeak);
+    const last = Math.floor(end * frequency + offset - notePeak);
+    const stride = Math.max(1, Math.ceil((last - first + 1) / budget));
+    for (let cell = first; cell <= last; cell += stride) {
+      const time = (cell + notePeak - offset) / frequency - rhythmOffset;
+      if (time >= startTime && time <= startTime + period) peaks.push(time);
+    }
+  }
+  return peaks;
 }
 
 // Deterministic stratified jitter avoids equal-spacing aliases when a tremor
@@ -36,6 +60,7 @@ export function sampleHandAnimationDisplay(value = HAND_DEFAULTS, options = {}) 
   const period = clampHand(settings.period, 1e-6, 1e6, nativePeriod);
   const startTime = clampHand(settings.startTime, 0, 1e9 - period, 0);
   const tremorOffset = clampHand(settings.tremorOffset, -1e9, 1e9, 0);
+  const rhythmOffset = clampHand(settings.rhythmOffset, -1e9, 1e9, 0);
   const columns = Math.round(clampHand(settings.columns, 1, HAND_ANIMATION_DISPLAY_MAX_COLUMNS, 128));
   const flat = [];
   const lanes = handAnimationLanes(config.form).map(({ index, keys }) => {
@@ -52,12 +77,13 @@ export function sampleHandAnimationDisplay(value = HAND_DEFAULTS, options = {}) 
     return { index, keys: [...keys], curves };
   });
   const density = Math.max(64 / nativePeriod, fastestTremor(config) * 12);
-  const available = Math.floor((HAND_ANIMATION_DISPLAY_MAX_SAMPLES - columns - 1) / columns);
+  const peaks = rhythmPeaks(config, startTime, period, rhythmOffset);
+  const available = Math.floor((HAND_ANIMATION_DISPLAY_MAX_SAMPLES - columns - 1 - peaks.length) / columns);
   const interiors = Math.min(available, Math.max(2, Math.ceil(period / columns * density)));
   const pose = createHandPose();
   let samples = 0;
   function evaluate(time) {
-    evaluateHandPose(config, time, pose, time + tremorOffset);
+    evaluateHandPose(config, time, pose, time + tremorOffset, time + rhythmOffset);
     samples++;
   }
   for (let column = 0; column <= columns; column++) {
@@ -86,5 +112,14 @@ export function sampleHandAnimationDisplay(value = HAND_DEFAULTS, options = {}) 
       }
     }
   }
-  return { startTime, period, tremorOffset, columns, samples, lanes };
+  for (const time of peaks) {
+    evaluate(time);
+    const column = clampHand(Math.floor((time - startTime) / period * columns), 0, columns - 1);
+    for (const curve of flat) {
+      const current = handAnimationValue(pose, curve.index, curve.joint);
+      curve.min[column] = Math.min(curve.min[column], current);
+      curve.max[column] = Math.max(curve.max[column], current);
+    }
+  }
+  return { startTime, period, tremorOffset, rhythmOffset, columns, samples, lanes };
 }
