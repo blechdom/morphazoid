@@ -6,7 +6,7 @@
   "counts": {
     "implemented": 27,
     "fullPresets": 587,
-    "favesImplemented": 14,
+    "favesImplemented": 15,
     "activeRemaining": 64,
     "regularRemaining": 133
   },
@@ -763,7 +763,7 @@
       "label": "Puggler the Punk Rock Jugger",
       "href": "puggler.html",
       "category": "graphic-ui",
-      "scope": "regular",
+      "scope": "fave",
       "presets": 48,
       "status": "implemented-verification-pending"
     },
@@ -1570,6 +1570,7 @@
       "hybrinx",
       "jaw-harp",
       "hyper-rubix",
+      "puggler",
       "micmic",
       "l-system",
       "graph-delay",

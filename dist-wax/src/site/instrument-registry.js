@@ -14,6 +14,7 @@ export const FAVE_TOOL_IDS = Object.freeze([
   "hybrinx",
   "jaw-harp",
   "hyper-rubix",
+  "puggler",
   "micmic",
   "l-system",
   "graph-delay",

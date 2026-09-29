@@ -17,6 +17,12 @@ test("homepage and Choose share Faves order, with Creaturazoid immediately after
     await expect(page.locator(`.catalogue-group[data-category-id="geometric"] .instrument-card[data-instrument-id="${id}"]`)).toBeVisible();
   }
   expect(menu).toEqual(home);
+  expect(home.filter(id => id === "puggler")).toHaveLength(1);
+  const pugglerIndex = home.indexOf("puggler");
+  expect(home.slice(pugglerIndex - 1, pugglerIndex + 2)).toEqual(["hyper-rubix", "puggler", "micmic"]);
+  await expect(page.locator('.catalogue-group[data-category-id="faves"] .instrument-card[data-instrument-id="puggler"] .instrument-card-link')).toHaveAttribute("href", "puggler.html");
+  await expect(page.locator('.instrument-picker-group[data-group-id="faves"] .instrument-picker-link[data-tool-id="puggler"]')).toHaveAttribute("href", /\/puggler\.html$/);
+  await expect(page.locator('.catalogue-group[data-category-id="graphic-ui"] .instrument-card[data-instrument-id="puggler"]')).toBeVisible();
   expect(home.filter(id => id === "gesticulating-hand")).toHaveLength(1);
   await expect(page.locator('.catalogue-group[data-category-id="faves"] .instrument-card[data-instrument-id="gesticulating-hand"] .instrument-card-link')).toHaveAttribute("href", "gesticules.html");
   await expect(page.locator('.instrument-picker-group[data-group-id="faves"] .instrument-picker-link[data-tool-id="gesticulating-hand"]')).toHaveAttribute("href", /\/gesticules\.html$/);

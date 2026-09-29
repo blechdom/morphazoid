@@ -263,6 +263,8 @@ test("next-instrument touring follows Faves then the visible menu without duplic
   assert.equal(nextPickerTool()?.id, FAVE_TOOL_IDS[0]);
   assert.equal(nextPickerTool("not-a-tool")?.id, FAVE_TOOL_IDS[0]);
   assert.equal(nextPickerTool("hiccup-head")?.id, "creaturazoid");
+  assert.equal(nextPickerTool("hyper-rubix")?.id, "puggler");
+  assert.equal(nextPickerTool("puggler")?.id, "micmic");
   assert.equal(FAVE_TOOL_IDS.includes("spiral"), false);
   let tool = nextPickerTool();
   const visited = [];
