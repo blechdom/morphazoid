@@ -25,14 +25,15 @@ function harness(t, initial) {
     hasPointerCapture(id) { return this.pointer === id; }
     releasePointerCapture() { this.pointer = undefined; }
     dispatch(type, data = {}) {
-      const event = {button: 0, pointerId: 7, preventDefault() {}, stopPropagation() {}, ...data};
+      const event = {button: 0, pointerId: 7, preventDefault() { this.defaultPrevented = true; },
+        stopPropagation() { this.propagationStopped = true; }, ...data};
       for (const handler of this.handlers.get(type) ?? []) handler(event);
+      return event;
     }
   }
-  for (let index = 0; index < 7; index++) for (const prefix of ['contour', 'contour-joint', 'contour-value', 'contour-clear']) {
+  for (let index = 0; index < 7; index++) for (const prefix of ['contour', 'contour-joint', 'contour-value']) {
     const id = `${prefix}-${index}`; elements.set(id, new Element(id));
   }
-  elements.set('contourUndo', new Element('contourUndo'));
   globalThis.document = {getElementById: id => elements.get(id), activeElement: null};
   globalThis.window = {devicePixelRatio: 1};
   globalThis.Option = class { constructor(text, value) { this.text = text; this.value = value; } };
@@ -52,14 +53,16 @@ function harness(t, initial) {
   return {
     editor, element, selections, get config() { return config; }, get commits() { return commits; },
     change(callback) { const next = clone(config); callback(next); config = normalizeHandConfig(next); editor.sync(config); },
-    key(index, key, shiftKey = false) { element(`contour-${index}`).dispatch('keydown', {key, shiftKey}); },
+    key(index, key, shiftKey = false, modifiers = {}) {
+      const canvas = element(`contour-${index}`); canvas.focus();
+      return canvas.dispatch('keydown', {key, shiftKey, ...modifiers});
+    },
     pointer(index, type, point, angle, joint = element(`contour-joint-${index}`).value) {
       const [low, high] = handAnimationBounds(config.form, index, joint);
       element(`contour-${index}`).dispatch(type, {clientX: point / 16 * WIDTH, clientY: 5 + (high - angle) / (high - low) * (HEIGHT - 10)});
     },
     release(index) { element(`contour-${index}`).dispatch('pointerup'); },
-    reset(index) { element(`contour-clear-${index}`).dispatch('click'); },
-    undo() { element('contourUndo').dispatch('click'); },
+    undo(index = 0, modifier = 'ctrlKey') { return this.key(index, 'z', false, {[modifier]: true}); },
   };
 }
 
@@ -91,10 +94,9 @@ test('dragging interpolates physical joint targets over one frozen native loop a
     after.fingers[1].dip = before.fingers[1].dip;
     assert.deepEqual(after, before, 'source quaternion metadata and unrelated physical channels survive');
   }
-  assert.equal(h.element('contourUndo').disabled, false);
 });
 
-test('one undo reverses the whole stroke while preserving controls changed later', t => {
+for (const modifier of ['ctrlKey', 'metaKey']) test(`${modifier} + Z reverses one whole stroke while preserving controls changed later`, t => {
   const h = harness(t, {motion: {id: 'finger-roll', amount: .7}}), originalEdits = editMap(h.config);
   h.editor.draw(.5);
   h.pointer(0, 'pointerdown', 1, 20);
@@ -103,26 +105,28 @@ test('one undo reverses the whole stroke while preserving controls changed later
   h.release(0);
   assert.ok(h.commits >= 3);
   h.change(config => { config.motion.tempo = 194; config.voices[2].level = .123; });
-  h.undo();
+  const event = h.undo(0, modifier);
+  assert.equal(event.defaultPrevented, true); assert.equal(event.propagationStopped, true);
   assert.deepEqual(h.config.motion.edits, originalEdits);
   assert.equal(h.config.motion.tempo, 194);
   assert.equal(h.config.voices[2].level, .123);
-  assert.equal(h.element('contourUndo').disabled, true);
+  const commits = h.commits; h.undo(0, modifier);
+  assert.equal(h.commits, commits, 'the whole multi-point stroke consumed one history entry');
 });
 
-test('reset removes only the selected correction and restores original procedural performance exactly', t => {
+test('Home removes the selected point correction and restores original procedural performance exactly', t => {
   const h = harness(t, {motion: {id: 'count', tempo: 120}, tremor: {amount: 8, rate: 13.1}, sound: {rhythm: 'broken'}});
   h.change(config => setHandAnimationEdit(config, 3, 'spread', Array(16).fill(.04)));
   const original = clone(h.config), period = handMotionPeriod(original.motion);
   h.editor.draw(.23);
-  h.pointer(0, 'pointerdown', 0, 39); h.pointer(0, 'pointermove', 15, 39); h.release(0);
+  h.pointer(0, 'pointerdown', 4, 39); h.release(0);
   assert.ok(getHandAnimationEdit(h.config, 0, 'mcp'));
-  h.reset(0);
+  h.key(0, 'Home');
   assert.deepEqual(h.config, original);
   for (let point = 0; point <= 48; point++) assert.deepEqual(performance(h.config, point / 48 * period, .91), performance(original, point / 48 * period, .91));
 });
 
-test('keyboard uses physical range increments and Home resets only the selected correction point', t => {
+test('keyboard uses physical range increments and Home/Delete reset only the selected correction point', t => {
   const h = harness(t, {motion: {id: 'still', amount: 0}, pose: {fingers: [{mcp: 18}]}});
   h.editor.draw(0);
   const bounds = handAnimationBounds('hand', 0, 'mcp'), span = bounds[1] - bounds[0];
@@ -140,6 +144,9 @@ test('keyboard uses physical range increments and Home resets only the selected 
   assert.equal(canvas.getAttribute('aria-valuemax'), String(bounds[1]));
   assert.equal(canvas.getAttribute('aria-valuetext'), 'Point 2 of 16, 18 degrees');
   assert.equal(h.element('contour-value-0').textContent, '18°');
+  h.key(0, 'ArrowLeft'); h.key(0, 'Delete');
+  assert.equal(getHandAnimationEdit(h.config, 0, 'mcp'), undefined);
+  close(handAnimationValue(performance(h.config, 0), 0, 'mcp'), 18);
 });
 
 test('wrist, ankle, and foot shape are editable, with percent units for stretch and valid form-specific joints', t => {
@@ -166,7 +173,11 @@ test('legacy drawn contours stay native and exact selected readouts include trem
   const initial = normalizeHandConfig({motion: {id: 'count', custom: true, tempo: 89, amount: .4},
     tremor: {amount: 8, rate: 17.123, finger: 'all', joint: 'tip'}, sound: {rhythm: 'three-four'}});
   initial.motion.contours[1].dip = Array.from({length: 16}, (_, point) => Math.sin(point * Math.PI / 8) * .3);
-  const h = harness(t, initial), original = clone(h.config), period = handMotionPeriod(h.config.motion), offset = .147;
+  delete initial.motion.edits;
+  const h = harness(t, JSON.parse(JSON.stringify(initial))), original = clone(h.config), period = handMotionPeriod(h.config.motion), offset = .147;
+  assert.deepEqual(h.config.motion.edits, {}, 'legacy saved configuration receives an empty correction map');
+  assert.deepEqual(h.config.motion.contours, initial.motion.contours);
+  assert.equal(h.config.motion.custom, true);
   h.editor.draw(period * 1.3, period * 1.3 + offset);
   h.editor.select(1, 'dip');
   for (let point = 0; point < 5; point++) h.key(1, 'ArrowRight');
@@ -176,20 +187,19 @@ test('legacy drawn contours stay native and exact selected readouts include trem
   h.pointer(1, 'pointerdown', 5, 36); h.release(1);
   close(performance(h.config, period + 5 / 16 * period, offset).fingers[1].dip, 36);
   assert.deepEqual(omitEdits(h.config), omitEdits(original));
-  h.reset(1);
+  h.key(1, 'Delete');
   assert.deepEqual(h.config, original);
 });
 
-test('clearing history finishes an in-progress stroke and leaves Undo disabled after sync', t => {
+test('clearing history finishes an in-progress stroke and makes keyboard undo inert after sync', t => {
   const h = harness(t, {motion: {id: 'still', amount: 0}});
   h.editor.draw(0); h.pointer(0, 'pointerdown', 2, 33);
   assert.equal(h.element('contour-0').hasPointerCapture(7), true);
   h.editor.clearHistory();
   assert.equal(h.element('contour-0').hasPointerCapture(7), false);
-  assert.equal(h.element('contourUndo').disabled, true);
-  const after = clone(h.config);
+  const after = clone(h.config), commits = h.commits;
   h.pointer(0, 'pointermove', 7, 50); h.undo();
-  assert.deepEqual(h.config, after);
+  assert.deepEqual(h.config, after); assert.equal(h.commits, commits);
 });
 
 
@@ -214,4 +224,24 @@ test('joint selection and keyboard edits finish active pointer strokes without t
   h.undo();
   assert.equal(getHandAnimationEdit(h.config, 0, 'dip'), undefined);
   assert.deepEqual(getHandAnimationEdit(h.config, 0, 'mcp'), mcp);
+});
+
+
+test('foot joint selectors edit other toes independently while the big toe excludes a middle joint', t => {
+  const h = harness(t, {form: 'foot', motion: {id: 'still', amount: 0}, tremor: {amount: 0}});
+  const original = clone(h.config), pose = performance(original, 0);
+  h.editor.draw(0);
+  assert.deepEqual(h.element('contour-joint-0').children.map(option => option.value), ['mcp', 'dip', 'spread']);
+  for (let index = 1; index < 5; index++) {
+    const selector = h.element(`contour-joint-${index}`);
+    assert.ok(selector.children.some(option => option.value === 'pip'));
+    selector.value = 'pip'; selector.dispatch('change');
+    assert.deepEqual(h.selections.at(-1), [index, 'pip']);
+    h.key(index, 'ArrowUp');
+    const edited = performance(h.config, 0);
+    assert.ok(edited.fingers[index].pip > pose.fingers[index].pip);
+    edited.fingers[index].pip = pose.fingers[index].pip;
+    assert.deepEqual(edited, pose, 'all other toe joints, ankle and foot shape are unchanged');
+    h.key(index, 'Home'); assert.deepEqual(h.config, original);
+  }
 });

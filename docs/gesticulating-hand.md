@@ -84,9 +84,11 @@ Manual zoom and saved custom camera views remain available within that fit.
 
 ## Drawing your own animation
 
-Each finger or toe has its own compact row with M/S, level, sound, and
+Each finger or toe has its own compact row with M/S, a level knob, sound, and
 colored joint curves. Wrist/ankle and foot shape have separate rows on the same
-timeline. Select a joint to highlight and edit it; the others remain visible.
+timeline. Use the **Joint** dropdown above each contour to highlight and edit
+one joint; the others remain visible. Drag a level knob vertically or use its
+arrow keys to change that voice’s volume; Shift-drag gives finer control.
 Curve height shows the actual joint position, including starting pose,
 choreography, tremor and note taps. Readouts use degrees, or percent for stretch.
 The big toe has base, tip and spread curves; it has no middle joint.
@@ -105,17 +107,12 @@ all unedited joints intact. Corrections use 16 bounded points per native cycle
 with smooth interpolation. The global legacy **Drawn contours** mode and its
 four-beat curves remain compatible. New drawings also work over Still.
 
-Dragging paints all crossed points with one Undo transaction. Left/right
+Dragging paints all crossed points as one edit. With a contour focused,
+Ctrl/Cmd+Z undoes the whole stroke without changing later Tempo or sound edits. Left/right
 selects a point; up/down adjusts its position, and Shift makes a larger change.
-Home/Delete restores the selected point's original movement. Reset removes only
-the selected joint's correction; Undo preserves later Tempo and sound edits.
+Home/Delete restores the selected point's original movement.
 
-**Save** downloads a version-2 animation JSON containing model, starting pose,
-choreography, legacy curves, per-joint corrections, Tempo, tremor and rhythmic
-motion settings. **Load** accepts versions 1 and 2, retaining voices, other sound
-settings, lighting, camera, output level and Audio/Sound/Motion transport.
-Version-1 files keep their earlier behavior and do not replace tremor or rhythm.
-Presets recall their complete state, so save edits before changing presets.
+Preset recall replaces the animation and its edits with that preset’s complete state.
 
 The selected finger exposes each joint separately. For the four fingers these
 are knuckle (MCP), middle (PIP), tip (DIP), and knuckle spread. The thumb uses its

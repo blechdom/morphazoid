@@ -25,6 +25,7 @@ test('loads the real weighted hand and starts with no AudioContext',async({page}
   expect(await page.locator('#motionPreset option').count()).toBe(43);
   expect(await page.locator('#source-0 option').count()).toBe(10);
   await expect(page.locator('#speed')).toHaveCount(0);
+  await expect(page.locator('#contourUndo, #saveMotion, #loadMotion, #motionFile, #clearSolo, [id^="contour-clear-"]')).toHaveCount(0);
   await expect(page.locator('#tempo')).toHaveAttribute('min','2');
   await expect(page.locator('#tempo')).toHaveAttribute('max','4400');
   await expect(page.locator('#tempo')).toHaveAttribute('step','0.1');
@@ -619,14 +620,18 @@ test('one captured contour drag fills skipped points, edits only its joint and u
   await page.mouse.move(rect.x+rect.width+20,rect.y+rect.height*.5);
   await canvas.dispatchEvent('pointercancel',{pointerId});await page.mouse.up();
   expect(await canvas.evaluate((canvas,id)=>canvas.hasPointerCapture(id),pointerId)).toBe(false);
-  await expect(page.locator('#contourUndo')).toBeEnabled();await page.locator('#contourUndo').click();
-  expect((await snapshot(page)).config.motion).toEqual(before.config.motion);await expect(page.locator('#contourUndo')).toBeDisabled();
+  const finished=(await snapshot(page)).config.motion;
+  await page.locator('#voice-level-1').focus();await page.locator('#voice-level-1').press('Control+z');
+  expect((await snapshot(page)).config.motion).toEqual(finished);
+  await canvas.focus();await canvas.press('Control+z');
+  expect((await snapshot(page)).config.motion).toEqual(before.config.motion);
+  await canvas.press('Control+z');expect((await snapshot(page)).config.motion).toEqual(before.config.motion);
   expect((await snapshot(page)).audio.contextState).toBe('uninitialized');
 });
 
-test('contour keyboard edits and animation save/load preserve each joint and keep Audio off',async({page})=>{
+test('contour keyboard point edits and Home/Delete preserve other settings and keep Audio off',async({page})=>{
   await page.locator('#motionPreset').selectOption('still');await page.locator('#contour-joint-2').selectOption('spread');
-  const canvas=page.locator('#contour-2');await canvas.scrollIntoViewIfNeeded();await canvas.focus();
+  const before=await snapshot(page),canvas=page.locator('#contour-2');await canvas.scrollIntoViewIfNeeded();await canvas.focus();
   await canvas.press('ArrowRight');await canvas.press('ArrowUp');await canvas.press('Shift+ArrowUp');
   const edited=await snapshot(page),curve=edited.config.motion.edits.fingers[2].spread;
   expect(curve[1]).toBeCloseTo(.125,8);expect(curve.filter(value=>value!==0)).toHaveLength(1);
@@ -634,25 +639,14 @@ test('contour keyboard edits and animation save/load preserve each joint and kee
   await expect(canvas).toHaveAttribute('aria-valuetext',/Point 2 of 16/);
   await range(page,'tempo',143.2);await range(page,'tremorAmount',4.2);await range(page,'tremorRate',17.3);
   await page.locator('#rhythm').selectOption('broken');await range(page,'note-length',.62);
-  const saved=await snapshot(page),downloadPromise=page.waitForEvent('download');await page.locator('#saveMotion').click();
-  const download=await downloadPromise;expect(download.suggestedFilename()).toBe('gesticules-animation.json');
-  const stream=await download.createReadStream(),chunks=[];for await(const chunk of stream)chunks.push(chunk);
-  const bytes=Buffer.concat(chunks),animation=JSON.parse(bytes.toString());
-  expect(animation.type).toBe('gesticules-animation');expect(animation.version).toBe(2);
-  expect(animation.tremor).toEqual(saved.config.tremor);
-  expect(animation.sound).toEqual({rhythm:saved.config.sound.rhythm,noteLength:saved.config.sound.noteLength});
-  expect(animation.motion).toEqual(saved.config.motion);expect(animation.pose).toEqual(saved.config.pose);
-  await page.locator('#contour-clear-2').click();expect((await snapshot(page)).config.motion.edits.fingers?.[2]?.spread).toBeUndefined();
-  await page.locator('#bodyForm').selectOption('foot');await page.waitForFunction(()=>window.__gesticulatingHand.snapshot().viewer.form==='foot');
-  await range(page,'tempo',4400);await range(page,'tremorAmount',0);await page.locator('#rhythm').selectOption('continuous');
-  await page.locator('#motionFile').setInputFiles({name:'gesture.json',mimeType:'application/json',buffer:bytes});
-  await page.waitForFunction(()=>window.__gesticulatingHand.snapshot().viewer.form==='hand');
-  await expect(page.locator('#liveStatus')).toHaveText('Animation loaded.');
-  const restored=await snapshot(page);expect(restored.config.motion).toEqual(saved.config.motion);expect(restored.config.pose).toEqual(saved.config.pose);
-  expect(restored.config.tremor).toEqual(saved.config.tremor);
-  expect(restored.config.sound.rhythm).toBe(saved.config.sound.rhythm);expect(restored.config.sound.noteLength).toBe(saved.config.sound.noteLength);
-  expect(restored.config.form).toBe(saved.config.form);expect(restored.audio.contextState).toBe('uninitialized');expect(restored.audioOn).toBe(false);
-  await expect(page.locator('#contourUndo')).toBeDisabled();await expect(page.locator('#tempo')).toHaveValue('143.2');
+  const latest=await snapshot(page);
+  for(const key of ['Home','Delete']) {
+    await canvas.focus();await canvas.press(key);
+    const reset=await snapshot(page);
+    expect(reset.config).toEqual({...latest.config,motion:{...latest.config.motion,edits:before.config.motion.edits}});
+    await canvas.press('Meta+z');expect((await snapshot(page)).config).toEqual(latest.config);
+  }
+  expect((await snapshot(page)).audio.contextState).toBe('uninitialized');
 });
 
 test('desktop shows the hand, all five digit lanes and wrist together',async({page})=>{
@@ -674,15 +668,20 @@ test('desktop shows the hand, all five digit lanes and wrist together',async({pa
 });
 
 async function drawUndoContour(page,finger=1) {
+  const before=(await snapshot(page)).config.motion.edits;
   const canvas=page.locator(`#contour-${finger}`);await canvas.scrollIntoViewIfNeeded();
   const rect=await canvas.boundingBox();
   await page.mouse.move(rect.x+rect.width*.2,rect.y+rect.height*.2);await page.mouse.down();
   await page.mouse.move(rect.x+rect.width*.8,rect.y+rect.height*.8,{steps:1});await page.mouse.up();
-  await expect(page.locator('#contourUndo')).toBeEnabled();
+  expect((await snapshot(page)).config.motion.edits).not.toEqual(before);
+}
+
+async function undoContour(page,finger=1,key='Control+z') {
+  const canvas=page.locator(`#contour-${finger}`);await canvas.scrollIntoViewIfNeeded();await canvas.focus();await canvas.press(key);
 }
 
 for(const form of ['hand','foot']) {
-  test(`contour Undo preserves later tempo and movement controls for ${form}`,async({page})=>{
+  test(`contour keyboard undo preserves active clocks and later movement controls for ${form}`,async({page})=>{
     if(form==='foot') {
       await page.locator('#bodyForm').selectOption('foot');await page.waitForFunction(()=>window.__gesticulatingHand.snapshot().viewer.form==='foot');
     }
@@ -692,21 +691,30 @@ for(const form of ['hand','foot']) {
     await range(page,'tempo',317.6);await range(page,'motionAmount',.37);
     if(form==='foot')await range(page,'footElasticity',.64);
     await page.locator('#soundPlayButton').click();await page.locator('#motionButton').click();
-    const latest=await snapshot(page);await page.locator('#contourUndo').click();const restored=await snapshot(page);
+    await expect.poll(async()=>(await snapshot(page)).time).toBeGreaterThan(.2);
+    const prior=await page.evaluate(()=>({state:window.__gesticulatingHand.snapshot(),wall:performance.now()}));
+    await undoContour(page);
+    const after=await page.evaluate(()=>({state:window.__gesticulatingHand.snapshot(),wall:performance.now()}));
+    const latest=prior.state,restored=after.state,elapsed=(after.wall-prior.wall)/1000;
+    expect(restored.time-latest.time).toBeGreaterThanOrEqual(-.000001);
+    expect(restored.time-latest.time).toBeLessThanOrEqual(elapsed+.015);
+    expect(restored.tremorTime-latest.tremorTime).toBeGreaterThanOrEqual(-.000001);
+    expect(restored.tremorTime-latest.tremorTime).toBeLessThanOrEqual(elapsed+.015);
     expect(restored.config.motion).toEqual({...latest.config.motion,edits:before.config.motion.edits});
     expect(restored.config.motion.tempo*restored.config.motion.speed).toBeCloseTo(317.6,8);
     await expect(page.locator('#tempo')).toHaveValue('317.6');await expect(page.locator('#motionAmount')).toHaveValue('0.37');
     if(form==='foot')await expect(page.locator('#footElasticity')).toHaveValue('0.64');
     expect(restored.playing&&restored.soundPlaying).toBe(true);expect(restored.audio.contextState).toBe('uninitialized');
-    await expect(page.locator('#contourUndo')).toBeDisabled();
+    await undoContour(page);expect((await snapshot(page)).config).toEqual(restored.config);
   });
 }
 
-test('presets, form switches and choreography changes clear prior contour Undo history',async({page})=>{
+test('presets, form switches and choreography changes clear prior contour keyboard undo history',async({page})=>{
   const assertHistoryCleared=async()=>{
-    await expect(page.locator('#contourUndo')).toBeDisabled();const current=(await snapshot(page)).config;
-    // A stale stack must not be recoverable even through a dispatched event.
-    await page.locator('#contourUndo').dispatchEvent('click');expect((await snapshot(page)).config).toEqual(current);
+    const current=(await snapshot(page)).config;
+    for(const key of ['Control+z','Meta+z']) {
+      await undoContour(page,1,key);expect((await snapshot(page)).config).toEqual(current);
+    }
     expect((await snapshot(page)).audio.contextState).toBe('uninitialized');
   };
   await drawUndoContour(page);await chooseScene(page,'Crystal staccato');
@@ -746,7 +754,7 @@ for (const form of ['hand', 'foot']) {
         expect(edited.config.motion.edits[group][joint][0]).toBeCloseTo(.025, 8);
         expect(edited.pose[group][joint]).toBeGreaterThan(original.pose[group][joint]);
         expect(edited.pose.fingers).toEqual(original.pose.fingers);
-        await page.locator(`#contour-clear-${index}`).click();
+        await canvas.press('Home');
         const reset = await snapshot(page);
         expect(reset.config.motion).toEqual(original.config.motion); expect(reset.pose).toEqual(original.pose);
       }
@@ -755,21 +763,69 @@ for (const form of ['hand', 'foot']) {
   });
 }
 
-test('legacy animation files retain their four-beat curves without replacing current tremor or sound', async ({page}) => {
-  const legacy = await page.evaluate(async () => {
-    const {normalizeHandConfig} = await import('/src/instruments/gesticulating-hand/hand-model.js');
-    const config = normalizeHandConfig({motion:{id:'wave',custom:true,tempo:96}});
-    config.motion.contours[1].pip[4] = .31;
-    delete config.motion.edits;
-    return {type:'gesticules-animation',version:1,form:config.form,pose:config.pose,motion:config.motion};
-  });
-  await range(page, 'tremorAmount', 3.4); await page.locator('#rhythm').selectOption('broken');
-  const before = await snapshot(page);
-  await page.locator('#motionFile').setInputFiles({name:'legacy.json',mimeType:'application/json',buffer:Buffer.from(JSON.stringify(legacy))});
-  await expect(page.locator('#liveStatus')).toHaveText('Animation loaded.');
-  const loaded = await snapshot(page);
-  expect(loaded.config.motion.custom).toBe(true); expect(loaded.config.motion.contours[1].pip[4]).toBe(.31);
-  expect(loaded.config.motion.edits).toEqual({}); expect(loaded.config.tremor).toEqual(before.config.tremor);
-  expect(loaded.config.sound).toEqual(before.config.sound); expect(loaded.config.voices).toEqual(before.config.voices);
-  expect(loaded.audio.contextState).toBe('uninitialized');
+test('foot rows expose labeled joint choices and edit every other toe independently',async({page})=>{
+  await page.locator('#bodyForm').selectOption('foot');
+  await page.waitForFunction(()=>window.__gesticulatingHand.snapshot().loaded&&window.__gesticulatingHand.snapshot().viewer.form==='foot');
+  await page.locator('#motionPreset').selectOption('still');await range(page,'motionAmount',0);await range(page,'tremorAmount',0);
+  await expect(page.locator('#contour-joint-0 option[value="pip"]')).toHaveCount(0);
+  for(let index=0;index<7;index++) {
+    const selector=page.locator(`#contour-joint-${index}`);await selector.scrollIntoViewIfNeeded();await expect(selector).toBeVisible();
+    const presentation=await selector.evaluate(select=>({
+      label:[...select.labels].some(label=>label.innerText.trim().startsWith('Joint')&&label.getBoundingClientRect().width>0),
+      border:parseFloat(getComputedStyle(select).borderTopWidth),
+    }));
+    expect(presentation.label,`row ${index} has a visible Joint label`).toBe(true);expect(presentation.border).toBeGreaterThan(0);
+  }
+  const original=await snapshot(page);
+  for(let index=1;index<5;index++) {
+    const selector=page.locator(`#contour-joint-${index}`),canvas=page.locator(`#contour-${index}`);
+    await expect(selector.locator('option[value="pip"]')).toHaveCount(1);
+    for(const joint of ['pip','dip','spread']) {
+      await selector.selectOption(joint);await expect(selector).toHaveValue(joint);
+      await canvas.focus();await canvas.press('ArrowUp');
+      const edited=await snapshot(page);
+      expect(edited.selected).toBe(index);expect(edited.config.motion.edits.fingers[index][joint][0]).toBeCloseTo(.025,8);
+      expect(edited.pose.fingers[index][joint]).toBeGreaterThan(original.pose.fingers[index][joint]);
+      const isolated=structuredClone(edited.pose);isolated.fingers[index][joint]=original.pose.fingers[index][joint];
+      expect(isolated).toEqual(original.pose);
+      await canvas.press('Home');expect((await snapshot(page)).config).toEqual(original.config);
+    }
+  }
+  expect((await snapshot(page)).audio.contextState).toBe('uninitialized');
+});
+
+async function expectVoiceKnob(page,index,level) {
+  const input=page.locator(`#voice-level-${index}`),needle=page.locator(`label[for="voice-level-${index}"] .mz-range-knob__dial i`);
+  const value=Number(await input.inputValue());expect(Math.abs(value-level)).toBeLessThanOrEqual(.0051);
+  await expect(page.locator(`#voice-level-${index}Out`)).toHaveText(`${Math.round(level*100)}%`);
+  await expect.poll(()=>needle.evaluate(node=>Number(node.style.transform.match(/rotate\(([-\d.]+)deg\)/)?.[1]))).toBeCloseTo(-135+270*value,6);
+}
+
+test('five voice knobs follow native input, preset recall and form labels without stopping either player',async({page})=>{
+  await expect(page.locator('#fingerMixer .mz-range-knob input[type="range"]')).toHaveCount(5);
+  await page.locator('#soundPlayButton').click();await page.locator('#motionButton').click();
+  for(let index=0;index<5;index++) {
+    const input=page.locator(`#voice-level-${index}`),before=await snapshot(page);
+    await input.scrollIntoViewIfNeeded();await input.focus();
+    for(const [key,value] of [['Home',0],['ArrowUp',.01],['End',1]]) {
+      await input.press(key);const changed=await snapshot(page);
+      expect(changed.config.voices[index].level).toBe(value);await expectVoiceKnob(page,index,value);
+      for(let other=0;other<5;other++)if(other!==index)expect(changed.config.voices[other]).toEqual(before.config.voices[other]);
+      expect(changed.playing&&changed.soundPlaying).toBe(true);expect(changed.audio.contextState).toBe('uninitialized');
+    }
+  }
+  for(const label of ['Crystal staccato','Finger loom']) {
+    await chooseScene(page,label);const recalled=await snapshot(page);
+    for(let index=0;index<5;index++)await expectVoiceKnob(page,index,recalled.config.voices[index].level);
+    for(const [form,names] of [['foot',['Big toe','Second toe','Third toe','Fourth toe','Little toe']],['hand',['Thumb','Index','Middle','Ring','Little']]]) {
+      await page.locator('#bodyForm').selectOption(form);
+      await page.waitForFunction(form=>window.__gesticulatingHand.snapshot().loaded&&window.__gesticulatingHand.snapshot().viewer.form===form,form);
+      const changed=await snapshot(page);expect(changed.config.voices).toEqual(recalled.config.voices);
+      for(let index=0;index<5;index++) {
+        await expect(page.locator(`#voice-level-${index}`)).toHaveAccessibleName(new RegExp(`^${names[index]} level(?:\\s|$)`));
+        await expectVoiceKnob(page,index,recalled.config.voices[index].level);
+      }
+      expect(changed.playing&&changed.soundPlaying).toBe(true);expect(changed.audio.contextState).toBe('uninitialized');
+    }
+  }
 });

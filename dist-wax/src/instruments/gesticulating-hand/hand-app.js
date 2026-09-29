@@ -4,6 +4,7 @@ import { FINGERS, VOICE_SOURCES, HAND_DEFAULTS, HAND_LIMITS, FOOT_LIMITS, HAND_P
 import { createHandContourEditor } from './hand-contour-editor.js';
 import { HandAudio } from './hand-audio.js';
 import { registerHeaderPresets } from '../../site/header-presets.js';
+import { enhanceRangeKnob } from '../../ui/primitives/range-knob.js';
 
 const el = id => document.getElementById(id);
 const abort = new AbortController();
@@ -17,6 +18,7 @@ const state = {
   loaded: false, disposed: false, linked: true,
 };
 const audio = new HandAudio();
+const voiceKnobs = [];
 let viewer, contourEditor, frame = 0, lastDraw = -Infinity, presets, audioRequest = 0, jointAbort;
 const sourceId = source => typeof source === 'string' ? source : source.id;
 const sourceLabel = source => typeof source === 'string' ? source[0].toUpperCase() + source.slice(1) : source.label;
@@ -189,7 +191,6 @@ function syncFormControls() {
   el('jointsTitle').textContent=foot?'Toe joints':'Finger joints';
   el('wristTitle').textContent=foot?'Ankle':'Wrist';
   el('body-lane-5').textContent=foot?'Ankle':'Wrist';
-  el('contour-clear-5').setAttribute('aria-label',`Reset selected ${foot?'ankle':'wrist'} curve`);
   el('contour-row-6').hidden=!foot;
   el('tremorFingerLabel').textContent=foot?'Toes':'Fingers';
   el('fingerTabs').setAttribute('aria-label',foot?'Selected toe':'Selected finger');
@@ -203,7 +204,6 @@ function syncFormControls() {
     for(const button of document.querySelectorAll(`button[data-finger="${i}"]`))button.textContent=labels[i];
     el(`source-${i}`).setAttribute('aria-label',`${labels[i]} sound`);
     el(`voice-level-${i}`).parentElement.querySelector('.sr-only').textContent=`${labels[i]} level`;
-    el(`contour-clear-${i}`).setAttribute('aria-label',`Reset selected ${labels[i].toLowerCase()} curve`);
     for(const action of ['mute','solo'])el(`${action}-${i}`).setAttribute('aria-label',`${sourceLabel(action)} ${labels[i].toLowerCase()}`);
   }
   for(const option of el('motionPreset').options)option.textContent=option.value==='drawn'?'Drawn contours':handMotionLabel(option.value,state.config.form);
@@ -239,6 +239,10 @@ function syncControls() {
   for (let i=0;i<5;i++) {
     const voice = state.config.voices[i];
     el(`source-${i}`).value = voice.source; el(`voice-level-${i}`).value = voice.level;
+    const levelText = `${Math.round(voice.level * 100)}%`;
+    el(`voice-level-${i}Out`).value = levelText;
+    el(`voice-level-${i}`).setAttribute('aria-valuetext', levelText);
+    voiceKnobs[i].update();
     el(`mute-${i}`).setAttribute('aria-pressed',String(voice.mute));
     el(`solo-${i}`).setAttribute('aria-pressed',String(voice.solo));
   }
@@ -302,19 +306,20 @@ function buildMixer() {
     tab.style.setProperty('--finger-color',FINGER_COLORS[i]); tab.textContent=labels[i];
     listen(tab,'click',()=>selectFinger(i)); el('fingerTabs').append(tab);
     const row = document.createElement('div'); row.className='hand-voice'; row.style.setProperty('--finger-color',FINGER_COLORS[i]);
-    row.innerHTML = `<div class="hand-voice-controls"><button type="button" class="hand-voice-name" data-finger="${i}" aria-pressed="false">${labels[i]}</button><select id="source-${i}" aria-label="${labels[i]} sound"></select><label for="voice-level-${i}"><span class="sr-only">${labels[i]} level</span><input id="voice-level-${i}" type="range" min="0" max="1" step="0.01" value="0.6" /></label><div class="hand-mix-actions"><button type="button" id="mute-${i}" aria-label="Mute ${labels[i].toLowerCase()}" aria-pressed="false">M</button><button type="button" id="solo-${i}" aria-label="Solo ${labels[i].toLowerCase()}" aria-pressed="false">S</button></div></div><div class="hand-contour-lane"><div class="hand-contour-tools"><select id="contour-joint-${i}" aria-label="${labels[i]} contour joint"></select><output id="contour-value-${i}" class="hand-contour-value" aria-live="polite"></output><button type="button" id="contour-clear-${i}" aria-label="Reset selected ${labels[i].toLowerCase()} curve">Reset</button></div><canvas id="contour-${i}" class="hand-contour" tabindex="0" role="slider" aria-valuemin="-100" aria-valuemax="100" aria-describedby="contourHelp">Draw the selected joint movement. Left and right select a point; up and down adjust its bend.</canvas></div>`;
+    row.innerHTML = `<div class="hand-voice-controls"><button type="button" class="hand-voice-name" data-finger="${i}" aria-pressed="false">${labels[i]}</button><select id="source-${i}" aria-label="${labels[i]} sound"></select><label class="hand-voice-level" for="voice-level-${i}"><span><b class="sr-only">${labels[i]} level</b><output id="voice-level-${i}Out" for="voice-level-${i}">60%</output></span><input id="voice-level-${i}" type="range" min="0" max="1" step="0.01" value="0.6" /></label><div class="hand-mix-actions"><button type="button" id="mute-${i}" aria-label="Mute ${labels[i].toLowerCase()}" aria-pressed="false">M</button><button type="button" id="solo-${i}" aria-label="Solo ${labels[i].toLowerCase()}" aria-pressed="false">S</button></div></div><div class="hand-contour-lane"><div class="hand-contour-tools"><label class="hand-contour-joint" for="contour-joint-${i}"><span>Joint</span><select id="contour-joint-${i}" aria-label="${labels[i]} contour joint"></select></label><output id="contour-value-${i}" class="hand-contour-value" aria-live="polite"></output></div><canvas id="contour-${i}" class="hand-contour" tabindex="0" role="slider" aria-valuemin="-100" aria-valuemax="100" aria-describedby="contourHelp">Draw the selected joint movement. Left and right select a point; up and down adjust its bend.</canvas></div>`;
     el('fingerMixer').append(row);
     for (const source of VOICE_SOURCES) el(`source-${i}`).add(new Option(sourceLabel(source),sourceId(source)));
     listen(row.querySelector('[data-finger]'),'click',()=>selectFinger(i));
     listen(el(`source-${i}`),'change',event=>updateConfiguration(c=>{c.voices[i].source=event.target.value;}));
     listen(el(`voice-level-${i}`),'input',event=>updateConfiguration(c=>{c.voices[i].level=Number(event.target.value);}));
+    voiceKnobs[i] = enhanceRangeKnob(el(`voice-level-${i}`));
     for (const key of ['mute','solo']) listen(el(`${key}-${i}`),'click',()=>updateConfiguration(c=>{c.voices[i][key]=!c.voices[i][key];}));
   }
   for (const index of [5, 6]) {
     const label = index === 5 ? 'Wrist' : 'Foot shape', row = document.createElement('div');
     row.id = `contour-row-${index}`; row.className = 'hand-voice hand-body-lane'; row.hidden = index === 6;
     row.style.setProperty('--finger-color',index === 5 ? '#91bce8' : '#91d2a3');
-    row.innerHTML = `<button id="body-lane-${index}" type="button" class="hand-voice-name" data-body-lane="${index}" aria-pressed="false">${label}</button><div class="hand-contour-lane"><div class="hand-contour-tools"><select id="contour-joint-${index}" aria-label="${label} contour joint"></select><output id="contour-value-${index}" class="hand-contour-value" aria-live="polite"></output><button type="button" id="contour-clear-${index}" aria-label="Reset selected ${label.toLowerCase()} curve">Reset</button></div><canvas id="contour-${index}" class="hand-contour" tabindex="0" role="slider" aria-describedby="contourHelp">Draw the selected joint movement.</canvas></div>`;
+    row.innerHTML = `<button id="body-lane-${index}" type="button" class="hand-voice-name" data-body-lane="${index}" aria-pressed="false">${label}</button><div class="hand-contour-lane"><div class="hand-contour-tools"><label class="hand-contour-joint" for="contour-joint-${index}"><span>Joint</span><select id="contour-joint-${index}" aria-label="${label} contour joint"></select></label><output id="contour-value-${index}" class="hand-contour-value" aria-live="polite"></output></div><canvas id="contour-${index}" class="hand-contour" tabindex="0" role="slider" aria-describedby="contourHelp">Draw the selected joint movement.</canvas></div>`;
     el('fingerMixer').append(row);
     listen(el(`body-lane-${index}`),'click',()=>selectAnimationJoint(index,el(`contour-joint-${index}`).value));
   }
@@ -364,24 +369,6 @@ for(const motion of HAND_MOTIONS) el('motionPreset').add(new Option(motion.label
 el('motionPreset').add(new Option('Drawn contours','drawn'));
 el('posePreset').add(new Option('Custom pose','custom'));
 for(const pose of HAND_POSES) el('posePreset').add(new Option(pose.label,pose.id));
-listen(el('saveMotion'),'click',()=>{
-  const {form,pose,motion,tremor,sound:{rhythm,noteLength}}=state.config;
-  const blob=new Blob([JSON.stringify({type:'gesticules-animation',version:2,form,pose,motion,tremor,sound:{rhythm,noteLength}},null,2)],{type:'application/json'});
-  const url=URL.createObjectURL(blob),link=document.createElement('a');link.href=url;link.download='gesticules-animation.json';link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
-});
-listen(el('loadMotion'),'click',()=>el('motionFile').click());
-listen(el('motionFile'),'change',async event=>{
-  const file=event.target.files?.[0];event.target.value='';if(!file)return;
-  try {
-    if(file.size>1000000)throw new Error('file is too large');
-    const saved=JSON.parse(await file.text());
-    if(saved?.type!=='gesticules-animation'||![1,2].includes(saved.version)||!saved.motion||!saved.pose)throw new Error('choose a Gesticules animation file');
-    updateConfiguration(c=>{
-      c.form=saved.form;c.pose=saved.pose;c.motion=saved.motion;
-      if(saved.version===2){c.tremor=saved.tremor;c.sound.rhythm=saved.sound?.rhythm;c.sound.noteLength=saved.sound?.noteLength;}
-    });contourEditor.clearHistory();notify('Animation loaded.');
-  } catch(error) {notify(`Animation could not load: ${error.message}`);}
-});
 listen(el('audioButton'),'click',()=>setAudio(!(state.audioOn||state.starting)));
 listen(el('soundPlayButton'),'click',()=>setSoundPlaying(!state.soundPlaying));
 listen(el('motionButton'),'click',()=>setPlaying(!state.playing));
@@ -438,7 +425,6 @@ listen(el('relaxFoot'),'click',()=>{
 listen(el('outputLevel'),'input',event=>{audio.setOutput(Number(event.target.value));updateOutput('outputLevel',Number(event.target.value));});
 listen(el('linkJoints'),'change',event=>{state.linked=event.target.checked;});
 listen(el('showJoints'),'change',event=>{viewer?.setShowJoints(event.target.checked);requestDraw();});
-listen(el('clearSolo'),'click',()=>updateConfiguration(c=>{for(const voice of c.voices)voice.solo=false;}));
 listen(el('relaxFinger'),'click',()=>updateConfiguration(c=>{c.pose.fingers[state.selected]=handPoseForForm('source-open',c.form).fingers[state.selected];}));
 listen(el('resetAll'),'click',reset);
 for(const button of document.querySelectorAll('[data-view]')) listen(button,'click',()=>{
@@ -486,6 +472,7 @@ listen(window,'pagehide',event=>{
     releaseNotes();audio.close();syncTransport();return;
   }
   state.disposed=true;audioRequest++;cancelAnimationFrame(frame);releaseNotes();presets?.destroy();
+  for (const knob of voiceKnobs) knob.destroy();
   jointAbort?.abort();layoutObserver.disconnect();abort.abort();viewer?.dispose();audio.close();
 });
 listen(window,'pageshow',event=>{

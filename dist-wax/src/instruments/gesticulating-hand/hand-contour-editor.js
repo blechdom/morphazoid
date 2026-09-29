@@ -17,7 +17,7 @@ const spoken = (lane, value) => lane.joint === 'stretch' ? `${Math.round(value *
  * Pointer strokes freeze their underlying generator/window; audio and transport
  * remain owned by the application. Undo restores corrections only. */
 export function createHandContourEditor({ read, commit, listen, selectFinger }) {
-  const lanes = [], undo = [], undoButton = document.getElementById('contourUndo');
+  const lanes = [], undo = [];
   let config, drag = null, lastTime = 0, lastTremorTime = 0, preview = null;
   const activeLanes = () => lanes.filter(lane => lane.definition);
   const invalidate = () => { preview = null; };
@@ -44,7 +44,7 @@ export function createHandContourEditor({ read, commit, listen, selectFinger }) 
     lane.selector.style.color = COLORS[lane.joint];
   }
   function remember(edits) {
-    undo.push(clone(edits ?? {})); if (undo.length > 32) undo.shift(); undoButton.disabled = false;
+    undo.push(clone(edits ?? {})); if (undo.length > 32) undo.shift();
   }
   function applyCurve(lane, curve, transaction) {
     const next = clone(read());
@@ -182,6 +182,14 @@ export function createHandContourEditor({ read, commit, listen, selectFinger }) 
     for (const type of ['pointerup', 'pointercancel', 'lostpointercapture']) listen(canvas, type, finishDrag);
     listen(canvas, 'focus', () => { if (config) draw(); }); listen(canvas, 'blur', () => { if (config) draw(); });
     listen(canvas, 'keydown', event => {
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'z' && !event.shiftKey && !event.altKey) {
+        event.preventDefault(); event.stopPropagation(); finishDrag();
+        if (undo.length) {
+          const next = clone(read()); next.motion.edits = clone(undo.pop());
+          commit(next); draw();
+        }
+        return;
+      }
       if (!lane.definition || !['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'Delete', 'Backspace'].includes(event.key)) return;
       event.preventDefault(); event.stopPropagation(); finishDrag();
       if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
@@ -199,14 +207,7 @@ export function createHandContourEditor({ read, commit, listen, selectFinger }) 
       }
       updateA11y(lane); draw();
     });
-    const reset = document.getElementById(`contour-clear-${index}`);
-    if (reset) listen(reset, 'click', () => { finishDrag(); applyCurve(lane, null); updateA11y(lane); draw(); });
   }
-  listen(undoButton, 'click', () => {
-    if (!undo.length) return;
-    finishDrag(); const next = clone(read()); next.motion.edits = clone(undo.pop());
-    undoButton.disabled = !undo.length; commit(next);
-  });
   return {
     sync(next) {
       if (config && config.form !== next.form) finishDrag();
@@ -223,6 +224,6 @@ export function createHandContourEditor({ read, commit, listen, selectFinger }) 
     },
     draw(time, tremorTime = time) { draw(time, tremorTime); },
     select,
-    clearHistory() { finishDrag(); undo.length = 0; undoButton.disabled = true; },
+    clearHistory() { finishDrag(); undo.length = 0; },
   };
 }
