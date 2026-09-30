@@ -29,7 +29,16 @@
 .hand-shell .hand-section-action { display: block; margin: 10px 0 0 auto; border: 0; font-size: 10px; min-height: 28px; padding: 2px 5px; background: transparent; color: var(--hand-muted); }
 .hand-panel > .group > .group-summary { padding-inline: 8px; }
 .hand-panel > .group > .group-body { padding: 10px 8px 12px; }
-.hand-panel > .instrument-preset-controls { padding: 8px; }
+.hand-panel > .instrument-preset-controls { padding: 8px; flex-wrap: wrap; row-gap: 6px; }
+.hand-preset-scope { flex: 0 0 100%; display: flex; align-items: center; gap: 4px; min-width: 0; margin: 0; padding: 0; border: 0; }
+.hand-scope-label { margin-right: 4px; font-size: 10px; color: var(--hand-muted); }
+.hand-preset-scope label { position: relative; flex: 1; min-width: 0; cursor: pointer; }
+.hand-preset-scope input { position: absolute; width: 1px; height: 1px; margin: 0; opacity: 0; }
+.hand-preset-scope label > span { display: flex; align-items: center; justify-content: center; min-height: 28px; padding: 2px 8px; border: 1px solid var(--hand-line); border-radius: 5px; font-size: 11px; color: var(--hand-muted); }
+.hand-preset-scope input:checked + span { border-color: #dea97880; color: #f3cfab; background: #dea97820; }
+.hand-preset-scope input:focus-visible + span { outline: 2px solid var(--hand-accent); outline-offset: 2px; }
+.hand-preset-scope label:hover > span { border-color: #ffffff45; }
+@media (pointer: coarse) { .hand-preset-scope label > span { min-height: 36px; } }
 .hand-control-block > .group-body > :first-child { margin-top: 0; }
 .hand-control, .hand-select { display: grid; gap: 5px; margin: 12px 0 0; min-width: 0; }
 .hand-control > span { display: flex; justify-content: space-between; gap: 8px; font-size: 11px; color: var(--hand-muted); }

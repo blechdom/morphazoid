@@ -46,6 +46,13 @@
         </section>
       </section>
       <aside class="hand-panel" data-instrument-preset-host aria-label="Model, movement and sound controls">
+        <fieldset id="presetScope" class="hand-preset-scope">
+          <legend class="sr-only">Models for presets and dice</legend>
+          <span class="hand-scope-label" aria-hidden="true">Presets &amp; dice</span>
+          <label><input type="radio" name="presetScope" value="hand" /><span>Hand</span></label>
+          <label><input type="radio" name="presetScope" value="foot" /><span>Foot</span></label>
+          <label><input type="radio" name="presetScope" value="both" checked /><span>Both</span></label>
+        </fieldset>
         <details class="group control-section hand-control-block hand-transports" aria-labelledby="playTitle" data-section="play" open>
           <summary class="group-summary"><h2 class="group-title" id="playTitle">Play</h2></summary>
           <div class="group-body">

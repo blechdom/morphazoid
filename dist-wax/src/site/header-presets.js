@@ -58,19 +58,23 @@ export function presetArrowDirection(event, { withinPicker = false } = {}) {
  * Does not own Audio, transport, state schemas, storage or sample buffers.
  * The menu only selects full scenes; its adjacent dice uses an instrument-owned
  * pure randomizer. Local sub-preset editors stay in the page.
+ * Availability limits menu choices and cycling without changing the captured
+ * scene or full bank. Call refresh() after changing an external availability rule.
  * Call after initialization; registration never applies a preset on page load.
  */
 export function registerHeaderPresets({
   id, presets, capture, apply, randomize, random = Math.random, onApplied,
+  isPresetAvailable = () => true,
   document: doc = globalThis.document, runtime = globalThis, host = null,
 }) {
   validateFullPresetBank(presets);
   if (typeof capture !== "function" || typeof apply !== "function") throw new TypeError("A complete-state capture/apply adapter is required");
   if (typeof randomize !== "function" || typeof random !== "function") throw new TypeError("An instrument-owned preset-parameter randomizer is required");
+  if (typeof isPresetAvailable !== "function") throw new TypeError("Preset availability must be a function");
   const bank = JSON.parse(JSON.stringify(presets));
   presetStateKey(capture());
   registrations.get(doc)?.destroy();
-  const controller = { id, bank, capture, apply, randomize, random, onApplied, runtime, doc, host, view: null, selectedId: null, hasPresetInteraction: false };
+  const controller = { id, bank, capture, apply, randomize, random, onApplied, isPresetAvailable, runtime, doc, host, view: null, selectedId: null, hasPresetInteraction: false };
   controller.destroy = () => {
     controller.view?.destroy();
     if (registrations.get(doc) === controller) registrations.delete(doc);
@@ -139,10 +143,13 @@ export function mountHeaderPresets(doc) {
   root.append(details, next, dice, status);
   const buttons = [];
   const keys = new Map(bank.map(preset => [preset.id, presetStateKey(preset.snapshot)]));
+  const isAvailable = preset => controller.isPresetAvailable(preset);
   let applying = false;
   let destroyed = false;
   const refresh = () => {
-    if (applying || destroyed) return;
+    if (destroyed) return;
+    filter();
+    if (applying) return;
     const key = presetStateKey(capture());
     const selected = controller.hasPresetInteraction
       ? bank.find(preset => preset.id === controller.lastPresetId && keys.get(preset.id) === key)
@@ -200,7 +207,7 @@ export function mountHeaderPresets(doc) {
   };
   const select = id => {
     const preset = bank.find(item => item.id === id);
-    if (preset) transact(() => preset.snapshot, `${preset.label} loaded`, "Preset not loaded",
+    if (preset && isAvailable(preset)) transact(() => preset.snapshot, `${preset.label} loaded`, "Preset not loaded",
       () => { controller.lastPresetId = id; controller.hasPresetInteraction = true; });
   };
   const randomize = () => transact(previous => {
@@ -217,8 +224,11 @@ export function mountHeaderPresets(doc) {
     // Generative scores and manual edits legitimately become Custom. Keep the
     // tour's place so the next arrow does not repeatedly return to preset one.
     const index = bank.findIndex(item => item.id === (controller.selectedId ?? controller.lastPresetId));
-    const nextIndex = index < 0 ? (direction > 0 ? 0 : bank.length - 1) : (index + direction + bank.length) % bank.length;
-    select(bank[nextIndex].id);
+    const start = index < 0 ? (direction > 0 ? -1 : 0) : index;
+    for (let step = 1; step <= bank.length; step++) {
+      const preset = bank[(start + direction * step + bank.length) % bank.length];
+      if (isAvailable(preset)) { select(preset.id); return; }
+    }
   };
   for (const preset of bank) {
     const row = doc.createElement("div");
@@ -241,13 +251,18 @@ export function mountHeaderPresets(doc) {
   list.append(empty);
   const filter = () => {
     const query = searchInput.value.trim().toLocaleLowerCase();
-    let count = 0;
-    for (const button of buttons) {
-      const visible = !query || `${button.textContent} ${button.title}`.toLocaleLowerCase().includes(query);
+    let count = 0, availableCount = 0, hiddenFocus = false;
+    for (let index = 0; index < buttons.length; index++) {
+      const button = buttons[index], available = isAvailable(bank[index]);
+      if (available) availableCount++;
+      const visible = available && (!query || `${button.textContent} ${button.title}`.toLocaleLowerCase().includes(query));
+      if (!visible && button.parentNode.contains(doc.activeElement)) hiddenFocus = true;
       button.parentNode.hidden = !visible;
       if (visible) count++;
     }
     empty.hidden = count > 0;
+    next.disabled = availableCount === 0;
+    if (hiddenFocus) (details.open ? searchInput : summary).focus();
   };
   listen(searchInput, "input", filter);
   listen(next, "click", () => cycle(1));

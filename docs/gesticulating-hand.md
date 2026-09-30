@@ -14,7 +14,12 @@ Space and motion playback never arm it. Turning Audio off leaves visual motion
 running silently. Presets preserve Audio, output level and both players. Selecting
 a preset, Next or dice briefly previews its voices when Audio is already on,
 even with Sound or Motion paused. The preview respects voice mute, solo and
-zero levels, and leaves the saved attack unchanged. Sound and Motion have
+zero levels, and leaves the saved attack unchanged. **Presets & dice** offers
+**Hand**, **Foot**, or **Both**: it filters the menu and Next/Previous choices and
+constrains the next random scene. This browsing choice stays in place while you
+load presets and does not alter the current pose or playback by itself. Both is
+the initial setting; the separate Model control switches the current rig.
+Sound and Motion have
 independent play/pause buttons at the top of the right panel, beside one Tempo slider. Their circular buttons and labelled ranges follow Shape's
 transport layout.
 

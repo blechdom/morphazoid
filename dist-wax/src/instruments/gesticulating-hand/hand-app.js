@@ -16,7 +16,7 @@ const state = {
   config: normalizeHandConfig(initialConfig), selected: 1, joint: 'mcp', bodyJoint: null,
   playing: false, soundPlaying: false, audioOn: false, starting: false,
   phase: 0, tremorOffset: 0, rhythmOffset: 0, epoch: performance.now(), pointerMask: 0, midi: new Map(),
-  loaded: false, disposed: false, linked: true,
+  loaded: false, disposed: false, linked: true, presetScope: 'both',
 };
 const audio = new HandAudio();
 const voiceKnobs = [];
@@ -411,6 +411,11 @@ listen(el('motionPreset'),'change',event=>{
 listen(el('posePreset'),'change',event=>{
   if(HAND_POSES.some(p=>p.id===event.target.value))updateConfiguration(c=>{c.pose=handPoseForForm(event.target.value,c.form);});
 });
+listen(el('presetScope'),'change',event=>{
+  if(!event.target.matches('input[name="presetScope"]') || !event.target.checked)return;
+  state.presetScope=['hand','foot'].includes(event.target.value)?event.target.value:'both';
+  presets?.refresh();
+});
 listen(el('bodyForm'),'change',event=>updateConfiguration(c=>{
   c.form=event.target.value==='foot'?'foot':'hand';
   c.pose=clone(formPoses.get(c.form)??handPoseForForm('source-open',c.form));
@@ -507,9 +512,13 @@ listen(window,'pageshow',event=>{
 presets=registerHeaderPresets({id:'gesticulating-hand',presets:HAND_PRESETS,
   capture:()=>clone(state.config),
   apply:value=>{viewer?.clearTrails();contourEditor.clearHistory();applyConfiguration(value);},
-  randomize:(snapshot,random)=>randomizeHandConfig(snapshot,random),
+  randomize:(snapshot,random)=>randomizeHandConfig(snapshot,random,state.presetScope),
+  isPresetAvailable:preset=>state.presetScope==='both'||(preset.snapshot.form==='foot'?'foot':'hand')===state.presetScope,
   onApplied:()=>{if(audio.running)audio.previewPreset(.75);},
 });
+// Keep the model filter and picker in one compact region at the top of the rail.
+document.querySelector('.hand-panel > .instrument-preset-controls')?.prepend(el('presetScope'));
+for(const input of el('presetScope').querySelectorAll('input'))input.checked=input.value===state.presetScope;
 audio.setConfig(state.config);audio.setOutput(Number(el('outputLevel').value));
 audio.onStateChange=()=>{
   if(!state.disposed&&state.audioOn&&!audio.running){anchor(audio.getMotionTime());state.audioOn=false;syncTransport();notify('Audio was interrupted — turn it on to resume.');requestDraw();}
@@ -540,6 +549,6 @@ presets.view?.select('wire-roll');
 // Read-only seam for interaction, lifecycle and audio/visual causality checks.
 window.__gesticulatingHand = {
   snapshot:()=>{const time=currentTime();return {config:clone(state.config),pose:effectivePose(time),time,tremorTime:time+state.tremorOffset,rhythmTime:time+state.rhythmOffset,
-    playing:state.playing,soundPlaying:state.soundPlaying,audioOn:state.audioOn,loaded:state.loaded,
+    playing:state.playing,soundPlaying:state.soundPlaying,audioOn:state.audioOn,loaded:state.loaded,presetScope:state.presetScope,
     selected:state.selected,bodyJoint:state.bodyJoint,held:state.pointerMask|midiMask(),audio:audio.getState(),viewer:viewer?.getState()};},
 };

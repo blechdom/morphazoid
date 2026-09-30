@@ -782,7 +782,7 @@ function makeRandomHandAudible(config) {
   return config;
 }
 /** A full-state randomizer: no factory-scene selection or runtime ownership. */
-export function randomizeHandConfig(_current = HAND_DEFAULTS, random = Math.random) {
+export function randomizeHandConfig(_current = HAND_DEFAULTS, random = Math.random, formPreference = "both") {
   const unit = () => clampHand(typeof random === "function" ? random() : .5, 0, .999999, .5);
   const between = (lo, hi) => lo + (hi - lo) * unit();
   const next = normalizeHandConfig();
@@ -802,7 +802,10 @@ export function randomizeHandConfig(_current = HAND_DEFAULTS, random = Math.rand
   next.sound = { rhythm: HAND_RHYTHMS[Math.floor(unit() * HAND_RHYTHMS.length)].id, noteLength: between(.08,.9), rootHz: 35 * (1600 / 35) ** unit(), pitchSpread: between(0, 4), brightness: unit(), roughness: unit(), space: unit(), rotationFx: unit(),
     attack: .004 * 300 ** unit(), release: .04 * 87.5 ** unit() };
   if (next.voices.every(v => v.mute)) next.voices[Math.floor(unit() * 5)].mute = false;
-  next.form = unit() < .5 ? "hand" : "foot";
+  // Always keep this draw for existing Both seeds. Choose the form before
+  // generating its joint bounds, foot shape and extra animation lanes.
+  const drawnForm = unit() < .5 ? "hand" : "foot";
+  next.form = formPreference === 'hand' || formPreference === 'foot' ? formPreference : drawnForm;
   if (next.form === "foot") {
     for (let i = 0; i < 5; i++) for (const [key, bounds] of Object.entries(handDigitLimits("foot", i))) next.pose.fingers[i][key] = between(...bounds);
     for (const [key, bounds] of Object.entries(FOOT_LIMITS.ankle)) next.pose.wrist[key] = between(...bounds);
