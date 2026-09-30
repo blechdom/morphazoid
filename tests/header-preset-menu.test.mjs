@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { registerHeaderPresets } from "../src/site/header-presets.js";
+import { captureHeaderPresetState, registerHeaderPresets } from "../src/site/header-presets.js";
 
 // Minimal DOM fixture: exercise the real menu composition/recall without
 // starting a browser or importing any instrument/audio implementation.
@@ -79,7 +79,7 @@ function randomFixture(options = {}) {
       state = result;
     },
     randomize: options.randomize ?? ((previous, rng) => ({ value: previous.value + rng() / 2 })),
-    random: () => 0.5, onApplied: options.onApplied,
+    random: () => 0.5, onApplied: options.onApplied, isPresetAvailable: options.isPresetAvailable,
   });
   return { doc, controller, errors, state: () => state, applies: () => applies };
 }
@@ -448,4 +448,173 @@ test("throwing or rejected success feedback cannot roll back a complete recall",
       assert.equal(fixture.applies(), 2);
     } finally { fixture.controller.destroy(); }
   }
+});
+
+
+const presetButtons = fixture => fixture.doc.descendants().filter(node => node.dataset.fullPreset !== undefined);
+const visiblePresetIds = fixture => presetButtons(fixture).filter(button => !button.parentNode.hidden).map(button => button.dataset.presetId);
+const presetArrow = (fixture, key, target = fixture.doc.querySelector(".header-preset-random")) => fixture.doc.emit("keydown", {
+  key, target, preventDefault() {}, stopImmediatePropagation() {},
+});
+
+test("dynamic availability changes only choices, preserving the complete bank and an excluded current scene", () => {
+  let available = null, feedback = 0;
+  const fixture = randomFixture({isPresetAvailable: preset => available === null || available.includes(preset.id), onApplied: () => feedback++});
+  try {
+    assert.equal(visiblePresetIds(fixture).length, 12);
+    assert.equal(fixture.applies(), 0); assert.equal(feedback, 0);
+    fixture.controller.view.select("p-5");
+    const captured = captureHeaderPresetState(fixture.doc);
+    available = ["p-2", "p-8"];
+    fixture.controller.refresh();
+    assert.deepEqual(visiblePresetIds(fixture), available);
+    assert.deepEqual(captureHeaderPresetState(fixture.doc), captured);
+    assert.equal(captured.presetCount, 12); assert.equal(captured.selectedId, "p-5");
+    assert.equal(fixture.controller.bank.length, 12);
+    assert.equal(fixture.doc.querySelector(".instrument-picker-current").textContent, "Scene 5");
+    const selected = presetButtons(fixture).find(button => button.dataset.presetId === "p-5");
+    assert.equal(selected.parentNode.hidden, true); assert.equal(selected.attributes.get("aria-pressed"), "true");
+    available = null; fixture.controller.refresh();
+    assert.equal(visiblePresetIds(fixture).length, 12);
+    assert.equal(fixture.applies(), 1); assert.equal(feedback, 1);
+    assert.deepEqual(captureHeaderPresetState(fixture.doc), captured);
+  } finally { fixture.controller.destroy(); }
+});
+
+test("direct and stale row selections check the current predicate before any recall or feedback", () => {
+  let available = ["p-1", "p-4", "p-8"], feedback = 0;
+  const fixture = randomFixture({isPresetAvailable: preset => available.includes(preset.id), onApplied: () => feedback++});
+  try {
+    fixture.controller.view.select("p-4");
+    available = ["p-2", "p-6"]; // Deliberately do not refresh the old visible rows.
+    fixture.controller.view.select("p-8");
+    presetButtons(fixture).find(button => button.dataset.presetId === "p-8").emit("click");
+    fixture.controller.view.select("missing");
+    assert.equal(fixture.applies(), 1); assert.equal(feedback, 1);
+    assert.deepEqual(fixture.state(), {value: 4}); assert.equal(fixture.controller.selectedId, "p-4");
+    fixture.controller.view.select("p-6");
+    assert.deepEqual(fixture.state(), {value: 6}); assert.equal(fixture.controller.selectedId, "p-6");
+    assert.equal(fixture.applies(), 2); assert.equal(feedback, 2);
+  } finally { fixture.controller.destroy(); }
+});
+
+test("Next and every arrow direction skip excluded scenes and wrap in full-bank order", () => {
+  let available = ["p-2", "p-5", "p-9"];
+  const fixture = randomFixture({isPresetAvailable: preset => available.includes(preset.id)});
+  try {
+    const next = fixture.doc.querySelector(".header-preset-next");
+    for (const id of ["p-2", "p-5", "p-9", "p-2"]) {
+      next.emit("click"); assert.equal(fixture.controller.selectedId, id);
+    }
+    for (const [key, id] of [["ArrowLeft", "p-9"], ["ArrowUp", "p-5"], ["ArrowRight", "p-9"], ["ArrowDown", "p-2"]]) {
+      presetArrow(fixture, key); assert.equal(fixture.controller.selectedId, id);
+    }
+    fixture.controller.view.select("p-5"); available = ["p-2", "p-9"];
+    next.emit("click"); assert.equal(fixture.controller.selectedId, "p-9", "continue after an excluded current preset");
+    available = ["p-2", "p-5", "p-9"]; fixture.controller.view.select("p-5"); available = ["p-2", "p-9"];
+    presetArrow(fixture, "ArrowLeft"); assert.equal(fixture.controller.selectedId, "p-2");
+    fixture.controller.view.randomize();
+    next.emit("click"); assert.equal(fixture.controller.selectedId, "p-9", "Custom retains its position in the available tour");
+    available = ["p-5"]; next.emit("click");
+    const applies = fixture.applies(); presetArrow(fixture, "ArrowLeft");
+    assert.equal(fixture.controller.selectedId, "p-5"); assert.equal(fixture.applies(), applies + 1, "one available scene still recalls normally");
+  } finally { fixture.controller.destroy(); }
+  const initial = randomFixture({isPresetAvailable: preset => ["p-2", "p-9"].includes(preset.id)});
+  try {
+    presetArrow(initial, "ArrowLeft"); assert.equal(initial.controller.selectedId, "p-9", "previous from Select Preset starts at the last eligible scene");
+  } finally { initial.controller.destroy(); }
+});
+
+test("text search intersects live availability and clearing search keeps the scope", () => {
+  let parity = 0, feedback = 0;
+  const fixture = randomFixture({isPresetAvailable: preset => preset.snapshot.value % 2 === parity, onApplied: () => feedback++});
+  try {
+    const search = fixture.doc.querySelector(".instrument-picker-search-input"), empty = fixture.doc.querySelector(".instrument-picker-empty");
+    search.value = "  sCeNe 1  "; search.emit("input");
+    assert.deepEqual(visiblePresetIds(fixture), ["p-10"]);
+    parity = 1; fixture.controller.refresh();
+    assert.deepEqual(visiblePresetIds(fixture), ["p-1", "p-11"]);
+    search.value = "Scene 2"; search.emit("input");
+    assert.deepEqual(visiblePresetIds(fixture), []); assert.equal(empty.hidden, false);
+    assert.equal(fixture.doc.querySelector(".header-preset-next").disabled, false, "search does not disable the eligible preset tour");
+    const picker = fixture.doc.querySelector(".header-preset-picker");
+    picker.open = true;
+    fixture.doc.querySelector(".header-preset-controls").emit("keydown", {key: "Escape", stopPropagation() {}, preventDefault() {}});
+    assert.equal(search.value, "");
+    assert.deepEqual(visiblePresetIds(fixture), ["p-1", "p-3", "p-5", "p-7", "p-9", "p-11"]);
+    assert.equal(empty.hidden, true); assert.equal(fixture.applies(), 0); assert.equal(feedback, 0);
+  } finally { fixture.controller.destroy(); }
+});
+
+test("an empty eligible set safely disables Next without recalling or previewing another scene", () => {
+  let enabled = true, feedback = 0;
+  const fixture = randomFixture({isPresetAvailable: () => enabled, onApplied: () => feedback++});
+  try {
+    fixture.controller.view.select("p-4"); const captured = captureHeaderPresetState(fixture.doc);
+    enabled = false; fixture.controller.refresh();
+    assert.deepEqual(visiblePresetIds(fixture), []);
+    assert.equal(fixture.doc.querySelector(".instrument-picker-empty").hidden, false);
+    const next = fixture.doc.querySelector(".header-preset-next"); assert.equal(next.disabled, true);
+    next.emit("click"); presetArrow(fixture, "ArrowLeft"); fixture.controller.view.select("p-4");
+    assert.deepEqual(captureHeaderPresetState(fixture.doc), captured);
+    assert.equal(fixture.applies(), 1); assert.equal(feedback, 1);
+    enabled = true; fixture.controller.refresh(); assert.equal(next.disabled, false);
+    next.emit("click"); assert.equal(fixture.controller.selectedId, "p-5");
+  } finally { fixture.controller.destroy(); }
+});
+
+test("scope changes during asynchronous recall leave the existing successful transaction intact", async () => {
+  let available = true, release, feedback = 0;
+  const fixture = randomFixture({
+    isPresetAvailable: () => available,
+    apply: snapshot => new Promise(resolve => {release = () => resolve(snapshot);}),
+    onApplied: () => feedback++,
+  });
+  try {
+    fixture.controller.view.select("p-4");
+    available = false; fixture.controller.refresh();
+    assert.deepEqual(visiblePresetIds(fixture), [], "scope updates immediately even while recall is pending");
+    assert.equal(fixture.doc.querySelector(".header-preset-next").disabled, true);
+    assert.equal(feedback, 0);
+    release(); await settle();
+    assert.deepEqual(fixture.state(), {value: 4}); assert.equal(fixture.controller.selectedId, "p-4");
+    assert.deepEqual(visiblePresetIds(fixture), []);
+    assert.equal(fixture.applies(), 1); assert.equal(feedback, 1);
+    fixture.controller.view.select("p-4");
+    assert.equal(fixture.applies(), 1); assert.equal(feedback, 1);
+  } finally { fixture.controller.destroy(); }
+});
+
+test("preset eligibility does not replace instrument-owned dice generation or its full-bank validation", () => {
+  let feedback = 0;
+  const fixture = randomFixture({isPresetAvailable: () => false, onApplied: () => feedback++});
+  try {
+    fixture.doc.querySelector(".header-preset-random").emit("click");
+    assert.deepEqual(fixture.state(), {value: .25}); assert.equal(fixture.applies(), 1); assert.equal(feedback, 1);
+    assert.deepEqual(visiblePresetIds(fixture), []);
+    assert.equal(captureHeaderPresetState(fixture.doc).presetCount, 12);
+  } finally { fixture.controller.destroy(); }
+  const invalid = randomFixture({isPresetAvailable: () => false, randomize: () => ({value: 4})});
+  try {
+    invalid.controller.view.randomize();
+    assert.equal(invalid.applies(), 0, "an excluded factory preset still is not a random parameter result");
+    assert.equal(invalid.errors.length, 1);
+  } finally { invalid.controller.destroy(); }
+});
+
+
+test("availability and search never leave keyboard focus inside a hidden preset row", () => {
+  let maximum = 12, feedback = 0;
+  const fixture = randomFixture({isPresetAvailable: preset => preset.snapshot.value < maximum, onApplied: () => feedback++});
+  try {
+    const picker = fixture.doc.querySelector(".header-preset-picker"), search = fixture.doc.querySelector(".instrument-picker-search-input");
+    const focusPreset = id => presetButtons(fixture).find(button => button.dataset.presetId === id).focus();
+    picker.open = true; focusPreset("p-9"); maximum = 5; fixture.controller.refresh();
+    assert.equal(fixture.doc.activeElement, search);
+    focusPreset("p-2"); search.value = "Scene 3"; search.emit("input");
+    assert.equal(fixture.doc.activeElement, search);
+    picker.open = false; focusPreset("p-3"); maximum = 2; fixture.controller.refresh();
+    assert.equal(fixture.doc.activeElement, fixture.doc.querySelector(".instrument-picker-trigger"));
+    assert.equal(fixture.applies(), 0); assert.equal(feedback, 0);
+  } finally { fixture.controller.destroy(); }
 });
