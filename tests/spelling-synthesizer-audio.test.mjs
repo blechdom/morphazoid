@@ -445,7 +445,7 @@ test("the tube backend reuses Throatazoid's worklet and sends bounded performanc
   assert.equal(
     audio.durationMs(tubeDurationEvent),
     tubeDurationEvent.dynamics.durationMs + tubeDurationEvent.dynamics.releaseMs + 18,
-    "the transport can wait for Bellazoid's complete gesture",
+    "the transport can wait for Pinkazoid's complete gesture",
   );
 
   const backend = audio.backends.tube;
@@ -612,7 +612,7 @@ test("the tube backend routes a fixed seven-voice bank into true per-throat poly
   assert.equal(context.state, "closed");
 });
 
-test("Bellazoid stages affricates, nasals, and X through their English gestures", async () => {
+test("Pinkazoid stages affricates, nasals, and X through their English gestures", async () => {
   const runtime = fakeRuntime();
   const audio = new SpellingSynthesizerAudio({ runtime, engine: "tube" });
   await audio.enable();
@@ -653,7 +653,7 @@ test("Bellazoid stages affricates, nasals, and X through their English gestures"
   await audio.close();
 });
 
-test("Bellazoid holds a repeated vowel open until release", async () => {
+test("Pinkazoid holds a repeated vowel open until release", async () => {
   const runtime = fakeRuntime();
   const audio = new SpellingSynthesizerAudio({ runtime, engine: "tube" });
   await audio.enable();
@@ -1087,3 +1087,50 @@ test("disable wins when a suspended backend resume is still pending", async () =
   assert.equal(context.state, "suspended");
   assert.equal(audio.running, false);
 });
+
+test("KAL personalities are tone filters, not new recorded voices or pitch shifts", async () => {
+  const audio = new SpellingSynthesizerAudio({runtime:fakeRuntime(),engine:"diphone"});
+  await audio.enable();
+  const [context] = FakeAudioContext.instances;
+  const rates=[], offsets=[], tones=[];
+  for(const personality of ["clear","warm","whisper","reed","creature"]) {
+    audio.articulate(voiceEvent("a",personality));
+    const source=atlasSources(context).at(-1);
+    rates.push(source.playbackRate.value);
+    offsets.push(source.starts[0].offset);
+    tones.push(context.filters[0].frequency.events.filter(e=>e[0]==="setTargetAtTime").at(-1)[1]);
+  }
+  assert.equal(new Set(rates).size,1);
+  assert.equal(new Set(offsets).size,1);
+  assert.deepEqual(tones,[7300,6570,7592,7800,5986]);
+  await audio.close();
+});
+
+for (const engine of ['bell','lpc']) {
+  test(`${engine}: independent worklet voice has explicit Audio, shared master and no sample fetch`,async()=>{
+    const runtime=fakeRuntime(),audio=new SpellingSynthesizerAudio({runtime,engine});
+    assert.equal(FakeAudioContext.instances.length,0);
+    assert.equal(audio.articulate(voiceEvent('a')),false);
+    await audio.enable();assert.equal(audio.activeEngine,engine);assert.equal(audio.running,true);
+    assert.deepEqual(runtime.fetches,[],'neither new engine fetches sampled speech');
+    const backend=audio.backends[engine],node=backend.node;
+    assert.equal(node.name,'spelling-retro');assert.equal(node.options.processorOptions.mode,engine);
+    assert.equal(audio.articulate(voiceEvent('a')),true);
+    const message=node.messages.find(m=>m.type==='voice');assert.equal(message.phone,'a');assert(message.frequency>60);assert(message.duration>0);
+    audio.setLevel(.25);assert.equal(backend.master.gain.value,.25);
+    audio.release({releaseMs:40});assert.equal(node.messages.at(-1).type,'release');
+    await audio.disable();assert.equal(audio.running,false);assert.equal(node.messages.at(-1).type,'reset');
+    await audio.enable();assert.equal(backend.node,node,'reuse the existing worklet');
+    await audio.close();assert.equal(backend.context,null);assert(node.disconnectCount>0);
+  });
+  test(`${engine}: cancelled cold worklet loading closes the context without fallback`,async()=>{
+    const runtime=fakeRuntime();let resolveModule;const fallbacks=[];
+    runtime.AudioContext=class extends FakeAudioContext {
+      constructor(...args){super(...args);this.audioWorklet.addModule=()=>new Promise(resolve=>{resolveModule=resolve;});}
+    };
+    const audio=new SpellingSynthesizerAudio({runtime,engine,onFallback:e=>fallbacks.push(e)});
+    const starting=audio.enable();await Promise.resolve();const stopping=audio.disable();resolveModule();
+    await stopping;await assert.rejects(starting,{name:'AbortError'});
+    assert.equal(audio.running,false);assert.deepEqual(fallbacks,[]);assert.equal(FakeAudioContext.instances[0].state,'closed');
+  });
+}

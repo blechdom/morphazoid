@@ -35,7 +35,7 @@ test("Spelling Synthesizer is a focused, accessible text-driven voice instrument
   ]);
 
   assert.match(html, /<title>Spelling Synthesizer — Morphazoid<\/title>/);
-  assert.match(html, /<body class="spelling-synthesizer-page">/);
+  assert.match(html, /<body class="spelling-synthesizer-page" data-cooking>/);
   assert.match(html, /aria-current="page"[\s\S]*?>spelling synthesizer<\/a>/);
   assert.match(html, /<h1 id="spellingTitle">Spelling Synthesizer<\/h1>/);
   assert.doesNotMatch(html, /It does not wait for a word/);
@@ -55,8 +55,8 @@ test("Spelling Synthesizer is a focused, accessible text-driven voice instrument
   assert.match(html, /id="pairGlidesButton"[\s\S]*?role="switch"[\s\S]*?aria-checked="true"/);
   assert.match(html, /id="rhythmAmount" type="range"/);
   assert.match(html, /id="diphthongDelay" type="range"/);
-  assert.match(html, /id="readbackButton"[\s\S]*?data-primary-transport[\s\S]*?>Read it back to me<\/button>/);
-  assert.match(html, /href="throatazoid\.html">Open the full Throatazoid anatomy/);
+  assert.match(html, /id="readbackButton"[^>]*aria-label="Read it back to me"[^>]*data-primary-transport/);
+  assert.match(html, /href="throatazoid\.html">Throatazoid/);
   assert.match(html, /src="nav\.js"/);
   assert.match(html, /src="src\/instruments\/spelling-synthesizer\/spelling-synthesizer-app\.js"/);
 
@@ -64,20 +64,23 @@ test("Spelling Synthesizer is a focused, accessible text-driven voice instrument
   assert.equal(new Set(ids).size, ids.length, "every page id must be unique");
   assert.deepEqual(
     [...html.matchAll(/\bdata-engine="([^"]+)"/g)].map((match) => match[1]),
-    ["tube", "diphone", "vocoder"],
+    ["tube", "diphone", "vocoder", "bell", "lpc"],
   );
   assert.match(html, /data-engine="tube" aria-pressed="false"/);
   assert.match(html, /data-engine="diphone" aria-pressed="true"/);
-  assert.match(html, /id="engineIndex">02 \/ 03<\/output>/);
+  assert.doesNotMatch(html, /engineIndex|letterTrail|spelling-engine-note|one interface|Bellazoid|Daisy lineage/);
+  assert.match(html, /<b>Pinkazoid<\/b>/);
+  assert.match(html, /id="mouthGraphic" viewBox="0 0 1000 520"/);
+  assert.ok(html.indexOf('id="spellingInput"') < html.indexOf('<aside'), "editor belongs below the mouth, not in the parameter rail");
   assert.deepEqual(
     [...html.matchAll(/\bdata-personality="([^"]+)"/g)].map((match) => match[1]),
     ["clear", "warm", "whisper", "reed", "creature"],
   );
 
   assert.match(css, /#spellingInput\s*\{/);
-  assert.match(css, /\.spelling-voice-stage\s*\{[\s\S]*?width:\s*clamp\(82px, 8vw, 110px\)/);
+  assert.match(css, /\.spelling-voice-stage\s*\{[\s\S]*?width:\s*100%/);
   assert.match(css, /"Courier New"[\s\S]*?"Liberation Mono"/);
-  assert.match(css, /@media \(max-width: 860px\)/);
+  assert.match(css, /@media \(max-width: 700px\)/);
   assert.match(css, /@media \(prefers-reduced-motion: reduce\)/);
   assert.match(app, /addEventListener\("compositionstart"/);
   assert.match(app, /addEventListener\("compositionend"/);
@@ -99,7 +102,7 @@ test("Spelling Synthesizer is a focused, accessible text-driven voice instrument
 });
 
 test("each selectable engine and personality has stable public metadata", () => {
-  assert.deepEqual(Object.keys(SPELLING_ENGINES), ["tube", "diphone", "vocoder"]);
+  assert.deepEqual(Object.keys(SPELLING_ENGINES), ["tube", "diphone", "vocoder", "bell", "lpc"]);
   assert.deepEqual(
     Object.keys(SPELLING_PERSONALITIES),
     ["clear", "warm", "whisper", "reed", "creature"],

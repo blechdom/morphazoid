@@ -4,11 +4,11 @@
   "branch": "codex/presets-continue-20260922",
   "source": "Review branch directory checkpoint 03619ff rebased onto origin/main ef6e593; pending pointer, family rename and preset drafts restored; no push or deployment",
   "counts": {
-    "implemented": 28,
-    "fullPresets": 649,
+    "implemented": 29,
+    "fullPresets": 671,
     "favesImplemented": 16,
     "activeRemaining": 64,
-    "regularRemaining": 133
+    "regularRemaining": 132
   },
   "verification": {
     "browser": "Fresh-main 9a45aa0 combined gate: 402 passed across 13 Chromium suites, including all 209 public HTML routes, all 451 existing full-state preset recalls, Shapes' 106-scene audio sweep, Faves/UI/gesture checks, I/O setup and incoming Loopini regressions. Human/device acceptance remains separate; see docs/presets-continuation-20260922.md",
@@ -580,6 +580,16 @@
       "status": "deferred"
     },
     {
+      "id": "spelling-synthesizer",
+      "label": "Spelling Synthesizer",
+      "href": "spelling-synthesizer.html",
+      "category": "voice",
+      "scope": "regular",
+      "presets": 22,
+      "status": "implemented-verification-pending",
+      "evidence": "docs/spelling-synthesizer.md"
+    },
+    {
       "id": "vocalzoid",
       "label": "Vocalzoid",
       "href": "vocalzoid.html",
@@ -899,15 +909,6 @@
       "id": "breath-atlas",
       "label": "Mouthophones",
       "href": "mouthophones.html",
-      "category": "wip",
-      "scope": "deferred-wip",
-      "presets": null,
-      "status": "deferred"
-    },
-    {
-      "id": "spelling-synthesizer",
-      "label": "Spelling Synthesizer",
-      "href": "spelling-synthesizer.html",
       "category": "wip",
       "scope": "deferred-wip",
       "presets": null,
@@ -1676,7 +1677,6 @@
       "algorithmic-mazes",
       "paths",
       "breath-atlas",
-      "spelling-synthesizer",
       "micromorph",
       "recursion",
       "playhead-paint",

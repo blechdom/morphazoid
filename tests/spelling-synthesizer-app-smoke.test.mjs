@@ -89,6 +89,7 @@ test("Spelling Synthesizer sustains held vowels, joins pairs, and resumes local 
       removeAttribute(name) {
         attributes.delete(`${id}:${name}`);
       },
+      querySelector() { return { textContent: "" }; },
       querySelectorAll() { return []; },
       focus() { document.activeElement = node; },
     };
@@ -360,24 +361,35 @@ test("Spelling Synthesizer sustains held vowels, joins pairs, and resumes local 
       async arrayBuffer() { return new ArrayBuffer(32); },
     };
   };
-  globalThis.requestAnimationFrame = (callback) => {
-    callback(0);
-    return 1;
-  };
+  globalThis.requestAnimationFrame = () => 1; // Paint is independent of the fake audio/timer clock.
   globalThis.setTimeout = fakeSetTimeout;
 
   await import(`../src/instruments/spelling-synthesizer/spelling-synthesizer-app.js?smoke=${Date.now()}`);
 
   assert.equal(audioContextConstructions, 0, "module load must not construct Web Audio");
   assert.equal(playbackStarts, 0, "module load must not start any fake audio source");
+  const loopButton = elements.get("readbackLoop");
+  assert.equal(loopButton.getAttribute("aria-pressed"), "false");
+  loopButton.emit("click");
+  assert.equal(loopButton.getAttribute("aria-pressed"), "true");
+  assert.equal(audioContextConstructions, 0, "Loop must not arm Audio or start playback");
+  loopButton.emit("click");
+
 
   const input = elements.get("spellingInput");
   input.value = "hello";
   elements.get("readbackButton").emit("click");
   assert.equal(audioContextConstructions, 0, "Readback must not implicitly turn Audio on");
   assert.equal(elements.get("audioButton").getAttribute("aria-pressed"), "false");
-  assert.equal(elements.get("readbackButton").textContent, "Read it back to me");
+  assert.equal(elements.get("readbackButton").getAttribute("aria-label"), "Read it back to me");
   assert.match(elements.get("liveStatus").textContent, /Turn Audio on/);
+  input.value = "e";
+  input.emit("input", {inputType:"insertText"});
+  assert.equal(audioContextConstructions, 0, "editing text must not implicitly arm Audio");
+  elements.get("clearButton").emit("click");
+  elements.get("audioButton").emit("click");
+  for (let pass=0;pass<32;pass++) await Promise.resolve();
+  assert.equal(elements.get("audioButton").getAttribute("aria-pressed"), "true");
   input.value = "";
   const initialVowel = input.emit("keydown", {
     key: "e",
@@ -397,8 +409,8 @@ test("Spelling Synthesizer sustains held vowels, joins pairs, and resumes local 
   });
   assert.equal(firstVowelRepeat.defaultPrevented, true, "held vowels suppress native repeat text");
   assert.equal(input.value, "e", "a held vowel stays one character");
-  assert.equal(elements.get("currentPair").textContent, "HELD VOWEL · SUSTAIN");
   for (let pass = 0; pass < 24; pass += 1) await Promise.resolve();
+  assert.equal(elements.get("currentPair").textContent, "HELD VOWEL · SUSTAIN");
   const heldSourcesAfterFirstRepeat = bufferSources.filter((source) => (
     source.buffer?.sampleRate === 16_000
   )).length;
@@ -461,6 +473,7 @@ test("Spelling Synthesizer sustains held vowels, joins pairs, and resumes local 
   input.selectionStart = 2;
   input.selectionEnd = 2;
   input.emit("input", { inputType: "insertText" });
+  for (let pass = 0; pass < 16; pass += 1) await Promise.resolve();
   assert.equal(elements.get("currentLetter").textContent, "TH");
   assert.equal(elements.get("currentSound").textContent, "TH");
   assert.equal(elements.get("currentPair").textContent, "TH · DIGRAPH");
@@ -478,17 +491,19 @@ test("Spelling Synthesizer sustains held vowels, joins pairs, and resumes local 
   input.selectionStart = 3;
   input.selectionEnd = 3;
   input.emit("input", { inputType: "insertText" });
+  for (let pass = 0; pass < 16; pass += 1) await Promise.resolve();
   assert.equal(elements.get("currentLetter").textContent, "T");
 
   input.value = "thth";
   input.selectionStart = 4;
   input.selectionEnd = 4;
   input.emit("input", { inputType: "insertText" });
+  for (let pass = 0; pass < 16; pass += 1) await Promise.resolve();
   assert.equal(elements.get("currentLetter").textContent, "H");
   assert.notEqual(elements.get("currentPair").textContent, "TH · DIGRAPH");
 
   for (let pass = 0; pass < 8; pass += 1) await Promise.resolve();
-  assert.ok(audioContextConstructions > 0, "typing is the first action that requests fake audio");
+  assert.ok(audioContextConstructions > 0, "the explicit speaker action requests fake audio");
 
   elements.get("pairGlidesButton").emit("click");
   assert.equal(elements.get("pairGlidesButton").getAttribute("aria-checked"), "true");
@@ -506,15 +521,15 @@ test("Spelling Synthesizer sustains held vowels, joins pairs, and resumes local 
     source.buffer?.sampleRate === 16_000
   )).length;
   elements.get("readbackButton").emit("click");
-  assert.equal(elements.get("readbackButton").textContent, "Preparing voice…");
+  assert.equal(elements.get("readbackButton").getAttribute("aria-label"), "Preparing voice…");
   await flushMicrotasksUntil(
     () => (
-      elements.get("readbackButton").textContent === "Pause readback"
+      elements.get("readbackButton").getAttribute("aria-label") === "Pause readback"
       && atlasSources().length > kalSourcesBeforeReadback
     ),
     "word readback should prepare and start its first local sample",
   );
-  assert.equal(elements.get("readbackButton").textContent, "Pause readback");
+  assert.equal(elements.get("readbackButton").getAttribute("aria-label"), "Pause readback");
   const firstReadbackSource = atlasSources()[kalSourcesBeforeReadback];
   assert.ok(firstReadbackSource, "readback starts through the local KAL sample engine");
   assert.deepEqual(
@@ -541,7 +556,7 @@ test("Spelling Synthesizer sustains held vowels, joins pairs, and resumes local 
   assert.equal(elements.get("currentLetter").textContent, "WORDS");
   assert.equal(elements.get("currentSound").textContent, "W ER D Z");
   runTimersUntil(
-    () => elements.get("readbackButton").textContent === "Read it again",
+    () => elements.get("readbackButton").getAttribute("aria-label") === "Read it again",
     "word readback should finish after its final phone",
   );
   assert.equal(
@@ -576,7 +591,7 @@ test("Spelling Synthesizer sustains held vowels, joins pairs, and resumes local 
   });
   assert.equal(sustainedVowel.defaultPrevented, true);
   assert.ok(firstReplaySource.stopCalls.length > 0, "typing releases the active readback clip");
-  assert.equal(elements.get("readbackButton").textContent, "Continue readback");
+  assert.equal(elements.get("readbackButton").getAttribute("aria-label"), "Continue readback");
   assert.equal(
     elements.get("readbackStartOver").hidden,
     false,
@@ -593,7 +608,7 @@ test("Spelling Synthesizer sustains held vowels, joins pairs, and resumes local 
     atlasSourcesWhileHeld,
     "readback stays interrupted while the vowel key remains held",
   );
-  assert.equal(elements.get("readbackButton").textContent, "Continue readback");
+  assert.equal(elements.get("readbackButton").getAttribute("aria-label"), "Continue readback");
   assert.equal(
     [...timers.values()].some(({ delay }) => delay === 900),
     true,
@@ -614,20 +629,20 @@ test("Spelling Synthesizer sustains held vowels, joins pairs, and resumes local 
     "dh",
     "an interrupted word resumes from its first phone instead of its middle",
   );
-  assert.equal(elements.get("readbackButton").textContent, "Pause readback");
+  assert.equal(elements.get("readbackButton").getAttribute("aria-label"), "Pause readback");
 
   input.value = "the wordse.";
   input.selectionStart = input.value.length;
   input.selectionEnd = input.value.length;
   input.emit("input", { inputType: "insertText" });
   assert.ok(continuedReadbackSource.stopCalls.length > 0);
-  assert.equal(elements.get("readbackButton").textContent, "Continue readback");
+  assert.equal(elements.get("readbackButton").getAttribute("aria-label"), "Continue readback");
   document.hidden = true;
   for (const listener of documentListeners.get("visibilitychange") ?? []) {
     listener({ type: "visibilitychange" });
   }
   const playbackStartsWhenHidden = playbackStarts;
-  assert.equal(elements.get("readbackButton").textContent, "Resume readback");
+  assert.equal(elements.get("readbackButton").getAttribute("aria-label"), "Resume readback");
   assert.equal(runTimersWithDelay(900), 0, "hiding clears interrupted readback continuation");
   for (let pass = 0; pass < 8; pass += 1) await Promise.resolve();
   assert.equal(playbackStarts, playbackStartsWhenHidden, "hidden readback cannot restart audio");
@@ -668,14 +683,14 @@ test("Spelling Synthesizer sustains held vowels, joins pairs, and resumes local 
   );
 
   elements.get("readbackButton").emit("click");
-  assert.equal(elements.get("readbackButton").textContent, "Resume readback");
+  assert.equal(elements.get("readbackButton").getAttribute("aria-label"), "Resume readback");
   const kalKAtBoundaryPause = kalKClipCount();
   elements.get("readbackButton").emit("click");
   await flushMicrotasksUntil(
-    () => elements.get("readbackButton").textContent === "Read it again",
+    () => elements.get("readbackButton").getAttribute("aria-label") === "Read it again",
     "resuming after the final boundary should finish readback",
   );
-  assert.equal(elements.get("readbackButton").textContent, "Read it again");
+  assert.equal(elements.get("readbackButton").getAttribute("aria-label"), "Read it again");
   assert.equal(
     kalKClipCount(),
     kalKAtBoundaryPause,
@@ -697,10 +712,10 @@ test("Spelling Synthesizer sustains held vowels, joins pairs, and resumes local 
   input.selectionStart = input.value.length;
   input.selectionEnd = input.value.length;
   input.emit("input", { inputType: "insertText" });
-  assert.equal(elements.get("readbackButton").textContent, "Continue readback");
+  assert.equal(elements.get("readbackButton").getAttribute("aria-label"), "Continue readback");
   assert.equal(runTimersWithDelay(900), 1, "live typing resumes after its idle delay");
   await flushMicrotasksUntil(
-    () => elements.get("readbackButton").textContent === "Read it again",
+    () => elements.get("readbackButton").getAttribute("aria-label") === "Read it again",
     "continuation after the appended suffix should settle",
   );
   assert.equal(
@@ -708,5 +723,59 @@ test("Spelling Synthesizer sustains held vowels, joins pairs, and resumes local 
     kalKBeforeLiveAppend,
     "continuing after a live append does not restart the already-read prefix",
   );
-  assert.equal(elements.get("readbackButton").textContent, "Read it again");
+  assert.equal(elements.get("readbackButton").getAttribute("aria-label"), "Read it again");
+
+  await t.test("readback loops complete phrases, preserves the toggle and cancels pending repeats", async () => {
+    elements.get("clearButton").emit("click");
+    input.value = "cat.";
+    input.emit("input", { inputType: "insertReplacementText" });
+    loopButton.emit("click");
+    const before = kalKClipCount();
+    elements.get("readbackButton").emit("click");
+    await flushMicrotasksUntil(() => kalKClipCount() === before + 1, "first loop begins");
+    runTimersUntil(() => kalKClipCount() === before + 3, "three loops repeat the first word");
+    assert.equal(elements.get("readbackButton").getAttribute("aria-label"), "Pause readback");
+    assert.equal(dictionaryFetches, 1, "looping reuses the prepared local pronunciation");
+
+    // Pausing in final punctuation used to finish immediately on resume.
+    runTimersUntil(() => elements.get("currentPair").textContent === "PHRASE END", "loop reaches punctuation");
+    elements.get("readbackButton").emit("click");
+    const paused = kalKClipCount();
+    for (let i = 0; i < 12 && runNextTimer(); i += 1) {}
+    assert.equal(kalKClipCount(), paused, "Pause cancels all pending repeats");
+    assert.equal(loopButton.getAttribute("aria-pressed"), "true");
+    elements.get("readbackButton").emit("click");
+    await flushMicrotasksUntil(() => kalKClipCount() === paused + 1, "resume at the final boundary loops from the beginning");
+    loopButton.emit("click");
+    runTimersUntil(() => elements.get("readbackButton").getAttribute("aria-label") === "Read it again", "Loop off finishes this pass");
+    assert.equal(kalKClipCount(), paused + 1, "Loop off does not schedule another pass");
+
+    loopButton.emit("click");
+    elements.get("readbackButton").emit("click");
+    await flushMicrotasksUntil(() => kalKClipCount() === paused + 2, "loop restarts only after Play");
+    elements.get("clearButton").emit("click");
+    const cleared = playbackStarts;
+    for (let i = 0; i < 12 && runNextTimer(); i += 1) {}
+    assert.equal(playbackStarts, cleared, "Clear cancels the live loop");
+    assert.equal(loopButton.getAttribute("aria-pressed"), "true", "Clear preserves the repeat preference");
+    elements.get("readbackButton").emit("click");
+    assert.equal(playbackStarts, cleared, "empty text cannot loop");
+    input.value = "?!23";
+    elements.get("readbackButton").emit("click");
+    assert.equal(playbackStarts, cleared, "text with no playable words cannot loop");
+
+    input.value = "cat.";
+    elements.get("readbackButton").emit("click");
+    await flushMicrotasksUntil(() => playbackStarts > cleared, "restart valid text");
+    elements.get("audioButton").emit("click");
+    const muted = playbackStarts;
+    await flushMicrotasksUntil(() => elements.get("audioButton").getAttribute("aria-pressed") === "false", "Audio turns off");
+    for (let i = 0; i < 12 && runNextTimer(); i += 1) {}
+    assert.equal(playbackStarts, muted, "Audio off cancels pending loop callbacks");
+    elements.get("readbackButton").emit("click");
+    assert.equal(playbackStarts, muted, "Loop + Play cannot re-arm Audio");
+    assert.equal(loopButton.getAttribute("aria-pressed"), "true");
+    elements.get("resetButton").emit("click");
+    await flushMicrotasksUntil(() => loopButton.getAttribute("aria-pressed") === "false", "explicit Reset restores loop off");
+  });
 });

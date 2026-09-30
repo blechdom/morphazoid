@@ -7,7 +7,7 @@
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="Morphazoid" />
     <meta property="og:title" content="Spelling Synthesizer — Morphazoid" />
-    <meta property="og:description" content="Morphazoid Spelling Synthesizer — type letters directly into a tract, KAL phone-sample atlas, and real vocoder." />
+    <meta property="og:description" content="Morphazoid Spelling Synthesizer — type letters into Pinkazoid, KAL samples, a vocoder, a Bell Labs-inspired tract or Speak &amp; Spell-inspired LPC." />
     <meta property="og:url" content="https://morphazoid.com/spelling-synthesizer.html" />
     <meta property="og:image" content="https://morphazoid.com/assets/social/morphazoid-card-20260917.png" />
     <meta property="og:image:secure_url" content="https://morphazoid.com/assets/social/morphazoid-card-20260917.png" />
@@ -17,7 +17,7 @@
     <meta property="og:image:alt" content="Morphazoid geometric wireframe logo on a dark background." />
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="Spelling Synthesizer — Morphazoid" />
-    <meta name="twitter:description" content="Morphazoid Spelling Synthesizer — type letters directly into a tract, KAL phone-sample atlas, and real vocoder." />
+    <meta name="twitter:description" content="Morphazoid Spelling Synthesizer — type letters into Pinkazoid, KAL samples, a vocoder, a Bell Labs-inspired tract or Speak &amp; Spell-inspired LPC." />
     <meta name="twitter:image" content="https://morphazoid.com/assets/social/morphazoid-card-20260917.png" />
     <meta name="twitter:image:alt" content="Morphazoid geometric wireframe logo on a dark background." />
     <link rel="image_src" href="https://morphazoid.com/assets/social/morphazoid-card-20260917.png" />
@@ -26,14 +26,15 @@
     <meta name="theme-color" content="#060805" />
     <meta
       name="description"
-      content="Morphazoid Spelling Synthesizer — type letters directly into a tract, KAL phone-sample atlas, and real vocoder."
+      content="Morphazoid Spelling Synthesizer — type letters into Pinkazoid, KAL samples, a vocoder, a Bell Labs-inspired tract or Speak &amp; Spell-inspired LPC."
     />
     <title>Spelling Synthesizer — Morphazoid</title>
     <link rel="icon" href="favicon.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="style.css" />
     <link rel="stylesheet" href="src/instruments/spelling-synthesizer/spelling-synthesizer.css" />
-  </head>
-  <body class="spelling-synthesizer-page">
+    <link rel="stylesheet" href="src/ui/patterns/performance-workspace.css" />
+</head>
+  <body class="spelling-synthesizer-page" data-cooking>
     <header class="masthead">
       <a class="wordmark" href="./" aria-label="Morphazoid home">
         <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
@@ -62,7 +63,7 @@
       <div class="audio-strip" aria-label="Audio controls">
         <button class="audio-button" id="audioButton" type="button" aria-pressed="false">
           <span class="audio-glyph spelling-audio-glyph" aria-hidden="true">Aa</span>
-          <span class="audio-copy"><b>Voice</b><small id="audioState">type to start</small></span>
+          <span class="audio-copy"><b>Voice</b><small id="audioState">off</small></span>
         </button>
         <label class="header-level" for="level">
           <span><b>Output</b><output id="levelOut" for="level">46%</output></span>
@@ -79,87 +80,75 @@
       </div>
     </header>
 
-    <main class="spelling-shell" id="spellingSynthesizer">
-      <section class="spelling-composer" aria-labelledby="spellingTitle">
+    <main class="spelling-shell" id="spellingSynthesizer" data-cooking-shell>
+      <section class="spelling-composer" aria-labelledby="spellingTitle" data-cooking-stage>
         <header class="spelling-heading">
           <h1 id="spellingTitle">Spelling Synthesizer</h1>
         </header>
 
-        <div class="spelling-voice-stage" id="voiceStage" aria-hidden="true">
-          <div class="spelling-orbit is-outer"><i></i><i></i><i></i></div>
-          <div class="spelling-orbit is-inner"><i></i><i></i><i></i></div>
-          <div class="spelling-mouth">
-            <span id="currentLetter">A</span>
-            <i></i>
-          </div>
-          <div class="spelling-current-sound">
-                <b id="currentSound">AE</b>
-            <span id="currentPair">READY</span>
-          </div>
+        <div class="spelling-voice-stage" id="voiceStage" role="img" aria-label="Front-facing wireframe mouth, resting">
+          <svg class="spelling-mouth" id="mouthGraphic" viewBox="0 0 1000 520" aria-hidden="true">
+            <defs><clipPath id="mouthOpening"><path id="mouthClip" /></clipPath></defs>
+            <path id="mouthOutline" class="mouth-opening" />
+            <g clip-path="url(#mouthOpening)">
+              <path id="mouthCavity" class="mouth-cavity" />
+              <path id="mouthTeeth" class="mouth-teeth" />
+              <path id="mouthTongue" class="mouth-tongue" />
+            </g>
+            <path id="mouthLips" class="mouth-lips" />
+          </svg>
+          <span class="spelling-current-letter" id="currentLetter">A</span>
+          <span class="sr-only" id="currentSound">AE</span>
+          <span class="sr-only" id="currentPair">READY</span>
         </div>
 
-        <label class="spelling-input-wrap" for="spellingInput">
-          <span class="spelling-input-label">
-            <b>Type into the voice</b>
-          </span>
-          <textarea
-            id="spellingInput"
-            rows="6"
-            spellcheck="false"
-            autocapitalize="sentences"
-            autocomplete="off"
-            maxlength="1600"
-            placeholder="Start typing…"
-            autofocus
-          ></textarea>
-        </label>
-
-        <div class="spelling-underbar">
+        <div class="spelling-editor">
+          <label class="spelling-input-wrap" for="spellingInput">
+            <span class="spelling-input-label"><b>Type into the voice</b></span>
+            <textarea id="spellingInput" rows="3" spellcheck="false" autocapitalize="sentences" autocomplete="off" maxlength="1600" placeholder="Start typing…"></textarea>
+          </label>
           <div class="spelling-transport">
-            <button
-              class="mini-action is-readback"
-              id="readbackButton"
-              type="button"
-              aria-pressed="false"
-              data-primary-transport
-            >Read it back to me</button>
+            <button class="play-button" id="readbackButton" type="button" aria-pressed="false" aria-label="Read it back to me" title="Read it back to me" data-primary-transport>
+              <svg class="transport-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5 18 12 8 18.5Z" /></svg>
+              <svg class="transport-pause" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6v12M16 6v12" /></svg>
+            </button>
+            <button class="mini-action spelling-loop-button" id="readbackLoop" type="button" aria-pressed="false" aria-label="Loop readback" title="Loop readback: off">
+              <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M18 7H7a4 4.5 0 0 0-4 4.5M6 17h11a4 4.5 0 0 0 4-4.5M15 4l3 3-3 3M9 14l-3 3 3 3" /></svg>
+            </button>
             <button class="mini-action" id="readbackStartOver" type="button" hidden>Start over</button>
             <button class="mini-action" id="clearButton" type="button">Clear text</button>
           </div>
         </div>
-
-        <div class="spelling-letter-trail" id="letterTrail" aria-hidden="true">
-          <span>YOUR LETTERS WILL GATHER HERE</span>
-        </div>
       </section>
 
-      <aside class="spelling-panel" aria-label="Spelling Synthesizer controls">
+      <aside class="spelling-panel" aria-label="Spelling Synthesizer controls" data-cooking-panel>
+        <div data-instrument-preset-host></div>
         <section class="spelling-control-block" aria-labelledby="engineLabel">
           <header>
-            <span><b id="engineLabel">Synth engine</b><small>one interface, three synthesis models</small></span>
-            <output id="engineIndex">02 / 03</output>
+            <span><b id="engineLabel">Synth engine</b></span>
           </header>
           <div class="spelling-engine-buttons" id="engineButtons" role="group" aria-labelledby="engineLabel">
             <button type="button" data-engine="tube" aria-pressed="false">
-              <i aria-hidden="true">01</i><span><b>Bellazoid</b><small>Daisy lineage · 44-section tract</small></span>
+              <span><b>Pinkazoid</b><small>vocal tract</small></span>
             </button>
             <button type="button" data-engine="diphone" aria-pressed="true">
-              <i aria-hidden="true">02</i><span><b>KAL samples</b><small>long vowels · compact phone units</small></span>
+              <span><b>KAL samples</b><small>sample voice</small></span>
             </button>
             <button type="button" data-engine="vocoder" aria-pressed="false">
-              <i aria-hidden="true">03</i><span><b>Voxazoid</b><small>KAL modulator · 20 speech bands</small></span>
+              <span><b>Voxazoid</b><small>vocoder</small></span>
             </button>
-          </div>
-          <div class="spelling-engine-note">
-            <b id="engineTitle">KAL phone samples</b>
-            <span id="engineLineage">CMU Flite KAL16 · phone and pair atlas</span>
-            <p id="engineDescription">Long vowel bodies and compact consonant and joined-pair units rendered from Flite's KAL16 diphone voice.</p>
+            <button type="button" data-engine="bell" aria-pressed="false" title="Kelly–Lochbaum vocal tract, inspired by Bell Labs; not the original Daisy Bell program">
+              <span><b>Bell Labs</b><small>vocal tract</small></span>
+            </button>
+            <button type="button" data-engine="lpc" aria-pressed="false" title="Speak &amp; Spell-inspired LPC; not a TI chip or ROM emulator">
+              <span><b>Speak &amp; Spell</b><small>LPC synthesis</small></span>
+            </button>
           </div>
         </section>
 
         <section class="spelling-control-block" aria-labelledby="personalityLabel">
           <header>
-            <span><b id="personalityLabel">Personality</b><small>voice body, breath, and attitude</small></span>
+            <span><b id="personalityLabel">Sample tone</b><small id="personalityNote">Tone only; KAL keeps its recorded voice.</small></span>
           </header>
           <div
             class="spelling-personality-buttons"
@@ -216,16 +205,7 @@
           </button>
         </section>
 
-        <section class="spelling-history-note" aria-labelledby="lineageTitle">
-          <b id="lineageTitle">Historical models, live control</b>
-          <p>
-            Bell Labs’ 1961 “Daisy Bell” used an early digital vocal-tract model. Bellazoid keeps
-            that lineage alive; CMU Flite’s KAL16 voice supplies rendered phone and pair units.
-            Voxazoid follows their moving spectrum through twenty speech bands. Typing supplies the
-            control gestures.
-          </p>
-          <a href="throatazoid.html">Open the full Throatazoid anatomy →</a>
-        </section>
+        <p class="spelling-notes-link"><a href="docs/spelling-synthesizer.md">Voice engines &amp; controls</a> · <a href="throatazoid.html">Throatazoid</a></p>
 
         <p class="audio-error" id="audioError" role="alert" hidden></p>
         <div class="reset-all-row">

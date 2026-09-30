@@ -482,8 +482,8 @@ const CATALOG_DETAILS = Object.freeze({
   ),
   "spelling-synthesizer": define(
     "Voice instrument",
-    "Sounds each typed letter through the Bellazoid tract, sustained KAL phone samples, or the twenty-band Voxazoid vocoder while typing rhythm shapes the voice.",
-    "Begin typing, choose an engine and personality, then adjust rhythm dynamics and the vowel-pair delay.",
+    "Sounds typed letters through Pinkazoid, KAL samples, Voxazoid, a Bell Labs-inspired vocal tract or Speak & Spell-inspired LPC, with word readback and looping.",
+    "Turn on Audio, type below the mouth or press Play, then browse voices with presets while Loop repeats your text.",
     ["Built-in synth", "Computer keys"],
   ),
   vocalzoid: define(

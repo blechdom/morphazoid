@@ -1,0 +1,10 @@
+{
+  "date": "2026-09-30",
+  "reason": "Owner-requested five-engine Spelling redesign and Voice-category promotion. Existing route and icon asset path retained.",
+  "updates": {
+    "spelling-synthesizer": {
+      "description": "Sounds typed letters through Pinkazoid, KAL samples, Voxazoid, a Bell Labs-inspired vocal tract or Speak & Spell-inspired LPC, with word readback and looping.",
+      "start": "Turn on Audio, type below the mouth or press Play, then browse voices with presets while Loop repeats your text."
+    }
+  }
+}

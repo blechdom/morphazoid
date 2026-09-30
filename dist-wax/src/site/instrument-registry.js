@@ -110,6 +110,7 @@ export const TOOL_GROUPS = Object.freeze([
     { id: "crickets", label: "Crickets", href: "crickets.html", catalogue: false, browse: true, entryType: "lab", imageHref: "assets/instruments/lab-placeholder.webp" },
   ]),
   freezeGroup("voice", "Voice", [
+    { id: "spelling-synthesizer", label: "Spelling Synthesizer", href: "spelling-synthesizer.html" },
     { id: "vocalzoid", label: "Vocalzoid", href: "vocalzoid.html" },
   ]),
   freezeGroup("audio-effect", "Audio Effect", [
@@ -162,7 +163,6 @@ export const TOOL_GROUPS = Object.freeze([
     { id: "algorithmic-mazes", label: "Mazes", href: "algorithmic-mazes.html" },
     { id: "paths", label: "Paths", href: "paths.html" },
     { id: "breath-atlas", label: "Mouthophones", href: "mouthophones.html" },
-    { id: "spelling-synthesizer", label: "Spelling Synthesizer", href: "spelling-synthesizer.html" },
     { id: "micromorph", label: "Micromorph", href: "micromorph.html" },
     { id: "recursion", label: "Recursion", href: "recursion.html" },
     { id: "playhead-paint", label: "Playhead Paint", href: "playhead-paint.html" },

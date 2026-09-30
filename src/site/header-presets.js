@@ -54,7 +54,7 @@ export function presetArrowDirection(event, { withinPicker = false } = {}) {
 }
 
 /**
- * Register an instrument-owned, synchronous complete-state adapter.
+ * Register an instrument-owned complete-state adapter (synchronous or Promise).
  * Does not own Audio, transport, state schemas, storage or sample buffers.
  * The menu only selects full scenes; its adjacent dice uses an instrument-owned
  * pure randomizer. Local sub-preset editors stay in the page.
@@ -159,25 +159,37 @@ export function mountHeaderPresets(doc) {
     const previous = JSON.parse(presetStateKey(capture()));
     applying = true;
     let attemptedApply = false;
+    const finish = () => { applying = false; root.setAttribute("aria-busy", "false"); refresh(); };
+    const report = error => {
+      status.textContent = `${failure}: ${error.message}`;
+      runtime.console?.error?.(`${failure} for ${controller.id}`, error);
+      finish();
+    };
+    const failed = error => {
+      if (!attemptedApply || destroyed) { report(error); return; }
+      try {
+        const rollback = apply(previous);
+        if (rollback?.then) { rollback.then(() => report(error), () => report(error)); return; }
+      } catch { /* Preserve the original recall failure. */ }
+      report(error);
+    };
     try {
       const snapshot = prepare(JSON.parse(presetStateKey(previous)));
       const expected = presetStateKey(snapshot);
+      const complete = () => {
+        if (destroyed) { finish(); return; }
+        try {
+          if (presetStateKey(capture()) !== expected) throw new Error("Preset recall did not restore its complete musical state");
+          onApplied(); status.textContent = success; finish();
+        } catch (error) { failed(error); }
+      };
       attemptedApply = true;
-      apply(JSON.parse(expected));
-      // Catch incomplete adapters rather than falsely labelling a half-recall.
-      if (presetStateKey(capture()) !== expected) throw new Error("Preset recall did not restore its complete musical state");
-      onApplied();
-      status.textContent = success;
-    } catch (error) {
-      if (attemptedApply) {
-        try { apply(previous); } catch { /* Report the failed recall without swallowing its cause. */ }
-      }
-      status.textContent = `${failure}: ${error.message}`;
-      runtime.console?.error?.(`${failure} for ${controller.id}`, error);
-    } finally {
-      applying = false;
-      refresh();
-    }
+      const result = apply(JSON.parse(expected));
+      if (result?.then) {
+        root.setAttribute("aria-busy", "true");
+        result.then(complete, failed);
+      } else complete();
+    } catch (error) { failed(error); }
   };
   const select = id => {
     const preset = bank.find(item => item.id === id);

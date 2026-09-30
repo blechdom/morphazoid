@@ -1,3 +1,4 @@
+import { restoreSpelling } from "./helpers/spelling-reference.mjs";
 import { restoreRainVolumeMeters } from './helpers/rain-volume-meter-reference.mjs';
 import { restoreFractalSignalsSite, fractalSignalsSiteChanges } from "./helpers/fractal-signals-site-reference.mjs";
 import { restoreSimdChiptuneSite, simdChiptuneSiteAmendments } from "./helpers/simd-chiptune-site-reference.mjs";
@@ -54,7 +55,7 @@ test("every changed runtime module reverses byte-for-byte to the fresh-main refe
     assert.ok(proof.files.some(record => record.before === before && record.after === after));
   }
   for (const record of proof.files) {
-    const current = restoreFractalSignalsSite(await readFile(new URL(record.after, root), "utf8"), record.after);
+    const current = restoreFractalSignalsSite(restoreSpelling(await readFile(new URL(record.after, root), "utf8"), record.after), record.after);
     const beforeGesticules = restoreGesticulesMetadata(restoreRubixoidsSite(restoreHeaderInteractions(restoreSimdChiptuneSite(restoreRainVolumeMeters(current, record.after), record.after), record.after), record.after), record.after);
     const beforeIphone = restoreIphoneStartup(restorePresetToolbar(beforeGesticules, record.after), record.after);
     const restored = rewriteRepositoryPaths(rewriteModulePaths(beforeIphone, record.after, inverse), inverse);
@@ -78,7 +79,7 @@ test("Gesticules metadata amendments are exact and limited to its catalogue and 
     assert.equal(change.replacements.length, 1);
     assert.ok(change.regressionTests.length >= 2);
     for (const file of change.regressionTests) await readFile(new URL(file, root));
-    const source = restoreFractalSignalsSite(await readFile(new URL(change.file, root), "utf8"), change.file);
+    const source = restoreFractalSignalsSite(restoreSpelling(await readFile(new URL(change.file, root), "utf8"), change.file), change.file);
     const restored = restoreGesticulesMetadata(source, change.file);
     assert.notEqual(restored, source);
     for (const replacement of change.replacements) {
@@ -101,7 +102,7 @@ test("Rubixoids site amendments retain exact, independently checked metadata and
     assert.ok(proof.files.some(record => record.after === change.file), change.file);
     assert.ok(change.regressionTests.length >= 2);
     for (const file of change.regressionTests) await readFile(new URL(file, root));
-    const source = restoreFractalSignalsSite(await readFile(new URL(change.file, root), "utf8"), change.file);
+    const source = restoreFractalSignalsSite(restoreSpelling(await readFile(new URL(change.file, root), "utf8"), change.file), change.file);
     assert.notEqual(restoreRubixoidsSite(source, change.file), source);
     for (const replacement of change.replacements) {
       assert.ok(replacement.before.length && replacement.after.length);
@@ -119,7 +120,7 @@ test("header-interaction amendments preserve the frozen navigation baseline with
     assert.ok(proof.files.some(record => record.after === change.file));
     assert.ok(change.replacements.length > 0);
     for (const file of change.regressionTests) await readFile(new URL(file, root));
-    const current = restoreFractalSignalsSite(await readFile(new URL(change.file, root), "utf8"), change.file);
+    const current = restoreFractalSignalsSite(restoreSpelling(await readFile(new URL(change.file, root), "utf8"), change.file), change.file);
     assert.notEqual(restoreHeaderInteractions(current, change.file), current);
     const first = change.replacements[0];
     assert.throws(() => restoreHeaderInteractions(current.replace(first.after, ""), change.file), /exact header-interaction amendment/);
@@ -136,7 +137,7 @@ test("SIMD Chiptune site amendments preserve existing metadata with exact regres
     assert.ok(proof.files.some(record => record.after === change.file), change.file);
     assert.ok(change.regressionTests.length >= 2);
     for (const file of change.regressionTests) await readFile(new URL(file, root));
-    const source = restoreFractalSignalsSite(await readFile(new URL(change.file, root), "utf8"), change.file);
+    const source = restoreFractalSignalsSite(restoreSpelling(await readFile(new URL(change.file, root), "utf8"), change.file), change.file);
     assert.notEqual(restoreSimdChiptuneSite(source, change.file), source);
     for (const replacement of change.replacements) {
       assert.ok(replacement.before.length && replacement.after.length);
@@ -152,7 +153,7 @@ test("SIMD Chiptune site amendments preserve existing metadata with exact regres
 
 test("Fractal Signals metadata additions reverse exactly to the independent current-main reference", async () => {
   for (const change of fractalSignalsSiteChanges.changes) {
-    const current = await readFile(new URL(change.file, root), "utf8");
+    const current = restoreSpelling(await readFile(new URL(change.file, root), "utf8"), change.file);
     assert.equal(sha(restoreFractalSignalsSite(current, change.file)), change.sha256, change.file);
     for (const replacement of change.replacements) {
       assert.match(replacement.after, /fractal-signals/);

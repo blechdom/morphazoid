@@ -1,5 +1,17 @@
 # Full-instrument preset rollout
 
+## September 30 — Spelling Synthesizer in Voice
+
+Spelling now has 22 complete scenes across its three retained engines and two
+additive Bell Labs-inspired / Speak & Spell-inspired engines. Presets, Next and
+bounded Random live at the top of its rail; master level, text and live Loop
+survive recall. Audio remains explicit. The front-facing mouth, editor and
+Play/Loop stay together while the control rail scrolls. It is promoted to Voice
+with a native wireframe-mouth icon. This focused release does not promote or
+publish the other locally developed Cooking instruments.
+See [controls, provenance and verification limits](spelling-synthesizer.md).
+
+
 ## September 26 Hybrinx performer-state and meter correction
 
 [Hybrinx master volume and output meters](hybrinx-volume-meter.md) and

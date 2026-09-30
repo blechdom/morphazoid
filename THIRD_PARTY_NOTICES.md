@@ -306,6 +306,13 @@ The Spelling Synthesizer diphone audio sprite was generated from the
 level-normalized, and packed by Morphazoid. These processing and packaging
 changes are not endorsed by Carnegie Mellon University.
 
+The additional Spelling LPC coefficient atlas is also a modified derivative of
+that same KAL16 recording. Morphazoid's original build script low-pass filters,
+downsamples and performs ten-order LPC analysis with parameter quantization.
+It contains no Texas Instruments ROM data, original Speak & Spell recordings,
+or third-party emulator code. Carnegie Mellon and Texas Instruments do not
+endorse this instrument.
+
 - https://github.com/festvox/flite
 
 Language Technologies Institute

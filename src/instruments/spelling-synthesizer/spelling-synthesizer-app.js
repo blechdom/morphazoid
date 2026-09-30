@@ -1,3 +1,6 @@
+import { REST_MOUTH, spellingMouthPose, blendMouthPose, spellingMouthPaths } from "./spelling-mouth.js";
+import { registerHeaderPresets } from "../../site/header-presets.js";
+import { schema, presets, randomize } from "./full-presets.js";
 import {
   SPELLING_ENGINES,
   SPELLING_PERSONALITIES,
@@ -25,11 +28,14 @@ import {
 
 const $ = (id) => document.getElementById(id);
 const BOUNDARY_PATTERN = /\s|[.!?,;:]/;
+const SAMPLE_TONES = Object.freeze({ clear: "Open", warm: "Soft", whisper: "Bright", reed: "Brighter", creature: "Dark" });
 
 const ENGINE_COLORS = Object.freeze({
   tube: Object.freeze({ color: "#d8ff57", rgb: "216, 255, 87" }),
   diphone: Object.freeze({ color: "#79dcff", rgb: "121, 220, 255" }),
   vocoder: Object.freeze({ color: "#ffcb69", rgb: "255, 203, 105" }),
+  bell: Object.freeze({ color: "#f7a4dd", rgb: "247, 164, 221" }),
+  lpc: Object.freeze({ color: "#ff9c62", rgb: "255, 156, 98" }),
 });
 
 const DEFAULTS = Object.freeze({
@@ -61,6 +67,9 @@ let pendingNativeInput = null;
 let pendingNativeTimer = 0;
 let pendingPair = null;
 let visualTimer = 0;
+let mouthFrame = 0;
+let pageActive = true;
+let mouthPose = { ...REST_MOUTH };
 let queuedInsertTimers = [];
 let audioPlaybackQueue = [];
 let audioPlaybackDraining = false;
@@ -72,6 +81,8 @@ let engineSwitchPromise = null;
 let heldVowel = null;
 
 const readback = {
+  // Live transport choice: factory presets and Random must not overwrite it.
+  loop: false,
   phase: "idle",
   generation: 0,
   offset: 0,
@@ -117,6 +128,8 @@ function clearError() {
 function updateReadbackUi() {
   const button = $("readbackButton");
   const startOver = $("readbackStartOver");
+  setPressed($("readbackLoop"), readback.loop);
+  $("readbackLoop").title = `Loop readback: ${readback.loop ? "on" : "off"}`;
   const labels = {
     idle: "Read it back to me",
     starting: "Preparing voice…",
@@ -125,7 +138,8 @@ function updateReadbackUi() {
     interrupted: "Continue readback",
     complete: "Read it again",
   };
-  button.textContent = labels[readback.phase] ?? labels.idle;
+  button.setAttribute("aria-label", labels[readback.phase] ?? labels.idle);
+  button.title = labels[readback.phase] ?? labels.idle;
   button.disabled = readback.phase === "starting";
   button.setAttribute(
     "aria-pressed",
@@ -194,7 +208,7 @@ function releaseHeldVowel({ releaseAudio = true, updateStage = true } = {}) {
   if (releaseAudio) audio.release({ releaseMs: 72 });
   if (visualTimer) globalThis.clearTimeout(visualTimer);
   visualTimer = 0;
-  $("voiceStage").classList.remove("is-speaking");
+  restMouth();
   if (updateStage) $("currentPair").textContent = "VOWEL · RELEASE";
   return true;
 }
@@ -208,8 +222,6 @@ function flushPendingPair({ sound = true } = {}) {
 }
 
 function updateEngineUi() {
-  const engine = SPELLING_ENGINES[state.engine];
-  const index = Object.keys(SPELLING_ENGINES).indexOf(state.engine);
   const palette = ENGINE_COLORS[state.engine];
   document.body.style.setProperty("--spelling-accent", palette.color);
   document.body.style.setProperty("--spelling-accent-rgb", palette.rgb);
@@ -217,15 +229,26 @@ function updateEngineUi() {
     setPressed(button, button.dataset.engine === state.engine);
     button.disabled = state.switching;
   }
-  $("engineIndex").textContent = `0${index + 1} / 03`;
-  $("engineTitle").textContent = engine.name;
-  $("engineLineage").textContent = engine.lineage;
-  $("engineDescription").textContent = engine.description;
+
+}
+
+function personalityDisplayName(name = state.personality) {
+  return state.engine === "diphone" ? `${SAMPLE_TONES[name]} tone` : SPELLING_PERSONALITIES[name].name;
 }
 
 function updatePersonalityUi() {
+  const sample = state.engine === "diphone";
+  $("personalityLabel").textContent = sample ? "Sample tone" : "Personality";
+  $("personalityNote").textContent = sample
+    ? "Tone only; KAL keeps its recorded voice."
+    : "Pitch, breath and voice character.";
   for (const button of $("personalityButtons").querySelectorAll("[data-personality]")) {
-    setPressed(button, button.dataset.personality === state.personality);
+    const key = button.dataset.personality;
+    const profile = SPELLING_PERSONALITIES[key];
+    setPressed(button, key === state.personality);
+    button.querySelector("b").textContent = sample ? SAMPLE_TONES[key] : profile.name;
+    button.querySelector("small").textContent = sample ? "sample tone" : profile.note;
+    button.title = sample ? `${SAMPLE_TONES[key]} tone filter; the recorded KAL voice is unchanged` : profile.note;
   }
 }
 
@@ -236,7 +259,7 @@ function updateAudioUi() {
     ? "starting"
     : state.audioOn
       ? SPELLING_ENGINES[state.engine].shortName.toLowerCase()
-      : "type to start";
+      : "off";
   document.body.classList.toggle("has-spelling-audio", state.audioOn);
 }
 
@@ -259,18 +282,11 @@ function updateControlUi() {
   $("pairGlidesState").textContent = state.pairGlides ? "on" : "off";
 }
 
-function updateTextUi() {
-  const text = $("spellingInput").value;
-  const trail = [...text.toUpperCase().replace(/\s+/g, " · ")].slice(-42).join("");
-  $("letterTrail").textContent = trail || "YOUR LETTERS WILL GATHER HERE";
-}
-
 function updateUi() {
   updateEngineUi();
   updatePersonalityUi();
   updateAudioUi();
   updateControlUi();
-  updateTextUi();
   updateReadbackUi();
 }
 
@@ -289,7 +305,7 @@ function cancelReadbackPlayback({ release = true } = {}) {
   readback.generation += 1;
   if (visualTimer) globalThis.clearTimeout(visualTimer);
   visualTimer = 0;
-  $("voiceStage").classList.remove("is-speaking");
+  restMouth();
   if (release && audio.running) audio.release({ releaseMs: 24 });
 }
 
@@ -377,7 +393,7 @@ function buildReadbackPlan(text, pronunciations) {
         return event;
       });
       events.push(...phoneEvents);
-      const audibleEvents = engine === "tube" ? phoneEvents : phoneEvents.slice(0, 1);
+      const audibleEvents = ["tube", "bell"].includes(engine) ? phoneEvents : phoneEvents.slice(0, 1);
       const internalSpacingMs = definition.vowel ? 52 : 38;
       let phoneEndMs = cursorMs;
       audibleEvents.forEach((event, gestureIndex) => {
@@ -436,7 +452,17 @@ function failReadback(error, generation) {
 function finishReadback(generation) {
   if (generation !== readback.generation || readback.phase !== "playing") return;
   clearReadbackTimer();
+  if (readback.loop && state.audioOn && audio.running
+      && readback.plan.some((entry) => entry.type === "word")) {
+    // Reuse the prepared pronunciation, timing and single cancellable scheduler.
+    // Preserve punctuation pauses; don't add a release that cuts the next attack.
+    readback.offset = 0;
+    readback.index = 0;
+    playReadbackEntry(generation);
+    return;
+  }
   audio.release({ releaseMs: 45 });
+  restMouth();
   readback.offset = readback.snapshot.length;
   readback.phase = "complete";
   readback.shouldAutoResume = false;
@@ -454,6 +480,7 @@ function playReadbackEntry(generation) {
   if (entry.type === "boundary") {
     readback.offset = entry.end;
     audio.release({ releaseMs: entry.releaseMs });
+    restMouth();
     $("currentPair").textContent = entry.releaseMs >= 120 ? "PHRASE END" : "BREATH";
     scheduleReadbackTimer(() => {
       readback.index += 1;
@@ -463,7 +490,6 @@ function playReadbackEntry(generation) {
   }
 
   readback.offset = entry.start;
-  showVoiceEvent(entry.events.at(-1), { durationMs: entry.durationMs });
   const playStep = (stepIndex) => {
     if (generation !== readback.generation || readback.phase !== "playing") return;
     const step = entry.steps[stepIndex];
@@ -472,6 +498,7 @@ function playReadbackEntry(generation) {
       if (!audio.articulate(step.event)) {
         throw new Error("The selected synth engine could not play this pronunciation gesture.");
       }
+      showVoiceEvent(step.event, { durationMs: audio.durationMs(step.event) });
     } catch (error) {
       failReadback(error, generation);
       return;
@@ -538,22 +565,19 @@ async function prepareReadback(generation, { automatic = false } = {}) {
   }
   readback.plan = buildReadbackPlan(readback.snapshot, pronunciations);
   readback.index = readback.plan.findIndex((entry) => entry.end > readback.offset);
-  if (readback.index < 0) {
-    audio.release({ releaseMs: 45 });
-    readback.phase = "complete";
-    readback.offset = readback.snapshot.length;
-    updateReadbackUi();
-    announce("Readback finished.");
-    return;
-  }
   readback.phase = "playing";
   updateReadbackUi();
+  if (readback.index < 0) {
+    // A paused final punctuation or edited-away suffix may leave us at the end.
+    finishReadback(generation);
+    return;
+  }
   announce(automatic
     ? "Readback continued."
     : readback.offset
       ? "Readback resumed."
       : `Reading with ${SPELLING_ENGINES[state.engine].name}, `
-        + `${SPELLING_PERSONALITIES[state.personality].name}.`);
+        + `${personalityDisplayName()}.`);
   playReadbackEntry(generation);
 }
 
@@ -688,6 +712,7 @@ async function ensureAudio() {
 }
 
 async function stopAudio(message = "Spelling Synthesizer audio off.") {
+  restMouth({ immediate: true });
   audioOperationGeneration += 1;
   releaseHeldVowel({ releaseAudio: false, updateStage: false });
   if (readbackHasPendingPlayback()) {
@@ -706,6 +731,8 @@ async function stopAudio(message = "Spelling Synthesizer audio off.") {
 async function toggleAudio() {
   if (state.audioOn) await stopAudio();
   else {
+    clearQueuedInsertions();
+    clearAudioPlaybackQueue();
     const started = await ensureAudio();
     if (started) $("spellingInput").focus({ preventScroll: true });
   }
@@ -752,14 +779,57 @@ function makeVoiceEvent(character, articulation, dynamics, {
   return event;
 }
 
+function mouthClock() {
+  return Number.isFinite(audio.currentTime) ? audio.currentTime * 1_000 : performance.now();
+}
+
+function paintMouth(pose) {
+  mouthPose = pose;
+  const paths = spellingMouthPaths(pose);
+  for (const [id, key] of [["mouthClip", "outline"], ["mouthOutline", "outline"],
+    ["mouthLips", "lips"], ["mouthCavity", "cavity"], ["mouthTeeth", "teeth"], ["mouthTongue", "tongue"]]) {
+    $(id).setAttribute("d", paths[key]);
+  }
+}
+
+function moveMouth(event, durationMs = 0, immediate = false) {
+  if (mouthFrame) globalThis.cancelAnimationFrame?.(mouthFrame);
+  mouthFrame = 0;
+  const from = mouthPose;
+  const to = spellingMouthPose(event);
+  // Sampled diphthongs have one audio event containing both vowel gestures.
+  const glidePhones = event?.pair?.kind === "vowel pair"
+    ? event.pair.sounds.map(sound => sound.articulation)
+    : event?.wordPhone ? spellingPhoneDefinition(event.wordPhone)?.gestures ?? [] : [];
+  const glide = !["tube", "bell"].includes(state.engine) && glidePhones.length > 1
+    ? spellingMouthPose({ articulation: glidePhones.at(-1) }) : null;
+  const transitionMs = !event ? 65 : to.open < .05 ? 20 : Math.min(65, Math.max(18, durationMs * .4));
+  if (immediate || !globalThis.requestAnimationFrame) { paintMouth(to); return; }
+  const start = mouthClock();
+  const frame = () => {
+    mouthFrame = 0;
+    const elapsed = Math.max(0, mouthClock() - start);
+    const glideProgress = Math.max(0, elapsed - transitionMs) / Math.max(80, durationMs * .7 - transitionMs);
+    const target = glide ? blendMouthPose(to, glide, glideProgress) : to;
+    const amount = Math.min(1, elapsed / transitionMs);
+    paintMouth(blendMouthPose(from, target, amount * amount * (3 - 2 * amount)));
+    if (elapsed < transitionMs || (glide && glideProgress < 1)) mouthFrame = globalThis.requestAnimationFrame(frame);
+  };
+  mouthFrame = globalThis.requestAnimationFrame(frame);
+}
+
+function restMouth({ immediate = false } = {}) {
+  if (visualTimer) globalThis.clearTimeout(visualTimer);
+  visualTimer = 0;
+  $("voiceStage").classList.remove("is-speaking");
+  $("voiceStage").dataset.phone = "rest";
+  $("voiceStage").setAttribute("aria-label", "Front-facing wireframe mouth, resting");
+  moveMouth(null, 0, immediate || document.hidden || !pageActive);
+}
+
 function showVoiceEvent(event, { durationMs = null } = {}) {
   const { performance, dynamics, pair } = event;
   const stage = $("voiceStage");
-  const root = document.body.style;
-  root.setProperty("--spelling-energy", dynamics.emphasis.toFixed(3));
-  root.setProperty("--spelling-pace", dynamics.pace.toFixed(3));
-  root.setProperty("--spelling-place", clamp01(performance.articulationPlace).toFixed(3));
-  root.setProperty("--spelling-aperture", clamp01(performance.articulationAperture).toFixed(3));
   const wordPhones = event.word?.phones?.map((phone) => phone.id).join(" ") ?? "";
   stage.classList.toggle("is-word", Boolean(event.word));
   $("currentLetter").textContent = (event.word?.source ?? event.character).toUpperCase();
@@ -773,12 +843,14 @@ function showVoiceEvent(event, { durationMs = null } = {}) {
     : pair
     ? `${pair.label} · ${pair.kind.toUpperCase()}`
     : `${performance.articulationManner.toUpperCase()} · ${SPELLING_PERSONALITIES[state.personality].name.toUpperCase()}`;
-  stage.classList.remove("is-speaking");
-  globalThis.requestAnimationFrame?.(() => stage.classList.add("is-speaking"));
+  stage.classList.add("is-speaking");
+  stage.dataset.phone = event.articulation;
+  stage.setAttribute("aria-label", `Front-facing wireframe mouth: ${event.soundLabel || spellingSoundLabel(event.articulation)}`);
+  moveMouth(event, Number.isFinite(durationMs) ? durationMs : dynamics.durationMs);
   if (visualTimer) globalThis.clearTimeout(visualTimer);
   if (!event.sustain) {
     visualTimer = globalThis.setTimeout(() => {
-      stage.classList.remove("is-speaking");
+      restMouth();
     }, Number.isFinite(durationMs) ? durationMs : dynamics.durationMs + dynamics.releaseMs);
   }
 }
@@ -803,8 +875,12 @@ async function drainAudioPlaybackQueue() {
         if (generation !== audioPlaybackGeneration) return;
       }
       try {
-        if (item.type === "release") audio.release(item.options);
-        else audio.articulate(item.event);
+        if (item.type === "release") {
+          audio.release(item.options);
+          restMouth();
+        } else if (audio.articulate(item.event)) {
+          showVoiceEvent(item.event, { durationMs: audio.durationMs(item.event) });
+        }
       } catch (error) {
         clearAudioPlaybackQueue();
         showError(error instanceof Error ? error.message : "The voice could not play that sound.");
@@ -820,6 +896,9 @@ async function drainAudioPlaybackQueue() {
 }
 
 function queueAudioPlayback(item) {
+  // Editing text is never permission to arm Audio. In particular, a paste
+  // before Audio must not leave a suspended startup promise blocking the speaker.
+  if (!state.audioOn && !state.starting) return;
   if (audioPlaybackQueue.length >= 48) audioPlaybackQueue.shift();
   audioPlaybackQueue.push({
     ...item,
@@ -861,7 +940,7 @@ function processCharacter(character, {
   const dynamics = captureTypingDynamics({ capital, at });
   const event = makeVoiceEvent(character, articulation, dynamics);
   state.lastStreamCharacter = character.toLowerCase();
-  showVoiceEvent(event);
+  if (!state.audioOn && !state.starting) showVoiceEvent(event);
   soundEvent(event, at);
   return true;
 }
@@ -892,8 +971,8 @@ function processResolvedPair(pair, firstCharacter, secondCharacter, {
     return event;
   });
   state.lastStreamCharacter = secondCharacter.toLowerCase();
-  showVoiceEvent(events.at(-1));
-  const audibleEvents = state.engine === "tube" ? events : events.slice(0, 1);
+  if (!state.audioOn && !state.starting) showVoiceEvent(events.at(-1));
+  const audibleEvents = ["tube", "bell"].includes(state.engine) ? events : events.slice(0, 1);
   audibleEvents.forEach((event, index) => soundEvent(event, at + index * glideSpacing));
   return true;
 }
@@ -945,6 +1024,7 @@ function scheduleTypedCharacter(character, options = {}) {
 
 function processBoundary(character) {
   flushPendingPair();
+  if (!state.audioOn && !state.starting) restMouth();
   state.lastStreamCharacter = "";
   state.lastTypedAt = 0;
   const options = {
@@ -1061,7 +1141,7 @@ function handleEditorKeydown(event) {
     voiceEvent.sustain = true;
     heldVowel.sustaining = true;
     state.lastStreamCharacter = character.toLowerCase();
-    showVoiceEvent(voiceEvent);
+    if (!state.audioOn && !state.starting) showVoiceEvent(voiceEvent);
     soundEvent(voiceEvent);
     return;
   }
@@ -1074,7 +1154,6 @@ function handleEditorKeydown(event) {
       sustaining: false,
     };
   }
-  if (spellingArticulation(character)) void ensureAudio();
   if (
     character.length === 1
     && (BOUNDARY_PATTERN.test(character) || spellingArticulation(character))
@@ -1116,6 +1195,7 @@ function cancelPendingEditorPerformance(next) {
   state.intervals = [];
   state.averageIntervalMs = 320;
   if (state.audioOn) audio.release({ releaseMs: 38 });
+  restMouth();
 }
 
 function handleEditorInput(event) {
@@ -1126,11 +1206,7 @@ function handleEditorInput(event) {
   const edit = spellingTextEdit(previous, next);
   const inputType = String(event?.inputType ?? "");
   state.editorText = next;
-  updateTextUi();
   if (state.composing) return;
-  if ([...edit.inserted].some((character) => spellingArticulation(character))) {
-    void ensureAudio();
-  }
   if (edit.removed || edit.inserted) interruptReadbackForTyping(edit);
 
   const isDeletion = inputType.startsWith("delete")
@@ -1173,6 +1249,7 @@ async function selectEngine(name, { preview = true, announceSelection = true } =
   flushPendingPair({ sound: false });
   clearAudioPlaybackQueue();
   state.switching = true;
+  restMouth({ immediate: true });
   clearError();
   state.engine = name;
   updateEngineUi();
@@ -1215,7 +1292,7 @@ function selectPersonality(name) {
   state.personality = name;
   updatePersonalityUi();
   if (state.audioOn) previewVoice();
-  announce(`${SPELLING_PERSONALITIES[name].name} personality selected.`);
+  announce(`${personalityDisplayName(name)} selected.`);
 }
 
 function previewVoice() {
@@ -1225,7 +1302,7 @@ function previewVoice() {
     amount: state.rhythmAmount * 0.55,
   });
   const event = makeVoiceEvent(state.carrierVowel, state.carrierVowel, dynamics);
-  showVoiceEvent(event);
+  if (!state.audioOn && !state.starting) showVoiceEvent(event);
   soundEvent(event);
 }
 
@@ -1238,7 +1315,8 @@ function clearEditor() {
   clearPendingNativeInput();
   if (visualTimer) globalThis.clearTimeout(visualTimer);
   visualTimer = 0;
-  $("voiceStage").classList.remove("is-speaking", "is-word");
+  restMouth({ immediate: true });
+  $("voiceStage").classList.remove("is-word");
   $("spellingInput").value = "";
   state.editorText = "";
   state.composing = false;
@@ -1252,11 +1330,11 @@ function clearEditor() {
   $("currentLetter").textContent = "A";
   $("currentSound").textContent = "AE";
   $("currentPair").textContent = "READY";
-  updateTextUi();
   $("spellingInput").focus({ preventScroll: true });
 }
 
 async function resetInstrument() {
+  readback.loop = false;
   state.engine = DEFAULTS.engine;
   state.personality = DEFAULTS.personality;
   state.level = DEFAULTS.level;
@@ -1275,6 +1353,11 @@ async function resetInstrument() {
 $("audioButton").addEventListener("click", () => void toggleAudio());
 $("clearButton").addEventListener("click", clearEditor);
 $("readbackButton").addEventListener("click", toggleReadback);
+$("readbackLoop").addEventListener("click", () => {
+  readback.loop = !readback.loop;
+  updateReadbackUi();
+  announce(readback.loop ? "Readback loop on." : "Readback loop off; this pass will finish.");
+});
 $("readbackStartOver").addEventListener("click", () => startReadback({ restart: true }));
 $("resetButton").addEventListener("click", () => void resetInstrument());
 
@@ -1340,13 +1423,13 @@ $("spellingInput").addEventListener("compositionend", () => {
     );
     performInsertedText(addition, { position: edit.start });
   }
-  updateTextUi();
 });
 
 globalThis.addEventListener?.("morphazoid:midi-input", handleSpellingMidiInput);
 
 document.addEventListener("visibilitychange", () => {
   if (!document.hidden) return;
+  restMouth({ immediate: true });
   releaseHeldVowel({ releaseAudio: false, updateStage: false });
   audioOperationGeneration += 1;
   if (readbackHasPendingPlayback()) {
@@ -1367,6 +1450,8 @@ document.addEventListener("keydown", (event) => {
 });
 
 globalThis.addEventListener?.("pagehide", (event) => {
+  pageActive = false;
+  restMouth({ immediate: true });
   releaseHeldVowel({ releaseAudio: false, updateStage: false });
   audioOperationGeneration += 1;
   if (readbackHasPendingPlayback()) pauseReadback({ phase: "paused" });
@@ -1382,6 +1467,7 @@ globalThis.addEventListener?.("pagehide", (event) => {
 
 globalThis.addEventListener?.("pageshow", (event) => {
   if (!event.persisted) return;
+  pageActive = true;
   state.audioOn = false;
   state.starting = false;
   updateAudioUi();
@@ -1389,4 +1475,17 @@ globalThis.addEventListener?.("pageshow", (event) => {
 
 globalThis.addEventListener?.("blur", () => releaseHeldVowel());
 
+paintMouth(REST_MOUTH);
 updateUi();
+
+const presetController=registerHeaderPresets({id:"spelling-synthesizer",presets,randomize,capture:()=>schema.capture(state),apply:async snapshot=>{
+ const next=schema.validate(snapshot);
+ if(state.switching || state.starting) throw new Error("Wait for the current voice to finish loading");
+ const resume=readbackHasPendingPlayback();
+ if(resume) pauseReadback();
+ try {
+  if(next.engine!==state.engine) await selectEngine(next.engine,{preview:false,announceSelection:false});
+  if(state.engine!==next.engine) throw new Error("Requested voice is unavailable; previous scene retained");
+  Object.assign(state,next); updateUi();
+ } finally { if(resume && state.audioOn) startReadback({automatic:true}); }
+}});

@@ -23,7 +23,7 @@ import {
   MIDI_PROFILES,
   WebMidiManager,
 } from "../src/midi-manager.js";
-import { expectedFaveToolIds } from "./helpers/catalogue-plan.mjs";
+import { expectedFaveToolIds, cataloguePlan as plan } from "./helpers/catalogue-plan.mjs";
 
 const SITE_ROOT = "https://example.test/blechdom/morphazoid/";
 
@@ -240,7 +240,6 @@ class FakeDocument {
 }
 
 test("tool registry follows the approved sheet and retains unique navigation identities", async () => {
-  const plan = JSON.parse(await readFile(new URL("../docs/catalogue-update-decisions.json", import.meta.url)));
   const before = JSON.parse(await readFile(new URL("./fixtures/catalogue-before-20260918.json", import.meta.url)));
   const rows = new Map(plan.rows.flatMap(row => [[row.oldId, row], [row.id, row]]));
   assert.deepEqual(TOOL_GROUPS.map(group => group.id), plan.categoryOrder);

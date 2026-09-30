@@ -72,7 +72,12 @@ function randomFixture(options = {}) {
   const controller = registerHeaderPresets({
     id: "test", presets, document: doc, runtime,
     capture: () => state,
-    apply: snapshot => { applies++; state = options.apply ? options.apply(snapshot) : snapshot; },
+    apply: snapshot => {
+      applies++;
+      const result = options.apply ? options.apply(snapshot) : snapshot;
+      if (result?.then) return result.then(next => { state = next; });
+      state = result;
+    },
     randomize: options.randomize ?? ((previous, rng) => ({ value: previous.value + rng() / 2 })),
     random: () => 0.5,
   });
@@ -309,4 +314,45 @@ test("shadow-host retargeting preserves preset clicks and arrow shortcuts, while
     fixture.doc.emit("pointerdown", { target: shadowHost, composedPath: () => [shadowHost] });
     assert.equal(picker.open, false);
   } finally { fixture.controller.destroy(); }
+});
+const settle = () => new Promise(resolve => setImmediate(resolve));
+test("async recall waits for complete capture and serializes repeated clicks", async () => {
+  let release;
+  const fixture = randomFixture({apply:snapshot => new Promise(resolve => { release=()=>resolve(snapshot); })});
+  try {
+    fixture.controller.view.select('p-4');
+    assert.equal(fixture.controller.selectedId,null);
+    assert.equal(fixture.doc.querySelector('.header-preset-controls').attributes.get('aria-busy'),'true');
+    fixture.controller.view.select('p-5'); fixture.controller.view.randomize();
+    assert.equal(fixture.applies(),1);
+    release(); await settle();
+    assert.equal(fixture.controller.selectedId,'p-4');
+    assert.equal(fixture.doc.querySelector('.header-preset-controls').attributes.get('aria-busy'),'false');
+    assert.deepEqual(fixture.errors,[]);
+  } finally { fixture.controller.destroy(); }
+});
+test("async incomplete or rejected recall rolls back the full previous snapshot", async () => {
+  for (const reject of [true,false]) {
+    const fixture=randomFixture({apply:async snapshot => {
+      if(snapshot.value===4) { if(reject) throw new Error('unavailable voice'); return {value:4.5}; }
+      return snapshot;
+    }});
+    try {
+      fixture.controller.view.select('p-4'); await settle();
+      assert.deepEqual(fixture.state(),{value:0});
+      assert.equal(fixture.controller.selectedId,null);
+      assert.equal(fixture.applies(),2);
+      assert.equal(fixture.errors.length,1);
+      fixture.controller.view.select('p-2'); await settle();
+      assert.equal(fixture.controller.selectedId,'p-2');
+    } finally {fixture.controller.destroy();}
+  }
+});
+test("destroying a pending async menu prevents late selection and rollback callbacks", async () => {
+  let release;
+  const fixture=randomFixture({apply:snapshot=>new Promise(resolve=>{release=()=>resolve(snapshot);})});
+  fixture.controller.view.select('p-7');fixture.controller.destroy();release();await settle();
+  assert.equal(fixture.controller.selectedId,null);
+  assert.equal(fixture.applies(),1);
+  assert.deepEqual(fixture.errors,[]);
 });

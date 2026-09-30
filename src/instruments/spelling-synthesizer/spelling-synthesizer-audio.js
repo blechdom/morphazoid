@@ -1,5 +1,6 @@
+import { RetroSpellingEngine } from "./spelling-retro-audio.js";
 import { unlockAudioContext } from "../../audio.js?v=pink-trombonazoid-20260821-6";
-import { connectAudioOutput } from "../../audio-output-manager.js?v=pink-trombonazoid-20260821-6";
+import { connectAudioOutput } from "../../audio-output-manager.js";
 import {
   MAX_THROATS,
   alienTongueDeformations,
@@ -1304,6 +1305,8 @@ export class SpellingSynthesizerAudio {
     this.enabled = false;
     this.backends = {
       tube: new TubeSpellingEngine({ runtime, level: this.level }),
+      bell: new RetroSpellingEngine({ runtime, level: this.level, mode: "bell" }),
+      lpc: new RetroSpellingEngine({ runtime, level: this.level, mode: "lpc" }),
       diphone: new DiphoneSpellingEngine({ runtime, level: this.level }),
       vocoder: new DiphoneSpellingEngine({
         runtime,
@@ -1315,6 +1318,11 @@ export class SpellingSynthesizerAudio {
 
   get running() {
     return Boolean(this.enabled && this.backends[this.engineName]?.running);
+  }
+
+  // Display-only clock access; graphics never schedule articulation.
+  get currentTime() {
+    return this.running ? this.backends[this.engineName]?.context?.currentTime ?? null : null;
   }
 
   get activeEngine() {

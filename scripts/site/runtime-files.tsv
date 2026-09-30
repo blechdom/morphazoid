@@ -1201,3 +1201,13 @@ copy+require	src/instruments/fractal-signals/modulators.js
 copy+require	src/instruments/fractal-signals/motions.js
 copy+require	src/instruments/fractal-signals/motion-bank.js
 copy+require	src/instruments/fractal-signals/motion-worker.js
+copy+require	docs/spelling-synthesizer.md
+copy+require	src/instruments/spelling-synthesizer/full-presets.js
+copy+require	src/instruments/spelling-synthesizer/spelling-lpc-atlas.js
+copy+require	src/instruments/spelling-synthesizer/spelling-lpc-codec.js
+copy+require	src/instruments/spelling-synthesizer/spelling-mouth.js
+copy+require	src/instruments/spelling-synthesizer/spelling-retro-audio.js
+copy+require	src/instruments/spelling-synthesizer/spelling-retro-model.js
+copy+require	src/instruments/spelling-synthesizer/spelling-retro-processor.js
+copy+require	src/site/preset-schema.js
+copy+require	src/ui/patterns/performance-workspace.css

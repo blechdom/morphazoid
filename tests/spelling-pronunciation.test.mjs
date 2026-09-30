@@ -58,7 +58,7 @@ test("the bundled dictionary uses the complete supported 39-phone ARPABET invent
       SPELLING_DIPHONE_CLIPS[definition.sampleKey],
       `${id} sample ${definition.sampleKey} must exist in the KAL/Voxazoid atlas`,
     );
-    assert.ok(definition.gestures.length > 0, `${id} needs a Bellazoid gesture`);
+    assert.ok(definition.gestures.length > 0, `${id} needs a Pinkazoid gesture`);
     assert.equal(definition.vowel, ARPABET_VOWELS.has(id), `${id} vowel classification must agree`);
     assert.equal(isSpellingPronunciationVowel(id), ARPABET_VOWELS.has(id));
   }

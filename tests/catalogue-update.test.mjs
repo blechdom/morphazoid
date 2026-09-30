@@ -6,10 +6,9 @@ import { FAVE_TOOL_IDS, TOOL_GROUPS } from "../src/site/instrument-registry.js";
 import { canonicalInstrumentId, legacyInstrumentId } from "../src/site/instrument-identities.js";
 import { instrumentMidiCapabilityForId } from "../src/site/instrument-midi-capabilities.js";
 import { waxSupportForId } from "../src/instruments/wax/wax-instrument-roles.js";
-import { expectedFaveToolIds, mainAdditions, labAdditions } from "./helpers/catalogue-plan.mjs";
+import { expectedFaveToolIds, mainAdditions, labAdditions, cataloguePlan as plan } from "./helpers/catalogue-plan.mjs";
 
 const root = new URL("../", import.meta.url);
-const plan = JSON.parse(await readFile(new URL("docs/catalogue-update-decisions.json", root)));
 const before = JSON.parse(await readFile(new URL("tests/fixtures/catalogue-before-20260918.json", root)));
 
 test("the owner-confirmed retained IDs and Rattlesnake name remain unchanged", () => {

@@ -25,9 +25,10 @@ test("catalogue renaming preserves existing musical descriptions, features, and 
   const { updates } = JSON.parse(await readFile(new URL("./fixtures/catalogue-main-e042512.json", import.meta.url)));
   const main = JSON.parse(await readFile(new URL("./fixtures/catalogue-main-d96793a.json", import.meta.url)));
   const { instrumentById } = await import("../src/site/instrument-catalog.js");
+  const spelling = JSON.parse(await readFile(new URL("./fixtures/catalogue-spelling-20260930.json", import.meta.url)));
   for (const previous of before.INSTRUMENTS) {
     const current = instrumentById(previous.id);
-    const expected = { ...previous, ...updates[previous.id], ...main.updates[previous.id] };
+    const expected = { ...previous, ...updates[previous.id], ...main.updates[previous.id], ...spelling.updates[previous.id] };
     assert.ok(current, previous.id);
     for (const key of ["description", "start", "kind", "features", "pluginHref", "imageHref"]) {
       assert.deepEqual(current[key], expected[key], `${previous.id}: ${key}`);

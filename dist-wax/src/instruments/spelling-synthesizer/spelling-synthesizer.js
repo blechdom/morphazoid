@@ -42,10 +42,10 @@ const SPELLING_VOWEL_GESTURES = Object.freeze({
 
 export const SPELLING_ENGINES = Object.freeze({
   tube: Object.freeze({
-    name: "Bellazoid tract",
-    shortName: "Bellazoid",
-    lineage: "Daisy Bell lineage · 44-section tract",
-    description: "A living 44-section vocal tract in the Kelly–Lochbaum tradition, shaped for Morphazoid.",
+    name: "Pinkazoid tract",
+    shortName: "Pinkazoid",
+    lineage: "Pink Trombone-style tract · Throatazoid engine",
+    description: "A Pink Trombone-style vocal tract and glottal source from Throatazoid, not a reconstruction of the 1961 Daisy Bell voice.",
     color: "#d8ff57",
   }),
   diphone: Object.freeze({
@@ -61,6 +61,18 @@ export const SPELLING_ENGINES = Object.freeze({
     lineage: "KAL16 modulator · twenty speech bands",
     description: "A speech-preserving channel vocoder follows the KAL phone spectrum with normalized pulse and noise carriers.",
     color: "#ffcb69",
+  }),
+  bell: Object.freeze({
+    name: "Bell Labs tract", shortName: "Bell Labs",
+    lineage: "Kelly–Lochbaum scattering-tube model",
+    description: "An original Kelly–Lochbaum vocal-tract model with authored phone shapes, inspired by the Daisy Bell era; not the original recording or program.",
+    color: "#f7a4dd",
+  }),
+  lpc: Object.freeze({
+    name: "Speak & Spell LPC", shortName: "LPC",
+    lineage: "8 kHz · ten-stage LPC lattice · KAL-derived coefficients",
+    description: "Real LPC speech resynthesis with quantized frames and pulse/noise excitation, inspired by Speak & Spell; not a TI chip or ROM emulation.",
+    color: "#ff9c62",
   }),
 });
 

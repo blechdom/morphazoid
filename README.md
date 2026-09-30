@@ -1,5 +1,12 @@
 # Morphazoid
 
+**[Spelling Synthesizer](spelling-synthesizer.html)** is now in Voice: a frontal
+wireframe mouth speaks typed letters or reads and loops text. Twenty-two presets
+span Pinkazoid, KAL samples, Voxazoid, Bell Labs-inspired waveguide synthesis and
+Speak & Spell-inspired LPC. These are original instrument implementations, not
+historical program/chip emulations. Audio starts off.
+[Controls and provenance](docs/spelling-synthesizer.md).
+
 **[Volumetric Rain](wasm-garden.html)** layers ringing resonances with random
 excitation. Shape Metal, Density, and pitch spread, or play individual tines.
 [Controls and synthesis](docs/wasm-garden.md).

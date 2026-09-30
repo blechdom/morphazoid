@@ -1,0 +1,79 @@
+/* Opt-in performance workspace: graphics stay put while parameter rails scroll.
+   App-owned controls, canvases, transport and audio remain the same elements. */
+body[data-cooking] { display:flex; flex-direction:column; height:100dvh; min-height:0; overflow:hidden; }
+[data-cooking] > .masthead { flex:none; position:relative; z-index:30; }
+[data-cooking] [data-cooking-root] { flex:1; min-height:0; min-width:0; width:100%; max-width:none; padding:0; margin:0; display:flex; flex-direction:column; overflow:hidden; }
+[data-cooking] [data-cooking-root] > .app-shell { display:contents; }
+[data-cooking] [data-cooking-shell] { display:grid; flex:1; grid-template-columns:minmax(0,1fr) minmax(290px,340px); grid-template-rows:minmax(0,1fr); gap:12px; min-height:0; min-width:0; max-width:none; width:100%; margin:0; padding:12px; box-sizing:border-box; overflow:hidden; align-items:stretch; }
+[data-cooking] [data-cooking-stage] { position:relative; min-width:0; min-height:0; height:100%; margin:0; padding:0; overflow:auto; display:flex; flex-direction:column; }
+[data-cooking] [data-cooking-panel] { display:block; min-width:0; min-height:0; height:100%; max-height:none; width:auto; margin:0; padding:12px; box-sizing:border-box; overflow:auto; overscroll-behavior:contain; scrollbar-width:thin; border:0; border-radius:0; }
+/* The preset row flows straight into the first section: no extra rule or gap. */
+[data-cooking] [data-instrument-preset-host] { margin:0; min-width:0; }
+[data-cooking] [data-cooking-panel] > [data-instrument-preset-host] + * { margin-top:0; }
+/* Mazes and Paths opt in at the rail while retaining their native workspace. */
+[data-cooking-panel] [data-instrument-preset-host] > .instrument-preset-controls { border-bottom:0; }
+[data-cooking] [data-cooking-panel] > * { max-width:100%; box-sizing:border-box; }
+[data-cooking] [data-cooking-panel] select { max-width:100%; min-width:0; }
+[data-cooking] [data-cooking-panel] .instrument-preset-controls { display:flex; flex-wrap:nowrap; gap:6px; }
+[data-cooking] [data-cooking-panel] .header-preset-picker { min-width:0; flex:1; }
+[data-cooking] [data-cooking-panel] .header-preset-next,[data-cooking] [data-cooking-panel] .header-preset-random { flex:none; }
+[data-cooking] .play-button { display:inline-grid; place-items:center; width:48px; height:48px; min-width:48px; min-height:48px; max-width:48px; padding:0; border-radius:50%; flex:none; font-size:18px; }
+[data-cooking] [data-cooking-stage] .stage-wrap { flex:1; width:100%; height:100%; min-height:0; max-height:none; }
+[data-cooking] [data-cooking-stage] .stage-wrap canvas { max-width:100%; max-height:100%; }
+[data-cooking] .yd-stage-frame { height:100%; display:flex; flex-direction:column; }
+[data-cooking] .yd-stage-frame #stageWrap { flex:1; height:auto; min-height:0; }
+[data-cooking] .yd-transport { margin-top:12px; }
+[data-cooking] .yd-tempo { width:100%; }
+[data-cooking] .yd-panel-heading { margin-top:20px; }
+[data-cooking] .pp-toolbar { flex:none; flex-wrap:wrap; height:auto; min-height:0; }
+[data-cooking] .pp-stage-frame { flex:1; min-height:0; width:100%; aspect-ratio:auto; display:grid; place-items:center; }
+[data-cooking] .pp-stage-wrap { width:100%; height:100%; min-height:0; aspect-ratio:auto; display:grid; place-items:center; }
+[data-cooking] .pp-canvas-footer { flex:none; }
+[data-cooking] .pp-quick-transport { margin-bottom:12px; }
+[data-cooking] .network-viewport { flex:1; min-height:0; height:auto; }
+[data-cooking] .starting-title { padding:8px 12px; }
+[data-cooking] .starting-title h1 { font-size:clamp(22px,3vw,38px); }
+[data-cooking] .starting-hint { margin:8px; font-size:11px; }
+[data-cooking] .loopini-heading { margin:0 0 12px; padding:8px; }
+[data-cooking] .loopini-heading h1 { font-size:32px; }
+[data-cooking] .loopini-pads { gap:12px; padding:8px; }
+[data-cooking] .loopini-speed { margin-left:0; flex-wrap:wrap; }
+[data-cooking] .loopini-toolbar { gap:8px; }
+[data-cooking] .loopini-lead { display:block; margin-bottom:12px; }
+[data-cooking] .loopini-lead h2 { font-size:16px; }
+[data-cooking] .gesturama-app .app-footer { display:none; }
+[data-cooking] .performance-area .stage-heading { flex:none; padding:8px; min-height:0; }
+[data-cooking] .performance-area .stage-heading h1 { font-size:22px; }
+[data-cooking] .camera-stage { flex:1; min-height:0; height:auto; aspect-ratio:auto; }
+@media (max-width:700px) {
+ [data-cooking] [data-cooking-shell] { grid-template-columns:minmax(0,1fr); grid-template-rows:minmax(180px,36dvh) minmax(0,1fr); gap:6px; padding:6px; }
+ [data-cooking] [data-cooking-panel] { padding:10px; border-top:1px solid var(--line,#26313d); }
+ [data-cooking] [data-cooking-stage] { min-height:0; }
+ [data-cooking] .topology-identity p,[data-cooking] .topology-identity > span,[data-cooking] .topology-legend,[data-cooking] .topology-stage-meta,
+ [data-cooking] .yd-stage-title p,[data-cooking] .yd-stage-title > span,[data-cooking] .yd-stage-hint,[data-cooking] .yd-telemetry,
+ [data-cooking] .starting-title p { display:none; }
+ [data-cooking] .topology-identity h1 { font-size:28px; line-height:1; }
+ [data-cooking] .yd-stage-title h1 { font-size:26px; }
+ [data-cooking] .loopini-pads { grid-template-columns:repeat(2,minmax(0,1fr)); }
+ [data-cooking] .stage-heading-meta { display:none; }
+}
+@media (max-height:500px) and (min-width:701px) {
+ [data-cooking] [data-cooking-shell] { grid-template-columns:minmax(0,1fr) minmax(300px,40%); padding:6px; gap:8px; }
+ [data-cooking] .yd-telemetry,[data-cooking] .yd-stage-title p,[data-cooking] .yd-stage-title > span,[data-cooking] .yd-stage-hint,
+ [data-cooking] .starting-title p,[data-cooking] .topology-identity p,[data-cooking] .topology-identity > span,[data-cooking] .topology-legend { display:none; }
+ [data-cooking] .topology-identity h1 { font-size:28px; line-height:1; }
+}
+@media(pointer:coarse) {
+ [data-cooking] .audio-button,[data-cooking] [data-primary-transport] { min-width:48px; min-height:48px; }
+}
+
+[data-cooking] [data-cooking-stage] { inset:auto; }
+[data-cooking] .yd-panel .yd-tricks { grid-template-columns:repeat(2,minmax(0,1fr)); }
+[data-cooking] .yd-panel .yd-tricks button { overflow-wrap:anywhere; }
+
+[data-cooking] .atlas-play-row { display:flex; gap:12px; align-items:center; margin-top:12px; }
+[data-cooking] .atlas-play-row[hidden] { display:none; }
+[data-cooking] .atlas-play-row small { display:block; font-size:11px; color:var(--muted,#a4b6ac); margin-top:4px; }
+
+/* Gesturama uses --ink for a dark surface; shared Choose uses it for text. */
+[data-cooking] .gesturama-app [data-instrument-preset-host] { --ink:#f4f1e8; }
