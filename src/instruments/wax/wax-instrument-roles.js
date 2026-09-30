@@ -1,5 +1,5 @@
 import { canonicalInstrumentId } from "../../site/instrument-identities.js";
-import { INSTRUMENTS } from "../../site/instrument-catalog.js";
+import { CATALOGUE_ITEMS, INSTRUMENTS } from "../../site/instrument-catalog.js";
 import {
   INSTRUMENT_MIDI_CAPABILITIES,
   instrumentMidiCapabilityForId,
@@ -47,7 +47,8 @@ const HOST_SYNC_EXCLUDED_IDS = new Set([
   "sample-drums",
 ]);
 
-const catalogueIds = new Set(INSTRUMENTS.map(({ id }) => id));
+// Playable labs may declare browser MIDI without advertising a WAX role.
+const catalogueIds = new Set(CATALOGUE_ITEMS.map(({ id }) => id));
 const missingIds = INSTRUMENTS
   .filter(({ id }) => !instrumentMidiCapabilityForId(id))
   .map(({ id }) => id);

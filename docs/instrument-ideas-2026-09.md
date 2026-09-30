@@ -221,3 +221,11 @@ Fungal electrophysiology:
 
 - Detection of electrical signals in fungal mycelia — https://pmc.ncbi.nlm.nih.gov/articles/PMC12483595/
 - Electrical integrity and week-long oscillation in fungal mycelia — https://www.nature.com/articles/s41598-024-66223-6
+
+
+## Reserved name: ToneHenge
+
+On 2026-09-30 the owner chose **Synthesaurus** for the interactive synthesis/DSP
+compendium at `synthesis.html`, with the dinosaur association intentional.
+**ToneHenge** is reserved for a different future instrument; no instrument
+concept or implementation is assigned to that name yet.

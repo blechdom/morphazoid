@@ -3,7 +3,7 @@ import { extname, join, relative, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { FAVE_TOOL_IDS, TOOL_GROUPS } from "../src/site/instrument-registry.js";
-import { INSTRUMENTS } from "../src/site/instrument-catalog.js";
+import { INSTRUMENTS, catalogueItemById } from "../src/site/instrument-catalog.js";
 
 const projectRoot = fileURLToPath(new URL("../", import.meta.url));
 const ignoredDirectoryNames = new Set([
@@ -83,8 +83,10 @@ export const primaryInstrumentRoutes = Object.freeze(instrumentRoutes.filter(
 
 export const faveRoutes = Object.freeze(FAVE_TOOL_IDS.map((id) => {
   const route = instrumentById.get(id);
-  if (!route) throw new Error(`Fave instrument is missing from the catalogue: ${id}`);
-  return route;
+  if (route) return route;
+  const lab = catalogueItemById(id);
+  if (!lab) throw new Error(`Fave entry is missing from the catalogue: ${id}`);
+  return freezeRoute({ ...lab, groupId: groupByToolId.get(id)?.id ?? null, isFave: true, source: "catalogue" });
 }));
 
 export const toolRoutes = Object.freeze(TOOL_GROUPS.flatMap((group) => (
@@ -97,7 +99,7 @@ export const toolRoutes = Object.freeze(TOOL_GROUPS.flatMap((group) => (
       status: null,
       features: [],
       groupId: group.id,
-      isFave: false,
+      isFave: faveIds.has(tool.id),
       source: "navigation",
     });
   })

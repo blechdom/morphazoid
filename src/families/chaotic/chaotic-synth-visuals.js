@@ -138,6 +138,10 @@ export function drawChaoticSpectrum(
   {
     barFill = "rgba(255, 122, 166, 0.3)",
     barCap = "rgba(255, 184, 107, 0.72)",
+    fontSize = 7,
+    frequencyTicks = [20, 50, 100, 200, 500, 1_000, 2_000, 5_000, 10_000, 20_000],
+    label = "LIVE SPECTRUM · HZ / WAVEFORM OVERLAY",
+    labelColor = "rgba(255, 122, 166, 0.8)",
   } = {},
 ) {
   if (!context || !regions) return;
@@ -161,7 +165,7 @@ export function drawChaoticSpectrum(
   context.save();
   context.fillStyle = "rgba(7, 9, 11, 0.6)";
   context.fillRect(left, top, width, height);
-  context.font = "7px ui-monospace, SFMono-Regular, Menlo, monospace";
+  context.font = `${Math.max(1, finiteNumber(fontSize, 7))}px ui-monospace, SFMono-Regular, Menlo, monospace`;
   context.textBaseline = "middle";
 
   for (const decibels of [-90, -60, -30, 0]) {
@@ -179,8 +183,8 @@ export function drawChaoticSpectrum(
     context.fillText(`${decibels}`, left - 5, y);
   }
 
-  for (const frequency of [20, 50, 100, 200, 500, 1_000, 2_000, 5_000, 10_000, 20_000]) {
-    if (frequency > maximumFrequency) continue;
+  for (const frequency of frequencyTicks) {
+    if (!Number.isFinite(frequency) || frequency < minimumFrequency || frequency > maximumFrequency) continue;
     const x = left + Math.log(frequency / minimumFrequency) / logRange * width;
     context.strokeStyle = "rgba(214, 232, 226, 0.065)";
     context.beginPath();
@@ -239,9 +243,11 @@ export function drawChaoticSpectrum(
 
   context.strokeStyle = "rgba(214, 232, 226, 0.13)";
   context.strokeRect(left, top, width, height);
-  context.fillStyle = "rgba(255, 122, 166, 0.8)";
-  context.textAlign = "left";
-  context.fillText("LIVE SPECTRUM · HZ / WAVEFORM OVERLAY", left, top - 9);
+  if (label) {
+    context.fillStyle = labelColor;
+    context.textAlign = "left";
+    context.fillText(label, left, top - 9);
+  }
   context.restore();
 }
 

@@ -209,3 +209,40 @@ test("spectrogram updates one efficient history column from an analyser", () => 
     calls.filter(([name]) => name === "fillRect").length >= state.canvas.height,
   );
 });
+
+test("compact live spectrum axes remain legible without duplicating an external heading", () => {
+  const state = createChaoticSpectrum();
+  state.displayData = new Float32Array(1_024).fill(-42);
+  state.frames = 1;
+  const regions = { left: 25, right: 345, spectrumTop: 8, spectrumBottom: 80 };
+  function render(options) {
+    const labels = [], rectangles = [];
+    const context = {
+      save() {}, restore() {}, beginPath() {}, stroke() {},
+      moveTo() {}, lineTo() {}, strokeRect() {},
+      fillRect(...args) { rectangles.push(args); },
+      fillText(text, x, y) {
+        labels.push({ text, x, y, font: this.font, color: this.fillStyle });
+      },
+    };
+    drawChaoticSpectrum(context, state, regions, options);
+    return { labels, rectangles };
+  }
+  const standard = render();
+  const compact = render({
+    fontSize: 9,
+    frequencyTicks: [20, 100, 1_000, 10_000, 20_000],
+    label: "",
+  });
+  assert.deepEqual(compact.rectangles, standard.rectangles,
+    "compact axis options must preserve the measured spectrum bars");
+  assert.deepEqual(compact.labels.map(({ text }) => text),
+    ["-90", "-60", "-30", "0", "20", "100", "1k", "10k", "20k"]);
+  assert.ok(compact.labels.every(({ font }) => font.startsWith("9px ")));
+  assert.ok(standard.labels.every(({ font }) => font.startsWith("7px ")));
+  assert.equal(standard.labels.at(-1).text, "LIVE SPECTRUM · HZ / WAVEFORM OVERLAY");
+  assert.equal(standard.labels.at(-1).color, "rgba(255, 122, 166, 0.8)");
+  const customized = render({ label: "SPECTRUM", labelColor: "#a8e6c1" });
+  assert.equal(customized.labels.at(-1).text, "SPECTRUM");
+  assert.equal(customized.labels.at(-1).color, "#a8e6c1");
+});

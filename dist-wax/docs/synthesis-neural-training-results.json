@@ -1,0 +1,80 @@
+{
+  "seed": 20260929,
+  "numpy": "2.2.6",
+  "frame_samples": 64,
+  "corpus": "original deterministic procedural waveforms; no recordings or third-party weights",
+  "models": {
+    "ar": {
+      "architecture": [
+        8,
+        24,
+        1
+      ],
+      "training_updates": 10000,
+      "initial_validation_mse": 0.4259833097457886,
+      "validation_mse": 0.0005830033333040774,
+      "final_training_mse": 0.0006044390611350536,
+      "free_running_validation_mse": 0.0005567044136114419
+    },
+    "autoencoder": {
+      "architecture": [
+        64,
+        24,
+        4,
+        32,
+        64
+      ],
+      "training_examples": 4096,
+      "training_updates": 7000,
+      "initial_validation_mse": 0.12654758989810944,
+      "validation_mse": 1.5130251995287836e-05,
+      "latent_low": [
+        -0.25456972867250444,
+        0.02623017216101288,
+        -0.4798803344368935,
+        -0.28672857135534285
+      ],
+      "latent_high": [
+        0.18197031766176228,
+        0.3816402330994606,
+        -0.12827746048569677,
+        0.30127801448106767
+      ]
+    },
+    "ddsp": {
+      "architecture": [
+        4,
+        24,
+        9
+      ],
+      "training_updates": 8000,
+      "objective": "waveform MSE through differentiable eight-sine plus white-noise synthesizer",
+      "initial_validation_coefficient_mse": 0.11898966878652573,
+      "validation_coefficient_mse": 4.500228533288464e-05,
+      "validation_audio_mse": 0.000194564025150612,
+      "final_training_audio_mse": 0.0002050084585789591
+    },
+    "diffusion": {
+      "architecture": [
+        67,
+        64,
+        64
+      ],
+      "training_updates": 12000,
+      "objective": "conditional clean-frame prediction from cosine-schedule Gaussian corruption",
+      "initial_validation_mse": 0.39252206683158875,
+      "validation_mse": 0.005248893052339554,
+      "final_training_mse": 0.005332525819540024,
+      "sampling": "deterministic DDIM, 4..20 reverse steps",
+      "eight_seed_minimum_frame_distance": 0.003386178299670136
+    }
+  },
+  "weights_sha256": "70e75d8164026095869b6ab00a2d8e07416ee634281535d97c27cc58563e72d0",
+  "train_seconds": 7.358,
+  "parameter_count": {
+    "ar": 241,
+    "autoencoder": 3932,
+    "ddsp": 345,
+    "diffusion": 8512
+  }
+}

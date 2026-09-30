@@ -14,12 +14,12 @@ export const mainAdditions = [
   ...JSON.parse(readFileSync(new URL('../fixtures/catalogue-gesticulating-hand.json', import.meta.url), 'utf8')).additions,
   ...JSON.parse(readFileSync(new URL('../fixtures/catalogue-simd-chiptune.json', import.meta.url), 'utf8')).additions,
 ];
-// Browseable demonstrations remain separate from MIDI/WAX instruments.
+// Browseable demonstrations retain their own catalogue and MIDI declarations.
 export const labAdditions = [
   { id: 'wasm-garden', categoryId: 'wip', categoryLabel: 'Work in Progress', tags: [{ id: 'resonator', label: 'Resonator' }] },
+  ...JSON.parse(readFileSync(new URL('../fixtures/catalogue-synthesis.json', import.meta.url), 'utf8')).additions,
 ];
-for (const item of labAdditions) byId.set(item.id, { ...item, oldId: item.id });
-for (const item of mainAdditions) byId.set(item.id, { id: item.id, oldId: item.id, categoryId: item.categoryId, categoryLabel: item.categoryLabel ?? "Work in Progress", tags: item.tags ?? [] });
+for (const item of [...mainAdditions, ...labAdditions]) byId.set(item.id, { id: item.id, oldId: item.id, categoryId: item.categoryId, categoryLabel: item.categoryLabel ?? "Work in Progress", tags: item.tags ?? [] });
 const previousFaves = prior.registry.FAVE_TOOL_IDS.map(id => byId.get(id)?.id ?? id);
 // Explicit owner follow-up on September 20; keep the pre-sheet fixture intact.
 previousFaves.splice(previousFaves.indexOf("hiccup-head") + 1, 0, "creaturazoid");
@@ -44,6 +44,8 @@ export const expectedFaveToolIds = Object.freeze([
   "gesticulating-hand",
   // Owner follow-up on September 27: promote SIMD Chiptune into Faves.
   "simd-chiptune",
+  // Owner follow-up: append Synthesaurus without moving existing Faves.
+  "synthesis",
 ]);
 const faves = new Set(expectedFaveToolIds);
 export function expectedTagIdsFor(id) {

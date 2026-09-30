@@ -23,7 +23,8 @@ export const FAVE_TOOL_IDS = Object.freeze([
   "cellular-automata",
   "lattice",
   "gesticulating-hand",
-  "simd-chiptune"
+  "simd-chiptune",
+  "synthesis"
 ]);
 
 export const TOOL_GROUPS = Object.freeze([
@@ -221,6 +222,7 @@ export const TOOL_GROUPS = Object.freeze([
     { id: "birdsong-lab", label: "Strophe Lab", href: "birdsong-lab.html", catalogue: false, browse: true, entryType: "lab", imageHref: "assets/instruments/lab-placeholder.webp" },
     { id: "nightingale-manifold", label: "Nightingale Manifolds", href: "nightingale-manifold.html", catalogue: false, browse: true, entryType: "lab", imageHref: "assets/instruments/lab-placeholder.webp" },
     { id: "syrinx-ui", label: "Syrinx UI", href: "syrinx-ui.html", catalogue: false, browse: true, entryType: "lab", imageHref: "assets/instruments/syrinx-ui.webp" },
+    { id: "synthesis", label: "Synthesaurus", href: "synthesis.html", imageHref: "assets/instruments/lab-placeholder.webp", catalogue: false, browse: true, entryType: "lab" },
     { id: "simd-lab", label: "SIMD Audio Lab", href: "simd-lab.html", imageHref: "assets/instruments/simd-resonator.webp", catalogue: false, legacyHrefs: ["simd-audio-lab.html"], browse: true, entryType: "lab" },
     { id: "wasm-garden", label: "Volumetric Rain", href: "wasm-garden.html", imageHref: "assets/instruments/wasm-garden.webp", catalogue: false, browse: true, entryType: "lab" },
     { id: "tempo-tantrum", label: "Tempo Tantrum", href: "tempo-tantrum.html" },

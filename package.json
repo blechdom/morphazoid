@@ -43,7 +43,10 @@
     "storybook": "storybook dev -p 6006 --no-open",
     "build:storybook": "storybook build",
     "build:deploy": "npm run build:site && npm run build:storybook -- --output-dir dist/storybook",
-    "check:storybook-dist": "node scripts/check-storybook-artifact.mjs dist/storybook"
+    "check:storybook-dist": "node scripts/check-storybook-artifact.mjs dist/storybook",
+    "build:synthesis-wasm": "node scripts/build-synthesis-wasm.mjs",
+    "test:synthesis": "node --test tests/synthesis-*.test.mjs",
+    "calibrate:synthesis": "node scripts/calibrate-synthesis-levels.mjs"
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.13.0",

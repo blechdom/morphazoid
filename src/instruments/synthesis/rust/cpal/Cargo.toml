@@ -1,0 +1,10 @@
+[package]
+name = "synthesis-cpal"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+
+[dependencies]
+synthesis-core = { path = "../core", features = ["neural"] }
+synthesis-presets = { path = "../presets" }
+cpal = "0.16"

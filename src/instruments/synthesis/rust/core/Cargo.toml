@@ -1,0 +1,13 @@
+[package]
+name = "synthesis-core"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+description = "Portable educational DSP engines for the Morphazoid synthesis laboratory"
+
+[lib]
+crate-type = ["rlib", "cdylib"]
+
+[features]
+default = []
+neural = []

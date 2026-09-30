@@ -21,9 +21,21 @@ import { gesticulesMetadataAmendments, restoreGesticulesMetadata } from "./helpe
 const root = new URL("../", import.meta.url);
 const plan = JSON.parse(await readFile(new URL("../docs/site-metadata-layout.json", import.meta.url)));
 const proof = JSON.parse(await readFile(new URL("fixtures/site-metadata-layout.json", import.meta.url)));
+const synthesisChanges = JSON.parse(await readFile(new URL("../docs/synthesis-runtime-changes.json", import.meta.url))).changes;
 const inverse = Object.fromEntries(Object.entries(plan.moves).map(([before, after]) => [after, before]));
 const sha = source => createHash("sha256").update(source).digest("hex");
-const readBeforeDomino = async file => restoreDominoRunSite(await readFile(new URL(file, root), "utf8"), file);
+function restoreSynthesis(source, file) {
+  for (const change of synthesisChanges.filter(change => change.file === file)) {
+    for (const testFile of change.regressionTests) assert.ok(existsSync(new URL(testFile, root)), testFile);
+    for (const replacement of [...change.replacements].reverse()) {
+      assert.equal(source.split(replacement.after).length - 1, 1, `exactly one synthesis amendment: ${file}`);
+      source = source.replace(replacement.after, replacement.before);
+    }
+  }
+  return source;
+}
+const readBeforeSynthesis = async file => restoreSynthesis(await readFile(new URL(file, root), "utf8"), file);
+const readBeforeDomino = async file => restoreDominoRunSite(await readBeforeSynthesis(file), file);
 
 test("remaining flat JavaScript modules match the reviewed shared and toolchain boundaries", async () => {
   const previous = JSON.parse(await readFile(new URL("../docs/source-module-layout.json", import.meta.url)));
@@ -178,7 +190,7 @@ test("Domino Run metadata additions reverse exactly with independent baseline an
     assert.match(change.sha256, /^[a-f0-9]{64}$/);
     assert.ok(change.regressionTests.length >= 2);
     for (const file of change.regressionTests) await readFile(new URL(file, root));
-    const current = await readFile(new URL(change.file, root), "utf8");
+    const current = await readBeforeSynthesis(change.file);
     const restored = restoreDominoRunSite(current, change.file);
     assert.notEqual(restored, current);
     assert.equal(sha(restored), change.sha256, change.file);

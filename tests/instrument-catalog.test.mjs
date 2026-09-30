@@ -114,11 +114,11 @@ test("unfinished algorithmic scores live only in Works in progress", () => {
 
 test("Faves keep their regular catalogue groups", () => {
   for (const id of FAVE_TOOL_IDS) {
-    const instrument = instrumentById(id);
+    const instrument = catalogueItemById(id);
     assert.ok(instrument, `${id} must exist in the catalogue`);
     assert.equal(instrument.tags.some(({ id: tagId }) => tagId === "faves"), true);
     assert.notEqual(instrument.tags[0].id, "faves", `${id} keeps its primary group first`);
-    assert.equal(instrument.status, null);
+    assert.equal(instrument.status, expectedStatusFor(id));
   }
 });
 
@@ -715,7 +715,7 @@ test("home catalogue shows every category with Faves first and compact duplicate
     FAVE_TOOL_IDS,
   );
   for (const faveId of FAVE_TOOL_IDS) {
-    const fave = instrumentById(faveId);
+    const fave = catalogueItemById(faveId);
     assert.ok(rendered.groups[0].cards.some(({ dataset }) => dataset.instrumentId === faveId));
     assert.ok(
       rendered.groups.find(({ id }) => id === fave.tags[0].id)

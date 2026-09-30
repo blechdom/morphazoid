@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#101513" />
+  <meta name="description" content="Explore synthesis, filters and audio processing with playable demonstrations, touchstone presets, microphone input, and live waveform and spectrum displays." />
+  <title>Synthesaurus — Morphazoid</title>
+  <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="src/instruments/synthesis/synthesis.css" />
+</head>
+<body class="synthesis-page">
+  <header class="masthead">
+    <a class="wordmark" href="./" aria-label="Morphazoid home"><span>morphazoid</span></a>
+    <nav class="tabs" aria-label="Instrument"><a class="tab" href="instruments.html">instruments</a><a class="tab active" href="synthesis.html" aria-current="page">Synthesaurus</a></nav>
+    <label class="mobile-instrument-nav"><span class="sr-only">Instrument</span><select class="mobile-instrument-select" aria-label="Instrument"><option value="synthesis.html" selected>Synthesaurus</option><option value="instruments.html">All instruments</option></select></label>
+    <div class="audio-strip" aria-label="Audio controls">
+      <button class="audio-button" id="audioButton" type="button" aria-label="Audio is off. Enable audio" aria-pressed="false"><span class="audio-copy"><b>Audio</b><small id="audioState">off</small></span></button>
+      <label class="header-level" for="outputLevel"><span><b>Output</b><output id="outputLevelOut" for="outputLevel">70%</output></span><input id="outputLevel" type="range" min="0" max="1" step="0.01" value="0.7" /></label>
+    </div>
+  </header>
+  <main class="synthesis-shell" id="synthesis">
+    <div class="synthesis-title"><h1>Synthesaurus</h1><span id="methodCount">Sound studies</span></div>
+    <div class="synthesis-sections" role="group" aria-label="Sound role">
+      <button type="button" id="sectionSynthesis" data-section="synthesis" aria-pressed="true">Synthesis</button>
+      <button type="button" id="sectionProcessing" data-section="processing" aria-pressed="false">Processing</button>
+    </div>
+    <p id="sectionDescription" class="synthesis-section-description">Create sound from notes and excitation.</p>
+    <div class="synthesis-selectors">
+      <div class="synthesis-method-choice"><label for="methodSelect" id="methodLabel">Synthesis method</label><select id="methodSelect"><option>Loading methods…</option></select></div>
+      <div class="synthesis-preset-section"><span class="synthesis-selector-label" id="presetSectionLabel">Synthesis presets</span><div id="presetHost" data-instrument-preset-host></div></div>
+    </div>
+    <p id="presetScope" class="synthesis-preset-scope">Next tours synthesis presets · Dice explores synthesis methods.</p>
+    <p class="synthesis-principle" id="principle">Choose a synthesis method, enable Audio, then play.</p>
+    <div class="synthesis-layout">
+      <section id="soundControls" class="synthesis-controls" aria-label="Synthesis controls">
+        <div class="synthesis-play-row">
+          <div class="synthesis-note-actions"><button type="button" id="playButton" class="synthesis-transport" data-primary-transport aria-label="Play" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path class="play-icon" d="M8 5L20 12L8 19Z"/><path class="pause-icon" d="M7 5H10V19H7ZM14 5H17V19H14Z"/></svg></button><button type="button" id="triggerButton">Trigger note</button><button type="button" id="randomMethod" title="Randomize settings within the current method" aria-label="Randomize current method"><span id="randomMethodLabel">Random synth</span></button></div>
+        </div>
+        <div id="noteTiming" class="synthesis-timing"><div id="tempoControl"></div><div id="gateControl"></div>
+          <div class="synthesis-rate synthesis-playback"><label for="playbackMode">Playback</label><select id="playbackMode"><option value="auto">Auto</option><option value="repeat">Repeat notes</option><option value="hold">Hold</option></select></div>
+          <div id="voiceModeControl" class="synthesis-rate synthesis-voicing"><label for="voiceMode">Voicing</label><select id="voiceMode"><option value="mono">Mono</option><option value="poly">Poly · 8 voices</option></select></div></div>
+        <p id="presetCue" class="synthesis-cue"></p>
+        <div id="frequencyRow" class="synthesis-frequency-row"><div id="frequencyControl"></div></div>
+        <div id="processingControls" class="synthesis-source" hidden>
+          <div class="synthesis-input-choice"><label for="processingSource">Input → processor</label><select id="processingSource"></select><p id="processingInputHint">Use the preset's signal or choose an input to keep while exploring effects.</p></div>
+          <div id="processingMix" class="synthesis-mix"><div id="wetControl"></div><div id="inputGainControl"></div><div id="effectGainControl"></div><label class="synthesis-bypass"><input id="processingBypass" type="checkbox" /> Bypass</label></div>
+        </div>
+        <div id="methodControls" class="synthesis-parameters"></div>
+        <div id="sourceControls" class="synthesis-source" hidden>
+          <label class="synthesis-file" id="sourceFileLabel" for="sourceFile">Choose audio file<input id="sourceFile" type="file" accept="audio/*" /></label>
+          <button type="button" id="restoreSource">Built-in source</button>
+          <button type="button" id="startMicrophone">Capture mic · 2 s</button>
+          <button type="button" id="stopInput">Stop input / cancel</button>
+          <button type="button" id="resumeFile" hidden>Play loaded file</button>
+          <span id="sourceName">Built-in synthetic source</span>
+          <span id="inputStatus">No external input</span><output id="inputLevel">Input −∞ dBFS</output>
+          <small id="inputHelp">Select your input device in Audio Settings.</small>
+        </div>
+        <details class="synthesis-disclosure" id="envelopeDetails" open><summary>Amplitude envelope · ADSR</summary><div id="envelopeControls"></div></details>
+        <details class="synthesis-disclosure" id="keyboardDetails"><summary>Notes / computer keyboard</summary><p id="keyboardHelp">Optional chromatic notes relative to the frequency above. Hold a key or a note button; the most recent held note sounds.</p><div id="keyboard" class="synthesis-keyboard" role="group" aria-label="Playable computer keyboard"></div></details>
+      </section>
+      <section id="soundAnalysis" class="synthesis-analysis" aria-label="Live sound analysis">
+        <div class="synthesis-monitor">
+        <div class="synthesis-monitor-heading"><span id="scopeTitle">Scope + spectrum</span><output id="levelReadout">−∞ dBFS</output></div>
+        <canvas id="scope" width="800" height="250" title="Spectrum bars: frequency in Hz and level in dBFS. Waveform: time with automatic amplitude scaling." aria-label="Live output waveform over a logarithmic frequency spectrum">The waveform overlays live frequency bars. The bars use a frequency axis; the waveform shows time.</canvas>
+        </div>
+        <div class="synthesis-monitor">
+        <div class="synthesis-monitor-heading"><label for="spectrumMode" class="sr-only">Frequency display</label><select id="spectrumMode"><option value="spectrogram">Spectrogram</option><option value="spectrum">Spectrum</option></select><span id="spectrumLegend">Time → · frequency ↑</span></div>
+        <canvas id="spectrum" width="800" height="320" aria-label="Live logarithmic frequency spectrogram">The live frequency distribution is shown here.</canvas>
+        </div>
+        <div class="synthesis-display-options"><label><input type="checkbox" id="spectrumOverlay" checked /> Spectrum overlay</label><label><input type="checkbox" id="freezeDisplay" aria-label="Freeze displays" /> Freeze</label><span id="signalStatus">Audio off</span></div>
+      </section>
+    </div>
+    <details class="synthesis-disclosure" id="teachingDetails" open><summary>Touchstones / demonstrations</summary>
+      <div class="synthesis-source"><div class="synthesis-study-choice"><label for="touchstoneSelect">Study</label><select id="touchstoneSelect"></select></div><button type="button" id="loadTouchstone">Load demonstration</button></div>
+      <p id="touchstoneListen"></p><p id="touchstoneGesture"></p><div id="touchstoneActions" class="synthesis-source"></div>
+    </details>
+    <p id="audioError" class="synthesis-error" role="alert" hidden></p>
+    <p id="status" class="sr-only" role="status" aria-live="polite">Audio is off.</p>
+    <details class="synthesis-disclosure synthesis-notes"><summary>Method notes &amp; sources</summary><p id="methodNotes"></p><p id="modelNote"></p><p><a id="methodReference" href="https://books.google.com/books?id=nZ-TetwzVcIC" target="_blank" rel="noreferrer">Reference</a> · <a href="docs/synthesis-methods.md">All method notes</a> · <a href="docs/synthesaurus-inventory.md">Coverage &amp; remaining techniques</a> · <a href="docs/synthesis-native.md">Rust / CPAL / CLAP</a></p><p>Synthesis creates a playable sound from notes, excitation or stored samples. Processing transforms incoming audio. An algorithm can serve either role: granular, spectral and filter techniques appear according to what each demonstration does. Built-in test signals let you hear processors before connecting an input.</p><p>Sample inputs: <a href="assets/puggler/CREDITS.md">Karoryfer drums (CC0) and synthetic speech (MIT)</a>; <a href="vendor/cmu-arctic/COPYING">CMU ARCTIC edited voice syllables</a>; <a href="assets/bioacoustics/SOURCES.md">Oona Räisänen’s public-domain birdsong</a>. An explicit Input choice stays selected across processor presets; choose Preset input to follow each demonstration’s signal.</p><p>A growing compendium of synthesis and processing. Method notes distinguish full signal paths from simplified educational models. Audio starts off. The plots show the actual output signal.</p></details>
+    <noscript>This synthesis page needs JavaScript and WebAssembly to make sound.</noscript>
+  </main>
+  <script type="module" src="nav.js"></script>
+  <script type="module" src="src/instruments/synthesis/app.js"></script>
+</body>
+</html>

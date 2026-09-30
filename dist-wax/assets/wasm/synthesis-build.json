@@ -1,0 +1,27 @@
+{
+  "abi": 2,
+  "parameters": 16,
+  "methods": 53,
+  "processors": 16,
+  "processorPresets": 128,
+  "presets": 424,
+  "wasmSha256": "55a2a774c249555cfe7687d6a6c3f91068408220667f015c299ab76e6a9dd0b5",
+  "sourceHashes": {
+    "src/instruments/synthesis/catalog.js": "d82db2e7f9201498c892fd7a1fc885ef58f7bdb9b3fc394bc74111d08fe21a54",
+    "src/instruments/synthesis/level-calibration.js": "a518356720af9749dfa6341b46774191ea07ea27da4b33f8c52a07772afffa3f",
+    "src/instruments/synthesis/historical-catalog.js": "19d3def2d321447fb49e64e7ef835b42fd58512a1da10e72e53063259bde5ecc",
+    "src/instruments/synthesis/processing-schema.js": "e26392e8c123b08c5a5b3df8394f2af1b71aa4d9dd9e415e0ee53acd29b3ff91",
+    "src/instruments/synthesis/processing-catalog.js": "c0da5709db105887ce1f89182dc4d38482292301ca9393b578a5eaf9adc8c88b",
+    "src/instruments/synthesis/rust/core/src/controls.rs": "1fc8baa186744dbd89f9e51b78a74db9831a0815a241dcae0f9a351dc6b73b4e",
+    "src/instruments/synthesis/rust/core/src/conventional.rs": "6d71f65ec4688e5e48a778593b7e7b2efc942b27113fb2673f03c3ee70a349ef",
+    "src/instruments/synthesis/rust/core/src/expanded.rs": "42910830a83918f275429a7f1bd2b5f0cf7a9ef4ff343fddc5c74b7e0baaa22c",
+    "src/instruments/synthesis/rust/core/src/expanded_tests.rs": "67011216db65ad4f3db99d9bfff3cb090b85bfb5810f64ccb24217aa11f3e835",
+    "src/instruments/synthesis/rust/core/src/historical.rs": "5b07c64ef9f45626e5d69082c8ccbe32081ff4ed68164fe7800be15e2b18449a",
+    "src/instruments/synthesis/rust/core/src/lib.rs": "a0ac62e15a7af81d476f0f938517842fc6fd4823950f1caece597b7fc6776df6",
+    "src/instruments/synthesis/rust/core/src/neural.rs": "70595882bd496b12cd8fcd5d625391b15f338c1576c0440ea9174d1961a2e182",
+    "src/instruments/synthesis/rust/core/src/neural_weights.rs": "70e75d8164026095869b6ab00a2d8e07416ee634281535d97c27cc58563e72d0",
+    "src/instruments/synthesis/rust/core/src/polyphony.rs": "449153b3c2662ce5e6fc0e43d6afb541d700eebb73511a017f7bf0f08f3fcd43",
+    "src/instruments/synthesis/rust/core/src/processing.rs": "2a3ea60be47a2ad159b0f3a90d441480b057de9ca4bb77938d2d91f65f97a6e9",
+    "src/instruments/synthesis/rust/core/src/spectral.rs": "eb679a65eab31c4d6d93926f725d639e348ae2336f527be02d4a1827c8cd6010"
+  }
+}

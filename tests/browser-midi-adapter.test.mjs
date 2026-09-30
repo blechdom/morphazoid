@@ -22,6 +22,7 @@ import {
   instrumentMidiCapabilityForId,
 } from "../src/site/instrument-midi-capabilities.js";
 import { INSTRUMENTS } from "../src/site/instrument-catalog.js";
+import { labAdditions } from "./helpers/catalogue-plan.mjs";
 import { MidiClockTempoTracker } from "../src/instruments/wax/wax-midi-routing.js";
 
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -141,11 +142,12 @@ function testRuntime() {
   };
 }
 
-test("one acyclic capability registry covers every playable catalog instrument", () => {
-  assert.equal(INSTRUMENT_MIDI_CAPABILITIES.length, INSTRUMENTS.length);
+test("one acyclic capability registry covers every playable catalog instrument and declared MIDI lab", () => {
+  const playableIds = [...INSTRUMENTS.map(({ id }) => id), ...labAdditions.filter(lab => lab.midiInput).map(lab => lab.id)];
+  assert.equal(INSTRUMENT_MIDI_CAPABILITIES.length, playableIds.length);
   assert.deepEqual(
     new Set(INSTRUMENT_MIDI_CAPABILITIES.map(({ id }) => id)),
-    new Set(INSTRUMENTS.map(({ id }) => id)),
+    new Set(playableIds),
   );
   assert.deepEqual(NATIVE_INSTRUMENT_MIDI_IDS, [
     "shape-synth",
@@ -185,6 +187,7 @@ test("one acyclic capability registry covers every playable catalog instrument",
   assert.equal(instrumentMidiCapabilityForId("simd-synth").noteMode, "pitched");
   assert.equal(instrumentMidiCapabilityForId("simd-synth").computerKeyboardMode, "page");
   assert.deepEqual(PAGE_KEYBOARD_INSTRUMENT_IDS, [
+    "synthesis",
     "domino-run",
     "fractal-signals",
     "puggler",

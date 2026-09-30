@@ -1,0 +1,127 @@
+{
+  "description": "Allow the Synthesaurus lab to declare browser MIDI and join Faves while preserving its lab identity and existing WAX roles. Preserve the frozen module-relocation baseline.",
+  "changes": [
+    {
+      "file": "src/instruments/wax/wax-instrument-roles.js",
+      "regressionTests": [
+        "tests/catalogue-update.test.mjs",
+        "tests/browser-midi-adapter.test.mjs",
+        "e2e/synthesis.spec.mjs"
+      ],
+      "replacements": [
+        {
+          "before": "import { INSTRUMENTS } from \"../../site/instrument-catalog.js\";",
+          "after": "import { CATALOGUE_ITEMS, INSTRUMENTS } from \"../../site/instrument-catalog.js\";"
+        },
+        {
+          "before": "const catalogueIds = new Set(INSTRUMENTS.map(({ id }) => id));",
+          "after": "// Playable labs may declare browser MIDI without advertising a WAX role.\nconst catalogueIds = new Set(CATALOGUE_ITEMS.map(({ id }) => id));"
+        }
+      ]
+    },
+    {
+      "file": "src/site/instrument-midi-capabilities.js",
+      "regressionTests": [
+        "tests/catalogue-update.test.mjs",
+        "tests/browser-midi-adapter.test.mjs",
+        "e2e/synthesis.spec.mjs"
+      ],
+      "replacements": [
+        {
+          "before": "  pitched: Object.freeze([\n    \"roach-synth\",",
+          "after": "  pitched: Object.freeze([\n    \"synthesis\",\n    \"roach-synth\","
+        },
+        {
+          "before": "export const PAGE_KEYBOARD_INSTRUMENT_IDS = Object.freeze([\n  \"domino-run\",\n  \"fractal-signals\",\n  \"puggler\",",
+          "after": "export const PAGE_KEYBOARD_INSTRUMENT_IDS = Object.freeze([\n  \"synthesis\",\n  \"domino-run\",\n  \"fractal-signals\",\n  \"puggler\","
+        },
+        {
+          "before": "const audioInputIds = new Set([\n  \"l-systems\",\n",
+          "after": "const audioInputIds = new Set([\n  \"l-systems\",\n  \"synthesis\",\n"
+        }
+      ]
+    },
+    {
+      "file": "src/site/instrument-catalog.js",
+      "regressionTests": [
+        "tests/instrument-catalog.test.mjs",
+        "tests/catalogue-update.test.mjs",
+        "e2e/catalogue-update.spec.mjs"
+      ],
+      "replacements": [
+        {
+          "before": "const invalidFaveIds = FAVE_TOOL_IDS.filter((id) => !instrumentIds.has(id));",
+          "after": "const invalidFaveIds = FAVE_TOOL_IDS.filter((id) => !instrumentIds.has(id) && !browseIds.has(id));"
+        },
+        {
+          "before": "  tags: Object.freeze([...new Set([group.id, ...(ADDITIONAL_TAG_IDS[tool.id] ?? [])])].map(id => tagById.get(id))),",
+          "after": "  tags: Object.freeze([...new Set([group.id, ...(ADDITIONAL_TAG_IDS[tool.id] ?? []),\n    ...(FAVE_TOOL_IDS.includes(tool.id) ? [FAVES_TAG.id] : []),\n  ])].map(id => id === FAVES_TAG.id ? FAVES_TAG : tagById.get(id))),"
+        }
+      ]
+    },
+    {
+      "file": "src/families/chaotic/chaotic-synth-visuals.js",
+      "reason": "Optional axis font, frequency ticks and heading settings let Synthesaurus reuse the live spectrum in its compact mobile dock. Defaults preserve existing chaotic synth rendering.",
+      "regressionTests": [
+        "tests/chaotic-synth-visuals.test.mjs",
+        "e2e/synthesis-analysis.spec.mjs"
+      ],
+      "replacements": [
+        {
+          "before": "    barCap = \"rgba(255, 184, 107, 0.72)\",\n  } = {},",
+          "after": "    barCap = \"rgba(255, 184, 107, 0.72)\",\n    fontSize = 7,\n    frequencyTicks = [20, 50, 100, 200, 500, 1_000, 2_000, 5_000, 10_000, 20_000],\n    label = \"LIVE SPECTRUM · HZ / WAVEFORM OVERLAY\",\n    labelColor = \"rgba(255, 122, 166, 0.8)\",\n  } = {},"
+        },
+        {
+          "before": "  context.font = \"7px ui-monospace, SFMono-Regular, Menlo, monospace\";",
+          "after": "  context.font = `${Math.max(1, finiteNumber(fontSize, 7))}px ui-monospace, SFMono-Regular, Menlo, monospace`;"
+        },
+        {
+          "before": "  for (const frequency of [20, 50, 100, 200, 500, 1_000, 2_000, 5_000, 10_000, 20_000]) {\n    if (frequency > maximumFrequency) continue;",
+          "after": "  for (const frequency of frequencyTicks) {\n    if (!Number.isFinite(frequency) || frequency < minimumFrequency || frequency > maximumFrequency) continue;"
+        },
+        {
+          "before": "  context.fillStyle = \"rgba(255, 122, 166, 0.8)\";\n  context.textAlign = \"left\";\n  context.fillText(\"LIVE SPECTRUM · HZ / WAVEFORM OVERLAY\", left, top - 9);",
+          "after": "  if (label) {\n    context.fillStyle = labelColor;\n    context.textAlign = \"left\";\n    context.fillText(label, left, top - 9);\n  }"
+        }
+      ]
+    },
+    {
+      "file": "src/site/instrument-registry.js",
+      "reason": "Add Synthesaurus while retaining exact newer-main catalogue and Faves baselines.",
+      "regressionTests": [
+        "tests/catalogue-update.test.mjs",
+        "tests/instrument-catalog.test.mjs",
+        "e2e/synthesis.spec.mjs"
+      ],
+      "replacements": [
+        {
+          "before": "  \"lattice\",\n  \"gesticulating-hand\",\n  \"simd-chiptune\"\n]);\n\n",
+          "after": "  \"lattice\",\n  \"gesticulating-hand\",\n  \"simd-chiptune\",\n  \"synthesis\"\n]);\n\n"
+        },
+        {
+          "before": "    { id: \"nightingale-manifold\", label: \"Nightingale Manifolds\", href: \"nightingale-manifold.html\", catalogue: false, browse: true, entryType: \"lab\", imageHref: \"assets/instruments/lab-placeholder.webp\" },\n    { id: \"syrinx-ui\", label: \"Syrinx UI\", href: \"syrinx-ui.html\", catalogue: false, browse: true, entryType: \"lab\", imageHref: \"assets/instruments/syrinx-ui.webp\" },\n    { id: \"simd-lab\", label: \"SIMD Audio Lab\", href: \"simd-lab.html\", imageHref: \"assets/instruments/simd-resonator.webp\", catalogue: false, legacyHrefs: [\"simd-audio-lab.html\"], browse: true, entryType: \"lab\" },\n    { id: \"wasm-garden\", label: \"Volumetric Rain\", href: \"wasm-garden.html\", imageHref: \"assets/instruments/wasm-garden.webp\", catalogue: false, browse: true, entryType: \"lab\" },\n",
+          "after": "    { id: \"nightingale-manifold\", label: \"Nightingale Manifolds\", href: \"nightingale-manifold.html\", catalogue: false, browse: true, entryType: \"lab\", imageHref: \"assets/instruments/lab-placeholder.webp\" },\n    { id: \"syrinx-ui\", label: \"Syrinx UI\", href: \"syrinx-ui.html\", catalogue: false, browse: true, entryType: \"lab\", imageHref: \"assets/instruments/syrinx-ui.webp\" },\n    { id: \"synthesis\", label: \"Synthesaurus\", href: \"synthesis.html\", imageHref: \"assets/instruments/lab-placeholder.webp\", catalogue: false, browse: true, entryType: \"lab\" },\n    { id: \"simd-lab\", label: \"SIMD Audio Lab\", href: \"simd-lab.html\", imageHref: \"assets/instruments/simd-resonator.webp\", catalogue: false, legacyHrefs: [\"simd-audio-lab.html\"], browse: true, entryType: \"lab\" },\n    { id: \"wasm-garden\", label: \"Volumetric Rain\", href: \"wasm-garden.html\", imageHref: \"assets/instruments/wasm-garden.webp\", catalogue: false, browse: true, entryType: \"lab\" },\n"
+        }
+      ]
+    },
+    {
+      "file": "src/site/catalogue-taxonomy.js",
+      "reason": "Add Synthesaurus while retaining exact newer-main catalogue and Faves baselines.",
+      "regressionTests": [
+        "tests/catalogue-update.test.mjs",
+        "tests/instrument-catalog.test.mjs",
+        "e2e/synthesis.spec.mjs"
+      ],
+      "replacements": [
+        {
+          "before": "  \"nightingale-manifold\": [],\n  \"syrinx-ui\": [],\n  \"simd-lab\": [\n    \"simd-audio\"\n",
+          "after": "  \"nightingale-manifold\": [],\n  \"syrinx-ui\": [],\n  \"synthesis\": [],\n  \"simd-lab\": [\n    \"simd-audio\"\n"
+        },
+        {
+          "before": "    \"pluginHref\": null\n  },\n  \"simd-lab\": {\n    \"kind\": \"Audio lab\",\n",
+          "after": "    \"pluginHref\": null\n  },\n  \"synthesis\": {\n    \"kind\": \"Synthesis lab\",\n    \"description\": \"Playable Rust synthesis studies from sampling, modulation and physical models to small trained neural models, with eight presets per method and live signal analysis.\",\n    \"start\": \"Choose a method and preset, enable Audio, then Play or trigger a note. Adjust the method controls and watch its waveform and spectrum.\",\n    \"features\": [\"Built-in synth\", \"Audio file\", \"Keyboard\", \"MIDI\", \"Presets\", \"Signal analysis\"],\n    \"pluginHref\": null\n  },\n  \"simd-lab\": {\n    \"kind\": \"Audio lab\",\n"
+        }
+      ]
+    }
+  ]
+}

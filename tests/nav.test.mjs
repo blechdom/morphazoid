@@ -38,7 +38,7 @@ function expectedBasePickerGroups() {
 
 function expectedPickerGroups() {
   const groups = expectedBasePickerGroups();
-  const toolById = new Map(groups.flatMap(({ tools }) => (
+  const toolById = new Map(TOOL_GROUPS.flatMap(({ tools }) => (
     tools.map((tool) => [tool.id, tool])
   )));
   return [

@@ -56,6 +56,7 @@ const NOTE_MODE_IDS = Object.freeze({
     "gesturama",
   ]),
   pitched: Object.freeze([
+    "synthesis",
     "roach-synth",
     "spider-synth",
     "gesticulating-hand",
@@ -187,6 +188,7 @@ export const NATIVE_INSTRUMENT_MIDI_IDS = Object.freeze([
 ]);
 
 export const PAGE_KEYBOARD_INSTRUMENT_IDS = Object.freeze([
+  "synthesis",
   "domino-run",
   "fractal-signals",
   "puggler",
@@ -269,6 +271,7 @@ const processorAudioIds = new Set([
 ]);
 const audioInputIds = new Set([
   "l-systems",
+  "synthesis",
   "graphs",
   "fractal-signals",
   "lumber",

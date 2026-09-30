@@ -312,6 +312,10 @@ documents reusable tokens, controls, patterns, and interaction states.
 The [GitHub Pages deployment](https://blechdom.github.io/morphazoid/) remains a
 secondary mirror of `main`.
 
+## Synthesaurus
+
+[Synthesaurus](synthesis.html) explores 53 synthesis methods and 16 stereo processors through 552 presets and 146 guided studies. Microphone, file input, built-in test signals, exact parameter controls, and waveform/spectrum displays make the DSP playable. The Rust DSP runs in a browser AudioWorklet through WebAssembly and is shared with the CPAL player and CLAP plugin. See [method notes](docs/synthesis-methods.md), [model provenance](docs/synthesis-neural-models.md), and [native build instructions](docs/synthesis-native.md).
+
 ## Development
 
 ```sh

@@ -1,0 +1,868 @@
+[
+  {
+    "engineId": 0,
+    "methodId": "sampling",
+    "version": 1,
+    "presetId": "custom",
+    "params": [
+      0.03,
+      1,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "physical": [
+      3,
+      100,
+      0,
+      0
+    ]
+  },
+  {
+    "engineId": 1,
+    "methodId": "wavetable",
+    "version": 1,
+    "presetId": "custom",
+    "params": [
+      0,
+      0.2,
+      0.5,
+      1,
+      0,
+      0,
+      0,
+      0
+    ],
+    "physical": [
+      0,
+      20,
+      49.99999999999999,
+      100
+    ]
+  },
+  {
+    "engineId": 2,
+    "methodId": "additive",
+    "version": 1,
+    "presetId": "custom",
+    "params": [
+      1,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "physical": [
+      100,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+    ]
+  },
+  {
+    "engineId": 3,
+    "methodId": "walsh",
+    "version": 1,
+    "presetId": "custom",
+    "params": [
+      0.08,
+      0,
+      0.04,
+      0.15,
+      0,
+      0,
+      0,
+      0
+    ],
+    "physical": [
+      2,
+      0,
+      1,
+      15
+    ]
+  },
+  {
+    "engineId": 4,
+    "methodId": "multiple-wavetable",
+    "version": 1,
+    "presetId": "custom",
+    "params": [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "physical": [
+      0,
+      0,
+      0,
+      0
+    ]
+  },
+  {
+    "engineId": 5,
+    "methodId": "wave-terrain",
+    "version": 1,
+    "presetId": "custom",
+    "params": [
+      0.12,
+      0.12,
+      0.2,
+      0.18,
+      0,
+      0,
+      0,
+      0
+    ],
+    "physical": [
+      16.4,
+      16.4,
+      1,
+      18
+    ]
+  },
+  {
+    "engineId": 6,
+    "methodId": "granular",
+    "version": 1,
+    "presetId": "custom",
+    "params": [
+      0.65,
+      0.02,
+      0.1,
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "physical": [
+      132.8,
+      3.56,
+      10,
+      0
+    ]
+  },
+  {
+    "engineId": 7,
+    "methodId": "subtractive",
+    "version": 1,
+    "presetId": "custom",
+    "params": [
+      0.28,
+      0.12,
+      0.55,
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "physical": [
+      352.6780133903694,
+      12,
+      55.00000000000001,
+      0
+    ]
+  },
+  {
+    "engineId": 8,
+    "methodId": "lpc",
+    "version": 1,
+    "presetId": "custom",
+    "params": [
+      0.02,
+      0.02,
+      0.82,
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "physical": [
+      2,
+      2,
+      1.5109999999999997,
+      0
+    ]
+  },
+  {
+    "engineId": 9,
+    "methodId": "am",
+    "version": 1,
+    "presetId": "custom",
+    "params": [
+      0.076,
+      0,
+      0,
+      1,
+      0,
+      0,
+      0,
+      0
+    ],
+    "physical": [
+      1.0044,
+      0,
+      0,
+      100
+    ]
+  },
+  {
+    "engineId": 10,
+    "methodId": "ring",
+    "version": 1,
+    "presetId": "custom",
+    "params": [
+      0.16,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "physical": [
+      2.004,
+      0,
+      0,
+      0
+    ]
+  },
+  {
+    "engineId": 11,
+    "methodId": "fm",
+    "version": 1,
+    "presetId": "custom",
+    "params": [
+      0.076,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "physical": [
+      1.0044,
+      0,
+      0,
+      0
+    ]
+  },
+  {
+    "engineId": 12,
+    "methodId": "pm",
+    "version": 1,
+    "presetId": "custom",
+    "params": [
+      0.076,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "physical": [
+      1.0044,
+      0,
+      0,
+      0
+    ]
+  },
+  {
+    "engineId": 13,
+    "methodId": "phase-distortion",
+    "version": 1,
+    "presetId": "custom",
+    "params": [
+      0.5,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "physical": [
+      50,
+      0,
+      1,
+      0
+    ]
+  },
+  {
+    "engineId": 14,
+    "methodId": "waveshaping",
+    "version": 1,
+    "presetId": "custom",
+    "params": [
+      0.02,
+      0,
+      0.5,
+      1,
+      0,
+      0,
+      0,
+      0
+    ],
+    "physical": [
+      1.22,
+      0,
+      0,
+      100
+    ]
+  },
+  {
+    "engineId": 15,
+    "methodId": "dsf",
+    "version": 1,
+    "presetId": "custom",
+    "params": [
+      0.2,
+      0.5,
+      0,
+      0.5,
+      0,
+      0,
+      0,
+      0
+    ],
+    "physical": [
+      1,
+      49,
+      1,
+      50
+    ]
+  },
+  {
+    "engineId": 16,
+    "methodId": "physical",
+    "version": 1,
+    "presetId": "custom",
+    "params": [
+      0.4,
+      0.2,
+      0.4,
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "physical": [
+      40,
+      20,
+      40,
+      0
+    ]
+  },
+  {
+    "engineId": 17,
+    "methodId": "modal",
+    "version": 1,
+    "presetId": "custom",
+    "params": [
+      0,
+      0.3,
+      0.45,
+      0.45,
+      0,
+      0,
+      0,
+      0
+    ],
+    "physical": [
+      0,
+      2.505,
+      45,
+      45
+    ]
+  },
+  {
+    "engineId": 18,
+    "methodId": "waveguide",
+    "version": 1,
+    "presetId": "custom",
+    "params": [
+      0.48,
+      0.4,
+      0.32,
+      0.3,
+      0,
+      0,
+      0,
+      0
+    ],
+    "physical": [
+      48,
+      40,
+      32,
+      30
+    ]
+  },
+  {
+    "engineId": 19,
+    "methodId": "karplus-strong",
+    "version": 1,
+    "presetId": "custom",
+    "params": [
+      0.32,
+      0.38,
+      0.22,
+      0.6,
+      0,
+      0,
+      0,
+      0
+    ],
+    "physical": [
+      32,
+      3.133,
+      23.119999999999997,
+      60
+    ]
+  },
+  {
+    "engineId": 20,
+    "methodId": "fof",
+    "version": 1,
+    "presetId": "custom",
+    "params": [
+      0.14,
+      0.18,
+      0.5,
+      0.35,
+      0,
+      0,
+      0,
+      0
+    ],
+    "physical": [
+      732,
+      132.6,
+      5.5,
+      35
+    ]
+  },
+  {
+    "engineId": 21,
+    "methodId": "vosim",
+    "version": 1,
+    "presetId": "custom",
+    "params": [
+      0.2,
+      0.4,
+      0.45,
+      0.2,
+      0,
+      0,
+      0,
+      0
+    ],
+    "physical": [
+      960,
+      3,
+      45,
+      20
+    ]
+  },
+  {
+    "engineId": 22,
+    "methodId": "window-formant",
+    "version": 1,
+    "presetId": "custom",
+    "params": [
+      0.19,
+      0.6,
+      0.5,
+      0.3,
+      0,
+      0,
+      0,
+      0
+    ],
+    "physical": [
+      922,
+      60,
+      50,
+      30
+    ]
+  },
+  {
+    "engineId": 23,
+    "methodId": "waveform-segment",
+    "version": 1,
+    "presetId": "custom",
+    "params": [
+      0.5,
+      0.5,
+      0.3,
+      1,
+      0,
+      0,
+      0,
+      0
+    ],
+    "physical": [
+      49.99999999999999,
+      0,
+      30,
+      32
+    ]
+  },
+  {
+    "engineId": 24,
+    "methodId": "graphic",
+    "version": 1,
+    "presetId": "custom",
+    "params": [
+      0.5,
+      0.854,
+      1,
+      0.854,
+      0.5,
+      0.146,
+      0,
+      0.146
+    ],
+    "physical": [
+      0,
+      0.708,
+      1,
+      0.708,
+      0,
+      -0.708,
+      -1,
+      -0.708
+    ]
+  },
+  {
+    "engineId": 25,
+    "methodId": "noise-modulation",
+    "version": 1,
+    "presetId": "custom",
+    "params": [
+      0.35,
+      0.02,
+      0.95,
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "physical": [
+      35,
+      0.2404528869234826,
+      95,
+      0
+    ]
+  },
+  {
+    "engineId": 26,
+    "methodId": "stochastic",
+    "version": 1,
+    "presetId": "custom",
+    "params": [
+      0.015,
+      0.01,
+      0.24,
+      0.5,
+      0,
+      0,
+      0,
+      0
+    ],
+    "physical": [
+      1.5,
+      1,
+      9,
+      50
+    ]
+  },
+  {
+    "engineId": 27,
+    "methodId": "pulsar",
+    "version": 1,
+    "presetId": "custom",
+    "params": [
+      1,
+      0,
+      0,
+      0.5,
+      0,
+      0,
+      0,
+      0
+    ],
+    "physical": [
+      100,
+      1,
+      0,
+      50
+    ]
+  },
+  {
+    "engineId": 28,
+    "methodId": "phase-vocoder",
+    "version": 1,
+    "presetId": "custom",
+    "params": [
+      0.2,
+      0.5,
+      0.5,
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "physical": [
+      0.43527528164806206,
+      0,
+      0,
+      0
+    ]
+  },
+  {
+    "engineId": 29,
+    "methodId": "scanned",
+    "version": 1,
+    "presetId": "custom",
+    "params": [
+      0.12,
+      0.08,
+      0.2,
+      0.12,
+      0,
+      0,
+      0,
+      0
+    ],
+    "physical": [
+      12,
+      8,
+      20,
+      12
+    ]
+  },
+  {
+    "engineId": 30,
+    "methodId": "corpus",
+    "version": 1,
+    "presetId": "custom",
+    "params": [
+      0.06,
+      0,
+      0.65,
+      0.8,
+      0,
+      0,
+      0,
+      0
+    ],
+    "physical": [
+      6,
+      0,
+      169.5,
+      80
+    ]
+  },
+  {
+    "engineId": 31,
+    "methodId": "padsynth",
+    "version": 1,
+    "presetId": "custom",
+    "params": [
+      0,
+      0.7,
+      0.15,
+      0.5,
+      0,
+      0,
+      0,
+      0
+    ],
+    "physical": [
+      2,
+      70,
+      15,
+      50
+    ]
+  },
+  {
+    "engineId": 32,
+    "methodId": "vector-phase",
+    "version": 1,
+    "presetId": "custom",
+    "params": [
+      0.5,
+      0.5,
+      0,
+      0.1,
+      0,
+      0,
+      0,
+      0
+    ],
+    "physical": [
+      50,
+      1,
+      0,
+      2.09
+    ]
+  },
+  {
+    "engineId": 33,
+    "methodId": "neural-ar",
+    "version": 1,
+    "presetId": "custom",
+    "params": [
+      0.06,
+      0,
+      0.2,
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "physical": [
+      6,
+      0,
+      20,
+      0
+    ]
+  },
+  {
+    "engineId": 34,
+    "methodId": "neural-latent",
+    "version": 1,
+    "presetId": "custom",
+    "params": [
+      0.5,
+      0.5,
+      0.5,
+      0.5,
+      0,
+      0,
+      0,
+      0
+    ],
+    "physical": [
+      0,
+      0,
+      0,
+      0
+    ]
+  },
+  {
+    "engineId": 35,
+    "methodId": "ddsp",
+    "version": 1,
+    "presetId": "custom",
+    "params": [
+      0.05,
+      0.5,
+      0.2,
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "physical": [
+      5,
+      50,
+      20,
+      0
+    ]
+  },
+  {
+    "engineId": 36,
+    "methodId": "diffusion",
+    "version": 1,
+    "presetId": "custom",
+    "params": [
+      0.02,
+      0.25,
+      1,
+      0.15,
+      0,
+      0,
+      0,
+      0
+    ],
+    "physical": [
+      2,
+      25,
+      20,
+      15
+    ]
+  },
+  {
+    "engineId": 37,
+    "methodId": "antialias-oscillator",
+    "version": 1,
+    "presetId": "custom",
+    "params": [
+      0,
+      0.5,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "physical": [
+      0,
+      49.99999999999999,
+      0,
+      1
+    ]
+  },
+  {
+    "engineId": 38,
+    "methodId": "antiderivative-waveshaping",
+    "version": 1,
+    "presetId": "custom",
+    "params": [
+      0.75,
+      0.5,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "physical": [
+      9.25,
+      0,
+      0,
+      0
+    ]
+  }
+]

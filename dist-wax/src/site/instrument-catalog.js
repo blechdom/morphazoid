@@ -966,7 +966,7 @@ const invalidAdditionalTags = Object.entries(ADDITIONAL_TAG_IDS).flatMap(
     .filter((tagId) => (!instrumentIds.has(instrumentId) && !browseIds.has(instrumentId)) || !tagById.has(tagId))
     .map((tagId) => `${instrumentId}:${tagId}`),
 );
-const invalidFaveIds = FAVE_TOOL_IDS.filter((id) => !instrumentIds.has(id));
+const invalidFaveIds = FAVE_TOOL_IDS.filter((id) => !instrumentIds.has(id) && !browseIds.has(id));
 
 if (
   missingDetails.length
@@ -1029,7 +1029,9 @@ export function instrumentById(id) {
 export const LABS = Object.freeze(TOOL_GROUPS.flatMap(group => group.tools.filter(tool => tool.browse && tool.catalogue === false).map(tool => Object.freeze({
   ...tool, ...LAB_CATALOGUE_DETAILS[tool.id], entryType: "lab",
   status: group.id === "wip" ? "Work in Progress" : null,
-  tags: Object.freeze([...new Set([group.id, ...(ADDITIONAL_TAG_IDS[tool.id] ?? [])])].map(id => tagById.get(id))),
+  tags: Object.freeze([...new Set([group.id, ...(ADDITIONAL_TAG_IDS[tool.id] ?? []),
+    ...(FAVE_TOOL_IDS.includes(tool.id) ? [FAVES_TAG.id] : []),
+  ])].map(id => id === FAVES_TAG.id ? FAVES_TAG : tagById.get(id))),
 }))));
 const browseById = new Map([...INSTRUMENTS, ...LABS].map(item => [item.id, item]));
 export const CATALOGUE_GROUPS = Object.freeze(TOOL_GROUPS.map(group => Object.freeze({

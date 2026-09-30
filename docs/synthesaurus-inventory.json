@@ -1,0 +1,2041 @@
+{
+  "version": 1,
+  "scope": "Research backlog captured before the Synthesaurus expansion; use synthesaurus-inventory.md for reconciled current status.",
+  "currentMethods": [
+    {
+      "id": "sampling",
+      "engineId": 0,
+      "label": "Sampling / sample playback",
+      "citation": {
+        "label": "Curtis Roads, The Computer Music Tutorial (1996)",
+        "url": "https://mitpress.mit.edu/9780262680820/the-computer-music-tutorial/"
+      },
+      "sourceInput": true
+    },
+    {
+      "id": "wavetable",
+      "engineId": 1,
+      "label": "Wavetable synthesis",
+      "citation": {
+        "label": "Curtis Roads, The Computer Music Tutorial (1996)",
+        "url": "https://mitpress.mit.edu/9780262680820/the-computer-music-tutorial/"
+      },
+      "sourceInput": false
+    },
+    {
+      "id": "additive",
+      "engineId": 2,
+      "label": "Additive synthesis",
+      "citation": {
+        "label": "Curtis Roads, The Computer Music Tutorial (1996)",
+        "url": "https://mitpress.mit.edu/9780262680820/the-computer-music-tutorial/"
+      },
+      "sourceInput": false
+    },
+    {
+      "id": "walsh",
+      "engineId": 3,
+      "label": "Walsh-function synthesis",
+      "citation": {
+        "label": "Curtis Roads, The Computer Music Tutorial (1996)",
+        "url": "https://mitpress.mit.edu/9780262680820/the-computer-music-tutorial/"
+      },
+      "sourceInput": false
+    },
+    {
+      "id": "multiple-wavetable",
+      "engineId": 4,
+      "label": "Multiple-wavetable / vector synthesis",
+      "citation": {
+        "label": "Curtis Roads, The Computer Music Tutorial (1996)",
+        "url": "https://mitpress.mit.edu/9780262680820/the-computer-music-tutorial/"
+      },
+      "sourceInput": false
+    },
+    {
+      "id": "wave-terrain",
+      "engineId": 5,
+      "label": "Wave-terrain synthesis",
+      "citation": {
+        "label": "Curtis Roads, The Computer Music Tutorial (1996)",
+        "url": "https://mitpress.mit.edu/9780262680820/the-computer-music-tutorial/"
+      },
+      "sourceInput": false
+    },
+    {
+      "id": "granular",
+      "engineId": 6,
+      "label": "Granular synthesis",
+      "citation": {
+        "label": "Curtis Roads, The Computer Music Tutorial (1996)",
+        "url": "https://mitpress.mit.edu/9780262680820/the-computer-music-tutorial/"
+      },
+      "sourceInput": true
+    },
+    {
+      "id": "subtractive",
+      "engineId": 7,
+      "label": "Subtractive synthesis",
+      "citation": {
+        "label": "Curtis Roads, The Computer Music Tutorial (1996)",
+        "url": "https://mitpress.mit.edu/9780262680820/the-computer-music-tutorial/"
+      },
+      "sourceInput": false
+    },
+    {
+      "id": "lpc",
+      "engineId": 8,
+      "label": "Linear predictive coding (LPC)",
+      "citation": {
+        "label": "Curtis Roads, The Computer Music Tutorial (1996)",
+        "url": "https://mitpress.mit.edu/9780262680820/the-computer-music-tutorial/"
+      },
+      "sourceInput": true
+    },
+    {
+      "id": "am",
+      "engineId": 9,
+      "label": "Amplitude modulation (AM)",
+      "citation": {
+        "label": "Curtis Roads, The Computer Music Tutorial (1996)",
+        "url": "https://mitpress.mit.edu/9780262680820/the-computer-music-tutorial/"
+      },
+      "sourceInput": false
+    },
+    {
+      "id": "ring",
+      "engineId": 10,
+      "label": "Ring modulation",
+      "citation": {
+        "label": "Curtis Roads, The Computer Music Tutorial (1996)",
+        "url": "https://mitpress.mit.edu/9780262680820/the-computer-music-tutorial/"
+      },
+      "sourceInput": false
+    },
+    {
+      "id": "fm",
+      "engineId": 11,
+      "label": "Frequency modulation (FM)",
+      "citation": {
+        "label": "Curtis Roads, The Computer Music Tutorial (1996)",
+        "url": "https://mitpress.mit.edu/9780262680820/the-computer-music-tutorial/"
+      },
+      "sourceInput": false
+    },
+    {
+      "id": "pm",
+      "engineId": 12,
+      "label": "Phase modulation (PM)",
+      "citation": {
+        "label": "Curtis Roads, The Computer Music Tutorial (1996)",
+        "url": "https://mitpress.mit.edu/9780262680820/the-computer-music-tutorial/"
+      },
+      "sourceInput": false
+    },
+    {
+      "id": "phase-distortion",
+      "engineId": 13,
+      "label": "Phase-distortion synthesis",
+      "citation": {
+        "label": "Curtis Roads, The Computer Music Tutorial (1996)",
+        "url": "https://mitpress.mit.edu/9780262680820/the-computer-music-tutorial/"
+      },
+      "sourceInput": false
+    },
+    {
+      "id": "waveshaping",
+      "engineId": 14,
+      "label": "Waveshaping",
+      "citation": {
+        "label": "Curtis Roads, The Computer Music Tutorial (1996)",
+        "url": "https://mitpress.mit.edu/9780262680820/the-computer-music-tutorial/"
+      },
+      "sourceInput": false
+    },
+    {
+      "id": "dsf",
+      "engineId": 15,
+      "label": "Discrete summation formulas (DSF)",
+      "citation": {
+        "label": "Curtis Roads, The Computer Music Tutorial (1996)",
+        "url": "https://mitpress.mit.edu/9780262680820/the-computer-music-tutorial/"
+      },
+      "sourceInput": false
+    },
+    {
+      "id": "physical",
+      "engineId": 16,
+      "label": "Physical modeling: mass–spring",
+      "citation": {
+        "label": "Curtis Roads, The Computer Music Tutorial (1996)",
+        "url": "https://mitpress.mit.edu/9780262680820/the-computer-music-tutorial/"
+      },
+      "sourceInput": false
+    },
+    {
+      "id": "modal",
+      "engineId": 17,
+      "label": "Modal synthesis",
+      "citation": {
+        "label": "Curtis Roads, The Computer Music Tutorial (1996)",
+        "url": "https://mitpress.mit.edu/9780262680820/the-computer-music-tutorial/"
+      },
+      "sourceInput": false
+    },
+    {
+      "id": "waveguide",
+      "engineId": 18,
+      "label": "Digital waveguide / nonlinear excitation",
+      "citation": {
+        "label": "Curtis Roads, The Computer Music Tutorial (1996)",
+        "url": "https://mitpress.mit.edu/9780262680820/the-computer-music-tutorial/"
+      },
+      "sourceInput": false
+    },
+    {
+      "id": "karplus-strong",
+      "engineId": 19,
+      "label": "Karplus–Strong synthesis",
+      "citation": {
+        "label": "Curtis Roads, The Computer Music Tutorial (1996)",
+        "url": "https://mitpress.mit.edu/9780262680820/the-computer-music-tutorial/"
+      },
+      "sourceInput": false
+    },
+    {
+      "id": "fof",
+      "engineId": 20,
+      "label": "FOF / CHANT formant synthesis",
+      "citation": {
+        "label": "Curtis Roads, The Computer Music Tutorial (1996)",
+        "url": "https://mitpress.mit.edu/9780262680820/the-computer-music-tutorial/"
+      },
+      "sourceInput": false
+    },
+    {
+      "id": "vosim",
+      "engineId": 21,
+      "label": "VOSIM",
+      "citation": {
+        "label": "Curtis Roads, The Computer Music Tutorial (1996)",
+        "url": "https://mitpress.mit.edu/9780262680820/the-computer-music-tutorial/"
+      },
+      "sourceInput": false
+    },
+    {
+      "id": "window-formant",
+      "engineId": 22,
+      "label": "Window-function formant synthesis",
+      "citation": {
+        "label": "Curtis Roads, The Computer Music Tutorial (1996)",
+        "url": "https://mitpress.mit.edu/9780262680820/the-computer-music-tutorial/"
+      },
+      "sourceInput": false
+    },
+    {
+      "id": "waveform-segment",
+      "engineId": 23,
+      "label": "Waveform-segment synthesis",
+      "citation": {
+        "label": "Curtis Roads, The Computer Music Tutorial (1996)",
+        "url": "https://mitpress.mit.edu/9780262680820/the-computer-music-tutorial/"
+      },
+      "sourceInput": false
+    },
+    {
+      "id": "graphic",
+      "engineId": 24,
+      "label": "Graphic waveform synthesis",
+      "citation": {
+        "label": "Curtis Roads, The Computer Music Tutorial (1996)",
+        "url": "https://mitpress.mit.edu/9780262680820/the-computer-music-tutorial/"
+      },
+      "sourceInput": false
+    },
+    {
+      "id": "noise-modulation",
+      "engineId": 25,
+      "label": "Noise modulation",
+      "citation": {
+        "label": "Curtis Roads, The Computer Music Tutorial (1996)",
+        "url": "https://mitpress.mit.edu/9780262680820/the-computer-music-tutorial/"
+      },
+      "sourceInput": false
+    },
+    {
+      "id": "stochastic",
+      "engineId": 26,
+      "label": "Dynamic stochastic synthesis",
+      "citation": {
+        "label": "Curtis Roads, The Computer Music Tutorial (1996)",
+        "url": "https://mitpress.mit.edu/9780262680820/the-computer-music-tutorial/"
+      },
+      "sourceInput": false
+    },
+    {
+      "id": "pulsar",
+      "engineId": 27,
+      "label": "Pulsar synthesis",
+      "citation": {
+        "label": "Curtis Roads, The Computer Music Tutorial (1996)",
+        "url": "https://mitpress.mit.edu/9780262680820/the-computer-music-tutorial/"
+      },
+      "sourceInput": false
+    },
+    {
+      "id": "phase-vocoder",
+      "engineId": 28,
+      "label": "Phase-vocoder analysis–resynthesis",
+      "citation": {
+        "label": "Curtis Roads, The Computer Music Tutorial (1996)",
+        "url": "https://mitpress.mit.edu/9780262680820/the-computer-music-tutorial/"
+      },
+      "sourceInput": true
+    },
+    {
+      "id": "scanned",
+      "engineId": 29,
+      "label": "Scanned synthesis",
+      "citation": {
+        "label": "Scanned synthesis: history and references",
+        "url": "https://en.wikipedia.org/wiki/Scanned_synthesis"
+      },
+      "sourceInput": false
+    },
+    {
+      "id": "corpus",
+      "engineId": 30,
+      "label": "Corpus-based concatenative synthesis",
+      "citation": {
+        "label": "Schwarz, Concatenative Sound Synthesis: The Early Years (2006)",
+        "url": "https://doi.org/10.1162/comj.2006.30.3.5"
+      },
+      "sourceInput": true
+    },
+    {
+      "id": "padsynth",
+      "engineId": 31,
+      "label": "PADsynth",
+      "citation": {
+        "label": "Paul Nasca, PADsynth algorithm (2005)",
+        "url": "https://zynaddsubfx.sourceforge.io/doc/PADsynth/PADsynth.htm"
+      },
+      "sourceInput": false
+    },
+    {
+      "id": "vector-phase",
+      "engineId": 32,
+      "label": "Vector phaseshaping",
+      "citation": {
+        "label": "Kleimola et al., Vector Phaseshaping Synthesis (2011)",
+        "url": "https://www.dafx.de/paper-archive/2011/Papers/55_e.pdf"
+      },
+      "sourceInput": false
+    },
+    {
+      "id": "neural-ar",
+      "engineId": 33,
+      "label": "Neural autoregressive synthesis",
+      "citation": {
+        "label": "van den Oord et al., WaveNet (2016): family reference",
+        "url": "https://arxiv.org/abs/1609.03499"
+      },
+      "sourceInput": false
+    },
+    {
+      "id": "neural-latent",
+      "engineId": 34,
+      "label": "Neural latent-space synthesis",
+      "citation": {
+        "label": "Caillon & Esling, RAVE (2021): family reference",
+        "url": "https://arxiv.org/abs/2111.05011"
+      },
+      "sourceInput": false
+    },
+    {
+      "id": "ddsp",
+      "engineId": 35,
+      "label": "Differentiable DSP (DDSP)",
+      "citation": {
+        "label": "Engel et al., DDSP (2020): family reference",
+        "url": "https://arxiv.org/abs/2001.04643"
+      },
+      "sourceInput": false
+    },
+    {
+      "id": "diffusion",
+      "engineId": 36,
+      "label": "Diffusion-based synthesis",
+      "citation": {
+        "label": "Kong et al., DiffWave (2020): family reference",
+        "url": "https://arxiv.org/abs/2009.09761"
+      },
+      "sourceInput": false
+    },
+    {
+      "id": "antialias-oscillator",
+      "engineId": 37,
+      "label": "Alias-reduced oscillators",
+      "citation": {
+        "label": "Välimäki et al., Alias-Suppressed Oscillators Based on Differentiated Polynomial Waveforms (2010)",
+        "url": "https://doi.org/10.1109/TASL.2009.2026507"
+      },
+      "sourceInput": false
+    },
+    {
+      "id": "antiderivative-waveshaping",
+      "engineId": 38,
+      "label": "Antiderivative antialiasing (ADAA)",
+      "citation": {
+        "label": "Parker, Zavalishin & Le Bivic, Reducing the Aliasing of Nonlinear Waveshaping Using Continuous-Time Convolution (2016)",
+        "url": "https://www.dafx.de/paper-archive/2016/dafxpapers/20-DAFx-16_paper_41-PN.pdf"
+      },
+      "sourceInput": false
+    },
+    {
+      "id": "hard-sync",
+      "engineId": 39,
+      "label": "Hard-sync oscillator",
+      "citation": {
+        "label": "Eli Brandt, Hard Sync Without Aliasing (2001)",
+        "url": "https://www.cs.cmu.edu/~eli/papers/icmc01-hardsync.pdf"
+      },
+      "sourceInput": false
+    },
+    {
+      "id": "single-sideband",
+      "engineId": 40,
+      "label": "Single-sideband modulation / frequency shifting",
+      "citation": {
+        "label": "Miller Puckette, The Theory and Technique of Electronic Music: frequency shifting",
+        "url": "https://msp.ucsd.edu/techniques/latest/book.pdf"
+      },
+      "sourceInput": false
+    },
+    {
+      "id": "wavelet",
+      "engineId": 41,
+      "label": "Multiscale wavelet synthesis",
+      "citation": {
+        "label": "Mallat, A theory for multiresolution signal decomposition: the wavelet representation (1989)",
+        "url": "https://doi.org/10.1109/34.192463"
+      },
+      "sourceInput": false
+    },
+    {
+      "id": "colored-noise",
+      "engineId": 42,
+      "label": "Colored / 1/f noise synthesis",
+      "citation": {
+        "label": "Voss & Clarke, 1/f noise in music (1978)",
+        "url": "https://doi.org/10.1121/1.381721"
+      },
+      "sourceInput": false
+    },
+    {
+      "id": "particle-shaker",
+      "engineId": 43,
+      "label": "Stochastic particle shaker",
+      "citation": {
+        "label": "Cook, Physically Informed Sonic Modeling (PhISM): Synthesis of Percussive Sounds (1997)",
+        "url": "https://doi.org/10.2307/3681012"
+      },
+      "sourceInput": false
+    },
+    {
+      "id": "fdtd-membrane",
+      "engineId": 44,
+      "label": "Two-dimensional finite-difference membrane",
+      "citation": {
+        "label": "Bilbao, Numerical Sound Synthesis (2009)",
+        "url": "https://doi.org/10.1002/9780470749012"
+      },
+      "sourceInput": false
+    },
+    {
+      "id": "fdn-resonator",
+      "engineId": 45,
+      "label": "Feedback delay network resonator",
+      "citation": {
+        "label": "Julius O. Smith, Feedback Delay Networks (FDN)",
+        "url": "https://ccrma.stanford.edu/~jos/pasp/Feedback_Delay_Networks_FDN.html"
+      },
+      "sourceInput": false
+    },
+    {
+      "id": "rossler",
+      "engineId": 46,
+      "label": "Rössler chaotic synthesis",
+      "citation": {
+        "label": "Rössler, An equation for continuous chaos (1976)",
+        "url": "https://doi.org/10.1016/0375-9601(76)90101-8"
+      },
+      "sourceInput": false
+    }
+  ],
+  "plannedHistoricalIds": [
+    47,
+    48,
+    49,
+    50,
+    51,
+    52
+  ],
+  "sources": {
+    "klatt": {
+      "title": "Klatt, Software for a cascade/parallel formant synthesizer (1980)",
+      "url": "https://doi.org/10.1121/1.383940",
+      "verification": "Original-paper metadata verified; full paper not retrieved."
+    },
+    "klattgrid": {
+      "title": "Praat KlattGrid manual",
+      "url": "https://www.fon.hum.uva.nl/praat/manual/KlattGrid.html",
+      "verification": "Institutional implementation documentation retrieved and read; explicitly a later Klatt1990 superset."
+    },
+    "kelly": {
+      "title": "Smith, Kelly–Lochbaum scattering junctions",
+      "url": "https://ccrma.stanford.edu/~jos/pasp/Kelly_Lochbaum_Scattering_Junctions.html",
+      "verification": "Author technical chapter retrieved in previous research."
+    },
+    "psg": {
+      "title": "NESdev APU Pulse",
+      "url": "https://www.nesdev.org/wiki/APU_Pulse",
+      "verification": "Maintained hardware reverse-engineering reference retrieved and read."
+    },
+    "lfsr": {
+      "title": "NESdev APU Noise",
+      "url": "https://www.nesdev.org/wiki/APU_Noise",
+      "verification": "Maintained hardware reference retrieved and read; specifies15-bit XOR taps and93/31-state short modes."
+    },
+    "dpcm": {
+      "title": "NESdev APU DMC",
+      "url": "https://www.nesdev.org/wiki/APU_DMC",
+      "verification": "Maintained hardware reference retrieved and read; specifies7-bit accumulator and ±2 steps."
+    },
+    "ay": {
+      "title": "General Instrument AY-3-8910/12/13 datasheet",
+      "url": "https://map.grauw.nl/resources/sound/generalinstrument_ay-3-8910.pdf",
+      "verification": "Original manufacturer scan visually read in previous research."
+    },
+    "gb": {
+      "title": "Pan Docs, Audio registers",
+      "url": "https://gbdev.io/pandocs/Audio_Registers.html",
+      "verification": "Maintained hardware reference retrieved in previous research."
+    },
+    "sid": {
+      "title": "MOS6581 original datasheet archive",
+      "url": "https://www.zimmers.net/anonftp/pub/cbm/documents/chipdata/6581.zip",
+      "verification": "Original manufacturer scans visually read in previous research."
+    },
+    "bytebeat": {
+      "title": "Viznut, Algorithmic symphonies from one line of code (2011)",
+      "url": "https://countercomplex.blogspot.com/2011/10/algorithmic-symphonies-from-one-line-of.html",
+      "verification": "Primary experimenter account retrieved and read."
+    },
+    "chebyshev": {
+      "title": "Csound GEN13",
+      "url": "https://csound.com/docs/manual/GEN13.html",
+      "verification": "Implementation manual retrieved and read; documents amplitude-dependent Chebyshev relationship."
+    },
+    "ks": {
+      "title": "Karplus & Strong, Digital Synthesis of Plucked-String and Drum Timbres (1983)",
+      "url": "https://users.soe.ucsc.edu/~karplus/papers/digitar.pdf",
+      "verification": "Original paper retrieved; random-sign drum variant described in original paper."
+    },
+    "paf": {
+      "title": "Puckette, Formant-based audio synthesis using nonlinear distortion (1995)",
+      "url": "https://msp.ucsd.edu/Publications/jaes95.ps",
+      "verification": "Author-hosted original-paper reprint retrieved; previous research read it."
+    },
+    "wishart": {
+      "title": "Wishart, Audible Design (1994)",
+      "url": "https://www.trevorwishart.co.uk/AUDIBLE_DESIGN.pdf",
+      "verification": "Author-hosted original book; title/year and waveset index previously visually verified."
+    },
+    "wavesets": {
+      "title": "CDP waveset distortion manual",
+      "url": "https://www.composersdesktop.com/docs/html/cdistort.htm",
+      "verification": "Maintainer algorithm documentation previously retrieved and read."
+    },
+    "maps": {
+      "title": "Truax author bibliography,1990 synthesis study",
+      "url": "https://www.sfu.ca/~truax/cvpub.html",
+      "verification": "Author bibliography and primary Choi1994 repository abstract previously checked; full1990 algorithm paper not retrieved."
+    },
+    "lasy": {
+      "title": "Chareyron, Digital Synthesis of Self-modifying Waveforms by Means of Linear Automata (1990)",
+      "url": "https://doi.org/10.2307/3680789",
+      "verification": "Original-paper metadata and author abstract verified; full paper inaccessible."
+    },
+    "sms": {
+      "title": "Serra & Smith, Spectral Modeling Synthesis (1990)",
+      "url": "https://doi.org/10.2307/3680788",
+      "verification": "Original-paper metadata verified; coauthor technical chapter retrieved."
+    },
+    "smsbook": {
+      "title": "Smith, Spectral Modeling Synthesis",
+      "url": "https://www.dsprelated.com/freebooks/sasp/Spectral_Modeling_Synthesis.html",
+      "verification": "Coauthor technical chapter retrieved."
+    },
+    "pca": {
+      "title": "Laughlin, Truax & Funt, Synthesis of Acoustic Timbres Using Principal Component Analysis (1990)",
+      "url": "https://www.cs.sfu.ca/~funt/LaughlinTruaxFunt1990.pdf",
+      "verification": "Original paper retrieved and read in previous research."
+    },
+    "psola": {
+      "title": "Charpentier & Moulines, Pitch-synchronous waveform processing techniques (1989)",
+      "url": "https://www.isca-archive.org/eurospeech_1989/charpentier89_eurospeech.pdf",
+      "verification": "Original conference paper retrieved; previous research read it."
+    },
+    "puckette": {
+      "title": "Puckette, The Theory and Technique of Electronic Music",
+      "url": "https://msp.ucsd.edu/techniques/latest/book.pdf",
+      "verification": "Author textbook retrieved; chapters on filters, delays, pitch shifting and Fourier timbre stamping checked."
+    },
+    "rbj": {
+      "title": "Bristow-Johnson, Audio EQ Cookbook / W3C adaptation",
+      "url": "https://www.w3.org/TR/audio-eq-cookbook/",
+      "verification": "Author formulas adapted with permission, retrieved and read; not an invention-date source."
+    },
+    "schroeder": {
+      "title": "Smith, Schroeder reverberators",
+      "url": "https://www.dsprelated.com/freebooks/pasp/Schroeder_Reverberators.html",
+      "verification": "Author technical chapter retrieved; distinguishes allpass diffusors and comb reverberators."
+    },
+    "fdn": {
+      "title": "Smith, Feedback delay networks",
+      "url": "https://www.dsprelated.com/freebooks/pasp/Feedback_Delay_Networks_FDN.html",
+      "verification": "Author technical chapter retrieved."
+    },
+    "convolution": {
+      "title": "Smith, Overlap-add STFT processing",
+      "url": "https://ccrma.stanford.edu/~jos/sasp/Overlap_Add_OLA_STFT_Processing.html",
+      "verification": "Author technical chapter retrieved."
+    },
+    "phaser": {
+      "title": "Smith, Phasing",
+      "url": "https://www.dsprelated.com/freebooks/pasp/Phasing.html",
+      "verification": "Author technical chapter retrieved."
+    },
+    "flanger": {
+      "title": "Smith, Flanging",
+      "url": "https://www.dsprelated.com/freebooks/pasp/Flanging.html",
+      "verification": "Author technical chapter retrieved."
+    },
+    "fractional": {
+      "title": "Smith, Fractional delay filtering",
+      "url": "https://www.dsprelated.com/freebooks/pasp/Fractional_Delay_Filtering_Linear.html",
+      "verification": "Author technical chapter retrieved."
+    },
+    "bowed": {
+      "title": "Smith, Bowed strings",
+      "url": "https://www.dsprelated.com/freebooks/pasp/Bowed_Strings.html",
+      "verification": "Author physical-model chapter retrieved."
+    },
+    "wdf": {
+      "title": "Fettweis, Wave Digital Filters: Theory and Practice (1986)",
+      "url": "https://doi.org/10.1109/PROC.1986.13458",
+      "verification": "Original-paper metadata verified; author wave-digital circuit chapter retrieved separately."
+    },
+    "dudley": {
+      "title": "Dudley, Remaking Speech (1939)",
+      "url": "https://doi.org/10.1121/1.1916020",
+      "verification": "Exact original JASA article metadata verified; full paper not retrieved. Do not confuse the July abstract DOI with this October article."
+    },
+    "compressor": {
+      "title": "Giannoulis, Massberg & Reiss, Digital Dynamic Range Compressor Design—A Tutorial and Analysis, JAES60(6),399–408 (2012)",
+      "url": null,
+      "verification": "Bibliographic primary-paper pointer; original host moved and attempted PDF URLs failed. Do not cite a redirected home page as retrieved paper text."
+    },
+    "pwm": {
+      "title": "Texas Instruments SPRAA88A: Using PWM Output as a DAC",
+      "url": "https://www.ti.com/lit/an/spraa88a/spraa88a.pdf",
+      "verification": "Original manufacturer application note previously retrieved and read."
+    },
+    "pdm": {
+      "title": "Adafruit PDM microphone guide",
+      "url": "https://learn.adafruit.com/adafruit-pdm-microphone-breakout/overview",
+      "verification": "Vendor explanation retrieved in previous research; modern conversion reference, not an old-chip attribution."
+    },
+    "upic": {
+      "title": "Centre Iannis Xenakis, UPIC",
+      "url": "https://www.centre-iannis-xenakis.org/cix_upic_presentation",
+      "verification": "Institutional archive checked in previous research."
+    },
+    "wavegan": {
+      "title": "Donahue et al., Adversarial Audio Synthesis (2018)",
+      "url": "https://arxiv.org/abs/1802.04208",
+      "verification": "Primary-paper pointer; not newly retrieved in this pass."
+    },
+    "waveglow": {
+      "title": "Prenger et al., WaveGlow (2018)",
+      "url": "https://arxiv.org/abs/1811.00002",
+      "verification": "Primary-paper pointer; not newly retrieved in this pass."
+    },
+    "musicgen": {
+      "title": "Copet et al., Simple and Controllable Music Generation (2023)",
+      "url": "https://arxiv.org/abs/2306.05284",
+      "verification": "Primary-paper pointer; not newly retrieved in this pass."
+    }
+  },
+  "entries": [
+    {
+      "id": "formant-voice",
+      "label": "Cascade/parallel formant voice",
+      "category": "synthesis",
+      "status": "implementation-in-progress",
+      "priority": "P0",
+      "implementationScope": "Four oral resonators, glottal and noise sources;16controls.",
+      "currentRelation": "LPC8 learns coefficients; FOF20 and VOSIM21 use different generators.",
+      "mechanism": "Prescribe resonance frequencies/bandwidths and compare multiplied versus summed filter responses.",
+      "touchstones": [
+        {
+          "kind": "classic",
+          "description": "Robotic Ah/Ee/Oo and a vibrato singing vowel."
+        },
+        {
+          "kind": "controlled",
+          "description": "Same F0/formants; only change cascade/parallel topology."
+        }
+      ],
+      "sources": [
+        "klatt",
+        "klattgrid"
+      ]
+    },
+    {
+      "id": "psg-pulse",
+      "label": "Integer-divider PSG pulse",
+      "category": "synthesis",
+      "status": "implementation-in-progress",
+      "priority": "P0",
+      "implementationScope": "Integer timer and8-step duty sequencer; optional clocked amplitude staircase.",
+      "currentRelation": "Pulse waveforms exist; clock-divider pitch quantization is absent.",
+      "mechanism": "Hardware-rate clock and integer counter determine attainable pitch and duty pattern.",
+      "touchstones": [
+        {
+          "kind": "classic",
+          "description": "Quarter-duty chip lead."
+        },
+        {
+          "kind": "controlled",
+          "description": "Requested A440 swept through integer register steps; compare actual divider frequency."
+        }
+      ],
+      "sources": [
+        "psg",
+        "ay"
+      ]
+    },
+    {
+      "id": "lfsr-noise",
+      "label": "Clocked LFSR noise",
+      "category": "synthesis",
+      "status": "implementation-in-progress",
+      "priority": "P0",
+      "implementationScope": "15-bit long/short and maximal7-bit recurrences; fixed storage.",
+      "currentRelation": "Binary random noise42 is not an LFSR.",
+      "mechanism": "Clock a deterministic binary recurrence and select output state bits.",
+      "touchstones": [
+        {
+          "kind": "classic",
+          "description": "Short-period metallic snare/hat character."
+        },
+        {
+          "kind": "controlled",
+          "description": "Same seed reproduces bits;7-bit recurrence repeats in127states."
+        }
+      ],
+      "sources": [
+        "lfsr",
+        "gb"
+      ]
+    },
+    {
+      "id": "dpcm",
+      "label": "One-bit delta/DPCM playback",
+      "category": "synthesis-and-encoding",
+      "status": "implementation-in-progress",
+      "priority": "P0",
+      "implementationScope": "Bounded generated bitstream and7-bit accumulator; no ROM assets.",
+      "currentRelation": "Sampling0 and quantization do not decode differential bits.",
+      "mechanism": "Each bit requests an upward/downward accumulator step; hold and filter reconstructed codes.",
+      "touchstones": [
+        {
+          "kind": "classic",
+          "description": "Crunchy pulse/noise-burst playback."
+        },
+        {
+          "kind": "controlled",
+          "description": "Sine slope overload at step2 versus matched larger step; inspect ±step differences."
+        }
+      ],
+      "sources": [
+        "dpcm"
+      ]
+    },
+    {
+      "id": "bytebeat",
+      "label": "Bitwise counter synthesis",
+      "category": "synthesis",
+      "status": "implementation-in-progress",
+      "priority": "P0",
+      "implementationScope": "Curated uint32 formulas only; explicit wrap/mask/shift semantics.",
+      "currentRelation": "No existing counter-expression source.",
+      "mechanism": "Map integer time expressions to clocked PCM codes.",
+      "touchstones": [
+        {
+          "kind": "classic",
+          "description": "One-line algorithmic chiptune texture."
+        },
+        {
+          "kind": "controlled",
+          "description": "Formula t at8000updates/s and8bits yields31.25Hz."
+        }
+      ],
+      "sources": [
+        "bytebeat"
+      ]
+    },
+    {
+      "id": "chebyshev",
+      "label": "Chebyshev coefficient-bank waveshaping",
+      "category": "synthesis-subfamily",
+      "status": "implementation-in-progress",
+      "priority": "P0",
+      "implementationScope": "Eight polynomial coefficients and bounded input index.",
+      "currentRelation": "Generic waveshaping14 exists; explicit harmonic-polynomial bank is missing.",
+      "mechanism": "Tn(cosθ)=cos(nθ) permits specified harmonics at unit input amplitude.",
+      "touchstones": [
+        {
+          "kind": "classic",
+          "description": "Polynomial brass/index-decay pluck."
+        },
+        {
+          "kind": "controlled",
+          "description": "Only T5,unit cosine220Hz,bias0 gives1100Hz; lower input index introduces lower harmonics."
+        }
+      ],
+      "sources": [
+        "chebyshev",
+        "puckette"
+      ]
+    },
+    {
+      "id": "ks-drum",
+      "label": "Probabilistic Karplus–Strong drum",
+      "category": "synthesis-subfamily",
+      "status": "missing",
+      "priority": "P1",
+      "implementationScope": "One delay line, loss filter and random feedback sign.",
+      "currentRelation": "KS19 has deterministic polarity; the original random-sign recurrence is distinct.",
+      "mechanism": "Randomly invert individual averaged feedback updates with controllable blend probability.",
+      "touchstones": [
+        {
+          "kind": "classic",
+          "description": "Noisy pitched membrane-like KS drum."
+        },
+        {
+          "kind": "controlled",
+          "description": "Probability endpoints approach deterministic string/sign-inverted cases; half blend decorrelates the loop."
+        }
+      ],
+      "sources": [
+        "ks"
+      ]
+    },
+    {
+      "id": "iterated-map",
+      "label": "Direct discrete-map synthesis",
+      "category": "synthesis",
+      "status": "missing",
+      "priority": "P1",
+      "implementationScope": "Bounded logistic/tent map; separately validated Hénon option.",
+      "currentRelation": "Rössler46 integrates a continuous ODE.",
+      "mechanism": "An iterated recurrence directly evolves audio state at a selected clock.",
+      "touchstones": [
+        {
+          "kind": "classic",
+          "description": "Period-doubling buzz into irregular noise."
+        },
+        {
+          "kind": "controlled",
+          "description": "Logistic map parameter sweep shows fixed point,period2 and chaotic windows; show state plot."
+        }
+      ],
+      "sources": [
+        "maps"
+      ]
+    },
+    {
+      "id": "tube-tract",
+      "label": "Kelly–Lochbaum tube tract",
+      "category": "synthesis",
+      "status": "missing",
+      "priority": "P1",
+      "implementationScope": "12–24positive-area tubes; loss, glottal boundary and lip radiation.",
+      "currentRelation": "Waveguide18 is an instrumental exciter/delay,not a tract area model.",
+      "mechanism": "Traveling waves scatter at adjacent tube areas/impedances.",
+      "touchstones": [
+        {
+          "kind": "classic",
+          "description": "An educational early-computer-style sung vowel gesture."
+        },
+        {
+          "kind": "controlled",
+          "description": "Keep F0 fixed while changing area function; lengthening tract lowers resonances."
+        }
+      ],
+      "sources": [
+        "kelly"
+      ]
+    },
+    {
+      "id": "wavesets",
+      "label": "Waveset resynthesis",
+      "category": "resynthesis",
+      "status": "missing",
+      "priority": "P1",
+      "implementationScope": "Offline zero-crossing segmentation; bounded cycle buffer and playback.",
+      "currentRelation": "Waveform-segment23 constructs a waveform; it does not extract source pseudo-cycles.",
+      "mechanism": "Repeat,reorder,reverse or substitute zero-crossing-delimited source segments.",
+      "touchstones": [
+        {
+          "kind": "classic",
+          "description": "Wishart/CDP-style roughened vocal or percussive source."
+        },
+        {
+          "kind": "controlled",
+          "description": "Single-sine input and repeat2; then irregular speech-like input to reveal that wavesets are not guaranteed pitch periods."
+        }
+      ],
+      "sources": [
+        "wishart",
+        "wavesets"
+      ]
+    },
+    {
+      "id": "paf",
+      "label": "Phase-aligned formant synthesis",
+      "category": "synthesis-subfamily",
+      "status": "missing",
+      "priority": "P2",
+      "implementationScope": "Follow original phase-alignment construction; requires algorithm-specific verification.",
+      "currentRelation": "Window-formant22 and FOF20 are related but are not automatically PAF.",
+      "mechanism": "A nonlinear formant construction aligns carrier phases as the center frequency changes.",
+      "touchstones": [
+        {
+          "kind": "classic",
+          "description": "Clear moving formant whistle."
+        },
+        {
+          "kind": "controlled",
+          "description": "Sweep formant center through harmonic boundaries and inspect continuity."
+        }
+      ],
+      "sources": [
+        "paf"
+      ]
+    },
+    {
+      "id": "psola",
+      "label": "Pitch-synchronous overlap-add",
+      "category": "resynthesis",
+      "status": "missing",
+      "priority": "P2",
+      "implementationScope": "Pitch marks,period-relative windows,independent synthesis/source clocks.",
+      "currentRelation": "Granular6 does not detect pitch epochs.",
+      "mechanism": "Reassemble aligned voiced periods at independently chosen times.",
+      "touchstones": [
+        {
+          "kind": "classic",
+          "description": "Vowel pitch shift with duration held fixed."
+        },
+        {
+          "kind": "controlled",
+          "description": "Periodic source marks reconstructed at1× must null/near-null after alignment; change pitch without changing source traversal."
+        }
+      ],
+      "sources": [
+        "psola"
+      ]
+    },
+    {
+      "id": "sms",
+      "label": "Sinusoidal-plus-residual spectral modeling",
+      "category": "resynthesis",
+      "status": "missing",
+      "priority": "P2",
+      "implementationScope": "Tracked partial analysis plus analyzed stochastic residual; source preparation needed.",
+      "currentRelation": "Additive2 and phase-vocoder28 do not implement this decomposition.",
+      "mechanism": "Track coherent sinusoidal components and model the remaining spectral noise.",
+      "touchstones": [
+        {
+          "kind": "classic",
+          "description": "Bow/noise balance of a newly generated or uploaded sustained source."
+        },
+        {
+          "kind": "controlled",
+          "description": "Recombine sine and residual branches; mute one branch at a time and inspect reconstruction error."
+        }
+      ],
+      "sources": [
+        "sms",
+        "smsbook"
+      ]
+    },
+    {
+      "id": "pca-envelopes",
+      "label": "PCA harmonic-envelope synthesis",
+      "category": "learned-synthesis",
+      "status": "missing",
+      "priority": "P2",
+      "implementationScope": "Analyze a documented small corpus,fit a linear basis,additive reconstruction.",
+      "currentRelation": "Neural latent34 is nonlinear; no learned linear envelope basis is exposed.",
+      "mechanism": "Principal components span harmonic amplitude trajectories.",
+      "touchstones": [
+        {
+          "kind": "classic",
+          "description": "Interpolate spectral attacks through principal-component coordinates."
+        },
+        {
+          "kind": "controlled",
+          "description": "Retained component count versus reconstruction error; enforce documented nonnegative amplitude handling."
+        }
+      ],
+      "sources": [
+        "pca"
+      ]
+    },
+    {
+      "id": "automaton-waveform",
+      "label": "Cellular-automaton waveform evolution",
+      "category": "synthesis",
+      "status": "missing",
+      "priority": "P2",
+      "implementationScope": "Generic documented rule possible now; exact LASy waits for original rule recovery.",
+      "currentRelation": "Scanned29 uses a mechanical state; note-generating automata are sequencers.",
+      "mechanism": "Evolve cell values and read the evolving row as waveform data.",
+      "touchstones": [
+        {
+          "kind": "classic",
+          "description": "Rule-dependent digital crackle or evolving cyclic texture."
+        },
+        {
+          "kind": "controlled",
+          "description": "Freeze evolution and scan one row; then separate evolution clock from readout clock."
+        }
+      ],
+      "sources": [
+        "lasy"
+      ]
+    },
+    {
+      "id": "bowed-string",
+      "label": "Nonlinear bowed-string interaction",
+      "category": "physical-model-subfamily",
+      "status": "missing",
+      "priority": "P2",
+      "implementationScope": "Two traveling-wave delay paths and validated friction junction.",
+      "currentRelation": "Physical16 and reed waveguide18 do not establish a bow-friction model.",
+      "mechanism": "Relative bow/string velocity controls stick-slip force and injected traveling waves.",
+      "touchstones": [
+        {
+          "kind": "classic",
+          "description": "Sustained bowed tone across bow-pressure regimes."
+        },
+        {
+          "kind": "controlled",
+          "description": "Set bow velocity0; inspect passive decay; move bow point to change mode excitation."
+        }
+      ],
+      "sources": [
+        "bowed"
+      ]
+    },
+    {
+      "id": "wdf-circuit",
+      "label": "Reactive wave-digital circuit model",
+      "category": "physical-model-and-processing",
+      "status": "missing",
+      "priority": "P2",
+      "implementationScope": "One documented RC/diode or resonant circuit; real reactive state and scattering.",
+      "currentRelation": "Memoryless distortion and generic SVF are not a wave-digital circuit implementation.",
+      "mechanism": "Transform circuit relations into wave variables and interconnect passive scattering adaptors.",
+      "touchstones": [
+        {
+          "kind": "classic",
+          "description": "Resonant electronic tone or circuit-shaped input."
+        },
+        {
+          "kind": "controlled",
+          "description": "Compare small-signal frequency response with the circuit transfer function; inspect energy decay."
+        }
+      ],
+      "sources": [
+        "wdf"
+      ]
+    },
+    {
+      "id": "gan-audio",
+      "label": "Adversarial waveform generator",
+      "category": "learned-synthesis",
+      "status": "future-trained-model",
+      "priority": "P3",
+      "implementationScope": "Actual generator training/weights,model provenance and evaluation required.",
+      "currentRelation": "Current neuralAR/latent/diffusion teaching models do not implement GAN training.",
+      "mechanism": "Adversarially train a generator distribution for waveform examples.",
+      "touchstones": [
+        {
+          "kind": "classic",
+          "description": "Latent interpolation of a documented generated sound dataset."
+        },
+        {
+          "kind": "controlled",
+          "description": "Hold latent fixed for reproducibility; inspect held-out quality and latent sensitivity."
+        }
+      ],
+      "sources": [
+        "wavegan"
+      ]
+    },
+    {
+      "id": "flow-audio",
+      "label": "Invertible flow audio generation",
+      "category": "learned-synthesis",
+      "status": "future-trained-model",
+      "priority": "P3",
+      "implementationScope": "Actual invertible model and training artifact required.",
+      "currentRelation": "Diffusion36 and deterministic decoder34 are different model structures.",
+      "mechanism": "Map a simple distribution through learned invertible transformations.",
+      "touchstones": [
+        {
+          "kind": "classic",
+          "description": "Conditioned synthetic vowel/timbre samples."
+        },
+        {
+          "kind": "controlled",
+          "description": "Round-trip inversion and likelihood/conditioning checks for the actual model."
+        }
+      ],
+      "sources": [
+        "waveglow"
+      ]
+    },
+    {
+      "id": "codec-token-generation",
+      "label": "Neural codec-token generation",
+      "category": "learned-synthesis-architecture",
+      "status": "future-trained-model",
+      "priority": "P3",
+      "implementationScope": "Codec encoder/decoder,sequence model and documented data/weights.",
+      "currentRelation": "A compact periodic-frame model is not a full audio codec or music generator.",
+      "mechanism": "Generate sequences of learned audio-codec tokens then decode them.",
+      "touchstones": [
+        {
+          "kind": "classic",
+          "description": "Short controlled texture continuations."
+        },
+        {
+          "kind": "controlled",
+          "description": "Separate codec reconstruction loss from token-model generation behavior."
+        }
+      ],
+      "sources": [
+        "musicgen"
+      ]
+    },
+    {
+      "id": "biquad-eq",
+      "label": "Biquad EQ family",
+      "category": "processing",
+      "status": "input-processing-missing",
+      "priority": "P0",
+      "implementationScope": "One or several stable second-order sections.",
+      "currentRelation": "Subtractive7 embeds a filter; no independent input EQ laboratory.",
+      "mechanism": "Low/high-pass,band-pass,notch,peak and shelf transfer functions.",
+      "touchstones": [
+        {
+          "kind": "classic",
+          "description": "Resonant synth sweep and telephone-band voice."
+        },
+        {
+          "kind": "controlled",
+          "description": "Impulse/swept sine shows response; unity peaking gain must pass unchanged."
+        }
+      ],
+      "sources": [
+        "rbj",
+        "puckette"
+      ]
+    },
+    {
+      "id": "state-variable-filter",
+      "label": "State-variable filter",
+      "category": "processing",
+      "status": "input-processing-missing",
+      "priority": "P0",
+      "implementationScope": "Stable integrator topology; explicit outputs and resonance bounds.",
+      "currentRelation": "A source-filter patch is not a general input processor.",
+      "mechanism": "Coupled integrator states produce simultaneous LP/BP/HP outputs.",
+      "touchstones": [
+        {
+          "kind": "classic",
+          "description": "Resonant sweep on a harmonically rich source."
+        },
+        {
+          "kind": "controlled",
+          "description": "Compare simultaneous outputs and measured resonance; define behavior near Nyquist."
+        }
+      ],
+      "sources": [
+        "puckette"
+      ]
+    },
+    {
+      "id": "fir-filter",
+      "label": "FIR filtering",
+      "category": "processing",
+      "status": "input-processing-missing",
+      "priority": "P1",
+      "implementationScope": "Fixed designed taps; direct short convolution or prepared partitioned FFT.",
+      "currentRelation": "No arbitrary finite impulse-response processor.",
+      "mechanism": "Convolve with a finite coefficient kernel.",
+      "touchstones": [
+        {
+          "kind": "classic",
+          "description": "Linear-phase low-pass or comb-shaped coloration."
+        },
+        {
+          "kind": "controlled",
+          "description": "Impulse response equals taps; symmetric taps yield constant group delay in passband."
+        }
+      ],
+      "sources": [
+        "convolution",
+        "puckette"
+      ]
+    },
+    {
+      "id": "allpass-filter",
+      "label": "Allpass phase rotation",
+      "category": "processing",
+      "status": "input-processing-missing",
+      "priority": "P0",
+      "implementationScope": "First/second-order stable allpass.",
+      "currentRelation": "Dispersion appears inside sources; no isolated input allpass lesson.",
+      "mechanism": "Alter phase/group delay while preserving magnitude response.",
+      "touchstones": [
+        {
+          "kind": "classic",
+          "description": "Transient smearing and dry/wet phase coloration."
+        },
+        {
+          "kind": "controlled",
+          "description": "Wet-only swept sine retains magnitude; add dry signal to reveal notches."
+        }
+      ],
+      "sources": [
+        "phaser",
+        "puckette"
+      ]
+    },
+    {
+      "id": "comb-filter",
+      "label": "Feedforward/feedback comb",
+      "category": "processing",
+      "status": "input-processing-missing",
+      "priority": "P0",
+      "implementationScope": "One circular delay with bounded feedback.",
+      "currentRelation": "KS19 and FDN45 use delay feedback internally.",
+      "mechanism": "Add a delayed copy or recirculate it to create regular notches/peaks.",
+      "touchstones": [
+        {
+          "kind": "classic",
+          "description": "Metallic comb resonance."
+        },
+        {
+          "kind": "controlled",
+          "description": "Impulse train spacing equals delay; feedforward notches are equally spaced in frequency."
+        }
+      ],
+      "sources": [
+        "puckette"
+      ]
+    },
+    {
+      "id": "crossover",
+      "label": "Multiband crossover",
+      "category": "processing",
+      "status": "input-processing-missing",
+      "priority": "P1",
+      "implementationScope": "Documented complementary low/high split; phase-aware recombination.",
+      "currentRelation": "No independent split/recombine processor.",
+      "mechanism": "Partition frequency bands for separate downstream operations.",
+      "touchstones": [
+        {
+          "kind": "classic",
+          "description": "Split bass warmth from bright transient processing."
+        },
+        {
+          "kind": "controlled",
+          "description": "Unity band gains recombine to the specified flat/aligned response."
+        }
+      ],
+      "sources": [
+        "rbj"
+      ]
+    },
+    {
+      "id": "delay-echo",
+      "label": "Delay/echo and multitap",
+      "category": "processing",
+      "status": "input-processing-missing",
+      "priority": "P0",
+      "implementationScope": "Circular buffer,integer/fractional reads,bounded feedback.",
+      "currentRelation": "Current FDN is a struck source,not a live echo.",
+      "mechanism": "Replay input after chosen times with feedback and wet/dry mixing.",
+      "touchstones": [
+        {
+          "kind": "classic",
+          "description": "Slapback and dotted rhythmic echo."
+        },
+        {
+          "kind": "controlled",
+          "description": "Single impulse exposes exact delay positions and exponential feedback decay."
+        }
+      ],
+      "sources": [
+        "puckette",
+        "fractional"
+      ]
+    },
+    {
+      "id": "flanger",
+      "label": "Flanger",
+      "category": "processing-architecture",
+      "status": "input-processing-missing",
+      "priority": "P0",
+      "implementationScope": "Short modulated delay mixed with dry input; optional feedback.",
+      "currentRelation": "A particular modulated-delay routing,not a novel source family.",
+      "mechanism": "Moving delay creates moving comb notches.",
+      "touchstones": [
+        {
+          "kind": "classic",
+          "description": "Jet-like sweep across broadband sound."
+        },
+        {
+          "kind": "controlled",
+          "description": "Stop LFO; notch spacing follows inverse delay."
+        }
+      ],
+      "sources": [
+        "flanger"
+      ]
+    },
+    {
+      "id": "chorus",
+      "label": "Chorus / ensemble",
+      "category": "processing-architecture",
+      "status": "input-processing-missing",
+      "priority": "P0",
+      "implementationScope": "One or more modulated fractional delays with longer base delay.",
+      "currentRelation": "Related to vibrato/flanging but differs in routing and delay scale.",
+      "mechanism": "Small time variations create detuned delayed copies.",
+      "touchstones": [
+        {
+          "kind": "classic",
+          "description": "Wide ensemble of a single sustained tone."
+        },
+        {
+          "kind": "controlled",
+          "description": "Wet-only delay modulation changes instantaneous pitch; dry mix introduces beating."
+        }
+      ],
+      "sources": [
+        "fractional",
+        "puckette"
+      ]
+    },
+    {
+      "id": "vibrato",
+      "label": "Delay-based vibrato",
+      "category": "processing",
+      "status": "input-processing-missing",
+      "priority": "P0",
+      "implementationScope": "Wet-only smoothly variable delay.",
+      "currentRelation": "Voice pitch LFO is source modulation; arbitrary-input vibrato is absent.",
+      "mechanism": "Derivative of delay controls pitch deviation.",
+      "touchstones": [
+        {
+          "kind": "classic",
+          "description": "Slow tape-like pitch wobble."
+        },
+        {
+          "kind": "controlled",
+          "description": "A sine input gives measurable instantaneous-frequency modulation with little amplitude change."
+        }
+      ],
+      "sources": [
+        "fractional",
+        "puckette"
+      ]
+    },
+    {
+      "id": "phaser",
+      "label": "Allpass phaser",
+      "category": "processing-architecture",
+      "status": "input-processing-missing",
+      "priority": "P0",
+      "implementationScope": "Cascaded moving allpasses mixed with dry.",
+      "currentRelation": "Distinct implementation from flanger despite similar sweeping character.",
+      "mechanism": "Phase rotation interferes with dry signal to create moving notches.",
+      "touchstones": [
+        {
+          "kind": "classic",
+          "description": "Hollow sweeping keyboard texture."
+        },
+        {
+          "kind": "controlled",
+          "description": "Wet-only magnitude stays nearly flat; dry addition exposes a finite notch pattern."
+        }
+      ],
+      "sources": [
+        "phaser"
+      ]
+    },
+    {
+      "id": "schroeder-reverb",
+      "label": "Schroeder comb/allpass reverberator",
+      "category": "processing",
+      "status": "input-processing-missing",
+      "priority": "P0",
+      "implementationScope": "Parallel lossy combs plus allpass diffusors.",
+      "currentRelation": "FDN45 is not this network or a general reverb input path.",
+      "mechanism": "Diffuse input through recirculating comb delays and allpass stages.",
+      "touchstones": [
+        {
+          "kind": "classic",
+          "description": "Early digital-room/reverb character."
+        },
+        {
+          "kind": "controlled",
+          "description": "Impulse response exposes delay density and decay; zero input eventually decays."
+        }
+      ],
+      "sources": [
+        "schroeder"
+      ]
+    },
+    {
+      "id": "fdn-reverb",
+      "label": "Input-driven FDN reverberation",
+      "category": "processing",
+      "status": "component-present-input-missing",
+      "priority": "P0",
+      "implementationScope": "Adapt the existing orthogonal feedback network for real input and stereo pickup.",
+      "currentRelation": "Existing45 is excited internally as a resonator.",
+      "mechanism": "Disperse external input among coupled delay lines with frequency-dependent loss.",
+      "touchstones": [
+        {
+          "kind": "classic",
+          "description": "Dense abstract hall or resonant ambience."
+        },
+        {
+          "kind": "controlled",
+          "description": "Impulse energy decay follows specified loss; feedback matrix alone does not add energy."
+        }
+      ],
+      "sources": [
+        "fdn"
+      ]
+    },
+    {
+      "id": "convolution-reverb",
+      "label": "Convolution/impulse-response processing",
+      "category": "processing",
+      "status": "input-processing-missing",
+      "priority": "P1",
+      "implementationScope": "Own generated/recorded IR; partitioned convolution for long responses.",
+      "currentRelation": "No arbitrary source×IR convolution.",
+      "mechanism": "Linear convolution imposes the measured/designed impulse response.",
+      "touchstones": [
+        {
+          "kind": "classic",
+          "description": "A dry click or voice through a generated room/plate-like IR."
+        },
+        {
+          "kind": "controlled",
+          "description": "Delta IR is identity; delayed delta shifts exactly; output impulse equals IR."
+        }
+      ],
+      "sources": [
+        "convolution"
+      ]
+    },
+    {
+      "id": "compressor",
+      "label": "Dynamic-range compressor",
+      "category": "processing",
+      "status": "input-processing-missing",
+      "priority": "P0",
+      "implementationScope": "Envelope detector,threshold/ratio/knee,gain smoothing; no hidden loudness normalizer.",
+      "currentRelation": "Output emergency ceiling is not a compressor lesson.",
+      "mechanism": "Estimate level then apply a documented level-dependent gain curve.",
+      "touchstones": [
+        {
+          "kind": "classic",
+          "description": "Controlled drum punch or voice leveling."
+        },
+        {
+          "kind": "controlled",
+          "description": "Stepped sine levels measure threshold/ratio; burst reveals attack and release."
+        }
+      ],
+      "sources": [
+        "compressor"
+      ]
+    },
+    {
+      "id": "limiter",
+      "label": "Lookahead peak limiter",
+      "category": "processing",
+      "status": "input-processing-missing",
+      "priority": "P1",
+      "implementationScope": "Delay path plus detector and release policy; declare latency.",
+      "currentRelation": "Emergency soft knee is memoryless protection,not lookahead limiting.",
+      "mechanism": "Gain anticipates future peaks via delayed audio.",
+      "touchstones": [
+        {
+          "kind": "classic",
+          "description": "Catch isolated transient peaks."
+        },
+        {
+          "kind": "controlled",
+          "description": "Impulse train verifies peak ceiling and fixed lookahead latency."
+        }
+      ],
+      "sources": [
+        "compressor"
+      ]
+    },
+    {
+      "id": "gate-expander",
+      "label": "Noise gate / downward expander",
+      "category": "processing",
+      "status": "input-processing-missing",
+      "priority": "P0",
+      "implementationScope": "Threshold,ratio,hysteresis,hold and release state.",
+      "currentRelation": "No level-controlled input gate.",
+      "mechanism": "Reduce signals below a threshold with documented timing.",
+      "touchstones": [
+        {
+          "kind": "classic",
+          "description": "Remove low noise between synthetic drum hits."
+        },
+        {
+          "kind": "controlled",
+          "description": "Slow ramp crosses open/close thresholds; hold prevents chatter."
+        }
+      ],
+      "sources": [
+        "compressor"
+      ]
+    },
+    {
+      "id": "sidechain-ducker",
+      "label": "Sidechain compression / ducking",
+      "category": "processing-architecture",
+      "status": "input-processing-missing",
+      "priority": "P1",
+      "implementationScope": "Independent control input and audible input; same detector/gain mechanism.",
+      "currentRelation": "Sidechain is routing,not a separate compressor invention.",
+      "mechanism": "One signal controls another signal’s gain.",
+      "touchstones": [
+        {
+          "kind": "classic",
+          "description": "Kick-triggered sustained-pad ducking."
+        },
+        {
+          "kind": "controlled",
+          "description": "Silent audible input plus loud sidechain remains silent; ducking tracks control bursts."
+        }
+      ],
+      "sources": [
+        "compressor"
+      ]
+    },
+    {
+      "id": "transient-shaper",
+      "label": "Transient envelope shaping",
+      "category": "processing",
+      "status": "input-processing-missing",
+      "priority": "P1",
+      "implementationScope": "Fast/slow envelope comparison with bounded gain.",
+      "currentRelation": "Distinct from merely shortening ADSR of a source.",
+      "mechanism": "Detect relative onset/sustain envelopes and alter their balance.",
+      "touchstones": [
+        {
+          "kind": "classic",
+          "description": "Increase or soften percussion attack."
+        },
+        {
+          "kind": "controlled",
+          "description": "Equal-level steady sine should settle; a burst shows onset gain then recovery."
+        }
+      ],
+      "sources": [
+        "compressor"
+      ]
+    },
+    {
+      "id": "distortion",
+      "label": "Static distortion / rectification / wavefolding",
+      "category": "processing",
+      "status": "component-present-input-missing",
+      "priority": "P0",
+      "implementationScope": "Expose actual transfer function on selected input.",
+      "currentRelation": "Waveshaping14/ADAA38 already contain several source-driven transfers.",
+      "mechanism": "Apply nonlinear amplitude mapping; fold/rectify/clip are distinct transfer shapes within this family.",
+      "touchstones": [
+        {
+          "kind": "classic",
+          "description": "Guitar-like saturation or folded sine bell."
+        },
+        {
+          "kind": "controlled",
+          "description": "Sine sweep reveals generated harmonics; plot transfer curve and compare unity small-signal gain."
+        }
+      ],
+      "sources": [
+        "puckette"
+      ]
+    },
+    {
+      "id": "bitcrusher",
+      "label": "Quantization and rate reduction",
+      "category": "processing-and-encoding",
+      "status": "component-present-input-missing",
+      "priority": "P0",
+      "implementationScope": "Independent word length and hold clock; optional dither.",
+      "currentRelation": "Bit controls exist; arbitrary-input comparison is absent.",
+      "mechanism": "Round amplitude codes and/or hold samples at a lower update rate.",
+      "touchstones": [
+        {
+          "kind": "classic",
+          "description": "Low-resolution drum crunch."
+        },
+        {
+          "kind": "controlled",
+          "description": "Quiet sine: bit depth changes quantization noise; update rate changes spectral images/aliasing."
+        }
+      ],
+      "sources": [
+        "puckette",
+        "dpcm"
+      ]
+    },
+    {
+      "id": "am-ring-input",
+      "label": "Input AM/ring modulation",
+      "category": "processing",
+      "status": "component-present-input-missing",
+      "priority": "P0",
+      "implementationScope": "Multiply real selected input by a unipolar/bipolar modulator.",
+      "currentRelation": "AM9 and ring10 synthesize their own carriers.",
+      "mechanism": "Multiplication produces sum/difference spectral components.",
+      "touchstones": [
+        {
+          "kind": "classic",
+          "description": "Ring-modulated robotic voice."
+        },
+        {
+          "kind": "controlled",
+          "description": "Single-tone input and sine modulator produce the expected sidebands; distinguish DC-biased AM carrier."
+        }
+      ],
+      "sources": [
+        "puckette"
+      ]
+    },
+    {
+      "id": "frequency-shift-input",
+      "label": "Input single-sideband frequency shifting",
+      "category": "processing",
+      "status": "component-present-input-missing",
+      "priority": "P1",
+      "implementationScope": "Real Hilbert/quadrature approximation or analytic STFT; state error/latency.",
+      "currentRelation": "SSB40 knows internal source quadrature; cannot simply assume that for arbitrary input.",
+      "mechanism": "Translate spectral components by a constantHz offset.",
+      "touchstones": [
+        {
+          "kind": "classic",
+          "description": "Inharmonic bell shifting or rotating feedback tones."
+        },
+        {
+          "kind": "controlled",
+          "description": "Input220+440Hz shifted+100 becomes320+540,not a constant pitch ratio."
+        }
+      ],
+      "sources": [
+        "puckette"
+      ]
+    },
+    {
+      "id": "filterbank-vocoder",
+      "label": "Channel/filterbank vocoder",
+      "category": "processing-and-cross-synthesis",
+      "status": "input-processing-missing",
+      "priority": "P1",
+      "implementationScope": "Bandpass analysis envelopes modulate matching carrier bands; two sources required.",
+      "currentRelation": "LPC8 and phase-vocoder28 are different methods.",
+      "mechanism": "Transfer time-varying coarse spectral envelopes between modulator and carrier.",
+      "touchstones": [
+        {
+          "kind": "classic",
+          "description": "Talking-synth texture from live or generated syllables."
+        },
+        {
+          "kind": "controlled",
+          "description": "Single modulator-band tone opens only its matching carrier region."
+        }
+      ],
+      "sources": [
+        "dudley",
+        "puckette"
+      ]
+    },
+    {
+      "id": "spectral-cross",
+      "label": "STFT magnitude cross-synthesis",
+      "category": "processing-and-cross-synthesis",
+      "status": "input-processing-missing",
+      "priority": "P1",
+      "implementationScope": "Two framed signals; coherent windows/OLA normalization.",
+      "currentRelation": "The current phase-vocoder source resynthesis does not expose two-signal timbre stamping.",
+      "mechanism": "Combine one source’s magnitude envelope with another’s phase/carrier spectrum.",
+      "touchstones": [
+        {
+          "kind": "classic",
+          "description": "Whisper/noise texture imposed on a pitched carrier."
+        },
+        {
+          "kind": "controlled",
+          "description": "Identical input/carrier at identity settings reconstruct within window/latency tolerance."
+        }
+      ],
+      "sources": [
+        "puckette",
+        "convolution"
+      ]
+    },
+    {
+      "id": "spectral-transform",
+      "label": "Spectral freeze / mask / blur / gate",
+      "category": "processing-family",
+      "status": "component-present-input-missing",
+      "priority": "P1",
+      "implementationScope": "Grouped STFT operations with clear per-mode semantics.",
+      "currentRelation": "Phase-vocoder28 covers source-based freeze/mask variants.",
+      "mechanism": "Modify analyzed bins and reconstruct via overlap-add.",
+      "touchstones": [
+        {
+          "kind": "classic",
+          "description": "Frozen chord cloud or spectral erosion."
+        },
+        {
+          "kind": "controlled",
+          "description": "All-unity mask reconstructs; zero mask silences; frozen magnitude remains fixed."
+        }
+      ],
+      "sources": [
+        "puckette",
+        "convolution"
+      ]
+    },
+    {
+      "id": "pitch-time",
+      "label": "Pitch shifting and time stretching",
+      "category": "processing-family",
+      "status": "component-present-input-missing",
+      "priority": "P1",
+      "implementationScope": "Delay-grain shifter and existing PV routes first; PSOLA as a separate later algorithm.",
+      "currentRelation": "Sampling and PV have related controls but not a unified arbitrary-input comparison.",
+      "mechanism": "Choose a stated resampling,grain or phase-coherent method for independent pitch/time changes.",
+      "touchstones": [
+        {
+          "kind": "classic",
+          "description": "Octave voice/instrument shift with unchanged duration."
+        },
+        {
+          "kind": "controlled",
+          "description": "Impulse/pulse train checks duration and latency; harmonic input checks transposition ratio."
+        }
+      ],
+      "sources": [
+        "puckette",
+        "psola"
+      ]
+    },
+    {
+      "id": "stereo-pan",
+      "label": "Panning and stereo-width matrix",
+      "category": "spatial-processing",
+      "status": "missing",
+      "priority": "P0",
+      "implementationScope": "Constant-power gains and explicit mid/side transform.",
+      "currentRelation": "Current worklet is dual mono.",
+      "mechanism": "Distribute channel energy and transform sum/difference components.",
+      "touchstones": [
+        {
+          "kind": "classic",
+          "description": "Move a mono source across speakers; widen a genuine stereo fixture."
+        },
+        {
+          "kind": "controlled",
+          "description": "Center power and hardpan endpoints; M/S round-trip identity; mono input haszero Side."
+        }
+      ],
+      "sources": [
+        "puckette"
+      ]
+    },
+    {
+      "id": "dither-noise-shaping",
+      "label": "Dither and quantization-noise shaping",
+      "category": "conversion-lab",
+      "status": "partial",
+      "priority": "P1",
+      "implementationScope": "Known dither distributions; bounded error-feedback shaper.",
+      "currentRelation": "Some existing bit-depth controls include dither.",
+      "mechanism": "Decorrelate or spectrally redistribute quantization error.",
+      "touchstones": [
+        {
+          "kind": "classic",
+          "description": "Quiet fade into a low-bit output."
+        },
+        {
+          "kind": "controlled",
+          "description": "Quantization error correlation and band energy; same audio level and word length."
+        }
+      ],
+      "sources": [
+        "puckette"
+      ]
+    },
+    {
+      "id": "resampling",
+      "label": "Resampling/interpolation comparison",
+      "category": "implementation-lab",
+      "status": "partial",
+      "priority": "P1",
+      "implementationScope": "Nearest,linear,cubic and finite-window sinc; proper rate-dependent cutoff.",
+      "currentRelation": "Interpolation appears inside sampling/wavetables.",
+      "mechanism": "Estimate values on a new time grid with explicit reconstruction filters.",
+      "touchstones": [
+        {
+          "kind": "classic",
+          "description": "Transpose a high harmonic sample."
+        },
+        {
+          "kind": "controlled",
+          "description": "Sweep above the new Nyquist boundary; show images,aliasing and latency."
+        }
+      ],
+      "sources": [
+        "fractional",
+        "puckette"
+      ]
+    },
+    {
+      "id": "pwm-pdm",
+      "label": "One-bit PWM/PDM conversion",
+      "category": "conversion-lab",
+      "status": "missing",
+      "priority": "P1",
+      "implementationScope": "Clocked pulse-width and error-accumulator density encoding with low-pass readout.",
+      "currentRelation": "Pulse oscillator timbre is not a one-bit DAC encoding of another signal.",
+      "mechanism": "Encode amplitude in pulse width or local bit density.",
+      "touchstones": [
+        {
+          "kind": "classic",
+          "description": "Reconstruct a sine from a one-bit output stream."
+        },
+        {
+          "kind": "controlled",
+          "description": "Same source through rawbits and filtered output; vary clock and reconstruction cutoff separately."
+        }
+      ],
+      "sources": [
+        "pwm",
+        "pdm"
+      ]
+    },
+    {
+      "id": "lowbit-wavetable",
+      "label": "Constrained wave-RAM playback",
+      "category": "historical-case-study",
+      "status": "partial",
+      "priority": "P1",
+      "implementationScope": "32four-bit samples with integer read clock.",
+      "currentRelation": "Wavetable1/graphic24 already implement the broad family.",
+      "mechanism": "Constrain storage and timer/DAC separately.",
+      "touchstones": [
+        {
+          "kind": "classic",
+          "description": "Game-Boy-style wave-channel bass."
+        },
+        {
+          "kind": "controlled",
+          "description": "Same table with held versus interpolated reads and independent4-bit quantization."
+        }
+      ],
+      "sources": [
+        "gb"
+      ]
+    },
+    {
+      "id": "sid-architecture",
+      "label": "SID-inspired hybrid routing",
+      "category": "historical-case-study",
+      "status": "components-present",
+      "priority": "P2",
+      "implementationScope": "Fixed3-voice routing case study,not a claimed emulator.",
+      "currentRelation": "Oscillators,sync,ring,ADSR and filters already exist.",
+      "mechanism": "Combine documented digital voice controls with a shared analog-style filter path.",
+      "touchstones": [
+        {
+          "kind": "classic",
+          "description": "Sync/ring-modulated chip-like lead."
+        },
+        {
+          "kind": "controlled",
+          "description": "Isolate each building block; separate register precision from DAC/filter behavior."
+        }
+      ],
+      "sources": [
+        "sid"
+      ]
+    },
+    {
+      "id": "upic-gesture",
+      "label": "UPIC-like graphical trajectories",
+      "category": "control-and-architecture",
+      "status": "partial",
+      "priority": "P2",
+      "implementationScope": "Draw pitch/time/amplitude paths to existing sources.",
+      "currentRelation": "Graphic24 edits a waveform,not a graphical score.",
+      "mechanism": "Use graphics to specify time-varying musical control.",
+      "touchstones": [
+        {
+          "kind": "classic",
+          "description": "Draw a rising glissando cloud."
+        },
+        {
+          "kind": "controlled",
+          "description": "A straight horizontal trace produces constantpitch; slope predicts glide rate."
+        }
+      ],
+      "sources": [
+        "upic"
+      ]
+    },
+    {
+      "id": "source-inputs",
+      "label": "Common microphone/file/fixture input router",
+      "category": "infrastructure",
+      "status": "partial",
+      "priority": "P0",
+      "implementationScope": "Permissioned microphone,local file,generated fixtures; explicit source choice and meters.",
+      "currentRelation": "Only five existing methods accept uploadedsource; no common live processor bus.",
+      "mechanism": "Route actual selected audio into processors; preserve source sample rate and channel meaning.",
+      "touchstones": [
+        {
+          "kind": "classic",
+          "description": "Play a new drum loop through several processors."
+        },
+        {
+          "kind": "controlled",
+          "description": "Muted/zero source stays zero; impulse and sine fixture levels are reproducible."
+        }
+      ],
+      "sources": [
+        "puckette"
+      ]
+    },
+    {
+      "id": "analysis-tools",
+      "label": "Oscilloscope,spectrum,spectrogram,transfer and level meters",
+      "category": "analysis-infrastructure",
+      "status": "partial",
+      "priority": "P0",
+      "implementationScope": "Shared signal taps and consistent scales; declared windows/latency.",
+      "currentRelation": "Existing visualization is not a complete comparison/test layer.",
+      "mechanism": "Observe time/frequency/level behavior without altering the signal.",
+      "touchstones": [
+        {
+          "kind": "classic",
+          "description": "Compare classic timbres and their spectra."
+        },
+        {
+          "kind": "controlled",
+          "description": "Impulse/sine/noise fixtures verify axis units and numerical measurements."
+        }
+      ],
+      "sources": [
+        "puckette",
+        "rbj"
+      ]
+    }
+  ],
+  "aliases": [
+    {
+      "term": "Casio phase distortion",
+      "note": "Existing13; add historically annotated CZ-like waveshapes rather than another family."
+    },
+    {
+      "term": "Vector synthesis",
+      "note": "Existing multiple-wavetable4; do not confuse with vector phaseshaping32."
+    },
+    {
+      "term": "FM versus phase modulation",
+      "note": "Existing11/12; keep physical control interpretation clear rather than claiming every named implementation is new."
+    },
+    {
+      "term": "FOG and granular vocal grains",
+      "note": "Specific sampled-grain/FOF-derived method; distinct timing recipe but not automatic PSOLA."
+    },
+    {
+      "term": "BLEP/BLAMP/DPW/oversampling/ADAA",
+      "note": "Implementation approaches for alias control;37/38already teach several. BLAMP handles derivative discontinuities,not a new acoustic source family."
+    },
+    {
+      "term": "Virtual analog / zero-delay feedback",
+      "note": "Modeling/solver approach or architecture,not one synthesis algorithm. Identify the actual circuit/filter/exciter."
+    },
+    {
+      "term": "Supersaw / unison / ensemble",
+      "note": "Oscillator-bank detuning and spatial architecture; do not count each commercial name as a new family."
+    },
+    {
+      "term": "Spectral / additive / resynthesis",
+      "note": "Umbrella descriptions; name the actual representation,analysis and reconstruction method."
+    },
+    {
+      "term": "Granular / cloud / swarm marketing",
+      "note": "Count specific scheduling/window/source mechanisms; metaphor alone does not establish a new algorithm."
+    },
+    {
+      "term": "Physical modeling",
+      "note": "Existing severalmodels; a newexciter/geometric equation can merit a submodel,but eachmaterial preset is not a newfamily."
+    },
+    {
+      "term": "Neural / AI timbre",
+      "note": "Name the actual learned representation and trainedartifact. Do not claim a paperarchitecture from a smalllookalike generator."
+    },
+    {
+      "term": "8-bit / lo-fi / retro",
+      "note": "Aesthetic labels spanning CPU,clock,DAC,encoding and analogpath; specify which constraints are implemented."
+    }
+  ]
+}

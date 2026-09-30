@@ -1,0 +1,11 @@
+[package]
+name = "synthesis-fx-clap"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+[lib]
+crate-type = ["cdylib"]
+[dependencies]
+synthesis-core = { path = "../core", features = ["neural"] }
+synthesis-presets = { path = "../presets" }
+clap-sys = "0.5"

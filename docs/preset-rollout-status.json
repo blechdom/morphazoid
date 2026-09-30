@@ -4,8 +4,8 @@
   "branch": "codex/presets-continue-20260922",
   "source": "Review branch directory checkpoint 03619ff rebased onto origin/main ef6e593; pending pointer, family rename and preset drafts restored; no push or deployment",
   "counts": {
-    "implemented": 29,
-    "fullPresets": 671,
+    "implemented": 30,
+    "fullPresets": 1223,
     "favesImplemented": 16,
     "activeRemaining": 64,
     "regularRemaining": 133
@@ -1437,6 +1437,16 @@
       "status": "deferred"
     },
     {
+      "id": "synthesis",
+      "label": "Synthesaurus",
+      "href": "synthesis.html",
+      "category": "wip",
+      "scope": "deferred-lab",
+      "presets": 552,
+      "status": "implemented-verification-pending",
+      "evidence": "Separate Synthesis/Processing preset banks, tours and dice; independent section settings and current-method Random; dedicated synthesis preset and browser suites."
+    },
+    {
       "id": "simd-lab",
       "label": "SIMD Audio Lab",
       "href": "simd-lab.html",
@@ -1608,7 +1618,8 @@
       "cellular-automata",
       "lattice",
       "gesticulating-hand",
-      "simd-chiptune"
+      "simd-chiptune",
+      "synthesis"
     ],
     "nonWipUnmigrated": [
       "shape-drum-machine",
@@ -1744,6 +1755,7 @@
       "birdsong-lab",
       "nightingale-manifold",
       "syrinx-ui",
+      "synthesis",
       "simd-lab",
       "wasm-garden",
       "tempo-tantrum",

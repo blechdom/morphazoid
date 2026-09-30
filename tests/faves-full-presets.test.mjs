@@ -5,6 +5,7 @@ import vm from "node:vm";
 import { parse } from "acorn";
 import { FAVES_PRESET_CASES } from "./helpers/faves-preset-cases.mjs";
 import { FAVE_TOOL_IDS } from "../src/site/instrument-registry.js";
+import { catalogueItemById } from "../src/site/instrument-catalog.js";
 import { validateFullPresetBank, presetStateKey } from "../src/site/header-presets.js";
 import { clonePresetData } from "../src/site/preset-random.js";
 import { createSolidInitialState, createHyperInitialState, captureGeometryPreset, validateGeometryPreset } from "../src/families/geometry-presets/full-presets.js";
@@ -46,15 +47,17 @@ test("startup retains original settings with voice caps equal to the previous fi
   assert.deepEqual(lattice, originalLatticeParameters, "Original net must retain the actual original sound parameters");
 });
 
-test("Faves retain implemented batch coverage and explicitly track the newly promoted legacy bank", async () => {
-  // Gesticules and Fractal Synthesis have dedicated model/preset and browser coverage in gesticulating-hand* suites.
-  // Puggler's complete scenes and randomizer are covered by puggler-full-presets.test.mjs.
-  const implemented = new Set([...FAVES_PRESET_CASES.map(p => p.id), "shape-synth", "shapes", "hiccup-head", "creaturazoid", "gesticulating-hand", "fractal-signals", "puggler"]);
-  // SIMD Chiptune keeps its existing 24-preset bank and dedicated parity suite.
-  // Promotion is not a claim that its shared-header migration has happened.
-  const pending = FAVE_TOOL_IDS.filter(id => !implemented.has(id));
+test("Faves retain implemented batch coverage and explicitly track the newly promoted page-owned banks", async () => {
+  // Gesticules, Fractal Synthesis and Puggler retain their dedicated preset and browser coverage.
+  const implemented = new Set([...FAVES_PRESET_CASES.map(p => p.id), "shape-synth", "shapes", "hiccup-head", "creaturazoid", "gesticulating-hand", "fractal-signals", "puggler", "synthesis"]);
+  // Synthesaurus has a shared preset adapter with dedicated coverage.
+  // SIMD Chiptune still keeps its page-owned preset bank.
+  const faveLabs = FAVE_TOOL_IDS.filter(id => catalogueItemById(id)?.entryType === "lab");
+  assert.deepEqual(faveLabs, ["synthesis"]);
+  const pending = FAVE_TOOL_IDS.filter(id => !implemented.has(id) && !faveLabs.includes(id));
   assert.deepEqual(pending, ["simd-chiptune"]);
   const rollout = JSON.parse(await readFile(new URL("../docs/preset-rollout-status.json", import.meta.url), "utf8"));
+  for (const id of faveLabs) assert.equal(rollout.entries.find(entry => entry.id === id).scope, "deferred-lab");
   for (const id of pending) {
     const entry = rollout.entries.find(entry => entry.id === id);
     assert.equal(entry.scope, "fave");

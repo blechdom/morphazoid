@@ -1,0 +1,13 @@
+{
+  "additions": [
+    {
+      "id": "synthesis",
+      "label": "Synthesaurus",
+      "categoryId": "wip",
+      "categoryLabel": "Work in Progress",
+      "tags": [],
+      "kind": "lab",
+      "midiInput": true
+    }
+  ]
+}

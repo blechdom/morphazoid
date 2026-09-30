@@ -24,7 +24,7 @@ test("the owner-confirmed retained IDs and Rattlesnake name remain unchanged", (
   }
 });
 
-test("the current catalogue implements every effective sheet row without dropping newer main entries", () => {
+test("the current catalogue implements every effective sheet row without dropping newer instruments or labs", () => {
   assert.deepEqual(new Set(CATALOGUE_ITEMS.map(item => item.id)), new Set([...plan.rows.map(row => row.id), ...mainAdditions.map(item => item.id), ...labAdditions.map(item => item.id)]));
   assert.equal(new Set(CATALOGUE_ITEMS.map(item => item.id)).size, CATALOGUE_ITEMS.length);
   assert.deepEqual(CATALOGUE_GROUPS.map(group => group.id), plan.categoryOrder);
@@ -63,15 +63,21 @@ test("ID aliases retain every existing MIDI/WAX policy and legacy protocol ident
 });
 
 test("existing labs are browseable without being misrepresented as verified MIDI instruments", () => {
-  assert.deepEqual(new Set(LABS.map(lab => lab.id)), new Set([...plan.rows.filter(row => row.kind === "lab").map(row => row.id), ...labAdditions.map(lab => lab.id)]));
+  const legacyLabIds = plan.rows.filter(row => row.kind === "lab").map(row => row.id);
+  assert.deepEqual(new Set(LABS.map(lab => lab.id)), new Set([...legacyLabIds, ...labAdditions.map(lab => lab.id)]));
   for (const lab of LABS) {
     assert.equal(lab.entryType, "lab");
     assert.equal(instrumentById(lab.id), null);
-    assert.equal(instrumentMidiCapabilityForId(lab.id), null);
+    if (!labAdditions.some(item => item.id === lab.id && item.midiInput)) assert.equal(instrumentMidiCapabilityForId(lab.id), null);
     assert.equal(waxSupportForId(lab.id), null);
-    assert.equal(lab.features.includes("MIDI"), false);
+    assert.equal(lab.features.includes("MIDI"), labAdditions.some(item => item.id === lab.id && item.midiInput));
     assert.ok(catalogueItemById(lab.id));
   }
+  const synthesis = instrumentMidiCapabilityForId("synthesis");
+  assert.equal(synthesis.midiInput, true);
+  assert.equal(synthesis.noteMode, "pitched");
+  assert.equal(synthesis.computerKeyboardMode, "page");
+  assert.equal(synthesis.midiOutput, false);
   assert.equal(INSTRUMENTS.length, before.INSTRUMENTS.length + mainAdditions.length);
 });
 

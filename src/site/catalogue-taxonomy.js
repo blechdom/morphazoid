@@ -597,6 +597,7 @@ export const ADDITIONAL_TAG_IDS = Object.freeze(Object.fromEntries(Object.entrie
   "crickets": [],
   "nightingale-manifold": [],
   "syrinx-ui": [],
+  "synthesis": [],
   "simd-lab": [
     "simd-audio"
   ],
@@ -655,6 +656,13 @@ export const LAB_CATALOGUE_DETAILS = Object.freeze(Object.fromEntries(Object.ent
     "description": "Syrinx UI is an unlocked, playable physical-model animal voice instrument for Morphazoid.",
     "start": "Open the existing lab and use its source and playback controls.",
     "features": [],
+    "pluginHref": null
+  },
+  "synthesis": {
+    "kind": "Synthesis lab",
+    "description": "Playable Rust synthesis studies from sampling, modulation and physical models to small trained neural models, with eight presets per method and live signal analysis.",
+    "start": "Choose a method and preset, enable Audio, then Play or trigger a note. Adjust the method controls and watch its waveform and spectrum.",
+    "features": ["Built-in synth", "Audio file", "Keyboard", "MIDI", "Presets", "Signal analysis"],
     "pluginHref": null
   },
   "simd-lab": {
