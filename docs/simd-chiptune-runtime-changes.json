@@ -4,7 +4,7 @@
       "file": "src/instruments/webgpu-chiptune/webgpu-chiptune-app.js",
       "implementation": "src/families/chiptune/chiptune-app.js",
       "wrapper": "import \"../../families/chiptune/chiptune-app.js\";\n",
-      "reason": "Share the musical controller with selectable SIMD audio; preserve WebGPU behavior while SIMD gains original pixel characters and skins, a seventh Noise performer, cached independent song sections, a sidebar-free compact knob deck with independent Dance/Controls views, single per-voice/part level controls, per-lane Steps, rendered stem meters, beat-preserving tempo/transport handoffs, four directly editable drum hit/volume rows with gesture undo, compact piano-roll views with dedicated scrollbars, native per-row drum mute/solo controls with silenced-row feedback, and correct single-step drag endpoints. Exact reversals retain the original relocation proof.",
+      "reason": "Share the musical controller with selectable SIMD audio; preserve WebGPU behavior while SIMD gains original pixel characters and skins, a seventh Noise performer, cached independent song sections, a sidebar-free compact knob deck with independent Dance/Controls views, single per-voice/part level controls, per-lane Steps, rendered stem meters, beat-preserving tempo/transport handoffs, four directly editable drum hit/volume rows with gesture undo, compact piano-roll views with dedicated scrollbars, native per-row drum mute/solo controls with silenced-row feedback, and correct single-step drag endpoints. Exact reversals retain the original relocation proof. SIMD startup and factory presets use a 10 ms intro instead of the original 1 s swell; randomization stays within 10\u201320 ms while explicit saved/manual fades remain available.",
       "regressionTests": [
         "tests/webgpu-chiptune.test.mjs",
         "tests/simd-chiptune-audio.test.mjs",
@@ -307,6 +307,30 @@
         {
           "before": "$(\"resetPatch\").addEventListener(\"click\", resetPatch);\n$(\"stage\").addEventListener(\"dblclick\", stageDoubleClick);\n$(\"stage\").addEventListener(\"pointerdown\", stagePointerDown);\n$(\"stage\").addEventListener(\"pointermove\", stagePointerMove);\n$(\"stage\").addEventListener(\"pointerup\", stagePointerEnd);\n$(\"stage\").addEventListener(\"pointercancel\", stagePointerCancel);\n$(\"stage\").addEventListener(\"keydown\", stageKeyDown);\ndocument.addEventListener(\"keydown\", pageKeyDown);\n\nresizeObserver = \"ResizeObserver\" in globalThis\n  ? new ResizeObserver(syncResponsiveLayout)\n  : null;\n",
           "after": "$(\"resetPatch\").addEventListener(\"click\", resetPatch);\n$(\"stage\").addEventListener(\"dblclick\", stageDoubleClick);\n$(\"stage\").addEventListener(\"pointerdown\", stagePointerDown);\n$(\"stage\").addEventListener(\"pointermove\", stagePointerMove);\n$(\"stage\").addEventListener(\"pointerup\", stagePointerEnd);\n$(\"stage\").addEventListener(\"pointercancel\", stagePointerCancel);\n$(\"stage\").addEventListener(\"lostpointercapture\", (event) => {\n  if (activeSequenceDrag?.drumRow && activeSequenceDrag.pointerId === event.pointerId) stagePointerCancel(event);\n});\n$(\"stage\").addEventListener(\"keydown\", stageKeyDown);\ndocument.addEventListener(\"keydown\", pageKeyDown);\n\nresizeObserver = \"ResizeObserver\" in globalThis\n  ? new ResizeObserver(syncResponsiveLayout)\n  : null;\n"
+        },
+        {
+          "before": "  WEBGPU_CHIPTUNE_DEFAULTS,\n",
+          "after": "  WEBGPU_CHIPTUNE_DEFAULTS as Original_WEBGPU_CHIPTUNE_DEFAULTS,\n"
+        },
+        {
+          "before": "import { SimdChiptuneAudio, simdChiptuneSupport }",
+          "after": "import { SimdChiptuneAudio, SIMD_CHIPTUNE_DEFAULTS, simdChiptuneSupport }"
+        },
+        {
+          "before": "const ChiptuneAudio = simdBackend ? SimdChiptuneAudio : WebGpuChiptuneAudio;\n",
+          "after": "const ChiptuneAudio = simdBackend ? SimdChiptuneAudio : WebGpuChiptuneAudio;\nconst WEBGPU_CHIPTUNE_DEFAULTS = simdBackend ? SIMD_CHIPTUNE_DEFAULTS : Original_WEBGPU_CHIPTUNE_DEFAULTS;\n"
+        },
+        {
+          "before": "  params: Object.freeze(preset.params),\n",
+          "after": "  params: Object.freeze(simdBackend ? { ...preset.params, fadeIn: SIMD_CHIPTUNE_DEFAULTS.fadeIn } : preset.params),\n"
+        },
+        {
+          "before": "  fadeIn: [0.08, 1.7],\n",
+          "after": "  fadeIn: simdBackend ? [0.01, 0.02] : [0.08, 1.7],\n"
+        },
+        {
+          "before": "  params: sanitizeWebGpuChiptuneParams(),\n",
+          "after": "  params: sanitizeWebGpuChiptuneParams(WEBGPU_CHIPTUNE_DEFAULTS),\n"
         }
       ]
     }

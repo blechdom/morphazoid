@@ -4,6 +4,10 @@ import {
 } from '../webgpu-chiptune/webgpu-chiptune.js';
 import { ChiptuneTempoClock } from './tempo-clock.js';
 
+// Start promptly; retain the original engine’s minimum click-safe intro.
+// Longer fades remain available through explicit patch/knob values.
+export const SIMD_CHIPTUNE_DEFAULTS = Object.freeze({ ...WEBGPU_CHIPTUNE_DEFAULTS, fadeIn: 0.01 });
+
 export function simdChiptuneSupport(runtime = globalThis) {
   const Ctor = runtime.AudioContext ?? runtime.webkitAudioContext;
   const audio = Boolean(Ctor);
@@ -16,6 +20,7 @@ export function simdChiptuneSupport(runtime = globalThis) {
 export class SimdChiptuneAudio extends WebGpuChiptuneAudio {
   constructor(runtime = globalThis, options = {}) {
     super(runtime, options);
+    this.params = sanitizeWebGpuChiptuneParams(SIMD_CHIPTUNE_DEFAULTS);
     this.node = null;
     this.backend = 'off';
     this.lifecycle = 0;
@@ -44,7 +49,7 @@ export class SimdChiptuneAudio extends WebGpuChiptuneAudio {
       time: new Float32Array([0, preview?.lane ?? -1, preview?.value ?? 0, previewStart]) };
   }
 
-  async start(params = WEBGPU_CHIPTUNE_DEFAULTS, options = {}) {
+  async start(params = SIMD_CHIPTUNE_DEFAULTS, options = {}) {
     if (this.context) await this.stop();
     const generation = ++this.lifecycle;
     const Ctor = this.runtime.AudioContext ?? this.runtime.webkitAudioContext;

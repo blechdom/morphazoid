@@ -52,13 +52,17 @@ async function expectStateParity(pages) {
   const stripNeutralVolume = entries => Object.fromEntries(Object.entries(entries).map(([key, { volume, ...voice }]) => {
     expect(volume).toBe(1); return [key, voice];
   }));
-  expect({ ...musical, voicePerformance: stripNeutralVolume(originalPerformers),
+  expect(musical.parameters.fadeIn).toBe(.01);
+  // SIMD factory scenes keep the original sound with a brief startup envelope.
+  // Every other parameter, including the envelope curve, remains identical.
+  expect({ ...musical, parameters: { ...musical.parameters, fadeIn: original.parameters.fadeIn },
+    voicePerformance: stripNeutralVolume(originalPerformers),
     drumMix: stripNeutralVolume(musical.drumMix) }).toEqual(original);
   return original;
 }
 
 
-test("SIMD Chiptune cycles through the exact original complete preset bank", async ({ browser, baseURL }) => {
+test("SIMD Chiptune preserves the original complete preset bank with immediate starts", async ({ browser, baseURL }) => {
   test.setTimeout(60_000);
   const { context, pages, diagnostics } = await openPair(browser, baseURL, layouts[0]);
   try {
@@ -66,6 +70,7 @@ test("SIMD Chiptune cycles through the exact original complete preset bank", asy
     expect(ids.length).toBeGreaterThan(1);
     expect(await pages[1].locator("#presetButtons [data-preset-id]").evaluateAll((buttons) => buttons.map((button) => button.dataset.presetId))).toEqual(ids);
     const first = await expectStateParity(pages);
+    expect(first.parameters.fadeIn).toBe(1);
     const seen = new Set([first.activePresetId]);
     for (let index = 0; index < ids.length; index += 1) {
       for (const page of pages) await page.locator("#nextPreset").click();
@@ -81,6 +86,41 @@ test("SIMD Chiptune cycles through the exact original complete preset bank", asy
     expect((await capture(pages[1])).activePresetId).toBe(first.activePresetId);
     for (const diagnostic of diagnostics) expect(pageDiagnosticMessages(diagnostic)).toEqual([]);
   } finally { await context.close(); }
+});
+
+test("SIMD starts stay immediate after randomize and reset while saved intro edits remain explicit", async ({ page, baseURL }) => {
+  await page.addInitScript(() => {
+    globalThis.MorphazoidWAX = { register(adapter) { globalThis.__simdIntroWax = adapter; } };
+  });
+  const diagnostic = watchPageDiagnostics(page, { baseURL });
+  expect((await page.goto("simd-chiptune.html", { waitUntil: "domcontentloaded" }))?.ok()).toBe(true);
+  await settlePage(page);
+  await page.waitForFunction(() => Boolean(globalThis.__simdIntroWax));
+  expect((await capture(page)).parameters.fadeIn).toBe(.01);
+
+  for (let iteration = 0; iteration < 2; iteration += 1) {
+    await page.locator("#randomizePatch").click();
+    const randomized = await capture(page);
+    expect(randomized.activePresetId).toBe("custom");
+    expect(randomized.parameters.fadeIn).toBeGreaterThanOrEqual(.01);
+    expect(randomized.parameters.fadeIn).toBeLessThanOrEqual(.02);
+  }
+
+  const intro = page.getByRole("slider", { name: "Intro time", exact: true });
+  await intro.press("End");
+  await expect(intro).toHaveAttribute("aria-valuenow", "16");
+  const saved = await page.evaluate(() => globalThis.__simdIntroWax.getState());
+  expect(saved.parameters.fadeIn).toBe(16);
+
+  await page.locator("#resetPatch").click();
+  expect((await capture(page)).parameters.fadeIn).toBe(.01);
+  expect((await capture(page)).activePresetId).toBe("source-tracker");
+  await page.evaluate(snapshot => globalThis.__simdIntroWax.applyState(snapshot), saved);
+  expect(await page.evaluate(() => globalThis.__simdIntroWax.getState())).toEqual(saved);
+  await expect(intro).toHaveAttribute("aria-valuenow", "16");
+  await expect(page.locator("#audioButton")).toHaveAttribute("aria-pressed", "false");
+  await expect(page.locator("#synthPlayButton")).toHaveAttribute("aria-pressed", "false");
+  expect(pageDiagnosticMessages(diagnostic)).toEqual([]);
 });
 
 for (const gpuMode of ["missing", "throwing adapter"]) {

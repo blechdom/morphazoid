@@ -12,7 +12,11 @@ Audio is off. The searchable preset menu, Next and randomize buttons sit at the
 top of the full-width workspace, beside Play and a persistent Tempo knob. There
 is no right sidebar. On narrow screens the performance bar stays reachable while
 scrolling. Preset recall restores the original
-musical state without stopping transport.
+musical state without stopping transport. SIMD startup and factory presets use
+a brief 10 ms intro instead of the original one-second swell. Randomization
+keeps that intro within 10–20 ms; the Intro time and Intro curve knobs can still
+set a deliberate longer fade, which saved patches retain. Short transport and
+output smoothing remain in place.
 
 ## Playing and editing
 

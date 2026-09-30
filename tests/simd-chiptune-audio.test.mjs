@@ -113,7 +113,7 @@ test('scalar selection, external context ownership, and Pattern edit latches sur
 
 const source = await readFile(new URL('../src/instruments/simd-chiptune/processor.js', import.meta.url), 'utf8');
 const bytes = Object.fromEntries(await Promise.all(['scalar', 'simd'].map(async name => [name, await readFile(new URL(`../assets/wasm/simd-chiptune-${name}.wasm`, import.meta.url))])));
-function worklet({ scalar = false } = {}) {
+function worklet({ scalar = false, params } = {}) {
   let Processor;
   const messages = [];
   const scope = vm.createContext({ WebAssembly, Float32Array, Float64Array, Uint32Array, Uint8Array, Number, Math, Object,
@@ -125,6 +125,7 @@ function worklet({ scalar = false } = {}) {
   vm.runInContext(source.replace(/^import .*?;\n/m, ''), scope);
   const processor = new Processor();
   const engine = new SimdChiptuneAudio();
+  if (params) engine.updateParams(params);
   engine.updateSequence(createWebGpuChiptunePattern(), { deferDrums: false });
   processor.message({ type: 'install', scalarBytes: bytes.scalar, simdBytes: scalar ? new Uint8Array([0]) : bytes.simd, configuration: engine.configuration() });
   const tick = () => {
@@ -155,6 +156,38 @@ test('worklet schedules sound without animation, fades transport, and disposes',
   assert.equal(peak(tick().left), 0);
   processor.message({ type: 'dispose' });
   assert.equal(tick().alive, false);
+});
+
+test('first start reaches the source level promptly in SIMD and scalar, with optional long fades preserved', () => {
+  for (const scalar of [false, true]) {
+    const prompt = worklet({ scalar });
+    const intro = worklet({ scalar, params: WEBGPU_CHIPTUNE_DEFAULTS });
+    for (const fixture of [prompt, intro]) {
+      fixture.processor.message({ type: 'transport', playing: true, offset: 0, startAt: 0 });
+    }
+    let promptEnergy = 0, introEnergy = 0, firstAttack = 0;
+    for (let block = 0; block < 40; block++) {
+      const actual = prompt.tick(), original = intro.tick();
+      for (const channel of ['left', 'right']) for (let i = 0; i < 128; i++) {
+        const sample = actual[channel][i];
+        assert.ok(Number.isFinite(sample) && Math.abs(sample) <= .98);
+        if (block < 4) firstAttack = Math.max(firstAttack, Math.abs(sample));
+        if (block >= 4) {
+          promptEnergy += sample ** 2;
+          introEnergy += original[channel][i] ** 2;
+          // After 10 ms, the default worklet must carry the unattenuated
+          // source waveform; only the deliberate old intro keeps swelling.
+          assert.equal(sample, prompt.processor.kernel[channel][i]);
+        }
+      }
+    }
+    assert.ok(firstAttack > .001, 'the first note must arrive within 11 ms');
+    assert.ok(promptEnergy > introEnergy * 100, 'the default must not retain the original one-second swell');
+    // The change is confined to startup: source tone/arrangement are identical
+    // once a deliberately requested one-second intro has finished.
+    while (prompt.scope.currentTime < 1.01) { prompt.tick(); intro.tick(); }
+    assert.deepEqual(prompt.tick().left, intro.tick().left);
+  }
 });
 
 test('late starts retain their AudioContext anchor and SIMD traps fall back at the same time', () => {

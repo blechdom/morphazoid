@@ -1,5 +1,5 @@
 import {
-  WEBGPU_CHIPTUNE_DEFAULTS,
+  WEBGPU_CHIPTUNE_DEFAULTS as Original_WEBGPU_CHIPTUNE_DEFAULTS,
   WEBGPU_CHIPTUNE_DEFAULT_SEQUENCE,
   WEBGPU_CHIPTUNE_PERFORMANCE_AXES as Original_WEBGPU_CHIPTUNE_PERFORMANCE_AXES,
   WEBGPU_CHIPTUNE_PERFORMANCE_DEFAULTS as Original_WEBGPU_CHIPTUNE_PERFORMANCE_DEFAULTS,
@@ -45,7 +45,7 @@ import {
 } from "../../instruments/webgpu-chiptune/webgpu-chiptune.js";
 
 import { CHIPTUNE_DANCER_IDENTITIES, drawChiptuneDancer } from "../../instruments/webgpu-chiptune/webgpu-chiptune-dancers.js";
-import { SimdChiptuneAudio, simdChiptuneSupport } from "../../instruments/simd-chiptune/audio.js";
+import { SimdChiptuneAudio, SIMD_CHIPTUNE_DEFAULTS, simdChiptuneSupport } from "../../instruments/simd-chiptune/audio.js";
 
 import { SIMD_CHIPTUNE_PERFORMANCE_AXES, SIMD_CHIPTUNE_PERFORMANCE_DEFAULTS, SIMD_CHIPTUNE_PERFORMANCE_LANES,
   applySimdChiptunePerformance, sanitizeSimdChiptunePerformance, migrateSimdChiptunePerformance,
@@ -62,6 +62,7 @@ const instrumentId = simdBackend ? "simd-chiptune" : "webgpu-chiptune";
 const instrumentName = simdBackend ? "SIMD Chiptune" : "WebGPU Chiptune";
 const backendName = simdBackend ? "SIMD" : "WebGPU";
 const ChiptuneAudio = simdBackend ? SimdChiptuneAudio : WebGpuChiptuneAudio;
+const WEBGPU_CHIPTUNE_DEFAULTS = simdBackend ? SIMD_CHIPTUNE_DEFAULTS : Original_WEBGPU_CHIPTUNE_DEFAULTS;
 
 const WEBGPU_CHIPTUNE_PERFORMANCE_AXES = simdBackend ? SIMD_CHIPTUNE_PERFORMANCE_AXES : Original_WEBGPU_CHIPTUNE_PERFORMANCE_AXES;
 const WEBGPU_CHIPTUNE_PERFORMANCE_DEFAULTS = simdBackend ? SIMD_CHIPTUNE_PERFORMANCE_DEFAULTS : Original_WEBGPU_CHIPTUNE_PERFORMANCE_DEFAULTS;
@@ -1136,7 +1137,7 @@ const presets = Object.freeze([
   },
 ].map((preset) => Object.freeze({
   ...preset,
-  params: Object.freeze(preset.params),
+  params: Object.freeze(simdBackend ? { ...preset.params, fadeIn: SIMD_CHIPTUNE_DEFAULTS.fadeIn } : preset.params),
 })));
 
 const SAFE_RANDOM_RANGES = Object.freeze({
@@ -1170,7 +1171,7 @@ const SAFE_RANDOM_RANGES = Object.freeze({
   echoTime: [0.1, 0.62],
   echoDecay: [0.08, 0.67],
   echoStereo: [0.2, 1.45],
-  fadeIn: [0.08, 1.7],
+  fadeIn: simdBackend ? [0.01, 0.02] : [0.08, 1.7],
   gain: [0.42, 0.78],
   upperOneSpan: [8, 32],
   upperTwoSpan: [5, 22],
@@ -1285,7 +1286,7 @@ const SAFE_RANDOM_RANGES = Object.freeze({
 
 const support = simdBackend ? simdChiptuneSupport(globalThis) : webGpuChiptuneSupport(globalThis);
 const state = {
-  params: sanitizeWebGpuChiptuneParams(),
+  params: sanitizeWebGpuChiptuneParams(WEBGPU_CHIPTUNE_DEFAULTS),
   characterSkin: "original", patternSection: 0, patternSections: {}, voiceViews: Object.fromEntries(WEBGPU_CHIPTUNE_PERFORMANCE_LANES.map(voice => [voice, "dance"])),
   sequence: createWebGpuChiptunePattern(),
   songSequence: createWebGpuChiptuneSequence(),
