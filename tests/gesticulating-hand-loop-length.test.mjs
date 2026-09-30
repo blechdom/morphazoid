@@ -176,12 +176,18 @@ function compareScene(actual, expected, path = 'scene') {
     for (const key of Object.keys(expected)) compareScene(actual[key], expected[key], `${path}.${key}`);
   } else assert.equal(actual, expected, path);
 }
-test('random loop lengths cover the range without changing any previously seeded scene field', () => {
-  // Recorded from f7ab236 before adding loopBeats; compare every original field.
+test('random loop lengths retain seeded scenes apart from explicit audibility corrections', () => {
+  // Recorded from f7ab236 before adding loopBeats. Audibility conditioning may
+  // adjust only voice membership/level/source and rhythm/attack; all visual,
+  // clock, register, effect, contour and remaining voice draws stay identical.
   const { cases: baselines } = JSON.parse(readFileSync(new URL('./fixtures/gesticulating-hand-seeded-scenes.json', import.meta.url), 'utf8'));
   for (const { seed, config: expected } of baselines) {
     const config = randomizeHandConfig(undefined, seeded(seed));
     delete config.motion.loopBeats;
+    for (const value of [config, expected]) {
+      delete value.sound.rhythm; delete value.sound.attack;
+      for (const voice of value.voices) for (const key of ['level', 'mute', 'solo', 'source']) delete voice[key];
+    }
     compareScene(config, expected, `seed ${seed}`);
   }
   const lengths = new Set();

@@ -1,7 +1,7 @@
 import { sampleSourceGrasp } from "./hand-source-motion.js";
 import { createHandPresets } from "./hand-presets.js";
 import { createHandTremor } from "./hand-tremor.js";
-import { HAND_RHYTHMS, handRhythmPhase } from "./hand-rhythm.js";
+import { HAND_RHYTHMS, handRhythmPhase, handRhythmTiming } from "./hand-rhythm.js";
 import { HAND_CONTOUR_POINTS, HAND_CONTOUR_BEATS, normalizeHandContour, sampleHandContour, randomizeHandContour } from "./hand-contour.js";
 import { normalizeHandMotionEdits, getHandAnimationEdit, setHandAnimationEdit } from './hand-motion-edits.js';
 export { getHandAnimationEdit, setHandAnimationEdit };
@@ -751,6 +751,36 @@ export function evaluateHandVoices(value = HAND_DEFAULTS, time = 0, out = create
   return out;
 }
 export const HAND_PRESETS = createHandPresets({ normalizeHandConfig, HAND_POSES, handPoseForForm });
+/** Keep dice scenes playable without changing their gesture, clock or register.
+ * These constraints belong to random generation, not manual edits or recall. */
+function makeRandomHandAudible(config) {
+  const voices = config.voices, solo = voices.some(voice => voice.solo && !voice.mute);
+  const eligible = voice => !voice.mute && (!solo || voice.solo);
+  const percussive = voice => voice.source === 'metal' || voice.source === 'marimba';
+  // Retain solo/mute variation, but give a thin or percussive-only roll a partner.
+  const candidates = [...voices].sort((a, b) => Number(percussive(a)) - Number(percussive(b)) || b.level - a.level);
+  for (const voice of candidates) {
+    const active = voices.filter(eligible);
+    if (active.length >= 2 && active.some(voice => !percussive(voice))) break;
+    if (eligible(voice)) continue;
+    voice.mute = false; if (solo) voice.solo = true;
+  }
+  const active = voices.filter(eligible);
+  if (active.every(percussive)) active[0].source = 'wire';
+  for (const voice of active) voice.level = Math.max(.6, voice.level);
+  const mask = voices.reduce((mask, voice, i) => eligible(voice) ? mask | (1 << i) : mask, 0);
+  const timing = handRhythmTiming(config.sound.rhythm, config.sound.noteLength, mask);
+  const secondsPerBeat = 60 / handEffectiveTempo(config.motion);
+  const longestAttackScale = Math.max(...active.map(voice => voice.attackScale));
+  let noteSeconds = timing.shortestNote * secondsPerBeat;
+  // A long visual gesture can sustain a sound. Very short notes must also have
+  // time to speak; neither correction needs to accelerate the choreography.
+  if (timing.longestRest * secondsPerBeat > .75 || noteSeconds < Math.max(.012, .008 * longestAttackScale)) {
+    config.sound.rhythm = 'continuous'; noteSeconds = Infinity;
+  }
+  config.sound.attack = Math.max(.004, Math.min(config.sound.attack, Math.min(.25, noteSeconds * .5) / longestAttackScale));
+  return config;
+}
 /** A full-state randomizer: no factory-scene selection or runtime ownership. */
 export function randomizeHandConfig(_current = HAND_DEFAULTS, random = Math.random) {
   const unit = () => clampHand(typeof random === "function" ? random() : .5, 0, .999999, .5);
@@ -794,5 +824,5 @@ export function randomizeHandConfig(_current = HAND_DEFAULTS, random = Math.rand
   }
   // Draw last so introducing loop length does not change other seeded settings.
   next.motion.loopBeats = 1 + Math.floor(unit() * 64);
-  return normalizeHandConfig(next);
+  return normalizeHandConfig(makeRandomHandAudible(next));
 }

@@ -61,7 +61,7 @@ export function presetArrowDirection(event, { withinPicker = false } = {}) {
  * Call after initialization; registration never applies a preset on page load.
  */
 export function registerHeaderPresets({
-  id, presets, capture, apply, randomize, random = Math.random,
+  id, presets, capture, apply, randomize, random = Math.random, onApplied,
   document: doc = globalThis.document, runtime = globalThis, host = null,
 }) {
   validateFullPresetBank(presets);
@@ -70,7 +70,7 @@ export function registerHeaderPresets({
   const bank = JSON.parse(JSON.stringify(presets));
   presetStateKey(capture());
   registrations.get(doc)?.destroy();
-  const controller = { id, bank, capture, apply, randomize, random, runtime, doc, host, view: null, selectedId: null, hasPresetInteraction: false };
+  const controller = { id, bank, capture, apply, randomize, random, onApplied, runtime, doc, host, view: null, selectedId: null, hasPresetInteraction: false };
   controller.destroy = () => {
     controller.view?.destroy();
     if (registrations.get(doc) === controller) registrations.delete(doc);
@@ -154,7 +154,7 @@ export function mountHeaderPresets(doc) {
     summary.title = controller.hasPresetInteraction ? selected?.label ?? "Custom instrument settings" : "Select Preset";
     for (const button of buttons) button.setAttribute("aria-pressed", String(button.dataset.presetId === selected?.id));
   };
-  const transact = (prepare, success, failure, onApplied = () => {}) => {
+  const transact = (prepare, success, failure, updateSelection = () => {}) => {
     if (applying || destroyed) return;
     const previous = JSON.parse(presetStateKey(capture()));
     applying = true;
@@ -180,8 +180,15 @@ export function mountHeaderPresets(doc) {
         if (destroyed) { finish(); return; }
         try {
           if (presetStateKey(capture()) !== expected) throw new Error("Preset recall did not restore its complete musical state");
-          onApplied(); status.textContent = success; finish();
-        } catch (error) { failed(error); }
+          updateSelection(); status.textContent = success; finish();
+        } catch (error) { failed(error); return; }
+        // Instrument-owned feedback happens only after a complete recall. It
+        // cannot undo the musical state or replay during a rollback.
+        const reportFeedback = error => runtime.console?.error?.(`Preset feedback failed for ${controller.id}`, error);
+        try {
+          const feedback = controller.onApplied?.();
+          if (feedback?.then) feedback.then(undefined, reportFeedback);
+        } catch (error) { reportFeedback(error); }
       };
       attemptedApply = true;
       const result = apply(JSON.parse(expected));

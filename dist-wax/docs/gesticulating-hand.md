@@ -11,8 +11,10 @@ Turn **Audio** on, then **Sound** to hold the sound of the current pose. **Motio
 runs the selected choreography independently. Dragging a finger or its joint
 markers auditions that finger while Audio is armed. Audio starts off; gestures,
 Space and motion playback never arm it. Turning Audio off leaves visual motion
-running silently. Presets preserve Audio, output level and both players. Sound and
-Motion have
+running silently. Presets preserve Audio, output level and both players. Selecting
+a preset, Next or dice briefly previews its voices when Audio is already on,
+even with Sound or Motion paused. The preview respects voice mute, solo and
+zero levels, and leaves the saved attack unchanged. Sound and Motion have
 independent play/pause buttons at the top of the right panel, beside one Tempo slider. Their circular buttons and labelled ranges follow Shape's
 transport layout.
 
@@ -331,7 +333,10 @@ is capped at 40 frames/second, 1.6 device-pixel ratio and about 1.45 million pix
   neighboring scenes, including the menu wrap, contain hand and foot, fast and
   slow, smooth and shaky choices. The original 28 scenes retain their musical
   settings; 12 hand and 12 foot scenes add new combinations, with eight additional higher-register rhythmic scenes. The adjacent dice
-  randomizes these settings within their bounds.
+  randomizes these settings within their bounds. Dice keeps at least two voices
+  at a usable level, including a sustained source, and fits attacks to the note
+  windows. Rhythms with long silent gaps or notes too short to speak become
+  sustained sound while the selected choreography keeps its pace.
 - Reset recalls **Finger loom** without changing output or player
   switches. Audio off releases sound. Blur releases transient manual/MIDI holds.
 

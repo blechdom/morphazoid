@@ -221,14 +221,16 @@ export class HandDSP {
     this.sampleRate = clampHand(sampleRate, 8000, 192000, 48000);
     this.config = normalizeHandConfig(HAND_DEFAULTS);
     this.enabled = false; this.soundPlaying = false; this.heldFingers = 0;
+    this.previewUntil = -1; this.previewMask = 0;
     this.playing = false; this.anchorTime = 0; this.anchorClock = 0; this.clock = 0; this.tremorOffset = 0; this.rhythmOffset = 0; this.controlFrame = 0;
     this.pose = createHandPose(); this.previousPose = createHandPose(); this.targets = createHandVoices();
     this.voices = Array.from({ length: 5 }, (_, i) => ({
       phase: .073 * i, modPhase: .137 * i, frequency: 137, brightness: .4, roughness: .1, pan: 0, level: 0,
-      excitation: 0, envelope: 0, attackCoefficient: 0, releaseCoefficient: 0, auditionUntil: -1, source: VOICE_SOURCES[i], sourceIndex: i, sourceWeights: Float64Array.from(VOICE_SOURCES, (_, j) => i === j ? 1 : 0),
+      excitation: 0, envelope: 0, previewEnvelope: 0, attackCoefficient: 0, releaseCoefficient: 0, auditionUntil: -1, source: VOICE_SOURCES[i], sourceIndex: i, sourceWeights: Float64Array.from(VOICE_SOURCES, (_, j) => i === j ? 1 : 0),
       seed: (0x9e3779b9 ^ (i + 1) * 0x35a89) >>> 0, airLow: 0, airBand: 0,
       filter: 0, lastInput: 0, dc: 0, cutoff: 1000, gated: false, ...createEngines(this.sampleRate),
     }));
+    this.previewAttack = coefficients(this.sampleRate, .02, 4.6); this.previewRelease = coefficients(this.sampleRate, .12, 6.9);
     this.smooth = coefficients(this.sampleRate, .014); this.pitchSmooth = coefficients(this.sampleRate, .009);
     this.rotation = new HandRotationPhaser(this.sampleRate);
     this.attackCoefficient = 0; this.releaseCoefficient = 0; this.muteCoefficient = coefficients(this.sampleRate, .025, 6.9);
@@ -245,8 +247,10 @@ export class HandDSP {
     this.beatsPerSecond = handEffectiveTempo(this.config.motion) / 60;
     this.attackCoefficient = coefficients(this.sampleRate, this.config.sound.attack, 4.6);
     this.releaseCoefficient = coefficients(this.sampleRate, this.config.sound.release, 6.9);
+    const solo = this.config.voices.some(voice => voice.solo && !voice.mute);
     for (let i = 0; i < 5; i++) {
       const voice = this.voices[i], settings = this.config.voices[i];
+      if (settings.mute || settings.level === 0 || (solo && !settings.solo)) this.previewMask &= ~(1 << i);
       // Reuse the original coefficients at neutral trims. Live edits change
       // envelope slope without resetting the envelope, gate or transport.
       voice.attackCoefficient = settings.attackScale === 1 ? this.attackCoefficient
@@ -257,9 +261,15 @@ export class HandDSP {
   }
   setEnabled(enabled) {
     this.enabled = enabled === true;
-    if (!this.enabled) for (const voice of this.voices) { voice.auditionUntil = -1; voice.metal.pending = voice.marimba.pending = 0; }
+    if (!this.enabled) {
+      this.previewUntil = -1; this.previewMask = 0;
+      for (const voice of this.voices) { voice.auditionUntil = -1; voice.metal.pending = voice.marimba.pending = 0; }
+    }
   }
-  setSoundPlaying(playing) { this.soundPlaying = playing === true; }
+  setSoundPlaying(playing) {
+    this.soundPlaying = playing === true;
+    if (!this.soundPlaying) { this.previewUntil = -1; this.previewMask = 0; }
+  }
   setHeldFingers(mask) {
     const next = Math.round(clampHand(mask, 0, 31)), rising = next & ~this.heldFingers;
     for (let i = 0; i < 5; i++) if (rising & (1 << i)) this.voices[i].metal.pending = this.voices[i].marimba.pending = .7;
@@ -280,6 +290,22 @@ export class HandDSP {
     this.voices[index].metal.pending = this.voices[index].marimba.pending = .68;
     return true;
   }
+  /** Briefly hear the selected pose, even inside a written rest or a slow attack.
+   * Its own envelope leaves the normal score, articulation and transport intact. */
+  previewPreset(seconds = .75, at = this.clock) {
+    if (!this.enabled) return false;
+    const settings = this.config.voices;
+    const solo = settings.some(voice => voice.solo && !voice.mute);
+    this.previewMask = 0;
+    for (let i = 0; i < 5; i++) {
+      const voice = settings[i];
+      if (voice.mute || voice.level === 0 || (solo && !voice.solo)) continue;
+      this.previewMask |= 1 << i;
+      this.voices[i].metal.pending = this.voices[i].marimba.pending = .7;
+    }
+    this.previewUntil = this.previewMask ? clampHand(at, 0, 1e9, this.clock) + clampHand(seconds, .015, 1.5, .75) : -1;
+    return this.previewMask !== 0;
+  }
   updateTargets(at) {
     const time = this.getMotionTime(at);
     evaluateHandVoices(this.config, time, this.targets, this.pose, this.previousPose, time + this.tremorOffset, time + this.rhythmOffset);
@@ -296,10 +322,11 @@ export class HandDSP {
     }
   }
   reset() {
+    this.previewUntil = -1; this.previewMask = 0;
     this.updateTargets(this.clock);
     for (let i = 0; i < 5; i++) {
       const voice = this.voices[i], target = this.targets[i];
-      voice.envelope = 0; voice.auditionUntil = -1; voice.filter = 0; voice.lastInput = 0; voice.dc = 0;
+      voice.envelope = voice.previewEnvelope = 0; voice.auditionUntil = -1; voice.filter = 0; voice.lastInput = 0; voice.dc = 0;
       voice.airLow = 0; voice.airBand = 0; voice.level = 0; voice.gated = false; this.voiceLevels[i] = 0;
       voice.phase = .073 * i; voice.modPhase = .137 * i;
       voice.seed = (0x9e3779b9 ^ (i + 1) * 0x35a89) >>> 0;
@@ -337,11 +364,15 @@ export class HandDSP {
         const phase = handRhythmPhase(this.config.sound.rhythm, beat, i);
         const note = this.config.sound.rhythm === "continuous" || (phase >= 0 && phase < this.config.sound.noteLength);
         const gated = this.enabled && ((this.soundPlaying && note) || (this.heldFingers & (1 << i)) !== 0 || at < voice.auditionUntil);
-        voice.gated = gated;
+        const preview = this.enabled && at < this.previewUntil && (this.previewMask & (1 << i)) !== 0;
+        voice.gated = gated || preview;
         const envelopeTarget = gated ? 1 : 0;
         const coefficient = !this.enabled ? this.muteCoefficient : gated ? voice.attackCoefficient : voice.releaseCoefficient;
         voice.envelope += (envelopeTarget - voice.envelope) * coefficient;
         if (voice.envelope < 1e-8) voice.envelope = 0;
+        voice.previewEnvelope += ((preview ? 1 : 0) - voice.previewEnvelope)
+          * (!this.enabled ? this.muteCoefficient : preview ? this.previewAttack : this.previewRelease);
+        if (voice.previewEnvelope < 1e-8) voice.previewEnvelope = 0;
         voice.phase = (voice.phase + voice.frequency / rate) % 1;
         voice.modPhase = (voice.modPhase + voice.frequency * 2.731 / rate) % 1;
         const random = noise(voice);
@@ -369,8 +400,9 @@ export class HandDSP {
         const dc = voice.filter - voice.lastInput + .995 * voice.dc;
         voice.lastInput = voice.filter; voice.dc = dc;
         const activity = .45 + voice.excitation * .55;
-        const amplitude = voice.envelope * voice.level * activity * .16;
-        this.voiceLevels[i] = voice.envelope * voice.level * activity;
+        const envelope = Math.max(voice.envelope, voice.previewEnvelope);
+        const amplitude = envelope * voice.level * activity * .16;
+        this.voiceLevels[i] = envelope * voice.level * activity;
         const sample = dc * amplitude;
         const angle = (voice.pan + 1) * Math.PI / 4;
         mixLeft += sample * Math.cos(angle); mixRight += sample * Math.sin(angle);

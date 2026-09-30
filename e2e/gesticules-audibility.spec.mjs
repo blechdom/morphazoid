@@ -111,12 +111,12 @@ test('a soft, slow factory scene previews promptly with both players paused and 
   expect(after.audioOn).toBe(true);
 });
 
-test('actual dice previews slow attacks and honors solo selection without changing the captured scene', async ({page}) => {
+test('actual dice previews its conditioned mix and honors solo selection without changing the captured scene', async ({page}) => {
   await arm(page);
   for (const seed of [75, 51]) {
     await silence(page);
     const change = await choose(page, {seed});
-    expect(change.after.config.sound.attack).toBeGreaterThan(.7);
+    expect(change.after.config.sound.attack).toBeLessThanOrEqual(.25);
     expect(change.captured.selectedId).toBeNull();
     await expectPreview(page, change);
     const current = await snapshot(page), activeSolo = current.config.voices.some(voice => voice.solo && !voice.mute);
