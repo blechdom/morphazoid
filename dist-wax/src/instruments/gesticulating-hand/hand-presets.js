@@ -305,7 +305,7 @@ const RHYTHMIC_SCENES = [
 // Every six neighboring choices (including the wrap) include Foot, >300 and
 // <75 effective BPM, <1° tremor and ≥4° tremor. Keep Finger loom first.
 const PRESET_ORDER = [
-  "wire-roll", "hand-lingering-choir", "foot-marimba-trails", "gesture-middle-finger", "hand-tin-skips", "foot-fizzing-fan", "glass-wave",
+  "wire-roll", "hand-lingering-choir", "foot-marimba-trails", "hand-tin-skips", "foot-fizzing-fan", "glass-wave",
   "reed-beckon", "foot-toe-origami", "vowel-fan", "hand-crystal-staccato",
   "hand-five-way-stumble", "bowed-spiral", "foot-tin-drumming", "hand-silk-count",
   "vowel-opposition", "breathing-hand", "foot-rubber-march", "foot-bowed-waltz",
@@ -318,7 +318,7 @@ const PRESET_ORDER = [
   "closed-bell", "pinch-sparks", "foot-ankle-orbit", "hand-radio-swarm", "gesture-rock-and-roll",
   "hand-singing-triplet", "metal-drumming", "foot-neon-tap", "tangled-polyrhythm",
   "hand-porcelain-flicker", "foot-slow-arch", "flourish-copper", "foot-threadbare-sway",
-  "orbit-frenzy", "gesture-vulcan-salute", "foot-wire-upbeat", "hand-bowed-tide", "foot-sole-whisper",
+  "orbit-frenzy", "gesture-vulcan-salute", "foot-wire-upbeat", "hand-bowed-tide", "foot-sole-whisper", "gesture-middle-finger",
   "swarming-fingers", "hand-held-current", "foot-padded-ripple", "original-grasp",
 ];
 const freeze = value => {
