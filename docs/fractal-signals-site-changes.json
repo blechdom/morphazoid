@@ -1,0 +1,91 @@
+{
+  "baseCommit": "a12bf39e9aea06fcd746b5f15ff2ef05caec2eab",
+  "changes": [
+    {
+      "file": "src/site/instrument-catalog.js",
+      "sha256": "0b6cea39b468812e79376edfbd7a956f7662b8aad9bdb4bb54343155739c5359",
+      "regressionTests": [
+        "tests/fractal-signals-model.test.mjs",
+        "e2e/fractal-signals.spec.mjs"
+      ],
+      "replacements": [
+        {
+          "before": "\nconst CATALOG_DETAILS = Object.freeze({\n  \"rubixoids\": define(\n    \"2D / 3D / 4D puzzle sequencer\",\n",
+          "after": "\nconst CATALOG_DETAILS = Object.freeze({\n  \"fractal-signals\": define(\n    \"Six geometric sound processes\",\n    \"Paths, branches, grains, waves, echoes and textures connect playable geometry to articulated synthesis, recursive rhythm and live input. Each has distinct engines, expanded controls and ADSR envelopes.\",\n    \"Choose a tab, enable Audio and Play, then drag the geometry. Explore presets, use the information buttons, or explicitly connect a microphone to reshape live sound.\",\n    [\"Built-in synth\", \"Microphone\", \"Audio file\", \"Pointer\", \"FM / PM\", \"Presets\"],\n  ),\n  \"rubixoids\": define(\n    \"2D / 3D / 4D puzzle sequencer\",\n"
+        }
+      ]
+    },
+    {
+      "file": "src/site/instrument-midi-capabilities.js",
+      "sha256": "a6fd257e50e6f3a4750bd5d5cf2598a77f16237843d95532fd4f7068fb3f218d",
+      "regressionTests": [
+        "tests/fractal-signals-model.test.mjs",
+        "e2e/fractal-signals.spec.mjs"
+      ],
+      "replacements": [
+        {
+          "before": "    \"orbital-ferris\",\n    \"yoyodyne\",\n    \"tempo-tantrum\",\n    \"habit-habitat\",\n",
+          "after": "    \"orbital-ferris\",\n    \"yoyodyne\",\n    \"fractal-signals\",\n    \"tempo-tantrum\",\n    \"habit-habitat\",\n"
+        },
+        {
+          "before": "\nexport const PAGE_KEYBOARD_INSTRUMENT_IDS = Object.freeze([\n  \"puggler\",\n  \"image-to-instrument-3\",\n",
+          "after": "\nexport const PAGE_KEYBOARD_INSTRUMENT_IDS = Object.freeze([\n  \"fractal-signals\",\n  \"puggler\",\n  \"image-to-instrument-3\",\n"
+        },
+        {
+          "before": "  \"l-systems\",\n  \"graphs\",\n  \"lumber\",\n  \"micmic\",\n",
+          "after": "  \"l-systems\",\n  \"graphs\",\n  \"fractal-signals\",\n  \"lumber\",\n  \"micmic\",\n"
+        },
+        {
+          "before": "]);\nconst noMidiOutputIds = new Set([\n  \"tempo-tantrum\", \"habit-habitat\",\n  \"hocket-loom\",\n",
+          "after": "]);\nconst noMidiOutputIds = new Set([\n  \"fractal-signals\",\n  \"tempo-tantrum\", \"habit-habitat\",\n  \"hocket-loom\",\n"
+        }
+      ]
+    },
+    {
+      "file": "src/site/instrument-registry.js",
+      "sha256": "424ddd8fb7939acb678bd3026e957bcc5d0733610a22b9e64692d5e3ae541339",
+      "regressionTests": [
+        "tests/fractal-signals-model.test.mjs",
+        "e2e/fractal-signals.spec.mjs"
+      ],
+      "replacements": [
+        {
+          "before": "  \"hybrinx\",\n  \"jaw-harp\",\n  \"hyper-rubix\",\n  \"puggler\",\n  \"micmic\",\n",
+          "after": "  \"hybrinx\",\n  \"jaw-harp\",\n  \"fractal-signals\",\n  \"hyper-rubix\",\n  \"puggler\",\n  \"micmic\",\n"
+        },
+        {
+          "before": "  ]),\n  freezeGroup(\"fractal\", \"Fractal\", [\n    { id: \"l-system-drum-machine\", label: \"L-System Drum Machine\", href: \"l-system-drum-machine.html\", legacyHrefs: [\"l-system-drums.html\"], imageHref: \"assets/instruments/l-system-drums.webp\" },\n    { id: \"l-system\", label: \"L-System\", href: \"l-system.html\" },\n",
+          "after": "  ]),\n  freezeGroup(\"fractal\", \"Fractal\", [\n    { id: \"fractal-signals\", label: \"Fractal Synthesis\", href: \"fractal-synthesis.html\", legacyHrefs: [\"fractal-signals.html\"] },\n    { id: \"l-system-drum-machine\", label: \"L-System Drum Machine\", href: \"l-system-drum-machine.html\", legacyHrefs: [\"l-system-drums.html\"], imageHref: \"assets/instruments/l-system-drums.webp\" },\n    { id: \"l-system\", label: \"L-System\", href: \"l-system.html\" },\n"
+        }
+      ]
+    },
+    {
+      "file": "src/site/catalogue-taxonomy.js",
+      "sha256": "7fcfcfd8f42ef346d8f2ae06618c3ec539f53ce2d816d9c42ff44bea1ba71ed1",
+      "regressionTests": [
+        "tests/fractal-signals-model.test.mjs",
+        "e2e/fractal-signals.spec.mjs"
+      ],
+      "replacements": [
+        {
+          "before": "    \"delay\"\n  ],\n  \"recursion\": [],\n  \"enveloper\": [],\n",
+          "after": "    \"delay\"\n  ],\n  \"fractal-signals\": [\"fractal\"],\n  \"recursion\": [],\n  \"enveloper\": [],\n"
+        }
+      ]
+    },
+    {
+      "file": "src/site/instrument-identities.js",
+      "regressionTests": [
+        "tests/catalogue-update.test.mjs",
+        "e2e/fractal-signals.spec.mjs"
+      ],
+      "sha256": "92360e35f1a6d5e4b33b7b5f8d523a6d0d835c72d9785887146aa9bb82640446",
+      "replacements": [
+        {
+          "before": "});\nexport const ROUTE_INSTRUMENT_IDS = Object.freeze({\n  \"gesticules\": \"gesticulating-hand\",\n  \"shape-synth\": \"shape-synth\",\n",
+          "after": "});\nexport const ROUTE_INSTRUMENT_IDS = Object.freeze({\n  \"fractal-synthesis\": \"fractal-signals\",\n  \"gesticules\": \"gesticulating-hand\",\n  \"shape-synth\": \"shape-synth\",\n"
+        }
+      ]
+    }
+  ]
+}

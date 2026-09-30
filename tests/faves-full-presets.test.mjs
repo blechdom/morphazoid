@@ -47,9 +47,9 @@ test("startup retains original settings with voice caps equal to the previous fi
 });
 
 test("Faves retain implemented batch coverage and explicitly track the newly promoted legacy bank", async () => {
-  // Gesticules has dedicated model/preset and browser coverage in gesticulating-hand* suites.
+  // Gesticules and Fractal Synthesis have dedicated model/preset and browser coverage in gesticulating-hand* suites.
   // Puggler's complete scenes and randomizer are covered by puggler-full-presets.test.mjs.
-  const implemented = new Set([...FAVES_PRESET_CASES.map(p => p.id), "shape-synth", "shapes", "hiccup-head", "creaturazoid", "gesticulating-hand", "puggler"]);
+  const implemented = new Set([...FAVES_PRESET_CASES.map(p => p.id), "shape-synth", "shapes", "hiccup-head", "creaturazoid", "gesticulating-hand", "fractal-signals", "puggler"]);
   // SIMD Chiptune keeps its existing 24-preset bank and dedicated parity suite.
   // Promotion is not a claim that its shared-header migration has happened.
   const pending = FAVE_TOOL_IDS.filter(id => !implemented.has(id));

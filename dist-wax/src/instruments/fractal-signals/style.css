@@ -1,0 +1,208 @@
+@import url("../../ui/index.css");
+
+.fractal-page { --accent: #5fe8c4; --mz-color-accent: var(--accent); background: #07090b; color: #dbe4e0; font-family: var(--mz-font-mono); }
+.fractal-page * { box-sizing: border-box; }
+.fractal-page .masthead { min-height: 64px; }
+.fractal-page #audioHost { margin-left: auto; }
+.fractal-layout { display: grid; grid-template-columns: minmax(0, 1fr) 356px; height: calc(100dvh - 65px); min-height: 590px; }
+.play-surface { min-width: 0; display: flex; flex-direction: column; padding: 0 22px 18px; }
+.demo-modes { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 5px; padding: 15px 0; }
+.demo-modes button { min-width: 0; min-height: 61px; padding: 8px 3px; border: 0; border-bottom: 2px solid transparent; background: transparent; color: #93a29c; font: inherit; font-size: 10px; cursor: pointer; }
+.demo-modes button span { display: block; font-size: 22px; line-height: 1; margin-bottom: 8px; }
+.demo-modes button[aria-pressed="true"] { color: var(--accent); border-bottom-color: var(--accent); background: color-mix(in srgb, var(--accent) 6%, transparent); }
+.stage-wrap { flex: 1; min-height: 285px; position: relative; overflow: hidden; background: #050709; }
+#stage { display: block; width: 100%; height: 100%; position: absolute; inset: 0; touch-action: none; cursor: crosshair; }
+#stage:focus-visible { outline: 2px solid var(--accent); outline-offset: -3px; }
+.gesture-readout { position: absolute; bottom: 16px; left: 22px; right: 22px; display: flex; justify-content: space-between; gap: 15px; pointer-events: none; color: #91a59b; font-size: 10px; }
+.gesture-readout output { color: var(--accent); white-space: nowrap; }
+.score-region { padding: 15px 0 3px; }
+.score-label { display: flex; align-items: center; gap: 14px; font-size: 9px; letter-spacing: .12em; color: #7f9388; }
+#transportState { margin-left: auto; }
+#score { display: block; width: 100%; height: 65px; margin-top: 7px; }
+#position { width: 100%; height: 16px; margin: 0; accent-color: var(--accent); }
+.transport-row { display: flex; align-items: center; gap: 8px; padding-top: 14px; }
+.fractal-page button { font-family: inherit; }
+.transport-row button, .source-actions button, .voice-row button { min-height: 36px; border: 1px solid #27332d; color: #c3d3ca; background: #101712; border-radius: 3px; font-size: 11px; padding: 8px 12px; cursor: pointer; }
+.transport-row button[aria-pressed="true"]:not(.fractal-play) { color: var(--accent); border-color: var(--accent); }
+.transport-spacer { flex: 1; }
+.fractal-panel { padding: 18px 19px 22px; overflow: auto; border-left: 1px solid #202923; min-width: 0; background: #0b0e11; scrollbar-width: thin; scrollbar-color: #303b35 transparent; }
+.preset-row { min-height: 35px; }
+.macro-controls { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 15px; margin-bottom: 19px; }
+:is(.macro-controls, .scan-control) .control { min-width: 0; align-items: center; }
+:is(.macro-controls, .scan-control) .mz-field__heading { flex-direction: column; gap: 5px; text-align: center; }
+:is(.macro-controls, .scan-control) .mz-field__label { font-size: 10px; color: #a4b4ab; }
+:is(.macro-controls, .scan-control) .mz-field__output { font-size: 11px; color: var(--accent); }
+:is(.macro-controls, .scan-control) .mz-range-knob { margin: 7px auto 0; }
+.voice-row { display: flex; align-items: center; gap: 9px; padding: 13px 0; border-top: 1px solid #202923; font-size: 9px; color: #8c9e94; }
+.voice-row > div { display: flex; }
+.voice-row button { min-height: 29px; padding: 5px 10px; }
+.voice-row button[aria-pressed="true"] { color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, #101712); border-color: var(--accent); }
+#modulationUnit { margin-left: auto; font-size: 8px; }
+.control-section { border-top: 1px solid #202923; padding: 13px 0 15px; }
+.control-section h2, .source-section h2 { margin: 0 0 12px; font-size: 9px; font-weight: 500; letter-spacing: .15em; color: #bdccc3; }
+.control-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 15px 18px; }
+.fractal-panel .control { margin: 0; padding: 0; font-size: 10px; }
+.fractal-panel .mz-field__label { font-size: 10px; }
+.fractal-panel .mz-field__output { font-size: 9px; white-space: nowrap; color: var(--accent); }
+.fractal-panel input[type="range"] { accent-color: var(--accent); min-width: 0; width: 100%; }
+.fractal-panel .mz-field__heading { gap: 4px; }
+.source-section { border-top: 1px solid #202923; padding-top: 14px; }
+.source-actions { display: flex; flex-wrap: wrap; gap: 7px; }
+.status-line { color: #8a9f92; font-size: 9px; margin: 16px 0 0; }
+.fractal-page button:focus-visible, .fractal-page a:focus-visible, .fractal-page input:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.fractal-page [hidden] { display: none !important; }
+@media (min-width: 1600px) { .fractal-layout { grid-template-columns: minmax(0, 1fr) 390px; } .fractal-panel { padding: 21px 25px; } }
+@media (max-width: 660px) {
+  .fractal-layout { display: flex; flex-direction: column; height: auto; min-height: 0; }
+  .play-surface { padding: 0 12px 16px; }
+  .demo-modes { padding: 8px 0; gap: 2px; }
+  .demo-modes button { font-size: 8px; min-height: 54px; }
+  .demo-modes button span { font-size: 19px; }
+  .stage-wrap { height: 355px; min-height: 355px; flex: none; }
+  .score-region { padding-top: 11px; }
+  #score { height: 44px; }
+  .transport-row { padding-top: 9px; gap: 5px; }
+  .transport-row button { font-size: 10px; padding: 8px 10px; }
+  .fractal-panel { border-left: 0; border-top: 1px solid #202923; overflow: visible; padding: 17px 20px 24px; }
+}
+@media (pointer: coarse) { #playButton, #audioButton { min-width: 48px; min-height: 48px; } .fractal-panel input[type="range"] { min-height: 27px; } }
+@media (max-height: 500px) and (min-width: 661px) { .fractal-layout { height: auto; min-height: 620px; } .play-surface { align-self: start; } .fractal-panel { max-height: none; overflow: visible; } .stage-wrap { flex: none; height: 370px; min-height: 370px; } }
+
+/* The shared rotary primitive keeps its native input; these larger musical knobs expose their labels. */
+:is(.macro-controls, .scan-control) .control.mz-range-knob { width: 100%; min-width: 0; height: 102px; }
+:is(.macro-controls, .scan-control) .mz-range-knob > .mz-field__heading { position: absolute; inset: 0; display: block; }
+:is(.macro-controls, .scan-control) .mz-field__label { position: absolute; top: 0; left: 0; right: 0; text-align: center; white-space: nowrap; }
+:is(.macro-controls, .scan-control) .mz-field__output { position: absolute; top: 82px; left: 0; right: 0; text-align: center; }
+:is(.macro-controls, .scan-control) .mz-range-knob__dial { top: 26px; width: 45px; height: 45px; }
+:is(.macro-controls, .scan-control) .mz-range-knob__dial i { inset: 5px; }
+:is(.macro-controls, .scan-control) .mz-range-knob__dial i::before { height: 10px; }
+/* This page has a document-scrolling phone layout, not the shared fixed .shell. */
+html:has(> body.fractal-page) { height: auto; min-height: 100%; overflow: auto; }
+body.fractal-page { height: auto; min-height: 100dvh; overflow: visible; }
+
+.preset-row { margin-bottom: 15px; }
+.engine-row { display: flex; align-items: center; gap: 10px; margin: 0 0 18px; font-size: 11px; }
+.engine-row select { min-width: 0; flex: 1; min-height: 34px; padding: 5px 8px; font: inherit; color: var(--accent); background: #111814; border: 1px solid #33433b; border-radius: 3px; }
+.parameter { position: relative; min-width: 0; }
+.parameter > .control .mz-field__heading { padding-right: 21px; }
+.fractal-page .info-button { display: inline-flex; align-items: center; justify-content: center; flex: 0 0 auto; width: 24px; height: 24px; min-height: 24px; padding: 3px; border: 0; border-radius: 50%; background: transparent; color: #99b2a4; cursor: pointer; font: 600 11px/1 Georgia, serif; }
+.fractal-page .info-button { position: relative; }
+.fractal-page .info-button::before { content: ""; position: absolute; width: 12px; height: 12px; border: 1px solid currentColor; border-radius: 50%; opacity: .7; }
+.fractal-page .fractal-info::before { width: 18px; height: 18px; }
+.fractal-page .parameter > .info-button { z-index: 2; position: absolute; right: -3px; top: -7px; }
+.fractal-page .info-button:hover, .fractal-page .info-button:focus-visible { color: var(--accent); background: #23342b; }
+.fractal-page .fractal-info { width: 36px; height: 36px; border: 1px solid #34443b; font-size: 15px; }
+.knob-parameter > .info-button { right: -3px; top: -6px; }
+.macro-controls { gap: 10px; }
+:is(.macro-controls, .scan-control) .mz-field__label { left: 0; right: 18px; font-size: 9px; }
+:is(.macro-controls, .scan-control) .mz-range-knob__dial { top: 27px; }
+.envelope-controls { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px; margin-bottom: 0; }
+.envelope-controls .mz-range-knob__dial { width: 35px; height: 35px; top: 30px; }
+.envelope-controls .mz-field__label { font-size: 8px; right: 14px; }
+.envelope-controls .mz-field__output { font-size: 9px; }
+.envelope-controls .knob-parameter > .info-button { right: -6px; }
+#envelopeGraph { display: block; width: 100%; height: 48px; }
+#envelopeGraph path { stroke: var(--accent); stroke-width: 1.5; fill: none; }
+.source-section p { color: #a0b1a7; font-size: 10px; line-height: 1.6; }
+.source-actions { align-items: center; }
+#inputControls { margin: 17px 0; }
+#inputMeter { width: 64px; height: 9px; accent-color: var(--accent); }
+#microphone[aria-pressed="true"] { color: var(--accent); border-color: var(--accent); }
+#microphone:disabled { opacity: .6; cursor: default; }
+#helpDialog { width: min(560px, calc(100vw - 30px)); max-height: min(680px, calc(100dvh - 40px)); padding: 22px; border: 1px solid #3a5043; border-radius: 5px; background: #0c1210; color: #cbdad1; font: 12px/1.8 var(--mz-font-mono); overflow: auto; }
+#helpDialog::backdrop { background: #020704b8; }
+.help-heading { display: flex; gap: 15px; justify-content: space-between; align-items: center; }
+.help-heading h2 { color: var(--accent); margin: 0; font-size: 18px; font-weight: 500; }
+#closeHelp { flex-shrink: 0; width: 36px; height: 36px; border: 1px solid #344b3d; border-radius: 3px; background: #152019; color: #d9ede1; font-size: 21px; cursor: pointer; }
+#helpBody p { margin: 15px 0 0; }
+#helpBody a { display: inline-block; color: var(--accent); margin-top: 18px; }
+#helpBody strong { color: #e3efe7; font-weight: 600; }
+@media (max-width: 900px) { .fractal-layout { grid-template-columns: minmax(0, 1fr) 310px; } .play-surface { padding-left: 12px; padding-right: 12px; } .fractal-panel { padding: 15px 13px; } .demo-modes button { font-size: 9px; } .gesture-readout { left: 15px; right: 15px; font-size: 9px; } }
+@media (max-width: 660px) { :is(.macro-controls, .scan-control) .mz-field__label { font-size: 10px; } .envelope-controls .mz-field__label { font-size: 9px; } }
+
+.performance-row { display: grid; grid-template-columns: 48px minmax(0, 1fr); align-items: center; gap: 16px; margin: 0 0 20px; }
+.fractal-page .performance-row .fractal-play { display: inline-grid; place-items: center; width: 48px; min-width: 48px; height: 48px; min-height: 48px; padding: 12px; border: 1px solid color-mix(in srgb, var(--accent) 55%, #27332d); border-radius: 50%; color: var(--accent); background: transparent; cursor: pointer; }
+.performance-row .fractal-play svg { width: 21px; height: 21px; fill: currentColor; }
+.performance-row .fractal-play .transport-pause { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; }
+.performance-row .fractal-play .transport-pause, .performance-row .fractal-play[aria-pressed="true"] .transport-play { display: none; }
+.performance-row .fractal-play[aria-pressed="true"] .transport-pause { display: block; }
+.fractal-page .performance-row .fractal-play:hover { background: color-mix(in srgb, var(--accent) 12%, transparent); }
+.fractal-page .performance-row .fractal-play[aria-pressed="true"] { color: #07140f; background: var(--accent); border-color: var(--accent); }
+#tempoControl { min-width: 0; }
+#tempoControl input[type="range"] { min-height: 27px; }
+.control-grid:has(> .parameter:only-child) { grid-template-columns: minmax(0, 1fr); }
+
+#settingsText { display: block; width: 100%; min-height: 260px; margin-top: 16px; padding: 12px; resize: vertical; border: 1px solid #344b3d; border-radius: 3px; background: #070b09; color: #d6e4db; font: 11px/1.5 var(--mz-font-mono); }
+
+.fractal-envelope-presets { margin: 0 0 14px; }
+.fractal-envelope-presets button { min-height: 30px; }
+.voice-row { flex-wrap: wrap; gap: 6px; }
+.voice-row > span:first-child { font-size: 8px; }
+.voice-row button:disabled { opacity: .45; cursor: default; }
+
+@media (max-height: 500px) { #settingsText { min-height: 100px; height: 120px; } }
+
+#envelopeControl { margin: 12px 0 18px; }
+#envelopeControl .shared-amplitude-heading { display: none; }
+#envelopeControl .shared-amplitude-presets button { min-height: 30px; }
+#envelopeControl .shared-amplitude-editor { margin: 22px 10px 18px; }
+#envelopeControl .shared-amplitude-editor svg { inset: 0; height: 100%; }
+#envelopeControl .shared-amplitude-editor [data-anchor] { position: absolute; width: 5px; height: 5px; border-radius: 50%; background: var(--accent); transform: translate(-50%, -50%); }
+#envelopeControl .shared-amplitude-time-axis { font-size: 8px; }
+.control-section h2:has(.info-button) { display: flex; align-items: center; gap: 5px; }
+#sourceSection { margin: 0 0 12px; padding: 10px 0 4px; border-top: 0; }
+#sourceSection h2 { display: none; }
+
+.transport-options { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)) 24px; align-items: center; gap: 4px; }
+.transport-options > button:not(.info-button), .mapping-toggle > button:not(.info-button) { min-width: 0; min-height: 33px; padding: 6px 3px; border: 1px solid #33443b; border-radius: 3px; background: #111a15; color: #afc3b6; font-size: 9px; cursor: pointer; }
+.transport-options > button[aria-pressed="true"], .mapping-toggle > button[aria-pressed="true"] { color: var(--accent); border-color: var(--accent); background: color-mix(in srgb, var(--accent) 9%, #111a15); }
+.mapping-toggle { display: flex; align-items: center; gap: 3px; }
+.mapping-toggle > button:not(.info-button) { flex: 1; }
+.performance-row { row-gap: 10px; }
+
+.modulators-section h2 { display: flex; align-items: center; gap: .5rem; }
+.modulator-slot + .modulator-slot { margin-top: 1rem; }
+.modulator-heading { display: flex; align-items: center; justify-content: space-between; margin-bottom: .55rem; font-size: .66rem; }
+.modulator-heading button { min-width: 3.2rem; min-height: 30px; }
+.modulator-choices { display: grid; grid-template-columns: 1.2fr 1fr; gap: .6rem; margin-bottom: .6rem; }
+.modulator-choices label { display: grid; gap: .3rem; min-width: 0; font-size: .62rem; color: #b5c7bd; }
+.modulator-choices select { width: 100%; min-width: 0; }
+.modulation-value { display: block; margin-top: .25rem; color: var(--accent); font-size: .62rem; text-align: right; }
+.modulation-value[hidden] { display: none; }
+.fractal-page .mz-range-knob__modulation { position: absolute; inset: 3px; border-radius: 50%; pointer-events: none; }
+.fractal-page .mz-range-knob__modulation::before { content: ''; position: absolute; top: 0; left: calc(50% - 1.5px); width: 3px; height: 6px; border-radius: 2px; background: #fff; box-shadow: 0 0 4px var(--accent); }
+.fractal-page .mz-range-knob__modulation[hidden] { display: none; }
+.parameter-reset { display: block; margin: .35rem 0 0 auto; min-height: 25px; padding: 2px 7px; font-size: .6rem; }
+
+.transport-options > button:not(.info-button) { display: grid; place-items: center; min-height: 40px; }
+.transport-options svg { width: 21px; height: 21px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+#reverse[aria-pressed="true"] svg { transform: rotate(180deg); }
+@media (pointer: coarse) { .transport-options > button:not(.info-button) { min-height: 48px; } }
+
+.parameter-motion { display: grid; grid-template-columns: 30px minmax(0, 1fr); align-items: center; gap: 6px; width: 100%; margin-top: 9px; text-align: left; }
+.fractal-page .motion-play { display: grid; place-items: center; width: 30px; height: 30px; min-width: 30px; min-height: 30px; padding: 6px; border: 1px solid #41554a; border-radius: 50%; background: transparent; color: var(--accent); cursor: pointer; }
+.motion-play svg { width: 16px; height: 16px; fill: currentColor; }
+.motion-play .transport-pause { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; }
+.motion-play .transport-pause, .motion-play[aria-pressed="true"] .transport-play { display: none; }
+.motion-play[aria-pressed="true"] .transport-pause { display: block; }
+.fractal-page .motion-play[aria-pressed="true"] { color: #07140f; background: var(--accent); border-color: var(--accent); }
+.fractal-page .motion-play[aria-busy="true"] { opacity: .65; }
+.motion-tempo { min-width: 0; }
+.motion-tempo .parameter { padding-right: 0; }
+.motion-tempo .mz-field__label { font-size: 8px; text-transform: none; }
+.motion-tempo .mz-field__label > span { display: none; }
+.motion-tempo .mz-field__output, .motion-tempo output { font-size: 8px; }
+.motion-tempo .info-button { position: static; margin-left: auto; display: block; }
+.motion-tempo input[type="range"] { width: 100%; min-width: 0; }
+@media (pointer: coarse) {
+  .parameter-motion { grid-template-columns: 40px minmax(0, 1fr); }
+  .fractal-page .motion-play { width: 40px; height: 40px; min-width: 40px; min-height: 40px; }
+}
+
+.branch-knobs { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 22px; margin: 0 0 18px; }
+.branch-knobs .mz-range-knob { margin-top: 0; }
+.branch-knobs .mz-field__label { left: 12px; right: 18px; }
+.motion-tempo .mz-field__heading { position: static !important; inset: auto !important; display: flex !important; flex-direction: row; justify-content: flex-start; min-height: 14px; padding-right: 14px; text-align: left; }
+.motion-tempo .mz-field__label { position: absolute !important; width: 1px; height: 1px; padding: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.motion-tempo .mz-field__output { position: static !important; inset: auto !important; text-align: left; font-size: 8px; }
+.fractal-page .motion-tempo .parameter > .info-button { position: absolute; top: -4px; right: -3px; width: 18px; height: 18px; min-height: 18px; font-size: 9px; }

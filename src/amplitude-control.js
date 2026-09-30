@@ -24,10 +24,22 @@ export function createAmplitudeControl(host, {
   presets = PRESETS,
   showLevel = true,
   allowDisable = true,
+  editorModel = null,
 } = {}) {
+  // An optional instrument-owned view model reuses the same DOM and interaction
+  // for constrained parameters. Existing phase/timed audio models are unchanged.
   const usesMilliseconds = timing === "milliseconds";
+  const normalizePoints = editorModel?.normalizePoints ?? sanitizeAmplitudeEnvelope;
+  const moveNode = editorModel?.moveNode ?? updateAmplitudeEnvelopeNode;
+  const labels = editorModel?.labels ?? LABELS;
+  const fixedNodes = editorModel?.fixedNodes ?? [];
+  const listeners = [];
+  const listen = (type, callback) => {
+    host?.addEventListener?.(type, callback);
+    listeners.push([type, callback]);
+  };
   const presetPoints = (name) => (
-    usesMilliseconds ? percussionEnvelopePreset(name) : amplitudeEnvelopePreset(name)
+    editorModel?.presetPoints ? editorModel.presetPoints(name) : usesMilliseconds ? percussionEnvelopePreset(name) : amplitudeEnvelopePreset(name)
   );
   const state = {
     enabled: true,
@@ -96,11 +108,19 @@ export function createAmplitudeControl(host, {
       if (typeof snapshot.preset === "string") {
         state.preset = presets.includes(snapshot.preset) ? snapshot.preset : "custom";
       }
-      if (Array.isArray(snapshot.points)) state.points = sanitizeAmplitudeEnvelope(snapshot.points);
+      if (Array.isArray(snapshot.points)) state.points = normalizePoints(snapshot.points);
       if (Number.isFinite(Number(snapshot.level))) state.level = clamp(snapshot.level);
       render();
       onChange(controller);
       return controller.captureState();
+    },
+    destroy() {
+      if (dragging) {
+        try { host?.releasePointerCapture?.(dragging.pointerId); } catch { /* Already released. */ }
+      }
+      dragging = null;
+      for (const [type, callback] of listeners) host?.removeEventListener?.(type, callback);
+      listeners.length = 0;
     },
     reset() {
       state.enabled = true;
@@ -125,6 +145,7 @@ export function createAmplitudeControl(host, {
   }
 
   function nodeDescription(point, index) {
+    if (editorModel?.describeNode) return editorModel.describeNode(state.points, index);
     const level = `${Math.round(point.y * 100)}%`;
     return usesMilliseconds
       ? `${LABELS[index]} · ${formatTime(percussionEnvelopeTimeMs(point.x))} · ${level}`
@@ -135,18 +156,20 @@ export function createAmplitudeControl(host, {
     if (!host) return;
     host.className = "shared-amplitude-control";
     const releaseTime = formatTime(timedAmplitudeEnvelopeDurationMs(state.points));
-    host.innerHTML = `<div class="shared-amplitude-heading"><span class="field-label mz-field__label">${label}</span><div>${allowDisable ? `<button type="button" data-action="toggle" aria-pressed="${state.enabled}">${state.enabled ? "On" : "Off"}</button>` : ""}${usesMilliseconds ? "" : `<button type="button" data-action="swell" aria-pressed="${state.swell}" ${state.enabled ? "" : "disabled"}>${state.swell ? "Swell on" : "Swell off"}</button>`}</div></div>
+    host.innerHTML = `<div class="shared-amplitude-heading"><span class="field-label mz-field__label">${label}</span><div>${allowDisable ? `<button type="button" data-action="toggle" aria-pressed="${state.enabled}">${state.enabled ? "On" : "Off"}</button>` : ""}${usesMilliseconds || editorModel ? "" : `<button type="button" data-action="swell" aria-pressed="${state.swell}" ${state.enabled ? "" : "disabled"}>${state.swell ? "Swell on" : "Swell off"}</button>`}</div></div>
       <div class="shared-amplitude-presets">${presets.map((preset) => `<button type="button" data-preset="${preset}" aria-pressed="${state.preset === preset}" ${state.enabled ? "" : "disabled"}>${preset}</button>`).join("")}</div>
       <div class="shared-amplitude-editor ${usesMilliseconds ? "is-timed" : ""} ${state.enabled ? "" : "is-disabled"}" data-editor>
         <svg viewBox="0 0 240 96" preserveAspectRatio="none" aria-hidden="true"><path d="${pathData()}" /></svg>
         ${state.points.map((point, index) => {
           const description = nodeDescription(point, index);
-          return `<button type="button" data-node="${index}" role="slider" aria-label="${LABELS[index]} envelope node" aria-valuetext="${description}" title="${description}" style="left:${point.x * 100}%;top:${(1 - point.y) * 100}%" ${state.enabled ? "" : "disabled"}>${LABELS[index]}</button>`;
+          const position = `left:${point.x * 100}%;top:${(1 - point.y) * 100}%`;
+          if (fixedNodes.includes(index)) return `<span data-anchor="${index}" aria-label="${description}" title="${description}" style="${position}">${labels[index]}</span>`;
+          return `<button type="button" data-node="${index}" role="slider" aria-label="${labels[index]} envelope node" aria-valuetext="${description}" title="${description}" style="${position}" ${state.enabled ? "" : "disabled"}>${labels[index]}</button>`;
         }).join("")}
       </div>
-      ${usesMilliseconds ? `<div class="shared-amplitude-time-axis"><span>0 ms</span><span>log time</span><span>Release ${releaseTime}</span></div>` : ""}
+      ${editorModel?.axis ? `<div class="shared-amplitude-time-axis">${editorModel.axis(state.points).map(value => `<span>${value}</span>`).join("")}</div>` : usesMilliseconds ? `<div class="shared-amplitude-time-axis"><span>0 ms</span><span>log time</span><span>Release ${releaseTime}</span></div>` : ""}
       ${showLevel ? `<label class="control mz-range-field shared-amplitude-level"><span class="mz-field__heading"><b class="mz-field__label">Envelope level</b><output class="mz-field__output">${Math.round(state.level * 100)}%</output></span><input class="mz-range-field__input" data-level type="range" min="0" max="1" step="0.01" value="${state.level}" /></label>` : ""}
-      <small class="mz-control-note">${usesMilliseconds ? "Node positions are milliseconds · Release sets total duration" : state.swell ? "Edge midpoint → corner peak → midpoint" : "Contact/corner trigger → release"}</small>`;
+      <small class="mz-control-note">${editorModel?.note ?? (usesMilliseconds ? "Node positions are milliseconds · Release sets total duration" : state.swell ? "Edge midpoint → corner peak → midpoint" : "Contact/corner trigger → release")}</small>`;
   }
 
   function pointFromEvent(event) {
@@ -158,7 +181,7 @@ export function createAmplitudeControl(host, {
     };
   }
 
-  host?.addEventListener?.("click", (event) => {
+  listen("click", (event) => {
     const action = event.target.closest?.("[data-action]")?.dataset.action;
     const preset = event.target.closest?.("[data-preset]")?.dataset.preset;
     if (action === "toggle") {
@@ -172,45 +195,52 @@ export function createAmplitudeControl(host, {
     render();
     onChange(controller);
   });
-  host?.addEventListener?.("input", (event) => {
+  listen("input", (event) => {
     if (!event.target.matches?.("[data-level]")) return;
     state.level = clamp(event.target.value);
     render();
     onChange(controller);
   });
-  host?.addEventListener?.("pointerdown", (event) => {
+  listen("pointerdown", (event) => {
     const node = event.target.closest?.("[data-node]");
-    if (!node || !state.enabled) return;
+    if (!node || !state.enabled || fixedNodes.includes(Number(node.dataset.node)) || dragging || event.button > 0 || event.isPrimary === false) return;
     dragging = { index: Number(node.dataset.node), pointerId: event.pointerId };
     host.setPointerCapture?.(event.pointerId);
-    state.points = updateAmplitudeEnvelopeNode(state.points, dragging.index, pointFromEvent(event));
+    state.points = moveNode(state.points, dragging.index, pointFromEvent(event));
     state.preset = "custom";
     render();
     onChange(controller);
     event.preventDefault();
   });
-  host?.addEventListener?.("pointermove", (event) => {
+  listen("pointermove", (event) => {
     if (!dragging || dragging.pointerId !== event.pointerId) return;
-    state.points = updateAmplitudeEnvelopeNode(state.points, dragging.index, pointFromEvent(event));
+    state.points = moveNode(state.points, dragging.index, pointFromEvent(event));
     state.preset = "custom";
     render();
     onChange(controller);
   });
-  host?.addEventListener?.("keydown", (event) => {
+  listen("keydown", (event) => {
     const node = event.target.closest?.("[data-node]");
     if (!node || !state.enabled || !["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(event.key)) return;
     event.preventDefault();
     const index = Number(node.dataset.node), point = state.points[index], step = event.shiftKey ? 0.05 : 0.01;
-    state.points = updateAmplitudeEnvelopeNode(state.points, index, {
+    state.points = moveNode(state.points, index, {
       x: point.x + (event.key === "ArrowRight" ? step : event.key === "ArrowLeft" ? -step : 0),
       y: point.y + (event.key === "ArrowUp" ? step : event.key === "ArrowDown" ? -step : 0),
     });
     state.preset = "custom";
     render();
-    host.querySelector?.(`[data-node="${index}"]`)?.focus();
     onChange(controller);
+    // The consumer may normalize and re-render the editor in onChange. Restore
+    // focus afterwards so constrained/no-op keyboard edits keep their node.
+    host.querySelector?.(`[data-node="${index}"]`)?.focus();
   });
-  for (const type of ["pointerup", "pointercancel"]) host?.addEventListener?.(type, () => { dragging = null; });
+  for (const type of ["pointerup", "pointercancel", "lostpointercapture"]) listen(type, event => {
+    if (!dragging || event.pointerId !== dragging.pointerId) return;
+    const pointerId = dragging.pointerId;
+    dragging = null;
+    try { host?.releasePointerCapture?.(pointerId); } catch { /* Automatic release already happened. */ }
+  });
   render();
   return controller;
 }

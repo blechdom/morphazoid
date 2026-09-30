@@ -16,7 +16,7 @@ class Node extends EventTarget {
   hasPointerCapture(id) { return this.capture === id; }
   releasePointerCapture() { this.capture = null; }
 }
-function fixture(options = {}) {
+function fixture(options = {}, knobOptions = {}) {
   const doc = { defaultView: { Event }, createElement() { return new Node(doc); } };
   const field = doc.createElement(), input = doc.createElement();
   Object.assign(input, { type: "range", id: "original-level", min: "0", max: "0.9", step: "0.01", value: "0.56", disabled: false }, options);
@@ -26,7 +26,7 @@ function fixture(options = {}) {
   input.addEventListener("change", event => events.push([event.type, input.value, event.bubbles]));
   let disconnected = 0;
   const runtime = { MutationObserver: class { observe() {} disconnect() { disconnected++; } } };
-  const knob = enhanceRangeKnob(input, { runtime });
+  const knob = enhanceRangeKnob(input, { runtime, ...knobOptions });
   const pointer = (type, data = {}) => input.dispatchEvent(Object.assign(new Event(type, { cancelable: true }),
     { pointerId: 1, button: 0, isPrimary: true, clientY: 100, ...data }));
   return { input, field, events, knob, pointer, doc, disconnected: () => disconnected };
@@ -85,4 +85,34 @@ test("lost capture ends the gesture and teardown removes only the rotary enhance
   assert.equal(f.input.value, "0.65");
   f.input.value = "0.2"; f.input.dispatchEvent(new Event("input", { bubbles: true }));
   assert.deepEqual(f.events.at(-1), ["input", "0.2", true], "instrument listeners survive teardown");
+});
+
+test('circular knobs wrap across the seam and through repeated pointer turns', () => {
+  const f = fixture({ min: '0', max: '360', step: '.1', value: '350' }, { wrap: true });
+  f.pointer('pointerdown');
+  f.pointer('pointermove', { clientY: 90 });
+  assert.equal(Number(f.input.value), 20);
+  f.pointer('pointermove', { clientY: -150 });
+  assert.equal(Number(f.input.value), 20, 'two full turns return to the same angle');
+  f.pointer('pointercancel', { clientY: -150 });
+  assert.equal(f.input.capture, null);
+  f.input.value = '359.9';
+  f.input.dispatchEvent(Object.assign(new Event('keydown', { cancelable: true }), { key: 'ArrowRight', shiftKey: false }));
+  assert.equal(Number(f.input.value), 0);
+  f.input.dispatchEvent(Object.assign(new Event('keydown', { cancelable: true }), { key: 'ArrowLeft', shiftKey: false }));
+  assert.ok(Math.abs(Number(f.input.value) - 359.9) < 1e-9);
+  f.knob.destroy();
+});
+
+test('a modulation indicator observes effective values without changing the manual knob or events', () => {
+  const f = fixture();
+  const marker = f.field.children[1].children[1];
+  f.knob.setModulation(.9);
+  assert.equal(marker.hidden, false);
+  assert.match(marker.attributes.get('style'), /135deg/);
+  assert.equal(f.input.value, '0.56');
+  assert.deepEqual(f.events, []);
+  f.knob.setModulation(null);
+  assert.equal(marker.hidden, true);
+  f.knob.destroy();
 });

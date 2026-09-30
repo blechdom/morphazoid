@@ -3,6 +3,7 @@ export const cataloguePlan = JSON.parse(readFileSync(new URL('../../docs/catalog
 const prior = JSON.parse(readFileSync(new URL('../fixtures/catalogue-before-20260918.json', import.meta.url), 'utf8'));
 const byId = new Map(cataloguePlan.rows.flatMap(row => [[row.oldId, row], [row.id, row]]));
 export const mainAdditions = [
+  ...JSON.parse(readFileSync(new URL('../fixtures/catalogue-fractal-signals.json', import.meta.url), 'utf8')).additions,
   ...JSON.parse(readFileSync(new URL('../fixtures/catalogue-rubixoids.json', import.meta.url), 'utf8')).additions,
   ...JSON.parse(readFileSync(new URL('../fixtures/catalogue-main-d96793a.json', import.meta.url), 'utf8')).additions,
   ...JSON.parse(readFileSync(new URL('../fixtures/catalogue-loopini.json', import.meta.url), 'utf8')).additions,
@@ -24,6 +25,8 @@ previousFaves.splice(previousFaves.indexOf("spiral"), 1);
 const moved = ["hiccup-head", "creaturazoid", "hybrinx", "jaw-harp"];
 const reordered = previousFaves.filter(id => !moved.includes(id));
 reordered.splice(reordered.indexOf("hyper-rubix"), 0, ...moved);
+// Owner follow-up September 29: Fractal Synthesis follows Jaw Harp.
+reordered.splice(reordered.indexOf("jaw-harp") + 1, 0, "fractal-signals");
 const latticeIndex = reordered.indexOf("lattice");
 const automataIndex = reordered.indexOf("cellular-automata");
 [reordered[latticeIndex], reordered[automataIndex]] = [reordered[automataIndex], reordered[latticeIndex]];

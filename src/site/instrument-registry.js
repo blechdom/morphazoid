@@ -13,6 +13,7 @@ export const FAVE_TOOL_IDS = Object.freeze([
   "creaturazoid",
   "hybrinx",
   "jaw-harp",
+  "fractal-signals",
   "hyper-rubix",
   "puggler",
   "micmic",
@@ -50,6 +51,7 @@ export const TOOL_GROUPS = Object.freeze([
     { id: "spiral-drum-machine", label: "Spiral Drum Machine", href: "spiral-drum-machine.html", legacyHrefs: ["spiral-drums.html"], imageHref: "assets/instruments/spiral-drums.webp" },
   ]),
   freezeGroup("fractal", "Fractal", [
+    { id: "fractal-signals", label: "Fractal Synthesis", href: "fractal-synthesis.html", legacyHrefs: ["fractal-signals.html"] },
     { id: "l-system-drum-machine", label: "L-System Drum Machine", href: "l-system-drum-machine.html", legacyHrefs: ["l-system-drums.html"], imageHref: "assets/instruments/l-system-drums.webp" },
     { id: "l-system", label: "L-System", href: "l-system.html" },
     { id: "julia", label: "Julia", href: "julia.html" },

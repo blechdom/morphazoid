@@ -447,6 +447,7 @@ export const ADDITIONAL_TAG_IDS = Object.freeze(Object.fromEntries(Object.entrie
     "audio-effect",
     "delay"
   ],
+  "fractal-signals": ["fractal"],
   "recursion": [],
   "enveloper": [],
   "julia": [

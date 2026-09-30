@@ -15,6 +15,12 @@ const define = (kind, description, start, features = [], pluginHref = null) => O
 });
 
 const CATALOG_DETAILS = Object.freeze({
+  "fractal-signals": define(
+    "Six geometric sound processes",
+    "Paths, branches, grains, waves, echoes and textures connect playable geometry to articulated synthesis, recursive rhythm and live input. Each has distinct engines, expanded controls and ADSR envelopes.",
+    "Choose a tab, enable Audio and Play, then drag the geometry. Explore presets, use the information buttons, or explicitly connect a microphone to reshape live sound.",
+    ["Built-in synth", "Microphone", "Audio file", "Pointer", "FM / PM", "Presets"],
+  ),
   "rubixoids": define(
     "2D / 3D / 4D puzzle sequencer",
     "The complete Sliding Puzzle, Rubix Cube and Hyper Rubix instruments share a color palette, additional sound engines and transferable controls. Each dimension retains its puzzle, native capabilities and history when switching.",

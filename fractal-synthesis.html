@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#07090b" />
+  <meta name="description" content="Six playable fractal sound experiments: wandering modulation, L-system rhythms, granular branches, self-similar waveforms, rising echoes and texture resynthesis." />
+  <title>Fractal Synthesis — Morphazoid</title>
+  <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="src/instruments/fractal-signals/style.css" />
+</head>
+<body class="fractal-page">
+  <header class="masthead">
+    <a class="wordmark" href="./" aria-label="Morphazoid home"><span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span><span>morphazoid</span></a>
+    <nav class="tabs" aria-label="Instrument"><a class="tab active" href="fractal-synthesis.html" aria-current="page">Fractal Synthesis</a></nav>
+    <label class="mobile-instrument-nav"><span class="sr-only">Instrument</span><select class="mobile-instrument-select" aria-label="Instrument"><option value="fractal-synthesis.html" selected>Fractal Synthesis</option></select></label>
+    <div id="audioHost"></div>
+  </header>
+  <main class="fractal-layout">
+    <section class="play-surface" aria-label="Fractal instrument">
+      <div id="demoModes" class="demo-modes" role="group" aria-label="Six fractal demos"></div>
+      <div class="stage-wrap">
+        <h1 class="sr-only">Fractal Synthesis</h1>
+        <canvas id="stage" tabindex="0" aria-label="Playable fractal geometry. Drag to reshape; arrow keys move the control point." aria-describedby="gestureHint">Drag the geometry or use arrow keys to shape its sound.</canvas>
+        <div class="gesture-readout"><span id="gestureHint">Drag the illuminated control point</span><output id="frequencyReadout" aria-live="off">440 Hz</output></div>
+      </div>
+      <div class="score-region">
+        <div class="score-label"><span>PHRASE</span><button type="button" class="info-button" data-help="position" aria-label="About phrase position">i</button><output id="phraseReadout" aria-live="off">0 / 8</output><span id="transportState">paused</span></div>
+        <canvas id="score" aria-label="Event score: horizontal position is time, vertical position is frequency">The events in the current phrase.</canvas>
+        <label class="sr-only" for="position">Phrase position</label><input id="position" type="range" min="0" max="1" step="0.001" value="0" aria-label="Phrase position" />
+      </div>
+      <div class="transport-row">
+        <span class="transport-spacer"></span><button id="copySettings" type="button" title="Copy every current sound setting">Copy settings</button><button id="instrumentInfo" type="button" class="info-button fractal-info" aria-label="About this instrument">i</button>
+      </div>
+    </section>
+    <aside class="fractal-panel" aria-label="Sound and structure controls" data-instrument-preset-host>
+      <div class="preset-row" id="mainPresets"></div>
+      <div class="performance-row" role="group" aria-label="Playback and tempo">
+        <button id="playButton" type="button" class="fractal-play" data-primary-transport aria-pressed="false" aria-label="Play" title="Play">
+          <svg class="transport-play" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M8 5.5 18 12 8 18.5Z" /></svg>
+          <svg class="transport-pause" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M8 6v12M16 6v12" /></svg>
+          <span class="sr-only" id="playButtonLabel">Play</span>
+        </button>
+        <div id="tempoControl"></div>
+        <div class="transport-options" role="group" aria-label="Phrase traversal">
+          <button id="restart" type="button" aria-label="Restart" title="Restart the phrase"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4 10a8 8 0 1 1 1 8M4 4v6h6" /></svg></button>
+          <button id="reverse" type="button" aria-pressed="false" aria-label="Direction: forward" title="Direction: forward"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4 12h16m-5-5 5 5-5 5" /></svg></button>
+          <button id="pingPong" type="button" aria-pressed="false" aria-label="Ping-pong" title="Ping-pong"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M5 8h14m-3-3 3 3-3 3M19 16H5m3-3-3 3 3 3" /></svg></button>
+          <button id="loop" type="button" aria-pressed="true" aria-label="Loop" title="Loop"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M18 7h-9a5 5 0 0 0 0 10h9M15 4l3 3-3 3m-6 4-3 3 3 3" /></svg></button>
+          <button type="button" class="info-button" data-help="transport" aria-label="About phrase traversal">i</button>
+        </div>
+      </div>
+      <div class="engine-row"><label for="engine">Sound engine</label><select id="engine"></select><button type="button" class="info-button" data-help="engine" aria-label="About engine">i</button></div>
+      <section id="sourceSection" class="source-section">
+        <h2>INPUT</h2>
+        <div class="source-actions"><button type="button" id="microphone" aria-pressed="false">Microphone off</button><button type="button" class="info-button" data-help="microphone" aria-label="About microphone input">i</button><meter id="inputMeter" min="0" max="1" value="0" aria-label="Microphone level"></meter></div>
+        <p id="microphoneStatus">Enable Audio to use the microphone.</p>
+        <div id="inputControls" class="control-grid"></div>
+        <div id="fileSourceControls">
+          <div class="source-actions"><button type="button" id="loadSource">Load audio…</button><button type="button" id="clearSource">Built-in source</button></div>
+          <input type="file" id="sourceFile" accept="audio/*" hidden />
+          <p id="sourceStatus">Original synthetic material. Local files stay on this device.</p>
+        </div>
+      </section>
+      <div class="voice-row" id="modulationRow"><span>MODULATION</span><button type="button" class="info-button" data-help="synthesis" aria-label="About FM and PM">i</button><div role="group" aria-label="Modulation type"><button type="button" id="synthesisFm" aria-pressed="false">FM</button><button type="button" id="synthesisPm" aria-pressed="true">PM</button></div><span id="modulationUnit">phase · radians</span></div>
+      <div id="macroControls" class="macro-controls"></div>
+      <div id="modeControls"></div>
+      <div id="soundControls"></div>
+
+      <p class="status-line" id="status" role="status" aria-live="polite">Audio off · ready</p>
+    </aside>
+  </main>
+  <dialog id="helpDialog" aria-labelledby="helpTitle">
+    <div class="help-heading"><h2 id="helpTitle"></h2><button type="button" id="closeHelp" aria-label="Close information">×</button></div>
+    <div id="helpBody"></div>
+  </dialog>
+  <script type="module" src="nav.js"></script>
+  <script type="module" src="src/instruments/fractal-signals/app.js"></script>
+</body>
+</html>

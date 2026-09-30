@@ -3,7 +3,7 @@ import { dispatchNativeEvent } from "../internal.js";
 const knobs = new WeakMap();
 
 /** Rotary presentation for an existing native range; its owner keeps the value and events. */
-export function enhanceRangeKnob(input, { runtime = input.ownerDocument?.defaultView ?? globalThis } = {}) {
+export function enhanceRangeKnob(input, { runtime = input.ownerDocument?.defaultView ?? globalThis, wrap = false } = {}) {
   if (knobs.has(input)) return knobs.get(input);
   const field = input.parentNode;
   if (input.type !== "range" || !field) throw new TypeError("A mounted native range is required");
@@ -13,6 +13,10 @@ export function enhanceRangeKnob(input, { runtime = input.ownerDocument?.default
   dial.setAttribute("aria-hidden", "true");
   const needle = doc.createElement("i");
   dial.append(needle);
+  const modulationNeedle = doc.createElement("b");
+  modulationNeedle.className = "mz-range-knob__modulation";
+  modulationNeedle.hidden = true;
+  dial.append(modulationNeedle);
   field.append(dial);
   field.classList.add("mz-range-knob");
   const removers = [];
@@ -22,10 +26,11 @@ export function enhanceRangeKnob(input, { runtime = input.ownerDocument?.default
     max: input.max === "" ? 100 : Number(input.max),
     step: input.step === "any" ? 0 : Number(input.step) || 1,
   });
+  const wrapped = (value, min, max) => max > min ? min + ((value - min) % (max - min) + max - min) % (max - min) : min;
   const update = () => {
     const { min, max } = limits();
     const fraction = max > min ? Math.max(0, Math.min(1, (Number(input.value) - min) / (max - min))) : 0;
-    needle.setAttribute("style", `transform: rotate(${-135 + fraction * 270}deg)`);
+    needle.setAttribute("style", `transform: rotate(${wrap ? fraction * 360 : -135 + fraction * 270}deg)`);
     field.classList.toggle("is-disabled", input.disabled);
   };
   const listen = (node, type, callback, options) => {
@@ -50,13 +55,22 @@ export function enhanceRangeKnob(input, { runtime = input.ownerDocument?.default
     if (!drag || drag.id !== event.pointerId) return;
     if (input.disabled) { end(event); return; }
     const { min, max, step } = limits();
-    drag.raw = Math.max(min, Math.min(max, drag.raw + (drag.y - event.clientY) * (max - min) / (event.shiftKey ? 1200 : 120)));
+    const next = drag.raw + (drag.y - event.clientY) * (max - min) / (event.shiftKey ? 1200 : 120);
+    drag.raw = wrap ? next : Math.max(min, Math.min(max, next));
     drag.y = event.clientY;
     const value = step ? min + Math.round((drag.raw - min) / step) * step : drag.raw;
     const before = input.value;
-    input.value = String(Number(Math.max(min, Math.min(max, value)).toPrecision(12)));
+    input.value = String(Number((wrap ? wrapped(value, min, max) : Math.max(min, Math.min(max, value))).toPrecision(12)));
     update();
     if (input.value !== before) dispatchNativeEvent(input, "input", doc);
+  });
+  if (wrap) listen(input, "keydown", event => {
+    const directions = { ArrowUp: 1, ArrowRight: 1, ArrowDown: -1, ArrowLeft: -1 };
+    if (!(event.key in directions) || input.disabled) return;
+    event.preventDefault();
+    const { min, max, step } = limits();
+    input.value = String(wrapped(Number(input.value) + directions[event.key] * (step || 1) * (event.shiftKey ? 10 : 1), min, max));
+    update(); dispatchNativeEvent(input, "input", doc); dispatchNativeEvent(input, "change", doc);
   });
   for (const type of ["pointerup", "pointercancel", "lostpointercapture"]) listen(input, type, end);
   for (const type of ["input", "change"]) listen(input, type, update);
@@ -67,6 +81,13 @@ export function enhanceRangeKnob(input, { runtime = input.ownerDocument?.default
   observer?.observe(input, { attributes: true, attributeFilter: ["value", "min", "max", "step", "disabled"] });
   const controller = {
     update,
+    setModulation(value) {
+      modulationNeedle.hidden = !Number.isFinite(value);
+      if (!Number.isFinite(value)) return;
+      const { min, max } = limits();
+      const fraction = max > min ? Math.max(0, Math.min(1, (value - min) / (max - min))) : 0;
+      modulationNeedle.setAttribute("style", `transform: rotate(${wrap ? fraction * 360 : -135 + fraction * 270}deg)`);
+    },
     destroy() {
       end(null, false);
       observer?.disconnect();

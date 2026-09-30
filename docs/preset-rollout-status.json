@@ -4,9 +4,9 @@
   "branch": "codex/presets-continue-20260922",
   "source": "Review branch directory checkpoint 03619ff rebased onto origin/main ef6e593; pending pointer, family rename and preset drafts restored; no push or deployment",
   "counts": {
-    "implemented": 27,
-    "fullPresets": 587,
-    "favesImplemented": 15,
+    "implemented": 28,
+    "fullPresets": 649,
+    "favesImplemented": 16,
     "activeRemaining": 64,
     "regularRemaining": 133
   },
@@ -170,6 +170,16 @@
       "scope": "regular",
       "presets": null,
       "status": "unmigrated"
+    },
+    {
+      "id": "fractal-signals",
+      "presets": 62,
+      "status": "implemented-verification-pending",
+      "evidence": "docs/fractal-signals.md; 62 complete scenes including 20 exact owner patches; model, DSP and browser checks; human/device acceptance unperformed",
+      "label": "Fractal Synthesis",
+      "href": "fractal-synthesis.html",
+      "category": "fractal",
+      "scope": "fave"
     },
     {
       "id": "l-system-drum-machine",
@@ -1578,6 +1588,7 @@
       "creaturazoid",
       "hybrinx",
       "jaw-harp",
+      "fractal-signals",
       "hyper-rubix",
       "puggler",
       "micmic",

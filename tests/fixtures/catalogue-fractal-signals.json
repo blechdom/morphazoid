@@ -1,0 +1,40 @@
+{
+  "additions": [
+    {
+      "id": "fractal-signals",
+      "label": "Fractal Synthesis",
+      "href": "fractal-synthesis.html",
+      "legacyHrefs": [
+        "fractal-signals.html"
+      ],
+      "kind": "Six geometric sound processes",
+      "description": "Paths, branches, grains, waves, echoes and textures connect playable geometry to articulated synthesis, recursive rhythm and live input. Each has distinct engines, expanded controls and ADSR envelopes.",
+      "start": "Choose a tab, enable Audio and Play, then drag the geometry. Explore presets, use the information buttons, or explicitly connect a microphone to reshape live sound.",
+      "features": [
+        "Built-in synth",
+        "Microphone",
+        "Audio file",
+        "Pointer",
+        "FM / PM",
+        "Presets",
+        "MIDI",
+        "Computer keys"
+      ],
+      "pluginHref": null,
+      "tags": [
+        {
+          "id": "fractal",
+          "label": "Fractal"
+        },
+        {
+          "id": "faves",
+          "label": "Faves"
+        }
+      ],
+      "status": null,
+      "imageHref": "assets/instruments/fractal-signals.webp",
+      "categoryId": "fractal",
+      "categoryLabel": "Fractal"
+    }
+  ]
+}

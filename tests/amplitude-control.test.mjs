@@ -93,3 +93,40 @@ test("amplitude controls snapshot and restore a shared five-node envelope", () =
   snapshot.points[1].x = 0.99;
   assert.equal(target.captureState().points[1].x, 0.12, "state is copied across the bridge");
 });
+
+test("keyboard node focus is restored after a consumer synchronizes the editor", () => {
+  const host = controlHost();
+  let renderedNode;
+  let markup = "";
+  Object.defineProperty(host, "innerHTML", {
+    get: () => markup,
+    set(value) { markup = value; renderedNode = { focused: false, focus() { this.focused = true; } }; },
+  });
+  host.querySelector = () => renderedNode;
+  let syncing = false;
+  createAmplitudeControl(host, { onChange(control) {
+    if (syncing) return;
+    syncing = true;
+    control.applyState(control.captureState());
+    syncing = false;
+  } });
+  host.listeners.get("keydown")({
+    target: { closest: () => ({ dataset: { node: "1" } }) },
+    key: "ArrowUp", shiftKey: false, preventDefault() {},
+  });
+  assert.equal(renderedNode.focused, true, "focus belongs to the final rendered node");
+});
+
+test("destroy releases pointer ownership and removes shared editor listeners", () => {
+  const host = controlHost(), released = [];
+  host.removeEventListener = (type, callback) => { if (host.listeners.get(type) === callback) host.listeners.delete(type); };
+  host.releasePointerCapture = pointerId => released.push(pointerId);
+  const control = createAmplitudeControl(host);
+  host.listeners.get("pointerdown")({
+    target: { closest: () => ({ dataset: { node: "1" } }) },
+    pointerId: 7, button: 0, clientX: .2, clientY: .1, preventDefault() {},
+  });
+  control.destroy();
+  assert.deepEqual(released, [7]);
+  assert.equal(host.listeners.size, 0);
+});
