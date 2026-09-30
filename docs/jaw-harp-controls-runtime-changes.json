@@ -1,0 +1,48 @@
+{
+  "version": 1,
+  "base": "a95872cd0d8924b944be58f045656e0200e62b39",
+  "changes": [
+    {
+      "file": "src/instruments/jaw-harp/jaw-harp-app.js",
+      "reason": "Owner-requested Jaw Harp controls cleanup: use the shared Choose menu for local selections, synchronize it with existing state and page lifecycle, and simplify repeated preset/vowel copy. Preserve synthesis, gestures, native select events, and frozen relocation/pointer references.",
+      "regressionTests": [
+        "tests/jaw-harp.test.mjs",
+        "e2e/jaw-harp.spec.mjs"
+      ],
+      "replacements": [
+        {
+          "before": "import { registerHeaderPresets } from \"../../site/header-presets.js\";\nimport { JAW_HARP_FULL_PRESETS, captureJawHarpPreset, validateJawHarpPreset, randomizeJawHarpPreset } from \"./full-presets.js\";\n\nconst $ = (id) => document.getElementById(id);\nconst canvas = $(\"stage\");\nconst stageWrap = $(\"stageWrap\");\n",
+          "after": "import { registerHeaderPresets } from \"../../site/header-presets.js\";\nimport { JAW_HARP_FULL_PRESETS, captureJawHarpPreset, validateJawHarpPreset, randomizeJawHarpPreset } from \"./full-presets.js\";\n\nimport { createJawHarpSelectPicker } from \"./select-picker.js\";\n\nconst $ = (id) => document.getElementById(id);\nconst canvas = $(\"stage\");\nconst stageWrap = $(\"stageWrap\");\n"
+        },
+        {
+          "before": "// Randomized models can legitimately retain a near-zero performance force. Keep\n// that setting intact, but use a dependable strike for the one-shot audition.\nconst RANDOMIZE_AUDITION_FORCE_FLOOR = JAW_HARP_DEFAULTS.pluckForce;\n\nlet state = jawHarpState(\"khomus\");\nlet activeVowelId = \"a\";\n",
+          "after": "// Randomized models can legitimately retain a near-zero performance force. Keep\n// that setting intact, but use a dependable strike for the one-shot audition.\nconst RANDOMIZE_AUDITION_FORCE_FLOOR = JAW_HARP_DEFAULTS.pluckForce;\nconst selectPickers = new Map();\n\nfunction mountSelectPickers() {\n  for (const [id, label] of [\n    [\"harpSelect\", \"Physical harp / material\"],\n    [\"styleSelect\", \"Reference performance\"],\n    [\"vowelSequenceSelect\", \"Vowel phrase\"],\n    [\"rhythmSelect\", \"Gesture loop\"],\n    [\"breathsPerLoop\", \"Breath against pluck loop\"],\n  ]) {\n    selectPickers.set(id, createJawHarpSelectPicker($(id), { label }));\n  }\n}\n\nlet state = jawHarpState(\"khomus\");\nlet activeVowelId = \"a\";\n"
+        },
+        {
+          "before": "    button.setAttribute(\"aria-pressed\", String(button.dataset.vowel === soundingVowelId));\n  }\n  $(\"vowelSequenceSelect\").value = sequence.id;\n  for (const button of document.querySelectorAll(\"[data-vowel-sequence-mode]\")) {\n    button.setAttribute(\n      \"aria-pressed\",\n",
+          "after": "    button.setAttribute(\"aria-pressed\", String(button.dataset.vowel === soundingVowelId));\n  }\n  $(\"vowelSequenceSelect\").value = sequence.id;\n  selectPickers.get(\"vowelSequenceSelect\")?.sync();\n  for (const button of document.querySelectorAll(\"[data-vowel-sequence-mode]\")) {\n    button.setAttribute(\n      \"aria-pressed\",\n"
+        },
+        {
+          "before": "  updateXYPadPresentation();\n  updateBreathPresentation();\n  updateTransportPresentation();\n  telemetry.formants = telemetry.formants ?? formants.frequenciesHz;\n}\n\n",
+          "after": "  updateXYPadPresentation();\n  updateBreathPresentation();\n  updateTransportPresentation();\n  for (const picker of selectPickers.values()) picker.sync();\n  telemetry.formants = telemetry.formants ?? formants.frequenciesHz;\n}\n\n"
+        },
+        {
+          "before": "    return group;\n  });\n  $(\"styleSelect\").replaceChildren(...styleGroups, customStyleOption);\n  $(\"styleSelectLabel\").textContent = `Reference performance · ${JAW_HARP_STYLE_REFERENCES.length} studies`;\n  $(\"vowelButtons\").replaceChildren(...VOWEL_PRESETS.map((vowel) => {\n    const button = document.createElement(\"button\");\n    button.type = \"button\";\n    button.dataset.vowel = vowel.id;\n    button.innerHTML = `${vowel.label}<small>${vowel.phoneme}</small>`;\n    button.setAttribute(\"aria-pressed\", String(vowel.id === activeVowelId));\n    button.addEventListener(\"click\", () => loadVowel(vowel.id));\n    return button;\n",
+          "after": "    return group;\n  });\n  $(\"styleSelect\").replaceChildren(...styleGroups, customStyleOption);\n  $(\"vowelButtons\").replaceChildren(...VOWEL_PRESETS.map((vowel) => {\n    const button = document.createElement(\"button\");\n    button.type = \"button\";\n    button.dataset.vowel = vowel.id;\n    button.textContent = vowel.label;\n    button.title = vowel.phoneme;\n    button.setAttribute(\"aria-pressed\", String(vowel.id === activeVowelId));\n    button.addEventListener(\"click\", () => loadVowel(vowel.id));\n    return button;\n"
+        },
+        {
+          "before": "\nbuildPresets();\ninstallControls();\ninstallCanvasInteractions();\ninstallXYPadInteractions();\ninstallKeyboard();\n",
+          "after": "\nbuildPresets();\ninstallControls();\nmountSelectPickers();\ninstallCanvasInteractions();\ninstallXYPadInteractions();\ninstallKeyboard();\n"
+        },
+        {
+          "before": "animationFrame = requestAnimationFrame(tick);\n\nglobalThis.addEventListener(\"pagehide\", () => {\n  pageIsActive = false;\n  pageLifecycleGeneration += 1;\n  requestAudioState(false);\n",
+          "after": "animationFrame = requestAnimationFrame(tick);\n\nglobalThis.addEventListener(\"pagehide\", () => {\n  for (const picker of selectPickers.values()) picker.destroy();\n  selectPickers.clear();\n  pageIsActive = false;\n  pageLifecycleGeneration += 1;\n  requestAudioState(false);\n"
+        },
+        {
+          "before": "globalThis.addEventListener(\"pageshow\", () => {\n  if (pageIsActive) return;\n  pageIsActive = true;\n  manualBreathDirection = 0;\n  commandedBreathFlow = 0;\n  visualBreathFlow = 0;\n",
+          "after": "globalThis.addEventListener(\"pageshow\", () => {\n  if (pageIsActive) return;\n  pageIsActive = true;\n  mountSelectPickers();\n  manualBreathDirection = 0;\n  commandedBreathFlow = 0;\n  visualBreathFlow = 0;\n"
+        }
+      ]
+    }
+  ]
+}

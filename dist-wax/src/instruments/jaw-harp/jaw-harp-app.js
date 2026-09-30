@@ -43,6 +43,8 @@ import { unlockAudioContext } from "../../audio.js";
 import { registerHeaderPresets } from "../../site/header-presets.js";
 import { JAW_HARP_FULL_PRESETS, captureJawHarpPreset, validateJawHarpPreset, randomizeJawHarpPreset } from "./full-presets.js";
 
+import { createJawHarpSelectPicker } from "./select-picker.js";
+
 const $ = (id) => document.getElementById(id);
 const canvas = $("stage");
 const stageWrap = $("stageWrap");
@@ -76,6 +78,19 @@ const STYLE_SETTING_KEYS = new Set(JAW_HARP_STYLE_SETTING_KEYS);
 // Randomized models can legitimately retain a near-zero performance force. Keep
 // that setting intact, but use a dependable strike for the one-shot audition.
 const RANDOMIZE_AUDITION_FORCE_FLOOR = JAW_HARP_DEFAULTS.pluckForce;
+const selectPickers = new Map();
+
+function mountSelectPickers() {
+  for (const [id, label] of [
+    ["harpSelect", "Physical harp / material"],
+    ["styleSelect", "Reference performance"],
+    ["vowelSequenceSelect", "Vowel phrase"],
+    ["rhythmSelect", "Gesture loop"],
+    ["breathsPerLoop", "Breath against pluck loop"],
+  ]) {
+    selectPickers.set(id, createJawHarpSelectPicker($(id), { label }));
+  }
+}
 
 let state = jawHarpState("khomus");
 let activeVowelId = "a";
@@ -1141,6 +1156,7 @@ function updateVowelSequencePresentation() {
     button.setAttribute("aria-pressed", String(button.dataset.vowel === soundingVowelId));
   }
   $("vowelSequenceSelect").value = sequence.id;
+  selectPickers.get("vowelSequenceSelect")?.sync();
   for (const button of document.querySelectorAll("[data-vowel-sequence-mode]")) {
     button.setAttribute(
       "aria-pressed",
@@ -1258,6 +1274,7 @@ function updatePresentation() {
   updateXYPadPresentation();
   updateBreathPresentation();
   updateTransportPresentation();
+  for (const picker of selectPickers.values()) picker.sync();
   telemetry.formants = telemetry.formants ?? formants.frequenciesHz;
 }
 
@@ -1300,12 +1317,12 @@ function buildPresets() {
     return group;
   });
   $("styleSelect").replaceChildren(...styleGroups, customStyleOption);
-  $("styleSelectLabel").textContent = `Reference performance · ${JAW_HARP_STYLE_REFERENCES.length} studies`;
   $("vowelButtons").replaceChildren(...VOWEL_PRESETS.map((vowel) => {
     const button = document.createElement("button");
     button.type = "button";
     button.dataset.vowel = vowel.id;
-    button.innerHTML = `${vowel.label}<small>${vowel.phoneme}</small>`;
+    button.textContent = vowel.label;
+    button.title = vowel.phoneme;
     button.setAttribute("aria-pressed", String(vowel.id === activeVowelId));
     button.addEventListener("click", () => loadVowel(vowel.id));
     return button;
@@ -2531,6 +2548,7 @@ function tick(time) {
 
 buildPresets();
 installControls();
+mountSelectPickers();
 installCanvasInteractions();
 installXYPadInteractions();
 installKeyboard();
@@ -2546,6 +2564,8 @@ new ResizeObserver(resizeCanvas).observe(stageWrap);
 animationFrame = requestAnimationFrame(tick);
 
 globalThis.addEventListener("pagehide", () => {
+  for (const picker of selectPickers.values()) picker.destroy();
+  selectPickers.clear();
   pageIsActive = false;
   pageLifecycleGeneration += 1;
   requestAudioState(false);
@@ -2564,6 +2584,7 @@ globalThis.addEventListener("pagehide", () => {
 globalThis.addEventListener("pageshow", () => {
   if (pageIsActive) return;
   pageIsActive = true;
+  mountSelectPickers();
   manualBreathDirection = 0;
   commandedBreathFlow = 0;
   visualBreathFlow = 0;

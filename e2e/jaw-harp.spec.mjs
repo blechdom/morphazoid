@@ -136,3 +136,45 @@ test("Jaw Harp panel XY pads stay clear of the mobile head and control both axes
   await breathFilter.fill("1");
   await expect(page.locator("#breathFilterOut")).toHaveText("100% open");
 });
+
+test("Jaw Harp Choose menus preserve native choices and follow preset/reset state", async ({ page }) => {
+  await page.goto("jaw-harp.html", { waitUntil: "load" });
+  await expect(page.locator(".jaw-select-picker")).toHaveCount(5);
+  const ids = ["harpSelect", "styleSelect", "vowelSequenceSelect", "rhythmSelect", "breathsPerLoop"];
+  const pickerFor = id => page.locator(`[data-select-id="${id}"]`);
+  const expectSynchronized = async () => {
+    for (const id of ids) {
+      const label = await page.locator(`#${id}`).evaluate(select => select.selectedOptions[0].label);
+      await expect(pickerFor(id).locator(".instrument-picker-current")).toHaveText(label);
+    }
+  };
+
+  for (const id of ids) {
+    const picker = pickerFor(id);
+    await page.locator(`label[for="${id}"]`).click();
+    await expect(picker).toHaveAttribute("open", "");
+    const option = await page.locator(`#${id} option`).nth(1).getAttribute("value");
+    await picker.locator('[data-option-index="1"]').click();
+    await expect(page.locator(`#${id}`)).toHaveValue(option);
+    await expect(picker).not.toHaveAttribute("open", "");
+  }
+  await expectSynchronized();
+
+  await page.getByRole("button", { name: "With plucks", exact: true }).click();
+  const phrase = pickerFor("vowelSequenceSelect");
+  await phrase.locator("summary").click();
+  await phrase.locator('input[type="search"]').press("a");
+  await expect(page.getByRole("button", { name: "With plucks", exact: true })).toHaveAttribute("aria-pressed", "true");
+  await phrase.locator('input[type="search"]').fill("no matching phrase");
+  await expect(phrase.locator(".instrument-picker-empty")).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(phrase.locator("summary")).toBeFocused();
+  await expect(phrase).not.toHaveAttribute("open", "");
+  await expect(page.locator("#audioButton")).toHaveAttribute("aria-pressed", "false");
+
+  await page.locator(".instrument-preset-controls .header-preset-next").click();
+  await expectSynchronized();
+  await page.locator("#resetAll").click();
+  await expectSynchronized();
+  await expect(page.locator(".jaw-data #reedReadout")).toHaveText("76 Hz");
+});

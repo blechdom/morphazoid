@@ -1,4 +1,5 @@
 import { restoreSpelling } from "./helpers/spelling-reference.mjs";
+import { restoreJawHarpControls } from "./helpers/jaw-harp-controls-reference.mjs";
 import { restoreHybrinxVolumeMeter } from "./helpers/hybrinx-volume-meter-reference.mjs";
 import assert from "node:assert/strict";
 import { readFile, stat } from "node:fs/promises";
@@ -54,6 +55,7 @@ test("runtime modules reverse exactly after explicit runtime fixes and documente
   ]);
   for (const record of proof.files) {
     let current = await readFile(path.join(root, record.after), "utf8");
+    current = restoreJawHarpControls(current, record.after);
     current = restoreHybrinxVolumeMeter(restoreSpelling(current, record.after), record.after);
     for (const change of chiptuneChanges.filter(change => change.file === record.after)) {
       assert.equal(current, change.wrapper, `shared Chiptune entry: ${change.file}`);

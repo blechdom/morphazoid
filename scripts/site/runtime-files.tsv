@@ -889,6 +889,7 @@ copy+require	src/instruments/adaptive-airway/adaptive-airway-app.js
 copy+require	src/instruments/creaturazoid/creaturazoid-app.js
 copy+require	src/instruments/entanglement-dance/entanglement-dance-app.js
 copy+require	src/instruments/jaw-harp/jaw-harp-app.js
+copy+require	src/instruments/jaw-harp/select-picker.js
 copy+require	src/instruments/julia/julia-app.js
 copy+require	src/instruments/lumber/lumber-app.js
 copy+require	src/instruments/puggler/puggler-app.js
