@@ -21,7 +21,7 @@ const root = new URL("../", import.meta.url);
 
 test("Gesturama is a native Morphazoid page with explicit local camera startup", async () => {
   const [html, css, app, audio] = await Promise.all([
-    readFile(new URL("gesturama.html", root), "utf8"),
+    readFile(new URL("src/pages/gesturama.html", root), "utf8"),
     readFile(new URL("src/instruments/gesturama/gesturama.css", root), "utf8"),
     readFile(new URL("src/instruments/gesturama/gesturama-app.js", root), "utf8"),
     readFile(new URL("src/instruments/gesturama/gesturama-audio.js", root), "utf8"),
@@ -73,7 +73,7 @@ test("Gesturama is a native Morphazoid page with explicit local camera startup",
 
 test("Gesturama has no Draw or Play mode and pointer hover cannot perform sounds", async () => {
   const [html, app] = await Promise.all([
-    readFile(new URL("gesturama.html", root), "utf8"),
+    readFile(new URL("src/pages/gesturama.html", root), "utf8"),
     readFile(new URL("src/instruments/gesturama/gesturama-app.js", root), "utf8"),
   ]);
 
@@ -98,7 +98,7 @@ test("Gesturama has no Draw or Play mode and pointer hover cannot perform sounds
 });
 
 test("Gesturama exposes presets, harp, motion view, microphone sampling, and color controls", async () => {
-  const html = await readFile(new URL("gesturama.html", root), "utf8");
+  const html = await readFile(new URL("src/pages/gesturama.html", root), "utf8");
   const cells = [...html.matchAll(
     /<span\s+data-grid-cell="(\d+)"\s+data-instrument="(kick|snare|hat|clap)"/g,
   )].map((match) => ({ index: Number(match[1]), instrument: match[2] }));

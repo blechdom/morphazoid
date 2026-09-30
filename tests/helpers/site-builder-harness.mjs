@@ -80,6 +80,17 @@ export async function createSiteBuilderHarness({ absent = [], untrackedRequired 
     ], { cwd: directory });
     await write("scripts/site/runtime-manifest.mjs", await readFile(new URL("scripts/site/runtime-manifest.mjs", root)));
     await write("scripts/site/runtime-files.tsv", historicalManifest(legacy));
+    // The current builder validates canonical page sources. This synthetic fixture
+    // keeps its historical root routes for the frozen-builder comparison, and
+    // mirrors those exact fixture bytes under src/pages for the current builder.
+    const fixturePages = legacy.required.filter(file => file.endsWith(".html") && !absentSet.has(file));
+    for (const page of fixturePages) await write("src/pages/" + page, Buffer.from("fixture:" + page + "\\n\\0binary-preserved\\n"));
+    await write("scripts/site/page-source-routes.mjs", [
+      'import { readdir } from "node:fs/promises";',
+      'const routes = (await readdir(new URL("../../src/pages/", import.meta.url))).filter(name => name.endsWith(".html")).sort();',
+      'process.stdout.write(routes.join("\\n") + "\\n");',
+      "",
+    ].join("\n"));
     // This fixture compares file-selection/copy semantics, not the later social
     // metadata transform. Its real implementation has dedicated production
     // tests; still exercise the hook invocation without rewriting fake HTML.

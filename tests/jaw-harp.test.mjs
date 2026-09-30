@@ -2258,7 +2258,7 @@ test("jaw-harp worklet renders a bounded, decaying pluck", async () => {
 
 test("jaw-harp page exposes the physical model and accessible interactions", async () => {
   const [html, css, app, processor] = await Promise.all([
-    readFile(new URL("jaw-harp.html", root), "utf8"),
+    readFile(new URL("src/pages/jaw-harp.html", root), "utf8"),
     readFile(new URL("src/instruments/jaw-harp/jaw-harp.css", root), "utf8"),
     readFile(new URL("src/instruments/jaw-harp/jaw-harp-app.js", root), "utf8"),
     readFile(new URL("src/instruments/jaw-harp/jaw-harp-processor.js", root), "utf8"),

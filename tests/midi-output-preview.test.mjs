@@ -699,7 +699,7 @@ test("exact geometry preview controls are excluded before shared navigation init
     "spiral-drum-machine.html",
   ].map(async (file) => [
     file,
-    await readFile(new URL(`../${file}`, import.meta.url), "utf8"),
+    await readFile(new URL("../src/pages/" + file, import.meta.url), "utf8"),
   ])));
   const expectedIds = new Map([
     ["lattice.html", ["playButton", "position", "speed"]],

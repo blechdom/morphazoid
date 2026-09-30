@@ -6,7 +6,7 @@ const read = (path) => readFile(new URL(path, import.meta.url), "utf8");
 
 test("Micromorph exposes one honest, local-first live diffusion instrument", async () => {
   const [html, app, css, contract] = await Promise.all([
-    read("../micromorph.html"),
+    read("../src/pages/micromorph.html"),
     read("../src/instruments/micromorph/micromorph-app.js"),
     read("../src/instruments/micromorph/micromorph.css"),
     read("../contracts/micromorph-stream-v1.md"),
@@ -55,7 +55,7 @@ test("Micromorph exposes one honest, local-first live diffusion instrument", asy
 });
 
 test("Micromorph has no remote model, script, font, or stylesheet dependency", async () => {
-  const html = await read("../micromorph.html");
+  const html = await read("../src/pages/micromorph.html");
   assert.doesNotMatch(html, /(?:src|href)="https?:\/\//i);
   assert.doesNotMatch(html, /models\.example|huggingface|replicate|openai/i);
 });

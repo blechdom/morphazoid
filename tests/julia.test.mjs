@@ -253,7 +253,7 @@ test("named preset constants retain their defining critical cycles", () => {
 test("Julia page exposes the fractal, signed-turn mapping, and Shepard controls", async () => {
   const root = new URL("../", import.meta.url);
   const [html, app] = await Promise.all([
-    readFile(new URL("julia.html", root), "utf8"),
+    readFile(new URL("src/pages/julia.html", root), "utf8"),
     readFile(new URL("src/instruments/julia/julia-app.js", root), "utf8"),
   ]);
   for (const id of [

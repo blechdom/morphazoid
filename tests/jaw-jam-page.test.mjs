@@ -92,7 +92,7 @@ function occurrences(source, pattern) {
 }
 
 test("Jaw Jam page exposes one complete accessible workstation contract", async () => {
-  const html = await readFile(new URL("jaw-jam.html", root), "utf8");
+  const html = await readFile(new URL("src/pages/jaw-jam.html", root), "utf8");
 
   assert.match(html, /<body class="jaw-jam-page">/);
   assert.match(html, /<main class="jaw-jam-shell" id="jawJam">/);

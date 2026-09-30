@@ -8,9 +8,8 @@ import { audioInputConstraints } from "../src/audio-input-settings.js";
 const root = new URL("../", import.meta.url);
 
 test("L-system Delay exposes live recursion, current settings, safety, and an echo-tree stage", async () => {
-  const [html, legacyRedirect, app, css] = await Promise.all([
-    readFile(new URL("l-mic.html", root), "utf8"),
-    readFile(new URL("micmic.html", root), "utf8"),
+  const [html, app, css] = await Promise.all([
+    readFile(new URL("src/pages/l-mic.html", root), "utf8"),
     readFile(new URL("src/instruments/micmic/micmic-app.js", root), "utf8"),
     readFile(new URL("src/instruments/micmic/micmic.css", root), "utf8"),
   ]);
@@ -21,12 +20,6 @@ test("L-system Delay exposes live recursion, current settings, safety, and an ec
   assert.match(html, /class="tab micmic-tab active"[^>]*href="l-mic\.html"[^>]*aria-current="page">L-system Delay/);
   assert.match(html, /<option value="l-mic\.html" selected>L-system Delay<\/option>/);
   assert.doesNotMatch(html, /mic\(mic\)/i);
-  assert.match(legacyRedirect, /http-equiv="refresh" content="0; url=l-mic\.html"/);
-  assert.match(legacyRedirect, /<link rel="canonical" href="l-mic\.html"/);
-  assert.match(
-    legacyRedirect,
-    /window\.location\.replace\(`l-mic\.html\$\{window\.location\.search\}\$\{window\.location\.hash\}`\)/,
-  );
   assert.match(html, /<span class="audio-copy"><b>Audio<\/b>/);
   assert.match(html, /src="src\/instruments\/micmic\/micmic-app\.js(?:\?[^"]+)?"/);
   assert.match(html, /href="src\/instruments\/micmic\/micmic\.css"/);
@@ -246,7 +239,7 @@ test("L-system Delay exposes live recursion, current settings, safety, and an ec
 });
 
 test("L-system Delay markup has unique ids and labelled controls", async () => {
-  const html = await readFile(new URL("l-mic.html", root), "utf8");
+  const html = await readFile(new URL("src/pages/l-mic.html", root), "utf8");
   const ids = [...html.matchAll(/\bid="([^"]+)"/g)].map((match) => match[1]);
   assert.equal(new Set(ids).size, ids.length);
   for (const id of ["level", "inputTrim", "generations", "pruningBias", "depth", "interval", "timeRatio", "generationAngle", "generationAsymmetry", "generationPitchScale", "mutation", "wet", "dry", "spread"]) {

@@ -134,10 +134,10 @@ test("every function in the live GPU synth WGSL is named by a live atlas entry",
 
 test("the companion page exposes filters, a semantic table, and technical notes", async () => {
   const [html, css, app, synthPage] = await Promise.all([
-    readFile(new URL("webgpu-dsp-primitives.html", ROOT), "utf8"),
+    readFile(new URL("src/pages/webgpu-dsp-primitives.html", ROOT), "utf8"),
     readFile(new URL("src/instruments/webgpu-dsp-primitives/webgpu-dsp-primitives.css", ROOT), "utf8"),
     readFile(new URL("src/instruments/webgpu-dsp-primitives/webgpu-dsp-primitives-app.js", ROOT), "utf8"),
-    readFile(new URL("webgpu-synths.html", ROOT), "utf8"),
+    readFile(new URL("src/pages/webgpu-synths.html", ROOT), "utf8"),
   ]);
 
   const inputTags = html.match(/<input\b[^>]*>/gi) ?? [];

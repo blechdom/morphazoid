@@ -654,7 +654,7 @@ test("worklet renders a finite normalized stereo bank through an octave seam", a
 test("native page keeps audio creation behind the Audio gesture and cleans up", async () => {
   const root = new URL("../", import.meta.url);
   const [markup, app, audioModule] = await Promise.all([
-    readFile(new URL("shepard-risset.html", root), "utf8"),
+    readFile(new URL("src/pages/shepard-risset.html", root), "utf8"),
     readFile(new URL("src/instruments/shepard-risset/shepard-risset-app.js", root), "utf8"),
     readFile(new URL("src/instruments/shepard-risset/shepard-risset.js", root), "utf8"),
   ]);

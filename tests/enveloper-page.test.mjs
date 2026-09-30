@@ -5,7 +5,7 @@ import test from "node:test";
 const root = new URL("../", import.meta.url);
 
 test("Enveloper exposes an explicit three-generation editor and separate transport", async () => {
-  const html = await readFile(new URL("enveloper.html", root), "utf8");
+  const html = await readFile(new URL("src/pages/enveloper.html", root), "utf8");
 
   assert.match(html, /<body class="enveloper-page">/);
   assert.match(html, /id="audioButton"[^>]*aria-pressed="false"/);

@@ -3,8 +3,8 @@ import { expect, test } from "@playwright/test";
 async function openTiles(page) {
   const pageErrors = [];
   page.on("pageerror", (error) => pageErrors.push(error.message));
-  const response = await page.goto("/tiles.html", { waitUntil: "domcontentloaded" });
-  expect(response?.ok(), `tiles.html returned HTTP ${response?.status()}`).toBe(true);
+  const response = await page.goto("/tesselation.html", { waitUntil: "domcontentloaded" });
+  expect(response?.ok(), `tesselation.html returned HTTP ${response?.status()}`).toBe(true);
   await expect(page.locator("#stage")).toBeVisible();
   return pageErrors;
 }

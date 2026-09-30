@@ -329,7 +329,7 @@ test("L-system playhead wraps and exposes normalized audio data", () => {
 test("L-system page exposes presets, traversal, mapping, adaptive synthesis, and reciprocal navigation", async () => {
   const root = new URL("../", import.meta.url);
   const [html, app] = await Promise.all([
-    readFile(new URL("l-system.html", root), "utf8"),
+    readFile(new URL("src/pages/l-system.html", root), "utf8"),
     readFile(new URL("src/instruments/l-system/l-system-app.js", root), "utf8"),
   ]);
   assert.equal(L_SYSTEM_PRESETS.length, 11);

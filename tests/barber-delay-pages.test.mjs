@@ -51,7 +51,7 @@ const pages = [
 
 test("both barber delays are native internal Morphazoid pages", async () => {
   for (const page of pages) {
-    const markup = await readFile(new URL(page.file, root), "utf8");
+    const markup = await readFile(new URL("src/pages/" + page.file, root), "utf8");
     assert.match(markup, new RegExp(`<body[^>]+data-delay-mode="${page.mode}"`));
     assert.match(markup, new RegExp(page.title));
     assert.match(markup, /<link rel="stylesheet" href="style\.css"/);
@@ -113,7 +113,7 @@ test("both barber delays are native internal Morphazoid pages", async () => {
 
 test("Candy combines tap and one-to-one controls with the centered-hump sweep", async () => {
   const candy = await readFile(
-    new URL("candy-coil-delay.html", root),
+    new URL("src/pages/candy-coil-delay.html", root),
     "utf8",
   );
   assert.match(candy, /id="tapRange"/);
@@ -159,14 +159,14 @@ test("Candy restores its original red-and-white catalogue logo", async () => {
 
 test("the retired centered-hump route is removed", async () => {
   await assert.rejects(
-    readFile(new URL("striped-sludge-delay.html", root), "utf8"),
+    readFile(new URL("src/pages/striped-sludge-delay.html", root), "utf8"),
     { code: "ENOENT" },
   );
 });
 
 test("Sandy keeps pitch span, history, and grain texture as separate controls", async () => {
   const sandy = await readFile(
-    new URL("sandy-syrup-delay.html", root),
+    new URL("src/pages/sandy-syrup-delay.html", root),
     "utf8",
   );
   assert.match(sandy, /data-delay-mode="sandy"/);

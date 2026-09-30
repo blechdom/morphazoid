@@ -13,7 +13,7 @@ test("all instrument pages share desktop and mobile navigation", async () => {
     "throatazoid.html",
   ];
   const [pages, css, nav] = await Promise.all([
-    Promise.all(files.map((file) => readFile(new URL(file, root), "utf8"))),
+    Promise.all(files.map((file) => readFile(new URL("src/pages/" + file, root), "utf8"))),
     readFile(new URL("style.css", root), "utf8"),
     readFile(new URL("nav.js", root), "utf8"),
   ]);
@@ -91,8 +91,8 @@ test("all instrument pages share desktop and mobile navigation", async () => {
 
 test("Solid and Hyper expose wireframe players and Sine-first audio", async () => {
   const [solid, hyper] = await Promise.all([
-    readFile(new URL("solid-synth.html", root), "utf8"),
-    readFile(new URL("hyper-synth.html", root), "utf8"),
+    readFile(new URL("src/pages/solid-synth.html", root), "utf8"),
+    readFile(new URL("src/pages/hyper-synth.html", root), "utf8"),
   ]);
   assert.match(solid, /Cube[\s\S]*Pyramid[\s\S]*Cone[\s\S]*Sphere/);
   assert.match(solid, /<script type="module" src="src\/instruments\/solid-synth\/solid-synth-app\.js">/);
@@ -103,7 +103,7 @@ test("Solid and Hyper expose wireframe players and Sine-first audio", async () =
 
 test("every oscillator-based instrument can reach a 20 Hz base frequency", async () => {
   const files = ["shape-synth.html", "lattice.html", "spiral.html", "solid-synth.html", "moebius-synth.html", "klein-bottle-synth.html", "hyper-synth.html", "julia.html"];
-  const pages = await Promise.all(files.map((file) => readFile(new URL(file, root), "utf8")));
+  const pages = await Promise.all(files.map((file) => readFile(new URL("src/pages/" + file, root), "utf8")));
   for (const html of pages) {
     assert.match(html, /id="baseFrequency"[^>]*min="20"/);
   }

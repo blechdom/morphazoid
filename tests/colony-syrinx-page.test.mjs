@@ -35,19 +35,8 @@ const INACTIVE_FREQUENCY_MARKER = new RegExp([
   "if\\s*\\(\\s*!\\w*(?:Folds?|Voic\\w*)\\s*\\)[\\s\\S]{0,160}[\"'](?:unvoiced|inactive|no folds|off|[—–-]{2,})[\"']",
 ].join("|"), "i");
 
-test("former instrument URLs redirect to canonical Monstroid without dropping URL state", async () => {
-  for (const legacyPage of ["colony-syrinx.html", "monsterzoid.html", "monstrozoid.html"]) {
-    const html = await readFile(new URL(legacyPage, root), "utf8");
-    assert.match(html, /http-equiv="refresh" content="0; url=monstroid\.html"/);
-    assert.match(html, /rel="canonical" href="monstroid\.html"/);
-    assert.match(html, /destination\.search = location\.search/);
-    assert.match(html, /destination\.hash = location\.hash/);
-    assert.doesNotMatch(html, /src="src\/instruments\/monstroid\/monstroid-app\.js"/);
-  }
-});
-
 test("Monstroid page exposes anatomy slots, variable-count controls, literal headings, and calls", async () => {
-  const html = await readFile(new URL("monstroid.html", root), "utf8");
+  const html = await readFile(new URL("src/pages/monstroid.html", root), "utf8");
   const routeValves = html.match(/<button id="route-s\d-m\d"[^>]*>/g) ?? [];
   assert.match(html, /<title>Monstroid/);
   assert.match(html, /<h1 id="pageTitle">MONSTROID<\/h1>/);
@@ -156,7 +145,7 @@ test("Monstroid page exposes anatomy slots, variable-count controls, literal hea
 
 test("interactive anatomy graph exposes direct manipulation and keyboard-safe routing", async () => {
   const [html, app, css] = await Promise.all([
-    readFile(new URL("monstroid.html", root), "utf8"),
+    readFile(new URL("src/pages/monstroid.html", root), "utf8"),
     readFile(new URL("src/instruments/monstroid/monstroid-app.js", root), "utf8"),
     readFile(new URL("src/instruments/monstroid/monstroid.css", root), "utf8"),
   ]);

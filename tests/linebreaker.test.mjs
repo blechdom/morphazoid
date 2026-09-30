@@ -17,7 +17,7 @@ import {
 } from "../src/instruments/linebreaker/linebreaker.js";
 
 const root = new URL("../", import.meta.url);
-const read = (name) => readFile(new URL(name, root), "utf8");
+const read = (name) => readFile(new URL(name.endsWith(".html") ? "src/pages/" + name : name, root), "utf8");
 
 function approximately(actual, expected, tolerance = 1e-10) {
   assert.ok(

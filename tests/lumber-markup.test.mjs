@@ -7,7 +7,7 @@ const root = new URL("../", import.meta.url);
 
 test("Lumber Loops keeps a traditional looper surface with optional advanced playback", async () => {
   const [html, app, css, packageJson] = await Promise.all([
-    readFile(new URL("lumber.html", root), "utf8"),
+    readFile(new URL("src/pages/lumber.html", root), "utf8"),
     readFile(new URL("src/instruments/lumber/lumber-app.js", root), "utf8"),
     readFile(new URL("style.css", root), "utf8"),
     readFile(new URL("package.json", root), "utf8"),
@@ -152,7 +152,7 @@ test("Lumber Loops keeps a traditional looper surface with optional advanced pla
 });
 
 test("Lumber Loops markup has unique ids and complete labels", async () => {
-  const html = await readFile(new URL("lumber.html", root), "utf8");
+  const html = await readFile(new URL("src/pages/lumber.html", root), "utf8");
   const ids = [...html.matchAll(/\bid="([^"]+)"/g)].map((match) => match[1]);
   assert.equal(new Set(ids).size, ids.length);
   assert.match(html, /<label[^>]*for="level"/);

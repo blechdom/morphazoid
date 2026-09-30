@@ -11,7 +11,7 @@ const animals = [
 ];
 
 test("Quadruped page exposes animal choices, four feet, sixteen cards, one surface, and one path", async () => {
-  const html = await read("quadruped.html");
+  const html = await read("src/pages/quadruped.html");
   assert.match(html, /<title>Quadruped · Morphazoid<\/title>/);
   assert.match(html, /<h1 id="pageTitle">QUADRUPED<\/h1>/);
   assert.doesNotMatch(html, /FIVE CONTACT LANES|quadroped/i);
@@ -40,14 +40,6 @@ test("Quadruped page exposes animal choices, four feet, sixteen cards, one surfa
   assert.match(html, /id="playButton"[\s\S]*?data-primary-transport/);
   assert.match(html, /Audio is off — turn it on to hear playback/);
   assert.match(html, /type="module" src="src\/instruments\/quadruped\/quadruped-app\.js"/);
-});
-
-test("the old misspelled route redirects to canonical Quadruped and preserves location state", async () => {
-  const html = await read("quadroped.html");
-  assert.match(html, /http-equiv="refresh" content="0; url=quadruped\.html"/);
-  assert.match(html, /rel="canonical" href="quadruped\.html"/);
-  assert.match(html, /destination\.search = location\.search/);
-  assert.match(html, /destination\.hash = location\.hash/);
 });
 
 test("transport remains independent of explicit Audio arming", async () => {
@@ -191,7 +183,7 @@ test("the shared gait dictionary stays compact and scrollable", async () => {
 });
 
 test("Quadruped markup does not duplicate ids", async () => {
-  const html = await read("quadruped.html");
+  const html = await read("src/pages/quadruped.html");
   const ids = [...html.matchAll(/\bid="([^"]+)"/g)].map((match) => match[1]);
   assert.equal(new Set(ids).size, ids.length);
 });

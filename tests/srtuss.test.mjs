@@ -1208,7 +1208,7 @@ test("underrun recovery fades a nonzero chunk in from silence", () => {
 
 test("page is a control-forward explicit-audio master synth with no shader viewport", async () => {
   const [html, app, css, notices] = await Promise.all([
-    readFile(new URL("srtuss.html", root), "utf8"),
+    readFile(new URL("src/pages/srtuss.html", root), "utf8"),
     readFile(new URL("src/instruments/srtuss/srtuss-app.js", root), "utf8"),
     readFile(new URL("src/instruments/srtuss/srtuss.css", root), "utf8"),
     readFile(new URL("THIRD_PARTY_NOTICES.md", root), "utf8"),

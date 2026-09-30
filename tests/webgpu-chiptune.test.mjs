@@ -2092,7 +2092,7 @@ test("a stale future-preroll render is dropped once without spinning", async () 
 
 test("WebGPU Chiptune ships as a separate accessible and credited page", async () => {
   const [html, css, app, source, notices, readme, buildScript] = await Promise.all([
-    readFile(new URL("webgpu-chiptune.html", root), "utf8"),
+    readFile(new URL("src/pages/webgpu-chiptune.html", root), "utf8"),
     readFile(new URL("src/instruments/webgpu-chiptune/webgpu-chiptune.css", root), "utf8"),
     readFile(new URL("src/families/chiptune/chiptune-app.js", root), "utf8"),
     readFile(new URL("src/instruments/webgpu-chiptune/webgpu-chiptune.js", root), "utf8"),

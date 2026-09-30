@@ -5,8 +5,9 @@ IDs from `src/site/instrument-registry.js`. The September 18 naming pass include
 `shape-synth/`, `solid-synth/`, `hyper-synth/`, `shapes/`, `tesselation/`,
 `monstroid/`, `rattlesnake-skin/`, and the renamed `*-drum-machine/` directories.
 
-The root HTML files remain the public page entry points. Their script/style
-references point here or into `src/families/`. Many shared models, audio
+Authored HTML page sources live in `src/pages/`; the release build emits them
+at their unchanged public root routes. Their script/style references point here
+or into `src/families/`. Many shared models, audio
 processors and utilities retain their existing `src/` paths; selected helpers
 belonging to renamed instruments moved with their controllers. Runtime assets
 remain top-level in `assets/`. Shared controllers such as Möbius/Klein's
@@ -21,10 +22,10 @@ nonorientable implementation belong under `src/families/`, not one instrument.
   not claim that every stylesheet is exclusively owned by its folder.
 - Folders represent implementation ownership, not navigation categories.
   Moving an instrument between categories does not move its source files.
-- Public IDs/routes may change only through an explicit naming decision.
-  Keep old route redirects and the aliases in `src/site/instrument-identities.js`.
-  Do not rename saved-data keys, model enums, processor registrations, or presets
-  merely to make internal strings resemble public names.
+- Public IDs/routes may change only through an explicit naming decision. The
+  source tree intentionally has no legacy HTML aliases or redirect placeholders;
+  do not reintroduce them. Do not rename saved-data keys, model enums, processor
+  registrations, or presets merely to make internal strings resemble public names.
 - Add new or moved required files to `scripts/site/runtime-files.tsv` with
   appropriate pre-commit copy permission.
 
@@ -42,6 +43,6 @@ three viewport widths and loads Graph Delay's real worklet using a synthetic
 input. The normal preservation batch retains the broader sizing, gesture,
 MIDI/navigation and audio checks.
 
-No root `*-app.js` controllers remain. Root `style.css`, public HTML, `nav.js`,
-`wax-page.js`, and the shader bootstrap remain intentionally. This completes
-the controller/style cleanup, not an architectural rewrite of every module.
+No root `*-app.js` controllers remain. Root `style.css`, `nav.js`, `wax-page.js`,
+and the shader bootstrap remain intentionally; HTML page sources live in
+`src/pages/`. This completes the controller/style cleanup, not an architectural rewrite of every module.

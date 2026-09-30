@@ -5,10 +5,9 @@ import test from "node:test";
 const root = new URL("../", import.meta.url);
 
 test("WAX setup now lives in the single MIDI and WAX guide", async () => {
-  const [guide, legacyWax, plugins] = await Promise.all([
-    readFile(new URL("midi-guide.html", root), "utf8"),
-    readFile(new URL("wax.html", root), "utf8"),
-    readFile(new URL("plugins.html", root), "utf8"),
+  const [guide, plugins] = await Promise.all([
+    readFile(new URL("src/pages/midi-guide.html", root), "utf8"),
+    readFile(new URL("src/pages/plugins.html", root), "utf8"),
   ]);
   const visibleText = guide.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ");
 
@@ -41,8 +40,5 @@ test("WAX setup now lives in the single MIDI and WAX guide", async () => {
     assert.match(guide, new RegExp(url.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
   }
 
-  assert.match(legacyWax, /http-equiv="refresh" content="0; url=\.\/midi-guide\.html#wax"/);
-  assert.match(legacyWax, /window\.location\.replace\("\.\/midi-guide\.html#wax"\)/);
-  assert.doesNotMatch(legacyWax, /wax-page\.js/);
   assert.match(plugins, /href="midi-guide\.html#wax"/);
 });

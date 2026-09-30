@@ -111,7 +111,7 @@ test("only Recursive FM and PM link to explicitly archival comparison charts", (
 
 test("all seven pages attach the shared reference after controls and before reset", async () => {
   for (const id of SYNTH_PAGES) {
-    const markup = await readFile(new URL(`${id}.html`, ROOT), "utf8");
+    const markup = await readFile(new URL(`src/pages/${id}.html`, ROOT), "utf8");
     assert.equal((markup.match(/data-chaos-dsp-reference="/g) ?? []).length, 1);
     assert.match(markup, new RegExp(`data-chaos-dsp-reference="${id}"`));
     assert.match(markup, /id="dsp-reference"/);
@@ -124,13 +124,13 @@ test("all seven pages attach the shared reference after controls and before rese
     );
   }
 
-  const plasmaMarkup = await readFile(new URL("plasma-ball.html", ROOT), "utf8");
+  const plasmaMarkup = await readFile(new URL("src/pages/plasma-ball.html", ROOT), "utf8");
   assert.doesNotMatch(plasmaMarkup, /chaotic-dsp-reference|data-chaos-dsp-reference/);
 });
 
 test("the dedicated page renders an unconstrained selectable reference", async () => {
   const [markup, app, stylesheet] = await Promise.all([
-    readFile(new URL("chaotic-dsp-reference.html", ROOT), "utf8"),
+    readFile(new URL("src/pages/chaotic-dsp-reference.html", ROOT), "utf8"),
     readFile(new URL("src/site/chaotic-dsp-reference-page.js", ROOT), "utf8"),
     readFile(new URL("src/instruments/chaotic-dsp-reference/chaotic-dsp-reference.css", ROOT), "utf8"),
   ]);

@@ -91,10 +91,11 @@ test("the standalone artwork gallery declares the existing favicon instead of re
   assert.ok((await readFile(new URL(icon, page))).length > 0);
 });
 
-test("every top-level HTML entry including legacy redirects declares an existing local favicon", async () => {
+test("every canonical page source declares an existing local favicon", async () => {
   const root = new URL("../", import.meta.url);
-  for (const name of (await readdir(root)).filter(name => name.endsWith(".html"))) {
-    const html = await readFile(new URL(name, root), "utf8");
+  const pageSourceRoot = new URL("../src/pages/", import.meta.url);
+  for (const name of (await readdir(pageSourceRoot)).filter(name => name.endsWith(".html"))) {
+    const html = await readFile(new URL(name, pageSourceRoot), "utf8");
     const icon = html.match(/<link\b[^>]*\brel=["'](?:shortcut )?icon["'][^>]*\bhref=["']([^"']+)["']/i)?.[1];
     assert.ok(icon, `${name}: browsers must not fall back to a missing favicon.ico`);
     const url = new URL(icon, new URL(name, root));

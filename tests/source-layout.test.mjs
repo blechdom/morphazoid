@@ -1,11 +1,12 @@
 import assert from "node:assert/strict";
-import { readFile, readdir, stat } from "node:fs/promises";
+import { readFile, stat } from "node:fs/promises";
 import test from "node:test";
 
 import { localPath, referencesIn, inspectInstrument } from "../scripts/inspect-instrument.mjs";
 import { readRuntimeManifest } from "../scripts/site/runtime-manifest.mjs";
 import { runtimeSourceFiles } from "../scripts/check-runtime-source.mjs";
 import { relocatedSources } from "./helpers/relocated-sources.mjs";
+import { CANONICAL_PAGE_ROUTES, pageSourcePath } from "../src/pages/manifest.js";
 
 const root = new URL("../", import.meta.url);
 
@@ -31,16 +32,17 @@ test("relocated controllers are real source files, required build inputs and syn
 test("authored pages reference existing relocated controllers/styles rather than removed root files", async () => {
   const inventory = await readRuntimeManifest();
   const encountered = new Set();
-  for (const filename of (await readdir(root)).filter(name => name.endsWith(".html"))) {
+  for (const route of CANONICAL_PAGE_ROUTES) {
+    const filename = pageSourcePath(route);
     const html = await readFile(new URL(filename, root), "utf8");
-    for (const reference of referencesIn(html, filename)) {
+    for (const reference of referencesIn(html, route)) {
       if (!["entry-script", "page-asset"].includes(reference.kind)) continue;
-      const target = localPath(reference.reference, filename);
+      const target = localPath(reference.reference, route);
       if (target === null) continue;
-      assert.equal(Object.hasOwn(relocatedSources, target), false, `${filename}: stale ${target}`);
+      assert.equal(Object.hasOwn(relocatedSources, target), false, filename + ": stale " + target);
       if (!target.startsWith("src/instruments/") && !target.startsWith("src/families/")) continue;
-      assert.ok((await stat(new URL(target, root))).isFile(), `${filename}: ${target}`);
-      assert.ok(inventory.requiredFiles.includes(target), `${target}: required shipped resource`);
+      assert.ok((await stat(new URL(target, root))).isFile(), filename + " -> " + target);
+      assert.ok(inventory.requiredFiles.includes(target), target + ": required shipped resource");
       encountered.add(target);
     }
   }

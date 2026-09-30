@@ -257,7 +257,7 @@ test("descending stages retain meaningful sub-Hertz readouts", () => {
 test("preset clicks synchronize the complete UI tuple and the live audio graph", async () => {
   const [app, html] = await Promise.all([
     readFile(new URL("src/instruments/cascading-fm/cascading-fm-app.js", ROOT), "utf8"),
-    readFile(new URL("cascading-fm.html", ROOT), "utf8"),
+    readFile(new URL("src/pages/cascading-fm.html", ROOT), "utf8"),
   ]);
   const applyBody = functionBody(app, "function applySettings(rawSettings");
   const guardedWrite = /if\s*\(\s*syncControls\s*\)\s*(?:\{\s*)?writeControlsFromState\(\);/;

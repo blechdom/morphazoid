@@ -73,7 +73,7 @@ test("plug-in catalog keeps separate instruments and immutable release artifacts
 
 test("plug-ins page gives non-programmers the Chaotic Synth catalog and VST roadmap", async () => {
   const [html, css, app] = await Promise.all([
-    readFile(new URL("plugins.html", root), "utf8"),
+    readFile(new URL("src/pages/plugins.html", root), "utf8"),
     readFile(new URL("src/site/plugins.css", root), "utf8"),
     readFile(new URL("src/site/plugins-app.js", root), "utf8"),
   ]);
@@ -125,7 +125,7 @@ test("plug-ins page gives non-programmers the Chaotic Synth catalog and VST road
 });
 
 test("Chaotic FM demo points to the recommended catalog release", async () => {
-  const html = await readFile(new URL("chaotic-fm.html", root), "utf8");
+  const html = await readFile(new URL("src/pages/chaotic-fm.html", root), "utf8");
   const plugin = PLUGIN_CATALOG.find(({ id }) => id === "chaotic-fm");
   const artifact = latestPluginArtifact(plugin);
 

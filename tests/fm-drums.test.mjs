@@ -802,7 +802,7 @@ test("FM drum audio cancels a suspended start when page lifecycle closure wins",
 
 test("FM Drums keeps compact preset controls without a page title block", async () => {
   const [html, css, app] = await Promise.all([
-    readFile(new URL("fm-drums.html", root), "utf8"),
+    readFile(new URL("src/pages/fm-drums.html", root), "utf8"),
     readFile(new URL("src/instruments/fm-drums/fm-drums.css", root), "utf8"),
     readFile(new URL("src/instruments/fm-drums/fm-drums-app.js", root), "utf8"),
   ]);

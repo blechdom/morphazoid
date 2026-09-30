@@ -11,7 +11,7 @@ const MOCK_ATLAS_DURATION = Math.max(
 
 test("Spelling Synthesizer sustains held vowels, joins pairs, and resumes local readback", async (t) => {
   const html = await readFile(
-    new URL("../spelling-synthesizer.html", import.meta.url),
+    new URL("../src/pages/spelling-synthesizer.html", import.meta.url),
     "utf8",
   );
   const tags = new Map(

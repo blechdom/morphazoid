@@ -200,12 +200,6 @@ test.describe("Quadruped", () => {
     expect(errors).toEqual([]);
   });
 
-  test("the old spelling redirects without losing query or hash", async ({ page }) => {
-    await page.goto("/quadroped.html?animal=gazelle#score", { waitUntil: "domcontentloaded" });
-    await expect(page).toHaveURL(/quadruped\.html\?animal=gazelle#score$/);
-    await expect(page.getByRole("heading", { name: /quadruped/i })).toBeVisible();
-  });
-
   test("Audio can join and leave a moving sequence without changing transport", async ({ page }) => {
     await page.goto("/quadruped.html", { waitUntil: "domcontentloaded" });
     const play = page.locator("#playButton");

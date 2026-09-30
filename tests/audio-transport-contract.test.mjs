@@ -3,7 +3,7 @@ import { readdir, readFile } from "node:fs/promises";
 import test from "node:test";
 
 const ROOT = new URL("../", import.meta.url);
-const SOURCE_HTML_DIRECTORIES = [ROOT, new URL("../morphazoidical/", import.meta.url)];
+const SOURCE_HTML_DIRECTORIES = [new URL("../src/pages/", import.meta.url), new URL("../morphazoidical/", import.meta.url)];
 
 async function sourceHtmlFiles() {
   const files = [];

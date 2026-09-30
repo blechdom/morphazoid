@@ -40,9 +40,8 @@ test("Shapes routes dimensions and playing modes as state rather than pages", ()
 });
 
 test("Shapes is one native Morphazoid route with no embedded page dependencies", async () => {
-  const [html, redirect, css, app, scene, rhythm, state] = await Promise.all([
-    readFile(new URL("shapes.html", repositoryRoot), "utf8"),
-    readFile(new URL("combo.html", repositoryRoot), "utf8"),
+  const [html, css, app, scene, rhythm, state] = await Promise.all([
+    readFile(new URL("src/pages/shapes.html", repositoryRoot), "utf8"),
     readFile(new URL("src/instruments/shapes/shapes.css", repositoryRoot), "utf8"),
     readFile(new URL("src/instruments/shapes/shapes-app.js", repositoryRoot), "utf8"),
     readFile(new URL("src/instruments/shapes/shapes-scene.js", repositoryRoot), "utf8"),
@@ -59,8 +58,6 @@ test("Shapes is one native Morphazoid route with no embedded page dependencies",
     "https://example.test/morphazoid/",
   )?.id, "shapes");
 
-  assert.match(redirect, /new URL\("shapes\.html", location\.href\)/);
-  assert.match(redirect, /location\.replace\(destination\.href\)/);
   assert.match(html, /<title>Shapes — Morphazoid<\/title>/);
   assert.match(html, /<header class="masthead">/);
   assert.match(html, /<a class="tab active" href="shapes\.html" aria-current="page">Shapes<\/a>/);
@@ -143,7 +140,7 @@ test("Shapes is one native Morphazoid route with no embedded page dependencies",
 });
 
 test("Shapes owns the fixed application picker and local 2D, 3D, 4D submenu", async () => {
-  const html = await readFile(new URL("shapes.html", repositoryRoot), "utf8");
+  const html = await readFile(new URL("src/pages/shapes.html", repositoryRoot), "utf8");
   const dimensionOptions = [...html.matchAll(/<option value="(2d|3d|4d)">/g)].map((match) => match[1]);
   assert.deepEqual(dimensionOptions.slice(0, 3), ["2d", "3d", "4d"]);
   assert.match(html, /<select id="dimensionSelect" aria-label="Shapes dimension">/);
@@ -178,7 +175,7 @@ test("Shapes owns the fixed application picker and local 2D, 3D, 4D submenu", as
 
 test("Shapes uses an original-style hierarchy with restrained control chrome", async () => {
   const [html, css] = await Promise.all([
-    readFile(new URL("shapes.html", repositoryRoot), "utf8"),
+    readFile(new URL("src/pages/shapes.html", repositoryRoot), "utf8"),
     readFile(new URL("src/instruments/shapes/shapes.css", repositoryRoot), "utf8"),
   ]);
   assert.match(html, /class="shapes-twin-rack"/);

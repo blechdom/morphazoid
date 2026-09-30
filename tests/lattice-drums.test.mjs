@@ -216,7 +216,7 @@ test("hexagon drum contacts keep changing physical onset keys", () => {
 
 test("Lattice Drum Machine uses the lattice core and compact FM drum bank", async () => {
   const [html, css, app] = await Promise.all([
-    readFile(new URL("lattice-drum-machine.html", root), "utf8"),
+    readFile(new URL("src/pages/lattice-drum-machine.html", root), "utf8"),
     readFile(new URL("src/instruments/lattice-drum-machine/lattice-drum-machine.css", root), "utf8"),
     readFile(new URL("src/instruments/lattice-drum-machine/lattice-drum-machine-app.js", root), "utf8"),
   ]);

@@ -43,8 +43,13 @@ command names.
   this shared five-prototype package is not a catch-all for all WIP instruments.
   Follow the actual HTML/import references
   or inspection output; categories and display names are not filesystem paths.
-  Public HTML, global bootstrap scripts and `style.css` remain at the root;
-  runtime `assets/` stays top-level. See `docs/agent-tooling.md` for the path map.
+  Canonical public HTML page sources live only in `src/pages/` and every new,
+  renamed, or removed canonical route must be updated in `src/pages/manifest.js`.
+  The release build publishes those sources at their existing root public URLs
+  (for example, `src/pages/example.html` becomes `/example.html`). Never add a
+  root-level HTML source, alias, redirect, or legacy placeholder. Global
+  bootstrap scripts, `style.css`, and runtime `assets/` remain at the root. See
+  `src/pages/README.md` and `docs/agent-tooling.md` for the path map.
 - For a browser preview, verify the responding endpoint and report the exact URL
   and worktree. The dev server can choose another available port; Playwright's
   base URL can be overridden with `MORPHAZOID_QA_BASE_URL`. Check the current

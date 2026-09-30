@@ -46,7 +46,7 @@ test("the three fractal uncertainty instruments live together in Experiments", (
 test("fractal uncertainty pages share a playable, disclosed instrument shell", async () => {
   for (const instrument of instruments) {
     const [html, app, core] = await Promise.all([
-      readFile(new URL(instrument.page, root), "utf8"),
+      readFile(new URL("src/pages/" + instrument.page, root), "utf8"),
       readFile(new URL(instrument.app, root), "utf8"),
       readFile(new URL(instrument.core, root), "utf8"),
     ]);

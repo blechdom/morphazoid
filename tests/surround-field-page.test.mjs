@@ -5,7 +5,7 @@ import test from "node:test";
 import { fileURLToPath } from "node:url";
 
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const html = await readFile(path.join(repositoryRoot, "surround-field.html"), "utf8");
+const html = await readFile(path.join(repositoryRoot, "src", "pages", "surround-field.html"), "utf8");
 const app = await readFile(path.join(repositoryRoot, "src/instruments/surround-field/surround-field-app.js"), "utf8");
 const css = await readFile(path.join(repositoryRoot, "src/instruments/surround-field/surround-field.css"), "utf8");
 

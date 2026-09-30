@@ -115,7 +115,7 @@ test("the replacement voices avoid piercing high-frequency energy throughout the
 test("page startup, Reset and header use the same new bank with no old preset grid or ingredient editor", async () => {
   for (const { kind, factory } of banks) {
     const [html, app] = await Promise.all([
-      readFile(new URL(`../cascading-${kind}.html`, import.meta.url), "utf8"),
+      readFile(new URL(`../src/pages/cascading-${kind}.html`, import.meta.url), "utf8"),
       readFile(new URL(`../src/instruments/cascading-${kind}/cascading-${kind}-app.js`, import.meta.url), "utf8"),
     ]);
     assert.doesNotMatch(html, /id="presetButtons"|data-preset=|Edit preset ingredients/);

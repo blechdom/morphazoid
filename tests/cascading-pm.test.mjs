@@ -835,7 +835,7 @@ test("the audio owner is lazy and sends true-PM settings to its worklet", async 
 
 test("the page explains phase—not frequency—modulation and exposes the parallel UI", async () => {
   const [html, app] = await Promise.all([
-    readFile(new URL("cascading-pm.html", ROOT), "utf8"),
+    readFile(new URL("src/pages/cascading-pm.html", ROOT), "utf8"),
     readFile(new URL("src/instruments/cascading-pm/cascading-pm-app.js", ROOT), "utf8"),
   ]);
   assert.match(html, /<h1[^>]*>Cascading PM<\/h1>/);

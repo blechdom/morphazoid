@@ -6,7 +6,7 @@ const root = new URL("../", import.meta.url);
 
 async function pageSources() {
   const [html, css, app, model] = await Promise.all([
-    readFile(new URL("sliding-puzzle.html", root), "utf8"),
+    readFile(new URL("src/pages/sliding-puzzle.html", root), "utf8"),
     readFile(new URL("src/instruments/sliding-puzzle/sliding-puzzle.css", root), "utf8"),
     readFile(new URL("src/instruments/sliding-puzzle/sliding-puzzle-app.js", root), "utf8"),
     readFile(new URL("src/instruments/sliding-puzzle/sliding-puzzle.js", root), "utf8"),
@@ -51,7 +51,7 @@ function selectOptions(source, id) {
 
 test("the rectangular sliding-puzzle page ships complete local assets and metadata", async () => {
   for (const path of [
-    "sliding-puzzle.html",
+    "src/pages/sliding-puzzle.html",
     "src/instruments/sliding-puzzle/sliding-puzzle.css",
     "src/instruments/sliding-puzzle/sliding-puzzle-app.js",
     "src/instruments/sliding-puzzle/sliding-puzzle.js",

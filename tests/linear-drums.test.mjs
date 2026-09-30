@@ -452,7 +452,7 @@ test("Rattlesnake forecast cancellation preserves active tails and releases futu
 
 test("Rattlesnake page exposes the continuous instrument and global controls", async () => {
   const [html, source, css] = await Promise.all([
-    readFile(new URL("linear-drums.html", root), "utf8"),
+    readFile(new URL("src/pages/linear-drums.html", root), "utf8"),
     readFile(new URL("src/instruments/linear-drums/linear-drums-app.js", root), "utf8"),
     readFile(new URL("src/instruments/linear-drums/linear-drums.css", root), "utf8"),
   ]);

@@ -5,7 +5,7 @@ import test from "node:test";
 const root = new URL("../", import.meta.url);
 test("recursion exposes one label-only Fuzzy Donut instrument and finite local seeds", async () => {
   const [html, css] = await Promise.all([
-    readFile(new URL("recursion.html", root), "utf8"),
+    readFile(new URL("src/pages/recursion.html", root), "utf8"),
     readFile(new URL("src/instruments/recursion/recursion.css", root), "utf8"),
   ]);
 
@@ -111,7 +111,7 @@ test("recursion exposes one label-only Fuzzy Donut instrument and finite local s
 });
 
 test("recursion markup keeps ids unique and range controls labelled", async () => {
-  const html = await readFile(new URL("recursion.html", root), "utf8");
+  const html = await readFile(new URL("src/pages/recursion.html", root), "utf8");
   const ids = [...html.matchAll(/\bid="([^"]+)"/g)].map((match) => match[1]);
   assert.equal(new Set(ids).size, ids.length);
 
@@ -138,7 +138,7 @@ test("recursion markup keeps ids unique and range controls labelled", async () =
 
 test("recursion offers three labelled geometry projections beside the canvas", async () => {
   const [html, app] = await Promise.all([
-    readFile(new URL("recursion.html", root), "utf8"),
+    readFile(new URL("src/pages/recursion.html", root), "utf8"),
     readFile(new URL("src/instruments/recursion/recursion-app.js", root), "utf8"),
   ]);
   const group = html.match(

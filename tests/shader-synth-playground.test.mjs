@@ -683,7 +683,7 @@ test("the graph editor shares a compact node footprint without shrinking touch t
   const [css, app, html] = await Promise.all([
     readFile(new URL("src/instruments/shader-synth-playground/shader-synth-playground.css", ROOT), "utf8"),
     readFile(new URL("src/instruments/shader-synth-playground/shader-synth-playground-app.js", ROOT), "utf8"),
-    readFile(new URL("shader-synth-playground.html", ROOT), "utf8"),
+    readFile(new URL("src/pages/shader-synth-playground.html", ROOT), "utf8"),
   ]);
   assert.match(css, /\.patch-node\s*\{[\s\S]*?width: 150px;[\s\S]*?min-height: 60px;[\s\S]*?border-radius: 7px;/);
   assert.match(css, /\.node-header\s*\{[\s\S]*?min-height: 30px;[\s\S]*?padding: 5px 7px 4px;/);
@@ -2577,12 +2577,12 @@ test("performance note-on requests one GPU queue handoff after pitch and one-sho
 
 test("the page exposes a real graph editor, inspector, transport, and shared instrument header", async () => {
   const [html, css, app, engineSource, primitives, synth] = await Promise.all([
-    readFile(new URL("shader-synth-playground.html", ROOT), "utf8"),
+    readFile(new URL("src/pages/shader-synth-playground.html", ROOT), "utf8"),
     readFile(new URL("src/instruments/shader-synth-playground/shader-synth-playground.css", ROOT), "utf8"),
     readFile(new URL("src/instruments/shader-synth-playground/shader-synth-playground-app.js", ROOT), "utf8"),
     readFile(new URL("src/instruments/shader-synth-playground/shader-synth-playground.js", ROOT), "utf8"),
-    readFile(new URL("webgpu-dsp-primitives.html", ROOT), "utf8"),
-    readFile(new URL("webgpu-synths.html", ROOT), "utf8"),
+    readFile(new URL("src/pages/webgpu-dsp-primitives.html", ROOT), "utf8"),
+    readFile(new URL("src/pages/webgpu-synths.html", ROOT), "utf8"),
   ]);
   for (const id of [
     "audioButton", "playgroundPlayButton", "modulePalette", "modulePaletteGroups", "graphViewport", "patchCables", "patchNodes",

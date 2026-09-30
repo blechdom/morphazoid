@@ -5,7 +5,7 @@ import test from "node:test";
 import { MIDI_OUTPUT_PREVIEW_EVENT } from "../src/midi-output-preview.js";
 
 test("spiral app renders intrinsic readers and plays tessellation contacts", async () => {
-  const html = await readFile(new URL("../spiral.html", import.meta.url), "utf8");
+  const html = await readFile(new URL("../src/pages/spiral.html", import.meta.url), "utf8");
   const ids = [...html.matchAll(/\bid="([^"]+)"/g)].map((match) => match[1]);
   const elements = new Map();
   const listeners = new Map();

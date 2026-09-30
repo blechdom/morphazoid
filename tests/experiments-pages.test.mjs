@@ -25,7 +25,7 @@ const experimentPages = [
 
 test("experiment pages are native Morphazoid pages with shared controls", async () => {
   for (const [file, mode, title, toolId] of experimentPages) {
-    const html = await readFile(new URL(file, root), "utf8");
+    const html = await readFile(new URL(`src/pages/${file}`, root), "utf8");
     assert.match(html, new RegExp(`<body[^>]*data-experiment="${mode}"`));
     assert.match(html, new RegExp(`<h1>${title}`));
     assert.match(html, /<link rel="stylesheet" href="style\.css"/);
@@ -110,14 +110,11 @@ test("experiment runtime contains each simulation and audio mapping", async () =
 });
 
 test("Automatapoeia preserves exact live evolution while exposing history-safe interventions and continuous mono sound", async () => {
-  const [html, legacy, app, sonification] = await Promise.all([
-    readFile(new URL("automatapoeia.html", root), "utf8"),
-    readFile(new URL("automatopoeia.html", root), "utf8"),
+  const [html, app, sonification] = await Promise.all([
+    readFile(new URL("src/pages/automatapoeia.html", root), "utf8"),
     readFile(new URL("src/families/experiments/experiments-app.js", root), "utf8"),
     readFile(new URL("src/instruments/cellular-automata/automatapoeia.js", root), "utf8"),
   ]);
-  assert.match(legacy, /url=automatapoeia\.html/);
-  assert.match(legacy, /href="automatapoeia\.html">Automatapoeia/);
   assert.doesNotMatch(html, /class="(?:stage-meta|experiment-title)"/);
   assert.match(html, /<div class="sr-only">\s*<h1>Automatapoeia<\/h1>/);
   assert.match(html, /Domain walls/);
@@ -412,7 +409,7 @@ test("Automatapoeia preserves exact live evolution while exposing history-safe i
 
 test("RISSET-MOIRE pairs every line with a counter-moving Shepard oscillator", async () => {
   const [html, app] = await Promise.all([
-    readFile(new URL("moire-organ.html", root), "utf8"),
+    readFile(new URL("src/pages/moire-organ.html", root), "utf8"),
     readFile(new URL("src/families/experiments/experiments-app.js", root), "utf8"),
   ]);
 

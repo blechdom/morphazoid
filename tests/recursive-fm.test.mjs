@@ -438,7 +438,7 @@ test("frequency readouts stay compact", () => {
 
 test("Recursive FM page is internal and uses a gesture-controlled audio button", async () => {
   const [html, app, css] = await Promise.all([
-    readFile(new URL("../recursive-fm.html", import.meta.url), "utf8"),
+    readFile(new URL("../src/pages/recursive-fm.html", import.meta.url), "utf8"),
     readFile(new URL("../src/instruments/recursive-fm/recursive-fm-app.js", import.meta.url), "utf8"),
     readFile(new URL("../src/instruments/recursive-fm/recursive-fm.css", import.meta.url), "utf8"),
   ]);

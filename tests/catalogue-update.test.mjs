@@ -81,14 +81,12 @@ test("existing labs are browseable without being misrepresented as verified MIDI
   assert.equal(INSTRUMENTS.length, before.INSTRUMENTS.length + mainAdditions.length);
 });
 
-test("canonical pages, compatibility redirects and catalogue icons exist", async () => {
+test("canonical page sources and catalogue icons exist", async () => {
   for (const group of TOOL_GROUPS) {
     for (const tool of group.tools) {
       const href = tool.href.endsWith("/") ? tool.href + "index.html" : tool.href;
-      assert.ok((await stat(new URL(href, root))).isFile(), href);
-      for (const legacy of tool.legacyHrefs ?? []) {
-        assert.ok((await stat(new URL(legacy, root))).isFile(), legacy);
-      }
+      const sourceHref = href.endsWith(".html") && !href.includes("/") ? "src/pages/" + href : href;
+      assert.ok((await stat(new URL(sourceHref, root))).isFile(), sourceHref);
     }
   }
   for (const item of CATALOGUE_ITEMS) {

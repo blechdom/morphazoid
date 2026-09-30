@@ -4,7 +4,7 @@ import test from "node:test";
 import { GRAPH_DELAY_PATCHES } from "../src/instruments/graph-delay/graph-delay.js";
 
 test("graph-delay keeps live settings safe, coalesces transitions, and rolls back failed builds", async () => {
-  const html = await readFile(new URL("../graph-delay.html", import.meta.url), "utf8");
+  const html = await readFile(new URL("../src/pages/graph-delay.html", import.meta.url), "utf8");
   const ids = [...html.matchAll(/\bid="([^"]+)"/g)].map((match) => match[1]);
   const elements = new Map();
   const listeners = new Map();

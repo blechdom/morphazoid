@@ -9,7 +9,7 @@ import {
 } from "../src/families/graph/graph-instruments.js";
 
 async function exerciseLiveEditRegression(mode, htmlFile) {
-  const html = await readFile(new URL(`../${htmlFile}`, import.meta.url), "utf8");
+  const html = await readFile(new URL("../src/pages/" + htmlFile, import.meta.url), "utf8");
   const ids = [...html.matchAll(/\bid="([^"]+)"/g)].map((match) => match[1]);
   const elements = new Map();
   const listeners = new Map();

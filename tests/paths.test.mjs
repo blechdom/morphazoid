@@ -102,7 +102,7 @@ test("arc-length sampling and partial paths share exact endpoints", () => {
 
 test("Paths page keeps generation primary and explanatory chrome absent", async () => {
   const [html, css, app, nav, catalog, midi] = await Promise.all([
-    readFile(new URL("paths.html", root), "utf8"),
+    readFile(new URL("src/pages/paths.html", root), "utf8"),
     readFile(new URL("src/instruments/paths/paths.css", root), "utf8"),
     readFile(new URL("src/instruments/paths/paths-app.js", root), "utf8"),
     readFile(new URL("src/site/instrument-registry.js", root), "utf8"),

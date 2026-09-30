@@ -5,7 +5,7 @@ import test from "node:test";
 const root = new URL("../", import.meta.url);
 
 test("Escher app renders, responds to every input path, and cleans up", async (t) => {
-  const html = await readFile(new URL("escher-tessellation.html", root), "utf8");
+  const html = await readFile(new URL("src/pages/escher-tessellation.html", root), "utf8");
   const openingTags = new Map(
     [...html.matchAll(/<([a-z][\w-]*)\b[^>]*\bid="([^"]+)"[^>]*>/gi)]
       .map((match) => [match[2], { tagName: match[1].toUpperCase(), markup: match[0] }]),

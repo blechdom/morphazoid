@@ -464,7 +464,7 @@ test("seeded world-window coloring preserves overlap and colors every new neighb
 test("Penrose page is an accessible researched instrument rather than a periodic lattice preset", async () => {
   const root = new URL("../", import.meta.url);
   const [html, css, app, geometry] = await Promise.all([
-    readFile(new URL("penrose-tilings.html", root), "utf8"),
+    readFile(new URL("src/pages/penrose-tilings.html", root), "utf8"),
     readFile(new URL("src/instruments/penrose-tilings/penrose-tilings.css", root), "utf8"),
     readFile(new URL("src/instruments/penrose-tilings/penrose-tilings-app.js", root), "utf8"),
     readFile(new URL("src/instruments/penrose-tilings/penrose-tilings.js", root), "utf8"),

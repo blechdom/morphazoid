@@ -3,7 +3,7 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 test("Julia app builds, draws, scrubs, and advances its boundary", async () => {
-  const html = await readFile(new URL("../julia.html", import.meta.url), "utf8");
+  const html = await readFile(new URL("../src/pages/julia.html", import.meta.url), "utf8");
   const ids = [...html.matchAll(/\bid="([^"]+)"/g)].map((match) => match[1]);
   const elements = new Map();
   const listeners = new Map();

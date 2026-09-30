@@ -4,7 +4,7 @@ const imageUrl = "https://morphazoid.com/assets/social/morphazoid-card-20260917.
 const imagePath = "/assets/social/morphazoid-card-20260917.png";
 
 test("link crawlers receive an explicit logo card without executing page JavaScript", async ({ request }) => {
-  for (const route of ["/", "/about.html", "/instruments.html"]) {
+  for (const route of ["/"]) {
     const response = await request.get(route);
     expect(response.ok()).toBeTruthy();
     const html = await response.text();

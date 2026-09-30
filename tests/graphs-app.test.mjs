@@ -7,7 +7,7 @@ const root = new URL("../", import.meta.url);
 
 async function pageSources() {
   const [html, css, app] = await Promise.all([
-    readFile(new URL("graphs.html", root), "utf8"),
+    readFile(new URL("src/pages/graphs.html", root), "utf8"),
     readFile(new URL("src/instruments/graphs/graphs.css", root), "utf8"),
     readFile(new URL("src/instruments/graphs/graphs-app.js", root), "utf8"),
   ]);
@@ -172,7 +172,7 @@ function createGraphsFixture({ failingMode = null } = {}) {
     return node;
   }
 
-  const fixtureReady = readFile(new URL("graphs.html", root), "utf8").then((html) => {
+  const fixtureReady = readFile(new URL("src/pages/graphs.html", root), "utf8").then((html) => {
     htmlIds.push(...[...html.matchAll(/\bid="([^"]+)"/g)].map((match) => match[1]));
     for (const id of htmlIds) createElement(id);
 

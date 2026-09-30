@@ -651,7 +651,7 @@ test("Karplus Carpet audio schedules short grains, bends them live, and stops cl
 
 test("Karplus Carpet page exposes synthesized microsound performance controls", async () => {
   const [html, css, app, source, waxHtml, waxCss, waxApp, waxSource] = await Promise.all([
-    readFile(new URL("karplus-carpet.html", root), "utf8"),
+    readFile(new URL("src/pages/karplus-carpet.html", root), "utf8"),
     readFile(new URL("src/instruments/karplus-carpet/karplus-carpet.css", root), "utf8"),
     readFile(new URL("src/instruments/karplus-carpet/karplus-carpet-app.js", root), "utf8"),
     readFile(new URL("src/instruments/karplus-carpet/karplus-carpet.js", root), "utf8"),

@@ -69,7 +69,7 @@ function hiddenContainers(source) {
 
 test("Rubix puts Shape-style transport, twists, and read path first while retaining musical controls", async () => {
   const [html, css] = await Promise.all([
-    readFile(new URL("rubix.html", root), "utf8"),
+    readFile(new URL("src/pages/rubix.html", root), "utf8"),
     readFile(new URL("src/instruments/rubix/rubix.css", root), "utf8"),
   ]);
 
@@ -298,7 +298,7 @@ test("Rubix puts Shape-style transport, twists, and read path first while retain
 
 test("Rubix clock spans 30–300 BPM without redundant half/double controls", async () => {
   const [html, app] = await Promise.all([
-    readFile(new URL("rubix.html", root), "utf8"),
+    readFile(new URL("src/pages/rubix.html", root), "utf8"),
     readFile(new URL("src/instruments/rubix/rubix-app.js", root), "utf8"),
   ]);
 
@@ -347,7 +347,7 @@ test("Rubix clock spans 30–300 BPM without redundant half/double controls", as
 
 test("Rubix keeps restart beside tempo as a separate action from play", async () => {
   const [html, app, css] = await Promise.all([
-    readFile(new URL("rubix.html", root), "utf8"),
+    readFile(new URL("src/pages/rubix.html", root), "utf8"),
     readFile(new URL("src/instruments/rubix/rubix-app.js", root), "utf8"),
     readFile(new URL("src/instruments/rubix/rubix.css", root), "utf8"),
   ]);

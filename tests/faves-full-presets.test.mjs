@@ -257,7 +257,7 @@ test("new authored choices exist in the real page menus, not just in a permissiv
     lattice: { soundMode: "soundMode", synthSource: "synthSource", pitchSource: "pitchSource", levelSource: "levelSource" },
   };
   for (const entry of FAVES_PRESET_CASES.filter(item => mappings[item.id])) {
-    const html = await readFile(new URL(`../${entry.href}`, import.meta.url), "utf8");
+    const html = await readFile(new URL("../src/pages/" + entry.href, import.meta.url), "utf8");
     for (const [key, id] of Object.entries(mappings[entry.id])) {
       if (!id) continue;
       const select = html.match(new RegExp(`<select[^>]*id="${id}"[^>]*>([\\s\\S]*?)</select>`));

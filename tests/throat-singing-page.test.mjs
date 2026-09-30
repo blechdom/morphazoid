@@ -13,7 +13,7 @@ const root = new URL("../", import.meta.url);
 
 test("Throat Singing ships one research-labelled physical-model page", async () => {
   const [html, css, app, build, research, icon] = await Promise.all([
-    readFile(new URL("throat-singing.html", root), "utf8"),
+    readFile(new URL("src/pages/throat-singing.html", root), "utf8"),
     readFile(new URL("src/instruments/throat-singing/throat-singing.css", root), "utf8"),
     readFile(new URL("src/instruments/throat-singing/throat-singing-app.js", root), "utf8"),
     readFile(new URL("scripts/site/runtime-files.tsv", root), "utf8"),

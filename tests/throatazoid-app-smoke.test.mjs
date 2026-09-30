@@ -3,7 +3,7 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 test("Throatazoid renders, awakens mic and glottis sources, and mutates specimens", async (t) => {
-  const html = await readFile(new URL("../throatazoid.html", import.meta.url), "utf8");
+  const html = await readFile(new URL("../src/pages/throatazoid.html", import.meta.url), "utf8");
   const tags = new Map(
     [...html.matchAll(/<[^>]+\bid="([^"]+)"[^>]*>/g)].map((match) => [match[1], match[0]]),
   );

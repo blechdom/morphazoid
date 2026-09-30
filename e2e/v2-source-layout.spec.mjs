@@ -7,10 +7,11 @@ import { pageDiagnosticMessages, settlePage, watchPageDiagnostics } from "./help
 import { relocatedSources } from "../tests/helpers/relocated-sources.mjs";
 
 const root = new URL("../", import.meta.url);
+const pageSourceRoot = new URL("../src/pages/", import.meta.url);
 const movedControllers = new Set(Object.values(relocatedSources));
 const routes = [];
-for (const file of (await readdir(root)).filter(name => name.endsWith(".html")).sort()) {
-  const html = await readFile(new URL(file, root), "utf8");
+for (const file of (await readdir(pageSourceRoot)).filter(name => name.endsWith(".html")).sort()) {
+  const html = await readFile(new URL(file, pageSourceRoot), "utf8");
   const sources = [...html.matchAll(/<script\b[^>]*\bsrc=["']([^"']+)/gu)]
     .map(match => match[1].split(/[?#]/u)[0].replace(/^\.\//u, ""));
   if (sources.some(source => movedControllers.has(source))) routes.push(file);

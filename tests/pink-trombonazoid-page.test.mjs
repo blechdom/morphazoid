@@ -42,7 +42,7 @@ function standaloneFunctionBody(source, name) {
 
 test("Pink Trombonazoid page wires its accessible editor and local modules", async () => {
   const [html, app] = await Promise.all([
-    readFile(new URL("pink-trombonazoid.html", ROOT), "utf8"),
+    readFile(new URL("src/pages/pink-trombonazoid.html", ROOT), "utf8"),
     readFile(new URL("src/instruments/pink-trombonazoid/pink-trombonazoid-app.js", ROOT), "utf8"),
   ]);
 
@@ -129,7 +129,7 @@ test("Pink Trombonazoid page wires its accessible editor and local modules", asy
 
 test("the page explains and implements word-to-tract sequencing", async () => {
   const [html, app] = await Promise.all([
-    readFile(new URL("pink-trombonazoid.html", ROOT), "utf8"),
+    readFile(new URL("src/pages/pink-trombonazoid.html", ROOT), "utf8"),
     readFile(new URL("src/instruments/pink-trombonazoid/pink-trombonazoid-app.js", ROOT), "utf8"),
   ]);
 
@@ -216,7 +216,7 @@ test("the page explains and implements word-to-tract sequencing", async () => {
 
 test("timeline automation supports multiple two-dimensional keys, live playback, and lane zoom", async () => {
   const [html, app] = await Promise.all([
-    readFile(new URL("pink-trombonazoid.html", ROOT), "utf8"),
+    readFile(new URL("src/pages/pink-trombonazoid.html", ROOT), "utf8"),
     readFile(new URL("src/instruments/pink-trombonazoid/pink-trombonazoid-app.js", ROOT), "utf8"),
   ]);
   const renderTimeline = standaloneFunctionBody(app, "renderTimeline");
@@ -307,7 +307,7 @@ test("timeline automation supports multiple two-dimensional keys, live playback,
 
 test("timeline lanes expose Hybrinx-style editable modulation contours", async () => {
   const [html, app, css] = await Promise.all([
-    readFile(new URL("pink-trombonazoid.html", ROOT), "utf8"),
+    readFile(new URL("src/pages/pink-trombonazoid.html", ROOT), "utf8"),
     readFile(new URL("src/instruments/pink-trombonazoid/pink-trombonazoid-app.js", ROOT), "utf8"),
     readFile(new URL("src/instruments/pink-trombonazoid/pink-trombonazoid.css", ROOT), "utf8"),
   ]);
@@ -335,7 +335,7 @@ test("timeline lanes expose Hybrinx-style editable modulation contours", async (
 
 test("Pink Trombonazoid uses the source palette and responsive Hybrinx-style lanes", async () => {
   const [html, css] = await Promise.all([
-    readFile(new URL("pink-trombonazoid.html", ROOT), "utf8"),
+    readFile(new URL("src/pages/pink-trombonazoid.html", ROOT), "utf8"),
     readFile(new URL("src/instruments/pink-trombonazoid/pink-trombonazoid.css", ROOT), "utf8"),
   ]);
 

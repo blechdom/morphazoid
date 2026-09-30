@@ -1239,7 +1239,7 @@ test("harmonica worklet couples pressure, tract, paired reeds, and material with
 
 test("harmonica page exposes the dedicated model and accessible controls", async () => {
   const [html, css, app, processor] = await Promise.all([
-    readFile(new URL("harmonica.html", root), "utf8"),
+    readFile(new URL("src/pages/harmonica.html", root), "utf8"),
     readFile(new URL("src/instruments/harmonica/harmonica.css", root), "utf8"),
     readFile(new URL("src/instruments/harmonica/harmonica-app.js", root), "utf8"),
     readFile(new URL("src/instruments/harmonica/harmonica-processor.js", root), "utf8"),

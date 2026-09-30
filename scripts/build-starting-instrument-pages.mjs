@@ -3,7 +3,7 @@ import { STARTING_INSTRUMENTS } from "../src/families/work-in-progress/catalog.j
 import { INSTRUMENT_HELP, formatParameter } from "../src/families/work-in-progress/help.js";
 import { withSocialPreview } from "./social-preview.mjs";
 const escape = (s) => String(s).replaceAll("&", "&amp;").replaceAll('"', "&quot;").replaceAll("<", "&lt;");
-const root = new URL("../", import.meta.url);
+const pageSourceRoot = new URL("../src/pages/", import.meta.url);
 for (const [id, spec] of Object.entries(STARTING_INSTRUMENTS)) {
   const help = INSTRUMENT_HELP[id];
   const network = ["tape-worm", "loop-soup"].includes(id);
@@ -71,6 +71,6 @@ for (const [id, spec] of Object.entries(STARTING_INSTRUMENTS)) {
   <script type="module" src="nav.js"></script>
 </body>
 </html>`;
-  await writeFile(new URL(`${id}.html`, root), withSocialPreview(html, `${id}.html`));
+  await writeFile(new URL(`${id}.html`, pageSourceRoot), withSocialPreview(html, `${id}.html`));
   console.log(`Built ${id}.html`);
 }

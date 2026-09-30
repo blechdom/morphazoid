@@ -611,7 +611,7 @@ test("audio graph is gesture-inert, resumes, suspends, and closes completely", a
 test("native page exposes Wave, FM, and source-faithful PM with bounded ledgers", async () => {
   const root = new URL("../", import.meta.url);
   const [markup, app, stylesheet, moduleSource] = await Promise.all([
-    readFile(new URL("weierstrass.html", root), "utf8"),
+    readFile(new URL("src/pages/weierstrass.html", root), "utf8"),
     readFile(new URL("src/instruments/weierstrass/weierstrass-app.js", root), "utf8"),
     readFile(new URL("src/instruments/weierstrass/weierstrass.css", root), "utf8"),
     readFile(new URL("src/instruments/weierstrass/weierstrass.js", root), "utf8"),

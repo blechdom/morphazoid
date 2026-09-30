@@ -327,7 +327,7 @@ test("near-total wave loss becomes near-silent instead of keeping a fixed chord 
 });
 
 test("Escape Dust markup exposes all layers, controls, mappings, and scientific guardrails", async () => {
-  const html = await readFile(new URL("escape-dust.html", root), "utf8");
+  const html = await readFile(new URL("src/pages/escape-dust.html", root), "utf8");
   assert.match(html, /<link rel="stylesheet" href="style\.css"/);
   assert.match(html, /<link rel="stylesheet" href="src\/instruments\/fractal-uncertainty\/fractal-uncertainty\.css"/);
   assert.match(html, /<body class="fractal-uncertainty-page escape-dust-page">/);
@@ -364,7 +364,7 @@ test("Escape Dust markup exposes all layers, controls, mappings, and scientific 
 });
 
 test("Escape Dust explains the live sound anatomy and every perceptual control", async () => {
-  const html = await readFile(new URL("escape-dust.html", root), "utf8");
+  const html = await readFile(new URL("src/pages/escape-dust.html", root), "utf8");
   assert.match(html, /class="sound-anatomy"[\s\S]+data-sound-anatomy[\s\S]+data-current-view="overlay"/);
   assert.match(html, /class="sound-anatomy-head"/);
   assert.match(html, /class="sound-anatomy-state"[\s\S]+aria-live="polite"[\s\S]+aria-atomic="true"/);
@@ -393,7 +393,7 @@ test("Escape Dust explains the live sound anatomy and every perceptual control",
 });
 
 test("Escape Dust markup has unique ids and labels every adjustable control", async () => {
-  const html = await readFile(new URL("escape-dust.html", root), "utf8");
+  const html = await readFile(new URL("src/pages/escape-dust.html", root), "utf8");
   const ids = [...html.matchAll(/\bid="([^"]+)"/g)].map((match) => match[1]);
   assert.equal(new Set(ids).size, ids.length);
   for (const control of [

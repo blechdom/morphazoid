@@ -6,7 +6,7 @@ import { buildPrototile, tilingInfo } from "../src/instruments/lattice/lattice.j
 import { MIDI_OUTPUT_PREVIEW_EVENT } from "../src/midi-output-preview.js";
 
 test("spiral drum app starts and keeps its complete geometry editor interactive", async () => {
-  const html = await readFile(new URL("../spiral-drum-machine.html", import.meta.url), "utf8");
+  const html = await readFile(new URL("../src/pages/spiral-drum-machine.html", import.meta.url), "utf8");
   const ids = [...html.matchAll(/\bid="([^"]+)"/g)].map((match) => match[1]);
   const elements = new Map();
   const listeners = new Map();

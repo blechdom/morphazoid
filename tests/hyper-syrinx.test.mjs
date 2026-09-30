@@ -9,7 +9,7 @@ const root = new URL("../", import.meta.url);
 
 test("Hyper-Syrinx exposes a complete multiply-in-place vocal flow", async () => {
   const [html, css, app] = await Promise.all([
-    readFile(new URL("hyper-syrinx.html", root), "utf8"),
+    readFile(new URL("src/pages/hyper-syrinx.html", root), "utf8"),
     readFile(new URL("src/instruments/hyper-syrinx/hyper-syrinx.css", root), "utf8"),
     readFile(new URL("src/instruments/hyper-syrinx/hyper-syrinx-app.js", root), "utf8"),
   ]);

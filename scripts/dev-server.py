@@ -19,6 +19,16 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 class DevelopmentRequestHandler(SimpleHTTPRequestHandler):
     """Serve live workspace files without retaining stale instrument UI assets."""
 
+    def translate_path(self, path: str) -> str:
+        request_path = urlsplit(path).path.lstrip("/")
+        if request_path in {"", "index.html"}:
+            return str(PROJECT_ROOT / "src" / "pages" / "index.html")
+        if "/" not in request_path and request_path.endswith(".html"):
+            source_page = PROJECT_ROOT / "src" / "pages" / request_path
+            if source_page.is_file():
+                return str(source_page)
+        return super().translate_path(path)
+
     def end_headers(self) -> None:
         self.send_header("Cache-Control", "no-store")
         if urlsplit(self.path).path in {

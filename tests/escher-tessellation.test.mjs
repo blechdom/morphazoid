@@ -231,7 +231,7 @@ test("equal outline speed makes smaller real contours loop more frequently", () 
 
 test("Escher markup is labelled, self-contained, and explicit about source boundaries", async () => {
   const [html, app, css, performanceAudio] = await Promise.all([
-    readFile(new URL("escher-tessellation.html", root), "utf8"),
+    readFile(new URL("src/pages/escher-tessellation.html", root), "utf8"),
     readFile(new URL("src/instruments/escher-tessellation/escher-tessellation-app.js", root), "utf8"),
     readFile(new URL("src/instruments/escher-tessellation/escher-tessellation.css", root), "utf8"),
     readFile(new URL("src/instruments/escher-tessellation/escher-performance-audio.js", root), "utf8"),

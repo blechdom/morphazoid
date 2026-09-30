@@ -29,7 +29,7 @@ const root = new URL("../", import.meta.url);
 
 test("Spelling Synthesizer is a focused, accessible text-driven voice instrument", async () => {
   const [html, css, app, audio] = await Promise.all([
-    readFile(new URL("spelling-synthesizer.html", root), "utf8"),
+    readFile(new URL("src/pages/spelling-synthesizer.html", root), "utf8"),
     readFile(new URL("src/instruments/spelling-synthesizer/spelling-synthesizer.css", root), "utf8"),
     readFile(new URL("src/families/speech/spelling-controller.js", root), "utf8"),
     readFile(new URL("src/instruments/spelling-synthesizer/spelling-synthesizer-audio.js", root), "utf8"),

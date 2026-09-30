@@ -76,7 +76,7 @@ test("Tiles app records shared, analog, unique, and crossover parameters", () =>
 
 test("Tiles page is a native combined app, not a frame host", async () => {
   const [html, css] = await Promise.all([
-    readFile(new URL("tesselation.html", root), "utf8"),
+    readFile(new URL("src/pages/tesselation.html", root), "utf8"),
     readFile(new URL("src/instruments/tesselation/tesselation.css", root), "utf8"),
   ]);
 
@@ -193,7 +193,7 @@ test("Tiles keeps the lattice reader fixed and preserves transport travel phase"
 
 test("Tiles restores the guarded X/Y prototile editor and visual tile-system options", async () => {
   const [html, app] = await Promise.all([
-    readFile(new URL("tesselation.html", root), "utf8"),
+    readFile(new URL("src/pages/tesselation.html", root), "utf8"),
     readFile(new URL("src/instruments/tesselation/tesselation-app.js", root), "utf8"),
   ]);
 

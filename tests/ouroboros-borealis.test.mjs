@@ -1053,7 +1053,7 @@ test("the worklet renders bounded stereo through both independent seams and extr
 
 test("the native page exposes five circular, independently controlled Ouroboros rings", async () => {
   const [markup, app, source, styles] = await Promise.all([
-    readFile(new URL("ouroboros-borealis.html", ROOT), "utf8"),
+    readFile(new URL("src/pages/ouroboros-borealis.html", ROOT), "utf8"),
     readFile(new URL("src/instruments/ouroboros-borealis/ouroboros-borealis-app.js", ROOT), "utf8"),
     readFile(new URL("src/instruments/ouroboros-borealis/ouroboros-borealis.js", ROOT), "utf8"),
     readFile(new URL("src/instruments/ouroboros-borealis/ouroboros-borealis.css", ROOT), "utf8"),

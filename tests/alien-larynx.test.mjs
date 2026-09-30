@@ -9,10 +9,10 @@ const BLOCK_SIZE = 128;
 
 test("Alien Larynx exposes five bypassed systems, two system maps, and a voice return", async () => {
   const [html, architecture, diagram, alienArchitecture, alienDiagram] = await Promise.all([
-    readFile(new URL("alien-larynx.html", root), "utf8"),
-    readFile(new URL("throatazoid-architecture.html", root), "utf8"),
+    readFile(new URL("src/pages/alien-larynx.html", root), "utf8"),
+    readFile(new URL("src/pages/throatazoid-architecture.html", root), "utf8"),
     readFile(new URL("throatazoid-signal-path.svg", root), "utf8"),
-    readFile(new URL("alien-larynx-architecture.html", root), "utf8"),
+    readFile(new URL("src/pages/alien-larynx-architecture.html", root), "utf8"),
     readFile(new URL("alien-larynx-signal-path.svg", root), "utf8"),
   ]);
   assert.match(html, /<title>ALIEN LARYNX — Morphazoid<\/title>/);

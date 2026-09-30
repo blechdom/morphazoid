@@ -509,7 +509,7 @@ test("WebGPU 303 restartTimeline primes and reports an exact shared-context star
 
 test("WebGPU 303 page ships as a separate credited section", async () => {
   const [html, css, app, source, notices, readme, buildScript] = await Promise.all([
-    readFile(new URL("webgpu-303.html", root), "utf8"),
+    readFile(new URL("src/pages/webgpu-303.html", root), "utf8"),
     readFile(new URL("src/instruments/webgpu-303/webgpu-303.css", root), "utf8"),
     readFile(new URL("src/instruments/webgpu-303/webgpu-303-app.js", root), "utf8"),
     readFile(new URL("src/webgpu-303.js", root), "utf8"),

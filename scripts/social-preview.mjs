@@ -42,7 +42,7 @@ function attributes(tag) {
 
 function canonicalUrl(relativePath) {
   const route = relativePath.replaceAll("\\", "/").replace(/^\/+/, "");
-  if (["", "index.html", "about.html", "instruments.html"].includes(route)) return `${SITE_ORIGIN}/`;
+  if (["", "index.html"].includes(route)) return SITE_ORIGIN + "/";
   return new URL(route.replace(/(^|\/)index\.html$/, "$1"), `${SITE_ORIGIN}/`).href;
 }
 

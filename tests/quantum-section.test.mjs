@@ -77,7 +77,7 @@ test("menu registry keeps the quantum simulators with Morphazoidical in Works in
 test("Quantum Synth pages share the instrument shell and disclose simulation scope", async () => {
   for (const instrument of quantumPages) {
     const [html, app, core] = await Promise.all([
-      readFile(new URL(instrument.page, root), "utf8"),
+      readFile(new URL("src/pages/" + instrument.page, root), "utf8"),
       readFile(new URL(instrument.app, root), "utf8"),
       readFile(new URL(instrument.core, root), "utf8"),
     ]);

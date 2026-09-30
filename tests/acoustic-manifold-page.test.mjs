@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import test from "node:test";
 
-const html = fs.readFileSync(new URL("../acoustic-manifold.html", import.meta.url), "utf8");
+const html = fs.readFileSync(new URL("../src/pages/acoustic-manifold.html", import.meta.url), "utf8");
 const css = fs.readFileSync(new URL("../src/instruments/acoustic-manifold/acoustic-manifold.css", import.meta.url), "utf8");
 const app = fs.readFileSync(new URL("../src/instruments/acoustic-manifold/acoustic-manifold-app.js", import.meta.url), "utf8");
 const sourceCatalog = fs.readFileSync(

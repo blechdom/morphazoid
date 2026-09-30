@@ -54,8 +54,8 @@ test("a stale portrait declaration cannot precede or override the safe image", (
   assert.equal(withSocialPreview(transformed, "shape-synth.html"), transformed);
 });
 
-test("nested pages and homepage aliases receive correct public URLs before redirect scripts", () => {
-  for (const file of ["index.html", "about.html", "instruments.html"]) {
+test("nested pages and the homepage receive correct public URLs before scripts", () => {
+  for (const file of ["index.html"]) {
     const transformed = withSocialPreview('<html><head><meta charset="utf-8"><script>location.replace("./")</script></head><body></body></html>', file);
     assert.match(transformed, /property="og:url" content="https:\/\/morphazoid\.com\/"/);
     assert.ok(transformed.indexOf('property="og:image"') < transformed.indexOf("<script>"));
@@ -92,27 +92,24 @@ test("the public/WAX build step includes PNGs and covers newly added and nested 
   assert.match(buildScript, /node "\$repo_root\/scripts\/social-preview\.mjs" "\$output_dir"/);
 });
 
-test("homepage and aliases work without JavaScript and the first homepage image is not a face", async () => {
-  for (const file of ["index.html", "about.html", "instruments.html"]) {
-    const html = await readFile(new URL(file, root), "utf8");
-    assert.equal(html, withSocialPreview(html, file), `Stale authored metadata: ${file}`);
-    assert.equal((html.match(/<link\b[^>]*rel="icon"[^>]*>/g) ?? []).length, 1, `${file}: keep its favicon`);
-  }
-  const home = await readFile(new URL("index.html", root), "utf8");
+test("homepage works without JavaScript and its first image is not a face", async () => {
+  const home = await readFile(new URL("src/pages/index.html", root), "utf8");
+  assert.equal(home, withSocialPreview(home, "index.html"), "Stale authored metadata: index.html");
+  assert.equal((home.match(/<link\b[^>]*rel="icon"[^>]*>/g) ?? []).length, 1, "index.html: keep its favicon");
   const firstImage = home.match(/<img\b[\s\S]*?>/i)?.[0];
   assert.ok(firstImage?.includes(`src="${BRAND_MARK_PATH}"`));
   assert.ok(home.includes('src="assets/authors/kristin-galvin.png"'), "Keep on-page creator credit");
   assert.ok(home.indexOf(BRAND_MARK_PATH) < home.indexOf('src="assets/authors/'));
 });
 
-test("canonical social metadata preserves the favicon when normalizing an alias head", () => {
+test("canonical social metadata preserves the favicon when normalizing a page head", () => {
   const favicon = '<link rel="icon" href="favicon.svg" type="image/svg+xml" />';
-  const canonical = withSocialPreview(sample, "about.html");
+  const canonical = withSocialPreview(sample, "index.html");
   const misplaced = canonical.replace('<meta charset="utf-8">', `<meta charset="utf-8">\n  ${favicon}`);
-  const normalized = withSocialPreview(misplaced, "about.html");
+  const normalized = withSocialPreview(misplaced, "index.html");
   assert.equal((normalized.match(/rel="icon"/g) ?? []).length, 1);
   assert.ok(normalized.indexOf("<!-- morphazoid-social-preview:end -->") < normalized.indexOf(favicon));
-  assert.equal(withSocialPreview(normalized, "about.html"), normalized);
+  assert.equal(withSocialPreview(normalized, "index.html"), normalized);
   assert.equal(normalized.slice(normalized.indexOf("<body")), sample.slice(sample.indexOf("<body")));
 });
 

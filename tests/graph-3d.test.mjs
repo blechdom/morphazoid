@@ -229,7 +229,7 @@ test("new page integrates without rewriting Graph Synth and owns explicit contro
   const entry=instrumentById("graph-3d"), midi=instrumentMidiCapabilityForId("graph-3d");
   assert.equal(entry.label,"3D Graph");assert.equal(entry.status,"Work in Progress");
   assert.equal(midi.noteMode,"pitched");assert.equal(midi.audioInput,false);assert.equal(midi.midiOutput,false);
-  const html=await readFile(new URL("../graph-3d.html",import.meta.url),"utf8");
+  const html=await readFile(new URL("../src/pages/graph-3d.html", import.meta.url),"utf8");
   for(const key of ["data-primary-transport","data-reset-in-place",'id="nodeZ"','id="motion"','id="viewReset"','id="stage"'])assert.ok(html.includes(key));
   const icon=await readFile(new URL("../assets/instruments/graph-3d.webp",import.meta.url));
   assert.equal(icon.subarray(8,12).toString(),"WEBP");assert.ok(icon.length>1000);

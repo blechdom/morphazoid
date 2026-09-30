@@ -453,7 +453,7 @@ test("aligned contact is more tonal and active than a distant localized miss", a
 
 test("Julie Saw page, research, navigation, and release lists expose the full instrument contract", async () => {
   const [html, css, app, processor, research, nav, catalog, midi, build] = await Promise.all([
-    readFile(new URL("../julie-saw.html", import.meta.url), "utf8"),
+    readFile(new URL("../src/pages/julie-saw.html", import.meta.url), "utf8"),
     readFile(new URL("../src/instruments/julie-saw/julie-saw.css", import.meta.url), "utf8"),
     readFile(new URL("../src/instruments/julie-saw/julie-saw-app.js", import.meta.url), "utf8"),
     readFile(new URL("../src/instruments/julie-saw/julie-saw-processor.js", import.meta.url), "utf8"),

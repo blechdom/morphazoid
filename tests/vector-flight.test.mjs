@@ -266,7 +266,7 @@ test("star motion is monotone in depth and responds continuously to field spin",
 });
 
 test("Vector Flight exposes geometry articulations and retires score controls", async () => {
-  const html = await readFile(new URL("../vector-flight.html", import.meta.url), "utf8");
+  const html = await readFile(new URL("../src/pages/vector-flight.html", import.meta.url), "utf8");
   for (const articulation of FLIGHT_ARTICULATIONS) {
     assert.match(html, new RegExp(`<option value="${articulation}"`));
     assert.match(html, new RegExp(`data-articulation="${articulation}"`));

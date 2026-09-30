@@ -5,7 +5,7 @@ import test from "node:test";
 import { buildPrototile, tilingInfo } from "../src/instruments/lattice/lattice.js";
 
 test("lattice drum app starts with the complete editable isohedral form", async () => {
-  const html = await readFile(new URL("../lattice-drum-machine.html", import.meta.url), "utf8");
+  const html = await readFile(new URL("../src/pages/lattice-drum-machine.html", import.meta.url), "utf8");
   const ids = [...html.matchAll(/\bid="([^"]+)"/g)].map((match) => match[1]);
   const elements = new Map();
   const listeners = new Map();

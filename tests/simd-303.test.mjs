@@ -456,7 +456,7 @@ test("SIMD 303 support requires Web Audio, AudioWorklet, and WebAssembly", () =>
 
 test("SIMD 303 ships as a separate page with the shared 303 control surface", async () => {
   const [html, css, app, sharedApp, runtime, processor, buildScript, readme] = await Promise.all([
-    readFile(new URL("simd-303.html", root), "utf8"),
+    readFile(new URL("src/pages/simd-303.html", root), "utf8"),
     readFile(new URL("src/instruments/simd-303/simd-303.css", root), "utf8"),
     readFile(new URL("src/instruments/simd-303/simd-303-app.js", root), "utf8"),
     readFile(new URL("src/instruments/webgpu-303/webgpu-303-app.js", root), "utf8"),

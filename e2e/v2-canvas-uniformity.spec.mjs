@@ -7,6 +7,7 @@ import { canvasLayouts, attachJson } from "./helpers/canvas-preservation.mjs";
 import { pageDiagnosticMessages, settlePage, watchPageDiagnostics } from "./helpers/diagnostics.mjs";
 
 const root = new URL("../", import.meta.url);
+const pageSourceRoot = new URL("../src/pages/", import.meta.url);
 const fixture = JSON.parse(await readFile(new URL("tests/fixtures/canvas-resize-variants-v1.json", root)));
 const original = await readFile(new URL("tests/fixtures/canvas-resize-v1.txt", root), "utf8");
 const controllers = new Map([
@@ -19,8 +20,8 @@ const wrapperTargets = new Map([
 ]);
 
 const routes = [];
-for (const name of (await readdir(root)).filter((name) => name.endsWith(".html")).sort()) {
-  const html = await readFile(new URL(name, root), "utf8");
+for (const name of (await readdir(pageSourceRoot)).filter((name) => name.endsWith(".html")).sort()) {
+  const html = await readFile(new URL(name, pageSourceRoot), "utf8");
   const scripts = [...html.matchAll(/<script\b[^>]*\bsrc=(["'])(.*?)\1/g)]
     .map((match) => match[2].split(/[?#]/)[0].replace(/^\.\//, "").replace(/^\//, ""));
   const matches = [...new Set(scripts.map((file) => wrapperTargets.get(file) ?? file)

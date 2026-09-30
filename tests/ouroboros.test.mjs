@@ -853,7 +853,7 @@ test("the worklet registers once and renders finite, audible stereo through both
 
 test("the native page exposes an accessible, lazy Ouroboros instrument", async () => {
   const [markup, app, source, styles] = await Promise.all([
-    readFile(new URL("ouroboros.html", ROOT), "utf8"),
+    readFile(new URL("src/pages/ouroboros.html", ROOT), "utf8"),
     readFile(new URL("src/instruments/ouroboros/ouroboros-app.js", ROOT), "utf8"),
     readFile(new URL("src/instruments/ouroboros/ouroboros.js", ROOT), "utf8"),
     readFile(new URL("src/instruments/ouroboros/ouroboros.css", ROOT), "utf8"),

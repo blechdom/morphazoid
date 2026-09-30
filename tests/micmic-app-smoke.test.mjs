@@ -5,7 +5,7 @@ import test from "node:test";
 import { sliderFromTimeFold } from "../src/instruments/micmic/micmic.js";
 
 test("L-system Delay renders and drives a recursive microphone graph", async () => {
-  const html = await readFile(new URL("../l-mic.html", import.meta.url), "utf8");
+  const html = await readFile(new URL("../src/pages/l-mic.html", import.meta.url), "utf8");
   const tags = new Map(
     [...html.matchAll(/<[^>]+\bid="([^"]+)"[^>]*>/g)].map((match) => [match[1], match[0]]),
   );

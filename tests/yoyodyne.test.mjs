@@ -134,7 +134,7 @@ test("all tricks excite distinct bounded continuous phrases",()=>{
   assert.ok(Math.abs(results[i].pitch-results[j].pitch)>100 || Math.abs(results[i].side-results[j].side)>1);
 });
 test("source and build inventory expose kinetic modules without timeline or browser WAX bootstrap",async()=>{
- const html=await source("yoyodyne.html"),app=await source("src/instruments/yoyodyne/yoyodyne-app.js"),build=await readRuntimeManifest();
+ const html=await source("src/pages/yoyodyne.html"),app=await source("src/instruments/yoyodyne/yoyodyne-app.js"),build=await readRuntimeManifest();
  assert.match(html,/data-primary-transport/);assert.match(html,/aria-pressed="false"/);
  assert.match(html,/aria-label="[^"]+"/);assert.match(html,/tabindex="0"/);
  assert.doesNotMatch(html,/data-morphazoid-wax-bootstrap|data-note-id|selectedPitch/);

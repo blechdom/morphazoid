@@ -26,7 +26,7 @@ test('layout tracks wrapped header/stage sizes and cleans up without touching au
 });
 
 test('the performance column wraps the graphic and its controls independently of the sidebar',async()=>{
-  const html=await readFile(new URL('../puggler.html',import.meta.url),'utf8');
+  const html=await readFile(new URL('../src/pages/puggler.html',import.meta.url),'utf8');
   assert.match(html,/class="puggler-performance"/);
   assert.match(html,/<main class="puggler-shell" aria-labelledby="pageTitle">/);
   assert.match(html,/puggler-layout\.js/);
