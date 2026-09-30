@@ -54,10 +54,10 @@ function elementMarkup(source, tagName, id) {
 
 test("Syrinx UI exposes the two-menu preset bank, universal controls, and loop silence", async () => {
   const [html, css, app, original, build] = await Promise.all([
-    readFile(new URL("syrinx-ui.html", root), "utf8"),
+    readFile(new URL("src/pages/syrinx-ui.html", root), "utf8"),
     readFile(new URL("src/instruments/syrinx-ui/syrinx-ui.css", root), "utf8"),
     readFile(new URL("src/families/syrinx/syrinx-app.js", root), "utf8"),
-    readFile(new URL("syrinx.html", root), "utf8"),
+    readFile(new URL("src/pages/syrinx.html", root), "utf8"),
     readFile(new URL("scripts/site/runtime-files.tsv", root), "utf8"),
   ]);
 
@@ -150,7 +150,7 @@ test("Syrinx UI exposes the two-menu preset bank, universal controls, and loop s
 
 test("Tongued Beasts keeps viewport handles and the parameter panel available on mobile", async () => {
   const [html, css, app, build] = await Promise.all([
-    readFile(new URL("tongued-beasts.html", root), "utf8"),
+    readFile(new URL("src/pages/tongued-beasts.html", root), "utf8"),
     readFile(new URL("src/instruments/tongued-beasts/tongued-beasts.css", root), "utf8"),
     readFile(new URL("src/families/syrinx/syrinx-app.js", root), "utf8"),
     readFile(new URL("scripts/site/runtime-files.tsv", root), "utf8"),
@@ -200,7 +200,7 @@ test("Tongued Beasts keeps viewport handles and the parameter panel available on
 
 test("Tongued Beasts puts modulation buttons and expanded rate/depth controls on viewport rails", async () => {
   const [html, css, app] = await Promise.all([
-    readFile(new URL("tongued-beasts.html", root), "utf8"),
+    readFile(new URL("src/pages/tongued-beasts.html", root), "utf8"),
     readFile(new URL("src/instruments/tongued-beasts/tongued-beasts.css", root), "utf8"),
     readFile(new URL("src/families/syrinx/syrinx-app.js", root), "utf8"),
   ]);
@@ -313,7 +313,7 @@ test("Tongued Beasts puts modulation buttons and expanded rate/depth controls on
 
 test("viewport modulation editors close without disabling their active wiggle", async () => {
   const [html, css, app] = await Promise.all([
-    readFile(new URL("tongued-beasts.html", root), "utf8"),
+    readFile(new URL("src/pages/tongued-beasts.html", root), "utf8"),
     readFile(new URL("src/instruments/tongued-beasts/tongued-beasts.css", root), "utf8"),
     readFile(new URL("src/families/syrinx/syrinx-app.js", root), "utf8"),
   ]);
@@ -445,7 +445,7 @@ test("viewport modulation editors remain draggable while expanded", async () => 
 
 test("Tongued Beasts exposes its motion presets in a viewport hover and focus palette", async () => {
   const [html, css] = await Promise.all([
-    readFile(new URL("tongued-beasts.html", root), "utf8"),
+    readFile(new URL("src/pages/tongued-beasts.html", root), "utf8"),
     readFile(new URL("src/instruments/tongued-beasts/tongued-beasts.css", root), "utf8"),
   ]);
   const stageMarkup = html.match(/<section class="stage syrinx-stage"[\s\S]*?<\/section>/)?.[0] ?? "";
@@ -486,7 +486,7 @@ test("Tongued Beasts exposes its motion presets in a viewport hover and focus pa
 
 test("the viewport tongue reset restores free-hand defaults without interrupting transport", async () => {
   const [html, app] = await Promise.all([
-    readFile(new URL("tongued-beasts.html", root), "utf8"),
+    readFile(new URL("src/pages/tongued-beasts.html", root), "utf8"),
     readFile(new URL("src/families/syrinx/syrinx-app.js", root), "utf8"),
   ]);
   const stageMarkup = html.match(/<section class="stage syrinx-stage"[\s\S]*?<\/section>/)?.[0] ?? "";
@@ -553,7 +553,7 @@ test("the viewport tongue reset restores free-hand defaults without interrupting
 
 test("the full Tongued Beasts reset cancels automatic tongue motion", async () => {
   const [html, app] = await Promise.all([
-    readFile(new URL("tongued-beasts.html", root), "utf8"),
+    readFile(new URL("src/pages/tongued-beasts.html", root), "utf8"),
     readFile(new URL("src/families/syrinx/syrinx-app.js", root), "utf8"),
   ]);
   const resetButton = html.match(/<button\b[^>]*data-reset-all[^>]*>[\s\S]*?<\/button>/i)?.[0] ?? "";
@@ -569,7 +569,7 @@ test("the full Tongued Beasts reset cancels automatic tongue motion", async () =
 
 test("the viewport modulator reset restores every wiggle default and stops tongue motion", async () => {
   const [html, app] = await Promise.all([
-    readFile(new URL("tongued-beasts.html", root), "utf8"),
+    readFile(new URL("src/pages/tongued-beasts.html", root), "utf8"),
     readFile(new URL("src/families/syrinx/syrinx-app.js", root), "utf8"),
   ]);
   const stageMarkup = html.match(/<section class="stage syrinx-stage"[\s\S]*?<\/section>/)?.[0] ?? "";

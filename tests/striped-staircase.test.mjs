@@ -240,7 +240,7 @@ test("the view atlas includes the earlier Codex fractal landmarks", () => {
 
 test("the Morphazoid page is audible, navigable, and publishable", async () => {
   const [html, css, app, core, audioSource, buildScript, icon] = await Promise.all([
-    readFile(new URL("striped-staircase.html", root), "utf8"),
+    readFile(new URL("src/pages/striped-staircase.html", root), "utf8"),
     readFile(new URL("src/instruments/striped-staircase/striped-staircase.css", root), "utf8"),
     readFile(new URL("src/instruments/striped-staircase/striped-staircase-app.js", root), "utf8"),
     readFile(new URL("src/instruments/striped-staircase/striped-staircase.js", root), "utf8"),

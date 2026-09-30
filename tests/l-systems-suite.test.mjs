@@ -84,7 +84,7 @@ test("L-Systems suite records shared, analog, unique, and crossover parameters",
 
 test("L-Systems page is a native combined app, not a frame host", async () => {
   const [html, css] = await Promise.all([
-    readFile(new URL("l-systems.html", root), "utf8"),
+    readFile(new URL("src/pages/l-systems.html", root), "utf8"),
     readFile(new URL("src/instruments/l-systems/l-systems.css", root), "utf8"),
   ]);
 

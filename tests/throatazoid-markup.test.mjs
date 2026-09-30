@@ -6,7 +6,7 @@ const root = new URL("../", import.meta.url);
 
 test("Throatazoid is a first-class mic and glottis-driven Morphazoid instrument", async () => {
   const [html, css, app, notices] = await Promise.all([
-    readFile(new URL("throatazoid.html", root), "utf8"),
+    readFile(new URL("src/pages/throatazoid.html", root), "utf8"),
     readFile(new URL("src/instruments/throatazoid/throatazoid.css", root), "utf8"),
     readFile(new URL("src/instruments/throatazoid/throatazoid-app.js", root), "utf8"),
     readFile(new URL("THIRD_PARTY_NOTICES.md", root), "utf8"),

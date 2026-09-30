@@ -662,7 +662,7 @@ test("audio graph is inert until start, resumes, suspends, and fully closes", as
 test("native page exposes binary gesture audio, accurate naming, and cleanup", async () => {
   const root = new URL("../", import.meta.url);
   const [markup, app, moduleSource, flowSource, sharedUi] = await Promise.all([
-    readFile(new URL("chaotic-fm.html", root), "utf8"),
+    readFile(new URL("src/pages/chaotic-fm.html", root), "utf8"),
     readFile(new URL("src/instruments/chaotic-fm/chaotic-fm-app.js", root), "utf8"),
     readFile(new URL("src/instruments/chaotic-fm/chaotic-fm.js", root), "utf8"),
     readFile(new URL("src/families/chaotic/chaotic-fm-flow.js", root), "utf8"),

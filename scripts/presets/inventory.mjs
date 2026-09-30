@@ -59,8 +59,10 @@ export async function collectPresetInventory({ root = repositoryRoot, items = CA
   };
   const rows = [];
   for (const item of items) {
-    const page = item.href.endsWith("/") ? `${item.href}index.html` : item.href;
-    const html = await read(page);
+    const page = item.href.endsWith("/") ? item.href + "index.html" : item.href;
+    const sourcePage = page.endsWith(".html") && !page.includes("/") ? "src/pages/" + page : page;
+    let html = await read(sourcePage);
+    if (html === null && sourcePage !== page) html = await read(page);
     if (html === null) throw new Error(`Missing catalogue entry page: ${page}`);
     const entries = [...html.matchAll(/<script\b([^>]*)>/gi)]
       .map(match => attributes(match[1]).src)

@@ -360,7 +360,7 @@ test("arrow positions map directly to continuous sine voices without quantizatio
 
 test("Boidzoid page exposes only continuous sine arrows and explicit audio", async () => {
   const [html, css, app] = await Promise.all([
-    readFile(new URL("boidzoid.html", root), "utf8"),
+    readFile(new URL("src/pages/boidzoid.html", root), "utf8"),
     readFile(new URL("src/instruments/boidzoid/boidzoid.css", root), "utf8"),
     readFile(new URL("src/instruments/boidzoid/boidzoid-app.js", root), "utf8"),
   ]);

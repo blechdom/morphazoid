@@ -10,7 +10,7 @@ async function readSequencerSources() {
   const [app, css, html] = await Promise.all([
     readFile(new URL("src/instruments/creaturazoid/creaturazoid-app.js", root), "utf8"),
     readFile(new URL("src/instruments/creaturazoid/creaturazoid.css", root), "utf8"),
-    readFile(new URL("creaturazoid.html", root), "utf8"),
+    readFile(new URL("src/pages/creaturazoid.html", root), "utf8"),
   ]);
   return { app, css, html };
 }

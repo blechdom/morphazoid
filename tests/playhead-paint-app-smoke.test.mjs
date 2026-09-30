@@ -490,7 +490,7 @@ function installGlobals(replacements) {
 }
 
 test("Playhead Paint initializes, gates browser audio, performs symmetry, and tears down", async () => {
-  const html = await readFile(new URL("../playhead-paint.html", import.meta.url), "utf8");
+  const html = await readFile(new URL("../src/pages/playhead-paint.html", import.meta.url), "utf8");
   const harness = createBrowserHarness(html);
   FakeAudioContext.instances.length = 0;
   const restoreGlobals = installGlobals({

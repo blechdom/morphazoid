@@ -384,7 +384,7 @@ test("each gated bolt maps to a moderate, depth-aware, free-pitch synth voice", 
 });
 
 test("Plasma Ball is a labelled, keyboard-accessible Morphazoid instrument", async () => {
-  const html = await readFile(new URL("plasma-ball.html", root), "utf8");
+  const html = await readFile(new URL("src/pages/plasma-ball.html", root), "utf8");
   assert.match(html, /<title>Plasma Ball (?:—|\|) Morphazoid<\/title>/);
   assert.match(html, /href="style\.css"/);
   assert.match(html, /href="src\/instruments\/plasma-ball\/plasma-ball\.css"/);

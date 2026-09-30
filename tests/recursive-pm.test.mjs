@@ -327,7 +327,7 @@ test("worklet uses exact recursive phase modulation without render allocations",
 
 test("Recursive PM page is internal, gesture controlled, and cleans up audio", async () => {
   const [html, app, css] = await Promise.all([
-    readFile(new URL("../recursive-pm.html", import.meta.url), "utf8"),
+    readFile(new URL("../src/pages/recursive-pm.html", import.meta.url), "utf8"),
     readFile(new URL("../src/instruments/recursive-pm/recursive-pm-app.js", import.meta.url), "utf8"),
     readFile(new URL("../src/instruments/recursive-pm/recursive-pm.css", import.meta.url), "utf8"),
   ]);

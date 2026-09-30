@@ -63,7 +63,7 @@ function openingTag(element) {
 test("shape instruments and their drum machines share the Shape primary transport markup", async () => {
   const sources = new Map(await Promise.all(PAGES.map(async ({ file }) => [
     file,
-    await readFile(new URL(file, ROOT), "utf8"),
+    await readFile(new URL("src/pages/" + file, ROOT), "utf8"),
   ])));
 
   for (const { file, transportLabel, directionLabel } of PAGES) {

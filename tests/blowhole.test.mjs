@@ -1549,7 +1549,7 @@ test("the worklet renders silence, calls, finite surface breaths, and depth-limi
 
 test("the page, app, and styles expose the complete accessible physical-instrument contract", async () => {
   const [html, app, css, sharedCss, processor, model] = await Promise.all([
-    readFile(new URL("blowhole.html", root), "utf8"),
+    readFile(new URL("src/pages/blowhole.html", root), "utf8"),
     readFile(new URL("src/instruments/blowhole/blowhole-app.js", root), "utf8"),
     readFile(new URL("src/instruments/blowhole/blowhole.css", root), "utf8"),
     readFile(new URL("style.css", root), "utf8"),

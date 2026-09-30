@@ -37,8 +37,14 @@ manifest or an automatic dependency graph. The builder still:
 
 The initial migration preserves every explicit copy permission and the exact
 required-path order. Explicit copy order now follows the manifest; output
-file lists and file bytes are compared against the unchanged builder. No
-public files are renamed, relocated, added or removed by this extraction.
+file lists and file bytes are compared against the unchanged builder.
+
+Canonical HTML sources are deliberately not entries in this runtime manifest.
+They live in `src/pages/`, are declared by `src/pages/manifest.js`, and are
+copied by `build-site.sh` to their original root-level public routes. This
+keeps authored files out of the repository root without changing public URLs.
+The source directory must contain exactly the declared canonical routes; no
+root HTML source, redirect, or alias file is retained.
 
 ## Adding or moving a runtime file
 

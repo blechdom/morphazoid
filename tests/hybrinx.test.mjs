@@ -417,7 +417,7 @@ test("call edits persist across switches and reset at current-call or whole-stor
 
 test("Hybrinx viewport, full, and timeline resets cancel automatic tongue motion", async () => {
   const [html, app, timelineSource] = await Promise.all([
-    readFile(new URL("hybrinx.html", root), "utf8"),
+    readFile(new URL("src/pages/hybrinx.html", root), "utf8"),
     readFile(new URL("src/families/syrinx/syrinx-app.js", root), "utf8"),
     readFile(new URL("src/instruments/hybrinx/hybrinx-timeline.js", root), "utf8"),
   ]);
@@ -461,7 +461,7 @@ test("Hybrinx viewport, full, and timeline resets cancel automatic tongue motion
 
 test("Hybrinx is a Tongued Beasts-derived page with its timeline below the viewport", async () => {
   const [html, css, app, layout, timelineSource, navigation, build, catalogue, iconBytes, iconStat] = await Promise.all([
-    readFile(new URL("hybrinx.html", root), "utf8"),
+    readFile(new URL("src/pages/hybrinx.html", root), "utf8"),
     readFile(new URL("src/instruments/hybrinx/hybrinx.css", root), "utf8"),
     readFile(new URL("src/families/syrinx/syrinx-app.js", root), "utf8"),
     readFile(new URL("src/instruments/hybrinx/hybrinx-layout.js", root), "utf8"),

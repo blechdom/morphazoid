@@ -60,7 +60,7 @@ function riffWaveDuration(bytes) {
 
 test("Vocalzoid page wires every control, module, and local asset", async () => {
   const [html, app] = await Promise.all([
-    readFile(new URL("vocalzoid.html", ROOT), "utf8"),
+    readFile(new URL("src/pages/vocalzoid.html", ROOT), "utf8"),
     readFile(new URL("src/instruments/vocalzoid/vocalzoid-app.js", ROOT), "utf8"),
   ]);
 
@@ -166,7 +166,7 @@ test("Vocalzoid page wires every control, module, and local asset", async () => 
 
 test("the piano roll exposes complete note editing for pointer, touch, and keyboard", async () => {
   const [html, app, css] = await Promise.all([
-    readFile(new URL("vocalzoid.html", ROOT), "utf8"),
+    readFile(new URL("src/pages/vocalzoid.html", ROOT), "utf8"),
     readFile(new URL("src/instruments/vocalzoid/vocalzoid-app.js", ROOT), "utf8"),
     readFile(new URL("src/instruments/vocalzoid/vocalzoid.css", ROOT), "utf8"),
   ]);
@@ -200,7 +200,7 @@ test("the piano roll exposes complete note editing for pointer, touch, and keybo
 
 test("each MIDI note exposes editable, role-safe phoneme pull-downs", async () => {
   const [html, app, css] = await Promise.all([
-    readFile(new URL("vocalzoid.html", ROOT), "utf8"),
+    readFile(new URL("src/pages/vocalzoid.html", ROOT), "utf8"),
     readFile(new URL("src/instruments/vocalzoid/vocalzoid-app.js", ROOT), "utf8"),
     readFile(new URL("src/instruments/vocalzoid/vocalzoid.css", ROOT), "utf8"),
   ]);
@@ -263,7 +263,7 @@ test("Randomize replaces the score and synchronizes musical parameters without a
 });
 
 test("Vocalzoid exposes local import, source terms, and accessible status", async () => {
-  const html = await readFile(new URL("vocalzoid.html", ROOT), "utf8");
+  const html = await readFile(new URL("src/pages/vocalzoid.html", ROOT), "utf8");
   assertOrdered(html, "id=\"libraryTitle\"", "id=\"importTitle\"");
   const fileInput = html.match(/<input\b[^>]*\bid="bankInput"[^>]*>/)?.[0] ?? "";
   assert.match(fileInput, /\bmultiple\b/);
@@ -307,7 +307,7 @@ test("Vocalzoid exposes local import, source terms, and accessible status", asyn
 
 test("Vocalzoid keeps a usable responsive piano roll and reduced-motion mode", async () => {
   const [html, app, css] = await Promise.all([
-    readFile(new URL("vocalzoid.html", ROOT), "utf8"),
+    readFile(new URL("src/pages/vocalzoid.html", ROOT), "utf8"),
     readFile(new URL("src/instruments/vocalzoid/vocalzoid-app.js", ROOT), "utf8"),
     readFile(new URL("src/instruments/vocalzoid/vocalzoid.css", ROOT), "utf8"),
   ]);

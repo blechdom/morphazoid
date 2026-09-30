@@ -119,7 +119,7 @@ test("rotated Hyper loop phases span only the occupied W range and wrap at the s
 
 test("Hyper exposes independent axis motion and maps canvas drag to XW/YW", async () => {
   const [html, app] = await Promise.all([
-    readFile(new URL("../hyper-synth.html", import.meta.url), "utf8"),
+    readFile(new URL("../src/pages/hyper-synth.html", import.meta.url), "utf8"),
     readFile(new URL("../src/instruments/hyper-synth/hyper-synth-app.js", import.meta.url), "utf8"),
   ]);
   assert.match(html, /id="rotationSummary">paused</);

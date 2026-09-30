@@ -59,7 +59,7 @@ function elementWithClass(source, tagName, className) {
 
 test("Rubix controls keep shape, size, visibility dynamics, and panel order explicit", async () => {
   const [html, css] = await Promise.all([
-    readFile(new URL("rubix.html", root), "utf8"),
+    readFile(new URL("src/pages/rubix.html", root), "utf8"),
     readFile(new URL("src/instruments/rubix/rubix.css", root), "utf8"),
   ]);
 
@@ -258,7 +258,7 @@ test("Rubix controls keep shape, size, visibility dynamics, and panel order expl
 
 test("Rubix clock spans 30–300 BPM without redundant half/double controls", async () => {
   const [html, app] = await Promise.all([
-    readFile(new URL("rubix.html", root), "utf8"),
+    readFile(new URL("src/pages/rubix.html", root), "utf8"),
     readFile(new URL("src/instruments/rubix/rubix-app.js", root), "utf8"),
   ]);
 
@@ -296,7 +296,7 @@ test("Rubix clock spans 30–300 BPM without redundant half/double controls", as
 
 test("Rubix keeps restart compact beside tempo and outside the main transport", async () => {
   const [html, app, css] = await Promise.all([
-    readFile(new URL("rubix.html", root), "utf8"),
+    readFile(new URL("src/pages/rubix.html", root), "utf8"),
     readFile(new URL("src/instruments/rubix/rubix-app.js", root), "utf8"),
     readFile(new URL("src/instruments/rubix/rubix.css", root), "utf8"),
   ]);

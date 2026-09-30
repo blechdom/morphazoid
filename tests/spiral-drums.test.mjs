@@ -153,7 +153,7 @@ test("every intrinsic Spiral reader resolves contacts through every drum mapping
 
 test("Spiral Drum Machine keeps the full geometry UI and excludes legacy sound panels", async () => {
   const [html, css, app] = await Promise.all([
-    readFile(new URL("spiral-drum-machine.html", root), "utf8"),
+    readFile(new URL("src/pages/spiral-drum-machine.html", root), "utf8"),
     readFile(new URL("src/instruments/spiral-drum-machine/spiral-drum-machine.css", root), "utf8"),
     readFile(new URL("src/instruments/spiral-drum-machine/spiral-drum-machine-app.js", root), "utf8"),
   ]);

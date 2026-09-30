@@ -157,7 +157,7 @@ test("all five entries are authored, classified, and use real WebP icons", async
     assert.equal(capability.midiOutput, false);
     assert.equal(capability.computerKeyboardMode, "page");
     assert.equal(capability.audioInput, ["tape-worm", "loop-soup", "hollowphonic"].includes(id));
-    const html = await readFile(new URL(`../${id}.html`, import.meta.url), "utf8");
+    const html = await readFile(new URL(`../src/pages/${id}.html`, import.meta.url), "utf8");
     assert.ok(html.includes(`data-starting-instrument="${id}"`));
     assert.ok(html.includes('data-primary-transport'));
     assert.ok(html.includes('data-reset-all'));

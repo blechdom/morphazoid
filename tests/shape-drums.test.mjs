@@ -192,7 +192,7 @@ test("real shape contacts resolve to playable FM drum voices", () => {
 
 test("Shape Drum Machine keeps Shape controls and the compact shared FM drum bank", async () => {
   const [html, css, app] = await Promise.all([
-    readFile(new URL("shape-drum-machine.html", root), "utf8"),
+    readFile(new URL("src/pages/shape-drum-machine.html", root), "utf8"),
     readFile(new URL("src/instruments/shape-drum-machine/shape-drum-machine.css", root), "utf8"),
     readFile(new URL("src/instruments/shape-drum-machine/shape-drum-machine-app.js", root), "utf8"),
   ]);

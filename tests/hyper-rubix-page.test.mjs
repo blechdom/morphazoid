@@ -7,7 +7,7 @@ const root = new URL("../", import.meta.url);
 
 async function pageSources() {
   const [html, css, app] = await Promise.all([
-    readFile(new URL("hyper-rubix.html", root), "utf8"),
+    readFile(new URL("src/pages/hyper-rubix.html", root), "utf8"),
     readFile(new URL("src/instruments/hyper-rubix/hyper-rubix.css", root), "utf8"),
     readFile(new URL("src/instruments/hyper-rubix/hyper-rubix-app.js", root), "utf8"),
   ]);

@@ -173,7 +173,7 @@ test("real 4D hyperplane contacts resolve through every mapping mode", () => {
 
 test("Hyper Drum Machine keeps the complete 4D UI and excludes legacy synth panels", async () => {
   const [html, css, app] = await Promise.all([
-    readFile(new URL("hyper-drum-machine.html", root), "utf8"),
+    readFile(new URL("src/pages/hyper-drum-machine.html", root), "utf8"),
     readFile(new URL("src/instruments/hyper-drum-machine/hyper-drum-machine.css", root), "utf8"),
     readFile(new URL("src/instruments/hyper-drum-machine/hyper-drum-machine-app.js", root), "utf8"),
   ]);

@@ -165,7 +165,7 @@ const migratedPages = [
 test("migrated demos are native internal Morphazoid pages", async () => {
   for (const page of migratedPages) {
     const [html, app, source] = await Promise.all([
-      readFile(new URL(page.html, root), "utf8"),
+      readFile(new URL(`src/pages/${page.html}`, root), "utf8"),
       readFile(new URL(page.app, root), "utf8"),
       readFile(new URL(page.source, root), "utf8"),
     ]);
@@ -194,7 +194,7 @@ test("migrated demos are native internal Morphazoid pages", async () => {
 
 test("migrated pages retain one static current destination before nav enhancement", async () => {
   for (const page of migratedPages) {
-    const html = await readFile(new URL(page.html, root), "utf8");
+    const html = await readFile(new URL(`src/pages/${page.html}`, root), "utf8");
     const desktop = html.match(/<nav class="tabs"[\s\S]*?<\/nav>/)?.[0] ?? "";
     const mobile = html.match(
       /<select class="mobile-instrument-select"[\s\S]*?<\/select>/,

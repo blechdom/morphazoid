@@ -57,14 +57,11 @@ copy+require	src/instruments/paths/paths.css
 copy+require	src/instruments/paths/paths-app.js
 copy+require	src/instruments/paths/paths.js
 copy+require	assets/instruments/paths.webp
-copy+require	moebius.html
-copy+require	klein-bottle.html
 copy+require	src/families/nonorientable/nonorientable.css
 copy+require	src/families/nonorientable/nonorientable-app.js
 copy+require	src/families/nonorientable/nonorientable-surface.js
 copy+require	assets/instruments/moebius.webp
 copy+require	assets/instruments/klein-bottle.webp
-copy+require	combo.html
 copy+require	shapes.html
 copy+require	src/instruments/shapes/shapes.css
 copy+require	src/families/geometry/shapes-embed.css
@@ -111,7 +108,6 @@ copy+require	assets/bioacoustics/dolphin-vocalizations.wav
 copy+require	assets/bioacoustics/humpback-whale-song.ogg
 copy+require	assets/bioacoustics/killer-whale-call.ogg
 copy+require	assets/bioacoustics/blue-whale-south-pacific.ogg
-copy+require	shape.html
 copy+require	playhead-paint.html
 copy+require	src/instruments/playhead-paint/playhead-paint.css
 copy+require	src/instruments/playhead-paint/playhead-paint-app.js
@@ -170,7 +166,6 @@ copy+require	src/instruments/hybrinx/hybrinx.css
 copy+require	src/instruments/hybrinx/hybrinx-layout.js
 copy+require	src/instruments/hybrinx/hybrinx-timeline.js
 copy+require	assets/instruments/hybrinx.webp
-copy+require	colony-syrinx.html
 copy+require	src/instruments/monstroid/monstroid.css
 copy+require	src/instruments/monstroid/monstroid-app.js
 copy+require	src/instruments/monstroid/monstroid.js
@@ -188,7 +183,6 @@ copy+require	src/instruments/throat-singing/throat-singing.js
 copy+require	THROAT_SINGING_RESEARCH.md
 copy+require	assets/instruments/throat-singing.webp
 copy+require	dentaphone.html
-copy+require	object-forge.html
 copy+require	src/instruments/object-forge/object-forge.css
 copy+require	src/instruments/object-forge/object-forge-app.js
 copy+require	src/instruments/object-forge/dentaphone.js
@@ -257,7 +251,6 @@ copy+require	assets/hiccup-head/skins/pantry-portrait.webp
 copy+require	assets/hiccup-head/skins/vintage-magazine-face-fields.webp
 copy+require	assets/hiccup-head/skins/wild-ink-decay-fields.webp
 copy+require	quadruped.html
-copy+require	quadroped.html
 copy+require	src/instruments/quadruped/quadruped.css
 copy+require	src/instruments/quadruped/quadruped-app.js
 copy+require	src/instruments/quadruped/quadruped.js
@@ -280,7 +273,6 @@ copy+require	ANIMAL_VOICE_SYNTHESIS_RESEARCH.md
 copy+require	throatazoid-architecture.html
 copy+require	src/site/styles/throatazoid-architecture.css
 copy+require	throatazoid-signal-path.svg
-copy+require	about.html
 copy+require	src/site/styles/about.css
 copy+require	THIRD_PARTY_NOTICES.md
 copy+require	music-rooms.html
@@ -292,11 +284,9 @@ copy+require	instrument-share-room.html
 copy+require	assets/instruments/instrument-share-room.webp
 copy+require	morphazoid-roulette.html
 copy+require	assets/instruments/morphazoid-roulette.webp
-copy+require	instruments.html
 copy+require	src/site/instrument-catalog.css
 copy+require	src/site/instrument-catalog-app.js
 copy+require	src/instrument-catalog.js
-copy+require	wax.html
 copy+require	src/instruments/wax/wax.css
 copy+require	wax-page.js
 copy+require	src/instruments/wax/wax-instrument-roles.js
@@ -381,7 +371,6 @@ copy+require	src/families/tract/rendering.js
 copy+require	src/site/instrument-registry.js
 require	src/contour-synth-processor.js
 require	l-mic.html
-require	micmic.html
 copy+require	src/instruments/micmic/micmic-app.js
 copy+require	src/instruments/micmic/micmic.css
 copy+require	micromorph.html
@@ -399,7 +388,6 @@ copy+require	src/instruments/slippery-resynthesis/slippery-resynthesis-app.js
 copy+require	src/instruments/slippery-resynthesis/slippery-resynthesis.js
 copy+require	assets/instruments/slippery-resynthesis.webp
 copy+require	simd-resonator.html
-copy+require	simd-audio-lab.html
 copy+require	src/families/simd-resonator/simd-resonator.css
 copy+require	src/families/simd-resonator/simd-resonator-app.js
 copy+require	src/simd-resonator.js
@@ -553,7 +541,6 @@ copy+require	algorithmic-sequencers.html
 copy+require	src/families/algorithmic-sequencers/algorithmic-sequencers.css
 copy+require	src/families/algorithmic-sequencers/algorithmic-sequencers-app.js
 copy+require	src/families/algorithmic-sequencers/algorithmic-sequencers.js
-copy+require	algorithmic-scores.html
 copy+require	src/families/algorithmic-scores/algorithmic-scores.css
 copy+require	src/families/algorithmic-scores/algorithmic-scores-app.js
 copy+require	src/families/algorithmic-scores/algorithmic-scores.js
@@ -613,9 +600,6 @@ copy+require	chladni-plate.html
 copy+require	spring-choir.html
 copy+require	gear-ratio-drums.html
 copy+require	automatapoeia.html
-copy+require	automatopoeia.html
-copy+require	automata.html
-copy+require	cellular-automata.html
 copy+require	prime-sieve.html
 copy+require	lissajous-orbits.html
 copy+require	pendulum-wave.html
@@ -640,11 +624,9 @@ copy+require	sample-drums.html
 copy+require	src/instruments/sample-drums/sample-drums.css
 copy+require	src/instruments/sample-drums/sample-drums-app.js
 copy+require	src/instruments/sample-drums/sample-drums.js
-copy+require	shape-drums.html
 copy+require	src/instruments/shape-drum-machine/shape-drum-machine.css
 copy+require	src/instruments/shape-drum-machine/shape-drum-machine-app.js
 copy+require	src/instruments/shape-drum-machine/shape-drum-machine.js
-copy+require	lattice-drums.html
 copy+require	src/instruments/lattice-drum-machine/lattice-drum-machine.css
 copy+require	src/instruments/lattice-drum-machine/lattice-drum-machine-app.js
 copy+require	src/instruments/lattice-drum-machine/lattice-drum-machine.js
@@ -655,11 +637,9 @@ copy+require	src/instruments/escher-tessellation/escher-tessellation.js
 copy+require	src/instruments/escher-tessellation/escher-contours.js
 copy+require	src/instruments/escher-tessellation/escher-performance-audio.js
 copy+require	assets/instruments/escher-tessellation.webp
-copy+require	spiral-drums.html
 copy+require	src/instruments/spiral-drum-machine/spiral-drum-machine.css
 copy+require	src/instruments/spiral-drum-machine/spiral-drum-machine-app.js
 copy+require	src/instruments/spiral-drum-machine/spiral-drum-machine.js
-copy+require	solid-drums.html
 copy+require	src/instruments/solid-drum-machine/solid-drum-machine.css
 copy+require	src/instruments/solid-drum-machine/solid-drum-machine-app.js
 copy+require	src/instruments/solid-drum-machine/solid-drum-machine.js
@@ -688,15 +668,12 @@ copy+require	src/instruments/hyper-rubix/hyper-rubix-app.js
 copy+require	src/instruments/hyper-rubix/hyper-rubix.js
 copy+require	src/instruments/hyper-rubix/hyper-rubix-webgpu-303.js
 copy+require	assets/instruments/hyper-rubix.webp
-copy+require	hyper-drums.html
 copy+require	src/instruments/hyper-drum-machine/hyper-drum-machine.css
 copy+require	src/instruments/hyper-drum-machine/hyper-drum-machine-app.js
 copy+require	src/instruments/hyper-drum-machine/hyper-drum-machine.js
-copy+require	l-system-drums.html
 copy+require	src/instruments/l-system-drum-machine/l-system-drum-machine.css
 copy+require	src/instruments/l-system-drum-machine/l-system-drum-machine-app.js
 copy+require	src/instruments/l-system-drum-machine/l-system-drum-machine.js
-copy+require	graph-drums.html
 copy+require	graph-synth.html
 copy+require	src/families/graph/graph-instruments.css
 copy+require	src/instruments/graph-drum-machine/graph-drum-machine-app.js
@@ -722,7 +699,6 @@ copy+require	src/instruments/karplus-carpet/karplus-carpet.css
 copy+require	src/instruments/karplus-carpet/karplus-carpet-app.js
 copy+require	src/instruments/karplus-carpet/karplus-carpet.js
 copy+require	assets/instruments/karplus-carpet.webp
-copy+require	linear-drums-machine.html
 copy+require	src/instruments/rattlesnake-skin/rattlesnake-skin.css
 copy+require	src/instruments/rattlesnake-skin/rattlesnake-skin-app.js
 copy+require	src/instruments/rattlesnake-skin/linear-drums-machine.js
@@ -808,7 +784,6 @@ copy	assets/roach-synth/audio/vivarium-contact.wav
 copy	assets/roach-synth/audio/CREDITS.md
 copy	assets/roach-synth/audio/manifest.json
 copy	assets/instruments/roach-synth.webp
-copy	breath-atlas.html
 copy+require	src/instruments/breath-atlas/breath-atlas.css
 copy+require	src/instruments/breath-atlas/breath-atlas-app.js
 copy	src/instruments/breath-atlas/breath-atlas.js

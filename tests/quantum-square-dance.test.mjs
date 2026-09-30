@@ -373,7 +373,7 @@ test("the scientific core remains import-safe and free of browser/audio side eff
 });
 
 test("the page presents the physical exchange experiment, exact caveats, and accessible controls", async () => {
-  const html = await readFile(new URL("../quantum-square-dance.html", import.meta.url), "utf8");
+  const html = await readFile(new URL("../src/pages/quantum-square-dance.html", import.meta.url), "utf8");
   assert.match(html, /<link rel="stylesheet" href="style\.css"/);
   assert.match(html, /<link rel="stylesheet" href="src\/instruments\/quantum-synths\/quantum-synths\.css"/);
   assert.match(html, /<body class="quantum-page quantum-square-dance-page">/);

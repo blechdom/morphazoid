@@ -7,7 +7,7 @@ import {
   watchPageDiagnostics,
 } from "./helpers/diagnostics.mjs";
 
-const EDITOR_PATH = "/monstrozoid.html";
+const EDITOR_PATH = "/monstroid.html";
 const EDITOR_ORIGIN = process.env.PLAYWRIGHT_BASE_URL || "http://127.0.0.1:3435";
 const GRAPH_CONTROLS = [
   "scatterGraphButton",

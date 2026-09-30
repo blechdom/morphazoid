@@ -23,7 +23,7 @@ function optionValues(html, selectId) {
 
 test("Syrinx exposes a complete, accessible animal-voice instrument page", async () => {
   const [html, css, app, core, processor, sourceModels] = await Promise.all([
-    readFile(new URL("syrinx.html", root), "utf8"),
+    readFile(new URL("src/pages/syrinx.html", root), "utf8"),
     readFile(new URL("src/families/syrinx/syrinx.css", root), "utf8"),
     readFile(new URL("src/families/syrinx/syrinx-app.js", root), "utf8"),
     readFile(new URL("src/families/syrinx/syrinx.js", root), "utf8"),

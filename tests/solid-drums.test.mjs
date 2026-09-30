@@ -221,7 +221,7 @@ test("every Solid form resolves all drum mappings to the shared sixteen-voice ba
 test("Solid Drum Machine keeps Solid controls and excludes legacy synth panels", async () => {
   const root = new URL("../", import.meta.url);
   const [html, css, app] = await Promise.all([
-    readFile(new URL("solid-drum-machine.html", root), "utf8"),
+    readFile(new URL("src/pages/solid-drum-machine.html", root), "utf8"),
     readFile(new URL("src/instruments/solid-drum-machine/solid-drum-machine.css", root), "utf8"),
     readFile(new URL("src/instruments/solid-drum-machine/solid-drum-machine-app.js", root), "utf8"),
   ]);

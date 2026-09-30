@@ -93,7 +93,7 @@ test("uploaded convolution responses stay within the GPU upload partition", () =
 
 test("the inspector routes decoded files through the lazy audio engine", async () => {
   const [html, css, app] = await Promise.all([
-    readFile(new URL("shader-synth-playground.html", ROOT), "utf8"),
+    readFile(new URL("src/pages/shader-synth-playground.html", ROOT), "utf8"),
     readFile(new URL("src/instruments/shader-synth-playground/shader-synth-playground.css", ROOT), "utf8"),
     readFile(new URL("src/instruments/shader-synth-playground/shader-synth-playground-app.js", ROOT), "utf8"),
   ]);

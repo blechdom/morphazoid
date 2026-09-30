@@ -7,7 +7,7 @@ const root = new URL("../", import.meta.url);
 
 test("the mobile instrument markup exposes the complete compact control surface", async () => {
   const [html, siteCss, buttonCss, audioStripCss, appSource, packageJson] = await Promise.all([
-    readFile(new URL("shape-synth.html", root), "utf8"),
+    readFile(new URL("src/pages/shape-synth.html", root), "utf8"),
     readFile(new URL("style.css", root), "utf8"),
     readFile(new URL("src/ui/primitives/button.css", root), "utf8"),
     readFile(new URL("src/ui/patterns/audio-strip.css", root), "utf8"),

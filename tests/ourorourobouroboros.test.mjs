@@ -356,7 +356,7 @@ test("defaults match the page contract and whimsical presets are complete", () =
 
 test("the new page wires its recursive rail, ring stepper, transport, controls, and reset accessibly", async () => {
   const [markup, app, styles, engine] = await Promise.all([
-    readFile(new URL("ourorourobouroboros.html", ROOT), "utf8"),
+    readFile(new URL("src/pages/ourorourobouroboros.html", ROOT), "utf8"),
     readFile(new URL("src/instruments/ourorourobouroboros/ourorourobouroboros-app.js", ROOT), "utf8"),
     readFile(new URL("src/instruments/ourorourobouroboros/ourorourobouroboros.css", ROOT), "utf8"),
     readFile(new URL("src/instruments/ourorourobouroboros/ourorourobouroboros.js", ROOT), "utf8"),

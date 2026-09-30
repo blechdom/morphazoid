@@ -143,7 +143,7 @@ test("solver targets can move without changing the generated maze", () => {
 
 test("page exposes both audible graph layers and vector export", async () => {
   const [html, app] = await Promise.all([
-    readFile(new URL("algorithmic-mazes.html", root), "utf8"),
+    readFile(new URL("src/pages/algorithmic-mazes.html", root), "utf8"),
     readFile(new URL("src/instruments/algorithmic-mazes/algorithmic-mazes-app.js", root), "utf8"),
   ]);
   assert.match(html, /Passage centers/);

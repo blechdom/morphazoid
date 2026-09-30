@@ -85,7 +85,7 @@ test("the existing voice-pool trajectory honours the smaller render budget", () 
 
 test("voice budgets are visible native controls and both render paths honour them", async () => {
   for (const [kind, maximum] of [["solid", 32], ["hyper", 20]]) {
-    const html = await readFile(new URL(`../${kind}-synth.html`, import.meta.url), "utf8");
+    const html = await readFile(new URL(`../src/pages/${kind}-synth.html`, import.meta.url), "utf8");
     const app = await readFile(new URL(`../src/instruments/${kind}-synth/${kind}-synth-app.js`, import.meta.url), "utf8");
     assert.match(html, new RegExp(`id="voiceLimit"[^>]*min="1"[^>]*max="${maximum}"[^>]*value="${maximum}"`));
     assert.match(app, /voiceLimit: state\.voiceLimit/);

@@ -170,7 +170,7 @@ test("seeded one-shot and 32-shot measurement streams are deterministic", () => 
 });
 
 test("Bell Square markup exposes the quantum section, exact-simulation framing, and controls", async () => {
-  const html = await readFile(new URL("bell-square.html", root), "utf8");
+  const html = await readFile(new URL("src/pages/bell-square.html", root), "utf8");
   assert.match(html, /<link rel="stylesheet" href="style\.css"/);
   assert.match(html, /<link rel="stylesheet" href="src\/instruments\/quantum-synths\/quantum-synths\.css"/);
   assert.match(html, /<body class="quantum-page bell-square-page">/);
@@ -199,7 +199,7 @@ test("Bell Square markup exposes the quantum section, exact-simulation framing, 
 });
 
 test("Bell Square markup has unique ids and every adjustable control is labelled", async () => {
-  const html = await readFile(new URL("bell-square.html", root), "utf8");
+  const html = await readFile(new URL("src/pages/bell-square.html", root), "utf8");
   const ids = [...html.matchAll(/\bid="([^"]+)"/g)].map((match) => match[1]);
   assert.equal(new Set(ids).size, ids.length);
   for (const control of ["level", "collisionPhase", "aliceAxis", "bobAxis", "dephasing"]) {

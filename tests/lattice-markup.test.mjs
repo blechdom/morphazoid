@@ -7,9 +7,9 @@ const root = new URL("../", import.meta.url);
 
 test("Shape, Lattice, and Lumber Loops expose reciprocal instrument navigation", async () => {
   const [shapeHtml, latticeHtml, lumberHtml] = await Promise.all([
-    readFile(new URL("shape-synth.html", root), "utf8"),
-    readFile(new URL("lattice.html", root), "utf8"),
-    readFile(new URL("lumber.html", root), "utf8"),
+    readFile(new URL("src/pages/shape-synth.html", root), "utf8"),
+    readFile(new URL("src/pages/lattice.html", root), "utf8"),
+    readFile(new URL("src/pages/lumber.html", root), "utf8"),
   ]);
 
   assert.match(shapeHtml, /<a class="tab active" href="shape-synth\.html" aria-current="page">shape<\/a>/);
@@ -25,8 +25,8 @@ test("Shape, Lattice, and Lumber Loops expose reciprocal instrument navigation",
 
 test("Lattice and Spiral visibly credit Craig S. Kaplan's TactileJS work", async () => {
   const pages = await Promise.all([
-    readFile(new URL("lattice.html", root), "utf8"),
-    readFile(new URL("spiral.html", root), "utf8"),
+    readFile(new URL("src/pages/lattice.html", root), "utf8"),
+    readFile(new URL("src/pages/spiral.html", root), "utf8"),
   ]);
 
   for (const html of pages) {
@@ -39,7 +39,7 @@ test("Lattice and Spiral visibly credit Craig S. Kaplan's TactileJS work", async
 
 test("Lattice is one centered line instrument with no walk controls", async () => {
   const [html, app, geometry] = await Promise.all([
-    readFile(new URL("lattice.html", root), "utf8"),
+    readFile(new URL("src/pages/lattice.html", root), "utf8"),
     readFile(new URL("src/instruments/lattice/lattice-app.js", root), "utf8"),
     readFile(new URL("src/instruments/lattice/lattice.js", root), "utf8"),
   ]);
@@ -70,7 +70,7 @@ test("Lattice is one centered line instrument with no walk controls", async () =
 
 test("Lattice exposes complete shape controls and single-patch synth modes", async () => {
   const [html, app] = await Promise.all([
-    readFile(new URL("lattice.html", root), "utf8"),
+    readFile(new URL("src/pages/lattice.html", root), "utf8"),
     readFile(new URL("src/instruments/lattice/lattice-app.js", root), "utf8"),
   ]);
   assert.match(html, /id="tilingType"/);
@@ -114,7 +114,7 @@ test("Lattice exposes complete shape controls and single-patch synth modes", asy
 });
 
 test("Lattice markup has unique ids and complete control labels", async () => {
-  const html = await readFile(new URL("lattice.html", root), "utf8");
+  const html = await readFile(new URL("src/pages/lattice.html", root), "utf8");
   const ids = [...html.matchAll(/\bid="([^"]+)"/g)].map((match) => match[1]);
   assert.equal(new Set(ids).size, ids.length, "every lattice id must be unique");
 

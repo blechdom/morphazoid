@@ -220,7 +220,7 @@ test("Hiccup Head exposes exactly six visual skins with checker as the stable fa
 
 test("the static visual-skin selector mirrors registry order and ends with Zombie Zoid", async () => {
   const [html, app] = await Promise.all([
-    readFile(new URL("hiccup-head.html", root), "utf8"),
+    readFile(new URL("src/pages/hiccup-head.html", root), "utf8"),
     readFile(new URL("src/instruments/hiccup-head/hiccup-head-app.js", root), "utf8"),
   ]);
   const select = html.match(
@@ -576,7 +576,7 @@ test("skin beat render helpers are paint-only and Zombie Zoid retains low-fi ink
 });
 
 test("visual skin and camera share a panel row above the mutable face preset", async () => {
-  const html = await readFile(new URL("hiccup-head.html", root), "utf8");
+  const html = await readFile(new URL("src/pages/hiccup-head.html", root), "utf8");
   const mastheadStart = html.indexOf('<header class="masthead">');
   const mastheadEnd = html.indexOf("</header>", mastheadStart);
   const masthead = html.slice(mastheadStart, mastheadEnd);
@@ -719,7 +719,7 @@ test("ASCII keeps the oral cavity opaque black without per-frame glyph rasteriza
 
 test("skin selection is an explicitly visual-only accessible control", async () => {
   const [html, app] = await Promise.all([
-    readFile(new URL("hiccup-head.html", root), "utf8"),
+    readFile(new URL("src/pages/hiccup-head.html", root), "utf8"),
     readFile(new URL("src/instruments/hiccup-head/hiccup-head-app.js", root), "utf8"),
   ]);
   const selectTag = html.match(/<select\b[^>]*\bid="visualSkinSelect"[^>]*>/i)?.[0] ?? "";
@@ -885,7 +885,7 @@ test("changing a skin cannot write audio, model, voice, pattern, or scheduler st
 });
 
 test("webcam cut-up is an accessible explicit-consent dialog with visible privacy terms", async () => {
-  const html = await readFile(new URL("hiccup-head.html", root), "utf8");
+  const html = await readFile(new URL("src/pages/hiccup-head.html", root), "utf8");
   const requiredIds = [
     "openWebcamSkinButton", "webcamSkinDialog", "webcamSkinTitle",
     "webcamSkinIntro", "webcamSkinPrivacy", "webcamSkinPreview",
@@ -1036,7 +1036,7 @@ test("webcam permission, mirrored freeze, errors, and track cleanup are explicit
 
 test("webcam pixels become one session-only atlas and never enter storage, upload, or frame loops", async () => {
   const [html, app, model, processor] = await Promise.all([
-    readFile(new URL("hiccup-head.html", root), "utf8"),
+    readFile(new URL("src/pages/hiccup-head.html", root), "utf8"),
     readFile(new URL("src/instruments/hiccup-head/hiccup-head-app.js", root), "utf8"),
     readFile(new URL("src/instruments/hiccup-head/hiccup-head.js", root), "utf8"),
     readFile(new URL("src/instruments/hiccup-head/hiccup-head-processor.js", root), "utf8"),

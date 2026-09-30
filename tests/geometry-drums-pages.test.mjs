@@ -20,7 +20,7 @@ const subdividedPages = [
 
 test("every geometry drum page has a complete menu and a visible primary transport", async () => {
   for (const [file, currentRoute] of pages) {
-    const html = await readFile(new URL(file, root), "utf8");
+    const html = await readFile(new URL("src/pages/" + file, root), "utf8");
     const desktop = html.match(/<nav class="tabs"[\s\S]*?<\/nav>/)?.[0] ?? "";
     const mobile = html.match(
       /<select class="mobile-instrument-select"[\s\S]*?<\/select>/,
@@ -62,7 +62,7 @@ test("every geometry drum page has a complete menu and a visible primary transpo
 
 test("Shape, Solid, and Hyper expose one-to-sixteen subdivisions defaulting to two", async () => {
   for (const [file, inputId, outputId] of subdividedPages) {
-    const html = await readFile(new URL(file, root), "utf8");
+    const html = await readFile(new URL("src/pages/" + file, root), "utf8");
     assert.match(html, /<b>Subdivisions \/ side<\/b>/);
     const input = html.match(
       new RegExp(`<input\\b(?=[^>]*\\bid="${inputId}")[^>]*>`),

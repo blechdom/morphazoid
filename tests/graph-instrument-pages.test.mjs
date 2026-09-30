@@ -9,8 +9,8 @@ const root = new URL("../", import.meta.url);
 
 test("Graph Drum Machine and Graph Synth expose the shared graph-feedback workbench", async () => {
   const [drums, synth, css, app, core, drumAudio, drumWrapper, synthWrapper, research] = await Promise.all([
-    readFile(new URL("graph-drum-machine.html", root), "utf8"),
-    readFile(new URL("graph-synth.html", root), "utf8"),
+    readFile(new URL("src/pages/graph-drum-machine.html", root), "utf8"),
+    readFile(new URL("src/pages/graph-synth.html", root), "utf8"),
     readFile(new URL("src/families/graph/graph-instruments.css", root), "utf8"),
     readFile(new URL("src/families/graph/graph-instrument-app.js", root), "utf8"),
     readFile(new URL("src/families/graph/graph-instruments.js", root), "utf8"),
@@ -264,8 +264,8 @@ test("Graph Drum Machine and Graph Synth expose the shared graph-feedback workbe
 
 test("Graph pages cannot mix refreshed markup with stale Graph runtime modules", async () => {
   const [drums, synth, drumWrapper, synthWrapper, app, core, devServer] = await Promise.all([
-    readFile(new URL("graph-drum-machine.html", root), "utf8"),
-    readFile(new URL("graph-synth.html", root), "utf8"),
+    readFile(new URL("src/pages/graph-drum-machine.html", root), "utf8"),
+    readFile(new URL("src/pages/graph-synth.html", root), "utf8"),
     readFile(new URL("src/instruments/graph-drum-machine/graph-drum-machine-app.js", root), "utf8"),
     readFile(new URL("src/instruments/graph-synth/graph-synth-app.js", root), "utf8"),
     readFile(new URL("src/families/graph/graph-instrument-app.js", root), "utf8"),

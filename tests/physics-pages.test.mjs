@@ -16,7 +16,7 @@ const pages = Object.freeze([
 ]);
 
 test("every geometric-physics demo is a first-class Morphazoid page", async () => {
-  const documents = await Promise.all(pages.map(([id]) => readFile(new URL(`${id}.html`, root), "utf8")));
+  const documents = await Promise.all(pages.map(([id]) => readFile(new URL(`src/pages/${id}.html`, root), "utf8")));
   for (let index = 0; index < pages.length; index += 1) {
     const [id, title] = pages[index];
     const html = documents[index];
@@ -88,7 +88,7 @@ test("physics shell exposes fixed-step simulation, direct manipulation, and cont
 });
 
 test("Ricochet keeps its stage title concise without a visible subtitle", async () => {
-  const html = await readFile(new URL("ricochet.html", root), "utf8");
+  const html = await readFile(new URL("src/pages/ricochet.html", root), "utf8");
   const titleCard = html.match(
     /<header\b[^>]*\bclass="[^"]*\bphysics-title-card\b[^"]*"[^>]*>[\s\S]*?<\/header>/,
   )?.[0] ?? "";

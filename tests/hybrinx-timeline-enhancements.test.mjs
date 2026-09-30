@@ -633,7 +633,7 @@ test("timeline modulation deterministically affects playback while keeping host 
 
 test("Hybrinx exposes accessible Add +, per-lane Mod, and independent two-axis zoom controls", async () => {
   const [html, css, timelineSource, app] = await Promise.all([
-    readFile(new URL("hybrinx.html", root), "utf8"),
+    readFile(new URL("src/pages/hybrinx.html", root), "utf8"),
     readFile(new URL("src/instruments/hybrinx/hybrinx.css", root), "utf8"),
     readFile(new URL("src/instruments/hybrinx/hybrinx-timeline.js", root), "utf8"),
     readFile(new URL("src/families/syrinx/syrinx-app.js", root), "utf8"),
@@ -775,7 +775,7 @@ test("Hybrinx exposes accessible Add +, per-lane Mod, and independent two-axis z
 
 test("Hybrinx exposes tongue pattern clips as accessible timeline edits", async () => {
   const [html, css, timelineSource, app] = await Promise.all([
-    readFile(new URL("hybrinx.html", root), "utf8"),
+    readFile(new URL("src/pages/hybrinx.html", root), "utf8"),
     readFile(new URL("src/instruments/hybrinx/hybrinx.css", root), "utf8"),
     readFile(new URL("src/instruments/hybrinx/hybrinx-timeline.js", root), "utf8"),
     readFile(new URL("src/families/syrinx/syrinx-app.js", root), "utf8"),

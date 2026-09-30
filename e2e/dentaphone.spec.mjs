@@ -1699,8 +1699,3 @@ test("Dentaphone keeps its stage and scrollable controls usable in phone landsca
   await pitchLayout.selectOption("marimba-split");
   await expect(pitchLayout).toHaveValue("marimba-split");
 });
-
-test("legacy Object Forge links land on Dentaphone", async ({ page }) => {
-  await page.goto("object-forge.html", { waitUntil: "load" });
-  await expect(page).toHaveURL(/dentaphone\.html$/);
-});

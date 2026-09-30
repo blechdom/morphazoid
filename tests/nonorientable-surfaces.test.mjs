@@ -484,8 +484,8 @@ test("component tracking preserves branch identity when display order crosses", 
 });
 test("Möbius and Klein pages expose the shared playable and lifecycle contracts", async () => {
   const [moebius, klein, app, css] = await Promise.all([
-    readFile(new URL("moebius-synth.html", root), "utf8"),
-    readFile(new URL("klein-bottle-synth.html", root), "utf8"),
+    readFile(new URL("src/pages/moebius-synth.html", root), "utf8"),
+    readFile(new URL("src/pages/klein-bottle-synth.html", root), "utf8"),
     readFile(new URL("src/families/nonorientable/nonorientable-app.js", root), "utf8"),
     readFile(new URL("src/families/nonorientable/nonorientable.css", root), "utf8"),
   ]);

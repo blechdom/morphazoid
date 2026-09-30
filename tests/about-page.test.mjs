@@ -8,7 +8,7 @@ import { INSTRUMENT_GROUPS, INSTRUMENTS } from "../src/instrument-catalog.js";
 const root = new URL("../", import.meta.url);
 
 test("Home page is the About guide", async () => {
-  const html = await readFile(new URL("index.html", root), "utf8");
+  const html = await readFile(new URL("src/pages/index.html", root), "utf8");
 
   assert.match(html, /<body class="about-page">/);
   assert.match(html, /<title>Morphazoid<\/title>/);
@@ -62,11 +62,7 @@ test("Home page is the About guide", async () => {
 });
 
 test("Home mounts the only complete registry-backed catalogue", async () => {
-  const [home, about, catalogue] = await Promise.all([
-    readFile(new URL("index.html", root), "utf8"),
-    readFile(new URL("about.html", root), "utf8"),
-    readFile(new URL("instruments.html", root), "utf8"),
-  ]);
+  const home = await readFile(new URL("src/pages/index.html", root), "utf8");
   const catalogueGroups = TOOL_GROUPS
     .filter((group) => group.catalogue !== false)
     .map((group) => ({
@@ -78,7 +74,7 @@ test("Home mounts the only complete registry-backed catalogue", async () => {
   assert.match(home, /<title>Morphazoid<\/title>/);
   assert.match(home, /class="mobile-instrument-select"/);
   assert.match(home, /<script type="module" src="nav\.js\?v=catalog-[^"]+"><\/script>/);
-  assert.equal([home, about, catalogue].filter((html) => /data-instrument-catalog/.test(html)).length, 1);
+  assert.match(home, /data-instrument-catalog/);
   assert.ok(INSTRUMENTS.length > 0);
   assert.equal(
     INSTRUMENTS.find(({ id }) => id === "escher-tessellation")?.label,
@@ -114,7 +110,7 @@ test("Home mounts the only complete registry-backed catalogue", async () => {
 });
 
 test("MIDI and WAX guide keeps browser MIDI and DAW plug-in routing clear", async () => {
-  const html = await readFile(new URL("midi-guide.html", root), "utf8");
+  const html = await readFile(new URL("src/pages/midi-guide.html", root), "utf8");
   const visibleText = html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
 
   assert.match(html, /<title>MIDI &amp; WAX Plugin Guide — Morphazoid<\/title>/);
@@ -165,7 +161,7 @@ test("MIDI and WAX guide keeps browser MIDI and DAW plug-in routing clear", asyn
 });
 
 test("Home lets the visual catalogue begin without instructional copy", async () => {
-  const html = await readFile(new URL("index.html", root), "utf8");
+  const html = await readFile(new URL("src/pages/index.html", root), "utf8");
   const visibleText = html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
 
   assert.match(html, /<h2>Instrument Catalogue<\/h2>[\s\S]*?data-instrument-catalog/);
@@ -173,19 +169,6 @@ test("Home lets the visual catalogue begin without instructional copy", async ()
     visibleText,
     /Basic operation|Select the speaker to arm audio|Select an instrument, turn on audio/,
   );
-});
-
-test("legacy About and catalogue URLs redirect to the single home page", async () => {
-  const [about, catalogue] = await Promise.all([
-    readFile(new URL("about.html", root), "utf8"),
-    readFile(new URL("instruments.html", root), "utf8"),
-  ]);
-  assert.match(about, /http-equiv="refresh" content="0; url=\.\/"/);
-  assert.match(about, /window\.location\.replace\("\.\/"\)/);
-  assert.doesNotMatch(about, /data-instrument-catalog/);
-  assert.match(catalogue, /http-equiv="refresh" content="0; url=\.\/#instrument-catalogue"/);
-  assert.match(catalogue, /window\.location\.replace\("\.\/#instrument-catalogue"\)/);
-  assert.doesNotMatch(catalogue, /data-instrument-catalog/);
 });
 
 test("About document styles remain independently scrollable on instrument breakpoints", async () => {

@@ -158,7 +158,7 @@ test("breath-atlas worklet keeps air sources silent at rest and makes dry plucks
 
 test("page exposes signed breath, coupled rhythms, evidence, and physical worklet", async () => {
   const [html, css, app, processor] = await Promise.all([
-    readFile(new URL("mouthophones.html", root), "utf8"),
+    readFile(new URL("src/pages/mouthophones.html", root), "utf8"),
     readFile(new URL("src/instruments/breath-atlas/breath-atlas.css", root), "utf8"),
     readFile(new URL("src/instruments/breath-atlas/breath-atlas-app.js", root), "utf8"),
     readFile(new URL("src/instruments/breath-atlas/breath-atlas-processor.js", root), "utf8"),

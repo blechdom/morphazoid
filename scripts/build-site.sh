@@ -26,6 +26,7 @@ fi
 # Read and validate the explicit inventory before replacing an output directory.
 # A failed reader must fail the build, not disappear inside process substitution.
 manifest_inventory="$(node "$repo_root/scripts/site/runtime-manifest.mjs")"
+page_routes_inventory="$(node "$repo_root/scripts/site/page-source-routes.mjs")"
 worktree_runtime_files=()
 required_files=()
 while IFS=$'\t' read -r policy source_path; do
@@ -40,12 +41,31 @@ while IFS=$'\t' read -r policy source_path; do
   esac
 done <<< "$manifest_inventory"
 
+mapfile -t canonical_page_routes <<< "$page_routes_inventory"
+if [[ ${#canonical_page_routes[@]} -eq 0 || -z "${canonical_page_routes[0]}" ]]; then
+  echo "No canonical page routes were declared" >&2
+  exit 1
+fi
+
 rm -rf -- "$output_dir"
 mkdir -p -- "$output_dir"
 
+page_source_for_public_path() {
+  local public_path="$1"
+  if [[ -f "$repo_root/$public_path" ]]; then
+    printf "%s\n" "$public_path"
+  elif [[ "$public_path" == *.html && -f "$repo_root/src/pages/$public_path" ]]; then
+    printf "src/pages/%s\n" "$public_path"
+  else
+    printf "%s\n" "$public_path"
+  fi
+}
+
 copy_runtime_file() {
-  local source_path="$1"
-  local destination="$output_dir/$source_path"
+  local public_path="$1"
+  local source_path
+  source_path="$(page_source_for_public_path "$public_path")"
+  local destination="$output_dir/$public_path"
   mkdir -p -- "$(dirname "$destination")"
   cp -- "$repo_root/$source_path" "$destination"
 }
@@ -54,7 +74,7 @@ while IFS= read -r -d '' source_path; do
   [[ -f "$repo_root/$source_path" ]] || continue
 
   case "$source_path" in
-    .github/*|.storybook/*|stories/*|tests/*|morphazoidical/tests/*|scripts/*|src/xyflow/*|dist/*|dist-wax/*|storybook-static/*|*.stories.js)
+    .github/*|.storybook/*|stories/*|tests/*|morphazoidical/tests/*|scripts/*|src/pages/*|src/xyflow/*|dist/*|dist-wax/*|storybook-static/*|*.stories.js)
       continue
       ;;
   esac
@@ -72,10 +92,19 @@ while IFS= read -r -d '' source_path; do
   esac
 done < <(git -C "$repo_root" ls-files -z)
 
+# Authored pages live under src/pages but publish at their existing root routes.
+for canonical_page_route in "${canonical_page_routes[@]}"; do
+  copy_runtime_file "$canonical_page_route"
+done
+for canonical_page_route in "${canonical_page_routes[@]}"; do
+  [[ -f "$output_dir/$canonical_page_route" ]] || { echo "Missing canonical public page: $canonical_page_route" >&2; exit 1; }
+done
+
 # The manifest preserves explicit pre-commit inclusion, separately from the
 # mandatory-file checks below. Ordinary tracked-file selection is unchanged.
 for worktree_runtime_file in "${worktree_runtime_files[@]}"; do
-  [[ -f "$repo_root/$worktree_runtime_file" ]] && copy_runtime_file "$worktree_runtime_file"
+  source_path="$(page_source_for_public_path "$worktree_runtime_file")"
+  [[ -f "$repo_root/$source_path" ]] && copy_runtime_file "$worktree_runtime_file"
 done
 
 for spider_asset in "$repo_root"/assets/spider-synth/skins/ASSET.md "$repo_root"/assets/spider-synth/skins/*/* "$repo_root"/assets/audio/spider-synth/*; do

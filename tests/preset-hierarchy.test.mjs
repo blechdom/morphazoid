@@ -21,7 +21,7 @@ const attributes = markup => Object.fromEntries([...markup.matchAll(/([\w-]+)\s*
 
 for (const id of ["creaturazoid", "hiccup-head"]) {
   test(`${id}: every original authored control, range and option remains`, async () => {
-    const html = await readFile(new URL(`${id}.html`, root), "utf8");
+    const html = await readFile(new URL(`src/pages/${id}.html`, root), "utf8");
     const tags = [...html.replace(/<!--[\s\S]*?-->/g, "").matchAll(/<([a-z][\w-]*)\b([^>]*)>/gi)]
       .map(m => ({ tag: m[1].toLowerCase(), ...attributes(m[2]) }));
     for (const [key, expected] of Object.entries(fixture.pages[id].ids)) {
@@ -57,7 +57,7 @@ test("all original creature body/rhythm choices still contribute to the unchange
 test("Hiccup main scenes include every built-in skin, never automatic webcam capture", async () => {
   validateFullPresetBank(HICCUP_HEAD_FULL_PRESETS);
   assert.deepEqual(new Set(HICCUP_HEAD_FULL_PRESETS.map(p => p.snapshot.visualSkinId)), new Set(skinIds));
-  const html = await readFile(new URL("hiccup-head.html", root), "utf8");
+  const html = await readFile(new URL("src/pages/hiccup-head.html", root), "utf8");
   const select = html.match(/<select id="visualSkinSelect"[^>]*>([\s\S]*?)<\/select>/)[1];
   assert.deepEqual([...select.matchAll(/value="([^"]+)"/g)].map(m => m[1]), skinIds);
   assert.match(html, /id="nextVisualSkinButton"/);

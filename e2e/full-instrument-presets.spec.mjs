@@ -297,7 +297,7 @@ test("WAX retains the same complete preset content and keeps Audio explicit", as
 
 test("Shape recalls motion switches and spacing without arming Audio or recreating its audio owner", async ({ page, baseURL }) => {
   const diagnostics = watchPageDiagnostics(page, { baseURL });
-  await page.goto("shape.html?header-presets=1#kept");
+  await page.goto("shape-synth.html?header-presets=1#kept");
   await settlePage(page);
   await expect(page).toHaveURL(/\/shape-synth\.html\?header-presets=1#kept$/);
   await expect(page.locator(".header-preset-controls")).toBeVisible();

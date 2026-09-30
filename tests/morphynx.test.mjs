@@ -329,7 +329,7 @@ test("voice articulation supplies finite source controls and microphone formants
 
 test("Morphynx page exposes the hybrid lab, full keyboard, mic, recording, and canvas", async () => {
   const [html, css, app, icon, iconStat] = await Promise.all([
-    readFile(new URL("morphynx.html", root), "utf8"),
+    readFile(new URL("src/pages/morphynx.html", root), "utf8"),
     readFile(new URL("src/instruments/morphynx/morphynx.css", root), "utf8"),
     readFile(new URL("src/instruments/morphynx/morphynx-app.js", root), "utf8"),
     readFile(new URL("assets/instruments/morphynx.webp", root)),

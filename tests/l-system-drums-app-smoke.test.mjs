@@ -3,7 +3,7 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 test("L-System Drum Machine exposes a continuous Shape-style transport", async () => {
-  const html = await readFile(new URL("../l-system-drum-machine.html", import.meta.url), "utf8");
+  const html = await readFile(new URL("../src/pages/l-system-drum-machine.html", import.meta.url), "utf8");
   const ids = [...html.matchAll(/\bid="([^"]+)"/g)].map((match) => match[1]);
   const elements = new Map();
   const listeners = new Map();

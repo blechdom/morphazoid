@@ -153,7 +153,7 @@ function pointOnMouth(mouth, radial = 0, tangential = 0) {
 }
 
 test("a spin accelerates through the 3 o'clock reader, holds one winner, and stays locked through decay", async (context) => {
-  const html = await readFile(new URL("../image-to-instrument-3.html", import.meta.url), "utf8");
+  const html = await readFile(new URL("../src/pages/image-to-instrument-3.html", import.meta.url), "utf8");
   const { doc, elements, documentListeners } = fakeWheelDocument(html);
   const animationFrames = [];
   let frameId = 0;
@@ -267,7 +267,7 @@ test("a spin accelerates through the 3 o'clock reader, holds one winner, and sta
 });
 
 test("an empty or fully muted letter wheel cannot spin", async (context) => {
-  const html = await readFile(new URL("../image-to-instrument-3.html", import.meta.url), "utf8");
+  const html = await readFile(new URL("../src/pages/image-to-instrument-3.html", import.meta.url), "utf8");
   const { doc, elements } = fakeWheelDocument(html);
   const priorRequestAnimationFrame = globalThis.requestAnimationFrame;
   const priorCancelAnimationFrame = globalThis.cancelAnimationFrame;
@@ -298,7 +298,7 @@ test("an empty or fully muted letter wheel cannot spin", async (context) => {
 });
 
 test("the preset bank preserves the wet original and adds genuinely quieter voices", async (context) => {
-  const html = await readFile(new URL("../image-to-instrument-3.html", import.meta.url), "utf8");
+  const html = await readFile(new URL("../src/pages/image-to-instrument-3.html", import.meta.url), "utf8");
   const { doc, elements } = fakeWheelDocument(html);
   const priorRequestAnimationFrame = globalThis.requestAnimationFrame;
   const priorCancelAnimationFrame = globalThis.cancelAnimationFrame;
@@ -353,7 +353,7 @@ test("the preset bank preserves the wet original and adds genuinely quieter voic
 });
 
 test("fast playback never steals slider focus from the selected mouth", async (context) => {
-  const html = await readFile(new URL("../image-to-instrument-3.html", import.meta.url), "utf8");
+  const html = await readFile(new URL("../src/pages/image-to-instrument-3.html", import.meta.url), "utf8");
   const { doc, elements } = fakeWheelDocument(html);
   const animationFrames = [];
   let frameId = 0;
@@ -433,7 +433,7 @@ test("fast playback never steals slider focus from the selected mouth", async (c
 });
 
 test("captured gestures reach mutation-scale anatomy and keep mutation controls in sync", async (context) => {
-  const html = await readFile(new URL("../image-to-instrument-3.html", import.meta.url), "utf8");
+  const html = await readFile(new URL("../src/pages/image-to-instrument-3.html", import.meta.url), "utf8");
   const { doc, elements } = fakeWheelDocument(html);
   const animationFrames = [];
   let frameId = 0;

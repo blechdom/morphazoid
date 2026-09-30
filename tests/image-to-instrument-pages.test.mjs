@@ -5,7 +5,7 @@ import test from "node:test";
 const root = new URL("../", import.meta.url);
 
 test("Wheel of Organs keeps its stable route inside Voice Synths", async () => {
-  const html = await readFile(new URL("image-to-instrument-3.html", root), "utf8");
+  const html = await readFile(new URL("src/pages/image-to-instrument-3.html", root), "utf8");
   assert.match(html, /data-image-instrument="3"/);
   assert.match(html, /<title>Wheel of Organs \| Morphazoid<\/title>/);
   assert.match(html, /id="stage"[^>]*tabindex="0"/);
@@ -43,14 +43,14 @@ test("Wheel of Organs keeps its stable route inside Voice Synths", async () => {
 
   for (const index of [1, 2]) {
     await assert.rejects(
-      readFile(new URL(`image-to-instrument-${index}.html`, root), "utf8"),
+      readFile(new URL(`src/pages/image-to-instrument-${index}.html`, root), "utf8"),
       (error) => error?.code === "ENOENT",
     );
   }
 });
 
 test("Wheel of Organs explains its causal reading of the reference organism", async () => {
-  const wheel = await readFile(new URL("image-to-instrument-3.html", root), "utf8");
+  const wheel = await readFile(new URL("src/pages/image-to-instrument-3.html", root), "utf8");
   assert.match(wheel, /one typed-letter occurrence/);
   assert.match(wheel, /growth \+ stretch \+ pitch \+ screech/);
   assert.match(wheel, /pull past ring = grow \/ shriek/);
@@ -72,7 +72,7 @@ test("Wheel of Organs explains its causal reading of the reference organism", as
 });
 
 test("Wheel of Organs exposes the original patch and several lower-noise presets", async () => {
-  const wheel = await readFile(new URL("image-to-instrument-3.html", root), "utf8");
+  const wheel = await readFile(new URL("src/pages/image-to-instrument-3.html", root), "utf8");
   const presetButtons = [...wheel.matchAll(/data-wheel-preset="([^"]+)"/g)]
     .map((match) => match[1]);
   assert.deepEqual(presetButtons, [

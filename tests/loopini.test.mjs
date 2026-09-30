@@ -100,7 +100,7 @@ test("Loopini integration advertises recording, with no microphone auto-arm or M
   const capability = instrumentMidiCapabilityForId("loopini");
   assert.equal(capability.noteMode, "processor"); assert.equal(capability.audioInput, true);
   assert.equal(capability.computerKeyboardMode, "page"); assert.equal(capability.midiOutput, false);
-  const html = await readFile(new URL("../loopini.html", import.meta.url), "utf8");
+  const html = await readFile(new URL("../src/pages/loopini.html", import.meta.url), "utf8");
   assert.match(html, /data-primary-transport/);
   assert.doesNotMatch(html, /infoButton|infoDialog|loopini-private|loopHint|Just play\./);
   assert.doesNotMatch(html, /data-morphazoid-wax-bootstrap|id="(?:makeSong|saveSong|songProgress)"/);

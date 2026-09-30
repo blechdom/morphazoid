@@ -3,7 +3,7 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 test("Fuzzy Donut initializes, draws, and drives one live recursive instrument", async (t) => {
-  const html = await readFile(new URL("../recursion.html", import.meta.url), "utf8");
+  const html = await readFile(new URL("../src/pages/recursion.html", import.meta.url), "utf8");
   const tags = new Map(
     [...html.matchAll(/<[^>]+\bid="([^"]+)"[^>]*>/g)]
       .map((match) => [match[1], match[0]]),

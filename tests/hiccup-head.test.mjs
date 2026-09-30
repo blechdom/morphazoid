@@ -1898,7 +1898,7 @@ test("velocity cycling and swing preserve every loop duration from one through s
 
 test.skip("Hiccup Head bounds mobile grid, canvas, and HUD work without hiding its face controls", async () => {
   const [html, css, app] = await Promise.all([
-    readFile(new URL("hiccup-head.html", root), "utf8"),
+    readFile(new URL("src/pages/hiccup-head.html", root), "utf8"),
     readFile(new URL("src/instruments/hiccup-head/hiccup-head.css", root), "utf8"),
     readFile(new URL("src/instruments/hiccup-head/hiccup-head-app.js", root), "utf8"),
   ]);
@@ -2764,7 +2764,7 @@ test.skip("all fifty-two Hiccup Head sounds own exactly one feature-safe face po
 
 test.skip("persistent face-effect bypasses and voice assignment fallback stay independent", async () => {
   const [html, app] = await Promise.all([
-    readFile(new URL("hiccup-head.html", root), "utf8"),
+    readFile(new URL("src/pages/hiccup-head.html", root), "utf8"),
     readFile(new URL("src/instruments/hiccup-head/hiccup-head-app.js", root), "utf8"),
   ]);
 
@@ -4267,7 +4267,7 @@ test.skip("Hiccup Head worklet renders fifty-two distinct gestures through exact
 
 test.skip("Hiccup Head page, app, accessibility, catalogue, MIDI registry, and build wiring stay integrated", async () => {
   const [html, css, app, model, processor, readme, buildScript] = await Promise.all([
-    readFile(new URL("hiccup-head.html", root), "utf8"),
+    readFile(new URL("src/pages/hiccup-head.html", root), "utf8"),
     readFile(new URL("src/instruments/hiccup-head/hiccup-head.css", root), "utf8"),
     readFile(new URL("src/instruments/hiccup-head/hiccup-head-app.js", root), "utf8"),
     readFile(new URL("src/instruments/hiccup-head/hiccup-head.js", root), "utf8"),

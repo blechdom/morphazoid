@@ -13,7 +13,7 @@ async function source(path) {
 
 test("shader playground offers XYFlow as a renderer-only comparison route", async () => {
   const [html, bootstrap, app, jsx] = await Promise.all([
-    source("shader-synth-playground.html"),
+    source("src/pages/shader-synth-playground.html"),
     source("shader-synth-playground-bootstrap.js"),
     source("src/instruments/shader-synth-playground/shader-synth-playground-app.js"),
     source("src/xyflow/shader-synth-playground-xyflow.jsx"),

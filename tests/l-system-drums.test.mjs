@@ -332,7 +332,7 @@ test("looping L-system drums re-arm the first hit after wraparound", () => {
 
 test("L-System Drum Machine copies the L-system controls into a compact drum page", async () => {
   const [html, css, app] = await Promise.all([
-    readFile(new URL("l-system-drum-machine.html", root), "utf8"),
+    readFile(new URL("src/pages/l-system-drum-machine.html", root), "utf8"),
     readFile(new URL("src/instruments/l-system-drum-machine/l-system-drum-machine.css", root), "utf8"),
     readFile(new URL("src/instruments/l-system-drum-machine/l-system-drum-machine-app.js", root), "utf8"),
   ]);

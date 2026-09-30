@@ -4,7 +4,7 @@ import test from "node:test";
 
 const root = new URL("../", import.meta.url);
 const [html, app, model, processor, css, icon] = await Promise.all([
-  readFile(new URL("creaturazoid.html", root), "utf8"),
+  readFile(new URL("src/pages/creaturazoid.html", root), "utf8"),
   readFile(new URL("src/instruments/creaturazoid/creaturazoid-app.js", root), "utf8"),
   readFile(new URL("src/instruments/creaturazoid/creaturazoid.js", root), "utf8"),
   readFile(new URL("src/instruments/creaturazoid/creaturazoid-processor.js", root), "utf8"),

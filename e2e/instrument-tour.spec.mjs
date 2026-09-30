@@ -68,8 +68,8 @@ for (const layout of [
   });
 }
 
-test("legacy routes and WAX navigation keep the correct next instrument and site root", async ({ page }) => {
-  await page.goto("shape.html?tour-source=1#source");
+test("canonical routes and WAX navigation keep the correct next instrument and site root", async ({ page }) => {
+  await page.goto("shape-synth.html?tour-source=1#source");
   await settlePage(page);
   await page.getByRole("link", { name: "Next instrument: Solid", exact: true }).click();
   await expect(page).toHaveURL(/\/solid-synth\.html$/);

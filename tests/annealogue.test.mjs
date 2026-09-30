@@ -288,7 +288,7 @@ test("seeded measurement is deterministic and collapses to the sampled basis sta
 
 test("Annealogue markup and browser controller honor the quantum instrument contract", async () => {
   const [html, app] = await Promise.all([
-    readFile(new URL("../annealogue.html", import.meta.url), "utf8"),
+    readFile(new URL("../src/pages/annealogue.html", import.meta.url), "utf8"),
     readFile(new URL("../src/instruments/annealogue/annealogue-app.js", import.meta.url), "utf8"),
   ]);
 

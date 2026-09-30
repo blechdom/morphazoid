@@ -132,7 +132,7 @@ test("sanitizer bounds hostile sorting parameters", () => {
 
 test("Algorithmic Sequencers presents randomize first and runs local sorting demos", async () => {
   const [html, app] = await Promise.all([
-    readFile(new URL("../algorithmic-sequencers.html", import.meta.url), "utf8"),
+    readFile(new URL("../src/pages/algorithmic-sequencers.html", import.meta.url), "utf8"),
     readFile(new URL("../src/families/algorithmic-sequencers/algorithmic-sequencers-app.js", import.meta.url), "utf8"),
   ]);
 

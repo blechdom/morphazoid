@@ -5,7 +5,7 @@ import test from "node:test";
 import { parse } from "acorn";
 import * as model from "../src/instruments/shepard-risset/shepard-risset.js";
 
-const html = await readFile(new URL("../shepard-risset.html", import.meta.url), "utf8");
+const html = await readFile(new URL("../src/pages/shepard-risset.html", import.meta.url), "utf8");
 const source = await readFile(new URL("../src/instruments/shepard-risset/shepard-risset-app.js", import.meta.url), "utf8");
 const imports = parse(source, { sourceType: "module", ecmaVersion: "latest" }).body.filter(node => node.type === "ImportDeclaration");
 let script = source;
@@ -135,14 +135,4 @@ test("Reset preserves an explicitly armed Audio session and pagehide cleans it u
   assert.equal(page.disconnected(), true);
   assert.equal(page.globalEvents.has("resize"), false);
   assert.equal(page.documentEvents.has("visibilitychange"), false);
-});
-
-test("Automatopoeia's legacy redirect declares an existing favicon without changing its destination", async () => {
-  const page = new URL("../automatopoeia.html", import.meta.url);
-  const markup = await readFile(page, "utf8");
-  assert.match(markup, /http-equiv="refresh" content="0; url=automatapoeia.html"/);
-  const icon = markup.match(/<link rel="icon" href="([^"]+)"/)?.[1];
-  assert.ok(icon);
-  assert.equal(new URL(icon, page).href, new URL("../favicon.svg", import.meta.url).href);
-  assert.ok((await readFile(new URL(icon, page))).length);
 });

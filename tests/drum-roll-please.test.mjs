@@ -651,7 +651,7 @@ test("worklet registers once and renders bounded stereo audio through both seams
 
 test("Drum Roll Please page uses Shepard-aligned controls and an accessible pitch toggle", async () => {
   const [markup, app, audioModule] = await Promise.all([
-    readFile(new URL("drum-roll-please.html", ROOT), "utf8"),
+    readFile(new URL("src/pages/drum-roll-please.html", ROOT), "utf8"),
     readFile(new URL("src/instruments/drum-roll-please/drum-roll-please-app.js", ROOT), "utf8"),
     readFile(new URL("src/instruments/drum-roll-please/drum-roll-please.js", ROOT), "utf8"),
   ]);

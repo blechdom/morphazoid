@@ -3,7 +3,7 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 test("app.js initializes and draws one frame against browser APIs", async () => {
-  const html = await readFile(new URL("../shape-synth.html", import.meta.url), "utf8");
+  const html = await readFile(new URL("../src/pages/shape-synth.html", import.meta.url), "utf8");
   const ids = [...html.matchAll(/\bid="([^"]+)"/g)].map((match) => match[1]);
   const initialTags = new Map(
     [...html.matchAll(/<[^>]+\bid="([^"]+)"[^>]*>/g)].map((match) => [match[1], match[0]]),

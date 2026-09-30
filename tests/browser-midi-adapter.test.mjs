@@ -308,9 +308,11 @@ test("every playable catalog page owns one shared MIDI toolbar", async () => {
   let dedicatedHostPages = 0;
   for (const instrument of INSTRUMENTS) {
     const cleanHref = instrument.href.split(/[?#]/)[0];
-    const htmlPath = cleanHref.endsWith("/")
-      ? path.join(repositoryRoot, cleanHref, "index.html")
-      : path.join(repositoryRoot, cleanHref);
+    const htmlPath = cleanHref.endsWith(".html") && !cleanHref.includes("/")
+      ? path.join(repositoryRoot, "src", "pages", cleanHref)
+      : cleanHref.endsWith("/")
+        ? path.join(repositoryRoot, cleanHref, "index.html")
+        : path.join(repositoryRoot, cleanHref);
     const html = await readFile(htmlPath, "utf8");
     assert.match(html, /<script[^>]+src="(?:\.\.\/)?nav\.js(?:\?[^"]+)?"/, `${instrument.id} loads nav.js`);
     assert.match(

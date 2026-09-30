@@ -494,7 +494,7 @@ test("turn routing covers every path transition and adds microphone provenance t
 test("graph-delay page exposes microphone, topology, feedback safety, and panic controls", async () => {
   const root = new URL("../", import.meta.url);
   const [html, app, turnProcessor] = await Promise.all([
-    readFile(new URL("graph-delay.html", root), "utf8"),
+    readFile(new URL("src/pages/graph-delay.html", root), "utf8"),
     readFile(new URL("src/instruments/graph-delay/graph-delay-app.js", root), "utf8"),
     readFile(new URL("src/instruments/graph-delay/graph-turn-processor.js", root), "utf8"),
   ]);

@@ -1201,7 +1201,7 @@ test("microphone and local-file sources are lazy, reusable, and fully released",
 
 test("the page and app expose accessible controls and explicit lifecycle cleanup", async () => {
   const [html, appSource, runtimeSource] = await Promise.all([
-    readFile(new URL("../slippery-resynthesis.html", import.meta.url), "utf8"),
+    readFile(new URL("../src/pages/slippery-resynthesis.html", import.meta.url), "utf8"),
     readFile(new URL("../src/instruments/slippery-resynthesis/slippery-resynthesis-app.js", import.meta.url), "utf8"),
     readFile(MODULE_URL, "utf8"),
   ]);

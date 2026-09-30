@@ -76,7 +76,7 @@ function inspectPcmWave(buffer) {
 test("Hiccup Head keeps one stable mouth, colored lids, and nose clearance", async () => {
   const [app, html] = await Promise.all([
     readFile(new URL("src/instruments/hiccup-head/hiccup-head-app.js", root), "utf8"),
-    readFile(new URL("hiccup-head.html", root), "utf8"),
+    readFile(new URL("src/pages/hiccup-head.html", root), "utf8"),
   ]);
   assert.match(app, /const mouthY = featureY \+ ry \* 0\.39/);
   assert.match(app, /const pupilDriftX = 0;\s*const pupilDriftY = 0;/);
@@ -195,7 +195,7 @@ test("Hiccup Head keeps one stable mouth, colored lids, and nose clearance", asy
 
 test("Hiccup Head exposes one reset-all FX control", async () => {
   const [html, app] = await Promise.all([
-    readFile(new URL("hiccup-head.html", root), "utf8"),
+    readFile(new URL("src/pages/hiccup-head.html", root), "utf8"),
     readFile(new URL("src/instruments/hiccup-head/hiccup-head-app.js", root), "utf8"),
   ]);
   assert.match(html, /id="resetEffectsButton"[^>]*aria-label="Reset all face effects"/);
@@ -208,7 +208,7 @@ test("Hiccup Head exposes one reset-all FX control", async () => {
 
 test("Hiccup Head presets have next buttons and performance arrow shortcuts", async () => {
   const [html, app] = await Promise.all([
-    readFile(new URL("hiccup-head.html", root), "utf8"),
+    readFile(new URL("src/pages/hiccup-head.html", root), "utf8"),
     readFile(new URL("src/instruments/hiccup-head/hiccup-head-app.js", root), "utf8"),
   ]);
   assert.match(html, /id="nextFacePresetButton"[^>]*aria-label="Next face preset"/);

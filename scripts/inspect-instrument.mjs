@@ -8,6 +8,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import { TOOL_GROUPS } from "../src/site/instrument-registry.js";
 import { INSTRUMENTS, catalogueItemById } from "../src/instrument-catalog.js";
 import { instrumentMidiCapabilityForId } from "../src/instrument-midi-capabilities.js";
+import { pageRouteForSourcePath, pageSourcePath } from "../src/pages/manifest.js";
 
 export const repositoryRoot = fileURLToPath(new URL("../", import.meta.url));
 const rootURL = pathToFileURL(repositoryRoot);
@@ -96,7 +97,10 @@ export async function inspectInstrument(id) {
   if (!instrument) throw new Error(`Unknown instrument ID: ${id}. Available IDs: ${INSTRUMENTS.map(i => i.id).sort().join(", ")}`);
   const route = localPath(instrument.href, "index.html");
   if (route === null) throw new Error(`Instrument ${id} has an external route: ${instrument.href}`);
-  const page = route.endsWith("/") || !path.extname(route) ? `${route}${route.endsWith("/") ? "" : "/"}index.html` : route;
+  const publicPage = route.endsWith("/") || !path.extname(route) ? `${route}${route.endsWith("/") ? "" : "/"}index.html` : route;
+  const page = publicPage.endsWith(".html") && !publicPage.includes("/")
+    ? pageSourcePath(publicPage)
+    : publicPage;
   const icon = localPath(instrument.imageHref, "index.html");
   const tracked = new Set(git("ls-files", "-z").split("\0"));
   const relatedAssets = await walk(`assets/${id}`);
@@ -107,7 +111,7 @@ export async function inspectInstrument(id) {
     if (seen.has(filename)) continue;
     seen.add(filename);
     const present = await exists(filename);
-    const waxPath = `dist-wax/${filename}`;
+    const waxPath = `dist-wax/${pageRouteForSourcePath(filename) ?? filename}`;
     const waxPresent = await exists(waxPath);
     let wax = waxPresent ? "source-missing" : "missing";
     if (present && waxPresent) {
@@ -119,7 +123,7 @@ export async function inspectInstrument(id) {
     files.push({ path: filename, present, tracked: tracked.has(filename), wax });
     if (!present || !/\.(?:html|css|m?js)$/.test(filename)) continue;
     const source = await readFile(absolute(filename), "utf8");
-    for (const ref of referencesIn(source, filename)) {
+    for (const ref of referencesIn(source, pageRouteForSourcePath(filename) ?? filename)) {
       if (ref.kind === "template-candidate") {
         const candidates = await templateCandidates(ref.reference, ref.base);
         if (!candidates.length) unresolvedTemplates.push({ from: filename, reference: ref.reference });
@@ -157,7 +161,7 @@ export async function inspectInstrument(id) {
   const packageCommands = Object.fromEntries(["dev", "verify", "build:wax", "check:wax-dist", "build:site", "test:browser:smoke", "test:browser:audio", "test:browser:midi", "test:browser:audit"].filter(name => packageJson.scripts[name]).map(name => [`npm run ${name}`, packageJson.scripts[name]]));
   return {
     id, context: { repositoryRoot, invocationDirectory: process.cwd(), node: process.version, executable: process.execPath, branch: git("branch", "--show-current"), commit: git("rev-parse", "--short", "HEAD"), dirty: Boolean(git("status", "--porcelain")), dependenciesInstalled: await stat(absolute("node_modules")).then(s => s.isDirectory(), () => false) },
-    registration: { page, navigation: TOOL_GROUPS.filter(g => g.tools.some(t => t.id === id)).map(g => ({ id: g.id, label: g.label })), catalog: instrument, capability: instrumentMidiCapabilityForId(id) },
+    registration: { page: publicPage, sourcePage: page, navigation: TOOL_GROUPS.filter(g => g.tools.some(t => t.id === id)).map(g => ({ id: g.id, label: g.label })), catalog: instrument, capability: instrumentMidiCapabilityForId(id) },
     entries: sorted(entries), files, edges, external, unresolvedTemplates,
     relatedAssets,
     tests: { candidates: focusedTests, shared: ["tests/instrument-catalog.test.mjs", "tests/nav.test.mjs", "tests/browser-midi-adapter.test.mjs"] },

@@ -207,7 +207,7 @@ test("five scores are five native interactive Morphazoid instrument pages", asyn
   const [app, css, router] = await Promise.all([
     readFile(new URL("../src/families/algorithmic-scores/algorithmic-scores-app.js", import.meta.url), "utf8"),
     readFile(new URL("../src/families/algorithmic-scores/algorithmic-scores.css", import.meta.url), "utf8"),
-    readFile(new URL("../algorithmic-scores.html", import.meta.url), "utf8"),
+    readFile(new URL("../src/pages/dijkstra.html", import.meta.url), "utf8"),
   ]);
 
   const pageTraits = {
@@ -218,7 +218,7 @@ test("five scores are five native interactive Morphazoid instrument pages", asyn
     euclid: ["Euclidean Pulse", "Choose new ratio", "Quotient punch"],
   };
   for (const instrument of ALGORITHMIC_INSTRUMENTS) {
-    const html = await readFile(new URL(`../${instrument.href}`, import.meta.url), "utf8");
+    const html = await readFile(new URL(`../src/pages/${instrument.href}`, import.meta.url), "utf8");
     assert.match(html, new RegExp(`<body[^>]*data-algorithm="${instrument.id}"`));
     for (const trait of pageTraits[instrument.id]) assert.ok(html.includes(trait));
     assert.match(html, /id="mutateScore"/);
@@ -233,8 +233,6 @@ test("five scores are five native interactive Morphazoid instrument pages", asyn
     assert.doesNotMatch(html, /https?:\/\//i);
   }
 
-  assert.match(router, /dijkstra:\s*"dijkstra\.html"/);
-  assert.match(router, /euclid:\s*"euclid\.html"/);
   assert.match(app, /deriveAlgorithmicEventVoices/);
   assert.match(app, /algorithmicInstrumentById/);
   assert.match(app, /querySelectorAll\("button\[data-algorithm\]"\)/);

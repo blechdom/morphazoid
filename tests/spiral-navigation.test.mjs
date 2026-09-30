@@ -7,7 +7,7 @@ const pages = ["shape-synth.html", "lattice.html", "spiral.html", "solid-synth.h
 const links = ["shape", "lattice", "spiral", "solid", "hyper", "lumber loops"];
 
 test("Spiral sits between Lattice and Solid in published navigation", async () => {
-  const htmlPages = await Promise.all(pages.map((file) => readFile(new URL(file, root), "utf8")));
+  const htmlPages = await Promise.all(pages.map((file) => readFile(new URL("src/pages/" + file, root), "utf8")));
 
   for (const html of htmlPages) {
     let desktopPosition = -1;

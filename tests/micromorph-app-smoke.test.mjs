@@ -3,7 +3,7 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 test("Micromorph initializes one bounded render loop and does not request audio", async () => {
-  const html = await readFile(new URL("../micromorph.html", import.meta.url), "utf8");
+  const html = await readFile(new URL("../src/pages/micromorph.html", import.meta.url), "utf8");
   const ids = [...html.matchAll(/\bid="([^"]+)"/g)].map((match) => match[1]);
   const elements = new Map();
   const listeners = new Map();

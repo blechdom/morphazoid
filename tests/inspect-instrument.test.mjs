@@ -63,7 +63,7 @@ test("Puggler inventory includes samples, provenance, live capability and mirror
   }
   assert.ok(report.files.some(f => f.path === "src/instruments/puggler/puggler-presets.js"));
   assert.ok(report.tests.candidates.includes("e2e/puggler.spec.mjs"));
-  assert.match(report.files.find(f => f.path === "puggler.html").wax, /^different:/);
+  assert.match(report.files.find(f => f.path === "src/pages/puggler.html").wax, /^different:/);
   assert.deepEqual(report.files.filter(f => !f.present), []);
 });
 

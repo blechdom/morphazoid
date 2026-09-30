@@ -54,7 +54,7 @@ test("Music Rooms routes live in Works in progress without entering the instrume
 
 test("Room Lobby presents exactly three distinct room previews", async () => {
   const [html, css] = await Promise.all([
-    readFile(new URL("music-rooms.html", root), "utf8"),
+    readFile(new URL("src/pages/music-rooms.html", root), "utf8"),
     readFile(new URL("src/instruments/music-rooms/music-rooms.css", root), "utf8"),
   ]);
 
@@ -82,7 +82,7 @@ test("each room route is an explicit, non-connecting preview with a lobby return
   ];
 
   for (const [file, title, heading] of rooms) {
-    const html = await readFile(new URL(file, root), "utf8");
+    const html = await readFile(new URL("src/pages/" + file, root), "utf8");
     assert.match(html, new RegExp(`<title>${title} \\| Morphazoid<\\/title>`));
     assert.match(html, new RegExp(`<h1>${heading}<\\/h1>`));
     assert.match(html, /Preview · Not connected/);
@@ -92,7 +92,7 @@ test("each room route is an explicit, non-connecting preview with a lobby return
     assert.match(html, /<script type="module" src="nav\.js"><\/script>/);
   }
 
-  const roulette = await readFile(new URL("morphazoid-roulette.html", root), "utf8");
+  const roulette = await readFile(new URL("src/pages/morphazoid-roulette.html", root), "utf8");
   for (const safetyControl of ["Next player", "Block", "Report", "Leave"]) {
     assert.match(roulette, new RegExp(safetyControl));
   }
