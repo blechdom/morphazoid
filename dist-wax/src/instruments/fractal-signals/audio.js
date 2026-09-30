@@ -109,6 +109,7 @@ export class FractalAudio {
         this.phase = data.phase;
         this.playing = data.playing;
         this.transport = { travelDirection: data.travelDirection, completed: data.completed, time: data.time, motionTime: data.motionTime, modPhases: Array.from(data.modPhases ?? [0, 0]),
+          ...(data.phaseClocks ? { phaseClocks: { ...data.phaseClocks } } : {}),
           ...(data.motions ? { motions: { values: { ...data.motions.values }, directions: { ...data.motions.directions } } } : {}) };
         try { this.onTelemetry?.(data); } catch { /* A display observer cannot interrupt sound. */ }
       };

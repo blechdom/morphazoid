@@ -804,3 +804,190 @@ test('completed phrase replay preserves independent Turns while Audio is off', a
   expect(await page.evaluate(() => __fractalSignals.armed)).toBe(false);
   expect(await page.evaluate(() => __fractalSignals.audio.context)).toBeNull();
 });
+
+test('Echoes control drags preserve the real player, bounded output and sample-clock progress through a UI stall', async ({ page }, testInfo) => {
+  test.setTimeout(30000);
+  const errors = [];
+  page.on('pageerror', error => errors.push(error.message));
+  await page.goto('fractal-synthesis.html#echoes');
+  await page.locator('#engine').selectOption('strikes');
+  for (const [key, value] of [['base', 220], ['span', 0], ['index', 0], ['depth', 4], ['branch', .6],
+    ['rate', 8], ['phrase', 16], ['attack', .003], ['sustain', 1], ['release', 4], ['memory', .8], ['space', .4]]) await setRange(page, key, value);
+  await page.locator('#audioButton').click();
+  await expect(page.locator('#audioButton')).toHaveAttribute('aria-pressed', 'true');
+  await page.locator('#playButton').click();
+  await expect.poll(() => page.evaluate(() => __fractalSignals.telemetry?.time ?? 0)).toBeGreaterThan(.2);
+  await page.evaluate(() => {
+    window.__echoControlFrames = [];
+    window.__echoControlProcessorErrors = 0;
+    window.__echoControlAudioNode = __fractalSignals.audio.node;
+    __echoControlAudioNode.addEventListener('processorerror', () => { __echoControlProcessorErrors++; });
+    // This only observes production telemetry; it never changes the processor.
+    __echoControlAudioNode.port.addEventListener('message', ({ data }) => {
+      if (data?.type !== 'telemetry') return;
+      __echoControlFrames.push({ time: data.time, phase: data.phase, playing: data.playing,
+        peak: data.peak, rms: data.rms, activeEvents: data.activeEvents });
+    });
+  });
+  const outputPromise = sampleAudioEnvelope(page, { durationMs: 1700, intervalMs: 40 });
+  const edits = [[.047, 1.1], [.391, 1.8], [.09, .7], [.65, 2.3], [.111, .85], [.281, 1.37]];
+  for (const [time, ratio] of edits) {
+    await setRange(page, 'echoTime', time);
+    await setRange(page, 'echoRatio', ratio);
+    expect(await page.evaluate(() => __fractalSignals.armed && __fractalSignals.playing)).toBe(true);
+    await page.waitForTimeout(55);
+  }
+  const output = await outputPromise;
+  const before = await page.evaluate(() => ({ audioTime: __fractalSignals.audio.context.currentTime, time: __fractalSignals.telemetry.time }));
+  await page.evaluate(() => { const until = performance.now() + 420; while (performance.now() < until) {} });
+  await expect.poll(() => page.evaluate(() => __fractalSignals.telemetry?.time ?? 0)).toBeGreaterThan(before.time + .3);
+  const after = await page.evaluate(() => ({ audioTime: __fractalSignals.audio.context.currentTime, time: __fractalSignals.telemetry.time,
+    frames: __echoControlFrames, errors: __echoControlProcessorErrors,
+    sameNode: __fractalSignals.audio.node === __echoControlAudioNode,
+    active: __fractalSignals.armed && __fractalSignals.playing }));
+  expect(after.active).toBe(true); expect(after.sameNode).toBe(true);
+  expect(after.errors).toBe(0); expect(errors).toEqual([]);
+  expect(after.time - before.time).toBeGreaterThan(.3);
+  expect(Math.abs((after.time - before.time) - (after.audioTime - before.audioTime))).toBeLessThan(.09);
+  expect(after.frames.length).toBeGreaterThan(20);
+  let maxTelemetryGap = 0;
+  for (let i = 0; i < after.frames.length; i++) {
+    const frame = after.frames[i];
+    expect(frame.playing).toBe(true);
+    expect(Number.isFinite(frame.peak) && Number.isFinite(frame.rms)).toBe(true);
+    expect(frame.peak).toBeLessThanOrEqual(.881);
+    expect(Math.abs(frame.phase - (frame.time * .5) % 1)).toBeLessThan(.00001);
+    if (i) {
+      expect(frame.time).toBeGreaterThan(after.frames[i - 1].time);
+      maxTelemetryGap = Math.max(maxTelemetryGap, frame.time - after.frames[i - 1].time);
+    }
+  }
+  // AudioWorklet telemetry is emitted every40ms of rendered audio, including
+  // the messages queued while the main thread cannot receive them.
+  expect(maxTelemetryGap).toBeLessThan(.065);
+  expect(output.summary.finite).toBe(true);
+  expect(output.summary.maxPeak).toBeGreaterThan(.001);
+  expect(output.summary.maxPeak).toBeLessThan(.9);
+  expect(output.summary.clippedSamples).toBe(0);
+  expect(after.frames.some(frame => frame.activeEvents > 0 && frame.rms > .001)).toBe(true);
+  await testInfo.attach('echo-control-audio-clock.json', { body: JSON.stringify({ output: output.summary,
+    maxTelemetryGap, before, after }, null, 2), contentType: 'application/json' });
+  await page.locator('#audioButton').click();
+});
+
+test('Echoes phase clocks survive native edits, pause, silent preview and Audio handoff, then Restart resets them', async ({ page }, testInfo) => {
+  test.setTimeout(40000);
+  const errors = [];
+  page.on('pageerror', error => errors.push(error.message));
+  const snapshot = () => page.evaluate(() => {
+    const f = __fractalSignals;
+    return { phase: f.phase, playing: f.playing, armed: f.armed, state: f.state, transport: structuredClone(f.transport),
+      telemetry: f.telemetry ? structuredClone(f.telemetry) : null };
+  });
+  const acknowledged = playing => page.waitForFunction(playing => {
+    const f = __fractalSignals, t = f.telemetry;
+    return t?.phaseClocks && t.transportRevision === f.audio.transportRevision && t.playing === playing;
+  }, playing);
+  const fract = n => n - Math.floor(n);
+  const circularError = (a, b) => Math.abs(fract(a - b + .5) - .5);
+
+  await page.goto('fractal-synthesis.html#echoes');
+  await page.locator('#engine').selectOption('shepard');
+  for (const key of ['lfo1On', 'lfo2On', 'motionRootOn', 'pingPong']) {
+    if (await page.evaluate(key => __fractalSignals.state[key], key)) await page.locator(`#${key}`).click();
+  }
+  if (!(await page.evaluate(() => __fractalSignals.state.loop))) await page.locator('#loop').click();
+  if (await page.evaluate(() => __fractalSignals.state.direction < 0)) await page.locator('#reverse').click();
+  for (const [key, value] of [['base', 440], ['sweepRate', .5], ['rate', 1], ['phrase', 32], ['index', 0]]) await setRange(page, key, value);
+  await page.locator('#audioButton').click();
+  await expect(page.locator('#audioButton')).toHaveAttribute('aria-pressed', 'true');
+  await page.locator('#playButton').click();
+  await acknowledged(true);
+  await expect.poll(() => page.evaluate(() => __fractalSignals.telemetry.time)).toBeGreaterThan(.5);
+  await page.evaluate(() => {
+    window.__phaseClockFrames = [];
+    window.__phaseClockErrors = 0;
+    window.__phaseClockNode = __fractalSignals.audio.node;
+    __phaseClockNode.addEventListener('processorerror', () => { __phaseClockErrors++; });
+    __phaseClockNode.port.addEventListener('message', ({ data }) => {
+      if (data?.type === 'telemetry' && data.playing) __phaseClockFrames.push({ time: data.time, motionTime: data.motionTime,
+        clocks: { ...data.phaseClocks }, peak: data.peak });
+    });
+  });
+  await page.waitForTimeout(90);
+  const beforeEdit = await snapshot();
+  await setRange(page, 'sweepRate', 2);
+  await setRange(page, 'base', 660);
+  await acknowledged(true);
+  await expect.poll(() => page.evaluate(() => __fractalSignals.telemetry.time)).toBeGreaterThan(beforeEdit.telemetry.time + .3);
+  const edited = await snapshot();
+  expect(edited.state.sweepRate).toBeCloseTo(2, 3); expect(edited.state.base).toBeCloseTo(660, 0);
+  expect(edited.playing && edited.armed).toBe(true);
+  const live = await page.evaluate(() => ({ frames: __phaseClockFrames, sameNode: __fractalSignals.audio.node === __phaseClockNode, errors: __phaseClockErrors }));
+  expect(live.sameNode).toBe(true); expect(live.errors).toBe(0); expect(live.frames.length).toBeGreaterThan(5);
+  let maxSweepStep = 0;
+  for (let i = 1; i < live.frames.length; i++) {
+    const before = live.frames[i - 1], after = live.frames[i], dt = after.time - before.time;
+    const step = fract(after.clocks.shepard - before.clocks.shepard);
+    expect(dt).toBeGreaterThan(0);
+    expect(step).toBeLessThanOrEqual(dt * 2 / 7 + 1e-9);
+    expect(after.peak).toBeLessThanOrEqual(.881);
+    maxSweepStep = Math.max(maxSweepStep, step);
+  }
+
+  await page.locator('#playButton').click();
+  await acknowledged(false);
+  const paused = await snapshot();
+  await setRange(page, 'sweepRate', 3);
+  await setRange(page, 'base', 880);
+  await page.locator('#reverse').click();
+  await acknowledged(false);
+  await page.waitForTimeout(120);
+  const pausedEdited = await snapshot();
+  expect(pausedEdited.transport.phaseClocks).toEqual(paused.transport.phaseClocks);
+  expect(pausedEdited.transport.time).toBe(paused.transport.time);
+  expect(pausedEdited.transport.motionTime).toBe(paused.transport.motionTime);
+  expect(pausedEdited.state.direction).toBe(-1);
+  expect(pausedEdited.playing).toBe(false);
+
+  await page.locator('#audioButton').click();
+  await expect.poll(() => page.evaluate(() => __fractalSignals.audio.context)).toBeNull();
+  const off = await snapshot();
+  expect(off.transport.phaseClocks).toEqual(paused.transport.phaseClocks);
+  expect(off.transport.time).toBe(paused.transport.time);
+  await page.locator('#playButton').click();
+  await expect.poll(() => page.evaluate(() => __fractalSignals.transport.time)).toBeGreaterThan(off.transport.time + .3);
+  await page.locator('#playButton').click();
+  const preview = await snapshot();
+  const elapsed = preview.transport.time - off.transport.time;
+  const expectedShepard = fract(off.transport.phaseClocks.shepard + elapsed * preview.state.sweepRate * preview.state.direction / 7);
+  const expectedRoot = fract(off.transport.phaseClocks.rootCarrier + elapsed * preview.state.base);
+  expect(preview.armed).toBe(false); expect(preview.playing).toBe(false);
+  expect(circularError(preview.transport.phaseClocks.shepard, expectedShepard)).toBeLessThan(1e-9);
+  expect(circularError(preview.transport.phaseClocks.rootCarrier, expectedRoot)).toBeLessThan(1e-8);
+
+  await page.locator('#audioButton').click();
+  await expect(page.locator('#audioButton')).toHaveAttribute('aria-pressed', 'true');
+  await acknowledged(false);
+  const restored = await snapshot();
+  expect(restored.telemetry.phaseClocks).toEqual(preview.transport.phaseClocks);
+  expect(restored.telemetry.time).toBe(preview.transport.time);
+  expect(restored.telemetry.motionTime).toBe(preview.transport.motionTime);
+  expect(await page.evaluate(() => __fractalSignals.audio.node === __phaseClockNode)).toBe(false);
+
+  await page.evaluate(() => document.getElementById('restart').addEventListener('click', () => {
+    window.__phaseClockRestart = { phase: __fractalSignals.phase, transport: structuredClone(__fractalSignals.transport) };
+  }, { once: true }));
+  await page.locator('#restart').click();
+  const immediateReset = await page.evaluate(() => __phaseClockRestart);
+  expect(immediateReset.phase).toBe(0); expect(immediateReset.transport.time).toBe(0);
+  expect(immediateReset.transport.phaseClocks).toBeUndefined();
+  await acknowledged(false);
+  const restarted = await snapshot();
+  expect(restarted.telemetry.phaseClocks).toEqual({ shepard: 0, rootCarrier: 0 });
+  expect(restarted.transport.time).toBe(0); expect(restarted.transport.motionTime).toBe(0);
+  expect(restarted.playing).toBe(false); expect(errors).toEqual([]);
+  await testInfo.attach('phase-clock-handoff.json', { body: JSON.stringify({ beforeEdit, edited, paused, pausedEdited, off, preview,
+    expectedShepard, expectedRoot, elapsed, restored, immediateReset, restarted, maxSweepStep, live }, null, 2), contentType: 'application/json' });
+  await page.locator('#audioButton').click();
+});

@@ -44,6 +44,15 @@ const fract = (x) => x - Math.floor(x);
 const sine = (phase) => Math.sin(TAU * phase);
 const curve = (x) => x * x * (3 - 2 * x);
 
+/** Silent UI preview advances only the clocks handed off by audio. These are
+ * transport phase, never preset state. An explicit seek omits the snapshot. */
+export function advancePhaseClocks(clocks, seconds, sweepRate, base, direction = 1, travelDirection = 1) {
+  if (!clocks || !(seconds > 0) || !Number.isFinite(seconds)) return clocks;
+  if (Number.isFinite(clocks.shepard)) clocks.shepard = fract(clocks.shepard + seconds * sweepRate * direction * travelDirection / 7);
+  if (Number.isFinite(clocks.rootCarrier)) clocks.rootCarrier = fract(clocks.rootCarrier + seconds * base);
+  return clocks;
+}
+
 export function sanitizeDSPState(input = {}) {
   input = input && typeof input === 'object' ? input : {};
   const state = {};
@@ -191,6 +200,10 @@ export class FractalDSP {
     this.branchTurnsTarget = createBranchTurnsTarget();
     this.branchProjectionTurns = this.state.turns;
     this.rootCarrierTracked = false;
+    this.shepardPhaseTracked = false;
+    this.shepardPhase = 0;
+    this.shepardDirection = this.state.direction;
+    this.phaseClocks = { shepard: 0, rootCarrier: 0 };
     this.pitchPolarity = this.state.pitchInvert ? -1 : 1;
     this.stereoSide = this.state.stereoWidth * (this.state.stereoFlip ? -1 : 1);
     this.phase = this.time = this.motionTime = 0;
@@ -238,6 +251,12 @@ export class FractalDSP {
     this.micDelayR = new Float32Array(this.delaySize);
     this.delayHead = 0;
     this.tapDelay = new Float64Array(DELAY_TAPS);
+    this.tapFrom = new Float64Array(DELAY_TAPS);
+    this.tapTo = new Float64Array(DELAY_TAPS);
+    this.tapReady = false;
+    this.tapFade = 1;
+    this.tapBlend = 0;
+    this.tapFadeStep = this.dt / .035;
     this.tapGain = new Float64Array(DELAY_TAPS);
     this.shepardFreq = new Float64Array(SHEPARD_PARTIALS);
     this.shepardGain = new Float64Array(SHEPARD_PARTIALS);
@@ -433,6 +452,7 @@ export class FractalDSP {
     advanceModulators(this.lfoPhases, this.modulatorSlots, this.dt);
     this.time += this.dt;
     this.motionTime += this.dt * this.travelDirection;
+    if (this.shepardPhaseTracked) this.shepardPhase = fract(this.shepardPhase + this.dt * this.smooth.sweepRate * this.state.direction * this.travelDirection / 7);
     this.phase += step * this.travelDirection;
     if (this.travelDirection > 0 && this.phase >= 1) {
       if (this.state.pingPong) {
@@ -461,6 +481,7 @@ export class FractalDSP {
     this.dcXL = this.dcXR = this.dcYL = this.dcYR = this.outputLowL = this.outputLowR = 0;
     this.outputStage.clear();
     this.stealL = this.stealR = this.stealML = this.stealMR = 0;
+    this.tapReady = false;
     this.stoppedCleared = true;
   }
   tailDelay() {
@@ -469,7 +490,7 @@ export class FractalDSP {
     let longest = this.smooth.space > 1e-6 ? .277 : 0;
     if (this.modeWeights[4] > .0001) {
       for (let i = 0; i < this.tapGain.length; i += 1) if (this.tapGain[i] > 1e-7) {
-        longest = Math.max(longest, Math.min(7.98, this.tapDelay[i] / this.sampleRate * 1.009) + .075);
+        longest = Math.max(longest, Math.min(7.98, Math.max(this.tapDelay[i], this.tapFrom[i], this.tapTo[i]) / this.sampleRate * 1.009) + .075);
       }
     }
     return longest + .05;
@@ -495,11 +516,16 @@ export class FractalDSP {
     this.random = this.state.seed;
     this.chaosX = .1; this.chaosY = .01; this.chaosZ = 20;
     this.osc.fill(0);
-    this.rootCarrierTracked = false;
+    this.rootCarrierTracked = Number.isFinite(transport.phaseClocks?.rootCarrier);
+    if (this.rootCarrierTracked) this.osc[14] = fract(transport.phaseClocks.rootCarrier);
+    this.shepardPhaseTracked = Number.isFinite(transport.phaseClocks?.shepard);
+    this.shepardPhase = this.shepardPhaseTracked ? fract(transport.phaseClocks.shepard) : 0;
+    this.shepardDirection = this.state.direction;
     this.outputStage.clear();
     for (const v of this.voices) v.active = false;
     this.delayL.fill(0); this.delayR.fill(0); this.micDelayL.fill(0); this.micDelayR.fill(0);
     this.delayHead = 0;
+    this.tapReady = false;
     this.bandZ1.fill(0); this.bandZ2.fill(0);
     this.modulation = this.modTarget = 0;
     this.eventPitch = this.eventPitchTarget = 1;
@@ -633,8 +659,9 @@ export class FractalDSP {
       waveTotal += this.waveGain[i];
       this.waveOffset[i] = i === 0 ? 0 : ((s.x - .5) * i * 1.7 + s.index * .12 * Math.sin(i * s.ratio) + (this.state.seed % 97) / 97 * i * .4) / TAU;
     }
+    const sweepPhase = this.shepardPhaseTracked ? this.shepardPhase : this.motionTime * s.sweepRate * this.state.direction / 7;
     for (let i = 0; i < SHEPARD_PARTIALS; i += 1) {
-      const u = fract(this.motionTime * s.sweepRate * this.state.direction / 7 + i / 7 + s.y * .1);
+      const u = fract(sweepPhase + i / 7 + s.y * .1);
       this.shepardFreq[i] = clamp(s.base * 2 ** ((u * 7 - 3.5) * this.pitchPolarity), 16, this.sampleRate * .35);
       this.shepardGain[i] = i < 7 ? Math.sin(Math.PI * u) ** 2 * clamp(s.depth - i, 0, 1) : 0;
     }
@@ -642,6 +669,7 @@ export class FractalDSP {
       this.tapDelay[i] = clamp(s.echoTime * s.echoRatio ** i, .002, 7.9) * this.sampleRate;
       this.tapGain[i] = clamp(s.depth - i, 0, 1) * (.2 + s.memory * .73) ** (i + 1);
     }
+    this.prepareEchoTaps();
     for (let i = 0; i < PARTIALS; i += 1) this.waveGain[i] /= Math.max(1, waveTotal);
     let total = 0;
     for (let i = 0; i < 16; i += 1) {
@@ -657,6 +685,33 @@ export class FractalDSP {
     }
     const normalization = 1 / Math.max(.25, Math.sqrt(total));
     for (let i = 0; i < 16; i += 1) this.bandGain[i] *= normalization;
+  }
+  prepareEchoTaps() {
+    if (!this.tapReady) {
+      this.tapFrom.set(this.tapDelay); this.tapTo.set(this.tapDelay);
+      this.tapReady = true; this.tapFade = 1; this.tapBlend = 0;
+      return;
+    }
+    // A live read head never jumps or restarts midway through a fade. Rapid
+    // drags and LFOs publish their latest destination after this fade finishes.
+    if (this.tapFade < 1) return;
+    for (let i = 0; i < DELAY_TAPS; i++) {
+      if (Math.abs(this.tapDelay[i] - this.tapFrom[i]) <= 1e-7) continue;
+      this.tapTo.set(this.tapDelay); this.tapFade = 0; this.tapBlend = 0;
+      return;
+    }
+  }
+  echoRead(buffer, tap, scale = 1, offset = 0) {
+    const first = this.delayRead(buffer, Math.min(this.tapFrom[tap] * scale, this.sampleRate * 7.98) + offset);
+    if (this.tapFade >= 1) return first;
+    const second = this.delayRead(buffer, Math.min(this.tapTo[tap] * scale, this.sampleRate * 7.98) + offset);
+    return first * (1 - this.tapBlend) + second * this.tapBlend;
+  }
+  advanceEchoTaps() {
+    if (this.tapFade >= 1) return;
+    this.tapFade = Math.min(1, this.tapFade + this.tapFadeStep);
+    if (this.tapFade === 1) { this.tapFrom.set(this.tapTo); this.tapBlend = 0; }
+    else this.tapBlend = curve(this.tapFade);
   }
   delayRead(buffer, delay) {
     const position = (this.delayHead - delay + this.delaySize) % this.delaySize;
@@ -676,6 +731,18 @@ export class FractalDSP {
     modulatedValues(this.motionState, this.modulatorSlots, this.lfoPhases, this.modulated);
     this.motionAdvanceOptions.branchReady = Boolean(this.motionBank);
     this.motionAdvanceOptions.turnsReady = Boolean(this.branchTurns);
+    // Capture before smoothing. Multiplying elapsed time by an edited speed
+    // would teleport phase by time * delta(speed), even through a smooth ramp.
+    if (!this.shepardPhaseTracked && (this.state.sweepRate !== this.smooth.sweepRate || this.state.direction !== this.shepardDirection)) {
+      this.shepardPhase = fract(this.motionTime * this.smooth.sweepRate * this.shepardDirection / 7);
+      this.shepardPhaseTracked = true;
+    }
+    this.shepardDirection = this.state.direction;
+    if (!this.rootCarrierTracked && (this.modulated.base !== undefined || this.motionReadout.base !== this.state.base
+      || (this.modulated.base ?? this.motionState.base) !== this.smooth.base)) {
+      this.osc[14] = fract(this.time * this.smooth.base);
+      this.rootCarrierTracked = true;
+    }
     for (const key of KEYS) {
       const target = this.modulated[key] ?? this.motionState[key];
       if (key === 'branchAngle') {
@@ -908,20 +975,20 @@ export class FractalDSP {
       if (echoMix > .0001) {
         for (let i = 0; i < tapCount; i += 1) {
           const gain = this.tapGain[i];
-          el += this.delayRead(i % 2 ? this.delayR : this.delayL, this.tapDelay[i]) * gain;
-          er += this.delayRead(i % 2 ? this.delayL : this.delayR, Math.min(this.tapDelay[i] * 1.009, sr * 7.98)) * gain;
+          el += this.echoRead(i % 2 ? this.delayR : this.delayL, i) * gain;
+          er += this.echoRead(i % 2 ? this.delayL : this.delayR, i, 1.009) * gain;
           if (this.state.engine === 'shepard') {
             const register = i < SHEPARD_PARTIALS ? i : i % 7;
             const ratio = clamp(this.shepardFreq[register] / 220, .125, 8);
             const phase = this.pitchShiftPhases[i] = fract(this.pitchShiftPhases[i] + (1 - ratio) * dt / .075);
             const second = fract(phase + .5), window = Math.sin(Math.PI * phase) ** 2;
-            const d1 = this.tapDelay[i] + phase * sr * .075, d2 = this.tapDelay[i] + second * sr * .075;
+            const d1 = phase * sr * .075, d2 = second * sr * .075;
             const leftBuffer = i % 2 ? this.micDelayR : this.micDelayL, rightBuffer = i % 2 ? this.micDelayL : this.micDelayR;
-            eml += (this.delayRead(leftBuffer, d1) * window + this.delayRead(leftBuffer, d2) * (1 - window)) * gain * this.shepardGain[register];
-            emr += (this.delayRead(rightBuffer, d1) * window + this.delayRead(rightBuffer, d2) * (1 - window)) * gain * this.shepardGain[register];
+            eml += (this.echoRead(leftBuffer, i, 1, d1) * window + this.echoRead(leftBuffer, i, 1, d2) * (1 - window)) * gain * this.shepardGain[register];
+            emr += (this.echoRead(rightBuffer, i, 1, d1) * window + this.echoRead(rightBuffer, i, 1, d2) * (1 - window)) * gain * this.shepardGain[register];
           } else {
-            eml += this.delayRead(i % 2 ? this.micDelayR : this.micDelayL, this.tapDelay[i]) * gain;
-            emr += this.delayRead(i % 2 ? this.micDelayL : this.micDelayR, Math.min(this.tapDelay[i] * 1.009, sr * 7.98)) * gain;
+            eml += this.echoRead(i % 2 ? this.micDelayR : this.micDelayL, i) * gain;
+            emr += this.echoRead(i % 2 ? this.micDelayL : this.micDelayR, i, 1.009) * gain;
           }
           tapWeight += gain;
         }
@@ -935,17 +1002,13 @@ export class FractalDSP {
       this.delayR[this.delayHead] = Math.tanh(r + roomR * roomFeedback + er * s.memory * .42);
       // Echoes receive the actual live signal; no oscillator stands in for it.
       const completionGate = this.releasing ? Math.max(0, 1 - this.completionAge / this.completionRelease) ** 2 : 1;
-      // Once Root is modulated, accumulate the live strike carrier's phase.
-      // Multiplying elapsed time by a moving frequency would add time * df/dt.
-      if (!this.rootCarrierTracked && (this.modulated.base !== undefined || this.motionReadout.base !== this.state.base)) {
-        this.osc[14] = fract(this.time * s.base); this.rootCarrierTracked = true;
-      }
       const strikeCarrier = sine(this.rootCarrierTracked ? this.osc[14] : this.time * s.base);
       if (this.rootCarrierTracked && this.playing) this.osc[14] = fract(this.osc[14] + s.base * dt);
       const excitation = completionGate * echoMix * (this.state.engine === 'resonant' ? (ml + mr) * .8 : microphone * .45 * (this.state.engine === 'strikes' ? (.15 + .85 * Math.min(1, scoreGate)) * (.6 + .4 * strikeCarrier) : 1));
       this.micDelayL[this.delayHead] = Math.tanh(ml * (1 - echoMix) + excitation + micRoomL * roomFeedback + eml * s.memory * .42);
       this.micDelayR[this.delayHead] = Math.tanh(mr * (1 - echoMix) + excitation + micRoomR * roomFeedback + emr * s.memory * .42);
       this.delayHead = (this.delayHead + 1) % this.delaySize;
+      this.advanceEchoTaps();
       l += roomL * s.space * .28 + el * echoMix * .95;
       r += roomR * s.space * .28 + er * echoMix * .95;
       ml = ml * (1 - echoMix) + micRoomL * s.space * .28 + eml * echoMix;
@@ -994,7 +1057,9 @@ export class FractalDSP {
     motionValues(this.state, this.motions, this.motionReadout);
     if (this.motionBank) this.motionReadout.branch = this.motionBank.frames[this.motionFrameIndex].branch;
     motionSnapshot(this.motions, this.motionTransport);
-    Object.assign(this.telemetry, { motions: this.motionTransport, motionValues: this.motionReadout,
+    this.phaseClocks.shepard = this.shepardPhaseTracked ? this.shepardPhase : fract(this.motionTime * this.smooth.sweepRate * this.state.direction / 7);
+    this.phaseClocks.rootCarrier = this.rootCarrierTracked ? this.osc[14] : fract(this.time * this.smooth.base);
+    Object.assign(this.telemetry, { phaseClocks: this.phaseClocks, motions: this.motionTransport, motionValues: this.motionReadout,
       motionBankVersion: this.motionBank?.version ?? null, motionFrameIndex: this.motionFrameIndex,
       turns: this.branchProjectionTurns, branchAngle: this.smooth.branchAngle, modPhases: this.lfoPhases, modValues: this.modulationReadout, phase: this.phase, time: this.time, motionTime: this.motionTime,
       playing: this.playing, completed: this.completed, releasing: this.releasing,

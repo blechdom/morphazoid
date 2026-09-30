@@ -449,3 +449,23 @@ test('transport revisions reject stale completion telemetry after Play or Restar
   assert.equal(audio.phase, 0);
   await audio.destroy();
 });
+
+test('phase clocks survive Audio off/on and stale telemetry cannot replace a Restart', async (t) => {
+  globals(t);
+  const state = createDefaultState('echoes'), structure = generateStructure(state), audio = new FractalAudio();
+  await audio.start(state, structure, { playing: true });
+  const phaseClocks = { shepard: .37, rootCarrier: .83 }, node = audio.node;
+  node.port.onmessage({ data: { type: 'telemetry', transportRevision: audio.transportRevision,
+    phase: .6, playing: true, travelDirection: -1, completed: false, time: 5.6, motionTime: 2.4, phaseClocks } });
+  assert.deepEqual(audio.transport.phaseClocks, phaseClocks);
+  assert.notEqual(audio.transport.phaseClocks, phaseClocks, 'the wrapper owns its snapshot');
+  const snapshot = { phase: audio.phase, playing: audio.playing, transport: audio.transport };
+  await audio.stop();
+  await audio.start(state, structure, snapshot);
+  assert.deepEqual(audio.node.options.processorOptions.transport.phaseClocks, phaseClocks);
+  const oldRevision = audio.transportRevision;
+  audio.setPhase(0);
+  audio.node.port.onmessage({ data: { type: 'telemetry', transportRevision: oldRevision, phase: .9, playing: true, phaseClocks } });
+  assert.equal(audio.phase, 0); assert.equal(audio.transport.phaseClocks, undefined);
+  await audio.destroy();
+});

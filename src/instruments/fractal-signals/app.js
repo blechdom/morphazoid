@@ -7,7 +7,7 @@ import { FACTORY_PRESETS, openingPreset, randomizeState } from './presets.js';
 import { createAmplitudeControl } from '../../amplitude-control.js';
 import { ADSR_EDITOR_MODEL, adsrFromPoints, envelopeEditorState } from './envelope-editor.js';
 import { FractalAudio } from './audio.js';
-import { createFractalSource } from './dsp.js';
+import { createFractalSource, advancePhaseClocks } from './dsp.js';
 import { createRangeField } from '../../ui/index.js';
 import { enhanceRangeKnob } from '../../ui/primitives/range-knob.js';
 import { createAudioStrip } from '../../ui/patterns/audio-strip.js';
@@ -78,7 +78,7 @@ const audio = new FractalAudio({ onMicrophoneState() { if (!disposed) refreshMic
   if (!armed) return;
   telemetry = data;
   if (Number.isFinite(data.phase)) phase = clamp(data.phase, 0, 1);
-  transport = { travelDirection: data.travelDirection === -1 ? -1 : 1, completed: data.completed === true, time: data.time, motionTime: data.motionTime, modPhases: Array.from(data.modPhases ?? [0, 0]), motions: data.motions ?? motionSnapshot(motions) };
+  transport = { travelDirection: data.travelDirection === -1 ? -1 : 1, completed: data.completed === true, time: data.time, motionTime: data.motionTime, modPhases: Array.from(data.modPhases ?? [0, 0]), motions: data.motions ?? motionSnapshot(motions), ...(data.phaseClocks ? { phaseClocks: { ...data.phaseClocks } } : {}) };
   if (data.motions) motions = createMotions(state, data.motions);
   if (data.completed && !data.playing && playing) reflectPlaying(false);
 } });
@@ -181,6 +181,11 @@ function advanceVisualTransport(dt) {
     const distance = direction > 0 ? 1 - phase : phase;
     const travel = Math.min(remaining, distance);
     phase = clamp(phase + travel * direction, 0, 1);
+    if (transport.phaseClocks) {
+      const direct = motionValues(state, motions);
+      const root = modulatedValues({ ...state, ...direct }, modulatorSlots, transport.modPhases).base ?? direct.base;
+      advancePhaseClocks(transport.phaseClocks, travel * secondsPerPhase, state.sweepRate, root, state.direction, direction);
+    }
     advanceModulators(transport.modPhases, modulatorSlots, travel * secondsPerPhase);
     transport.time += travel * secondsPerPhase;
     transport.motionTime += travel * secondsPerPhase * direction;
@@ -853,9 +858,10 @@ function drawStage(now) {
     }
   }
   if (state.mode === 'echoes' && state.engine === 'shepard') {
+    const sweepPhase = Number.isFinite(transport.phaseClocks?.shepard)
+      ? transport.phaseClocks.shepard : transport.motionTime * state.sweepRate * state.direction / 7;
     for (let i = 0; i < state.depth; i++) {
-      const time = transport.motionTime;
-      const p = wrap(time * state.sweepRate * state.direction / 7 + i / 12 + state.y * .1);
+      const p = wrap(sweepPhase + i / 12 + state.y * .1);
       const radius = Math.min(b.w, b.h) * (.12 + p * .35);
       ctx.globalAlpha = Math.sin(Math.PI * p) ** 2 * .35;
       circle(ctx, b.x + b.w / 2, b.y + b.h / 2, radius, accent, false);

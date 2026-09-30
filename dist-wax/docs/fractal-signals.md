@@ -109,6 +109,8 @@ These are gain-stage values, not promised loudness increases for every patch: st
 | echoes | **Echo time:** 0.015–3 s; **Echo ratio:** 0.35–2.5×; **Sweep rate:** 0.01–4 octaves/s | Tap `i` uses `Echo time × Echo ratio^i`, bounded at 7.9 seconds. Ratios below one crowd taps together; ratios above one spread them out. Sweep rate moves the wrapped Shepard register. |
 | textures | **Band Q:** 0.3–24; **Spectral tilt:** −3–3; **Analysis release:** 0.01–3 s | Q focuses filtered noise and is hidden for Band oscillators, which uses sine bands. Positive tilt favors high bands; negative tilt favors low bands. Analysis release controls the decay of measured live-input energy, while new attacks register quickly; it is disabled without microphone input. Noise + grains also exposes Grain size, Spray and Source scan. |
 
+Echo time and Echo ratio edits crossfade between the old and new delay taps over 35 ms. Rapid edits finish the current fade before taking the latest target, preserving audio already in delay memory. Sweep-rate changes retain the current Shepard register position and change its speed; Root edits also retain the microphone strike carrier phase. These live clocks survive Pause and Audio off/on, while Restart resets them.
+
 At high branching and recursion, the L-system reserves a budget for every remaining generation and samples tips across the frontier. This keeps the first stem and representatives through generation forty-eight while bounding work. It is a finite graphical rewriting system with an artistic sound mapping, not an unbounded biological growth simulation.
 
 ## Local sources and optional microphone
