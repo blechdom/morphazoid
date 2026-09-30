@@ -1,5 +1,7 @@
 # Morphazoid
 
+**[Domino Run](domino-run.html)** turns falling tiles into percussion across circles, forks, stairs and patterned fields. Six synthesized materials with dry impacts, seeded complete-scene randomization and a 512-tile limit include **Tone Henge**, its stone-circle preset. [Controls and model limits](docs/domino-run.md); [technique research](docs/domino-run-research.md).
+
 **[Spelling Synthesizer](spelling-synthesizer.html)** is now in Voice: a frontal
 wireframe mouth speaks typed letters or reads and loops text. Twenty-two presets
 span Pinkazoid, KAL samples, Voxazoid, Bell Labs-inspired waveguide synthesis and

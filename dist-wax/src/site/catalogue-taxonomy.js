@@ -569,6 +569,7 @@ export const ADDITIONAL_TAG_IDS = Object.freeze(Object.fromEntries(Object.entrie
   "rigidity": [],
   "rolling-measure": [],
   "falling-forms": [],
+  "domino-run": ["sequencer", "drum-machine", "3d"],
   "charge-garden": [],
   "packing-pressure": [],
   "geodesic-drift": [],

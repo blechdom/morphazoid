@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#10100f" />
+  <meta name="description" content="Domino Run — playable percussion from falling tiles, branching paths, stairs and patterned fields. Tone Henge is a circle of resonant stone dominoes." />
+  <title>Domino Run — Morphazoid</title>
+  <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="src/instruments/domino-run/domino-run.css" />
+</head>
+<body class="domino-page">
+  <header class="masthead">
+    <a class="wordmark" href="./" aria-label="Morphazoid home"><span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span><span>morphazoid</span></a>
+    <nav class="tabs" aria-label="Instrument"><a class="tab" href="falling-forms.html">falling forms</a><a class="tab active" href="domino-run.html" aria-current="page">domino run</a></nav>
+    <label class="mobile-instrument-nav"><span class="sr-only">Instrument</span><select class="mobile-instrument-select" aria-label="Instrument"><option value="falling-forms.html">falling forms</option><option value="domino-run.html" selected>domino run</option></select></label>
+    <div class="audio-strip" aria-label="Audio controls">
+      <button class="audio-button" id="audioButton" type="button" aria-pressed="false"><span class="audio-glyph" aria-hidden="true">⬢</span><span class="audio-copy"><b>Audio</b><small id="audioState">off</small></span></button>
+      <label class="header-level" for="level"><span><b>Master level</b><output id="levelOut" for="level">50%</output></span><input id="level" aria-label="Master audio level" type="range" min="0" max="1" step="0.01" value="0.5" /></label>
+    </div>
+  </header>
+  <main class="domino-shell">
+    <section class="domino-stage" aria-labelledby="domino-title">
+      <div class="domino-viewport" id="stageWrap">
+        <canvas id="stage" tabindex="0" aria-label="Playable domino run. Arrow keys select a tile; Enter pushes it. In Arrange mode, arrow keys move the selected tile. In Draw mode arrows move a drawing cursor, Enter adds a point, and Shift+Enter finishes the path. Space pauses or resumes the run." aria-describedby="stageHelp">A circle of standing stones forms a percussion instrument. Use the Push selected button to start the chain.</canvas>
+        <div class="domino-heading"><h1 id="domino-title">Domino Run</h1><p id="sceneName">Tone Henge</p></div>
+        <div class="domino-stage-status" id="runStatus" aria-live="off">Ready to fall</div>
+        <div class="domino-view-actions" role="group" aria-label="Camera"><button id="zoomOut" type="button" aria-label="Zoom out">−</button><button id="fitView" type="button">Fit</button><button id="zoomIn" type="button" aria-label="Zoom in">+</button></div>
+      </div>
+      <div class="domino-stage-bar">
+        <div class="domino-modes" role="group" aria-label="Pointer action"><button type="button" data-mode="push" aria-pressed="true">Push</button><button type="button" data-mode="arrange" aria-pressed="false">Arrange</button><button type="button" data-mode="draw" aria-pressed="false">Draw</button><button type="button" data-mode="view" aria-pressed="false">Orbit</button></div>
+        <label class="domino-check"><input id="showPaths" type="checkbox" checked /> Paths</label>
+      </div>
+      <div id="drawTools" class="domino-draw-tools" hidden>
+        <button id="newPattern" type="button">New pattern</button><button id="undoDraw" type="button" disabled>Undo</button><button id="finishPath" type="button" disabled>Finish path</button>
+        <label class="domino-check"><input id="closeLoops" type="checkbox" checked /> Close loops</label>
+        <span id="drawingInfo">Your first stroke replaces this run.</span>
+      </div>
+      <p class="domino-help" id="stageHelp">Tap a domino to start there. Drag empty space to orbit.</p>
+    </section>
+    <aside class="panel domino-panel" aria-label="Domino Run controls">
+      <div data-instrument-preset-host></div>
+      <section class="domino-transport" aria-label="Run transport">
+        <button id="playButton" type="button" data-primary-transport aria-pressed="false">▶ Run</button>
+        <button id="resetRun" type="button">Stand up</button>
+        <label class="domino-check"><input id="loop" type="checkbox" /> Loop whole run</label>
+      </section>
+      <div class="domino-renew">
+        <label class="domino-check"><input id="autoStand" type="checkbox" /> Stand again</label>
+        <div id="renewFields" class="domino-fields"></div>
+        <p>Raise each fallen domino after a delay. A long delay can stop a returning wave.</p>
+      </div>
+      <div id="progressTrack" class="domino-progress" role="progressbar" aria-label="Run progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span id="progressFill"></span></div>
+      <div class="domino-summary"><span id="fallenCount">0 fallen</span><span id="reachCount"></span></div>
+      <details class="group" open><summary><h2>Build a run</h2></summary><div class="group-body domino-fields" id="structureFields"></div></details>
+      <div class="domino-seed-row"><label for="seed">Seed<input id="seed" type="number" min="0" max="4294967295" step="1" /></label><button id="newRun" type="button">New random run</button></div>
+      <details class="group" open><summary><h2>Sound & motion</h2></summary><div class="group-body domino-fields" id="soundFields"></div></details>
+      <details class="group"><summary><h2>Selected domino <span id="selectedNumber">1</span></h2></summary><div class="group-body domino-fields">
+        <label class="control" for="tileSize"><span>Height <output id="tileSizeOut" for="tileSize">1.20</output></span><input id="tileSize" type="range" min="0.3" max="4" step="0.02" value="1.2" /></label>
+        <label class="control" for="tileMaterial"><span>Material</span><select id="tileMaterial"></select></label>
+        <div class="domino-edit-actions"><button type="button" id="pushSelected">Push selected</button><button type="button" id="removeSelected">Lift out</button><button type="button" id="undoEdit" disabled>Undo edit</button></div>
+      </div></details>
+      <p id="audioError" class="domino-error" role="alert" hidden></p>
+      <div class="domino-bottom"><button id="resetAll" class="reset-all-button" type="button" data-reset-all data-reset-in-place>Reset all parameters</button><a href="docs/domino-run.md" target="_blank" rel="noopener">Techniques & model notes ↗</a></div>
+    </aside>
+    <p id="liveStatus" class="sr-only" aria-live="polite"></p>
+  </main>
+  <script type="module" src="nav.js"></script>
+  <script type="module" src="src/instruments/domino-run/domino-run-app.js"></script>
+</body>
+</html>

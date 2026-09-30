@@ -1,0 +1,75 @@
+{
+  "schemaVersion": 1,
+  "baseCommit": "689b1cbae2cdda1cafcb3dce8af364c17e0a189c",
+  "purpose": "Record exact Domino Run catalogue, navigation, taxonomy and MIDI additions without changing older frozen references.",
+  "changes": [
+    {
+      "file": "src/site/instrument-catalog.js",
+      "sha256": "8f278eb356536fe07f0be17d8286a6fef38128f72f210fc25261b9aff066773b",
+      "reason": "Register Domino Run while preserving all previously reviewed site metadata.",
+      "regressionTests": [
+        "tests/instrument-catalog.test.mjs",
+        "e2e/domino-run.spec.mjs"
+      ],
+      "replacements": [
+        {
+          "before": "    \"Drops rigid forms into a stage and maps impacts, rotation, friction, and settling to sound.\",\n    \"Turn on audio, choose a form, then drop copies into the stage.\",\n  ),\n  \"charge-garden\": define(\n    \"Field sonification\",\n    \"Combines positive and negative charges in a softened field with visible tracers and equipotential lines.\",\n",
+          "after": "    \"Drops rigid forms into a stage and maps impacts, rotation, friction, and settling to sound.\",\n    \"Turn on audio, choose a form, then drop copies into the stage.\",\n  ),\n  \"domino-run\": define(\n    \"Percussive domino runs\",\n    \"Falling tiles pass impacts through curves, forks, stepped terraces and patterned fields. Size, spacing and six materials shape the percussion; Tone Henge starts with a stone circle.\",\n    \"Enable Audio, then Run or tap a domino. Explore complete presets, generate a seeded random run, or drag tiles in Arrange mode.\",\n    [\"Built-in synth\", \"Pointer\", \"Presets\", \"Materials\", \"Branching paths\"],\n  ),\n  \"charge-garden\": define(\n    \"Field sonification\",\n    \"Combines positive and negative charges in a softened field with visible tracers and equipotential lines.\",\n"
+        }
+      ]
+    },
+    {
+      "file": "src/site/instrument-midi-capabilities.js",
+      "sha256": "7d0841dd8848694e8fb381c99b72f4990a671a37d2deb6d16b37c6e3cac86547",
+      "reason": "Register Domino Run while preserving all previously reviewed site metadata.",
+      "regressionTests": [
+        "tests/instrument-catalog.test.mjs",
+        "e2e/domino-run.spec.mjs"
+      ],
+      "replacements": [
+        {
+          "before": "    \"fractal-signals\",\n    \"tempo-tantrum\",\n    \"habit-habitat\",\n  ]),\n});\n\n",
+          "after": "    \"fractal-signals\",\n    \"tempo-tantrum\",\n    \"habit-habitat\",\n    \"domino-run\",\n  ]),\n});\n\n"
+        },
+        {
+          "before": "]);\n\nexport const PAGE_KEYBOARD_INSTRUMENT_IDS = Object.freeze([\n  \"fractal-signals\",\n  \"puggler\",\n  \"image-to-instrument-3\",\n",
+          "after": "]);\n\nexport const PAGE_KEYBOARD_INSTRUMENT_IDS = Object.freeze([\n  \"domino-run\",\n  \"fractal-signals\",\n  \"puggler\",\n  \"image-to-instrument-3\",\n"
+        },
+        {
+          "before": "  \"julia\",\n]);\nconst noMidiOutputIds = new Set([\n  \"fractal-signals\",\n  \"tempo-tantrum\", \"habit-habitat\",\n  \"hocket-loom\",\n",
+          "after": "  \"julia\",\n]);\nconst noMidiOutputIds = new Set([\n  \"domino-run\",\n  \"fractal-signals\",\n  \"tempo-tantrum\", \"habit-habitat\",\n  \"hocket-loom\",\n"
+        }
+      ]
+    },
+    {
+      "file": "src/site/instrument-registry.js",
+      "sha256": "924502c2e58b9624fef113ab3e0f7b6bb078f21c2d29f743597ce351a3ab19aa",
+      "reason": "Register Domino Run while preserving all previously reviewed site metadata.",
+      "regressionTests": [
+        "tests/instrument-catalog.test.mjs",
+        "e2e/domino-run.spec.mjs"
+      ],
+      "replacements": [
+        {
+          "before": "    { id: \"rigidity\", label: \"Rigidity\", href: \"rigidity.html\" },\n    { id: \"rolling-measure\", label: \"Rolling Measure\", href: \"rolling-measure.html\" },\n    { id: \"falling-forms\", label: \"Falling Forms\", href: \"falling-forms.html\" },\n    { id: \"charge-garden\", label: \"Charge Garden\", href: \"charge-garden.html\" },\n    { id: \"packing-pressure\", label: \"Packing Pressure\", href: \"packing-pressure.html\" },\n    { id: \"geodesic-drift\", label: \"Geodesic Drift\", href: \"geodesic-drift.html\" },\n",
+          "after": "    { id: \"rigidity\", label: \"Rigidity\", href: \"rigidity.html\" },\n    { id: \"rolling-measure\", label: \"Rolling Measure\", href: \"rolling-measure.html\" },\n    { id: \"falling-forms\", label: \"Falling Forms\", href: \"falling-forms.html\" },\n    { id: \"domino-run\", label: \"Domino Run\", href: \"domino-run.html\" },\n    { id: \"charge-garden\", label: \"Charge Garden\", href: \"charge-garden.html\" },\n    { id: \"packing-pressure\", label: \"Packing Pressure\", href: \"packing-pressure.html\" },\n    { id: \"geodesic-drift\", label: \"Geodesic Drift\", href: \"geodesic-drift.html\" },\n"
+        }
+      ]
+    },
+    {
+      "file": "src/site/catalogue-taxonomy.js",
+      "sha256": "86b2630e75a5f8967c699a6454f153ed9f1e950d11132dffc53102c9515f3ca4",
+      "reason": "Register Domino Run while preserving all previously reviewed site metadata.",
+      "regressionTests": [
+        "tests/instrument-catalog.test.mjs",
+        "e2e/domino-run.spec.mjs"
+      ],
+      "replacements": [
+        {
+          "before": "  \"rigidity\": [],\n  \"rolling-measure\": [],\n  \"falling-forms\": [],\n  \"charge-garden\": [],\n  \"packing-pressure\": [],\n  \"geodesic-drift\": [],\n",
+          "after": "  \"rigidity\": [],\n  \"rolling-measure\": [],\n  \"falling-forms\": [],\n  \"domino-run\": [\"sequencer\", \"drum-machine\", \"3d\"],\n  \"charge-garden\": [],\n  \"packing-pressure\": [],\n  \"geodesic-drift\": [],\n"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,44 @@
+{
+  "additions": [
+    {
+      "id": "domino-run",
+      "label": "Domino Run",
+      "href": "domino-run.html",
+      "kind": "Percussive domino runs",
+      "description": "Falling tiles pass impacts through curves, forks, stepped terraces and patterned fields. Size, spacing and six materials shape the percussion; Tone Henge starts with a stone circle.",
+      "start": "Enable Audio, then Run or tap a domino. Explore complete presets, generate a seeded random run, or drag tiles in Arrange mode.",
+      "features": [
+        "Built-in synth",
+        "Pointer",
+        "Presets",
+        "Materials",
+        "Branching paths",
+        "MIDI",
+        "Computer keys"
+      ],
+      "pluginHref": null,
+      "tags": [
+        {
+          "id": "wip",
+          "label": "Work in Progress"
+        },
+        {
+          "id": "sequencer",
+          "label": "Sequencer"
+        },
+        {
+          "id": "drum-machine",
+          "label": "Drum Machine"
+        },
+        {
+          "id": "3d",
+          "label": "3D"
+        }
+      ],
+      "status": "Work in Progress",
+      "imageHref": "assets/instruments/domino-run.webp",
+      "categoryId": "wip",
+      "categoryLabel": "Work in Progress"
+    }
+  ]
+}

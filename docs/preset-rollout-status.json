@@ -8,7 +8,7 @@
     "fullPresets": 671,
     "favesImplemented": 16,
     "activeRemaining": 64,
-    "regularRemaining": 132
+    "regularRemaining": 133
   },
   "verification": {
     "browser": "Fresh-main 9a45aa0 combined gate: 402 passed across 13 Chromium suites, including all 209 public HTML routes, all 451 existing full-state preset recalls, Shapes' 106-scene audio sweep, Faves/UI/gesture checks, I/O setup and incoming Loopini regressions. Human/device acceptance remains separate; see docs/presets-continuation-20260922.md",
@@ -1194,6 +1194,15 @@
       "status": "deferred"
     },
     {
+      "id": "domino-run",
+      "label": "Domino Run",
+      "href": "domino-run.html",
+      "category": "wip",
+      "scope": "deferred-wip",
+      "presets": null,
+      "status": "deferred"
+    },
+    {
       "id": "charge-garden",
       "label": "Charge Garden",
       "href": "charge-garden.html",
@@ -1708,6 +1717,7 @@
       "rigidity",
       "rolling-measure",
       "falling-forms",
+      "domino-run",
       "charge-garden",
       "packing-pressure",
       "geodesic-drift",

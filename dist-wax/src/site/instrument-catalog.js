@@ -824,6 +824,12 @@ const CATALOG_DETAILS = Object.freeze({
     "Drops rigid forms into a stage and maps impacts, rotation, friction, and settling to sound.",
     "Turn on audio, choose a form, then drop copies into the stage.",
   ),
+  "domino-run": define(
+    "Percussive domino runs",
+    "Falling tiles pass impacts through curves, forks, stepped terraces and patterned fields. Size, spacing and six materials shape the percussion; Tone Henge starts with a stone circle.",
+    "Enable Audio, then Run or tap a domino. Explore complete presets, generate a seeded random run, or drag tiles in Arrange mode.",
+    ["Built-in synth", "Pointer", "Presets", "Materials", "Branching paths"],
+  ),
   "charge-garden": define(
     "Field sonification",
     "Combines positive and negative charges in a softened field with visible tracers and equipotential lines.",

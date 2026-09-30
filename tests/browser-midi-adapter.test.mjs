@@ -185,6 +185,7 @@ test("one acyclic capability registry covers every playable catalog instrument",
   assert.equal(instrumentMidiCapabilityForId("simd-synth").noteMode, "pitched");
   assert.equal(instrumentMidiCapabilityForId("simd-synth").computerKeyboardMode, "page");
   assert.deepEqual(PAGE_KEYBOARD_INSTRUMENT_IDS, [
+    "domino-run",
     "fractal-signals",
     "puggler",
     "image-to-instrument-3",

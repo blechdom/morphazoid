@@ -1,4 +1,5 @@
 import { restoreSpelling } from "./helpers/spelling-reference.mjs";
+import { restoreDominoRunSite, dominoRunSiteAmendments } from "./helpers/domino-run-site-reference.mjs";
 import { restoreRainVolumeMeters } from './helpers/rain-volume-meter-reference.mjs';
 import { restoreFractalSignalsSite, fractalSignalsSiteChanges } from "./helpers/fractal-signals-site-reference.mjs";
 import { restoreSimdChiptuneSite, simdChiptuneSiteAmendments } from "./helpers/simd-chiptune-site-reference.mjs";
@@ -22,6 +23,7 @@ const plan = JSON.parse(await readFile(new URL("../docs/site-metadata-layout.jso
 const proof = JSON.parse(await readFile(new URL("fixtures/site-metadata-layout.json", import.meta.url)));
 const inverse = Object.fromEntries(Object.entries(plan.moves).map(([before, after]) => [after, before]));
 const sha = source => createHash("sha256").update(source).digest("hex");
+const readBeforeDomino = async file => restoreDominoRunSite(await readFile(new URL(file, root), "utf8"), file);
 
 test("remaining flat JavaScript modules match the reviewed shared and toolchain boundaries", async () => {
   const previous = JSON.parse(await readFile(new URL("../docs/source-module-layout.json", import.meta.url)));
@@ -55,7 +57,7 @@ test("every changed runtime module reverses byte-for-byte to the fresh-main refe
     assert.ok(proof.files.some(record => record.before === before && record.after === after));
   }
   for (const record of proof.files) {
-    const current = restoreFractalSignalsSite(restoreSpelling(await readFile(new URL(record.after, root), "utf8"), record.after), record.after);
+    const current = restoreFractalSignalsSite(restoreSpelling(await readBeforeDomino(record.after), record.after), record.after);
     const beforeGesticules = restoreGesticulesMetadata(restoreRubixoidsSite(restoreHeaderInteractions(restoreSimdChiptuneSite(restoreRainVolumeMeters(current, record.after), record.after), record.after), record.after), record.after);
     const beforeIphone = restoreIphoneStartup(restorePresetToolbar(beforeGesticules, record.after), record.after);
     const restored = rewriteRepositoryPaths(rewriteModulePaths(beforeIphone, record.after, inverse), inverse);
@@ -79,7 +81,7 @@ test("Gesticules metadata amendments are exact and limited to its catalogue and 
     assert.equal(change.replacements.length, 1);
     assert.ok(change.regressionTests.length >= 2);
     for (const file of change.regressionTests) await readFile(new URL(file, root));
-    const source = restoreFractalSignalsSite(restoreSpelling(await readFile(new URL(change.file, root), "utf8"), change.file), change.file);
+    const source = restoreFractalSignalsSite(restoreSpelling(await readBeforeDomino(change.file), change.file), change.file);
     const restored = restoreGesticulesMetadata(source, change.file);
     assert.notEqual(restored, source);
     for (const replacement of change.replacements) {
@@ -102,7 +104,7 @@ test("Rubixoids site amendments retain exact, independently checked metadata and
     assert.ok(proof.files.some(record => record.after === change.file), change.file);
     assert.ok(change.regressionTests.length >= 2);
     for (const file of change.regressionTests) await readFile(new URL(file, root));
-    const source = restoreFractalSignalsSite(restoreSpelling(await readFile(new URL(change.file, root), "utf8"), change.file), change.file);
+    const source = restoreFractalSignalsSite(restoreSpelling(await readBeforeDomino(change.file), change.file), change.file);
     assert.notEqual(restoreRubixoidsSite(source, change.file), source);
     for (const replacement of change.replacements) {
       assert.ok(replacement.before.length && replacement.after.length);
@@ -120,7 +122,7 @@ test("header-interaction amendments preserve the frozen navigation baseline with
     assert.ok(proof.files.some(record => record.after === change.file));
     assert.ok(change.replacements.length > 0);
     for (const file of change.regressionTests) await readFile(new URL(file, root));
-    const current = restoreFractalSignalsSite(restoreSpelling(await readFile(new URL(change.file, root), "utf8"), change.file), change.file);
+    const current = restoreFractalSignalsSite(restoreSpelling(await readBeforeDomino(change.file), change.file), change.file);
     assert.notEqual(restoreHeaderInteractions(current, change.file), current);
     const first = change.replacements[0];
     assert.throws(() => restoreHeaderInteractions(current.replace(first.after, ""), change.file), /exact header-interaction amendment/);
@@ -137,7 +139,7 @@ test("SIMD Chiptune site amendments preserve existing metadata with exact regres
     assert.ok(proof.files.some(record => record.after === change.file), change.file);
     assert.ok(change.regressionTests.length >= 2);
     for (const file of change.regressionTests) await readFile(new URL(file, root));
-    const source = restoreFractalSignalsSite(restoreSpelling(await readFile(new URL(change.file, root), "utf8"), change.file), change.file);
+    const source = restoreFractalSignalsSite(restoreSpelling(await readBeforeDomino(change.file), change.file), change.file);
     assert.notEqual(restoreSimdChiptuneSite(source, change.file), source);
     for (const replacement of change.replacements) {
       assert.ok(replacement.before.length && replacement.after.length);
@@ -153,7 +155,7 @@ test("SIMD Chiptune site amendments preserve existing metadata with exact regres
 
 test("Fractal Signals metadata additions reverse exactly to the independent current-main reference", async () => {
   for (const change of fractalSignalsSiteChanges.changes) {
-    const current = restoreSpelling(await readFile(new URL(change.file, root), "utf8"), change.file);
+    const current = restoreSpelling(await readBeforeDomino(change.file), change.file);
     assert.equal(sha(restoreFractalSignalsSite(current, change.file)), change.sha256, change.file);
     for (const replacement of change.replacements) {
       assert.match(replacement.after, /fractal-signals/);
@@ -161,4 +163,32 @@ test("Fractal Signals metadata additions reverse exactly to the independent curr
       assert.throws(() => restoreFractalSignalsSite(current + replacement.after, change.file), /exact Fractal Signals amendment/);
     }
   }
+});
+
+
+test("Domino Run metadata additions reverse exactly with independent baseline and regression evidence", async () => {
+  assert.equal(dominoRunSiteAmendments.schemaVersion, 1);
+  assert.equal(dominoRunSiteAmendments.baseCommit, "689b1cbae2cdda1cafcb3dce8af364c17e0a189c");
+  assert.deepEqual(dominoRunSiteAmendments.changes.map(change => change.file), [
+    "src/site/instrument-catalog.js", "src/site/instrument-midi-capabilities.js",
+    "src/site/instrument-registry.js", "src/site/catalogue-taxonomy.js",
+  ]);
+  assert.deepEqual(dominoRunSiteAmendments.changes.map(change => change.replacements.length), [1, 3, 1, 1]);
+  for (const change of dominoRunSiteAmendments.changes) {
+    assert.match(change.sha256, /^[a-f0-9]{64}$/);
+    assert.ok(change.regressionTests.length >= 2);
+    for (const file of change.regressionTests) await readFile(new URL(file, root));
+    const current = await readFile(new URL(change.file, root), "utf8");
+    const restored = restoreDominoRunSite(current, change.file);
+    assert.notEqual(restored, current);
+    assert.equal(sha(restored), change.sha256, change.file);
+    for (const replacement of change.replacements) {
+      assert.ok(replacement.before.length && replacement.after.length);
+      assert.doesNotMatch(replacement.before, /domino-run/);
+      assert.match(replacement.after, /domino-run/);
+      assert.throws(() => restoreDominoRunSite(current.replace(replacement.after, ""), change.file), /exact Domino Run site amendment/);
+      assert.throws(() => restoreDominoRunSite(current + replacement.after, change.file), /exact Domino Run site amendment/);
+    }
+  }
+  assert.equal(restoreDominoRunSite("untouched", "unrelated.js"), "untouched");
 });

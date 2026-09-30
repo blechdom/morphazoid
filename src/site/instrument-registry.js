@@ -194,6 +194,7 @@ export const TOOL_GROUPS = Object.freeze([
     { id: "rigidity", label: "Rigidity", href: "rigidity.html" },
     { id: "rolling-measure", label: "Rolling Measure", href: "rolling-measure.html" },
     { id: "falling-forms", label: "Falling Forms", href: "falling-forms.html" },
+    { id: "domino-run", label: "Domino Run", href: "domino-run.html" },
     { id: "charge-garden", label: "Charge Garden", href: "charge-garden.html" },
     { id: "packing-pressure", label: "Packing Pressure", href: "packing-pressure.html" },
     { id: "geodesic-drift", label: "Geodesic Drift", href: "geodesic-drift.html" },

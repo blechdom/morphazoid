@@ -172,6 +172,7 @@ const NOTE_MODE_IDS = Object.freeze({
     "fractal-signals",
     "tempo-tantrum",
     "habit-habitat",
+    "domino-run",
   ]),
 });
 
@@ -186,6 +187,7 @@ export const NATIVE_INSTRUMENT_MIDI_IDS = Object.freeze([
 ]);
 
 export const PAGE_KEYBOARD_INSTRUMENT_IDS = Object.freeze([
+  "domino-run",
   "fractal-signals",
   "puggler",
   "image-to-instrument-3",
@@ -298,6 +300,7 @@ const midiOutputExtraIds = new Set([
   "julia",
 ]);
 const noMidiOutputIds = new Set([
+  "domino-run",
   "fractal-signals",
   "tempo-tantrum", "habit-habitat",
   "hocket-loom",

@@ -1212,3 +1212,17 @@ copy+require	src/instruments/spelling-synthesizer/spelling-retro-model.js
 copy+require	src/instruments/spelling-synthesizer/spelling-retro-processor.js
 copy+require	src/site/preset-schema.js
 copy+require	src/ui/patterns/performance-workspace.css
+
+# Domino Run
+copy+require	domino-run.html
+copy+require	docs/domino-run.md
+copy+require	docs/domino-run-research.md
+copy+require	assets/instruments/domino-run.webp
+copy+require	src/instruments/domino-run/domino-run-app.js
+copy+require	src/instruments/domino-run/domino-run-drawing.js
+copy+require	src/instruments/domino-run/domino-run-audio.js
+copy+require	src/instruments/domino-run/domino-run-model.js
+copy+require	src/instruments/domino-run/domino-run-processor.js
+copy+require	src/instruments/domino-run/domino-run-renderer.js
+copy+require	src/instruments/domino-run/domino-run-sound.js
+copy+require	src/instruments/domino-run/domino-run.css
