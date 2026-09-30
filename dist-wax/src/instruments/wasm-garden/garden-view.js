@@ -1,15 +1,22 @@
 import { TINE_COUNT, tineFrequency } from './dsp.js';
 
+const sideInset = width => Math.min(20, Math.max(14, width * 0.025));
+function tineFrame(width, height) {
+  const left = sideInset(width);
+  return { left, span: width - 2 * left, base: height - 44 };
+}
+
 export function tineGeometry(width, height, index, baseFrequency, pitchSpread = 2) {
-  const x = width * (0.07 + (index + 0.5) / TINE_COUNT * 0.86);
-  const base = Math.min(height * 0.79, height - 90);
-  const available = Math.max(55, base - 90);
+  const { left, span, base } = tineFrame(width, height);
+  const x = left + (index + 0.5) / TINE_COUNT * span;
+  const available = Math.max(55, base - 16);
   const length = available * Math.sqrt(45 / baseFrequency) / Math.sqrt(tineFrequency(index, baseFrequency, pitchSpread) / baseFrequency);
-  return { x, base, length, width: width * 0.86 / TINE_COUNT * 0.55 };
+  return { x, base, length, width: span / TINE_COUNT * 0.55 };
 }
 
 export function materialPointer(width, height, px, py, baseFrequency, pitchSpread = 2) {
-  const tine = Math.max(0, Math.min(TINE_COUNT - 1, Math.floor((px / width - 0.07) / 0.86 * TINE_COUNT)));
+  const { left, span } = tineFrame(width, height);
+  const tine = Math.max(0, Math.min(TINE_COUNT - 1, Math.floor((px - left) / span * TINE_COUNT)));
   const g = tineGeometry(width, height, tine, baseFrequency, pitchSpread);
   return { x: (tine + 0.5) / TINE_COUNT, y: Math.max(0.08, Math.min(0.98, (g.base - py) / g.length)) };
 }
@@ -36,7 +43,8 @@ for (let row = 0; row <= BANK_ROWS; row++) {
 }
 
 export function bankGeometry(width, height) {
-  return { left: width * 0.08, right: width * 0.92, top: Math.min(135, height * 0.30), bottom: height - 90 };
+  const inset = sideInset(width);
+  return { left: inset, right: width - inset, top: 44, bottom: height - 34 };
 }
 
 export function bankSurfacePoint(width, height, x, y, surface = null) {
@@ -195,9 +203,9 @@ export function drawGarden(canvas, state, time = 0) {
   ctx.fillStyle = '#131820'; ctx.fillRect(0, 0, w, h);
   if (state.settings.model === 'bank') return drawBank(ctx, w, h, state, time);
   const selected = Math.min(TINE_COUNT - 1, Math.floor(state.x * TINE_COUNT));
-  const base = Math.min(h * 0.79, h - 90);
-  ctx.fillStyle = '#303944'; ctx.fillRect(w * 0.055, base, w * 0.89, 16);
-  ctx.fillStyle = '#65727f'; ctx.fillRect(w * 0.055, base, w * 0.89, 2);
+  const { left, span, base } = tineFrame(w, h);
+  ctx.fillStyle = '#303944'; ctx.fillRect(left, base, span, 16);
+  ctx.fillStyle = '#65727f'; ctx.fillRect(left, base, span, 2);
   for (let i = 0; i < TINE_COUNT; i++) {
     const g = tineGeometry(w, h, i, state.settings.baseFrequency, state.settings.pitchSpread);
     const energy = state.audioOn ? Math.min(1, (state.energies[i] || 0) * 3) : 0;
@@ -220,7 +228,7 @@ export function drawGarden(canvas, state, time = 0) {
     }
   }
   ctx.font = '11px system-ui'; ctx.fillStyle = '#9baab7';
-  ctx.textAlign = 'left'; ctx.fillText(state.settings.pitchSpread === 0 ? 'UNISON' : 'LONG / LOW', w * 0.07, base + 36);
-  ctx.textAlign = 'right'; ctx.fillText(state.settings.pitchSpread === 0 ? 'EQUAL LENGTH' : 'SHORT / HIGH', w * 0.93, base + 36);
+  ctx.textAlign = 'left'; ctx.fillText(state.settings.pitchSpread === 0 ? 'UNISON' : 'LONG / LOW', left, base + 36);
+  ctx.textAlign = 'right'; ctx.fillText(state.settings.pitchSpread === 0 ? 'EQUAL LENGTH' : 'SHORT / HIGH', w - left, base + 36);
   if (w > 600) { ctx.textAlign = 'center'; ctx.fillText('FIXED CLAMP', w / 2, base + 36); }
 }
