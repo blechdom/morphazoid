@@ -508,6 +508,7 @@ presets=registerHeaderPresets({id:'gesticulating-hand',presets:HAND_PRESETS,
   capture:()=>clone(state.config),
   apply:value=>{viewer?.clearTrails();contourEditor.clearHistory();applyConfiguration(value);},
   randomize:(snapshot,random)=>randomizeHandConfig(snapshot,random),
+  onApplied:()=>{if(audio.running)audio.previewPreset(.75);},
 });
 audio.setConfig(state.config);audio.setOutput(Number(el('outputLevel').value));
 audio.onStateChange=()=>{

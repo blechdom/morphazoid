@@ -110,6 +110,11 @@ export class HandAudio {
     this.post({ type: "audition", index, seconds: clampHand(seconds, .015, 2, .18), audioTime: this.currentTime });
     return true;
   }
+  previewPreset(seconds = .75) {
+    if (!this.running) return false;
+    this.post({ type: "preview", seconds: clampHand(seconds, .015, 1.5, .75), audioTime: this.currentTime });
+    return true;
+  }
   setOutput(value) {
     this.level = clampHand(value, 0, 1, .52);
     if (!this.master) return;

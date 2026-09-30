@@ -79,7 +79,7 @@ function randomFixture(options = {}) {
       state = result;
     },
     randomize: options.randomize ?? ((previous, rng) => ({ value: previous.value + rng() / 2 })),
-    random: () => 0.5,
+    random: () => 0.5, onApplied: options.onApplied,
   });
   return { doc, controller, errors, state: () => state, applies: () => applies };
 }
@@ -349,10 +349,103 @@ test("async incomplete or rejected recall rolls back the full previous snapshot"
   }
 });
 test("destroying a pending async menu prevents late selection and rollback callbacks", async () => {
-  let release;
-  const fixture=randomFixture({apply:snapshot=>new Promise(resolve=>{release=()=>resolve(snapshot);})});
+  let release, callbacks = 0;
+  const fixture=randomFixture({apply:snapshot=>new Promise(resolve=>{release=()=>resolve(snapshot);}), onApplied:()=>callbacks++});
   fixture.controller.view.select('p-7');fixture.controller.destroy();release();await settle();
+  assert.equal(callbacks,0);
   assert.equal(fixture.controller.selectedId,null);
   assert.equal(fixture.applies(),1);
   assert.deepEqual(fixture.errors,[]);
+});
+
+
+test("success feedback sees refreshed preset and dice metadata, never registration", () => {
+  const calls = [];
+  const fixture = randomFixture({onApplied: () => calls.push({
+    state: {...fixture.state()}, selected: fixture.controller.selectedId,
+    busy: fixture.doc.querySelector(".header-preset-controls").attributes.get("aria-busy"),
+    message: fixture.doc.querySelector(".sr-only").textContent,
+  })});
+  try {
+    assert.deepEqual(calls, []);
+    fixture.controller.view.select("p-3");
+    fixture.doc.querySelector(".header-preset-next").emit("click");
+    fixture.doc.querySelector(".header-preset-random").emit("click");
+    assert.deepEqual(calls.map(({state, selected, busy}) => ({state, selected, busy})), [
+      {state: {value: 3}, selected: "p-3", busy: "false"},
+      {state: {value: 4}, selected: "p-4", busy: "false"},
+      {state: {value: 4.25}, selected: null, busy: "false"},
+    ]);
+    assert.match(calls[0].message, /Scene 3 loaded/);
+    assert.match(calls[2].message, /randomized/);
+  } finally { fixture.controller.destroy(); }
+});
+
+test("asynchronous success feedback waits for the validated capture and runs once", async () => {
+  let release;
+  const calls = [];
+  const fixture = randomFixture({
+    apply: snapshot => new Promise(resolve => {release = () => resolve(snapshot);}),
+    onApplied: () => calls.push({state: {...fixture.state()}, selected: fixture.controller.selectedId}),
+  });
+  try {
+    fixture.controller.view.select("p-4");
+    fixture.controller.view.randomize();
+    assert.deepEqual(calls, []);
+    release(); await settle();
+    assert.deepEqual(calls, [{state: {value: 4}, selected: "p-4"}]);
+    fixture.doc.querySelector(".header-preset-random").emit("click");
+    assert.equal(calls.length, 1);
+    release(); await settle();
+    assert.deepEqual(calls[1], {state: {value: 4.25}, selected: null});
+  } finally { fixture.controller.destroy(); }
+});
+
+test("invalid recall and rollback never trigger success feedback", async () => {
+  for (const asynchronous of [false, true]) for (const rejected of [false, true]) {
+    let callbacks = 0;
+    const recall = snapshot => {
+      if (snapshot.value !== 4) return snapshot;
+      if (rejected) throw new Error("unavailable voice");
+      return {value: 4.5};
+    };
+    const fixture = randomFixture({
+      apply: asynchronous ? async snapshot => recall(snapshot) : recall,
+      onApplied: () => callbacks++,
+    });
+    try {
+      fixture.controller.view.select("p-4"); await settle();
+      assert.deepEqual(fixture.state(), {value: 0});
+      assert.equal(fixture.applies(), 2);
+      assert.equal(callbacks, 0);
+      fixture.controller.view.select("p-2"); await settle();
+      assert.equal(callbacks, 1);
+    } finally { fixture.controller.destroy(); }
+  }
+  let callbacks = 0;
+  const fixture = randomFixture({randomize: previous => previous, onApplied: () => callbacks++});
+  try {
+    fixture.controller.view.randomize();
+    assert.equal(fixture.applies(), 0);
+    assert.equal(callbacks, 0);
+  } finally { fixture.controller.destroy(); }
+});
+
+test("throwing or rejected success feedback cannot roll back a complete recall", async () => {
+  for (const asynchronous of [false, true]) {
+    const fail = () => {throw new Error("preview unavailable");};
+    const fixture = randomFixture({onApplied: asynchronous ? async () => fail() : fail});
+    try {
+      fixture.controller.view.select("p-4"); await settle();
+      assert.deepEqual(fixture.state(), {value: 4});
+      assert.equal(fixture.controller.selectedId, "p-4");
+      assert.equal(fixture.applies(), 1);
+      assert.match(fixture.doc.querySelector(".sr-only").textContent, /Scene 4 loaded/);
+      assert.equal(fixture.errors.length, 1);
+      assert.match(fixture.errors[0][0], /Preset feedback failed/);
+      fixture.controller.view.select("p-2"); await settle();
+      assert.equal(fixture.controller.selectedId, "p-2");
+      assert.equal(fixture.applies(), 2);
+    } finally { fixture.controller.destroy(); }
+  }
 });

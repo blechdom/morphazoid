@@ -18,6 +18,11 @@ class GesticulatingHandProcessor extends AudioWorkletProcessor {
         const duration = clampHand(data.seconds, .015, 2, .18);
         if (at + duration > currentTime) this.dsp.auditionFinger(data.index, duration, at);
       }
+      if (data.type === "preview") {
+        const at = clampHand(data.audioTime, 0, currentTime, currentTime);
+        const duration = clampHand(data.seconds, .015, 1.5, .75);
+        if (at + duration > currentTime) this.dsp.previewPreset(duration, at);
+      }
       if (data.type === "panic") { this.dsp.setSoundPlaying(false); this.dsp.setHeldFingers(0); this.dsp.reset(); this.output.reset(); }
       if (data.type === "dispose") { this.alive = false; this.dsp.reset(); this.output.reset(); }
     };
