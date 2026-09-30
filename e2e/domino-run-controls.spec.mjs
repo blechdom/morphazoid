@@ -89,7 +89,9 @@ for (const variant of [
       await expect(page.locator('#selectedNumber')).toHaveText('8');
       const before = await geometry(page), settings = await snapshot(page);
       await page.locator('#tileSize').scrollIntoViewIfNeeded();
-      await page.locator('#tileSize').press('End');
+      await page.locator('#tileSize').evaluate(input => {
+        input.value = '4'; input.dispatchEvent(new Event('change', { bubbles: true }));
+      });
       await expect(page.locator('#tileSizeOut')).toHaveText('4.00');
       await page.locator('#tileMaterial').selectOption('plastic');
       const after = await geometry(page), selected = after.dominoes.find(tile => tile.id === 7);

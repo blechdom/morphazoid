@@ -1,6 +1,6 @@
 import { connectAudioOutput } from '../../audio-output-manager.js';
 import { resumeAudioContext, withAudioTimeout } from '../../audio-startup.js';
-import { IMPACT_SIZE_EXPONENT, materialId, renderImpact } from './domino-run-sound.js';
+import { IMPACT_SIZE_EXPONENT, MIN_IMPACT_HEIGHT, MAX_IMPACT_HEIGHT, materialId, renderImpact } from './domino-run-sound.js';
 
 const clamp = (value, low, high, fallback = low) => Math.min(high, Math.max(low,
   Number.isFinite(Number(value)) ? Number(value) : fallback));
@@ -37,7 +37,7 @@ export function impactVariation(seed, amount = 0) {
  *   If pan is omitted, x is mapped through tanh(x/8).
  * prepare(events) pre-renders missing material/size/settings buffers while armed.
  * cancelQueued() removes future attacks while preserving audible resonance tails.
- * setParams({ring,brightness,soundVariation}), setLevel(0..1), silence(), async dispose().
+ * setParams({ring,brightness,soundVariation,pitch}), setLevel(0..1), silence(), async dispose().
  * context/armed/status getters expose transport clock and bounded mixer counts.
  */
 export class DominoAudio {
@@ -50,8 +50,9 @@ export class DominoAudio {
     this._starting = null;
     this._workletReady = false;
     this.level = 0.5;
-    this.params = { ring: 0.5, brightness: 0.5, soundVariation: 0.2 };
+    this.params = { ring: 0.5, brightness: 0.5, soundVariation: 0.2, pitch: 0 };
     this._hitSerial = 0;
+    this._queueSerial = 0;
     this.cache = new Map();
     this._nextBuffer = 1;
     this._status = { active: 0, queued: 0, buffers: 0, played: 0, dropped: 0, stolen: 0 };
@@ -138,23 +139,25 @@ export class DominoAudio {
     if (values.ring !== undefined) this.params.ring = clamp(values.ring, 0, 1, this.params.ring);
     if (values.brightness !== undefined) this.params.brightness = clamp(values.brightness, 0, 1, this.params.brightness);
     if (values.soundVariation !== undefined) this.params.soundVariation = clamp(values.soundVariation, 0, 1, this.params.soundVariation);
+    if (values.pitch !== undefined) this.params.pitch = clamp(values.pitch, -36, 36, this.params.pitch);
   }
 
   _buffer(event) {
     const material = materialId(event.material);
-    const height = clamp(event.height, 0.2, 6, 1);
+    const height = clamp(event.height, MIN_IMPACT_HEIGHT, MAX_IMPACT_HEIGHT, 1);
     // Quarter-octave cache bins save synthesis work. Playback-rate correction
     // restores the exact continuous size/pitch relation for every domino.
     const heightBin = Math.round(Math.log2(height) * 4);
     const size = 2 ** (heightBin / 4);
     const ring = Math.round(this.params.ring * 32) / 32;
     const brightness = Math.round(this.params.brightness * 8) / 8;
+    const pitch = this.params.pitch;
     const type = event.type === 'floor' ? 'floor' : 'contact';
-    const key = `${material}:${heightBin}:${type}:${ring}:${brightness}`;
+    const key = `${material}:${heightBin}:${type}:${ring}:${brightness}:${pitch}`;
     let cached = this.cache.get(key);
     if (!cached) {
       const sampleRate = Math.min(24000, this._context.sampleRate);
-      const data = renderImpact(material, size, 1, type, { sampleRate, ring, brightness, seed: 1729 + heightBin });
+      const data = renderImpact(material, size, 1, type, { sampleRate, ring, brightness, pitch, seed: 1729 + heightBin });
       cached = { id: this._nextBuffer++, size };
       this.mixer.port.postMessage({ type: 'buffer', id: cached.id, sampleRate, data }, [data.buffer]);
     } else this.mixer.port.postMessage({ type: 'touch', id: cached.id });
@@ -199,18 +202,29 @@ export class DominoAudio {
 
   queue(events = [], startAt, { preserveStart = false } = {}) {
     if (!this.armed) return null;
-    const planned = [];
+    const staged = events.length > 128;
+    const batch = staged ? (this._queueSerial = (this._queueSerial + 1) >>> 0) : null;
+    let planned = [];
     for (const event of events.slice(0, 4096)) {
       if (!Number.isFinite(event.time) || event.time < 0) continue;
       const next = this._event(event, event.time);
       if (next) planned.push(next);
+      if (staged && planned.length === 128) {
+        this.mixer.port.postMessage({ type: 'stage', batch, events: planned });
+        planned = [];
+      }
     }
+    if (staged && planned.length) this.mixer.port.postMessage({ type: 'stage', batch, events: planned });
     const now = this._context.currentTime;
     const requested = Number(startAt);
     // Live edits retain their clock anchor through cold-cache preparation.
     // Expired attacks are skipped rather than squeezed into a late burst.
     const keepClock = preserveStart && Number.isFinite(requested);
     const start = keepClock ? requested : Math.max(requested || 0, now + 0.04);
+    if (staged) {
+      this.mixer.port.postMessage({ type: 'commit', batch, start, notBefore: keepClock ? now : -Infinity });
+      return start;
+    }
     for (const event of planned) event.time += start;
     const upcoming = keepClock ? planned.filter((event) => event.time >= now) : planned;
     this.mixer.port.postMessage({ type: 'events', events: upcoming });

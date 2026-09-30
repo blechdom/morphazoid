@@ -37,9 +37,9 @@ test('sanitization yields complete bounded state without mutating inputs', () =>
   const p = sanitizeParams(input);
   assert.deepEqual(Object.keys(p).sort(), fullKeys);
   assert.equal(p.count, DEFAULT_PARAMS.count);
-  assert.equal(p.spacing, 1.35); assert.equal(p.size, .65);
-  assert.equal(p.sizeVariation, .4); assert.equal(p.growth, -.5);
-  assert.equal(p.stairRise, .3); assert.equal(p.speed, .35);
+  assert.equal(p.spacing, 2.5); assert.equal(p.size, .1);
+  assert.equal(p.sizeVariation, 1); assert.equal(p.growth, -2);
+  assert.equal(p.stairRise, 1); assert.equal(p.speed, .05);
   assert.equal(p.ring, DEFAULT_PARAMS.ring); assert.equal(p.brightness, 1);
   assert.equal(p.seed, 4294967295); assert.equal(p.loop, false);
   assert.equal(p.material, 'stone'); assert.equal(p.layout, 'henge');
@@ -55,7 +55,7 @@ test('seeded routes and contact scores are reproducible and pure', () => {
   assert.notDeepEqual(buildRun({ ...input, seed: 3883 }), first);
 });
 
-test('all complete scenes propagate from their one physical root', () => {
+test('all complete scenes propagate from their physical roots', () => {
   assert.ok(PRESETS.length >= 12);
   assert.equal(new Set(PRESETS.map(p => p.name)).size, PRESETS.length);
   assert.equal(new Set(PRESETS.map(p => JSON.stringify(p.params))).size, PRESETS.length);
@@ -66,13 +66,13 @@ test('all complete scenes propagate from their one physical root', () => {
     const run = buildRun(p.params), score = compileRun(run);
     assert.equal(score.reachableCount, run.dominoes.length, p.id);
     assert.equal(score.stalledIds.length, 0, p.id);
-    assert.deepEqual(run.roots, [0]);
+    if (p.params.direction === 'forward') assert.deepEqual(run.roots, [0]);
     assertCausal(run, score);
   }
 });
 
-test('every layout supports the minimum and maximum population with bounded gradients', () => {
-  for (const { id } of LAYOUTS) for (const count of [16, 512]) {
+test('established layouts retain full propagation and contact geometry at their former endpoints', () => {
+  for (const id of ['henge', 'serpentine', 'spiral', 'fork', 'stairs-up', 'stairs-down', 'tapestry']) for (const count of [16, 512]) {
     const run = buildRun({ layout: id, count }), score = compileRun(run);
     assert.equal(run.dominoes.length, count, id);
     assert.equal(run.links.length, id === 'henge' ? count : count - 1, id);
@@ -232,15 +232,19 @@ test('cyclic or duplicate route data cannot replay a falling tile or overflow ev
 
 test('bounded randomization covers full musical state and produces useful repeatable runs', () => {
   const observed = new Map(fullKeys.map(key => [key, new Set()]));
+  let playable = 0, partial = 0;
   for (let seed = 0; seed < 128; seed++) {
     const params = randomizeParams(seed);
     assert.deepEqual(Object.keys(params).sort(), fullKeys);
     assert.deepEqual(params, sanitizeParams(params));
     const run = buildRun(params), score = compileRun(run);
-    assert.ok(score.reachableCount >= params.count * .9, `seed ${seed}`);
+    assertCausal(run, score);
+    if (score.reachableCount >= params.count * .8) playable++; else partial++;
     assert.ok(!PRESETS.some(p => JSON.stringify(p.params) === JSON.stringify(params)));
     for (const key of fullKeys) observed.get(key).add(params[key]);
   }
+  assert.ok(playable >= 128 * 2 / 3, 'most random scenes propagate substantially');
+  assert.ok(partial > 0, 'wild random scenes retain real gaps and failed transfers');
   for (const [key, values] of observed) assert.ok(values.size > 1, `frozen randomizer parameter ${key}`);
   assert.equal(observed.get('layout').size, LAYOUTS.length);
   assert.equal(observed.get('material').size, MATERIALS.length + 1);

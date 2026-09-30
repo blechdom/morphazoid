@@ -1,5 +1,5 @@
 import { angleAt } from "./domino-run-model.js";
-import { samplePolyline } from "./domino-run-drawing.js";
+import { MAX_DRAWN_DOMINOES, samplePolyline } from "./domino-run-drawing.js";
 import { canvasSizing } from "../../graphics/canvas-sizing.js";
 
 const clamp = (n, a, b) => Math.max(a, Math.min(b, n));
@@ -58,13 +58,17 @@ export class DominoRenderer {
     if (!run.dominoes.length) return;
     let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
     for (const d of run.dominoes) {
-      for (const dx of [-d.height, d.height]) for (const dz of [-d.height, d.height]) for (const dy of [0, d.height]) {
-        const p = this.raw(d.x + dx, d.elevation + dy, d.z + dz);
+      // Include the entire falling envelope, thickness, and negative steps.
+      const reach = Math.hypot(d.height, d.depth);
+      const radius = reach + d.depth / 2 + d.width / 2;
+      const bottom = Math.min(0, d.elevation), top = Math.max(0, d.elevation + reach);
+      for (const dx of [-radius, radius]) for (const dz of [-radius, radius]) for (const dy of [bottom, top]) {
+        const p = this.raw(d.x + dx, dy, d.z + dz);
         x0 = Math.min(x0, p.x); x1 = Math.max(x1, p.x); y0 = Math.min(y0, p.y); y1 = Math.max(y1, p.y);
       }
     }
     const w = this.cssWidth, h = this.cssHeight;
-    this.scale = Math.min((w - 60) / Math.max(2, x1 - x0), (h - 155) / Math.max(2, y1 - y0)) * this.zoom;
+    this.scale = Math.min(Math.max(1, w - 60) / Math.max(.001, x1 - x0), Math.max(1, h - 155) / Math.max(.001, y1 - y0)) * this.zoom;
     this.ox = w / 2 - (x0 + x1) / 2 * this.scale;
     this.oy = (h + 38) / 2 - (y0 + y1) / 2 * this.scale;
   }
@@ -92,7 +96,12 @@ export class DominoRenderer {
     surfaces.forEach(({points,i}) => this.polygon(points, tint(color, shades[i] + flash * 70), selected ? "#ffe1a0" : "#171a13"));
     const center = this.project(d.x + ca * (d.depth / 2 + d.height * st * .5), d.elevation + d.height * ct * .5, d.z + sa * (d.depth / 2 + d.height * st * .5));
     const base = this.project(d.x,d.elevation,d.z);
-    this.hits.push({ id: d.id, x: center.x, y: center.y, bx: base.x, by: base.y, radius: Math.max(10, Math.min(30, d.height * this.scale * .45)), polygons: surfaces.map(({points}) => points) });
+    const bounds = { minX: Infinity, maxX: -Infinity, minY: Infinity, maxY: -Infinity };
+    for (const point of vertices) {
+      bounds.minX = Math.min(bounds.minX, point.x); bounds.maxX = Math.max(bounds.maxX, point.x);
+      bounds.minY = Math.min(bounds.minY, point.y); bounds.maxY = Math.max(bounds.maxY, point.y);
+    }
+    this.hits.push({ id: d.id, x: center.x, y: center.y, bx: base.x, by: base.y, radius: Math.max(10, Math.min(30, d.height * this.scale * .45)), bounds, polygons: surfaces.map(({points}) => points) });
     if (this.scale * d.height > 20 && angle < 1.4) {
       const face = [vertices[2],vertices[3],vertices[7],vertices[6]];
       c.save(); c.beginPath(); face.forEach((p,i) => i ? c.lineTo(p.x,p.y) : c.moveTo(p.x,p.y)); c.closePath(); c.clip();
@@ -136,7 +145,7 @@ export class DominoRenderer {
     for(const d of ordered) {
       const p=this.project(d.x,0,d.z);
       c.fillStyle="#080b08";c.globalAlpha=.25;c.beginPath();c.ellipse(p.x,p.y,d.height*this.scale*.46,d.height*this.scale*.13,this.yaw,0,Math.PI*2);c.fill();c.globalAlpha=1;
-      if(d.elevation>.025) {
+      if(Math.abs(d.elevation)>.025) {
         const x=d.x,z=d.z,r=d.height*.37, y=d.elevation;
         const a=this.project(x-r,0,z-r),b=this.project(x+r,0,z-r),e=this.project(x+r,0,z+r),f=this.project(x-r,0,z+r);
         const at=this.project(x-r,y,z-r),bt=this.project(x+r,y,z-r),et=this.project(x+r,y,z+r),ft=this.project(x-r,y,z+r);
@@ -160,13 +169,19 @@ export class DominoRenderer {
       if(flashes.has(d.id)){const p=this.project(d.x,d.elevation,d.z);c.strokeStyle=`rgba(247,211,135,${flashes.get(d.id)*.6})`;c.lineWidth=1;c.beginPath();c.ellipse(p.x,p.y,12+(1-flashes.get(d.id))*20,5+(1-flashes.get(d.id))*8,0,0,Math.PI*2);c.stroke();}
     }
     if(draft){
+      const rotation = (run.params.rotation ?? 0) * Math.PI / 180;
+      const cosine = Math.cos(rotation), sine = Math.sin(rotation), stretch = run.params.stretch ?? 1;
+      const draftPoint = (point, elevation = .03) => {
+        const x = point.x * stretch;
+        return this.project(x * cosine - point.z * sine, elevation, x * sine + point.z * cosine);
+      };
       c.strokeStyle="#f2cd88";c.lineWidth=2;c.setLineDash([5,4]);c.beginPath();
-      draft.points.forEach((point,i)=>{const p=this.project(point.x,.03,point.z);i?c.lineTo(p.x,p.y):c.moveTo(p.x,p.y);});
+      draft.points.forEach((point,i)=>{const p=draftPoint(point);i?c.lineTo(p.x,p.y):c.moveTo(p.x,p.y);});
       c.stroke();c.setLineDash([]);
-      const samples=samplePolyline(draft.points,{spacing:1.2*run.params.size*run.params.spacing,maxPoints:512});
+      const samples=samplePolyline(draft.points,{spacing:1.2*run.params.size*run.params.spacing,maxPoints:MAX_DRAWN_DOMINOES});
       c.fillStyle="#ffe0a0";
-      for(const point of samples){const p=this.project(point.x,.04,point.z);c.beginPath();c.arc(p.x,p.y,2.3,0,Math.PI*2);c.fill();}
-      if(draft.cursor){const p=this.project(draft.cursor.x,.05,draft.cursor.z);c.lineWidth=1;c.beginPath();c.moveTo(p.x-7,p.y);c.lineTo(p.x+7,p.y);c.moveTo(p.x,p.y-7);c.lineTo(p.x,p.y+7);c.stroke();}
+      for(const point of samples){const p=draftPoint(point,.04);c.beginPath();c.arc(p.x,p.y,2.3,0,Math.PI*2);c.fill();}
+      if(draft.cursor){const p=draftPoint(draft.cursor,.05);c.lineWidth=1;c.beginPath();c.moveTo(p.x-7,p.y);c.lineTo(p.x+7,p.y);c.moveTo(p.x,p.y-7);c.lineTo(p.x,p.y+7);c.stroke();}
     }
   }
   hit(x,y) {
@@ -174,6 +189,7 @@ export class DominoRenderer {
     for (let i = this.hits.length - 1; i >= 0; i--) {
       const p = this.hits[i];
       if (p.polygons) {
+        if (x < p.bounds.minX - .35 || x > p.bounds.maxX + .35 || y < p.bounds.minY - .35 || y > p.bounds.maxY + .35) continue;
         if (p.polygons.some(points => containsPoint(points, x, y))) return p.id;
       } else if (Math.hypot(x - p.x, y - p.y) < p.radius) {
         // Lifted-out dominoes retain their small editing-marker target.

@@ -23,6 +23,8 @@ export class DominoMixer {
     this.variationAttackPole = Math.exp(-1 / (sampleRate * 0.006));
     this.buffers = new Map();
     this.events = [];
+    this.staged = [];
+    this.stagedBatch = null;
     this.cursor = 0;
     this.voices = [];
     this.played = 0;
@@ -44,11 +46,15 @@ export class DominoMixer {
     this.buffers.set(id, buffer);
   }
 
-  enqueue(events) {
+  enqueue(events, { stage = false, batch = 0 } = {}) {
+    if (stage && this.stagedBatch !== batch) {
+      this.staged.length = 0;
+      this.stagedBatch = batch;
+    }
     this.events = this.events.slice(this.cursor);
     this.cursor = 0;
     for (const event of events) {
-      if (this.events.length >= MAX_DOMINO_EVENTS) { this.dropped += 1; continue; }
+      if (this.events.length + this.staged.length >= MAX_DOMINO_EVENTS) { this.dropped += 1; continue; }
       const buffer = this.buffers.get(event.bufferId);
       if (!buffer || !Number.isFinite(event.time)) { this.dropped += 1; continue; }
       const pan = clamp(event.pan, -1, 1);
@@ -56,15 +62,32 @@ export class DominoMixer {
       const tilt = clamp(event.variation?.tilt, -0.45, 0.45);
       const attack = clamp(event.variation?.attack, -0.20, 0.20);
       const body = clamp(event.variation?.body, -0.15, 0.15);
-      this.events.push({ time: event.time, data: buffer.data, tilt, attack, body, varied: Boolean(tilt || attack || body),
+      (stage ? this.staged : this.events).push({ time: event.time, data: buffer.data, tilt, attack, body, varied: Boolean(tilt || attack || body),
         step: buffer.sampleRate / this.sampleRate * clamp(event.rate, 0.25, 4),
         left: Math.cos((pan + 1) * Math.PI / 4) * gain,
         right: Math.sin((pan + 1) * Math.PI / 4) * gain, gain });
     }
+    if (!stage) this.events.sort((a, b) => a.time - b.time);
+  }
+
+  // Prepare large batches in small packets so the LRU may evict a source only
+  // after its pending events own a reference. Nothing sounds until commit.
+  commit(start, notBefore = -Infinity, batch = 0) {
+    if (this.stagedBatch !== batch) return;
+    this.stagedBatch = null;
+    if (!Number.isFinite(start)) { this.staged.length = 0; return; }
+    this.events = this.events.slice(this.cursor); this.cursor = 0;
+    for (const event of this.staged) {
+      event.time += start;
+      if (event.time >= notBefore) this.events.push(event);
+    }
+    this.staged.length = 0;
     this.events.sort((a, b) => a.time - b.time);
   }
 
   cancelQueued() {
+    this.stagedBatch = null;
+    this.staged.length = 0;
     this.events.length = 0;
     this.cursor = 0;
   }
@@ -75,6 +98,8 @@ export class DominoMixer {
   }
 
   clear() {
+    this.stagedBatch = null;
+    this.staged.length = 0;
     this.events.length = 0;
     this.cursor = 0;
     this.voices.length = 0;
@@ -129,7 +154,7 @@ export class DominoMixer {
   }
 
   get status() {
-    return { active: this.voices.length, queued: this.events.length - this.cursor,
+    return { active: this.voices.length, queued: this.events.length - this.cursor + this.staged.length,
       buffers: this.buffers.size, played: this.played, dropped: this.dropped, stolen: this.stolen };
   }
 }
@@ -145,6 +170,8 @@ class DominoRunProcessor extends WorkletBase {
       if (data.type === 'buffer') this.mixer.addBuffer(data);
       else if (data.type === 'touch') this.mixer.touchBuffer(data.id);
       else if (data.type === 'events') this.mixer.enqueue(data.events);
+      else if (data.type === 'stage') this.mixer.enqueue(data.events, { stage: true, batch: data.batch });
+      else if (data.type === 'commit') this.mixer.commit(data.start, data.notBefore, data.batch);
       else if (data.type === 'cancel') this.mixer.cancelQueued();
       else if (data.type === 'silence') this.mixer.silence();
       else if (data.type === 'dispose') this.mixer.clear();

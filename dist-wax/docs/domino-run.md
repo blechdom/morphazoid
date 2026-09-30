@@ -13,7 +13,8 @@ arrangement; if the transport was running, it starts the run again. Loop whole r
 the tiles during a short silent reset between runs when Stand again is off. Audio can be switched off
 while the visual run continues.
 
-The preset menu contains sixteen complete scenes. **New random run** and the
+The preset menu contains 24 complete scenes from gentle clatter to extreme runs.
+**New random run** and the
 preset dice generate new bounded parameter combinations rather than choosing a
 preset. The seed reproduces the generated arrangement. Preset and parameter
 changes preserve Audio, master volume, and whether the transport is running.
@@ -40,8 +41,13 @@ also favors shorter decays. These remain synthesized material approximations.
 snap, and body weight to repeated impacts. It does not alter pitch, pan, geometry,
 or fall timing. The default 20% is subtle; 0% removes the extra per-hit variation.
 The **↺ 0** buttons reset Sound variation, Size variation, Size gradient, Step
-height, and Resonance to zero. They update the same controls used for dragging
-and keyboard adjustment.
+height, Rotation, Sound tuning, and Resonance to zero. They update the same
+controls used for dragging and keyboard adjustment.
+
+Try **Ant March** for tiny plastic ticks, **Monolith Crawl** for very slow giant
+stones, **Porcelain Petals** for a ceramic flower, or **Figure Eight Frenzy** for
+a fast reversed loop. **Rising Coil**, **Reverse Weave**, **Colossus Growth**, and
+**Thousand Clacks** explore height, convergence, growth, and dense fields.
 
 ## Circulating runs
 
@@ -74,7 +80,7 @@ Dominoes are sampled along the whole stroke, including between fast pointer
 moves. Gentle curves transfer better than sharp corners. Spacing and size controls
 resample the preserved path; sound and material changes keep its shape. Choosing
 a generated Path or preset leaves drawing mode’s pattern. Patterns hold at most
-512 dominoes across 64 strokes. Individual Arrange edits and Undo still work.
+1,024 dominoes across 64 strokes. Individual Arrange edits and Undo still work.
 
 For keyboard drawing, focus the canvas in Draw mode. Arrows move the cursor;
 Enter adds a waypoint, Shift+Enter or **Finish path** commits it, Escape cancels,
@@ -82,22 +88,37 @@ and Ctrl/Cmd+Z undoes the last edit. Hold Shift with an arrow for smaller moves.
 
 ## Make a run
 
-- **Path:** circle, serpentine, spiral, fork, upstairs, downstairs, or a connected
-  tapestry of rows. Terraces have visible supports; forked paths share a starter.
-- **Dominoes:** 16–512 pieces. Larger fields receive the same contact checks as
+- **Path:** circle, serpentine, spiral, fork, upstairs, downstairs, tapestry,
+  wave, zigzag, polygon, flower, figure-eight, or a supported helix. Terraces
+  have visible supports; forked paths share a starter.
+- **Run direction:** Forward follows the path; Reverse starts at its ends.
+  Reversed forks converge from their leaves, and closed loops circulate the
+  other way. Manual pushes can still start anywhere.
+- **Rotation, Stretch, Bend / turns:** rotate the pattern through a full turn,
+  squeeze or stretch it from 0.2× to 5×, and reshape curves from 0.2× to 3×.
+  Bend / turns applies to generated paths; drawings keep their authored curves.
+- **Dominoes:** 4–1,024 pieces. Larger fields receive the same contact checks as
   small runs.
 - **Spacing:** center separation relative to tile height. Gaps, overlap,
   direction and step height can prevent propagation. Broken transfers are
   shown in red when Paths is enabled.
 - **Size, variation, gradient:** change height, width, thickness, mass and fall
-  timing together. Size shifts the continuous body color subtly; it is not
-  snapped to a scale.
-- **Step height:** changes the height difference between supported terraces in
-  the two stair layouts. It has no effect on level layouts.
+  timing together. Overall size spans 0.1×–6×. Variation reaches strong size
+  contrasts; the gradient reaches roughly 55-fold growth or shrinkage along a
+  path before the individual height limits. Each piece stays between 0.03 and
+  64 scene units. Size continuously shifts its impact color.
+  Changing Overall size visibly changes the camera scale too; **Fit** frames
+  the complete pattern again.
+- **Step height:** ranges from −1 to +1 scene unit between stair terraces or
+  helix pieces. Negative values reverse the climb; zero levels the path.
 - **Material:** stone, wood, ceramic, glass, metal, plastic, or mixed materials.
   These have distinct synthesized attacks and resonances, plus model density
   and transfer loss. They are expressive approximations, not measured recordings.
-- **Run speed:** scales the run's time without transposing its material sounds.
+- **Run speed:** spans 0.05×–12×, from slow toppling to dense rattles, without
+  transposing material sounds. **After landing** spans 0.05–60 seconds.
+- **Sound tuning:** continuously shifts the impact spectrum three octaves down
+  or up (−36 to +36 semitones), independently of fall speed and piece size.
+  It preserves the short attack; zero retains the material's original tuning.
   Resonance and Brightness change impact decay and spectrum.
 
 Open **Edit one domino** and press **Choose on stage** to enter Arrange mode.
@@ -123,7 +144,8 @@ four-second audio lookahead, so each added push updates future contacts without
 replaying the entire performance.
 
 Orbit the scene by dragging empty space or choosing Orbit; Fit restores the
-camera. Camera and path visibility do not change the score.
+camera. Zoom spans 0.05×–32×, with a wider low-to-high viewing angle. Camera
+and path visibility do not change the score.
 
 ## Keyboard and MIDI
 
@@ -149,9 +171,11 @@ multi-body stacks, spontaneous contacts between unlinked paths, or fracture.
 Fallen pieces continue to their support plane; exact final stacking is not
 solved. These are musical runs, not an engineering prediction of a real build.
 
-The randomizer chooses conservative ranges and deterministic geometry. The
-manual editor deliberately permits arrangements that fail. Extremely different
-neighboring pieces, excessive steps and gaps can stop a chain. Research distinguishes
+The randomizer explores small and giant pieces, slow and fast runs, broad shape
+changes and occasional broken transfers. Its seed reproduces the same result;
+presets and Reset all provide a route back. Extremely different neighboring
+pieces, excessive steps and gaps can stop a chain. Push elsewhere to start a
+separate wave. Research distinguishes
 floor grip from face friction; this model assumes stable pivots and represents
 transfer loss rather than exposing an uncalibrated friction simulator.
 
@@ -179,7 +203,12 @@ copied into the instrument. The catalogue icon is drawn from its own viewport.
 Automated checks cover deterministic layouts and randomization, broken gaps,
 forks and supported stairs, material/size response, bounded audio, MIDI input,
 editing and recovery, and desktop and mobile viewport layouts. A dense test runs
-all 512 mixed-material dominoes with no dropped events. Audio is also checked
+all 512 mixed-material dominoes with no dropped events; expanded mixer tests
+cover 1,024 mixed extreme-size events through cache eviction with no drops.
+A browser test plays all 2,047 impacts from a 1,024-piece run at 12× without
+dropped events. Dense recurring forecasts retain every upcoming impact and
+current pose across the full scheduling window.
+Audio is also checked
 while the main browser thread is deliberately stalled. Touch automation covers
 drawing, tile dragging and cancellation; its recovery step uses keyboard Undo.
 Further tests cover closed-loop recurrence, a wave stopping when recovery is too
@@ -188,7 +217,10 @@ Repeat-control preservation is checked across actual later loop boundaries after
 presets and both randomizers, including reset-pause recalls and delayed UI
 updates. Per-hit variation is checked for zero-depth identity, controllable
 strength/timbre spread, unchanged event timing, and bounded voice/cache use.
-Zero-reset buttons and one-piece editing are exercised on desktop and touch layouts.
+Zero-reset buttons and one-piece editing are exercised on desktop and touch
+layouts. Extreme tests exercise all 13 layouts, reversed roots, finite geometry
+and sound at the new limits, continuous tuning, camera recovery, transformed
+drawings, and immediate direction changes followed by Run or MIDI Start.
 
 Human listening, touch feel on a physical phone, and physical MIDI-controller
 checks remain unperformed. Synthesized material identity and musical usefulness

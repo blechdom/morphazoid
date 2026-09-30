@@ -17,9 +17,15 @@ export const LAYOUTS = Object.freeze([
   { id: 'spiral', label: 'Spiral' }, { id: 'fork', label: 'Bifurcations' },
   { id: 'stairs-up', label: 'Upstairs' }, { id: 'stairs-down', label: 'Downstairs' },
   { id: 'tapestry', label: 'Tapestry' },
+  { id: 'wave', label: 'Wave' }, { id: 'zigzag', label: 'Zigzag' },
+  { id: 'polygon', label: 'Polygon' }, { id: 'flower', label: 'Flower' },
+  { id: 'figure-eight', label: 'Figure eight' }, { id: 'helix', label: 'Helix' },
 ].map(Object.freeze));
+export const MAX_DOMINOES = 1024;
+export const MIN_DOMINO_HEIGHT = .03, MAX_DOMINO_HEIGHT = 64;
 export const DEFAULT_PARAMS = Object.freeze({
   layout: 'henge', count: 40, spacing: .54, size: 1.12,
+  direction: 'forward', rotation: 0, stretch: 1, curvature: 1, pitch: 0,
   sizeVariation: .10, growth: 0, stairRise: .09, material: 'stone',
   speed: 1, ring: .16, brightness: .43, soundVariation: .2, loop: true, autoStand: false, standDelay: 1.5, seed: 1975,
 });
@@ -43,20 +49,25 @@ export function sanitizeParams(raw = {}) {
   const d = DEFAULT_PARAMS;
   return {
     layout: LAYOUTS.some(l => l.id === raw.layout) ? raw.layout : d.layout,
-    count: Math.round(bounded(raw.count, 16, 512, d.count)),
-    spacing: bounded(raw.spacing, .24, 1.35, d.spacing),
-    size: bounded(raw.size, .65, 1.5, d.size),
-    sizeVariation: bounded(raw.sizeVariation, 0, .4, d.sizeVariation),
-    growth: bounded(raw.growth, -.5, .5, d.growth),
-    stairRise: bounded(raw.stairRise, 0, .3, d.stairRise),
+    direction: raw.direction === 'reverse' ? 'reverse' : d.direction,
+    rotation: bounded(raw.rotation, -180, 180, d.rotation),
+    stretch: bounded(raw.stretch, .2, 5, d.stretch),
+    curvature: bounded(raw.curvature, .2, 3, d.curvature),
+    pitch: bounded(raw.pitch, -36, 36, d.pitch),
+    count: Math.round(bounded(raw.count, 4, MAX_DOMINOES, d.count)),
+    spacing: bounded(raw.spacing, .12, 2.5, d.spacing),
+    size: bounded(raw.size, .1, 6, d.size),
+    sizeVariation: bounded(raw.sizeVariation, 0, 1, d.sizeVariation),
+    growth: bounded(raw.growth, -2, 2, d.growth),
+    stairRise: bounded(raw.stairRise, -1, 1, d.stairRise),
     material: raw.material === 'mixed' || MATERIALS.some(m => m.id === raw.material) ? raw.material : d.material,
-    speed: bounded(raw.speed, .35, 2.4, d.speed),
+    speed: bounded(raw.speed, .05, 12, d.speed),
     ring: bounded(raw.ring, 0, 1, d.ring),
-    brightness: bounded(raw.brightness, .1, 1, d.brightness),
+    brightness: bounded(raw.brightness, 0, 1, d.brightness),
     soundVariation: bounded(raw.soundVariation, 0, 1, d.soundVariation),
     loop: typeof raw.loop === 'boolean' ? raw.loop : d.loop,
     autoStand: typeof raw.autoStand === 'boolean' ? raw.autoStand : d.autoStand,
-    standDelay: bounded(raw.standDelay, .1, 12, d.standDelay),
+    standDelay: bounded(raw.standDelay, .05, 60, d.standDelay),
     seed: finite(raw.seed, d.seed) >>> 0,
   };
 }
@@ -68,29 +79,97 @@ export function sceneParams(raw = {}) {
 export function randomizeParams(seed = DEFAULT_PARAMS.seed) {
   const random = randomSource(finite(seed, DEFAULT_PARAMS.seed) >>> 0);
   const span = (a, b) => a + (b - a) * random();
+  const logSpan = (a, b) => Math.exp(span(Math.log(a), Math.log(b)));
   const layout = LAYOUTS[Math.floor(random() * LAYOUTS.length)].id;
   const materials = [...MATERIALS.map(m => m.id), 'mixed'];
-  let params = sanitizeParams({
-    layout, count: Math.round(layout === 'tapestry' ? span(128, 512) : span(24, 192)),
-    spacing: span(.35, layout.startsWith('stairs') ? .67 : .78),
-    size: span(.74, 1.4), sizeVariation: span(.015, .23), growth: span(-.38, .38),
-    stairRise: span(.015, .16), material: materials[Math.floor(random() * materials.length)],
-    speed: span(.5, 2.15), ring: .02 + .53 * random() ** 2, brightness: span(.12, .96),
-    soundVariation: .06 + .59 * random() ** 2,
-    loop: random() < .75, autoStand: random() < .35, standDelay: span(.3, 5),
+  // Most throws form playable paths; wild throws deliberately explore gaps,
+  // gradients and mass mismatches. Never repair the selected scene repeatedly.
+  const wild = random() < .22, size = logSpan(.12, 5.5);
+  return sanitizeParams({
+    layout, count: Math.round(wild ? logSpan(4, MAX_DOMINOES) : logSpan(24, 640)),
+    direction: random() < .5 ? 'forward' : 'reverse', rotation: span(-180, 180),
+    stretch: wild ? logSpan(.2, 5) : logSpan(.88, 1.13),
+    curvature: wild ? logSpan(.2, 3) : span(.8, 1.2),
+    spacing: wild ? logSpan(.12, 2.5) : span(.46, .66),
+    size, sizeVariation: wild ? span(.35, 1) : span(0, .12),
+    growth: wild ? span(-2, 2) : span(-.35, .35),
+    stairRise: wild ? span(-1, 1) : span(-.035, .055) * Math.min(size, 3),
+    material: materials[Math.floor(random() * materials.length)],
+    speed: logSpan(.05, 12), pitch: span(-36, 36),
+    ring: random() ** 2, brightness: random(), soundVariation: random(),
+    loop: random() < .75, autoStand: random() < .35, standDelay: logSpan(.05, 60),
     seed: Math.floor(random() * 4294967296),
   });
-  // Reject structural combinations that barely start. This keeps the dice
-  // useful without suppressing failures when the player edits the controls.
-  // Sound, speed, loop, material, seed and count survive structural repair.
-  for (let attempt = 0; attempt < 8; attempt++) {
-    if (compileRun(buildRun(params)).reachableCount >= params.count * .9) break;
-    params = sanitizeParams({ ...params, spacing: params.spacing * .5 + .59 * .5,
-      sizeVariation: params.sizeVariation * .7, growth: params.growth * .7,
-      stairRise: params.stairRise * .85 });
-  }
-  return params;
 }
+
+/** Shared generated/drawn law: progress is 0..1 and variation is -1..1. */
+export function dominoHeight(base, progress, variation, params = {}) {
+  const depth = bounded(progress, 0, 1, 0), wave = bounded(variation, -1, 1, 0);
+  const amount = bounded(params.sizeVariation, 0, 1, DEFAULT_PARAMS.sizeVariation);
+  const growth = bounded(params.growth, -2, 2, DEFAULT_PARAMS.growth);
+  // Familiar low settings continue into four further octaves above the former
+  // maximum. Log size remains positive and exactly uniform at zero variation.
+  const logVariation = Math.log1p(wave * Math.min(amount, .4))
+    + wave * Math.max(0, amount - .4) / .6 * Math.log(16);
+  return clamp(finite(base, 1.2 * DEFAULT_PARAMS.size)
+    * Math.exp(growth * (2 * depth - 1) + logVariation), MIN_DOMINO_HEIGHT, MAX_DOMINO_HEIGHT);
+}
+
+/** Transform fresh forward geometry once; drawings can retain their origin. */
+export function applyRunTransform(run, { recenter = true } = {}) {
+  const p = sanitizeParams(run.params), angle = p.rotation * Math.PI / 180;
+  const c = Math.cos(angle), s = Math.sin(angle), dominoes = run.dominoes;
+  const byId = new Map(dominoes.map(d => [d.id, d]));
+  for (const d of dominoes) {
+    const x = d.x * p.stretch, z = d.z;
+    d.x = x * c - z * s; d.z = x * s + z * c;
+    d.angle = p.stretch === 1 ? d.angle + angle : Math.atan2(Math.sin(d.angle), Math.cos(d.angle) * p.stretch) + angle;
+  }
+  if (p.direction === 'reverse') {
+    run.links = run.links.map(link => ({ ...link, from: link.to, to: link.from }));
+    const outgoing = new Map(), incoming = new Map(), neighbors = new Map();
+    for (const d of dominoes) { outgoing.set(d.id, []); incoming.set(d.id, []); neighbors.set(d.id, []); }
+    for (const link of run.links) {
+      if (!byId.has(link.from) || !byId.has(link.to)) continue;
+      outgoing.get(link.from).push(byId.get(link.to)); incoming.get(link.to).push(byId.get(link.from));
+      neighbors.get(link.from).push(link.to); neighbors.get(link.to).push(link.from);
+    }
+    for (const d of dominoes) {
+      const next = outgoing.get(d.id), previous = incoming.get(d.id);
+      const vectors = next.length ? next.map(to => [to.x - d.x, to.z - d.z])
+        : previous.map(from => [d.x - from.x, d.z - from.z]);
+      const vector = vectors.reduce((sum, v) => { const length = Math.hypot(...v) || 1; return [sum[0] + v[0] / length, sum[1] + v[1] / length]; }, [0, 0]);
+      d.angle = Math.hypot(...vector) > 1e-10 ? Math.atan2(vector[1], vector[0]) : d.angle + Math.PI;
+    }
+    // Closed components retain one starter. Open components start at all
+    // former terminal tiles, so reversed forks naturally converge.
+    const visited = new Set(), roots = [];
+    for (const d of dominoes) {
+      if (visited.has(d.id)) continue;
+      const component = [], queue = [d.id]; visited.add(d.id);
+      for (let i = 0; i < queue.length; i++) {
+        const id = queue[i]; component.push(id);
+        for (const neighbor of neighbors.get(id)) if (!visited.has(neighbor)) { visited.add(neighbor); queue.push(neighbor); }
+      }
+      const starters = component.filter(id => incoming.get(id).length === 0);
+      roots.push(...(starters.length ? starters : [run.roots?.find(id => component.includes(id)) ?? component[0]]));
+    }
+    run.roots = roots;
+  }
+  if (recenter && dominoes.length) {
+    const cx = (Math.min(...dominoes.map(d => d.x)) + Math.max(...dominoes.map(d => d.x))) / 2;
+    const cz = (Math.min(...dominoes.map(d => d.z)) + Math.max(...dominoes.map(d => d.z))) / 2;
+    for (const d of dominoes) { d.x -= cx; d.z -= cz; }
+  }
+  const min = values => values.length ? Math.min(...values) : 0;
+  const max = values => values.length ? Math.max(...values) : 0;
+  const minX = min(dominoes.map(d => d.x - d.height)), maxX = max(dominoes.map(d => d.x + d.height));
+  const minZ = min(dominoes.map(d => d.z - d.height)), maxZ = max(dominoes.map(d => d.z + d.height));
+  const minY = min(dominoes.map(d => d.elevation)), maxY = max(dominoes.map(d => d.elevation + d.height));
+  run.bounds = { minX, maxX, minZ, maxZ, minY, maxY, width: maxX - minX, depth: maxZ - minZ, height: maxY - minY };
+  return run;
+}
+
 const preset = (id, name, params) => Object.freeze({ id, name, params: Object.freeze(sanitizeParams({ ...DEFAULT_PARAMS, ...params })) });
 export const PRESETS = Object.freeze([
   preset('tone-henge', 'Tone Henge', {}),
@@ -109,6 +188,14 @@ export const PRESETS = Object.freeze([
   preset('loose-porcelain', 'Loose Porcelain', { layout: 'henge', count: 24, material: 'ceramic', spacing: .84, sizeVariation: .08, ring: .08, speed: .55, loop: false, seed: 187 }),
   preset('close-rattle', 'Close Rattle', { layout: 'serpentine', count: 112, material: 'plastic', spacing: .33, sizeVariation: .035, ring: .03, brightness: .75, speed: 1.95, seed: 406 }),
   preset('stone-weave', 'Stone Weave', { layout: 'tapestry', count: 512, material: 'stone', spacing: .53, size: .9, sizeVariation: .08, ring: .1, brightness: .35, speed: 1.25, seed: 718 }),
+  preset("ant-march", "Ant March", {"layout":"wave","count":128,"size":0.1,"spacing":0.52,"speed":4,"pitch":18,"material":"plastic","ring":0.02,"sizeVariation":0.04,"curvature":1.6,"seed":602}),
+  preset("monolith-crawl", "Monolith Crawl", {"layout":"henge","count":12,"size":6,"spacing":0.56,"speed":0.05,"pitch":-24,"material":"stone","ring":0,"brightness":0.1,"sizeVariation":0,"seed":603}),
+  preset("porcelain-petals", "Porcelain Petals", {"layout":"flower","count":192,"size":0.4,"spacing":0.5,"speed":3.5,"pitch":9,"material":"ceramic","ring":0.08,"sizeVariation":0.02,"curvature":1.8,"rotation":35,"seed":604}),
+  preset("figure-eight-frenzy", "Figure Eight Frenzy", {"layout":"figure-eight","count":256,"size":0.3,"spacing":0.52,"speed":12,"pitch":12,"material":"plastic","ring":0.02,"sizeVariation":0,"direction":"reverse","seed":605}),
+  preset("rising-coil", "Rising Coil", {"layout":"helix","count":128,"size":2.5,"spacing":0.52,"speed":1.5,"pitch":-12,"material":"stone","ring":0.04,"sizeVariation":0,"stairRise":0.5,"curvature":1.6,"seed":606}),
+  preset("reverse-weave", "Reverse Weave", {"layout":"tapestry","count":512,"size":0.3,"spacing":0.5,"speed":5,"pitch":0,"material":"wood","ring":0.04,"sizeVariation":0,"direction":"reverse","rotation":-65,"seed":607}),
+  preset("colossus-growth", "Colossus Growth", {"layout":"wave","count":128,"size":2,"spacing":0.5,"speed":0.3,"pitch":-18,"material":"stone","ring":0.02,"sizeVariation":0,"growth":2,"curvature":0.5,"seed":608}),
+  preset("thousand-clacks", "Thousand Clacks", {"layout":"polygon","count":1024,"size":0.15,"spacing":0.5,"speed":8,"pitch":6,"material":"mixed","ring":0.05,"sizeVariation":0,"seed":609}),
 ]);
 
 export function buildRun(raw = {}) {
@@ -120,9 +207,7 @@ export function buildRun(raw = {}) {
   const mixed = ['wood', 'plastic', 'ceramic', 'glass', 'stone', 'metal'];
   function add(x, z, elevation = 0, angle = 0, parent = null, depth = 0) {
     const variation = Math.sin(depth * .46 + phase) * .65 + Math.sin(depth * .17 + phase * 2) * .35;
-    let height = base * Math.exp(p.growth * (2 * depth / depthLimit - 1)) * (1 + variation * p.sizeVariation);
-    if (parent) height = clamp(height, parent.height / 1.18, parent.height * 1.18);
-    height = clamp(height, base * .45, base * 1.9);
+    const height = dominoHeight(base, depth / Math.max(1, depthLimit), variation, p);
     const material = materialFor(p.material === 'mixed' ? mixed[Math.floor(depth / 5) % mixed.length] : p.material);
     const d = { id: dominoes.length, x, z, elevation, height, width: height * .5, depth: height * .16,
       angle, material: material.id, color: material.color };
@@ -143,17 +228,20 @@ export function buildRun(raw = {}) {
     let parent = null;
     for (let i = 0; i < p.count; i++) {
       const a = i * TAU / p.count;
-      const d = add(radius * Math.cos(a), radius * Math.sin(a), 0, a + HALF_PI + Math.PI / p.count, parent, i);
+      const next = a + TAU / p.count;
+      const heading = p.curvature === 1 ? a + HALF_PI + Math.PI / p.count
+        : Math.atan2(p.curvature * (Math.sin(next) - Math.sin(a)), Math.cos(next) - Math.cos(a));
+      const d = add(radius * Math.cos(a), radius * Math.sin(a) * p.curvature, 0, heading, parent, i);
       parent = d;
     }
     links.push({ from: parent.id, to: dominoes[0].id });
   } else if (p.layout === 'spiral') {
-    let parent = add(0, 0), angle = 0, radius = base * 1.5, polar = 0;
+    let parent = add(0, 0), angle = 0, radius = base * 1.5 / p.curvature, polar = 0;
     parent.x = radius;
     for (let i = 1; i < p.count; i++) {
       const step = parent.height * p.spacing;
-      const delta = step / Math.hypot(radius, base * .45);
-      polar += delta; radius += base * .45 * delta;
+      const delta = step / Math.hypot(radius, base * .45 / p.curvature);
+      polar += delta; radius += base * .45 / p.curvature * delta;
       const x = radius * Math.cos(polar), z = radius * Math.sin(polar);
       angle = Math.atan2(z - parent.z, x - parent.x); parent.angle = angle;
       parent = add(x, z, 0, angle, parent, i);
@@ -168,7 +256,7 @@ export function buildRun(raw = {}) {
       const leftCount = Math.floor(remaining / 2), rightCount = remaining - leftCount;
       for (const [sign, count] of [[-1, leftCount], [1, rightCount]]) {
         if (!count) continue;
-        const child = advance(parent, parent.angle + sign * .52, depth, sign * parent.height * .29);
+        const child = advance(parent, parent.angle + sign * .52 * p.curvature, depth, sign * parent.height * .29);
         branch(child, count - 1, depth + 1, generation + 1);
       }
     }
@@ -176,7 +264,7 @@ export function buildRun(raw = {}) {
   } else if (p.layout === 'tapestry') {
     // A comb with real two-way contacts: every third spine tile launches a row.
     // The next spine tile and branch tile occupy opposite sides of its face.
-    const rows = Math.max(2, Math.floor(Math.sqrt(p.count / 3)));
+    const rows = Math.max(1, Math.floor(Math.sqrt(p.count / 3)));
     const spineCount = rows * 3, spine = [add(0, 0, 0, HALF_PI)];
     for (let i = 1; i < spineCount; i++) {
       const parent = spine.at(-1), lateral = (i - 1) % 3 === 0 ? parent.height * .25 : 0;
@@ -187,9 +275,19 @@ export function buildRun(raw = {}) {
       const count = Math.floor(rowTotal / rows) + (row < rowTotal % rows ? 1 : 0);
       let parent = spine[row * 3];
       for (let col = 0; col < count; col++) {
-        const direction = col === 0 ? HALF_PI - .6 : col === 1 ? HALF_PI - 1.2 : 0;
+        const direction = col === 0 ? HALF_PI - .6 * p.curvature : col === 1 ? HALF_PI - 1.2 * p.curvature : HALF_PI * (1 - p.curvature);
         parent = advance(parent, direction, row * 3 + col + 1, col === 0 ? -parent.height * .30 : 0);
       }
+    }
+  } else if (['polygon', 'flower', 'figure-eight', 'helix'].includes(p.layout)) {
+    buildCurve();
+  } else if (p.layout === 'wave' || p.layout === 'zigzag') {
+    const period = Math.max(8, Math.sqrt(p.count) * (p.layout === 'wave' ? 5 : 3));
+    let parent = add(0, 0);
+    for (let i = 1; i < p.count; i++) {
+      const phase = i * TAU / period;
+      const wave = p.layout === 'wave' ? Math.sin(phase) : 2 / Math.PI * Math.asin(Math.sin(phase));
+      parent = advance(parent, .75 * p.curvature * wave, i);
     }
   } else {
     const stairs = p.layout.startsWith('stairs');
@@ -199,27 +297,61 @@ export function buildRun(raw = {}) {
     for (let i = 0; i < p.count; i++) {
       const level = Math.floor(i / perTerrace);
       const elevation = stairs ? (p.layout === 'stairs-up' ? level : terraceCount - level) * p.stairRise : 0;
+      if (stairs) heading = .15 * (p.curvature - 1) * Math.sin(i * .15);
       const d = parent ? advance(parent, heading, i, 0, elevation) : add(0, 0, elevation, heading);
       if (!stairs) {
-        if (turn > 0) { heading += turnSign * Math.PI / 6; turn--; if (!turn) { straight = 0; turnSign *= -1; } }
-        else if (++straight >= columns) { turn = 6; heading += turnSign * Math.PI / 6; turn--; }
+        if (turn > 0) { heading += turnSign * Math.PI / 6 * p.curvature; turn--; if (!turn) { straight = 0; turnSign *= -1; } }
+        else if (++straight >= columns) { turn = 6; heading += turnSign * Math.PI / 6 * p.curvature; turn--; }
         d.angle = heading;
       }
       parent = d;
     }
   }
-  // Recenter without changing contacts; include the full fall reach in bounds.
-  const xCenter = (Math.min(...dominoes.map(d => d.x)) + Math.max(...dominoes.map(d => d.x))) / 2;
-  const zCenter = (Math.min(...dominoes.map(d => d.z)) + Math.max(...dominoes.map(d => d.z))) / 2;
-  for (const d of dominoes) { d.x -= xCenter; d.z -= zCenter; }
-  const minX = Math.min(...dominoes.map(d => d.x - d.height));
-  const maxX = Math.max(...dominoes.map(d => d.x + d.height));
-  const minZ = Math.min(...dominoes.map(d => d.z - d.height));
-  const maxZ = Math.max(...dominoes.map(d => d.z + d.height));
-  const minY = Math.min(...dominoes.map(d => d.elevation));
-  const maxY = Math.max(...dominoes.map(d => d.elevation + d.height));
-  return { params, dominoes, links, roots: [0], bounds: { minX, maxX, minZ, maxZ, minY, maxY,
-    width: maxX - minX, depth: maxZ - minZ, height: maxY - minY } };
+  return applyRunTransform({ params, dominoes, links, roots: [0] });
+
+  function buildCurve() {
+    const closed = p.layout !== 'helix', turns = 1 + p.curvature * 1.5;
+    const sides = Math.round(clamp(5 + (p.curvature - 1) * 2, 3, 9));
+    const vertex = index => [Math.cos(index * TAU / sides), Math.sin(index * TAU / sides)];
+    const mix = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t];
+    const point = t => {
+      const a = t * TAU;
+      if (p.layout === 'figure-eight') return [Math.sin(a), .5 * p.curvature * Math.sin(a * 2)];
+      if (p.layout === 'flower') { const r = 1 + .14 * p.curvature * Math.cos(5 * a); return [r * Math.cos(a), r * Math.sin(a)]; }
+      if (p.layout === 'helix') return [Math.cos(a * turns), Math.sin(a * turns)];
+      const position = t * sides * 2, segment = Math.floor(position), fraction = position - segment;
+      const i = Math.floor(segment / 2), before = vertex(i), corner = vertex(i + 1), after = vertex(i + 2);
+      const incoming = mix(corner, before, .32), outgoing = mix(corner, after, .32);
+      if (segment % 2 === 0) return mix(mix(before, corner, .32), incoming, fraction);
+      return mix(mix(incoming, corner, fraction), mix(corner, outgoing, fraction), fraction);
+    };
+    // Bounded arc-length sampling prevents corners from accumulating pieces.
+    const resolution = Math.max(256, p.count * 12), samples = [{ point: point(0), length: 0 }];
+    let total = 0;
+    for (let i = 1; i <= resolution; i++) {
+      const next = point(i / resolution), previous = samples.at(-1).point;
+      total += Math.hypot(next[0] - previous[0], next[1] - previous[1]);
+      samples.push({ point: next, length: total });
+    }
+    const intervals = closed ? p.count : p.count - 1, scale = base * p.spacing * intervals / total;
+    const positions = []; let cursor = 1;
+    for (let i = 0; i < p.count; i++) {
+      const length = total * i / intervals;
+      while (cursor < samples.length - 1 && samples[cursor].length < length) cursor++;
+      const a = samples[cursor - 1], b = samples[cursor], t = (length - a.length) / Math.max(1e-12, b.length - a.length);
+      const xy = mix(a.point, b.point, t); positions.push([xy[0] * scale, xy[1] * scale]);
+    }
+    let parent = null;
+    for (let i = 0; i < positions.length; i++) {
+      const current = positions[i], next = positions[(i + 1) % positions.length], previous = positions[Math.max(0, i - 1)];
+      const heading = !closed && i === positions.length - 1
+        ? Math.atan2(current[1] - previous[1], current[0] - previous[0])
+        : Math.atan2(next[1] - current[1], next[0] - current[0]);
+      const elevation = p.layout === 'helix' ? i * p.stairRise : 0;
+      parent = add(current[0], current[1], elevation, heading, parent, i);
+    }
+    if (closed) links.push({ from: parent.id, to: dominoes[0].id });
+  }
 }
 
 const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
@@ -305,7 +437,7 @@ export function angleAt(fall, time) {
   while (hi - lo > 1) { const mid = (lo + hi) >> 1; if (fall.times[mid] <= elapsed) lo = mid; else hi = mid; }
   return HALF_PI * (lo + (elapsed - fall.times[lo]) / (fall.times[hi] - fall.times[lo])) / (fall.times.length - 1);
 }
-export const MAX_COMPILED_PUSHES = 512;
+export const MAX_COMPILED_PUSHES = MAX_DOMINOES;
 
 /** Additional pushes use finite model-time offsets; Run speed is applied by the player. */
 export function compileRun(run, { startIds = run.roots, force = 1, pushes = [] } = {}) {
@@ -314,7 +446,7 @@ export function compileRun(run, { startIds = run.roots, force = 1, pushes = [] }
     .map(push => ({ id: push.id, time: push.time, force: push.force ?? 1 }))
     .sort((a, b) => a.time - b.time) : [];
   if (gestures.length) return compilePushedRun(run, { startIds, force, pushes: gestures });
-  const dominoes = run.dominoes.slice(0, 512), byId = new Map(dominoes.map(d => [d.id, d]));
+  const dominoes = run.dominoes.slice(0, MAX_DOMINOES), byId = new Map(dominoes.map(d => [d.id, d]));
   const outgoing = new Map(), pending = [], scheduled = new Map(), falls = [], events = [], blockedLinks = [];
   const links = run.links.filter(link => byId.has(link.from) && byId.has(link.to)).slice(0, dominoes.length * 2);
   for (const link of links) {
@@ -399,12 +531,15 @@ function compilePushedRun(run, { startIds, force, pushes }) {
   const falls = simulation.falls.map(({ occurrenceId, standStart, standEnd, ...fall }) => fall);
   const fallen = new Set(falls.map(fall => fall.id));
   return { events, falls, duration: simulation.duration,
-    stalledIds: run.dominoes.slice(0, 512).filter(domino => !fallen.has(domino.id)).map(domino => domino.id),
+    stalledIds: run.dominoes.slice(0, MAX_DOMINOES).filter(domino => !fallen.has(domino.id)).map(domino => domino.id),
     reachableCount: fallen.size, blockedLinks: simulation.blockedLinks };
 }
 
 export const STAND_RISE_SECONDS = .4;
-export const RUN_HISTORY_LIMITS = Object.freeze({ events: 16384, falls: 8192, transitionsPerAdvance: 32768 });
+// A four-second forecast plus one recent second must fit even at 1024 tiles,
+// minimum recovery (.05 + .4 s) and maximum speed. Keep both pose and event
+// histories until the app has consumed the earliest predicted impacts.
+export const RUN_HISTORY_LIMITS = Object.freeze({ events: 32768, falls: 16384, transitionsPerAdvance: 32768 });
 
 /**
  * Resumable, actual-second score for a fixed run/configuration snapshot.
@@ -427,10 +562,10 @@ export function createRunSimulation(run, options = {}) {
 // Checkpoints remain private: fork is the only way to construct a continuation.
 function makeRunSimulation(run, options, checkpoint = null) {
   const params = sanitizeParams(run.params || {});
-  const speed = bounded(options.speed, .35, 2.4, params.speed);
+  const speed = bounded(options.speed, .05, 12, params.speed);
   const autoStand = typeof options.autoStand === 'boolean' ? options.autoStand : params.autoStand;
-  const standDelay = bounded(options.standDelay, .1, 12, params.standDelay);
-  const dominoes = run.dominoes.slice(0, 512).map(d => ({ ...d }));
+  const standDelay = bounded(options.standDelay, .05, 60, params.standDelay);
+  const dominoes = run.dominoes.slice(0, MAX_DOMINOES).map(d => ({ ...d }));
   const byId = new Map(dominoes.map(d => [d.id, d])), routes = new Map();
   for (const link of run.links) {
     if (!byId.has(link.from) || !byId.has(link.to) || link.from === link.to) continue;

@@ -13,8 +13,8 @@ const eventSort = (a, b) => a.time - b.time || a.id - b.id || (a.type === 'conta
 test('standing controls have complete safe defaults, bounds and preset state', () => {
   assert.equal(DEFAULT_PARAMS.autoStand, false); assert.equal(DEFAULT_PARAMS.standDelay, 1.5);
   assert.equal(sanitizeParams({ autoStand: 'yes', standDelay: Infinity }).autoStand, false);
-  assert.equal(sanitizeParams({ standDelay: -.2 }).standDelay, .1);
-  assert.equal(sanitizeParams({ standDelay: 100 }).standDelay, 12);
+  assert.equal(sanitizeParams({ standDelay: -.2 }).standDelay, .05);
+  assert.equal(sanitizeParams({ standDelay: 100 }).standDelay, 60);
   assert.equal(STAND_RISE_SECONDS, .4);
   for (const preset of PRESETS) {
     assert.equal(typeof preset.params.autoStand, 'boolean');

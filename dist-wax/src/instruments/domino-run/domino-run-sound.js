@@ -9,6 +9,8 @@ const clamp = (value, low, high, fallback = low) => Math.min(high, Math.max(low,
 
 // Size changes the weight/color of a knock without turning a run into a scale.
 export const IMPACT_SIZE_EXPONENT = 0.34;
+export const MIN_IMPACT_HEIGHT = 0.03;
+export const MAX_IMPACT_HEIGHT = 64;
 export const DOMINO_MATERIALS = Object.freeze({
   stone: Object.freeze({ frequency: 420, decay: 0.015, maxDecay: 0.052, noise: 1.05, grit: 0.85,
     cutoff: 5800, edge: 720, transient: 0.0044, body: 2.6, color: 0.12,
@@ -35,9 +37,10 @@ export function materialId(value) {
   return Object.hasOwn(DOMINO_MATERIALS, id) ? id : 'stone';
 }
 
-export function impactFrequency(material, height = 1, type = 'contact') {
+export function impactFrequency(material, height = 1, type = 'contact', pitch = 0) {
   return DOMINO_MATERIALS[materialId(material)].frequency
-    / clamp(height, 0.2, 6, 1) ** IMPACT_SIZE_EXPONENT * (type === 'floor' ? 0.42 : 1);
+    / clamp(height, MIN_IMPACT_HEIGHT, MAX_IMPACT_HEIGHT, 1) ** IMPACT_SIZE_EXPONENT
+    * (type === 'floor' ? 0.42 : 1) * 2 ** (clamp(pitch, -36, 36, 0) / 12);
 }
 
 function broadBand(frequency, sampleRate, q = 0.72) {
@@ -52,17 +55,20 @@ function bandSample(band, input) {
   return value;
 }
 
-/** Deterministic mono PCM; energy 0..2, ring/brightness 0..1. */
+/** Deterministic mono PCM; energy 0..2, ring/brightness 0..1, pitch -36..36 semitones. */
 export function renderImpact(material, height = 1, energy = 1, type = 'contact', options = {}) {
   const rate = Math.round(clamp(options.sampleRate, 8000, 96000, 48000));
   const ring = clamp(options.ring, 0, 1, 0.5);
   const bright = clamp(options.brightness, 0, 1, 0.5);
-  const size = clamp(height, 0.2, 6, 1);
+  const size = clamp(height, MIN_IMPACT_HEIGHT, MAX_IMPACT_HEIGHT, 1);
+  const pitch = clamp(options.pitch, -36, 36, 0);
   const force = Math.sqrt(clamp(energy, 0, 2, 1));
   const model = DOMINO_MATERIALS[materialId(material)];
   const floor = type === 'floor';
-  const sizeColor = size ** -IMPACT_SIZE_EXPONENT;
-  const frequency = impactFrequency(material, size, type);
+  // Transpose the material bands at their native sample rate. The contact
+  // envelope stays dry, and high pitches never speed PCM past its Nyquist limit.
+  const sizeColor = size ** -IMPACT_SIZE_EXPONENT * 2 ** (pitch / 12);
+  const frequency = impactFrequency(material, size, type, pitch);
   // The lower Ring range stays dry. Even maximum Ring uses heavily damped
   // short modes, with glass and metal retaining the clearest optional color.
   const ringAmount = ring * ring;

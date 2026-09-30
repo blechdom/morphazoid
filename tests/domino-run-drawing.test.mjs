@@ -78,7 +78,7 @@ test('seeded variation is deterministic, does not mutate authored input and surv
   assert.notDeepEqual(buildDrawnRun(raw, { ...settings, seed: 222 }).dominoes.map(d => d.height), a.dominoes.map(d => d.height));
 });
 
-test('capacity truncates locally at 512 and never adds a closing jump to an unfinished loop', () => {
+test('capacity truncates locally at 1024 and never adds a closing jump to an unfinished loop', () => {
   const points = Array.from({ length: 130 }, (_, i) => ({ x: i % 2 ? 150 : -150, z: i - 65 }));
   const run = buildDrawnRun({ version: 1, strokes: [{ id: 0, points: [...points, points[0]], closed: true }] }, params);
   assert.equal(run.dominoes.length, MAX_DRAWN_DOMINOES);
@@ -95,10 +95,10 @@ test('persisted garbage, coordinate bounds and tiny strokes remain safe and fini
   assert.deepEqual(sanitizeDrawing(null), { version: 1, strokes: [] });
   assert.deepEqual(sanitizeDrawing({ version: 2, strokes: [] }), { version: 1, strokes: [] });
   const repaired = sanitizeDrawing({ version: 1, strokes: [
-    { id: 1, points: [{ x: -999, z: 999 }, null, { x: Infinity, z: 0 }, { x: 1, z: 1 }] },
+    { id: 1, points: [{ x: -99999, z: 99999 }, null, { x: Infinity, z: 0 }, { x: 1, z: 1 }] },
     { id: 1, points: [{ x: 2, z: 2 }, { x: 3, z: 3 }] },
   ] });
-  assert.deepEqual(repaired.strokes[0].points[0], { x: -150, z: 150 });
+  assert.deepEqual(repaired.strokes[0].points[0], { x: -10000, z: 10000 });
   assert.equal(new Set(repaired.strokes.map(s => s.id)).size, 2);
   const huge = sanitizeDrawing(drawing(...Array.from({ length: 100 }, () => Array.from({ length: 3000 }, (_, i) => ({ x: i % 100, z: i % 101 })))));
   assert.ok(huge.strokes.length <= MAX_DRAWING_STROKES);
@@ -137,4 +137,36 @@ test('a hand-drawn closed loop can sustain new falls after individual recovery',
   const openSimulation=createRunSimulation(openRun);openSimulation.advance(30);
   assert.equal(openSimulation.hasPending,false);
   assert.equal(openSimulation.falls.filter(f=>f.id===0).length,1);
+});
+
+
+test('drawn paths reverse from their ends and transform without changing authored coordinates', () => {
+  const raw = drawing([{ x: 2, z: 4 }, { x: 8, z: 4 }], [{ x: -3, z: -2 }, { x: -3, z: 4 }]);
+  const before = JSON.stringify(raw), forward = buildDrawnRun(raw, params);
+  const reverse = buildDrawnRun(raw, { ...params, direction: 'reverse', rotation: 90, stretch: 2 });
+  assert.equal(JSON.stringify(raw), before);
+  assert.deepEqual(reverse.drawing, forward.drawing);
+  assert.deepEqual(reverse.roots, forward.strokeRanges.map(stroke => stroke.lastId));
+  assert.deepEqual(reverse.links, forward.links.map(({ from, to }) => ({ from: to, to: from })));
+  for (let i = 0; i < forward.dominoes.length; i++) {
+    approx(reverse.dominoes[i].x, -forward.dominoes[i].z);
+    approx(reverse.dominoes[i].z, forward.dominoes[i].x * 2);
+  }
+  const plainReverse = buildDrawnRun(raw, { ...params, direction: 'reverse' });
+  assert.equal(compileRun(plainReverse).reachableCount, plainReverse.dominoes.length);
+});
+
+test('drawn height and gradient controls reach beyond the previous size limits', () => {
+  const raw = drawing([{ x: 0, z: 0 }, { x: 120, z: 0 }]);
+  const tiny = buildDrawnRun(raw, { ...params, size: .1 });
+  const giant = buildDrawnRun(raw, { ...params, size: 6, growth: 2 });
+  assert.ok(tiny.dominoes.every(tile => tile.height < .2));
+  assert.ok(giant.dominoes.at(-1).height > 50);
+  assert.ok(giant.dominoes.at(-1).height / giant.dominoes[0].height > 50);
+  for (const run of [tiny, giant]) {
+    assert.ok(run.dominoes.length <= MAX_DRAWN_DOMINOES);
+    assert.ok(run.dominoes.every(tile => tile.height >= .03 && tile.height <= 64));
+    assert.ok(Object.values(run.bounds).every(Number.isFinite));
+    assert.ok(compileRun(run).events.every(event => Number.isFinite(event.time)));
+  }
 });

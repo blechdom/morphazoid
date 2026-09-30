@@ -142,7 +142,7 @@ test('cold Audio startup preserves intervening pushes and accepts another standi
   // so a performer can push another piece while Audio is still loading.
   await instrumentContext(page, false, 650);
   await open(page);
-  await page.locator('#speed').press('Home');
+  await page.locator('#speed').evaluate(input => { input.value = '.35'; input.dispatchEvent(new Event('input', { bubbles: true })); });
   await page.waitForTimeout(100);
   await page.locator('#playButton').click();
   await expect.poll(() => time(page)).toBeGreaterThan(.2);

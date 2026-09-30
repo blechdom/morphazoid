@@ -1,4 +1,4 @@
-import { DEFAULT_PARAMS, PRESETS, MATERIALS, LAYOUTS, sanitizeParams, sceneParams, randomizeParams, buildRun, compileRun, createRunSimulation } from "./domino-run-model.js";
+import { DEFAULT_PARAMS, PRESETS, MATERIALS, LAYOUTS, MAX_DOMINOES, sanitizeParams, sceneParams, randomizeParams, buildRun, compileRun, createRunSimulation } from "./domino-run-model.js";
 import { sanitizeDrawing, buildDrawnRun } from "./domino-run-drawing.js";
 import { DominoAudio } from "./domino-run-audio.js";
 import { DominoRenderer } from "./domino-run-renderer.js";
@@ -27,7 +27,7 @@ const snapshot = () => ({version:1,params:clone(params),edits:clone(edits),drawi
 const liveParams = () => ({loop:params.loop,autoStand:params.autoStand,standDelay:params.standDelay});
 function canonicalScene(state) {
   if(state?.version!==1||!state.params||!Array.isArray(state.edits))throw new TypeError("Invalid Domino Run scene");
-  return {version:1,params:sceneParams(state.params),edits:clone(state.edits).slice(0,512),drawing:state.drawing?sanitizeDrawing(state.drawing):null};
+  return {version:1,params:sceneParams(state.params),edits:clone(state.edits).slice(0,MAX_DOMINOES),drawing:state.drawing?sanitizeDrawing(state.drawing):null};
 }
 const captureScene = () => canonicalScene(snapshot());
 function phaseNow() {
@@ -46,6 +46,7 @@ function sync() {
   for(const [key,button] of zeroButtons)button.disabled=params[key]===0;
   fieldValue("layout",drawing?"drawn":params.layout);
   fields.get("count").hidden=Boolean(drawing);
+  fields.get("curvature").setDisabled(Boolean(drawing));
   $("seed").value=params.seed; $("loop").checked=params.loop; $("loop").disabled=params.autoStand;
   $("autoStand").checked=params.autoStand;
   $("standDelay").disabled=!params.autoStand;
@@ -56,7 +57,7 @@ function sync() {
   $("sceneName").textContent=drawing?"Drawn pattern":PRESETS.find(p=>JSON.stringify(sceneParams(p.params))===JSON.stringify(sceneParams(params))&&!edits.length)?.name||"Custom run";
   $("reachCount").textContent=`${timeline.reachableCount??timeline.falls.length}/${run.dominoes.length} reachable`;
   $("undoEdit").disabled=$("undoDraw").disabled=!undo.length;
-  $("drawingInfo").textContent=drawing?`${run.dominoes.length} dominoes · ${drawing.strokes.length} ${drawing.strokes.length===1?"path":"paths"}${run.truncated?" · 512 limit":""}`:"Your first stroke replaces this run.";
+  $("drawingInfo").textContent=drawing?`${run.dominoes.length} dominoes · ${drawing.strokes.length} ${drawing.strokes.length===1?"path":"paths"}${run.truncated?` · ${MAX_DOMINOES} limit`:""}`:"Your first stroke replaces this run.";
   syncSelected();presetController?.refresh();
 }
 function syncSelected() {
@@ -122,9 +123,9 @@ function rebuild({preserve=true,phase=phaseNow(),streamTime=simulation?rawTime()
   run=drawing?buildDrawnRun(drawing,params):buildRun(params);
   for(const edit of edits){
     const d=run.dominoes.find(d=>d.id===edit.id);if(!d)continue;
-    if(Number.isFinite(edit.x))d.x=clamp(edit.x,-150,150);
-    if(Number.isFinite(edit.z))d.z=clamp(edit.z,-150,150);
-    if(Number.isFinite(edit.height)){const ratio=clamp(edit.height,.3,4)/d.height;d.height*=ratio;d.width*=ratio;d.depth*=ratio;}
+    if(Number.isFinite(edit.x))d.x=clamp(edit.x,-10000,10000);
+    if(Number.isFinite(edit.z))d.z=clamp(edit.z,-10000,10000);
+    if(Number.isFinite(edit.height)){const ratio=clamp(edit.height,.03,64)/d.height;d.height*=ratio;d.width*=ratio;d.depth*=ratio;}
     if(MATERIALS.some(m=>m.id===edit.material)){d.material=edit.material;d.color=MATERIALS.find(m=>m.id===edit.material).color;}
     if(typeof edit.enabled==="boolean")d.enabled=edit.enabled;
   }
@@ -144,7 +145,7 @@ function apply(state) {
   clearTimeout(buildTimer);
   if(presetController)presetController.hasPresetInteraction=true;
   params=sanitizeParams({...scene.params,...liveParams()});edits=scene.edits;
-  drawing=scene.drawing;
+  drawing=scene.drawing;renderer.zoom=1;
   undo=[];draftPoints=[];activeStartIds=null;activeForce=1;
   rebuild({phase,streamTime:null});
 }
@@ -152,16 +153,22 @@ function setParam(key,value) {
   if(key==="layout"&&value==="drawn"){setMode("draw");return;}
   const next=sanitizeParams({...params,[key]:value});
   if(next[key]===params[key]&&!(key==="layout"&&drawing))return;
-  const before=rawTime(),phase=phaseNow(),streamTime=simulation?before:null;params=next;
+  const before=rawTime(),phase=phaseNow(),streamTime=simulation?before:null;
+  // Drawn paths retain world extent; generated size changes need camera compensation.
+  if(key==="size"&&!drawing)renderer.zoom=clamp(renderer.zoom*next.size/params.size,.05,32);
+  params=next;
   offset=before;anchor=clock();
-  if(["ring","brightness","soundVariation","loop"].includes(key)||key==="speed"&&!simulation){audio.setParams(params);queueAudio({live:true});sync();return;}
+  if(["ring","brightness","soundVariation","pitch","loop"].includes(key)||key==="speed"&&!simulation){audio.setParams(params);queueAudio({live:true});sync();return;}
   if(!["autoStand","standDelay","speed"].includes(key)){
     edits=[];undo=[];activeStartIds=null;activeForce=1;
     if(key==="layout"||key==="count")drawing=null;
   }
   clearTimeout(buildTimer);buildTimer=setTimeout(()=>rebuild({phase,streamTime:["autoStand","standDelay","speed"].includes(key)&&streamTime!==null?rawTime():null}),55);
 }
-function start(ids=run.roots,force=1) {
+function start(ids=null,force=1) {
+  // Resolve default starters after any pending direction/layout edit.
+  if(buildTimer)rebuild();
+  ids ??= run.roots;
   if(!run.dominoes.length){announce("Draw a path first.");return;}
   clearTimeout(buildTimer);activeStartIds=[...ids];activeForce=force;playing=true;
   rebuild({preserve:false,startIds:ids,force});announce(`Run started at domino ${(ids[0]??0)+1}.`);
@@ -232,7 +239,7 @@ function commitStroke(points) {
   const candidate=sanitizeDrawing({version:1,strokes:[...(drawing?.strokes??[]),{id:Math.max(0,...(drawing?.strokes??[]).map(s=>Number(s.id)||0))+1,closed:$("closeLoops").checked,points}]});
   const next=buildDrawnRun(candidate,params);
   if(next.dominoes.length<2||(drawing&&next.dominoes.length<=run.dominoes.length)){
-    announce(run.dominoes.length>=512?"The pattern is full. Undo a stroke or start a new pattern.":"Draw a longer path to place at least two dominoes.");draftPoints=[];draw();return;
+    announce(run.dominoes.length>=MAX_DOMINOES?"The pattern is full. Undo a stroke or start a new pattern.":"Draw a longer path to place at least two dominoes.");draftPoints=[];draw();return;
   }
   const extending=Boolean(drawing);rememberEdit();drawing=candidate;if(!extending)edits=[];draftPoints=[];activeStartIds=null;activeForce=1;
   rebuild({streamTime:null});announce(`${run.dominoes.length} dominoes in ${drawing.strokes.length} ${drawing.strokes.length===1?"path":"paths"}.`);
@@ -248,7 +255,7 @@ function createFields() {
   };
   const range=(key,label,min,max,step,parent,format)=>{
     const f=createRangeField({id:key,label,min,max,step,value:params[key],formatValue:format,onInput:value=>setParam(key,Number(value))});
-    if(["sizeVariation","growth","stairRise","ring","soundVariation"].includes(key)){
+    if(["sizeVariation","growth","stairRise","rotation","pitch","ring","soundVariation"].includes(key)){
       const row=document.createElement("div"),button=document.createElement("button");
       row.className="domino-reset-field";button.className="domino-zero";button.type="button";
       button.dataset.zeroParam=key;button.textContent="↺ 0";button.title=`Reset ${label} to zero`;button.setAttribute("aria-label",button.title);
@@ -259,16 +266,21 @@ function createFields() {
   };
   select("layout","Path",[...LAYOUTS,{id:"drawn",label:"Drawn pattern"}],"structureFields");
   select("material","Material",[...MATERIALS,{id:"mixed",label:"Mixed materials"}],"structureFields");
-  range("count","Dominoes",16,512,1,"structureFields",n=>String(Math.round(n)));
-  range("spacing","Spacing",.24,1.35,.01,"structureFields",n=>`${Number(n).toFixed(2)} × height`);
-  range("size","Overall size",.65,1.5,.01,"structureFields",n=>`${Number(n).toFixed(2)}×`);
-  range("sizeVariation","Size variation",0,.4,.01,"structureFields",n=>`${Math.round(n*100)}%`);
-  range("growth","Size gradient",-.5,.5,.01,"structureFields",n=>Number(n)===0?"Even":`${n>0?"Growing":"Shrinking"} ${Math.round(Math.abs(n)*100)}%`);
-  range("stairRise","Step height",0,.3,.01,"structureFields",n=>Number(n).toFixed(2));
-  range("standDelay","After landing",.1,12,.1,"renewFields",n=>`${Number(n).toFixed(1)} s`);
-  range("speed","Run speed",.35,2.4,.01,"soundFields",n=>`${Number(n).toFixed(2)}×`);
+  range("count","Dominoes",4,MAX_DOMINOES,1,"structureFields",n=>String(Math.round(n)));
+  range("spacing","Spacing",.12,2.5,.01,"structureFields",n=>`${Number(n).toFixed(2)} × height`);
+  range("size","Overall size",.1,6,.01,"structureFields",n=>`${Number(n).toFixed(2)}×`);
+  range("sizeVariation","Size variation",0,1,.01,"structureFields",n=>`${Math.round(n*100)}%`);
+  range("growth","Size gradient",-2,2,.01,"structureFields",n=>Number(n)===0?"Even":`${n>0?"Growing":"Shrinking"} ${Math.exp(Math.abs(n)*2).toFixed(1)}×`);
+  range("stairRise","Step height",-1,1,.01,"structureFields",n=>Number(n).toFixed(2));
+  select("direction","Run direction",[{id:"forward",label:"Forward"},{id:"reverse",label:"Reverse"}],"structureFields");
+  range("rotation","Rotation",-180,180,1,"structureFields",n=>`${Math.round(n)}°`);
+  range("stretch","Stretch",.2,5,.01,"structureFields",n=>`${Number(n).toFixed(2)}×`);
+  range("curvature","Bend / turns",.2,3,.01,"structureFields",n=>`${Number(n).toFixed(2)}×`);
+  range("standDelay","After landing",.05,60,.05,"renewFields",n=>`${Number(n).toFixed(2)*1} s`);
+  range("speed","Run speed",.05,12,.01,"soundFields",n=>`${Number(n).toFixed(2)}×`);
+  range("pitch","Sound tuning",-36,36,.1,"soundFields",n=>`${n>0?"+":""}${Number(n).toFixed(1)} st`);
   range("ring","Resonance",0,1,.01,"soundFields",n=>`${Math.round(n*100)}%`);
-  range("brightness","Brightness",.1,1,.01,"soundFields",n=>`${Math.round(n*100)}%`);
+  range("brightness","Brightness",0,1,.01,"soundFields",n=>`${Math.round(n*100)}%`);
   range("soundVariation","Sound variation",0,1,.01,"soundFields",n=>`${Math.round(n*100)}%`);
   for(const m of MATERIALS){const o=document.createElement("option");o.value=m.id;o.textContent=m.label;$("tileMaterial").append(o);}
 }
@@ -318,7 +330,10 @@ function tick() {
   }
 }
 function localPoint(event){const r=canvas.getBoundingClientRect();return{x:event.clientX-r.left,y:event.clientY-r.top};}
-function groundPoint(p){const v=renderer.unproject(p.x,p.y,0);return{x:clamp(v.x,-150,150),z:clamp(v.z,-150,150)};}
+function groundPoint(p){
+  const v=renderer.unproject(p.x,p.y,0),a=params.rotation*Math.PI/180,c=Math.cos(a),s=Math.sin(a);
+  return{x:clamp((v.x*c+v.z*s)/params.stretch,-10000,10000),z:clamp(-v.x*s+v.z*c,-10000,10000)};
+}
 canvas.addEventListener("pointerdown",event=>{
   if(pointer||event.button>0)return;
   const p=localPoint(event),hit=mode==="draw"?null:renderer.hit(p.x,p.y);
@@ -342,7 +357,7 @@ canvas.addEventListener("pointermove",event=>{
   }else if(pointer.mode==="arrange"&&pointer.hit!==null){
     const d=run.dominoes.find(d=>d.id===pointer.hit),a=renderer.unproject(pointer.last.x,pointer.last.y,d.elevation),b=renderer.unproject(p.x,p.y,d.elevation);
     editTile({x:d.x+b.x-a.x,z:d.z+b.z-a.z},{remember:false});
-  }else {renderer.yaw=pointer.yaw+(p.x-pointer.start.x)*.008;renderer.tilt=clamp(pointer.tilt+(p.y-pointer.start.y)*.002,.25,.85);draw();}
+  }else {renderer.yaw=pointer.yaw+(p.x-pointer.start.x)*.008;renderer.tilt=clamp(pointer.tilt+(p.y-pointer.start.y)*.002,.08,1.3);draw();}
   pointer.last=p;
 });
 function finishPointer(event,cancel=false){
@@ -373,7 +388,7 @@ canvas.addEventListener("keydown",event=>{
     }
     if(["ArrowLeft","ArrowRight","ArrowUp","ArrowDown"].includes(event.key)){
       event.preventDefault();event.stopPropagation();const step=event.shiftKey ? .1 : params.size*params.spacing*1.2;
-      drawCursor={x:clamp(drawCursor.x+(event.key==="ArrowRight"?step:event.key==="ArrowLeft"?-step:0),-150,150),z:clamp(drawCursor.z+(event.key==="ArrowDown"?step:event.key==="ArrowUp"?-step:0),-150,150)};draw();return;
+      drawCursor={x:clamp(drawCursor.x+(event.key==="ArrowRight"?step:event.key==="ArrowLeft"?-step:0),-10000,10000),z:clamp(drawCursor.z+(event.key==="ArrowDown"?step:event.key==="ArrowUp"?-step:0),-10000,10000)};draw();return;
     }
   }
   if(["ArrowLeft","ArrowRight","ArrowUp","ArrowDown"].includes(event.key)){
@@ -412,8 +427,8 @@ $("finishPath").addEventListener("click",()=>{commitStroke(draftPoints);renderer
 $("seed").addEventListener("change",()=>setParam("seed",Number($("seed").value)));
 $("newRun").addEventListener("click",()=>apply({version:1,params:sceneParams(randomizeParams((params.seed+0x9e3779b9)>>>0)),edits:[]}));
 $("showPaths").addEventListener("change",draw);
-$("zoomIn").addEventListener("click",()=>{renderer.zoom=clamp(renderer.zoom*1.2,.5,4);draw();});
-$("zoomOut").addEventListener("click",()=>{renderer.zoom=clamp(renderer.zoom/1.2,.5,4);draw();});
+$("zoomIn").addEventListener("click",()=>{renderer.zoom=clamp(renderer.zoom*1.2,.05,32);draw();});
+$("zoomOut").addEventListener("click",()=>{renderer.zoom=clamp(renderer.zoom/1.2,.05,32);draw();});
 $("fitView").addEventListener("click",()=>{renderer.zoom=1;renderer.yaw=-.48;renderer.tilt=.54;draw();});
 $("chooseDomino").addEventListener("click",()=>{setMode("arrange");canvas.scrollIntoView({block:"nearest"});canvas.focus({preventScroll:true});announce("Tap a domino to edit that piece. Drag it to move it.");});
 $("pushSelected").addEventListener("click",()=>pushDomino([selected]));
@@ -428,7 +443,7 @@ const midiHandler=event=>{
   if(m.type==="noteOn"){event.preventDefault();if(!document.hidden&&run.dominoes.length)pushDomino([run.dominoes[((m.note??60)%run.dominoes.length+run.dominoes.length)%run.dominoes.length].id],clamp((m.velocity??100)/100,.2,1.4));}
   else if(m.type==="noteOff")event.preventDefault();
   else if(m.type==="controlChange"&&[120,123].includes(m.controller)){event.preventDefault();pause();}
-  else if(m.type==="controlChange"&&m.controller===74){event.preventDefault();setParam("brightness",.1+.9*(m.value??0)/127);}
+  else if(m.type==="controlChange"&&m.controller===74){event.preventDefault();setParam("brightness",(m.value??0)/127);}
   else if(m.type==="controlChange"&&m.controller===7){event.preventDefault();$("level").value=clamp((m.value??0)/127,0,1);$("level").dispatchEvent(new Event("input",{bubbles:true}));}
   else if(m.type==="start"){event.preventDefault();if(!document.hidden)start();}
   else if(m.type==="continue"){event.preventDefault();if(!playing&&!document.hidden)togglePlay();}

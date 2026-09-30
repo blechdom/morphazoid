@@ -1,6 +1,6 @@
-import { MATERIALS, sanitizeParams } from './domino-run-model.js';
+import { MATERIALS, MAX_DOMINOES, sanitizeParams, dominoHeight, applyRunTransform } from './domino-run-model.js';
 
-export const MAX_DRAWN_DOMINOES = 512;
+export const MAX_DRAWN_DOMINOES = MAX_DOMINOES;
 export const MAX_DRAWING_STROKES = 64;
 export const MAX_DRAWING_POINTS = 8192;
 const MAX_STROKE_POINTS = 2048;
@@ -14,7 +14,7 @@ function cleanPoints(raw, limit = MAX_STROKE_POINTS) {
   // Bound inspection too: malformed persisted input must not scan indefinitely.
   for (const point of raw.slice(0, MAX_STROKE_POINTS)) {
     if (!point || !Number.isFinite(point.x) || !Number.isFinite(point.z)) continue;
-    const next = { x: clamp(point.x, -150, 150), z: clamp(point.z, -150, 150) };
+    const next = { x: clamp(point.x, -10000, 10000), z: clamp(point.z, -10000, 10000) };
     if (!points.length || distance(points.at(-1), next) > EPSILON) points.push(next);
     if (points.length >= limit) break;
   }
@@ -125,7 +125,6 @@ export function buildDrawnRun(rawDrawing, rawParams = {}) {
     const closed = metrics.closed && complete && samples.length >= 3;
     truncated ||= !complete;
     const phase = ((params.seed ^ Math.imul(stroke.id + 1, 0x45d9f3b)) >>> 0) / 4294967296 * Math.PI * 2;
-    let previousHeight;
     for (let i = 0; i < samples.length; i += 1) {
       const point = samples[i];
       const target = samples[i + 1] ?? (closed ? samples[0] : null);
@@ -134,11 +133,7 @@ export function buildDrawnRun(rawDrawing, rawParams = {}) {
       const angle = target ? Math.atan2(target.z - point.z, target.x - point.x)
         : Math.atan2(point.z - before.z, point.x - before.x);
       const variation = Math.sin(i * .46 + phase) * .65 + Math.sin(i * .17 + phase * 2) * .35;
-      let height = base * Math.exp(params.growth * (2 * i / Math.max(1, requestedCount - 1) - 1))
-        * (1 + variation * params.sizeVariation);
-      if (previousHeight) height = clamp(height, previousHeight / 1.18, previousHeight * 1.18);
-      height = clamp(height, base * .45, base * 1.9);
-      previousHeight = height;
+      const height = dominoHeight(base, i / Math.max(1, requestedCount - 1), variation, params);
       const material = params.material === 'mixed'
         ? MATERIALS[Math.floor(i / 5 + stroke.id) % MATERIALS.length]
         : MATERIALS.find(candidate => candidate.id === params.material) ?? MATERIALS[0];
@@ -163,5 +158,5 @@ export function buildDrawnRun(rawDrawing, rawParams = {}) {
     bounds = { minX, maxX, minZ, maxZ, minY: 0, maxY,
       width: maxX - minX, depth: maxZ - minZ, height: maxY };
   }
-  return { params, drawing, dominoes, links, roots, bounds, strokeRanges, truncated };
+  return applyRunTransform({ params, drawing, dominoes, links, roots, bounds, strokeRanges, truncated }, { recenter: false });
 }

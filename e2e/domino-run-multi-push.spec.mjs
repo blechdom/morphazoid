@@ -17,9 +17,16 @@ async function open(page, { fast = false, renew = false, loop = false } = {}) {
   await page.waitForFunction(() => Boolean(window.dominoRun));
   await page.locator('#autoStand').uncheck();
   await page.locator('#loop').setChecked(loop);
-  await endpoint(page, 'speed', fast ? 'End' : 'Home');
+  await range(page, 'speed', fast ? 2.4 : .35);
   await endpoint(page, 'sizeVariation', 'Home');
-  if (renew) { await page.locator('#autoStand').check(); await endpoint(page, 'standDelay', 'Home'); }
+  if (renew) { await page.locator('#autoStand').check(); await range(page, 'standDelay', .1); }
+}
+async function range(page, id, value) {
+  await page.locator(`#${id}`).evaluate((input, value) => {
+    input.value = String(value); input.dispatchEvent(new Event('input', { bubbles: true }));
+  }, value);
+  await expect.poll(() => page.evaluate(key => window.dominoRun.snapshot.params[key], id)).toBe(value);
+  if (id !== 'speed') await expect.poll(() => page.evaluate(key => window.dominoRun.run.params[key], id)).toBe(value);
 }
 async function endpoint(page, id, key) {
   const input = page.locator(`#${id}`);
@@ -121,7 +128,7 @@ test('successive real mouse pushes keep two independent fronts and the original 
 });
 
 test('converging waves topple shared pieces once and a fallen piece cannot restart the run', async ({ page }) => {
-  await open(page, { fast: true }); await endpoint(page, 'count', 'Home');
+  await open(page, { fast: true }); await range(page, 'count', 16);
   const faces = await visibleFaces(page);
   const ids = [...faces.keys()];
   let pair = null, gap = -1;
