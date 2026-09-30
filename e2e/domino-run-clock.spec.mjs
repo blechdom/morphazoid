@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
 
-async function instrumentContext(page, failResume = false) {
-  await page.addInitScript(({ failResume }) => {
+async function instrumentContext(page, failResume = false, startupDelay = 0) {
+  await page.addInitScript(({ failResume, startupDelay }) => {
     // Separate the two clock origins substantially so accidental subtraction
     // across domains fails immediately instead of depending on page uptime.
     const nativeNow = performance.now.bind(performance);
@@ -17,13 +17,21 @@ async function instrumentContext(page, failResume = false) {
           const state = nativeState.call(this);
           return state === 'closed' ? state : window.__dominoFailResume ? 'suspended' : window.__dominoInterrupted ? 'interrupted' : state;
         } });
+        if (startupDelay) {
+          const addModule = this.audioWorklet.addModule.bind(this.audioWorklet);
+          this.audioWorklet.addModule = (...args) => {
+            window.__dominoWorkletPending = true;
+            return Promise.all([addModule(...args), new Promise(resolve => setTimeout(resolve, startupDelay))])
+              .then(([result]) => result).finally(() => { window.__dominoWorkletPending = false; });
+          };
+        }
         const resume = this.resume.bind(this);
         this.resume = () => window.__dominoFailResume
           ? new Promise((_, reject) => setTimeout(() => reject(new Error('Simulated Audio startup failure')), 180))
           : resume();
       }
     };
-  }, { failResume });
+  }, { failResume, startupDelay });
 }
 const time = page => page.evaluate(() => window.dominoRun.time);
 async function open(page, autoStand = true) {
@@ -125,4 +133,63 @@ test('a sound edit during suspension restores the current one-shot queue on resu
   await expect.poll(() => page.evaluate(() => window.dominoRun.audio.played)).toBeGreaterThan(played);
   expect(await time(page)).toBeLessThan(frozen + 1.2);
   expect(await page.evaluate(() => window.dominoRun.audio.dropped)).toBe(0);
+});
+
+test('cold Audio startup preserves intervening pushes and accepts another standing domino after arming', async ({ page }) => {
+  const errors = [];
+  page.on('pageerror', error => errors.push(error.message));
+  // Keep the real context/worklet, holding its native startup promise briefly
+  // so a performer can push another piece while Audio is still loading.
+  await instrumentContext(page, false, 650);
+  await open(page);
+  await page.locator('#speed').press('Home');
+  await page.waitForTimeout(100);
+  await page.locator('#playButton').click();
+  await expect.poll(() => time(page)).toBeGreaterThan(.2);
+  const originalFalls = await page.evaluate(() => window.dominoRun.timeline.falls
+    .filter(fall => fall.start <= window.dominoRun.time).map(fall => ({ id: fall.id, start: fall.start, occurrenceId: fall.occurrenceId })));
+  expect(originalFalls.length).toBeGreaterThan(0);
+  await page.locator('#stage').press('ArrowLeft');
+  await expect.poll(() => page.evaluate(() => window.dominoRun.selected)).toBe(39);
+  await page.evaluate(() => {
+    window.__dominoClockSamples = [];
+    window.__dominoClockSampler = setInterval(() => window.__dominoClockSamples.push(window.dominoRun.time), 8);
+  });
+  await page.locator('#audioButton').click();
+  await page.waitForFunction(() => window.__dominoWorkletPending);
+  await expect(page.locator('#audioButton')).toBeDisabled();
+  await page.waitForTimeout(120);
+  await page.locator('#stage').press('Enter');
+  await expect(page.locator('#liveStatus')).toContainText('Domino 40 pushed');
+  await expect.poll(() => page.evaluate(() => window.dominoRun.timeline.falls.some(fall => fall.id === 39 && fall.start <= window.dominoRun.time))).toBe(true);
+  const during = await page.evaluate(() => ({ time: window.dominoRun.time,
+    fall: window.dominoRun.timeline.falls.find(fall => fall.id === 39 && fall.start <= window.dominoRun.time),
+    armed: window.dominoRun.audio.armed }));
+  expect(during.armed).toBe(false);
+  expect(during.fall).toBeTruthy();
+  await page.locator('#stage').press('ArrowLeft');
+  await expect.poll(() => page.evaluate(() => window.dominoRun.selected)).toBe(38);
+  await expect(page.locator('#audioButton')).toHaveAttribute('aria-pressed', 'true');
+  const armedTime = await time(page);
+  expect(armedTime).toBeGreaterThanOrEqual(during.time - .01);
+  // The accepted earlier push is committed history; arming must not put the
+  // performer behind it, and another standing piece must remain playable.
+  expect(armedTime).toBeGreaterThanOrEqual(during.fall.start);
+  await page.locator('#stage').press('Enter');
+  await expect(page.locator('#liveStatus')).toContainText('Domino 39 pushed');
+  const after = await page.evaluate(() => {
+    clearInterval(window.__dominoClockSampler);
+    const state = window.dominoRun;
+    return { time: state.time, playing: state.playing, armed: state.audio.armed,
+      falls: state.timeline.falls.map(fall => ({ id: fall.id, start: fall.start, occurrenceId: fall.occurrenceId })),
+      samples: window.__dominoClockSamples };
+  });
+  for (const fall of originalFalls) expect(after.falls).toContainEqual(fall);
+  expect(after.falls).toContainEqual({ id: 39, start: during.fall.start, occurrenceId: during.fall.occurrenceId });
+  expect(after.falls.some(fall => fall.id === 38 && fall.start >= during.fall.start && fall.start <= after.time)).toBe(true);
+  expect(after.samples.length).toBeGreaterThan(10);
+  for (let i = 1; i < after.samples.length; i++) expect(after.samples[i]).toBeGreaterThanOrEqual(after.samples[i - 1] - .01);
+  expect(after.playing).toBe(true);
+  expect(after.armed).toBe(true);
+  expect(errors).toEqual([]);
 });

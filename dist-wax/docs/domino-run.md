@@ -102,12 +102,26 @@ and Ctrl/Cmd+Z undoes the last edit. Hold Shift with an arrow for smaller moves.
 
 Open **Edit one domino** and press **Choose on stage** to enter Arrange mode.
 Tap a piece to select it; its number appears in the editor. Height and Material
-there affect only that piece. **Push selected** starts the chain there;
+there affect only that piece. **Push selected** adds a push there;
 **Lift out** removes it from the chain, leaving a gap, and **Put back** restores it.
 Drag a tile in Arrange mode to change its position and connections.
 Undo edit restores the previous edit. Changing a global structural control
-generates a fresh layout and clears individual edits. Direct pushing starts a
-new fall from that tile; it does not layer another independent copy of the run.
+generates a fresh layout and clears individual edits.
+
+In **Push** mode, click any visible face of a standing domino to start it. Click
+elsewhere to add another falling wave while the earlier falls and sound tails
+continue. Enter, **Push selected**, and MIDI notes use the same action. Waves
+share one set of pieces: a tile already falling or down cannot topple again until
+it stands. **Stand all** resets the run; **Stand again** lets recovered pieces
+receive another push naturally. A cancelled pointer gesture never pushes.
+
+Manual pushes resume a paused run without resetting its existing falls or arming
+Audio. Sound-only edits preserve all active waves. Whole-run Loop repeats the
+current pattern of timed pushes; a scene or structural rebuild starts a new
+pattern. Circulating runs retain a bounded current-time simulation alongside the
+four-second audio lookahead, so each added push updates future contacts without
+replaying the entire performance.
+
 Orbit the scene by dragging empty space or choosing Orbit; Fit restores the
 camera. Camera and path visibility do not change the score.
 

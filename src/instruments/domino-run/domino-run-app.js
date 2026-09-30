@@ -10,7 +10,7 @@ const clone = value => JSON.parse(JSON.stringify(value));
 const clamp = (n,a,b) => Math.max(a,Math.min(b,n));
 const canvas = $("stage"), renderer = new DominoRenderer(canvas), audio = new DominoAudio();
 let params = sanitizeParams(DEFAULT_PARAMS), edits = [], drawing = null, undo = [];
-let run, timeline, simulation = null, referenceDuration = 1, selected = 0, mode = "push", playing = false, disposed = false;
+let run, playableRun, timeline, simulation = null, committedSimulation = null, manualPushes = [], referenceDuration = 1, selected = 0, mode = "push", playing = false, disposed = false;
 let anchor = 0, offset = 0, queuedCycle = -1, frame = 0, lastDraw = 0, buildTimer = 0, pointer = null;
 let streamQueued = new Set(), streamFuture = [];
 let transportUsesAudioClock = false;
@@ -72,7 +72,13 @@ function streamTimeline() {
     reachableCount:simulation.reachableCount,blockedLinks:simulation.blockedLinks};
 }
 function advanceStream() {
-  const result=simulation.advance(rawTime()+4);
+  const now=rawTime();
+  // Retain a current-time simulation so manual pushes can replace only the
+  // speculative future, without replaying a long performance from its start.
+  const present=simulation.hasPending?now:Math.min(now,simulation.duration);
+  const committed=committedSimulation.advance(present);
+  if(committed.complete)committedSimulation.prune(Math.max(0,now-1));
+  const result=simulation.advance(now+4);
   // A capped replay resumes next tick, including while paused. Never prune as
   // though its requested horizon has already been reached.
   if(result.complete)simulation.prune(Math.max(0,rawTime()-1));
@@ -111,6 +117,7 @@ function audioStateChanged() {
   sync();
 }
 function rebuild({preserve=true,phase=phaseNow(),streamTime=simulation?rawTime():null,startIds=activeStartIds,force=activeForce}={}) {
+  clearTimeout(buildTimer);buildTimer=0;manualPushes=[];
   const begun=clock();
   run=drawing?buildDrawnRun(drawing,params):buildRun(params);
   for(const edit of edits){
@@ -122,11 +129,12 @@ function rebuild({preserve=true,phase=phaseNow(),streamTime=simulation?rawTime()
     if(typeof edit.enabled==="boolean")d.enabled=edit.enabled;
   }
   const enabled=run.dominoes.filter(d=>d.enabled!==false),ids=new Set(enabled.map(d=>d.id));
-  const playable={...run,dominoes:enabled,links:run.links.filter(e=>ids.has(e.from)&&ids.has(e.to)),roots:run.roots.filter(id=>ids.has(id))};
+  const playable=playableRun={...run,dominoes:enabled,links:run.links.filter(e=>ids.has(e.from)&&ids.has(e.to)),roots:run.roots.filter(id=>ids.has(id))};
   const options={startIds:startIds?.filter(id=>ids.has(id))??playable.roots,force};
   const firstPass=compileRun(playable,options);
   referenceDuration=Math.max(.01,firstPass.duration/params.speed);
-  simulation=params.autoStand?createRunSimulation(playable,{...options,autoStand:true,standDelay:params.standDelay,speed:params.speed}):null;
+  committedSimulation=params.autoStand?createRunSimulation(playable,{...options,autoStand:true,standDelay:params.standDelay,speed:params.speed}):null;
+  simulation=committedSimulation?.fork()??null;
   offset=preserve?(simulation&&streamTime!==null?streamTime+(playing?clock()-begun:0):phase*(simulation?referenceDuration:firstPass.duration)):0;anchor=clock();
   if(simulation){advanceStream();}else timeline=firstPass;
   audio.setParams(params);queueAudio({live:preserve});sync();draw();
@@ -158,10 +166,44 @@ function start(ids=run.roots,force=1) {
   clearTimeout(buildTimer);activeStartIds=[...ids];activeForce=force;playing=true;
   rebuild({preserve:false,startIds:ids,force});announce(`Run started at domino ${(ids[0]??0)+1}.`);
 }
+function pushDomino(ids,force=1) {
+  if(buildTimer)rebuild();
+  const enabled=new Set(playableRun.dominoes.map(d=>d.id));
+  ids=[...new Set(ids)].filter(id=>enabled.has(id));
+  if(!ids.length){announce("Choose a standing domino to push.");return;}
+  if(!playing&&offset===0&&activeStartIds===null){start(ids,force);return;}
+  const began=clock(),now=localTime();
+  // Whole-run recovery has finished the previous wave; a push can begin the
+  // next run immediately while no falling pieces remain to interrupt.
+  if(!simulation&&params.loop&&now>=timeline.duration){start(ids,force);return;}
+  if(simulation){
+    const current=committedSimulation.advance(now);
+    if(!current.complete){announce("Catching up with the run. Push again in a moment.");return;}
+    if(!committedSimulation.trigger(ids,now,force)){announce("That domino is already falling or down. Wait for it to stand, or use Stand all.");return;}
+    audio.cancelQueued();
+    simulation=committedSimulation.fork();
+  }else{
+    const fallen=new Set(timeline.falls.filter(f=>f.start<=now).map(f=>f.id));
+    ids=ids.filter(id=>!fallen.has(id));
+    if(!ids.length){announce("That domino is already falling or down. Use Stand all to set it up again.");return;}
+    audio.cancelQueued();
+    // Each tile has at most one manual start per repeated run. A new earlier
+    // push replaces its future start; completed starts remain unchanged.
+    manualPushes=manualPushes.filter(push=>!ids.includes(push.id));
+    manualPushes.push(...ids.map(id=>({id,time:now,force})));
+    timeline=compileRun(playableRun,{startIds:activeStartIds??playableRun.roots,force:activeForce,pushes:manualPushes});
+    referenceDuration=Math.max(.01,timeline.duration/params.speed);
+  }
+  const resumedAt=clock();
+  offset=now+(playing?Math.max(0,resumedAt-began)*(simulation?1:params.speed):0);anchor=resumedAt;playing=true;
+  if(simulation)advanceStream();
+  queueAudio({live:true});sync();draw();
+  announce(`Domino ${(ids[0]??0)+1} pushed. Other falls keep going.`);
+}
 function pause() {offset=rawTime();playing=false;audio.silence();sync();draw();}
 function togglePlay() {
   if(playing){pause();return;}
-  if(offset===0||(!simulation&&offset>=timeline.duration)||(simulation&&!simulation.hasPending&&offset>=timeline.duration)){start();return;}
+  if(offset===0&&activeStartIds===null||(!simulation&&!params.loop&&offset>=timeline.duration)||(simulation&&!simulation.hasPending&&offset>=timeline.duration)){start();return;}
   playing=true;anchor=clock();queueAudio();sync();
 }
 function standUp() {offset=0;anchor=clock();activeStartIds=null;activeForce=1;rebuild({preserve:false});announce("Dominoes standing again.");}
@@ -182,7 +224,7 @@ function setMode(next) {
   if(mode!==next)draftPoints=[];mode=next;
   document.querySelectorAll("[data-mode]").forEach(b=>b.setAttribute("aria-pressed",String(b.dataset.mode===mode)));
   $("drawTools").hidden=mode!=="draw";
-  $("stageHelp").textContent=mode==="draw"?"Draw a path, then release. Add more strokes for more chains. Keyboard: arrows move, Enter adds a point, Shift+Enter finishes, Esc cancels.":mode==="arrange"?"Tap a domino to select it; drag to move it. Edit one domino changes that piece’s height or material. Arrow keys move it; Shift makes fine changes.":mode==="view"?"Drag to orbit the run. Use + and − to zoom, or Fit to return.":"Tap a domino to start there. Drag empty space to orbit.";
+  $("stageHelp").textContent=mode==="draw"?"Draw a path, then release. Add more strokes for more chains. Keyboard: arrows move, Enter adds a point, Shift+Enter finishes, Esc cancels.":mode==="arrange"?"Tap a domino to select it; drag to move it. Edit one domino changes that piece’s height or material. Arrow keys move it; Shift makes fine changes.":mode==="view"?"Drag to orbit the run. Use + and − to zoom, or Fit to return.":"Click a standing domino to push it. Push elsewhere to add another wave. Drag empty space to orbit.";
   canvas.style.cursor=mode==="draw"?"crosshair":mode==="view"?"grab":mode==="arrange"?"move":"pointer";draw();
 }
 function commitStroke(points) {
@@ -261,7 +303,7 @@ function tick() {
   if(simulation){
     advanceStream();
     if(audio.armed){const batch=streamBatch(raw);if(batch.length)audio.queue(batch,anchor-offset,{preserveStart:true});}
-    if(!simulation.hasPending&&raw>=timeline.duration){offset=timeline.duration;playing=false;sync();draw();}
+    if(!simulation.hasPending&&raw>=timeline.duration){offset=Math.max(timeline.duration,committedSimulation.time);playing=false;sync();draw();}
     return;
   }
   if(!params.loop&&raw>=timeline.duration){offset=timeline.duration;playing=false;sync();return;}
@@ -313,7 +355,7 @@ function finishPointer(event,cancel=false){
     else {draftPoints=[];draw();}
   }else if(cancel&&last.mode==="arrange"){edits=last.before.edits;rebuild();}
   else if(last.moved&&last.mode==="arrange"&&last.hit!==null){undo.push(last.before);if(undo.length>30)undo.shift();sync();}
-  else if(!last.moved&&last.hit!==null&&last.mode==="push")start([last.hit],.9+clamp(event.pressure||.5,0,1)*.3);
+  else if(!cancel&&!last.moved&&last.hit!==null&&last.mode==="push")pushDomino([last.hit],.9+clamp(event.pressure||.5,0,1)*.3);
   renderer.fitLocked=false;draw();
 }
 canvas.addEventListener("pointerup",e=>finishPointer(e));
@@ -340,17 +382,20 @@ canvas.addEventListener("keydown",event=>{
       const d=run.dominoes.find(d=>d.id===selected),step=event.shiftKey ? .035 : .15;
       editTile({x:d.x+(event.key==="ArrowRight"?step:event.key==="ArrowLeft"?-step:0),z:d.z+(event.key==="ArrowDown"?step:event.key==="ArrowUp"?-step:0)});
     }else {const at=run.dominoes.findIndex(d=>d.id===selected);selected=run.dominoes[(at+(event.key==="ArrowLeft"||event.key==="ArrowUp"?-1:1)+run.dominoes.length)%run.dominoes.length].id;syncSelected();draw();}
-  }else if(event.key==="Enter"){event.preventDefault();start([selected]);}
+  }else if(event.key==="Enter"){event.preventDefault();pushDomino([selected]);}
 });
 const keyHandler=e=>{if(!e.defaultPrevented&&e.code==="Space"&&!e.repeat&&!e.target.closest("input,select,textarea,button,summary,a")){e.preventDefault();togglePlay();}};
 document.addEventListener("keydown",keyHandler);
 document.querySelectorAll("[data-mode]").forEach(b=>b.addEventListener("click",()=>setMode(b.dataset.mode)));
 $("audioButton").addEventListener("click",async()=>{
-  const t=rawTime(),arm=!audio.armed;$("audioButton").disabled=true;
+  const arm=!audio.armed;$("audioButton").disabled=true;
   try{
-    await audio.setArmed(arm);transportUsesAudioClock=arm;
+    await audio.setArmed(arm);
+    // Manual pushes and visual time may advance while Audio is starting.
+    // Capture that progress before changing clock domains.
+    const elapsed=rawTime();transportUsesAudioClock=arm;
     audio.context?.addEventListener("statechange",audioStateChanged);
-    offset=t;anchor=clock();queueAudio();$("audioError").hidden=true;
+    offset=elapsed;anchor=clock();queueAudio();$("audioError").hidden=true;
   }catch(e){
     const elapsed=rawTime();transportUsesAudioClock=false;
     offset=elapsed;anchor=clock();error(e);
@@ -371,7 +416,7 @@ $("zoomIn").addEventListener("click",()=>{renderer.zoom=clamp(renderer.zoom*1.2,
 $("zoomOut").addEventListener("click",()=>{renderer.zoom=clamp(renderer.zoom/1.2,.5,4);draw();});
 $("fitView").addEventListener("click",()=>{renderer.zoom=1;renderer.yaw=-.48;renderer.tilt=.54;draw();});
 $("chooseDomino").addEventListener("click",()=>{setMode("arrange");canvas.scrollIntoView({block:"nearest"});canvas.focus({preventScroll:true});announce("Tap a domino to edit that piece. Drag it to move it.");});
-$("pushSelected").addEventListener("click",()=>start([selected]));
+$("pushSelected").addEventListener("click",()=>pushDomino([selected]));
 $("removeSelected").addEventListener("click",()=>editTile({enabled:run.dominoes.find(d=>d.id===selected).enabled===false}));
 $("tileMaterial").addEventListener("change",()=>editTile({material:$("tileMaterial").value}));
 $("tileSize").addEventListener("change",()=>editTile({height:Number($("tileSize").value)}));
@@ -380,7 +425,7 @@ $("undoEdit").addEventListener("click",undoEdit);
 $("resetAll").addEventListener("click",async()=>{pause();await audio.setArmed(false);transportUsesAudioClock=false;params=sanitizeParams(DEFAULT_PARAMS);edits=[];drawing=null;draftPoints=[];undo=[];activeStartIds=null;activeForce=1;renderer.zoom=1;renderer.yaw=-.48;renderer.tilt=.54;setMode("push");rebuild({preserve:false});});
 const midiHandler=event=>{
   const m=event.detail?.message;if(!m||disposed)return;
-  if(m.type==="noteOn"){event.preventDefault();if(!document.hidden&&run.dominoes.length)start([run.dominoes[((m.note??60)%run.dominoes.length+run.dominoes.length)%run.dominoes.length].id],clamp((m.velocity??100)/100,.2,1.4));}
+  if(m.type==="noteOn"){event.preventDefault();if(!document.hidden&&run.dominoes.length)pushDomino([run.dominoes[((m.note??60)%run.dominoes.length+run.dominoes.length)%run.dominoes.length].id],clamp((m.velocity??100)/100,.2,1.4));}
   else if(m.type==="noteOff")event.preventDefault();
   else if(m.type==="controlChange"&&[120,123].includes(m.controller)){event.preventDefault();pause();}
   else if(m.type==="controlChange"&&m.controller===74){event.preventDefault();setParam("brightness",.1+.9*(m.value??0)/127);}

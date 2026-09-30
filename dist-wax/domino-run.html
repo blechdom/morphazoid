@@ -43,7 +43,7 @@
   <main class="domino-shell">
     <section class="domino-stage" aria-labelledby="domino-title">
       <div class="domino-viewport" id="stageWrap">
-        <canvas id="stage" tabindex="0" aria-label="Playable domino run. Arrow keys select a tile; Enter pushes it. In Arrange mode, arrow keys move the selected tile. In Draw mode arrows move a drawing cursor, Enter adds a point, and Shift+Enter finishes the path. Space pauses or resumes the run." aria-describedby="stageHelp">A circle of standing stones forms a percussion instrument. Use the Push selected button to start the chain.</canvas>
+        <canvas id="stage" tabindex="0" aria-label="Playable domino run. Click standing dominoes to launch simultaneous falls. Arrow keys select a tile; Enter pushes it. In Arrange mode, arrow keys move the selected tile. In Draw mode arrows move a drawing cursor, Enter adds a point, and Shift+Enter finishes the path. Space pauses or resumes the run." aria-describedby="stageHelp">A circle of standing stones forms a percussion instrument. Use the Push selected button to start the chain.</canvas>
         <div class="domino-heading"><h1 id="domino-title">Domino Run</h1><p id="sceneName">Tone Henge</p></div>
         <div class="domino-stage-status" id="runStatus" aria-live="off">Ready to fall</div>
         <div class="domino-view-actions" role="group" aria-label="Camera"><button id="zoomOut" type="button" aria-label="Zoom out">−</button><button id="fitView" type="button">Fit</button><button id="zoomIn" type="button" aria-label="Zoom in">+</button></div>
@@ -57,7 +57,7 @@
         <label class="domino-check"><input id="closeLoops" type="checkbox" checked /> Close loops</label>
         <span id="drawingInfo">Your first stroke replaces this run.</span>
       </div>
-      <p class="domino-help" id="stageHelp">Tap a domino to start there. Drag empty space to orbit.</p>
+      <p class="domino-help" id="stageHelp">Click a standing domino to push it. Push elsewhere to add another wave. Drag empty space to orbit.</p>
     </section>
     <aside class="panel domino-panel" aria-label="Domino Run controls">
       <div data-instrument-preset-host></div>

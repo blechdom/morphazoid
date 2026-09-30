@@ -305,7 +305,15 @@ export function angleAt(fall, time) {
   while (hi - lo > 1) { const mid = (lo + hi) >> 1; if (fall.times[mid] <= elapsed) lo = mid; else hi = mid; }
   return HALF_PI * (lo + (elapsed - fall.times[lo]) / (fall.times[hi] - fall.times[lo])) / (fall.times.length - 1);
 }
-export function compileRun(run, { startIds = run.roots, force = 1 } = {}) {
+export const MAX_COMPILED_PUSHES = 512;
+
+/** Additional pushes use finite model-time offsets; Run speed is applied by the player. */
+export function compileRun(run, { startIds = run.roots, force = 1, pushes = [] } = {}) {
+  const gestures = Array.isArray(pushes) ? pushes.slice(0, MAX_COMPILED_PUSHES)
+    .filter(push => push && Number.isFinite(push.time) && push.time >= 0)
+    .map(push => ({ id: push.id, time: push.time, force: push.force ?? 1 }))
+    .sort((a, b) => a.time - b.time) : [];
+  if (gestures.length) return compilePushedRun(run, { startIds, force, pushes: gestures });
   const dominoes = run.dominoes.slice(0, 512), byId = new Map(dominoes.map(d => [d.id, d]));
   const outgoing = new Map(), pending = [], scheduled = new Map(), falls = [], events = [], blockedLinks = [];
   const links = run.links.filter(link => byId.has(link.from) && byId.has(link.to)).slice(0, dominoes.length * 2);
@@ -374,6 +382,27 @@ export function compileRun(run, { startIds = run.roots, force = 1 } = {}) {
     reachableCount: falls.length, blockedLinks };
 }
 
+function compilePushedRun(run, { startIds, force, pushes }) {
+  const simulation = createRunSimulation(run, { startIds, force, autoStand: false, speed: 1 });
+  const advanceTo = time => {
+    while (!simulation.advance(time).complete) { /* Resume a bounded transition batch. */ }
+  };
+  for (const push of pushes) {
+    // Materialize standing/fallen state before deciding whether this push can
+    // act. Pre-queuing a later gesture would consult the wrong historical pose.
+    advanceTo(push.time);
+    simulation.trigger([push.id], push.time, push.force);
+  }
+  while (simulation.hasPending) advanceTo(simulation.nextTime);
+  const events = simulation.events.map(({ eventId, occurrenceId, ...event }) => event);
+  events.sort((a, b) => a.time - b.time || a.id - b.id || (a.type === 'contact' ? -1 : 1));
+  const falls = simulation.falls.map(({ occurrenceId, standStart, standEnd, ...fall }) => fall);
+  const fallen = new Set(falls.map(fall => fall.id));
+  return { events, falls, duration: simulation.duration,
+    stalledIds: run.dominoes.slice(0, 512).filter(domino => !fallen.has(domino.id)).map(domino => domino.id),
+    reachableCount: fallen.size, blockedLinks: simulation.blockedLinks };
+}
+
 export const STAND_RISE_SECONDS = .4;
 export const RUN_HISTORY_LIMITS = Object.freeze({ events: 16384, falls: 8192, transitionsPerAdvance: 32768 });
 
@@ -388,8 +417,15 @@ export const RUN_HISTORY_LIMITS = Object.freeze({ events: 16384, falls: 8192, tr
  * call advance with the same deadline to resume without dropping queued work.
  * trigger must be at or after the already advanced simulation time. Changing
  * configuration or inserting a past gesture requires a new simulation.
+ * fork() makes an independent exact continuation, including pending impacts,
+ * recovery and manual triggers; IDs already assigned keep their values.
  */
 export function createRunSimulation(run, options = {}) {
+  return makeRunSimulation(run, options);
+}
+
+// Checkpoints remain private: fork is the only way to construct a continuation.
+function makeRunSimulation(run, options, checkpoint = null) {
   const params = sanitizeParams(run.params || {});
   const speed = bounded(options.speed, .35, 2.4, params.speed);
   const autoStand = typeof options.autoStand === 'boolean' ? options.autoStand : params.autoStand;
@@ -405,8 +441,10 @@ export function createRunSimulation(run, options = {}) {
     outgoing.push({ link: { from: link.from, to: link.to }, target, geometry: contactGeometry(byId.get(link.from), target) });
     routes.set(link.from, outgoing);
   }
-  const heap = [], events = [], falls = [], lastFalls = new Map(), seen = new Set(), blocked = new Map(), manualQueued = new Map();
-  let time = 0, endTime = 0, serial = 0, occurrenceId = 0, eventId = 0;
+  const { heap, events, falls, lastFalls, seen, blocked, manualQueued } = checkpoint ?? {
+    heap: [], events: [], falls: [], lastFalls: new Map(), seen: new Set(), blocked: new Map(), manualQueued: new Map(),
+  };
+  let { time = 0, endTime = 0, serial = 0, occurrenceId = 0, eventId = 0 } = checkpoint ?? {};
   const priority = { ready: 0, fall: 1, contact: 2, floor: 3 };
   const compare = (a, b) => a.time - b.time || priority[a.kind] - priority[b.kind] || a.id - b.id || a.serial - b.serial;
   const push = item => {
@@ -549,9 +587,18 @@ export function createRunSimulation(run, options = {}) {
     for (const event of events) if (event.time >= before) events[write++] = event;
     events.length = write;
   };
-  trigger(options.startIds ?? run.roots, 0, options.force ?? 1);
+  const fork = () => {
+    // One graph clone preserves aliases such as manualQueued -> heap entry and
+    // lastFalls -> retained fall, while sharing no mutable history with a branch.
+    const state = structuredClone({ heap, events, falls, lastFalls, seen, blocked, manualQueued,
+      time, endTime, serial, occurrenceId, eventId });
+    const snapshot = { params, dominoes: dominoes.map(domino => ({ ...domino })),
+      links: [...routes.values()].flatMap(outgoing => outgoing.map(route => ({ ...route.link }))), roots: [] };
+    return makeRunSimulation(snapshot, { speed, autoStand, standDelay }, state);
+  };
+  if (!checkpoint) trigger(options.startIds ?? run.roots, 0, options.force ?? 1);
   return {
-    advance, prune, trigger,
+    advance, prune, trigger, fork,
     get events() { return events; }, get falls() { return falls; },
     get time() { return time; }, get endTime() { return endTime; }, get duration() { return endTime; },
     get hasPending() { return heap.length > 0; }, get nextTime() { return heap[0]?.time ?? Infinity; },

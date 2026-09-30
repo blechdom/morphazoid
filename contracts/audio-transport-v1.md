@@ -112,7 +112,10 @@ does not invalidate preset identity. Reset all restores their defaults and stops
 playback. Stand again still models individual recovery: an open path or a slow
 recovery can end its wave. Whole-run Loop remains disabled while it is active.
 Scene recall during the whole-run reset pause begins at phase zero so it cannot
-land beyond the replacement run's end.
+land beyond the replacement run's end. Manual mouse, Enter, Push selected, and
+MIDI-note pushes add to the current physical run and resume it when paused. They
+preserve earlier falls and audible tails without arming Audio. Standing state
+is shared by all waves; scene/structural rebuilds replace this live push history.
 
 ## Other full-scene adapters
 

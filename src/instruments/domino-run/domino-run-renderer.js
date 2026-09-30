@@ -9,6 +9,19 @@ function tint(hex, amount = 0) {
   return `rgb(${[16, 8, 0].map(s => clamp(((n >> s) & 255) + amount, 0, 255)).join(",")})`;
 }
 
+// Pick the same projected surfaces that are painted, including their .7px outline.
+function containsPoint(points, x, y) {
+  let inside = false;
+  for (let i = 0, j = points.length - 1; i < points.length; j = i++) {
+    const a = points[j], b = points[i], dx = b.x - a.x, dy = b.y - a.y;
+    const lengthSquared = dx * dx + dy * dy;
+    const t = lengthSquared ? clamp(((x - a.x) * dx + (y - a.y) * dy) / lengthSquared, 0, 1) : 0;
+    if ((x - a.x - t * dx) ** 2 + (y - a.y - t * dy) ** 2 <= .35 ** 2) return true;
+    if ((a.y > y) !== (b.y > y) && x < a.x + (y - a.y) * dx / dy) inside = !inside;
+  }
+  return inside;
+}
+
 export class DominoRenderer {
   constructor(canvas) {
     this.canvas = canvas;
@@ -74,11 +87,12 @@ export class DominoRenderer {
     const color = d.color || "#aaa68c";
     const faces = [[0,1,5,4], [2,3,7,6], [0,2,6,4], [1,3,7,5], [4,5,7,6]];
     const shades = [-35, 5, -20, -8, 28];
-    faces.map((face, i) => ({ face, i, depth: face.reduce((a,j) => a + vertices[j].depth,0) / 4 }))
-      .sort((a,b) => a.depth - b.depth).forEach(({face,i}) => this.polygon(face.map(j => vertices[j]), tint(color, shades[i] + flash * 70), selected ? "#ffe1a0" : "#171a13"));
+    const surfaces = faces.map((face, i) => ({ points: face.map(j => vertices[j]), i, depth: face.reduce((a,j) => a + vertices[j].depth,0) / 4 }))
+      .sort((a,b) => a.depth - b.depth);
+    surfaces.forEach(({points,i}) => this.polygon(points, tint(color, shades[i] + flash * 70), selected ? "#ffe1a0" : "#171a13"));
     const center = this.project(d.x + ca * (d.depth / 2 + d.height * st * .5), d.elevation + d.height * ct * .5, d.z + sa * (d.depth / 2 + d.height * st * .5));
     const base = this.project(d.x,d.elevation,d.z);
-    this.hits.push({ id: d.id, x: center.x, y: center.y, bx: base.x, by: base.y, radius: Math.max(10, Math.min(30, d.height * this.scale * .45)) });
+    this.hits.push({ id: d.id, x: center.x, y: center.y, bx: base.x, by: base.y, radius: Math.max(10, Math.min(30, d.height * this.scale * .45)), polygons: surfaces.map(({points}) => points) });
     if (this.scale * d.height > 20 && angle < 1.4) {
       const face = [vertices[2],vertices[3],vertices[7],vertices[6]];
       c.save(); c.beginPath(); face.forEach((p,i) => i ? c.lineTo(p.x,p.y) : c.moveTo(p.x,p.y)); c.closePath(); c.clip();
@@ -156,8 +170,16 @@ export class DominoRenderer {
     }
   }
   hit(x,y) {
-    let best=null,score=Infinity;
-    for(const p of this.hits){const d=Math.min(Math.hypot(x-p.x,y-p.y),Math.hypot(x-p.bx,y-p.by));if(d<p.radius&&d<score){best=p.id;score=d;}}
-    return best;
+    // Last painted wins where dominoes overlap; a nearer center may be hidden.
+    for (let i = this.hits.length - 1; i >= 0; i--) {
+      const p = this.hits[i];
+      if (p.polygons) {
+        if (p.polygons.some(points => containsPoint(points, x, y))) return p.id;
+      } else if (Math.hypot(x - p.x, y - p.y) < p.radius) {
+        // Lifted-out dominoes retain their small editing-marker target.
+        return p.id;
+      }
+    }
+    return null;
   }
 }
