@@ -2385,6 +2385,7 @@ test("jaw-harp page exposes the physical model and accessible interactions", asy
   assert.match(auditionBlock, /intentGeneration = performanceIntentGeneration/);
   assert.match(auditionBlock, /parkOwner = \+\+repeatClockParkSerial/);
   assert.match(auditionBlock, /repeatClockParkOwner !== parkOwner/);
+  assert.match(auditionBlock, /parkOwner !== repeatClockParkSerial/);
   assert.match(auditionBlock, /repeatClockParkOwner = parkOwner/);
   assert.match(auditionBlock, /repeatClockParkOwner = 0/);
   assert.match(auditionBlock, /audioContext\?\.state !== "running"/);
@@ -2397,6 +2398,7 @@ test("jaw-harp page exposes the physical model and accessible interactions", asy
   assert.match(auditionBlock, /automatic: true/);
   assert.match(auditionBlock, /repeatStep = 1/);
   assert.match(auditionBlock, /repeatHitCount = 1/);
+  assert.match(auditionBlock, /nextRepeatAt = lastPluckAt/);
   assert.match(auditionBlock, /repeatIntervalMs\(state\.repeatRateBpm, 0, state\.repeatSwing\)/);
   const randomizeBlock = app.match(/function randomizeModel\(\) \{[\s\S]*?^\}/m)?.[0] ?? "";
   assert.match(randomizeBlock, /type: "silence"/);

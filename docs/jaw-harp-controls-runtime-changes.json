@@ -4,7 +4,7 @@
   "changes": [
     {
       "file": "src/instruments/jaw-harp/jaw-harp-app.js",
-      "reason": "Owner-requested Jaw Harp controls cleanup: use the shared Choose menu for local selections, synchronize it with existing state and page lifecycle, and simplify repeated preset/vowel copy. Preserve synthesis, gestures, native select events, and frozen relocation/pointer references.",
+      "reason": "Owner-requested Jaw Harp controls cleanup and preset pluck: use shared Choose menus, synchronize local selections with state and lifecycle, and simplify repeated copy. Preset/Next/dice recall starts a guarded first pluck and restarts phrase/repeat timing from that actual strike. Preserve explicit Audio activation, live Repeat state, synthesis, and frozen relocation/pointer references.",
       "regressionTests": [
         "tests/jaw-harp.test.mjs",
         "e2e/jaw-harp.spec.mjs"
@@ -17,6 +17,14 @@
         {
           "before": "// Randomized models can legitimately retain a near-zero performance force. Keep\n// that setting intact, but use a dependable strike for the one-shot audition.\nconst RANDOMIZE_AUDITION_FORCE_FLOOR = JAW_HARP_DEFAULTS.pluckForce;\n\nlet state = jawHarpState(\"khomus\");\nlet activeVowelId = \"a\";\n",
           "after": "// Randomized models can legitimately retain a near-zero performance force. Keep\n// that setting intact, but use a dependable strike for the one-shot audition.\nconst RANDOMIZE_AUDITION_FORCE_FLOOR = JAW_HARP_DEFAULTS.pluckForce;\nconst selectPickers = new Map();\n\nfunction mountSelectPickers() {\n  for (const [id, label] of [\n    [\"harpSelect\", \"Physical harp / material\"],\n    [\"styleSelect\", \"Reference performance\"],\n    [\"vowelSequenceSelect\", \"Vowel phrase\"],\n    [\"rhythmSelect\", \"Gesture loop\"],\n    [\"breathsPerLoop\", \"Breath against pluck loop\"],\n  ]) {\n    selectPickers.set(id, createJawHarpSelectPicker($(id), { label }));\n  }\n}\n\nlet state = jawHarpState(\"khomus\");\nlet activeVowelId = \"a\";\n"
+        },
+        {
+          "before": "  }\n  if (\n    intentGeneration !== performanceIntentGeneration\n    || !pageIsActive\n    || !audioDesiredOn\n    || !graph\n",
+          "after": "  }\n  if (\n    intentGeneration !== performanceIntentGeneration\n    || parkOwner !== repeatClockParkSerial\n    || !pageIsActive\n    || !audioDesiredOn\n    || !graph\n"
+        },
+        {
+          "before": "    automatic: true,\n    announcePluck: false,\n  });\n  if (!struck) {\n    releaseDeferredRepeat();\n    return false;\n  }\n  if (state.repeat) {\n    // This preview is rhythm step zero. Advance the clock so the animation\n    // frame that follows Randomize cannot immediately add a second strike.\n    repeatStep = 1;\n    repeatHitCount = 1;\n    nextRepeatAt = performance.now()\n      + repeatIntervalMs(state.repeatRateBpm, 0, state.repeatSwing) * 0.5;\n    renderPulseMap();\n  }\n",
+          "after": "    automatic: true,\n    announcePluck: false,\n  });\n  if (!struck || intentGeneration !== performanceIntentGeneration || parkOwner !== repeatClockParkSerial) {\n    releaseDeferredRepeat();\n    return false;\n  }\n  if (state.repeat) {\n    // This preview is rhythm step zero. Advance the clock so the animation\n    // frame that follows a preset change cannot immediately add a second strike.\n    repeatStep = 1;\n    repeatHitCount = 1;\n    nextRepeatAt = lastPluckAt\n      + repeatIntervalMs(state.repeatRateBpm, 0, state.repeatSwing) * 0.5;\n    renderPulseMap();\n  }\n"
         },
         {
           "before": "    button.setAttribute(\"aria-pressed\", String(button.dataset.vowel === soundingVowelId));\n  }\n  $(\"vowelSequenceSelect\").value = sequence.id;\n  for (const button of document.querySelectorAll(\"[data-vowel-sequence-mode]\")) {\n    button.setAttribute(\n      \"aria-pressed\",\n",
@@ -41,6 +49,10 @@
         {
           "before": "globalThis.addEventListener(\"pageshow\", () => {\n  if (pageIsActive) return;\n  pageIsActive = true;\n  manualBreathDirection = 0;\n  commandedBreathFlow = 0;\n  visualBreathFlow = 0;\n",
           "after": "globalThis.addEventListener(\"pageshow\", () => {\n  if (pageIsActive) return;\n  pageIsActive = true;\n  mountSelectPickers();\n  manualBreathDirection = 0;\n  commandedBreathFlow = 0;\n  visualBreathFlow = 0;\n"
+        },
+        {
+          "before": "  capture: () => captureJawHarpPreset(state),\n  apply(snapshot) {\n    validateJawHarpPreset(snapshot);\n    const now = performance.now(), phase = breathCyclePhaseAt(now);\n    state = sanitizeJawHarpState({ ...snapshot.parameters, repeat: state.repeat, breathFlow: state.breathFlow });\n    referencePerformanceBaseline = null;\n    referenceGestureStep %= Math.max(1, jawHarpStyle(state.styleId)?.gestureSteps?.length ?? 1);\n    activeVowelId = null;\n    if (state.vowelSequenceMode === \"off\") sequencedVowelId = null;\n    else setSequencedVowelStep(vowelSequenceActiveStep);\n    preserveBreathCyclePhase(phase, now);\n    commandedBreathFlow = breathFlowAt(now);\n    updatePresentation();\n    postConfiguration();\n  },\n});\n",
+          "after": "  capture: () => captureJawHarpPreset(state),\n  apply(snapshot) {\n    validateJawHarpPreset(snapshot);\n    const now = performance.now();\n    cancelHeldTine();\n    state = sanitizeJawHarpState({ ...snapshot.parameters, repeat: state.repeat, breathFlow: state.breathFlow });\n    referencePerformanceBaseline = null;\n    referenceGestureStep = 0;\n    repeatStep = 0;\n    repeatHitCount = 0;\n    nextRepeatAt = now;\n    activeVowelId = null;\n    resetBreathCycle(state.autoBreath ? state.breathBalance * 0.5 : 0);\n    resetVowelSequence({ post: false, present: false, time: now });\n    commandedBreathFlow = breathFlowAt(now);\n    updatePresentation();\n    postConfiguration();\n    void auditionRandomizedModel();\n  },\n});\n"
         }
       ]
     }

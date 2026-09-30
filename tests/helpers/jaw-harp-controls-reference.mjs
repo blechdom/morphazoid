@@ -9,7 +9,7 @@ for (const file of changes[0].regressionTests) {
   assert.ok(existsSync(new URL(`../../${file}`, import.meta.url)), file);
 }
 
-/** Reverse only the documented UI wiring; keep the historical DSP/gesture references frozen. */
+/** Reverse only the documented UI and preset timing; keep the historical DSP/gesture references frozen. */
 export function restoreJawHarpControls(source, file) {
   for (const change of changes.filter(change => change.file === file)) {
     for (const replacement of [...change.replacements].reverse()) {

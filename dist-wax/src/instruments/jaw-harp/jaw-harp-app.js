@@ -727,6 +727,7 @@ async function auditionRandomizedModel() {
   }
   if (
     intentGeneration !== performanceIntentGeneration
+    || parkOwner !== repeatClockParkSerial
     || !pageIsActive
     || !audioDesiredOn
     || !graph
@@ -752,16 +753,16 @@ async function auditionRandomizedModel() {
     automatic: true,
     announcePluck: false,
   });
-  if (!struck) {
+  if (!struck || intentGeneration !== performanceIntentGeneration || parkOwner !== repeatClockParkSerial) {
     releaseDeferredRepeat();
     return false;
   }
   if (state.repeat) {
     // This preview is rhythm step zero. Advance the clock so the animation
-    // frame that follows Randomize cannot immediately add a second strike.
+    // frame that follows a preset change cannot immediately add a second strike.
     repeatStep = 1;
     repeatHitCount = 1;
-    nextRepeatAt = performance.now()
+    nextRepeatAt = lastPluckAt
       + repeatIntervalMs(state.repeatRateBpm, 0, state.repeatSwing) * 0.5;
     renderPulseMap();
   }
@@ -2602,16 +2603,20 @@ registerHeaderPresets({
   capture: () => captureJawHarpPreset(state),
   apply(snapshot) {
     validateJawHarpPreset(snapshot);
-    const now = performance.now(), phase = breathCyclePhaseAt(now);
+    const now = performance.now();
+    cancelHeldTine();
     state = sanitizeJawHarpState({ ...snapshot.parameters, repeat: state.repeat, breathFlow: state.breathFlow });
     referencePerformanceBaseline = null;
-    referenceGestureStep %= Math.max(1, jawHarpStyle(state.styleId)?.gestureSteps?.length ?? 1);
+    referenceGestureStep = 0;
+    repeatStep = 0;
+    repeatHitCount = 0;
+    nextRepeatAt = now;
     activeVowelId = null;
-    if (state.vowelSequenceMode === "off") sequencedVowelId = null;
-    else setSequencedVowelStep(vowelSequenceActiveStep);
-    preserveBreathCyclePhase(phase, now);
+    resetBreathCycle(state.autoBreath ? state.breathBalance * 0.5 : 0);
+    resetVowelSequence({ post: false, present: false, time: now });
     commandedBreathFlow = breathFlowAt(now);
     updatePresentation();
     postConfiguration();
+    void auditionRandomizedModel();
   },
 });
