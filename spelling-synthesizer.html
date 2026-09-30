@@ -95,6 +95,10 @@
             <button class="mini-action spelling-loop-button" id="readbackLoop" type="button" aria-pressed="false" aria-label="Loop readback" title="Loop readback: off">
               <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M18 7H7a4 4.5 0 0 0-4 4.5M6 17h11a4 4.5 0 0 0 4-4.5M15 4l3 3-3 3M9 14l-3 3 3 3" /></svg>
             </button>
+            <label class="spelling-readback-speed" for="readbackSpeed">
+              <span>Speed <output id="readbackSpeedOut" for="readbackSpeed">1.00×</output></span>
+              <input id="readbackSpeed" type="range" min="0.5" max="2" step="0.05" value="1" aria-label="Readback speed" title="Readback pace: half to double speed, without changing pitch" />
+            </label>
             <button class="mini-action" id="readbackStartOver" type="button" hidden>Start over</button>
             <button class="mini-action" id="clearButton" type="button">Clear text</button>
           </div>

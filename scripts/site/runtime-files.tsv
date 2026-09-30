@@ -333,6 +333,7 @@ copy+require	src/instruments/spelling-synthesizer/spelling-synthesizer.css
 copy+require	src/instruments/spelling-synthesizer/spelling-synthesizer-app.js
 copy+require	src/instruments/spelling-synthesizer/spelling-synthesizer.js
 copy+require	src/instruments/spelling-synthesizer/spelling-synthesizer-audio.js
+copy+require	src/instruments/spelling-synthesizer/spelling-output.js
 copy+require	src/instruments/spelling-synthesizer/spelling-diphone-atlas.js
 copy+require	src/instruments/spelling-synthesizer/spelling-pronunciation.js
 copy+require	src/instruments/spelling-synthesizer/spelling-vocoder-processor.js

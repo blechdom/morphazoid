@@ -4,12 +4,16 @@
   "changes": [
     {
       "file": "spelling-synthesizer.html",
-      "reason": "Owner-requested Spelling mouth/editor/Loop, two additive retro engines, full scenes, explicit Audio, flush rail and Voice-category promotion; original three engines and routes preserved. Shared preset recall adds async serialization while retaining fresh-main shadow-root event handling.",
+      "reason": "Owner-requested Spelling mouth/editor/Loop, two additive retro engines, full scenes, explicit Audio, flush rail and Voice-category promotion; original three engines and routes preserved. Shared preset recall adds async serialization while retaining fresh-main shadow-root event handling. Follow-up from ad8041e: owner-requested live voice/tone readback continuity, performer-owned playback speed, opt-in engine/personality output calibration and bounded post-master protection. Preserve prior presets, Audio consent, sound models and the legacy Pink Trombonazoid consumer.",
       "regressionTests": [
         "tests/spelling-retro.test.mjs",
         "tests/spelling-synthesizer-app-smoke.test.mjs",
         "tests/header-preset-menu.test.mjs",
-        "e2e/spelling-mouth.spec.mjs"
+        "e2e/spelling-mouth.spec.mjs",
+        "tests/spelling-output.test.mjs",
+        "tests/spelling-synthesizer-audio.test.mjs",
+        "e2e/spelling-live-readback.spec.mjs",
+        "e2e/spelling-presets.spec.mjs"
       ],
       "replacements": [
         {
@@ -27,17 +31,25 @@
         {
           "before": "          </button>\n        </section>\n\n        <section class=\"spelling-history-note\" aria-labelledby=\"lineageTitle\">\n          <b id=\"lineageTitle\">Historical models, live control</b>\n          <p>\n            Bell Labs\u2019 1961 \u201cDaisy Bell\u201d used an early digital vocal-tract model. Bellazoid keeps\n            that lineage alive; CMU Flite\u2019s KAL16 voice supplies rendered phone and pair units.\n            Voxazoid follows their moving spectrum through twenty speech bands. Typing supplies the\n            control gestures.\n          </p>\n          <a href=\"throatazoid.html\">Open the full Throatazoid anatomy \u2192</a>\n        </section>\n\n        <p class=\"audio-error\" id=\"audioError\" role=\"alert\" hidden></p>\n        <div class=\"reset-all-row\">\n",
           "after": "          </button>\n        </section>\n\n        <p class=\"spelling-notes-link\"><a href=\"docs/spelling-synthesizer.md\">Voice engines &amp; controls</a> \u00b7 <a href=\"throatazoid.html\">Throatazoid</a></p>\n\n        <p class=\"audio-error\" id=\"audioError\" role=\"alert\" hidden></p>\n        <div class=\"reset-all-row\">\n"
+        },
+        {
+          "before": "            <button class=\"mini-action spelling-loop-button\" id=\"readbackLoop\" type=\"button\" aria-pressed=\"false\" aria-label=\"Loop readback\" title=\"Loop readback: off\">\n              <svg viewBox=\"0 0 24 24\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M18 7H7a4 4.5 0 0 0-4 4.5M6 17h11a4 4.5 0 0 0 4-4.5M15 4l3 3-3 3M9 14l-3 3 3 3\" /></svg>\n            </button>\n            <button class=\"mini-action\" id=\"readbackStartOver\" type=\"button\" hidden>Start over</button>\n            <button class=\"mini-action\" id=\"clearButton\" type=\"button\">Clear text</button>\n          </div>\n",
+          "after": "            <button class=\"mini-action spelling-loop-button\" id=\"readbackLoop\" type=\"button\" aria-pressed=\"false\" aria-label=\"Loop readback\" title=\"Loop readback: off\">\n              <svg viewBox=\"0 0 24 24\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M18 7H7a4 4.5 0 0 0-4 4.5M6 17h11a4 4.5 0 0 0 4-4.5M15 4l3 3-3 3M9 14l-3 3 3 3\" /></svg>\n            </button>\n            <label class=\"spelling-readback-speed\" for=\"readbackSpeed\">\n              <span>Speed <output id=\"readbackSpeedOut\" for=\"readbackSpeed\">1.00\u00d7</output></span>\n              <input id=\"readbackSpeed\" type=\"range\" min=\"0.5\" max=\"2\" step=\"0.05\" value=\"1\" aria-label=\"Readback speed\" title=\"Readback pace: half to double speed, without changing pitch\" />\n            </label>\n            <button class=\"mini-action\" id=\"readbackStartOver\" type=\"button\" hidden>Start over</button>\n            <button class=\"mini-action\" id=\"clearButton\" type=\"button\">Clear text</button>\n          </div>\n"
         }
       ]
     },
     {
       "file": "src/instruments/spelling-synthesizer/spelling-synthesizer-app.js",
-      "reason": "Owner-requested Spelling mouth/editor/Loop, two additive retro engines, full scenes, explicit Audio, flush rail and Voice-category promotion; original three engines and routes preserved. Shared preset recall adds async serialization while retaining fresh-main shadow-root event handling.",
+      "reason": "Owner-requested Spelling mouth/editor/Loop, two additive retro engines, full scenes, explicit Audio, flush rail and Voice-category promotion; original three engines and routes preserved. Shared preset recall adds async serialization while retaining fresh-main shadow-root event handling. Follow-up from ad8041e: owner-requested live voice/tone readback continuity, performer-owned playback speed, opt-in engine/personality output calibration and bounded post-master protection. Preserve prior presets, Audio consent, sound models and the legacy Pink Trombonazoid consumer.",
       "regressionTests": [
         "tests/spelling-retro.test.mjs",
         "tests/spelling-synthesizer-app-smoke.test.mjs",
         "tests/header-preset-menu.test.mjs",
-        "e2e/spelling-mouth.spec.mjs"
+        "e2e/spelling-mouth.spec.mjs",
+        "tests/spelling-output.test.mjs",
+        "tests/spelling-synthesizer-audio.test.mjs",
+        "e2e/spelling-live-readback.spec.mjs",
+        "e2e/spelling-presets.spec.mjs"
       ],
       "replacements": [
         {
@@ -203,17 +215,105 @@
         {
           "before": "\nglobalThis.addEventListener?.(\"blur\", () => releaseHeldVowel());\n\nupdateUi();\n",
           "after": "\nglobalThis.addEventListener?.(\"blur\", () => releaseHeldVowel());\n\npaintMouth(REST_MOUTH);\nupdateUi();\n\nconst presetController=registerHeaderPresets({id:\"spelling-synthesizer\",presets,randomize,capture:()=>schema.capture(state),apply:async snapshot=>{\n const next=schema.validate(snapshot);\n if(state.switching || state.starting) throw new Error(\"Wait for the current voice to finish loading\");\n const resume=readbackHasPendingPlayback();\n if(resume) pauseReadback();\n try {\n  if(next.engine!==state.engine) await selectEngine(next.engine,{preview:false,announceSelection:false});\n  if(state.engine!==next.engine) throw new Error(\"Requested voice is unavailable; previous scene retained\");\n  Object.assign(state,next); updateUi();\n } finally { if(resume && state.audioOn) startReadback({automatic:true}); }\n}});\n"
+        },
+        {
+          "before": "const readback = {\n  // Live transport choice: factory presets and Random must not overwrite it.\n  loop: false,\n  phase: \"idle\",\n  generation: 0,\n  offset: 0,\n",
+          "after": "const readback = {\n  // Live transport choice: factory presets and Random must not overwrite it.\n  loop: false,\n  speed: 1,\n  nextPhone: 0,\n  nextGesture: 0,\n  timerDeadline: 0,\n  timerSpeed: 1,\n  timerCallback: null,\n  phase: \"idle\",\n  generation: 0,\n  offset: 0,\n"
+        },
+        {
+          "before": "};\n\nconst audio = new SpellingSynthesizerAudio({\n  engine: state.engine,\n  level: state.level,\n  onFallback({ requested, actual, error }) {\n",
+          "after": "};\n\nconst audio = new SpellingSynthesizerAudio({\n  balancedOutput: true,\n  engine: state.engine,\n  level: state.level,\n  onFallback({ requested, actual, error }) {\n"
+        },
+        {
+          "before": "function updateReadbackUi() {\n  const button = $(\"readbackButton\");\n  const startOver = $(\"readbackStartOver\");\n  setPressed($(\"readbackLoop\"), readback.loop);\n  $(\"readbackLoop\").title = `Loop readback: ${readback.loop ? \"on\" : \"off\"}`;\n  const labels = {\n",
+          "after": "function updateReadbackUi() {\n  const button = $(\"readbackButton\");\n  const startOver = $(\"readbackStartOver\");\n  $(\"readbackSpeed\").value = String(readback.speed);\n  $(\"readbackSpeedOut\").textContent = `${readback.speed.toFixed(2)}\u00d7`;\n  $(\"readbackSpeed\").setAttribute(\"aria-valuetext\", `${readback.speed.toFixed(2)} times normal speed`);\n  setPressed($(\"readbackLoop\"), readback.loop);\n  $(\"readbackLoop\").title = `Loop readback: ${readback.loop ? \"on\" : \"off\"}`;\n  const labels = {\n"
+        },
+        {
+          "before": "  };\n  button.setAttribute(\"aria-label\", labels[readback.phase] ?? labels.idle);\n  button.title = labels[readback.phase] ?? labels.idle;\n  button.disabled = readback.phase === \"starting\";\n  button.setAttribute(\n    \"aria-pressed\",\n    String(readback.phase === \"starting\" || readback.phase === \"playing\"),\n",
+          "after": "  };\n  button.setAttribute(\"aria-label\", labels[readback.phase] ?? labels.idle);\n  button.title = labels[readback.phase] ?? labels.idle;\n  // Preparing a new voice must still leave Pause reachable.\n  button.disabled = false;\n  button.setAttribute(\n    \"aria-pressed\",\n    String(readback.phase === \"starting\" || readback.phase === \"playing\"),\n"
+        },
+        {
+          "before": "function clearReadbackTimer() {\n  if (readback.timer) globalThis.clearTimeout(readback.timer);\n  readback.timer = 0;\n}\n\nfunction cancelReadbackPlayback({ release = true } = {}) {\n",
+          "after": "function clearReadbackTimer() {\n  if (readback.timer) globalThis.clearTimeout(readback.timer);\n  readback.timer = 0;\n  readback.timerCallback = null;\n  readback.timerDeadline = 0;\n}\n\nfunction cancelReadbackPlayback({ release = true } = {}) {\n"
+        },
+        {
+          "before": "      let phoneEndMs = cursorMs;\n      audibleEvents.forEach((event, gestureIndex) => {\n        const offsetMs = cursorMs + gestureIndex * internalSpacingMs;\n        steps.push({ event, offsetMs });\n        phoneEndMs = Math.max(\n          phoneEndMs,\n          offsetMs + Math.max(0, audio.durationMs?.(event) ?? 100),\n",
+          "after": "      let phoneEndMs = cursorMs;\n      audibleEvents.forEach((event, gestureIndex) => {\n        const offsetMs = cursorMs + gestureIndex * internalSpacingMs;\n        steps.push({ event, offsetMs, phoneIndex, gestureIndex });\n        phoneEndMs = Math.max(\n          phoneEndMs,\n          offsetMs + Math.max(0, audio.durationMs?.(event) ?? 100),\n"
+        },
+        {
+          "before": "\nfunction scheduleReadbackTimer(callback, delayMs, generation) {\n  clearReadbackTimer();\n  readback.timer = globalThis.setTimeout(() => {\n    readback.timer = 0;\n    if (generation !== readback.generation || readback.phase !== \"playing\") return;\n    callback();\n  }, Math.max(0, Math.round(delayMs)));\n}\n\nfunction failReadback(error, generation) {\n",
+          "after": "\nfunction scheduleReadbackTimer(callback, delayMs, generation) {\n  clearReadbackTimer();\n  const delay = Math.max(0, Math.round(delayMs / readback.speed));\n  readback.timerCallback = callback;\n  readback.timerSpeed = readback.speed;\n  readback.timerDeadline = performance.now() + delay;\n  readback.timer = globalThis.setTimeout(() => {\n    readback.timer = 0;\n    readback.timerCallback = null;\n    if (generation !== readback.generation || readback.phase !== \"playing\") return;\n    callback();\n  }, delay);\n}\n\nfunction setReadbackSpeed(value) {\n  const number = Number(value);\n  const speed = Number.isFinite(number) ? Math.min(2, Math.max(0.5, number)) : 1;\n  const remaining = Math.max(0, readback.timerDeadline - performance.now()) * readback.timerSpeed;\n  const callback = readback.timerCallback;\n  readback.speed = speed;\n  // Keep the elapsed fraction of the current phone or punctuation pause.\n  if (callback) scheduleReadbackTimer(callback, remaining, readback.generation);\n  updateReadbackUi();\n}\n\nfunction liveReadbackEvent(step) {\n  const previous = step.event;\n  const phone = previous.word.phones[step.phoneIndex];\n  const definition = spellingPhoneDefinition(phone.id);\n  const event = makeVoiceEvent(previous.character, previous.articulation,\n    readbackDynamics(previous.word, phone, definition), {\n      soundLabel: previous.soundLabel,\n      voiceContext: { carrierVowel: previous.carrierVowel },\n      carrierVowel: previous.carrierVowel,\n    });\n  Object.assign(event, {\n    word: previous.word, wordPhone: previous.wordPhone,\n    wordSpeech: true, sampleKey: previous.sampleKey,\n  });\n  if (definition.voicing !== null) event.performance.articulationVoicing = definition.voicing;\n  return event;\n}\n\nfunction holdReadbackForVoiceChange() {\n  if (![\"playing\", \"starting\"].includes(readback.phase)) return null;\n  clearReadbackResumeTimer();\n  cancelReadbackPlayback();\n  readback.phase = \"starting\";\n  readback.shouldAutoResume = false;\n  updateReadbackUi();\n  return readback.generation;\n}\n\nfunction continueReadbackAfterVoiceChange(generation) {\n  if (generation === null || generation !== readback.generation\n      || readback.phase !== \"starting\" || !pageActive) return;\n  void prepareReadback(generation, { automatic: true });\n}\n\nfunction failReadback(error, generation) {\n"
+        },
+        {
+          "before": "    // Preserve punctuation pauses; don't add a release that cuts the next attack.\n    readback.offset = 0;\n    readback.index = 0;\n    playReadbackEntry(generation);\n    return;\n  }\n",
+          "after": "    // Preserve punctuation pauses; don't add a release that cuts the next attack.\n    readback.offset = 0;\n    readback.index = 0;\n    readback.nextPhone = readback.nextGesture = 0;\n    playReadbackEntry(generation);\n    return;\n  }\n"
+        },
+        {
+          "before": "  }\n  if (entry.type === \"boundary\") {\n    readback.offset = entry.end;\n    audio.release({ releaseMs: entry.releaseMs });\n    restMouth();\n    $(\"currentPair\").textContent = entry.releaseMs >= 120 ? \"PHRASE END\" : \"BREATH\";\n",
+          "after": "  }\n  if (entry.type === \"boundary\") {\n    readback.offset = entry.end;\n    readback.nextPhone = readback.nextGesture = 0;\n    audio.release({ releaseMs: entry.releaseMs });\n    restMouth();\n    $(\"currentPair\").textContent = entry.releaseMs >= 120 ? \"PHRASE END\" : \"BREATH\";\n"
+        },
+        {
+          "before": "    if (generation !== readback.generation || readback.phase !== \"playing\") return;\n    const step = entry.steps[stepIndex];\n    if (!step) return;\n    try {\n      if (!audio.articulate(step.event)) {\n        throw new Error(\"The selected synth engine could not play this pronunciation gesture.\");\n      }\n      showVoiceEvent(step.event, { durationMs: audio.durationMs(step.event) });\n    } catch (error) {\n      failReadback(error, generation);\n      return;\n",
+          "after": "    if (generation !== readback.generation || readback.phase !== \"playing\") return;\n    const step = entry.steps[stepIndex];\n    if (!step) return;\n    const event = liveReadbackEvent(step);\n    try {\n      if (!audio.articulate(event)) {\n        throw new Error(\"The selected synth engine could not play this pronunciation gesture.\");\n      }\n      showVoiceEvent(event, { durationMs: audio.durationMs(event) });\n      readback.nextPhone = step.phoneIndex;\n      readback.nextGesture = step.gestureIndex + 1;\n    } catch (error) {\n      failReadback(error, generation);\n      return;\n"
+        },
+        {
+          "before": "    scheduleReadbackTimer(() => {\n      readback.offset = entry.end;\n      readback.index += 1;\n      playReadbackEntry(generation);\n    }, Math.max(18, entry.durationMs - step.offsetMs), generation);\n  };\n  playStep(0);\n}\n\nfunction pauseReadback({\n",
+          "after": "    scheduleReadbackTimer(() => {\n      readback.offset = entry.end;\n      readback.index += 1;\n      readback.nextPhone = readback.nextGesture = 0;\n      playReadbackEntry(generation);\n    }, Math.max(18, entry.durationMs - step.offsetMs), generation);\n  };\n  // A backend can expand a diphthong into multiple gestures. Retain a phone +\n  // gesture cursor across that change, not an engine-specific array index.\n  const nextStep = entry.steps.findIndex(step => step.phoneIndex > readback.nextPhone\n    || (step.phoneIndex === readback.nextPhone && step.gestureIndex >= readback.nextGesture));\n  if (nextStep < 0) {\n    readback.offset = entry.end;\n    readback.index += 1;\n    readback.nextPhone = readback.nextGesture = 0;\n    playReadbackEntry(generation);\n  } else playStep(nextStep);\n}\n\nfunction pauseReadback({\n"
+        },
+        {
+          "before": "  readback.snapshot = \"\";\n  readback.plan = [];\n  readback.index = 0;\n  readback.shouldAutoResume = false;\n  updateReadbackUi();\n}\n\nasync function prepareReadback(generation, { automatic = false } = {}) {\n  const pronunciations = await loadSpellingPronunciations(readback.snapshot);\n  if (\n    !state.audioOn\n    || !audio.running\n",
+          "after": "  readback.snapshot = \"\";\n  readback.plan = [];\n  readback.index = 0;\n  readback.nextPhone = readback.nextGesture = 0;\n  readback.shouldAutoResume = false;\n  updateReadbackUi();\n}\n\nasync function prepareReadback(generation, { automatic = false } = {}) {\n  const pronunciations = await loadSpellingPronunciations(readback.snapshot);\n  if (engineSwitchPromise) {\n    try { await engineSwitchPromise; } catch {}\n  }\n  if (\n    !state.audioOn\n    || !audio.running\n"
+        },
+        {
+          "before": "    announce(\"No playable words were found.\");\n    return false;\n  }\n  if (!state.audioOn || !audio.running) {\n    announce(\"Turn Audio on before starting readback.\");\n    return false;\n  }\n",
+          "after": "    announce(\"No playable words were found.\");\n    return false;\n  }\n  if (!state.audioOn || (!audio.running && !state.switching)) {\n    announce(\"Turn Audio on before starting readback.\");\n    return false;\n  }\n"
+        },
+        {
+          "before": "    readback.offset = 0;\n  }\n  readback.snapshot = text;\n  readback.offset = Math.min(text.length, Math.max(0, readback.offset));\n  readback.phase = \"starting\";\n  readback.shouldAutoResume = false;\n",
+          "after": "    readback.offset = 0;\n  }\n  readback.snapshot = text;\n  readback.nextPhone = readback.nextGesture = 0;\n  readback.offset = Math.min(text.length, Math.max(0, readback.offset));\n  readback.phase = \"starting\";\n  readback.shouldAutoResume = false;\n"
+        },
+        {
+          "before": "  }\n}\n\nasync function selectEngine(name, { preview = true, announceSelection = true } = {}) {\n  if (!SPELLING_ENGINES[name] || state.switching) return;\n  if (readbackHasPendingPlayback()) {\n    pauseReadback({ announceMessage: \"Readback paused while the engine changed.\" });\n  }\n  releaseHeldVowel({ releaseAudio: false, updateStage: false });\n  const generation = ++audioOperationGeneration;\n  flushPendingPair({ sound: false });\n",
+          "after": "  }\n}\n\nasync function selectEngine(name, {\n  preview = true, announceSelection = true, preserveReadback = true,\n} = {}) {\n  if (!SPELLING_ENGINES[name] || state.switching || name === state.engine) return;\n  const wasReading = readbackHasPendingPlayback();\n  const readbackGeneration = preserveReadback ? holdReadbackForVoiceChange() : null;\n  releaseHeldVowel({ releaseAudio: false, updateStage: false });\n  const generation = ++audioOperationGeneration;\n  flushPendingPair({ sound: false });\n"
+        },
+        {
+          "before": "    state.switching = false;\n    updateUi();\n  }\n  if (selected && preview && state.audioOn) previewVoice();\n}\n\nfunction selectPersonality(name) {\n  if (!SPELLING_PERSONALITIES[name]) return;\n  if (readbackHasPendingPlayback()) {\n    pauseReadback({ announceMessage: \"Readback paused while the personality changed.\" });\n  }\n  releaseHeldVowel({ updateStage: false });\n  state.personality = name;\n  updatePersonalityUi();\n  if (state.audioOn) previewVoice();\n  announce(`${personalityDisplayName(name)} selected.`);\n}\n\n",
+          "after": "    state.switching = false;\n    updateUi();\n  }\n  continueReadbackAfterVoiceChange(readbackGeneration);\n  if (selected && preview && state.audioOn && !wasReading && !readbackHasPendingPlayback()) previewVoice();\n}\n\nfunction selectPersonality(name) {\n  if (!SPELLING_PERSONALITIES[name]) return;\n  const wasReading = readbackHasPendingPlayback();\n  releaseHeldVowel({ updateStage: false });\n  state.personality = name;\n  updatePersonalityUi();\n  if (state.audioOn && !wasReading) previewVoice();\n  announce(`${personalityDisplayName(name)} selected.`);\n}\n\n"
+        },
+        {
+          "before": "\nasync function resetInstrument() {\n  readback.loop = false;\n  state.engine = DEFAULTS.engine;\n  state.personality = DEFAULTS.personality;\n  state.level = DEFAULTS.level;\n  state.rhythmAmount = DEFAULTS.rhythmAmount;\n",
+          "after": "\nasync function resetInstrument() {\n  readback.loop = false;\n  readback.speed = 1;\n  state.personality = DEFAULTS.personality;\n  state.level = DEFAULTS.level;\n  state.rhythmAmount = DEFAULTS.rhythmAmount;\n"
+        },
+        {
+          "before": "  clearError();\n  updateUi();\n  audio.setLevel(state.level);\n  await selectEngine(state.engine, { preview: false, announceSelection: false });\n  updateUi();\n  announce(\"Spelling Synthesizer reset.\");\n}\n",
+          "after": "  clearError();\n  updateUi();\n  audio.setLevel(state.level);\n  if (engineSwitchPromise) { try { await engineSwitchPromise; } catch {} }\n  await selectEngine(DEFAULTS.engine, { preview: false, announceSelection: false });\n  updateUi();\n  announce(\"Spelling Synthesizer reset.\");\n}\n"
+        },
+        {
+          "before": "$(\"audioButton\").addEventListener(\"click\", () => void toggleAudio());\n$(\"clearButton\").addEventListener(\"click\", clearEditor);\n$(\"readbackButton\").addEventListener(\"click\", toggleReadback);\n$(\"readbackLoop\").addEventListener(\"click\", () => {\n  readback.loop = !readback.loop;\n  updateReadbackUi();\n",
+          "after": "$(\"audioButton\").addEventListener(\"click\", () => void toggleAudio());\n$(\"clearButton\").addEventListener(\"click\", clearEditor);\n$(\"readbackButton\").addEventListener(\"click\", toggleReadback);\n$(\"readbackSpeed\").addEventListener(\"input\", event => setReadbackSpeed(event.target.value));\n$(\"readbackLoop\").addEventListener(\"click\", () => {\n  readback.loop = !readback.loop;\n  updateReadbackUi();\n"
+        },
+        {
+          "before": "});\n\n$(\"pairGlidesButton\").addEventListener(\"click\", () => {\n  if (readbackHasPendingPlayback()) {\n    pauseReadback({ announceMessage: \"Readback paused while letter-pair joining changed.\" });\n  }\n  state.pairGlides = !state.pairGlides;\n  if (!state.pairGlides) flushPendingPair();\n  updateControlUi();\n",
+          "after": "});\n\n$(\"pairGlidesButton\").addEventListener(\"click\", () => {\n  state.pairGlides = !state.pairGlides;\n  if (!state.pairGlides) flushPendingPair();\n  updateControlUi();\n"
+        },
+        {
+          "before": "const presetController=registerHeaderPresets({id:\"spelling-synthesizer\",presets,randomize,capture:()=>schema.capture(state),apply:async snapshot=>{\n const next=schema.validate(snapshot);\n if(state.switching || state.starting) throw new Error(\"Wait for the current voice to finish loading\");\n const resume=readbackHasPendingPlayback();\n if(resume) pauseReadback();\n try {\n  if(next.engine!==state.engine) await selectEngine(next.engine,{preview:false,announceSelection:false});\n  if(state.engine!==next.engine) throw new Error(\"Requested voice is unavailable; previous scene retained\");\n  Object.assign(state,next); updateUi();\n } finally { if(resume && state.audioOn) startReadback({automatic:true}); }\n}});\n",
+          "after": "const presetController=registerHeaderPresets({id:\"spelling-synthesizer\",presets,randomize,capture:()=>schema.capture(state),apply:async snapshot=>{\n const next=schema.validate(snapshot);\n if(state.switching || state.starting) throw new Error(\"Wait for the current voice to finish loading\");\n const generation = next.engine !== state.engine ? holdReadbackForVoiceChange() : null;\n try {\n  if(next.engine!==state.engine) await selectEngine(next.engine,{preview:false,announceSelection:false,preserveReadback:false});\n  if(state.engine!==next.engine) throw new Error(\"Requested voice is unavailable; previous scene retained\");\n  Object.assign(state,next); updateUi();\n } finally { continueReadbackAfterVoiceChange(generation); }\n}});\n"
         }
       ]
     },
     {
       "file": "src/instruments/spelling-synthesizer/spelling-synthesizer-audio.js",
-      "reason": "Owner-requested Spelling mouth/editor/Loop, two additive retro engines, full scenes, explicit Audio, flush rail and Voice-category promotion; original three engines and routes preserved. Shared preset recall adds async serialization while retaining fresh-main shadow-root event handling.",
+      "reason": "Owner-requested Spelling mouth/editor/Loop, two additive retro engines, full scenes, explicit Audio, flush rail and Voice-category promotion; original three engines and routes preserved. Shared preset recall adds async serialization while retaining fresh-main shadow-root event handling. Follow-up from ad8041e: owner-requested live voice/tone readback continuity, performer-owned playback speed, opt-in engine/personality output calibration and bounded post-master protection. Preserve prior presets, Audio consent, sound models and the legacy Pink Trombonazoid consumer.",
       "regressionTests": [
         "tests/spelling-retro.test.mjs",
         "tests/spelling-synthesizer-app-smoke.test.mjs",
         "tests/header-preset-menu.test.mjs",
-        "e2e/spelling-mouth.spec.mjs"
+        "e2e/spelling-mouth.spec.mjs",
+        "tests/spelling-output.test.mjs",
+        "tests/spelling-synthesizer-audio.test.mjs",
+        "e2e/spelling-live-readback.spec.mjs",
+        "e2e/spelling-presets.spec.mjs"
       ],
       "replacements": [
         {
@@ -227,17 +327,93 @@
         {
           "before": "\n  get running() {\n    return Boolean(this.enabled && this.backends[this.engineName]?.running);\n  }\n\n  get activeEngine() {\n",
           "after": "\n  get running() {\n    return Boolean(this.enabled && this.backends[this.engineName]?.running);\n  }\n\n  // Display-only clock access; graphics never schedule articulation.\n  get currentTime() {\n    return this.running ? this.backends[this.engineName]?.context?.currentTime ?? null : null;\n  }\n\n  get activeEngine() {\n"
+        },
+        {
+          "before": "import { RetroSpellingEngine } from \"./spelling-retro-audio.js\";\nimport { unlockAudioContext } from \"../../audio.js?v=pink-trombonazoid-20260821-6\";\nimport { connectAudioOutput } from \"../../audio-output-manager.js\";\nimport {\n  MAX_THROATS,\n  alienTongueDeformations,\n  calibratedOutputGain,\n  clamp,\n  consonantVoiceParameters,\n  glottalHarmonics,\n",
+          "after": "import { RetroSpellingEngine } from \"./spelling-retro-audio.js\";\nimport { unlockAudioContext } from \"../../audio.js?v=pink-trombonazoid-20260821-6\";\nimport { connectSpellingOutput, spellingOutputGain } from \"./spelling-output.js\";\nimport {\n  MAX_THROATS,\n  alienTongueDeformations,\n  clamp,\n  consonantVoiceParameters,\n  glottalHarmonics,\n"
+        },
+        {
+          "before": "}\n\nclass TubeSpellingEngine {\n  constructor({ runtime = globalThis, level = 0.46 } = {}) {\n    this.runtime = runtime;\n    this.level = clamp(level, 0, 0.82);\n    this.context = null;\n    this.node = null;\n    this.master = null;\n    this.releaseAudioOutput = null;\n    this.pulse = null;\n    this.pulseGain = null;\n    this.pulseModGain = null;\n",
+          "after": "}\n\nclass TubeSpellingEngine {\n  constructor({ runtime = globalThis, level = 0.46, balancedOutput = false } = {}) {\n    this.runtime = runtime;\n    this.balancedOutput = balancedOutput;\n    this.personality = \"clear\";\n    this.level = clamp(level, 0, 0.82);\n    this.context = null;\n    this.node = null;\n    this.master = null;\n    this.releaseAudioOutput = null;\n    this.output = null;\n    this.pulse = null;\n    this.pulseGain = null;\n    this.pulseModGain = null;\n"
+        },
+        {
+          "before": "      || audio.state !== \"running\"\n    ) throw audioStartCancelled();\n    this.enabled = true;\n    smooth(this.master.gain, calibratedOutputGain(this.level), audio.currentTime, 0.012);\n    return this;\n  }\n\n",
+          "after": "      || audio.state !== \"running\"\n    ) throw audioStartCancelled();\n    this.enabled = true;\n    smooth(this.master.gain, spellingOutputGain(\"tube\", this.level, this.balancedOutput, this.personality), audio.currentTime, 0.012);\n    return this;\n  }\n\n"
+        },
+        {
+          "before": "      connect(echoFeedback, echoDelay);\n      connect(effectsBus, compressor);\n      connect(compressor, master);\n      this.releaseAudioOutput = connectAudioOutput(audio, master, { runtime: this.runtime });\n      pulse.start();\n\n      this.node = node;\n",
+          "after": "      connect(echoFeedback, echoDelay);\n      connect(effectsBus, compressor);\n      connect(compressor, master);\n      const output = connectSpellingOutput(audio, master, {\n        runtime: this.runtime, balanced: this.balancedOutput,\n      });\n      this.output = output.node;\n      this.releaseAudioOutput = output.release;\n      pulse.start();\n\n      this.node = node;\n"
+        },
+        {
+          "before": "      try { noise?.stop?.(); } catch {}\n      this.releaseAudioOutput?.();\n      this.releaseAudioOutput = null;\n      if (this.context === audio) this.context = null;\n      if (audio.state !== \"closed\") {\n        try { await audio.close?.(); } catch {}\n",
+          "after": "      try { noise?.stop?.(); } catch {}\n      this.releaseAudioOutput?.();\n      this.releaseAudioOutput = null;\n      this.output = null;\n      if (this.context === audio) this.context = null;\n      if (audio.state !== \"closed\") {\n        try { await audio.close?.(); } catch {}\n"
+        },
+        {
+          "before": "  setLevel(value) {\n    this.level = clamp(value, 0, 0.82);\n    if (this.running) {\n      smooth(this.master.gain, calibratedOutputGain(this.level), this.context.currentTime, 0.012);\n    }\n  }\n\n",
+          "after": "  setLevel(value) {\n    this.level = clamp(value, 0, 0.82);\n    if (this.running) {\n      smooth(this.master.gain, spellingOutputGain(\"tube\", this.level, this.balancedOutput, this.personality), this.context.currentTime, 0.012);\n    }\n  }\n\n"
+        },
+        {
+          "before": "\n  articulate(event) {\n    if (!this.running || !event?.performance) return false;\n    this.clearTimers();\n    this.currentEvent = event;\n    const { performance, dynamics } = event;\n",
+          "after": "\n  articulate(event) {\n    if (!this.running || !event?.performance) return false;\n    if (this.balancedOutput && this.personality !== event.personality) {\n      this.personality = event.personality;\n      this.setLevel(this.level);\n    }\n    this.clearTimers();\n    this.currentEvent = event;\n    const { performance, dynamics } = event;\n"
+        },
+        {
+          "before": "    try { this.noise?.stop?.(); } catch {}\n    this.releaseAudioOutput?.();\n    this.releaseAudioOutput = null;\n    await this.context?.close?.();\n    this.context = null;\n    this.node = null;\n    this.master = null;\n    this.releaseAudioOutput = null;\n    this.pulse = null;\n    this.pulseGain = null;\n    this.pulseModGain = null;\n",
+          "after": "    try { this.noise?.stop?.(); } catch {}\n    this.releaseAudioOutput?.();\n    this.releaseAudioOutput = null;\n    this.output = null;\n    await this.context?.close?.();\n    this.context = null;\n    this.node = null;\n    this.master = null;\n    this.pulse = null;\n    this.pulseGain = null;\n    this.pulseModGain = null;\n"
+        },
+        {
+          "before": "}\n\nclass DiphoneSpellingEngine {\n  constructor({ runtime = globalThis, level = 0.46, vocoder = false } = {}) {\n    this.runtime = runtime;\n    this.level = clamp(level, 0, 0.82);\n    this.vocoder = Boolean(vocoder);\n    this.context = null;\n",
+          "after": "}\n\nclass DiphoneSpellingEngine {\n  constructor({ runtime = globalThis, level = 0.46, vocoder = false, balancedOutput = false } = {}) {\n    this.runtime = runtime;\n    this.balancedOutput = balancedOutput;\n    this.personality = \"clear\";\n    this.level = clamp(level, 0, 0.82);\n    this.vocoder = Boolean(vocoder);\n    this.context = null;\n"
+        },
+        {
+          "before": "    this.vocoderNode = null;\n    this.master = null;\n    this.releaseAudioOutput = null;\n    this.active = new Set();\n    this.enabled = false;\n    this.lifecycleGeneration = 0;\n",
+          "after": "    this.vocoderNode = null;\n    this.master = null;\n    this.releaseAudioOutput = null;\n    this.output = null;\n    this.active = new Set();\n    this.enabled = false;\n    this.lifecycleGeneration = 0;\n"
+        },
+        {
+          "before": "    this.enabled = true;\n    smooth(\n      this.master.gain,\n      calibratedOutputGain(this.level),\n      audio.currentTime,\n      0.012,\n    );\n",
+          "after": "    this.enabled = true;\n    smooth(\n      this.master.gain,\n      spellingOutputGain(this.vocoder ? \"vocoder\" : \"diphone\", this.level, this.balancedOutput, this.personality),\n      audio.currentTime,\n      0.012,\n    );\n"
+        },
+        {
+          "before": "        connect(vocoderNode, compressor);\n      } else connect(tone, compressor);\n      connect(compressor, master);\n      this.releaseAudioOutput = connectAudioOutput(audio, master, { runtime: this.runtime });\n\n      this.buffer = buffer;\n      this.sourceBus = sourceBus;\n",
+          "after": "        connect(vocoderNode, compressor);\n      } else connect(tone, compressor);\n      connect(compressor, master);\n      const output = connectSpellingOutput(audio, master, {\n        runtime: this.runtime, balanced: this.balancedOutput,\n      });\n      this.output = output.node;\n      this.releaseAudioOutput = output.release;\n\n      this.buffer = buffer;\n      this.sourceBus = sourceBus;\n"
+        },
+        {
+          "before": "      abortController?.abort?.();\n      this.releaseAudioOutput?.();\n      this.releaseAudioOutput = null;\n      if (this.buildAbortController === abortController) {\n        this.buildAbortController = null;\n      }\n",
+          "after": "      abortController?.abort?.();\n      this.releaseAudioOutput?.();\n      this.releaseAudioOutput = null;\n      this.output = null;\n      if (this.buildAbortController === abortController) {\n        this.buildAbortController = null;\n      }\n"
+        },
+        {
+          "before": "    if (this.running) {\n      smooth(\n        this.master.gain,\n        calibratedOutputGain(this.level),\n        this.context.currentTime,\n        0.012,\n      );\n",
+          "after": "    if (this.running) {\n      smooth(\n        this.master.gain,\n        spellingOutputGain(this.vocoder ? \"vocoder\" : \"diphone\", this.level, this.balancedOutput, this.personality),\n        this.context.currentTime,\n        0.012,\n      );\n"
+        },
+        {
+          "before": "\n  articulate(event) {\n    if (!this.running || !event?.performance) return false;\n    const timing = this.playbackTiming(event);\n    if (!timing) return Boolean(event?.pair && Number(event.pairStepIndex) > 0);\n    const {\n",
+          "after": "\n  articulate(event) {\n    if (!this.running || !event?.performance) return false;\n    if (this.balancedOutput && this.personality !== event.personality) {\n      this.personality = event.personality;\n      this.setLevel(this.level);\n    }\n    const timing = this.playbackTiming(event);\n    if (!timing) return Boolean(event?.pair && Number(event.pairStepIndex) > 0);\n    const {\n"
+        },
+        {
+          "before": "    this.stopActive();\n    this.releaseAudioOutput?.();\n    this.releaseAudioOutput = null;\n    await this.context?.close?.();\n    this.context = null;\n    this.buffer = null;\n",
+          "after": "    this.stopActive();\n    this.releaseAudioOutput?.();\n    this.releaseAudioOutput = null;\n    this.output = null;\n    await this.context?.close?.();\n    this.context = null;\n    this.buffer = null;\n"
+        },
+        {
+          "before": "    engine = \"diphone\",\n    level = 0.46,\n    onFallback = null,\n  } = {}) {\n    this.runtime = runtime;\n    this.engineName = spellingEngine(engine);\n",
+          "after": "    engine = \"diphone\",\n    level = 0.46,\n    onFallback = null,\n    balancedOutput = false,\n  } = {}) {\n    this.runtime = runtime;\n    this.engineName = spellingEngine(engine);\n"
+        },
+        {
+          "before": "    this.onFallback = typeof onFallback === \"function\" ? onFallback : null;\n    this.enabled = false;\n    this.backends = {\n      tube: new TubeSpellingEngine({ runtime, level: this.level }),\n      bell: new RetroSpellingEngine({ runtime, level: this.level, mode: \"bell\" }),\n      lpc: new RetroSpellingEngine({ runtime, level: this.level, mode: \"lpc\" }),\n      diphone: new DiphoneSpellingEngine({ runtime, level: this.level }),\n      vocoder: new DiphoneSpellingEngine({\n        runtime,\n        level: this.level,\n        vocoder: true,\n      }),\n    };\n  }\n",
+          "after": "    this.onFallback = typeof onFallback === \"function\" ? onFallback : null;\n    this.enabled = false;\n    this.backends = {\n      tube: new TubeSpellingEngine({ runtime, level: this.level, balancedOutput }),\n      bell: new RetroSpellingEngine({ runtime, level: this.level, mode: \"bell\", balancedOutput }),\n      lpc: new RetroSpellingEngine({ runtime, level: this.level, mode: \"lpc\", balancedOutput }),\n      diphone: new DiphoneSpellingEngine({ runtime, level: this.level, balancedOutput }),\n      vocoder: new DiphoneSpellingEngine({\n        runtime,\n        level: this.level,\n        vocoder: true,\n        balancedOutput,\n      }),\n    };\n  }\n"
         }
       ]
     },
     {
       "file": "src/instruments/spelling-synthesizer/spelling-synthesizer.css",
-      "reason": "Owner-requested Spelling mouth/editor/Loop, two additive retro engines, full scenes, explicit Audio, flush rail and Voice-category promotion; original three engines and routes preserved. Shared preset recall adds async serialization while retaining fresh-main shadow-root event handling.",
+      "reason": "Owner-requested Spelling mouth/editor/Loop, two additive retro engines, full scenes, explicit Audio, flush rail and Voice-category promotion; original three engines and routes preserved. Shared preset recall adds async serialization while retaining fresh-main shadow-root event handling. Follow-up from ad8041e: owner-requested live voice/tone readback continuity, performer-owned playback speed, opt-in engine/personality output calibration and bounded post-master protection. Preserve prior presets, Audio consent, sound models and the legacy Pink Trombonazoid consumer.",
       "regressionTests": [
         "tests/spelling-retro.test.mjs",
         "tests/spelling-synthesizer-app-smoke.test.mjs",
         "tests/header-preset-menu.test.mjs",
-        "e2e/spelling-mouth.spec.mjs"
+        "e2e/spelling-mouth.spec.mjs",
+        "tests/spelling-output.test.mjs",
+        "tests/spelling-synthesizer-audio.test.mjs",
+        "e2e/spelling-live-readback.spec.mjs",
+        "e2e/spelling-presets.spec.mjs"
       ],
       "replacements": [
         {
@@ -263,6 +439,18 @@
         {
           "before": "  margin: 20px;\n}\n\n@media (max-width: 1080px) {\n  .spelling-composer {\n    padding-right: 32px;\n    padding-left: 42px;\n  }\n\n  .spelling-voice-stage {\n    right: 18px;\n    opacity: .76;\n  }\n\n  .spelling-letter-trail {\n    right: 32px;\n    left: 42px;\n  }\n}\n\n@media (max-width: 860px) {\n  .spelling-synthesizer-page { overflow: auto; }\n\n  .spelling-shell {\n    display: block;\n    min-height: auto;\n  }\n\n  .spelling-composer {\n    min-height: calc(100dvh - 58px);\n    overflow: visible;\n  }\n\n  .spelling-panel {\n    overflow: visible;\n    border-top: 1px solid rgba(219, 228, 224, .08);\n    border-left: 0;\n  }\n\n  .spelling-control-block {\n    padding-right: clamp(20px, 6vw, 54px);\n    padding-left: clamp(20px, 6vw, 54px);\n  }\n\n  .spelling-history-note,\n  .spelling-panel .reset-all-row,\n  .spelling-panel .audio-error {\n    margin-right: clamp(20px, 6vw, 54px);\n    margin-left: clamp(20px, 6vw, 54px);\n  }\n}\n\n@media (max-width: 620px) {\n  .spelling-composer {\n    min-height: calc(100dvh - 58px);\n    padding: 28px 18px 62px 26px;\n  }\n\n  .spelling-heading h1 {\n    max-width: 290px;\n    font-size: clamp(34px, 11vw, 48px);\n  }\n\n  .spelling-voice-stage {\n    top: 28px;\n    right: 6px;\n    width: 88px;\n    opacity: .7;\n  }\n\n  #spellingInput {\n    min-height: 190px;\n    padding: 14px;\n    font-size: 21px;\n  }\n\n  .spelling-underbar {\n    align-items: stretch;\n    flex-direction: column;\n  }\n\n  .spelling-transport {\n    justify-content: flex-start;\n  }\n\n  .spelling-underbar .mini-action.is-readback {\n    flex: 1 1 170px;\n  }\n\n  .spelling-letter-trail {\n    right: 18px;\n    left: 26px;\n  }\n\n  .spelling-engine-buttons button {\n    min-height: 68px;\n    padding: 8px 6px;\n  }\n\n  .spelling-engine-buttons button small { white-space: normal; }\n}\n\n@media (prefers-reduced-motion: reduce) {\n  .spelling-voice-stage * {\n    animation: none !important;\n    transition-duration: 0.001ms !important;\n  }\n}\n",
           "after": "  margin: 20px;\n}\n\n@media (max-width: 700px) {\n  .spelling-synthesizer-page[data-cooking] [data-cooking-shell] {\n    grid-template-rows: minmax(320px, 54dvh) minmax(0, 1fr);\n  }\n  .spelling-synthesizer-page[data-cooking] .spelling-composer {\n    padding: 8px 10px;\n    border-right: 0;\n    border-bottom: 1px solid var(--line);\n  }\n  .spelling-heading h1 { font-size: 23px; }\n  #spellingInput { height: 78px; }\n  .spelling-control-block { padding: 16px 10px; }\n}\n@media (max-height: 500px) and (min-width: 701px) {\n  .spelling-synthesizer-page[data-cooking] .spelling-composer { padding: 4px 10px; }\n  .spelling-heading h1 { font-size: 22px; }\n  .spelling-input-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }\n  .spelling-editor { grid-template-columns: minmax(0, 1fr) auto; align-items: end; gap: 8px; }\n  #spellingInput { height: 64px; font-size: 18px; }\n  .spelling-transport { flex-wrap: wrap; max-width: 145px; gap: 4px; }\n  .spelling-transport .mini-action:not(.spelling-loop-button) { padding: 5px; min-height: 28px; font-size: 9px; }\n}\n@media (pointer: coarse) {\n  .spelling-transport .mini-action { min-height: 48px; }\n}\n@media (prefers-reduced-motion: reduce) {\n  .spelling-voice-stage * { transition: none; }\n}\n"
+        },
+        {
+          "before": "}\n#spellingInput::placeholder { color: #7c8981; }\n#spellingInput:focus-visible { outline: 2px solid var(--spelling-accent); outline-offset: 2px; }\n.spelling-transport { display: flex; gap: 8px; align-items: center; }\n.spelling-transport .mini-action { min-height: 36px; padding: 8px 12px; }\n/* Match the compact icon transport; Loop is independent of Audio and Play. */\n.spelling-transport .spelling-loop-button {\n",
+          "after": "}\n#spellingInput::placeholder { color: #7c8981; }\n#spellingInput:focus-visible { outline: 2px solid var(--spelling-accent); outline-offset: 2px; }\n.spelling-transport { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }\n.spelling-transport .mini-action { min-height: 36px; padding: 8px 12px; }\n/* Match the compact icon transport; Loop is independent of Audio and Play. */\n.spelling-transport .spelling-loop-button {\n"
+        },
+        {
+          "before": "  border-color: var(--spelling-accent);\n  background: rgba(var(--spelling-accent-rgb), .12);\n}\n.spelling-transport [hidden] { display: none; }\n.spelling-notes-link { margin: 18px 20px; font-size: 10px; line-height: 1.6; color: #8e9a93; }\n.spelling-notes-link a { color: var(--spelling-accent); }\n",
+          "after": "  border-color: var(--spelling-accent);\n  background: rgba(var(--spelling-accent-rgb), .12);\n}\n.spelling-readback-speed { display: grid; flex: 0 0 112px; gap: 3px; align-content: center; min-height: 48px; }\n.spelling-readback-speed > span { display: flex; justify-content: space-between; font-size: 10px; color: #8e9a93; }\n.spelling-readback-speed output { color: var(--spelling-accent); font-variant-numeric: tabular-nums; }\n.spelling-readback-speed input { width: 100%; margin: 0; min-height: 26px; accent-color: var(--spelling-accent); }\n.spelling-readback-speed input:focus-visible { outline: 2px solid var(--spelling-accent); outline-offset: 2px; }\n.spelling-transport [hidden] { display: none; }\n.spelling-notes-link { margin: 18px 20px; font-size: 10px; line-height: 1.6; color: #8e9a93; }\n.spelling-notes-link a { color: var(--spelling-accent); }\n"
+        },
+        {
+          "before": "  .spelling-input-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }\n  .spelling-editor { grid-template-columns: minmax(0, 1fr) auto; align-items: end; gap: 8px; }\n  #spellingInput { height: 64px; font-size: 18px; }\n  .spelling-transport { flex-wrap: wrap; max-width: 145px; gap: 4px; }\n  .spelling-transport .mini-action:not(.spelling-loop-button) { padding: 5px; min-height: 28px; font-size: 9px; }\n}\n@media (pointer: coarse) {\n",
+          "after": "  .spelling-input-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }\n  .spelling-editor { grid-template-columns: minmax(0, 1fr) auto; align-items: end; gap: 8px; }\n  #spellingInput { height: 64px; font-size: 18px; }\n  .spelling-transport { flex-wrap: wrap; max-width: 224px; gap: 4px; }\n  .spelling-transport .mini-action:not(.spelling-loop-button) { padding: 5px; min-height: 28px; font-size: 9px; }\n}\n@media (pointer: coarse) {\n"
         }
       ]
     },
@@ -339,6 +527,38 @@
         {
           "before": "  ),\n  \"spelling-synthesizer\": define(\n    \"Voice instrument\",\n    \"Sounds each typed letter through the Bellazoid tract, sustained KAL phone samples, or the twenty-band Voxazoid vocoder while typing rhythm shapes the voice.\",\n    \"Begin typing, choose an engine and personality, then adjust rhythm dynamics and the vowel-pair delay.\",\n    [\"Built-in synth\", \"Computer keys\"],\n  ),\n  vocalzoid: define(\n",
           "after": "  ),\n  \"spelling-synthesizer\": define(\n    \"Voice instrument\",\n    \"Sounds typed letters through Pinkazoid, KAL samples, Voxazoid, a Bell Labs-inspired vocal tract or Speak & Spell-inspired LPC, with word readback and looping.\",\n    \"Turn on Audio, type below the mouth or press Play, then browse voices with presets while Loop repeats your text.\",\n    [\"Built-in synth\", \"Computer keys\"],\n  ),\n  vocalzoid: define(\n"
+        }
+      ]
+    },
+    {
+      "file": "src/instruments/spelling-synthesizer/spelling-retro-audio.js",
+      "reason": "Follow-up from ad8041e: owner-requested live voice/tone readback continuity, performer-owned playback speed, opt-in engine/personality output calibration and bounded post-master protection. Preserve prior presets, Audio consent, sound models and the legacy Pink Trombonazoid consumer.",
+      "regressionTests": [
+        "tests/spelling-output.test.mjs",
+        "tests/spelling-synthesizer-audio.test.mjs",
+        "e2e/spelling-live-readback.spec.mjs",
+        "e2e/spelling-presets.spec.mjs"
+      ],
+      "replacements": [
+        {
+          "before": "import {unlockAudioContext} from '../../audio.js?v=pink-trombonazoid-20260821-6';\nimport {connectAudioOutput} from '../../audio-output-manager.js';\nimport {SPELLING_DIPHONE_CLIPS, spellingDiphoneClipKey} from './spelling-diphone-atlas.js';\nimport {bounded} from './spelling-lpc-codec.js';\n\n",
+          "after": "import {unlockAudioContext} from '../../audio.js?v=pink-trombonazoid-20260821-6';\nimport {connectSpellingOutput, spellingOutputGain} from './spelling-output.js';\nimport {SPELLING_DIPHONE_CLIPS, spellingDiphoneClipKey} from './spelling-diphone-atlas.js';\nimport {bounded} from './spelling-lpc-codec.js';\n\n"
+        },
+        {
+          "before": "}\n\nexport class RetroSpellingEngine {\n  constructor({runtime=globalThis,level=.46,mode='bell'}={}) {\n    this.runtime=runtime;this.level=level;this.mode=mode;this.context=null;this.node=null;this.master=null;\n    this.enabled=false;this.generation=0;this.pending=null;this.releaseAudioOutput=null;\n  }\n  get running(){return Boolean(this.enabled&&this.context?.state==='running'&&this.node);}\n  async enable() {\n",
+          "after": "}\n\nexport class RetroSpellingEngine {\n  constructor({runtime=globalThis,level=.46,mode='bell',balancedOutput=false}={}) {\n    this.balancedOutput=balancedOutput;this.personality='clear';\n    this.runtime=runtime;this.level=level;this.mode=mode;this.context=null;this.node=null;this.master=null;\n    this.enabled=false;this.generation=0;this.pending=null;this.releaseAudioOutput=null;this.output=null;\n  }\n  get running(){return Boolean(this.enabled&&this.context?.state==='running'&&this.node);}\n  async enable() {\n"
+        },
+        {
+          "before": "        if(generation!==this.generation||this.context!==context)throw cancelled();\n        const node=new Worklet(context,'spelling-retro',{numberOfInputs:0,numberOfOutputs:1,outputChannelCount:[1],processorOptions:{mode:this.mode}});\n        const master=context.createGain();master.gain.value=0;node.connect(master);\n        this.releaseAudioOutput=connectAudioOutput(context,master,{runtime:this.runtime});\n        this.node=node;this.master=master;\n      } else await resumed;\n      if(generation!==this.generation||this.context!==context)throw cancelled();\n      this.enabled=true;this.node.port.postMessage({type:'reset'});this.setLevel(this.level);\n    } catch(error) {\n      if(this.context===context) {\n        this.enabled=false;this.node?.port.postMessage({type:'dispose'});this.node?.disconnect();this.master?.disconnect();\n        this.releaseAudioOutput?.();this.releaseAudioOutput=null;this.node=null;this.master=null;this.context=null;\n      }\n      if(context.state!=='closed')await context.close();\n      throw error;\n",
+          "after": "        if(generation!==this.generation||this.context!==context)throw cancelled();\n        const node=new Worklet(context,'spelling-retro',{numberOfInputs:0,numberOfOutputs:1,outputChannelCount:[1],processorOptions:{mode:this.mode}});\n        const master=context.createGain();master.gain.value=0;node.connect(master);\n        const output=connectSpellingOutput(context,master,{runtime:this.runtime,balanced:this.balancedOutput});\n        this.output=output.node;this.releaseAudioOutput=output.release;\n        this.node=node;this.master=master;\n      } else await resumed;\n      if(generation!==this.generation||this.context!==context)throw cancelled();\n      this.enabled=true;this.node.port.postMessage({type:'reset'});this.setLevel(this.level);\n    } catch(error) {\n      if(this.context===context) {\n        this.enabled=false;this.node?.port.postMessage({type:'dispose'});this.node?.disconnect();\n        this.releaseAudioOutput?.();this.master?.disconnect();this.releaseAudioOutput=null;this.output=null;this.node=null;this.master=null;this.context=null;\n      }\n      if(context.state!=='closed')await context.close();\n      throw error;\n"
+        },
+        {
+          "before": "    this.level=bounded(value,0,.82,.46);\n    if(this.master) {\n      const gain=this.master.gain, now=this.context.currentTime;\n      gain.cancelScheduledValues?.(now);gain.setTargetAtTime?.(this.enabled?this.level:0,now,.012);\n    }\n  }\n  durationMs(event){return (retroVoiceConfiguration(event,this.mode)?.duration??0)*1000;}\n  articulate(event) {\n    if(!this.running)return false;\n    const configuration=retroVoiceConfiguration(event,this.mode);if(!configuration)return false;\n    this.node.port.postMessage(configuration);return true;\n  }\n",
+          "after": "    this.level=bounded(value,0,.82,.46);\n    if(this.master) {\n      const gain=this.master.gain, now=this.context.currentTime;\n      gain.cancelScheduledValues?.(now);gain.setTargetAtTime?.(this.enabled?spellingOutputGain(this.mode,this.level,this.balancedOutput,this.personality):0,now,.012);\n    }\n  }\n  durationMs(event){return (retroVoiceConfiguration(event,this.mode)?.duration??0)*1000;}\n  articulate(event) {\n    if(!this.running)return false;\n    if(this.balancedOutput&&this.personality!==event.personality){this.personality=event.personality;this.setLevel(this.level);}\n    const configuration=retroVoiceConfiguration(event,this.mode);if(!configuration)return false;\n    this.node.port.postMessage(configuration);return true;\n  }\n"
+        },
+        {
+          "before": "  async close() {\n    this.generation++;this.enabled=false;\n    const context=this.context;this.context=null;\n    this.node?.port.postMessage({type:'dispose'});this.node?.disconnect();this.master?.disconnect();this.releaseAudioOutput?.();\n    this.node=null;this.master=null;this.releaseAudioOutput=null;\n    if(context && context.state!=='closed')await context.close();\n  }\n}\n",
+          "after": "  async close() {\n    this.generation++;this.enabled=false;\n    const context=this.context;this.context=null;\n    this.node?.port.postMessage({type:'dispose'});this.node?.disconnect();this.releaseAudioOutput?.();this.master?.disconnect();\n    this.node=null;this.master=null;this.releaseAudioOutput=null;this.output=null;\n    if(context && context.state!=='closed')await context.close();\n  }\n}\n"
         }
       ]
     }

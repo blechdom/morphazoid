@@ -47,7 +47,7 @@ for(const [name,viewport] of Object.entries({desktop:{width:1440,height:900},por
       const box=selector=>{const r=document.querySelector(selector).getBoundingClientRect();return {x:r.x,y:r.y,w:r.width,h:r.height,b:r.bottom}};
       const stage=box('#voiceStage'),input=box('#spellingInput'),before=box('[data-cooking-stage]');
       const panel=document.querySelector('[data-cooking-panel]');panel.scrollTop=panel.scrollHeight;
-      return {stage,input,before,after:box('[data-cooking-stage]'),play:box('#readbackButton'),loop:box('#readbackLoop'),overflow:document.documentElement.scrollWidth-innerWidth,
+      return {stage,input,before,after:box('[data-cooking-stage]'),play:box('#readbackButton'),loop:box('#readbackLoop'),speed:box('.spelling-readback-speed'),overflow:document.documentElement.scrollWidth-innerWidth,
         inGraphic:document.getElementById('spellingInput').closest('[data-cooking-stage]')!==null};
     });
     expect(bounds.inGraphic).toBe(true);
@@ -61,6 +61,10 @@ for(const [name,viewport] of Object.entries({desktop:{width:1440,height:900},por
     expect(bounds.loop.y).toBe(bounds.play.y);
     expect(bounds.loop.x).toBeGreaterThan(bounds.play.x + bounds.play.w);
     expect(bounds.loop.b).toBeLessThanOrEqual(viewport.height);
+    expect(Math.abs((bounds.speed.y + bounds.speed.h / 2) - (bounds.loop.y + bounds.loop.h / 2))).toBeLessThanOrEqual(1);
+    expect(bounds.speed.x).toBeGreaterThan(bounds.loop.x + bounds.loop.w);
+    expect(bounds.speed.b).toBeLessThanOrEqual(viewport.height);
+    await expect(page.locator('#readbackSpeed')).toBeVisible();
 
     expect(bounds.before).toEqual(bounds.after);
     expect(bounds.overflow).toBeLessThanOrEqual(1);

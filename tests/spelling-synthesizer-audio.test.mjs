@@ -62,8 +62,11 @@ class FakeNode {
     return destination;
   }
 
-  disconnect() {
-    this.connections.length = 0;
+  disconnect(destination) {
+    if (destination) {
+      assert(this.connections.some(connection => connection.destination === destination), 'cannot disconnect a missing destination');
+      this.connections = this.connections.filter(connection => connection.destination !== destination);
+    } else this.connections.length = 0;
     this.disconnectCount += 1;
   }
 }
@@ -1132,5 +1135,33 @@ for (const engine of ['bell','lpc']) {
     const starting=audio.enable();await Promise.resolve();const stopping=audio.disable();resolveModule();
     await stopping;await assert.rejects(starting,{name:'AbortError'});
     assert.equal(audio.running,false);assert.deepEqual(fallbacks,[]);assert.equal(FakeAudioContext.instances[0].state,'closed');
+  });
+}
+
+for (const engine of ['tube', 'diphone', 'vocoder', 'bell', 'lpc']) {
+  test(`${engine}: Spelling opts into balanced protected output without changing the performer level`, async () => {
+    const runtime = fakeRuntime();
+    const audio = new SpellingSynthesizerAudio({ runtime, engine, balancedOutput: true });
+    await audio.enable();
+    const backend = audio.backends[engine];
+    assert.notEqual(backend.output, backend.master);
+    assert.equal(backend.output.curve.length, 8193);
+    assert.equal(backend.output.oversample, 'none', 'final guard follows oversampling reconstruction');
+    assert(backend.context.shapers.some(node => node.oversample === '2x'));
+    assert(Math.max(...backend.output.curve) < .881);
+    const fullGain = backend.master.gain.value;
+    audio.setLevel(0);
+    assert.equal(backend.master.gain.value, 0);
+    audio.setLevel(.46);
+    assert.equal(backend.master.gain.value, fullGain);
+    assert.equal(backend.level, .46);
+    const { spellingOutputGain } = await import('../src/instruments/spelling-synthesizer/spelling-output.js');
+    audio.articulate(voiceEvent('a', 'whisper'));
+    assert.equal(backend.master.gain.value, spellingOutputGain(engine, .46, true, 'whisper'));
+    assert.equal(backend.level, .46, 'personality trim never overwrites performer volume');
+    await audio.close();
+    assert.equal(backend.context, null);
+    assert.equal(backend.output, null);
+    await audio.close(); // Teardown is safe to repeat.
   });
 }

@@ -282,6 +282,7 @@ test("Spelling Synthesizer sustains held vowels, joins pairs, and resumes local 
     }
     createOscillator() { return new FakeOscillator(); }
     createGain() { return new FakeGain(); }
+    createWaveShaper() { return new FakeAudioNode(); }
     createBiquadFilter() { return new FakeFilter(); }
     createDynamicsCompressor() { return new FakeCompressor(); }
     createPeriodicWave(real, imaginary) { return { real, imaginary }; }

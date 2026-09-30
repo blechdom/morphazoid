@@ -1,10 +1,9 @@
 import { RetroSpellingEngine } from "./spelling-retro-audio.js";
 import { unlockAudioContext } from "../../audio.js?v=pink-trombonazoid-20260821-6";
-import { connectAudioOutput } from "../../audio-output-manager.js";
+import { connectSpellingOutput, spellingOutputGain } from "./spelling-output.js";
 import {
   MAX_THROATS,
   alienTongueDeformations,
-  calibratedOutputGain,
   clamp,
   consonantVoiceParameters,
   glottalHarmonics,
@@ -323,13 +322,16 @@ function physicalConfig(performance, sampleRate, sounding = true) {
 }
 
 class TubeSpellingEngine {
-  constructor({ runtime = globalThis, level = 0.46 } = {}) {
+  constructor({ runtime = globalThis, level = 0.46, balancedOutput = false } = {}) {
     this.runtime = runtime;
+    this.balancedOutput = balancedOutput;
+    this.personality = "clear";
     this.level = clamp(level, 0, 0.82);
     this.context = null;
     this.node = null;
     this.master = null;
     this.releaseAudioOutput = null;
+    this.output = null;
     this.pulse = null;
     this.pulseGain = null;
     this.pulseModGain = null;
@@ -394,7 +396,7 @@ class TubeSpellingEngine {
       || audio.state !== "running"
     ) throw audioStartCancelled();
     this.enabled = true;
-    smooth(this.master.gain, calibratedOutputGain(this.level), audio.currentTime, 0.012);
+    smooth(this.master.gain, spellingOutputGain("tube", this.level, this.balancedOutput, this.personality), audio.currentTime, 0.012);
     return this;
   }
 
@@ -509,7 +511,11 @@ class TubeSpellingEngine {
       connect(echoFeedback, echoDelay);
       connect(effectsBus, compressor);
       connect(compressor, master);
-      this.releaseAudioOutput = connectAudioOutput(audio, master, { runtime: this.runtime });
+      const output = connectSpellingOutput(audio, master, {
+        runtime: this.runtime, balanced: this.balancedOutput,
+      });
+      this.output = output.node;
+      this.releaseAudioOutput = output.release;
       pulse.start();
 
       this.node = node;
@@ -537,6 +543,7 @@ class TubeSpellingEngine {
       try { noise?.stop?.(); } catch {}
       this.releaseAudioOutput?.();
       this.releaseAudioOutput = null;
+      this.output = null;
       if (this.context === audio) this.context = null;
       if (audio.state !== "closed") {
         try { await audio.close?.(); } catch {}
@@ -557,7 +564,7 @@ class TubeSpellingEngine {
   setLevel(value) {
     this.level = clamp(value, 0, 0.82);
     if (this.running) {
-      smooth(this.master.gain, calibratedOutputGain(this.level), this.context.currentTime, 0.012);
+      smooth(this.master.gain, spellingOutputGain("tube", this.level, this.balancedOutput, this.personality), this.context.currentTime, 0.012);
     }
   }
 
@@ -592,6 +599,10 @@ class TubeSpellingEngine {
 
   articulate(event) {
     if (!this.running || !event?.performance) return false;
+    if (this.balancedOutput && this.personality !== event.personality) {
+      this.personality = event.personality;
+      this.setLevel(this.level);
+    }
     this.clearTimers();
     this.currentEvent = event;
     const { performance, dynamics } = event;
@@ -887,11 +898,11 @@ class TubeSpellingEngine {
     try { this.noise?.stop?.(); } catch {}
     this.releaseAudioOutput?.();
     this.releaseAudioOutput = null;
+    this.output = null;
     await this.context?.close?.();
     this.context = null;
     this.node = null;
     this.master = null;
-    this.releaseAudioOutput = null;
     this.pulse = null;
     this.pulseGain = null;
     this.pulseModGain = null;
@@ -936,8 +947,10 @@ function decodeAudioData(audio, bytes) {
 }
 
 class DiphoneSpellingEngine {
-  constructor({ runtime = globalThis, level = 0.46, vocoder = false } = {}) {
+  constructor({ runtime = globalThis, level = 0.46, vocoder = false, balancedOutput = false } = {}) {
     this.runtime = runtime;
+    this.balancedOutput = balancedOutput;
+    this.personality = "clear";
     this.level = clamp(level, 0, 0.82);
     this.vocoder = Boolean(vocoder);
     this.context = null;
@@ -947,6 +960,7 @@ class DiphoneSpellingEngine {
     this.vocoderNode = null;
     this.master = null;
     this.releaseAudioOutput = null;
+    this.output = null;
     this.active = new Set();
     this.enabled = false;
     this.lifecycleGeneration = 0;
@@ -979,7 +993,7 @@ class DiphoneSpellingEngine {
     this.enabled = true;
     smooth(
       this.master.gain,
-      calibratedOutputGain(this.level),
+      spellingOutputGain(this.vocoder ? "vocoder" : "diphone", this.level, this.balancedOutput, this.personality),
       audio.currentTime,
       0.012,
     );
@@ -1068,7 +1082,11 @@ class DiphoneSpellingEngine {
         connect(vocoderNode, compressor);
       } else connect(tone, compressor);
       connect(compressor, master);
-      this.releaseAudioOutput = connectAudioOutput(audio, master, { runtime: this.runtime });
+      const output = connectSpellingOutput(audio, master, {
+        runtime: this.runtime, balanced: this.balancedOutput,
+      });
+      this.output = output.node;
+      this.releaseAudioOutput = output.release;
 
       this.buffer = buffer;
       this.sourceBus = sourceBus;
@@ -1083,6 +1101,7 @@ class DiphoneSpellingEngine {
       abortController?.abort?.();
       this.releaseAudioOutput?.();
       this.releaseAudioOutput = null;
+      this.output = null;
       if (this.buildAbortController === abortController) {
         this.buildAbortController = null;
       }
@@ -1102,7 +1121,7 @@ class DiphoneSpellingEngine {
     if (this.running) {
       smooth(
         this.master.gain,
-        calibratedOutputGain(this.level),
+        spellingOutputGain(this.vocoder ? "vocoder" : "diphone", this.level, this.balancedOutput, this.personality),
         this.context.currentTime,
         0.012,
       );
@@ -1148,6 +1167,10 @@ class DiphoneSpellingEngine {
 
   articulate(event) {
     if (!this.running || !event?.performance) return false;
+    if (this.balancedOutput && this.personality !== event.personality) {
+      this.personality = event.personality;
+      this.setLevel(this.level);
+    }
     const timing = this.playbackTiming(event);
     if (!timing) return Boolean(event?.pair && Number(event.pairStepIndex) > 0);
     const {
@@ -1281,6 +1304,7 @@ class DiphoneSpellingEngine {
     this.stopActive();
     this.releaseAudioOutput?.();
     this.releaseAudioOutput = null;
+    this.output = null;
     await this.context?.close?.();
     this.context = null;
     this.buffer = null;
@@ -1297,6 +1321,7 @@ export class SpellingSynthesizerAudio {
     engine = "diphone",
     level = 0.46,
     onFallback = null,
+    balancedOutput = false,
   } = {}) {
     this.runtime = runtime;
     this.engineName = spellingEngine(engine);
@@ -1304,14 +1329,15 @@ export class SpellingSynthesizerAudio {
     this.onFallback = typeof onFallback === "function" ? onFallback : null;
     this.enabled = false;
     this.backends = {
-      tube: new TubeSpellingEngine({ runtime, level: this.level }),
-      bell: new RetroSpellingEngine({ runtime, level: this.level, mode: "bell" }),
-      lpc: new RetroSpellingEngine({ runtime, level: this.level, mode: "lpc" }),
-      diphone: new DiphoneSpellingEngine({ runtime, level: this.level }),
+      tube: new TubeSpellingEngine({ runtime, level: this.level, balancedOutput }),
+      bell: new RetroSpellingEngine({ runtime, level: this.level, mode: "bell", balancedOutput }),
+      lpc: new RetroSpellingEngine({ runtime, level: this.level, mode: "lpc", balancedOutput }),
+      diphone: new DiphoneSpellingEngine({ runtime, level: this.level, balancedOutput }),
       vocoder: new DiphoneSpellingEngine({
         runtime,
         level: this.level,
         vocoder: true,
+        balancedOutput,
       }),
     };
   }

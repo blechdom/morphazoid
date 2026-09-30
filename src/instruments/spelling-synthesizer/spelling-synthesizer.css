@@ -100,7 +100,7 @@
 }
 #spellingInput::placeholder { color: #7c8981; }
 #spellingInput:focus-visible { outline: 2px solid var(--spelling-accent); outline-offset: 2px; }
-.spelling-transport { display: flex; gap: 8px; align-items: center; }
+.spelling-transport { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 .spelling-transport .mini-action { min-height: 36px; padding: 8px 12px; }
 /* Match the compact icon transport; Loop is independent of Audio and Play. */
 .spelling-transport .spelling-loop-button {
@@ -117,6 +117,11 @@
   border-color: var(--spelling-accent);
   background: rgba(var(--spelling-accent-rgb), .12);
 }
+.spelling-readback-speed { display: grid; flex: 0 0 112px; gap: 3px; align-content: center; min-height: 48px; }
+.spelling-readback-speed > span { display: flex; justify-content: space-between; font-size: 10px; color: #8e9a93; }
+.spelling-readback-speed output { color: var(--spelling-accent); font-variant-numeric: tabular-nums; }
+.spelling-readback-speed input { width: 100%; margin: 0; min-height: 26px; accent-color: var(--spelling-accent); }
+.spelling-readback-speed input:focus-visible { outline: 2px solid var(--spelling-accent); outline-offset: 2px; }
 .spelling-transport [hidden] { display: none; }
 .spelling-notes-link { margin: 18px 20px; font-size: 10px; line-height: 1.6; color: #8e9a93; }
 .spelling-notes-link a { color: var(--spelling-accent); }
@@ -401,7 +406,7 @@
   .spelling-input-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
   .spelling-editor { grid-template-columns: minmax(0, 1fr) auto; align-items: end; gap: 8px; }
   #spellingInput { height: 64px; font-size: 18px; }
-  .spelling-transport { flex-wrap: wrap; max-width: 145px; gap: 4px; }
+  .spelling-transport { flex-wrap: wrap; max-width: 224px; gap: 4px; }
   .spelling-transport .mini-action:not(.spelling-loop-button) { padding: 5px; min-height: 28px; font-size: 9px; }
 }
 @media (pointer: coarse) {

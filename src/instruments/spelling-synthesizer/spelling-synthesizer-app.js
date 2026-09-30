@@ -83,6 +83,12 @@ let heldVowel = null;
 const readback = {
   // Live transport choice: factory presets and Random must not overwrite it.
   loop: false,
+  speed: 1,
+  nextPhone: 0,
+  nextGesture: 0,
+  timerDeadline: 0,
+  timerSpeed: 1,
+  timerCallback: null,
   phase: "idle",
   generation: 0,
   offset: 0,
@@ -95,6 +101,7 @@ const readback = {
 };
 
 const audio = new SpellingSynthesizerAudio({
+  balancedOutput: true,
   engine: state.engine,
   level: state.level,
   onFallback({ requested, actual, error }) {
@@ -128,6 +135,9 @@ function clearError() {
 function updateReadbackUi() {
   const button = $("readbackButton");
   const startOver = $("readbackStartOver");
+  $("readbackSpeed").value = String(readback.speed);
+  $("readbackSpeedOut").textContent = `${readback.speed.toFixed(2)}×`;
+  $("readbackSpeed").setAttribute("aria-valuetext", `${readback.speed.toFixed(2)} times normal speed`);
   setPressed($("readbackLoop"), readback.loop);
   $("readbackLoop").title = `Loop readback: ${readback.loop ? "on" : "off"}`;
   const labels = {
@@ -140,7 +150,8 @@ function updateReadbackUi() {
   };
   button.setAttribute("aria-label", labels[readback.phase] ?? labels.idle);
   button.title = labels[readback.phase] ?? labels.idle;
-  button.disabled = readback.phase === "starting";
+  // Preparing a new voice must still leave Pause reachable.
+  button.disabled = false;
   button.setAttribute(
     "aria-pressed",
     String(readback.phase === "starting" || readback.phase === "playing"),
@@ -298,6 +309,8 @@ function clearReadbackResumeTimer() {
 function clearReadbackTimer() {
   if (readback.timer) globalThis.clearTimeout(readback.timer);
   readback.timer = 0;
+  readback.timerCallback = null;
+  readback.timerDeadline = 0;
 }
 
 function cancelReadbackPlayback({ release = true } = {}) {
@@ -398,7 +411,7 @@ function buildReadbackPlan(text, pronunciations) {
       let phoneEndMs = cursorMs;
       audibleEvents.forEach((event, gestureIndex) => {
         const offsetMs = cursorMs + gestureIndex * internalSpacingMs;
-        steps.push({ event, offsetMs });
+        steps.push({ event, offsetMs, phoneIndex, gestureIndex });
         phoneEndMs = Math.max(
           phoneEndMs,
           offsetMs + Math.max(0, audio.durationMs?.(event) ?? 100),
@@ -432,11 +445,61 @@ function buildReadbackPlan(text, pronunciations) {
 
 function scheduleReadbackTimer(callback, delayMs, generation) {
   clearReadbackTimer();
+  const delay = Math.max(0, Math.round(delayMs / readback.speed));
+  readback.timerCallback = callback;
+  readback.timerSpeed = readback.speed;
+  readback.timerDeadline = performance.now() + delay;
   readback.timer = globalThis.setTimeout(() => {
     readback.timer = 0;
+    readback.timerCallback = null;
     if (generation !== readback.generation || readback.phase !== "playing") return;
     callback();
-  }, Math.max(0, Math.round(delayMs)));
+  }, delay);
+}
+
+function setReadbackSpeed(value) {
+  const number = Number(value);
+  const speed = Number.isFinite(number) ? Math.min(2, Math.max(0.5, number)) : 1;
+  const remaining = Math.max(0, readback.timerDeadline - performance.now()) * readback.timerSpeed;
+  const callback = readback.timerCallback;
+  readback.speed = speed;
+  // Keep the elapsed fraction of the current phone or punctuation pause.
+  if (callback) scheduleReadbackTimer(callback, remaining, readback.generation);
+  updateReadbackUi();
+}
+
+function liveReadbackEvent(step) {
+  const previous = step.event;
+  const phone = previous.word.phones[step.phoneIndex];
+  const definition = spellingPhoneDefinition(phone.id);
+  const event = makeVoiceEvent(previous.character, previous.articulation,
+    readbackDynamics(previous.word, phone, definition), {
+      soundLabel: previous.soundLabel,
+      voiceContext: { carrierVowel: previous.carrierVowel },
+      carrierVowel: previous.carrierVowel,
+    });
+  Object.assign(event, {
+    word: previous.word, wordPhone: previous.wordPhone,
+    wordSpeech: true, sampleKey: previous.sampleKey,
+  });
+  if (definition.voicing !== null) event.performance.articulationVoicing = definition.voicing;
+  return event;
+}
+
+function holdReadbackForVoiceChange() {
+  if (!["playing", "starting"].includes(readback.phase)) return null;
+  clearReadbackResumeTimer();
+  cancelReadbackPlayback();
+  readback.phase = "starting";
+  readback.shouldAutoResume = false;
+  updateReadbackUi();
+  return readback.generation;
+}
+
+function continueReadbackAfterVoiceChange(generation) {
+  if (generation === null || generation !== readback.generation
+      || readback.phase !== "starting" || !pageActive) return;
+  void prepareReadback(generation, { automatic: true });
 }
 
 function failReadback(error, generation) {
@@ -458,6 +521,7 @@ function finishReadback(generation) {
     // Preserve punctuation pauses; don't add a release that cuts the next attack.
     readback.offset = 0;
     readback.index = 0;
+    readback.nextPhone = readback.nextGesture = 0;
     playReadbackEntry(generation);
     return;
   }
@@ -479,6 +543,7 @@ function playReadbackEntry(generation) {
   }
   if (entry.type === "boundary") {
     readback.offset = entry.end;
+    readback.nextPhone = readback.nextGesture = 0;
     audio.release({ releaseMs: entry.releaseMs });
     restMouth();
     $("currentPair").textContent = entry.releaseMs >= 120 ? "PHRASE END" : "BREATH";
@@ -494,11 +559,14 @@ function playReadbackEntry(generation) {
     if (generation !== readback.generation || readback.phase !== "playing") return;
     const step = entry.steps[stepIndex];
     if (!step) return;
+    const event = liveReadbackEvent(step);
     try {
-      if (!audio.articulate(step.event)) {
+      if (!audio.articulate(event)) {
         throw new Error("The selected synth engine could not play this pronunciation gesture.");
       }
-      showVoiceEvent(step.event, { durationMs: audio.durationMs(step.event) });
+      showVoiceEvent(event, { durationMs: audio.durationMs(event) });
+      readback.nextPhone = step.phoneIndex;
+      readback.nextGesture = step.gestureIndex + 1;
     } catch (error) {
       failReadback(error, generation);
       return;
@@ -515,10 +583,20 @@ function playReadbackEntry(generation) {
     scheduleReadbackTimer(() => {
       readback.offset = entry.end;
       readback.index += 1;
+      readback.nextPhone = readback.nextGesture = 0;
       playReadbackEntry(generation);
     }, Math.max(18, entry.durationMs - step.offsetMs), generation);
   };
-  playStep(0);
+  // A backend can expand a diphthong into multiple gestures. Retain a phone +
+  // gesture cursor across that change, not an engine-specific array index.
+  const nextStep = entry.steps.findIndex(step => step.phoneIndex > readback.nextPhone
+    || (step.phoneIndex === readback.nextPhone && step.gestureIndex >= readback.nextGesture));
+  if (nextStep < 0) {
+    readback.offset = entry.end;
+    readback.index += 1;
+    readback.nextPhone = readback.nextGesture = 0;
+    playReadbackEntry(generation);
+  } else playStep(nextStep);
 }
 
 function pauseReadback({
@@ -545,12 +623,16 @@ function forgetReadback() {
   readback.snapshot = "";
   readback.plan = [];
   readback.index = 0;
+  readback.nextPhone = readback.nextGesture = 0;
   readback.shouldAutoResume = false;
   updateReadbackUi();
 }
 
 async function prepareReadback(generation, { automatic = false } = {}) {
   const pronunciations = await loadSpellingPronunciations(readback.snapshot);
+  if (engineSwitchPromise) {
+    try { await engineSwitchPromise; } catch {}
+  }
   if (
     !state.audioOn
     || !audio.running
@@ -596,7 +678,7 @@ function startReadback({ restart = false, automatic = false } = {}) {
     announce("No playable words were found.");
     return false;
   }
-  if (!state.audioOn || !audio.running) {
+  if (!state.audioOn || (!audio.running && !state.switching)) {
     announce("Turn Audio on before starting readback.");
     return false;
   }
@@ -611,6 +693,7 @@ function startReadback({ restart = false, automatic = false } = {}) {
     readback.offset = 0;
   }
   readback.snapshot = text;
+  readback.nextPhone = readback.nextGesture = 0;
   readback.offset = Math.min(text.length, Math.max(0, readback.offset));
   readback.phase = "starting";
   readback.shouldAutoResume = false;
@@ -1239,11 +1322,12 @@ function handleEditorInput(event) {
   }
 }
 
-async function selectEngine(name, { preview = true, announceSelection = true } = {}) {
-  if (!SPELLING_ENGINES[name] || state.switching) return;
-  if (readbackHasPendingPlayback()) {
-    pauseReadback({ announceMessage: "Readback paused while the engine changed." });
-  }
+async function selectEngine(name, {
+  preview = true, announceSelection = true, preserveReadback = true,
+} = {}) {
+  if (!SPELLING_ENGINES[name] || state.switching || name === state.engine) return;
+  const wasReading = readbackHasPendingPlayback();
+  const readbackGeneration = preserveReadback ? holdReadbackForVoiceChange() : null;
   releaseHeldVowel({ releaseAudio: false, updateStage: false });
   const generation = ++audioOperationGeneration;
   flushPendingPair({ sound: false });
@@ -1280,18 +1364,17 @@ async function selectEngine(name, { preview = true, announceSelection = true } =
     state.switching = false;
     updateUi();
   }
-  if (selected && preview && state.audioOn) previewVoice();
+  continueReadbackAfterVoiceChange(readbackGeneration);
+  if (selected && preview && state.audioOn && !wasReading && !readbackHasPendingPlayback()) previewVoice();
 }
 
 function selectPersonality(name) {
   if (!SPELLING_PERSONALITIES[name]) return;
-  if (readbackHasPendingPlayback()) {
-    pauseReadback({ announceMessage: "Readback paused while the personality changed." });
-  }
+  const wasReading = readbackHasPendingPlayback();
   releaseHeldVowel({ updateStage: false });
   state.personality = name;
   updatePersonalityUi();
-  if (state.audioOn) previewVoice();
+  if (state.audioOn && !wasReading) previewVoice();
   announce(`${personalityDisplayName(name)} selected.`);
 }
 
@@ -1335,7 +1418,7 @@ function clearEditor() {
 
 async function resetInstrument() {
   readback.loop = false;
-  state.engine = DEFAULTS.engine;
+  readback.speed = 1;
   state.personality = DEFAULTS.personality;
   state.level = DEFAULTS.level;
   state.rhythmAmount = DEFAULTS.rhythmAmount;
@@ -1345,7 +1428,8 @@ async function resetInstrument() {
   clearError();
   updateUi();
   audio.setLevel(state.level);
-  await selectEngine(state.engine, { preview: false, announceSelection: false });
+  if (engineSwitchPromise) { try { await engineSwitchPromise; } catch {} }
+  await selectEngine(DEFAULTS.engine, { preview: false, announceSelection: false });
   updateUi();
   announce("Spelling Synthesizer reset.");
 }
@@ -1353,6 +1437,7 @@ async function resetInstrument() {
 $("audioButton").addEventListener("click", () => void toggleAudio());
 $("clearButton").addEventListener("click", clearEditor);
 $("readbackButton").addEventListener("click", toggleReadback);
+$("readbackSpeed").addEventListener("input", event => setReadbackSpeed(event.target.value));
 $("readbackLoop").addEventListener("click", () => {
   readback.loop = !readback.loop;
   updateReadbackUi();
@@ -1378,9 +1463,6 @@ $("diphthongDelay").addEventListener("input", (event) => {
 });
 
 $("pairGlidesButton").addEventListener("click", () => {
-  if (readbackHasPendingPlayback()) {
-    pauseReadback({ announceMessage: "Readback paused while letter-pair joining changed." });
-  }
   state.pairGlides = !state.pairGlides;
   if (!state.pairGlides) flushPendingPair();
   updateControlUi();
@@ -1481,11 +1563,10 @@ updateUi();
 const presetController=registerHeaderPresets({id:"spelling-synthesizer",presets,randomize,capture:()=>schema.capture(state),apply:async snapshot=>{
  const next=schema.validate(snapshot);
  if(state.switching || state.starting) throw new Error("Wait for the current voice to finish loading");
- const resume=readbackHasPendingPlayback();
- if(resume) pauseReadback();
+ const generation = next.engine !== state.engine ? holdReadbackForVoiceChange() : null;
  try {
-  if(next.engine!==state.engine) await selectEngine(next.engine,{preview:false,announceSelection:false});
+  if(next.engine!==state.engine) await selectEngine(next.engine,{preview:false,announceSelection:false,preserveReadback:false});
   if(state.engine!==next.engine) throw new Error("Requested voice is unavailable; previous scene retained");
   Object.assign(state,next); updateUi();
- } finally { if(resume && state.audioOn) startReadback({automatic:true}); }
+ } finally { continueReadbackAfterVoiceChange(generation); }
 }});

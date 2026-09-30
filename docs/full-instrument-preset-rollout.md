@@ -10,6 +10,11 @@ Play/Loop stay together while the control rail scrolls. It is promoted to Voice
 with a native wireframe-mouth icon. This focused release does not promote or
 publish the other locally developed Cooking instruments.
 See [controls, provenance and verification limits](spelling-synthesizer.md).
+Live readback now keeps Play/Loop through engine and tone changes, applies tone
+and rhythm to upcoming phonemes, and retains the adjacent 0.5–2× Speed control
+through presets and Random. Voice-level calibration is internal output trim,
+not a new preset volume field; human listening acceptance remains separate.
+
 
 
 ## September 26 Hybrinx performer-state and meter correction

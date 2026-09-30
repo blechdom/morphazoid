@@ -28,6 +28,57 @@ presets, Next and Random so you can browse voices while repeating your text.
 Explicit Reset restores Loop off. This is live transport state, not a new
 preset parameter; existing scene snapshots and synthesis are unchanged.
 
+## Live readback controls
+
+Voice-engine changes now keep **Play** and **Loop** active. The reader retains
+its next phoneme/gesture rather than restarting the text or inserting a preview
+vowel. A cold engine may need a short loading gap; Pause remains available during
+that load, and Pause, Clear, Audio off, Reset and page teardown cancel any pending
+continuation. An unavailable engine reports its error and continues with the
+available voice when possible. Paused text does not start merely because a voice
+or preset was selected.
+
+Tone/personality and rhythm settings are read for each newly sounded phoneme,
+so they also update an already-prepared, repeating phrase. Letter-pair joining
+and its delay still concern live typing, not dictionary pronunciation; changing
+them no longer pauses word readback.
+
+**Speed**, beside Loop, runs from **0.50× to 2.00×**, initially 1.00×. It changes
+phoneme onset spacing and punctuation pauses, preserving the elapsed fraction
+of the current interval when adjusted. It does not transpose the voices,
+time-stretch the sample recordings, or alter live typing. Faster settings may
+interrupt a phone sooner; slower settings leave more space between phones.
+Speed and Loop are live performer choices outside presets/Random, alongside
+text and the master volume. Explicit Reset returns Speed to 1× and Loop off.
+
+## Voice output balance
+
+Spelling opts into fixed engine and personality output trims, followed by
+oversampled soft peak protection and a final sample guard. All five voices use
+the same master-volume taper. The quieter Bell Labs, LPC and vocoder voices are
+raised relative to KAL/Pinkazoid; extreme Pinkazoid Whisper/Creature bodies receive
+separate compensation. This is not automatic gain control: speech dynamics and
+voice character remain, and no volume parameter was added to the presets.
+The existing meters receive the protected post-master signal.
+
+Calibration uses real-browser PCM captures of the same phrase at 48 kHz and
+100% master: “The quick brown fox. Daisy, give me your answer.” Both raw RMS/peak
+and gated, mono K-weighted loudness are compared across all 25 engine/personality
+combinations. The earlier clear-voice measurements ranged from approximately
+−23 to −32 mono LUFS; Bell Labs was about 9 dB below KAL. The protected captures measure
+−19.40 to −18.01 mono LUFS across those 25 combinations, with a maximum recorded
+sample peak of about −1.12 dBFS and no non-finite or clipped samples. This leaves
+headroom rather than targeting 0 dBFS.
+This is a reference-scene balance, **not a universal mastering level or certified
+true-peak limiter**. The final sample guard also catches reconstruction overshoot
+after oversampling; simply bounding a WaveShaper curve was insufficient for some
+plosives. Human listening/intelligibility acceptance remains separate.
+
+Pink Trombonazoid also consumes the underlying audio class. Its existing output
+and tone remain unchanged: the new balance/protection is explicitly enabled by
+Spelling only. Existing synthesis models and the licensed KAL recording are not
+replaced.
+
 The frontal wireframe mouth shows lip opening, rounding, seals, tongue position
 and teeth. These are **stylized visemes**, not an anatomically validated face or
 a guarantee of lip-reading accuracy. With Audio on, each visual gesture is
@@ -111,8 +162,8 @@ adding these worklets does not make whole-word timing stall-proof.
 
 Stable new IDs are `bell` and `lpc`; old engine IDs, all sixteen earlier scene
 snapshots, text, Loop, master level and Audio consent remain unchanged. Preset,
-Next and Random engine changes resume readback using the existing retained
-cursor. Six additive scenes cover clear, warm and reed/creature settings.
+Next and Random engine changes retain the live phoneme/gesture cursor, Loop and
+Speed. Six additive scenes cover clear, warm and reed/creature settings.
 
 ### Technical evidence and provenance
 
@@ -166,8 +217,8 @@ Animation frames update only the SVG. This task does **not** migrate the
 existing timer-dispatched speech/readback scheduler to a worklet/lookahead
 clock or claim sample-accurate articulation under arbitrary UI stalls. The
 mouth uses the active audio clock to interpolate display poses; it never
-schedules sound from rendering. The three pre-existing sound models, levels, envelopes,
-pronunciation and sample data were not retuned.
+schedules sound from rendering. The three pre-existing sound models, envelopes, pronunciation and sample data
+were not replaced; the new output calibration is described above.
 
 ## Automated verification (2026-09-29)
 
@@ -184,3 +235,16 @@ pronunciation and sample data were not retuned.
 Human listening, actual phone-keyboard feel and physical MIDI acceptance remain
 unperformed. Local screenshots/logs are ignored under `test-results/spelling-mouth/`
 and do not travel with a fresh clone. No commit or publication requested.
+
+### Live-control regression checks
+
+- `tests/spelling-output.test.mjs` checks bounded calibration, a common master
+  taper, linear low-level output, soft-knee continuity and the final sample guard.
+- `tests/spelling-synthesizer-audio.test.mjs` checks opt-in protected routing,
+  mute/restore/cleanup and the unchanged legacy output path.
+- `e2e/spelling-live-readback.spec.mjs` exercises all five real engines, live
+  tones/rhythm, half/double speed, retained interval progress, delayed/cancelled
+  voice loading, fallback, loop continuity and measured full-master balance.
+- The existing mouth/responsive and preset suites cover the adjacent Speed
+  control, native keyboard operation, preserved text/level/Loop/Speed and Audio
+  consent. These checks do not constitute a human listening or device pass.

@@ -1,5 +1,5 @@
 import {unlockAudioContext} from '../../audio.js?v=pink-trombonazoid-20260821-6';
-import {connectAudioOutput} from '../../audio-output-manager.js';
+import {connectSpellingOutput, spellingOutputGain} from './spelling-output.js';
 import {SPELLING_DIPHONE_CLIPS, spellingDiphoneClipKey} from './spelling-diphone-atlas.js';
 import {bounded} from './spelling-lpc-codec.js';
 
@@ -23,9 +23,10 @@ export function retroVoiceConfiguration(event,mode) {
 }
 
 export class RetroSpellingEngine {
-  constructor({runtime=globalThis,level=.46,mode='bell'}={}) {
+  constructor({runtime=globalThis,level=.46,mode='bell',balancedOutput=false}={}) {
+    this.balancedOutput=balancedOutput;this.personality='clear';
     this.runtime=runtime;this.level=level;this.mode=mode;this.context=null;this.node=null;this.master=null;
-    this.enabled=false;this.generation=0;this.pending=null;this.releaseAudioOutput=null;
+    this.enabled=false;this.generation=0;this.pending=null;this.releaseAudioOutput=null;this.output=null;
   }
   get running(){return Boolean(this.enabled&&this.context?.state==='running'&&this.node);}
   async enable() {
@@ -52,15 +53,16 @@ export class RetroSpellingEngine {
         if(generation!==this.generation||this.context!==context)throw cancelled();
         const node=new Worklet(context,'spelling-retro',{numberOfInputs:0,numberOfOutputs:1,outputChannelCount:[1],processorOptions:{mode:this.mode}});
         const master=context.createGain();master.gain.value=0;node.connect(master);
-        this.releaseAudioOutput=connectAudioOutput(context,master,{runtime:this.runtime});
+        const output=connectSpellingOutput(context,master,{runtime:this.runtime,balanced:this.balancedOutput});
+        this.output=output.node;this.releaseAudioOutput=output.release;
         this.node=node;this.master=master;
       } else await resumed;
       if(generation!==this.generation||this.context!==context)throw cancelled();
       this.enabled=true;this.node.port.postMessage({type:'reset'});this.setLevel(this.level);
     } catch(error) {
       if(this.context===context) {
-        this.enabled=false;this.node?.port.postMessage({type:'dispose'});this.node?.disconnect();this.master?.disconnect();
-        this.releaseAudioOutput?.();this.releaseAudioOutput=null;this.node=null;this.master=null;this.context=null;
+        this.enabled=false;this.node?.port.postMessage({type:'dispose'});this.node?.disconnect();
+        this.releaseAudioOutput?.();this.master?.disconnect();this.releaseAudioOutput=null;this.output=null;this.node=null;this.master=null;this.context=null;
       }
       if(context.state!=='closed')await context.close();
       throw error;
@@ -70,12 +72,13 @@ export class RetroSpellingEngine {
     this.level=bounded(value,0,.82,.46);
     if(this.master) {
       const gain=this.master.gain, now=this.context.currentTime;
-      gain.cancelScheduledValues?.(now);gain.setTargetAtTime?.(this.enabled?this.level:0,now,.012);
+      gain.cancelScheduledValues?.(now);gain.setTargetAtTime?.(this.enabled?spellingOutputGain(this.mode,this.level,this.balancedOutput,this.personality):0,now,.012);
     }
   }
   durationMs(event){return (retroVoiceConfiguration(event,this.mode)?.duration??0)*1000;}
   articulate(event) {
     if(!this.running)return false;
+    if(this.balancedOutput&&this.personality!==event.personality){this.personality=event.personality;this.setLevel(this.level);}
     const configuration=retroVoiceConfiguration(event,this.mode);if(!configuration)return false;
     this.node.port.postMessage(configuration);return true;
   }
@@ -89,8 +92,8 @@ export class RetroSpellingEngine {
   async close() {
     this.generation++;this.enabled=false;
     const context=this.context;this.context=null;
-    this.node?.port.postMessage({type:'dispose'});this.node?.disconnect();this.master?.disconnect();this.releaseAudioOutput?.();
-    this.node=null;this.master=null;this.releaseAudioOutput=null;
+    this.node?.port.postMessage({type:'dispose'});this.node?.disconnect();this.releaseAudioOutput?.();this.master?.disconnect();
+    this.node=null;this.master=null;this.releaseAudioOutput=null;this.output=null;
     if(context && context.state!=='closed')await context.close();
   }
 }
