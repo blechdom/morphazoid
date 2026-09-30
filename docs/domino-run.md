@@ -18,9 +18,13 @@ preset dice generate new bounded parameter combinations rather than choosing a
 preset. The seed reproduces the generated arrangement. Preset and parameter
 changes preserve Audio, master volume, and whether the transport is running.
 Structural changes and scene recalls map the current progress into the new run.
+A recall during the short reset pause starts the new run at its beginning.
 Changes to a circulating run’s recovery or speed retain elapsed time and replay
-the model with the new settings; sound-only edits keep its current wave. Loop belongs to
-the scene. Reset all returns to Tone Henge, stops transport and disarms Audio.
+the model with the new settings; sound-only edits keep its current wave. **Loop whole
+run**, **Stand again**, and **After landing** stay as you set them across presets,
+preset arrows, both randomizers, and Undo. They are live repeat controls outside
+the scene snapshot. Reset all restores their defaults, returns to Tone Henge,
+stops transport and disarms Audio.
 
 ## Dry domino sounds
 
@@ -31,6 +35,13 @@ noise and damped body sound; larger pieces change that body color subtly instead
 of strongly transposing a ringing note. **Resonance** reaches zero for the driest
 setting, and its upper range keeps some optional ringing color. The randomizer
 also favors shorter decays. These remain synthesized material approximations.
+
+**Sound variation** adds small differences in strike strength, brightness, initial
+snap, and body weight to repeated impacts. It does not alter pitch, pan, geometry,
+or fall timing. The default 20% is subtle; 0% removes the extra per-hit variation.
+The **↺ 0** buttons reset Sound variation, Size variation, Size gradient, Step
+height, and Resonance to zero. They update the same controls used for dragging
+and keyboard adjustment.
 
 ## Circulating runs
 
@@ -89,8 +100,11 @@ and Ctrl/Cmd+Z undoes the last edit. Hold Shift with an arrow for smaller moves.
 - **Run speed:** scales the run's time without transposing its material sounds.
   Resonance and Brightness change impact decay and spectrum.
 
-In **Arrange** mode, drag individual tiles to change a connection. Select a
-tile to change its height/material or lift it out, leaving a safety gap.
+Open **Edit one domino** and press **Choose on stage** to enter Arrange mode.
+Tap a piece to select it; its number appears in the editor. Height and Material
+there affect only that piece. **Push selected** starts the chain there;
+**Lift out** removes it from the chain, leaving a gap, and **Put back** restores it.
+Drag a tile in Arrange mode to change its position and connections.
 Undo edit restores the previous edit. Changing a global structural control
 generates a fresh layout and clears individual edits. Direct pushing starts a
 new fall from that tile; it does not layer another independent copy of the run.
@@ -156,6 +170,11 @@ while the main browser thread is deliberately stalled. Touch automation covers
 drawing, tile dragging and cancellation; its recovery step uses keyboard Undo.
 Further tests cover closed-loop recurrence, a wave stopping when recovery is too
 slow, mouse/keyboard stroke creation, full-scene capture, and per-stroke Undo.
+Repeat-control preservation is checked across actual later loop boundaries after
+presets and both randomizers, including reset-pause recalls and delayed UI
+updates. Per-hit variation is checked for zero-depth identity, controllable
+strength/timbre spread, unchanged event timing, and bounded voice/cache use.
+Zero-reset buttons and one-piece editing are exercised on desktop and touch layouts.
 
 Human listening, touch feel on a physical phone, and physical MIDI-controller
 checks remain unperformed. Synthesized material identity and musical usefulness

@@ -51,7 +51,7 @@ test('real gaps interrupt propagation, and manual edits are recoverable',async({
   const before=await page.evaluate(()=>window.dominoRun.run.dominoes[0].x);
   await page.keyboard.press('ArrowRight');
   expect(await page.evaluate(()=>window.dominoRun.run.dominoes[0].x)).toBeGreaterThan(before);
-  await page.locator('.group summary').filter({hasText:'Selected domino'}).click();
+  await page.locator('.group summary').filter({hasText:'Edit one domino'}).click();
   await page.locator('#undoEdit').click();
   expect(await page.evaluate(()=>window.dominoRun.run.dominoes[0].x)).toBeCloseTo(before,8);
   await page.locator('#removeSelected').click();

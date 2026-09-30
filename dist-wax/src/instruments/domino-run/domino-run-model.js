@@ -21,7 +21,7 @@ export const LAYOUTS = Object.freeze([
 export const DEFAULT_PARAMS = Object.freeze({
   layout: 'henge', count: 40, spacing: .54, size: 1.12,
   sizeVariation: .10, growth: 0, stairRise: .09, material: 'stone',
-  speed: 1, ring: .16, brightness: .43, loop: true, autoStand: false, standDelay: 1.5, seed: 1975,
+  speed: 1, ring: .16, brightness: .43, soundVariation: .2, loop: true, autoStand: false, standDelay: 1.5, seed: 1975,
 });
 const HALF_PI = Math.PI / 2, TAU = Math.PI * 2, G = 9.81;
 const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
@@ -53,11 +53,17 @@ export function sanitizeParams(raw = {}) {
     speed: bounded(raw.speed, .35, 2.4, d.speed),
     ring: bounded(raw.ring, 0, 1, d.ring),
     brightness: bounded(raw.brightness, .1, 1, d.brightness),
+    soundVariation: bounded(raw.soundVariation, 0, 1, d.soundVariation),
     loop: typeof raw.loop === 'boolean' ? raw.loop : d.loop,
     autoStand: typeof raw.autoStand === 'boolean' ? raw.autoStand : d.autoStand,
     standDelay: bounded(raw.standDelay, .1, 12, d.standDelay),
     seed: finite(raw.seed, d.seed) >>> 0,
   };
+}
+// Repeat controls belong to the live player, independently of scene recall.
+export function sceneParams(raw = {}) {
+  const { loop, autoStand, standDelay, ...scene } = sanitizeParams(raw);
+  return scene;
 }
 export function randomizeParams(seed = DEFAULT_PARAMS.seed) {
   const random = randomSource(finite(seed, DEFAULT_PARAMS.seed) >>> 0);
@@ -70,6 +76,7 @@ export function randomizeParams(seed = DEFAULT_PARAMS.seed) {
     size: span(.74, 1.4), sizeVariation: span(.015, .23), growth: span(-.38, .38),
     stairRise: span(.015, .16), material: materials[Math.floor(random() * materials.length)],
     speed: span(.5, 2.15), ring: .02 + .53 * random() ** 2, brightness: span(.12, .96),
+    soundVariation: .06 + .59 * random() ** 2,
     loop: random() < .75, autoStand: random() < .35, standDelay: span(.3, 5),
     seed: Math.floor(random() * 4294967296),
   });
@@ -87,9 +94,9 @@ export function randomizeParams(seed = DEFAULT_PARAMS.seed) {
 const preset = (id, name, params) => Object.freeze({ id, name, params: Object.freeze(sanitizeParams({ ...DEFAULT_PARAMS, ...params })) });
 export const PRESETS = Object.freeze([
   preset('tone-henge', 'Tone Henge', {}),
-  preset('classic-plastic', 'Classic Plastic', { layout: 'serpentine', count: 64, material: 'plastic', spacing: .48, size: 1, sizeVariation: .025, ring: .08, brightness: .58, speed: 1.1, seed: 118 }),
-  preset('ceramic-clatter', 'Ceramic Clatter', { layout: 'fork', count: 72, material: 'ceramic', spacing: .55, size: 1, sizeVariation: .05, ring: .12, brightness: .66, speed: .95, seed: 222 }),
-  preset('stone-thuds', 'Stone Thuds', { layout: 'henge', count: 24, material: 'stone', spacing: .55, size: 1.4, sizeVariation: .06, ring: .05, brightness: .23, speed: .8, seed: 4096 }),
+  preset('classic-plastic', 'Classic Plastic', { layout: 'serpentine', count: 64, material: 'plastic', spacing: .48, size: 1, sizeVariation: .025, ring: .08, brightness: .58, soundVariation: .14, speed: 1.1, seed: 118 }),
+  preset('ceramic-clatter', 'Ceramic Clatter', { layout: 'fork', count: 72, material: 'ceramic', spacing: .55, size: 1, sizeVariation: .05, ring: .12, brightness: .66, soundVariation: .18, speed: .95, seed: 222 }),
+  preset('stone-thuds', 'Stone Thuds', { layout: 'henge', count: 24, material: 'stone', spacing: .55, size: 1.4, sizeVariation: .06, ring: .05, brightness: .23, soundVariation: .3, speed: .8, seed: 4096 }),
   preset('wooden-switchback', 'Wooden Switchback', { layout: 'serpentine', count: 64, material: 'wood', spacing: .46, size: 1, ring: .12, brightness: .56, seed: 114 }),
   preset('glass-coil', 'Glass Coil', { layout: 'spiral', count: 96, material: 'glass', spacing: .49, size: .8, sizeVariation: .16, ring: .5, brightness: .81, speed: 1.35, seed: 382 }),
   preset('porcelain-forks', 'Porcelain Forks', { layout: 'fork', count: 80, material: 'ceramic', spacing: .55, sizeVariation: .09, ring: .16, brightness: .62, seed: 819 }),

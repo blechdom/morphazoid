@@ -142,7 +142,8 @@ test('complete toolbar capture includes drawing; presets and both randomizers re
     return captureHeaderPresetState();
   });
   expect(captured.instrumentId).toBe('domino-run');
-  expect(captured.snapshot).toEqual(authored);
+  const {loop,autoStand,standDelay,...musicalParams}=authored.params;
+  expect(captured.snapshot).toEqual({...authored,params:musicalParams});
   expect(captured.selectedId).toBeNull();
   expect(JSON.parse(JSON.stringify(captured.snapshot)).drawing).toEqual(authored.drawing);
 

@@ -3,10 +3,24 @@ export const MAX_DOMINO_EVENTS = 4096;
 const MAX_BUFFERS = 256;
 const clamp = (n, a, b) => Math.min(b, Math.max(a, Number(n) || 0));
 
+function sampleVoice(voice, lowpass, attackPole) {
+  const index = Math.floor(voice.position);
+  const fraction = voice.position - index;
+  const value = voice.data[index] + (voice.data[index + 1] - voice.data[index]) * fraction;
+  if (!voice.varied) return value;
+  voice.low += lowpass * (value - voice.low);
+  const colored = value + voice.tilt * (value - voice.low);
+  const weight = 1 + voice.attack * voice.attackEnvelope + voice.body * (1 - voice.attackEnvelope);
+  voice.attackEnvelope *= attackPole;
+  return colored * weight;
+}
+
 /** Bounded PCM mixer; future events do not occupy audible voice slots. */
 export class DominoMixer {
   constructor(sampleRate = 48000) {
     this.sampleRate = sampleRate;
+    this.variationLowpass = 1 - Math.exp(-2 * Math.PI * 1800 / sampleRate);
+    this.variationAttackPole = Math.exp(-1 / (sampleRate * 0.006));
     this.buffers = new Map();
     this.events = [];
     this.cursor = 0;
@@ -39,7 +53,10 @@ export class DominoMixer {
       if (!buffer || !Number.isFinite(event.time)) { this.dropped += 1; continue; }
       const pan = clamp(event.pan, -1, 1);
       const gain = clamp(event.gain, 0, 1.5);
-      this.events.push({ time: event.time, data: buffer.data,
+      const tilt = clamp(event.variation?.tilt, -0.45, 0.45);
+      const attack = clamp(event.variation?.attack, -0.20, 0.20);
+      const body = clamp(event.variation?.body, -0.15, 0.15);
+      this.events.push({ time: event.time, data: buffer.data, tilt, attack, body, varied: Boolean(tilt || attack || body),
         step: buffer.sampleRate / this.sampleRate * clamp(event.rate, 0.25, 4),
         left: Math.cos((pan + 1) * Math.PI / 4) * gain,
         right: Math.sin((pan + 1) * Math.PI / 4) * gain, gain });
@@ -71,7 +88,7 @@ export class DominoMixer {
       const event = this.events[this.cursor++];
       if (event.time < time - 0.06) { this.dropped += 1; continue; }
       const voice = { ...event, position: 0, offset: Math.max(0, Math.ceil((event.time - time) * this.sampleRate)),
-        release: null, tail: null };
+        release: null, tail: null, low: 0, attackEnvelope: 1 };
       if (this.voices.length >= MAX_DOMINO_VOICES) {
         // Replace the weakest decaying tail, retaining a 3 ms crossfade.
         let index = 0; let lowest = Infinity;
@@ -92,18 +109,14 @@ export class DominoMixer {
       const voice = this.voices[v];
       for (let i = voice.offset; i < left.length; i += 1) {
         if (voice.position >= voice.data.length - 1 || voice.release === 0) break;
-        const index = Math.floor(voice.position);
-        const fraction = voice.position - index;
-        const value = voice.data[index] + (voice.data[index + 1] - voice.data[index]) * fraction;
+        const value = sampleVoice(voice, this.variationLowpass, this.variationAttackPole);
         const fade = voice.release === null ? 1 : voice.release-- / releaseLength;
         left[i] += value * voice.left * fade;
         right[i] += value * voice.right * fade;
         voice.position += voice.step;
         const tail = voice.tail;
         if (tail && tail.remaining > 0 && tail.position < tail.data.length - 1) {
-          const p = Math.floor(tail.position);
-          const x = tail.position - p;
-          const y = (tail.data[p] + (tail.data[p + 1] - tail.data[p]) * x) * tail.remaining-- / tailLength;
+          const y = sampleVoice(tail, this.variationLowpass, this.variationAttackPole) * tail.remaining-- / tailLength;
           left[i] += y * tail.left * fade; right[i] += y * tail.right * fade;
           tail.position += tail.step;
         } else voice.tail = null;

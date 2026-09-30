@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  MATERIALS, LAYOUTS, DEFAULT_PARAMS, PRESETS, sanitizeParams, randomizeParams,
+  MATERIALS, LAYOUTS, DEFAULT_PARAMS, PRESETS, sanitizeParams, sceneParams, randomizeParams,
   buildRun, compileRun, contactGeometry, angleAt,
 } from '../src/instruments/domino-run/domino-run-model.js';
 
@@ -320,4 +320,18 @@ test('contact eligibility is evaluated when impact occurs, including another rou
   assert.deepEqual(fallOf(score, 1), fallOf(compileRun(pair(source, target), { force: .4 }), 1));
   assert.deepEqual(fallOf(score, 1), fallOf(single, 1));
   assert.ok(!score.events.some(e => e.type === 'contact' && e.id === 0 && e.targetId === 2));
+});
+
+
+test('scene parameters retain sound settings and omit live repeat controls, including legacy values', () => {
+  const expected = sceneParams(DEFAULT_PARAMS);
+  for (const loop of [false, true]) for (const autoStand of [false, true]) {
+    assert.deepEqual(sceneParams({...DEFAULT_PARAMS, loop, autoStand, standDelay: 9}), expected);
+  }
+  for (const key of ['loop','autoStand','standDelay']) assert.equal(key in expected, false);
+  assert.equal(expected.soundVariation, .2);
+  assert.equal(sceneParams({...DEFAULT_PARAMS,soundVariation:0}).soundVariation, 0);
+  assert.equal(sceneParams({...DEFAULT_PARAMS,soundVariation:3}).soundVariation, 1);
+  assert.deepEqual(sceneParams(expected), expected);
+  assert.equal(new Set(PRESETS.map(p => JSON.stringify(sceneParams(p.params)))).size, PRESETS.length);
 });

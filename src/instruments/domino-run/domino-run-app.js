@@ -1,4 +1,4 @@
-import { DEFAULT_PARAMS, PRESETS, MATERIALS, LAYOUTS, sanitizeParams, randomizeParams, buildRun, compileRun, createRunSimulation } from "./domino-run-model.js";
+import { DEFAULT_PARAMS, PRESETS, MATERIALS, LAYOUTS, sanitizeParams, sceneParams, randomizeParams, buildRun, compileRun, createRunSimulation } from "./domino-run-model.js";
 import { sanitizeDrawing, buildDrawnRun } from "./domino-run-drawing.js";
 import { DominoAudio } from "./domino-run-audio.js";
 import { DominoRenderer } from "./domino-run-renderer.js";
@@ -16,7 +16,7 @@ let streamQueued = new Set(), streamFuture = [];
 let transportUsesAudioClock = false;
 let draftPoints = [], drawCursor = {x:0,z:0};
 let presetController, activeStartIds = null, activeForce = 1;
-const fields = new Map();
+const fields = new Map(), zeroButtons = new Map();
 // Keep one clock domain through suspension/interruption. AudioContext time
 // freezes with the sound; explicit Audio actions rebase it.
 const clock = () => transportUsesAudioClock && audio.context ? audio.context.currentTime : performance.now() / 1000;
@@ -24,13 +24,26 @@ const cycleLength = () => timeline.duration + .85;
 const rawTime = () => Math.max(0, offset + (playing ? Math.max(0,clock()-anchor)*(simulation?1:params.speed) : 0));
 const localTime = () => simulation ? rawTime() : params.loop ? rawTime() % cycleLength() : Math.min(rawTime(),timeline.duration);
 const snapshot = () => ({version:1,params:clone(params),edits:clone(edits),drawing:clone(drawing)});
-const phaseNow = () => !timeline ? 0 : simulation ? (rawTime()%Math.max(.01,referenceDuration))/Math.max(.01,referenceDuration) : localTime()/Math.max(.01,timeline.duration);
+const liveParams = () => ({loop:params.loop,autoStand:params.autoStand,standDelay:params.standDelay});
+function canonicalScene(state) {
+  if(state?.version!==1||!state.params||!Array.isArray(state.edits))throw new TypeError("Invalid Domino Run scene");
+  return {version:1,params:sceneParams(state.params),edits:clone(state.edits).slice(0,512),drawing:state.drawing?sanitizeDrawing(state.drawing):null};
+}
+const captureScene = () => canonicalScene(snapshot());
+function phaseNow() {
+  if(!timeline)return 0;
+  const time=localTime();
+  if(simulation)return (time%Math.max(.01,referenceDuration))/Math.max(.01,referenceDuration);
+  // A scene chosen during the reset gap starts ready to fall, never past its end.
+  return time<timeline.duration?time/Math.max(.01,timeline.duration):0;
+}
 
 function error(e) { $("audioError").hidden=false; $("audioError").textContent=e?.message||String(e); }
 function announce(text) { $("liveStatus").textContent=text; }
 function fieldValue(key,value) { fields.get(key)?.setValue?.(value); }
 function sync() {
   for(const [key,value] of Object.entries(params)) fieldValue(key,value);
+  for(const [key,button] of zeroButtons)button.disabled=params[key]===0;
   fieldValue("layout",drawing?"drawn":params.layout);
   fields.get("count").hidden=Boolean(drawing);
   $("seed").value=params.seed; $("loop").checked=params.loop; $("loop").disabled=params.autoStand;
@@ -40,7 +53,7 @@ function sync() {
   $("playButton").setAttribute("aria-pressed",String(playing));
   $("audioButton").setAttribute("aria-pressed",String(audio.armed));
   $("audioState").textContent=audio.armed?"on":"off";
-  $("sceneName").textContent=drawing?"Drawn pattern":PRESETS.find(p=>JSON.stringify(sanitizeParams(p.params))===JSON.stringify(params)&&!edits.length)?.name||"Custom run";
+  $("sceneName").textContent=drawing?"Drawn pattern":PRESETS.find(p=>JSON.stringify(sceneParams(p.params))===JSON.stringify(sceneParams(params))&&!edits.length)?.name||"Custom run";
   $("reachCount").textContent=`${timeline.reachableCount??timeline.falls.length}/${run.dominoes.length} reachable`;
   $("undoEdit").disabled=$("undoDraw").disabled=!undo.length;
   $("drawingInfo").textContent=drawing?`${run.dominoes.length} dominoes · ${drawing.strokes.length} ${drawing.strokes.length===1?"path":"paths"}${run.truncated?" · 512 limit":""}`:"Your first stroke replaces this run.";
@@ -48,7 +61,7 @@ function sync() {
 }
 function syncSelected() {
   const d=run.dominoes.find(d=>d.id===selected)||run.dominoes[0];
-  for(const id of ["tileSize","tileMaterial","removeSelected","pushSelected"])$(id).disabled=!d;
+  for(const id of ["tileSize","tileMaterial","removeSelected","pushSelected","chooseDomino"])$(id).disabled=!d;
   $("selectedNumber").textContent=d?String(d.id+1):"—";
   if(!d)return;
   selected=d.id;$("tileSize").value=d.height;$("tileSizeOut").value=d.height.toFixed(2);
@@ -119,11 +132,11 @@ function rebuild({preserve=true,phase=phaseNow(),streamTime=simulation?rawTime()
   audio.setParams(params);queueAudio({live:preserve});sync();draw();
 }
 function apply(state) {
-  if(state?.version!==1||!state.params||!Array.isArray(state.edits))throw new TypeError("Invalid Domino Run scene");
-  const phase=phaseNow();
+  const scene=canonicalScene(state),phase=phaseNow();
+  clearTimeout(buildTimer);
   if(presetController)presetController.hasPresetInteraction=true;
-  params=sanitizeParams(state.params);edits=clone(state.edits).slice(0,512);
-  drawing=state.drawing?sanitizeDrawing(state.drawing):null;
+  params=sanitizeParams({...scene.params,...liveParams()});edits=scene.edits;
+  drawing=scene.drawing;
   undo=[];draftPoints=[];activeStartIds=null;activeForce=1;
   rebuild({phase,streamTime:null});
 }
@@ -133,7 +146,7 @@ function setParam(key,value) {
   if(next[key]===params[key]&&!(key==="layout"&&drawing))return;
   const before=rawTime(),phase=phaseNow(),streamTime=simulation?before:null;params=next;
   offset=before;anchor=clock();
-  if(["ring","brightness","loop"].includes(key)||key==="speed"&&!simulation){audio.setParams(params);queueAudio({live:true});sync();return;}
+  if(["ring","brightness","soundVariation","loop"].includes(key)||key==="speed"&&!simulation){audio.setParams(params);queueAudio({live:true});sync();return;}
   if(!["autoStand","standDelay","speed"].includes(key)){
     edits=[];undo=[];activeStartIds=null;activeForce=1;
     if(key==="layout"||key==="count")drawing=null;
@@ -155,7 +168,8 @@ function standUp() {offset=0;anchor=clock();activeStartIds=null;activeForce=1;re
 function rememberEdit() {undo.push(snapshot());if(undo.length>30)undo.shift();}
 function undoEdit() {
   if(!undo.length)return;
-  const state=undo.pop(),phase=phaseNow();params=sanitizeParams(state.params);edits=clone(state.edits);drawing=clone(state.drawing);
+  clearTimeout(buildTimer);
+  const state=undo.pop(),phase=phaseNow();params=sanitizeParams({...state.params,...liveParams()});edits=clone(state.edits);drawing=clone(state.drawing);
   draftPoints=[];activeStartIds=null;activeForce=1;rebuild({phase,streamTime:null});announce("Last edit undone.");
 }
 function editTile(patch,{remember=true}={}) {
@@ -168,7 +182,7 @@ function setMode(next) {
   if(mode!==next)draftPoints=[];mode=next;
   document.querySelectorAll("[data-mode]").forEach(b=>b.setAttribute("aria-pressed",String(b.dataset.mode===mode)));
   $("drawTools").hidden=mode!=="draw";
-  $("stageHelp").textContent=mode==="draw"?"Draw a path, then release. Add more strokes for more chains. Keyboard: arrows move, Enter adds a point, Shift+Enter finishes, Esc cancels.":mode==="arrange"?"Drag a tile to change its spacing. Arrow keys move the selected tile; Shift makes fine changes.":mode==="view"?"Drag to orbit the run. Use + and − to zoom, or Fit to return.":"Tap a domino to start there. Drag empty space to orbit.";
+  $("stageHelp").textContent=mode==="draw"?"Draw a path, then release. Add more strokes for more chains. Keyboard: arrows move, Enter adds a point, Shift+Enter finishes, Esc cancels.":mode==="arrange"?"Tap a domino to select it; drag to move it. Edit one domino changes that piece’s height or material. Arrow keys move it; Shift makes fine changes.":mode==="view"?"Drag to orbit the run. Use + and − to zoom, or Fit to return.":"Tap a domino to start there. Drag empty space to orbit.";
   canvas.style.cursor=mode==="draw"?"crosshair":mode==="view"?"grab":mode==="arrange"?"move":"pointer";draw();
 }
 function commitStroke(points) {
@@ -192,7 +206,14 @@ function createFields() {
   };
   const range=(key,label,min,max,step,parent,format)=>{
     const f=createRangeField({id:key,label,min,max,step,value:params[key],formatValue:format,onInput:value=>setParam(key,Number(value))});
-    $(parent).append(f);fields.set(key,f);
+    if(["sizeVariation","growth","stairRise","ring","soundVariation"].includes(key)){
+      const row=document.createElement("div"),button=document.createElement("button");
+      row.className="domino-reset-field";button.className="domino-zero";button.type="button";
+      button.dataset.zeroParam=key;button.textContent="↺ 0";button.title=`Reset ${label} to zero`;button.setAttribute("aria-label",button.title);
+      button.addEventListener("click",()=>f.setValue(0,{emit:true}));
+      row.append(f,button);$(parent).append(row);zeroButtons.set(key,button);
+    }else $(parent).append(f);
+    fields.set(key,f);
   };
   select("layout","Path",[...LAYOUTS,{id:"drawn",label:"Drawn pattern"}],"structureFields");
   select("material","Material",[...MATERIALS,{id:"mixed",label:"Mixed materials"}],"structureFields");
@@ -206,6 +227,7 @@ function createFields() {
   range("speed","Run speed",.35,2.4,.01,"soundFields",n=>`${Number(n).toFixed(2)}×`);
   range("ring","Resonance",0,1,.01,"soundFields",n=>`${Math.round(n*100)}%`);
   range("brightness","Brightness",.1,1,.01,"soundFields",n=>`${Math.round(n*100)}%`);
+  range("soundVariation","Sound variation",0,1,.01,"soundFields",n=>`${Math.round(n*100)}%`);
   for(const m of MATERIALS){const o=document.createElement("option");o.value=m.id;o.textContent=m.label;$("tileMaterial").append(o);}
 }
 function draw() {
@@ -245,7 +267,8 @@ function tick() {
   if(!params.loop&&raw>=timeline.duration){offset=timeline.duration;playing=false;sync();return;}
   if(params.loop&&audio.armed){
     const index=Math.floor(raw/cycleLength());
-    if(index+1>queuedCycle){
+    if(index>queuedCycle){queueAudio({live:true});}
+    else if(index+1>queuedCycle){
       const next=index+1;
       audio.queue(timeline.events.map(e=>({...e,time:e.time/params.speed})),anchor+(next*cycleLength()-offset)/params.speed);
       queuedCycle=next;
@@ -342,11 +365,12 @@ $("undoDraw").addEventListener("click",undoEdit);
 $("newPattern").addEventListener("click",newPattern);
 $("finishPath").addEventListener("click",()=>{commitStroke(draftPoints);renderer.fitLocked=false;draw();});
 $("seed").addEventListener("change",()=>setParam("seed",Number($("seed").value)));
-$("newRun").addEventListener("click",()=>apply({version:1,params:randomizeParams((params.seed+0x9e3779b9)>>>0),edits:[]}));
+$("newRun").addEventListener("click",()=>apply({version:1,params:sceneParams(randomizeParams((params.seed+0x9e3779b9)>>>0)),edits:[]}));
 $("showPaths").addEventListener("change",draw);
 $("zoomIn").addEventListener("click",()=>{renderer.zoom=clamp(renderer.zoom*1.2,.5,4);draw();});
 $("zoomOut").addEventListener("click",()=>{renderer.zoom=clamp(renderer.zoom/1.2,.5,4);draw();});
 $("fitView").addEventListener("click",()=>{renderer.zoom=1;renderer.yaw=-.48;renderer.tilt=.54;draw();});
+$("chooseDomino").addEventListener("click",()=>{setMode("arrange");canvas.scrollIntoView({block:"nearest"});canvas.focus({preventScroll:true});announce("Tap a domino to edit that piece. Drag it to move it.");});
 $("pushSelected").addEventListener("click",()=>start([selected]));
 $("removeSelected").addEventListener("click",()=>editTile({enabled:run.dominoes.find(d=>d.id===selected).enabled===false}));
 $("tileMaterial").addEventListener("change",()=>editTile({material:$("tileMaterial").value}));
@@ -369,7 +393,7 @@ window.addEventListener("morphazoid:midi-input",midiHandler);
 const visibility=()=>{if(document.hidden&&playing)pause();};
 document.addEventListener("visibilitychange",visibility);
 createFields();rebuild({preserve:false});
-presetController=registerHeaderPresets({id:"domino-run",presets:PRESETS.map(p=>({id:p.id,label:p.name,snapshot:{version:1,params:sanitizeParams(p.params),edits:[],drawing:null}})),capture:snapshot,apply,randomize:(_state,random=Math.random)=>({version:1,params:randomizeParams(Math.floor(random()*4294967296)),edits:[],drawing:null})});
+presetController=registerHeaderPresets({id:"domino-run",presets:PRESETS.map(p=>({id:p.id,label:p.name,snapshot:canonicalScene({version:1,params:p.params,edits:[],drawing:null})})),capture:captureScene,apply,randomize:(_state,random=Math.random)=>canonicalScene({version:1,params:randomizeParams(Math.floor(random()*4294967296)),edits:[],drawing:null})});
 const observer=new ResizeObserver(()=>{renderer.resize();draw();});observer.observe($("stageWrap"));
 const timer=setInterval(tick,80);frame=requestAnimationFrame(animate);
 function dispose(){if(disposed)return;disposed=true;clearInterval(timer);clearTimeout(buildTimer);cancelAnimationFrame(frame);observer.disconnect();presetController.destroy();audio.context?.removeEventListener("statechange",audioStateChanged);audio.dispose();document.removeEventListener("keydown",keyHandler);document.removeEventListener("visibilitychange",visibility);window.removeEventListener("morphazoid:midi-input",midiHandler);}

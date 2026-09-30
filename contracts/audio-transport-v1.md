@@ -101,6 +101,19 @@ Already-playing calls retain the existing phase-continuous recall; choosing a
 sound does not start a paused player. Explicit Stop and Loop-off completion
 continue to work. This is not a change to other instruments' loop policies.
 
+## Domino Run live repeat controls
+
+Per the owner's loop-continuity request, **Loop whole run**, **Stand again**, and
+**After landing** are live playback controls. Presets, Next/arrows, both
+randomizers, and edit Undo preserve their current values without arming Audio or
+starting a paused player. Canonical scene capture and factory/random snapshots
+omit these three values; legacy values are ignored during apply. Changing them
+does not invalidate preset identity. Reset all restores their defaults and stops
+playback. Stand again still models individual recovery: an open path or a slow
+recovery can end its wave. Whole-run Loop remains disabled while it is active.
+Scene recall during the whole-run reset pause begins at phase zero so it cannot
+land beyond the replacement run's end.
+
 ## Other full-scene adapters
 
 Solid and Hyper presets now recall their primary Play flag and independent

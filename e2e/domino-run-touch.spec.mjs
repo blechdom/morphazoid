@@ -27,7 +27,7 @@ test('touch drags cancel cleanly, keyboard undo restores the edit, and rotation 
   expect(await page.evaluate(() => window.dominoRun.snapshot.edits.length)).toBe(1);
   // Chromium suppresses synthetic tap clicks after raw CDP drag gestures.
   // Keep the touch drag/cancel checks separate from native keyboard recovery.
-  const summary = page.locator('.group summary').filter({ hasText: 'Selected domino' });
+  const summary = page.locator('.group summary').filter({ hasText: 'Edit one domino' });
   await summary.press('Enter');
   await expect(summary.locator('..')).toHaveAttribute('open', '');
   await page.locator('#undoEdit').press('Enter');

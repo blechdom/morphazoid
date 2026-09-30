@@ -11,7 +11,7 @@
 .domino-stage-status { position: absolute; left: 25px; bottom: 21px; pointer-events: none; color: #aaa99e; font-size: 11px; }
 .domino-view-actions { position: absolute; display: flex; right: 18px; bottom: 14px; gap: 5px; }
 .domino-page button { font: inherit; cursor: pointer; }
-.domino-view-actions button, .domino-stage-bar button, .domino-edit-actions button, .domino-seed-row button, .domino-transport button { border: 1px solid #44453c; color: #d7d8cb; background: #22241f; padding: 9px 12px; border-radius: 5px; }
+.domino-view-actions button, .domino-stage-bar button, .domino-edit-actions button, .domino-seed-row button, .domino-transport button, .domino-zero, .domino-editor-intro button { border: 1px solid #44453c; color: #d7d8cb; background: #22241f; padding: 9px 12px; border-radius: 5px; }
 .domino-page button:hover { border-color: var(--domino-accent); }
 .domino-page button:disabled { opacity: .4; cursor: default; }
 .domino-stage-bar { display: flex; justify-content: space-between; align-items: center; padding: 11px 20px 4px; gap: 12px; }
@@ -77,3 +77,11 @@
 .domino-modes { flex-wrap: wrap; }
 @media (max-width: 760px) { .domino-renew .domino-fields { grid-template-columns: 1fr; } }
 @media (pointer: coarse) { .domino-draw-tools button { min-height: 48px; } }
+
+.domino-reset-field { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: end; gap: 7px; min-width: 0; }
+.domino-reset-field .mz-field__output { flex-shrink: 0; }
+.domino-panel .domino-zero { min-width: 38px; min-height: 30px; padding: 4px; font-size: 11px; }
+.domino-zero:disabled { opacity: .4; }
+.domino-editor-intro { grid-column: 1 / -1; display: grid; justify-items: start; gap: 8px; }
+.domino-editor-intro p { margin: 0; color: #afb69e; font-size: 11px; line-height: 1.5; }
+@media (pointer: coarse) { .domino-panel .domino-zero, #chooseDomino { min-width: 44px; min-height: 44px; } }

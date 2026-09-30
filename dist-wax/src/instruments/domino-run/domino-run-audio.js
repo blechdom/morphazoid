@@ -8,6 +8,23 @@ const abortError = () => new DOMException('Audio startup cancelled.', 'AbortErro
 const safeDisconnect = (node) => { try { node?.disconnect(); } catch { /* Already detached. */ } };
 const MAX_CACHE = 256;
 
+/** Reproducible, bounded strike color; no timing, pitch or spatial jitter. */
+export function impactVariation(seed, amount = 0) {
+  const depth = clamp(amount, 0, 1);
+  if (depth === 0) return { strength: 1, tilt: 0, attack: 0, body: 0 };
+  let state = 2166136261;
+  for (const character of String(seed).slice(0, 128)) state = Math.imul(state ^ character.charCodeAt(0), 16777619);
+  state = (state >>> 0) || 0x6d2b79f5;
+  const signed = () => {
+    state ^= state << 13; state ^= state >>> 17; state ^= state << 5;
+    return (state >>> 0) / 2147483648 - 1;
+  };
+  return { strength: 1 + signed() * depth * 0.12,
+    tilt: signed() * depth * 0.45,
+    attack: signed() * depth * 0.20,
+    body: signed() * depth * 0.15 };
+}
+
 /**
  * Explicit Audio lifecycle. Play/queue never create or resume an AudioContext.
  *
@@ -20,7 +37,7 @@ const MAX_CACHE = 256;
  *   If pan is omitted, x is mapped through tanh(x/8).
  * prepare(events) pre-renders missing material/size/settings buffers while armed.
  * cancelQueued() removes future attacks while preserving audible resonance tails.
- * setParams({ring,brightness}), setLevel(0..1), silence(), async dispose().
+ * setParams({ring,brightness,soundVariation}), setLevel(0..1), silence(), async dispose().
  * context/armed/status getters expose transport clock and bounded mixer counts.
  */
 export class DominoAudio {
@@ -33,7 +50,8 @@ export class DominoAudio {
     this._starting = null;
     this._workletReady = false;
     this.level = 0.5;
-    this.params = { ring: 0.5, brightness: 0.5 };
+    this.params = { ring: 0.5, brightness: 0.5, soundVariation: 0.2 };
+    this._hitSerial = 0;
     this.cache = new Map();
     this._nextBuffer = 1;
     this._status = { active: 0, queued: 0, buffers: 0, played: 0, dropped: 0, stolen: 0 };
@@ -119,6 +137,7 @@ export class DominoAudio {
   setParams(values = {}) {
     if (values.ring !== undefined) this.params.ring = clamp(values.ring, 0, 1, this.params.ring);
     if (values.brightness !== undefined) this.params.brightness = clamp(values.brightness, 0, 1, this.params.brightness);
+    if (values.soundVariation !== undefined) this.params.soundVariation = clamp(values.soundVariation, 0, 1, this.params.soundVariation);
   }
 
   _buffer(event) {
@@ -155,8 +174,14 @@ export class DominoAudio {
   _event(event, time) {
     const energy = clamp(event.energy, 0, 2, 1);
     if (energy === 0) return null;
-    return { ...this._buffer(event), time,
-      gain: Math.sqrt(energy) * 0.6,
+    // Streaming event IDs survive pause and requeue. Manual/finite hits use a
+    // bounded deterministic counter so repeated strikes still vary naturally.
+    const identity = Number.isFinite(event.eventId)
+      ? `event:${event.eventId}:${event.occurrenceId ?? ''}:${event.id ?? ''}:${event.type}:${event.targetId ?? ''}`
+      : `hit:${this._hitSerial = (this._hitSerial + 1) >>> 0}`;
+    const variation = impactVariation(identity, this.params.soundVariation);
+    return { ...this._buffer(event), time, variation,
+      gain: Math.sqrt(energy) * 0.6 * variation.strength,
       pan: event.pan === undefined ? Math.tanh(clamp(event.x, -100, 100, 0) / 8) * 0.85 : clamp(event.pan, -1, 1) };
   }
 
