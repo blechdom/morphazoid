@@ -134,81 +134,49 @@
 
 .hiccup-head-skin-tools {
   display: grid;
-  width: 100%;
   min-width: 0;
-  height: 50px;
-  grid-template-columns: minmax(0, 1fr) 44px;
-  align-items: stretch;
+  grid-template-columns: minmax(0, 1fr) 36px;
+  align-items: end;
   gap: 6px;
 }
 
-.hiccup-head-skin-tools .hiccup-head-visual-skin {
-  width: 100%;
+.hiccup-head-visual-skin {
+  display: grid;
   min-width: 0;
-  height: 50px;
-  flex: none;
+  gap: 6px;
 }
 
-.hiccup-head-visual-skin {
-  position: relative;
-  display: grid;
-  width: 100%;
-  min-width: 0;
-  height: 50px;
-  padding: 3px 4px;
-  align-content: center;
-  gap: 2px;
-  border: 1px solid rgba(244, 238, 233, 0.16);
-  border-radius: 6px;
-  color: rgba(244, 238, 233, 0.66);
-  background: rgba(8, 5, 7, 0.94);
-  font-size: 7px;
-  font-weight: 760;
-  letter-spacing: 0.12em;
-  line-height: 1;
+.hiccup-head-visual-skin > label {
+  color: var(--hiccup-head-muted);
+  font: 600 9px/1.2 var(--mono);
+  letter-spacing: 0.08em;
   text-transform: uppercase;
 }
 
-.hiccup-head-visual-skin span {
-  padding: 2px 5px 0;
-}
-
-.hiccup-head-visual-skin .hiccup-head-skin-picker-row {
+.hiccup-head-skin-picker-row {
   display: grid;
-  padding: 0;
-}
-
-.hiccup-head-skin-picker-row #nextVisualSkinButton {
-  min-height: 31px;
-}
-
-.hiccup-head-visual-skin select {
-  width: 100%;
   min-width: 0;
-  height: 31px;
-  min-height: 31px;
-  padding: 4px 27px 4px 8px;
-  border: 1px solid rgba(187, 140, 255, 0.3);
-  border-radius: 6px;
-  color: rgba(244, 238, 233, 0.94);
-  background: rgba(21, 13, 20, 0.94);
-  font: 700 10px/1.1 ui-monospace, SFMono-Regular, Menlo, monospace;
-  letter-spacing: 0;
-  text-transform: none;
+  grid-template-columns: minmax(0, 1fr) 36px;
+  gap: 6px;
 }
 
-.hiccup-head-visual-skin select:focus-visible {
-  border-color: var(--hiccup-head-coral);
-  outline: 2px solid color-mix(in srgb, var(--hiccup-head-coral) 48%, transparent);
-  outline-offset: 1px;
+.hiccup-head-select-picker.instrument-picker {
+  z-index: auto;
+  display: block;
+  width: 100%;
+  height: auto;
 }
+
+.hiccup-head-select-picker .instrument-picker-link { width: 100%; text-align: left; cursor: pointer; }
+.hiccup-head-select-picker .instrument-picker-panel:popover-open { display: grid; }
+.hiccup-head-page select[hidden] { display: none; }
 
 .hiccup-head-webcam-open {
   display: grid;
   width: 100%;
-  min-width: 44px;
-  height: 50px;
-  min-height: 44px;
+  min-width: 36px;
+  height: 36px;
+  min-height: 36px;
   padding: 0;
   border: 1px solid rgba(101, 223, 232, 0.34);
   border-radius: 6px;
@@ -464,6 +432,23 @@
   box-shadow: 0 0 0 1px rgba(8, 5, 7, 0.88), inset 0 0 0 1px rgba(8, 5, 7, 0.72);
 }
 
+/* A tiny feature crop keeps a comfortable drag target around its outline. */
+.hiccup-head-webcam-guides[data-capture-mode="parts"] [data-webcam-guide] {
+  min-width: 0;
+  min-height: 0;
+  border-width: 1px;
+}
+
+.hiccup-head-webcam-guides[data-capture-mode="parts"] [data-webcam-guide]::after {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: max(100%, 44px);
+  height: max(100%, 44px);
+  transform: translate(-50%, -50%);
+  content: "";
+}
+
 .hiccup-head-webcam-guides [data-webcam-guide]:hover,
 .hiccup-head-webcam-guides [data-webcam-guide]:focus-visible,
 .hiccup-head-webcam-guides [data-webcam-guide][aria-pressed="true"] {
@@ -502,6 +487,13 @@
   text-transform: uppercase;
   transform: translateX(-50%);
   white-space: nowrap;
+}
+
+.hiccup-head-webcam-guides[data-capture-mode="parts"] [data-webcam-guide] span {
+  top: auto;
+  bottom: calc(100% + 5px);
+  max-width: none;
+  pointer-events: none;
 }
 
 .hiccup-head-webcam-guides [data-webcam-guide="head"] {
@@ -814,7 +806,7 @@
 .hiccup-head-picker-row {
   display: grid;
   min-width: 0;
-  grid-template-columns: minmax(0, 1fr) 34px;
+  grid-template-columns: minmax(0, 1fr) 36px;
   gap: 4px;
 }
 
@@ -829,21 +821,6 @@
   font-size: 8px;
 }
 
-.hiccup-head-picker-row > button {
-  min-width: 34px;
-  padding: 0;
-  border: 1px solid rgba(187, 140, 255, 0.38);
-  color: var(--hiccup-head-violet);
-  background: rgba(187, 140, 255, 0.08);
-  cursor: pointer;
-  text-align: center;
-}
-
-.hiccup-head-picker-row > button:hover,
-.hiccup-head-picker-row > button:focus-visible {
-  color: #080507;
-  background: var(--hiccup-head-violet);
-}
 
 .hiccup-head-sequence-length {
   background: rgba(124, 231, 189, 0.035);
@@ -1300,8 +1277,7 @@ input.hiccup-head-step-sound-lane {
 .hiccup-head-skin-deck {
   display: grid;
   padding: 11px 15px;
-  border-bottom: 1px solid rgba(101, 223, 232, 0.2);
-  background: linear-gradient(135deg, rgba(101, 223, 232, 0.075), transparent 62%);
+  background: transparent;
 }
 
 .hiccup-head-preset-deck {
@@ -1338,13 +1314,6 @@ input.hiccup-head-step-sound-lane {
   font: 600 9px/1 var(--mono);
 }
 
-.hiccup-head-preset-deck .hiccup-head-picker-row > button {
-  display: block;
-  min-height: 38px;
-  padding: 0;
-  color: var(--hiccup-head-violet);
-  text-align: center;
-}
 
 .hiccup-head-preset-deck p {
   min-height: 2.6em;
@@ -1354,7 +1323,7 @@ input.hiccup-head-step-sound-lane {
   line-height: 1.4;
 }
 
-.hiccup-head-preset-deck button {
+.hiccup-head-preset-deck > button {
   display: grid;
   min-height: 42px;
   padding: 8px 10px;
@@ -1377,17 +1346,17 @@ input.hiccup-head-step-sound-lane {
   padding: 4px 8px;
 }
 
-.hiccup-head-preset-deck button:hover,
-.hiccup-head-preset-deck button:focus-visible {
+.hiccup-head-preset-deck > button:hover,
+.hiccup-head-preset-deck > button:focus-visible {
   color: #16080b;
   background: var(--hiccup-head-coral);
 }
 
-.hiccup-head-preset-deck button b {
+.hiccup-head-preset-deck > button b {
   display: block;
 }
 
-.hiccup-head-preset-deck button b {
+.hiccup-head-preset-deck > button b {
   font-size: 9px;
 }
 
@@ -1461,13 +1430,13 @@ input.hiccup-head-step-sound-lane {
 }
 
 .hiccup-head-sound-bank-picker,
-.hiccup-head-sound-bank-picker label {
+.hiccup-head-sound-bank-control {
   display: grid;
   min-width: 0;
   gap: 4px;
 }
 
-.hiccup-head-sound-bank-picker label > span:first-child {
+.hiccup-head-sound-bank-control > label {
   color: var(--hiccup-head-muted);
   font-size: 6px;
   letter-spacing: 0.08em;
@@ -2369,25 +2338,16 @@ label.hiccup-head-voice-assignment,
 }
 
 @media (pointer: coarse) {
-  .hiccup-head-visual-skin select {
-    min-height: 48px;
-  }
-
-  .hiccup-head-skin-tools,
-  .hiccup-head-skin-tools .hiccup-head-visual-skin {
-    height: auto;
-    min-height: 66px;
-  }
-
-  .hiccup-head-skin-picker-row {
-    grid-template-columns: minmax(0, 1fr) 48px;
-  }
-
-  .hiccup-head-skin-picker-row #nextVisualSkinButton,
-  .hiccup-head-preset-deck #randomizeButton {
+  .hiccup-head-skin-tools { grid-template-columns: minmax(0, 1fr) 48px; }
+  .hiccup-head-skin-picker-row { grid-template-columns: minmax(0, 1fr) 48px; }
+  .hiccup-head-select-picker .instrument-picker-trigger,
+  .hiccup-head-skin-picker-row .instrument-picker-next,
+  .hiccup-head-webcam-open {
     min-height: 48px;
     height: 48px;
   }
+  .hiccup-head-skin-picker-row .instrument-picker-next { width: 48px; }
+  .hiccup-head-preset-deck #randomizeButton { min-height: 48px; height: 48px; }
 
   .hiccup-head-step-slot {
     --step-selector-height: 44px;
@@ -2427,4 +2387,58 @@ label.hiccup-head-voice-assignment,
   .hiccup-head-transport button {
     transition: none;
   }
+}
+
+.hiccup-head-webcam-modes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 0;
+  margin: 0;
+  border: 0;
+}
+.hiccup-head-webcam-modes label {
+  display: flex;
+  flex: 1 1 170px;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 0 10px;
+  border: 1px solid var(--line-strong);
+  color: var(--hiccup-head-bone);
+  font: 600 11px/1.3 var(--mono);
+  cursor: pointer;
+}
+.hiccup-head-webcam-modes label:has(:checked) { border-color: var(--accent); color: var(--accent); }
+.hiccup-head-webcam-modes input { accent-color: var(--accent); }
+.hiccup-head-webcam-steps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.hiccup-head-webcam-steps button {
+  min-height: 44px;
+  padding: 6px 9px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--hiccup-head-muted);
+  font: 600 10px/1.2 var(--mono);
+}
+.hiccup-head-webcam-steps button[aria-current="true"] { color: var(--accent); border-color: var(--accent); }
+.hiccup-head-webcam-steps button[data-complete="true"] { color: var(--hiccup-head-mint); cursor: pointer; }
+.hiccup-head-webcam-steps button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+@media (max-width: 680px) {
+  .hiccup-head-skin-tools { grid-template-columns: minmax(0, 1fr) 44px; }
+  .hiccup-head-webcam-open { min-width: 44px; min-height: 44px; height: 44px; }
+}
+@media (pointer: coarse) {
+  .hiccup-head-picker-row { grid-template-columns: minmax(0, 1fr) 48px; }
+  .hiccup-head-picker-row > .instrument-picker-next { width: 48px; height: 48px; }
+  .hiccup-head-skin-tools { grid-template-columns: minmax(0, 1fr) 48px; }
+  .hiccup-head-webcam-open { min-width: 48px; min-height: 48px; height: 48px; }
+}
+
+.hiccup-head-webcam-guide-controls:has(> label[hidden]) {
+  grid-template-columns: minmax(0, 1fr);
 }

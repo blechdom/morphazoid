@@ -36,7 +36,12 @@ for (const id of ["creaturazoid", "hiccup-head"]) {
         .find(m => attributes(m[1]).id === key);
       assert.ok(select, key);
       const actual = [...select[2].matchAll(/<option\b([^>]*)>/g)].map(m => attributes(m[1]).value ?? null);
-      assert.deepEqual(actual, expected, `${key}: options`);
+      // The requested feature captures add two ear crops; retain the frozen
+      // pre-migration inventory and assert this exact, bounded addition.
+      const currentExpected = id === "hiccup-head" && key === "webcamGuideSelect"
+        ? [expected[0], "leftEar", "rightEar", ...expected.slice(1)]
+        : expected;
+      assert.deepEqual(actual, currentExpected, `${key}: options`);
     }
     const app = await readFile(new URL(`src/instruments/${id}/${id}-app.js`, root), "utf8");
     const adapter = app.slice(app.lastIndexOf("registerHeaderPresets("));

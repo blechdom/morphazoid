@@ -16,6 +16,19 @@ async function mainPreset(page, id) {
   await menu.locator(`[data-full-preset][data-preset-id="${id}"]`).click();
   await expect(page.locator(".header-preset-controls")).toHaveAttribute("data-preset-id", id);
 }
+const presentedControl = (page, instrument, selector) => page.locator(
+  instrument === "hiccup-head" && selector.endsWith("Select") ? `${selector}-picker-trigger` : selector,
+);
+async function localPreset(page, instrument, selectId, value) {
+  if (instrument !== "hiccup-head") {
+    await page.locator(`#${selectId}`).selectOption(value);
+    return;
+  }
+  const menu = page.locator(`.hiccup-head-select-picker[data-select-id="${selectId}"]`);
+  if (!await menu.evaluate(node => node.open)) await menu.locator(":scope > summary").click();
+  await menu.locator(`button[data-value="${value}"]`).click();
+  await expect(page.locator(`#${selectId}`)).toHaveValue(value);
+}
 const optionIds = selector => selector.locator("option:not([disabled])").evaluateAll(options =>
   options.map(option => option.value).filter(value => !["custom", "mutated"].includes(value)));
 const sorted = values => [...values].sort();
@@ -31,10 +44,12 @@ for (const [id, bodies, rhythms, bank] of [
     await settlePage(page);
     const body = page.locator(`.${id}-panel #presetSelect`);
     const rhythm = page.locator(`.${id}-sequencer #patternSelect`);
-    await body.scrollIntoViewIfNeeded();
-    await expect(body).toBeVisible();
-    await rhythm.scrollIntoViewIfNeeded();
-    await expect(rhythm).toBeVisible();
+    const bodyControl = presentedControl(page, id, `.${id}-panel #presetSelect`);
+    const rhythmControl = presentedControl(page, id, `.${id}-sequencer #patternSelect`);
+    await bodyControl.scrollIntoViewIfNeeded();
+    await expect(bodyControl).toBeVisible();
+    await rhythmControl.scrollIntoViewIfNeeded();
+    await expect(rhythmControl).toBeVisible();
     await expect(page.locator(".header-preset-picker #presetSelect, .header-preset-picker #patternSelect")).toHaveCount(0);
     await expect(page.locator(".header-preset-picker details")).toHaveCount(0);
     await expect(page.locator(".header-preset-picker")).not.toContainText("Edit preset ingredients");
@@ -43,7 +58,7 @@ for (const [id, bodies, rhythms, bank] of [
 
     await mainPreset(page, bank[0].id);
     const before = (await snapshot(page)).snapshot;
-    await rhythm.selectOption(rhythms[1].id);
+    await localPreset(page, id, "patternSelect", rhythms[1].id);
     const changedRhythm = (await snapshot(page)).snapshot;
     expect(changedRhythm.currentPatternId).toBe(rhythms[1].id);
     expect(changedRhythm.pattern).not.toEqual(before.pattern);
@@ -54,7 +69,7 @@ for (const [id, bodies, rhythms, bank] of [
       expect(changedRhythm.faceEffectEnabled).toEqual(before.faceEffectEnabled);
       expect(changedRhythm.voiceSlots).toEqual(before.voiceSlots);
     }
-    await body.selectOption(bodies[2].id);
+    await localPreset(page, id, "presetSelect", bodies[2].id);
     const changedBody = (await snapshot(page)).snapshot;
     expect(changedBody.pattern).toEqual(changedRhythm.pattern);
     expect(changedBody.currentPatternId).toBe(changedRhythm.currentPatternId);
@@ -89,7 +104,7 @@ test("Hiccup main scenes demonstrate effects/skins while skin-only selection lea
   });
   await page.goto("hiccup-head.html");
   await settlePage(page);
-  await expect(page.locator(".hiccup-head-panel #visualSkinSelect")).toBeVisible();
+  await expect(presentedControl(page, "hiccup-head", ".hiccup-head-panel #visualSkinSelect")).toBeVisible();
   expect(sorted(await optionIds(page.locator("#soundBankSelect")))).toEqual(sorted(HICCUP_HEAD_SOUND_BANKS.map(p => p.id)));
   const skins = new Set(), decays = new Set(), eyes = new Set();
   for (const preset of HICCUP_HEAD_FULL_PRESETS) {
@@ -105,7 +120,7 @@ test("Hiccup main scenes demonstrate effects/skins while skin-only selection lea
   expect(decays.size).toBeGreaterThanOrEqual(5);
   expect(eyes.size).toBeGreaterThanOrEqual(5);
   const before = (await snapshot(page)).snapshot;
-  await page.locator("#visualSkinSelect").selectOption("food-portrait");
+  await localPreset(page, "hiccup-head", "visualSkinSelect", "food-portrait");
   const after = (await snapshot(page)).snapshot;
   expect(without(after, ["visualSkinId"])).toEqual(without(before, ["visualSkinId"]));
   await page.locator("#nextVisualSkinButton").click();
@@ -131,7 +146,7 @@ for (const size of [
           id === "hiccup-head" ? "#nextFacePresetButton" : "#nextPresetButton",
           ...(id === "hiccup-head" ? ["#visualSkinSelect", "#nextVisualSkinButton", "#soundBankSelect"] : ["#anatomySelect"]),
         ]) {
-          const control = page.locator(selector);
+          const control = presentedControl(page, id, selector);
           await control.scrollIntoViewIfNeeded();
           await expect(control).toBeVisible();
           const box = await control.boundingBox();

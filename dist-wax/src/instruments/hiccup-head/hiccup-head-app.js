@@ -41,6 +41,12 @@ import { unlockAudioContext } from "../../audio.js";
 import { registerHeaderPresets } from "../../site/header-presets.js";
 import { HICCUP_HEAD_FULL_PRESETS, randomizeHiccupHeadPreset } from "./full-presets.js";
 
+import { createNativeSelectPicker } from "../../ui/patterns/native-select-picker.js";
+
+const selectPickers = new Map();
+function syncSelectPickers() {
+  for (const picker of selectPickers.values()) picker.sync();
+}
 const $ = (id) => document.getElementById(id);
 const canvas = $("stage");
 const stageWrap = $("stageWrap");
@@ -402,6 +408,8 @@ const VISUAL_SKIN_BEAT_COLORWAYS = Object.freeze({
 });
 
 const WEBCAM_GUIDE_DEFAULTS = Object.freeze({
+  leftEar: Object.freeze({ x: 0.2248, y: 0.52, width: 0.128, height: 0.4128 }),
+  rightEar: Object.freeze({ x: 0.7752, y: 0.52, width: 0.128, height: 0.4128 }),
   head: Object.freeze({ x: 0.5, y: 0.52, width: 0.64, height: 0.86 }),
   hair: Object.freeze({ x: 0.5, y: 0.17, width: 0.58, height: 0.2 }),
   leftEye: Object.freeze({ x: 0.37, y: 0.4, width: 0.19, height: 0.13 }),
@@ -410,9 +418,31 @@ const WEBCAM_GUIDE_DEFAULTS = Object.freeze({
   mouth: Object.freeze({ x: 0.5, y: 0.7, width: 0.34, height: 0.15 }),
 });
 
+const WEBCAM_CAPTURE_PARTS = Object.freeze(["leftEar", "rightEar", "leftEye", "rightEye", "nose", "hair", "head"]);
+const WEBCAM_PART_GUIDE_DEFAULTS = Object.freeze({
+  ...WEBCAM_GUIDE_DEFAULTS,
+  leftEar: Object.freeze({ x: 0.5, y: 0.5, width: 0.42, height: 0.65 }),
+  rightEar: Object.freeze({ x: 0.5, y: 0.5, width: 0.42, height: 0.65 }),
+  leftEye: Object.freeze({ x: 0.5, y: 0.5, width: 0.6, height: 0.4 }),
+  rightEye: Object.freeze({ x: 0.5, y: 0.5, width: 0.6, height: 0.4 }),
+  nose: Object.freeze({ x: 0.5, y: 0.5, width: 0.42, height: 0.58 }),
+  hair: Object.freeze({ x: 0.5, y: 0.5, width: 0.8, height: 0.4 }),
+});
+let webcamCaptureMode = "photo";
+const webcamPartFrames = new Map();
+
+function webcamGuideDefaults() {
+  return webcamCaptureMode === "parts" ? WEBCAM_PART_GUIDE_DEFAULTS : WEBCAM_GUIDE_DEFAULTS;
+}
+
+function webcamMinimumGuideScale() {
+  return webcamCaptureMode === "parts" ? 0.05 : 0.6;
+}
+
 function freshWebcamGuideCrops() {
-  return Object.fromEntries(Object.entries(WEBCAM_GUIDE_DEFAULTS).map(
-    ([key, value]) => [key, { ...value }],
+  const scale = webcamCaptureMode === "parts" ? 0.25 : 1;
+  return Object.fromEntries(Object.entries(webcamGuideDefaults()).map(
+    ([key, value]) => [key, { ...value, width: value.width * scale, height: value.height * scale }],
   ));
 }
 
@@ -536,6 +566,7 @@ function syncVisualSkinPresentation() {
   const skin = currentVisualSkin();
   const select = $("visualSkinSelect");
   if (select) select.value = skin.id;
+  syncSelectPickers();
   canvas.dataset.visualSkin = skin.id;
   const description = $("visualSkinDescription");
   if (description) {
@@ -574,7 +605,9 @@ function cycleVisualSkin() {
 }
 
 const WEBCAM_GUIDE_LABELS = Object.freeze({
-  head: "Head field",
+  leftEar: "Left ear",
+  rightEar: "Right ear",
+  head: "Face",
   hair: "Hair",
   leftEye: "Left eye",
   rightEye: "Right eye",
@@ -644,20 +677,23 @@ function syncWebcamGuides() {
   for (const crop of Object.values(webcamGuideCrops)) clampWebcamGuide(crop);
   const guideSelect = $("webcamGuideSelect");
   if (guideSelect) guideSelect.value = webcamSelectedGuide;
-  const selectedDefault = WEBCAM_GUIDE_DEFAULTS[webcamSelectedGuide];
+  const selectedDefault = webcamGuideDefaults()[webcamSelectedGuide];
   const selectedCrop = webcamGuideCrops[webcamSelectedGuide];
   const size = $("webcamGuideSize");
   if (size && selectedDefault && selectedCrop) {
     const scale = selectedCrop.width / selectedDefault.width;
-    size.value = String(Math.round(clamp(scale, 0.6, 1.6) * 100));
+    size.min = String(webcamMinimumGuideScale() * 100);
+    size.value = String(Math.round(clamp(scale, webcamMinimumGuideScale(), 1.6) * 100));
     const output = $("webcamGuideSizeOut");
     if (output) {
       output.value = `${size.value}%`;
       output.textContent = `${size.value}%`;
     }
   }
+  $("webcamSkinGuides").dataset.captureMode = webcamCaptureMode;
   document.querySelectorAll("[data-webcam-guide]").forEach((guide) => {
     const name = guide.dataset.webcamGuide;
+    guide.hidden = webcamCaptureMode === "parts" && name !== webcamSelectedGuide;
     const crop = webcamGuideCrops[name];
     if (!crop) return;
     guide.style.left = `${(crop.x - crop.width * 0.5) * 100}%`;
@@ -670,7 +706,80 @@ function syncWebcamGuides() {
   });
 }
 
+function clearWebcamParts() {
+  for (const { source } of webcamPartFrames.values()) source.width = source.height = 1;
+  webcamPartFrames.clear();
+}
+
+function resetWebcamDraft() {
+  clearWebcamFrame();
+  clearWebcamParts();
+  webcamGuideDrag = null;
+  webcamGuideCrops = freshWebcamGuideCrops();
+  webcamSelectedGuide = webcamCaptureMode === "parts" ? WEBCAM_CAPTURE_PARTS[0] : "head";
+}
+
+function setWebcamCaptureMode(mode) {
+  if (!["photo", "parts"].includes(mode) || mode === webcamCaptureMode) return;
+  stopWebcamStream();
+  webcamCaptureMode = mode;
+  resetWebcamDraft();
+  webcamPhase = webcamAppliedAtlas ? "applied" : "idle";
+  setWebcamError("");
+  syncWebcamSkinUi();
+}
+
+function revisitWebcamPart(name) {
+  const saved = webcamPartFrames.get(name);
+  if (webcamCaptureMode !== "parts" || !saved) return;
+  stopWebcamStream();
+  webcamSelectedGuide = name;
+  webcamGuideCrops[name] = { ...saved.crop };
+  const frame = $("webcamSkinFrame");
+  frame.width = saved.source.width;
+  frame.height = saved.source.height;
+  frame.getContext("2d").drawImage(saved.source, 0, 0);
+  webcamPhase = "frozen";
+  setWebcamError("");
+  syncWebcamSkinUi();
+}
+
+function keepWebcamPart() {
+  if (webcamCaptureMode !== "parts" || webcamPhase !== "frozen") return;
+  const frame = $("webcamSkinFrame");
+  const source = document.createElement("canvas");
+  source.width = frame.width;
+  source.height = frame.height;
+  source.getContext("2d").drawImage(frame, 0, 0);
+  const previous = webcamPartFrames.get(webcamSelectedGuide);
+  if (previous) previous.source.width = previous.source.height = 1;
+  webcamPartFrames.set(webcamSelectedGuide, { source, crop: { ...webcamGuideCrops[webcamSelectedGuide] } });
+  const next = WEBCAM_CAPTURE_PARTS.find(name => !webcamPartFrames.has(name));
+  if (!next) { applyWebcamSkin(); return; }
+  webcamSelectedGuide = next;
+  clearWebcamFrame();
+  webcamPhase = "idle";
+  syncWebcamSkinUi();
+  void requestWebcamPreview();
+}
+
 function syncWebcamSkinUi() {
+  const separate = webcamCaptureMode === "parts";
+  const partLabel = WEBCAM_GUIDE_LABELS[webcamSelectedGuide];
+  const step = WEBCAM_CAPTURE_PARTS.indexOf(webcamSelectedGuide) + 1;
+  document.querySelectorAll('[name="webcamCaptureMode"]').forEach(input => { input.checked = input.value === webcamCaptureMode; });
+  $("webcamCaptureSteps").hidden = !separate;
+  document.querySelectorAll("[data-webcam-part]").forEach(button => {
+    const name = button.dataset.webcamPart;
+    const complete = webcamPartFrames.has(name);
+    button.disabled = !complete;
+    button.setAttribute("aria-current", String(name === webcamSelectedGuide));
+    button.dataset.complete = String(complete);
+    button.textContent = `${complete ? "✓ " : ""}${WEBCAM_GUIDE_LABELS[name]}`;
+  });
+  $("webcamSkinIntro").textContent = separate
+    ? "Capture each feature in order. Completed features can be selected again to retake them."
+    : "One photo maps to every feature. Line up your face with the outlines; adjust any crop before applying.";
   const hasLivePreview = webcamPhase === "live" || webcamPhase === "requesting";
   const hasFrozenFrame = webcamPhase === "frozen";
   const video = $("webcamSkinVideo");
@@ -693,24 +802,32 @@ function syncWebcamSkinUi() {
   if (freeze) {
     freeze.hidden = webcamPhase !== "live";
     freeze.disabled = webcamPhase !== "live";
+    freeze.textContent = separate ? `Capture ${partLabel.toLowerCase()}` : "Freeze frame";
   }
   if (retake) retake.hidden = !hasFrozenFrame;
   if (use) {
     use.hidden = !hasFrozenFrame;
     use.disabled = !hasFrozenFrame;
+    const lastPart = separate && WEBCAM_CAPTURE_PARTS.every(name => name === webcamSelectedGuide || webcamPartFrames.has(name));
+    use.textContent = separate && !lastPart ? `Keep ${partLabel.toLowerCase()} · next` : "Use as visual skin";
   }
   if (forget) forget.hidden = !webcamAppliedAtlas;
   const adjustment = $("webcamGuideControls");
   if (adjustment) adjustment.hidden = !(webcamPhase === "live" || hasFrozenFrame);
+  $("webcamGuideSelect").closest("label").hidden = separate;
 
   if (webcamPhase === "idle") {
     setWebcamStatus("Camera is off. Start it when you are ready.");
   } else if (webcamPhase === "requesting") {
     setWebcamStatus("Waiting for camera permission…");
   } else if (webcamPhase === "live") {
-    setWebcamStatus("Move the outlines over your features, then freeze the picture.");
+    setWebcamStatus(separate
+      ? `${step} / ${WEBCAM_CAPTURE_PARTS.length} · ${partLabel}: move this feature into the outline, then capture.`
+      : "Move the outlines over your features, then freeze the picture.");
   } else if (webcamPhase === "frozen") {
-    setWebcamStatus("Picture frozen and camera off. Fine-tune the crops, then use this face.");
+    setWebcamStatus(separate
+      ? `${step} / ${WEBCAM_CAPTURE_PARTS.length} · ${partLabel} captured, camera off. Adjust the crop or retake.`
+      : "Picture frozen and camera off. Fine-tune the crops, then use this face.");
   } else if (webcamPhase === "applied") {
     setWebcamStatus("Webcam cut-up is active for this tab. Retake it or remove it whenever you like.");
   } else if (webcamPhase === "error") {
@@ -721,6 +838,7 @@ function syncWebcamSkinUi() {
 
 function selectWebcamGuide(name) {
   if (!Object.hasOwn(WEBCAM_GUIDE_DEFAULTS, name)) return;
+  if (webcamCaptureMode === "parts" && name !== webcamSelectedGuide) return;
   webcamSelectedGuide = name;
   syncWebcamGuides();
 }
@@ -729,8 +847,10 @@ function clampWebcamGuide(crop) {
   const previewBounds = $("webcamSkinPreview")?.getBoundingClientRect?.();
   const previewWidth = Math.max(1, Number(previewBounds?.width) || 320);
   const previewHeight = Math.max(1, Number(previewBounds?.height) || 320);
-  const minimumWidth = Math.max(0.04, 44 / previewWidth);
-  const minimumHeight = Math.max(0.04, 44 / previewHeight);
+  // Feature crops describe photographed pixels, not the drag target's size.
+  // CSS supplies a larger invisible target without enlarging the captured area.
+  const minimumWidth = webcamCaptureMode === "parts" ? 0.002 : Math.max(0.04, 44 / previewWidth);
+  const minimumHeight = webcamCaptureMode === "parts" ? 0.002 : Math.max(0.04, 44 / previewHeight);
   crop.width = clamp(Number(crop.width) || 0.1, minimumWidth, 0.96);
   crop.height = clamp(Number(crop.height) || 0.1, minimumHeight, 0.96);
   crop.x = clamp(Number(crop.x) || 0.5, crop.width * 0.5, 1 - crop.width * 0.5);
@@ -739,11 +859,11 @@ function clampWebcamGuide(crop) {
 }
 
 function setWebcamGuideScale(name, scale) {
-  const base = WEBCAM_GUIDE_DEFAULTS[name];
+  const base = webcamGuideDefaults()[name];
   const crop = webcamGuideCrops[name];
   if (!base || !crop) return;
-  crop.width = base.width * clamp(scale, 0.6, 1.6);
-  crop.height = base.height * clamp(scale, 0.6, 1.6);
+  crop.width = base.width * clamp(scale, webcamMinimumGuideScale(), 1.6);
+  crop.height = base.height * clamp(scale, webcamMinimumGuideScale(), 1.6);
   clampWebcamGuide(crop);
   syncWebcamGuides();
 }
@@ -758,9 +878,9 @@ function moveWebcamGuide(name, deltaX, deltaY) {
 }
 
 async function requestWebcamPreview() {
-  await silenceHiccupHeadForWebcam();
-  if (!webcamDialogIsOpen()) return;
   const generation = ++webcamRequestGeneration;
+  await silenceHiccupHeadForWebcam();
+  if (generation !== webcamRequestGeneration || !webcamDialogIsOpen()) return;
   setWebcamError("");
   stopWebcamStream({ invalidateRequest: false });
   if (webcamPhase === "frozen") clearWebcamFrame();
@@ -796,7 +916,7 @@ async function requestWebcamPreview() {
     await video.play?.().catch(() => {});
     if (generation !== webcamRequestGeneration || !webcamDialogIsOpen()) {
       stopMediaTracks(stream);
-      video.srcObject = null;
+      if (video.srcObject === stream) video.srcObject = null;
       return;
     }
     webcamPhase = "live";
@@ -853,8 +973,8 @@ function normalizedWebcamSourceRect(source, crop) {
   return {
     x: clamp(crop.x - crop.width * 0.5) * source.width,
     y: clamp(crop.y - crop.height * 0.5) * source.height,
-    width: clamp(crop.width, 0.01, 1) * source.width,
-    height: clamp(crop.height, 0.01, 1) * source.height,
+    width: clamp(crop.width, 1 / source.width, 1) * source.width,
+    height: clamp(crop.height, 1 / source.height, 1) * source.height,
   };
 }
 
@@ -989,6 +1109,11 @@ function buildWebcamSkinAtlas() {
   if (!source || webcamPhase !== "frozen" || source.width <= 1 || source.height <= 1) {
     throw new Error("Freeze a webcam picture before building the cut-up face.");
   }
+  if (webcamCaptureMode === "parts" && WEBCAM_CAPTURE_PARTS.some(name => !webcamPartFrames.has(name))) {
+    throw new Error("Capture all seven features before applying the face.");
+  }
+  const partSource = name => webcamCaptureMode === "parts" ? webcamPartFrames.get(name).source : source;
+  const partCrop = name => webcamCaptureMode === "parts" ? webcamPartFrames.get(name).crop : webcamGuideCrops[name];
   const atlasSize = usesCompactCanvas() ? 768 : 1024;
   const atlas = document.createElement("canvas");
   atlas.width = atlasSize;
@@ -1016,19 +1141,19 @@ function buildWebcamSkinAtlas() {
     ctx.closePath();
   };
 
-  const head = webcamGuideCrops.head;
-  const mouth = webcamGuideCrops.mouth;
-  const hair = webcamGuideCrops.hair;
-  paintWebcamHeadMosaic(context, atlasSize, source, head);
-  paintWebcamAtlasPart(context, atlasSize, SKIN_ATLAS_PART.leftEye, source, webcamGuideCrops.leftEye, ellipse);
-  paintWebcamAtlasPart(context, atlasSize, SKIN_ATLAS_PART.rightEye, source, webcamGuideCrops.rightEye, ellipse);
-  paintWebcamAtlasPart(context, atlasSize, SKIN_ATLAS_PART.brow, source, hair, roundFeature);
-  paintWebcamAtlasPart(context, atlasSize, SKIN_ATLAS_PART.nose, source, webcamGuideCrops.nose, ellipse);
+  const head = partCrop("head");
+  const mouth = webcamCaptureMode === "parts" ? derivedWebcamCrop(head, 0, 0.21, 0.53125, 0.17442) : webcamGuideCrops.mouth;
+  const hair = partCrop("hair");
+  paintWebcamHeadMosaic(context, atlasSize, partSource("head"), head);
+  paintWebcamAtlasPart(context, atlasSize, SKIN_ATLAS_PART.leftEye, partSource("leftEye"), partCrop("leftEye"), ellipse);
+  paintWebcamAtlasPart(context, atlasSize, SKIN_ATLAS_PART.rightEye, partSource("rightEye"), partCrop("rightEye"), ellipse);
+  paintWebcamAtlasPart(context, atlasSize, SKIN_ATLAS_PART.brow, partSource("hair"), hair, roundFeature);
+  paintWebcamAtlasPart(context, atlasSize, SKIN_ATLAS_PART.nose, partSource("nose"), partCrop("nose"), ellipse);
   paintWebcamAtlasPart(
     context,
     atlasSize,
     SKIN_ATLAS_PART.lips,
-    source,
+    partSource("head"),
     mouth,
     mouthFeature,
     { preserveWholeCrop: true },
@@ -1037,7 +1162,7 @@ function buildWebcamSkinAtlas() {
     context,
     atlasSize,
     SKIN_ATLAS_PART.tongue,
-    source,
+    partSource("head"),
     mouth,
     ellipse,
     { preserveWholeCrop: true },
@@ -1046,7 +1171,7 @@ function buildWebcamSkinAtlas() {
     context,
     atlasSize,
     SKIN_ATLAS_PART.tooth,
-    source,
+    partSource("head"),
     derivedWebcamCrop(mouth, 0, -0.18, 0.28, 0.52),
     tallFeature,
   );
@@ -1054,23 +1179,23 @@ function buildWebcamSkinAtlas() {
     context,
     atlasSize,
     SKIN_ATLAS_PART.leftEar,
-    source,
-    derivedWebcamCrop(head, -0.43, 0, 0.2, 0.48),
+    partSource("leftEar"),
+    partCrop("leftEar"),
     ellipse,
   );
   paintWebcamAtlasPart(
     context,
     atlasSize,
     SKIN_ATLAS_PART.rightEar,
-    source,
-    derivedWebcamCrop(head, 0.43, 0, 0.2, 0.48),
+    partSource("rightEar"),
+    partCrop("rightEar"),
     ellipse,
   );
   paintWebcamAtlasPart(
     context,
     atlasSize,
     SKIN_ATLAS_PART.hair,
-    source,
+    partSource("hair"),
     hair,
     hairFeature,
     { preserveWholeCrop: true },
@@ -1079,14 +1204,14 @@ function buildWebcamSkinAtlas() {
     context,
     atlasSize,
     SKIN_ATLAS_PART.hand,
-    source,
+    partSource("head"),
     derivedWebcamCrop(head, 0, 0.28, 0.56, 0.34),
     fullFeature,
   );
-  paintWebcamAtlasPart(context, atlasSize, SKIN_ATLAS_PART.kiss, source, mouth, ellipse);
-  paintWebcamAtlasPart(context, atlasSize, SKIN_ATLAS_PART.brush, source, hair, roundFeature);
-  paintWebcamAtlasPart(context, atlasSize, SKIN_ATLAS_PART.tether, source, hair, roundFeature);
-  paintWebcamAtlasPart(context, atlasSize, SKIN_ATLAS_PART.swatch, source, head, fullFeature);
+  paintWebcamAtlasPart(context, atlasSize, SKIN_ATLAS_PART.kiss, partSource("head"), mouth, ellipse);
+  paintWebcamAtlasPart(context, atlasSize, SKIN_ATLAS_PART.brush, partSource("hair"), hair, roundFeature);
+  paintWebcamAtlasPart(context, atlasSize, SKIN_ATLAS_PART.tether, partSource("hair"), hair, roundFeature);
+  paintWebcamAtlasPart(context, atlasSize, SKIN_ATLAS_PART.swatch, partSource("head"), head, fullFeature);
   return atlas;
 }
 
@@ -1109,7 +1234,7 @@ function applyWebcamSkin() {
     visualSkinAssets.set(WEBCAM_CUTUP_VISUAL_SKIN.id, { image: atlas, ready: true });
     ensureWebcamSkinOption();
     setVisualSkin(WEBCAM_CUTUP_VISUAL_SKIN.id, { persist: false });
-    clearWebcamFrame();
+    resetWebcamDraft();
     webcamPhase = "applied";
     syncWebcamSkinUi();
     $("webcamSkinDialog")?.close();
@@ -1129,16 +1254,16 @@ function forgetWebcamSkin({ announceChange = true } = {}) {
   visualSkinById.delete(WEBCAM_CUTUP_VISUAL_SKIN.id);
   $("visualSkinSelect")?.querySelector('option[value="webcam-cutup"]')?.remove();
   webcamAppliedAtlas = null;
-  clearWebcamFrame();
+  resetWebcamDraft();
   webcamPhase = "idle";
-  webcamGuideCrops = freshWebcamGuideCrops();
-  webcamSelectedGuide = "head";
+  syncSelectPickers();
   syncWebcamSkinUi();
   if (announceChange) announce("Webcam cut-up removed from this tab");
 }
 
 function closeWebcamSkinDialog() {
   stopWebcamStream();
+  resetWebcamDraft();
   if (webcamPhase === "frozen") {
     clearWebcamFrame();
     webcamPhase = webcamAppliedAtlas ? "applied" : "idle";
@@ -1153,6 +1278,7 @@ function openWebcamSkinDialog() {
   const dialog = $("webcamSkinDialog");
   if (!dialog) return;
   void silenceHiccupHeadForWebcam();
+  resetWebcamDraft();
   webcamPhase = webcamAppliedAtlas ? "applied" : "idle";
   setWebcamError("");
   syncWebcamSkinUi();
@@ -1169,7 +1295,16 @@ function bindWebcamPhotoBooth() {
   $("startWebcamButton")?.addEventListener("click", requestWebcamPreview);
   $("freezeWebcamButton")?.addEventListener("click", freezeWebcamFrame);
   $("retakeWebcamButton")?.addEventListener("click", requestWebcamPreview);
-  $("useWebcamSkinButton")?.addEventListener("click", applyWebcamSkin);
+  $("useWebcamSkinButton")?.addEventListener("click", () => {
+    if (webcamCaptureMode === "parts") keepWebcamPart();
+    else applyWebcamSkin();
+  });
+  document.querySelectorAll('[name="webcamCaptureMode"]').forEach(input => {
+    input.addEventListener("change", () => setWebcamCaptureMode(input.value));
+  });
+  document.querySelectorAll("[data-webcam-part]").forEach(button => {
+    button.addEventListener("click", () => revisitWebcamPart(button.dataset.webcamPart));
+  });
   $("forgetWebcamSkinButton")?.addEventListener("click", () => forgetWebcamSkin());
   $("webcamGuideSelect")?.addEventListener("change", (event) => {
     selectWebcamGuide(event.target.value);
@@ -1220,12 +1355,12 @@ function bindWebcamPhotoBooth() {
     guide.addEventListener("pointerup", endDrag);
     guide.addEventListener("pointercancel", endDrag);
     guide.addEventListener("keydown", (event) => {
-      const movement = event.shiftKey ? 0.025 : 0.008;
+      const movement = event.shiftKey ? 0.025 : webcamCaptureMode === "parts" ? 0.002 : 0.008;
       if (!["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(event.key)) return;
       event.preventDefault();
       selectWebcamGuide(guide.dataset.webcamGuide);
       if (event.shiftKey) {
-        const base = WEBCAM_GUIDE_DEFAULTS[webcamSelectedGuide];
+        const base = webcamGuideDefaults()[webcamSelectedGuide];
         const crop = webcamGuideCrops[webcamSelectedGuide];
         const currentScale = crop.width / base.width;
         const direction = event.key === "ArrowRight" || event.key === "ArrowUp" ? 1 : -1;
@@ -1246,6 +1381,7 @@ function bindWebcamPhotoBooth() {
   });
   dialog.addEventListener("close", () => {
     stopWebcamStream();
+    resetWebcamDraft();
     if (webcamPhase === "frozen") {
       clearWebcamFrame();
       webcamPhase = webcamAppliedAtlas ? "applied" : "idle";
@@ -1430,6 +1566,7 @@ function setSoundBank(bankId, { mutate = false, audition = true } = {}) {
   currentSoundBankId = bank.id;
   retuneVoiceSlotsForBank(bank.id, { mutate });
   if ($("soundBankSelect")) $("soundBankSelect").value = bank.id;
+  syncSelectPickers();
   if ($("soundBankDescription")) $("soundBankDescription").textContent = bank.description;
   buildVoiceRack();
   announce(`${bank.label} sound bank${mutate ? " mutated" : " loaded"}`);
@@ -2658,6 +2795,7 @@ function setCurrentPattern(id, { announceState = true } = {}) {
   currentPatternId = preset.id;
   state = sanitizeHiccupHeadState({ ...state, patternId: preset.id }, state);
   $("patternSelect").value = preset.id;
+  syncSelectPickers();
   lastSequenceSoundId = firstPatternSoundId(pattern) ?? lastSequenceSoundId;
   buildSequenceGrid();
   if (announceState) announce(`${preset.label} pattern loaded`);
@@ -2674,6 +2812,7 @@ function cyclePatternPreset(direction = 1) {
 function markPatternCustom() {
   currentPatternId = "custom";
   $("patternSelect").value = "custom";
+  syncSelectPickers();
 }
 
 function scatterPattern() {
@@ -3952,6 +4091,7 @@ function setPreset(id, { announceState = true } = {}) {
   };
   state = withPersistentFaceEffects(hiccupHeadState(preset.id, transport), state);
   $("presetSelect").value = preset.id;
+  syncSelectPickers();
   $("presetDescription").textContent = preset.description;
   syncControls();
   postConfiguration();
@@ -4034,6 +4174,7 @@ function resetAll() {
   }
   if ($("voiceSelectionMode")) $("voiceSelectionMode").value = "roundRobin";
   if ($("soundBankSelect")) $("soundBankSelect").value = currentSoundBankId;
+  syncSelectPickers();
   if ($("soundBankDescription")) {
     $("soundBankDescription").textContent = hiccupHeadSoundBank(currentSoundBankId).description;
   }
@@ -4096,7 +4237,9 @@ function populateSelects() {
   custom.disabled = true;
   $("patternSelect").replaceChildren(...patternOptions, custom);
   $("presetSelect").value = state.presetId;
+  syncSelectPickers();
   $("patternSelect").value = currentPatternId;
+  syncSelectPickers();
   $("soundBankSelect")?.replaceChildren(...HICCUP_HEAD_SOUND_BANKS.map((bank) => {
     const option = document.createElement("option");
     option.value = bank.id;
@@ -4104,6 +4247,7 @@ function populateSelects() {
     return option;
   }));
   if ($("soundBankSelect")) $("soundBankSelect").value = currentSoundBankId;
+  syncSelectPickers();
   if ($("soundBankDescription")) {
     $("soundBankDescription").textContent = hiccupHeadSoundBank(currentSoundBankId).description;
   }
@@ -8187,6 +8331,9 @@ function initialize() {
   );
   syncControlLimits();
   populateSelects();
+  for (const [id, label] of [["visualSkinSelect", "Visual skin"], ["presetSelect", "Face preset"], ["patternSelect", "Pattern"], ["soundBankSelect", "Sound bank"]]) {
+    selectPickers.set(id, createNativeSelectPicker($(id), { label, className: "hiccup-head-select-picker" }));
+  }
   setVisualSkin(visualSkinId, { announceChange: false, persist: false });
   buildPadGrid();
   buildVoiceRack({ preserveScroll: false });
@@ -8221,8 +8368,13 @@ function initialize() {
       clearNativeRoomHistory();
     }
   });
-  globalThis.addEventListener("pagehide", () => {
+  globalThis.addEventListener("pagehide", (event) => {
     forgetWebcamSkin({ announceChange: false });
+    for (const picker of selectPickers.values()) {
+      if (event.persisted) picker.close();
+      else picker.destroy();
+    }
+    if (!event.persisted) selectPickers.clear();
     stopSequence({ announceState: false });
     cancelAnimationFrame(animationFrame);
     if (pendingCanvasStateFrame) cancelAnimationFrame(pendingCanvasStateFrame);
@@ -8276,9 +8428,12 @@ const fullPresets = registerHeaderPresets({
     eyebrowEmphasis = snapshot.eyebrowEmphasis;
     Object.assign(faceEffectEnabled, snapshot.faceEffectEnabled);
     $("presetSelect").value = state.presetId;
+    syncSelectPickers();
     $("presetDescription").textContent = hiccupHeadPreset(state.presetId).description;
     $("patternSelect").value = currentPatternId;
+    syncSelectPickers();
     $("soundBankSelect").value = currentSoundBankId;
+    syncSelectPickers();
     $("soundBankDescription").textContent = hiccupHeadSoundBank(currentSoundBankId).description;
     $("voiceCount").value = String(voiceCount);
     $("voiceCountOut").textContent = String(voiceCount);

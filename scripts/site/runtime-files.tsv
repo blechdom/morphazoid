@@ -929,6 +929,7 @@ copy	docs/graph-3d.md
 copy+require	src/site/header-presets.js
 copy+require	src/site/preset-random.js
 copy+require	src/ui/patterns/choose-picker-shell.js
+copy+require	src/ui/patterns/native-select-picker.js
 copy+require	src/instruments/creaturazoid/full-presets.js
 copy+require	src/instruments/hiccup-head/full-presets.js
 copy+require	src/instruments/karplus-strong/full-presets.js

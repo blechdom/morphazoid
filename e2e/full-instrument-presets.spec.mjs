@@ -420,7 +420,10 @@ test("Hiccup audition additions keep all new beats available locally and swap th
     expect((await readPreset(page)).snapshot).toEqual(preset.snapshot);
     await expect(page.locator("#audioButton")).toHaveAttribute("aria-pressed", "false");
   }
-  await page.locator("#patternSelect").selectOption("pocket-backbeat");
+  const patternMenu = page.locator('.hiccup-head-select-picker[data-select-id="patternSelect"]');
+  await patternMenu.locator(":scope > summary").click();
+  await patternMenu.locator('button[data-value="pocket-backbeat"]').click();
+  await expect(page.locator("#patternSelect")).toHaveValue("pocket-backbeat");
   await expect(page.locator("#presetSelect")).toHaveValue("open-throat");
   await expect(page.locator(".header-preset-controls")).toHaveAttribute("data-preset-id", "custom");
 });
