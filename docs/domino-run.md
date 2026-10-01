@@ -2,7 +2,9 @@
 
 Domino Run turns connected falling tiles into percussion. **Tone Henge** is its
 default stone-circle preset. It is a new instrument under Work in Progress;
-Falling Forms remains a separate instrument.
+Falling Forms remains a separate instrument. Dominoes and stair supports are
+drawn as transparent wireframes; material colors, selection, and impact flashes
+appear on their edges. Click inside a wireframe to push or select it.
 
 ## Play
 

@@ -9,7 +9,7 @@ function tint(hex, amount = 0) {
   return `rgb(${[16, 8, 0].map(s => clamp(((n >> s) & 255) + amount, 0, 255)).join(",")})`;
 }
 
-// Pick the same projected surfaces that are painted, including their .7px outline.
+// Keep each full projected face clickable, including wireframe interiors and .7px edges.
 function containsPoint(points, x, y) {
   let inside = false;
   for (let i = 0, j = points.length - 1; i < points.length; j = i++) {
@@ -72,16 +72,16 @@ export class DominoRenderer {
     this.ox = w / 2 - (x0 + x1) / 2 * this.scale;
     this.oy = (h + 38) / 2 - (y0 + y1) / 2 * this.scale;
   }
-  polygon(points, color, stroke = "#11140e", alpha = 1) {
+  polygon(points, color, stroke = color, alpha = 1) {
     const c = this.ctx;
     c.globalAlpha = alpha; c.beginPath();
     points.forEach((p, i) => i ? c.lineTo(p.x, p.y) : c.moveTo(p.x, p.y));
-    c.closePath(); c.fillStyle = color; c.fill();
+    c.closePath();
     if (stroke) { c.strokeStyle = stroke; c.lineWidth = .7; c.stroke(); }
     c.globalAlpha = 1;
   }
   box(d, angle, flash = 0, selected = false) {
-    const c = this.ctx, ca = Math.cos(d.angle), sa = Math.sin(d.angle);
+    const ca = Math.cos(d.angle), sa = Math.sin(d.angle);
     const st = Math.sin(angle), ct = Math.cos(angle);
     const vertices = [];
     for (const h of [0, d.height]) for (const t of [-d.depth, 0]) for (const side of [-d.width / 2, d.width / 2]) {
@@ -93,7 +93,7 @@ export class DominoRenderer {
     const shades = [-35, 5, -20, -8, 28];
     const surfaces = faces.map((face, i) => ({ points: face.map(j => vertices[j]), i, depth: face.reduce((a,j) => a + vertices[j].depth,0) / 4 }))
       .sort((a,b) => a.depth - b.depth);
-    surfaces.forEach(({points,i}) => this.polygon(points, tint(color, shades[i] + flash * 70), selected ? "#ffe1a0" : "#171a13"));
+    surfaces.forEach(({points,i}) => this.polygon(points, selected ? "#ffe1a0" : tint(color, shades[i] + flash * 70)));
     const center = this.project(d.x + ca * (d.depth / 2 + d.height * st * .5), d.elevation + d.height * ct * .5, d.z + sa * (d.depth / 2 + d.height * st * .5));
     const base = this.project(d.x,d.elevation,d.z);
     const bounds = { minX: Infinity, maxX: -Infinity, minY: Infinity, maxY: -Infinity };
@@ -102,19 +102,6 @@ export class DominoRenderer {
       bounds.minY = Math.min(bounds.minY, point.y); bounds.maxY = Math.max(bounds.maxY, point.y);
     }
     this.hits.push({ id: d.id, x: center.x, y: center.y, bx: base.x, by: base.y, radius: Math.max(10, Math.min(30, d.height * this.scale * .45)), bounds, polygons: surfaces.map(({points}) => points) });
-    if (this.scale * d.height > 20 && angle < 1.4) {
-      const face = [vertices[2],vertices[3],vertices[7],vertices[6]];
-      c.save(); c.beginPath(); face.forEach((p,i) => i ? c.lineTo(p.x,p.y) : c.moveTo(p.x,p.y)); c.closePath(); c.clip();
-      c.strokeStyle = tint(color,-40); c.lineWidth = .65;
-      if (d.material === "stone") {
-        c.beginPath(); c.moveTo(center.x-6,center.y-10); c.lineTo(center.x+2,center.y-1); c.lineTo(center.x-1,center.y+6); c.lineTo(center.x+8,center.y+12); c.stroke();
-      } else if (d.material === "wood") {
-        for(let k=-1;k<=1;k++) { c.beginPath(); c.moveTo(center.x+k*4-4,center.y-18); c.lineTo(center.x+k*4+4,center.y+18); c.stroke(); }
-      } else {
-        c.fillStyle = tint(color,55); c.globalAlpha=.65; c.beginPath();c.arc(center.x,center.y,Math.max(1.1,this.scale*.028),0,Math.PI*2);c.fill();
-      }
-      c.restore();
-    }
   }
   render(run, timeline, time, { selected = 0, showPaths = true, resurrection = 0, autoStand = false, draft = null } = {}) {
     if (!run?.dominoes) return;
@@ -143,13 +130,13 @@ export class DominoRenderer {
     }
     const ordered=[...run.dominoes].sort((a,b)=>this.raw(a.x,0,a.z).depth-this.raw(b.x,0,b.z).depth);
     for(const d of ordered) {
-      const p=this.project(d.x,0,d.z);
-      c.fillStyle="#080b08";c.globalAlpha=.25;c.beginPath();c.ellipse(p.x,p.y,d.height*this.scale*.46,d.height*this.scale*.13,this.yaw,0,Math.PI*2);c.fill();c.globalAlpha=1;
       if(Math.abs(d.elevation)>.025) {
         const x=d.x,z=d.z,r=d.height*.37, y=d.elevation;
         const a=this.project(x-r,0,z-r),b=this.project(x+r,0,z-r),e=this.project(x+r,0,z+r),f=this.project(x-r,0,z+r);
         const at=this.project(x-r,y,z-r),bt=this.project(x+r,y,z-r),et=this.project(x+r,y,z+r),ft=this.project(x-r,y,z+r);
-        this.polygon([a,b,bt,at],"#292f26");this.polygon([b,e,et,bt],"#363b2d");this.polygon([e,f,ft,et],"#2d3327");this.polygon([at,bt,et,ft],"#4a503c","#62664c");
+        this.polygon([a,b,e,f],"#616958");
+        this.polygon([a,b,bt,at],"#616958");this.polygon([b,e,et,bt],"#717b64");
+        this.polygon([e,f,ft,et],"#616958");this.polygon([at,bt,et,ft],"#8b957c");
       }
     }
     this.hits=[];
@@ -185,7 +172,7 @@ export class DominoRenderer {
     }
   }
   hit(x,y) {
-    // Last painted wins where dominoes overlap; a nearer center may be hidden.
+    // Choose the frontmost projected domino where wireframe interiors overlap.
     for (let i = this.hits.length - 1; i >= 0; i--) {
       const p = this.hits[i];
       if (p.polygons) {
