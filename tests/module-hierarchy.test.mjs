@@ -25,6 +25,7 @@ const shapesChanges = JSON.parse(await readFile(new URL("../docs/shapes-manual-n
 const lSystemPresetsChanges = JSON.parse(await readFile(new URL("../docs/l-systems-presets-runtime-changes.json", import.meta.url))).changes;
 const lSystemNotesChanges = JSON.parse(await readFile(new URL("../docs/l-systems-notes-runtime-changes.json", import.meta.url))).changes;
 const automataControlsChanges = JSON.parse(await readFile(new URL("../docs/automatapoeia-controls-runtime-changes.json", import.meta.url))).changes;
+const automataOutputChanges = JSON.parse(await readFile(new URL("../docs/automatapoeia-output-runtime-changes.json", import.meta.url))).changes;
 const automataChanges = JSON.parse(await readFile(new URL("../docs/automatapoeia-preset-lifecycle-runtime-changes.json", import.meta.url))).changes;
 const automataBottomChanges = JSON.parse(await readFile(new URL("../docs/automatapoeia-bottom-entry-runtime-changes.json", import.meta.url))).changes;
 const automataTransportChanges = JSON.parse(await readFile(new URL("../docs/automatapoeia-live-transport-runtime-changes.json", import.meta.url))).changes;
@@ -98,7 +99,7 @@ test("runtime modules reverse exactly after explicit runtime fixes and documente
     }
     // Keep the relocation baseline frozen. Reverse only the exact, separately
     // documented feature edits, whose behavior has focused DSP/browser tests.
-    for (const change of [...synthesisChanges, ...chiptuneDanceChanges, ...automataControlsChanges, ...ioChanges, ...shapesChanges, ...lSystemPresetsChanges, ...lSystemNotesChanges, ...automataBottomChanges, ...automataTransportChanges, ...automataClockChanges, ...automataChanges].filter(change => change.file === record.after)) {
+    for (const change of [...automataOutputChanges, ...synthesisChanges, ...chiptuneDanceChanges, ...automataControlsChanges, ...ioChanges, ...shapesChanges, ...lSystemPresetsChanges, ...lSystemNotesChanges, ...automataBottomChanges, ...automataTransportChanges, ...automataClockChanges, ...automataChanges].filter(change => change.file === record.after)) {
       for (const testFile of change.regressionTests) assert.ok(existsSync(path.join(root, testFile)), testFile);
       for (const replacement of [...change.replacements].reverse()) {
         assert.equal(current.split(replacement.after).length - 1, 1, `exactly one documented feature edit: ${change.file}`);

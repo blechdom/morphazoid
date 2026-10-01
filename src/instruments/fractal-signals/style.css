@@ -4,13 +4,13 @@
 .fractal-page * { box-sizing: border-box; }
 .fractal-page .masthead { min-height: 64px; }
 .fractal-page #audioHost { margin-left: auto; }
-.fractal-layout { display: grid; grid-template-columns: minmax(0, 1fr) 356px; height: calc(100dvh - 65px); min-height: 590px; }
-.play-surface { min-width: 0; display: flex; flex-direction: column; padding: 0 22px 18px; }
+.fractal-layout { display: grid; flex: 1; grid-template-columns: minmax(0, 1fr) 356px; min-height: 0; overflow: hidden; }
+.play-surface { min-width: 0; min-height: 0; display: flex; flex-direction: column; padding: 0 22px 18px; }
 .demo-modes { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 5px; padding: 15px 0; }
 .demo-modes button { min-width: 0; min-height: 61px; padding: 8px 3px; border: 0; border-bottom: 2px solid transparent; background: transparent; color: #93a29c; font: inherit; font-size: 10px; cursor: pointer; }
 .demo-modes button span { display: block; font-size: 22px; line-height: 1; margin-bottom: 8px; }
 .demo-modes button[aria-pressed="true"] { color: var(--accent); border-bottom-color: var(--accent); background: color-mix(in srgb, var(--accent) 6%, transparent); }
-.stage-wrap { flex: 1; min-height: 285px; position: relative; overflow: hidden; background: #050709; }
+.stage-wrap { flex: 1; min-height: 0; position: relative; overflow: hidden; background: #050709; }
 #stage { display: block; width: 100%; height: 100%; position: absolute; inset: 0; touch-action: none; cursor: crosshair; }
 #stage:focus-visible { outline: 2px solid var(--accent); outline-offset: -3px; }
 .gesture-readout { position: absolute; bottom: 16px; left: 22px; right: 22px; display: flex; justify-content: space-between; gap: 15px; pointer-events: none; color: #91a59b; font-size: 10px; }
@@ -25,7 +25,7 @@
 .transport-row button, .source-actions button, .voice-row button { min-height: 36px; border: 1px solid #27332d; color: #c3d3ca; background: #101712; border-radius: 3px; font-size: 11px; padding: 8px 12px; cursor: pointer; }
 .transport-row button[aria-pressed="true"]:not(.fractal-play) { color: var(--accent); border-color: var(--accent); }
 .transport-spacer { flex: 1; }
-.fractal-panel { padding: 18px 19px 22px; overflow: auto; border-left: 1px solid #202923; min-width: 0; background: #0b0e11; scrollbar-width: thin; scrollbar-color: #303b35 transparent; }
+.fractal-panel { padding: 18px 19px 22px; min-height: 0; overflow: auto; overscroll-behavior-y: contain; border-left: 1px solid #202923; min-width: 0; background: #0b0e11; scrollbar-width: thin; scrollbar-color: #303b35 transparent; }
 .preset-row { min-height: 35px; }
 .macro-controls { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 15px; margin-bottom: 19px; }
 :is(.macro-controls, .scan-control) .control { min-width: 0; align-items: center; }
@@ -53,20 +53,27 @@
 .fractal-page [hidden] { display: none !important; }
 @media (min-width: 1600px) { .fractal-layout { grid-template-columns: minmax(0, 1fr) 390px; } .fractal-panel { padding: 21px 25px; } }
 @media (max-width: 660px) {
-  .fractal-layout { display: flex; flex-direction: column; height: auto; min-height: 0; }
-  .play-surface { padding: 0 12px 16px; }
+  .fractal-layout { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(300px, 42%) minmax(0, 1fr); }
+  .play-surface { padding: 0 12px 6px; }
   .demo-modes { padding: 8px 0; gap: 2px; }
   .demo-modes button { font-size: 8px; min-height: 54px; }
   .demo-modes button span { font-size: 19px; }
-  .stage-wrap { height: 355px; min-height: 355px; flex: none; }
-  .score-region { padding-top: 11px; }
-  #score { height: 44px; }
-  .transport-row { padding-top: 9px; gap: 5px; }
+  .score-region { padding-top: 5px; }
+  #score { height: 28px; margin-top: 3px; }
+  .transport-row { padding-top: 3px; gap: 5px; }
   .transport-row button { font-size: 10px; padding: 8px 10px; }
-  .fractal-panel { border-left: 0; border-top: 1px solid #202923; overflow: visible; padding: 17px 20px 24px; }
+  .fractal-panel { border-left: 0; border-top: 1px solid #202923; padding: 17px 20px 24px; }
 }
 @media (pointer: coarse) { #playButton, #audioButton { min-width: 48px; min-height: 48px; } .fractal-panel input[type="range"] { min-height: 27px; } }
-@media (max-height: 500px) and (min-width: 661px) { .fractal-layout { height: auto; min-height: 620px; } .play-surface { align-self: start; } .fractal-panel { max-height: none; overflow: visible; } .stage-wrap { flex: none; height: 370px; min-height: 370px; } }
+@media (max-height: 500px) and (min-width: 661px) {
+  .play-surface { padding-bottom: 6px; }
+  .demo-modes { padding: 4px 0; }
+  .demo-modes button { min-height: 48px; padding: 4px 2px; }
+  .demo-modes button span { font-size: 18px; margin-bottom: 4px; }
+  .score-region { padding-top: 4px; }
+  #score { height: 24px; margin-top: 2px; }
+  .transport-row { padding-top: 2px; }
+}
 
 /* The shared rotary primitive keeps its native input; these larger musical knobs expose their labels. */
 :is(.macro-controls, .scan-control) .control.mz-range-knob { width: 100%; min-width: 0; height: 102px; }
@@ -76,9 +83,9 @@
 :is(.macro-controls, .scan-control) .mz-range-knob__dial { top: 26px; width: 45px; height: 45px; }
 :is(.macro-controls, .scan-control) .mz-range-knob__dial i { inset: 5px; }
 :is(.macro-controls, .scan-control) .mz-range-knob__dial i::before { height: 10px; }
-/* This page has a document-scrolling phone layout, not the shared fixed .shell. */
-html:has(> body.fractal-page) { height: auto; min-height: 100%; overflow: auto; }
-body.fractal-page { height: auto; min-height: 100dvh; overflow: visible; }
+/* Keep geometry and Audio visible while the control rail scrolls in either orientation. */
+html:has(> body.fractal-page) { height: 100%; overflow: hidden; }
+body.fractal-page { height: 100dvh; min-height: 0; overflow: hidden; }
 
 .preset-row { margin-bottom: 15px; }
 .engine-row { display: flex; align-items: center; gap: 10px; margin: 0 0 18px; font-size: 11px; }
@@ -117,7 +124,8 @@ body.fractal-page { height: auto; min-height: 100dvh; overflow: visible; }
 #helpBody p { margin: 15px 0 0; }
 #helpBody a { display: inline-block; color: var(--accent); margin-top: 18px; }
 #helpBody strong { color: #e3efe7; font-weight: 600; }
-@media (max-width: 900px) { .fractal-layout { grid-template-columns: minmax(0, 1fr) 310px; } .play-surface { padding-left: 12px; padding-right: 12px; } .fractal-panel { padding: 15px 13px; } .demo-modes button { font-size: 9px; } .gesture-readout { left: 15px; right: 15px; font-size: 9px; } }
+@media (min-width: 661px) and (max-width: 900px) { .fractal-layout { grid-template-columns: minmax(0, 1fr) 310px; } }
+@media (max-width: 900px) { .play-surface { padding-left: 12px; padding-right: 12px; } .fractal-panel { padding: 15px 13px; } .demo-modes button { font-size: 9px; } .gesture-readout { left: 15px; right: 15px; font-size: 9px; } }
 @media (max-width: 660px) { :is(.macro-controls, .scan-control) .mz-field__label { font-size: 10px; } .envelope-controls .mz-field__label { font-size: 9px; } }
 
 .performance-row { display: grid; grid-template-columns: 48px minmax(0, 1fr); align-items: center; gap: 16px; margin: 0 0 20px; }

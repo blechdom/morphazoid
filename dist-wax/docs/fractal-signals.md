@@ -2,6 +2,8 @@
 
 Fractal Synthesis is one instrument with six tabs: **paths, branches, grains, waves, echoes, textures**. Open [`fractal-synthesis.html`](../fractal-synthesis.html), choose a tab and preset, enable **Audio**, then press **Play**. Audio and transport are independent. The bank contains 54 complete presets in a stable mixed order, with descriptive names and no ownership or tab prefixes. Supplied settings and seeds retain their exact values. Opening presets are independent of menu order; Grains opens with Needle scan. Each tab has three sound engines. The adjacent modulation choice changes how that generator behaves; its labels follow the selected engine.
 
+The graphic and Audio controls stay visible while the sound controls scroll in their own panel. On phones the panel sits below a compact stage in portrait and beside it in landscape. Dragging the graphic still reshapes the sound; swiping within the control panel scrolls its settings.
+
 The earlier `fractal-signals.html` route redirects to the new page and preserves its query and hash. New links use the tab names (`#paths`, `#branches`, `#grains`, `#waves`, `#echoes`, `#textures`); the original internal identifiers below also remain valid:
 
 | Tab / deep link | Engines | Mechanism and gesture |

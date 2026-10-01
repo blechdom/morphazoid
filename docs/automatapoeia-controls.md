@@ -21,6 +21,18 @@ controller/style changes are Automata-scoped.
 - Evolution/Render prose, background/NKS cards and appended catalogue information
   are removed from the page. Internal evolution history is not removed.
 
+## Output calibration
+
+The final Automatapoeia output now adds 12 dB of makeup gain after its existing
+compressor, for both row events and the vertical sine bank. A soft peak guard
+is linear below 0.75 and bounds exceptional overloads below 0.9 full scale.
+The master level, preset levels, envelopes and polyphony normalization retain
+their original values. This calibration applies only to Automatapoeia.
+Offline browser checks at 44.1 and 48 kHz compare the production output graph
+with the unchanged family graph, including silence, release and overloads.
+Preset browser measurements characterize output; listening approval remains
+with the performer.
+
 ## Fast clockwork evidence
 
 The old preset used 12 ms attack and 35% gate. Across 32 centered-seed Rule-60
@@ -28,7 +40,8 @@ rows at 48 kHz, contour modulation yielded ~9–13 ms attacks against ~2–5 ms 
 releasing each note during the quiet beginning of its smooth attack.
 
 The revised **2 ms attack / 65% gate** reaches its attack peak before release.
-Output remains 0.34; no global gain, DSP, randomizer or envelope clamp changes.
+That preset repair retained its 0.34 level and left global gain, DSP, randomizer
+and envelope clamps unchanged; the later output calibration is described above.
 The same deterministic comparison yielded mean raw row RMS **0.0036 → 0.0369**,
 with revised minimum raw row RMS ~0.0248 and peak ~0.582. These are renderer
 measurements, not perceived loudness or final speaker levels. Regression tests

@@ -187,7 +187,24 @@ class ExperimentAudio {
       this.orbitalWet.connect(this.compressor);
       this.orbitalDelay.connect(this.orbitalFeedback);
       this.orbitalFeedback.connect(this.orbitalDelay);
-      this.outputRelease = connectAudioOutput(this.context, this.compressor);
+      let output = this.compressor;
+      if (experiment === "automata") {
+        // Row/column normalization already reserves headroom. Restore 12 dB
+        // after compression for a usable instrument level, with a transparent
+        // region below 0.75 and a soft ceiling for dense overlapping tails.
+        const makeup = this.context.createGain();
+        makeup.gain.value = 4;
+        const peakGuard = this.context.createWaveShaper();
+        peakGuard.curve = Float32Array.from({ length: 4097 }, (_, index) => {
+          const x = index / 2048 - 1;
+          const magnitude = Math.abs(x);
+          return magnitude <= 0.75 ? x
+            : Math.sign(x) * (0.75 + 0.15 * Math.tanh((magnitude - 0.75) / 0.15));
+        });
+        this.compressor.connect(makeup).connect(peakGuard);
+        output = peakGuard;
+      }
+      this.outputRelease = connectAudioOutput(this.context, output);
     }
     if (this.context.state === "suspended") {
       unlockAudioContext(this.context);

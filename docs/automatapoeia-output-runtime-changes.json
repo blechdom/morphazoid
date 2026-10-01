@@ -1,0 +1,17 @@
+{
+  "changes": [
+    {
+      "file": "src/families/experiments/experiments-app.js",
+      "reason": "User-requested Automatapoeia output calibration: 12 dB makeup and a soft peak guard, scoped to the automata route.",
+      "regressionTests": [
+        "e2e/automatapoeia-output.spec.mjs"
+      ],
+      "replacements": [
+        {
+          "before": "      this.outputRelease = connectAudioOutput(this.context, this.compressor);",
+          "after": "      let output = this.compressor;\n      if (experiment === \"automata\") {\n        // Row/column normalization already reserves headroom. Restore 12 dB\n        // after compression for a usable instrument level, with a transparent\n        // region below 0.75 and a soft ceiling for dense overlapping tails.\n        const makeup = this.context.createGain();\n        makeup.gain.value = 4;\n        const peakGuard = this.context.createWaveShaper();\n        peakGuard.curve = Float32Array.from({ length: 4097 }, (_, index) => {\n          const x = index / 2048 - 1;\n          const magnitude = Math.abs(x);\n          return magnitude <= 0.75 ? x\n            : Math.sign(x) * (0.75 + 0.15 * Math.tanh((magnitude - 0.75) / 0.15));\n        });\n        this.compressor.connect(makeup).connect(peakGuard);\n        output = peakGuard;\n      }\n      this.outputRelease = connectAudioOutput(this.context, output);"
+        }
+      ]
+    }
+  ]
+}

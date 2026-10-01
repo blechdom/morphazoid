@@ -88,12 +88,17 @@ for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 
     await page.goto('fractal-synthesis.html#grammar');
     await expect(page.locator('[data-mode=grammar]')).toHaveAttribute('aria-pressed', 'true');
     expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(2);
-    if (viewport.width < 960) {
-      await page.mouse.move(viewport.width / 2, viewport.height - 30);
-      await page.mouse.wheel(0, 850);
-      await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(50);
-      await page.evaluate(() => window.scrollTo(0, 0));
-    }
+    const stageBeforeScroll = await page.locator('#stage').boundingBox();
+    const rail = page.locator('.fractal-panel');
+    const railBox = await rail.boundingBox();
+    await page.mouse.move(railBox.x + 8, railBox.y + railBox.height - 30);
+    await page.mouse.wheel(0, 850);
+    await expect.poll(() => rail.evaluate(node => node.scrollTop)).toBeGreaterThan(50);
+    expect(await page.evaluate(() => window.scrollY)).toBe(0);
+    expect(await page.locator('#stage').boundingBox()).toEqual(stageBeforeScroll);
+    expect(stageBeforeScroll.height).toBeGreaterThan(100);
+    expect(stageBeforeScroll.y + stageBeforeScroll.height).toBeLessThan(viewport.height);
+    await rail.evaluate(node => { node.scrollTop = 0; });
     for (const id of ['playButton', 'audioButton', 'base', 'rate', 'phrase', 'memory']) {
       await page.locator(`#${id}`).scrollIntoViewIfNeeded();
       await expect(page.locator(`#${id}`)).toBeVisible();
@@ -106,6 +111,64 @@ for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 
     await page.mouse.up();
     expect(await page.evaluate(() => __fractalSignals.state.x)).toBeGreaterThan(.65);
     await page.screenshot({ path: testInfo.outputPath(`fractal-${viewport.width}.png`), fullPage: true });
+  });
+}
+
+for (const viewport of [{ width: 390, height: 844 }, { width: 844, height: 390 }, { width: 320, height: 740 }]) {
+  test(`touch scrolling keeps the graphic live at ${viewport.width}x${viewport.height}`, async ({ browser, baseURL }) => {
+    const context = await browser.newContext({ baseURL, viewport, isMobile: true, hasTouch: true });
+    try {
+      const page = await context.newPage();
+      await page.goto('fractal-synthesis.html');
+      await page.locator('#audioButton').tap();
+      await page.locator('#playButton').tap();
+      const stage = page.locator('#stage'), panel = page.locator('.fractal-panel');
+      const before = await stage.boundingBox();
+      const rail = await panel.boundingBox();
+      const client = await context.newCDPSession(page);
+      const touch = (type, x, y) => client.send('Input.dispatchTouchEvent', {
+        type, touchPoints: type === 'touchEnd' || type === 'touchCancel' ? [] : [{ x, y }],
+      });
+      // The panel gutter is outside all controls that intentionally capture drags.
+      const x = rail.x + 5, y = rail.y + rail.height - 30;
+      await touch('touchStart', x, y);
+      for (const offset of [25, 50, 75, 100]) await touch('touchMove', x, y - offset);
+      await touch('touchEnd');
+      await expect.poll(() => panel.evaluate(node => node.scrollTop)).toBeGreaterThan(50);
+      expect(await stage.boundingBox()).toEqual(before);
+      expect(await page.evaluate(() => window.scrollY)).toBe(0);
+      expect(before.width).toBeGreaterThan(200);
+      expect(before.height).toBeGreaterThan(90);
+      // Wait for native swipe momentum before measuring ownership of a new drag.
+      await panel.evaluate(async node => {
+        let previous = node.scrollTop, stableSince = performance.now();
+        while (performance.now() - stableSince < 150) {
+          await new Promise(resolve => requestAnimationFrame(resolve));
+          if (node.scrollTop !== previous) {
+            previous = node.scrollTop;
+            stableSince = performance.now();
+          }
+        }
+      });
+      const scrollTop = await panel.evaluate(node => node.scrollTop);
+      await touch('touchStart', before.x + before.width * .3, before.y + before.height * .5);
+      await touch('touchMove', before.x + before.width * .7, before.y + before.height * .5);
+      await touch('touchEnd');
+      expect(await page.evaluate(() => __fractalSignals.state.x)).toBeGreaterThan(.6);
+      expect(await panel.evaluate(node => node.scrollTop)).toBe(scrollTop);
+      await panel.evaluate(node => { node.scrollTop = node.scrollHeight; });
+      expect(await stage.boundingBox()).toEqual(before);
+      expect(await page.evaluate(() => __fractalSignals.playing && __fractalSignals.armed)).toBe(true);
+      const audio = await sampleAudioEnvelope(page, { durationMs: 450 });
+      expect(audio.summary.maxPeak).toBeGreaterThan(.0001);
+      expect(audio.summary.clippedSamples).toBe(0);
+      await page.setViewportSize({ width: viewport.height, height: viewport.width });
+      await expect(page.locator('#audioButton')).toBeInViewport();
+      await expect(stage).toBeInViewport();
+      expect(await page.evaluate(() => __fractalSignals.playing && __fractalSignals.armed)).toBe(true);
+    } finally {
+      await context.close();
+    }
   });
 }
 
