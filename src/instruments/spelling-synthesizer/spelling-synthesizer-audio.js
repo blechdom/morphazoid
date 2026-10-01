@@ -1,3 +1,7 @@
+import { SPELLING_NATIVE_ENGINES as EXTENDED_ENGINES, NATIVE_DEFAULTS, nativeValues, nativeSnapshot } from '../../families/speech/extended-engines.js';
+import { loadExtendedAtlas } from '../../families/speech/extended-loader.js';
+import { loadFliteAtlas } from "../../families/speech/flite-loader.js";
+import { loadEspeakAtlas } from "./spelling-espeak-loader.js";
 import { RetroSpellingEngine } from "./spelling-retro-audio.js";
 import { unlockAudioContext } from "../../audio.js?v=pink-trombonazoid-20260821-6";
 import { connectSpellingOutput, spellingOutputGain } from "./spelling-output.js";
@@ -947,12 +951,15 @@ function decodeAudioData(audio, bytes) {
 }
 
 class DiphoneSpellingEngine {
-  constructor({ runtime = globalThis, level = 0.46, vocoder = false, balancedOutput = false } = {}) {
+  constructor({ runtime = globalThis, level = 0.46, vocoder = false, balancedOutput = false, atlasLoader = null, engineId = vocoder ? "vocoder" : "diphone" } = {}) {
     this.runtime = runtime;
     this.balancedOutput = balancedOutput;
     this.personality = "clear";
     this.level = clamp(level, 0, 0.82);
     this.vocoder = Boolean(vocoder);
+    this.engineId = engineId;
+    this.atlasLoader = atlasLoader;
+    this.clips = SPELLING_DIPHONE_CLIPS;
     this.context = null;
     this.buffer = null;
     this.sourceBus = null;
@@ -993,11 +1000,28 @@ class DiphoneSpellingEngine {
     this.enabled = true;
     smooth(
       this.master.gain,
-      spellingOutputGain(this.vocoder ? "vocoder" : "diphone", this.level, this.balancedOutput, this.personality),
+      spellingOutputGain(this.engineId, this.level, this.balancedOutput, this.personality),
       audio.currentTime,
       0.012,
     );
     return this;
+  }
+
+  async refreshAtlas() {
+    if (!this.context || !this.buffer || !this.atlasLoader) return;
+    const context = this.context, generation = this.lifecycleGeneration;
+    const controller = new AbortController();
+    this.buildAbortController = controller;
+    try {
+      const atlas = await this.atlasLoader({audio:context, runtime:this.runtime, signal:controller.signal});
+      if (generation !== this.lifecycleGeneration || context !== this.context) throw audioStartCancelled();
+      // Commit only complete, validated output. A failed regeneration retains the
+      // prior playable buffer, output chain and consent state for preset rollback.
+      this.buffer = atlas.buffer;
+      this.clips = atlas.clips;
+    } finally {
+      if (this.buildAbortController === controller) this.buildAbortController = null;
+    }
   }
 
   async build(generation = this.lifecycleGeneration) {
@@ -1029,21 +1053,16 @@ class DiphoneSpellingEngine {
       if (this.vocoder && !workletPromise) {
         throw new Error("The vocoder engine needs AudioWorklet support.");
       }
-      const responsePromise = fetchAudio.call(
-        this.runtime,
-        SPELLING_DIPHONE_ATLAS_URL,
-        abortController ? { signal: abortController.signal } : undefined,
-      );
-      const [response] = await Promise.all([
-        responsePromise,
-        workletPromise,
-        resumePromise,
-      ]);
-      if (!response || response.ok === false) {
-        throw new Error("The diphone voice sample could not be loaded.");
-      }
-      const bytes = await response.arrayBuffer();
-      const buffer = await decodeAudioData(audio, bytes);
+      const atlasPromise = this.atlasLoader
+        ? this.atlasLoader({ audio, runtime: this.runtime, signal: abortController?.signal })
+        : (async () => {
+          const response = await fetchAudio.call(this.runtime, SPELLING_DIPHONE_ATLAS_URL,
+            abortController ? { signal: abortController.signal } : undefined);
+          if (!response || response.ok === false) throw new Error("The diphone voice sample could not be loaded.");
+          const buffer = await decodeAudioData(audio, await response.arrayBuffer());
+          return { buffer, clips: SPELLING_DIPHONE_CLIPS };
+        })();
+      const [{ buffer, clips }] = await Promise.all([atlasPromise, workletPromise, resumePromise]);
       if (
         generation !== this.lifecycleGeneration
         || this.context !== audio
@@ -1052,7 +1071,7 @@ class DiphoneSpellingEngine {
       const frameDuration = finite(buffer?.length)
         / Math.max(1, finite(buffer?.sampleRate, 1));
       const decodedDuration = finite(buffer?.duration, frameDuration);
-      const finalClipEnd = Math.max(...Object.values(SPELLING_DIPHONE_CLIPS)
+      const finalClipEnd = Math.max(...Object.values(clips)
         .map((clip) => clip.offset + clip.duration));
       if (decodedDuration > 0 && finalClipEnd > decodedDuration + 0.002) {
         throw new Error("The diphone voice sample does not match its atlas.");
@@ -1089,6 +1108,7 @@ class DiphoneSpellingEngine {
       this.releaseAudioOutput = output.release;
 
       this.buffer = buffer;
+      this.clips = clips;
       this.sourceBus = sourceBus;
       this.tone = tone;
       this.vocoderNode = vocoderNode;
@@ -1121,7 +1141,7 @@ class DiphoneSpellingEngine {
     if (this.running) {
       smooth(
         this.master.gain,
-        spellingOutputGain(this.vocoder ? "vocoder" : "diphone", this.level, this.balancedOutput, this.personality),
+        spellingOutputGain(this.engineId, this.level, this.balancedOutput, this.personality),
         this.context.currentTime,
         0.012,
       );
@@ -1131,7 +1151,7 @@ class DiphoneSpellingEngine {
   playbackTiming(event) {
     const key = spellingDiphoneClipKey(event);
     if (!key) return null;
-    const clip = SPELLING_DIPHONE_CLIPS[key];
+    const clip = this.clips[key];
     if (!clip) return null;
     const dynamics = event?.dynamics ?? {};
     const sustainedVowel = Boolean(
@@ -1328,11 +1348,20 @@ export class SpellingSynthesizerAudio {
     this.level = clamp(level, 0, 0.82);
     this.onFallback = typeof onFallback === "function" ? onFallback : null;
     this.enabled = false;
+    this.nativeParameters = nativeSnapshot(this.engineName);
+    this.backendParameters = {};
     this.backends = {
+      ...Object.fromEntries(Object.keys(EXTENDED_ENGINES).map(engineId => [engineId, new DiphoneSpellingEngine({runtime, level:this.level, balancedOutput, engineId, atlasLoader:options => loadExtendedAtlas({...options, engine:engineId, parameters:this.backendParameters[engineId] ?? this.nativeParameters})})])),
       tube: new TubeSpellingEngine({ runtime, level: this.level, balancedOutput }),
       bell: new RetroSpellingEngine({ runtime, level: this.level, mode: "bell", balancedOutput }),
       lpc: new RetroSpellingEngine({ runtime, level: this.level, mode: "lpc", balancedOutput }),
       diphone: new DiphoneSpellingEngine({ runtime, level: this.level, balancedOutput }),
+      espeak: new DiphoneSpellingEngine({ runtime, level: this.level, balancedOutput, engineId: "espeak", atlasLoader: loadEspeakAtlas }),
+      "espeak-klatt": new DiphoneSpellingEngine({ runtime, level: this.level, balancedOutput,
+        engineId: "espeak-klatt", atlasLoader: options => loadEspeakAtlas({ ...options, voiceName: "en-us+klatt" }) }),
+      ...Object.fromEntries(['slt', 'awb', 'rms'].map(voice => [`flite-${voice}`,
+        new DiphoneSpellingEngine({ runtime, level: this.level, balancedOutput,
+          engineId: `flite-${voice}`, atlasLoader: options => loadFliteAtlas({ ...options, voice }) })])),
       vocoder: new DiphoneSpellingEngine({
         runtime,
         level: this.level,
@@ -1374,9 +1403,23 @@ export class SpellingSynthesizerAudio {
     return this.engineName;
   }
 
-  async selectEngine(name) {
+  async selectEngine(name, parameters = null) {
     const next = spellingEngine(name);
-    if (next === this.engineName) return this.engineName;
+    parameters ??= next === this.engineName ? this.nativeParameters : nativeSnapshot(next);
+    const changed = EXTENDED_ENGINES[next] && JSON.stringify(nativeValues(next, parameters)) !== JSON.stringify(nativeValues(next, this.backendParameters[next]));
+    const priorParameters = this.backendParameters[next];
+    this.backendParameters[next] = {...parameters};
+    try {
+      if (changed) {
+        if (this.enabled && this.backends[next].buffer) await this.backends[next].refreshAtlas();
+        else await this.backends[next].close();
+      }
+    } catch (error) { this.backendParameters[next] = priorParameters; throw error; }
+    this.nativeParameters = {...parameters};
+    if (next === this.engineName) {
+      if (changed && this.enabled) await this.backends[next].enable();
+      return this.engineName;
+    }
     const previous = this.engineName;
     await this.backends[previous].disable();
     this.engineName = next;

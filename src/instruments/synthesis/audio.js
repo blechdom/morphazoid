@@ -154,9 +154,9 @@ export class SynthesisAudio {
     this.node?.port.postMessage({ type: "play", playing: this.playing && this.armed, rate, gate });
   }
 
-  noteOn(frequency, velocity = 0.75, duration = null, noteId = null) {
+  noteOn(frequency, velocity = 0.75, duration = null, noteId = null, at = null) {
     if (!this.armed) return;
-    this.node?.port.postMessage({ type: "note", frequency, velocity, duration, noteId, at: this.context.currentTime + 0.005 });
+    this.node?.port.postMessage({ type: "note", frequency, velocity, duration, noteId, at: at ?? this.context.currentTime + 0.005 });
   }
 
   resumeNotes(notes) {

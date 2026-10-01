@@ -4,8 +4,8 @@
   "branch": "codex/presets-continue-20260922",
   "source": "Review branch directory checkpoint 03619ff rebased onto origin/main ef6e593; pending pointer, family rename and preset drafts restored; no push or deployment",
   "counts": {
-    "implemented": 30,
-    "fullPresets": 1223,
+    "implemented": 31,
+    "fullPresets": 1418,
     "favesImplemented": 16,
     "activeRemaining": 64,
     "regularRemaining": 133
@@ -580,12 +580,22 @@
       "status": "deferred"
     },
     {
+      "id": "voicesaurus",
+      "presets": 156,
+      "status": "implemented-verification-pending",
+      "evidence": "docs/voicesaurus.md",
+      "label": "Voicesaurus",
+      "href": "voicesaurus.html",
+      "category": "voice",
+      "scope": "regular"
+    },
+    {
       "id": "spelling-synthesizer",
       "label": "Spelling Synthesizer",
       "href": "spelling-synthesizer.html",
       "category": "voice",
       "scope": "regular",
-      "presets": 22,
+      "presets": 61,
       "status": "implemented-verification-pending",
       "evidence": "docs/spelling-synthesizer.md"
     },

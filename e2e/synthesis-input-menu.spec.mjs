@@ -6,7 +6,7 @@ import { PROCESSING_INPUT_OPTIONS } from '../src/instruments/synthesis/demo-sour
 const demos = PROCESSING_INPUT_OPTIONS.filter(option => option.kind === 'demo');
 const status = page => page.evaluate(() => window.MorphazoidSynthesis.getStatus());
 const inputStatus = async page => (await status(page)).input;
-const isDemoRequest = request => /\/assets\/(?:puggler\/(?:kick|snare|hat|tom|mic-check)\.wav|audio\/vocalzoid-cmu-arctic-(?:bdl|slt)\.wav|bioacoustics\/chaffinch\.ogg)$/.test(new URL(request.url()).pathname);
+const isDemoRequest = request => /\/assets\/(?:puggler\/(?:kick|snare|hat|tom|mic-check)\.wav|audio\/vocalzoid-cmu-arctic-(?:bdl|slt)\.wav|bioacoustics\/chaffinch\.ogg|synthesis\/loops\/[a-z-]+\.wav)$/.test(new URL(request.url()).pathname);
 
 async function arm(page) {
   await page.locator('#audioButton').click();
@@ -41,6 +41,8 @@ test('sample selection and transport remain silent without Audio; explicit armin
   const before = await page.evaluate(() => window.MorphazoidSynthesis.getState());
   const drums = demos.find(option => option.id === 'sample-drums');
   await choose(page, 'processingSource', drums.id);
+  await page.locator('#processingLoop').uncheck();
+  await page.locator('#processingLoop').check();
   await page.locator('#triggerButton').click();
   await page.locator('#playButton').click();
   expect(await status(page)).toMatchObject({ armed: false, playing: true, input: { selection: drums.id, source: 0, kind: 'none', loading: false } });
@@ -61,7 +63,7 @@ test('sample selection and transport remain silent without Audio; explicit armin
   await testInfo.attach('processing-drum-loop.json', { body: JSON.stringify({ firstLoop, repeatedLoop }, null, 2), contentType: 'application/json' });
 });
 
-test('all five bundled sample inputs reach the output with finite bounded audio', async ({ page }, testInfo) => {
+test('all bundled sample inputs reach the output with finite bounded audio', async ({ page }, testInfo) => {
   test.setTimeout(60_000);
   const errors = []; page.on('pageerror', error => errors.push(error.message));
   await startBypassed(page);
@@ -71,6 +73,7 @@ test('all five bundled sample inputs reach the output with finite bounded audio'
     await loaded(page, option);
     measurements[option.id] = await sampleAudioEnvelope(page, { durationMs: 2300, intervalMs: 60 });
     assertAudible(measurements[option.id]);
+    if (option.id.startsWith('music-')) expect(measurements[option.id].summary.meanRms).toBeGreaterThan(.035);
     expect((await status(page)).playing).toBe(true);
     await expect(page.locator('#audioError')).toBeHidden();
   }
@@ -156,5 +159,34 @@ test('Your audio file returns to the uploaded recording after using a demo sampl
   await expect.poll(() => inputStatus(page)).toMatchObject({ selection: 'file', kind: 'file', source: 0, loading: false });
   await expect(page.locator('#inputStatus')).toContainText('retained-loop.wav');
   assertAudible(await sampleAudioEnvelope(page, { durationMs: 500 }));
+  await expect(page.locator('#audioError')).toBeHidden();
+});
+
+test('Loop input supports continuous playback, one-shot completion and replay without changing transport', async ({ page }) => {
+  await startBypassed(page);
+  await expect(page.locator('#processingLoopControl')).toBeHidden();
+  await choose(page, 'processingSource', 'file');
+  await expect(page.locator('#processingLoop')).toBeChecked();
+  await page.locator('#sourceFile').setInputFiles({ name: 'loop-switch.wav', mimeType: 'audio/wav', buffer: uploadedTone() });
+  await expect.poll(() => inputStatus(page)).toMatchObject({ kind: 'file', loop: true });
+  assertAudible(await sampleAudioEnvelope(page, { durationMs: 3800 }));
+  expect(await inputStatus(page)).toMatchObject({ kind: 'file', ended: false });
+  await page.locator('#processingLoop').uncheck();
+  await expect.poll(() => inputStatus(page)).toMatchObject({ kind: 'none', loop: false, ended: true });
+  await waitForStableAudioState(page, false, { stableMs: 200 });
+  expect((await status(page)).playing).toBe(true);
+  await page.locator('#resumeFile').click();
+  assertAudible(await sampleAudioEnvelope(page, { durationMs: 400, intervalMs: 30 }));
+  await expect.poll(() => inputStatus(page)).toMatchObject({ ended: true });
+  await page.locator('#triggerButton').click();
+  assertAudible(await sampleAudioEnvelope(page, { durationMs: 400, intervalMs: 30 }));
+  await page.locator('#nextPreset').click();
+  await expect(page.locator('#processingLoop')).not.toBeChecked();
+  await page.locator('#randomMethod').click();
+  await expect(page.locator('#processingLoop')).not.toBeChecked();
+  await page.locator('#processingLoop').check();
+  await expect.poll(() => inputStatus(page)).toMatchObject({ kind: 'file', loop: true, ended: false });
+  await choose(page, 'processingSource', 'noise');
+  await expect(page.locator('#processingLoopControl')).toBeHidden();
   await expect(page.locator('#audioError')).toBeHidden();
 });

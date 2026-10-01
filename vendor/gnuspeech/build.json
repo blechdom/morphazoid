@@ -1,0 +1,22 @@
+{
+  "source": "https://github.com/mym-br/gnuspeech_sa",
+  "revision": "f62e8b88eeeb3fa7e51ac138d561c3061a4a415f",
+  "source_archive_sha256": "2f5b2f247867d48cb21398b610cd3dd57c3262bb6fabcbcc5af1b4b17b6d1f3f",
+  "emscripten": "4.0.22",
+  "emsdk_revision": "e566f7bdcc7735f44037911c24b87a58a3c93145",
+  "files": {
+    "gnuspeech.js": {
+      "bytes": 77610,
+      "sha256": "343e198d77471ec7a8912c9e488136ff6e36db29ed5dc010e2dd242b604a664f"
+    },
+    "gnuspeech.wasm": {
+      "bytes": 544973,
+      "sha256": "6fc6eb2400ae92870f90e319a0e944997c09d8ba2dd13cf367c1459179ae9bca"
+    },
+    "gnuspeech.data": {
+      "bytes": 2680002,
+      "sha256": "8c9c2054b80218540f43a9aa3ae419b9f3b6693d421bd3f99c2f84c788915925"
+    }
+  },
+  "reproduction": "All three runtime files matched byte-for-byte in a fresh source extraction/build; absolute preload bookkeeping paths normalized."
+}

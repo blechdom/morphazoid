@@ -3,11 +3,18 @@
 **[Domino Run](domino-run.html)** turns falling tiles into percussion across circles, forks, stairs and patterned fields. Six synthesized materials with dry impacts, seeded complete-scene randomization and a 512-tile limit include **Tone Henge**, its stone-circle preset. [Controls and model limits](docs/domino-run.md); [technique research](docs/domino-run-research.md).
 
 **[Spelling Synthesizer](spelling-synthesizer.html)** is now in Voice: a frontal
-wireframe mouth speaks typed letters or reads and loops text. Twenty-two presets
-span Pinkazoid, KAL samples, Voxazoid, Bell Labs-inspired waveguide synthesis and
-Speak & Spell-inspired LPC. These are original instrument implementations, not
-historical program/chip emulations. Audio starts off.
+wireframe mouth speaks typed letters or reads and loops text. Sixty-one presets
+span Pinkazoid, KAL samples, Voxazoid, Bell Labs-inspired waveguide synthesis,
+Speak & Spell-inspired LPC, eSpeak NG/Klatt and Flite statistical voices. Original educational models sit alongside upstream eSpeak and Flite engines;
+the Bell Labs and LPC models are not historical program/chip emulations. Audio starts off.
 [Controls and provenance](docs/spelling-synthesizer.md).
+
+**[Voicesaurus](voicesaurus.html)** plays native local speech, singing and voice-chip
+engines through WebAssembly, including Perry Cook’s Singer, STK, eSpeak, Flite,
+Gnuspeech and Sinsy. Expandable knobs expose native parameters; text engines use
+whole sentences, singers use notes or a score, and chips use their native input.
+The method and preset tour follows sourced historical milestones.
+[Controls and engine research](docs/voicesaurus.md).
 
 **[Volumetric Rain](wasm-garden.html)** layers ringing resonances with random
 excitation. Shape Metal, Density, and pitch spread, or play individual tines.
@@ -311,6 +318,12 @@ documents reusable tokens, controls, patterns, and interaction states.
 
 The [GitHub Pages deployment](https://blechdom.github.io/morphazoid/) remains a
 secondary mirror of `main`.
+
+## Voicesaurus
+
+[Voicesaurus](voicesaurus.html) compares browser-local speech synthesis methods
+using shared text, held vowels, repeatable presets and historical method notes.
+See [voice mechanisms and port status](docs/voicesaurus.md).
 
 ## Synthesaurus
 

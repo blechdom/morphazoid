@@ -1,3 +1,4 @@
+import { SYNTHESIS_DATES } from "./chronology.js";
 import { createChaoticSpectrum, updateChaoticSpectrum, drawChaoticSpectrum } from "../../families/chaotic/chaotic-synth-visuals.js";
 import { registerHeaderPresets } from "../../site/header-presets.js";
 import { SECTION_METHODS, SECTION_PRESETS, methodSection, captureSoundState, fullPresetId, randomizeAllState, randomizeMethodState } from "./presets.js";
@@ -182,6 +183,12 @@ function renderState(rebuildControls = true, audition = false, restoringSection 
   $("principle").textContent = method.principle;
   $("presetCue").textContent = state.presetId === "custom" ? "Custom settings. Next continues the preset tour." : getPreset(method.id, state.presetId).cue;
   $("methodNotes").textContent = method.lineage;
+  const milestone = SYNTHESIS_DATES[method.id];
+  $("methodDate").textContent = milestone.dateLabel;
+  $("methodDate").title = milestone.dateNote;
+  $("methodDateNote").textContent = milestone.dateNote;
+  $("methodDateReference").textContent = milestone.dateSource.label;
+  $("methodDateReference").href = milestone.dateSource.url;
   $("modelNote").textContent = [method.depth, ...(Array.isArray(method.limitations) ? method.limitations : [method.limitations])].filter(Boolean).join(" ");
   $("methodReference").textContent = method.citation.label;
   $("methodReference").href = method.citation.url;
@@ -192,7 +199,6 @@ function renderState(rebuildControls = true, audition = false, restoringSection 
   $("randomMethod").setAttribute("aria-label", $("randomMethod").title);
   $("noteTiming").hidden = processing;
   $("soundControls").setAttribute("aria-label", processing ? "Processing controls" : "Synthesis controls");
-  $("triggerButton").textContent = processing ? "Audition · 3 s" : method.playStyle === "strike" ? method.triggerLabel : "Trigger note";
   $("processingControls").hidden = !processing;
   if (processing) document.querySelector(".synthesis-play-row").after($("processingControls"), $("sourceControls"), $("frequencyRow"));
   else { $("noteTiming").prepend($("frequencyRow")); $("methodControls").after($("sourceControls")); }
@@ -201,7 +207,6 @@ function renderState(rebuildControls = true, audition = false, restoringSection 
   $("voiceModeControl").hidden = processing;
   $("voiceMode").value = state.voiceMode;
   paintVoicing();
-  $("playbackMode").disabled = processing;
   mixFields.wet.setValue((state.wet ?? 1) * 100);
   mixFields.inputDb.setValue(state.inputDb ?? 0);
   mixFields.outputDb.setValue(state.outputDb ?? 0);
@@ -245,22 +250,17 @@ function renderSection() {
   const name = processing ? "Processing" : "Synthesis";
   $("synthesis").dataset.section = activeSection;
   for (const button of document.querySelectorAll(".synthesis-sections button")) button.setAttribute("aria-pressed", String(button.dataset.section === activeSection));
-  $("sectionDescription").textContent = processing
-    ? "Transform a built-in signal, audio file, or mic / line input."
-    : "Create sound from notes and excitation; play or reshape stored samples.";
   $("methodLabel").textContent = processing ? "Processor" : "Synthesis method";
   $("presetSectionLabel").textContent = name + " presets";
-  $("presetScope").textContent = "Next tours " + activeSection + " presets · Dice explores " + (processing ? "processors" : "synthesis methods") + ".";
   const methods = SECTION_METHODS[activeSection];
   const groups = new Map();
   for (const method of methods) {
     if (!groups.has(method.group)) {
       const group = document.createElement("optgroup"); group.label = method.group; groups.set(method.group, group);
     }
-    groups.get(method.group).append(new Option(method.label, method.id));
+    groups.get(method.group).append(new Option(`${method.label} · ${SYNTHESIS_DATES[method.id].dateLabel}`, method.id));
   }
   $("methodSelect").replaceChildren(...groups.values());
-  $("methodCount").textContent = methods.length + (processing ? " processors · " : " synthesis methods · ") + SECTION_PRESETS[activeSection].length + " presets";
 }
 
 function switchSection(section) {
@@ -288,14 +288,13 @@ listen($("outputLevel"), "input", event => {
 
 function playbackStyle() {
   if (getMethod(state.methodId).kind === "processor") return "process";
-  const mode = $("playbackMode").value;
-  if (mode === "repeat") return "strike";
-  if (mode === "hold") return "hold";
   return getMethod(state.methodId).playStyle === "strike" || state.envelope.sustain <= .001 ? "strike" : "hold";
 }
 function paintPlayback() {
   const repeats = playbackStyle() === "strike";
-  $("playButton").title = playbackStyle() === "process" ? "Run the selected signal through the processor" : repeats ? "Repeat notes at the selected tempo" : "Hold a continuous note";
+  const action = playing ? "Pause" : "Play";
+  $("playButton").title = playbackStyle() === "process" ? `${action} processing demo` : repeats ? `${action} demo · pulse notes at the selected tempo` : `${action} demo · hold a continuous note`;
+  $("tempoControl").title = $("gateControl").title = repeats ? "Demo notes pulse at this tempo and note length" : "Tempo and note length apply to percussive or zero-sustain sounds";
   tempoField.setDisabled(!repeats);
   gateField.setDisabled(!repeats);
 }
@@ -304,16 +303,32 @@ function setPlaying(value) {
   audio.setPlaying(playing, Number($("tempo").value) / 60, Number($("noteGate").value) / 100);
   $("playButton").setAttribute("aria-pressed", String(playing));
   $("playButton").setAttribute("aria-label", playing ? "Pause" : "Play");
+  paintPlayback();
 }
 listen($("playButton"), "click", () => { setPlaying(!playing); if (playing) void ensureProcessingInput(); });
-listen($("playbackMode"), "change", () => { paintPlayback(); syncAudio(); });
 function trigger() {
   if (!audio.armed) { $("status").textContent = "Enable Audio to hear the demonstration."; return; }
-  audio.noteOn(state.frequencyHz, 0.8, Math.min(24.2, state.envelope.attack + state.envelope.decay + 0.18));
+  const processing = getMethod(state.methodId).kind === "processor";
+  if (processing && ["demo", "file"].includes(selectedInput()?.kind)) {
+    void ensureProcessingInput({ audition: true, restart: true });
+    return;
+  }
+  const poly = state.voiceMode === "poly" && !processing;
+  const duration = Math.min(24.2, state.envelope.attack + state.envelope.decay + 0.18);
+  const at = audio.context.currentTime + .005;
+  for (const semitones of poly ? [0, 4, 7] : [0]) {
+    let frequency = state.frequencyHz * 2 ** (semitones / 12);
+    // Retain the chord's pitch classes at the top of the supported range.
+    if (frequency > 8000) frequency /= 2;
+    audio.noteOn(frequency, 0.8, duration, null, at);
+  }
 }
 listen($("triggerButton"), "click", trigger);
 
 function paintVoicing() {
+  const processing = getMethod(state.methodId).kind === "processor";
+  $("triggerButton").textContent = processing ? "Audition · 3 s" : state.voiceMode === "poly" ? "Trigger Notes (poly)" : "Trigger Note";
+  $("triggerButton").title = processing ? "Audition the selected input for three seconds" : state.voiceMode === "poly" ? "Play a major chord: root, third and fifth" : "Play one note at the selected frequency";
   $("keyboardHelp").textContent = `Optional chromatic notes relative to the frequency above. Hold keys or note buttons. ${state.voiceMode === "poly" ? "Up to eight notes sound together, each with its own envelope." : "The most recent held note sounds."}`;
 }
 listen($("voiceMode"), "change", () => {
@@ -380,6 +395,9 @@ function paintInput() {
   const processing = getMethod(state.methodId).kind === "processor";
   const option = selectedInput();
   const external = processing && processingSource() === 0;
+  const loopable = processing && ["demo", "file"].includes(option?.kind);
+  $("processingLoopControl").hidden = !loopable;
+  $("processingLoop").checked = status.loop;
   const microphone = external && (option?.kind === "microphone" || processingInput === "preset");
   $("frequencyRow").hidden = processing && processingSource() === 0;
   frequencyField.labelElement.textContent = processing ? "Signal pitch" : "Frequency";
@@ -395,11 +413,11 @@ function paintInput() {
   $("processingInputHint").textContent = processingInput === "preset"
     ? "The preset chooses its demonstration signal. Choose another input to keep it while exploring effects."
     : option?.kind === "microphone" ? "Mic / audio-in stays selected. Choose the hardware device in Audio Settings."
-    : option?.kind === "file" ? "Your audio loops through the processor. This input stays selected across presets and dice."
-    : "This input stays selected across presets and dice. Play loops it; Audition plays a short preview.";
+    : loopable ? (status.loop ? "Play loops the full input; Audition previews 3 s." : "Play runs the input once; Replay starts it again.")
+    : "This input stays selected across presets and dice. Play runs it; Audition previews 3 s.";
   $("inputStatus").textContent = loadingInput ? "Loading " + option?.label + "…" : status.kind !== "none" || status.pending ? status.label
     : external && !audio.armed ? "Enable Audio to use " + (option?.label ?? "mic / audio-in")
-    : external ? (option?.kind === "demo" ? "Sample ready to load" : "Input stopped")
+    : external ? (status.ended ? "Input finished · Replay to hear it again" : option?.kind === "demo" ? "Sample ready to load" : "Input stopped")
     : processing ? (PROCESSING_SCHEMA.sources[processingSource()] ?? "Built-in signal") : status.label;
   $("stopInput").hidden = processing && !external;
   $("stopInput").disabled = !loadingInput && !status.pending && status.kind === "none";
@@ -441,6 +459,10 @@ async function ensureProcessingInput({ audition = false, connectMic = false, res
   } catch (error) { if (intent === inputIntent && error.name !== "AbortError") showError(error); }
   finally { if (intent === inputIntent) { loadingInput = false; paintInput(); } }
 }
+listen($("processingLoop"), "change", () => {
+  audio.input.setLoop($("processingLoop").checked);
+  if (playing) void ensureProcessingInput();
+});
 listen($("processingSource"), "change", () => {
   processingInput = $("processingSource").value;
   inputIntent++; loadingInput = false; audio.stopInput();
@@ -673,7 +695,7 @@ window.MorphazoidSynthesis = Object.freeze({
   getState: () => structuredClone(state),
   applyState(value) { state = sanitizeState(value); renderState(); },
   trigger, release: releaseAll,
-  getStatus: () => ({ armed: audio.armed, playing, section: activeSection, sampleRate: audio.context?.sampleRate || null, heldNotes: held.size, voiceMode: state.voiceMode, voiceLimit: state.voiceMode === "poly" ? 8 : 1, input: { ...audio.input.status(), selection: processingInput, source: processingSource(), loading: loadingInput }, tempo: Number($("tempo").value), playbackMode: $("playbackMode").value, playStyle: playbackStyle(), noteGate: Number($("noteGate").value) / 100 }),
+  getStatus: () => ({ armed: audio.armed, playing, section: activeSection, sampleRate: audio.context?.sampleRate || null, heldNotes: held.size, voiceMode: state.voiceMode, voiceLimit: state.voiceMode === "poly" ? 8 : 1, input: { ...audio.input.status(), selection: processingInput, source: processingSource(), loading: loadingInput }, tempo: Number($("tempo").value), playbackMode: "auto", playStyle: playbackStyle(), noteGate: Number($("noteGate").value) / 100 }),
 });
 listen(window, "pagehide", event => {
   releaseAll();
@@ -722,7 +744,7 @@ function mountSectionPresets() {
 renderSection();
 renderState();
 mountSectionPresets();
-for (const [id, label] of [["methodSelect", "Choose method"], ["processingSource", "Choose processing input"], ["playbackMode", "Playback"], ["voiceMode", "Voicing"], ["touchstoneSelect", "Study"], ["spectrumMode", "Frequency display"]]) {
+for (const [id, label] of [["methodSelect", "Choose method"], ["processingSource", "Choose processing input"], ["voiceMode", "Voicing"], ["touchstoneSelect", "Study"], ["spectrumMode", "Frequency display"]]) {
   chooseControls.set(id, enhanceChooseSelect($(id), { label }));
 }
 paintAudio();

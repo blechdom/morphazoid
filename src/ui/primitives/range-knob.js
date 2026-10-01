@@ -3,10 +3,18 @@ import { dispatchNativeEvent } from "../internal.js";
 const knobs = new WeakMap();
 
 /** Rotary presentation for an existing native range; its owner keeps the value and events. */
-export function enhanceRangeKnob(input, { runtime = input.ownerDocument?.defaultView ?? globalThis, wrap = false } = {}) {
+export function enhanceRangeKnob(input, { runtime = input.ownerDocument?.defaultView ?? globalThis, wrap = false, interactionRange = null } = {}) {
   if (knobs.has(input)) return knobs.get(input);
   const field = input.parentNode;
   if (input.type !== "range" || !field) throw new TypeError("A mounted native range is required");
+  // Some owners retain exact values beyond the normal dial span. This optional
+  // fixed range controls gestures and the needle without changing their input.
+  const fixedRange = interactionRange === null ? null : {
+    min: Number(interactionRange.min), max: Number(interactionRange.max),
+  };
+  if (fixedRange && (!Number.isFinite(fixedRange.min) || !Number.isFinite(fixedRange.max) || fixedRange.max < fixedRange.min)) {
+    throw new TypeError("A knob interaction range needs finite ordered bounds");
+  }
   const doc = input.ownerDocument;
   const dial = doc.createElement("span");
   dial.className = "mz-range-knob__dial";
@@ -22,8 +30,8 @@ export function enhanceRangeKnob(input, { runtime = input.ownerDocument?.default
   const removers = [];
   let drag = null;
   const limits = () => ({
-    min: input.min === "" ? 0 : Number(input.min),
-    max: input.max === "" ? 100 : Number(input.max),
+    min: fixedRange?.min ?? (input.min === "" ? 0 : Number(input.min)),
+    max: fixedRange?.max ?? (input.max === "" ? 100 : Number(input.max)),
     step: input.step === "any" ? 0 : Number(input.step) || 1,
   });
   const wrapped = (value, min, max) => max > min ? min + ((value - min) % (max - min) + max - min) % (max - min) : min;
@@ -48,12 +56,17 @@ export function enhanceRangeKnob(input, { runtime = input.ownerDocument?.default
     if (input.disabled || drag || event.button !== 0 || event.isPrimary === false) return;
     event.preventDefault(); // A click takes hold of the knob; it must not jump along a hidden slider.
     input.focus({ preventScroll: true });
-    drag = { id: event.pointerId, y: event.clientY, raw: Number(input.value), start: input.value };
+    const value = Number(input.value);
+    // Merely taking hold must preserve an exact value outside the normal span.
+    // The first vertical movement begins at its nearest normal endpoint.
+    const raw = fixedRange ? Math.max(fixedRange.min, Math.min(fixedRange.max, value)) : value;
+    drag = { id: event.pointerId, y: event.clientY, raw, start: input.value };
     input.setPointerCapture?.(event.pointerId);
   });
   listen(input, "pointermove", event => {
     if (!drag || drag.id !== event.pointerId) return;
     if (input.disabled) { end(event); return; }
+    if (event.clientY === drag.y) return;
     const { min, max, step } = limits();
     const next = drag.raw + (drag.y - event.clientY) * (max - min) / (event.shiftKey ? 1200 : 120);
     drag.raw = wrap ? next : Math.max(min, Math.min(max, next));

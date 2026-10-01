@@ -1,0 +1,26 @@
+{
+  "espeak_revision": "9a550bef455f03b459f51796e3482833aab7fbc0",
+  "emsdk_revision": "e566f7bdcc7735f44037911c24b87a58a3c93145",
+  "sonic_revision": "fbf75c3d6d846bad3bb3d456cbc5d07d9fd8c104",
+  "emscripten": "4.0.22",
+  "additional_exports": [
+    "espeak_SetParameter",
+    "espeak_GetParameter",
+    "espeak_SetPunctuationList"
+  ],
+  "source_changes": "No synthesis source changes; native API exports added at link time.",
+  "files": {
+    "espeak-ng.js": {
+      "bytes": 116075,
+      "sha256": "7b939aa72c9faca78de719ec1c259e7a342ee3a5795c7cd92bd5c53146a3448c"
+    },
+    "espeak-ng.wasm": {
+      "bytes": 405750,
+      "sha256": "feee7938105050f0ad4f4b7a9481e3bdfb9e68093e9eddfbb52106eac8770329"
+    },
+    "espeak-ng.data": {
+      "bytes": 936055,
+      "sha256": "bdc46e57ee95066443915a759cae060a16eae029403e7fa44cd19e2c18d8c08c"
+    }
+  }
+}

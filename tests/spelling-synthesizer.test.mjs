@@ -1,3 +1,4 @@
+import {SPELLING_NATIVE_ENGINES as EXTENDED_ENGINES} from '../src/families/speech/extended-engines.js';
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
@@ -30,7 +31,7 @@ test("Spelling Synthesizer is a focused, accessible text-driven voice instrument
   const [html, css, app, audio] = await Promise.all([
     readFile(new URL("spelling-synthesizer.html", root), "utf8"),
     readFile(new URL("src/instruments/spelling-synthesizer/spelling-synthesizer.css", root), "utf8"),
-    readFile(new URL("src/instruments/spelling-synthesizer/spelling-synthesizer-app.js", root), "utf8"),
+    readFile(new URL("src/families/speech/spelling-controller.js", root), "utf8"),
     readFile(new URL("src/instruments/spelling-synthesizer/spelling-synthesizer-audio.js", root), "utf8"),
   ]);
 
@@ -63,8 +64,8 @@ test("Spelling Synthesizer is a focused, accessible text-driven voice instrument
   const ids = [...html.matchAll(/\bid="([^"]+)"/g)].map((match) => match[1]);
   assert.equal(new Set(ids).size, ids.length, "every page id must be unique");
   assert.deepEqual(
-    [...html.matchAll(/\bdata-engine="([^"]+)"/g)].map((match) => match[1]),
-    ["tube", "diphone", "vocoder", "bell", "lpc"],
+    [...html.matchAll(/\bdata-engine="([^"]+)"/g)].map((match) => match[1]).sort(),
+    ["tube", "diphone", "vocoder", "bell", "lpc", "espeak", "espeak-klatt", "flite-slt", "flite-awb", "flite-rms", ...Object.keys(EXTENDED_ENGINES)].sort(),
   );
   assert.match(html, /data-engine="tube" aria-pressed="false"/);
   assert.match(html, /data-engine="diphone" aria-pressed="true"/);
@@ -94,7 +95,7 @@ test("Spelling Synthesizer is a focused, accessible text-driven voice instrument
   assert.match(app, /scheduleTypedCharacter/);
   assert.match(app, /addEventListener\("keyup", handleEditorKeyup\)/);
   assert.match(app, /addEventListener\?\.\("morphazoid:midi-input", handleSpellingMidiInput\)/);
-  assert.match(app, /engine: "diphone"/);
+  assert.match(app, /engine: comparisonPage \? "espeak" : "diphone"/);
   assert.match(app, /slice\(0, 32\)/, "pasted and composed playback stays bounded");
   assert.match(audio, /throatazoid-tract-processor\.js/);
   assert.match(audio, /SPELLING_DIPHONE_ATLAS_URL/);
@@ -102,7 +103,7 @@ test("Spelling Synthesizer is a focused, accessible text-driven voice instrument
 });
 
 test("each selectable engine and personality has stable public metadata", () => {
-  assert.deepEqual(Object.keys(SPELLING_ENGINES), ["tube", "diphone", "vocoder", "bell", "lpc"]);
+  assert.deepEqual(Object.keys(SPELLING_ENGINES).sort(), ["tube", "diphone", "vocoder", "bell", "lpc", "espeak", "espeak-klatt", "flite-slt", "flite-awb", "flite-rms", ...Object.keys(EXTENDED_ENGINES)].sort());
   assert.deepEqual(
     Object.keys(SPELLING_PERSONALITIES),
     ["clear", "warm", "whisper", "reed", "creature"],

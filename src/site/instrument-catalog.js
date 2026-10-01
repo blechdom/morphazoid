@@ -480,9 +480,15 @@ const CATALOG_DETAILS = Object.freeze({
     "Start with every alien system bypassed, turn on audio, then bring the five mutations online one at a time or return instantly to the anchored voice.",
     ["Mic input", "Built-in source", "Computer keys"],
   ),
+  voicesaurus: define(
+    "Voice synthesis comparison",
+    "Plays native speech, singing and voice-chip engines, including Cook’s Singer, STK, Gnuspeech and Sinsy, with expandable parameter knobs and dated methods.",
+    "Choose a dated method, enable Audio and press Play. Edit its native text, notes, score or chip parameters while Loop repeats the sound.",
+    ["Built-in synth", "Computer keys"],
+  ),
   "spelling-synthesizer": define(
     "Voice instrument",
-    "Sounds typed letters through Pinkazoid, KAL samples, Voxazoid, a Bell Labs-inspired vocal tract or Speak & Spell-inspired LPC, with word readback and looping.",
+    "Sounds typed letters through vocal-tract models, formants, LPC, vocoding and statistical voices, with word readback, looping and native parameters.",
     "Turn on Audio, type below the mouth or press Play, then browse voices with presets while Loop repeats your text.",
     ["Built-in synth", "Computer keys"],
   ),

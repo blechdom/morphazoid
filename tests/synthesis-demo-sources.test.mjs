@@ -1,5 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
 import { PROCESSING_INPUT_OPTIONS, getProcessingInput, loadProcessingDemo } from '../src/instruments/synthesis/demo-sources.js';
 
 function audioBuffer(channels, length, sampleRate) {
@@ -101,4 +103,47 @@ test('unsupported inputs and already cancelled requests do not fetch or create a
   const controller = new AbortController(); controller.abort();
   await assert.rejects(loadProcessingDemo(context, 'speech', { signal: controller.signal }), { name: 'AbortError' });
   assert.equal(fetched.length, 0);
+});
+
+
+test('musical samples preserve bar length, original loop boundaries and usable dry levels', async t => {
+  const manifest = JSON.parse(readFileSync(new URL('../assets/synthesis/loops/renders.json', import.meta.url)));
+  const ids = { 'music-bass': 'bass-groove', 'music-keys': 'electric-piano', 'music-plucks': 'plucked-strings', 'music-arp': 'synth-arpeggio' };
+  const { context } = environment(t, async bytes => {
+    const pathname = new TextDecoder().decode(bytes);
+    const wav = readFileSync(decodeURIComponent(pathname));
+    assert.equal(wav.toString('ascii', 0, 4), 'RIFF');
+    assert.equal(wav.toString('ascii', 8, 12), 'WAVE');
+    assert.equal(wav.readUInt16LE(20), 1, 'PCM encoding');
+    assert.equal(wav.readUInt16LE(34), 16);
+    const channels = wav.readUInt16LE(22), rate = wav.readUInt32LE(24);
+    const frames = wav.readUInt32LE(40) / (channels * 2);
+    const result = audioBuffer(channels, frames, rate);
+    for (let i = 0; i < frames; i++) for (let c = 0; c < channels; c++) {
+      result.getChannelData(c)[i] = wav.readInt16LE(44 + (i * channels + c) * 2) / 32768;
+    }
+    const expected = manifest.loops.find(loop => pathname.endsWith('/' + loop.id + '.wav'));
+    assert.ok(expected, 'sample has provenance');
+    assert.equal(createHash('sha256').update(wav).digest('hex'), expected.sha256);
+    return result;
+  });
+  const signatures = new Set();
+  for (const [id, file] of Object.entries(ids)) {
+    const { buffer, credit } = await loadProcessingDemo(context, id);
+    const recipe = manifest.loops.find(loop => loop.id === file);
+    assert.equal(buffer.duration, recipe.beats * 60 / manifest.bpm, 'no speech-style pause changes the rhythm');
+    assert.equal(buffer.numberOfChannels, 2);
+    const { peak, rms } = stats(buffer);
+    assert.ok(peak <= .82001 && peak > .4, `${id} has usable transients`);
+    assert.ok(rms > .07 && rms <= .16001, `${id} has usable average level`);
+    assert.match(credit, /original.*120 BPM.*MIT/);
+    for (let c = 0; c < 2; c++) {
+      const data = buffer.getChannelData(c);
+      assert.ok(Math.abs(data[0] - data.at(-1)) < .01, `${id} has a continuous loop join`);
+      const tail = data.subarray(data.length - Math.round(buffer.sampleRate * .02));
+      if (id === 'music-keys' || id === 'music-plucks') assert.ok(tail.some(value => Math.abs(value) > .0001), `${id} keeps its wrapped tail`);
+    }
+    signatures.add(createHash('sha256').update(Buffer.from(buffer.getChannelData(0).buffer)).digest('hex'));
+  }
+  assert.equal(signatures.size, Object.keys(ids).length, 'musical inputs contain different audio');
 });

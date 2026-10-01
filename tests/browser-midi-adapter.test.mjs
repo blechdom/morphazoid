@@ -210,6 +210,7 @@ test("one acyclic capability registry covers every playable catalog instrument a
     "hyper-syrinx",
     "alien-larynx",
     "spelling-synthesizer",
+    "voicesaurus",
     "lumber",
     "micmic",
     "karplus-strong",

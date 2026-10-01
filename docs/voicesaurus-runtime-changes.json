@@ -1,0 +1,213 @@
+{
+  "schemaVersion": 1,
+  "baseCommit": "eb6d751897ed35600337aac569de24dedf0c4229",
+  "documentation": "docs/voicesaurus.md",
+  "description": "Reverse only the owner-requested native Voicesaurus, shared Spelling controller and browser speech additions before frozen module/site relocation proofs; preserve baseline source hashes.",
+  "changes": [
+    {
+      "file": "src/instruments/spelling-synthesizer/spelling-synthesizer-app.js",
+      "sha256": "823cd6263122cd817992f217f6a3f48aa91560026f863b52a23f55e8ee30edd3",
+      "reason": "Owner-requested native Voicesaurus and separate Spelling speech workflows, browser-local speech ports and explicit Audio lifecycle; preserve independent instrument IDs and baseline relocation evidence.",
+      "regressionTests": [
+        "tests/voicesaurus.test.mjs",
+        "e2e/voicesaurus.spec.mjs",
+        "tests/spelling-synthesizer-app-smoke.test.mjs",
+        "e2e/spelling-live-readback.spec.mjs"
+      ],
+      "replacements": [
+        {
+          "before": "import { REST_MOUTH, spellingMouthPose, blendMouthPose, spellingMouthPaths } from \"./spelling-mouth.js\";\nimport { registerHeaderPresets } from \"../../site/header-presets.js\";\nimport { schema, presets, randomize } from \"./full-presets.js\";\nimport {\n  SPELLING_ENGINES,\n  SPELLING_PERSONALITIES,\n",
+          "after": "import { SPELLING_NATIVE_ENGINES as EXTENDED_ENGINES, NATIVE_DEFAULTS, nativeSnapshot } from './extended-engines.js';\nimport { mountNativeVoiceControls } from './native-controls.js';\nimport { REST_MOUTH, spellingMouthPose, blendMouthPose, spellingMouthPaths } from \"../../instruments/spelling-synthesizer/spelling-mouth.js\";\nimport { registerHeaderPresets } from \"../../site/header-presets.js\";\nimport { schema, presets, randomize } from \"../../instruments/spelling-synthesizer/full-presets.js\";\nimport {\n  SPELLING_ENGINES,\n  SPELLING_PERSONALITIES,\n"
+        },
+        {
+          "before": "  spellingTextEdit,\n  spellingTokens,\n  typingDynamics,\n} from \"./spelling-synthesizer.js\";\nimport { SpellingSynthesizerAudio } from \"./spelling-synthesizer-audio.js\";\nimport {\n  loadSpellingPronunciations,\n  spellingPhoneDefinition,\n  spellingPronunciationTokens,\n} from \"./spelling-pronunciation.js\";\n\nconst $ = (id) => document.getElementById(id);\nconst BOUNDARY_PATTERN = /\\s|[.!?,;:]/;\n",
+          "after": "  spellingTextEdit,\n  spellingTokens,\n  typingDynamics,\n} from \"../../instruments/spelling-synthesizer/spelling-synthesizer.js\";\nimport { SpellingSynthesizerAudio } from \"../../instruments/spelling-synthesizer/spelling-synthesizer-audio.js\";\nimport {\n  loadSpellingPronunciations,\n  spellingPhoneDefinition,\n  spellingPronunciationTokens,\n} from \"../../instruments/spelling-synthesizer/spelling-pronunciation.js\";\n\nconst $ = (id) => document.getElementById(id);\nconst BOUNDARY_PATTERN = /\\s|[.!?,;:]/;\n"
+        },
+        {
+          "before": "  vocoder: Object.freeze({ color: \"#ffcb69\", rgb: \"255, 203, 105\" }),\n  bell: Object.freeze({ color: \"#f7a4dd\", rgb: \"247, 164, 221\" }),\n  lpc: Object.freeze({ color: \"#ff9c62\", rgb: \"255, 156, 98\" }),\n});\n\nconst DEFAULTS = Object.freeze({\n  engine: \"diphone\",\n  personality: \"clear\",\n  level: 0.46,\n  rhythmAmount: 0.72,\n",
+          "after": "  vocoder: Object.freeze({ color: \"#ffcb69\", rgb: \"255, 203, 105\" }),\n  bell: Object.freeze({ color: \"#f7a4dd\", rgb: \"247, 164, 221\" }),\n  lpc: Object.freeze({ color: \"#ff9c62\", rgb: \"255, 156, 98\" }),\n  espeak: Object.freeze({ color: \"#cfb0ff\", rgb: \"207, 176, 255\" }),\n  ...Object.fromEntries(['slt', 'awb', 'rms'].map(voice => [`flite-${voice}`, Object.freeze({ color: '#95ceff', rgb: '149, 206, 255' })])),\n  \"espeak-klatt\": Object.freeze({ color: \"#91e9d6\", rgb: \"145, 233, 214\" }),\n});\n\nconst comparisonPage = document.body?.hasAttribute?.('data-voice-comparison') ?? false;\n\nconst DEFAULTS = Object.freeze({\n  ...NATIVE_DEFAULTS,\n  engine: comparisonPage ? \"espeak\" : \"diphone\",\n  personality: \"clear\",\n  level: 0.46,\n  rhythmAmount: 0.72,\n"
+        },
+        {
+          "before": "}\n\nfunction updateEngineUi() {\n  const palette = ENGINE_COLORS[state.engine];\n  document.body.style.setProperty(\"--spelling-accent\", palette.color);\n  document.body.style.setProperty(\"--spelling-accent-rgb\", palette.rgb);\n  for (const button of $(\"engineButtons\").querySelectorAll(\"[data-engine]\")) {\n    setPressed(button, button.dataset.engine === state.engine);\n    button.disabled = state.switching;\n  }\n\n}\n\nfunction personalityDisplayName(name = state.personality) {\n  return state.engine === \"diphone\" ? `${SAMPLE_TONES[name]} tone` : SPELLING_PERSONALITIES[name].name;\n}\n\nfunction updatePersonalityUi() {\n  const sample = state.engine === \"diphone\";\n  $(\"personalityLabel\").textContent = sample ? \"Sample tone\" : \"Personality\";\n  $(\"personalityNote\").textContent = sample\n    ? \"Tone only; KAL keeps its recorded voice.\"\n    : \"Pitch, breath and voice character.\";\n  for (const button of $(\"personalityButtons\").querySelectorAll(\"[data-personality]\")) {\n",
+          "after": "}\n\nfunction updateEngineUi() {\n  const palette = ENGINE_COLORS[state.engine] ?? {color:SPELLING_ENGINES[state.engine].color,rgb:\"207, 176, 255\"};\n  document.body.style.setProperty(\"--spelling-accent\", palette.color);\n  document.body.style.setProperty(\"--spelling-accent-rgb\", palette.rgb);\n  for (const button of $(\"engineButtons\").querySelectorAll(\"[data-engine]\")) {\n    setPressed(button, button.dataset.engine === state.engine);\n    button.disabled = state.switching;\n  }\n  nativeControls.update(state);\n}\n\nfunction personalityDisplayName(name = state.personality) {\n  return (state.engine === \"diphone\" || state.engine.startsWith(\"espeak\") || state.engine.startsWith(\"flite-\") || Boolean(EXTENDED_ENGINES[state.engine])) ? `${SAMPLE_TONES[name]} tone` : SPELLING_PERSONALITIES[name].name;\n}\n\nfunction updatePersonalityUi() {\n  const espeak = state.engine.startsWith(\"espeak\") || state.engine.startsWith(\"flite-\") || Boolean(EXTENDED_ENGINES[state.engine]);\n  const sample = state.engine === \"diphone\" || espeak;\n  $(\"personalityLabel\").textContent = espeak ? \"Synth tone\" : sample ? \"Sample tone\" : \"Personality\";\n  $(\"personalityNote\").textContent = espeak ? \"Tone filter on locally synthesized speech.\" : sample\n    ? \"Tone only; KAL keeps its recorded voice.\"\n    : \"Pitch, breath and voice character.\";\n  for (const button of $(\"personalityButtons\").querySelectorAll(\"[data-personality]\")) {\n"
+        },
+        {
+          "before": "    const profile = SPELLING_PERSONALITIES[key];\n    setPressed(button, key === state.personality);\n    button.querySelector(\"b\").textContent = sample ? SAMPLE_TONES[key] : profile.name;\n    button.querySelector(\"small\").textContent = sample ? \"sample tone\" : profile.note;\n    button.title = sample ? `${SAMPLE_TONES[key]} tone filter; the recorded KAL voice is unchanged` : profile.note;\n  }\n}\n\nfunction updateAudioUi() {\n  setPressed($(\"audioButton\"), state.audioOn);\n  $(\"audioButton\").disabled = state.starting;\n  $(\"audioState\").textContent = state.starting\n    ? \"starting\"\n    : state.audioOn\n",
+          "after": "    const profile = SPELLING_PERSONALITIES[key];\n    setPressed(button, key === state.personality);\n    button.querySelector(\"b\").textContent = sample ? SAMPLE_TONES[key] : profile.name;\n    button.querySelector(\"small\").textContent = espeak ? \"synth tone\" : sample ? \"sample tone\" : profile.note;\n    button.title = espeak ? `${SAMPLE_TONES[key]} tone filter on the synthesized voice` : sample ? `${SAMPLE_TONES[key]} tone filter; the recorded KAL voice is unchanged` : profile.note;\n  }\n}\n\nfunction updateAudioUi() {\n  setPressed($(\"audioButton\"), state.audioOn);\n  // Cold WASM/data loading remains cancellable from the same Audio control.\n  $(\"audioButton\").disabled = false;\n  $(\"audioState\").textContent = state.starting\n    ? \"starting\"\n    : state.audioOn\n"
+        },
+        {
+          "before": "  updatePersonalityUi();\n  updateAudioUi();\n  updateControlUi();\n  updateReadbackUi();\n}\n\n",
+          "after": "  updatePersonalityUi();\n  updateAudioUi();\n  updateControlUi();\n  nativeControls.update(state);\n  updateReadbackUi();\n}\n\n"
+        },
+        {
+          "before": "  updateAudioUi();\n  const operation = (async () => {\n    try {\n      const actualEngine = await audio.enable();\n      if (generation !== audioOperationGeneration) {\n        await audio.disable();\n",
+          "after": "  updateAudioUi();\n  const operation = (async () => {\n    try {\n      await audio.selectEngine(state.engine, Object.fromEntries(Object.keys(NATIVE_DEFAULTS).map(key=>[key,state[key]])));\n      const actualEngine = await audio.enable();\n      if (generation !== audioOperationGeneration) {\n        await audio.disable();\n"
+        },
+        {
+          "before": "}\n\nasync function toggleAudio() {\n  if (state.audioOn) await stopAudio();\n  else {\n    clearQueuedInsertions();\n    clearAudioPlaybackQueue();\n",
+          "after": "}\n\nasync function toggleAudio() {\n  if (state.audioOn || state.starting) await stopAudio();\n  else {\n    clearQueuedInsertions();\n    clearAudioPlaybackQueue();\n"
+        },
+        {
+          "before": "}\n\nasync function selectEngine(name, {\n  preview = true, announceSelection = true, preserveReadback = true,\n} = {}) {\n  if (!SPELLING_ENGINES[name] || state.switching || name === state.engine) return;\n  const wasReading = readbackHasPendingPlayback();\n  const readbackGeneration = preserveReadback ? holdReadbackForVoiceChange() : null;\n  releaseHeldVowel({ releaseAudio: false, updateStage: false });\n",
+          "after": "}\n\nasync function selectEngine(name, {\n  preview = true, announceSelection = true, preserveReadback = true, refresh = false, parameters = null, throwOnError = false,\n} = {}) {\n  if (!SPELLING_ENGINES[name] || state.switching || (name === state.engine && !refresh)) return;\n  parameters ??= name === state.engine ? state : nativeSnapshot(name);\n  const requestedParameters = Object.fromEntries(Object.keys(NATIVE_DEFAULTS).map(key=>[key,parameters[key]]));\n  const wasReading = readbackHasPendingPlayback();\n  const readbackGeneration = preserveReadback ? holdReadbackForVoiceChange() : null;\n  releaseHeldVowel({ releaseAudio: false, updateStage: false });\n"
+        },
+        {
+          "before": "  updateEngineUi();\n  const operation = (async () => {\n    if (startPromise) await startPromise;\n    return audio.selectEngine(name);\n  })();\n  engineSwitchPromise = operation;\n  let actual = name;\n",
+          "after": "  updateEngineUi();\n  const operation = (async () => {\n    if (startPromise) await startPromise;\n    return audio.selectEngine(name, requestedParameters);\n  })();\n  engineSwitchPromise = operation;\n  let actual = name;\n"
+        },
+        {
+          "before": "      return;\n    }\n    state.engine = actual;\n    selected = true;\n    if (announceSelection) announce(`${SPELLING_ENGINES[actual].name} selected.`);\n  } catch (error) {\n    state.engine = audio.activeEngine;\n    state.audioOn = audio.running;\n    if (error?.name !== \"AbortError\") {\n      showError(error instanceof Error ? error.message : \"The engine could not start.\");\n    }\n  } finally {\n    if (engineSwitchPromise === operation) engineSwitchPromise = null;\n    state.switching = false;\n",
+          "after": "      return;\n    }\n    state.engine = actual;\n    Object.assign(state, requestedParameters);\n    selected = true;\n    if (announceSelection) announce(`${SPELLING_ENGINES[actual].name} selected.`);\n  } catch (error) {\n    state.engine = audio.activeEngine;\n    state.audioOn = audio.running;\n    if (error?.name !== \"AbortError\") {\n      Object.assign(state,audio.nativeParameters);\n      showError(error instanceof Error ? error.message : \"The engine could not start.\");\n    }\n    if (throwOnError) throw error;\n  } finally {\n    if (engineSwitchPromise === operation) engineSwitchPromise = null;\n    state.switching = false;\n"
+        },
+        {
+          "before": "\nglobalThis.addEventListener?.(\"blur\", () => releaseHeldVowel());\n\npaintMouth(REST_MOUTH);\nupdateUi();\n\nconst presetController=registerHeaderPresets({id:\"spelling-synthesizer\",presets,randomize,capture:()=>schema.capture(state),apply:async snapshot=>{\n const next=schema.validate(snapshot);\n if(state.switching || state.starting) throw new Error(\"Wait for the current voice to finish loading\");\n const generation = next.engine !== state.engine ? holdReadbackForVoiceChange() : null;\n try {\n  if(next.engine!==state.engine) await selectEngine(next.engine,{preview:false,announceSelection:false,preserveReadback:false});\n  if(state.engine!==next.engine) throw new Error(\"Requested voice is unavailable; previous scene retained\");\n  Object.assign(state,next); updateUi();\n } finally { continueReadbackAfterVoiceChange(generation); }\n",
+          "after": "\nglobalThis.addEventListener?.(\"blur\", () => releaseHeldVowel());\n\nlet nativeControlTimer = 0;\nconst nativeControls = mountNativeVoiceControls($(\"nativeVoiceControls\"), (key,value) => {\n  state[key] = value;\n  clearTimeout(nativeControlTimer);\n  const refresh = () => {\n    if (!pageActive) return;\n    if (state.switching || state.starting) { nativeControlTimer = setTimeout(refresh,180); return; }\n    void selectEngine(state.engine,{refresh:true,preview:false,announceSelection:false});\n  };\n  nativeControlTimer = setTimeout(refresh,280);\n});\nglobalThis.addEventListener?.(\"pagehide\", event => { clearTimeout(nativeControlTimer); if (!event.persisted) nativeControls.destroy(); });\npaintMouth(REST_MOUTH);\nupdateUi();\n\nconst presetController=registerHeaderPresets({id:comparisonPage?\"voicesaurus\":\"spelling-synthesizer\",presets,randomize,capture:()=>schema.capture(state),apply:async snapshot=>{\n const next=schema.validate(snapshot);\n if(state.switching || state.starting) throw new Error(\"Wait for the current voice to finish loading\");\n clearTimeout(nativeControlTimer);\n const nativeChanged = Object.keys(NATIVE_DEFAULTS).some(key=>next[key]!==state[key]);\n const voiceChanged = next.engine !== state.engine || nativeChanged;\n const generation = voiceChanged ? holdReadbackForVoiceChange() : null;\n try {\n  if(voiceChanged) await selectEngine(next.engine,{preview:false,announceSelection:false,preserveReadback:false,refresh:nativeChanged,parameters:next,throwOnError:true});\n  if(state.engine!==next.engine) throw new Error(\"Requested voice is unavailable; previous scene retained\");\n  Object.assign(state,next); updateUi();\n } finally { continueReadbackAfterVoiceChange(generation); }\n"
+        }
+      ],
+      "implementation": "src/families/speech/spelling-controller.js",
+      "wrapper": "import \"../../families/speech/spelling-controller.js\";\n"
+    },
+    {
+      "file": "src/instruments/spelling-synthesizer/spelling-synthesizer-audio.js",
+      "sha256": "1924da64ee7aeb2196d04dc0595697b50a397f77ade1dcc1d2c688cf28b4e60c",
+      "reason": "Owner-requested native Voicesaurus and separate Spelling speech workflows, browser-local speech ports and explicit Audio lifecycle; preserve independent instrument IDs and baseline relocation evidence.",
+      "regressionTests": [
+        "tests/voicesaurus.test.mjs",
+        "e2e/voicesaurus.spec.mjs",
+        "tests/spelling-espeak.test.mjs",
+        "tests/spelling-flite.test.mjs",
+        "tests/spelling-synthesizer-audio.test.mjs"
+      ],
+      "replacements": [
+        {
+          "before": "import { RetroSpellingEngine } from \"./spelling-retro-audio.js\";\nimport { unlockAudioContext } from \"../../audio.js?v=pink-trombonazoid-20260821-6\";\nimport { connectSpellingOutput, spellingOutputGain } from \"./spelling-output.js\";\n",
+          "after": "import { SPELLING_NATIVE_ENGINES as EXTENDED_ENGINES, NATIVE_DEFAULTS, nativeValues, nativeSnapshot } from '../../families/speech/extended-engines.js';\nimport { loadExtendedAtlas } from '../../families/speech/extended-loader.js';\nimport { loadFliteAtlas } from \"../../families/speech/flite-loader.js\";\nimport { loadEspeakAtlas } from \"./spelling-espeak-loader.js\";\nimport { RetroSpellingEngine } from \"./spelling-retro-audio.js\";\nimport { unlockAudioContext } from \"../../audio.js?v=pink-trombonazoid-20260821-6\";\nimport { connectSpellingOutput, spellingOutputGain } from \"./spelling-output.js\";\n"
+        },
+        {
+          "before": "}\n\nclass DiphoneSpellingEngine {\n  constructor({ runtime = globalThis, level = 0.46, vocoder = false, balancedOutput = false } = {}) {\n    this.runtime = runtime;\n    this.balancedOutput = balancedOutput;\n    this.personality = \"clear\";\n    this.level = clamp(level, 0, 0.82);\n    this.vocoder = Boolean(vocoder);\n    this.context = null;\n    this.buffer = null;\n    this.sourceBus = null;\n",
+          "after": "}\n\nclass DiphoneSpellingEngine {\n  constructor({ runtime = globalThis, level = 0.46, vocoder = false, balancedOutput = false, atlasLoader = null, engineId = vocoder ? \"vocoder\" : \"diphone\" } = {}) {\n    this.runtime = runtime;\n    this.balancedOutput = balancedOutput;\n    this.personality = \"clear\";\n    this.level = clamp(level, 0, 0.82);\n    this.vocoder = Boolean(vocoder);\n    this.engineId = engineId;\n    this.atlasLoader = atlasLoader;\n    this.clips = SPELLING_DIPHONE_CLIPS;\n    this.context = null;\n    this.buffer = null;\n    this.sourceBus = null;\n"
+        },
+        {
+          "before": "    this.enabled = true;\n    smooth(\n      this.master.gain,\n      spellingOutputGain(this.vocoder ? \"vocoder\" : \"diphone\", this.level, this.balancedOutput, this.personality),\n      audio.currentTime,\n      0.012,\n    );\n    return this;\n  }\n\n  async build(generation = this.lifecycleGeneration) {\n",
+          "after": "    this.enabled = true;\n    smooth(\n      this.master.gain,\n      spellingOutputGain(this.engineId, this.level, this.balancedOutput, this.personality),\n      audio.currentTime,\n      0.012,\n    );\n    return this;\n  }\n\n  async refreshAtlas() {\n    if (!this.context || !this.buffer || !this.atlasLoader) return;\n    const context = this.context, generation = this.lifecycleGeneration;\n    const controller = new AbortController();\n    this.buildAbortController = controller;\n    try {\n      const atlas = await this.atlasLoader({audio:context, runtime:this.runtime, signal:controller.signal});\n      if (generation !== this.lifecycleGeneration || context !== this.context) throw audioStartCancelled();\n      // Commit only complete, validated output. A failed regeneration retains the\n      // prior playable buffer, output chain and consent state for preset rollback.\n      this.buffer = atlas.buffer;\n      this.clips = atlas.clips;\n    } finally {\n      if (this.buildAbortController === controller) this.buildAbortController = null;\n    }\n  }\n\n  async build(generation = this.lifecycleGeneration) {\n"
+        },
+        {
+          "before": "      if (this.vocoder && !workletPromise) {\n        throw new Error(\"The vocoder engine needs AudioWorklet support.\");\n      }\n      const responsePromise = fetchAudio.call(\n        this.runtime,\n        SPELLING_DIPHONE_ATLAS_URL,\n        abortController ? { signal: abortController.signal } : undefined,\n      );\n      const [response] = await Promise.all([\n        responsePromise,\n        workletPromise,\n        resumePromise,\n      ]);\n      if (!response || response.ok === false) {\n        throw new Error(\"The diphone voice sample could not be loaded.\");\n      }\n      const bytes = await response.arrayBuffer();\n      const buffer = await decodeAudioData(audio, bytes);\n      if (\n        generation !== this.lifecycleGeneration\n        || this.context !== audio\n",
+          "after": "      if (this.vocoder && !workletPromise) {\n        throw new Error(\"The vocoder engine needs AudioWorklet support.\");\n      }\n      const atlasPromise = this.atlasLoader\n        ? this.atlasLoader({ audio, runtime: this.runtime, signal: abortController?.signal })\n        : (async () => {\n          const response = await fetchAudio.call(this.runtime, SPELLING_DIPHONE_ATLAS_URL,\n            abortController ? { signal: abortController.signal } : undefined);\n          if (!response || response.ok === false) throw new Error(\"The diphone voice sample could not be loaded.\");\n          const buffer = await decodeAudioData(audio, await response.arrayBuffer());\n          return { buffer, clips: SPELLING_DIPHONE_CLIPS };\n        })();\n      const [{ buffer, clips }] = await Promise.all([atlasPromise, workletPromise, resumePromise]);\n      if (\n        generation !== this.lifecycleGeneration\n        || this.context !== audio\n"
+        },
+        {
+          "before": "      const frameDuration = finite(buffer?.length)\n        / Math.max(1, finite(buffer?.sampleRate, 1));\n      const decodedDuration = finite(buffer?.duration, frameDuration);\n      const finalClipEnd = Math.max(...Object.values(SPELLING_DIPHONE_CLIPS)\n        .map((clip) => clip.offset + clip.duration));\n      if (decodedDuration > 0 && finalClipEnd > decodedDuration + 0.002) {\n        throw new Error(\"The diphone voice sample does not match its atlas.\");\n",
+          "after": "      const frameDuration = finite(buffer?.length)\n        / Math.max(1, finite(buffer?.sampleRate, 1));\n      const decodedDuration = finite(buffer?.duration, frameDuration);\n      const finalClipEnd = Math.max(...Object.values(clips)\n        .map((clip) => clip.offset + clip.duration));\n      if (decodedDuration > 0 && finalClipEnd > decodedDuration + 0.002) {\n        throw new Error(\"The diphone voice sample does not match its atlas.\");\n"
+        },
+        {
+          "before": "      this.releaseAudioOutput = output.release;\n\n      this.buffer = buffer;\n      this.sourceBus = sourceBus;\n      this.tone = tone;\n      this.vocoderNode = vocoderNode;\n",
+          "after": "      this.releaseAudioOutput = output.release;\n\n      this.buffer = buffer;\n      this.clips = clips;\n      this.sourceBus = sourceBus;\n      this.tone = tone;\n      this.vocoderNode = vocoderNode;\n"
+        },
+        {
+          "before": "    if (this.running) {\n      smooth(\n        this.master.gain,\n        spellingOutputGain(this.vocoder ? \"vocoder\" : \"diphone\", this.level, this.balancedOutput, this.personality),\n        this.context.currentTime,\n        0.012,\n      );\n",
+          "after": "    if (this.running) {\n      smooth(\n        this.master.gain,\n        spellingOutputGain(this.engineId, this.level, this.balancedOutput, this.personality),\n        this.context.currentTime,\n        0.012,\n      );\n"
+        },
+        {
+          "before": "  playbackTiming(event) {\n    const key = spellingDiphoneClipKey(event);\n    if (!key) return null;\n    const clip = SPELLING_DIPHONE_CLIPS[key];\n    if (!clip) return null;\n    const dynamics = event?.dynamics ?? {};\n    const sustainedVowel = Boolean(\n",
+          "after": "  playbackTiming(event) {\n    const key = spellingDiphoneClipKey(event);\n    if (!key) return null;\n    const clip = this.clips[key];\n    if (!clip) return null;\n    const dynamics = event?.dynamics ?? {};\n    const sustainedVowel = Boolean(\n"
+        },
+        {
+          "before": "    this.level = clamp(level, 0, 0.82);\n    this.onFallback = typeof onFallback === \"function\" ? onFallback : null;\n    this.enabled = false;\n    this.backends = {\n      tube: new TubeSpellingEngine({ runtime, level: this.level, balancedOutput }),\n      bell: new RetroSpellingEngine({ runtime, level: this.level, mode: \"bell\", balancedOutput }),\n      lpc: new RetroSpellingEngine({ runtime, level: this.level, mode: \"lpc\", balancedOutput }),\n      diphone: new DiphoneSpellingEngine({ runtime, level: this.level, balancedOutput }),\n      vocoder: new DiphoneSpellingEngine({\n        runtime,\n        level: this.level,\n",
+          "after": "    this.level = clamp(level, 0, 0.82);\n    this.onFallback = typeof onFallback === \"function\" ? onFallback : null;\n    this.enabled = false;\n    this.nativeParameters = nativeSnapshot(this.engineName);\n    this.backendParameters = {};\n    this.backends = {\n      ...Object.fromEntries(Object.keys(EXTENDED_ENGINES).map(engineId => [engineId, new DiphoneSpellingEngine({runtime, level:this.level, balancedOutput, engineId, atlasLoader:options => loadExtendedAtlas({...options, engine:engineId, parameters:this.backendParameters[engineId] ?? this.nativeParameters})})])),\n      tube: new TubeSpellingEngine({ runtime, level: this.level, balancedOutput }),\n      bell: new RetroSpellingEngine({ runtime, level: this.level, mode: \"bell\", balancedOutput }),\n      lpc: new RetroSpellingEngine({ runtime, level: this.level, mode: \"lpc\", balancedOutput }),\n      diphone: new DiphoneSpellingEngine({ runtime, level: this.level, balancedOutput }),\n      espeak: new DiphoneSpellingEngine({ runtime, level: this.level, balancedOutput, engineId: \"espeak\", atlasLoader: loadEspeakAtlas }),\n      \"espeak-klatt\": new DiphoneSpellingEngine({ runtime, level: this.level, balancedOutput,\n        engineId: \"espeak-klatt\", atlasLoader: options => loadEspeakAtlas({ ...options, voiceName: \"en-us+klatt\" }) }),\n      ...Object.fromEntries(['slt', 'awb', 'rms'].map(voice => [`flite-${voice}`,\n        new DiphoneSpellingEngine({ runtime, level: this.level, balancedOutput,\n          engineId: `flite-${voice}`, atlasLoader: options => loadFliteAtlas({ ...options, voice }) })])),\n      vocoder: new DiphoneSpellingEngine({\n        runtime,\n        level: this.level,\n"
+        },
+        {
+          "before": "    return this.engineName;\n  }\n\n  async selectEngine(name) {\n    const next = spellingEngine(name);\n    if (next === this.engineName) return this.engineName;\n    const previous = this.engineName;\n    await this.backends[previous].disable();\n    this.engineName = next;\n",
+          "after": "    return this.engineName;\n  }\n\n  async selectEngine(name, parameters = null) {\n    const next = spellingEngine(name);\n    parameters ??= next === this.engineName ? this.nativeParameters : nativeSnapshot(next);\n    const changed = EXTENDED_ENGINES[next] && JSON.stringify(nativeValues(next, parameters)) !== JSON.stringify(nativeValues(next, this.backendParameters[next]));\n    const priorParameters = this.backendParameters[next];\n    this.backendParameters[next] = {...parameters};\n    try {\n      if (changed) {\n        if (this.enabled && this.backends[next].buffer) await this.backends[next].refreshAtlas();\n        else await this.backends[next].close();\n      }\n    } catch (error) { this.backendParameters[next] = priorParameters; throw error; }\n    this.nativeParameters = {...parameters};\n    if (next === this.engineName) {\n      if (changed && this.enabled) await this.backends[next].enable();\n      return this.engineName;\n    }\n    const previous = this.engineName;\n    await this.backends[previous].disable();\n    this.engineName = next;\n"
+        }
+      ]
+    },
+    {
+      "file": "src/instruments/spelling-synthesizer/spelling-synthesizer.js",
+      "sha256": "2807adef504b76d565715e3b923f2fdc642aad3db01b3754f3c070df126d32c5",
+      "reason": "Owner-requested native Voicesaurus and separate Spelling speech workflows, browser-local speech ports and explicit Audio lifecycle; preserve independent instrument IDs and baseline relocation evidence.",
+      "regressionTests": [
+        "tests/voicesaurus.test.mjs",
+        "e2e/voicesaurus.spec.mjs",
+        "tests/spelling-synthesizer.test.mjs"
+      ],
+      "replacements": [
+        {
+          "before": "import {\n  ARTICULATIONS,\n  CONSONANTS,\n",
+          "after": "import { SPELLING_NATIVE_ENGINES as EXTENDED_ENGINES } from '../../families/speech/extended-engines.js';\nimport {\n  ARTICULATIONS,\n  CONSONANTS,\n"
+        },
+        {
+          "before": "});\n\nexport const SPELLING_ENGINES = Object.freeze({\n  tube: Object.freeze({\n    name: \"Pinkazoid tract\",\n    shortName: \"Pinkazoid\",\n",
+          "after": "});\n\nexport const SPELLING_ENGINES = Object.freeze({\n  ...Object.fromEntries(Object.entries(EXTENDED_ENGINES).map(([key, voice]) => [key, Object.freeze({...voice, lineage:voice.family, description:voice.detail})])),\n  tube: Object.freeze({\n    name: \"Pinkazoid tract\",\n    shortName: \"Pinkazoid\",\n"
+        },
+        {
+          "before": "    description: \"Real LPC speech resynthesis with quantized frames and pulse/noise excitation, inspired by Speak & Spell; not a TI chip or ROM emulation.\",\n    color: \"#ff9c62\",\n  }),\n});\n\nexport const SPELLING_PERSONALITIES = Object.freeze({\n",
+          "after": "    description: \"Real LPC speech resynthesis with quantized frames and pulse/noise excitation, inspired by Speak & Spell; not a TI chip or ROM emulation.\",\n    color: \"#ff9c62\",\n  }),\n  espeak: Object.freeze({\n    name: \"eSpeak NG formants\", shortName: \"eSpeak\",\n    lineage: \"eSpeak NG · local English formant synthesis\",\n    description: \"The eSpeak NG engine generates English phone sounds on this device. Typing and word readback use those synthesized sounds, with held vowels and tone controls.\",\n    color: \"#cfb0ff\",\n  }),\n  \"espeak-klatt\": Object.freeze({\n    name: \"eSpeak NG Klatt\", shortName: \"Klatt\",\n    lineage: \"eSpeak NG · Klatt formant synthesizer\",\n    description: \"eSpeak NG's Klatt synthesizer generates the English phones locally. This is the eSpeak implementation, not DECtalk or its voices.\",\n    color: \"#91e9d6\",\n  }),\n  ...Object.fromEntries(['slt', 'awb', 'rms'].map(voice => [`flite-${voice}`, Object.freeze({\n    name: `Flite ${voice.toUpperCase()}`, shortName: `Flite ${voice.toUpperCase()}`,\n    lineage: 'Flite · Clustergen statistical parametric synthesis',\n    description: 'A local WebAssembly Flite voice predicts acoustic parameters and resynthesizes them through an MLSA vocoder.',\n    color: '#95ceff',\n  })])),\n});\n\nexport const SPELLING_PERSONALITIES = Object.freeze({\n"
+        }
+      ]
+    },
+    {
+      "file": "src/site/instrument-catalog.js",
+      "sha256": "6d99e4e7509fb88365b1caf848d91e62e4c842126cc7524aaaa2cac9ea20e5e2",
+      "reason": "Owner-requested native Voicesaurus and separate Spelling speech workflows, browser-local speech ports and explicit Audio lifecycle; preserve independent instrument IDs and baseline relocation evidence.",
+      "regressionTests": [
+        "tests/voicesaurus.test.mjs",
+        "e2e/voicesaurus.spec.mjs"
+      ],
+      "replacements": [
+        {
+          "before": "    \"Start with every alien system bypassed, turn on audio, then bring the five mutations online one at a time or return instantly to the anchored voice.\",\n    [\"Mic input\", \"Built-in source\", \"Computer keys\"],\n  ),\n  \"spelling-synthesizer\": define(\n    \"Voice instrument\",\n    \"Sounds typed letters through Pinkazoid, KAL samples, Voxazoid, a Bell Labs-inspired vocal tract or Speak & Spell-inspired LPC, with word readback and looping.\",\n    \"Turn on Audio, type below the mouth or press Play, then browse voices with presets while Loop repeats your text.\",\n    [\"Built-in synth\", \"Computer keys\"],\n  ),\n",
+          "after": "    \"Start with every alien system bypassed, turn on audio, then bring the five mutations online one at a time or return instantly to the anchored voice.\",\n    [\"Mic input\", \"Built-in source\", \"Computer keys\"],\n  ),\n  voicesaurus: define(\n    \"Voice synthesis comparison\",\n    \"Plays native speech, singing and voice-chip engines, including Cook’s Singer, STK, Gnuspeech and Sinsy, with expandable parameter knobs and dated methods.\",\n    \"Choose a dated method, enable Audio and press Play. Edit its native text, notes, score or chip parameters while Loop repeats the sound.\",\n    [\"Built-in synth\", \"Computer keys\"],\n  ),\n  \"spelling-synthesizer\": define(\n    \"Voice instrument\",\n    \"Sounds typed letters through vocal-tract models, formants, LPC, vocoding and statistical voices, with word readback, looping and native parameters.\",\n    \"Turn on Audio, type below the mouth or press Play, then browse voices with presets while Loop repeats your text.\",\n    [\"Built-in synth\", \"Computer keys\"],\n  ),\n"
+        }
+      ]
+    },
+    {
+      "file": "src/site/instrument-midi-capabilities.js",
+      "sha256": "037a3d61c4d082a8007cda3fae0ea311c4bf296ff34af6d1d4138b33b6ce7c3d",
+      "reason": "Owner-requested native Voicesaurus and separate Spelling speech workflows, browser-local speech ports and explicit Audio lifecycle; preserve independent instrument IDs and baseline relocation evidence.",
+      "regressionTests": [
+        "tests/voicesaurus.test.mjs",
+        "e2e/voicesaurus.spec.mjs"
+      ],
+      "replacements": [
+        {
+          "before": "    \"hyper-syrinx\",\n    \"alien-larynx\",\n    \"spelling-synthesizer\",\n    \"shepard-risset\",\n    \"l-system\",\n    \"julia\",\n",
+          "after": "    \"hyper-syrinx\",\n    \"alien-larynx\",\n    \"spelling-synthesizer\",\n    \"voicesaurus\",\n    \"shepard-risset\",\n    \"l-system\",\n    \"julia\",\n"
+        },
+        {
+          "before": "  \"hyper-syrinx\",\n  \"alien-larynx\",\n  \"spelling-synthesizer\",\n  \"lumber\",\n  \"micmic\",\n  \"karplus-strong\",\n",
+          "after": "  \"hyper-syrinx\",\n  \"alien-larynx\",\n  \"spelling-synthesizer\",\n  \"voicesaurus\",\n  \"lumber\",\n  \"micmic\",\n  \"karplus-strong\",\n"
+        }
+      ]
+    },
+    {
+      "file": "src/site/instrument-registry.js",
+      "sha256": "f29c500850ab80951cb0c731b8565876fd0540ef3a52810dbb0d92d85410278b",
+      "reason": "Owner-requested native Voicesaurus and separate Spelling speech workflows, browser-local speech ports and explicit Audio lifecycle; preserve independent instrument IDs and baseline relocation evidence.",
+      "regressionTests": [
+        "tests/voicesaurus.test.mjs",
+        "e2e/voicesaurus.spec.mjs"
+      ],
+      "replacements": [
+        {
+          "before": "    { id: \"crickets\", label: \"Crickets\", href: \"crickets.html\", catalogue: false, browse: true, entryType: \"lab\", imageHref: \"assets/instruments/lab-placeholder.webp\" },\n  ]),\n  freezeGroup(\"voice\", \"Voice\", [\n    { id: \"spelling-synthesizer\", label: \"Spelling Synthesizer\", href: \"spelling-synthesizer.html\" },\n    { id: \"vocalzoid\", label: \"Vocalzoid\", href: \"vocalzoid.html\" },\n  ]),\n",
+          "after": "    { id: \"crickets\", label: \"Crickets\", href: \"crickets.html\", catalogue: false, browse: true, entryType: \"lab\", imageHref: \"assets/instruments/lab-placeholder.webp\" },\n  ]),\n  freezeGroup(\"voice\", \"Voice\", [\n    { id: \"voicesaurus\", label: \"Voicesaurus\", href: \"voicesaurus.html\" },\n    { id: \"spelling-synthesizer\", label: \"Spelling Synthesizer\", href: \"spelling-synthesizer.html\" },\n    { id: \"vocalzoid\", label: \"Vocalzoid\", href: \"vocalzoid.html\" },\n  ]),\n"
+        }
+      ]
+    },
+    {
+      "file": "src/site/catalogue-taxonomy.js",
+      "sha256": "fc6afd1c31d90e45e8567b37181277b3ec1fff3cd4d593fe9454ec7ed9bea930",
+      "reason": "Owner-requested native Voicesaurus and separate Spelling speech workflows, browser-local speech ports and explicit Audio lifecycle; preserve independent instrument IDs and baseline relocation evidence.",
+      "regressionTests": [
+        "tests/voicesaurus.test.mjs",
+        "e2e/voicesaurus.spec.mjs"
+      ],
+      "replacements": [
+        {
+          "before": "  \"digestazoid\": [],\n  \"breath-atlas\": [],\n  \"spelling-synthesizer\": [],\n  \"vocalzoid\": [\n    \"synthesizer\"\n  ],\n",
+          "after": "  \"digestazoid\": [],\n  \"breath-atlas\": [],\n  \"spelling-synthesizer\": [],\n  voicesaurus: [\"synthesizer\"],\n  \"vocalzoid\": [\n    \"synthesizer\"\n  ],\n"
+        }
+      ]
+    }
+  ]
+}

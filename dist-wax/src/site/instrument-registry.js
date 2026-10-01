@@ -111,6 +111,7 @@ export const TOOL_GROUPS = Object.freeze([
     { id: "crickets", label: "Crickets", href: "crickets.html", catalogue: false, browse: true, entryType: "lab", imageHref: "assets/instruments/lab-placeholder.webp" },
   ]),
   freezeGroup("voice", "Voice", [
+    { id: "voicesaurus", label: "Voicesaurus", href: "voicesaurus.html" },
     { id: "spelling-synthesizer", label: "Spelling Synthesizer", href: "spelling-synthesizer.html" },
     { id: "vocalzoid", label: "Vocalzoid", href: "vocalzoid.html" },
   ]),

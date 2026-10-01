@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 import { sampleAudioEnvelope, waitForStableAudioState } from './helpers/audio-probe.mjs';
 
 async function instrumentAudio(page) {
-  await page.route('**/spelling-synthesizer-app.js', async route => {
+  await page.route('**/spelling-controller.js', async route => {
     const response=await route.fetch();
     await route.fulfill({response,body:(await response.text()).replace('const audio = new SpellingSynthesizerAudio', 'const audio = window.__spellingTestAudio = new SpellingSynthesizerAudio')});
   });
@@ -102,7 +102,7 @@ test('typed phones visibly open, round and close the wireframe without arming Au
   await expect(page.locator('#audioButton')).toHaveAttribute('aria-pressed','false');
 });
 
-for (const engine of ['tube','diphone','vocoder','bell','lpc']) {
+for (const engine of ['tube','diphone','vocoder','bell','lpc','espeak','espeak-klatt','flite-slt','flite-awb','flite-rms']) {
   test(`${engine}: mouth follows each sounded readback phone and stops with Audio`, async ({page},testInfo) => {
     const errors=[];page.on('pageerror',e=>errors.push(e.message));
     await instrumentAudio(page);
@@ -179,7 +179,7 @@ test('Speak & Spell-ish recalls a complete scene without replacing text or maste
 });
 
 test('mouth animation cancels on pagehide and does not restart when restored', async ({page}) => {
-  await page.route('**/spelling-synthesizer-app.js', async route => {
+  await page.route('**/spelling-controller.js', async route => {
     const response=await route.fetch();
     await route.fulfill({response,body:(await response.text())+'\nwindow.__mouthFrameForTest=()=>mouthFrame;\n'});
   });
@@ -216,7 +216,7 @@ async function observeReadback(page, engine = 'diphone') {
   });
 }
 
-for (const engine of ['tube', 'diphone', 'vocoder', 'bell', 'lpc']) {
+for (const engine of ['tube', 'diphone', 'vocoder', 'bell', 'lpc', 'espeak', 'espeak-klatt', 'flite-slt', 'flite-awb', 'flite-rms']) {
   test(`${engine}: Loop repeats complete readback and Loop off finishes the current pass`, async ({page}) => {
     await observeReadback(page, engine);
     const loop = page.locator('#readbackLoop'), play = page.locator('#readbackButton');

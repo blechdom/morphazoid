@@ -1,0 +1,23 @@
+{
+  "archives": {
+    "sinsy-0.92.tar.gz": "0496d06fbb96e30b22a2ddb29714a68938c53d0bfb70f8622a93a6e233dcfada",
+    "hts_voice_nitech_jp_song070_f001-0.90.tar.gz": "461c94d2eadd4f81d31ae860527382002cb7bfc5a28b9648bfa96ca89b33b227",
+    "hts_engine_API-1.10.tar.gz": "e2132be5860d8fb4a460be766454cfd7c3e21cf67b509c48e1804feab14968f7"
+  },
+  "source": "https://sinsy.sourceforge.net/",
+  "emscripten": "emcc (Emscripten gcc/clang-like replacement + linker emulating GNU ld) 4.0.22 (0f3d2e62bccf8e14497ff19e05a1202c51eb0c65)",
+  "files": {
+    "sinsy.js": {
+      "bytes": 74678,
+      "sha256": "5b459b087f56b4578abb11f78e02f04f015e9a712dfb702bfe91ceaaee0f0559"
+    },
+    "sinsy.wasm": {
+      "bytes": 501002,
+      "sha256": "8a0382727d3af13de38bd30086c17d9cbb4b72bffe3257331fd58cfefb11902f"
+    },
+    "sinsy.data": {
+      "bytes": 5693504,
+      "sha256": "128c89cb4810784a500c7845de2d233b64847c1f20ad87cba533d99ef82e005e"
+    }
+  }
+}

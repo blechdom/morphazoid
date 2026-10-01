@@ -7,7 +7,7 @@
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="Morphazoid" />
     <meta property="og:title" content="Spelling Synthesizer — Morphazoid" />
-    <meta property="og:description" content="Morphazoid Spelling Synthesizer — type letters into Pinkazoid, KAL samples, a vocoder, a Bell Labs-inspired tract or Speak &amp; Spell-inspired LPC." />
+    <meta property="og:description" content="Morphazoid Spelling Synthesizer — type letters into Pinkazoid, KAL samples, a vocoder, a Bell Labs-inspired tract Speak &amp; Spell-inspired LPC or local eSpeak NG." />
     <meta property="og:url" content="https://morphazoid.com/spelling-synthesizer.html" />
     <meta property="og:image" content="https://morphazoid.com/assets/social/morphazoid-card-20260917.png" />
     <meta property="og:image:secure_url" content="https://morphazoid.com/assets/social/morphazoid-card-20260917.png" />
@@ -17,7 +17,7 @@
     <meta property="og:image:alt" content="Morphazoid geometric wireframe logo on a dark background." />
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="Spelling Synthesizer — Morphazoid" />
-    <meta name="twitter:description" content="Morphazoid Spelling Synthesizer — type letters into Pinkazoid, KAL samples, a vocoder, a Bell Labs-inspired tract or Speak &amp; Spell-inspired LPC." />
+    <meta name="twitter:description" content="Morphazoid Spelling Synthesizer — type letters into Pinkazoid, KAL samples, a vocoder, a Bell Labs-inspired tract Speak &amp; Spell-inspired LPC or local eSpeak NG." />
     <meta name="twitter:image" content="https://morphazoid.com/assets/social/morphazoid-card-20260917.png" />
     <meta name="twitter:image:alt" content="Morphazoid geometric wireframe logo on a dark background." />
     <link rel="image_src" href="https://morphazoid.com/assets/social/morphazoid-card-20260917.png" />
@@ -26,13 +26,14 @@
     <meta name="theme-color" content="#060805" />
     <meta
       name="description"
-      content="Morphazoid Spelling Synthesizer — type letters into Pinkazoid, KAL samples, a vocoder, a Bell Labs-inspired tract or Speak &amp; Spell-inspired LPC."
+      content="Morphazoid Spelling Synthesizer — type letters into Pinkazoid, KAL samples, a vocoder, a Bell Labs-inspired tract Speak &amp; Spell-inspired LPC or local eSpeak NG."
     />
     <title>Spelling Synthesizer — Morphazoid</title>
     <link rel="icon" href="favicon.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="style.css" />
     <link rel="stylesheet" href="src/instruments/spelling-synthesizer/spelling-synthesizer.css" />
     <link rel="stylesheet" href="src/ui/patterns/performance-workspace.css" />
+  <link rel="stylesheet" href="src/families/speech/native-controls.css" />
 </head>
   <body class="spelling-synthesizer-page" data-cooking>
     <header class="masthead">
@@ -42,7 +43,7 @@
       </a>
 
       <nav class="tabs" aria-label="Instrument">
-        <a class="tab" href="shape-synth.html">shape</a>
+        <a class="tab" href="voicesaurus.html">voicesaurus</a>
         <a class="tab" href="throatazoid.html">throatazoid</a>
         <a
           class="tab active"
@@ -54,7 +55,7 @@
       <label class="mobile-instrument-nav">
         <span class="sr-only">Instrument</span>
         <select class="mobile-instrument-select" aria-label="Instrument">
-          <option value="shape-synth.html">shape</option>
+          <option value="voicesaurus.html">voicesaurus</option>
           <option value="throatazoid.html">throatazoid</option>
           <option value="spelling-synthesizer.html" selected>spelling synthesizer</option>
         </select>
@@ -147,9 +148,26 @@
             <button type="button" data-engine="lpc" aria-pressed="false" title="Speak &amp; Spell-inspired LPC; not a TI chip or ROM emulator">
               <span><b>Speak &amp; Spell</b><small>LPC synthesis</small></span>
             </button>
-          </div>
+            <button type="button" data-engine="espeak" aria-pressed="false" title="eSpeak NG English speech, generated locally in your browser">
+              <span><b>eSpeak NG</b><small>formant synthesis</small></span>
+            </button>
+            <button type="button" data-engine="espeak-klatt" aria-pressed="false" title="eSpeak NG's Klatt synthesizer; not DECtalk">
+              <span><b>Klatt</b><small>eSpeak formants</small></span>
+            </button>
+            <button type="button" data-engine="flite-slt" aria-pressed="false"><span><b>Flite SLT</b><small>statistical voice</small></span></button>
+            <button type="button" data-engine="flite-awb" aria-pressed="false"><span><b>Flite AWB</b><small>statistical voice</small></span></button>
+            <button type="button" data-engine="flite-rms" aria-pressed="false"><span><b>Flite RMS</b><small>statistical voice</small></span></button>
+          <button type="button" data-engine="gnuspeech" aria-pressed="false"><b>Gnuspeech</b><small>Articulatory synthesis</small></button>
+
+
+
+
+
+
+<button type="button" data-engine="pico" aria-pressed="false"><b>Pico</b><small>Compact parametric text-to-speech</small></button><button type="button" data-engine="hts" aria-pressed="false"><b>HTS</b><small>HMM speech</small></button></div>
         </section>
 
+        <div id="nativeVoiceControls" class="voice-native-controls" aria-label="Native voice parameters" hidden></div>
         <section class="spelling-control-block" aria-labelledby="personalityLabel">
           <header>
             <span><b id="personalityLabel">Sample tone</b><small id="personalityNote">Tone only; KAL keeps its recorded voice.</small></span>

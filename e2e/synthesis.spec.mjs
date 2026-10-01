@@ -69,6 +69,8 @@ for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 
     await page.goto("/synthesis.html?method=graphic");
     await expect(page.locator("#methodControls .synthesis-parameter")).toHaveCount(METHODS.find(method => method.id === "graphic").controls.length);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    await choose(page, "voiceMode", "poly");
+    await expect(page.locator("#triggerButton")).toHaveText("Trigger Notes (poly)");
     for (const id of ['playButton', 'triggerButton', 'randomMethod']) {
       expect(await page.locator('#' + id).evaluate(button => button.scrollWidth <= button.clientWidth)).toBe(true);
     }
@@ -195,19 +197,23 @@ test("ADSR graph and exact fields edit the actual envelope without triggering ex
   expect(await page.evaluate(() => window.MorphazoidSynthesis.getState().envelope.release)).toBeGreaterThan(before.release);
   expect(await page.evaluate(() => window.MorphazoidSynthesis.getState().presetId)).toBe("custom");
   expect(await page.evaluate(() => window.MorphazoidSynthesis.getStatus().armed)).toBe(false);
-  await choose(page, "playbackMode", "hold");
   await page.locator("#audioButton").click();
   await page.locator("#playButton").click();
   await expect.poll(() => page.locator("#signalStatus").textContent()).toBe("Sounding");
+  await expect(page.locator("#tempo")).toBeDisabled();
   await exact(page, sustainInput, "0");
-  await expect.poll(() => page.locator("#signalStatus").textContent()).toBe("Ready");
+  expect(await page.evaluate(() => window.MorphazoidSynthesis.getStatus())).toMatchObject({ playing: true, playStyle: "strike" });
+  await expect(page.locator("#tempo")).toBeEnabled();
+  await expect.poll(async () => (await readAudioStatus(page)).rms).toBeGreaterThan(.001);
   await exact(page, sustainInput, "60");
+  expect(await page.evaluate(() => window.MorphazoidSynthesis.getStatus())).toMatchObject({ playing: true, playStyle: "hold" });
+  await expect(page.locator("#tempo")).toBeDisabled();
   await expect.poll(() => page.locator("#signalStatus").textContent()).toBe("Sounding");
   expect(await page.evaluate(() => window.MorphazoidSynthesis.getStatus().playing)).toBe(true);
 });
 
 
-test("Auto repeats zero-sustain presets, tempo and note length persist through edits and preset touring", async ({ page }) => {
+test("Play demos pulse percussive sounds and hold sustained sounds while preserving tempo", async ({ page }) => {
   await page.goto("/synthesis.html?method=additive");
   await selectSoundPreset(page, "additive", METHODS.find(method => method.id === "additive").presets.find(preset => preset.envelope.sustain === 0).id);
   await expect(page.locator("#tempo")).toBeEnabled();
@@ -222,9 +228,16 @@ test("Auto repeats zero-sustain presets, tempo and note length persist through e
   await page.locator("#nextPreset").click();
   await expect(page.locator("#tempo")).toHaveValue("240");
   await expect(page.locator("#noteGate")).toHaveValue("30");
-  await choose(page, "playbackMode", "repeat");
-  await selectMethod(page, "fm");
-  expect(await page.evaluate(() => window.MorphazoidSynthesis.getStatus())).toMatchObject({ playing: true, playStyle: "strike", tempo: 240 });
+  await selectSoundPreset(page, "fm", METHODS.find(method => method.id === "fm").presets.find(preset => preset.envelope.sustain > 0).id);
+  expect(await page.evaluate(() => window.MorphazoidSynthesis.getStatus())).toMatchObject({ playing: true, playStyle: "hold", tempo: 240, noteGate: .3 });
+  await expect(page.locator("#tempo")).toBeDisabled();
+  await expect(page.locator("#noteGate")).toBeDisabled();
+  await expect.poll(async () => (await readAudioStatus(page)).rms).toBeGreaterThan(.001);
+  const strike = METHODS.find(method => method.playStyle === "strike");
+  await selectSoundPreset(page, strike.id, strike.presets[0].id);
+  expect(await page.evaluate(() => window.MorphazoidSynthesis.getStatus())).toMatchObject({ playing: true, playStyle: "strike", tempo: 240, noteGate: .3 });
+  await expect(page.locator("#tempo")).toBeEnabled();
+  await expect(page.locator("#noteGate")).toBeEnabled();
   await page.locator("#playButton").click();
   await expect.poll(() => page.locator("#signalStatus").textContent(), { timeout: 15000 }).toBe("Ready");
 });
@@ -347,6 +360,54 @@ test('entering a processor clears held synth keys so release cannot restart an a
   expect(await page.evaluate(() => window.MorphazoidSynthesis.getStatus().heldNotes)).toBe(0);
   await page.keyboard.up('q'); await page.keyboard.up('z');
   expect(await page.evaluate(() => window.MorphazoidSynthesis.getStatus().playing)).toBe(false);
+});
+
+
+test('Trigger demos play one mono note or one simultaneous poly chord without arming Audio', async ({ page }) => {
+  await page.addInitScript(() => {
+    window.demoNotes = [];
+    const post = MessagePort.prototype.postMessage;
+    MessagePort.prototype.postMessage = function(message, ...rest) {
+      if (message?.type === 'note') window.demoNotes.push(structuredClone(message));
+      return post.call(this, message, ...rest);
+    };
+  });
+  await page.goto('/synthesis.html?method=additive');
+  await expect(page.locator('#playbackMode, #sectionDescription, #presetScope, #methodCount')).toHaveCount(0);
+  await expect(page.locator('#triggerButton')).toHaveText('Trigger Note');
+  await page.locator('#triggerButton').click();
+  await choose(page, 'voiceMode', 'poly');
+  await expect(page.locator('#triggerButton')).toHaveText('Trigger Notes (poly)');
+  await page.locator('#triggerButton').click();
+  expect(await page.evaluate(() => window.demoNotes)).toEqual([]);
+  expect(await page.evaluate(() => window.MorphazoidSynthesis.getStatus())).toMatchObject({ armed: false, playing: false });
+  await exact(page, '.synth-envelope__number[data-stage="decay"]', .5);
+  await page.locator('#audioButton').click();
+  await expect(page.locator('#audioButton')).toHaveAttribute('aria-pressed', 'true');
+  for (const mode of ['poly', 'mono']) {
+    await choose(page, 'voiceMode', mode);
+    await expect(page.locator('#triggerButton')).toHaveText(mode === 'poly' ? 'Trigger Notes (poly)' : 'Trigger Note');
+    await page.evaluate(() => { window.demoNotes = []; });
+    await page.locator('#triggerButton').click();
+    const notes = await page.evaluate(() => window.demoNotes);
+    expect(notes).toHaveLength(mode === 'poly' ? 3 : 1);
+    expect(new Set(notes.map(note => note.frequency)).size).toBe(notes.length);
+    expect(new Set(notes.map(note => note.at)).size).toBe(1);
+    expect(new Set(notes.map(note => note.duration)).size).toBe(1);
+    expect(notes[0].duration).toBeGreaterThan(0);
+    const frequency = await page.evaluate(() => window.MorphazoidSynthesis.getState().frequencyHz);
+    expect(notes[0].frequency).toBe(frequency);
+    if (mode === 'poly') {
+      expect(notes[1].frequency / frequency).toBeCloseTo(2 ** (4 / 12));
+      expect(notes[2].frequency / frequency).toBeCloseTo(2 ** (7 / 12));
+    }
+    await expect.poll(async () => (await readAudioStatus(page)).rms).toBeGreaterThan(.001);
+    await waitForStableAudioState(page, false);
+    expect(await page.evaluate(() => window.demoNotes.length)).toBe(notes.length);
+    expect(await page.evaluate(() => window.MorphazoidSynthesis.getStatus())).toMatchObject({ playing: false, heldNotes: 0 });
+  }
+  await selectMethod(page, 'fx-biquad');
+  await expect(page.locator('#triggerButton')).toHaveText('Audition · 3 s');
 });
 
 test('Mono is default; Poly survives the preset tour, Random, processor visits and held-note mode changes', async ({ page }) => {
@@ -480,7 +541,7 @@ test('sections remember independent edits and preset cursors while preserving pe
   await page.goto('/synthesis.html?method=additive');
   await expect(page.locator('#presetHost .instrument-picker-current')).toHaveText('Select Preset');
   await choose(page, "voiceMode", 'poly');
-  await choose(page, "playbackMode", 'repeat');
+  await exact(page, '.synth-envelope__number[data-stage="sustain"]', 0);
   await exact(page, "#tempo-value", 193);
   await exact(page, "#noteGate-value", 42);
   await page.locator('#playButton').click();
@@ -509,7 +570,7 @@ test('sections remember independent edits and preset cursors while preserving pe
   expect(await page.evaluate(()=>window.MorphazoidSynthesis.getStatus().input)).toMatchObject({selection:'microphone', source:0, kind:'none'});
   await page.locator('#nextPreset').click();
   expect(await page.evaluate(()=>window.MorphazoidSynthesis.getState())).toMatchObject({methodId:effect.id,presetId:effect.presets[4].id});
-  expect(await page.evaluate(()=>window.MorphazoidSynthesis.getStatus())).toMatchObject({armed:false,playing:true,tempo:193,noteGate:.42,playbackMode:'repeat',voiceMode:'poly'});
+  expect(await page.evaluate(()=>window.MorphazoidSynthesis.getStatus())).toMatchObject({armed:false,playing:true,tempo:193,noteGate:.42,playbackMode:'auto',voiceMode:'poly'});
   expect(await page.evaluate(()=>window.inputRequests)).toBe(0);
 });
 
@@ -547,7 +608,7 @@ test('processing dice stays within processors and local Random keeps its method'
   expect(random.methodId).not.toBe('fx-biquad');
   expect(methodSection(random.methodId)).toBe('processing');
   await expect(page.locator('#sectionProcessing')).toHaveAttribute('aria-pressed','true');
-  await expect(page.locator('#presetScope')).toContainText('Dice explores processors');
+  await expect(page.locator('#presetHost summary')).toHaveAccessibleName('Processing presets');
   await selectMethod(page,'fx-delay');
   const before=await page.evaluate(()=>window.MorphazoidSynthesis.getState());
   await page.locator('#randomMethod').click();

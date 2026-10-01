@@ -3,6 +3,10 @@ export const PROCESSING_INPUT_OPTIONS = Object.freeze([
   { id: "microphone", label: "Mic / audio-in", group: "Live input / files", source: 0, kind: "microphone" },
   { id: "file", label: "Your audio file…", group: "Live input / files", source: 0, kind: "file" },
   { id: "sample-drums", label: "Acoustic drums", group: "Sample loops", source: 0, kind: "demo" },
+  { id: "music-bass", label: "Bass groove · 120 BPM", group: "Sample loops", source: 0, kind: "demo" },
+  { id: "music-keys", label: "Electric piano chords · 120 BPM", group: "Sample loops", source: 0, kind: "demo" },
+  { id: "music-plucks", label: "Plucked strings · 120 BPM", group: "Sample loops", source: 0, kind: "demo" },
+  { id: "music-arp", label: "Synth arpeggio · 120 BPM", group: "Sample loops", source: 0, kind: "demo" },
   { id: "voice-bdl", label: "Voice syllables · lower", group: "Sample loops", source: 0, kind: "demo" },
   { id: "voice-slt", label: "Voice syllables · higher", group: "Sample loops", source: 0, kind: "demo" },
   { id: "speech", label: "Mic check · synthetic speech", group: "Sample loops", source: 0, kind: "demo" },
@@ -20,13 +24,37 @@ export function getProcessingInput(id) {
   return PROCESSING_INPUT_OPTIONS.find(option => option.id === id) ?? null;
 }
 
-// These are existing, locally bundled recordings. CMU banks contain edited
-// phoneme excerpts, not sentence recordings. Credits remain with the assets.
+// Locally bundled recordings and original rendered musical loops. CMU banks
+// contain edited phoneme excerpts, not sentence recordings. Credits stay with the assets.
 const DEMOS = Object.freeze({
   "sample-drums": {
     paths: ["puggler/kick.wav", "puggler/snare.wav", "puggler/hat.wav", "puggler/tom.wav"],
     credit: "Karoryfer acoustic drums · CC0 · two-bar arrangement at 120 BPM",
     creditPath: "puggler/CREDITS.md",
+  },
+  "music-bass": {
+    paths: ["synthesis/loops/bass-groove.wav"],
+    credit: "Morphazoid · original subtractive bass phrase · 120 BPM · MIT",
+    creditPath: "synthesis/loops/CREDITS.md",
+    loop: true,
+  },
+  "music-keys": {
+    paths: ["synthesis/loops/electric-piano.wav"],
+    credit: "Morphazoid · original FM electric piano phrase · 120 BPM · MIT",
+    creditPath: "synthesis/loops/CREDITS.md",
+    loop: true,
+  },
+  "music-plucks": {
+    paths: ["synthesis/loops/plucked-strings.wav"],
+    credit: "Morphazoid · original Karplus–Strong strings phrase · 120 BPM · MIT",
+    creditPath: "synthesis/loops/CREDITS.md",
+    loop: true,
+  },
+  "music-arp": {
+    paths: ["synthesis/loops/synth-arpeggio.wav"],
+    credit: "Morphazoid · original wavetable arpeggio phrase · 120 BPM · MIT",
+    creditPath: "synthesis/loops/CREDITS.md",
+    loop: true,
   },
   "voice-bdl": {
     paths: ["audio/vocalzoid-cmu-arctic-bdl.wav"],
@@ -101,12 +129,13 @@ function balance(buffer, activeFrames = buffer.length, fadeEdges = true) {
 function prepareRecording(context, decoded, id) {
   const frames = Math.min(decoded.length, Math.round(decoded.sampleRate * 30));
   // A short rest makes speech articulation and processor tails easy to compare.
-  const rest = id === "birdsong" ? 0 : Math.round(decoded.sampleRate * .35);
+  const loop = DEMOS[id].loop === true;
+  const rest = loop || id === "birdsong" ? 0 : Math.round(decoded.sampleRate * .35);
   const buffer = context.createBuffer(Math.min(2, decoded.numberOfChannels), frames + rest, decoded.sampleRate);
   for (let channel = 0; channel < buffer.numberOfChannels; channel++) {
     buffer.getChannelData(channel).set(decoded.getChannelData(channel).subarray(0, frames));
   }
-  return balance(buffer, frames);
+  return balance(buffer, frames, !loop);
 }
 
 function arrangeDrums(context, recordings) {

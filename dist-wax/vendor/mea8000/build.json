@@ -1,0 +1,19 @@
+{
+  "source": "https://github.com/mamedev/mame",
+  "revision": "c8588c15c78215a0ce36ac573aa5e8da03185e4c",
+  "emscripten": "emcc (Emscripten gcc/clang-like replacement + linker emulating GNU ld) 4.0.22 (0f3d2e62bccf8e14497ff19e05a1202c51eb0c65)",
+  "files": {
+    "mea8000.js": {
+      "bytes": 9241,
+      "sha256": "d99bf0d3f5b99b2c1d1078584305f373c7d44fb8f44553f0ab8b0350296e99f2"
+    },
+    "mea8000.wasm": {
+      "bytes": 19804,
+      "sha256": "80b2ddee2fd66005294904b66ba68abaa0bdd5ad7b98b668503721e955194790"
+    },
+    "upstream/mea8000.cpp": {
+      "bytes": 13545,
+      "sha256": "5ff02c633f404c91cacf2b123d5157cb0218de06b670659af959fda1b6e75461"
+    }
+  }
+}

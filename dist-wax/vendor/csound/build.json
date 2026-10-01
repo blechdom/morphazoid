@@ -1,0 +1,14 @@
+{
+  "package": "@csound/wasm-bin",
+  "version": "6.18.7",
+  "revision": "cbbdbcab7833e1b5e7f4cc267bb057b3b055ff40",
+  "integrity": "sha512-4VGtRgFjOhF8k7LhJrXgaX6fk/sMf42LX21SWmACasFJ7JJtzoOIM1cWbz38mlJO6lU5/YlpbFFWosDH/uihxA==",
+  "tarball": "https://registry.npmjs.org/@csound/wasm-bin/-/wasm-bin-6.18.7.tgz",
+  "files": {
+    "csound.wasm": {
+      "bytes": 4688462,
+      "sha256": "67311f471b48a96173b498a29d6b125cffe1c005410a49bcbd9b9987d27b7707"
+    }
+  },
+  "runtimeVersion": 6181
+}

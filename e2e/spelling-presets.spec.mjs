@@ -1,3 +1,4 @@
+import {presets} from '../src/instruments/spelling-synthesizer/full-presets.js';
 import {test,expect} from '@playwright/test';
 const capture=page=>page.evaluate(async()=>{const {captureHeaderPresetState}=await import('/src/site/header-presets.js');return captureHeaderPresetState();});
 test('Spelling recalls every full scene and true Random without replacing text, master, Loop or Audio consent',async({page})=>{
@@ -6,9 +7,9 @@ test('Spelling recalls every full scene and true Random without replacing text, 
   await page.locator('#spellingInput').fill('My own words');await page.locator('#readbackLoop').click();
   const speed=page.locator('#readbackSpeed');await speed.evaluate(e=>{e.value='1.65';e.dispatchEvent(new Event('input',{bubbles:true}));});
   const level=page.locator('#level');await level.evaluate(e=>{e.value='0.2';e.dispatchEvent(new Event('input',{bubbles:true}));});
-  expect((await capture(page)).selectedId).toBeNull();expect((await capture(page)).presetCount).toBe(22);
+  expect((await capture(page)).selectedId).toBeNull();expect((await capture(page)).presetCount).toBe(presets.length);
   const states=[];
-  for(let i=0;i<22;i++){
+  for(let i=0;i<presets.length;i++){
     await page.locator('.header-preset-next').click();
     await expect.poll(async()=>(await capture(page)).selectedId).not.toBeNull();
     states.push((await capture(page)).snapshot);

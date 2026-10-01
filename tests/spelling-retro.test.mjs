@@ -1,3 +1,4 @@
+import {SPELLING_NATIVE_ENGINES as EXTENDED_ENGINES} from '../src/families/speech/extended-engines.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
@@ -79,7 +80,7 @@ test('retro backend maps phoneme, pitch, sustain and duration without changing p
 });
 
 test('six retro scenes are additive; earlier Speak & Spell-ish remains a vocoder scene',()=>{
-  assert.equal(presets.length,22);assert.equal(presets.find(p=>p.id==='speak-spell').snapshot.engine,'vocoder');
+  assert.equal(presets.length,37+Object.values(EXTENDED_ENGINES).reduce((n,v)=>n+v.examples.length,0));assert.equal(presets.find(p=>p.id==='speak-spell').snapshot.engine,'vocoder');
   for(const mode of ['bell','lpc'])assert.equal(presets.filter(p=>p.snapshot.engine===mode).length,3);
   for(const {snapshot} of presets)assert(!('level' in snapshot)&&!('loop' in snapshot));
 });

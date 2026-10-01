@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 import { sampleAudioEnvelope, waitForStableAudioState } from './helpers/audio-probe.mjs';
 
 async function observeReadback(page, text = 'cat dog fish.') {
-  await page.route('**/spelling-synthesizer-app.js', async route => {
+  await page.route('**/spelling-controller.js', async route => {
     const response = await route.fetch();
     await route.fulfill({ response, body: (await response.text()) + `
       window.__spellingAudio = audio;
@@ -57,7 +57,7 @@ test('tone changes keep the readback cursor and update the next phone without a 
   await page.locator('#readbackButton').click();
 });
 
-test('changing all five engines preserves Play, Loop, text and level', async ({ page }) => {
+test('changing all ten engines preserves Play, Loop, text and level', async ({ page }) => {
   const errors = [];
   page.on('pageerror', error => errors.push(error.message));
   await observeReadback(page);
@@ -70,7 +70,7 @@ test('changing all five engines preserves Play, Loop, text and level', async ({ 
       }
     }).observe(document.getElementById('readbackButton'), { attributes: true, attributeFilter: ['aria-pressed'] });
   });
-  for (const engine of ['bell', 'tube', 'lpc', 'vocoder', 'diphone']) {
+  for (const engine of ['bell', 'tube', 'lpc', 'vocoder', 'espeak', 'espeak-klatt', 'flite-slt', 'flite-awb', 'flite-rms', 'diphone']) {
     const before = (await events(page)).length;
     await page.locator(`[data-engine=${engine}]`).click();
     await expect(page.locator('#readbackButton')).toHaveAttribute('aria-label', 'Pause readback');
@@ -89,17 +89,17 @@ test('changing all five engines preserves Play, Loop, text and level', async ({ 
   await waitForStableAudioState(page, false);
   const closed = await page.evaluate(async () => {
     const audio = window.__spellingAudio;
-    const contexts = Object.values(audio.backends).map(backend => backend.context);
+    const contexts = Object.values(audio.backends).map(backend => backend.context).filter(Boolean);
     await audio.close();
     await audio.close();
     return { states: contexts.map(context => context.state),
       released: Object.values(audio.backends).every(backend => !backend.context && !backend.output) };
   });
-  expect(closed.states).toEqual(['closed', 'closed', 'closed', 'closed', 'closed']);
+  expect(closed.states).toEqual(Array(10).fill('closed'));
   expect(closed.released).toBe(true);
 });
 
-for (const engine of ['tube', 'diphone', 'vocoder', 'bell', 'lpc']) {
+for (const engine of ['tube', 'diphone', 'vocoder', 'bell', 'lpc', 'espeak', 'espeak-klatt', 'flite-slt', 'flite-awb', 'flite-rms']) {
   test(`${engine}: half/double speed changes readback pace without changing its phones`, async ({ page }) => {
     await observeReadback(page, 'cat.');
     await page.locator(`[data-engine=${engine}]`).click();
@@ -223,10 +223,10 @@ test('rhythm edits update sounding events in an existing loop; letter-pair contr
   await expect(page.locator('#readbackLoop')).toHaveAttribute('aria-pressed', 'true');
 });
 
-test('the five real voices have comparable measured output with headroom at full master', async ({ page }, testInfo) => {
-  test.setTimeout(45000);
+test('the ten real voices have comparable measured output with headroom at full master', async ({ page }, testInfo) => {
+  test.setTimeout(90000);
   const levels = [];
-  for (const engine of ['tube', 'diphone', 'vocoder', 'bell', 'lpc']) {
+  for (const engine of ['tube', 'diphone', 'vocoder', 'bell', 'lpc', 'espeak', 'espeak-klatt', 'flite-slt', 'flite-awb', 'flite-rms']) {
     await observeReadback(page, 'The quick brown fox. Daisy, give me your answer.');
     await page.locator(`[data-engine=${engine}]`).click();
     await page.locator('#level').evaluate(el => {
@@ -262,14 +262,16 @@ test('the five real voices have comparable measured output with headroom at full
       };
       node.port.postMessage('measure');
     }));
-    expect(level.bad).toBe(0);
-    expect(level.peak).toBeLessThan(.95);
-    expect(level.rms).toBeGreaterThan(.07);
-    expect(level.rms).toBeLessThan(.18);
     levels.push({ engine, ...level, activeDb: 20 * Math.log10(level.rms) });
     await page.locator('#audioButton').click();
   }
   await testInfo.attach('voice-levels.json', { body: JSON.stringify(levels), contentType: 'application/json' });
+  for (const level of levels) {
+    expect(level.bad, level.engine).toBe(0);
+    expect(level.peak, level.engine).toBeLessThan(.95);
+    expect(level.rms, level.engine).toBeGreaterThan(.07);
+    expect(level.rms, level.engine).toBeLessThan(.18);
+  }
   const decibels = levels.map(level => level.activeDb);
   expect(Math.max(...decibels) - Math.min(...decibels)).toBeLessThan(4);
 });

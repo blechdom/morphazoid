@@ -13,6 +13,8 @@ export class SynthesisInput {
     this.stream = null;
     this.fileBuffer = null;
     this.fileName = "";
+    this.loop = true;
+    this.ended = false;
     this.kind = "none";
     this.pending = false;
     this.requestVersion = 0;
@@ -32,13 +34,19 @@ export class SynthesisInput {
   }
 
   status() {
-    return { kind: this.kind, pending: this.pending, label: this.label, hasFile: !!this.fileBuffer };
+    return { kind: this.kind, pending: this.pending, label: this.label, hasFile: !!this.fileBuffer, loop: this.loop, ended: this.ended };
+  }
+  setLoop(value) {
+    this.loop = !!value;
+    if (this.kind === "file" && this.node) this.node.loop = this.loop;
+    this.notify();
   }
   notify() { if (!this.disposed) this.onChange(this.status()); }
 
   stop({ keepFile = true } = {}) {
     this.requestVersion++;
     this.pending = false;
+    this.ended = false;
     const node = this.node, stream = this.stream;
     this.node = null;
     this.stream = null;
@@ -103,7 +111,16 @@ export class SynthesisInput {
     this.stop();
     const source = this.context.createBufferSource();
     source.buffer = this.fileBuffer;
-    source.loop = true;
+    source.loop = this.loop;
+    source.onended = () => {
+      if (this.node !== source) return;
+      source.disconnect();
+      this.node = null;
+      this.kind = "none";
+      this.ended = true;
+      this.label = "Input finished";
+      this.notify();
+    };
     source.connect(this.analyser);
     source.start();
     this.node = source;

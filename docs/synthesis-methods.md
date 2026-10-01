@@ -37,8 +37,12 @@ Presets and randomization preserve the master output level. Audio starts off.
 
 ## How the methods are classified
 
-The dropdown groups synthesis and processing by mechanism. Historical dates belong in each
-method’s lineage text. Several added techniques predate 1996 and fill omissions
+The dropdown groups synthesis and processing by mechanism. Historical dates now appear in the method dropdown and beside its label.
+The source and qualification appear under Method notes & sources. These are
+historical milestones: some identify a paper, a named implementation or an
+approximate period. **By 1996** means the family was documented by Roads, not
+invented in 1996. A software exemplar's date is not the age of every underlying
+DSP operation. The structured source is `src/instruments/synthesis/chronology.js`. Several added techniques predate 1996 and fill omissions
 in the original demo list; they are not presented as recent inventions.
 
 - **Sample and grain synthesis:** sample playback, granular synthesis, and

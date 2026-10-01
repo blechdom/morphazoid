@@ -1,0 +1,13 @@
+# GnuspeechSA 0.1.9 — local WebAssembly port
+
+This is the actual articulatory GnuspeechSA engine compiled to WebAssembly, with its English linguistic/articulatory resources. Source: https://github.com/mym-br/gnuspeech_sa at `f62e8b88eeeb3fa7e51ac138d561c3061a4a415f`. It descends from Trillium's 1990s NeXT speech system. The CPU tube model is used, not the original Motorola 56k DSP implementation.
+
+The engine and English data are GPL-3.0-or-later (`COPYING.txt`, `DATA_LICENSE.txt`). The data directory explicitly licenses all its files under GPL-3.0-or-later; retain Trillium dictionary notices. Included RapidXML is available under Boost 1.0 or MIT (`RAPIDXML_LICENSE.txt`). The adapter is GPL-3.0-or-later. No recordings are needed to generate its speech: modelled glottal excitation flows through oral and nasal waveguides with frication and radiation filters.
+
+Rebuild with Emscripten 4.0.22 using `scripts/build-gnuspeech-wasm.py` and adjacent `scripts/gnuspeech-wasm-adapter.cpp`; both are corresponding build source. The build script downloads pinned source and SDK if needed, or accepts an existing matching SDK. No upstream source modification is required. C++ exception support and virtual files remain enabled; native sound-device and GUI code are excluded. Initial WASM memory is 32 MiB and its ceiling is 256 MiB. `build.json` records hashes and revisions.
+
+Runtime API: `createGnuspeech()` returns a ready module; `synthesizeGnuspeech(engine, {text, voice, ...options})` returns Float32 PCM at 44.1 or 22.05 kHz with native English rhythm and intonation. Physical voices are male/female/large child/small child/baby, all one synthesis method. Configuration ranges cover tempo/pitch, eight region radii, overall and nasal radius, tract length, glottal pulse, breathiness, radiation, loss, throat contribution, temperature and intonation. `postureOnsets` are final-chunk articulatory onsets, not word timestamps or reliable phone boundaries.
+
+The reader atlas adapter renders 43 gestures using the engine's own phonetic markup and posture transitions. It trims surrounding silence, applies short fades and chooses matched interior sustain periods for ten vowel categories. Native sentence rendering is a separate API; playing a segmented atlas does not reproduce its full sentence prosody.
+
+Verification: Node rendered all 43 gestures and ten vowel loops for all five modelled voices; a real Chromium module worker fetched the `.wasm`, rendered the atlas in approximately 564 ms on this machine, and synthesized a complete sentence with finite PCM. A fresh Node native sentence took approximately 159 ms on this machine. These are local measurements, not mobile performance guarantees. Human listening review is still pending.

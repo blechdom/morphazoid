@@ -4,8 +4,9 @@
 
 The original `assets/audio/midi-received.wav` announcement was generated with
 the separate eSpeak NG development tool and processed into a retro-style
-sample. It does not contain Apple or Macintosh system recordings. No eSpeak
-runtime code or voice data is distributed with this site. See
+sample. It does not contain Apple or Macintosh system recordings. This
+announcement plays a rendered sample without loading eSpeak; the separate
+browser speech engines are credited below. See
 `assets/audio/CREDITS.md` and `scripts/generate-midi-received.py` for provenance
 and regeneration.
 
@@ -511,3 +512,129 @@ Spider Synth does not bundle new animal audio recordings.
 ## Gesticules — Elena FF
 
 [“Rigged hand” by Elena FF](https://sketchfab.com/3d-models/rigged-hand-eae97cc2a742413cb5338ab942b12c1e), [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/). `assets/gesticulating-hand/hand.glb` retains the original mesh, textures, weighted rig and Open/Close animation, losslessly repacked from an attributed public distribution. `src/instruments/gesticulating-hand/hand-source-motion-data.js` contains derived quaternion animation data under the same license. The catalogue image is a rendered view of this model and also retains CC BY-SA 4.0. Original attribution, pinned source, changes and rebuild steps are in `assets/gesticulating-hand/README.md`. The separate runtime sampler and instrument implementation are MIT.
+
+## eSpeak NG browser speech
+
+Spelling Synthesizer and Voicesaurus include a WebAssembly build of eSpeak NG
+1.52.0.1 with Echogarden's `eSpeakNGWorker` wrapper, from pinned fork commit
+`9a550bef455f03b459f51796e3482833aab7fbc0`. GPL-3.0-or-later applies to the engine;
+its Apache, BSD and Unicode component notices are also retained.
+
+The engine generates English phoneme sounds locally in a browser worker after
+explicit Audio enable. Morphazoid builds a separate WASM binary and repacks
+English data; the synthesis code is unchanged. The Klatt mode is eSpeak's
+implementation, not DECtalk. [Source, changes and build instructions](vendor/espeak-ng/README.md),
+[build manifest](vendor/espeak-ng/build.json), and [GPL license](vendor/espeak-ng/COPYING)
+accompany the engine. `scripts/build-espeak-wasm.py` rebuilds pinned source and
+reproduces the checked-in JavaScript, WebAssembly and voice-data hashes.
+
+## Flite browser speech
+
+The speech pages include Flite's WASI build from `@echogarden/flite-wasi` 0.1.1,
+which reports Flite 2.3-current (March 2022). Its embedded KAL, KAL16, AWB, RMS,
+SLT and limited-domain AWB-time voice definitions retain the terms in
+[Flite COPYING](vendor/flite/COPYING) and [voice notices](vendor/flite/VOICE_NOTICES.md).
+The pages expose the general SLT/AWB/RMS Clustergen voices; other embedded models
+are not presented as additional live methods.
+
+Morphazoid removes only WebAssembly custom debug/name/producers sections;
+executable and voice-data sections are unchanged. The small in-memory WASI
+adapter and phoneme-atlas integration are original Morphazoid code.
+[Provenance and reproduction](vendor/flite/README.md) identify the pinned package
+and source links. `scripts/strip-flite.py` reproduces the stripped binary.
+
+The repository's MIT license does not replace these third-party terms.
+
+## GnuspeechSA / Trillium browser articulation
+
+Voicesaurus and the shared speech reader include GnuspeechSA 0.1.9, compiled to
+WASM from `mym-br/gnuspeech_sa` revision
+`f62e8b88eeeb3fa7e51ac138d561c3061a4a415f`. The engine and English linguistic/
+articulatory data are GPL-3.0-or-later, with Trillium and original authors'
+notices preserved. RapidXML's Boost/MIT terms are retained separately.
+
+[Source, changes and reproduction](vendor/gnuspeech/README.md),
+[GPL](vendor/gnuspeech/COPYING.txt), [data grant](vendor/gnuspeech/DATA_LICENSE.txt),
+and [RapidXML license](vendor/gnuspeech/RAPIDXML_LICENSE.txt) accompany the build.
+`scripts/build-gnuspeech-wasm.py` and `scripts/gnuspeech-wasm-adapter.cpp` rebuild
+all three runtime files from pinned source. The five physical voice profiles
+share one articulatory method. Their atlas playback is distinct from native
+whole-sentence synthesis.
+
+## Vizsn browser voice
+
+The Vizsn WASM port preserves Ville-Matias Heikkilä's formant/resonator engine
+and Jari Komppa's SoLoud integration, both explicitly WTFPL, from SoLoud revision
+`e82fd32c1f62183922f08c14c814a02b58db1873`. [License](vendor/vizsn/COPYING) and
+[source/changes](vendor/vizsn/README.md) are included. Modified DSP, the host shim
+and a pinned-source rebuild script are in `scripts/vendor/vizsn/`.
+
+The reader's 43-gesture mapping is an original approximation to Vizsn's smaller
+native phone vocabulary. It is not a recovered English voice database.
+
+## MEA8000 parameter-frame voice
+
+The MEA8000 WASM generator extracts Antoine Miné's BSD-3-Clause DSP and tables
+from MAME revision `c8588c15c78215a0ce36ac573aa5e8da03185e4c`.
+[Copyright/license](vendor/mea8000/COPYING) and
+[extraction, modifications and rebuild instructions](vendor/mea8000/README.md)
+are included; build/bridge sources live in `scripts/vendor/mea8000/`.
+The offline frame host excludes MAME's device bus/timers and is not cycle-accurate
+chip emulation. English-like gesture parameters are original Morphazoid examples;
+no historical phoneme ROM or speech recording is bundled.
+
+## SVOX Pico browser speech
+
+Pico uses the unmodified runtime from `@echogarden/svoxpico-wasm@0.2.0`, package
+source revision `4b1d64dc4c69cec088141d8653c526f09b76ea62`, plus English resources
+from `naggety/picotts` revision `21089d223e177ba3cb7e385db8613a093dff74b5`.
+Core/package Apache-2.0 terms and SVOX/Android resource notices are retained in
+[vendor/pico](vendor/pico/README.md). `DEBIAN_COPYRIGHT` documents that the model
+binaries are redistributable but lack preferred source; they are not presented
+as fully reproducible open training data. The independent public-C-API bridge
+and phoneme-atlas integration are original Morphazoid code.
+
+## Csound FOF and VOSIM voice methods
+
+Voicesaurus plays the original Csound FOF/VOSIM opcodes through the LGPL Csound
+WASM library from `@csound/wasm-bin@6.18.7`. The unmodified binary reports Csound
+6.18.1. Its codec/runtime dependencies remain embedded: libsndfile, FLAC, Ogg,
+Vorbis, LAME, mpg123, wasi-libc and LLVM runtime components. Their notices and
+source links accompany the [Csound provenance](vendor/csound/README.md).
+
+The local WASI host and phonetic demonstration orchestras are original code.
+They do not bundle the original CHANT program, its voice database, or Csound's
+example plugins. `scripts/vendor-csound-wasm.py` verifies and restores the exact
+published binary; the pinned upstream synthesis/build sources remain linked
+for modification and recompilation.
+
+## Compiler runtime notices for browser speech
+
+The newly compiled GnuspeechSA, Vizsn and MEA8000 engines include Emscripten
+runtime glue and C/C++ library code. Relevant Emscripten MIT/NCSA, musl MIT, and
+LLVM Apache-with-exceptions notices are preserved under
+[vendor/wasm-runtime-notices](vendor/wasm-runtime-notices/README.md).
+These component licenses do not replace the separate speech-engine licenses.
+
+## HTS English HMM voice
+
+The HTS Working Group’s hts_engine API1.10 and Flite+hts_engine1.07 are
+modified-BSD software; their English Flite frontend has separate CMU notices.
+The official HTS Voice CMU ARCTIC SLT1.06 is CC-BY-3.0, trained from Carnegie
+Mellon University’s CMU ARCTIC database. The voice model is unmodified.
+Morphazoid extracts, balances and loops generated phoneme audio for playback.
+See [vendor/hts/README.md](vendor/hts/README.md), the four preserved license
+files beside it, and `scripts/vendor/hts/` for pinned source/rebuild instructions.
+
+
+## Sinsy native Japanese singing
+
+Voicesaurus includes Sinsy 0.92 (2015-12-25), the original Japanese MusicXML
+frontend and hts_engine API 1.10, under their Modified BSD notices. The
+NIT SONG070 F001 0.90 trained singing voice (2013-12-25) is credited to the
+Sinsy Working Group / Nagoya Institute of Technology, Department of Computer
+Science, under [CC BY 3.0](https://creativecommons.org/licenses/by/3.0/).
+It is synthesized locally from the editable score; it is not a bundled song.
+Notices and exact source/model hashes are in `vendor/sinsy/`; rebuild code and
+native API forwarding changes are in `scripts/vendor/sinsy/`.
+Official source: <https://sinsy.sourceforge.net/>.

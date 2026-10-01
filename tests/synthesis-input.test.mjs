@@ -118,3 +118,46 @@ test('restoring or importing a new source cancels an in-progress microphone capt
   assert.equal(await captured, null);
   assert.equal(audio.captureRequest, null);
 });
+
+test('Loop input changes the playing source in place and ended inputs remain replayable', () => {
+  const h = harness();
+  h.input.setFile(h.context.createBuffer(1, 1000, 1000), 'one-shot.wav');
+  const first = h.input.node;
+  h.input.setLoop(false);
+  assert.equal(h.input.node, first, 'changing loop mode does not restart the source');
+  assert.equal(first.loop, false);
+  h.input.setLoop(true);
+  assert.equal(first.loop, true);
+  h.input.setLoop(false);
+  first.onended();
+  assert.equal(first.disconnected, true);
+  assert.equal(h.input.node, null);
+  assert.equal(h.input.status().kind, 'none');
+  assert.equal(h.input.status().ended, true);
+  assert.equal(h.input.status().hasFile, true);
+  assert.equal(h.input.startFile(), true);
+  const replacement = h.input.node;
+  assert.notEqual(replacement, first);
+  assert.equal(replacement.loop, false, 'replay retains loop preference');
+  assert.equal(h.input.status().ended, false);
+  first.onended();
+  assert.equal(h.input.node, replacement, 'stale ended callback cannot release the new source');
+  h.input.dispose();
+});
+
+test('a replaced sample ending cannot disconnect microphone input', async () => {
+  const h = harness();
+  h.input.setFile(h.context.createBuffer(1, 1000, 1000), 'old.wav');
+  const old = h.input.node;
+  const pending = h.input.startMicrophone();
+  const track = h.grant();
+  await pending;
+  const microphone = h.input.node;
+  old.onended();
+  h.input.setLoop(false);
+  assert.equal(h.input.node, microphone);
+  assert.equal(h.input.kind, 'microphone');
+  assert.equal(track.stops, 0);
+  assert.equal(microphone.loop, undefined);
+  h.input.dispose();
+});

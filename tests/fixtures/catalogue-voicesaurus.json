@@ -1,0 +1,31 @@
+{
+  "date": "2026-10-01",
+  "reason": "User-requested Voicesaurus page and local speech engines.",
+  "additions": [
+    {
+      "id": "voicesaurus",
+      "kind": "Voice synthesis comparison",
+      "description": "Plays native speech, singing and voice-chip engines, including Cook’s Singer, STK, Gnuspeech and Sinsy, with expandable parameter knobs and dated methods.",
+      "start": "Choose a dated method, enable Audio and press Play. Edit its native text, notes, score or chip parameters while Loop repeats the sound.",
+      "features": [
+        "Built-in synth",
+        "Computer keys"
+      ],
+      "pluginHref": null,
+      "imageHref": "assets/instruments/voicesaurus.webp",
+      "categoryId": "voice",
+      "categoryLabel": "Voice",
+      "tags": [
+        {
+          "id": "synthesizer",
+          "label": "Synthesizer"
+        }
+      ]
+    }
+  ],
+  "updates": {
+    "spelling-synthesizer": {
+      "description": "Sounds typed letters through vocal-tract models, formants, LPC, vocoding and statistical voices, with word readback, looping and native parameters."
+    }
+  }
+}

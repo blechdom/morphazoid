@@ -51,10 +51,34 @@ interrupt a phone sooner; slower settings leave more space between phones.
 Speed and Loop are live performer choices outside presets/Random, alongside
 text and the master volume. Explicit Reset returns Speed to 1× and Loop off.
 
+## Local WebAssembly speech voices
+
+**eSpeak NG** and **Klatt** synthesize 43 English phone/pair units in a local
+worker on the first explicit Audio enable. Klatt selects eSpeak's Klatt mode,
+not DECtalk. Both reuse the existing dictionary reader and sample-clock vowel
+loops; they do not provide eSpeak whole-phrase prosody or a melody sequencer.
+Three presets per mode bring the bank to 28; the three Flite voices add nine more scenes, for 37 total. Text, Loop, cursor, speed and master
+level are preserved when browsing these voices. Voice resources load lazily;
+cancelled loads terminate their worker and cannot start delayed playback.
+The UI accurately calls their personality choices tone filters.
+
+Flite SLT, AWB and RMS add statistical parametric speech: Clustergen predicts
+acoustic parameters and uses an MLSA vocoder. These are three speakers within
+one synthesis family, not three new algorithms. Their 43-phone atlases are
+also generated locally in a worker using Flite WASM and its segment timings.
+eSpeak's English runtime/data is about 1.46 MB; Flite's embedded voice bundle
+is about 17.3 MB. Each loads only when first selected with Audio enabled. Audio
+can cancel cold loading; workers terminate on completion, error or cancellation.
+
+
+Spelling and [Voicesaurus](voicesaurus.md) share the controller in
+`src/families/speech/spelling-controller.js`; their public routes and preset
+storage IDs remain separate. Voice synthesis still runs locally.
+
 ## Voice output balance
 
 Spelling opts into fixed engine and personality output trims, followed by
-oversampled soft peak protection and a final sample guard. All five voices use
+oversampled soft peak protection and a final sample guard. All ten voices use
 the same master-volume taper. The quieter Bell Labs, LPC and vocoder voices are
 raised relative to KAL/Pinkazoid; extreme Pinkazoid Whisper/Creature bodies receive
 separate compensation. This is not automatic gain control: speech dynamics and
@@ -63,7 +87,7 @@ The existing meters receive the protected post-master signal.
 
 Calibration uses real-browser PCM captures of the same phrase at 48 kHz and
 100% master: “The quick brown fox. Daisy, give me your answer.” Both raw RMS/peak
-and gated, mono K-weighted loudness are compared across all 25 engine/personality
+and gated, mono K-weighted loudness are compared across the original 25 engine/personality
 combinations. The earlier clear-voice measurements ranged from approximately
 −23 to −32 mono LUFS; Bell Labs was about 9 dB below KAL. The protected captures measure
 −19.40 to −18.01 mono LUFS across those 25 combinations, with a maximum recorded
@@ -76,8 +100,14 @@ plosives. Human listening/intelligibility acceptance remains separate.
 
 Pink Trombonazoid also consumes the underlying audio class. Its existing output
 and tone remain unchanged: the new balance/protection is explicitly enabled by
-Spelling only. Existing synthesis models and the licensed KAL recording are not
+Spelling and Voicesaurus. Existing synthesis models and the licensed KAL recording are not
 replaced.
+
+The ten-voice browser regression also captures the same phrase through the final
+output at full master, including eSpeak, Klatt and all three Flite voices. Fixed
+engine trims keep active RMS within a 4 dB spread, with sample peaks below 0.95
+and no non-finite output. This passed after calibrating the new voices; it is
+an RMS/peak check, not an extension of the earlier 25-scene LUFS measurement.
 
 The frontal wireframe mouth shows lip opening, rounding, seals, tongue position
 and teeth. These are **stylized visemes**, not an anatomically validated face or
@@ -103,6 +133,8 @@ clearance remain; these spacing changes do not change the voice engines.
 | Engine | Implementation | Personality control |
 | --- | --- | --- |
 | **Pinkazoid** (formerly Bellazoid) | Morphazoid's Throatazoid vocal tract and Pink Trombone-style glottal source. | Voice-body preset, pitch scaling, breath, tension and excitation. |
+| **eSpeak NG / Klatt** | Locally generated formant phones using eSpeak NG and its Klatt mode. | **Synth tone** filter; same phoneme synthesis settings. |
+| **Flite SLT / AWB / RMS** | Locally generated Clustergen statistical-parametric phones, synthesized through an MLSA vocoder. Three speakers share one family. | **Synth tone** filter; same generated voice model. |
 | **KAL samples** | The existing locally bundled CMU Flite KAL16 phone/pair atlas. | **Sample tone** only: Open, Soft, Bright, Brighter, Dark. The recorded speaker, sample position and personality-independent pitch are unchanged. |
 | **Voxazoid** | The existing twenty-band vocoder, with KAL samples as the speech modulator. | Carrier pitch, spectral brightness and voicing-related character; not a different recorded speaker. |
 | **Bell Labs** | Original Kelly–Lochbaum scattering-tube implementation, inspired by the Daisy Bell era. | Excitation pitch/breath and tract-length scaling; authored phoneme areas/constrictions. |
@@ -130,7 +162,7 @@ Its resemblance and usefulness still need human listening acceptance.
 
 The later **Speak & Spell LPC** engine is separate from this retained vocoder
 preset. Its three new scenes and three Bell Labs scenes bring the bank to 22.
-A Klatt-style formant engine remains a possible future addition, not implemented.
+The later eSpeak NG and Klatt modes add six more scenes; see above.
 
 ## Bell Labs and Speak & Spell engines (September 30)
 
@@ -207,9 +239,9 @@ Speed. Six additive scenes cover clear, warm and reed/creature settings.
   exact distinct tone-filter targets.
 - `e2e/spelling-mouth.spec.mjs`: required three viewports, editor/graphic
   ownership, Audio-off typing, per-phone audio/visual agreement for CAT on all
-  five engines, held vowel/release, engine labels and full preset recall.
-  The Cooking suite also checks all twenty-two recalls and true Random.
-  Loop regressions cover complete repeated phone sequences on all five engines,
+  ten voices, held vowel/release, engine labels and full preset recall.
+  `e2e/spelling-presets.spec.mjs` checks all thirty-seven recalls and true Random.
+  Loop regressions cover complete repeated phone sequences on all ten voices,
   finishing a pass, cancellation, preset/Random continuity, empty input and
   pause/resume at the final punctuation boundary.
 
@@ -242,7 +274,7 @@ and do not travel with a fresh clone. No commit or publication requested.
   taper, linear low-level output, soft-knee continuity and the final sample guard.
 - `tests/spelling-synthesizer-audio.test.mjs` checks opt-in protected routing,
   mute/restore/cleanup and the unchanged legacy output path.
-- `e2e/spelling-live-readback.spec.mjs` exercises all five real engines, live
+- `e2e/spelling-live-readback.spec.mjs` exercises all ten real engines, live
   tones/rhythm, half/double speed, retained interval progress, delayed/cancelled
   voice loading, fallback, loop continuity and measured full-master balance.
 - The existing mouth/responsive and preset suites cover the adjacent Speed

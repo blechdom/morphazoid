@@ -116,3 +116,14 @@ test('a modulation indicator observes effective values without changing the manu
   assert.equal(marker.hidden, true);
   f.knob.destroy();
 });
+
+test('optional fixed interaction range preserves raw input but bounds pointer motion and display',()=>{
+  const f=fixture({min:'-1000',max:'1000',step:'any',value:'500'},{interactionRange:{min:0,max:100}});
+  assert.equal(f.input.value,'500');assert.deepEqual(f.events,[]);
+  assert.match(f.field.children[1].children[0].attributes.get('style'),/135deg/);
+  f.pointer('pointerdown');f.pointer('pointermove',{clientY:100});f.pointer('pointerup');assert.equal(f.input.value,'500');assert.deepEqual(f.events,[]);
+  f.pointer('pointerdown');f.pointer('pointermove',{clientY:112});f.pointer('pointerup');assert.equal(f.input.value,'90');
+  assert.deepEqual([f.input.min,f.input.max],['-1000','1000']);
+  f.knob.setModulation(500);assert.match(f.field.children[1].children[1].attributes.get('style'),/135deg/);
+  f.knob.destroy();
+});

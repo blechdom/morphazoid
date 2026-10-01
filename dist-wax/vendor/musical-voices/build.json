@@ -1,0 +1,31 @@
+{
+  "stkRevision": "f3ce5f4d04c83ec2d1661914a5dfc8437758fb4c",
+  "stkArchiveSha256": "c1da6eb998347152605565dd5bbd8d7ad0a0fd2bb018aa248e0db6d895be10d0",
+  "compiler": "emcc (Emscripten gcc/clang-like replacement + linker emulating GNU ld) 4.0.22 (0f3d2e62bccf8e14497ff19e05a1202c51eb0c65)",
+  "files": {
+    "musical-gestures.js": {
+      "bytes": 4565,
+      "sha256": "11875549a13906cabe764838d56dd4a3946e1a9c377b6a3bdd0ad424d3e2bb56"
+    },
+    "musical-voices.js": {
+      "bytes": 71148,
+      "sha256": "ebba18878ec46bb939ea78064e38ad03f1733d960d31c45e4df6d0cf56d85f1e"
+    },
+    "musical-voices.wasm": {
+      "bytes": 259871,
+      "sha256": "56d47a0e2915a5429402d16eb14440b2f8907da8d336691675c1eca32d8b3dfe"
+    },
+    "native-data.js": {
+      "bytes": 15458,
+      "sha256": "b2821fb19979f8a7c0d86f26acbc3932c0b966f16322b0d8f6f928edf85d8cef"
+    },
+    "voice-api.js": {
+      "bytes": 6192,
+      "sha256": "87a5382a03bcb585aaf8dfd4b2cc65df4f56fda2c00017c0852b467a5ef80678"
+    },
+    "voice-data.js": {
+      "bytes": 1040,
+      "sha256": "4e9d6a4fb6a88635d3c4cdf123be7dc02fb474cd51aea68e72e4eb98e46ae8e3"
+    }
+  }
+}

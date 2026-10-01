@@ -1,0 +1,23 @@
+{
+  "archives": {
+    "hts_engine_API-1.10.tar.gz": "e2132be5860d8fb4a460be766454cfd7c3e21cf67b509c48e1804feab14968f7",
+    "flite+hts_engine-1.07.tar.gz": "5a17c16683a8353077560e0e9b779c331ccc1a5f8da51740612043e65fc9e805",
+    "hts_voice_cmu_us_arctic_slt-1.06.tar.gz": "10d4e70d882335c22abe1004f929845d47894aa35f2df6fe28deac8a8a4af1b2"
+  },
+  "source": "https://hts-engine.sourceforge.net/",
+  "emscripten": "emcc (Emscripten gcc/clang-like replacement + linker emulating GNU ld) 4.0.22 (0f3d2e62bccf8e14497ff19e05a1202c51eb0c65)",
+  "files": {
+    "hts.js": {
+      "bytes": 63890,
+      "sha256": "7b16c8c30c46112f550fee26805fad8490c24c32f6aac179ce58bd9b9a9fce8d"
+    },
+    "hts.wasm": {
+      "bytes": 763746,
+      "sha256": "339891df684e6628363b81004862749048babde41f57166f05dba57731582fa9"
+    },
+    "hts.data": {
+      "bytes": 1515783,
+      "sha256": "5ebf89a3a33ea0a439306d1b0d214e8ba54427eb103d2ba00409d408d34e7f5d"
+    }
+  }
+}

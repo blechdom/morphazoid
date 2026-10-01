@@ -379,6 +379,7 @@ export const ADDITIONAL_TAG_IDS = Object.freeze(Object.fromEntries(Object.entrie
   "digestazoid": [],
   "breath-atlas": [],
   "spelling-synthesizer": [],
+  voicesaurus: ["synthesizer"],
   "vocalzoid": [
     "synthesizer"
   ],

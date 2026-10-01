@@ -259,8 +259,10 @@ English US voice. Their text is “Check, check. Is this thing on?” and
 or imitations of named people. Leading/trailing silence is trimmed, peak is
 normalized to 0.65 and 4/20 ms edge fades are applied; mono PCM16 is stored at
 22.05 kHz. The original generated assets are provided under this repository's
-MIT license. eSpeak NG is a separate GPL-3.0-or-later development tool; no engine
-code or voice database is bundled: https://github.com/espeak-ng/espeak-ng.
+MIT license. Their generator uses the separate GPL-3.0-or-later eSpeak NG
+development tool: https://github.com/espeak-ng/espeak-ng. These samples do not
+load the engine; the browser speech engines are credited separately in
+[third-party notices](../../THIRD_PARTY_NOTICES.md).
 
 `puggler-object-sounds.js` / `puggler-voice-dsp.js` now reuse the original local
 CC0 drums and OI/WOO clips for prop percussion and human-vocal colors. Pitched,

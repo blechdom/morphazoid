@@ -32,12 +32,30 @@ dice retains an explicitly selected external source, including across methods.
 Physical strikes and reeds use coupled random ranges that keep their exciters
 audible.
 
-**Play** offers three playback modes. **Auto** repeats physical strikes and
-zero-sustain presets, while holding sustained presets. **Repeat notes** pulses
-any method at **10–1,200 BPM**, with note length from **5–95%** of the beat.
-**Hold** keeps a continuous gate. Timing runs on the audio thread; live tempo
-changes preserve the remaining beat fraction. Tempo, note length and playback
-mode stay put through preset and method changes. Audio remains explicitly armed.
+The circular **Play / Pause** button runs a demo: physical strikes and
+zero-sustain sounds pulse at **10–1,200 BPM**, with note length from **5–95%**
+of the beat; sustained sounds hold a continuous note. Tempo and note length
+are disabled while a sound sustains. The behavior follows the current method
+and envelope automatically, including during edits and preset changes.
+Timing runs on the audio thread; live tempo changes preserve the remaining
+beat fraction. Tempo and note length stay put through preset and method changes.
+Audio remains explicitly armed.
+
+**Trigger Note** plays one finite note in Mono. **Trigger Notes (poly)** plays
+three simultaneous notes: root, major third and fifth, with one attack per voice.
+Upper chord tones fold down an octave if they exceed the supported 8 kHz range.
+The processor button remains a three-second input audition. With a sample or
+audio file selected, **Loop input** controls whether Play repeats the whole input
+or plays it once; it is on by default and survives preset changes. Changing it
+while playing takes effect without restarting the sample. **Restart sample** /
+**Replay file**, or Audition, can replay an input that has finished. Live mic and
+continuous test signals do not use this switch.
+
+The processing Input menu also includes four original musical loops at 120 BPM:
+bass groove, electric-piano chords, plucked strings and a synth arpeggio. They
+are rendered with the Rust synthesis engine, retain exact bar lengths and
+wrapped release tails, and load only when selected with Audio enabled.
+See [loop provenance and regeneration](../assets/synthesis/loops/CREDITS.md).
 
 Every continuous method control has a slider and an exact numeric field in
 its displayed units. Discrete algorithms use dropdowns. The sixteen-slot state
@@ -51,7 +69,7 @@ exact numeric fields offer precise adjustment. The shaded sustain duration is
 illustrative; the actual note holds until release. A trigger or preset audition
 has one attack. In Mono, returning to an underlying held note changes pitch
 without restarting its envelope or re-exciting its physical model. In Poly,
-held keys, auditions and repeated notes have independent envelopes and can overlap. If Repeat is active,
+held keys, auditions and repeated notes have independent envelopes and can overlap. If tempo playback is active,
 its next strike waits a full repeat interval after the audition's gate ends.
 
 The oscilloscope includes an optional live logarithmic **Spectrum overlay**, using

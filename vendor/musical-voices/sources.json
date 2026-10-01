@@ -1,0 +1,21 @@
+{
+  "csound_version": "6.18.7",
+  "csound_tarball": "https://registry.npmjs.org/@csound/browser/-/browser-6.18.7.tgz",
+  "csound_integrity": "sha512-pHC83n1fzV9xp7hkFNBTWYsqkBnOS3qNAA9AJNnu3ZCG35a4rMZ5ydOuFi3qqfkLwRTd+frazabxM/lu0+u0qw==",
+  "csound_tar_sha256": "e47812ae14fc004a0dc5aba69bef471f1d0045c00e760143190e23598abba49e",
+  "stk_revision": "f3ce5f4d04c83ec2d1661914a5dfc8437758fb4c",
+  "stk_url": "https://codeload.github.com/thestk/stk/tar.gz/f3ce5f4d04c83ec2d1661914a5dfc8437758fb4c",
+  "stk_tag": "4.6.2",
+  "stk_tar_sha256": "c1da6eb998347152605565dd5bbd8d7ad0a0fd2bb018aa248e0db6d895be10d0",
+  "singer": {
+    "singer.scm": {
+      "url": "https://ccrma.stanford.edu/software/snd/snd/singer.scm",
+      "sha256": "c8f0fb835e32704d0a0fcb9e7e9ea9bbd1f486bc9fcb1de583842def8912502a"
+    },
+    "clm2xen.c": {
+      "url": "https://ccrma.stanford.edu/software/snd/snd/clm2xen.c",
+      "sha256": "93b88d8841c5b30217bd77713c35bd764bdc798c2655efe885468ec07b003f77"
+    }
+  },
+  "emscripten_version": "4.0.22"
+}

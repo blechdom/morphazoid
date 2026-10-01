@@ -21,30 +21,27 @@
     </div>
   </header>
   <main class="synthesis-shell" id="synthesis">
-    <div class="synthesis-title"><h1>Synthesaurus</h1><span id="methodCount">Sound studies</span></div>
+    <div class="synthesis-title"><h1>Synthesaurus</h1></div>
     <div class="synthesis-sections" role="group" aria-label="Sound role">
       <button type="button" id="sectionSynthesis" data-section="synthesis" aria-pressed="true">Synthesis</button>
       <button type="button" id="sectionProcessing" data-section="processing" aria-pressed="false">Processing</button>
     </div>
-    <p id="sectionDescription" class="synthesis-section-description">Create sound from notes and excitation.</p>
     <div class="synthesis-selectors">
-      <div class="synthesis-method-choice"><label for="methodSelect" id="methodLabel">Synthesis method</label><select id="methodSelect"><option>Loading methods…</option></select></div>
+      <div class="synthesis-method-choice"><label for="methodSelect" id="methodLabel">Synthesis method</label><span id="methodDate" class="synthesis-method-date"></span><select id="methodSelect"><option>Loading methods…</option></select></div>
       <div class="synthesis-preset-section"><span class="synthesis-selector-label" id="presetSectionLabel">Synthesis presets</span><div id="presetHost" data-instrument-preset-host></div></div>
     </div>
-    <p id="presetScope" class="synthesis-preset-scope">Next tours synthesis presets · Dice explores synthesis methods.</p>
     <p class="synthesis-principle" id="principle">Choose a synthesis method, enable Audio, then play.</p>
     <div class="synthesis-layout">
       <section id="soundControls" class="synthesis-controls" aria-label="Synthesis controls">
         <div class="synthesis-play-row">
-          <div class="synthesis-note-actions"><button type="button" id="playButton" class="synthesis-transport" data-primary-transport aria-label="Play" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path class="play-icon" d="M8 5L20 12L8 19Z"/><path class="pause-icon" d="M7 5H10V19H7ZM14 5H17V19H14Z"/></svg></button><button type="button" id="triggerButton">Trigger note</button><button type="button" id="randomMethod" title="Randomize settings within the current method" aria-label="Randomize current method"><span id="randomMethodLabel">Random synth</span></button></div>
+          <div class="synthesis-note-actions"><button type="button" id="playButton" class="synthesis-transport" data-primary-transport aria-label="Play" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path class="play-icon" d="M8 5L20 12L8 19Z"/><path class="pause-icon" d="M7 5H10V19H7ZM14 5H17V19H14Z"/></svg></button><button type="button" id="triggerButton">Trigger Note</button><button type="button" id="randomMethod" title="Randomize settings within the current method" aria-label="Randomize current method"><span id="randomMethodLabel">Random synth</span></button></div>
         </div>
         <div id="noteTiming" class="synthesis-timing"><div id="tempoControl"></div><div id="gateControl"></div>
-          <div class="synthesis-rate synthesis-playback"><label for="playbackMode">Playback</label><select id="playbackMode"><option value="auto">Auto</option><option value="repeat">Repeat notes</option><option value="hold">Hold</option></select></div>
           <div id="voiceModeControl" class="synthesis-rate synthesis-voicing"><label for="voiceMode">Voicing</label><select id="voiceMode"><option value="mono">Mono</option><option value="poly">Poly · 8 voices</option></select></div></div>
         <p id="presetCue" class="synthesis-cue"></p>
         <div id="frequencyRow" class="synthesis-frequency-row"><div id="frequencyControl"></div></div>
         <div id="processingControls" class="synthesis-source" hidden>
-          <div class="synthesis-input-choice"><label for="processingSource">Input → processor</label><select id="processingSource"></select><p id="processingInputHint">Use the preset's signal or choose an input to keep while exploring effects.</p></div>
+          <div class="synthesis-input-choice"><label for="processingSource">Input → processor</label><select id="processingSource"></select><label class="synthesis-loop" id="processingLoopControl" hidden><input id="processingLoop" type="checkbox" checked /> Loop input</label><p id="processingInputHint">Use the preset's signal or choose an input to keep while exploring effects.</p></div>
           <div id="processingMix" class="synthesis-mix"><div id="wetControl"></div><div id="inputGainControl"></div><div id="effectGainControl"></div><label class="synthesis-bypass"><input id="processingBypass" type="checkbox" /> Bypass</label></div>
         </div>
         <div id="methodControls" class="synthesis-parameters"></div>
@@ -79,7 +76,7 @@
     </details>
     <p id="audioError" class="synthesis-error" role="alert" hidden></p>
     <p id="status" class="sr-only" role="status" aria-live="polite">Audio is off.</p>
-    <details class="synthesis-disclosure synthesis-notes"><summary>Method notes &amp; sources</summary><p id="methodNotes"></p><p id="modelNote"></p><p><a id="methodReference" href="https://books.google.com/books?id=nZ-TetwzVcIC" target="_blank" rel="noreferrer">Reference</a> · <a href="docs/synthesis-methods.md">All method notes</a> · <a href="docs/synthesaurus-inventory.md">Coverage &amp; remaining techniques</a> · <a href="docs/synthesis-native.md">Rust / CPAL / CLAP</a></p><p>Synthesis creates a playable sound from notes, excitation or stored samples. Processing transforms incoming audio. An algorithm can serve either role: granular, spectral and filter techniques appear according to what each demonstration does. Built-in test signals let you hear processors before connecting an input.</p><p>Sample inputs: <a href="assets/puggler/CREDITS.md">Karoryfer drums (CC0) and synthetic speech (MIT)</a>; <a href="vendor/cmu-arctic/COPYING">CMU ARCTIC edited voice syllables</a>; <a href="assets/bioacoustics/SOURCES.md">Oona Räisänen’s public-domain birdsong</a>. An explicit Input choice stays selected across processor presets; choose Preset input to follow each demonstration’s signal.</p><p>A growing compendium of synthesis and processing. Method notes distinguish full signal paths from simplified educational models. Audio starts off. The plots show the actual output signal.</p></details>
+    <details class="synthesis-disclosure synthesis-notes"><summary>Method notes &amp; sources</summary><p id="methodNotes"></p><p id="methodDateNote"></p><p><a id="methodDateReference" href="docs/synthesis-methods.md">Historical source</a></p><p id="modelNote"></p><p><a id="methodReference" href="https://books.google.com/books?id=nZ-TetwzVcIC" target="_blank" rel="noreferrer">Reference</a> · <a href="docs/synthesis-methods.md">All method notes</a> · <a href="voicesaurus.html">Voicesaurus</a> · <a href="docs/synthesaurus-inventory.md">Coverage &amp; remaining techniques</a> · <a href="docs/synthesis-native.md">Rust / CPAL / CLAP</a></p><p>Synthesis creates a playable sound from notes, excitation or stored samples. Processing transforms incoming audio. An algorithm can serve either role: granular, spectral and filter techniques appear according to what each demonstration does. Built-in test signals let you hear processors before connecting an input.</p><p>Sample inputs: <a href="assets/synthesis/loops/CREDITS.md">Original bass, electric-piano, plucked-string and synth loops (MIT)</a>; <a href="assets/puggler/CREDITS.md">Karoryfer drums (CC0) and synthetic speech (MIT)</a>; <a href="vendor/cmu-arctic/COPYING">CMU ARCTIC edited voice syllables</a>; <a href="assets/bioacoustics/SOURCES.md">Oona Räisänen’s public-domain birdsong</a>. An explicit Input choice stays selected across processor presets; choose Preset input to follow each demonstration’s signal.</p><p>A growing compendium of synthesis and processing. Method notes distinguish full signal paths from simplified educational models. Audio starts off. The plots show the actual output signal.</p></details>
     <noscript>This synthesis page needs JavaScript and WebAssembly to make sound.</noscript>
   </main>
   <script type="module" src="nav.js"></script>

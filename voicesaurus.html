@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#060805" />
+    <meta
+      name="description"
+      content="Morphazoid Voicesaurus — play native speech, singing and voice-chip engines with editable notes, native parameters and dated methods."
+    />
+    <title>Voicesaurus — Morphazoid</title>
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="src/ui/patterns/performance-workspace.css" />
+    <link rel="stylesheet" href="src/instruments/voicesaurus/voicesaurus.css" />
+</head>
+  <body class="voicesaurus-page" data-cooking>
+    <header class="masthead">
+      <a class="wordmark" href="./" aria-label="Morphazoid home">
+        <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+        <span>morphazoid</span>
+      </a>
+
+      <nav class="tabs" aria-label="Instrument">
+        <a class="tab" href="spelling-synthesizer.html">spelling synthesizer</a>
+        <a class="tab" href="vocalzoid.html">vocalzoid</a>
+        <a class="tab active" href="voicesaurus.html" aria-current="page">voicesaurus</a>
+      </nav>
+
+      <label class="mobile-instrument-nav">
+        <span class="sr-only">Instrument</span>
+        <select class="mobile-instrument-select" aria-label="Instrument">
+          <option value="spelling-synthesizer.html">spelling synthesizer</option>
+          <option value="vocalzoid.html">vocalzoid</option>
+          <option value="voicesaurus.html" selected>voicesaurus</option>
+        </select>
+      </label>
+
+      <div class="audio-strip" aria-label="Audio controls">
+        <button class="audio-button" id="audioButton" type="button" aria-pressed="false">
+          <span class="audio-glyph spelling-audio-glyph" aria-hidden="true">Aa</span>
+          <span class="audio-copy"><b>Audio</b><small id="audioState">off</small></span>
+        </button>
+        <label class="header-level" for="level">
+          <span><b>Output</b><output id="levelOut" for="level">46%</output></span>
+          <input
+            id="level"
+            aria-label="Voicesaurus output level"
+            type="range"
+            min="0"
+            max="0.82"
+            step="0.01"
+            value="0.46"
+          />
+        </label>
+      </div>
+    </header>
+
+    <main class="voicesaurus-shell" data-cooking-shell>
+      <section class="voicesaurus-stage" data-cooking-stage aria-labelledby="voicesaurusTitle">
+        <h1 id="voicesaurusTitle">Voicesaurus</h1>
+        <div class="native-transport">
+          <button id="nativePlay" type="button" class="native-play" aria-label="Play voice" aria-pressed="false" data-primary-transport>▶</button>
+          <button id="nativeRestart" type="button">From start</button>
+          <button id="nativeLoop" type="button" aria-pressed="false">Loop</button>
+          <button id="nativeAudition" type="button">Trigger</button>
+          <span id="nativeStatus" role="status">Audio off</span>
+        </div>
+        <div class="native-input-block">
+          <div id="nativeEncodingField" hidden><label for="nativeEncoding">Input mode</label><select id="nativeEncoding"><option value="text">Original letter mapping</option><option value="phones">Native phonetic symbols</option></select></div>
+          <label for="nativeText" id="nativeInputLabel">Text</label>
+          <textarea id="nativeText" rows="4" maxlength="1000" spellcheck="false">Daisy, give me your answer. I can speak, whisper, and sing.</textarea>
+          <div id="nativePhoneField" hidden><label for="nativePhone">Vocal shape</label><select id="nativePhone"></select></div>
+          <div id="nativeScore" hidden aria-label="Japanese singing score"></div>
+          <p id="nativeInputNote"></p>
+        </div>
+        <div class="native-displays">
+          <figure><figcaption>Waveform</figcaption><canvas id="voiceWave" aria-label="Voice waveform"></canvas></figure>
+          <figure><figcaption>Spectrum</figcaption><canvas id="voiceSpectrum" aria-label="Voice frequency spectrum"></canvas></figure>
+          <figure class="native-spectrogram"><figcaption>Spectrogram</figcaption><canvas id="voiceSpectrogram" aria-label="Voice spectrum over time"></canvas></figure>
+        </div>
+      </section>
+      <aside class="voicesaurus-panel" data-cooking-panel aria-label="Voice controls">
+        <div data-instrument-preset-host></div>
+        <div class="native-voice-modes" role="group" aria-label="Voice mode">
+          <button type="button" data-voice-mode="speaking" aria-pressed="true">Speaking</button>
+          <button type="button" data-voice-mode="singing" aria-pressed="false">Singing</button>
+        </div>
+        <label class="native-method-label" for="voiceMethod">Voice method</label>
+        <select id="voiceMethod"></select>
+        <p id="nativeSelectionLabel" class="native-selection-label" hidden></p>
+        <div id="nativeParameters"></div>
+        <details class="native-history-notes">
+          <summary>About this engine</summary>
+          <p id="voiceTechnique" class="voice-technique"></p>
+          <p id="voiceHistory" class="voice-history"></p>
+          <a id="voiceReference" class="voice-reference" target="_blank" rel="noopener">Historical source</a>
+        </details>
+        <p id="audioError" class="audio-error" role="alert" hidden></p>
+        <p class="native-notes"><a href="docs/voicesaurus.md">Methods &amp; implementation</a> · <a href="docs/voice-engine-research.md">Historical engines</a> · <a href="spelling-synthesizer.html">Spelling</a> · <a href="vocalzoid.html">Vocalzoid</a></p>
+        <button id="resetButton" type="button" data-reset-all data-reset-in-place>Reset voice parameters</button>
+      </aside>
+    </main>
+
+    <script type="module" src="nav.js"></script>
+    <script type="module" src="src/instruments/voicesaurus/voicesaurus-app.js"></script>
+  </body>
+</html>

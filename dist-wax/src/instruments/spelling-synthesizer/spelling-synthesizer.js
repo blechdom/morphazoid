@@ -1,3 +1,4 @@
+import { SPELLING_NATIVE_ENGINES as EXTENDED_ENGINES } from '../../families/speech/extended-engines.js';
 import {
   ARTICULATIONS,
   CONSONANTS,
@@ -41,6 +42,7 @@ const SPELLING_VOWEL_GESTURES = Object.freeze({
 });
 
 export const SPELLING_ENGINES = Object.freeze({
+  ...Object.fromEntries(Object.entries(EXTENDED_ENGINES).map(([key, voice]) => [key, Object.freeze({...voice, lineage:voice.family, description:voice.detail})])),
   tube: Object.freeze({
     name: "Pinkazoid tract",
     shortName: "Pinkazoid",
@@ -74,6 +76,24 @@ export const SPELLING_ENGINES = Object.freeze({
     description: "Real LPC speech resynthesis with quantized frames and pulse/noise excitation, inspired by Speak & Spell; not a TI chip or ROM emulation.",
     color: "#ff9c62",
   }),
+  espeak: Object.freeze({
+    name: "eSpeak NG formants", shortName: "eSpeak",
+    lineage: "eSpeak NG · local English formant synthesis",
+    description: "The eSpeak NG engine generates English phone sounds on this device. Typing and word readback use those synthesized sounds, with held vowels and tone controls.",
+    color: "#cfb0ff",
+  }),
+  "espeak-klatt": Object.freeze({
+    name: "eSpeak NG Klatt", shortName: "Klatt",
+    lineage: "eSpeak NG · Klatt formant synthesizer",
+    description: "eSpeak NG's Klatt synthesizer generates the English phones locally. This is the eSpeak implementation, not DECtalk or its voices.",
+    color: "#91e9d6",
+  }),
+  ...Object.fromEntries(['slt', 'awb', 'rms'].map(voice => [`flite-${voice}`, Object.freeze({
+    name: `Flite ${voice.toUpperCase()}`, shortName: `Flite ${voice.toUpperCase()}`,
+    lineage: 'Flite · Clustergen statistical parametric synthesis',
+    description: 'A local WebAssembly Flite voice predicts acoustic parameters and resynthesizes them through an MLSA vocoder.',
+    color: '#95ceff',
+  })])),
 });
 
 export const SPELLING_PERSONALITIES = Object.freeze({

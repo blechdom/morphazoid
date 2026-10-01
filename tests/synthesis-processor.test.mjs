@@ -767,3 +767,30 @@ test('Audio rearm restores held-note ownership with one Mono excitation or a Pol
     }finally{h.dispose();reference.dispose();}
   }
 });
+
+test('a simultaneous finite Poly chord attacks each voice once and expires without retriggering held notes', () => {
+  const h = makeHarness();
+  try {
+    h.send({ type: 'state', state: state({ voiceMode: 'poly' }) });
+    h.send({ type: 'note', frequency: 110, velocity: .8, duration: null, noteId: 7 });
+    h.render(4800);
+    const attacks = [], api = h.processor.api;
+    h.processor.api = { ...api, poly_note_on(...args) { attacks.push(args); return api.poly_note_on(...args); } };
+    const at = h.time + 47 / RATE;
+    for (const frequency of [220, 330, 550]) h.send({ type: 'note', frequency, velocity: .8, duration: .15, at });
+    h.render(128);
+    assert.equal(attacks.length, 3, 'exactly one attack per demo note');
+    assert.equal(new Set(attacks.map(args => args[1])).size, 3, 'finite notes have independent voice IDs');
+    const chord = h.render(4800);
+    for (const hz of [110, 220, 330, 550]) assert.ok(spectralAmplitude(chord, hz) > .01, `${hz} Hz sounds`);
+    h.render(RATE / 2);
+    assert.equal(attacks.length, 3, 'the chord expires without extra attacks');
+    assert.deepEqual(heldPolyIds(h), [7], 'the original held note survives');
+    const remaining = h.render(4800);
+    assertPitch(remaining, 110, 'held note after chord');
+    for (const hz of [220, 330, 550]) assert.ok(spectralAmplitude(remaining, hz) < .001, `${hz} Hz demo note has released`);
+    h.send({ type: 'off' }); h.render(24_000);
+    assert.deepEqual(heldPolyIds(h), [], 'the original note is released');
+    assert.ok(rms(h.render(4800)) < 1e-6, 'all release tails finish');
+  } finally { h.dispose(); }
+});

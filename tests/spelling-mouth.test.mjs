@@ -1,3 +1,4 @@
+import {SPELLING_NATIVE_ENGINES as EXTENDED_ENGINES, NATIVE_DEFAULTS} from '../src/families/speech/extended-engines.js';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { REST_MOUTH, spellingMouthPose, blendMouthPose, spellingMouthPaths } from '../src/instruments/spelling-synthesizer/spelling-mouth.js';
@@ -44,8 +45,8 @@ test('mouth interpolation changes display only and has stable endpoints', () => 
 test('Speak & Spell-ish is an additive full vocoder scene, not a new engine or master preset', () => {
   const preset=presets.find(p=>p.id==='speak-spell');
   assert.ok(preset);
-  assert.deepEqual(preset.snapshot,{engine:"vocoder",personality:"reed",rhythmAmount:0,diphthongDelay:0,pairGlides:false});
-  assert.equal(presets.length,22);
+  assert.deepEqual(preset.snapshot,{...NATIVE_DEFAULTS,engine:"vocoder",personality:"reed",rhythmAmount:0,diphthongDelay:0,pairGlides:false});
+  assert.equal(presets.length,37+Object.values(EXTENDED_ENGINES).reduce((n,v)=>n+v.examples.length,0));
   // Other factory IDs and parameter values remain available.
   assert.ok(presets.find(p=>p.id==='tube'));
   assert.ok(presets.find(p=>p.id==='soft'));

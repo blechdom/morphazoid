@@ -1,0 +1,40 @@
+{
+  "package": "@echogarden/svoxpico-wasm@0.2.0",
+  "package_source_revision": "4b1d64dc4c69cec088141d8653c526f09b76ea62",
+  "package_archive_sha256": "c1874834673159ac068282d36bab7e3a21e399043388d4e56763b54f1d6885b1",
+  "resource_revision": "21089d223e177ba3cb7e385db8613a093dff74b5",
+  "files": {
+    "svoxpico.js": {
+      "bytes": 165036,
+      "sha256": "2e2d565f390d1ef351553558813ef82d5da28ced69454ce8cf030e60f04447e5"
+    },
+    "svoxpico.wasm": {
+      "bytes": 950029,
+      "sha256": "276a4e171734647f5d5edcc2a635df9b367867dc00848a8dc58120dd7004b0c6"
+    },
+    "LICENSE": {
+      "bytes": 11324,
+      "sha256": "a8ad31b1c3f40dca5a84119351b8fa8ddc868edd77fad8a8ebf6d8f2d16fa4ae"
+    },
+    "en-US_ta.bin": {
+      "bytes": 650668,
+      "sha256": "3a2a4d23de2a44dbbff50f69dcb9486be53b6d0a871d77cdc35f45c3e25e82aa"
+    },
+    "en-US_lh0_sg.bin": {
+      "bytes": 777396,
+      "sha256": "d6946526696d9eb085f7b23b1fbdf7a9986caca658b645e9eb73c6514fd4789d"
+    },
+    "en-GB_ta.bin": {
+      "bytes": 412248,
+      "sha256": "57998f6423236dea25cd572a73b13f371e64155840e31b571eba7fca0b521b7e"
+    },
+    "en-GB_kh0_sg.bin": {
+      "bytes": 584436,
+      "sha256": "8f9f5d13a920a9f3371517178d42ce89b835f1e587760c2db280beb593c388fa"
+    },
+    "DATA_NOTICE": {
+      "bytes": 10690,
+      "sha256": "b5830d96fb5a7e7e7ebcc295f352846b4b998e78fdc8f9aa68e134d2e4b39986"
+    }
+  }
+}

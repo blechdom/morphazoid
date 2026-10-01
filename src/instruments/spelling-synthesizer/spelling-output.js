@@ -2,10 +2,18 @@ import { connectAudioOutput } from '../../audio-output-manager.js';
 import { calibratedOutputGain } from '../../families/tract/throatazoid.js';
 
 // Fixed output calibration, not scene volume. Measured on the same spoken text
-// through all five real browser engines; the performer still owns master level.
+// through the real browser engines; the performer still owns master level.
 export const SPELLING_VOICE_TRIMS = Object.freeze({
   tube: 1.7,
   diphone: 1.55,
+  espeak: 1.55,
+  "espeak-klatt": 3,
+  "flite-slt": 0.9,
+  "flite-awb": 1.2,
+  "flite-rms": 1.3,
+  singer: .82,
+  "stk-voicform": 1.4,
+  pico: 1.5,
   vocoder: 2.6,
   bell: 4.8,
   lpc: 2.25,

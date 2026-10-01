@@ -1,9 +1,13 @@
+import { SPELLING_NATIVE_ENGINES as EXTENDED_ENGINES, NATIVE_DEFAULTS, nativeSnapshot } from '../../families/speech/extended-engines.js';
 import { createPresetSchema } from '../../site/preset-schema.js';
 import { SPELLING_ENGINES, SPELLING_PERSONALITIES } from './spelling-synthesizer.js';
 // The user's text and readback cursor are performance material, never factory text.
-export const schema=createPresetSchema({engine:{choices:Object.keys(SPELLING_ENGINES)},personality:{choices:Object.keys(SPELLING_PERSONALITIES)},rhythmAmount:{min:0,max:1},diphthongDelay:{min:0,max:320},pairGlides:{choices:[false,true]}});
-const scene=(id,label,engine,personality,rhythmAmount,diphthongDelay,pairGlides)=>[id,label,{engine,personality,rhythmAmount,diphthongDelay,pairGlides}];
+const baseSchema=createPresetSchema({...Object.fromEntries(Object.keys(NATIVE_DEFAULTS).map(key=>[key,{min:0,max:1}])),engine:{choices:Object.keys(SPELLING_ENGINES)},personality:{choices:Object.keys(SPELLING_PERSONALITIES)},rhythmAmount:{min:0,max:1},diphthongDelay:{min:0,max:320},pairGlides:{choices:[false,true]}});
+// Additive migration: old five-field saved scenes remain valid; reject unknown fields.
+export const schema=Object.freeze({...baseSchema,validate:value=>baseSchema.validate({...nativeSnapshot(value?.engine),...value})});
+const scene=(id,label,engine,personality,rhythmAmount,diphthongDelay,pairGlides)=>[id,label,{...NATIVE_DEFAULTS,engine,personality,rhythmAmount,diphthongDelay,pairGlides}];
 export const presets=schema.bank([
+ ...Object.entries(EXTENDED_ENGINES).flatMap(([engine, voice]) => voice.examples.map(([label, parameters], index) => [`${engine}-${index+1}`, label, {...nativeSnapshot(engine,parameters),engine,personality:"clear",rhythmAmount:.35,diphthongDelay:120,pairGlides:true}])),
  scene('clear','Clear sample voice','diphone','clear',.72,180,true),
  scene('velvet','Velvet syllables','diphone','warm',.35,260,true),
  scene('whisper','Whispered consonants','diphone','whisper',.55,110,false),
@@ -27,5 +31,16 @@ export const presets=schema.bank([
  scene('lpc-spelling','Speak & Spell LPC','lpc','clear',.2,0,false),
  scene('lpc-soft','Soft LPC storyteller','lpc','warm',.45,180,true),
  scene('lpc-creature','Little LPC monster','lpc','creature',.85,270,true),
+ scene('klatt-clear','Klatt formants','espeak-klatt','clear',.35,120,true),
+ scene('klatt-soft','Soft Klatt syllables','espeak-klatt','warm',.2,240,true),
+ scene('klatt-pulses','Klatt letter pulses','espeak-klatt','reed',.8,40,false),
+ ...['slt','awb','rms'].flatMap(voice => [
+   scene(`flite-${voice}`, `Flite ${voice.toUpperCase()}`, `flite-${voice}`, 'clear', .35, 120, true),
+   scene(`flite-${voice}-soft`, `Soft ${voice.toUpperCase()} syllables`, `flite-${voice}`, 'warm', .2, 240, true),
+   scene(`flite-${voice}-pulses`, `${voice.toUpperCase()} letter pulses`, `flite-${voice}`, 'reed', .8, 40, false),
+ ]),
+ scene('espeak-clear','eSpeak formants','espeak','clear',.35,120,true),
+ scene('espeak-soft','Soft eSpeak syllables','espeak','warm',.2,240,true),
+ scene('espeak-staccato','eSpeak letter pulses','espeak','reed',.8,40,false),
 ]);
 export const randomize=schema.randomize;

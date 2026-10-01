@@ -1,0 +1,23 @@
+{
+  "source": "https://github.com/jarikomppa/soloud",
+  "revision": "e82fd32c1f62183922f08c14c814a02b58db1873",
+  "emscripten": "emcc (Emscripten gcc/clang-like replacement + linker emulating GNU ld) 4.0.22 (0f3d2e62bccf8e14497ff19e05a1202c51eb0c65)",
+  "files": {
+    "vizsn.js": {
+      "bytes": 9326,
+      "sha256": "e56714090f9c919732b921cf1c562531f27b5f6b650160522911dec9b9fc38cb"
+    },
+    "vizsn.wasm": {
+      "bytes": 22089,
+      "sha256": "c1f11aed79c00246b54f0cc97ac1aac0c84ac5696b584361e3334a2da641697f"
+    },
+    "upstream/soloud_vizsn.cpp": {
+      "bytes": 12629,
+      "sha256": "84a9f279b0dd45eb223f946539362c36c796e646a4f4aded668175c10a9a6885"
+    },
+    "upstream/soloud_vizsn.h": {
+      "bytes": 1616,
+      "sha256": "81b639033d1ee8051f551290a012df014658c8578ddea05e7e63d1ed60a45981"
+    }
+  }
+}

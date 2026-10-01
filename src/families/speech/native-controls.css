@@ -1,0 +1,10 @@
+.voice-native-controls { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:16px 10px; margin:16px 0 4px; }
+.voice-native-controls[hidden] { display:none; }
+.voice-native-control { min-width:0; display:grid; justify-items:center; align-content:start; gap:5px; color:#b5c5bd; font:11px/1.4 var(--mono); }
+.voice-native-control > span:first-child { text-align:center; }
+.voice-native-control > output { color:var(--spelling-accent); font-size:10px; }
+.voice-native-control:has(select) { grid-column:1/-1; display:block; }
+.voice-native-control:has(select) > span { display:block; margin-bottom:5px; }
+.voice-native-control .synthesis-choose { width:100%; }
+.voice-native-control .instrument-picker-trigger { width:100%; min-height:34px; font:12px var(--mono); }
+.voice-native-control.mz-range-knob { --mz-knob-size:44px; }
