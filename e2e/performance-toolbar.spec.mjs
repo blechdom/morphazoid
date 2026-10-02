@@ -16,12 +16,12 @@ for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 
         const header = document.querySelector(".masthead"), host = document.querySelector("[data-instrument-preset-host]");
         const presets = document.querySelector(".header-preset-controls"), io = header.querySelector(".header-io-controls");
         const nodes = [header.querySelector(".wordmark"), header.querySelector(".instrument-picker-trigger"), header.querySelector(".instrument-picker-next"),
-          io.querySelector(".header-output-meter-shell"), io.querySelector(".mz-range-knob"), io.querySelector(".audio-button"), io.querySelector(".header-settings-trigger")];
-        return { first: host.firstElementChild === presets, inHeader: header.contains(presets),
-          ioOrder: [...io.children].map(node => node.classList.contains("header-output-meter-shell") ? "meters" : node.classList.contains("audio-strip") ? "audio" : node.classList.contains("header-settings-menu") ? "settings" : node.className),
+          io.querySelector(".header-output-meter-shell"), io.querySelector(".audio-strip .mz-range-knob, .header-actions .mz-range-knob"), io.querySelector(".audio-button"), io.querySelector(".header-settings-trigger")];
+        return { first: host.firstElementChild === (presets.closest(".mz-input-preset-row") ?? presets), inHeader: header.contains(presets),
+          ioOrder: [...io.children].filter(node => !node.classList.contains("mz-audio-input-strip")).map(node => node.classList.contains("header-output-meter-shell") ? "meters" : node.classList.contains("audio-strip") ? "audio" : node.classList.contains("header-settings-menu") ? "settings" : node.className),
           boxes: nodes.map(node => node.getBoundingClientRect().toJSON()),
           width: document.documentElement.scrollWidth, audio: io.querySelector(".audio-button").getAttribute("aria-pressed"),
-          nativeRange: io.querySelector(".mz-range-knob input").type,
+          nativeRange: io.querySelector(".audio-strip .mz-range-knob input, .header-actions .mz-range-knob input").type,
         };
       });
       expect(layout.first).toBe(true); expect(layout.inHeader).toBe(false);

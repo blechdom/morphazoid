@@ -3,6 +3,8 @@
 // recording buffer, transport separation, and teardown.
 // Follows contracts/audio-transport-v1.md: Play never arms Audio.
 import { connectAudioOutput } from "../../audio-output-manager.js";
+import { audioInputConstraints, configureAudioInputNode } from "../../audio-input-settings.js";
+import { mountAudioInputControl } from "../../audio-input-control.js";
 
 const MAX_RECORD_SECONDS = 8;
 const MIN_RECORD_SECONDS = 0.12;
@@ -43,6 +45,12 @@ export function createWaveLabShell({
   let recorder = null;
   let chunks = [];
   let recordStartedAt = 0;
+  let graphPromise = null;
+  let graphReady = false;
+  let micVersion = 0;
+  let micPending = false;
+  let micError = "";
+  const outputGates = [];
 
   const say = (text) => { if (statusEl) statusEl.textContent = text; };
   const fail = (text) => { if (errorEl) { errorEl.hidden = false; errorEl.textContent = text; } };
@@ -65,17 +73,28 @@ export function createWaveLabShell({
     recordButton.textContent = state.recording ? "Stop recording" : "Record";
   }
 
+  async function prepareGraph() {
+    const Ctx = globalThis.AudioContext || globalThis.webkitAudioContext;
+    if (!Ctx) throw new Error("Web Audio is unavailable in this browser.");
+    if (!state.context) state.context = new Ctx({ latencyHint: "interactive" });
+    if (state.context.state === "suspended") await state.context.resume();
+    if (!graphReady) {
+      graphPromise ??= Promise.resolve(onArm(state.context)).then((built) => {
+        if (built?.input) graphInput = built.input;
+        if (built?.dry) dryGain = built.dry;
+        graphReady = true;
+      }).finally(() => { graphPromise = null; });
+      await graphPromise;
+    }
+  }
+
   async function arm() {
     clearError();
     try {
-      const Ctx = globalThis.AudioContext || globalThis.webkitAudioContext;
-      if (!Ctx) throw new Error("Web Audio is unavailable in this browser.");
-      if (!state.context) state.context = new Ctx({ latencyHint: "interactive" });
-      if (state.context.state === "suspended") await state.context.resume();
-      const built = await onArm(state.context);
-      if (built?.input) graphInput = built.input;
-      if (built?.dry) dryGain = built.dry;
+      await prepareGraph();
       state.armed = true;
+      for (const gate of outputGates) gate.gain.setTargetAtTime(1, state.context.currentTime, .02);
+      onTransport(state.running);
       paintAudio();
       say(state.running ? "Audio on." : "Audio on — press Play, or hold Record and make a sound.");
       if (micSource && graphInput) routeMic();
@@ -86,6 +105,9 @@ export function createWaveLabShell({
 
   function disarm() {
     state.armed = false;
+    stopRecording();
+    releaseMic();
+    for (const gate of outputGates) gate.gain.setTargetAtTime(0, state.context.currentTime, .02);
     onDisarm();
     paintAudio();
     say("Audio off — transport and recorded material are kept.");
@@ -94,8 +116,8 @@ export function createWaveLabShell({
   function routeMic() {
     if (!micSource || !state.context) return;
     if (!micTrim) {
-      micTrim = state.context.createGain();
-      micTrim.gain.value = 0.9;
+      micTrim = inputControl.createGain(state.context);
+      configureAudioInputNode(micTrim);
     }
     try { micSource.disconnect(); } catch { /* not connected */ }
     micSource.connect(micTrim);
@@ -104,31 +126,47 @@ export function createWaveLabShell({
     if (dryGain) { try { micTrim.disconnect(dryGain); } catch { /* fresh */ } micTrim.connect(dryGain); }
     state.micReady = true;
     onMicNode(micTrim);
+    inputControl.refresh();
   }
 
   async function enableMic() {
-    if (!state.context) {
-      say("Turn Audio on first — the microphone joins the running graph.");
-      return false;
-    }
     if (state.micReady) return true;
+    if (micPending) return false;
+    const version = ++micVersion;
+    micError = "";
+    micPending = true;
+    inputControl.refresh();
+    let requestedStream;
     try {
-      micStream = await navigator.mediaDevices.getUserMedia({
-        audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false },
-      });
+      await prepareGraph();
+      if (version !== micVersion) return false;
+      requestedStream = await navigator.mediaDevices.getUserMedia(audioInputConstraints());
+      if (version !== micVersion || document.hidden) {
+        requestedStream.getTracks().forEach(track => track.stop());
+        return false;
+      }
+      micStream = requestedStream;
       micSource = state.context.createMediaStreamSource(micStream);
+      for (const track of micStream.getAudioTracks()) track.addEventListener?.("ended", () => {
+        if (micStream === requestedStream) { stopRecording(); releaseMic(); }
+      }, { once: true });
       routeMic();
-      say("Microphone on. Use headphones — this monitors live input.");
+      say("Microphone on.");
       return true;
     } catch (error) {
-      fail(`Microphone unavailable: ${error?.message ?? "permission denied"}`);
-      return false;
+      requestedStream?.getTracks().forEach(track => track.stop());
+      if (version !== micVersion) return false;
+      micError = error?.message || "Microphone unavailable";
+      throw error;
+    } finally {
+      if (version === micVersion) micPending = false;
+      inputControl.refresh();
     }
   }
 
   async function startRecording() {
     if (!state.armed) { say("Turn Audio on before recording."); return; }
-    if (!(await enableMic())) return;
+    try { if (!(await enableMic())) return; } catch { return; }
     const ctx = state.context;
     chunks = [];
     recordStartedAt = ctx.currentTime;
@@ -182,10 +220,14 @@ export function createWaveLabShell({
   }
 
   function releaseMic() {
+    ++micVersion;
+    micPending = false;
+    micError = "";
     try { micSource?.disconnect(); } catch { /* already */ }
     try { micTrim?.disconnect(); } catch { /* already */ }
     for (const track of micStream?.getTracks?.() ?? []) track.stop();
-    micStream = null; micSource = null; state.micReady = false;
+    micStream = null; micSource = null; micTrim = null; state.micReady = false;
+    inputControl.refresh();
   }
 
   function teardown() {
@@ -195,7 +237,17 @@ export function createWaveLabShell({
     try { state.context?.close(); } catch { /* already closed */ }
     state.context = null;
     state.armed = false;
+    inputControl.destroy();
   }
+
+  const inputControl = mountAudioInputControl({
+    container: recordButton?.closest(".group") ?? document.querySelector(".starting-controls"),
+    before: recordButton?.closest(".record-row"), gainValue: .9,
+    onStart: enableMic,
+    onStop() { stopRecording(); releaseMic(); },
+    getState: () => ({ active: state.micReady, pending: micPending, error: micError }),
+    getSignal: () => ({ node: micTrim, stream: micStream }),
+  });
 
   audioButton?.addEventListener("click", () => { if (state.armed) disarm(); else arm(); });
   playButton?.addEventListener("click", () => {
@@ -208,6 +260,7 @@ export function createWaveLabShell({
     if (state.recording) stopRecording(); else startRecording();
   });
   globalThis.addEventListener("pagehide", teardown);
+  document.addEventListener("visibilitychange", () => { if (document.hidden) { stopRecording(); releaseMic(); } });
 
   paintAudio(); paintPlay(); paintRecord();
 
@@ -218,7 +271,11 @@ export function createWaveLabShell({
     get running() { return state.running; },
     connectOutput(node) {
       if (!state.context) return () => {};
-      return connectAudioOutput(state.context, node, { runtime: globalThis });
+      const gate = state.context.createGain();
+      gate.gain.value = state.armed ? 1 : 0;
+      node.connect(gate);
+      outputGates.push(gate);
+      return connectAudioOutput(state.context, gate, { runtime: globalThis });
     },
     setGraphInput(node) { graphInput = node; if (micSource) routeMic(); },
     setDry(node) { dryGain = node; if (micSource) routeMic(); },

@@ -8,6 +8,7 @@ import { enhanceChooseSelect } from "./choose.js";
 import { COMPUTER_KEYBOARD_LAYOUTS } from "../../midi-manager.js";
 import { getMethod, getPreset, createDefaultState, stateFromPreset, sanitizeState, formatParameter } from "./catalog.js";
 import { SynthesisAudio } from "./audio.js";
+import { mountAudioInputControl } from "../../audio-input-control.js";
 import { createEnvelopeEditor } from "./envelope.js";
 import { createParameterControl, createKnobControl } from "./controls.js";
 
@@ -40,6 +41,8 @@ let synthesisSourceName = "Built-in synthetic source";
 let processingInput = "preset";
 let inputIntent = 0;
 let loadingInput = false;
+let inputControl = null;
+let inputError = "";
 const chooseControls = new Map();
 const held = new Map();
 let noteSequence = 0;
@@ -211,7 +214,6 @@ function renderState(rebuildControls = true, audition = false, restoringSection 
   mixFields.inputDb.setValue(state.inputDb ?? 0);
   mixFields.outputDb.setValue(state.outputDb ?? 0);
   $("processingBypass").checked = state.bypass === true;
-  $("startMicrophone").textContent = processing ? "Start mic / line" : "Capture mic · 2 s";
   $("restoreSource").hidden = processing;
   if (renderState.lastMethod && renderState.lastMethod !== method.id) {
     if (!processing || audio.input.pending || audio.captureRequest) { inputIntent++; loadingInput = false; audio.stopInput(); }
@@ -421,8 +423,6 @@ function paintInput() {
     : processing ? (PROCESSING_SCHEMA.sources[processingSource()] ?? "Built-in signal") : status.label;
   $("stopInput").hidden = processing && !external;
   $("stopInput").disabled = !loadingInput && !status.pending && status.kind === "none";
-  $("startMicrophone").hidden = processing && !microphone;
-  $("startMicrophone").disabled = status.pending || arming;
   $("sourceFileLabel").hidden = processing && option?.kind !== "file";
   $("sourceFile").disabled = arming;
   $("resumeFile").hidden = !processing || !external || (option?.kind !== "demo" && !(option?.kind === "file" && audio.processingFile));
@@ -430,6 +430,7 @@ function paintInput() {
   $("resumeFile").disabled = !audio.armed || loadingInput;
   $("inputHelp").hidden = processing && !microphone;
   $("inputLevel").hidden = !external && processing;
+  inputControl?.refresh();
 }
 const inputGroups = new Map();
 for (const option of PROCESSING_INPUT_OPTIONS) {
@@ -456,7 +457,7 @@ async function ensureProcessingInput({ audition = false, connectMic = false, res
     }
     if (intent === inputIntent && audition) syncAudio(true);
     $("audioError").hidden = true;
-  } catch (error) { if (intent === inputIntent && error.name !== "AbortError") showError(error); }
+  } catch (error) { if (intent === inputIntent && error.name !== "AbortError") inputError = error?.message || "Input unavailable"; }
   finally { if (intent === inputIntent) { loadingInput = false; paintInput(); } }
 }
 listen($("processingLoop"), "change", () => {
@@ -467,42 +468,75 @@ listen($("processingSource"), "change", () => {
   processingInput = $("processingSource").value;
   inputIntent++; loadingInput = false; audio.stopInput();
   paintInput(); syncAudio(processingSource() !== 0);
-  void ensureProcessingInput({ audition: true, connectMic: selectedInput()?.kind === "microphone" });
+  void ensureProcessingInput({ audition: true });
 });
 listen($("sourceFile"), "change", async event => {
   const file = event.target.files?.[0];
   if (!file) return;
   const intent = ++inputIntent;
+  inputError = "";
   try {
     const processing = getMethod(state.methodId).kind === "processor";
     loadingInput = processing; paintInput();
+    await audio.start({ arm: false });
+    if (intent !== inputIntent) return;
     const label = await audio.loadFile(file, { processing });
     if (intent !== inputIntent) return;
     if (!processing) synthesisSourceName = label;
     else processingInput = "file";
     paintInput(); syncAudio(true); $("audioError").hidden = true;
-  } catch (error) { if (intent === inputIntent) showError(error); }
+  } catch (error) { if (intent === inputIntent) inputError = error?.message || "Input unavailable"; }
   finally { if (intent === inputIntent) { loadingInput = false; paintInput(); } }
   event.target.value = "";
 });
 listen($("restoreSource"), "click", () => { inputIntent++; synthesisSourceName = "Built-in synthetic source"; audio.restoreSource(); paintInput(); });
 listen($("processingBypass"), "change", () => { state.bypass = $("processingBypass").checked; markCustom(); });
-listen($("stopInput"), "click", () => { inputIntent++; loadingInput = false; audio.stopInput(); paintInput(); });
-listen($("resumeFile"), "click", () => { void ensureProcessingInput({ audition: true, restart: true }); });
-listen($("startMicrophone"), "click", async () => {
+async function connectInput() {
+  inputError = "";
   const methodId = state.methodId;
+  const intent = inputIntent;
   try {
+    await audio.start({ arm: false });
+    if (intent !== inputIntent) return;
+    if (inputControl.root.sourceSelect.value === "file") {
+      if (getMethod(methodId).kind === "processor") {
+        if (audio.processingFile) audio.input.setFile(audio.processingFile.buffer, audio.processingFile.label);
+        else if (audio.input.fileBuffer) audio.input.startFile();
+        else $("sourceFile").click();
+      } else $("sourceFile").click();
+      return;
+    }
     if (getMethod(methodId).kind === "processor") {
-      if (!audio.armed) { $("status").textContent = "Enable Audio before connecting mic / audio-in."; return; }
       if (processingInput !== "microphone") { processingInput = "microphone"; inputIntent++; paintInput(); syncAudio(); }
-      await ensureProcessingInput({ connectMic: true });
+      await audio.startMicrophone();
       if (audio.input.kind === "microphone") setPlaying(true);
     } else {
       const label = await audio.captureSource();
       if (label && state.methodId === methodId) { synthesisSourceName = label; paintInput(); syncAudio(true); }
     }
     $("audioError").hidden = true;
-  } catch (error) { showError(error); }
+  } catch (error) { inputError = error?.message || "Input unavailable"; throw error; }
+}
+inputControl = mountAudioInputControl({
+  container: $("sourceControls"), before: $("sourceFileLabel"),
+  button: $("startMicrophone"), gainInput: mixFields.inputDb.input, gainOutput: mixFields.inputDb.output,
+  gainFormat: value => `${value > 0 ? "+" : ""}${value} dB`,
+  gainMultiplier: () => 10 ** ((state.inputDb ?? 0) / 20),
+  sources: [{ value: "mic", label: "Mic" }, { value: "file", label: "File" }], fileInput: $("sourceFile"),
+  getState: () => ({ active: audio.input.kind !== "none", pending: audio.input.pending || loadingInput, error: inputError,
+    supported: Boolean(getMethod(state.methodId).sourceInput || getMethod(state.methodId).kind === "processor"),
+    source: audio.input.kind === "file" || processingInput === "file" ? "file" : "mic" }),
+  getSignal: () => ({ node: audio.input.node, stream: audio.input.stream,
+    channels: audio.input.kind === "file" ? audio.input.fileBuffer?.numberOfChannels : undefined }),
+  onStart: connectInput,
+  onStop: () => { inputIntent++; loadingInput = false; inputError = ""; audio.stopInput(); paintInput(); },
+  onSourceChange: value => {
+    inputError = "";
+    inputIntent++; loadingInput = false; audio.stopInput();
+    processingInput = value === "file" ? "file" : "microphone";
+    paintInput(); syncAudio();
+  },
+  hide: [$("sourceFileLabel"), $("stopInput"), $("resumeFile"), $("inputStatus"), $("inputLevel"), $("inputHelp"), $("inputGainControl")],
 });
 
 function selectedTouchstone() {

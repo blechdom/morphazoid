@@ -178,7 +178,8 @@ test("L-Systems app owns the audio engines and preserves shared state while swit
   assert.match(app, /synthPool\.scheduleNotes/);
   assert.doesNotMatch(app, /synthPool\.strike/);
   assert.match(app, /eventIntervalSeconds\(eventCount\) \* state\.mic\.interval/);
-  assert.match(app, /state\.level \* state\.mic\.inputTrim \* modeGain\("mic"\)/);
+  assert.match(app, /micEngine\.setInputGain\(state\.mic\.inputTrim\)/);
+  assert.match(app, /state\.level \* modeGain\("mic"\)/);
   assert.doesNotMatch(app, /\biframe\b/i);
   assert.doesNotMatch(app, /contentDocument/);
   assert.doesNotMatch(app, /l-systems-embed/);
@@ -187,7 +188,7 @@ test("L-Systems app owns the audio engines and preserves shared state while swit
   assert.doesNotMatch(setModeBody, /state\.audio\s*=\s*false/);
   assert.doesNotMatch(setModeBody, /\.close\(/);
   assert.doesNotMatch(setModeBody, /(?:synthPool|drumAudio)\.disable\(/);
-  assert.match(setModeBody, /if \(previousMode === "mic"\) micEngine\.disable\(\)/);
+  assert.match(setModeBody, /if \(previousMode === "mic"\) micInputGeneration\+\+; micEngine\.stopMicrophone\(\)/);
   assert.doesNotMatch(setModeBody, /presetId\s*=/);
   assert.doesNotMatch(setModeBody, /iterations\s*=/);
   assert.doesNotMatch(setModeBody, /angle\s*=/);

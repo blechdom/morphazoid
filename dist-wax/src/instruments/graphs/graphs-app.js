@@ -39,6 +39,7 @@ import {
   GraphSynthAudio,
 } from "../../families/graph/graph-synth-audio.js";
 import { GraphDelayAudio } from "../graph-delay/graph-delay-audio.js";
+import { mountAudioInputControl } from "../../audio-input-control.js";
 import { graphDistanceRatioFromTimeScale, graphsModeFor } from "./graphs-suite.js";
 import { canvasSizing } from "../../graphics/canvas-sizing.js";
 
@@ -361,6 +362,8 @@ export function initializeGraphs({
     mic: audioEngines?.mic ?? new GraphDelayAudio(runtime),
   };
   let audio = engines[instrumentMode];
+  let inputControl = null;
+  let micInputGeneration = 0;
   const voices = loadDrumBank(runtime.localStorage);
   const buildSafeGraph = (options) => generateGraphWithinTurnBudget({
     ...options,
@@ -931,7 +934,7 @@ export function initializeGraphs({
     let startedContext;
     try {
       startedContext = requestedMode === "mic"
-        ? await requestedAudio.start(micConfiguration())
+        ? await requestedAudio.initialize(micConfiguration())
         : await requestedAudio.start();
       if (
         disposed
@@ -993,6 +996,7 @@ export function initializeGraphs({
     if (enteringAudioClock) activeRuns = [];
     audioClockContext = requestedAudio.context;
     state.audio = true;
+    if (requestedMode === "mic") requestedAudio.setOutputEnabled(true);
     requestedAudio.setOutput(state.output);
     setPressed($("audioButton"), true);
     $("audioState").textContent = "on";
@@ -1001,6 +1005,7 @@ export function initializeGraphs({
   }
 
   async function stopAudio() {
+    micInputGeneration++;
     modeTransitionGeneration += 1;
     audioIntent = false;
     state.audio = false;
@@ -1017,6 +1022,7 @@ export function initializeGraphs({
   }
 
   function updateModeUi() {
+    inputControl?.refresh();
     const app = $("graphsApp");
     if (app) app.dataset.playingMode = instrumentMode;
     for (const button of $("playingMode")?.querySelectorAll?.("[data-playing-mode]") ?? []) {
@@ -1056,7 +1062,8 @@ export function initializeGraphs({
           : "Send note";
     }
     if ($("playButton")) {
-      const microphoneActive = state.audio || audioIntent;
+      $("playButton").hidden = instrumentMode === "mic";
+      const microphoneActive = Boolean(engines.mic.stream);
       setPressed($("playButton"), instrumentMode === "mic" ? microphoneActive : state.playing);
       $("playButton").setAttribute("aria-busy", String(instrumentMode === "mic" && audioIntent && !state.audio));
       $("playButton").setAttribute("aria-label", instrumentMode === "mic"
@@ -1080,6 +1087,7 @@ export function initializeGraphs({
 
   async function setMode(nextMode) {
     if (!GRAPH_MODES.includes(nextMode) || nextMode === instrumentMode) return true;
+    micInputGeneration++;
     const transition = ++modeTransitionGeneration;
     const previousMode = instrumentMode;
     const previousAudio = audio;
@@ -2878,6 +2886,7 @@ export function initializeGraphs({
     disposed = !event?.persisted;
     stopBackgroundPlayback();
     if (disposed) {
+      inputControl?.destroy();
       runtime.removeEventListener?.("morphazoid:midi-input", handleMidi);
       runtime.removeEventListener?.("keydown", handleGlobalKeyDown);
       documentObject.removeEventListener?.("visibilitychange", handleVisibilityChange);
@@ -2908,6 +2917,24 @@ export function initializeGraphs({
   const ResizeObserverConstructor = runtime.ResizeObserver ?? globalThis.ResizeObserver;
   if (ResizeObserverConstructor) new ResizeObserverConstructor(resizeCanvas).observe(stageWrap);
   else resizeCanvas();
+  inputControl = mountAudioInputControl({
+    container: $("micBank"), before: $("micBank").querySelector(".graphs-grid"),
+    gainInput: $("inputTrim"), gainOutput: $("inputTrimOut"),
+    gainFormat: (value) => `${Math.round(clamp(value, 0, 1.5, 0) * 100)}%`,
+    getState: () => ({ active: Boolean(engines.mic.stream), pending: Boolean(engines.mic.startPromise), supported: instrumentMode === "mic" }),
+    getSignal: () => ({ node: engines.mic.source, stream: engines.mic.stream, multiplier: state.inputTrim }),
+    onGainInput: value => { state.inputTrim = value; updateMicAudio(displayModel); },
+    onStart: async () => {
+      const generation = ++micInputGeneration;
+      engines.mic.setOutputEnabled(state.audio);
+      await engines.mic.initialize(micConfiguration());
+      if (generation !== micInputGeneration || disposed || instrumentMode !== "mic") return;
+      await engines.mic.startMicrophone();
+      scheduleFrame();
+    },
+    onStop: () => { micInputGeneration++; engines.mic.stopMicrophone(); scheduleFrame(); },
+    hide: [$("inputTrim").closest("label"), $("inputMeter")?.closest(".graphs-mic-monitor"), $("micBank").querySelector(".graphs-safety")],
+  });
   syncControls();
   if (instrumentMode === "drums") renderDrumMap();
   updateModeUi();

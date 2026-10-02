@@ -774,8 +774,6 @@ test("site builder publishes runtime files without development material", async 
       "src/instruments/rattlesnake-skin/rattlesnake-skin-app.js",
       "src/instruments/rattlesnake-skin/linear-drums-machine.js",
       "assets/lumber-loops-wood-loop.webp",
-      "morphazoidical/index.html",
-      "morphazoidical/PLAN.md",
       "vendor/signalsmith-stretch/LICENSE",
       "vendor/signalsmith-stretch/SignalsmithStretch.mjs",
       "vendor/tactile/tactile.js",
@@ -820,6 +818,10 @@ test("site builder publishes runtime files without development material", async 
 
     for (const path of [
       "tests",
+      "morphazoidical",
+      "assets/instruments/morphazoidical.webp",
+      "dist-wax/morphazoidical",
+      "dist-wax/assets/instruments/morphazoidical.webp",
       ".github",
       ".storybook",
       "stories",
@@ -1040,7 +1042,7 @@ test("AWS workflow verifies before OIDC deployment and uses repository variables
     "an intentionally absent Storybook probe object must not fail on its HTTP status",
   );
   assert.match(workflow, /cloudfront wait invalidation-completed/);
-  assert.match(workflow, /https:\/\/morphazoid\.com\/morphazoidical\//);
+  assert.match(workflow, /https:\/\/morphazoid\.com\/shapes\.html/);
   assert.match(workflow, /https:\/\/morphazoid\.com\/storybook\//);
   assert.match(workflow, /https:\/\/morphazoid\.com\/storybook\/iframe\.html/);
   assert.match(workflow, /https:\/\/morphazoid\.com\/storybook\/index\.json/);

@@ -169,7 +169,6 @@ Examples: `F=` shared and conforming; `L=` legacy-standard and conforming; `C~` 
 | `escher-tessellation` / `escher-tessellation.html` | Experiments | L= | L= | L= | L= | C~ | L~ | L? | F? | C~ | L? | Geometry traversal and analysis are custom but contained by the shell. |
 | `plasma-ball` / `plasma-ball.html` | Experiments | L= | L= | L= | L= | Ø– | Ø– | L? | F? | Ø– | L? | Compact experiment with no visible preset/state bank. |
 | `order-tones` / `order-tones.html` | Experiments | L= | L= | L= | L= | C~ | Ø– | L? | F? | Ø– | L? | Ordering progression is a custom generated sequence in a shared shell. |
-| `morphazoidical` / `morphazoidical/` | Experiments | C~ | C~ | C~ | C~ | C~ | Ø– | C? | C? | C~ | C? | Independent themed workspace is intentionally Special; do not treat it as a template name. |
 | `bell-square` / `bell-square.html` | Experiments | L= | L= | L= | L= | Ø– | Ø– | L? | F? | Ø– | L? | Physics experiment uses the standard shell and shared physics factories. |
 | `entanglement-dance` / `entanglement-dance.html` | Experiments | L= | L= | L= | L= | C~ | L~ | L? | F? | Ø– | L? | Coupled-state progression is domain behavior within the standard shell. |
 | `quantum-square-dance` / `quantum-square-dance.html` | Experiments | L= | L= | L= | L= | Ø– | Ø– | L? | F? | Ø– | L? | Quantum visualization uses shared shell/physics control foundations. |

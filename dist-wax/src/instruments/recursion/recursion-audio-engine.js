@@ -127,6 +127,10 @@ export class RecursiveAudioEngine {
     this.preparationKey = "";
     this.sourceVersion = 0;
     this.captureState = null;
+    this.captureGeneration = 0;
+    this.capturePending = false;
+    this.captureGain = 1;
+    this.captureLevel = 0;
   }
 
   async ensure() {
@@ -224,15 +228,20 @@ export class RecursiveAudioEngine {
     this.setExternalSeed("file", copyAudioBufferChannels(decoded), decoded.sampleRate, label);
   }
 
+  setInputGain(value) { this.captureGain = clamp(Number(value) || 0, 0, 4); }
+
   async captureMicrophone(seconds = 4, onProgress) {
+    this.stopCapture();
+    const generation = ++this.captureGeneration;
+    this.capturePending = true;
     await this.ensure();
+    if (generation !== this.captureGeneration) return null;
     if (!globalThis.navigator?.mediaDevices?.getUserMedia) {
       throw new Error("Microphone capture is unavailable in this browser.");
     }
     if (typeof this.context.createMediaStreamSource !== "function" || typeof this.context.createScriptProcessor !== "function") {
       throw new Error("This browser cannot make a finite microphone capture.");
     }
-    this.stopCapture();
     const stream = await globalThis.navigator.mediaDevices.getUserMedia({
       audio: {
         autoGainControl: false,
@@ -241,6 +250,11 @@ export class RecursiveAudioEngine {
         channelCount: 1,
       },
     });
+    if (generation !== this.captureGeneration) {
+      for (const track of stream.getTracks()) track.stop();
+      return null;
+    }
+    this.capturePending = false;
     const source = this.context.createMediaStreamSource(stream);
     const processor = this.context.createScriptProcessor(2_048, 1, 1);
     const silent = this.context.createGain();
@@ -260,6 +274,7 @@ export class RecursiveAudioEngine {
         try { silent.disconnect(); } catch { /* disconnected */ }
         for (const track of stream.getTracks()) track.stop();
         this.captureState = null;
+        this.captureLevel = 0;
         if (error) {
           reject(error);
           return;
@@ -272,7 +287,9 @@ export class RecursiveAudioEngine {
           mono.set(chunk.subarray(0, remaining), writeIndex);
           writeIndex += Math.min(remaining, chunk.length);
         }
-        this.setExternalSeed("mic", [mono, mono.slice()], this.context.sampleRate, `${seconds.toFixed(0)} s microphone capture`);
+        if (mono.length < 32) { resolve(null); return; }
+        const duration = mono.length / this.context.sampleRate;
+        this.setExternalSeed("mic", [mono, mono.slice()], this.context.sampleRate, `${duration.toFixed(1)} s microphone capture`);
         onProgress?.(1);
         resolve(this.externalSeeds.get("mic"));
       };
@@ -282,7 +299,11 @@ export class RecursiveAudioEngine {
         const input = event.inputBuffer.getChannelData(0);
         const remaining = targetSamples - capturedSamples;
         const chunk = new Float32Array(Math.min(input.length, remaining));
-        chunk.set(input.subarray(0, chunk.length));
+        this.captureLevel = 0;
+        for (let index = 0; index < chunk.length; index += 1) {
+          chunk[index] = input[index] * this.captureGain;
+          this.captureLevel = Math.max(this.captureLevel, Math.abs(chunk[index]));
+        }
         chunks.push(chunk);
         capturedSamples += chunk.length;
         onProgress?.(capturedSamples / targetSamples);
@@ -297,8 +318,11 @@ export class RecursiveAudioEngine {
   }
 
   stopCapture() {
-    this.captureState?.finish?.(new Error("Microphone capture stopped."));
+    this.captureGeneration += 1;
+    this.capturePending = false;
+    this.captureState?.finish?.();
     this.captureState = null;
+    this.captureLevel = 0;
   }
 
   generatedSeed(kind) {

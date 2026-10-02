@@ -1,3 +1,4 @@
+import { mountAudioInputControl } from "../../audio-input-control.js";
 import { encodeMonoWav } from "../../families/acoustic/birdsong-analysis.js";
 import {
   AcousticLiveCapture,
@@ -150,6 +151,7 @@ let sourceLoadController = null;
 let liveCapture = null;
 let liveCaptureVersion = 0;
 let liveStarting = false;
+let liveInputError = "";
 let liveStopping = false;
 let microphonePermissionSeen = false;
 let disposed = false;
@@ -2046,7 +2048,7 @@ function failLiveCapture(capture, version, error) {
   $("live-input-state").textContent = "Microphone unavailable";
   setBusy(false);
   if (error?.name === "AbortError") return;
-  setStatus(error?.message || "Microphone capture failed.", "error");
+  liveInputError = error?.message || "Microphone capture failed.";
 }
 
 async function startLiveInput() {
@@ -2057,20 +2059,17 @@ async function startLiveInput() {
   const version = ++liveCaptureVersion;
   const capture = new AcousticLiveCapture({
     maxDurationSeconds: duration,
+    inputGain: Number(micControl.gainInput.value),
     onLevel: updateLiveLevel,
     onProgress: updateLiveProgress,
   });
   liveCapture = capture;
   liveStarting = true;
+  liveInputError = "";
   liveStopping = false;
   lastLiveAnnouncementAt = -Infinity;
   $("live-input-state").textContent = "Requesting microphone permission…";
   const profile = selectedProfile();
-  setStatus(
-    profile.recording.sourceRatePcmPreferred
-      ? "Waiting for microphone permission. Most browser microphone paths are 48 kHz and cannot capture this ultrasonic profile faithfully; use a source-rate high-speed PCM WAV for full-band work."
-      : "Waiting for microphone permission. Audio stays local and recording starts only if you allow it.",
-  );
   setBusy(busy);
   try {
     await capture.start({
@@ -2085,7 +2084,7 @@ async function startLiveInput() {
     microphonePermissionSeen = true;
     $("live-input-state").textContent = `Recording 0.0 / ${duration.toFixed(0)} s`;
     setStatus(
-      `Recording a bounded ${duration.toFixed(0)}-second window. Stop when ready; the map is built after capture, not continuously.${profile.recording.sourceRatePcmPreferred ? " This browser stream may not contain the selected ultrasound band." : ""}`,
+      `Recording a bounded ${duration.toFixed(0)}-second window. Stop when ready; the map is built after capture, not continuously.${profile.recording.sourceRatePcmPreferred ? " Most browser microphone paths are 48 kHz and cannot capture this ultrasonic profile faithfully; use a source-rate high-speed PCM WAV for full-band work." : ""}`,
       "ready",
     );
     setBusy(busy);
@@ -2100,6 +2099,7 @@ async function startLiveInput() {
 }
 
 function stopOrCancelLive() {
+  liveInputError = "";
   if (liveStarting && liveCapture) {
     const capture = liveCapture;
     liveCaptureVersion += 1;
@@ -2121,6 +2121,7 @@ function stopOrCancelLive() {
 }
 
 function cancelLiveCapture() {
+  liveInputError = "";
   liveCaptureVersion += 1;
   const capture = liveCapture;
   liveCapture = null;
@@ -2294,8 +2295,17 @@ $("reset-analysis-parameters").addEventListener("click", () => {
   );
 });
 $("reanalyze").addEventListener("click", analyzeSource);
-$("start-live-input").addEventListener("click", startLiveInput);
-$("capture-live-input").addEventListener("click", stopOrCancelLive);
+const micControl = mountAudioInputControl({
+  container: document.querySelector(".live-source"),
+  before: document.querySelector(".live-source").firstElementChild,
+  button: $("start-live-input"),
+  onStart: startLiveInput,
+  onStop: stopOrCancelLive,
+  onGainInput: (value) => liveCapture?.setInputGain(value),
+  getState: () => ({ active: Boolean(liveCapture?.isRecording), pending: liveStarting, error: liveInputError, supported: !busy || captureIsActive() }),
+  getSignal: () => ({ levels: { left: $("live-input-meter").value, right: 0 }, channels: 1 }),
+  hide: [$("capture-live-input"), document.querySelector(".live-meter-row"), document.querySelector(".live-note"), document.querySelector(".live-source > header")],
+});
 $("build-route").addEventListener("click", buildRoute);
 $("reverse-route").addEventListener("click", () => {
   if (!route.length || busy || captureIsActive()) return;

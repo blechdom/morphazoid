@@ -1,3 +1,4 @@
+import { installLiveInputDOM } from "./helpers/live-input-dom.mjs";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
@@ -111,6 +112,7 @@ test("L-system Delay renders and drives a recursive microphone graph", async () 
     devicePixelRatio: 2,
     addEventListener(type, listener) { windowListeners.set(type, listener); },
   };
+  installLiveInputDOM(globalThis.document, elements, listeners, html);
   globalThis.HTMLInputElement = class {};
   globalThis.HTMLSelectElement = class {};
   globalThis.HTMLTextAreaElement = class {};
@@ -418,7 +420,13 @@ test("L-system Delay renders and drives a recursive microphone graph", async () 
   elements.get("generations").value = "13";
   listeners.get("generations:input")();
 
-  listeners.get("seedMicButton:click")();
+  async function toggleMasterAndInput() {
+    await listeners.get("audioButton:click")();
+    if (attributes.get("audioButton:aria-pressed") === "true") {
+      listeners.get("micButton:click")();
+    }
+  }
+  await toggleMasterAndInput();
   await new Promise((resolve) => setImmediate(resolve));
   assert.deepEqual(requestedConstraints, {
     video: false,
@@ -634,11 +642,11 @@ test("L-system Delay renders and drives a recursive microphone graph", async () 
   assert.equal(elements.get("lSystemType").value, "pythagorean");
   assert.equal(attributes.get("generationPreset-binary:aria-pressed"), "true");
 
-  listeners.get("micButton:click")();
+  listeners.get("seedMicButton:click")();
   assert.equal(elements.get("audioState").textContent, "on");
   assert.equal(elements.get("micButtonLabel").textContent, "Resume input");
   assert.match(elements.get("stageReadout").textContent, /^INPUT PAUSED/);
-  listeners.get("micButton:click")();
+  listeners.get("seedMicButton:click")();
   assert.equal(elements.get("audioState").textContent, "on");
   assert.equal(elements.get("micButtonLabel").textContent, "Pause input");
 
@@ -696,7 +704,7 @@ test("L-system Delay renders and drives a recursive microphone graph", async () 
   assert.match(elements.get("generationCapacityInline").textContent, /\d+ of 510 branches active · breadth first pruning · device-adjusted/);
   assert.doesNotMatch(elements.get("generationCapacityInline").textContent, /underrun|rollback|rechecking/i);
 
-  listeners.get("audioButton:click")();
+  await toggleMasterAndInput();
   assert.equal(elements.get("audioState").textContent, "off");
   assert.equal(attributes.get("audioButton:aria-pressed"), "false");
   assert.equal(stoppedTracks, 1);
@@ -728,7 +736,7 @@ test("L-system Delay renders and drives a recursive microphone graph", async () 
   assert.equal(microphoneRequests, 1, "changing a stopped renderer must not request the microphone");
   assert.equal(stoppedTracks, 1, "changing a stopped renderer must not implicitly stop the microphone again");
 
-  listeners.get("audioButton:click")();
+  await toggleMasterAndInput();
   await new Promise((resolve) => setImmediate(resolve));
   assert.equal(audioContexts.length, 2, "the next Start should create the selected pitch-detail graph");
   assert.equal(microphoneRequests, 2);
@@ -737,7 +745,7 @@ test("L-system Delay renders and drives a recursive microphone graph", async () 
   assert.equal(elements.get("pitchDetail").value, "16");
   assert.equal(elements.get("pitchDetail").disabled, true);
 
-  listeners.get("audioButton:click")();
+  await toggleMasterAndInput();
   assert.equal(elements.get("audioState").textContent, "off");
   assert.equal(stoppedTracks, 2);
 
@@ -763,7 +771,7 @@ test("L-system Delay renders and drives a recursive microphone graph", async () 
   assert.equal(audioContexts.length, 2, "selecting Economy must wait for the next Start");
   assert.equal(microphoneRequests, 2);
 
-  listeners.get("audioButton:click")();
+  await toggleMasterAndInput();
   await new Promise((resolve) => setImmediate(resolve));
   assert.equal(audioContexts.length, 3);
   assert.equal(microphoneRequests, 3);
@@ -833,7 +841,7 @@ test("L-system Delay renders and drives a recursive microphone graph", async () 
   assert.match(elements.get("audioError").textContent, /Economy pitch stopped|bounded audio fallback/i);
   assert.equal(elements.get("inputMenu").open, true);
 
-  listeners.get("audioButton:click")();
+  await toggleMasterAndInput();
   assert.equal(elements.get("audioState").textContent, "off");
   assert.equal(stoppedTracks, 3);
 });

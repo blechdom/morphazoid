@@ -52,7 +52,7 @@ machine path into a skill.
 
 | Source of truth | Location / boundary |
 | --- | --- |
-| Public entry pages | Root `*.html`; intentionally nested applications such as `morphazoidical/` keep their own entries |
+| Public entry pages | Canonical `src/pages/*.html`, published at the corresponding root URLs; see `src/pages/manifest.js` |
 | Instrument controllers, models, worklets, helpers, styles and preset banks | `src/instruments/<canonical-id>/`; read the page references, not a guessed `<display-name>-app.js` |
 | Multiple instruments sharing an implementation | `src/families/<family>/`; these folders are not catalogue categories |
 | Remaining shared infrastructure | Core audio/MIDI/math utilities and WASM engine/toolchain modules retain their `src/` paths; `docs/source-module-layout.json` lists the 281 model/worklet relocations and retained shared modules |

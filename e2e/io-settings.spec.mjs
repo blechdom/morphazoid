@@ -128,7 +128,7 @@ test("real input meters respond to gain; monitoring is opt-in and tracks close",
   await page.locator("#audioToggle").click();
   await openDisclosure(page, "inputTest");
   await page.locator("#micToggle").click();
-  await expect(page.locator("#micToggle")).toHaveText("Stop input");
+  await expect(page.locator("#micToggle")).toHaveAttribute("aria-pressed", "true");
   await expect(page.locator("#monitorInput")).not.toBeChecked();
   await expect.poll(() => page.locator("#rawMeter").evaluate((el) => el.value)).toBeGreaterThan(-25);
   const before = await page.locator("#adjustedMeter").evaluate((el) => el.value);
@@ -165,7 +165,7 @@ test("stereo interface capture meters L/R separately and shares device/channel s
   const right = await page.locator("#rawRightMeter").evaluate((el) => el.value);
   expect(left - right).toBeCloseTo(6.02, 0);
   expect(await page.evaluate(() => __ioProbe.constraints.audio.channelCount)).toEqual({ ideal: 2 });
-  await expect(page.locator("#adjustedRightMeter")).toBeVisible();
+  await expect(page.locator(".mz-input-meter")).toHaveAttribute("data-channels", "2");
   await expect(page.locator("#inputInfo")).toContainText("stereo capture");
   await page.locator("#stopAll").click();
   for (const route of ["graph-delay.html", "l-mic.html", "candy-coil-delay.html", "sandy-syrup-delay.html"]) {
@@ -175,6 +175,8 @@ test("stereo interface capture meters L/R separately and shares device/channel s
     expect(settings.audio.deviceId).toEqual({ exact: "test-mic" });
     expect(settings.audio.channelCount).toEqual({ ideal: 2 });
     await page.locator("#audioButton").click();
+    expect(await page.evaluate(() => __ioProbe.requests)).toBe(0);
+    await page.locator(".mz-input-toggle").click();
     await expect.poll(() => page.evaluate(() => __ioProbe.requests)).toBe(1);
     await expect(page.locator("#audioButton")).toHaveAttribute("aria-pressed", "true");
     expect(await page.evaluate(() => __ioProbe.constraints.audio.channelCount)).toEqual({ ideal: 2 });
@@ -190,8 +192,10 @@ test("permission denial is recoverable and a late microphone grant cannot rearm"
   await page.locator("#audioToggle").click();
   await openDisclosure(page, "inputTest");
   await page.locator("#micToggle").click();
-  await expect(page.locator("#setupError")).toContainText("Permission was denied");
-  await expect(page.locator("#micToggle")).toHaveText("Test input");
+  await expect(page.locator(".mz-input-error")).toBeVisible();
+  await expect(page.locator('.mz-input-error [role="alert"]')).toHaveText("Mic blocked");
+  await expect(page.locator("#setupError")).toBeHidden();
+  await expect(page.locator("#micToggle")).toHaveAttribute("aria-pressed", "false");
 });
 
 test("Stop all cancels a pending microphone grant", async ({ page }) => {
@@ -200,10 +204,10 @@ test("Stop all cancels a pending microphone grant", async ({ page }) => {
   await page.locator("#audioToggle").click();
   await openDisclosure(page, "inputTest");
   await page.locator("#micToggle").click();
-  await expect(page.locator("#micToggle")).toHaveText("Cancel request");
+  await expect(page.locator("#micToggle")).toHaveAttribute("aria-busy", "true");
   await page.locator("#stopAll").click();
   await page.evaluate(() => __ioProbe.resolveMic());
-  await expect(page.locator("#micToggle")).toHaveText("Test input");
+  await expect(page.locator("#micToggle")).toHaveAttribute("aria-pressed", "false");
   expect(await page.evaluate(() => __ioProbe.streams.every((s) => s.getTracks().every((t) => t.readyState === "ended")))).toBe(true);
   await expect(page.locator("#audioToggle")).toHaveAttribute("aria-pressed", "false");
 });
@@ -267,6 +271,7 @@ test("discrete offline renders isolate all supported layout channels and finish 
       const context = new OfflineAudioContext(channels.length, Math.ceil(rate * duration), rate);
       class OfflineTest extends IOAudioTest { get active() { return true; } }
       const audio = new OfflineTest();
+      audio.outputArmed = true;
       audio.context = context;
       audio.master = context.createGain();
       audio.master.channelCountMode = "explicit";
@@ -376,7 +381,7 @@ test("quick menu fits the first screen and opens one test at a time without star
   await openDisclosure(page, "inputTest");
   await expect(page.locator("#adjustedRightMeter")).not.toBeVisible();
   await page.locator("#inputChannels").selectOption("2");
-  await expect(page.locator("#adjustedRightMeter")).toBeVisible();
+  await expect(page.locator(".mz-input-meter")).toHaveAttribute("data-channels", "2");
   await page.locator("#inputChannels").selectOption("1");
   await expect(page.locator("#adjustedRightMeter")).not.toBeVisible();
   expect(await page.evaluate(() => __ioProbe.contexts.length)).toBe(0);
@@ -444,7 +449,7 @@ test("top-right gear requires a click and links directly to unarmed tests", asyn
 });
 
 test("instrument gear exposes settings in place, with full setup at the bottom", async ({ page }) => {
-  for (const route of ["recursive-fm.html", "graph-delay.html", "morphazoidical/index.html"]) {
+  for (const route of ["recursive-fm.html", "graph-delay.html"]) {
     await page.goto(`/${route}`);
     await expect(page.locator(".header-settings-trigger")).toHaveCount(1);
     await page.locator(".header-settings-trigger").hover();

@@ -21,7 +21,6 @@ test("all instrument pages share desktop and mobile navigation", async () => {
     for (const label of [
       "shape", "lattice", "spiral", "solid", "hyper",
       "l-system", "recursion", "julia", "lumber loops", "L-system Delay", "graph-delay", "throatazoid",
-      "morphazoidical",
     ]) {
       const escapedLabel = label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
       assert.match(html, new RegExp(`>${escapedLabel}<\\/a>`));

@@ -723,3 +723,26 @@ test("Graph Delay serializes structural transitions and keeps ordinary edits out
   assert.equal(created.timers.length, 0);
   assert.equal(audio.retiring.size, 0);
 });
+
+test("Graph Delay initializes output without capture and mic off preserves the master gate", async () => {
+  const track = makeTrack();
+  const { runtime, created } = makeRuntime({ getUserMedia: async () => ({ getTracks: () => [track] }) });
+  const audio = new GraphDelayAudio(runtime);
+  const graph = generateGraph({ type: "chain", nodeCount: 3, seed: 11 });
+  await audio.initialize({ graph });
+  assert.equal(created.mediaRequests.length, 0);
+  assert.equal(audio.audioGraph.output.gain.value, 0);
+  await audio.startMicrophone();
+  assert.equal(created.mediaRequests.length, 1);
+  assert.equal(audio.audioGraph.output.gain.value, 0, "mic capture leaves output muted until Audio is armed");
+  audio.setOutputEnabled(true);
+  assert.equal(audio.audioGraph.output.gain.value, audio.settings.output);
+  const context = audio.context;
+  audio.stopMicrophone();
+  assert.equal(track.stopCount, 1);
+  assert.equal(audio.source, null);
+  assert.equal(audio.context, context);
+  assert.equal(context.state, "running");
+  assert.equal(audio.audioGraph.output.gain.value, audio.settings.output);
+  await audio.close();
+});

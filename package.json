@@ -24,7 +24,7 @@
     "analyze:cascade-rhythm": "node scripts/presets/cascade-rhythm-analysis.mjs",
     "analyze:architecture": "npm run analyze:duplicates && npm run analyze:dependencies",
     "check": "node scripts/check-runtime-source.mjs && npm run check:simd-wasm",
-    "test": "node --test --test-concurrency=2 tests/*.test.mjs morphazoidical/tests/*.test.mjs",
+    "test": "node --test --test-concurrency=2 tests/*.test.mjs",
     "test:release-manifest": "node --test tests/release-manifest.test.mjs",
     "verify": "npm run check && npm test && npm run check:xyflow && npm run check:wax-dist",
     "test:browser": "npm run build:xyflow && playwright test",

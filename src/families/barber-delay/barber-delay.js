@@ -1142,6 +1142,7 @@ export class BarberDelayAudio {
     this.mediaElement = null;
     this.mediaElementNodes = new WeakMap();
     this.enabled = false;
+    this.outputEnabled = false;
     this.suspendTimer = null;
     this.sourceGeneration = 0;
   }
@@ -1288,7 +1289,19 @@ export class BarberDelayAudio {
     throw new Error("Choose a microphone or local audio file first.");
   }
 
-  async start(source) {
+  setOutputEnabled(value) {
+    this.outputEnabled = Boolean(value);
+    if (this.master && this.context) this.master.gain.setTargetAtTime(this.outputEnabled ? 1 : 0, this.context.currentTime, .025);
+  }
+
+  startInput(source) { return this.start(source, { output: this.outputEnabled }); }
+  stopInput() {
+    this.sourceGeneration += 1;
+    this.releaseSource();
+  }
+
+  async start(source, { output = true } = {}) {
+    this.outputEnabled = Boolean(output);
     const generation = ++this.sourceGeneration;
     await this.initialize();
     if (generation !== this.sourceGeneration) return;
@@ -1305,7 +1318,7 @@ export class BarberDelayAudio {
       this.node.port.postMessage({ type: "active", value: true });
       this.master.gain.cancelScheduledValues(now);
       this.master.gain.setValueAtTime(this.master.gain.value, now);
-      this.master.gain.linearRampToValueAtTime(1, now + 0.035);
+      this.master.gain.linearRampToValueAtTime(this.outputEnabled ? 1 : 0, now + 0.035);
       this.enabled = true;
     } catch (error) {
       if (generation !== this.sourceGeneration) return;

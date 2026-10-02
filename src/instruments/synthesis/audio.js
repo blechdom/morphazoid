@@ -24,6 +24,7 @@ export class SynthesisAudio {
     this.master = null;
     this.analyser = null;
     this.armed = false;
+    this.armRequested = false;
     this.starting = null;
     this.nodeReady = null;
     this.pendingAudition = false;
@@ -36,7 +37,7 @@ export class SynthesisAudio {
     this.gate = 0.65;
     this.onError = onError;
     this.source = null;
-    this.input = new SynthesisInput({ isArmed: () => this.armed, onChange: onInputChange });
+    this.input = new SynthesisInput({ isArmed: () => this.context?.state === "running" && !this.disposed, onChange: onInputChange });
     this.captureRequest = null;
     this.captureId = 0;
     this.fileVersion = 0;
@@ -45,8 +46,9 @@ export class SynthesisAudio {
     this.processingFile = null;
   }
 
-  start() {
+  start({ arm = true } = {}) {
     if (this.disposed) return Promise.reject(new Error("This audio session has closed."));
+    if (arm) this.armRequested = true;
     // Resume synchronously within the explicit Audio click, including on iOS.
     const AudioContextClass = globalThis.AudioContext || globalThis.webkitAudioContext;
     if (!AudioContextClass) return Promise.reject(new Error("Web Audio is unavailable in this browser."));
@@ -115,7 +117,7 @@ export class SynthesisAudio {
       }
       await this.nodeReady;
       if (this.disposed || version !== this.startVersion) throw new Error("Audio startup was cancelled.");
-      this.armed = true;
+      this.armed = this.armRequested;
       this.setLevel(this.state?.outputLevel ?? 0.7);
       this.setPlaying(this.playing, this.rate);
       if (this.pendingAudition) {
@@ -140,6 +142,7 @@ export class SynthesisAudio {
 
   mute() {
     this.startVersion++;
+    this.armRequested = false;
     this.pendingAudition = false;
     this.armed = false;
     this.stopInput();
@@ -175,12 +178,12 @@ export class SynthesisAudio {
   }
 
   async loadFile(file, { processing = false } = {}) {
-    if (!this.context || !this.armed) throw new Error("Enable Audio before loading a local recording.");
+    if (!this.context || this.context.state !== "running") throw new Error("Prepare input before loading a local recording.");
     if (file.size > 40 * 1024 * 1024) throw new Error("Choose an audio file smaller than 40 MB.");
     this.stopInput();
     const version = ++this.fileVersion;
     const decoded = await this.context.decodeAudioData(await file.arrayBuffer());
-    if (!this.armed || this.disposed || version !== this.fileVersion) throw new Error("Audio import was cancelled.");
+    if (this.disposed || version !== this.fileVersion) throw new Error("Audio import was cancelled.");
     if (processing) {
       this.demoId = null;
       const label = this.input.setFile(decoded, file.name);

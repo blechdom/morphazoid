@@ -31,6 +31,12 @@ resumes Web Audio. An implementation should perform that work directly from the
 Audio handler, before unrelated asynchronous work can consume transient user
 activation on mobile browsers.
 
+The shared microphone button is a separate explicit capture action. It may
+create or resume a muted Web Audio graph to capture and meter input while Audio
+remains off. It never arms output. Clicking it again cancels a pending permission
+request or releases the microphone tracks. Recording and playback remain owned
+by each instrument's transport.
+
 ## Primary transport keyboard shortcut
 
 The shared navigation runtime assigns `aria-keyshortcuts="Space"` to the first

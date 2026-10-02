@@ -125,7 +125,6 @@ A null full-preset count means not verified, not zero.
 | Escher | `escher-tessellation` | instrument | `preset` | 3 | Not migrated |
 | Plasma Ball | `plasma-ball` | instrument | None found in static HTML | 1 | Not migrated |
 | Order Tones | `order-tones` | instrument | None found in static HTML | 3 | Not migrated |
-| Morphazoidical | `morphazoidical` | instrument | None found in static HTML | 2 | Not migrated |
 | Bell Square | `bell-square` | instrument | None found in static HTML | 1 | Not migrated |
 | Entanglement Dance | `entanglement-dance` | instrument | None found in static HTML | 1 | Not migrated |
 | Quantum Square Dance | `quantum-square-dance` | instrument | None found in static HTML | 1 | Not migrated |

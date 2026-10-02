@@ -1,3 +1,4 @@
+import { audioInputConstraints, configureAudioInputNode } from "../../audio-input-settings.js";
 import { clampMicValue, sanitizeMicBranchVoice, MicBranchDSP } from "./mic-branch-dsp.js";
 import { AdaptivePolyphonyController } from "../../adaptive-polyphony.js";
 import { connectAudioOutput } from "../../audio-output-manager.js";
@@ -33,6 +34,10 @@ export class MicBranchEngine {
         },
       })
       : null;
+    this.outputEnabled = false;
+    this.captureGeneration = 0;
+    this.inputGainValue = 1;
+    this.inputGain = null;
     this.context = null;
     this.master = null;
     this.releaseAudioOutput = null;
@@ -185,7 +190,26 @@ export class MicBranchEngine {
     });
   }
 
-  async enable() {
+  async initialize() {
+    const Audio = globalThis.AudioContext ?? globalThis.webkitAudioContext;
+    if (!Audio) throw new Error("Web Audio is unavailable.");
+    if (!this.context || this.context.state === "closed") this.buildGraph(Audio);
+    await this.context.resume();
+    await this.buildProcessor();
+    return this.context;
+  }
+
+  setOutputEnabled(value) { this.outputEnabled = Boolean(value); this.setLevel(this.level); }
+  setInputGain(value) {
+    this.inputGainValue = clampMicValue(value, 0, 4, 1);
+    this.inputGain?.gain.setTargetAtTime(this.inputGainValue, this.context.currentTime, .015);
+  }
+  startMicrophone() { return this.enable({ output: this.outputEnabled }); }
+  stopMicrophone() { this.disable(); }
+
+  async enable({ output = true } = {}) {
+    this.setOutputEnabled(output);
+    const generation = ++this.captureGeneration;
     if (this.enabled) return;
     const mediaDevices = globalThis.navigator?.mediaDevices;
     if (!mediaDevices?.getUserMedia) {
@@ -196,17 +220,20 @@ export class MicBranchEngine {
 
     if (!this.context || this.context.state === "closed") this.buildGraph(AudioContextConstructor);
     if (this.context.state !== "running") await this.context.resume();
-    const stream = await mediaDevices.getUserMedia({
-      audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false },
-    });
+    const stream = await mediaDevices.getUserMedia(audioInputConstraints(globalThis));
     try {
       await this.buildProcessor();
+      if (generation !== this.captureGeneration) {
+        for (const track of stream.getTracks()) track.stop();
+        return;
+      }
       this.stream = stream;
       this.source = this.context.createMediaStreamSource(stream);
-      this.source.connect(this.processor);
+      this.source.connect(this.inputGain).connect(this.processor);
+      for (const track of stream.getAudioTracks?.() ?? stream.getTracks()) track.addEventListener?.("ended", () => { if (this.stream === stream) this.disable(); }, { once: true });
       this.enabled = true;
       this.startRenderCapacityMonitoring();
-      this.master.gain.setTargetAtTime(levelToGain(this.level), this.context.currentTime, MASTER_TIME_CONSTANT);
+      this.setLevel(this.level);
       this.setFeedback(this.feedback);
       this.setVoices(this.pendingVoices, { requestedVoiceCount: this.voiceDemand });
     } catch (error) {
@@ -218,6 +245,8 @@ export class MicBranchEngine {
   buildGraph(AudioContextConstructor) {
     this.context = new AudioContextConstructor();
     this.master = this.context.createGain();
+    this.inputGain = configureAudioInputNode(this.context.createGain(), globalThis);
+    this.inputGain.gain.value = this.inputGainValue;
     const compressor = this.context.createDynamicsCompressor();
     this.master.gain.value = 0;
     compressor.threshold.value = -6;
@@ -295,7 +324,7 @@ export class MicBranchEngine {
   setLevel(value) {
     this.level = clampMicValue(value, 0, 1, 0.55);
     if (this.master && this.context) this.master.gain.setTargetAtTime(
-      this.enabled ? levelToGain(this.level) : 0,
+      this.enabled && this.outputEnabled ? levelToGain(this.level) : 0,
       this.context.currentTime,
       MASTER_TIME_CONSTANT,
     );
@@ -331,6 +360,7 @@ export class MicBranchEngine {
   }
 
   disable() {
+    this.captureGeneration += 1;
     this.silence();
     this.enabled = false;
     this.stopRenderCapacityMonitoring();
@@ -347,6 +377,8 @@ export class MicBranchEngine {
     this.releaseAudioOutput = null;
     this.processor?.disconnect();
     this.processor = null;
+    this.inputGain?.disconnect();
+    this.inputGain = null;
     this.master?.disconnect();
     await this.context?.close();
     this.context = null;

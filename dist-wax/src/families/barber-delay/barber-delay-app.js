@@ -11,6 +11,7 @@ import {
   sandySyrupTargetRate,
   sanitizeBarberDelayParams,
 } from "./barber-delay.js";
+import { mountAudioInputControl } from "../../audio-input-control.js";
 import { audioInputDescription } from "../../audio-input-settings.js";
 
 const $ = (id) => document.getElementById(id);
@@ -451,12 +452,20 @@ function selectedSource() {
 
 async function startAudio() {
   updateAudioParameters();
-  await audio.start(selectedSource());
+  await audio.initialize();
+  audio.clearSuspendTimer();
+  await audio.context.resume();
+  audio.node.port.postMessage({ type: "active", value: true });
+  audio.enabled = true;
+  audio.setOutputEnabled(true);
   state.audioOn = true;
 }
 
 async function stopAudio() {
-  await audio.stop();
+  inputRequestGeneration++;
+  inputPending = false;
+  audio.stopInput();
+  audio.setOutputEnabled(false);
   state.audioOn = false;
 }
 
@@ -487,19 +496,20 @@ $("audioButton").addEventListener("click", toggleAudio);
 async function chooseSource(source) {
   if (source === state.source || sourceTransition) return;
   sourceTransition = true;
+  inputError = "";
   clearAudioError();
   const restart = state.audioOn;
   try {
-    if (restart) await stopAudio();
+    audio.stopInput();
     state.source = source;
     updateInterface();
-    if (restart) await startAudio();
     updateInterface();
     announce(`${source === "microphone" ? "Microphone" : "File"} source selected.`);
   } catch (error) {
     state.audioOn = false;
     await audio.stop().catch(() => {});
-    showAudioError(error);
+    inputError = error?.message || String(error);
+    audioInputControl.refresh();
     updateInterface();
     announce("Audio source could not start.");
   } finally {
@@ -507,9 +517,27 @@ async function chooseSource(source) {
   }
 }
 
-for (const button of $("sourceChoice").querySelectorAll("[data-source]")) {
-  button.addEventListener("click", () => chooseSource(button.dataset.source));
-}
+let inputRequestGeneration = 0;
+let inputPending = false;
+let inputError = "";
+const audioInputControl = mountAudioInputControl({
+  container: document.querySelector(".barber-delay-panel"), before: document.querySelector(".barber-delay-source"),
+  gainInput: $("inputGain"), gainOutput: $("inputGainOut"),
+  onGainInput: (value) => { state.settings.inputGain = value; updateAudioParameters(); },
+  sources: [{ value: "microphone", label: "Mic" }, { value: "file", label: "File" }], sourceValue: state.source,
+  onSourceChange: (value) => { inputRequestGeneration += 1; inputPending = false; inputError = ""; void chooseSource(value); },
+  fileInput: $("filePicker"),
+  onStart: async () => {
+    inputError = "";
+    const generation = ++inputRequestGeneration; inputPending = true;
+    try { await audio.startInput(selectedSource()); }
+    finally { if (generation === inputRequestGeneration) inputPending = false; }
+  },
+  onStop: () => { inputRequestGeneration += 1; inputPending = false; inputError = ""; audio.stopInput(); },
+  getState: () => ({ active: Boolean(audio.sourceNode), pending: inputPending, error: inputError, source: state.source }),
+  getSignal: () => ({ node: audio.sourceNode, stream: audio.mediaStream, channels: state.source === "file" ? 2 : undefined, multiplier: state.settings.inputGain }),
+  hide: [$("sourceChoice"), $("sourceNote"), $("filePicker").closest("label"), $("inputGain").closest("label")],
+});
 
 $("loopFile").addEventListener("click", () => {
   state.loopFile = !state.loopFile;
@@ -521,6 +549,7 @@ $("loopFile").addEventListener("click", () => {
 $("filePicker").addEventListener("change", async (event) => {
   const file = event.currentTarget.files?.[0];
   if (!file) return;
+  inputError = "";
   const nextUrl = URL.createObjectURL(file);
   const previousUrl = state.fileUrl;
   const restart = state.audioOn && state.source === "file";
@@ -537,10 +566,18 @@ $("filePicker").addEventListener("change", async (event) => {
     announce(`${file.name} loaded.`);
   } catch (error) {
     state.audioOn = false;
-    showAudioError(error);
+    inputError = error?.message || String(error);
+    audioInputControl.refresh();
     updateInterface();
     announce("The selected file could not start.");
   }
+});
+
+$("fileAudio").addEventListener("error", () => {
+  if (!state.fileUrl || $("fileAudio").src !== state.fileUrl) return;
+  inputError = $("fileAudio").error?.message || "The selected audio file could not play.";
+  audio.stopInput();
+  audioInputControl.refresh();
 });
 
 $("[data-reset-all]")?.addEventListener("click", () => {

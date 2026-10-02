@@ -8138,7 +8138,7 @@ export class MoireDroneAudio {
   }
 
   startInput(preferences = loadAudioInputSettings(this.runtime)) {
-    if (!this.isInitialized || !this.enabled || !this.node) {
+    if (!this.isInitialized || !this.node) {
       return Promise.reject(new Error("Turn Audio on before connecting an input."));
     }
     if (this.sourceMode !== "input") {
@@ -8159,7 +8159,7 @@ export class MoireDroneAudio {
     const abort = new AbortController();
     this.inputAbort = abort;
     const isCurrent = () => generation === this.inputGeneration
-      && context === this.context && node === this.node && this.enabled
+      && context === this.context && node === this.node
       && context.state !== "closed" && this.sourceMode === "input"
       && !abort.signal.aborted;
     let request;

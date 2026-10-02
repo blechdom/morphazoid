@@ -508,7 +508,7 @@ test("Möbius and Klein pages expose the shared playable and lifecycle contracts
       "shape-synth.html", "lattice.html", "spiral.html", "solid-synth.html", "moebius-synth.html",
       "klein-bottle-synth.html", "hyper-synth.html", "l-system.html", "recursion.html",
       "julia.html", "lumber.html", "l-mic.html", "graph-delay.html",
-      "throatazoid.html", "morphazoidical/",
+      "throatazoid.html",
     ]) {
       const option = mobileNavigation.indexOf(`value="${href}"`);
       assert.ok(option > previousOption, `${href} must stay inside the ordered mobile fallback`);

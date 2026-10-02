@@ -6,10 +6,10 @@
     "digital": 10,
     "fuzzy": 10,
     "op-art": 10,
-    "psychedelic": 9,
+    "psychedelic": 8,
     "special": 9
   },
-  "selected": 58,
+  "selected": 57,
   "unchanged": 14,
   "selections": [
     {
@@ -315,14 +315,6 @@
       "pinned": false,
       "source": "artwork/instrument-icon-variants/moire-organ/round-3-v2-digital-matrix.webp",
       "destination": "assets/instruments/moire-organ.webp"
-    },
-    {
-      "instrument": "morphazoidical",
-      "status": "selected",
-      "category": "psychedelic",
-      "pinned": false,
-      "source": "artwork/instrument-icon-variants/morphazoidical/round-3-v4-psychedelic-acid-test.webp",
-      "destination": "assets/instruments/morphazoidical.webp"
     },
     {
       "instrument": "neural-pulse",

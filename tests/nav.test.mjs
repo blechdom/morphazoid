@@ -251,7 +251,7 @@ test("tool registry follows the approved sheet and retains unique navigation ide
     assert.equal(group.tools.find(tool => tool.id === row.id)?.label, row.label);
   }
   assert.deepEqual(FAVE_TOOL_IDS, expectedFaveToolIds);
-  assert.equal(tools.find(tool => tool.id === "morphazoidical")?.href, "morphazoidical/");
+  assert.equal(tools.some(tool => tool.id === "morphazoidical"), false);
   assert.equal(TOOL_GROUPS.find(group => group.id === "wip")?.picker, false);
   assert.deepEqual(SITE_LINKS, before.registry.SITE_LINKS);
 });
@@ -469,8 +469,8 @@ test("active tool resolution preserves GitHub Pages subpaths and nested workbenc
   assert.equal(resolveActiveTool(`${SITE_ROOT}hyper-drums.html`, SITE_ROOT)?.id, "hyper-drum-machine");
   assert.equal(resolveActiveTool(`${SITE_ROOT}l-system-drums.html`, SITE_ROOT)?.id, "l-system-drum-machine");
   assert.equal(resolveActiveTool(`${SITE_ROOT}analyzer.html`, SITE_ROOT), null);
-  assert.equal(resolveActiveTool(`${SITE_ROOT}morphazoidical/`, SITE_ROOT)?.id, "morphazoidical");
-  assert.equal(resolveActiveTool(`${SITE_ROOT}morphazoidical/atlas.html`, SITE_ROOT)?.id, "morphazoidical");
+  assert.equal(resolveActiveTool(`${SITE_ROOT}morphazoidical/`, SITE_ROOT), null);
+  assert.equal(resolveActiveTool(`${SITE_ROOT}morphazoidical/atlas.html`, SITE_ROOT), null);
   assert.equal(resolveActiveTool(`${SITE_ROOT}unknown.html`, SITE_ROOT), null);
   assert.equal(resolveActiveSiteLink(`${SITE_ROOT}plugins.html`, SITE_ROOT), null);
   assert.equal(resolveActiveSiteLink(`${SITE_ROOT}instruments.html`, SITE_ROOT), null);
@@ -717,10 +717,10 @@ test("custom instrument layouts can opt out of the shared catalog card", () => {
   doc.body = new FakeNode("body");
   doc.body.setAttribute("data-instrument-info", "off");
   const result = enhanceSharedNavigation(doc, {
-    currentHref: `${SITE_ROOT}morphazoidical/`,
+    currentHref: `${SITE_ROOT}julia.html`,
     siteRoot: SITE_ROOT,
   });
-  assert.equal(result.activeTool?.id, "morphazoidical");
+  assert.equal(result.activeTool?.id, "julia");
   assert.deepEqual(result.pageInfos, []);
   assert.equal(doc.panel.querySelector(".instrument-page-info"), null);
 });

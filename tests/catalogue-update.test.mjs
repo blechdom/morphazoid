@@ -6,7 +6,7 @@ import { FAVE_TOOL_IDS, TOOL_GROUPS } from "../src/site/instrument-registry.js";
 import { canonicalInstrumentId, legacyInstrumentId } from "../src/site/instrument-identities.js";
 import { instrumentMidiCapabilityForId } from "../src/site/instrument-midi-capabilities.js";
 import { waxSupportForId } from "../src/instruments/wax/wax-instrument-roles.js";
-import { expectedFaveToolIds, mainAdditions, labAdditions, cataloguePlan as plan } from "./helpers/catalogue-plan.mjs";
+import { expectedFaveToolIds, mainAdditions, labAdditions, removedInstrumentIds, cataloguePlan as plan } from "./helpers/catalogue-plan.mjs";
 
 const root = new URL("../", import.meta.url);
 const before = JSON.parse(await readFile(new URL("tests/fixtures/catalogue-before-20260918.json", root)));
@@ -45,16 +45,29 @@ test("the current catalogue implements every effective sheet row without droppin
 });
 
 test("ID aliases retain every existing MIDI/WAX policy and legacy protocol identity", () => {
+  const inputCorrections = {
+    gesturama: { audioInput: true },
+    "splice-ring": { audioInput: false },
+    "onset-atlas": { audioInput: false },
+    "synaptic-resonance": { audioInput: false },
+  };
   for (const previous of before.INSTRUMENT_MIDI_CAPABILITIES) {
+    if (removedInstrumentIds.has(previous.id)) continue;
     const id = canonicalInstrumentId(previous.id);
     const current = instrumentMidiCapabilityForId(id);
-    assert.deepEqual(current, { ...previous, ...fabric.capabilityUpdates[id], id }, previous.id);
+    assert.deepEqual(current, { ...previous, ...fabric.capabilityUpdates[id], ...inputCorrections[id], id }, previous.id);
     assert.equal(instrumentMidiCapabilityForId(previous.id), current);
     assert.equal(legacyInstrumentId(id), previous.id);
   }
   for (const previous of before.WAX_INSTRUMENT_SUPPORT) {
+    if (removedInstrumentIds.has(previous.id)) continue;
     const current = waxSupportForId(previous.id);
-    const expected = { ...previous, ...fabric.waxUpdates[canonicalInstrumentId(previous.id)] };
+    const id = canonicalInstrumentId(previous.id);
+    const expected = { ...previous, ...fabric.waxUpdates[id], ...inputCorrections[id] };
+    if (inputCorrections[id]) {
+      expected.roles = previous.roles.filter(role => role !== "audio-fx");
+      if (expected.audioInput) expected.roles.splice(expected.roles.includes("instrument") ? 1 : 0, 0, "audio-fx");
+    }
     assert.ok(current, previous.id);
     for (const key of ["recommended", "roles", "audioInput", "midiInput", "midiInputMode",
       "computerKeyboardMode", "midiOutput", "hostSync", "noteMode"]) {
@@ -80,7 +93,7 @@ test("existing labs are browseable without being misrepresented as verified MIDI
   assert.equal(synthesis.noteMode, "pitched");
   assert.equal(synthesis.computerKeyboardMode, "page");
   assert.equal(synthesis.midiOutput, false);
-  assert.equal(INSTRUMENTS.length, before.INSTRUMENTS.length + mainAdditions.length);
+  assert.equal(INSTRUMENTS.length, before.INSTRUMENTS.filter(item => !removedInstrumentIds.has(item.id)).length + mainAdditions.length);
 });
 
 test("canonical page sources and catalogue icons exist", async () => {

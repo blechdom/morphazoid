@@ -1,3 +1,4 @@
+import { mountAudioInputControl } from "../../audio-input-control.js";
 import { registerHeaderPresets } from "../../site/header-presets.js";
 import { DEFAULT_MICMIC_STATE as DEFAULT_STATE, MICMIC_FULL_PRESETS, captureMicmicPreset, validateMicmicPreset, randomizeMicmicPreset } from "../../families/branch-presets/full-presets.js";
 import {
@@ -51,6 +52,7 @@ const stageWrap = $("stageWrap");
 let cssWidth = 1;
 let cssHeight = 1;
 let pixelRatio = 1;
+let audioOutputEnabled = false;
 let audioContext = null;
 let graph = null;
 let mediaStream = null;
@@ -1079,7 +1081,7 @@ function applyAudioParameters(immediate = false) {
   setAudioParam(graph.lfo?.frequency, parameters.modulationRate, immediate);
   setAudioParam(graph.modulationA?.gain, parameters.modulationDepth, immediate);
   setAudioParam(graph.modulationB?.gain, -parameters.modulationDepth, immediate);
-  setAudioParam(graph.masterGain.gain, active ? levelToGain(state.level) : 0, immediate);
+  setAudioParam(graph.masterGain.gain, audioOutputEnabled && active ? levelToGain(state.level) : 0, immediate);
   const topology = generationTopology({
     lSystemType: state.lSystemType,
     generations: state.generations,
@@ -1184,6 +1186,7 @@ function stopMicrophone(message = "L-system Delay microphone off.", shouldAnnoun
 }
 
 function panic(message = "Panic stop. Microphone and recursive feedback are off.") {
+  audioOutputEnabled = false;
   if (graph && audioContext) {
     for (const parameter of [
       graph.input.gain,
@@ -1727,17 +1730,17 @@ function updateUi() {
   const live = state.mic;
   const starting = state.starting;
   const controlsChanging = starting || pitchDetailChanging || audioChanging;
-  const audioState = live ? "on" : "off";
+  const audioState = audioOutputEnabled ? "on" : "off";
 
   paintControls();
   paintPitchDetail();
   renderGenerationRules();
   paintGenerationCapacity();
-  setPressed($("audioButton"), live);
+  setPressed($("audioButton"), audioOutputEnabled);
   $("audioButton").disabled = controlsChanging;
   $("audioState").textContent = audioState;
   setPressed($("micButton"), live && !state.frozen);
-  $("micButton").disabled = controlsChanging;
+  $("micButton").disabled = false;
   $("micButtonLabel").textContent = starting
     ? "Allow microphone"
     : live ? (state.frozen ? "Resume input" : "Pause input") : "Start input";
@@ -1861,9 +1864,25 @@ for (const id of ["timeRatio", "generationAngle", "generationAsymmetry", "genera
   });
 }
 
-$("audioButton").addEventListener("click", () => void toggleMicrophone());
+$("audioButton").addEventListener("click", async () => {
+  try {
+    if (!audioOutputEnabled) await ensureAudioGraph();
+    audioOutputEnabled = !audioOutputEnabled;
+    if (!audioOutputEnabled) stopMicrophone();
+    applyAudioParameters();
+    updateUi();
+  } catch (error) { showError(microphoneErrorMessage(error)); }
+});
 $("seedMicButton").addEventListener("click", () => void toggleInput());
-$("micButton").addEventListener("click", () => void toggleInput());
+const audioInputControl = mountAudioInputControl({
+  container: document.querySelector(".micmic-panel-input"), before: $("inputMenu"),
+  button: $("micButton"), gainInput: $("inputTrim"), gainOutput: $("inputTrimOut"),
+  onGainInput: (value) => { state.inputTrim = value; applyAudioParameters(); },
+  onStart: startMicrophone, onStop: stopMicrophone,
+  getState: () => ({ active: state.mic, pending: state.starting, error: $("audioError").hidden ? "" : $("audioError").textContent }),
+  getSignal: () => ({ node: graph?.input, stream: mediaStream, channels: graph?.captureChannels }),
+  hide: [$("inputMenu"), $("seedMicButton")],
+});
 $("freezeButton").addEventListener("click", () => stopMicrophone());
 $("panicButton").addEventListener("click", () => panic());
 
@@ -1884,7 +1903,7 @@ document.addEventListener("keydown", (event) => {
   const target = event.target;
   if (target instanceof HTMLInputElement || target instanceof HTMLSelectElement || target instanceof HTMLTextAreaElement || target?.isContentEditable) return;
   if (event.repeat) return;
-  if (event.key.toLowerCase() === "m") void toggleInput();
+  if (event.key.toLowerCase() === "m") void toggleMicrophone();
   if (event.key.toLowerCase() === "f" && state.mic) stopMicrophone();
 });
 

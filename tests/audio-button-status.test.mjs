@@ -57,7 +57,6 @@ const instrumentScripts = [
   "src/instruments/escape-dust/escape-dust-app.js",
   "src/instruments/linebreaker/linebreaker-app.js",
   "src/families/experiments/experiments-app.js",
-  "morphazoidical/app.js",
 ];
 
 test("top-menu Audio status is binary for legacy engines and truthful for lifecycle-aware engines", async () => {

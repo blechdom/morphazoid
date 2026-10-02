@@ -52,17 +52,17 @@ async function listSourceHtml(directory) {
 test("source HTML discovery excludes browser trace copies but keeps nested authored pages", async t => {
   const root = await mkdtemp(path.join(os.tmpdir(), "morphazoid-source-pages-"));
   t.after(() => rm(root, { recursive: true, force: true }));
-  for (const directory of ["morphazoidical", "test-results/traces/resources", "playwright-report"]) {
+  for (const directory of ["nested-app", "test-results/traces/resources", "playwright-report"]) {
     await mkdir(path.join(root, directory), { recursive: true });
     await writeFile(path.join(root, directory, "index.html"), "<html></html>");
   }
   await writeFile(path.join(root, "index.html"), "<html></html>");
-  assert.deepEqual((await listSourceHtml(root)).map(file => path.relative(root, file)).sort(), ["index.html", "morphazoidical/index.html"]);
+  assert.deepEqual((await listSourceHtml(root)).map(file => path.relative(root, file)).sort(), ["index.html", "nested-app/index.html"]);
 });
 test("WAX layer changes artifact copies without changing normal browser HTML", async (t) => {
   const temporaryRoot = await mkdtemp(path.join(os.tmpdir(), "morphazoid-wax-test-"));
   t.after(() => rm(temporaryRoot, { recursive: true, force: true }));
-  await mkdir(path.join(temporaryRoot, "morphazoidical"), { recursive: true });
+  await mkdir(path.join(temporaryRoot, "nested-app"), { recursive: true });
 
   const rootHtml = `<!doctype html>
 <html><head><meta charset="utf-8">
@@ -75,7 +75,7 @@ test("WAX layer changes artifact copies without changing normal browser HTML", a
   <script type="module" src="app.js"></script>
 </head><body><img src="../artwork/example.webp"></body></html>`;
   const rootPath = path.join(temporaryRoot, "index.html");
-  const nestedPath = path.join(temporaryRoot, "morphazoidical", "index.html");
+  const nestedPath = path.join(temporaryRoot, "nested-app", "index.html");
   await Promise.all([
     writeFile(rootPath, rootHtml, "utf8"),
     writeFile(nestedPath, nestedHtml, "utf8"),
@@ -159,14 +159,14 @@ test("bootstrap path is relative to each artifact page", () => {
   );
   assert.equal(
     waxBootstrapPathFor(
-      path.join(outputDirectory, "morphazoidical", "atlas.html"),
+      path.join(outputDirectory, "nested-app", "atlas.html"),
       outputDirectory,
     ),
     "../wax/wax-host-bootstrap.js",
   );
   assert.equal(
     waxUniversalAdapterPathFor(
-      path.join(outputDirectory, "morphazoidical", "atlas.html"),
+      path.join(outputDirectory, "nested-app", "atlas.html"),
       outputDirectory,
     ),
     "../wax/wax-universal-adapter.js",

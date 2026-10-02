@@ -127,7 +127,7 @@ jobs:
             https://morphazoid.com/ >/dev/null
           curl --fail --silent --show-error \
             --retry 8 --retry-all-errors --retry-delay 5 \
-            https://morphazoid.com/morphazoidical/ >/dev/null
+            https://morphazoid.com/shapes.html >/dev/null
           curl --fail --silent --show-error \
             --retry 8 --retry-all-errors --retry-delay 5 \
             https://morphazoid.com/storybook/ >/dev/null

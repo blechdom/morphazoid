@@ -8,16 +8,16 @@ export class StartingAudio {
     this.context = null; this.node = null; this.armed = false; this.disposed = false;
     this.generation = 0; this.micGeneration = 0; this.fileGeneration = 0;
     this.release = null; this.stream = null; this.input = null;
-    this.level = 0.48; this.monitor = false;
+    this.level = 0.48; this.monitor = false; this.inputGain = 1; this.inputTrim = null;
   }
-  async arm(snapshotProvider) {
+  async arm(snapshotProvider, { output = true } = {}) {
     if (this.disposed) return false;
-    this.armed = true;
+    this.armed = output;
     const generation = ++this.generation;
     if (this.context && this.node) {
       try { await this.context.resume(); }
       catch (error) { if (generation === this.generation) this.armed = false; throw error; }
-      if (generation !== this.generation || !this.armed) return false;
+      if (generation !== this.generation) return false;
       this.setLevel(this.level);
       return true;
     }
@@ -30,7 +30,7 @@ export class StartingAudio {
     try {
       await context.resume();
       await context.audioWorklet.addModule(new URL("./processor.js", import.meta.url));
-      if (generation !== this.generation || !this.armed || this.disposed) {
+      if (generation !== this.generation || this.disposed) {
         await context.close(); if (this.context === context) this.context = null; return false;
       }
       const node = new AudioWorkletNode(context, "morphazoid-starting-instrument", {
@@ -74,26 +74,37 @@ export class StartingAudio {
     this.send({ type: "gain", value: 0 });
     this.stopMic();
   }
-  async startMic() {
-    if (!this.armed || !this.node) throw new Error("Turn Audio on before enabling the microphone.");
+  setInputGain(value) {
+    this.inputGain = clamp(value, 0, 4, 1);
+    if (this.inputTrim) this.inputTrim.gain.setTargetAtTime(this.inputGain, this.context.currentTime, 0.015);
+  }
+  async startMic(snapshotProvider) {
     if (this.stream) return true;
-    if (!navigator.mediaDevices?.getUserMedia) throw new Error("Microphone access needs a supported browser and HTTPS or localhost.");
     const generation = ++this.micGeneration;
+    if (!this.node) {
+      if (!snapshotProvider) throw new Error("The microphone graph is not ready.");
+      if (!await this.arm(snapshotProvider, { output: false })) return false;
+    }
+    await this.context.resume();
+    if (generation !== this.micGeneration || this.disposed) return false;
+    if (!navigator.mediaDevices?.getUserMedia) throw new Error("Microphone access needs a supported browser and HTTPS or localhost.");
     let stream;
     try {
       stream = await navigator.mediaDevices.getUserMedia({
         audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false },
       });
     } catch (error) {
-      if (generation !== this.micGeneration || !this.armed || this.disposed) return false;
+      if (generation !== this.micGeneration || this.disposed) return false;
       throw error;
     }
-    if (generation !== this.micGeneration || !this.armed || this.disposed) {
+    if (generation !== this.micGeneration || this.disposed) {
       stream.getTracks().forEach((t) => t.stop()); return false;
     }
     this.stream = stream;
     this.input = this.context.createMediaStreamSource(stream);
-    this.input.connect(this.node);
+    this.inputTrim = this.context.createGain();
+    this.inputTrim.gain.value = this.inputGain;
+    this.input.connect(this.inputTrim).connect(this.node);
     for (const track of stream.getTracks()) track.addEventListener("ended", () => {
       if (this.stream === stream) {
         this.send({ type: "finish-record" }); this.stopMic();
@@ -111,6 +122,7 @@ export class StartingAudio {
     this.micGeneration++;
     this.send({ type: "monitor", value: 0 });
     this.input?.disconnect(); this.input = null;
+    this.inputTrim?.disconnect(); this.inputTrim = null;
     const stream = this.stream; this.stream = null;
     stream?.getTracks().forEach((t) => t.stop());
   }

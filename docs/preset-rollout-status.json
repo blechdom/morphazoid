@@ -8,7 +8,7 @@
     "fullPresets": 1492,
     "favesImplemented": 16,
     "activeRemaining": 62,
-    "regularRemaining": 131
+    "regularRemaining": 130
   },
   "verification": {
     "browser": "Fresh-main 9a45aa0 combined gate: 402 passed across 13 Chromium suites, including all 209 public HTML routes, all 451 existing full-state preset recalls, Shapes' 106-scene audio sweep, Faves/UI/gesture checks, I/O setup and incoming Loopini regressions. Human/device acceptance remains separate; see docs/presets-continuation-20260922.md",
@@ -1116,15 +1116,6 @@
       "status": "deferred"
     },
     {
-      "id": "morphazoidical",
-      "label": "Morphazoidical",
-      "href": "morphazoidical/",
-      "category": "wip",
-      "scope": "deferred-wip",
-      "presets": null,
-      "status": "deferred"
-    },
-    {
       "id": "bell-square",
       "label": "Bell Square",
       "href": "bell-square.html",
@@ -1728,7 +1719,6 @@
       "escher-tessellation",
       "plasma-ball",
       "order-tones",
-      "morphazoidical",
       "bell-square",
       "entanglement-dance",
       "quantum-square-dance",

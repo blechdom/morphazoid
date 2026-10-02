@@ -3,9 +3,7 @@
 ## One connection control
 
 Every playable catalog instrument exposes one MIDI toggle inside its shared
-Settings disclosure. Morphazoidical hosts the same Settings control in its
-custom workbench top bar. The
-toggle is the only control that requests Web MIDI permission.
+Settings disclosure. The toggle is the only control that requests Web MIDI permission.
 
 The compact bar follows Morphazoid → Choose → next instrument → flexible space
 → the actual pre-destination stereo L/R audio meter → master-volume knob → Audio

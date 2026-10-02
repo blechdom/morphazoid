@@ -182,7 +182,7 @@ test("one acyclic capability registry covers every playable catalog instrument a
   assert.equal(instrumentMidiCapabilityForId("wave-pool").noteMode, "drums");
   assert.equal(instrumentMidiCapabilityForId("monstroid").noteMode, "sequence");
   assert.equal(instrumentMidiCapabilityForId("harmonica").noteMode, "pitched");
-  assert.equal(instrumentMidiCapabilityForId("morphazoidical").noteMode, "sequence");
+  assert.equal(instrumentMidiCapabilityForId("order-tones").noteMode, "sequence");
   assert.equal(instrumentMidiCapabilityForId("object-forge").noteMode, "pitched");
   assert.equal(instrumentMidiCapabilityForId("simd-synth").noteMode, "pitched");
   assert.equal(instrumentMidiCapabilityForId("simd-synth").computerKeyboardMode, "page");
@@ -335,58 +335,14 @@ test("every playable catalog page owns one shared MIDI toolbar", async () => {
     );
     mastheadPages += Number(hasMasthead);
     dedicatedHostPages += Number(hasDedicatedHost);
-    if (instrument.id === "morphazoidical") {
-      assert.match(html, /<body[^>]+data-instrument-info="off"/);
-      assert.doesNotMatch(html, /class="instrument-page-info"/);
-      assert.match(html, /<a class="brand" href="\.\.\/" aria-label="Morphazoid home">/);
-    } else {
-      assert.match(
-        html,
-        /<a class="wordmark" href="\.\/" aria-label="Morphazoid home">/,
-        `${instrument.id} logo links to the home page`,
-      );
-    }
+    assert.match(
+      html,
+      /<a class="wordmark" href="\.\/" aria-label="Morphazoid home">/,
+      `${instrument.id} logo links to the home page`,
+    );
   }
-  assert.equal(dedicatedHostPages, 1, "Morphazoidical supplies the one non-masthead host");
+  assert.equal(dedicatedHostPages, 0, "all catalogue instruments use the shared masthead");
   assert.equal(mastheadPages, INSTRUMENTS.length - dedicatedHostPages);
-
-  const atlas = await readFile(path.join(repositoryRoot, "morphazoidical", "atlas.html"), "utf8");
-  assert.doesNotMatch(atlas, /data-midi-toolbar-host/, "the non-playable Feature Atlas stays informational");
-  const workbenchCss = await readFile(
-    path.join(repositoryRoot, "morphazoidical", "style.css"),
-    "utf8",
-  );
-  assert.match(
-    workbenchCss,
-    /@media \(max-width: 680px\)[\s\S]*?\.session-state\[data-midi-toolbar-host\]\s*\{[^}]*grid-column: 1 \/ -1;[^}]*width: 100%;/,
-    "the workbench moves MIDI and Audio onto a full-width mobile row",
-  );
-  assert.match(
-    workbenchCss,
-    /\.session-state \.header-settings-trigger:focus-visible\s*\{[^}]*outline: 2px solid var\(--mint\)/,
-    "the injected settings summary keeps the workbench focus ring",
-  );
-  assert.match(
-    workbenchCss,
-    /\.session-state \.header-output-meter-shell\s*\{[^}]*grid-template-columns: repeat\(2, minmax\(0, 1fr\)\);/s,
-    "the workbench presents separate left and right output lanes",
-  );
-  assert.match(workbenchCss, /\.session-state \.header-output-meter-shell\s*\{[^}]*width: 22px;[^}]*gap: 0;/s);
-  assert.match(
-    workbenchCss,
-    /\.audio-toggle > \*\s*\{[^}]*position: absolute !important;[^}]*clip-path: inset\(50%\) !important;[^}]*\}[\s\S]*?\.audio-toggle::before\s*\{[^}]*mask: url\("data:image\/svg\+xml/s,
-    "the workbench visually renders only its speaker icon while retaining its authored accessible name",
-  );
-  assert.match(
-    workbenchCss,
-    /\.audio-toggle\[aria-pressed="true"\]\s*\{[^}]*background: var\(--mint\);[^}]*box-shadow:/s,
-    "the workbench Audio-on state is filled and glowing",
-  );
-  assert.match(
-    workbenchCss,
-    /\.session-state \.header-settings-section > select\s*\{[^}]*background-image:\s*linear-gradient\(45deg, transparent 50%, currentColor 50%\),[^}]*appearance: none;/s,
-    "workbench Settings selects keep the same dropdown chevron affordance",
-  );
 });
 
 test("browser fallback registers once, chooses useful computer keys, and skips native and WAX pages", () => {
@@ -771,8 +727,8 @@ test("note fallbacks sound sequence steps and drum one-shots without mutating pa
   applyBrowserMidiMessage({
     documentObject: sequenceDocument,
     runtime: sequenceRuntime,
-    routeId: "morphazoidical",
-    support: instrumentMidiCapabilityForId("morphazoidical"),
+    routeId: "order-tones",
+    support: instrumentMidiCapabilityForId("order-tones"),
     message: { type: "noteOn", note: 72, velocity: 100 },
   });
   assert.equal(step.clicks, 1, "a paused sequence advances its explicit step action");

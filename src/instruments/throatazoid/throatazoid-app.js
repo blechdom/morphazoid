@@ -1,3 +1,5 @@
+import { mountAudioInputControl } from "../../audio-input-control.js";
+import { audioInputConstraints } from "../../audio-input-settings.js";
 import {
   ARTICULATIONS,
   CONSONANTS,
@@ -85,11 +87,13 @@ let currentNoses = [];
 let currentBodyHandles = [];
 let currentTract = null;
 let pointerDrag = null;
+let audioOutputEnabled = false;
 let audioContext = null;
 let graph = null;
 let mediaStream = null;
 let microphoneSource = null;
 let microphoneGeneration = 0;
+let microphoneError = "";
 let audioDirty = false;
 let periodicWaveCache = new Map();
 let inputWave = new Float32Array(2048);
@@ -987,7 +991,7 @@ function applyAudioParameters(immediate = false) {
     immediate,
   );
   setAudioParam(graph.wetGain.gain, live ? state.wet : 0, immediate);
-  setAudioParam(graph.masterGain.gain, live ? calibratedOutputGain(state.level) : 0, immediate);
+  setAudioParam(graph.masterGain.gain, audioOutputEnabled && live ? calibratedOutputGain(state.level) : 0, immediate);
   setAudioParam(graph.micCompressor.threshold, -27 - state.inputStability * 9, immediate);
   setAudioParam(graph.micCompressor.ratio, 2.2 + state.inputStability * 3.1, immediate);
   setAudioParam(graph.micCompressor.release, 0.14 + state.inputStability * 0.42, immediate);
@@ -1211,7 +1215,7 @@ function sourceUsesMicrophone(mode = state.sourceMode) {
   return mode === "mic" || mode === "hybrid";
 }
 
-async function activateSource(mode = state.sourceMode) {
+async function activateSource(mode = state.sourceMode, { requestMicrophone = false } = {}) {
   const target = SOURCE_LABELS[mode] ? mode : "mic";
   const previousMode = state.sourceMode;
   const previousAwake = state.awake;
@@ -1219,24 +1223,17 @@ async function activateSource(mode = state.sourceMode) {
   state.sourceMode = target;
   state.starting = true;
   const generation = ++microphoneGeneration;
-  clearError();
+  if (requestMicrophone) microphoneError = "";
+  else clearError();
   updateUi();
 
   try {
     const audio = await ensureAudioGraph();
-    if (sourceUsesMicrophone(target) && !mediaStream) {
+    if (requestMicrophone && sourceUsesMicrophone(target) && !mediaStream) {
       if (!globalThis.navigator?.mediaDevices?.getUserMedia) {
         throw new Error("Microphone input requires HTTPS or localhost.");
       }
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: false,
-        audio: {
-          channelCount: { ideal: 1 },
-          echoCancellation: false,
-          noiseSuppression: false,
-          autoGainControl: false,
-        },
-      });
+      const stream = await navigator.mediaDevices.getUserMedia(audioInputConstraints());
       if (generation !== microphoneGeneration) {
         stopStream(stream);
         return;
@@ -1279,7 +1276,8 @@ async function activateSource(mode = state.sourceMode) {
       state.awake = previousAwake;
       state.mic = previousMic && Boolean(mediaStream);
       state.starting = false;
-      showError(microphoneErrorMessage(error));
+      if (requestMicrophone) microphoneError = microphoneErrorMessage(error);
+      else showError(microphoneErrorMessage(error));
       if (previousAwake) applyAudioParameters();
       announce(previousAwake
         ? "Microphone unavailable. The previous excitation continues."
@@ -1291,6 +1289,7 @@ async function activateSource(mode = state.sourceMode) {
 }
 
 async function severAudio(message = "Throatazoid severed.") {
+  audioOutputEnabled = false;
   microphoneGeneration += 1;
   if (keyboardAccentTimer) clearTimeout(keyboardAccentTimer);
   keyboardAccentTimer = 0;
@@ -1340,9 +1339,20 @@ async function severAudio(message = "Throatazoid severed.") {
   announce(message);
 }
 
-function toggleAudio() {
-  if (isAwake() || state.starting) void severAudio();
-  else void activateSource(state.sourceMode);
+async function toggleAudio() {
+  if (audioOutputEnabled) { audioOutputEnabled = false; applyAudioParameters(); updateUi(); return; }
+  await ensureAudioGraph();
+  state.awake = true;
+  audioOutputEnabled = true;
+  applyAudioParameters(); updateUi();
+}
+
+function stopMicrophoneInput() {
+  microphoneError = "";
+  microphoneGeneration += 1;
+  state.starting = false; state.mic = false;
+  releaseMicrophone();
+  applyAudioParameters(); updateUi();
 }
 
 function selectSourceMode(mode) {
@@ -2119,14 +2129,14 @@ function updateUi() {
   const starting = state.starting;
   const sourceName = SOURCE_LABELS[state.sourceMode] ?? "Mic";
   const polyphonic = state.voiceMode === "polyphonic";
-  $("audioState").textContent = live ? "on" : "off";
-  setPressed($("audioButton"), live);
+  $("audioState").textContent = audioOutputEnabled ? "on" : "off";
+  setPressed($("audioButton"), audioOutputEnabled);
   setPressed($("micButton"), live);
   setPressed($("awakenButton"), live);
   setPressed($("quickSynthButton"), live && state.sourceMode === "glottis");
   setPressed($("quickMicButton"), live && sourceUsesMicrophone());
   $("audioButton").disabled = starting;
-  $("micButton").disabled = starting;
+  $("micButton").disabled = false;
   $("awakenButton").disabled = starting;
   $("quickSynthButton").disabled = starting;
   $("quickMicButton").disabled = starting;
@@ -4123,7 +4133,7 @@ $("noseCount").addEventListener("input", () => {
 });
 
 bindRange("level", "level");
-bindRange("inputTrim", "inputTrim", { maximum: 1.35 });
+bindRange("inputTrim", "inputTrim", { maximum: 1.5 });
 bindRange("inputStability", "inputStability");
 bindRange("bodyLength", "bodyLength", { custom: true });
 bindRange("tension", "tension", { custom: true });
@@ -4267,7 +4277,17 @@ $("muteThroatButton").addEventListener("click", () => {
   toggleMouthGate(selectedThroat);
 });
 
-for (const button of [$("audioButton"), $("awakenButton"), $("micButton")]) {
+const microphoneInputControl = mountAudioInputControl({
+  container: document.querySelector("aside.panel"), before: $("micButton").closest("details"),
+  button: $("micButton"), gainInput: $("inputTrim"), gainOutput: $("inputTrimOut"),
+  onGainInput: (value) => { state.inputTrim = value; applyAudioParameters(); },
+  onStart: () => activateSource(state.sourceMode === "glottis" ? "hybrid" : state.sourceMode, { requestMicrophone: true }),
+  onStop: stopMicrophoneInput,
+  getState: () => ({ active: state.mic, pending: state.starting, error: microphoneError }),
+  getSignal: () => ({ node: microphoneSource, stream: mediaStream, multiplier: state.inputTrim }),
+  hide: [$("inputTrim").closest("label"), $("inputMeterBar").closest(".throatazoid-meter"), $("quickMicButton")],
+});
+for (const button of [$("audioButton"), $("awakenButton")]) {
   button.addEventListener("click", toggleAudio);
 }
 $("quickSynthButton").addEventListener("click", () => {

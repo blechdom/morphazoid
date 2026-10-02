@@ -550,6 +550,11 @@ test('microphone capture is bounded, mono and transferable without processing pl
     h.send({ type: 'capture', id: 8 }); h.send({ type: 'cancel-capture' });
     h.renderStereo(RATE * 2);
     assert.equal(h.messages.filter(m => m.type === 'captured').length, 1);
+    h.processor.state = { ...h.processor.state, inputDb: -12 };
+    h.send({ type: 'capture', id: 9 });
+    h.renderStereo(RATE * 2, (_frame, n) => [new Float32Array(n).fill(.3)]);
+    const adjusted = h.messages.find(m => m.type === 'captured' && m.id === 9);
+    assert.ok(adjusted.samples.every(v => Math.abs(v - .3 * 10 ** (-12 / 20)) < 1e-6), 'the input knob changes captured PCM');
   } finally { h.dispose(); }
 });
 

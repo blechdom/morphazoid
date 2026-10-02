@@ -1,3 +1,5 @@
+import { mountAudioInputControl } from "../../audio-input-control.js";
+import { audioInputConstraints, configureAudioInputNode } from "../../audio-input-settings.js";
 import {
   INSTRUMENTS,
   INSTRUMENT_BY_ID,
@@ -81,6 +83,7 @@ const elements = {
 };
 
 const audio = new DrumEngine();
+audio.setMuted(true);
 const recorder = new MicrophoneRecorder(audio, { maxDurationMs: 8_000 });
 const analysisCanvas = document.createElement("canvas");
 const analysisContext = analysisCanvas.getContext("2d", { willReadFrequently: true });
@@ -146,6 +149,90 @@ const state = {
   hasPainted: false,
   hasPlayed: false,
 };
+
+let microphoneStream = null;
+let microphoneSource = null;
+let microphoneGain = null;
+let microphoneDestination = null;
+let microphoneHeld = false;
+let microphonePending = false;
+let microphonePromise = null;
+let microphoneVersion = 0;
+const inputControl = mountAudioInputControl({
+  container: document.querySelector("#gesturamaInput"),
+  onStart: () => startMicrophone(),
+  onStop: () => stopMicrophone(),
+  getState: () => ({ active: Boolean(microphoneStream), pending: microphonePending }),
+  getSignal: () => ({ node: microphoneGain, stream: microphoneStream }),
+});
+
+async function startMicrophone({ held = true } = {}) {
+  if (held) microphoneHeld = true;
+  if (microphoneStream) return;
+  if (microphonePromise) return microphonePromise;
+  const version = ++microphoneVersion;
+  microphonePending = true;
+  const pending = (async () => {
+    const context = await audio.ensureStarted();
+    if (version !== microphoneVersion || document.hidden) return;
+    if (!navigator.mediaDevices?.getUserMedia) throw new Error("Microphone access is unavailable.");
+    const stream = await navigator.mediaDevices.getUserMedia(audioInputConstraints());
+    if (version !== microphoneVersion || document.hidden) { stopMediaStream(stream); return; }
+    try {
+      microphoneStream = stream;
+      microphoneSource = configureAudioInputNode(context.createMediaStreamSource(stream));
+      microphoneGain = inputControl.createGain(context);
+      microphoneDestination = context.createMediaStreamDestination();
+      microphoneSource.connect(microphoneGain).connect(microphoneDestination);
+      for (const track of stream.getTracks?.() ?? []) {
+        track.addEventListener?.("ended", () => {
+          if (microphoneStream === stream) stopMicrophone();
+        }, { once: true });
+      }
+      updateStatus();
+    } catch (error) {
+      releaseMicrophone();
+      throw error;
+    }
+  })();
+  microphonePromise = pending;
+  try { await pending; }
+  finally {
+    if (version === microphoneVersion) {
+      microphonePending = false;
+      microphonePromise = null;
+      inputControl.refresh();
+    }
+  }
+}
+
+function releaseMicrophone() {
+  stopMediaStream(microphoneStream);
+  stopMediaStream(microphoneDestination?.stream);
+  for (const node of [microphoneSource, microphoneGain, microphoneDestination]) {
+    try { node?.disconnect(); } catch { /* device already ended */ }
+  }
+  microphoneStream = null;
+  microphoneSource = null;
+  microphoneGain = null;
+  microphoneDestination = null;
+}
+
+function stopMicrophone() {
+  microphoneVersion += 1;
+  microphonePending = false;
+  microphonePromise = null;
+  microphoneHeld = false;
+  if (state.recording) void recorder.stop().catch(() => {});
+  else {
+    state.recordToken += 1;
+    void recorder.cancel();
+    stopRecordClock();
+  }
+  releaseMicrophone();
+  elements.recordSampleButton.disabled = false;
+  inputControl.refresh();
+}
 
 function showToast(message) {
   elements.toast.textContent = message;
@@ -1300,6 +1387,8 @@ function finishRecording(buffer, token) {
   state.recordToken += 1;
   state.recording = false;
   stopRecordClock();
+  if (!microphoneHeld) releaseMicrophone();
+  inputControl.refresh();
   if (buffer) {
     setInstrument("sample");
     updateSampleControls("Sample ready", "ready");
@@ -1327,7 +1416,10 @@ async function toggleSampleRecording() {
   state.recordToken = token;
   if (elements.recordSampleButton) elements.recordSampleButton.disabled = true;
   try {
-    await recorder.start({ maxDurationMs: 8_000 });
+    await startMicrophone({ held: false });
+    if (token !== state.recordToken || !microphoneDestination) return;
+    await recorder.start({ maxDurationMs: 8_000, stream: microphoneDestination.stream });
+    if (token !== state.recordToken) { void recorder.cancel(); return; }
     state.recording = true;
     state.recordStartedAt = performance.now();
     updateSampleControls("Recording…", "recording");
@@ -1344,6 +1436,8 @@ async function toggleSampleRecording() {
         showToast(error.message);
       });
   } catch (error) {
+    if (token !== state.recordToken) return;
+    if (!microphoneHeld) releaseMicrophone();
     updateSampleControls("Microphone unavailable", "error");
     showToast(error.message);
   } finally {
@@ -1470,13 +1564,18 @@ window.addEventListener("pagehide", () => {
   state.recording = false;
   stopRecordClock();
   recorder.cancel();
+  inputControl.destroy();
+  releaseMicrophone();
   clearScheduledHarpPlucks();
   audio.stopAllGesturePads({ release: 0.01 });
   stopCamera();
   audio.close();
 });
 document.addEventListener("visibilitychange", () => {
-  if (document.hidden) clearScheduledHarpPlucks();
+  if (document.hidden) {
+    stopMicrophone();
+    clearScheduledHarpPlucks();
+  }
   resetPerformancePoint({ hideMarker: true });
   resetTrackerTarget();
   audio.stopAllGesturePads({ release: document.hidden ? 0.02 : 0.06 });

@@ -14,7 +14,8 @@ This supersedes the earlier rule that placed presets and MIDI beside the meters.
 
 ## Layout
 
-- Masthead: **Morphazoid → Choose → next instrument → flexible space → stereo
+- Masthead: **Morphazoid → Choose → next instrument → flexible space → input
+  gain knob, input meter(s), mic icon (on mic pages, grouped in violet) → stereo
   meters → volume knob → Audio on/off → Settings**.
 - Right control panel, first row: **Select Preset → next preset → randomize**.
 - Settings: the existing **MIDI In on/off button and receive light** occupy the
@@ -32,8 +33,12 @@ to the sidebar on desktop. No preset or transport state is recalled on resize.
 Voicesaurus places its **Speak / Sing** selector immediately above the preset
 row, as requested by the owner, so the mode is clear before choosing its presets.
 Focused sound, sequence, skin, material and other sub-presets stay in place.
-The L-system Delay input controls move intact below its full-preset row rather
-than remain an extra masthead item. Its trim is not a master-volume knob.
+Mic pages place their shared input strip before the desktop output meters. On
+phones and short landscape layouts, the same strip moves inline before the
+preset menu. Existing native preset selectors retain their values and events;
+preset-button banks and pages without presets retain their own mobile controls.
+Input trim remains separate from master volume. Settings keeps its diagnostic
+input strip in the input test.
 
 Shared header simplification applies wherever the shared navigation owns the
 instrument's header. Existing header master-level ranges get rotary

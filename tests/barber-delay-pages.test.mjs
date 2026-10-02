@@ -223,7 +223,8 @@ test("the shared controller keeps audio behind the menu gesture and cleans resou
   assert.match(app, /new BarberDelayAudio\(mode, globalThis\)/);
   assert.match(app, /source: "microphone"/);
   assert.match(app, /audioButton"\)\.addEventListener\("click", toggleAudio\)/);
-  assert.match(app, /audio\.start\(selectedSource\(\)\)/);
+  assert.match(app, /audio\.startInput\(selectedSource\(\)\)/);
+  assert.match(app, /mountAudioInputControl/);
   assert.match(app, /getTimeDomainData\(waveform\)/);
   assert.match(app, /1_000 \/ 30/);
   assert.match(app, /function drawCandyOscilloscope/);

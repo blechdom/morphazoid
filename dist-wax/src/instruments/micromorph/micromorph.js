@@ -1,5 +1,6 @@
 import { unlockAudioContext } from "../../audio.js";
 import { connectAudioOutput } from "../../audio-output-manager.js";
+import { audioInputConstraints } from "../../audio-input-settings.js";
 
 export const MICROMORPH_PROCESSOR_NAME = "morphazoid-micromorph";
 export const MICROMORPH_PROTOCOL_VERSION = "mga-stream/1";
@@ -725,6 +726,7 @@ export class MicromorphAudio {
     this.mediaStream = null;
     this.outputRelease = null;
     this.enabled = false;
+    this.outputArmed = true;
     this.modelActive = false;
     this.modelPcmChannels = 2;
     this.modelPcmBlockSize = MICROMORPH_PCM_CHUNK_FRAMES;
@@ -920,9 +922,14 @@ export class MicromorphAudio {
       parameters: this.parameters,
     });
     if (this.enabled && this.master && this.context) {
-      this.master.gain.setTargetAtTime(1, this.context.currentTime, 0.018);
+      this.master.gain.setTargetAtTime(this.outputArmed ? 1 : 0, this.context.currentTime, 0.018);
     }
     return Object.freeze({ ...this.parameters });
+  }
+
+  setOutputArmed(value) {
+    this.outputArmed = Boolean(value);
+    if (this.master && this.context) this.master.gain.setTargetAtTime(this.outputArmed && this.enabled ? 1 : 0, this.context.currentTime, .018);
   }
 
   setModelActive(active) {
@@ -1038,13 +1045,7 @@ export class MicromorphAudio {
     let stream = null;
     let sourceNode = null;
     try {
-      stream = await getUserMedia({
-        audio: {
-          autoGainControl: false,
-          echoCancellation: false,
-          noiseSuppression: false,
-        },
-      });
+      stream = await getUserMedia(audioInputConstraints(this.runtime));
       if (!this.startIsCurrent(startGeneration, closeGeneration)) {
         throw lifecycleCancellation("Microphone start was cancelled after permission was granted.");
       }
@@ -1073,8 +1074,11 @@ export class MicromorphAudio {
       const now = context.currentTime;
       master.gain.cancelScheduledValues(now);
       master.gain.setValueAtTime(master.gain.value, now);
-      master.gain.linearRampToValueAtTime(1, now + 0.035);
+      master.gain.linearRampToValueAtTime(this.outputArmed ? 1 : 0, now + 0.035);
       this.enabled = true;
+      for (const track of stream.getAudioTracks?.() ?? []) track.addEventListener?.("ended", () => {
+        if (this.mediaStream === stream) void this.stop();
+      }, { once: true });
     } catch (error) {
       if (this.sourceNode !== sourceNode) disconnectNode(sourceNode);
       if (this.mediaStream === stream) this.releaseSource();
@@ -1148,14 +1152,14 @@ export class MicromorphAudio {
   async stop() {
     this.startGeneration += 1;
     const pendingStart = this.startPromise;
+    this.startPromise = null;
     this.releaseSource();
     this.setModelActive(false);
     this.deactivateGraph();
     this.scheduleSuspend();
-    await pendingStart?.catch(() => {});
-    this.releaseSource();
-    this.deactivateGraph();
-    this.scheduleSuspend();
+    // getUserMedia cannot be aborted. Retire the request immediately; its
+    // generation guard releases a late grant without touching a newer input.
+    pendingStart?.catch(() => {});
   }
 
   async close() {

@@ -56,18 +56,10 @@ for (const route of instrumentRoutes) {
     expect(contract.midiCount, "one original MIDI permission owner").toBe(1);
     if (contract.hasMasterLevel) expect(contract.hasVolumeKnob).toBe(true);
 
-    if (route.id === "morphazoidical") {
-      // The workbench deliberately owns a compact custom header. Keep that
-      // exception explicit so a second accidental design system cannot slip in.
-      expect(contract.audio?.id).toBe("audioToggle");
-      expect(contract.mobile).toBeNull();
-      expect(contract.picker).toBeNull();
-    } else {
-      expect(contract.audio?.id).toBe("audioButton");
-      expect(contract.mobile?.label).toBe("Instrument");
-      expect(contract.mobile?.options ?? 0).toBeGreaterThan(0);
-      expect(contract.picker, "shared desktop navigation should hydrate").not.toBeNull();
-      expect(contract.picker?.activeId).toBe(route.id);
-    }
+    expect(contract.audio?.id).toBe("audioButton");
+    expect(contract.mobile?.label).toBe("Instrument");
+    expect(contract.mobile?.options ?? 0).toBeGreaterThan(0);
+    expect(contract.picker, "shared desktop navigation should hydrate").not.toBeNull();
+    expect(contract.picker?.activeId).toBe(route.id);
   });
 }

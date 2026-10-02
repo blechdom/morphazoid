@@ -1,7 +1,8 @@
+import { readAudioInputReference as readFile } from "./helpers/audio-input-reference.mjs";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { existsSync } from "node:fs";
-import { readFile } from "node:fs/promises";
+
 import test from "node:test";
 import { rewriteModulePaths, rewriteRepositoryPaths } from "../scripts/architecture/module-paths.mjs";
 import { readRuntimeManifest } from "../scripts/site/runtime-manifest.mjs";

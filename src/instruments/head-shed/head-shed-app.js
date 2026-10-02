@@ -1,4 +1,6 @@
 import { createProtoShell, renderDemoPhrase } from "../../families/proto-graph/proto-shell.js?v=proto-20260918-1";
+import { mountAudioInputControl } from "../../audio-input-control.js";
+import { audioInputConstraints } from "../../audio-input-settings.js";
 
 const $ = (id) => document.getElementById(id);
 const TAU = Math.PI * 2;
@@ -23,6 +25,11 @@ let micStream = null;
 let micSource = null;
 let dryGain = null;
 let wetGain = null;
+let masterGain = null;
+let micGain = null;
+let micPending = false;
+let micVersion = 0;
+let graphPromise = null;
 let tapeView = new Float32Array(720);
 
 const params = { speed: 1, retain: 1, writeLevel: 0.9, genLoss: 0.12, rotorOnly: false, seconds: 4, dry: 0.7 };
@@ -233,7 +240,8 @@ async function buildAudio(context) {
   dryGain = context.createGain();
   dryGain.gain.value = params.dry;
   const master = context.createGain();
-  master.gain.value = 0.9;
+  masterGain = master;
+  master.gain.value = shell.armed ? .9 : 0;
   const comp = context.createDynamicsCompressor();
   comp.threshold.value = -10; comp.ratio.value = 6; comp.attack.value = 0.008; comp.release.value = 0.18;
   node.connect(wetGain).connect(master);
@@ -256,27 +264,69 @@ async function buildAudio(context) {
 }
 
 async function enableMic() {
-  if (!shell.context) { status("Turn Audio on first, then enable the microphone."); return; }
+  const version = ++micVersion;
+  micPending = true;
+  inputControl.refresh();
+  let stream;
   try {
-    micStream = await navigator.mediaDevices.getUserMedia({
-      audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false },
-    });
+    if (!shell.context) shell.state.context = new (globalThis.AudioContext || globalThis.webkitAudioContext)({ latencyHint: "interactive" });
+    await shell.context.resume();
+    await prepareGraph(shell.context);
+    if (version !== micVersion) return;
+    stream = await navigator.mediaDevices.getUserMedia(audioInputConstraints());
+    if (version !== micVersion || document.hidden) { stream.getTracks().forEach(track => track.stop()); return; }
+    micStream = stream;
     micSource = shell.context.createMediaStreamSource(micStream);
-    micSource.connect(node);
-    // A looper must always monitor live input. Default the dry path low but audible.
-    micSource.connect(dryGain);
-    $("micButton").setAttribute("aria-pressed", "true");
-    $("micButton").textContent = "Microphone on";
-    status("Microphone on. Live input is monitored through the dry path — use headphones.");
+    micGain = inputControl.createGain(shell.context);
+    micSource.connect(micGain);
+    micGain.connect(node);
+    micGain.connect(dryGain);
+    for (const track of stream.getAudioTracks()) track.addEventListener?.("ended", () => { if (micStream === stream) releaseMic(); }, { once: true });
+    status("Microphone on.");
   } catch (error) {
-    shell.fail(`Microphone unavailable: ${error?.message ?? "permission denied"}`);
+    stream?.getTracks().forEach(track => track.stop());
+    if (version !== micVersion) return;
+    throw error;
+  } finally {
+    if (version === micVersion) micPending = false;
+    inputControl.refresh();
   }
 }
 
+function releaseMic() {
+  ++micVersion; micPending = false;
+  try { micSource?.disconnect(); micGain?.disconnect(); } catch { /* detached */ }
+  micStream?.getTracks().forEach(track => track.stop());
+  micStream = micSource = micGain = null;
+  inputControl.refresh();
+}
+
+async function prepareGraph(context) {
+  if (node) return;
+  graphPromise ??= buildAudio(context).finally(() => { graphPromise = null; });
+  await graphPromise;
+}
+
 const shell = createProtoShell({
-  onArm: buildAudio,
-  onDisarm: () => { node?.port.postMessage({ type: "param", running: false }); },
+  onArm: async context => {
+    await prepareGraph(context);
+    masterGain.gain.setTargetAtTime(.9, context.currentTime, .02);
+    node.port.postMessage({ type: "param", running: shell.running });
+  },
+  onDisarm: () => {
+    releaseMic();
+    masterGain?.gain.setTargetAtTime(0, shell.context.currentTime, .02);
+    node?.port.postMessage({ type: "param", running: false });
+  },
   onTransport: (running) => { node?.port.postMessage({ type: "param", running }); },
+});
+
+const inputControl = mountAudioInputControl({
+  container: $("micButton").closest(".group"),
+  before: $("micButton").closest(".transport-row"), button: $("micButton"),
+  onStart: enableMic, onStop: releaseMic,
+  getState: () => ({ active: Boolean(micStream), pending: micPending }),
+  getSignal: () => ({ node: micGain, stream: micStream }),
 });
 
 for (const [id, key, fmt] of [
@@ -333,7 +383,11 @@ $("clearTape").addEventListener("click", () => {
   tapeView.fill(0);
   status("Tape cleared. Heads and their positions are kept.");
 });
-$("micButton").addEventListener("click", enableMic);
+document.addEventListener("visibilitychange", () => { if (document.hidden) releaseMic(); });
+globalThis.addEventListener("pagehide", () => {
+  releaseMic(); inputControl.destroy();
+  try { shell.context?.close(); } catch { /* closed */ }
+}, { once: true });
 
 globalThis.addEventListener("resize", resize);
 resize();

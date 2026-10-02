@@ -143,7 +143,6 @@ const NOTE_MODE_IDS = Object.freeze({
     "escher-tessellation",
     "penrose-tilings",
     "order-tones",
-    "morphazoidical",
     "bell-square",
     "entanglement-dance",
     "quantum-square-dance",
@@ -289,8 +288,9 @@ const audioInputIds = new Set([
   "throatazoid",
   "morphynx",
   "alien-larynx",
+  "gesturama",
   "tape-worm", "loop-soup", "hollowphonic",
-  "crab-loom", "freeze-point", "scatter-ghost", "exceptional", "head-shed", "splice-ring", "onset-atlas", "synaptic-resonance",
+  "crab-loom", "freeze-point", "scatter-ghost", "exceptional", "head-shed",
   "loopini",
 ]);
 const midiOutputExtraIds = new Set([

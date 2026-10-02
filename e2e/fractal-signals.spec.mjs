@@ -241,7 +241,7 @@ test('explicit live input in all six modes survives presets and releases tracks'
   test.setTimeout(60000);
   await installMicrophoneFixture(page);
   await page.goto('fractal-synthesis.html#echoes');
-  await expect(page.locator('#microphone')).toBeDisabled();
+  await expect(page.locator('#microphone')).toBeEnabled();
   await page.locator('#playButton').click();
   expect(await page.evaluate(() => __micRequests)).toBe(0);
   await page.locator('#audioButton').click();
@@ -274,7 +274,7 @@ test('microphone denial leaves Audio and Play usable', async ({ page }) => {
   await page.locator('#audioButton').click();
   await page.locator('#playButton').click();
   await page.locator('#microphone').click();
-  await expect(page.locator('#microphoneStatus')).toContainText('unavailable');
+  await expect(page.locator('.mz-input-error')).toHaveText('Mic blocked · retry');
   expect(await page.evaluate(() => __fractalSignals.armed && __fractalSignals.playing)).toBe(true);
   expect(await page.evaluate(() => __fractalSignals.audio.microphoneActive)).toBe(false);
   await page.locator('#audioButton').click();

@@ -126,6 +126,14 @@ function createGraphsFixture({ failingMode = null } = {}) {
     const styleValues = new Map();
     const node = {
       id,
+      ownerDocument: documentObject,
+      children: [], parentNode: null, nodeType: 1,
+      get childNodes() { return this.children; },
+      append(...nodes) { for (const child of nodes) { child.remove?.(); child.parentNode = this; this.children.push(child); } },
+      insertBefore(child, before) { child.remove?.(); child.parentNode = this; const at = this.children.indexOf(before); this.children.splice(at < 0 ? this.children.length : at, 0, child); },
+      remove() { if (this.parentNode) this.parentNode.children = this.parentNode.children.filter((node) => node !== this); this.parentNode = null; },
+      contains(other) { return other === this || this.children.some((child) => child.contains?.(other)); },
+      closest() { return null; },
       value: "",
       textContent: "",
       innerHTML: "",
@@ -234,11 +242,15 @@ function createGraphsFixture({ failingMode = null } = {}) {
     ResizeObserver: class {
       constructor(callback) { this.callback = callback; }
       observe() { this.callback(); }
+      disconnect() {}
     },
   };
   const bodyAttributes = new Map();
   const documentObject = {
     hidden: false,
+    defaultView: runtime,
+    createElement(tag) { const node = createElement(`generated-${elements.size}`); node.tagName = tag.toUpperCase(); return node; },
+    querySelector() { return null; },
     body: {
       setAttribute(name, value) { bodyAttributes.set(name, String(value)); },
       getAttribute(name) { return bodyAttributes.get(name) ?? null; },
@@ -248,18 +260,20 @@ function createGraphsFixture({ failingMode = null } = {}) {
       if (selector !== "[data-mode-bank]") return [];
       return ["synth", "drums", "mic"].map((mode) => elements.get(`${mode}Bank`));
     },
-    addEventListener(type, listener) { documentListeners.set(type, listener); },
+    addEventListener(type, listener) { documentListeners.set(type, [...(documentListeners.get(type) ?? []), listener]); },
     removeEventListener(type, listener) {
-      if (documentListeners.get(type) === listener) documentListeners.delete(type);
+      const remaining = (documentListeners.get(type) ?? []).filter((entry) => entry !== listener);
+      if (remaining.length) documentListeners.set(type, remaining); else documentListeners.delete(type);
     },
   };
   runtime.document = documentObject;
+  documentObject.body = Object.assign(createElement("body"), documentObject.body);
 
   function createEngine(mode) {
     return {
       mode,
       context: null,
-      inputLevel: 0.25,
+      inputLevel: 0.25, stream: null, microphoneStarts: 0, outputEnabled: false,
       output: 0,
       startCount: 0,
       closeCount: 0,
@@ -278,13 +292,17 @@ function createGraphsFixture({ failingMode = null } = {}) {
         };
         return this.context;
       },
+      initialize(configuration) { return this.start(configuration); },
+      setOutputEnabled(enabled) { this.outputEnabled = enabled; },
+      async startMicrophone() { this.microphoneStarts += 1; this.stream = {}; },
+      stopMicrophone() { this.stream = null; },
       setOutput(value) { this.output = value; },
       silence() { this.silenceCount += 1; },
       update(...arguments_) { this.updateCalls.push(arguments_); },
       trigger() { return Promise.resolve({ scheduled: true }); },
       async close() {
         this.closeCount += 1;
-        this.context = null;
+        this.context = null; this.stopMicrophone();
       },
     };
   }
@@ -305,7 +323,7 @@ function createGraphsFixture({ failingMode = null } = {}) {
       });
       await result;
     }
-    await Promise.resolve();
+    await new Promise((resolve) => setImmediate(resolve));
     return result;
   }
 
@@ -428,33 +446,24 @@ test("node count and route density edits preserve every retained node position",
   controller.dispose({ persisted: false });
 });
 
-test("the primary round control starts and stops microphone input in Mic mode", async () => {
+test("the mic icon starts and stops input while Audio remains off", async () => {
   const fixture = createGraphsFixture();
   await fixture.fixtureReady;
-  const controller = initializeGraphs({
-    runtime: fixture.runtime,
-    documentObject: fixture.documentObject,
-    audioEngines: fixture.engines,
-  });
-
+  const controller = initializeGraphs({ runtime: fixture.runtime, documentObject: fixture.documentObject, audioEngines: fixture.engines });
   await controller.setMode("mic");
-  assert.equal(fixture.attributes.get("playButton:aria-label"), "Start microphone input");
-  assert.equal(fixture.elements.get("pulseButton").textContent, "Trace graph");
-
-  await fixture.dispatch("playButton", "click");
-  assert.equal(controller.state.audio, true);
-  assert.equal(fixture.engines.mic.startCount, 1);
-  assert.equal(fixture.attributes.get("playButton:aria-pressed"), "true");
-  assert.equal(fixture.attributes.get("playButton:aria-label"), "Stop microphone input");
-  assert.equal(fixture.elements.get("micState").textContent, "mic live");
-
-  await fixture.dispatch("playButton", "click");
+  assert.equal(fixture.elements.get("playButton").hidden, true);
+  assert.equal(fixture.engines.mic.microphoneStarts, 0, "mode selection never requests the mic");
+  const control = [...fixture.elements.values()].find((node) => node.className === "mz-audio-input-strip");
+  await fixture.dispatch(control.button.id, "click");
   assert.equal(controller.state.audio, false);
-  assert.equal(fixture.engines.mic.context, null);
-  assert.equal(fixture.attributes.get("playButton:aria-pressed"), "false");
-  assert.equal(fixture.attributes.get("playButton:aria-label"), "Start microphone input");
-  assert.equal(fixture.elements.get("micState").textContent, "mic off");
-
+  assert.equal(fixture.engines.mic.microphoneStarts, 1);
+  assert.ok(fixture.engines.mic.stream);
+  assert.equal(fixture.engines.mic.outputEnabled, false);
+  assert.equal(control.button.getAttribute("aria-pressed"), "true");
+  await fixture.dispatch(control.button.id, "click");
+  assert.equal(controller.state.audio, false);
+  assert.equal(fixture.engines.mic.stream, null);
+  assert.equal(control.button.getAttribute("aria-pressed"), "false");
   controller.dispose({ persisted: false });
 });
 
@@ -489,29 +498,25 @@ test("the primary round control arms audio before starting Synth or Drums playba
   controller.dispose({ persisted: false });
 });
 
-test("a blocked microphone reports a useful retry action", async () => {
+test("a blocked microphone reports a useful retry action without arming Audio", async () => {
   const fixture = createGraphsFixture();
   await fixture.fixtureReady;
-  fixture.engines.mic.start = async function start() {
-    this.startCount += 1;
-    const error = new Error("Permission denied");
-    error.name = "NotAllowedError";
-    throw error;
+  fixture.engines.mic.startMicrophone = async () => {
+    const error = new Error("Microphone access blocked"); error.name = "NotAllowedError"; throw error;
   };
-  const controller = initializeGraphs({
-    runtime: fixture.runtime,
-    documentObject: fixture.documentObject,
-    audioEngines: fixture.engines,
-  });
-
+  const controller = initializeGraphs({ runtime: fixture.runtime, documentObject: fixture.documentObject, audioEngines: fixture.engines });
   await controller.setMode("mic");
-  await fixture.dispatch("playButton", "click");
-
+  const control = [...fixture.elements.values()].find((node) => node.className === "mz-audio-input-strip");
+  await fixture.dispatch(control.button.id, "click");
   assert.equal(controller.state.audio, false);
-  assert.equal(fixture.attributes.get("playButton:aria-pressed"), "false");
-  assert.equal(fixture.elements.get("micState").textContent, "mic off");
-  assert.match(fixture.elements.get("audioError").textContent, /allow microphone access.*press the round microphone button again/i);
-
+  assert.equal(fixture.engines.mic.stream, null);
+  assert.equal(control.button.getAttribute("aria-pressed"), "false");
+  const error = control.errorPopup;
+  assert.equal(error.parentNode, fixture.documentObject.body);
+  assert.equal(error.hidden, false);
+  assert.equal(error.children[0].textContent, "Mic blocked");
+  assert.equal(error.children[1].textContent, "Retry");
+  assert.match(error.title, /Microphone access blocked/);
   controller.dispose({ persisted: false });
 });
 

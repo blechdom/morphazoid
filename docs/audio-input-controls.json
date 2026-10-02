@@ -1,0 +1,185 @@
+{
+  "schemaVersion": 1,
+  "controls": [
+    {
+      "label": "Graph Delay",
+      "route": "graph-delay.html",
+      "owner": "src/instruments/graph-delay/graph-delay-app.js",
+      "mode": "live"
+    },
+    {
+      "label": "L-system Delay",
+      "route": "l-mic.html",
+      "owner": "src/instruments/micmic/micmic-app.js",
+      "mode": "live"
+    },
+    {
+      "label": "Fabric Filter",
+      "route": "moire-drone.html",
+      "owner": "src/instruments/moire-drone/moire-drone-app.js",
+      "mode": "live"
+    },
+    {
+      "label": "Sandy Syrup Delay",
+      "route": "sandy-syrup-delay.html",
+      "owner": "src/families/barber-delay/barber-delay-app.js",
+      "mode": "mic/file"
+    },
+    {
+      "label": "Candy Coil Delay",
+      "route": "candy-coil-delay.html",
+      "owner": "src/families/barber-delay/barber-delay-app.js",
+      "mode": "mic/file"
+    },
+    {
+      "label": "L-Systems",
+      "route": "l-systems.html",
+      "owner": "src/instruments/l-systems/l-systems-app.js",
+      "mode": "live"
+    },
+    {
+      "label": "Graphs",
+      "route": "graphs.html",
+      "owner": "src/instruments/graphs/graphs-app.js",
+      "mode": "live"
+    },
+    {
+      "label": "Throatazoid",
+      "route": "throatazoid.html",
+      "owner": "src/instruments/throatazoid/throatazoid-app.js",
+      "mode": "live"
+    },
+    {
+      "label": "Morphynx",
+      "route": "morphynx.html",
+      "owner": "src/instruments/morphynx/morphynx-app.js",
+      "mode": "live"
+    },
+    {
+      "label": "Alien Larynx",
+      "route": "alien-larynx.html",
+      "owner": "src/instruments/alien-larynx/alien-larynx-app.js",
+      "mode": "live"
+    },
+    {
+      "label": "Micromorph",
+      "route": "micromorph.html",
+      "owner": "src/instruments/micromorph/micromorph-app.js",
+      "mode": "live"
+    },
+    {
+      "label": "SIMD Resonator",
+      "route": "simd-resonator.html",
+      "owner": "src/families/simd-resonator/simd-resonator-app.js",
+      "mode": "live"
+    },
+    {
+      "label": "SIMD Audio Lab",
+      "route": "simd-lab.html",
+      "owner": "src/families/simd-resonator/simd-resonator-app.js",
+      "mode": "live"
+    },
+    {
+      "label": "Fractal Synthesis",
+      "route": "fractal-synthesis.html",
+      "owner": "src/instruments/fractal-signals/app.js",
+      "mode": "live"
+    },
+    {
+      "label": "Head Shed",
+      "route": "head-shed.html",
+      "owner": "src/instruments/head-shed/head-shed-app.js",
+      "mode": "sample"
+    },
+    {
+      "label": "Crab Loom",
+      "route": "crab-loom.html",
+      "owner": "src/families/wave-lab/wave-lab-shell.js",
+      "mode": "sample"
+    },
+    {
+      "label": "Freeze Point",
+      "route": "freeze-point.html",
+      "owner": "src/families/wave-lab/wave-lab-shell.js",
+      "mode": "sample"
+    },
+    {
+      "label": "Scatter Ghost",
+      "route": "scatter-ghost.html",
+      "owner": "src/families/wave-lab/wave-lab-shell.js",
+      "mode": "sample"
+    },
+    {
+      "label": "Exceptional",
+      "route": "exceptional.html",
+      "owner": "src/families/wave-lab/wave-lab-shell.js",
+      "mode": "sample"
+    },
+    {
+      "label": "Lumber Loops",
+      "route": "lumber.html",
+      "owner": "src/instruments/lumber/lumber-app.js",
+      "mode": "sample"
+    },
+    {
+      "label": "Slippery Resynthesis",
+      "route": "slippery-resynthesis.html",
+      "owner": "src/instruments/slippery-resynthesis/slippery-resynthesis-app.js",
+      "mode": "mic/file"
+    },
+    {
+      "label": "Gesturama",
+      "route": "gesturama.html",
+      "owner": "src/instruments/gesturama/gesturama-app.js",
+      "mode": "sample"
+    },
+    {
+      "label": "Acoustic Manifold",
+      "route": "acoustic-manifold.html",
+      "owner": "src/instruments/acoustic-manifold/acoustic-manifold-app.js",
+      "mode": "sample"
+    },
+    {
+      "label": "Recursion",
+      "route": "recursion.html",
+      "owner": "src/instruments/recursion/recursion-app.js",
+      "mode": "sample/file"
+    },
+    {
+      "label": "Tape Worm",
+      "route": "tape-worm.html",
+      "owner": "src/families/work-in-progress/loop-network-app.js",
+      "mode": "sample/file"
+    },
+    {
+      "label": "Loop Soup",
+      "route": "loop-soup.html",
+      "owner": "src/families/work-in-progress/loop-network-app.js",
+      "mode": "sample/file"
+    },
+    {
+      "label": "Hollowphonic",
+      "route": "hollowphonic.html",
+      "owner": "src/families/work-in-progress/work-in-progress-app.js",
+      "mode": "live"
+    },
+    {
+      "label": "Loopini",
+      "route": "loopini.html",
+      "owner": "src/instruments/loopini/loopini-app.js",
+      "mode": "sample"
+    },
+    {
+      "label": "Synthesaurus",
+      "route": "synthesis.html?method=fx-biquad",
+      "owner": "src/instruments/synthesis/app.js",
+      "mode": "mic/file"
+    },
+    {
+      "label": "Input settings",
+      "route": "settings.html#inputTest",
+      "owner": "src/site/settings-app.js",
+      "mode": "test"
+    }
+  ]
+}

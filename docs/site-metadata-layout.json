@@ -7,6 +7,8 @@
     "src/plugin-catalog.js": "src/site/plugin-catalog.js"
   },
   "retainedRootAdditions": [
+    "src/audio-input-control.js",
+    "src/audio-input-meter.js",
     "src/audio-input-settings.js",
     "src/audio-startup.js",
     "src/sequencer-voices.js",

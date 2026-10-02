@@ -433,3 +433,21 @@ test("invalid PCM events reject finished and clean up the microphone session", a
   assert.equal(harness.contexts[0].closeCalls, 1);
   assert.equal(capture.state, "idle");
 });
+
+test("input gain changes captured PCM and the meter without changing the source samples", async () => {
+  const harness = makeHarness();
+  const levels = [];
+  const capture = new AcousticLiveCapture({ ...harness.options, inputGain: 2, onLevel: (value) => levels.push(value) });
+  await capture.start();
+  levels.length = 0;
+  const samples = new Float32Array([0.1, -0.2]);
+  harness.contexts[0].processor.emit(samples);
+  capture.setInputGain(0);
+  harness.contexts[0].processor.emit(samples);
+  const result = await capture.stop();
+  assert.deepEqual(Array.from(result.samples), [Math.fround(0.2), Math.fround(-0.4), 0, -0]);
+  assert.deepEqual(Array.from(samples), [Math.fround(0.1), Math.fround(-0.2)]);
+  assert.equal(levels[0], Math.fround(0.4));
+  assert.equal(levels[1], 0);
+  assert.equal(harness.track.stopCalls, 1);
+});

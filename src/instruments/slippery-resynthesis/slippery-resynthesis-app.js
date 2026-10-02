@@ -1,3 +1,4 @@
+import { mountAudioInputControl } from "../../audio-input-control.js";
 import {
   SLIPPERY_RESYNTHESIS_DEFAULTS,
   SLIPPERY_RESYNTHESIS_FFT_SIZE,
@@ -12,6 +13,7 @@ import {
 
 const $ = (id) => document.getElementById(id);
 const audio = new SlipperyResynthesisAudio(globalThis);
+audio.setOutputArmed(false);
 const canvas = $("stage");
 const context2d = canvas.getContext("2d", {
   alpha: true,
@@ -50,6 +52,29 @@ let lastAnimationTime = 0;
 let lastDrawTime = 0;
 let sourceTransition = false;
 let disposed = false;
+let inputError = "";
+const inputControl = mountAudioInputControl({
+  container: $("sourceChoice").parentElement,
+  before: $("sourceChoice"),
+  gainInput: $("inputGain"), gainOutput: $("inputGainOut"),
+  onGainInput: value => setParameter("inputGain", value),
+  gainMultiplier: () => state.settings.inputGain,
+  sources: [{ value: "microphone", label: "Mic" }, { value: "file", label: "File" }],
+  sourceValue: state.source,
+  fileInput: $("filePicker"),
+  onSourceChange: source => { inputError = ""; void chooseSource(source); },
+  onStart: async () => {
+    inputError = "";
+    clearAudioError();
+    updateAudioParameters();
+    await audio.start(selectedSource());
+    updateInterface();
+  },
+  onStop: () => { inputError = ""; return audio.stop(); },
+  getState: () => ({ active: audio.enabled, pending: audio.pending, error: inputError, source: state.source }),
+  getSignal: () => ({ node: audio.sourceNode, stream: audio.mediaStream, channels: audio.sourceKind === "file" ? 2 : undefined }),
+  hide: [$("sourceChoice"), $("sourceNote"), $("inputGain").closest("label"), $("fileName").closest("label"), $("sourceChoice").previousElementSibling],
+});
 
 function setPressed(element, pressed) {
   element?.setAttribute("aria-pressed", String(Boolean(pressed)));
@@ -246,9 +271,8 @@ function updateInterface({ drawNow = true } = {}) {
     : state.fileLabel
       ? `file · ${state.loopFile ? "loop" : "once"}`
       : "file · choose audio";
-  $("sourceNote").textContent = state.source === "microphone"
-    ? "Switch Audio on to allow microphone access. Use headphones; the resynthesized signal can feed back through speakers."
-    : "Choose a local file, then switch Audio on. The file stays in this browser and is never uploaded.";
+  inputControl.root.setGain(settings.inputGain);
+  inputControl.refresh();
   $("fileControls").hidden = state.source !== "file";
   $("fileName").textContent = state.fileLabel ?? "Choose local audio…";
 
@@ -329,12 +353,14 @@ function applyPreset(id) {
 
 async function startAudio() {
   updateAudioParameters();
-  await audio.start(selectedSource());
+  await audio.initialize();
+  await audio.context.resume();
+  audio.setOutputArmed(true);
   state.audioOn = true;
 }
 
 async function stopAudio() {
-  await audio.stop();
+  audio.setOutputArmed(false);
   state.audioOn = false;
 }
 
@@ -350,6 +376,7 @@ async function toggleAudio() {
     announce(`Audio ${state.audioOn ? "on" : "off"}.`);
   } catch (error) {
     state.audioOn = false;
+    audio.setOutputArmed(false);
     await audio.stop().catch(() => {});
     showAudioError(error);
     updateInterface();
@@ -363,19 +390,19 @@ async function toggleAudio() {
 async function chooseSource(source) {
   if (source === state.source || sourceTransition) return;
   sourceTransition = true;
+  inputError = "";
   clearAudioError();
-  const restart = state.audioOn;
   try {
-    if (restart) await stopAudio();
+    await audio.stop();
     state.source = source;
-    updateInterface();
-    if (restart) await startAudio();
     updateInterface();
     announce(`${source === "microphone" ? "Microphone" : "File"} source selected.`);
   } catch (error) {
     state.audioOn = false;
+    audio.setOutputArmed(false);
     await audio.stop().catch(() => {});
-    showAudioError(error);
+    inputError = error?.message || String(error);
+    inputControl.refresh();
     updateInterface();
     announce("Audio source could not start.");
   } finally {
@@ -390,9 +417,6 @@ function bindRange(id, key, transform = Number) {
 }
 
 $("audioButton").addEventListener("click", toggleAudio);
-for (const button of $("sourceChoice").querySelectorAll("[data-source]")) {
-  button.addEventListener("click", () => chooseSource(button.dataset.source));
-}
 for (const button of $("directionChoice").querySelectorAll("[data-direction]")) {
   button.addEventListener("click", () => {
     setParameter("direction", Number(button.dataset.direction));
@@ -421,7 +445,6 @@ bindRange("stereoWidth", "stereoWidth");
 bindRange("gate", "gateDb");
 bindRange("highFrequency", "highFrequency");
 bindRange("dryWet", "dryWet");
-bindRange("inputGain", "inputGain");
 
 $("loopFile").addEventListener("click", () => {
   state.loopFile = !state.loopFile;
@@ -433,26 +456,36 @@ $("loopFile").addEventListener("click", () => {
 $("filePicker").addEventListener("change", async (event) => {
   const file = event.currentTarget.files?.[0];
   if (!file) return;
+  inputError = "";
   const nextUrl = URL.createObjectURL(file);
   const previousUrl = state.fileUrl;
-  const restart = state.audioOn && state.source === "file";
+  const restart = audio.enabled && state.source === "file";
   clearAudioError();
   try {
-    if (restart) await stopAudio();
+    if (restart) await audio.stop();
     state.fileUrl = nextUrl;
     state.fileLabel = file.name;
     $("fileAudio").src = nextUrl;
     $("fileAudio").load();
     if (previousUrl) URL.revokeObjectURL(previousUrl);
-    if (restart) await startAudio();
+    if (restart) await audio.start(selectedSource());
     updateInterface();
     announce(`${file.name} loaded locally.`);
   } catch (error) {
     state.audioOn = false;
-    showAudioError(error);
+    audio.setOutputArmed(false);
+    inputError = error?.message || String(error);
+    inputControl.refresh();
     updateInterface();
     announce("The selected file could not start.");
   }
+});
+
+$("fileAudio").addEventListener("error", () => {
+  if (!state.fileUrl || $("fileAudio").src !== state.fileUrl) return;
+  inputError = $("fileAudio").error?.message || "The selected audio file could not play.";
+  void audio.stop();
+  inputControl.refresh();
 });
 
 document.querySelector("[data-reset-all]").addEventListener("click", () => {
@@ -696,6 +729,7 @@ document.addEventListener("visibilitychange", () => {
 
 globalThis.addEventListener("pagehide", () => {
   disposed = true;
+  inputControl.destroy();
   cancelAnimationFrame(animationFrame);
   resizeObserver?.disconnect();
   if (state.fileUrl) URL.revokeObjectURL(state.fileUrl);

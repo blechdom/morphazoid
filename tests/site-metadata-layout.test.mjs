@@ -1,4 +1,6 @@
+import { readAudioInputReference as readFile } from "./helpers/audio-input-reference.mjs";
 import { restoreSpelling } from "./helpers/spelling-reference.mjs";
+import { restoreMorphazoidicalRemoval } from "./helpers/morphazoidical-removal-reference.mjs";
 import { restoreFabricFilter } from "./helpers/fabric-filter-reference.mjs";
 import { restoreVoicesaurus } from "./helpers/voicesaurus-reference.mjs";
 import { restoreDominoRunSite, dominoRunSiteAmendments } from "./helpers/domino-run-site-reference.mjs";
@@ -11,7 +13,7 @@ import { restorePresetToolbar } from "./helpers/preset-toolbar-reference.mjs";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { existsSync } from "node:fs";
-import { readFile, readdir } from "node:fs/promises";
+import { readdir } from "node:fs/promises";
 import test from "node:test";
 import { rewriteModulePaths, rewriteRepositoryPaths } from "../scripts/architecture/module-paths.mjs";
 import { readRuntimeManifest } from "../scripts/site/runtime-manifest.mjs";
@@ -37,7 +39,7 @@ function restoreSynthesis(source, file) {
   return source;
 }
 // Voicesaurus is newer than both Synthesaurus and Domino; peel it off first.
-const readBeforeSynthesis = async file => restoreSynthesis(restoreVoicesaurus(restoreFabricFilter(await readFile(new URL(file, root), "utf8"), file), file), file);
+const readBeforeSynthesis = async file => restoreSynthesis(restoreVoicesaurus(restoreFabricFilter(restoreMorphazoidicalRemoval(await readFile(new URL(file, root), "utf8"), file), file), file), file);
 const readBeforeDomino = async file => restoreDominoRunSite(await readBeforeSynthesis(file), file);
 
 test("remaining flat JavaScript modules match the reviewed shared and toolchain boundaries", async () => {

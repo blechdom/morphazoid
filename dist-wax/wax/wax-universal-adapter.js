@@ -69,7 +69,6 @@ export function routeIdForLocation(locationLike) {
   const pathname = String(locationLike?.pathname || "").replace(/\/+$/, "");
   const filename = pathname.split("/").at(-1) || "index.html";
   const basename = filename.replace(/\.html?$/i, "");
-  if (basename === "index" && /\/morphazoidical(?:\/|$)/.test(pathname)) return "morphazoidical";
   return instrumentIdForRouteName(ROUTE_ALIASES[basename] || basename || "index");
 }
 

@@ -1,3 +1,4 @@
+import { installLiveInputDOM } from "./helpers/live-input-dom.mjs";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
@@ -232,6 +233,7 @@ test("Throatazoid renders, awakens mic and glottis sources, and mutates specimen
     getElementById(id) { return elements.get(id) ?? null; },
     addEventListener(type, listener) { documentListeners.set(type, listener); },
   };
+  installLiveInputDOM(globalThis.document, elements, listeners, html);
   globalThis.HTMLInputElement = class {};
   globalThis.HTMLSelectElement = class {};
   globalThis.HTMLTextAreaElement = class {};
@@ -714,6 +716,8 @@ test("Throatazoid renders, awakens mic and glottis sources, and mutates specimen
   }
   await new Promise((resolve) => setImmediate(resolve));
   assert.equal(contexts.length, 1, "the first stage phoneme should start the synth voice");
+  assert.equal(elements.get("audioState").textContent, "off", "stage notes preserve master Audio off");
+  await listeners.get("audioButton:click")();
   assert.equal(getUserMediaCalls, 0);
   assert.ok(
     gainNodes.some(
@@ -1238,7 +1242,9 @@ test("Throatazoid renders, awakens mic and glottis sources, and mutates specimen
   await new Promise((resolve) => setImmediate(resolve));
 
   selectSource("mic");
-  listeners.get("awakenButton:click")();
+  await listeners.get("awakenButton:click")();
+  assert.equal(getUserMediaCalls, 0, "master Audio does not request input permission");
+  listeners.get("micButton:click")();
   await new Promise((resolve) => setImmediate(resolve));
   assert.equal(getUserMediaCalls, 1);
   const constraintValue = (value) => (

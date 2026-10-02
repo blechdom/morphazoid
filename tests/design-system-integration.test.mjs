@@ -14,7 +14,6 @@ test("the production stylesheet consumes the shared design tokens and controls",
     selects,
     midiStatus,
     fmDrums,
-    morphazoidical,
   ] = await Promise.all([
     readProjectFile("style.css"),
     readProjectFile("src/ui/index.css"),
@@ -24,7 +23,6 @@ test("the production stylesheet consumes the shared design tokens and controls",
     readProjectFile("src/ui/primitives/select-field.css"),
     readProjectFile("src/ui/patterns/midi-status.css"),
     readProjectFile("src/instruments/fm-drums/fm-drums.css"),
-    readProjectFile("morphazoidical/style.css"),
   ]);
 
   assert.match(style, /^@import url\("\.\/src\/ui\/index\.css"\);/);
@@ -78,11 +76,6 @@ test("the production stylesheet consumes the shared design tokens and controls",
     midiStatus,
     /\.mz-midi-status\.is-receiving[^{]*\{[^}]*background: var\(--mz-color-danger\);/s,
     "MIDI receive activity must remain distinct from the green active surface",
-  );
-  assert.match(
-    morphazoidical,
-    /\.session-state \.midi-toolbar\.is-receiving \.midi-activity-light \{[^}]*background: var\(--danger\);/s,
-    "the independently themed Morphazoidical toolbar uses its red receiving state",
   );
   assert.match(
     selects,

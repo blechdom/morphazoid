@@ -779,11 +779,6 @@ const CATALOG_DETAILS = Object.freeze({
     "Turns modular repetition and an inverse-QFT model into a probability comb used to estimate order and factors.",
     "Turn on audio, choose a preset, then run shots and listen to the probability peaks.",
   ),
-  morphazoidical: define(
-    "Mapping workbench",
-    "Shows the live form, contact, reader, and event data available for geometry-to-sound mappings.",
-    "Turn on audio, choose a form and reader, then drag the stage and inspect its live values.",
-  ),
   "bell-square": define(
     "Quantum sonification",
     "Simulates two atoms with a controlled collision phase and sonifies correlated measurements along chosen axes.",

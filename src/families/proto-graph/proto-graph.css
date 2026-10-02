@@ -11,6 +11,11 @@
   display: block;
 }
 .proto-page #stage:focus-visible { outline: 2px solid var(--accent, #7ee0a8); outline-offset: 2px; }
+[data-starting-instrument="head-shed"] #stage {
+  position: static;
+  inset: auto;
+  height: 320px;
+}
 .proto-page .group-title {
   font-size: 0.78rem; letter-spacing: 0.08em; text-transform: uppercase;
   color: rgba(255, 255, 255, 0.62); margin: 0 0 0.5rem;

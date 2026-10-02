@@ -50,16 +50,15 @@ const quantumPages = Object.freeze([
   }),
 ]);
 
-test("menu registry keeps the quantum simulators with Morphazoidical in Works in progress", () => {
+test("menu registry keeps the quantum simulators in Works in progress", () => {
   const group = TOOL_GROUPS.find(({ id }) => id === "wip");
   assert.ok(group);
   assert.equal(group.label, "Work in Progress");
   const quantumStart = group.tools.findIndex(({ id }) => id === "order-tones");
   assert.deepEqual(
-    group.tools.slice(quantumStart, quantumStart + 6).map(({ id }) => id),
+    group.tools.slice(quantumStart, quantumStart + 5).map(({ id }) => id),
     [
       "order-tones",
-      "morphazoidical",
       "bell-square",
       "entanglement-dance",
       "quantum-square-dance",

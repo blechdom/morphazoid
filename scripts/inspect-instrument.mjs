@@ -149,11 +149,11 @@ export async function inspectInstrument(id) {
   const entries = edges.filter(e => e.from === page && ["entry-script", "module"].includes(e.kind)).map(e => e.to);
   const stems = sorted([id, ...files.map(f => f.path).filter(p => p.endsWith("-app.js")).map(p => path.basename(p).replace(/-app\.js$/, ""))]);
   const domainFiles = files.map(f => f.path).filter(p => stems.some(stem => path.basename(p).startsWith(`${stem}.`) || path.basename(p).startsWith(`${stem}-`)) || (page.includes("/") && p.startsWith(`${path.dirname(page)}/`)));
-  const testFiles = (await Promise.all([walk("tests"), walk("e2e"), walk("morphazoidical/tests")])).flat().filter(p => /\.(?:test|spec)\.mjs$/.test(p));
+  const testFiles = (await Promise.all([walk("tests"), walk("e2e")])).flat().filter(p => /\.(?:test|spec)\.mjs$/.test(p));
   const focusedTests = [];
   for (const filename of testFiles) {
     const source = await readFile(absolute(filename), "utf8");
-    if (domainFiles.some(p => source.includes(p)) || stems.some(stem => path.basename(filename).startsWith(`${stem}.`) || path.basename(filename).startsWith(`${stem}-`)) || (page.startsWith("morphazoidical/") && filename.startsWith("morphazoidical/tests/"))) focusedTests.push(filename);
+    if (domainFiles.some(p => source.includes(p)) || stems.some(stem => path.basename(filename).startsWith(`${stem}.`) || path.basename(filename).startsWith(`${stem}-`))) focusedTests.push(filename);
   }
   const packageJson = JSON.parse(await readFile(absolute("package.json"), "utf8"));
   const nodeTests = focusedTests.filter(p => p.includes(".test."));

@@ -22,7 +22,7 @@ function microphoneCancelledError() {
 
 function releaseRecorderSession(owner, session) {
   clearTimeout(session.timer);
-  stopStreamTracks(session.stream);
+  if (session.ownsStream !== false) stopStreamTracks(session.stream);
   session.chunks.length = 0;
   session.recorder.ondataavailable = null;
   session.recorder.onerror = null;
@@ -74,23 +74,24 @@ export class MicrophoneRecorder {
       : 8_000;
   }
 
-  async start({ maxDurationMs = this.maxDurationMs } = {}) {
+  async start({ maxDurationMs = this.maxDurationMs, stream: providedStream = null } = {}) {
     if (this.isRecording || this.pendingGeneration !== null) {
       throw new Error("A microphone recording is already in progress.");
     }
     const mediaDevices = globalThis.navigator?.mediaDevices;
     const MediaRecorderClass = globalThis.MediaRecorder;
-    if (!mediaDevices?.getUserMedia) throw new Error("Microphone access is not supported in this browser.");
+    if (!providedStream && !mediaDevices?.getUserMedia) throw new Error("Microphone access is not supported in this browser.");
     if (!MediaRecorderClass) throw new Error("Audio recording is not supported in this browser.");
 
     const generation = this.generation + 1;
     this.generation = generation;
     this.pendingGeneration = generation;
     let stream = null;
+    const ownsStream = !providedStream;
     try {
       await this.engine.ensureStarted();
       if (generation !== this.generation) throw microphoneCancelledError();
-      stream = await mediaDevices.getUserMedia({
+      stream = providedStream ?? await mediaDevices.getUserMedia({
         audio: {
           echoCancellation: false,
           noiseSuppression: false,
@@ -99,12 +100,12 @@ export class MicrophoneRecorder {
         video: false,
       });
       if (generation !== this.generation) {
-        stopStreamTracks(stream);
+        if (ownsStream) stopStreamTracks(stream);
         stream = null;
         throw microphoneCancelledError();
       }
     } catch (error) {
-      stopStreamTracks(stream);
+      if (ownsStream) stopStreamTracks(stream);
       if (this.pendingGeneration === generation) this.pendingGeneration = null;
       if (generation !== this.generation && error?.name !== "AbortError") {
         throw microphoneCancelledError();
@@ -119,7 +120,7 @@ export class MicrophoneRecorder {
         && (!supportsMimeType || MediaRecorderClass.isTypeSupported(this.mimeType));
       recorder = new MediaRecorderClass(stream, useMimeType ? { mimeType: this.mimeType } : undefined);
     } catch (error) {
-      stopStreamTracks(stream);
+      if (ownsStream) stopStreamTracks(stream);
       if (this.pendingGeneration === generation) this.pendingGeneration = null;
       throw error;
     }
@@ -142,6 +143,7 @@ export class MicrophoneRecorder {
       resolveFinished,
       settled: false,
       stream,
+      ownsStream,
       timer: null,
     };
     this.session = session;
@@ -152,14 +154,14 @@ export class MicrophoneRecorder {
       if (event.data?.size) session.chunks.push(event.data);
     };
     recorder.onerror = (event) => {
-      stopStreamTracks(stream);
+      if (ownsStream) stopStreamTracks(stream);
       if (session.settled) return;
       session.settled = true;
       session.rejectFinished(event.error ?? new Error("Microphone recording failed."));
       releaseRecorderSession(this, session);
     };
     recorder.onstop = async () => {
-      stopStreamTracks(stream);
+      if (ownsStream) stopStreamTracks(stream);
       clearTimeout(session.timer);
       if (session.settled) return;
       try {
@@ -206,7 +208,7 @@ export class MicrophoneRecorder {
         }
       }
     }
-    stopStreamTracks(session.stream);
+    if (session.ownsStream !== false) stopStreamTracks(session.stream);
     return session.finished;
   }
 
@@ -263,7 +265,7 @@ export class DrumEngine {
     compressor.ratio.value = 8;
     compressor.attack.value = 0.003;
     compressor.release.value = 0.18;
-    this.master.gain.value = this.volume;
+    this.master.gain.value = this.muted ? 0 : this.volume;
     this.master.connect(compressor).connect(this.context.destination);
     this.noiseBuffer = this.makeNoiseBuffer(1);
   }

@@ -1,4 +1,5 @@
 import { createButton } from "../ui/primitives/button.js";
+import { mountAudioInputControl } from "../audio-input-control.js";
 import { IOAudioTest, IOMidiTest, OUTPUT_LAYOUTS, gainToDb, loadSettings, saveSettings } from "./io-settings.js";
 
 const $ = (id) => document.getElementById(id);
@@ -6,6 +7,7 @@ const prefs = loadSettings();
 const host = Boolean(globalThis.MorphazoidWAX);
 let audioPending = false;
 let micPending = false;
+let micError = "";
 let midiPending = false;
 let devicePending = false;
 let disposed = false;
@@ -20,6 +22,7 @@ let clippedUntil = 0;
 let lastInputState = "";
 let lastChannelState = "";
 let speakerCheckStarted = false;
+let inputControl = null;
 const audio = new IOAudioTest(globalThis, (message) => {
   if (message) $("setupStatus").textContent = message;
   render();
@@ -132,9 +135,6 @@ function render() {
   for (const button of $("speakerMap").querySelectorAll("button")) button.disabled = !active || devicePending;
   for (const id of ["testAll", "previewVoice"]) $(id).disabled = !active || devicePending;
   $("stopTest").disabled = !active;
-  $("micToggle").disabled = host || (!active && !micPending);
-  $("micToggle").textContent = micPending ? "Cancel request" : audio.mic ? "Stop input" : "Test input";
-  $("micToggle").setAttribute("aria-pressed", String(Boolean(audio.mic)));
   $("inputBadge").textContent = micPending ? "Requesting…" : audio.mic ? "Connected" : "Off";
   $("inputBadge").classList.toggle("is-active", Boolean(audio.mic));
   $("inputDevice").disabled = host || micPending;
@@ -165,6 +165,7 @@ function render() {
     $("midiStatus").textContent = selectedMissing ? "Selected input disconnected. Reconnect it or select All inputs."
       : midi.ports("inputs").length ? "Listening. Play a note or move a controller." : "No MIDI inputs connected. Plug in a controller; this list updates automatically.";
   } else $("midiStatus").textContent = "Start the test, then play a key or move a control.";
+  inputControl?.refresh();
 }
 
 for (let n = 1; n <= 16; n++) {
@@ -269,6 +270,7 @@ $("testSignal").addEventListener("change", () => { prefs.signal = $("testSignal"
 
 async function startMic() {
   const version = ++micRequestVersion;
+  micError = "";
   micPending = true;
   render();
   try {
@@ -278,17 +280,27 @@ async function startMic() {
     }
     await refreshDevices();
   }
+  catch (error) { if (version === micRequestVersion) micError = error?.message || "Input unavailable"; throw error; }
   finally { if (version === micRequestVersion) micPending = false; render(); }
 }
-action("micToggle", async () => {
-  if (audio.mic || micPending) { micRequestVersion++; audio.stopMic(); micPending = false; }
-  else await startMic();
+inputControl = mountAudioInputControl({
+  container: $("inputTest").querySelector(".io-test-body"),
+  before: $("inputTest").querySelector(".io-actions"),
+  button: $("micToggle"), gainInput: $("inputGain"), gainOutput: $("inputGainValue"),
+  gainFormat: formatDb,
+  hide: [$("inputTest").querySelector(".io-actions"), $("inputGain").closest(".io-range"),
+    $("adjustedMeter").closest(".io-meter-row"), $("adjustedRightMeter").closest(".io-meter-row"),
+    $("inputStatus"), $("inputTest").querySelector(".io-test-body > .io-note")],
+  getState: () => ({ active: Boolean(audio.mic), pending: micPending, error: micError, supported: !host, channels: prefs.inputChannels }),
+  getSignal: () => ({ node: audio.mic?.gain, stream: audio.mic?.stream, channels: audio.mic?.settings.channelCount ?? prefs.inputChannels }),
+  onStart: async () => { clearError(); await startMic(); },
+  onStop: () => { micRequestVersion++; micPending = false; micError = ""; audio.stopMic(); render(); },
 });
 for (const [id, key] of [["inputDevice", "inputId"], ["inputChannels", "inputChannels"], ["echoCancellation", "echoCancellation"]]) {
   $(id).addEventListener("change", async () => {
     prefs[key] = id === "inputDevice" ? $(id).value : id === "inputChannels" ? Number($(id).value) : $(id).checked;
     save();
-    if (audio.mic) try { await startMic(); } catch (error) { showError(error); }
+    if (audio.mic) try { await startMic(); } catch { /* input popup reports the error */ }
     render();
   });
 }

@@ -1,0 +1,227 @@
+.mz-audio-input-strip {
+  /* One input color, scoped to this group so output controls keep their theme. */
+  --mz-input-accent: #b47cff;
+  --accent: var(--mz-input-accent);
+  --accent-glow: color-mix(in srgb, var(--mz-input-accent) 22%, transparent);
+  --brass: color-mix(in srgb, var(--mz-input-accent) 65%, var(--mz-color-ink, #dbe4e0));
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  width: 100%;
+  min-width: 0;
+  margin: 4px 0 8px;
+  border: 0;
+  background: none;
+}
+.mz-audio-input-strip .mz-input-toggle,
+.mz-audio-input-strip .mz-input-file {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 44px;
+  width: 44px;
+  min-width: 44px;
+  height: 44px;
+  min-height: 44px;
+  padding: 0;
+  margin: 0;
+  border: 1px solid color-mix(in srgb, var(--mz-input-accent) 45%, var(--line-strong, #344153));
+  border-radius: 0;
+  background: color-mix(in srgb, var(--mz-input-accent) 4%, var(--bg-deep, #10151b));
+  color: var(--mz-input-accent);
+  cursor: pointer;
+}
+.mz-input-toggle > :not(.mz-input-toggle__icon) { display: none !important; }
+.mz-input-toggle__icon { display: block; width: 22px; height: 22px; }
+.mz-input-toggle__icon svg { display: block; width: 100%; height: 100%; }
+.mz-audio-input-strip .mz-input-toggle:is(:hover, :focus-visible):not(:disabled),
+.mz-audio-input-strip .mz-input-file:is(:hover, :focus-visible):not(:disabled) {
+  border-color: var(--mz-input-accent);
+  background: color-mix(in srgb, var(--mz-input-accent) 12%, var(--bg-deep, #10151b));
+  color: var(--mz-input-accent);
+}
+.mz-audio-input-strip .mz-input-toggle[aria-pressed="true"] {
+  color: var(--mz-input-accent);
+  border-color: currentColor;
+  background: color-mix(in srgb, var(--mz-input-accent) 22%, var(--bg-deep, #10151b));
+}
+.mz-audio-input-strip .mz-input-toggle[aria-pressed="true"]:is(:hover, :focus-visible):not(:disabled) {
+  background: color-mix(in srgb, var(--mz-input-accent) 22%, var(--bg-deep, #10151b));
+}
+.mz-input-toggle[aria-busy="true"] { border-style: dashed; }
+.mz-audio-input-strip .mz-input-toggle:disabled { opacity: 0.45; cursor: not-allowed; }
+.mz-input-toggle:focus-visible,
+.mz-input-file:focus-visible { outline: 2px solid var(--mz-input-accent); outline-offset: 2px; }
+.mz-audio-input-strip .mz-input-meter {
+  flex: 0 0 22px;
+  width: 22px;
+  height: 44px;
+  margin: 0;
+  color: var(--mz-input-accent);
+}
+.mz-audio-input-strip .mz-input-meter .mz-stereo-meter__meter {
+  border: 0;
+  outline: 0;
+}
+.mz-input-meter .mz-stereo-meter__meter {
+  --mz-input-meter-fill: linear-gradient(to top, var(--mz-input-accent), var(--brass));
+}
+/* Keep vendor selectors separate so each browser can apply the input color. */
+.mz-input-meter .mz-stereo-meter__meter::-webkit-meter-optimum-value,
+.mz-input-meter .mz-stereo-meter__meter::-webkit-meter-suboptimum-value,
+.mz-input-meter .mz-stereo-meter__meter::-webkit-meter-even-less-good-value {
+  border-radius: inherit;
+  background: var(--mz-input-meter-fill);
+  box-shadow: 0 0 7px var(--accent-glow);
+}
+.mz-input-meter .mz-stereo-meter__meter::-moz-meter-bar {
+  border-radius: inherit;
+  background: var(--mz-input-meter-fill);
+  box-shadow: 0 0 7px var(--accent-glow);
+}
+.mz-input-meter .mz-stereo-meter__meter.is-clipping {
+  --mz-input-meter-fill: var(--orange, var(--mz-color-orange, #ffb86b));
+}
+.mz-input-meter[data-channels="1"] { grid-template-columns: 1fr; }
+.mz-audio-input-strip .mz-input-meter:not(.is-active) { opacity: 1; }
+.mz-input-meter [hidden] { display: none !important; }
+.mz-audio-input-strip .mz-input-gain { flex: 0 0 44px; color: var(--accent, #00ffb2); }
+.mz-audio-input-strip .mz-input-gain output {
+  color: var(--mz-input-accent);
+  font: 9px var(--mono, monospace);
+  white-space: nowrap;
+}
+.mz-audio-input-strip .mz-input-source {
+  flex: 0 1 92px;
+  width: 92px;
+  min-width: 68px;
+  min-height: 32px;
+  margin: 0;
+  padding: 4px 6px;
+  font: 11px var(--mono, monospace);
+  border: 1px solid var(--line-strong, #344153);
+  border-radius: 4px;
+  background: var(--bg-deep, #10151b);
+  color: var(--ink, #e8edf0);
+}
+.mz-input-error {
+  --mz-input-accent: #b47cff;
+  position: fixed;
+  inset: auto;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: max-content;
+  max-width: min(280px, calc(100vw - 16px));
+  margin: 0;
+  padding: 8px;
+  overflow: auto;
+  border: 1px solid var(--line-strong, #344153);
+  border-radius: 0;
+  background: var(--panel, #10151b);
+  box-shadow: 0 8px 24px #0008;
+  color: var(--ink, #e8edf0);
+  font: 11px var(--mono, monospace);
+}
+.mz-input-error > [role="alert"] { flex: 1 1 auto; min-width: 0; color: var(--orange, #ff9966); }
+.mz-input-error button {
+  flex: 0 0 auto;
+  min-width: 32px;
+  min-height: 32px;
+  margin: 0;
+  padding: 4px 8px;
+  border: 1px solid var(--line-strong, #344153);
+  border-radius: 0;
+  background: var(--bg-deep, #10151b);
+  color: var(--mz-input-accent);
+  cursor: pointer;
+  font: inherit;
+}
+.mz-input-error .mz-input-error__dismiss { padding: 0; font-size: 18px; }
+.mz-input-error button:focus-visible { outline: 2px solid var(--mz-input-accent); outline-offset: 2px; }
+.mz-input-error button:disabled { opacity: 0.45; cursor: not-allowed; }
+.mz-input-error[hidden],
+.mz-input-file[hidden],
+.mz-input-legacy { display: none !important; }
+.mz-audio-input-strip[data-input-placement="header"] {
+  flex: 0 0 auto;
+  width: auto;
+  flex-wrap: nowrap;
+  margin: 0;
+}
+.mz-input-preset-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  min-width: 0;
+  width: 100%;
+  grid-column: 1 / -1;
+}
+[data-instrument-preset-host] > .mz-input-preset-row {
+  position: sticky;
+  z-index: 30;
+  top: 0;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--line);
+  background: var(--panel);
+}
+.mz-input-preset-row > .instrument-preset-controls {
+  flex: 1 1 0;
+  flex-wrap: wrap;
+  width: auto;
+  min-width: 0;
+  align-items: flex-start;
+}
+.mz-input-preset-row .header-preset-picker,
+.mz-input-preset-row .header-preset-picker > summary { height: 44px; }
+.mz-input-preset-row .instrument-picker-next { width: 44px; height: 44px; flex-basis: 44px; }
+.mz-input-preset-row > .mz-input-native-preset {
+  display: block;
+  flex: 1 1 0;
+  width: auto;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  font-size: 0;
+}
+.mz-input-native-preset > span:not(.select-shell) {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+.mz-input-preset-row .mz-input-native-preset select {
+  width: 100%;
+  min-width: 0;
+  height: 44px;
+  min-height: 44px;
+  margin: 0;
+  font-size: 12px;
+}
+.mz-audio-input-strip[data-input-placement="preset"] {
+  display: grid;
+  grid-template-columns: 44px 22px 44px;
+  flex: 0 0 auto;
+  width: auto;
+  gap: 6px;
+  margin: 0;
+}
+.mz-audio-input-strip[data-input-placement="preset"] .mz-input-source { grid-column: 1 / -1; width: 100%; }
+.mz-audio-input-strip[data-input-placement="preset"][data-input-source="file"] .mz-input-source { grid-column: 1 / 3; }
+.mz-audio-input-strip[data-input-placement="preset"] .mz-input-file { grid-column: 3; }
+@media (pointer: coarse) {
+  .mz-audio-input-strip .mz-input-toggle,
+  .mz-audio-input-strip .mz-input-file { flex-basis: 48px; width: 48px; min-width: 48px; height: 48px; min-height: 48px; }
+  .mz-audio-input-strip .mz-input-gain { flex-basis: 48px; }
+  .mz-audio-input-strip .mz-input-source { min-height: 48px; }
+  .mz-audio-input-strip[data-input-placement="preset"] { grid-template-columns: 48px 22px 48px; }
+  .mz-input-error button { min-width: 48px; min-height: 48px; }
+  .mz-input-preset-row .header-preset-picker,
+  .mz-input-preset-row .header-preset-picker > summary,
+  .mz-input-preset-row .mz-input-native-preset select { height: 48px; min-height: 48px; }
+  .mz-input-preset-row .instrument-picker-next { width: 48px; height: 48px; flex-basis: 48px; }
+}

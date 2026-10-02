@@ -1,10 +1,12 @@
+import { restoreAudioInput } from "./helpers/audio-input-reference.mjs";
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { voicesaurusAmendments, restoreVoicesaurus } from './helpers/voicesaurus-reference.mjs';
 import { restoreFabricFilter } from './helpers/fabric-filter-reference.mjs';
+import { restoreMorphazoidicalRemoval } from './helpers/morphazoidical-removal-reference.mjs';
 
-const read = file => readFileSync(new URL(`../${file}`, import.meta.url), 'utf8');
+const read = file => restoreMorphazoidicalRemoval(restoreAudioInput(readFileSync(new URL(`../${file}`, import.meta.url), 'utf8'), file), file);
 
 test('Voicesaurus reversal stays scoped and preserves the independent pre-feature reference', () => {
   assert.equal(voicesaurusAmendments.schemaVersion, 1);

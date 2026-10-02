@@ -299,7 +299,7 @@ test("Escher markup is labelled, self-contained, and explicit about source bound
   assert.match(html, /href="escher-tessellation\.html" aria-current="page">escher<\/a>[\s\S]+href="order-tones\.html">order tones<\/a>/);
   assert.doesNotMatch(html, /href="lattice\.html">lattice<\/a>|href="spiral\.html">spiral<\/a>/);
   assert.match(html, /<option value="order-tones\.html">order tones<\/option>/);
-  assert.match(html, /<option value="morphazoidical\/">morphazoidical<\/option>/);
+  assert.doesNotMatch(html, /morphazoidical/);
   assert.match(app, /createHyperbolicTiling/);
   assert.match(app, /samplePoincareGeodesic/);
   assert.match(app, /buildLattice/);

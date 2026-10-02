@@ -1130,10 +1130,12 @@ test("microphone and local-file sources are lazy, reusable, and fully released",
   assert.equal(records.contexts.length, 1);
   assert.equal(records.getUserMedia.length, 1);
   assert.deepEqual(records.getUserMedia[0], {
+    video: false,
     audio: {
-      autoGainControl: false,
-      echoCancellation: false,
-      noiseSuppression: false,
+      channelCount: { ideal: 1 },
+      autoGainControl: { ideal: false },
+      echoCancellation: { ideal: false },
+      noiseSuppression: { ideal: false },
     },
   });
   assert.equal(records.mediaStreamSources.length, 1);
@@ -1266,4 +1268,41 @@ test("the page and app expose accessible controls and explicit lifecycle cleanup
   assert.doesNotMatch(appSource, /detail\.textContent/);
   assert.match(appSource, /event\.key\s*===\s*"ArrowUp"/);
   assert.match(appSource, /event\.key\s*===\s*" "\)/);
+});
+
+
+test("live input and gain edits preserve an explicitly muted output", async () => {
+  const { records, runtime } = createAudioRuntime();
+  const audio = new SlipperyResynthesisAudio(runtime);
+  audio.setOutputArmed(false);
+  await audio.start({ kind: "microphone" });
+  assert.equal(audio.enabled, true);
+  assert.equal(audio.master.gain.value, 0);
+  audio.setParameters({ inputGain: 2, outputLevel: 0.8 });
+  assert.equal(audio.master.gain.value, 0);
+  audio.setOutputArmed(true);
+  assert.equal(audio.master.gain.value, 0.8);
+  audio.setOutputArmed(false);
+  assert.equal(audio.master.gain.value, 0);
+  await audio.close();
+  assert.equal(records.tracksStopped, 1);
+});
+
+test("cancelling pending microphone access releases a late grant", async () => {
+  const { records, runtime, stream } = createAudioRuntime();
+  let grant;
+  runtime.navigator.mediaDevices.getUserMedia = () => new Promise(resolve => { grant = resolve; });
+  const audio = new SlipperyResynthesisAudio(runtime);
+  const pending = audio.start({ kind: "microphone" });
+  while (!grant) await new Promise(resolve => setImmediate(resolve));
+  assert.equal(audio.pending, true);
+  await audio.stop();
+  assert.equal(audio.pending, false);
+  grant(stream);
+  await pending;
+  assert.equal(records.tracksStopped, 1);
+  assert.equal(audio.sourceKind, null);
+  assert.equal(audio.enabled, false);
+  assert.equal(records.mediaStreamSources.length, 0);
+  await audio.close();
 });

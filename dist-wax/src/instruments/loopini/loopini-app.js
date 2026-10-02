@@ -1,3 +1,4 @@
+import { mountAudioInputControl } from "../../audio-input-control.js";
 import { Loopini, clamp } from "./loopini.js";
 import { LoopiniAudio } from "./loopini-audio.js";
 import { createAudioStrip } from "../../ui/patterns/audio-strip.js";
@@ -8,12 +9,24 @@ const on = (node, event, handler, options = {}) => node.addEventListener(event, 
 let state = new Loopini().snapshot(), starting = false, disposed = false, audioAttempt = 0;
 let pending = null, pendingMode = "replace", recordAttempt = 0, session = null;
 let speedValue = 1, speedDrag = null;
-let noticeKey = "", demoAfterArm = false;
+let noticeKey = "", demoAfterArm = false, keepMic = false, micPending = false;
 const colors = ["#ffaf8e", "#8cdac7", "#c2b1f1", "#f1ce7e", "#88c9ef", "#f0accc"];
 const audio = new LoopiniAudio(receive, showError);
 const strip = createAudioStrip({ buttonId: "audioButton", levelId: "level", level: 0.48, min: 0, max: 0.8, step: 0.01,
   onAudioClick: toggleAudio, onLevelInput: (value) => audio.setLevel(value) });
 $("audioSlot").replaceWith(strip);
+const micControl = mountAudioInputControl({
+  container: document.querySelector(".loopini-toolbar"),
+  onStart: async () => { micPending = true; try { if (await audio.startMic()) keepMic = true; } finally { micPending = false; render(); } },
+  onStop: () => {
+    micPending = false; keepMic = false; recordAttempt++; pending = null; session = null;
+    audio.send({ type: state.recording?.waiting ? "cancel" : "finish" }); audio.stopMic(); render();
+  },
+  onGainInput: (value) => audio.setInputGain(value),
+  getState: () => ({ active: Boolean(audio.stream), pending: micPending || pending !== null }),
+  getSignal: () => ({ node: audio.inputTrim, stream: audio.stream, channels: 1 }),
+  hide: [$("micStatus")],
+});
 const pads = colors.map((color, id) => {
   const slot = document.createElement("div"); slot.className = "loopini-slot"; slot.style.setProperty("--loop-color", color);
   slot.innerHTML = `<div class="loopini-disc"><button id="loop${id}" class="loopini-pad is-empty" type="button" aria-label="Record loop ${id + 1}">
@@ -67,7 +80,7 @@ async function toggleAudio() {
   $("audioError").hidden = true;
   const attempt = ++audioAttempt;
   if (audio.armed || starting) {
-    starting = false; demoAfterArm = false; cancelTake(); audio.mute(); strip.setAudioState("off");
+    starting = false; demoAfterArm = false; keepMic = false; cancelTake(); audio.mute(); strip.setAudioState("off");
     say("Sound is off.", "Your loops are still here. Tap the speaker to hear them again."); render(); return;
   }
   starting = true; strip.setAudioState("starting"); render();
@@ -85,7 +98,7 @@ async function toggleAudio() {
   render();
 }
 function cancelTake() {
-  recordAttempt++; pending = null; session = null; audio.send({ type: "cancel" }); audio.stopMic();
+  recordAttempt++; pending = null; session = null; audio.send({ type: "cancel" }); if (!keepMic) audio.stopMic();
 }
 async function record(id, mode = "replace") {
   $("audioError").hidden = true;
@@ -113,7 +126,7 @@ function receive(next) {
   const replaced = Boolean(session?.seen && session.replacing && !next.recording && next.notice === "recorded");
   state = next;
   if (session && next.recording?.id === session.id) session.seen = true;
-  else if (session?.seen && !next.recording) { session = null; audio.stopMic(); }
+  else if (session?.seen && !next.recording) { session = null; if (!keepMic) audio.stopMic(); }
   const key = `${state.notice}:${state.revision}:${state.recording?.waiting > 0}:${state.playing}`;
   if (key !== noticeKey && pending === null) { noticeKey = key; announce(); }
   if (replaced) say("New take recorded.", "That loop now plays only your new take. Undo brings the old one back.");
@@ -275,7 +288,7 @@ on(window, "morphazoid:midi-input", (event) => {
 });
 function hide() {
   if (speedDrag) endSpeedDrag({ pointerId: speedDrag.id }, true);
-  audioAttempt++; starting = false; cancelTake(); void audio.suspend(); strip.setAudioState("off");
+  audioAttempt++; starting = false; keepMic = false; cancelTake(); void audio.suspend(); strip.setAudioState("off");
   state = { ...state, playing: false, recording: null };
   say("Your sounds are still here.", "Tap Audio, then Play loops to continue."); render();
 }

@@ -30,7 +30,6 @@ export async function runtimeSourceFiles(root = repositoryRoot) {
   }
   await visit("src");
   await visit("scripts");
-  await visit("morphazoidical");
   return [...files].sort();
 }
 

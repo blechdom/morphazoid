@@ -176,6 +176,7 @@ export class AcousticLiveCapture {
   constructor({
     maxDurationSeconds = ACOUSTIC_LIVE_CAPTURE_LIMITS.defaultDurationSeconds,
     onLevel = null,
+    inputGain = 1,
     onProgress = null,
     navigatorRef = globalThis.navigator,
     AudioContextClass = audioContextClassFromGlobal(),
@@ -188,6 +189,7 @@ export class AcousticLiveCapture {
   } = {}) {
     this.maxDurationSeconds = normalizeCaptureDuration(maxDurationSeconds);
     this.onLevel = onLevel;
+    this.setInputGain(inputGain);
     this.onProgress = onProgress;
     this.navigatorRef = navigatorRef;
     this.AudioContextClass = AudioContextClass;
@@ -201,6 +203,10 @@ export class AcousticLiveCapture {
     this._generation = 0;
     this._session = null;
     this._state = "idle";
+  }
+
+  setInputGain(value) {
+    this.inputGain = clamp(Number(value) || 0, 0, 4);
   }
 
   get state() {
@@ -321,6 +327,7 @@ export class AcousticLiveCapture {
       const recorded = Float32Array.from(
         remaining < input.length ? input.subarray(0, remaining) : input,
       );
+      for (let index = 0; index < recorded.length; index += 1) recorded[index] *= this.inputGain;
       session.chunks.push(recorded);
       session.sampleCount += recorded.length;
 

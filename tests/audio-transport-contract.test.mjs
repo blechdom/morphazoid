@@ -3,7 +3,7 @@ import { readdir, readFile } from "node:fs/promises";
 import test from "node:test";
 
 const ROOT = new URL("../", import.meta.url);
-const SOURCE_HTML_DIRECTORIES = [new URL("../src/pages/", import.meta.url), new URL("../morphazoidical/", import.meta.url)];
+const SOURCE_HTML_DIRECTORIES = [new URL("../src/pages/", import.meta.url)];
 
 async function sourceHtmlFiles() {
   const files = [];
@@ -90,12 +90,4 @@ test("authored Audio buttons have an icon-only CSS fallback before the shared mo
     "Audio on uses a filled, glowing treatment as well as a different icon",
   );
 
-  const workbenchCss = await readFile(
-    new URL("../morphazoidical/style.css", import.meta.url),
-    "utf8",
-  );
-  assert.match(workbenchCss, /\.audio-toggle > \*\s*\{[^}]*position:\s*absolute !important;[^}]*width:\s*1px !important;[^}]*clip-path:\s*inset\(50%\) !important;/s);
-  assert.doesNotMatch(workbenchCss, /\.audio-toggle > \*[^}]*display:\s*none/s);
-  assert.match(workbenchCss, /\.audio-toggle::before\s*\{[^}]*mask:\s*url\("data:image\/svg\+xml/s);
-  assert.match(workbenchCss, /\.audio-toggle\[aria-pressed="true"\]::before,[\s\S]*?mask:\s*url\("data:image\/svg\+xml/s);
 });

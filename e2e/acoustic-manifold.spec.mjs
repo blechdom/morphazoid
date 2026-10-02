@@ -446,7 +446,7 @@ test("microphone access starts only on click and a bounded fake capture is mappe
     () => page.locator("#live-input-state").textContent(),
     { timeout: 5_000 },
   ).toMatch(/Recording (?:0\.[6-9]|1\.)/);
-  await page.locator("#capture-live-input").click();
+  await page.locator("#start-live-input").click();
   await expect(page.locator("#source-label")).toContainText("Live microphone capture", { timeout: 20_000 });
   await expect(page.locator("#live-input-state")).toContainText("Mapped", { timeout: 20_000 });
   await expect(page.locator("#analysis-profile")).toHaveValue("general");
@@ -475,9 +475,9 @@ test("a pending microphone permission request can be cancelled", async ({ page }
   await page.goto("/acoustic-manifold.html", { waitUntil: "domcontentloaded" });
   await expect(page.locator("html")).toHaveAttribute("data-acoustic-manifold-ready", "true", { timeout: 20_000 });
   await page.locator("#start-live-input").click();
-  await expect(page.locator("#capture-live-input")).toBeEnabled();
-  await expect(page.locator("#capture-live-input")).toHaveText("Cancel request");
-  await page.locator("#capture-live-input").click();
+  await expect(page.locator("#start-live-input")).toBeEnabled();
+  await expect(page.locator("#start-live-input")).toHaveAttribute("aria-busy", "true");
+  await page.locator("#start-live-input").click();
   await expect(page.locator("#live-input-state")).toHaveText("Microphone request cancelled");
   await expect(page.locator("#start-live-input")).toBeEnabled();
   expect(await page.evaluate(() => window.__acousticMicRequests)).toBe(1);

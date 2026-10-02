@@ -1,3 +1,4 @@
+import { mountAudioInputControl } from "../../audio-input-control.js";
 import { STARTING_INSTRUMENTS } from "./catalog.js";
 import { INSTRUMENT_HELP, formatParameter } from "./help.js";
 import { CORES } from "./cores.js";
@@ -110,7 +111,18 @@ const remove = button(tools, "Remove selected", () => {
 }, "removeLoop");
 button(tools, "Arrange loops", () => { state.loops.forEach((l, i) => send({ type: "move-loop", loopId: l.id, ...loopPosition(i) })); status("Layout arranged. Timing and recordings unchanged."); }, "arrangeLoops");
 const connectButton = button(tools, "Connect selected", () => beginConnect(selected), "connectLoop");
-const micButton = button(tools, "Enable microphone", toggleMic, "microphoneButton");
+const micButton = document.createElement("button"); micButton.id = "microphoneButton";
+const micControl = mountAudioInputControl({
+  container: tools, before: tools.firstElementChild, button: micButton,
+  onStart: toggleMic,
+  onStop: () => {
+    micAttempt++; micPending = false; keepMic = false; recordAttempt++; pendingRecord = null;
+    send({ type: "finish-record" }); audio.stopMic(); status("Microphone off."); update();
+  },
+  onGainInput: (value) => audio.setInputGain(value),
+  getState: () => ({ active: Boolean(audio.stream), pending: micPending || pendingRecord !== null }),
+  getSignal: () => ({ node: audio.inputTrim, stream: audio.stream }),
+});
 const monitorLabel = document.createElement("label"); monitorLabel.className = "check-control";
 const monitor = document.createElement("input"); monitor.type = "checkbox"; monitor.id = "monitor";
 monitorLabel.append(monitor, document.createTextNode("Monitor microphone · headphones")); tools.append(monitorLabel);
@@ -123,11 +135,11 @@ async function toggleMic() {
   }
   micPending = true; update();
   try {
-    const ok = await audio.startMic();
+    const ok = await audio.startMic(snapshot);
     if (disposed || attempt !== micAttempt) return;
     if (ok) { keepMic = true; if (!tape) send({ type: "params", values: { demo: 0 } }); status("Microphone enabled. Record captures only the selected loop; Monitor is optional."); }
-  } catch (e) { if (attempt === micAttempt) error(e); }
-  if (attempt === micAttempt) micPending = false; update();
+  } catch (e) { if (attempt === micAttempt && !disposed) throw e; }
+  finally { if (attempt === micAttempt) micPending = false; update(); }
 }
 async function record(loopId) {
   const loop = loopById(loopId); if (!loop) return;
@@ -139,7 +151,7 @@ async function record(loopId) {
   if (loop.name !== "Empty tape" && !confirm(`Replace the recording in loop ${loop.label}? The old tape stays until this take is finished.`)) return;
   const attempt = ++recordAttempt; pendingRecord = loopId; update();
   try {
-    const ok = await audio.startMic();
+    const ok = await audio.startMic(snapshot);
     if (ok && !disposed && attempt === recordAttempt && loopById(loopId)) {
       send({ type: "record", loopId }); if (!tape) send({ type: "params", values: { demo: 0 } });
       status(`Recording microphone into ${loop.label}. Stop installs the take; Pause inside ${loop.label} pauses capture.`);
@@ -356,8 +368,6 @@ function update() {
   const match = Object.entries(spec.presets).find(([, p]) => Object.keys(p).every((k) => Math.abs(p[k] - params[k]) < 1e-8));
   if (document.activeElement !== preset) preset.value = match?.[0] ?? "";
   $("presetHint").textContent = match ? help.presets[match[0]] : "Custom settings · routes and recordings retained.";
-  micButton.textContent = micPending ? "Cancel microphone request" : audio.stream ? "Disable microphone" : "Enable microphone";
-  micButton.setAttribute("aria-pressed", String(Boolean(audio.stream)));
   if (demoInputButton) demoInputButton.textContent = params.demo > 0.5 ? "Demo input on" : "Demo input off";
   if (eraseButton) { eraseButton.textContent = brush ? "Erase brush on" : "Erase brush off"; eraseButton.setAttribute("aria-pressed", String(brush)); }
   $("modelStatus").textContent = `${state.loops.length} loops · ${state.routes.length} routes${tape ? ` · reader ${state.loops[state.tape]?.label}` : ""}`;

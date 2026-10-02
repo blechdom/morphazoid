@@ -76,7 +76,6 @@ folder.
 ## Experiments
 
 39. [ ] Order Tones - [open folder](order-tones/)
-40. [ ] Morphazoidical - [open folder](morphazoidical/)
 41. [ ] Bell Square - [open folder](bell-square/)
 42. [ ] Annealogue - [open folder](annealogue/)
 43. [ ] Gravity Walk - [open folder](gravity-walk/)

@@ -1016,8 +1016,7 @@ a {
 }
 
 .micmic-tab,
-.throatazoid-tab,
-.morphazoidical-tab {
+.throatazoid-tab {
   min-width: 82px;
   font-size: 10px;
   letter-spacing: 0.05em;
@@ -1027,12 +1026,6 @@ a {
   min-width: 88px;
   font-size: 9px;
   letter-spacing: 0.035em;
-}
-
-.morphazoidical-tab {
-  min-width: 112px;
-  font-size: 9px;
-  letter-spacing: 0.025em;
 }
 
 .tab::after {

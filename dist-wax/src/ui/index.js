@@ -10,6 +10,7 @@ export { createOptionCardGroup } from "./primitives/option-card-group.js";
 export { createMotionModeGroup } from "./primitives/motion-mode-group.js";
 export { createStepButton } from "./primitives/step-button.js";
 export { createAudioStrip } from "./patterns/audio-strip.js";
+export { createAudioInputStrip } from "./patterns/audio-input-strip.js";
 export { createMidiStatus } from "./patterns/midi-status.js";
 export { createPeakMeter, createSignedSegmentMeter, createStereoMeter } from "./patterns/level-meter.js";
 export { createSignalMonitor } from "./patterns/signal-monitor.js";

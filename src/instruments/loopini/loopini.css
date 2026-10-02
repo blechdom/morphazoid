@@ -106,3 +106,8 @@ body.loopini-page { --accent: #f5c967; --accent-soft: #aa8e4e; --accent-glow: #4
   .loopini-toolbar button { min-height: 50px; min-width: 50px; }
 }
 @media (prefers-reduced-motion: reduce) { .loopini-pad::after { transition: none; } }
+
+.loopini-toolbar > .mz-audio-input-strip {
+  width: auto;
+  margin-left: auto;
+}

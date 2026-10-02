@@ -336,9 +336,11 @@ test('microphone permission is explicit and late grants close after cancellation
   expect(await page.evaluate(() => window.inputRequests)).toBe(0);
   await expect(page.locator('#audioButton')).toHaveAttribute('aria-pressed', 'true');
   await choose(page, 'processingSource', 'microphone');
-  expect(await page.evaluate(() => window.inputRequests)).toBe(1);
-  await expect(page.locator('#stopInput')).toBeEnabled();
-  await page.locator('#stopInput').click();
+  expect(await page.evaluate(() => window.inputRequests)).toBe(0);
+  await page.locator('.mz-input-toggle').click();
+  await expect.poll(() => page.evaluate(() => window.inputRequests)).toBe(1);
+  await expect(page.locator('.mz-input-toggle')).toHaveAttribute('aria-busy', 'true');
+  await page.locator('.mz-input-toggle').click();
   await page.evaluate(() => {
     const context = new AudioContext();
     const destination = context.createMediaStreamDestination();
@@ -659,7 +661,7 @@ test('synthesis sample and processing file labels follow their independent sourc
   await expect(page.locator('#sourceName')).toContainText('synthesis-sample.wav');
   await page.locator('#sectionProcessing').click();
   await choose(page, 'processingSource', 'file');
-  await expect(page.locator('#sourceFileLabel')).toBeVisible();
+  await expect(page.locator('.mz-input-file')).toBeVisible();
   await page.locator('#sourceFile').setInputFiles({name:'processing-input.wav',mimeType:'audio/wav',buffer:wave});
   await expect(page.locator('#inputStatus')).toContainText('processing-input.wav');
   await expect(page.locator('#sourceName')).toBeHidden();
@@ -668,8 +670,8 @@ test('synthesis sample and processing file labels follow their independent sourc
   await expect(page.locator('#sourceName')).toContainText('synthesis-sample.wav');
   await page.locator('#sectionProcessing').click();
   await expect(page.locator('#processingSource')).toHaveValue('file');
-  await expect(page.locator('#resumeFile')).toBeVisible();
-  await page.locator('#resumeFile').click();
+  await expect(page.locator('.mz-input-toggle')).toBeVisible();
+  await page.locator('.mz-input-toggle').click();
   await expect(page.locator('#inputStatus')).toContainText('processing-input.wav');
   await expect(page.locator('#audioError')).toBeHidden();
 });

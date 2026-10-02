@@ -224,6 +224,7 @@ export function sanitizeGraphDelayAudioSettings(source = {}) {
 export class GraphDelayAudio {
   constructor(runtime = globalThis) {
     this.runtime = runtime;
+    this.outputEnabled = false;
     this.context = null;
     this.stream = null;
     this.source = null;
@@ -265,7 +266,28 @@ export class GraphDelayAudio {
     this.switches = enabledFlags(graph, switches);
   }
 
-  async start({ graph = this.graph, settings = this.settings, switches = this.switches } = {}) {
+  initialize(options = {}) { return this.start({ ...options, capture: false, output: this.outputEnabled }); }
+
+  setOutputEnabled(value) {
+    this.outputEnabled = Boolean(value);
+    if (this.context) for (const target of [this.audioGraph, ...this.retiring]) {
+      if (target) setTarget(target.output.gain, this.outputEnabled ? this.settings.output : 0, this.context.currentTime);
+    }
+  }
+
+  startMicrophone() { return this.start({ output: this.outputEnabled }); }
+
+  stopMicrophone() {
+    this.generation += 1;
+    this.startPromise = null;
+    safeDisconnect(this.source);
+    safeDisconnect(this.analyser);
+    for (const track of this.stream?.getTracks?.() ?? []) track.stop();
+    this.source = this.analyser = this.stream = null;
+  }
+
+  async start({ graph = this.graph, settings = this.settings, switches = this.switches, capture = true, output = true } = {}) {
+    this.setOutputEnabled(output);
     if (this.context?.state === "running" && this.stream && this.audioGraph) {
       this.update(graph, settings, switches);
       return this.context;
@@ -273,7 +295,7 @@ export class GraphDelayAudio {
     this.configure(graph, settings, switches);
     if (this.startPromise) return this.startPromise;
     const generation = ++this.generation;
-    const promise = this.#startInternal(generation);
+    const promise = this.#startInternal(generation, capture);
     this.startPromise = promise;
     try {
       return await promise;
@@ -282,20 +304,20 @@ export class GraphDelayAudio {
     }
   }
 
-  async #startInternal(generation) {
+  async #startInternal(generation, capture) {
     const AudioContextConstructor = this.runtime?.AudioContext ?? this.runtime?.webkitAudioContext;
     if (typeof AudioContextConstructor !== "function") {
       throw new Error("Web Audio is not available in this browser.");
     }
     const mediaDevices = this.runtime?.navigator?.mediaDevices;
-    if (typeof mediaDevices?.getUserMedia !== "function") {
+    if (capture && typeof mediaDevices?.getUserMedia !== "function") {
       throw new Error("Microphone input requires a secure browser context.");
     }
     const existingContext = this.context;
     if (
       existingContext
       && existingContext.state !== "closed"
-      && this.stream
+      && (this.stream || !capture)
       && this.audioGraph
     ) {
       try { await existingContext.resume?.(); } catch { /* rebuild below */ }
@@ -333,6 +355,7 @@ export class GraphDelayAudio {
       this.pitchProcessorReady = pitchProcessorReady;
       const audioGraph = this.#buildGraph(context, this.graph, this.settings, this.switches, 1);
       this.audioGraph = audioGraph;
+      if (!capture) return context;
       const stream = await mediaDevices.getUserMedia(audioInputConstraints(this.runtime));
       if (generation !== this.generation || context !== this.context || context.state === "closed") {
         for (const track of stream.getTracks?.() ?? []) track.stop();
@@ -403,7 +426,7 @@ export class GraphDelayAudio {
       const clipper = own(context.createWaveShaper?.() ?? context.createGain());
       dry.gain.value = settings.dry;
       wet.gain.value = settings.wet;
-      output.gain.value = settings.output;
+      output.gain.value = this.outputEnabled ? settings.output : 0;
       crossfade.gain.value = crossfadeGain;
       if (compressor.threshold) {
         compressor.threshold.value = -10;
@@ -645,7 +668,7 @@ export class GraphDelayAudio {
     const tapGain = graphAudibleTapGain(sinks.length);
     setTarget(target.dry.gain, settings.dry, now);
     setTarget(target.wet.gain, settings.wet, now);
-    setTarget(target.output.gain, settings.output, now);
+    setTarget(target.output.gain, this.outputEnabled ? settings.output : 0, now);
     // Never touch crossfade here: ordinary motion and knob updates must not
     // cancel a structural transition that is waiting for its first audible tap.
     setTarget(target.inputTrim?.gain, settings.inputTrim, now);

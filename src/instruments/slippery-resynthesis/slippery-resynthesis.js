@@ -1,4 +1,5 @@
 import { unlockAudioContext } from "../../audio.js";
+import { audioInputConstraints, configureAudioInputNode } from "../../audio-input-settings.js";
 import { connectAudioOutput } from "../../audio-output-manager.js";
 
 export const SLIPPERY_RESYNTHESIS_PROCESSOR_NAME = "morphazoid-slippery-resynthesis";
@@ -1745,7 +1746,7 @@ if (
 /**
  * Browser graph for microphone or local-file analysis/resynthesis. Importing
  * this module is inert; AudioContext and microphone access remain behind the
- * explicit Audio button gesture.
+ * explicit input or Audio button gesture.
  */
 export class SlipperyResynthesisAudio {
   constructor(runtime = globalThis) {
@@ -1766,6 +1767,10 @@ export class SlipperyResynthesisAudio {
     this.mediaElement = null;
     this.mediaElementNodes = new WeakMap();
     this.enabled = false;
+    this.outputArmed = true;
+    this.pending = false;
+    this.sourceVersion = 0;
+    this.initializePromise = null;
     this.suspendTimer = null;
   }
 
@@ -1784,6 +1789,14 @@ export class SlipperyResynthesisAudio {
 
   async initialize() {
     if (this.isInitialized) return;
+    if (this.initializePromise) return this.initializePromise;
+    const pending = this.createGraph();
+    this.initializePromise = pending;
+    try { await pending; }
+    finally { if (this.initializePromise === pending) this.initializePromise = null; }
+  }
+
+  async createGraph() {
     const AudioContextConstructor = (
       this.runtime.AudioContext ?? this.runtime.webkitAudioContext
     );
@@ -1888,7 +1901,7 @@ export class SlipperyResynthesisAudio {
     this.sourceKind = null;
   }
 
-  async connectSource(source) {
+  async connectSource(source, version) {
     if (source?.kind === "microphone") {
       const getUserMedia = (
         this.runtime.navigator?.mediaDevices?.getUserMedia
@@ -1896,15 +1909,18 @@ export class SlipperyResynthesisAudio {
       if (typeof getUserMedia !== "function") {
         throw new Error("Microphone input is not available in this browser.");
       }
-      const stream = await getUserMedia({
-        audio: {
-          autoGainControl: false,
-          echoCancellation: false,
-          noiseSuppression: false,
-        },
-      });
+      const stream = await getUserMedia(audioInputConstraints(this.runtime));
+      if (version !== this.sourceVersion) {
+        for (const track of stream.getTracks?.() ?? []) track.stop();
+        return;
+      }
       this.mediaStream = stream;
-      const sourceNode = this.context.createMediaStreamSource(stream);
+      for (const track of stream.getTracks?.() ?? []) {
+        track.addEventListener?.("ended", () => {
+          if (this.mediaStream === stream) void this.stop();
+        }, { once: true });
+      }
+      const sourceNode = configureAudioInputNode(this.context.createMediaStreamSource(stream), this.runtime);
       sourceNode.connect(this.inputAnalyser);
       this.sourceNode = sourceNode;
       this.sourceKind = "microphone";
@@ -1930,30 +1946,44 @@ export class SlipperyResynthesisAudio {
   }
 
   async start(source) {
-    await this.initialize();
+    const version = ++this.sourceVersion;
+    this.pending = true;
     this.clearSuspendTimer();
     this.releaseSource();
     this.enabled = false;
-    await this.context.resume();
     try {
-      await this.connectSource(source);
-      const now = this.context.currentTime;
+      await this.initialize();
+      if (version !== this.sourceVersion) return;
+      await this.context.resume();
+      if (version !== this.sourceVersion) return;
+      await this.connectSource(source, version);
+      if (version !== this.sourceVersion) return;
       this.node.port.postMessage({ type: "reset" });
       this.node.port.postMessage({ type: "active", value: true });
-      this.master.gain.cancelScheduledValues(now);
-      this.master.gain.setValueAtTime(this.master.gain.value, now);
-      this.master.gain.linearRampToValueAtTime(
-        this.params.outputLevel,
-        now + 0.035,
-      );
       this.enabled = true;
+      this.setOutputArmed(this.outputArmed);
     } catch (error) {
+      if (version !== this.sourceVersion) return;
       this.releaseSource();
-      this.node.port.postMessage({ type: "active", value: false });
-      this.master.gain.value = 0;
-      await this.context.suspend().catch(() => {});
+      this.node?.port.postMessage({ type: "active", value: false });
+      if (this.master) this.master.gain.value = 0;
+      await this.context?.suspend().catch(() => {});
       throw error;
+    } finally {
+      if (version === this.sourceVersion) this.pending = false;
     }
+  }
+
+  setOutputArmed(armed) {
+    this.outputArmed = Boolean(armed);
+    if (!this.master || !this.context) return;
+    const now = this.context.currentTime;
+    this.master.gain.cancelScheduledValues(now);
+    this.master.gain.setValueAtTime(this.master.gain.value, now);
+    this.master.gain.linearRampToValueAtTime(
+      this.outputArmed && this.enabled ? this.params.outputLevel : 0,
+      now + 0.035,
+    );
   }
 
   setParameters(params = {}) {
@@ -1973,7 +2003,7 @@ export class SlipperyResynthesisAudio {
         this.context.currentTime,
         0.025,
       );
-      if (this.enabled) {
+      if (this.enabled && this.outputArmed) {
         this.master.gain.setTargetAtTime(
           this.params.outputLevel,
           this.context.currentTime,
@@ -2004,6 +2034,8 @@ export class SlipperyResynthesisAudio {
   }
 
   async stop() {
+    this.sourceVersion += 1;
+    this.pending = false;
     this.clearSuspendTimer();
     this.releaseSource();
     if (!this.isInitialized) {
@@ -2025,6 +2057,8 @@ export class SlipperyResynthesisAudio {
   }
 
   async close() {
+    this.sourceVersion += 1;
+    this.pending = false;
     this.clearSuspendTimer();
     this.releaseSource();
     this.enabled = false;

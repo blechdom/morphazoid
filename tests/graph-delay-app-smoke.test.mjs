@@ -1,3 +1,4 @@
+import { installLiveInputDOM } from "./helpers/live-input-dom.mjs";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
@@ -46,6 +47,7 @@ test("graph-delay keeps live settings safe, coalesces transitions, and rolls bac
     addEventListener(type, listener) { documentListeners.set(type, listener); },
   };
 
+  installLiveInputDOM(globalThis.document, elements, listeners, html);
   const originalSetTimeout = globalThis.setTimeout;
   const originalClearTimeout = globalThis.clearTimeout;
   const audioContexts = [];
@@ -175,10 +177,12 @@ test("graph-delay keeps live settings safe, coalesces transitions, and rolls bac
     await import(`../src/instruments/graph-delay/graph-delay-app.js?smoke=${Date.now()}`);
     assert.equal(typeof queuedFrame, "function");
 
-    listeners.get("audioButton:click")();
+    await listeners.get("audioButton:click")();
+    assert.equal(tracks.length, 0, "master Audio must not request microphone permission");
+    listeners.get("micButton:click")();
     await new Promise((resolve) => setImmediate(resolve));
     await new Promise((resolve) => setImmediate(resolve));
-    assert.equal(elements.get("audioState").textContent, "live");
+    assert.equal(elements.get("audioState").textContent, "on");
     assert.ok(worklets.length > 0);
     assert.equal(
       audioNodes.filter((node) => node.kind === "analyser").length,
@@ -217,7 +221,7 @@ test("graph-delay keeps live settings safe, coalesces transitions, and rolls bac
     assert.equal(audioNodes.filter((node) => node.kind === "delay").length, delaysBeforeSwitch);
     assert.equal(worklets.length, workletsBeforeSwitch);
     assert.equal(timers.size, timersBeforeSwitch);
-    assert.equal(elements.get("audioState").textContent, "live");
+    assert.equal(elements.get("audioState").textContent, "on");
     listeners.get("stage:pointerdown")({
       clientX: 152,
       clientY: 326,
@@ -363,14 +367,14 @@ test("graph-delay keeps live settings safe, coalesces transitions, and rolls bac
     assert.ok(Number(elements.get("density").value) < 1);
     assert.equal(elements.get("topology").value, "random");
     assert.equal(elements.get("audioError").hidden, true);
-    assert.equal(elements.get("audioState").textContent, "live");
+    assert.equal(elements.get("audioState").textContent, "on");
     runAllTimers();
 
     listeners.get("graphResetButton:click")();
     runAllTimers();
     assert.equal(elements.get("graphPatch").value, "layeredGlass");
     assert.equal(elements.get("topology").value, "dag");
-    assert.equal(elements.get("audioState").textContent, "live");
+    assert.equal(elements.get("audioState").textContent, "on");
     assert.ok(tracks.every((track) => !track.stopped));
 
     listeners.get("panicButton:click")();
@@ -383,9 +387,9 @@ test("graph-delay keeps live settings safe, coalesces transitions, and rolls bac
     globalThis.navigator.mediaDevices.getUserMedia = () => new Promise((resolve) => {
       resolveLateStream = resolve;
     });
-    listeners.get("audioButton:click")();
+    listeners.get("micButton:click")();
     await new Promise((resolve) => setImmediate(resolve));
-    assert.equal(elements.get("audioState").textContent, "starting");
+    assert.equal(elements.get("audioState").textContent, "off");
     listeners.get("panicButton:click")();
     resolveLateStream(lateStream);
     await new Promise((resolve) => setImmediate(resolve));

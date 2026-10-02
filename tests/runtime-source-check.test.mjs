@@ -11,9 +11,9 @@ test("syntax discovery includes nested families and tools without parsing Assemb
   try {
     const paths = [
       "src/instruments/lumber/lumber-app.js", "src/families/tract/geometry.js", "src/graphics/canvas-sizing.js",
-      "scripts/architecture/report.mjs", "scripts/wax/bridge.js", "morphazoidical/app.js",
+      "scripts/architecture/report.mjs", "scripts/wax/bridge.js",
       "src/simd-resonator-scalar.ts", "src/xyflow/graph.jsx", "vendor/library.js",
-      "dist-wax/app.js", "tests/example.test.mjs", "morphazoidical/tests/example.test.mjs",
+      "dist-wax/app.js", "tests/example.test.mjs",
     ];
     for (const name of paths) {
       const target = path.join(root, name);
@@ -21,8 +21,8 @@ test("syntax discovery includes nested families and tools without parsing Assemb
       await writeFile(target, "");
     }
     const discovered = await runtimeSourceFiles(root);
-    for (const name of paths.slice(0, 6)) assert.ok(discovered.includes(name), name);
-    for (const name of paths.slice(6)) assert.equal(discovered.includes(name), false, name);
+    for (const name of paths.slice(0, 5)) assert.ok(discovered.includes(name), name);
+    for (const name of paths.slice(5)) assert.equal(discovered.includes(name), false, name);
     // Required entry points are checked even when missing, not silently omitted.
     for (const name of ["src/instruments/shape-synth/shape-synth-app.js", "nav.js", "wax-page.js", "shader-synth-playground-bootstrap.js"]) {
       assert.ok(discovered.includes(name), name);

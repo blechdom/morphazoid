@@ -28,6 +28,7 @@ import {
 } from "../l-system-drum-machine/l-system-drum-machine.js";
 import { micBranchPlaybackRate } from "../../families/mic-branch/mic-branch-dsp.js";
 import { LSystemsMicDelayAudio } from "./mic-delay-audio.js";
+import { mountAudioInputControl } from "../../audio-input-control.js";
 import { LSystemsSynthAudio, LSystemsDrumAudio, L_SYSTEMS_TRIGGER_STYLES, lSystemsPercussionVoice, lSystemTimbreGain } from "./sound-engines.js";
 import { lSystemsTrace, allocateLSystemsHeads, branchDecayGain, micGenerationVoices } from "./branch-parameters.js";
 import { L_SYSTEMS_FULL_PRESETS, L_SYSTEMS_MIC_PRESETS, captureLSystemsPreset, validateLSystemsPreset, randomizeLSystemsPreset } from "./full-presets.js";
@@ -108,6 +109,9 @@ const styleById = new Map(L_SYSTEMS_TRIGGER_STYLES.map((style) => [style.id, sty
 const synthPool = new LSystemsSynthAudio(128, { adaptive: true, maxVoices: 4096 });
 const drumAudio = new LSystemsDrumAudio(globalThis);
 const micEngine = new LSystemsMicDelayAudio(128, { adaptive: true, maxVoices: 4096 });
+let inputControl = null;
+let micInputGeneration = 0;
+let micInputError = "";
 const drumVoices = loadDrumBank();
 const state = createDefaultState();
 const rangeBindings = [];
@@ -400,8 +404,9 @@ function applyGlobalLevel() {
   synthPool.setLevel(clamp(state.level * (synthMode ? modeGain() : 0), 0, 1));
   drumAudio.setOutput(clamp(state.level * modeGain("triggers") * 0.9, 0, 0.9));
   drumAudio.setHostGain(state.audio && state.mode === "triggers" ? 1 : 0, 45);
+  micEngine.setInputGain(state.mic.inputTrim);
   micEngine.setLevel(state.audio && state.mode === "mic"
-    ? clamp(state.level * state.mic.inputTrim * modeGain("mic"), 0, 1)
+    ? clamp(state.level * modeGain("mic"), 0, 1)
     : 0);
 }
 
@@ -441,11 +446,12 @@ async function prepareActiveAudio() {
   }
   micEngine.setGeometryModel(state.geometryModel);
   generationMicSubmitted = false;
-  await micEngine.enable();
+  await micEngine.initialize();
+  micEngine.setOutputEnabled(state.audio);
   if (request !== audioRequest || !state.audio) return false;
   micEngine.setGeometryModel(state.geometryModel);
   micEngine.setFeedback(state.mic.feedback);
-  micEngine.setLevel(clamp(state.level * state.mic.inputTrim * modeGain("mic"), 0, 1));
+  micEngine.setLevel(clamp(state.level * modeGain("mic"), 0, 1));
   audioReady = true;
   return true;
 }
@@ -471,7 +477,7 @@ async function disableAudio() {
   synthPool.silence();
   synthPool.disable();
   drumAudio.setHostGain(0, 0);
-  micEngine.disable();
+  micInputGeneration++; micEngine.stopMicrophone();
   await drumAudio.close();
   resetVoiceSubmission();
   invalidateDiscreteScheduler();
@@ -488,7 +494,7 @@ async function setMode(modeId) {
   if (nextMode === state.mode) return;
   invalidateDiscreteScheduler();
   const previousMode = state.mode;
-  if (previousMode === "mic") micEngine.disable();
+  if (previousMode === "mic") micInputGeneration++; micEngine.stopMicrophone();
   generationMicSubmitted = false;
   state.mode = nextMode;
   resetVoiceSubmission();
@@ -581,7 +587,7 @@ async function resetAll() {
   state.mic = { ...next.mic };
   state.mix = { ...next.mix };
   hitCount = 0;
-  micEngine.disable();
+  micInputGeneration++; micEngine.stopMicrophone();
   micEngine.setGeometryModel(state.geometryModel);
   setupPresetBank();
   updateIterationLimit();
@@ -659,6 +665,7 @@ function syncSelects() {
 }
 
 function paintMode() {
+  inputControl?.refresh();
   const mode = activeMode();
   app.dataset.playingMode = mode.id;
   text("currentModeReadout", mode.label);
@@ -1511,6 +1518,26 @@ function setupAmplitude() {
 
 function boot() {
   setupControls();
+  inputControl = mountAudioInputControl({
+    container: $("micBank"), before: $("micBank").querySelector(".l-systems-grid"),
+    gainInput: $("inputTrim"), gainOutput: $("inputTrimOut"),
+    gainFormat: formatPercent,
+    getState: () => ({ active: Boolean(micEngine.stream), pending: Boolean(micEngine.startPromise), error: micInputError, supported: state.mode === "mic" }),
+    getSignal: () => ({ node: micEngine.inputGain, stream: micEngine.stream }),
+    onStart: async () => {
+      micInputError = "";
+      const generation = ++micInputGeneration;
+      micEngine.setGeometryModel(state.geometryModel);
+      micEngine.setInputGain(state.mic.inputTrim);
+      await micEngine.initialize();
+      if (generation !== micInputGeneration || disposed) return;
+      micEngine.setOutputEnabled(state.audio);
+      await micEngine.startMicrophone();
+      applyGlobalLevel(); scheduleFrame();
+    },
+    onStop: () => { micInputGeneration++; micInputError = ""; micEngine.stopMicrophone(); scheduleFrame(); },
+    hide: [$("inputTrim").closest("label"), $("micDescription")],
+  });
   setupAmplitude();
   setupPresetBank();
   updateIterationLimit();
@@ -1524,7 +1551,8 @@ function boot() {
   micEngine.onPolyphonyStatus = scheduleFrame;
   micEngine.onError = error => {
     if (state.mode === "mic") { audioReady = false; setAudioUi(false); }
-    showError(error);
+    micInputError = error?.message || String(error);
+    inputControl?.refresh();
   };
   window.addEventListener("pagehide", () => {
     disposed = true;

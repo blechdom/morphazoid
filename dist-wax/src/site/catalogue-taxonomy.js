@@ -560,7 +560,6 @@ export const ADDITIONAL_TAG_IDS = Object.freeze(Object.fromEntries(Object.entrie
     "resonator"
   ],
   "order-tones": [],
-  "morphazoidical": [],
   "bell-square": [],
   "entanglement-dance": [],
   "quantum-square-dance": [],

@@ -1,5 +1,7 @@
 import { clamp, levelToGain, unlockAudioContext } from "../../audio.js";
 import { connectAudioOutput } from "../../audio-output-manager.js";
+import { mountAudioInputControl } from "../../audio-input-control.js";
+import { audioInputConstraints, configureAudioInputNode } from "../../audio-input-settings.js";
 import {
   addContourVertex,
   fadeLoopEdges,
@@ -148,6 +150,18 @@ let depthReverbWet = null;
 
 let mediaStream = null;
 let microphoneSource = null;
+let microphoneGain = null;
+let microphoneHeld = false;
+let microphonePending = false;
+let microphonePromise = null;
+let microphoneVersion = 0;
+const inputControl = mountAudioInputControl({
+  container: $("lumberInput"),
+  onStart: () => startMicrophone(),
+  onStop: () => stopMicrophone(),
+  getState: () => ({ active: Boolean(mediaStream), pending: microphonePending }),
+  getSignal: () => ({ node: microphoneGain, stream: mediaStream }),
+});
 let captureProcessor = null;
 let captureMute = null;
 let recordingChunks = [];
@@ -1194,20 +1208,79 @@ function stopStream(stream) {
   for (const track of stream?.getTracks?.() ?? []) track.stop();
 }
 
-function releaseCapture() {
+function releaseCapture({ releaseInput = !microphoneHeld } = {}) {
   if (captureProcessor) captureProcessor.onaudioprocess = null;
-  for (const node of [microphoneSource, captureProcessor, captureMute]) {
-    try {
-      node?.disconnect();
-    } catch {
-      // Nodes can already be disconnected after a device error.
-    }
+  for (const node of [captureProcessor, captureMute]) {
+    try { node?.disconnect(); } catch { /* owner already disconnected */ }
   }
-  stopStream(mediaStream);
-  mediaStream = null;
-  microphoneSource = null;
+  if (captureProcessor) {
+    try { microphoneGain?.disconnect(captureProcessor); } catch { /* no capture connection */ }
+  }
   captureProcessor = null;
   captureMute = null;
+  if (releaseInput) {
+    for (const node of [microphoneSource, microphoneGain]) {
+      try { node?.disconnect(); } catch { /* device already ended */ }
+    }
+    stopStream(mediaStream);
+    mediaStream = null;
+    microphoneSource = null;
+    microphoneGain = null;
+  }
+}
+
+async function startMicrophone({ held = true } = {}) {
+  if (held) microphoneHeld = true;
+  if (mediaStream) return;
+  if (microphonePromise) return microphonePromise;
+  const version = ++microphoneVersion;
+  microphonePending = true;
+  const pending = (async () => {
+    const audio = await ensureAudio();
+    if (version !== microphoneVersion || document.hidden) return;
+    if (!navigator.mediaDevices?.getUserMedia) throw new Error("Microphone input requires HTTPS or localhost.");
+    const stream = await navigator.mediaDevices.getUserMedia(audioInputConstraints());
+    if (version !== microphoneVersion || document.hidden) { stopStream(stream); return; }
+    try {
+      mediaStream = stream;
+      microphoneSource = configureAudioInputNode(audio.createMediaStreamSource(stream));
+      microphoneGain = inputControl.createGain(audio);
+      microphoneSource.connect(microphoneGain);
+      for (const track of stream.getTracks?.() ?? []) {
+        track.addEventListener?.("ended", () => {
+          if (mediaStream === stream) stopMicrophone();
+        }, { once: true });
+      }
+    } catch (error) {
+      releaseCapture({ releaseInput: true });
+      throw error;
+    }
+  })();
+  microphonePromise = pending;
+  try { await pending; }
+  finally {
+    if (version === microphoneVersion) {
+      microphonePending = false;
+      microphonePromise = null;
+      inputControl.refresh();
+    }
+  }
+}
+
+function stopMicrophone() {
+  microphoneVersion += 1;
+  microphonePending = false;
+  microphonePromise = null;
+  microphoneHeld = false;
+  captureGeneration += 1;
+  recordChanging = false;
+  if (state.recording) void finishRecording({ playAfterCapture: false });
+  else {
+    releaseCapture({ releaseInput: true });
+    void restoreRecordingSession({ resumePlayback: false, removeCreated: true });
+  }
+  updateUi();
+  inputControl.refresh();
 }
 
 function microphoneErrorMessage(error) {
@@ -1275,6 +1348,15 @@ async function beginRecording({ replace = false } = {}) {
   setActiveRing(target, false);
 
   const generation = ++captureGeneration;
+  recordingSession = {
+    mode: replace ? "replace" : "new",
+    targetId: target.id,
+    createdRingId,
+    previousActiveId: previousActive.id,
+    targetPhase: currentPhase(target),
+    targetDirection: target.direction,
+    wasPlaying: state.playing,
+  };
   recordChanging = true;
   clearError();
   updateUi();
@@ -1283,31 +1365,9 @@ async function beginRecording({ replace = false } = {}) {
   try {
     const audio = await ensureAudio();
     if (generation !== captureGeneration || document.hidden) return;
-    if (!globalThis.navigator?.mediaDevices?.getUserMedia) {
-      throw new Error("Microphone recording requires HTTPS or localhost.");
-    }
-    const stream = await navigator.mediaDevices.getUserMedia({
-      audio: {
-        channelCount: { ideal: 1 },
-        echoCancellation: false,
-        noiseSuppression: false,
-        autoGainControl: false,
-      },
-    });
-    if (generation !== captureGeneration || document.hidden) {
-      stopStream(stream);
-      return;
-    }
+    await startMicrophone({ held: false });
+    if (generation !== captureGeneration || document.hidden || !mediaStream) return;
 
-    recordingSession = {
-      mode: replace ? "replace" : "new",
-      targetId: target.id,
-      createdRingId,
-      previousActiveId: previousActive.id,
-      targetPhase: currentPhase(target),
-      targetDirection: target.direction,
-      wasPlaying: state.playing,
-    };
     if (state.backingDuringRecord && state.playing) {
       captureRingPhase(target);
       stopRingSource(target);
@@ -1315,16 +1375,8 @@ async function beginRecording({ replace = false } = {}) {
       await setPlaying(false, false);
     }
 
-    releaseCapture();
-    mediaStream = stream;
-    for (const track of stream.getTracks?.() ?? []) {
-      track.addEventListener?.("ended", () => {
-        if (generation === captureGeneration && state.recording) {
-          void finishRecording({ playAfterCapture: false });
-        }
-      }, { once: true });
-    }
-    microphoneSource = audio.createMediaStreamSource(stream);
+    if (generation !== captureGeneration || !microphoneGain) return;
+    releaseCapture({ releaseInput: false });
     const createProcessor = audio.createScriptProcessor?.bind(audio)
       ?? audio.createJavaScriptNode?.bind(audio);
     if (!createProcessor) {
@@ -1364,7 +1416,7 @@ async function beginRecording({ replace = false } = {}) {
         });
       }
     };
-    microphoneSource.connect(captureProcessor);
+    microphoneGain.connect(captureProcessor);
     captureProcessor.connect(captureMute);
     captureMute.connect(audio.destination);
     announce(`${replace ? "Replacing" : "Recording new"} ring ${ringOrdinal(target)}.`);
@@ -2682,8 +2734,7 @@ window.addEventListener("keydown", (event) => {
 
 document.addEventListener("visibilitychange", () => {
   if (document.hidden) {
-    captureGeneration += 1;
-    if (state.recording) void finishRecording({ playAfterCapture: false });
+    stopMicrophone();
     finishPointerGesture(undefined, false);
     if (audioContext) {
       masterGain?.gain.setValueAtTime(0, audioContext.currentTime);
@@ -2709,7 +2760,11 @@ window.addEventListener("pagehide", () => {
   state.audio = false;
   state.recording = false;
   state.playing = false;
-  releaseCapture();
+  microphoneHeld = false;
+  microphoneVersion += 1;
+  microphonePending = false;
+  inputControl.destroy();
+  releaseCapture({ releaseInput: true });
   recordingChunks = [];
   recordingSampleCount = 0;
   liveSamples = new Float32Array(0);
@@ -2718,7 +2773,7 @@ window.addEventListener("pagehide", () => {
   stopAllRingSources({ capturePhase: false });
   releaseAudioOutput?.();
   releaseAudioOutput = null;
-  if (audioContext?.state !== "closed") void audioContext.close();
+  if (audioContext && audioContext.state !== "closed") void audioContext.close();
 });
 window.addEventListener("pageshow", () => {
   updateUi();

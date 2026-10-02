@@ -11,7 +11,7 @@ test("Lumber Loops renders, records new rings, and explicitly replaces", async (
   const listeners = new Map();
   const attributes = new Map();
 
-  function element(id) {
+  function element(id = `generated-${elements.size}`) {
     const classes = new Set();
     const node = {
       id,
@@ -22,7 +22,10 @@ test("Lumber Loops renders, records new rings, and explicitly replaces", async (
       disabled: /\bdisabled\b/.test(tags.get(id) ?? ""),
       dataset: {},
       style: {},
+      children: [],
+      className: "",
       classList: {
+        contains(name) { return classes.has(name); },
         add(...names) { names.forEach((name) => classes.add(name)); },
         remove(...names) { names.forEach((name) => classes.delete(name)); },
         toggle(name, force) {
@@ -33,6 +36,12 @@ test("Lumber Loops renders, records new rings, and explicitly replaces", async (
         },
       },
       addEventListener(type, listener) { listeners.set(`${id}:${type}`, listener); },
+      removeEventListener(type) { listeners.delete(`${id}:${type}`); },
+      getAttribute(name) { return attributes.get(`${id}:${name}`) ?? null; },
+      append(...children) { for (const child of children) { child.parentNode = this; this.children.push(child); } },
+      insertBefore(child) { this.append(child); },
+      contains(child) { return this.children.includes(child); },
+      remove() { if (this.parentNode) this.parentNode.children = this.parentNode.children.filter(child => child !== this); },
       setAttribute(name, value) { attributes.set(`${id}:${name}`, String(value)); },
       querySelector() { return { textContent: "", style: { setProperty() {} } }; },
       querySelectorAll() { return []; },
@@ -40,6 +49,9 @@ test("Lumber Loops renders, records new rings, and explicitly replaces", async (
       setPointerCapture() {},
       focus() {},
     };
+    Object.defineProperty(node, "ownerDocument", { get: () => globalThis.document });
+    Object.defineProperty(node, "parentElement", { get: () => node.parentNode });
+    Object.defineProperty(node, "childNodes", { get: () => node.children });
     elements.set(id, node);
     return node;
   }
@@ -117,6 +129,10 @@ test("Lumber Loops renders, records new rings, and explicitly replaces", async (
     hidden: false,
     body: { dataset: { lumberMode: "expanded" } },
     getElementById(id) { return elements.get(id) ?? null; },
+    createElement() { return element(); },
+    querySelector() { return null; },
+    head: element("head"),
+    removeEventListener(type) { documentListeners.delete(type); },
     addEventListener(type, listener) { documentListeners.set(type, listener); },
   };
   const windowListeners = new Map();
@@ -163,7 +179,7 @@ test("Lumber Loops renders, records new rings, and explicitly replaces", async (
       this.destination = audioNode();
     }
     createGain() {
-      const gain = audioNode({ gain: audioParam(0) });
+      const gain = audioNode({ gain: audioParam(0), context: this });
       gains.push(gain);
       if (nextGainIsCapture) {
         captureGains.push(gain);

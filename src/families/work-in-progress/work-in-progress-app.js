@@ -1,3 +1,4 @@
+import { mountAudioInputControl } from "../../audio-input-control.js";
 import { STARTING_INSTRUMENTS } from "./catalog.js";
 import { INSTRUMENT_HELP, formatParameter } from "./help.js";
 import { CORES } from "./cores.js";
@@ -140,18 +141,28 @@ async function toggleMic() {
   }
   micPending = true; updateTools();
   try {
-    const ok = await audio.startMic();
+    const ok = await audio.startMic(snapshot);
     if (ok) {
       if (id === "loop-soup") setParams({ demo: 0 });
       if (id === "hollowphonic") { setParams({ source: 3 }); sourceSelect.value = "3"; }
       status("Microphone on. Use headphones before enabling Monitor.");
     }
-  } catch (e) { if (attempt === micAttempt && !disposed) error(e); }
-  if (attempt === micAttempt) micPending = false;
-  updateTools();
+  } catch (e) { if (attempt === micAttempt && !disposed) throw e; }
+  finally { if (attempt === micAttempt) micPending = false; updateTools(); }
 }
 function addMic() {
-  micButton = button("Enable microphone", toggleMic);
+  micButton = document.createElement("button"); micButton.id = "microphoneButton";
+  mountAudioInputControl({
+    container: $("instrumentTools"), before: $("instrumentTools").firstElementChild, button: micButton,
+    onStart: toggleMic,
+    onStop: () => {
+      micAttempt++; micPending = false; recordPending = false; recordAttempt++;
+      audio.send({ type: "finish-record" }); audio.stopMic(); updateTools();
+    },
+    onGainInput: (value) => audio.setInputGain(value),
+    getState: () => ({ active: Boolean(audio.stream), pending: micPending }),
+    getSignal: () => ({ node: audio.inputTrim, stream: audio.stream }),
+  });
   const label = document.createElement("label"); label.className = "check-control";
   const input = document.createElement("input"); input.type = "checkbox"; input.id = "monitor";
   label.append(input, document.createTextNode("Monitor live input · headphones"));
@@ -186,7 +197,7 @@ if (id === "tempo-tantrum") {
     const index = selected;
     recordPending = true; updateTools();
     try {
-      const ok = await audio.startMic();
+      const ok = await audio.startMic(snapshot);
       if (ok && recordPending && audio.armed && attempt === recordAttempt) { send({ type: "record", index }); status("Recording, up to 12 seconds. Press Stop recording to finish."); }
     } catch (e) { if (attempt === recordAttempt && !disposed) error(e); }
     if (attempt === recordAttempt) recordPending = false;
@@ -267,10 +278,6 @@ function updateTools() {
   if (extraButton) extraButton.textContent = params.demo > 0.5 ? "Demo ingredient on" : "Demo ingredient off";
   if (sourceSelect) sourceSelect.value = params.source;
   if (brushButton) { brushButton.textContent = `${id === "loop-soup" ? "Erase" : "Forget"} brush ${brush ? "on" : "off"}`; brushButton.setAttribute("aria-pressed", String(brush)); }
-  if (micButton) {
-    micButton.textContent = micPending ? "Cancel microphone request" : audio.stream ? "Disable microphone" : "Enable microphone";
-    micButton.setAttribute("aria-pressed", String(Boolean(audio.stream)));
-  }
   if (recordButton) {
     recordButton.textContent = recordPending ? "Cancel recording request" : state.recording ? "Stop recording" : "Record selected tape";
     recordButton.disabled = filePending;

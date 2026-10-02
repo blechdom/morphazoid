@@ -175,7 +175,7 @@ test('Loop input supports continuous playback, one-shot completion and replay wi
   await expect.poll(() => inputStatus(page)).toMatchObject({ kind: 'none', loop: false, ended: true });
   await waitForStableAudioState(page, false, { stableMs: 200 });
   expect((await status(page)).playing).toBe(true);
-  await page.locator('#resumeFile').click();
+  await page.locator('.mz-input-toggle').click();
   assertAudible(await sampleAudioEnvelope(page, { durationMs: 400, intervalMs: 30 }));
   await expect.poll(() => inputStatus(page)).toMatchObject({ ended: true });
   await page.locator('#triggerButton').click();

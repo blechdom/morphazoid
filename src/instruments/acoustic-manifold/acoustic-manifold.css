@@ -1191,3 +1191,16 @@
     height: 44px;
   }
 }
+
+/* Live input shares the compact input row; duration and device remain native. */
+.live-source {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 8px;
+  padding: 0;
+  border: 0;
+  background: none;
+}
+.live-source > .mz-audio-input-strip { grid-column: 1 / -1; }
+.live-source .select-control { margin: 0; }
+.live-source .select-control small { display: none; }

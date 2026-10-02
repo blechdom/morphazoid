@@ -85,14 +85,6 @@ test("shared page names and transitive app imports find Wheel of Organs models a
   assert.deepEqual(report.files.filter(f => !f.present), []);
 });
 
-test("nested routes resolve index.html and relative source imports", async () => {
-  const report = await inspectInstrument("morphazoidical");
-  assert.equal(report.registration.page, "morphazoidical/index.html");
-  assert.ok(report.entries.includes("morphazoidical/app.js"));
-  assert.ok(report.files.some(f => f.path === "src/geometry.js"));
-  assert.ok(report.tests.candidates.includes("morphazoidical/tests/runtime.test.mjs"));
-  assert.deepEqual(report.files.filter(f => !f.present), []);
-});
 
 test("worker/worklet URLs and quoted Wasm assets stay discoverable with honest candidate labels", async () => {
   const report = await inspectInstrument("simd-resonator");

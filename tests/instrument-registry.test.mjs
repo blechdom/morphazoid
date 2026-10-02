@@ -6,6 +6,7 @@ import test from "node:test";
 import * as registry from "../src/site/instrument-registry.js";
 import { FAVE_TOOL_IDS, TOOL_GROUPS, SITE_LINKS, NAVIGATION_BASE_URL } from "../nav.js";
 import { INSTRUMENTS, INSTRUMENT_GROUPS } from "../src/site/instrument-catalog.js";
+import { removedInstrumentIds } from "./helpers/catalogue-plan.mjs";
 
 const snapshot = JSON.parse(await readFile(new URL("./fixtures/instrument-registry-v1.json", import.meta.url)));
 
@@ -29,6 +30,7 @@ test("catalogue renaming preserves existing musical descriptions, features, and 
   const voices = JSON.parse(await readFile(new URL("./fixtures/catalogue-voicesaurus.json", import.meta.url)));
   const fabric = JSON.parse(await readFile(new URL("./fixtures/catalogue-fabric-filter-input.json", import.meta.url)));
   for (const previous of before.INSTRUMENTS) {
+    if (removedInstrumentIds.has(previous.id)) continue;
     const current = instrumentById(previous.id);
     const expected = { ...previous, ...updates[previous.id], ...main.updates[previous.id], ...spelling.updates[previous.id], ...voices.updates[previous.id], ...fabric.updates[previous.id] };
     assert.ok(current, previous.id);

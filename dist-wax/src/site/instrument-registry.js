@@ -186,7 +186,6 @@ export const TOOL_GROUPS = Object.freeze([
     { id: "escher-tessellation", label: "Escher", href: "escher-tessellation.html" },
     { id: "plasma-ball", label: "Plasma Ball", href: "plasma-ball.html" },
     { id: "order-tones", label: "Order Tones", href: "order-tones.html" },
-    { id: "morphazoidical", label: "Morphazoidical", href: "morphazoidical/", match: "directory" },
     { id: "bell-square", label: "Bell Square", href: "bell-square.html" },
     { id: "entanglement-dance", label: "Entanglement Dance", href: "entanglement-dance.html" },
     { id: "quantum-square-dance", label: "Quantum Square Dance", href: "quantum-square-dance.html" },

@@ -17,7 +17,7 @@ the interface.
   and navigation. The masthead audio strip and amplitude envelope editor are
   exported through `src/ui/patterns/index.js`.
 - **Themes** map the shared semantic tokens to a product surface. The primary
-  instruments and Morphazoidical may keep distinct visual themes while sharing
+  instruments may keep distinct visual themes while sharing
   interaction and accessibility contracts.
 - **Instrument UI** stays with its instrument when it represents domain
   behavior, such as a tract editor, sequencer, shader graph, or Canvas stage.
@@ -34,6 +34,7 @@ trying to make every instrument look identical:
 | Sequencing | `createStepButton` | Grid keyboard model, exclusivity, patterns, lanes, and scheduler |
 | Status | `createStatusReadout`, `createMidiStatus` | Web MIDI permission, routing, device managers, and telemetry |
 | Level display | `createStereoMeter`, `createPeakMeter`, `createSignedSegmentMeter` | Audio analysis, peak decay, and animation loops |
+| Audio input | `createAudioInputStrip`, `mountAudioInputControl` | Permission, capture/file lifecycle, input routing, and gain |
 | Signal display | `createSignalMonitor` | Canvas rendering, analyzer nodes, animation, and instrument geometry |
 
 `createSignalMonitor()` provides the repeated canvas, title/subtitle, HUD,
@@ -45,6 +46,14 @@ while allowing production instruments to supply live samples.
 The shared navigation now consumes `createMidiStatus()` and
 `createStereoMeter()` directly. Their factories expose legacy class aliases so
 the production CSS and page tests can migrate incrementally.
+
+All microphone inputs use `mountAudioInputControl()`: a gain knob, borderless
+mono or stereo input meters, and a mic icon button, from left to right. The strip
+sits before output meters in the desktop menubar and beside presets on mobile. The underlying
+`createAudioInputStrip()` is pure UI; the adapter receives the instrument's
+start/stop callbacks and signal node. Keep recording controls separate. Add a
+small Mic/File selector only when the instrument already supports file input.
+See [the testing list](audio-input-controls.md) for all consumers.
 
 ## Component contract
 

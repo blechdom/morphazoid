@@ -1,3 +1,4 @@
+import { mountAudioInputControl } from "../../audio-input-control.js";
 import { RECURSION_STUDIES, buildRecursionPlan } from "./recursion.js";
 import { RecursiveAudioEngine } from "./recursion-audio-engine.js";
 import {
@@ -214,7 +215,7 @@ function paintSource() {
     ? sourceLabel.toUpperCase()
     : copy.readout;
   $("fileInputLabel").hidden = state.source !== "file";
-  $("captureButton").hidden = state.source !== "mic";
+  $("captureButton").hidden = false;
   for (const button of $("sourceButtons").querySelectorAll("[data-source]")) {
     setPressed(button, button.dataset.source === state.source);
   }
@@ -1693,9 +1694,11 @@ $("resetStudy").addEventListener("click", () => {
   if (state.audio) queuePreparedRestart();
 });
 
+let inputError = "";
 $("audioFile").addEventListener("change", async (event) => {
   const file = event.currentTarget.files?.[0];
   if (!file) return;
+  inputError = "";
   $("fileLabel").textContent = "Decoding";
   $("fileHint").textContent = file.name;
   try {
@@ -1707,28 +1710,40 @@ $("audioFile").addEventListener("change", async (event) => {
     updatePlan();
     if (state.audio) queuePreparedRestart();
   } catch (error) {
-    $("audioError").textContent = error instanceof Error ? error.message : "This audio file could not be decoded.";
-    $("audioError").hidden = false;
+    inputError = error?.message || "This audio file could not be decoded.";
+    micControl.refresh();
     $("fileLabel").textContent = "Audio file";
     $("fileHint").textContent = "ERROR";
   }
 });
 
-$("captureButton").addEventListener("click", async () => {
+let captureAttempt = 0;
+function stopMicCapture({ discard = false } = {}) {
+  inputError = "";
+  if (discard || audio.capturePending || !audio.captureState) captureAttempt++;
+  state.captureProgress = 0;
+  audio.stopCapture();
+  setPressed($("captureButton"), false);
+  scheduleFrame();
+}
+async function captureMic() {
   if (state.captureProgress > 0 && state.captureProgress < 1) {
-    audio.stopCapture();
+    stopMicCapture();
     return;
   }
+  const attempt = ++captureAttempt;
   setPressed($("captureButton"), true);
   $("captureLabel").textContent = "Capture";
   $("captureHint").textContent = "0.0 / 4.0 S";
   state.captureProgress = 0.001;
   try {
-    await audio.captureMicrophone(4, (progress) => {
+    const captured = await audio.captureMicrophone(4, (progress) => {
+      if (attempt !== captureAttempt) return;
       state.captureProgress = progress;
       $("captureHint").textContent = `${(progress * 4).toFixed(1)} / 4.0 S`;
       scheduleFrame();
     });
+    if (!captured || attempt !== captureAttempt) return;
     state.source = "mic";
     $("captureLabel").textContent = "Capture";
     $("captureHint").textContent = "READY · CLOSED";
@@ -1736,16 +1751,33 @@ $("captureButton").addEventListener("click", async () => {
     updatePlan();
     if (state.audio) queuePreparedRestart();
   } catch (error) {
-    if (!/stopped/i.test(error?.message ?? "")) {
-      $("audioError").textContent = error instanceof Error ? error.message : "Microphone capture failed.";
-      $("audioError").hidden = false;
-    }
+    if (attempt !== captureAttempt) return;
     $("captureLabel").textContent = "Capture";
     $("captureHint").textContent = "4 S · NO MONITOR";
+    if (!/stopped/i.test(error?.message ?? "")) throw error;
   } finally {
-    state.captureProgress = 0;
-    setPressed($("captureButton"), false);
+    if (attempt === captureAttempt) {
+      state.captureProgress = 0;
+      setPressed($("captureButton"), false);
+      audio.capturePending = false;
+    }
   }
+}
+const micControl = mountAudioInputControl({
+  container: document.querySelector(".recursion-seed"), button: $("captureButton"),
+  onStart: () => {
+    inputError = "";
+    if (micControl.root.sourceSelect.value === "file") { $("audioFile").click(); return; }
+    state.source = "mic"; paintSource(); updatePlan(); return captureMic();
+  },
+  onStop: stopMicCapture,
+  onGainInput: (value) => audio.setInputGain(value),
+  getState: () => ({ active: Boolean(audio.captureState), pending: audio.capturePending, error: inputError }),
+  getSignal: () => ({ levels: { left: audio.captureLevel, right: 0 }, channels: 1 }),
+  sources: [{ value: "mic", label: "Mic" }, { value: "file", label: "File" }],
+  onSourceChange: (value) => { stopMicCapture({ discard: true }); state.source = value; paintSource(); updatePlan(); },
+  fileInput: $("audioFile"),
+  hide: [$("fileInputLabel"), ...$("sourceButtons").querySelectorAll('[data-source="mic"], [data-source="file"]')],
 });
 
 function frame() {
@@ -1767,7 +1799,7 @@ function frame() {
 
 document.addEventListener("visibilitychange", () => {
   if (document.hidden) {
-    if (state.captureProgress > 0) audio.stopCapture();
+    if (state.captureProgress > 0) stopMicCapture();
     if (state.audio) void disableAudio({ announceChange: false });
   }
 });
@@ -1775,7 +1807,7 @@ globalThis.addEventListener?.("pagehide", () => audio.destroy(), { once: true })
 globalThis.addEventListener?.("beforeunload", () => audio.destroy(), { once: true });
 globalThis.addEventListener?.("keydown", (event) => {
   if (event.key === "Escape") {
-    if (state.captureProgress > 0) audio.stopCapture();
+    if (state.captureProgress > 0) stopMicCapture();
     if (state.audio) void disableAudio({ announceChange: false });
   }
   if (event.code === "Space" && event.target === canvas) {

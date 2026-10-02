@@ -17,7 +17,7 @@ const delayRanges = {
   ...commonRanges, nodeCount: [3, 24], timeScale: [0, 800], pitchScale: [0, 2], pitchAsymmetry: [-0.8, 0.8],
   pitchCurve: [0.5, 2], pitchSlew: [10, 500], micMotionSpeed: [0.01, 0.4], micMotionSize: [0.05, 0.46],
   inputX: [0.01, 0.99], inputY: [0.02, 0.98], damping: [500, 12000], wet: [0, 1.5], dry: [0, 1],
-  spread: [0, 1], inputTrim: [0, 1.25], level: [0, 0.9],
+  spread: [0, 1], inputTrim: [0, 1.5], level: [0, 0.9],
 };
 const synthRanges = {
   ...commonRanges, output: [0, 0.9], tempo: [35, 220], distanceRatio: [1, 12], feedbackTone: [0.2, 1],

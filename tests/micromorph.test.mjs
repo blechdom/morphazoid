@@ -634,6 +634,50 @@ test("stop cancels delayed microphone permission and stops the eventual granted 
   await audio.close();
 });
 
+test("capture and gain edits preserve an explicitly muted master until Audio is armed", async () => {
+  const stream = fakeStream();
+  const harness = createAudioRuntime({ getUserMedia: async () => stream });
+  const audio = new MicromorphAudio(harness.runtime);
+  audio.setOutputArmed(false);
+  await audio.start();
+  assert.equal(audio.enabled, true);
+  assert.equal(audio.master.gain.value, 0);
+  audio.setParameters({ inputGain: 2.5 });
+  assert.equal(audio.parameters.inputGain, 2.5);
+  assert.equal(audio.master.gain.value, 0, "input gain must not unmute the output");
+  audio.setOutputArmed(true);
+  assert.equal(audio.master.gain.value, 1);
+  audio.setOutputArmed(false);
+  assert.equal(audio.master.gain.value, 0);
+  await audio.stop();
+  assert.equal(stream.track.stopCalls, 1);
+  await audio.close();
+});
+
+test("cancel retires pending permission immediately so a fresh input can start", async () => {
+  const permission = deferred(), requested = deferred();
+  const oldStream = fakeStream(), freshStream = fakeStream();
+  let requests = 0;
+  const harness = createAudioRuntime({ getUserMedia: () => {
+    if (++requests === 1) { requested.resolve(); return permission.promise; }
+    return Promise.resolve(freshStream);
+  } });
+  const audio = new MicromorphAudio(harness.runtime);
+  const first = audio.start();
+  const cancelled = assert.rejects(first, /cancelled/i);
+  await requested.promise;
+  await audio.stop();
+  assert.equal(audio.state.starting, false);
+  await audio.start();
+  permission.resolve(oldStream);
+  await cancelled;
+  assert.equal(oldStream.track.stopCalls, 1);
+  assert.equal(freshStream.track.stopCalls, 0);
+  assert.equal(audio.mediaStream, freshStream);
+  assert.equal(audio.enabled, true);
+  await audio.close();
+});
+
 test("close during delayed permission stops the granted track and cannot resurrect audio", async () => {
   const permission = deferred();
   const requested = deferred();

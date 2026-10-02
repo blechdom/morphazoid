@@ -93,7 +93,7 @@ test('new source intent invalidates an unfinished file decode before it can over
     let decode;
     const audio = new SynthesisAudio();
     audio.armed = true;
-    audio.context = { decodeAudioData: () => new Promise(resolve => { decode = resolve; }) };
+    audio.context = { state: "running", decodeAudioData: () => new Promise(resolve => { decode = resolve; }) };
     audio.input.startMicrophone = async () => true;
     audio.input.startFile = () => false;
     const pending = audio.loadFile({ size: 1, name: 'late.wav', arrayBuffer: async () => new ArrayBuffer(0) }, { processing: true });

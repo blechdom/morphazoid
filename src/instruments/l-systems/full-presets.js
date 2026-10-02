@@ -35,7 +35,7 @@ export function validateLSystemsPreset(snapshot, microphone = snapshot?.mode ===
   choose(p.direction,[-1,1],"direction"); choose(p.traversalBehavior,["loop","ping-pong"],"motion"); choose(p.structureMode,STRUCTURES,"structure");
   if (microphone) {
     exactKeys(snapshot.mic,Object.keys(defaults.mic),"mic controls"); choose(snapshot.mic.pitchSource,["angle","height","depth","progress"],"mic pitch source"); range(snapshot.micLevel,0,1.5,"mic level");
-    for (const [key, low, high] of [["inputTrim",0,1.25],["feedback",0,.82],["interval",.25,4],["timeRatio",.2,2],["pitchRange",0,4],["spread",0,1],["wet",0,1],["dry",0,.5],["intervalMs",1,3000],["pitchScale",0,4]]) range(snapshot.mic[key],low,high,key);
+    for (const [key, low, high] of [["inputTrim",0,1.5],["feedback",0,.82],["interval",.25,4],["timeRatio",.2,2],["pitchRange",0,4],["spread",0,1],["wet",0,1],["dry",0,.5],["intervalMs",1,3000],["pitchScale",0,4]]) range(snapshot.mic[key],low,high,key);
   } else {
     exactKeys(snapshot.synth,Object.keys(defaults.synth),"synth controls"); exactKeys(snapshot.drums,Object.keys(defaults.drums),"trigger controls"); exactKeys(snapshot.levels,["continuous","notes","triggers"],"levels");
     const s=snapshot.synth, d=snapshot.drums, e=snapshot.envelope;

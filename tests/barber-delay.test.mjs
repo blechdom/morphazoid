@@ -525,6 +525,7 @@ test("browser wrapper is gesture-inert and releases a file source completely", a
   const makeParam = (value = 0) => ({
     value,
     cancelScheduledValues() {},
+    setTargetAtTime(next) { this.value = next; },
     setValueAtTime(next) {
       this.value = next;
     },
@@ -742,5 +743,16 @@ test("browser wrapper is gesture-inert and releases a file source completely", a
   assert.equal(centeredCandyAudio.ceiling.connectedTarget, centeredCandyAudio.master);
   assert.equal(centeredCandyAudio.ceiling.oversample, "none");
   assert.equal(filterCreations, 0);
+  assert.equal(microphoneRequests, 1, "initializing master output must not request input");
+  assert.equal(centeredCandyAudio.master.gain.value, 0);
+  await centeredCandyAudio.startInput({ kind: "microphone" });
+  assert.equal(microphoneRequests, 2);
+  assert.equal(centeredCandyAudio.master.gain.value, 0, "explicit input may capture with master output muted");
+  centeredCandyAudio.setOutputEnabled(true);
+  assert.equal(centeredCandyAudio.master.gain.value, 1);
+  centeredCandyAudio.stopInput();
+  assert.equal(centeredCandyAudio.master.gain.value, 1, "mic off preserves the master output flag");
+  assert.equal(centeredCandyAudio.sourceNode, null);
+  assert.equal(microphoneTrackStops, 2);
   await centeredCandyAudio.close();
 });

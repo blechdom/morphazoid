@@ -51,7 +51,8 @@ export class LSystemsMicDelayAudio extends MicBranchEngine {
     this.renderer?.silence(128);
     this.dryGain?.gain.setTargetAtTime(0, this.context.currentTime, .03);
   }
-  enable() {
+  enable({ output = true } = {}) {
+    this.setOutputEnabled(output);
     if (this.enabled) return Promise.resolve();
     if (this.startPromise) return this.startPromise;
     const revision = ++this.revision;
@@ -79,9 +80,11 @@ export class LSystemsMicDelayAudio extends MicBranchEngine {
       check();
       this.stream = stream;
       this.source = configureAudioInputNode(context.createMediaStreamSource(stream), globalThis);
-      this.source.connect(this.processor);
-      this.source.connect(this.generationProcessor);
-      this.source.connect(this.dryGain);
+      this.source.connect(this.inputGain);
+      this.inputGain.connect(this.processor);
+      this.inputGain.connect(this.generationProcessor);
+      this.inputGain.connect(this.dryGain);
+      for (const track of stream.getAudioTracks?.() ?? stream.getTracks()) track.addEventListener?.("ended", () => { if (this.stream === stream) this.disable(); }, { once: true });
       this.enabled = true;
       this.startRenderCapacityMonitoring();
       this.setLevel(this.level);

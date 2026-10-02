@@ -4,6 +4,7 @@ import { fileURLToPath } from "node:url";
 
 import { FAVE_TOOL_IDS, TOOL_GROUPS } from "../src/site/instrument-registry.js";
 import { INSTRUMENTS, catalogueItemById } from "../src/site/instrument-catalog.js";
+import { pageRouteForSourcePath } from "../src/pages/manifest.js";
 
 const projectRoot = fileURLToPath(new URL("../", import.meta.url));
 const ignoredDirectoryNames = new Set([
@@ -24,7 +25,10 @@ const freezeRoute = (route) => Object.freeze({
   features: Object.freeze([...(route.features ?? [])]),
 });
 
-const normalizeHref = (filePath) => relative(projectRoot, filePath).split(sep).join("/");
+const normalizeHref = (filePath) => {
+  const sourcePath = relative(projectRoot, filePath).split(sep).join("/");
+  return pageRouteForSourcePath(sourcePath) ?? sourcePath;
+};
 
 async function sourceHtmlFiles(directory = projectRoot) {
   const entries = await readdir(directory, { withFileTypes: true });

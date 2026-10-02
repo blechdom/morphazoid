@@ -13,6 +13,9 @@ test("Micromorph initializes one bounded render loop and does not request audio"
   function classList() {
     const values = new Set();
     return {
+      add(...names) { for (const name of names) values.add(name); },
+      remove(...names) { for (const name of names) values.delete(name); },
+      contains(name) { return values.has(name); },
       toggle(name, force) {
         if (force) values.add(name);
         else values.delete(name);
@@ -21,6 +24,7 @@ test("Micromorph initializes one bounded render loop and does not request audio"
   }
 
   function element(id = "") {
+    const attributes = new Map();
     const node = {
       id,
       value: "",
@@ -32,8 +36,14 @@ test("Micromorph initializes one bounded render loop and does not request audio"
       className: "",
       classList: classList(),
       addEventListener(type, listener) { listeners.set(`${id}:${type}`, listener); },
-      setAttribute() {},
-      append(child) { this.children.push(child); },
+      removeEventListener(type) { listeners.delete(`${id}:${type}`); },
+      setAttribute(name, value) { attributes.set(name, String(value)); },
+      getAttribute(name) { return attributes.get(name) ?? null; },
+      append(...children) { for (const child of children) { child.parentNode = this; this.children.push(child); } },
+      insertBefore(child, before) { this.append(child); },
+      closest() { return this.parentNode; },
+      contains(child) { return this.children.includes(child); },
+      remove() { if (this.parentNode) this.parentNode.children = this.parentNode.children.filter(child => child !== this); },
       replaceChildren(fragment) { this.children = [...(fragment.children ?? [])]; },
       querySelectorAll(selector) {
         return selector === "[data-preset]"
@@ -44,6 +54,8 @@ test("Micromorph initializes one bounded render loop and does not request audio"
       setPointerCapture() {},
       releasePointerCapture() {},
     };
+    Object.defineProperty(node, "parentElement", { get: () => node.parentNode });
+    Object.defineProperty(node, "childNodes", { get: () => node.children });
     return node;
   }
 
@@ -147,15 +159,23 @@ test("Micromorph initializes one bounded render loop and does not request audio"
       },
     });
 
+    const source = element("source");
+    source.append(elements.get("micButton"));
+    const gain = element("gain");
+    gain.append(elements.get("inputGain"), elements.get("inputGainOut"));
+    for (const node of [...elements.values(), source, gain]) node.ownerDocument = document;
+    const createElement = document.createElement;
+    document.createElement = (...args) => { const node = createElement(...args); node.ownerDocument = document; return node; };
+
     await import(`../src/instruments/micromorph/micromorph-app.js?smoke=${Date.now()}`);
     assert.equal(microphoneRequests, 0);
-    assert.equal(animationRequests, 1, "startup and ResizeObserver share one pending frame");
+    assert.equal(animationRequests, 2, "one instrument frame and one shared input meter poll are pending");
 
     nextFrame?.(16);
-    assert.equal(animationRequests, 2, "one completed animation schedules exactly one successor");
+    assert.equal(animationRequests, 3, "one completed animation schedules exactly one successor");
     const derivationInput = listeners.get("derivation:input");
     for (let index = 0; index < 20; index += 1) derivationInput?.();
-    assert.equal(animationRequests, 2, "control updates do not fan out additional RAF chains");
+    assert.equal(animationRequests, 3, "control updates do not fan out additional RAF chains");
 
     globalListeners.get("pagehide")?.();
     assert.equal(documentListeners.has("visibilitychange"), false);

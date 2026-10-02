@@ -12,11 +12,13 @@ import {
   MicromorphModelClient,
   redactMicromorphEndpoint,
 } from "./micromorph-model-client.js";
+import { mountAudioInputControl } from "../../audio-input-control.js";
 
 const $ = (id) => document.getElementById(id);
 const canvas = $("stage");
 const context2d = canvas.getContext("2d", { alpha: true, desynchronized: true });
 const audio = new MicromorphAudio(globalThis);
+audio.setOutputArmed(false);
 const reducedMotion = globalThis.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches
   ?? false;
 const STORAGE_KEY = "morphazoid:micromorph:v1";
@@ -265,7 +267,7 @@ function updateEngineInterface() {
       : ready
         ? "The local model is ready, but the microphone is off. No PCM is crossing the model boundary and the neural path is not audible."
         : "No neural model is active. The audible wet path is a deterministic spectral rehearsal used to test the instrument and control contract.";
-  $("privacyState").textContent = ready && state.audioOn
+  $("privacyState").textContent = ready && audio.enabled
     ? `Microphone PCM is being sent only to ${status.endpoint ?? "the selected loopback model host"}.`
     : ready
       ? `The local model is connected at ${status.endpoint ?? "the selected loopback host"}, but the microphone is stopped and no PCM is being sent.`
@@ -275,7 +277,7 @@ function updateEngineInterface() {
     ? "sample clock"
     : "—";
   $("inputDrops").textContent = String(status.droppedPcmInputFrames ?? 0);
-  audio.setModelActive(state.audioOn && ready);
+  audio.setModelActive(audio.enabled && ready);
 }
 
 function updateInterface({ drawNow = true, sendControls = true } = {}) {
@@ -283,7 +285,8 @@ function updateInterface({ drawNow = true, sendControls = true } = {}) {
   const stageName = micromorphStageName(parameters.derivation);
   setPressed($("audioButton"), state.audioOn);
   $("audioState").textContent = state.audioOn ? "on" : "off";
-  $("sourceSummary").textContent = state.audioOn ? "microphone · listening" : "microphone · local";
+  $("sourceSummary").textContent = audio.enabled ? "microphone · listening" : "microphone · local";
+  inputControl.refresh();
 
   for (const id of [
     "derivation",
@@ -391,17 +394,17 @@ async function toggleAudio() {
   $("audioButton").disabled = true;
   try {
     if (state.audioOn) {
-      await audio.stop();
+      audio.setOutputArmed(false);
+      await stopMicrophone();
       state.audioOn = false;
       audio.setModelActive(false);
       announce("Microphone stopped.");
     } else {
-      await audio.start();
+      await audio.initialize();
+      await audio.context.resume();
+      audio.setOutputArmed(true);
       state.audioOn = true;
-      audio.setModelActive(modelIsReady());
-      announce(modelIsReady()
-        ? "Microphone is streaming to the local model; rehearsal remains audible until model PCM arrives."
-        : "Microphone live through the deterministic rehearsal path. No model is connected.");
+      announce("Audio on.");
     }
   } catch (error) {
     state.audioOn = false;
@@ -416,10 +419,9 @@ async function toggleAudio() {
 }
 
 async function stopMicrophone(message = "Microphone stopped.") {
-  const wasActive = state.audioOn || Boolean(audio.state.starting);
+  const wasActive = audio.enabled || Boolean(audio.state.starting);
   if (!wasActive) return false;
   await audio.stop();
-  state.audioOn = false;
   audio.setModelActive(false);
   updateInterface({ sendControls: false });
   announce(message);
@@ -465,7 +467,7 @@ async function toggleModel() {
     state.engineMessage = "";
     await audio.initialize();
     if (disposed) return;
-    if (!state.audioOn) await audio.stop();
+    if (!audio.enabled) await audio.stop();
     client = new MicromorphModelClient({
       endpoint,
       config: {
@@ -785,6 +787,22 @@ function bindControls() {
   document.querySelector("[data-reset-all]")?.addEventListener("click", resetAll);
 }
 
+const inputControl = mountAudioInputControl({
+  container: $("micButton").parentElement, before: $("micButton").nextElementSibling,
+  button: $("micButton"), gainInput: $("inputGain"), gainOutput: $("inputGainOut"),
+  gainMultiplier: () => state.parameters.inputGain,
+  async onStart() {
+    clearAudioError();
+    try { await audio.start(); audio.setModelActive(modelIsReady()); }
+    catch (error) { if (error?.code !== "micromorph-audio-cancelled") throw error; }
+    finally { if (!disposed) updateInterface({ sendControls: false }); }
+  },
+  onStop: stopMicrophone,
+  getState: () => ({ active: audio.enabled, pending: audio.state.starting }),
+  getSignal: () => ({ node: audio.sourceNode, stream: audio.mediaStream, channels: 1, multiplier: state.parameters.inputGain }),
+  hide: [$("inputGain").closest(".control")],
+});
+
 function initialize() {
   restoreLocalState();
   renderPresets();
@@ -814,7 +832,7 @@ function initialize() {
     }
   };
   const handleKeydown = (event) => {
-    if (event.key !== "Escape" || !state.audioOn) return;
+    if (event.key !== "Escape" || !audio.enabled) return;
     event.preventDefault();
     stopMicrophone("Microphone stopped with Escape.").catch(showAudioError);
   };
@@ -831,6 +849,7 @@ function initialize() {
     document.removeEventListener("visibilitychange", handleVisibility);
     document.removeEventListener("keydown", handleKeydown);
     releaseModelClient();
+    inputControl.destroy();
     audio.close().catch(() => {});
   }, { once: true });
   updateInterface({ sendControls: false });

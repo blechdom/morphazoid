@@ -266,12 +266,12 @@ test("phone touch: controls remain 48px and loop drag/cancel does not lock scrol
 test("already enabled mic records without a second permission request and Audio Off finalizes the take", async ({ page }) => {
   await fakeMic(page); await ready(page, "loop-soup"); await arm(page);
   await page.locator("#microphoneButton").click();
-  await expect(page.locator("#microphoneButton")).toHaveText("Disable microphone");
+  await expect(page.locator("#microphoneButton")).toHaveAttribute("aria-pressed", "true");
   page.on("dialog", (d) => d.accept());
   await node(page, "A").getByRole("button", { name: "Record loop A", exact: true }).click();
   await expect.poll(async () => (await state(page)).recording).toBe(true);
   expect(await page.evaluate(() => window.__networkMic.calls)).toBe(1);
-  await page.waitForTimeout(250);
+  await expect.poll(async () => (await state(page)).recordingInfo?.seconds ?? 0).toBeGreaterThan(0.2);
   await page.locator("#audioButton").click();
   await expect.poll(async () => (await state(page)).recording).toBe(false);
   await expect.poll(async () => (await state(page)).lastRecording?.accepted).toBe(true);

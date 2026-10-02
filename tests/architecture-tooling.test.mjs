@@ -12,7 +12,7 @@ test("architecture entries include root browser modules and nested runtime sourc
   try {
     await Promise.all(["z-app.js", "app.js", "nav.js", "playwright.config.mjs", "package.json"]
       .map((name) => writeFile(path.join(root, name), "")));
-    assert.deepEqual(await runtimeEntries(root), ["app.js", "nav.js", "z-app.js", "src", "morphazoidical"]);
+    assert.deepEqual(await runtimeEntries(root), ["app.js", "nav.js", "z-app.js", "src"]);
     const duplicates = await architectureCommand("duplicates", root);
     assert.equal(duplicates.output, path.join(root, "test-results", "architecture"));
     assert.ok(duplicates.args.includes("--fail-on-empty"));
@@ -32,7 +32,7 @@ test("dependency findings are advisory and AssemblyScript is not parsed as brows
   assert.ok(configuration.forbidden.every((rule) => rule.severity === "warn"));
   const excluded = new RegExp(configuration.options.exclude.path);
   assert.ok(excluded.test("src/simd-resonator-scalar.ts"));
-  assert.ok(excluded.test("morphazoidical/tests/runtime.test.mjs"));
+  assert.ok(excluded.test("tests/runtime.test.mjs"));
   assert.equal(excluded.test("src/instruments/example/controller.js"), false);
   const boundary = configuration.forbidden.find((rule) => rule.name.startsWith("shared-ui"));
   assert.ok(new RegExp(boundary.from.path).test("src/ui/primitives/button.js"));

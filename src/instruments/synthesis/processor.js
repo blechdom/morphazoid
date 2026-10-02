@@ -422,7 +422,7 @@ class RoadsSynthesisProcessor extends AudioWorkletProcessor {
     for (let i = 0; i < n; i++) {
       let value = 0;
       for (const channel of channels) value += channel[i] || 0;
-      capture.samples[capture.offset++] = channels.length ? value / channels.length : 0;
+      capture.samples[capture.offset++] = channels.length ? value / channels.length * 10 ** ((this.state?.inputDb ?? 0) / 20) : 0;
     }
     if (capture.offset === capture.samples.length) {
       this.port.postMessage({ type: "captured", id: capture.id, samples: capture.samples, sampleRate }, [capture.samples.buffer]);

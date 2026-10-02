@@ -1,3 +1,4 @@
+import { readAudioInputReference as readFile } from "./helpers/audio-input-reference.mjs";
 import { restoreHiccupHeadWebcam } from "./helpers/hiccup-head-webcam-reference.mjs";
 import { restoreFabricFilter } from "./helpers/fabric-filter-reference.mjs";
 import { restoreSpelling } from "./helpers/spelling-reference.mjs";
@@ -5,7 +6,7 @@ import { restoreVoicesaurus } from "./helpers/voicesaurus-reference.mjs";
 import { restoreJawHarpControls } from "./helpers/jaw-harp-controls-reference.mjs";
 import { restoreHybrinxVolumeMeter } from "./helpers/hybrinx-volume-meter-reference.mjs";
 import assert from "node:assert/strict";
-import { readFile, stat } from "node:fs/promises";
+import { stat } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { createHash } from "node:crypto";
 import path from "node:path";

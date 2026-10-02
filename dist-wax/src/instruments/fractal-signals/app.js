@@ -12,6 +12,7 @@ import { createRangeField } from '../../ui/index.js';
 import { enhanceRangeKnob } from '../../ui/primitives/range-knob.js';
 import { createAudioStrip } from '../../ui/patterns/audio-strip.js';
 import { registerHeaderPresets } from '../../site/header-presets.js';
+import { mountAudioInputControl } from '../../audio-input-control.js';
 
 const $ = id => document.getElementById(id);
 const TAU = Math.PI * 2;
@@ -62,6 +63,7 @@ let envelopeControl = null;
 let envelopeSyncing = false;
 let microphoneBusy = false;
 let microphoneMessage = '';
+let microphoneRequest = 0;
 const modeMemory = new Map();
 const fields = new Map();
 const motionButtons = new Map();
@@ -92,6 +94,7 @@ $('audioHost').append(strip);
 async function toggleAudio() {
   if (starting || disposed) return;
   if (armed) {
+    ++microphoneRequest; microphoneBusy = false;
     armed = false;
     telemetry = null;
     strip.setAudioState('off');
@@ -123,23 +126,45 @@ async function toggleAudio() {
 
 function refreshMicrophone() {
   const active = audio.microphoneActive;
-  $('microphone').disabled = !armed || microphoneBusy;
-  $('microphone').setAttribute('aria-pressed', String(active));
-  $('microphone').textContent = microphoneBusy ? 'Connecting…' : active ? 'Microphone on' : 'Microphone off';
-  $('microphoneStatus').textContent = microphoneMessage || (!armed ? 'Enable Audio to use the microphone.' : active ? 'Live input · use headphones' : 'Input off · click Microphone to connect.');
-  for (const key of ['inputMix', 'inputGain']) fields.get(key)?.field.setDisabled(!active);
+  inputControl?.refresh();
+  for (const key of ['inputMix']) fields.get(key)?.field.setDisabled(!active);
   fields.get('profileMemory')?.field.setDisabled(!active);
   refreshModulation();
   $('inputMeter').value = active ? clamp(telemetry?.inputRms ?? 0, 0, 1) : 0;
 }
-listen($('microphone'), 'click', async () => {
-  if (!armed || microphoneBusy) return;
+async function startMicrophone() {
+  const request = ++microphoneRequest;
   microphoneMessage = '';
-  if (audio.microphoneActive) { audio.stopMicrophone(); refreshMicrophone(); return; }
   microphoneBusy = true; refreshMicrophone();
-  try { await audio.startMicrophone(); }
-  catch (error) { if (!disposed && armed) microphoneMessage = `Microphone unavailable: ${error.message}`; }
-  finally { microphoneBusy = false; if (!disposed) refreshMicrophone(); }
+  try {
+    if (!audio.node) await audio.start(state, structure, { phase, playing: false, level: 0, transport });
+    if (request !== microphoneRequest || disposed) return;
+    await audio.startMicrophone();
+  }
+  catch (error) {
+    if (!disposed && request === microphoneRequest && error.name !== 'AbortError') {
+      microphoneMessage = `Microphone unavailable: ${error.message}`;
+      throw error;
+    }
+  }
+  finally { if (request === microphoneRequest) microphoneBusy = false; if (!disposed) refreshMicrophone(); }
+}
+const inputGain = document.createElement('input');
+inputGain.type = 'range'; inputGain.id = 'inputGain';
+inputGain.min = '0'; inputGain.max = '4'; inputGain.step = '.01'; inputGain.value = String(state.inputGain);
+const inputGainField = document.createElement('label');
+inputGainField.append(inputGain); $('sourceSection').append(inputGainField);
+const inputControl = mountAudioInputControl({
+  container: $('microphone').closest('.source-section'),
+  before: $('microphone').closest('.source-actions'), button: $('microphone'),
+  gainInput: inputGain, gainValue: state.inputGain, gainMax: 4,
+  onGainInput: value => updateState({ inputGain: value }),
+  gainMultiplier: () => state.inputGain,
+  onStart: startMicrophone,
+  onStop() { ++microphoneRequest; microphoneBusy = false; audio.stopMicrophone(); refreshMicrophone(); },
+  getState: () => ({ active: audio.microphoneActive, pending: microphoneBusy, error: microphoneMessage }),
+  getSignal: () => ({ node: audio.microphoneNode, stream: audio.microphoneStream, channels: 1, multiplier: state.inputGain }),
+  hide: [$('microphone').closest('.source-actions'), $('microphoneStatus'), $('inputMeter'), inputGainField],
 });
 
 function reflectPlaying(value) {
@@ -401,7 +426,7 @@ function buildControls() {
   addSection('ADSR', ['attack', 'decay', 'sustain', 'release'], $('soundControls'), true);
   const stereo = addSection('DECAY, DELAY & STEREO', ['memory', 'space', 'stereoWidth'], $('soundControls'));
   addToggle('stereoFlip', 'Flip L/R', stereo);
-  for (const key of ['inputMix', 'inputGain', ...(state.mode === 'texture' ? ['profileMemory'] : [])]) addField(key, $('inputControls'));
+  for (const key of ['inputMix', ...(state.mode === 'texture' ? ['profileMemory'] : [])]) addField(key, $('inputControls'));
   $('engine').replaceChildren(...ENGINE_OPTIONS[state.mode].map(engine => {
     const option = document.createElement('option'); option.value = engine.value; option.textContent = engine.label; return option;
   }));
@@ -443,7 +468,7 @@ function openHelp(key) {
     paragraph('Drag Attack, Decay or Release horizontally to change that stage’s time. Drag Decay or Sustain vertically to change the sustain level. Each time stage has its own logarithmic travel, keeping very short attacks and long releases reachable together. The note’s score gate decides when release begins. The knobs provide fine adjustment of the same values.');
   } else if (key === 'microphone') {
     $('helpTitle').textContent = 'Microphone input'; paragraph(MIC_HELP[state.mode]);
-    paragraph('Enable Audio and click Microphone to request access. Play runs the processing. Audio off releases the microphone. Presets keep the current input connection and never request permission. Use headphones when processing live input.');
+    paragraph('Click the microphone to connect or disconnect input. Audio enables listening and Play runs the processing. Audio off releases the microphone. Presets keep the current input connection and never request permission.');
   } else if (key === 'position') {
     $('helpTitle').textContent = 'Phrase position'; paragraph('Scrub through the current phrase. The thin line shows the audio clock; marks show event time, pitch and gate duration. Restart returns to the same deterministic beginning.');
   } else {
@@ -528,6 +553,9 @@ function refreshControls() {
     button.setAttribute('aria-busy', String(preparing));
   }
   const mode = modeInfo();
+  inputControl.gainInput.value = String(state.inputGain);
+  inputControl.gainOutput.textContent = `${state.inputGain.toFixed(2)}×`;
+  inputControl.refresh();
   document.body.style.setProperty('--accent', mode.accent);
   document.title = 'Fractal Synthesis — Morphazoid';
   $('gestureHint').textContent = `${mode.gesture.x.toLowerCase()} ↔ · ${mode.gesture.y.toLowerCase()} ↕`;
@@ -936,6 +964,7 @@ async function dispose() {
   envelopeControl?.destroy();
   for (const { field, rotary } of fields.values()) { rotary?.destroy(); field.destroy(); }
   strip.destroy();
+  inputControl.destroy();
   await audio.destroy();
 }
 listen(window, 'pagehide', event => {

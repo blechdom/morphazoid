@@ -26,8 +26,7 @@ Reports go to ignored `test-results/architecture/`:
 
 ### Scope and limits
 
-- Entry points are root browser `.js` modules, `src/`, and the Morphazoidical
-  subtree. Newly nested source remains discoverable.
+- Entry points are root browser `.js` modules and `src/`. Newly nested source remains discoverable.
 - Duplication reporting excludes tests, development scripts, generated output,
   assets, design artwork, vendor code, and installed packages. It ignores
   comments but does not normalize identifier or literal values. The initial
@@ -201,7 +200,7 @@ tests, paired live-page records, fixed-frame pixel checks and verification.
 
 `npm run check` now uses `scripts/check-runtime-source.mjs` before the unchanged
 WASM reproducibility check. It parses root browser JavaScript and nested
-JavaScript in `src/`, `scripts/`, and `morphazoidical/`, without executing it.
+JavaScript in `src/` and `scripts/`, without executing it.
 Important root entry points remain mandatory even if missing.
 
 Tests, vendor/generated output, AssemblyScript `.ts`, and JSX are not fed to

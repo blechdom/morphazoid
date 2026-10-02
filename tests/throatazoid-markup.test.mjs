@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
+import { audioInputConstraints } from "../src/audio-input-settings.js";
 
 const root = new URL("../", import.meta.url);
 
@@ -352,9 +353,11 @@ test("Throatazoid is a first-class mic and glottis-driven Morphazoid instrument"
   assert.match(css, /\.is-capital/);
   assert.match(css, /@media \(prefers-reduced-motion: reduce\)/);
   assert.match(app, /navigator\.mediaDevices\.getUserMedia/);
-  assert.match(app, /echoCancellation:\s*(?:false|\{\s*ideal:\s*false\s*\})/);
-  assert.match(app, /noiseSuppression:\s*(?:false|\{\s*ideal:\s*false\s*\})/);
-  assert.match(app, /autoGainControl:\s*(?:false|\{\s*ideal:\s*false\s*\})/);
+  assert.match(app, /getUserMedia\(audioInputConstraints\(\)\)/);
+  const captureConstraints = audioInputConstraints({}, {});
+  for (const setting of ["echoCancellation", "noiseSuppression", "autoGainControl"]) {
+    assert.deepEqual(captureConstraints.audio[setting], { ideal: false });
+  }
   assert.match(app, /createPeriodicWave/);
   assert.match(app, /createBufferSource/);
   assert.match(app, /glottalHarmonics/);

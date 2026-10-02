@@ -1,3 +1,5 @@
+import { mountAudioInputControl } from "../../audio-input-control.js";
+import { audioInputConstraints, configureAudioInputNode } from "../../audio-input-settings.js";
 import {
   ANIMALS,
   MODEL_LABELS,
@@ -78,6 +80,9 @@ let startingAudio = false;
 let audioOn = false;
 let mediaStream = null;
 let microphonePromise = null;
+let microphoneGeneration = 0;
+let microphoneError = "";
+let audioInputControl = null;
 let gesturePlaying = false;
 let gestureStartTime = 0;
 let gesturePhase = 0;
@@ -362,6 +367,7 @@ async function createAudioGraph() {
     const humanMorphGain = context.createGain();
     const internalGain = context.createGain();
     const micGain = context.createGain();
+    const micInputGain = configureAudioInputNode(audioInputControl.createGain(context));
     const mixBus = context.createGain();
     const masterGain = context.createGain();
     const compressor = context.createDynamicsCompressor();
@@ -371,7 +377,7 @@ async function createAudioGraph() {
     humanMorphGain.gain.value = configuration.mix.humanGain;
     internalGain.gain.value = 0;
     micGain.gain.value = 0;
-    masterGain.gain.value = state.level;
+    masterGain.gain.value = audioOn ? state.level : 0;
     compressor.threshold.value = -12;
     compressor.knee.value = 14;
     compressor.ratio.value = 5;
@@ -399,6 +405,7 @@ async function createAudioGraph() {
       humanMorphGain,
       internalGain,
       micGain,
+      micInputGain,
       mixBus,
       masterGain,
       compressor,
@@ -415,15 +422,17 @@ async function createAudioGraph() {
   }
 }
 
-async function ensureAudio() {
+async function ensureAudio({ armOutput = true } = {}) {
   if (startingAudio) return false;
   if (!graph) {
     startingAudio = true;
-    setAudioPresentation("starting");
+    if (armOutput) setAudioPresentation("starting");
     try {
       graph = await createAudioGraph();
       audioContext = graph.context;
     } catch (error) {
+      startingAudio = false;
+      if (!armOutput) throw error;
       console.error(error);
       showError(error?.message || "Unable to start Morphynx audio.");
       setAudioPresentation("error");
@@ -435,12 +444,12 @@ async function ensureAudio() {
   try {
     unlockAudioContext(audioContext);
     await resumeAudioContext(audioContext);
-    setAudioPresentation("on");
+    if (armOutput) setAudioPresentation("on");
     showError("");
-    if (state.sourceMode !== "internal") await ensureMicrophone();
     configureAudio(performance.now(), true);
     return true;
   } catch (error) {
+    if (!armOutput) throw error;
     console.error(error);
     showError(error?.message || "The browser blocked audio startup.");
     setAudioPresentation("error");
@@ -453,28 +462,46 @@ async function toggleAudio() {
     await ensureAudio();
     return;
   }
-  if (audioContext.state === "running") {
-    await audioContext.suspend();
+  if (audioOn) {
     setAudioPresentation("off");
-    announce("Morphynx audio suspended");
+    configureAudio(performance.now(), true);
+    announce("Morphynx audio off");
   } else {
     await ensureAudio();
     announce("Morphynx audio ready");
   }
 }
 
-async function ensureMicrophone() {
-  if (graph?.micSource && mediaStream?.active) return true;
+function stopMicrophoneInput() {
+  microphoneError = "";
+  microphoneGeneration += 1;
+  microphonePromise = null;
+  graph?.micSource?.disconnect();
+  if (graph) graph.micSource = null;
+  for (const track of mediaStream?.getTracks?.() ?? []) track.stop();
+  mediaStream = null;
+  graph?.micHighpass?.disconnect();
+  if (graph) graph.micHighpass = null;
+  for (const filter of graph?.micFilters ?? []) filter.disconnect();
+  if (graph) graph.micFilters = [];
+  try { graph?.micInputGain?.disconnect(); } catch { /* already detached */ }
+  configureAudio(performance.now(), true);
+}
+
+function ensureMicrophone() {
+  if (graph?.micSource && mediaStream?.active) return Promise.resolve(true);
   if (microphonePromise) return microphonePromise;
-  microphonePromise = (async () => {
+  const generation = ++microphoneGeneration;
+  microphoneError = "";
+  const pending = (async () => {
+    await ensureAudio({ armOutput: false });
+    if (generation !== microphoneGeneration || !graph) return false;
     if (!navigator.mediaDevices?.getUserMedia) throw new Error("Microphone input is unavailable in this browser.");
-    const stream = await navigator.mediaDevices.getUserMedia({
-      audio: {
-        echoCancellation: false,
-        noiseSuppression: false,
-        autoGainControl: false,
-      },
-    });
+    const stream = await navigator.mediaDevices.getUserMedia(audioInputConstraints());
+    if (generation !== microphoneGeneration || document.hidden) {
+      for (const track of stream.getTracks()) track.stop();
+      return false;
+    }
     mediaStream = stream;
     const source = audioContext.createMediaStreamSource(stream);
     const highpass = audioContext.createBiquadFilter();
@@ -488,25 +515,28 @@ async function ensureMicrophone() {
       filter.gain.value = 7 - index * 1.5;
       return filter;
     });
-    source.connect(highpass);
+    source.connect(graph.micInputGain).connect(highpass);
     highpass.connect(filters[0]);
     filters[0].connect(filters[1]);
     filters[1].connect(filters[2]);
     filters[2].connect(graph.micGain);
     graph.micSource = source;
+    graph.micHighpass = highpass;
     graph.micFilters = filters;
+    for (const track of stream.getAudioTracks()) track.addEventListener("ended", () => { if (mediaStream === stream) stopMicrophoneInput(); }, { once: true });
     configureAudio(performance.now(), true);
     return true;
   })().catch((error) => {
-    showError(error?.name === "NotAllowedError"
+    if (generation !== microphoneGeneration) return false;
+    microphoneError = error?.name === "NotAllowedError"
       ? "Microphone permission was denied. Choose Internal to keep playing."
-      : error?.message || "Microphone input could not start.");
-    setSourceMode("internal", { requestMicrophone: false });
+      : error?.message || "Microphone input could not start.";
     return false;
   }).finally(() => {
-    microphonePromise = null;
+    if (microphonePromise === pending) microphonePromise = null;
   });
-  return microphonePromise;
+  microphonePromise = pending;
+  return pending;
 }
 
 function configureAudio(time = performance.now(), immediate = false) {
@@ -549,7 +579,7 @@ function configureAudio(time = performance.now(), immediate = false) {
   );
   graph.internalGain.gain.setTargetAtTime(gains.internal, now, 0.018);
   graph.micGain.gain.setTargetAtTime(gains.mic, now, 0.018);
-  graph.masterGain.gain.setTargetAtTime(state.level, now, 0.025);
+  graph.masterGain.gain.setTargetAtTime(audioOn ? state.level : 0, now, 0.025);
   const formants = morphynxFormants(state.phoneme, baseVoice());
   graph.micFilters.forEach((filter, index) => {
     filter.frequency.setTargetAtTime(formants.frequencies[index], now, 0.025);
@@ -559,7 +589,7 @@ function configureAudio(time = performance.now(), immediate = false) {
 
 function setSourceMode(mode, { requestMicrophone = true } = {}) {
   state.sourceMode = ["internal", "mic", "hybrid"].includes(mode) ? mode : "internal";
-  if (requestMicrophone && state.sourceMode !== "internal") void ensureAudio();
+  if (state.sourceMode === "internal") stopMicrophoneInput();
   updateUi();
   configureAudio(performance.now(), true);
   announce(`${state.sourceMode === "internal" ? "Internal physical model" : state.sourceMode === "mic" ? "Microphone tract" : "Hybrid source"} selected`);
@@ -881,6 +911,13 @@ function installKeyboard() {
 }
 
 function installControls() {
+  audioInputControl = mountAudioInputControl({
+    container: document.querySelector(".morphynx-panel"), before: document.querySelector(".morphynx-lab"),
+    onStart: () => { if (state.sourceMode === "internal") setSourceMode("hybrid", { requestMicrophone: false }); return ensureMicrophone(); },
+    onStop: stopMicrophoneInput,
+    getState: () => ({ active: Boolean(mediaStream), pending: Boolean(microphonePromise), error: microphoneError }),
+    getSignal: () => ({ node: graph?.micInputGain, stream: mediaStream }),
+  });
   $("audioButton").addEventListener("click", toggleAudio);
   $("playButton").addEventListener("click", playGesture);
   $("loopButton").addEventListener("click", () => {

@@ -209,15 +209,3 @@ test("repository declares Morphazoid's MIT license and keeps third-party terms s
   assert.match(signalsmithLicense, /Copyright \(c\) 2022 Geraint Luff \/ Signalsmith Audio Ltd\./);
   assert.equal(JSON.parse(packageText).license, "MIT");
 });
-
-test("Morphazoidical's local menus retain one home link without a duplicate About link", async () => {
-  const pages = await Promise.all([
-    readFile(new URL("morphazoidical/index.html", root), "utf8"),
-    readFile(new URL("morphazoidical/atlas.html", root), "utf8"),
-  ]);
-
-  for (const html of pages) {
-    assert.match(html, /href="\.\.\/">All tools<\/a>/);
-    assert.doesNotMatch(html, />About<\/a>/);
-  }
-});

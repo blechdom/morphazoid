@@ -37,7 +37,7 @@ test("MIDI-only routing never drives a page's native audio transport", () => {
   assert.equal(shouldDriveNativeAudio({ outputMode: "both" }), true);
 });
 
-test("artifact routes resolve catalog ids, including aliases and nested pages", () => {
+test("artifact routes resolve catalog ids, including aliases", () => {
   assert.equal(routeIdForLocation({ pathname: "/dist-wax/chaotic-fm.html" }), "chaotic-fm");
   assert.equal(routeIdForLocation({ pathname: "/dist-wax/l-mic.html" }), "micmic");
   assert.equal(routeIdForLocation({ pathname: "/dist-wax/dentaphone.html" }), "object-forge");
@@ -45,7 +45,6 @@ test("artifact routes resolve catalog ids, including aliases and nested pages", 
     routeIdForLocation({ pathname: "/dist-wax/algorithmic-sequencers.html" }),
     "sorting-algorithms",
   );
-  assert.equal(routeIdForLocation({ pathname: "/dist-wax/morphazoidical/" }), "morphazoidical");
 });
 
 test("WAX routing state is constrained by the wrapper roles", () => {

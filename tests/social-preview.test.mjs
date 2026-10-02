@@ -60,10 +60,10 @@ test("nested pages and the homepage receive correct public URLs before scripts",
     assert.match(transformed, /property="og:url" content="https:\/\/morphazoid\.com\/"/);
     assert.ok(transformed.indexOf('property="og:image"') < transformed.indexOf("<script>"));
   }
-  assert.match(withSocialPreview(sample, "morphazoidical/index.html"),
-    /property="og:url" content="https:\/\/morphazoid\.com\/morphazoidical\/"/);
-  assert.match(withSocialPreview(sample, "morphazoidical\\atlas.html"),
-    /property="og:url" content="https:\/\/morphazoid\.com\/morphazoidical\/atlas\.html"/);
+  assert.match(withSocialPreview(sample, "nested-app/index.html"),
+    /property="og:url" content="https:\/\/morphazoid\.com\/nested-app\/"/);
+  assert.match(withSocialPreview(sample, "nested-app\\atlas.html"),
+    /property="og:url" content="https:\/\/morphazoid\.com\/nested-app\/atlas\.html"/);
   const noCharset = withSocialPreview("<html><head><title>Plain</title></head><body></body></html>");
   assert.match(noCharset, /property="og:title" content="Plain"/);
   assert.equal(withSocialPreview(noCharset), noCharset);
@@ -73,8 +73,8 @@ test("nested pages and the homepage receive correct public URLs before scripts",
 test("the public/WAX build step includes PNGs and covers newly added and nested HTML", async (t) => {
   const dir = await mkdtemp(path.join(os.tmpdir(), "morphazoid-social-preview-"));
   t.after(() => rm(dir, { recursive: true, force: true }));
-  await mkdir(path.join(dir, "morphazoidical"));
-  for (const file of ["index.html", "new-instrument.html", "morphazoidical/atlas.html"]) {
+  await mkdir(path.join(dir, "nested-app"));
+  for (const file of ["index.html", "new-instrument.html", "nested-app/atlas.html"]) {
     await writeFile(path.join(dir, file), sample);
   }
   const result = await addSocialPreviews(dir);
@@ -82,7 +82,7 @@ test("the public/WAX build step includes PNGs and covers newly added and nested 
   for (const asset of [SOCIAL_IMAGE_PATH, BRAND_MARK_PATH]) {
     assert.deepEqual(await readFile(path.join(dir, asset)), await readFile(new URL(asset, root)));
   }
-  for (const file of ["index.html", "new-instrument.html", "morphazoidical/atlas.html"]) {
+  for (const file of ["index.html", "new-instrument.html", "nested-app/atlas.html"]) {
     const first = await readFile(path.join(dir, file), "utf8");
     assert.equal(first, withSocialPreview(sample, file));
   }

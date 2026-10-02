@@ -129,7 +129,8 @@ test("Gesturama exposes presets, harp, motion view, microphone sampling, and col
   assert.match(html, /data-instrument="sample"[\s\S]*?data-note="40"/);
   assert.match(html, /id="record-sample-button"[\s\S]*?aria-pressed="false"/);
   assert.match(html, /id="sample-status"[^>]*role="status"[^>]*aria-live="polite">No sample/);
-  assert.match(html, /The microphone is used only while recording this one slot\./);
+  assert.match(html, /id="gesturamaInput"/);
+  assert.doesNotMatch(html, /sample-recorder-help/);
 
   assert.match(html, /id="sample-color-button"[^>]*aria-pressed="false"/);
   assert.match(html, /id="tracked-color"[^>]*data-active="false"/);
@@ -249,7 +250,8 @@ test("microphone recorder and stored sample lifecycle are wired", async () => {
   assert.match(audio, /clearSample\(\)/);
 
   assert.match(app, /const recorder = new MicrophoneRecorder\(audio, \{ maxDurationMs: 8_000 \}\)/);
-  assert.match(app, /await recorder\.start\(\{ maxDurationMs: 8_000 \}\)/);
+  assert.match(app, /await recorder\.start\(\{ maxDurationMs: 8_000, stream: microphoneDestination\.stream \}\)/);
+  assert.match(app, /microphoneSource\.connect\(microphoneGain\)\.connect\(microphoneDestination\)/);
   assert.match(app, /const buffer = await recorder\.stop\(\)/);
   assert.match(app, /recorder\.finished[\s\S]*?finishRecording/);
   assert.match(app, /window\.addEventListener\("pagehide"[\s\S]*?recorder\.cancel\(\)/);

@@ -124,6 +124,7 @@ export class IOAudioTest {
     this.onChange = onChange;
     this.output = getSharedAudioOutputManager(runtime);
     this.context = null;
+    this.outputArmed = false;
     this.master = null;
     this.releaseOutput = null;
     this.layout = "stereo";
@@ -139,12 +140,14 @@ export class IOAudioTest {
     this.lastAnnouncement = -Infinity;
   }
 
-  get active() { return this.context?.state === "running"; }
+  get active() { return this.outputArmed && this.context?.state === "running"; }
   get maxChannels() { return Math.max(1, this.context?.destination.maxChannelCount || 2); }
 
-  async enable(settings) {
+  async enable(settings, { output = true } = {}) {
     if (this.context) {
       await this.context.resume();
+      this.outputArmed = output;
+      this.setOutputDb(settings.outputDb);
       this.onChange();
       return;
     }
@@ -154,6 +157,7 @@ export class IOAudioTest {
     const version = ++this.version;
     const context = new Context({ latencyHint: "interactive" });
     this.context = context;
+    this.outputArmed = output;
     this.master = context.createGain();
     this.master.gain.value = 0;
     this.master.channelInterpretation = "discrete";
@@ -209,7 +213,7 @@ export class IOAudioTest {
 
   setOutputDb(db) {
     this.outputDb = bounded(db, -60, -12, -24);
-    this.master?.gain.setTargetAtTime(dbToGain(this.outputDb), this.context.currentTime, 0.015);
+    this.master?.gain.setTargetAtTime(this.outputArmed ? dbToGain(this.outputDb) : 0, this.context.currentTime, 0.015);
   }
 
   async setOutput(id) {
@@ -313,16 +317,17 @@ export class IOAudioTest {
   }
 
   async startMic({ inputId = "", inputDb = 0, inputChannels = 1, echoCancellation = false } = {}) {
-    if (!this.active) throw new Error("Turn Audio on before testing the microphone.");
     if (!this.runtime.navigator?.mediaDevices?.getUserMedia) throw new Error("Microphone access needs HTTPS or localhost and a supported browser.");
     this.stopMic();
     this.stopTests();
     const version = this.micVersion;
+    if (this.context?.state !== "running") await this.enable({ layout: this.layout, outputDb: this.outputDb, inputDb }, { output: false });
+    if (version !== this.micVersion) return false;
     const context = this.context;
     const stream = await this.runtime.navigator.mediaDevices.getUserMedia(
       audioInputConstraints(this.runtime, { inputId, inputChannels, echoCancellation }),
     );
-    if (version !== this.micVersion || context !== this.context || !this.active) {
+    if (version !== this.micVersion || context !== this.context || context.state !== "running") {
       stopStream(stream);
       return false;
     }
@@ -423,6 +428,7 @@ export class IOAudioTest {
 
   async disable() {
     this.version++;
+    this.outputArmed = false;
     this.lastAnnouncement = -Infinity;
     this.stopTests();
     this.stopMic();

@@ -8,8 +8,9 @@ export class LoopiniAudio {
     this.context = this.node = this.stream = this.input = this.release = null;
     this.armed = this.disposed = false; this.level = 0.48;
     this.generation = this.micGeneration = 0;
+    this.inputGain = 1; this.inputTrim = null;
   }
-  async arm() {
+  async arm({ output = true } = {}) {
     const attempt = ++this.generation;
     if (this.disposed) return false;
     const Constructor = globalThis.AudioContext ?? globalThis.webkitAudioContext;
@@ -40,7 +41,7 @@ export class LoopiniAudio {
         };
       }
       this.release ??= connectAudioOutput(context, this.node);
-      this.armed = true; this.setLevel(this.level); return true;
+      this.armed = output; this.setLevel(this.level); return true;
     } catch (error) {
       if (attempt !== this.generation || this.disposed) return false;
       this.armed = false;
@@ -54,25 +55,33 @@ export class LoopiniAudio {
     this.generation++; this.armed = false; this.send({ type: "cancel" });
     this.setLevel(this.level); this.stopMic();
   }
+  setInputGain(value) {
+    this.inputGain = clamp(value, 0, 4, 1);
+    if (this.inputTrim) this.inputTrim.gain.setTargetAtTime(this.inputGain, this.context.currentTime, 0.015);
+  }
   async startMic() {
-    if (!this.armed || !this.node) throw new Error("Tap the speaker at the top to turn Audio on first.");
-    if (!navigator.mediaDevices?.getUserMedia) throw new Error("The microphone needs HTTPS or localhost. You can still try the demo.");
+    if (this.stream) return true;
     this.stopMic(); const attempt = ++this.micGeneration;
+    if (!this.node && !await this.arm({ output: false })) return false;
+    await this.context.resume();
+    if (attempt !== this.micGeneration || this.disposed) return false;
+    if (!navigator.mediaDevices?.getUserMedia) throw new Error("The microphone needs HTTPS or localhost. You can still try the demo.");
     let stream;
     try {
       stream = await navigator.mediaDevices.getUserMedia({
         audio: { channelCount: 1, echoCancellation: true, noiseSuppression: false, autoGainControl: true },
       });
     } catch (error) {
-      if (attempt !== this.micGeneration || !this.armed || this.disposed) return false;
+      if (attempt !== this.micGeneration || this.disposed) return false;
       throw error;
     }
-    if (attempt !== this.micGeneration || !this.armed || this.disposed) {
+    if (attempt !== this.micGeneration || this.disposed) {
       stream.getTracks().forEach((t) => t.stop()); return false;
     }
     try {
       const input = this.context.createMediaStreamSource(stream);
-      input.connect(this.node); this.stream = stream; this.input = input;
+      this.inputTrim = this.context.createGain(); this.inputTrim.gain.value = this.inputGain;
+      input.connect(this.inputTrim).connect(this.node); this.stream = stream; this.input = input;
       for (const track of stream.getTracks()) track.addEventListener("ended", () => {
         if (this.stream !== stream) return;
         this.send({ type: "cancel" }); this.stopMic();
@@ -83,6 +92,7 @@ export class LoopiniAudio {
   }
   stopMic() {
     this.micGeneration++; this.input?.disconnect(); this.input = null;
+    this.inputTrim?.disconnect(); this.inputTrim = null;
     const stream = this.stream; this.stream = null;
     stream?.getTracks().forEach((t) => t.stop());
   }

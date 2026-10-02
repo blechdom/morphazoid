@@ -1,3 +1,4 @@
+import { mountAudioInputControl } from "../../audio-input-control.js";
 import {
   FABRIC_IMPACT_BODIES,
   MOIRE_DRONE_DEFAULTS,
@@ -1262,7 +1263,7 @@ function updateInputControls() {
   $("inputGain").value = String(inputGain);
   $("inputGainOut").textContent = `${inputGain.toFixed(2)}×`;
   const button = $("inputButton");
-  button.disabled = !state.audioOn || audioTransition;
+  button.disabled = false;
   button.textContent = audio.inputPending ? "Cancel connection" : audio.inputActive ? "Disconnect input" : "Connect input";
   button.setAttribute("aria-pressed", String(audio.inputActive));
   $("inputStatus").textContent = audio.inputPending ? "Waiting for input permission…"
@@ -2184,7 +2185,27 @@ $("sourceMode").addEventListener("change", () => {
   updateInterface();
   if (audio.sourceMode === "input") void refreshInputDevices();
 });
-$("inputButton").addEventListener("click", () => { void toggleInput(); });
+let inputControlGeneration = 0;
+const audioInputControl = mountAudioInputControl({
+  container: $("liveInputControls").parentElement, before: $("liveInputControls"),
+  button: $("inputButton"), gainInput: $("inputGain"), gainOutput: $("inputGainOut"),
+  onGainInput: (value) => { inputGain = value; audio.setInputGain(value); },
+  onStart: async () => {
+    const generation = ++inputControlGeneration;
+    audio.setSourceMode("input");
+    await audio.initialize();
+    if (generation !== inputControlGeneration) return;
+    audio.clearSuspendTimer();
+    await audio.context.resume();
+    if (generation !== inputControlGeneration) return;
+    await audio.startInput(inputPreferences);
+    updateInterface();
+  },
+  onStop: () => { inputControlGeneration += 1; audio.stopInput(); updateInputControls(); },
+  getState: () => ({ active: audio.inputActive, pending: audio.inputPending }),
+  getSignal: () => ({ node: audio.inputChannelNode, stream: audio.inputStream, channels: inputPreferences.inputChannels, multiplier: inputGain }),
+  hide: [$("inputStatus"), $("inputDevice").closest("label"), $("inputChannels").closest("label"), $("inputGain").closest("label")],
+});
 $("inputDevice").addEventListener("change", changeInputPreferences);
 $("inputChannels").addEventListener("change", changeInputPreferences);
 $("inputGain").addEventListener("input", () => {

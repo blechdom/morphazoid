@@ -1,3 +1,4 @@
+import { mountAudioInputControl } from "../../audio-input-control.js";
 import { registerHeaderPresets } from "../../site/header-presets.js";
 import { GRAPH_DELAY_INITIAL_STATE as INITIAL_STATE, GRAPH_DELAY_FULL_PRESETS, captureGraphDelayPreset, validateGraphDelayPreset, randomizeGraphDelayPreset } from "../../families/graph-presets/full-presets.js";
 import {
@@ -76,6 +77,7 @@ let edgeSwitchStates = new Map(
   model.edges.map((edge) => [`${edge.from}>${edge.to}`, true]),
 );
 let resetEdgeSwitchesOnNextCommit = false;
+let audioOutputEnabled = false;
 let audioContext = null;
 let audioGraph = null;
 let mediaStream = null;
@@ -508,7 +510,7 @@ function buildAudioGraphNodes(
   clipper.oversample = "2x";
   dry.gain.value = state.dry;
   wet.gain.value = state.wet;
-  output.gain.value = state.level;
+  output.gain.value = audioOutputEnabled ? state.level : 0;
   crossfade.gain.value = crossfadeGain;
 
   const nodes = geometry.nodes.map((spec) => {
@@ -669,7 +671,7 @@ function applyAudioParameters() {
   }
   audioGraph.dry.gain.setTargetAtTime(state.dry, now, 0.02);
   audioGraph.wet.gain.setTargetAtTime(state.wet, now, 0.02);
-  audioGraph.output.gain.setTargetAtTime(state.level, now, 0.02);
+  audioGraph.output.gain.setTargetAtTime(audioOutputEnabled ? state.level : 0, now, 0.02);
   audioGraph.inputTrimNode?.gain.setTargetAtTime(state.inputTrim, now, 0.02);
   for (let index = 0; index < audioGraph.edges.length; index += 1) {
     audioGraph.edges[index].delay.delayTime.setTargetAtTime(parameters[index].delaySeconds, now, 0.03);
@@ -1017,6 +1019,10 @@ async function startMicrophone() {
     microphoneSource.connect(inputAnalyser);
     connectMicrophoneToGraph();
     state.mic = true;
+    for (const track of mediaStream.getAudioTracks?.() ?? mediaStream.getTracks?.() ?? []) {
+      const stream = mediaStream;
+      track.addEventListener?.("ended", () => { if (mediaStream === stream) stopMicrophone(); }, { once: true });
+    }
     $("audioError").hidden = true;
     $("liveStatus").textContent = `${GRAPH_PRESETS[state.topology].label} microphone delay started. ${pitchProcessorReady ? "Pitch processing active." : "Pitch processing unavailable; time processing remains active."}`;
   } catch (error) {
@@ -1030,7 +1036,19 @@ async function startMicrophone() {
   }
 }
 
+function stopMicrophone() {
+  microphoneStartToken += 1;
+  try { microphoneSource?.disconnect(); } catch { /* already detached */ }
+  try { inputAnalyser?.disconnect(); } catch { /* already detached */ }
+  for (const track of mediaStream?.getTracks?.() ?? []) track.stop();
+  mediaStream = microphoneSource = inputAnalyser = null;
+  state.mic = state.starting = false;
+  currentLevel = 0;
+  updateUi();
+}
+
 function panic(message = "Panic stop. Microphone and every graph feedback tail are off.") {
+  audioOutputEnabled = false;
   microphoneStartToken += 1;
   cancelScheduledGraphRebuild();
   if (graphTransitionTimer !== null) clearTimeout(graphTransitionTimer);
@@ -1650,11 +1668,12 @@ function updateUi() {
   const selectedTimes = selectedEdges.map((edge) => Math.round(edge.delaySeconds * 1_000));
   const audioLabel = state.starting ? "starting" : state.mic ? "live" : "off";
   $("audioState").textContent = audioLabel;
-  $("audioButton").setAttribute("aria-pressed", String(state.mic));
+  $("audioButton").setAttribute("aria-pressed", String(audioOutputEnabled));
+  $("audioState").textContent = audioOutputEnabled ? "on" : "off";
   $("micButton").setAttribute("aria-pressed", String(state.mic));
   $("seedMicButton").setAttribute("aria-pressed", String(state.mic));
   $("audioButton").disabled = state.starting;
-  $("micButton").disabled = state.starting;
+  $("micButton").disabled = false;
   $("seedMicButton").disabled = state.starting;
   $("stopButton").disabled = !state.mic && !state.starting;
   $("panicButton").disabled = !state.mic && !state.starting;
@@ -2050,9 +2069,30 @@ bindRange("damping", "damping", { marksPatchCustom: true });
 bindRange("wet", "wet", { marksPatchCustom: true });
 bindRange("dry", "dry", { marksPatchCustom: true });
 bindRange("spread", "spread", { marksPatchCustom: true });
-for (const id of ["audioButton", "micButton", "seedMicButton"]) $(id).addEventListener("click", () => {
-  if (state.mic) panic("Microphone and graph delay stopped.");
-  else void startMicrophone();
+$("audioButton").addEventListener("click", async () => {
+  try {
+    if (!audioContext || audioContext.state === "closed") {
+      const AudioContextClass = globalThis.AudioContext || globalThis.webkitAudioContext;
+      audioContext = new AudioContextClass({ latencyHint: "interactive" });
+      unlockAudioContext(audioContext);
+      await audioContext.resume();
+      await preparePitchProcessor(audioContext);
+    }
+    audioOutputEnabled = !audioOutputEnabled;
+    if (!audioOutputEnabled) stopMicrophone();
+    if (!audioGraph) audioGraph = buildAudioGraph(audioContext);
+    applyAudioParameters();
+    updateUi();
+  } catch (error) { $("audioError").textContent = error.message; $("audioError").hidden = false; }
+});
+const audioInputControl = mountAudioInputControl({
+  container: $("listenSection").parentElement, before: $("listenSection"),
+  button: $("micButton"), gainInput: $("inputTrim"), gainOutput: $("inputTrimOut"),
+  onGainInput: (value) => { state.inputTrim = value; applyAudioParameters(); },
+  onStart: startMicrophone, onStop: stopMicrophone,
+  getState: () => ({ active: state.mic, pending: state.starting, error: $("audioError").hidden ? "" : $("audioError").textContent }),
+  getSignal: () => ({ node: microphoneSource, stream: mediaStream, multiplier: state.inputTrim }),
+  hide: [$("listenSection"), $("seedMicButton")],
 });
 $("stopButton").addEventListener("click", () => panic());
 $("panicButton").addEventListener("click", () => panic());

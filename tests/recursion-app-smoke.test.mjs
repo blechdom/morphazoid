@@ -48,6 +48,14 @@ test("Fuzzy Donut initializes, draws, and drives one live recursive instrument",
       dataset: geometryView ? { geometry: geometryView, geometryView } : {},
       style: {},
       attributes,
+      children: [], parentNode: null, nodeType: 1,
+      get childNodes() { return this.children; },
+      append(...nodes) { for (const child of nodes) { child.remove?.(); child.parentNode = this; this.children.push(child); } },
+      insertBefore(child, before) { child.remove?.(); child.parentNode = this; const at = this.children.indexOf(before); this.children.splice(at < 0 ? this.children.length : at, 0, child); },
+      remove() { if (this.parentNode) this.parentNode.children = this.parentNode.children.filter((node) => node !== this); this.parentNode = null; },
+      contains(other) { return other === this || this.children.some((child) => child.contains?.(other)); },
+      replaceChild(next, old) { const at = this.children.indexOf(old); this.children[at] = next; next.parentNode = this; old.parentNode = null; },
+      removeEventListener() {},
       classList: classList(),
       addEventListener(type, listener) { listeners.set(`${id}:${type}`, listener); },
       setAttribute(name, value) { attributes.set(name, String(value)); },
@@ -131,7 +139,7 @@ test("Fuzzy Donut initializes, draws, and drives one live recursive instrument",
     height: 600,
   });
 
-  let queuedFrame = null;
+  let queuedFrames = [];
   let frameId = 0;
   const documentListeners = new Map();
   const originalGlobals = new Map();
@@ -152,7 +160,7 @@ test("Fuzzy Donut initializes, draws, and drives one live recursive instrument",
   });
 
   globalThis.requestAnimationFrame = (callback) => {
-    queuedFrame = callback;
+    queuedFrames.push(callback);
     frameId += 1;
     return frameId;
   };
@@ -164,8 +172,15 @@ test("Fuzzy Donut initializes, draws, and drives one live recursive instrument",
   globalThis.document = {
     hidden: false,
     getElementById(id) { return elements.get(id) ?? null; },
+    querySelector(selector) { return selector === ".recursion-seed" ? elements.get("micContainer") : null; },
+    createElement(tag) { const node = element(`created-${elements.size}`); node.ownerDocument = this; node.tagName = tag.toUpperCase(); return node; },
+    removeEventListener() {},
     addEventListener(type, listener) { documentListeners.set(type, listener); },
   };
+
+  for (const node of elements.values()) node.ownerDocument = globalThis.document;
+  const micContainer = element("micContainer"); micContainer.ownerDocument = globalThis.document;
+  globalThis.document.head = element("head");
 
   function audioParam(value = 0) {
     return {
@@ -255,10 +270,9 @@ test("Fuzzy Donut initializes, draws, and drives one live recursive instrument",
   };
 
   function flushFrame(now = performance.now()) {
-    assert.equal(typeof queuedFrame, "function", "expected an animation frame");
-    const callback = queuedFrame;
-    queuedFrame = null;
-    callback(now);
+    assert.ok(queuedFrames.length > 0, "expected an animation frame");
+    const callbacks = queuedFrames; queuedFrames = [];
+    for (const callback of callbacks) callback(now);
   }
 
   await import(`../src/instruments/recursion/recursion-app.js?smoke=${Date.now()}`);

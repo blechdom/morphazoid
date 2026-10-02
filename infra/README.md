@@ -10,7 +10,7 @@ Production uses:
 
 The stack must be deployed in `us-east-1` because CloudFront certificates must
 exist there. `www.morphazoid.com` redirects to the apex domain, and directory
-paths such as `/morphazoidical/` resolve to their `index.html`.
+paths such as `/dist-wax/` resolve to their `index.html`.
 The component catalog is published at `/storybook/`; only that cache behavior
 allows same-origin framing, which Storybook needs for its preview pane.
 

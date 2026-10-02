@@ -73,7 +73,7 @@ The package manifest is the source of truth for commands:
 | Command | Purpose |
 | --- | --- |
 | `npm run check` | Parse the authored JavaScript and build tooling. |
-| `npm test` | Run Node tests in `tests/` and `morphazoidical/tests/`. |
+| `npm test` | Run Node tests in `tests/`. |
 | `npm run test:release-manifest` | Check release-file policies and isolated old/new builder parity. |
 | `npm run verify` | Run `check`, Node tests, and committed WAX parity. |
 | `npm run build:wax` | Regenerate the committed `dist-wax/` tree. |

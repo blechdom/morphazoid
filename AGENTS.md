@@ -26,6 +26,13 @@ command names.
   file set. Parallel agents may investigate read-only or work in isolated
   worktrees; integrate their changes serially.
 - Read the relevant implementation and nearby shared utilities before editing.
+  All microphone controls use `mountAudioInputControl()` from
+  `src/audio-input-control.js`: input gain knob → mono/stereo meters → mic toggle,
+  grouped with the shared violet input accent,
+  before output meters in the desktop menubar and beside presets on mobile.
+  Use borderless input meters and an anchored error popup that never resizes the
+  controls. Keep Record separate; add Mic/File only for
+  existing file input. See `docs/audio-input-controls.md`.
   Inspect at least two useful sibling instruments before creating or materially
   redesigning one.
 - For a browser instrument, `node scripts/inspect-instrument.mjs <catalogue-id>`
@@ -85,7 +92,7 @@ command names.
   lane, kernel, budget, topology, implementation counts, slogans, and explanatory
   diagrams in diagnostics or documentation unless a performer needs them to act.
 - Keep transport and recovery immediately reachable. The performance masthead is
-  Morphazoid → Choose → next instrument → flexible space → stereo meters →
+  Morphazoid → Choose → next instrument → flexible space → mic input (where used) → stereo meters →
   volume knob → Audio → Settings. MIDI on/off and receive activity belong inside
   Settings. Main preset menu → next preset → randomize (dice) belongs in the
   first row of the instrument's right control panel, using the Choose-menu UI.
@@ -127,8 +134,8 @@ command names.
 
 ## Browser and native contracts
 
-- Treat authored public HTML/bootstrap files, `style.css`, `src/`, `assets/`,
-  and `morphazoidical/` as source. Treat `dist-wax/` as generated, committed
+- Treat authored public HTML/bootstrap files, `style.css`, `src/`, and `assets/`
+  as source. Treat `dist-wax/` as generated, committed
   output: regenerate it with `npm run build:wax` rather than editing it, and require
   `npm run check:wax-dist` to match a clean build when runtime source changes.
 - Explicit pre-commit file inclusion and required artifact paths live in

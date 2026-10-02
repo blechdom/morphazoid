@@ -13,7 +13,6 @@ export async function runtimeEntries(root = repositoryRoot) {
       .map((entry) => entry.name)
       .sort(),
     "src",
-    "morphazoidical",
   ];
 }
 

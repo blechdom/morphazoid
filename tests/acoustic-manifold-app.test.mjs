@@ -69,8 +69,9 @@ test("the controller exposes occurrence amplitude, active-run detail, and explic
 
 test("live capture is bounded, permission is click-driven, and completion maps once stopped", () => {
   assert.match(app, /new AcousticLiveCapture/);
-  assert.match(app, /start-live-input[^\n]+startLiveInput/);
-  assert.match(app, /capture-live-input[^\n]+stopOrCancelLive/);
+  assert.match(app, /button: \$\("start-live-input"\)/);
+  assert.match(app, /onStart: startLiveInput/);
+  assert.match(app, /onStop: stopOrCancelLive/);
   assert.match(app, /Cancel request/);
   assert.match(app, /normalizeCaptureDuration\(\$\("live-window-seconds"\)\.value\)/);
   assert.match(app, /capture\.finished\.then/);

@@ -4,6 +4,12 @@
 # require: require it in the artifact without granting an additional untracked-file inclusion.
 # Other tracked-file and asset-glob rules remain in scripts/build-site.sh.
 # Keep requirement order stable; every path is declared once. See README.md.
+copy+require	src/audio-input-control.js
+copy+require	src/audio-input-meter.js
+copy+require	src/ui/patterns/audio-input-strip.js
+copy+require	src/ui/patterns/audio-input-strip.css
+copy+require	docs/audio-input-controls.md
+copy+require	docs/audio-input-controls.json
 copy+require	src/instruments/puggler/puggler-full-presets.js
 copy+require	src/instruments/puggler/puggler-era-posters.js
 copy+require	src/instruments/puggler/puggler-object-sounds.js
@@ -722,7 +728,6 @@ copy+require	assets/instruments/karplus-carpet.webp
 copy+require	src/instruments/rattlesnake-skin/rattlesnake-skin.css
 copy+require	src/instruments/rattlesnake-skin/rattlesnake-skin-app.js
 copy+require	src/instruments/rattlesnake-skin/linear-drums-machine.js
-require	morphazoidical/index.html
 copy+require	vendor/signalsmith-stretch/LICENSE
 require	vendor/signalsmith-stretch/SignalsmithStretch.mjs
 require	vendor/tactile/tactile.js
