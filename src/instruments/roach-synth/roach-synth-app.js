@@ -6,7 +6,7 @@ import { ROACH_MOTION_PRESETS, ROACH_MOTION_DEFAULTS, normalizeRoachMotion, acti
   constrainRoachFloorPose } from "./roach-synth-motion.js";
 import { RoachSynthAudio, ROACH_SOUND_PRESETS, ROACH_BODY_GROUPS,
   ROACH_BODY_SOURCES, createDefaultRoachBodyMix, createRandomRoachSound, getRoachBodyGroupId,
-  ROACH_MOTION_SOUND_PRESETS, getRoachMotionSound, ROACH_VOICE_PRESETS } from "./roach-synth-audio.js";
+  ROACH_MOTION_SOUND_PRESETS, getRoachMotionSound } from "./roach-synth-audio.js";
 
 import { createNativeSelectPicker } from "../../ui/patterns/native-select-picker.js";
 import { registerHeaderPresets } from "../../site/header-presets.js";
@@ -245,7 +245,7 @@ function paintKnob(input) {
   const value = Number(input.value), fraction = (value - Number(input.min)) / (Number(input.max) - Number(input.min));
   input.closest('.roach-knob')?.style.setProperty('--knob-angle', `${-135 + 270 * fraction}deg`);
   const text = ['pitch', 'wingRate'].includes(input.id) ? `${Math.round(value)}`
-    : input.id === 'rhythm' ? `${value.toFixed(2)}×`
+    : ['rhythm', 'voiceSpeed'].includes(input.id) ? `${value.toFixed(2)}×`
       : input.id === 'pan' ? value === 0 ? 'C' : `${Math.round(Math.abs(value) * 100)}${value < 0 ? 'L' : 'R'}`
         : `${Math.round(value * 100)}%`;
   el(`${input.id}Out`).textContent = text;
@@ -264,8 +264,7 @@ function syncMixer() {
 }
 function syncSound() {
   for (const input of document.querySelectorAll('[data-sound]')) { input.value = state.sound[input.dataset.sound]; paintKnob(input); }
-  el('voicePreset').value = state.sound.voicePreset ?? ROACH_VOICE_PRESETS[0].id;
-  audio.setVoicePreset(el('voicePreset').value); soundPicker?.sync();
+  audio.setVoicePreset(state.sound.voicePreset); soundPicker?.sync();
   el('level').value = state.sound.level; el('levelOut').value = `${Math.round(state.sound.level * 100)}%`; syncMixer();
 }
 function markSoundCustom() {
@@ -358,7 +357,6 @@ async function loadModel() {
 }
 
 buildMixer(); initializeKnobs();
-el('voicePreset').replaceChildren(...ROACH_VOICE_PRESETS.map(item => new Option(item.label, item.id)));
 const soundBank = document.createElement('optgroup'); soundBank.label = 'Sound presets';
 soundBank.append(...ROACH_SOUND_PRESETS.map(item => new Option(item.label, item.id)));
 const animationSoundBank = document.createElement('optgroup'); animationSoundBank.label = 'Animation sounds';
@@ -437,10 +435,6 @@ el('nextSound').addEventListener('click', () => {
   const index = bank.findIndex(option => option.value === el('soundPreset').value);
   el('soundPreset').value = bank[(index + 1) % bank.length].value;
   el('soundPreset').dispatchEvent(new Event('change', { bubbles: true }));
-}, options);
-el('voicePreset').addEventListener('change', () => {
-  state.sound.voicePreset = el('voicePreset').value; audio.setVoicePreset(state.sound.voicePreset);
-  markSoundCustom(); soundPicker?.sync(); publishSound();
 }, options);
 el('randomSound').addEventListener('click', () => {
   const next = createRandomRoachSound(++state.soundSeed * 2654435761 >>> 0);

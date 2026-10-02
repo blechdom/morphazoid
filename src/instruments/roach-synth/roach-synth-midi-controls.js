@@ -10,7 +10,7 @@ const KEY = 'morphazoid:roach-midi:v1';
 const PARAMS = [
   ['intensity', 'Movement'], ['tempo', 'Tempo'], ['pitch', 'Pitch'], ['brightness', 'Filter'],
   ['resonance', 'Resonance'], ['crunch', 'Crust'], ['vowel', 'Vowel'], ['wingRate', 'Wing rate'],
-  ['rhythm', 'Rattle rate'], ['pan', 'Pan'], ['voice', 'Voice level'], ['level', 'Master level'],
+  ['rhythm', 'Rattle rate'], ['pan', 'Pan'], ['voice', 'Voice level'], ['voiceSpeed', 'Voice speed'], ['level', 'Master level'],
 ];
 const ACTIONS = [
   ['speakButton', 'Say phrase'], ['motionButton', 'Play / pause'],
@@ -51,7 +51,7 @@ export function createRoachMidiControls({ audio, setPlaying, selectGroup, onVisu
     ['Body rotations', ROACH_BODY_GROUPS.flatMap(({ id, label }) => ['x', 'y', 'z'].map(axis => [`joint:${id}:${axis}`, `${label} · ${axis.toUpperCase()}`]))],
     ['Body levels', ROACH_BODY_GROUPS.map(({ id, label }) => [`mix:${id}`, `${label} level`])],
     ['Body sounds', ROACH_BODY_GROUPS.map(({ id, label }) => [`source:${id}`, `${label} sound`])],
-    ['Presets', [['select:soundPreset', 'Sound preset'], ['select:motionPreset', 'Animation preset'], ['select:voicePreset', 'Roach voice']]],
+    ['Presets', [['select:soundPreset', 'Sound preset'], ['select:motionPreset', 'Animation preset']]],
     ['Buttons · cross halfway to trigger', ACTIONS.map(([id, label]) => [`action:${id}`, label])],
   ];
   for (const [, values] of groups) for (const [id] of values) validTargets.add(id);

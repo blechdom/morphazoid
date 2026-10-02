@@ -98,9 +98,10 @@ fills the stage, with camera and joint controls underneath.
 The compact control panel starts with complete presets, Play and tempo with
 1/2, 1/4, 2× and 4× actions, then independent animation and sound menus with
 Next and dice. Sound knobs sit below their menu. Eight body groups have source,
-level, mute and solo controls. Four Voicesaurus voices—eSpeak NG, Klatt, Flite
-SLT and low KAL16—speak typed words and provide movement-triggered body sounds.
-Twenty-two sound presets and 24 animation companion sounds include scratches,
+level, mute and solo controls. Voicesaurus's Low KAL16 speaks typed words and
+provides movement-triggered body sounds, with a quieter default voice level
+and an independent 0.5–2× Speed knob.
+Nineteen sound presets and 24 animation companion sounds include scratches,
 wing buzz, wire zing and CC0 cockroach rustles. Full presets preserve master
 and voice output levels; output reaches 100% with peak protection.
 [MIDI performance](docs/roach-synth-midi.md) supplies held body poses,
