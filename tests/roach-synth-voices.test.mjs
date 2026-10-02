@@ -134,6 +134,53 @@ test('native sample preparation preserves fixed engine trim and rejects unbounde
   assert.throws(() => prepareRoachNativeSamples({ samples: new Float32Array(RATE * 5), sampleRate: RATE }, preset, { body: true }));
 });
 
+test('native speech expiry follows remaining sample time and pending replacement rather than telemetry delivery age', () => {
+  const dsp = new RoachSynthDsp(RATE);
+  dsp.update({ enabled: true, playing: false, soundPlaying: false }); dsp.audioTime = 10;
+  dsp.speakSamples(Float32Array.from({ length: 16000 }, (_, i) => Math.sin(i * Math.PI * 2 * 190 / 16000) * .2), 16000);
+  assert.ok(Math.abs(dsp.speechExpiryTime() - 11.015) < .001, 'a pending native phrase exposes its full deadline');
+  render(dsp, .1); const first = dsp.telemetry.speechUntil;
+  assert.ok(first > dsp.audioTime + .89);
+  render(dsp, .2);
+  assert.ok(Math.abs(dsp.telemetry.speechUntil - first) < .002, 'the absolute deadline stays stable while remaining sample time decreases');
+  dsp.speakSamples(voiceSamples(.4), RATE);
+  const replacement = dsp.speechExpiryTime();
+  assert.ok(replacement > dsp.audioTime + .414 && replacement < dsp.audioTime + .431);
+  render(dsp, .001);
+  assert.ok(dsp.pendingNativeSpeech, 'the old phrase is still releasing');
+  assert.ok(Math.abs(dsp.telemetry.speechUntil - replacement) < .002);
+  render(dsp, .04); assert.equal(dsp.pendingNativeSpeech, null);
+  assert.ok(Math.abs(dsp.telemetry.speechUntil - replacement) < .002);
+  render(dsp, .5); assert.equal(dsp.telemetry.speechUntil, 0);
+  dsp.speakSamples(voiceSamples(1), RATE); render(dsp, .02);
+  dsp.stopSpeech(); assert.equal(dsp.telemetry.speechUntil, 0); assert.equal(dsp.speechExpiryTime(), 0);
+  dsp.speakSamples(voiceSamples(1), RATE); render(dsp, .02);
+  dsp.update({ enabled: false }); assert.equal(dsp.telemetry.speechUntil, 0);
+  assert.equal(dsp.speechExpiryTime(), 0);
+  dsp.update({ enabled: true }); render(dsp, .3); assert.equal(dsp.telemetry.speechUntil, 0);
+  dsp.update({ sound: { pitch: 600 } }); render(dsp, .3);
+  dsp.speakSamples(voiceSamples(1), RATE); render(dsp, .01);
+  assert.ok(dsp.speechRate > 1.3);
+  assert.ok(dsp.telemetry.speechUntil < dsp.audioTime + .8, 'pitch-rate changes shorten the actual playback deadline');
+  dsp.stopSpeech(); render(dsp, .1);
+  dsp.setAtlas(voiceSamples(1), RATE); dsp.speak([{ offset: 0, duration: .2 }]); render(dsp, .01);
+  assert.equal(dsp.telemetry.speechUntil, 0, 'legacy phone playback leaves the native deadline unavailable');
+});
+
+test('adapter forwards bounded native speech deadlines with their audio clock and clears stale telemetry on Audio off', async () => {
+  const f = fixture(), updates = [], audio = new RoachSynthAudio({ runtime: f.runtime, onTelemetry: state => updates.push(state) });
+  try {
+    await audio.enable();
+    const telemetry = speechUntil => audio.node.port.onmessage({ data: { type: 'telemetry', audioTime: 10, speechUntil, speechEnvelope: .2 } });
+    telemetry(11.25); assert.equal(audio.getState().speechUntil, 11.25);
+    assert.equal(updates.at(-1).audioTime, 10); assert.equal(updates.at(-1).speechUntil, 11.25);
+    telemetry(99999); assert.equal(audio.getState().speechUntil, 55);
+    telemetry(NaN); assert.equal(audio.getState().speechUntil, 0);
+    telemetry(11.25); audio.disable(); assert.equal(audio.getState().speechUntil, 0);
+    telemetry(11.25); assert.equal(updates.at(-1).speechUntil, 0, 'queued pre-mute reports cannot revive a stale animation deadline');
+  } finally { audio.dispose(); }
+});
+
 test('all animation companions have useful maximum output, headroom, and a genuine 80–100% level range', () => {
   for (const preset of ROACH_MOTION_SOUND_PRESETS) {
     const dsp = new RoachSynthDsp(RATE);

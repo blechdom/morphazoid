@@ -14,6 +14,7 @@ const MAX_JOINTS = 128;
 const MAX_MAPPINGS = 128;
 const MAX_PHONES = 96;
 const EMPTY_PHONES = Object.freeze([]);
+const NATIVE_SPEECH_RELEASE_SECONDS = .015;
 const finite = (value, fallback = 0) => Number.isFinite(Number(value)) ? Number(value) : fallback;
 const clamp = (value, low, high) => Math.max(low, Math.min(high, finite(value, low)));
 const clean = (value) => Number.isFinite(value) && Math.abs(value) > 1e-24 ? value : 0;
@@ -337,10 +338,10 @@ export class RoachSynthDsp {
     this.filterL = 0; this.filterR = 0; this.dcL = 0; this.dcR = 0; this.previousL = 0; this.previousR = 0; this.randomState = 0x756d4f21;
     this.atlas = null; this.atlasRate = 16000; this.phoneQueue = EMPTY_PHONES; this.phoneIndex = 0;
     this.phonePosition = 0; this.phone = null; this.speechEnvelope = 0; this.speechGain = 0; this.speechTarget = 0; this.pendingSpeech = null;
-    this.nativeSpeech = null; this.pendingNativeSpeech = null; this.nativeSpeechPosition = 0;
+    this.nativeSpeech = null; this.pendingNativeSpeech = null; this.nativeSpeechPosition = 0; this.nativeSpeechExpiryActive = false;
     this.speechSmoothing = 1 - Math.exp(-1 / (this.sampleRate * .0015));
     this.filterCoefficient = .25; this.panL = Math.SQRT1_2; this.panR = Math.SQRT1_2; this.speechRate = 1;
-    this.telemetry = {rms:0,peak:0,speechEnvelope:0,motionTime:0,soundTime:0,renderedFrames:0};
+    this.telemetry = {rms:0,peak:0,speechEnvelope:0,speechUntil:0,motionTime:0,soundTime:0,renderedFrames:0};
   }
   update(value = {}) {
     const resetActivity = value.resetActivity === true;
@@ -513,8 +514,23 @@ export class RoachSynthDsp {
     // Preserve an in-flight phrase until its short release finishes. A native
     // phrase is one continuous buffer, so sentence prosody survives playback.
     this.pendingNativeSpeech = { samples, sampleRate };
-    this.speechTarget = 0;
+    this.speechTarget = 0; this.nativeSpeechExpiryActive = true;
     return true;
+  }
+  speechExpiryTime() {
+    if (!this.enabled || !this.nativeSpeechExpiryActive) return 0;
+    // This deadline follows the source's actual sample clock. A delayed UI
+    // message remains valid through the phrase rather than aging out in 300 ms.
+    const release = this.speechGain > .0001
+      ? Math.min(NATIVE_SPEECH_RELEASE_SECONDS, Math.log(this.speechGain / .0001) * .0015) : 0;
+    if (this.pendingNativeSpeech) {
+      const { samples, sampleRate } = this.pendingNativeSpeech;
+      return this.audioTime + release + samples.length / (sampleRate * this.speechRate) + NATIVE_SPEECH_RELEASE_SECONDS;
+    }
+    if (!this.nativeSpeech) return 0;
+    const { samples, sampleRate } = this.nativeSpeech;
+    const remaining = Math.max(0, samples.length - this.nativeSpeechPosition) / (sampleRate * this.speechRate);
+    return this.audioTime + (this.speechTarget ? remaining + NATIVE_SPEECH_RELEASE_SECONDS : release);
   }
   setAtlas(samples, sampleRate) {
     if (!(samples instanceof Float32Array) || samples.length > 192000 * 16) throw new Error('Speech atlas exceeds its fixed budget.');
@@ -522,6 +538,7 @@ export class RoachSynthDsp {
   }
   speak(phones) {
     if (!this.atlas || !this.enabled) return false;
+    this.nativeSpeechExpiryActive = false;
     const queue = (Array.isArray(phones) ? phones : []).slice(0, MAX_PHONES).map((phone) => ({
       offset: clamp(phone?.offset, 0, this.atlas.length / this.atlasRate),
       duration: clamp(phone?.duration, .015, .65), gain: clamp(phone?.gain ?? 1, 0, 1.5), silence: phone?.silence === true,
@@ -534,7 +551,10 @@ export class RoachSynthDsp {
     }
     return queue.length > 0;
   }
-  stopSpeech() { this.pendingSpeech = null; this.pendingNativeSpeech = null; this.speechTarget = 0; }
+  stopSpeech() {
+    this.pendingSpeech = null; this.pendingNativeSpeech = null; this.speechTarget = 0;
+    this.nativeSpeechExpiryActive = false; this.telemetry.speechUntil = 0;
+  }
   random() {
     let x = this.randomState; x ^= x << 13; x ^= x >>> 17; x ^= x << 5; this.randomState = x | 0;
     return (x >>> 0) / 2147483648 - 1;
@@ -702,6 +722,7 @@ export class RoachSynthDsp {
     }
     this.telemetry.rms=Math.sqrt(energy/Math.max(1,count*2)); this.telemetry.peak=peak;
     this.telemetry.motionTime=this.time; this.telemetry.soundTime=this.soundTime; this.telemetry.speechEnvelope=this.speechEnvelope;
+    this.telemetry.speechUntil=this.speechExpiryTime();
     this.telemetry.contactEvents=this.contactEvents; this.telemetry.lastContactTime=this.lastContactTime;
     this.telemetry.interactionPeak=this.interactionPeak; this.telemetry.recordingEvents=this.recordings.events;
     const midi = this.midiPerformance.output; let active = 0;

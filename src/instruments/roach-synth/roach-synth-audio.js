@@ -84,7 +84,7 @@ export class RoachSynthAudio {
     this.state = { playing: false, soundPlaying: false, sound: { ...ROACH_SOUND_DEFAULTS }, bodyMix: createDefaultRoachBodyMix() };
     this.anchorTime = 0; this.anchorClock = this.clock();
     this.midiPerformance = new RoachMidiPerformance();
-    this.telemetry = { rms: 0, peak: 0, speechEnvelope: 0, renderedFrames: 0, soundTime: 0 };
+    this.telemetry = { rms: 0, peak: 0, speechEnvelope: 0, speechUntil: 0, renderedFrames: 0, soundTime: 0 };
   }
   clock() { return this.context ? this.context.currentTime : finite(this.runtime.performance?.now?.(), Date.now()) / 1000; }
   getTime() { return this.anchorTime + (this.state.playing ? Math.max(0, this.clock() - this.anchorClock) : 0); }
@@ -194,8 +194,9 @@ export class RoachSynthAudio {
       node.port.onmessage = ({ data }) => {
         if (this.disposed) return;
         if (data?.type === 'telemetry') {
+          const audioTime = finite(data.audioTime, this.clock());
           this.telemetry = { rms: finite(data.rms), peak: finite(data.peak), speechEnvelope: finite(data.speechEnvelope),
-            audioTime: finite(data.audioTime, this.clock()),
+            audioTime, speechUntil: this.enabled ? Math.max(0, Math.min(finite(data.speechUntil), audioTime + 45)) : 0,
             renderedFrames: finite(data.renderedFrames), motionTime: finite(data.motionTime), soundTime: finite(data.soundTime),
             contactEvents: finite(data.contactEvents), lastContactTime: finite(data.lastContactTime, -1),
             recordingEvents: finite(data.recordingEvents),
@@ -264,6 +265,7 @@ export class RoachSynthAudio {
   disable() {
     if (this.disposed) return;
     this.generation += 1; this.speechGeneration += 1; this.enabled = false;
+    this.telemetry.speechUntil = 0;
     for (const job of [...this.voiceJobs]) job.cancel();
     this.bodyVoicePending.clear();
     // Audio is a mute, not MIDI panic: held notes and CC still animate.
