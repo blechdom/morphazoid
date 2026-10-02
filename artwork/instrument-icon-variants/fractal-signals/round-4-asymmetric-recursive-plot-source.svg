@@ -1,0 +1,106 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Asymmetric recursive interpolation plot">
+  <defs>
+    <style>
+      .axis { fill: none; stroke: #91a39f; stroke-width: 2.7; stroke-linecap: round; opacity: .34; }
+      .guide { fill: none; stroke: #a8b7b3; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; opacity: .38; }
+      .spine { fill: none; stroke: #e1eae7; stroke-width: 10.5; stroke-linecap: round; stroke-linejoin: round; }
+      .first { fill: none; stroke: #d2dedb; stroke-width: 7.5; stroke-linecap: round; stroke-linejoin: round; }
+      .second { fill: none; stroke: #62dbe6; stroke-width: 4.8; stroke-linecap: round; stroke-linejoin: round; }
+      .third { fill: none; stroke: #9a78ee; stroke-width: 3.2; stroke-linecap: round; stroke-linejoin: round; }
+      .lime { fill: none; stroke: #b4f53f; stroke-width: 4.5; stroke-linecap: round; }
+      .arc { fill: none; stroke: #b9c7c3; stroke-width: 2.8; stroke-linecap: round; opacity: .55; }
+      .sample { fill: #dfe8e5; }
+      .control { fill: #9fb0ac; opacity: .72; }
+    </style>
+  </defs>
+
+  <!-- A partial coordinate frame, not a containing grid. -->
+  <g class="axis">
+    <path d="M51 449 H476 M51 449 V61"/>
+    <path d="M103 443 V455 M155 443 V455 M207 443 V455 M259 443 V455 M311 443 V455 M363 443 V455 M415 443 V455"/>
+    <path d="M45 397 H57 M45 345 H57 M45 293 H57 M45 241 H57 M45 189 H57 M45 137 H57 M45 85 H57"/>
+  </g>
+
+  <!-- Selected Bezier control chords remain subordinate to the plotted curve. -->
+  <g class="guide">
+    <path d="M67 421 L121 377 L151 365 L190 317 L225 302 L275 250 L306 228 L354 146 L397 112 L451 71"/>
+    <path d="M151 365 L105 311 L80 286 L35 249"/>
+    <path d="M183 340 L151 399 L127 432 L97 461"/>
+    <path d="M225 302 L190 238 L181 202 L124 101"/>
+    <path d="M278 248 L360 264 L397 266 L475 226"/>
+    <path d="M306 228 L323 311 L347 345 L419 440"/>
+    <path d="M354 163 L395 129 L410 106 L455 43"/>
+  </g>
+
+  <!-- One off-axis interpolation spline replaces the prior central hub. -->
+  <path class="spine" d="M67 421 C96 408 121 377 151 365 C187 351 190 317 225 302 C264 285 275 250 306 228 C344 202 354 146 397 112 C418 95 433 82 451 71"/>
+
+  <!-- First iteration: unequal daughter curves in one quiet graphite ink. -->
+  <g class="first">
+    <path d="M151 365 C124 346 106 314 80 286 C64 269 49 259 35 249"/>
+    <path d="M183 340 C169 371 151 401 127 432 C116 446 106 455 97 461"/>
+    <path d="M225 302 C205 275 190 239 181 202 C172 166 151 130 124 101"/>
+    <path d="M278 248 C321 253 359 263 397 266 C428 269 453 249 475 226"/>
+    <path d="M306 228 C319 268 324 311 347 345 C369 377 394 407 419 440"/>
+    <path d="M354 163 C377 148 395 129 410 106 C425 83 439 60 455 43"/>
+  </g>
+
+  <!-- Second iteration: the same fork grammar repeated at diminishing scale. -->
+  <g class="second">
+    <path d="M80 286 C62 291 48 281 36 266 M80 286 C87 269 94 251 105 237"/>
+    <path d="M127 432 C111 428 97 433 84 444 M127 432 C136 445 142 458 145 472"/>
+    <path d="M181 202 C163 195 148 183 136 168 M181 202 C188 181 199 164 213 149"/>
+    <path d="M397 266 C420 256 438 242 450 224 M397 266 C420 281 439 306 455 333"/>
+    <path d="M347 345 C366 340 384 342 401 352 M347 345 C350 365 358 383 369 399"/>
+    <path d="M410 106 C430 98 448 98 466 104 M410 106 C430 112 452 123 474 135"/>
+  </g>
+
+  <!-- Third iteration: small echoes, intentionally incomplete like a proof sketch. -->
+  <g class="third">
+    <path d="M36 266 C27 258 24 249 24 239 M36 266 C43 255 49 247 57 241"/>
+    <path d="M105 237 C110 224 116 213 123 203 M105 237 C97 226 91 216 88 206"/>
+    <path d="M84 444 C73 443 65 447 58 455 M84 444 C88 455 88 466 86 476"/>
+    <path d="M145 472 C153 463 161 458 171 456 M145 472 C151 479 158 485 167 489"/>
+    <path d="M136 168 C124 157 119 145 117 132 M136 168 C142 153 151 143 161 134"/>
+    <path d="M213 149 C220 136 229 127 241 120 M213 149 C211 134 213 122 219 111"/>
+    <path d="M450 224 C456 212 465 204 476 199 M450 224 C463 225 474 229 483 236"/>
+    <path d="M455 333 C466 326 477 323 488 324 M455 333 C463 342 468 352 470 363"/>
+    <path d="M401 352 C414 349 425 352 435 359 M401 352 C409 362 413 372 414 384"/>
+    <path d="M369 399 C380 399 390 403 398 411 M369 399 C371 411 376 421 384 429"/>
+    <path d="M466 104 C477 101 486 104 493 111 M466 104 C472 94 480 87 489 83"/>
+    <path d="M474 135 C485 132 493 134 499 139 M474 135 C480 144 484 153 484 162"/>
+  </g>
+
+  <!-- Color is annotation and iteration depth, never a set of mechanical modules. -->
+  <g class="lime">
+    <path d="M91 407 C111 393 129 375 151 365"/>
+    <path d="M207 318 C213 310 218 305 225 302"/>
+    <path d="M332 201 C342 190 348 177 354 163"/>
+  </g>
+
+  <!-- Sparse compass constructions and local tangents. -->
+  <g class="arc">
+    <path d="M198 284 A36 36 0 0 1 252 320"/>
+    <path d="M327 139 A42 42 0 0 1 382 184"/>
+    <path d="M211 286 l28 31 M340 151 l27 26 M267 237 l31 24"/>
+  </g>
+
+  <!-- Parameter samples: tiny points only, never connector rings. -->
+  <g class="sample">
+    <circle cx="67" cy="421" r="4.2"/><circle cx="109" cy="391" r="3.6"/><circle cx="151" cy="365" r="4.2"/>
+    <circle cx="183" cy="340" r="3.5"/><circle cx="225" cy="302" r="4.2"/><circle cx="255" cy="274" r="3.4"/>
+    <circle cx="278" cy="248" r="3.5"/><circle cx="306" cy="228" r="4.2"/><circle cx="354" cy="163" r="4.2"/>
+    <circle cx="397" cy="112" r="3.6"/><circle cx="451" cy="71" r="4.2"/>
+  </g>
+  <g fill="#ffb54a">
+    <circle cx="80" cy="286" r="3.4"/><circle cx="181" cy="202" r="3.4"/><circle cx="397" cy="266" r="3.4"/><circle cx="410" cy="106" r="3.4"/>
+  </g>
+  <g fill="#ff7180">
+    <circle cx="127" cy="432" r="3.1"/><circle cx="347" cy="345" r="3.1"/>
+  </g>
+  <g class="control">
+    <circle cx="121" cy="377" r="2.3"/><circle cx="190" cy="317" r="2.3"/><circle cx="275" cy="250" r="2.3"/>
+    <circle cx="105" cy="311" r="2.3"/><circle cx="151" cy="399" r="2.3"/><circle cx="190" cy="238" r="2.3"/>
+    <circle cx="360" cy="264" r="2.3"/><circle cx="323" cy="311" r="2.3"/><circle cx="395" cy="129" r="2.3"/>
+  </g>
+</svg>

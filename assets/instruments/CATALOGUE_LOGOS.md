@@ -65,11 +65,12 @@ The existing catalogue and menu asset path is unchanged.
 Four catalogue icons were refreshed with the built-in OpenAI image-generation
 tool and exported as transparent 512 × 512 lossless WebP files. `puggler.webp`
 is now a close crop of the instrument's actual orange-haired character and its
-tall green eyelet hat. `fractal-signals.webp` is now a balanced six-way radial
-synth whose recursive arms represent the instrument's six signal modes, with no
-dominant hook-shaped stem. The existing subjects in `gesticulating-hand.webp`
-and `simd-chiptune.webp` were retained while their baked square backgrounds
-were removed.
+tall green eyelet hat. `fractal-signals.webp` initially became a balanced
+six-way radial synth whose recursive arms represented the instrument's six
+signal modes; the reference-led refresh below supersedes it with a less
+symmetrical layout. The existing subjects in `gesticulating-hand.webp` and
+`simd-chiptune.webp` were retained while their baked square backgrounds were
+removed.
 
 The retained full-resolution transparent PNG sources are:
 
@@ -81,3 +82,43 @@ The retained full-resolution transparent PNG sources are:
 Each variant directory also contains the exact `catalogue-current.webp` copied
 to `assets/instruments/`. The generation requests prohibited backdrops, badges,
 frames, text, and watermarks and explicitly required a genuine alpha channel.
+
+## Reference-led icon refresh — 2026-10-02
+
+Six catalogue icons were redrawn from the instruments' own graphics and specimen
+renders. The built-in OpenAI image-generation tool supplied the reference-led
+raster studies; Fractal Synthesis was then finished as an exact vector drawing
+so its mathematical detail remains legible at catalogue size:
+
+- `fractal-signals.webp` is an asymmetric recursive interpolation plot. A pale
+  off-axis spline and coordinate ticks establish the mathematical drawing;
+  cyan and violet echoes encode iteration depth, while sampled points, control
+  chords, and two sparse compass constructions replace every hub, connector,
+  tube, dashed orbit, and radial hardware motif.
+- `dentaphone.webp` reduces the instrument to its two anatomical dental arches
+  with restrained resonance contours.
+- `julie-saw.webp` follows the in-instrument line graphic: Julie, the dominant
+  S-curved steel saw, and the amber bow.
+- `roach-synth.webp` follows the real specimen's flattened body, wing seam,
+  spiny legs, pronotum, and antennae.
+- `spider-synth.webp` follows the default Argiope specimen's separated body,
+  striped abdomen, natural eight-leg stance, and a few silk strands.
+- `klein-bottle.webp` adopts the restrained translucent technical mesh language
+  of the Möbius icon while preserving the Klein bottle's immersed crossing.
+
+The retained full-resolution transparent sources are:
+
+- `artwork/instrument-icon-variants/fractal-signals/round-2-asymmetric-technical-transparent-source.png`
+- `artwork/instrument-icon-variants/fractal-signals/round-3-asymmetric-mathematical-source.svg`
+- `artwork/instrument-icon-variants/fractal-signals/round-3-asymmetric-mathematical-transparent-source.png`
+- `artwork/instrument-icon-variants/fractal-signals/round-4-asymmetric-recursive-plot-source.svg`
+- `artwork/instrument-icon-variants/fractal-signals/round-4-asymmetric-recursive-plot-transparent-source.png`
+- `artwork/instrument-icon-variants/dentaphone/round-1-anatomical-arches-transparent-source.png`
+- `artwork/instrument-icon-variants/julie-saw/round-1-stage-graphic-transparent-source.png`
+- `artwork/instrument-icon-variants/roach-synth/round-1-specimen-transparent-source.png`
+- `artwork/instrument-icon-variants/spider-synth/round-1-argiope-transparent-source.png`
+- `artwork/instrument-icon-variants/klein-bottle/round-1-moebius-style-mesh-transparent-source.png`
+
+Each icon is exported as a transparent 512 × 512 lossless WebP. The matching
+variant directory retains the exact `catalogue-current.webp` copied to
+`assets/instruments/`.

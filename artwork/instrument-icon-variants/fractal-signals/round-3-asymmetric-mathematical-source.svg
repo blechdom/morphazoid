@@ -1,0 +1,120 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Asymmetric recursive mathematical construction">
+  <defs>
+    <style>
+      .curve { fill: none; stroke-linecap: round; stroke-linejoin: round; }
+      .construction { fill: none; stroke: #dce8e4; stroke-width: 1.45; stroke-linecap: round; stroke-linejoin: round; opacity: .44; }
+      .projection { fill: none; stroke: #aabbb7; stroke-width: 4.5; stroke-dasharray: 10 13; stroke-linecap: round; opacity: .66; }
+      .major-construction { fill: none; stroke: #e2ece9; stroke-width: 5.5; stroke-linecap: round; stroke-linejoin: round; opacity: .82; }
+      .spine-shadow { fill: none; stroke: #06100f; stroke-width: 10.5; stroke-linecap: round; stroke-linejoin: round; opacity: .72; }
+      .spine { fill: none; stroke: #dce8e4; stroke-width: 7.25; stroke-linecap: round; stroke-linejoin: round; }
+      .branch-shadow { fill: none; stroke: #06100f; stroke-width: 9.5; stroke-linecap: round; stroke-linejoin: round; opacity: .66; }
+      .branch { fill: none; stroke-width: 7; stroke-linecap: round; stroke-linejoin: round; }
+      .twig { fill: none; stroke-width: 4.25; stroke-linecap: round; stroke-linejoin: round; }
+      .hair { fill: none; stroke-width: 2.1; stroke-linecap: round; stroke-linejoin: round; opacity: .88; }
+      .node { fill: #07110f; stroke-width: 2.4; }
+      .open-node { fill: none; stroke-width: 2.25; }
+    </style>
+  </defs>
+
+  <!-- Control polygons and tangent constructions: intentionally irregular, never radial. -->
+  <g class="construction">
+    <path d="M58 367 L122 344 L171 337 L229 286 L287 247 L342 185 L458 73"/>
+    <path d="M122 344 L94 280 L69 249 L38 207 M69 249 L115 225 L137 190"/>
+    <path d="M171 337 L151 386 L103 443 M151 386 L190 424"/>
+    <path d="M229 286 L190 232 L170 165 L101 87 M170 165 L223 78 M170 165 L119 151"/>
+    <path d="M287 247 L370 268 L420 276 L470 226 M420 276 L463 330"/>
+    <path d="M310 229 L337 325 L373 365 L432 443 M373 365 L467 381 M337 325 L392 324"/>
+    <path d="M342 185 L400 108 L458 73 L476 128 M400 108 L417 41 M400 108 L365 88"/>
+    <path d="M107 330 Q122 312 139 328 M210 300 Q229 319 246 297 M270 230 Q288 213 305 235 M325 202 Q342 220 360 198"/>
+  </g>
+
+  <g class="projection">
+    <path d="M38 207 Q86 205 115 225 Q145 244 170 165 Q191 107 223 78"/>
+    <path d="M103 443 Q182 459 190 424 Q197 389 171 337"/>
+    <path d="M101 87 Q154 58 223 78 Q268 94 229 286"/>
+    <path d="M287 247 Q369 214 470 226 Q493 271 463 330"/>
+    <path d="M310 229 Q409 278 467 381 Q455 430 432 443"/>
+    <path d="M365 88 Q405 58 417 41 Q454 47 476 128"/>
+  </g>
+
+  <!-- A diagonal parameter spine replaces the old mechanical hub. -->
+  <path class="spine-shadow" d="M58 367 C91 342 104 336 122 344 C143 354 151 348 171 337 C202 319 203 298 229 286 C251 276 261 254 287 247 C311 240 318 204 342 185 C379 156 395 104 458 73"/>
+  <path class="spine" d="M58 367 C91 342 104 336 122 344 C143 354 151 348 171 337 C202 319 203 298 229 286 C251 276 261 254 287 247 C311 240 318 204 342 185 C379 156 395 104 458 73"/>
+
+  <!-- Coral family. -->
+  <g stroke="#ff6978">
+    <path class="branch-shadow" stroke="#06100f" d="M122 344 C105 313 98 276 69 249 C54 235 48 218 38 207 M69 249 C87 238 98 228 115 225 C126 222 132 205 137 190"/>
+    <path class="branch" d="M122 344 C105 313 98 276 69 249 C54 235 48 218 38 207 M69 249 C87 238 98 228 115 225 C126 222 132 205 137 190"/>
+    <path class="twig" d="M54 231 C38 236 30 229 26 216 M96 232 C91 214 82 205 68 199 M116 223 C129 231 142 229 151 218"/>
+    <circle class="node" cx="122" cy="344" r="7.25"/><circle class="node" cx="69" cy="249" r="6"/>
+    <circle class="open-node" cx="38" cy="207" r="4.5"/><circle class="open-node" cx="115" cy="225" r="4.5"/><circle class="open-node" cx="137" cy="190" r="3.6"/>
+    <circle cx="54" cy="231" r="2.6"/><circle cx="96" cy="232" r="2.3"/>
+  </g>
+
+  <!-- Violet family. -->
+  <g stroke="#c467ff">
+    <path class="branch-shadow" stroke="#06100f" d="M171 337 C160 360 162 369 151 386 C136 410 118 423 103 443 M151 386 C165 398 176 409 190 424"/>
+    <path class="branch" d="M171 337 C160 360 162 369 151 386 C136 410 118 423 103 443 M151 386 C165 398 176 409 190 424"/>
+    <path class="twig" d="M131 412 C112 403 96 408 85 421 M117 428 C121 447 113 460 97 469 M176 411 C197 402 210 407 221 420"/>
+    <circle class="node" cx="171" cy="337" r="7.25"/><circle class="node" cx="151" cy="386" r="5.75"/>
+    <circle class="open-node" cx="103" cy="443" r="4.4"/><circle class="open-node" cx="190" cy="424" r="4.4"/>
+    <circle cx="131" cy="412" r="2.5"/><circle cx="176" cy="411" r="2.5"/>
+  </g>
+
+  <!-- Lime family. -->
+  <g stroke="#b8ff45">
+    <path class="branch-shadow" stroke="#06100f" d="M229 286 C209 264 196 248 190 232 C181 208 181 185 170 165 C150 130 124 110 101 87 M170 165 C184 135 198 107 223 78 M170 165 C150 165 135 158 119 151"/>
+    <path class="branch" d="M229 286 C209 264 196 248 190 232 C181 208 181 185 170 165 C150 130 124 110 101 87 M170 165 C184 135 198 107 223 78 M170 165 C150 165 135 158 119 151"/>
+    <path class="twig" d="M143 126 C127 126 113 119 104 106 M153 138 C143 119 146 104 155 91 M196 116 C185 98 189 82 202 68 M136 159 C126 174 112 178 98 175"/>
+    <circle class="node" cx="229" cy="286" r="7.25"/><circle class="node" cx="190" cy="232" r="5.75"/><circle class="node" cx="170" cy="165" r="6"/>
+    <circle class="open-node" cx="101" cy="87" r="4.5"/><circle class="open-node" cx="223" cy="78" r="4.5"/><circle class="open-node" cx="119" cy="151" r="4"/>
+    <circle cx="143" cy="126" r="2.5"/><circle cx="196" cy="116" r="2.5"/>
+  </g>
+
+  <!-- Cyan family. -->
+  <g stroke="#45e5ef">
+    <path class="branch-shadow" stroke="#06100f" d="M287 247 C321 251 346 261 370 268 C388 273 402 273 420 276 C441 279 457 255 470 226 M420 276 C434 291 449 309 463 330"/>
+    <path class="branch" d="M287 247 C321 251 346 261 370 268 C388 273 402 273 420 276 C441 279 457 255 470 226 M420 276 C434 291 449 309 463 330"/>
+    <path class="twig" d="M350 263 C366 246 383 239 398 243 M445 264 C462 274 475 275 486 268 M446 307 C463 299 478 302 487 314"/>
+    <circle class="node" cx="287" cy="247" r="7.25"/><circle class="node" cx="370" cy="268" r="5.75"/><circle class="node" cx="420" cy="276" r="6"/>
+    <circle class="open-node" cx="470" cy="226" r="4.5"/><circle class="open-node" cx="463" cy="330" r="4.5"/>
+    <circle cx="350" cy="263" r="2.5"/><circle cx="445" cy="264" r="2.5"/>
+  </g>
+
+  <!-- Blue family. -->
+  <g stroke="#698dff">
+    <path class="branch-shadow" stroke="#06100f" d="M310 229 C318 260 326 299 337 325 C346 347 359 356 373 365 C397 381 414 419 432 443 M373 365 C402 365 437 366 467 381 M337 325 C356 320 373 319 392 324"/>
+    <path class="branch" d="M310 229 C318 260 326 299 337 325 C346 347 359 356 373 365 C397 381 414 419 432 443 M373 365 C402 365 437 366 467 381 M337 325 C356 320 373 319 392 324"/>
+    <path class="twig" d="M397 389 C411 380 424 381 436 391 M416 421 C436 412 451 416 461 429 M421 370 C437 353 452 349 466 355 M366 321 C375 306 387 299 401 302"/>
+    <circle class="node" cx="310" cy="229" r="7.25"/><circle class="node" cx="337" cy="325" r="5.75"/><circle class="node" cx="373" cy="365" r="6"/>
+    <circle class="open-node" cx="432" cy="443" r="4.5"/><circle class="open-node" cx="467" cy="381" r="4.5"/><circle class="open-node" cx="392" cy="324" r="4"/>
+    <circle cx="397" cy="389" r="2.5"/><circle cx="421" cy="370" r="2.5"/>
+  </g>
+
+  <!-- Amber family. -->
+  <g stroke="#ffb54a">
+    <path class="branch-shadow" stroke="#06100f" d="M342 185 C362 167 381 137 400 108 C417 82 439 80 458 73 M400 108 C407 83 412 61 417 41 M400 108 C419 115 449 122 476 128 M400 108 C388 99 379 93 365 88"/>
+    <path class="branch" d="M342 185 C362 167 381 137 400 108 C417 82 439 80 458 73 M400 108 C407 83 412 61 417 41 M400 108 C419 115 449 122 476 128 M400 108 C388 99 379 93 365 88"/>
+    <path class="twig" d="M378 141 C392 144 407 139 416 127 M421 91 C435 98 448 98 460 91 M412 65 C399 60 392 51 392 39 M442 120 C453 108 467 104 479 109"/>
+    <circle class="node" cx="342" cy="185" r="7.25"/><circle class="node" cx="400" cy="108" r="6"/>
+    <circle class="open-node" cx="458" cy="73" r="4.5"/><circle class="open-node" cx="417" cy="41" r="4.5"/><circle class="open-node" cx="476" cy="128" r="4.5"/><circle class="open-node" cx="365" cy="88" r="4"/>
+    <circle cx="378" cy="141" r="2.5"/><circle cx="421" cy="91" r="2.5"/>
+  </g>
+
+  <!-- Parameter samples and local osculating arcs. -->
+  <g fill="#dce8e4">
+    <circle cx="75" cy="355" r="4.5"/><circle cx="91" cy="347" r="3.5"/><circle cx="105" cy="343" r="2.75"/>
+    <circle cx="193" cy="321" r="4.5"/><circle cx="204" cy="309" r="3.5"/><circle cx="214" cy="298" r="2.75"/>
+    <circle cx="252" cy="273" r="4.5"/><circle cx="264" cy="260" r="3.5"/><circle cx="276" cy="251" r="2.75"/>
+    <circle cx="362" cy="166" r="4.5"/><circle cx="374" cy="151" r="3.5"/><circle cx="385" cy="133" r="2.75"/>
+  </g>
+  <g class="major-construction">
+    <path d="M91 319 A40 40 0 0 1 154 364"/>
+    <path d="M197 257 A42 42 0 0 1 257 316"/>
+    <path d="M253 217 A44 44 0 0 1 322 270"/>
+    <path d="M305 151 A48 48 0 0 1 376 217"/>
+  </g>
+  <g class="construction">
+    <path d="M54 359 l9 16 M163 324 l16 22 M279 236 l16 21 M332 173 l20 24"/>
+  </g>
+</svg>
