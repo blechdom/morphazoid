@@ -62,6 +62,7 @@ async function observeHeadGeometry(page) {
         .applyQuaternion(head.bone.getWorldQuaternion(new THREE.Quaternion())).normalize();
       const cameraDirection = camera.position.clone().sub(center).normalize();
       return { parts, lift: relative.dot(anatomy.dorsal), reach: relative.dot(anatomy.forward),
+        lateral: relative.dot(anatomy.left), facing: facing.toArray(), headWorldQuaternion: head.bone.getWorldQuaternion(new THREE.Quaternion()).toArray(),
         facingUp: facing.dot(anatomy.dorsal), cameraUp: cameraDirection.dot(anatomy.dorsal),
         alignment: facing.dot(cameraDirection), bodyLength: anatomy.bodyLength, state: getState() };
     }, loadUrl, loadArrayBuffer, getState,`) });
@@ -167,6 +168,77 @@ test('Face camera looks from above while shared head and neck gaze lifts outward
     records.push({ posed, before, refreshes });
   }
   await testInfo.attach('distributed-stable-gaze.json', { body: JSON.stringify(records), contentType: 'application/json' });
+});
+
+test('large left-right gestures and hostile offsets keep combined head and neck lateral rotation small', async ({ page }, testInfo) => {
+  test.setTimeout(60_000); await observeHeadGeometry(page);
+  await specimen(page, { modelUrl: '/assets/roach-synth/cockroach-mobile.glb' });
+  const records = [], measure = () => page.evaluate(() => specimenViewer.measureHeadGeometry());
+  const angle = (a, b, quaternion = false) => {
+    const dot = a.reduce((sum, value, i) => sum + value * b[i], 0);
+    return Math.acos(Math.min(1, Math.max(-1, quaternion ? Math.abs(dot) : dot))) * 180 / Math.PI * (quaternion ? 2 : 1);
+  };
+  const reset = async () => page.evaluate(() => {
+    motion = { presetId: 'none', intensity: 1, antennae: false, tempo: 108 };
+    specimenViewer.setExternalPose(null);
+    for (const joint of joints) specimenViewer.setBoneOffset(joint.id, { x: joint.jointId === 'head' ? -8 : joint.jointId === 'neck' ? -12 : 0, y: 0, z: 0 });
+    joints = specimenViewer.getState().bones;
+    drawSpecimen(); specimenViewer.setViewPreset('side');
+  });
+  function expectBounded(before, after, label) {
+    expectHeadClear(after, label);
+    const limits = { head: { y: 6, z: 8 }, neck: { y: 3, z: 4 } };
+    for (const part of ['head', 'neck']) {
+      const index = after.state.bones.findIndex(joint => joint.jointId === part);
+      for (const [axis, position] of [['y', 1], ['z', 2]]) {
+        expect(Math.abs(after.state.appliedPose[index * 3 + position]), `${label}: ${part} ${axis}`).toBeLessThanOrEqual(limits[part][axis] + 1e-5);
+      }
+    }
+    expect(angle(before.headWorldQuaternion, after.headWorldQuaternion, true), `${label}: actual combined head orientation`).toBeLessThanOrEqual(15.1);
+    expect(angle(before.facing, after.facing), `${label}: rendered face stays near its pitched-up direction`).toBeLessThanOrEqual(15.1);
+    expect(Math.abs(after.lateral - before.lateral), `${label}: head stays near the chest centerline`).toBeLessThan(before.bodyLength * .1);
+    expect(after.state.camera).toEqual(before.state.camera);
+    expect(after.state.playing).toBe(false);
+    expect(after.state.motionTime).toBe(before.state.motionTime);
+    expect(after.state.ground.contacts).toEqual(before.state.ground.contacts);
+    const legs = state => state.bones.filter(joint => /^(front|middle|hind)_/.test(joint.jointId)).map(joint => joint.quaternion);
+    expect(legs(after.state)).toEqual(legs(before.state));
+  }
+  for (const axis of ['y', 'z']) for (const sign of [-1, 1]) {
+    await reset(); const before = await measure();
+    await page.evaluate(axis => specimenViewer.setDragAxis(axis), axis);
+    for (const part of ['head', 'neck']) {
+      const point = await page.evaluate(part => specimenViewer.getPartScreenPosition(part), part);
+      expect(point, `${axis} ${sign}: ${part} is directly touchable`).not.toBeNull();
+      await page.mouse.move(point.x, point.y); await page.mouse.down();
+      await page.mouse.move(point.x + sign * 160, point.y, { steps: 4 }); await page.mouse.up();
+      const after = await measure(); expectBounded(before, after, `${axis} ${sign} ${part} drag`);
+      const joint = after.state.bones.find(joint => joint.jointId === part);
+      expect(after.state.selectedBone).toBe(joint.id);
+      expect(Math.abs(joint.offset[axis]), `${axis} ${sign}: lateral control still responds`).toBeGreaterThan(.25);
+      records.push({ kind: 'gesture', axis, sign, part, before, after });
+    }
+  }
+  for (const [y, z] of [[90, 90], [-90, -90], [90, -90], [-90, 90]]) {
+    await reset(); const before = await measure();
+    await page.evaluate(({ y, z }) => {
+      for (const joint of joints.filter(joint => ['head', 'neck'].includes(joint.jointId))) Object.assign(joint.offset, { y, z });
+      drawSpecimen();
+    }, { y, z });
+    const after = await measure(); expectBounded(before, after, `hostile ${y}/${z}`);
+    records.push({ kind: 'hostile-offset', y, z, before, after });
+  }
+  await reset();
+  for (const view of ['face', 'side', 'top', 'bottom']) {
+    await page.evaluate(view => specimenViewer.setViewPreset(view), view);
+    const gaze = await page.evaluate(() => specimenViewer.getGazeOffset());
+    expect(Math.abs(gaze.y), `${view}: camera head yaw`).toBeLessThanOrEqual(3);
+    expect(Math.abs(gaze.z), `${view}: camera head tilt`).toBeLessThanOrEqual(4);
+    expect(Math.abs(gaze.neck.y), `${view}: camera neck yaw`).toBeLessThanOrEqual(2);
+    expect(Math.abs(gaze.neck.z), `${view}: camera neck tilt`).toBeLessThanOrEqual(2);
+    records.push({ kind: 'camera-gaze', view, gaze });
+  }
+  await testInfo.attach('bounded-head-neck-lateral-geometry.json', { body: JSON.stringify(records), contentType: 'application/json' });
 });
 
 test('roach scene grounds the neutral feet, casts shadows, and keeps a chosen view through jumping and flying', async ({ page }) => {
