@@ -155,7 +155,7 @@ for (const touch of [false, true]) test(`${touch ? 'phone' : 'desktop'} downward
   } finally { await context.close(); }
 });
 
-test('rotated body poses retain face clearance and actual app sound and animation players stay independent', async ({ page, baseURL }) => {
+test('rotated body poses retain face clearance and Audio remains independent of the animation Play button', async ({ page, baseURL }) => {
   await openFixture(page, baseURL);
   for (const body of [{ yaw: 60 }, { roll: -20 }, { roll: 20 }, { pitch: -30 }, { pitch: 30 }, { pitch: -20, roll: 15, yaw: 45 }]) {
     await page.evaluate(body => roachFloorQA.setPose({ head: { x: -35 }, antenna_left: { y: -75 }, antenna_right: { y: 75 } }, body), body);
@@ -166,26 +166,27 @@ test('rotated body poses retain face clearance and actual app sound and animatio
   await page.goto(new URL('roach-synth.html', `${baseURL.replace(/\/$/, '')}/`).href);
   await page.waitForFunction(() => window.roachSynth?.getState().loaded);
   const state = () => page.evaluate(() => roachSynth.getState());
-  await page.locator('#soundPlayButton').click(); await page.locator('#audioButton').click();
-  await expect.poll(async () => (await state()).audio.peak).toBeGreaterThan(.0001);
-  expect((await state()).playing).toBe(false); expect((await state()).soundPlaying).toBe(true);
+  await page.locator('#audioButton').click();
+  expect((await state()).playing).toBe(false); expect((await state()).soundPlaying).toBe(false);
   await page.locator('[data-view="face"]').click(); await page.locator('#dragAxis').selectOption('x');
   const point = await page.evaluate(() => roachSynth.getPartScreenPosition('head'));
   expect(point).not.toBeNull();
-  const sounding = await state();
+  const held = await state();
   await page.mouse.move(point.x, point.y); await page.mouse.down();
   await page.mouse.move(point.x, point.y + 160, { steps: 4 }); await page.mouse.up();
-  expectClear(await measure(page), 'manual edit with sound only');
-  expect((await state()).playing).toBe(false); expect((await state()).soundPlaying).toBe(true);
-  expect((await state()).time).toBe(sounding.time);
-  await expect.poll(async () => (await state()).audio.renderedFrames).toBeGreaterThan(sounding.audio.renderedFrames);
+  expectClear(await measure(page), 'manual edit with Play held');
+  expect((await state()).playing).toBe(false); expect((await state()).soundPlaying).toBe(false);
+  expect((await state()).time).toBe(held.time);
+  await expect.poll(async () => (await state()).audio.renderedFrames).toBeGreaterThan(held.audio.renderedFrames);
   await page.locator('#motionButton').click();
   await expect.poll(async () => (await state()).playing).toBe(true);
-  const running = await state(); await page.locator('#soundPlayButton').click();
+  expect((await state()).soundPlaying).toBe(true);
+  const running = await state(); await page.locator('#audioButton').click();
   await expect.poll(async () => (await state()).time).toBeGreaterThan(running.time);
-  expect((await state()).soundPlaying).toBe(false); expect((await state()).audioOn).toBe(true);
-  expectClear(await measure(page), 'animation only');
+  expect((await state()).soundPlaying).toBe(true); expect((await state()).audioOn).toBe(false);
+  expectClear(await measure(page), 'animation with Audio off');
   await page.locator('#motionButton').click();
   const stopped = await state(); await page.waitForTimeout(150);
-  expect((await state()).time).toBe(stopped.time); expectClear(await measure(page), 'paused');
+  expect((await state()).time).toBe(stopped.time); expect((await state()).soundPlaying).toBe(false);
+  expectClear(await measure(page), 'paused');
 });

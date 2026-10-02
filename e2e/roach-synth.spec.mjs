@@ -9,6 +9,13 @@ async function loaded(page) {
   expect((await snapshot(page)).bones).toHaveLength(31);
 }
 async function openRoach(page) { await page.goto('roach-synth.html'); await loaded(page); }
+async function choose(page, id, value) {
+  const trigger = page.locator(`#${id}-picker-trigger`);
+  if (await trigger.count()) {
+    await trigger.click();
+    await page.locator(`#${id}-picker-panel [data-value="${value}"]`).click();
+  } else await page.locator(`#${id}`).selectOption(value);
+}
 async function settleScroll(page) {
   await page.evaluate(() => new Promise((resolve, reject) => {
     const deadline = performance.now() + 3000; let previous = scrollY, stableSince = performance.now();
@@ -39,7 +46,7 @@ async function tapMainAudio(page, context) {
   await client.detach();
 }
 
-test('Sound Play and the main Audio button work while the specimen download is still pending', async ({ browser, baseURL }) => {
+test('Audio and speech remain available while the specimen download is pending', async ({ browser, baseURL }) => {
   const context = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
   const page = await context.newPage();
   let release;
@@ -49,20 +56,23 @@ test('Sound Play and the main Audio button work while the specimen download is s
     await page.goto(new URL('roach-synth.html', baseURL).href, { waitUntil: 'domcontentloaded' });
     await page.waitForFunction(() => Boolean(window.roachSynth));
     expect((await snapshot(page)).loaded).toBe(false);
-    await expect(page.locator('#soundPlayButton')).toBeEnabled(); await expect(page.locator('#motionButton')).toBeDisabled();
+    await expect(page.locator('#soundPlayButton, #posePreset, #randomPose, #resetPose')).toHaveCount(0);
+    await expect(page.locator('#motionButton')).toBeDisabled();
     await expect(page.locator('#liveStatus')).toContainText(/loading/i);
-    await page.locator('#soundPlayButton').tap();
+    await page.locator('#speakButton').tap();
     expect((await snapshot(page)).audio.contextState).toBe('uninitialized');
     await page.locator('#source-antennae').scrollIntoViewIfNeeded();
     const scroll = await page.evaluate(() => scrollY);
     await tapMainAudio(page, context);
     await expect.poll(async () => (await snapshot(page)).audioOn).toBe(true);
-    await expect.poll(async () => (await snapshot(page)).audio.peak).toBeGreaterThan(.0001);
     expect((await snapshot(page)).loaded).toBe(false);
     expect(await page.evaluate(() => scrollY)).toBe(scroll);
-    await expect(page.locator('#audioButton')).toHaveAttribute('aria-pressed', 'true');
+    await page.locator('#speakButton').tap();
+    await expect.poll(async () => (await snapshot(page)).audio.speechEnvelope, { timeout: 12000 }).toBeGreaterThan(.0001);
     release(); await loaded(page);
-    expect((await snapshot(page)).soundPlaying).toBe(true); expect((await snapshot(page)).audioOn).toBe(true);
+    expect((await snapshot(page)).playing).toBe(false); expect((await snapshot(page)).audioOn).toBe(true);
+    await page.locator('#motionButton').tap();
+    expect((await snapshot(page)).playing).toBe(true); expect((await snapshot(page)).soundPlaying).toBe(true);
   } finally { release(); await context.close(); }
 });
 
@@ -83,7 +93,7 @@ for (const size of [{ width: 390, height: 844 }, { width: 844, height: 390 }]) {
       await expect.poll(async () => (await snapshot(page)).audioOn).toBe(true);
       await expect.poll(async () => (await snapshot(page)).audio.peak).toBeGreaterThan(.0001);
       const playing = await snapshot(page);
-      expect(playing.playing).toBe(true); expect(playing.soundPlaying).toBe(false); expect(playing.time).toBeGreaterThan(before.time);
+      expect(playing.playing).toBe(true); expect(playing.soundPlaying).toBe(true); expect(playing.time).toBeGreaterThan(before.time);
       expect(playing.camera).toEqual(before.camera); expect(await page.evaluate(() => scrollY)).toBe(scroll);
       await expect(page.locator('#audioButton')).toHaveAttribute('aria-pressed', 'true');
       await tapMainAudio(page, context);
@@ -112,20 +122,21 @@ test('index chooser opens the compact instrument with a held neutral body and Au
   expect(held.time).toBe(initial.time);
   expect(held.bones.map(joint => joint.quaternion)).toEqual(initial.bones.map(joint => joint.quaternion));
   expect(await page.evaluate(() => {
-    const ids = ['header-preset-panel', 'soundPlayButton', 'motionButton', 'soundPreset', 'phrase', 'bodyMixer', 'midiPanic'];
+    const ids = ['header-preset-panel', 'motionButton', 'tempo', 'motionPreset', 'soundPreset', 'pitch', 'phrase', 'bodyMixer', 'midiPanic'];
     return ids.slice(1).every((id, i) => Boolean(document.getElementById(ids[i]).compareDocumentPosition(document.getElementById(id)) & Node.DOCUMENT_POSITION_FOLLOWING));
   })).toBe(true);
   expect(failures).toEqual([]);
 });
 
-test('four anatomical views, free orbit, explicit zoom buttons and keyboard fit keep distinct ownership', async ({ page }) => {
+test('graphic footer views, free orbit, wheel zoom and Fit preserve Audio and animation state', async ({ page }) => {
   await openRoach(page);
-  const controls = page.locator('.roach-panel > .roach-view-controls');
+  const controls = page.locator('.roach-stage > .roach-view-controls');
   await expect(controls).toHaveCount(1);
-  for (const id of ['viewPresets', 'sideToggle', 'resetCamera', 'zoomIn', 'zoomOut', 'dragAxis', 'touch3D', 'showJoints', 'gestureInfo']) {
+  for (const id of ['viewPresets', 'sideToggle', 'resetCamera', 'zoomIn', 'zoomOut', 'dragAxis', 'showJoints', 'gestureInfo']) {
     await expect(controls.locator(`#${id}`)).toHaveCount(1);
   }
-  expect(await controls.evaluate(element => Boolean(document.getElementById('phrase').compareDocumentPosition(element) & Node.DOCUMENT_POSITION_FOLLOWING))).toBe(true);
+  expect(await controls.evaluate(element => Boolean(document.getElementById('specimenViewport').compareDocumentPosition(element) & Node.DOCUMENT_POSITION_FOLLOWING))).toBe(true);
+  await expect(page.locator('#touch3D')).toHaveCount(0);
   const info = page.locator('#gestureInfo'), help = page.locator('#gestureHelp');
   await expect(info).toHaveAccessibleName(/help|gesture/i);
   await expect(info).toHaveAttribute('aria-controls', 'gestureHelp'); await expect(help).toBeHidden();
@@ -153,8 +164,13 @@ test('four anatomical views, free orbit, explicit zoom buttons and keyboard fit 
   await page.locator('#zoomIn').click(); const near = (await snapshot(page)).camera.distance;
   expect(near).toBeLessThan(before.distance);
   await page.locator('#zoomOut').click(); expect((await snapshot(page)).camera.distance).toBeGreaterThan(near);
-  await canvas.focus(); await page.keyboard.press('+');
-  expect((await snapshot(page)).camera.distance).toBeLessThan(before.distance);
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  const wheelStart = (await snapshot(page)).camera.distance;
+  await page.mouse.wheel(0, -150);
+  await expect.poll(async () => (await snapshot(page)).camera.distance).toBeLessThan(wheelStart);
+  const wheelNear = (await snapshot(page)).camera.distance;
+  await page.mouse.wheel(0, 150);
+  await expect.poll(async () => (await snapshot(page)).camera.distance).toBeGreaterThan(wheelNear);
   await page.locator('#resetCamera').click();
   const reset = (await snapshot(page)).camera;
   expect(reset.quaternion).toEqual(before.quaternion); expect(reset.distance).toBeCloseTo(before.distance, 7);
@@ -170,7 +186,7 @@ test('animation routines and random motion switch live without selecting a camer
   await expect(page.locator('#motionButton .transport-pause')).toBeVisible();
   await expect(page.locator('#motionButton .transport-play')).toBeHidden();
   for (const id of ['side_walk', 'side_run', 'top_flight', 'dance_upright']) {
-    await page.locator('#motionPreset').selectOption(id);
+    await choose(page, 'motionPreset', id);
     const current = await snapshot(page);
     expect(current.playing).toBe(true); expect(current.view).toBe('top');
     expect(current.camera.quaternion).toEqual(camera.quaternion); expect(current.camera.distance).toBe(camera.distance);
@@ -189,25 +205,46 @@ test('animation routines and random motion switch live without selecting a camer
   await expect(page.locator('#motionButton .transport-play')).toBeVisible();
 });
 
-test('Sound Play, Animation Play and explicit Audio remain independent with visible pause icons', async ({ page }) => {
-  await openRoach(page); await page.locator('#soundPlayButton').click();
+test('circular Play starts and pauses animation and body sound while Audio remains independent', async ({ page }) => {
+  await openRoach(page);
+  const play = page.locator('#motionButton'), box = await play.boundingBox();
+  expect(Math.abs(box.width - box.height)).toBeLessThanOrEqual(1);
+  await play.click();
   expect((await snapshot(page)).audio.contextState).toBe('uninitialized');
-  await expect(page.locator('#soundPlayButton .transport-pause')).toBeVisible();
-  await expect(page.locator('#soundPlayButton .transport-play')).toBeHidden();
+  expect((await snapshot(page)).playing).toBe(true); expect((await snapshot(page)).soundPlaying).toBe(true);
+  await expect(play.locator('.transport-pause')).toBeVisible();
+  await expect(play.locator('.transport-play')).toBeHidden();
   await arm(page); await expect.poll(async () => (await snapshot(page)).audio.peak).toBeGreaterThan(.001);
-  const started = await snapshot(page); await page.waitForTimeout(180); const held = await snapshot(page);
-  expect(held.time).toBe(started.time); expect(held.bones.map(j => j.quaternion)).toEqual(started.bones.map(j => j.quaternion));
-  await page.locator('#randomPose').click(); const random = await snapshot(page);
-  expect(random.playing).toBe(false); expect(random.soundPlaying).toBe(true);
-  expect(random.bones.map(j => j.offset)).not.toEqual(held.bones.map(j => j.offset));
-  await page.locator('#resetPose').click();
-  expect((await snapshot(page)).bones.every(j => Object.values(j.offset).every(value => value === 0))).toBe(true);
-  await page.locator('#motionButton').click(); await page.locator('#soundPlayButton').click();
-  expect((await snapshot(page)).playing).toBe(true); expect((await snapshot(page)).soundPlaying).toBe(false);
-  await page.locator('#motionButton').click();
+  const started = await snapshot(page);
+  await expect.poll(async () => (await snapshot(page)).time).toBeGreaterThan(started.time);
+  await play.click();
+  const stopped = await snapshot(page);
+  expect(stopped.playing).toBe(false); expect(stopped.soundPlaying).toBe(false); expect(stopped.audioOn).toBe(true);
   await expect.poll(async () => (await snapshot(page)).audio.peak).toBeLessThan(.0001);
-  await page.locator('#motionButton').click(); await page.locator('#audioButton').click();
-  expect((await snapshot(page)).playing).toBe(true); await waitForStableAudioState(page, false);
+  await page.waitForTimeout(180); const held = await snapshot(page);
+  expect(held.time).toBe(stopped.time); expect(held.bones.map(j => j.quaternion)).toEqual(stopped.bones.map(j => j.quaternion));
+  await expect(play.locator('.transport-play')).toBeVisible();
+  await play.click(); await page.locator('#audioButton').click();
+  expect((await snapshot(page)).playing).toBe(true); expect((await snapshot(page)).soundPlaying).toBe(true);
+  await waitForStableAudioState(page, false);
+});
+
+test('tempo actions multiply the displayed tempo and preserve pose, volume and playing state', async ({ page }) => {
+  await openRoach(page);
+  await page.locator('#tempo').fill('128');
+  await page.locator('#level').fill('1');
+  await expect(page.locator('#levelOut')).toHaveText('100%');
+  await page.locator('#motionButton').click();
+  const before = await snapshot(page);
+  for (const [factor, tempo] of [['0.5', 64], ['0.25', 16], ['2', 32], ['4', 128]]) {
+    await page.locator('#tempoScale').selectOption(factor);
+    await expect(page.locator('#tempo')).toHaveValue(String(tempo));
+    const current = await snapshot(page);
+    expect(current.motionSettings.tempo).toBe(tempo);
+    expect(current.playing).toBe(true); expect(current.soundPlaying).toBe(true);
+    expect(current.sound.level).toBe(1); expect(current.camera).toEqual(before.camera);
+    expect(current.audio.contextState).toBe('uninitialized');
+  }
 });
 
 test('real worklet audio stays bounded and advances while graphics and UI are stalled', async ({ page }, testInfo) => {
@@ -250,7 +287,7 @@ test('MIDI input plays the selected body group without taking over either player
   await expect.poll(async () => (await snapshot(page)).audio.midiFrequencies[6]).toBe(440);
   await expect.poll(async () => (await snapshot(page)).audio.peak).toBeGreaterThan(.0001);
   await expect(page.locator('#motionButton')).toHaveAttribute('aria-pressed', 'false');
-  await expect(page.locator('#soundPlayButton')).toHaveAttribute('aria-pressed', 'false');
+  expect((await snapshot(page)).soundPlaying).toBe(false);
   expect((await snapshot(page)).selectedGroup).toBe('head');
   await sendMidi(page, MIDI_BYTES.noteOff(69));
   await expect.poll(async () => (await snapshot(page)).audio.peak).toBeLessThan(.0001);
@@ -264,7 +301,7 @@ test('failed specimen download preserves its poster and Retry loads all 31 joint
   await loaded(page); await expect(page.locator('#roachCanvas')).toBeVisible(); await expect(page.locator('#specimenImage')).toBeHidden();
 });
 
-test('direct part drags choose their body group and play while animation and Sound Play are paused', async ({ page }) => {
+test('direct part drags choose their body group and play while Play is paused', async ({ page }) => {
   await openRoach(page); await arm(page);
   await expect.poll(async () => (await snapshot(page)).audio.peak).toBeLessThan(.0001);
   for (const target of [{ view: 'face', joint: 'head', axis: 'x', group: 'head' }, { view: 'top', joint: 'wing_cover_left', axis: 'z', group: 'covers' }, { view: 'bottom', joint: 'middle_left_middle', axis: 'y', group: 'legs' }]) {
@@ -292,17 +329,21 @@ for (const size of [{ width: 360, height: 800 }, { width: 390, height: 844 }, { 
       await page.goto(new URL('roach-synth.html', baseURL).href); await loaded(page);
       const stage = await page.locator('#specimenViewport').boundingBox();
       expect(stage.height).toBeGreaterThanOrEqual(size.width < size.height ? 300 : 170);
+      const footer = await page.locator('.roach-stage > .roach-view-controls').boundingBox();
+      expect(footer.y).toBeGreaterThanOrEqual(stage.y + stage.height - 1);
+      await page.locator('#source-head').scrollIntoViewIfNeeded();
+      const scrollControl = await page.locator('#source-head').boundingBox(), initialScroll = await page.evaluate(() => scrollY);
       const cdp = await context.newCDPSession(page);
-      await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: size.width * .4, y: stage.y + stage.height * .85 }] });
-      for (let i = 1; i <= 8; i++) await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: size.width * .4, y: stage.y + stage.height * (.85 - .6 * i / 8) }] });
+      await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: size.width * .4, y: scrollControl.y + scrollControl.height / 2 }] });
+      for (let i = 1; i <= 8; i++) await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: size.width * .4, y: scrollControl.y + scrollControl.height / 2 - 80 * i / 8 }] });
       await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
-      await expect.poll(() => page.evaluate(() => scrollY)).toBeGreaterThan(30);
+      await expect.poll(() => page.evaluate(() => scrollY)).toBeGreaterThan(initialScroll + 20);
       await settleScroll(page);
       await expect.poll(async () => {
         const currentStage = await page.locator('#specimenViewport').boundingBox(), header = await page.locator('.masthead').boundingBox();
         return Math.abs(currentStage.y - header.y - header.height);
       }).toBeLessThanOrEqual(1);
-      for (const selector of ['.header-preset-picker summary', '.header-preset-next', '.header-preset-random', '[data-view=side]', '#dragAxis', '#posePreset', '#phrase', '#motionPreset', '#source-antennae', '#crunch', '#midiPanic']) {
+      for (const selector of ['.header-preset-picker summary', '.header-preset-next', '.header-preset-random', '#motionButton', '#tempo', '#tempoScale', '#phrase', '#motionPreset-picker-trigger', '#soundPreset-picker-trigger', '#source-antennae', '#crunch', '#midiPanic']) {
         await page.locator(selector).evaluate(element => element.scrollIntoView({ block: 'start', behavior: 'instant' }));
         const box = await page.locator(selector).boundingBox();
         expect(box.y + box.height).toBeLessThanOrEqual(size.height + 1);
@@ -325,7 +366,7 @@ for (const size of [{ width: 360, height: 800 }, { width: 390, height: 844 }, { 
         const box = await row.boundingBox(); expect(box.x).toBeGreaterThanOrEqual(0); expect(box.x + box.width).toBeLessThanOrEqual(size.width + 1);
       }
       expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(size.width);
-      for (const selector of ['#audioButton', '#motionButton', '#soundPlayButton']) {
+      for (const selector of ['#audioButton', '#motionButton']) {
         const box = await page.locator(selector).boundingBox(); expect(box.width).toBeGreaterThanOrEqual(48); expect(box.height).toBeGreaterThanOrEqual(48);
       }
       expect((await snapshot(page)).audio.contextState).toBe('uninitialized');
@@ -362,7 +403,7 @@ test('full presets, Next and dice animate every scene without changing volume or
   await page.locator('.header-preset-next').focus(); await page.keyboard.press('ArrowRight');
   await expect(page.locator('.header-preset-controls')).toHaveAttribute('data-preset-id', ids[1]);
   expect((await snapshot(page)).motionChoice).toBe(ids[1]);
-  await page.locator('#soundPlayButton').click(); await arm(page);
+  await arm(page);
   const before = await snapshot(page);
   await page.locator('.header-preset-random').click();
   await expect(page.locator('.header-preset-controls')).toHaveAttribute('data-preset-id', 'custom');
@@ -373,4 +414,14 @@ test('full presets, Next and dice animate every scene without changing volume or
   expect(random.motionSettings.antennae).toBe(true);
   await expect.poll(async () => (await snapshot(page)).audio.peak).toBeGreaterThan(.0001);
   expect(failures).toEqual([]);
+});
+
+test('Roach logo and catalogue instrument information finish the parameter panel', async ({ page }) => {
+  await openRoach(page);
+  const info = page.locator('.roach-panel > .instrument-page-info[data-tool-id="roach-synth"]');
+  await expect(info).toHaveCount(1);
+  expect(await info.evaluate(element => element.parentElement.lastElementChild === element)).toBe(true);
+  await expect(info.locator('.instrument-picker-card-title')).toHaveText('Roach Synth');
+  await expect(info.locator('.instrument-picker-card-image')).toHaveAttribute('src', /roach-synth\.webp/);
+  await expect(info.locator('.instrument-picker-card-description')).not.toBeEmpty();
 });

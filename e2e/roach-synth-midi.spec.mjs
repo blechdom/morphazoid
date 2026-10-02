@@ -150,10 +150,11 @@ test('Program Change recalls all sound presets while retaining held body notes a
   await open(page); await enable(page);
   await sendMidi(page, MIDI_BYTES.noteOn(48)); await sendMidi(page, MIDI_BYTES.noteOn(60)); await gate(page, 'legs');
   expect((await state(page)).midi.heldCount).toBe(2); expect(players(await state(page))).toEqual({ sound: false, animation: false });
-  await page.locator('#soundPlayButton').click(); await page.locator('#motionButton').click();
+  await page.locator('#motionButton').click();
   const before = await state(page), presets = await page.locator('#soundPreset option').evaluateAll(options => options.map(option => option.value));
-  expect(presets).toHaveLength(42);
-  for (const program of [0, 17, 18, 41]) {
+  expect(presets.length).toBeGreaterThanOrEqual(46);
+  expect(presets).toEqual(expect.arrayContaining(['body-voice-espeak', 'body-voice-klatt', 'body-voice-slt', 'body-voice-kal']));
+  for (const program of [0, 17, 18, 41, presets.length - 1]) {
     await sendMidi(page, [0xc0, program]); await expect(page.locator('#soundPreset')).toHaveValue(presets[program]);
     const after = await state(page); expect(after.motionChoice).toBe(before.motionChoice); expect(players(after)).toEqual(players(before));
     expect(after.time).toBeGreaterThanOrEqual(before.time); expect(after.camera).toEqual(before.camera); expect(after.midi.heldCount).toBe(2);
@@ -217,7 +218,7 @@ test('turning Audio off prevents later MIDI notes from rearming it; MIDI Off and
   await expect.poll(async () => (await state(page)).audio.peak).toBeGreaterThan(.001);
   await sendMidi(page, MIDI_BYTES.noteOff(69)); await silentMidi(page);
   await expect.poll(async () => (await state(page)).audio.peak).toBeLessThan(.0001);
-  await page.locator('#soundPlayButton').click(); await page.locator('#motionButton').click();
+  await page.locator('#motionButton').click();
   await sendMidi(page, MIDI_BYTES.noteOn(69)); await gate(page, 'head');
   await page.locator('#midiPanic').click(); await silentMidi(page); expect(players(await state(page))).toEqual({ sound: true, animation: true });
   await sendMidi(page, MIDI_BYTES.noteOn(69)); await gate(page, 'head');

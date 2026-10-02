@@ -14,6 +14,13 @@ async function open(page) {
   expect((await snapshot(page)).bones).toHaveLength(31);
   await page.locator('[data-view="face"]').click();
 }
+async function choose(page, id, value) {
+  const trigger = page.locator(`#${id}-picker-trigger`);
+  if (await trigger.count()) {
+    await trigger.click();
+    await page.locator(`#${id}-picker-panel [data-value="${value}"]`).click();
+  } else await page.locator(`#${id}`).selectOption(value);
+}
 async function press(page, selector, touch = false) {
   const target = page.locator(selector);
   await target.evaluate(element => element.scrollIntoView({ block: 'start', behavior: 'instant' }));
@@ -124,11 +131,11 @@ test('Audio Off clears an active speech gesture and preserves the saved body pos
 
 test('speech gestures layer over manual Animation without replacing its clock, pose settings or camera', async ({ page }, testInfo) => {
   const errors = []; page.on('pageerror', error => errors.push(error.message)); await open(page); await arm(page);
-  await page.locator('#motionPreset').selectOption('side_walk'); await press(page, '#motionButton');
-  const before = await snapshot(page); expect(players(before)).toEqual({ animation: true, sound: false });
+  await choose(page, 'motionPreset', 'side_walk'); await press(page, '#motionButton');
+  const before = await snapshot(page); expect(players(before)).toEqual({ animation: true, sound: true });
   await say(page, longPhrase); await speaking(page);
   const frames = await sampleSpeech(page, 1500); expectTalking(frames, before);
-  expect(frames.every(frame => frame.playing && !frame.soundPlaying)).toBe(true);
+  expect(frames.every(frame => frame.playing && frame.soundPlaying)).toBe(true);
   expect(frames.at(-1).time).toBeGreaterThan(frames[0].time + .5);
   await quietVoice(page);
   await expect.poll(async () => (await snapshot(page)).speechMotion, { timeout: 20000 }).toBe(0);
@@ -154,4 +161,26 @@ test('a phrase that finishes while hidden does not replay head motion when the p
   expect(quaternions(returned)).toEqual(quaternions(before)); expect(players(returned)).toEqual(players(before));
   await page.waitForTimeout(250); expect(quaternions(await snapshot(page))).toEqual(quaternions(before));
   expect(errors).toEqual([]);
+});
+
+
+test('four Voicesaurus presets speak edited text while Play remains held and Audio stays explicit', async ({ page }) => {
+  await open(page);
+  const voices = ['espeak-native-1', 'espeak-klatt-native-1', 'flite-slt-native-1', 'flite-kal16-native-4'];
+  expect(await page.locator('#voicePreset option').evaluateAll(options => options.map(option => option.value))).toEqual(voices);
+  await choose(page, 'voicePreset', voices[1]);
+  await say(page, 'hello little cockroach');
+  expect((await snapshot(page)).audio.contextState).toBe('uninitialized');
+  await arm(page);
+  for (const voice of voices) {
+    await choose(page, 'voicePreset', voice);
+    const before = await snapshot(page);
+    expect(before.sound.voicePreset).toBe(voice);
+    await say(page, 'hello little cockroach'); await speaking(page);
+    const active = await snapshot(page);
+    expect(active.audio.peak).toBeGreaterThan(.0001);
+    expect(players(active)).toEqual({ animation: false, sound: false });
+    expect(active.time).toBe(before.time); expect(active.camera).toEqual(before.camera);
+    await restored(page, before);
+  }
 });
