@@ -434,6 +434,46 @@ export function createRoachViewer({ canvas, onStatus = () => {}, onRig = () => {
     bellySamples.sort((a, b) => a - b);
     const bellyHeight = bellySamples[Math.floor(bellySamples.length * .025)] ?? bodyCenter.dot(dorsal);
     anatomy = { bounds, fitPoints, headBounds, center, bodyCenter, headCenter, forward, faceForward, dorsal, left, bodyLength, bellyHeight };
+    // The scan's approximate head hinge is in front of its shell. Rebase the
+    // face hinges at their rear attachments, preserving every resting mesh and
+    // child world transform, so a lift opens away from the chest and floor.
+    const neckItem = find('neck', /neck|pronotum/i);
+    if (headItem && neckItem && !headBounds.isEmpty()) {
+      const facePoints = [];
+      headItem.bone.traverse(object => {
+        if (!object.geometry?.attributes?.position) return;
+        let owner = object;
+        while (owner && !jointObjects.has(owner)) owner = owner.parent;
+        if (owner !== headItem.bone) return;
+        const vertices = object.geometry.attributes.position;
+        for (let i = 0; i < vertices.count; i++) facePoints.push(new THREE.Vector3().fromBufferAttribute(vertices, i).applyMatrix4(object.matrixWorld));
+      });
+      if (facePoints.length) {
+        let rear = Infinity, front = -Infinity, low = Infinity, high = -Infinity;
+        for (const point of facePoints) {
+          rear = Math.min(rear, point.dot(forward)); front = Math.max(front, point.dot(forward));
+          low = Math.min(low, point.dot(dorsal)); high = Math.max(high, point.dot(dorsal));
+        }
+        const rebase = (item, pivot) => {
+          const children = item.bone.children.map(node => ({ node, world: node.matrixWorld.clone() }));
+          item.bone.position.copy(item.bone.parent.worldToLocal(pivot));
+          item.bone.updateMatrixWorld(true);
+          const inverse = item.bone.matrixWorld.clone().invert();
+          for (const { node, world } of children) inverse.clone().multiply(world).decompose(node.position, node.quaternion, node.scale);
+          item.bone.updateMatrixWorld(true);
+          for (const { node } of [{ node: item.bone }, ...children]) {
+            const rest = restNodes.find(entry => entry.node === node);
+            if (rest) { rest.position.copy(node.position); rest.quaternion.copy(node.quaternion); rest.scale.copy(node.scale); }
+          }
+        };
+        const neckPivot = neckItem.bone.getWorldPosition(new THREE.Vector3());
+        neckPivot.addScaledVector(forward, rear - bodyLength * .03 - neckPivot.dot(forward));
+        rebase(neckItem, neckPivot);
+        const headPivot = headCenter.clone().addScaledVector(forward, rear + (front - rear) * .2 - headCenter.dot(forward))
+          .addScaledVector(dorsal, low + (high - low) * .72 - headCenter.dot(dorsal));
+        rebase(headItem, headPivot);
+      }
+    }
     captureFeet();
     // Lower the authored support posture by moving the grounded foot targets
     // toward the belly; do not push the rendered body through a fixed floor.
@@ -497,6 +537,7 @@ export function createRoachViewer({ canvas, onStatus = () => {}, onRig = () => {
       item.kinematics = { position: position.toArray(), quaternion: quaternion.toArray(), scale: scale.toArray(),
         parentMatrix: parent ? null : parentWorld.toArray(), footTip: null };
       item.restWorldQuaternion = item.bone.getWorldQuaternion(new THREE.Quaternion());
+      item.restWorldPosition = item.bone.getWorldPosition(new THREE.Vector3());
       item.meshSamples = [];
       const face = /^(neck|head|antenna_left|antenna_right)$/.test(item.bone.userData.jointId);
       const floorVertices = [];
@@ -582,6 +623,14 @@ export function createRoachViewer({ canvas, onStatus = () => {}, onRig = () => {
       if (/_(left|right)_proximal$/.test(id)) limit = 55;
       else if (/_(left|right)_middle$/.test(id)) limit = 70;
       item.poseLimits = { x: [-limit, limit], y: [-limit, limit], z: [-limit, limit] };
+      if (id === 'head' || id === 'neck') {
+        const radial = anatomy.headCenter.clone().sub(item.restWorldPosition);
+        const derivative = new THREE.Vector3(1, 0, 0).applyQuaternion(item.restWorldQuaternion).cross(radial).dot(anatomy.dorsal);
+        item.liftSign = derivative < 0 ? -1 : 1;
+        const outward = id === 'neck' ? 42 : 50, inward = id === 'neck' ? 12 : 18;
+        item.poseLimits.x = item.liftSign < 0 ? [-outward, inward] : [-inward, outward];
+        if (id === 'neck') { item.poseLimits.y = [-24, 24]; item.poseLimits.z = [-20, 20]; }
+      }
       if (id === 'wings') item.poseLimits = { x: [-8, 8], y: [-10, 10], z: [-8, 8] };
       if (item.bone.userData.wingLayer) {
         const sign = item.bone.userData.wingOpenSign;
@@ -734,7 +783,7 @@ export function createRoachViewer({ canvas, onStatus = () => {}, onRig = () => {
     } else if (viewPreset === 'bottom') {
       direction.copy(dorsal).negate(); up.copy(forward);
     } else {
-      direction.copy(anatomy.faceForward).addScaledVector(dorsal, -0.65).normalize();
+      direction.copy(forward).addScaledVector(dorsal, 0.4).normalize();
       up.copy(dorsal);
       viewBounds.expandByScalar(viewBounds.getSize(new THREE.Vector3()).length() * 0.16);
     }
@@ -791,6 +840,7 @@ export function createRoachViewer({ canvas, onStatus = () => {}, onRig = () => {
     distance = clamp(distance * factor, 0.15, 16);
     updateCamera();
     invalidate();
+    onInteraction({ kind: 'orbit', phase: 'end', velocity: 0, active: false });
     return true;
   }
   function resize() {
@@ -1305,12 +1355,30 @@ export function createRoachViewer({ canvas, onStatus = () => {}, onRig = () => {
   function getGazeOffset() {
     const head = bones.find((item) => item.bone.userData.jointId === 'head');
     if (!head || !anatomy) return { x: 0, y: 0, z: 0 };
-    const inverse = head.restWorldQuaternion.clone().invert();
-    const facing = anatomy.faceForward.clone().applyQuaternion(inverse).normalize();
-    const desired = camera.position.clone().sub(head.bone.getWorldPosition(new THREE.Vector3())).applyQuaternion(inverse).normalize();
+    const neck = bones.find(item => item.bone.userData.jointId === 'neck');
+    const neckGaze = { x: 0, y: 0, z: 0 };
+    let headBasis = head.bone.parent.getWorldQuaternion(new THREE.Quaternion()).multiply(head.baseQuaternion);
+    let headPosition = head.bone.getWorldPosition(new THREE.Vector3());
+    if (neck && head.bone.parent === neck.bone) {
+      const neckBasis = neck.bone.parent.getWorldQuaternion(new THREE.Quaternion()).multiply(neck.baseQuaternion);
+      const inverse = neckBasis.clone().invert();
+      const facing = anatomy.headCenter.clone().sub(neck.restWorldPosition).applyQuaternion(neck.restWorldQuaternion.clone().invert()).normalize();
+      const desired = camera.position.clone().sub(neck.bone.getWorldPosition(new THREE.Vector3())).applyQuaternion(inverse).normalize();
+      const rotation = new THREE.Quaternion().setFromUnitVectors(facing, desired);
+      rotation.slerp(new THREE.Quaternion(), .5);
+      const angles = new THREE.Euler().setFromQuaternion(rotation, 'XYZ');
+      neckGaze.x = clamp(angles.x / RAD, neck.liftSign < 0 ? -34 : -12, neck.liftSign < 0 ? 12 : 34);
+      neckGaze.y = clamp(angles.y / RAD, -18, 18); neckGaze.z = clamp(angles.z / RAD, -16, 16);
+      neckBasis.multiply(new THREE.Quaternion().setFromEuler(new THREE.Euler(neckGaze.x * RAD, neckGaze.y * RAD, neckGaze.z * RAD, 'XYZ')));
+      headBasis = neckBasis.clone().multiply(head.baseQuaternion);
+      const neckMatrix = new THREE.Matrix4().compose(neck.bone.getWorldPosition(new THREE.Vector3()), neckBasis, neck.bone.getWorldScale(new THREE.Vector3()));
+      headPosition = new THREE.Vector3().fromArray(head.kinematics.position).applyMatrix4(neckMatrix);
+    }
+    const facing = anatomy.faceForward.clone().applyQuaternion(head.restWorldQuaternion.clone().invert()).normalize();
+    const desired = camera.position.clone().sub(headPosition).applyQuaternion(headBasis.invert()).normalize();
     const rotation = new THREE.Quaternion().setFromUnitVectors(facing, desired);
     const gaze = new THREE.Euler().setFromQuaternion(rotation, 'XYZ');
-    return { x: clamp(gaze.x / RAD, -22, 22), y: clamp(gaze.y / RAD, -22, 22), z: clamp(gaze.z / RAD, -22, 22) };
+    return { x: clamp(gaze.x / RAD, -22, 22), y: clamp(gaze.y / RAD, -22, 22), z: clamp(gaze.z / RAD, -22, 22), neck: neckGaze };
   }
   function setDragAxis(value) {
     if (!['xy', 'x', 'y', 'z'].includes(value)) return false;
@@ -1415,10 +1483,11 @@ export function createRoachViewer({ canvas, onStatus = () => {}, onRig = () => {
       const offset = { ...gesture.offset };
       const axis = event.altKey ? 'z' : dragAxis;
       const touchY = gesture.scrollTouch ? 0 : totalY;
+      const vertical = -touchY * (item.liftSign ?? 1);
       if (axis === 'xy') {
         offset.y += totalX * 0.38;
-        offset.x -= touchY * 0.38;
-      } else offset[axis] += (totalX - (axis === 'x' ? touchY : 0)) * 0.38;
+        offset.x += vertical * 0.38;
+      } else offset[axis] += (totalX + (axis === 'x' ? vertical : 0)) * 0.38;
       for (const component of ['x', 'y', 'z']) offset[component] = clamp(offset[component], -90, 90);
       const velocity = clamp(Math.hypot(dx, dy) / Math.max(8, event.timeStamp - gesture.time) / 1.7, 0.04, 1);
       editJoint(item, offset, velocity);
