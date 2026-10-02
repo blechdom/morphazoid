@@ -2,7 +2,6 @@ import {
   FALSE_FOLD_AUDIBILITY_THRESHOLD,
   THROAT_SINGING_LIMITS,
   THROAT_SINGING_STYLE_PRESETS,
-  closurePatternFrequencyHz,
   dualFocusTargets,
   harmonicFrequencyHz,
   heardDroneFrequencyHz,
@@ -35,6 +34,8 @@ const drawing = canvas.getContext("2d", { alpha: false, desynchronized: true });
 const prefersReducedMotion = globalThis.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches ?? false;
 const TAU = Math.PI * 2;
 const HARMONICS = Object.freeze(Array.from({ length: 21 }, (_, index) => index + 4));
+const FOCUS_FIELD = Object.freeze({ left: 0.45, right: 0.83, top: 0.205, bottom: 0.58 });
+const AIRFLOW_FIELD = Object.freeze({ x: 0.27, top: 0.67, bottom: 0.87 });
 const NOTE_NAMES = ["C", "C♯", "D", "D♯", "E", "F", "F♯", "G", "G♯", "A", "A♯", "B"];
 const NOTE_KEYS = Object.freeze(Object.entries(COMPUTER_KEYBOARD_LAYOUTS.piano.noteOffsets).map(([code, offset]) => ({
   code, key: code.replace(/^(Key|Digit)/, "").toLowerCase(), offset,
@@ -342,16 +343,8 @@ function updateReadouts(now = performance.now()) {
   currentPerformance = performanceAt(now);
   currentFocus = currentPerformance.focus;
   const drone = currentPerformance.heardDroneHz;
-  const closurePattern = closurePatternFrequencyHz(state);
-  const harmonicFrequency = harmonicFrequencyHz(state);
-  const merged = currentFocus.merged || state.formantConvergence >= 0.9;
   $("levelOut").textContent = formatPercent(state.level);
   $("styleSelect").value = activeStyleId;
-  $("stageDroneOut").textContent = formatFrequency(currentPerformance.heardDroneHz);
-  $("stageOvertoneOut").textContent = `H${currentPerformance.targetHarmonic.toFixed(1)} · ${formatFrequency(currentFocus.targetHz)}`;
-  $("stageFormantOut").textContent = merged
-    ? `F2 ≈ F3 · ${Math.round(currentFocus.separationHz)} Hz`
-    : `F2 ↔ F3 · ${Math.round(currentFocus.separationHz)} Hz`;
 
   for (const binding of CONTROL_BINDINGS) updateControl(binding);
   updatePhraseControls();
@@ -1541,10 +1534,10 @@ function harmonicEnergy(harmonic, performanceState) {
 function drawSpectrum(context, performanceState) {
   if (cssWidth < 470 || cssHeight < 250) return;
   const box = {
-    x: cssWidth * 0.53,
-    y: cssHeight * 0.04,
-    width: cssWidth * 0.39,
-    height: Math.min(110, cssHeight * 0.16),
+    x: cssWidth * 0.04,
+    y: cssHeight * 0.14,
+    width: cssWidth * 0.30,
+    height: Math.min(96, cssHeight * 0.14),
   };
   roundedRect(context, box.x, box.y, box.width, box.height, 5);
   context.fillStyle = "rgba(5,7,6,0.62)";
@@ -1608,7 +1601,7 @@ function drawTube(context, profile, geometry, now) {
   const tubeGradient = context.createLinearGradient(geometry.left, 0, geometry.right, 0);
   tubeGradient.addColorStop(0, "rgba(255,124,105,0.22)");
   tubeGradient.addColorStop(0.45, "rgba(215,179,92,0.14)");
-  tubeGradient.addColorStop(0.76, "rgba(175,140,255,0.22)");
+  tubeGradient.addColorStop(0.76, "rgba(239,145,176,0.22)");
   tubeGradient.addColorStop(1, "rgba(112,217,207,0.12)");
   tracePolygon(context, complete);
   context.fillStyle = tubeGradient;
@@ -1659,7 +1652,7 @@ function drawTube(context, profile, geometry, now) {
     context.strokeStyle = deformation.kind === "expansion"
       ? "rgba(112,217,207,0.34)"
       : deformation.id === "alveolar-oral"
-        ? "rgba(175,140,255,0.5)"
+        ? "rgba(239,145,176,0.5)"
         : "rgba(215,179,92,0.46)";
     context.lineWidth = 1;
     context.beginPath();
@@ -1682,9 +1675,9 @@ function drawHeadOutline(context, geometry, now, performanceState) {
   context.stroke();
   context.beginPath();
   // An upright nose bridge, without an eyebrow, frames the front of the airway.
-  context.moveTo(right + cssWidth * 0.008, mouthLine - cssHeight * 0.22);
-  context.lineTo(right + cssWidth * 0.038, mouthLine - cssHeight * 0.095);
-  context.quadraticCurveTo(right + cssWidth * 0.05, mouthLine - cssHeight * 0.055, right + cssWidth * 0.013, mouthLine - cssHeight * 0.065);
+  context.moveTo(right + cssWidth * 0.018, mouthLine - cssHeight * 0.30);
+  context.lineTo(right + cssWidth * 0.058, mouthLine - cssHeight * 0.14);
+  context.quadraticCurveTo(right + cssWidth * 0.084, mouthLine - cssHeight * 0.095, right + cssWidth * 0.01, mouthLine - cssHeight * 0.115);
   context.lineTo(right + cssWidth * 0.008, mouthLine - cssHeight * 0.022);
   const lipExtension = cssWidth * (0.018 + performanceState.lipRounding * 0.03);
   const lipGap = cssHeight * (0.009 + performanceState.mouthOpening * 0.024);
@@ -1697,14 +1690,9 @@ function drawHeadOutline(context, geometry, now, performanceState) {
   context.moveTo(cssWidth * 0.42, mouthLine - cssHeight * 0.025);
   context.bezierCurveTo(cssWidth * 0.47, mouthLine - cssHeight * 0.17,
     cssWidth * 0.69, mouthLine - cssHeight * 0.15,
-    right + cssWidth * 0.013, mouthLine - cssHeight * 0.073);
+    right + cssWidth * 0.013, mouthLine - cssHeight * 0.13);
   context.strokeStyle = `rgba(112,217,207,${0.2 + (singing ? nasalPulse * 0.25 : 0)})`;
   context.lineWidth = 3 + performanceState.lipRounding * 3;
-  context.stroke();
-  context.lineWidth = 1;
-  context.beginPath();
-  context.ellipse(right + cssWidth * 0.028, mouthLine - cssHeight * 0.079, cssWidth * 0.011, cssHeight * 0.006, 0.25, 0, TAU);
-  context.strokeStyle = "rgba(112,217,207,0.65)";
   context.stroke();
 
   // Both lip edges move with the actual mouth aperture and rounding.
@@ -1759,9 +1747,9 @@ function drawTongue(context, geometry, performanceState) {
     cssWidth * 0.74, floorY - lift * 1.9, cssWidth * 0.81, floorY - lift * 0.25);
   context.quadraticCurveTo(cssWidth * 0.7, floorY + cssHeight * 0.065,
     cssWidth * 0.32, floorY + cssHeight * 0.035);
-  context.fillStyle = "rgba(175,140,255,0.12)";
+  context.fillStyle = "rgba(239,145,176,0.17)";
   context.fill();
-  context.strokeStyle = "rgba(175,140,255,0.44)";
+  context.strokeStyle = "rgba(239,145,176,0.6)";
   context.lineWidth = 1.5;
   context.stroke();
 }
@@ -1790,15 +1778,16 @@ function drawHandle(context, handle) {
   context.font = "7px ui-monospace, monospace";
   context.textAlign = handle.align ?? "center";
   context.fillStyle = handle.fill;
-  context.fillText(handle.label, handle.labelX ?? handle.x, handle.y - radius - 8);
+  const labelY = handle.labelBelow ? handle.y + radius + 14 : handle.y - radius - 8;
+  context.fillText(handle.label, handle.labelX ?? handle.x, labelY);
   context.restore();
 }
 
 function updateHandles() {
-  const focusLeft = cssWidth * 0.48;
-  const focusRight = cssWidth * 0.82;
-  const focusTop = cssHeight * 0.3;
-  const focusBottom = cssHeight * 0.56;
+  const focusLeft = cssWidth * FOCUS_FIELD.left;
+  const focusRight = cssWidth * FOCUS_FIELD.right;
+  const focusTop = cssHeight * FOCUS_FIELD.top;
+  const focusBottom = cssHeight * FOCUS_FIELD.bottom;
   const handleHarmonic = pointerDrag ? state.harmonicNumber : currentPerformance.targetHarmonic;
   const harmonicUnit = (handleHarmonic - 4) / 20;
   handles = [
@@ -1832,18 +1821,19 @@ function updateHandles() {
       id: "mouth", label: "MOUTH",
       x: cssWidth * 0.70,
       y: lerp(cssHeight * 0.70, cssHeight * 0.64, currentPerformance.alveolarConstriction),
-      radius: 9, fill: "#af8cff",
+      radius: 9, fill: "#ef91b0",
     },
     {
       id: "lips", label: "LIPS",
       x: lerp(cssWidth * 0.885, cssWidth * 0.95, currentPerformance.lipRounding),
       y: cssHeight * 0.54,
       radius: 9, fill: "#ff7c69",
+      labelBelow: true,
     },
     {
       id: "airflow", label: "AIRFLOW",
-      x: cssWidth * 0.29,
-      y: lerp(cssHeight * 0.83, cssHeight * 0.76, state.intensity),
+      x: cssWidth * AIRFLOW_FIELD.x,
+      y: lerp(cssHeight * AIRFLOW_FIELD.bottom, cssHeight * AIRFLOW_FIELD.top, state.intensity),
       radius: 9, fill: "#70d9cf",
     },
   ];
@@ -1898,8 +1888,8 @@ function applyPointerDrag(point) {
   const dy = point.y - pointerDrag.startPoint.y;
   const initial = pointerDrag.startState;
   if (pointerDrag.id === "tongue") {
-    const harmonic = Math.round(clamp(initial.harmonicNumber + dx * 20 / (cssWidth * 0.34), 4, 24));
-    const convergence = clamp(initial.formantConvergence - dy / (cssHeight * 0.26));
+    const harmonic = Math.round(clamp(initial.harmonicNumber + dx * 20 / (cssWidth * (FOCUS_FIELD.right - FOCUS_FIELD.left)), 4, 24));
+    const convergence = clamp(initial.formantConvergence - dy / (cssHeight * (FOCUS_FIELD.bottom - FOCUS_FIELD.top)));
     state = sanitizedAppState({
       ...state,
       harmonicNumber: harmonic,
@@ -1920,7 +1910,9 @@ function applyPointerDrag(point) {
       mouthOpening: clamp(initial.mouthOpening - dy / (cssHeight * 0.18)),
     }, state);
   } else if (pointerDrag.id === "airflow") {
-    state = sanitizedAppState({ ...state, intensity: clamp(initial.intensity - dy / (cssHeight * 0.18)) }, state);
+    state = sanitizedAppState({ ...state,
+      intensity: clamp(initial.intensity - dy / (cssHeight * (AIRFLOW_FIELD.bottom - AIRFLOW_FIELD.top))),
+    }, state);
   }
   markCustomEdit();
   lastTractSignature = "";
@@ -2068,6 +2060,7 @@ presetController = registerHeaderPresets({
   presets: THROAT_SINGER_PRESETS,
   capture: captureSingerPreset,
   apply: applySingerPreset,
+  onApplied: () => { if (!singing) setSinging(true); },
   randomize: (_previous, random) => {
     const randomized = randomizeSingerPreset(random, state.level);
     const { level, active, ...parameters } = randomized.state;

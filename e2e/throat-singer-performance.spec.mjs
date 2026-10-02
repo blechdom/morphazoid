@@ -184,18 +184,32 @@ test("Throat Singer breaths, two-row physical keys, and glide follow the voice w
   await page.locator("#melodyRate").focus();
   await page.keyboard.press("q");
   await expect(page.locator("#trueFoldHz")).toHaveValue(lastPitch);
+  await page.evaluate(() => {
+    const stage = document.getElementById("stage");
+    window.throatBreathHistory = [];
+    window.throatBreathObserver = new MutationObserver(() => {
+      window.throatBreathHistory.push({ state: stage.dataset.breathState, gain: Number(stage.dataset.breathGain) });
+    });
+    window.throatBreathObserver.observe(stage, { attributes: true, attributeFilter: ["data-breath-state", "data-breath-gain"] });
+  });
   await page.locator("#singButton").click();
   await page.locator("#breathButton").click();
-  await expect(page.locator("#stage")).toHaveAttribute("data-breath-state", "inhaling");
-  await expect.poll(async () => (await readStage(page)).breathGain).toBeLessThan(0.5);
+  // Record the brief inhale instead of relying on retry polling to land in it.
+  await expect.poll(() => page.evaluate(() => window.throatBreathHistory.some(
+    sample => sample.state === "inhaling" && sample.gain < 0.5,
+  ))).toBe(true);
   await expect(page.locator("#stage")).toHaveAttribute("data-breath-state", "singing");
   await expect.poll(async () => (await readStage(page)).breathGain).toBeGreaterThan(0.95);
+  const manualInhales = await page.evaluate(() => window.throatBreathHistory.filter(sample => sample.state === "inhaling").length);
   await page.locator("#breathRate").fill("30");
   await expect(page.locator("#breathRateOut")).toHaveText("30/min");
-  await expect(page.locator("#stage")).toHaveAttribute("data-breath-state", "inhaling");
+  await expect.poll(() => page.evaluate(() => window.throatBreathHistory.filter(
+    sample => sample.state === "inhaling",
+  ).length)).toBeGreaterThan(manualInhales);
   await page.locator("#breathRate").fill("0");
   await expect(page.locator("#breathRateOut")).toHaveText("Never");
   await expect.poll(async () => (await readStage(page)).breathGain).toBeGreaterThan(0.95);
+  await page.evaluate(() => window.throatBreathObserver.disconnect());
 
   await page.locator('[data-note-key="z"]').click();
   await expect.poll(async () => (await readStage(page)).pitchHz).toBeCloseTo(65.406, 1);
@@ -209,7 +223,56 @@ test("Throat Singer breaths, two-row physical keys, and glide follow the voice w
   expect(errors).toEqual([]);
 });
 
-test("Throat Singer complete presets and polyphonic effects preserve level, voice transport, and bounded output", async ({ page }) => {
+test("Throat Singer preset selection, Next, and dice start Voice without arming Audio", async ({ page }) => {
+  const errors = [];
+  page.on("pageerror", error => errors.push(error.message));
+  await page.goto("throat-singing.html", { waitUntil: "load" });
+  await expect(page.locator("#singButton")).toHaveAttribute("aria-pressed", "false");
+  await assertUnarmed(page);
+  await page.locator("#level").fill("0.23");
+  await selectFullPreset(page, "bright-thread");
+  await expect(page.locator("#singButton")).toHaveAttribute("aria-pressed", "true");
+  await assertUnarmed(page);
+  for (const selector of [".header-preset-next", ".header-preset-random"]) {
+    await page.locator("#singButton").click();
+    await expect(page.locator("#singButton")).toHaveAttribute("aria-pressed", "false");
+    await page.locator(selector).click();
+    await expect(page.locator("#singButton")).toHaveAttribute("aria-pressed", "true");
+    await expect(page.locator("#level")).toHaveValue("0.23");
+    await assertUnarmed(page);
+  }
+  await selectFullPreset(page, "open-drone");
+  await page.locator("#singButton").click();
+  await page.locator("#audioButton").click();
+  await expect(page.locator("#singButton")).toHaveAttribute("aria-pressed", "false");
+  await waitForStableAudioState(page, false);
+  await selectFullPreset(page, "bright-thread");
+  await expect(page.locator("#singButton")).toHaveAttribute("aria-pressed", "true");
+  await waitForAudioState(page, true);
+  await expect.poll(async () => (await readStage(page)).voiceGain).toBe(1);
+  await page.evaluate(() => {
+    window.throatPresetVoiceGains = [];
+    window.throatPresetVoiceProbe = setInterval(() => {
+      window.throatPresetVoiceGains.push(Number(document.getElementById("stage").dataset.voiceGain));
+    }, 10);
+  });
+  for (const selector of [".header-preset-next", ".header-preset-random"]) {
+    await page.locator(selector).click();
+    await expect(page.locator("#singButton")).toHaveAttribute("aria-pressed", "true");
+    await expect(page.locator("#audioButton")).toHaveAttribute("aria-pressed", "true");
+    await page.waitForTimeout(180);
+  }
+  const voiceGains = await page.evaluate(() => {
+    clearInterval(window.throatPresetVoiceProbe);
+    return window.throatPresetVoiceGains;
+  });
+  expect(voiceGains.length).toBeGreaterThan(0);
+  expect(Math.min(...voiceGains)).toBeGreaterThanOrEqual(0.999);
+  await expect(page.locator("#level")).toHaveValue("0.23");
+  expect(errors).toEqual([]);
+});
+
+test("Throat Singer complete presets start the voice and preserve level and bounded polyphonic output", async ({ page }) => {
   const errors = [];
   page.on("pageerror", (error) => errors.push(error.message));
   await page.goto("throat-singing.html", { waitUntil: "load" });
@@ -222,10 +285,9 @@ test("Throat Singer complete presets and polyphonic effects preserve level, voic
   });
   expect((await capturePreset(page)).snapshot).toEqual(expectedSnapshot);
   await expect(page.locator("#level")).toHaveValue("0.17");
-  await expect(page.locator("#singButton")).toHaveAttribute("aria-pressed", "false");
+  await expect(page.locator("#singButton")).toHaveAttribute("aria-pressed", "true");
   await assertUnarmed(page);
   await page.locator("#audioButton").click();
-  await page.locator("#singButton").click();
   await waitForAudioState(page, true);
   await page.locator("#ornamentSelect").selectOption("spiral");
   await page.locator("#melodySelect").selectOption("arch");
@@ -337,7 +399,7 @@ test("Throat Singer keeps uniform anatomy scaling and reachable controls in thre
   expect(errors).toEqual([]);
 });
 
-test("Throat Singer mouth and lips can be shaped directly in the drawing at every aspect ratio", async ({ page }) => {
+test("Throat Singer mouth, lips, Airflow and Focus can be shaped across their full fields at every aspect ratio", async ({ page }) => {
   const errors = [];
   page.on("pageerror", (error) => errors.push(error.message));
   for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 }, { width: 844, height: 390 }]) {
@@ -370,9 +432,25 @@ test("Throat Singer mouth and lips can be shaped directly in the drawing at ever
     const mouth = await page.locator("#oralConstriction").inputValue();
     const harmonic = Number(await page.locator("#harmonicNumber").inputValue());
     const focus = Number(await page.locator("#focusAmount").inputValue());
-    await drag(0.48 + (harmonic - 4) / 20 * 0.34, 0.56 - 0.26 * focus, 0.34 * 3 / 20, 0);
+    await drag(0.45 + (harmonic - 4) / 20 * 0.38, 0.58 - 0.375 * focus, 0.38 * 3 / 20, 0);
     expect(Number(await page.locator("#harmonicNumber").inputValue())).toBe(harmonic + 3);
+    const shiftedHarmonic = harmonic + 3;
+    await drag(0.45 + (shiftedHarmonic - 4) / 20 * 0.38, 0.58 - 0.375 * focus, 0, -0.375 * (1 - focus));
+    expect(Number(await page.locator("#focusAmount").inputValue())).toBeCloseTo(1, 2);
+    await drag(0.45 + (shiftedHarmonic - 4) / 20 * 0.38, 0.205, -(shiftedHarmonic - 4) / 20 * 0.38, 0);
+    expect(Number(await page.locator("#harmonicNumber").inputValue())).toBe(4);
+    await drag(0.45, 0.205, 0.38, 0);
+    expect(Number(await page.locator("#harmonicNumber").inputValue())).toBe(24);
+    await drag(0.83, 0.205, 0, 0.375);
+    expect(Number(await page.locator("#focusAmount").inputValue())).toBeCloseTo(0, 2);
     await expect(page.locator("#oralConstriction")).toHaveValue(mouth);
+    await page.locator("#sourcePressure").fill("0.5");
+    await drag(0.27, 0.77, 0, -0.05);
+    expect(Number(await page.locator("#sourcePressure").inputValue())).toBeCloseTo(0.75, 2);
+    await drag(0.27, 0.72, 0, -0.05);
+    expect(Number(await page.locator("#sourcePressure").inputValue())).toBeCloseTo(1, 2);
+    await drag(0.27, 0.67, 0, 0.20);
+    expect(Number(await page.locator("#sourcePressure").inputValue())).toBeCloseTo(0, 2);
     await assertUnarmed(page);
   }
   expect(errors).toEqual([]);

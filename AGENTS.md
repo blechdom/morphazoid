@@ -99,7 +99,9 @@ command names.
   Preset-owned rotation/motion switches and loop policy are musical parameters,
   so they participate; external Audio/primary-transport flags do not.
   Shape, Solid, Hyper and the Shapes app's primary-playhead recall are explicit owner-requested
-  exceptions; registration still shows Select Preset without applying a scene. See
+  exceptions. Throat Singer starts its paused Voice after successful preset,
+  Next or dice recall while preserving Audio arming; registration still shows
+  Select Preset without applying a scene. See
   `contracts/audio-transport-v1.md` for per-family boundaries.
   Randomization marks the result Custom and uses the same complete-state
   apply/rollback contract. The main preset menu selects complete presets only;

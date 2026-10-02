@@ -210,7 +210,10 @@ The model accepts true-fold frequency `50–360 Hz`, integer period division `1�
 The display name is Throat Singer; the `throat-singing` ID and URL remain stable.
 The 28 complete presets include source, tract, ornament, melody, breathing,
 portamento, polyphony and effects. Main dice randomizes the full musical state,
-preserving output level, Audio and the primary voice transport. The original
+preserving output level and Audio arming. Successful main preset, Next and dice
+recall starts a paused Voice, while an already-playing Voice keeps its envelope
+and clock. This success-only behavior excludes startup, failed recall and
+rollback; Voice and Audio begin off. The original
 named approaches remain local source/tract starting points in the Voice menu.
 
 The 18 ornaments and 12 moving pitch contours are authored synthesis gestures,
@@ -230,12 +233,14 @@ source pitch retains the engine's 50–360 Hz limit. A shallow nasal branch foll
 lip rounding through the existing waveguide model. Anatomy has a fixed 900×720
 coordinate system and one uniform viewport scale, including inverse pointer
 coordinates, so resizing preserves its proportions.
-The profile keeps an upright nose bridge and rear head/neck edge, with the
-eyebrow removed and the crown open.
-The spectrum sits above the focus handle's full movement range. Direct mouth
-and lip handles mirror oral constriction and lip rounding; a vertical lip drag
+The profile keeps a larger, raised upright nose bridge and rear head/neck edge,
+with no eyebrow or nostril mark and the crown open.
+The spectrum sits to the left of an expanded focus movement field, and the
+bottom-right readout box is removed. The mouth surface and its handle are pink.
+Direct mouth and lip handles mirror oral constriction and lip rounding; a vertical lip drag
 also opens the mouth. Focus drag leaves oral constriction independent. Airflow
-controls pressure, and false-fold dragging controls both coupling and period.
+controls the original 0–100% pressure range with nearly three times the visible
+travel, matching its drag distance; false-fold dragging controls coupling and period.
 Drags use deltas from the authored state so grabbing an animated handle does not
 rewrite its parameter, and hit areas retain at least a 48-pixel screen diameter.
 Controls use aligned playback rows, adjoining square motion buttons, native

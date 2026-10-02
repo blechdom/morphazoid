@@ -164,55 +164,6 @@
   background: var(--throat-violet);
 }
 
-.throat-stage-status {
-  position: absolute;
-  z-index: 2;
-  right: clamp(18px, 2.5vw, 36px);
-  bottom: 38px;
-  display: grid;
-  min-width: min(460px, 58%);
-  pointer-events: none;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-}
-
-.throat-stage-status span {
-  min-width: 0;
-  padding: 8px 11px;
-  border-top: 1px solid rgba(215, 179, 92, 0.18);
-  border-bottom: 1px solid rgba(215, 179, 92, 0.18);
-  background: rgba(5, 7, 6, 0.78);
-  backdrop-filter: blur(12px);
-}
-
-.throat-stage-status span:first-child {
-  border-left: 1px solid rgba(215, 179, 92, 0.18);
-}
-
-.throat-stage-status span:last-child {
-  border-right: 1px solid rgba(215, 179, 92, 0.18);
-}
-
-.throat-stage-status small,
-.throat-stage-status output {
-  display: block;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.throat-stage-status small {
-  color: var(--throat-muted);
-  font-size: 6px;
-  letter-spacing: 0.11em;
-  text-transform: uppercase;
-}
-
-.throat-stage-status output {
-  margin-top: 2px;
-  color: var(--throat-bone);
-  font-size: 9px;
-}
-
 .throat-drag-hint {
   position: absolute;
   z-index: 2;
@@ -524,12 +475,6 @@
     grid-template-rows: minmax(0, 1fr);
   }
 
-  .throat-stage-status {
-    right: 16px;
-    bottom: 12px;
-    min-width: min(420px, 68%);
-  }
-
   .throat-drag-hint {
     display: none;
   }
@@ -543,24 +488,6 @@
   .throat-shell {
     height: auto;
     grid-template-rows: clamp(290px, 45dvh, 390px) minmax(0, 1fr);
-  }
-
-  .throat-stage-status {
-    right: 10px;
-    bottom: 9px;
-    min-width: 58%;
-    grid-template-columns: 1fr;
-  }
-
-  .throat-stage-status span {
-    display: none;
-    padding: 5px 8px;
-  }
-
-  .throat-stage-status span:nth-child(2) {
-    display: block;
-    border: 1px solid rgba(215, 179, 92, 0.18);
-    text-align: right;
   }
 
   .throat-transport {
@@ -618,7 +545,6 @@
     grid-template-rows: minmax(0, 1fr);
   }
 
-  .throat-stage-status,
   .throat-drag-hint {
     display: none;
   }

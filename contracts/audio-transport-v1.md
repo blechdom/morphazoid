@@ -119,6 +119,13 @@ is shared by all waves; scene/structural rebuilds replace this live push history
 
 ## Other full-scene adapters
 
+Throat Singer's owner-requested exception starts a paused Voice after successful
+main preset selection, Next or dice recall. Audio arming and output level remain
+unchanged, so an unarmed singer starts in silent preview. An already-playing
+Voice keeps its envelope and clock. Initial registration, failed recall and
+rollback never start Voice; the success-only `onApplied` hook owns this behavior.
+Voice and Audio still begin off when the page loads.
+
 Solid and Hyper presets now recall their primary Play flag and independent
 rotation/surface-motion switches, so playhead-only and shape-only scenes are
 unambiguous. Moving-playhead scenes retain the current phase. Shape-only scenes

@@ -441,7 +441,7 @@
       "scope": "regular",
       "presets": 28,
       "status": "implemented-verification-pending",
-      "evidence": "Owner-requested 28-scene full-state bank; 18 ornaments and 12 moving pitch melodies, independent track direction/repeat, breathing and portamento, bounded pitched/overtone polyphony, room and echo. Pure model and focused Chromium tests cover finite audio, exact recall, full randomization, independent Audio/transport, envelopes and responsive reach. Human listening and physical touch remain unperformed."
+      "evidence": "Owner-requested 28-scene full-state bank; 18 ornaments and 12 moving pitch melodies, independent track direction/repeat, breathing and portamento, bounded pitched/overtone polyphony, room and echo. Pure model and focused Chromium tests cover finite audio, exact recall, full randomization, envelopes and responsive reach. Successful main preset/Next/dice recall starts paused Voice while preserving Audio arming and output level; startup and failed recall stay transport-neutral. Human listening and physical touch remain unperformed."
     },
     {
       "id": "monstroid",

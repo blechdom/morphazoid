@@ -13,10 +13,10 @@ test("Throat Singer keeps named styles, anatomy, and harmonic selection in one m
 
   await expect(page.locator("#styleSelect option")).toHaveCount(8);
   await expect(page.locator("#styleSelect")).toHaveValue("open-drone");
-  await expect(page.locator("#harmonicButtons, #styleButtons, .throat-model-hud, #styleDescription")).toHaveCount(0);
+  await expect(page.locator("#harmonicButtons, #styleButtons, .throat-model-hud, #styleDescription, .throat-stage-status")).toHaveCount(0);
   await expect(page.locator("#noteButtons button")).toHaveCount(24);
   await expect(page.locator("#harmonicNumber")).toBeVisible();
-  await expect(page.locator("#stageOvertoneOut")).toContainText("H8");
+  await expect(page.locator("#harmonicNumberOut")).toHaveText("H8");
   await expect(page.locator("#periodDivision")).toHaveAttribute("max", "7");
   await expect(page.locator("#vocalFryOut")).toHaveText("0%");
   await expect(page.locator("#growlRoughnessOut")).toHaveText("8%");
@@ -25,7 +25,7 @@ test("Throat Singer keeps named styles, anatomy, and harmonic selection in one m
   await expect(page.locator("#level")).toHaveAttribute("max", "1");
 
   await page.locator("#styleSelect").selectOption("sygyt");
-  await expect(page.locator("#stageOvertoneOut")).toContainText("H12");
+  await expect(page.locator("#harmonicNumberOut")).toHaveText("H12");
   await expect(page.locator("#oralConstrictionOut")).toHaveText("98%");
   await page.locator("#styleSelect").selectOption("kargyraa");
   await expect(page.locator("#periodDivisionOut")).toHaveText("1:2");
