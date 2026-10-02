@@ -197,20 +197,36 @@ for (const running of [false, true]) {
     await page.locator('#voiceSpeed').fill('1'); await arm(page);
     if (running) { await choose(page, 'motionPreset', 'side_walk'); await press(page, '#motionButton'); }
     const before = await snapshot(page);
+    // Arm before speech and change both rates in this one browser task. Slow
+    // software WebGL can otherwise consume most of a phrase between protocol
+    // calls, which makes remaining-duration comparisons meaningless.
+    const rateProbe = page.evaluate(async () => {
+      const read = () => window.roachSynth.getState();
+      const wait = async predicate => {
+        const deadline = performance.now() + 15000;
+        while (performance.now() < deadline) {
+          const state = read();
+          if (predicate(state)) return state;
+          await new Promise(resolve => setTimeout(resolve, 40));
+        }
+        throw new Error('Speech did not report the expected audio-clock deadline');
+      };
+      const setSpeed = speed => {
+        const input = document.getElementById('voiceSpeed'); input.value = String(speed);
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+        input.dispatchEvent(new Event('change', { bubbles: true }));
+      };
+      const normal = await wait(state => state.audio.speechEnvelope > .001 && state.audio.speechUntil > state.audio.audioTime + 2);
+      setSpeed(.5);
+      const slow = await wait(state => state.sound.voiceSpeed === .5 && state.audio.speechUntil > normal.audio.speechUntil + .5);
+      setSpeed(2);
+      const fast = await wait(state => state.sound.voiceSpeed === 2 && state.audio.speechUntil > state.audio.audioTime && state.audio.speechUntil < slow.audio.speechUntil - .5);
+      return { normal, slow, fast };
+    });
     await say(page, `${longPhrase}, ${longPhrase}`);
-    await page.waitForFunction(() => {
-      const audio = window.roachSynth.getState().audio;
-      return audio.speechEnvelope > .001 && audio.speechUntil > audio.audioTime + 2;
-    }, undefined, { polling: 50, timeout: 15000 });
-    const normal = await snapshot(page);
+    const { normal, slow, fast } = await rateProbe;
     const remaining = state => state.audio.speechUntil - state.audio.audioTime;
-    await page.locator('#voiceSpeed').fill('0.5');
-    await expect.poll(async () => (await snapshot(page)).audio.speechUntil).toBeGreaterThan(normal.audio.speechUntil + .5);
-    const slow = await snapshot(page);
     expect(slow.sound.voiceSpeed).toBe(.5); expect(remaining(slow)).toBeGreaterThan(remaining(normal) * 1.25);
-    await page.locator('#voiceSpeed').fill('2');
-    await expect.poll(async () => (await snapshot(page)).audio.speechUntil).toBeLessThan(slow.audio.speechUntil - .5);
-    const fast = await snapshot(page);
     expect(fast.sound.voiceSpeed).toBe(2); expect(remaining(fast)).toBeGreaterThan(0);
     expect(remaining(fast)).toBeLessThan(remaining(slow) * .6);
     for (const current of [normal, slow, fast]) {
