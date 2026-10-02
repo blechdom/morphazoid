@@ -50,7 +50,8 @@ phrase box or another editable control does not play notes.
 Open **CC routes & key map** to assign eight profile macros. The generic MIDI
 profile uses CC14–21. Controller profiles can use different physical CCs;
 their macro assignments take precedence over the standard CC shortcuts below.
-Each macro can target a joint group’s X, Y or Z rotation, a sound parameter,
+Each macro can target a joint group’s X, Y or Z rotation, a sound parameter
+(including Voice speed),
 a mixer level or source, a preset, or a button action. Rotation is centered
 around the middle of the controller range and stays within the shared body
 constraints. Buttons fire when a controller crosses halfway upward.

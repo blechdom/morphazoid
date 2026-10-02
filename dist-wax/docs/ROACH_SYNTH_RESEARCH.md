@@ -7,18 +7,18 @@ Research checked 2026-09-11. The scanned model is a generic winged cockroach spe
 The instrument has eight anatomical sound groups: legs, outer wing covers,
 hindwings, thorax, abdomen, neck, head and antennae. Each owns its oscillator
 phases, filters, excitation envelopes, seeded randomness and sound assignment.
-The twenty-three source choices include smooth held-pose sounds (resonance,
+The twenty source choices include smooth held-pose sounds (resonance,
 drone, sub pressure, shimmer and clean sine), wing buzz and movement textures,
 plus short cartoon footsteps, clicks, clacks, FM hits, rattling percussion and
 Karplus plucks. Click and Clack provide separate crisp and resonant foot-contact
 articulations without adding independent rhythmic loops.
-Twenty-two sound/voice presets and twenty-four animation companion sound
+Nineteen sound/voice presets and twenty animation companion sound
 patches share a visible sound selector. Complete presets combine motion and sound; only
 Dash and freeze assigns Skuttle in its authored animation patch. Default feet
 use rounded impacts and the neck uses a clean pitch-responsive synth tone.
 The Wing radio patch retains its previous wing generators and settings.
 A compact body mixer controls assignment, level, mute and solo. Voice level
-is independent of body solos. All nine consumed global sound controls are
+is independent of body solos. All ten consumed global sound controls are
 visible beside the sound presets and voice input.
 
 Play starts animation and opens the smooth held-pose sources together.
@@ -46,7 +46,7 @@ below, triggered by that group's movement or the legs' contact events; it is
 not a continuously looping ambience. No acquired clip is an isolated flight
 sound, house-wall recording, shriek or demonstrated ultrasonic signal.
 
-Twenty-four interleaved animation patches and seeded motion blends share an
+Twenty interleaved animation patches and seeded motion blends share an
 audio-clock pose and stylized six-foot support state. Ground travel, swing,
 touchdown counters, body lift and upright dances come from that state. Internal
 64-sample curves preserve fast gestures; there is no exposed joint sequencer or
@@ -100,9 +100,10 @@ including peaks between samples, with preallocated buffers and a fast path for
 quiet signals. Ordinary low-level samples pass unchanged after the fixed delay.
 This matches the offline headroom check; it is not a certified broadcast meter.
 
-Speech uses four existing Voicesaurus presets: eSpeak NG, eSpeak Klatt,
-Flite SLT and low Flite KAL16. Their local native worker renders whole sentences
-only after an explicit speech action with Audio armed. The same voices render
+Speech uses Voicesaurus's Low KAL16 preset with a quieter default level and
+an independent 0.5–2× Speed control. Speed changes playback rate and pitch;
+the sound Pitch control no longer changes the spoken phrase's speed. Its local native worker renders whole sentences
+only after an explicit speech action with Audio armed. The same voice renders
 bounded vowel buffers for joint- and contact-triggered body sounds; native
 render workers terminate on completion, Audio off or teardown. Voicesaurus
 retains the engine and voice provenance in its existing assets and documentation. The talking bug, growls and

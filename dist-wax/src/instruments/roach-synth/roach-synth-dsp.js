@@ -1,9 +1,9 @@
-import { RoachBodyEngine } from './roach-synth-body-engine.js?v=ebe10bdac9a6';
-import { ROACH_BODY_GROUPS, ROACH_BODY_SOURCES, ROACH_VOICE_PRESETS, getRoachVoicePreset, createDefaultRoachBodyMix, normalizeRoachBodyMix, getRoachJointBodyGroup } from './roach-synth-body.js?v=ebe10bdac9a6';
-import { RoachMidiPerformance } from './roach-synth-midi.js?v=ebe10bdac9a6';
-export { ROACH_BODY_GROUPS, ROACH_BODY_SOURCES, createDefaultRoachBodyMix, normalizeRoachBodyMix, getRoachBodyGroupId } from './roach-synth-body.js?v=ebe10bdac9a6';
-export { ROACH_VOICE_PRESETS, getRoachVoicePreset } from './roach-synth-body.js?v=ebe10bdac9a6';
-import { normalizeRoachMotion, writeRoachPose, createRoachSceneState, writeRoachSceneState, constrainRoachFloorPose } from './roach-synth-motion.js?v=ebe10bdac9a6';
+import { RoachBodyEngine } from './roach-synth-body-engine.js?v=3a41d23ab399';
+import { ROACH_BODY_GROUPS, ROACH_BODY_SOURCES, ROACH_VOICE_PRESETS, getRoachVoicePreset, createDefaultRoachBodyMix, normalizeRoachBodyMix, getRoachJointBodyGroup } from './roach-synth-body.js?v=3a41d23ab399';
+import { RoachMidiPerformance } from './roach-synth-midi.js?v=3a41d23ab399';
+export { ROACH_BODY_GROUPS, ROACH_BODY_SOURCES, createDefaultRoachBodyMix, normalizeRoachBodyMix, getRoachBodyGroupId } from './roach-synth-body.js?v=3a41d23ab399';
+export { ROACH_VOICE_PRESETS, getRoachVoicePreset } from './roach-synth-body.js?v=3a41d23ab399';
+import { normalizeRoachMotion, writeRoachPose, createRoachSceneState, writeRoachSceneState, constrainRoachFloorPose } from './roach-synth-motion.js?v=3a41d23ab399';
 
 // A held pose has smooth, group-owned resonances. Motion-only sources receive
 // only their own joints' actual displacement and the shared six-foot contacts.
@@ -75,17 +75,18 @@ class ReconstructionGuard {
 }
 
 export const ROACH_SOUND_DEFAULTS = Object.freeze({
-  level: 0.5, hiss: 0.22, shell: 0.46, wing: 0.28, voice: 0.78,
+  level: 0.5, hiss: 0.22, shell: 0.46, wing: 0.28, voice: 0.6,
   feet: 0.88, growl: 0.24, drone: 0, zing: .55, samples: .65,
   pitch: 140, vowel: 0.35, brightness: 0.46, resonance: 0.38,
   wingRate: 72, rhythm: 1, crunch: 0.18, pan: 0,
-  voicePreset: ROACH_VOICE_PRESETS[0].id,
+  voicePreset: ROACH_VOICE_PRESETS[0].id, voiceSpeed: 1,
 });
 const SOUND_RANGES = Object.freeze({
   level: [0, 1], hiss: [0, 1], shell: [0, 1], wing: [0, 1], voice: [0, 1],
   feet: [0, 1], growl: [0, 1], drone: [0, 1], zing: [0, 1], samples: [0, 1],
   pitch: [60, 600], vowel: [0, 1], brightness: [0, 1], resonance: [0, 1],
   wingRate: [12, 220], rhythm: [0.25, 4], crunch: [0, 1], pan: [-1, 1],
+  voiceSpeed: [.5, 2],
 });
 const SOUND_KEYS = Object.freeze(Object.keys(SOUND_RANGES));
 const FORMANT_GAINS = Object.freeze([2.8, 1.8, 1.1]);
@@ -125,11 +126,12 @@ const PATCH_ARTICULATION = [
   [.91,172,1.72,.74,.07],[.29,32,.78,.83,-.03],[.74,52,.84,.9,0],
   [.53,162,1.48,.72,.03],[.39,91,1.18,.79,-.02],[.21,46,.83,.87,0],
 ];
+const PATCH_VOICE_SPEEDS = [1, .82, 1.18, 1.06, .9, 1.25, .72, .92, .85, 1.1, .76, 1.22, 1.3, .78, .88, 1.16, .96, .8];
 export const ROACH_SOUND_PRESETS = Object.freeze(PATCHES.map(([id,label,pitch,brightness,resonance,crunch,sources],index) => Object.freeze({
   id, label, sound: Object.freeze({...ROACH_SOUND_DEFAULTS,pitch,brightness,resonance,crunch,
-    vowel:PATCH_ARTICULATION[index][0],wingRate:PATCH_ARTICULATION[index][1],rhythm:PATCH_ARTICULATION[index][2],voice:PATCH_ARTICULATION[index][3],pan:PATCH_ARTICULATION[index][4]}),
-  // Wing radio is the user's accepted reference. Its prior gains, source
-  // assignments and globals remain exact despite gentler defaults elsewhere.
+    vowel:PATCH_ARTICULATION[index][0],wingRate:PATCH_ARTICULATION[index][1],rhythm:PATCH_ARTICULATION[index][2],voice:PATCH_ARTICULATION[index][3]*(ROACH_SOUND_DEFAULTS.voice/.78),pan:PATCH_ARTICULATION[index][4],voiceSpeed:PATCH_VOICE_SPEEDS[index]}),
+  // Keep Wing radio's accepted body sources and relative row levels while
+  // speech follows the current factory level and speed settings.
   bodyMix: Object.freeze(createDefaultRoachBodyMix().map((row,i)=>Object.freeze({...row,source:sources[i],
     level:index===2?[.85,.48,.65,.68,.6,.36,.36,.24][i]:row.level}))),
 })).concat(ROACH_VOICE_PRESETS.map((preset, index) => Object.freeze({
@@ -145,8 +147,8 @@ export function createRandomRoachSound(seed = 1) {
   let state = (Number(seed) >>> 0) || 1;
   const random = () => { state ^= state << 13; state ^= state >>> 17; state ^= state << 5; return (state >>> 0) / 4294967296; };
   const sound = normalizeRoachSound({...ROACH_SOUND_DEFAULTS,pitch:65+random()*230,brightness:.2+random()*.48,resonance:.38+random()*.54,crunch:.05+random()*.37,
-    vowel:.08+random()*.84,wingRate:30+random()*150,rhythm:.6+random()*1.4,pan:(random()-.5)*.34,voice:.62+random()*.3,
-    voicePreset: ROACH_VOICE_PRESETS[Math.floor(random() * ROACH_VOICE_PRESETS.length)].id});
+    vowel:.08+random()*.84,wingRate:30+random()*150,rhythm:.6+random()*1.4,pan:(random()-.5)*.34,voice:.4+random()*.3,
+    voicePreset: ROACH_VOICE_PRESETS[0].id, voiceSpeed: .65+random()*1.1});
   const bodyMix = createDefaultRoachBodyMix().map((row,i)=>({...row,
     source:ROACH_BODY_SOURCES[i===3||i===4 ? Math.floor(random()*4) : Math.floor(random()*ROACH_BODY_SOURCES.length)].id,
     level:(i===3||i===4 ? .45 : .22)+random()*.35,
@@ -156,38 +158,35 @@ export function createRandomRoachSound(seed = 1) {
 
 // Authored companions are applied only by an explicit animation selection.
 // They do not alter the animation clock or overwrite a player's subsequent mix.
+// Each retained row keeps its authored articulation index when other rows retire.
 const MOTION_SOUND_ROWS = [
-  ['side_walk','Sole taps',125,.46,.4,.08,['footsteps','walls','rustle','resonance','drone','sine','sub','shimmer'],[.76,.3,.5,.35,.25,.4,.25,.14]],
-  ['top_wing_fan','Wing radio twitter',185,.57,.65,.2,['footsteps','buzz','rustle','resonance','drone','zing','sub','shimmer'],[.35,.48,.65,.3,.24,.2,.2,.16]],
-  ['dance_upright','Rubber boogie',110,.5,.48,.09,['footsteps','pluck','rustle','fm','sub','sine','rattle','shimmer'],[.78,.4,.3,.44,.3,.48,.3,.16]],
-  ['face_curious','Question tones',185,.48,.35,.04,['pluck','walls','rustle','sine','drone','sine','fm','shimmer'],[.28,.2,.3,.25,.2,.68,.6,.22]],
-  ['side_run','Six-foot FM',165,.52,.38,.08,['fm','walls','rustle','resonance','sub','sine','footsteps','shimmer'],[.74,.24,.35,.3,.28,.35,.2,.12]],
-  ['top_body_wave','Modal body drums',115,.44,.64,.1,['rattle','pluck','rustle','fm','sub','sine','resonance','shimmer'],[.58,.4,.35,.58,.28,.48,.28,.18]],
-  ['face_chatter','Neck syllables',210,.59,.34,.06,['footsteps','walls','rustle','sine','drone','sine','fm','pluck'],[.32,.2,.3,.24,.18,.72,.56,.2]],
-  ['top_flight','Wing radio lift',185,.57,.65,.2,['pluck','buzz','rustle','resonance','drone','zing','sub','shimmer'],[.38,.48,.65,.34,.24,.2,.2,.16]],
-  ['side_skitter','One nervous scuttle',140,.34,.45,.12,['skuttle','walls','rustle','resonance','drone','sine','sub','shimmer'],[.36,.2,.32,.28,.22,.38,.2,.12]],
-  ['dance_boxer','FM knuckles',95,.48,.42,.14,['fm','rattle','rustle','rattle','sub','sine','fm','shimmer'],[.7,.38,.3,.42,.26,.42,.38,.14]],
-  ['face_sing','Singing sine',170,.42,.6,.04,['pluck','walls','rustle','resonance','drone','sine','sine','shimmer'],[.25,.2,.3,.28,.22,.66,.5,.2]],
-  ['bottom_wiggle','Plucked noodles',205,.6,.7,.06,['pluck','walls','rustle','sine','sub','sine','fm','shimmer'],[.88,.2,.3,.28,.2,.4,.3,.2]],
-  ['side_tiptoe','Tiny clicks',235,.65,.28,.035,['click','walls','rustle','sine','drone','sine','pluck','shimmer'],[.86,.16,.25,.24,.16,.42,.3,.12]],
-  ['wings_alarm','Wing radio alarm',185,.57,.65,.2,['fm','buzz','rustle','resonance','drone','zing','sub','shimmer'],[.48,.48,.65,.24,.2,.2,.18,.14]],
-  ['dance_can_can','Rattlesnake kicks',180,.62,.47,.09,['rattle','pluck','rustle','fm','sub','sine','footsteps','shimmer'],[.68,.35,.25,.35,.26,.44,.34,.16]],
-  ['face_growl','Bass and clean neck',85,.32,.68,.24,['rattle','walls','rustle','resonance','growl','sine','growl','shimmer'],[.28,.24,.28,.28,.55,.56,.6,.14]],
-  ['side_zigzag','FM zigzag',275,.68,.3,.07,['fm','pluck','rustle','sine','sub','sine','rattle','shimmer'],[.66,.26,.32,.24,.24,.4,.3,.14]],
-  ['bottom_rave','Percussion circuits',165,.7,.54,.16,['rattle','fm','rustle','fm','sub','sine','pluck','shimmer'],[.62,.38,.3,.4,.28,.38,.35,.16]],
-  ['face_serenade','Glassy conversation',245,.6,.72,.045,['pluck','walls','rustle','shimmer','drone','sine','pluck','sine'],[.28,.18,.3,.26,.18,.68,.76,.2]],
-  ['dance_waltz','Cupboard strings',155,.48,.76,.05,['pluck','resonance','rustle','sine','sub','sine','footsteps','shimmer'],[.82,.3,.28,.34,.24,.44,.35,.16]],
-  ['side_backpedal','Reverse tines',125,.62,.58,.08,['pluck','walls','rustle','fm','drone','sine','rattle','shimmer'],[.86,.24,.3,.36,.22,.4,.24,.12]],
-  ['dance_robot','Clacking servos',210,.64,.31,.12,['clack','pluck','rustle','rattle','sub','sine','fm','shimmer'],[.78,.3,.28,.36,.24,.52,.4,.14]],
-  ['side_jump','Rubber landing',90,.5,.52,.09,['footsteps','rattle','rustle','fm','sub','sine','pluck','shimmer'],[.8,.32,.28,.45,.28,.4,.35,.14]],
-  ['bottom_shuffle','Shuffle shells',190,.56,.42,.07,['footsteps','pluck','rustle','rattle','drone','sine','fm','shimmer'],[.72,.38,.28,.42,.22,.42,.3,.14]],
+  ['side_walk',0,'Sole taps',125,.46,.4,.08,['footsteps','walls','rustle','resonance','drone','sine','sub','shimmer'],[.76,.3,.5,.35,.25,.4,.25,.14]],
+  ['top_wing_fan',1,'Wing radio twitter',185,.57,.65,.2,['footsteps','buzz','rustle','resonance','drone','zing','sub','shimmer'],[.35,.48,.65,.3,.24,.2,.2,.16]],
+  ['face_curious',3,'Question tones',185,.48,.35,.04,['pluck','walls','rustle','sine','drone','sine','fm','shimmer'],[.28,.2,.3,.25,.2,.68,.6,.22]],
+  ['side_run',4,'Six-foot FM',165,.52,.38,.08,['fm','walls','rustle','resonance','sub','sine','footsteps','shimmer'],[.74,.24,.35,.3,.28,.35,.2,.12]],
+  ['top_body_wave',5,'Modal body drums',115,.44,.64,.1,['rattle','pluck','rustle','fm','sub','sine','resonance','shimmer'],[.58,.4,.35,.58,.28,.48,.28,.18]],
+  ['face_chatter',6,'Neck syllables',210,.59,.34,.06,['footsteps','walls','rustle','sine','drone','sine','fm','pluck'],[.32,.2,.3,.24,.18,.72,.56,.2]],
+  ['top_flight',7,'Wing radio lift',185,.57,.65,.2,['pluck','buzz','rustle','resonance','drone','zing','sub','shimmer'],[.38,.48,.65,.34,.24,.2,.2,.16]],
+  ['side_skitter',8,'One nervous scuttle',140,.34,.45,.12,['skuttle','walls','rustle','resonance','drone','sine','sub','shimmer'],[.36,.2,.32,.28,.22,.38,.2,.12]],
+  ['face_sing',10,'Singing sine',170,.42,.6,.04,['pluck','walls','rustle','resonance','drone','sine','sine','shimmer'],[.25,.2,.3,.28,.22,.66,.5,.2]],
+  ['bottom_wiggle',11,'Plucked noodles',205,.6,.7,.06,['pluck','walls','rustle','sine','sub','sine','fm','shimmer'],[.88,.2,.3,.28,.2,.4,.3,.2]],
+  ['side_tiptoe',12,'Tiny clicks',235,.65,.28,.035,['click','walls','rustle','sine','drone','sine','pluck','shimmer'],[.86,.16,.25,.24,.16,.42,.3,.12]],
+  ['wings_alarm',13,'Wing radio alarm',185,.57,.65,.2,['fm','buzz','rustle','resonance','drone','zing','sub','shimmer'],[.48,.48,.65,.24,.2,.2,.18,.14]],
+  ['face_growl',15,'Bass and clean neck',85,.32,.68,.24,['rattle','walls','rustle','resonance','growl','sine','growl','shimmer'],[.28,.24,.28,.28,.55,.56,.6,.14]],
+  ['side_zigzag',16,'FM zigzag',275,.68,.3,.07,['fm','pluck','rustle','sine','sub','sine','rattle','shimmer'],[.66,.26,.32,.24,.24,.4,.3,.14]],
+  ['bottom_rave',17,'Percussion circuits',165,.7,.54,.16,['rattle','fm','rustle','fm','sub','sine','pluck','shimmer'],[.62,.38,.3,.4,.28,.38,.35,.16]],
+  ['face_serenade',18,'Glassy conversation',245,.6,.72,.045,['pluck','walls','rustle','shimmer','drone','sine','pluck','sine'],[.28,.18,.3,.26,.18,.68,.76,.2]],
+  ['side_backpedal',20,'Reverse tines',125,.62,.58,.08,['pluck','walls','rustle','fm','drone','sine','rattle','shimmer'],[.86,.24,.3,.36,.22,.4,.24,.12]],
+  ['dance_robot',21,'Clacking servos',210,.64,.31,.12,['clack','pluck','rustle','rattle','sub','sine','fm','shimmer'],[.78,.3,.28,.36,.24,.52,.4,.14]],
+  ['side_jump',22,'Rubber landing',90,.5,.52,.09,['footsteps','rattle','rustle','fm','sub','sine','pluck','shimmer'],[.8,.32,.28,.45,.28,.4,.35,.14]],
+  ['bottom_shuffle',23,'Shuffle shells',190,.56,.42,.07,['footsteps','pluck','rustle','rattle','drone','sine','fm','shimmer'],[.72,.38,.28,.42,.22,.42,.3,.14]],
 ];
-export const ROACH_MOTION_SOUND_PRESETS = Object.freeze(MOTION_SOUND_ROWS.map(([motionId,label,pitch,brightness,resonance,crunch,sources,levels],index) => {
+export const ROACH_MOTION_SOUND_PRESETS = Object.freeze(MOTION_SOUND_ROWS.map(([motionId,articulationIndex,label,pitch,brightness,resonance,crunch,sources,levels]) => {
   const wing = motionId === 'top_wing_fan' || motionId === 'top_flight' || motionId === 'wings_alarm';
-  const articulation = PATCH_ARTICULATION[index % PATCH_ARTICULATION.length];
+  const articulation = PATCH_ARTICULATION[articulationIndex % PATCH_ARTICULATION.length];
   return Object.freeze({motionId,label,
     sound:Object.freeze(wing ? {...ROACH_SOUND_PRESETS[2].sound} : normalizeRoachSound({...ROACH_SOUND_DEFAULTS,pitch,brightness,resonance,crunch,
-      vowel:articulation[0],wingRate:articulation[1],rhythm:articulation[2],pan:articulation[4]})),
+      vowel:articulation[0],wingRate:articulation[1],rhythm:articulation[2],pan:articulation[4],voiceSpeed:PATCH_VOICE_SPEEDS[articulationIndex % PATCH_VOICE_SPEEDS.length]})),
     bodyMix:Object.freeze(createDefaultRoachBodyMix().map((row,i)=>Object.freeze({...row,source:sources[i],level:levels[i]}))),
   });
 }));
@@ -634,7 +633,7 @@ export class RoachSynthDsp {
     const smooth=this.smooth;
     this.filterCoefficient=1-Math.exp(-TAU*Math.min(this.sampleRate*.4,900*10**smooth.brightness)/this.sampleRate);
     this.panL=Math.cos((smooth.pan+1)*Math.PI*.25); this.panR=Math.sin((smooth.pan+1)*Math.PI*.25);
-    this.speechRate=clamp((smooth.pitch/140)**.22,.72,1.4);
+    this.speechRate=clamp(smooth.voiceSpeed,.5,2);
     const vowel=smooth.vowel*4; const first=Math.min(3,Math.floor(vowel)); const mix=vowel-first;
     for(let i=0;i<3;i+=1) tune(this.speechModes[i],VOWELS[first][i]*(1-mix)+VOWELS[first+1][i]*mix,
       Math.exp(-Math.PI*(160+i*70)/this.sampleRate),this.sampleRate);

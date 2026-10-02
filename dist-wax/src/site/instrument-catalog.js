@@ -77,7 +77,7 @@ const CATALOG_DETAILS = Object.freeze({
   ),
   "roach-synth": define(
     "Articulated cockroach voice",
-    "A grounded cockroach scan with 31 playable joints, 24 animations, a body-part mixer, real movement recordings and four Voicesaurus speech voices.",
+    "A grounded cockroach scan with 31 playable joints, 20 animations, a body-part mixer, real movement recordings and a Low KAL16 speech voice with adjustable speed.",
     "Turn Audio on and press Play to animate. Drag a body part at any time, scroll to zoom, choose independent animation and sound presets, or type words for the roach to say.",
     ["Built-in synth", "3D model", "Pointer", "Voice", "Body-part mixer", "Recordings"],
   ),
