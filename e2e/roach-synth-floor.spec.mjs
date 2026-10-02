@@ -36,7 +36,7 @@ import {createRoachViewer} from './src/instruments/roach-synth/roach-synth-viewe
 import * as model from './src/instruments/roach-synth/roach-synth-motion.js';
 let joints=[],body={},contribution={};const motion={presetId:'none',intensity:1,antennae:false,tempo:108},scene=model.createRoachSceneState();
 const viewer=createRoachViewer({canvas:document.querySelector('canvas'),onRig:s=>{joints=s.bones},onPoseChange:()=>{joints=viewer.getState().bones;draw()}});
-function draw(){const pose=new Float32Array(joints.length*3);model.writeRoachPose(0,motion,joints,pose);joints.forEach((j,i)=>['x','y','z'].forEach((axis,a)=>{pose[i*3+a]+=contribution[j.jointId]?.[axis]||0}));model.writeRoachSceneState(0,motion,scene,joints);Object.assign(scene.body,body);viewer.setExternalPose(pose);viewer.setSceneState(scene)}
+function draw(){const raw=new Float32Array(joints.length*3);model.writeRoachPose(0,motion,joints,raw,false);joints.forEach((j,i)=>['x','y','z'].forEach((axis,a)=>{raw[i*3+a]+=contribution[j.jointId]?.[axis]||0}));const pose=raw.slice();model.constrainRoachPose(pose,joints);model.writeRoachSceneState(0,motion,scene,joints);Object.assign(scene.body,body);viewer.setExternalPose(pose,raw);viewer.setSceneState(scene)}
 function setPose(offsets={},nextBody={},nextContribution={}){body=nextBody;contribution=nextContribution;for(const j of joints){j.offset={x:0,y:0,z:0,...offsets[j.jointId]};viewer.setBoneOffset(j.id,j.offset)}draw()}
 window.roachFloorQA={viewer,setPose,draw,getJoints:()=>joints,getContribution:()=>structuredClone(contribution),ready:false};await viewer.loadUrl('./assets/roach-synth/cockroach-mobile.glb');setPose();roachFloorQA.ready=true;
 </script></body></html>`;
