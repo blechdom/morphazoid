@@ -164,9 +164,10 @@ export function createRoachViewer({ canvas, onStatus = () => {}, onRig = () => {
   const win = doc.defaultView;
   const motionQuery = win.matchMedia('(prefers-reduced-motion: reduce)');
   const scene = new THREE.Scene();
-  // One continuous ground color fills every view. The physical floor only
-  // receives shadows, so its edge can never introduce a horizon behind the rig.
-  scene.background = new THREE.Color(0x59514a);
+  // Match the original textured floor's visible color after lighting and tone
+  // mapping, rather than its much brighter raw material color. The shadow-only
+  // floor keeps this dark ground continuous beyond its edge in every view.
+  scene.background = new THREE.Color(0x141211);
   const camera = new THREE.PerspectiveCamera(38, 1, 0.01, 100);
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: false, powerPreference: 'high-performance' });
   renderer.outputColorSpace = THREE.SRGBColorSpace;

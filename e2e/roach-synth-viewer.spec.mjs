@@ -52,7 +52,7 @@ test('roach scene grounds the neutral feet, casts shadows, and keeps a chosen vi
   await expect.poll(() => page.evaluate(() => specimenViewer.getState().ground.offset)).toBeGreaterThan(0);
 });
 
-test('the ground color fills the complete graphic without a horizon in every view and at wide zoom', async ({ page }, testInfo) => {
+test('the original dark ground color fills the complete graphic without a horizon in every view and at wide zoom', async ({ page }, testInfo) => {
   await page.route('**/roach-synth-viewer.js', async route => {
     const response = await route.fetch(), source = await response.text();
     const marker = 'return { loadUrl, loadArrayBuffer, getState,';
@@ -73,9 +73,9 @@ test('the ground color fills the complete graphic without a horizon in every vie
     await page.evaluate(view => { specimenViewer.setViewPreset(view); specimenViewer.zoom(1.6); }, view);
     const colors = await page.evaluate(() => specimenViewer.sampleStageEdges());
     expect(colors.every(color => color.every((value, i) => value === colors[0][i])), view).toBe(true);
-    expect(colors[0][0]).toBeGreaterThan(50);
-    expect(colors[0][0]).toBeGreaterThan(colors[0][2]);
-    expect(colors[0][3]).toBe(255);
+    // The original textured, lit floor measured roughly RGB 18–24/16–22/15–21.
+    // Its raw material color (89/81/74) made the whole stage much too bright.
+    expect(colors[0]).toEqual([20, 18, 17, 255]);
     samples.push({ view, colors });
     await page.evaluate(() => specimenViewer.zoom(100));
     const wide = await page.evaluate(() => specimenViewer.sampleStageEdges());
