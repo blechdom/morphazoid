@@ -504,6 +504,52 @@ test('joint collision metadata is bounded, immutable and refreshed when a same-I
   assert.equal(peak(render(dsp, .2).left), 0, 'geometry reinitialization must not be mistaken for a manual drag');
 });
 
+test('head contact metadata owns its geometry and refreshes a same-ID audio rig', () => {
+  const contact = { parentId: joints[3].id, liftSign: -1, parentLiftSign: -1, liftLimit: .15 };
+  // A child can arrive before its parent at the worklet boundary.
+  const rig = [
+    { ...joints[2], parent: joints[3].id, headContact: contact, poseLimits: { x: [-50, 18], y: [-6, 6], z: [-8, 8] } },
+    { ...joints[0], parent: null },
+    { ...joints[3], parent: joints[0].id, poseLimits: { x: [-42, 12], y: [-3, 3], z: [-4, 4] } },
+  ];
+  const dsp = engine({ playing: false, joints: rig });
+  const original = dsp.joints[0];
+  assert.deepEqual(original.headContact, contact);
+  assert.notEqual(original.headContact, contact, 'the worklet owns its contact metadata');
+  contact.liftLimit = .3; contact.parentLiftSign = 1;
+  assert.equal(original.headContact.liftLimit, .15);
+  assert.equal(original.headContact.parentLiftSign, -1);
+  dsp.update({ joints: rig });
+  assert.notEqual(dsp.joints[0], original, 'a contact change invalidates cached physical geometry');
+  assert.deepEqual(dsp.joints[0].headContact, contact);
+  assert.deepEqual(dsp.joints[0].poseLimits, { x: [-50, 18], y: [-6, 6], z: [-8, 8] });
+  assert.deepEqual(dsp.joints[2].poseLimits, { x: [-42, 12], y: [-3, 3], z: [-4, 4] });
+  assert.equal(dsp.time, 0);
+  assert.equal(peak(render(dsp, .2).left), 0, 'changing a contact rule must not synthesize a drag');
+  dsp.update({ joints: rig.map(({ headContact, ...joint }) => joint) });
+  assert.equal(dsp.joints[0].headContact, null, 'a replacement legacy rig clears the old rule');
+});
+
+test('head contact normalization rejects malformed or foreign chains and bounds finite travel', () => {
+  const valid = { parentId: joints[3].id, liftSign: -1, parentLiftSign: -1, liftLimit: .15 };
+  const normalize = (headContact, patch = {}, parent = joints[3]) => {
+    const dsp = new RoachSynthDsp(RATE);
+    dsp.update({ joints: [{ ...joints[2], parent: joints[3].id, headContact, ...patch }, parent] });
+    return dsp.joints[0].headContact;
+  };
+  for (const malformed of [
+    null, [], {}, { ...valid, parentId: '' }, { ...valid, parentId: 'missing' },
+    { ...valid, liftSign: 0 }, { ...valid, liftSign: '-1' }, { ...valid, parentLiftSign: 2 },
+    ...[0, -1, NaN, Infinity, -Infinity].map((liftLimit) => ({ ...valid, liftLimit })),
+  ]) assert.equal(normalize(malformed), null, `accepted invalid metadata ${JSON.stringify(malformed)}`);
+  assert.equal(normalize(valid, { parent: joints[0].id }), null, 'the declared contact must name the actual direct parent');
+  assert.equal(normalize(valid, { jointId: 'abdomen', name: 'Abdomen' }), null, 'only a head owns head/plate contact');
+  assert.equal(normalize(valid, {}, { ...joints[3], jointId: 'wing_cover', name: 'Wing cover' }), null, 'the plate must be the neck parent');
+  assert.equal(normalize({ ...valid, parentId: joints[2].id }, { parent: joints[2].id }), null, 'a self-parent is invalid');
+  assert.deepEqual(normalize({ ...valid, liftSign: 1, parentLiftSign: 1, liftLimit: 1e6 }),
+    { ...valid, liftSign: 1, parentLiftSign: 1, liftLimit: 180 });
+});
+
 test('grounded foot events follow shared contacts, stay quiet in flight and never fire on stationary offsets', () => {
   const dsp = engine({ motion: { presetId: 'side_run', antennae: false }, mappings: [] });
   const scene = createRoachSceneState(); let expected = 0;
