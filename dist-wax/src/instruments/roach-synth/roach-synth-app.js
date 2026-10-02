@@ -1,16 +1,16 @@
-import { createRoachViewer } from "./roach-synth-viewer.js?v=3a41d23ab399";
-import { createRoachMidiControls } from "./roach-synth-midi-controls.js?v=3a41d23ab399";
+import { createRoachViewer } from "./roach-synth-viewer.js?v=3a5df152d1ef";
+import { createRoachMidiControls } from "./roach-synth-midi-controls.js?v=3a5df152d1ef";
 import { ROACH_MOTION_PRESETS, ROACH_MOTION_DEFAULTS, normalizeRoachMotion, activeRoachPreset,
   writeRoachPose, createRoachSceneState, writeRoachSceneState, bakeRoachPresetTracks,
   createRandomRoachMotion, getRoachStaticPose, applyRoachSpeechPose,
-  constrainRoachFloorPose } from "./roach-synth-motion.js?v=3a41d23ab399";
+  constrainRoachFloorPose } from "./roach-synth-motion.js?v=3a5df152d1ef";
 import { RoachSynthAudio, ROACH_SOUND_PRESETS, ROACH_BODY_GROUPS,
   ROACH_BODY_SOURCES, createDefaultRoachBodyMix, createRandomRoachSound, getRoachBodyGroupId,
-  ROACH_MOTION_SOUND_PRESETS, getRoachMotionSound } from "./roach-synth-audio.js?v=3a41d23ab399";
+  ROACH_MOTION_SOUND_PRESETS, getRoachMotionSound } from "./roach-synth-audio.js?v=3a5df152d1ef";
 
 import { createNativeSelectPicker } from "../../ui/patterns/native-select-picker.js";
 import { registerHeaderPresets } from "../../site/header-presets.js";
-import { captureRoachPreset, createRoachFullPresets, randomizeRoachPreset } from "./roach-synth-presets.js?v=3a41d23ab399";
+import { captureRoachPreset, createRoachFullPresets, randomizeRoachPreset } from "./roach-synth-presets.js?v=3a5df152d1ef";
 
 const el = id => document.getElementById(id);
 const listeners = new AbortController();

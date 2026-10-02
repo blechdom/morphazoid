@@ -144,6 +144,12 @@ export function normalizeRoachMotion(settings = {}) {
     sceneContactCounts: source.sceneContactCounts?.length === 6 ? Array.from(source.sceneContactCounts, (count) => clamp(Math.floor(finite(count)), 0, 1024)) : null,
     staticScene: source.staticScene && typeof source.staticScene === 'object' ? normalizeSceneSnapshot(source.staticScene, true) : null,
   };
+  // Older saved poses carry only head gaze. Camera lift can also articulate
+  // the neck without changing those poses or the performer's manual offsets.
+  if (source.gaze?.neck && typeof source.gaze.neck === 'object') {
+    normalized.gaze.neck = { x: clamp(finite(source.gaze.neck.x), -45, 45),
+      y: clamp(finite(source.gaze.neck.y), -45, 45), z: clamp(finite(source.gaze.neck.z), -45, 45) };
+  }
   if (source.randomSeed != null && Number.isFinite(Number(source.randomSeed))) {
     normalized.randomSeed = Math.floor(Number(source.randomSeed)) >>> 0;
     normalized.randomSourceId = PRESETS_BY_ID.has(source.randomSourceId) ? source.randomSourceId : normalized.presetId;
@@ -619,10 +625,12 @@ export function writeRoachPose(timeSeconds, settings, joints, out) {
       } else out[index + axis] += value;
     }
     // Apply camera gaze once after track composition; sound and graphics share it.
-    if (item.kind === 'head') {
-      out[index] += clamp(finite(controls.gaze?.x), -22, 22);
-      out[index + 1] += clamp(finite(controls.gaze?.y), -22, 22);
-      out[index + 2] += clamp(finite(controls.gaze?.z), -22, 22);
+    if (item.kind === 'head' || item.kind === 'neck') {
+      const gaze = item.kind === 'neck' ? controls.gaze?.neck : controls.gaze;
+      const limit = item.kind === 'neck' ? 45 : 22;
+      out[index] += clamp(finite(gaze?.x), -limit, limit);
+      out[index + 1] += clamp(finite(gaze?.y), -limit, limit);
+      out[index + 2] += clamp(finite(gaze?.z), -limit, limit);
     }
     out[index] = clamp(out[index], -180, 180); out[index + 1] = clamp(out[index + 1], -180, 180); out[index + 2] = clamp(out[index + 2], -180, 180);
   }
