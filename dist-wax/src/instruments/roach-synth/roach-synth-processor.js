@@ -1,4 +1,4 @@
-import { RoachSynthDsp } from './roach-synth-dsp.js?v=4880f90b1b9c';
+import { RoachSynthDsp } from './roach-synth-dsp.js?v=ad31d2822380';
 
 class RoachSynthProcessor extends AudioWorkletProcessor {
   constructor() {

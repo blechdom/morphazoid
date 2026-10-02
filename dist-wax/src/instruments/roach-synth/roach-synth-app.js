@@ -1,16 +1,16 @@
-import { createRoachViewer } from "./roach-synth-viewer.js?v=4880f90b1b9c";
-import { createRoachMidiControls } from "./roach-synth-midi-controls.js?v=4880f90b1b9c";
+import { createRoachViewer } from "./roach-synth-viewer.js?v=ad31d2822380";
+import { createRoachMidiControls } from "./roach-synth-midi-controls.js?v=ad31d2822380";
 import { ROACH_MOTION_PRESETS, ROACH_MOTION_DEFAULTS, normalizeRoachMotion, activeRoachPreset,
   writeRoachPose, createRoachSceneState, writeRoachSceneState, bakeRoachPresetTracks,
   createRandomRoachMotion, getRoachStaticPose, applyRoachSpeechPose,
-  constrainRoachFloorPose } from "./roach-synth-motion.js?v=4880f90b1b9c";
+  constrainRoachFloorPose } from "./roach-synth-motion.js?v=ad31d2822380";
 import { RoachSynthAudio, ROACH_SOUND_PRESETS, ROACH_BODY_GROUPS,
   ROACH_BODY_SOURCES, createDefaultRoachBodyMix, createRandomRoachSound, getRoachBodyGroupId,
-  ROACH_MOTION_SOUND_PRESETS, getRoachMotionSound, ROACH_VOICE_PRESETS } from "./roach-synth-audio.js?v=4880f90b1b9c";
+  ROACH_MOTION_SOUND_PRESETS, getRoachMotionSound, ROACH_VOICE_PRESETS } from "./roach-synth-audio.js?v=ad31d2822380";
 
 import { createNativeSelectPicker } from "../../ui/patterns/native-select-picker.js";
 import { registerHeaderPresets } from "../../site/header-presets.js";
-import { captureRoachPreset, createRoachFullPresets, randomizeRoachPreset } from "./roach-synth-presets.js?v=4880f90b1b9c";
+import { captureRoachPreset, createRoachFullPresets, randomizeRoachPreset } from "./roach-synth-presets.js?v=ad31d2822380";
 
 const el = id => document.getElementById(id);
 const listeners = new AbortController();
@@ -30,7 +30,7 @@ let viewer, midiControls, presetController, frame = 0, loadVersion = 0, lastFram
 let pose = new Float32Array(0);
 let motionPicker, soundPicker;
 const sceneState = createRoachSceneState();
-const speechMotion = { amount: 0, target: 0, audioTime: -Infinity, updatedAt: performance.now() };
+const speechMotion = { amount: 0, target: 0, expiresAt: -Infinity, updatedAt: performance.now() };
 const status = (id, message = '') => { el(id).textContent = message; el(id).hidden = !message; };
 function syncStageStatus() {
   status('liveStatus', state.notice || (state.modelLoading ? 'Loading the roach… Sound and voice are available.' : ''));
@@ -46,13 +46,16 @@ const audio = new RoachSynthAudio({
     }
     if (speechMotion.amount > 0) scheduleFrame();
   },
-  onTelemetry({ peak, speechEnvelope, audioTime }) {
+  onTelemetry({ peak, speechEnvelope, speechUntil, audioTime }) {
     if (state.disposed) return;
     const db = state.audioOn && peak > .000001 ? 20 * Math.log10(peak) : -Infinity;
     el('mixMeter').value = Math.max(-60, db);
     el('mixPeak').value = Number.isFinite(db) ? `${db.toFixed(1)} dBFS` : '−∞ dBFS';
     speechMotion.target = speechEnvelope > .001 ? Math.min(1, speechEnvelope * 10) : 0;
-    speechMotion.audioTime = audioTime;
+    // Native voices carry their actual audio-clock end time, so a busy 3D
+    // frame cannot discard an envelope while the phrase is still sounding.
+    // Older phone-atlas telemetry retains its short freshness window.
+    speechMotion.expiresAt = speechUntil > audioTime ? speechUntil : audioTime + .3;
     if (state.joints.length && (speechMotion.amount > 0 || speechMotion.target > 0)) scheduleFrame();
   },
   onSamples({ status: sampleState }) {
@@ -115,7 +118,7 @@ function selectView(view) {
   el('sideToggle').hidden = state.view !== 'side'; refreshGaze();
 }
 function speechTarget() {
-  return state.audioOn && audio.context?.state === 'running' && audio.clock() - speechMotion.audioTime < .3
+  return state.audioOn && audio.context?.state === 'running' && audio.clock() < speechMotion.expiresAt
     ? speechMotion.target : 0;
 }
 function needsVisualFrames() { return state.playing || midiControls?.isAnimating() || (state.joints.length && (speechMotion.amount > 0 || speechTarget() > 0)); }
@@ -465,16 +468,23 @@ el('zoomOut').addEventListener('click', () => viewer?.zoom(1 / .87), options);
 el('dragAxis').addEventListener('change', () => viewer?.setDragAxis(el('dragAxis').value), options);
 el('showJoints').addEventListener('click', () => { const visible = el('showJoints').getAttribute('aria-pressed') !== 'true'; viewer?.setSkeletonVisible(visible); el('showJoints').setAttribute('aria-pressed', String(visible)); }, options);
 el('retryModel').addEventListener('click', () => void loadModel(), options);
-// Keep the single Audio control available above the sticky mobile specimen.
-const masthead = document.querySelector('.masthead');
-let headerHeight = 0;
-function measureHeader() {
+// Keep Audio above the mobile stage, and scroll controls clear of the entire
+// sticky graphic plus camera footer, including rows wrapped on narrow phones.
+const masthead = document.querySelector('.masthead'), stage = document.querySelector('.roach-stage');
+let headerHeight = 0, stageHeight = 0;
+function measureLayout() {
   const height = Math.ceil(masthead.getBoundingClientRect().height);
-  if (height === headerHeight) return;
-  headerHeight = height; document.body.style.setProperty('--roach-header-height', `${height}px`);
+  if (height !== headerHeight) {
+    headerHeight = height; document.body.style.setProperty('--roach-header-height', `${height}px`);
+  }
+  const measuredStage = Math.ceil(stage.getBoundingClientRect().height);
+  if (measuredStage !== stageHeight) {
+    stageHeight = measuredStage; document.body.style.setProperty('--roach-stage-height', `${measuredStage}px`);
+  }
 }
-const headerObserver = typeof ResizeObserver === 'function' ? new ResizeObserver(measureHeader) : null;
-headerObserver?.observe(masthead); measureHeader(); window.addEventListener('resize', measureHeader, options);
+const headerObserver = typeof ResizeObserver === 'function' ? new ResizeObserver(measureLayout) : null;
+headerObserver?.observe(masthead); headerObserver?.observe(stage);
+measureLayout(); window.addEventListener('resize', measureLayout, options);
 const gestureInfo = el('gestureInfo'), gestureHelp = el('gestureHelp'), infoArea = gestureInfo.parentElement;
 let infoPinned = false;
 function showGestureHelp(open) { gestureHelp.hidden = !open; gestureInfo.setAttribute('aria-expanded', String(open)); }

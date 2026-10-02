@@ -1,13 +1,13 @@
 import { connectAudioOutput } from '../../audio-output-manager.js';
 import { SPELLING_DIPHONE_ATLAS_URL, SPELLING_DIPHONE_CLIPS } from '../spelling-synthesizer/spelling-diphone-atlas.js';
 import { spellingPhoneDefinition, spellingPronunciationTokens } from '../spelling-synthesizer/spelling-pronunciation.js';
-import { normalizeRoachSound, ROACH_SOUND_DEFAULTS, ROACH_VOICE_PRESETS, getRoachVoicePreset, normalizeRoachBodyMix, createDefaultRoachBodyMix } from './roach-synth-dsp.js?v=4880f90b1b9c';
-import { RoachMidiPerformance, normalizeRoachMidiMessage } from './roach-synth-midi.js?v=4880f90b1b9c';
+import { normalizeRoachSound, ROACH_SOUND_DEFAULTS, ROACH_VOICE_PRESETS, getRoachVoicePreset, normalizeRoachBodyMix, createDefaultRoachBodyMix } from './roach-synth-dsp.js?v=ad31d2822380';
+import { RoachMidiPerformance, normalizeRoachMidiMessage } from './roach-synth-midi.js?v=ad31d2822380';
 
 export { ROACH_SOUND_DEFAULTS, ROACH_SOUND_PRESETS, ROACH_MOD_TARGETS,
   createDefaultRoachMappings, normalizeRoachSound, ROACH_BODY_GROUPS, ROACH_BODY_SOURCES,
   createDefaultRoachBodyMix, normalizeRoachBodyMix, createRandomRoachSound, getRoachBodyGroupId,
-  ROACH_MOTION_SOUND_PRESETS, getRoachMotionSound, ROACH_VOICE_PRESETS, getRoachVoicePreset } from './roach-synth-dsp.js?v=4880f90b1b9c';
+  ROACH_MOTION_SOUND_PRESETS, getRoachMotionSound, ROACH_VOICE_PRESETS, getRoachVoicePreset } from './roach-synth-dsp.js?v=ad31d2822380';
 
 const finite = (value, fallback = 0) => Number.isFinite(Number(value)) ? Number(value) : fallback;
 const safeCall = (callback, value) => { try { callback?.(value); } catch {} };
@@ -84,7 +84,7 @@ export class RoachSynthAudio {
     this.state = { playing: false, soundPlaying: false, sound: { ...ROACH_SOUND_DEFAULTS }, bodyMix: createDefaultRoachBodyMix() };
     this.anchorTime = 0; this.anchorClock = this.clock();
     this.midiPerformance = new RoachMidiPerformance();
-    this.telemetry = { rms: 0, peak: 0, speechEnvelope: 0, renderedFrames: 0, soundTime: 0 };
+    this.telemetry = { rms: 0, peak: 0, speechEnvelope: 0, speechUntil: 0, renderedFrames: 0, soundTime: 0 };
   }
   clock() { return this.context ? this.context.currentTime : finite(this.runtime.performance?.now?.(), Date.now()) / 1000; }
   getTime() { return this.anchorTime + (this.state.playing ? Math.max(0, this.clock() - this.anchorClock) : 0); }
@@ -182,7 +182,7 @@ export class RoachSynthAudio {
       if (!context.audioWorklet?.addModule || typeof this.runtime.AudioWorkletNode !== 'function') {
         throw new Error('Roach Synth requires AudioWorklet support.');
       }
-      await context.audioWorklet.addModule(new URL('./roach-synth-processor.js?v=4880f90b1b9c', import.meta.url));
+      await context.audioWorklet.addModule(new URL('./roach-synth-processor.js?v=ad31d2822380', import.meta.url));
       if (this.disposed || this.context !== context || context.state === 'closed') throw cancelled();
       const node = new this.runtime.AudioWorkletNode(context, 'roach-synth', {
         numberOfInputs: 0, numberOfOutputs: 1, outputChannelCount: [2], channelCount: 2,
@@ -194,8 +194,9 @@ export class RoachSynthAudio {
       node.port.onmessage = ({ data }) => {
         if (this.disposed) return;
         if (data?.type === 'telemetry') {
+          const audioTime = finite(data.audioTime, this.clock());
           this.telemetry = { rms: finite(data.rms), peak: finite(data.peak), speechEnvelope: finite(data.speechEnvelope),
-            audioTime: finite(data.audioTime, this.clock()),
+            audioTime, speechUntil: this.enabled ? Math.max(0, Math.min(finite(data.speechUntil), audioTime + 45)) : 0,
             renderedFrames: finite(data.renderedFrames), motionTime: finite(data.motionTime), soundTime: finite(data.soundTime),
             contactEvents: finite(data.contactEvents), lastContactTime: finite(data.lastContactTime, -1),
             recordingEvents: finite(data.recordingEvents),
@@ -264,6 +265,7 @@ export class RoachSynthAudio {
   disable() {
     if (this.disposed) return;
     this.generation += 1; this.speechGeneration += 1; this.enabled = false;
+    this.telemetry.speechUntil = 0;
     for (const job of [...this.voiceJobs]) job.cancel();
     this.bodyVoicePending.clear();
     // Audio is a mute, not MIDI panic: held notes and CC still animate.
