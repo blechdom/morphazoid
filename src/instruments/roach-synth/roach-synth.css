@@ -108,7 +108,7 @@ body.roach-synth-page { --accent: #c2df85; --accent-soft: #9aaa71; --accent-glow
  .roach-stage { position: sticky; top: var(--roach-header-height, 58px); z-index: 20; overflow: visible; box-shadow: 0 6px 16px #0005; }
  .roach-viewport { height: var(--roach-mobile-height); flex: none; }
  .roach-panel { display: block; overflow: visible; padding-bottom: max(24px, env(safe-area-inset-bottom)); }
- .roach-panel :is(button, input, select, textarea, summary, .roach-knob) { scroll-margin-top: calc(var(--roach-header-height, 58px) + var(--roach-mobile-height) + 100px); scroll-margin-bottom: 12px; }
+ .roach-panel :is(button, input, select, textarea, summary, .roach-knob) { scroll-margin-top: calc(var(--roach-header-height, 58px) + var(--roach-stage-height, calc(var(--roach-mobile-height) + 100px)) + 16px); scroll-margin-bottom: 12px; }
  .roach-view-controls { gap: 5px; padding: 6px 12px; }
  .roach-stage-toolbar { flex: 1 0 100%; }
  .roach-camera-tools { flex: 1 0 100%; justify-content: space-between; }

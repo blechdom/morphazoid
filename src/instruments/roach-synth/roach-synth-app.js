@@ -465,16 +465,23 @@ el('zoomOut').addEventListener('click', () => viewer?.zoom(1 / .87), options);
 el('dragAxis').addEventListener('change', () => viewer?.setDragAxis(el('dragAxis').value), options);
 el('showJoints').addEventListener('click', () => { const visible = el('showJoints').getAttribute('aria-pressed') !== 'true'; viewer?.setSkeletonVisible(visible); el('showJoints').setAttribute('aria-pressed', String(visible)); }, options);
 el('retryModel').addEventListener('click', () => void loadModel(), options);
-// Keep the single Audio control available above the sticky mobile specimen.
-const masthead = document.querySelector('.masthead');
-let headerHeight = 0;
-function measureHeader() {
+// Keep Audio above the mobile stage, and scroll controls clear of the entire
+// sticky graphic plus camera footer, including rows wrapped on narrow phones.
+const masthead = document.querySelector('.masthead'), stage = document.querySelector('.roach-stage');
+let headerHeight = 0, stageHeight = 0;
+function measureLayout() {
   const height = Math.ceil(masthead.getBoundingClientRect().height);
-  if (height === headerHeight) return;
-  headerHeight = height; document.body.style.setProperty('--roach-header-height', `${height}px`);
+  if (height !== headerHeight) {
+    headerHeight = height; document.body.style.setProperty('--roach-header-height', `${height}px`);
+  }
+  const measuredStage = Math.ceil(stage.getBoundingClientRect().height);
+  if (measuredStage !== stageHeight) {
+    stageHeight = measuredStage; document.body.style.setProperty('--roach-stage-height', `${measuredStage}px`);
+  }
 }
-const headerObserver = typeof ResizeObserver === 'function' ? new ResizeObserver(measureHeader) : null;
-headerObserver?.observe(masthead); measureHeader(); window.addEventListener('resize', measureHeader, options);
+const headerObserver = typeof ResizeObserver === 'function' ? new ResizeObserver(measureLayout) : null;
+headerObserver?.observe(masthead); headerObserver?.observe(stage);
+measureLayout(); window.addEventListener('resize', measureLayout, options);
 const gestureInfo = el('gestureInfo'), gestureHelp = el('gestureHelp'), infoArea = gestureInfo.parentElement;
 let infoPinned = false;
 function showGestureHelp(open) { gestureHelp.hidden = !open; gestureInfo.setAttribute('aria-expanded', String(open)); }
