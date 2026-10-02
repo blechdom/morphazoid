@@ -1,9 +1,9 @@
-import { RoachBodyEngine } from './roach-synth-body-engine.js?v=ecda4c20c759';
-import { ROACH_BODY_GROUPS, ROACH_BODY_SOURCES, ROACH_VOICE_PRESETS, getRoachVoicePreset, createDefaultRoachBodyMix, normalizeRoachBodyMix, getRoachJointBodyGroup } from './roach-synth-body.js?v=ecda4c20c759';
-import { RoachMidiPerformance } from './roach-synth-midi.js?v=ecda4c20c759';
-export { ROACH_BODY_GROUPS, ROACH_BODY_SOURCES, createDefaultRoachBodyMix, normalizeRoachBodyMix, getRoachBodyGroupId } from './roach-synth-body.js?v=ecda4c20c759';
-export { ROACH_VOICE_PRESETS, getRoachVoicePreset } from './roach-synth-body.js?v=ecda4c20c759';
-import { normalizeRoachMotion, writeRoachPose, createRoachSceneState, writeRoachSceneState, constrainRoachFloorPose } from './roach-synth-motion.js?v=ecda4c20c759';
+import { RoachBodyEngine } from './roach-synth-body-engine.js?v=999609d02db2';
+import { ROACH_BODY_GROUPS, ROACH_BODY_SOURCES, ROACH_VOICE_PRESETS, getRoachVoicePreset, createDefaultRoachBodyMix, normalizeRoachBodyMix, getRoachJointBodyGroup, getRoachBodyGroupId } from './roach-synth-body.js?v=999609d02db2';
+import { RoachMidiPerformance } from './roach-synth-midi.js?v=999609d02db2';
+export { ROACH_BODY_GROUPS, ROACH_BODY_SOURCES, createDefaultRoachBodyMix, normalizeRoachBodyMix, getRoachBodyGroupId } from './roach-synth-body.js?v=999609d02db2';
+export { ROACH_VOICE_PRESETS, getRoachVoicePreset } from './roach-synth-body.js?v=999609d02db2';
+import { normalizeRoachMotion, writeRoachPose, createRoachSceneState, writeRoachSceneState, constrainRoachPose, constrainRoachFloorPose } from './roach-synth-motion.js?v=999609d02db2';
 
 // A held pose has smooth, group-owned resonances. Motion-only sources receive
 // only their own joints' actual displacement and the shared six-foot contacts.
@@ -266,14 +266,24 @@ function normalizeGroundFrame(value) {
   if (!dorsal || !forward || !left || !Number.isFinite(bodyLength) || bodyLength <= 0) return null;
   return { dorsal, forward, left, bodyLength: Math.min(bodyLength, 1e9) };
 }
+function normalizeHeadContact(value) {
+  if (!value || typeof value !== 'object') return null;
+  const parentId = String(value.parentId ?? '').slice(0, 120);
+  const liftLimit = Number(value.liftLimit);
+  if (!parentId || ![1, -1].includes(value.liftSign) || ![1, -1].includes(value.parentLiftSign)
+    || !Number.isFinite(liftLimit) || liftLimit <= 0) return null;
+  return { parentId, liftSign: value.liftSign, parentLiftSign: value.parentLiftSign,
+    liftLimit: Math.min(liftLimit, 180) };
+}
 function normalizeJoints(value) {
-  return (Array.isArray(value) ? value : []).slice(0, MAX_JOINTS).map((joint, index) => ({
+  const joints = (Array.isArray(value) ? value : []).slice(0, MAX_JOINTS).map((joint, index) => ({
     id: String(joint?.id ?? index).slice(0, 120), jointId: String(joint?.jointId ?? joint?.id ?? index).slice(0, 120),
     name: String(joint?.name ?? '').slice(0, 160), parent: joint?.parent == null ? null : String(joint.parent).slice(0, 120),
     kinematics: normalizeKinematics(joint?.kinematics), poseLimits: normalizePoseLimits(joint?.poseLimits),
     collisionSamples: Array.isArray(joint?.collisionSamples) ? joint.collisionSamples.slice(0, 8).map((point) => jointVector(point, 3)).filter(Boolean) : null,
     floorBounds: Array.isArray(joint?.floorBounds) ? joint.floorBounds.slice(0, 512).map((point) => jointVector(point, 3)).filter(Boolean) : null,
     groundFrame: normalizeGroundFrame(joint?.groundFrame),
+    headContact: normalizeHeadContact(joint?.headContact),
     bodyEllipsoid: normalizeBodyEllipsoid(joint?.bodyEllipsoid),
     wingOpenSign: joint?.wingOpenSign === 1 || joint?.wingOpenSign === -1 ? joint.wingOpenSign : null,
     wingLayer: joint?.wingLayer === 'cover' || joint?.wingLayer === 'hind' ? joint.wingLayer : null,
@@ -284,6 +294,13 @@ function normalizeJoints(value) {
     motion: { enabled: joint?.motion?.enabled === true, axis: ['x', 'y', 'z'].includes(joint?.motion?.axis) ? joint.motion.axis : 'x',
       amplitude: clamp(joint?.motion?.amplitude ?? 12, 0, 90), speed: clamp(joint?.motion?.speed ?? .5, .05, 8) },
   }));
+  const parents = new Map(joints.map((joint) => [joint.id, joint]));
+  for (const joint of joints) if (joint.headContact) {
+    const parent = parents.get(joint.headContact.parentId);
+    if (getRoachBodyGroupId(joint) !== 'head' || !parent || parent === joint
+      || joint.parent !== parent.id || getRoachBodyGroupId(parent) !== 'neck') joint.headContact = null;
+  }
+  return joints;
 }
 
 function resonator() { return { re: 0, im: 0, cosine: 1, sine: 0, radius: .99, gain: .01 }; }
@@ -389,9 +406,10 @@ export class RoachSynthDsp {
           // Compare constrained geometry at one fixed audio time. A pointer
           // pushing beyond an anatomical limit must not invent friction.
           if (compareEdited) {
-            writeRoachPose(this.time, this.motion, this.joints, this.editedPose);
+            writeRoachPose(this.time, this.motion, this.joints, this.editedPose, false);
             writeRoachSceneState(this.time, this.motion, this.scene, this.joints);
-            this.midiPerformance.applyPose(this.editedPose, this.joints, this.audioTime, this.motion.tempo, this.motion.intensity);
+            this.midiPerformance.applyPose(this.editedPose, this.joints, this.audioTime, this.motion.tempo, this.motion.intensity, false);
+            constrainRoachPose(this.editedPose, this.joints);
             constrainRoachFloorPose(this.editedPose, this.joints, this.scene);
           }
         }
@@ -416,9 +434,10 @@ export class RoachSynthDsp {
         this.body.resetActivity(); this.interactionJoint = -1; this.interactionActive = false;
       }
       // Populate first-use metadata on the message boundary, outside render().
-      writeRoachPose(this.time, this.motion, this.joints, this.pose);
+      writeRoachPose(this.time, this.motion, this.joints, this.pose, false);
       writeRoachSceneState(this.time, this.motion, this.scene, this.joints);
-      if (compareEdited) this.midiPerformance.applyPose(this.pose, this.joints, this.audioTime, this.motion.tempo, this.motion.intensity);
+      if (compareEdited) this.midiPerformance.applyPose(this.pose, this.joints, this.audioTime, this.motion.tempo, this.motion.intensity, false);
+      constrainRoachPose(this.pose, this.joints);
       constrainRoachFloorPose(this.pose, this.joints, this.scene);
       if (compareEdited) {
         for (let i = 0; i < this.joints.length; i += 1) {
@@ -559,11 +578,13 @@ export class RoachSynthDsp {
     return (x >>> 0) / 2147483648 - 1;
   }
   control() {
-    writeRoachPose(this.time, this.motion, this.joints, this.pose);
+    writeRoachPose(this.time, this.motion, this.joints, this.pose, false);
     writeRoachSceneState(this.time, this.motion, this.scene, this.joints);
     this.basePose.set(this.pose);
+    constrainRoachPose(this.basePose, this.joints);
     constrainRoachFloorPose(this.basePose, this.joints, this.scene);
-    this.midiPerformance.applyPose(this.pose, this.joints, this.audioTime, this.motion.tempo, this.motion.intensity);
+    this.midiPerformance.applyPose(this.pose, this.joints, this.audioTime, this.motion.tempo, this.motion.intensity, false);
+    constrainRoachPose(this.pose, this.joints);
     constrainRoachFloorPose(this.pose, this.joints, this.scene);
     const midi = this.midiPerformance.output;
     this.groupPose.fill(0); this.groupMotion.fill(0); this.groupDistance.fill(0); this.mod.fill(0);

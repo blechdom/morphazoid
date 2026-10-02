@@ -1,8 +1,8 @@
 import * as THREE from '../../../vendor/three/three.module.min.js';
 import { GLTFLoader } from '../../../vendor/three/loaders/GLTFLoader.js';
 import { MeshoptDecoder } from '../../../vendor/meshoptimizer/meshopt_decoder.module.js';
-import { constrainRoachPose, constrainRoachFloorPose } from './roach-synth-motion.js?v=ecda4c20c759';
-import { articulateRoachWings, updateRoachWingFans, roachWingDisplayPoints } from './roach-synth-wings.js?v=ecda4c20c759';
+import { constrainRoachPose, constrainRoachFloorPose } from './roach-synth-motion.js?v=999609d02db2';
+import { articulateRoachWings, updateRoachWingFans, roachWingDisplayPoints } from './roach-synth-wings.js?v=999609d02db2';
 
 const MAX_BYTES = 64 * 1024 * 1024;
 const MESHOPT = 'EXT_meshopt_compression';
@@ -156,6 +156,69 @@ function disposeObject(root) {
   skeletons.forEach((skeleton) => skeleton.dispose());
 }
 
+/** Measure the first new crown/plate contact once, before audio owns the rig. */
+export function measureRoachHeadContact({ headPoints, platePoints, plateIndices, headMatrix, frame,
+  liftSign = -1, maxLift = 50 }) {
+  if (!headPoints?.length || !platePoints?.length || !plateIndices?.length
+    || headPoints.length > 100_000 || platePoints.length > 100_000 || plateIndices.length > 150_000) return null;
+  const project = point => [point.dot(frame.left), point.dot(frame.forward), point.dot(frame.dorsal)];
+  const plate = platePoints.map(project), triangles = [];
+  let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+  for (let i = 0; i + 2 < plateIndices.length; i += 3) {
+    const [a, b, c] = [plate[plateIndices[i]], plate[plateIndices[i + 1]], plate[plateIndices[i + 2]]];
+    if (!a || !b || !c) continue;
+    const denominator = (b[1] - c[1]) * (a[0] - c[0]) + (c[0] - b[0]) * (a[1] - c[1]);
+    if (Math.abs(denominator) < 1e-12) continue;
+    const triangle = { a, b, c, denominator, minX: Math.min(a[0], b[0], c[0]), maxX: Math.max(a[0], b[0], c[0]),
+      minY: Math.min(a[1], b[1], c[1]), maxY: Math.max(a[1], b[1], c[1]) };
+    triangles.push(triangle);
+    minX = Math.min(minX, triangle.minX); maxX = Math.max(maxX, triangle.maxX);
+    minY = Math.min(minY, triangle.minY); maxY = Math.max(maxY, triangle.maxY);
+  }
+  if (!triangles.length || maxX - minX < 1e-9 || maxY - minY < 1e-9) return null;
+  // A projected triangle grid bounds the load-time search. Only its measured
+  // angle is sent to the sound engine; meshes never enter the audio callback.
+  const size = 64, grid = Array.from({ length: size * size }, () => []);
+  const cell = (value, min, max) => Math.max(0, Math.min(size - 1, Math.floor((value - min) / (max - min) * size)));
+  let entries = 0;
+  for (const triangle of triangles) for (let y = cell(triangle.minY, minY, maxY); y <= cell(triangle.maxY, minY, maxY); y += 1) {
+    for (let x = cell(triangle.minX, minX, maxX); x <= cell(triangle.maxX, minX, maxX); x += 1) {
+      if (++entries > 1_000_000) return null;
+      grid[y * size + x].push(triangle);
+    }
+  }
+  const clearance = point => {
+    const [x, y, z] = project(point);
+    if (x < minX || x > maxX || y < minY || y > maxY) return Infinity;
+    let underside = Infinity;
+    for (const { a, b, c, denominator } of grid[cell(y, minY, maxY) * size + cell(x, minX, maxX)]) {
+      const u = ((b[1] - c[1]) * (x - c[0]) + (c[0] - b[0]) * (y - c[1])) / denominator;
+      const v = ((c[1] - a[1]) * (x - c[0]) + (a[0] - c[0]) * (y - c[1])) / denominator;
+      const w = 1 - u - v;
+      if (u >= -1e-7 && v >= -1e-7 && w >= -1e-7) underside = Math.min(underside, u * a[2] + v * b[2] + w * c[2]);
+    }
+    return underside - z;
+  };
+  const point = new THREE.Vector3(), rotation = new THREE.Matrix4(), matrix = new THREE.Matrix4();
+  // Preserve the scan's existing seam overlap. Only vertices clearly below
+  // the plate at rest can establish a new upward collision.
+  const margin = frame.bodyLength * .0005;
+  const crown = headPoints.filter(local => clearance(point.copy(local).applyMatrix4(headMatrix)) > margin);
+  if (!crown.length) return null;
+  const clear = lift => {
+    matrix.copy(headMatrix).multiply(rotation.makeRotationX(lift * liftSign * RAD));
+    for (const local of crown) if (clearance(point.copy(local).applyMatrix4(matrix)) < 0) return false;
+    return true;
+  };
+  let low = 0, high = clamp(maxLift, 0, 50);
+  if (clear(high)) return high;
+  for (let i = 0; i < 16; i += 1) {
+    const middle = (low + high) * .5;
+    if (clear(middle)) low = middle; else high = middle;
+  }
+  return low;
+}
+
 /** Owns WebGL and model manipulation only; no audio or page controls. */
 export function createRoachViewer({ canvas, onStatus = () => {}, onRig = () => {}, onSelect = () => {},
   onPoseChange = () => {}, onInteraction = () => {} }) {
@@ -253,10 +316,13 @@ export function createRoachViewer({ canvas, onStatus = () => {}, onRig = () => {
   let appliedPose = new Float32Array(0);
   let composedPose = new Float32Array(0);
   let editPose = new Float32Array(0);
+  let requestedPose = new Float32Array(0);
+  let editRequestedPose = new Float32Array(0);
   const defaultScene = { body: { lift: 0, pitch: 0, roll: 0, yaw: 0 }, floorLift: 0 };
   const editScene = { body: {}, floorLift: 0 };
   let floorParts = [];
   let externalPose = null;
+  let externalRawPose = null;
   let renderFps = 60;
   let renderPixelRatio = 1.75;
   let lastRenderTime = null;
@@ -314,6 +380,7 @@ export function createRoachViewer({ canvas, onStatus = () => {}, onRig = () => {
       wingLayer: item.bone.userData.wingLayer ?? null,
       authoredReconstruction: !!item.bone.userData.authoredReconstruction,
       poseLimits: item.poseLimits ?? null, collisionSamples: item.collisionSamples ?? null,
+      headContact: item.headContact ? { ...item.headContact } : null,
       bodyEllipsoid: item.bodyEllipsoid ?? null,
       floorBounds: item.floorBounds ?? null, groundFrame: item.groundFrame ?? null,
       screenPosition: { x: rect.left + (point.x + 1) * rect.width / 2,
@@ -493,10 +560,13 @@ export function createRoachViewer({ canvas, onStatus = () => {}, onRig = () => {
     poseJoints = bones.map((item) => ({ id: item.id, jointId: item.bone.userData.jointId,
       parent: item.parent, kinematics: item.kinematics, restOffset: item.restOffset,
       poseLimits: item.poseLimits, collisionSamples: item.collisionSamples,
+      headContact: item.headContact,
       bodyEllipsoid: item.bodyEllipsoid, floorBounds: item.floorBounds, groundFrame: item.groundFrame }));
     appliedPose = new Float32Array(bones.length * 3);
     composedPose = new Float32Array(appliedPose.length);
     editPose = new Float32Array(appliedPose.length);
+    requestedPose = new Float32Array(appliedPose.length);
+    editRequestedPose = new Float32Array(appliedPose.length);
     performer.updateMatrixWorld(true);
     anatomy.bounds.setFromObject(content);
     anatomy.center.copy(anatomy.bounds.getCenter(new THREE.Vector3()));
@@ -644,6 +714,31 @@ export function createRoachViewer({ canvas, onStatus = () => {}, onRig = () => {
       const outer = samples.slice(0, Math.max(8, Math.ceil(samples.length * .65)));
       item.collisionSamples = Array.from({ length: Math.min(8, outer.length) }, (_, i) => outer[Math.floor(i * outer.length / Math.min(8, outer.length))].toArray());
     }
+    const head = bones.find(item => item.bone.userData.jointId === 'head');
+    const neck = bones.find(item => item.bone.userData.jointId === 'neck');
+    if (head?.bone.userData.rigType !== 'approximate rigid articulation'
+      || neck?.bone.userData.rigType !== 'approximate rigid articulation' || head.parent !== neck.id) return;
+    const joints = new Set(bones.map(item => item.bone)), headPoints = [], platePoints = [], plateIndices = [];
+    for (const [item, points] of [[head, headPoints], [neck, platePoints]]) {
+      const inverse = item === head ? head.bone.matrixWorld.clone().invert() : new THREE.Matrix4();
+      item.bone.traverse(object => {
+        const vertices = object.geometry?.attributes?.position;
+        if (!vertices) return;
+        let owner = object;
+        while (owner && !joints.has(owner)) owner = owner.parent;
+        if (owner !== item.bone) return;
+        const matrix = inverse.clone().multiply(object.matrixWorld), offset = points.length;
+        for (let i = 0; i < vertices.count; i += 1) points.push(new THREE.Vector3().fromBufferAttribute(vertices, i).applyMatrix4(matrix));
+        if (item === neck) {
+          const indices = object.geometry.index;
+          for (let i = 0; i < (indices?.count ?? vertices.count); i += 1) plateIndices.push(offset + (indices ? indices.getX(i) : i));
+        }
+      });
+    }
+    const liftLimit = measureRoachHeadContact({ headPoints, platePoints, plateIndices, headMatrix: head.bone.matrixWorld,
+      frame: anatomy, liftSign: head.liftSign, maxLift: Math.max(...head.poseLimits.x.map(angle => angle * head.liftSign)) });
+    if (Number.isFinite(liftLimit)) head.headContact = { parentId: neck.id, liftSign: head.liftSign,
+      parentLiftSign: neck.liftSign, liftLimit };
   }
   function calibrateStance() {
     if (footJoints.length !== 6) return;
@@ -890,6 +985,7 @@ export function createRoachViewer({ canvas, onStatus = () => {}, onRig = () => {
       appliedPose[item.index * 3 + 1] = y;
       appliedPose[item.index * 3 + 2] = z;
     }
+    requestedPose.set(externalRawPose ?? appliedPose);
     constrainRoachPose(appliedPose, poseJoints);
     composedPose.set(appliedPose);
     constrainRoachFloorPose(appliedPose, poseJoints, sceneState ?? defaultScene);
@@ -1012,6 +1108,7 @@ export function createRoachViewer({ canvas, onStatus = () => {}, onRig = () => {
     selectedBone = null;
     selectedMarker.visible = false;
     externalPose = null;
+    externalRawPose = null;
     anatomy = null;
     sceneState = null;
     footJoints = [];
@@ -1019,6 +1116,8 @@ export function createRoachViewer({ canvas, onStatus = () => {}, onRig = () => {
     appliedPose = new Float32Array(0);
     composedPose = new Float32Array(0);
     editPose = new Float32Array(0);
+    requestedPose = new Float32Array(0);
+    editRequestedPose = new Float32Array(0);
     defaultScene.floorLift = 0;
     floorParts = [];
     contactEvidence = [];
@@ -1084,6 +1183,7 @@ export function createRoachViewer({ canvas, onStatus = () => {}, onRig = () => {
   }
   function resetPose() {
     externalPose = null;
+    externalRawPose = null;
     playing = false;
     motionTime = 0;
     for (const item of bones) {
@@ -1094,12 +1194,17 @@ export function createRoachViewer({ canvas, onStatus = () => {}, onRig = () => {
     const selected = bones.find((item) => item.id === selectedBone);
     if (selected) onSelect(boneState(selected));
   }
-  function setExternalPose(degreesArray) {
-    if (degreesArray === null) externalPose = null;
+  function setExternalPose(degreesArray, rawDegreesArray = null) {
+    if (degreesArray === null) { externalPose = null; externalRawPose = null; }
     else {
       if (!degreesArray || degreesArray.length !== bones.length * 3) throw new RangeError('External pose needs three degree values per joint.');
+      if (rawDegreesArray && rawDegreesArray.length !== degreesArray.length) throw new RangeError('Raw external pose needs three degree values per joint.');
       if (!externalPose || externalPose.length !== degreesArray.length) externalPose = new Float32Array(degreesArray.length);
       for (let i = 0; i < degreesArray.length; i += 1) externalPose[i] = clamp(degreesArray[i], -180, 180);
+      if (rawDegreesArray) {
+        if (!externalRawPose || externalRawPose.length !== degreesArray.length) externalRawPose = new Float32Array(degreesArray.length);
+        for (let i = 0; i < degreesArray.length; i += 1) externalRawPose[i] = clamp(rawDegreesArray[i], -180, 180);
+      } else externalRawPose = null;
     }
     invalidate();
   }
@@ -1419,15 +1524,49 @@ export function createRoachViewer({ canvas, onStatus = () => {}, onRig = () => {
     // only accepted deltas. Animation, MIDI and speech retain their own state.
     applyPose(0);
     editPose.set(appliedPose);
+    const head = bones.find(joint => joint.headContact && (joint === item || joint.headContact.parentId === item.id));
+    const plate = head && bones.find(joint => joint.id === head.headContact.parentId);
+    const contact = plate && head.headContact;
+    const headIndex = head?.index * 3, plateIndex = plate?.index * 3;
+    const boundedX = (joint, angle) => clamp(angle,
+      (joint.restOffset?.x ?? 0) + joint.poseLimits.x[0], (joint.restOffset?.x ?? 0) + joint.poseLimits.x[1]);
+    const carry = angle => Math.max(0,
+      (boundedX(head, angle) - (head.restOffset?.x ?? 0)) * contact.liftSign - contact.liftLimit);
+    if (contact) {
+      if (item === head) {
+        // The plate lift belongs to this head request, not to a held neck edit.
+        // Recover that request from the displayed pair before adding the drag.
+        const rawPlate = boundedX(plate, requestedPose[plateIndex]);
+        editPose[plateIndex] = rawPlate;
+        if (carry(requestedPose[headIndex]) > 0) editPose[headIndex] +=
+          (appliedPose[plateIndex] - rawPlate) * contact.liftSign / contact.parentLiftSign;
+      } else {
+        // Editing the plate keeps the head's independent request intact, and
+        // removes its derived carry from the displayed neck baseline.
+        editPose[headIndex] = boundedX(head, requestedPose[headIndex]);
+        editPose[plateIndex] -= carry(editPose[headIndex]) * contact.parentLiftSign;
+      }
+    }
     for (let axis = 0; axis < 3; axis += 1) {
       const key = ['x', 'y', 'z'][axis];
       editPose[item.index * 3 + axis] += clamp(offset[key], -180, 180) - item.offset[key];
     }
+    editRequestedPose.set(editPose);
     Object.assign(editScene.body, (sceneState ?? defaultScene).body);
     constrainRoachPose(editPose, poseJoints);
     constrainRoachFloorPose(editPose, poseJoints, editScene);
     for (const joint of bones) for (let axis = 0; axis < 3; axis += 1) {
       const index = joint.index * 3 + axis;
+      if (contact && joint === head && axis > 0) continue;
+      if (contact && axis === 0 && (joint === head || joint === plate)) {
+        if (joint !== item) continue;
+        let accepted = editPose[index];
+        if (item === head && carry(editRequestedPose[headIndex]) > 0) accepted +=
+          (editPose[plateIndex] - boundedX(plate, editRequestedPose[plateIndex])) * contact.liftSign / contact.parentLiftSign;
+        else if (item === plate) accepted -= carry(editRequestedPose[headIndex]) * contact.parentLiftSign;
+        joint.offset.x += boundedX(joint, accepted) - requestedPose[index];
+        continue;
+      }
       if (joint === item || Math.abs(editPose[index] - appliedPose[index]) > 1e-7) {
         // The held offset must cancel any contribution the floor previously
         // rejected; measuring from the displayed angle would preserve a hidden

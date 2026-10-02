@@ -1,5 +1,5 @@
-import { normalizeRoachMotion, ROACH_MOTION_PRESETS, createRandomRoachMotion } from './roach-synth-motion.js?v=ecda4c20c759';
-import { normalizeRoachSound, getRoachMotionSound, createRandomRoachSound } from './roach-synth-dsp.js?v=ecda4c20c759';
+import { normalizeRoachMotion, ROACH_MOTION_PRESETS, createRandomRoachMotion } from './roach-synth-motion.js?v=999609d02db2';
+import { normalizeRoachSound, getRoachMotionSound, createRandomRoachSound } from './roach-synth-dsp.js?v=999609d02db2';
 import { clonePresetData, presetRandom } from '../../site/preset-random.js';
 
 // Gaze, output levels, Audio, devices and clocks belong to the live

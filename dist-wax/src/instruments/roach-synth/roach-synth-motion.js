@@ -576,7 +576,7 @@ function addPreset(beats, item, mode, amount, out, index, antennae, scene, indep
   out[index] += x * amount; out[index + 1] += y * amount; out[index + 2] += z * amount;
 }
 /** Fill caller-owned XYZ degree rotations, including manual and score offsets. */
-export function writeRoachPose(timeSeconds, settings, joints, out) {
+export function writeRoachPose(timeSeconds, settings, joints, out, project = true) {
   if (!out || out.length < joints.length * 3) throw new RangeError('A pose buffer needs three values per joint.');
   const controls = settings ?? ROACH_MOTION_DEFAULTS;
   const time = safeTime(timeSeconds);
@@ -634,7 +634,7 @@ export function writeRoachPose(timeSeconds, settings, joints, out) {
     }
     out[index] = clamp(out[index], -180, 180); out[index + 1] = clamp(out[index + 1], -180, 180); out[index + 2] = clamp(out[index + 2], -180, 180);
   }
-  return constrainRoachPose(out, joints, out);
+  return project ? constrainRoachPose(out, joints, out) : out;
 }
 
 const SPEECH_POSE_BUFFERS = new WeakMap();
@@ -643,7 +643,7 @@ const SPEECH_POSE_BUFFERS = new WeakMap();
  * absolute audio-clock seconds, independent of the animation transport. The
  * caller owns envelope smoothing; amount zero leaves the buffer exactly alone.
  */
-export function applyRoachSpeechPose(timeSeconds, amount, joints, pose) {
+export function applyRoachSpeechPose(timeSeconds, amount, joints, pose, project = true) {
   const strength = clamp(finite(amount), 0, 1);
   if (strength === 0) return pose;
   if (!pose || pose.length < joints.length * 3 || joints.length > 128) throw new RangeError('Speech pose needs XYZ values for at most 128 joints.');
@@ -671,7 +671,7 @@ export function applyRoachSpeechPose(timeSeconds, amount, joints, pose) {
       speech[index + 2] += Math.sin(time * TAU * 3.7 + side * 1.1) * side * 7 * strength;
     }
   }
-  constrainRoachPose(speech, joints, speech);
+  if (project) constrainRoachPose(speech, joints, speech);
   // Constraint projection can revisit a whole imported branch. Copy only the
   // expressive joints back so speech never changes a leg, wing or body angle.
   for (let i = 0; i < joints.length; i += 1) {
@@ -981,7 +981,23 @@ function constraintRig(joints) {
   CONSTRAINT_RIGS.set(joints, rig);
   return rig;
 }
-/** Degree output is clamped to joint limits and the conservative body core. */
+function headContactParent(joints, index) {
+  const joint = joints[index], contact = joint.headContact;
+  if (!contact || metadata(joint).kind !== 'head' || joint.parent !== contact.parentId
+    || !(Number.isFinite(contact.liftLimit) && contact.liftLimit > 0 && contact.liftLimit <= 180)
+    || (contact.liftSign !== -1 && contact.liftSign !== 1)
+    || (contact.parentLiftSign !== -1 && contact.parentLiftSign !== 1)) return -1;
+  for (let i = 0; i < joints.length; i++) if (i !== index && joints[i].id === contact.parentId
+    && metadata(joints[i]).kind === 'neck') return i;
+  return -1;
+}
+function jointLimit(value, joint, axis) {
+  const name = XYZ_AXES[axis], range = joint.poseLimits?.[name], rest = clamp(finite(joint.restOffset?.[name]), -145, 145);
+  const low = range?.length === 2 ? Math.max(-180, rest + finite(range[0], -180)) : -180;
+  const high = range?.length === 2 ? Math.min(180, rest + finite(range[1], 180)) : 180;
+  return clamp(value, Math.min(low, high), Math.max(low, high));
+}
+/** Degree output respects joint limits, head/plate contact and the body core. */
 export function constrainRoachPose(target, joints, out = target) {
   if (!out || out.length < joints.length * 3) throw new RangeError('A pose buffer needs three values per joint.');
   for (let i = 0; i < joints.length; i += 1) for (let axis = 0; axis < 3; axis += 1) {
@@ -990,6 +1006,24 @@ export function constrainRoachPose(target, joints, out = target) {
     const min = limits?.length === 2 ? Math.max(-180, rest + finite(limits[0], -180)) : -180;
     const max = limits?.length === 2 ? Math.min(180, rest + finite(limits[1], 180)) : 180;
     out[i * 3 + axis] = clamp(finite(target[i * 3 + axis]), Math.min(min, max), Math.max(min, max));
+  }
+  // The authored head is tucked directly beneath its parent's pronotum. Once
+  // it meets that surface, further lift belongs to the plate's neck hinge.
+  // Keep this derived carry out of saved offsets; projecting it again is inert.
+  for (let i = 0; i < joints.length; i++) {
+    const parent = headContactParent(joints, i);
+    if (parent < 0) continue;
+    const joint = joints[i], contact = joint.headContact, index = i * 3, parentIndex = parent * 3;
+    const rest = clamp(finite(joint.restOffset?.x), -145, 145);
+    const lift = (out[index] - rest) * contact.liftSign;
+    if (lift > contact.liftLimit) {
+      out[index] = rest + contact.liftSign * contact.liftLimit;
+      if (lift - contact.liftLimit > 1e-6) out[parentIndex] = jointLimit(out[parentIndex] + contact.parentLiftSign * (lift - contact.liftLimit), joints[parent], 0);
+    }
+    // This close-fitting head hinge bends vertically; the plate still supplies
+    // the small sideways movement allowed by the neck's existing limits.
+    out[index + 1] = jointLimit(finite(joint.restOffset?.y), joint, 1);
+    out[index + 2] = jointLimit(finite(joint.restOffset?.z), joint, 2);
   }
   const rig = constraintRig(joints);
   if (!rig) return out;
@@ -1090,11 +1124,13 @@ function branchFloorGap(rig, mask) {
   }
   return minimum;
 }
-function faceLimit(value, joint, axis) {
-  const name = XYZ_AXES[axis], range = joint.poseLimits?.[name], rest = clamp(finite(joint.restOffset?.[name]), -145, 145);
-  const low = range?.length === 2 ? Math.max(-180, rest + finite(range[0], -180)) : -180;
-  const high = range?.length === 2 ? Math.min(180, rest + finite(range[1], 180)) : 180;
-  return clamp(value, Math.min(low, high), Math.max(low, high));
+function faceLimit(value, joint, axis, contactActive = false) {
+  const bounded = jointLimit(value, joint, axis), contact = joint.headContact;
+  if (!contactActive) return bounded;
+  const rest = clamp(finite(joint.restOffset?.[XYZ_AXES[axis]]), -145, 145);
+  // Floor search is a projection, so it may stop head lift but must never
+  // generate additional plate carry while trying its synthetic candidates.
+  return axis === 0 ? rest + contact.liftSign * Math.min((bounded - rest) * contact.liftSign, contact.liftLimit) : rest;
 }
 /** Keep bounded head/feeler geometry above the same six-foot floor used by
  * graphics. Inputs are already degree poses; non-face angles are never edited.
@@ -1114,7 +1150,7 @@ export function constrainRoachFloorPose(pose, joints, scene, out = pose) {
   for (let i = 0; i < count && same; i++) if (rig.input[i] !== out[i]) same = false;
   if (same) { copyFloorPose(rig.output, out, count); scene.floorLift = rig.lift; return out; }
   copyFloorPose(out, rig.input, count); rig.sceneKey.set(values); rig.precision = precision;
-  for (const i of rig.faces) for (let a = 0; a < 3; a++) out[i * 3 + a] = faceLimit(finite(out[i * 3 + a]), joints[i], a);
+  for (const i of rig.faces) for (let a = 0; a < 3; a++) out[i * 3 + a] = faceLimit(finite(out[i * 3 + a]), joints[i], a, headContactParent(joints, i) >= 0);
   rig.normal.set(rig.frame.dorsal);
   // R = left(-pitch) * forward(roll) * dorsal(yaw), matching the viewer's
   // quaternion multiplication. R^T applied to the normal reverses that order.
@@ -1136,7 +1172,7 @@ export function constrainRoachFloorPose(pose, joints, scene, out = pose) {
     while (branch >= 0) {
       mask = rig.masks.get(branch);
       copyFloorPose(rig.current, out, count);
-      for (const i of rig.faces) if (mask[i]) for (let a = 0; a < 3; a++) out[i * 3 + a] = faceLimit(rig.core.neutral[i * 3 + a], joints[i], a);
+      for (const i of rig.faces) if (mask[i]) for (let a = 0; a < 3; a++) out[i * 3 + a] = faceLimit(rig.core.neutral[i * 3 + a], joints[i], a, headContactParent(joints, i) >= 0);
       forwardKinematics(rig.core, out, joints); gap = branchFloorGap(rig, mask);
       if (gap >= 0) break;
       let parent = rig.core.parents[branch];
@@ -1152,7 +1188,7 @@ export function constrainRoachFloorPose(pose, joints, scene, out = pose) {
       for (const i of rig.faces) if (mask[i] && metadata(joints[i]).kind !== 'antenna') {
         for (let axis = 0; axis < 3 && gap < 0; axis++) for (const angle of FLOOR_ANGLES) {
           copyFloorPose(rig.reference, out, count);
-          out[i * 3 + axis] = faceLimit(rig.reference[i * 3 + axis] + angle, joints[i], axis);
+          out[i * 3 + axis] = faceLimit(rig.reference[i * 3 + axis] + angle, joints[i], axis, headContactParent(joints, i) >= 0);
           forwardKinematics(rig.core, out, joints); const candidate = branchFloorGap(rig, mask);
           if (candidate > bestGap) { bestGap = candidate; copyFloorPose(out, rig.best, count); }
           if (candidate >= 0) { gap = candidate; break; }

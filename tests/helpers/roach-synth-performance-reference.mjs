@@ -12,6 +12,7 @@ assert.deepEqual(roachPerformanceChanges.map(change => change.file), [
   "src/instruments/roach-synth/roach-synth-body.js",
   "src/instruments/roach-synth/roach-synth-dsp.js",
   "src/instruments/roach-synth/roach-synth-midi-controls.js",
+  "src/instruments/roach-synth/roach-synth-midi.js",
   "src/instruments/roach-synth/roach-synth-motion.js",
   "src/instruments/roach-synth/roach-synth-processor.js",
   "src/instruments/roach-synth/roach-synth-viewer.js",
