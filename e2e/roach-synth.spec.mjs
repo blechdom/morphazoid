@@ -47,6 +47,49 @@ async function tapMainAudio(page, context) {
   await client.detach();
 }
 
+test('the visible poster and loaded model keep the same dark ground across the loading transition', async ({ page }, testInfo) => {
+  let release;
+  const gate = new Promise(resolve => { release = resolve; });
+  await page.route('**/assets/roach-synth/cockroach-mobile.glb', async route => { await gate; await route.continue().catch(() => {}); });
+  const capture = async name => {
+    const screenshot = await page.locator('#specimenViewport').screenshot();
+    await testInfo.attach(`${name}.png`, { body: screenshot, contentType: 'image/png' });
+    return page.evaluate(async base64 => {
+      const bytes = Uint8Array.from(atob(base64), character => character.charCodeAt(0));
+      const bitmap = await createImageBitmap(new Blob([bytes], { type: 'image/png' }));
+      const canvas = new OffscreenCanvas(bitmap.width, bitmap.height), context = canvas.getContext('2d');
+      context.drawImage(bitmap, 0, 0); bitmap.close();
+      const { data } = context.getImageData(0, 0, canvas.width, canvas.height), edges = [];
+      for (const x of [4, canvas.width - 5]) for (const portion of [.01, .25, .5, .75, .99]) {
+        const offset = (Math.floor(canvas.height * portion) * canvas.width + x) * 4;
+        edges.push(Array.from(data.slice(offset, offset + 4)));
+      }
+      let visibleSpecimenPixels = 0;
+      for (let y = Math.floor(canvas.height / 4); y < canvas.height * .75; y += 1)
+        for (let x = Math.floor(canvas.width / 4); x < canvas.width * .75; x += 1) {
+          const offset = (y * canvas.width + x) * 4;
+          if (data[offset] !== 20 || data[offset + 1] !== 18 || data[offset + 2] !== 17) visibleSpecimenPixels += 1;
+        }
+      return { edges, visibleSpecimenPixels };
+    }, screenshot.toString('base64'));
+  };
+  try {
+    await page.goto('roach-synth.html', { waitUntil: 'domcontentloaded' });
+    await page.waitForFunction(() => window.roachSynth && document.getElementById('specimenImage').complete && document.getElementById('specimenImage').naturalWidth > 0);
+    expect((await snapshot(page)).loaded).toBe(false);
+    await expect(page.locator('#specimenImage')).toBeVisible();
+    const loading = await capture('ground-loading');
+    expect(loading.edges.every(color => JSON.stringify(color) === JSON.stringify([20, 18, 17, 255]))).toBe(true);
+    expect(loading.visibleSpecimenPixels).toBeGreaterThan(100);
+    release(); await loaded(page);
+    await expect(page.locator('#specimenImage')).toBeHidden();
+    const ready = await capture('ground-ready');
+    expect(ready.edges).toEqual(loading.edges); expect(ready.visibleSpecimenPixels).toBeGreaterThan(100);
+    expect((await snapshot(page)).audio.contextState).toBe('uninitialized');
+    await testInfo.attach('loading-ground-pixels.json', { body: JSON.stringify({ loading, ready }), contentType: 'application/json' });
+  } finally { release(); }
+});
+
 test('Audio and speech remain available while the specimen download is pending', async ({ browser, baseURL }) => {
   const context = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
   const page = await context.newPage();
