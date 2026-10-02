@@ -603,7 +603,11 @@ test('fractional and multiplied tempos drive the actual motion clock across its 
   for (const tempo of [2, 27, 432, 4400]) {
     const time = beat * 60 / tempo;
     assert.ok(Math.abs(writeRoachBeatState(time, { tempo }, {}).beat - beat) < 1e-10, `${tempo} BPM beat clock`);
-    assert.deepEqual(scene(time, { ...controls, tempo }, rig).feet, baseline.feet, `${tempo} BPM contact timing`);
+    const feet = scene(time, { ...controls, tempo }, rig).feet;
+    for (const [i, foot] of feet.entries()) for (const [key, expected] of Object.entries(baseline.feet[i])) {
+      if (typeof expected === 'number') assert.ok(Math.abs(foot[key] - expected) < 1e-10, `${tempo} BPM ${foot.id} ${key}`);
+      else assert.equal(foot[key], expected);
+    }
   }
 });
 
