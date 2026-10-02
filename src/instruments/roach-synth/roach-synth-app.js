@@ -3,7 +3,7 @@ import { createRoachMidiControls } from "./roach-synth-midi-controls.js";
 import { ROACH_MOTION_PRESETS, ROACH_MOTION_DEFAULTS, normalizeRoachMotion, activeRoachPreset,
   writeRoachPose, createRoachSceneState, writeRoachSceneState, bakeRoachPresetTracks,
   createRandomRoachMotion, getRoachStaticPose, applyRoachSpeechPose,
-  constrainRoachFloorPose } from "./roach-synth-motion.js";
+  constrainRoachPose, constrainRoachFloorPose } from "./roach-synth-motion.js";
 import { RoachSynthAudio, ROACH_SOUND_PRESETS, ROACH_BODY_GROUPS,
   ROACH_BODY_SOURCES, createDefaultRoachBodyMix, createRandomRoachSound, getRoachBodyGroupId,
   ROACH_MOTION_SOUND_PRESETS, getRoachMotionSound } from "./roach-synth-audio.js";
@@ -28,6 +28,7 @@ const state = {
 };
 let viewer, midiControls, presetController, frame = 0, loadVersion = 0, lastFrame = -Infinity;
 let pose = new Float32Array(0);
+let rawPose = new Float32Array(0);
 let motionPicker, soundPicker;
 const sceneState = createRoachSceneState();
 const speechMotion = { amount: 0, target: 0, expiresAt: -Infinity, updatedAt: performance.now() };
@@ -76,7 +77,10 @@ function publishSound() { audio.update({ sound: state.sound, bodyMix: effectiveB
 function refreshJoints() {
   if (!viewer) return;
   state.joints = viewer.getState().bones;
-  if (pose.length !== state.joints.length * 3) pose = new Float32Array(state.joints.length * 3);
+  if (pose.length !== state.joints.length * 3) {
+    pose = new Float32Array(state.joints.length * 3);
+    rawPose = new Float32Array(pose.length);
+  }
 }
 function syncAudioButton() {
   el('audioButton').setAttribute('aria-pressed', String(state.audioOn));
@@ -130,18 +134,20 @@ function updateSpeechMotion() {
   if (!target && speechMotion.amount < .001) speechMotion.amount = 0;
   // Speech follows the audio clock, independently of the animation transport.
   // These temporary gestures never overwrite the performer’s saved body pose.
-  applyRoachSpeechPose(audio.clock(), speechMotion.amount, state.joints, pose);
+  applyRoachSpeechPose(audio.clock(), speechMotion.amount, state.joints, pose, false);
 }
 function updateVisual() {
   if (state.disposed || !viewer || !state.joints.length) return;
   const time = currentTime();
-  writeRoachPose(time, state.motion, state.joints, pose);
-  audio.applyMidiPose(pose, state.joints, state.motion.tempo, state.motion.intensity);
+  writeRoachPose(time, state.motion, state.joints, pose, false);
+  audio.applyMidiPose(pose, state.joints, state.motion.tempo, state.motion.intensity, false);
   updateSpeechMotion();
+  rawPose.set(pose);
+  constrainRoachPose(pose, state.joints);
   writeRoachSceneState(time, state.motion, sceneState, state.joints);
-  // Preserve the composed input as the origin of a future direct edit. The
-  // viewer projects it too; keeping only the clipped pose would hide overshoot.
-  viewer.setExternalPose(pose);
+  // Retain raw intent separately so a direct edit can release head contact
+  // without baking its derived plate movement into the saved manual pose.
+  viewer.setExternalPose(pose, rawPose);
   constrainRoachFloorPose(pose, state.joints, sceneState);
   viewer.setSceneState(sceneState);
 }

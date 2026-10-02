@@ -97,9 +97,9 @@ export class RoachSynthAudio {
       midi: this.getMidiState() };
   }
   getMidiState() { return this.midiPerformance.getState(this.clock()); }
-  applyMidiPose(pose, joints, tempo = this.state.motion?.tempo ?? 120, intensity = this.state.motion?.intensity ?? 1) {
+  applyMidiPose(pose, joints, tempo = this.state.motion?.tempo ?? 120, intensity = this.state.motion?.intensity ?? 1, project = true) {
     if (this.disposed) return pose;
-    return this.midiPerformance.applyPose(pose, joints, this.clock(), tempo, intensity);
+    return this.midiPerformance.applyPose(pose, joints, this.clock(), tempo, intensity, project);
   }
   midiEventTime(value) {
     const now = this.clock(); const timestamp = value?.timestamp;
