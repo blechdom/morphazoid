@@ -1,15 +1,18 @@
 {
   "date": "2026-10-01",
-  "reason": "User-requested Voicesaurus page and local speech engines.",
+  "reason": "User-requested Voicesaurus page, local speech engines, and migration of open/local sample banks from Vocalzoid.",
   "additions": [
     {
       "id": "voicesaurus",
       "kind": "Voice synthesis comparison",
-      "description": "Plays native speech, singing and voice-chip engines, including Cook’s Singer, STK, Gnuspeech and Sinsy, with expandable parameter knobs and dated methods.",
-      "start": "Choose a dated method, enable Audio and press Play. Edit its native text, notes, score or chip parameters while Loop repeats the sound.",
+      "description": "Plays native speech, singing and voice-chip engines, including Cook’s Singer, STK, Gnuspeech and Sinsy, with editable singing timelines, native controls, sample voices and dated methods.",
+      "start": "Choose a dated method, enable Audio and press Play. Edit text, notes or chip parameters while Loop repeats the sound. Singing also includes open sample demos and local UTAU folders.",
       "features": [
         "Built-in synth",
-        "Computer keys"
+        "Computer keys",
+        "Open sample banks",
+        "Local file input",
+        "MIDI"
       ],
       "pluginHref": null,
       "imageHref": "assets/instruments/voicesaurus.webp",
@@ -26,6 +29,15 @@
   "updates": {
     "spelling-synthesizer": {
       "description": "Sounds typed letters through vocal-tract models, formants, LPC, vocoding and statistical voices, with word readback, looping and native parameters."
+    },
+    "vocalzoid": {
+      "description": "Turns one written word into editable pitched notes, sustained vowel bodies, and overlapped phoneme joins using the KAL16 phoneme atlas.",
+      "start": "Turn on audio, drag syllable notes into a melody, choose a KAL16 color, then press Sing word. Open sample voices and UTAU folder import are in Voicesaurus.",
+      "features": [
+        "Built-in source",
+        "Pointer",
+        "MIDI"
+      ]
     }
   }
 }

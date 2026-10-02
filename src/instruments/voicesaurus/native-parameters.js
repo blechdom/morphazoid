@@ -1,8 +1,9 @@
+import { createChoiceSwitch } from '../../ui/primitives/choice-switch.js';
 import { enhanceRangeKnob } from '../../ui/primitives/range-knob.js';
 import { enhanceChooseSelect } from '../../ui/patterns/choose-select.js';
 import { enhanceNativeKnob } from './native-knob.js';
 
-/** Vowel controls share the selected note's timeline position; every key has one editor. */
+/** Group the native vowel controls beside the selected note. */
 export function noteVowelControls(engine, controls) {
   const selected={};
   for(const [key,rule] of Object.entries(controls)) {
@@ -21,8 +22,17 @@ export function noteVowelControls(engine, controls) {
   return selected;
 }
 
-export function mountParameters(host, controls, values, change) {
-  const widgets=[];host.replaceChildren();
+export function mountParameters(host, controls, values, change, {idPrefix='param',getValues=()=>values,inheritance}={}) {
+  const widgets=[],refreshers=[];host.replaceChildren();
+  const refresh=()=>refreshers.forEach(update=>update());
+  function addInheritance(field,key,rule){
+    if(!inheritance)return;
+    const button=document.createElement('button');button.type='button';button.className='native-param-inherit';button.dataset.overrideParam=key;
+    button.setAttribute('aria-label',`Note override for ${rule.label}`);
+    const update=()=>{const local=inheritance.overridden(key);button.textContent=local?'Note':'Global';button.setAttribute('aria-pressed',String(local));button.title=local?'Use the current global value':'Keep this value for this note';};
+    button.addEventListener('click',event=>{event.preventDefault();event.stopPropagation();inheritance.set(key,inheritance.overridden(key));refresh();});
+    field.append(button);refreshers.push(update);update();
+  }
   const groups=new Map();
   for(const [key,rule] of Object.entries(controls)) {
     const discrete=rule.choices?.every(value=>typeof value==='number');
@@ -36,9 +46,31 @@ export function mountParameters(host, controls, values, change) {
       const choices=document.createElement('div');choices.className='native-choice-grid';
       details.append(summary,grid,choices);host.append(details);groups.set(group,{grid,choices});
     }
-    const label=document.createElement('label');label.className='native-param';label.htmlFor=`param-${key}`;
+    if(rule.choices?.length===2&&!rule.freeText){
+      // Keep the parameter bridge used by automatic custom-shape/formant flags.
+      // The visible choices remain native buttons and retain native value types.
+      const input=document.createElement('input');input.type='hidden';input.id=`${idPrefix}-${key}`;input.dataset.param=key;input.value=String(values[key]);
+      let accepted=values[key];
+      const widget=createChoiceSwitch({label:rule.label,compact:true,className:'native-param is-toggle',
+        choices:rule.choices.map(value=>({value,label:typeof value==='boolean'?(value?'On':'Off'):String(value).replaceAll('_',' ')})),value:accepted,
+        onChange:value=>{input.value=String(value);input.dispatchEvent(new Event('change',{bubbles:true}));}});
+      if(rule.description)widget.title=rule.description;
+      const reflect=()=>{const value=rule.choices.find(value=>String(value)===input.value);if(value!==undefined){accepted=value;widget.setValue(value);}};
+      const commit=()=>{
+        const value=rule.choices.find(value=>String(value)===input.value);
+        if(value===undefined)return;
+        try{change(key,value);accepted=value;widget.setValue(value);refresh();}
+        catch(error){input.value=String(accepted);widget.setValue(accepted);throw error;}
+      };
+      input.addEventListener('native-parameter-reflect',reflect);input.addEventListener('change',commit);
+      widget.append(input);groups.get(group).choices.append(widget);
+      refreshers.push(()=>{input.value=String(getValues()[key]);reflect();});addInheritance(widget,key,rule);
+      widgets.push({destroy(){input.removeEventListener('native-parameter-reflect',reflect);input.removeEventListener('change',commit);widget.destroy();}});
+      continue;
+    }
+    const label=document.createElement(inheritance?'div':'label');label.className='native-param';if(!inheritance)label.htmlFor=`${idPrefix}-${key}`;
     const title=document.createElement('span');title.textContent=rule.label;
-    const input=document.createElement(menu?'select':'input');input.id=`param-${key}`;input.dataset.param=key;input.setAttribute('aria-label',rule.label);
+    const input=document.createElement(menu?'select':'input');input.id=`${idPrefix}-${key}`;input.dataset.param=key;input.setAttribute('aria-label',rule.label);
     const wrap=document.createElement('span'),output=document.createElement('output');wrap.append(input);label.append(title,wrap,output);groups.get(group)[menu||rule.freeText?'choices':'grid'].append(label);
     if(rule.description)label.title=rule.description;
     let widget;
@@ -64,9 +96,11 @@ export function mountParameters(host, controls, values, change) {
     reflect();input.addEventListener(menu?'change':'input',event=>{
       if(discrete){const value=Number(input.value);input.value=rule.choices.reduce((best,next)=>Math.abs(next-value)<Math.abs(best-value)?next:best);widget.update();}
       else if(rule.nativeStep&&!event.nativeExact){input.value=String(Math.round(Number(input.value)/rule.nativeStep)*rule.nativeStep);widget.update();}
-      reflect();change(key,rule.freeText?input.value:menu?rule.choices.find(value=>String(value)===input.value):Number(input.value));
+      reflect();change(key,rule.freeText?input.value:menu?rule.choices.find(value=>String(value)===input.value):Number(input.value));refresh();
     });
+    refreshers.push(()=>{const value=getValues()[key];if(!menu&&!rule.freeText){input.min=Math.min(Number(input.min),value);input.max=Math.max(Number(input.max),value);}input.value=String(value);input.dispatchEvent(new Event('native-parameter-reflect'));});
+    addInheritance(label,key,rule);
     widgets.push(widget);
   }
-  return ()=>{widgets.forEach(widget=>widget.destroy());host.replaceChildren();};
+  const cleanup=()=>{widgets.forEach(widget=>widget.destroy());host.replaceChildren();};cleanup.refresh=refresh;return cleanup;
 }

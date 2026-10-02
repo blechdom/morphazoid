@@ -8,8 +8,12 @@ import { SINSY_CONTROLS, sinsyScoreToMusicXml } from '../../families/speech/sins
 import { SINSY_PRESETS } from '../../families/speech/sinsy-presets.js';
 import { FACTORY_ADJUSTMENTS } from './factory-adjustments.js';
 import { isSingingEngine, validateMusicalPhrase } from './native-singing-model.js';
+import { withFactorySingingPhrase } from './singing-factory-phrases.js';
+
+import { SAMPLE_BANK_METHOD, validateSampleBankInput, validateSampleBankNote } from './sample-bank-model.js';
 
 const built={
+ 'sample-bank':SAMPLE_BANK_METHOD,
  ...Object.fromEntries(Object.entries(NATIVE_TEXT_ENGINES).map(([engine,spec])=>[engine,{...spec,mode:'text',defaultInput:{},presets:NATIVE_TEXT_PRESETS[engine]}])),
  ...Object.fromEntries(Object.entries(NATIVE_RETRO_MODELS).map(([engine,spec])=>[engine,{...spec,mode:engine==='vizsn'?'native-letters':'note',controls:{...spec.controls,...(spec.noteDuration?{durationMs:spec.noteDuration}:{})},presets:spec.presets.map(p=>({...p,values:{...p.values,...(p.input?.durationMs?{durationMs:p.input.durationMs}:{})}}))}])),
  ...Object.fromEntries(Object.entries(NATIVE_MUSICAL_ENGINES).map(([engine,spec])=>[engine,{...spec,mode:'note',name:VOICE_METHODS[engine].name,phones:spec.input.choices,phoneLabel:spec.input.label,defaultInput:{phone:spec.input.default},presets:spec.presets.map(p=>({...p,id:`${engine}-${p.id}`}))}])),
@@ -22,7 +26,7 @@ const built={
 export const NATIVE_METHODS=Object.freeze(Object.fromEntries(Object.entries(built).map(([engine,spec])=>[engine,{...VOICE_METHODS[engine]??VOICE_METHODS.diphone,...spec,
  ...(engine.startsWith('flite-kal')?{date:'2001 Flite release',history:'The actual Flite diphone voice and native text frontend. KAL and KAL16 are two sampling-rate versions of the same voice lineage.',source:'https://github.com/festvox/flite'}:{}),
 }]).map(([engine,spec])=>[engine,{...spec,
- detail:spec.mode==='score'?'Japanese kana lyrics and a musical score drive Sinsy’s native singing frontend and HTS vocoder.':spec.mode==='text'?`${spec.name} synthesizes complete text with its native frontend and phrase prosody.`:spec.mode==='native-letters'?spec.inputDescription:engine==='singer'?'Perry Cook’s Singer vocal-tract model, using its original shapes, glottal tables and native note trajectories.':engine==='stk-voicform'?'STK’s original phoneme tables, voiced/noise excitation and four swept formants, played as musical notes.':engine==='mea8000'?spec.inputDescription:'Direct Csound opcode synthesis with independently editable formants and note controls.',
+ detail:spec.detail??(spec.mode==='score'?'Japanese kana lyrics and a musical score drive Sinsy’s native singing frontend and HTS vocoder.':spec.mode==='text'?`${spec.name} synthesizes complete text with its native frontend and phrase prosody.`:spec.mode==='native-letters'?spec.inputDescription:engine==='singer'?'Perry Cook’s Singer vocal-tract model, using its original shapes, glottal tables and native note trajectories.':engine==='stk-voicform'?'STK’s original phoneme tables, voiced/noise excitation and four swept formants, played as musical notes.':engine==='mea8000'?spec.inputDescription:'Direct Csound opcode synthesis with independently editable formants and note controls.'),
  history:engine==='singer'?'Cook’s 1989 ICMC paper documents the model lineage. This C++/WASM port follows the Snd-distributed Singer algorithm; host envelopes and experimental coefficient controls are identified separately.':engine==='stk-voicform'?'Cook and Scavone released STK in 1996. This is its VoicForm/SingWave implementation, with original phoneme data and additional accessible native controls.':engine==='gnuspeech'?'The Trillium lineage began in the 1990s. Gnuspeech’s tube-resonance model and native English frontend generate this complete phrase.':engine==='pico'?'Pico entered Android’s open-source tree in 2009. The US and UK voices are models of one native parametric engine.':engine==='hts'?'The integrated HTS SLT model and Flite frontend were released in 2016. HMM speech synthesis is older; this native sentence path retains the model’s duration and prosody prediction.':engine.startsWith('csound-')?(engine==='csound-fof'?'Rodet, Potard and Barrière described CHANT in 1984. This is Csound’s FOF opcode, not the original CHANT program or voice database.':'Kaegi and Tempelaars published VOSIM in 1978. This is Csound’s implementation of the pulse-group method.'):spec.history,
 }]).map(([engine,spec])=>[engine,{...spec,year:Number(spec.date.match(/\d{4}/)[0])}]).sort((a,b)=>a[1].year-b[1].year||a[1].name.localeCompare(b[1].name))));
 // These modes describe the browser's native input paths, not every historical
@@ -49,6 +53,7 @@ export function validateScene(scene) {
     const value=scene.values[key];
     if(rule.freeText?typeof value!=='string':rule.choices?!rule.choices.includes(value):!Number.isFinite(value))throw Error(`Invalid ${rule.label}.`);
   }
+  if(scene.engine==='sample-bank'){validateSampleBankInput(scene.input);if(!scene.input.phrase)validateSampleBankNote(scene.input);}
   if(spec.phones&&!spec.phones.includes(scene.input.phone))throw Error('Choose an original vocal shape.');
   if(spec.mode==='score')sinsyScoreToMusicXml(scene.input);
   if(Object.hasOwn(scene.input,'phrase'))validateMusicalPhrase(scene.engine,scene.input.phrase);
@@ -56,7 +61,9 @@ export function validateScene(scene) {
 }
 export const presets=Object.freeze(Object.entries(NATIVE_METHODS).flatMap(([engine,spec])=>spec.presets.map(preset=>{
   const adjustment=FACTORY_ADJUSTMENTS[preset.id]||{},input={...spec.defaultInput,...preset.input,...adjustment.input};
-  return {id:preset.id,label:`${spec.name} · ${preset.label}`,snapshot:validateScene({engine,values:{...defaultsFor(engine,input),...preset.values,...adjustment.values},input:structuredClone(input)})};
+  const overrides={...preset.values,...adjustment.values};
+  const scene={engine,values:{...defaultsFor(engine,input),...overrides},input:structuredClone(input)};
+  return {id:preset.id,label:`${spec.name} · ${preset.label}`,snapshot:validateScene(withFactorySingingPhrase(scene,preset.id,overrides))};
 })));
 export function randomize(previous,random=Math.random,{mode}={}) {
   const r=()=>Math.min(.999999,Math.max(0,random()));
@@ -65,6 +72,7 @@ export function randomize(previous,random=Math.random,{mode}={}) {
     if(rule.choices)scene.values[key]=rule.choices[Math.floor(r()*rule.choices.length)];
     else {const raw=rule.min+(rule.max-rule.min)*r(),step=rule.step??.001;scene.values[key]=Math.max(rule.min,Math.min(rule.max,Number((rule.min+Math.round((raw-rule.min)/step)*step).toFixed(6))));}
   }
+  if(engine==='sample-bank'){const banks=SAMPLE_BANK_METHOD.presets;const source=banks[Math.floor(r()*banks.length)].input;scene.input.source=source.source;scene.input.openBankId=source.openBankId;}
   if(engine==='gnuspeech') [scene.values.pulseFallMin,scene.values.pulseFallMax]=[scene.values.pulseFallMin,scene.values.pulseFallMax].sort((a,b)=>a-b);
   if(spec.phones?.length)scene.input.phone=spec.phones[Math.floor(r()*spec.phones.length)];
   // Dice chooses a playable starting point. These distributions never limit

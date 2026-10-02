@@ -5,8 +5,8 @@ import { NATIVE_OUTPUT_TRIMS } from './output-calibration.js';
 
 /** Device consent and sample-clock playback; native engines render in workers. */
 export class NativeVoiceAudio {
-  constructor({onEnded=()=>{},onAuditionEnded=()=>{}}={}) {
-    this.onEnded=onEnded;this.onAuditionEnded=onAuditionEnded; this.enabled=false; this.playing=false; this.level=.46;
+  constructor({onEnded=()=>{},onAuditionEnded=()=>{},renderSampleBank}={}) {
+    this.renderSampleBank=renderSampleBank;this.onEnded=onEnded;this.onAuditionEnded=onAuditionEnded; this.enabled=false; this.playing=false; this.level=.46;
     this.context=null; this.buffer=null; this.position=0; this.loop=false; this.generation=0;
     this.retiring=new Set();this.auditionGeneration=0;this.renderResults=new WeakMap();
   }
@@ -77,30 +77,38 @@ export class NativeVoiceAudio {
     return true;
   }
   pause() {this.position=this.currentPosition();this.playing=false;this.stopSource();this.stopAudition();}
-  play({restart=false}={}) {
+  play({restart=false,offset}={}) {
+    if(offset!==undefined&&!Number.isFinite(offset))throw new TypeError('Playback offset must be finite.');
     this.stopAudition();
-    if(!this.enabled||!this.buffer)return false;
-    if(restart||this.position>=this.buffer.duration-.01)this.position=0;
+    if(!this.enabled||!this.buffer||this.context?.state!=='running')return false;
+    if(offset!==undefined){
+      // Explicit seeking retires any render that could replace this buffer.
+      // Leave one sample at the end; seeking there must not restart the phrase.
+      this.cancelRender();
+      this.position=Math.max(0,Math.min(offset,this.buffer.duration-1/this.buffer.sampleRate));
+    }else if(restart||this.position>=this.buffer.duration-.01)this.position=0;
     this.stopSource();const source=this.context.createBufferSource();source.buffer=this.buffer;source.loop=this.loop;
     const gain=this.context.createGain(),now=this.context.currentTime;
     gain.gain.setValueAtTime(0,now);gain.gain.linearRampToValueAtTime(NATIVE_OUTPUT_TRIMS[this.engine]??1,now+.008);
     source.connect(gain).connect(this.master);this.source=source;this.sourceGain=gain;this.started=now;this.playing=true;
     source.onended=()=>{if(this.source!==source)return;this.position=this.buffer.duration;this.playing=false;source.disconnect();gain.disconnect();this.source=null;this.sourceGain=null;this.onEnded();};
-    source.start(0,this.position);return true;
+    try{source.start(0,this.position);}catch(error){this.playing=false;this.stopSource();throw error;}return true;
   }
   cancelRender() {this.generation++;this.cancelWorker?.();this.cancelWorker=null;this.pendingRender=null;}
   async render(request,{store=true}={}) {
     if(!this.enabled||!this.context||this.context.state==='closed')throw Object.assign(Error('Enable Audio before rendering a voice.'),{name:'NotAllowedError'});
     this.cancelRender();this.stopAudition();const generation=this.generation,context=this.context;
     return new Promise((resolve,reject)=>{
-      const worker=new Worker(new URL('./native-worker.js',import.meta.url),{type:'module'});
+      const external=request.engine==='sample-bank'&&this.renderSampleBank;
+      const controller=new AbortController();
+      const worker=external?null:new Worker(new URL('./native-worker.js',import.meta.url),{type:'module'});
       let settled=false;
-      const finish=(error,result)=>{if(settled)return;settled=true;clearTimeout(timeout);worker.terminate();if(generation===this.generation){this.cancelWorker=null;this.pendingRender=null;}error?reject(error):resolve(result);};
+      const finish=(error,result)=>{if(settled)return;settled=true;clearTimeout(timeout);worker?.terminate();controller.abort();if(generation===this.generation){this.cancelWorker=null;this.pendingRender=null;}error?reject(error):resolve(result);};
       const timeout=setTimeout(()=>finish(Error('Voice rendering timed out.')),30000);
       this.pendingRender={store,generation};
       this.cancelWorker=()=>finish(Object.assign(Error('Voice rendering cancelled.'),{name:'AbortError'}));
-      worker.onerror=event=>finish(Error(event.message||'Voice worker failed.'));
-      worker.onmessage=({data})=>{
+      if(worker)worker.onerror=event=>finish(Error(event.message||'Voice worker failed.'));
+      const receive=({data})=>{
         if(settled)return;
         if(data.type==='error'){finish(Error(data.message));return;}
         if(data.type!=='ready')return;
@@ -126,7 +134,8 @@ export class NativeVoiceAudio {
           finish(null,result);
         }catch(error){finish(error);}
       };
-      try{worker.postMessage(request);}catch(error){finish(error);}
+      if(worker)worker.onmessage=receive;
+      try{if(external)Promise.resolve(external(request,{signal:controller.signal})).then(data=>receive({data:{...data,type:'ready'}}),error=>finish(error));else worker.postMessage(request);}catch(error){finish(error);}
     });
   }
   async disable() {this.armController?.abort();this.armController=null;this.enabled=false;this.cancelRender();this.pause();for(const retired of [...this.retiring])retired.release();await this.context?.suspend();}

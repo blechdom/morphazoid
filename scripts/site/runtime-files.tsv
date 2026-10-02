@@ -1412,6 +1412,10 @@ copy+require	src/instruments/voicesaurus/native-knob.js
 copy+require	src/instruments/voicesaurus/native-model.js
 copy+require	src/instruments/voicesaurus/native-parameters.js
 copy+require	src/instruments/voicesaurus/native-timeline.js
+copy+require	src/instruments/voicesaurus/sample-bank-model.js
+copy+require	src/instruments/voicesaurus/sample-bank-ui.js
+copy+require	src/instruments/voicesaurus/playback-offset.js
+copy+require	src/families/speech/sample-bank-renderer.js
 copy+require	src/instruments/voicesaurus/native-singing-model.js
 copy+require	src/instruments/voicesaurus/native-phrase.js
 copy+require	src/instruments/voicesaurus/native-worker.js
@@ -1429,8 +1433,13 @@ copy+require	vendor/sinsy/sinsy.wasm
 copy+require	docs/voice-native-value-limits.md
 copy+require	vendor/vizsn/source/stream-get-audio.inc
 copy+require	src/instruments/voicesaurus/factory-adjustments.js
+copy+require	src/instruments/voicesaurus/singing-factory-phrases.js
+copy+require	src/instruments/voicesaurus/voice-settings.js
+copy+require	src/instruments/voicesaurus/text-presets.js
 copy+require	vendor/espeak-ng/source/build-espeak-wasm.py
 copy+require	src/families/speech/japanese-syllables.js
+copy+require	src/families/speech/sinsy-lyrics.js
+copy+require	src/instruments/voicesaurus/singing-text.js
 
 # Compiler/runtime notices linked by the browser speech engine credits.
 copy+require	vendor/wasm-runtime-notices/README.md

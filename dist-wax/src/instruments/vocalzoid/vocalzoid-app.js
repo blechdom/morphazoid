@@ -14,7 +14,6 @@ import {
   replaceVocalzoidNotePhone,
   splitVocalzoidNote,
   updateVocalzoidNote,
-  vocalzoidBankCoverage,
   vocalzoidMidiFrequency,
   vocalzoidMidiName,
   vocalzoidPronunciation,
@@ -22,14 +21,6 @@ import {
   vocalzoidSequenceBeats,
 } from "./vocalzoid.js";
 import { VocalzoidAudio } from "./vocalzoid-audio.js";
-import {
-  loadUtauBankFiles,
-  utauBankAliases,
-} from "./vocalzoid-bank.js";
-import {
-  VOCALZOID_OPEN_BANKS,
-  vocalzoidOpenBankCoverage,
-} from "./vocalzoid-open-banks.js";
 import {
   SPELLING_PRONUNCIATION_PHONE_CATALOG,
   loadSpellingPronunciations,
@@ -69,15 +60,9 @@ const state = {
   starting: false,
   audioTransition: "",
   playing: false,
-  source: "kal",
-  openBankId: "",
-  localBank: null,
-  localRootMidi: 60,
   playResult: null,
   playRequest: 0,
   scoreRequest: 0,
-  importRequest: 0,
-  sourceRevision: 0,
 };
 
 const audio = new VocalzoidAudio({
@@ -134,7 +119,6 @@ function replaceNote(noteId, changes, { render = true } = {}) {
   if (render) renderScore();
   else {
     renderSelectedNote();
-    updateBankCoverage();
   }
 }
 
@@ -265,7 +249,7 @@ function updateControlUi() {
   }
   const style = VOCALZOID_STYLES[state.style];
   for (const button of $("styleButtons").querySelectorAll("[data-style]")) {
-    setPressed(button, button.dataset.style === state.style && state.source === "kal");
+    setPressed(button, button.dataset.style === state.style);
   }
   $("styleDescription").textContent = style.description;
   document.body.style.setProperty("--vz-accent", style.color);
@@ -274,16 +258,7 @@ function updateControlUi() {
 }
 
 function updateSourceUi() {
-  const open = VOCALZOID_OPEN_BANKS[state.openBankId];
-  const sourceName = state.source === "local"
-    ? state.localBank?.name || "local bank"
-    : state.source === "open" ? open?.name || "open demo voice" : "built in";
-  $("sourceBadge").textContent = sourceName;
-  for (const button of $("openBankButtons").querySelectorAll("[data-open-bank]")) {
-    setPressed(button, state.source === "open" && button.dataset.openBank === state.openBankId);
-  }
-  $("useLocalBank").disabled = !state.localBank || state.source === "local";
-  updateBankCoverage();
+  $("sourceBadge").textContent = "KAL16";
 }
 
 function renderPitchLabels() {
@@ -543,7 +518,6 @@ function changeNotePhone(noteId, phoneIndex, replacementId) {
   if (edited === current) return false;
   const previousPhone = current.phones[phoneIndex];
   const replacement = PHONE_CATALOG_BY_ID.get(edited.phones[phoneIndex]);
-  const clearedAlias = Boolean(current.alias);
   haltPlayback();
   state.notes = state.notes.map((note) => note.id === noteId ? edited : note);
   state.selectedId = noteId;
@@ -551,8 +525,7 @@ function changeNotePhone(noteId, phoneIndex, replacementId) {
   $("notePhoneMenus").querySelector(`[data-phone-index="${phoneIndex}"]`)?.focus();
   announce(
     `${current.lyric}: ${previousPhone} changed to ${replacement.id}, /${replacement.ipa}/ as in ${replacement.example}. `
-      + `The ${phoneText(edited.phones)} diphone sequence is ready.`
-      + (clearedAlias ? " The previous exact bank alias was cleared." : ""),
+      + `The ${phoneText(edited.phones)} diphone sequence is ready.`,
   );
   return true;
 }
@@ -562,7 +535,6 @@ function renderSelectedNote() {
   const hasNote = Boolean(note);
   $("notePitch").disabled = !hasNote;
   $("noteDuration").disabled = !hasNote;
-  $("aliasInput").disabled = !hasNote;
   $("phoneEditor").setAttribute("aria-disabled", String(!hasNote));
   renderNotePhoneMenus(note);
   $("splitNoteButton").disabled = !note || note.duration < 0.5;
@@ -574,7 +546,6 @@ function renderSelectedNote() {
     $("selectedNoteNumber").textContent = "00 / 00";
     $("notePitchOut").textContent = "—";
     $("noteDurationOut").textContent = "—";
-    $("aliasInput").value = "";
     return;
   }
   if (state.selectedId !== note.id) state.selectedId = note.id;
@@ -586,7 +557,6 @@ function renderSelectedNote() {
   $("notePitchOut").textContent = `${vocalzoidMidiName(note.midi)} · ${Math.round(vocalzoidMidiFrequency(note.midi))} Hz`;
   $("noteDuration").value = String(note.duration);
   $("noteDurationOut").textContent = `${Number(note.duration.toFixed(2))} beat${note.duration === 1 ? "" : "s"}`;
-  $("aliasInput").value = note.alias;
 }
 
 function renderScore() {
@@ -600,20 +570,6 @@ function renderScore() {
   $("phoneReadout").textContent = state.notes.length
     ? state.notes.map((note) => phoneText(note.phones)).join(" / ")
     : "No notes · double-click the grid to add one";
-  updateBankCoverage();
-}
-
-function updateBankCoverage() {
-  if (state.source === "open" && state.openBankId) {
-    const bank = VOCALZOID_OPEN_BANKS[state.openBankId];
-    const coverage = vocalzoidOpenBankCoverage(state.notes);
-    $("bankStatus").textContent = `${bank.name}: ${coverage.matched}/${coverage.total} notes use its ${bank.license} samples; the rest use KAL16.`;
-    return;
-  }
-  if (!state.localBank) return;
-  const coverage = vocalzoidBankCoverage(state.localBank.entries, state.notes);
-  $("coverageFill").style.width = `${coverage.ratio * 100}%`;
-  $("bankCoverage").textContent = `${coverage.matched} / ${coverage.total} score notes auto-matched · exact alias can override`;
 }
 
 function updateCurrentEvent(progressSeconds) {
@@ -744,16 +700,8 @@ async function playSequence() {
     if (request !== state.playRequest || !result) return;
     state.playResult = result;
     state.playing = true;
-    if (state.source === "open" && result.openNotes === 0) {
-      $("bankStatus").textContent = `${VOCALZOID_OPEN_BANKS[state.openBankId]?.name ?? "The open demo voice"} could not render this score; every note is using KAL16.`;
-    } else if (state.source === "open" && result.fallbackNotes > 0) {
-      $("bankStatus").textContent = `${result.openNotes} notes use ${result.sourceName}; ${result.fallbackNotes} use KAL16.`;
-    }
-    const fallback = result.fallbackNotes
-      ? ` ${result.fallbackNotes} note${result.fallbackNotes === 1 ? "" : "s"} fell back to KAL16.`
-      : "";
     const scoreName = state.randomScore ? "the randomized score" : state.word;
-    announce(`${result.sourceName} is singing ${scoreName}.${fallback}`);
+    announce(`${result.sourceName} is singing ${scoreName}.`);
     ensureAnimation();
   } catch (error) {
     if (request === state.playRequest) showError(error instanceof Error ? error.message : String(error));
@@ -863,123 +811,24 @@ async function buildScore() {
 
 function chooseKalStyle(styleId) {
   haltPlayback();
-  state.sourceRevision += 1;
   state.style = styleId in VOCALZOID_STYLES ? styleId : "raw";
-  state.source = "kal";
-  state.openBankId = "";
-  audio.clearBank();
-  audio.clearOpenBank();
   audio.setStyle(state.style);
   updateControlUi();
   updateSourceUi();
   announce(`${VOCALZOID_STYLES[state.style].name} selected.`);
 }
 
-function chooseOpenBank(bankId) {
-  const bank = VOCALZOID_OPEN_BANKS[bankId];
-  if (!bank) return;
-  haltPlayback();
-  state.sourceRevision += 1;
-  state.source = "open";
-  state.openBankId = bankId;
-  audio.setOpenBank(bankId);
-  updateControlUi();
-  updateSourceUi();
-  const coverage = vocalzoidOpenBankCoverage(state.notes);
-  $("bankStatus").textContent = `${bank.name}: ${coverage.matched}/${coverage.total} notes use its ${bank.license} samples; the rest use KAL16.`;
-  announce(`${bank.name} selected.`);
-}
-
-function chooseLocalBank() {
-  if (!state.localBank) return;
-  haltPlayback();
-  state.sourceRevision += 1;
-  state.source = "local";
-  state.openBankId = "";
-  audio.setBank({ ...state.localBank, rootMidi: state.localRootMidi });
-  audio.setStyle(state.style);
-  updateControlUi();
-  updateSourceUi();
-  announce(`${state.localBank.name} selected. Unmatched notes use KAL16.`);
-}
-
-async function importBank(files) {
-  const request = ++state.importRequest;
-  const sourceRevision = state.sourceRevision;
-  haltPlayback();
-  clearError();
-  $("bankDrop").classList.add("is-loading");
-  $("bankStatus").textContent = "Reading local oto.ini files…";
-  try {
-    const bank = await loadUtauBankFiles(files);
-    if (request !== state.importRequest) return;
-    state.localBank = bank;
-    state.localRootMidi = bank.rootMidi;
-    $("loadedBank").hidden = false;
-    $("bankName").textContent = bank.name;
-    $("bankAuthor").textContent = bank.author;
-    $("bankMeta").textContent = `${bank.stats.audioFiles.toLocaleString()} samples · ${bank.stats.entries.toLocaleString()} aliases · ${bank.stats.frqFiles.toLocaleString()} pitch maps`;
-    $("bankRoot").value = String(Math.round(state.localRootMidi));
-    $("bankRootOut").textContent = vocalzoidMidiName(state.localRootMidi);
-    const aliasFragment = document.createDocumentFragment();
-    for (const alias of utauBankAliases(bank).slice(0, 4_000)) {
-      const option = document.createElement("option");
-      option.value = alias;
-      aliasFragment.append(option);
-    }
-    $("bankAliases").replaceChildren(aliasFragment);
-    const canAutoSelect = sourceRevision === state.sourceRevision;
-    if (canAutoSelect) chooseLocalBank();
-    else updateSourceUi();
-    const selectionStatus = canAutoSelect
-      ? "It is selected."
-      : "It is ready; your newer voice choice is unchanged.";
-    $("bankStatus").textContent = `${bank.name} is in memory only. ${selectionStatus} ${bank.stats.missingEntries ? `${bank.stats.missingEntries} missing sample references were skipped.` : "All sample references resolved."}`;
-  } catch (error) {
-    if (request !== state.importRequest) return;
-    $("bankStatus").textContent = "Voicebank import failed.";
-    showError(error instanceof Error ? error.message : String(error));
-  } finally {
-    if (request === state.importRequest) {
-      $("bankDrop").classList.remove("is-loading");
-      $("bankInput").value = "";
-    }
-  }
-}
-
-function removeLocalBank() {
-  state.importRequest += 1;
-  haltPlayback();
-  state.localBank = null;
-  state.localRootMidi = 60;
-  $("loadedBank").hidden = true;
-  $("bankAliases").replaceChildren();
-  $("bankStatus").textContent = "No local bank loaded.";
-  chooseKalStyle(state.style);
-}
-
 function resetVocalzoid() {
   state.scoreRequest += 1;
-  state.importRequest += 1;
-  state.sourceRevision += 1;
   haltPlayback();
   Object.assign(state, DEFAULTS, {
     notes: createVocalzoidSequence(VOCALZOID_DEFAULT_WORD),
     selectedId: "vz-1",
-    source: "kal",
-    openBankId: "",
   });
-  audio.clearBank();
-  audio.clearOpenBank();
   audio.setStyle(state.style);
   audio.setLevel(state.level);
   $("buildScore").disabled = false;
   $("buildScore").textContent = "Set lyric";
-  $("bankDrop").classList.remove("is-loading");
-  $("bankInput").value = "";
-  $("bankStatus").textContent = state.localBank
-    ? `${state.localBank.name} remains loaded; choose Use to select it.`
-    : "No local bank loaded.";
   updateControlUi();
   updateSourceUi();
   renderScore();
@@ -1037,9 +886,6 @@ function installEvents() {
       renderScore();
     });
   }
-  for (const button of $("openBankButtons").querySelectorAll("[data-open-bank]")) {
-    button.addEventListener("click", () => chooseOpenBank(button.dataset.openBank));
-  }
   $("addNoteButton").addEventListener("click", () => addNote());
   $("randomizeButton").addEventListener("click", randomizeScore);
   $("splitNoteButton").addEventListener("click", () => splitNote());
@@ -1052,8 +898,6 @@ function installEvents() {
       midi: point.midi,
     });
   });
-  $("useKalButton").addEventListener("click", () => chooseKalStyle(state.style));
-  $("useLocalBank").addEventListener("click", chooseLocalBank);
   $("notePitch").addEventListener("input", (event) => {
     haltPlayback();
     replaceNote(state.selectedId, { midi: event.target.value });
@@ -1062,27 +906,6 @@ function installEvents() {
     haltPlayback();
     replaceNote(state.selectedId, { duration: event.target.value });
   });
-  $("aliasInput").addEventListener("input", (event) => {
-    replaceNote(state.selectedId, { alias: event.target.value }, { render: false });
-  });
-  $("bankInput").addEventListener("change", (event) => void importBank(event.target.files));
-  $("bankDrop").addEventListener("dragover", (event) => {
-    event.preventDefault();
-    $("bankDrop").classList.add("is-dragging");
-  });
-  $("bankDrop").addEventListener("dragleave", () => $("bankDrop").classList.remove("is-dragging"));
-  $("bankDrop").addEventListener("drop", (event) => {
-    event.preventDefault();
-    $("bankDrop").classList.remove("is-dragging");
-    if (event.dataTransfer?.files?.length) void importBank(event.dataTransfer.files);
-  });
-  $("bankRoot").addEventListener("input", (event) => {
-    const midi = Math.round(clampVocalzoid(event.target.value, 36, 84));
-    state.localRootMidi = midi;
-    if (audio.bank) audio.bank.rootMidi = midi;
-    $("bankRootOut").textContent = vocalzoidMidiName(midi);
-  });
-  $("removeBank").addEventListener("click", removeLocalBank);
   $("resetButton").addEventListener("click", resetVocalzoid);
 
   document.addEventListener("pointermove", (event) => {

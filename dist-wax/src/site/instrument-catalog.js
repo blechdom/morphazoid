@@ -482,9 +482,9 @@ const CATALOG_DETAILS = Object.freeze({
   ),
   voicesaurus: define(
     "Voice synthesis comparison",
-    "Plays native speech, singing and voice-chip engines, including Cook’s Singer, STK, Gnuspeech and Sinsy, with expandable parameter knobs and dated methods.",
-    "Choose a dated method, enable Audio and press Play. Edit its native text, notes, score or chip parameters while Loop repeats the sound.",
-    ["Built-in synth", "Computer keys"],
+    "Plays native speech, singing and voice-chip engines, including Cook’s Singer, STK, Gnuspeech and Sinsy, with editable singing timelines, native controls, sample voices and dated methods.",
+    "Choose a dated method, enable Audio and press Play. Edit text, notes or chip parameters while Loop repeats the sound. Singing also includes open sample demos and local UTAU folders.",
+    ["Built-in synth", "Computer keys", "Open sample banks", "Local file input"],
   ),
   "spelling-synthesizer": define(
     "Voice instrument",
@@ -494,9 +494,9 @@ const CATALOG_DETAILS = Object.freeze({
   ),
   vocalzoid: define(
     "Singing sequencer",
-    "Turns one written word into editable pitched notes, sustained vowel bodies, and overlapped phoneme joins using bundled open sample voices or a local UTAU bank.",
-    "Turn on audio, drag the syllable notes into a melody, choose KAL16 or one of eight bundled open demo voices, then press Sing word; extracted UTAU folders can be imported locally.",
-    ["Open sample banks", "Local file input", "Pointer"],
+    "Turns one written word into editable pitched notes, sustained vowel bodies, and overlapped phoneme joins using the KAL16 phoneme atlas.",
+    "Turn on audio, drag syllable notes into a melody, choose a KAL16 color, then press Sing word. Open sample voices and UTAU folder import are in Voicesaurus.",
+    ["Built-in source", "Pointer"],
   ),
 
   "shepard-risset": define(

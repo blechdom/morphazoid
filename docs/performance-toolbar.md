@@ -29,6 +29,8 @@ preset authoring. Shapes places the row above its dimension/bank controls.
 Puggler has an owner-requested mobile exception: the same preset host moves to
 the first row below its graphic in phone portrait and short landscape, returning
 to the sidebar on desktop. No preset or transport state is recalled on resize.
+Voicesaurus places its **Speak / Sing** selector immediately above the preset
+row, as requested by the owner, so the mode is clear before choosing its presets.
 Focused sound, sequence, skin, material and other sub-presets stay in place.
 The L-system Delay input controls move intact below its full-preset row rather
 than remain an extra masthead item. Its trim is not a master-volume knob.

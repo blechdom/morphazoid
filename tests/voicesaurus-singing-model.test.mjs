@@ -38,11 +38,12 @@ test('legacy editable input and values are actual scene references', () => {
   assert.equal(scene.input.phrase,undefined);
 });
 
-test('pitch, duration and shape edits do not materialize a legacy phrase', () => {
+test('pitch and duration retain legacy geometry while a shape edit becomes local to its note', () => {
   const scene=defaultScene('singer');
   setNotePitch(scene,0,-331.25);setNoteBeats(scene,0,1.625);setNoteSyllable(scene,0,'eee');
   assert.equal(scene.values.pitch,-331.25);assert.equal(scene.values.duration,.8125);
-  assert.equal(scene.input.phone,'eee');assert.equal(scene.input.phrase,undefined);
+  assert.equal(scene.input.phone,'ahh');assert.equal(editableNote(scene,0).input.phone,'eee');
+  assert.equal(editableNote(scene,0).values.pitch,-331.25);assert.equal(editableNote(scene,0).values.duration,.8125);
 });
 
 test('raw zero and negative native pitch survives display and audition', () => {

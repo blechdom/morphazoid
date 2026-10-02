@@ -67,10 +67,20 @@
           <span id="nativeStatus" role="status">Audio off</span>
         </div>
         <div class="native-input-block">
-          <div id="nativeEncodingField" hidden><label for="nativeEncoding">Input mode</label><select id="nativeEncoding"><option value="text">Original letter mapping</option><option value="phones">Native phonetic symbols</option></select></div>
+          <div id="textPresetField" class="native-text-presets"><label for="textPreset">Text preset</label><select id="textPreset" aria-label="Text preset"></select></div>
+          <div id="nativeEncodingField" hidden><select id="nativeEncoding" hidden aria-label="Input mode"><option value="text">Original letter mapping</option><option value="phones">Native phonetic symbols</option></select></div>
           <label for="nativeText" id="nativeInputLabel">Text</label>
           <textarea id="nativeText" rows="4" maxlength="1000" spellcheck="false">Daisy, give me your answer. I can speak, whisper, and sing.</textarea>
           <div id="nativePhoneField" hidden><label for="nativePhone">Vocal shape</label><select id="nativePhone"></select></div>
+          <div id="singingTextField" class="native-singing-text" hidden>
+            <label for="singingText" id="singingTextLabel">Text for singing</label>
+            <div class="native-singing-text-row">
+              <input id="singingText" type="text" maxlength="1000" autocomplete="off" spellcheck="false" placeholder="Daisy, Daisy, give me your answer" />
+              <button id="applySingingText" type="button">Text → notes</button>
+            </div>
+            <output id="singingTextStatus" role="status"></output>
+          </div>
+          <div id="sampleBankControls" class="native-bank-controls" hidden></div>
           <div id="nativeScore" hidden aria-label="Japanese singing score"></div>
           <p id="nativeInputNote"></p>
         </div>
@@ -81,11 +91,11 @@
         </div>
       </section>
       <aside class="voicesaurus-panel" data-cooking-panel aria-label="Voice controls">
-        <div data-instrument-preset-host></div>
         <div class="native-voice-modes" role="group" aria-label="Voice mode">
-          <button type="button" data-voice-mode="speaking" aria-pressed="true">Speaking</button>
-          <button type="button" data-voice-mode="singing" aria-pressed="false">Singing</button>
+          <button type="button" data-voice-mode="speaking" aria-pressed="true">Speak</button>
+          <button type="button" data-voice-mode="singing" aria-pressed="false">Sing</button>
         </div>
+        <div data-instrument-preset-host></div>
         <label class="native-method-label" for="voiceMethod">Voice method</label>
         <select id="voiceMethod"></select>
         <p id="nativeSelectionLabel" class="native-selection-label" hidden></p>

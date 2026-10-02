@@ -4,7 +4,7 @@ import { NATIVE_METHODS, defaultScene, presets, randomize, voiceModeForEngine, m
 
 test('speaking and singing keep distinct native routes in historical order',()=>{
  const speaking=methodsForVoiceMode('speaking'),singing=methodsForVoiceMode('singing');
- assert.deepEqual(Object.keys(singing).sort(),['csound-fof','csound-vosim','singer','sinsy','stk-voicform']);
+ assert.deepEqual(Object.keys(singing).sort(),['csound-fof','csound-vosim','sample-bank','singer','sinsy','stk-voicform']);
  assert.equal(Object.keys(speaking).length+Object.keys(singing).length,Object.keys(NATIVE_METHODS).length);
  for(const [mode,methods]of Object.entries({speaking,singing})){
   const years=Object.values(methods).map(spec=>spec.year);

@@ -3,7 +3,7 @@
 [Open Voicesaurus](../voicesaurus.html). Enable **Audio**, choose an engine,
 then press Play, Speak, Sing or Trigger. **Loop** repeats the generated sound
 while you edit its controls. Audio starts off. Rendering happens locally in
-cancellable WebAssembly workers; no speech service or microphone is used.
+cancellable WebAssembly workers, with an offline Web Audio path for sample banks. No speech service or microphone is used.
 
 The method menu and preset tour run oldest to newest by each displayed,
 sourced milestone. These are publications, source credits, datasheets or
@@ -13,7 +13,7 @@ complete custom scene. Both preserve master level and device consent.
 
 ## Native instruments
 
-There are 17 selectable engine/voice routes and 156 complete factory presets.
+There are 18 selectable engine/voice routes and 172 complete factory presets.
 Several routes are speakers or implementations within the same synthesis family.
 
 | Route | Native input and sound controls |
@@ -30,6 +30,7 @@ Several routes are speakers or implementations within the same synthesis family.
 | Vizsn | Original letter mapping or native phonetic symbols, ten excitation modes and phase/rate controls; not an English text frontend |
 | Flite SLT / AWB / RMS | Three Clustergen statistical voice models with native sentence duration and F0 controls |
 | SVOX Pico | Native US/UK English models, pitch, speaking rate and engine gain |
+| Sample-bank singing | KAL16 atlas, eight open demo voices or a local classic UTAU folder; exact aliases, ARPAbet phone groups, source-pitch fallback, vibrato and glide |
 | Sinsy | Japanese kana lyrics and a musical score; editable note pitches, durations, rests, staccato, breath and tempo; native HTS singing controls |
 | HTS | Native English sentence frontend, HMM SLT model, duration, F0, global variance and vocoder controls |
 
@@ -53,34 +54,39 @@ native Japanese frontend.
 
 ## Singing timeline
 
-The Speaking / Singing switch above the parameters scopes the method menu,
+The Speak / Sing switch above the presets scopes the method menu,
 presets, Next tour and Dice. It restores each mode's edited scene and selected
 note when switching back. Mode describes the native input path exposed here:
-the five note/score engines are in Singing; native text and chip speech paths
+the six note/score engines are in Singing; native text and chip speech paths
 are in Speaking. It does not claim that an engine has no other capabilities.
 
-Sinsy, Singer, STK VoicForm, FOF and VOSIM have an editable piano roll. It combines
+Sinsy, Singer, STK VoicForm, FOF, VOSIM and sample-bank singing have an editable piano roll. It combines
 Pink Trombonazoid's pronunciation selectors with Vocalzoid's visible note/time
 editing. The notes are ordered and monophonic: drag vertically for pitch,
 horizontally to reorder, or drag the right edge for duration. Arrow keys change
 pitch/order; Shift + left/right changes duration. Add, Duplicate, Split and Remove
-edit the phrase. The horizontal view scrolls and has its own zoom knob.
+edit the phrase. Double-click empty grid to insert a note. Pitch snaps to semitones and length to the selected beat grid; Shift permits fine adjustment. The horizontal view scrolls and has its own zoom knob. Click the beat ruler to play from that point; its keyboard arrows, Home and End also seek. Seeking never arms Audio.
 
 Each Sinsy note carries its Japanese syllable dropdown. Singer and STK notes
 carry their original native shape/phoneme menus. FOF and VOSIM use per-note
 formant parameters; these opcodes have no native phoneme dictionary. The selected
-note's pitch and length knobs sit below its position on the time axis, together
-with its vowel/formant knobs. Singer exposes the selected note's tract and
+note's sound controls open beside its rectangle, clamped to the visible screen. Moving and stretching the rectangle determines pitch and length; neither has a duplicate knob. A focused sound-preset menu changes the selected voice sound while preserving pitch, length, rests and the other notes. Singer exposes the selected note's tract and
 frication controls there; STK, FOF and VOSIM group controls by formant. The
-remaining native parameters in the right panel also belong to the selected
-note. Sinsy's statistical model controls apply to the whole score. Exact
+right panel contains **Global voice** settings. A note follows those settings
+until its sound differs or a control is pinned with its **Global / Note** button.
+Editing a popup knob creates a note override; switching back to **Global** restores the
+current global value, and **Use global voice** clears all sound overrides on
+that note. Pitch and length remain attached to the note rectangle. Original
+phoneme/formant settings and authored preset differences remain local when
+older scenes are first edited. Duplicates retain independent overrides.
+Sinsy's statistical model controls apply to the whole score; its note controls
+are native lyrics, pitch, duration, staccato and breath. Exact
 readouts retain native value access beyond the dial and graphic spans.
 
 Tempo changes preserve beat lengths. For the musical note engines it scales
 native note-duration seconds, retaining attack, release and within-note
 trajectory times. Sinsy receives its native score tempo. The note engines render
-each pitch directly; playback never transposes recorded audio to simulate a
-different native note. Each authored note has its own attack/model instance.
+each pitch directly. The sample-bank route instead retunes recordings using playback rate, which couples pitch and timbre. Each authored note has its own attack/model instance.
 Interior notes fit their release inside their timeline slot, and their audio
 never crosses the next note or rest. The scheduler derives a shorter gate from
 the slot length and release, preserving the saved settings. If an extreme
@@ -108,19 +114,62 @@ helper's quarter-beat boundary rests. It does not claim exact inferred consonant
 or vowel boundaries. Its individual-note audition also lacks the surrounding
 score context of the full phrase.
 
-Legacy single-note presets remain unchanged until a phrase edit. Authored
-musical phrases save complete, independent native settings for every note.
+Every main Singing factory preset contains a phrase. Singer and STK demos use
+short melodies with native shapes, including voiced answers to breath/consonant
+attacks; pipe and custom-pole fixtures retain their distinctive sound across
+notes. FOF/VOSIM phrases vary native formants around the preset's original
+spectrum. Sinsy keeps Japanese score lyrics, and sample-bank demos use their
+supported syllables. These are authored demonstrations, not historical scores.
+The focused note sound menu still changes only one note. Saved legacy single-note
+scenes remain unchanged until a phrase edit. Authored musical phrases save
+complete, independent native settings for every note.
 Current rendering budgets are 62 notes, 120 seconds including tails, and
 12 million rendered frames; negative sequential durations cannot advance a
 host timeline. These are scheduling/resource limits, separate from native sound
 parameter limits. Rejected experiments remain recoverable through the preset
 menu and reset control.
 
+## Text and sample voices
+
+The separate **Text preset** menu fills speech text or prepares a singing phrase
+with an authored pitch/rhythm contour. It retains the current global voice and
+provides editable notes immediately. Fifteen English examples include “daisy
+daisy give me your answer please,” “do you really want to go to the moon,”
+“i love you,” and a consonant-percussion string. Sinsy offers eight native
+kana/romaji examples instead; these are pronunciation inputs, not translations.
+The melodies are demonstrations, not reconstructions of historical songs.
+Choosing text never arms Audio and preserves the current play/pause and Loop
+intention. Methods without a text path do not display this menu.
+
+**Text → notes** prepares editable syllables for the existing melody. English
+uses the local CMU dictionary with a disclosed letter-rule fallback. Singer/STK
+map phones to their native shapes and diphthong trajectories; FOF/VOSIM use vowel
+formants and disclose omitted consonants. Sinsy accepts kana or romaji, using its
+own Japanese dictionary; this is not translation. Short text sustains its final
+vowel over the remaining melody; longer text appends notes. Rests and existing
+pitch/duration are preserved. Conversion never arms Audio or starts paused playback.
+
+**Sample-bank singing** contains the open voices and classic UTAU folder workflow
+previously in Vocalzoid. Vocalzoid retains its KAL16 word sequencer. Select KAL16,
+one of eight bundled demos, or an extracted local folder with `oto.ini` and audio.
+Files stay in memory in the current tab. Select a note to edit its exact OTO alias,
+lyric and ARPAbet phones; an exact local alias does not require English text.
+Coverage and actual fallback counts are shown beside the source selector.
+Each bundled demo contains eight units for “vocalzoid”, not a complete singer.
+
+This is a Web Audio waveform sampler, not a port of OpenUtau or Vocaloid.
+It reads OTO alias/offset/consonant/cutoff/preutterance/overlap and FRQ average
+pitch, loops vowel tails, and crossfades joins. It does not decode proprietary
+Vocaloid banks, use framewise FRQ, or implement multi-pitch phonemizers. Missing or
+unusable notes use KAL16 and are reported. Pitch/source-root/vibrato/glide follow
+the existing sampler's domain; note controls and exact values are exposed.
+The offline renderer feeds Voicesaurus's single shared output and transport.
+
 ## Knobs, exact values and native limits
 
-Every numeric scene parameter has a knob and value readout. All groups start
+Numeric sound parameters have knobs and value readouts; note pitch and length use the piano roll. All groups start
 open. Discrete numeric chip/table settings use stepped knobs; categorical
-settings use Choose menus. Drag vertically and hold Shift for finer movement.
+settings use Choose menus, while true/false and other two-option parameters use compact two-way switches. Drag vertically and hold Shift for finer movement.
 Click a continuous knob's readout to enter an exact number, including scientific
 notation. Dragging and keyboard adjustments stop at the dial's fixed minimum
 and maximum. Typed values may exceed that interval without widening it; the

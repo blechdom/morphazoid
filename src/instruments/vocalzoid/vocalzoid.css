@@ -769,7 +769,7 @@
 
 .note-editor-controls {
   display: grid;
-  grid-template-columns: minmax(150px, 1fr) minmax(150px, 1fr) minmax(190px, 1.2fr);
+  grid-template-columns: minmax(150px, 1fr) minmax(150px, 1fr);
 }
 
 .note-phone-field {

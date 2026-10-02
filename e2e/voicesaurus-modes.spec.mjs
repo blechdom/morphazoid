@@ -1,6 +1,6 @@
 import {test,expect} from '@playwright/test';
 
-const singing=['singer','stk-voicform','csound-fof','csound-vosim','sinsy'];
+const singing=['singer','stk-voicform','csound-fof','csound-vosim','sinsy','sample-bank'];
 async function capture(page){return page.evaluate(async()=>(await import('./src/site/header-presets.js')).captureHeaderPresetState());}
 async function mode(page,value){await page.locator(`[data-voice-mode="${value}"]`).click();await expect(page.locator(`[data-voice-mode="${value}"]`)).toHaveAttribute('aria-pressed','true');}
 async function ready(page){await expect(page.locator('#nativeStatus')).not.toHaveText('Rendering voice…');}
@@ -18,6 +18,11 @@ test('mode switch scopes methods, complete preset tours, and dice',async({page})
    await page.locator('.header-preset-next').click();
    await expect(page.locator('.header-preset-controls')).not.toHaveAttribute('aria-busy','true');
    const state=await capture(page);ids.push(state.selectedId);expect(singing.includes(state.snapshot.engine)).toBe(activeMode==='singing');
+   if(activeMode==='singing'){
+    const notes=state.snapshot.input.phrase?.notes??state.snapshot.input.notes;
+    expect(notes.filter(note=>!note.rest).length,state.selectedId).toBeGreaterThanOrEqual(3);
+    await expect(page.locator('.native-timeline-note')).toHaveCount(notes.length);
+   }
   }
   expect(ids).toEqual(banks[activeMode].map(p=>p.id));
   for(let i=0;i<12;i++){
@@ -38,7 +43,7 @@ test('switching modes restores exact edits, selected note, preset tour, prose, a
  await page.locator('#nativeLoop').click();
  await mode(page,'singing');await page.locator('#voiceMethod').selectOption('singer',{force:true});
  await page.getByRole('button',{name:'Add note',exact:true}).click();
- await page.locator('#param-pitch').evaluate(input=>{input.value='333';input.dispatchEvent(new Event('input',{bubbles:true}));});
+ await page.locator('[data-note-handle="1"]').focus();await page.locator('[data-note-handle="1"]').press('ArrowUp');
  const song=await capture(page);
  await mode(page,'speaking');expect((await capture(page)).snapshot).toEqual(speech.snapshot);
  expect((await capture(page)).selectedId).toBe(speech.selectedId);

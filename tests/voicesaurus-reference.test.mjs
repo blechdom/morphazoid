@@ -16,7 +16,8 @@ test('Voicesaurus reversal stays scoped and preserves the independent pre-featur
     "src/site/instrument-catalog.js",
     "src/site/instrument-midi-capabilities.js",
     "src/site/instrument-registry.js",
-    "src/site/catalogue-taxonomy.js"
+    "src/site/catalogue-taxonomy.js",
+    "src/instruments/vocalzoid/vocalzoid-app.js"
 ]);
   for (const change of voicesaurusAmendments.changes) {
     assert.ok(change.replacements.length > 0);

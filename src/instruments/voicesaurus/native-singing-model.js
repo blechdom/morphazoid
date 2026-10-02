@@ -1,14 +1,16 @@
 import { NATIVE_MUSICAL_ENGINES, nativeMusicalDefaults } from '../../families/speech/native-musical-controls.js';
 import { CSOUND_NATIVE } from './csound-native.js';
+import { SAMPLE_BANK_CONTROLS, validateSampleBankNote } from './sample-bank-model.js';
 import { sinsyScoreToMusicXml } from '../../families/speech/sinsy-score.js';
+import { validateVoiceOverrides, setNoteVoicePatch } from './voice-settings.js';
 
-export const MUSICAL_SINGING_ENGINES = Object.freeze(['singer', 'stk-voicform', 'csound-fof', 'csound-vosim']);
+export const MUSICAL_SINGING_ENGINES = Object.freeze(['singer', 'stk-voicform', 'csound-fof', 'csound-vosim', 'sample-bank']);
 export const SINGING_PHRASE_BUDGET = Object.freeze({ notes: 62, seconds: 120, frames: 12_000_000 });
 export const DEFAULT_SINGING_TEMPO = 120;
 
 const engineId = sceneOrEngine => typeof sceneOrEngine === 'string' ? sceneOrEngine : sceneOrEngine?.engine;
 const musical = sceneOrEngine => MUSICAL_SINGING_ENGINES.includes(engineId(sceneOrEngine));
-const controlsFor = engine => NATIVE_MUSICAL_ENGINES[engine]?.controls ?? CSOUND_NATIVE[engine]?.controls;
+const controlsFor = engine => engine==='sample-bank'?SAMPLE_BANK_CONTROLS:NATIVE_MUSICAL_ENGINES[engine]?.controls ?? CSOUND_NATIVE[engine]?.controls;
 const clone = value => structuredClone(value);
 const finite = (value, label) => { if (!Number.isFinite(value)) throw new TypeError(`${label} must be finite.`); return value; };
 
@@ -107,11 +109,13 @@ export function validateMusicalPhrase(engine, phrase) {
   for (const [index, note] of phrase.notes.entries()) {
     if (!note || typeof note !== 'object' || !note.input || typeof note.input !== 'object' || !note.values || typeof note.values !== 'object') throw new TypeError(`Note ${index + 1} needs native input and values.`);
     if (typeof note.rest !== 'boolean') throw new TypeError(`Note ${index + 1} rest must be a boolean.`);
+    validateVoiceOverrides(note,controls);
     if (Object.keys(note.values).length !== keys.length || keys.some(key => !Object.hasOwn(note.values, key))) throw new TypeError(`Note ${index + 1} needs all native parameters.`);
     for (const [key, rule] of Object.entries(controls)) {
       const value = note.values[key];
       if (rule.choices ? !rule.choices.includes(value) : !Number.isFinite(value)) throw new TypeError(`Invalid note ${index + 1} parameter: ${rule.label}.`);
     }
+    if(engine==='sample-bank')validateSampleBankNote(note.input);
     const choices = NATIVE_MUSICAL_ENGINES[engine]?.input.choices;
     if (choices && !choices.includes(note.input.phone)) throw new TypeError(`Note ${index + 1} needs an original native shape.`);
     if (Object.hasOwn(note.input, 'phrase')) throw new TypeError('Musical notes cannot contain nested phrases.');
@@ -119,7 +123,7 @@ export function validateMusicalPhrase(engine, phrase) {
     if (duration < 0) throw new RangeError('The phrase scheduler requires nonnegative note durations.');
     // Interior notes are capped at their slot, including any authored release.
     // Only the final note may extend the phrase beyond its gate/slot endpoint.
-    const nativeLength = note.rest || index < phrase.notes.length - 1 ? duration : Math.max(0, duration + note.values.release);
+    const nativeLength = note.rest || index < phrase.notes.length - 1 ? duration : Math.max(0, duration + (note.values.release??0));
     releaseEnd = Math.max(releaseEnd, cursor + nativeLength);
     cursor += duration;
     if (!note.rest) renderedFrames += Math.ceil(nativeLength * rate) + 2;
@@ -176,7 +180,7 @@ export function setNoteBeats(scene, index, value) {
 
 /** Sinsy takes native kana/custom lyrics; Singer/STK take original table keys. */
 export function setNoteSyllable(scene, index, value) {
-  const note = editableNote(scene, index);
+  let note = editableNote(scene, index);
   if (scene.engine === 'sinsy') {
     if (typeof value !== 'string') throw new TypeError('The native singing lyric must be text.');
     note.input.lyric = value;
@@ -185,10 +189,11 @@ export function setNoteSyllable(scene, index, value) {
     if (!spec) throw new TypeError('This Csound opcode has no native syllable or phoneme table.');
     if (!spec.input.choices.includes(value)) throw new TypeError('Choose an original native shape.');
     const original = nativeMusicalDefaults(scene.engine, { phone: value });
-    note.input.phone = value;
+    const patch={};
     for (const key of Object.keys(note.values)) {
-      if (/^(radius\d|glottalReflection|lipReflection|frication|velum|formant\d|gain\d|voiced|noise|tilt)/.test(key)) note.values[key] = original[key];
+      if (/^(radius\d|glottalReflection|lipReflection|frication|velum|formant\d|gain\d|voiced|noise|tilt)/.test(key)) patch[key] = original[key];
     }
+    note=setNoteVoicePatch(scene,index,patch);note.input.phone=value;
   }
   return value;
 }
@@ -241,6 +246,52 @@ export function addSingingNote(scene, index = singingNoteCount(scene) - 1, { res
   });
 }
 
+/** Insert on the time grid without losing a sound: split a containing slot and
+ * ripple its remainder/later notes. Past the end, preserve the gap as a rest.
+ * Editing happens on a clone so resource/native-score failures are atomic.
+ */
+export function insertSingingNoteAt(scene, beat, midi, { index = 0, beats = 1 } = {}) {
+  requireIndex(scene, index);
+  finite(beat, 'Insertion time'); finite(midi, 'Note pitch'); finite(beats, 'Note length');
+  if (beat < 0 || beats <= 0) throw new RangeError('Insert at a nonnegative time with a positive note length.');
+  const score = scene.engine === 'sinsy', tempo = tempoForScene(scene);
+  if (!score && tempo <= 0) throw new RangeError('A positive tempo is needed to insert on the beat grid.');
+  // Use ticks for Sinsy, native seconds for musical engines.
+  const scale = score ? 480 : 60 / tempo;
+  const units = value => score ? Math.round(value * scale) : value * scale;
+  const start = units(beat), length = units(beats);
+  if (length <= 0) throw new RangeError('A score note needs at least one native tick.');
+  const source = clone(score ? scene.input.notes[index] : editableNote(scene, index));
+  const duration = note => score ? Math.round((note.beats ?? 1) * 480) : note.values.duration;
+  const resize = (note, value) => { if (score) note.beats = value / 480; else note.values.duration = value; return note; };
+  const inserted = resize(clone(source), length);
+  inserted.rest = false;
+  if (score) { inserted.midi = midi; inserted.lyric ??= 'ら'; }
+  else inserted.values.pitch = 440 * 2 ** ((midi - 69) / 12);
+  return commitNotes(scene, notes => {
+    let cursor = 0;
+    for (let i = 0; i < notes.length; i++) {
+      const end = cursor + duration(notes[i]);
+      const tolerance = score ? 0 : 1e-9;
+      if (start <= cursor + tolerance) { notes.splice(i, 0, inserted); return i; }
+      if (start < end - tolerance) {
+        const first = resize(clone(notes[i]), start - cursor);
+        const last = resize(clone(notes[i]), end - start);
+        notes.splice(i, 1, first, inserted, last);
+        return i + 1;
+      }
+      cursor = end;
+    }
+    if (start > cursor + (score ? 0 : 1e-9)) {
+      const rest = resize(clone(source), start - cursor);
+      rest.rest = true;
+      notes.push(rest);
+    }
+    notes.push(inserted);
+    return notes.length - 1;
+  });
+}
+
 export function duplicateSingingNote(scene, index = 0) {
   requireIndex(scene, index);
   return commitNotes(scene, notes => { notes.splice(index + 1, 0, clone(notes[index])); return index + 1; });
@@ -280,5 +331,5 @@ export function moveSingingNote(scene, index, destination) {
 export function auditionScene(scene, index = 0) {
   const note = editableNote(scene, index);
   if (scene.engine === 'sinsy') return { ...clone(scene), input: { ...clone(scene.input), notes: [clone(note.input)] } };
-  return { engine: scene.engine, values: clone(note.values), input: legacyInput(note.input) };
+  return { engine: scene.engine, values: clone(note.values), input: {...legacyInput(note.input),...(scene.engine==='sample-bank'?{source:scene.input.source,openBankId:scene.input.openBankId}:{})} };
 }

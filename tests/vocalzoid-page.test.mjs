@@ -101,22 +101,11 @@ test("Vocalzoid page wires every control, module, and local asset", async () => 
     "notePhoneLabel",
     "notePhoneMenus",
     "phoneMenuHelp",
-    "aliasInput",
     "styleButtons",
     "melodyPresets",
     "bpm",
     "vibrato",
     "glide",
-    "bankInput",
-    "bankDrop",
-    "bankStatus",
-    "loadedBank",
-    "bankAliases",
-    "bankRoot",
-    "openBankButtons",
-    "useKalButton",
-    "useLocalBank",
-    "removeBank",
     "resetButton",
     "audioError",
     "liveStatus",
@@ -262,44 +251,20 @@ test("Randomize replaces the score and synchronizes musical parameters without a
   assert.match(build, /state\.randomScore = false;/);
 });
 
-test("Vocalzoid exposes local import, source terms, and accessible status", async () => {
-  const html = await readFile(new URL("src/pages/vocalzoid.html", ROOT), "utf8");
-  assertOrdered(html, "id=\"libraryTitle\"", "id=\"importTitle\"");
-  const fileInput = html.match(/<input\b[^>]*\bid="bankInput"[^>]*>/)?.[0] ?? "";
-  assert.match(fileInput, /\bmultiple\b/);
-  assert.match(fileInput, /\bwebkitdirectory\b/);
-  assert.match(attribute(fileInput, "accept"), /\.wav/);
-  assert.match(attribute(fileInput, "accept"), /\.ini/);
-  assert.match(html, /Nothing is uploaded\./);
-  assert.match(html, /Import only a bank you have permission to use\./);
-  assert.match(html, /“Free to download” does not mean open source\./);
-  assert.match(html, /Vocaloid voicebanks are proprietary and\s+are not imported by this page/);
-  assert.match(html, /id="bankStatus" role="status"/);
-  assert.match(html, /id="audioError" role="alert"/);
-  assert.match(html, /id="liveStatus" aria-live="polite"/);
-
-  const openBankIds = [...html.matchAll(/data-open-bank="([^"]+)"/g)]
-    .map((match) => match[1]);
-  assert.deepEqual(openBankIds, ["air", "cicada", "quake", "bdl", "clb", "jmk", "ksp", "slt"]);
+test("Vocalzoid retains KAL editing while its visible bank workflow moves to Voicesaurus", async () => {
+  const [html, app] = await Promise.all([
+    readFile(new URL("src/pages/vocalzoid.html", ROOT), "utf8"),
+    readFile(new URL("src/instruments/vocalzoid/vocalzoid-app.js", ROOT), "utf8"),
+  ]);
+  assert.match(html, /href="voicesaurus\.html\?voice=sample-bank">Voicesaurus<\/a>/);
+  assert.match(html, /local UTAU banks are now in/);
+  assert.doesNotMatch(html, /id="(?:bankInput|bankDrop|bankStatus|openBankButtons|aliasInput|useLocalBank|removeBank)"/);
+  assert.doesNotMatch(app, /loadUtauBankFiles|chooseOpenBank|chooseLocalBank|importBank|localBank|sourceRevision/);
   assert.equal((html.match(/data-style="/g) ?? []).length, 3);
   assert.equal((html.match(/data-melody="/g) ?? []).length, 3);
-
-  const sourceUrls = [
-    "https://github.com/festvox/flite",
-    "https://github.com/openutau/OpenUtau/wiki/Getting-Started",
-    "https://gitlab.com/oddvoices/oddvoices/-/tree/develop/voices",
-    "https://www.cs.cmu.edu/~awb/papers/ssw5/arctic.pdf",
-    "https://kasaneteto.jp/utau/",
-    "https://www.isca-archive.org/interspeech_2007/kenmochi07_interspeech.pdf",
-    "https://mtg.upf.edu/files/publications/SMAC2003-aloscos.pdf",
-    "https://github.com/openutau/OpenUtau/wiki/Voicebank-Development",
-    "https://github.com/openutau/OpenUtau/wiki/Phonemizers",
-    "https://github.com/openutau/OpenUtau/wiki/Resamplers-and-Wavtools",
-  ];
-  for (const url of sourceUrls) {
-    assert.ok(html.includes(`href="${url}"`), `missing source link ${url}`);
-  }
-
+  assert.match(html, /id="audioError" role="alert"/);
+  assert.match(html, /id="liveStatus" aria-live="polite"/);
+  assert.match(html, /href="https:\/\/github\.com\/festvox\/flite"/);
   for (const link of html.matchAll(/<a\b[^>]*\btarget="_blank"[^>]*>/g)) {
     assert.match(attribute(link[0], "rel"), /\bnoreferrer\b/);
   }
@@ -333,10 +298,6 @@ test("Vocalzoid keeps a usable responsive piano roll and reduced-motion mode", a
     events,
     /\$\("bpm"\)\.addEventListener\("input",[\s\S]*?renderPhonemeRibbon\(\);/,
   );
-  const openChoice = sourceSection(app, "function chooseOpenBank(bankId)", "function chooseLocalBank()");
-  assert.match(openChoice, /bank\.license/);
-  assert.doesNotMatch(app, /CC0 bank|CC0 diphones/);
-  assert.match(html, /<table>[\s\S]*?<th>Vocalzoid<\/th>[\s\S]*?<th>OpenUtau<\/th>[\s\S]*?<th>Vocaloid V1–V2<\/th>/);
   assert.match(
     css,
     /@media \(max-width:\s*820px\)[\s\S]*?\.vocalzoid-page\s*\{[\s\S]*?overflow:\s*auto[\s\S]*?\.vocalzoid-shell\s*\{[\s\S]*?display:\s*block/,
@@ -417,12 +378,9 @@ test("audio power transitions remain separate from cancellable playback preparat
   );
 });
 
-test("score and voicebank requests ignore stale async completions", async () => {
+test("score requests ignore stale async completions and reset clears pending lyric work", async () => {
   const app = await readFile(new URL("src/instruments/vocalzoid/vocalzoid-app.js", ROOT), "utf8");
-  for (const field of ["scoreRequest", "importRequest", "sourceRevision"]) {
-    assert.match(app, new RegExp(`\\b${field}:\\s*0,`));
-  }
-
+  assert.match(app, /\bscoreRequest:\s*0,/);
   const score = sourceSection(app, "async function buildScore()", "function chooseKalStyle(");
   assertOrdered(
     score,
@@ -435,61 +393,9 @@ test("score and voicebank requests ignore stale async completions", async () => 
     "if (request === state.scoreRequest) {",
     '$("buildScore").disabled = false;',
   );
-
-  const imported = sourceSection(app, "async function importBank(files)", "function removeLocalBank()");
-  assertOrdered(
-    imported,
-    "const request = ++state.importRequest;",
-    "const sourceRevision = state.sourceRevision;",
-    "const bank = await loadUtauBankFiles(files);",
-    "if (request !== state.importRequest) return;",
-    "state.localBank = bank;",
-  );
-  assert.match(
-    imported,
-    /catch \(error\) \{\s*if \(request !== state\.importRequest\) return;/,
-  );
-  assert.match(
-    imported,
-    /finally \{\s*if \(request === state\.importRequest\) \{[\s\S]*?classList\.remove\("is-loading"\)[\s\S]*?\$\("bankInput"\)\.value = "";/,
-  );
-
-  const remove = sourceSection(app, "function removeLocalBank()", "function resetVocalzoid()");
-  assert.match(remove, /state\.importRequest \+= 1;/);
   const reset = sourceSection(app, "function resetVocalzoid()", "function installEvents()");
-  assertOrdered(
-    reset,
-    "state.scoreRequest += 1;",
-    "state.importRequest += 1;",
-    "state.sourceRevision += 1;",
-    "haltPlayback();",
-  );
+  assertOrdered(reset, "state.scoreRequest += 1;", "haltPlayback();");
   assert.match(reset, /\$\("buildScore"\)\.disabled = false;/);
-  assert.match(reset, /\$\("bankDrop"\)\.classList\.remove\("is-loading"\);/);
-});
-
-test("a completed import preserves a voice source chosen after that import began", async () => {
-  const app = await readFile(new URL("src/instruments/vocalzoid/vocalzoid-app.js", ROOT), "utf8");
-  const selectors = [
-    sourceSection(app, "function chooseKalStyle(", "function chooseOpenBank("),
-    sourceSection(app, "function chooseOpenBank(", "function chooseLocalBank()"),
-    sourceSection(app, "function chooseLocalBank()", "async function importBank(files)"),
-  ];
-  for (const selector of selectors) {
-    assertOrdered(selector, "state.sourceRevision += 1;", "state.source =");
-  }
-
-  const imported = sourceSection(app, "async function importBank(files)", "function removeLocalBank()");
-  assert.doesNotMatch(imported, /state\.source\s*=/);
-  assertOrdered(
-    imported,
-    "const sourceRevision = state.sourceRevision;",
-    "const bank = await loadUtauBankFiles(files);",
-    "const canAutoSelect = sourceRevision === state.sourceRevision;",
-    "if (canAutoSelect) chooseLocalBank();",
-    "else updateSourceUi();",
-    '"It is ready; your newer voice choice is unchanged."',
-  );
 });
 
 test("bundled open banks point to licensed, complete RIFF/WAVE assets with in-bounds clips", async () => {

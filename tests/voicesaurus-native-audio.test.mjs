@@ -47,6 +47,23 @@ async function audio(){const a=new NativeVoiceAudio();await a.enable();return a;
 async function ready(a,{store=false,engine='sinsy'}={}){const promise=a.render({engine},{store});const worker=WorkerMock.all.at(-1);worker.ready();return promise;}
 function phrase(a){a.buffer=new Buffer(1,192000,48000);a.position=1;a.engine='flite';a.loop=true;return a.buffer;}
 
+test('offline sample-bank PCM uses the shared buffer and audition output without a worker',async()=>{
+ const a=await audio(),main=phrase(a),workers=WorkerMock.all.length;
+ a.renderSampleBank=async()=>({samples:new Float32Array(4800).fill(.2),sampleRate:48000,scoreOffsetSeconds:.05});
+ const result=await a.render({engine:'sample-bank'},{store:false});
+ assert.equal(a.buffer,main);assert.equal(result.scoreOffsetSeconds,.05);assert.equal(WorkerMock.all.length,workers);
+ assert.equal(a.audition(result),true);assert.equal(a.context.sources.length,1);assert.equal(a.auditionSource.buffer,result.buffer);await a.close();
+});
+
+test('cancelling an offline sample-bank job aborts it and ignores late PCM',async()=>{
+ const a=await audio(),main=phrase(a);let complete,signal;
+ a.renderSampleBank=(_request,options)=>{signal=options.signal;return new Promise(resolve=>complete=resolve);};
+ const pending=a.render({engine:'sample-bank'}),rejected=assert.rejects(pending,{name:'AbortError'});
+ a.cancelRender();await rejected;assert.equal(signal.aborted,true);
+ complete({samples:new Float32Array(4800).fill(.2),sampleRate:48000});await Promise.resolve();
+ assert.equal(a.buffer,main);assert.equal(a.context.sources.length,0);await a.close();
+});
+
 test('default render stores AudioBuffer, keeps original PCM metadata and scales phrase position',async()=>{const a=await audio();phrase(a);const p=a.render({engine:'sinsy'});const samples=new Float32Array(48000).fill(.2);WorkerMock.all.at(-1).ready(samples);const result=await p;assert.equal(result.samples,samples);assert.equal(result.buffer,a.buffer);assert.equal(a.engine,'sinsy');assert.equal(a.position,.25);assert.equal(a.buffer.duration,1);assert.equal(a.pendingRender,null);await a.close();});
 
 test('store:false and audition preserve main phrase, position, engine and persistent Loop',async()=>{let ended=0;const a=await audio();a.onEnded=()=>ended++;const main=phrase(a);const result=await ready(a);assert.equal(a.buffer,main);assert.equal(a.position,1);assert.equal(a.engine,'flite');assert.equal(a.loop,true);assert.equal(a.audition(result),true);const s=a.auditionSource,g=a.auditionGain;assert.equal(s.buffer,result.buffer);assert.equal(s.loop,false);assert.equal(s.playbackRate.value,1);assert.deepEqual(s.starts,[[]]);assert.deepEqual(g.gain.calls.at(-1),['ramp',.37,10.008]);a.setLoop(false);a.setLoop(true);assert.equal(s.loop,false);s.end();assert.equal(ended,0);assert.equal(a.buffer,main);assert.equal(a.position,1);assert.equal(a.playing,false);assert.equal(a.auditionSource,null);assert.equal(s.disconnected,1);assert.equal(g.disconnected,1);await a.close();});
@@ -78,3 +95,64 @@ test('unsupported native sample rates are format-converted without transposition
 for(const setup of ['never-enabled','no-context','closed-context'])test(`render checks Audio consent before constructing a Worker: ${setup}`,async()=>{const a=setup==='never-enabled'?new NativeVoiceAudio():await audio();if(setup==='no-context')a.context=null;if(setup==='closed-context')a.context.state='closed';const workers=WorkerMock.all.length;await assert.rejects(a.render({engine:'sinsy'},{store:false}),{name:'NotAllowedError'});assert.equal(WorkerMock.all.length,workers);await a.close();});
 
 test('audition status and natural-end callback stay independent from phrase transport',async()=>{let mainEnded=0,auditionEnded=0;const a=new NativeVoiceAudio({onEnded:()=>mainEnded++,onAuditionEnded:()=>auditionEnded++});await a.enable();phrase(a);assert.equal(a.auditionPlaying,false);a.audition(await ready(a));assert.equal(a.auditionPlaying,true);assert.equal(a.auditioning,true);assert.equal(a.playing,false);a.auditionSource.end();assert.equal(a.auditionPlaying,false);assert.equal(a.auditioning,false);assert.equal(auditionEnded,1);assert.equal(mainEnded,0);a.audition(await ready(a));a.pause();assert.equal(a.auditionPlaying,false);await a.disable();assert.equal(auditionEnded,1);assert.equal(mainEnded,0);await a.close();});
+
+
+test('explicit offset starts at the selected PCM position and follows the audio clock',async()=>{
+ const a=await audio();const main=phrase(a);const before=a.context.sources.length;
+ assert.equal(a.play({offset:2.25}),true);
+ assert.deepEqual(a.source.starts,[[0,2.25]]);assert.equal(a.context.sources.length,before+1);
+ assert.equal(a.source.buffer,main);assert.equal(a.source.loop,true);
+ a.context.currentTime+=.5;assert.equal(a.currentPosition(),2.75);await a.close();
+});
+
+test('explicit offset takes precedence over restart and preserves final-sample seeks',async()=>{
+ const a=await audio();phrase(a);
+ a.play({restart:true,offset:3.995});assert.deepEqual(a.source.starts,[[0,3.995]]);
+ a.play({offset:100});assert.deepEqual(a.source.starts,[[0,4-1/48000]]);
+ assert.equal(a.loop,true);a.play({offset:-10});assert.deepEqual(a.source.starts,[[0,0]]);await a.close();
+});
+
+test('rapid seeks replace the old source and its late ended callback cannot stop the latest one',async()=>{
+ const a=await audio();phrase(a);a.play({offset:1});const first=a.source,oldEnd=first.onended;
+ a.play({offset:2});const second=a.source;a.play({offset:3});const third=a.source;
+ assert.deepEqual(third.starts,[[0,3]]);assert.equal(a.playing,true);assert.equal(a.source,third);
+ assert.equal(first.stops.length,1);assert.equal(second.stops.length,1);
+ oldEnd();first.end();second.end();assert.equal(a.source,third);assert.equal(a.playing,true);await a.close();
+});
+
+test('seek cancels a pending phrase render and late PCM cannot replace its playing buffer',async()=>{
+ const a=await audio();const main=phrase(a);
+ const p=a.render({engine:'sinsy'}),rejected=assert.rejects(p,{name:'AbortError'}),worker=WorkerMock.all.at(-1);
+ assert.equal(a.play({offset:2}),true);await rejected;worker.ready();
+ assert.equal(worker.terminated,true);assert.equal(a.pendingRender,null);
+ assert.equal(a.buffer,main);assert.deepEqual(a.source.starts,[[0,2]]);await a.close();
+});
+
+test('seek cancels both pending and sounding note audition without replacing the main phrase',async()=>{
+ const a=await audio();const main=phrase(a);a.audition(await ready(a));const audition=a.auditionSource;
+ a.play({offset:1.25});assert.equal(a.auditionSource,null);assert.equal(a.buffer,main);assert.equal(audition.stops.length,1);
+ const p=a.render({engine:'sinsy'},{store:false}),rejected=assert.rejects(p,{name:'AbortError'}),worker=WorkerMock.all.at(-1);
+ a.play({offset:2.5});await rejected;worker.ready();assert.equal(a.auditionSource,null);assert.deepEqual(a.source.starts,[[0,2.5]]);await a.close();
+});
+
+test('explicit seek cannot create or arm Audio before consent or resume a suspended context',async()=>{
+ const off=new NativeVoiceAudio();const before=[unlocked,resumed,WorkerMock.all.length];
+ assert.equal(off.play({offset:1}),false);assert.equal(off.context,null);assert.equal(off.enabled,false);
+ assert.deepEqual([unlocked,resumed,WorkerMock.all.length],before);
+ const a=await audio();phrase(a);await a.context.suspend();const current=[unlocked,resumed,a.context.sources.length];
+ assert.equal(a.play({offset:2}),false);assert.deepEqual([unlocked,resumed,a.context.sources.length],current);assert.equal(a.playing,false);await a.close();
+});
+
+test('invalid offsets preserve the current source and natural end still stops only that source',async()=>{
+ const a=await audio();phrase(a);a.loop=false;a.play({offset:2});const s=a.source;
+ for(const offset of [NaN,Infinity,-Infinity,'1',null])assert.throws(()=>a.play({offset}),/finite/);
+ assert.equal(a.source,s);assert.equal(s.stops.length,0);let ended=0;a.onEnded=()=>ended++;
+ s.end();assert.equal(a.playing,false);assert.equal(a.position,4);assert.equal(ended,1);await a.close();
+});
+
+test('a native start failure clears transport state and retires the failed source',async()=>{
+ const a=await audio();phrase(a);const original=a.context.createBufferSource.bind(a.context);
+ a.context.createBufferSource=()=>{const source=original();source.start=()=>{throw Error('device suspended during seek');};return source;};
+ assert.throws(()=>a.play({offset:1}),/device suspended/);assert.equal(a.playing,false);assert.equal(a.source,null);
+ await a.disable();assert.equal(a.retiring.size,0);assert.equal(a.context.sources[0].disconnected,1);await a.close();
+});

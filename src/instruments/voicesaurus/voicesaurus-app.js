@@ -1,18 +1,32 @@
 import { randomize } from './full-presets.js';
 import { NATIVE_METHODS, defaultScene, defaultsFor, validateScene, voiceModeForEngine, methodsForVoiceMode, presetsForVoiceMode } from './native-model.js';
+import { playbackOffsetForBeat } from './playback-offset.js';
+import { setGlobalVoiceParameter, setNoteVoiceParameter, setNoteVoiceInheritance, noteVoiceOverrideKeys, materializeVoiceNote } from './voice-settings.js';
+import { textPresetsForEngine, singingSceneFromTextPreset } from './text-presets.js';
+import { sampleBankRequest } from './sample-bank-model.js';
+import { mountSampleBankSources, mountSampleBankNote } from './sample-bank-ui.js';
 import { NativeVoiceAudio } from './native-audio.js';
 import { mountParameters, noteVowelControls } from './native-parameters.js';
 import { mountVoiceDisplays } from './native-display.js';
 import { mountSingingTimeline } from './native-timeline.js';
 import { isSingingEngine, editableNote, singingNoteDescriptors, setNoteSyllable, auditionScene } from './native-singing-model.js';
+import { createChoiceSwitch } from '../../ui/primitives/choice-switch.js';
 import { enhanceChooseSelect } from '../../ui/patterns/choose-select.js';
 import { registerHeaderPresets } from '../../site/header-presets.js';
 
 const $=id=>document.getElementById(id);
 let scene=defaultScene('espeak'),text=$('nativeText').value,playing=false,previewing=false,busy=false,active=true,renderSerial=0,timer=0,cleanupParameters=()=>{},timeline=null,selectedNote=0,phraseTimings=[],phonePicker;
-const audio=new NativeVoiceAudio({onEnded:()=>{playing=false;updateTransport();},onAuditionEnded:updateTransport});
+let sampleRenderer,pendingSeek=null,renderedRequestKey=null,renderedResult=null,renderedBank=null;
+const audio=new NativeVoiceAudio({renderSampleBank:async(request,{signal})=>{
+ const bank=bankSources.getBank();
+ if(!sampleRenderer){const {createSampleBankRenderer}=await import('../../families/speech/sample-bank-renderer.js');sampleRenderer=createSampleBankRenderer();}
+ return sampleRenderer.render(sampleBankRequest(request,bank),{signal});
+},onEnded:()=>{playing=false;updateTransport();},onAuditionEnded:updateTransport});
 let voiceMode=voiceModeForEngine(scene.engine),presetController=null;
 const modeSessions=new Map(),modeButtons=[...document.querySelectorAll('[data-voice-mode]')];
+const singingDrafts=new Map();let singingTextSerial=0;
+const textPresetPicker=enhanceChooseSelect($('textPreset'),{label:'Text preset'});
+const bankSources=mountSampleBankSources($('sampleBankControls'),{getScene:()=>scene,change:()=>{timeline?.refresh();scheduleRender();},error:showError});
 const methodPicker=$('voiceMethod');
 function populateVoiceMethods(){
  methodPicker.replaceChildren();
@@ -23,7 +37,9 @@ function populateVoiceMethods(){
 }
 populateVoiceMethods();
 const choose=enhanceChooseSelect(methodPicker,{label:'Choose voice method'});
-const encodingPicker=enhanceChooseSelect($('nativeEncoding'),{label:'Input mode'});
+const encodingSwitch=createChoiceSwitch({label:'Input mode',compact:true,className:'native-param is-toggle native-input-mode',choices:[{value:'text',label:'Letter mapping'},{value:'phones',label:'Phonetic symbols'}],value:'text',onChange:value=>{$('nativeEncoding').value=value;$('nativeEncoding').dispatchEvent(new Event('change'));}});
+$('nativeEncodingField').append(encodingSwitch);
+const encodingPicker={refresh:()=>encodingSwitch.setValue($('nativeEncoding').value),destroy:()=>encodingSwitch.destroy()};
 function showError(error){$('audioError').textContent=error.message||String(error);$('audioError').hidden=false;}
 function clearError(){$('audioError').hidden=true;}
 function updateTransport(){
@@ -34,25 +50,28 @@ function updateTransport(){
  $('nativeStatus').textContent=busy?'Rendering voice…':!audio.enabled?'Audio off':audio.auditioning?'Auditioning note':playing?'Playing':'Ready';
 }
 function mountVoiceParameters(){
- const spec=NATIVE_METHODS[scene.engine],note=isSingingEngine(scene)?editableNote(scene,selectedNote):scene,values=note.values;
- $('nativeSelectionLabel').hidden=!isSingingEngine(scene)||scene.engine==='sinsy';
- $('nativeSelectionLabel').textContent=`Note ${selectedNote+1} · native voice parameters`;
- if(spec.phones){$('nativePhone').value=note.input.phone;phonePicker?.refresh();}
- const onTimeline=noteVowelControls(scene.engine,spec.controls);
- const controls=Object.fromEntries(Object.entries(spec.controls).filter(([key])=>!Object.hasOwn(onTimeline,key)));
- cleanupParameters();cleanupParameters=mountParameters($('nativeParameters'),controls,values,changeVoiceParameter);
+ const spec=NATIVE_METHODS[scene.engine];
+ $('nativeSelectionLabel').hidden=!isSingingEngine(scene);
+ $('nativeSelectionLabel').textContent=scene.engine==='sinsy'?'Global voice · whole score':'Global voice · notes can override';
+ if(spec.phones){$('nativePhone').value=scene.input.phone;phonePicker?.refresh();}
+ const controls=Object.fromEntries(Object.entries(spec.controls).filter(([key])=>!(isSingingEngine(scene)&&['pitch','duration'].includes(key))));
+ cleanupParameters();cleanupParameters=mountParameters($('nativeParameters'),controls,scene.values,changeVoiceParameter);
 }
 function changeVoiceParameter(key,value){
-  const values=isSingingEngine(scene)?editableNote(scene,selectedNote).values:scene.values;
-  values[key]=value;
-  if(scene.engine==='singer'&&/^(radius\d|glottalReflection|lipReflection|frication|velum)/.test(key))values.customShape=true;
-  if(scene.engine==='singer'&&/^glottis(Harmonics|A|B)$/.test(key))values.customGlottis=true;
-  if(scene.engine==='stk-voicform'&&/^(formant\d|radius\d|gain\d|sweep\d)/.test(key))values.customFormants=true;
-  for(const flag of ['customShape','customGlottis','customFormants']){const field=$(`param-${flag}`);if(field){field.value=String(values[flag]);field.dispatchEvent(new Event('native-parameter-reflect'));}}
+  setGlobalVoiceParameter(scene,key,value);
   timeline?.refresh();scheduleRender();
 }
+function changeNoteParameter(index,key,value){setNoteVoiceParameter(scene,index,key,value);timeline?.refresh();scheduleRender();}
+function refreshTextPresets(){
+ const singing=isSingingEngine(scene),bank=textPresetsForEngine(scene.engine,{textCapable:singing||NATIVE_METHODS[scene.engine].mode==='text'});
+ $('textPresetField').hidden=!bank.length;$('textPreset').replaceChildren();
+ const custom=document.createElement('option');custom.value='';custom.textContent='Choose text';$('textPreset').append(custom);
+ for(const preset of bank){const option=document.createElement('option');option.value=preset.id;option.textContent=preset.label;$('textPreset').append(option);}
+ $('textPreset').value=bank.find(preset=>preset.text===(singing?$('singingText').value:$('nativeText').value))?.id??'';textPresetPicker.refresh();
+}
 function updateUi(){
- const spec=NATIVE_METHODS[scene.engine];
+ const spec=NATIVE_METHODS[scene.engine];bankSources.refresh();
+ singingTextSerial++;$('applySingingText').disabled=false;$('singingTextStatus').textContent='';
  if(methodPicker.dataset.mode!==voiceMode)populateVoiceMethods();
  methodPicker.value=scene.engine;choose.refresh();
  for(const button of modeButtons)button.setAttribute('aria-pressed',String(button.dataset.voiceMode===voiceMode));
@@ -65,6 +84,12 @@ function updateUi(){
  $('nativeEncodingField').hidden=spec.mode!=='native-letters';$('nativeEncoding').value=scene.input.mode||'text';encodingPicker.refresh();
  $('nativeInputNote').textContent=spec.mode==='text'?'Uses this engine’s native text frontend and phrase prosody.':spec.mode==='native-letters'?spec.inputDescription:spec.phoneLabel?'Play an original vocal shape. Destination and timing controls move the model during the note.':spec.inputDescription||'Play the model directly with its native synthesis parameters.';
  $('nativePhoneField').hidden=!spec.phones||isSingingEngine(scene);
+ $('singingTextField').hidden=!isSingingEngine(scene);
+ if(isSingingEngine(scene)){
+  $('singingText').value=scene.input.singingText??singingDrafts.get(scene.engine)??'';
+  $('singingText').placeholder=scene.engine==='sinsy'?'sakura sakura · さくら さくら':'Daisy, Daisy, give me your answer';
+  $('singingTextLabel').textContent=scene.engine==='sinsy'?'Japanese lyrics · kana or romaji':scene.engine.startsWith('csound-')?'Text → vowel formants':'Text → vocal sounds';
+ }
  timeline?.destroy();timeline=null;$('nativeScore').hidden=!isSingingEngine(scene);
  phonePicker?.destroy();phonePicker=null;$('nativePhone').replaceChildren();
  if(spec.phones){for(const phone of spec.phones){const option=document.createElement('option');option.value=phone;option.textContent=phone;$('nativePhone').append(option);}$('nativePhone').value=scene.input.phone;phonePicker=enhanceChooseSelect($('nativePhone'),{label:spec.phoneLabel||'Vocal shape'});}
@@ -72,11 +97,21 @@ function updateUi(){
   $('nativeScore').setAttribute('aria-label',scene.engine==='sinsy'?'Japanese singing score':'Native singing score');
   selectedNote=Math.min(selectedNote,singingNoteDescriptors(scene).length-1);
   timeline=mountSingingTimeline($('nativeScore'),scene,{spec,initialSelection:selectedNote,error:showError,
-    mountNoteParameters:(host,index)=>mountParameters(host,noteVowelControls(scene.engine,spec.controls),editableNote(scene,index).values,changeVoiceParameter),
-    select:index=>{selectedNote=index;mountVoiceParameters();},change:scheduleRender,audition:index=>{void auditionNote(index).catch(()=>{});}});
-  $('nativeInputNote').textContent=scene.engine==='sinsy'?'Sinsy · Japanese score and syllables · CC BY 3.0. Playhead shows score timing.':'Select a note to edit its native voice parameters. Each note keeps its own sound.';
+    mountNoteSound:(host,index)=>scene.engine==='sample-bank'?mountSampleBankNote(host,editableNote(scene,index),{getNote:()=>materializeVoiceNote(scene,index),aliases:bankSources.aliases(),change:()=>{timeline?.refresh();scheduleRender();}}):()=>{},
+    mountNoteParameters:(host,index)=>{
+     const note=editableNote(scene,index),vowels=noteVowelControls(scene.engine,spec.controls);
+     const controls=Object.fromEntries(Object.entries(spec.controls).filter(([key])=>!['pitch','duration'].includes(key)).map(([key,rule])=>[key,vowels[key]??rule]));
+     const cleanup=mountParameters(host,controls,note.values,(key,value)=>changeNoteParameter(index,key,value),{
+      idPrefix:'note-param',getValues:()=>editableNote(scene,index).values,
+      inheritance:{overridden:key=>noteVoiceOverrideKeys(scene,index).includes(key),set:(key,inherit)=>{setNoteVoiceInheritance(scene,index,key,inherit);timeline?.refresh();scheduleRender();}},
+     });
+     return cleanup;
+    },
+    select:index=>{selectedNote=index;mountVoiceParameters();},change:scheduleRender,seek:beat=>{void seekFromBeat(beat).catch(()=>{});},audition:index=>{void auditionNote(index).catch(()=>{});}});
+  $('nativeInputNote').textContent=scene.engine==='sinsy'?'Sinsy · Japanese score and syllables · CC BY 3.0. Voice settings apply to the whole score.':'Voice settings are global. Select a note to override its sound.';
  }
  mountVoiceParameters();
+ refreshTextPresets();
  $('nativeAudition').textContent=spec.mode==='text'?'Speak':spec.mode==='score'?'Sing':'Trigger';
  updateTransport();
 }
@@ -84,19 +119,21 @@ function requestFor(next=scene){return {engine:next.engine,input:structuredClone
 async function renderCurrent({audition=false,restart=false}={}){
  if(!audio.enabled||!active)return;
  const serial=++renderSerial;previewing=false;busy=true;clearError();updateTransport();
- try{const request=requestFor(),result=await audio.render(request);if(!active||serial!==renderSerial)return;
-  phraseTimings=result.noteTimings??(isSingingEngine(scene)?[{index:0,start:0,end:result.noteOffTime??request.values.duration,releaseEnd:result.duration}]:[]);
-  if(playing||audition){playing=true;if(!audio.playing||restart)audio.play({restart});}}
- catch(error){if(error.name!=='AbortError')showError(error);throw error;}
+ try{const request=requestFor(),bank=bankSources.getBank(),result=await audio.render(request);if(!active||serial!==renderSerial)return;
+  renderedRequestKey=JSON.stringify(request);renderedResult=result;renderedBank=bank;
+  if(scene.engine==='sample-bank')bankSources.report(result);
+  phraseTimings=result.noteTimings??(isSingingEngine(scene)?singingNoteDescriptors(request).map(note=>({index:note.index,start:(result.scoreOffsetSeconds??0)+note.startSeconds,end:(result.scoreOffsetSeconds??0)+note.startSeconds+note.seconds})):[]);
+  if(playing||audition){playing=true;if(pendingSeek!==null){const offset=playbackOffsetForBeat(pendingSeek,singingNoteDescriptors(request),result);pendingSeek=null;playing=audio.play({offset});}else if(!audio.playing||restart)playing=audio.play({restart});}}
+ catch(error){if(error.name!=='AbortError'&&serial===renderSerial){pendingSeek=null;playing=audio.playing;showError(error);}throw error;}
  finally{if(serial===renderSerial){busy=false;updateTransport();}}
 }
 function scheduleRender(){
- clearTimeout(timer);const preview=previewing||audio.auditioning;
+ bankSources.refresh();clearTimeout(timer);renderSerial++;audio.cancelRender();busy=false;const preview=previewing||audio.auditioning;
  if(preview){renderSerial++;previewing=false;busy=false;audio.stopAudition();updateTransport();}
  timer=setTimeout(()=>{void (preview?auditionNote(selectedNote):renderCurrent({audition:playing})).catch(()=>{});},300);
 }
 async function apply(next,{audition=true}={}){
- clearTimeout(timer);previewing=false;audio.stopAudition();const previous=structuredClone(scene);scene=validateScene(next);selectedNote=0;updateUi();
+ clearTimeout(timer);pendingSeek=null;previewing=false;audio.stopAudition();const previous=structuredClone(scene);scene=validateScene(next);selectedNote=0;updateUi();
  try{if(audio.enabled)await renderCurrent({audition,restart:true});}
  catch(error){if(error.name==='AbortError')return;scene=previous;updateUi();throw error;}
 }
@@ -108,24 +145,55 @@ $('nativePhone').addEventListener('change',()=>{
  for(const key of Object.keys(previous))if(/^(radius\d|glottalReflection|lipReflection|frication|velum|formant\d|gain\d|voiced|noise|tilt)/.test(key))previous[key]=original[key];
  updateUi();scheduleRender();
 });
-$('nativeText').addEventListener('input',()=>{if(NATIVE_METHODS[scene.engine].mode==='native-letters'){const mode=$('nativeEncoding').value;scene.input={mode,[mode==='phones'?'phones':'text']:$('nativeText').value};}else text=$('nativeText').value;scheduleRender();});
+$('nativeText').addEventListener('input',()=>{if(NATIVE_METHODS[scene.engine].mode==='native-letters'){const mode=$('nativeEncoding').value;scene.input={mode,[mode==='phones'?'phones':'text']:$('nativeText').value};}else text=$('nativeText').value;refreshTextPresets();scheduleRender();});
+async function applySingingText(preset){
+ if(!isSingingEngine(scene))return;
+ const serial=++singingTextSerial,original=scene,before=JSON.stringify(scene),lyrics=$('singingText').value;
+ singingDrafts.set(scene.engine,lyrics);$('applySingingText').disabled=true;$('singingTextStatus').textContent='Preparing note sounds…';clearError();
+ try{
+  const {singingSceneFromText}=await import('./singing-text.js');
+  const result=preset?await singingSceneFromTextPreset(original,preset):await singingSceneFromText(original,lyrics);
+  if(!active||serial!==singingTextSerial||scene!==original)return;
+  if(JSON.stringify(scene)!==before){$('singingTextStatus').textContent='The score changed. Apply the text again to keep those edits.';return;}
+  scene=result.scene;selectedNote=0;updateUi();
+  $('singingTextStatus').textContent=[`${result.syllables.length} syllables · ${result.notes.length} editable notes.`,...result.warnings].join(' ');
+  scheduleRender();
+ }catch(error){if(serial===singingTextSerial&&active){$('singingTextStatus').textContent=error.message||String(error);}}
+ finally{if(active&&scene===original&&serial===singingTextSerial)$('applySingingText').disabled=false;}
+}
+$('applySingingText').addEventListener('click',()=>{void applySingingText();});
+$('singingText').addEventListener('input',()=>{singingDrafts.set(scene.engine,$('singingText').value);singingTextSerial++;$('applySingingText').disabled=false;$('singingTextStatus').textContent='';refreshTextPresets();});
+$('textPreset').addEventListener('change',()=>{
+ const preset=textPresetsForEngine(scene.engine).find(item=>item.id===$('textPreset').value);if(!preset)return;
+ if(isSingingEngine(scene)){$('singingText').value=preset.text;$('singingText').dispatchEvent(new Event('input'));void applySingingText(preset);}
+ else{$('nativeText').value=preset.text;$('nativeText').dispatchEvent(new Event('input'));}
+});
+$('singingText').addEventListener('keydown',event=>{if(event.key==='Enter'&&!event.isComposing){event.preventDefault();void applySingingText();}});
 $('nativeEncoding').addEventListener('change',()=>{$('nativeText').dispatchEvent(new Event('input'));});
 $('audioButton').addEventListener('click',async()=>{
  clearTimeout(timer);
- if(audio.enabled){renderSerial++;busy=false;previewing=false;playing=false;await audio.disable();updateTransport();return;}
+ if(audio.enabled){pendingSeek=null;renderSerial++;busy=false;previewing=false;playing=false;await audio.disable();updateTransport();return;}
  try{const starting=audio.enable();updateTransport();await starting;updateTransport();if(playing)await renderCurrent({restart:true});}
  catch(error){if(error.name!=='AbortError'){await audio.disable();showError(error);}updateTransport();}
 });
 $('level').addEventListener('input',()=>{audio.setLevel(Number($('level').value));$('levelOut').textContent=`${Math.round(audio.level/.82*100)}%`;});
 async function play(restart=false){
- clearTimeout(timer);
+ pendingSeek=null;clearTimeout(timer);
  if((playing||previewing||audio.auditioning)&&!restart){clearTimeout(timer);renderSerial++;busy=false;previewing=false;playing=false;audio.cancelRender();audio.pause();updateTransport();return;}
  previewing=false;
  playing=true;updateTransport();if(audio.enabled)await renderCurrent({restart});
 }
+async function seekFromBeat(beat){
+ if(!active||!isSingingEngine(scene))return;
+ clearTimeout(timer);renderSerial++;audio.cancelRender();previewing=false;audio.pause();busy=false;pendingSeek=beat;playing=true;clearError();updateTransport();
+ if(!audio.enabled)return;
+ if(renderedRequestKey===JSON.stringify(requestFor())&&renderedResult?.buffer===audio.buffer&&renderedBank===bankSources.getBank()){
+  try{const offset=playbackOffsetForBeat(beat,singingNoteDescriptors(scene),renderedResult);pendingSeek=null;playing=audio.play({offset});}catch(error){pendingSeek=null;playing=audio.playing;showError(error);}updateTransport();
+ }else await renderCurrent();
+}
 async function auditionNote(index){
  if(!active||!audio.enabled||!isSingingEngine(scene)||singingNoteDescriptors(scene)[index]?.rest)return;
- clearTimeout(timer);const serial=++renderSerial;playing=false;audio.pause();previewing=true;busy=true;clearError();updateTransport();
+ pendingSeek=null;clearTimeout(timer);const serial=++renderSerial;playing=false;audio.pause();previewing=true;busy=true;clearError();updateTransport();
  try{const result=await audio.render(requestFor(auditionScene(scene,index)),{store:false});if(active&&serial===renderSerial&&audio.enabled)audio.audition(result);}
  catch(error){if(error.name!=='AbortError')showError(error);throw error;}
  finally{if(serial===renderSerial){previewing=false;busy=false;updateTransport();}}
@@ -168,7 +236,7 @@ function switchVoiceMode(nextMode){
  modeSessions.set(voiceMode,{scene:structuredClone(scene),selectedNote,
   lastPresetId:presetController?.lastPresetId,hasPresetInteraction:presetController?.hasPresetInteraction});
  // Retire the old preset transaction before replacing its captured scene.
- presetController?.destroy();clearTimeout(timer);renderSerial++;busy=false;previewing=false;
+ presetController?.destroy();pendingSeek=null;clearTimeout(timer);renderSerial++;busy=false;previewing=false;
  audio.cancelRender();audio.pause();phraseTimings=[];
  const session=modeSessions.get(nextMode)??{scene:defaultScene(nextMode==='singing'?'singer':'espeak'),selectedNote:0};
  voiceMode=nextMode;scene=structuredClone(session.scene);selectedNote=session.selectedNote??0;
@@ -178,7 +246,8 @@ function switchVoiceMode(nextMode){
  if(audio.enabled)void renderCurrent({audition:playing,restart:true}).catch(()=>{});
 }
 for(const button of modeButtons)button.addEventListener('click',()=>switchVoiceMode(button.dataset.voiceMode));
+if(new URLSearchParams(location.search).get('voice')==='sample-bank'){voiceMode='singing';scene=defaultScene('sample-bank');}
 mountModePresets();
 updateUi();
-addEventListener('pagehide',event=>{active=false;clearTimeout(timer);playing=false;previewing=false;audio.cancelRender();if(event.persisted)void audio.disable();else{stopDisplays();cleanupParameters();timeline?.destroy();choose.destroy();encodingPicker.destroy();phonePicker?.destroy();void audio.close();}});
+addEventListener('pagehide',event=>{active=false;clearTimeout(timer);playing=false;previewing=false;audio.cancelRender();if(event.persisted)void audio.disable();else{stopDisplays();cleanupParameters();bankSources.destroy();sampleRenderer?.close();timeline?.destroy();choose.destroy();textPresetPicker.destroy();encodingPicker.destroy();phonePicker?.destroy();void audio.close();}});
 addEventListener('pageshow',event=>{if(event.persisted){active=true;playing=false;updateTransport();}});

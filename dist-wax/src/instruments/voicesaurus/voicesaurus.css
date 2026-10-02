@@ -18,6 +18,16 @@
 .native-input-block > label,.native-input-block label,.native-method-label { display:block;color:#b7c8bd;font:12px/1.5 var(--mono);margin-bottom:8px; }
 .native-input-block textarea { box-sizing:border-box;display:block;width:100%;min-height:150px;resize:vertical;background:#0d1513;border:1px solid #33443d;color:#dfebe4;padding:16px;font:clamp(17px,2vw,24px)/1.6 var(--mono);border-radius:0; }
 .native-input-block textarea[hidden],#nativePhoneField[hidden] { display:none; }
+.native-singing-text { margin:0 0 14px; }
+.native-text-presets { max-width:420px;margin-bottom:12px; }
+.native-text-presets[hidden] { display:none; }
+.native-singing-text[hidden] { display:none; }
+.native-singing-text-row { display:flex;gap:8px;align-items:stretch; }
+.native-singing-text input { flex:1;box-sizing:border-box;min-width:0;background:#0d1513;border:1px solid #33443d;color:#dfebe4;padding:8px;font:14px var(--mono); }
+.native-singing-text button { flex:none;background:#23312b;border:1px solid #59634a;color:#d9e9d2;padding:6px 10px;font:11px var(--mono);cursor:pointer; }
+.native-singing-text button:disabled { opacity:.5;cursor:wait; }
+.native-singing-text output { display:block;margin-top:6px;color:#a6bfae;font:10px/1.5 var(--mono); }
+.native-singing-text output:empty { display:none; }
 #nativeInputNote { color:#a0b3a7;font:12px/1.6 var(--mono);min-height:2em; }
 .native-transport { display:flex;align-items:center;flex-wrap:wrap;gap:10px;margin:22px 0; }
 .native-transport button,#resetButton { color:#dce8e1;background:#14251d;border:1px solid #355446;min-height:34px;padding:6px 12px;font:12px var(--mono);cursor:pointer; }
@@ -33,17 +43,22 @@
 .voice-technique { color:#b3c4ba;font:12px/1.6 var(--mono);margin:12px 0 6px; }
 .voice-history,.voice-reference,.native-notes { color:#91a69a;font:11px/1.6 var(--mono); }
 .voice-reference,.native-notes a { color:#b9a1e9; }
-#nativeParameters > details,.native-note-parameters > details { border-top:1px solid #23392d;margin-top:20px;padding-top:12px; }
+#nativeParameters > details,.native-note-parameters > details { border-top:1px solid #23392d;margin-top:10px;padding-top:7px; }
 #nativeParameters summary,.native-note-parameters summary { color:#c0d3c6;cursor:pointer;font:12px var(--mono); }
-.native-param-grid { display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px 8px;padding:14px 0 4px; }
+.native-param-grid { display:grid;grid-template-columns:repeat(auto-fit,minmax(62px,1fr));gap:6px 4px;padding:8px 0 2px; }
 .native-param-grid:empty,.native-choice-grid:empty { display:none; }
-.native-param { --accent:#caa2ff;min-width:0;display:grid;grid-template-rows:minmax(2.8em,auto) 44px auto;justify-items:center;align-content:start;gap:3px;color:#b1c4b7;font:11px/1.4 var(--mono); }
+.native-param { --accent:#caa2ff;min-width:0;display:grid;grid-template-rows:minmax(2.2em,auto) 32px auto;justify-items:center;align-content:start;gap:1px;color:#b1c4b7;font:10px/1.15 var(--mono); }
+.voicesaurus-page .native-param .mz-range-knob { width:34px;min-width:34px;height:32px; }
+.voicesaurus-page .native-param .mz-range-knob__dial { width:26px;height:26px;top:1px; }
 .native-param > span:first-child { display:flex;align-items:center;justify-content:center;text-align:center; }
 .native-param output { color:#bfa5ea;font-size:10px;font-variant-numeric:tabular-nums;text-align:center;overflow-wrap:anywhere; }
 .native-param output[role=button] { cursor:text; }
 .native-exact-value { width:100%;min-width:0;padding:2px;background:#14251d;border:1px solid #caa2ff;color:#e4cdff;font:11px var(--mono);text-align:center; }
+.native-param-inherit { min-height:20px;padding:2px 6px;border:1px solid #35483e;border-radius:10px;background:#111e18;color:#90aa99;font:9px var(--mono);cursor:pointer; }
+.native-param-inherit[aria-pressed=true] { border-color:#8566a0;background:#30243d;color:#e0c3fc; }
+.native-param.is-toggle > .native-param-inherit { justify-self:end; }
 .native-text-parameter { width:100%;min-width:0;padding:9px;background:#14251d;border:1px solid #355446;color:#dfebe4;font:12px var(--mono); }
-.native-choice-grid { display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px 10px;margin-top:14px; }
+.native-choice-grid { display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px 6px;margin-top:8px; }
 .native-param.is-choice { display:flex;flex-direction:column;gap:0;justify-content:space-between; }
 .native-param.is-choice:has(select option:nth-child(8)) { grid-column:1/-1; }
 .native-param.is-choice > span { display:block;min-height:0;text-align:left; }
@@ -57,15 +72,15 @@
 .voicesaurus-page :focus-visible { outline:2px solid #caa2ff;outline-offset:3px; }
 @media(max-width:850px) { .voicesaurus-shell { grid-template-columns:1fr;gap:24px;padding:18px; }.voicesaurus-panel { border-left:0;border-top:1px solid #29372f;padding:20px 0 0;max-height:none;overflow:visible; }.native-displays canvas { height:95px; }.native-spectrogram canvas { height:150px; }.voicesaurus-stage h1 { margin-bottom:18px; }.native-input-block textarea { min-height:120px; } }
 @media(pointer:coarse) { .native-transport button,#resetButton,.voicesaurus-page .instrument-picker-trigger { min-height:48px; } }
-@media(pointer:coarse) { .native-param:not(.is-choice) { grid-template-rows:minmax(2.8em,auto) 48px auto; } }
+@media(pointer:coarse) { .native-param:not(.is-choice) { grid-template-rows:minmax(2.2em,auto) 38px auto; }.voicesaurus-page .native-param .mz-range-knob { width:40px;min-width:40px;height:38px; } }
 
 /* Put editable sound controls ahead of reference prose in the parameter rail. */
-#nativeParameters > details:first-child { margin-top:12px; }
+#nativeParameters > details:first-child { margin-top:8px; }
 .native-history-notes { margin-top:24px;border-top:1px solid #23392d;padding-top:12px; }
 .native-history-notes > summary { color:#91a69a;font:11px var(--mono);cursor:pointer; }
 
 .native-score-toolbar { display:flex;align-items:center;gap:24px; }
-.native-score-toolbar > .native-param { min-width:80px; }
+.native-score-toolbar > .native-param { min-width:64px; }
 .native-input-block .native-param { display:grid; }
 .native-score-rows { display:grid;grid-template-columns:repeat(auto-fit,minmax(270px,1fr));gap:12px 20px;max-height:320px;overflow:auto; }
 .native-score-row { display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;border-bottom:1px solid #29372f;padding-bottom:10px; }
@@ -82,49 +97,58 @@
 /* Native singing: one time axis for notes, pronunciation and their editors. */
 .native-singing-timeline { min-width:0; }
 .native-singing-timeline[hidden] { display:none; }
-.native-singing-timeline .native-score-toolbar { gap:14px;align-items:center;flex-wrap:wrap; }
+.native-singing-timeline .native-score-toolbar { gap:10px;align-items:center;flex-wrap:wrap; }
 .native-score-tools { display:flex;flex:1;flex-wrap:wrap;gap:7px;min-width:190px; }
+.native-score-snap { display:flex;flex-direction:column;gap:6px;width:92px;color:#b7c8bd;font:10px var(--mono); }
+.voicesaurus-page .native-score-snap .instrument-picker-trigger { padding:6px 9px;min-height:28px;font-size:11px; }
 .native-score-tools button,.native-note-editor button { background:#14251d;border:1px solid #355446;color:#dfebe4;padding:7px 9px;cursor:pointer;font:11px var(--mono); }
 .native-score-tools button:disabled,.native-note-editor button:disabled { opacity:.4;cursor:default; }
-.native-note-transitions { display:flex;align-items:center;flex-wrap:wrap;gap:8px 20px;margin:12px 0; }
+.native-note-transitions { display:flex;align-items:center;flex-wrap:wrap;gap:6px 10px;margin:6px 0; }
 .native-transition-label { color:#c6a9ea;font:11px var(--mono); }
-.native-note-transitions .native-param { width:100px; }
+.native-note-transitions .native-param { width:76px; }
 .native-score-help,.native-syllable-help { margin:10px 0;color:#9bb1a3;font:11px/1.5 var(--mono); }
 .native-piano-scroll { width:100%;max-width:100%;overflow:auto;overscroll-behavior-x:contain;border-top:1px solid #354638;border-bottom:1px solid #354638;scrollbar-width:thin; }
-.native-piano-content { position:relative;min-height:520px; }
+.native-piano-content { position:relative; }
 .native-beat-ruler { position:relative;height:28px;background:#111b15;color:#aac9b6;font:9px var(--mono);overflow:hidden; }
 .native-beat-ruler > span { position:absolute;top:9px;white-space:nowrap;padding-left:4px;border-left:1px solid #52624d; }
-.native-piano-grid { position:relative;overflow:hidden;background:repeating-linear-gradient(90deg,transparent 0,transparent calc(var(--beat-pixels) - 1px),#2c3c304f calc(var(--beat-pixels) - 1px),#2c3c304f var(--beat-pixels));background-position:48px 0; }
+.native-piano-grid { position:relative;overflow:hidden;background:repeating-linear-gradient(0deg,transparent 0,transparent calc(var(--pitch-row) - 1px),#2d3a2e80 calc(var(--pitch-row) - 1px),#2d3a2e80 var(--pitch-row)),repeating-linear-gradient(90deg,transparent 0,transparent calc(var(--snap-pixels) - 1px),#2c3c3040 calc(var(--snap-pixels) - 1px),#2c3c3040 var(--snap-pixels)),repeating-linear-gradient(90deg,transparent 0,transparent calc(var(--beat-pixels) - 1px),#59705b88 calc(var(--beat-pixels) - 1px),#59705b88 var(--beat-pixels));background-position:48px 0; }
 .native-pitch-labels { position:absolute;inset:0 auto 0 0;width:44px;background:#0b120e;color:#8caa96;z-index:2; }
 .native-pitch-labels > span { position:absolute;right:5px;font:9px var(--mono);transform:translateY(-50%); }
-.native-pitch-labels > span::after { content:'';position:absolute;left:44px;width:12000px;height:1px;top:50%;background:#2d3a2e40;pointer-events:none; }
 .native-note-layer { position:absolute;inset:0; }
-.native-timeline-note { position:absolute;box-sizing:border-box;min-width:0;box-shadow:inset 0 0 0 1px #688655;background:#23331f;color:#d0ecc6;min-height:52px;z-index:3;overflow:hidden; }
+.native-timeline-note { position:absolute;display:flex;box-sizing:border-box;min-width:0;min-height:0;box-shadow:inset 0 0 0 1px #688655;background:#23331f;color:#d0ecc6;z-index:3;overflow:hidden; }
 .native-timeline-note.is-selected { background:#352e45;box-shadow:inset 0 0 0 1px #caa2ff;z-index:4; }
 .native-timeline-note.is-sounding { box-shadow:inset 0 0 0 2px #c9f99c;background:#315131; }
 .native-timeline-note.is-rest { opacity:.65;border-style:dashed;background:#1c2220; }
-.native-note-drag { box-sizing:border-box;display:block;min-width:0;width:100%;height:25px;padding:4px 12px 4px 5px;text-align:left;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;border:0;border-bottom:1px solid #6a815047;background:transparent;color:inherit;font:9px var(--mono);cursor:grab;touch-action:none; }
+.voicesaurus-page .native-note-drag { box-sizing:border-box;display:block;flex:1 1 40%;min-width:0;min-height:0;height:100%;padding:0 3px;text-align:left;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;border:0;background:transparent;color:inherit;font:9px var(--mono);cursor:grab;touch-action:none; }
 .native-note-drag:active { cursor:grabbing; }
-.native-note-syllable { min-width:0;overflow:hidden; }
-.voicesaurus-page .native-note-syllable .instrument-picker-trigger { box-sizing:border-box;min-width:0;width:100%;min-height:27px;height:27px;padding:3px 12px 3px 5px;border:0;background:transparent;color:#d5b8ff;font:10px var(--mono); }
+.native-note-syllable { box-sizing:border-box;min-width:0;flex:1 1 60%;height:100%;padding-right:10px;overflow:hidden; }
+.native-note-syllable .synthesis-choose { height:100%; }
+.voicesaurus-page .native-note-syllable .instrument-picker-trigger { box-sizing:border-box;min-width:0;width:100%;min-height:0;height:100%;padding:0 3px;border:0;border-left:1px solid #6a815047;background:transparent;color:#d5b8ff;font:10px var(--mono); }
 .native-note-syllable .instrument-picker-current { min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap; }
 .native-note-syllable .instrument-picker-chevron { display:none; }
-.native-note-syllable .native-custom-lyric { box-sizing:border-box;width:100%;min-width:0;padding:5px;background:#14251d;color:#dfebe4;border:1px solid #75845e;font:12px var(--mono); }
+.native-note-editor .native-custom-lyric { box-sizing:border-box;width:100%;min-width:0;margin-top:10px;padding:7px;background:#14251d;color:#dfebe4;border:1px solid #75845e;font:12px var(--mono); }
 .native-custom-lyric[hidden] { display:none; }
-.native-note-formants { display:block;padding:7px;font:10px var(--mono);overflow:hidden; }
+.native-note-formants { display:flex;align-items:center;height:100%;padding:0 3px;font:9px var(--mono);overflow:hidden; }
 .native-note-resize { position:absolute;right:0;top:0;bottom:0;width:10px;border:0;border-left:1px solid #adc89650;background:#adc89620;cursor:ew-resize;touch-action:none;z-index:100; }
-.native-note-editor { position:relative;margin-top:16px;width:310px;box-sizing:border-box;padding:8px 10px 12px;border-top:2px solid #caa2ff;background:#141a18; }
-.native-note-parameters { display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:0 20px; }
+.native-note-editor { position:fixed;inset:auto;display:grid;grid-template-columns:minmax(0,1fr);gap:8px;margin:0;width:360px;max-width:calc(100vw - 16px);box-sizing:border-box;padding:9px 10px;border:1px solid #6b567f;border-top:2px solid #caa2ff;background:#141a18;color:#dfebe4;box-shadow:0 8px 24px #0009;overflow:auto;overscroll-behavior:contain;scrollbar-width:thin;z-index:1000; }
+.native-note-editor[hidden],.native-note-editor[popover]:not(:popover-open) { display:none; }
+.native-note-editor-heading { display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:8px; }
+.native-note-editor .native-note-editor-close { min-width:28px;min-height:28px;padding:0;font-size:20px;line-height:1;border:0;background:transparent; }
+.native-note-readout { min-width:0;color:#9cb2a5;font:10px/1.4 var(--mono); }
+.native-note-sound-preset { display:grid;grid-template-columns:auto minmax(0,1fr);gap:8px;align-items:center;min-width:0;color:#c4afd9;font:11px var(--mono); }
+.native-note-sound-preset .instrument-picker-trigger { min-height:28px;padding:5px 8px;font:11px var(--mono); }
+.native-note-sound-input:empty { display:none; }
+.native-note-parameters { grid-column:1/-1;display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:0 12px; }
 .native-note-parameters > details { min-width:0; }
 .native-note-parameters .native-param { font-size:10px; }
-.native-selected-note-title { color:#d4b8fc;font:11px var(--mono);margin:0 0 6px; }
-.native-selected-knobs { display:grid;grid-template-columns:repeat(2,100px);justify-content:start;gap:12px; }
-.native-note-editor .native-score-options { gap:9px;margin-top:10px; }
+.native-selected-note-title { color:#d4b8fc;font:11px var(--mono);margin:0; }
+.native-note-editor .native-score-options { gap:7px;margin-top:0;align-content:center; }
+.native-note-editor > .native-custom-lyric { grid-column:1/-1; }
 .native-note-editor .native-score-options label { color:#b7c8bd;font:10px var(--mono); }
 .native-score-playhead { position:absolute;top:0;bottom:0;width:2px;background:#e4ffa7;box-shadow:0 0 6px #b0f971;pointer-events:none;z-index:5; }
 .native-score-playhead[hidden] { display:none; }
 .native-selection-label { color:#d5b8ff;font:11px/1.5 var(--mono);margin:10px 0 0; }
-@media(pointer:coarse) { .voicesaurus-page .native-note-syllable .instrument-picker-trigger { min-height:36px;height:36px; }.native-note-drag { height:30px; }.native-note-resize { width:14px; }.native-score-tools button,.native-note-editor button { min-height:36px; } }
+@media(pointer:coarse) { .native-note-syllable { padding-right:14px; }.native-note-resize { width:14px; }.native-score-tools button,.native-note-editor button { min-height:36px; } }
 .voicesaurus-page.is-singing .voicesaurus-stage h1 { margin-bottom:8px; }
 .voicesaurus-page.is-singing .native-transport { margin:10px 0 14px; }
 @media(max-width:700px) {
@@ -133,3 +157,58 @@
  .voicesaurus-page.is-singing [data-cooking-stage],.voicesaurus-page.is-singing [data-cooking-panel] { height:auto;max-height:none;overflow:visible;flex:none; }
  .voicesaurus-page.is-singing [data-cooking-stage] { width:100%;min-width:0;align-self:stretch; }
 }
+
+.native-bank-controls { display:grid; gap:6px; margin:8px 0; font-size:11px; }
+.native-bank-controls[hidden] { display:none; }
+.native-bank-controls > label { display:grid; gap:4px; }
+.native-bank-controls output { color:#b8cfbf; line-height:1.4; }
+.native-bank-actions { display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
+.native-bank-actions label { display:grid; gap:3px; min-width:0; }
+.native-bank-actions input { width:100%; max-width:280px; font-size:11px; }
+.native-bank-note-fields { display:grid; grid-template-columns:repeat(auto-fit,minmax(120px,1fr)); gap:6px; width:100%; }
+.native-bank-note-fields label { display:grid; gap:3px; font-size:10px; min-width:0; }
+.native-bank-note-fields input { width:100%; min-width:0; height:27px; font:inherit; background:#0a1713; color:#def7e4; border:1px solid #416456; border-radius:3px; }
+
+.native-beat-ruler { cursor:pointer; touch-action:manipulation; }
+
+/* Compact two-option controls share the existing choice-switch foundation. */
+.voicesaurus-page .native-param.is-toggle {
+  display:flex;
+  flex-direction:column;
+  justify-content:space-between;
+  gap:4px;
+  margin:0;
+}
+.voicesaurus-page .native-param.is-toggle > .mz-field__label {
+  min-height:0;
+  justify-content:start;
+  text-align:left;
+  color:inherit;
+  font:inherit;
+  letter-spacing:normal;
+  text-transform:none;
+}
+.voicesaurus-page .native-param.is-toggle > .mz-choice-switch {
+  margin:0;
+  padding:2px;
+  gap:2px;
+  min-width:0;
+  border-color:#355446;
+}
+.voicesaurus-page .native-param.is-toggle .mz-choice-switch__option {
+  min-width:0;
+  min-height:28px;
+  padding:4px 5px;
+  overflow-wrap:anywhere;
+  font:11px/1.2 var(--mono);
+  letter-spacing:normal;
+  text-transform:none;
+}
+@media(pointer:coarse) {
+  .voicesaurus-page .native-param.is-toggle .mz-choice-switch__option { min-height:38px; }
+}
+
+.native-note-editor-heading { position:sticky;top:0;z-index:1;background:#141a18; }
+.native-input-mode { max-width:300px; margin-bottom:8px; }
+
+.native-bank-actions button,.native-bank-actions input::file-selector-button { background:#14251d;border:1px solid #355446;border-radius:3px;color:#dfebe4;padding:5px 9px;cursor:pointer;font:11px var(--mono); }
