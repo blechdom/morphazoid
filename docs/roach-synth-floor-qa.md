@@ -83,3 +83,36 @@ Artifacts are retained in `/tmp/roach-floor-qa/` and
 complete callback timings and exact DSP snapshots. This is offline timing and
 browser-emulation evidence. Physical phone, hardware MIDI and listening tests
 were not performed; the change does not claim new timbral or biological fidelity.
+
+## Neck and camera refinement, 2026-10-02
+
+The original approximate head hinge sat in front of its rear shell. An upward
+rotation therefore swept that shell corner through the floor: a requested
+head rotation of -20 degrees was projected to -0.234 degrees. The neck had a
+similar rear-shell restriction, and Face view placed its camera below the face.
+
+The bundled scan now uses rear attachment hinges for head and neck while
+preserving all resting mesh and child world transforms. The head and neck have
+more upward range and narrower inward ranges; the existing body-core and floor
+constraints remain intact. Precise imported skeletons retain their authored
+hinges. Vertical pointer movement follows each face hinge's measured lifting
+direction. Face view places its camera above and in front, and camera gaze
+articulates both neck and head through the shared motion writer, including the
+audio pose. Old head-only gaze data remains compatible. Zoom refreshes this
+shared gaze, and temporary speech gestures retain their existing clock and
+saved-pose ownership.
+
+Actual browser surface drags of 36 pixels upward accept -13.68 degrees for each
+face hinge. The head centroid rises about 0.071 world units when dragging the
+head and 0.087 when dragging the neck; the latter also extends forward about
+0.091 units. A short reverse responds immediately. Face gaze raises the head
+about 0.106 units and extends it 0.177, with a facing-to-camera dot product of
+0.991. Before/after Side and Face screenshots were visually inspected.
+
+An independent forward-kinematics sweep checks 225 head/neck pitch, yaw and tilt
+combinations. All accepted poses are finite and within joint limits, clear the
+floor and body core, and preserve all support rotations without fallback lift.
+Resting body, neck and head centroids are unchanged to twelve decimal places;
+foot kinematics, rest offsets and gait tables, joint IDs/order and the body-core
+proxy are unchanged. This is geometric and browser-emulation evidence; physical
+device handling was not tested.
