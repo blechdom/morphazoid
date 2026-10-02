@@ -64,6 +64,10 @@ test("extra pitches are bounded glottal voices; extra overtones filter the exist
   assert.ok(focused.every((node) => node.type === "bandpass"));
   assert.deepEqual(focused.map((node) => last(node.frequency)), [1980, 2340, 2700]);
   assert.ok(focused.every((node) => [...node.connections].some((level) => level.connections.has(input))));
+  effects.update({ trueFoldHz: 180, heardDroneHz: 90, harmonicNumber: 9, extras: {
+    overtoneVoices: 4, overtoneSpread: 2,
+  } }, 0.6);
+  assert.deepEqual(focused.map(node => last(node.frequency)), [990, 1170, 1350], "divided fold cycles focus the heard drone's harmonics");
   effects.update({ extras: { pitchVoices: 1, overtoneVoices: 1 } }, 0.7);
   for (const node of [...pitched, ...focused]) {
     const level = node.wave ? [...[...node.connections][0].connections][0] : node;
@@ -130,4 +134,25 @@ test("teardown stops sources, releases the room and preserves caller-owned conne
   assert.ok(audio.nodes.filter(({ kind }) => kind === "oscillator").every((node) => node.started && node.stopped));
   assert.equal(audio.nodes.find(({ kind }) => kind === "convolver").buffer, null);
   for (const node of [input, overtoneInput, output]) assert.deepEqual([...node.connections], [unrelated]);
+});
+
+test("a direct voice release replaces stale lookahead without disturbing subsequent frames", () => {
+  const { audio, effects } = fixture();
+  for (const node of audio.nodes) for (const parameter of Object.values(node)) {
+    if (!(parameter instanceof Parameter)) continue;
+    parameter.cancelAndHoldAtTime = time => {
+      parameter.events = parameter.events.filter(event => event.time < time);
+      parameter.held = time;
+    };
+  }
+  const voice = { trueFoldHz: 180, intensity: .8, voiceGain: 1, extras: { pitchVoices: 4 } };
+  effects.update(voice, .5);
+  effects.update(voice, .7);
+  effects.update({ ...voice, voiceGain: 0 }, .1, .04, { replaceScheduled: true });
+  const levels = audio.nodes.filter(node => node.kind === "oscillator" && node.wave)
+    .map(source => [...[...[...source.connections][0].connections][0].connections][0]);
+  assert.ok(levels.every(level => level.gain.held === .1 && level.gain.events.length === 1 && last(level.gain) === 0));
+  effects.update({ ...voice, voiceGain: 0 }, .2);
+  assert.ok(levels.every(level => level.gain.events.length === 2 && last(level.gain) === 0));
+  effects.destroy();
 });

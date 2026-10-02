@@ -208,24 +208,48 @@ The model accepts true-fold frequency `50–360 Hz`, integer period division `1�
 ## Authored performance patterns
 
 The display name is Throat Singer; the `throat-singing` ID and URL remain stable.
-The 28 complete voice presets include source, tract, speculative-airway, ornament
-and melody settings. Main dice randomizes the complete musical state while
-preserving output level and Audio/transport. The original named approaches remain
-local starting points, with their existing evidence labels.
+The 28 complete presets include source, tract, ornament, melody, breathing,
+portamento, polyphony and effects. Main dice randomizes the full musical state,
+preserving output level, Audio and the primary voice transport. The original
+named approaches remain local source/tract starting points in the Voice menu.
 
-The 18 ornaments are authored synthesis gestures, not cultural transcriptions.
-Their shared phase deforms the upper pharynx, oral constriction, front cavity,
-mouth aperture, lip rounding and pressure; the drawing consumes the same state.
-Still and Off return to the authored pose; Once completes without stopping the
-drone; Loop repeats; Back and forth reverses alternate phrases. Ornament and
-melody clocks can be retriggered independently. The 12 pitch contours interpolate
-continuously around the current true-fold frequency, bounded to the engine's
-50–360 Hz source range. A shallow nasal branch uses the existing waveguide nose
-model and follows lip rounding. These mappings are playable approximations.
+The 18 ornaments and 12 moving pitch contours are authored synthesis gestures,
+not cultural transcriptions. Ornament phase changes the upper pharynx, oral
+constriction, front cavity, mouth aperture, lip rounding and pressure; drawing
+and synthesis consume the same articulation. Ornament and melody each have an
+independent play latch, direction, ping-pong, repeat, speed and range. Their
+clocks keep moving in silent preview; pausing one does not pause the other or
+change the voice latch. A single pass returns to the authored drone/pose.
+The keyboard shows the shared 24-key two-row piano mapping and latches drone
+tuning. Glide controls exponential pitch interpolation and melody transitions;
+source pitch retains the engine's 50–360 Hz limit. A shallow nasal branch follows
+lip rounding through the existing waveguide model. Anatomy has a fixed 900×720
+coordinate system and one uniform viewport scale, including inverse pointer
+coordinates, so resizing preserves its proportions.
+
+Voice onset uses a 350 ms smooth envelope and release uses 220 ms. Breath pauses
+have a 220 ms release, 280 ms inhalation gap and 350 ms return. The manual button
+and automatic 1–30 breaths/min setting use the same contour; Never disables
+scheduled pauses. These timings are artistic synthesis settings, not measured
+technique. Throat singers use respiratory airflow for phonation: the ventricular
+phonation study linked above includes Kargyraa. General singing research also
+observes separate inspiration and expiration/phonation phases ([Salomoni et al.
+2016](https://journals.plos.org/plosone/article?id=10.1371/journal.pone.0155084)).
+Never represents an endless synthetic source rather than a human breathing claim.
+
+Polyphony adds at most three independently pitched glottal-source layers, with
+bounded pitch spread. These are additional synthesized voices, not a claim that
+one singer produces several independent fundamentals. Up to three extra
+bandpasses extract different harmonics from the main physical tract, using the
+heard drone as their fundamental even when ventricular division is active.
+Instability modulates source tuning. A deterministic 1.6-second stereo room and
+filtered delay with feedback capped at 0.65 are inserted before the existing
+compressor, soft clipper and master output. Source envelopes precede these
+effects, allowing their tails to ring after a release. Audio off mutes the master.
 
 Audio modulation uses an independent 20 ms scheduling timer with 180 ms of
 AudioParam lookahead. Graphics sample the running AudioContext clock, falling
 back to a silent visual clock when Audio is off. Waveguide shape updates retain
-the processor's existing smoothing. Longer main-thread stalls can hold the last
-tract shape after the lookahead expires; synthesis remains on the audio thread.
-Transport and ornament gestures never arm Audio.
+the processor's smoothing. Longer main-thread stalls can hold the last tract
+shape after lookahead expires; synthesis remains on the audio thread. None of
+the three Play buttons or the breath button implicitly arms Audio.

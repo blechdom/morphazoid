@@ -73,9 +73,19 @@ export const PITCH_MELODIES = freeze([
 export const THROAT_SINGER_PERFORMANCE_DEFAULTS = freeze({
   ornamentId: "none",
   ornamentLoop: "loop",
+  ornamentPlaying: true,
+  ornamentDirection: "forward",
+  ornamentPingPong: false,
+  ornamentRepeat: true,
   melodyId: "steady",
   melodyRateHz: 0.12,
   melodyDepthSemitones: 12,
+  melodyPlaying: true,
+  melodyDirection: "forward",
+  melodyPingPong: false,
+  melodyRepeat: true,
+  breathRateBpm: 0,
+  portamentoSeconds: 0.12,
 });
 
 export const THROAT_SINGER_EXTRA_DEFAULTS = freeze({
@@ -85,6 +95,22 @@ export const THROAT_SINGER_EXTRA_DEFAULTS = freeze({
   phantomAirways: 1,
   impossibleFocus: 0,
   sourceInstability: 0,
+  pitchVoices: 1,
+  pitchSpreadSemitones: 7,
+  overtoneVoices: 1,
+  overtoneSpread: 2,
+  reverbMix: 0,
+  delayMix: 0,
+  delayTimeSeconds: 0.3,
+  delayFeedback: 0.25,
+});
+
+export const THROAT_SINGER_EXTRA_LIMITS = freeze({
+  sublingualCoupling: [0, 1], pulseRate: [0, 10], pulseDepth: [0, 1],
+  phantomAirways: [1, 4], impossibleFocus: [0, 1], sourceInstability: [0, 1],
+  pitchVoices: [1, 4], pitchSpreadSemitones: [0, 24], overtoneVoices: [1, 4],
+  overtoneSpread: [1, 6], reverbMix: [0, 0.65], delayMix: [0, 0.6],
+  delayTimeSeconds: [0.06, 1.5], delayFeedback: [0, 0.65],
 });
 
 const ornamentById = new Map(ORNAMENT_PATTERNS.map((entry) => [entry.id, entry]));
@@ -92,12 +118,32 @@ const melodyById = new Map(PITCH_MELODIES.map((entry) => [entry.id, entry]));
 
 export function sanitizePerformanceSettings(candidate = {}) {
   const source = candidate && typeof candidate === "object" ? candidate : {};
+  const legacyLoop = LOOP_MODES.some(({ id }) => id === source.ornamentLoop) ? source.ornamentLoop : "loop";
+  const legacy = {
+    ornamentPlaying: legacyLoop !== "off",
+    ornamentPingPong: legacyLoop === "alternate",
+    ornamentRepeat: legacyLoop !== "once",
+  };
+  const boolean = (key, fallback = true) => typeof source[key] === "boolean" ? source[key] : fallback;
+  const ornamentPlaying = boolean("ornamentPlaying", legacy.ornamentPlaying);
+  const ornamentPingPong = boolean("ornamentPingPong", legacy.ornamentPingPong);
+  const ornamentRepeat = boolean("ornamentRepeat", legacy.ornamentRepeat);
+  // New switches are authoritative when supplied. Old snapshots which contain
+  // only ornamentLoop migrate into the same complete, normalized settings.
+  const ornamentLoop = !ornamentPlaying ? "off" : !ornamentRepeat ? "once" : ornamentPingPong ? "alternate" : "loop";
   return freeze({
     ornamentId: ornamentById.has(source.ornamentId) ? source.ornamentId : "none",
-    ornamentLoop: LOOP_MODES.some(({ id }) => id === source.ornamentLoop) ? source.ornamentLoop : "loop",
+    ornamentLoop, ornamentPlaying, ornamentPingPong, ornamentRepeat,
+    ornamentDirection: source.ornamentDirection === "reverse" ? "reverse" : "forward",
     melodyId: melodyById.has(source.melodyId) ? source.melodyId : "steady",
     melodyRateHz: clamp(finite(source.melodyRateHz, 0.12), 0, 4),
     melodyDepthSemitones: clamp(finite(source.melodyDepthSemitones, 12), 0, 24),
+    melodyPlaying: boolean("melodyPlaying"),
+    melodyDirection: source.melodyDirection === "reverse" ? "reverse" : "forward",
+    melodyPingPong: boolean("melodyPingPong", false),
+    melodyRepeat: boolean("melodyRepeat"),
+    breathRateBpm: clamp(finite(source.breathRateBpm), 0, 30),
+    portamentoSeconds: clamp(finite(source.portamentoSeconds, 0.12), 0, 2),
   });
 }
 
@@ -105,8 +151,8 @@ export function sanitizeSingerExtras(candidate = {}) {
   const source = candidate && typeof candidate === "object" ? candidate : {};
   return freeze(Object.fromEntries(Object.entries(THROAT_SINGER_EXTRA_DEFAULTS).map(([key, fallback]) => {
     const value = finite(source[key], fallback);
-    return [key, key === "phantomAirways" ? Math.round(clamp(value, 1, 4))
-      : key === "pulseRate" ? clamp(value, 0, 10) : clamp(value)];
+    const bounded = clamp(value, ...THROAT_SINGER_EXTRA_LIMITS[key]);
+    return [key, ["phantomAirways", "pitchVoices", "overtoneVoices"].includes(key) ? Math.round(bounded) : bounded];
   })));
 }
 
@@ -123,10 +169,10 @@ function makePreset(id, label, styleId, state, extras = {}, settings = {}) {
 
 export const THROAT_SINGER_PRESETS = freeze([
   makePreset("open-drone", "Open drone", "open-drone", { motionRateHz: 0.35, motionDepth: 0.18 }),
-  makePreset("soft-swell", "Soft swell", "open-drone", { trueFoldHz: 98, harmonicNumber: 6, intensity: 0.43, mouthOpening: 0.76, motionRateHz: 0.18, motionDepth: 0.65 }, {}, { ornamentId: "swell" }),
+  makePreset("soft-swell", "Soft swell", "open-drone", { trueFoldHz: 98, harmonicNumber: 6, intensity: 0.43, mouthOpening: 0.76, motionRateHz: 0.18, motionDepth: 0.65 }, {}, { ornamentId: "swell", breathRateBpm: 8, portamentoSeconds: 0.3 }),
   makePreset("velvet-bass", "Velvet bass", "low-chant", { trueFoldHz: 65, harmonicNumber: 6, creakAmount: 0.18, formantConvergence: 0.35, tractLengthCm: 21, motionRateHz: 0.24, motionDepth: 0.3 }, { sublingualCoupling: 0.18 }, { ornamentId: "breath-wave", melodyId: "valley", melodyRateHz: 0.06, melodyDepthSemitones: 4 }),
-  makePreset("bright-thread", "Bright thread", "sygyt", { trueFoldHz: 176, harmonicNumber: 15, intensity: 0.65, focusBandwidthHz: 38, motionRateHz: 0.72, motionDepth: 0.3 }, { sublingualCoupling: 0.35 }, { ornamentId: "climb" }),
-  makePreset("rounded-glass", "Rounded glass", "western-overtone", { trueFoldHz: 154, harmonicNumber: 13, lipRounding: 0.88, mouthOpening: 0.24, frontCavityExpansion: 0.78, motionRateHz: 0.4, motionDepth: 0.58 }, { sublingualCoupling: 0.55 }, { ornamentId: "ripple", melodyId: "arch", melodyDepthSemitones: 5 }),
+  makePreset("bright-thread", "Bright thread", "sygyt", { trueFoldHz: 176, harmonicNumber: 15, intensity: 0.65, focusBandwidthHz: 38, motionRateHz: 0.72, motionDepth: 0.3 }, { sublingualCoupling: 0.35, overtoneVoices: 2, overtoneSpread: 1.5 }, { ornamentId: "climb", melodyPlaying: false }),
+  makePreset("rounded-glass", "Rounded glass", "western-overtone", { trueFoldHz: 154, harmonicNumber: 13, lipRounding: 0.88, mouthOpening: 0.24, frontCavityExpansion: 0.78, motionRateHz: 0.4, motionDepth: 0.58 }, { sublingualCoupling: 0.55, pitchVoices: 2, pitchSpreadSemitones: 7, reverbMix: 0.22 }, { ornamentId: "ripple", melodyId: "arch", melodyDepthSemitones: 5, portamentoSeconds: 0.45 }),
   makePreset("deep-gravel", "Deep gravel", "kargyraa", { trueFoldHz: 92, falseFoldDivision: 2, harmonicNumber: 7, creakAmount: 0.6, roughness: 0.65, tractLengthCm: 22, motionRateHz: 0.5, motionDepth: 0.5 }, { sourceInstability: 0.3, pulseRate: 0.5, pulseDepth: 0.2 }, { ornamentId: "rock", melodyId: "minor-turn", melodyRateHz: 0.08 }),
   makePreset("three-fold-cavern", "Three fold cavern", "kargyraa", { trueFoldHz: 165, falseFoldDivision: 3, falseFoldCoupling: 0.93, harmonicNumber: 11, mouthOpening: 0.92, formantConvergence: 0.52, motionRateHz: 0.28, motionDepth: 0.8 }, { sublingualCoupling: 0.65, pulseRate: 0.9, pulseDepth: 0.32 }, { ornamentId: "swell", melodyId: "fifths", melodyRateHz: 0.09 }),
   makePreset("four-fold-stone", "Four fold stone", "kargyraa", { trueFoldHz: 236, falseFoldDivision: 4, falseFoldCoupling: 0.88, harmonicNumber: 14, foldTenseness: 0.77, roughness: 0.48, motionRateHz: 0.85, motionDepth: 0.7 }, { pulseRate: 1.7, pulseDepth: 0.4 }, { ornamentId: "double-pulse", melodyId: "answer", melodyRateHz: 0.13, melodyDepthSemitones: 7 }),
@@ -137,19 +183,19 @@ export const THROAT_SINGER_PRESETS = freeze([
   makePreset("long-climb", "Long climb", "western-overtone", { trueFoldHz: 104, harmonicNumber: 11, formantConvergence: 0.85, motionRateHz: 0.12, motionDepth: 0.95 }, { sublingualCoupling: 0.3 }, { ornamentId: "climb", ornamentLoop: "alternate", melodyId: "stairs", melodyRateHz: 0.05 }),
   makePreset("falling-ember", "Falling ember", "xoomei", { trueFoldHz: 164, harmonicNumber: 8, intensity: 0.5, roughness: 0.28, motionRateHz: 0.24, motionDepth: 0.85 }, { sourceInstability: 0.1 }, { ornamentId: "fall", melodyId: "valley", melodyRateHz: 0.07, melodyDepthSemitones: 7 }),
   makePreset("wide-pendulum", "Wide pendulum", "western-overtone", { trueFoldHz: 133, harmonicNumber: 10, mouthOpening: 0.85, motionRateHz: 0.6, motionDepth: 0.9 }, { sublingualCoupling: 0.5 }, { ornamentId: "pendulum", melodyId: "pendulum", melodyRateHz: 0.1, melodyDepthSemitones: 5 }),
-  makePreset("small-hiccups", "Small hiccups", "open-drone", { trueFoldHz: 116, harmonicNumber: 7, foldTenseness: 0.65, motionRateHz: 1.5, motionDepth: 0.72 }, { pulseRate: 0.7, pulseDepth: 0.3 }, { ornamentId: "hiccup", melodyId: "three-step", melodyRateHz: 0.18, melodyDepthSemitones: 3 }),
+  makePreset("small-hiccups", "Small hiccups", "open-drone", { trueFoldHz: 116, harmonicNumber: 7, foldTenseness: 0.65, motionRateHz: 1.5, motionDepth: 0.72 }, { pulseRate: 0.7, pulseDepth: 0.3 }, { ornamentId: "hiccup", melodyId: "three-step", melodyRateHz: 0.18, melodyDepthSemitones: 3, ornamentRepeat: false, melodyRepeat: false, breathRateBpm: 14 }),
   makePreset("harmonic-rake", "Harmonic rake", "sygyt", { trueFoldHz: 138, harmonicNumber: 17, alveolarConstriction: 0.94, focusBandwidthHz: 45, motionRateHz: 0.5, motionDepth: 0.96 }, { impossibleFocus: 0.22 }, { ornamentId: "rake", melodyId: "minor-turn", melodyRateHz: 0.1, melodyDepthSemitones: 5 }),
   makePreset("lip-lantern", "Lip lantern", "xoomei", { trueFoldHz: 95, harmonicNumber: 8, lipRounding: 0.8, mouthOpening: 0.36, motionRateHz: 0.95, motionDepth: 0.85 }, { sublingualCoupling: 0.72 }, { ornamentId: "ripple", melodyId: "drift", melodyRateHz: 0.06, melodyDepthSemitones: 3 }),
   makePreset("skipping-pebbles", "Skipping pebbles", "ezengileer", { trueFoldHz: 156, harmonicNumber: 10, roughness: 0.22, motionRateHz: 1.1, motionDepth: 0.7 }, { pulseRate: 2.8, pulseDepth: 0.6 }, { ornamentId: "skip", melodyId: "major-turn", melodyRateHz: 0.16, melodyDepthSemitones: 7 }),
   makePreset("gathering-storm", "Gathering storm", "kargyraa", { trueFoldHz: 130, harmonicNumber: 13, creakAmount: 0.42, roughness: 0.7, motionRateHz: 0.35, motionDepth: 0.92 }, { sourceInstability: 0.5, pulseDepth: 0.24, pulseRate: 1.2 }, { ornamentId: "accelerate", melodyId: "arch", melodyRateHz: 0.07, melodyDepthSemitones: 8 }),
-  makePreset("unwinding-coil", "Unwinding coil", "borbangnadyr", { trueFoldHz: 148, harmonicNumber: 11, vibratoDepthCents: 32, motionRateHz: 0.48, motionDepth: 0.85 }, { sublingualCoupling: 0.38 }, { ornamentId: "decelerate", ornamentLoop: "alternate", melodyId: "valley", melodyRateHz: 0.09, melodyDepthSemitones: 5 }),
+  makePreset("unwinding-coil", "Unwinding coil", "borbangnadyr", { trueFoldHz: 148, harmonicNumber: 11, vibratoDepthCents: 32, motionRateHz: 0.48, motionDepth: 0.85 }, { sublingualCoupling: 0.38 }, { ornamentId: "decelerate", ornamentLoop: "alternate", ornamentDirection: "reverse", melodyId: "valley", melodyDirection: "reverse", melodyRateHz: 0.09, melodyDepthSemitones: 5 }),
   makePreset("crescent-song", "Crescent song", "western-overtone", { trueFoldHz: 180, harmonicNumber: 9, foldTenseness: 0.7, motionRateHz: 0.32, motionDepth: 0.75 }, { sublingualCoupling: 0.28 }, { ornamentId: "crescent", melodyId: "major-turn", melodyRateHz: 0.12 }),
-  makePreset("echo-chamber", "Echo chamber", "low-chant", { trueFoldHz: 88, harmonicNumber: 9, formantConvergence: 0.62, frontCavityExpansion: 0.9, motionRateHz: 0.65, motionDepth: 0.78 }, { sublingualCoupling: 0.85, pulseRate: 1.3, pulseDepth: 0.45 }, { ornamentId: "echo", melodyId: "answer", melodyRateHz: 0.08, melodyDepthSemitones: 5 }),
-  makePreset("floating-voice", "Floating voice", "open-drone", { trueFoldHz: 193, harmonicNumber: 6, intensity: 0.4, roughness: 0.03, vibratoDepthCents: 40, mouthOpening: 0.9, motionRateHz: 0.16, motionDepth: 0.35 }, {}, { ornamentId: "breath-wave", melodyId: "drift", melodyRateHz: 0.04, melodyDepthSemitones: 6 }),
+  makePreset("echo-chamber", "Echo chamber", "low-chant", { trueFoldHz: 88, harmonicNumber: 9, formantConvergence: 0.62, frontCavityExpansion: 0.9, motionRateHz: 0.65, motionDepth: 0.78 }, { sublingualCoupling: 0.85, pulseRate: 1.3, pulseDepth: 0.45, overtoneVoices: 3, overtoneSpread: 2.6, delayMix: 0.24, delayTimeSeconds: 0.48, delayFeedback: 0.42, reverbMix: 0.12 }, { ornamentId: "echo", melodyId: "answer", melodyRateHz: 0.08, melodyDepthSemitones: 5 }),
+  makePreset("floating-voice", "Floating voice", "open-drone", { trueFoldHz: 193, harmonicNumber: 6, intensity: 0.4, roughness: 0.03, vibratoDepthCents: 40, mouthOpening: 0.9, motionRateHz: 0.16, motionDepth: 0.35 }, { pitchVoices: 3, pitchSpreadSemitones: 3.5, reverbMix: 0.35 }, { ornamentId: "breath-wave", ornamentPlaying: false, melodyId: "drift", melodyRateHz: 0.04, melodyDepthSemitones: 6, breathRateBpm: 6, portamentoSeconds: 0.8 }),
   makePreset("tiny-whistle", "Tiny whistle", "sygyt", { trueFoldHz: 276, harmonicNumber: 21, intensity: 0.5, mouthOpening: 0.16, lipRounding: 0.7, tractLengthCm: 13.5, vibratoDepthCents: 5, motionRateHz: 1.8, motionDepth: 0.35 }, { impossibleFocus: 0.35 }, { ornamentId: "flutter", melodyId: "stairs", melodyRateHz: 0.25, melodyDepthSemitones: 3 }),
-  makePreset("wide-leaping-drone", "Wide leaping drone", "xoomei", { trueFoldHz: 145, harmonicNumber: 9, motionRateHz: 0.5, motionDepth: 0.55 }, { sublingualCoupling: 0.32 }, { ornamentId: "pendulum", melodyId: "wide-leaps", melodyRateHz: 0.08, melodyDepthSemitones: 12 }),
-  makePreset("phantom-choir", "Phantom choir", "western-overtone", { trueFoldHz: 122, harmonicNumber: 14, intensity: 0.58, motionRateHz: 0.3, motionDepth: 0.75 }, { phantomAirways: 4, impossibleFocus: 0.55, sourceInstability: 0.16, sublingualCoupling: 0.6 }, { ornamentId: "spiral", melodyId: "fifths", melodyRateHz: 0.06 }),
-  makePreset("fractured-metal", "Fractured metal", "kargyraa", { trueFoldHz: 310, falseFoldDivision: 7, falseFoldCoupling: 0.96, harmonicNumber: 23, roughness: 0.85, creakAmount: 0.72, focusBandwidthHz: 28, motionRateHz: 1.4, motionDepth: 0.88 }, { phantomAirways: 2, impossibleFocus: 0.7, sourceInstability: 0.8, pulseRate: 4.2, pulseDepth: 0.65 }, { ornamentId: "rake", melodyId: "orbit", melodyRateHz: 0.14, melodyDepthSemitones: 5 }),
+  makePreset("wide-leaping-drone", "Wide leaping drone", "xoomei", { trueFoldHz: 145, harmonicNumber: 9, motionRateHz: 0.5, motionDepth: 0.55 }, { sublingualCoupling: 0.32 }, { ornamentId: "pendulum", melodyId: "wide-leaps", melodyPingPong: true, melodyRateHz: 0.08, melodyDepthSemitones: 12 }),
+  makePreset("phantom-choir", "Phantom choir", "western-overtone", { trueFoldHz: 122, harmonicNumber: 14, intensity: 0.58, motionRateHz: 0.3, motionDepth: 0.75 }, { phantomAirways: 4, impossibleFocus: 0.55, sourceInstability: 0.16, sublingualCoupling: 0.6, pitchVoices: 4, pitchSpreadSemitones: 5, overtoneVoices: 3, reverbMix: 0.3 }, { ornamentId: "spiral", melodyId: "fifths", melodyRateHz: 0.06 }),
+  makePreset("fractured-metal", "Fractured metal", "kargyraa", { trueFoldHz: 310, falseFoldDivision: 7, falseFoldCoupling: 0.96, harmonicNumber: 23, roughness: 0.85, creakAmount: 0.72, focusBandwidthHz: 28, motionRateHz: 1.4, motionDepth: 0.88 }, { phantomAirways: 2, impossibleFocus: 0.7, sourceInstability: 0.8, pulseRate: 4.2, pulseDepth: 0.65, overtoneVoices: 4, overtoneSpread: 5.5, delayMix: 0.16, delayTimeSeconds: 0.18, delayFeedback: 0.32 }, { ornamentId: "rake", melodyId: "orbit", melodyRateHz: 0.14, melodyDepthSemitones: 5, portamentoSeconds: 0.06 }),
 ]);
 
 function shapeAt(shape, phase) {
@@ -176,12 +222,47 @@ function shapeAt(shape, phase) {
   return 0;
 }
 
-function melodyAt(melody, phase) {
+function melodyAt(melody, phase, rateHz, portamentoSeconds) {
   if (melody.notes.length === 1) return melody.notes[0];
   const position = cycle(phase) * melody.notes.length;
   const index = Math.floor(position);
-  const blend = smooth((position - index - melody.hold) / (1 - melody.hold));
+  // Glide into each next note over a duration in seconds, capped at one note.
+  // A zero glide gives a stepped score; the audio engine still smooths edits.
+  const transition = clamp(portamentoSeconds * rateHz * melody.notes.length);
+  const blend = transition > 0 ? smooth((position - index - (1 - transition)) / transition) : 0;
   return mix(melody.notes[index], melody.notes[(index + 1) % melody.notes.length], blend);
+}
+
+function trackAt(seconds, rateHz, playing, direction, pingPong, repeat, enabled) {
+  const cycles = playing && enabled ? seconds * rateHz : 0;
+  const cycleLength = pingPong ? 2 : 1;
+  const finished = playing && enabled && !repeat && cycles >= cycleLength;
+  const position = repeat ? cycles : Math.min(cycles, cycleLength);
+  let phase = cycle(position);
+  if (pingPong && Math.floor(position) % 2) phase = 1 - phase;
+  if (direction === "reverse") phase = 1 - phase;
+  if (!playing || !enabled) phase = 0;
+  return { phase, cycles, finished, active: playing && enabled && !finished, cycleLength };
+}
+
+/** Smooth source-gate breath contour; the first automatic breath waits a period. */
+export function breathEnvelope(seconds = 0, settings = {}) {
+  const source = settings && typeof settings === "object" ? settings : {};
+  const elapsed = clamp(finite(seconds), 0, 1e9);
+  const bpm = clamp(finite(source.breathRateBpm), 0, 30);
+  const period = bpm > 0 ? 60 / bpm : Infinity;
+  const automaticAt = elapsed >= period ? Math.floor(elapsed / period) * period : -Infinity;
+  const manualValue = Number(source.manualBreathAtSeconds);
+  const manualAt = Number.isFinite(manualValue) && manualValue <= elapsed ? manualValue : -Infinity;
+  const age = elapsed - Math.max(automaticAt, manualAt);
+  const release = 0.22;
+  const gap = 0.28;
+  const attack = 0.35;
+  const duration = release + gap + attack;
+  if (!Number.isFinite(age) || age >= duration) return freeze({ gain: 1, inhaling: false, phase: 0 });
+  const gain = age < release ? 1 - smooth(age / release)
+    : age < release + gap ? 0 : smooth((age - release - gap) / attack);
+  return freeze({ gain, inhaling: age >= release && age < release + gap, phase: clamp(age / duration) });
 }
 
 /**
@@ -198,13 +279,11 @@ export function evaluateSingerPerformance(baseState, extras, settings, timeSecon
   const ornamentTime = clamp(finite(clocks.ornamentTimeSeconds, elapsed), 0, 1e9);
   const melodyTime = clamp(finite(clocks.melodyTimeSeconds, elapsed), 0, 1e9);
   const ornament = ornamentById.get(controls.ornamentId);
-  const cycles = ornamentTime * base.motionRateHz;
-  const ornamentEnabled = ornament.id !== "none" && controls.ornamentLoop !== "off" && base.motionRateHz > 0;
-  const ornamentFinished = ornamentEnabled && controls.ornamentLoop === "once" && cycles >= 1;
-  let phase = cycle(cycles);
-  if (controls.ornamentLoop === "once") phase = Math.min(1, cycles);
-  else if (controls.ornamentLoop === "alternate" && Math.floor(cycles) % 2) phase = 1 - phase;
-  const active = ornamentEnabled && !ornamentFinished && base.motionDepth > 0;
+  const ornamentEnabled = ornament.id !== "none" && base.motionRateHz > 0;
+  const ornamentTrack = trackAt(ornamentTime, base.motionRateHz, controls.ornamentPlaying,
+    controls.ornamentDirection, controls.ornamentPingPong, controls.ornamentRepeat, ornamentEnabled);
+  const { phase, cycles, finished: ornamentFinished } = ornamentTrack;
+  const active = ornamentTrack.active && base.motionDepth > 0;
   // A zero value and zero slope at both phrase ends make loop/once seams
   // smooth even for the accelerating and nonperiodic contour shapes.
   const envelope = active ? Math.sin(Math.PI * phase) ** 2 * base.motionDepth : 0;
@@ -230,8 +309,12 @@ export function evaluateSingerPerformance(baseState, extras, settings, timeSecon
     motionDepth: 0,
     amplitudeMotionDepth: 0,
   }, base);
-  const melodyPhase = melodyTime * controls.melodyRateHz;
-  const melodyValue = controls.melodyRateHz > 0 ? melodyAt(melodyById.get(controls.melodyId), melodyPhase) : 0;
+  const melody = melodyById.get(controls.melodyId);
+  const melodyEnabled = melody.notes.length > 1 && controls.melodyRateHz > 0;
+  const melodyTrack = trackAt(melodyTime, controls.melodyRateHz, controls.melodyPlaying,
+    controls.melodyDirection, controls.melodyPingPong, controls.melodyRepeat, melodyEnabled);
+  const melodyValue = melodyTrack.active ? melodyAt(melody, melodyTrack.phase,
+    controls.melodyRateHz, controls.portamentoSeconds) : 0;
   const pitchSemitones = melodyValue * controls.melodyDepthSemitones;
   const modulated = modulateThroatSingingPerformance(effective, elapsed, { pitchCents: pitchSemitones * 100 });
   const targetHarmonic = clamp(base.harmonicNumber + wave * focusWeight * 3, ...THROAT_SINGING_LIMITS.harmonicNumber);
@@ -250,7 +333,8 @@ export function evaluateSingerPerformance(baseState, extras, settings, timeSecon
     focus: dualFocusTargets(modulated, focusFrequencyHz),
   });
   const animation = freeze({
-    phase, ornamentPhase: phase, melodyPhase: cycle(melodyPhase), active, ornamentFinished,
+    phase, ornamentPhase: phase, melodyPhase: melodyTrack.phase, active, ornamentFinished,
+    melodyActive: melodyTrack.active, melodyFinished: melodyTrack.finished,
     tongue: tongueMotion, lips: lipMotion, throat: throatMotion,
     pulse: clamp(pressureMotion * 0.75 + pulsing * 0.25, -1, 1),
     nose: clamp(throatMotion * 0.35 + lipMotion * 0.25, -1, 1),
@@ -260,8 +344,9 @@ export function evaluateSingerPerformance(baseState, extras, settings, timeSecon
   });
   return freeze({
     state: sanitizeThroatSingingState(performance), extras: extra, settings: controls,
-    performance, animation, ornamentFinished,
-    ornamentDurationSeconds: ornamentEnabled ? 1 / base.motionRateHz : null,
+    performance, animation, ornamentFinished, melodyFinished: melodyTrack.finished,
+    ornamentDurationSeconds: ornamentEnabled ? ornamentTrack.cycleLength / base.motionRateHz : null,
+    melodyDurationSeconds: melodyEnabled ? melodyTrack.cycleLength / controls.melodyRateHz : null,
   });
 }
 
@@ -284,16 +369,23 @@ export function randomizeSingerPreset(random = Math.random, currentLevel = 0.28)
     styleId: pick(THROAT_SINGING_STYLE_PRESETS).id,
     motionShape: pick(THROAT_SINGING_MOTION_SHAPES),
   });
-  const extras = sanitizeSingerExtras({
-    sublingualCoupling: unit(), pulseRate: range(0, 10), pulseDepth: unit(),
-    phantomAirways: Math.floor(range(1, 5)), impossibleFocus: unit(), sourceInstability: unit(),
-  });
+  const extras = sanitizeSingerExtras(Object.fromEntries(Object.entries(THROAT_SINGER_EXTRA_LIMITS)
+    .map(([key, limits]) => [key, range(...limits)])));
   const settings = sanitizePerformanceSettings({
     ornamentId: pick(ORNAMENT_PATTERNS).id,
-    ornamentLoop: pick(LOOP_MODES).id,
+    ornamentPlaying: unit() < 0.85,
+    ornamentDirection: pick(["forward", "reverse"]),
+    ornamentPingPong: unit() < 0.35,
+    ornamentRepeat: unit() < 0.8,
     melodyId: pick(PITCH_MELODIES).id,
     melodyRateHz: Math.exp(range(Math.log(0.025), Math.log(1.5))),
     melodyDepthSemitones: range(0, 24),
+    melodyPlaying: unit() < 0.85,
+    melodyDirection: pick(["forward", "reverse"]),
+    melodyPingPong: unit() < 0.35,
+    melodyRepeat: unit() < 0.8,
+    breathRateBpm: unit() < 0.4 ? 0 : range(4, 24),
+    portamentoSeconds: range(0, 1.5),
   });
   const { level: _level, active: _active, ...musicalState } = state;
   return freeze({

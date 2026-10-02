@@ -19,9 +19,12 @@ import { glottalHarmonics } from "../../families/tract/throatazoid.js";
 import { connectAudioOutput } from "../../audio-output-manager.js";
 import { unlockAudioContext } from "../../audio.js";
 import { canvasSizing } from "../../graphics/canvas-sizing.js";
+import { enhanceRangeKnob } from "../../ui/primitives/range-knob.js";
+import { COMPUTER_KEYBOARD_LAYOUTS } from "../../midi-manager.js";
+import { createVoiceEffects } from "./voice-effects.js";
 import { registerHeaderPresets } from "../../site/header-presets.js";
 import {
-  THROAT_SINGER_PRESETS, ORNAMENT_PATTERNS, PITCH_MELODIES, LOOP_MODES,
+  THROAT_SINGER_PRESETS, ORNAMENT_PATTERNS, PITCH_MELODIES, breathEnvelope,
   sanitizePerformanceSettings, sanitizeSingerExtras, evaluateSingerPerformance, randomizeSingerPreset,
 } from "./performance-patterns.js";
 
@@ -32,16 +35,13 @@ const drawing = canvas.getContext("2d", { alpha: false, desynchronized: true });
 const prefersReducedMotion = globalThis.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches ?? false;
 const TAU = Math.PI * 2;
 const HARMONICS = Object.freeze(Array.from({ length: 21 }, (_, index) => index + 4));
-const NOTE_KEYS = Object.freeze([
-  { key: "a", label: "A1", frequency: 55 },
-  { key: "s", label: "C2", frequency: 65.406 },
-  { key: "d", label: "D2", frequency: 73.416 },
-  { key: "f", label: "E2", frequency: 82.407 },
-  { key: "g", label: "G2", frequency: 97.999 },
-  { key: "h", label: "A2", frequency: 110 },
-  { key: "j", label: "C3", frequency: 130.813 },
-  { key: "k", label: "D3", frequency: 146.832 },
-]);
+const NOTE_NAMES = ["C", "C♯", "D", "D♯", "E", "F", "F♯", "G", "G♯", "A", "A♯", "B"];
+const NOTE_KEYS = Object.freeze(Object.entries(COMPUTER_KEYBOARD_LAYOUTS.piano.noteOffsets).map(([code, offset]) => ({
+  code, key: code.replace(/^(Key|Digit)/, "").toLowerCase(), offset,
+  label: `${NOTE_NAMES[offset % 12]}${2 + Math.floor(offset / 12)}`,
+  frequency: 65.40639132514966 * 2 ** (offset / 12),
+})));
+const knobWidgets = [];
 const EXTRA_DEFAULTS = Object.freeze({
   phantomAirways: 1,
   impossibleFocus: 0,
@@ -97,11 +97,19 @@ const CONTROL_BINDINGS = Object.freeze([
   { id: "phantomAirways", key: "phantomAirways", extra: true, format: (value) => `${Math.round(value)} ${Math.round(value) === 1 ? "airway" : "airways"}` },
   { id: "impossibleFocus", key: "impossibleFocus", extra: true, format: formatPercent },
   { id: "sourceInstability", key: "sourceInstability", extra: true, format: formatPercent },
+  ...[
+    ["pitchVoices", (v) => `${Math.round(v)}`],
+    ["pitchSpreadSemitones", (v) => `${v.toFixed(1)} st`],
+    ["overtoneVoices", (v) => `${Math.round(v)}`],
+    ["overtoneSpread", (v) => `${v.toFixed(1)} H`],
+    ["reverbMix", formatPercent], ["delayMix", formatPercent],
+    ["delayTimeSeconds", (v) => `${v.toFixed(2)} s`], ["delayFeedback", formatPercent],
+  ].map(([id, format]) => ({ id, key: id, extra: true, format })),
   { id: "level", key: "level", format: formatPercent },
 ]);
 
 let state = throatSingingState("open-drone", { level: 0.28 });
-let extras = { ...EXTRA_STYLE_VALUES["open-drone"] };
+let extras = { ...sanitizeSingerExtras(EXTRA_STYLE_VALUES["open-drone"]) };
 let activeStyleId = "open-drone";
 let modelProvenance = { kind: "preset", id: "open-drone" };
 let audioContext = null;
@@ -118,18 +126,32 @@ let lastVentricularWaveKey = "";
 let performanceSeconds = 0;
 let clockLastSeconds = performance.now() / 1_000;
 let clockIsAudio = false;
-let ornamentStartedSeconds = 0;
-let melodyStartedSeconds = 0;
-let performanceSettings = sanitizePerformanceSettings({});
+let ornamentSeconds = 0;
+let melodySeconds = 0;
+let performanceSettings = sanitizePerformanceSettings({ ornamentPlaying: false, melodyPlaying: false });
+let manualBreathAtSeconds = -Infinity;
+let currentBreath = { gain: 1, inhaling: false, phase: 0 };
+let voiceGateFrom = 0;
+let voiceGateTarget = 0;
+let voiceGateStarted = performance.now() / 1000;
+let glideFromHz = state.trueFoldHz;
+let glideStartedSeconds = 0;
 let currentAnimation = {};
 let currentPerformanceExtras = extras;
 let ornamentFinished = false;
+const trackCompleted = { ornament: false, melody: false };
 let presetController = null;
 let audioScheduler = 0;
 let scheduledAudioTime = null;
 let nextAudioScheduleTime = 0;
-let cssWidth = 1;
-let cssHeight = 1;
+// Anatomy uses one fixed coordinate system; resizing applies one uniform scale.
+let cssWidth = 900;
+let cssHeight = 720;
+let viewWidth = 1;
+let viewHeight = 1;
+let viewScale = 1;
+let viewX = 0;
+let viewY = 0;
 let pixelRatio = 1;
 let pointerDrag = null;
 let handles = [];
@@ -188,18 +210,8 @@ function currentStyle() {
     ?? THROAT_SINGING_STYLE_PRESETS[0];
 }
 
-function styleById(styleId) {
-  return THROAT_SINGING_STYLE_PRESETS.find(({ id }) => id === styleId)
-    ?? THROAT_SINGING_STYLE_PRESETS[0];
-}
-
 function compactStyleLabel(style) {
   return style.label.replace(/ — comparison$/, "");
-}
-
-function styleScopeLabel(style) {
-  if (style.isTuvan) return "Tuvan reference";
-  return style.isExploration ? "Synthetic exploration" : "non-Tuvan comparison";
 }
 
 function markCustomEdit() {
@@ -208,26 +220,6 @@ function markCustomEdit() {
   presetController?.refresh();
   if (modelProvenance.kind === "custom") return;
   modelProvenance = { kind: "custom", fromId: modelProvenance.id };
-}
-
-function provenancePresentation() {
-  const speculativeLab = extras.phantomAirways > 1
-    || extras.impossibleFocus > 0.01
-    || extras.sourceInstability > 0.01;
-  const labSuffix = speculativeLab ? " · speculative lab" : "";
-  if (modelProvenance.kind === "preset") {
-    const style = styleById(modelProvenance.id);
-    return {
-      heading: `${styleScopeLabel(style)} · ${compactStyleLabel(style)}${labSuffix}`,
-      description: style.description,
-    };
-  }
-
-  const from = styleById(modelProvenance.fromId);
-  return {
-    heading: `Custom edit · from ${styleScopeLabel(from)}${labSuffix}`,
-    description: `Custom engine state derived from ${compactStyleLabel(from)}; it is not a named singing tradition.`,
-  };
 }
 
 function sanitizedAppState(candidate, fallback = state) {
@@ -264,23 +256,48 @@ function performanceElapsed() {
     clockIsAudio = useAudio;
     clockLastSeconds = clock;
   }
-  if (singing) performanceSeconds += Math.max(0, clock - clockLastSeconds);
+  const elapsed = Math.max(0, clock - clockLastSeconds);
+  if (singing) performanceSeconds += elapsed;
+  if (performanceSettings.ornamentPlaying) ornamentSeconds += elapsed;
+  if (performanceSettings.melodyPlaying) melodySeconds += elapsed;
   clockLastSeconds = clock;
   return performanceSeconds;
 }
 
 function performanceAt(_now = performance.now(), aheadSeconds = 0) {
   const seconds = performanceElapsed() + (singing ? aheadSeconds : 0);
-  const evaluated = evaluateSingerPerformance(state, extras, performanceSettings, seconds, {
-    ornamentTimeSeconds: Math.max(0, seconds - ornamentStartedSeconds),
-    melodyTimeSeconds: Math.max(0, seconds - melodyStartedSeconds),
+  const evaluated = evaluateSingerPerformance({ ...state, trueFoldHz: glideBaseFrequency(aheadSeconds) }, extras, performanceSettings, seconds, {
+    ornamentTimeSeconds: ornamentSeconds + (performanceSettings.ornamentPlaying ? aheadSeconds : 0),
+    melodyTimeSeconds: melodySeconds + (performanceSettings.melodyPlaying ? aheadSeconds : 0),
   });
   if (!aheadSeconds) {
     currentAnimation = evaluated.animation;
     currentPerformanceExtras = evaluated.extras;
-    ornamentFinished = evaluated.ornamentFinished;
+    for (const track of ["ornament", "melody"]) {
+      if (evaluated[`${track}Finished`] && performanceSettings[`${track}Playing`]) {
+        trackCompleted[track] = true;
+        performanceSettings = sanitizePerformanceSettings({ ...performanceSettings, [`${track}Playing`]: false });
+      }
+    }
+    ornamentFinished = evaluated.ornamentFinished || trackCompleted.ornament;
   }
-  return evaluated.performance;
+  const performanceState = { ...evaluated.performance };
+  const breath = breathEnvelope(seconds, { breathRateBpm: performanceSettings.breathRateBpm, manualBreathAtSeconds });
+  if (!aheadSeconds) currentBreath = breath;
+  performanceState.breathGain = breath.gain;
+  return performanceState;
+}
+
+function glideBaseFrequency(aheadSeconds = 0) {
+  const amount = performanceSettings.portamentoSeconds > 0
+    ? clamp((performance.now() / 1000 + aheadSeconds - glideStartedSeconds) / performanceSettings.portamentoSeconds) : 1;
+  return glideFromHz * (state.trueFoldHz / glideFromHz) ** (amount * amount * (3 - 2 * amount));
+}
+
+function voiceEnvelope(aheadSeconds = 0) {
+  const duration = voiceGateTarget ? .35 : .22;
+  const phase = clamp((performance.now() / 1000 + aheadSeconds - voiceGateStarted) / duration);
+  return lerp(voiceGateFrom, voiceGateTarget, phase * phase * (3 - 2 * phase));
 }
 
 function updateReadouts(now = performance.now()) {
@@ -289,34 +306,9 @@ function updateReadouts(now = performance.now()) {
   const drone = currentPerformance.heardDroneHz;
   const closurePattern = closurePatternFrequencyHz(state);
   const harmonicFrequency = harmonicFrequencyHz(state);
-  const provenance = provenancePresentation();
   const merged = currentFocus.merged || state.formantConvergence >= 0.9;
   $("levelOut").textContent = formatPercent(state.level);
-  $("traditionOut").textContent = provenance.heading;
-  $("styleDescription").textContent = provenance.description;
-  const sourceQuality = state.creakAmount >= 0.15
-    ? "creaky"
-    : state.foldTenseness >= 0.67 ? "pressed" : "modal";
-  $("foldReadout").textContent = `${Math.round(state.trueFoldHz)} Hz · ${sourceQuality}`;
-  $("ventricularReadout").textContent = state.falseFoldCoupling < 0.08
-    ? state.falseFoldDivision > 1 ? `${state.falseFoldDivision}:1 armed · folds open` : "folds open"
-    : `${state.falseFoldDivision}:1 · ${formatPercent(state.falseFoldCoupling)} · ${Math.round(closurePattern)} Hz pattern`;
-  $("focusReadout").textContent = `${formatFrequency(currentFocus.targetHz)} · ${Math.round(currentFocus.bandwidthHz)} Hz BW`;
-  $("tractReadout").textContent = `${merged ? "merged F2/F3" : "split F2/F3"} · ${state.tractLengthCm.toFixed(1)} cm`;
-  $("sourceSummary").textContent = state.falseFoldDivision > 1
-    ? `${Math.round(state.trueFoldHz)} Hz folds · ${Math.round(closurePattern)} Hz pattern`
-    : state.creakAmount >= 0.08
-      ? `${Math.round(state.trueFoldHz)} Hz folds · creak ${formatPercent(state.creakAmount)}`
-      : `${Math.round(state.trueFoldHz)} Hz folds · one pulse`;
-  $("focusSummary").textContent = `H${currentPerformance.targetHarmonic.toFixed(0)} · ${merged ? "F2/F3 merged" : `${Math.round(currentFocus.separationHz)} Hz split`}`;
-  $("motionSummary").textContent = state.motionRateHz > 0.05
-    ? `${state.motionRateHz.toFixed(1)} Hz ornament` : "steady focus";
-  const anatomySummary = $("anatomySummary");
-  if (anatomySummary) anatomySummary.textContent = extras.phantomAirways > 1
-    ? `${Math.round(extras.phantomAirways)} impossible airways · ${formatPercent(extras.impossibleFocus)} focus`
-    : extras.impossibleFocus > 0.01 || extras.sourceInstability > 0.01
-      ? `${formatPercent(extras.impossibleFocus)} focus · ${formatPercent(extras.sourceInstability)} instability`
-      : "human model intact";
+  $("styleSelect").value = activeStyleId;
   $("stageDroneOut").textContent = formatFrequency(currentPerformance.heardDroneHz);
   $("stageOvertoneOut").textContent = `H${currentPerformance.targetHarmonic.toFixed(1)} · ${formatFrequency(currentFocus.targetHz)}`;
   $("stageFormantOut").textContent = merged
@@ -339,6 +331,9 @@ function updateReadouts(now = performance.now()) {
 }
 
 function editModelValue(key, value, { message = "", immediate = false } = {}) {
+  if (key === "trueFoldHz") {
+    glideFromHz = glideBaseFrequency(); glideStartedSeconds = performance.now() / 1000;
+  }
   state = sanitizedAppState({ ...state, [key]: value }, state);
   if (key !== "level") markCustomEdit();
   updateReadouts();
@@ -347,10 +342,8 @@ function editModelValue(key, value, { message = "", immediate = false } = {}) {
 }
 
 function editExtraValue(key, value, { message = "" } = {}) {
-  if (key === "pulseRate") extras[key] = clamp(value, 0, 10);
-  else if (key === "phantomAirways") extras[key] = Math.round(clamp(value, 1, 4));
-  else extras[key] = clamp(value);
-  if (!RUNTIME_EXTRA_KEYS.has(key)) markCustomEdit();
+  extras = { ...sanitizeSingerExtras({ ...extras, [key]: value }) };
+  markCustomEdit();
   updateReadouts();
   applyAudioParameters();
   if (message) announce(message);
@@ -392,10 +385,11 @@ function loadStyle(styleId, { announceChange = true, preserveRuntime = true } = 
     const runtimeExtras = preserveRuntime
       ? Object.fromEntries([...RUNTIME_EXTRA_KEYS].map((key) => [key, extras[key]]))
       : {};
-    extras = {
-      ...(EXTRA_STYLE_VALUES[styleId] ?? EXTRA_STYLE_VALUES["open-drone"]),
-      ...runtimeExtras,
-    };
+    extras = { ...sanitizeSingerExtras({
+      ...(preserveRuntime ? extras : {}),
+      ...(EXTRA_STYLE_VALUES[styleId] ?? EXTRA_STYLE_VALUES["open-drone"]), ...runtimeExtras,
+    }) };
+    glideFromHz = state.trueFoldHz;
     activeStyleId = next.styleId;
     modelProvenance = { kind: "preset", id: next.styleId };
     performanceSettings = sanitizePerformanceSettings({
@@ -403,7 +397,7 @@ function loadStyle(styleId, { announceChange = true, preserveRuntime = true } = 
       ornamentId: ({ borbangnadyr: "roll", ezengileer: "double-pulse", sygyt: "flutter",
         xoomei: "spiral", kargyraa: "rock", "western-overtone": "ripple", "low-chant": "breath-wave" })[styleId] ?? "none",
     });
-    ornamentStartedSeconds = performanceElapsed();
+    ornamentSeconds = 0; trackCompleted.ornament = false;
     lastTractSignature = "";
     updateReadouts();
     applyAudioParameters(immediate);
@@ -415,19 +409,12 @@ function loadStyle(styleId, { announceChange = true, preserveRuntime = true } = 
 }
 
 function buildStyleButtons() {
-  const root = $("styleButtons");
-  root.replaceChildren();
+  const select = $("styleSelect");
   for (const style of THROAT_SINGING_STYLE_PRESETS) {
-    const button = document.createElement("button");
-    button.type = "button";
-    button.dataset.styleId = style.id;
-    button.title = style.evidence?.notice ?? style.description;
-    const compactLabel = style.label.replace(/ — comparison$/, "");
-    const scope = style.isTuvan ? "Tuvan" : style.isExploration ? "explore" : "comparison";
-    button.innerHTML = `<b>${compactLabel}</b><small>${scope}</small>`;
-    button.addEventListener("click", () => loadStyle(style.id));
-    root.append(button);
+    const option = document.createElement("option");
+    option.value = style.id; option.textContent = compactStyleLabel(style); select.append(option);
   }
+  select.addEventListener("change", () => loadStyle(select.value));
 }
 
 function setHarmonic(harmonic, { announceChange = true } = {}) {
@@ -451,6 +438,8 @@ function setDroneFrequency(droneFrequency, { announceChange = true } = {}) {
     ? state.falseFoldDivision
     : 1;
   const trueFoldHz = trueFoldFrequencyForDroneHz(droneFrequency, audibleDivision);
+  glideFromHz = glideBaseFrequency();
+  glideStartedSeconds = performance.now() / 1000;
   state = sanitizedAppState({ ...state, trueFoldHz }, state);
   markCustomEdit();
   updateReadouts();
@@ -459,18 +448,27 @@ function setDroneFrequency(droneFrequency, { announceChange = true } = {}) {
 }
 
 function buildNoteButtons() {
-  const root = $("noteButtons");
-  root.replaceChildren();
-  for (const note of NOTE_KEYS) {
-    const button = document.createElement("button");
-    button.type = "button";
-    button.dataset.noteFrequency = String(note.frequency);
-    button.dataset.noteKey = note.key;
-    button.textContent = note.label;
-    button.title = `${note.label} drone · ${note.key.toUpperCase()} key`;
-    button.addEventListener("click", () => setDroneFrequency(note.frequency));
-    root.append(button);
+  const root = $("noteButtons"); root.replaceChildren();
+  for (const octave of [1, 0]) {
+    const row = document.createElement("div"); row.className = "throat-keyboard-row";
+    for (const note of NOTE_KEYS.filter(({ offset }) => Math.floor(offset / 12) === octave)) {
+      const button = document.createElement("button"); button.type = "button";
+      button.dataset.noteFrequency = String(note.frequency); button.dataset.noteKey = note.key;
+      button.dataset.black = String(note.label.includes("♯"));
+      button.setAttribute("aria-label", `${note.label} drone, ${note.key.toUpperCase()} key`);
+      button.innerHTML = `<kbd>${note.key.toUpperCase()}</kbd><span>${note.label}</span>`;
+      button.addEventListener("click", () => setDroneFrequency(note.frequency)); row.append(button);
+    }
+    root.append(row);
   }
+}
+
+function installKnobs() {
+  document.querySelectorAll(".throat-panel .control input[type=range]").forEach(input => {
+    const dial = document.createElement("span"); dial.className = "throat-dial";
+    input.before(dial); dial.append(input);
+    knobWidgets.push(enhanceRangeKnob(input));
+  });
 }
 
 function installControls() {
@@ -505,8 +503,10 @@ function applySingerPreset(snapshot) {
     extras = { ...sanitizeSingerExtras(snapshot.extras) };
     performanceSettings = nextSettings;
     const seconds = performanceElapsed();
-    ornamentStartedSeconds = seconds;
-    melodyStartedSeconds = seconds;
+    ornamentSeconds = 0;
+    melodySeconds = 0;
+    trackCompleted.ornament = trackCompleted.melody = false;
+    glideFromHz = state.trueFoldHz;
     activeStyleId = state.styleId;
     modelProvenance = { kind: "custom", fromId: state.styleId };
     lastTractSignature = "";
@@ -517,72 +517,88 @@ function applySingerPreset(snapshot) {
 
 function updatePhraseControls() {
   $("ornamentSelect").value = performanceSettings.ornamentId;
-  $("ornamentLoop").value = performanceSettings.ornamentLoop;
   $("melodySelect").value = performanceSettings.melodyId;
-  $("melodyRate").value = String(performanceSettings.melodyRateHz);
-  $("melodyDepth").value = String(performanceSettings.melodyDepthSemitones);
-  $("melodyRateOut").textContent = `${performanceSettings.melodyRateHz.toFixed(2)} Hz`;
-  $("melodyDepthOut").textContent = `${performanceSettings.melodyDepthSemitones.toFixed(1)} semitones`;
-  updateRangeFill($("melodyRate"));
-  updateRangeFill($("melodyDepth"));
-  const ornament = ORNAMENT_PATTERNS.find(({ id }) => id === performanceSettings.ornamentId);
-  const melody = PITCH_MELODIES.find(({ id }) => id === performanceSettings.melodyId);
-  const moving = singing && currentAnimation.active && !ornamentFinished;
-  $("gestureButton").classList.toggle("is-active", Boolean(moving));
-  $("gestureState").textContent = moving ? "moving voice" : ornamentFinished ? "phrase complete" : "play phrase";
-  $("phraseStatus").textContent = `${ornament?.label ?? "None"} · ${melody?.label ?? "Steady"}${ornamentFinished ? " · complete" : ""}`;
+  for (const [id, key, format] of [
+    ["melodyRate", "melodyRateHz", v => `${v.toFixed(2)} Hz`],
+    ["melodyDepth", "melodyDepthSemitones", v => `${v.toFixed(1)} st`],
+    ["breathRate", "breathRateBpm", v => v === 0 ? "Never" : `${Number(v.toFixed(1))}/min`],
+    ["portamento", "portamentoSeconds", v => v === 0 ? "Off" : `${v.toFixed(2)} s`],
+  ]) {
+    $(id).value = String(performanceSettings[key]);
+    $(`${id}Out`).textContent = format(performanceSettings[key]);
+    $(id).setAttribute("aria-valuetext", format(performanceSettings[key]));
+  }
+  for (const [track, buttonId, finished] of [["ornament", "gestureButton", ornamentFinished], ["melody", "melodyButton", currentAnimation.melodyFinished]]) {
+    const playing = performanceSettings[`${track}Playing`] && !finished;
+    setPressed($(buttonId), playing);
+    $(buttonId).setAttribute("aria-label", `${playing ? "Pause" : "Play"} ${track}`);
+    $(buttonId).title = `${playing ? "Pause" : "Play"} ${track}`;
+    const reverse = performanceSettings[`${track}Direction`] === "reverse";
+    setPressed($(`${track}Direction`), reverse);
+    $(`${track}Direction`).firstElementChild.textContent = reverse ? "←" : "→";
+    $(`${track}Direction`).setAttribute("aria-label", `${track} direction: ${reverse ? "reverse" : "forward"}`);
+    setPressed($(`${track}PingPong`), performanceSettings[`${track}PingPong`]);
+    setPressed($(`${track}Repeat`), performanceSettings[`${track}Repeat`]);
+  }
+  $("breathButton").classList.toggle("is-inhaling", currentBreath.inhaling);
   canvas.dataset.ornament = performanceSettings.ornamentId;
   canvas.dataset.melody = performanceSettings.melodyId;
   canvas.dataset.phase = (currentAnimation.ornamentPhase ?? 0).toFixed(3);
+  canvas.dataset.melodyPhase = (currentAnimation.melodyPhase ?? 0).toFixed(3);
   canvas.dataset.pitchHz = currentPerformance.trueFoldHz.toFixed(2);
+  canvas.dataset.breathGain = currentBreath.gain.toFixed(3);
+  canvas.dataset.breathState = currentBreath.inhaling ? "inhaling" : "singing";
+  canvas.dataset.voiceGain = voiceEnvelope().toFixed(3);
+  canvas.dataset.pitchVoices = String(extras.pitchVoices);
+  canvas.dataset.overtoneVoices = String(extras.overtoneVoices);
+  for (const widget of knobWidgets) widget.update();
 }
 
 function editPerformanceSetting(key, value) {
-  const seconds = performanceElapsed();
+  performanceElapsed();
   performanceSettings = sanitizePerformanceSettings({ ...performanceSettings, [key]: value });
   if (key === "ornamentId") {
-    ornamentStartedSeconds = seconds;
-    if (value !== "none") {
-      state = sanitizedAppState({ ...state,
-        motionRateHz: state.motionRateHz || 0.75,
-        motionDepth: state.motionDepth || 0.5,
-      });
-      if (performanceSettings.ornamentLoop === "off") {
-        performanceSettings = sanitizePerformanceSettings({ ...performanceSettings, ornamentLoop: "loop" });
-      }
-    }
+    ornamentSeconds = 0; trackCompleted.ornament = false;
+    if (value !== "none") state = sanitizedAppState({ ...state, motionRateHz: state.motionRateHz || .75, motionDepth: state.motionDepth || .5 });
   }
-  if (key === "ornamentLoop") ornamentStartedSeconds = seconds;
-  if (key === "melodyId") melodyStartedSeconds = seconds;
-  markCustomEdit();
-  updateReadouts();
-  applyAudioParameters();
+  if (key === "melodyId") { melodySeconds = 0; trackCompleted.melody = false; }
+  markCustomEdit(); updateReadouts(); applyAudioParameters();
+}
+
+function toggleTrack(track) {
+  const finished = trackCompleted[track];
+  if (finished) { if (track === "ornament") ornamentSeconds = 0; else melodySeconds = 0; trackCompleted[track] = false; }
+  if (performanceSettings[`${track}Id`] === (track === "ornament" ? "none" : "steady")) {
+    editPerformanceSetting(`${track}Id`, track === "ornament" ? "swell" : "arch");
+  }
+  editPerformanceSetting(`${track}Playing`, finished || !performanceSettings[`${track}Playing`]);
 }
 
 function installPatternControls() {
-  for (const [selectId, key, bank, nextId, randomId] of [
-    ["ornamentSelect", "ornamentId", ORNAMENT_PATTERNS, "ornamentNext", "ornamentRandom"],
-    ["ornamentLoop", "ornamentLoop", LOOP_MODES, "loopNext", "loopRandom"],
-    ["melodySelect", "melodyId", PITCH_MELODIES, "melodyNext", "melodyRandom"],
+  for (const [selectId, key, bank, nextId] of [
+    ["ornamentSelect", "ornamentId", ORNAMENT_PATTERNS, "ornamentNext"],
+    ["melodySelect", "melodyId", PITCH_MELODIES, "melodyNext"],
   ]) {
     const select = $(selectId);
-    select.replaceChildren(...bank.map((pattern) => {
-      const option = document.createElement("option");
-      option.value = pattern.id;
-      option.textContent = pattern.label;
-      return option;
+    select.replaceChildren(...bank.map(pattern => {
+      const option = document.createElement("option"); option.value = pattern.id; option.textContent = pattern.label; return option;
     }));
     select.addEventListener("change", () => editPerformanceSetting(key, select.value));
-    const choose = (random = false) => {
+    $(nextId).addEventListener("click", () => {
       const index = bank.findIndex(({ id }) => id === performanceSettings[key]);
-      const offset = random ? 1 + Math.floor(Math.random() * (bank.length - 1)) : 1;
-      editPerformanceSetting(key, bank[(Math.max(0, index) + offset) % bank.length].id);
-    };
-    $(nextId).addEventListener("click", () => choose());
-    $(randomId).addEventListener("click", () => choose(true));
+      editPerformanceSetting(key, bank[(Math.max(0, index) + 1) % bank.length].id);
+    });
   }
-  $("melodyRate").addEventListener("input", (event) => editPerformanceSetting("melodyRateHz", Number(event.target.value)));
-  $("melodyDepth").addEventListener("input", (event) => editPerformanceSetting("melodyDepthSemitones", Number(event.target.value)));
+  for (const track of ["ornament", "melody"]) {
+    $(`${track}Direction`).addEventListener("click", () => editPerformanceSetting(`${track}Direction`, performanceSettings[`${track}Direction`] === "forward" ? "reverse" : "forward"));
+    for (const mode of ["PingPong", "Repeat"]) $(`${track}${mode}`).addEventListener("click", () => editPerformanceSetting(`${track}${mode}`, !performanceSettings[`${track}${mode}`]));
+  }
+  for (const [id, key] of [["melodyRate","melodyRateHz"], ["melodyDepth","melodyDepthSemitones"], ["breathRate","breathRateBpm"], ["portamento","portamentoSeconds"]]) {
+    $(id).addEventListener("input", event => editPerformanceSetting(key, Number(event.target.value)));
+  }
+  $("breathButton").addEventListener("click", () => {
+    manualBreathAtSeconds = performanceElapsed(); updateReadouts(); applyAudioParameters(); announce("Breath taken.");
+  });
 }
 
 function makeSoftClipCurve(size = 4096, drive = 1.55) {
@@ -837,7 +853,7 @@ function buildAudioGraph(audio, physicalTract) {
   connect(focusF3, focusBandpass);
   connect(focusBandpass, focusGain);
   connect(focusGain, mix);
-  connect(mix, highpass);
+  const voiceEffects = createVoiceEffects(audio, { input: mix, overtoneInput: tractOutput, output: highpass });
   connect(highpass, compressor);
   connect(compressor, shaper);
   connect(shaper, masterGain);
@@ -897,6 +913,7 @@ function buildAudioGraph(audio, physicalTract) {
     focusBandpass,
     focusGain,
     mix,
+    voiceEffects,
     compressor,
     shaper,
     masterGain,
@@ -1044,7 +1061,7 @@ function physicalTractConfiguration(performanceState) {
     burstGain: 0,
     exciterIntensity: performanceState.intensity,
     voiceMode: "shared",
-    performanceGate: singing && audioOn ? 1 : 0,
+    performanceGate: audioOn && voiceEnvelope() > .001 ? 1 : 0,
     pressureSourceCount: 1,
     pressureSources: [{ open: true, level: performanceState.intensity }],
     tongueCount: 1,
@@ -1069,7 +1086,7 @@ function applyAudioParameters(immediate = false, now = performance.now(), aheadS
     currentPerformance = performanceState;
     currentFocus = performanceState.focus;
   }
-  const live = singing && audioOn && audioContext.state === "running";
+  const live = audioOn && audioContext.state === "running" && (singing || voiceEnvelope(aheadSeconds) > .001);
   const pressure = performanceState.intensity;
   const creak = performanceState.creakAmount;
   const coupling = performanceState.falseFoldCoupling;
@@ -1084,7 +1101,7 @@ function applyAudioParameters(immediate = false, now = performance.now(), aheadS
   ));
   const closureCompensation = clamp(1 / gateRms, 1, 1.25);
   const pulseDepth = extras.pulseDepth;
-  const gate = live ? 1 : 0;
+  const gate = live ? voiceEnvelope(aheadSeconds) * performanceState.breathGain : 0;
   const voicedPressure = pressure * (1 - creak * 0.16);
   const pulseBase = gate * voicedPressure
     * (1 - pulseDepth * 0.34 + performanceState.pressurePulseWave * 0.34) * closureCompensation;
@@ -1201,6 +1218,7 @@ function applyAudioParameters(immediate = false, now = performance.now(), aheadS
     sourceWaveMuted ? 0.0035 : 0.035,
   );
 
+  graph.voiceEffects.update({ ...performanceState, harmonicNumber: performanceState.targetHarmonic, focusQ, extras, voiceGain: gate }, scheduledAudioTime ?? audioContext.currentTime, performanceSettings.portamentoSeconds, { replaceScheduled: scheduledAudioTime === null });
   if (scheduledAudioTime !== null) return;
   updatePhysicalTract(performanceState, immediate);
 }
@@ -1254,10 +1272,8 @@ function setAudioPresentation(status) {
   $("audioState").textContent = status === "on" ? "on" : "off";
   $("audioButton").disabled = status === "starting";
   setPressed($("singButton"), singing);
-  $("singButtonLabel").textContent = singing ? "Release drone" : "Begin drone";
-  $("singState").textContent = singing
-    ? audioOn ? "sounding · click to release" : "silent preview · click to release"
-    : audioOn ? "ready · space or click" : "space · click to latch";
+  $("singButton").setAttribute("aria-label", singing ? "Pause voice" : "Play voice");
+  $("singButton").title = singing ? "Pause voice" : "Play voice";
 }
 
 async function setAudioEnabled(enabled) {
@@ -1300,6 +1316,9 @@ async function setAudioEnabled(enabled) {
 function setSinging(enabled) {
   const next = Boolean(enabled);
   performanceElapsed();
+  voiceGateFrom = voiceEnvelope();
+  voiceGateStarted = performance.now() / 1000;
+  voiceGateTarget = next ? 1 : 0;
   singing = next;
   lastTractSignature = "";
   setAudioPresentation(audioOn ? "on" : "off");
@@ -1307,16 +1326,6 @@ function setSinging(enabled) {
   announce(next
     ? `Drone sounding at ${formatFrequency(heardDroneFrequencyHz(state))}; H${state.harmonicNumber} focused at ${formatFrequency(harmonicFrequencyHz(state))}.`
     : "Drone released.");
-}
-
-function triggerGesture() {
-  if (performanceSettings.ornamentId === "none") editPerformanceSetting("ornamentId", ORNAMENT_PATTERNS.find(({ id }) => id !== "none").id);
-  if (performanceSettings.ornamentLoop === "off") editPerformanceSetting("ornamentLoop", "once");
-  ornamentStartedSeconds = performanceElapsed();
-  if (!singing) setSinging(true);
-  updateReadouts();
-  applyAudioParameters();
-  announce("Ornament phrase restarted.");
 }
 
 function safeDisconnect(node) {
@@ -1334,6 +1343,7 @@ async function destroyAudio() {
   graph = null;
   audioContext = null;
   activeGraph?.releaseAudioOutput?.();
+  activeGraph?.voiceEffects?.destroy();
   for (const node of Object.values(activeGraph ?? {})) safeDisconnect(node);
   try { await context?.close?.(); } catch { /* Best-effort page cleanup. */ }
 }
@@ -1341,8 +1351,12 @@ async function destroyAudio() {
 function resizeCanvas() {
   const rect = stageWrap.getBoundingClientRect();
   const sizing = canvasSizing(rect, globalThis.devicePixelRatio, { pixelBudget: null });
-  cssWidth = sizing.cssWidth;
-  cssHeight = sizing.cssHeight;
+  viewWidth = sizing.cssWidth;
+  viewHeight = sizing.cssHeight;
+  viewScale = Math.min(viewWidth / cssWidth, viewHeight / cssHeight);
+  viewX = (viewWidth - cssWidth * viewScale) / 2;
+  viewY = (viewHeight - cssHeight * viewScale) / 2;
+  Object.assign(canvas.dataset, { modelWidth: String(cssWidth), modelHeight: String(cssHeight), viewScale: String(viewScale), viewScaleX: String(viewScale), viewScaleY: String(viewScale) });
   pixelRatio = sizing.pixelRatio;
   const width = Math.max(1, sizing.width);
   const height = Math.max(1, sizing.height);
@@ -1571,7 +1585,7 @@ function drawTube(context, profile, geometry, now) {
   });
   context.stroke();
 
-  if (singing) {
+  if (singing && currentBreath.gain > .01) {
     const bubbleCount = prefersReducedMotion ? 4 : 11;
     for (let index = 0; index < bubbleCount; index += 1) {
       const travel = ((now * 0.00012 * (0.55 + currentPerformance.intensity) + index / bubbleCount) % 1 + 1) % 1;
@@ -1580,7 +1594,7 @@ function drawTube(context, profile, geometry, now) {
       const point = geometry.points[pointIndex];
       const focused = Math.abs(phase - 0.73) < 0.13;
       context.beginPath();
-      context.arc(point.x, point.y, focused ? 2.2 + tractPressure * 2 : 1.4 + tractPressure, 0, TAU);
+      context.arc(point.x, point.y, (focused ? 2.2 + tractPressure * 2 : 1.4 + tractPressure) * currentBreath.gain, 0, TAU);
       context.fillStyle = focused ? "rgba(242,217,134,0.75)" : "rgba(255,124,105,0.48)";
       context.fill();
     }
@@ -1764,6 +1778,8 @@ function updateHandles() {
 function draw(now = performance.now()) {
   resizeCanvas();
   drawing.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
+  drawing.fillStyle = "#050706"; drawing.fillRect(0, 0, viewWidth, viewHeight);
+  drawing.setTransform(pixelRatio * viewScale, 0, 0, pixelRatio * viewScale, pixelRatio * viewX, pixelRatio * viewY);
   drawBackdrop(drawing);
   const performanceState = performanceAt(now);
   currentPerformance = performanceState;
@@ -1787,8 +1803,8 @@ function draw(now = performance.now()) {
 function canvasPoint(event) {
   const rect = canvas.getBoundingClientRect();
   return {
-    x: (event.clientX - rect.left) * cssWidth / Math.max(1, rect.width),
-    y: (event.clientY - rect.top) * cssHeight / Math.max(1, rect.height),
+    x: ((event.clientX - rect.left) * viewWidth / Math.max(1, rect.width) - viewX) / viewScale,
+    y: ((event.clientY - rect.top) * viewHeight / Math.max(1, rect.height) - viewY) / viewScale,
   };
 }
 
@@ -1893,29 +1909,26 @@ globalThis.addEventListener("keydown", (event) => {
     setSinging(!singing);
     return;
   }
-  const note = NOTE_KEYS.find((entry) => entry.key === key);
+  const note = NOTE_KEYS.find((entry) => entry.code === event.code);
   if (note) {
     event.preventDefault();
     setDroneFrequency(note.frequency);
     return;
   }
-  if (/^[4-9]$/.test(key)) {
-    event.preventDefault();
-    setHarmonic(Number(key));
-  } else if (key === "0") {
-    event.preventDefault();
-    setHarmonic(10);
-  }
+
 });
 
 $("audioButton").addEventListener("click", () => setAudioEnabled(!audioWanted));
 $("singButton").addEventListener("click", () => setSinging(!singing));
-$("gestureButton").addEventListener("click", triggerGesture);
+$("gestureButton").addEventListener("click", () => toggleTrack("ornament"));
+$("melodyButton").addEventListener("click", () => toggleTrack("melody"));
 $("resetButton").addEventListener("click", () => {
-  performanceSettings = sanitizePerformanceSettings({});
+  performanceSettings = sanitizePerformanceSettings({ ornamentPlaying: false, melodyPlaying: false });
   performanceSeconds = 0;
-  ornamentStartedSeconds = 0;
-  melodyStartedSeconds = 0;
+  ornamentSeconds = 0;
+  melodySeconds = 0;
+  manualBreathAtSeconds = -Infinity;
+  trackCompleted.ornament = trackCompleted.melody = false;
   loadStyle("open-drone", { announceChange: false, preserveRuntime: false });
   setAudioPresentation(audioOn ? "on" : "off");
   announce("Throat Singer reset to the open discovery drone.");
@@ -1923,15 +1936,15 @@ $("resetButton").addEventListener("click", () => {
 
 document.addEventListener("visibilitychange", () => {
   if (document.hidden) {
-    singing = false;
-    setAudioPresentation(audioOn ? "on" : "off");
-    applyAudioParameters();
+    setSinging(false);
   }
 });
 
 globalThis.addEventListener("pagehide", () => {
   pageActive = false;
   cancelAnimationFrame(animationFrame);
+  resizeObserver?.disconnect();
+  for (const widget of knobWidgets) widget.destroy();
   destroyAudio();
 }, { once: true });
 
@@ -1945,6 +1958,7 @@ buildStyleButtons();
 buildNoteButtons();
 installControls();
 installPatternControls();
+installKnobs();
 resizeCanvas();
 updateReadouts();
 setAudioPresentation("off");

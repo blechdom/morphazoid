@@ -312,3 +312,29 @@ test("Throat Singer keeps uniform anatomy scaling and reachable controls in thre
   }
   expect(errors).toEqual([]);
 });
+
+test("Throat Singer keeps melody and glide inside source pitch limits", async ({ page }) => {
+  await page.goto("throat-singing.html", { waitUntil: "load" });
+  await page.locator("#portamento").fill("0");
+  await page.locator("#trueFoldHz").fill("50");
+  await page.locator("#portamento").fill("2");
+  await page.locator("#melodySelect").selectOption("valley");
+  await page.locator("#melodyRate").fill("1");
+  await page.locator("#melodyDepth").fill("24");
+  await page.locator("#melodyButton").click();
+  await page.locator("#trueFoldHz").fill("360");
+  const sample = () => page.evaluate(async () => {
+    const pitches = [];
+    for (let index = 0; index < 24; index += 1) {
+      pitches.push(Number(document.getElementById("stage").dataset.pitchHz));
+      await new Promise(resolve => setTimeout(resolve, 90));
+    }
+    return pitches;
+  });
+  const falling = await sample();
+  await page.locator("#melodySelect").selectOption("arch");
+  await page.locator("#trueFoldHz").fill("50");
+  const rising = await sample();
+  expect([...falling, ...rising].every(pitch => Number.isFinite(pitch) && pitch >= 50 && pitch <= 360)).toBe(true);
+  await expect(page.locator("#audioButton")).toHaveAttribute("aria-pressed", "false");
+});

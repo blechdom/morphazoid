@@ -123,16 +123,29 @@ export function createVoiceEffects(audio, { input, overtoneInput, output }) {
   for (const source of oscillators) source.start();
 
   let destroyed = false;
-  function update(performance = {}, atTime = audio.currentTime, glideSeconds = 0.04) {
+  function update(performance = {}, atTime = audio.currentTime, glideSeconds = 0.04, { replaceScheduled = false } = {}) {
     if (destroyed) return;
     const extras = performance.extras ?? {};
     const now = Math.max(0, Number(audio.currentTime) || 0);
     const start = Math.max(now, clamp(atTime, 0, Number.MAX_SAFE_INTEGER, now));
     const timeConstant = clamp(glideSeconds, 0.006, 0.3, 0.04) / 3;
-    // Appending targets preserves later phrase events already queued by the
-    // caller. Never cancel future automation while applying a scheduled frame.
-    const set = (parameter, value) => parameter.setTargetAtTime(value, start, timeConstant);
+    // A scheduled frame appends targets. A direct edit replaces the stale
+    // lookahead while holding the present value, matching the caller's source.
+    const set = (parameter, value) => {
+      if (replaceScheduled) {
+        try {
+          if (parameter.cancelAndHoldAtTime) parameter.cancelAndHoldAtTime(start);
+          else parameter.cancelScheduledValues(start);
+        } catch {
+          const held = parameter.value;
+          parameter.cancelScheduledValues(start);
+          parameter.setValueAtTime(held, start);
+        }
+      }
+      parameter.setTargetAtTime(value, start, timeConstant);
+    };
     const hz = clamp(performance.trueFoldHz, 40, 1_000, 110);
+    const overtoneFundamental = clamp(performance.heardDroneHz, 20, 1_000, hz);
     const tenseness = clamp(performance.foldTenseness, 0, 1, 0.65);
     const harmonic = clamp(performance.harmonicNumber, 1, 32, 8);
     const focusQ = clamp(performance.focusQ, 1, 32, 12);
@@ -155,7 +168,7 @@ export function createVoiceEffects(audio, { input, overtoneInput, output }) {
       set(voice.level.gain, index < pitchCount ? voicedLevel * 0.095 / Math.sqrt(pitchCount) : 0);
     });
     overtoneVoices.forEach((voice, index) => {
-      set(voice.focus.frequency, clamp(hz * (harmonic + (index + 1) * overtoneSpread), 120, nyquistLimit));
+      set(voice.focus.frequency, clamp(overtoneFundamental * (harmonic + (index + 1) * overtoneSpread), 120, nyquistLimit));
       set(voice.focus.Q, focusQ);
       set(voice.level.gain, index < overtoneCount ? 0.28 / Math.sqrt(overtoneCount) : 0);
     });
