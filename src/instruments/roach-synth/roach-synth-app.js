@@ -504,7 +504,19 @@ midiControls = createRoachMidiControls({ audio, setPlaying,
   },
   onVisual: () => { updateVisual(); scheduleFrame(); },
 });
-document.addEventListener('visibilitychange', () => { if (document.hidden) { if (frame) cancelAnimationFrame(frame); frame = 0; } else { lastFrame = -Infinity; updateVisual(); if (needsVisualFrames()) scheduleFrame(); } }, options);
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) {
+    if (frame) cancelAnimationFrame(frame);
+    frame = 0; return;
+  }
+  lastFrame = -Infinity;
+  // Audio continues while hidden. A finished phrase has no release gesture
+  // left to display when returning to the performer's underlying body pose.
+  if (!speechTarget()) speechMotion.amount = 0;
+  speechMotion.updatedAt = performance.now();
+  updateVisual();
+  if (needsVisualFrames()) scheduleFrame();
+}, options);
 motionQuery.addEventListener('change', () => { if (motionQuery.matches) setPlaying(false); }, options);
 window.addEventListener('pagehide', event => {
   if (event.persisted) return;
