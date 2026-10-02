@@ -124,3 +124,22 @@ inward range or used the old direction; those fixtures were updated to use a
 legal inward angle rejected by the floor and an outward manual speech gesture.
 All three corrected cases passed in the focused rerun, preserving their floor,
 short-reverse and exact saved-pose restoration assertions.
+
+### Vertical flexibility with restrained lateral movement
+
+Only the up/down hinge range remains expanded. Head side tilt is limited to
+six degrees and left/right turn to eight; neck tilt is limited to three and
+turn to four. Camera tracking uses smaller lateral contributions: head tilt
+three/turn four and neck tilt/turn two degrees. All X lift ranges, pivots,
+upward pointer direction and floor/body guards are unchanged.
+
+An independent probe verifies that head and neck -20-degree lift remains
+sample-for-sample identical. Thirty-six extreme lateral inputs and 480 speech
+samples remain within the tighter limits, preserve support and clear the floor
+without derived body lift. Five focused browser cases pass, covering large
+sideways gestures and offsets, desktop/phone upward lift, stable Face gaze and
+saved-pose restoration after speech. Actual combined lateral rotation stays
+within 15.1 degrees. Desktop and phone screenshots were visually inspected.
+Repository verification again passes 5,440 tests with six skips and no failures;
+generated WAX output matches a clean build. Physical device handling remains
+unperformed.

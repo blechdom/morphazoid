@@ -232,10 +232,10 @@ test('large left-right gestures and hostile offsets keep combined head and neck 
   for (const view of ['face', 'side', 'top', 'bottom']) {
     await page.evaluate(view => specimenViewer.setViewPreset(view), view);
     const gaze = await page.evaluate(() => specimenViewer.getGazeOffset());
-    expect(Math.abs(gaze.y), `${view}: camera head yaw`).toBeLessThanOrEqual(3);
-    expect(Math.abs(gaze.z), `${view}: camera head tilt`).toBeLessThanOrEqual(4);
-    expect(Math.abs(gaze.neck.y), `${view}: camera neck yaw`).toBeLessThanOrEqual(2);
-    expect(Math.abs(gaze.neck.z), `${view}: camera neck tilt`).toBeLessThanOrEqual(2);
+    expect(Math.abs(gaze.y), `${view}: camera head side tilt`).toBeLessThanOrEqual(3);
+    expect(Math.abs(gaze.z), `${view}: camera head turn`).toBeLessThanOrEqual(4);
+    expect(Math.abs(gaze.neck.y), `${view}: camera neck side tilt`).toBeLessThanOrEqual(2);
+    expect(Math.abs(gaze.neck.z), `${view}: camera neck turn`).toBeLessThanOrEqual(2);
     records.push({ kind: 'camera-gaze', view, gaze });
   }
   await testInfo.attach('bounded-head-neck-lateral-geometry.json', { body: JSON.stringify(records), contentType: 'application/json' });
