@@ -1601,7 +1601,7 @@ function drawTube(context, profile, geometry, now) {
   const tubeGradient = context.createLinearGradient(geometry.left, 0, geometry.right, 0);
   tubeGradient.addColorStop(0, "rgba(255,124,105,0.22)");
   tubeGradient.addColorStop(0.45, "rgba(215,179,92,0.14)");
-  tubeGradient.addColorStop(0.76, "rgba(239,145,176,0.22)");
+  tubeGradient.addColorStop(0.76, "rgba(255,130,158,0.26)");
   tubeGradient.addColorStop(1, "rgba(112,217,207,0.12)");
   tracePolygon(context, complete);
   context.fillStyle = tubeGradient;
@@ -1652,7 +1652,7 @@ function drawTube(context, profile, geometry, now) {
     context.strokeStyle = deformation.kind === "expansion"
       ? "rgba(112,217,207,0.34)"
       : deformation.id === "alveolar-oral"
-        ? "rgba(239,145,176,0.5)"
+        ? "rgba(255,130,158,0.66)"
         : "rgba(215,179,92,0.46)";
     context.lineWidth = 1;
     context.beginPath();
@@ -1747,9 +1747,9 @@ function drawTongue(context, geometry, performanceState) {
     cssWidth * 0.74, floorY - lift * 1.9, cssWidth * 0.81, floorY - lift * 0.25);
   context.quadraticCurveTo(cssWidth * 0.7, floorY + cssHeight * 0.065,
     cssWidth * 0.32, floorY + cssHeight * 0.035);
-  context.fillStyle = "rgba(239,145,176,0.17)";
+  context.fillStyle = "rgba(255,130,158,0.24)";
   context.fill();
-  context.strokeStyle = "rgba(239,145,176,0.6)";
+  context.strokeStyle = "rgba(255,130,158,0.8)";
   context.lineWidth = 1.5;
   context.stroke();
 }
@@ -1821,7 +1821,7 @@ function updateHandles() {
       id: "mouth", label: "MOUTH",
       x: cssWidth * 0.70,
       y: lerp(cssHeight * 0.70, cssHeight * 0.64, currentPerformance.alveolarConstriction),
-      radius: 9, fill: "#ef91b0",
+      radius: 9, fill: "#ff829e",
     },
     {
       id: "lips", label: "LIPS",
