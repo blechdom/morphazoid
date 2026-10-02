@@ -17,7 +17,7 @@ test("Throat Singing ships one research-labelled physical-model page", async () 
     readFile(new URL("src/instruments/throat-singing/throat-singing.css", root), "utf8"),
     readFile(new URL("src/instruments/throat-singing/throat-singing-app.js", root), "utf8"),
     readFile(new URL("scripts/site/runtime-files.tsv", root), "utf8"),
-    readFile(new URL("THROAT_SINGING_RESEARCH.md", root), "utf8"),
+    readFile(new URL("docs/THROAT_SINGING_RESEARCH.md", root), "utf8"),
     readFile(new URL("assets/instruments/throat-singing.webp", root)),
   ]);
 
@@ -66,7 +66,7 @@ test("Throat Singing ships one research-labelled physical-model page", async () 
     "src/instruments/throat-singing/throat-singing.css",
     "src/instruments/throat-singing/throat-singing-app.js",
     "src/instruments/throat-singing/throat-singing.js",
-    "THROAT_SINGING_RESEARCH.md",
+    "docs/THROAT_SINGING_RESEARCH.md",
     "assets/instruments/throat-singing.webp",
   ]) {
     assert.match(build, new RegExp(path.replaceAll(".", "\\.")));

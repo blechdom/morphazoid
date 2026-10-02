@@ -168,8 +168,8 @@ are now bundled under `assets/roach-synth/audio/`:
 
 The bank totals **9.5 seconds / 912,132 bytes**. Full source/output hashes,
 exact processing, measured levels and local transient cue positions are in
-[the asset manifest](assets/roach-synth/audio/manifest.json); source credits,
-license and editing notes are in [CREDITS.md](assets/roach-synth/audio/CREDITS.md).
+[the asset manifest](../assets/roach-synth/audio/manifest.json); source credits,
+license and editing notes are in [CREDITS.md](../assets/roach-synth/audio/CREDITS.md).
 The source is exceptionally quiet: its full-file RMS is −55.79 dBFS. Simply
 normalizing each excerpt's peak to −3 dBFS leaves the three RMS levels at
 −33.40, −33.87 and −34.73 dBFS. The supplied edits instead use documented

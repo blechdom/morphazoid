@@ -170,5 +170,5 @@ Canvas editors, sequencers, and synthesis engines should stay instrument-owned
 and compose these primitives at their edges.
 
 The shared masthead and right-panel preset placement contract is documented in
-[Performance toolbar](docs/performance-toolbar.md). MIDI activation lives in
+[Performance toolbar](performance-toolbar.md). MIDI activation lives in
 Settings; full presets retain their instrument-owned transactions.

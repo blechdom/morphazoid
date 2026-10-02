@@ -15,7 +15,7 @@ changes.
 
 ## Establish the contract and scene matrix
 
-1. Read `AGENTS.md`, `QA_AUTOMATION.md`, the instrument's app/model/audio/tests,
+1. Read `AGENTS.md`, `docs/QA_AUTOMATION.md`, the instrument's app/model/audio/tests,
    and `contracts/audio-transport-v1.md` when transport applies.
 2. Resolve the exact route, slug, control, and preset bank from the request,
    active files, or reproduction context. Use the

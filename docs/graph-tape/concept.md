@@ -183,7 +183,7 @@ memory that *shapes* signal (nearly free, still musical).
 
 `graph-drums-app.js` and `graph-synth-app.js` are ~232-byte wrappers over
 `src/families/graph/graph-instrument-app.js`, switched by `mode: "drums" | "synth"`. The shared
-contract is documented in `../../GRAPH_INSTRUMENTS_RESEARCH.md`. Graph Delay is *not*
+contract is documented in `../GRAPH_INSTRUMENTS_RESEARCH.md`. Graph Delay is *not*
 on this engine — it has its own 75KB app. Any new graph instrument should decide
 deliberately which lineage it joins.
 

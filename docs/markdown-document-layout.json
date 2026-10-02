@@ -1,0 +1,41 @@
+{
+  "version": 1,
+  "baseCommit": "4d096a9d6c77e4a9a2e839c27deddcb75ea82efe",
+  "moves": {
+    "ANIMAL_VOICE_SYNTHESIS_RESEARCH.md": "docs/ANIMAL_VOICE_SYNTHESIS_RESEARCH.md",
+    "BLOWHOLE_RESEARCH.md": "docs/BLOWHOLE_RESEARCH.md",
+    "CONTRIBUTING.md": "docs/CONTRIBUTING.md",
+    "DESIGN_SYSTEM.md": "docs/DESIGN_SYSTEM.md",
+    "DIGESTAZOID_RESEARCH.md": "docs/DIGESTAZOID_RESEARCH.md",
+    "GEOMETRY_ANALYSIS.md": "docs/GEOMETRY_ANALYSIS.md",
+    "GRAPH_INSTRUMENTS_RESEARCH.md": "docs/GRAPH_INSTRUMENTS_RESEARCH.md",
+    "HOCKET_LOOM_RESEARCH.md": "docs/HOCKET_LOOM_RESEARCH.md",
+    "JULIE_SAW_RESEARCH.md": "docs/JULIE_SAW_RESEARCH.md",
+    "MICROMORPH_AI.md": "docs/MICROMORPH_AI.md",
+    "PUGGLER_RESEARCH.md": "docs/PUGGLER_RESEARCH.md",
+    "QA_AUTOMATION.md": "docs/QA_AUTOMATION.md",
+    "QUADRUPED_RESEARCH.md": "docs/QUADRUPED_RESEARCH.md",
+    "ROACH_SYNTH_RESEARCH.md": "docs/ROACH_SYNTH_RESEARCH.md",
+    "SHAPES-PARAMETER-MAP.md": "docs/SHAPES-PARAMETER-MAP.md",
+    "SIMD_SYNTH_RESEARCH.md": "docs/SIMD_SYNTH_RESEARCH.md",
+    "SPIDER_SYNTH_RESEARCH.md": "docs/SPIDER_SYNTH_RESEARCH.md",
+    "THIRD_PARTY_NOTICES.md": "docs/THIRD_PARTY_NOTICES.md",
+    "THROAT_SINGING_RESEARCH.md": "docs/THROAT_SINGING_RESEARCH.md",
+    "WAVE_POOL_RESEARCH.md": "docs/WAVE_POOL_RESEARCH.md"
+  },
+  "changes": [
+    {
+      "file": "src/instruments/hocket-loom/hocket-loom.js",
+      "reason": "Move the preset research link with the top-level project documents into docs/; preserve the historical runtime baseline and musical behavior.",
+      "regressionTests": [
+        "tests/hocket-loom.test.mjs"
+      ],
+      "replacements": [
+        {
+          "before": "      url: \"./HOCKET_LOOM_RESEARCH.md\",",
+          "after": "      url: \"./docs/HOCKET_LOOM_RESEARCH.md\","
+        }
+      ]
+    }
+  ]
+}

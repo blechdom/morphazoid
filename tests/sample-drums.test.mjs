@@ -202,7 +202,7 @@ test("Sample Drums page exposes the standalone sampler and preload flow", async 
     readFile(new URL("src/pages/sample-drums.html", root), "utf8"),
     readFile(new URL("src/instruments/sample-drums/sample-drums.css", root), "utf8"),
     readFile(new URL("src/instruments/sample-drums/sample-drums-app.js", root), "utf8"),
-    readFile(new URL("THIRD_PARTY_NOTICES.md", root), "utf8"),
+    readFile(new URL("docs/THIRD_PARTY_NOTICES.md", root), "utf8"),
   ]);
   assert.match(html, /id="sampleDrums"/);
   assert.match(html, /id="preloadSamples"/);

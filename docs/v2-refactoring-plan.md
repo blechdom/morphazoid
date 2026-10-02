@@ -239,7 +239,7 @@ to work. Completed for source; production-artifact preservation is in step 2.
   release. Obtain human approval of the reference sound before calling it an
   approved audio baseline.
 
-Follow the two-stage baseline process in `../QA_AUTOMATION.md`. Expand approved
+Follow the two-stage baseline process in `QA_AUTOMATION.md`. Expand approved
 scenes before each family migration rather than attempting to capture every
 instrument before the first small extraction.
 

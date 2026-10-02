@@ -238,4 +238,4 @@ status remains `implemented-verification-pending`.
 
 [Historical engines and candidates](voice-engine-research.md) ·
 [Apple, Amiga, Windows, games and Bell Labs](voice-platform-history.md) ·
-[Third-party notices](../THIRD_PARTY_NOTICES.md)
+[Third-party notices](THIRD_PARTY_NOTICES.md)

@@ -17,7 +17,7 @@ credentials in anticipation of a possible integration.
 | A standing rule for one genuine subtree | A nested `AGENTS.md` | Native build rules that differ from browser rules |
 | A specialized, repeatable workflow that should load only when relevant | `.agents/skills/<name>/SKILL.md` | Perceptual QA or safe publication |
 | A reusable structured runtime capability, especially live external data, authenticated access, or controlled actions | An MCP server | Querying an issue tracker or operating a deployment service |
-| Human explanation, onboarding, architecture, or a runbook | `README.md`, `CONTRIBUTING.md`, or `docs/` | This guide |
+| Human explanation, onboarding, architecture, or a runbook | `README.md`, `docs/CONTRIBUTING.md`, or `docs/` | This guide |
 | A deterministic invariant | Source validation, tests, and CI | Catalogue parity or schema conformance |
 
 An MCP server supplies a capability. A skill teaches an agent a reusable method
@@ -94,7 +94,7 @@ another directory, reports the running Node executable and Git state, and uses
 the live public navigation, catalogue, and MIDI-capability exports. It neither
 imports the page application nor starts audio, a server, a build, or tests. It
 requires no installed npm packages. Use the Node versions documented in
-`CONTRIBUTING.md` for subsequent commands.
+`docs/CONTRIBUTING.md` for subsequent commands.
 
 The inventory follows static HTML/CSS/module references and literal module URLs.
 It labels template-expanded and quoted binary paths as candidates; runtime
@@ -111,8 +111,8 @@ the checkout it inspects.
 ## Repository placement
 
 - Keep the public overview and quick start in root `README.md`.
-- Keep the human contributor workflow in root `CONTRIBUTING.md`, a location
-  GitHub recognizes and surfaces automatically.
+- Keep the human contributor workflow in `docs/CONTRIBUTING.md`, linked from
+  the root `README.md`.
 - Keep cross-agent rules in root `AGENTS.md`. Add a nested `AGENTS.md` only when
   a subtree truly differs; guidance closer to the working directory wins.
   `AGENTS.override.md` is Codex-specific and replaces only the `AGENTS.md`

@@ -32,7 +32,7 @@ test("recording provenance and Creative Commons obligations remain visible", asy
     "utf8",
   );
   const thirdPartyNotice = await readFile(
-    new URL("../THIRD_PARTY_NOTICES.md", import.meta.url),
+    new URL("../docs/THIRD_PARTY_NOTICES.md", import.meta.url),
     "utf8",
   );
 

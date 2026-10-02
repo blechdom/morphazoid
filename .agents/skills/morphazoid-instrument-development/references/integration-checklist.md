@@ -52,7 +52,7 @@ omitting them.
 - Update the new page's authored fallback navigation and any sibling whose
   static previous/next or option list must include the route. JavaScript
   enhancement is not a substitute for the no-JS contract.
-- README/research/source/license records and `THIRD_PARTY_NOTICES.md` when the
+- README/research/source/license records and `docs/THIRD_PARTY_NOTICES.md` when the
   instrument introduces claims or third-party material.
 
 ## Build and release surface

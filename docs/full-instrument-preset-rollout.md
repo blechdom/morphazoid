@@ -122,7 +122,7 @@ The existing 22 body acts remain focused sub-presets. The September 23 sound
 revision separates acoustic/punk/future voices, ties new instrumental notes to
 the juggling beat and narrows factory/dice level ranges. See
 `tests/puggler-full-presets.test.mjs`, `e2e/puggler-expansion.spec.mjs` and
-[Puggler's model/limits](../PUGGLER_RESEARCH.md). Human listening and physical
+[Puggler's model/limits](PUGGLER_RESEARCH.md). Human listening and physical
 phone acceptance remain pending. The first-batch counts below are its historical
 rollout snapshot, not an updated total including this extension.
 

@@ -10,7 +10,7 @@ The intended target is a physically informed, playable instrument. It should pre
 
 ## What the current Syrinx page implements
 
-The playable [`syrinx.html`](./syrinx.html) page is a reduced real-time implementation of this brief, separate from Throatazoid. It provides four source equations (two-mass tissue, bilateral syringeal labia, frog membrane, and impinging-jet whistle), a true propagation-length variable-area tube with species-informed diameter priors, signed source–tract pressure feedback, and a two-mode radiation filter. The modal filter represents family-specific OEC/beak, sac/head, pharyngeal, or body radiation; it is not yet an explicit side-branch waveguide and the page labels it accordingly.
+The playable [`syrinx.html`](../syrinx.html) page is a reduced real-time implementation of this brief, separate from Throatazoid. It provides four source equations (two-mass tissue, bilateral syringeal labia, frog membrane, and impinging-jet whistle), a true propagation-length variable-area tube with species-informed diameter priors, signed source–tract pressure feedback, and a two-mode radiation filter. The modal filter represents family-specific OEC/beak, sac/head, pharyngeal, or body radiation; it is not yet an explicit side-branch waveguide and the page labels it accordingly.
 
 Each animal has a permanently locked, species-informed playable range. Some anchors are direct measurements (notably lion/tiger and elephant excised larynges, ex-vivo bird phonation, frog pressure regimes, and mouse jet-whistle physiology); other animals use clearly labeled body-size or tract priors. The models are not individualized anatomical reconstructions. Mouse ultrasonic trajectories are explicitly mapped to audible frequency while retaining their jet-mode timing and jumps.
 
@@ -62,7 +62,7 @@ Keep morphology and gesture independent. Morphology describes the instrument—t
 
 ## Fit with the existing Throatazoid engine
 
-The current [`throatazoid-tract-processor.js`](./src/throatazoid-tract-processor.js) is already a strong tract foundation:
+The current [`throatazoid-tract-processor.js`](../src/throatazoid-tract-processor.js) is already a strong tract foundation:
 
 - a 44-section root-plus-mouth bidirectional volume-flow waveguide;
 - area-discontinuity scattering, passive loss and glottal/lip reflections;
@@ -70,7 +70,7 @@ The current [`throatazoid-tract-processor.js`](./src/throatazoid-tract-processor
 - a pressure manifold and multiple controllable pressure “glands”; and
 - two substeps per audio sample, which provides useful waveguide resolution.
 
-The current source is the main limitation. [`createInternalExciter`](./throatazoid-app.js) creates a Web Audio oscillator outside the physical-tract worklet. [`glottalHarmonics`](./src/throatazoid.js) gives it a useful LF-style periodic waveform, but its frequency is imposed and it does not begin oscillating because pressure crosses a phonation threshold. More importantly, the upstream oscillator cannot receive instantaneous supraglottal pressure from the tract. This prevents the source–filter coupling that produces jumps, subharmonics and unstable regimes in many real calls.
+The current source is the main limitation. [`createInternalExciter`](../throatazoid-app.js) creates a Web Audio oscillator outside the physical-tract worklet. [`glottalHarmonics`](../src/throatazoid.js) gives it a useful LF-style periodic waveform, but its frequency is imposed and it does not begin oscillating because pressure crosses a phonation threshold. More importantly, the upstream oscillator cannot receive instantaneous supraglottal pressure from the tract. This prevents the source–filter coupling that produces jumps, subharmonics and unstable regimes in many real calls.
 
 There is also a length-control issue. The root and mouth arrays always contain 44 propagating sections. `bodyLength` currently changes diameter profiles and visual/macro scaling, not the wave propagation delay. Interpreting one section as one substep at 48 kHz gives roughly
 

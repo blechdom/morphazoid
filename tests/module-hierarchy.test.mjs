@@ -37,6 +37,7 @@ const chiptuneChanges = JSON.parse(await readFile(new URL("../docs/simd-chiptune
 const chiptuneDanceChanges = JSON.parse(await readFile(new URL("../docs/simd-chiptune-dance-runtime-changes.json", import.meta.url))).changes;
 const synthesisChanges = JSON.parse(await readFile(new URL("../docs/synthesis-runtime-changes.json", import.meta.url))).changes;
 const roachMobileChanges = JSON.parse(await readFile(new URL("../docs/roach-synth-mobile-runtime-changes.json", import.meta.url))).changes;
+const documentLinkChanges = JSON.parse(await readFile(new URL("../docs/markdown-document-layout.json", import.meta.url))).changes;
 const inverse = Object.fromEntries(Object.entries({ ...plan.moves, ...siteMoves }).map(([before, after]) => [after, before]));
 const sha = value => createHash("sha256").update(value).digest("hex");
 
@@ -104,7 +105,7 @@ test("runtime modules reverse exactly after explicit runtime fixes and documente
     }
     // Keep the relocation baseline frozen. Reverse only the exact, separately
     // documented feature edits, whose behavior has focused DSP/browser tests.
-    for (const change of [...roachMobileChanges, ...automataOutputChanges, ...synthesisChanges, ...chiptuneDanceChanges, ...automataControlsChanges, ...ioChanges, ...shapesChanges, ...lSystemPresetsChanges, ...lSystemNotesChanges, ...automataBottomChanges, ...automataTransportChanges, ...automataClockChanges, ...automataChanges].filter(change => change.file === record.after)) {
+    for (const change of [...documentLinkChanges, ...roachMobileChanges, ...automataOutputChanges, ...synthesisChanges, ...chiptuneDanceChanges, ...automataControlsChanges, ...ioChanges, ...shapesChanges, ...lSystemPresetsChanges, ...lSystemNotesChanges, ...automataBottomChanges, ...automataTransportChanges, ...automataClockChanges, ...automataChanges].filter(change => change.file === record.after)) {
       for (const testFile of change.regressionTests) assert.ok(existsSync(path.join(root, testFile)), testFile);
       for (const replacement of [...change.replacements].reverse()) {
         assert.equal(current.split(replacement.after).length - 1, 1, `exactly one documented feature edit: ${change.file}`);

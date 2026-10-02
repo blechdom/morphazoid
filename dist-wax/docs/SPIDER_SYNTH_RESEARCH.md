@@ -6,7 +6,7 @@ shared with its audio engine. It is a musical interpretation of a web, not a
 prediction of what a selected individual animal sounds like. Version 4 adds
 selectable specimens, licensed peacock-spider vibration recordings and
 measured collision constraints; final integrated validation is recorded
-separately in the [QA record](docs/spider-synth-qa.md).
+separately in the [QA record](spider-synth-qa.md).
 
 This version uses [*Argiope aurantia*](https://en.wikipedia.org/wiki/Argiope_aurantia)
 as the research starting point requested by the musician. The original and
@@ -61,10 +61,10 @@ Spinneret timbre follows abdominal movement; the mixer does not imply a
 separately resolved spinneret mesh. Speech adds temporary face and palp motion
 without changing the held pose or starting the animation transport.
 
-See [the source license](assets/spider-synth/SOURCE.LICENSE.txt) and
-[provenance record](assets/spider-synth/source-provenance.json) for the exact
+See [the source license](../assets/spider-synth/SOURCE.LICENSE.txt) and
+[provenance record](../assets/spider-synth/source-provenance.json) for the exact
 source, derivative and processing information. The
-[additional specimen asset record](assets/spider-synth/skins/ASSET.md) contains
+[additional specimen asset record](../assets/spider-synth/skins/ASSET.md) contains
 per-skin credits, delivery sizes, rigging methods and source-quality limits.
 
 ## The shared contact model
@@ -91,7 +91,7 @@ constraints apply to the composed pose, including manual and MIDI movement.
 They do not solve collisions between every triangle or hair of the scan.
 Original attachment overlap and curled preserved limbs can remain visible.
 The collision regression covers all six specimens and forty routines; the
-[QA record](docs/spider-synth-qa.md) states the tested tolerances and limits.
+[QA record](spider-synth-qa.md) states the tested tolerances and limits.
 
 A string’s ideal transverse fundamental is proportional to
 
@@ -147,8 +147,8 @@ Girard, Kasumovic and Elias (2011) published the source in
 The exact [Figshare dataset](https://doi.org/10.6084/m9.figshare.132960) specifies
 CC BY 4.0. The bundled mono WAVs total 261,646 bytes and load asynchronously
 after Audio is armed. They cannot delay the worklet or existing speech atlas.
-The [recording credits](assets/audio/spider-synth/README.md) and
-[manifest](assets/audio/spider-synth/manifest.json) retain author attribution,
+The [recording credits](../assets/audio/spider-synth/README.md) and
+[manifest](../assets/audio/spider-synth/manifest.json) retain author attribution,
 license, species, exact source intervals, extraction changes and file hashes.
 
 The 27 source choices and 27 sound presets include **Peacock courtship**,
@@ -178,8 +178,8 @@ that clock at a limited frame rate and pixel budget. When 3D is still loading,
 the web sound controls and voice remain usable. Mobile keeps the specimen
 visible while controls scroll underneath a reachable main Audio button.
 
-[Performance and MIDI guide](docs/spider-synth-midi.md) ·
-[Implementation contract](contracts/spider-synth-v1.md)
+[Performance and MIDI guide](spider-synth-midi.md) ·
+[Implementation contract](../contracts/spider-synth-v1.md)
 
 ## Sound research and mechanism decisions
 
@@ -292,7 +292,7 @@ the fixed voice pool limits resource use. Under extreme physical-event load,
 old physical tails may be replaced so new steps remain audible. MIDI-owned
 strings keep separate ownership.
 
-[Five additional real scans](docs/spider-synth-scan-candidates.md) now have
+[Five additional real scans](spider-synth-scan-candidates.md) now have
 independent rigs, measured reach geometry and selectable mobile GLBs. Together
 with the original Argiope there are six specimens. The giant golden orb-weaver
 and devil spider have particularly distinct surface patterns; the museum
@@ -300,6 +300,6 @@ tarantula has a bulkier silhouette but softer fine hair and facial detail.
 The tarantula, huntsman and fishing spider perform in an artistic web scene;
 this does not make them natural Argiope-style orb-web builders. No verified
 black-widow body scan was added. The
-[request audit](docs/spider-synth-request-audit.md) distinguishes these completed
+[request audit](spider-synth-request-audit.md) distinguishes these completed
 implementations from full mesh collision, biological reconstruction and final
 integrated performance validation.

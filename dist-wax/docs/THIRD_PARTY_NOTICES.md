@@ -35,7 +35,7 @@ documents cockroach movements in a vivarium. The bundled mono WAV excerpts are
 derived from its public high-quality MP3 preview, with filtering, gain adjustment
 and short fades. Exact source offsets, processing, checksums and attribution are
 in `assets/roach-synth/audio/CREDITS.md` and its adjacent `manifest.json`.
-Other animal recordings in `ROACH_SYNTH_RESEARCH.md` remain linked references.
+Other animal recordings in `docs/ROACH_SYNTH_RESEARCH.md` remain linked references.
 
 ## meshoptimizer
 
@@ -493,8 +493,8 @@ SOFTWARE.
 
 `assets/puggler/` bundles eight CC0 1.0 Universal recordings: five Karoryfer
 Samples acoustic drums, rhink’s “Oi.wav,” NeoSpica’s “Booing Crowd,” and jayfrosting’s “Woo 2.wav.”
-See [recording sources and processing](assets/puggler/CREDITS.md) and the
-[included CC0 text](assets/puggler/CC0-1.0.txt). Guitar and bass are original repository synthesis. No episode or commercial music
+See [recording sources and processing](../assets/puggler/CREDITS.md) and the
+[included CC0 text](../assets/puggler/CC0-1.0.txt). Guitar and bass are original repository synthesis. No episode or commercial music
 audio is bundled.
 
 ## Spider Synth scanned specimen
@@ -505,7 +505,7 @@ and floraZia.com**, published on Sketchfab on 2025-03-18. Morphazoid removes the
 calibration cube and adds authored skin weights and 38 joint controls. Source:
 https://sketchfab.com/3d-models/cc0-orb-weaver-spider-a-bruennichi-bb646be39dad44948a403366b0ebc977
 
-See [exact provenance and license](assets/spider-synth/SOURCE.LICENSE.txt).
+See [exact provenance and license](../assets/spider-synth/SOURCE.LICENSE.txt).
 Voice uses the existing KAL16 diphone atlas and CMU pronunciation resources;
 Spider Synth does not bundle new animal audio recordings.
 
@@ -523,8 +523,8 @@ its Apache, BSD and Unicode component notices are also retained.
 The engine generates English phoneme sounds locally in a browser worker after
 explicit Audio enable. Morphazoid builds a separate WASM binary and repacks
 English data; the synthesis code is unchanged. The Klatt mode is eSpeak's
-implementation, not DECtalk. [Source, changes and build instructions](vendor/espeak-ng/README.md),
-[build manifest](vendor/espeak-ng/build.json), and [GPL license](vendor/espeak-ng/COPYING)
+implementation, not DECtalk. [Source, changes and build instructions](../vendor/espeak-ng/README.md),
+[build manifest](../vendor/espeak-ng/build.json), and [GPL license](../vendor/espeak-ng/COPYING)
 accompany the engine. `scripts/build-espeak-wasm.py` rebuilds pinned source and
 reproduces the checked-in JavaScript, WebAssembly and voice-data hashes.
 
@@ -533,14 +533,14 @@ reproduces the checked-in JavaScript, WebAssembly and voice-data hashes.
 The speech pages include Flite's WASI build from `@echogarden/flite-wasi` 0.1.1,
 which reports Flite 2.3-current (March 2022). Its embedded KAL, KAL16, AWB, RMS,
 SLT and limited-domain AWB-time voice definitions retain the terms in
-[Flite COPYING](vendor/flite/COPYING) and [voice notices](vendor/flite/VOICE_NOTICES.md).
+[Flite COPYING](../vendor/flite/COPYING) and [voice notices](../vendor/flite/VOICE_NOTICES.md).
 The pages expose the general SLT/AWB/RMS Clustergen voices; other embedded models
 are not presented as additional live methods.
 
 Morphazoid removes only WebAssembly custom debug/name/producers sections;
 executable and voice-data sections are unchanged. The small in-memory WASI
 adapter and phoneme-atlas integration are original Morphazoid code.
-[Provenance and reproduction](vendor/flite/README.md) identify the pinned package
+[Provenance and reproduction](../vendor/flite/README.md) identify the pinned package
 and source links. `scripts/strip-flite.py` reproduces the stripped binary.
 
 The repository's MIT license does not replace these third-party terms.
@@ -553,9 +553,9 @@ WASM from `mym-br/gnuspeech_sa` revision
 articulatory data are GPL-3.0-or-later, with Trillium and original authors'
 notices preserved. RapidXML's Boost/MIT terms are retained separately.
 
-[Source, changes and reproduction](vendor/gnuspeech/README.md),
-[GPL](vendor/gnuspeech/COPYING.txt), [data grant](vendor/gnuspeech/DATA_LICENSE.txt),
-and [RapidXML license](vendor/gnuspeech/RAPIDXML_LICENSE.txt) accompany the build.
+[Source, changes and reproduction](../vendor/gnuspeech/README.md),
+[GPL](../vendor/gnuspeech/COPYING.txt), [data grant](../vendor/gnuspeech/DATA_LICENSE.txt),
+and [RapidXML license](../vendor/gnuspeech/RAPIDXML_LICENSE.txt) accompany the build.
 `scripts/build-gnuspeech-wasm.py` and `scripts/gnuspeech-wasm-adapter.cpp` rebuild
 all three runtime files from pinned source. The five physical voice profiles
 share one articulatory method. Their atlas playback is distinct from native
@@ -565,8 +565,8 @@ whole-sentence synthesis.
 
 The Vizsn WASM port preserves Ville-Matias Heikkilä's formant/resonator engine
 and Jari Komppa's SoLoud integration, both explicitly WTFPL, from SoLoud revision
-`e82fd32c1f62183922f08c14c814a02b58db1873`. [License](vendor/vizsn/COPYING) and
-[source/changes](vendor/vizsn/README.md) are included. Modified DSP, the host shim
+`e82fd32c1f62183922f08c14c814a02b58db1873`. [License](../vendor/vizsn/COPYING) and
+[source/changes](../vendor/vizsn/README.md) are included. Modified DSP, the host shim
 and a pinned-source rebuild script are in `scripts/vendor/vizsn/`.
 
 The reader's 43-gesture mapping is an original approximation to Vizsn's smaller
@@ -576,8 +576,8 @@ native phone vocabulary. It is not a recovered English voice database.
 
 The MEA8000 WASM generator extracts Antoine Miné's BSD-3-Clause DSP and tables
 from MAME revision `c8588c15c78215a0ce36ac573aa5e8da03185e4c`.
-[Copyright/license](vendor/mea8000/COPYING) and
-[extraction, modifications and rebuild instructions](vendor/mea8000/README.md)
+[Copyright/license](../vendor/mea8000/COPYING) and
+[extraction, modifications and rebuild instructions](../vendor/mea8000/README.md)
 are included; build/bridge sources live in `scripts/vendor/mea8000/`.
 The offline frame host excludes MAME's device bus/timers and is not cycle-accurate
 chip emulation. English-like gesture parameters are original Morphazoid examples;
@@ -589,7 +589,7 @@ Pico uses the unmodified runtime from `@echogarden/svoxpico-wasm@0.2.0`, package
 source revision `4b1d64dc4c69cec088141d8653c526f09b76ea62`, plus English resources
 from `naggety/picotts` revision `21089d223e177ba3cb7e385db8613a093dff74b5`.
 Core/package Apache-2.0 terms and SVOX/Android resource notices are retained in
-[vendor/pico](vendor/pico/README.md). `DEBIAN_COPYRIGHT` documents that the model
+[vendor/pico](../vendor/pico/README.md). `DEBIAN_COPYRIGHT` documents that the model
 binaries are redistributable but lack preferred source; they are not presented
 as fully reproducible open training data. The independent public-C-API bridge
 and phoneme-atlas integration are original Morphazoid code.
@@ -600,7 +600,7 @@ Voicesaurus plays the original Csound FOF/VOSIM opcodes through the LGPL Csound
 WASM library from `@csound/wasm-bin@6.18.7`. The unmodified binary reports Csound
 6.18.1. Its codec/runtime dependencies remain embedded: libsndfile, FLAC, Ogg,
 Vorbis, LAME, mpg123, wasi-libc and LLVM runtime components. Their notices and
-source links accompany the [Csound provenance](vendor/csound/README.md).
+source links accompany the [Csound provenance](../vendor/csound/README.md).
 
 The local WASI host and phonetic demonstration orchestras are original code.
 They do not bundle the original CHANT program, its voice database, or Csound's
@@ -613,7 +613,7 @@ for modification and recompilation.
 The newly compiled GnuspeechSA, Vizsn and MEA8000 engines include Emscripten
 runtime glue and C/C++ library code. Relevant Emscripten MIT/NCSA, musl MIT, and
 LLVM Apache-with-exceptions notices are preserved under
-[vendor/wasm-runtime-notices](vendor/wasm-runtime-notices/README.md).
+[vendor/wasm-runtime-notices](../vendor/wasm-runtime-notices/README.md).
 These component licenses do not replace the separate speech-engine licenses.
 
 ## HTS English HMM voice
@@ -623,7 +623,7 @@ modified-BSD software; their English Flite frontend has separate CMU notices.
 The official HTS Voice CMU ARCTIC SLT1.06 is CC-BY-3.0, trained from Carnegie
 Mellon University’s CMU ARCTIC database. The voice model is unmodified.
 Morphazoid extracts, balances and loops generated phoneme audio for playback.
-See [vendor/hts/README.md](vendor/hts/README.md), the four preserved license
+See [vendor/hts/README.md](../vendor/hts/README.md), the four preserved license
 files beside it, and `scripts/vendor/hts/` for pinned source/rebuild instructions.
 
 

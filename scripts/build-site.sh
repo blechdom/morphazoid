@@ -80,7 +80,7 @@ while IFS= read -r -d '' source_path; do
   esac
 
   case "$source_path" in
-    *.html|*.css|*.js|*.wasm|*.webp|*.glb|*.LICENSE.txt|favicon.svg|THIRD_PARTY_NOTICES.md|morphazoidical/PLAN.md|downloads/plugins/*|assets/authors/*.png|\
+    *.html|*.css|*.js|*.wasm|*.webp|*.glb|*.LICENSE.txt|favicon.svg|docs/THIRD_PARTY_NOTICES.md|morphazoidical/PLAN.md|downloads/plugins/*|assets/authors/*.png|\
     assets/puggler/*.wav|assets/puggler/*CREDITS.md|assets/puggler/CC0-1.0.txt|\
     vendor/tactile/LICENSE|\
     vendor/cmudict/cmudict-en-us.dict|\

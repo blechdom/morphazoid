@@ -8,7 +8,7 @@ ES modules, Canvas, and Web Audio. Native JUCE/VST3 and REAPER targets are also
 supported; plugin work follows `plugins/README.md` and any more specific subtree
 guidance.
 
-Start with `README.md` and `package.json`; use `CONTRIBUTING.md` for the human
+Start with `README.md` and `package.json`; use `docs/CONTRIBUTING.md` for the human
 development workflow and command matrix. Use `npm run dev` for a browser preview
 and `npm run verify` for repository verification. Inspect scripts before
 invoking narrower build, WAX, publishing, or deployment commands; do not invent
@@ -161,7 +161,7 @@ command names.
   Shared components do not own Web Audio, MIDI, microphone permission,
   application state, simulation, or Canvas rendering. Keep domain UI and
   engines instrument-owned. Extract a shared component for two real consumers
-  or a project-wide contract. Follow `DESIGN_SYSTEM.md`.
+  or a project-wide contract. Follow `docs/DESIGN_SYSTEM.md`.
 
 ## Integration and responsive behavior
 
@@ -217,7 +217,7 @@ command names.
 
 - Start with the narrowest relevant tests. For browser implementation changes,
   finish with `npm run verify` and applicable browser suites from
-  `QA_AUTOMATION.md`. Run WAX, release, Storybook, native, or REAPER workflows
+  `docs/QA_AUTOMATION.md`. Run WAX, release, Storybook, native, or REAPER workflows
   only when those surfaces changed.
 - Verify observable relationships: finite and bounded output, expected
   silence/non-silence, onset/release, control sensitivity, preset separation,
@@ -250,7 +250,7 @@ Use repository skills when their descriptions match the task:
 - Keep durable, always-on repository invariants in the root `AGENTS.md`. Use a
   nested `AGENTS.md` only when a subtree genuinely differs; reserve
   `AGENTS.override.md` for an intentional Codex-only same-directory replacement.
-  Put human explanations in `CONTRIBUTING.md` or focused docs and put enforceable
+  Put human explanations in `docs/CONTRIBUTING.md` or focused docs and put enforceable
   behavior in source, tests, and CI.
 - Keep reusable guidance checkout-independent: use repository-relative paths
   and actual worktree discovery, not fixed home directories, branch checkout

@@ -116,7 +116,7 @@ test("Digestazoid stays playable on touch screens and honors reduced motion", ()
 
 test("the research note and catalog icon ship with the instrument", async () => {
   const [research, icon, iconStat] = await Promise.all([
-    readFile(new URL("DIGESTAZOID_RESEARCH.md", root), "utf8"),
+    readFile(new URL("docs/DIGESTAZOID_RESEARCH.md", root), "utf8"),
     readFile(new URL("assets/instruments/digestazoid.webp", root)),
     stat(new URL("assets/instruments/digestazoid.webp", root)),
   ]);

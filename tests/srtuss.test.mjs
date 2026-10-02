@@ -1211,7 +1211,7 @@ test("page is a control-forward explicit-audio master synth with no shader viewp
     readFile(new URL("src/pages/srtuss.html", root), "utf8"),
     readFile(new URL("src/instruments/srtuss/srtuss-app.js", root), "utf8"),
     readFile(new URL("src/instruments/srtuss/srtuss.css", root), "utf8"),
-    readFile(new URL("THIRD_PARTY_NOTICES.md", root), "utf8"),
+    readFile(new URL("docs/THIRD_PARTY_NOTICES.md", root), "utf8"),
   ]);
 
   assert.match(html, /sound only · no image shader/);

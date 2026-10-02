@@ -27,7 +27,7 @@ published before this update.
 | Additional spider scans/skins | **Spider skin** selects the original Argiope plus golden orb-weaver, devil spider, King Baboon tarantula, huntsman and fishing spider. All five additional scans have independent calibration, weighted rigs and mobile packaging. Loading or failing a skin preserves the players, pose, sound, web and phase. The fishing species is provisionally identified; tarantula facial/hair detail is softer in the source. These hunting spiders perform in an artistic web, not their natural Argiope-style capture orb. No verified black-widow scan was added. |
 | Solid body-part boundaries | Measured per-specimen body ellipsoids and leg capsules constrain the composed pose, preventing new or deeper attachment overlap. Reach and web-clearance checks preserve supported foot contacts. All six specimens and forty routines have collision regression coverage. This is a solid-volume approximation with explicit tolerances, not full mesh-to-mesh, hair, or elastic-body collision. Original attachment overlap and curled preserved limbs are not erased. |
 
-Evidence: [research ledger](../SPIDER_SYNTH_RESEARCH.md),
+Evidence: [research ledger](SPIDER_SYNTH_RESEARCH.md),
 [original asset provenance and rig limits](../assets/spider-synth/ASSET.md),
 [additional specimen assets](../assets/spider-synth/skins/ASSET.md),
 [recording credits and processing](../assets/audio/spider-synth/README.md),

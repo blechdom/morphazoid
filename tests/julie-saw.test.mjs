@@ -457,7 +457,7 @@ test("Julie Saw page, research, navigation, and release lists expose the full in
     readFile(new URL("../src/instruments/julie-saw/julie-saw.css", import.meta.url), "utf8"),
     readFile(new URL("../src/instruments/julie-saw/julie-saw-app.js", import.meta.url), "utf8"),
     readFile(new URL("../src/instruments/julie-saw/julie-saw-processor.js", import.meta.url), "utf8"),
-    readFile(new URL("../JULIE_SAW_RESEARCH.md", import.meta.url), "utf8"),
+    readFile(new URL("../docs/JULIE_SAW_RESEARCH.md", import.meta.url), "utf8"),
     readFile(new URL("../src/site/instrument-registry.js", import.meta.url), "utf8"),
     readFile(new URL("../src/site/instrument-catalog.js", import.meta.url), "utf8"),
     readFile(new URL("../src/site/instrument-midi-capabilities.js", import.meta.url), "utf8"),
@@ -529,7 +529,7 @@ test("Julie Saw page, research, navigation, and release lists expose the full in
   assert.match(midi, /"julie-saw"/);
   for (const path of [
     "julie-saw.html", "src/instruments/julie-saw/julie-saw.css", "src/instruments/julie-saw/julie-saw-app.js", "src/instruments/julie-saw/julie-saw.js",
-    "src/instruments/julie-saw/julie-saw-processor.js", "assets/instruments/julie-saw.webp", "JULIE_SAW_RESEARCH.md",
+    "src/instruments/julie-saw/julie-saw-processor.js", "assets/instruments/julie-saw.webp", "docs/JULIE_SAW_RESEARCH.md",
   ]) {
     assert.ok(build.worktreeFiles.includes(path), `${path} must have pre-commit copy permission`);
     assert.ok(build.requiredFiles.includes(path), `${path} must be required in the artifact`);

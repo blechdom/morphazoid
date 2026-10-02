@@ -419,7 +419,7 @@ test("page markup exposes one explicit audio arm, one primary transport, and no 
     readFile(new URL("src/pages/hocket-loom.html", root), "utf8"),
     readFile(new URL("src/instruments/hocket-loom/hocket-loom-app.js", root), "utf8"),
     readFile(new URL("src/instruments/hocket-loom/hocket-loom-audio.js", root), "utf8"),
-    readFile(new URL("HOCKET_LOOM_RESEARCH.md", root), "utf8"),
+    readFile(new URL("docs/HOCKET_LOOM_RESEARCH.md", root), "utf8"),
   ]);
   assert.match(html, /<title>Hocket Luigi · Morphazoid<\/title>/);
   assert.equal((html.match(/<h1\b/g) || []).length, 1);

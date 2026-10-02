@@ -2096,7 +2096,7 @@ test("WebGPU Chiptune ships as a separate accessible and credited page", async (
     readFile(new URL("src/instruments/webgpu-chiptune/webgpu-chiptune.css", root), "utf8"),
     readFile(new URL("src/families/chiptune/chiptune-app.js", root), "utf8"),
     readFile(new URL("src/instruments/webgpu-chiptune/webgpu-chiptune.js", root), "utf8"),
-    readFile(new URL("THIRD_PARTY_NOTICES.md", root), "utf8"),
+    readFile(new URL("docs/THIRD_PARTY_NOTICES.md", root), "utf8"),
     readFile(new URL("README.md", root), "utf8"),
     readFile(new URL("scripts/site/runtime-files.tsv", root), "utf8"),
   ]);

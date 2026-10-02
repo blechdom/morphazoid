@@ -162,7 +162,7 @@ test("planning and analysis references remain alongside the isolated rewrite", a
   const [readme, plan, analysis] = await Promise.all([
     source("README.md"),
     source("PLAN.md"),
-    readFile(path.join(packageRoot, "GEOMETRY_ANALYSIS.md"), "utf8"),
+    readFile(path.join(packageRoot, "docs/GEOMETRY_ANALYSIS.md"), "utf8"),
   ]);
   assert.match(readme, /Isolation rule/);
   assert.match(plan, /Feature Atlas/);

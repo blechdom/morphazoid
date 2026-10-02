@@ -264,7 +264,7 @@ export const HOCKET_PRESETS = Object.freeze([
     ],
     source: {
       title: "Hocket Luigi original",
-      url: "./HOCKET_LOOM_RESEARCH.md",
+      url: "./docs/HOCKET_LOOM_RESEARCH.md",
       note: "A new pattern included to expose gaps and overlaps as compositional material.",
     },
   }),

@@ -16,7 +16,7 @@ performers, a filthy venue, musical phrases, passing, and crowd boos.
 | Juggling sonification | Arthur Wagenaar, [Juggling as a controller of electronic music](https://www.arthurwagenaar.nl/wp-content/uploads/Juggling-as-a-controller-of-electronic-music.pdf) | Contacts can trigger samples while trajectories modulate sound. Here, a prop has independent drum and airborne riff assignments, preserved when a replacement changes its physical material. |
 | State planning | [Beyond the Cascade: Juggling Vanilla Siteswap Patterns](https://arxiv.org/abs/2410.19591) | Supports planning legal transitions rather than choosing throw digits independently. Our small deterministic generator uses a hand-validated compatible chunk bank, not the paper's robot implementation. |
 | Motion | [NASA flight equations with drag](https://www1.grc.nasa.gov/beginners-guide-to-aeronautics/flight-equations-with-drag/) | Shared gravity; drag acceleration depends on mass. NASA describes quadratic aerodynamic drag; the browser uses an exact **linear-drag approximation**, invented masses, and world units. This is a stylized musical game, not calibrated biomechanics. |
-| Recorded sounds | [Karoryfer free samples](https://shop.karoryfer.com/pages/free-samples), [NeoSpica crowd boo](https://freesound.org/people/NeoSpica/sounds/504621/), [jayfrosting woo](https://freesound.org/people/jayfrosting/sounds/333421/), [rhink Oi](https://freesound.org/people/rhink/sounds/245867/) | Five acoustic drums and three vocal recordings are CC0. Exact source filenames, pinned source commit, processing, and license are in [sound credits](assets/puggler/CREDITS.md). Guitar/bass are original synthesis; OI repeats three complete recorded calls and WOO uses recorded audience voices. Vocal playback is gently bent within 0.84–1.2× and avoids guitar overdrive. |
+| Recorded sounds | [Karoryfer free samples](https://shop.karoryfer.com/pages/free-samples), [NeoSpica crowd boo](https://freesound.org/people/NeoSpica/sounds/504621/), [jayfrosting woo](https://freesound.org/people/jayfrosting/sounds/333421/), [rhink Oi](https://freesound.org/people/rhink/sounds/245867/) | Five acoustic drums and three vocal recordings are CC0. Exact source filenames, pinned source commit, processing, and license are in [sound credits](../assets/puggler/CREDITS.md). Guitar/bass are original synthesis; OI repeats three complete recorded calls and WOO uses recorded audience voices. Vocal playback is gently bent within 0.84–1.2× and avoids guitar overdrive. |
 
 ## Fixed and phrased patterns
 
@@ -85,8 +85,8 @@ bounded intensity changes. They remain visual parameters, with no new sound
 sources or timers. The expanded audience contains two distinct women and a baby,
 all shown from behind. The baby appears supported beside an adult and has a
 smaller, slower movement range. New cutout prompts and provenance are in
-[skin artwork credits](assets/puggler/SKINS_CREDITS.md) and
-[audience credits](assets/puggler/CROWD_EXTRA_CREDITS.md).
+[skin artwork credits](../assets/puggler/SKINS_CREDITS.md) and
+[audience credits](../assets/puggler/CROWD_EXTRA_CREDITS.md).
 
 ### Character vocals
 
@@ -232,7 +232,7 @@ this is not a full simulation of rider biomechanics.
 Five rear-view cutout types vary hair, age, clothing, and proportions; raised
 hands include phones, lit lighters, open hands, peace signs, and horns with varied
 skin tones. The generated images and exact prompts are documented in
-[asset credits](assets/puggler/CREDITS.md).
+[asset credits](../assets/puggler/CREDITS.md).
 
 Crowd motion consumes the same timestamped juggling contacts that trigger the
 drums. Each listener has different drum preferences, reaction delays, short bounce
@@ -365,7 +365,7 @@ The revised sound bank separates the eras rather than sharing FM/chirp recipes:
   shouts and screams, and harmonic amp feedback. No FM/laser voice families are
   assigned to punk. Two original eSpeak-generated mic-check/count-in clips add
   “check check / is this thing on?” and “one two three four”; they are **synthetic
-  speech**, not new actor recordings. [Asset provenance](assets/puggler/CREDITS.md).
+  speech**, not new actor recordings. [Asset provenance](../assets/puggler/CREDITS.md).
 - **Future:** coupled-phase “gizzle” packets, targeting glides, beep-beep pulses,
   seven-step unquantized contours, ring-modulated textures, swept filters,
   reversed voice fragments and two finite echoes. “Gizzle” is a sound-design

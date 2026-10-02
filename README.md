@@ -74,7 +74,7 @@ controls shape 17 web families, and the spider can lay silk, catch flies and
 follow a joystick. Each selected specimen loads individually without delaying
 Audio; changing its skin or body pose preserves the players.
 See the [request audit](docs/spider-synth-request-audit.md),
-[research and model limits](SPIDER_SYNTH_RESEARCH.md) and
+[research and model limits](docs/SPIDER_SYNTH_RESEARCH.md) and
 [MIDI performance guide](docs/spider-synth-midi.md).
 
 A growing collection of geometric, recursive, analytic, and transformed-audio instruments.
@@ -86,7 +86,7 @@ drag the amber bow for direction, speed, contact, and pressure, then lift it to
 leave the purer long-lived mode ringing. Twenty-one recoverable performances,
 sourced bow pulses and rhythms, hand or knee vibrato, siren and storm motions,
 mallets, edge pluck, thimble taps, scrape, and choke expose the blade's range.
-See [the acoustics, comprehensive technique inventory, and model limits](JULIE_SAW_RESEARCH.md).
+See [the acoustics, comprehensive technique inventory, and model limits](docs/JULIE_SAW_RESEARCH.md).
 
 **Roach Synth** turns a detailed CC BY cockroach scan into a playable instrument
 with 31 runtime joints, four independently hinged wings, a grounded stance and
@@ -111,9 +111,9 @@ worker; sound remains playable while the model loads.
 with velocity, sustain, pitch bend and eight assignable controller
 routes. Body notes play the assigned mixer sounds without taking over either
 player; graphics follow the same audio-clock gestures.
-[Sound evidence, recordings and model limitations](ROACH_SYNTH_RESEARCH.md).
+[Sound evidence, recordings and model limitations](docs/ROACH_SYNTH_RESEARCH.md).
 
-**Puggler the Punk Rock Jugger** turns unicycle juggling into a noisy three-era show. Each of 33 prop types has its own air and catch voice in Trashpunk, History Mashup and Future 3026: 99 skin-specific identities built from acoustic/string models, the original recorded kit and vocals, and futuristic synthesis. New object-note rhythms follow the juggling beat independently of pitch; preset/dice mixes use a much narrower nominal level range. Twenty-four full-scene control-panel presets, Next and generative dice span one to ten objects, 100–1,200 BPM, gentle articulations and dense freakouts; 22 focused juggling acts remain below. Eleven adjustable light looks include party beams, mirror-ball disco, lasers and optional strobe accents. Flashes require separate consent and respect reduced motion. Historical and futuristic gig bills join the punk flyers. The borderless stage stays visible while phone controls scroll. Presets preserve Audio, Play and master Output; Audio starts off. [Research, controls and approximations](PUGGLER_RESEARCH.md); [CC0 recording credits](assets/puggler/CREDITS.md).
+**Puggler the Punk Rock Jugger** turns unicycle juggling into a noisy three-era show. Each of 33 prop types has its own air and catch voice in Trashpunk, History Mashup and Future 3026: 99 skin-specific identities built from acoustic/string models, the original recorded kit and vocals, and futuristic synthesis. New object-note rhythms follow the juggling beat independently of pitch; preset/dice mixes use a much narrower nominal level range. Twenty-four full-scene control-panel presets, Next and generative dice span one to ten objects, 100–1,200 BPM, gentle articulations and dense freakouts; 22 focused juggling acts remain below. Eleven adjustable light looks include party beams, mirror-ball disco, lasers and optional strobe accents. Flashes require separate consent and respect reduced motion. Historical and futuristic gig bills join the punk flyers. The borderless stage stays visible while phone controls scroll. Presets preserve Audio, Play and master Output; Audio starts off. [Research, controls and approximations](docs/PUGGLER_RESEARCH.md); [CC0 recording credits](assets/puggler/CREDITS.md).
 
 **Yoyodyne** is a kinetic string instrument: the yo-yo itself makes the music. Throw, tug, catch, or drag the performer's hand; axial spin excites a continuous string resonator while string length and tension bend pitch, travel changes brightness, and position steers stereo. Sleeper, Rock the Cradle, Around the World, and Gravity Pull move the hand through distinct tempo-controlled routines without imposing a body path. Audio is explicitly armed and independent of motion. This is a bounded physical approximation and musical sonification, not a validated acoustic replica of a yo-yo. See [the kinetic model and limits](docs/yoyodyne-kinetic.md).
 
@@ -346,7 +346,7 @@ Open the localhost URL printed by the server. It starts at port `3435` and
 automatically tries the next port when that address is already in use.
 
 The reusable UI primitives and design tokens are documented in
-[DESIGN_SYSTEM.md](DESIGN_SYSTEM.md). Run the component catalog locally with
+[DESIGN_SYSTEM.md](docs/DESIGN_SYSTEM.md). Run the component catalog locally with
 `npm run storybook`, or generate its static HTML/CSS/JavaScript output with
 `npm run build:storybook`.
 
@@ -354,7 +354,7 @@ The reusable UI primitives and design tokens are documented in
 component catalog together under `dist/`; Storybook is published at
 `dist/storybook/`.
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for repository layout, coding and build
+See [CONTRIBUTING.md](docs/CONTRIBUTING.md) for repository layout, coding and build
 conventions, generated artifacts, and the verification matrix. Agent and MCP
 maintenance decisions are documented in
 [docs/agent-tooling.md](docs/agent-tooling.md).
@@ -368,9 +368,9 @@ npm run analyze:julia-similarity
 
 `npm run verify` covers JavaScript parsing, Node tests, and committed WAX
 parity. It does not run Playwright; choose the applicable browser suite from
-[QA_AUTOMATION.md](QA_AUTOMATION.md).
+[QA_AUTOMATION.md](docs/QA_AUTOMATION.md).
 
 ## License
 
 Morphazoid is available under the [MIT License](LICENSE). Bundled third-party
-components retain the terms listed in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+components retain the terms listed in [THIRD_PARTY_NOTICES.md](docs/THIRD_PARTY_NOTICES.md).

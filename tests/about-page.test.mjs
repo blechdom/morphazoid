@@ -187,7 +187,7 @@ test("About document styles remain independently scrollable on instrument breakp
 test("repository declares Morphazoid's MIT license and keeps third-party terms separate", async () => {
   const [license, notices, signalsmithLicense, readme, packageText] = await Promise.all([
     readFile(new URL("LICENSE", root), "utf8"),
-    readFile(new URL("THIRD_PARTY_NOTICES.md", root), "utf8"),
+    readFile(new URL("docs/THIRD_PARTY_NOTICES.md", root), "utf8"),
     readFile(new URL("vendor/signalsmith-stretch/LICENSE", root), "utf8"),
     readFile(new URL("README.md", root), "utf8"),
     readFile(new URL("package.json", root), "utf8"),
@@ -198,7 +198,7 @@ test("repository declares Morphazoid's MIT license and keeps third-party terms s
   assert.match(license, /Permission is hereby granted, free of charge/);
   assert.match(license, /THE SOFTWARE IS PROVIDED "AS IS"/);
   assert.match(readme, /\[MIT License\]\(LICENSE\)/);
-  assert.match(readme, /\[THIRD_PARTY_NOTICES\.md\]\(THIRD_PARTY_NOTICES\.md\)/);
+  assert.match(readme, /\[THIRD_PARTY_NOTICES\.md\]\(docs\/THIRD_PARTY_NOTICES\.md\)/);
   assert.match(notices, /## Pink Trombone/);
   assert.match(notices, /## MakeHuman teeth_base/);
   assert.match(notices, /## Three\.js/);

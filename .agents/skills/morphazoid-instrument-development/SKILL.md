@@ -11,7 +11,7 @@ take precedence over this workflow.
 
 ## Prepare
 
-1. Read the repository `AGENTS.md`, `DESIGN_SYSTEM.md`, `QA_AUTOMATION.md`, and
+1. Read the repository `AGENTS.md`, `docs/DESIGN_SYSTEM.md`, `docs/QA_AUTOMATION.md`, and
    `contracts/audio-transport-v1.md`.
 2. Verify the repository root, branch/worktree, dirty state, and active preview
    root using [worktree and source paths](../../../docs/agent-tooling.md#worktree-and-source-paths).
@@ -23,7 +23,7 @@ take precedence over this workflow.
    siblings to collect actual entries, dependency edges (`--json`), registration,
    asset/WAX observations, and candidate commands in one read-only pass. It finds
    its checkout from the script path and reports the current Node executable;
-   use the supported Node versions in `CONTRIBUTING.md`, not a remembered local
+   use the supported Node versions in `docs/CONTRIBUTING.md`, not a remembered local
    installation path. Review its discovery limits before relying on the result.
    Follow page/import references into `src/instruments/` or `src/families/`;
    instrument models/worklets now live with their owners. Shared infrastructure

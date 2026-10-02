@@ -17,7 +17,7 @@ test("Graph Drum Machine and Graph Synth expose the shared graph-feedback workbe
     readFile(new URL("src/families/graph/graph-drum-audio.js", root), "utf8"),
     readFile(new URL("src/instruments/graph-drum-machine/graph-drum-machine-app.js", root), "utf8"),
     readFile(new URL("src/instruments/graph-synth/graph-synth-app.js", root), "utf8"),
-    readFile(new URL("GRAPH_INSTRUMENTS_RESEARCH.md", root), "utf8"),
+    readFile(new URL("docs/GRAPH_INSTRUMENTS_RESEARCH.md", root), "utf8"),
   ]);
 
   assert.match(drums, /<title>Graph Drum Machine — Morphazoid<\/title>/);
@@ -354,7 +354,7 @@ test("the release builder includes every new Graph instrument runtime file", asy
     "src/families/graph/graph-synth-audio.js",
     "assets/instruments/graph-drums.webp",
     "assets/instruments/graph-synth.webp",
-    "GRAPH_INSTRUMENTS_RESEARCH.md",
+    "docs/GRAPH_INSTRUMENTS_RESEARCH.md",
   ]) {
     assert.match(build, new RegExp(file.replace(/[./-]/g, "\\$&")));
   }

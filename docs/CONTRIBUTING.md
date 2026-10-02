@@ -45,11 +45,11 @@ worktrees at once, so preserve unrelated tracked and untracked work.
 
 Public HTML addresses remain at the root; renamed addresses have compatibility
 redirects preserving query strings and fragments. Runtime assets stay top-level.
-The [catalogue/layout update](docs/v2-catalogue-layout-results.md) records the
+The [catalogue/layout update](v2-catalogue-layout-results.md) records the
 September 18 naming decisions, current ownership boundaries, and verification.
 
-The root [AGENTS.md](AGENTS.md) contains durable rules shared by coding agents.
-The [agent-tooling guide](docs/agent-tooling.md) explains when guidance belongs
+The root [AGENTS.md](../AGENTS.md) contains durable rules shared by coding agents.
+The [agent-tooling guide](agent-tooling.md) explains when guidance belongs
 in `AGENTS.md`, a skill, an MCP server, human documentation, or executable
 tests. Do not duplicate those rules in provider-specific instruction files.
 
@@ -137,7 +137,7 @@ Start with the narrowest relevant test, then run the required repository gate.
 | Audible identity, presets, transitions, or control leverage | Mechanical tests plus a documented listening pass; automation alone cannot approve timbre |
 | Storybook or shared component catalog | `npm run build:storybook -- --output-dir dist/storybook`, then `npm run check:storybook-dist`, after the normal browser checks |
 | Release assembly | `npm run build:deploy`; inspect the exact generated root before publication |
-| Native or REAPER code | Follow [plugins/README.md](plugins/README.md) and the nearest subtree README |
+| Native or REAPER code | Follow [plugins/README.md](../plugins/README.md) and the nearest subtree README |
 | Documentation only | Check commands, links, paths, and source-derived facts; run affected generators or tests when the prose describes executable behavior |
 
 `npm run verify` does not run Playwright or build Storybook. See
@@ -146,15 +146,15 @@ modes, artifacts, and manual release boundary.
 
 ## Preservation-first refactoring
 
-Follow the bounded steps in [the v2 plan](docs/v2-refactoring-plan.md).
+Follow the bounded steps in [the v2 plan](v2-refactoring-plan.md).
 `npm run analyze:architecture` produces advisory duplication and dependency
 reports without rewriting source; these are not release gates. The focused
 Solid/Hyper checks run with `npm run test:browser:v2-pilot`.
 Use `npm run test:refactor:fast` during edits and
 `npm run test:refactor:batch` for a larger review batch; the latter includes
 broader canvas and playback checks and preserves existing verification failures.
-See [refactoring tooling](docs/refactoring-tooling.md) for report scope, server
-selection, and evidence capture, and [baseline results](docs/v2-baseline-results.md)
+See [refactoring tooling](refactoring-tooling.md) for report scope, server
+selection, and evidence capture, and [baseline results](v2-baseline-results.md)
 for pre-existing failures and the remaining human-review boundary.
 
 ## Documentation maintenance

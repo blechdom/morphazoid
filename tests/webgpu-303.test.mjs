@@ -513,7 +513,7 @@ test("WebGPU 303 page ships as a separate credited section", async () => {
     readFile(new URL("src/instruments/webgpu-303/webgpu-303.css", root), "utf8"),
     readFile(new URL("src/instruments/webgpu-303/webgpu-303-app.js", root), "utf8"),
     readFile(new URL("src/webgpu-303.js", root), "utf8"),
-    readFile(new URL("THIRD_PARTY_NOTICES.md", root), "utf8"),
+    readFile(new URL("docs/THIRD_PARTY_NOTICES.md", root), "utf8"),
     readFile(new URL("README.md", root), "utf8"),
     readFile(new URL("scripts/site/runtime-files.tsv", root), "utf8"),
   ]);

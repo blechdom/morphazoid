@@ -208,7 +208,7 @@ Speed. Six additive scenes cover clear, warm and reed/creature settings.
   circuitry. Used as historical/mechanism evidence; no ROM or source copied.
 - `scripts/audio/build-spelling-lpc.mjs` deterministically generates
   `spelling-lpc-atlas.js`; `--check` verifies it against the source WAV's SHA-256.
-  Source attribution and derivative notice remain in `THIRD_PARTY_NOTICES.md`.
+  Source attribution and derivative notice remain in `docs/THIRD_PARTY_NOTICES.md`.
 - `tests/spelling-retro.test.mjs` checks quantization, coefficient stability,
   all 43 phone/pair units at 44.1/48/96 kHz, pitch/tone/breath sensitivity,
   release/reset, bounded repeated transitions and additive scenes. Audio

@@ -9,7 +9,7 @@ test("Throatazoid is a first-class mic and glottis-driven Morphazoid instrument"
     readFile(new URL("src/pages/throatazoid.html", root), "utf8"),
     readFile(new URL("src/instruments/throatazoid/throatazoid.css", root), "utf8"),
     readFile(new URL("src/instruments/throatazoid/throatazoid-app.js", root), "utf8"),
-    readFile(new URL("THIRD_PARTY_NOTICES.md", root), "utf8"),
+    readFile(new URL("docs/THIRD_PARTY_NOTICES.md", root), "utf8"),
   ]);
 
   assert.match(html, /<title>THROATAZOID<\/title>/);
@@ -70,7 +70,7 @@ test("Throatazoid is a first-class mic and glottis-driven Morphazoid instrument"
   assert.match(html, /rel="noopener noreferrer"/);
   assert.match(
     html,
-    /href="THIRD_PARTY_NOTICES\.md">license notice<\/a>/,
+    /href="docs\/THIRD_PARTY_NOTICES\.md">license notice<\/a>/,
     "the MIT adaptation notice must be reachable from the page",
   );
   assert.match(notices, /Copyright 2017 Neil Thapen/);

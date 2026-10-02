@@ -424,7 +424,7 @@ test("the page exposes quiet opt-in audio, accessible interaction, responsive la
     readFile(new URL("src/instruments/wave-pool/wave-pool-app.js", root), "utf8"),
     readFile(new URL("src/instruments/wave-pool/wave-pool.js", root), "utf8"),
     readFile(new URL("src/instruments/wave-pool/wave-pool-processor.js", root), "utf8"),
-    readFile(new URL("WAVE_POOL_RESEARCH.md", root), "utf8"),
+    readFile(new URL("docs/WAVE_POOL_RESEARCH.md", root), "utf8"),
   ]);
   assert.match(html, /id="audioButton"[^>]*aria-pressed="false"/);
   assert.match(html, /id="level"[^>]*max="0\.7"[^>]*value="0\.3"/);
