@@ -18,9 +18,10 @@ async function choose(page, id, value) {
 }
 async function settleScroll(page) {
   await page.evaluate(() => new Promise((resolve, reject) => {
-    const deadline = performance.now() + 3000; let previous = scrollY, stableSince = performance.now();
+    const position = () => scrollY + (document.querySelector('.roach-panel')?.scrollTop ?? 0);
+    const deadline = performance.now() + 3000; let previous = position(), stableSince = performance.now();
     function check(now) {
-      if (Math.abs(scrollY - previous) > .1) { previous = scrollY; stableSince = now; }
+      if (Math.abs(position() - previous) > .1) { previous = position(); stableSince = now; }
       if (now - stableSince >= 140) resolve();
       else if (now > deadline) reject(new Error('Touch scroll did not settle'));
       else requestAnimationFrame(check);
@@ -322,7 +323,7 @@ test('direct part drags choose their body group and play while Play is paused', 
 });
 
 for (const size of [{ width: 360, height: 800 }, { width: 390, height: 844 }, { width: 844, height: 390 }]) {
-  test(`mobile ${size.width}×${size.height} keeps a larger sticky stage, scrollable controls and fitting body rows`, async ({ browser, baseURL }) => {
+  test(`mobile ${size.width}×${size.height} keeps graphic controls reachable beside or above scrollable parameters`, async ({ browser, baseURL }) => {
     const context = await browser.newContext({ viewport: size, isMobile: true, hasTouch: true, reducedMotion: 'reduce' });
     const page = await context.newPage();
     try {
@@ -332,12 +333,14 @@ for (const size of [{ width: 360, height: 800 }, { width: 390, height: 844 }, { 
       const footer = await page.locator('.roach-stage > .roach-view-controls').boundingBox();
       expect(footer.y).toBeGreaterThanOrEqual(stage.y + stage.height - 1);
       await page.locator('#source-head').scrollIntoViewIfNeeded();
-      const scrollControl = await page.locator('#source-head').boundingBox(), initialScroll = await page.evaluate(() => scrollY);
+      const scrollControl = await page.locator('#source-head').boundingBox();
+      const scrollPosition = () => page.evaluate(() => scrollY + document.querySelector('.roach-panel').scrollTop);
+      const initialScroll = await scrollPosition();
       const cdp = await context.newCDPSession(page);
-      await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: size.width * .4, y: scrollControl.y + scrollControl.height / 2 }] });
-      for (let i = 1; i <= 8; i++) await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: size.width * .4, y: scrollControl.y + scrollControl.height / 2 - 80 * i / 8 }] });
+      await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: scrollControl.x + scrollControl.width / 2, y: scrollControl.y + scrollControl.height / 2 }] });
+      for (let i = 1; i <= 8; i++) await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: scrollControl.x + scrollControl.width / 2, y: scrollControl.y + scrollControl.height / 2 - 80 * i / 8 }] });
       await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
-      await expect.poll(() => page.evaluate(() => scrollY)).toBeGreaterThan(initialScroll + 20);
+      await expect.poll(scrollPosition).toBeGreaterThan(initialScroll + 20);
       await settleScroll(page);
       await expect.poll(async () => {
         const currentStage = await page.locator('#specimenViewport').boundingBox(), header = await page.locator('.masthead').boundingBox();
@@ -348,7 +351,13 @@ for (const size of [{ width: 360, height: 800 }, { width: 390, height: 844 }, { 
         const box = await page.locator(selector).boundingBox();
         expect(box.y + box.height).toBeLessThanOrEqual(size.height + 1);
         const currentStage = await page.locator('#specimenViewport').boundingBox();
-        expect(box.y).toBeGreaterThanOrEqual(currentStage.y + currentStage.height - 1);
+        if (size.width < size.height) {
+          const currentFooter = await page.locator('.roach-stage > .roach-view-controls').boundingBox();
+          expect(box.y).toBeGreaterThanOrEqual(currentFooter.y + currentFooter.height - 1);
+        } else {
+          expect(box.x).toBeGreaterThanOrEqual(currentStage.x + currentStage.width - 1);
+          expect(box.y).toBeGreaterThanOrEqual((await page.locator('.masthead').boundingBox()).height - 1);
+        }
         expect(await page.locator(selector).evaluate(element => {
           const rect = element.getBoundingClientRect(), hit = document.elementFromPoint(rect.x + rect.width / 2, rect.y + rect.height / 2);
           return element.contains(hit) || Boolean(element.closest('label')?.contains(hit));
