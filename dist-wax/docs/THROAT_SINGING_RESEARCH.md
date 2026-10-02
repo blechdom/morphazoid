@@ -236,8 +236,8 @@ coordinates, so resizing preserves its proportions.
 The profile keeps a larger, raised upright nose bridge and rear head/neck edge,
 with no eyebrow or nostril mark and the crown open.
 The spectrum sits to the left of an expanded focus movement field, and the
-bottom-right readout box is removed. The mouth surface and its handle use a
-brighter warm pink, distinct from the purple overtone focus.
+bottom-right readout box is removed. The tongue-shaped mouth body has a visible
+soft pink fill, with a brighter pink outline and handle.
 Direct mouth and lip handles mirror oral constriction and lip rounding; a vertical lip drag
 also opens the mouth. Focus drag leaves oral constriction independent. Airflow
 controls the original 0–100% pressure range with nearly three times the visible

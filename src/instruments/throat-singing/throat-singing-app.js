@@ -1747,7 +1747,7 @@ function drawTongue(context, geometry, performanceState) {
     cssWidth * 0.74, floorY - lift * 1.9, cssWidth * 0.81, floorY - lift * 0.25);
   context.quadraticCurveTo(cssWidth * 0.7, floorY + cssHeight * 0.065,
     cssWidth * 0.32, floorY + cssHeight * 0.035);
-  context.fillStyle = "rgba(255,130,158,0.24)";
+  context.fillStyle = "rgba(255,166,186,0.72)";
   context.fill();
   context.strokeStyle = "rgba(255,130,158,0.8)";
   context.lineWidth = 1.5;
