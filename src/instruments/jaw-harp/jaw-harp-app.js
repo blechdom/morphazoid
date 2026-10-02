@@ -2083,6 +2083,36 @@ function drawHarp(model) {
   );
   strokePath("#f0c46e", 2.2 * anatomyScale, 0.95);
 
+  // Button, keyboard, MIDI and repeat strikes all arrive through presentPluck.
+  // Give those otherwise invisible finger actions the same quick retreat as a
+  // direct canvas pull, then leave the slower reed rebound in view.
+  const releaseAge = visualTineRelease && !prefersReducedMotion
+    ? Math.max(0, (performance.now() - visualTineRelease.startedAt) / 1_000)
+    : Infinity;
+  if (releaseAge < 0.34) {
+    const retreat = clamp(releaseAge / 0.34);
+    const pullDirection = visualTineRelease.direction < 0 ? -1 : 1;
+    const fingerX = triggerX + (12 + retreat * 39) * anatomyScale;
+    const fingerY = triggerY + pullDirection * (7 + retreat * 13) * anatomyScale;
+    drawing.save();
+    drawing.globalAlpha = (1 - retreat) * 0.88;
+    drawing.beginPath();
+    drawing.moveTo(fingerX + 30 * anatomyScale, fingerY + 12 * anatomyScale);
+    drawing.quadraticCurveTo(
+      fingerX + 14 * anatomyScale,
+      fingerY + 3 * anatomyScale,
+      fingerX,
+      fingerY,
+    );
+    strokePath("#edc39b", 5.5 * anatomyScale, 0.58);
+    drawing.beginPath();
+    drawing.arc(fingerX - 2 * anatomyScale, fingerY, 5.6 * anatomyScale, 0, Math.PI * 2);
+    drawing.fillStyle = "#f3cfab";
+    drawing.fill();
+    strokePath("#8b5b43", 1 * anatomyScale, 0.75);
+    drawing.restore();
+  }
+
   drawing.fillStyle = "rgba(223, 157, 90, 0.64)";
   drawing.font = `600 ${Math.min(9, 7 * anatomyScale)}px ui-monospace, SFMono-Regular, Consolas, monospace`;
   drawing.textAlign = "center";

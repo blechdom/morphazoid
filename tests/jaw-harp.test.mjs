@@ -364,7 +364,12 @@ test("time-expanded tine motion keeps powerful second and third rebounds", () =>
   assert.ok(bambooPeaks[1] > bambooPeaks[0] * 0.9);
   assert.ok(bambooPeaks[2] > bambooPeaks[0] * 0.88);
   assert.ok(steelPeaks[2] / steelPeaks[0] > bambooPeaks[2] / bambooPeaks[0]);
-  assert.ok(Math.abs(tineReleaseMotion(steelState, 8 * steelPeriod, 1, 1)) < steelPeaks[0] * 0.01);
+  assert.ok(
+    Math.abs(tineReleaseMotion(steelState, 6 * steelPeriod, 1, 1))
+      > steelPeaks[0] * 0.8,
+    "the player should see several clear rebounds before the display tail fades",
+  );
+  assert.ok(Math.abs(tineReleaseMotion(steelState, 11 * steelPeriod, 1, 1)) < steelPeaks[0] * 0.01);
   assert.equal(
     tineReleaseMotion(steelState, 0, 1, -1),
     -tineReleaseMotion(steelState, 0, 1, 1),

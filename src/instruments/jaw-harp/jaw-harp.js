@@ -1158,7 +1158,10 @@ export function reedModeFrequencies(source = JAW_HARP_DEFAULTS, count = 24) {
 
 export function tineDisplayFrequencyHz(source = JAW_HARP_DEFAULTS) {
   const state = sanitizeJawHarpState(source);
-  return clamp(Math.sqrt(state.reedFrequencyHz) * 0.95, 5.5, 12);
+  // A real lamella is far too quick to follow at the display rate. Slow the
+  // presentation enough for a player to read the pull, rebound, and settling
+  // swings, without suggesting that the audio model has changed pitch.
+  return clamp(Math.sqrt(state.reedFrequencyHz) * 0.72, 4.8, 7);
 }
 
 // A time-expanded view of the same underdamped release. Actual jaw-harp reeds
@@ -1188,9 +1191,11 @@ export function tineReleaseMotion(
   const cycleRetention = systemCycleRetention
     * Math.pow(physics.intrinsicCycleRetention, 0.12);
   const dampedCycles = cycles * Math.sqrt(Math.max(0, 1 - physics.dampingRatio ** 2));
-  const presentationFade = cycles <= 5.25
+  // Keep several whole rebounds visible. This is deliberately a display-only
+  // envelope: the worklet retains the physical, audio-rate lamella motion.
+  const presentationFade = cycles <= 6
     ? 1
-    : Math.exp(-Math.pow((cycles - 5.25) / 1.15, 2));
+    : Math.exp(-Math.pow((cycles - 6) / 1.35, 2));
   const side = finiteOr(direction, state.pluckDirection) < 0 ? -1 : 1;
   return side * normalizedForce
     * Math.pow(cycleRetention, cycles)
