@@ -438,7 +438,8 @@ export function createRoachViewer({ canvas, onStatus = () => {}, onRig = () => {
     // face hinges at their rear attachments, preserving every resting mesh and
     // child world transform, so a lift opens away from the chest and floor.
     const neckItem = find('neck', /neck|pronotum/i);
-    if (headItem && neckItem && !headBounds.isEmpty()) {
+    if (headItem?.bone.userData.rigType === 'approximate rigid articulation'
+      && neckItem?.bone.userData.rigType === 'approximate rigid articulation' && !headBounds.isEmpty()) {
       const facePoints = [];
       headItem.bone.traverse(object => {
         if (!object.geometry?.attributes?.position) return;
@@ -449,9 +450,9 @@ export function createRoachViewer({ canvas, onStatus = () => {}, onRig = () => {
         for (let i = 0; i < vertices.count; i++) facePoints.push(new THREE.Vector3().fromBufferAttribute(vertices, i).applyMatrix4(object.matrixWorld));
       });
       if (facePoints.length) {
-        let rear = Infinity, front = -Infinity, low = Infinity, high = -Infinity;
+        let rear = Infinity, low = Infinity, high = -Infinity;
         for (const point of facePoints) {
-          rear = Math.min(rear, point.dot(forward)); front = Math.max(front, point.dot(forward));
+          rear = Math.min(rear, point.dot(forward));
           low = Math.min(low, point.dot(dorsal)); high = Math.max(high, point.dot(dorsal));
         }
         const rebase = (item, pivot) => {
@@ -469,7 +470,7 @@ export function createRoachViewer({ canvas, onStatus = () => {}, onRig = () => {
         const neckPivot = neckItem.bone.getWorldPosition(new THREE.Vector3());
         neckPivot.addScaledVector(forward, rear - bodyLength * .03 - neckPivot.dot(forward));
         rebase(neckItem, neckPivot);
-        const headPivot = headCenter.clone().addScaledVector(forward, rear + (front - rear) * .2 - headCenter.dot(forward))
+        const headPivot = headCenter.clone().addScaledVector(forward, rear - bodyLength * .015 - headCenter.dot(forward))
           .addScaledVector(dorsal, low + (high - low) * .72 - headCenter.dot(dorsal));
         rebase(headItem, headPivot);
       }
