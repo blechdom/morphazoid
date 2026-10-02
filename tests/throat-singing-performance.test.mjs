@@ -10,9 +10,11 @@ import {
   ORNAMENT_PATTERNS,
   PITCH_MELODIES,
   THROAT_SINGER_EXTRA_DEFAULTS,
+  THROAT_SINGER_EXTRA_LIMITS,
   THROAT_SINGER_PERFORMANCE_DEFAULTS,
   THROAT_SINGER_PRESETS,
   evaluateSingerPerformance,
+  breathEnvelope,
   randomizeSingerPreset,
   sanitizePerformanceSettings,
   sanitizeSingerExtras,
@@ -83,9 +85,180 @@ test("settings and extras sanitize invalid input with bounded defaults", () => {
     pulseDepth: Infinity, impossibleFocus: -5, sourceInstability: 10,
   });
   assert.deepEqual(extras, {
+    ...THROAT_SINGER_EXTRA_DEFAULTS,
     sublingualCoupling: 1, phantomAirways: 3, pulseRate: 0,
     pulseDepth: 0, impossibleFocus: 0, sourceInstability: 1,
   });
+});
+
+test("legacy loop modes normalize into independent switches and round-trip completely", () => {
+  for (const [ornamentLoop, playing, pingPong, repeat] of [
+    ["off", false, false, true], ["once", true, false, false],
+    ["loop", true, false, true], ["alternate", true, true, true],
+  ]) {
+    const settings = sanitizePerformanceSettings({ ornamentLoop });
+    assert.equal(settings.ornamentPlaying, playing);
+    assert.equal(settings.ornamentPingPong, pingPong);
+    assert.equal(settings.ornamentRepeat, repeat);
+    assert.equal(settings.ornamentLoop, ornamentLoop);
+    assert.deepEqual(sanitizePerformanceSettings(settings), settings);
+  }
+  const controls = sanitizePerformanceSettings({
+    ornamentPlaying: false, ornamentPingPong: true, ornamentRepeat: false,
+    ornamentDirection: "reverse", ornamentLoop: "loop",
+    melodyPlaying: false, melodyPingPong: true, melodyRepeat: false, melodyDirection: "reverse",
+    breathRateBpm: 99, portamentoSeconds: -9,
+  });
+  assert.equal(controls.ornamentLoop, "off");
+  assert.equal(controls.ornamentPingPong, true);
+  assert.equal(controls.ornamentRepeat, false);
+  assert.equal(controls.melodyPlaying, false);
+  assert.equal(controls.melodyPingPong, true);
+  assert.equal(controls.melodyRepeat, false);
+  assert.equal(controls.breathRateBpm, 30);
+  assert.equal(controls.portamentoSeconds, 0);
+  assert.deepEqual(sanitizePerformanceSettings(controls), controls);
+});
+
+test("new polyphony and effects parameters retain moderate defaults and bounded values", () => {
+  const result = sanitizeSingerExtras({
+    pitchVoices: 99, pitchSpreadSemitones: -9, overtoneVoices: 2.6,
+    overtoneSpread: 99, reverbMix: 99, delayMix: 99, delayTimeSeconds: -8, delayFeedback: 99,
+  });
+  assert.equal(result.pitchVoices, 4);
+  assert.equal(result.pitchSpreadSemitones, 0);
+  assert.equal(result.overtoneVoices, 3);
+  assert.equal(result.overtoneSpread, 6);
+  assert.equal(result.reverbMix, 0.65);
+  assert.equal(result.delayMix, 0.6);
+  assert.equal(result.delayTimeSeconds, 0.06);
+  assert.equal(result.delayFeedback, 0.65);
+  for (const key of ["pitchVoices", "pitchSpreadSemitones", "overtoneVoices", "overtoneSpread", "reverbMix", "delayMix", "delayTimeSeconds", "delayFeedback"]) {
+    assert.ok(new Set(THROAT_SINGER_PRESETS.map(({ extras }) => extras[key])).size > 1, `${key} represented in the preset bank`);
+  }
+  for (const { extras } of THROAT_SINGER_PRESETS) {
+    for (const [key, [low, high]] of Object.entries(THROAT_SINGER_EXTRA_LIMITS)) {
+      assert.ok(extras[key] >= low && extras[key] <= high, `${key} bounded`);
+    }
+  }
+});
+
+test("stopped tracks leave their own articulation neutral while other track and vibrato continue", () => {
+  const base = { ...centeredState(), vibratoDepthCents: 30, vibratoRateHz: 5 };
+  const stopped = {
+    ornamentId: "roll", ornamentPlaying: false,
+    melodyId: "arch", melodyPlaying: false, melodyRateHz: 1,
+  };
+  for (const elapsed of [0.13, 0.29, 2.83]) {
+    const result = evaluateSingerPerformance(base, {}, stopped, elapsed);
+    for (const key of ["tongue", "throat", "lips", "nose", "jaw", "pitch", "ornamentPhase", "melodyPhase"]) assert.equal(result.animation[key], 0);
+    assert.equal(result.animation.active, false);
+    assert.equal(result.animation.melodyActive, false);
+    assert.equal(result.animation.melodyFinished, false);
+    closeTo(result.performance.vibratoCents, Math.sin(elapsed * base.vibratoRateHz * Math.PI * 2) * 30);
+    closeTo(result.performance.intensity, base.intensity);
+  }
+  const ornamentOnly = evaluateSingerPerformance(base, {}, { ...stopped, ornamentPlaying: true }, 0.29);
+  assert.notEqual(ornamentOnly.animation.tongue, 0);
+  assert.equal(ornamentOnly.performance.pitchSemitones, 0);
+  const melodyOnly = evaluateSingerPerformance(base, {}, { ...stopped, melodyPlaying: true }, 0.29);
+  assert.equal(melodyOnly.animation.tongue, 0);
+  assert.notEqual(melodyOnly.performance.pitchSemitones, 0);
+});
+
+test("both tracks reverse their contour and pingpong through matching outward and return poses", () => {
+  const base = centeredState();
+  const controls = { ornamentId: "climb", melodyId: "minor-turn", melodyRateHz: 1 };
+  const forward = evaluateSingerPerformance(base, {}, controls, 0.23);
+  const reverse = evaluateSingerPerformance(base, {}, {
+    ...controls, ornamentDirection: "reverse", melodyDirection: "reverse",
+  }, 0.77);
+  closeTo(forward.animation.tongue, reverse.animation.tongue);
+  closeTo(forward.performance.pitchSemitones, reverse.performance.pitchSemitones);
+  for (const direction of ["forward", "reverse"]) {
+    const settings = { ...controls,
+      ornamentDirection: direction, melodyDirection: direction,
+      ornamentPingPong: true, melodyPingPong: true,
+    };
+    const outward = evaluateSingerPerformance(base, {}, settings, 0.37);
+    const returning = evaluateSingerPerformance(base, {}, settings, 1.63);
+    closeTo(outward.animation.tongue, returning.animation.tongue);
+    closeTo(outward.performance.pitchSemitones, returning.performance.pitchSemitones);
+  }
+});
+
+test("nonrepeating tracks complete one pass or one pingpong round trip without releasing the drone", () => {
+  const base = centeredState();
+  for (const pingPong of [false, true]) {
+    const duration = pingPong ? 2 : 1;
+    const settings = {
+      ornamentId: "roll", ornamentRepeat: false, ornamentPingPong: pingPong,
+      melodyId: "arch", melodyRateHz: 1, melodyRepeat: false, melodyPingPong: pingPong,
+    };
+    const before = evaluateSingerPerformance(base, {}, settings, duration - 0.01);
+    const after = evaluateSingerPerformance(base, {}, settings, duration);
+    assert.equal(before.ornamentFinished, false);
+    assert.equal(before.melodyFinished, false);
+    assert.equal(after.ornamentFinished, true);
+    assert.equal(after.melodyFinished, true);
+    assert.equal(after.animation.melodyFinished, true);
+    assert.equal(after.animation.pitch, 0);
+    assert.equal(after.animation.tongue, 0);
+    assert.equal(after.state.active, true);
+    closeTo(after.performance.trueFoldHz, base.trueFoldHz);
+    const retriggered = evaluateSingerPerformance(base, {}, settings, duration + 3, {
+      ornamentTimeSeconds: 0.29, melodyTimeSeconds: 0.29,
+    });
+    assert.equal(retriggered.ornamentFinished, false);
+    assert.equal(retriggered.melodyFinished, false);
+  }
+});
+
+test("portamento duration audibly changes melodic transitions in the pure score", () => {
+  const base = centeredState();
+  const settings = { melodyId: "three-step", melodyRateHz: 1 };
+  const stepped = evaluateSingerPerformance(base, {}, { ...settings, portamentoSeconds: 0 }, 0.12);
+  const gliding = evaluateSingerPerformance(base, {}, { ...settings, portamentoSeconds: 0.12 }, 0.12);
+  const legato = evaluateSingerPerformance(base, {}, { ...settings, portamentoSeconds: 1 }, 0.12);
+  assert.equal(stepped.performance.pitchSemitones, 0);
+  assert.ok(gliding.performance.pitchSemitones > stepped.performance.pitchSemitones);
+  assert.ok(legato.performance.pitchSemitones > gliding.performance.pitchSemitones);
+});
+
+test("automatic breathing waits a full period and manual breathing uses the same smooth contour", () => {
+  const automatic = { breathRateBpm: 12 };
+  for (const seconds of [0, 0.11, 0.4, 1, 4.99]) {
+    assert.deepEqual(breathEnvelope(seconds, automatic), { gain: 1, inhaling: false, phase: 0 });
+  }
+  assert.equal(breathEnvelope(5, automatic).gain, 1);
+  closeTo(breathEnvelope(5.11, automatic).gain, 0.5);
+  assert.equal(breathEnvelope(5.22, automatic).gain, 0);
+  assert.equal(breathEnvelope(5.36, automatic).inhaling, true);
+  assert.equal(breathEnvelope(5.5, automatic).inhaling, false);
+  closeTo(breathEnvelope(5.675, automatic).gain, 0.5);
+  assert.equal(breathEnvelope(5.85, automatic).gain, 1);
+  for (const age of [0, 0.1, 0.22, 0.36, 0.5, 0.68, 0.85, 1]) {
+    const auto = breathEnvelope(5 + age, automatic);
+    const manual = breathEnvelope(5 + age, { breathRateBpm: 0, manualBreathAtSeconds: 5 });
+    assert.deepEqual(auto, manual);
+  }
+  assert.deepEqual(breathEnvelope(100, { breathRateBpm: 0 }), { gain: 1, inhaling: false, phase: 0 });
+  assert.deepEqual(breathEnvelope(2, { manualBreathAtSeconds: 3 }), { gain: 1, inhaling: false, phase: 0 });
+});
+
+test("breath release and attack seams have zero slope with bounded finite gain", () => {
+  for (const boundary of [0, 0.22, 0.5, 0.85]) {
+    const middle = breathEnvelope(10 + boundary, { manualBreathAtSeconds: 10 });
+    const left = breathEnvelope(10 + boundary - 1e-6, { manualBreathAtSeconds: 10 });
+    const right = breathEnvelope(10 + boundary + 1e-6, { manualBreathAtSeconds: 10 });
+    closeTo(left.gain, middle.gain, 1e-9);
+    closeTo(right.gain, middle.gain, 1e-9);
+  }
+  for (const seconds of [NaN, Infinity, -Infinity, -10, 0, 1e9, Number.MAX_VALUE]) {
+    const result = breathEnvelope(seconds, { breathRateBpm: 99, manualBreathAtSeconds: Infinity });
+    assert.ok(Number.isFinite(result.gain) && result.gain >= 0 && result.gain <= 1);
+    assert.ok(Number.isFinite(result.phase) && result.phase >= 0 && result.phase <= 1);
+  }
 });
 
 test("each active ornament changes both source pressure and the 44-section acoustic tract", () => {
