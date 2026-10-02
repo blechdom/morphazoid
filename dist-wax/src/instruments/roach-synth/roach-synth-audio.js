@@ -1,13 +1,13 @@
 import { connectAudioOutput } from '../../audio-output-manager.js';
 import { SPELLING_DIPHONE_ATLAS_URL, SPELLING_DIPHONE_CLIPS } from '../spelling-synthesizer/spelling-diphone-atlas.js';
-import { loadSpellingPronunciations, spellingPhoneDefinition, spellingPronunciationTokens } from '../spelling-synthesizer/spelling-pronunciation.js';
-import { normalizeRoachSound, ROACH_SOUND_DEFAULTS, normalizeRoachBodyMix, createDefaultRoachBodyMix } from './roach-synth-dsp.js?v=7608886131fe';
-import { RoachMidiPerformance, normalizeRoachMidiMessage } from './roach-synth-midi.js?v=7608886131fe';
+import { spellingPhoneDefinition, spellingPronunciationTokens } from '../spelling-synthesizer/spelling-pronunciation.js';
+import { normalizeRoachSound, ROACH_SOUND_DEFAULTS, ROACH_VOICE_PRESETS, getRoachVoicePreset, normalizeRoachBodyMix, createDefaultRoachBodyMix } from './roach-synth-dsp.js?v=4880f90b1b9c';
+import { RoachMidiPerformance, normalizeRoachMidiMessage } from './roach-synth-midi.js?v=4880f90b1b9c';
 
 export { ROACH_SOUND_DEFAULTS, ROACH_SOUND_PRESETS, ROACH_MOD_TARGETS,
   createDefaultRoachMappings, normalizeRoachSound, ROACH_BODY_GROUPS, ROACH_BODY_SOURCES,
   createDefaultRoachBodyMix, normalizeRoachBodyMix, createRandomRoachSound, getRoachBodyGroupId,
-  ROACH_MOTION_SOUND_PRESETS, getRoachMotionSound } from './roach-synth-dsp.js?v=7608886131fe';
+  ROACH_MOTION_SOUND_PRESETS, getRoachMotionSound, ROACH_VOICE_PRESETS, getRoachVoicePreset } from './roach-synth-dsp.js?v=4880f90b1b9c';
 
 const finite = (value, fallback = 0) => Number.isFinite(Number(value)) ? Number(value) : fallback;
 const safeCall = (callback, value) => { try { callback?.(value); } catch {} };
@@ -55,6 +55,21 @@ export function createRoachSpeechPlan(text, pronunciations) {
   return phones.slice(0, 96);
 }
 
+export function prepareRoachNativeSamples(result, preset, { body = false } = {}) {
+  const { samples, sampleRate } = result ?? {};
+  if (!(samples instanceof Float32Array) || !Number.isFinite(sampleRate) || sampleRate < 8000 || sampleRate > 192000 || !samples.length || samples.length > sampleRate * (body ? 4 : 30) || !samples.every(Number.isFinite)) {
+    throw new Error('The native voice returned invalid or overlong audio.');
+  }
+  let first = 0, last = samples.length;
+  if (body) {
+    while (first < last && Math.abs(samples[first]) < .003) first += 1;
+    while (last > first && Math.abs(samples[last - 1]) < .003) last -= 1;
+    first = Math.max(0, first - Math.round(sampleRate * .008));
+    last = Math.min(samples.length, last + Math.round(sampleRate * .012));
+  }
+  return { samples: Float32Array.from(samples.subarray(first, Math.max(first + 1, last)), (value) => value * preset.trim), sampleRate };
+}
+
 /** Explicitly armed, one-context/one-worklet instrument with an audio clock. */
 export class RoachSynthAudio {
   constructor({ onStatus, onTelemetry, onSamples, runtime = globalThis } = {}) {
@@ -64,6 +79,8 @@ export class RoachSynthAudio {
     this.generation = 0; this.speechGeneration = 0; this.buildPromise = null;
     this.atlasPromise = null; this.atlasReady = false; this.speechAbort = null;
     this.samplesPromise = null; this.samplesAbort = null; this.samplesStatus = 'idle'; this.samplesLoaded = 0;
+    this.voiceJobs = new Set(); this.speechJob = null; this.bodyVoiceQueue = Promise.resolve();
+    this.bodyVoiceBuffers = new Map(); this.bodyVoicesLoaded = new Set(); this.bodyVoicePending = new Map();
     this.state = { playing: false, soundPlaying: false, sound: { ...ROACH_SOUND_DEFAULTS }, bodyMix: createDefaultRoachBodyMix() };
     this.anchorTime = 0; this.anchorClock = this.clock();
     this.midiPerformance = new RoachMidiPerformance();
@@ -76,6 +93,7 @@ export class RoachSynthAudio {
       contextState: this.context?.state ?? 'uninitialized', time: this.getTime(),
       samplesStatus: this.samplesStatus, samplesLoaded: this.samplesLoaded,
       playing: this.state.playing, soundPlaying: this.state.soundPlaying, disposed: this.disposed,
+      voicePreset: this.state.sound.voicePreset, bodyVoicesLoaded: [...this.bodyVoicesLoaded],
       midi: this.getMidiState() };
   }
   getMidiState() { return this.midiPerformance.getState(this.clock()); }
@@ -133,8 +151,15 @@ export class RoachSynthAudio {
     // Reset is an edge, never a sticky part of future full-state publications.
     delete this.state.resetActivity;
     this.postState(next);
+    if (changes.bodyMix && this.enabled) void this.loadBodyVoices();
   }
   setLevel(value) { this.update({ sound: { level: value } }); }
+  setVoicePreset(id) {
+    const preset = getRoachVoicePreset(id);
+    if (preset.id === this.state.sound.voicePreset) return;
+    this.speechGeneration += 1; this.speechJob?.cancel();
+    this.update({ sound: { voicePreset: preset.id } });
+  }
   interact({ jointId, active = false, velocity = 0 } = {}) {
     if (this.disposed) return;
     this.post({ type: 'interact', interaction: { jointId: String(jointId ?? '').slice(0, 120),
@@ -157,7 +182,7 @@ export class RoachSynthAudio {
       if (!context.audioWorklet?.addModule || typeof this.runtime.AudioWorkletNode !== 'function') {
         throw new Error('Roach Synth requires AudioWorklet support.');
       }
-      await context.audioWorklet.addModule(new URL('./roach-synth-processor.js?v=7608886131fe', import.meta.url));
+      await context.audioWorklet.addModule(new URL('./roach-synth-processor.js?v=4880f90b1b9c', import.meta.url));
       if (this.disposed || this.context !== context || context.state === 'closed') throw cancelled();
       const node = new this.runtime.AudioWorkletNode(context, 'roach-synth', {
         numberOfInputs: 0, numberOfOutputs: 1, outputChannelCount: [2], channelCount: 2,
@@ -193,6 +218,7 @@ export class RoachSynthAudio {
         this.atlasReady = false; this.atlasPromise = null;
         this.samplesAbort?.abort(); this.samplesAbort = null; this.samplesPromise = null;
         this.samplesStatus = 'idle'; this.samplesLoaded = 0;
+        this.bodyVoicesLoaded.clear();
       };
       this.ready = true;
       this.postState({ ...this.state, time: this.getTime(), enabled: false });
@@ -224,6 +250,7 @@ export class RoachSynthAudio {
       safeCall(this.onStatus, 'Roach sound ready.');
       // Recording I/O and decoding never delay Audio, either transport, or speech.
       void this.loadSamples();
+      void this.loadBodyVoices();
       return this;
     } catch (error) {
       if (generation === this.generation && !this.disposed) {
@@ -237,6 +264,8 @@ export class RoachSynthAudio {
   disable() {
     if (this.disposed) return;
     this.generation += 1; this.speechGeneration += 1; this.enabled = false;
+    for (const job of [...this.voiceJobs]) job.cancel();
+    this.bodyVoicePending.clear();
     // Audio is a mute, not MIDI panic: held notes and CC still animate.
     this.postState({ enabled: false }); this.post({ type: 'stop-speech' });
     if (this.master && this.context?.state !== 'closed') {
@@ -308,20 +337,73 @@ export class RoachSynthAudio {
     try { await this.atlasPromise; }
     finally { this.atlasPromise = null; this.speechAbort = null; }
   }
-  async speak(value) {
+  renderNativeVoice(preset, text, { body = false } = {}) {
+    const Worker = this.runtime.Worker;
+    if (typeof Worker !== 'function') return Promise.reject(new Error('Native voice workers are unavailable.'));
+    return new Promise((resolve, reject) => {
+      const worker = new Worker(new URL('../voicesaurus/native-worker.js', import.meta.url), { type: 'module' });
+      let settled = false;
+      const job = { cancel: () => finish(cancelled()) };
+      const finish = (error, result) => {
+        if (settled) return;
+        settled = true; clearTimeout(timeout); worker.terminate(); this.voiceJobs.delete(job);
+        if (this.speechJob === job) this.speechJob = null;
+        error ? reject(error) : resolve(result);
+      };
+      const timeout = setTimeout(() => finish(new Error('Native voice rendering timed out.')), 30000);
+      this.voiceJobs.add(job);
+      if (!body) this.speechJob = job;
+      worker.onerror = (event) => finish(new Error(event.message || 'Native voice worker failed.'));
+      worker.onmessage = ({ data }) => {
+        if (data?.type === 'error') finish(new Error(data.message || 'Native voice rendering failed.'));
+        else if (data?.type === 'ready') finish(null, data);
+      };
+      try { worker.postMessage({ engine: preset.engine, values: { ...preset.values }, input: {}, text }); }
+      catch (error) { finish(error); }
+    });
+  }
+  async loadBodyVoice(preset) {
+    if (!this.enabled || !this.node || this.disposed || this.bodyVoicesLoaded.has(preset.bodySource)) return;
+    if (this.bodyVoicePending.has(preset.bodySource)) return this.bodyVoicePending.get(preset.bodySource);
+    const generation = this.generation, node = this.node;
+    const task = this.bodyVoiceQueue.then(async () => {
+      if (!this.enabled || this.disposed || generation !== this.generation || this.node !== node) return;
+      let buffer = this.bodyVoiceBuffers.get(preset.bodySource);
+      if (!buffer) {
+        buffer = prepareRoachNativeSamples(await this.renderNativeVoice(preset, 'ah', { body: true }), preset, { body: true });
+        if (!this.enabled || this.disposed || generation !== this.generation || this.node !== node) return;
+        this.bodyVoiceBuffers.set(preset.bodySource, buffer);
+      }
+      const samples = new Float32Array(buffer.samples);
+      this.post({ type: 'body-voice', source: preset.bodySource, samples, sampleRate: buffer.sampleRate }, [samples.buffer]);
+      this.bodyVoicesLoaded.add(preset.bodySource);
+    }).catch((error) => {
+      if (error.name !== 'AbortError' && this.enabled && generation === this.generation) safeCall(this.onStatus, `Body voice unavailable: ${error.message}`);
+    });
+    this.bodyVoiceQueue = task;
+    this.bodyVoicePending.set(preset.bodySource, task);
+    try { await task; }
+    finally { if (this.bodyVoicePending.get(preset.bodySource) === task) this.bodyVoicePending.delete(preset.bodySource); }
+  }
+  async loadBodyVoices() {
+    if (!this.enabled || !this.ready || this.disposed) return;
+    await Promise.all(ROACH_VOICE_PRESETS.filter((preset) => this.state.bodyMix.some((row) => row.source === preset.bodySource && row.level > 0))
+      .map((preset) => this.loadBodyVoice(preset)));
+  }
+  async speak(value, voicePreset = this.state.sound.voicePreset) {
     if (!this.enabled || !this.ready || this.disposed) {
       safeCall(this.onStatus, 'Turn Audio on before asking the roach to speak.'); return false;
     }
     const text = String(value ?? '').trim().slice(0, 180);
     if (!text) return false;
     const generation = ++this.speechGeneration;
+    this.speechJob?.cancel();
     safeCall(this.onStatus, 'Preparing roach speech…');
     try {
-      const [pronunciations] = await Promise.all([
-        loadSpellingPronunciations(text, { fetcher: this.runtime.fetch?.bind(this.runtime) }), this.loadAtlas(),
-      ]);
+      const preset = getRoachVoicePreset(voicePreset);
+      const result = prepareRoachNativeSamples(await this.renderNativeVoice(preset, text), preset);
       if (!this.enabled || this.disposed || generation !== this.speechGeneration) return false;
-      this.post({ type: 'speak', phones: createRoachSpeechPlan(text, pronunciations) });
+      this.post({ type: 'speak-samples', ...result }, [result.samples.buffer]);
       safeCall(this.onStatus, '');
       return true;
     } catch (error) {
@@ -335,6 +417,7 @@ export class RoachSynthAudio {
     if (this.disposed) return;
     this.disable(); this.resetMidi(); this.post({ type: 'dispose' });
     this.disposed = true; this.generation += 1; this.speechGeneration += 1;
+    this.bodyVoiceBuffers.clear(); this.bodyVoicesLoaded.clear();
     this.speechAbort?.abort(); this.speechAbort = null;
     this.samplesAbort?.abort(); this.samplesAbort = null;
     if (this.node) { this.node.port.onmessage = null; this.node.onprocessorerror = null; this.node.disconnect(); this.node.port.close?.(); }

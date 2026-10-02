@@ -1,13 +1,14 @@
-import { RoachBodyEngine } from './roach-synth-body-engine.js?v=7608886131fe';
-import { ROACH_BODY_GROUPS, ROACH_BODY_SOURCES, createDefaultRoachBodyMix, normalizeRoachBodyMix, getRoachJointBodyGroup } from './roach-synth-body.js?v=7608886131fe';
-import { RoachMidiPerformance } from './roach-synth-midi.js?v=7608886131fe';
-export { ROACH_BODY_GROUPS, ROACH_BODY_SOURCES, createDefaultRoachBodyMix, normalizeRoachBodyMix, getRoachBodyGroupId } from './roach-synth-body.js?v=7608886131fe';
-import { normalizeRoachMotion, writeRoachPose, createRoachSceneState, writeRoachSceneState, constrainRoachFloorPose } from './roach-synth-motion.js?v=7608886131fe';
+import { RoachBodyEngine } from './roach-synth-body-engine.js?v=4880f90b1b9c';
+import { ROACH_BODY_GROUPS, ROACH_BODY_SOURCES, ROACH_VOICE_PRESETS, getRoachVoicePreset, createDefaultRoachBodyMix, normalizeRoachBodyMix, getRoachJointBodyGroup } from './roach-synth-body.js?v=4880f90b1b9c';
+import { RoachMidiPerformance } from './roach-synth-midi.js?v=4880f90b1b9c';
+export { ROACH_BODY_GROUPS, ROACH_BODY_SOURCES, createDefaultRoachBodyMix, normalizeRoachBodyMix, getRoachBodyGroupId } from './roach-synth-body.js?v=4880f90b1b9c';
+export { ROACH_VOICE_PRESETS, getRoachVoicePreset } from './roach-synth-body.js?v=4880f90b1b9c';
+import { normalizeRoachMotion, writeRoachPose, createRoachSceneState, writeRoachSceneState, constrainRoachFloorPose } from './roach-synth-motion.js?v=4880f90b1b9c';
 
 // A held pose has smooth, group-owned resonances. Motion-only sources receive
 // only their own joints' actual displacement and the shared six-foot contacts.
 // Sound Play never manufactures scuttles, impulses, sample grains or footbeats.
-// Spoken KAL16 words remain independent of all body assignments and transports.
+// Native Voicesaurus phrases remain independent of body assignments/transports.
 const TAU = Math.PI * 2;
 const MAX_JOINTS = 128;
 const MAX_MAPPINGS = 128;
@@ -77,9 +78,10 @@ export const ROACH_SOUND_DEFAULTS = Object.freeze({
   feet: 0.88, growl: 0.24, drone: 0, zing: .55, samples: .65,
   pitch: 140, vowel: 0.35, brightness: 0.46, resonance: 0.38,
   wingRate: 72, rhythm: 1, crunch: 0.18, pan: 0,
+  voicePreset: ROACH_VOICE_PRESETS[0].id,
 });
 const SOUND_RANGES = Object.freeze({
-  level: [0, 0.8], hiss: [0, 1], shell: [0, 1], wing: [0, 1], voice: [0, 1],
+  level: [0, 1], hiss: [0, 1], shell: [0, 1], wing: [0, 1], voice: [0, 1],
   feet: [0, 1], growl: [0, 1], drone: [0, 1], zing: [0, 1], samples: [0, 1],
   pitch: [60, 600], vowel: [0, 1], brightness: [0, 1], resonance: [0, 1],
   wingRate: [12, 220], rhythm: [0.25, 4], crunch: [0, 1], pan: [-1, 1],
@@ -91,6 +93,7 @@ export function normalizeRoachSound(value = {}) {
   for (const [key, range] of Object.entries(SOUND_RANGES)) {
     result[key] = clamp(finite(value?.[key], ROACH_SOUND_DEFAULTS[key]), ...range);
   }
+  result.voicePreset = getRoachVoicePreset(value?.voicePreset).id;
   return result;
 }
 const PATCHES = [
@@ -128,12 +131,21 @@ export const ROACH_SOUND_PRESETS = Object.freeze(PATCHES.map(([id,label,pitch,br
   // assignments and globals remain exact despite gentler defaults elsewhere.
   bodyMix: Object.freeze(createDefaultRoachBodyMix().map((row,i)=>Object.freeze({...row,source:sources[i],
     level:index===2?[.85,.48,.65,.68,.6,.36,.36,.24][i]:row.level}))),
-})));
+})).concat(ROACH_VOICE_PRESETS.map((preset, index) => Object.freeze({
+  id: `body-${preset.bodySource}`, label: `${preset.label} body`,
+  sound: Object.freeze({ ...ROACH_SOUND_DEFAULTS, voicePreset: preset.id,
+    brightness: .65, crunch: .04, pitch: 140 + index * 15 }),
+  bodyMix: Object.freeze(createDefaultRoachBodyMix().map((row, i) => Object.freeze({
+    ...row, source: [0, 5, 6, 7].includes(i) ? preset.bodySource : ['resonance', 'drone', 'sub', 'shimmer'][i % 4],
+    level: [0, 5, 6, 7].includes(i) ? [.72, .5, .58, .36][[0, 5, 6, 7].indexOf(i)] : .18,
+  }))),
+}))));
 export function createRandomRoachSound(seed = 1) {
   let state = (Number(seed) >>> 0) || 1;
   const random = () => { state ^= state << 13; state ^= state >>> 17; state ^= state << 5; return (state >>> 0) / 4294967296; };
   const sound = normalizeRoachSound({...ROACH_SOUND_DEFAULTS,pitch:65+random()*230,brightness:.2+random()*.48,resonance:.38+random()*.54,crunch:.05+random()*.37,
-    vowel:.08+random()*.84,wingRate:30+random()*150,rhythm:.6+random()*1.4,pan:(random()-.5)*.34,voice:.62+random()*.3});
+    vowel:.08+random()*.84,wingRate:30+random()*150,rhythm:.6+random()*1.4,pan:(random()-.5)*.34,voice:.62+random()*.3,
+    voicePreset: ROACH_VOICE_PRESETS[Math.floor(random() * ROACH_VOICE_PRESETS.length)].id});
   const bodyMix = createDefaultRoachBodyMix().map((row,i)=>({...row,
     source:ROACH_BODY_SOURCES[i===3||i===4 ? Math.floor(random()*4) : Math.floor(random()*ROACH_BODY_SOURCES.length)].id,
     level:(i===3||i===4 ? .45 : .22)+random()*.35,
@@ -325,6 +337,7 @@ export class RoachSynthDsp {
     this.filterL = 0; this.filterR = 0; this.dcL = 0; this.dcR = 0; this.previousL = 0; this.previousR = 0; this.randomState = 0x756d4f21;
     this.atlas = null; this.atlasRate = 16000; this.phoneQueue = EMPTY_PHONES; this.phoneIndex = 0;
     this.phonePosition = 0; this.phone = null; this.speechEnvelope = 0; this.speechGain = 0; this.speechTarget = 0; this.pendingSpeech = null;
+    this.nativeSpeech = null; this.pendingNativeSpeech = null; this.nativeSpeechPosition = 0;
     this.speechSmoothing = 1 - Math.exp(-1 / (this.sampleRate * .0015));
     this.filterCoefficient = .25; this.panL = Math.SQRT1_2; this.panR = Math.SQRT1_2; this.speechRate = 1;
     this.telemetry = {rms:0,peak:0,speechEnvelope:0,motionTime:0,soundTime:0,renderedFrames:0};
@@ -491,6 +504,18 @@ export class RoachSynthDsp {
     this.contactEvents += 1; this.lastContactTime = this.time;
   }
   setSampleBank(samples, options) { this.recordings.setBank(samples, options); }
+  setBodyVoice(source, samples, sampleRate) { this.body.setVoiceSample(source, samples, sampleRate); }
+  speakSamples(samples, sampleRate) {
+    if (!this.enabled) return false;
+    if (!(samples instanceof Float32Array) || !Number.isFinite(sampleRate) || sampleRate < 8000 || sampleRate > 192000 || !samples.length || samples.length > sampleRate * 30 || !samples.every(Number.isFinite)) {
+      throw new Error('Native speech exceeds its fixed sample budget.');
+    }
+    // Preserve an in-flight phrase until its short release finishes. A native
+    // phrase is one continuous buffer, so sentence prosody survives playback.
+    this.pendingNativeSpeech = { samples, sampleRate };
+    this.speechTarget = 0;
+    return true;
+  }
   setAtlas(samples, sampleRate) {
     if (!(samples instanceof Float32Array) || samples.length > 192000 * 16) throw new Error('Speech atlas exceeds its fixed budget.');
     this.atlas = samples; this.atlasRate = clamp(sampleRate, 8000, 192000);
@@ -509,7 +534,7 @@ export class RoachSynthDsp {
     }
     return queue.length > 0;
   }
-  stopSpeech() { this.pendingSpeech = null; this.speechTarget = 0; }
+  stopSpeech() { this.pendingSpeech = null; this.pendingNativeSpeech = null; this.speechTarget = 0; }
   random() {
     let x = this.randomState; x ^= x << 13; x ^= x >>> 17; x ^= x << 5; this.randomState = x | 0;
     return (x >>> 0) / 2147483648 - 1;
@@ -598,11 +623,22 @@ export class RoachSynthDsp {
   speechSample() {
     this.speechGain += (this.speechTarget - this.speechGain) * this.speechSmoothing;
     if (this.speechTarget === 0 && this.speechGain < .0001) {
+      this.nativeSpeech = this.enabled ? this.pendingNativeSpeech : null;
+      this.pendingNativeSpeech = null; this.nativeSpeechPosition = 0;
       this.phoneQueue = this.enabled && this.pendingSpeech ? this.pendingSpeech : EMPTY_PHONES;
       this.phoneIndex = 0; this.phone = null; this.phonePosition = 0;
       this.pendingSpeech = null;
-      if (this.phoneQueue.length) this.speechTarget = 1;
+      if (this.phoneQueue.length || this.nativeSpeech) this.speechTarget = 1;
       else return 0;
+    }
+    if (this.nativeSpeech) {
+      const { samples, sampleRate } = this.nativeSpeech;
+      const position = this.nativeSpeechPosition, index = Math.floor(position), fraction = position - index;
+      const edge = Math.max(0, Math.min(1, position / (sampleRate * .006), (samples.length - position) / (sampleRate * .009)));
+      const sample = ((samples[index] || 0) * (1 - fraction) + (samples[index + 1] || 0) * fraction) * edge;
+      this.nativeSpeechPosition += sampleRate / this.sampleRate * this.speechRate;
+      if (this.nativeSpeechPosition >= samples.length) this.speechTarget = 0;
+      return sample * this.speechGain;
     }
     if (!this.phone) {
       this.phone = this.phoneQueue[this.phoneIndex++] ?? null; this.phonePosition = 0;
@@ -636,7 +672,7 @@ export class RoachSynthDsp {
       this.master+=((this.enabled?1:0)-this.master)*this.gateSmoothing;
       this.soundGate+=((this.soundPlaying?1:0)-this.soundGate)*this.gateSmoothing;
       this.body.sample(this.soundGate,this.playing);
-      const speech=this.atlas?this.speechSample():0;
+      const speech=this.atlas || this.nativeSpeech || this.pendingNativeSpeech ? this.speechSample():0;
       this.speechEnvelope+=(Math.abs(speech)-this.speechEnvelope)*.008;
       const speechDuck=1/(1+this.speechEnvelope*s.voice*1.6);
       let speechColor=0;
@@ -655,7 +691,9 @@ export class RoachSynthDsp {
       this.filterL+=(mixedL-this.filterL)*this.filterCoefficient; this.filterR+=(mixedR-this.filterR)*this.filterCoefficient;
       this.dcL=clean(this.filterL-this.previousL+this.dcL*.997); this.dcR=clean(this.filterR-this.previousR+this.dcR*.997);
       this.previousL=this.filterL; this.previousR=this.filterR;
-      const gain=this.master*s.level*1.25;
+      // Fixed makeup gain restores useful output while keeping performance
+      // dynamics intact. The stereo reconstruction guard catches dense peaks.
+      const gain=this.master*s.level*3.4;
       this.outputGuard.sample(Math.tanh(this.dcL*gain),Math.tanh(this.dcR*gain));
       const l=this.outputGuard.left; const r=this.outputGuard.right;
       left[sampleIndex]=Number.isFinite(l)?l:0; right[sampleIndex]=Number.isFinite(r)?r:0;

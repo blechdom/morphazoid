@@ -1,16 +1,15 @@
 # Play Roach Synth with MIDI
 
-Turn **MIDI In** on in the existing toolbar and choose an input. This explicit
+Turn **MIDI In** on in Settings and choose an input. This explicit
 action can arm Audio; notes and controller messages never turn Audio back on
-after you switch it off. The Roach MIDI section sits between Animation and the
-body mixer. **Release MIDI** releases held keys and returns MIDI joint offsets
+after you switch it off. The Roach MIDI section sits below the body mixer. **Release MIDI** releases held keys and returns MIDI joint offsets
 to rest while preserving manually started playback.
 
 ## Keys and poses
 
 Every note poses one body part or group and plays its assigned sound. Hold
 several keys to combine a pose; release them to relax those parts. Notes never
-start or stop either player. You can run Animation separately and layer MIDI
+start or stop the player. You can run Animation separately and layer MIDI
 poses over its motion. The same map spans the whole keyboard, including both
 computer-key rows.
 
@@ -38,8 +37,7 @@ parts can move independently but share their mixer voice; the most recently
 held note in a group takes pitch priority. Velocity changes gesture strength
 and impact. Holding a body key holds the pose steady, and releasing it lets
 the gesture and sound decay. Tonal sources can sustain; scuttles and other
-movement sounds settle once the part stops moving. The Sound and Animation
-players can both remain paused while you play body notes. Changing keys does
+movement sounds settle once the part stops moving. Animation Play can remain paused while you play body notes. Changing keys does
 not select animation routines or replace the sound preset.
 
 With shared **Keys** input enabled, the computer keyboard uses the existing
