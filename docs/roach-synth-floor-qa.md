@@ -116,3 +116,11 @@ Resting body, neck and head centroids are unchanged to twelve decimal places;
 foot kinematics, rest offsets and gait tables, joint IDs/order and the body-core
 proxy are unchanged. This is geometric and browser-emulation evidence; physical
 device handling was not tested.
+
+Repository verification passes with 5,440 tests passed, six existing skips and
+no failures; generated WAX output matches a clean build. The 26-case browser
+sweep passed 23 cases initially. Three old setup gestures exceeded the new
+inward range or used the old direction; those fixtures were updated to use a
+legal inward angle rejected by the floor and an outward manual speech gesture.
+All three corrected cases passed in the focused rerun, preserving their floor,
+short-reverse and exact saved-pose restoration assertions.
