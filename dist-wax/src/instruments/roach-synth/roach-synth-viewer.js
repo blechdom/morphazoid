@@ -1,8 +1,8 @@
 import * as THREE from '../../../vendor/three/three.module.min.js';
 import { GLTFLoader } from '../../../vendor/three/loaders/GLTFLoader.js';
 import { MeshoptDecoder } from '../../../vendor/meshoptimizer/meshopt_decoder.module.js';
-import { constrainRoachPose, constrainRoachFloorPose } from './roach-synth-motion.js?v=ad31d2822380';
-import { articulateRoachWings, updateRoachWingFans, roachWingDisplayPoints } from './roach-synth-wings.js?v=ad31d2822380';
+import { constrainRoachPose, constrainRoachFloorPose } from './roach-synth-motion.js?v=ebe10bdac9a6';
+import { articulateRoachWings, updateRoachWingFans, roachWingDisplayPoints } from './roach-synth-wings.js?v=ebe10bdac9a6';
 
 const MAX_BYTES = 64 * 1024 * 1024;
 const MESHOPT = 'EXT_meshopt_compression';

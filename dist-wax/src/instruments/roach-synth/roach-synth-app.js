@@ -1,16 +1,16 @@
-import { createRoachViewer } from "./roach-synth-viewer.js?v=ad31d2822380";
-import { createRoachMidiControls } from "./roach-synth-midi-controls.js?v=ad31d2822380";
+import { createRoachViewer } from "./roach-synth-viewer.js?v=ebe10bdac9a6";
+import { createRoachMidiControls } from "./roach-synth-midi-controls.js?v=ebe10bdac9a6";
 import { ROACH_MOTION_PRESETS, ROACH_MOTION_DEFAULTS, normalizeRoachMotion, activeRoachPreset,
   writeRoachPose, createRoachSceneState, writeRoachSceneState, bakeRoachPresetTracks,
   createRandomRoachMotion, getRoachStaticPose, applyRoachSpeechPose,
-  constrainRoachFloorPose } from "./roach-synth-motion.js?v=ad31d2822380";
+  constrainRoachFloorPose } from "./roach-synth-motion.js?v=ebe10bdac9a6";
 import { RoachSynthAudio, ROACH_SOUND_PRESETS, ROACH_BODY_GROUPS,
   ROACH_BODY_SOURCES, createDefaultRoachBodyMix, createRandomRoachSound, getRoachBodyGroupId,
-  ROACH_MOTION_SOUND_PRESETS, getRoachMotionSound, ROACH_VOICE_PRESETS } from "./roach-synth-audio.js?v=ad31d2822380";
+  ROACH_MOTION_SOUND_PRESETS, getRoachMotionSound, ROACH_VOICE_PRESETS } from "./roach-synth-audio.js?v=ebe10bdac9a6";
 
 import { createNativeSelectPicker } from "../../ui/patterns/native-select-picker.js";
 import { registerHeaderPresets } from "../../site/header-presets.js";
-import { captureRoachPreset, createRoachFullPresets, randomizeRoachPreset } from "./roach-synth-presets.js?v=ad31d2822380";
+import { captureRoachPreset, createRoachFullPresets, randomizeRoachPreset } from "./roach-synth-presets.js?v=ebe10bdac9a6";
 
 const el = id => document.getElementById(id);
 const listeners = new AbortController();
@@ -504,7 +504,19 @@ midiControls = createRoachMidiControls({ audio, setPlaying,
   },
   onVisual: () => { updateVisual(); scheduleFrame(); },
 });
-document.addEventListener('visibilitychange', () => { if (document.hidden) { if (frame) cancelAnimationFrame(frame); frame = 0; } else { lastFrame = -Infinity; updateVisual(); if (needsVisualFrames()) scheduleFrame(); } }, options);
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) {
+    if (frame) cancelAnimationFrame(frame);
+    frame = 0; return;
+  }
+  lastFrame = -Infinity;
+  // Audio continues while hidden. A finished phrase has no release gesture
+  // left to display when returning to the performer's underlying body pose.
+  if (!speechTarget()) speechMotion.amount = 0;
+  speechMotion.updatedAt = performance.now();
+  updateVisual();
+  if (needsVisualFrames()) scheduleFrame();
+}, options);
 motionQuery.addEventListener('change', () => { if (motionQuery.matches) setPlaying(false); }, options);
 window.addEventListener('pagehide', event => {
   if (event.persisted) return;
