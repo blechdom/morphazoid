@@ -71,9 +71,9 @@ const quaternion = (state, part) => state.bones.find(j => j.jointId === part).qu
 test('head and both antenna meshes stop at the floor without lifting normal foot support', async ({ page, baseURL }, testInfo) => {
   await openFixture(page, baseURL); const initial = await measure(page); expectClear(initial, 'neutral');
   const cases = [
-    { head: { x: -90 } }, { head: { y: -90 } }, { head: { z: -90 } },
+    { head: { x: -90 } }, { head: { x: 90 } }, { head: { y: -90 } }, { head: { z: -90 } },
     { antenna_left: { y: -90 } }, { antenna_right: { y: 90 } },
-    { head: { x: -90, z: -25 }, antenna_left: { y: -90 }, antenna_right: { y: 90 } },
+    { head: { x: 90, z: -25 }, antenna_left: { y: -90 }, antenna_right: { y: 90 } },
   ];
   const records = [];
   for (const offsets of cases) {
@@ -117,7 +117,7 @@ for (const touch of [false, true]) test(`${touch ? 'phone' : 'desktop'} downward
       const atWall = await measure(page); expectClear(atWall, `${part} continued downward`);
       expect(atWall.state.interaction).toMatchObject({ pointerCount: 1, active: { kind: 'joint', jointId, committed: true } });
       const qDown = quaternion(down.state, part), qWall = quaternion(atWall.state, part);
-      expect(Math.max(...qWall.map((v, i) => Math.abs(v - qDown[i]))), `${part}: floor boundary reached`).toBeLessThan(.001);
+      expect(Math.max(...qWall.map((v, i) => Math.abs(v - qDown[i]))), `${part}: safe downward limit reached`).toBeLessThan(.001);
       await move(wallX - (axis === 'x' ? 0 : sign * 10), wallY - (axis === 'x' ? 10 : 0));
       await page.waitForTimeout(100);
       const reversed = await measure(page); expectClear(reversed, `${part} reverse`);
@@ -127,7 +127,8 @@ for (const touch of [false, true]) test(`${touch ? 'phone' : 'desktop'} downward
     // A preset or held MIDI/animation contribution can already request a pose
     // beyond the floor before the pointer starts. Accepted-delta persistence
     // must remove that existing overshoot too, without editing the contribution.
-    for (const external of [false, true]) for (const [part, axis, unsafe] of [['head', 'x', -35], ['antenna_left', 'y', -75], ['antenna_right', 'y', 75]]) {
+    // +18 is inside the new inward hinge bound but beyond the actual floor.
+    for (const external of [false, true]) for (const [part, axis, unsafe] of [['head', 'x', 18], ['antenna_left', 'y', -75], ['antenna_right', 'y', 75]]) {
       const input = { [part]: { [axis]: unsafe } }, contribution = external ? input : {};
       await page.evaluate(({ input, external }) => {
         roachFloorQA.setPose(external ? {} : input, {}, external ? input : {});
@@ -137,6 +138,11 @@ for (const touch of [false, true]) test(`${touch ? 'phone' : 'desktop'} downward
       const point = await page.evaluate(part => __roachFloorViewer.getPartScreenPosition(part), part);
       expect(point, `${part}: already constrained ${external ? 'external' : 'static'} pose`).not.toBeNull();
       const before = await measure(page); expectClear(before, `${part} before reverse`);
+      if (part === 'head') {
+        const index = before.state.bones.findIndex(joint => joint.jointId === part);
+        expect(unsafe, 'fixture stays inside the inward hinge bound').toBeLessThanOrEqual(before.state.bones[index].poseLimits.x[1]);
+        expect(before.state.appliedPose[index * 3], 'fixture genuinely requests floor-rejected head travel').toBeLessThan(unsafe - 5);
+      }
       if (touch) await client.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: point.x, y: point.y }] });
       else { await page.mouse.move(point.x, point.y); await page.mouse.down(); }
       const selected = await page.evaluate(() => __roachFloorViewer.getState()), jointId = selected.bones.find(j => j.jointId === part).id;
@@ -158,7 +164,7 @@ for (const touch of [false, true]) test(`${touch ? 'phone' : 'desktop'} downward
 test('rotated body poses retain face clearance and Audio remains independent of the animation Play button', async ({ page, baseURL }) => {
   await openFixture(page, baseURL);
   for (const body of [{ yaw: 60 }, { roll: -20 }, { roll: 20 }, { pitch: -30 }, { pitch: 30 }, { pitch: -20, roll: 15, yaw: 45 }]) {
-    await page.evaluate(body => roachFloorQA.setPose({ head: { x: -35 }, antenna_left: { y: -75 }, antenna_right: { y: 75 } }, body), body);
+    await page.evaluate(body => roachFloorQA.setPose({ head: { x: 35 }, antenna_left: { y: -75 }, antenna_right: { y: 75 } }, body), body);
     const report = await measure(page); expectClear(report, JSON.stringify(body));
     expect(Number.isFinite(report.state.ground.floorLift)).toBe(true);
     expect(report.state.ground.contacts.every(foot => foot.gap >= -tolerance)).toBe(true);

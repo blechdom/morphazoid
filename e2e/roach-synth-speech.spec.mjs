@@ -96,8 +96,8 @@ for (const device of [{ name: 'desktop', viewport: { width: 1440, height: 900 },
         await page.locator('#dragAxis').selectOption('x');
         const point = await page.evaluate(() => window.roachSynth.getPartScreenPosition('head'));
         expect(point).not.toBeNull(); await page.mouse.move(point.x, point.y); await page.mouse.down();
-        await page.mouse.move(point.x + 12, point.y - 8, { steps: 3 }); await page.mouse.up();
-        expect(offsets(await snapshot(page)).some(bone => Object.values(bone.offset).some(value => value !== 0))).toBe(true);
+        await page.mouse.move(point.x, point.y - 12, { steps: 3 }); await page.mouse.up();
+        expect((await snapshot(page)).bones.find(bone => bone.jointId === 'head').offset.x).toBeLessThan(-1);
       }
       const before = await snapshot(page);
       if (!device.touch) await page.screenshot({ path: testInfo.outputPath('face-before-speech.png') });
