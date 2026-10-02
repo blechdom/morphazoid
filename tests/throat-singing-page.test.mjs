@@ -26,16 +26,20 @@ test("Throat Singer ships one research-labelled physical-model page", async () =
   assert.match(html, /id="singButton"[\s\S]*data-primary-transport/);
   assert.match(html, /id="singButton"[\s\S]*aria-keyshortcuts="Space"/);
   assert.match(html, /data-instrument-preset-host/);
-  assert.match(html, /id="ornamentSelect"[\s\S]*id="ornamentLoop"[\s\S]*id="melodySelect"/);
+  assert.match(html, /id="styleSelect"[\s\S]*id="breathButton"[\s\S]*id="breathRate"/);
+  assert.match(html, /id="gestureButton"[\s\S]*id="ornamentSelect"[\s\S]*id="ornamentDirection"[\s\S]*id="ornamentPingPong"[\s\S]*id="ornamentRepeat"/);
+  assert.match(html, /id="melodyButton"[\s\S]*id="melodySelect"[\s\S]*id="melodyDirection"[\s\S]*id="melodyPingPong"[\s\S]*id="melodyRepeat"/);
+  assert.match(html, /id="portamento"[\s\S]*id="noteButtons"/);
+  for (const key of ["pitchVoices", "pitchSpreadSemitones", "overtoneVoices", "overtoneSpread", "reverbMix", "delayMix", "delayTimeSeconds", "delayFeedback"]) {
+    assert.match(html, new RegExp(`id="${key}"`));
+  }
   assert.match(html, /id="sourcePressure"/);
   assert.doesNotMatch(html, /<input[^>]*type="range"[^>]*\/>\s*<small>/);
   assert.match(html, /id="vocalFry"[\s\S]*id="growlRoughness"/);
   assert.match(html, /id="harmonicNumber"/);
-  assert.match(html, /Explore first · named approaches/);
   assert.doesNotMatch(html, /id="(?:aspiration|inhaleAudibility|styleMorph)/);
   assert.doesNotMatch(html, /throat-stage-title|throat-harmonic-dock|id="harmonicButtons"/);
-  assert.match(html, /Beyond anatomy[\s\S]*Speculative sound lab/);
-  assert.match(html, /id="phantomAirways"[\s\S]*id="impossibleFocus"[\s\S]*id="sourceInstability"/);
+  assert.doesNotMatch(html, /id="(?:styleButtons|styleDescription|ornamentLoop|ornamentRandom|melodyRandom|loopNext|loopRandom)"|throat-model-hud/);
   assert.match(html, /id="resetButton"[\s\S]*data-reset-in-place/);
   assert.match(html, /A model of acoustics, not a model of a culture/);
   assert.match(html, /Inuit katajjaq:[\s\S]*intentionally not reduced to a preset/);
@@ -58,9 +62,12 @@ test("Throat Singer ships one research-labelled physical-model page", async () =
   assert.match(app, /crossfadeWaveGains/);
   assert.match(app, /sourceWaveMuted/);
   assert.doesNotMatch(app, /dividerOscillator\.type\s*=\s*"square"/);
-  assert.doesNotMatch(app, /(?:breathNoise|breathGain|inhaleGain|inhaleAudibility|interpolateThroatSingingStates|styleMorph)/);
+  assert.doesNotMatch(app, /(?:breathNoise|inhaleGain|inhaleAudibility|interpolateThroatSingingStates|styleMorph)/);
   assert.doesNotMatch(app, /key === "[im]"/);
   assert.match(app, /dualFocusTargets/);
+  assert.match(app, /COMPUTER_KEYBOARD_LAYOUTS\.piano\.noteOffsets/);
+  assert.match(app, /enhanceRangeKnob/);
+  assert.match(app, /createVoiceEffects/);
   assert.doesNotMatch(app, /\bfetch\s*\(/);
   assert.doesNotMatch([html, css, app].join("\n"), /\.(?:wav|mp3|ogg|flac|aiff?)\b/i);
 
@@ -70,6 +77,7 @@ test("Throat Singer ships one research-labelled physical-model page", async () =
     "src/instruments/throat-singing/throat-singing-app.js",
     "src/instruments/throat-singing/throat-singing.js",
     "src/instruments/throat-singing/performance-patterns.js",
+    "src/instruments/throat-singing/voice-effects.js",
     "docs/THROAT_SINGING_RESEARCH.md",
     "assets/instruments/throat-singing.webp",
   ]) {
