@@ -13,7 +13,7 @@ const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
 const positiveMod = (value, modulus) => ((value % modulus) + modulus) % modulus;
 const smooth = (value) => value * value * (3 - 2 * value);
 const safeTime = (time) => clamp(finite(time), 0, 1_000_000_000);
-const beatsAt = (time, settings) => safeTime(time) * clamp(finite(settings?.tempo, 108), 30, 240) / 60;
+const beatsAt = (time, settings) => safeTime(time) * clamp(finite(settings?.tempo, 108), 2, 4400) / 60;
 export const ROACH_SEQUENCE_STEPS = 16;
 export const ROACH_MAX_JOINT_TRACKS = 384;
 export const ROACH_TRACK_SUBSTEPS = 4;

@@ -597,6 +597,16 @@ test('beat state shares audio-time quarter notes, sixteenths and four-beat bars 
   assert.ok(Object.values(writeRoachBeatState(NaN, {}, out)).every(Number.isFinite));
 });
 
+test('fractional and multiplied tempos drive the actual motion clock across its full range', () => {
+  const rig = joints(), beat = 1.875, controls = { presetId: 'side_walk', antennae: false };
+  const baseline = scene(beat * 60 / 120, { ...controls, tempo: 120 }, rig);
+  for (const tempo of [2, 27, 432, 4400]) {
+    const time = beat * 60 / tempo;
+    assert.ok(Math.abs(writeRoachBeatState(time, { tempo }, {}).beat - beat) < 1e-10, `${tempo} BPM beat clock`);
+    assert.deepEqual(scene(time, { ...controls, tempo }, rig).feet, baseline.feet, `${tempo} BPM contact timing`);
+  }
+});
+
 test('all factory landings occur on the shared sixteenth grid with continuous supported gaits', () => {
   const rig = joints(); const signatures = new Set();
   assert.equal(ROACH_CONTACT_GRID_BEATS, .25);
