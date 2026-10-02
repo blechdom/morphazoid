@@ -168,7 +168,7 @@ test('CC macro routes control body axes, presets and Voice while standard CCs re
   const before = await state(page);
   await sendMidi(page, MIDI_BYTES.controlChange(15, 127)); expect((await state(page)).sound.brightness).toBeGreaterThan(before.sound.brightness);
   await sendMidi(page, MIDI_BYTES.controlChange(71, 0)); expect((await state(page)).sound.resonance).toBe(0);
-  await sendMidi(page, MIDI_BYTES.controlChange(7, 63)); expect((await state(page)).sound.level).toBeCloseTo(.8 * 63 / 127, 2);
+  await sendMidi(page, MIDI_BYTES.controlChange(7, 63)); expect((await state(page)).sound.level).toBeCloseTo(63 / 127, 2);
   await chooseRoute(page, 0, 'joint:head:x'); const head = quaternion(await state(page), 'head'), sound = (await state(page)).sound;
   await sendMidi(page, MIDI_BYTES.controlChange(14, 127)); await expect.poll(async () => quaternion(await state(page), 'head')).not.toEqual(head);
   expect((await state(page)).sound).toEqual(sound);
