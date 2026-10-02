@@ -72,9 +72,9 @@ test('eight anatomical groups own synthesis, percussion and native voice sources
   assert.equal(normalizeRoachBodyMix([{ groupId: 'legs', source: 'drone', level: 0 }])[0].level, 0);
 });
 
-test('24 animation companions cover distinct instruments and reserve scuttle for one routine', () => {
+test('20 animation companions cover distinct instruments and reserve scuttle for one routine', () => {
   assert.deepEqual(ROACH_MOTION_SOUND_PRESETS.map((item) => item.motionId).sort(), ROACH_MOTION_PRESETS.map((item) => item.id).sort());
-  assert.equal(new Set(ROACH_MOTION_SOUND_PRESETS.map((item) => JSON.stringify(item.bodyMix))).size, 24);
+  assert.equal(new Set(ROACH_MOTION_SOUND_PRESETS.map((item) => JSON.stringify(item.bodyMix))).size, 20);
   assert.deepEqual(ROACH_MOTION_SOUND_PRESETS.filter((item) => item.bodyMix.some((row) => row.source === 'skuttle')).map((item) => item.motionId), ['side_skitter']);
   assert.equal(ROACH_SOUND_PRESETS[0].bodyMix[0].source, 'footsteps');
   assert.equal(ROACH_SOUND_PRESETS[0].bodyMix[5].source, 'sine');
@@ -83,6 +83,25 @@ test('24 animation companions cover distinct instruments and reserve scuttle for
   assert.notEqual(getRoachMotionSound('side_walk').sound.pitch, 999);
   assert.equal(getRoachMotionSound('side_walk').bodyMix[0].source, 'footsteps');
   assert.deepEqual(ROACH_SOUND_PRESETS.find((item) => item.id === 'wing-radio').bodyMix.map((row) => row.level), [.85,.48,.65,.68,.6,.36,.36,.24]);
+});
+
+test('retired dance companions disappear while jump and flying sounds retain their authored articulation', () => {
+  for (const id of ['dance_upright', 'dance_boxer', 'dance_can_can', 'dance_waltz']) {
+    assert.ok(!ROACH_MOTION_SOUND_PRESETS.some((item) => item.motionId === id));
+    assert.equal(getRoachMotionSound(id).motionId, 'side_walk');
+  }
+  const jump = getRoachMotionSound('side_jump');
+  assert.deepEqual([jump.sound.pitch, jump.sound.vowel, jump.sound.wingRate, jump.sound.rhythm, jump.sound.voiceSpeed, jump.sound.pan],
+    [90, .13, 88, .88, .9, 0]);
+  assert.deepEqual(jump.bodyMix.map(({ source, level }) => [source, level]),
+    [['footsteps', .8], ['rattle', .32], ['rustle', .28], ['fm', .45], ['sub', .28], ['sine', .4], ['pluck', .35], ['shimmer', .14]]);
+  const wingRadio = ROACH_SOUND_PRESETS.find((item) => item.id === 'wing-radio');
+  for (const id of ['top_wing_fan', 'top_flight', 'wings_alarm']) {
+    const patch = getRoachMotionSound(id);
+    assert.equal(patch.motionId, id);
+    assert.deepEqual(patch.sound, wingRadio.sound);
+    assert.deepEqual(patch.bodyMix.slice(1, 3).map(({ source, level }) => [source, level]), [['buzz', .48], ['rustle', .65]]);
+  }
 });
 
 test('percussion source changes do not freeze and resurrect a previous strike', () => {
@@ -525,8 +544,8 @@ test('a repeating individual leg score makes keyed contacts and rests without sw
   assert.equal(peak(render(inactive, 2).left), 0); assert.equal(inactive.contactEvents, 0);
 });
 
-test('all 24 static pose presets produce distinct sound without moving their body or animation clock', () => {
-  assert.equal(ROACH_STATIC_POSES.length, 24);
+test('all 18 public static pose presets produce distinct sound without moving their body or animation clock', () => {
+  assert.equal(ROACH_STATIC_POSES.length, 18);
   const outputs = [];
   for (const preset of ROACH_STATIC_POSES) {
     const shape = getRoachStaticPose(preset.id, joints);

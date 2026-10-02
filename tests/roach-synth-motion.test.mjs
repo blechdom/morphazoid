@@ -23,10 +23,12 @@ function scene(time, settings, rig = joints()) {
   return writeRoachSceneState(time, normalizeRoachMotion(settings), createRoachSceneState(), rig);
 }
 const maxDifference = (left, right) => Math.max(...left.map((value, i) => Math.abs(value - right[i])));
+const retiredMotionIds = ['dance_upright', 'dance_boxer', 'dance_can_can', 'dance_waltz'];
+const retiredStaticIds = ['standing_tall', 'boxer_guard', 'high_kick', 'salute', 'lean_left', 'lean_right'];
 
-test('24 distinct patches preserve the original IDs and never own a camera', () => {
-  assert.equal(ROACH_MOTION_PRESETS.length, 24);
-  assert.equal(new Set(ROACH_MOTION_PRESETS.map((item) => item.id)).size, 24);
+test('20 distinct patches preserve grounded, jump and flying IDs and never own a camera', () => {
+  assert.equal(ROACH_MOTION_PRESETS.length, 20);
+  assert.equal(new Set(ROACH_MOTION_PRESETS.map((item) => item.id)).size, 20);
   const originals = ['side_walk', 'side_run', 'side_jump', 'top_wing_fan', 'top_body_wave', 'top_flight', 'bottom_wiggle', 'bottom_shuffle', 'bottom_rave', 'face_curious', 'face_chatter', 'face_sing'];
   for (const id of originals) assert.ok(ROACH_MOTION_PRESETS.some((item) => item.id === id));
   for (const item of ROACH_MOTION_PRESETS) {
@@ -52,7 +54,7 @@ test('every factory patch repeats continuously after eight beats with distinct b
     assert.ok(maxDifference(pose(4 - 1e-7, settings, rig), pose(4, settings, rig)) < .01, `${preset.id} wrap`);
     signatures.add(JSON.stringify(signature));
   }
-  assert.equal(signatures.size, 24);
+  assert.equal(signatures.size, 20);
 });
 
 test('every routine moves both antennae and the antenna switch removes their procedural motion', () => {
@@ -145,13 +147,26 @@ test('jump and takeoff have airborne roots, silent feet, and synchronized landin
   }
 });
 
-test('upright dances reserve support for rear feet and remain separate from the camera', () => {
-  for (const presetId of ['dance_upright', 'dance_boxer', 'dance_can_can', 'dance_waltz']) {
-    const out = scene(.31, { presetId });
-    assert.ok(out.body.pitch >= 50);
-    assert.equal(out.body.lift, 0, 'renderer grounds the pitched rear feet without extra hover');
-    assert.ok(out.feet.slice(0, 4).every((foot) => !foot.stance && foot.impact === 0));
-    assert.ok(out.feet.slice(4).every((foot) => foot.impact > 0));
+test('two-leg dances are retired from public choices, motion normalization and baking', () => {
+  assert.ok(ROACH_MOTION_PRESETS.every((item) => item.rootPosture !== 'upright'));
+  for (const presetId of retiredMotionIds) {
+    assert.ok(!ROACH_MOTION_PRESETS.some((item) => item.id === presetId));
+    assert.equal(normalizeRoachMotion({ presetId }).presetId, 'side_walk');
+    assert.equal(activeRoachPreset(.31, { presetId }).id, 'side_walk');
+    assert.deepEqual(pose(.31, { presetId }), pose(.31, { presetId: 'side_walk' }));
+    assert.equal(bakeRoachPresetTracks(presetId, joints()).presetId, 'side_walk');
+  }
+});
+
+test('every original wing and jump routine retains its mode, posture and travel', () => {
+  const expected = [
+    ['top_wing_fan', 3, 'low', 0], ['top_flight', 5, 'flight', .05],
+    ['wings_alarm', 21, 'low', .1], ['side_jump', 2, 'jump', .03],
+  ];
+  for (const [id, mode, posture, groundSpeed] of expected) {
+    const item = ROACH_MOTION_PRESETS.find((item) => item.id === id);
+    assert.ok(item, `${id} remains available`);
+    assert.deepEqual([item.mode, item.rootPosture, item.groundSpeed], [mode, posture, groundSpeed]);
   }
 });
 
@@ -320,7 +335,7 @@ test('baked airborne roots and feet share the same sampled landing transition', 
   assert.ok(landing.feet.every((foot) => foot.stance && foot.contactCount === 1 && foot.impact > 0));
 });
 
-test('24 static body poses are distinct, reproducible, frozen and relative to calibrated rest', () => {
+test('18 public static body poses are distinct, reproducible, frozen and relative to calibrated rest', () => {
   const rig = wingRig(); rig[7].restOffset = { x: 45, y: -17, z: 8 };
   const signatures = new Set();
   for (const preset of ROACH_STATIC_POSES) {
@@ -336,9 +351,26 @@ test('24 static body poses are distinct, reproducible, frozen and relative to ca
     assert.ok(snapshot.scene.feet.every((foot) => foot.impact === 0 && foot.contactCount === 0));
     signatures.add(JSON.stringify([snapshot.offsets, snapshot.scene.body]));
   }
-  assert.equal(ROACH_STATIC_POSES.length, 24);
-  assert.equal(signatures.size, 24);
+  assert.equal(ROACH_STATIC_POSES.length, 18);
+  assert.equal(signatures.size, 18);
   assert.ok(getRoachStaticPose('neutral', rig).offsets.every(({ x, y, z }) => x === 0 && y === 0 && z === 0));
+});
+
+test('retired upright static snapshots restore privately without re-entering choices or motion', () => {
+  const rig = wingRig();
+  for (const id of retiredStaticIds) {
+    assert.ok(!ROACH_STATIC_POSES.some((item) => item.id === id));
+    const snapshot = getRoachStaticPose(id, rig);
+    assert.equal(snapshot.id, id);
+    assert.ok(retiredMotionIds.includes(snapshot.sourcePresetId));
+    assert.ok(snapshot.scene.body.pitch >= 50, `${id} keeps its original frozen posture`);
+    assert.equal(snapshot.scene.body.lift, 0);
+    assert.ok(snapshot.scene.feet.slice(0, 4).every((foot) => !foot.stance));
+    assert.ok(snapshot.scene.feet.every((foot) => foot.impact === 0 && foot.contactCount === 0));
+    assert.deepEqual(snapshot, getRoachStaticPose(id, rig));
+    const controls = normalizeRoachMotion({ presetId: 'none', staticScene: snapshot.scene, antennae: false });
+    assert.deepEqual(scene(0, controls, rig), scene(100, controls, rig));
+  }
 });
 
 test('random static positions are seeded, bounded and do not mutate caller poses or metadata', () => {
@@ -348,6 +380,30 @@ test('random static positions are seeded, bounded and do not mutate caller poses
   assert.notDeepEqual(first, getRoachStaticPose('random', rig, { seed: 43 }));
   assert.ok(first.offsets.every(({ x, y, z }) => [x, y, z].every((value) => Number.isFinite(value) && Math.abs(value) <= 180)));
   assert.deepEqual(rig, before);
+});
+
+test('motion and static dice never select a retired two-leg preset while jumps and wings remain reachable', () => {
+  const bases = new Set(); const donors = new Set(); const statics = new Set();
+  const publicMotionIds = new Set(ROACH_MOTION_PRESETS.map((item) => item.id));
+  const publicStaticSources = new Set(ROACH_STATIC_POSES.map((item) => item.presetId));
+  for (let seed = 1; seed <= 512; seed += 1) {
+    const motion = createRandomRoachMotion(seed, [], { tempo: 120 });
+    assert.ok(publicMotionIds.has(motion.presetId));
+    assert.ok(publicMotionIds.has(motion.randomSourceId));
+    assert.ok(!retiredMotionIds.includes(motion.presetId));
+    assert.ok(!retiredMotionIds.includes(motion.randomSourceId));
+    const snapshot = getRoachStaticPose('random', [], { seed: seed * 2654435761 });
+    assert.ok(publicStaticSources.has(snapshot.sourcePresetId));
+    assert.ok(!retiredMotionIds.includes(snapshot.sourcePresetId));
+    assert.ok(Math.abs(snapshot.scene.body.pitch) < 50);
+    bases.add(motion.presetId); donors.add(motion.randomSourceId); statics.add(snapshot.sourcePresetId);
+  }
+  for (const id of ['side_jump', 'top_flight', 'top_wing_fan', 'wings_alarm']) {
+    assert.ok(bases.has(id), `${id} remains a random base`);
+  }
+  // Jumping feet stay with the base gait; only compatible upper-body donors mix in.
+  for (const id of ['top_flight', 'top_wing_fan', 'wings_alarm']) assert.ok(donors.has(id), `${id} remains a random donor`);
+  assert.ok(statics.has('side_jump') && statics.has('top_flight'));
 });
 
 test('left/right forewings and hindwings have independent mirrored hinges and no duplicate parent animation', () => {

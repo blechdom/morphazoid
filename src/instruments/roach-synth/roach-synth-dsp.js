@@ -158,38 +158,35 @@ export function createRandomRoachSound(seed = 1) {
 
 // Authored companions are applied only by an explicit animation selection.
 // They do not alter the animation clock or overwrite a player's subsequent mix.
+// Each retained row keeps its authored articulation index when other rows retire.
 const MOTION_SOUND_ROWS = [
-  ['side_walk','Sole taps',125,.46,.4,.08,['footsteps','walls','rustle','resonance','drone','sine','sub','shimmer'],[.76,.3,.5,.35,.25,.4,.25,.14]],
-  ['top_wing_fan','Wing radio twitter',185,.57,.65,.2,['footsteps','buzz','rustle','resonance','drone','zing','sub','shimmer'],[.35,.48,.65,.3,.24,.2,.2,.16]],
-  ['dance_upright','Rubber boogie',110,.5,.48,.09,['footsteps','pluck','rustle','fm','sub','sine','rattle','shimmer'],[.78,.4,.3,.44,.3,.48,.3,.16]],
-  ['face_curious','Question tones',185,.48,.35,.04,['pluck','walls','rustle','sine','drone','sine','fm','shimmer'],[.28,.2,.3,.25,.2,.68,.6,.22]],
-  ['side_run','Six-foot FM',165,.52,.38,.08,['fm','walls','rustle','resonance','sub','sine','footsteps','shimmer'],[.74,.24,.35,.3,.28,.35,.2,.12]],
-  ['top_body_wave','Modal body drums',115,.44,.64,.1,['rattle','pluck','rustle','fm','sub','sine','resonance','shimmer'],[.58,.4,.35,.58,.28,.48,.28,.18]],
-  ['face_chatter','Neck syllables',210,.59,.34,.06,['footsteps','walls','rustle','sine','drone','sine','fm','pluck'],[.32,.2,.3,.24,.18,.72,.56,.2]],
-  ['top_flight','Wing radio lift',185,.57,.65,.2,['pluck','buzz','rustle','resonance','drone','zing','sub','shimmer'],[.38,.48,.65,.34,.24,.2,.2,.16]],
-  ['side_skitter','One nervous scuttle',140,.34,.45,.12,['skuttle','walls','rustle','resonance','drone','sine','sub','shimmer'],[.36,.2,.32,.28,.22,.38,.2,.12]],
-  ['dance_boxer','FM knuckles',95,.48,.42,.14,['fm','rattle','rustle','rattle','sub','sine','fm','shimmer'],[.7,.38,.3,.42,.26,.42,.38,.14]],
-  ['face_sing','Singing sine',170,.42,.6,.04,['pluck','walls','rustle','resonance','drone','sine','sine','shimmer'],[.25,.2,.3,.28,.22,.66,.5,.2]],
-  ['bottom_wiggle','Plucked noodles',205,.6,.7,.06,['pluck','walls','rustle','sine','sub','sine','fm','shimmer'],[.88,.2,.3,.28,.2,.4,.3,.2]],
-  ['side_tiptoe','Tiny clicks',235,.65,.28,.035,['click','walls','rustle','sine','drone','sine','pluck','shimmer'],[.86,.16,.25,.24,.16,.42,.3,.12]],
-  ['wings_alarm','Wing radio alarm',185,.57,.65,.2,['fm','buzz','rustle','resonance','drone','zing','sub','shimmer'],[.48,.48,.65,.24,.2,.2,.18,.14]],
-  ['dance_can_can','Rattlesnake kicks',180,.62,.47,.09,['rattle','pluck','rustle','fm','sub','sine','footsteps','shimmer'],[.68,.35,.25,.35,.26,.44,.34,.16]],
-  ['face_growl','Bass and clean neck',85,.32,.68,.24,['rattle','walls','rustle','resonance','growl','sine','growl','shimmer'],[.28,.24,.28,.28,.55,.56,.6,.14]],
-  ['side_zigzag','FM zigzag',275,.68,.3,.07,['fm','pluck','rustle','sine','sub','sine','rattle','shimmer'],[.66,.26,.32,.24,.24,.4,.3,.14]],
-  ['bottom_rave','Percussion circuits',165,.7,.54,.16,['rattle','fm','rustle','fm','sub','sine','pluck','shimmer'],[.62,.38,.3,.4,.28,.38,.35,.16]],
-  ['face_serenade','Glassy conversation',245,.6,.72,.045,['pluck','walls','rustle','shimmer','drone','sine','pluck','sine'],[.28,.18,.3,.26,.18,.68,.76,.2]],
-  ['dance_waltz','Cupboard strings',155,.48,.76,.05,['pluck','resonance','rustle','sine','sub','sine','footsteps','shimmer'],[.82,.3,.28,.34,.24,.44,.35,.16]],
-  ['side_backpedal','Reverse tines',125,.62,.58,.08,['pluck','walls','rustle','fm','drone','sine','rattle','shimmer'],[.86,.24,.3,.36,.22,.4,.24,.12]],
-  ['dance_robot','Clacking servos',210,.64,.31,.12,['clack','pluck','rustle','rattle','sub','sine','fm','shimmer'],[.78,.3,.28,.36,.24,.52,.4,.14]],
-  ['side_jump','Rubber landing',90,.5,.52,.09,['footsteps','rattle','rustle','fm','sub','sine','pluck','shimmer'],[.8,.32,.28,.45,.28,.4,.35,.14]],
-  ['bottom_shuffle','Shuffle shells',190,.56,.42,.07,['footsteps','pluck','rustle','rattle','drone','sine','fm','shimmer'],[.72,.38,.28,.42,.22,.42,.3,.14]],
+  ['side_walk',0,'Sole taps',125,.46,.4,.08,['footsteps','walls','rustle','resonance','drone','sine','sub','shimmer'],[.76,.3,.5,.35,.25,.4,.25,.14]],
+  ['top_wing_fan',1,'Wing radio twitter',185,.57,.65,.2,['footsteps','buzz','rustle','resonance','drone','zing','sub','shimmer'],[.35,.48,.65,.3,.24,.2,.2,.16]],
+  ['face_curious',3,'Question tones',185,.48,.35,.04,['pluck','walls','rustle','sine','drone','sine','fm','shimmer'],[.28,.2,.3,.25,.2,.68,.6,.22]],
+  ['side_run',4,'Six-foot FM',165,.52,.38,.08,['fm','walls','rustle','resonance','sub','sine','footsteps','shimmer'],[.74,.24,.35,.3,.28,.35,.2,.12]],
+  ['top_body_wave',5,'Modal body drums',115,.44,.64,.1,['rattle','pluck','rustle','fm','sub','sine','resonance','shimmer'],[.58,.4,.35,.58,.28,.48,.28,.18]],
+  ['face_chatter',6,'Neck syllables',210,.59,.34,.06,['footsteps','walls','rustle','sine','drone','sine','fm','pluck'],[.32,.2,.3,.24,.18,.72,.56,.2]],
+  ['top_flight',7,'Wing radio lift',185,.57,.65,.2,['pluck','buzz','rustle','resonance','drone','zing','sub','shimmer'],[.38,.48,.65,.34,.24,.2,.2,.16]],
+  ['side_skitter',8,'One nervous scuttle',140,.34,.45,.12,['skuttle','walls','rustle','resonance','drone','sine','sub','shimmer'],[.36,.2,.32,.28,.22,.38,.2,.12]],
+  ['face_sing',10,'Singing sine',170,.42,.6,.04,['pluck','walls','rustle','resonance','drone','sine','sine','shimmer'],[.25,.2,.3,.28,.22,.66,.5,.2]],
+  ['bottom_wiggle',11,'Plucked noodles',205,.6,.7,.06,['pluck','walls','rustle','sine','sub','sine','fm','shimmer'],[.88,.2,.3,.28,.2,.4,.3,.2]],
+  ['side_tiptoe',12,'Tiny clicks',235,.65,.28,.035,['click','walls','rustle','sine','drone','sine','pluck','shimmer'],[.86,.16,.25,.24,.16,.42,.3,.12]],
+  ['wings_alarm',13,'Wing radio alarm',185,.57,.65,.2,['fm','buzz','rustle','resonance','drone','zing','sub','shimmer'],[.48,.48,.65,.24,.2,.2,.18,.14]],
+  ['face_growl',15,'Bass and clean neck',85,.32,.68,.24,['rattle','walls','rustle','resonance','growl','sine','growl','shimmer'],[.28,.24,.28,.28,.55,.56,.6,.14]],
+  ['side_zigzag',16,'FM zigzag',275,.68,.3,.07,['fm','pluck','rustle','sine','sub','sine','rattle','shimmer'],[.66,.26,.32,.24,.24,.4,.3,.14]],
+  ['bottom_rave',17,'Percussion circuits',165,.7,.54,.16,['rattle','fm','rustle','fm','sub','sine','pluck','shimmer'],[.62,.38,.3,.4,.28,.38,.35,.16]],
+  ['face_serenade',18,'Glassy conversation',245,.6,.72,.045,['pluck','walls','rustle','shimmer','drone','sine','pluck','sine'],[.28,.18,.3,.26,.18,.68,.76,.2]],
+  ['side_backpedal',20,'Reverse tines',125,.62,.58,.08,['pluck','walls','rustle','fm','drone','sine','rattle','shimmer'],[.86,.24,.3,.36,.22,.4,.24,.12]],
+  ['dance_robot',21,'Clacking servos',210,.64,.31,.12,['clack','pluck','rustle','rattle','sub','sine','fm','shimmer'],[.78,.3,.28,.36,.24,.52,.4,.14]],
+  ['side_jump',22,'Rubber landing',90,.5,.52,.09,['footsteps','rattle','rustle','fm','sub','sine','pluck','shimmer'],[.8,.32,.28,.45,.28,.4,.35,.14]],
+  ['bottom_shuffle',23,'Shuffle shells',190,.56,.42,.07,['footsteps','pluck','rustle','rattle','drone','sine','fm','shimmer'],[.72,.38,.28,.42,.22,.42,.3,.14]],
 ];
-export const ROACH_MOTION_SOUND_PRESETS = Object.freeze(MOTION_SOUND_ROWS.map(([motionId,label,pitch,brightness,resonance,crunch,sources,levels],index) => {
+export const ROACH_MOTION_SOUND_PRESETS = Object.freeze(MOTION_SOUND_ROWS.map(([motionId,articulationIndex,label,pitch,brightness,resonance,crunch,sources,levels]) => {
   const wing = motionId === 'top_wing_fan' || motionId === 'top_flight' || motionId === 'wings_alarm';
-  const articulation = PATCH_ARTICULATION[index % PATCH_ARTICULATION.length];
+  const articulation = PATCH_ARTICULATION[articulationIndex % PATCH_ARTICULATION.length];
   return Object.freeze({motionId,label,
     sound:Object.freeze(wing ? {...ROACH_SOUND_PRESETS[2].sound} : normalizeRoachSound({...ROACH_SOUND_DEFAULTS,pitch,brightness,resonance,crunch,
-      vowel:articulation[0],wingRate:articulation[1],rhythm:articulation[2],pan:articulation[4],voiceSpeed:PATCH_VOICE_SPEEDS[index % PATCH_VOICE_SPEEDS.length]})),
+      vowel:articulation[0],wingRate:articulation[1],rhythm:articulation[2],pan:articulation[4],voiceSpeed:PATCH_VOICE_SPEEDS[articulationIndex % PATCH_VOICE_SPEEDS.length]})),
     bodyMix:Object.freeze(createDefaultRoachBodyMix().map((row,i)=>Object.freeze({...row,source:sources[i],level:levels[i]}))),
   });
 }));
