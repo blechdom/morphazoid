@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { voicesaurusAmendments, restoreVoicesaurus } from './helpers/voicesaurus-reference.mjs';
 import { restoreFabricFilter } from './helpers/fabric-filter-reference.mjs';
+import { restoreRoachPerformance } from './helpers/roach-synth-performance-reference.mjs';
 
 const read = file => readFileSync(new URL(`../${file}`, import.meta.url), 'utf8');
 
@@ -22,7 +23,7 @@ test('Voicesaurus reversal stays scoped and preserves the independent pre-featur
   for (const change of voicesaurusAmendments.changes) {
     assert.ok(change.replacements.length > 0);
     assert.match(change.sha256, /^[a-f0-9]{64}$/);
-    const source = restoreFabricFilter(read(change.file), change.file);
+    const source = restoreFabricFilter(restoreRoachPerformance(read(change.file), change.file), change.file);
     const restored = restoreVoicesaurus(source, change.file);
     assert.notEqual(restored, source);
     const body = change.implementation ? read(change.implementation) : source;

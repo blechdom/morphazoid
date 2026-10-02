@@ -1,5 +1,6 @@
 import { restoreSpelling } from "./helpers/spelling-reference.mjs";
 import { restoreFabricFilter } from "./helpers/fabric-filter-reference.mjs";
+import { restoreRoachPerformance } from "./helpers/roach-synth-performance-reference.mjs";
 import { restoreVoicesaurus } from "./helpers/voicesaurus-reference.mjs";
 import { restoreDominoRunSite, dominoRunSiteAmendments } from "./helpers/domino-run-site-reference.mjs";
 import { restoreRainVolumeMeters } from './helpers/rain-volume-meter-reference.mjs';
@@ -36,8 +37,9 @@ function restoreSynthesis(source, file) {
   }
   return source;
 }
-// Voicesaurus is newer than both Synthesaurus and Domino; peel it off first.
-const readBeforeSynthesis = async file => restoreSynthesis(restoreVoicesaurus(restoreFabricFilter(await readFile(new URL(file, root), "utf8"), file), file), file);
+// Reverse the newer Roach and Fabric Filter changes before the Voicesaurus,
+// Synthesaurus and Domino amendments, preserving their frozen source evidence.
+const readBeforeSynthesis = async file => restoreSynthesis(restoreVoicesaurus(restoreFabricFilter(restoreRoachPerformance(await readFile(new URL(file, root), "utf8"), file), file), file), file);
 const readBeforeDomino = async file => restoreDominoRunSite(await readBeforeSynthesis(file), file);
 
 test("remaining flat JavaScript modules match the reviewed shared and toolchain boundaries", async () => {
