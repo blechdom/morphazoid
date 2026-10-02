@@ -28,7 +28,7 @@ same black so the square boundary disappears without deleting dark edge detail.
 | `surround-field.webp` | Central sound orb inside a multichannel speaker array |
 | `boidzoid.webp` | Flock of arrow-birds following a sine path |
 | `throat-singing.webp` | Profile airway with drone and overtone rings |
-| `puggler.webp` | Punk unicyclist juggling a microphone, can, and ball |
+| `puggler.webp` | Punk unicyclist juggling a microphone, can, and ball (superseded by the character-reference redraw below) |
 | `simd-303.webp` | Four-lane waveform processor with sequencer and effects |
 | `dentaphone.webp` | Two dental arches forming a modal marimba |
 | `moire-drone.webp` | Woven frequency fabric under two sculptor nodes |
@@ -59,3 +59,25 @@ The editable source is `artwork/vector-instrument-icons/hiccup-head.svg`, with
 a transparent 1024 × 1024 PNG beside it. The catalogue uses a transparent
 512 × 512 lossless WebP rasterized from that SVG with librsvg/Cairo and Pillow.
 The existing catalogue and menu asset path is unchanged.
+
+## Transparent icon refresh — 2026-10-01
+
+Four catalogue icons were refreshed with the built-in OpenAI image-generation
+tool and exported as transparent 512 × 512 lossless WebP files. `puggler.webp`
+is now a close crop of the instrument's actual orange-haired character and its
+tall green eyelet hat. `fractal-signals.webp` is now a balanced six-way radial
+synth whose recursive arms represent the instrument's six signal modes, with no
+dominant hook-shaped stem. The existing subjects in `gesticulating-hand.webp`
+and `simd-chiptune.webp` were retained while their baked square backgrounds
+were removed.
+
+The retained full-resolution transparent PNG sources are:
+
+- `artwork/instrument-icon-variants/puggler/round-1-character-head-transparent-source.png`
+- `artwork/instrument-icon-variants/fractal-signals/round-1-radial-synth-transparent-source.png`
+- `artwork/instrument-icon-variants/gesticulating-hand/round-1-transparent-extraction-source.png`
+- `artwork/instrument-icon-variants/simd-chiptune/round-1-transparent-extraction-source.png`
+
+Each variant directory also contains the exact `catalogue-current.webp` copied
+to `assets/instruments/`. The generation requests prohibited backdrops, badges,
+frames, text, and watermarks and explicitly required a genuine alpha channel.
