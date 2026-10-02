@@ -302,7 +302,7 @@ test('large left-right gestures and hostile offsets keep combined head and neck 
       expect(after.state.selectedBone).toBe(joint.id);
       if (part === 'head') {
         const index = after.state.bones.findIndex(joint => joint.jointId === part);
-        expect(after.state.appliedPose[index * 3 + (axis === 'y' ? 1 : 2)], `${axis} ${sign}: head remains a vertical hinge`).toBe(0);
+        expect(Math.abs(after.state.appliedPose[index * 3 + (axis === 'y' ? 1 : 2)]), `${axis} ${sign}: head remains a vertical hinge`).toBe(0);
       } else expect(Math.abs(joint.offset[axis]), `${axis} ${sign}: carrying neck control still responds`).toBeGreaterThan(.25);
       records.push({ kind: 'gesture', axis, sign, part, before, after });
     }
