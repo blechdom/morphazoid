@@ -220,12 +220,26 @@ and synthesis consume the same articulation. Ornament and melody each have an
 independent play latch, direction, ping-pong, repeat, speed and range. Their
 clocks keep moving in silent preview; pausing one does not pause the other or
 change the voice latch. A single pass returns to the authored drone/pose.
+Cycle positions accumulate at the current rate, so changing speed preserves
+the phrase position and a zero speed holds it. Vibrato, pulse and automatic
+breathing use the same rate integration. The current melody note retains its
+glide contour through a tempo edit; subsequent notes use the new tempo.
 The keyboard shows the shared 24-key two-row piano mapping and latches drone
 tuning. Glide controls exponential pitch interpolation and melody transitions;
 source pitch retains the engine's 50–360 Hz limit. A shallow nasal branch follows
 lip rounding through the existing waveguide model. Anatomy has a fixed 900×720
 coordinate system and one uniform viewport scale, including inverse pointer
 coordinates, so resizing preserves its proportions.
+The profile keeps the eye/nose and rear head/neck edges, with the crown open.
+The spectrum sits above the focus handle's full movement range. Direct mouth
+and lip handles mirror oral constriction and lip rounding; a vertical lip drag
+also opens the mouth. Focus drag leaves oral constriction independent. Airflow
+controls pressure, and false-fold dragging controls both coupling and period.
+Drags use deltas from the authored state so grabbing an animated handle does not
+rewrite its parameter, and hit areas retain at least a 48-pixel screen diameter.
+Controls use aligned playback rows, adjoining square motion buttons, native
+speed and glide sliders and compact single-line knob captions with nearby
+readouts. Buttons and selectors match the shared preset control height.
 
 Voice onset uses a 350 ms smooth envelope and release uses 220 ms. Breath pauses
 have a 220 ms release, 280 ms inhalation gap and 350 ms return. The manual button

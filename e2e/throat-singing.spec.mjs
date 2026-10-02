@@ -27,7 +27,7 @@ test("Throat Singer keeps named styles, anatomy, and harmonic selection in one m
   await expect(page.locator("#stageOvertoneOut")).toContainText("H12");
   await expect(page.locator("#oralConstrictionOut")).toHaveText("98%");
   await page.locator("#styleSelect").selectOption("kargyraa");
-  await expect(page.locator("#periodDivisionOut")).toContainText("2 fold cycles");
+  await expect(page.locator("#periodDivisionOut")).toHaveText("1:2");
   await expect(page.locator("#ventricularCouplingOut")).toHaveText("92%");
   await page.locator("#harmonicNumber").fill("8");
   await expect(page.locator("#harmonicNumberOut")).toHaveText("H8");
@@ -89,7 +89,7 @@ test("Throat Singer produces bounded source and layered-voice output and release
   await page.locator("#pitchVoices").fill("4");
   await page.locator("#overtoneVoices").fill("4");
   await page.locator("#sourceInstability").fill("1");
-  await expect(page.locator("#periodDivisionOut")).toContainText("7 fold cycles");
+  await expect(page.locator("#periodDivisionOut")).toHaveText("1:7");
   await expect(page.locator("#stage")).toHaveAttribute("data-pitch-voices", "4");
   await expect(page.locator("#stage")).toHaveAttribute("data-overtone-voices", "4");
   const extendedEnvelope = await sampleAudioEnvelope(page, { durationMs: 500, intervalMs: 50 });

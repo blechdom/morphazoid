@@ -68,7 +68,7 @@
           <canvas
             id="stage"
             tabindex="0"
-            aria-label="Interactive side-view vocal tract. Drag the violet overtone focus, amber pharynx, or coral false-fold handle. Move the focus field horizontally to choose a harmonic and vertically to sharpen it."
+            aria-label="Interactive side-view vocal tract. Drag overtone focus horizontally for harmonic and vertically for sharpness; pharynx or mouth vertically for constriction; lips horizontally for rounding and vertically for opening; false folds vertically for coupling and horizontally for period; airflow vertically for pressure."
             aria-describedby="canvasInstructions liveStatus"
           >
             A side-view vocal tract with a harmonic spectrum, two constrictions, and true and false vocal folds.
@@ -87,7 +87,7 @@
           </div>
 
           <p class="throat-drag-hint" aria-hidden="true">
-            DRAG OVERTONE FOCUS ↔ HARMONIC / ↕ SHARPNESS · DRAG PHARYNX ↕ CAVITY · DRAG FALSE FOLDS ↕ COUPLING
+            DRAG FOCUS · PHARYNX · MOUTH · LIPS · FOLDS · AIRFLOW
           </p>
           <p class="throat-audio-error" id="audioError" role="alert" hidden></p>
         </div>
@@ -144,10 +144,8 @@
               <select id="ornamentSelect" aria-label="Ornament pattern">
               </select>
             </label>
-            <button id="ornamentNext" class="throat-icon-button" type="button" aria-label="Next ornament" title="Next ornament">›</button>
-          </div>
-          <div class="throat-track-motion">
             <div class="throat-mode-buttons" role="group" aria-label="Ornament direction and repeat">
+              <button id="ornamentNext" class="throat-icon-button" type="button" aria-label="Next ornament" title="Next ornament"><span aria-hidden="true">▶</span></button>
               <button id="ornamentDirection" type="button" aria-label="Ornament direction: forward" title="Reverse ornament" aria-pressed="false">
                 <span aria-hidden="true">→</span>
               </button>
@@ -158,7 +156,9 @@
                 <span aria-hidden="true">⟳</span>
               </button>
             </div>
-            <label class="control" for="ornamentRate">
+          </div>
+          <div class="throat-track-motion">
+            <label class="control throat-slider" for="ornamentRate">
               <span>
                 <b>Speed</b>
                 <output id="ornamentRateOut" for="ornamentRate">
@@ -168,15 +168,15 @@
             </label>
             <label class="control" for="ornamentDepth">
               <span>
-                <b>Pitch range</b>
+                <b>Range</b>
                 <output id="ornamentDepthOut" for="ornamentDepth">
                 </output>
               </span>
-              <input id="ornamentDepth" aria-label="Ornament pitch range" type="range" min="0" max="3" step="0.1" value="0.5" />
+              <input id="ornamentDepth" aria-label="Ornament pitch range" title="Pitch range" type="range" min="0" max="3" step="0.1" value="0.5" />
             </label>
           </div>
         </section>
-        <section class="throat-performance-track" aria-label="Melody">
+        <section class="throat-performance-track throat-melody-track" aria-label="Melody">
           <div class="throat-track-heading">
             <button id="melodyButton" class="play-button mz-button--play" type="button" aria-label="Play melody" title="Play melody" aria-pressed="false">
               <span aria-hidden="true" class="mz-button__transport-icon">
@@ -193,10 +193,8 @@
               <select id="melodySelect" aria-label="Melody pattern">
               </select>
             </label>
-            <button id="melodyNext" class="throat-icon-button" type="button" aria-label="Next melody" title="Next melody">›</button>
-          </div>
-          <div class="throat-track-motion">
             <div class="throat-mode-buttons" role="group" aria-label="Melody direction and repeat">
+              <button id="melodyNext" class="throat-icon-button" type="button" aria-label="Next melody" title="Next melody"><span aria-hidden="true">▶</span></button>
               <button id="melodyDirection" type="button" aria-label="Melody direction: forward" title="Reverse melody" aria-pressed="false">
                 <span aria-hidden="true">→</span>
               </button>
@@ -207,7 +205,9 @@
                 <span aria-hidden="true">⟳</span>
               </button>
             </div>
-            <label class="control" for="melodyRate">
+          </div>
+          <div class="throat-track-motion">
+            <label class="control throat-slider" for="melodyRate">
               <span>
                 <b>Speed</b>
                 <output id="melodyRateOut" for="melodyRate">
@@ -215,27 +215,26 @@
               </span>
               <input id="melodyRate" aria-label="Melody speed" type="range" min="0" max="4" step="0.01" value="0.12" />
             </label>
+            <label class="control throat-slider" for="portamento">
+              <span>
+                <b>Glide</b>
+                <output id="portamentoOut" for="portamento"></output>
+              </span>
+              <input id="portamento" aria-label="Portamento" type="range" min="0" max="2" step="0.01" value="0.12" />
+            </label>
             <label class="control" for="melodyDepth">
               <span>
-                <b>Pitch span</b>
+                <b>Span</b>
                 <output id="melodyDepthOut" for="melodyDepth">
                 </output>
               </span>
-              <input id="melodyDepth" aria-label="Melody pitch span" type="range" min="0" max="24" step="0.1" value="12" />
+              <input id="melodyDepth" aria-label="Melody pitch span" title="Pitch span" type="range" min="0" max="24" step="0.1" value="12" />
             </label>
           </div>
         </section>
         <section class="throat-note-bank" aria-labelledby="noteBankTitle">
           <div class="throat-note-heading">
             <b id="noteBankTitle">Drone pitch</b>
-            <label class="control" for="portamento">
-              <span>
-                <b>Glide</b>
-                <output id="portamentoOut" for="portamento">
-                </output>
-              </span>
-              <input id="portamento" aria-label="Portamento" type="range" min="0" max="2" step="0.01" value="0.12" />
-            </label>
           </div>
           <div id="noteButtons" role="group" aria-label="Drone keyboard">
           </div>
@@ -247,32 +246,32 @@
           </summary>
           <div class="group-body">
             <label class="control" for="trueFoldHz">
-              <span><b>True-fold frequency</b><output id="trueFoldHzOut" for="trueFoldHz">110 Hz</output></span>
-              <input id="trueFoldHz" type="range" min="50" max="360" step="1" value="110" />
+              <span><b>Pitch</b><output id="trueFoldHzOut" for="trueFoldHz">110 Hz</output></span>
+              <input id="trueFoldHz" aria-label="True-fold frequency" title="True-fold frequency" type="range" min="50" max="360" step="1" value="110" />
             </label>
             <label class="control" for="sourcePressure">
-              <span><b>Source pressure</b><output id="sourcePressureOut" for="sourcePressure">62%</output></span>
-              <input id="sourcePressure" type="range" min="0" max="1" step="0.01" value="0.62" />
+              <span><b>Pressure</b><output id="sourcePressureOut" for="sourcePressure">62%</output></span>
+              <input id="sourcePressure" aria-label="Source pressure" title="Source pressure" type="range" min="0" max="1" step="0.01" value="0.62" />
             </label>
             <label class="control" for="adduction">
-              <span><b>Adduction / pressedness</b><output id="adductionOut" for="adduction">56%</output></span>
-              <input id="adduction" type="range" min="0" max="1" step="0.01" value="0.56" />
+              <span><b>Tension</b><output id="adductionOut" for="adduction">56%</output></span>
+              <input id="adduction" aria-label="Adduction / pressedness" title="Adduction / pressedness" type="range" min="0" max="1" step="0.01" value="0.56" />
             </label>
             <label class="control" for="vocalFry">
-              <span><b>Vocal fry / creak</b><output id="vocalFryOut" for="vocalFry">0%</output></span>
-              <input id="vocalFry" type="range" min="0" max="1" step="0.01" value="0" />
+              <span><b>Fry</b><output id="vocalFryOut" for="vocalFry">0%</output></span>
+              <input id="vocalFry" aria-label="Vocal fry / creak" title="Vocal fry / creak" type="range" min="0" max="1" step="0.01" value="0" />
             </label>
             <label class="control" for="growlRoughness">
-              <span><b>Growl / source roughness</b><output id="growlRoughnessOut" for="growlRoughness">8%</output></span>
-              <input id="growlRoughness" type="range" min="0" max="1" step="0.01" value="0.08" />
+              <span><b>Growl</b><output id="growlRoughnessOut" for="growlRoughness">8%</output></span>
+              <input id="growlRoughness" aria-label="Growl / source roughness" title="Growl / source roughness" type="range" min="0" max="1" step="0.01" value="0.08" />
             </label>
             <label class="control" for="ventricularCoupling">
-              <span><b>Ventricular-fold coupling</b><output id="ventricularCouplingOut" for="ventricularCoupling">4%</output></span>
-              <input id="ventricularCoupling" type="range" min="0" max="1" step="0.01" value="0.04" />
+              <span><b>Fold mix</b><output id="ventricularCouplingOut" for="ventricularCoupling">4%</output></span>
+              <input id="ventricularCoupling" aria-label="Ventricular-fold coupling" title="Ventricular-fold coupling" type="range" min="0" max="1" step="0.01" value="0.04" />
             </label>
             <label class="control" for="periodDivision">
-              <span><b>Closure period</b><output id="periodDivisionOut" for="periodDivision">same period</output></span>
-              <input id="periodDivision" type="range" min="1" max="7" step="1" value="1" />
+              <span><b>Period</b><output id="periodDivisionOut" for="periodDivision">same period</output></span>
+              <input id="periodDivision" aria-label="Closure period" title="Closure period" type="range" min="1" max="7" step="1" value="1" />
             </label>
           </div>
         </details>
@@ -283,28 +282,28 @@
           </summary>
           <div class="group-body">
             <label class="control" for="harmonicNumber">
-              <span><b>Selected harmonic</b><output id="harmonicNumberOut" for="harmonicNumber">H8</output></span>
-              <input id="harmonicNumber" type="range" min="4" max="24" step="1" value="8" />
+              <span><b>Harmonic</b><output id="harmonicNumberOut" for="harmonicNumber">H8</output></span>
+              <input id="harmonicNumber" aria-label="Selected harmonic" title="Selected harmonic" type="range" min="4" max="24" step="1" value="8" />
             </label>
             <label class="control" for="focusAmount">
-              <span><b>Formant convergence</b><output id="focusAmountOut" for="focusAmount">22%</output></span>
-              <input id="focusAmount" type="range" min="0" max="1" step="0.01" value="0.22" />
+              <span><b>Focus</b><output id="focusAmountOut" for="focusAmount">22%</output></span>
+              <input id="focusAmount" aria-label="Formant convergence" title="Formant convergence" type="range" min="0" max="1" step="0.01" value="0.22" />
             </label>
             <label class="control" for="pharynxConstriction">
-              <span><b>Upper-pharynx / uvular</b><output id="pharynxConstrictionOut" for="pharynxConstriction">35%</output></span>
-              <input id="pharynxConstriction" type="range" min="0" max="1" step="0.01" value="0.35" />
+              <span><b>Pharynx</b><output id="pharynxConstrictionOut" for="pharynxConstriction">35%</output></span>
+              <input id="pharynxConstriction" aria-label="Upper-pharynx / uvular" title="Upper-pharynx / uvular" type="range" min="0" max="1" step="0.01" value="0.35" />
             </label>
             <label class="control" for="oralConstriction">
-              <span><b>Alveolar / oral</b><output id="oralConstrictionOut" for="oralConstriction">30%</output></span>
-              <input id="oralConstriction" type="range" min="0" max="1" step="0.01" value="0.3" />
+              <span><b>Mouth</b><output id="oralConstrictionOut" for="oralConstriction">30%</output></span>
+              <input id="oralConstriction" aria-label="Alveolar / oral" title="Alveolar / oral" type="range" min="0" max="1" step="0.01" value="0.3" />
             </label>
             <label class="control" for="lipRounding">
-              <span><b>Lip rounding</b><output id="lipRoundingOut" for="lipRounding">12%</output></span>
-              <input id="lipRounding" type="range" min="0" max="1" step="0.01" value="0.12" />
+              <span><b>Lips</b><output id="lipRoundingOut" for="lipRounding">12%</output></span>
+              <input id="lipRounding" aria-label="Lip rounding" title="Lip rounding" type="range" min="0" max="1" step="0.01" value="0.12" />
             </label>
             <label class="control" for="sublingualCoupling">
-              <span><b>Sublingual branch</b><output id="sublingualCouplingOut" for="sublingualCoupling">6%</output></span>
-              <input id="sublingualCoupling" type="range" min="0" max="1" step="0.01" value="0.06" />
+              <span><b>Cavity</b><output id="sublingualCouplingOut" for="sublingualCoupling">6%</output></span>
+              <input id="sublingualCoupling" aria-label="Sublingual branch" title="Sublingual branch" type="range" min="0" max="1" step="0.01" value="0.06" />
             </label>
           </div>
         </details>
@@ -315,27 +314,27 @@
           </summary>
           <div class="group-body">
             <label class="control" for="vibratoDepth">
-              <span><b>Drone vibrato</b><output id="vibratoDepthOut" for="vibratoDepth">9 cents</output></span>
-              <input id="vibratoDepth" type="range" min="0" max="80" step="1" value="9" />
+              <span><b>Vibrato</b><output id="vibratoDepthOut" for="vibratoDepth">9 cents</output></span>
+              <input id="vibratoDepth" aria-label="Drone vibrato" title="Drone vibrato" type="range" min="0" max="80" step="1" value="9" />
             </label>
             <label class="control" for="vibratoRate">
-              <span><b>Vibrato rate</b><output id="vibratoRateOut" for="vibratoRate">4.4 Hz</output></span>
-              <input id="vibratoRate" type="range" min="0" max="12" step="0.1" value="4.4" />
+              <span><b>Rate</b><output id="vibratoRateOut" for="vibratoRate">4.4 Hz</output></span>
+              <input id="vibratoRate" aria-label="Vibrato rate" title="Vibrato rate" type="range" min="0" max="12" step="0.1" value="4.4" />
             </label>
 
 
             <label class="control" for="pulseRate">
-              <span><b>Pressure pulse</b><output id="pulseRateOut" for="pulseRate">0.0 Hz</output></span>
-              <input id="pulseRate" type="range" min="0" max="10" step="0.1" value="0" />
+              <span><b>Pulse</b><output id="pulseRateOut" for="pulseRate">0.0 Hz</output></span>
+              <input id="pulseRate" aria-label="Pressure pulse" title="Pressure pulse" type="range" min="0" max="10" step="0.1" value="0" />
             </label>
             <label class="control" for="pulseDepth">
-              <span><b>Pulse depth</b><output id="pulseDepthOut" for="pulseDepth">0%</output></span>
-              <input id="pulseDepth" type="range" min="0" max="1" step="0.01" value="0" />
+              <span><b>Depth</b><output id="pulseDepthOut" for="pulseDepth">0%</output></span>
+              <input id="pulseDepth" aria-label="Pulse depth" title="Pulse depth" type="range" min="0" max="1" step="0.01" value="0" />
             </label>
           </div>
         </details>
 
-        <details class="group control-section throat-polyphony-section" data-section="effects" open><summary class="group-summary"><h2 class="group-title">Polyphony &amp; effects</h2></summary><div class="group-body"><label class="control" for="pitchVoices"><span><b>Pitched voices</b><output id="pitchVoicesOut" for="pitchVoices"></output></span><input id="pitchVoices" aria-label="Pitched voices" type="range" min="1" max="4" step="1" value="1" /></label><label class="control" for="pitchSpreadSemitones"><span><b>Pitch spread</b><output id="pitchSpreadSemitonesOut" for="pitchSpreadSemitones"></output></span><input id="pitchSpreadSemitones" aria-label="Pitch spread" type="range" min="0" max="24" step="0.1" value="7" /></label><label class="control" for="overtoneVoices"><span><b>Overtone voices</b><output id="overtoneVoicesOut" for="overtoneVoices"></output></span><input id="overtoneVoices" aria-label="Overtone voices" type="range" min="1" max="4" step="1" value="1" /></label><label class="control" for="overtoneSpread"><span><b>Harmonic spread</b><output id="overtoneSpreadOut" for="overtoneSpread"></output></span><input id="overtoneSpread" aria-label="Harmonic spread" type="range" min="1" max="6" step="0.1" value="2" /></label><label class="control" for="sourceInstability"><span><b>Instability</b><output id="sourceInstabilityOut" for="sourceInstability"></output></span><input id="sourceInstability" aria-label="Instability" type="range" min="0" max="1" step="0.01" value="0" /></label><label class="control" for="reverbMix"><span><b>Reverb</b><output id="reverbMixOut" for="reverbMix"></output></span><input id="reverbMix" aria-label="Reverb" type="range" min="0" max="0.65" step="0.01" value="0" /></label><label class="control" for="delayMix"><span><b>Delay</b><output id="delayMixOut" for="delayMix"></output></span><input id="delayMix" aria-label="Delay" type="range" min="0" max="0.6" step="0.01" value="0" /></label><label class="control" for="delayTimeSeconds"><span><b>Delay time</b><output id="delayTimeSecondsOut" for="delayTimeSeconds"></output></span><input id="delayTimeSeconds" aria-label="Delay time" type="range" min="0.06" max="1.5" step="0.01" value="0.3" /></label><label class="control" for="delayFeedback"><span><b>Feedback</b><output id="delayFeedbackOut" for="delayFeedback"></output></span><input id="delayFeedback" aria-label="Feedback" type="range" min="0" max="0.65" step="0.01" value="0.25" /></label></div></details>
+        <details class="group control-section throat-polyphony-section" data-section="effects" open><summary class="group-summary"><h2 class="group-title">Polyphony &amp; effects</h2></summary><div class="group-body"><label class="control" for="pitchVoices"><span><b>Voices</b><output id="pitchVoicesOut" for="pitchVoices"></output></span><input id="pitchVoices" aria-label="Pitched voices" title="Pitched voices" type="range" min="1" max="4" step="1" value="1" /></label><label class="control" for="pitchSpreadSemitones"><span><b>Spread</b><output id="pitchSpreadSemitonesOut" for="pitchSpreadSemitones"></output></span><input id="pitchSpreadSemitones" aria-label="Pitch spread" title="Pitch spread" type="range" min="0" max="24" step="0.1" value="7" /></label><label class="control" for="overtoneVoices"><span><b>Overtones</b><output id="overtoneVoicesOut" for="overtoneVoices"></output></span><input id="overtoneVoices" aria-label="Overtone voices" title="Overtone voices" type="range" min="1" max="4" step="1" value="1" /></label><label class="control" for="overtoneSpread"><span><b>Spacing</b><output id="overtoneSpreadOut" for="overtoneSpread"></output></span><input id="overtoneSpread" aria-label="Harmonic spread" title="Harmonic spread" type="range" min="1" max="6" step="0.1" value="2" /></label><label class="control" for="sourceInstability"><span><b>Unsteady</b><output id="sourceInstabilityOut" for="sourceInstability"></output></span><input id="sourceInstability" aria-label="Instability" title="Instability" type="range" min="0" max="1" step="0.01" value="0" /></label><label class="control" for="reverbMix"><span><b>Reverb</b><output id="reverbMixOut" for="reverbMix"></output></span><input id="reverbMix" aria-label="Reverb" title="Reverb" type="range" min="0" max="0.65" step="0.01" value="0" /></label><label class="control" for="delayMix"><span><b>Delay</b><output id="delayMixOut" for="delayMix"></output></span><input id="delayMix" aria-label="Delay" title="Delay" type="range" min="0" max="0.6" step="0.01" value="0" /></label><label class="control" for="delayTimeSeconds"><span><b>Time</b><output id="delayTimeSecondsOut" for="delayTimeSeconds"></output></span><input id="delayTimeSeconds" aria-label="Delay time" title="Delay time" type="range" min="0.06" max="1.5" step="0.01" value="0.3" /></label><label class="control" for="delayFeedback"><span><b>Feedback</b><output id="delayFeedbackOut" for="delayFeedback"></output></span><input id="delayFeedback" aria-label="Feedback" title="Feedback" type="range" min="0" max="0.65" step="0.01" value="0.25" /></label></div></details>
 
         <details class="group control-section throat-research-section" data-section="structure">
           <summary class="group-summary">
@@ -405,7 +404,7 @@
       </aside>
 
       <p class="sr-only" id="canvasInstructions">
-        Use the Selected harmonic knob to choose an overtone. On the canvas, arrow keys move the overtone focus; hold Shift for larger steps. Space begins or releases the drone. Two rows of labelled computer keys select drone pitches: Z through M and Q through U, including the labelled number keys. The Glide knob sets the pitch transition time.
+        Use the Harmonic knob to choose an overtone. On the canvas, arrow keys move the overtone focus; hold Shift for larger steps. Drag Mouth vertically to shape the tongue, and Lips horizontally to round them or vertically to open them. Space begins or releases the drone. Two rows of labelled computer keys select drone pitches: Z through M and Q through U, including the labelled number keys. The Glide slider sets the pitch transition time.
       </p>
       <p class="sr-only" id="liveStatus" aria-live="polite"></p>
     </main>

@@ -81,7 +81,7 @@ test("Throat Singer has independent circular voice, ornament, and melody control
     }
   }
   for (const id of ["ornamentRate", "ornamentDepth", "melodyRate", "melodyDepth", "breathRate", "portamento"]) {
-    expect(await page.locator(`#${id}`).evaluate((input) => Boolean(input.closest(".mz-range-knob")))).toBe(true);
+    expect(await page.locator(`#${id}`).evaluate((input) => Boolean(input.closest(".mz-range-knob")))).toBe(!["ornamentRate", "melodyRate", "portamento"].includes(id));
   }
   await page.locator("#ornamentSelect").selectOption("roll");
   await page.locator("#ornamentRate").fill("0.6");
@@ -287,6 +287,30 @@ test("Throat Singer keeps uniform anatomy scaling and reachable controls in thre
       expect(geometry.matrixScaleX).toBe(geometry.matrixScaleY);
       expect(geometry.modelWidth * geometry.scaleX).toBeLessThanOrEqual(geometry.width + 1);
       expect(geometry.modelHeight * geometry.scaleY).toBeLessThanOrEqual(geometry.height + 1);
+      const alignment = await page.evaluate(() => {
+        const rect = (selector) => document.querySelector(selector).getBoundingClientRect();
+        const preset = rect(".header-preset-next");
+        const rows = [["#singButton", "#styleSelect", "#breathButton"],
+          ["#gestureButton", "#ornamentSelect", "#ornamentNext", "#ornamentDirection", "#ornamentPingPong", "#ornamentRepeat"],
+          ["#melodyButton", "#melodySelect", "#melodyNext", "#melodyDirection", "#melodyPingPong", "#melodyRepeat"]];
+        return {
+          presetHeight: preset.height,
+          rows: rows.map((ids) => ids.map((id) => { const box = rect(id); return { height: box.height, center: box.y + box.height / 2 }; })),
+          selectedBorders: [...document.querySelectorAll('.throat-mode-buttons button[aria-pressed="true"]')].map((button) => getComputedStyle(button).borderLeftWidth),
+          keyboardGap: rect("#noteButtons").top - rect(".throat-note-heading").bottom,
+          resetEdges: { left: rect("#resetButton").left, right: rect("#resetButton").right },
+          presetEdges: { left: rect(".instrument-preset-controls").left + 12, right: rect(".instrument-preset-controls").right - 12 },
+        };
+      });
+      for (const row of alignment.rows) {
+        for (const control of row) {
+          expect(control.height).toBe(alignment.presetHeight);
+          expect(Math.abs(control.center - row[0].center)).toBeLessThanOrEqual(0.5);
+        }
+      }
+      expect(alignment.selectedBorders.every((width) => width === "1px")).toBe(true);
+      expect(alignment.keyboardGap).toBeLessThanOrEqual(6);
+      expect(alignment.resetEdges).toEqual(alignment.presetEdges);
       for (const selector of [
         ".header-preset-picker > summary", ".header-preset-next", ".header-preset-random",
         "#singButton", "#styleSelect", "#breathButton", "#breathRate", "#gestureButton", "#ornamentSelect", "#ornamentNext",
@@ -311,6 +335,114 @@ test("Throat Singer keeps uniform anatomy scaling and reachable controls in thre
     });
   }
   expect(errors).toEqual([]);
+});
+
+test("Throat Singer mouth and lips can be shaped directly in the drawing at every aspect ratio", async ({ page }) => {
+  const errors = [];
+  page.on("pageerror", (error) => errors.push(error.message));
+  for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 }, { width: 844, height: 390 }]) {
+    await page.setViewportSize(viewport);
+    await page.goto("throat-singing.html", { waitUntil: "load" });
+    const point = async (x, y) => page.locator("#stage").evaluate((canvas, { x, y }) => {
+      const rect = canvas.getBoundingClientRect();
+      const scale = Number(canvas.dataset.viewScale);
+      return { x: rect.left + (rect.width - 900 * scale) / 2 + x * 900 * scale,
+        y: rect.top + (rect.height - 720 * scale) / 2 + y * 720 * scale };
+    }, { x, y });
+    const drag = async (x, y, dx, dy) => {
+      const start = await point(x, y); const end = await point(x + dx, y + dy);
+      const before = (await capturePreset(page)).snapshot.state;
+      await page.mouse.move(start.x, start.y); await page.mouse.down();
+      expect((await capturePreset(page)).snapshot.state).toEqual(before);
+      await page.mouse.move(end.x, end.y, { steps: 6 }); await page.mouse.up();
+    };
+    await page.locator("#oralConstriction").fill("0.3");
+    await drag(0.70, 0.70 - 0.06 * 0.3, 0, -0.18 * 0.3);
+    expect(Number(await page.locator("#oralConstriction").inputValue())).toBeCloseTo(0.6, 2);
+    await page.locator("#oralConstriction").fill("0.2");
+    await drag(0.70, 0.70 - 0.06 * 0.2, 0, -0.18 * 0.2);
+    expect(Number(await page.locator("#oralConstriction").inputValue())).toBeCloseTo(0.4, 2);
+    await page.locator("#lipRounding").fill("0.12");
+    const opening = (await capturePreset(page)).snapshot.state.mouthOpening;
+    await drag(0.885 + 0.065 * 0.12, 0.54, 0.1 * 0.4, -0.18 * 0.15);
+    expect(Number(await page.locator("#lipRounding").inputValue())).toBeCloseTo(0.52, 2);
+    expect((await capturePreset(page)).snapshot.state.mouthOpening).toBeCloseTo(opening + 0.15, 2);
+    const mouth = await page.locator("#oralConstriction").inputValue();
+    const harmonic = Number(await page.locator("#harmonicNumber").inputValue());
+    const focus = Number(await page.locator("#focusAmount").inputValue());
+    await drag(0.48 + (harmonic - 4) / 20 * 0.34, 0.56 - 0.26 * focus, 0.34 * 3 / 20, 0);
+    expect(Number(await page.locator("#harmonicNumber").inputValue())).toBe(harmonic + 3);
+    await expect(page.locator("#oralConstriction")).toHaveValue(mouth);
+    await assertUnarmed(page);
+  }
+  expect(errors).toEqual([]);
+});
+
+test("Throat Singer live speed edits preserve phrase position and keep the voice sounding", async ({ page }) => {
+  await page.addInitScript(() => {
+    window.throatOscillatorStarts = 0;
+    const start = OscillatorNode.prototype.start;
+    OscillatorNode.prototype.start = function (...args) {
+      window.throatOscillatorStarts++;
+      return start.apply(this, args);
+    };
+  });
+  await page.goto("throat-singing.html", { waitUntil: "load" });
+  await page.locator(".throat-motion-section > summary").click();
+  await page.locator("#vibratoDepth").fill("0");
+  await page.locator("#ornamentSelect").selectOption("swell");
+  await page.locator("#ornamentRate").fill("0.5");
+  await page.locator("#melodySelect").selectOption("arch");
+  await page.locator("#melodyRate").fill("0.4");
+  await page.locator("#portamento").fill("0.8");
+  await page.locator("#audioButton").click();
+  await page.locator("#singButton").click();
+  await page.locator("#gestureButton").click();
+  await page.locator("#melodyButton").click();
+  await waitForAudioState(page, true);
+  await expect.poll(async () => (await readStage(page)).phase).toBeGreaterThan(0.3);
+  const starts = await page.evaluate(() => window.throatOscillatorStarts);
+  for (const [id, value, phaseKey] of [
+    ["ornamentRate", "2", "phase"], ["ornamentRate", "0.25", "phase"],
+    ["ornamentRate", "0", "phase"], ["ornamentRate", "0.5", "phase"],
+    ["melodyRate", "1.5", "melodyPhase"], ["melodyRate", "0.2", "melodyPhase"],
+    ["melodyRate", "0", "melodyPhase"], ["melodyRate", "0.4", "melodyPhase"],
+  ]) {
+    const edit = await page.evaluate(({ id, value, phaseKey }) => {
+      const input = document.getElementById(id);
+      const canvas = document.getElementById("stage");
+      // Refresh the old position in this same event task before the edit.
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+      const before = { phase: Number(canvas.dataset[phaseKey]), pitch: Number(canvas.dataset.pitchHz) };
+      input.value = value;
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+      return { before, after: { phase: Number(canvas.dataset[phaseKey]), pitch: Number(canvas.dataset.pitchHz) } };
+    }, { id, value, phaseKey });
+    expect(Math.abs(edit.after.phase - edit.before.phase)).toBeLessThan(0.025);
+    if (id === "melodyRate") expect(Math.abs(edit.after.pitch - edit.before.pitch)).toBeLessThan(1);
+  }
+  const paused = await readStage(page);
+  await page.locator("#ornamentRate").fill("0");
+  await page.locator("#melodyRate").fill("0");
+  const held = await readStage(page);
+  await page.waitForTimeout(150);
+  const afterHold = await readStage(page);
+  expect(afterHold.phase).toBe(held.phase);
+  expect(afterHold.melodyPhase).toBe(held.melodyPhase);
+  expect(afterHold.pitchHz).toBe(held.pitchHz);
+  expect(paused.voiceGain).toBe(1);
+  await page.locator("#ornamentRate").fill("0.5");
+  await page.locator("#melodyRate").fill("0.4");
+  const audio = await sampleAudioEnvelope(page, { durationMs: 500, intervalMs: 40 });
+  expect(audio.summary.finite).toBe(true);
+  expect(audio.summary.activeSamples).toBeGreaterThan(0);
+  expect(audio.summary.maxPeak).toBeGreaterThan(0.001);
+  expect(audio.summary.clippedSamples).toBe(0);
+  expect(await page.evaluate(() => window.throatOscillatorStarts)).toBe(starts);
+  for (const id of ["audioButton", "singButton", "gestureButton", "melodyButton"]) {
+    await expect(page.locator(`#${id}`)).toHaveAttribute("aria-pressed", "true");
+  }
+  expect((await readStage(page)).voiceGain).toBe(1);
 });
 
 test("Throat Singer keeps melody and glide inside source pitch limits", async ({ page }) => {

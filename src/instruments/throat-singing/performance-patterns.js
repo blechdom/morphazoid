@@ -233,8 +233,8 @@ function melodyAt(melody, phase, rateHz, portamentoSeconds) {
   return mix(melody.notes[index], melody.notes[(index + 1) % melody.notes.length], blend);
 }
 
-function trackAt(seconds, rateHz, playing, direction, pingPong, repeat, enabled) {
-  const cycles = playing && enabled ? seconds * rateHz : 0;
+function trackAt(positionCycles, playing, direction, pingPong, repeat, enabled) {
+  const cycles = playing && enabled ? positionCycles : 0;
   const cycleLength = pingPong ? 2 : 1;
   const finished = playing && enabled && !repeat && cycles >= cycleLength;
   const position = repeat ? cycles : Math.min(cycles, cycleLength);
@@ -251,7 +251,10 @@ export function breathEnvelope(seconds = 0, settings = {}) {
   const elapsed = clamp(finite(seconds), 0, 1e9);
   const bpm = clamp(finite(source.breathRateBpm), 0, 30);
   const period = bpm > 0 ? 60 / bpm : Infinity;
-  const automaticAt = elapsed >= period ? Math.floor(elapsed / period) * period : -Infinity;
+  const suppliedAutomaticAt = Number(source.automaticBreathAtSeconds);
+  const automaticAt = Object.hasOwn(source, "automaticBreathAtSeconds")
+    ? Number.isFinite(suppliedAutomaticAt) && suppliedAutomaticAt <= elapsed ? suppliedAutomaticAt : -Infinity
+    : elapsed >= period ? Math.floor(elapsed / period) * period : -Infinity;
   const manualValue = Number(source.manualBreathAtSeconds);
   const manualAt = Number.isFinite(manualValue) && manualValue <= elapsed ? manualValue : -Infinity;
   const age = elapsed - Math.max(automaticAt, manualAt);
@@ -267,7 +270,7 @@ export function breathEnvelope(seconds = 0, settings = {}) {
 
 /**
  * Audio and drawing consume the same externally supplied clock. The optional
- * local clocks allow retriggering one phrase without resetting the other.
+ * local cycle clocks keep rate edits from moving the current phrase position.
  * Once completion returns to the authored pose; it never changes transport.
  */
 export function evaluateSingerPerformance(baseState, extras, settings, timeSeconds = 0, timing = {}) {
@@ -278,9 +281,11 @@ export function evaluateSingerPerformance(baseState, extras, settings, timeSecon
   const clocks = timing && typeof timing === "object" ? timing : {};
   const ornamentTime = clamp(finite(clocks.ornamentTimeSeconds, elapsed), 0, 1e9);
   const melodyTime = clamp(finite(clocks.melodyTimeSeconds, elapsed), 0, 1e9);
+  const ornamentCycles = clamp(finite(clocks.ornamentCycles, ornamentTime * base.motionRateHz), 0, 1e9);
+  const melodyCycles = clamp(finite(clocks.melodyCycles, melodyTime * controls.melodyRateHz), 0, 1e9);
   const ornament = ornamentById.get(controls.ornamentId);
-  const ornamentEnabled = ornament.id !== "none" && base.motionRateHz > 0;
-  const ornamentTrack = trackAt(ornamentTime, base.motionRateHz, controls.ornamentPlaying,
+  const ornamentEnabled = ornament.id !== "none" && (base.motionRateHz > 0 || Number.isFinite(clocks.ornamentCycles));
+  const ornamentTrack = trackAt(ornamentCycles, controls.ornamentPlaying,
     controls.ornamentDirection, controls.ornamentPingPong, controls.ornamentRepeat, ornamentEnabled);
   const { phase, cycles, finished: ornamentFinished } = ornamentTrack;
   const active = ornamentTrack.active && base.motionDepth > 0;
@@ -310,18 +315,26 @@ export function evaluateSingerPerformance(baseState, extras, settings, timeSecon
     amplitudeMotionDepth: 0,
   }, base);
   const melody = melodyById.get(controls.melodyId);
-  const melodyEnabled = melody.notes.length > 1 && controls.melodyRateHz > 0;
-  const melodyTrack = trackAt(melodyTime, controls.melodyRateHz, controls.melodyPlaying,
+  const melodyEnabled = melody.notes.length > 1 && (controls.melodyRateHz > 0 || Number.isFinite(clocks.melodyCycles));
+  const melodyTrack = trackAt(melodyCycles, controls.melodyPlaying,
     controls.melodyDirection, controls.melodyPingPong, controls.melodyRepeat, melodyEnabled);
   const melodyValue = melodyTrack.active ? melodyAt(melody, melodyTrack.phase,
-    controls.melodyRateHz, controls.portamentoSeconds) : 0;
+    finite(clocks.melodyGlideRateHz, controls.melodyRateHz), controls.portamentoSeconds) : 0;
   const pitchSemitones = melodyValue * controls.melodyDepthSemitones;
-  const modulated = modulateThroatSingingPerformance(effective, elapsed, { pitchCents: pitchSemitones * 100 });
+  const vibratoCycles = finite(clocks.vibratoCycles, elapsed * base.vibratoRateHz);
+  const vibratoCents = Math.sin(TAU * vibratoCycles) * base.vibratoDepthCents;
+  const modulated = modulateThroatSingingPerformance(effective, elapsed, {
+    pitchCents: pitchSemitones * 100,
+    foldFrequencyHz: effective.trueFoldHz * 2 ** ((pitchSemitones * 100 + vibratoCents) / 1200),
+  });
   const targetHarmonic = clamp(base.harmonicNumber + wave * focusWeight * 3, ...THROAT_SINGING_LIMITS.harmonicNumber);
   const focusFrequencyHz = modulated.heardDroneHz * targetHarmonic;
-  const pulsing = extra.pulseRate > 0 ? Math.sin(TAU * elapsed * extra.pulseRate) * extra.pulseDepth : 0;
+  const pulseCycles = finite(clocks.pulseCycles, elapsed * extra.pulseRate);
+  const pulsing = extra.pulseRate > 0 || Number.isFinite(clocks.pulseCycles)
+    ? Math.sin(TAU * pulseCycles) * extra.pulseDepth : 0;
   const performance = freeze({
     ...modulated,
+    vibratoCents,
     motionDepth: base.motionDepth,
     amplitudeMotionDepth: base.amplitudeMotionDepth,
     motionPhase: cycles,
@@ -345,8 +358,8 @@ export function evaluateSingerPerformance(baseState, extras, settings, timeSecon
   return freeze({
     state: sanitizeThroatSingingState(performance), extras: extra, settings: controls,
     performance, animation, ornamentFinished, melodyFinished: melodyTrack.finished,
-    ornamentDurationSeconds: ornamentEnabled ? ornamentTrack.cycleLength / base.motionRateHz : null,
-    melodyDurationSeconds: melodyEnabled ? melodyTrack.cycleLength / controls.melodyRateHz : null,
+    ornamentDurationSeconds: ornamentEnabled && base.motionRateHz > 0 ? ornamentTrack.cycleLength / base.motionRateHz : null,
+    melodyDurationSeconds: melodyEnabled && controls.melodyRateHz > 0 ? melodyTrack.cycleLength / controls.melodyRateHz : null,
   });
 }
 

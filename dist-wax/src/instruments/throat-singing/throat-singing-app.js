@@ -90,7 +90,7 @@ const CONTROL_BINDINGS = Object.freeze([
     key: "motionDepth",
     toInput: (value) => value * 3,
     fromInput: (value) => value / 3,
-    format: (value) => `${value.toFixed(1)} harmonics`,
+    format: (value) => `${value.toFixed(1)} H`,
   },
   { id: "pulseRate", key: "pulseRate", extra: true, format: (value) => `${value.toFixed(1)} Hz` },
   { id: "pulseDepth", key: "pulseDepth", extra: true, format: formatPercent },
@@ -126,9 +126,14 @@ let lastVentricularWaveKey = "";
 let performanceSeconds = 0;
 let clockLastSeconds = performance.now() / 1_000;
 let clockIsAudio = false;
-let ornamentSeconds = 0;
-let melodySeconds = 0;
+let ornamentCycles = 0;
+let melodyCycles = 0;
+let vibratoCycles = 0;
+let pulseCycles = 0;
+let breathCycles = 0;
+let automaticBreathAtSeconds = -Infinity;
 let performanceSettings = sanitizePerformanceSettings({ ornamentPlaying: false, melodyPlaying: false });
+let melodyGlideRateHz = performanceSettings.melodyRateHz;
 let manualBreathAtSeconds = -Infinity;
 let currentBreath = { gain: 1, inhaling: false, phase: 0 };
 let voiceGateFrom = 0;
@@ -178,8 +183,7 @@ function formatPercent(value) {
 
 function formatDivision(value) {
   const division = Math.round(value);
-  if (division === 1) return "same period";
-  return `1 closure / ${division} fold cycles${division > 3 ? " · extended" : ""}`;
+  return `1:${division}`;
 }
 
 function formatFrequency(value, digits = 2) {
@@ -257,18 +261,45 @@ function performanceElapsed() {
     clockLastSeconds = clock;
   }
   const elapsed = Math.max(0, clock - clockLastSeconds);
-  if (singing) performanceSeconds += elapsed;
-  if (performanceSettings.ornamentPlaying) ornamentSeconds += elapsed;
-  if (performanceSettings.melodyPlaying) melodySeconds += elapsed;
+  if (singing) {
+    performanceSeconds += elapsed;
+    vibratoCycles += elapsed * state.vibratoRateHz;
+    pulseCycles += elapsed * extras.pulseRate;
+    const previousBreathCycles = breathCycles;
+    const breathRateHz = performanceSettings.breathRateBpm / 60;
+    breathCycles += elapsed * breathRateHz;
+    if (breathRateHz > 0 && Math.floor(breathCycles) > Math.floor(previousBreathCycles)) {
+      automaticBreathAtSeconds = performanceSeconds - (breathCycles % 1) / breathRateHz;
+    }
+  }
+  if (performanceSettings.ornamentPlaying) ornamentCycles += elapsed * state.motionRateHz;
+  if (performanceSettings.melodyPlaying) {
+    const previousCycles = melodyCycles;
+    melodyCycles += elapsed * performanceSettings.melodyRateHz;
+    if (melodyNotePosition(previousCycles) !== melodyNotePosition(melodyCycles)) {
+      melodyGlideRateHz = performanceSettings.melodyRateHz;
+    }
+  }
   clockLastSeconds = clock;
   return performanceSeconds;
 }
 
+function melodyNotePosition(cycles) {
+  const melody = PITCH_MELODIES.find(({ id }) => id === performanceSettings.melodyId);
+  return Math.floor(cycles * (melody?.notes.length ?? 1));
+}
+
 function performanceAt(_now = performance.now(), aheadSeconds = 0) {
   const seconds = performanceElapsed() + (singing ? aheadSeconds : 0);
+  const futureMelodyCycles = melodyCycles + (performanceSettings.melodyPlaying ? aheadSeconds * performanceSettings.melodyRateHz : 0);
   const evaluated = evaluateSingerPerformance({ ...state, trueFoldHz: glideBaseFrequency(aheadSeconds) }, extras, performanceSettings, seconds, {
-    ornamentTimeSeconds: ornamentSeconds + (performanceSettings.ornamentPlaying ? aheadSeconds : 0),
-    melodyTimeSeconds: melodySeconds + (performanceSettings.melodyPlaying ? aheadSeconds : 0),
+    ornamentCycles: ornamentCycles + (performanceSettings.ornamentPlaying ? aheadSeconds * state.motionRateHz : 0),
+    melodyCycles: futureMelodyCycles,
+    // Keep the current note's glide contour intact when changing tempo.
+    melodyGlideRateHz: melodyNotePosition(futureMelodyCycles) === melodyNotePosition(melodyCycles)
+      ? melodyGlideRateHz : performanceSettings.melodyRateHz,
+    vibratoCycles: vibratoCycles + (singing ? aheadSeconds * state.vibratoRateHz : 0),
+    pulseCycles: pulseCycles + (singing ? aheadSeconds * extras.pulseRate : 0),
   });
   if (!aheadSeconds) {
     currentAnimation = evaluated.animation;
@@ -282,7 +313,13 @@ function performanceAt(_now = performance.now(), aheadSeconds = 0) {
     ornamentFinished = evaluated.ornamentFinished || trackCompleted.ornament;
   }
   const performanceState = { ...evaluated.performance };
-  const breath = breathEnvelope(seconds, { breathRateBpm: performanceSettings.breathRateBpm, manualBreathAtSeconds });
+  const breathRateHz = performanceSettings.breathRateBpm / 60;
+  const futureBreathCycles = breathCycles + (singing ? aheadSeconds * breathRateHz : 0);
+  const predictedBreathAtSeconds = breathRateHz > 0 && Math.floor(futureBreathCycles) > Math.floor(breathCycles)
+    ? seconds - (futureBreathCycles % 1) / breathRateHz : automaticBreathAtSeconds;
+  const breath = breathEnvelope(seconds, {
+    automaticBreathAtSeconds: predictedBreathAtSeconds, manualBreathAtSeconds,
+  });
   if (!aheadSeconds) currentBreath = breath;
   performanceState.breathGain = breath.gain;
   return performanceState;
@@ -331,6 +368,7 @@ function updateReadouts(now = performance.now()) {
 }
 
 function editModelValue(key, value, { message = "", immediate = false } = {}) {
+  performanceElapsed();
   if (key === "trueFoldHz") {
     glideFromHz = glideBaseFrequency(); glideStartedSeconds = performance.now() / 1000;
   }
@@ -342,6 +380,7 @@ function editModelValue(key, value, { message = "", immediate = false } = {}) {
 }
 
 function editExtraValue(key, value, { message = "" } = {}) {
+  performanceElapsed();
   extras = { ...sanitizeSingerExtras({ ...extras, [key]: value }) };
   markCustomEdit();
   updateReadouts();
@@ -378,6 +417,7 @@ function performSilentModelSwap(commit) {
 function loadStyle(styleId, { announceChange = true, preserveRuntime = true } = {}) {
   const next = throatSingingState(styleId);
   return performSilentModelSwap((immediate) => {
+    performanceElapsed();
     state = sanitizedAppState({
       ...next,
       level: preserveRuntime ? state.level : next.level,
@@ -397,7 +437,7 @@ function loadStyle(styleId, { announceChange = true, preserveRuntime = true } = 
       ornamentId: ({ borbangnadyr: "roll", ezengileer: "double-pulse", sygyt: "flutter",
         xoomei: "spiral", kargyraa: "rock", "western-overtone": "ripple", "low-chant": "breath-wave" })[styleId] ?? "none",
     });
-    ornamentSeconds = 0; trackCompleted.ornament = false;
+    ornamentCycles = 0; trackCompleted.ornament = false;
     lastTractSignature = "";
     updateReadouts();
     applyAudioParameters(immediate);
@@ -465,8 +505,12 @@ function buildNoteButtons() {
 
 function installKnobs() {
   document.querySelectorAll(".throat-panel .control input[type=range]").forEach(input => {
+    const control = input.closest(".control");
+    if (control.classList.contains("throat-slider")) return;
+    const output = control.querySelector("output");
     const dial = document.createElement("span"); dial.className = "throat-dial";
     input.before(dial); dial.append(input);
+    if (output) dial.append(output);
     knobWidgets.push(enhanceRangeKnob(input));
   });
 }
@@ -499,12 +543,13 @@ function applySingerPreset(snapshot) {
   const nextState = sanitizedAppState({ ...snapshot.state, level: state.level, active: state.active });
   const nextSettings = sanitizePerformanceSettings(snapshot.settings);
   return performSilentModelSwap((immediate) => {
+    performanceElapsed();
     state = nextState;
     extras = { ...sanitizeSingerExtras(snapshot.extras) };
     performanceSettings = nextSettings;
-    const seconds = performanceElapsed();
-    ornamentSeconds = 0;
-    melodySeconds = 0;
+    ornamentCycles = 0;
+    melodyCycles = 0;
+    melodyGlideRateHz = performanceSettings.melodyRateHz;
     trackCompleted.ornament = trackCompleted.melody = false;
     glideFromHz = state.trueFoldHz;
     activeStyleId = state.styleId;
@@ -558,16 +603,23 @@ function editPerformanceSetting(key, value) {
   performanceElapsed();
   performanceSettings = sanitizePerformanceSettings({ ...performanceSettings, [key]: value });
   if (key === "ornamentId") {
-    ornamentSeconds = 0; trackCompleted.ornament = false;
+    ornamentCycles = 0; trackCompleted.ornament = false;
     if (value !== "none") state = sanitizedAppState({ ...state, motionRateHz: state.motionRateHz || .75, motionDepth: state.motionDepth || .5 });
   }
-  if (key === "melodyId") { melodySeconds = 0; trackCompleted.melody = false; }
+  if (key === "melodyId") {
+    melodyCycles = 0; trackCompleted.melody = false;
+    melodyGlideRateHz = performanceSettings.melodyRateHz;
+  }
+  if (key === "melodyRateHz" && (!performanceSettings.melodyPlaying || melodyCycles === 0)) {
+    melodyGlideRateHz = performanceSettings.melodyRateHz;
+  }
   markCustomEdit(); updateReadouts(); applyAudioParameters();
 }
 
 function toggleTrack(track) {
   const finished = trackCompleted[track];
-  if (finished) { if (track === "ornament") ornamentSeconds = 0; else melodySeconds = 0; trackCompleted[track] = false; }
+  if (finished) { if (track === "ornament") ornamentCycles = 0; else melodyCycles = 0; trackCompleted[track] = false; }
+  if (finished && track === "melody") melodyGlideRateHz = performanceSettings.melodyRateHz;
   if (performanceSettings[`${track}Id`] === (track === "ornament" ? "none" : "steady")) {
     editPerformanceSetting(`${track}Id`, track === "ornament" ? "swell" : "arch");
   }
@@ -1489,9 +1541,9 @@ function drawSpectrum(context, performanceState) {
   if (cssWidth < 470 || cssHeight < 250) return;
   const box = {
     x: cssWidth * 0.53,
-    y: Math.max(54, cssHeight * 0.12),
+    y: cssHeight * 0.04,
     width: cssWidth * 0.39,
-    height: Math.min(128, cssHeight * 0.24),
+    height: Math.min(110, cssHeight * 0.16),
   };
   roundedRect(context, box.x, box.y, box.width, box.height, 5);
   context.fillStyle = "rgba(5,7,6,0.62)";
@@ -1620,10 +1672,18 @@ function drawHeadOutline(context, geometry, now, performanceState) {
   context.save();
   context.strokeStyle = "rgba(233,228,212,0.26)";
   context.lineWidth = 1.5;
+  // Keep the rear neck/head edge, leaving the crown open.
   context.beginPath();
   context.moveTo(left - cssWidth * 0.07, lower + cssHeight * 0.13);
-  context.bezierCurveTo(left - cssWidth * 0.12, lower - cssHeight * 0.1, left - cssWidth * 0.09, mouthLine - cssHeight * 0.28, left + cssWidth * 0.08, mouthLine - cssHeight * 0.35);
-  context.bezierCurveTo(left + cssWidth * 0.35, mouthLine - cssHeight * 0.45, right - cssWidth * 0.08, mouthLine - cssHeight * 0.34, right - cssWidth * 0.035, mouthLine - cssHeight * 0.24);
+  context.bezierCurveTo(left - cssWidth * 0.12, lower - cssHeight * 0.1,
+    left - cssWidth * 0.09, mouthLine - cssHeight * 0.18,
+    left + cssWidth * 0.045, mouthLine - cssHeight * 0.25);
+  context.stroke();
+  context.beginPath();
+  // The eye and nose edge remain separate from the open rear contour.
+  context.moveTo(right - cssWidth * 0.055, mouthLine - cssHeight * 0.205);
+  context.quadraticCurveTo(right - cssWidth * 0.02, mouthLine - cssHeight * 0.225,
+    right - cssWidth * 0.035, mouthLine - cssHeight * 0.185);
   context.lineTo(right - cssWidth * 0.02, mouthLine - cssHeight * 0.17);
   context.lineTo(right + cssWidth * 0.068, mouthLine - cssHeight * 0.095);
   context.quadraticCurveTo(right + cssWidth * 0.076, mouthLine - cssHeight * 0.055, right + cssWidth * 0.013, mouthLine - cssHeight * 0.065);
@@ -1631,9 +1691,6 @@ function drawHeadOutline(context, geometry, now, performanceState) {
   const lipExtension = cssWidth * (0.018 + performanceState.lipRounding * 0.03);
   const lipGap = cssHeight * (0.009 + performanceState.mouthOpening * 0.024);
   context.quadraticCurveTo(right + lipExtension, mouthLine - lipGap, right + lipExtension, mouthLine);
-  context.moveTo(right + lipExtension, mouthLine + lipGap);
-  context.lineTo(right + cssWidth * 0.018, mouthLine + cssHeight * 0.05);
-  context.bezierCurveTo(right - cssWidth * 0.02, mouthLine + cssHeight * 0.12, right - cssWidth * 0.2, mouthLine + cssHeight * 0.18, right - cssWidth * 0.34, lower + cssHeight * 0.12);
   context.stroke();
 
   // The nasal branch shares the changing lip/airway state sent to the waveguide.
@@ -1713,15 +1770,16 @@ function drawTongue(context, geometry, performanceState) {
 
 function drawHandle(context, handle) {
   const active = pointerDrag?.id === handle.id;
+  const radius = Math.max(handle.radius, 8 / viewScale);
   context.save();
   context.beginPath();
-  context.arc(handle.x, handle.y, handle.radius + (active ? 4 : 0), 0, TAU);
+  context.arc(handle.x, handle.y, radius + (active ? 4 : 0), 0, TAU);
   context.fillStyle = handle.fill;
   context.globalAlpha = active ? 0.28 : 0.14;
   context.fill();
   context.globalAlpha = 1;
   context.beginPath();
-  context.arc(handle.x, handle.y, handle.radius, 0, TAU);
+  context.arc(handle.x, handle.y, radius, 0, TAU);
   context.fillStyle = "#050706";
   context.fill();
   context.strokeStyle = handle.fill;
@@ -1734,7 +1792,7 @@ function drawHandle(context, handle) {
   context.font = "7px ui-monospace, monospace";
   context.textAlign = handle.align ?? "center";
   context.fillStyle = handle.fill;
-  context.fillText(handle.label, handle.labelX ?? handle.x, handle.y - handle.radius - 8);
+  context.fillText(handle.label, handle.labelX ?? handle.x, handle.y - radius - 8);
   context.restore();
 }
 
@@ -1771,6 +1829,24 @@ function updateHandles() {
       fill: "#ff7c69",
       align: "left",
       labelX: cssWidth * 0.1,
+    },
+    {
+      id: "mouth", label: "MOUTH",
+      x: cssWidth * 0.70,
+      y: lerp(cssHeight * 0.70, cssHeight * 0.64, currentPerformance.alveolarConstriction),
+      radius: 9, fill: "#af8cff",
+    },
+    {
+      id: "lips", label: "LIPS",
+      x: lerp(cssWidth * 0.885, cssWidth * 0.95, currentPerformance.lipRounding),
+      y: cssHeight * 0.54,
+      radius: 9, fill: "#ff7c69",
+    },
+    {
+      id: "airflow", label: "AIRFLOW",
+      x: cssWidth * 0.29,
+      y: lerp(cssHeight * 0.83, cssHeight * 0.76, state.intensity),
+      radius: 9, fill: "#70d9cf",
     },
   ];
 }
@@ -1812,26 +1888,38 @@ function hitHandle(point) {
   return handles
     .map((handle) => ({ handle, distance: Math.hypot(point.x - handle.x, point.y - handle.y) }))
     .sort((left, right) => left.distance - right.distance)
-    .find(({ handle, distance }) => distance <= handle.radius + 16)?.handle ?? null;
+    .find(({ handle, distance }) => distance <= Math.max(handle.radius + 16, 24 / viewScale))?.handle ?? null;
 }
 
 function applyPointerDrag(point) {
   if (!pointerDrag) return;
+  const dx = point.x - pointerDrag.startPoint.x;
+  const dy = point.y - pointerDrag.startPoint.y;
+  const initial = pointerDrag.startState;
   if (pointerDrag.id === "tongue") {
-    const harmonic = Math.round(lerp(4, 24, clamp((point.x - cssWidth * 0.48) / (cssWidth * 0.34))));
-    const convergence = 1 - clamp((point.y - cssHeight * 0.3) / (cssHeight * 0.26));
+    const harmonic = Math.round(clamp(initial.harmonicNumber + dx * 20 / (cssWidth * 0.34), 4, 24));
+    const convergence = clamp(initial.formantConvergence - dy / (cssHeight * 0.26));
     state = sanitizedAppState({
       ...state,
       harmonicNumber: harmonic,
       formantConvergence: convergence,
-      alveolarConstriction: clamp(0.1 + convergence * 0.9),
     }, state);
   } else if (pointerDrag.id === "pharynx") {
-    const amount = 1 - clamp((point.y - cssHeight * 0.38) / (cssHeight * 0.28));
+    const amount = clamp(initial.uvularConstriction - dy / (cssHeight * 0.28));
     state = sanitizedAppState({ ...state, uvularConstriction: amount }, state);
   } else if (pointerDrag.id === "false-folds") {
-    const amount = 1 - clamp((point.y - cssHeight * 0.48) / (cssHeight * 0.3));
-    state = sanitizedAppState({ ...state, falseFoldCoupling: amount }, state);
+    const amount = clamp(initial.falseFoldCoupling - dy / (cssHeight * 0.3));
+    const division = Math.round(clamp(initial.falseFoldDivision + dx / (cssWidth * 0.035), 1, 7));
+    state = sanitizedAppState({ ...state, falseFoldCoupling: amount, falseFoldDivision: division }, state);
+  } else if (pointerDrag.id === "mouth") {
+    state = sanitizedAppState({ ...state, alveolarConstriction: clamp(initial.alveolarConstriction - dy / (cssHeight * 0.18)) }, state);
+  } else if (pointerDrag.id === "lips") {
+    state = sanitizedAppState({ ...state,
+      lipRounding: clamp(initial.lipRounding + dx / (cssWidth * 0.1)),
+      mouthOpening: clamp(initial.mouthOpening - dy / (cssHeight * 0.18)),
+    }, state);
+  } else if (pointerDrag.id === "airflow") {
+    state = sanitizedAppState({ ...state, intensity: clamp(initial.intensity - dy / (cssHeight * 0.18)) }, state);
   }
   markCustomEdit();
   lastTractSignature = "";
@@ -1844,7 +1932,7 @@ canvas.addEventListener("pointerdown", (event) => {
   const handle = hitHandle(point);
   if (!handle) return;
   event.preventDefault();
-  pointerDrag = { id: handle.id, pointerId: event.pointerId };
+  pointerDrag = { id: handle.id, pointerId: event.pointerId, startPoint: point, startState: { ...state } };
   canvas.setPointerCapture?.(event.pointerId);
   canvas.classList.add("is-dragging");
   applyPointerDrag(point);
@@ -1866,6 +1954,9 @@ function releasePointer(event) {
     tongue: `Overtone focus H${state.harmonicNumber}, convergence ${formatPercent(state.formantConvergence)}.`,
     pharynx: `Upper-pharynx constriction ${formatPercent(state.uvularConstriction)}.`,
     "false-folds": `Ventricular-fold coupling ${formatPercent(state.falseFoldCoupling)}, ${formatDivision(state.falseFoldDivision)}.`,
+    mouth: `Mouth constriction ${formatPercent(state.alveolarConstriction)}.`,
+    lips: `Lip rounding ${formatPercent(state.lipRounding)}, mouth opening ${formatPercent(state.mouthOpening)}.`,
+    airflow: `Source pressure ${formatPercent(state.intensity)}.`,
   };
   announce(messages[moved]);
 }
@@ -1923,10 +2014,16 @@ $("singButton").addEventListener("click", () => setSinging(!singing));
 $("gestureButton").addEventListener("click", () => toggleTrack("ornament"));
 $("melodyButton").addEventListener("click", () => toggleTrack("melody"));
 $("resetButton").addEventListener("click", () => {
+  performanceElapsed();
   performanceSettings = sanitizePerformanceSettings({ ornamentPlaying: false, melodyPlaying: false });
   performanceSeconds = 0;
-  ornamentSeconds = 0;
-  melodySeconds = 0;
+  ornamentCycles = 0;
+  melodyCycles = 0;
+  melodyGlideRateHz = performanceSettings.melodyRateHz;
+  vibratoCycles = 0;
+  pulseCycles = 0;
+  breathCycles = 0;
+  automaticBreathAtSeconds = -Infinity;
   manualBreathAtSeconds = -Infinity;
   trackCompleted.ornament = trackCompleted.melody = false;
   loadStyle("open-drone", { announceChange: false, preserveRuntime: false });

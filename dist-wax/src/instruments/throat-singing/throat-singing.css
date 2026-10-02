@@ -490,7 +490,7 @@
 }
 
 .throat-singing-page .reset-all-row {
-  padding: 18px 22px 28px;
+  padding: 10px 12px 18px;
 }
 
 @media (max-width: 1120px) {
@@ -624,215 +624,122 @@
   }
 }
 
-/* Performance controls share the native play and knob primitives. */
-.throat-performance-track {
-  padding: 12px 16px;
-  border-bottom: 1px solid rgba(215,179,92,.16);
-}
+/* Compact controls share one row for actual playing surfaces. */
+.throat-panel { --throat-button-size: 36px; }
+.throat-panel > .instrument-preset-controls { border: 0; }
+.throat-performance-track { padding: 7px 12px; border: 0; }
 .throat-track-heading {
-  display: flex;
-  align-items: center;
-  gap: 9px;
-  min-width: 0;
-}
-.throat-track-select {
-  flex: 1;
-  min-width: 0;
   display: grid;
-  gap: 4px;
+  grid-template-columns: var(--throat-button-size) minmax(0,1fr) max-content;
+  grid-template-rows: 12px var(--throat-button-size);
+  align-items: center;
+  gap: 2px 8px;
+  min-width: 0;
 }
-.throat-track-select > span {
-  color: var(--throat-gold-bright);
-  font-size: 10px;
-}
+.throat-track-select { display: contents; }
+.throat-track-select > span { grid-column: 2; grid-row: 1; color: var(--throat-gold-bright); font-size: 10px; line-height: 12px; }
 .throat-track-select select {
+  grid-column: 2;
+  grid-row: 2;
   width: 100%;
   min-width: 0;
-  min-height: 36px;
-  padding: 5px 8px;
+  height: var(--throat-button-size);
+  min-height: var(--throat-button-size);
+  padding: 5px 7px;
   border: 1px solid rgba(215,179,92,.22);
-  border-radius: 3px;
+  border-radius: 0;
   color: var(--throat-bone);
   background: #10120e;
   font: inherit;
   font-size: 11px;
 }
 .throat-panel .play-button {
-  flex: 0 0 44px;
-  width: 44px;
-  height: 44px;
-  min-height: 44px;
-  min-width: 44px;
+  grid-column: 1;
+  grid-row: 2;
+  width: var(--throat-button-size);
+  height: var(--throat-button-size);
+  min-width: var(--throat-button-size);
+  min-height: var(--throat-button-size);
   color: var(--throat-gold-bright);
 }
-.throat-panel .play-button[aria-pressed="true"] {
-  color: #080a07;
-  background: var(--throat-gold);
-  border-color: var(--throat-gold);
-}
+.throat-panel .play-button[aria-pressed="true"] { color: #080a07; background: var(--throat-gold); border-color: var(--throat-gold); }
 .throat-icon-button, .throat-mode-buttons button {
   display: grid;
   place-items: center;
-  width: 36px;
-  height: 36px;
-  min-width: 36px;
+  width: var(--throat-button-size);
+  height: var(--throat-button-size);
+  min-width: var(--throat-button-size);
+  min-height: var(--throat-button-size);
   padding: 0;
   border: 1px solid rgba(215,179,92,.25);
-  border-radius: 50%;
   background: transparent;
   color: var(--throat-gold-bright);
   cursor: pointer;
-  font-size: 21px;
+  font-size: 20px;
+  line-height: 1;
 }
-.throat-icon-button:hover, .throat-mode-buttons button:hover, .throat-mode-buttons button[aria-pressed="true"] {
-  border-color: var(--throat-gold);
-  background: rgba(215,179,92,.12);
+.throat-icon-button:hover, .throat-mode-buttons button:hover, .throat-mode-buttons button[aria-pressed="true"] { border-color: var(--throat-gold); background: rgba(215,179,92,.12); }
+.throat-mode-buttons { grid-column: 3; grid-row: 2; display: flex; gap: 0; }
+.throat-mode-buttons button { border-radius: 0; }
+.throat-mode-buttons .throat-icon-button span { font-size: 10px; }
+.throat-mode-buttons button + button { margin-left: -1px; }
+.throat-mode-buttons button[aria-pressed="true"], .throat-mode-buttons button:focus-visible { position: relative; z-index: 1; }
+.throat-voice-track .throat-track-heading {
+  grid-template-columns: var(--throat-button-size) minmax(0,1fr) var(--throat-button-size) 52px;
+  grid-template-rows: 12px var(--throat-button-size) 12px;
 }
-.throat-breath-button svg {
-  width: 22px;
-  height: 22px;
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 1.5;
-  stroke-linecap: round;
-}
-.throat-breath-button.is-inhaling {
-  color: var(--throat-cyan);
-  border-color: var(--throat-cyan);
-}
-.throat-track-motion {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 16px;
-  margin-top: 7px;
-}
-.throat-mode-buttons {
-  display: flex;
-  gap: 5px;
-  margin-right: auto;
-}
-.throat-panel .group-body {
-  display: grid;
-  grid-template-columns: repeat(4,minmax(0,1fr));
-  gap: 16px 8px;
-  padding: 13px 14px 18px;
-}
-.throat-panel .control {
-  display: flex;
-  align-items: center;
-  flex-direction: column;
-  gap: 5px;
-  min-width: 0;
-  width: auto;
-  padding: 0;
-  margin: 0;
-  font-size: 9px;
-}
-.throat-panel .control > span:first-child {
-  display: contents;
-}
-.throat-panel .control b {
-  order: 0;
-  width: auto;
-  max-width: 100%;
-  position: static;
-  white-space: normal;
-  text-align: center;
-  color: var(--throat-bone);
-  font-size: 9px;
-  line-height: 1.25;
-}
-.throat-panel .control output {
-  order: 2;
+.throat-breath-button { grid-column: 3; grid-row: 2; border-radius: 50%; }
+.throat-breath-button svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; }
+.throat-breath-button.is-inhaling { color: var(--throat-cyan); border-color: var(--throat-cyan); }
+.throat-panel .throat-voice-track .control { display: contents; }
+.throat-panel .throat-voice-track .control b { grid-column: 4; grid-row: 1; justify-self: center; }
+.throat-panel .throat-voice-track .control > .throat-dial { grid-column: 4; grid-row: 2; align-self: start; justify-self: center; margin-top: 2px; }
+.throat-track-motion { display: grid; grid-template-columns: minmax(0,1fr) 52px; gap: 8px; margin: 5px 0 0 calc(var(--throat-button-size) + 8px); }
+.throat-melody-track .throat-track-motion { grid-template-columns: minmax(0,1fr) minmax(0,1fr) 52px; }
+.throat-panel .group, .throat-panel .group-summary, .throat-note-bank { border: 0; }
+.throat-panel .group-summary { min-height: 34px; padding: 0 12px; background: transparent; box-shadow: none; }
+.throat-panel .control-section[open] > .group-summary { border: 0; background: transparent; box-shadow: none; }
+.throat-panel .group-title { letter-spacing: .12em; }
+.throat-panel .group-body { display: grid; grid-template-columns: repeat(auto-fill,minmax(52px,1fr)); gap: 8px 6px; padding: 5px 12px 12px; }
+.throat-panel .control { display: flex; align-items: center; flex-direction: column; gap: 1px; min-width: 0; width: auto; padding: 0; margin: 0; font-size: 9px; }
+.throat-panel .control > span:first-child { display: contents; margin: 0; }
+.throat-panel .control b { width: auto; max-width: 100%; position: static; white-space: nowrap; text-align: center; color: var(--throat-bone); font-size: 9px; line-height: 12px; letter-spacing: 0; }
+.throat-panel .control > .throat-dial { margin: 0; }
+.throat-panel .control output { color: var(--throat-gold-bright); font-size: 9px; font-variant-numeric: tabular-nums; white-space: nowrap; line-height: 11px; }
+.throat-panel .throat-dial > output { position: absolute; inset: auto 0 0; text-align: center; pointer-events: none; }
+.throat-panel .throat-slider { display: grid; grid-template-columns: minmax(0,1fr) auto; grid-template-rows: 12px 44px; gap: 1px 4px; align-items: center; }
+.throat-panel .throat-slider b { grid-column: 1; grid-row: 1; text-align: left; justify-self: start; }
+.throat-panel .throat-slider output { grid-column: 2; grid-row: 1; position: static; justify-self: end; }
+.throat-panel .throat-slider input { grid-column: 1 / -1; grid-row: 2; height: 44px; transform: translateY(-6px); }
+.throat-note-bank { padding: 6px 12px 10px; gap: 5px; }
+.throat-note-bank .throat-note-heading { display: block; margin: 0; line-height: 12px; }
+.throat-panel .reset-all {
+  width: 100%;
+  min-height: var(--throat-button-size);
+  padding: 7px 10px;
+  border: 1px solid rgba(215,179,92,.25);
+  border-radius: 0;
+  background: transparent;
   color: var(--throat-gold-bright);
-  font-size: 9px;
-  font-variant-numeric: tabular-nums;
-  white-space: nowrap;
-}
-.throat-panel .control > .throat-dial {
-  order: 1;
-}
-.throat-track-motion .control {
-  width: 76px;
-}
-.throat-voice-track .control {
-  width: 58px;
-  flex: 0 0 58px;
-}
-.throat-note-bank .throat-note-heading {
-  align-items: center;
-}
-#noteButtons {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 5px;
-  overflow: visible;
-}
-.throat-keyboard-row {
-  display: grid;
-  grid-template-columns: repeat(12,minmax(0,1fr));
-  gap: 2px;
-}
-#noteButtons button {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: space-between;
-  min-width: 0;
-  height: 52px;
-  padding: 7px 1px;
-  border-radius: 0 0 3px 3px;
-  font-size: 8px;
-}
-#noteButtons button[data-black="true"] {
-  background: #1b1d18;
-  border-color: rgba(215,179,92,.32);
-}
-#noteButtons button kbd {
-  color: var(--throat-bone);
-  font-family: inherit;
   font-size: 10px;
 }
-#noteButtons button[aria-pressed="true"] {
-  background: rgba(215,179,92,.22);
-}
-.throat-research-section .group-body {
-  display: block;
-}
+.throat-panel .reset-all:hover, .throat-panel .reset-all:focus-visible { border-color: var(--throat-gold); background: rgba(215,179,92,.12); }
+#noteButtons { display: grid; grid-template-columns: 1fr; gap: 4px; overflow: visible; }
+.throat-keyboard-row { display: grid; grid-template-columns: repeat(12,minmax(0,1fr)); gap: 2px; }
+#noteButtons button { display: flex; flex-direction: column; align-items: center; justify-content: space-between; min-width: 0; height: 47px; padding: 6px 1px; border-radius: 0 0 3px 3px; font-size: 8px; }
+#noteButtons button[data-black="true"] { background: #1b1d18; border-color: rgba(215,179,92,.32); }
+#noteButtons button kbd { color: var(--throat-bone); font-family: inherit; font-size: 10px; }
+#noteButtons button[aria-pressed="true"] { background: rgba(215,179,92,.22); }
+.throat-research-section .group-body { display: block; }
 @media (max-width: 430px) {
-  .throat-panel .group-body {
-    grid-template-columns: repeat(3,minmax(0,1fr));
-  }
-  .throat-performance-track {
-    padding: 10px 12px;
-  }
-  .throat-track-heading {
-    gap: 7px;
-  }
-  .throat-voice-track .control {
-    width: 48px;
-    flex-basis: 48px;
-  }
-  #noteButtons button {
-    height: 54px;
-    font-size: 7px;
-  }
+  .throat-track-heading { gap: 2px 6px; }
+  .throat-track-select select { font-size: 10px; padding-inline: 5px; }
+  .throat-track-motion { margin-left: calc(var(--throat-button-size) + 6px); }
+  #noteButtons button { font-size: 7px; }
 }
 @media (pointer: coarse) {
-  .throat-panel .play-button {
-    width: 48px;
-    height: 48px;
-    min-width: 48px;
-    min-height: 48px;
-    flex-basis: 48px;
-  }
-  .throat-icon-button, .throat-mode-buttons button {
-    width: 44px;
-    height: 44px;
-    min-width: 44px;
-  }
-  .throat-track-select select {
-    min-height: 44px;
-  }
+  .throat-panel { --throat-button-size: 48px; }
+  .throat-panel .throat-voice-track .control > .throat-dial { margin-top: 5px; }
+  .throat-panel .throat-slider { grid-template-rows: 12px 48px; }
+  .throat-panel .throat-slider input { height: 48px; transform: translateY(-5px); }
 }

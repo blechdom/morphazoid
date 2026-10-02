@@ -372,6 +372,45 @@ test("pitch melodies have distinct bounded contours and audible pitch targets", 
   assert.equal(signatures.size, PITCH_MELODIES.length);
 });
 
+test("rate edits retain phrase, vibrato, pulse, and current note glide positions", () => {
+  const base = { ...centeredState(), vibratoDepthCents: 30, vibratoRateHz: 4 };
+  const settings = {
+    ornamentId: "roll", ornamentPlaying: true, ornamentRepeat: false,
+    melodyId: "arch", melodyPlaying: true, melodyRepeat: false,
+    melodyRateHz: 0.4, melodyDepthSemitones: 7, portamentoSeconds: 0.8,
+  };
+  for (const pingPong of [false, true]) {
+    for (const direction of ["forward", "reverse"]) {
+      const controls = { ...settings, ornamentPingPong: pingPong, melodyPingPong: pingPong,
+        ornamentDirection: direction, melodyDirection: direction };
+      const timing = { ornamentCycles: pingPong ? 1.37 : 0.37, melodyCycles: pingPong ? 1.23 : 0.23,
+        melodyGlideRateHz: 0.4, vibratoCycles: 0.23, pulseCycles: 0.37 };
+      const before = evaluateSingerPerformance(base, { pulseRate: 0.7, pulseDepth: 0.5 }, controls, 9, timing);
+      for (const rate of [2, 0.25, 0, 3]) {
+        const changed = evaluateSingerPerformance({ ...base, motionRateHz: rate, vibratoRateHz: rate },
+          { pulseRate: rate, pulseDepth: 0.5 }, { ...controls, melodyRateHz: rate }, 9, timing);
+        assert.deepEqual(changed.animation, before.animation);
+        for (const key of ["trueFoldHz", "vibratoCents", "pressurePulseWave", "intensity", "uvularConstriction", "alveolarConstriction"]) {
+          closeTo(changed.performance[key], before.performance[key]);
+        }
+        assert.equal(changed.ornamentFinished, false);
+        assert.equal(changed.melodyFinished, false);
+      }
+    }
+  }
+});
+
+test("an explicit automatic breath timestamp preserves its envelope during tempo edits", () => {
+  const timing = { automaticBreathAtSeconds: 8 };
+  for (const seconds of [8.1, 8.3, 8.7, 9]) {
+    const expected = breathEnvelope(seconds, { ...timing, breathRateBpm: 8 });
+    for (const breathRateBpm of [0, 3, 15, 30]) {
+      assert.deepEqual(breathEnvelope(seconds, { ...timing, breathRateBpm }), expected);
+    }
+  }
+  assert.equal(breathEnvelope(9, { automaticBreathAtSeconds: -Infinity, breathRateBpm: 30 }).gain, 1);
+});
+
 test("local phrase clocks retrigger ornaments independently from melody and vibrato", () => {
   const state = { ...centeredState(), vibratoDepthCents: 24, vibratoRateHz: 5 };
   const settings = { ornamentId: "roll", melodyId: "arch", melodyRateHz: 0.5 };
