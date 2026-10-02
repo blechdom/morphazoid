@@ -1,5 +1,5 @@
 /**
- * Pure control and geometry model for the Throat Singing instrument.
+ * Pure control and geometry model for the Throat Singer instrument.
  *
  * The named presets are playable approximations, not measurements of an
  * individual singer and not instructions for producing these vocal techniques.

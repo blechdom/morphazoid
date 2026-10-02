@@ -4,6 +4,7 @@ import {
   THROAT_SINGING_STYLE_PRESETS,
   dualFocusTargets,
   modulateThroatSingingPerformance,
+  sampleThroatSingingMotion,
   sanitizeThroatSingingState,
   throatSingingState,
 } from "./throat-singing.js";
@@ -208,7 +209,8 @@ export function evaluateSingerPerformance(baseState, extras, settings, timeSecon
   // smooth even for the accelerating and nonperiodic contour shapes.
   const envelope = active ? Math.sin(Math.PI * phase) ** 2 * base.motionDepth : 0;
   const wave = active ? clamp(shapeAt(ornament.shape, phase), -1, 1) * envelope : 0;
-  const secondary = active ? Math.sin(TAU * phase) * envelope : 0;
+  const secondary = active ? (Math.sin(TAU * phase) * 0.8
+    + sampleThroatSingingMotion(base.motionShape, phase) * 0.2) * envelope : 0;
   const [tongueWeight, throatWeight, lipWeight, pressureWeight, focusWeight] = ornament.weights;
   const tongueMotion = wave * tongueWeight;
   const throatMotion = (wave * 0.76 + secondary * 0.24) * throatWeight;
@@ -222,7 +224,7 @@ export function evaluateSingerPerformance(baseState, extras, settings, timeSecon
     mouthOpening: base.mouthOpening + lipMotion * 0.22,
     lipRounding: base.lipRounding - lipMotion * 0.25,
     foldTenseness: base.foldTenseness + throatMotion * 0.06,
-    intensity: base.intensity * clamp(1 + pressureMotion * 0.42, 0.5, 1.42),
+    intensity: base.intensity * clamp(1 + pressureMotion * (0.3 + base.amplitudeMotionDepth * 0.3), 0.5, 1.6),
     // The authored ornament replaces the old generic motion, while the source
     // vibrato remains independent and follows the global audio clock.
     motionDepth: 0,
@@ -234,6 +236,7 @@ export function evaluateSingerPerformance(baseState, extras, settings, timeSecon
   const modulated = modulateThroatSingingPerformance(effective, elapsed, { pitchCents: pitchSemitones * 100 });
   const targetHarmonic = clamp(base.harmonicNumber + wave * focusWeight * 3, ...THROAT_SINGING_LIMITS.harmonicNumber);
   const focusFrequencyHz = modulated.heardDroneHz * targetHarmonic;
+  const pulsing = extra.pulseRate > 0 ? Math.sin(TAU * elapsed * extra.pulseRate) * extra.pulseDepth : 0;
   const performance = freeze({
     ...modulated,
     motionDepth: base.motionDepth,
@@ -242,10 +245,10 @@ export function evaluateSingerPerformance(baseState, extras, settings, timeSecon
     motionWave: wave,
     targetHarmonic,
     pitchSemitones,
+    pressurePulseWave: pulsing,
     focusFrequencyHz,
     focus: dualFocusTargets(modulated, focusFrequencyHz),
   });
-  const pulsing = extra.pulseRate > 0 ? Math.sin(TAU * elapsed * extra.pulseRate) * extra.pulseDepth : 0;
   const animation = freeze({
     phase, ornamentPhase: phase, melodyPhase: cycle(melodyPhase), active, ornamentFinished,
     tongue: tongueMotion, lips: lipMotion, throat: throatMotion,

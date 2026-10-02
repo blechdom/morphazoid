@@ -12,12 +12,15 @@
   --throat-deep: #050706;
   --throat-panel: #090b09;
   height: 100dvh;
+  display: flex;
+  flex-direction: column;
   overflow: hidden;
   color: var(--throat-bone);
   background: var(--throat-deep);
 }
 
 .throat-singing-page .masthead {
+  flex: 0 0 auto;
   border-bottom-color: rgba(215, 179, 92, 0.2);
   background: rgba(5, 7, 6, 0.97);
 }
@@ -84,7 +87,9 @@
 }
 
 .throat-shell {
-  height: calc(100dvh - 58px);
+  height: auto;
+  min-height: 0;
+  flex: 1 1 0;
   overflow: hidden;
   grid-template-columns: minmax(0, 1fr) clamp(410px, 31vw, 500px);
 }
@@ -243,6 +248,69 @@
     linear-gradient(128deg, rgba(215, 179, 92, 0.025), transparent 38%),
     var(--throat-panel);
 }
+
+.throat-title {
+  position: absolute;
+  z-index: 2;
+  top: 24px;
+  left: 8%;
+  margin: 0;
+  color: var(--throat-gold-bright);
+  font: 600 clamp(17px, 2.1vw, 28px) ui-monospace, monospace;
+  letter-spacing: -0.04em;
+  pointer-events: none;
+}
+
+.throat-panel > .instrument-preset-controls {
+  padding: 10px 12px;
+  border-bottom: 1px solid rgba(215, 179, 92, 0.2);
+}
+
+.throat-phrase-bank {
+  display: grid;
+  padding: 12px;
+  border-bottom: 1px solid rgba(215, 179, 92, 0.2);
+  gap: 8px;
+}
+
+.throat-pattern-row {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: 76px minmax(0, 1fr) 34px 34px;
+  align-items: center;
+  gap: 5px;
+}
+
+.throat-pattern-row label {
+  color: var(--throat-bone);
+  font-size: 9px;
+}
+
+.throat-pattern-row select,
+.throat-pattern-row button {
+  min-width: 0;
+  min-height: 34px;
+  border: 1px solid rgba(215, 179, 92, 0.22);
+  border-radius: 3px;
+  color: var(--throat-bone);
+  background: #10130f;
+  font: inherit;
+  font-size: 10px;
+}
+
+.throat-pattern-row select { width: 100%; padding: 0 7px; }
+.throat-pattern-row button { padding: 0; cursor: pointer; font-size: 20px; }
+.throat-pattern-row button:hover { color: var(--throat-gold-bright); border-color: var(--throat-gold); }
+
+.throat-melody-controls {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  margin-top: 3px;
+}
+
+.throat-melody-controls .control { min-width: 0; margin: 0; }
+.throat-phrase-status { color: var(--throat-muted); font-size: 8px; }
 
 .throat-transport {
   display: grid;
@@ -740,7 +808,7 @@
   }
 
   .throat-shell {
-    height: calc(100dvh - 58px);
+    height: auto;
     min-height: 0;
     grid-template-columns: 1fr;
     grid-template-rows: clamp(330px, 52dvh, 500px) minmax(0, 1fr);
@@ -769,7 +837,7 @@
 
 @media (max-width: 650px) {
   .throat-shell {
-    height: calc(100dvh - 54px);
+    height: auto;
     grid-template-rows: clamp(290px, 45dvh, 390px) minmax(0, 1fr);
   }
 
@@ -833,6 +901,11 @@
   .throat-model-hud {
     grid-template-columns: 1fr;
   }
+}
+
+@media (pointer: coarse) {
+  .throat-pattern-row { grid-template-columns: 68px minmax(0, 1fr) 42px 42px; }
+  .throat-pattern-row select, .throat-pattern-row button { min-height: 44px; }
 }
 
 @media (max-width: 960px) and (max-height: 560px) and (orientation: landscape) {

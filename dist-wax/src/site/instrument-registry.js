@@ -91,7 +91,7 @@ export const TOOL_GROUPS = Object.freeze([
   freezeGroup("physical-model", "Physical Model", [
     { id: "throatazoid", label: "Throatazoid", href: "throatazoid.html" },
     { id: "pink-trombonazoid", label: "Pink Trombonazoid", href: "pink-trombonazoid.html" },
-    { id: "throat-singing", label: "Throat Singing", href: "throat-singing.html" },
+    { id: "throat-singing", label: "Throat Singer", href: "throat-singing.html" },
     { id: "monstroid", label: "Monstroid", href: "monstroid.html", legacyHrefs: ["monsterzoid.html","colony-syrinx.html","monstrozoid.html"], imageHref: "assets/instruments/colony-syrinx.webp" },
     { id: "jaw-harp", label: "Jaw Harp", href: "jaw-harp.html" },
     { id: "harmonica", label: "Harmonicazoid", href: "harmonica.html" },

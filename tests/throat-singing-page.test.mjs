@@ -11,7 +11,7 @@ import {
 
 const root = new URL("../", import.meta.url);
 
-test("Throat Singing ships one research-labelled physical-model page", async () => {
+test("Throat Singer ships one research-labelled physical-model page", async () => {
   const [html, css, app, build, research, icon] = await Promise.all([
     readFile(new URL("src/pages/throat-singing.html", root), "utf8"),
     readFile(new URL("src/instruments/throat-singing/throat-singing.css", root), "utf8"),
@@ -21,11 +21,14 @@ test("Throat Singing ships one research-labelled physical-model page", async () 
     readFile(new URL("assets/instruments/throat-singing.webp", root)),
   ]);
 
-  assert.match(html, /<h1 class="sr-only">Throat Singing physical-model synthesizer<\/h1>/);
+  assert.match(html, /<h1 class="throat-title">Throat Singer<\/h1>/);
   assert.match(html, /id="stage"[\s\S]*aria-describedby="canvasInstructions liveStatus"/);
   assert.match(html, /id="singButton"[\s\S]*data-primary-transport/);
   assert.match(html, /id="singButton"[\s\S]*aria-keyshortcuts="Space"/);
+  assert.match(html, /data-instrument-preset-host/);
+  assert.match(html, /id="ornamentSelect"[\s\S]*id="ornamentLoop"[\s\S]*id="melodySelect"/);
   assert.match(html, /id="sourcePressure"/);
+  assert.doesNotMatch(html, /<input[^>]*type="range"[^>]*\/>\s*<small>/);
   assert.match(html, /id="vocalFry"[\s\S]*id="growlRoughness"/);
   assert.match(html, /id="harmonicNumber"/);
   assert.match(html, /Explore first · named approaches/);
@@ -66,6 +69,7 @@ test("Throat Singing ships one research-labelled physical-model page", async () 
     "src/instruments/throat-singing/throat-singing.css",
     "src/instruments/throat-singing/throat-singing-app.js",
     "src/instruments/throat-singing/throat-singing.js",
+    "src/instruments/throat-singing/performance-patterns.js",
     "docs/THROAT_SINGING_RESEARCH.md",
     "assets/instruments/throat-singing.webp",
   ]) {
@@ -85,13 +89,13 @@ test("Throat Singing ships one research-labelled physical-model page", async () 
   assert.doesNotMatch(research, /\b(?:breathiness|inhaleAudibility)\b/);
 });
 
-test("Throat Singing is adjacent to its tract lineage and owns its keyboard", () => {
+test("Throat Singer is adjacent to its tract lineage and owns its keyboard", () => {
   const voiceTools = TOOL_GROUPS.find(({ id }) => id === "physical-model")?.tools ?? [];
   const throatIndex = voiceTools.findIndex(({ id }) => id === "throat-singing");
   assert.equal(voiceTools[throatIndex - 1]?.id, "pink-trombonazoid");
   assert.deepEqual(voiceTools[throatIndex], {
     id: "throat-singing",
-    label: "Throat Singing",
+    label: "Throat Singer",
     href: "throat-singing.html",
   });
   assert.equal(resolveActiveTool(new URL("throat-singing.html", root).href)?.id, "throat-singing");

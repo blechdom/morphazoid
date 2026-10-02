@@ -1,8 +1,9 @@
 import { readFileSync } from 'node:fs';
 const originalPlan = JSON.parse(readFileSync(new URL('../../docs/catalogue-update-decisions.json', import.meta.url), 'utf8'));
-// September 30 owner promotion: Spelling leaves WIP/Cooking for Voice.
+// Owner updates preserve the original approved catalogue snapshot.
 export const cataloguePlan = { ...originalPlan, rows: originalPlan.rows.map(row =>
-  row.id === 'spelling-synthesizer' ? { ...row, categoryId: 'voice', categoryLabel: 'Voice' } : row) };
+  row.id === 'spelling-synthesizer' ? { ...row, categoryId: 'voice', categoryLabel: 'Voice' }
+  : row.id === 'throat-singing' ? { ...row, label: 'Throat Singer' } : row) };
 const prior = JSON.parse(readFileSync(new URL('../fixtures/catalogue-before-20260918.json', import.meta.url), 'utf8'));
 const byId = new Map(cataloguePlan.rows.flatMap(row => [[row.oldId, row], [row.id, row]]));
 export const mainAdditions = [

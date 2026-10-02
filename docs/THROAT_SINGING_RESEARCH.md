@@ -203,3 +203,29 @@ The model accepts true-fold frequency `50–360 Hz`, integer period division `1�
 - UNESCO Intangible Cultural Heritage, “Mongolian traditional art of Khöömei,” Representative List No. 00396 (inscribed 2010): <https://ich.unesco.org/en/RL/mongolian-traditional-art-of-khoomei-00396> — nomination form <https://ich.unesco.org/doc/src/07531-EN.pdf>
 - Avataq Cultural Institute lexicon, `katajjaq, katajjait`: <https://www.avataq.qc.ca/en/Nunavimmiuts/The-land/Lexicon>
 - Avataq Cultural Institute, “Katajjaniq, the Inuit throat singing, designated as the first element of Québec’s intangible heritage” (2014): <https://www.avataq.qc.ca/en/content/view/full/2949>
+
+
+## Authored performance patterns
+
+The display name is Throat Singer; the `throat-singing` ID and URL remain stable.
+The 28 complete voice presets include source, tract, speculative-airway, ornament
+and melody settings. Main dice randomizes the complete musical state while
+preserving output level and Audio/transport. The original named approaches remain
+local starting points, with their existing evidence labels.
+
+The 18 ornaments are authored synthesis gestures, not cultural transcriptions.
+Their shared phase deforms the upper pharynx, oral constriction, front cavity,
+mouth aperture, lip rounding and pressure; the drawing consumes the same state.
+Still and Off return to the authored pose; Once completes without stopping the
+drone; Loop repeats; Back and forth reverses alternate phrases. Ornament and
+melody clocks can be retriggered independently. The 12 pitch contours interpolate
+continuously around the current true-fold frequency, bounded to the engine's
+50–360 Hz source range. A shallow nasal branch uses the existing waveguide nose
+model and follows lip rounding. These mappings are playable approximations.
+
+Audio modulation uses an independent 20 ms scheduling timer with 180 ms of
+AudioParam lookahead. Graphics sample the running AudioContext clock, falling
+back to a silent visual clock when Audio is off. Waveguide shape updates retain
+the processor's existing smoothing. Longer main-thread stalls can hold the last
+tract shape after the lookahead expires; synthesis remains on the audio thread.
+Transport and ornament gestures never arm Audio.

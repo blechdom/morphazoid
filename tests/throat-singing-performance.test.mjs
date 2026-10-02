@@ -267,3 +267,21 @@ test("every complete preset produces finite bounded modulation across its phrase
     }
   }
 });
+
+test("pressure pulses share the phrase clock and source motion depth remains consequential", () => {
+  const base = throatSingingState("open-drone", {
+    intensity: 0.4, motionRateHz: 1, motionDepth: 1, amplitudeMotionDepth: 0,
+  });
+  const settings = { ornamentId: "swell", ornamentLoop: "loop" };
+  const neutral = evaluateSingerPerformance(base, { pulseRate: 1, pulseDepth: 0.6 }, settings, 0);
+  const crest = evaluateSingerPerformance(base, { pulseRate: 1, pulseDepth: 0.6 }, settings, 0.25);
+  assert.equal(neutral.performance.pressurePulseWave, 0);
+  assert.ok(crest.performance.pressurePulseWave > 0.59);
+  assert.ok(crest.animation.airflow > neutral.animation.airflow);
+  const shallow = evaluateSingerPerformance(base, {}, settings, 0.5);
+  const deep = evaluateSingerPerformance({ ...base, amplitudeMotionDepth: 1 }, {}, settings, 0.5);
+  assert.ok(deep.performance.intensity > shallow.performance.intensity);
+  const sine = evaluateSingerPerformance({ ...base, motionShape: "sine" }, {}, settings, 0.25);
+  const triangle = evaluateSingerPerformance({ ...base, motionShape: "triangle" }, {}, settings, 0.25);
+  assert.notEqual(sine.performance.uvularConstriction, triangle.performance.uvularConstriction);
+});

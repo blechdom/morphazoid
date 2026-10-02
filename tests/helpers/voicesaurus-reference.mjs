@@ -1,3 +1,4 @@
+import { restoreThroatSingerMetadata } from "./throat-singer-reference.mjs";
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { existsSync, readFileSync } from 'node:fs';
@@ -10,6 +11,7 @@ const sha = source => createHash('sha256').update(source).digest('hex');
 
 /** Restore the pre-Voicesaurus source before applying earlier frozen amendments. */
 export function restoreVoicesaurus(source, file, readShared = readImplementation) {
+  source = restoreThroatSingerMetadata(source, file);
   for (const change of voicesaurusAmendments.changes.filter(change => change.file === file)) {
     for (const testFile of change.regressionTests) {
       assert.ok(existsSync(new URL(`../../${testFile}`, import.meta.url)), testFile);

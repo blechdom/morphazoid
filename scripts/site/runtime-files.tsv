@@ -187,6 +187,7 @@ copy+require	throat-singing.html
 copy+require	src/instruments/throat-singing/throat-singing.css
 copy+require	src/instruments/throat-singing/throat-singing-app.js
 copy+require	src/instruments/throat-singing/throat-singing.js
+copy+require	src/instruments/throat-singing/performance-patterns.js
 copy+require	docs/THROAT_SINGING_RESEARCH.md
 copy+require	assets/instruments/throat-singing.webp
 copy+require	dentaphone.html
