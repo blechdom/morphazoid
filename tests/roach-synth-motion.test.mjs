@@ -228,6 +228,40 @@ test('camera gaze is bounded and shared as additive head-only motion', () => {
   }
 });
 
+test('articulated camera gaze clones bounded neck angles while retaining legacy head-only saves', () => {
+  const legacy = { x: 8, y: -4, z: 3 };
+  assert.deepEqual(normalizeRoachMotion({ gaze: legacy }).gaze, legacy);
+  const input = { x: 999, y: -999, z: 7, neck: { x: -999, y: 999, z: Number.NaN } };
+  const normalized = normalizeRoachMotion({ gaze: input });
+  assert.deepEqual(normalized.gaze, { x: 22, y: -22, z: 7, neck: { x: -45, y: 45, z: 0 } });
+  assert.notEqual(normalized.gaze, input); assert.notEqual(normalized.gaze.neck, input.neck);
+  input.neck.x = 0; assert.equal(normalized.gaze.neck.x, -45);
+  normalized.gaze.neck.y = 9; assert.equal(input.neck.y, 999);
+  assert.deepEqual(normalizeRoachMotion(JSON.parse(JSON.stringify(normalized))), normalized);
+});
+
+test('head and neck gaze compose once after factory and edited baked tracks without changing rest or manual poses', () => {
+  const rig = wingRig();
+  rig[2].restOffset = { x: 10, y: -5, z: 2 }; rig[2].offset = { x: 4, y: 3, z: -2 };
+  rig[2].motion = { enabled: true, axis: 'z', amplitude: 2, speed: .5 };
+  rig[3].restOffset = { x: -2, y: 3, z: 4 }; rig[3].offset = { x: 6, y: -2, z: 1 };
+  rig[3].motion = { enabled: true, axis: 'x', amplitude: 3, speed: 1 };
+  const before = structuredClone(rig), gaze = { x: 5, y: -7, z: 9, neck: { x: -12, y: 4, z: -6 } };
+  const baked = bakeRoachPresetTracks('face_sing', rig, { tempo: 120 });
+  baked.tracks.find(track => track.jointId === 'bone-2' && track.axis === 'x').steps[3] = -8;
+  baked.tracks.find(track => track.jointId === 'bone-3' && track.axis === 'x').steps[3] = 7;
+  for (const controls of [{ presetId: 'none', antennae: false }, { presetId: 'face_sing' }, baked]) {
+    const original = structuredClone(controls), base = pose(.75, controls, rig), aimed = pose(.75, { ...controls, gaze }, rig);
+    for (let index = 0; index < aimed.length; index += 1) {
+      const joint = Math.floor(index / 3), axis = ['x', 'y', 'z'][index % 3];
+      const delta = joint === 2 ? gaze.neck[axis] : joint === 3 ? gaze[axis] : 0;
+      assert.ok(Math.abs(aimed[index] - base[index] - delta) < .00001, `${controls.presetId}: joint${joint} ${axis} adds once`);
+    }
+    assert.deepEqual(controls, original);
+  }
+  assert.deepEqual(rig, before);
+});
+
 
 test('one-time calibrated leg rest offsets remain in every shared pose independently of manual edits', () => {
   const rig = joints();
