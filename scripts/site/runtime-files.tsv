@@ -780,6 +780,7 @@ copy	assets/spider-synth/SOURCE.LICENSE.txt
 copy	roach-synth.html
 copy+require	src/instruments/roach-synth/roach-synth.css
 copy+require	src/instruments/roach-synth/roach-synth-app.js
+copy+require	src/instruments/roach-synth/roach-synth-presets.js
 copy	src/instruments/roach-synth/roach-synth-viewer.js
 copy	src/instruments/roach-synth/roach-synth-wings.js
 copy	src/instruments/roach-synth/roach-synth-motion.js

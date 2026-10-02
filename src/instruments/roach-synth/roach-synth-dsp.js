@@ -303,9 +303,6 @@ export class RoachSynthDsp {
     this.audioTime = 0; this.midiPerformance = new RoachMidiPerformance();
     this.midiSerials = new Uint32Array(8); this.midiEvents = 0;
     this.midiGates = new Float64Array(8); this.midiFrequencies = new Float64Array(8);
-    this.metronome = false; this.metronomeBeat = -1; this.metronomeEnvelope = 0; this.metronomePhase = 0; this.metronomeWasActive = false;
-    this.metronomeFrequency = 1600; this.metronomeEvents = 0; this.lastMetronomeTime = -1;
-    this.metronomeDecay = Math.exp(-1 / (this.sampleRate * .009));
     this.motion = normalizeRoachMotion(); this.sound = normalizeRoachSound(); this.smooth = normalizeRoachSound(); this.targets = normalizeRoachSound();
     this.bodyMix = createDefaultRoachBodyMix(); this.body = new RoachBodyEngine(this.sampleRate); this.recordings = this.body.recordings;
     this.joints = []; this.jointStructureKey = ''; this.mappings = []; this.pose = new Float32Array(MAX_JOINTS * 3);
@@ -333,8 +330,6 @@ export class RoachSynthDsp {
     this.telemetry = {rms:0,peak:0,speechEnvelope:0,motionTime:0,soundTime:0,renderedFrames:0};
   }
   update(value = {}) {
-    if ('time' in value || 'playing' in value || 'enabled' in value || 'metronome' in value
-      || (value.motion?.tempo != null && value.motion.tempo !== this.motion.tempo)) this.metronomeWasActive = false;
     const resetActivity = value.resetActivity === true;
     if (resetActivity) { this.body.resetActivity(); this.controlPrimed = false; this.contactsPrimed = false; }
     if (value.bodyMix) { this.bodyMix = normalizeRoachBodyMix(value.bodyMix); this.body.setMix(this.bodyMix, !this.hasBeenEnabled); }
@@ -355,7 +350,6 @@ export class RoachSynthDsp {
       this.playing = value.playing === true;
     }
     if ('soundPlaying' in value) this.soundPlaying = value.soundPlaying === true;
-    if ('metronome' in value) this.metronome = value.metronome === true;
     if (value.motion) {
       const motion = normalizeRoachMotion({ ...this.motion, ...value.motion });
       if (motion.presetId !== this.motion.presetId || motion.sequenceEnabled !== this.motion.sequenceEnabled || motion.tempo !== this.motion.tempo) {
@@ -634,20 +628,6 @@ export class RoachSynthDsp {
     const count=Math.min(left.length,right.length); let energy=0; let peak=0;
     for(let sampleIndex=0;sampleIndex<count;sampleIndex+=1) {
       if(this.controlCountdown--<=0) { this.control(); this.controlCountdown=this.controlStride-1; }
-      const beatPosition=this.time*this.motion.tempo/60;
-      const beat=Math.floor(beatPosition+1e-9);
-      const clickActive=this.enabled&&this.playing&&this.metronome;
-      if(clickActive) {
-        if((this.metronomeWasActive&&beat!==this.metronomeBeat)
-          ||(!this.metronomeWasActive&&Math.abs(beatPosition-beat)<this.motion.tempo/(60*this.sampleRate))) {
-          this.metronomeEnvelope=1; this.metronomePhase=0; this.metronomeFrequency=beat%4===0?1900:1250;
-          this.metronomeEvents+=1; this.lastMetronomeTime=this.time;
-        }
-      }
-      this.metronomeBeat=beat; this.metronomeWasActive=clickActive;
-      this.metronomePhase=(this.metronomePhase+this.metronomeFrequency/this.sampleRate)%1;
-      const click=Math.sin(TAU*this.metronomePhase)*this.metronomeEnvelope*.11;
-      this.metronomeEnvelope*=this.metronomeDecay;
       if(this.playing) this.time+=1/this.sampleRate;
       if(this.soundPlaying) this.soundTime+=1/this.sampleRate;
       this.audioTime+=1/this.sampleRate;
@@ -664,7 +644,7 @@ export class RoachSynthDsp {
       const speechColorMix=Math.min(.22,Math.abs(s.vowel-ROACH_SOUND_DEFAULTS.vowel)*.22+Math.abs(s.resonance-ROACH_SOUND_DEFAULTS.resonance)*.06);
       const voice=(speech*(1-speechColorMix*.3)+speechColor*speechColorMix)*s.voice*1.8;
       const bodyScale=2.1*speechDuck;
-      const busL=this.body.left*bodyScale+voice*this.panL+click; const busR=this.body.right*bodyScale+voice*this.panR+click;
+      const busL=this.body.left*bodyScale+voice*this.panL; const busR=this.body.right*bodyScale+voice*this.panR;
       const absolute=Math.max(Math.abs(busL),Math.abs(busR));
       this.mixEnvelope+=(absolute-this.mixEnvelope)*(absolute>this.mixEnvelope?this.mixAttack:this.mixRelease);
       const reduction=this.mixEnvelope>.72?(.72+(this.mixEnvelope-.72)*.3)/this.mixEnvelope:1;
@@ -686,7 +666,6 @@ export class RoachSynthDsp {
     this.telemetry.motionTime=this.time; this.telemetry.soundTime=this.soundTime; this.telemetry.speechEnvelope=this.speechEnvelope;
     this.telemetry.contactEvents=this.contactEvents; this.telemetry.lastContactTime=this.lastContactTime;
     this.telemetry.interactionPeak=this.interactionPeak; this.telemetry.recordingEvents=this.recordings.events;
-    this.telemetry.metronomeEvents=this.metronomeEvents; this.telemetry.lastMetronomeTime=this.lastMetronomeTime;
     const midi = this.midiPerformance.output; let active = 0;
     for (let group = 0; group < 8; group += 1) {
       this.midiGates[group] = this.body.voices[group].midiGate;

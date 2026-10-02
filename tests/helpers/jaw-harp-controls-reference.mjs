@@ -3,13 +3,18 @@ import { existsSync, readFileSync } from "node:fs";
 
 const changes = JSON.parse(readFileSync(new URL("../../docs/jaw-harp-controls-runtime-changes.json", import.meta.url), "utf8")).changes;
 
-assert.deepEqual(changes.map(change => change.file), ["src/instruments/jaw-harp/jaw-harp-app.js"]);
-assert.deepEqual(changes[0].regressionTests, ["tests/jaw-harp.test.mjs", "e2e/jaw-harp.spec.mjs"]);
-for (const file of changes[0].regressionTests) {
-  assert.ok(existsSync(new URL(`../../${file}`, import.meta.url)), file);
+assert.deepEqual(changes.map(change => change.file), [
+  "src/instruments/jaw-harp/jaw-harp-app.js",
+  "src/instruments/jaw-harp/jaw-harp.js",
+]);
+for (const change of changes) {
+  assert.deepEqual(change.regressionTests, ["tests/jaw-harp.test.mjs", "e2e/jaw-harp.spec.mjs"]);
+  for (const file of change.regressionTests) {
+    assert.ok(existsSync(new URL(`../../${file}`, import.meta.url)), file);
+  }
 }
 
-/** Reverse only the documented UI and preset timing; keep the historical DSP/gesture references frozen. */
+/** Reverse only documented UI, preset timing and display recoil; keep historical DSP/gesture references frozen. */
 export function restoreJawHarpControls(source, file) {
   for (const change of changes.filter(change => change.file === file)) {
     for (const replacement of [...change.replacements].reverse()) {

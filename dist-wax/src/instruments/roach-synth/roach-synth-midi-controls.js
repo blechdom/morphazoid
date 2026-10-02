@@ -1,6 +1,6 @@
 import { getSharedMidiManager } from '../../midi-manager.js';
-import { ROACH_BODY_GROUPS } from './roach-synth-body.js?v=54f237f4207f';
-import { ROACH_MIDI_GESTURES } from './roach-synth-midi.js?v=54f237f4207f';
+import { ROACH_BODY_GROUPS } from './roach-synth-body.js?v=7608886131fe';
+import { ROACH_MIDI_GESTURES } from './roach-synth-midi.js?v=7608886131fe';
 
 export const ROACH_MIDI_ROUTE_DEFAULTS = Object.freeze([
   'param:intensity', 'param:brightness', 'param:resonance', 'param:crunch',

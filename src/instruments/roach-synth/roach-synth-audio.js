@@ -174,7 +174,6 @@ export class RoachSynthAudio {
             renderedFrames: finite(data.renderedFrames), motionTime: finite(data.motionTime), soundTime: finite(data.soundTime),
             contactEvents: finite(data.contactEvents), lastContactTime: finite(data.lastContactTime, -1),
             recordingEvents: finite(data.recordingEvents),
-            metronomeEvents: finite(data.metronomeEvents), lastMetronomeTime: finite(data.lastMetronomeTime, -1),
             midiActive: finite(data.midiActive), midiEvents: finite(data.midiEvents),
             midiNotes: Array.from(data.midiNotes ?? [], value => finite(value, -1)),
             midiGates: Array.from(data.midiGates ?? [], value => finite(value)),
@@ -323,7 +322,8 @@ export class RoachSynthAudio {
       ]);
       if (!this.enabled || this.disposed || generation !== this.speechGeneration) return false;
       this.post({ type: 'speak', phones: createRoachSpeechPlan(text, pronunciations) });
-      safeCall(this.onStatus, 'The roach is speaking.'); return true;
+      safeCall(this.onStatus, '');
+      return true;
     } catch (error) {
       if (!this.disposed && generation === this.speechGeneration && error.name !== 'AbortError') {
         safeCall(this.onStatus, `Speech unavailable: ${error.message}. The other sound layers remain playable.`);

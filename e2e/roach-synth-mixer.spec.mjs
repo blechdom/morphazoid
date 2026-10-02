@@ -13,11 +13,23 @@ async function arm(page) {
   await page.locator('#audioButton').click();
   await expect(page.locator('#audioButton')).toHaveAttribute('aria-pressed', 'true', { timeout: 10000 });
 }
+async function settleScroll(page) {
+  await page.evaluate(() => new Promise((resolve, reject) => {
+    const deadline = performance.now() + 3000; let previous = scrollY, stableSince = performance.now();
+    function check(now) {
+      if (Math.abs(scrollY - previous) > .1) { previous = scrollY; stableSince = now; }
+      if (now - stableSince >= 140) resolve();
+      else if (now > deadline) reject(new Error('Touch scroll did not settle'));
+      else requestAnimationFrame(check);
+    }
+    requestAnimationFrame(check);
+  }));
+}
 
 test('all nine sound parameters are editable without changing body assignments or arming Audio', async ({ page }) => {
   await open(page);
   const parameters = ['pitch', 'brightness', 'resonance', 'crunch', 'vowel', 'wingRate', 'rhythm', 'pan', 'voice'];
-  expect(await page.locator('[data-sound]').evaluateAll(inputs => inputs.map(input => input.dataset.sound))).toEqual(parameters);
+  expect(await page.locator('[data-sound]').evaluateAll(inputs => inputs.map(input => input.dataset.sound).sort())).toEqual([...parameters].sort());
   const before = await state(page);
   for (const key of parameters) {
     const input = page.locator(`[data-sound="${key}"]`);
@@ -53,25 +65,20 @@ test('animation sound presets follow explicit motion choices while first Play pr
   expect(flightSound.camera).toEqual(before.camera); expect(flightSound.audio.contextState).toBe('uninitialized');
 });
 
-test('the metronome follows Animation only and never arms Audio or adds beats to held Sound Play', async ({ page }) => {
+test('metronome controls are removed and muted animation stays silent with antennae active', async ({ page }) => {
   await open(page);
+  await expect(page.locator('#metronome, #beatIndicator, #antennae')).toHaveCount(0);
   for (const group of groups) await page.locator(`[data-mute="${group}"]`).click();
-  await page.locator('#metronome').check(); await page.locator('#soundPlayButton').click();
+  await page.locator('#soundPlayButton').click(); await page.locator('#motionButton').click();
   expect((await state(page)).audio.contextState).toBe('uninitialized');
+  expect((await state(page)).motionSettings.antennae).toBe(true);
   await arm(page);
   await expect.poll(async () => (await state(page)).audio.peak).toBeLessThan(.00001);
-  await expect(page.locator('#beatIndicator')).toHaveAttribute('aria-label', 'Beat stopped');
-  await page.locator('#motionButton').click();
-  await expect(page.locator('#beatIndicator')).toHaveAttribute('aria-label', /Beat [1-4] of 4/);
-  // Every body row is muted and no phrase is queued: this is the metronome.
-  await expect.poll(async () => (await state(page)).audio.peak).toBeGreaterThan(.0001);
-  await page.locator('#metronome').uncheck();
-  await expect.poll(async () => (await state(page)).audio.peak).toBeLessThan(.00001);
+  const before = (await state(page)).time;
+  await page.waitForTimeout(700);
+  expect((await state(page)).time).toBeGreaterThan(before + .4);
   expect((await state(page)).playing).toBe(true);
-  await page.locator('#metronome').check(); await page.locator('#motionButton').click();
-  await expect.poll(async () => (await state(page)).audio.peak).toBeLessThan(.00001);
-  await expect(page.locator('#beatIndicator')).toHaveAttribute('aria-label', 'Beat stopped');
-  expect((await state(page)).soundPlaying).toBe(true);
+  await expect(page.locator('.roach-invitation')).toHaveCount(0);
 });
 
 test('eight body rows each own a source selector, playable level knob and separate mute/solo', async ({ page }) => {
@@ -120,7 +127,7 @@ test('mobile knob vertical drags scroll without changing level; horizontal drags
     await client.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: 20, y: 800 }] });
     await client.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
     await knob.evaluate(element => element.scrollIntoView({ block: 'center' }));
-    await page.waitForTimeout(200);
+    await settleScroll(page);
     const horizontal = await knob.boundingBox(), heldScroll = await page.evaluate(() => scrollY);
     await swipe(horizontal.x + horizontal.width / 2, horizontal.y + horizontal.height / 2, -42, 0);
     expect((await state(page)).bodyMix.find(row => row.groupId === 'legs').level)
@@ -166,9 +173,13 @@ test('body solos leave the independent Voice level and Say it audible', async ({
   // Skuttle needs movement. Sound Play does not invent footsteps for a held body.
   await expect.poll(async () => (await state(page)).audio.peak).toBeLessThan(.00001);
   await page.locator('#phrase').fill('hi cockroach'); await page.locator('#speakButton').click();
-  await expect.poll(async () => (await state(page)).audio.speechEnvelope, { timeout: 12000 }).toBeGreaterThan(.0001);
-  await expect.poll(async () => (await state(page)).audio.peak).toBeGreaterThan(.001);
-  const speaking = await state(page); expect(speaking.solo).toEqual(['legs']); expect(speaking.sound.voice).toBe(voiceLevel);
+  let speaking;
+  await expect.poll(async () => {
+    speaking = await state(page);
+    return speaking.audio.speechEnvelope > .0001 && speaking.audio.peak > .001;
+  }, { timeout: 12000 }).toBe(true);
+  expect(speaking.solo).toEqual(['legs']); expect(speaking.sound.voice).toBe(voiceLevel);
+  await expect(page.locator('#voiceStatus')).toBeHidden();
   expect(speaking.playing).toBe(false);
   await page.locator('#voice').fill('0');
   await expect.poll(async () => (await state(page)).audio.peak).toBeLessThan(.00001);

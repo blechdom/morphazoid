@@ -1,12 +1,15 @@
-import { createRoachViewer } from "./roach-synth-viewer.js?v=54f237f4207f";
-import { createRoachMidiControls } from "./roach-synth-midi-controls.js?v=54f237f4207f";
+import { createRoachViewer } from "./roach-synth-viewer.js?v=7608886131fe";
+import { createRoachMidiControls } from "./roach-synth-midi-controls.js?v=7608886131fe";
 import { ROACH_MOTION_PRESETS, ROACH_MOTION_DEFAULTS, normalizeRoachMotion, activeRoachPreset,
   writeRoachPose, createRoachSceneState, writeRoachSceneState, bakeRoachPresetTracks,
-  createRandomRoachMotion, ROACH_STATIC_POSES, getRoachStaticPose, writeRoachBeatState, applyRoachSpeechPose,
-  constrainRoachFloorPose } from "./roach-synth-motion.js?v=54f237f4207f";
+  createRandomRoachMotion, ROACH_STATIC_POSES, getRoachStaticPose, applyRoachSpeechPose,
+  constrainRoachFloorPose } from "./roach-synth-motion.js?v=7608886131fe";
 import { RoachSynthAudio, ROACH_SOUND_PRESETS, ROACH_BODY_GROUPS,
   ROACH_BODY_SOURCES, createDefaultRoachBodyMix, createRandomRoachSound, getRoachBodyGroupId,
-  ROACH_MOTION_SOUND_PRESETS, getRoachMotionSound } from "./roach-synth-audio.js?v=54f237f4207f";
+  ROACH_MOTION_SOUND_PRESETS, getRoachMotionSound } from "./roach-synth-audio.js?v=7608886131fe";
+
+import { registerHeaderPresets } from "../../site/header-presets.js";
+import { captureRoachPreset, createRoachFullPresets, randomizeRoachPreset } from "./roach-synth-presets.js?v=7608886131fe";
 
 const el = id => document.getElementById(id);
 const listeners = new AbortController();
@@ -15,17 +18,16 @@ const modelUrl = new URL("../../../assets/roach-synth/cockroach-mobile.glb?v=77f
 const motionQuery = matchMedia('(prefers-reduced-motion: reduce)');
 const state = {
   playing: false, soundPlaying: false, audioOn: false, audioStarting: false, disposed: false,
-  modelLoading: true, notice: '', metronome: false,
+  modelLoading: true, notice: '',
   posePreset: 'neutral', poseSeed: 0, motionSeed: 0, soundSeed: 0, phraseRequest: 0,
-  motionChoice: ROACH_MOTION_PRESETS[0].id, motionPrepared: false, antennae: true,
+  motionChoice: ROACH_MOTION_PRESETS[0].id, motionPrepared: false,
   motion: normalizeRoachMotion({ ...ROACH_MOTION_DEFAULTS, presetId: 'none', antennae: false }),
   sound: { ...ROACH_SOUND_PRESETS[0].sound }, bodyMix: structuredClone(ROACH_SOUND_PRESETS[0].bodyMix), muted: new Set(), solo: new Set(),
   joints: [], selectedGroup: '', view: 'side', side: 'left', time: 0, anchor: performance.now(), applyingPose: false,
 };
-let viewer, midiControls, frame = 0, loadVersion = 0, lastFrame = -Infinity;
+let viewer, midiControls, presetController, frame = 0, loadVersion = 0, lastFrame = -Infinity;
 let pose = new Float32Array(0);
 const sceneState = createRoachSceneState();
-const beatState = {};
 const speechMotion = { amount: 0, target: 0, audioTime: -Infinity, updatedAt: performance.now() };
 const status = (id, message = '') => { el(id).textContent = message; el(id).hidden = !message; };
 function syncStageStatus() {
@@ -63,7 +65,7 @@ function effectiveBodyMix() {
 }
 function publish(extra = {}) {
   audio.update({ playing: state.playing, soundPlaying: state.soundPlaying, motion: state.motion,
-    joints: state.joints, mappings: [], sound: state.sound, bodyMix: effectiveBodyMix(), metronome: state.metronome, ...extra });
+    joints: state.joints, mappings: [], sound: state.sound, bodyMix: effectiveBodyMix(), ...extra });
 }
 function publishSound() { audio.update({ sound: state.sound, bodyMix: effectiveBodyMix() }); }
 function refreshJoints() {
@@ -126,10 +128,6 @@ function updateSpeechMotion() {
   applyRoachSpeechPose(audio.clock(), speechMotion.amount, state.joints, pose);
 }
 function updateVisual() {
-  writeRoachBeatState(currentTime(), state.motion, beatState);
-  const beat = state.playing ? beatState.beatInBar : -1;
-  for (const [index, dot] of [...el('beatIndicator').children].entries()) dot.classList.toggle('is-active', index === beat);
-  el('beatIndicator').setAttribute('aria-label', beat < 0 ? 'Beat stopped' : `Beat ${beat + 1} of 4`);
   if (state.disposed || !viewer || !state.joints.length) return;
   const time = currentTime();
   writeRoachPose(time, state.motion, state.joints, pose);
@@ -158,7 +156,7 @@ function populateMotionPresets() {
 function setMotionPreset(id, { applySound = true } = {}) {
   if (!state.joints.length) return;
   const time = currentTime();
-  const controls = { tempo: state.motion.tempo, intensity: state.motion.intensity, antennae: state.antennae };
+  const controls = { tempo: state.motion.tempo, intensity: state.motion.intensity, antennae: true };
   state.applyingPose = true;
   try { viewer.setExternalPose(null); viewer.resetPose(); refreshJoints(); }
   finally { state.applyingPose = false; }
@@ -199,6 +197,38 @@ function applyStaticPose(id) {
     intensity: state.motion.intensity, presetId: 'none', antennae: false, staticScene: shape.scene });
   state.motionPrepared = false; state.posePreset = id; el('posePreset').value = id;
   anchorTime(0); publish({ time: 0, resetActivity: true }); updateVisual(); syncTransport();
+}
+function initializePresets() {
+  presetController?.destroy();
+  presetController = registerHeaderPresets({
+    id: 'roach-synth', presets: createRoachFullPresets(state.joints),
+    capture: () => captureRoachPreset(state, el('soundPreset').value),
+    randomize: (current, random) => randomizeRoachPreset(current, state.joints, random),
+    apply(snapshot) {
+      const time = currentTime(), { level, voice } = state.sound;
+      state.applyingPose = true;
+      try {
+        viewer.setExternalPose(null); viewer.resetPose();
+        for (const joint of snapshot.joints) {
+          viewer.setBoneOffset(joint.id, joint.offset); viewer.setBoneMotion(joint.id, joint.motion);
+        }
+        refreshJoints();
+      } finally { state.applyingPose = false; }
+      state.playing = snapshot.playing; state.motionChoice = snapshot.motionChoice;
+      state.motionPrepared = snapshot.motionPrepared; state.posePreset = snapshot.posePreset;
+      state.motion = normalizeRoachMotion(snapshot.motion);
+      state.sound = { ...snapshot.sound, level, voice }; state.bodyMix = structuredClone(snapshot.bodyMix);
+      state.muted = new Set(snapshot.muted); state.solo = new Set(snapshot.solo);
+      if (snapshot.soundPreset === 'custom') markSoundCustom();
+      el('soundPreset').value = snapshot.soundPreset; el('posePreset').value = state.posePreset;
+      el('tempo').value = state.motion.tempo; el('tempoOut').value = `${state.motion.tempo} BPM`;
+      el('intensity').value = state.motion.intensity; el('intensityOut').value = `${Math.round(state.motion.intensity * 100)}%`;
+      populateMotionPresets(); syncSound(); updateGaze(); anchorTime(time);
+      publish({ time, resetActivity: true }); syncTransport(); updateVisual();
+      if (needsVisualFrames()) scheduleFrame();
+      else if (frame) { cancelAnimationFrame(frame); frame = 0; }
+    },
+  });
 }
 function syncManualPose() {
   if (state.applyingPose || state.disposed) return;
@@ -312,7 +342,7 @@ async function loadModel() {
     if (version !== loadVersion || state.disposed) return;
     syncRig();
     const head = state.joints.find(part => /^head$/i.test(part.name)); if (head) viewer.selectBone(head.id);
-    applyStaticPose('neutral'); selectView(state.view); publish({ resetActivity: true }); status('modelStatus'); midiControls?.syncRig();
+    applyStaticPose('neutral'); initializePresets(); selectView(state.view); publish({ resetActivity: true }); status('modelStatus'); midiControls?.syncRig();
   } catch (error) {
     if (version !== loadVersion || state.disposed) return;
     status('modelStatus', error.message || 'The model could not load.'); el('retryModel').hidden = false;
@@ -344,7 +374,7 @@ try {
   Object.defineProperty(window, 'roachSynth', { configurable: true, value: Object.freeze({
     getState: () => ({ ...viewer.getState(), time: currentTime(), playing: state.playing, soundPlaying: state.soundPlaying,
       posePreset: state.posePreset, motionChoice: state.motionChoice, motionSettings: structuredClone(state.motion),
-      soundPreset: el('soundPreset').value, metronome: state.metronome,
+      soundPreset: el('soundPreset').value,
       sound: { ...state.sound }, bodyMix: structuredClone(state.bodyMix), effectiveBodyMix: effectiveBodyMix(),
       muted: [...state.muted], solo: [...state.solo], selectedGroup: state.selectedGroup, mappings: [],
       audio: audio.getState(), speechMotion: speechMotion.amount, midi: midiControls?.getState(), audioOn: state.audioOn, view: state.view, side: state.side, renderQuality: 'economy', clipPreview: false }),
@@ -361,7 +391,7 @@ el('audioButton').addEventListener('click', async () => {
   state.audioStarting = true; el('audioButton').disabled = true; syncAudioButton();
   try {
     await audio.enable({ time: currentTime(), playing: state.playing, soundPlaying: state.soundPlaying,
-      motion: state.motion, joints: state.joints, mappings: [], sound: state.sound, bodyMix: effectiveBodyMix(), metronome: state.metronome, resetActivity: true });
+      motion: state.motion, joints: state.joints, mappings: [], sound: state.sound, bodyMix: effectiveBodyMix(), resetActivity: true });
     if (state.disposed) return;
     const time = fallbackTime(); state.audioOn = true; publish({ time }); status('voiceStatus'); syncTransport();
   } catch (error) { state.audioOn = false; announce(`Audio could not start: ${error.message || error}`); }
@@ -381,7 +411,7 @@ function changeMotionBy(amount) {
 el('previousMotion').addEventListener('click', () => changeMotionBy(-1), options);
 el('nextMotion').addEventListener('click', () => changeMotionBy(1), options);
 document.addEventListener('keydown', event => {
-  if (!['ArrowLeft', 'ArrowRight'].includes(event.key) || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
+  if (event.defaultPrevented || !['ArrowLeft', 'ArrowRight'].includes(event.key) || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
   if (event.target.closest?.('input, textarea, select, canvas, [contenteditable="true"]')) return;
   if (event.target !== document.body && !event.target.closest?.('.roach-panel')) return;
   event.preventDefault(); changeMotionBy(event.key === 'ArrowRight' ? 1 : -1);
@@ -392,8 +422,6 @@ el('tempo').addEventListener('input', () => {
   anchorTime(time); publish({ time, resetActivity: true }); updateVisual();
 }, options);
 el('intensity').addEventListener('input', () => { state.motion.intensity = Number(el('intensity').value); el('intensityOut').value = `${Math.round(state.motion.intensity * 100)}%`; audio.update({ motion: state.motion }); updateVisual(); }, options);
-el('antennae').addEventListener('change', () => { state.antennae = el('antennae').checked; state.motion.antennae = state.motionPrepared && state.antennae; audio.update({ motion: state.motion }); updateVisual(); }, options);
-el('metronome').addEventListener('change', () => { state.metronome = el('metronome').checked; audio.update({ metronome: state.metronome }); }, options);
 el('soundPreset').addEventListener('change', () => {
   const preset = selectedSoundPreset(); if (!preset) return;
   state.sound = { ...preset.sound, level: state.sound.level }; state.bodyMix = structuredClone(preset.bodyMix); syncSound(); publishSound();
@@ -463,5 +491,5 @@ window.addEventListener('pagehide', event => {
   if (event.persisted) return;
   state.disposed = true; loadVersion += 1; state.phraseRequest += 1;
   if (frame) cancelAnimationFrame(frame); frame = 0;
-  midiControls?.dispose(); headerObserver?.disconnect(); listeners.abort(); viewer?.dispose(); audio.dispose(); delete window.roachSynth;
+  presetController?.destroy(); midiControls?.dispose(); headerObserver?.disconnect(); listeners.abort(); viewer?.dispose(); audio.dispose(); delete window.roachSynth;
 }, options);
