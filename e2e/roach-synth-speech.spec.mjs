@@ -217,10 +217,11 @@ for (const running of [false, true]) {
         input.dispatchEvent(new Event('change', { bubbles: true }));
       };
       const normal = await wait(state => state.audio.speechEnvelope > .001 && state.audio.speechUntil > state.audio.audioTime + 2);
+      const remaining = state => state.audio.speechUntil - state.audio.audioTime;
       setSpeed(.5);
-      const slow = await wait(state => state.sound.voiceSpeed === .5 && state.audio.speechUntil > normal.audio.speechUntil + .5);
+      const slow = await wait(state => state.sound.voiceSpeed === .5 && state.audio.speechUntil > normal.audio.speechUntil + .5 && remaining(state) > remaining(normal) * 1.25);
       setSpeed(2);
-      const fast = await wait(state => state.sound.voiceSpeed === 2 && state.audio.speechUntil > state.audio.audioTime && state.audio.speechUntil < slow.audio.speechUntil - .5);
+      const fast = await wait(state => state.sound.voiceSpeed === 2 && remaining(state) > 0 && state.audio.speechUntil < slow.audio.speechUntil - .5 && remaining(state) < remaining(slow) * .6);
       return { normal, slow, fast };
     });
     await say(page, `${longPhrase}, ${longPhrase}`);
