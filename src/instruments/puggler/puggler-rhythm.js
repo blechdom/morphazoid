@@ -1,3 +1,5 @@
+import { MIN_TEMPO, MAX_TEMPO } from './puggler.js';
+
 // Notes follow the simulation's beat, not a playback-speed-scaled audio loop.
 // At extreme juggling tempos, power-of-two divisions retain the relationship
 // to catches while bounding each prop to <= 12 attacks/second.
@@ -24,7 +26,7 @@ export function propRhythm(profile){
   return {division:profile.family==='beep'?2:4,ratios:Array.from({length:7},(_,i)=>1+.38*Math.sin((i+profile.index)*profile.ratio)+.17*Math.cos(i*1.7)),gate:.82};
 }
 export function propNoteAt(profile,beat,tempo,slot=0){
-  const rhythm=propRhythm(profile),bpm=clamp(tempo,100,1200);
+  const rhythm=propRhythm(profile),bpm=clamp(tempo,MIN_TEMPO,MAX_TEMPO);
   const divisor=2**Math.max(0,Math.ceil(Math.log2(bpm*rhythm.division/(60*MAX_PROP_NOTE_RATE))));
   const phase=(slot%4)*.25,position=(Math.max(0,beat)/divisor+phase)*rhythm.division;
   const step=Math.floor(position+1e-7),index=((step%rhythm.ratios.length)+rhythm.ratios.length)%rhythm.ratios.length;

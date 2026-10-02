@@ -2,7 +2,7 @@ import { voiceWindowLevels, voiceWindowGain } from './puggler-voice-dsp.js';
 import { propNoteAt, objectPitchRate, ensembleGain, propTimbreGain, MAX_PROP_NOTE_RATE } from './puggler-rhythm.js';
 import { prepareObjectSoundData, objectSoundId, objectSoundKey, objectSoundProfile, OBJECT_SOUND_RATE } from './puggler-object-sounds.js';
 import { connectAudioOutput } from '../../audio-output-manager.js';
-import { clamp, soundMapping, WORLD } from './puggler.js';
+import { clamp, soundMapping, WORLD, MIN_TEMPO, MAX_TEMPO } from './puggler.js';
 import { PUNK_DRUMS, PUNK_RIFFS, PHRASE_TEMPO, renderPunkPhrase, renderVocalChant } from './puggler-samples.js';
 import { sonicSkin, eraPhraseKey } from './puggler-sonic-skins.js';
 import { renderEraPhrase, renderEraDrum } from './puggler-era-samples.js';
@@ -39,7 +39,7 @@ export function punkMotion(object, parameters = {}) {
   const mapping = soundMapping(prop, body, parameters);
   const height = clamp((body.y - WORLD.handY) / 480, -.65, 1.8);
   const speed = Math.hypot(body.vx, body.vy);
-  const tempoRatio = clamp(finite(parameters.tempo, 240), 60, 1200) / PHRASE_TEMPO;
+  const tempoRatio = clamp(finite(parameters.tempo, 240), MIN_TEMPO, MAX_TEMPO) / PHRASE_TEMPO;
   // Keep upper tempos audible as faster riffs without pitching every sample
   // up by the full tempo multiplier. Drum events still follow every catch.
   const tempo = tempoRatio <= 2 ? tempoRatio : 2 * Math.sqrt(tempoRatio / 2);
@@ -56,7 +56,7 @@ export function punkMotion(object, parameters = {}) {
 export function punkVocalMotion(object, parameters = {}) {
   const mapping = punkMotion(object, parameters);
   const height = clamp((finite(object.y, WORLD.handY) - WORLD.handY) / 800, -.5, 1.5);
-  const tempo = clamp(finite(parameters.tempo, 240), 60, 1200);
+  const tempo = clamp(finite(parameters.tempo, 240), MIN_TEMPO, MAX_TEMPO);
   const semitones = height * clamp(finite(parameters.height, .8), 0, 2) * 1.5
     + clamp(finite(object.vx) / 900, -.7, .7) + Math.log2(tempo / 240) * .15;
   return { ...mapping,
@@ -231,7 +231,7 @@ export class PugglerAudio {
     }
   }
   updateObjectNote(object,parameters,profile,t) {
-    const slot=object.id,tempo=clamp(finite(parameters.tempo,360),100,1200),beat=finite(parameters.beat,t*tempo/60);
+    const slot=object.id,tempo=clamp(finite(parameters.tempo,360),MIN_TEMPO,MAX_TEMPO),beat=finite(parameters.beat,t*tempo/60);
     const note=propNoteAt(profile,beat,tempo,slot),key=objectSoundKey(profile.skin,profile.propId),token=`${key}:${note.token}`;
     const m=sonicMotion(object,parameters,'object');m.rate=clamp(note.ratio*objectPitchRate(object,parameters),.45,3);
     if(this.objectTicks[slot]!==token){

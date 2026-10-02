@@ -120,6 +120,12 @@ automated level, separation, continuity, and lifecycle checks.
   tempo, throw height, catch reach, wildness, gravity and wind. Sound knobs are
   alongside them in one wrapping bank (lime motion outlines, cyan sound outlines).
   Drag knobs vertically; arrows still edit their native ranges. Ride speed and tempo are independent.
+- The **½ speed** and **¼ speed** buttons divide the current juggling/music
+  tempo by two or four (repeated clicks compound), updating the same BPM knob
+  and saved scene. The live range is 25–1,200 BPM, displayed to two decimal
+  places; an action disables if its result would fall below 25 BPM. Factory
+  scenes retain their original tempos. Riding speed, Audio, Play and Output
+  stay untouched; use the tempo knob or recall a preset to speed back up.
 - The old High/Low buttons only changed later throws; Kick required a low object
   inside rescue reach. These hard-to-see actions and the individual keypads are
   removed from the UI. The model retains rescue logic for existing simulation tests.

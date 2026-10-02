@@ -1,9 +1,9 @@
 import { sonicSkin } from "./puggler-sonic-skins.js";
-import { PugglerModel, PROPS, PATTERNS, OBJECT_SOUND_CHOICES, DRUMS, RIFFS, MAX_OBJECTS, RIDER_NAMES, RIDE_PATTERNS, CASTS, clamp, soundMapping } from "./puggler.js";
+import { PugglerModel, PROPS, PATTERNS, OBJECT_SOUND_CHOICES, DRUMS, RIFFS, MAX_OBJECTS, MIN_TEMPO, MAX_TEMPO, RIDER_NAMES, RIDE_PATTERNS, CASTS, clamp, soundMapping } from "./puggler.js";
 import { PAGE_DEFAULTS, PRESETS } from "./puggler-presets.js";
 import { PugglerAudio } from "./puggler-audio.js";
 import { PugglerRenderer } from "./puggler-renderer.js";
-import { GAME_KEYS, drivingControls } from "./puggler-controls.js";
+import { GAME_KEYS, drivingControls, reducedTempo } from "./puggler-controls.js";
 import { SKINS, skinFor, presentProp } from "./puggler-skins.js";
 import { LIGHTING_SCENES } from "./puggler-lighting.js";
 import { objectSoundLabel } from './puggler-object-sounds.js';
@@ -37,6 +37,7 @@ function addRange(container,id,label,min,max,step,value,formatter,destination){
   const field=createRangeField({id,label,min,max,step,value,formatValue:formatter,onInput:v=>{
     if(destination==='model')model.apply({[id]:v});else params[id]=v;
     if(id==='count')syncSelectors();
+    if(id==='tempo'){syncTempoActions();updateAudio();}
     headerPresets?.refresh();
   }});$(container).append(field);ranges.set(id,field);
   if($(container).classList.contains('puggler-knobs'))knobs.push(enhanceRangeKnob(field.input));
@@ -44,7 +45,7 @@ function addRange(container,id,label,min,max,step,value,formatter,destination){
 addRange('performanceKnobs','rideSpeed','Ride speed',0,2.5,.05,PAGE_DEFAULTS.rideSpeed,v=>v===0?'Still':`${v.toFixed(2)}×`,'model');
 addRange('performanceKnobs','rideRange','Riding distance',0,100,1,PAGE_DEFAULTS.rideRange,v=>`${Math.round(v)}%`,'model');
 addRange('performanceKnobs','count','Objects',1,10,1,PAGE_DEFAULTS.count,v=>`${v}`,'model');
-addRange('performanceKnobs','tempo','Juggle / music',100,1200,1,PAGE_DEFAULTS.tempo,v=>`${v} BPM`,'model');
+addRange('performanceKnobs','tempo','Juggle / music',MIN_TEMPO,MAX_TEMPO,.01,PAGE_DEFAULTS.tempo,v=>`${Number(v.toFixed(2))} BPM`,'model');
 addRange('performanceKnobs','loft','Throw height',.6,3,.05,1.8,v=>`${v.toFixed(2)}×`,'model');
 addRange('performanceKnobs','assist','Catch reach',20,120,1,PAGE_DEFAULTS.assist,v=>`${v}`,'model');
 addRange('performanceKnobs','chaos','Wildness',0,100,1,PAGE_DEFAULTS.chaos,v=>`${v}%`,'model');
@@ -75,6 +76,14 @@ $('ridePattern').replaceChildren(...RIDE_PATTERNS.map(id=>new Option(id.replaceA
 $('skin').replaceChildren(...SKINS.map(skin=>new Option(skin.name,skin.id)));
 $('lighting').replaceChildren(...LIGHTING_SCENES.map(scene=>new Option(scene.name,scene.id)));
 const patternPicker=createPatternPicker();
+const tempoActions=[['halfSpeedButton',2],['quarterSpeedButton',4]];
+function syncTempoActions(){
+  for(const [id,divisor] of tempoActions)$(id).disabled=reducedTempo(model.config.tempo,divisor)===null;
+}
+for(const [id,divisor] of tempoActions)listen($(id),'click',()=>{
+  const tempo=reducedTempo(model.config.tempo,divisor);
+  if(tempo!==null)ranges.get('tempo').setValue(tempo,{emit:true});
+});
 function syncSkinLabels(){
   ranges.get('grit').querySelector('.mz-field__label').textContent=sonicSkin(params.skin).grit;
   const skin=skinFor(params.skin),names=skin.riders;
@@ -100,6 +109,7 @@ function syncSelectors(){
   $('pattern').value=model.config.phrase==='loop'?model.pattern.id:`phrase:${model.config.phrase}`;
   patternPicker.refresh();
   for(const [id,field] of ranges)field.setValue(id in model.config?model.config[id]:params[id]);
+  syncTempoActions();
   riderToggles.forEach((button,owner)=>{
     const active=model.activeIds.includes(owner),last=active&&model.riderCount===1;
     button.setAttribute('aria-pressed',String(active));button.disabled=last;

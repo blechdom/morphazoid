@@ -1,6 +1,8 @@
 // Siteswap timing and a world-space, linear-drag juggling model. See PUGGLER_RESEARCH.md.
 export const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, Number.isFinite(Number(v)) ? Number(v) : lo));
 export const MAX_OBJECTS = 10;
+export const MIN_TEMPO = 25;
+export const MAX_TEMPO = 1200;
 export const RIDER_NAMES = Object.freeze(['Puggler','Roxy','Moss']);
 export const CASTS = Object.freeze([
   {id:'puggler',name:'Puggler solo',riders:[0]}, {id:'roxy',name:'Roxy solo',riders:[1]}, {id:'moss',name:'Moss solo',riders:[2]},
@@ -165,7 +167,7 @@ export class PugglerModel {
     delete this.config.mode;
     for(const key of ['propIds','drums','riffs'])if(key in options||!Array.isArray(this.config[key]))this.config[key]=[...(Array.isArray(options[key])?options[key]:DEFAULTS[key])];
     this.config.count=Math.round(clamp(this.config.count,1,MAX_OBJECTS));
-    this.config.tempo=clamp(this.config.tempo,100,1200);
+    this.config.tempo=clamp(this.config.tempo,MIN_TEMPO,MAX_TEMPO);
     this.config.loft=clamp(this.config.loft??1.4,.6,3);
     this.config.gravity=clamp(this.config.gravity,.45,1.65);
     this.config.wind=clamp(this.config.wind,-12,12);

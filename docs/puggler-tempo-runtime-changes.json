@@ -1,0 +1,94 @@
+{
+  "baselineCommit": "83c96183d72c2d756519c3043fdf2b7fdafbc666",
+  "purpose": "Reverse only the explicit speed-control amendments before earlier Puggler expansion edits; keep frozen relocation hashes unchanged. Newer rhythm code and layout are covered by focused tests.",
+  "changes": [
+    {
+      "file": "src/instruments/puggler/puggler-app.js",
+      "reason": "User-requested half/quarter juggling and music tempo actions, shared 25–1200 BPM bounds and fractional display; preserve live clocks, riding, Audio, transport and output.",
+      "regressionTests": [
+        "tests/puggler-tempo.test.mjs",
+        "e2e/puggler-tempo.spec.mjs"
+      ],
+      "replacements": [
+        {
+          "before": "import { sonicSkin } from \"./puggler-sonic-skins.js\";\nimport { PugglerModel, PROPS, PATTERNS, OBJECT_SOUND_CHOICES, DRUMS, RIFFS, MAX_OBJECTS, RIDER_NAMES, RIDE_PATTERNS, CASTS, clamp, soundMapping } from \"./puggler.js\";\nimport { PAGE_DEFAULTS, PRESETS } from \"./puggler-presets.js\";\nimport { PugglerAudio } from \"./puggler-audio.js\";\nimport { PugglerRenderer } from \"./puggler-renderer.js\";\nimport { GAME_KEYS, drivingControls } from \"./puggler-controls.js\";\nimport { SKINS, skinFor, presentProp } from \"./puggler-skins.js\";\nimport { LIGHTING_SCENES } from \"./puggler-lighting.js\";\nimport { objectSoundLabel } from './puggler-object-sounds.js';\n",
+          "after": "import { sonicSkin } from \"./puggler-sonic-skins.js\";\nimport { PugglerModel, PROPS, PATTERNS, OBJECT_SOUND_CHOICES, DRUMS, RIFFS, MAX_OBJECTS, MIN_TEMPO, MAX_TEMPO, RIDER_NAMES, RIDE_PATTERNS, CASTS, clamp, soundMapping } from \"./puggler.js\";\nimport { PAGE_DEFAULTS, PRESETS } from \"./puggler-presets.js\";\nimport { PugglerAudio } from \"./puggler-audio.js\";\nimport { PugglerRenderer } from \"./puggler-renderer.js\";\nimport { GAME_KEYS, drivingControls, reducedTempo } from \"./puggler-controls.js\";\nimport { SKINS, skinFor, presentProp } from \"./puggler-skins.js\";\nimport { LIGHTING_SCENES } from \"./puggler-lighting.js\";\nimport { objectSoundLabel } from './puggler-object-sounds.js';\n"
+        },
+        {
+          "before": "  const field=createRangeField({id,label,min,max,step,value,formatValue:formatter,onInput:v=>{\n    if(destination==='model')model.apply({[id]:v});else params[id]=v;\n    if(id==='count')syncSelectors();\n    headerPresets?.refresh();\n  }});$(container).append(field);ranges.set(id,field);\n  if($(container).classList.contains('puggler-knobs'))knobs.push(enhanceRangeKnob(field.input));\n",
+          "after": "  const field=createRangeField({id,label,min,max,step,value,formatValue:formatter,onInput:v=>{\n    if(destination==='model')model.apply({[id]:v});else params[id]=v;\n    if(id==='count')syncSelectors();\n    if(id==='tempo'){syncTempoActions();updateAudio();}\n    headerPresets?.refresh();\n  }});$(container).append(field);ranges.set(id,field);\n  if($(container).classList.contains('puggler-knobs'))knobs.push(enhanceRangeKnob(field.input));\n"
+        },
+        {
+          "before": "addRange('performanceKnobs','rideSpeed','Ride speed',0,2.5,.05,PAGE_DEFAULTS.rideSpeed,v=>v===0?'Still':`${v.toFixed(2)}×`,'model');\naddRange('performanceKnobs','rideRange','Riding distance',0,100,1,PAGE_DEFAULTS.rideRange,v=>`${Math.round(v)}%`,'model');\naddRange('performanceKnobs','count','Objects',1,10,1,PAGE_DEFAULTS.count,v=>`${v}`,'model');\naddRange('performanceKnobs','tempo','Juggle / music',100,1200,1,PAGE_DEFAULTS.tempo,v=>`${v} BPM`,'model');\naddRange('performanceKnobs','loft','Throw height',.6,3,.05,1.8,v=>`${v.toFixed(2)}×`,'model');\naddRange('performanceKnobs','assist','Catch reach',20,120,1,PAGE_DEFAULTS.assist,v=>`${v}`,'model');\naddRange('performanceKnobs','chaos','Wildness',0,100,1,PAGE_DEFAULTS.chaos,v=>`${v}%`,'model');\n",
+          "after": "addRange('performanceKnobs','rideSpeed','Ride speed',0,2.5,.05,PAGE_DEFAULTS.rideSpeed,v=>v===0?'Still':`${v.toFixed(2)}×`,'model');\naddRange('performanceKnobs','rideRange','Riding distance',0,100,1,PAGE_DEFAULTS.rideRange,v=>`${Math.round(v)}%`,'model');\naddRange('performanceKnobs','count','Objects',1,10,1,PAGE_DEFAULTS.count,v=>`${v}`,'model');\naddRange('performanceKnobs','tempo','Juggle / music',MIN_TEMPO,MAX_TEMPO,.01,PAGE_DEFAULTS.tempo,v=>`${Number(v.toFixed(2))} BPM`,'model');\naddRange('performanceKnobs','loft','Throw height',.6,3,.05,1.8,v=>`${v.toFixed(2)}×`,'model');\naddRange('performanceKnobs','assist','Catch reach',20,120,1,PAGE_DEFAULTS.assist,v=>`${v}`,'model');\naddRange('performanceKnobs','chaos','Wildness',0,100,1,PAGE_DEFAULTS.chaos,v=>`${v}%`,'model');\n"
+        },
+        {
+          "before": "$('skin').replaceChildren(...SKINS.map(skin=>new Option(skin.name,skin.id)));\n$('lighting').replaceChildren(...LIGHTING_SCENES.map(scene=>new Option(scene.name,scene.id)));\nconst patternPicker=createPatternPicker();\nfunction syncSkinLabels(){\n  ranges.get('grit').querySelector('.mz-field__label').textContent=sonicSkin(params.skin).grit;\n  const skin=skinFor(params.skin),names=skin.riders;\n",
+          "after": "$('skin').replaceChildren(...SKINS.map(skin=>new Option(skin.name,skin.id)));\n$('lighting').replaceChildren(...LIGHTING_SCENES.map(scene=>new Option(scene.name,scene.id)));\nconst patternPicker=createPatternPicker();\nconst tempoActions=[['halfSpeedButton',2],['quarterSpeedButton',4]];\nfunction syncTempoActions(){\n  for(const [id,divisor] of tempoActions)$(id).disabled=reducedTempo(model.config.tempo,divisor)===null;\n}\nfor(const [id,divisor] of tempoActions)listen($(id),'click',()=>{\n  const tempo=reducedTempo(model.config.tempo,divisor);\n  if(tempo!==null)ranges.get('tempo').setValue(tempo,{emit:true});\n});\nfunction syncSkinLabels(){\n  ranges.get('grit').querySelector('.mz-field__label').textContent=sonicSkin(params.skin).grit;\n  const skin=skinFor(params.skin),names=skin.riders;\n"
+        },
+        {
+          "before": "  $('pattern').value=model.config.phrase==='loop'?model.pattern.id:`phrase:${model.config.phrase}`;\n  patternPicker.refresh();\n  for(const [id,field] of ranges)field.setValue(id in model.config?model.config[id]:params[id]);\n  riderToggles.forEach((button,owner)=>{\n    const active=model.activeIds.includes(owner),last=active&&model.riderCount===1;\n    button.setAttribute('aria-pressed',String(active));button.disabled=last;\n",
+          "after": "  $('pattern').value=model.config.phrase==='loop'?model.pattern.id:`phrase:${model.config.phrase}`;\n  patternPicker.refresh();\n  for(const [id,field] of ranges)field.setValue(id in model.config?model.config[id]:params[id]);\n  syncTempoActions();\n  riderToggles.forEach((button,owner)=>{\n    const active=model.activeIds.includes(owner),last=active&&model.riderCount===1;\n    button.setAttribute('aria-pressed',String(active));button.disabled=last;\n"
+        }
+      ]
+    },
+    {
+      "file": "src/instruments/puggler/puggler-audio.js",
+      "reason": "User-requested half/quarter juggling and music tempo actions, shared 25–1200 BPM bounds and fractional display; preserve live clocks, riding, Audio, transport and output.",
+      "regressionTests": [
+        "tests/puggler-tempo.test.mjs",
+        "e2e/puggler-tempo.spec.mjs"
+      ],
+      "replacements": [
+        {
+          "before": "import { propNoteAt, objectPitchRate, ensembleGain, propTimbreGain, MAX_PROP_NOTE_RATE } from './puggler-rhythm.js';\nimport { prepareObjectSoundData, objectSoundId, objectSoundKey, objectSoundProfile, OBJECT_SOUND_RATE } from './puggler-object-sounds.js';\nimport { connectAudioOutput } from '../../audio-output-manager.js';\nimport { clamp, soundMapping, WORLD } from './puggler.js';\nimport { PUNK_DRUMS, PUNK_RIFFS, PHRASE_TEMPO, renderPunkPhrase, renderVocalChant } from './puggler-samples.js';\nimport { sonicSkin, eraPhraseKey } from './puggler-sonic-skins.js';\nimport { renderEraPhrase, renderEraDrum } from './puggler-era-samples.js';\n",
+          "after": "import { propNoteAt, objectPitchRate, ensembleGain, propTimbreGain, MAX_PROP_NOTE_RATE } from './puggler-rhythm.js';\nimport { prepareObjectSoundData, objectSoundId, objectSoundKey, objectSoundProfile, OBJECT_SOUND_RATE } from './puggler-object-sounds.js';\nimport { connectAudioOutput } from '../../audio-output-manager.js';\nimport { clamp, soundMapping, WORLD, MIN_TEMPO, MAX_TEMPO } from './puggler.js';\nimport { PUNK_DRUMS, PUNK_RIFFS, PHRASE_TEMPO, renderPunkPhrase, renderVocalChant } from './puggler-samples.js';\nimport { sonicSkin, eraPhraseKey } from './puggler-sonic-skins.js';\nimport { renderEraPhrase, renderEraDrum } from './puggler-era-samples.js';\n"
+        },
+        {
+          "before": "  const mapping = soundMapping(prop, body, parameters);\n  const height = clamp((body.y - WORLD.handY) / 480, -.65, 1.8);\n  const speed = Math.hypot(body.vx, body.vy);\n  const tempoRatio = clamp(finite(parameters.tempo, 240), 60, 1200) / PHRASE_TEMPO;\n  // Keep upper tempos audible as faster riffs without pitching every sample\n  // up by the full tempo multiplier. Drum events still follow every catch.\n  const tempo = tempoRatio <= 2 ? tempoRatio : 2 * Math.sqrt(tempoRatio / 2);\n",
+          "after": "  const mapping = soundMapping(prop, body, parameters);\n  const height = clamp((body.y - WORLD.handY) / 480, -.65, 1.8);\n  const speed = Math.hypot(body.vx, body.vy);\n  const tempoRatio = clamp(finite(parameters.tempo, 240), MIN_TEMPO, MAX_TEMPO) / PHRASE_TEMPO;\n  // Keep upper tempos audible as faster riffs without pitching every sample\n  // up by the full tempo multiplier. Drum events still follow every catch.\n  const tempo = tempoRatio <= 2 ? tempoRatio : 2 * Math.sqrt(tempoRatio / 2);\n"
+        },
+        {
+          "before": "export function punkVocalMotion(object, parameters = {}) {\n  const mapping = punkMotion(object, parameters);\n  const height = clamp((finite(object.y, WORLD.handY) - WORLD.handY) / 800, -.5, 1.5);\n  const tempo = clamp(finite(parameters.tempo, 240), 60, 1200);\n  const semitones = height * clamp(finite(parameters.height, .8), 0, 2) * 1.5\n    + clamp(finite(object.vx) / 900, -.7, .7) + Math.log2(tempo / 240) * .15;\n  return { ...mapping,\n",
+          "after": "export function punkVocalMotion(object, parameters = {}) {\n  const mapping = punkMotion(object, parameters);\n  const height = clamp((finite(object.y, WORLD.handY) - WORLD.handY) / 800, -.5, 1.5);\n  const tempo = clamp(finite(parameters.tempo, 240), MIN_TEMPO, MAX_TEMPO);\n  const semitones = height * clamp(finite(parameters.height, .8), 0, 2) * 1.5\n    + clamp(finite(object.vx) / 900, -.7, .7) + Math.log2(tempo / 240) * .15;\n  return { ...mapping,\n"
+        },
+        {
+          "before": "    }\n  }\n  updateObjectNote(object,parameters,profile,t) {\n    const slot=object.id,tempo=clamp(finite(parameters.tempo,360),100,1200),beat=finite(parameters.beat,t*tempo/60);\n    const note=propNoteAt(profile,beat,tempo,slot),key=objectSoundKey(profile.skin,profile.propId),token=`${key}:${note.token}`;\n    const m=sonicMotion(object,parameters,'object');m.rate=clamp(note.ratio*objectPitchRate(object,parameters),.45,3);\n    if(this.objectTicks[slot]!==token){\n",
+          "after": "    }\n  }\n  updateObjectNote(object,parameters,profile,t) {\n    const slot=object.id,tempo=clamp(finite(parameters.tempo,360),MIN_TEMPO,MAX_TEMPO),beat=finite(parameters.beat,t*tempo/60);\n    const note=propNoteAt(profile,beat,tempo,slot),key=objectSoundKey(profile.skin,profile.propId),token=`${key}:${note.token}`;\n    const m=sonicMotion(object,parameters,'object');m.rate=clamp(note.ratio*objectPitchRate(object,parameters),.45,3);\n    if(this.objectTicks[slot]!==token){\n"
+        }
+      ]
+    },
+    {
+      "file": "src/instruments/puggler/puggler-controls.js",
+      "reason": "User-requested half/quarter juggling and music tempo actions, shared 25–1200 BPM bounds and fractional display; preserve live clocks, riding, Audio, transport and output.",
+      "regressionTests": [
+        "tests/puggler-tempo.test.mjs",
+        "e2e/puggler-tempo.spec.mjs"
+      ],
+      "replacements": [
+        {
+          "before": "// The stage is an ensemble gesture. Names only change membership, never identity.\nexport const GAME_KEYS = new Set(['ArrowLeft', 'ArrowRight', 'KeyG']);\nexport function drivingControls(keys, targets, activeIds) {\n",
+          "after": "import { MIN_TEMPO, MAX_TEMPO } from './puggler.js';\n\n// Momentary actions on the current BPM, not a second clock or a latched ratio.\n// Disable an action if it cannot make the requested reduction within the range.\nexport function reducedTempo(tempo, divisor) {\n  if (!Number.isFinite(tempo) || tempo < MIN_TEMPO || tempo > MAX_TEMPO\n    || ![2, 4].includes(divisor) || tempo / divisor < MIN_TEMPO) return null;\n  return Math.round(tempo / divisor * 100) / 100;\n}\n\n// The stage is an ensemble gesture. Names only change membership, never identity.\nexport const GAME_KEYS = new Set(['ArrowLeft', 'ArrowRight', 'KeyG']);\nexport function drivingControls(keys, targets, activeIds) {\n"
+        }
+      ]
+    },
+    {
+      "file": "src/instruments/puggler/puggler.js",
+      "reason": "User-requested half/quarter juggling and music tempo actions, shared 25–1200 BPM bounds and fractional display; preserve live clocks, riding, Audio, transport and output.",
+      "regressionTests": [
+        "tests/puggler-tempo.test.mjs",
+        "e2e/puggler-tempo.spec.mjs"
+      ],
+      "replacements": [
+        {
+          "before": "// Siteswap timing and a world-space, linear-drag juggling model. See PUGGLER_RESEARCH.md.\nexport const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, Number.isFinite(Number(v)) ? Number(v) : lo));\nexport const MAX_OBJECTS = 10;\nexport const RIDER_NAMES = Object.freeze(['Puggler','Roxy','Moss']);\nexport const CASTS = Object.freeze([\n  {id:'puggler',name:'Puggler solo',riders:[0]}, {id:'roxy',name:'Roxy solo',riders:[1]}, {id:'moss',name:'Moss solo',riders:[2]},\n",
+          "after": "// Siteswap timing and a world-space, linear-drag juggling model. See PUGGLER_RESEARCH.md.\nexport const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, Number.isFinite(Number(v)) ? Number(v) : lo));\nexport const MAX_OBJECTS = 10;\nexport const MIN_TEMPO = 25;\nexport const MAX_TEMPO = 1200;\nexport const RIDER_NAMES = Object.freeze(['Puggler','Roxy','Moss']);\nexport const CASTS = Object.freeze([\n  {id:'puggler',name:'Puggler solo',riders:[0]}, {id:'roxy',name:'Roxy solo',riders:[1]}, {id:'moss',name:'Moss solo',riders:[2]},\n"
+        },
+        {
+          "before": "    delete this.config.mode;\n    for(const key of ['propIds','drums','riffs'])if(key in options||!Array.isArray(this.config[key]))this.config[key]=[...(Array.isArray(options[key])?options[key]:DEFAULTS[key])];\n    this.config.count=Math.round(clamp(this.config.count,1,MAX_OBJECTS));\n    this.config.tempo=clamp(this.config.tempo,100,1200);\n    this.config.loft=clamp(this.config.loft??1.4,.6,3);\n    this.config.gravity=clamp(this.config.gravity,.45,1.65);\n    this.config.wind=clamp(this.config.wind,-12,12);\n",
+          "after": "    delete this.config.mode;\n    for(const key of ['propIds','drums','riffs'])if(key in options||!Array.isArray(this.config[key]))this.config[key]=[...(Array.isArray(options[key])?options[key]:DEFAULTS[key])];\n    this.config.count=Math.round(clamp(this.config.count,1,MAX_OBJECTS));\n    this.config.tempo=clamp(this.config.tempo,MIN_TEMPO,MAX_TEMPO);\n    this.config.loft=clamp(this.config.loft??1.4,.6,3);\n    this.config.gravity=clamp(this.config.gravity,.45,1.65);\n    this.config.wind=clamp(this.config.wind,-12,12);\n"
+        }
+      ]
+    }
+  ]
+}

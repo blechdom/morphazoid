@@ -1,7 +1,7 @@
 import test from 'node:test';
 import { PRESETS } from '../src/instruments/puggler/puggler-presets.js';
 import assert from 'node:assert/strict';
-import { PugglerModel, PATTERNS, PROPS, WORLD, PHRASE_CHUNKS, DEFAULTS, MAX_OBJECTS, CASTS, parseNotation, initialSlots, launchFlight, flightPosition, soundMapping } from '../src/instruments/puggler/puggler.js';
+import { PugglerModel, PATTERNS, PROPS, WORLD, PHRASE_CHUNKS, DEFAULTS, MAX_OBJECTS, MIN_TEMPO, CASTS, parseNotation, initialSlots, launchFlight, flightPosition, soundMapping } from '../src/instruments/puggler/puggler.js';
 
 const advance = (m, seconds, steer = 0) => { const events=[]; for(let i=0;i<seconds*120;i++)events.push(...m.step(1/120, typeof steer==='function'?steer(i/120):steer)); return events; };
 test('performer voice ownership follows passes, kicks and crowd returns without changing pass provenance',()=>{
@@ -54,7 +54,7 @@ test('speed changes preserve airborne objects without inventing a drop or cancel
 });
 test('state resets reproduce the same act, parameter limits and long sessions remain finite and bounded',()=>{
   const a=new PugglerModel(),b=new PugglerModel();advance(a,6);a.reset();advance(a,5);advance(b,5);assert.deepEqual(a,b);
-  a.apply({count:400,tempo:Infinity,gravity:-200,wind:900,assist:NaN});assert.equal(a.objects.length,MAX_OBJECTS);assert.ok(a.config.tempo>=100);assert.ok(a.config.gravity>=.45);
+  a.apply({count:400,tempo:Infinity,gravity:-200,wind:900,assist:NaN});assert.equal(a.objects.length,MAX_OBJECTS);assert.ok(a.config.tempo>=MIN_TEMPO);assert.ok(a.config.gravity>=.45);
   advance(a,120,t=>Math.sin(t*3));assert.ok(a.debris.length<=10);
   for(const o of a.objects){assert.ok([o.x,o.y,o.vx,o.vy].every(Number.isFinite));assert.ok(o.trail.length<=55);}
 });
