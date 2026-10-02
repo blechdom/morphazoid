@@ -45,7 +45,8 @@ test('dice is pure, varies tones and motion, stays bounded and always animates',
     assert.ok(scene.bodyMix.every(row => ROACH_BODY_SOURCES.some(source => source.id === row.source) && row.level >= 0 && row.level <= 1));
     assert.equal(scene.soundPreset, 'custom');
   }
-  for (const key of Object.keys(current.sound)) assert.ok(new Set(scenes.map(scene => scene.sound[key])).size > 1, key);
+  for (const key of Object.keys(current.sound).filter(key => key !== 'voicePreset')) assert.ok(new Set(scenes.map(scene => scene.sound[key])).size > 1, key);
+  assert.ok(scenes.every(scene => scene.sound.voicePreset === 'flite-kal16-native-4'), 'the only available voice stays Low KAL16');
   assert.ok(new Set(scenes.map(scene => scene.motion.tempo)).size > 1);
   assert.ok(new Set(scenes.map(scene => scene.motion.randomSeed)).size > 1);
 });

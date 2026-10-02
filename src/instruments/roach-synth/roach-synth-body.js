@@ -1,12 +1,9 @@
 import { NATIVE_TEXT_PRESETS } from '../../families/speech/native-text-presets.js';
 import { NATIVE_OUTPUT_TRIMS } from '../voicesaurus/output-calibration.js';
 
-// A small selection of the current Voicesaurus sentence presets. The original
-// native parameters and engine trims stay shared with that instrument.
+// Roach keeps the Low KAL16 Voicesaurus preset. Its original native parameters
+// and engine trim stay shared with that instrument.
 export const ROACH_VOICE_PRESETS = Object.freeze([
-  ['espeak', 0, 'eSpeak NG', 'voice-espeak'],
-  ['espeak-klatt', 0, 'Klatt', 'voice-klatt'],
-  ['flite-slt', 0, 'Flite SLT', 'voice-slt'],
   ['flite-kal16', 3, 'Low KAL16', 'voice-kal'],
 ].map(([engine, index, label, bodySource]) => Object.freeze({
   ...NATIVE_TEXT_PRESETS[engine][index], engine, label, bodySource,
@@ -40,6 +37,7 @@ export const ROACH_BODY_SOURCES = Object.freeze([
 export const ROACH_BODY_SOURCE_INDEX = new Map(ROACH_BODY_SOURCES.map(({ id }, index) => [id, index]));
 const DEFAULT_SOURCES = ['footsteps', 'walls', 'rustle', 'resonance', 'drone', 'sine', 'sub', 'shimmer'];
 const DEFAULT_LEVELS = [.72, .48, .65, .36, .28, .4, .2, .14];
+const RETIRED_VOICE_SOURCES = new Set(['voice-espeak', 'voice-klatt', 'voice-slt']);
 
 export function createDefaultRoachBodyMix() {
   return ROACH_BODY_GROUPS.map(({ id }, index) => ({ groupId: id, source: DEFAULT_SOURCES[index], level: DEFAULT_LEVELS[index] }));
@@ -50,7 +48,8 @@ export function normalizeRoachBodyMix(value) {
   for (const row of value.slice(0, 64)) {
     const index = ROACH_BODY_GROUPS.findIndex(({ id }) => id === row?.groupId);
     if (index < 0) continue;
-    if (ROACH_BODY_SOURCE_INDEX.has(row.source)) result[index].source = row.source;
+    const source = RETIRED_VOICE_SOURCES.has(row.source) ? ROACH_VOICE_PRESETS[0].bodySource : row.source;
+    if (ROACH_BODY_SOURCE_INDEX.has(source)) result[index].source = source;
     const level = Number(row.level);
     if (Number.isFinite(level)) result[index].level = Math.max(0, Math.min(1, level));
   }

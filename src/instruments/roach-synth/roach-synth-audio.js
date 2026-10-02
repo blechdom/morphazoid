@@ -196,7 +196,7 @@ export class RoachSynthAudio {
         if (data?.type === 'telemetry') {
           const audioTime = finite(data.audioTime, this.clock());
           this.telemetry = { rms: finite(data.rms), peak: finite(data.peak), speechEnvelope: finite(data.speechEnvelope),
-            audioTime, speechUntil: this.enabled ? Math.max(0, Math.min(finite(data.speechUntil), audioTime + 45)) : 0,
+            audioTime, speechUntil: this.enabled ? Math.max(0, Math.min(finite(data.speechUntil), audioTime + 65)) : 0,
             renderedFrames: finite(data.renderedFrames), motionTime: finite(data.motionTime), soundTime: finite(data.soundTime),
             contactEvents: finite(data.contactEvents), lastContactTime: finite(data.lastContactTime, -1),
             recordingEvents: finite(data.recordingEvents),

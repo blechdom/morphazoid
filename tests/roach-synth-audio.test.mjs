@@ -60,7 +60,7 @@ function solo(groupId, source, level = 1) {
 const muted = () => createDefaultRoachBodyMix().map((row) => ({ ...row, level: 0 }));
 
 test('eight anatomical groups own synthesis, percussion and native voice sources with immutable assignments', () => {
-  assert.equal(ROACH_BODY_GROUPS.length, 8); assert.equal(ROACH_BODY_SOURCES.length, 23);
+  assert.equal(ROACH_BODY_GROUPS.length, 8); assert.equal(ROACH_BODY_SOURCES.length, 20);
   assert.equal(getRoachBodyGroupId(joints[2]), 'head'); assert.equal(getRoachBodyGroupId(joints[3]), 'neck');
   assert.equal(getRoachBodyGroupId(joints[4]), 'covers'); assert.equal(getRoachBodyGroupId(joints[29]), 'hindwings');
   assert.equal(getRoachBodyGroupId(joints[30]), 'hindwings'); assert.equal(getRoachBodyGroupId(joints[7]), 'legs');
@@ -317,7 +317,7 @@ test('eighteen sound patches and seeded random sounds retain body routing and sa
 
 test('random sound and authored presets vary every consumed global control; wing rate and rhythm are audible', () => {
   const random = Array.from({ length: 32 }, (_, i) => createRandomRoachSound((i + 1) * 2654435761 >>> 0));
-  for (const key of ['pitch', 'brightness', 'resonance', 'crunch', 'vowel', 'wingRate', 'rhythm', 'pan', 'voice']) {
+  for (const key of ['pitch', 'brightness', 'resonance', 'crunch', 'vowel', 'wingRate', 'rhythm', 'pan', 'voice', 'voiceSpeed']) {
     assert.ok(new Set(random.map((item) => item.sound[key])).size >= 16, `${key} was not randomized`);
     assert.ok(new Set(ROACH_SOUND_PRESETS.map((item) => item.sound[key])).size >= 6, `${key} has no authored preset range`);
   }

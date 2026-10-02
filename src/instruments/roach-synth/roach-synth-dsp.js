@@ -75,17 +75,18 @@ class ReconstructionGuard {
 }
 
 export const ROACH_SOUND_DEFAULTS = Object.freeze({
-  level: 0.5, hiss: 0.22, shell: 0.46, wing: 0.28, voice: 0.78,
+  level: 0.5, hiss: 0.22, shell: 0.46, wing: 0.28, voice: 0.6,
   feet: 0.88, growl: 0.24, drone: 0, zing: .55, samples: .65,
   pitch: 140, vowel: 0.35, brightness: 0.46, resonance: 0.38,
   wingRate: 72, rhythm: 1, crunch: 0.18, pan: 0,
-  voicePreset: ROACH_VOICE_PRESETS[0].id,
+  voicePreset: ROACH_VOICE_PRESETS[0].id, voiceSpeed: 1,
 });
 const SOUND_RANGES = Object.freeze({
   level: [0, 1], hiss: [0, 1], shell: [0, 1], wing: [0, 1], voice: [0, 1],
   feet: [0, 1], growl: [0, 1], drone: [0, 1], zing: [0, 1], samples: [0, 1],
   pitch: [60, 600], vowel: [0, 1], brightness: [0, 1], resonance: [0, 1],
   wingRate: [12, 220], rhythm: [0.25, 4], crunch: [0, 1], pan: [-1, 1],
+  voiceSpeed: [.5, 2],
 });
 const SOUND_KEYS = Object.freeze(Object.keys(SOUND_RANGES));
 const FORMANT_GAINS = Object.freeze([2.8, 1.8, 1.1]);
@@ -125,11 +126,12 @@ const PATCH_ARTICULATION = [
   [.91,172,1.72,.74,.07],[.29,32,.78,.83,-.03],[.74,52,.84,.9,0],
   [.53,162,1.48,.72,.03],[.39,91,1.18,.79,-.02],[.21,46,.83,.87,0],
 ];
+const PATCH_VOICE_SPEEDS = [1, .82, 1.18, 1.06, .9, 1.25, .72, .92, .85, 1.1, .76, 1.22, 1.3, .78, .88, 1.16, .96, .8];
 export const ROACH_SOUND_PRESETS = Object.freeze(PATCHES.map(([id,label,pitch,brightness,resonance,crunch,sources],index) => Object.freeze({
   id, label, sound: Object.freeze({...ROACH_SOUND_DEFAULTS,pitch,brightness,resonance,crunch,
-    vowel:PATCH_ARTICULATION[index][0],wingRate:PATCH_ARTICULATION[index][1],rhythm:PATCH_ARTICULATION[index][2],voice:PATCH_ARTICULATION[index][3],pan:PATCH_ARTICULATION[index][4]}),
-  // Wing radio is the user's accepted reference. Its prior gains, source
-  // assignments and globals remain exact despite gentler defaults elsewhere.
+    vowel:PATCH_ARTICULATION[index][0],wingRate:PATCH_ARTICULATION[index][1],rhythm:PATCH_ARTICULATION[index][2],voice:PATCH_ARTICULATION[index][3]*(ROACH_SOUND_DEFAULTS.voice/.78),pan:PATCH_ARTICULATION[index][4],voiceSpeed:PATCH_VOICE_SPEEDS[index]}),
+  // Keep Wing radio's accepted body sources and relative row levels while
+  // speech follows the current factory level and speed settings.
   bodyMix: Object.freeze(createDefaultRoachBodyMix().map((row,i)=>Object.freeze({...row,source:sources[i],
     level:index===2?[.85,.48,.65,.68,.6,.36,.36,.24][i]:row.level}))),
 })).concat(ROACH_VOICE_PRESETS.map((preset, index) => Object.freeze({
@@ -145,8 +147,8 @@ export function createRandomRoachSound(seed = 1) {
   let state = (Number(seed) >>> 0) || 1;
   const random = () => { state ^= state << 13; state ^= state >>> 17; state ^= state << 5; return (state >>> 0) / 4294967296; };
   const sound = normalizeRoachSound({...ROACH_SOUND_DEFAULTS,pitch:65+random()*230,brightness:.2+random()*.48,resonance:.38+random()*.54,crunch:.05+random()*.37,
-    vowel:.08+random()*.84,wingRate:30+random()*150,rhythm:.6+random()*1.4,pan:(random()-.5)*.34,voice:.62+random()*.3,
-    voicePreset: ROACH_VOICE_PRESETS[Math.floor(random() * ROACH_VOICE_PRESETS.length)].id});
+    vowel:.08+random()*.84,wingRate:30+random()*150,rhythm:.6+random()*1.4,pan:(random()-.5)*.34,voice:.4+random()*.3,
+    voicePreset: ROACH_VOICE_PRESETS[0].id, voiceSpeed: .65+random()*1.1});
   const bodyMix = createDefaultRoachBodyMix().map((row,i)=>({...row,
     source:ROACH_BODY_SOURCES[i===3||i===4 ? Math.floor(random()*4) : Math.floor(random()*ROACH_BODY_SOURCES.length)].id,
     level:(i===3||i===4 ? .45 : .22)+random()*.35,
@@ -187,7 +189,7 @@ export const ROACH_MOTION_SOUND_PRESETS = Object.freeze(MOTION_SOUND_ROWS.map(([
   const articulation = PATCH_ARTICULATION[index % PATCH_ARTICULATION.length];
   return Object.freeze({motionId,label,
     sound:Object.freeze(wing ? {...ROACH_SOUND_PRESETS[2].sound} : normalizeRoachSound({...ROACH_SOUND_DEFAULTS,pitch,brightness,resonance,crunch,
-      vowel:articulation[0],wingRate:articulation[1],rhythm:articulation[2],pan:articulation[4]})),
+      vowel:articulation[0],wingRate:articulation[1],rhythm:articulation[2],pan:articulation[4],voiceSpeed:PATCH_VOICE_SPEEDS[index % PATCH_VOICE_SPEEDS.length]})),
     bodyMix:Object.freeze(createDefaultRoachBodyMix().map((row,i)=>Object.freeze({...row,source:sources[i],level:levels[i]}))),
   });
 }));
@@ -634,7 +636,7 @@ export class RoachSynthDsp {
     const smooth=this.smooth;
     this.filterCoefficient=1-Math.exp(-TAU*Math.min(this.sampleRate*.4,900*10**smooth.brightness)/this.sampleRate);
     this.panL=Math.cos((smooth.pan+1)*Math.PI*.25); this.panR=Math.sin((smooth.pan+1)*Math.PI*.25);
-    this.speechRate=clamp((smooth.pitch/140)**.22,.72,1.4);
+    this.speechRate=clamp(smooth.voiceSpeed,.5,2);
     const vowel=smooth.vowel*4; const first=Math.min(3,Math.floor(vowel)); const mix=vowel-first;
     for(let i=0;i<3;i+=1) tune(this.speechModes[i],VOWELS[first][i]*(1-mix)+VOWELS[first+1][i]*mix,
       Math.exp(-Math.PI*(160+i*70)/this.sampleRate),this.sampleRate);

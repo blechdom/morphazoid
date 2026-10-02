@@ -53,7 +53,7 @@ class BodyVoice {
     this.voiceSamples = voiceSamples;
     this.voicePositions = new Float64Array(ROACH_VOICE_PRESETS.length).fill(-1);
     this.voiceStrengths = new Float64Array(ROACH_VOICE_PRESETS.length);
-    this.voiceReleasing = false; this.voiceActive = false;
+    this.voiceReleasing = false; this.voiceActive = false; this.voiceSpeed = 1;
   }
   random() {
     let x = this.randomState; x ^= x << 13; x ^= x >>> 17; x ^= x << 5; this.randomState = x | 0;
@@ -94,6 +94,7 @@ class BodyVoice {
   }
   control(x, y, z, side, velocity, sound, mods, offset, midiFrequency = 0, midiGate = 0, midiPan = 0) {
     this.x = x; this.y = y; this.z = z; this.side = side;
+    this.voiceSpeed = clamp(sound.voiceSpeed ?? 1, .5, 2);
     const firstMidi = midiFrequency > 0 && this.midiFrequency === 0;
     this.midiFrequency = midiFrequency; this.midiGateTarget = clamp(midiGate, 0, 1);
     const pitchMod = mods[offset] || 0; const brightMod = mods[offset + 2] || 0;
@@ -201,7 +202,7 @@ class BodyVoice {
       const index = Math.floor(position), fraction = position - index;
       const edge = Math.max(0, Math.min(1, position / (buffer.sampleRate * .006), (buffer.samples.length - position) / (buffer.sampleRate * .012)));
       out[source] = ((buffer.samples[index] || 0) * (1 - fraction) + (buffer.samples[index + 1] || 0) * fraction) * edge * this.voiceStrengths[i] * .32;
-      this.voicePositions[i] += buffer.sampleRate / this.rate * clamp(this.frequency / 140, .5, 2);
+      this.voicePositions[i] += buffer.sampleRate / this.rate * clamp(this.frequency / 140, .5, 2) * this.voiceSpeed;
       if (this.voiceReleasing) this.voiceStrengths[i] *= this.contactRelease;
       if (this.voicePositions[i] >= buffer.samples.length || this.voiceStrengths[i] < 1e-7) this.voicePositions[i] = -1;
       else voiceActive = true;
