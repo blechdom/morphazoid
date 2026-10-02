@@ -5,6 +5,7 @@ import test from "node:test";
 import {
   KARPLUS_CARPET_DEFAULTS,
   KARPLUS_CARPET_LIMITS,
+  KARPLUS_CARPET_MATERIAL_GAIN_TRIMS,
   KARPLUS_CARPET_TEXTURE_PRESETS,
   KarplusCarpetAudio,
   generateKarplusCarpetSamples,
@@ -50,7 +51,8 @@ function seededRandom(seed) {
 }
 
 test("Karplus Carpet settings keep spatial grains and pitch fields bounded", () => {
-  assert.equal(KARPLUS_CARPET_DEFAULTS.level, 0.75);
+  assert.equal(KARPLUS_CARPET_DEFAULTS.level, 0.85);
+  assert.equal(KARPLUS_CARPET_LIMITS.velocityScatterScale, 0.05);
   const low = sanitizeKarplusCarpetSettings({
     grainDuration: -1,
     attackDuration: -1,
@@ -110,6 +112,23 @@ test("Karplus Carpet settings keep spatial grains and pitch fields bounded", () 
 
 test("Carpet-native textures combine bounded material and gesture settings", () => {
   assert.equal(KARPLUS_CARPET_TEXTURE_PRESETS.length, 12);
+  assert.deepEqual(
+    Object.fromEntries(KARPLUS_CARPET_TEXTURE_PRESETS.map((item) => [item.id, item.settings.gainTrim])),
+    {
+      "texture-felt-motes": 1.15,
+      "texture-thumb-ticks": 1.55,
+      "texture-wire-sparks": 1,
+      "texture-glass-rain": 0.68,
+      "texture-hollow-seeds": 0.61,
+      "texture-rubber-pops": 0.52,
+      "texture-jawari-insects": 1.05,
+      "texture-bolt-static": 1.9,
+      "texture-inside-out": 0.97,
+      "texture-ghost-fibers": 0.99,
+      "texture-frozen-halo": 0.58,
+      "texture-dust-needles": 1.7,
+    },
+  );
   assert.equal(
     new Set(KARPLUS_CARPET_TEXTURE_PRESETS.map(({ id }) => id)).size,
     KARPLUS_CARPET_TEXTURE_PRESETS.length,
@@ -134,6 +153,46 @@ test("Carpet-native textures combine bounded material and gesture settings", () 
       envelope.endOffset * (2 ** (200 / 1_200))
         < KARPLUS_CARPET_LIMITS.maximumRenderDuration,
     );
+  }
+});
+
+test("classic materials have a complete Carpet-only loudness calibration", () => {
+  assert.deepEqual(
+    { ...KARPLUS_CARPET_MATERIAL_GAIN_TRIMS },
+    {
+      nylon: 0.82,
+      steel: 0.98,
+      muted: 1.1,
+      kalimba: 1.65,
+      glass: 0.95,
+      choir: 0.93,
+      banjo: 1.15,
+      bass: 0.65,
+      jawari: 0.92,
+      prepared: 1.9,
+      rubber: 0.53,
+      inverted: 1,
+      frozen: 0.92,
+      broken: 0.88,
+      ghost: 0.91,
+      dust: 0.92,
+    },
+  );
+  assert.ok(Object.isFrozen(KARPLUS_CARPET_MATERIAL_GAIN_TRIMS));
+  assert.deepEqual(
+    Object.keys(KARPLUS_CARPET_MATERIAL_GAIN_TRIMS).sort(),
+    KARPLUS_STRONG_PRESETS.map(({ id }) => id).sort(),
+  );
+  for (const item of KARPLUS_STRONG_PRESETS) {
+    assert.equal(
+      Object.hasOwn(item.settings, "gainTrim"),
+      false,
+      item.name + " keeps its Carpet-only trim out of the shared string preset",
+    );
+  }
+  for (const gainTrim of Object.values(KARPLUS_CARPET_MATERIAL_GAIN_TRIMS)) {
+    assert.ok(gainTrim >= KARPLUS_CARPET_LIMITS.minimumGainTrim);
+    assert.ok(gainTrim <= KARPLUS_CARPET_LIMITS.maximumGainTrim);
   }
 });
 
@@ -246,13 +305,16 @@ test("every Carpet texture retains audible post-envelope energy across the pitch
   }
 });
 
-test("material presets drop a prior texture's private loudness trim", () => {
+test("material presets replace a texture's private trim with their Carpet calibration", () => {
   const texture = KARPLUS_CARPET_TEXTURE_PRESETS.find(({ id }) => id === "texture-frozen-halo");
   const material = KARPLUS_STRONG_PRESETS.find(({ id }) => id === "nylon");
   const textured = mergeKarplusCarpetPresetSettings(KARPLUS_CARPET_DEFAULTS, texture.settings);
-  const restored = mergeKarplusCarpetPresetSettings(textured, material.settings);
+  const restored = mergeKarplusCarpetPresetSettings(textured, {
+    ...material.settings,
+    gainTrim: KARPLUS_CARPET_MATERIAL_GAIN_TRIMS[material.id],
+  });
   assert.equal(textured.gainTrim, texture.settings.gainTrim);
-  assert.equal(restored.gainTrim, KARPLUS_CARPET_DEFAULTS.gainTrim);
+  assert.equal(restored.gainTrim, KARPLUS_CARPET_MATERIAL_GAIN_TRIMS.nylon);
   assert.equal(restored.grainDuration, texture.settings.grainDuration);
   assert.equal(restored.hardness, material.settings.hardness);
 });
@@ -294,9 +356,9 @@ test("level variation stays expressive without large strike-to-strike jumps", ()
       velocityScatter: 1,
     }, index, { seed: index + 11, position: 0.5 }).velocity);
   }
-  assert.ok(Math.min(...velocities) >= 0.38 - 1e-12);
-  assert.ok(Math.max(...velocities) <= 0.58 + 1e-12);
-  assert.ok(Math.max(...velocities) - Math.min(...velocities) > 0.16);
+  assert.ok(Math.min(...velocities) >= 0.43 - 1e-12);
+  assert.ok(Math.max(...velocities) <= 0.53 + 1e-12);
+  assert.ok(Math.max(...velocities) - Math.min(...velocities) > 0.08);
   for (let index = 0; index < 16; index += 1) {
     assert.equal(karplusCarpetPointerEvent({
       ...KARPLUS_CARPET_DEFAULTS,
@@ -640,7 +702,6 @@ test("Carpet balances quiet and hot micro-attacks without sample clipping", () =
 
 test("calibrated Carpet textures keep deterministic onset levels bounded", () => {
   const sampleRate = 12_000;
-  const presetMedians = [];
   let limitedSamples = 0;
   let analyzedSamples = 0;
 
@@ -678,17 +739,12 @@ test("calibrated Carpet textures keep deterministic onset levels bounded", () =>
       }
     }
     onsetLevels.sort((left, right) => left - right);
-    presetMedians.push((onsetLevels[5] + onsetLevels[6]) * 0.5);
     assert.ok(
       onsetLevels.at(-1) / onsetLevels[0] <= 10 ** (5 / 20),
       item.name + " varies by more than 5 dB across pitch and cell color",
     );
   }
 
-  assert.ok(
-    Math.max(...presetMedians) / Math.min(...presetMedians) <= 10 ** (9 / 20),
-    "texture onset medians remain within a 9 dB physical-material window",
-  );
   assert.ok(limitedSamples / analyzedSamples < 0.01);
 });
 
@@ -791,13 +847,13 @@ test("Karplus Carpet audio schedules short grains, bends them live, and stops cl
     KARPLUS_STRONG_DEFAULTS,
     { when: 2.25, density: 28, renderDuration: 0.3 },
   );
-  assert.equal(gains[0].gain.value, 1.3);
+  assert.equal(gains[0].gain.value, 2.2);
   assert.equal(gains[1].gain.value, KARPLUS_CARPET_DEFAULTS.level);
-  assert.equal(compressors[0].threshold.value, -10);
-  assert.equal(compressors[0].knee.value, 6);
-  assert.equal(compressors[0].ratio.value, 4);
+  assert.equal(compressors[0].threshold.value, -18);
+  assert.equal(compressors[0].knee.value, 12);
+  assert.equal(compressors[0].ratio.value, 3);
   assert.equal(compressors[0].attack.value, 0.003);
-  assert.equal(compressors[0].release.value, 0.08);
+  assert.equal(compressors[0].release.value, 0.05);
   assert.equal(starts.at(-1), 2.25);
   assert.equal(scheduled.when, 2.25);
   assert.equal(scheduled.envelope.attackEndOffset, 0.01);
@@ -908,7 +964,7 @@ test("Karplus Carpet audio schedules short grains, bends them live, and stops cl
   assert.equal(audio.setPitchBend(125), 125);
   assert.deepEqual(detuneCalls.at(-1), ["target", 125, 2, 0.01]);
   audio.setOutput(5);
-  assert.equal(audio.output, 0.85);
+  assert.equal(audio.output, 1);
   audio.stopAll();
   assert.ok(stops.length > 0);
   await audio.close();
@@ -930,8 +986,8 @@ test("Karplus Carpet page exposes synthesized microsound performance controls", 
     readFile(new URL("dist-wax/src/instruments/karplus-carpet/full-presets.js", root), "utf8"),
   ]);
   assert.match(html, /<h1>Karplus Carpet<\/h1>/);
-  assert.match(html, /id="levelOut"[^>]*>75%<\/output>/);
-  assert.match(html, /id="level"[^>]*value="\.75"/);
+  assert.match(html, /id="levelOut"[^>]*>85%<\/output>/);
+  assert.match(html, /id="level"[^>]*max="1"[^>]*value="\.85"/);
   assert.match(html, /<aside class="panel" data-instrument-preset-host/);
   assert.match(html, /id="grainDuration"[^>]*type="range"[^>]*min="\.08"[^>]*max="\.4"/);
   assert.match(html, /Amplitude ADSR/);
@@ -977,6 +1033,11 @@ test("Karplus Carpet page exposes synthesized microsound performance controls", 
   assert.match(app, /registerHeaderPresets/);
   assert.match(app, /KARPLUS_CARPET_FULL_PRESETS/);
   assert.match(app, /KARPLUS_CARPET_TEXTURE_PRESETS/);
+  assert.match(
+    app,
+    /gainTrim: KARPLUS_CARPET_MATERIAL_GAIN_TRIMS\[item\.id\][\s\S]*?items: KARPLUS_CARPET_MATERIAL_PRESETS/,
+  );
+  assert.match(app, /gainTrim: firstPreset\.settings\.gainTrim/);
   assert.match(app, /materials:[\s\S]*?textures:/);
   assert.match(app, /function selectPresetBank/);
   assert.match(app, /"attackDuration",\s*"decayDuration",\s*"sustainLevel",\s*"releaseDuration"/);

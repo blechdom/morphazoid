@@ -18,6 +18,7 @@ import {
 import {
   KARPLUS_CARPET_DEFAULTS,
   KARPLUS_CARPET_LIMITS,
+  KARPLUS_CARPET_MATERIAL_GAIN_TRIMS,
   KARPLUS_CARPET_TEXTURE_PRESETS,
   KarplusCarpetAudio,
   karplusCarpetEnvelopeTiming,
@@ -67,12 +68,22 @@ const BUFFER_DURATION_CONTROL_IDS = new Set([
   "releaseDuration",
   "timbreVariation",
 ]);
+const KARPLUS_CARPET_MATERIAL_PRESETS = Object.freeze(
+  KARPLUS_STRONG_PRESETS.map((item) => Object.freeze({
+    ...item,
+    settings: Object.freeze({
+      ...item.settings,
+      gainTrim: KARPLUS_CARPET_MATERIAL_GAIN_TRIMS[item.id]
+        ?? KARPLUS_CARPET_DEFAULTS.gainTrim,
+    }),
+  })),
+);
 const PRESET_BANKS = Object.freeze({
   materials: Object.freeze({
     id: "materials",
     name: "Materials",
     description: "Classic thread materials keep the current Carpet timing and cell variation.",
-    items: KARPLUS_STRONG_PRESETS,
+    items: KARPLUS_CARPET_MATERIAL_PRESETS,
   }),
   textures: Object.freeze({
     id: "textures",
@@ -86,11 +97,12 @@ const canvas = $("stage");
 const stageWrap = $("stageWrap");
 const context = canvas.getContext("2d", { alpha: false, desynchronized: true });
 const audio = new KarplusCarpetAudio(globalThis);
-const firstPreset = KARPLUS_STRONG_PRESETS[0];
+const firstPreset = KARPLUS_CARPET_MATERIAL_PRESETS[0];
 const state = {
   ...KARPLUS_STRONG_DEFAULTS,
   ...firstPreset.settings,
   ...KARPLUS_CARPET_DEFAULTS,
+  gainTrim: firstPreset.settings.gainTrim,
   selectedPresetId: firstPreset.id,
   presetBankId: "materials",
   pitchBendCents: 0,

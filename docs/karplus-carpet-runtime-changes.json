@@ -3,7 +3,7 @@
   "changes": [
     {
       "file": "src/instruments/karplus-carpet/karplus-carpet-app.js",
-      "reason": "Register complete header presets that preserve live Audio, output and focused material edits; expose and format the thread-ring control, strengthen the woven field, and draw pulse crosses with equal spans while preserving the frozen relocation baseline.",
+      "reason": "Register complete header presets that preserve live Audio, output and focused material edits; apply Carpet-only loudness trims to classic materials; expose and format the thread-ring control, strengthen the woven field, and draw pulse crosses with equal spans while preserving the frozen relocation baseline.",
       "regressionTests": [
         "tests/karplus-carpet.test.mjs",
         "tests/full-instrument-presets.test.mjs",
@@ -15,12 +15,24 @@
           "after": "  sanitizeKarplusStrongSettings,\n} from \"../karplus-strong/karplus-strong.js\";\nimport { registerHeaderPresets } from \"../../site/header-presets.js\";\nimport {\n  KARPLUS_CARPET_FULL_PRESETS,\n  applyKarplusCarpetPreset,\n  captureKarplusCarpetPreset,\n  randomizeKarplusCarpetPreset,\n} from \"./full-presets.js\";\nimport {\n  KARPLUS_CARPET_DEFAULTS,\n"
         },
         {
+          "before": "  KARPLUS_CARPET_DEFAULTS,\n  KARPLUS_CARPET_LIMITS,\n  KARPLUS_CARPET_TEXTURE_PRESETS,\n",
+          "after": "  KARPLUS_CARPET_DEFAULTS,\n  KARPLUS_CARPET_LIMITS,\n  KARPLUS_CARPET_MATERIAL_GAIN_TRIMS,\n  KARPLUS_CARPET_TEXTURE_PRESETS,\n"
+        },
+        {
           "before": "  mergeKarplusCarpetPresetSettings,\n  karplusCarpetPointerEvent,\n  karplusCarpetSpatialCellAtPosition,\n  karplusCarpetSpatialCellSeed,\n",
           "after": "  mergeKarplusCarpetPresetSettings,\n  karplusCarpetPointerEvent,\n  karplusCarpetPulseGeometry,\n  karplusCarpetSpatialCellAtPosition,\n  karplusCarpetSpatialCellSeed,\n"
         },
         {
           "before": "const KEY_BINDINGS = [\"a\", \"w\", \"s\", \"e\", \"d\", \"f\", \"t\", \"g\", \"y\", \"h\", \"u\", \"j\", \"k\", \"o\", \"l\", \";\"];\nconst TIMBRE_CONTROL_SPECS = Object.freeze([\n  { id: \"hardness\", format: formatPercent },\n  { id: \"excitationColor\", format: formatPercent },\n",
           "after": "const KEY_BINDINGS = [\"a\", \"w\", \"s\", \"e\", \"d\", \"f\", \"t\", \"g\", \"y\", \"h\", \"u\", \"j\", \"k\", \"o\", \"l\", \";\"];\nconst TIMBRE_CONTROL_SPECS = Object.freeze([\n  { id: \"decay\", format: formatSeconds },\n  { id: \"hardness\", format: formatPercent },\n  { id: \"excitationColor\", format: formatPercent },\n"
+        },
+        {
+          "before": "const PRESET_BANKS = Object.freeze({\n  materials: Object.freeze({\n    id: \"materials\",\n    name: \"Materials\",\n    description: \"Classic thread materials keep the current Carpet timing and cell variation.\",\n    items: KARPLUS_STRONG_PRESETS,\n",
+          "after": "const KARPLUS_CARPET_MATERIAL_PRESETS = Object.freeze(\n  KARPLUS_STRONG_PRESETS.map((item) => Object.freeze({\n    ...item,\n    settings: Object.freeze({\n      ...item.settings,\n      gainTrim: KARPLUS_CARPET_MATERIAL_GAIN_TRIMS[item.id]\n        ?? KARPLUS_CARPET_DEFAULTS.gainTrim,\n    }),\n  })),\n);\nconst PRESET_BANKS = Object.freeze({\n  materials: Object.freeze({\n    id: \"materials\",\n    name: \"Materials\",\n    description: \"Classic thread materials keep the current Carpet timing and cell variation.\",\n    items: KARPLUS_CARPET_MATERIAL_PRESETS,\n"
+        },
+        {
+          "before": "const firstPreset = KARPLUS_STRONG_PRESETS[0];\nconst state = {\n  ...KARPLUS_STRONG_DEFAULTS,\n  ...firstPreset.settings,\n  ...KARPLUS_CARPET_DEFAULTS,\n  selectedPresetId: firstPreset.id,\n",
+          "after": "const firstPreset = KARPLUS_CARPET_MATERIAL_PRESETS[0];\nconst state = {\n  ...KARPLUS_STRONG_DEFAULTS,\n  ...firstPreset.settings,\n  ...KARPLUS_CARPET_DEFAULTS,\n  gainTrim: firstPreset.settings.gainTrim,\n  selectedPresetId: firstPreset.id,\n"
         },
         {
           "before": "}\n\nfunction formatFrequency(frequency) {\n  return frequency >= 1_000\n",
@@ -71,7 +83,7 @@
       "replacements": [
         {
           "before": "  maximumAttackDuration: 0.12,\n  minimumDecayDuration: 0.005,\n  maximumDecayDuration: 0.3,\n  minimumReleaseDuration: 0.005,\n  maximumReleaseDuration: 0.4,\n  maximumRenderDuration: 1,\n  minimumGainTrim: 0.55,\n  maximumGainTrim: 1.25,\n  minimumCoupledRenderAmount: 0.35,\n  maximumCoupledRenderDuration: 0.32,\n  voiceGainScale: 0.58,\n",
-          "after": "  maximumAttackDuration: 0.12,\n  minimumDecayDuration: 0.005,\n  maximumDecayDuration: 1,\n  minimumReleaseDuration: 0.005,\n  maximumReleaseDuration: 0.4,\n  maximumRenderDuration: 1.8,\n  minimumGainTrim: 0.45,\n  maximumGainTrim: 1.6,\n  normalizationWindowSeconds: 0.024,\n  normalizedOpeningRms: 0.13,\n  normalizedPeakCeiling: 0.98,\n  minimumNormalizationGain: 0.35,\n  maximumNormalizationGain: 10,\n  velocityScatterScale: 0.1,\n  minimumCoupledRenderAmount: 0.35,\n  maximumCoupledRenderDuration: 0.32,\n  voiceGainScale: 0.78,\n"
+          "after": "  maximumAttackDuration: 0.12,\n  minimumDecayDuration: 0.005,\n  maximumDecayDuration: 1,\n  minimumReleaseDuration: 0.005,\n  maximumReleaseDuration: 0.4,\n  maximumRenderDuration: 1.8,\n  minimumGainTrim: 0.45,\n  maximumGainTrim: 2,\n  normalizationWindowSeconds: 0.024,\n  normalizedOpeningRms: 0.13,\n  normalizedPeakCeiling: 0.98,\n  minimumNormalizationGain: 0.35,\n  maximumNormalizationGain: 10,\n  velocityScatterScale: 0.05,\n  minimumCoupledRenderAmount: 0.35,\n  maximumCoupledRenderDuration: 0.32,\n  voiceGainScale: 0.78,\n"
         },
         {
           "before": "}\n\nexport function mergeKarplusCarpetPresetSettings(current = {}, preset = {}) {\n  const patch = preset && typeof preset === \"object\" ? preset : {};\n",
@@ -83,51 +95,59 @@
         },
         {
           "before": "export const KARPLUS_CARPET_DEFAULTS = Object.freeze({\n  ...KARPLUS_STRONG_TUNING_DEFAULTS,\n  lowFrequency: 110,\n",
-          "after": "export const KARPLUS_CARPET_DEFAULTS = Object.freeze({\n  ...KARPLUS_STRONG_TUNING_DEFAULTS,\n  level: 0.75,\n  lowFrequency: 110,\n"
+          "after": "export const KARPLUS_CARPET_DEFAULTS = Object.freeze({\n  ...KARPLUS_STRONG_TUNING_DEFAULTS,\n  level: 0.85,\n  lowFrequency: 110,\n"
+        },
+        {
+          "before": "  centerPosition: 0.5,\n});\n\nexport function sanitizeKarplusCarpetSettings(source = {}) {\n",
+          "after": "  centerPosition: 0.5,\n});\n\nexport const KARPLUS_CARPET_MATERIAL_GAIN_TRIMS = Object.freeze({\n  nylon: 0.82,\n  steel: 0.98,\n  muted: 1.1,\n  kalimba: 1.65,\n  glass: 0.95,\n  choir: 0.93,\n  banjo: 1.15,\n  bass: 0.65,\n  jawari: 0.92,\n  prepared: 1.9,\n  rubber: 0.53,\n  inverted: 1,\n  frozen: 0.92,\n  broken: 0.88,\n  ghost: 0.91,\n  dust: 0.92,\n});\n\nexport function sanitizeKarplusCarpetSettings(source = {}) {\n"
+        },
+        {
+          "before": "      velocityScatter: 0.2, stereoSpread: 0.5, gainTrim: 1.1,\n",
+          "after": "      velocityScatter: 0.2, stereoSpread: 0.5, gainTrim: 1.15,\n"
         },
         {
           "before": "      velocityScatter: 0.24, stereoSpread: 0.62, gainTrim: 1.15,\n",
-          "after": "      velocityScatter: 0.24, stereoSpread: 0.62, gainTrim: 1.05,\n"
+          "after": "      velocityScatter: 0.24, stereoSpread: 0.62, gainTrim: 1.55,\n"
         },
         {
           "before": "      velocityScatter: 0.32, stereoSpread: 0.86, gainTrim: 0.72,\n",
-          "after": "      velocityScatter: 0.32, stereoSpread: 0.86, gainTrim: 1.05,\n"
+          "after": "      velocityScatter: 0.32, stereoSpread: 0.86, gainTrim: 1,\n"
         },
         {
           "before": "      velocityScatter: 0.18, stereoSpread: 1, gainTrim: 0.68,\n",
-          "after": "      velocityScatter: 0.18, stereoSpread: 1, gainTrim: 0.55,\n"
+          "after": "      velocityScatter: 0.18, stereoSpread: 1, gainTrim: 0.68,\n"
         },
         {
           "before": "      velocityScatter: 0.16, stereoSpread: 0.46, gainTrim: 0.9,\n",
-          "after": "      velocityScatter: 0.16, stereoSpread: 0.46, gainTrim: 0.84,\n"
+          "after": "      velocityScatter: 0.16, stereoSpread: 0.46, gainTrim: 0.61,\n"
         },
         {
           "before": "      velocityScatter: 0.3, stereoSpread: 0.58, gainTrim: 1.15,\n",
-          "after": "      velocityScatter: 0.3, stereoSpread: 0.58, gainTrim: 1.02,\n"
+          "after": "      velocityScatter: 0.3, stereoSpread: 0.58, gainTrim: 0.52,\n"
         },
         {
           "before": "      velocityScatter: 0.45, stereoSpread: 0.9, gainTrim: 0.72,\n",
-          "after": "      velocityScatter: 0.45, stereoSpread: 0.9, gainTrim: 0.98,\n"
+          "after": "      velocityScatter: 0.45, stereoSpread: 0.9, gainTrim: 1.05,\n"
         },
         {
           "before": "      velocityScatter: 0.52, stereoSpread: 1, gainTrim: 1,\n",
-          "after": "      velocityScatter: 0.52, stereoSpread: 1, gainTrim: 1.45,\n"
+          "after": "      velocityScatter: 0.52, stereoSpread: 1, gainTrim: 1.9,\n"
         },
         {
           "before": "      velocityScatter: 0.25, stereoSpread: 0.78, gainTrim: 0.7,\n",
-          "after": "      velocityScatter: 0.25, stereoSpread: 0.78, gainTrim: 1.15,\n"
+          "after": "      velocityScatter: 0.25, stereoSpread: 0.78, gainTrim: 0.97,\n"
         },
         {
           "before": "      velocityScatter: 0.12, stereoSpread: 1, gainTrim: 0.72,\n",
-          "after": "      velocityScatter: 0.12, stereoSpread: 1, gainTrim: 1.12,\n"
+          "after": "      velocityScatter: 0.12, stereoSpread: 1, gainTrim: 0.99,\n"
         },
         {
           "before": "      velocityScatter: 0.1, stereoSpread: 1, gainTrim: 0.65,\n",
-          "after": "      velocityScatter: 0.1, stereoSpread: 1, gainTrim: 0.45,\n"
+          "after": "      velocityScatter: 0.1, stereoSpread: 1, gainTrim: 0.58,\n"
         },
         {
           "before": "      velocityScatter: 0.7, stereoSpread: 0.94, gainTrim: 1.2,\n",
-          "after": "      velocityScatter: 0.7, stereoSpread: 0.94, gainTrim: 0.95,\n"
+          "after": "      velocityScatter: 0.7, stereoSpread: 0.94, gainTrim: 1.7,\n"
         },
         {
           "before": "  const variedVelocity = 0.42 + (random() * 2 - 1) * settings.velocityScatter * 0.18;\n",
@@ -147,11 +167,11 @@
         },
         {
           "before": "      this.input = context.createGain();\n      this.input.gain.value = 0.72;\n      const compressor = context.createDynamicsCompressor();\n      compressor.threshold.value = -18;\n      compressor.knee.value = 12;\n      compressor.ratio.value = 8;\n      compressor.attack.value = 0.002;\n      compressor.release.value = 0.18;\n",
-          "after": "      this.input = context.createGain();\n      this.input.gain.value = 1.3;\n      const compressor = context.createDynamicsCompressor();\n      compressor.threshold.value = -10;\n      compressor.knee.value = 6;\n      compressor.ratio.value = 4;\n      compressor.attack.value = 0.003;\n      compressor.release.value = 0.08;\n"
+          "after": "      this.input = context.createGain();\n      this.input.gain.value = 2.2;\n      const compressor = context.createDynamicsCompressor();\n      compressor.threshold.value = -18;\n      compressor.knee.value = 12;\n      compressor.ratio.value = 3;\n      compressor.attack.value = 0.003;\n      compressor.release.value = 0.05;\n"
         },
         {
           "before": "    this.output = clamp(finiteOr(value, KARPLUS_STRONG_DEFAULTS.level), 0, 0.85);\n",
-          "after": "    this.output = clamp(finiteOr(value, KARPLUS_CARPET_DEFAULTS.level), 0, 0.85);\n"
+          "after": "    this.output = clamp(finiteOr(value, KARPLUS_CARPET_DEFAULTS.level), 0, 1);\n"
         }
       ]
     }

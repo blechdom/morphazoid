@@ -25,13 +25,13 @@ export const KARPLUS_CARPET_LIMITS = Object.freeze({
   maximumReleaseDuration: 0.4,
   maximumRenderDuration: 1.8,
   minimumGainTrim: 0.45,
-  maximumGainTrim: 1.6,
+  maximumGainTrim: 2,
   normalizationWindowSeconds: 0.024,
   normalizedOpeningRms: 0.13,
   normalizedPeakCeiling: 0.98,
   minimumNormalizationGain: 0.35,
   maximumNormalizationGain: 10,
-  velocityScatterScale: 0.1,
+  velocityScatterScale: 0.05,
   minimumCoupledRenderAmount: 0.35,
   maximumCoupledRenderDuration: 0.32,
   voiceGainScale: 0.78,
@@ -49,7 +49,7 @@ export const KARPLUS_CARPET_LIMITS = Object.freeze({
 
 export const KARPLUS_CARPET_DEFAULTS = Object.freeze({
   ...KARPLUS_STRONG_TUNING_DEFAULTS,
-  level: 0.75,
+  level: 0.85,
   lowFrequency: 110,
   highFrequency: 880,
   grainDuration: 0.16,
@@ -62,6 +62,25 @@ export const KARPLUS_CARPET_DEFAULTS = Object.freeze({
   stereoSpread: 0.78,
   gainTrim: 1,
   centerPosition: 0.5,
+});
+
+export const KARPLUS_CARPET_MATERIAL_GAIN_TRIMS = Object.freeze({
+  nylon: 0.82,
+  steel: 0.98,
+  muted: 1.1,
+  kalimba: 1.65,
+  glass: 0.95,
+  choir: 0.93,
+  banjo: 1.15,
+  bass: 0.65,
+  jawari: 0.92,
+  prepared: 1.9,
+  rubber: 0.53,
+  inverted: 1,
+  frozen: 0.92,
+  broken: 0.88,
+  ghost: 0.91,
+  dust: 0.92,
 });
 
 export function sanitizeKarplusCarpetSettings(source = {}) {
@@ -171,7 +190,7 @@ export const KARPLUS_CARPET_TEXTURE_PRESETS = Object.freeze([
     {
       grainDuration: 0.11, attackDuration: 0.001, decayDuration: 0.035,
       sustainLevel: 0.18, releaseDuration: 0.04, timbreVariation: 0.18,
-      velocityScatter: 0.2, stereoSpread: 0.5, gainTrim: 1.1,
+      velocityScatter: 0.2, stereoSpread: 0.5, gainTrim: 1.15,
     },
   ),
   carpetTexturePreset(
@@ -182,7 +201,7 @@ export const KARPLUS_CARPET_TEXTURE_PRESETS = Object.freeze([
     {
       grainDuration: 0.11, attackDuration: 0.001, decayDuration: 0.024,
       sustainLevel: 0.18, releaseDuration: 0.045, timbreVariation: 0.24,
-      velocityScatter: 0.24, stereoSpread: 0.62, gainTrim: 1.05,
+      velocityScatter: 0.24, stereoSpread: 0.62, gainTrim: 1.55,
     },
   ),
   carpetTexturePreset(
@@ -193,7 +212,7 @@ export const KARPLUS_CARPET_TEXTURE_PRESETS = Object.freeze([
     {
       grainDuration: 0.15, attackDuration: 0.001, decayDuration: 0.032,
       sustainLevel: 0.28, releaseDuration: 0.095, timbreVariation: 0.4,
-      velocityScatter: 0.32, stereoSpread: 0.86, gainTrim: 1.05,
+      velocityScatter: 0.32, stereoSpread: 0.86, gainTrim: 1,
     },
   ),
   carpetTexturePreset(
@@ -204,7 +223,7 @@ export const KARPLUS_CARPET_TEXTURE_PRESETS = Object.freeze([
     {
       grainDuration: 0.24, attackDuration: 0.006, decayDuration: 0.12,
       sustainLevel: 0.55, releaseDuration: 0.28, timbreVariation: 0.46,
-      velocityScatter: 0.18, stereoSpread: 1, gainTrim: 0.55,
+      velocityScatter: 0.18, stereoSpread: 1, gainTrim: 0.68,
     },
   ),
   carpetTexturePreset(
@@ -215,7 +234,7 @@ export const KARPLUS_CARPET_TEXTURE_PRESETS = Object.freeze([
     {
       grainDuration: 0.2, attackDuration: 0.014, decayDuration: 0.065,
       sustainLevel: 0.32, releaseDuration: 0.14, timbreVariation: 0.2,
-      velocityScatter: 0.16, stereoSpread: 0.46, gainTrim: 0.84,
+      velocityScatter: 0.16, stereoSpread: 0.46, gainTrim: 0.61,
     },
   ),
   carpetTexturePreset(
@@ -226,7 +245,7 @@ export const KARPLUS_CARPET_TEXTURE_PRESETS = Object.freeze([
     {
       grainDuration: 0.16, attackDuration: 0.002, decayDuration: 0.045,
       sustainLevel: 0.3, releaseDuration: 0.085, timbreVariation: 0.26,
-      velocityScatter: 0.3, stereoSpread: 0.58, gainTrim: 1.02,
+      velocityScatter: 0.3, stereoSpread: 0.58, gainTrim: 0.52,
     },
   ),
   carpetTexturePreset(
@@ -237,7 +256,7 @@ export const KARPLUS_CARPET_TEXTURE_PRESETS = Object.freeze([
     {
       grainDuration: 0.12, attackDuration: 0.001, decayDuration: 0.026,
       sustainLevel: 0.2, releaseDuration: 0.055, timbreVariation: 0.7,
-      velocityScatter: 0.45, stereoSpread: 0.9, gainTrim: 0.98,
+      velocityScatter: 0.45, stereoSpread: 0.9, gainTrim: 1.05,
     },
   ),
   carpetTexturePreset(
@@ -248,7 +267,7 @@ export const KARPLUS_CARPET_TEXTURE_PRESETS = Object.freeze([
     {
       grainDuration: 0.1, attackDuration: 0.001, decayDuration: 0.018,
       sustainLevel: 0.12, releaseDuration: 0.025, timbreVariation: 0.82,
-      velocityScatter: 0.52, stereoSpread: 1, gainTrim: 1.45,
+      velocityScatter: 0.52, stereoSpread: 1, gainTrim: 1.9,
     },
   ),
   carpetTexturePreset(
@@ -259,7 +278,7 @@ export const KARPLUS_CARPET_TEXTURE_PRESETS = Object.freeze([
     {
       grainDuration: 0.17, attackDuration: 0.003, decayDuration: 0.05,
       sustainLevel: 0.36, releaseDuration: 0.12, timbreVariation: 0.4,
-      velocityScatter: 0.25, stereoSpread: 0.78, gainTrim: 1.15,
+      velocityScatter: 0.25, stereoSpread: 0.78, gainTrim: 0.97,
     },
   ),
   carpetTexturePreset(
@@ -270,7 +289,7 @@ export const KARPLUS_CARPET_TEXTURE_PRESETS = Object.freeze([
     {
       grainDuration: 0.3, attackDuration: 0.04, decayDuration: 0.16,
       sustainLevel: 0.62, releaseDuration: 0.35, timbreVariation: 0.34,
-      velocityScatter: 0.12, stereoSpread: 1, gainTrim: 1.12,
+      velocityScatter: 0.12, stereoSpread: 1, gainTrim: 0.99,
     },
   ),
   carpetTexturePreset(
@@ -281,7 +300,7 @@ export const KARPLUS_CARPET_TEXTURE_PRESETS = Object.freeze([
     {
       grainDuration: 0.32, attackDuration: 0.02, decayDuration: 0.2,
       sustainLevel: 0.7, releaseDuration: 0.38, timbreVariation: 0.52,
-      velocityScatter: 0.1, stereoSpread: 1, gainTrim: 0.45,
+      velocityScatter: 0.1, stereoSpread: 1, gainTrim: 0.58,
     },
   ),
   carpetTexturePreset(
@@ -292,7 +311,7 @@ export const KARPLUS_CARPET_TEXTURE_PRESETS = Object.freeze([
     {
       grainDuration: 0.09, attackDuration: 0.001, decayDuration: 0.015,
       sustainLevel: 0.1, releaseDuration: 0.018, timbreVariation: 1,
-      velocityScatter: 0.7, stereoSpread: 0.94, gainTrim: 0.95,
+      velocityScatter: 0.7, stereoSpread: 0.94, gainTrim: 1.7,
     },
     { lowCut: 0.58, pickupMix: 0.48 },
   ),
@@ -756,13 +775,13 @@ export class KarplusCarpetAudio {
       context = new Context();
       this.context = context;
       this.input = context.createGain();
-      this.input.gain.value = 1.3;
+      this.input.gain.value = 2.2;
       const compressor = context.createDynamicsCompressor();
-      compressor.threshold.value = -10;
-      compressor.knee.value = 6;
-      compressor.ratio.value = 4;
+      compressor.threshold.value = -18;
+      compressor.knee.value = 12;
+      compressor.ratio.value = 3;
       compressor.attack.value = 0.003;
-      compressor.release.value = 0.08;
+      compressor.release.value = 0.05;
       this.master = context.createGain();
       this.master.gain.value = this.output;
       this.analyser = context.createAnalyser();
@@ -786,7 +805,7 @@ export class KarplusCarpetAudio {
   }
 
   setOutput(value) {
-    this.output = clamp(finiteOr(value, KARPLUS_CARPET_DEFAULTS.level), 0, 0.85);
+    this.output = clamp(finiteOr(value, KARPLUS_CARPET_DEFAULTS.level), 0, 1);
     if (this.master && this.context) {
       this.master.gain.setTargetAtTime(this.output, this.context.currentTime, 0.015);
     }
