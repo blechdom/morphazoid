@@ -1152,11 +1152,15 @@ test("the browser wrapper is lazy and the page exposes complete accessible contr
     "the rotated release vector must reach the membrane under its velocity field names",
   );
   assert.match(releasePointerSource, /if \(audioWasReady\) audio\.releaseFabric\(releaseGesture\)/);
+  assert.doesNotMatch(releasePointerSource, /!audioReady\s*\|\|\s*disposed/,
+    "Audio off must not prevent a visual tap impact");
+  assert.match(releasePointerSource, /triggerImpactAt\([\s\S]*?sendAudio: audioReady && state\.audioOn/,
+    "tap visuals must gate only their audio dispatch");
   assert.match(releasePointerSource, /const releaseCurrentX\s*=\s*pointerCurrentX/);
   assert.match(releasePointerSource, /const releaseCurrentY\s*=\s*pointerCurrentY/);
   assert.match(
     releasePointerSource,
-    /if \(!audioWasReady\) \{[\s\S]*?audio\.tugFabric\([\s\S]*?releaseAudioAnchorX,[\s\S]*?releaseAudioAnchorY,[\s\S]*?releasePull,[\s\S]*?releaseGesture[\s\S]*?audio\.releaseFabric\(releaseGesture\)/,
+    /if \(!audioWasReady && audioReady && state\.audioOn\) \{[\s\S]*?audio\.tugFabric\([\s\S]*?releaseAudioAnchorX,[\s\S]*?releaseAudioAnchorY,[\s\S]*?releasePull,[\s\S]*?releaseGesture[\s\S]*?audio\.releaseFabric\(releaseGesture\)/,
     "audio startup must rebuild and release the same retained vertex state",
   );
   assert.match(
@@ -1194,20 +1198,25 @@ test("the browser wrapper is lazy and the page exposes complete accessible contr
   assert.match(cssSource, /#stage\.is-grabbed[\s\S]*?cursor:\s*grabbing/);
   assert.match(
     appSource,
-    /function ensureAudioOn\(\)[\s\S]*?if \(audioStartPromise\) return audioStartPromise[\s\S]*?audioStartPromise = \(async \(\) => \{[\s\S]*?await audio\.start\(\)[\s\S]*?return true[\s\S]*?return audioStartPromise/,
+    /function ensureAudioOn\(\{ explicit = false \} = \{\}\)[\s\S]*?if \(audioStartPromise\) return audioStartPromise[\s\S]*?if \(!explicit\) return Promise\.resolve\(false\)[\s\S]*?audioStartPromise = \(async \(\) => \{[\s\S]*?await audio\.start\(\)[\s\S]*?return true[\s\S]*?return audioStartPromise/,
   );
   assert.match(
     appSource,
-    /\$\("fabricExciteButton"\)\.addEventListener\("click", async \(\) => \{[\s\S]*?if \(!await ensureAudioOn\(\)\) return;[\s\S]*?triggerImpactAt\(/,
+    /\$\("fabricExciteButton"\)\.addEventListener\("click", async \(\) => \{[\s\S]*?const audioReady = await ensureAudioOn\(\)[\s\S]*?interactionGeneration !== fabricInteractionGeneration[\s\S]*?triggerImpactAt\([\s\S]*?sendAudio: audioReady && state\.audioOn/,
   );
   assert.match(
     appSource,
-    /\$\("stage"\)\.addEventListener\("keydown", async \(event\) => \{[\s\S]*?event\.key === "Enter"[\s\S]*?if \(!await ensureAudioOn\(\)\) return;[\s\S]*?triggerImpactAt\(/,
+    /\$\("stage"\)\.addEventListener\("keydown", async \(event\) => \{[\s\S]*?event\.key === "Enter"[\s\S]*?const audioReady = await ensureAudioOn\(\)[\s\S]*?interactionGeneration !== fabricInteractionGeneration[\s\S]*?triggerImpactAt\([\s\S]*?sendAudio: audioReady && state\.audioOn/,
   );
   assert.match(appSource, /audio\.impactFabric\(/);
   assert.match(appSource, /visualPropagation\.triggerGroup\(propagationGroup\)/);
   assert.match(appSource, /elasticReleaseProfile\(/);
   assert.match(appSource, /visualPropagation\.sampleVector\(/);
+  assert.equal(
+    (appSource.match(/propagationDepth: settings\.propagationDepth \* propagationGainResponseFast\(settings\.propagationGain\)/g) ?? []).length,
+    2,
+    "both drawn sculpt and comb geometry must share the audio engine's Wave Q depth response",
+  );
   const triggerPropagationSource = namedFunctionSource(appSource, "triggerPropagationAt");
   assert.match(triggerPropagationSource, /if \(sendAudio\)\s*\{/);
   assert.match(triggerPropagationSource, /captureVisualSculptGesture\(/);
@@ -1448,13 +1457,13 @@ test("the browser wrapper is lazy and the page exposes complete accessible contr
   assert.match(appSource, /settings\.lowFrequency[\s\S]*settings\.highFrequency \/ settings\.lowFrequency/);
   assert.match(appSource, /function updatePropagationStatus[\s\S]*?updateStageReadout\(\)/);
   assert.match(appSource, /resetVisualDynamics\(\{ resetComb: false \}\)[\s\S]*?audio\.resetFabric\(\{ resetComb: false \}\)/);
-  const presetRenderer = appSource.slice(
-    appSource.indexOf("function renderPresets()"),
-    appSource.indexOf("function setParameter("),
-  );
-  assert.match(presetRenderer, /label\.textContent = preset\.label/);
-  assert.match(presetRenderer, /button\.append\(label\)/);
-  assert.doesNotMatch(presetRenderer, /preset\.settings|innerHTML/);
+  assert.match(appSource, /registerHeaderPresets\(\{[\s\S]*?presets: MOIRE_DRONE_FULL_PRESETS/);
+  const presetApply = namedFunctionSource(appSource, "applyPresetSnapshot");
+  assert.match(presetApply, /validateMoireDronePreset\(snapshot\)/);
+  assert.match(presetApply, /const outputLevel = state\.settings\.outputLevel/);
+  assert.match(presetApply, /\.\.\.snapshot\.settings,\s*outputLevel/);
+  assert.doesNotMatch(presetApply, /audio\.(?:start|stop|startInput|stopInput|setSourceMode|setInputGain)\(/);
+  assert.doesNotMatch(appSource, /presetGrid|presetSummary|function renderPresets/);
   assert.match(appSource, /pagehide/);
   assert.match(appSource, /audioState"\)\.textContent = state\.audioOn \? "on" : "off"/);
 });
@@ -5260,7 +5269,7 @@ test("filtered mix removes broadband masking progressively without changing its 
 
 test("spectral sculpting is not duplicated inside resonators or allowed to force the dry mix", async () => {
   const source = await readFile(MODULE_URL, "utf8");
-  const processStart = source.indexOf("  process(leftOutput, rightOutput) {");
+  const processStart = source.indexOf("  process(leftOutput, rightOutput, leftInput = null, rightInput = leftInput) {");
   const processEnd = source.indexOf("\nfunction createProcessorClass", processStart);
   assert.ok(processStart >= 0 && processEnd > processStart);
   const processSource = source.slice(processStart, processEnd);

@@ -1,4 +1,5 @@
 import { restoreHiccupHeadWebcam } from "./helpers/hiccup-head-webcam-reference.mjs";
+import { restoreFabricFilter } from "./helpers/fabric-filter-reference.mjs";
 import { restoreSpelling } from "./helpers/spelling-reference.mjs";
 import { restoreVoicesaurus } from "./helpers/voicesaurus-reference.mjs";
 import { restoreJawHarpControls } from "./helpers/jaw-harp-controls-reference.mjs";
@@ -59,6 +60,7 @@ test("runtime modules reverse exactly after explicit runtime fixes and documente
   ]);
   for (const record of proof.files) {
     let current = await readFile(path.join(root, record.after), "utf8");
+    current = restoreFabricFilter(current, record.after);
     current = restoreVoicesaurus(current, record.after);
     current = restoreHiccupHeadWebcam(current, record.after);
     current = restoreJawHarpControls(current, record.after);

@@ -1,0 +1,35 @@
+{
+  "reason": "Owner-requested complete presets and microphone/audio-interface filtering, preserving the published Fabric Filter identity and route.",
+  "updates": {
+    "moire-drone": {
+      "description": "Sends built-in colored noise or live microphone and audio-interface input through interacting two-dimensional wave fields, a Shepard-wrapped Q/FFT lattice, and a visible damped mass-spring frequency fabric shaped by direct grabs and user-triggered propagation.",
+      "start": "Turn on Audio, choose a preset and sculptor, then grab or pluck the fabric. To filter live sound, choose Mic / Audio In, select the device and channels, then Connect input. Presets, Next and Random preserve the source, input connection and output level; motion remains manual.",
+      "kind": "Spectral fabric filter",
+      "features": [
+        "Built-in noise",
+        "Mic input",
+        "Audio interface",
+        "Pointer",
+        "Spectral propagation",
+        "Adaptive DSP",
+        "Presets",
+        "MIDI"
+      ]
+    }
+  },
+  "capabilityUpdates": {
+    "moire-drone": {
+      "audioInput": true
+    }
+  },
+  "waxUpdates": {
+    "moire-drone": {
+      "recommended": "audio-fx",
+      "roles": [
+        "audio-fx",
+        "instrument"
+      ],
+      "audioInput": true
+    }
+  }
+}

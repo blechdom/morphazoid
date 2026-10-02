@@ -274,7 +274,7 @@ test("one acyclic capability registry covers every playable catalog instrument a
   assert.equal(instrumentMidiCapabilityForId("slippery-resynthesis").audioInput, true);
   assert.equal(instrumentMidiCapabilityForId("slippery-resynthesis").noteMode, "processor");
   assert.equal(instrumentMidiCapabilityForId("slippery-resynthesis").computerKeyboardMode, "none");
-  assert.equal(instrumentMidiCapabilityForId("moire-drone").audioInput, false);
+  assert.equal(instrumentMidiCapabilityForId("moire-drone").audioInput, true);
   assert.equal(instrumentMidiCapabilityForId("moire-drone").noteMode, "processor");
   assert.equal(instrumentMidiCapabilityForId("moire-drone").startsAudio, true);
   assert.equal(instrumentMidiCapabilityForId("moire-drone").computerKeyboardMode, "none");

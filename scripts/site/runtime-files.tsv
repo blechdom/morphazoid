@@ -449,6 +449,7 @@ copy+require	moire-drone.html
 copy+require	src/instruments/moire-drone/moire-drone.css
 copy+require	src/instruments/moire-drone/moire-drone-app.js
 copy+require	src/instruments/moire-drone/moire-drone.js
+copy+require	src/instruments/moire-drone/full-presets.js
 copy+require	assets/instruments/moire-drone.webp
 copy+require	drum-roll-please.html
 copy+require	src/instruments/drum-roll-please/drum-roll-please.css

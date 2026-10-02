@@ -110,11 +110,10 @@ test("input processors are conservative previews and musical generators expose u
   assert.match(waxSupportForId("webgpu-chiptune").caveat, /WebGPU support/i);
 
   const moire = waxSupportForId("moire-drone");
-  assert.equal(moire.recommended, WAX_ROLE_IDS.instrument);
-  assert.deepEqual(moire.roles, [WAX_ROLE_IDS.instrument]);
-  assert.equal(moire.audioInput, false);
-  assert.match(moire.summary, /built-in noise/i);
-  assert.doesNotMatch(moire.summary, /live-input|process a DAW track/i);
+  assert.equal(moire.recommended, WAX_ROLE_IDS.audioFx);
+  assert.deepEqual(moire.roles, [WAX_ROLE_IDS.audioFx, WAX_ROLE_IDS.instrument]);
+  assert.equal(moire.audioInput, true);
+  assert.match(moire.summary, /live-input/i);
 });
 
 test("the role catalog search and role filters use the central support records", () => {

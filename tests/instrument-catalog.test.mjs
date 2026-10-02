@@ -210,21 +210,24 @@ test("Micromorph catalogues its honest local streaming-model boundary", () => {
   assert.equal(instrumentMidiCapabilityForId("micromorph")?.noteMode, "processor");
 });
 
-test("Fabric Filter catalogues its two-dimensional noise-filter collision engine", () => {
+test("Fabric Filter catalogues noise and live input through its two-dimensional filter engine", () => {
   const instrument = instrumentById("moire-drone");
   assert.equal(instrument?.label, "Fabric Filter");
   assert.equal(instrument?.href, "moire-drone.html");
-  assert.equal(instrument?.kind, "Noise-field drone");
+  assert.equal(instrument?.kind, "Spectral fabric filter");
   assert.match(instrument?.description ?? "", /colored noise/i);
   assert.match(instrument?.description ?? "", /two-dimensional wave fields/i);
   assert.ok(instrument?.features.includes("Built-in noise"));
+  assert.ok(instrument?.features.includes("Mic input"));
+  assert.ok(instrument?.features.includes("Audio interface"));
+  assert.ok(instrument?.features.includes("Presets"));
   assert.ok(instrument?.features.includes("Pointer"));
   assert.ok(instrument?.features.includes("MIDI"));
   assert.equal(instrument?.features.includes("Computer keys"), false);
   assert.deepEqual(instrument?.tags.map(({ id }) => id), expectedTagIdsFor((instrument)?.id));
   const midi = instrumentMidiCapabilityForId("moire-drone");
   assert.equal(midi?.noteMode, "processor");
-  assert.equal(midi?.audioInput, false);
+  assert.equal(midi?.audioInput, true);
   assert.equal(midi?.startsAudio, true);
   assert.equal(midi?.computerKeyboardMode, "none");
 });

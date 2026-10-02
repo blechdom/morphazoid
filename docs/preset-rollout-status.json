@@ -4,11 +4,11 @@
   "branch": "codex/presets-continue-20260922",
   "source": "Review branch directory checkpoint 03619ff rebased onto origin/main ef6e593; pending pointer, family rename and preset drafts restored; no push or deployment",
   "counts": {
-    "implemented": 31,
-    "fullPresets": 1418,
+    "implemented": 32,
+    "fullPresets": 1480,
     "favesImplemented": 16,
-    "activeRemaining": 64,
-    "regularRemaining": 133
+    "activeRemaining": 63,
+    "regularRemaining": 132
   },
   "verification": {
     "browser": "Fresh-main 9a45aa0 combined gate: 402 passed across 13 Chromium suites, including all 209 public HTML routes, all 451 existing full-state preset recalls, Shapes' 106-scene audio sweep, Faves/UI/gesture checks, I/O setup and incoming Loopini regressions. Human/device acceptance remains separate; see docs/presets-continuation-20260922.md",
@@ -785,8 +785,10 @@
       "href": "moire-drone.html",
       "category": "noise",
       "scope": "regular",
-      "presets": null,
-      "status": "unmigrated"
+      "presets": 62,
+      "status": "implemented-verification-pending",
+      "evidence": "src/instruments/moire-drone/full-presets.js and tests/moire-drone-presets.test.mjs; all 62 authored patches retained as complete snapshots, with bounded full-parameter Random and manual motion preserved. Output, Audio, source, device, input gain, capture and live simulation stay outside preset ownership.",
+      "verification": "October 1, 2026: npm run verify passed (5,293 tests passed, 6 skipped), including syntax, SIMD, XYFlow and clean-build WAX parity. All 14 focused Chromium cases passed. Final rebase onto origin/main fddedc8 retained every verified runtime byte and adopted upstream equivalents of the four page-test repairs; all 62 tests in those files passed again. Coverage includes complete presets, stereo MediaStream filtering, cancellation/cleanup, Audio-off impacts, and desktop/portrait/landscape reachability. Human listening and real microphone/interface/touch-device checks remain unperformed."
     },
     {
       "id": "puggler",
@@ -1692,7 +1694,6 @@
       "chaotic-fm",
       "chaotic-pm",
       "weierstrass",
-      "moire-drone",
       "surround-field",
       "sorting-algorithms"
     ],

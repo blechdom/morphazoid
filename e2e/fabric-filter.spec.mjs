@@ -207,6 +207,9 @@ test("first-use audio startup cannot flatten an already released sheet", async (
     x: anchor.x + box.width * 0.36,
     y: anchor.y - box.height * 0.24,
   };
+  await expect(page.locator("#audioButton")).toHaveAttribute("aria-pressed", "false");
+  await page.locator("#audioButton").click();
+  await expect(page.locator("#audioButton")).toBeDisabled();
   await page.mouse.move(anchor.x, anchor.y);
   await page.mouse.down();
   await page.mouse.move(pulled.x, pulled.y, { steps: 5 });
@@ -220,4 +223,66 @@ test("first-use audio startup cannot flatten an already released sheet", async (
   expect(afterStartup).not.toBeNull();
   expect(afterStartup.serial).toBeGreaterThan(baseline.serial);
   expect(gridRmsDifference(afterStartup, baseline)).toBeGreaterThan(0.75);
+});
+
+test("tap, Drop and Enter deform the selected impact shape while Audio stays off", async ({ page }) => {
+  const errors = [];
+  page.on("pageerror", error => errors.push(error.message));
+  await installFabricRecorder(page);
+  await page.addInitScript(() => {
+    window.__fabricOffState = { contexts: 0, captures: 0 };
+    const Constructor = window.AudioContext;
+    window.AudioContext = new Proxy(Constructor, {
+      construct(Target, args) {
+        window.__fabricOffState.contexts += 1;
+        return Reflect.construct(Target, args);
+      },
+    });
+    if (window.webkitAudioContext) window.webkitAudioContext = window.AudioContext;
+    Object.defineProperty(navigator.mediaDevices, "getUserMedia", {
+      configurable: true,
+      value: async () => {
+        window.__fabricOffState.captures += 1;
+        throw new DOMException("Unexpected capture while Audio is off", "NotAllowedError");
+      },
+    });
+  });
+  await page.goto("/moire-drone.html");
+  await expect(page.getByRole("group", { name: "Tap / drop shape", exact: true })).toBeVisible();
+  await expect(page.locator("#fabricMotionHelp")).toHaveCount(0);
+  await expect(page.getByText("Grid density changes only the visible weave.", { exact: false })).toHaveCount(0);
+  await page.locator(".moire-fabric > summary").click();
+  await expect(page.locator("#fabricMotionLabel")).toHaveText("Motion feel");
+  expect(await page.locator(".fabric-motion-macros").evaluate(element => {
+    const style = getComputedStyle(element);
+    return [style.borderTopWidth, style.borderRightWidth, style.borderBottomWidth, style.borderLeftWidth];
+  })).toEqual(["0px", "0px", "0px", "0px"]);
+  await page.locator(".moire-fabric > summary").click();
+  await page.locator("#propagationVoices").evaluate(control => {
+    control.value = "3";
+    control.dispatchEvent(new Event("input", { bubbles: true }));
+  });
+  const stage = page.locator("#stage");
+  for (const [body, action, expectedWaves] of [
+    ["pebble", "tap", 1], ["pebbles", "drop", 3], ["brick", "enter", 1],
+  ]) {
+    await page.locator("#clearWavesButton").click();
+    await page.locator(`[data-impact-body="${body}"]`).click();
+    await expect(page.locator("#stageReadout")).toContainText("0/3 WAVES");
+    await expect(page.locator("#audioButton")).toHaveAttribute("aria-pressed", "false");
+    expect(await page.evaluate(() => window.__fabricOffState)).toEqual({ contexts: 0, captures: 0 });
+    const baseline = await readLatestGridFrame(page);
+    expect(baseline).not.toBeNull();
+    if (action === "tap") await stage.click({ position: { x: 250, y: 250 } });
+    else if (action === "drop") await page.locator("#fabricExciteButton").click();
+    else await stage.press("Enter");
+    await expect(page.locator("#stageReadout")).toContainText(`${expectedWaves}/3 WAVES`);
+    await expect.poll(async () => {
+      const current = await readLatestGridFrame(page);
+      return current ? gridRmsDifference(current, baseline) : 0;
+    }, { message: `${body} ${action} should visibly deform the grid` }).toBeGreaterThan(0.15);
+    await expect(page.locator("#audioButton")).toHaveAttribute("aria-pressed", "false");
+    expect(await page.evaluate(() => window.__fabricOffState)).toEqual({ contexts: 0, captures: 0 });
+  }
+  expect(errors).toEqual([]);
 });

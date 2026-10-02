@@ -273,6 +273,7 @@ const processorAudioIds = new Set([
 ]);
 const audioInputIds = new Set([
   "l-systems",
+  "moire-drone",
   "synthesis",
   "graphs",
   "fractal-signals",

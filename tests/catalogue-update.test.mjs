@@ -10,6 +10,7 @@ import { expectedFaveToolIds, mainAdditions, labAdditions, cataloguePlan as plan
 
 const root = new URL("../", import.meta.url);
 const before = JSON.parse(await readFile(new URL("tests/fixtures/catalogue-before-20260918.json", root)));
+const fabric = JSON.parse(await readFile(new URL("tests/fixtures/catalogue-fabric-filter-input.json", root)));
 
 test("the owner-confirmed retained IDs and Rattlesnake name remain unchanged", () => {
   assert.equal(catalogueItemById("webgpu-303")?.id, "webgpu-303");
@@ -47,16 +48,17 @@ test("ID aliases retain every existing MIDI/WAX policy and legacy protocol ident
   for (const previous of before.INSTRUMENT_MIDI_CAPABILITIES) {
     const id = canonicalInstrumentId(previous.id);
     const current = instrumentMidiCapabilityForId(id);
-    assert.deepEqual(current, { ...previous, id }, previous.id);
+    assert.deepEqual(current, { ...previous, ...fabric.capabilityUpdates[id], id }, previous.id);
     assert.equal(instrumentMidiCapabilityForId(previous.id), current);
     assert.equal(legacyInstrumentId(id), previous.id);
   }
   for (const previous of before.WAX_INSTRUMENT_SUPPORT) {
     const current = waxSupportForId(previous.id);
+    const expected = { ...previous, ...fabric.waxUpdates[canonicalInstrumentId(previous.id)] };
     assert.ok(current, previous.id);
     for (const key of ["recommended", "roles", "audioInput", "midiInput", "midiInputMode",
       "computerKeyboardMode", "midiOutput", "hostSync", "noteMode"]) {
-      assert.deepEqual(current[key], previous[key], `${previous.id}: ${key}`);
+      assert.deepEqual(current[key], expected[key], `${previous.id}: ${key}`);
     }
   }
   assert.deepEqual(FAVE_TOOL_IDS, expectedFaveToolIds);

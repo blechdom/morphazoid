@@ -1,5 +1,10 @@
 import { unlockAudioContext } from "../../audio.js";
 import { connectAudioOutput } from "../../audio-output-manager.js";
+import { withAudioTimeout } from "../../audio-startup.js";
+import {
+  audioInputConstraints, audioInputDescription, configureAudioInputNode,
+  loadAudioInputSettings, normalizeAudioInputSettings,
+} from "../../audio-input-settings.js";
 
 export const MOIRE_DRONE_PROCESSOR_NAME = "morphazoid-moire-drone";
 
@@ -2901,7 +2906,7 @@ export function normalizedResonanceQ(value) {
   return 0.55 * (MOIRE_DRONE_LIMITS.maxQ / 0.55) ** clamp(value, 0, 1, 0.5);
 }
 
-function propagationGainResponseFast(value) {
+export function propagationGainResponseFast(value) {
   const gain = clamp(value, 0, 1, MOIRE_DRONE_DEFAULTS.propagationGain);
   if (gain <= 0) return 0;
   // Keep the established default at unity while making the complete slider
@@ -5427,6 +5432,13 @@ export class MoireDroneKernel {
     this.current = { ...this.target };
     this.activeTarget = 0;
     this.activeGain = 0;
+    this.sourceMode = "noise";
+    this.renderSourceMode = "noise";
+    this.pendingSourceMode = null;
+    this.sourceGain = 1;
+    this.inputGain = 1;
+    this.inputGainTarget = 1;
+    this.inputGate = 0;
     this.phaseA = 0.117;
     this.phaseB = 0.117;
     this.fieldPhaseA = 0.213;
@@ -5512,6 +5524,12 @@ export class MoireDroneKernel {
     this.ic2 = new Float64Array(MAX_FILTERS);
     this.ic1Cascade = new Float64Array(MAX_FILTERS);
     this.ic2Cascade = new Float64Array(MAX_FILTERS);
+    // Input mode sends both channels through both fields independently. The
+    // geometry/coefficient work is shared; only filter histories are doubled.
+    this.inputRightIc1 = new Float64Array(MAX_FILTERS);
+    this.inputRightIc2 = new Float64Array(MAX_FILTERS);
+    this.inputRightIc1Cascade = new Float64Array(MAX_FILTERS);
+    this.inputRightIc2Cascade = new Float64Array(MAX_FILTERS);
 
     const delayLength = Math.max(256, Math.ceil(this.sampleRate * DELAY_SECONDS));
     this.delayLeft = new Float32Array(delayLength);
@@ -6473,7 +6491,67 @@ export class MoireDroneKernel {
     }
   }
 
+  setSourceMode(value) {
+    const mode = value === "input" ? "input" : "noise";
+    if (mode === this.sourceMode) return mode;
+    this.sourceMode = mode;
+    this.resetSourceAudio();
+    return mode;
+  }
+
+  setInputGain(value) {
+    this.inputGainTarget = clamp(value, 0, 4, 1);
+    return this.inputGainTarget;
+  }
+
+  resetSourceAudio({ connecting = false } = {}) {
+    if (connecting && this.renderSourceMode === "input" && this.pendingSourceMode === null) {
+      // A newly connected device has no previous signal to fade out. Start
+      // from silence rather than briefly exposing it at full level first.
+      this.clearAudioHistory();
+      this.sourceGain = 0;
+      return;
+    }
+    // Fade to the handover before clearing histories. The held membrane,
+    // propagation, filter positions and current parameters keep their phase.
+    if (this.activeGain < 1e-7) {
+      this.renderSourceMode = this.sourceMode;
+      this.pendingSourceMode = null;
+      this.sourceGain = 1;
+      this.clearAudioHistory();
+    } else {
+      this.pendingSourceMode = this.sourceMode;
+    }
+  }
+
+  clearAudioHistory() {
+    this.inputGate = 0;
+    this.ic1.fill(0);
+    this.ic2.fill(0);
+    this.ic1Cascade.fill(0);
+    this.ic2Cascade.fill(0);
+    this.inputRightIc1.fill(0);
+    this.inputRightIc2.fill(0);
+    this.inputRightIc1Cascade.fill(0);
+    this.inputRightIc2Cascade.fill(0);
+    this.delayLeft.fill(0);
+    this.delayRight.fill(0);
+    this.delayWrite = 0;
+    this.fftFilter.reset();
+    this.qInputDelayLeft.fill(0);
+    this.qInputDelayRight.fill(0);
+    this.qOutputDelayLeft.fill(0);
+    this.qOutputDelayRight.fill(0);
+    this.qDelayWrite = 0;
+    this.resetCombNotches();
+  }
+
   reset() {
+    this.renderSourceMode = this.sourceMode;
+    this.pendingSourceMode = null;
+    this.sourceGain = 1;
+    this.inputGain = this.inputGainTarget;
+    this.clearAudioHistory();
     this.current = { ...this.target };
     this.phaseA = 0.117;
     this.phaseB = 0.117;
@@ -7342,6 +7420,10 @@ export class MoireDroneKernel {
     this.ic2[slot] = 0;
     this.ic1Cascade[slot] = 0;
     this.ic2Cascade[slot] = 0;
+    this.inputRightIc1[slot] = 0;
+    this.inputRightIc2[slot] = 0;
+    this.inputRightIc1Cascade[slot] = 0;
+    this.inputRightIc2Cascade[slot] = 0;
     this.gain[slot] = 0;
   }
 
@@ -7389,7 +7471,7 @@ export class MoireDroneKernel {
     return output;
   }
 
-  process(leftOutput, rightOutput) {
+  process(leftOutput, rightOutput, leftInput = null, rightInput = leftInput) {
     if (!(leftOutput instanceof Float32Array) || !(rightOutput instanceof Float32Array)) {
       throw new TypeError("Fabric Filter outputs must be Float32Array instances.");
     }
@@ -7399,6 +7481,7 @@ export class MoireDroneKernel {
     const length = leftOutput.length;
     const activationCoefficient = 1 - Math.exp(-1 / (this.sampleRate * 0.012));
     const gainCoefficient = 1 - Math.exp(-1 / (this.sampleRate * 0.025));
+    const sourceFadeStep = 1 / Math.max(1, Math.round(this.sampleRate * 0.01));
     const gestureGainCoefficient = 1 - Math.exp(-1 / (this.sampleRate * 0.003));
     const impactAttackCoefficient = 1 - Math.exp(-1 / (this.sampleRate * 0.0012));
     const impactRelease = Math.exp(-1 / (
@@ -7408,6 +7491,18 @@ export class MoireDroneKernel {
     ));
 
     for (let sample = 0; sample < length; sample += 1) {
+      if (this.pendingSourceMode !== null) {
+        this.sourceGain = Math.max(0, this.sourceGain - sourceFadeStep);
+        if (this.sourceGain === 0) {
+          this.renderSourceMode = this.pendingSourceMode;
+          this.pendingSourceMode = null;
+          this.clearAudioHistory();
+        }
+      } else {
+        this.sourceGain = Math.min(1, this.sourceGain + sourceFadeStep);
+      }
+      const externalInput = this.renderSourceMode === "input";
+      this.inputGain += (this.inputGainTarget - this.inputGain) * gainCoefficient;
       if (this.controlCounter === 0) {
         this.updateTargets();
       }
@@ -7419,23 +7514,33 @@ export class MoireDroneKernel {
         Math.abs(this.directGestureGainTarget - this.directGestureGain) < 1e-12
       ) this.directGestureGain = this.directGestureGainTarget;
 
-      const color = this.current.noiseColor;
-      const noiseType = this.current.noiseType;
-      const noiseChaos = this.current.noiseChaos;
-      const noiseFractalDepth = this.current.noiseFractalDepth;
-      const common = this.coloredNoise(
-        0, color, noiseType, noiseChaos, noiseFractalDepth,
-      );
-      const independentA = this.coloredNoise(
-        1, color, noiseType, noiseChaos, noiseFractalDepth,
-      );
-      const independentB = this.coloredNoise(
-        2, color, noiseType, noiseChaos, noiseFractalDepth,
-      );
-      const commonWeight = Math.sqrt(this.current.noiseCorrelation);
-      const independentWeight = Math.sqrt(1 - this.current.noiseCorrelation);
-      let sourceA = common * commonWeight + independentA * independentWeight;
-      let sourceB = common * commonWeight + independentB * independentWeight;
+      let sourceA;
+      let sourceB;
+      if (externalInput) {
+        // Smooth before the 1,023-frame Q/FFT latency, so the device onset
+        // cannot arrive after an output-only fade has already completed.
+        this.inputGate = Math.min(1, this.inputGate + sourceFadeStep);
+        sourceA = clamp(leftInput?.[sample], -8, 8, 0) * this.inputGain * this.inputGate;
+        sourceB = clamp(rightInput?.[sample], -8, 8, 0) * this.inputGain * this.inputGate;
+      } else {
+        const color = this.current.noiseColor;
+        const noiseType = this.current.noiseType;
+        const noiseChaos = this.current.noiseChaos;
+        const noiseFractalDepth = this.current.noiseFractalDepth;
+        const common = this.coloredNoise(
+          0, color, noiseType, noiseChaos, noiseFractalDepth,
+        );
+        const independentA = this.coloredNoise(
+          1, color, noiseType, noiseChaos, noiseFractalDepth,
+        );
+        const independentB = this.coloredNoise(
+          2, color, noiseType, noiseChaos, noiseFractalDepth,
+        );
+        const commonWeight = Math.sqrt(this.current.noiseCorrelation);
+        const independentWeight = Math.sqrt(1 - this.current.noiseCorrelation);
+        sourceA = common * commonWeight + independentA * independentWeight;
+        sourceB = common * commonWeight + independentB * independentWeight;
+      }
 
       if (this.impactEnvelope > 1e-7 || this.impactGain > 1e-7) {
         this.impactGain += (
@@ -7451,7 +7556,7 @@ export class MoireDroneKernel {
         const impactNoise = this.nextWhite(4);
         const impactClick = impactNoise - this.impactPreviousNoise;
         this.impactPreviousNoise = impactNoise;
-        const burst = (
+        const burst = (externalInput ? 0 : 1) * (
           impactNoise * (
             0.3 - this.impactMass * 0.14 + impactBrightness * 0.16
           )
@@ -7473,7 +7578,7 @@ export class MoireDroneKernel {
       }
 
       const dust = this.current.dust;
-      if (dust > 0) {
+      if (!externalInput && dust > 0) {
         const chance = dust * dust * 900 / this.sampleRate;
         if ((this.nextWhite(3) + 1) * 0.5 < chance) {
           this.dustPolarity = this.nextWhite(3) < 0 ? -1 : 1;
@@ -7500,7 +7605,7 @@ export class MoireDroneKernel {
       let filteredRight = 0;
       const count = this.current.filterPairs;
       for (let bank = 0; bank < FILTER_BANKS; bank += 1) {
-        const source = bank === 0 ? sourceA : sourceB;
+        const source = externalInput || bank === 0 ? sourceA : sourceB;
         const offset = bank * MAX_FILTER_PAIRS;
         for (let index = 0; index < count; index += 1) {
           const slot = offset + index;
@@ -7531,12 +7636,37 @@ export class MoireDroneKernel {
           }
           const contribution = band * this.gain[slot];
           filteredLeft += contribution * this.panLeft[slot];
-          filteredRight += contribution * this.panRight[slot];
+          if (externalInput) {
+            const r3 = sourceB - this.inputRightIc2[slot];
+            const r1 = this.a1[slot] * this.inputRightIc1[slot] + this.a2[slot] * r3;
+            const r2 = this.inputRightIc2[slot]
+              + this.a2[slot] * this.inputRightIc1[slot] + this.a3[slot] * r3;
+            this.inputRightIc1[slot] = 2 * r1 - this.inputRightIc1[slot];
+            this.inputRightIc2[slot] = 2 * r2 - this.inputRightIc2[slot];
+            let rightBand = r1 * this.k[slot];
+            if (this.current.cascade > 0.001 && this.qualityTier < 3) {
+              const c3 = rightBand - this.inputRightIc2Cascade[slot];
+              const c1 = this.a1[slot] * this.inputRightIc1Cascade[slot] + this.a2[slot] * c3;
+              const c2 = this.inputRightIc2Cascade[slot]
+                + this.a2[slot] * this.inputRightIc1Cascade[slot] + this.a3[slot] * c3;
+              this.inputRightIc1Cascade[slot] = 2 * c1 - this.inputRightIc1Cascade[slot];
+              this.inputRightIc2Cascade[slot] = 2 * c2 - this.inputRightIc2Cascade[slot];
+              rightBand += (c1 * this.k[slot] - rightBand) * this.current.cascade;
+            } else {
+              this.inputRightIc1Cascade[slot] = 0;
+              this.inputRightIc2Cascade[slot] = 0;
+            }
+            filteredRight += rightBand * this.gain[slot] * this.panRight[slot];
+          } else {
+            filteredRight += contribution * this.panRight[slot];
+          }
         }
       }
 
-      const rawLeft = (sourceA * 0.55 + sourceB * 0.15) * 0.22;
-      const rawRight = (sourceB * 0.55 + sourceA * 0.15) * 0.22;
+      // A filter's broadband endpoint preserves the original stereo signal.
+      // Generator gain staging and its correlated noise stereo remain exact.
+      const rawLeft = externalInput ? sourceA : (sourceA * 0.55 + sourceB * 0.15) * 0.22;
+      const rawRight = externalInput ? sourceB : (sourceB * 0.55 + sourceA * 0.15) * 0.22;
       const filteredMix = this.current.filteredMix;
       // Suppress the broadband bypass decisively through the upper half of
       // the control. The endpoints stay exact, while 50% now means 75% of the
@@ -7674,11 +7804,11 @@ export class MoireDroneKernel {
       const directGestureGain = this.directGestureGain;
       leftOutput[sample] = Math.max(-0.98, Math.min(
         0.98,
-        mixedLeft * directGestureGain * this.activeGain,
+        mixedLeft * directGestureGain * this.activeGain * this.sourceGain,
       ));
       rightOutput[sample] = Math.max(-0.98, Math.min(
         0.98,
-        mixedRight * directGestureGain * this.activeGain,
+        mixedRight * directGestureGain * this.activeGain * this.sourceGain,
       ));
       this.controlCounter = (this.controlCounter + 1) % CONTROL_INTERVAL;
     }
@@ -7711,6 +7841,12 @@ function createProcessorClass(AudioWorkletBase) {
           if (this.kernel.qualityTier !== previousTier) {
             this.postQuality("dense-lattice");
           }
+        } else if (message.type === "source-mode") {
+          this.kernel.setSourceMode(message.value);
+        } else if (message.type === "input-gain") {
+          this.kernel.setInputGain(message.value);
+        } else if (message.type === "input-reset") {
+          this.kernel.resetSourceAudio({ connecting: message.connecting === true });
         } else if (message.type === "active") {
           this.kernel.setActive(message.value);
         } else if (message.type === "reset") {
@@ -7779,12 +7915,12 @@ function createProcessorClass(AudioWorkletBase) {
       });
     }
 
-    process(_inputs, outputs) {
+    process(inputs, outputs) {
       const left = outputs[0]?.[0];
       const right = outputs[0]?.[1] ?? left;
       if (!left || !right) return true;
       const startedAt = this.performanceNow?.() ?? null;
-      this.kernel.process(left, right);
+      this.kernel.process(left, right, inputs[0]?.[0], inputs[0]?.[1] ?? inputs[0]?.[0]);
       if (startedAt !== null && this.performanceNow) {
         const elapsed = this.performanceNow() - startedAt;
         const quantum = left.length / this.kernel.sampleRate * 1_000;
@@ -7857,6 +7993,16 @@ export class MoireDroneAudio {
     this.analyser = null;
     this.outputRelease = null;
     this.enabled = false;
+    this.sourceMode = "noise";
+    this.inputGain = 1;
+    this.inputStream = null;
+    this.inputNode = null;
+    this.inputChannelNode = null;
+    this.inputGeneration = 0;
+    this.inputStartPromise = null;
+    this.inputAbort = null;
+    this.inputEndedListeners = [];
+    this.onInputStateChange = null;
     this.suspendTimer = null;
     this.lifecycleGeneration = 0;
     this.quality = Object.freeze({ tier: 0, activeFilters: this.params.filterPairs * 2, load: 0 });
@@ -7897,7 +8043,10 @@ export class MoireDroneAudio {
         throw new Error("Fabric Filter audio initialization was cancelled.");
       }
       const node = new AudioWorkletNodeConstructor(context, MOIRE_DRONE_PROCESSOR_NAME, {
-        numberOfInputs: 0,
+        numberOfInputs: 1,
+        channelCount: 2,
+        channelCountMode: "explicit",
+        channelInterpretation: "speakers",
         numberOfOutputs: 1,
         outputChannelCount: [2],
         processorOptions: { parameters: this.params },
@@ -7936,6 +8085,8 @@ export class MoireDroneAudio {
       this.master = master;
       this.analyser = analyser;
       this.setParameters(this.params);
+      node.port.postMessage({ type: "source-mode", value: this.sourceMode });
+      node.port.postMessage({ type: "input-gain", value: this.inputGain });
       this.outputRelease = attemptOutputRelease;
       attemptOutputRelease = null;
     } catch (error) {
@@ -7945,6 +8096,151 @@ export class MoireDroneAudio {
       await context.close().catch(() => {});
       throw error;
     }
+  }
+
+  get inputActive() {
+    return Boolean(this.inputStream);
+  }
+
+  get inputPending() {
+    return Boolean(this.inputStartPromise);
+  }
+
+  get inputDescription() {
+    return audioInputDescription(this.inputStream);
+  }
+
+  notifyInputState() {
+    try {
+      this.onInputStateChange?.({
+        sourceMode: this.sourceMode,
+        active: this.inputActive,
+        pending: this.inputPending,
+        description: this.inputDescription,
+      });
+    } catch { /* A UI observer cannot interrupt audio/device cleanup. */ }
+  }
+
+  setSourceMode(value) {
+    const mode = value === "input" ? "input" : "noise";
+    if (mode === this.sourceMode) return mode;
+    this.sourceMode = mode;
+    if (mode === "noise") this.stopInput();
+    this.node?.port.postMessage({ type: "source-mode", value: mode });
+    this.notifyInputState();
+    return mode;
+  }
+
+  setInputGain(value) {
+    this.inputGain = clamp(value, 0, 4, 1);
+    this.node?.port.postMessage({ type: "input-gain", value: this.inputGain });
+    return this.inputGain;
+  }
+
+  startInput(preferences = loadAudioInputSettings(this.runtime)) {
+    if (!this.isInitialized || !this.enabled || !this.node) {
+      return Promise.reject(new Error("Turn Audio on before connecting an input."));
+    }
+    if (this.sourceMode !== "input") {
+      return Promise.reject(new Error("Choose Mic / audio in before connecting an input."));
+    }
+    if (this.inputActive) return Promise.resolve(true);
+    if (this.inputStartPromise) return this.inputStartPromise;
+    const mediaDevices = this.runtime.navigator?.mediaDevices;
+    if (typeof mediaDevices?.getUserMedia !== "function") {
+      return Promise.reject(new Error("Mic / audio input requires a secure browser with audio capture support."));
+    }
+    // Device preferences are a snapshot for this explicit Connect action.
+    // Presets, Audio startup, host transport and source selection never call it.
+    const settings = normalizeAudioInputSettings(preferences);
+    const generation = ++this.inputGeneration;
+    const context = this.context;
+    const node = this.node;
+    const abort = new AbortController();
+    this.inputAbort = abort;
+    const isCurrent = () => generation === this.inputGeneration
+      && context === this.context && node === this.node && this.enabled
+      && context.state !== "closed" && this.sourceMode === "input"
+      && !abort.signal.aborted;
+    let request;
+    try {
+      request = Promise.resolve(mediaDevices.getUserMedia(audioInputConstraints(this.runtime, settings)));
+    } catch (error) {
+      request = Promise.reject(error);
+    }
+    // A browser permission prompt cannot itself be cancelled. Retire a stream
+    // granted after cancellation even after our user-facing promise has ended.
+    request.then((stream) => {
+      if (!isCurrent()) for (const track of stream.getTracks?.() ?? []) track.stop();
+    }, () => {});
+    const pending = (async () => {
+      let stream;
+      let source;
+      let channels;
+      try {
+        stream = await withAudioTimeout(request, { timeoutMs: 120_000, signal: abort.signal });
+        if (!isCurrent()) throw new DOMException("Audio input connection cancelled.", "AbortError");
+        if (!(stream.getAudioTracks?.() ?? []).some((track) => track.readyState !== "ended")) {
+          throw new Error("The selected input has no live audio track.");
+        }
+        source = context.createMediaStreamSource(stream);
+        // The explicit bus applies the mono/stereo preference to real stream
+        // channels; AudioNode.channelCount alone cannot downmix a source node.
+        channels = configureAudioInputNode(context.createGain(), this.runtime, settings);
+        channels.gain.value = 1;
+        source.connect(channels).connect(node);
+        this.inputStream = stream;
+        this.inputNode = source;
+        this.inputChannelNode = channels;
+        for (const track of stream.getAudioTracks()) {
+          const ended = () => { if (this.inputStream === stream) this.stopInput(); };
+          track.addEventListener?.("ended", ended, { once: true });
+          this.inputEndedListeners.push([track, ended]);
+        }
+        node.port.postMessage({ type: "input-reset", connecting: true });
+        return true;
+      } catch (error) {
+        abort.abort();
+        try { source?.disconnect(); } catch { /* Already detached. */ }
+        try { channels?.disconnect(); } catch { /* Already detached. */ }
+        for (const track of stream?.getTracks?.() ?? []) track.stop();
+        if (generation === this.inputGeneration) {
+          this.inputStream = this.inputNode = this.inputChannelNode = null;
+          for (const [track, ended] of this.inputEndedListeners) track.removeEventListener?.("ended", ended);
+          this.inputEndedListeners = [];
+        }
+        if (error.name === "AudioStartupTimeoutError") {
+          throw new Error("Audio input permission timed out. Connect again to retry.");
+        }
+        throw error;
+      } finally {
+        if (this.inputStartPromise === pending) {
+          this.inputStartPromise = null;
+          this.notifyInputState();
+        }
+      }
+    })();
+    this.inputStartPromise = pending;
+    this.notifyInputState();
+    return pending;
+  }
+
+  stopInput() {
+    const hadInput = this.inputActive || this.inputPending;
+    this.inputGeneration += 1;
+    this.inputAbort?.abort();
+    this.inputAbort = null;
+    this.inputStartPromise = null;
+    for (const [track, ended] of this.inputEndedListeners) track.removeEventListener?.("ended", ended);
+    this.inputEndedListeners = [];
+    try { this.inputNode?.disconnect(); } catch { /* Already detached. */ }
+    try { this.inputChannelNode?.disconnect(); } catch { /* Already detached. */ }
+    this.inputNode = this.inputChannelNode = null;
+    const stream = this.inputStream;
+    this.inputStream = null;
+    for (const track of stream?.getTracks?.() ?? []) track.stop();
+    if (hadInput) this.node?.port.postMessage({ type: "input-reset" });
+    this.notifyInputState();
   }
 
   clearSuspendTimer() {
@@ -8077,6 +8373,7 @@ export class MoireDroneAudio {
   }
 
   async stop() {
+    this.stopInput();
     this.clearSuspendTimer();
     if (!this.isInitialized) {
       this.enabled = false;
@@ -8097,6 +8394,7 @@ export class MoireDroneAudio {
   }
 
   async close() {
+    this.stopInput();
     this.lifecycleGeneration += 1;
     this.clearSuspendTimer();
     this.enabled = false;

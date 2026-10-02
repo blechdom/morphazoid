@@ -17,6 +17,7 @@ import {
   fabricGesturePull,
   fabricImpactPattern,
   normalizedResonanceQ,
+  propagationGainResponseFast,
   rotateFabricCoordinate,
   rotateFabricVector,
   sanitizeMoireDroneParams,
@@ -24,6 +25,12 @@ import {
   spectralWarpedCombGate,
   wrapUnit,
 } from "./moire-drone.js";
+import { registerHeaderPresets } from "../../site/header-presets.js";
+import { loadAudioInputSettings, normalizeAudioInputSettings, saveAudioInputSettings } from "../../audio-input-settings.js";
+import {
+  MOIRE_DRONE_FULL_PRESETS, captureMoireDronePreset,
+  validateMoireDronePreset, randomizeMoireDronePreset,
+} from "./full-presets.js";
 
 const $ = (id) => document.getElementById(id);
 const TAU = Math.PI * 2;
@@ -40,6 +47,10 @@ const FRAME_INTERVAL_TOLERANCE_MS = 0.75;
 const STATIC_GRID_PINK = "#ff5cad";
 const STATIC_GRID_GREEN = "#68f7a4";
 const firstPreset = MOIRE_DRONE_PRESETS[0];
+let presetController = null;
+let inputPreferences = loadAudioInputSettings();
+let inputGain = 1;
+let inputNotice = "";
 
 function manualFabricSettings(parameters = {}) {
   return sanitizeMoireDroneParams({
@@ -741,7 +752,7 @@ function visualSculptGeometry() {
       fabric,
       propagation,
       fabricDepth: effectiveFabricDepth,
-      propagationDepth: settings.propagationDepth,
+      propagationDepth: settings.propagationDepth * propagationGainResponseFast(settings.propagationGain),
       combWarp: effectiveCombWarp,
       octaveSpan,
       teeth: 1,
@@ -860,7 +871,7 @@ function updateVisualCombGeometry() {
       fabric,
       propagation,
       fabricDepth: currentVisualSculpt.fabricDepth,
-      propagationDepth: settings.propagationDepth,
+      propagationDepth: settings.propagationDepth * propagationGainResponseFast(settings.propagationGain),
       combWarp: currentVisualSculpt.combWarp,
       octaveSpan,
       teeth,
@@ -1207,12 +1218,6 @@ function updateInterface({ drawNow = true } = {}) {
   $("harmonicOrderControl").hidden = ![
     "harmonic", "spiral", "standing",
   ].includes(settings.propagationMode);
-  for (const button of $("presetGrid").querySelectorAll("[data-preset]")) {
-    setPressed(button, state.preset === button.dataset.preset);
-  }
-
-  const preset = MOIRE_DRONE_PRESETS.find(({ id }) => id === state.preset);
-  $("presetSummary").textContent = preset?.label ?? "Custom";
   $("filterEngineSummary").textContent = `${spectralSculptLabel(settings.spectralSculptMode)} · ${spectralFilterBlendLabel(settings.spectralFilterBlend)} · ${percent(settings.qCutDepth)} Q / ${percent(settings.fftCutDepth)} FFT`;
   $("noiseSummary").textContent = `${noiseTypeLabel(settings.noiseType)} · ${noiseColorLabel(settings.noiseColor)} · ${percent(settings.filteredMix)} filtered`;
   $("latticeSummary").textContent = `${settings.filterPairs} pairs · ${formatFrequency(settings.lowFrequency)}–${formatFrequency(settings.highFrequency)} · Q ${normalizedResonanceQ(settings.resonance).toFixed(1)}`;
@@ -1239,27 +1244,88 @@ function updateInterface({ drawNow = true } = {}) {
     : `static vector grid · ${spectralSculptLabel(settings.spectralSculptMode).toLowerCase()} · ${regionDescription}`;
   canvas.setAttribute(
     "aria-label",
-    `A static pink and green vector grid represents ${settings.filterPairs * 2} filters acting on one ${noiseTypeLabel(settings.noiseType).toLowerCase()} noise field. Field A is the X / warp filter and Field B is the Y / weft filter. The audible ${spectralSculptLabel(settings.spectralSculptMode).toLowerCase()} sculptor is at ${percent(settings.combDepth)} depth using ${spectralFilterBlendLabel(settings.spectralFilterBlend).toLowerCase()} filtering. Horizontal touch position selects frequency and X; vertical position selects the Y row and character. Pulling stores strain in that exact fabric patch and release sends a broad directional sheet wave through a ${fabricSections.columns} by ${fabricSections.rows} sounding section lattice with ${percent(settings.fabricPatchwork)} panel variation. A tap drops ${impactBodyLabel(settings.impactBody).toLowerCase()} using ${propagationLabel(settings.propagationMode).toLowerCase()} impact propagation. Up to ${settings.propagationVoices} directly triggered ${settings.propagationVoices === 1 ? "wave" : "waves"} may deform the grid. Audio ${state.audioOn ? "on" : "off"}.`,
+    `A pink and green vector grid represents ${settings.filterPairs * 2} filters acting on ${audio.sourceMode === "input" ? "live microphone or audio-interface input" : `one ${noiseTypeLabel(settings.noiseType).toLowerCase()} noise field`}. Field A is the X / warp filter and Field B is the Y / weft filter. The audible ${spectralSculptLabel(settings.spectralSculptMode).toLowerCase()} sculptor is at ${percent(settings.combDepth)} depth using ${spectralFilterBlendLabel(settings.spectralFilterBlend).toLowerCase()} filtering. Horizontal touch position selects frequency and X; vertical position selects the Y row and character. Pulling stores strain in that exact fabric patch and release sends a broad directional sheet wave through a ${fabricSections.columns} by ${fabricSections.rows} sounding section lattice with ${percent(settings.fabricPatchwork)} panel variation. A tap drops ${impactBodyLabel(settings.impactBody).toLowerCase()} using ${propagationLabel(settings.propagationMode).toLowerCase()} impact propagation. Up to ${settings.propagationVoices} directly triggered ${settings.propagationVoices === 1 ? "wave" : "waves"} may deform the grid. Audio ${state.audioOn ? "on" : "off"}.`,
   );
 
   updateAudioParameters();
+  updateInputControls();
+  presetController?.refresh();
   if (drawNow) draw(performance.now(), true);
 }
 
-function renderPresets() {
-  const fragment = document.createDocumentFragment();
-  for (const preset of MOIRE_DRONE_PRESETS) {
-    const button = document.createElement("button");
-    const label = document.createElement("b");
-    button.type = "button";
-    button.dataset.preset = preset.id;
-    button.setAttribute("aria-pressed", String(preset.id === state.preset));
-    label.textContent = preset.label;
-    button.append(label);
-    button.addEventListener("click", () => applyPreset(preset.id));
-    fragment.append(button);
+function updateInputControls() {
+  const live = audio.sourceMode === "input";
+  $("sourceMode").value = audio.sourceMode;
+  $("liveInputControls").hidden = !live;
+  $("noiseControls").hidden = live;
+  $("inputChannels").value = String(inputPreferences.inputChannels);
+  $("inputGain").value = String(inputGain);
+  $("inputGainOut").textContent = `${inputGain.toFixed(2)}×`;
+  const button = $("inputButton");
+  button.disabled = !state.audioOn || audioTransition;
+  button.textContent = audio.inputPending ? "Cancel connection" : audio.inputActive ? "Disconnect input" : "Connect input";
+  button.setAttribute("aria-pressed", String(audio.inputActive));
+  $("inputStatus").textContent = audio.inputPending ? "Waiting for input permission…"
+    : audio.inputActive ? audio.inputDescription
+      : !state.audioOn ? "Turn Audio on, then connect a microphone or audio interface."
+        : inputNotice || "Choose a microphone or audio interface, then Connect input.";
+}
+
+async function refreshInputDevices() {
+  const select = $("inputDevice");
+  let devices = [];
+  try { devices = await navigator.mediaDevices?.enumerateDevices?.() ?? []; }
+  catch { /* The default device remains usable before a grant. */ }
+  if (disposed) return;
+  const options = [{ deviceId: "", label: "System default" },
+    ...devices.filter(device => device.kind === "audioinput" && device.deviceId && device.deviceId !== "default")];
+  if (inputPreferences.inputId && !options.some(device => device.deviceId === inputPreferences.inputId)) {
+    options.push({ deviceId: inputPreferences.inputId, label: "Saved input (connect to check)" });
   }
-  $("presetGrid").replaceChildren(fragment);
+  select.replaceChildren(...options.map((device, index) => {
+    const option = document.createElement("option");
+    option.value = device.deviceId;
+    option.textContent = device.label || `Audio input ${index}`;
+    return option;
+  }));
+  select.value = inputPreferences.inputId;
+}
+
+function changeInputPreferences() {
+  const next = normalizeAudioInputSettings({ ...inputPreferences,
+    inputId: $("inputDevice").value, inputChannels: $("inputChannels").value });
+  // stopInput notifies the UI synchronously; preserve the newly chosen values
+  // before that observer redraws controls using the previous preferences.
+  audio.stopInput();
+  inputPreferences = next;
+  saveAudioInputSettings(inputPreferences);
+  inputNotice = "Input settings changed. Connect input to use them.";
+  updateInputControls();
+}
+
+async function toggleInput() {
+  if (audio.inputActive || audio.inputPending) {
+    audio.stopInput();
+    inputNotice = "Input disconnected.";
+    updateInputControls();
+    return;
+  }
+  if (!state.audioOn || audioTransition || audio.sourceMode !== "input") return;
+  inputNotice = "";
+  try {
+    await audio.startInput(inputPreferences);
+    if (disposed) return;
+    await refreshInputDevices();
+  } catch (error) {
+    if (!disposed && audio.sourceMode === "input" && error.name !== "AbortError") {
+      inputNotice = error.name === "NotAllowedError"
+        ? "Input permission was denied. Allow microphone access, then try Connect input again."
+        : error.name === "NotFoundError" || error.name === "OverconstrainedError"
+          ? "That input is unavailable. Choose another device and connect again."
+          : `Input could not connect: ${error.message}`;
+    }
+  }
+  if (!disposed) updateInputControls();
 }
 
 function setParameter(key, value, { announceChange = false } = {}) {
@@ -1281,34 +1347,33 @@ function setParameter(key, value, { announceChange = false } = {}) {
   if (announceChange) announce(`${key} changed.`);
 }
 
-function applyPreset(id) {
-  const preset = MOIRE_DRONE_PRESETS.find((candidate) => candidate.id === id);
-  if (!preset) return;
+function applyPresetSnapshot(snapshot) {
+  validateMoireDronePreset(snapshot);
   const outputLevel = state.settings.outputLevel;
   state.settings = {
     ...manualFabricSettings({
-      ...MOIRE_DRONE_DEFAULTS,
-      ...preset.settings,
+      ...snapshot.settings,
       outputLevel,
     }),
   };
-  state.preset = preset.id;
+  state.preset = null;
   updateAudioParameters();
   resetVisualDynamics();
   audio.resetFabric();
   updateInterface();
-  announce(`${preset.label} preset loaded.`);
 }
 
 function setAudioTransition(active) {
   audioTransition = active;
   $("audioButton").disabled = active;
   $("fabricExciteButton").disabled = active;
+  updateInputControls();
 }
 
-function ensureAudioOn() {
+function ensureAudioOn({ explicit = false } = {}) {
   if (state.audioOn) return Promise.resolve(true);
   if (audioStartPromise) return audioStartPromise;
+  if (!explicit) return Promise.resolve(false);
   if (audioTransition) return Promise.resolve(false);
   audioStartPromise = (async () => {
     setAudioTransition(true);
@@ -1343,7 +1408,7 @@ function ensureAudioOn() {
 
 async function toggleAudio() {
   if (!state.audioOn) {
-    await ensureAudioOn();
+    await ensureAudioOn({ explicit: true });
     return;
   }
   if (audioTransition) return;
@@ -2113,14 +2178,39 @@ $("gridDensity").addEventListener("change", () => {
 });
 
 $("audioButton").addEventListener("click", toggleAudio);
+$("sourceMode").addEventListener("change", () => {
+  audio.setSourceMode($("sourceMode").value);
+  inputNotice = "";
+  updateInterface();
+  if (audio.sourceMode === "input") void refreshInputDevices();
+});
+$("inputButton").addEventListener("click", () => { void toggleInput(); });
+$("inputDevice").addEventListener("change", changeInputPreferences);
+$("inputChannels").addEventListener("change", changeInputPreferences);
+$("inputGain").addEventListener("input", () => {
+  inputGain = Math.max(0, Math.min(4, Number($("inputGain").value) || 0));
+  audio.setInputGain(inputGain);
+  updateInputControls();
+});
+let previousInputActive = false;
+audio.onInputStateChange = ({ active, pending }) => {
+  if (disposed) return;
+  if (previousInputActive && !active && !pending) inputNotice = "Input disconnected. Connect again when ready.";
+  previousInputActive = active;
+  updateInputControls();
+};
+navigator.mediaDevices?.addEventListener?.("devicechange", refreshInputDevices);
 
 $("fabricExciteButton").addEventListener("click", async () => {
-  if (!await ensureAudioOn()) return;
+  const interactionGeneration = fabricInteractionGeneration;
+  const audioReady = await ensureAudioOn();
+  if (disposed || interactionGeneration !== fabricInteractionGeneration) return;
   triggerImpactAt(
     state.settings.originX,
     state.settings.originY,
     Math.min(1.6, 0.5 + state.settings.fabricPull * 0.55),
     0.2 + state.settings.fabricInertia * 0.12,
+    { sendAudio: audioReady && state.audioOn },
   );
   draw(performance.now(), true);
   announce(`${impactBodyLabel()} dropped into the X / Y filter fabric with ${propagationLabel().toLowerCase()} propagation.`);
@@ -2316,12 +2406,11 @@ async function releasePointer(event, { cancelled = false } = {}) {
   if (cancelled) return;
   const audioReady = audioWasReady || await ensureAudioOn();
   if (
-    !audioReady
-    || disposed
+    disposed
     || releaseInteractionGeneration !== fabricInteractionGeneration
   ) return;
   if (!wasQuickTap) {
-    if (!audioWasReady) {
+    if (!audioWasReady && audioReady && state.audioOn) {
       // Audio startup creates a fresh membrane. Rebuild the final held vector
       // once, then remove its constraint, instead of substituting a wave.
       audio.tugFabric(
@@ -2341,6 +2430,7 @@ async function releasePointer(event, { cancelled = false } = {}) {
     Math.min(1.35, 0.38 + state.settings.fabricPull * 0.42),
     0.16 + state.settings.fabricInertia * 0.1,
     {
+      sendAudio: audioReady && state.audioOn,
       audioX: releaseAudioAnchorX,
       audioY: releaseAudioAnchorY,
       gesture: releaseGesture,
@@ -2357,7 +2447,9 @@ $("stage").addEventListener("lostpointercapture", (event) => releasePointer(even
 $("stage").addEventListener("keydown", async (event) => {
   if (event.key === "Enter") {
     event.preventDefault();
-    if (!await ensureAudioOn()) return;
+    const interactionGeneration = fabricInteractionGeneration;
+    const audioReady = await ensureAudioOn();
+    if (disposed || interactionGeneration !== fabricInteractionGeneration) return;
     const keyboardWidth = (keyboardSculptY + 1) * 0.5;
     triggerImpactAt(
       keyboardSculptX,
@@ -2366,6 +2458,7 @@ $("stage").addEventListener("keydown", async (event) => {
         ? 1.35
         : Math.min(1.1, 0.38 + state.settings.fabricPull * 0.42),
       0.1 + keyboardWidth * 0.28,
+      { sendAudio: audioReady && state.audioOn },
     );
     draw(performance.now(), true);
     announce(`${event.shiftKey ? "Strong " : ""}${impactBodyLabel().toLowerCase()} dropped into the ${spectralSculptLabel().toLowerCase()} near ${formatFrequency(frequencyAtStageX(keyboardSculptX))}.`);
@@ -2424,6 +2517,7 @@ document.addEventListener("visibilitychange", () => {
     resizeCanvas();
   } else {
     releasePointer(undefined, { cancelled: true });
+    audio.stopInput();
   }
 });
 
@@ -2435,10 +2529,19 @@ globalThis.addEventListener("pagehide", () => {
   releasePointer(undefined, { cancelled: true });
   cancelAnimationFrame(animationFrame);
   resizeObserver?.disconnect();
+  navigator.mediaDevices?.removeEventListener?.("devicechange", refreshInputDevices);
+  presetController?.destroy();
   audio.close();
 }, { once: true });
 
-renderPresets();
+presetController = registerHeaderPresets({
+  id: "moire-drone",
+  presets: MOIRE_DRONE_FULL_PRESETS,
+  capture: () => captureMoireDronePreset(state.settings),
+  apply: applyPresetSnapshot,
+  randomize: randomizeMoireDronePreset,
+});
+void refreshInputDevices();
 updateInterface({ drawNow: false });
 resizeCanvas();
 animationFrame = requestAnimationFrame(animate);

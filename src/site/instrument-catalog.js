@@ -517,10 +517,10 @@ const CATALOG_DETAILS = Object.freeze({
     ["Modal synthesis", "Mic input", "WebAssembly SIMD", "AudioWorklet", "Pointer"],
   ),
   "moire-drone": define(
-    "Noise-field drone",
-    "Sends correlated colored noise through interacting two-dimensional wave fields, a Shepard-wrapped Q/FFT lattice, and a visible damped mass-spring frequency fabric shaped by direct grabs and user-triggered propagation.",
-    "Turn on audio, choose a preset and sculptor, then grab or pluck the fabric. There are no hidden audio-only LFOs, drifts, motors, or automatic plucks: the direct grab override ends on release, and only visibly moving fabric and user-triggered waves continue moving the spectral controls while normal audio tails decay.",
-    ["Built-in noise", "Pointer", "Spectral propagation", "Adaptive DSP"],
+    "Spectral fabric filter",
+    "Sends built-in colored noise or live microphone and audio-interface input through interacting two-dimensional wave fields, a Shepard-wrapped Q/FFT lattice, and a visible damped mass-spring frequency fabric shaped by direct grabs and user-triggered propagation.",
+    "Turn on Audio, choose a preset and sculptor, then grab or pluck the fabric. To filter live sound, choose Mic / Audio In, select the device and channels, then Connect input. Presets, Next and Random preserve the source, input connection and output level; motion remains manual.",
+    ["Built-in noise", "Mic input", "Audio interface", "Pointer", "Spectral propagation", "Adaptive DSP", "Presets"],
   ),
   "drum-roll-please": define(
     "Rhythm synth",
