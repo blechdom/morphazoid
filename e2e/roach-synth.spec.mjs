@@ -274,10 +274,13 @@ test('Say it speaks edited words while the body is held and does not arm Audio i
   await expect(page.locator('#speakButton')).toHaveText('Say it');
   await page.locator('#speakButton').click(); expect((await snapshot(page)).audio.contextState).toBe('uninitialized');
   await arm(page); await page.locator('#phrase').fill('hello tiny robot bug');
+  // Native speech can finish before a later meter query reaches the browser.
+  // Record the actual output throughout preparation and playback.
+  const envelopePromise = sampleAudioEnvelope(page, { durationMs: 12000, intervalMs: 40 });
   await page.locator('#phrase').press('Control+Enter');
   await expect.poll(async () => (await snapshot(page)).audio.speechEnvelope, { timeout: 12000 }).toBeGreaterThan(.0001);
   expect((await snapshot(page)).playing).toBe(false); expect((await snapshot(page)).soundPlaying).toBe(false);
-  const envelope = await sampleAudioEnvelope(page, { durationMs: 350 });
+  const envelope = await envelopePromise;
   expect(envelope.summary.maxPeak).toBeGreaterThan(.001); expect(envelope.summary.clippedSamples).toBe(0);
 });
 
