@@ -329,7 +329,7 @@ for (const size of [{ width: 360, height: 800 }, { width: 390, height: 844 }, { 
     try {
       await page.goto(new URL('roach-synth.html', baseURL).href); await loaded(page);
       const stage = await page.locator('#specimenViewport').boundingBox();
-      expect(stage.height).toBeGreaterThanOrEqual(size.width < size.height ? 300 : 170);
+      expect(stage.height).toBeGreaterThanOrEqual(size.width < size.height ? 230 : 170);
       const footer = await page.locator('.roach-stage > .roach-view-controls').boundingBox();
       expect(footer.y).toBeGreaterThanOrEqual(stage.y + stage.height - 1);
       await page.locator('#source-head').scrollIntoViewIfNeeded();

@@ -3,7 +3,7 @@ import { sampleAudioEnvelope } from './helpers/audio-probe.mjs';
 
 test.setTimeout(90000);
 const groups = ['legs', 'covers', 'hindwings', 'thorax', 'abdomen', 'neck', 'head', 'antennae'];
-const sources = ['resonance', 'drone', 'sub', 'shimmer', 'buzz', 'zing', 'skuttle', 'walls', 'rustle', 'shriek', 'hiss', 'growl', 'footsteps', 'fm', 'rattle', 'pluck', 'sine', 'click', 'clack'];
+const sources = ['resonance', 'drone', 'sub', 'shimmer', 'buzz', 'zing', 'skuttle', 'walls', 'rustle', 'shriek', 'hiss', 'growl', 'footsteps', 'fm', 'rattle', 'pluck', 'sine', 'click', 'clack', 'voice-espeak', 'voice-klatt', 'voice-slt', 'voice-kal'];
 const state = page => page.evaluate(() => window.roachSynth.getState());
 async function open(page) {
   await page.goto('roach-synth.html');
@@ -251,7 +251,7 @@ test('Random sound changes complete tone parameters and body assignments while p
   await page.locator('#randomSound').click(); const first = await state(page);
   for (const key of ['pitch', 'brightness', 'resonance', 'crunch', 'vowel', 'wingRate', 'rhythm', 'pan', 'voice']) expect(first.sound[key]).not.toBe(before.sound[key]);
   expect(first.bodyMix).not.toEqual(before.bodyMix); expect(first.bodyMix).toHaveLength(8);
-  expect(first.bodyMix.every(row => Boolean(row.source) && row.level >= 0 && row.level <= 1)).toBe(true);
+  expect(first.bodyMix.every(row => sources.includes(row.source) && row.level >= 0 && row.level <= 1)).toBe(true);
   expect(first.sound.level).toBe(.42); expect(first.soundPlaying).toBe(true); expect(first.playing).toBe(true);
   expect(first.audio.contextState).toBe('uninitialized');
   await page.locator('#randomSound').click(); const second = await state(page);
