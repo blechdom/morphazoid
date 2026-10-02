@@ -112,7 +112,7 @@ test('index chooser opens the compact instrument with a held neutral body and Au
   expect(held.time).toBe(initial.time);
   expect(held.bones.map(joint => joint.quaternion)).toEqual(initial.bones.map(joint => joint.quaternion));
   expect(await page.evaluate(() => {
-    const ids = ['soundPlayButton', 'phrase', 'motionButton', 'bodyMixer'];
+    const ids = ['header-preset-panel', 'soundPlayButton', 'motionButton', 'soundPreset', 'phrase', 'bodyMixer', 'midiPanic'];
     return ids.slice(1).every((id, i) => Boolean(document.getElementById(ids[i]).compareDocumentPosition(document.getElementById(id)) & Node.DOCUMENT_POSITION_FOLLOWING));
   })).toBe(true);
   expect(failures).toEqual([]);
@@ -125,8 +125,7 @@ test('four anatomical views, free orbit, explicit zoom buttons and keyboard fit 
   for (const id of ['viewPresets', 'sideToggle', 'resetCamera', 'zoomIn', 'zoomOut', 'dragAxis', 'touch3D', 'showJoints', 'gestureInfo']) {
     await expect(controls.locator(`#${id}`)).toHaveCount(1);
   }
-  expect(await controls.evaluate(element => element.parentElement.firstElementChild === element
-    && Boolean(element.compareDocumentPosition(document.getElementById('soundPlayButton')) & Node.DOCUMENT_POSITION_FOLLOWING))).toBe(true);
+  expect(await controls.evaluate(element => Boolean(document.getElementById('phrase').compareDocumentPosition(element) & Node.DOCUMENT_POSITION_FOLLOWING))).toBe(true);
   const info = page.locator('#gestureInfo'), help = page.locator('#gestureHelp');
   await expect(info).toHaveAccessibleName(/help|gesture/i);
   await expect(info).toHaveAttribute('aria-controls', 'gestureHelp'); await expect(help).toBeHidden();
@@ -303,7 +302,7 @@ for (const size of [{ width: 360, height: 800 }, { width: 390, height: 844 }, { 
         const currentStage = await page.locator('#specimenViewport').boundingBox(), header = await page.locator('.masthead').boundingBox();
         return Math.abs(currentStage.y - header.y - header.height);
       }).toBeLessThanOrEqual(1);
-      for (const selector of ['[data-view=side]', '#dragAxis', '#posePreset', '#phrase', '#motionPreset', '#source-antennae', '#crunch']) {
+      for (const selector of ['.header-preset-picker summary', '.header-preset-next', '.header-preset-random', '[data-view=side]', '#dragAxis', '#posePreset', '#phrase', '#motionPreset', '#source-antennae', '#crunch', '#midiPanic']) {
         await page.locator(selector).evaluate(element => element.scrollIntoView({ block: 'start', behavior: 'instant' }));
         const box = await page.locator(selector).boundingBox();
         expect(box.y + box.height).toBeLessThanOrEqual(size.height + 1);
@@ -333,3 +332,45 @@ for (const size of [{ width: 360, height: 800 }, { width: 390, height: 844 }, { 
     } finally { await context.close(); }
   });
 }
+
+
+test('full presets, Next and dice animate every scene without changing volume or arming Audio', async ({ page }) => {
+  test.setTimeout(300000);
+  await page.setViewportSize({ width: 390, height: 844 });
+  const failures = []; page.on('pageerror', error => failures.push(error.message));
+  page.on('console', message => { if (message.type() === 'error') failures.push(message.text()); });
+  await openRoach(page);
+  await page.locator('#level').fill('0.42'); await page.locator('#voice').fill('0.33');
+  const camera = (await snapshot(page)).camera;
+  await expect(page.locator('.header-preset-controls')).toHaveAttribute('data-preset-id', 'unselected');
+  const ids = await page.locator('[data-full-preset]').evaluateAll(buttons => buttons.map(button => button.dataset.presetId));
+  expect(ids).toHaveLength(24);
+  await page.locator('.header-preset-picker summary').click();
+  await page.locator(`[data-full-preset][data-preset-id="${ids[0]}"]`).click();
+  for (const [index, id] of ids.entries()) {
+    if (index) await page.locator('.header-preset-next').click();
+    await expect(page.locator('.header-preset-controls')).toHaveAttribute('data-preset-id', id);
+    const state = await snapshot(page);
+    expect(state.playing).toBe(true); expect(state.motionSettings.antennae).toBe(true);
+    expect(state.sound.level).toBe(.42); expect(state.sound.voice).toBe(.33);
+    expect(state.audio.contextState).toBe('uninitialized'); expect(state.camera).toEqual(camera);
+  }
+  await page.locator('#motionButton').click(); expect((await snapshot(page)).playing).toBe(false);
+  await page.locator('.header-preset-next').click();
+  await expect(page.locator('.header-preset-controls')).toHaveAttribute('data-preset-id', ids[0]);
+  expect((await snapshot(page)).playing).toBe(true);
+  await page.locator('.header-preset-next').focus(); await page.keyboard.press('ArrowRight');
+  await expect(page.locator('.header-preset-controls')).toHaveAttribute('data-preset-id', ids[1]);
+  expect((await snapshot(page)).motionChoice).toBe(ids[1]);
+  await page.locator('#soundPlayButton').click(); await arm(page);
+  const before = await snapshot(page);
+  await page.locator('.header-preset-random').click();
+  await expect(page.locator('.header-preset-controls')).toHaveAttribute('data-preset-id', 'custom');
+  const random = await snapshot(page);
+  expect(random.playing).toBe(true); expect(random.soundPlaying).toBe(true); expect(random.audioOn).toBe(true);
+  expect(random.sound.level).toBe(.42); expect(random.sound.voice).toBe(.33);
+  expect(random.time).toBeGreaterThanOrEqual(before.time); expect(random.camera).toEqual(camera);
+  expect(random.motionSettings.antennae).toBe(true);
+  await expect.poll(async () => (await snapshot(page)).audio.peak).toBeGreaterThan(.0001);
+  expect(failures).toEqual([]);
+});

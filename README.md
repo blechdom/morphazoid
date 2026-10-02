@@ -97,7 +97,11 @@ scratches, wing buzz, wire zing and short CC0 cockroach rustles; six shared
 foot-contact streams supply the scuttling rhythm. Eighteen sound/voice presets,
 random sounds, 24 static poses, 24 interleaved animations and random motion
 blends keep the sound and animation players independent. Tiny robot words have
-their own voice level. The larger mobile specimen stays visible while controls
+their own voice level. Twenty-four complete presets, Next and dice combine
+animation and sound while preserving master and voice output levels. The mobile
+controls start with presets, Sound/Pose, Animation, sound presets and Voice;
+MIDI is at the bottom. Antennae explore during every animation, without a
+metronome. The larger mobile specimen stays visible while controls
 scroll below; explicit zoom buttons isolate zoom from body manipulation.
 The default 13.6 MB model replaces a 40 MB startup download, preserves joint
 positions and animations, and reduces texture memory by using smaller normal

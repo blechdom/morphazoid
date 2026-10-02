@@ -163,19 +163,13 @@ test('Click and Clack have distinct dry and woody tails from one real foot strik
   assert.equal(getRoachMotionSound('dance_robot').bodyMix[0].source, 'clack');
 });
 
-test('optional metronome uses the sample clock, preserves phase through pause and never arms sound', () => {
-  const dsp = engine({ enabled: false, playing: true, metronome: true, bodyMix: muted(), motion: { presetId: 'none', tempo: 120, antennae: false } });
-  assert.equal(peak(render(dsp, .2).left), 0); assert.equal(dsp.metronomeEvents, 0);
-  dsp.update({ enabled: true }); render(dsp, .2); assert.equal(dsp.metronomeEvents, 0, 'arming between beats does not invent a click');
-  const signal = render(dsp, .2); assert.equal(dsp.metronomeEvents, 1); assert.ok(peak(signal.left) > .02);
-  assert.ok(Math.abs(dsp.lastMetronomeTime - .5) < 1 / RATE);
-  dsp.update({ playing: false }); render(dsp, .2); assert.equal(dsp.metronomeEvents, 1);
-  dsp.update({ playing: true }); render(dsp, .2); assert.equal(dsp.metronomeEvents, 1, 'resume mid-beat waits for the next grid point');
-  render(dsp, .3); assert.equal(dsp.metronomeEvents, 2);
-  dsp.update({ metronome: false }); render(dsp, .2); assert.ok(peak(render(dsp, .2).left) < 1e-7);
-  assert.equal(dsp.metronomeEvents, 2);
-  const first = engine({ metronome: true, bodyMix: muted(), motion: { presetId: 'none', tempo: 90, antennae: false } });
-  render(first, .7); assert.equal(first.metronomeEvents, 2); assert.ok(Math.abs(first.lastMetronomeTime - 2 / 3) <= 1 / RATE);
+test('legacy metronome requests cannot add sound to a muted instrument', () => {
+  const dsp = engine({ enabled: true, playing: true, metronome: true, bodyMix: muted(),
+    motion: { presetId: 'side_walk', tempo: 120, antennae: true } });
+  assert.equal(peak(render(dsp, 1.1).left), 0);
+  dsp.update({ metronome: true, soundPlaying: true });
+  assert.equal(peak(render(dsp, .7).left), 0);
+  assert.ok(dsp.time > 1.7);
 });
 
 test('held Sound Play is healthy smooth sound without motion, grains, or fictional contacts', () => {

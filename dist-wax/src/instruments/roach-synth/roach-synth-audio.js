@@ -1,13 +1,13 @@
 import { connectAudioOutput } from '../../audio-output-manager.js';
 import { SPELLING_DIPHONE_ATLAS_URL, SPELLING_DIPHONE_CLIPS } from '../spelling-synthesizer/spelling-diphone-atlas.js';
 import { loadSpellingPronunciations, spellingPhoneDefinition, spellingPronunciationTokens } from '../spelling-synthesizer/spelling-pronunciation.js';
-import { normalizeRoachSound, ROACH_SOUND_DEFAULTS, normalizeRoachBodyMix, createDefaultRoachBodyMix } from './roach-synth-dsp.js?v=54f237f4207f';
-import { RoachMidiPerformance, normalizeRoachMidiMessage } from './roach-synth-midi.js?v=54f237f4207f';
+import { normalizeRoachSound, ROACH_SOUND_DEFAULTS, normalizeRoachBodyMix, createDefaultRoachBodyMix } from './roach-synth-dsp.js?v=7608886131fe';
+import { RoachMidiPerformance, normalizeRoachMidiMessage } from './roach-synth-midi.js?v=7608886131fe';
 
 export { ROACH_SOUND_DEFAULTS, ROACH_SOUND_PRESETS, ROACH_MOD_TARGETS,
   createDefaultRoachMappings, normalizeRoachSound, ROACH_BODY_GROUPS, ROACH_BODY_SOURCES,
   createDefaultRoachBodyMix, normalizeRoachBodyMix, createRandomRoachSound, getRoachBodyGroupId,
-  ROACH_MOTION_SOUND_PRESETS, getRoachMotionSound } from './roach-synth-dsp.js?v=54f237f4207f';
+  ROACH_MOTION_SOUND_PRESETS, getRoachMotionSound } from './roach-synth-dsp.js?v=7608886131fe';
 
 const finite = (value, fallback = 0) => Number.isFinite(Number(value)) ? Number(value) : fallback;
 const safeCall = (callback, value) => { try { callback?.(value); } catch {} };
@@ -157,7 +157,7 @@ export class RoachSynthAudio {
       if (!context.audioWorklet?.addModule || typeof this.runtime.AudioWorkletNode !== 'function') {
         throw new Error('Roach Synth requires AudioWorklet support.');
       }
-      await context.audioWorklet.addModule(new URL('./roach-synth-processor.js?v=54f237f4207f', import.meta.url));
+      await context.audioWorklet.addModule(new URL('./roach-synth-processor.js?v=7608886131fe', import.meta.url));
       if (this.disposed || this.context !== context || context.state === 'closed') throw cancelled();
       const node = new this.runtime.AudioWorkletNode(context, 'roach-synth', {
         numberOfInputs: 0, numberOfOutputs: 1, outputChannelCount: [2], channelCount: 2,
@@ -174,7 +174,6 @@ export class RoachSynthAudio {
             renderedFrames: finite(data.renderedFrames), motionTime: finite(data.motionTime), soundTime: finite(data.soundTime),
             contactEvents: finite(data.contactEvents), lastContactTime: finite(data.lastContactTime, -1),
             recordingEvents: finite(data.recordingEvents),
-            metronomeEvents: finite(data.metronomeEvents), lastMetronomeTime: finite(data.lastMetronomeTime, -1),
             midiActive: finite(data.midiActive), midiEvents: finite(data.midiEvents),
             midiNotes: Array.from(data.midiNotes ?? [], value => finite(value, -1)),
             midiGates: Array.from(data.midiGates ?? [], value => finite(value)),
@@ -323,7 +322,8 @@ export class RoachSynthAudio {
       ]);
       if (!this.enabled || this.disposed || generation !== this.speechGeneration) return false;
       this.post({ type: 'speak', phones: createRoachSpeechPlan(text, pronunciations) });
-      safeCall(this.onStatus, 'The roach is speaking.'); return true;
+      safeCall(this.onStatus, '');
+      return true;
     } catch (error) {
       if (!this.disposed && generation === this.speechGeneration && error.name !== 'AbortError') {
         safeCall(this.onStatus, `Speech unavailable: ${error.message}. The other sound layers remain playable.`);

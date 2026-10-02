@@ -38,7 +38,6 @@ body.roach-synth-page { --accent: #c2df85; --accent-soft: #9aaa71; --accent-glow
 .roach-control-row .play-button[aria-pressed="true"] .transport-play { display: none; }
 .roach-control-row .play-button[aria-pressed="true"] .transport-pause { display: block; }
 .roach-control-row .play-button:disabled { opacity: .4; cursor: default; }
-.roach-invitation { margin: 12px 0 1px; color: var(--accent); font-size: 10px; }
 .roach-panel .select-shell { min-width: 0; }
 .roach-panel .select-shell select { padding-right: 28px; }
 .roach-panel .select-shell::after { right: 11px; }
@@ -60,8 +59,6 @@ body.roach-synth-page { --accent: #c2df85; --accent-soft: #9aaa71; --accent-glow
 .roach-motion-controls .control { margin: 0; }
 .roach-motion-controls .control b, .roach-motion-controls output { font-size: 10px; }
 .roach-motion-controls input { height: 30px; }
-.roach-check { display: flex; align-items: center; gap: 7px; min-height: 30px; color: var(--muted); font-size: 10px; }
-.roach-check input { width: 16px; height: 16px; margin: 0; accent-color: var(--accent); }
 .roach-midi-status { display: block; min-height: 18px; margin: 6px 0; color: var(--accent); font: 10px/1.6 var(--mono); }
 .roach-midi details { font: 10px/1.6 var(--mono); color: var(--muted); }
 .roach-midi summary { padding: 8px 0; cursor: pointer; color: var(--accent); }
@@ -71,10 +68,6 @@ body.roach-synth-page { --accent: #c2df85; --accent-soft: #9aaa71; --accent-glow
 .roach-midi-keymap { display: grid; grid-template-columns: 30px minmax(0, 1fr) 30px minmax(0, 1fr); gap: 5px 8px; margin: 10px 0; }
 .roach-midi-keymap dt { color: var(--accent); }.roach-midi-keymap dd { margin: 0; }
 .roach-midi #midiPanic { min-width: 0; min-height: 26px; height: 26px; padding: 4px 6px; font-size: 8px; }
-.roach-beat-controls { display: flex; align-items: center; gap: 16px; }
-.roach-beat { display: flex; gap: 7px; }
-.roach-beat i { width: 9px; height: 9px; border: 1px solid var(--accent-soft); border-radius: 50%; }
-.roach-beat i.is-active { background: var(--accent); }
 .roach-mixer-heading { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 6px 0 10px; }
 .roach-mixer-heading h2 { font-size: 10px; color: var(--accent); font-weight: 500; letter-spacing: .13em; text-transform: uppercase; margin: 0; }
 .roach-mixer-heading .mini-action { padding: 5px 7px; font-size: 8px; }
@@ -110,7 +103,7 @@ body.roach-synth-page { --accent: #c2df85; --accent-soft: #9aaa71; --accent-glow
  .roach-stage { display: contents; overflow: visible; }
  .roach-viewport { position: sticky; top: var(--roach-header-height, 58px); z-index: 20; height: var(--roach-mobile-height); min-height: 0; flex: none; box-shadow: 0 8px 18px #0007; }
  .roach-panel { display: block; overflow: visible; padding-bottom: max(24px, env(safe-area-inset-bottom)); }
- .roach-panel :is(button, input, select, textarea, summary) { scroll-margin-top: calc(var(--roach-header-height, 58px) + var(--roach-mobile-height) + 16px); scroll-margin-bottom: 12px; }
+ .roach-panel :is(button, input, select, textarea, summary, .roach-knob) { scroll-margin-top: calc(var(--roach-header-height, 58px) + var(--roach-mobile-height) + 16px); scroll-margin-bottom: 12px; }
 }
 @media (max-width: 600px) {
  .roach-heading { top: 16px; left: 16px; }
@@ -119,7 +112,7 @@ body.roach-synth-page { --accent: #c2df85; --accent-soft: #9aaa71; --accent-glow
 }
 @media (pointer: coarse) {
  .roach-synth-page #audioButton, .roach-control-row .play-button { min-width: 48px; min-height: 48px; width: 48px; height: 48px; }
- .roach-panel select, .roach-panel .mini-action, .roach-stage-toolbar button, .roach-interaction-tools button, .roach-interaction-tools select, .roach-check, .roach-body-name, .roach-notes summary { min-height: 44px; }
+ .roach-panel select, .roach-panel .mini-action, .roach-stage-toolbar button, .roach-interaction-tools button, .roach-interaction-tools select, .roach-body-name, .roach-notes summary { min-height: 44px; }
  .roach-motion-controls input { height: 44px; }
  .roach-body-row { grid-template-columns: minmax(60px, .85fr) minmax(80px, 1.25fr) 44px 36px 36px; gap: 4px; }
  .roach-body-row > [data-mute], .roach-body-row > [data-solo], .roach-inline-arrows button { min-height: 44px; }
@@ -138,3 +131,8 @@ body.roach-synth-page { --accent: #c2df85; --accent-soft: #9aaa71; --accent-glow
  .roach-axis { margin-left: 6px; }
  #gestureHelp { width: min(340px, calc(100vw - 48px)); }
 }
+
+.roach-presets { padding-top: 8px; }
+.roach-presets > .instrument-preset-controls { position: relative; z-index: auto; padding: 0; border: 0; }
+.roach-presets .header-preset-picker { flex: 1; min-width: 0; }
+.roach-presets .instrument-picker-trigger { width: 100%; }
