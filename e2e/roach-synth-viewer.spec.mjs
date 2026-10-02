@@ -32,7 +32,7 @@ async function specimen(page, { touch = false, modelUrl = '/assets/roach-synth/c
   await expect.poll(() => page.evaluate(() => specimenViewer.getState().renderCount)).toBeGreaterThan(0);
 }
 
-test('roach scene grounds the neutral feet, casts shadows, and keeps a chosen view through standing', async ({ page }) => {
+test('roach scene grounds the neutral feet, casts shadows, and keeps a chosen view through jumping and flying', async ({ page }) => {
   await specimen(page);
   const initial = await page.evaluate(() => specimenViewer.getState());
   expect(initial.ground.visible).toBe(true);
@@ -43,11 +43,13 @@ test('roach scene grounds the neutral feet, casts shadows, and keeps a chosen vi
   for (const foot of initial.ground.contacts) expect(foot.gap).toBeLessThan(0.04);
   expect(initial.bones.filter((joint) => joint.gaitPose).length).toBe(20);
   expect(initial.bones.every((joint) => Object.values(joint.restOffset).every(Number.isFinite))).toBe(true);
-  await page.evaluate(() => { motion.presetId = 'dance_upright'; motionTime = 0.4; drawSpecimen(); });
-  await expect.poll(() => page.evaluate(() => specimenViewer.getState().ground.body.pitch)).toBeGreaterThan(40);
-  await expect.poll(() => page.evaluate(() => specimenViewer.getState().renderCount)).toBeGreaterThan(initial.renderCount);
-  expect((await page.evaluate(() => specimenViewer.getState())).camera.viewPreset).toBe('side');
-  expect((await page.evaluate(() => specimenViewer.getState())).camera).toEqual(initial.camera);
+  for (const presetId of ['side_jump', 'top_flight']) {
+    await page.evaluate(presetId => { motion.presetId = presetId; motionTime = 1; drawSpecimen(); }, presetId);
+    await expect.poll(() => page.evaluate(() => specimenViewer.getState().ground.body.lift)).toBeGreaterThan(.1);
+    await expect.poll(() => page.evaluate(() => specimenViewer.getState().renderCount)).toBeGreaterThan(initial.renderCount);
+    expect((await page.evaluate(() => specimenViewer.getState())).camera.viewPreset).toBe('side');
+    expect((await page.evaluate(() => specimenViewer.getState())).camera).toEqual(initial.camera);
+  }
   await page.evaluate(() => { motion.presetId = 'side_run'; motionTime = 1; drawSpecimen(); });
   await expect.poll(() => page.evaluate(() => specimenViewer.getState().ground.offset)).toBeGreaterThan(0);
 });

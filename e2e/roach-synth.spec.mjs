@@ -181,12 +181,15 @@ test('graphic footer views, free orbit, wheel zoom and Fit preserve Audio and an
 test('animation routines and random motion switch live without selecting a camera or arming Audio', async ({ page }) => {
   await openRoach(page);
   const options = await page.locator('#motionPreset option').evaluateAll(items => items.map(item => item.value));
-  expect(options.filter(id => id !== 'none' && id !== 'random')).toHaveLength(24);
+  const routines = options.filter(id => id !== 'none' && id !== 'random');
+  expect(routines).toHaveLength(20);
+  expect(routines).toEqual(expect.arrayContaining(['side_jump', 'top_wing_fan', 'top_flight', 'wings_alarm']));
+  expect(routines.filter(id => ['dance_upright', 'dance_boxer', 'dance_can_can', 'dance_waltz'].includes(id))).toEqual([]);
   await page.locator('[data-view="top"]').click(); const camera = (await snapshot(page)).camera;
   await page.locator('#motionButton').click();
   await expect(page.locator('#motionButton .transport-pause')).toBeVisible();
   await expect(page.locator('#motionButton .transport-play')).toBeHidden();
-  for (const id of ['side_walk', 'side_run', 'top_flight', 'dance_upright']) {
+  for (const id of ['side_walk', 'side_run', 'side_jump', 'top_wing_fan', 'top_flight', 'wings_alarm']) {
     await choose(page, 'motionPreset', id);
     const current = await snapshot(page);
     expect(current.playing).toBe(true); expect(current.view).toBe('top');
@@ -397,7 +400,9 @@ test('full presets, Next and dice animate every scene without changing volume or
   const camera = (await snapshot(page)).camera;
   await expect(page.locator('.header-preset-controls')).toHaveAttribute('data-preset-id', 'unselected');
   const ids = await page.locator('[data-full-preset]').evaluateAll(buttons => buttons.map(button => button.dataset.presetId));
-  expect(ids).toHaveLength(24);
+  expect(ids).toHaveLength(20);
+  expect(ids).toEqual(expect.arrayContaining(['side_jump', 'top_wing_fan', 'top_flight', 'wings_alarm']));
+  expect(ids.filter(id => ['dance_upright', 'dance_boxer', 'dance_can_can', 'dance_waltz'].includes(id))).toEqual([]);
   await page.locator('.header-preset-picker summary').click();
   await page.locator(`[data-full-preset][data-preset-id="${ids[0]}"]`).click();
   for (const [index, id] of ids.entries()) {

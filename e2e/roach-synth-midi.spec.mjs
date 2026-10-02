@@ -152,9 +152,11 @@ test('Program Change recalls all sound presets while retaining held body notes a
   expect((await state(page)).midi.heldCount).toBe(2); expect(players(await state(page))).toEqual({ sound: false, animation: false });
   await page.locator('#motionButton').click();
   const before = await state(page), presets = await page.locator('#soundPreset option').evaluateAll(options => options.map(option => option.value));
-  expect(presets.length).toBeGreaterThanOrEqual(43);
+  expect(presets).toHaveLength(39);
   expect(presets.filter(id => id.startsWith('body-voice-'))).toEqual(['body-voice-kal']);
-  for (const program of [0, 17, 18, 41, presets.length - 1]) {
+  expect(presets).toEqual(expect.arrayContaining(['motion:side_jump', 'motion:top_wing_fan', 'motion:top_flight', 'motion:wings_alarm']));
+  expect(presets.filter(id => ['dance_upright', 'dance_boxer', 'dance_can_can', 'dance_waltz'].some(retired => id === `motion:${retired}`))).toEqual([]);
+  for (const program of [0, 17, 18, presets.length - 2, presets.length - 1]) {
     await sendMidi(page, [0xc0, program]); await expect(page.locator('#soundPreset')).toHaveValue(presets[program]);
     const after = await state(page); expect(after.motionChoice).toBe(before.motionChoice); expect(players(after)).toEqual(players(before));
     expect(after.time).toBeGreaterThanOrEqual(before.time); expect(after.camera).toEqual(before.camera); expect(after.midi.heldCount).toBe(2);

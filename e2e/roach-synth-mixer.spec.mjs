@@ -51,8 +51,11 @@ test('all ten sound parameters are editable without changing body assignments or
 
 test('animation and sound choices cycle independently while Next and dice preserve playback and level', async ({ page }) => {
   await open(page);
-  expect(await page.locator('#soundPreset optgroup[label="Sound presets"] option').count()).toBeGreaterThanOrEqual(18);
-  await expect(page.locator('#soundPreset optgroup[label="Animation sounds"] option')).toHaveCount(24);
+  await expect(page.locator('#soundPreset optgroup[label="Sound presets"] option')).toHaveCount(19);
+  const companions = await page.locator('#soundPreset optgroup[label="Animation sounds"] option').evaluateAll(options => options.map(option => option.value));
+  expect(companions).toHaveLength(20);
+  expect(companions).toEqual(expect.arrayContaining(['motion:side_jump', 'motion:top_wing_fan', 'motion:top_flight', 'motion:wings_alarm']));
+  expect(companions.filter(id => ['dance_upright', 'dance_boxer', 'dance_can_can', 'dance_waltz'].some(retired => id === `motion:${retired}`))).toEqual([]);
   await choose(page, 'soundPreset', 'wing-radio');
   await page.locator('#level').fill('0.43');
   const chosen = await state(page);
