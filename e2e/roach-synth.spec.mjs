@@ -315,7 +315,7 @@ test('real worklet audio stays bounded and advances while graphics and UI are st
 
 test('Say it speaks edited words while the body is held and does not arm Audio implicitly', async ({ page }) => {
   await openRoach(page);
-  await expect(page.locator('#phrase')).toHaveValue("hi, I'm a cockroach and I live in your house");
+  await expect(page.locator('#phrase')).toHaveValue('Hi. I am a cockroach. My name is George, and I live in your house.');
   await expect(page.locator('#phrase')).toHaveJSProperty('tagName', 'TEXTAREA');
   await expect(page.locator('#speakButton')).toHaveText('Say it');
   await page.locator('#speakButton').click(); expect((await snapshot(page)).audio.contextState).toBe('uninitialized');
