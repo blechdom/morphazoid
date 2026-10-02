@@ -6,7 +6,7 @@ const tolerance = .0002;
 // Test-only access to actual posed scan vertices. Production clearance samples
 // are checked separately; this catches a proxy that misses real antenna tips.
 async function instrument(page) {
-  await page.route('**/src/roach-synth-viewer.js*', async route => {
+  await page.route('**/src/instruments/roach-synth/roach-synth-viewer.js*', async route => {
     const response = await route.fetch(), source = await response.text();
     const marker = 'return { loadUrl, loadArrayBuffer, getState,';
     expect(source).toContain(marker);
