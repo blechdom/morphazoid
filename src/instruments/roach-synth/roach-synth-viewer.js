@@ -164,7 +164,9 @@ export function createRoachViewer({ canvas, onStatus = () => {}, onRig = () => {
   const win = doc.defaultView;
   const motionQuery = win.matchMedia('(prefers-reduced-motion: reduce)');
   const scene = new THREE.Scene();
-  scene.background = new THREE.Color(0x090d12);
+  // One continuous ground color fills every view. The physical floor only
+  // receives shadows, so its edge can never introduce a horizon behind the rig.
+  scene.background = new THREE.Color(0x59514a);
   const camera = new THREE.PerspectiveCamera(38, 1, 0.01, 100);
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: false, powerPreference: 'high-performance' });
   renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -198,20 +200,8 @@ export function createRoachViewer({ canvas, onStatus = () => {}, onRig = () => {
   performer.add(content);
   scene.add(performer);
   const groundRoot = new THREE.Group();
-  const groundTextureData = new Uint8Array(128 * 128 * 4);
-  let groundSeed = 917;
-  for (let i = 0; i < 128 * 128; i += 1) {
-    groundSeed = (Math.imul(groundSeed, 1664525) + 1013904223) >>> 0;
-    const grain = 65 + (groundSeed >>> 27) + (i % 128 === 0 || i < 128 ? 12 : 0);
-    groundTextureData.set([grain + 5, grain + 2, grain, 255], i * 4);
-  }
-  const groundTexture = new THREE.DataTexture(groundTextureData, 128, 128);
-  groundTexture.colorSpace = THREE.SRGBColorSpace;
-  groundTexture.wrapS = groundTexture.wrapT = THREE.RepeatWrapping;
-  groundTexture.repeat.set(28, 28);
-  groundTexture.needsUpdate = true;
-  const ground = new THREE.Mesh(new THREE.PlaneGeometry(12, 12), new THREE.MeshStandardMaterial({
-    color: 0x59514a, map: groundTexture, roughness: 0.96, metalness: 0, side: THREE.FrontSide,
+  const ground = new THREE.Mesh(new THREE.PlaneGeometry(12, 12), new THREE.ShadowMaterial({
+    color: 0x080605, opacity: 0.46, depthWrite: false, side: THREE.FrontSide,
   }));
   ground.receiveShadow = true;
   groundRoot.add(ground);
@@ -297,12 +287,12 @@ export function createRoachViewer({ canvas, onStatus = () => {}, onRig = () => {
   let size = '';
   let pointerMoved = false;
   let dragAxis = 'xy';
-  let touchInteraction = false;
+  let touchInteraction = true;
   let gesture = null;
   const pointers = new Map();
   const cleanups = [];
   const previousTouchAction = canvas.style.touchAction;
-  canvas.style.touchAction = 'pan-y';
+  canvas.style.touchAction = 'none';
 
   function listen(element, type, handler, options) {
     element.addEventListener(type, handler, options);
@@ -906,7 +896,6 @@ export function createRoachViewer({ canvas, onStatus = () => {}, onRig = () => {
     groundRoot.worldToLocal(shadeCenter);
     contactShade.position.set(shadeCenter.x, shadeCenter.y, 0.001);
     contactShade.material.uniforms.opacity.value = 0.34 / (1 + Math.max(0, body?.lift ?? 0) * 7);
-    groundTexture.offset.y = ((sceneState?.groundOffset ?? 0) * bodyLength * 28 / 12) % 1;
     floorParts.length = 0;
     for (const item of bones) {
       if (!item.floorBounds?.length) continue;
@@ -1388,7 +1377,7 @@ export function createRoachViewer({ canvas, onStatus = () => {}, onRig = () => {
     if (pointers.size > 1) {
       // A second finger cancels direct manipulation. Keep every held pointer
       // tracked until release, so finger churn cannot restart a drag midway.
-      // Zoom is available only through the explicit API/buttons and +/- keys.
+      // Wheel zoom and the explicit controls stay independent of this gesture.
       interaction('cancel');
       gesture = null;
       pointerMoved = true;
@@ -1460,9 +1449,13 @@ export function createRoachViewer({ canvas, onStatus = () => {}, onRig = () => {
   listen(canvas, 'pointercancel', pointerEnd);
   listen(canvas, 'lostpointercapture', (event) => { if (gesture && pointers.has(event.pointerId)) cancelPointers(); });
   listen(canvas, 'wheel', (event) => {
-    // Trackpad pinch arrives as Ctrl+wheel. Suppress that implicit zoom over
-    // the instrument; ordinary wheel scrolling still belongs to the page.
-    if (event.ctrlKey) event.preventDefault();
+    if (!Number.isFinite(event.deltaY) || disposed) return;
+    event.preventDefault();
+    // Mouse wheels may use pixels, lines, or pages. Bound a single event so a
+    // coarse wheel or trackpad pinch remains controllable at either zoom limit.
+    const unit = event.deltaMode === 1 ? 16 : event.deltaMode === 2
+      ? Math.max(1, canvas.getBoundingClientRect().height) : 1;
+    zoom(Math.exp(clamp(event.deltaY * unit, -240, 240) * 0.002));
   }, { passive: false });
   listen(canvas, 'keydown', (event) => {
     if (event.altKey || event.ctrlKey || event.metaKey) return;
