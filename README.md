@@ -101,8 +101,9 @@ Next and dice. Sound knobs sit below their menu. Eight body groups have source,
 level, mute and solo controls. Voicesaurus's Low KAL16 speaks typed words and
 provides movement-triggered body sounds, with a quieter default voice level
 and an independent 0.5–2× Speed knob.
-Nineteen sound presets and 24 animation companion sounds include scratches,
-wing buzz, wire zing and CC0 cockroach rustles. Full presets preserve master
+Nineteen sound presets and 20 animation companion sounds include scratches,
+wing buzz, wire zing and CC0 cockroach rustles. The animation bank keeps jumps
+and flight and excludes two-leg upright dances. Full presets preserve master
 and voice output levels; output reaches 100% with peak protection.
 [MIDI performance](docs/roach-synth-midi.md) supplies held body poses,
 velocity, sustain, pitch bend and eight assignable controller routes.

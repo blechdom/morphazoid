@@ -12,7 +12,7 @@ drone, sub pressure, shimmer and clean sine), wing buzz and movement textures,
 plus short cartoon footsteps, clicks, clacks, FM hits, rattling percussion and
 Karplus plucks. Click and Clack provide separate crisp and resonant foot-contact
 articulations without adding independent rhythmic loops.
-Nineteen sound/voice presets and twenty-four animation companion sound
+Nineteen sound/voice presets and twenty animation companion sound
 patches share a visible sound selector. Complete presets combine motion and sound; only
 Dash and freeze assigns Skuttle in its authored animation patch. Default feet
 use rounded impacts and the neck uses a clean pitch-responsive synth tone.
@@ -46,7 +46,7 @@ below, triggered by that group's movement or the legs' contact events; it is
 not a continuously looping ambience. No acquired clip is an isolated flight
 sound, house-wall recording, shriek or demonstrated ultrasonic signal.
 
-Twenty-four interleaved animation patches and seeded motion blends share an
+Twenty interleaved animation patches and seeded motion blends share an
 audio-clock pose and stylized six-foot support state. Ground travel, swing,
 touchdown counters, body lift and upright dances come from that state. Internal
 64-sample curves preserve fast gestures; there is no exposed joint sequencer or
