@@ -1,19 +1,21 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { existsSync } from "node:fs";
-import { readFile, readdir } from "node:fs/promises";
+import { readFile } from "node:fs/promises";
 import test from "node:test";
 import { rewriteModulePaths, rewriteRepositoryPaths } from "../scripts/architecture/module-paths.mjs";
 import { readRuntimeManifest } from "../scripts/site/runtime-manifest.mjs";
 import { runtimeSourceFiles } from "../scripts/check-runtime-source.mjs";
 import { localPath, referencesIn } from "../scripts/inspect-instrument.mjs";
 import { currentSourcePath } from "./helpers/relocated-sources.mjs";
+import { CANONICAL_PAGE_ROUTES, pageSourcePath } from "../src/pages/manifest.js";
 
 const root = new URL("../", import.meta.url);
 const plan = JSON.parse(await readFile(new URL("../docs/prototype-family-layout.json", import.meta.url)));
 const proof = JSON.parse(await readFile(new URL("fixtures/prototype-family-layout.json", import.meta.url)));
 const inverse = Object.fromEntries(Object.entries(plan.moves).map(([before, after]) => [after, before]));
 const sha = source => createHash("sha256").update(source).digest("hex");
+const sourcePathFor = path => path.endsWith(".html") ? pageSourcePath(path) : path;
 
 test("the prototype family has one new home and retains its exact packaging policies", async () => {
   const manifest = await readRuntimeManifest();
@@ -33,7 +35,7 @@ test("the prototype family has one new home and retains its exact packaging poli
 test("all runtime/styles/page bytes reverse exactly except the two requested group labels", async () => {
   assert.equal(proof.baseCommit, plan.baseCommit);
   for (const record of proof.files) {
-    const current = await readFile(new URL(record.after, root), "utf8");
+    const current = await readFile(new URL(sourcePathFor(record.after), root), "utf8");
     let restored = rewriteRepositoryPaths(rewriteModulePaths(current, record.after, inverse), inverse);
     if (plan.pages.includes(record.after)) {
       for (const change of plan.visibleTextChanges) {
@@ -52,7 +54,7 @@ test("all runtime/styles/page bytes reverse exactly except the two requested gro
 
 test("public routes and legacy audio/DOM identities stay stable while group labels change", async () => {
   for (const page of plan.pages) {
-    const html = await readFile(new URL(page, root), "utf8");
+    const html = await readFile(new URL(pageSourcePath(page), root), "utf8");
     const id = page.replace(/\.html$/, "");
     assert.ok(html.includes(`data-starting-instrument="${id}"`), page);
     assert.ok(html.includes('href="docs/starting-instruments.md"'), page);
@@ -75,13 +77,13 @@ test("historical source lookup composes both directory moves without rewriting o
     "src/families/work-in-progress/work-in-progress-app.js");
 });
 
-test("every authored root page uses the renamed resource paths, including stylesheet consumers", async () => {
-  for (const filename of (await readdir(root)).filter(name => name.endsWith(".html"))) {
-    const html = await readFile(new URL(filename, root), "utf8");
-    assert.ok(!html.includes("src/families/starting-instruments/"), filename);
+test("every authored canonical page uses the renamed resource paths, including stylesheet consumers", async () => {
+  for (const route of CANONICAL_PAGE_ROUTES) {
+    const html = await readFile(new URL(pageSourcePath(route), root), "utf8");
+    assert.ok(!html.includes("src/families/starting-instruments/"), route);
   }
   for (const filename of plan.dependentPages) {
-    const html = await readFile(new URL(filename, root), "utf8");
+    const html = await readFile(new URL(sourcePathFor(filename), root), "utf8");
     assert.ok(html.includes("src/families/work-in-progress/work-in-progress.css"), filename);
     assert.ok(proof.files.some(record => record.after === filename), filename);
   }

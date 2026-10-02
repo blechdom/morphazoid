@@ -7,7 +7,8 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 import { restorePresetToolbar, toolbarAmendments } from "./helpers/preset-toolbar-reference.mjs";
 import { readRuntimeManifest } from "../scripts/site/runtime-manifest.mjs";
-const read = file => readFile(new URL(`../${file}`, import.meta.url), "utf8");
+import { pageSourcePath } from "../src/pages/manifest.js";
+const read = file => readFile(new URL(`../${file.endsWith(".html") ? pageSourcePath(file) : file}`, import.meta.url), "utf8");
 
 test("every implemented full-preset owner declares exactly one explicit preset host", async () => {
   const rollout = JSON.parse(await read("docs/preset-rollout-status.json"));

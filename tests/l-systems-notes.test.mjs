@@ -91,7 +91,7 @@ test("all amplitude presets yield smooth full envelopes and preserve branch-onse
 });
 
 test("the subdivision slider is shared near Speed and never inside the hidden Triggers bank", () => {
-  const html = readFileSync(new URL("../l-systems.html", import.meta.url), "utf8");
+  const html = readFileSync(new URL("../src/pages/l-systems.html", import.meta.url), "utf8");
   assert.match(html, /id="speed"[\s\S]*id="subdivisions"[^>]*min="1" max="16" step="1"[\s\S]*id="systemRackTitle"/);
   assert.equal(html.match(/id="subdivisions"/g).length, 1);
   assert.doesNotMatch(html.slice(html.indexOf('id="drumsBank"')), /id="subdivisions"/);

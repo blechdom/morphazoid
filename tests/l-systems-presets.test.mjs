@@ -150,7 +150,7 @@ test("one smoothed tone stage and bounded Graph engines preserve host mute", () 
 });
 
 test("shared UI follows Delay ordering without losing subdivisions or original reader controls", () => {
-  const html = readFileSync(new URL("../l-systems.html", import.meta.url), "utf8");
+  const html = readFileSync(new URL("../src/pages/l-systems.html", import.meta.url), "utf8");
   const ordered = ["mainPresets", "playingMode", "speed", "subdivisions", "systemRackTitle", "preset", "iterations", "pruningBias", "branchDecay", "childTimeRatio", "angle", "turnAsymmetry", "mutation"];
   for (let i = 1; i < ordered.length; i++) assert.ok(html.indexOf(`id="${ordered[i]}"`) > html.indexOf(`id="${ordered[i-1]}"`), ordered[i]);
   for (const id of ["micFeedback", "micInterval", "micTimeRatio", "micPitchRange"]) assert.ok(html.includes(`id="${id}"`));
