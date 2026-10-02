@@ -630,7 +630,10 @@ export function createRoachViewer({ canvas, onStatus = () => {}, onRig = () => {
         item.liftSign = derivative < 0 ? -1 : 1;
         const outward = id === 'neck' ? 42 : 50, inward = id === 'neck' ? 12 : 18;
         item.poseLimits.x = item.liftSign < 0 ? [-outward, inward] : [-inward, outward];
-        if (id === 'neck') { item.poseLimits.y = [-24, 24]; item.poseLimits.z = [-20, 20]; }
+        // Extra flexibility belongs to the lifting hinge; keep lateral turn
+        // and tilt small even when head and neck rotations add together.
+        item.poseLimits.y = id === 'neck' ? [-3, 3] : [-6, 6];
+        item.poseLimits.z = id === 'neck' ? [-4, 4] : [-8, 8];
       }
       if (id === 'wings') item.poseLimits = { x: [-8, 8], y: [-10, 10], z: [-8, 8] };
       if (item.bone.userData.wingLayer) {
@@ -1369,7 +1372,7 @@ export function createRoachViewer({ canvas, onStatus = () => {}, onRig = () => {
       rotation.slerp(new THREE.Quaternion(), .5);
       const angles = new THREE.Euler().setFromQuaternion(rotation, 'XYZ');
       neckGaze.x = clamp(angles.x / RAD, neck.liftSign < 0 ? -34 : -12, neck.liftSign < 0 ? 12 : 34);
-      neckGaze.y = clamp(angles.y / RAD, -18, 18); neckGaze.z = clamp(angles.z / RAD, -16, 16);
+      neckGaze.y = clamp(angles.y / RAD, -2, 2); neckGaze.z = clamp(angles.z / RAD, -2, 2);
       neckBasis.multiply(new THREE.Quaternion().setFromEuler(new THREE.Euler(neckGaze.x * RAD, neckGaze.y * RAD, neckGaze.z * RAD, 'XYZ')));
       headBasis = neckBasis.clone().multiply(head.baseQuaternion);
       const neckMatrix = new THREE.Matrix4().compose(neck.bone.getWorldPosition(new THREE.Vector3()), neckBasis, neck.bone.getWorldScale(new THREE.Vector3()));
@@ -1379,7 +1382,7 @@ export function createRoachViewer({ canvas, onStatus = () => {}, onRig = () => {
     const desired = camera.position.clone().sub(headPosition).applyQuaternion(headBasis.invert()).normalize();
     const rotation = new THREE.Quaternion().setFromUnitVectors(facing, desired);
     const gaze = new THREE.Euler().setFromQuaternion(rotation, 'XYZ');
-    return { x: clamp(gaze.x / RAD, -22, 22), y: clamp(gaze.y / RAD, -22, 22), z: clamp(gaze.z / RAD, -22, 22), neck: neckGaze };
+    return { x: clamp(gaze.x / RAD, -22, 22), y: clamp(gaze.y / RAD, -3, 3), z: clamp(gaze.z / RAD, -4, 4), neck: neckGaze };
   }
   function setDragAxis(value) {
     if (!['xy', 'x', 'y', 'z'].includes(value)) return false;
