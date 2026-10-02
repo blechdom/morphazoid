@@ -13,9 +13,9 @@ const PARAMS = [
   ['rhythm', 'Rattle rate'], ['pan', 'Pan'], ['voice', 'Voice level'], ['level', 'Master level'],
 ];
 const ACTIONS = [
-  ['speakButton', 'Say phrase'], ['soundPlayButton', 'Sound play / pause'], ['motionButton', 'Animation play / pause'],
-  ['nextMotion', 'Next animation'], ['previousMotion', 'Previous animation'],
-  ['randomSound', 'Random sound'], ['randomMotion', 'Random animation'], ['randomPose', 'Random body pose'],
+  ['speakButton', 'Say phrase'], ['motionButton', 'Play / pause'],
+  ['nextMotion', 'Next animation'], ['nextSound', 'Next sound preset'],
+  ['randomSound', 'Random sound'], ['randomMotion', 'Random animation'],
 ];
 const NOTE_NAMES = ['C', 'C♯', 'D', 'D♯', 'E', 'F', 'F♯', 'G', 'G♯', 'A', 'A♯', 'B'];
 const clamp = (value, low, high) => Math.max(low, Math.min(high, Number(value) || 0));
@@ -51,7 +51,7 @@ export function createRoachMidiControls({ audio, setPlaying, selectGroup, onVisu
     ['Body rotations', ROACH_BODY_GROUPS.flatMap(({ id, label }) => ['x', 'y', 'z'].map(axis => [`joint:${id}:${axis}`, `${label} · ${axis.toUpperCase()}`]))],
     ['Body levels', ROACH_BODY_GROUPS.map(({ id, label }) => [`mix:${id}`, `${label} level`])],
     ['Body sounds', ROACH_BODY_GROUPS.map(({ id, label }) => [`source:${id}`, `${label} sound`])],
-    ['Presets', [['select:soundPreset', 'Sound preset'], ['select:motionPreset', 'Animation preset']]],
+    ['Presets', [['select:soundPreset', 'Sound preset'], ['select:motionPreset', 'Animation preset'], ['select:voicePreset', 'Roach voice']]],
     ['Buttons · cross halfway to trigger', ACTIONS.map(([id, label]) => [`action:${id}`, label])],
   ];
   for (const [, values] of groups) for (const [id] of values) validTargets.add(id);

@@ -88,29 +88,24 @@ sourced bow pulses and rhythms, hand or knee vibrato, siren and storm motions,
 mallets, edge pluck, thimble taps, scrape, and choke expose the blade's range.
 See [the acoustics, comprehensive technique inventory, and model limits](docs/JULIE_SAW_RESEARCH.md).
 
-**Roach Synth** turns a detailed CC BY cockroach scan into a playable instrument
-with 31 runtime joints, four independently hinged wings, a grounded stance and
-side/top/bottom/face views. Sound Play holds smooth ominous resonances; dragging
-body parts changes their pitch, filtering and texture. Eight body groups each
-have a choice of nineteen sources, a level knob, mute and solo. Movement excites
-scratches, wing buzz, wire zing and short CC0 cockroach rustles; six shared
-foot-contact streams supply the scuttling rhythm. Eighteen sound/voice presets,
-random sounds, 24 static poses, 24 interleaved animations and random motion
-blends keep the sound and animation players independent. Tiny robot words have
-their own voice level. Twenty-four complete presets, Next and dice combine
-animation and sound while preserving master and voice output levels. The mobile
-controls start with presets, Sound/Pose, Animation, sound presets and Voice;
-MIDI is at the bottom. Antennae explore during every animation, without a
-metronome. The larger mobile specimen stays visible while controls
-scroll below; explicit zoom buttons isolate zoom from body manipulation.
-The default 13.6 MB model replaces a 40 MB startup download, preserves joint
-positions and animations, and reduces texture memory by using smaller normal
-maps. Color textures retain their resolution. Geometry decoding uses a temporary
-worker; sound remains playable while the model loads.
-[MIDI performance](docs/roach-synth-midi.md) maps keys to held body poses,
-with velocity, sustain, pitch bend and eight assignable controller
-routes. Body notes play the assigned mixer sounds without taking over either
-player; graphics follow the same audio-clock gestures.
+**Roach Synth** turns a CC BY cockroach scan into a playable instrument with
+31 runtime joints, four independently hinged wings and side/top/bottom/face
+views. Play starts and stops animation and its sustained body sound; Audio
+is armed separately. Drag body parts at any time to change pitch, filtering
+and texture, orbit the background, and scroll to zoom. The continuous ground
+fills the stage, with camera and joint controls underneath.
+
+The compact control panel starts with complete presets, Play and tempo with
+1/2, 1/4, 2× and 4× actions, then independent animation and sound menus with
+Next and dice. Sound knobs sit below their menu. Eight body groups have source,
+level, mute and solo controls. Four Voicesaurus voices—eSpeak NG, Klatt, Flite
+SLT and low KAL16—speak typed words and provide movement-triggered body sounds.
+Twenty-two sound presets and 24 animation companion sounds include scratches,
+wing buzz, wire zing and CC0 cockroach rustles. Full presets preserve master
+and voice output levels; output reaches 100% with peak protection.
+[MIDI performance](docs/roach-synth-midi.md) supplies held body poses,
+velocity, sustain, pitch bend and eight assignable controller routes.
+The mobile model loads independently of speech and Audio.
 [Sound evidence, recordings and model limitations](docs/ROACH_SYNTH_RESEARCH.md).
 
 **Puggler the Punk Rock Jugger** turns unicycle juggling into a noisy three-era show. Each of 33 prop types has its own air and catch voice in Trashpunk, History Mashup and Future 3026: 99 skin-specific identities built from acoustic/string models, the original recorded kit and vocals, and futuristic synthesis. New object-note rhythms follow the juggling beat independently of pitch; preset/dice mixes use a much narrower nominal level range. Twenty-four full-scene control-panel presets, Next and generative dice span one to ten objects, 100–1,200 BPM, gentle articulations and dense freakouts; 22 focused juggling acts remain below. Eleven adjustable light looks include party beams, mirror-ball disco, lasers and optional strobe accents. Flashes require separate consent and respect reduced motion. Historical and futuristic gig bills join the punk flyers. The borderless stage stays visible while phone controls scroll. Presets preserve Audio, Play and master Output; Audio starts off. [Research, controls and approximations](docs/PUGGLER_RESEARCH.md); [CC0 recording credits](assets/puggler/CREDITS.md).

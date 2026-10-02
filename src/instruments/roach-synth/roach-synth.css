@@ -1,37 +1,41 @@
-body.roach-synth-page { --accent: #c2df85; --accent-soft: #9aaa71; --accent-glow: #a8c66b12; --roach-mobile-height: clamp(300px, 46svh, 440px); height: 100svh; min-height: 100svh; overflow: hidden; }
-.roach-shell { display: grid; grid-template-columns: minmax(0, 1fr) clamp(350px, 30vw, 440px); flex: 1; min-height: 0; }
-.roach-stage { display: flex; flex-direction: column; min-width: 0; min-height: 0; overflow-y: auto; background: var(--bg-deep); border: 0; }
-.roach-viewport { position: relative; min-height: 300px; flex: 1 0 300px; overflow: hidden; background: #090d12; }
-.roach-stage > :not(.roach-viewport) { flex-shrink: 0; }
+body.roach-synth-page { --accent: #c2df85; --accent-soft: #9aaa71; --accent-glow: #a8c66b12; --roach-mobile-height: clamp(230px, 35svh, 320px); height: 100svh; min-height: 100svh; overflow: hidden; }
+.roach-shell { display: grid; grid-template-columns: minmax(0, 1fr) clamp(340px, 29vw, 420px); flex: 1; min-height: 0; }
+.roach-stage { display: flex; flex-direction: column; min-width: 0; min-height: 0; overflow: hidden; background: var(--bg-deep); }
+.roach-viewport { position: relative; min-height: 0; flex: 1; overflow: hidden; background: #5b513f; }
 .roach-heading { position: absolute; top: 20px; left: 22px; z-index: 1; pointer-events: none; }
 .roach-heading h1 { margin: 0; color: var(--ink); font: 500 clamp(23px, 3vw, 36px)/1.1 var(--mono); letter-spacing: -.06em; }
 .roach-stage-notice { position: absolute; z-index: 2; bottom: 8px; left: 12px; right: 12px; width: fit-content; max-width: calc(100% - 24px); margin: 0; padding: 7px 10px; background: #090d12e8; color: var(--accent); font-size: 10px; pointer-events: none; }
 .roach-poster { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
-#roachCanvas { position: relative; display: block; visibility: hidden; width: 100%; height: 100%; touch-action: pan-y; cursor: grab; }
+#roachCanvas { position: relative; display: block; visibility: hidden; width: 100%; height: 100%; touch-action: none; cursor: grab; }
 #roachCanvas:active { cursor: grabbing; }
 #roachCanvas:focus-visible { outline-offset: -4px; }
-.roach-view-controls { display: grid; gap: 6px; }
-.roach-stage-toolbar, .roach-camera-tools, .roach-interaction-tools { display: flex; align-items: center; gap: 6px; min-width: 0; }
-.roach-views { display: flex; flex: 1; margin: 0; min-width: 0; }
-.roach-view-controls button { min-width: 28px; min-height: 28px; padding: 5px 7px; font-size: 9px; }
-.roach-views button { flex: 1; min-width: 0; padding: 5px 4px; }
-.roach-zoom { display: flex; align-items: center; gap: 4px; font-size: 9px; color: var(--muted); }
-.roach-zoom button { padding: 3px 5px; font-size: 15px; }
-.roach-axis { display: flex; align-items: center; gap: 5px; margin-left: auto; font-size: 9px; color: var(--muted); }
-.roach-axis select { min-width: 0; min-height: 28px; background: var(--panel); font: 10px var(--mono); padding: 4px; border: 1px solid var(--line-strong); }
-.roach-interaction-tools button[aria-pressed="true"] { color: var(--accent); border-color: var(--accent); }
+.roach-view-controls { flex-shrink: 0; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px 16px; padding: 10px 14px; background: var(--panel); }
+.roach-stage-toolbar, .roach-camera-tools { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.roach-stage-toolbar { flex: 1 1 250px; }
+.roach-camera-tools { flex: 0 1 auto; flex-wrap: wrap; }
+.roach-views { display: flex; flex: 1; margin: 0; min-width: 0; border: 0; }
+.roach-view-controls button { min-width: 34px; min-height: 34px; padding: 6px 10px; font: 10px var(--mono); }
+.roach-views button { flex: 1; min-width: 0; padding: 6px 8px; background: transparent; border: 0; color: var(--muted); }
+.roach-view-controls button[aria-pressed="true"] { color: var(--accent); background: #c2df8518; border-color: var(--accent); }
+.roach-zoom { display: flex; align-items: center; gap: 4px; font-size: 10px; color: var(--muted); }
+.roach-zoom button { padding: 3px 8px; font-size: 18px; }
+.roach-axis { display: flex; align-items: center; gap: 5px; font-size: 10px; color: var(--muted); }
+.roach-axis select { min-width: 0; min-height: 34px; background: var(--bg-deep); font: 10px var(--mono); padding: 5px; border: 1px solid var(--line-strong); }
 .roach-gesture-info { position: relative; flex: 0 0 auto; }
-#gestureInfo { width: 28px; border-radius: 50%; font: 12px Georgia, serif; text-transform: none; }
-#gestureHelp { position: absolute; z-index: 30; top: 100%; right: 0; width: min(280px, calc(100vw - 48px)); margin: 0; padding: 10px 12px; color: var(--ink); background: var(--bg-deep); border: 1px solid var(--line-strong); box-shadow: 0 5px 15px #0007; font: 10px/1.6 var(--mono); }
-.roach-stage > .roach-status, #retryModel { margin: 6px 20px 12px; }
+#gestureInfo { width: 30px; min-width: 30px; height: 30px; min-height: 30px; padding: 0; border-radius: 50%; font: 13px Georgia, serif; text-transform: none; }
+#gestureHelp { position: absolute; z-index: 30; bottom: calc(100% + 8px); right: 0; width: min(280px, calc(100vw - 48px)); margin: 0; padding: 10px 12px; color: var(--ink); background: var(--bg-deep); border: 1px solid var(--line-strong); box-shadow: 0 5px 15px #0007; font: 10px/1.6 var(--mono); }
+.roach-stage > .roach-status:not([hidden]), #retryModel:not([hidden]) { flex-shrink: 0; margin: 6px 14px 10px; }
 .roach-panel { position: relative; min-width: 0; min-height: 0; overflow-y: auto; padding: 8px 0 18px; background: var(--panel); border: 0; scrollbar-color: var(--faint) transparent; scrollbar-width: thin; }
-.roach-control-block { padding: 14px 20px 4px; }
-.roach-control-row { display: flex; align-items: flex-end; gap: 8px; min-width: 0; }
-.roach-player { display: grid; flex: 0 0 auto; gap: 6px; color: var(--accent); font-size: 10px; }
-.roach-inline-select { display: grid; flex: 1; min-width: 0; gap: 6px; color: var(--muted); font-size: 10px; }
-.roach-inline-select select { width: 100%; min-width: 0; min-height: 36px; padding: 7px 8px; font: 11px var(--mono); color: var(--ink); background: var(--bg-deep); border: 1px solid var(--line-strong); }
-.roach-control-row > .mini-action { flex: 0 0 auto; min-height: 36px; padding: 7px 8px; font-size: 9px; }
-.roach-control-row .play-button { flex: 0 0 40px; display: grid; place-items: center; width: 40px; height: 40px; min-width: 40px; padding: 0; background: transparent; border: 1px solid var(--line-strong); border-radius: 50%; color: var(--accent); cursor: pointer; }
+.roach-control-block { padding: 9px 16px 3px; }
+.roach-control-row { display: flex; align-items: flex-end; gap: 7px; min-width: 0; }
+.roach-player { display: grid; flex: 0 0 auto; gap: 3px; color: var(--accent); font-size: 10px; }
+.roach-inline-select { display: grid; flex: 1; min-width: 0; gap: 3px; color: var(--muted); font-size: 10px; }
+.roach-inline-select select { width: 100%; min-width: 0; min-height: 34px; padding: 6px 8px; font: 11px var(--mono); color: var(--ink); background: var(--bg-deep); border: 1px solid var(--line-strong); }
+.roach-local-picker { width: 100%; min-width: 0; }
+.roach-local-picker > .instrument-picker-trigger { width: 100%; font-size: 11px; }
+.roach-picker-row > .instrument-picker-next { flex-shrink: 0; }
+.roach-transport-row { align-items: center; gap: 12px; }
+.roach-synth-page .roach-control-row .play-button { flex: 0 0 auto; display: grid; place-items: center; width: 40px; min-width: 40px; max-width: 40px; height: 40px; min-height: 40px; max-height: 40px; aspect-ratio: 1; padding: 0; background: transparent; border: 1px solid var(--line-strong); border-radius: 50%; color: var(--accent); cursor: pointer; }
 .roach-control-row .play-button svg { width: 22px; height: 22px; fill: currentColor; }
 .roach-control-row .play-button .transport-pause { display: none; fill: none; stroke: currentColor; stroke-width: 3; }
 .roach-control-row .play-button[aria-pressed="true"] { background: #c2df8522; border-color: var(--accent); }
@@ -39,26 +43,36 @@ body.roach-synth-page { --accent: #c2df85; --accent-soft: #9aaa71; --accent-glow
 .roach-control-row .play-button[aria-pressed="true"] .transport-pause { display: block; }
 .roach-control-row .play-button:disabled { opacity: .4; cursor: default; }
 .roach-panel .select-shell { min-width: 0; }
-.roach-panel .select-shell select { padding-right: 28px; }
-.roach-panel .select-shell::after { right: 11px; }
-.roach-voice .roach-inline-select > span:first-child { color: var(--accent); }
-.roach-voice-label { display: flex; align-items: baseline; gap: 12px; margin-top: 14px; color: var(--accent); font-size: 10px; letter-spacing: .13em; text-transform: uppercase; }
-.roach-voice-label span { color: var(--muted); font-size: 9px; letter-spacing: 0; text-transform: none; }
-.roach-voice textarea { display: block; resize: vertical; width: 100%; min-height: 66px; margin: 10px 0 8px; padding: 9px 11px; background: var(--bg-deep); color: var(--ink); border: 1px solid var(--line-strong); border-bottom: 2px solid var(--accent-soft); font: 12px/1.6 var(--mono); cursor: text; }
-.roach-voice-actions { display: flex; gap: 14px; align-items: center; }
-.roach-speak { min-height: 44px; min-width: 96px; padding: 8px 18px; border-color: var(--accent); background: var(--accent); color: var(--bg-deep); font-size: 11px; }
+.roach-panel .select-shell select { padding-right: 24px; }
+.roach-panel .select-shell::after { right: 9px; }
+.roach-tempo { flex: 1; min-width: 0; margin: 0; }
+.roach-tempo > span, .roach-movement > span { font-size: 10px; }
+.roach-tempo input, .roach-movement input { min-height: 26px; height: 26px; }
+.roach-tempo-scale { flex: 0 0 auto; padding-top: 12px; }
+.roach-tempo-scale select { width: 76px; min-height: 32px; padding: 5px; background: var(--bg-deep); color: var(--ink); border: 1px solid var(--line-strong); font: 10px var(--mono); }
+.roach-movement { margin: 7px 0 0; }
+.roach-voice-heading { display: flex; gap: 10px; align-items: center; }
+.roach-voice-label { color: var(--accent); font-size: 10px; }
+.roach-voice-heading .roach-inline-select { margin-left: auto; max-width: 230px; }
+.roach-voice textarea { display: block; resize: vertical; width: 100%; min-height: 56px; margin: 6px 0; padding: 7px 9px; background: var(--bg-deep); color: var(--ink); border: 1px solid var(--line-strong); font: 11px/1.5 var(--mono); cursor: text; }
+.roach-voice-actions { display: flex; gap: 10px; align-items: center; }
+.roach-speak { min-height: 36px; min-width: 80px; padding: 6px 14px; border-color: var(--accent); background: var(--accent); color: var(--bg-deep); font-size: 10px; }
 .roach-speak:hover:not(:disabled) { background: var(--accent-soft); color: var(--bg-deep); }
-.roach-knob.roach-voice-level { width: 82px; padding-left: 34px; }
-.roach-voice-level .knob-label { position: absolute; left: 0; top: 16px; font-size: 9px; color: var(--muted); }
-.roach-voice-level input[type="range"] { left: 34px; width: calc(100% - 34px); }
-.roach-animation-picker { display: flex; align-items: flex-end; flex: 1; min-width: 0; }
-.roach-inline-arrows { display: flex; }
-.roach-inline-arrows button { min-width: 22px; min-height: 36px; padding: 0; background: var(--bg-deep); color: var(--accent); border: 0; font-size: 20px; cursor: pointer; }
-.roach-animation-picker select { border-right: 0; }
-.roach-motion-controls { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 14px; }
-.roach-motion-controls .control { margin: 0; }
-.roach-motion-controls .control b, .roach-motion-controls output { font-size: 10px; }
-.roach-motion-controls input { height: 30px; }
+.roach-knob { position: relative; display: inline-flex; flex-direction: column; align-items: center; justify-content: flex-start; width: 40px; height: 44px; flex: 0 0 auto; gap: 2px; cursor: ns-resize; touch-action: pan-y; }
+.knob-face { display: block; position: relative; width: 28px; height: 28px; flex-shrink: 0; border: 1px solid var(--accent); border-radius: 50%; background: var(--bg-deep); pointer-events: none; }
+.knob-face i { position: absolute; inset: 3px; transform: rotate(var(--knob-angle, 0deg)); }
+.knob-face i::before { content: ""; position: absolute; top: 0; left: calc(50% - 1px); width: 2px; height: 8px; background: var(--accent); }
+.roach-knob .knob-label { order: 1; color: var(--muted); font: 9px/1.2 var(--mono); white-space: nowrap; }
+.roach-knob input[type="range"] { position: absolute; inset: 0; width: 100%; height: 100%; min-height: 0; margin: 0; opacity: 0; pointer-events: none; cursor: ns-resize; touch-action: pan-y; }
+.roach-knob:focus-within .knob-face { outline: 2px solid var(--accent); outline-offset: 3px; }
+.roach-tone-controls { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); justify-items: center; gap: 6px 4px; margin: 0; }
+.roach-tone-knob { width: 68px; }
+.roach-knob.roach-voice-level { width: 46px; }
+.roach-presets { padding-top: 2px; }
+.roach-presets > .instrument-preset-controls { position: relative; z-index: auto; padding: 0; border: 0; }
+.roach-presets .header-preset-picker { flex: 1; min-width: 0; }
+.roach-presets .instrument-picker-trigger { width: 100%; }
+.roach-panel .instrument-page-info { margin: 16px 16px 0; }
 .roach-midi-status { display: block; min-height: 18px; margin: 6px 0; color: var(--accent); font: 10px/1.6 var(--mono); }
 .roach-midi details { font: 10px/1.6 var(--mono); color: var(--muted); }
 .roach-midi summary { padding: 8px 0; cursor: pointer; color: var(--accent); }
@@ -78,16 +92,6 @@ body.roach-synth-page { --accent: #c2df85; --accent-soft: #9aaa71; --accent-glow
 .roach-body-row > [data-mute], .roach-body-row > [data-solo] { min-height: 30px; min-width: 0; padding: 0; font: 9px var(--mono); border: 0; background: var(--bg-deep); color: var(--muted); cursor: pointer; }
 .roach-body-row > button[aria-pressed="true"] { color: var(--accent); background: #c2df8518; }
 .roach-body-row.is-silent select { opacity: .5; }
-.roach-knob { position: relative; display: inline-flex; flex-direction: column; align-items: center; justify-content: center; width: 40px; height: 44px; flex: 0 0 auto; cursor: ns-resize; touch-action: pan-y; }
-.knob-face { display: block; position: relative; width: 32px; height: 32px; border: 1px solid var(--accent-soft); border-radius: 50%; background: var(--bg-deep); pointer-events: none; }
-.knob-face i { position: absolute; left: calc(50% - 1px); top: calc(50% - 1px); width: 2px; height: 7px; background: var(--accent); transform-origin: 50% 1px; transform: rotate(var(--knob-angle, 0deg)) translateY(-13px); }
-.knob-face small { position: absolute; left: -6px; right: -6px; bottom: 3px; text-align: center; color: var(--muted); font: 7px var(--mono); }
-.roach-knob input[type="range"] { position: absolute; inset: 0; width: 100%; height: 100%; min-height: 0; margin: 0; opacity: 0; pointer-events: none; cursor: ns-resize; touch-action: pan-y; }
-.roach-knob:focus-within .knob-face { outline: 2px solid var(--accent); outline-offset: 3px; }
-.roach-tone-controls { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); justify-items: center; gap: 12px 4px; margin: 18px 0 6px; }
-.roach-tone-knob { width: 68px; height: 63px; justify-content: flex-end; }
-.roach-tone-knob .knob-label { position: absolute; top: 0; color: var(--muted); font-size: 9px; white-space: nowrap; }
-.roach-tone-knob input[type="range"] { top: 15px; height: 48px; }
 .roach-mix-meter { display: flex; gap: 10px; align-items: center; margin-top: 12px; }
 .roach-mix-meter meter { flex: 1; min-width: 0; height: 8px; accent-color: var(--accent); }
 .roach-mix-meter output { min-width: 65px; text-align: right; color: var(--muted); font: 9px var(--mono); }
@@ -95,44 +99,42 @@ body.roach-synth-page { --accent: #c2df85; --accent-soft: #9aaa71; --accent-glow
 .roach-notes { margin: 12px 20px 4px; color: var(--muted); font-size: 9px; line-height: 1.7; }
 .roach-notes summary { padding: 8px 0; cursor: pointer; }
 .roach-notes a { color: var(--accent); }
+
 @media (max-width: 960px) {
  html.roach-synth-document { height: auto; min-height: 100%; overflow-x: clip; overflow-y: auto; }
  body.roach-synth-page { height: auto; min-height: 100svh; overflow: visible; }
  .roach-synth-page > .masthead { position: sticky; top: 0; background: var(--bg-deep); }
  .roach-shell { display: block; flex: none; overflow: visible; }
- .roach-stage { display: contents; overflow: visible; }
- .roach-viewport { position: sticky; top: var(--roach-header-height, 58px); z-index: 20; height: var(--roach-mobile-height); min-height: 0; flex: none; box-shadow: 0 8px 18px #0007; }
+ .roach-stage { position: sticky; top: var(--roach-header-height, 58px); z-index: 20; overflow: visible; box-shadow: 0 6px 16px #0005; }
+ .roach-viewport { height: var(--roach-mobile-height); flex: none; }
  .roach-panel { display: block; overflow: visible; padding-bottom: max(24px, env(safe-area-inset-bottom)); }
- .roach-panel :is(button, input, select, textarea, summary, .roach-knob) { scroll-margin-top: calc(var(--roach-header-height, 58px) + var(--roach-mobile-height) + 16px); scroll-margin-bottom: 12px; }
+ .roach-panel :is(button, input, select, textarea, summary, .roach-knob) { scroll-margin-top: calc(var(--roach-header-height, 58px) + var(--roach-mobile-height) + 100px); scroll-margin-bottom: 12px; }
+ .roach-view-controls { gap: 5px; padding: 6px 12px; }
+ .roach-camera-tools { flex: 1; justify-content: space-between; }
 }
 @media (max-width: 600px) {
- .roach-heading { top: 16px; left: 16px; }
+ .roach-heading { top: 14px; left: 16px; }
  .roach-heading h1 { font-size: 28px; }
- .roach-control-block { padding-left: 16px; padding-right: 16px; }
+ .roach-control-block { padding-left: 14px; padding-right: 14px; }
 }
 @media (pointer: coarse) {
- .roach-synth-page #audioButton, .roach-control-row .play-button { min-width: 48px; min-height: 48px; width: 48px; height: 48px; }
- .roach-panel select, .roach-panel .mini-action, .roach-stage-toolbar button, .roach-interaction-tools button, .roach-interaction-tools select, .roach-body-name, .roach-notes summary { min-height: 44px; }
- .roach-motion-controls input { height: 44px; }
+ .roach-synth-page #audioButton, .roach-synth-page .roach-control-row .play-button { width: 48px; min-width: 48px; max-width: 48px; height: 48px; min-height: 48px; max-height: 48px; }
+ .roach-panel select, .roach-panel .mini-action, .roach-panel .instrument-picker-trigger, .roach-panel .instrument-picker-next, .roach-body-name, .roach-notes summary { min-height: 44px; }
+ .roach-view-controls :is(button, select) { min-height: 36px; }
+ .roach-tone-knob { height: 48px; }
+ .knob-face { width: 32px; height: 32px; }
  .roach-body-row { grid-template-columns: minmax(60px, .85fr) minmax(80px, 1.25fr) 44px 36px 36px; gap: 4px; }
- .roach-body-row > [data-mute], .roach-body-row > [data-solo], .roach-inline-arrows button { min-height: 44px; }
- .roach-inline-arrows button { min-width: 26px; }
- .roach-knob { width: 44px; min-height: 44px; }
- .roach-panel .roach-view-controls :is(button, select) { min-height: 32px; }
- .roach-view-controls #gestureInfo { width: 32px; }
+ .roach-body-row > [data-mute], .roach-body-row > [data-solo] { min-height: 44px; }
+ .roach-knob { min-width: 44px; min-height: 48px; }
  .roach-midi #midiPanic { min-height: 32px; height: 32px; }
 }
-@media (max-width: 960px) and (orientation: landscape) {
- body.roach-synth-page { --roach-mobile-height: clamp(170px, 46svh, 240px); }
+@media (max-width: 960px) and (min-width: 600px) and (orientation: landscape) {
+ html.roach-synth-document, body.roach-synth-page { height: 100svh; overflow: hidden; }
+ .roach-shell { display: grid; grid-template-columns: minmax(0, 1fr) 340px; flex: 1; min-height: 0; }
+ .roach-stage { position: relative; top: auto; z-index: auto; overflow: hidden; box-shadow: none; }
+ .roach-viewport { flex: 1; height: auto; min-height: 0; }
+ .roach-panel { overflow-y: auto; }
+ .roach-panel :is(button, input, select, textarea, summary, .roach-knob) { scroll-margin-top: 12px; }
  .roach-heading { top: 10px; }
  .roach-heading h1 { font-size: 23px; }
- .roach-view-controls { display: flex; flex-wrap: wrap; gap: 6px 12px; }
- .roach-stage-toolbar { flex: 1 0 240px; }
- .roach-axis { margin-left: 6px; }
- #gestureHelp { width: min(340px, calc(100vw - 48px)); }
 }
-
-.roach-presets { padding-top: 8px; }
-.roach-presets > .instrument-preset-controls { position: relative; z-index: auto; padding: 0; border: 0; }
-.roach-presets .header-preset-picker { flex: 1; min-width: 0; }
-.roach-presets .instrument-picker-trigger { width: 100%; }

@@ -126,7 +126,7 @@ export function normalizeRoachMotion(settings = {}) {
   }
   const normalized = {
     presetId: source.presetId === 'none' || PRESETS_BY_ID.has(source.presetId) ? source.presetId : ROACH_MOTION_DEFAULTS.presetId,
-    tempo: clamp(finite(source.tempo, 108), 30, 240),
+    tempo: clamp(finite(source.tempo, 108), 2, 4400),
     intensity: clamp(finite(source.intensity, 1), 0, 2),
     antennae: source.antennae !== false,
     sequenceEnabled: source.sequenceEnabled === true,

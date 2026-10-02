@@ -558,8 +558,8 @@ test('random motion has real time variation, independent wing hinges, and the sa
   assert.ok(pose(.83, { ...motion, intensity: 0 }, rig).every((value) => value === 0));
   assert.ok(scene(.83, { ...motion, intensity: 0 }, rig).feet.every(({ impact }) => impact === 0));
   assert.ok(pose(.83, { ...motion, antennae: false }, rig).slice(12, 18).every((value) => value === 0));
-  const bad = createRandomRoachMotion(Infinity, rig, { tempo: 900, intensity: -2 });
-  assert.equal(bad.randomSeed, 1); assert.equal(bad.tempo, 240); assert.equal(bad.intensity, 0);
+  const bad = createRandomRoachMotion(Infinity, rig, { tempo: 9000, intensity: -2 });
+  assert.equal(bad.randomSeed, 1); assert.equal(bad.tempo, 4400); assert.equal(bad.intensity, 0);
 });
 
 test('baked touchdown counts remain observable between sample knots at the audio control rate', () => {
