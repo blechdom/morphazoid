@@ -59,8 +59,8 @@ function solo(groupId, source, level = 1) {
 }
 const muted = () => createDefaultRoachBodyMix().map((row) => ({ ...row, level: 0 }));
 
-test('eight anatomical groups own nineteen sources and normalized immutable assignments', () => {
-  assert.equal(ROACH_BODY_GROUPS.length, 8); assert.equal(ROACH_BODY_SOURCES.length, 19);
+test('eight anatomical groups own synthesis, percussion and native voice sources with immutable assignments', () => {
+  assert.equal(ROACH_BODY_GROUPS.length, 8); assert.equal(ROACH_BODY_SOURCES.length, 23);
   assert.equal(getRoachBodyGroupId(joints[2]), 'head'); assert.equal(getRoachBodyGroupId(joints[3]), 'neck');
   assert.equal(getRoachBodyGroupId(joints[4]), 'covers'); assert.equal(getRoachBodyGroupId(joints[29]), 'hindwings');
   assert.equal(getRoachBodyGroupId(joints[30]), 'hindwings'); assert.equal(getRoachBodyGroupId(joints[7]), 'legs');
@@ -198,6 +198,8 @@ test('every movement-only source is exactly silent for held poses even when Soun
 test('each source actually sounds from its assigned group and resets on still pose changes', () => {
   for (const source of ROACH_BODY_SOURCES) {
     const dsp = engine({ playing: false, soundPlaying: !source.motionOnly, motion: { presetId: 'none', antennae: false }, bodyMix: solo('head', source.id) });
+    if (source.id.startsWith('voice-')) dsp.setBodyVoice(source.id,
+      Float32Array.from({ length: RATE / 2 }, (_, i) => Math.sin(i * Math.PI * 2 * 210 / RATE) * .35), RATE);
     dsp.setSampleBank(recordingFixture()); render(dsp, .1);
     if (source.motionOnly) dsp.interact({ jointId: joints[2].id, active: true, velocity: 1 });
     assert.ok(rms(render(dsp, .15).left) > .003, `${source.id} has no assigned source signal`);
