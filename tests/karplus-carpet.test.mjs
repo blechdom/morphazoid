@@ -11,6 +11,7 @@ import {
   karplusCarpetEnvelopeTiming,
   karplusCarpetPitchAtPosition,
   karplusCarpetPointerEvent,
+  karplusCarpetPulseGeometry,
   karplusCarpetPositionFromStageX,
   karplusCarpetRenderSampleRate,
   karplusCarpetSpatialCellAtPosition,
@@ -19,19 +20,37 @@ import {
   karplusCarpetSpatialGrid,
   karplusCarpetStageGeometry,
   mergeKarplusCarpetPresetSettings,
+  normalizeKarplusCarpetGrainSamples,
   normalizeKarplusCarpetSamples,
   sanitizeKarplusCarpetSettings,
 } from "../src/instruments/karplus-carpet/karplus-carpet.js";
+import {
+  KARPLUS_CARPET_FULL_PRESETS,
+  KARPLUS_CARPET_PRESET_SETTING_KEYS,
+  applyKarplusCarpetPreset,
+  captureKarplusCarpetPreset,
+  randomizeKarplusCarpetPreset,
+} from "../src/instruments/karplus-carpet/full-presets.js";
 import {
   KARPLUS_STRONG_DEFAULTS,
   KARPLUS_STRONG_PRESETS,
   karplusStrongStringFrequencies,
   sanitizeKarplusStrongSettings,
 } from "../src/instruments/karplus-strong/karplus-strong.js";
+import { presetStateKey, validateFullPresetBank } from "../src/site/header-presets.js";
 
 const root = new URL("../", import.meta.url);
 
+function seededRandom(seed) {
+  let value = seed >>> 0;
+  return () => {
+    value = (Math.imul(value, 1664525) + 1013904223) >>> 0;
+    return value / 0x100000000;
+  };
+}
+
 test("Karplus Carpet settings keep spatial grains and pitch fields bounded", () => {
+  assert.equal(KARPLUS_CARPET_DEFAULTS.level, 0.75);
   const low = sanitizeKarplusCarpetSettings({
     grainDuration: -1,
     attackDuration: -1,
@@ -77,7 +96,7 @@ test("Karplus Carpet settings keep spatial grains and pitch fields bounded", () 
   });
   assert.equal(high.grainDuration, 0.4);
   assert.equal(high.attackDuration, 0.12);
-  assert.equal(high.decayDuration, 0.3);
+  assert.equal(high.decayDuration, 1);
   assert.equal(high.sustainLevel, 1);
   assert.equal(high.releaseDuration, 0.4);
   assert.equal(high.timbreVariation, 1);
@@ -118,6 +137,66 @@ test("Carpet-native textures combine bounded material and gesture settings", () 
   }
 });
 
+test("full Carpet presets recall complete scenes while dice preserves live state", () => {
+  validateFullPresetBank(KARPLUS_CARPET_FULL_PRESETS);
+  assert.equal(KARPLUS_CARPET_FULL_PRESETS.length, 12);
+  assert.deepEqual(
+    KARPLUS_CARPET_FULL_PRESETS.map(({ id }) => id),
+    KARPLUS_CARPET_TEXTURE_PRESETS.map(({ id }) => id),
+  );
+  const factoryKeys = new Set(
+    KARPLUS_CARPET_FULL_PRESETS.map(({ snapshot }) => presetStateKey(snapshot)),
+  );
+  const live = {
+    ...KARPLUS_STRONG_DEFAULTS,
+    ...KARPLUS_CARPET_DEFAULTS,
+    level: 0.31,
+    audioOn: true,
+    pitchBendCents: 137,
+    centerPosition: 0.73,
+    selectedPresetId: "nylon",
+    presetBankId: "materials",
+  };
+
+  for (const preset of KARPLUS_CARPET_FULL_PRESETS) {
+    assert.deepEqual(Object.keys(preset.snapshot.settings), KARPLUS_CARPET_PRESET_SETTING_KEYS);
+    const recalled = applyKarplusCarpetPreset(live, preset.snapshot);
+    assert.deepEqual(captureKarplusCarpetPreset(recalled), preset.snapshot);
+    assert.equal(recalled.level, live.level);
+    assert.equal(recalled.audioOn, live.audioOn);
+    assert.equal(recalled.pitchBendCents, live.pitchBendCents);
+    assert.equal(recalled.centerPosition, live.centerPosition);
+  }
+
+  const current = KARPLUS_CARPET_FULL_PRESETS[0].snapshot;
+  const original = presetStateKey(current);
+  const rolls = new Set();
+  const varied = new Map(KARPLUS_CARPET_PRESET_SETTING_KEYS.map((key) => [key, new Set()]));
+  for (let seed = 1; seed <= 64; seed += 1) {
+    const randomized = randomizeKarplusCarpetPreset(current, seededRandom(seed * 9321));
+    assert.deepEqual(
+      randomized,
+      randomizeKarplusCarpetPreset(current, seededRandom(seed * 9321)),
+    );
+    assert.equal(randomized.selectedPresetId, null);
+    assert.equal(factoryKeys.has(presetStateKey(randomized)), false);
+    assert.deepEqual(captureKarplusCarpetPreset(randomized.settings), randomized);
+    rolls.add(presetStateKey(randomized));
+    for (const key of KARPLUS_CARPET_PRESET_SETTING_KEYS) {
+      varied.get(key).add(presetStateKey(randomized.settings[key]));
+    }
+    const randomizedRecall = applyKarplusCarpetPreset(live, randomized);
+    assert.equal(randomizedRecall.level, live.level);
+    assert.equal(randomizedRecall.audioOn, true);
+  }
+  assert.equal(rolls.size, 64);
+  assert.deepEqual(
+    [...varied].filter(([, values]) => values.size < 2).map(([key]) => key),
+    [],
+  );
+  assert.equal(presetStateKey(current), original);
+});
+
 test("every Carpet texture retains audible post-envelope energy across the pitch field", () => {
   const sampleRate = 12_000;
   const frequencies = [110, 311.13, 880];
@@ -144,7 +223,7 @@ test("every Carpet texture retains audible post-envelope energy across the pitch
           item.settings,
           item.settings.grainDuration,
         );
-        const samples = normalizeKarplusCarpetSamples(generateKarplusCarpetSamples({
+        const samples = normalizeKarplusCarpetGrainSamples(generateKarplusCarpetSamples({
           frequency,
           duration: envelope.endOffset,
           timbreVariant: variant,
@@ -207,6 +286,30 @@ test("cell color produces four deterministic bounded excitation variants", () =>
   assert.equal(uniform.timbreVariant, 0);
 });
 
+test("level variation stays expressive without large strike-to-strike jumps", () => {
+  const velocities = [];
+  for (let index = 0; index < 256; index += 1) {
+    velocities.push(karplusCarpetPointerEvent({
+      ...KARPLUS_CARPET_DEFAULTS,
+      velocityScatter: 1,
+    }, index, { seed: index + 11, position: 0.5 }).velocity);
+  }
+  assert.ok(Math.min(...velocities) >= 0.38 - 1e-12);
+  assert.ok(Math.max(...velocities) <= 0.58 + 1e-12);
+  assert.ok(Math.max(...velocities) - Math.min(...velocities) > 0.16);
+  for (let index = 0; index < 16; index += 1) {
+    assert.equal(karplusCarpetPointerEvent({
+      ...KARPLUS_CARPET_DEFAULTS,
+      velocityScatter: 0,
+    }, index, { seed: index + 31, position: 0.5 }).velocity, 0.48);
+  }
+  assert.equal(karplusCarpetPointerEvent(KARPLUS_CARPET_DEFAULTS, 0, {
+    seed: 19,
+    position: 0.5,
+    velocity: 0.2,
+  }).velocity, 0.2);
+});
+
 test("one-shot Carpet ADSR releases after the body or completed decay", () => {
   const normal = karplusCarpetEnvelopeTiming(KARPLUS_CARPET_DEFAULTS, 0.16);
   assert.equal(normal.attackEndOffset, 0.002);
@@ -217,12 +320,12 @@ test("one-shot Carpet ADSR releases after the body or completed decay", () => {
   const longOpening = karplusCarpetEnvelopeTiming({
     ...KARPLUS_CARPET_DEFAULTS,
     attackDuration: 0.12,
-    decayDuration: 0.3,
+    decayDuration: 1,
     sustainLevel: 0.64,
     releaseDuration: 0.4,
   }, 0.08);
-  assert.equal(longOpening.releaseStartOffset, 0.42);
-  assert.ok(Math.abs(longOpening.endOffset - 0.82) < 1e-12);
+  assert.equal(longOpening.releaseStartOffset, 1.12);
+  assert.ok(Math.abs(longOpening.endOffset - 1.52) < 1e-12);
   assert.equal(longOpening.sustainLevel, 0.64);
   assert.ok(
     longOpening.endOffset * (2 ** (200 / 1_200))
@@ -240,6 +343,70 @@ test("one-shot Carpet ADSR releases after the body or completed decay", () => {
   assert.equal(snapshotted.decayDuration, 0.075);
   assert.equal(snapshotted.sustainLevel, 0.51);
   assert.equal(snapshotted.releaseDuration, 0.19);
+});
+
+test("long amplitude decay leaves materially more audible late energy", () => {
+  const sampleRate = 12_000;
+  const common = {
+    ...KARPLUS_CARPET_DEFAULTS,
+    grainDuration: 0.08,
+    attackDuration: 0.001,
+    sustainLevel: 0.08,
+    releaseDuration: 0.02,
+  };
+  const raw = normalizeKarplusCarpetGrainSamples(generateKarplusCarpetSamples({
+    duration: 0.35,
+    frequency: 220,
+    seed: 1,
+    timbreVariant: 0,
+    timbre: 0,
+  }, {
+    ...KARPLUS_STRONG_DEFAULTS,
+    decay: 6,
+    coupling: 0,
+  }, sampleRate), sampleRate);
+  const envelopeGain = (time, envelope) => {
+    const floor = 0.0001;
+    if (time <= envelope.attackEndOffset) {
+      return floor + (1 - floor) * time / envelope.attackDuration;
+    }
+    if (time <= envelope.decayEndOffset) {
+      const progress = (time - envelope.attackEndOffset) / envelope.decayDuration;
+      return envelope.sustainLevel ** progress;
+    }
+    if (time <= envelope.releaseStartOffset) return envelope.sustainLevel;
+    if (time <= envelope.endOffset) {
+      const progress = (time - envelope.releaseStartOffset) / envelope.releaseDuration;
+      return envelope.sustainLevel * ((floor / envelope.sustainLevel) ** progress);
+    }
+    return floor;
+  };
+  const windowRms = (decayDuration) => {
+    const envelope = karplusCarpetEnvelopeTiming({ ...common, decayDuration }, 0.08);
+    const start = Math.round(sampleRate * 0.09);
+    const end = Math.round(sampleRate * 0.14);
+    let energy = 0;
+    for (let index = start; index < end; index += 1) {
+      const sample = raw[index] * envelopeGain(index / sampleRate, envelope);
+      energy += sample * sample;
+    }
+    return Math.sqrt(energy / (end - start));
+  };
+  const shortDecayRms = windowRms(0.005);
+  const longDecayRms = windowRms(0.3);
+  assert.ok(longDecayRms > 0.01);
+  assert.ok(longDecayRms > shortDecayRms * 50);
+});
+
+test("Carpet pulse crosses use equal horizontal and vertical spans", () => {
+  for (const duration of [0.08, 0.16, 0.4]) {
+    for (const life of [0, 0.5, 1]) {
+      const geometry = karplusCarpetPulseGeometry(duration, life);
+      assert.ok(Number.isFinite(geometry.span));
+      assert.ok(geometry.span > 0);
+      assert.equal(geometry.halfSpan * 2, geometry.span);
+    }
+  }
 });
 
 test("the Carpet stage is divided into close two-dimensional micro-areas", () => {
@@ -442,20 +609,87 @@ test("thread decay remains an audible material dimension inside the ADSR window"
   assert.ok(lateRms(ringing) > lateRms(damped) * 8);
 });
 
-test("Carpet normalizes quiet micro-attacks without allowing sample clipping", () => {
+test("Carpet balances quiet and hot micro-attacks without sample clipping", () => {
   const quiet = new Float32Array(48_000 * 0.2).fill(0.01);
-  const normalizedQuiet = normalizeKarplusCarpetSamples(quiet, 48_000);
+  const normalizedQuiet = normalizeKarplusCarpetGrainSamples(quiet, 48_000);
   assert.equal(normalizedQuiet.length, quiet.length);
-  assert.ok(Math.abs(normalizedQuiet[0] - 0.036) < 1e-6);
+  assert.ok(Math.abs(normalizedQuiet[0] - 0.1) < 1e-6);
   assert.ok(normalizedQuiet[0] > quiet[0]);
 
-  const hot = new Float32Array([0.9, -0.9, Number.NaN, Number.POSITIVE_INFINITY]);
-  const normalizedHot = normalizeKarplusCarpetSamples(hot, 48_000);
-  assert.deepEqual([...normalizedHot], [1, -1, 0, 0]);
+  const hot = new Float32Array([0.9, -0.9, 0.9, -0.9]);
+  const normalizedHot = normalizeKarplusCarpetGrainSamples(hot, 48_000);
+  assert.ok(Math.abs(normalizedHot[0] - 0.315) < 1e-6);
+  assert.ok(Math.abs(normalizedHot[1] + 0.315) < 1e-6);
   for (const value of normalizedHot) {
     assert.ok(Number.isFinite(value));
-    assert.ok(value >= -1 && value <= 1);
+    assert.ok(Math.abs(value) <= KARPLUS_CARPET_LIMITS.normalizedPeakCeiling);
   }
+  assert.deepEqual(
+    [...normalizeKarplusCarpetGrainSamples(
+      new Float32Array([Number.NaN, Number.POSITIVE_INFINITY]),
+      48_000,
+    )],
+    [0, 0],
+  );
+
+  assert.ok(
+    Math.abs(normalizeKarplusCarpetSamples(quiet, 48_000)[0] - 0.036) < 1e-6,
+    "the shared Automatapoeia normalization profile remains compatible",
+  );
+});
+
+test("calibrated Carpet textures keep deterministic onset levels bounded", () => {
+  const sampleRate = 12_000;
+  const presetMedians = [];
+  let limitedSamples = 0;
+  let analyzedSamples = 0;
+
+  for (const item of KARPLUS_CARPET_TEXTURE_PRESETS) {
+    const onsetLevels = [];
+    const frequencies = [
+      item.settings.lowFrequency,
+      Math.sqrt(item.settings.lowFrequency * item.settings.highFrequency),
+      item.settings.highFrequency,
+    ];
+    for (const frequency of frequencies) {
+      for (let variant = 0; variant < 4; variant += 1) {
+        const samples = normalizeKarplusCarpetGrainSamples(generateKarplusCarpetSamples({
+          frequency,
+          duration: 0.24,
+          timbreVariant: variant,
+          timbre: (-1 + variant * (2 / 3)) * item.settings.timbreVariation,
+        }, item.settings, sampleRate), sampleRate);
+        const onsetFrames = Math.min(
+          samples.length,
+          Math.ceil(sampleRate * KARPLUS_CARPET_LIMITS.normalizationWindowSeconds),
+        );
+        let energy = 0;
+        for (let index = 0; index < onsetFrames; index += 1) {
+          const sample = samples[index];
+          energy += sample * sample;
+          limitedSamples += Number(
+            Math.abs(sample) >= KARPLUS_CARPET_LIMITS.normalizedPeakCeiling,
+          );
+          analyzedSamples += 1;
+        }
+        onsetLevels.push(
+          Math.sqrt(energy / onsetFrames) * item.settings.gainTrim,
+        );
+      }
+    }
+    onsetLevels.sort((left, right) => left - right);
+    presetMedians.push((onsetLevels[5] + onsetLevels[6]) * 0.5);
+    assert.ok(
+      onsetLevels.at(-1) / onsetLevels[0] <= 10 ** (5 / 20),
+      item.name + " varies by more than 5 dB across pitch and cell color",
+    );
+  }
+
+  assert.ok(
+    Math.max(...presetMedians) / Math.min(...presetMedians) <= 10 ** (9 / 20),
+    "texture onset medians remain within a 9 dB physical-material window",
+  );
+  assert.ok(limitedSamples / analyzedSamples < 0.01);
 });
 
 test("Karplus Carpet audio schedules short grains, bends them live, and stops cleanly", async () => {
@@ -557,11 +791,13 @@ test("Karplus Carpet audio schedules short grains, bends them live, and stops cl
     KARPLUS_STRONG_DEFAULTS,
     { when: 2.25, density: 28, renderDuration: 0.3 },
   );
-  assert.equal(gains[0].gain.value, 0.72);
-  assert.equal(compressors[0].threshold.value, -18);
-  assert.equal(compressors[0].knee.value, 12);
-  assert.equal(compressors[0].ratio.value, 8);
-  assert.equal(compressors[0].release.value, 0.18);
+  assert.equal(gains[0].gain.value, 1.3);
+  assert.equal(gains[1].gain.value, KARPLUS_CARPET_DEFAULTS.level);
+  assert.equal(compressors[0].threshold.value, -10);
+  assert.equal(compressors[0].knee.value, 6);
+  assert.equal(compressors[0].ratio.value, 4);
+  assert.equal(compressors[0].attack.value, 0.003);
+  assert.equal(compressors[0].release.value, 0.08);
   assert.equal(starts.at(-1), 2.25);
   assert.equal(scheduled.when, 2.25);
   assert.equal(scheduled.envelope.attackEndOffset, 0.01);
@@ -638,6 +874,37 @@ test("Karplus Carpet audio schedules short grains, bends them live, and stops cl
   });
   assert.equal(buffers.length, buffersBeforeReuse, "the newest deterministic buffer is reused");
 
+  const longDecayEvent = {
+    ...event,
+    duration: 0.08,
+    frequency: 440,
+    attackDuration: 0.12,
+    decayDuration: 1,
+    sustainLevel: 0.64,
+    releaseDuration: 0.4,
+    timbreVariant: 3,
+    timbre: 1,
+  };
+  const longScheduled = await audio.scheduleGrain(longDecayEvent, KARPLUS_STRONG_DEFAULTS, {
+    when: 2.8,
+    density: 28,
+  });
+  assert.ok(Math.abs(longScheduled.envelope.endOffset - 1.52) < 1e-12);
+  assert.ok(
+    buffers.at(-1).duration
+      >= longScheduled.envelope.endOffset * (2 ** (200 / 1_200)),
+  );
+  assert.ok(buffers.at(-1).duration <= KARPLUS_CARPET_LIMITS.maximumRenderDuration);
+  const longAutomation = gains.at(-1).gain.events;
+  assert.deepEqual(longAutomation.map(([method]) => method), [
+    "set", "linear", "exponential", "exponential",
+  ]);
+  assert.equal(
+    new Set(longAutomation.map(([, , time]) => time)).size,
+    longAutomation.length,
+    "long decay does not schedule two automation events at the same timestamp",
+  );
+
   assert.equal(audio.setPitchBend(125), 125);
   assert.deepEqual(detuneCalls.at(-1), ["target", 125, 2, 0.01]);
   audio.setOutput(5);
@@ -650,21 +917,26 @@ test("Karplus Carpet audio schedules short grains, bends them live, and stops cl
 });
 
 test("Karplus Carpet page exposes synthesized microsound performance controls", async () => {
-  const [html, css, app, source, waxHtml, waxCss, waxApp, waxSource] = await Promise.all([
+  const [html, css, app, source, fullPresets, waxHtml, waxCss, waxApp, waxSource, waxFullPresets] = await Promise.all([
     readFile(new URL("src/pages/karplus-carpet.html", root), "utf8"),
     readFile(new URL("src/instruments/karplus-carpet/karplus-carpet.css", root), "utf8"),
     readFile(new URL("src/instruments/karplus-carpet/karplus-carpet-app.js", root), "utf8"),
     readFile(new URL("src/instruments/karplus-carpet/karplus-carpet.js", root), "utf8"),
+    readFile(new URL("src/instruments/karplus-carpet/full-presets.js", root), "utf8"),
     readFile(new URL("dist-wax/karplus-carpet.html", root), "utf8"),
     readFile(new URL("dist-wax/src/instruments/karplus-carpet/karplus-carpet.css", root), "utf8"),
     readFile(new URL("dist-wax/src/instruments/karplus-carpet/karplus-carpet-app.js", root), "utf8"),
     readFile(new URL("dist-wax/src/instruments/karplus-carpet/karplus-carpet.js", root), "utf8"),
+    readFile(new URL("dist-wax/src/instruments/karplus-carpet/full-presets.js", root), "utf8"),
   ]);
   assert.match(html, /<h1>Karplus Carpet<\/h1>/);
+  assert.match(html, /id="levelOut"[^>]*>75%<\/output>/);
+  assert.match(html, /id="level"[^>]*value="\.75"/);
+  assert.match(html, /<aside class="panel" data-instrument-preset-host/);
   assert.match(html, /id="grainDuration"[^>]*type="range"[^>]*min="\.08"[^>]*max="\.4"/);
   assert.match(html, /Amplitude ADSR/);
   assert.match(html, /id="attackDuration"[^>]*type="range"[^>]*min="\.001"[^>]*max="\.12"/);
-  assert.match(html, /id="decayDuration"[^>]*type="range"[^>]*min="\.005"[^>]*max="\.3"/);
+  assert.match(html, /id="decayDuration"[^>]*type="range"[^>]*min="\.005"[^>]*max="1"/);
   assert.match(html, /id="sustainLevel"[^>]*type="range"[^>]*min="0"[^>]*max="1"/);
   assert.match(html, /id="releaseDuration"[^>]*type="range"[^>]*min="\.005"[^>]*max="\.4"/);
   assert.match(html, /<h2 class="group-title">Sound varieties<\/h2>/);
@@ -675,7 +947,8 @@ test("Karplus Carpet page exposes synthesized microsound performance controls", 
   assert.match(html, /data-section="form">/);
   assert.match(html, /data-section="sound">/);
   assert.doesNotMatch(html, /data-section="(?:form|sound)" open/);
-  assert.match(html, /Body time sets the earliest release point/i);
+  assert.match(html, /Amplitude ADSR shapes the level/i);
+  assert.match(html, /id="decay"[^>]*type="range"[^>]*min="\.2"[^>]*max="16"/);
   assert.match(html, /id="velocityScatter"[^>]*type="range"/);
   assert.match(html, /id="stereoSpread"[^>]*type="range"/);
   assert.match(html, /id="lowFrequency"[^>]*type="range"/);
@@ -701,6 +974,8 @@ test("Karplus Carpet page exposes synthesized microsound performance controls", 
   assert.doesNotMatch(css, /kc-transport|kc-loop-toggle/);
   assert.match(app, /karplusCarpetSpatialGrid/);
   assert.match(app, /karplusCarpetEnvelopeTiming/);
+  assert.match(app, /registerHeaderPresets/);
+  assert.match(app, /KARPLUS_CARPET_FULL_PRESETS/);
   assert.match(app, /KARPLUS_CARPET_TEXTURE_PRESETS/);
   assert.match(app, /materials:[\s\S]*?textures:/);
   assert.match(app, /function selectPresetBank/);
@@ -723,6 +998,12 @@ test("Karplus Carpet page exposes synthesized microsound performance controls", 
   assert.match(pointerMove, /processPointerSample/);
   assert.match(app, /message\?\.type === "pitchBend"/);
   assert.match(app, /message\?\.type !== "noteOn"/);
+  assert.match(app, /context\.lineWidth = 0\.85/);
+  assert.match(app, /rgba\(110, 217, 197, \.2\)/);
+  assert.match(app, /fillRect\(x - 0\.6, y - 0\.6, 1\.2, 1\.2\)/);
+  assert.match(app, /context\.moveTo\(x - halfSpan, y - shimmer\)/);
+  assert.match(app, /context\.moveTo\(x - shimmer, y - halfSpan\)/);
+  assert.doesNotMatch(app, /length \* 0\.24/);
   const presetBody = app.match(/function applyPreset\([\s\S]*?\n\}/)?.[0] ?? "";
   assert.doesNotMatch(presetBody, /queueGrain|strikeSpatial|scheduleGrain/);
   assert.match(presetBody, /syncCarpetControls\(\)/);
@@ -731,6 +1012,7 @@ test("Karplus Carpet page exposes synthesized microsound performance controls", 
   assert.match(source, /generateKarplusStrongSamples/);
   assert.match(source, /function karplusCarpetPointerEvent/);
   assert.match(source, /function karplusCarpetEnvelopeTiming/);
+  assert.match(source, /function karplusCarpetPulseGeometry/);
   assert.match(source, /KARPLUS_CARPET_TEXTURE_PRESETS/);
   assert.match(source, /timbreVariant/);
   assert.match(source, /coupledFrequency/);
@@ -739,11 +1021,14 @@ test("Karplus Carpet page exposes synthesized microsound performance controls", 
   assert.match(source, /scheduleGrain\(event/);
   assert.doesNotMatch(source, /function karplusCarpetIntervalMs|function buildKarplusCarpetEvents/);
   assert.doesNotMatch(source, /decodeAudioData|fetch\(|\.wav|\.mp3/);
+  assert.match(fullPresets, /KARPLUS_CARPET_FULL_PRESETS/);
+  assert.match(fullPresets, /function randomizeKarplusCarpetPreset/);
   assert.match(waxHtml, /close micro-area strikes it once/i);
   assert.match(waxHtml, /id="attackDuration"[^>]*type="range"/);
   assert.match(waxHtml, /id="decayDuration"[^>]*type="range"/);
   assert.match(waxHtml, /id="sustainLevel"[^>]*type="range"/);
   assert.match(waxHtml, /id="releaseDuration"[^>]*type="range"/);
+  assert.match(waxHtml, /data-instrument-preset-host/);
   assert.match(waxHtml, /data-preset-bank="textures"/);
   assert.match(waxHtml, /id="timbreVariation"[^>]*type="range"/);
   assert.doesNotMatch(waxHtml, /id="carpetButton"|id="loopCarpet"/);
@@ -752,4 +1037,5 @@ test("Karplus Carpet page exposes synthesized microsound performance controls", 
   assert.equal(waxCss, css);
   assert.equal(waxApp, app);
   assert.equal(waxSource, source);
+  assert.equal(waxFullPresets, fullPresets);
 });

@@ -65,8 +65,8 @@
           <span class="audio-copy"><b>Audio</b><small id="audioState">off</small></span>
         </button>
         <label class="header-level" for="level">
-          <span><b>Output</b><output id="levelOut" for="level">62%</output></span>
-          <input id="level" aria-label="Karplus Carpet output level" type="range" min="0" max=".85" step=".01" value=".62" />
+          <span><b>Output</b><output id="levelOut" for="level">75%</output></span>
+          <input id="level" aria-label="Karplus Carpet output level" type="range" min="0" max=".85" step=".01" value=".75" />
         </label>
       </div>
     </header>
@@ -103,7 +103,7 @@
         </div>
       </section>
 
-      <aside class="panel" aria-label="Karplus Carpet controls">
+      <aside class="panel" data-instrument-preset-host aria-label="Karplus Carpet controls">
         <details class="group control-section" data-section="surface" open>
           <summary class="group-summary">
             <h2 class="group-title">Surface</h2>
@@ -134,7 +134,7 @@
               </label>
               <label class="control kc-slider" for="decayDuration">
                 <span><b>Decay</b><output id="decayDurationOut" for="decayDuration">45 ms</output></span>
-                <input id="decayDuration" type="range" min=".005" max=".3" step=".005" value=".045" aria-valuetext="45 ms" />
+                <input id="decayDuration" type="range" min=".005" max="1" step=".005" value=".045" aria-valuetext="45 ms" />
               </label>
               <label class="control kc-slider" for="sustainLevel">
                 <span><b>Sustain</b><output id="sustainLevelOut" for="sustainLevel">28%</output></span>
@@ -145,7 +145,7 @@
                 <input id="releaseDuration" type="range" min=".005" max=".4" step=".005" value=".08" aria-valuetext="80 ms" />
               </label>
             </div>
-            <p class="kc-envelope-note">Body time sets the earliest release point; a longer Attack + Decay finishes first, then Release adds the final tail.</p>
+            <p class="kc-envelope-note">Amplitude ADSR shapes the level of each strike. Body time is the earliest release point; Thread ring below controls how long the modeled string keeps supplying sound.</p>
 
             <div class="field-label spaced">Pitch field</div>
             <div class="choice-switch compact ks-spacing-switch" id="spacingMode" role="group" aria-label="Frequency spacing">
@@ -229,6 +229,7 @@
           </summary>
           <div class="group-body">
             <div class="ks-knob-bank">
+              <label class="ks-knob" for="decay"><span><b>Thread ring</b><output id="decayOut" for="decay">3.70 s</output></span><input id="decay" type="range" min=".2" max="16" step=".05" value="3.7" /></label>
               <label class="ks-knob" for="brightness"><span><b>Brightness</b><output id="brightnessOut" for="brightness">48%</output></span><input id="brightness" type="range" min="0" max="1" step=".01" value=".48" /></label>
               <label class="ks-knob" for="dispersion"><span><b>Dispersion</b><output id="dispersionOut" for="dispersion">6%</output></span><input id="dispersion" type="range" min="0" max="1" step=".01" value=".06" /></label>
               <label class="ks-knob" for="roughness"><span><b>Roughness</b><output id="roughnessOut" for="roughness">0%</output></span><input id="roughness" type="range" min="0" max="1" step=".01" value="0" /></label>

@@ -4,11 +4,11 @@
   "branch": "codex/presets-continue-20260922",
   "source": "Review branch directory checkpoint 03619ff rebased onto origin/main ef6e593; pending pointer, family rename and preset drafts restored; no push or deployment",
   "counts": {
-    "implemented": 32,
-    "fullPresets": 1480,
+    "implemented": 33,
+    "fullPresets": 1492,
     "favesImplemented": 16,
-    "activeRemaining": 63,
-    "regularRemaining": 132
+    "activeRemaining": 62,
+    "regularRemaining": 131
   },
   "verification": {
     "browser": "Fresh-main 9a45aa0 combined gate: 402 passed across 13 Chromium suites, including all 209 public HTML routes, all 451 existing full-state preset recalls, Shapes' 106-scene audio sweep, Faves/UI/gesture checks, I/O setup and incoming Loopini regressions. Human/device acceptance remains separate; see docs/presets-continuation-20260922.md",
@@ -259,8 +259,8 @@
       "href": "karplus-carpet.html",
       "category": "instrument",
       "scope": "regular",
-      "presets": null,
-      "status": "unmigrated"
+      "presets": 12,
+      "status": "implemented-verification-pending"
     },
     {
       "id": "sample-drums",
@@ -1650,7 +1650,6 @@
       "rattlesnake-skin",
       "fm-drums",
       "linear-drums",
-      "karplus-carpet",
       "sample-drums",
       "object-forge",
       "sliding-puzzle",

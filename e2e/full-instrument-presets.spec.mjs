@@ -2,6 +2,7 @@ import { expect, test } from "@playwright/test";
 import { CREATURAZOID_FULL_PRESETS } from "../src/instruments/creaturazoid/full-presets.js";
 import { HICCUP_HEAD_FULL_PRESETS } from "../src/instruments/hiccup-head/full-presets.js";
 import { KARPLUS_STRONG_FULL_PRESETS } from "../src/instruments/karplus-strong/full-presets.js";
+import { KARPLUS_CARPET_FULL_PRESETS } from "../src/instruments/karplus-carpet/full-presets.js";
 import { algorithmicFullPresets } from "../src/families/algorithmic-scores/full-presets.js";
 import { CASCADING_FM_FULL_PRESETS, CASCADING_PM_FULL_PRESETS } from "../src/families/cascading/full-presets.js";
 import { SHAPE_FULL_PRESETS } from "../src/instruments/shape-synth/full-presets.js";
@@ -12,6 +13,7 @@ const banks = [
   ["creaturazoid", CREATURAZOID_FULL_PRESETS],
   ["hiccup-head", HICCUP_HEAD_FULL_PRESETS],
   ["karplus-strong", KARPLUS_STRONG_FULL_PRESETS],
+  ["karplus-carpet", KARPLUS_CARPET_FULL_PRESETS],
   ...["dijkstra", "hanoi", "minimax", "nqueens", "euclid"].map(id => [id, algorithmicFullPresets(id)]),
   ["cascading-fm", CASCADING_FM_FULL_PRESETS],
   ["cascading-pm", CASCADING_PM_FULL_PRESETS],
@@ -145,6 +147,42 @@ for (const [id, bank] of banks) {
     expect(pageDiagnosticMessages(diagnostics)).toEqual([]);
   });
 }
+
+test("karplus-carpet presets preserve live Audio, output, and focused material editing", async ({ page, baseURL }) => {
+  const diagnostics = watchPageDiagnostics(page, { baseURL });
+  await page.goto("karplus-carpet.html", { waitUntil: "load" });
+  await settlePage(page);
+  await page.locator("#level").evaluate((input) => {
+    input.value = "0.23";
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+  });
+  await page.locator("#audioButton").click();
+  await expect(page.locator("#audioButton")).toHaveAttribute("aria-pressed", "true");
+  const connections = (await readAudioStatus(page)).connectionCount;
+
+  await select(page, KARPLUS_CARPET_FULL_PRESETS[9].id);
+  await expect(page.locator("#level")).toHaveValue("0.23");
+  await expect(page.locator("#audioButton")).toHaveAttribute("aria-pressed", "true");
+  expect((await readAudioStatus(page)).connectionCount).toBe(connections);
+  await expect(page.locator("#decayDuration")).toHaveAttribute("max", "1");
+  await expect(page.locator("#decay")).toHaveValue(
+    String(KARPLUS_CARPET_FULL_PRESETS[9].snapshot.settings.decay),
+  );
+
+  await page.locator(".header-preset-random").click();
+  await expect(page.locator(".header-preset-controls")).toHaveAttribute("data-preset-id", "custom");
+  await expect(page.locator("#level")).toHaveValue("0.23");
+  await expect(page.locator("#audioButton")).toHaveAttribute("aria-pressed", "true");
+  expect((await readAudioStatus(page)).connectionCount).toBe(connections);
+
+  await page.locator('[data-preset-bank="materials"]').click();
+  await page.locator("#presetGrid button").first().click();
+  await expect(page.locator(".header-preset-controls")).toHaveAttribute("data-preset-id", "custom");
+  await expect(page.locator("#audioButton")).toHaveAttribute("aria-pressed", "true");
+  await page.locator("#audioButton").click();
+  await expect(page.locator("#audioButton")).toHaveAttribute("aria-pressed", "false");
+  expect(pageDiagnosticMessages(diagnostics)).toEqual([]);
+});
 
 for (const [id, bank] of banks.slice(0, 2)) {
   test(`${id}: edited body, rhythm and voice settings return together; input arrows stay local`, async ({ page }) => {

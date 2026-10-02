@@ -4,6 +4,7 @@ import { presetStateKey, validateFullPresetBank, presetArrowDirection } from "..
 import { CREATURAZOID_FULL_PRESETS } from "../src/instruments/creaturazoid/full-presets.js";
 import { HICCUP_HEAD_FULL_PRESETS } from "../src/instruments/hiccup-head/full-presets.js";
 import { KARPLUS_STRONG_FULL_PRESETS } from "../src/instruments/karplus-strong/full-presets.js";
+import { KARPLUS_CARPET_FULL_PRESETS } from "../src/instruments/karplus-carpet/full-presets.js";
 import { algorithmicFullPresets } from "../src/families/algorithmic-scores/full-presets.js";
 import { CASCADING_FM_FULL_PRESETS, CASCADING_PM_FULL_PRESETS } from "../src/families/cascading/full-presets.js";
 import { CASCADING_FM_PRESETS, deriveCascadeStack as fmStack } from "../src/instruments/cascading-fm/cascading-fm.js";
@@ -91,6 +92,17 @@ test("Karplus Strong keeps every original material and supplies a complete deter
     assert.deepEqual(snapshot.settings, KARPLUS_STRONG_PRESETS.find(p => p.id === id).settings);
     assert.deepEqual(sanitizeKarplusStrongTuning(snapshot.tuning), snapshot.tuning);
     assert.deepEqual(sanitizeKarplusStrongSettings(snapshot.settings), snapshot.settings);
+  }
+});
+
+test("Karplus Carpet supplies twelve complete texture, envelope, tuning, and thread scenes", () => {
+  validateFullPresetBank(KARPLUS_CARPET_FULL_PRESETS);
+  assert.equal(KARPLUS_CARPET_FULL_PRESETS.length, 12);
+  for (const preset of KARPLUS_CARPET_FULL_PRESETS) {
+    assert.match(preset.id, /^texture-/);
+    assert.ok(preset.snapshot.settings.lowFrequency < preset.snapshot.settings.highFrequency);
+    assert.ok(preset.snapshot.settings.decayDuration <= 1);
+    assert.equal(preset.snapshot.selectedPresetId, preset.id);
   }
 });
 

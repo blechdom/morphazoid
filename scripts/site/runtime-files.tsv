@@ -716,6 +716,7 @@ copy+require	assets/instruments/karplus-strong.webp
 copy+require	karplus-carpet.html
 copy+require	src/instruments/karplus-carpet/karplus-carpet.css
 copy+require	src/instruments/karplus-carpet/karplus-carpet-app.js
+copy+require	src/instruments/karplus-carpet/full-presets.js
 copy+require	src/instruments/karplus-carpet/karplus-carpet.js
 copy+require	assets/instruments/karplus-carpet.webp
 copy+require	src/instruments/rattlesnake-skin/rattlesnake-skin.css

@@ -20,15 +20,21 @@ export const KARPLUS_CARPET_LIMITS = Object.freeze({
   minimumAttackDuration: 0.001,
   maximumAttackDuration: 0.12,
   minimumDecayDuration: 0.005,
-  maximumDecayDuration: 0.3,
+  maximumDecayDuration: 1,
   minimumReleaseDuration: 0.005,
   maximumReleaseDuration: 0.4,
-  maximumRenderDuration: 1,
-  minimumGainTrim: 0.55,
-  maximumGainTrim: 1.25,
+  maximumRenderDuration: 1.8,
+  minimumGainTrim: 0.45,
+  maximumGainTrim: 1.6,
+  normalizationWindowSeconds: 0.024,
+  normalizedOpeningRms: 0.13,
+  normalizedPeakCeiling: 0.98,
+  minimumNormalizationGain: 0.35,
+  maximumNormalizationGain: 10,
+  velocityScatterScale: 0.1,
   minimumCoupledRenderAmount: 0.35,
   maximumCoupledRenderDuration: 0.32,
-  voiceGainScale: 0.58,
+  voiceGainScale: 0.78,
   spatialCellSize: 10,
   minimumSpatialColumns: 24,
   maximumSpatialColumns: 512,
@@ -43,6 +49,7 @@ export const KARPLUS_CARPET_LIMITS = Object.freeze({
 
 export const KARPLUS_CARPET_DEFAULTS = Object.freeze({
   ...KARPLUS_STRONG_TUNING_DEFAULTS,
+  level: 0.75,
   lowFrequency: 110,
   highFrequency: 880,
   grainDuration: 0.16,
@@ -175,7 +182,7 @@ export const KARPLUS_CARPET_TEXTURE_PRESETS = Object.freeze([
     {
       grainDuration: 0.11, attackDuration: 0.001, decayDuration: 0.024,
       sustainLevel: 0.18, releaseDuration: 0.045, timbreVariation: 0.24,
-      velocityScatter: 0.24, stereoSpread: 0.62, gainTrim: 1.15,
+      velocityScatter: 0.24, stereoSpread: 0.62, gainTrim: 1.05,
     },
   ),
   carpetTexturePreset(
@@ -186,7 +193,7 @@ export const KARPLUS_CARPET_TEXTURE_PRESETS = Object.freeze([
     {
       grainDuration: 0.15, attackDuration: 0.001, decayDuration: 0.032,
       sustainLevel: 0.28, releaseDuration: 0.095, timbreVariation: 0.4,
-      velocityScatter: 0.32, stereoSpread: 0.86, gainTrim: 0.72,
+      velocityScatter: 0.32, stereoSpread: 0.86, gainTrim: 1.05,
     },
   ),
   carpetTexturePreset(
@@ -197,7 +204,7 @@ export const KARPLUS_CARPET_TEXTURE_PRESETS = Object.freeze([
     {
       grainDuration: 0.24, attackDuration: 0.006, decayDuration: 0.12,
       sustainLevel: 0.55, releaseDuration: 0.28, timbreVariation: 0.46,
-      velocityScatter: 0.18, stereoSpread: 1, gainTrim: 0.68,
+      velocityScatter: 0.18, stereoSpread: 1, gainTrim: 0.55,
     },
   ),
   carpetTexturePreset(
@@ -208,7 +215,7 @@ export const KARPLUS_CARPET_TEXTURE_PRESETS = Object.freeze([
     {
       grainDuration: 0.2, attackDuration: 0.014, decayDuration: 0.065,
       sustainLevel: 0.32, releaseDuration: 0.14, timbreVariation: 0.2,
-      velocityScatter: 0.16, stereoSpread: 0.46, gainTrim: 0.9,
+      velocityScatter: 0.16, stereoSpread: 0.46, gainTrim: 0.84,
     },
   ),
   carpetTexturePreset(
@@ -219,7 +226,7 @@ export const KARPLUS_CARPET_TEXTURE_PRESETS = Object.freeze([
     {
       grainDuration: 0.16, attackDuration: 0.002, decayDuration: 0.045,
       sustainLevel: 0.3, releaseDuration: 0.085, timbreVariation: 0.26,
-      velocityScatter: 0.3, stereoSpread: 0.58, gainTrim: 1.15,
+      velocityScatter: 0.3, stereoSpread: 0.58, gainTrim: 1.02,
     },
   ),
   carpetTexturePreset(
@@ -230,7 +237,7 @@ export const KARPLUS_CARPET_TEXTURE_PRESETS = Object.freeze([
     {
       grainDuration: 0.12, attackDuration: 0.001, decayDuration: 0.026,
       sustainLevel: 0.2, releaseDuration: 0.055, timbreVariation: 0.7,
-      velocityScatter: 0.45, stereoSpread: 0.9, gainTrim: 0.72,
+      velocityScatter: 0.45, stereoSpread: 0.9, gainTrim: 0.98,
     },
   ),
   carpetTexturePreset(
@@ -241,7 +248,7 @@ export const KARPLUS_CARPET_TEXTURE_PRESETS = Object.freeze([
     {
       grainDuration: 0.1, attackDuration: 0.001, decayDuration: 0.018,
       sustainLevel: 0.12, releaseDuration: 0.025, timbreVariation: 0.82,
-      velocityScatter: 0.52, stereoSpread: 1, gainTrim: 1,
+      velocityScatter: 0.52, stereoSpread: 1, gainTrim: 1.45,
     },
   ),
   carpetTexturePreset(
@@ -252,7 +259,7 @@ export const KARPLUS_CARPET_TEXTURE_PRESETS = Object.freeze([
     {
       grainDuration: 0.17, attackDuration: 0.003, decayDuration: 0.05,
       sustainLevel: 0.36, releaseDuration: 0.12, timbreVariation: 0.4,
-      velocityScatter: 0.25, stereoSpread: 0.78, gainTrim: 0.7,
+      velocityScatter: 0.25, stereoSpread: 0.78, gainTrim: 1.15,
     },
   ),
   carpetTexturePreset(
@@ -263,7 +270,7 @@ export const KARPLUS_CARPET_TEXTURE_PRESETS = Object.freeze([
     {
       grainDuration: 0.3, attackDuration: 0.04, decayDuration: 0.16,
       sustainLevel: 0.62, releaseDuration: 0.35, timbreVariation: 0.34,
-      velocityScatter: 0.12, stereoSpread: 1, gainTrim: 0.72,
+      velocityScatter: 0.12, stereoSpread: 1, gainTrim: 1.12,
     },
   ),
   carpetTexturePreset(
@@ -274,7 +281,7 @@ export const KARPLUS_CARPET_TEXTURE_PRESETS = Object.freeze([
     {
       grainDuration: 0.32, attackDuration: 0.02, decayDuration: 0.2,
       sustainLevel: 0.7, releaseDuration: 0.38, timbreVariation: 0.52,
-      velocityScatter: 0.1, stereoSpread: 1, gainTrim: 0.65,
+      velocityScatter: 0.1, stereoSpread: 1, gainTrim: 0.45,
     },
   ),
   carpetTexturePreset(
@@ -285,7 +292,7 @@ export const KARPLUS_CARPET_TEXTURE_PRESETS = Object.freeze([
     {
       grainDuration: 0.09, attackDuration: 0.001, decayDuration: 0.015,
       sustainLevel: 0.1, releaseDuration: 0.018, timbreVariation: 1,
-      velocityScatter: 0.7, stereoSpread: 0.94, gainTrim: 1.2,
+      velocityScatter: 0.7, stereoSpread: 0.94, gainTrim: 0.95,
     },
     { lowCut: 0.58, pickupMix: 0.48 },
   ),
@@ -312,6 +319,17 @@ export function karplusCarpetEnvelopeTiming(source = {}, duration) {
     releaseStartOffset,
     endOffset: releaseStartOffset + settings.releaseDuration,
   });
+}
+
+export function karplusCarpetPulseGeometry(duration, life = 1) {
+  const safeDuration = clamp(
+    finiteOr(duration, KARPLUS_CARPET_DEFAULTS.grainDuration),
+    KARPLUS_CARPET_LIMITS.minimumGrainDuration,
+    KARPLUS_CARPET_LIMITS.maximumGrainDuration,
+  );
+  const safeLife = clamp(finiteOr(life, 1), 0, 1);
+  const span = 7 + safeDuration * 80 + safeLife * 13;
+  return Object.freeze({ span, halfSpan: span * 0.5 });
 }
 
 export function mergeKarplusCarpetPresetSettings(current = {}, preset = {}) {
@@ -548,7 +566,10 @@ export function karplusCarpetPointerEvent(source = {}, index = 0, options = {}) 
     KARPLUS_CARPET_LIMITS.minimumGrainDuration,
     KARPLUS_CARPET_LIMITS.maximumGrainDuration,
   );
-  const variedVelocity = 0.42 + (random() * 2 - 1) * settings.velocityScatter * 0.18;
+  const variedVelocity = 0.48
+    + (random() * 2 - 1)
+      * settings.velocityScatter
+      * KARPLUS_CARPET_LIMITS.velocityScatterScale;
   const colorBand = settings.timbreVariation > 0
     ? clamp(Math.floor(random() * 4), 0, 3)
     : 0;
@@ -670,6 +691,40 @@ export function normalizeKarplusCarpetSamples(samples, sampleRate = 48_000) {
   return normalized;
 }
 
+export function normalizeKarplusCarpetGrainSamples(samples, sampleRate = 48_000) {
+  const source = samples && typeof samples.length === "number" ? samples : [];
+  const analysisFrames = Math.min(
+    source.length,
+    Math.max(
+      1,
+      Math.ceil(
+        Math.max(1, finiteOr(sampleRate, 48_000))
+          * KARPLUS_CARPET_LIMITS.normalizationWindowSeconds,
+      ),
+    ),
+  );
+  let energy = 0;
+  for (let index = 0; index < analysisFrames; index += 1) {
+    const sample = finiteOr(source[index], 0);
+    energy += sample * sample;
+  }
+  const openingRms = Math.sqrt(energy / Math.max(1, analysisFrames));
+  const rmsGain = clamp(
+    KARPLUS_CARPET_LIMITS.normalizedOpeningRms / Math.max(0.0001, openingRms),
+    KARPLUS_CARPET_LIMITS.minimumNormalizationGain,
+    KARPLUS_CARPET_LIMITS.maximumNormalizationGain,
+  );
+  const normalized = new Float32Array(source.length);
+  for (let index = 0; index < source.length; index += 1) {
+    normalized[index] = clamp(
+      finiteOr(source[index], 0) * rmsGain,
+      -KARPLUS_CARPET_LIMITS.normalizedPeakCeiling,
+      KARPLUS_CARPET_LIMITS.normalizedPeakCeiling,
+    );
+  }
+  return normalized;
+}
+
 function cancelledStartError() {
   const error = new Error("Karplus Carpet audio start was cancelled.");
   error.name = "AbortError";
@@ -686,7 +741,7 @@ export class KarplusCarpetAudio {
     this.releaseAudioOutput = null;
     this.activeVoices = [];
     this.bufferCache = new Map();
-    this.output = KARPLUS_STRONG_DEFAULTS.level;
+    this.output = KARPLUS_CARPET_DEFAULTS.level;
     this.pitchBendCents = 0;
     this.lifecycleGeneration = 0;
   }
@@ -701,13 +756,13 @@ export class KarplusCarpetAudio {
       context = new Context();
       this.context = context;
       this.input = context.createGain();
-      this.input.gain.value = 0.72;
+      this.input.gain.value = 1.3;
       const compressor = context.createDynamicsCompressor();
-      compressor.threshold.value = -18;
-      compressor.knee.value = 12;
-      compressor.ratio.value = 8;
-      compressor.attack.value = 0.002;
-      compressor.release.value = 0.18;
+      compressor.threshold.value = -10;
+      compressor.knee.value = 6;
+      compressor.ratio.value = 4;
+      compressor.attack.value = 0.003;
+      compressor.release.value = 0.08;
       this.master = context.createGain();
       this.master.gain.value = this.output;
       this.analyser = context.createAnalyser();
@@ -731,7 +786,7 @@ export class KarplusCarpetAudio {
   }
 
   setOutput(value) {
-    this.output = clamp(finiteOr(value, KARPLUS_STRONG_DEFAULTS.level), 0, 0.85);
+    this.output = clamp(finiteOr(value, KARPLUS_CARPET_DEFAULTS.level), 0, 0.85);
     if (this.master && this.context) {
       this.master.gain.setTargetAtTime(this.output, this.context.currentTime, 0.015);
     }
@@ -820,7 +875,7 @@ export class KarplusCarpetAudio {
     );
     let buffer = this.bufferCache.get(cacheKey);
     if (!buffer) {
-      const samples = normalizeKarplusCarpetSamples(
+      const samples = normalizeKarplusCarpetGrainSamples(
         generateKarplusCarpetSamples(renderEvent, settings, renderSampleRate),
         renderSampleRate,
       );
@@ -882,7 +937,9 @@ export class KarplusCarpetAudio {
       when + envelope.attackEndOffset,
     );
     gain.gain.exponentialRampToValueAtTime(sustain, when + envelope.decayEndOffset);
-    gain.gain.setValueAtTime(sustain, when + envelope.releaseStartOffset);
+    if (envelope.releaseStartOffset > envelope.decayEndOffset) {
+      gain.gain.setValueAtTime(sustain, when + envelope.releaseStartOffset);
+    }
     gain.gain.exponentialRampToValueAtTime(floor, when + envelope.endOffset);
     if (panner) panner.pan.value = clamp(finiteOr(event.pan, 0), -1, 1);
     source.connect(tone).connect(body).connect(gain);

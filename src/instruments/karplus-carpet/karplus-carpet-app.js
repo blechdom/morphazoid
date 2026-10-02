@@ -8,6 +8,13 @@ import {
   nearestKarplusStrongStringIndex,
   sanitizeKarplusStrongSettings,
 } from "../karplus-strong/karplus-strong.js";
+import { registerHeaderPresets } from "../../site/header-presets.js";
+import {
+  KARPLUS_CARPET_FULL_PRESETS,
+  applyKarplusCarpetPreset,
+  captureKarplusCarpetPreset,
+  randomizeKarplusCarpetPreset,
+} from "./full-presets.js";
 import {
   KARPLUS_CARPET_DEFAULTS,
   KARPLUS_CARPET_LIMITS,
@@ -16,6 +23,7 @@ import {
   karplusCarpetEnvelopeTiming,
   mergeKarplusCarpetPresetSettings,
   karplusCarpetPointerEvent,
+  karplusCarpetPulseGeometry,
   karplusCarpetSpatialCellAtPosition,
   karplusCarpetSpatialCellSeed,
   karplusCarpetSpatialCrossings,
@@ -28,6 +36,7 @@ const $ = (id) => document.getElementById(id);
 const clamp = (value, minimum, maximum) => Math.min(maximum, Math.max(minimum, value));
 const KEY_BINDINGS = ["a", "w", "s", "e", "d", "f", "t", "g", "y", "h", "u", "j", "k", "o", "l", ";"];
 const TIMBRE_CONTROL_SPECS = Object.freeze([
+  { id: "decay", format: formatSeconds },
   { id: "hardness", format: formatPercent },
   { id: "excitationColor", format: formatPercent },
   { id: "excitationShape", format: formatPercent },
@@ -112,6 +121,10 @@ function formatRatio(value) {
 
 function formatMilliseconds(value) {
   return Math.round(Number(value) * 1_000) + " ms";
+}
+
+function formatSeconds(value) {
+  return Number(value).toFixed(2) + " s";
 }
 
 function formatFrequency(frequency) {
@@ -471,6 +484,24 @@ function applyPreset(item) {
   paintReadouts();
 }
 
+function applyFullPreset(snapshot) {
+  Object.assign(state, applyKarplusCarpetPreset(state, snapshot));
+  const selectedTexture = KARPLUS_CARPET_TEXTURE_PRESETS.find(
+    (item) => item.id === state.selectedPresetId,
+  );
+  if (selectedTexture) state.presetBankId = "textures";
+  pitchCells = karplusStrongStringFrequencies(state);
+  for (const specification of TIMBRE_CONTROL_SPECS) paintTimbreControl(specification);
+  syncCarpetControls();
+  renderPresets();
+  $("presetSummary").textContent = selectedTexture?.name ?? "Custom";
+  if (!selectedTexture) {
+    $("presetDescription").textContent = "Custom sound · cross a new area to hear the change.";
+  }
+  audio.clearBufferCache();
+  paintReadouts();
+}
+
 function pushPulse(event, startedAt) {
   pulses.push({ ...event, startedAt });
   if (pulses.length > 180) pulses = pulses.slice(-180);
@@ -789,7 +820,7 @@ $("resetAll").addEventListener("click", () => {
   currentSpatialCell = null;
   audio.stopAll();
   Object.assign(state, KARPLUS_CARPET_DEFAULTS);
-  state.level = KARPLUS_STRONG_DEFAULTS.level;
+  state.level = KARPLUS_CARPET_DEFAULTS.level;
   $("level").value = String(state.level);
   audio.setOutput(state.audioOn ? state.level : 0);
   pitchCells = karplusStrongStringFrequencies(state);
@@ -867,12 +898,12 @@ function drawWovenGround(top, bottom, left, right, timestamp) {
   const rowCount = clamp(Math.round(height / 25), 10, 28);
   const columnCount = clamp(Math.round(width / 26), 18, 70);
   const drift = reducedMotion ? 0 : timestamp * 0.000035;
-  context.lineWidth = 0.65;
+  context.lineWidth = 0.85;
   for (let row = 0; row <= rowCount; row += 1) {
     const y = top + row / rowCount * height;
     context.strokeStyle = row % 2
-      ? "rgba(110, 217, 197, .075)"
-      : "rgba(231, 165, 93, .065)";
+      ? "rgba(110, 217, 197, .13)"
+      : "rgba(231, 165, 93, .11)";
     context.beginPath();
     for (let column = 0; column <= columnCount; column += 1) {
       const amount = column / columnCount;
@@ -887,8 +918,8 @@ function drawWovenGround(top, bottom, left, right, timestamp) {
   for (let column = 0; column <= columnCount; column += 1) {
     const x = left + column / columnCount * width;
     context.fillStyle = column % 2
-      ? "rgba(119, 135, 216, .075)"
-      : "rgba(231, 165, 93, .055)";
+      ? "rgba(119, 135, 216, .13)"
+      : "rgba(231, 165, 93, .1)";
     for (let row = 0; row <= rowCount; row += 1) {
       const y = top + row / rowCount * height;
       const offset = row % 2 ? 3 : -3;
@@ -902,12 +933,12 @@ function drawSpatialLattice(grid) {
   const stride = Math.max(1, Math.ceil(Math.sqrt(total / 12_000)));
   for (let row = 0; row < grid.rows; row += stride) {
     context.fillStyle = row % 2
-      ? "rgba(110, 217, 197, .12)"
-      : "rgba(231, 165, 93, .1)";
+      ? "rgba(110, 217, 197, .2)"
+      : "rgba(231, 165, 93, .17)";
     const y = grid.top + (row + 0.5) * grid.cellHeight;
     for (let column = 0; column < grid.columns; column += stride) {
       const x = grid.left + (column + 0.5) * grid.cellWidth;
-      context.fillRect(x - 0.45, y - 0.45, 0.9, 0.9);
+      context.fillRect(x - 0.6, y - 0.6, 1.2, 1.2);
     }
   }
 }
@@ -924,7 +955,7 @@ function drawPulse(pulse, timestamp, top, bottom, left, right) {
   const x = left + (pulse.spatialPosition ?? pulse.fieldPosition) * (right - left);
   const y = top + pulse.visualY * (bottom - top);
   const shimmer = reducedMotion ? 0 : Math.sin(age * 38 + pulse.index) * 3 * life;
-  const length = 7 + pulse.duration * 80 + life * 13;
+  const { halfSpan } = karplusCarpetPulseGeometry(pulse.duration, life);
   const alpha = Math.min(0.92, 0.15 + life * 0.78);
   const color = pulse.timbre > 0.25
     ? `rgba(110, 217, 197, ${alpha})`
@@ -935,12 +966,12 @@ function drawPulse(pulse, timestamp, top, bottom, left, right) {
   context.strokeStyle = color;
   context.lineWidth = 0.8 + pulse.velocity * 2.2;
   context.beginPath();
-  context.moveTo(x - length * 0.5, y - shimmer);
-  context.quadraticCurveTo(x, y + shimmer * 1.4, x + length * 0.5, y - shimmer);
+  context.moveTo(x - halfSpan, y - shimmer);
+  context.quadraticCurveTo(x, y + shimmer * 1.4, x + halfSpan, y - shimmer);
   context.stroke();
   context.beginPath();
-  context.moveTo(x - shimmer, y - length * 0.24);
-  context.lineTo(x + shimmer, y + length * 0.24);
+  context.moveTo(x - shimmer, y - halfSpan);
+  context.lineTo(x + shimmer, y + halfSpan);
   context.stroke();
   context.fillStyle = color;
   context.fillRect(x - 1.5, y - 1.5, 3, 3);
@@ -1010,6 +1041,14 @@ bindControls();
 for (const specification of TIMBRE_CONTROL_SPECS) paintTimbreControl(specification);
 paintReadouts();
 resizeCanvas();
+
+registerHeaderPresets({
+  id: "karplus-carpet",
+  presets: KARPLUS_CARPET_FULL_PRESETS,
+  randomize: randomizeKarplusCarpetPreset,
+  capture: () => captureKarplusCarpetPreset(state),
+  apply: applyFullPreset,
+});
 
 window.addEventListener("pagehide", () => {
   void audio.close();
