@@ -3,7 +3,7 @@ import { sampleAudioEnvelope } from './helpers/audio-probe.mjs';
 
 test.setTimeout(90000);
 const groups = ['legs', 'covers', 'hindwings', 'thorax', 'abdomen', 'neck', 'head', 'antennae'];
-const sources = ['resonance', 'drone', 'sub', 'shimmer', 'buzz', 'zing', 'skuttle', 'walls', 'rustle', 'shriek', 'hiss', 'growl', 'footsteps', 'fm', 'rattle', 'pluck', 'sine', 'click', 'clack', 'voice-espeak', 'voice-klatt', 'voice-slt', 'voice-kal'];
+const sources = ['resonance', 'drone', 'sub', 'shimmer', 'buzz', 'zing', 'skuttle', 'walls', 'rustle', 'shriek', 'hiss', 'growl', 'footsteps', 'fm', 'rattle', 'pluck', 'sine', 'click', 'clack', 'voice-kal'];
 const state = page => page.evaluate(() => window.roachSynth.getState());
 async function open(page) {
   await page.goto('roach-synth.html');
@@ -33,9 +33,9 @@ async function settleScroll(page) {
   }));
 }
 
-test('all nine sound parameters are editable without changing body assignments or arming Audio', async ({ page }) => {
+test('all ten sound parameters are editable without changing body assignments or arming Audio', async ({ page }) => {
   await open(page);
-  const parameters = ['pitch', 'brightness', 'resonance', 'crunch', 'vowel', 'wingRate', 'rhythm', 'pan', 'voice'];
+  const parameters = ['pitch', 'brightness', 'resonance', 'crunch', 'vowel', 'wingRate', 'rhythm', 'pan', 'voice', 'voiceSpeed'];
   expect(await page.locator('[data-sound]').evaluateAll(inputs => inputs.map(input => input.dataset.sound).sort())).toEqual([...parameters].sort());
   const before = await state(page);
   for (const key of parameters) {
@@ -292,12 +292,14 @@ test('sound knobs sit under their preset, keep labels close, and expose values a
   }
 });
 
-test('Voicesaurus body sounds load on assignment and respond to direct joints with Play paused', async ({ page }, testInfo) => {
+test('Low KAL16 body sound is the only voice source and responds to direct joints with Play paused', async ({ page }, testInfo) => {
   await open(page);
   await page.locator('[data-view="face"]').click(); await page.locator('#dragAxis').selectOption('x');
   await page.locator('[data-solo="head"]').click(); await arm(page);
   const reports = [];
-  for (const source of ['voice-espeak', 'voice-klatt', 'voice-slt', 'voice-kal']) {
+  const voiceSources = await page.locator('#source-head option').evaluateAll(options => options.map(option => option.value).filter(id => id.startsWith('voice-')));
+  expect(voiceSources).toEqual(['voice-kal']);
+  for (const source of voiceSources) {
     await page.locator('#source-head').selectOption(source);
     await expect.poll(async () => (await state(page)).audio.bodyVoicesLoaded, { timeout: 20000 }).toContain(source);
     const before = await state(page);

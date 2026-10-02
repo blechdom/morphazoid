@@ -164,23 +164,67 @@ test('a phrase that finishes while hidden does not replay head motion when the p
 });
 
 
-test('four Voicesaurus presets speak edited text while Play remains held and Audio stays explicit', async ({ page }) => {
+test('Low KAL16 speaks edited text at a moderate voice level while Play remains held and Audio stays explicit', async ({ page }) => {
   await open(page);
-  const voices = ['espeak-native-1', 'espeak-klatt-native-1', 'flite-slt-native-1', 'flite-kal16-native-4'];
-  expect(await page.locator('#voicePreset option').evaluateAll(options => options.map(option => option.value))).toEqual(voices);
-  await choose(page, 'voicePreset', voices[1]);
+  await expect(page.locator('#voicePreset, #voicePreset-picker-trigger')).toHaveCount(0);
+  await expect(page.locator('.roach-voice-name')).toHaveText('Low KAL16');
+  await expect(page.locator('#voice')).toHaveValue('0.6');
+  await expect(page.locator('#voiceSpeed')).toHaveAttribute('min', '0.5');
+  await expect(page.locator('#voiceSpeed')).toHaveAttribute('max', '2');
+  await expect(page.locator('#voiceSpeed')).toHaveValue('1');
+  const initial = await snapshot(page);
+  expect(initial.sound.voicePreset).toBe('flite-kal16-native-4');
+  expect(initial.sound.voice).toBe(.6); expect(initial.sound.voiceSpeed).toBe(1);
   await say(page, 'hello little cockroach');
   expect((await snapshot(page)).audio.contextState).toBe('uninitialized');
   await arm(page);
-  for (const voice of voices) {
-    await choose(page, 'voicePreset', voice);
-    const before = await snapshot(page);
-    expect(before.sound.voicePreset).toBe(voice);
-    await say(page, 'hello little cockroach'); await speaking(page);
-    const active = await snapshot(page);
-    expect(active.audio.peak).toBeGreaterThan(.0001);
-    expect(players(active)).toEqual({ animation: false, sound: false });
-    expect(active.time).toBe(before.time); expect(active.camera).toEqual(before.camera);
-    await restored(page, before);
-  }
+  const before = await snapshot(page);
+  await say(page, 'hello little cockroach'); await speaking(page);
+  const active = await snapshot(page);
+  expect(active.audio.peak).toBeGreaterThan(.0001);
+  expect(players(active)).toEqual({ animation: false, sound: false });
+  expect(active.time).toBe(before.time); expect(active.camera).toEqual(before.camera);
+  await restored(page, before);
 });
+
+for (const running of [false, true]) {
+  test(`voice speed changes the sounding buffer's audio-clock duration with Play ${running ? 'running' : 'held'}`, async ({ page }, testInfo) => {
+    const errors = []; page.on('pageerror', error => errors.push(error.message));
+    await open(page);
+    await page.locator('#voiceSpeed').fill('0.5');
+    expect((await snapshot(page)).sound.voiceSpeed).toBe(.5);
+    expect((await snapshot(page)).audio.contextState).toBe('uninitialized');
+    await page.locator('#voiceSpeed').fill('1'); await arm(page);
+    if (running) { await choose(page, 'motionPreset', 'side_walk'); await press(page, '#motionButton'); }
+    const before = await snapshot(page);
+    await say(page, `${longPhrase}, ${longPhrase}`);
+    await page.waitForFunction(() => {
+      const audio = window.roachSynth.getState().audio;
+      return audio.speechEnvelope > .001 && audio.speechUntil > audio.audioTime + 2;
+    }, undefined, { polling: 50, timeout: 15000 });
+    const normal = await snapshot(page);
+    const remaining = state => state.audio.speechUntil - state.audio.audioTime;
+    await page.locator('#voiceSpeed').fill('0.5');
+    await expect.poll(async () => (await snapshot(page)).audio.speechUntil).toBeGreaterThan(normal.audio.speechUntil + .5);
+    const slow = await snapshot(page);
+    expect(slow.sound.voiceSpeed).toBe(.5); expect(remaining(slow)).toBeGreaterThan(remaining(normal) * 1.25);
+    await page.locator('#voiceSpeed').fill('2');
+    await expect.poll(async () => (await snapshot(page)).audio.speechUntil).toBeLessThan(slow.audio.speechUntil - .5);
+    const fast = await snapshot(page);
+    expect(fast.sound.voiceSpeed).toBe(2); expect(remaining(fast)).toBeGreaterThan(0);
+    expect(remaining(fast)).toBeLessThan(remaining(slow) * .6);
+    for (const current of [normal, slow, fast]) {
+      expect(players(current)).toEqual(players(before)); expect(current.camera).toEqual(before.camera);
+      expect(current.sound.voicePreset).toBe('flite-kal16-native-4');
+      expect(Number.isFinite(current.audio.peak) && current.audio.peak < 1).toBe(true);
+    }
+    expect(Math.max(normal.audio.peak, slow.audio.peak, fast.audio.peak)).toBeGreaterThan(.0001);
+    if (running) expect(fast.time).toBeGreaterThan(before.time); else expect(fast.time).toBe(before.time);
+    await quietVoice(page);
+    await expect.poll(async () => (await snapshot(page)).speechMotion, { timeout: 20000 }).toBe(0);
+    const after = await snapshot(page);
+    expect(players(after)).toEqual(players(before)); expect(offsets(after)).toEqual(offsets(before)); expect(after.camera).toEqual(before.camera);
+    await testInfo.attach('voice-speed-audio-clock.json', { body: JSON.stringify({ running, normal: normal.audio, slow: slow.audio, fast: fast.audio }), contentType: 'application/json' });
+    expect(errors).toEqual([]);
+  });
+}

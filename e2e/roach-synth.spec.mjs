@@ -349,7 +349,7 @@ for (const size of [{ width: 360, height: 800 }, { width: 390, height: 844 }, { 
         const currentStage = await page.locator('#specimenViewport').boundingBox(), header = await page.locator('.masthead').boundingBox();
         return Math.abs(currentStage.y - header.y - header.height);
       }).toBeLessThanOrEqual(1);
-      for (const selector of ['.header-preset-picker summary', '.header-preset-next', '.header-preset-random', '#motionButton', '#tempo', '#tempoScale', '#phrase', '#motionPreset-picker-trigger', '#soundPreset-picker-trigger', '#source-antennae', '#crunch', '#midiPanic']) {
+      for (const selector of ['.header-preset-picker summary', '.header-preset-next', '.header-preset-random', '#motionButton', '#tempo', '#tempoScale', '#phrase', '#voice', '#voiceSpeed', '#motionPreset-picker-trigger', '#soundPreset-picker-trigger', '#source-antennae', '#crunch', '#midiPanic']) {
         await page.locator(selector).evaluate(element => element.scrollIntoView({ block: 'start', behavior: 'instant' }));
         const box = await page.locator(selector).boundingBox();
         expect(box.y + box.height).toBeLessThanOrEqual(size.height + 1);
