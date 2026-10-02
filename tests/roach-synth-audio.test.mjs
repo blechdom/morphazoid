@@ -550,6 +550,44 @@ test('head contact normalization rejects malformed or foreign chains and bounds 
     { ...valid, liftSign: 1, parentLiftSign: 1, liftLimit: 180 });
 });
 
+test('MIDI pulls back raw head pressure before contact carry and keeps a separately projected baseline', () => {
+  const rig = [
+    { ...joints[2], parent: joints[3].id, offset: { x: -20, y: 0, z: 0 },
+      headContact: { parentId: joints[3].id, liftSign: -1, parentLiftSign: -1, liftLimit: .15 },
+      poseLimits: { x: [-50, 18], y: [-6, 6], z: [-8, 8] } },
+    { ...joints[3], poseLimits: { x: [-42, 12], y: [-3, 3], z: [-4, 4] } },
+  ];
+  const dsp = engine({ playing: false, soundPlaying: false, joints: rig, motion: { presetId: 'none', antennae: false } });
+  const near = (actual, expected) => assert.ok(Math.abs(actual - expected) < .00001, `${actual} != ${expected}`);
+  near(dsp.pose[0], -.15); near(dsp.pose[3], -19.85);
+  dsp.control();
+  assert.deepEqual(dsp.pose, dsp.basePose, 'without MIDI the animation baseline and audible geometry agree');
+  dsp.midiPerformance.setControl('head', 'x', .5, 0);
+  dsp.audioTime = .1;
+  dsp.control();
+  near(dsp.basePose[0], -.15); near(dsp.basePose[3], -19.85);
+  near(dsp.pose[0], -.15); near(dsp.pose[3], -5.85);
+  assert.equal(dsp.joints[0].offset.x, -20, 'derived contact carry cannot overwrite saved pressure');
+  assert.equal(dsp.joints[1].offset.x, 0);
+
+  // The edit comparison must use the same raw composition as control(), both
+  // before and after replacing offsets under an unchanged physical rig.
+  const inputs = [];
+  const applyPose = dsp.midiPerformance.applyPose.bind(dsp.midiPerformance);
+  dsp.midiPerformance.applyPose = (...args) => {
+    inputs.push({ head: args[0][0], neck: args[0][3], project: args[5] });
+    return applyPose(...args);
+  };
+  dsp.update({ joints: rig.map((joint, i) => i === 0 ? { ...joint, offset: { x: -22, y: 0, z: 0 } } : joint) });
+  assert.deepEqual(inputs, [{ head: -20, neck: 0, project: false }, { head: -22, neck: 0, project: false }]);
+  near(dsp.editedPose[0], -.15); near(dsp.editedPose[3], -5.85);
+  near(dsp.pose[0], -.15); near(dsp.pose[3], -7.85);
+  dsp.update({ motion: { intensity: 0 } });
+  dsp.control();
+  near(dsp.pose[0], -.15); near(dsp.pose[3], -21.85);
+  assert.deepEqual(dsp.pose, dsp.basePose, 'zero-strength MIDI keeps the projected manual baseline');
+});
+
 test('grounded foot events follow shared contacts, stay quiet in flight and never fire on stationary offsets', () => {
   const dsp = engine({ motion: { presetId: 'side_run', antennae: false }, mappings: [] });
   const scene = createRoachSceneState(); let expected = 0;

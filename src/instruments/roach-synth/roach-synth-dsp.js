@@ -3,7 +3,7 @@ import { ROACH_BODY_GROUPS, ROACH_BODY_SOURCES, ROACH_VOICE_PRESETS, getRoachVoi
 import { RoachMidiPerformance } from './roach-synth-midi.js';
 export { ROACH_BODY_GROUPS, ROACH_BODY_SOURCES, createDefaultRoachBodyMix, normalizeRoachBodyMix, getRoachBodyGroupId } from './roach-synth-body.js';
 export { ROACH_VOICE_PRESETS, getRoachVoicePreset } from './roach-synth-body.js';
-import { normalizeRoachMotion, writeRoachPose, createRoachSceneState, writeRoachSceneState, constrainRoachFloorPose } from './roach-synth-motion.js';
+import { normalizeRoachMotion, writeRoachPose, createRoachSceneState, writeRoachSceneState, constrainRoachPose, constrainRoachFloorPose } from './roach-synth-motion.js';
 
 // A held pose has smooth, group-owned resonances. Motion-only sources receive
 // only their own joints' actual displacement and the shared six-foot contacts.
@@ -406,9 +406,10 @@ export class RoachSynthDsp {
           // Compare constrained geometry at one fixed audio time. A pointer
           // pushing beyond an anatomical limit must not invent friction.
           if (compareEdited) {
-            writeRoachPose(this.time, this.motion, this.joints, this.editedPose);
+            writeRoachPose(this.time, this.motion, this.joints, this.editedPose, false);
             writeRoachSceneState(this.time, this.motion, this.scene, this.joints);
-            this.midiPerformance.applyPose(this.editedPose, this.joints, this.audioTime, this.motion.tempo, this.motion.intensity);
+            this.midiPerformance.applyPose(this.editedPose, this.joints, this.audioTime, this.motion.tempo, this.motion.intensity, false);
+            constrainRoachPose(this.editedPose, this.joints);
             constrainRoachFloorPose(this.editedPose, this.joints, this.scene);
           }
         }
@@ -433,9 +434,10 @@ export class RoachSynthDsp {
         this.body.resetActivity(); this.interactionJoint = -1; this.interactionActive = false;
       }
       // Populate first-use metadata on the message boundary, outside render().
-      writeRoachPose(this.time, this.motion, this.joints, this.pose);
+      writeRoachPose(this.time, this.motion, this.joints, this.pose, false);
       writeRoachSceneState(this.time, this.motion, this.scene, this.joints);
-      if (compareEdited) this.midiPerformance.applyPose(this.pose, this.joints, this.audioTime, this.motion.tempo, this.motion.intensity);
+      if (compareEdited) this.midiPerformance.applyPose(this.pose, this.joints, this.audioTime, this.motion.tempo, this.motion.intensity, false);
+      constrainRoachPose(this.pose, this.joints);
       constrainRoachFloorPose(this.pose, this.joints, this.scene);
       if (compareEdited) {
         for (let i = 0; i < this.joints.length; i += 1) {
@@ -576,11 +578,13 @@ export class RoachSynthDsp {
     return (x >>> 0) / 2147483648 - 1;
   }
   control() {
-    writeRoachPose(this.time, this.motion, this.joints, this.pose);
+    writeRoachPose(this.time, this.motion, this.joints, this.pose, false);
     writeRoachSceneState(this.time, this.motion, this.scene, this.joints);
     this.basePose.set(this.pose);
+    constrainRoachPose(this.basePose, this.joints);
     constrainRoachFloorPose(this.basePose, this.joints, this.scene);
-    this.midiPerformance.applyPose(this.pose, this.joints, this.audioTime, this.motion.tempo, this.motion.intensity);
+    this.midiPerformance.applyPose(this.pose, this.joints, this.audioTime, this.motion.tempo, this.motion.intensity, false);
+    constrainRoachPose(this.pose, this.joints);
     constrainRoachFloorPose(this.pose, this.joints, this.scene);
     const midi = this.midiPerformance.output;
     this.groupPose.fill(0); this.groupMotion.fill(0); this.groupDistance.fill(0); this.mod.fill(0);
