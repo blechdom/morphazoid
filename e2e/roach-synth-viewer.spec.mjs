@@ -26,6 +26,7 @@ async function specimen(page, { touch = false, modelUrl = '/assets/roach-synth/c
       onPoseChange(change) { poseChanges.push(change); joints = specimenViewer.getState().bones; drawSpecimen(); },
       onInteraction(change) { interactions.push(change); },
     });
+    specimenViewer.setRenderBudget({ fps: 20, pixelRatio: 1 });
     if (modelUrl) { await specimenViewer.loadUrl(modelUrl); drawSpecimen(); }
   }, modelUrl);
   await expect.poll(() => page.evaluate(() => specimenViewer.getState().renderCount)).toBeGreaterThan(0);
@@ -49,6 +50,39 @@ test('roach scene grounds the neutral feet, casts shadows, and keeps a chosen vi
   expect((await page.evaluate(() => specimenViewer.getState())).camera).toEqual(initial.camera);
   await page.evaluate(() => { motion.presetId = 'side_run'; motionTime = 1; drawSpecimen(); });
   await expect.poll(() => page.evaluate(() => specimenViewer.getState().ground.offset)).toBeGreaterThan(0);
+});
+
+test('the ground color fills the complete graphic without a horizon in every view and at wide zoom', async ({ page }, testInfo) => {
+  await page.route('**/roach-synth-viewer.js', async route => {
+    const response = await route.fetch(), source = await response.text();
+    const marker = 'return { loadUrl, loadArrayBuffer, getState,';
+    expect(source).toContain(marker);
+    await route.fulfill({ response, body: source.replace(marker, `return { sampleStageEdges() {
+      applyPose(0); renderer.render(scene, camera);
+      const gl = renderer.getContext(), pixel = new Uint8Array(4), colors = [];
+      for (const x of [1, canvas.width - 2]) for (const portion of [.01, .25, .5, .75, .99]) {
+        gl.readPixels(x, Math.floor(canvas.height * portion), 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, pixel);
+        colors.push(Array.from(pixel));
+      }
+      return colors;
+    }, loadUrl, loadArrayBuffer, getState,`) });
+  });
+  await specimen(page);
+  const samples = [];
+  for (const view of ['side', 'top', 'bottom', 'face']) {
+    await page.evaluate(view => { specimenViewer.setViewPreset(view); specimenViewer.zoom(1.6); }, view);
+    const colors = await page.evaluate(() => specimenViewer.sampleStageEdges());
+    expect(colors.every(color => color.every((value, i) => value === colors[0][i])), view).toBe(true);
+    expect(colors[0][0]).toBeGreaterThan(50);
+    expect(colors[0][0]).toBeGreaterThan(colors[0][2]);
+    expect(colors[0][3]).toBe(255);
+    samples.push({ view, colors });
+    await page.evaluate(() => specimenViewer.zoom(100));
+    const wide = await page.evaluate(() => specimenViewer.sampleStageEdges());
+    expect(wide).toEqual(colors);
+  }
+  expect(samples.every(sample => JSON.stringify(sample.colors) === JSON.stringify(samples[0].colors))).toBe(true);
+  await testInfo.attach('continuous-stage-color.json', { body: JSON.stringify(samples), contentType: 'application/json' });
 });
 
 test('calibrated walk and run keep a low body with moving, grounded feet across the stride', async ({ page }, testInfo) => {
@@ -82,7 +116,11 @@ test('calibrated walk and run keep a low body with moving, grounded feet across 
 });
 
 test('roach surface drags edit all three joint axes; background drags orbit and cancellation releases ownership', async ({ page }) => {
-  await specimen(page);
+  // Repeated fitted views while rendering playback need extra time on software WebGL.
+  test.setTimeout(60_000);
+  await specimen(page, { modelUrl: '/assets/roach-synth/cockroach-mobile.glb' });
+  await page.evaluate(() => specimenViewer.setPlaying(true));
+  const startTime = await page.evaluate(() => specimenViewer.getPlaybackState().motionTime);
   for (const [jointId, view, axis] of [['wing_cover_left', 'top', 'z'], ['head', 'face', 'x'], ['middle_left_middle', 'bottom', 'y']]) {
     await page.evaluate(({ view, axis }) => { specimenViewer.setViewPreset(view); specimenViewer.setDragAxis(axis); }, { view, axis });
     const point = await page.evaluate((id) => specimenViewer.getPartScreenPosition(id), jointId);
@@ -105,6 +143,7 @@ test('roach surface drags edit all three joint axes; background drags orbit and 
     expect(after.camera.position).toEqual(before.camera.position);
     expect(after.camera.target).toEqual(before.camera.target);
     expect(after.interaction.active).toBeNull();
+    expect(after.playing).toBe(true);
   }
   await page.evaluate(() => specimenViewer.setViewPreset('side'));
   const beforeOrbit = await page.evaluate(() => specimenViewer.getState().camera.quaternion);
@@ -113,16 +152,20 @@ test('roach surface drags edit all three joint axes; background drags orbit and 
   await page.mouse.move(95, 60, { steps: 3 });
   await page.mouse.up();
   expect(await page.evaluate(() => specimenViewer.getState().camera.quaternion)).not.toEqual(beforeOrbit);
-  await page.locator('#specimen').dispatchEvent('pointerdown', { pointerId: 42, pointerType: 'touch', clientX: 20, clientY: 25, button: 0 });
-  await page.locator('#specimen').dispatchEvent('pointercancel', { pointerId: 42, pointerType: 'touch' });
+  await page.mouse.down();
+  await page.locator('#specimen').dispatchEvent('pointercancel', { pointerId: 1, pointerType: 'mouse' });
+  await page.mouse.up();
   expect(await page.evaluate(() => specimenViewer.getState().interaction.active)).toBeNull();
   expect(await page.evaluate(() => interactions.filter((event) => event.kind === 'joint' && event.phase === 'change').length)).toBeGreaterThanOrEqual(9);
+  expect(await page.evaluate(() => specimenViewer.getPlaybackState().motionTime)).toBeGreaterThan(startTime);
+  expect(await page.evaluate(() => specimenViewer.getPlaybackState().playing)).toBe(true);
 });
 
-test('mobile vertical swipes on the roach canvas scroll the document; horizontal joint drags remain playable', async ({ browser }) => {
+test('mobile 3D touch is immediately playable vertically and horizontally; scrolling stays available outside the canvas', async ({ browser }) => {
+  test.setTimeout(60_000);
   const context = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
   const page = await context.newPage();
-  await specimen(page, { touch: true });
+  await specimen(page, { touch: true, modelUrl: '/assets/roach-synth/cockroach-mobile.glb' });
   const client = await context.newCDPSession(page);
   const swipe = async (x0, y0, x1, y1) => {
     await client.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: x0, y: y0 }] });
@@ -132,22 +175,31 @@ test('mobile vertical swipes on the roach canvas scroll the document; horizontal
     }
     await client.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
   };
-  expect(await page.locator('#specimen').evaluate((canvas) => canvas.style.touchAction)).toBe('pan-y');
-  await swipe(175, 380, 175, 130);
-  await expect.poll(() => page.evaluate(() => scrollY)).toBeGreaterThan(80);
+  expect(await page.locator('#specimen').evaluate((canvas) => canvas.style.touchAction)).toBe('none');
+  const camera = await page.evaluate(() => specimenViewer.getState().camera);
+  await swipe(20, 380, 20, 130);
+  expect(await page.evaluate(() => specimenViewer.getState().camera.quaternion)).not.toEqual(camera.quaternion);
+  expect(await page.evaluate(() => scrollY)).toBe(0);
   expect(await page.evaluate(() => poseChanges.length)).toBe(0);
-  // A second touch stops the native fling before positioning the independent
-  // horizontal gesture. Otherwise scrollTo races the browser's inertial pan.
-  await client.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: 20, y: 700 }] });
-  await client.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
-  await page.evaluate(() => { scrollTo(0, 0); specimenViewer.setViewPreset('top'); specimenViewer.setDragAxis('z'); });
-  await page.waitForTimeout(300);
+  await page.evaluate(() => { specimenViewer.setViewPreset('top'); specimenViewer.setDragAxis('z'); specimenViewer.setPlaying(true); });
   const point = await page.evaluate(() => specimenViewer.getPartScreenPosition('wing_cover_left'));
   expect(point).not.toBeNull();
   await swipe(point.x, point.y, point.x + 50, point.y);
   expect(await page.evaluate(() => poseChanges.length)).toBeGreaterThan(0);
   expect(await page.evaluate(() => scrollY)).toBe(0);
   expect(await page.evaluate(() => specimenViewer.getState().interaction.active)).toBeNull();
+  expect(await page.evaluate(() => specimenViewer.getState().playing)).toBe(true);
+  await page.evaluate(() => { specimenViewer.setViewPreset('face'); specimenViewer.setDragAxis('x'); });
+  const head = await page.evaluate(() => specimenViewer.getPartScreenPosition('head'));
+  expect(head).not.toBeNull();
+  const changes = await page.evaluate(() => poseChanges.length);
+  await swipe(head.x, head.y, head.x, head.y - 40);
+  expect(await page.evaluate(() => poseChanges.length)).toBeGreaterThan(changes);
+  expect(await page.evaluate(() => scrollY)).toBe(0);
+  expect(await page.evaluate(() => specimenViewer.getState().playing)).toBe(true);
+  await swipe(175, 780, 175, 520);
+  await expect.poll(() => page.evaluate(() => scrollY)).toBeGreaterThan(80);
+  await client.detach();
   await context.close();
 });
 
@@ -216,36 +268,49 @@ test('four textured/reconstructed wings articulate independently, camera fill is
   expect(constrained).toEqual({ y: 0, z: 0, finite: true });
 });
 
-test('only explicit zoom controls change camera distance; wheel scrolling, resizing and invalid factors do not', async ({ page }) => {
-  await specimen(page);
+test('wheel and trackpad zoom keep camera orientation and animation; resizing and invalid factors preserve the view', async ({ page }) => {
+  await specimen(page, { modelUrl: '/assets/roach-synth/cockroach-mobile.glb' });
   const before = await page.evaluate(() => specimenViewer.getState().camera);
   expect(await page.evaluate(() => [0, -1, NaN, Infinity, undefined, '0.8'].map((factor) => specimenViewer.zoom(factor)))).toEqual(Array(6).fill(false));
   expect(await page.evaluate(() => specimenViewer.getState().camera)).toEqual(before);
+  await page.evaluate(() => specimenViewer.setPlaying(true));
   const wheel = await page.evaluate(() => {
     const canvas = document.querySelector('#specimen');
-    return [false, true].map((ctrlKey) => {
-      const event = new WheelEvent('wheel', { deltaY: 150, ctrlKey, bubbles: true, cancelable: true });
+    return [false, true].map((ctrlKey, i) => {
+      const event = new WheelEvent('wheel', { deltaY: i ? -150 : 150, ctrlKey, bubbles: true, cancelable: true });
       canvas.dispatchEvent(event);
-      return event.defaultPrevented;
+      return { prevented: event.defaultPrevented, distance: specimenViewer.getState().camera.distance };
     });
   });
-  expect(wheel).toEqual([false, true]);
-  expect(await page.evaluate(() => specimenViewer.getState().camera)).toEqual(before);
+  expect(wheel.map(event => event.prevented)).toEqual([true, true]);
+  expect(wheel[0].distance).toBeCloseTo(before.distance * Math.exp(.3), 10);
+  expect(wheel[1].distance).toBeCloseTo(before.distance, 10);
   await page.mouse.move(20, 40);
-  await page.mouse.wheel(0, 250);
-  await expect.poll(() => page.evaluate(() => scrollY)).toBeGreaterThan(100);
-  expect(await page.evaluate(() => specimenViewer.getState().camera.distance)).toBe(before.distance);
-  await page.evaluate(() => { scrollTo(0, 0); document.querySelector('#specimen').focus({ preventScroll: true }); });
+  await page.mouse.wheel(0, -120);
+  await expect.poll(() => page.evaluate(() => specimenViewer.getState().camera.distance)).toBeCloseTo(before.distance * Math.exp(-.24), 10);
+  expect(await page.evaluate(() => scrollY)).toBe(0);
+  expect(await page.evaluate(() => specimenViewer.getState().playing)).toBe(true);
+  await page.evaluate(() => {
+    const canvas = document.querySelector('#specimen');
+    for (const deltaMode of [1, 2]) for (const deltaY of [1, -1]) canvas.dispatchEvent(new WheelEvent('wheel', { deltaY, deltaMode, cancelable: true }));
+  });
+  expect(await page.evaluate(() => specimenViewer.getState().camera.distance)).toBeCloseTo(before.distance * Math.exp(-.24), 10);
+  await page.evaluate(() => document.querySelector('#specimen').focus({ preventScroll: true }));
   await page.keyboard.press('+');
-  expect(await page.evaluate(() => specimenViewer.getState().camera.distance)).toBeCloseTo(before.distance * .87, 10);
+  expect(await page.evaluate(() => specimenViewer.getState().camera.distance)).toBeCloseTo(before.distance * Math.exp(-.24) * .87, 10);
   expect(await page.evaluate(() => specimenViewer.zoom(.8))).toBe(true);
   await page.keyboard.press('-');
   const zoomed = await page.evaluate(() => specimenViewer.getState());
-  expect(zoomed.camera.distance).toBeCloseTo(before.distance * .87 * .8 * 1.15, 10);
+  expect(zoomed.camera.distance).toBeCloseTo(before.distance * Math.exp(-.24) * .87 * .8 * 1.15, 10);
   expect(zoomed.camera.quaternion).toEqual(before.quaternion);
   expect(zoomed.camera.target).toEqual(before.target);
   await page.setViewportSize({ width: 940, height: 720 });
   await expect.poll(() => page.evaluate(() => specimenViewer.getState().renderCount)).toBeGreaterThan(zoomed.renderCount);
+  expect(await page.evaluate(() => specimenViewer.getState().camera)).toEqual(zoomed.camera);
+  expect(await page.evaluate(() => specimenViewer.getState().playing)).toBe(true);
+  await page.mouse.move(20, 710);
+  await page.mouse.wheel(0, 250);
+  await expect.poll(() => page.evaluate(() => scrollY)).toBeGreaterThan(100);
   expect(await page.evaluate(() => specimenViewer.getState().camera)).toEqual(zoomed.camera);
 });
 
