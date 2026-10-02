@@ -120,6 +120,7 @@ let audioStarting = null;
 let audioGeneration = 0;
 let singing = false;
 let animationFrame = 0;
+let lastReadoutAt = -Infinity;
 let lastTractSignature = "";
 let lastWaveKey = "";
 let lastVentricularWaveKey = "";
@@ -1265,7 +1266,7 @@ function applyAudioParameters(immediate = false, now = performance.now(), aheadS
   setAudioParam(graph.droneLowpass.frequency, 620 + heardDroneFrequencyHz(performanceState) * 2.2, immediate, 0.04);
   setAudioParam(
     graph.masterGain.gain,
-    audioOn && !sourceWaveMuted ? Math.sqrt(clamp(state.level, 0, 0.8)) * 0.47 : 0,
+    audioOn && !sourceWaveMuted ? Math.sqrt(clamp(state.level, 0, 1)) * 0.47 : 0,
     immediate || !audioOn,
     sourceWaveMuted ? 0.0035 : 0.035,
   );
@@ -1680,13 +1681,10 @@ function drawHeadOutline(context, geometry, now, performanceState) {
     left + cssWidth * 0.045, mouthLine - cssHeight * 0.25);
   context.stroke();
   context.beginPath();
-  // The eye and nose edge remain separate from the open rear contour.
-  context.moveTo(right - cssWidth * 0.055, mouthLine - cssHeight * 0.205);
-  context.quadraticCurveTo(right - cssWidth * 0.02, mouthLine - cssHeight * 0.225,
-    right - cssWidth * 0.035, mouthLine - cssHeight * 0.185);
-  context.lineTo(right - cssWidth * 0.02, mouthLine - cssHeight * 0.17);
-  context.lineTo(right + cssWidth * 0.068, mouthLine - cssHeight * 0.095);
-  context.quadraticCurveTo(right + cssWidth * 0.076, mouthLine - cssHeight * 0.055, right + cssWidth * 0.013, mouthLine - cssHeight * 0.065);
+  // An upright nose bridge, without an eyebrow, frames the front of the airway.
+  context.moveTo(right + cssWidth * 0.008, mouthLine - cssHeight * 0.22);
+  context.lineTo(right + cssWidth * 0.038, mouthLine - cssHeight * 0.095);
+  context.quadraticCurveTo(right + cssWidth * 0.05, mouthLine - cssHeight * 0.055, right + cssWidth * 0.013, mouthLine - cssHeight * 0.065);
   context.lineTo(right + cssWidth * 0.008, mouthLine - cssHeight * 0.022);
   const lipExtension = cssWidth * (0.018 + performanceState.lipRounding * 0.03);
   const lipGap = cssHeight * (0.009 + performanceState.mouthOpening * 0.024);
@@ -1872,7 +1870,10 @@ function draw(now = performance.now()) {
   if (graph?.analyser && singing && audioOn) {
     graph.analyser.getFloatFrequencyData(spectrum);
   }
-  if (now % 120 < 18) updateReadouts(now);
+  if (now - lastReadoutAt >= 120) {
+    lastReadoutAt = now;
+    updateReadouts(now);
+  }
   animationFrame = requestAnimationFrame(draw);
 }
 

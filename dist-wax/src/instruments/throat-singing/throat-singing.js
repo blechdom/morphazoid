@@ -56,7 +56,7 @@ const numericLimits = {
   motionRateHz: [0, 12],
   motionDepth: [0, 1],
   amplitudeMotionDepth: [0, 1],
-  level: [0, 0.8],
+  level: [0, 1],
 };
 
 export const THROAT_SINGING_LIMITS = deepFreeze(numericLimits);

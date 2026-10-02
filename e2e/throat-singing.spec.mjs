@@ -22,6 +22,7 @@ test("Throat Singer keeps named styles, anatomy, and harmonic selection in one m
   await expect(page.locator("#growlRoughnessOut")).toHaveText("8%");
   await expect(page.locator("#focusAmountOut")).toHaveText("22%");
   await expect(page.locator("#oralConstrictionOut")).toHaveText("30%");
+  await expect(page.locator("#level")).toHaveAttribute("max", "1");
 
   await page.locator("#styleSelect").selectOption("sygyt");
   await expect(page.locator("#stageOvertoneOut")).toContainText("H12");
@@ -69,6 +70,10 @@ test("Throat Singer produces bounded source and layered-voice output and release
   expect(envelope.summary.maxPeak).toBeGreaterThan(0.001);
   expect(envelope.summary.clippedSamples).toBe(0);
 
+  await page.locator("#level").fill("1");
+  await expect(page.locator("#level")).toHaveValue("1");
+  await expect(page.locator("#levelOut")).toHaveText("100%");
+
   await page.locator("#vocalFry").fill("0.88");
   await page.locator("#growlRoughness").fill("0.82");
   await expect(page.locator("#vocalFryOut")).toHaveText("88%");
@@ -96,6 +101,12 @@ test("Throat Singer produces bounded source and layered-voice output and release
   expect(extendedEnvelope.summary.finite).toBe(true);
   expect(extendedEnvelope.summary.activeSamples).toBeGreaterThan(0);
   expect(extendedEnvelope.summary.clippedSamples).toBe(0);
+  await page.locator("#level").fill("0");
+  await waitForStableAudioState(page, false);
+  await expect(singButton).toHaveAttribute("aria-pressed", "true");
+  await expect(audioButton).toHaveAttribute("aria-pressed", "true");
+  await page.locator("#level").fill("1");
+  await waitForAudioState(page, true);
   await singButton.click();
   await expect(singButton).toHaveAttribute("aria-pressed", "false");
   await waitForStableAudioState(page, false);

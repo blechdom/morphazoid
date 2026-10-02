@@ -230,7 +230,8 @@ source pitch retains the engine's 50–360 Hz limit. A shallow nasal branch foll
 lip rounding through the existing waveguide model. Anatomy has a fixed 900×720
 coordinate system and one uniform viewport scale, including inverse pointer
 coordinates, so resizing preserves its proportions.
-The profile keeps the eye/nose and rear head/neck edges, with the crown open.
+The profile keeps an upright nose bridge and rear head/neck edge, with the
+eyebrow removed and the crown open.
 The spectrum sits above the focus handle's full movement range. Direct mouth
 and lip handles mirror oral constriction and lip rounding; a vertical lip drag
 also opens the mouth. Focus drag leaves oral constriction independent. Airflow
@@ -260,6 +261,8 @@ Instability modulates source tuning. A deterministic 1.6-second stereo room and
 filtered delay with feedback capped at 0.65 are inserted before the existing
 compressor, soft clipper and master output. Source envelopes precede these
 effects, allowing their tails to ring after a release. Audio off mutes the master.
+Output level spans 0–100%; its full-scale master gain is 0.47 after the soft
+clipper, retaining the existing protected output chain.
 
 Audio modulation uses an independent 20 ms scheduling timer with 180 ms of
 AudioParam lookahead. Graphics sample the running AudioContext clock, falling

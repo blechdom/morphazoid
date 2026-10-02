@@ -419,7 +419,16 @@ test("Throat Singer live speed edits preserve phrase position and keep the voice
       return { before, after: { phase: Number(canvas.dataset[phaseKey]), pitch: Number(canvas.dataset.pitchHz) } };
     }, { id, value, phaseKey });
     expect(Math.abs(edit.after.phase - edit.before.phase)).toBeLessThan(0.025);
-    if (id === "melodyRate") expect(Math.abs(edit.after.pitch - edit.before.pitch)).toBeLessThan(1);
+    if (id === "melodyRate") {
+      // The live clock advances during input handlers. For the six-note arch,
+      // the largest jump is half an octave; the smooth glide's max slope is 1.5.
+      // At 0.8 seconds and the lowest tested nonzero rate (0.2 Hz), its width
+      // is 0.96 notes. Allow the rounded phase readout error as well.
+      const phaseAdvance = Math.abs(edit.after.phase - edit.before.phase);
+      const octaveChange = Math.abs(Math.log2(edit.after.pitch / edit.before.pitch));
+      const maxOctavesPerPhase = 0.5 * 6 * 1.5 / 0.96;
+      expect(octaveChange).toBeLessThanOrEqual(maxOctavesPerPhase * phaseAdvance + 0.006);
+    }
   }
   const paused = await readStage(page);
   await page.locator("#ornamentRate").fill("0");
