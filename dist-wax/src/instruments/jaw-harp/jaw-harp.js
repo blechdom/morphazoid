@@ -1159,9 +1159,9 @@ export function reedModeFrequencies(source = JAW_HARP_DEFAULTS, count = 24) {
 export function tineDisplayFrequencyHz(source = JAW_HARP_DEFAULTS) {
   const state = sanitizeJawHarpState(source);
   // A real lamella is far too quick to follow at the display rate. Slow the
-  // presentation enough for a player to read the pull, rebound, and settling
-  // swings, without suggesting that the audio model has changed pitch.
-  return clamp(Math.sqrt(state.reedFrequencyHz) * 0.72, 4.8, 7);
+  // presentation enough for a player to read each pull, reversal, and settling
+  // swing, without suggesting that the audio model has changed pitch.
+  return clamp(Math.sqrt(state.reedFrequencyHz) * 0.44, 3.1, 4.6);
 }
 
 // A time-expanded view of the same underdamped release. Actual jaw-harp reeds

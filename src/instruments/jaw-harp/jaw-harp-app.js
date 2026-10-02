@@ -1512,10 +1512,13 @@ function layout() {
     Math.max(72 * anatomyScale, cssWidth - lipX - 18),
   );
   const harpBowX = Math.max(compact ? 55 : 190, lipX - faceWidth * 0.92);
-  const releaseMotion = visualTineRelease && !prefersReducedMotion
+  const releaseAge = visualTineRelease && !prefersReducedMotion
+    ? Math.max(0, (performance.now() - visualTineRelease.startedAt) / 1_000)
+    : Infinity;
+  const releaseMotion = Number.isFinite(releaseAge)
     ? tineReleaseMotion(
       state,
-      (performance.now() - visualTineRelease.startedAt) / 1_000,
+      releaseAge,
       visualTineRelease.force,
       visualTineRelease.direction,
     )
@@ -1564,6 +1567,8 @@ function layout() {
     harpBowX,
     triggerX,
     triggerY: mouthY + triggerPull,
+    releaseAge,
+    releaseMotion,
   };
 }
 
@@ -2039,6 +2044,7 @@ function drawBreathFlow(model) {
 function drawHarp(model) {
   const {
     anatomyScale, harpBowX, lipX, mouthY, triggerX, triggerY,
+    releaseAge, releaseMotion,
   } = model;
   const gap = 15 * anatomyScale;
   const frameEnd = lipX + 10 * anatomyScale;
@@ -2084,18 +2090,22 @@ function drawHarp(model) {
   strokePath("#f0c46e", 2.2 * anatomyScale, 0.95);
 
   // Button, keyboard, MIDI and repeat strikes all arrive through presentPluck.
-  // Give those otherwise invisible finger actions the same quick retreat as a
-  // direct canvas pull, then leave the slower reed rebound in view.
-  const releaseAge = visualTineRelease && !prefersReducedMotion
-    ? Math.max(0, (performance.now() - visualTineRelease.startedAt) / 1_000)
-    : Infinity;
-  if (releaseAge < 0.34) {
-    const retreat = clamp(releaseAge / 0.34);
+  // The hand starts by pulling away, then visibly recoils with each later reed
+  // reversal instead of disappearing before the spring-back can be read.
+  const reactionTail = releaseAge < 0.24
+    ? 1
+    : clamp(1 - (releaseAge - 0.24) / 1.55, 0, 1);
+  if (reactionTail > 0) {
+    const initialRetreat = clamp(releaseAge / 0.34);
+    const releasing = releaseAge < 0.34;
     const pullDirection = visualTineRelease.direction < 0 ? -1 : 1;
-    const fingerX = triggerX + (12 + retreat * 39) * anatomyScale;
-    const fingerY = triggerY + pullDirection * (7 + retreat * 13) * anatomyScale;
+    const reedDeflection = triggerY - mouthY;
+    const fingerX = triggerX + (12 + initialRetreat * 39 + (releasing ? 0 : releaseMotion * 8)) * anatomyScale;
+    const fingerY = releasing
+      ? triggerY + pullDirection * (7 + initialRetreat * 13) * anatomyScale
+      : mouthY + pullDirection * 20 * anatomyScale + reedDeflection * 0.72;
     drawing.save();
-    drawing.globalAlpha = (1 - retreat) * 0.88;
+    drawing.globalAlpha = (releasing ? 0.88 : 0.7) * reactionTail;
     drawing.beginPath();
     drawing.moveTo(fingerX + 30 * anatomyScale, fingerY + 12 * anatomyScale);
     drawing.quadraticCurveTo(

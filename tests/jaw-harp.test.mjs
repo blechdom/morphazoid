@@ -365,6 +365,17 @@ test("time-expanded tine motion keeps powerful second and third rebounds", () =>
   assert.ok(bambooPeaks[2] > bambooPeaks[0] * 0.88);
   assert.ok(steelPeaks[2] / steelPeaks[0] > bambooPeaks[2] / bambooPeaks[0]);
   assert.ok(
+    tineDisplayFrequencyHz(steelState) <= 4.6,
+    "display reversals should be slow enough to read as a spring-back",
+  );
+  const steelReversePeaks = [0.5, 1.5, 2.5, 3.5, 4.5].map((cycle) => (
+    tineReleaseMotion(steelState, cycle * steelPeriod, 1, 1)
+  ));
+  assert.ok(
+    steelReversePeaks.every((peak) => peak < -steelPeaks[0] * 0.9),
+    "the visible tine must make several clear reversals after the initial pull",
+  );
+  assert.ok(
     Math.abs(tineReleaseMotion(steelState, 6 * steelPeriod, 1, 1))
       > steelPeaks[0] * 0.8,
     "the player should see several clear rebounds before the display tail fades",
