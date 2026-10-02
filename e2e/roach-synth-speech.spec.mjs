@@ -4,7 +4,19 @@ test.setTimeout(90000);
 const snapshot = page => page.evaluate(() => window.roachSynth.getState());
 const quaternions = state => state.bones.map(bone => [bone.id, ...bone.quaternion]);
 const offsets = state => state.bones.map(bone => ({ id: bone.id, offset: bone.offset }));
-const head = state => state.bones.find(bone => bone.jointId === 'head').quaternion;
+// Visible head orientation includes the pronotum/neck carrying its parent
+// frame. Relative head rotation can stay at contact while the face moves.
+function head(state) {
+  const byId = new Map(state.bones.map(bone => [bone.id, bone])), chain = [];
+  for (let bone = state.bones.find(bone => bone.jointId === 'head'); bone; bone = byId.get(bone.parent)) chain.unshift(bone.quaternion);
+  return chain.reduce(([ax, ay, az, aw], [bx, by, bz, bw]) => [
+    ax * bw + aw * bx + ay * bz - az * by,
+    ay * bw + aw * by + az * bx - ax * bz,
+    az * bw + aw * bz + ax * by - ay * bx,
+    aw * bw - ax * bx - ay * by - az * bz,
+  ], [0, 0, 0, 1]);
+}
+const headDegrees = (a, b) => 2 * Math.acos(Math.min(1, Math.abs(a.reduce((sum, value, i) => sum + value * b[i], 0)))) * 180 / Math.PI;
 const players = state => ({ animation: state.playing, sound: state.soundPlaying });
 const longPhrase = 'hello little cockroach, I live in your house and I have a very long story to tell you';
 
@@ -41,17 +53,18 @@ async function speaking(page) {
   }, undefined, { timeout: 15000 });
 }
 async function sampleSpeech(page, duration = 900) {
-  return page.evaluate(async duration => {
+  const frames = await page.evaluate(async duration => {
     const frames = [], end = performance.now() + duration;
     while (performance.now() < end) {
       const state = window.roachSynth.getState();
       frames.push({ envelope: state.audio.speechEnvelope, amount: state.speechMotion,
-        head: state.bones.find(bone => bone.jointId === 'head').quaternion,
+        bones: state.bones.map(({id, jointId, parent, quaternion}) => ({id, jointId, parent, quaternion})),
         peak: state.audio.peak, time: state.time, playing: state.playing, soundPlaying: state.soundPlaying });
       await new Promise(resolve => setTimeout(resolve, 55));
     }
     return frames;
   }, duration);
+  return frames.map(({bones, ...frame}) => ({...frame, head: head({bones})}));
 }
 async function quietVoice(page) {
   return page.evaluate(async () => {
@@ -81,6 +94,7 @@ function expectTalking(frames, before) {
   const voiced = frames.filter(frame => frame.envelope > .0001 && frame.amount > .001);
   expect(voiced.length).toBeGreaterThanOrEqual(2);
   expect(voiced.some(frame => JSON.stringify(frame.head) !== JSON.stringify(head(before)))).toBe(true);
+  expect(Math.max(...voiced.map(frame => headDegrees(frame.head, head(before)))), 'visible composed head movement').toBeGreaterThan(.1);
   expect(new Set(voiced.map(frame => frame.head.map(value => value.toFixed(7)).join(','))).size).toBeGreaterThan(1);
   expect(frames.every(frame => Number.isFinite(frame.peak) && frame.peak < 1)).toBe(true);
   expect(Math.max(...frames.map(frame => frame.peak))).toBeGreaterThan(.0001);
@@ -120,7 +134,7 @@ for (const device of [{ name: 'desktop', viewport: { width: 1440, height: 900 },
 test('Audio Off clears an active speech gesture and preserves the saved body pose', async ({ page }) => {
   const errors = []; page.on('pageerror', error => errors.push(error.message)); await open(page); await arm(page);
   const before = await snapshot(page); await say(page, longPhrase); await speaking(page);
-  await expect.poll(async () => head(await snapshot(page))).not.toEqual(head(before));
+  await expect.poll(async () => headDegrees(head(await snapshot(page)), head(before))).toBeGreaterThan(.1);
   await press(page, '#audioButton'); expect((await snapshot(page)).audioOn).toBe(false);
   const after = await restored(page, before);
   expect(after.audio.peak).toBeLessThan(.0001); expect(players(after)).toEqual({ animation: false, sound: false });

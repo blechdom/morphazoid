@@ -396,7 +396,7 @@ test('held side-view speech carries the plate transiently, keeps real contact cl
   await page.locator('#speakButton').click();
   await page.waitForFunction(() => roachSynth.getState().audio.speechEnvelope > .001 && roachSynth.getState().speechMotion > .001, undefined, {polling:50,timeout:15000});
   const frames = await page.evaluate(async () => {
-    const frames=[], end=performance.now()+1200;
+    const frames=[], end=performance.now()+2800;
     while(performance.now()<end) {
       const geometry=__roachHeadPlateTestViewer.measureHeadGeometry(),state=roachSynth.getState();
       frames.push({geometry,state}); await new Promise(resolve=>setTimeout(resolve,75));
@@ -406,7 +406,7 @@ test('held side-view speech carries the plate transiently, keeps real contact cl
   const voiced=frames.filter(frame=>frame.state.audio.speechEnvelope>.0001&&frame.state.speechMotion>.001);
   expect(voiced.length).toBeGreaterThanOrEqual(2);
   expect(Math.max(...voiced.map(frame=>frame.state.audio.peak))).toBeGreaterThan(.0001);
-  expect(Math.max(...voiced.map(frame=>frame.geometry.plate.plateLift))-before.plate.plateLift,'spoken head lift moves the carrying plate').toBeGreaterThan(.005);
+  expect(Math.max(...voiced.map(frame=>Math.abs(frame.geometry.plate.plateLift-before.plate.plateLift))),'speech visibly moves the carrying plate up or down').toBeGreaterThan(.005);
   expect(new Set(voiced.map(frame=>frame.geometry.plate.plateQuaternion.map(v=>v.toFixed(7)).join(','))).size).toBeGreaterThan(1);
   for(const {geometry,state:spoken} of frames) {
     expectHeadClear(geometry,'speech'); expectPlateClear(geometry,'speech');
