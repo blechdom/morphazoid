@@ -13,7 +13,7 @@ complete custom scene. Both preserve master level and device consent.
 
 ## Native instruments
 
-There are 18 selectable engine/voice routes and 172 complete factory presets.
+There are 18 selectable engine/voice routes and 173 complete factory presets.
 Several routes are speakers or implementations within the same synthesis family.
 
 | Route | Native input and sound controls |
@@ -130,6 +130,13 @@ parameter limits. Rejected experiments remain recoverable through the preset
 menu and reset control.
 
 ## Text and sample voices
+
+The Speaking preset list includes **eSpeak NG Klatt · HAL-inspired calm
+computer**: a measured, low formant voice with restrained pitch movement. It is an
+editable synthesis scene, not film audio, a Douglas Rain recording or clone, or
+an original HAL speech engine. Douglas Rain performed HAL 9000 in *2001: A Space
+Odyssey*; the [Criterion film credits](https://www.criterion.com/films/35286-2001-a-space-odyssey)
+identify him as the character's voice.
 
 The separate **Text preset** menu fills speech text or prepares a singing phrase
 with an authored pitch/rhythm contour. It retains the current global voice and

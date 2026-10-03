@@ -19,6 +19,16 @@ test('native voice presets use each engine’s complete controls and original in
  assert.equal(NATIVE_METHODS.espeak.mode,'text');
 });
 
+test('HAL is represented by an editable inspired voice rather than a new engine',()=>{
+ const hal=presets.find(preset=>preset.id==='espeak-klatt-native-9');
+ assert.equal(hal?.label,'eSpeak NG Klatt · HAL-inspired calm computer');
+ assert.equal(hal.snapshot.engine,'espeak-klatt');
+ assert.deepEqual(Object.fromEntries(['variant','rate','pitch','range','volume'].map(key=>[key,hal.snapshot.values[key]])),
+  {variant:'robosoft3',rate:135,pitch:35,range:12,volume:25});
+ assert.equal(Object.keys(hal.snapshot.values).length,Object.keys(NATIVE_METHODS['espeak-klatt'].controls).length);
+ assert.deepEqual(validateScene(hal.snapshot),hal.snapshot);
+});
+
 test('native randomization preserves complete bounded scenes without modifying a factory preset',()=>{
  let seed=3246;const rng=()=>((seed=Math.imul(seed,1664525)+1013904223>>>0)/2**32);
  const before=presetStateKey(presets[0].snapshot),engines=new Set();

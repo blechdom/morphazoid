@@ -1,7 +1,7 @@
 # Voicesaurus: rare and historical engine candidates
 
 Research and integration checked 2026-10-01. [Voicesaurus](../voicesaurus.html)
-now has **17 native engine/voice routes**, including actual WASM ports of Sinsy, Gnuspeech, Vizsn,
+now has **18 native engine/voice routes**, including actual WASM ports of Sinsy, Gnuspeech, Vizsn,
 STK VoicForm, Perry Cook’s Singer, MEA8000, Csound FOF/VOSIM, Pico and HTS.
 The remaining entries below are candidates. Speakers and engine choices are
 not all distinct synthesis methods. Human listening remains unperformed.

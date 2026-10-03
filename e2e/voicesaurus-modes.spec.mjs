@@ -35,6 +35,27 @@ test('mode switch scopes methods, complete preset tours, and dice',async({page})
  await expect(page.locator('#audioButton')).toHaveAttribute('aria-pressed','false');
 });
 
+test('HAL-inspired voice is searchable and recalls without replacing text or arming Audio',async({page})=>{
+ await page.goto('voicesaurus.html');
+ const prose='Keep this phrase while changing the voice.';await page.locator('#nativeText').fill(prose);
+ const picker=page.locator('.header-preset-picker');await picker.locator('summary').click();
+ await picker.getByRole('searchbox').fill('HAL');
+ const option=picker.locator('[data-preset-id="espeak-klatt-native-9"]');
+ await expect(option).toBeVisible();await expect(option).toHaveText('eSpeak NG Klatt · HAL-inspired calm computer');await option.click();
+ const state=await capture(page);
+ expect(state.selectedId).toBe('espeak-klatt-native-9');
+ expect(state.snapshot).toMatchObject({engine:'espeak-klatt',values:{variant:'robosoft3',rate:135,pitch:35,range:12,volume:25},input:{}});
+ await expect(page.locator('#voiceMethod')).toHaveValue('espeak-klatt');
+ await expect(page.locator('#nativeText')).toHaveValue(prose);
+ await expect(page.locator('#audioButton')).toHaveAttribute('aria-pressed','false');
+ for(const viewport of [{width:390,height:844},{width:844,height:390}]){
+  await page.setViewportSize(viewport);await picker.locator('summary').scrollIntoViewIfNeeded();
+  const bounds=await picker.locator('summary').boundingBox();
+  expect(bounds.x).toBeGreaterThanOrEqual(0);expect(bounds.x+bounds.width).toBeLessThanOrEqual(viewport.width+1);
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth)).toBeLessThanOrEqual(1);
+ }
+});
+
 test('switching modes restores exact edits, selected note, preset tour, prose, and transport settings',async({page})=>{
  await page.goto('voicesaurus.html');
  await page.locator('#nativeText').fill('Keep my speaking phrase.');

@@ -10,4 +10,6 @@ for(const engine of Object.keys(NATIVE_TEXT_ENGINES).filter(x=>x.startsWith('fli
  const d=nativeTextDefaults(engine);
  rows[engine]=[['Native phrase',{}],['Unhurried phrase',{rate:.6}],['Fast phrase',{rate:1.9}],['Low pitch',{pitch:Math.max(40,d.pitch*.7)}],['High pitch',{pitch:Math.min(400,d.pitch*1.5)}],['Monotone',{pitchRange:0}],['Wide pitch variation',{pitchRange:60}],['Slow broad phrasing',{rate:.8,pitchRange:45}]];
 }
+// A restrained synthetic character scene, not film audio or a cloned actor.
+rows['espeak-klatt'].push(['HAL-inspired calm computer',{variant:'robosoft3',rate:135,pitch:35,range:12,volume:25}]);
 export const NATIVE_TEXT_PRESETS=Object.freeze(Object.fromEntries(Object.entries(rows).map(([engine,examples])=>[engine,Object.freeze(examples.map(([label,values],index)=>Object.freeze({id:engine+'-native-'+(index+1),label,values:Object.freeze(validateNativeTextValues(engine,values))})))])));
