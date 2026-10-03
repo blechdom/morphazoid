@@ -11,6 +11,7 @@ import { createMidiStatus, createStereoMeter } from "./src/ui/index.js";
 import { createChoosePickerShell } from "./src/ui/patterns/choose-picker-shell.js";
 import { mountHeaderPresets } from "./src/site/header-presets.js";
 import { enhanceRangeKnob } from "./src/ui/primitives/range-knob.js";
+import { initializeTapTempoControls } from "./src/site/tap-tempo-controls.js";
 import { initializeAudioSessionPolicy, needsAutomaticAudioSession } from "./src/site/audio-session-policy.js";
 import { FAVE_TOOL_IDS, TOOL_GROUPS, SITE_LINKS } from "./src/site/instrument-registry.js";
 
@@ -1545,6 +1546,7 @@ export function initializeSharedNavigation(doc = globalThis.document, runtime = 
   initializeSettingsMenus(doc, runtime);
   initializeAudioTransportContract(doc, runtime);
   mountHeaderPresets(doc);
+  initializeTapTempoControls(doc, runtime);
 
   for (const select of doc?.querySelectorAll?.(".mobile-instrument-select") ?? []) {
     select.addEventListener("change", () => {

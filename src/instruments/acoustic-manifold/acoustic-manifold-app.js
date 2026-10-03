@@ -1,3 +1,5 @@
+import { initializeTapTempoControls } from "../../site/tap-tempo-controls.js";
+initializeTapTempoControls(document);
 import { mountAudioInputControl } from "../../audio-input-control.js";
 import { encodeMonoWav } from "../../families/acoustic/birdsong-analysis.js";
 import {

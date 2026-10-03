@@ -31,6 +31,7 @@ trying to make every instrument look identical:
 | --- | --- | --- |
 | Selection | `createSelectField`, `createChoiceSwitch`, `createOptionCardGroup` | Applying synth modes, presets, patches, or algorithms |
 | Transport | `createButton`, `createMotionModeGroup`, `createNumberStepper` | Clocks, playheads, recording, and audio scheduling |
+| Tempo | `createTapTempoButton`, `mountTapTempoControl` | Mapping BPM to the owner's tempo or speed scale |
 | Sequencing | `createStepButton` | Grid keyboard model, exclusivity, patterns, lanes, and scheduler |
 | Status | `createStatusReadout`, `createMidiStatus` | Web MIDI permission, routing, device managers, and telemetry |
 | Level display | `createStereoMeter`, `createPeakMeter`, `createSignedSegmentMeter` | Audio analysis, peak decay, and animation loops |
@@ -54,6 +55,11 @@ sits before output meters in the desktop menubar and beside presets on mobile. T
 start/stop callbacks and signal node. Keep recording controls separate. Add a
 small Mic/File selector only when the instrument already supports file input.
 See [the testing list](audio-input-controls.md) for all consumers.
+
+Tempo and speed controls share a compact **Tap** button beside the intact native
+slider or knob. `createTapTempoButton()` measures contact intervals and reports
+BPM; the owner retains the clock. The site adapter uses explicit unit/curve
+registrations and native events. See [the testing list](tap-tempo-controls.md).
 
 ## Component contract
 

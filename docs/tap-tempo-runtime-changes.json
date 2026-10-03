@@ -1,0 +1,36 @@
+{
+  "description": "Small owner setters route shared Tap through existing parameter updates. Historical source-layout proof fixtures remain frozen.",
+  "changes": [
+    {
+      "file": "nav.js",
+      "replacements": [{
+        "before": "import { enhanceRangeKnob } from \"./src/ui/primitives/range-knob.js\";\n",
+        "after": "import { enhanceRangeKnob } from \"./src/ui/primitives/range-knob.js\";\nimport { initializeTapTempoControls } from \"./src/site/tap-tempo-controls.js\";\n"
+      }, {
+        "before": "  mountHeaderPresets(doc);\n",
+        "after": "  mountHeaderPresets(doc);\n  initializeTapTempoControls(doc, runtime);\n"
+      }]
+    },
+    {
+      "file": "src/instruments/acoustic-manifold/acoustic-manifold-app.js",
+      "replacements": [{
+        "before": "",
+        "after": "import { initializeTapTempoControls } from \"../../site/tap-tempo-controls.js\";\ninitializeTapTempoControls(document);\n"
+      }]
+    },
+    {
+      "file": "src/families/chiptune/chiptune-app.js",
+      "replacements": [{
+        "before": "  dial.controlSpec = spec;\n",
+        "after": "  dial.controlSpec = spec;\n  if (key === \"tempo\") dial.setTapTempoValue = value => applyControlValue(spec, value);\n"
+      }]
+    },
+    {
+      "file": "src/instruments/webgpu-303/webgpu-303-app.js",
+      "replacements": [{
+        "before": "  dial.controlSpec = spec;\n",
+        "after": "  dial.controlSpec = spec;\n  if (key === \"timeScale\") dial.setTapTempoValue = value => applyControlValue(spec, value);\n"
+      }]
+    }
+  ]
+}

@@ -1,4 +1,5 @@
 export { createButton } from "./primitives/button.js";
+export { createTapTempoButton } from "./primitives/tap-tempo-button.js";
 export { createRangeField } from "./primitives/range-field.js";
 export { enhanceRangeKnob } from "./primitives/range-knob.js";
 export { createSelectField } from "./primitives/select-field.js";

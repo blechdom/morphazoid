@@ -1588,8 +1588,10 @@ input.creaturazoid-step-sound-lane {
     grid-row: 2;
   }
 
-  .creaturazoid-mini-control[for="tempo"] {
+  .creaturazoid-mini-control[for="tempo"],
+  .mz-tap-tempo-field:has(> .creaturazoid-mini-control[for="tempo"]) {
     grid-column: 1 / 4;
+    grid-row: 2;
   }
 
   .creaturazoid-mini-control[for="swing"] {
@@ -1808,7 +1810,8 @@ input.creaturazoid-step-sound-lane {
     grid-row: 2;
   }
 
-  .creaturazoid-mini-control[for="tempo"] {
+  .creaturazoid-mini-control[for="tempo"],
+  .mz-tap-tempo-field:has(> .creaturazoid-mini-control[for="tempo"]) {
     grid-column: 1 / 3;
     grid-row: 3;
   }

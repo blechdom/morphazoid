@@ -1,4 +1,5 @@
 import { readAudioInputReference as readFile } from "./helpers/audio-input-reference.mjs";
+import { restoreTapTempo } from "./helpers/tap-tempo-reference.mjs";
 import { restoreHiccupHeadWebcam } from "./helpers/hiccup-head-webcam-reference.mjs";
 import { restoreFabricFilter } from "./helpers/fabric-filter-reference.mjs";
 import { restoreSpelling } from "./helpers/spelling-reference.mjs";
@@ -65,6 +66,7 @@ test("runtime modules reverse exactly after explicit runtime fixes and documente
   ]);
   for (const record of proof.files) {
     let current = await readFile(path.join(root, record.after), "utf8");
+    current = restoreTapTempo(current, record.after);
     current = restoreFabricFilter(current, record.after);
     current = restoreVoicesaurus(current, record.after);
     current = restoreHiccupHeadWebcam(current, record.after);
@@ -73,6 +75,7 @@ test("runtime modules reverse exactly after explicit runtime fixes and documente
     for (const change of chiptuneChanges.filter(change => change.file === record.after)) {
       assert.equal(current, change.wrapper, `shared Chiptune entry: ${change.file}`);
       current = await readFile(path.join(root, change.implementation), "utf8");
+      current = restoreTapTempo(current, change.implementation);
       for (const testFile of change.regressionTests) assert.ok(existsSync(path.join(root, testFile)), testFile);
       for (const replacement of [...change.replacements].reverse()) {
         assert.equal(current.split(replacement.after).length - 1, 1, `exactly one shared Chiptune edit: ${change.file}`);

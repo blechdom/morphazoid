@@ -1,4 +1,5 @@
 import { readAudioInputReference as readFile } from "./helpers/audio-input-reference.mjs";
+import { restoreTapTempo } from "./helpers/tap-tempo-reference.mjs";
 import { restoreSpelling } from "./helpers/spelling-reference.mjs";
 import { restoreMorphazoidicalRemoval } from "./helpers/morphazoidical-removal-reference.mjs";
 import { restoreFabricFilter } from "./helpers/fabric-filter-reference.mjs";
@@ -39,7 +40,7 @@ function restoreSynthesis(source, file) {
   return source;
 }
 // Voicesaurus is newer than both Synthesaurus and Domino; peel it off first.
-const readBeforeSynthesis = async file => restoreSynthesis(restoreVoicesaurus(restoreFabricFilter(restoreMorphazoidicalRemoval(await readFile(new URL(file, root), "utf8"), file), file), file), file);
+const readBeforeSynthesis = async file => restoreSynthesis(restoreVoicesaurus(restoreFabricFilter(restoreMorphazoidicalRemoval(restoreTapTempo(await readFile(new URL(file, root), "utf8"), file), file), file), file), file);
 const readBeforeDomino = async file => restoreDominoRunSite(await readBeforeSynthesis(file), file);
 
 test("remaining flat JavaScript modules match the reviewed shared and toolchain boundaries", async () => {

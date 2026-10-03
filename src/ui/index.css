@@ -2,6 +2,7 @@
 @import "./foundations/foundations.css";
 @import "./primitives/field.css";
 @import "./primitives/button.css";
+@import "./primitives/tap-tempo-button.css";
 @import "./primitives/range-field.css";
 @import "./primitives/select-field.css";
 @import "./primitives/choice-switch.css";

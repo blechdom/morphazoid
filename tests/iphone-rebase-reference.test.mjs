@@ -1,4 +1,5 @@
 import { restoreRubixoidsSite } from "./helpers/rubixoids-site-reference.mjs";
+import { restoreTapTempo } from "./helpers/tap-tempo-reference.mjs";
 import { restorePresetToolbar } from "./helpers/preset-toolbar-reference.mjs";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
@@ -21,7 +22,7 @@ test("rebase navigation amendments identify the fetched feature and existing reg
 });
 
 test("reference normalization reverses exact amendments, not missing or duplicate blocks", async () => {
-  const source = restorePresetToolbar(restoreRubixoidsSite(await readFile(new URL("../nav.js", import.meta.url), "utf8"), "nav.js"), "nav.js");
+  const source = restorePresetToolbar(restoreRubixoidsSite(restoreTapTempo(await readFile(new URL("../nav.js", import.meta.url), "utf8"), "nav.js"), "nav.js"), "nav.js");
   const restored = restoreIphoneStartup(source, "nav.js");
   assert.notEqual(restored, source);
   assert.doesNotMatch(restored, /initializeAudioSessionPolicy/);

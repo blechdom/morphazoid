@@ -1,0 +1,2946 @@
+{
+  "confirmed": [
+    {
+      "route": "nqueens",
+      "selector": "#tempo",
+      "mapping": {
+        "unit": "bpm"
+      },
+      "note": "Direct BPM or cycles/min.",
+      "source": "src/pages/nqueens.html"
+    },
+    {
+      "route": "jaw-harp",
+      "selector": "#breathRateBpm",
+      "mapping": {
+        "unit": "bpm"
+      },
+      "note": "Direct BPM or cycles/min.",
+      "source": "src/pages/jaw-harp.html"
+    },
+    {
+      "route": "jaw-harp",
+      "selector": "#repeatRateBpm",
+      "mapping": {
+        "unit": "bpm"
+      },
+      "note": "Direct BPM or cycles/min.",
+      "source": "src/pages/jaw-harp.html"
+    },
+    {
+      "route": "escape-dust",
+      "selector": "#stepRate",
+      "mapping": {
+        "unit": "hz",
+        "signed": false
+      },
+      "note": "Direct per-second step/pulse/scan/cycle count.",
+      "source": "src/pages/escape-dust.html"
+    },
+    {
+      "route": "lattice",
+      "selector": "#speed",
+      "mapping": {
+        "unit": "exponentialHz",
+        "floor": 0.01,
+        "factor": 400,
+        "densitySelector": "#density",
+        "densityDefault": 0.52,
+        "defaultTileScale": 0.2936,
+        "openTileScale": 0.46,
+        "tileScaleSlope": -0.32
+      },
+      "note": "Physical base Hz=.01*400^x; AUDIBLE/DISPLAYED effectiveHz=baseHz*.2936/(.46-.32*clamp(density,0,.8)). Encode tapHz as x=log((tapHz*(.46-.32*density)/.2936)/.01)/log400. The #density value is direct state.density; this dynamic factor is necessary to match readout.",
+      "source": "src/instruments/lattice/lattice-app.js"
+    },
+    {
+      "route": "sandy-syrup-delay",
+      "selector": "#speed",
+      "mapping": {
+        "unit": "powerHz",
+        "floor": 0,
+        "span": 5,
+        "exponent": 2
+      },
+      "note": "Author data-value-min/max/data-curve; keep existing Candy Tap range independent.",
+      "source": "src/pages/sandy-syrup-delay.html"
+    },
+    {
+      "route": "jaw-jam",
+      "selector": "#tempo",
+      "mapping": {
+        "unit": "bpm"
+      },
+      "note": "Direct BPM or cycles/min.",
+      "source": "src/pages/jaw-jam.html"
+    },
+    {
+      "route": "jaw-jam",
+      "selector": "#stepRate",
+      "mapping": {
+        "unit": "multiplier",
+        "referenceSelector": "#tempo",
+        "referenceFactorSelector": "#breathRatio"
+      },
+      "note": "Current selected-step breath BPM=tempo*breathRatio*stepRate (then voice safety bounds). Encode tapBPM/(Number(#tempo.value)*Number(#breathRatio.value)); #breathRatio is numeric native select values1/3,.5,1,2,3. Dispatch normal inspector input; rest keeps disabled.",
+      "source": "src/pages/jaw-jam.html"
+    },
+    {
+      "route": "gear-ratio-drums",
+      "selector": "#gearSpeed",
+      "mapping": {
+        "unit": "hz",
+        "signed": false
+      },
+      "note": "Direct per-second step/pulse/scan/cycle count.",
+      "source": "src/pages/gear-ratio-drums.html"
+    },
+    {
+      "route": "spiral",
+      "selector": "#speed",
+      "mapping": {
+        "unit": "hz",
+        "signed": false
+      },
+      "note": "Direct traversal or loop cycles/sec. Algorithmic Mazes displayed openings/s in build mode additionally multiplies by build step count.",
+      "source": "src/pages/spiral.html"
+    },
+    {
+      "route": "spiral",
+      "selector": "#loopSpeed",
+      "mapping": {
+        "unit": "hz",
+        "signed": false
+      },
+      "note": "Direct per-second step/pulse/scan/cycle count.",
+      "source": "src/pages/spiral.html"
+    },
+    {
+      "route": "dna-translator",
+      "selector": "#dnaRate",
+      "mapping": {
+        "unit": "hz",
+        "signed": false
+      },
+      "note": "Direct per-second step/pulse/scan/cycle count.",
+      "source": "src/pages/dna-translator.html"
+    },
+    {
+      "route": "drum-roll-please",
+      "selector": "#driftRate",
+      "mapping": {
+        "unit": "hz",
+        "signed": false
+      },
+      "note": "Temporal pitch/rhythm gliss speed in octaves/sec. One tap interval means one octave travel; not oscillator pitch frequency.",
+      "source": "src/pages/drum-roll-please.html"
+    },
+    {
+      "route": "drum-roll-please",
+      "selector": "#centerRate",
+      "mapping": {
+        "unit": "hz",
+        "signed": false
+      },
+      "note": "Direct per-second step/pulse/scan/cycle count.",
+      "source": "src/pages/drum-roll-please.html"
+    },
+    {
+      "route": "graph-delay",
+      "selector": "#nodeMotionSpeed",
+      "mapping": {
+        "unit": "hz",
+        "signed": false
+      },
+      "note": "Direct per-second step/pulse/scan/cycle count.",
+      "source": "src/pages/graph-delay.html"
+    },
+    {
+      "route": "graph-delay",
+      "selector": "#micMotionSpeed",
+      "mapping": {
+        "unit": "hz",
+        "signed": false
+      },
+      "note": "Direct per-second step/pulse/scan/cycle count.",
+      "source": "src/pages/graph-delay.html"
+    },
+    {
+      "route": "solid-synth",
+      "selector": "#speed",
+      "mapping": {
+        "unit": "hz",
+        "signed": false
+      },
+      "note": "Direct traversal or loop cycles/sec. Algorithmic Mazes displayed openings/s in build mode additionally multiplies by build step count.",
+      "source": "src/pages/solid-synth.html"
+    },
+    {
+      "route": "solid-synth",
+      "selector": "#planeYawSpeed",
+      "mapping": {
+        "unit": "hz",
+        "signed": true
+      },
+      "note": "Direct per-second step/pulse/scan/cycle count.",
+      "source": "src/pages/solid-synth.html"
+    },
+    {
+      "route": "solid-synth",
+      "selector": "#planePitchSpeed",
+      "mapping": {
+        "unit": "hz",
+        "signed": true
+      },
+      "note": "Direct per-second step/pulse/scan/cycle count.",
+      "source": "src/pages/solid-synth.html"
+    },
+    {
+      "route": "solid-synth",
+      "selector": "#rotationXSpeed",
+      "mapping": {
+        "unit": "hz",
+        "signed": true
+      },
+      "note": "Direct per-second step/pulse/scan/cycle count.",
+      "source": "src/pages/solid-synth.html"
+    },
+    {
+      "route": "solid-synth",
+      "selector": "#rotationYSpeed",
+      "mapping": {
+        "unit": "hz",
+        "signed": true
+      },
+      "note": "Direct per-second step/pulse/scan/cycle count.",
+      "source": "src/pages/solid-synth.html"
+    },
+    {
+      "route": "solid-synth",
+      "selector": "#rotationZSpeed",
+      "mapping": {
+        "unit": "hz",
+        "signed": true
+      },
+      "note": "Direct per-second step/pulse/scan/cycle count.",
+      "source": "src/pages/solid-synth.html"
+    },
+    {
+      "route": "hyper-synth",
+      "selector": "#speed",
+      "mapping": {
+        "unit": "hz",
+        "signed": false
+      },
+      "note": "Direct traversal or loop cycles/sec. Algorithmic Mazes displayed openings/s in build mode additionally multiplies by build step count.",
+      "source": "src/pages/hyper-synth.html"
+    },
+    {
+      "route": "hyper-synth",
+      "selector": "#rotationXWSpeed",
+      "mapping": {
+        "unit": "hz",
+        "signed": true
+      },
+      "note": "Direct per-second step/pulse/scan/cycle count.",
+      "source": "src/pages/hyper-synth.html"
+    },
+    {
+      "route": "hyper-synth",
+      "selector": "#rotationYWSpeed",
+      "mapping": {
+        "unit": "hz",
+        "signed": true
+      },
+      "note": "Direct per-second step/pulse/scan/cycle count.",
+      "source": "src/pages/hyper-synth.html"
+    },
+    {
+      "route": "hyper-synth",
+      "selector": "#rotationZWSpeed",
+      "mapping": {
+        "unit": "hz",
+        "signed": true
+      },
+      "note": "Direct per-second step/pulse/scan/cycle count.",
+      "source": "src/pages/hyper-synth.html"
+    },
+    {
+      "route": "julia",
+      "selector": "#speed",
+      "mapping": {
+        "unit": "juliaHz",
+        "low": 0.001,
+        "middle": 0.017,
+        "high": 0.25,
+        "points": [
+          [
+            -1,
+            0.001
+          ],
+          [
+            0,
+            0.017
+          ],
+          [
+            1,
+            0.25
+          ]
+        ],
+        "physicalStep": 0.001
+      },
+      "note": "EXACT LINEAR piecewise mapping (not logarithmic): for inputx<0 Hz=.017+.016*x; x>=0 Hz=.017+.233*x. Inverse:(Hz-.017)/(.016 if Hz<.017 else .233), physical quantization .001Hz. clamp x[-1,1]. Source centeredRangeValue/Position.",
+      "source": "src/instruments/julia/julia-app.js"
+    },
+    {
+      "route": "spiral-drum-machine",
+      "selector": "#loopSpeed",
+      "mapping": {
+        "unit": "hz",
+        "signed": false
+      },
+      "note": "Direct per-second step/pulse/scan/cycle count.",
+      "source": "src/pages/spiral-drum-machine.html"
+    },
+    {
+      "route": "digestazoid",
+      "selector": "#peristalsisRate",
+      "mapping": {
+        "unit": "bpm"
+      },
+      "note": "Cycles/min; one tap per peristalsis cycle.",
+      "source": "src/pages/digestazoid.html"
+    },
+    {
+      "route": "linear-drums",
+      "selector": "#sweepRate",
+      "mapping": {
+        "unit": "hz",
+        "signed": false
+      },
+      "note": "Direct per-second step/pulse/scan/cycle count.",
+      "source": "src/pages/linear-drums.html"
+    },
+    {
+      "route": "linear-drums",
+      "selector": "#sweepSpeed",
+      "mapping": {
+        "unit": "hz",
+        "signed": false
+      },
+      "note": "Temporal pitch/rhythm gliss speed in octaves/sec. One tap interval means one octave travel; not oscillator pitch frequency.",
+      "source": "src/pages/linear-drums.html"
+    },
+    {
+      "route": "hocket-loom",
+      "selector": "#tempoBpm",
+      "mapping": {
+        "unit": "bpm"
+      },
+      "note": "Direct BPM or cycles/min.",
+      "source": "src/pages/hocket-loom.html"
+    },
+    {
+      "route": "shape-synth",
+      "selector": "#speed",
+      "mapping": {
+        "unit": "shapeHz",
+        "max": 4,
+        "curve": 5.6
+      },
+      "note": "Physical rate=4*expm1(5.6*x)/expm1(5.6).",
+      "source": "src/pages/shape-synth.html"
+    },
+    {
+      "route": "shape-synth",
+      "selector": "#rotationSpeed",
+      "mapping": {
+        "unit": "hz",
+        "signed": true
+      },
+      "note": "Hyper Rubix explicitly rev/min (degrees/sec = speed*6), others rev/sec; preserve rotation direction.",
+      "source": "src/pages/shape-synth.html"
+    },
+    {
+      "route": "tesselation",
+      "selector": "#speed",
+      "mapping": {
+        "unit": "hz",
+        "signed": false
+      },
+      "note": "Direct traversal or loop cycles/sec. Algorithmic Mazes displayed openings/s in build mode additionally multiplies by build step count.",
+      "source": "src/pages/tesselation.html"
+    },
+    {
+      "route": "atomic-orbitals",
+      "selector": "#orbitalRate",
+      "mapping": {
+        "unit": "hz",
+        "signed": false
+      },
+      "note": "Direct per-second step/pulse/scan/cycle count.",
+      "source": "src/pages/atomic-orbitals.html"
+    },
+    {
+      "route": "paths",
+      "selector": "#speed",
+      "mapping": {
+        "unit": "hz",
+        "signed": false
+      },
+      "note": "Direct traversal or loop cycles/sec. Algorithmic Mazes displayed openings/s in build mode additionally multiplies by build step count.",
+      "source": "src/pages/paths.html"
+    },
+    {
+      "route": "monstroid",
+      "selector": "#tempo",
+      "mapping": {
+        "unit": "seconds"
+      },
+      "note": "Evolution contour duration seconds, not BPM; one tap interval can set one entire evolution period.",
+      "source": "src/pages/monstroid.html"
+    },
+    {
+      "route": "candy-coil-delay",
+      "selector": "#speed",
+      "mapping": {
+        "unit": "powerHz",
+        "floor": 0,
+        "span": 5,
+        "exponent": 2
+      },
+      "note": "Author data-value-min/max/data-curve; keep existing Candy Tap range independent.",
+      "source": "src/pages/candy-coil-delay.html"
+    },
+    {
+      "route": "l-system",
+      "selector": "#speed",
+      "mapping": {
+        "unit": "powerHz",
+        "floor": 0.01,
+        "span": 3.99,
+        "exponent": 3
+      },
+      "note": "Physical cycles/sec; source src/instruments/l-system/l-system-app.js constants.",
+      "source": "src/pages/l-system.html"
+    },
+    {
+      "route": "creaturazoid",
+      "selector": "#tempo",
+      "mapping": {
+        "unit": "bpm"
+      },
+      "note": "Direct BPM or cycles/min.",
+      "source": "src/pages/creaturazoid.html"
+    },
+    {
+      "route": "ouroboros",
+      "selector": "#glissRate",
+      "mapping": {
+        "unit": "hz",
+        "signed": false
+      },
+      "note": "Temporal pitch/rhythm gliss speed in octaves/sec. One tap interval means one octave travel; not oscillator pitch frequency.",
+      "source": "src/pages/ouroboros.html"
+    },
+    {
+      "route": "moebius-synth",
+      "selector": "#speed",
+      "mapping": {
+        "unit": "hz",
+        "signed": false
+      },
+      "note": "Direct traversal or loop cycles/sec. Algorithmic Mazes displayed openings/s in build mode additionally multiplies by build step count.",
+      "source": "src/pages/moebius-synth.html"
+    },
+    {
+      "route": "moebius-synth",
+      "selector": "#rotationSpeed",
+      "mapping": {
+        "unit": "hz",
+        "signed": true
+      },
+      "note": "Hyper Rubix explicitly rev/min (degrees/sec = speed*6), others rev/sec; preserve rotation direction.",
+      "source": "src/pages/moebius-synth.html"
+    },
+    {
+      "route": "prime-sieve",
+      "selector": "#primeRate",
+      "mapping": {
+        "unit": "hz",
+        "signed": false
+      },
+      "note": "Direct per-second step/pulse/scan/cycle count.",
+      "source": "src/pages/prime-sieve.html"
+    },
+    {
+      "route": "euclid",
+      "selector": "#tempo",
+      "mapping": {
+        "unit": "bpm"
+      },
+      "note": "Direct BPM or cycles/min.",
+      "source": "src/pages/euclid.html"
+    },
+    {
+      "route": "julie-saw",
+      "selector": "#tempoBpm",
+      "mapping": {
+        "unit": "bpm"
+      },
+      "note": "Direct BPM or cycles/min.",
+      "source": "src/pages/julie-saw.html"
+    },
+    {
+      "route": "synaptic-resonance",
+      "selector": "#rate",
+      "mapping": {
+        "unit": "hz",
+        "signed": false
+      },
+      "note": "Direct per-second step/pulse/scan/cycle count.",
+      "source": "src/pages/synaptic-resonance.html"
+    },
+    {
+      "route": "wave-pool",
+      "selector": "#tempoBpm",
+      "mapping": {
+        "unit": "bpm"
+      },
+      "note": "Direct BPM or cycles/min.",
+      "source": "src/pages/wave-pool.html"
+    },
+    {
+      "route": "sliding-puzzle",
+      "selector": "#tempo",
+      "mapping": {
+        "unit": "bpm"
+      },
+      "note": "Direct BPM or cycles/min.",
+      "source": "src/pages/sliding-puzzle.html"
+    },
+    {
+      "route": "mouthophones",
+      "selector": "#gestureRateBpm",
+      "mapping": {
+        "unit": "bpm"
+      },
+      "note": "Direct BPM or cycles/min.",
+      "source": "src/pages/mouthophones.html"
+    },
+    {
+      "route": "mouthophones",
+      "selector": "#breathRateBpm",
+      "mapping": {
+        "unit": "bpm"
+      },
+      "note": "Direct BPM or cycles/min.",
+      "source": "src/pages/mouthophones.html"
+    },
+    {
+      "route": "hyper-rubix",
+      "selector": "#tempo",
+      "mapping": {
+        "unit": "bpm"
+      },
+      "note": "Direct BPM or cycles/min.",
+      "source": "src/pages/hyper-rubix.html"
+    },
+    {
+      "route": "hyper-rubix",
+      "selector": "#rotationSpeed",
+      "mapping": {
+        "unit": "bpm",
+        "signed": true
+      },
+      "note": "Hyper Rubix explicitly rev/min (degrees/sec = speed*6), others rev/sec; preserve rotation direction.",
+      "source": "src/pages/hyper-rubix.html"
+    },
+    {
+      "route": "hiccup-head",
+      "selector": "#tempo",
+      "mapping": {
+        "unit": "bpm"
+      },
+      "note": "Direct BPM or cycles/min.",
+      "source": "src/pages/hiccup-head.html"
+    },
+    {
+      "route": "minimax",
+      "selector": "#tempo",
+      "mapping": {
+        "unit": "bpm"
+      },
+      "note": "Direct BPM or cycles/min.",
+      "source": "src/pages/minimax.html"
+    },
+    {
+      "route": "simd-synth",
+      "selector": "#bpm",
+      "mapping": {
+        "unit": "bpm"
+      },
+      "note": "Direct BPM or cycles/min.",
+      "source": "src/pages/simd-synth.html"
+    },
+    {
+      "route": "automatapoeia",
+      "selector": "#caRate",
+      "mapping": {
+        "unit": "hz",
+        "signed": false
+      },
+      "note": "Direct per-second step/pulse/scan/cycle count.",
+      "source": "src/pages/automatapoeia.html"
+    },
+    {
+      "route": "linebreaker",
+      "selector": "#scanRate",
+      "mapping": {
+        "unit": "hz",
+        "signed": false
+      },
+      "note": "Direct per-second step/pulse/scan/cycle count.",
+      "source": "src/pages/linebreaker.html"
+    },
+    {
+      "route": "orbital-ferris",
+      "selector": "#orbitalRate",
+      "mapping": {
+        "unit": "hz",
+        "signed": false
+      },
+      "note": "Direct per-second step/pulse/scan/cycle count.",
+      "source": "src/pages/orbital-ferris.html"
+    },
+    {
+      "route": "ourorourobouroboros",
+      "selector": "#glissRate",
+      "mapping": {
+        "unit": "hz",
+        "signed": false
+      },
+      "note": "Temporal pitch/rhythm gliss speed in octaves/sec. One tap interval means one octave travel; not oscillator pitch frequency.",
+      "source": "src/pages/ourorourobouroboros.html"
+    },
+    {
+      "route": "ourorourobouroboros",
+      "selector": "#centerRate",
+      "mapping": {
+        "unit": "hz",
+        "signed": false
+      },
+      "note": "Direct per-second step/pulse/scan/cycle count.",
+      "source": "src/pages/ourorourobouroboros.html"
+    },
+    {
+      "route": "wasm-garden",
+      "selector": "#rate",
+      "mapping": {
+        "unit": "hz",
+        "signed": false
+      },
+      "note": "Direct per-second step/pulse/scan/cycle count.",
+      "source": "src/pages/wasm-garden.html"
+    },
+    {
+      "route": "algorithmic-mazes",
+      "selector": "#speed",
+      "mapping": {
+        "unit": "hz",
+        "signed": false
+      },
+      "note": "Direct traversal or loop cycles/sec. Algorithmic Mazes displayed openings/s in build mode additionally multiplies by build step count.",
+      "source": "src/pages/algorithmic-mazes.html"
+    },
+    {
+      "route": "ouroborousel",
+      "selector": "#glissRate",
+      "mapping": {
+        "unit": "hz",
+        "signed": false
+      },
+      "note": "Temporal pitch/rhythm gliss speed in octaves/sec. One tap interval means one octave travel; not oscillator pitch frequency.",
+      "source": "src/pages/ouroborousel.html"
+    },
+    {
+      "route": "ouroborousel",
+      "selector": "#centerRate",
+      "mapping": {
+        "unit": "hz",
+        "signed": false
+      },
+      "note": "Direct per-second step/pulse/scan/cycle count.",
+      "source": "src/pages/ouroborousel.html"
+    },
+    {
+      "route": "dijkstra",
+      "selector": "#tempo",
+      "mapping": {
+        "unit": "bpm"
+      },
+      "note": "Direct BPM or cycles/min.",
+      "source": "src/pages/dijkstra.html"
+    },
+    {
+      "route": "rubixoids",
+      "selector": "#tempo",
+      "mapping": {
+        "unit": "bpm"
+      },
+      "note": "Direct BPM or cycles/min.",
+      "source": "src/pages/rubixoids.html"
+    },
+    {
+      "route": "shape-drum-machine",
+      "selector": "#speed",
+      "mapping": {
+        "unit": "shapeHz",
+        "max": 4,
+        "curve": 5.6
+      },
+      "note": "Physical rate=4*expm1(5.6*x)/expm1(5.6).",
+      "source": "src/pages/shape-drum-machine.html"
+    },
+    {
+      "route": "shape-drum-machine",
+      "selector": "#rotationSpeed",
+      "mapping": {
+        "unit": "hz",
+        "signed": true
+      },
+      "note": "Hyper Rubix explicitly rev/min (degrees/sec = speed*6), others rev/sec; preserve rotation direction.",
+      "source": "src/pages/shape-drum-machine.html"
+    },
+    {
+      "route": "ouroboros-borealis",
+      "selector": "#pitchGlissRate",
+      "mapping": {
+        "unit": "hz",
+        "signed": false
+      },
+      "note": "Temporal pitch/rhythm gliss speed in octaves/sec. One tap interval means one octave travel; not oscillator pitch frequency.",
+      "source": "src/pages/ouroboros-borealis.html"
+    },
+    {
+      "route": "ouroboros-borealis",
+      "selector": "#rhythmGlissRate",
+      "mapping": {
+        "unit": "hz",
+        "signed": false
+      },
+      "note": "Temporal pitch/rhythm gliss speed in octaves/sec. One tap interval means one octave travel; not oscillator pitch frequency.",
+      "source": "src/pages/ouroboros-borealis.html"
+    },
+    {
+      "route": "ouroboros-borealis",
+      "selector": "#centerRate",
+      "mapping": {
+        "unit": "hz",
+        "signed": false
+      },
+      "note": "Direct per-second step/pulse/scan/cycle count.",
+      "source": "src/pages/ouroboros-borealis.html"
+    },
+    {
+      "route": "vocalzoid",
+      "selector": "#bpm",
+      "mapping": {
+        "unit": "bpm"
+      },
+      "note": "Direct BPM or cycles/min.",
+      "source": "src/pages/vocalzoid.html"
+    },
+    {
+      "route": "graph-synth",
+      "selector": "#tempo",
+      "mapping": {
+        "unit": "bpm"
+      },
+      "note": "Direct BPM or cycles/min.",
+      "source": "src/pages/graph-synth.html"
+    },
+    {
+      "route": "graph-synth",
+      "selector": "#nodeMotionSpeed",
+      "mapping": {
+        "unit": "hz",
+        "signed": false
+      },
+      "note": "Direct per-second step/pulse/scan/cycle count.",
+      "source": "src/pages/graph-synth.html"
+    },
+    {
+      "route": "algorithmic-sequencers",
+      "selector": "#tempo",
+      "mapping": {
+        "unit": "hz",
+        "signed": false
+      },
+      "note": "Native steps/sec despite selector tempo; one tap interval sets one step.",
+      "source": "src/pages/algorithmic-sequencers.html"
+    },
+    {
+      "route": "lattice-drum-machine",
+      "selector": "#speed",
+      "mapping": {
+        "unit": "hz",
+        "signed": false
+      },
+      "note": "Direct traversal or loop cycles/sec. Algorithmic Mazes displayed openings/s in build mode additionally multiplies by build step count.",
+      "source": "src/pages/lattice-drum-machine.html"
+    },
+    {
+      "route": "solid-drum-machine",
+      "selector": "#speed",
+      "mapping": {
+        "unit": "hz",
+        "signed": false
+      },
+      "note": "Direct traversal or loop cycles/sec. Algorithmic Mazes displayed openings/s in build mode additionally multiplies by build step count.",
+      "source": "src/pages/solid-drum-machine.html"
+    },
+    {
+      "route": "solid-drum-machine",
+      "selector": "#planeYawSpeed",
+      "mapping": {
+        "unit": "hz",
+        "signed": true
+      },
+      "note": "Direct per-second step/pulse/scan/cycle count.",
+      "source": "src/pages/solid-drum-machine.html"
+    },
+    {
+      "route": "solid-drum-machine",
+      "selector": "#planePitchSpeed",
+      "mapping": {
+        "unit": "hz",
+        "signed": true
+      },
+      "note": "Direct per-second step/pulse/scan/cycle count.",
+      "source": "src/pages/solid-drum-machine.html"
+    },
+    {
+      "route": "solid-drum-machine",
+      "selector": "#rotationXSpeed",
+      "mapping": {
+        "unit": "hz",
+        "signed": true
+      },
+      "note": "Direct per-second step/pulse/scan/cycle count.",
+      "source": "src/pages/solid-drum-machine.html"
+    },
+    {
+      "route": "solid-drum-machine",
+      "selector": "#rotationYSpeed",
+      "mapping": {
+        "unit": "hz",
+        "signed": true
+      },
+      "note": "Direct per-second step/pulse/scan/cycle count.",
+      "source": "src/pages/solid-drum-machine.html"
+    },
+    {
+      "route": "solid-drum-machine",
+      "selector": "#rotationZSpeed",
+      "mapping": {
+        "unit": "hz",
+        "signed": true
+      },
+      "note": "Direct per-second step/pulse/scan/cycle count.",
+      "source": "src/pages/solid-drum-machine.html"
+    },
+    {
+      "route": "entanglement-dance",
+      "selector": "#tempo",
+      "mapping": {
+        "unit": "bpm"
+      },
+      "note": "Direct BPM or cycles/min.",
+      "source": "src/pages/entanglement-dance.html"
+    },
+    {
+      "route": "shapes",
+      "selector": "#speed",
+      "mapping": {
+        "unit": "hz",
+        "signed": false
+      },
+      "note": "Direct traversal or loop cycles/sec. Algorithmic Mazes displayed openings/s in build mode additionally multiplies by build step count.",
+      "source": "src/pages/shapes.html"
+    },
+    {
+      "route": "slippery-resynthesis",
+      "selector": "#slipRate",
+      "mapping": {
+        "unit": "hz",
+        "signed": false
+      },
+      "note": "Temporal pitch/rhythm gliss speed in octaves/sec. One tap interval means one octave travel; not oscillator pitch frequency.",
+      "source": "src/pages/slippery-resynthesis.html"
+    },
+    {
+      "route": "l-system-drum-machine",
+      "selector": "#speed",
+      "mapping": {
+        "unit": "powerHz",
+        "floor": 0.01,
+        "span": 3.99,
+        "exponent": 3
+      },
+      "note": "Physical cycles/sec; source src/instruments/l-system/l-system-app.js constants.",
+      "source": "src/pages/l-system-drum-machine.html"
+    },
+    {
+      "route": "rubix",
+      "selector": "#tempo",
+      "mapping": {
+        "unit": "bpm"
+      },
+      "note": "Direct BPM or cycles/min.",
+      "source": "src/pages/rubix.html"
+    },
+    {
+      "route": "hanoi",
+      "selector": "#tempo",
+      "mapping": {
+        "unit": "bpm"
+      },
+      "note": "Direct BPM or cycles/min.",
+      "source": "src/pages/hanoi.html"
+    },
+    {
+      "route": "habit-habitat",
+      "selector": "#tempo",
+      "mapping": {
+        "unit": "bpm"
+      },
+      "note": "Direct BPM or cycles/min.",
+      "source": "src/pages/habit-habitat.html"
+    },
+    {
+      "route": "lissajous-orbits",
+      "selector": "#lissajousRate",
+      "mapping": {
+        "unit": "hz",
+        "signed": false
+      },
+      "note": "Direct per-second step/pulse/scan/cycle count.",
+      "source": "src/pages/lissajous-orbits.html"
+    },
+    {
+      "route": "spider-synth",
+      "selector": "#tempo",
+      "mapping": {
+        "unit": "bpm"
+      },
+      "note": "Direct BPM or cycles/min.",
+      "source": "src/pages/spider-synth.html"
+    },
+    {
+      "route": "fourier-epicycles",
+      "selector": "#fourierRate",
+      "mapping": {
+        "unit": "hz",
+        "signed": false
+      },
+      "note": "Direct per-second step/pulse/scan/cycle count.",
+      "source": "src/pages/fourier-epicycles.html"
+    },
+    {
+      "route": "rattlesnake-skin",
+      "selector": "#tempo",
+      "mapping": {
+        "unit": "bpm"
+      },
+      "note": "Direct BPM or cycles/min.",
+      "source": "src/pages/rattlesnake-skin.html"
+    },
+    {
+      "route": "rattlesnake-skin",
+      "selector": "#glissRate",
+      "mapping": {
+        "unit": "hz",
+        "signed": false
+      },
+      "note": "Temporal pitch/rhythm gliss speed in octaves/sec. One tap interval means one octave travel; not oscillator pitch frequency.",
+      "source": "src/pages/rattlesnake-skin.html"
+    },
+    {
+      "route": "graphs",
+      "selector": "#tempo",
+      "mapping": {
+        "unit": "bpm"
+      },
+      "note": "Direct BPM or cycles/min.",
+      "source": "src/pages/graphs.html"
+    },
+    {
+      "route": "graphs",
+      "selector": "#nodeMotionSpeed",
+      "mapping": {
+        "unit": "hz",
+        "signed": false
+      },
+      "note": "Direct per-second step/pulse/scan/cycle count.",
+      "source": "src/pages/graphs.html"
+    },
+    {
+      "route": "lumber",
+      "selector": "#delayRotationSpeed",
+      "mapping": {
+        "unit": "hz",
+        "signed": true
+      },
+      "note": "Direct per-second step/pulse/scan/cycle count.",
+      "source": "src/pages/lumber.html"
+    },
+    {
+      "route": "harmonica",
+      "selector": "#breathRateBpm",
+      "mapping": {
+        "unit": "bpm"
+      },
+      "note": "Direct BPM or cycles/min.",
+      "source": "src/pages/harmonica.html"
+    },
+    {
+      "route": "gravity-lens",
+      "selector": "#lensRate",
+      "mapping": {
+        "unit": "hz",
+        "signed": false
+      },
+      "note": "Direct per-second step/pulse/scan/cycle count.",
+      "source": "src/pages/gravity-lens.html"
+    },
+    {
+      "route": "surround-field",
+      "selector": "#orbitRate",
+      "mapping": {
+        "unit": "hz",
+        "signed": false
+      },
+      "note": "Direct per-second step/pulse/scan/cycle count.",
+      "source": "src/pages/surround-field.html"
+    },
+    {
+      "route": "graph-drum-machine",
+      "selector": "#tempo",
+      "mapping": {
+        "unit": "bpm"
+      },
+      "note": "Direct BPM or cycles/min.",
+      "source": "src/pages/graph-drum-machine.html"
+    },
+    {
+      "route": "graph-drum-machine",
+      "selector": "#nodeMotionSpeed",
+      "mapping": {
+        "unit": "hz",
+        "signed": false
+      },
+      "note": "Direct per-second step/pulse/scan/cycle count.",
+      "source": "src/pages/graph-drum-machine.html"
+    },
+    {
+      "route": "hyper-drum-machine",
+      "selector": "#speed",
+      "mapping": {
+        "unit": "hz",
+        "signed": false
+      },
+      "note": "Direct traversal or loop cycles/sec. Algorithmic Mazes displayed openings/s in build mode additionally multiplies by build step count.",
+      "source": "src/pages/hyper-drum-machine.html"
+    },
+    {
+      "route": "hyper-drum-machine",
+      "selector": "#rotationXWSpeed",
+      "mapping": {
+        "unit": "hz",
+        "signed": true
+      },
+      "note": "Direct per-second step/pulse/scan/cycle count.",
+      "source": "src/pages/hyper-drum-machine.html"
+    },
+    {
+      "route": "hyper-drum-machine",
+      "selector": "#rotationYWSpeed",
+      "mapping": {
+        "unit": "hz",
+        "signed": true
+      },
+      "note": "Direct per-second step/pulse/scan/cycle count.",
+      "source": "src/pages/hyper-drum-machine.html"
+    },
+    {
+      "route": "hyper-drum-machine",
+      "selector": "#rotationZWSpeed",
+      "mapping": {
+        "unit": "hz",
+        "signed": true
+      },
+      "note": "Direct per-second step/pulse/scan/cycle count.",
+      "source": "src/pages/hyper-drum-machine.html"
+    },
+    {
+      "route": "l-systems",
+      "selector": "#speed",
+      "mapping": {
+        "unit": "hz",
+        "signed": false
+      },
+      "note": "Direct traversal or loop cycles/sec. Algorithmic Mazes displayed openings/s in build mode additionally multiplies by build step count.",
+      "source": "src/pages/l-systems.html"
+    },
+    {
+      "route": "l-systems",
+      "selector": "#micIntervalMs",
+      "mapping": {
+        "unit": "milliseconds"
+      },
+      "note": "Direct wait/repetition interval in milliseconds.",
+      "source": "src/pages/l-systems.html"
+    },
+    {
+      "route": "yoyodyne",
+      "selector": "#tempo",
+      "mapping": {
+        "unit": "bpm"
+      },
+      "note": "Direct BPM or cycles/min.",
+      "source": "src/pages/yoyodyne.html"
+    },
+    {
+      "route": "graph-3d",
+      "selector": "#tempo",
+      "mapping": {
+        "unit": "bpm"
+      },
+      "note": "Direct BPM or cycles/min.",
+      "source": "src/pages/graph-3d.html"
+    },
+    {
+      "route": "roach-synth",
+      "selector": "#tempo",
+      "mapping": {
+        "unit": "bpm"
+      },
+      "note": "Direct BPM or cycles/min.",
+      "source": "src/pages/roach-synth.html"
+    },
+    {
+      "route": "tempo-tantrum",
+      "selector": "#tempo",
+      "mapping": {
+        "unit": "bpm"
+      },
+      "note": "Direct BPM or cycles/min.",
+      "source": "src/pages/tempo-tantrum.html"
+    },
+    {
+      "route": "shepard-risset",
+      "selector": "#sweepSpeed",
+      "mapping": {
+        "unit": "hz",
+        "signed": false
+      },
+      "note": "Temporal pitch/rhythm gliss speed in octaves/sec. One tap interval means one octave travel; not oscillator pitch frequency.",
+      "source": "src/pages/shepard-risset.html"
+    },
+    {
+      "route": "klein-bottle-synth",
+      "selector": "#speed",
+      "mapping": {
+        "unit": "hz",
+        "signed": false
+      },
+      "note": "Direct traversal or loop cycles/sec. Algorithmic Mazes displayed openings/s in build mode additionally multiplies by build step count.",
+      "source": "src/pages/klein-bottle-synth.html"
+    },
+    {
+      "route": "klein-bottle-synth",
+      "selector": "#rotationSpeed",
+      "mapping": {
+        "unit": "hz",
+        "signed": true
+      },
+      "note": "Hyper Rubix explicitly rev/min (degrees/sec = speed*6), others rev/sec; preserve rotation direction.",
+      "source": "src/pages/klein-bottle-synth.html"
+    },
+    {
+      "route": "gesticules",
+      "selector": "#tempo",
+      "mapping": {
+        "unit": "bpm"
+      },
+      "note": "Direct BPM or cycles/min.",
+      "source": "src/pages/gesticules.html"
+    },
+    {
+      "route": "quadruped",
+      "selector": "#tempo",
+      "mapping": {
+        "unit": "bpm"
+      },
+      "note": "Direct BPM or cycles/min.",
+      "source": "src/pages/quadruped.html"
+    },
+    {
+      "route": "neural-pulse",
+      "selector": "#neuralRate",
+      "mapping": {
+        "unit": "hz",
+        "signed": false
+      },
+      "note": "Direct per-second step/pulse/scan/cycle count.",
+      "source": "src/pages/neural-pulse.html"
+    },
+    {
+      "route": "puggler",
+      "selector": "#tempo",
+      "mapping": {
+        "unit": "bpm"
+      },
+      "note": "Runtime-generated native BPM control.",
+      "source": "src/instruments/puggler/puggler-app.js"
+    },
+    {
+      "route": "synthesis",
+      "selector": "#tempo",
+      "mapping": {
+        "unit": "bpm"
+      },
+      "note": "Runtime-generated native BPM control.",
+      "source": "src/instruments/synthesis/app.js"
+    },
+    {
+      "route": "webgpu-chiptune",
+      "selector": "#tempo",
+      "mapping": {
+        "unit": "exponentialHz",
+        "floor": 0.25,
+        "factor": 16
+      },
+      "note": "Native range normalized0..1 logarithmic. Model tempo beats/sec; UI BPM=value*60. Owner hook updates ARIA knobs.",
+      "source": "src/families/chiptune/chiptune-app.js"
+    },
+    {
+      "route": "webgpu-chiptune",
+      "selector": "[role=\"slider\"][data-param-key=\"tempo\"]",
+      "mapping": {
+        "unit": "hz"
+      },
+      "note": "ARIA knob value native beats/sec .25–4; owner applyControlValue(spec,tapHz) required.",
+      "source": "src/families/chiptune/chiptune-app.js"
+    },
+    {
+      "route": "simd-chiptune",
+      "selector": "#tempo",
+      "mapping": {
+        "unit": "exponentialHz",
+        "floor": 0.25,
+        "factor": 16
+      },
+      "note": "Native range normalized0..1 logarithmic. Model tempo beats/sec; UI BPM=value*60. Owner hook updates ARIA knobs.",
+      "source": "src/families/chiptune/chiptune-app.js"
+    },
+    {
+      "route": "simd-chiptune",
+      "selector": "[role=\"slider\"][data-param-key=\"tempo\"]",
+      "mapping": {
+        "unit": "hz"
+      },
+      "note": "ARIA knob value native beats/sec .25–4; owner applyControlValue(spec,tapHz) required.",
+      "source": "src/families/chiptune/chiptune-app.js"
+    },
+    {
+      "route": "webgpu-303",
+      "selector": "#timeScale",
+      "mapping": {
+        "unit": "powerHz",
+        "floor": 0.01,
+        "span": 29.99,
+        "exponent": 2.65
+      },
+      "note": "Time scale = steps/sec; value controlled as encoded normalized0..1 even on ARIA knob. Owner applyControlValue(spec, encodedUnit) hook required.",
+      "source": "src/instruments/webgpu-303/webgpu-303-app.js"
+    },
+    {
+      "route": "webgpu-303",
+      "selector": "[role=\"slider\"][data-param-key=\"timeScale\"]",
+      "mapping": {
+        "unit": "powerHz",
+        "floor": 0.01,
+        "span": 29.99,
+        "exponent": 2.65
+      },
+      "note": "Time scale = steps/sec; value controlled as encoded normalized0..1 even on ARIA knob. Owner applyControlValue(spec, encodedUnit) hook required.",
+      "source": "src/instruments/webgpu-303/webgpu-303-app.js"
+    },
+    {
+      "route": "simd-303",
+      "selector": "#timeScale",
+      "mapping": {
+        "unit": "powerHz",
+        "floor": 0.01,
+        "span": 29.99,
+        "exponent": 2.65
+      },
+      "note": "Time scale = steps/sec; value controlled as encoded normalized0..1 even on ARIA knob. Owner applyControlValue(spec, encodedUnit) hook required.",
+      "source": "src/instruments/webgpu-303/webgpu-303-app.js"
+    },
+    {
+      "route": "simd-303",
+      "selector": "[role=\"slider\"][data-param-key=\"timeScale\"]",
+      "mapping": {
+        "unit": "powerHz",
+        "floor": 0.01,
+        "span": 29.99,
+        "exponent": 2.65
+      },
+      "note": "Time scale = steps/sec; value controlled as encoded normalized0..1 even on ARIA knob. Owner applyControlValue(spec, encodedUnit) hook required.",
+      "source": "src/instruments/webgpu-303/webgpu-303-app.js"
+    },
+    {
+      "route": "fractal-synthesis",
+      "selector": "#rate",
+      "mapping": {
+        "unit": "exponentialHz",
+        "floor": 0.0625,
+        "factor": 1024
+      },
+      "note": "Native normalized log beats/sec; `data-scale=log`, `data-parameter-min=.0625`, max64; display×60BPM.",
+      "source": "src/instruments/fractal-signals/app.js"
+    },
+    {
+      "route": "fractal-synthesis",
+      "selector": "#motionBranchTempo",
+      "mapping": {
+        "unit": "bpm",
+        "signed": true
+      },
+      "note": "Signed direct BPM for independent cyclic motion; preserve direction; runtime rebuild on mode switch.",
+      "source": "src/instruments/fractal-signals/app.js"
+    },
+    {
+      "route": "fractal-synthesis",
+      "selector": "#motionAngleTempo",
+      "mapping": {
+        "unit": "bpm",
+        "signed": true
+      },
+      "note": "Signed direct BPM for independent cyclic motion; preserve direction; runtime rebuild on mode switch.",
+      "source": "src/instruments/fractal-signals/app.js"
+    },
+    {
+      "route": "fractal-synthesis",
+      "selector": "#motionRootTempo",
+      "mapping": {
+        "unit": "bpm",
+        "signed": true
+      },
+      "note": "Signed direct BPM for independent cyclic motion; preserve direction; runtime rebuild on mode switch.",
+      "source": "src/instruments/fractal-signals/app.js"
+    },
+    {
+      "route": "fractal-synthesis",
+      "selector": "#motionIndexTempo",
+      "mapping": {
+        "unit": "bpm",
+        "signed": true
+      },
+      "note": "Signed direct BPM for independent cyclic motion; preserve direction; runtime rebuild on mode switch.",
+      "source": "src/instruments/fractal-signals/app.js"
+    },
+    {
+      "route": "fractal-synthesis",
+      "selector": "#motionTurnsTempo",
+      "mapping": {
+        "unit": "bpm",
+        "signed": true
+      },
+      "note": "Signed direct BPM for independent cyclic motion; preserve direction; runtime rebuild on mode switch.",
+      "source": "src/instruments/fractal-signals/app.js"
+    },
+    {
+      "route": "fractal-synthesis",
+      "selector": "#motionScanTempo",
+      "mapping": {
+        "unit": "bpm",
+        "signed": true
+      },
+      "note": "Signed direct BPM for independent cyclic motion; preserve direction; runtime rebuild on mode switch.",
+      "source": "src/instruments/fractal-signals/app.js"
+    },
+    {
+      "route": "shapes",
+      "selector": "[data-rotation-target=\"rotationSpeed\"]",
+      "mapping": {
+        "unit": "hz",
+        "signed": true
+      },
+      "note": "Runtime-rebuilt dimensional rotation controls; value direct signed rev/sec.",
+      "source": "src/instruments/shapes/shapes-app.js"
+    },
+    {
+      "route": "shapes",
+      "selector": "[data-rotation-target=\"rotationMotion.readerYaw.speed\"]",
+      "mapping": {
+        "unit": "hz",
+        "signed": true
+      },
+      "note": "Runtime-rebuilt dimensional rotation controls; value direct signed rev/sec.",
+      "source": "src/instruments/shapes/shapes-app.js"
+    },
+    {
+      "route": "shapes",
+      "selector": "[data-rotation-target=\"rotationMotion.readerPitch.speed\"]",
+      "mapping": {
+        "unit": "hz",
+        "signed": true
+      },
+      "note": "Runtime-rebuilt dimensional rotation controls; value direct signed rev/sec.",
+      "source": "src/instruments/shapes/shapes-app.js"
+    },
+    {
+      "route": "shapes",
+      "selector": "[data-rotation-target=\"rotationMotion.x.speed\"]",
+      "mapping": {
+        "unit": "hz",
+        "signed": true
+      },
+      "note": "Runtime-rebuilt dimensional rotation controls; value direct signed rev/sec.",
+      "source": "src/instruments/shapes/shapes-app.js"
+    },
+    {
+      "route": "shapes",
+      "selector": "[data-rotation-target=\"rotationMotion.y.speed\"]",
+      "mapping": {
+        "unit": "hz",
+        "signed": true
+      },
+      "note": "Runtime-rebuilt dimensional rotation controls; value direct signed rev/sec.",
+      "source": "src/instruments/shapes/shapes-app.js"
+    },
+    {
+      "route": "shapes",
+      "selector": "[data-rotation-target=\"rotationMotion.z.speed\"]",
+      "mapping": {
+        "unit": "hz",
+        "signed": true
+      },
+      "note": "Runtime-rebuilt dimensional rotation controls; value direct signed rev/sec.",
+      "source": "src/instruments/shapes/shapes-app.js"
+    },
+    {
+      "route": "shapes",
+      "selector": "[data-rotation-target=\"rotationMotion.xw.speed\"]",
+      "mapping": {
+        "unit": "hz",
+        "signed": true
+      },
+      "note": "Runtime-rebuilt dimensional rotation controls; value direct signed rev/sec.",
+      "source": "src/instruments/shapes/shapes-app.js"
+    },
+    {
+      "route": "shapes",
+      "selector": "[data-rotation-target=\"rotationMotion.yw.speed\"]",
+      "mapping": {
+        "unit": "hz",
+        "signed": true
+      },
+      "note": "Runtime-rebuilt dimensional rotation controls; value direct signed rev/sec.",
+      "source": "src/instruments/shapes/shapes-app.js"
+    },
+    {
+      "route": "shapes",
+      "selector": "[data-rotation-target=\"rotationMotion.zw.speed\"]",
+      "mapping": {
+        "unit": "hz",
+        "signed": true
+      },
+      "note": "Runtime-rebuilt dimensional rotation controls; value direct signed rev/sec.",
+      "source": "src/instruments/shapes/shapes-app.js"
+    },
+    {
+      "route": "ricochet",
+      "selector": "#physics-rotationSpeed",
+      "mapping": {
+        "unit": "hz",
+        "scale": 360,
+        "signed": true
+      },
+      "note": "Input physical degrees/sec: requestedInput=sign(currentInput or +1)*360*tapHz. Model uses radians(state.rotationSpeed); rotation changes1turnper interval; clamp signedexisting[-120,120].",
+      "source": "src/families/physics/physics-scenes-shape.js"
+    },
+    {
+      "route": "sliding-puzzle",
+      "selector": "#autoSlideSpeed",
+      "mapping": {
+        "unit": "exponentialHz",
+        "floor": 0.25,
+        "factor": 48,
+        "inputScale": 100
+      },
+      "note": "Independent auto twist/slide event clock; NOT anchored to main tempo. Physical .25*48^(x/100) events/sec,1×=one event/sec.",
+      "source": "src/instruments/rubix/rubix.js"
+    },
+    {
+      "route": "l-mic",
+      "selector": "#interval",
+      "mapping": {
+        "unit": "piecewiseMilliseconds",
+        "points": [
+          [
+            0,
+            1
+          ],
+          [
+            150,
+            50
+          ],
+          [
+            900,
+            1000
+          ],
+          [
+            1000,
+            3000
+          ]
+        ]
+      },
+      "note": "Time fold root repeat delay. Native slider piecewise milliseconds, inverse helper exported sliderFromTimeFold()",
+      "source": "src/instruments/micmic/micmic.js"
+    },
+    {
+      "route": "rubix",
+      "selector": "#randomTwistSpeed",
+      "mapping": {
+        "unit": "exponentialHz",
+        "floor": 0.25,
+        "factor": 48,
+        "inputScale": 100
+      },
+      "note": "Independent auto twist/slide event clock; NOT anchored to main tempo. Physical .25*48^(x/100) events/sec,1×=one event/sec.",
+      "source": "src/instruments/rubix/rubix.js"
+    },
+    {
+      "route": "throat-singing",
+      "selector": "#pulseRate",
+      "mapping": {
+        "unit": "hz"
+      },
+      "note": "Independent rhythmic pressure emphasisHz. Zero stillness; one tap interval sets pressure pulse cycle.",
+      "source": "src/instruments/throat-singing/throat-singing-app.js"
+    },
+    {
+      "route": "boidzoid",
+      "selector": "#speed",
+      "mapping": {
+        "unit": "hz",
+        "cycleUnit": "world-unit"
+      },
+      "note": "Nominal normalized world distance/sec; one tap interval traverses1unit. Native slider .045–.24/s. Actual flock velocity center additionally morph-scaled(.82+.34*morph), randomizedspread and forces; this is a speed control convention, not a guaranteed uniform beat.",
+      "source": "src/instruments/boidzoid/boidzoid-app.js"
+    },
+    {
+      "route": "striped-staircase",
+      "selector": "#speed",
+      "mapping": {
+        "unit": "hz",
+        "cycleUnit": "T-unit"
+      },
+      "note": "Direct transport T-coordinate/sec; one tap interval advances1T. Used elapsed*state.speed*timingRate; ratio may change actual reading pace but knob maps direct T/s.",
+      "source": "src/instruments/striped-staircase/striped-staircase-app.js"
+    },
+    {
+      "route": "penrose-tilings",
+      "selector": "#speed",
+      "mapping": {
+        "unit": "hz",
+        "cycleUnit": "world-unit"
+      },
+      "note": "Direct u/sec; one tap interval advances1world unit. Infinite mode world velocity additionally uses WORLD_UNITS_PER_SECOND; single mode normalized traversal rate is state.speed.",
+      "source": "src/instruments/penrose-tilings/penrose-tilings-app.js"
+    },
+    {
+      "route": "escher-tessellation",
+      "selector": "#travelSpeed",
+      "mapping": {
+        "unit": "hz",
+        "cycleUnit": "geometric-unit"
+      },
+      "note": "Actual audio and visual playheads advance travelSpeed geometric units/sec. One tap interval=1geometricunit. Full path period=contour.perimeter/travelSpeed, distinct from unit-speed convention.",
+      "source": "src/instruments/escher-tessellation/escher-performance-audio.js"
+    },
+    {
+      "route": "playhead-paint",
+      "selector": "#steadySpeed",
+      "mapping": {
+        "unit": "hz",
+        "cycleUnit": "path-unit"
+      },
+      "note": "Direct normalized path units/sec. Playback duration=markPathLength/steadySpeed*1000. One tap interval covers1pathunit. Does not assume every authored mark has unit length.",
+      "source": "src/instruments/playhead-paint/playhead-paint.js"
+    },
+    {
+      "route": "moire-drone",
+      "selector": "#propagationSpeed",
+      "mapping": {
+        "unit": "hz",
+        "cycleUnit": "field-width"
+      },
+      "note": "Sweep speed field-width/sec, direct native model. One tap interval crosses1fieldwidth; compound per-event random speed spread still applies.",
+      "source": "src/instruments/moire-drone/moire-drone-app.js"
+    },
+    {
+      "route": "geodesic-drift",
+      "selector": "#physics-speed",
+      "mapping": {
+        "unit": "hz",
+        "cycleUnit": "geodesic-unit"
+      },
+      "note": "Direct simulated path/geodesic units per modelsecond: amount=clamp(state.speed,.08,1)*dt. One tap interval advances1unit. Shared Time scale independently multiplies model time.",
+      "source": "src/families/physics/physics-scenes-advanced.js"
+    },
+    {
+      "route": "kinetic-hull",
+      "selector": "#physics-speed",
+      "mapping": {
+        "unit": "hz",
+        "cycleUnit": "world-unit"
+      },
+      "note": "Moving-point velocity vector=direction*state.speed, then dt positionstep; one tap interval advances1worldunit. Shared Time scale independently multiplies model time.",
+      "source": "src/families/physics/physics-scenes-advanced.js"
+    },
+    {
+      "route": "spiral-drum-machine",
+      "selector": "#speed",
+      "mapping": {
+        "unit": "hz",
+        "cycleUnit": "cycle"
+      },
+      "note": "Native direct state.speedcycles/sec, traversal position+=state.speed*delta. Priorambiguous classification was incorrect (generic#speed mistakenasplaybackmultiplier).",
+      "source": "src/instruments/spiral-drum-machine/spiral-drum-machine-app.js"
+    },
+    {
+      "route": "shepard-risset",
+      "selector": "#speed",
+      "mapping": {
+        "unit": "hz",
+        "cycleUnit": "octave"
+      },
+      "note": "Direct octave gliss speed octaves/sec; one tap interval traverses1octave, temporal speednotoscillatorpitch. Priorambiguous generic#speedclassificationincorrect.",
+      "source": "src/instruments/shepard-risset/shepard-risset-app.js"
+    },
+    {
+      "route": "ouroboros",
+      "selector": "#hitRate",
+      "mapping": {
+        "unit": "hz",
+        "cycleUnit": "hit"
+      },
+      "note": "Direct bank reference hit-density /sec; one tapinterval=one referencehit.",
+      "source": "src/instruments/ouroboros/ouroboros.js"
+    }
+  ],
+  "ambiguous": [
+    {
+      "route": "tape-worm",
+      "id": "speed",
+      "type": "range",
+      "min": "0.25",
+      "max": "2",
+      "value": "1",
+      "label": "Tape speed1.00×",
+      "reason": "Playback/gesture multiplier ×; no intrinsic native BPM for tape, speech, gesture, or recorded file. Need define reference beat (120 BPM at1×) or source duration/known BPM owner hook before converting taps.",
+      "suggestedMapping": {
+        "unit": "multiplier",
+        "referenceBpm": 120
+      },
+      "selector": "#speed",
+      "source": "src/pages/tape-worm.html"
+    },
+    {
+      "route": "onset-atlas",
+      "id": "speed",
+      "type": "range",
+      "min": "0.5",
+      "max": "2",
+      "value": "1",
+      "label": "Playback speed1.00×",
+      "reason": "Playback/gesture multiplier ×; no intrinsic native BPM for tape, speech, gesture, or recorded file. Need define reference beat (120 BPM at1×) or source duration/known BPM owner hook before converting taps.",
+      "suggestedMapping": {
+        "unit": "multiplier",
+        "referenceBpm": 120
+      },
+      "selector": "#speed",
+      "source": "src/pages/onset-atlas.html"
+    },
+    {
+      "route": "spelling-synthesizer",
+      "id": "readbackSpeed",
+      "type": "range",
+      "min": "0.5",
+      "max": "2",
+      "value": "1",
+      "label": "Speed 1.00×",
+      "reason": "Playback/gesture multiplier ×; no intrinsic native BPM for tape, speech, gesture, or recorded file. Need define reference beat (120 BPM at1×) or source duration/known BPM owner hook before converting taps.",
+      "suggestedMapping": {
+        "unit": "multiplier",
+        "referenceBpm": 120
+      },
+      "selector": "#readbackSpeed",
+      "source": "src/pages/spelling-synthesizer.html"
+    },
+    {
+      "route": "morphynx",
+      "id": "gestureRate",
+      "type": "range",
+      "min": "0.25",
+      "max": "2.5",
+      "value": "1",
+      "label": "Gesture rate1.00×",
+      "reason": "Playback/gesture multiplier ×; no intrinsic native BPM for tape, speech, gesture, or recorded file. Need define reference beat (120 BPM at1×) or source duration/known BPM owner hook before converting taps.",
+      "suggestedMapping": {
+        "unit": "multiplier",
+        "referenceBpm": 120
+      },
+      "selector": "#gestureRate",
+      "source": "src/pages/morphynx.html"
+    },
+    {
+      "route": "reaction-diffusion",
+      "id": "reactionSpeed",
+      "type": "range",
+      "min": "0.2",
+      "max": "3",
+      "value": "1.2",
+      "label": "Simulation speed1.2 x",
+      "reason": "Simulation model-time × independent irregular physics;120BPMat1x speed convention, no intrinsic beat. Increasingcontrolincreasesmodelspeed.",
+      "selector": "#reactionSpeed",
+      "source": "src/pages/reaction-diffusion.html",
+      "suggestedMapping": {
+        "unit": "multiplier",
+        "referenceBpm": 120
+      }
+    },
+    {
+      "route": "hybrinx",
+      "id": "gestureRate",
+      "type": "range",
+      "min": "0.25",
+      "max": "2.5",
+      "value": "1",
+      "label": "Gesture rate1.00×",
+      "reason": "Playback/gesture multiplier ×; no intrinsic native BPM for tape, speech, gesture, or recorded file. Need define reference beat (120 BPM at1×) or source duration/known BPM owner hook before converting taps.",
+      "suggestedMapping": {
+        "unit": "multiplier",
+        "referenceBpm": 120
+      },
+      "selector": "#gestureRate",
+      "source": "src/pages/hybrinx.html"
+    },
+    {
+      "route": "srtuss",
+      "id": "selectedVoiceRate",
+      "type": "range",
+      "min": "0.5",
+      "max": "2",
+      "value": "1",
+      "label": "Tape rate\n                  1.00×",
+      "reason": "Playback/gesture multiplier ×; no intrinsic native BPM for tape, speech, gesture, or recorded file. Need define reference beat (120 BPM at1×) or source duration/known BPM owner hook before converting taps.",
+      "suggestedMapping": {
+        "unit": "multiplier",
+        "referenceBpm": 120
+      },
+      "selector": "#selectedVoiceRate",
+      "source": "src/pages/srtuss.html"
+    },
+    {
+      "route": "syrinx",
+      "id": "gestureRate",
+      "type": "range",
+      "min": "0.25",
+      "max": "2.5",
+      "value": "1",
+      "label": "Gesture rate1.00×\n              \n              Scales the whole pressure, tension, articulation, and balance trajectory together.",
+      "reason": "Playback/gesture multiplier ×; no intrinsic native BPM for tape, speech, gesture, or recorded file. Need define reference beat (120 BPM at1×) or source duration/known BPM owner hook before converting taps.",
+      "suggestedMapping": {
+        "unit": "multiplier",
+        "referenceBpm": 120
+      },
+      "selector": "#gestureRate",
+      "source": "src/pages/syrinx.html"
+    },
+    {
+      "route": "head-shed",
+      "id": "speed",
+      "type": "range",
+      "min": "0.25",
+      "max": "2.5",
+      "value": "1",
+      "label": "Tape speed1.00×",
+      "reason": "Playback/gesture multiplier ×; no intrinsic native BPM for tape, speech, gesture, or recorded file. Need define reference beat (120 BPM at1×) or source duration/known BPM owner hook before converting taps.",
+      "suggestedMapping": {
+        "unit": "multiplier",
+        "referenceBpm": 120
+      },
+      "selector": "#speed",
+      "source": "src/pages/head-shed.html"
+    },
+    {
+      "route": "crab-loom",
+      "id": "speed",
+      "type": "range",
+      "min": "0.25",
+      "max": "2.5",
+      "value": "1",
+      "label": "Tape speed1.00×",
+      "reason": "Playback/gesture multiplier ×; no intrinsic native BPM for tape, speech, gesture, or recorded file. Need define reference beat (120 BPM at1×) or source duration/known BPM owner hook before converting taps.",
+      "suggestedMapping": {
+        "unit": "multiplier",
+        "referenceBpm": 120
+      },
+      "selector": "#speed",
+      "source": "src/pages/crab-loom.html"
+    },
+    {
+      "route": "loopini",
+      "id": "speed",
+      "type": "range",
+      "min": "0.5",
+      "max": "2",
+      "value": "1",
+      "label": "Speed\n            \n            1.00×",
+      "reason": "Playback/gesture multiplier ×; no intrinsic native BPM for tape, speech, gesture, or recorded file. Need define reference beat (120 BPM at1×) or source duration/known BPM owner hook before converting taps.",
+      "suggestedMapping": {
+        "unit": "multiplier",
+        "referenceBpm": 120
+      },
+      "selector": "#speed",
+      "source": "src/pages/loopini.html"
+    },
+    {
+      "route": "double-pendulum",
+      "id": "chaosSpeed",
+      "type": "range",
+      "min": "0.2",
+      "max": "2",
+      "value": "0.85",
+      "label": "Time scale0.85 x",
+      "reason": "Simulation model-time × independent irregular physics;120BPMat1x speed convention, no intrinsic beat. Increasingcontrolincreasesmodelspeed.",
+      "selector": "#chaosSpeed",
+      "source": "src/pages/double-pendulum.html",
+      "suggestedMapping": {
+        "unit": "multiplier",
+        "referenceBpm": 120
+      }
+    },
+    {
+      "route": "syrinx-ui",
+      "id": "gestureRate",
+      "type": "range",
+      "min": "0.25",
+      "max": "2.5",
+      "value": "1",
+      "label": "Gesture rate1.00×\n              \n              Scales the whole pressure, tension, articulation, and balance trajectory together.",
+      "reason": "Playback/gesture multiplier ×; no intrinsic native BPM for tape, speech, gesture, or recorded file. Need define reference beat (120 BPM at1×) or source duration/known BPM owner hook before converting taps.",
+      "suggestedMapping": {
+        "unit": "multiplier",
+        "referenceBpm": 120
+      },
+      "selector": "#gestureRate",
+      "source": "src/pages/syrinx-ui.html"
+    },
+    {
+      "route": "splice-ring",
+      "id": "speed",
+      "type": "range",
+      "min": "0.25",
+      "max": "2.5",
+      "value": "1",
+      "label": "Tape speed1.00×",
+      "reason": "Playback/gesture multiplier ×; no intrinsic native BPM for tape, speech, gesture, or recorded file. Need define reference beat (120 BPM at1×) or source duration/known BPM owner hook before converting taps.",
+      "suggestedMapping": {
+        "unit": "multiplier",
+        "referenceBpm": 120
+      },
+      "selector": "#speed",
+      "source": "src/pages/splice-ring.html"
+    },
+    {
+      "route": "pink-trombonazoid",
+      "id": "speechRate",
+      "type": "range",
+      "min": "0.45",
+      "max": "1.8",
+      "value": "1",
+      "label": "Speech rate1.00×",
+      "reason": "Playback/gesture multiplier ×; no intrinsic native BPM for tape, speech, gesture, or recorded file. Need define reference beat (120 BPM at1×) or source duration/known BPM owner hook before converting taps.",
+      "suggestedMapping": {
+        "unit": "multiplier",
+        "referenceBpm": 120
+      },
+      "selector": "#speechRate",
+      "source": "src/pages/pink-trombonazoid.html"
+    },
+    {
+      "route": "l-systems",
+      "id": "micInterval",
+      "type": "range",
+      "min": "0.25",
+      "max": "4",
+      "value": "1",
+      "label": "Timing scale1.00x",
+      "reason": "L-Systems microphone delay timing multiplier increasesdelay, notspeed: delaySeconds=eventIntervalSeconds(eventCount)*mic.interval*depthRatio*(.82+.36*progress). Event base depends on speed, subdivision/eventcount. With120BPM1x convention encode120/tapBPM, nottapBPM/120.",
+      "selector": "#micInterval",
+      "source": "src/pages/l-systems.html",
+      "suggestedMapping": {
+        "unit": "inverseMultiplier",
+        "referenceBpm": 120
+      }
+    },
+    {
+      "route": "playhead-paint",
+      "id": "playbackRate",
+      "type": "range",
+      "min": "0.25",
+      "max": "2",
+      "value": "1",
+      "label": "Rate1.00×",
+      "reason": "Playback/gesture multiplier ×; no intrinsic native BPM for tape, speech, gesture, or recorded file. Need define reference beat (120 BPM at1×) or source duration/known BPM owner hook before converting taps.",
+      "suggestedMapping": {
+        "unit": "multiplier",
+        "referenceBpm": 120
+      },
+      "selector": "#playbackRate",
+      "source": "src/pages/playhead-paint.html"
+    },
+    {
+      "route": "tongued-beasts",
+      "id": "gestureRate",
+      "type": "range",
+      "min": "0.25",
+      "max": "2.5",
+      "value": "1",
+      "label": "Gesture rate1.00×",
+      "reason": "Playback/gesture multiplier ×; no intrinsic native BPM for tape, speech, gesture, or recorded file. Need define reference beat (120 BPM at1×) or source duration/known BPM owner hook before converting taps.",
+      "suggestedMapping": {
+        "unit": "multiplier",
+        "referenceBpm": 120
+      },
+      "selector": "#gestureRate",
+      "source": "src/pages/tongued-beasts.html"
+    },
+    {
+      "route": "acoustic-manifold",
+      "id": "gesture-speed",
+      "type": "range",
+      "min": "-3",
+      "max": "3",
+      "value": "0",
+      "label": "Gesture speed1.000×\n            \n            Warps the analyzed control trajectory without transposing the model.",
+      "reason": "Acoustic Manifold gesture speed physical multiplier=2^input[-3,3]. After120BPM1x convention, encode log2(tapBPM/120). Existing native profile duration is otherwise variable.",
+      "selector": "#gesture-speed",
+      "source": "src/pages/acoustic-manifold.html",
+      "suggestedMapping": {
+        "unit": "exponentialMultiplier",
+        "base": 2,
+        "referenceBpm": 120
+      }
+    },
+    {
+      "route": "puggler",
+      "selector": "#rideSpeed",
+      "reason": "Ride speed × independent cast travel; no intrinsic BPM reference; define source cycle or conventional120BPM1×.",
+      "suggestedMapping": {
+        "unit": "multiplier",
+        "referenceBpm": 120
+      },
+      "source": "src/pages/puggler.html"
+    },
+    {
+      "route": "puggler",
+      "selector": "#lightSpeed",
+      "reason": "Light motion ×; no intrinsic BPM reference; define source cycle or conventional120BPM1×.",
+      "suggestedMapping": {
+        "unit": "multiplier",
+        "referenceBpm": 120
+      },
+      "source": "src/pages/puggler.html"
+    },
+    {
+      "route": "spider-synth",
+      "selector": "#travelSpeed",
+      "reason": "Travel speed × preset locomotion; no intrinsic BPM reference; define source cycle or conventional120BPM1×.",
+      "suggestedMapping": {
+        "unit": "multiplier",
+        "referenceBpm": 120
+      },
+      "source": "src/pages/spider-synth.html"
+    },
+    {
+      "route": "domino-run",
+      "selector": "#speed",
+      "reason": "Run speed × simulated/recorded domino events; no intrinsic BPM reference; define source cycle or conventional120BPM1×.",
+      "suggestedMapping": {
+        "unit": "multiplier",
+        "referenceBpm": 120
+      },
+      "source": "src/pages/domino-run.html"
+    },
+    {
+      "route": "gravity-walk",
+      "selector": "#physics-timeScale",
+      "suggestedMapping": {
+        "unit": "multiplier",
+        "referenceBpm": 120
+      },
+      "reason": "Shared runtime-generated model Time scale× (.15–2). No nativeperiodicbeat;120BPM1x convention sets tapBPM/120.",
+      "source": "src/families/physics/physics-app.js"
+    },
+    {
+      "route": "ricochet",
+      "selector": "#physics-timeScale",
+      "suggestedMapping": {
+        "unit": "multiplier",
+        "referenceBpm": 120
+      },
+      "reason": "Shared runtime-generated model Time scale× (.15–2). No nativeperiodicbeat;120BPM1x convention sets tapBPM/120.",
+      "source": "src/families/physics/physics-app.js"
+    },
+    {
+      "route": "rolling-measure",
+      "selector": "#physics-timeScale",
+      "suggestedMapping": {
+        "unit": "multiplier",
+        "referenceBpm": 120
+      },
+      "reason": "Shared runtime-generated model Time scale× (.15–2). No nativeperiodicbeat;120BPM1x convention sets tapBPM/120.",
+      "source": "src/families/physics/physics-app.js"
+    },
+    {
+      "route": "rigidity",
+      "selector": "#physics-timeScale",
+      "suggestedMapping": {
+        "unit": "multiplier",
+        "referenceBpm": 120
+      },
+      "reason": "Shared runtime-generated model Time scale× (.15–2). No nativeperiodicbeat;120BPM1x convention sets tapBPM/120.",
+      "source": "src/families/physics/physics-app.js"
+    },
+    {
+      "route": "falling-forms",
+      "selector": "#physics-timeScale",
+      "suggestedMapping": {
+        "unit": "multiplier",
+        "referenceBpm": 120
+      },
+      "reason": "Shared runtime-generated model Time scale× (.15–2). No nativeperiodicbeat;120BPM1x convention sets tapBPM/120.",
+      "source": "src/families/physics/physics-app.js"
+    },
+    {
+      "route": "charge-garden",
+      "selector": "#physics-timeScale",
+      "suggestedMapping": {
+        "unit": "multiplier",
+        "referenceBpm": 120
+      },
+      "reason": "Shared runtime-generated model Time scale× (.15–2). No nativeperiodicbeat;120BPM1x convention sets tapBPM/120.",
+      "source": "src/families/physics/physics-app.js"
+    },
+    {
+      "route": "packing-pressure",
+      "selector": "#physics-timeScale",
+      "suggestedMapping": {
+        "unit": "multiplier",
+        "referenceBpm": 120
+      },
+      "reason": "Shared runtime-generated model Time scale× (.15–2). No nativeperiodicbeat;120BPM1x convention sets tapBPM/120.",
+      "source": "src/families/physics/physics-app.js"
+    },
+    {
+      "route": "geodesic-drift",
+      "selector": "#physics-timeScale",
+      "suggestedMapping": {
+        "unit": "multiplier",
+        "referenceBpm": 120
+      },
+      "reason": "Shared runtime-generated model Time scale× (.15–2). No nativeperiodicbeat;120BPM1x convention sets tapBPM/120.",
+      "source": "src/families/physics/physics-app.js"
+    },
+    {
+      "route": "kinetic-hull",
+      "selector": "#physics-timeScale",
+      "suggestedMapping": {
+        "unit": "multiplier",
+        "referenceBpm": 120
+      },
+      "reason": "Shared runtime-generated model Time scale× (.15–2). No nativeperiodicbeat;120BPM1x convention sets tapBPM/120.",
+      "source": "src/families/physics/physics-app.js"
+    }
+  ],
+  "excluded": [
+    {
+      "route": "lattice",
+      "id": "shepardCycles",
+      "type": "range",
+      "min": "0.25",
+      "max": "4",
+      "value": "1",
+      "label": "Glide rate1.00 oct / loop",
+      "reason": "Not a timing-rate control; spatial/pitch interval, amount, probability, oscillator harmonic, or unrelated text.",
+      "selector": "#shepardCycles",
+      "source": "src/pages/lattice.html"
+    },
+    {
+      "route": "karplus-strong",
+      "id": "chorusRate",
+      "type": "range",
+      "min": ".05",
+      "max": "8",
+      "value": ".6",
+      "label": "Wobble rate0.60 Hz",
+      "reason": "Independent synthesis oscillator/LFO/vibrato/physical propagation or mutation rate; not shared tempo/speed clock. Some could support tap rate separately but outside core tempo/speed request.",
+      "selector": "#chorusRate",
+      "source": "src/pages/karplus-strong.html"
+    },
+    {
+      "route": "crickets",
+      "id": "wing-split",
+      "type": "range",
+      "min": "-360",
+      "max": "360",
+      "value": "28",
+      "label": "Wing mismatch+28 ct\n              \n              Separates the two uncoupled wing frequencies.",
+      "reason": "Not a timing-rate control; spatial/pitch interval, amount, probability, oscillator harmonic, or unrelated text.",
+      "selector": "#wing-split",
+      "source": "src/pages/crickets.html"
+    },
+    {
+      "route": "crickets",
+      "id": "tooth-rate-ratio",
+      "type": "range",
+      "min": "0.72",
+      "max": "1.28",
+      "value": "1",
+      "label": "Implied tooth cadence1.000×\n              \n              Assumes one contact per carrier cycle; the wings still select the carrier.",
+      "reason": "Not a timing-rate control; spatial/pitch interval, amount, probability, oscillator harmonic, or unrelated text.",
+      "selector": "#tooth-rate-ratio",
+      "source": "src/pages/crickets.html"
+    },
+    {
+      "route": "blowhole",
+      "id": "valveAperture",
+      "type": "range",
+      "min": "0",
+      "max": "1",
+      "value": "0",
+      "label": "External valve aperturesealed\n              \n              Opening releases one pressure-driven surface breath. Valve area controls flow from a finite air reservoir. Holding the valve open adds no continuous hiss. Close and reopen, or trigger a new call while open, to breathe again. The hidden sound organ remains separate.",
+      "reason": "Not a timing-rate control; spatial/pitch interval, amount, probability, oscillator harmonic, or unrelated text.",
+      "selector": "#valveAperture",
+      "source": "src/pages/blowhole.html"
+    },
+    {
+      "route": "blowhole",
+      "id": "pulseRateHz",
+      "type": "range",
+      "min": "0",
+      "max": "0",
+      "value": "0",
+      "label": "Manual pulse rate · inactive0 Hz\n                \n                This tonal laryngeal source has no independent pulse-rate control.",
+      "reason": "Independent synthesis oscillator/LFO/vibrato/physical propagation or mutation rate; not shared tempo/speed clock. Some could support tap rate separately but outside core tempo/speed request.",
+      "selector": "#pulseRateHz",
+      "source": "src/pages/blowhole.html"
+    },
+    {
+      "route": "blowhole",
+      "id": "depthM",
+      "type": "range",
+      "min": "0",
+      "max": "3000",
+      "value": "12",
+      "label": "Model depth12 m\n                \n                The demonstrated baleen source needs lung air and is strongly depth-limited in this model.",
+      "reason": "Not a timing-rate control; spatial/pitch interval, amount, probability, oscillator harmonic, or unrelated text.",
+      "selector": "#depthM",
+      "source": "src/pages/blowhole.html"
+    },
+    {
+      "route": "reaction-diffusion",
+      "id": "reactionFeed",
+      "type": "range",
+      "min": "0.01",
+      "max": "0.09",
+      "value": "0.0367",
+      "label": "Feed rate F0.0367",
+      "reason": "Not a timing-rate control; spatial/pitch interval, amount, probability, oscillator harmonic, or unrelated text.",
+      "selector": "#reactionFeed",
+      "source": "src/pages/reaction-diffusion.html"
+    },
+    {
+      "route": "reaction-diffusion",
+      "id": "reactionKill",
+      "type": "range",
+      "min": "0.045",
+      "max": "0.07",
+      "value": "0.0649",
+      "label": "Kill rate K0.0649",
+      "reason": "Not a timing-rate control; spatial/pitch interval, amount, probability, oscillator harmonic, or unrelated text.",
+      "selector": "#reactionKill",
+      "source": "src/pages/reaction-diffusion.html"
+    },
+    {
+      "route": "drum-roll-please",
+      "id": "width",
+      "type": "range",
+      "min": "3",
+      "max": "9",
+      "value": "5",
+      "label": "Tempo bank width5.0 octaves",
+      "reason": "Not a timing-rate control; spatial/pitch interval, amount, probability, oscillator harmonic, or unrelated text.",
+      "selector": "#width",
+      "source": "src/pages/drum-roll-please.html"
+    },
+    {
+      "route": "striped-staircase",
+      "id": "stripePeriod",
+      "type": "range",
+      "min": "1",
+      "max": "18",
+      "value": "7",
+      "label": "Stripe width7.0 iter",
+      "reason": "Not a timing-rate control; spatial/pitch interval, amount, probability, oscillator harmonic, or unrelated text.",
+      "selector": "#stripePeriod",
+      "source": "src/pages/striped-staircase.html"
+    },
+    {
+      "route": "digestazoid",
+      "id": "bodyPulse",
+      "type": "range",
+      "min": "0",
+      "max": "1",
+      "value": "0.52",
+      "label": "Body pulse61 BPM · 52%A measured low heartbeat-like double impulse nudges the tissue; it is not a diagnostic simulation.",
+      "reason": "Not a timing-rate control; spatial/pitch interval, amount, probability, oscillator harmonic, or unrelated text.",
+      "selector": "#bodyPulse",
+      "source": "src/pages/digestazoid.html"
+    },
+    {
+      "route": "chaotic-fm",
+      "id": "nonlinearity",
+      "type": "range",
+      "min": "0",
+      "max": "1",
+      "value": "0.78",
+      "label": "Nonlinearity rate256 Hz",
+      "reason": "Not a timing-rate control; spatial/pitch interval, amount, probability, oscillator harmonic, or unrelated text.",
+      "selector": "#nonlinearity",
+      "source": "src/pages/chaotic-fm.html"
+    },
+    {
+      "route": "tesselation",
+      "id": "spiralA",
+      "type": "range",
+      "min": "-6",
+      "max": "6",
+      "value": "1",
+      "label": "Period A1",
+      "reason": "Not a timing-rate control; spatial/pitch interval, amount, probability, oscillator harmonic, or unrelated text.",
+      "selector": "#spiralA",
+      "source": "src/pages/tesselation.html"
+    },
+    {
+      "route": "tesselation",
+      "id": "spiralB",
+      "type": "range",
+      "min": "-8",
+      "max": "8",
+      "value": "5",
+      "label": "Period B5",
+      "reason": "Not a timing-rate control; spatial/pitch interval, amount, probability, oscillator harmonic, or unrelated text.",
+      "selector": "#spiralB",
+      "source": "src/pages/tesselation.html"
+    },
+    {
+      "route": "syrinx",
+      "id": "asymmetry",
+      "type": "range",
+      "min": "0",
+      "max": "1",
+      "value": "0.3",
+      "label": "Left / right asymmetry30%\n              \n              Moves the selected source away from a symmetric periodic regime, enabling detuning, mode changes, or biphonation.",
+      "reason": "Not a timing-rate control; spatial/pitch interval, amount, probability, oscillator harmonic, or unrelated text.",
+      "selector": "#asymmetry",
+      "source": "src/pages/syrinx.html"
+    },
+    {
+      "route": "syrinx",
+      "id": "mod1Rate",
+      "type": "range",
+      "min": "0.02",
+      "max": "12",
+      "value": "5.4",
+      "label": "Rate5.40 Hz",
+      "reason": "Independent synthesis oscillator/LFO/vibrato/physical propagation or mutation rate; not shared tempo/speed clock. Some could support tap rate separately but outside core tempo/speed request.",
+      "selector": "#mod1Rate",
+      "source": "src/pages/syrinx.html"
+    },
+    {
+      "route": "syrinx",
+      "id": "mod2Rate",
+      "type": "range",
+      "min": "0.02",
+      "max": "12",
+      "value": "0.25",
+      "label": "Rate0.25 Hz",
+      "reason": "Independent synthesis oscillator/LFO/vibrato/physical propagation or mutation rate; not shared tempo/speed clock. Some could support tap rate separately but outside core tempo/speed request.",
+      "selector": "#mod2Rate",
+      "source": "src/pages/syrinx.html"
+    },
+    {
+      "route": "syrinx",
+      "id": "mod3Rate",
+      "type": "range",
+      "min": "0.02",
+      "max": "12",
+      "value": "0.40",
+      "label": "Rate0.40 Hz",
+      "reason": "Independent synthesis oscillator/LFO/vibrato/physical propagation or mutation rate; not shared tempo/speed clock. Some could support tap rate separately but outside core tempo/speed request.",
+      "selector": "#mod3Rate",
+      "source": "src/pages/syrinx.html"
+    },
+    {
+      "route": "syrinx",
+      "id": "loopGap",
+      "type": "range",
+      "min": "0",
+      "max": "8000",
+      "value": "1000",
+      "label": "Silence between calls1.0 s\n              \n              Add 0–8 seconds after each gesture. Use 3.0 seconds for a spaced bark, or tune the interval to a bar downbeat.",
+      "reason": "Not a timing-rate control; spatial/pitch interval, amount, probability, oscillator harmonic, or unrelated text.",
+      "selector": "#loopGap",
+      "source": "src/pages/syrinx.html"
+    },
+    {
+      "route": "creaturazoid",
+      "id": "vibratoRate",
+      "type": "range",
+      "min": "0",
+      "max": "20",
+      "value": "5.2",
+      "label": "Left-wing vibrato5.2 Hz",
+      "reason": "Independent synthesis oscillator/LFO/vibrato/physical propagation or mutation rate; not shared tempo/speed clock. Some could support tap rate separately but outside core tempo/speed request.",
+      "selector": "#vibratoRate",
+      "source": "src/pages/creaturazoid.html"
+    },
+    {
+      "route": "creaturazoid",
+      "id": "modulationRate",
+      "type": "range",
+      "min": "0",
+      "max": "20",
+      "value": "3.4",
+      "label": "Feather motion rate3.4 Hz",
+      "reason": "Independent synthesis oscillator/LFO/vibrato/physical propagation or mutation rate; not shared tempo/speed clock. Some could support tap rate separately but outside core tempo/speed request.",
+      "selector": "#modulationRate",
+      "source": "src/pages/creaturazoid.html"
+    },
+    {
+      "route": "ouroboros",
+      "id": "voiceInterval",
+      "type": "range",
+      "min": "0.5",
+      "max": "2",
+      "value": "1",
+      "label": "Parallel voice interval1.00 oct · 2.00:1",
+      "reason": "Not a timing-rate control; spatial/pitch interval, amount, probability, oscillator harmonic, or unrelated text.",
+      "selector": "#voiceInterval",
+      "source": "src/pages/ouroboros.html"
+    },
+    {
+      "route": "julie-saw",
+      "id": "vibratoRateHz",
+      "type": "range",
+      "min": "0.1",
+      "max": "14",
+      "value": "5.2",
+      "label": "Vibrato rate5.2 Hz",
+      "reason": "Independent synthesis oscillator/LFO/vibrato/physical propagation or mutation rate; not shared tempo/speed clock. Some could support tap rate separately but outside core tempo/speed request.",
+      "selector": "#vibratoRateHz",
+      "source": "src/pages/julie-saw.html"
+    },
+    {
+      "route": "wave-pool",
+      "id": "wavePeriodSeconds",
+      "type": "range",
+      "min": "1.5",
+      "max": "8",
+      "value": "3.6",
+      "label": "Gravity period3.6 s",
+      "reason": "Not a timing-rate control; spatial/pitch interval, amount, probability, oscillator harmonic, or unrelated text.",
+      "selector": "#wavePeriodSeconds",
+      "source": "src/pages/wave-pool.html"
+    },
+    {
+      "route": "wave-pool",
+      "id": "machinery",
+      "type": "range",
+      "min": "0",
+      "max": "1",
+      "value": "0.08",
+      "label": "Machine pickup8%\n                \n                Piston return or pneumatic valve and blower, separate from the water.",
+      "reason": "Not a timing-rate control; spatial/pitch interval, amount, probability, oscillator harmonic, or unrelated text.",
+      "selector": "#machinery",
+      "source": "src/pages/wave-pool.html"
+    },
+    {
+      "route": "hyper-rubix",
+      "id": "topologySpan",
+      "type": "range",
+      "min": "0",
+      "max": "24",
+      "value": "12",
+      "label": "Interval span12 st\n                  \n                  Widens axis, color, radial, and displacement intervals over two octaves.",
+      "reason": "Not a timing-rate control; spatial/pitch interval, amount, probability, oscillator harmonic, or unrelated text.",
+      "selector": "#topologySpan",
+      "source": "src/pages/hyper-rubix.html"
+    },
+    {
+      "route": "hyper-rubix",
+      "id": "topologyRing",
+      "type": "range",
+      "min": "0.02",
+      "max": "4",
+      "value": "0.58",
+      "label": "Neighbor ring (independent)0.58 s\n                  \n                  Sets the melodic tail made by connected stickers when Separate neighbor tail is selected.",
+      "reason": "Not a timing-rate control; spatial/pitch interval, amount, probability, oscillator harmonic, or unrelated text.",
+      "selector": "#topologyRing",
+      "source": "src/pages/hyper-rubix.html"
+    },
+    {
+      "route": "hyper-rubix",
+      "id": "topologyWarp",
+      "type": "range",
+      "min": "0",
+      "max": "2",
+      "value": "1",
+      "label": "Cell + W warp100%\n                  \n                  Exaggerates current-vs-home cell displacement and fourth-axis position.",
+      "reason": "Not a timing-rate control; spatial/pitch interval, amount, probability, oscillator harmonic, or unrelated text.",
+      "selector": "#topologyWarp",
+      "source": "src/pages/hyper-rubix.html"
+    },
+    {
+      "route": "l-mic",
+      "id": "pruningBias",
+      "type": "range",
+      "min": "0",
+      "max": "1",
+      "value": "0",
+      "label": "Pruning strategybreadth first\n                \n                Breadth firstBalancedDepth first",
+      "reason": "Not a timing-rate control; spatial/pitch interval, amount, probability, oscillator harmonic, or unrelated text.",
+      "selector": "#pruningBias",
+      "source": "src/pages/l-mic.html"
+    },
+    {
+      "route": "simd-synth",
+      "id": "lfo1Rate",
+      "type": "range",
+      "min": "0",
+      "max": "1",
+      "value": null,
+      "label": "LFO 1 0.17 Hz",
+      "reason": "Independent synthesis oscillator/LFO/vibrato/physical propagation or mutation rate; not shared tempo/speed clock. Some could support tap rate separately but outside core tempo/speed request.",
+      "selector": "#lfo1Rate",
+      "source": "src/pages/simd-synth.html"
+    },
+    {
+      "route": "simd-synth",
+      "id": "lfo2Rate",
+      "type": "range",
+      "min": "0",
+      "max": "1",
+      "value": null,
+      "label": "LFO 2 0.43 Hz",
+      "reason": "Independent synthesis oscillator/LFO/vibrato/physical propagation or mutation rate; not shared tempo/speed clock. Some could support tap rate separately but outside core tempo/speed request.",
+      "selector": "#lfo2Rate",
+      "source": "src/pages/simd-synth.html"
+    },
+    {
+      "route": "orbital-ferris",
+      "id": "orbitalRatio",
+      "type": "range",
+      "min": "1.5",
+      "max": "8",
+      "value": "3",
+      "label": "Speed ratio3× per level",
+      "reason": "Not a timing-rate control; spatial/pitch interval, amount, probability, oscillator harmonic, or unrelated text.",
+      "selector": "#orbitalRatio",
+      "source": "src/pages/orbital-ferris.html"
+    },
+    {
+      "route": "ourorourobouroboros",
+      "id": "fusionPoint",
+      "type": "range",
+      "min": "8",
+      "max": "48",
+      "value": "18",
+      "label": "Pitch threshold18 Hz · 1080 BPM",
+      "reason": "Not a timing-rate control; spatial/pitch interval, amount, probability, oscillator harmonic, or unrelated text.",
+      "selector": "#fusionPoint",
+      "source": "src/pages/ourorourobouroboros.html"
+    },
+    {
+      "route": "ouroboros-borealis",
+      "id": "pitchInterval",
+      "type": "range",
+      "min": "0.5",
+      "max": "2",
+      "value": "1",
+      "label": "Pitch voice interval1.00 oct · 2.00:1",
+      "reason": "Not a timing-rate control; spatial/pitch interval, amount, probability, oscillator harmonic, or unrelated text.",
+      "selector": "#pitchInterval",
+      "source": "src/pages/ouroboros-borealis.html"
+    },
+    {
+      "route": "ouroboros-borealis",
+      "id": "rhythmInterval",
+      "type": "range",
+      "min": "0.5",
+      "max": "2",
+      "value": "1",
+      "label": "Rhythm voice interval1.00 oct · 2.00×",
+      "reason": "Not a timing-rate control; spatial/pitch interval, amount, probability, oscillator harmonic, or unrelated text.",
+      "selector": "#rhythmInterval",
+      "source": "src/pages/ouroboros-borealis.html"
+    },
+    {
+      "route": "image-to-instrument-3",
+      "id": "pulseRate",
+      "type": "range",
+      "min": "90",
+      "max": "720",
+      "value": "250",
+      "label": "spin force6+ turns",
+      "reason": "Spin force, not musical pulse tempo. Sets minimum number of wheel turns before coast/brake; runtime variant3 returns mountWheelOfOrgans. Do not map old nominal pulseRate BPM.",
+      "selector": "#pulseRate",
+      "source": "src/pages/image-to-instrument-3.html"
+    },
+    {
+      "route": "entanglement-dance",
+      "id": "scaleSpread",
+      "type": "range",
+      "min": "2",
+      "max": "14",
+      "value": "7",
+      "label": "Interval spread7 st",
+      "reason": "Not a timing-rate control; spatial/pitch interval, amount, probability, oscillator harmonic, or unrelated text.",
+      "selector": "#scaleSpread",
+      "source": "src/pages/entanglement-dance.html"
+    },
+    {
+      "route": "moire-organ",
+      "id": "moireInterval",
+      "type": "range",
+      "min": "0.1",
+      "max": "2",
+      "value": "1",
+      "label": "Voice interval1 oct · 2×",
+      "reason": "Not a timing-rate control; spatial/pitch interval, amount, probability, oscillator harmonic, or unrelated text.",
+      "selector": "#moireInterval",
+      "source": "src/pages/moire-organ.html"
+    },
+    {
+      "route": "moire-organ",
+      "id": "moireLayerOffset",
+      "type": "range",
+      "min": "0",
+      "max": "4",
+      "value": "0.6",
+      "label": "Pair offset0.6 intervals",
+      "reason": "Not a timing-rate control; spatial/pitch interval, amount, probability, oscillator harmonic, or unrelated text.",
+      "selector": "#moireLayerOffset",
+      "source": "src/pages/moire-organ.html"
+    },
+    {
+      "route": "syrinx-ui",
+      "id": "asymmetry",
+      "type": "range",
+      "min": "0",
+      "max": "1",
+      "value": "0.3",
+      "label": "Left / right asymmetry30%\n              \n              Moves the selected source away from a symmetric periodic regime, enabling detuning, mode changes, or biphonation.",
+      "reason": "Not a timing-rate control; spatial/pitch interval, amount, probability, oscillator harmonic, or unrelated text.",
+      "selector": "#asymmetry",
+      "source": "src/pages/syrinx-ui.html"
+    },
+    {
+      "route": "syrinx-ui",
+      "id": "mod1Rate",
+      "type": "range",
+      "min": "0.02",
+      "max": "12",
+      "value": "5.4",
+      "label": "Rate5.40 Hz",
+      "reason": "Independent synthesis oscillator/LFO/vibrato/physical propagation or mutation rate; not shared tempo/speed clock. Some could support tap rate separately but outside core tempo/speed request.",
+      "selector": "#mod1Rate",
+      "source": "src/pages/syrinx-ui.html"
+    },
+    {
+      "route": "syrinx-ui",
+      "id": "mod2Rate",
+      "type": "range",
+      "min": "0.02",
+      "max": "12",
+      "value": "0.25",
+      "label": "Rate0.25 Hz",
+      "reason": "Independent synthesis oscillator/LFO/vibrato/physical propagation or mutation rate; not shared tempo/speed clock. Some could support tap rate separately but outside core tempo/speed request.",
+      "selector": "#mod2Rate",
+      "source": "src/pages/syrinx-ui.html"
+    },
+    {
+      "route": "syrinx-ui",
+      "id": "mod3Rate",
+      "type": "range",
+      "min": "0.02",
+      "max": "12",
+      "value": "0.40",
+      "label": "Rate0.40 Hz",
+      "reason": "Independent synthesis oscillator/LFO/vibrato/physical propagation or mutation rate; not shared tempo/speed clock. Some could support tap rate separately but outside core tempo/speed request.",
+      "selector": "#mod3Rate",
+      "source": "src/pages/syrinx-ui.html"
+    },
+    {
+      "route": "syrinx-ui",
+      "id": "loopGap",
+      "type": "range",
+      "min": "0",
+      "max": "8000",
+      "value": "1000",
+      "label": "Silence between calls1.0 s\n              \n              Add 0–8 seconds after each gesture. Use 3.0 seconds for a spaced bark, or tune the interval to a bar downbeat.",
+      "reason": "Not a timing-rate control; spatial/pitch interval, amount, probability, oscillator harmonic, or unrelated text.",
+      "selector": "#loopGap",
+      "source": "src/pages/syrinx-ui.html"
+    },
+    {
+      "route": "harmonica",
+      "id": "techniqueAmount",
+      "type": "range",
+      "min": "0",
+      "max": "2",
+      "value": "1.22",
+      "label": "Technique amount122%\n                \n                Moves from a straight tone through the learned gesture to an exaggerated 200% articulation.",
+      "reason": "Not a timing-rate control; spatial/pitch interval, amount, probability, oscillator harmonic, or unrelated text.",
+      "selector": "#techniqueAmount",
+      "source": "src/pages/harmonica.html"
+    },
+    {
+      "route": "harmonica",
+      "id": "techniqueRateHz",
+      "type": "range",
+      "min": "0.1",
+      "max": "30",
+      "value": "22",
+      "label": "Gesture rate22.0 Hz\n                \n                Controls shakes, flutter, vibrato, and repeated attacks from a crawl to inhuman speed.",
+      "reason": "Independent synthesis oscillator/LFO/vibrato/physical propagation or mutation rate; not shared tempo/speed clock. Some could support tap rate separately but outside core tempo/speed request.",
+      "selector": "#techniqueRateHz",
+      "source": "src/pages/harmonica.html"
+    },
+    {
+      "route": "harmonica",
+      "id": "cupMotionDepth",
+      "type": "range",
+      "min": "0",
+      "max": "1",
+      "value": "0.32",
+      "label": "Cup motion32%\n                \n                Cycles the hands between their open and cupped positions at the gesture rate.",
+      "reason": "Not a timing-rate control; spatial/pitch interval, amount, probability, oscillator harmonic, or unrelated text.",
+      "selector": "#cupMotionDepth",
+      "source": "src/pages/harmonica.html"
+    },
+    {
+      "route": "harmonica",
+      "id": "vibratoRateHz",
+      "type": "range",
+      "min": "0",
+      "max": "18",
+      "value": "3.8",
+      "label": "Pitch vibrato rate3.8 Hz\n              \n              Runs from still pitch through an inhuman eighteen-cycle throat vibrato.",
+      "reason": "Independent synthesis oscillator/LFO/vibrato/physical propagation or mutation rate; not shared tempo/speed clock. Some could support tap rate separately but outside core tempo/speed request.",
+      "selector": "#vibratoRateHz",
+      "source": "src/pages/harmonica.html"
+    },
+    {
+      "route": "harmonica",
+      "id": "tremoloRateHz",
+      "type": "range",
+      "min": "0.1",
+      "max": "30",
+      "value": "4.4",
+      "label": "Hand tremolo rate4.4 Hz\n              \n              Moves from slow hand shading to thirty pulses per second.",
+      "reason": "Independent synthesis oscillator/LFO/vibrato/physical propagation or mutation rate; not shared tempo/speed clock. Some could support tap rate separately but outside core tempo/speed request.",
+      "selector": "#tremoloRateHz",
+      "source": "src/pages/harmonica.html"
+    },
+    {
+      "route": "nightingale-manifold",
+      "id": "surprise",
+      "type": "range",
+      "min": "0",
+      "max": "1",
+      "value": "0.35",
+      "label": "Choice temperature35% surprising\n            \n            Changes the generated walk; it does not alter recorded succession.",
+      "reason": "Not a timing-rate control; spatial/pitch interval, amount, probability, oscillator harmonic, or unrelated text.",
+      "selector": "#surprise",
+      "source": "src/pages/nightingale-manifold.html"
+    },
+    {
+      "route": "roach-synth",
+      "id": "wingRate",
+      "type": "range",
+      "min": "12",
+      "max": "220",
+      "value": "72",
+      "label": "Wing rate72 Hz",
+      "reason": "Independent synthesis oscillator/LFO/vibrato/physical propagation or mutation rate; not shared tempo/speed clock. Some could support tap rate separately but outside core tempo/speed request.",
+      "selector": "#wingRate",
+      "source": "src/pages/roach-synth.html"
+    },
+    {
+      "route": "roach-synth",
+      "id": "rhythm",
+      "type": "range",
+      "min": "0.25",
+      "max": "4",
+      "value": "1",
+      "label": "Rattle rate1.00×",
+      "reason": "Not a timing-rate control; spatial/pitch interval, amount, probability, oscillator harmonic, or unrelated text.",
+      "selector": "#rhythm",
+      "source": "src/pages/roach-synth.html"
+    },
+    {
+      "route": "gesticules",
+      "id": "tremorRate",
+      "type": "range",
+      "min": "0.1",
+      "max": "120",
+      "value": "8",
+      "label": "Tremor rate 8 Hz",
+      "reason": "Independent synthesis oscillator/LFO/vibrato/physical propagation or mutation rate; not shared tempo/speed clock. Some could support tap rate separately but outside core tempo/speed request.",
+      "selector": "#tremorRate",
+      "source": "src/pages/gesticules.html"
+    },
+    {
+      "route": "gesticules",
+      "id": "tremorRateSpread",
+      "type": "range",
+      "min": "0",
+      "max": "1",
+      "value": "0",
+      "label": "Rate spread 0%",
+      "reason": "Not a timing-rate control; spatial/pitch interval, amount, probability, oscillator harmonic, or unrelated text.",
+      "selector": "#tremorRateSpread",
+      "source": "src/pages/gesticules.html"
+    },
+    {
+      "route": "alien-larynx",
+      "id": "tractSoundSpeed",
+      "type": "range",
+      "min": "100",
+      "max": "1100",
+      "value": "343",
+      "label": "Wave speed343 m/s",
+      "reason": "Independent synthesis oscillator/LFO/vibrato/physical propagation or mutation rate; not shared tempo/speed clock. Some could support tap rate separately but outside core tempo/speed request.",
+      "selector": "#tractSoundSpeed",
+      "source": "src/pages/alien-larynx.html"
+    },
+    {
+      "route": "alien-larynx",
+      "id": "genomeRate",
+      "type": "range",
+      "min": "0",
+      "max": "4",
+      "value": "0",
+      "label": "Genome driftstill",
+      "reason": "Independent synthesis oscillator/LFO/vibrato/physical propagation or mutation rate; not shared tempo/speed clock. Some could support tap rate separately but outside core tempo/speed request.",
+      "selector": "#genomeRate",
+      "source": "src/pages/alien-larynx.html"
+    },
+    {
+      "route": "moire-drone",
+      "id": "grabRippleRate",
+      "type": "range",
+      "min": "0",
+      "max": "30",
+      "value": "0",
+      "label": "Drag wavesoff",
+      "reason": "Independent synthesis oscillator/LFO/vibrato/physical propagation or mutation rate; not shared tempo/speed clock. Some could support tap rate separately but outside core tempo/speed request.",
+      "selector": "#grabRippleRate",
+      "source": "src/pages/moire-drone.html"
+    },
+    {
+      "route": "moire-drone",
+      "id": "propagationRate",
+      "type": "range",
+      "min": "1",
+      "max": "50",
+      "value": "5",
+      "label": "Wave rate5.0 Hz",
+      "reason": "Independent synthesis oscillator/LFO/vibrato/physical propagation or mutation rate; not shared tempo/speed clock. Some could support tap rate separately but outside core tempo/speed request.",
+      "selector": "#propagationRate",
+      "source": "src/pages/moire-drone.html"
+    },
+    {
+      "route": "moire-drone",
+      "id": "propagationSpeedSpread",
+      "type": "range",
+      "min": "0",
+      "max": "1",
+      "value": "0.42",
+      "label": "Speed variety42%",
+      "reason": "Not a timing-rate control; spatial/pitch interval, amount, probability, oscillator harmonic, or unrelated text.",
+      "selector": "#propagationSpeedSpread",
+      "source": "src/pages/moire-drone.html"
+    },
+    {
+      "route": "moire-drone",
+      "id": "fabricInertia",
+      "type": "range",
+      "min": "0",
+      "max": "1",
+      "value": "0.5",
+      "label": "Response speed50% · steady",
+      "reason": "Not a timing-rate control; spatial/pitch interval, amount, probability, oscillator harmonic, or unrelated text.",
+      "selector": "#fabricInertia",
+      "source": "src/pages/moire-drone.html"
+    },
+    {
+      "route": "throat-singing",
+      "id": "trueFoldHz",
+      "type": "range",
+      "min": "55",
+      "max": "360",
+      "value": "110",
+      "label": "True-fold frequency110 Hz\n              \n              The repeating vocal-fold source. Kargyraa can place the heard period below it.",
+      "reason": "Not a timing-rate control; spatial/pitch interval, amount, probability, oscillator harmonic, or unrelated text.",
+      "selector": "#trueFoldHz",
+      "source": "src/pages/throat-singing.html"
+    },
+    {
+      "route": "throat-singing",
+      "id": "periodDivision",
+      "type": "range",
+      "min": "1",
+      "max": "7",
+      "value": "1",
+      "label": "Closure periodsame period\n              \n              1:1 color, 2:1 Kargyraa-like division, 3:1 experimental synthesis; 4:1–7:1 are extended rough-effect territory, not Tuvan defaults.",
+      "reason": "Not a timing-rate control; spatial/pitch interval, amount, probability, oscillator harmonic, or unrelated text.",
+      "selector": "#periodDivision",
+      "source": "src/pages/throat-singing.html"
+    },
+    {
+      "route": "throat-singing",
+      "id": "harmonicNumber",
+      "type": "range",
+      "min": "4",
+      "max": "20",
+      "value": "8",
+      "label": "Selected harmonicH8\n              \n              The tongue, jaw, lips, and pharynx move a resonance between existing harmonics. “Whistle-like” describes the percept, not a separate whistle tone.",
+      "reason": "Not a timing-rate control; spatial/pitch interval, amount, probability, oscillator harmonic, or unrelated text.",
+      "selector": "#harmonicNumber",
+      "source": "src/pages/throat-singing.html"
+    },
+    {
+      "route": "throat-singing",
+      "id": "vibratoRate",
+      "type": "range",
+      "min": "2",
+      "max": "9",
+      "value": "4.4",
+      "label": "Vibrato rate4.4 Hz",
+      "reason": "Independent synthesis oscillator/LFO/vibrato/physical propagation or mutation rate; not shared tempo/speed clock. Some could support tap rate separately but outside core tempo/speed request.",
+      "selector": "#vibratoRate",
+      "source": "src/pages/throat-singing.html"
+    },
+    {
+      "route": "throat-singing",
+      "id": "ornamentRate",
+      "type": "range",
+      "min": "0",
+      "max": "12",
+      "value": "0",
+      "label": "Overtone ornament0.0 Hz\n              \n              Moves the focus between neighboring harmonics for borbangnadyr-like motion.",
+      "reason": "Independent synthesis oscillator/LFO/vibrato/physical propagation or mutation rate; not shared tempo/speed clock. Some could support tap rate separately but outside core tempo/speed request.",
+      "selector": "#ornamentRate",
+      "source": "src/pages/throat-singing.html"
+    },
+    {
+      "route": "throat-singing",
+      "id": "sourceInstability",
+      "type": "range",
+      "min": "0",
+      "max": "1",
+      "value": "0",
+      "label": "Instability proxy0%\n              \n              Adds two incommensurate fold-rate perturbations. It evokes bifurcation and chaos, but is not a nonlinear tissue simulation.",
+      "reason": "Not a timing-rate control; spatial/pitch interval, amount, probability, oscillator harmonic, or unrelated text.",
+      "selector": "#sourceInstability",
+      "source": "src/pages/throat-singing.html"
+    },
+    {
+      "route": "acoustic-manifold",
+      "id": "analysis-target-rate",
+      "type": "number",
+      "min": "8000",
+      "max": "576000",
+      "value": "24000",
+      "label": "Analysis-rate ceilingHz",
+      "reason": "Not a timing-rate control; spatial/pitch interval, amount, probability, oscillator harmonic, or unrelated text.",
+      "selector": "#analysis-target-rate",
+      "source": "src/pages/acoustic-manifold.html"
+    },
+    {
+      "route": "acoustic-manifold",
+      "id": "surprise",
+      "type": "range",
+      "min": "0",
+      "max": "1",
+      "value": "0.35",
+      "label": "Neighbor-choice variation35% variation\n            \n            Similarity / Hybrid only. Changes the generated walk, never recorded succession.",
+      "reason": "Not a timing-rate control; spatial/pitch interval, amount, probability, oscillator harmonic, or unrelated text.",
+      "selector": "#surprise",
+      "source": "src/pages/acoustic-manifold.html"
+    },
+    {
+      "route": "acoustic-manifold",
+      "id": "manifold-exaggeration",
+      "type": "range",
+      "min": "1",
+      "max": "4",
+      "value": "1",
+      "label": "Map-position → sound amount1.00×\n            \n            Above 1×, PC1 bends pitch, PC2 texture, and PC3 speed farther apart.",
+      "reason": "Not a timing-rate control; spatial/pitch interval, amount, probability, oscillator harmonic, or unrelated text.",
+      "selector": "#manifold-exaggeration",
+      "source": "src/pages/acoustic-manifold.html"
+    },
+    {
+      "route": "julie-saw",
+      "selector": "#bowSpeed",
+      "reason": "Bowing friction velocity/excitation strength, not repeating beat or playbackclock.",
+      "source": "src/pages/julie-saw.html"
+    },
+    {
+      "route": "plasma-ball",
+      "selector": "#motion",
+      "reason": "Compound plasma speed/intensity strength changes; no periodic playbackclock or independent velocityunit.",
+      "source": "src/pages/plasma-ball.html"
+    }
+  ],
+  "notes": [
+    "Clamp converted physical rate within existing native min/max; never change playing/audio state.",
+    "Native input/change events preserve owner state/preset semantics; custom ARIA sliders need explicit owner hooks.",
+    "Runtime-native controls replace/rebuild with preset, mode, dimension, workspace changes; observe added ranges and remove detached registrations.",
+    "Very slow genuine clocks exist: Entanglement Dance .3–8 BPM, rotations <.5Hz, gliss .12oct/sec. A fixed3s timeout prevents manual taps for them; consider period-aware timeout or explicit support limits.",
+    "Spatial1unit/tap and gliss1octave/tap are explicit speed conventions. Native ranges remain bounds; common rhythmic tapsmayclamp extremelyslow spatialcontrols. This doesnotguaranteefullpathcyclematching."
+  ]
+}

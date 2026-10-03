@@ -1,0 +1,54 @@
+.mz-tap-tempo-field {
+  display: flex;
+  min-width: 0;
+  gap: 6px;
+  align-items: center;
+}
+.mz-tap-tempo-field > :first-child {
+  flex: 1 1 0;
+  min-width: 0;
+  margin: 0;
+}
+.mz-tap-tempo-field--knob {
+  width: fit-content;
+  max-width: 100%;
+}
+.mz-tap-tempo-field--knob > :first-child { flex: 0 0 auto; }
+.puggler-knob-bank .mz-tap-tempo-field--knob {
+  grid-column: span 2;
+  width: 100%;
+  justify-content: center;
+}
+.puggler-knob-bank .mz-tap-tempo-field--knob > :first-child { width: 68px; }
+.webgpu-knob-bank:has(> .mz-tap-tempo-field--knob) {
+  display: flex;
+  flex-wrap: wrap;
+}
+.mz-tap-tempo-field .mz-tap-tempo,
+.mz-tap-tempo {
+  flex: 0 0 auto;
+  width: 40px;
+  min-width: 40px;
+  height: 36px;
+  min-height: 36px;
+  padding: 0 5px;
+  margin: 0;
+  color: var(--accent, var(--mz-color-accent));
+  font: 600 10px/1 var(--mono, var(--mz-font-mono));
+  letter-spacing: .05em;
+  touch-action: manipulation;
+  user-select: none;
+}
+.mz-tap-tempo.is-tapped:not(:disabled) {
+  color: var(--bg-deep, var(--mz-color-bg-deep));
+  background: var(--accent, var(--mz-color-accent));
+  border-color: var(--accent, var(--mz-color-accent));
+}
+.mz-tap-tempo:focus-visible {
+  outline: 2px solid var(--accent, var(--mz-color-accent));
+  outline-offset: 3px;
+}
+@media (pointer: coarse) {
+  .mz-tap-tempo-field .mz-tap-tempo,
+  .mz-tap-tempo { width: 48px; min-width: 48px; height: 48px; min-height: 48px; }
+}

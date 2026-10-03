@@ -1118,6 +1118,7 @@ function createKnobControl(key) {
   dial.style.setProperty("--knob-hue-c", String((hue + 260) % 360));
   dial.tabIndex = 0;
   dial.controlSpec = spec;
+  if (key === "timeScale") dial.setTapTempoValue = value => applyControlValue(spec, value);
   dial.dataset.paramKey = key;
   dial.setAttribute("role", "slider");
   dial.setAttribute("aria-label", `${knobLabels[key] ?? spec.label} ${spec.label}`);

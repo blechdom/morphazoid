@@ -28,6 +28,8 @@
 .fractal-panel { padding: 18px 19px 22px; min-height: 0; overflow: auto; overscroll-behavior-y: contain; border-left: 1px solid #202923; min-width: 0; background: #0b0e11; scrollbar-width: thin; scrollbar-color: #303b35 transparent; }
 .preset-row { min-height: 35px; }
 .macro-controls { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 15px; margin-bottom: 19px; }
+.macro-controls > .parameter:has(.mz-tap-tempo-field),
+.branch-knobs > .parameter:has(.mz-tap-tempo-field) { grid-column: span 2; }
 :is(.macro-controls, .scan-control) .control { min-width: 0; align-items: center; }
 :is(.macro-controls, .scan-control) .mz-field__heading { flex-direction: column; gap: 5px; text-align: center; }
 :is(.macro-controls, .scan-control) .mz-field__label { font-size: 10px; color: #a4b4ab; }
@@ -91,6 +93,7 @@ body.fractal-page { height: 100dvh; min-height: 0; overflow: hidden; }
 .engine-row { display: flex; align-items: center; gap: 10px; margin: 0 0 18px; font-size: 11px; }
 .engine-row select { min-width: 0; flex: 1; min-height: 34px; padding: 5px 8px; font: inherit; color: var(--accent); background: #111814; border: 1px solid #33433b; border-radius: 3px; }
 .parameter { position: relative; min-width: 0; }
+.fractal-page .parameter:has(> .mz-tap-tempo-field) { padding-right: 28px; }
 .parameter > .control .mz-field__heading { padding-right: 21px; }
 .fractal-page .info-button { display: inline-flex; align-items: center; justify-content: center; flex: 0 0 auto; width: 24px; height: 24px; min-height: 24px; padding: 3px; border: 0; border-radius: 50%; background: transparent; color: #99b2a4; cursor: pointer; font: 600 11px/1 Georgia, serif; }
 .fractal-page .info-button { position: relative; }

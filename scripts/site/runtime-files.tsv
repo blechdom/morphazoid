@@ -4,6 +4,13 @@
 # require: require it in the artifact without granting an additional untracked-file inclusion.
 # Other tracked-file and asset-glob rules remain in scripts/build-site.sh.
 # Keep requirement order stable; every path is declared once. See README.md.
+copy+require	src/tap-tempo.js
+copy+require	src/site/tap-tempo-controls.js
+copy+require	src/site/tap-tempo-targets.js
+copy+require	src/ui/primitives/tap-tempo-button.js
+copy+require	src/ui/primitives/tap-tempo-button.css
+copy+require	docs/tap-tempo-controls.md
+copy+require	docs/tap-tempo-controls.json
 copy+require	src/audio-input-control.js
 copy+require	src/audio-input-meter.js
 copy+require	src/ui/patterns/audio-input-strip.js

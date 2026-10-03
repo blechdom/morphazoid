@@ -3595,6 +3595,7 @@ function createKnobControl(key) {
   dial.className = "webgpu-knob-dial";
   dial.tabIndex = 0;
   dial.controlSpec = spec;
+  if (key === "tempo") dial.setTapTempoValue = value => applyControlValue(spec, value);
   dial.dataset.paramKey = key;
   dial.setAttribute("role", "slider");
   dial.setAttribute("aria-label", (knobLabels[key] ?? spec.label) + " — " + spec.label);

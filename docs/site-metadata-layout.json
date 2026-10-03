@@ -12,7 +12,8 @@
     "src/audio-input-settings.js",
     "src/audio-startup.js",
     "src/sequencer-voices.js",
-    "src/sequencer-voice-renderer.js"
+    "src/sequencer-voice-renderer.js",
+    "src/tap-tempo.js"
   ],
   "boundaries": [
     "Move site metadata beside its registry and controllers; change only resource paths.",

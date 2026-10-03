@@ -33,6 +33,10 @@ command names.
   Use borderless input meters and an anchored error popup that never resizes the
   controls. Keep Record separate; add Mic/File only for
   existing file input. See `docs/audio-input-controls.md`.
+  Tempo and timing/playback speed controls use the shared compact Tap button from
+  `src/ui/primitives/tap-tempo-button.js`. Register the owner's physical units and
+  curve in `src/site/tap-tempo-targets.js`; preserve native controls/events and live
+  Audio/transport state. See `docs/tap-tempo-controls.md`.
   Inspect at least two useful sibling instruments before creating or materially
   redesigning one.
 - For a browser instrument, `node scripts/inspect-instrument.mjs <catalogue-id>`

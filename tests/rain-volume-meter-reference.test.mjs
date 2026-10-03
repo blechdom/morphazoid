@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { restoreTapTempo } from "./helpers/tap-tempo-reference.mjs";
 import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
@@ -6,7 +7,7 @@ import { rainVolumeMeterAmendments, restoreRainVolumeMeters } from './helpers/ra
 
 test('the audio-only meter amendment preserves the independent navigation baseline exactly', async () => {
   assert.deepEqual(rainVolumeMeterAmendments.changes.map(change => change.file), ['nav.js']);
-  const source = await readFile(new URL('../nav.js', import.meta.url), 'utf8');
+  const source = restoreTapTempo(await readFile(new URL('../nav.js', import.meta.url), 'utf8'), 'nav.js');
   const restored = restoreRainVolumeMeters(source, 'nav.js');
   assert.equal(createHash('sha256').update(restored).digest('hex'), rainVolumeMeterAmendments.baseSha256);
   for (const change of rainVolumeMeterAmendments.changes) {
