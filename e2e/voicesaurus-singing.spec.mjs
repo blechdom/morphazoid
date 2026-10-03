@@ -2,7 +2,7 @@ import {test,expect} from '@playwright/test';
 import {applyVoiceFixture,selectVoiceNote} from './voicesaurus-fixtures.mjs';
 
 async function scene(page){return page.evaluate(async()=>(await import('./src/site/header-presets.js')).captureHeaderPresetState().snapshot);}
-async function choose(page,engine){await page.locator('[data-voice-mode="singing"]').click();await page.locator('#voiceMethod').selectOption(engine,{force:true});await expect(page.locator('.native-timeline-note').first()).toBeAttached();await selectVoiceNote(page,0);}
+async function choose(page,engine){const mode=page.locator('[data-voice-mode="singing"]');if(await mode.getAttribute('aria-pressed')!=='true')await mode.click();await page.locator('#voiceMethod').selectOption(engine,{force:true});await expect(page.locator('.native-timeline-note').first()).toBeAttached();await selectVoiceNote(page,0);}
 async function knob(page,label,value){const editor=page.locator('.native-note-editor');if(await editor.isVisible())await page.getByRole('button',{name:'Close note controls',exact:true}).click();const output=page.getByRole('button',{name:`Enter exact ${label} value`,exact:true});await output.click();const input=page.getByRole('textbox',{name:`Exact ${label}`,exact:true});await input.fill(String(value));await input.press('Enter');}
 async function parameter(page,key,value){await page.locator('#note-param-'+key).evaluate((input,value)=>{input.value=String(value);input.dispatchEvent(new Event('input',{bubbles:true}));},value);}
 async function ready(page){await expect(page.locator('#nativeStatus')).not.toHaveText('Rendering voice…');await expect(page.locator('#audioError')).toBeHidden();}
@@ -117,6 +117,19 @@ test('editing then pausing a pending note audition cancels stale output and clea
  await page.locator('[data-note-handle="0"]').press('ArrowUp');await expect.poll(()=>page.evaluate(()=>voiceWorkers[0].killed)).toBe(true);await expect.poll(()=>page.evaluate(()=>voiceRequests.length)).toBe(2);
  await page.locator('#nativePlay').click();await expect(page.locator('#nativePlay')).toHaveAttribute('aria-pressed','false');await page.waitForTimeout(400);expect(await page.evaluate(()=>voiceWorkers.every(worker=>worker.killed))).toBe(true);expect(await page.evaluate(()=>voiceStarts.filter(start=>start.length>1))).toEqual([]);
  await page.evaluate(()=>holdVoice=false);await page.locator('#nativePlay').click();await ready(page);await expect(page.locator('#nativePlay')).toHaveAttribute('aria-pressed','true');
+});
+
+for(const [name,viewport]of Object.entries({portrait:{width:390,height:844},landscape:{width:844,height:390}}))test(`singing keeps the voice method at the top of a scrollable mobile rail on ${name}`,async({browser,baseURL})=>{
+ const context=await browser.newContext({viewport,hasTouch:true,isMobile:true,baseURL});try{
+  const page=await context.newPage();await page.goto('voicesaurus.html');const sing=page.locator('[data-voice-mode="singing"]');await sing.click();await expect(sing).toHaveAttribute('aria-pressed','true');
+  const rail=page.locator('[data-cooking-panel]'),method=page.locator('[data-select-id="voiceMethod"]'),trigger=method.locator('summary');await expect(trigger).toBeInViewport({ratio:.99});
+  const initial=await page.evaluate(()=>{const box=element=>element.getBoundingClientRect().toJSON(),rail=document.querySelector('[data-cooking-panel]'),modes=document.querySelector('.native-voice-modes'),method=document.querySelector('[data-select-id="voiceMethod"]');return{rail:box(rail),modes:box(modes),method:box(method),overflow:getComputedStyle(rail).overflowY,scrollTop:rail.scrollTop,scrollHeight:rail.scrollHeight,clientHeight:rail.clientHeight,documentOverflow:document.documentElement.scrollWidth-innerWidth};});
+  expect(initial.scrollTop).toBe(0);expect(initial.overflow).toMatch(/auto|scroll/);expect(initial.scrollHeight).toBeGreaterThan(initial.clientHeight);expect(initial.modes.top).toBeGreaterThanOrEqual(initial.rail.top-1);expect(initial.method.top).toBeGreaterThan(initial.modes.bottom);expect(initial.method.bottom).toBeLessThanOrEqual(Math.min(initial.rail.bottom,viewport.height)+1);expect(initial.method.top-initial.rail.top).toBeLessThan(240);expect(initial.documentOverflow).toBeLessThanOrEqual(1);
+  await trigger.click();const menu=method.locator('.instrument-picker-panel');await expect(menu).toBeVisible();const menuBounds=await menu.boundingBox();expect(menuBounds.x).toBeGreaterThanOrEqual(0);expect(menuBounds.y).toBeGreaterThanOrEqual(0);expect(menuBounds.x+menuBounds.width).toBeLessThanOrEqual(viewport.width+1);expect(menuBounds.y+menuBounds.height).toBeLessThanOrEqual(viewport.height+1);
+  await method.getByRole('button',{name:'1996 · STK VoicForm',exact:true}).click();await expect(page.locator('#voiceMethod')).toHaveValue('stk-voicform');await expect(page.locator('#param-sweep4')).toBeAttached();
+  const railBounds=await rail.boundingBox();await page.mouse.move(railBounds.x+railBounds.width/2,railBounds.y+railBounds.height/2);await page.mouse.wheel(0,10000);await expect.poll(()=>rail.evaluate(element=>element.scrollTop)).toBeGreaterThan(0);await expect(page.locator('#resetButton')).toBeInViewport({ratio:.9});
+  await page.mouse.wheel(0,-10000);await expect.poll(()=>rail.evaluate(element=>element.scrollTop)).toBe(0);await expect(trigger).toBeInViewport({ratio:.99});await expect(page.locator('#audioButton')).toHaveAttribute('aria-pressed','false');
+ }finally{await context.close();}
 });
 
 for(const [name,viewport]of Object.entries({desktop:{width:1440,height:900},portrait:{width:390,height:844},landscape:{width:844,height:390}}))test(`singing note menus, piano roll, nearby controls and monitors are reachable on ${name}`,async({browser,baseURL})=>{

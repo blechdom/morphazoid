@@ -151,12 +151,6 @@
 @media(pointer:coarse) { .native-note-syllable { padding-right:14px; }.native-note-resize { width:14px; }.native-score-tools button,.native-note-editor button { min-height:36px; } }
 .voicesaurus-page.is-singing .voicesaurus-stage h1 { margin-bottom:8px; }
 .voicesaurus-page.is-singing .native-transport { margin:10px 0 14px; }
-@media(max-width:700px) {
- body.voicesaurus-page.is-singing[data-cooking] { height:auto;min-height:100dvh;overflow:auto; }
- .voicesaurus-page.is-singing [data-cooking-shell] { display:flex;flex-direction:column;overflow:visible; }
- .voicesaurus-page.is-singing [data-cooking-stage],.voicesaurus-page.is-singing [data-cooking-panel] { height:auto;max-height:none;overflow:visible;flex:none; }
- .voicesaurus-page.is-singing [data-cooking-stage] { width:100%;min-width:0;align-self:stretch; }
-}
 
 .native-bank-controls { display:grid; gap:6px; margin:8px 0; font-size:11px; }
 .native-bank-controls[hidden] { display:none; }
