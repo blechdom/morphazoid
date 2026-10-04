@@ -974,6 +974,268 @@ test('sequence-root continuously retunes owned Poly voices without cancelling no
   } finally { h.dispose(); }
 });
 
+test('an atomic score launch hands Mono audio over on the exact scheduled sample', () => {
+  const h = makeHarness();
+  try {
+    h.send({ type: 'state', state: state() });
+    h.send({ type: 'sequence-load', sequence: sequence({ lengthBeats: 4, steps: [
+      { index: 0, at: 0, duration: 4, notes: [{ ratio: 1, velocity: .8, gate: 1 }] },
+      { index: 1, at: 2, duration: 1, notes: [{ ratio: 4, velocity: .8, gate: 1 }] },
+    ] }), rootFrequency: 220, tempo: 120 });
+    h.send({ type: 'sequence-start', phase: 0, rootFrequency: 220, tempo: 120 });
+    h.render(4096);
+    const beforeRevision = h.processor.sequenceRevision;
+    const beforeBeat = h.processor.sequenceBeatAt(h.frame);
+    const targetFrame = h.frame + 47;
+    const targetBeat = beforeBeat + 47 * 120 / (60 * RATE);
+    const firstAttack = 1.25;
+    const api = h.processor.api;
+    const calls = { on: [], off: 0 };
+    h.processor.api = {
+      ...api,
+      synth_note_on(...args) { calls.on.push(args); return api.synth_note_on(...args); },
+      synth_note_off(...args) { calls.off++; return api.synth_note_off(...args); },
+    };
+
+    h.send({
+      type: 'sequence-swap',
+      sequence: sequence({ studyId: 'replacement', lengthBeats: 4, steps: [
+        { index: 9, at: firstAttack, duration: 1, notes: [{ ratio: 1.5, velocity: .8, gate: 1 }] },
+      ] }),
+      rootFrequency: 220,
+      tempo: 120,
+      at: targetFrame / RATE,
+      phase: targetBeat,
+      originBeat: targetBeat - firstAttack,
+      playing: true,
+      preserveVoices: false,
+      triggerCurrent: true,
+    });
+    assert.equal(h.processor.sequenceRevision, beforeRevision, 'the score does not commit in the message handler');
+    assert.equal(calls.on.length, 0);
+
+    const crossing = h.render(128);
+    assert.ok(rms(crossing.subarray(0, 47)) > .005, 'the outgoing gate sounds until the boundary');
+    assert.equal(h.processor.sequenceRevision, beforeRevision + 1, 'one replacement commits');
+    assert.equal(h.processor.sequenceAnchorFrame, targetFrame);
+    assert.equal(h.processor.sequence.studyId, 'replacement');
+    assert.equal(h.processor.sequenceMono.frequency, 330);
+    assert.equal(calls.on.length, 1, 'the incoming attack occurs once');
+    assert.equal(calls.off, 0, 'Mono handoff does not insert a note-off gap');
+    assert.ok(rms(crossing.subarray(47)) > .0001, 'the incoming attack starts in the same render block');
+    const status = h.messages.filter(message => message.type === 'sequence-status').at(-1);
+    assert.ok(status.beat >= beforeBeat, 'the global transport beat never rewinds');
+    assert.ok(Math.abs(status.phaseBeats - firstAttack) < 1e-9, 'pattern phase launches on its first sounding event');
+    h.render(4096); // let the engine's authored frequency glide settle
+    assertPitch(h.render(4096), 330, 'replacement pitch');
+  } finally { h.dispose(); }
+});
+
+test('a phase-preserving score swap lets the active gate sound until the new authored attack', () => {
+  const h = makeHarness();
+  try {
+    h.send({ type: 'state', state: state() });
+    h.send({ type: 'sequence-load', sequence: sequence({ lengthBeats: 4, steps: [
+      { index: 0, at: 0, duration: 1, notes: [{ ratio: 1, velocity: .8, gate: 1 }] },
+    ] }), rootFrequency: 220, tempo: 120 });
+    h.send({ type: 'sequence-start', phase: 0, rootFrequency: 220, tempo: 120 });
+    h.render(4096);
+    const ownedVoice = h.processor.sequenceMono;
+    const targetFrame = h.frame + 47;
+    const targetBeat = h.processor.sequenceBeatAt(targetFrame);
+    const api = h.processor.api;
+    const calls = { on: 0, off: 0 };
+    h.processor.api = {
+      ...api,
+      synth_note_on(...args) { calls.on++; return api.synth_note_on(...args); },
+      synth_note_off(...args) { calls.off++; return api.synth_note_off(...args); },
+    };
+    h.send({
+      type: 'sequence-swap',
+      sequence: sequence({ studyId: 'phase-replacement', lengthBeats: 4, steps: [
+        { index: 5, at: .5, duration: 1, notes: [{ ratio: 2, velocity: .8, gate: 1 }] },
+      ] }),
+      rootFrequency: 220,
+      tempo: 120,
+      at: targetFrame / RATE,
+      phase: targetBeat,
+      originBeat: 0,
+      playing: true,
+      preserveVoices: true,
+      triggerCurrent: false,
+    });
+
+    const crossing = h.render(128);
+    assert.equal(h.processor.sequenceMono, ownedVoice, 'the outgoing owned gate survives the metadata swap');
+    assert.deepEqual(calls, { on: 0, off: 0 }, 'the swap itself neither releases nor reattacks');
+    assert.ok(rms(crossing) > .005, 'the preserved gate leaves no swap gap');
+    const framesToNewAttack = Math.ceil((.5 - h.processor.sequenceBeatAt(h.frame)) * RATE * 60 / 120);
+    h.render(Math.max(1, framesToNewAttack + 128));
+    assert.equal(calls.on, 1, 'the new score takes ownership on its first authored attack');
+    assert.equal(calls.off, 0, 'Mono ownership changes without an intermediate release');
+    assert.equal(h.processor.sequenceMono.ratio, 2);
+    assert.equal(h.processor.sequenceMono.revision, h.processor.sequenceRevision);
+    h.render(4096); // let the engine's authored frequency glide settle
+    assertPitch(h.render(4096), 440, 'phase-preserving replacement pitch');
+  } finally { h.dispose(); }
+});
+
+test('late phase-preserving delivery advances to the actual worklet boundary without rewinding', () => {
+  const h = makeHarness();
+  try {
+    h.send({ type: 'state', state: state() });
+    h.send({ type: 'sequence-load', sequence: sequence({ lengthBeats: 4, steps: [
+      { index: 0, at: 0, duration: 4, notes: [{ ratio: 1, velocity: .8, gate: 1 }] },
+    ] }), rootFrequency: 220, tempo: 120 });
+    h.send({ type: 'sequence-start', phase: 0, originBeat: 0, rootFrequency: 220, tempo: 120 });
+    h.render(4096);
+    const actualBeat = h.processor.sequenceBeatAt(h.frame);
+    const delayedBeats = .04;
+    h.send({
+      type: 'sequence-swap',
+      sequence: sequence({ studyId: 'late', lengthBeats: 4, steps: [
+        { index: 2, at: .5, duration: 1, notes: [{ ratio: 1.5, velocity: .8, gate: 1 }] },
+      ] }),
+      rootFrequency: 220,
+      tempo: 120,
+      at: h.time - .02,
+      phase: actualBeat - delayedBeats,
+      originBeat: 0,
+      playing: true,
+      preserveVoices: true,
+      triggerCurrent: false,
+    });
+    h.render(128);
+    assert.equal(h.processor.sequenceAnchorFrame, 4096, 'a late message commits at the next available frame');
+    assert.ok(Math.abs(h.processor.sequenceAnchorBeat - actualBeat) < 1e-12,
+      'the global transport advances through delivery latency');
+    assert.equal(h.processor.sequenceOriginBeat, 0,
+      'phase-preserving replacement does not move the established pattern origin');
+    assert.ok(h.processor.sequenceNextBeat >= actualBeat,
+      'the replacement seeks from the actual boundary rather than replaying stale work');
+  } finally { h.dispose(); }
+});
+
+test('a state-bearing immediate swap excites a struck method exactly once through actual WASM', () => {
+  const atomic = makeHarness(), reference = makeHarness();
+  try {
+    const initialScore = sequence({ lengthBeats: 4, steps: [
+      { index: 0, at: 0, duration: 4, notes: [{ ratio: 1, velocity: .8, gate: 1 }] },
+    ] });
+    const replacement = sequence({ studyId: 'struck-replacement', lengthBeats: 4, steps: [
+      { index: 9, at: 1.25, duration: 1, notes: [{ ratio: 1.5, velocity: .8, gate: 1 }] },
+    ] });
+    const initial = state({ engineId: 2 });
+    for (const h of [atomic, reference]) {
+      h.send({ type: 'state', state: initial });
+      h.send({ type: 'sequence-load', sequence: initialScore, rootFrequency: 220, tempo: 120 });
+      h.send({ type: 'sequence-start', phase: 0, originBeat: 0, rootFrequency: 220, tempo: 120 });
+      h.render(4096);
+    }
+    const target = state({
+      engineId: 17,
+      frequencyHz: 330,
+      playStyle: 'strike',
+      envelope: { attack: .001, decay: .04, sustain: 0, release: .03 },
+    });
+    const api = atomic.processor.api;
+    const calls = { on: 0, off: 0 };
+    atomic.processor.api = {
+      ...api,
+      synth_note_on(...args) { calls.on++; return api.synth_note_on(...args); },
+      synth_note_off(...args) { calls.off++; return api.synth_note_off(...args); },
+    };
+
+    // This reference applies the complete state and one explicit attack before
+    // rendering. note_on consumes method_pending, leaving nothing for render to
+    // excite a second time.
+    reference.send({ type: 'state', state: target });
+    reference.processor.api.synth_note_on(reference.processor.engine, 330, .8);
+    const beat = atomic.processor.sequenceBeatAt(atomic.frame);
+    atomic.send({
+      type: 'sequence-swap',
+      sequence: replacement,
+      state: target,
+      rootFrequency: 220,
+      tempo: 120,
+      at: atomic.time,
+      phase: beat,
+      originBeat: beat - 1.25,
+      playing: true,
+      preserveVoices: false,
+      triggerCurrent: true,
+    });
+
+    const expected = reference.render(8192);
+    const actual = atomic.render(8192);
+    assert.deepEqual(actual, expected,
+      'the atomic state-and-score path is sample-identical to one complete struck-method attack');
+    assert.deepEqual(calls, { on: 1, off: 0 },
+      'the worklet adds exactly one attack and no intervening release');
+    assert.equal(atomic.processor.sequenceMono.frequency, 330);
+    assert.equal(atomic.processor.sequenceMono.revision, atomic.processor.sequenceRevision);
+    assert.ok(rms(actual.subarray(512, 1536)) > .00001, 'the struck target sounds at the swap boundary');
+  } finally { atomic.dispose(); reference.dispose(); }
+});
+
+test('method changes retain the active Mono sequence gate and schedule without a duplicate host attack', () => {
+  const h = makeHarness();
+  try {
+    h.send({ type: 'state', state: state({ engineId: 2 }) });
+    h.send({ type: 'sequence-load', sequence: sequence({ lengthBeats: 4, steps: [
+      { index: 0, at: 0, duration: 4, notes: [{ ratio: 1, velocity: .8, gate: 1 }] },
+    ] }), rootFrequency: 220, tempo: 120 });
+    h.send({ type: 'sequence-start', phase: 0, rootFrequency: 220, tempo: 120 });
+    h.render(4096);
+    const voice = h.processor.sequenceMono;
+    const schedule = sequenceScheduleSnapshot(h.processor);
+    const api = h.processor.api;
+    const calls = { on: 0, off: 0 };
+    h.processor.api = {
+      ...api,
+      synth_note_on(...args) { calls.on++; return api.synth_note_on(...args); },
+      synth_note_off(...args) { calls.off++; return api.synth_note_off(...args); },
+    };
+
+    h.send({ type: 'state', state: state({ engineId: 17 }) });
+    const changed = h.render(4096);
+    assert.equal(h.processor.sequenceMono, voice);
+    assert.deepEqual(sequenceScheduleSnapshot(h.processor), schedule);
+    assert.deepEqual(calls, { on: 0, off: 0 }, 'the Rust held-gate method transition owns the sole excitation');
+    assert.ok(rms(changed.subarray(1024)) > .005, 'the new method sounds without waiting for the next sequence step');
+  } finally { h.dispose(); }
+});
+
+test('method changes retain Poly sequence identities, deadlines and schedule', () => {
+  const h = makeHarness();
+  try {
+    h.send({ type: 'state', state: state({ engineId: 2, voiceMode: 'poly' }) });
+    h.send({ type: 'sequence-load', sequence: sequence({ lengthBeats: 4, steps: [
+      { index: 0, at: 0, duration: 4, notes: [1, 1.5, 2].map(ratio => ({ ratio, velocity: .7, gate: 1 })) },
+    ] }), rootFrequency: 110, tempo: 120 });
+    h.send({ type: 'sequence-start', phase: 0, rootFrequency: 110, tempo: 120 });
+    h.render(4096);
+    const owned = h.processor.polyDeadlines.map((note, slot) => note?.kind === 'sequence' ? { slot, note } : null).filter(Boolean);
+    const schedule = sequenceScheduleSnapshot(h.processor);
+    const api = h.processor.api;
+    const calls = { on: 0, off: 0, reset: 0 };
+    h.processor.api = {
+      ...api,
+      poly_note_on(...args) { calls.on++; return api.poly_note_on(...args); },
+      poly_note_off(...args) { calls.off++; return api.poly_note_off(...args); },
+      poly_reset(...args) { calls.reset++; return api.poly_reset(...args); },
+    };
+
+    h.send({ type: 'state', state: state({ engineId: 17, voiceMode: 'poly' }) });
+    const changed = h.render(4096);
+    assert.deepEqual(sequenceScheduleSnapshot(h.processor), schedule);
+    assert.deepEqual(calls, { on: 0, off: 0, reset: 0 });
+    for (const { slot, note } of owned) assert.equal(h.processor.polyDeadlines[slot], note);
+    assert.ok(rms(changed.subarray(1024)) > .00001,
+      'the changed Poly engine sounds without waiting for another chord');
+  } finally { h.dispose(); }
+});
+
 test('a live cycle replacement keeps phase but cannot leak an attack from the superseded cycle', () => {
   const h = makeHarness();
   try {

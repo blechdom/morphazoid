@@ -182,3 +182,85 @@ test('a sequence-root edit emits one focused worklet message without rebuilding 
   assert.equal(audio.sequencePhase, 2.75);
   assert.equal(audio.sequenceEpoch, 42);
 });
+
+test('a running score and sound preset are replaced by one scheduled worklet transaction', () => {
+  const audio = new SynthesisAudio();
+  const messages = [];
+  let now = 100;
+  audio.sequenceNow = () => now;
+  audio.node = { port: { postMessage: message => messages.push(message) } };
+  audio.context = { state: 'running', currentTime: 12 };
+  audio.sequence = { studyId: 'old', tempo: 120, lengthBeats: 4, steps: [] };
+  audio.sequencePlaying = true;
+  audio.sequenceTempo = 120;
+  audio.sequencePhase = 8;
+  audio.sequenceEpoch = 99;
+  audio.sequenceOriginBeat = 3;
+  const state = { methodId: 'next', outputLevel: .6, params: [.2] };
+  const next = {
+    studyId: 'next', tempo: 90, lengthBeats: 4,
+    steps: [{ at: 1.25, duration: .5, notes: [{ ratio: 1.5, velocity: .8, gate: 1 }] }],
+  };
+
+  audio.swapSequence(next, { rootFrequency: 330, restart: true, state });
+
+  assert.equal(messages.length, 1, 'no stop/load/start message gap is exposed to the worklet');
+  const [message] = messages;
+  assert.equal(message.type, 'sequence-swap');
+  assert.equal(message.at, 12.005);
+  assert.ok(Math.abs(message.phase - 10.01) < 1e-12, 'the old tempo advances to the scheduled boundary');
+  assert.ok(Math.abs(message.originBeat - 8.76) < 1e-12,
+    'the first sounding event is mapped onto the scheduled transport beat');
+  assert.equal(message.triggerCurrent, true);
+  assert.equal(message.preservePhase, false);
+  assert.equal(message.preserveVoices, false);
+  assert.deepEqual(message.state, state, 'sound and score share the same boundary');
+  assert.notEqual(message.state, state, 'the transaction owns an immutable snapshot');
+  assert.equal(audio.sequenceSynchronized, true);
+  assert.equal(audio.sequencePlaying, true);
+  assert.equal(audio.sequenceTempo, 90);
+  assert.equal(audio.sequenceRootFrequency, 330);
+  assert.ok(Math.abs(audio.currentSequenceBeat(now + .005) - message.phase) < 1e-12,
+    'the main-thread transport predicts the same boundary beat');
+});
+
+test('muting and rearming an initialized sequence gates output without resyncing its transport', async () => {
+  const audio = new SynthesisAudio();
+  const messages = [];
+  let now = 101;
+  audio.sequenceNow = () => now;
+  audio.node = { port: { postMessage: message => messages.push(message) } };
+  audio.nodeReady = Promise.resolve();
+  audio.context = { state: 'running', currentTime: 7, resume: async () => {} };
+  audio.master = { gain: { setTargetAtTime() {} } };
+  audio.state = { outputLevel: .7 };
+  audio.armed = true;
+  audio.armRequested = true;
+  audio.sequence = { studyId: 'continuing' };
+  audio.sequencePlaying = true;
+  audio.sequenceSynchronized = true;
+  audio.sequenceTempo = 120;
+  audio.sequencePhase = 4;
+  audio.sequenceEpoch = 100;
+  const originalAudioContext = globalThis.AudioContext;
+  globalThis.AudioContext = class {};
+  try {
+    audio.mute();
+    assert.equal(audio.currentSequenceBeat(), 6);
+    now = 103;
+    await audio.start();
+    assert.equal(audio.armed, true);
+    assert.equal(audio.currentSequenceBeat(), 10, 'the hidden transport clock continued while muted');
+    assert.equal(audio.sequencePhase, 4);
+    assert.equal(audio.sequenceEpoch, 100);
+    assert.equal(audio.sequenceSynchronized, true);
+    assert.equal(messages.at(-1)?.type, 'play');
+    assert.deepEqual(messages.filter(message => message.type.startsWith('sequence-')), [],
+      'rearm does not reload, restart, or stop the sequence transport');
+    assert.equal(messages.some(message => message.type === 'silence'), false,
+      'muting a running sequence leaves its worklet clock alive');
+  } finally {
+    if (originalAudioContext === undefined) delete globalThis.AudioContext;
+    else globalThis.AudioContext = originalAudioContext;
+  }
+});

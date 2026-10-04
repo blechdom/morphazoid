@@ -94,6 +94,7 @@ let arming = false;
 let configurationQueued = false;
 let auditionQueued = false;
 let deferTransportSync = false;
+let deferAudioSync = false;
 let fullPresets = null;
 let lastMasterPresetId = null;
 let lastFactoryPreset = { methodId: state.methodId, presetId: state.presetId };
@@ -140,16 +141,36 @@ function showError(error) {
   $("status").textContent = $("audioError").textContent;
 }
 
+function configuredAudioState() {
+  const method = getMethod(state.methodId);
+  return {
+    ...state,
+    source: method.kind === "processor" ? processingSource() : state.source,
+    kind: method.kind || "synthesis",
+    engineId: method.engineId,
+    processorId: method.processorId,
+    playStyle: basePlaybackStyle(),
+  };
+}
+
 function syncAudio(audition = false) {
   auditionQueued ||= audition;
   if (configurationQueued) return;
   configurationQueued = true;
   queueMicrotask(() => {
     configurationQueued = false;
-    const method = getMethod(state.methodId);
-    const audition = auditionQueued && !(playing && sequenceOwnsTransport());
+    const atomicPresetRecall = auditionQueued && playing && sequenceOwnsTransport();
+    const audition = auditionQueued && !atomicPresetRecall;
     auditionQueued = false;
-    audio.configure({ ...state, source: method.kind === "processor" ? processingSource() : state.source, kind: method.kind || "synthesis", engineId: method.engineId, processorId: method.processorId, playStyle: basePlaybackStyle() }, { audition });
+    if (atomicPresetRecall) {
+      const nextAudioState = configuredAudioState();
+      const methodChanged = audio.state?.kind !== nextAudioState.kind
+        || audio.state?.engineId !== nextAudioState.engineId;
+      // A preset within one method keeps the phrase and current gate. Changing
+      // engines launches the first authored attack so struck Poly models cannot
+      // wait silently for the next score event.
+      rebuildSequence({ restart: methodChanged, route: false, audioState: nextAudioState });
+    } else audio.configure(configuredAudioState(), { audition });
   });
 }
 
@@ -648,7 +669,8 @@ function paintSequenceStrip() {
 function cursorForSequenceBeat(beat) {
   const cycle = sequenceState.cycle;
   if (!cycle?.steps.length || !(cycle.lengthBeats > 0)) return null;
-  const phase = ((beat % cycle.lengthBeats) + cycle.lengthBeats) % cycle.lengthBeats;
+  const relativeBeat = beat - audio.sequenceOriginBeat;
+  const phase = ((relativeBeat % cycle.lengthBeats) + cycle.lengthBeats) % cycle.lengthBeats;
   let cursor = cycle.steps.length - 1;
   for (let index = 0; index < cycle.steps.length; index++) {
     if (sequenceStepAt(cycle.steps[index]) <= phase + 1e-9) cursor = index;
@@ -747,17 +769,16 @@ function retuneSequenceRoot() {
   return true;
 }
 
-function rebuildSequence({ restart = false, route = true } = {}) {
-  if (restart) audio.stopSequence();
+function rebuildSequence({ restart = false, route = true, audioState = null } = {}) {
   const cycle = compileSelectedSequence();
   if (cycle) {
     audio.setPlaying(false, Number($("tempo").value) / 60, Number($("noteGate").value) / 100);
-    audio.setSequence(cycle, { rootFrequency: state.frequencyHz, preservePhase: !restart });
-    sequenceState.rootFrequency = state.frequencyHz;
-    if (playing && sequenceOwnsTransport() && (restart || !audio.sequencePlaying)) {
-      audio.startSequence({ tempo: Number($("tempo").value), rootFrequency: state.frequencyHz,
-        phase: restart ? 0 : audio.currentSequenceBeat() });
+    if (playing && sequenceOwnsTransport()) {
+      audio.swapSequence(cycle, { rootFrequency: state.frequencyHz, restart, state: audioState });
+    } else {
+      audio.setSequence(cycle, { rootFrequency: state.frequencyHz, preservePhase: !restart });
     }
+    sequenceState.rootFrequency = state.frequencyHz;
   } else {
     audio.stopSequence();
     audio.setSequence(null, { preservePhase: false });
@@ -914,7 +935,7 @@ function renderState(rebuildControls = true, audition = false, restoringSection 
     $("methodControls").replaceChildren(...controlFields);
   } else controlFields.forEach((field, index) => field.setValue(state.params[index]));
   chooseControls.forEach(picker => picker.refresh());
-  syncAudio(audition);
+  if (!deferAudioSync) syncAudio(audition);
   if (!deferTransportSync) queueMicrotask(() => syncTransportForSection());
   if (processing) void ensureProcessingInput({ audition });
   updateUrl();
@@ -1034,15 +1055,18 @@ function applyPreparedPerformance(performance, { presetId = null, message = "Per
   tempoField.setValue(prepared.sequence.tempoBpm);
   $("sequenceSelect").value = study.id;
   lastMasterPresetId = presetId;
+  const atomicSequenceChange = playing && activeSection === "synthesis";
   deferTransportSync = true;
+  deferAudioSync = atomicSequenceChange;
   try { renderState(state.methodId !== previousMethod, false); }
-  finally { deferTransportSync = false; }
+  finally { deferTransportSync = false; deferAudioSync = false; }
   chooseControls.get("sequenceSelect")?.refresh();
   paintSequenceParameterControls();
-  // State is posted first; the score restart follows in the same microtask turn.
-  // Its step-zero event is then anchored to the worklet's exact sample clock.
+  const nextAudioState = atomicSequenceChange ? configuredAudioState() : null;
+  // A running scene changes sound and score together on one worklet boundary.
+  // An active gate is handed across; a silent phase launches the first authored attack.
   queueMicrotask(() => {
-    rebuildSequence({ restart: playing });
+    rebuildSequence({ restart: playing, audioState: nextAudioState });
     refreshMasterPresetSelection();
   });
   $("status").textContent = message;
@@ -1094,7 +1118,7 @@ listen($("sequencePresetSelect"), "change", () => {
   const next = applySequenceSettingsRecipe({
     id: study.id, parameters: sequenceState.parameters, tempoBpm: Number($("tempo").value),
   }, recipe);
-  selectSequence(study.id, { parameters: next.parameters, tempo: next.tempoBpm, announce: false });
+  selectSequence(study.id, { parameters: next.parameters, tempo: next.tempoBpm, restart: playing, announce: false });
   $("status").textContent = `${SEQUENCE_SETTING_RECIPES.find(item => item.id === recipe)?.label || "Settings"} arpeggiator settings loaded without changing the synth or tuning.`;
 });
 
@@ -1110,7 +1134,7 @@ listen($("randomSequencePreset"), "click", () => {
   const next = randomizeSequenceSettings({
     id: study.id, parameters: sequenceState.parameters, tempoBpm: Number($("tempo").value),
   });
-  selectSequence(study.id, { parameters: next.parameters, tempo: next.tempoBpm, announce: false });
+  selectSequence(study.id, { parameters: next.parameters, tempo: next.tempoBpm, restart: playing, announce: false });
   $("status").textContent = `${study.label} settings randomized without changing the synth or tuning.`;
 });
 

@@ -154,19 +154,23 @@ test('Euclidean and tuning edits keep a running sequence on its monotonic phase'
   await page.waitForTimeout(80);
   await exact(page, '#sequence-param-pulses-value', 8);
   await expect.poll(() => page.evaluate(() => window.MorphazoidSynthesis.getSequenceState().parameters.pulses)).toBe(8);
-  const pulseEdit = await page.evaluate(() => window.sequenceMessages.filter(message => message.type === 'sequence-load').at(-1));
+  const pulseEdit = await page.evaluate(() => window.sequenceMessages.filter(message => message.type === 'sequence-swap').at(-1));
   expect(pulseEdit.playing).toBe(true);
   expect(pulseEdit.preservePhase).toBe(true);
+  expect(pulseEdit.preserveVoices).toBe(true);
+  expect(pulseEdit.triggerCurrent).toBe(false);
   expect(pulseEdit.phase).toBeGreaterThan(beforePulseBeat);
   expect(pulseEdit.sequence.parameters.pulses).toBe(8);
 
   const ratiosBeforeTuning = pulseEdit.sequence.steps.flatMap(step => step.notes.map(note => note.ratio));
   await page.waitForTimeout(80);
   await choose(page, 'tuningSelect', 'just-5-limit-major');
-  const tuningEdit = await page.evaluate(() => window.sequenceMessages.filter(message => message.type === 'sequence-load').at(-1));
+  const tuningEdit = await page.evaluate(() => window.sequenceMessages.filter(message => message.type === 'sequence-swap').at(-1));
   const ratiosAfterTuning = tuningEdit.sequence.steps.flatMap(step => step.notes.map(note => note.ratio));
   expect(tuningEdit.playing).toBe(true);
   expect(tuningEdit.preservePhase).toBe(true);
+  expect(tuningEdit.preserveVoices).toBe(true);
+  expect(tuningEdit.triggerCurrent).toBe(false);
   expect(tuningEdit.phase).toBeGreaterThan(pulseEdit.phase);
   expect(tuningEdit.sequence.tuningId).toBe('just-5-limit-major');
   expect(ratiosAfterTuning).not.toEqual(ratiosBeforeTuning);
@@ -183,7 +187,7 @@ test('Euclidean and tuning edits keep a running sequence on its monotonic phase'
   expect(await page.evaluate(() => window.sequenceMessages.filter(message => message.type === 'sequence-stop').length)).toBe(0);
 });
 
-test('sound preset recall retunes a running basic arpeggiator without reloading or dropping its gate', async ({ page }) => {
+test('sound recalls preserve same-method phrases and give cross-method changes an immediate attack', async ({ page }) => {
   await page.addInitScript(() => {
     window.synthesisSequenceMessages = [];
     window.synthesisSequenceStatuses = [];
@@ -281,14 +285,28 @@ test('sound preset recall retunes a running basic arpeggiator without reloading 
     };
   });
 
+  expect(evidence.afterState.methodId).toBe(evidence.beforeState.methodId,
+    'Next first recalls another preset within the current method');
   expect(evidence.afterState.frequencyHz).not.toBe(evidence.beforeState.frequencyHz);
   expect(evidence.messages.filter(message => message.type === 'sequence-load')).toHaveLength(0);
   expect(evidence.messages.filter(message => message.type === 'sequence-stop')).toHaveLength(0);
   expect(evidence.messages.filter(message => message.type === 'sequence-start')).toHaveLength(0);
-  const rootMessages = evidence.messages.filter(message => message.type === 'sequence-root');
-  expect(rootMessages).toHaveLength(1);
-  expect(rootMessages[0].rootFrequency).toBe(evidence.afterState.frequencyHz);
-  expect(new Set(evidence.revisions)).toEqual(new Set([evidence.beforeStatus.sequence.audio.revision]));
+  const swaps = evidence.messages.filter(message => message.type === 'sequence-swap');
+  expect(swaps).toHaveLength(1);
+  expect(swaps[0]).toMatchObject({
+    rootFrequency: evidence.afterState.frequencyHz,
+    playing: true,
+    preservePhase: true,
+    preserveVoices: true,
+    triggerCurrent: false,
+    state: { methodId: evidence.afterState.methodId, presetId: evidence.afterState.presetId },
+  });
+  expect(swaps[0].phase).toBeGreaterThan(evidence.beforeStatus.sequence.transportBeat);
+  expect(swaps[0].originBeat).toBe(evidence.beforeStatus.sequence.audio.originBeat);
+  expect(new Set(evidence.revisions)).toEqual(new Set([
+    evidence.beforeStatus.sequence.audio.revision,
+    evidence.beforeStatus.sequence.audio.revision + 1,
+  ]));
   expect(evidence.beats.length).toBeGreaterThan(2);
   expect(evidence.beats.every((beat, index) => index === 0 || beat >= evidence.beats[index - 1])).toBe(true);
   expect(evidence.afterStatus).toMatchObject({
@@ -300,6 +318,40 @@ test('sound preset recall retunes a running basic arpeggiator without reloading 
   expect(evidence.afterStatus.sequence.transportBeat).toBeGreaterThan(evidence.beforeStatus.sequence.transportBeat + 0.5);
   expect(evidence.earlyRms).toBeGreaterThan(0.005);
   expect(evidence.remainingGateRms).toBeGreaterThan(evidence.earlyRms * 0.25);
+
+  await page.evaluate(() => { window.synthesisSequenceMessages.length = 0; });
+  const beforeMethodChange = await page.evaluate(() => window.MorphazoidSynthesis.getStatus());
+  await choose(page, 'methodSelect', 'fm');
+  await expect.poll(() => page.evaluate(() => (
+    window.synthesisSequenceMessages.filter(entry => entry.message.type === 'sequence-swap').length
+  ))).toBe(1);
+  const methodChange = await page.evaluate(() => ({
+    state: window.MorphazoidSynthesis.getState(),
+    status: window.MorphazoidSynthesis.getStatus(),
+    messages: window.synthesisSequenceMessages.map(entry => entry.message),
+  }));
+  expect(methodChange.state.methodId).toBe('fm');
+  expect(methodChange.messages.filter(message => message.type === 'sequence-load')).toHaveLength(0);
+  expect(methodChange.messages.filter(message => message.type === 'sequence-stop')).toHaveLength(0);
+  expect(methodChange.messages.filter(message => message.type === 'sequence-start')).toHaveLength(0);
+  const methodSwaps = methodChange.messages.filter(message => message.type === 'sequence-swap');
+  expect(methodSwaps).toHaveLength(1);
+  expect(methodSwaps[0]).toMatchObject({
+    playing: true,
+    preservePhase: false,
+    preserveVoices: false,
+    triggerCurrent: true,
+    state: { methodId: 'fm' },
+  });
+  const firstAttack = methodSwaps[0].sequence.steps.find(step => step.notes.length)?.at;
+  expect(methodSwaps[0].phase - methodSwaps[0].originBeat).toBeCloseTo(firstAttack, 8);
+  expect(methodSwaps[0].phase).toBeGreaterThan(beforeMethodChange.sequence.transportBeat);
+  expect(methodChange.status).toMatchObject({
+    armed: true,
+    playing: true,
+    playbackMode: 'sequence',
+    sequence: { id: 'basic-up', selected: true, running: true },
+  });
 });
 
 test('basic arpeggiators compile exact ratios from the selected tuning', async ({ page }) => {

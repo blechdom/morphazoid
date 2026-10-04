@@ -41,6 +41,8 @@ export class SynthesisAudio {
     this.sequenceRootFrequency = 220;
     this.sequencePhase = 0;
     this.sequenceEpoch = null;
+    this.sequenceOriginBeat = 0;
+    this.sequenceSynchronized = false;
     this.sequenceStatus = Object.freeze({
       loaded: false, playing: false, studyId: null, stepIndex: null,
       phaseBeats: 0, lengthBeats: 0, tempo: 120,
@@ -83,6 +85,7 @@ export class SynthesisAudio {
           numberOfInputs: 1, numberOfOutputs: 1, outputChannelCount: [2], channelCount: 2, channelCountMode: "max",
           processorOptions: { module },
         });
+        this.sequenceSynchronized = false;
         // Node construction returns before the audio thread has initialized its
         // engines. Keep Audio in "starting" until that work has completed, so a
         // first audition is not consumed while the audio clock catches up.
@@ -120,6 +123,7 @@ export class SynthesisAudio {
           }
           if (data.type === "sequence-status") {
             this.sequenceStatus = Object.freeze({ ...data });
+            if (Number.isFinite(data.originBeat)) this.sequenceOriginBeat = data.originBeat;
             this.onSequenceStatus(this.sequenceStatus);
           }
         };
@@ -135,7 +139,7 @@ export class SynthesisAudio {
       this.armed = this.armRequested;
       this.setLevel(this.state?.outputLevel ?? 0.7);
       this.setPlaying(this.playing, this.rate, this.gate);
-      this.syncSequence();
+      if (!this.sequenceSynchronized) this.syncSequence();
       if (this.pendingAudition) {
         this.pendingAudition = false;
         this.configure(this.state, { audition: true });
@@ -193,12 +197,23 @@ export class SynthesisAudio {
   }
 
   sequenceMessageTiming() {
-    const lead = this.context && this.context.state === "running" ? 0.005 : 0;
+    const lead = this.sequenceLeadSeconds();
     const now = this.sequenceNow();
     return {
       at: (this.context?.currentTime ?? 0) + lead,
       phase: this.currentSequenceBeat(now) + (this.sequencePlaying ? lead * this.sequenceTempo / 60 : 0),
     };
+  }
+
+  sequenceLeadSeconds() {
+    return this.context && this.context.state === "running" ? 0.005 : 0;
+  }
+
+  firstSequenceAttackBeat(sequence = this.sequence) {
+    if (!sequence?.steps?.length) return 0;
+    const first = sequence.steps.find(step => Array.isArray(step.notes) && step.notes.length > 0);
+    const beat = Number(first?.atBeats ?? first?.at);
+    return Number.isFinite(beat) ? Math.max(0, beat) : 0;
   }
 
   /** Load a bounded, beat-addressed cycle without coupling it to the ordinary Play/Repeat transport. */
@@ -209,14 +224,68 @@ export class SynthesisAudio {
     if (!this.sequence) this.sequencePlaying = false;
     this.sequencePhase = phase;
     this.sequenceEpoch = now;
+    if (!preservePhase) this.sequenceOriginBeat = 0;
     this.sequenceTempo = this.normalizeSequenceTempo(this.sequence?.tempo);
     this.sequenceRootFrequency = this.normalizeSequenceRoot(rootFrequency);
     const timing = this.sequenceMessageTiming();
-    this.node?.port.postMessage({
-      type: "sequence-load", sequence: this.sequence, tempo: this.sequenceTempo,
-      rootFrequency: this.sequenceRootFrequency, preservePhase, playing: this.sequencePlaying,
-      ...timing,
-    });
+    if (this.node) {
+      this.node.port.postMessage({
+        type: "sequence-load", sequence: this.sequence, tempo: this.sequenceTempo,
+        rootFrequency: this.sequenceRootFrequency, originBeat: this.sequenceOriginBeat,
+        preservePhase, playing: this.sequencePlaying,
+        ...timing,
+      });
+      this.sequenceSynchronized = true;
+    } else this.sequenceSynchronized = false;
+    return this.sequence;
+  }
+
+  /** Replace a running score at one audio-frame boundary without a stop/load/start gap. */
+  swapSequence(sequence, {
+    rootFrequency = this.sequenceRootFrequency,
+    restart = false,
+    state = null,
+  } = {}) {
+    const now = this.sequenceNow();
+    const lead = this.sequenceLeadSeconds();
+    const previousTempo = this.sequenceTempo;
+    const previousBeat = this.currentSequenceBeat(now);
+    const wasPlaying = this.sequencePlaying;
+    const next = sequence == null ? null : structuredClone(sequence);
+    const nextTempo = this.normalizeSequenceTempo(next?.tempo);
+    const scheduledBeat = previousBeat + lead * previousTempo / 60;
+    const triggerCurrent = restart || !wasPlaying;
+    const firstAttackBeat = this.firstSequenceAttackBeat(next);
+    const originBeat = triggerCurrent ? scheduledBeat - firstAttackBeat : this.sequenceOriginBeat;
+
+    this.sequence = next;
+    this.sequencePlaying = !!next;
+    this.sequenceTempo = nextTempo;
+    this.sequenceRootFrequency = this.normalizeSequenceRoot(rootFrequency);
+    this.sequencePhase = scheduledBeat - lead * nextTempo / 60;
+    this.sequenceEpoch = now;
+    this.sequenceOriginBeat = originBeat;
+    if (state && typeof state === "object") {
+      this.state = structuredClone(state);
+      this.setLevel(this.state.outputLevel);
+    }
+    if (this.node) {
+      this.node.port.postMessage({
+        type: "sequence-swap",
+        sequence: this.sequence,
+        tempo: this.sequenceTempo,
+        rootFrequency: this.sequenceRootFrequency,
+        at: (this.context?.currentTime ?? 0) + lead,
+        phase: scheduledBeat,
+        originBeat,
+        playing: this.sequencePlaying,
+        preservePhase: !triggerCurrent,
+        preserveVoices: wasPlaying && !triggerCurrent,
+        triggerCurrent,
+        ...(state && typeof state === "object" ? { state: this.state } : {}),
+      });
+      this.sequenceSynchronized = true;
+    } else this.sequenceSynchronized = false;
     return this.sequence;
   }
 
@@ -234,7 +303,7 @@ export class SynthesisAudio {
     this.sequencePlaying = true;
     this.node?.port.postMessage({
       type: "sequence-start", tempo: this.sequenceTempo, rootFrequency: this.sequenceRootFrequency,
-      ...this.sequenceMessageTiming(),
+      originBeat: this.sequenceOriginBeat, ...this.sequenceMessageTiming(),
     });
   }
 
@@ -277,11 +346,14 @@ export class SynthesisAudio {
     const timing = this.sequenceMessageTiming();
     this.node.port.postMessage({
       type: "sequence-load", sequence: this.sequence, tempo: this.sequenceTempo,
-      rootFrequency: this.sequenceRootFrequency, preservePhase: true, playing: false, ...timing,
+      rootFrequency: this.sequenceRootFrequency, originBeat: this.sequenceOriginBeat,
+      preservePhase: true, playing: false, ...timing,
     });
     if (this.sequencePlaying) this.node.port.postMessage({
-      type: "sequence-start", tempo: this.sequenceTempo, rootFrequency: this.sequenceRootFrequency, ...timing,
+      type: "sequence-start", tempo: this.sequenceTempo, rootFrequency: this.sequenceRootFrequency,
+      originBeat: this.sequenceOriginBeat, ...timing,
     });
+    this.sequenceSynchronized = true;
   }
 
   getSequenceStatus() { return { ...this.sequenceStatus }; }
@@ -316,7 +388,7 @@ export class SynthesisAudio {
     this.node?.port.postMessage({ type: "reset" });
     this.configure(this.state);
     this.setPlaying(this.playing, this.rate, this.gate);
-    this.syncSequence();
+    if (!this.sequenceSynchronized) this.syncSequence();
   }
 
   async loadFile(file, { processing = false } = {}) {
