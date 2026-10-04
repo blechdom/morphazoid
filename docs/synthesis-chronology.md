@@ -92,4 +92,3 @@ The interactive page shows the complete qualification and source for the selecte
 | Envelope-following filter | 1972 | commercial processor milestone | [Mu-Tron inventor's collection, Mu-Tron III (developed 1972)](https://mu-tron.com/inventprs-collection/) |
 | Hilbert frequency shifter | 1965 | conference publication | [Bode, Solid State Audio Frequency Spectrum Shifter (1965)](https://zkm.de/en/texts-and-publications-by-harald-bode) |
 | Eight-band vocoder | 1935 | patent filing | [Dudley, US2151091A Signal Transmission (filed 1935)](https://patents.google.com/patent/US2151091A/en) |
-
