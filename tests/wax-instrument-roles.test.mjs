@@ -25,6 +25,15 @@ test("every catalog instrument has exactly one complete WAX support record", () 
 
   for (const support of WAX_INSTRUMENT_SUPPORT) {
     assert.equal(waxSupportForId(support.id), support);
+    if (support.available === false) {
+      assert.equal(support.id, "micmic-rust");
+      assert.equal(support.recommended, null);
+      assert.deepEqual(support.roles, []);
+      assert.equal(support.audioInput, false);
+      assert.equal(support.midiInput, false);
+      assert.match(support.caveat, /does not connect to WAX audio buses/);
+      continue;
+    }
     assert.ok(validRoleIds.has(support.recommended), `${support.id} has an invalid recommendation`);
     assert.ok(support.roles.includes(support.recommended), `${support.id} omits its recommendation`);
     assert.equal(new Set(support.roles).size, support.roles.length, `${support.id} repeats a role`);

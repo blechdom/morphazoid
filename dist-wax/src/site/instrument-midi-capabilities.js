@@ -7,6 +7,7 @@ const NOTE_MODE_IDS = Object.freeze({
   processor: Object.freeze([
     "lumber",
     "micmic",
+    "micmic-rust",
     "graph-delay",
     "micromorph",
     "slippery-resynthesis",
@@ -214,6 +215,7 @@ export const PAGE_KEYBOARD_INSTRUMENT_IDS = Object.freeze([
   "voicesaurus",
   "lumber",
   "micmic",
+  "micmic-rust",
   "karplus-strong",
   "karplus-carpet",
   "object-forge",
@@ -278,6 +280,7 @@ const audioInputIds = new Set([
   "fractal-signals",
   "lumber",
   "micmic",
+  "micmic-rust",
   "graph-delay",
   "micromorph",
   "slippery-resynthesis",

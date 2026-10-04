@@ -1,3 +1,4 @@
+import { restoreNativeDelaySite } from './native-delay-site-reference.mjs';
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { readFile as readFileAsync } from "node:fs/promises";
@@ -21,5 +22,5 @@ export function restoreAudioInput(source, file) {
 export async function readAudioInputReference(file, encoding) {
   const source = await readFileAsync(file, encoding);
   const relative = path.relative(root, file instanceof URL ? fileURLToPath(file) : file);
-  return typeof source === "string" ? restoreAudioInput(source, relative) : source;
+  return typeof source === "string" ? restoreAudioInput(restoreNativeDelaySite(source, relative), relative) : source;
 }

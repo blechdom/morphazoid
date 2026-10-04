@@ -1,0 +1,558 @@
+# L-system Delay native instrument and comparison
+
+L-system Delay has a playable Rust / CPAL implementation inside the Morphazoid
+webapp, alongside the original JavaScript instrument. It retains the original
+interface, all sixteen original presets plus ten new scenes, eleven grammars and continuous controls. Microphone
+input is selected by default; an optional test tone auditions the delay without
+capture. Rust processes sound and CPAL connects the computer's audio devices.
+The browser supplies controls and drawing; sound comes from the computer running
+the native executable, including when that computer is accessed remotely.
+
+The default thirteen-generation binary tree has 16,382 descendants, each with its
+own inherited pitch and delay. This is a starting topology, not a voice ceiling.
+Larger trees use dynamically prepared storage, with per-grammar generation ranges
+derived from available memory. Playback calibrates an initial budget before
+opening audio, then probes for additional capacity against measured callback work.
+
+This work starts from fresh `origin/main`, commit
+`f48d59a45eb0e1eadcb240f83600e02df5aa5d4d`, fetched on October 2, 2026.
+The native source is in [the instrument's Rust workspace](../src/instruments/micmic/rust/).
+The [comparison script](../scripts/compare-l-system-delay.mjs) exports the actual
+browser grammar and presets into native scenes, renders both engines, and
+creates a listening page. The [recorded measurements](l-system-delay-measurements.json)
+include source, input, scene and executable hashes.
+
+## Play the native instrument
+
+From the repository root, run these commands in separate terminals:
+
+```sh
+cargo run --manifest-path src/instruments/micmic/rust/Cargo.toml -p l-system-delay-app --release -- --port 3436
+npm run dev -- --port 3437 --strict-port
+```
+
+Open **http://localhost:3437/l-mic-rust.html**, or choose **L-system Delay Rust**
+from Morphazoid's Choose menu. The original browser instrument remains at
+`/l-mic.html`. The development server forwards `/api/l-system-delay/*` to the
+local Rust companion on port 3436. Use its `--native-delay-port` option if the
+companion runs on another port. Static hosting alone cannot provide CPAL device
+access; the local companion and proxy are required. This native implementation
+does not connect to WAX host audio buses.
+
+Linux builds need the ALSA development package and `pkg-config`. The lockfile pins
+dependencies, including CPAL 0.16. The companion lives in
+[the native app directory](../src/instruments/micmic/rust/app/), and its public
+controls live in [the browser frontend](../src/instruments/micmic/native/).
+
+Audio starts off. Enabling **Audio** opens the native default microphone and
+output devices. Native capture uses CPAL's default input device rather than
+Morphazoid's saved browser input-device selection. Microphone capture uses
+operating-system audio access rather than browser microphone permission.
+Selecting a source while Audio is off does
+not open a device. Choose **Built-in test tone** under **Input → Input source**
+to audition without capture; **Strike tone** or Enter on the canvas retriggers it.
+Switching back to the test tone releases the input stream.
+
+Drag horizontally to change Time fold and vertically to change Branch angle;
+arrow keys provide the same controls, with Shift for finer changes. Presets and
+randomization retain Audio and device policy. **Reset all parameters** restores
+tree, mix, input trim and test-tone parameters while preserving Audio, source,
+input pause, output level and voice settings. Hiding or leaving the page requests
+Audio off; the server also releases devices after ten seconds without control or
+status requests. Returning to the page requires another explicit Audio enable.
+
+The app prefers 48 kHz output and falls back to a supported default device rate.
+Settings shows the actual rate and devices. A selected microphone must support
+that output rate. The wet renderer has one 40-second mono history, with stereo
+branch panning; it processes blocks of 128 frames independently of browser
+drawing. Parameter edits preserve recording and stable branch phases. Pitch,
+pan and gain changes are smoothed, and delay edits crossfade fixed read heads
+over 65 ms. Audio off ends the session; starting Audio again records fresh
+history.
+
+The playable model supports all eleven original L-system types, including the
+branching plant, coral, and classic curve grammars. The Pythagorean rewrite keeps
+its uncapped native tree. The original pruning control blends connected breadth
+and depth orders; voice slots keep their history while the selected paths change.
+The app preserves the granular algorithm and does not add independent
+segment-duration stretching or the optional Silky spectral renderer. The Pitch
+detail selector identifies the available native independent-granular renderer.
+
+## Original interface and continuous edits
+
+The native page uses the original `l-mic.html` sections, shared site styles,
+`micmic.css`, generation colors, all sixteen original full presets and slider mappings.
+The twenty-six-scene bank adds Cedar, Quaking Aspen, Juniper, Baobab, Foxglove,
+Lotus, Acacia, Lichen, Moonflower and Horsetail. Full scene recall includes the
+original factory output level (0.48); the growth buttons change only the original
+eight recursion settings and preserve grammar, mix and output. Negative pruning
+values are retained exactly as preset data; both engines treat them as breadth
+first. Full recalls identify scenes by canonical parameter values, so their growth
+names, highlights and **Reload selected preset** remain tied to the chosen scene.
+Four new Pine scenes request fourteen to sixteen generations, while six
+new scenes cover the additional curve grammars. Actual audio admission remains
+device measured rather than guaranteed by a preset.
+Choose consumes Morphazoid's current shared catalogue, with the Rust entry beside
+the original. Time fold retains its piecewise 1–50, 50–1,000 and 1,000–3,000 ms
+mapping. Native input, diagnostics and the optional voice cap use the same control
+styles. Audio remains explicitly armed.
+
+The drawing follows local control values on animation frames and interpolates
+the preview over 120 ms. Its fit stays fixed during a gesture and settles
+afterward, instead of waiting for returned HTTP geometry or repeatedly snapping
+to new bounds. Control requests carry the latest values and return lightweight
+status. Obsolete replies cannot replace a newer gesture. Classic grammar previews
+use the same generation ordering and connected pruning as the native audio model.
+The quiet gray full tree is cached at rest. All admitted colored paths follow
+the same vibrating polyline as their bright overlay, with the original colored
+stroke opacity so quiet bends remain visible. Input attacks travel along
+each branch between its parent and child delay, as in the original page.
+Graphics reduce frame rate and curve resolution under load, retaining at least
+five curve intervals per animated branch, matching the original minimum, so
+dense patterns never collapse to an endpoint-only straight line. Short
+screen-space segments receive smoothly increased deflection; the larger Pine
+branches retain their prior curve shape.
+The curve is an activity illustration rather than a literal sample waveform.
+Rust records a bounded 40-second input-envelope history at 100 Hz, using the
+original RMS/peak response and 160 ms release. Drawing interpolates that history
+against the native sample clock; its moving carrier also follows pitch rate.
+This derived response covers every admitted preview branch, including slots
+beyond the 2,048 individually metered taps. Silence produces no bend. The
+display keeps input history independently of topology revisions and individual
+tap snapshots, including through two seconds of polling or Canvas jitter,
+and extrapolates only the original release beyond the latest input sample.
+Intensity uses cached actual admitted-generation counts, including in sampled
+deep previews. The nominal-delay display is the original artistic illustration: granular headroom,
+phase and a delay edit crossfade can offset the exact audible attack by a grain.
+
+Pool timing edits preserve the current two-head crossfade, remember the newest
+delay, then fade to that target when the current 65 ms fade completes. Returning
+to the source reverses the active mix continuously. This avoids replacing an
+audible head every time a slider event arrives while retaining fixed-head pitch
+behavior. The ordinary scene/CLI render path remains unchanged. In a repeatable
+173 Hz, 60 Hz-control sweep, the maximum adjacent output step dropped from
+0.01137977 to 0.00389200, below the continuous carrier/fade bound of 0.00416380.
+This measures transition continuity; human listening remains separate.
+
+Gains normalize by the selected voices in each generation, matching the original
+pruning behavior. Descendants and Original voice have independent levels. Input
+pause smoothly gates new recording while existing delayed history continues.
+The output knob retains the original square-root gain mapping and 20 ms slew;
+wet level retains the original depth-dependent normalization. Native capture
+now reproduces the original 55 Hz input highpass, and the unsaturated dry path
+joins the wet path before compression and the 0.94 ceiling. The compressor
+uses the same threshold, knee, ratio, attack, release and 6 ms lookahead, with
+automatic makeup gain. Its envelope curve approximates browser dynamics; the
+browser WaveShaper's optional 2x reconstruction is not reproduced. The
+[Web Audio specification](https://www.w3.org/TR/webaudio/#DynamicsCompressorNode)
+defines the processing contract. This improves routing parity without claiming
+bit-exact overall browser sound.
+
+## Mastering controls
+
+The bottom of the control panel exposes input cleanup, stereo output filters and
+compression. **Original** retains the prior sound: input HPF at 55 Hz, output
+HPF/LPF bypassed, compressor threshold −12 dB, knee 5 dB, ratio 18:1, attack
+3 ms, release 180 ms, automatic makeup on and manual makeup at 0 dB.
+
+Input HPF affects newly recorded audio before the delay tree. Output HPF and LPF
+affect the complete wet/dry mix before compression. Each filter has an **Off**
+stop followed by a logarithmic frequency range. The output filters use 12 dB
+per octave Butterworth sections; input HPF retains the original browser filter
+response. Cutoffs are limited to 45% of the current sample rate. During Audio,
+the readout shows the effective cutoff and the tooltip retains the requested
+frequency if the device rate limits it.
+
+| Mastering preset | Input HPF | Output HPF / LPF | Threshold / ratio | Attack / release | Makeup |
+| --- | ---: | --- | --- | --- | --- |
+| Original | 55 Hz | Off / Off | −12 dB / 18:1 | 3 / 180 ms | Automatic |
+| Transparent | 55 Hz | Off / Off | Compressor off | — | 0 dB |
+| Gentle | 55 Hz | 35 Hz / Off | −18 dB / 2:1 | 20 / 180 ms | +2 dB |
+| Dense | 80 Hz | 80 Hz / 14 kHz | −22 dB / 4:1 | 8 / 240 ms | +4 dB |
+| Warm | 55 Hz | 35 Hz / 6.5 kHz | −16 dB / 2.5:1 | 25 / 260 ms | +2 dB |
+| Airy | 90 Hz | 120 Hz / 18 kHz | −18 dB / 2:1 | 15 / 150 ms | +2 dB |
+| Telephone | 55 Hz | 350 Hz / 3.5 kHz | −22 dB / 4:1 | 5 / 120 ms | +3 dB |
+
+The **Gain reduction** meter reports actual positive compressor attenuation in
+dB before automatic/manual makeup and the output knob. Compressor bypass keeps
+the fixed 6 ms latency and final 0.94 ceiling. Manual makeup acts before that
+ceiling, including with the compressor off. The editable ranges are threshold
+−60–0 dB, ratio 1–20, knee 0–40 dB, attack 0.1–100 ms, release 10–1,500 ms,
+and makeup −12–+12 dB. Input/output HPF support up to 2 kHz and output LPF up to
+20 kHz, subject to the device-rate limit.
+
+Focused mastering presets preserve the current tree, mix, recording, input
+source, voice policy, output level and Audio state. Quick growth presets also
+preserve mastering. Full factory scenes recall Original mastering; saved full
+scenes include the edited mastering settings. Reset all returns mastering to
+Original. Older external snapshots that omit mastering retain the current
+settings. The full-state randomizer includes bounded mastering variation.
+
+Filters and dynamics process shared buses, rather than adding work to every
+voice. Coefficients and compressor curves are prepared on the control thread;
+the callback retains filter state and lookahead storage during smoothed edits.
+The live voice controller measures this processing along with the delay engine.
+
+## How the playable voice budget behaves
+
+The optional voice cap defaults to **No cap**. Automatic adaptation seeks the
+largest requested eligible voice count supported by measured callback work. A
+brief warmed benchmark establishes the initial budget on a separate recorded
+history; live measurements then probe upward and roll back unsuccessful probes.
+Failed probes are retried, so capacity can increase when device conditions
+improve. The controller accounts for transient load and lets outgoing voices
+finish fading before repeatedly reducing the same budget. Severe or worsening
+overload still reduces it immediately. Turning adaptation off requests all
+eligible voices, subject to an explicitly chosen cap.
+
+Voice storage grows on the control thread and is swapped into the engine without
+resetting recording, branch phase or delay-edit crossfades. The callback does not
+allocate or free that storage. Outgoing branches release smoothly, so active
+counts can briefly exceed a reduced target. Available memory limits structural
+allocation; measured audio deadlines limit simultaneous playback. Per-grammar
+ranges reflect memory and exact numeric representation, rather than a fixed
+thirteen-generation cap. Branches beyond 39 seconds of cumulative delay retain
+structure with zero audio gain, leaving grain read-head room within the
+40-second history. A completely inaudible tree does not grow a hidden budget.
+
+Rendering visits active voices instead of scanning every reserved slot. Graphics
+reduce their frame rate and curve detail as audio load rises; the visual
+preview is bounded independently of the audio tree. Beyond thirteen generations,
+a sampled native preview preserves actual branch priorities rather than
+substituting an unrelated smaller tree. Full preset recalls fetch that preview,
+just as live parameter edits do, before the preset menu finishes applying.
+
+Each tap reads shared recorded input at its inherited pitch and cumulative delay;
+audio does not cascade through parent processors. Every admitted preview branch
+retains its quiet generation color, independent of signal and CPU backoff. Its
+colored baseline bends along the original time-varying waveform; only active
+portions receive the bright overlay. The input-envelope history and native audio
+clock drive positions between each parent's and child's nominal delay, so there
+is no separate generation-activation timer. Frozen input records zeros while the
+retained history continues to move through descendants.
+
+The original visualization is deliberately derived from input history and gain,
+rather than a literal waveform of the granular output. Grain read-head age and
+65 ms delay crossfades can differ from the nominal delay used for drawing. Real
+per-tap RMS remains available for the first 2,048 priority ranks, with stable slot
+indices and coherent topology revisions. A bounded fallback uses those meters
+when input history is unavailable. The meter count does not cap the history-based
+animation or simultaneous audio. All callback storage is preallocated; HTTP
+snapshots copy data on the control thread.
+
+A regression renders 2,049 admitted taps and measures the additional output of
+the final unmetered tap. Increasing Pine from 13 to 14 generations requests
+16,382 to 32,766 voices; automatic mode admits the count supported by measured
+device deadlines and retries when conditions improve. Color admission can expand
+by generation even in silence; quiet capacity growth creates no signal waves.
+
+Processing load estimates callback work: control updates, test-tone/input
+preparation, DSP, mixing, adaptive changes and audio activity measurement/publication.
+It excludes the final telemetry stores and parts of device transport.
+`deadlineMisses` counts measured blocks exceeding their sample-time budget; it is
+not a hardware-driver xrun counter. Capture underruns and overruns count empty or
+full microphone FIFO frames separately and do not establish a CPU voice limit.
+Independent input/output clocks are not resampled, so sustained capture can drift.
+A peak attempted voice count is not an established sustainable count.
+
+Run verification with installed JavaScript development dependencies and
+Playwright Chromium:
+
+```sh
+cargo test --manifest-path src/instruments/micmic/rust/Cargo.toml --workspace --release
+cargo build --manifest-path src/instruments/micmic/rust/Cargo.toml -p l-system-delay-app --release
+node scripts/test-l-system-delay-app.mjs
+node scripts/test-l-system-delay-app.mjs --native
+node scripts/test-l-system-delay-visuals.mjs
+```
+
+Browser QA starts an isolated companion and Morphazoid server, visiting the
+canonical instrument route. It inspects actual descendant Canvas coverage after
+all 26 full recalls, including the larger native scenes, and tests named recall
+and growth reload. It covers ranges, all grammars and presets, desktop
+and phone layouts, touch, accessibility, and local intermediate drawing frames
+while an API reply is delayed. The native mode additionally uses real CPAL output
+at zero master level, with the test tone and no microphone capture. It exercises
+capacity growth, live pool expansion beyond the former 16,384-slot guard without
+resetting the clock, edits, stop/restart, departure shutdown and idle timeout.
+Screenshots and JSON telemetry are saved in ignored
+`artifacts/l-system-delay-app/`. Human listening and sustained physical microphone
+checks remain separate from these silent automated checks.
+
+The visual-causality check uses an isolated mocked API and instruments actual
+Canvas strokes. It verifies complete 1,001-segment color coverage (1,000 admitted
+taps plus root) at all three CPU pressure tiers, independent sibling brightness,
+rank continuity, visible measured release, mute darkness, and rejection of stale
+topology packets. Its screenshots and report are in ignored
+`artifacts/l-system-delay-visual-causality/`; it starts no audio device. Core
+fixtures separately prove distinct real delay onsets within one generation and
+an off-probe impulse whose tap meter agrees with measured rendered audio.
+Dense generation-13 fixtures cover all eleven grammars at normal and severe
+pressure. The Canvas checks inspect every admitted colored baseline, including
+unmetered slots, for interior displacement and changes over audio time. A short
+input packet advances through early, middle and late positions of a descendant;
+quiet sections remain unlit. Separate silent-admission and muted-bus cases verify
+that capacity growth creates no signal waves. Representative screenshots and the
+report are generated without microphone capture. Full recalls of Cedar, Quaking
+Aspen and Foxglove use previews compiled by an isolated Rust companion; all
+sixteen original scenes also run with quiet and ordinary input envelopes. These
+mocked fixtures do not establish physical microphone behavior or a device voice
+deadline.
+
+The first October 3 integrated revision passed 61 Rust release tests, strict Clippy,
+formatting, and repository verification (5,452 passed, six skipped). Both
+integrated browser modes passed 45 range checks, three viewports, all grammars
+and presets, touch, automated accessibility, and working controls after browser
+Back. Static-host discovery also remains Audio off and explains the required
+local servers when no native proxy is present.
+
+The subsequent individual-tap display revision passed 66 Rust release tests,
+including distinct sibling onsets, sparse-impulse detection against rendered
+audio, rank remapping, release, coherent publication and actual bus-gain mute.
+Strict Clippy/formatting and repository verification passed (5,456 passed, six
+skipped). The visual check proved complete color coverage under pressure, and
+the integrated native browser check passed controls, layouts and live pool growth.
+
+The October 4 dense-pattern correction passed 67 Rust release tests, strict
+Clippy/formatting, all-eleven-grammar Canvas checks, and repository verification
+(5,458 passed, six skipped), including clean WAX parity. The audio DSP is
+unchanged; the additional Rust regression confirms that an admitted voice beyond
+the display-meter boundary contributes sound. No new human listening pass was
+performed for this rendering change.
+
+The later October 4 parity revision passed 80 Rust release tests, strict Clippy,
+formatting and repository verification (5,465 passed, six skipped), including
+clean WAX parity. Both isolated browser modes verified all 26 growth buttons and
+full scenes; live muted Pine → Ivy → Pine retained the audio clock and device
+policy. All eleven dense grammars passed moving-baseline and active-position
+checks under pressure. A real muted CPAL capture of the built-in tone verified
+native input timestamps and admitted-generation counts. Input filter response
+and settled dynamics were compared against independent Chromium measurements;
+compressor transients and ceiling reconstruction remain approximations. No new
+human microphone listening comparison was performed.
+
+The final October 4 preset-recall correction passed repository verification
+(5,470 passed, six skipped), including clean WAX parity. Actual original/native
+browser comparisons matched all sixteen quick and full scene settings. The
+integrated browser check verified all 26 full-recall Canvas coverages, named
+selection and growth reload. Visual checks passed three authoritative deep
+preset recalls, 32 quiet/ordinary factory cases, and all eleven dense grammars
+under normal and severe pressure. Pine retained moving curves for all 16,382
+admitted taps, including 14,334 beyond the individual meter boundary. Regression
+tests retained input history through topology lag and missing snapshots. These
+frontend corrections leave the Rust DSP unchanged; no new human listening or
+physical microphone comparison was performed.
+
+The October 4 mastering implementation passed 96 Rust workspace release tests,
+strict Clippy, formatting and final repository verification (5,473 passed,
+six skipped), including clean WAX parity. The integrated native browser suite passed 76
+control checks, all 26 full scenes, seven mastering profiles, all three layouts,
+and closed/open-panel accessibility with no browser errors. Its real CPAL test
+used the built-in tone at zero output level, measured 13.17 dB of compressor
+gain reduction, and verified bypass returning to 0 dB. Every live mastering
+edit preserved Audio, topology and sample time; output stayed zero and no input
+device opened. Original mastering and mix were restored before capacity and
+lifecycle checks, which also passed. The low-rate UI fixture verified 20 kHz
+requested LPF displaying its effective 3.6 kHz cutoff on an 8 kHz device.
+Visual tests retained pulse travel, 32 quiet scenes and all eleven dense
+grammars. The pulse fixture now publishes monotonically increasing timestamps
+and predicts position independently from actual packet/frame timing. Human
+microphone listening and timbral comparison remain unperformed.
+
+The earlier 35-second muted CPAL run at 48 kHz calibrated 1,221 voices, attempted
+up to 1,515, and ended at 1,156. It recorded 20 processing deadline misses during
+capacity search; concurrent repository checks used the same computer for part
+of that run. This is functional evidence of adaptation, not a verified
+sustainable 1,515-voice rating. Live storage expansion installed 32,766 slots
+without resetting the audio clock. Automated output stayed muted and did not
+open a microphone; listening quality remains for audition.
+
+## Earlier comparison record
+
+The CPU table and listening results below are the saved October 2, 2026
+core/CLI comparison. In that workload, 1,024 independently shifted Rust voices
+met every sampled deadline and averaged about 4.4 times the JavaScript speed;
+2,048 missed some deadlines. These figures describe that earlier short offline
+test, rather than the current playable app's live ceiling. The persistent pool
+and app were added afterward, so their current source differs from the saved
+source/executable hashes. Re-run the comparison to generate a fresh record for
+the current checkout.
+
+## Why the browser delay loses branches
+
+The catalogue's L-system Delay is `/l-mic.html`, owned by
+`src/instruments/micmic/`. Its audio starts with 48 voices, can reach 256 with
+partial worklet timing, and can probe toward 1,024 only with fresh whole-context
+render-capacity measurements. Without trustworthy telemetry it stays at 48.
+These are allocation and deadline guards, independent of pitch quality.
+
+Pythagorean growth also caps each generation at 128 branches. The default
+thirteen generations produce 1,022 eligible delayed taps before voice pruning,
+rather than the 16,382 descendants of an uncapped binary tree. With default breadth pruning,
+48 voices cover generations one through four and only 18 branches of generation
+five; generations six through thirteen contribute no audio. Merely enlarging
+the DSP pool does not remove this separate topology cap.
+
+Economy mode retains 24 shifted pitch classes plus exact unison. It rounds
+pitches to 0.01 semitone, chooses the strongest classes by gain squared, and
+maps overflow pitches to the nearest retained class. Every branch still owns
+its own delayed read head. The optional Silky modes use 3, 7, 10 or 16
+Signalsmith lanes with 160 ms processing blocks and 30 ms hops. The separate
+`/l-systems.html` suite has different voice limits and is not this baseline.
+
+## What the native version changes
+
+[CPAL](https://docs.rs/cpal/0.16.0/cpal/) handles native input and output;
+the Rust core implements the pitch and delay processing. It ports the current
+economy/fallback algorithm: one shared 40-second float32 raw-input history,
+two overlapping 110 ms sine-squared grains, playback rates from 0.125 to 8,
+equal-power pan, smoothed controls, a 65 ms delay-edit crossfade, and input/output
+`tanh`. Unison uses an ordinary interpolated delay. Stable voice keys preserve
+phase and recorded history through edits.
+
+Native scenes can retain every original pitch instead of merging classes.
+The comparison also exports complete 11- and 13-generation binary trees with
+4,094 and 16,382 voices, explicitly removing the browser's topology caps.
+Each branch reads the raw input at its inherited cumulative pitch and delay;
+it does not process its parent's already shifted audio. These are delay taps,
+not independent duration-stretch processors.
+
+The core renders blocks of at most 128 frames with each voice's state kept
+together. It uses a shared interpolated window table and reuses read positions
+for stereo. Very long delays switch to sample-order processing to protect
+history-ring reads. Rendering, silence and voice retirement allocate and free
+no heap memory. At counts above 1,024, retirement uses a smaller per-voice
+threshold to avoid abruptly dropping a significant summed tail.
+
+More voices do not change the grain quality or pitch/time range. Shifted taps
+need grain headroom and startup history, so a requested one-millisecond delay
+does not become a one-millisecond pitched echo. Some extreme delays near the
+history limit cannot acquire enough history to sound. The
+[Signalsmith spectral engine](https://signalsmith-audio.co.uk/code/stretch/)
+has not been ported in this experiment.
+
+## Historical measured processing cost
+
+Both engines use the same independently shifted stress voices and source.
+The test runs on one performance core of an Intel Core Ultra 9 285HX, pinned to
+CPU 0, with Node 24.14.0 and Rust 1.98.1 release builds. Each repetition primes
+40 seconds of history with voices disabled, warms 128 blocks, and measures
+64 blocks; there are three repetitions. The 128-frame block at 48 kHz has a
+2.667 ms deadline. The benchmark times DSP processing and voice retirement,
+excluding source preparation, graphics, browser worklet scheduling and device I/O.
+
+| Voices | JS p99 ms | Rust p99 ms | Mean speedup | Rust deadline misses |
+| ---: | ---: | ---: | ---: | ---: |
+| 48 | 0.306 | 0.066 | 4.06× | 0/192 |
+| 128 | 1.080 | 0.179 | 4.06× | 0/192 |
+| 256 | 1.710 | 0.379 | 4.22× | 0/192 |
+| 512 | 2.996 | 0.679 | 4.27× | 0/192 |
+| 1,024 | 6.302 | 1.422 | 4.39× | 0/192 |
+| 2,048 | 12.739 | 2.817 | 4.60× | 17/192 |
+| 4,096 | 27.567 | 5.985 | 4.75× | 192/192 |
+| 8,192 | 95.943 | 14.104 | 6.14× | 192/192 |
+| 16,384 | 125.350 | 26.698 | 4.97× | 192/192 |
+
+At the sampled counts, JavaScript stays within the deadline through 256 voices;
+Rust stays within it through 1,024. This is approximately four times the voice
+count under the same measured budget, and about 21 times the browser's
+48-voice safe start. The browser can already allocate 1,024 on sufficiently
+capable systems; the native benefit here is processing headroom and independent
+pitch retention, not proof that every system's existing browser ceiling is 256.
+
+The stress test uses distinct rates, rather than a cheap all-unison workload.
+JavaScript counts above 1,024 bypass only its production guard for comparison;
+they are not available browser settings. These short CPU measurements do not
+certify continuous microphone performance or a universal real-time ceiling.
+The native DSP's mono-history, window and reserved voice/key storage is about
+10.7 to 10.9 MB in these scenes, excluding allocator overhead, source/output
+buffers, temporary control maps and CPAL's ring buffer. Shared history keeps
+this far below one full recording per voice; the browser economy renderer also
+shares raw history.
+
+## Sound comparison
+
+The generated `artifacts/l-system-delay-comparison/listening.html` has raw and
+level-matched JavaScript/Rust players. Matching targets are −18 dBFS RMS with a
+0.9 peak ceiling. The source contains harmonic tones, a chirp and deterministic
+noise transients, followed by silence. Clips isolate the DSP core; the browser's
+input filter, master gain and compressor are excluded.
+
+All seven corresponding scenes match within `1.49e-8` maximum absolute sample
+error, below the `1e-6` acceptance threshold. The stereo edit scene includes
+retiming, pitch/pan changes, replacement, pruning and release. All nine native
+renders are finite, have no samples near unity, and have a silent final
+half-second. This establishes numerical continuity, not a human judgment of
+sound quality.
+
+| Scene | Voices | Distinct rates | Spectral centroid | Energy from 20 to 200 Hz |
+| --- | ---: | ---: | ---: | ---: |
+| Default economy | 48 | 10 | 284 Hz | 40.0% |
+| Default economy | 256 | 16 | 305 Hz | 36.8% |
+| Default economy or independent | 1,022 | 20 | 278 Hz | 54.0% |
+| Midnight Ivy economy | 48 | 24 | 270 Hz | 45.7% |
+| Midnight Ivy independent | 48 | 48 | 271 Hz | 53.9% |
+| Full binary tree, 11 generations | 4,094 | 23 | 267 Hz | 61.2% |
+| Full binary tree, 13 generations | 16,382 | 25 | 264 Hz | 58.1% |
+
+The default has no pitch-class overflow, so its 1,022-voice economy and
+independent renders are equivalent. Midnight Ivy provides the useful pitch
+comparison: economy merges half of its 48 requested classes; native retains
+all 48. The symmetric full binary trees repeat many accumulated pitches and
+delays, so 16,382 voices are only 25 distinct rates. The measurements suggest
+greater branch coverage and changed low-frequency summation, rather than
+uniformly brighter sound. Spectral statistics use a 4,096-frame Hann FFT with
+stereo energies summed; band percentages are relative to 20 Hz through Nyquist.
+They are descriptions of this test source, not quality scores.
+
+For the saved comparison, human listening, speech/formant quality and real
+microphone capture remained unperformed. A silent default-device CPAL playback
+smoke test passed at 48 kHz. Numerical parity does not establish a perceptual
+improvement, and more voices do not change the underlying granular pitch quality.
+
+## Reproduce the CLI comparison
+
+From the repository root, build the native workspace and generate the scenes,
+WAVs, measurements and listening page:
+
+```sh
+cargo build --manifest-path src/instruments/micmic/rust/Cargo.toml -p l-system-delay-cpal --release
+node scripts/compare-l-system-delay.mjs
+```
+
+Linux builds need the ALSA development package and `pkg-config`. The lockfile
+pins the Rust dependencies, including CPAL 0.16. To repeat the recorded Linux
+CPU affinity, run the comparison with `taskset -c 0`. Outputs are ignored build
+artifacts; the saved measurement JSON is the durable record.
+
+Use the executable to list devices, process a recording, or explicitly start
+live microphone capture with a generated scene:
+
+```sh
+src/instruments/micmic/rust/target/release/l-system-delay-cpal --devices
+src/instruments/micmic/rust/target/release/l-system-delay-cpal --scene artifacts/l-system-delay-comparison/default-1022-independent.scene.json --input recording.wav --render /tmp/l-delay-output.wav --seconds 8
+src/instruments/micmic/rust/target/release/l-system-delay-cpal --scene artifacts/l-system-delay-comparison/default-1022-independent.scene.json --live --seconds 30
+```
+
+File input accepts mono/stereo PCM or float32 WAV at the scene's sample rate.
+Offline rendering defaults to level 1; device playback and capture default to
+0.58. Use `--demo` instead of `--input` for the built-in test source. Omitting
+`--render` plays through CPAL. Offline scenes support sample-offset events;
+live capture currently accepts one static scene at time zero. Input and output
+devices must support the scene rate. The bounded live ring reports overflow
+and underflow, but independent device-clock drift is not resampled.
+
+The saved comparison's verification covered 19 native tests, 40 focused
+JavaScript tests, strict Clippy, formatting, numerical render parity and playback
+smoke. The playable app adds coverage for deterministic full-tree compilation,
+parameter validation, adaptive growth/cuts, persistent pool controls, audible
+retiming reversals, control-buffer reclamation, and callback rendering without
+heap allocations or frees. It is a standalone local instrument alongside the
+existing browser `/l-mic.html`; the old CLI scene renderer remains available,
+and neither target is an integrated plugin.
+
+The earlier playable-app checks passed 38 Rust tests, strict Clippy and formatting, six UI model
+tests plus a tracked-file publishing boundary test, and the full repository
+`npm run verify` (5,439 passing JavaScript tests, six skipped, no failures,
+including WAX distribution parity). Automated WCAG A/AA checks found no
+violations on the desktop surface or its Settings dialog.

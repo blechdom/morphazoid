@@ -354,6 +354,12 @@ const CATALOG_DETAILS = Object.freeze({
     "Allow microphone access, start input, then change the grammar or branch timing.",
     ["Mic input"],
   ),
+  "micmic-rust": define(
+    "Native mic processor",
+    "Runs microphone audio through recursive delay branches with independently shifted playback rates. Rust CPAL processes audio on this computer and adapts voices to measured device capacity; the browser controls and displays the instrument.",
+    "Run the local native audio service, enable Audio, then speak or play into the microphone and reshape the tree.",
+    ["Mic input", "Local native audio", "Test tone", "Device-adaptive voices"],
+  ),
   "graph-delay": define(
     "Mic processor",
     "Routes live microphone audio through a generated delay graph with switchable paths, pitch shifts, and feedback.",

@@ -63,6 +63,9 @@ if (missingIds.length || unknownIds.length) {
 }
 
 function summaryFor(instrument, noteMode, midiOutput, audioInput) {
+  if (instrument.id === "micmic-rust") {
+    return "Control the local Rust CPAL instrument; its audio uses the computer's native devices.";
+  }
   if (noteMode === "processor") {
     return audioInput
       ? `Process a DAW track through ${instrument.label}'s live-input signal path.`
@@ -85,6 +88,9 @@ function summaryFor(instrument, noteMode, midiOutput, audioInput) {
 }
 
 function caveatFor(instrument, noteMode, midiOutput) {
+  if (instrument.id === "micmic-rust") {
+    return "Local native service required. CPAL input and output use system devices; this implementation does not connect to WAX audio buses.";
+  }
   if (AUDIO_FX_IDS.has(instrument.id)) {
     return "Preview: confirm DAW track-input capture in your WAX host; the browser mic/file path may still need a page-specific adapter.";
   }
@@ -111,6 +117,17 @@ function caveatFor(instrument, noteMode, midiOutput) {
 
 export const WAX_INSTRUMENT_SUPPORT = Object.freeze(INSTRUMENTS.map((instrument) => {
   const midiCapability = instrumentMidiCapabilityForId(instrument.id);
+  // Native device audio cannot enter or leave the WAX host's audio buses.
+  if (instrument.id === "micmic-rust") {
+    return Object.freeze({
+      id: instrument.id, available: false, recommended: null, roles: Object.freeze([]),
+      audioInput: false, midiInput: false, midiInputMode: midiCapability.midiInputMode,
+      computerKeyboardMode: midiCapability.computerKeyboardMode, midiOutput: false,
+      hostSync: false, noteMode: midiCapability.noteMode,
+      summary: summaryFor(instrument, midiCapability.noteMode, false, false),
+      caveat: caveatFor(instrument, midiCapability.noteMode, false),
+    });
+  }
   const {
     audioInput, midiOutput, noteMode, startsAudio,
   } = midiCapability;

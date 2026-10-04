@@ -49,7 +49,8 @@ test("startup retains original settings with voice caps equal to the previous fi
 
 test("Faves retain implemented batch coverage and explicitly track the newly promoted page-owned banks", async () => {
   // Gesticules, Fractal Synthesis and Puggler retain their dedicated preset and browser coverage.
-  const implemented = new Set([...FAVES_PRESET_CASES.map(p => p.id), "shape-synth", "shapes", "hiccup-head", "creaturazoid", "gesticulating-hand", "fractal-signals", "puggler", "synthesis"]);
+  const implemented = new Set([...FAVES_PRESET_CASES.map(p => p.id), "shape-synth", "shapes", "hiccup-head", "creaturazoid", "gesticulating-hand", "fractal-signals", "puggler", "synthesis", "micmic-rust"]);
+  // Native Delay has twenty-six complete scenes and dedicated model/browser coverage.
   // Synthesaurus has a shared preset adapter with dedicated coverage.
   // SIMD Chiptune still keeps its page-owned preset bank.
   const faveLabs = FAVE_TOOL_IDS.filter(id => catalogueItemById(id)?.entryType === "lab");

@@ -1,0 +1,20 @@
+{
+  "additions": [
+    {
+      "id": "micmic-rust",
+      "categoryId": "audio-effect",
+      "categoryLabel": "Audio Effect",
+      "imageHref": "assets/instruments/micmic.webp",
+      "tags": [
+        {
+          "id": "fractal",
+          "label": "Fractal"
+        },
+        {
+          "id": "recursive",
+          "label": "Recursive"
+        }
+      ]
+    }
+  ]
+}

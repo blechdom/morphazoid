@@ -1,3 +1,4 @@
+import { restoreNativeDelaySite } from './helpers/native-delay-site-reference.mjs';
 import { restoreAudioInput } from "./helpers/audio-input-reference.mjs";
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -8,7 +9,8 @@ import { restoreMorphazoidicalRemoval } from './helpers/morphazoidical-removal-r
 import { restoreSynthesaurusFavesOrder } from './helpers/synthesaurus-faves-order-reference.mjs';
 
 const read = file => restoreMorphazoidicalRemoval(restoreAudioInput(
-  restoreSynthesaurusFavesOrder(readFileSync(new URL(`../${file}`, import.meta.url), 'utf8'), file), file), file);
+  restoreSynthesaurusFavesOrder(restoreNativeDelaySite(
+    readFileSync(new URL(`../${file}`, import.meta.url), 'utf8'), file), file), file), file);
 
 test('Voicesaurus reversal stays scoped and preserves the independent pre-feature reference', () => {
   assert.equal(voicesaurusAmendments.schemaVersion, 1);

@@ -1,0 +1,2040 @@
+{
+  "generatedAt": "2026-10-03T02:23:36.014Z",
+  "environment": {
+    "commit": "f48d59a45eb0e1eadcb240f83600e02df5aa5d4d",
+    "platform": "linux 6.17.0-1032-oem x64",
+    "node": "v24.14.0",
+    "cpu": "Intel(R) Core(TM) Ultra 9 285HX",
+    "logicalCpus": 24,
+    "nativeBinary": "/home/kgalvin/creative/morphazoid-l-system-cpal/src/instruments/micmic/rust/target/release/l-system-delay-cpal",
+    "cpuAffinityAllowedList": "0",
+    "rustCompiler": "rustc 1.98.1 (48a229cea 2026-09-01)",
+    "provenance": {
+      "algorithm": "SHA-256",
+      "sources": {
+        "scripts/compare-l-system-delay.mjs": "a7cbf63f450fc5931d3e1e48152734ab85154d213f25e0e2f5665a3c5f231ba9",
+        "src/instruments/micmic/micmic.js": "7c070e3297f71222c55e97dffdbbe90ada2e12d7cc7a06d2425b92c557a19a56",
+        "src/instruments/l-system/l-system.js": "d06fcd72cd0f5039b469808f99d482b00e431f7b11491dc0ca05141f795ba760",
+        "src/families/branch-presets/full-presets.js": "180bbcc463f103095c9ec576ea3856b534538dc17e5927c314d2e8ec76e01a90",
+        "src/families/branch-presets/initial-state.js": "5480594e206f42492521e35a7b334d703d34c921bfeceb8e0c44a7f1303795b2",
+        "src/families/mic-branch/micmic-generation-dsp.js": "2c8c5211812ad311bf20e25c73a467426727e4119ccd1e42d417c830d3425da7",
+        "src/families/signalsmith-generation/granular-economy-renderer.js": "9b83b2282384c0339eede88049827df4dd8ec1289fc599e9d53bdf71dcb4f405",
+        "src/instruments/micmic/rust/Cargo.toml": "30de1a038c16afc1927b258d3ca4af40e9adf75a7dc5b9f357bed31aec71b5bc",
+        "src/instruments/micmic/rust/Cargo.lock": "1593af9763479818d0943479f8d6f0a6ed741ef3da1b967df52669b7598256c7",
+        "src/instruments/micmic/rust/core/Cargo.toml": "e2c4919e3b43e47aa46a3c5be984c1df6702dec93cc924eee89a0afa0ee2e0ff",
+        "src/instruments/micmic/rust/core/src/lib.rs": "3802c0c00b5f9c544df19f72ab663e17529dd98fcdb22a497d218513d0c39eec",
+        "src/instruments/micmic/rust/cpal/Cargo.toml": "41106db50dc870c9219c4f48100a9f7b8107df294071d58c32e1e5a07b7fdf09",
+        "src/instruments/micmic/rust/cpal/src/main.rs": "2651eccf20c7fb0e5b8891bff87231639dc22c89f15cb6bb593ff54d4cf51773",
+        "src/instruments/micmic/rust/cpal/src/audio.rs": "7b073115cc5b1233d4559c35b4049dca290051f33fbc933b4d05b7120cdf8e9c",
+        "src/instruments/micmic/rust/cpal/src/options.rs": "7ebc3ad66af8e9fd9dfd06cce6085ff71b399d280b61ff244de1ab2da3eadbde",
+        "src/instruments/micmic/rust/cpal/src/wav.rs": "3180f7deb9ba623c1f397da2f4f06d4dcb94e070625a9186a2953029302836c8",
+        "src/instruments/micmic/rust/cpal/src/bench.rs": "53dafbfe4e1089c92d916d401f0c148adbea5e53e7756764ad6db35aabdfe210",
+        "input-mono.wav": "45c37008255fddbbf5c39bfe3876c9bd9c2f66d221afb3af67abee923333f955",
+        "input-stereo.wav": "be4d88a86a3f96372727171158fc2d11bb1c56a643d35b7da461a5437c48b4d2"
+      },
+      "nativeExecutable": "95e5e552ecfb646ab26502a8b3280f8d170e53a1fa5cd435f1a79a59dc548f4a"
+    }
+  },
+  "method": {
+    "sampleRate": 48000,
+    "blockFrames": 128,
+    "historySeconds": 40,
+    "seconds": 4,
+    "rmsMatchingTarget": 0.12589254117941673,
+    "rmsMatchingDbfs": -18,
+    "capture": "DSP core only; offline rendering, not device latency or browser AudioWorklet timing",
+    "benchmark": "Independent shifted voices; 40-second history primed untimed; 128 warmup blocks then 3 × 64 measured blocks",
+    "source": "Deterministic harmonic tones, chirp, seeded-noise transients; input becomes silent at 1.8 s",
+    "nativeMemory": "40-second mono float32 history is 7,680,000 bytes, independent of voice count, plus fixed voice state",
+    "browserMemory": "Granular economy also shares raw history; Silky spectral bank needs one 40-second history per lane plus raw unison (3–16 shifted lanes)"
+  },
+  "scenarios": [
+    {
+      "name": "default-48-economy",
+      "title": "Pythagorean Pine · 48 voices · browser economy mapping",
+      "group": "default",
+      "pitchDetail": {
+        "pitchSourceLimit": 24,
+        "requestedShiftedPitches": 9,
+        "exactShiftedPitches": 9,
+        "mergedShiftedPitches": 0,
+        "requestedPitchClasses": 10,
+        "renderedPitchClasses": 10,
+        "unisonActive": true,
+        "unisonVoices": 8,
+        "exactShiftedVoices": 40,
+        "mergedShiftedVoices": 0
+      },
+      "origin": "Current browser generationVoiceSpecs plus GranularEconomyRenderer",
+      "browserStatus": "Safe browser start/fallback",
+      "sceneFile": "default-48-economy.scene.json",
+      "sceneSha256": "377771340bd76cf79893e0bc15039d84631cb299727d10c75a74044ce76b8742",
+      "voiceCount": 48,
+      "pitchCount": 10,
+      "javascript": {
+        "file": "default-48-economy.javascript.wav",
+        "metrics": {
+          "peak": 0.19737330079078674,
+          "rms": 0.03222449164010756,
+          "clippedSamples": 0,
+          "tailRms": 0,
+          "tailSeconds": 0.5,
+          "onsetFrame": 13574,
+          "stereoCorrelation": 0.9424020918384808,
+          "spectral": {
+            "centroidHz": 284.22662986226715,
+            "bandEnergyFractions": {
+              "hz20to200": 0.4003540576648359,
+              "hz200to1000": 0.5947584164783267,
+              "hz1000to8000": 0.002158098001665464
+            },
+            "fftFrames": 4096,
+            "nominalHopFrames": 2048,
+            "analyzedWindows": 92,
+            "weighting": "Energy centroid; left/right spectral energy summed; fractions relative to 20 Hz–Nyquist"
+          }
+        },
+        "matchedFile": "default-48-economy.javascript.matched.wav",
+        "matching": {
+          "gain": 3.9067347465220252,
+          "targetRms": 0.12589254117941673,
+          "metrics": {
+            "peak": 0.7710851430892944,
+            "rms": 0.12589254120014748,
+            "clippedSamples": 0,
+            "tailRms": 0,
+            "tailSeconds": 0.5,
+            "onsetFrame": 13574,
+            "stereoCorrelation": 0.9424020918216425,
+            "spectral": {
+              "centroidHz": 284.2266299006828,
+              "bandEnergyFractions": {
+                "hz20to200": 0.4003540575738977,
+                "hz200to1000": 0.5947584165702261,
+                "hz1000to8000": 0.0021580980017910267
+              },
+              "fftFrames": 4096,
+              "nominalHopFrames": 2048,
+              "analyzedWindows": 92,
+              "weighting": "Energy centroid; left/right spectral energy summed; fractions relative to 20 Hz–Nyquist"
+            }
+          }
+        }
+      },
+      "rust": {
+        "file": "default-48-economy.rust.wav",
+        "metrics": {
+          "peak": 0.19737330079078674,
+          "rms": 0.03222449163613837,
+          "clippedSamples": 0,
+          "tailRms": 0,
+          "tailSeconds": 0.5,
+          "onsetFrame": 13574,
+          "stereoCorrelation": 0.9424020918446259,
+          "spectral": {
+            "centroidHz": 284.22662985917026,
+            "bandEnergyFractions": {
+              "hz20to200": 0.4003540576312787,
+              "hz200to1000": 0.59475841651129,
+              "hz1000to8000": 0.0021580980024799223
+            },
+            "fftFrames": 4096,
+            "nominalHopFrames": 2048,
+            "analyzedWindows": 92,
+            "weighting": "Energy centroid; left/right spectral energy summed; fractions relative to 20 Hz–Nyquist"
+          }
+        },
+        "matchedFile": "default-48-economy.rust.matched.wav",
+        "matching": {
+          "gain": 3.9067347470032296,
+          "targetRms": 0.12589254117941673,
+          "metrics": {
+            "peak": 0.7710851430892944,
+            "rms": 0.12589254120001966,
+            "clippedSamples": 0,
+            "tailRms": 0,
+            "tailSeconds": 0.5,
+            "onsetFrame": 13574,
+            "stereoCorrelation": 0.942402091825895,
+            "spectral": {
+              "centroidHz": 284.2266299082112,
+              "bandEnergyFractions": {
+                "hz20to200": 0.40035405754184705,
+                "hz200to1000": 0.5947584165999973,
+                "hz1000to8000": 0.0021580980042063777
+              },
+              "fftFrames": 4096,
+              "nominalHopFrames": 2048,
+              "analyzedWindows": 92,
+              "weighting": "Energy centroid; left/right spectral energy summed; fractions relative to 20 Hz–Nyquist"
+            }
+          }
+        }
+      },
+      "difference": {
+        "maxAbs": 1.4901161193847656e-8,
+        "rms": 1.4793159649349522e-10,
+        "signalToErrorDb": 166.76250261211914,
+        "exactlyEqual": false
+      },
+      "parity": {
+        "passed": true,
+        "maxAbsThreshold": 0.000001
+      }
+    },
+    {
+      "name": "default-256-economy",
+      "title": "Pythagorean Pine · 256 voices · browser economy mapping",
+      "group": "default",
+      "pitchDetail": {
+        "pitchSourceLimit": 24,
+        "requestedShiftedPitches": 15,
+        "exactShiftedPitches": 15,
+        "mergedShiftedPitches": 0,
+        "requestedPitchClasses": 16,
+        "renderedPitchClasses": 16,
+        "unisonActive": true,
+        "unisonVoices": 28,
+        "exactShiftedVoices": 228,
+        "mergedShiftedVoices": 0
+      },
+      "origin": "Current browser generationVoiceSpecs plus GranularEconomyRenderer",
+      "browserStatus": "Maximum with partial worklet timing",
+      "sceneFile": "default-256-economy.scene.json",
+      "sceneSha256": "e95cf49a7a682fd92be6eaed9c39ebfc8b24a634a7eaa0d342dc470d73f87f3e",
+      "voiceCount": 256,
+      "pitchCount": 16,
+      "javascript": {
+        "file": "default-256-economy.javascript.wav",
+        "metrics": {
+          "peak": 0.1758275330066681,
+          "rms": 0.03324214760985556,
+          "clippedSamples": 0,
+          "tailRms": 0,
+          "tailSeconds": 0.5,
+          "onsetFrame": 13574,
+          "stereoCorrelation": 0.9425927113327801,
+          "spectral": {
+            "centroidHz": 304.89356920049335,
+            "bandEnergyFractions": {
+              "hz20to200": 0.36763344140585963,
+              "hz200to1000": 0.6261537014965776,
+              "hz1000to8000": 0.002606057826225848
+            },
+            "fftFrames": 4096,
+            "nominalHopFrames": 2048,
+            "analyzedWindows": 92,
+            "weighting": "Energy centroid; left/right spectral energy summed; fractions relative to 20 Hz–Nyquist"
+          }
+        },
+        "matchedFile": "default-256-economy.javascript.matched.wav",
+        "matching": {
+          "gain": 3.787136218061085,
+          "targetRms": 0.12589254117941673,
+          "metrics": {
+            "peak": 0.6658828258514404,
+            "rms": 0.12589254117999257,
+            "clippedSamples": 0,
+            "tailRms": 0,
+            "tailSeconds": 0.5,
+            "onsetFrame": 13574,
+            "stereoCorrelation": 0.9425927113285808,
+            "spectral": {
+              "centroidHz": 304.8935690885077,
+              "bandEnergyFractions": {
+                "hz20to200": 0.3676334414450785,
+                "hz200to1000": 0.6261537014641928,
+                "hz1000to8000": 0.002606057825977771
+              },
+              "fftFrames": 4096,
+              "nominalHopFrames": 2048,
+              "analyzedWindows": 92,
+              "weighting": "Energy centroid; left/right spectral energy summed; fractions relative to 20 Hz–Nyquist"
+            }
+          }
+        }
+      },
+      "rust": {
+        "file": "default-256-economy.rust.wav",
+        "metrics": {
+          "peak": 0.1758275330066681,
+          "rms": 0.03324214760412022,
+          "clippedSamples": 0,
+          "tailRms": 0,
+          "tailSeconds": 0.5,
+          "onsetFrame": 13574,
+          "stereoCorrelation": 0.9425927113520679,
+          "spectral": {
+            "centroidHz": 304.89356925454206,
+            "bandEnergyFractions": {
+              "hz20to200": 0.36763344134338366,
+              "hz200to1000": 0.6261537015561788,
+              "hz1000to8000": 0.002606057826606908
+            },
+            "fftFrames": 4096,
+            "nominalHopFrames": 2048,
+            "analyzedWindows": 92,
+            "weighting": "Energy centroid; left/right spectral energy summed; fractions relative to 20 Hz–Nyquist"
+          }
+        },
+        "matchedFile": "default-256-economy.rust.matched.wav",
+        "matching": {
+          "gain": 3.787136218714488,
+          "targetRms": 0.12589254117941673,
+          "metrics": {
+            "peak": 0.6658828258514404,
+            "rms": 0.12589254118012866,
+            "clippedSamples": 0,
+            "tailRms": 0,
+            "tailSeconds": 0.5,
+            "onsetFrame": 13574,
+            "stereoCorrelation": 0.9425927113507367,
+            "spectral": {
+              "centroidHz": 304.8935691733354,
+              "bandEnergyFractions": {
+                "hz20to200": 0.36763344139081444,
+                "hz200to1000": 0.6261537015124905,
+                "hz1000to8000": 0.002606057827610134
+              },
+              "fftFrames": 4096,
+              "nominalHopFrames": 2048,
+              "analyzedWindows": 92,
+              "weighting": "Energy centroid; left/right spectral energy summed; fractions relative to 20 Hz–Nyquist"
+            }
+          }
+        }
+      },
+      "difference": {
+        "maxAbs": 1.4901161193847656e-8,
+        "rms": 1.6765318536802874e-10,
+        "signalToErrorDb": 165.94554528594034,
+        "exactlyEqual": false
+      },
+      "parity": {
+        "passed": true,
+        "maxAbsThreshold": 0.000001
+      }
+    },
+    {
+      "name": "default-1022-economy",
+      "title": "Pythagorean Pine · 1022 voices · browser economy mapping",
+      "group": "default",
+      "pitchDetail": {
+        "pitchSourceLimit": 24,
+        "requestedShiftedPitches": 19,
+        "exactShiftedPitches": 19,
+        "mergedShiftedPitches": 0,
+        "requestedPitchClasses": 20,
+        "renderedPitchClasses": 20,
+        "unisonActive": true,
+        "unisonVoices": 91,
+        "exactShiftedVoices": 931,
+        "mergedShiftedVoices": 0
+      },
+      "origin": "Current browser generationVoiceSpecs plus GranularEconomyRenderer",
+      "browserStatus": "All available taps; whole-context calibration required",
+      "sceneFile": "default-1022-economy.scene.json",
+      "sceneSha256": "525eca0f15efffa011d2b3338413ac2999654eb78ab84d12aca9137efe7c3cc7",
+      "voiceCount": 1022,
+      "pitchCount": 20,
+      "javascript": {
+        "file": "default-1022-economy.javascript.wav",
+        "metrics": {
+          "peak": 0.20515283942222595,
+          "rms": 0.037295501852370655,
+          "clippedSamples": 0,
+          "tailRms": 0,
+          "tailSeconds": 0.5,
+          "onsetFrame": 13574,
+          "stereoCorrelation": 0.9517849377802722,
+          "spectral": {
+            "centroidHz": 278.0123247264697,
+            "bandEnergyFractions": {
+              "hz20to200": 0.539715861074034,
+              "hz200to1000": 0.454933205364382,
+              "hz1000to8000": 0.0022879594952103788
+            },
+            "fftFrames": 4096,
+            "nominalHopFrames": 2048,
+            "analyzedWindows": 92,
+            "weighting": "Energy centroid; left/right spectral energy summed; fractions relative to 20 Hz–Nyquist"
+          }
+        },
+        "matchedFile": "default-1022-economy.javascript.matched.wav",
+        "matching": {
+          "gain": 3.3755422216262385,
+          "targetRms": 0.12589254117941673,
+          "metrics": {
+            "peak": 0.6925020813941956,
+            "rms": 0.12589254117496612,
+            "clippedSamples": 0,
+            "tailRms": 0,
+            "tailSeconds": 0.5,
+            "onsetFrame": 13574,
+            "stereoCorrelation": 0.9517849377562809,
+            "spectral": {
+              "centroidHz": 278.012324771177,
+              "bandEnergyFractions": {
+                "hz20to200": 0.5397158610907368,
+                "hz200to1000": 0.45493320535034015,
+                "hz1000to8000": 0.0022879594869143613
+              },
+              "fftFrames": 4096,
+              "nominalHopFrames": 2048,
+              "analyzedWindows": 92,
+              "weighting": "Energy centroid; left/right spectral energy summed; fractions relative to 20 Hz–Nyquist"
+            }
+          }
+        }
+      },
+      "rust": {
+        "file": "default-1022-economy.rust.wav",
+        "metrics": {
+          "peak": 0.20515283942222595,
+          "rms": 0.03729550184773941,
+          "clippedSamples": 0,
+          "tailRms": 0,
+          "tailSeconds": 0.5,
+          "onsetFrame": 13574,
+          "stereoCorrelation": 0.9517849377900631,
+          "spectral": {
+            "centroidHz": 278.0123247410468,
+            "bandEnergyFractions": {
+              "hz20to200": 0.5397158610630601,
+              "hz200to1000": 0.454933205373866,
+              "hz1000to8000": 0.0022879594951419288
+            },
+            "fftFrames": 4096,
+            "nominalHopFrames": 2048,
+            "analyzedWindows": 92,
+            "weighting": "Energy centroid; left/right spectral energy summed; fractions relative to 20 Hz–Nyquist"
+          }
+        },
+        "matchedFile": "default-1022-economy.rust.matched.wav",
+        "matching": {
+          "gain": 3.375542222045403,
+          "targetRms": 0.12589254117941673,
+          "metrics": {
+            "peak": 0.6925020813941956,
+            "rms": 0.12589254117543247,
+            "clippedSamples": 0,
+            "tailRms": 0,
+            "tailSeconds": 0.5,
+            "onsetFrame": 13574,
+            "stereoCorrelation": 0.9517849377612102,
+            "spectral": {
+              "centroidHz": 278.0123247835035,
+              "bandEnergyFractions": {
+                "hz20to200": 0.5397158610686151,
+                "hz200to1000": 0.45493320536987963,
+                "hz1000to8000": 0.0022879594881342366
+              },
+              "fftFrames": 4096,
+              "nominalHopFrames": 2048,
+              "analyzedWindows": 92,
+              "weighting": "Energy centroid; left/right spectral energy summed; fractions relative to 20 Hz–Nyquist"
+            }
+          }
+        }
+      },
+      "difference": {
+        "maxAbs": 1.4901161193847656e-8,
+        "rms": 1.6958821190907802e-10,
+        "signalToErrorDb": 166.8452158863559,
+        "exactlyEqual": false
+      },
+      "parity": {
+        "passed": true,
+        "maxAbsThreshold": 0.000001
+      }
+    },
+    {
+      "name": "default-1022-independent",
+      "title": "Pythagorean Pine · 1022 voices · independent pitch",
+      "group": "default",
+      "origin": "Current browser topology, original unmerged voice rates",
+      "sceneFile": "default-1022-independent.scene.json",
+      "sceneSha256": "525eca0f15efffa011d2b3338413ac2999654eb78ab84d12aca9137efe7c3cc7",
+      "voiceCount": 1022,
+      "pitchCount": 20,
+      "javascript": {
+        "file": "default-1022-independent.javascript.wav",
+        "metrics": {
+          "peak": 0.20515283942222595,
+          "rms": 0.037295501852370655,
+          "clippedSamples": 0,
+          "tailRms": 0,
+          "tailSeconds": 0.5,
+          "onsetFrame": 13574,
+          "stereoCorrelation": 0.9517849377802722,
+          "spectral": {
+            "centroidHz": 278.0123247264697,
+            "bandEnergyFractions": {
+              "hz20to200": 0.539715861074034,
+              "hz200to1000": 0.454933205364382,
+              "hz1000to8000": 0.0022879594952103788
+            },
+            "fftFrames": 4096,
+            "nominalHopFrames": 2048,
+            "analyzedWindows": 92,
+            "weighting": "Energy centroid; left/right spectral energy summed; fractions relative to 20 Hz–Nyquist"
+          }
+        },
+        "matchedFile": "default-1022-independent.javascript.matched.wav",
+        "matching": {
+          "gain": 3.3755422216262385,
+          "targetRms": 0.12589254117941673,
+          "metrics": {
+            "peak": 0.6925020813941956,
+            "rms": 0.12589254117496612,
+            "clippedSamples": 0,
+            "tailRms": 0,
+            "tailSeconds": 0.5,
+            "onsetFrame": 13574,
+            "stereoCorrelation": 0.9517849377562809,
+            "spectral": {
+              "centroidHz": 278.012324771177,
+              "bandEnergyFractions": {
+                "hz20to200": 0.5397158610907368,
+                "hz200to1000": 0.45493320535034015,
+                "hz1000to8000": 0.0022879594869143613
+              },
+              "fftFrames": 4096,
+              "nominalHopFrames": 2048,
+              "analyzedWindows": 92,
+              "weighting": "Energy centroid; left/right spectral energy summed; fractions relative to 20 Hz–Nyquist"
+            }
+          }
+        }
+      },
+      "rust": {
+        "file": "default-1022-independent.rust.wav",
+        "metrics": {
+          "peak": 0.20515283942222595,
+          "rms": 0.03729550184773941,
+          "clippedSamples": 0,
+          "tailRms": 0,
+          "tailSeconds": 0.5,
+          "onsetFrame": 13574,
+          "stereoCorrelation": 0.9517849377900631,
+          "spectral": {
+            "centroidHz": 278.0123247410468,
+            "bandEnergyFractions": {
+              "hz20to200": 0.5397158610630601,
+              "hz200to1000": 0.454933205373866,
+              "hz1000to8000": 0.0022879594951419288
+            },
+            "fftFrames": 4096,
+            "nominalHopFrames": 2048,
+            "analyzedWindows": 92,
+            "weighting": "Energy centroid; left/right spectral energy summed; fractions relative to 20 Hz–Nyquist"
+          }
+        },
+        "matchedFile": "default-1022-independent.rust.matched.wav",
+        "matching": {
+          "gain": 3.375542222045403,
+          "targetRms": 0.12589254117941673,
+          "metrics": {
+            "peak": 0.6925020813941956,
+            "rms": 0.12589254117543247,
+            "clippedSamples": 0,
+            "tailRms": 0,
+            "tailSeconds": 0.5,
+            "onsetFrame": 13574,
+            "stereoCorrelation": 0.9517849377612102,
+            "spectral": {
+              "centroidHz": 278.0123247835035,
+              "bandEnergyFractions": {
+                "hz20to200": 0.5397158610686151,
+                "hz200to1000": 0.45493320536987963,
+                "hz1000to8000": 0.0022879594881342366
+              },
+              "fftFrames": 4096,
+              "nominalHopFrames": 2048,
+              "analyzedWindows": 92,
+              "weighting": "Energy centroid; left/right spectral energy summed; fractions relative to 20 Hz–Nyquist"
+            }
+          }
+        }
+      },
+      "difference": {
+        "maxAbs": 1.4901161193847656e-8,
+        "rms": 1.6958821190907802e-10,
+        "signalToErrorDb": 166.8452158863559,
+        "exactlyEqual": false
+      },
+      "parity": {
+        "passed": true,
+        "maxAbsThreshold": 0.000001
+      }
+    },
+    {
+      "name": "midnight-ivy-48-economy",
+      "title": "Midnight Ivy · 48 voices · 24 shifted pitch classes",
+      "group": "mutation",
+      "pitchDetail": {
+        "pitchSourceLimit": 24,
+        "requestedShiftedPitches": 48,
+        "exactShiftedPitches": 24,
+        "mergedShiftedPitches": 24,
+        "requestedPitchClasses": 48,
+        "renderedPitchClasses": 24,
+        "unisonActive": false,
+        "unisonVoices": 0,
+        "exactShiftedVoices": 24,
+        "mergedShiftedVoices": 24
+      },
+      "origin": "Actual complete preset Midnight Ivy · Pythagorean tree; current browser economy mapping",
+      "sceneFile": "midnight-ivy-48-economy.scene.json",
+      "sceneSha256": "8a9291efef306ae98ab8ea43842ebece4049a5abdb3b6a22a4e8b10b0e89cb0e",
+      "voiceCount": 48,
+      "pitchCount": 24,
+      "javascript": {
+        "file": "midnight-ivy-48-economy.javascript.wav",
+        "metrics": {
+          "peak": 0.19738614559173584,
+          "rms": 0.03764337096287109,
+          "clippedSamples": 0,
+          "tailRms": 0,
+          "tailSeconds": 0.5,
+          "onsetFrame": 11879,
+          "stereoCorrelation": 0.9993077214797395,
+          "spectral": {
+            "centroidHz": 270.00914967780335,
+            "bandEnergyFractions": {
+              "hz20to200": 0.45706117810598706,
+              "hz200to1000": 0.5394475873206651,
+              "hz1000to8000": 0.001432967455139079
+            },
+            "fftFrames": 4096,
+            "nominalHopFrames": 2048,
+            "analyzedWindows": 92,
+            "weighting": "Energy centroid; left/right spectral energy summed; fractions relative to 20 Hz–Nyquist"
+          }
+        },
+        "matchedFile": "midnight-ivy-48-economy.javascript.matched.wav",
+        "matching": {
+          "gain": 3.344348233413759,
+          "targetRms": 0.12589254117941673,
+          "metrics": {
+            "peak": 0.6601279973983765,
+            "rms": 0.12589254116659707,
+            "clippedSamples": 0,
+            "tailRms": 0,
+            "tailSeconds": 0.5,
+            "onsetFrame": 11879,
+            "stereoCorrelation": 0.9993077214745205,
+            "spectral": {
+              "centroidHz": 270.00914971585723,
+              "bandEnergyFractions": {
+                "hz20to200": 0.4570611780696962,
+                "hz200to1000": 0.5394475873581115,
+                "hz1000to8000": 0.0014329674508744325
+              },
+              "fftFrames": 4096,
+              "nominalHopFrames": 2048,
+              "analyzedWindows": 92,
+              "weighting": "Energy centroid; left/right spectral energy summed; fractions relative to 20 Hz–Nyquist"
+            }
+          }
+        }
+      },
+      "rust": {
+        "file": "midnight-ivy-48-economy.rust.wav",
+        "metrics": {
+          "peak": 0.19738614559173584,
+          "rms": 0.03764337095290344,
+          "clippedSamples": 0,
+          "tailRms": 0,
+          "tailSeconds": 0.5,
+          "onsetFrame": 11879,
+          "stereoCorrelation": 0.9993077214806889,
+          "spectral": {
+            "centroidHz": 270.00914969616025,
+            "bandEnergyFractions": {
+              "hz20to200": 0.45706117803428836,
+              "hz200to1000": 0.5394475873915092,
+              "hz1000to8000": 0.001432967454718728
+            },
+            "fftFrames": 4096,
+            "nominalHopFrames": 2048,
+            "analyzedWindows": 92,
+            "weighting": "Energy centroid; left/right spectral energy summed; fractions relative to 20 Hz–Nyquist"
+          }
+        },
+        "matchedFile": "midnight-ivy-48-economy.rust.matched.wav",
+        "matching": {
+          "gain": 3.3443482342993147,
+          "targetRms": 0.12589254117941673,
+          "metrics": {
+            "peak": 0.6601279973983765,
+            "rms": 0.1258925411646962,
+            "clippedSamples": 0,
+            "tailRms": 0,
+            "tailSeconds": 0.5,
+            "onsetFrame": 11879,
+            "stereoCorrelation": 0.9993077214762509,
+            "spectral": {
+              "centroidHz": 270.00914974899786,
+              "bandEnergyFractions": {
+                "hz20to200": 0.4570611780179133,
+                "hz200to1000": 0.5394475874077435,
+                "hz1000to8000": 0.0014329674504246516
+              },
+              "fftFrames": 4096,
+              "nominalHopFrames": 2048,
+              "analyzedWindows": 92,
+              "weighting": "Energy centroid; left/right spectral energy summed; fractions relative to 20 Hz–Nyquist"
+            }
+          }
+        }
+      },
+      "difference": {
+        "maxAbs": 1.4901161193847656e-8,
+        "rms": 2.0774864686381896e-10,
+        "signalToErrorDb": 165.1630060759071,
+        "exactlyEqual": false
+      },
+      "parity": {
+        "passed": true,
+        "maxAbsThreshold": 0.000001
+      }
+    },
+    {
+      "name": "midnight-ivy-48-independent",
+      "title": "Midnight Ivy · 48 voices · independent pitch",
+      "group": "mutation",
+      "origin": "Actual complete preset Midnight Ivy · Pythagorean tree; original unmerged voice rates",
+      "sceneFile": "midnight-ivy-48-independent.scene.json",
+      "sceneSha256": "7e4fb314c04325b6130cd074888b3d2c45496e71933855ba688943ce607a5230",
+      "voiceCount": 48,
+      "pitchCount": 48,
+      "javascript": {
+        "file": "midnight-ivy-48-independent.javascript.wav",
+        "metrics": {
+          "peak": 0.19948290288448334,
+          "rms": 0.036125020886871334,
+          "clippedSamples": 0,
+          "tailRms": 0,
+          "tailSeconds": 0.5,
+          "onsetFrame": 11879,
+          "stereoCorrelation": 0.999525663446379,
+          "spectral": {
+            "centroidHz": 270.82607824460166,
+            "bandEnergyFractions": {
+              "hz20to200": 0.5389074491007375,
+              "hz200to1000": 0.4573053236840555,
+              "hz1000to8000": 0.0015566826040384247
+            },
+            "fftFrames": 4096,
+            "nominalHopFrames": 2048,
+            "analyzedWindows": 92,
+            "weighting": "Energy centroid; left/right spectral energy summed; fractions relative to 20 Hz–Nyquist"
+          }
+        },
+        "matchedFile": "midnight-ivy-48-independent.javascript.matched.wav",
+        "matching": {
+          "gain": 3.4849126198060962,
+          "targetRms": 0.12589254117941673,
+          "metrics": {
+            "peak": 0.6951804757118225,
+            "rms": 0.12589254117737816,
+            "clippedSamples": 0,
+            "tailRms": 0,
+            "tailSeconds": 0.5,
+            "onsetFrame": 11879,
+            "stereoCorrelation": 0.9995256634521668,
+            "spectral": {
+              "centroidHz": 270.8260781977581,
+              "bandEnergyFractions": {
+                "hz20to200": 0.5389074491491008,
+                "hz200to1000": 0.4573053236373501,
+                "hz1000to8000": 0.0015566826077907717
+              },
+              "fftFrames": 4096,
+              "nominalHopFrames": 2048,
+              "analyzedWindows": 92,
+              "weighting": "Energy centroid; left/right spectral energy summed; fractions relative to 20 Hz–Nyquist"
+            }
+          }
+        }
+      },
+      "rust": {
+        "file": "midnight-ivy-48-independent.rust.wav",
+        "metrics": {
+          "peak": 0.19948290288448334,
+          "rms": 0.036125020876388275,
+          "clippedSamples": 0,
+          "tailRms": 0,
+          "tailSeconds": 0.5,
+          "onsetFrame": 11879,
+          "stereoCorrelation": 0.9995256634461168,
+          "spectral": {
+            "centroidHz": 270.82607826274165,
+            "bandEnergyFractions": {
+              "hz20to200": 0.5389074490500929,
+              "hz200to1000": 0.45730532373341815,
+              "hz1000to8000": 0.001556682604768028
+            },
+            "fftFrames": 4096,
+            "nominalHopFrames": 2048,
+            "analyzedWindows": 92,
+            "weighting": "Energy centroid; left/right spectral energy summed; fractions relative to 20 Hz–Nyquist"
+          }
+        },
+        "matchedFile": "midnight-ivy-48-independent.rust.matched.wav",
+        "matching": {
+          "gain": 3.484912620817377,
+          "targetRms": 0.12589254117941673,
+          "metrics": {
+            "peak": 0.6951804757118225,
+            "rms": 0.12589254117491286,
+            "clippedSamples": 0,
+            "tailRms": 0,
+            "tailSeconds": 0.5,
+            "onsetFrame": 11879,
+            "stereoCorrelation": 0.9995256634533922,
+            "spectral": {
+              "centroidHz": 270.8260782329309,
+              "bandEnergyFractions": {
+                "hz20to200": 0.5389074490995026,
+                "hz200to1000": 0.4573053236844824,
+                "hz1000to8000": 0.0015566826084509253
+              },
+              "fftFrames": 4096,
+              "nominalHopFrames": 2048,
+              "analyzedWindows": 92,
+              "weighting": "Energy centroid; left/right spectral energy summed; fractions relative to 20 Hz–Nyquist"
+            }
+          }
+        }
+      },
+      "difference": {
+        "maxAbs": 1.4901161193847656e-8,
+        "rms": 2.0567265901998485e-10,
+        "signalToErrorDb": 164.89263088057868,
+        "exactlyEqual": false
+      },
+      "parity": {
+        "passed": true,
+        "maxAbsThreshold": 0.000001
+      }
+    },
+    {
+      "name": "expanded-4094-independent",
+      "title": "Native extension · 4094 voices · full binary 11-generation tree",
+      "group": "extension",
+      "nativeOnly": true,
+      "origin": "Explicit native extension: no 128-branches/stage or 1024-total topology caps; same inheritance equations",
+      "sceneFile": "expanded-4094-independent.scene.json",
+      "sceneSha256": "e49f42d4d56fd907d455a4ddab0a8722f023e30ff51a816fde9bc88cbc63cd81",
+      "voiceCount": 4094,
+      "pitchCount": 23,
+      "rust": {
+        "file": "expanded-4094-independent.rust.wav",
+        "metrics": {
+          "peak": 0.22613507509231567,
+          "rms": 0.0426066140057665,
+          "clippedSamples": 0,
+          "tailRms": 0,
+          "tailSeconds": 0.5,
+          "onsetFrame": 13574,
+          "stereoCorrelation": 0.9645707685186666,
+          "spectral": {
+            "centroidHz": 267.0484996619509,
+            "bandEnergyFractions": {
+              "hz20to200": 0.6124473326765776,
+              "hz200to1000": 0.38236481895240726,
+              "hz1000to8000": 0.0022849359029377615
+            },
+            "fftFrames": 4096,
+            "nominalHopFrames": 2048,
+            "analyzedWindows": 92,
+            "weighting": "Energy centroid; left/right spectral energy summed; fractions relative to 20 Hz–Nyquist"
+          }
+        },
+        "matchedFile": "expanded-4094-independent.rust.matched.wav",
+        "matching": {
+          "gain": 2.9547652193712945,
+          "targetRms": 0.12589254117941673,
+          "metrics": {
+            "peak": 0.6681760549545288,
+            "rms": 0.12589254117769513,
+            "clippedSamples": 0,
+            "tailRms": 0,
+            "tailSeconds": 0.5,
+            "onsetFrame": 13574,
+            "stereoCorrelation": 0.9645707685261606,
+            "spectral": {
+              "centroidHz": 267.0484997660263,
+              "bandEnergyFractions": {
+                "hz20to200": 0.6124473325936751,
+                "hz200to1000": 0.3823648190334675,
+                "hz1000to8000": 0.0022849358965457535
+              },
+              "fftFrames": 4096,
+              "nominalHopFrames": 2048,
+              "analyzedWindows": 92,
+              "weighting": "Energy centroid; left/right spectral energy summed; fractions relative to 20 Hz–Nyquist"
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "expanded-16382-independent",
+      "title": "Native extension · 16382 voices · full binary 13-generation tree",
+      "group": "extension",
+      "nativeOnly": true,
+      "origin": "Explicit native extension: no 128-branches/stage or 1024-total topology caps; same inheritance equations",
+      "sceneFile": "expanded-16382-independent.scene.json",
+      "sceneSha256": "3ccfaf7c0774099e917b97de9ea89d51b78d6ad59f7188c8e5ebdcc6632795a5",
+      "voiceCount": 16382,
+      "pitchCount": 25,
+      "rust": {
+        "file": "expanded-16382-independent.rust.wav",
+        "metrics": {
+          "peak": 0.28325355052948,
+          "rms": 0.049985166300604365,
+          "clippedSamples": 0,
+          "tailRms": 0,
+          "tailSeconds": 0.5,
+          "onsetFrame": 13574,
+          "stereoCorrelation": 0.975386939471895,
+          "spectral": {
+            "centroidHz": 264.31362089372186,
+            "bandEnergyFractions": {
+              "hz20to200": 0.5814968278491323,
+              "hz200to1000": 0.41378592265590347,
+              "hz1000to8000": 0.0019665533333877985
+            },
+            "fftFrames": 4096,
+            "nominalHopFrames": 2048,
+            "analyzedWindows": 92,
+            "weighting": "Energy centroid; left/right spectral energy summed; fractions relative to 20 Hz–Nyquist"
+          }
+        },
+        "matchedFile": "expanded-16382-independent.rust.matched.wav",
+        "matching": {
+          "gain": 2.5185980261086893,
+          "targetRms": 0.12589254117941673,
+          "metrics": {
+            "peak": 0.7134018540382385,
+            "rms": 0.12589254117736703,
+            "clippedSamples": 0,
+            "tailRms": 0,
+            "tailSeconds": 0.5,
+            "onsetFrame": 13574,
+            "stereoCorrelation": 0.9753869394797474,
+            "spectral": {
+              "centroidHz": 264.31362089461743,
+              "bandEnergyFractions": {
+                "hz20to200": 0.5814968278447527,
+                "hz200to1000": 0.41378592265660785,
+                "hz1000to8000": 0.001966553336741425
+              },
+              "fftFrames": 4096,
+              "nominalHopFrames": 2048,
+              "analyzedWindows": 92,
+              "weighting": "Energy centroid; left/right spectral energy summed; fractions relative to 20 Hz–Nyquist"
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "transition-stereo",
+      "title": "Stereo live edits · retime, pitch, pan, shrink, release",
+      "group": "parity",
+      "origin": "DSP lifecycle fixture, no outer browser gain/filter/compressor graph",
+      "sceneFile": "transition-stereo.scene.json",
+      "sceneSha256": "322cbdeaac37aecd6ea674987d621d4d1b5721deeae264414f236010d13d6e14",
+      "voiceCount": 2,
+      "pitchCount": 2,
+      "javascript": {
+        "file": "transition-stereo.javascript.wav",
+        "metrics": {
+          "peak": 0.0772610530257225,
+          "rms": 0.012302737647734029,
+          "clippedSamples": 0,
+          "tailRms": 0,
+          "tailSeconds": 0.5,
+          "onsetFrame": 7683,
+          "stereoCorrelation": 0.016764838051332113,
+          "spectral": {
+            "centroidHz": 294.86407489543967,
+            "bandEnergyFractions": {
+              "hz20to200": 0.4717964331841124,
+              "hz200to1000": 0.5251426109344641,
+              "hz1000to8000": 0.0012962350850512306
+            },
+            "fftFrames": 4096,
+            "nominalHopFrames": 2048,
+            "analyzedWindows": 92,
+            "weighting": "Energy centroid; left/right spectral energy summed; fractions relative to 20 Hz–Nyquist"
+          }
+        },
+        "matchedFile": "transition-stereo.javascript.matched.wav",
+        "matching": {
+          "gain": 10.232888385017635,
+          "targetRms": 0.12589254117941673,
+          "metrics": {
+            "peak": 0.790603756904602,
+            "rms": 0.12589254119063564,
+            "clippedSamples": 0,
+            "tailRms": 0,
+            "tailSeconds": 0.5,
+            "onsetFrame": 7681,
+            "stereoCorrelation": 0.01676483811502857,
+            "spectral": {
+              "centroidHz": 294.86407476759996,
+              "bandEnergyFractions": {
+                "hz20to200": 0.4717964332196348,
+                "hz200to1000": 0.5251426108997101,
+                "hz1000to8000": 0.0012962350920385386
+              },
+              "fftFrames": 4096,
+              "nominalHopFrames": 2048,
+              "analyzedWindows": 92,
+              "weighting": "Energy centroid; left/right spectral energy summed; fractions relative to 20 Hz–Nyquist"
+            }
+          }
+        }
+      },
+      "rust": {
+        "file": "transition-stereo.rust.wav",
+        "metrics": {
+          "peak": 0.0772610530257225,
+          "rms": 0.012302737645160117,
+          "clippedSamples": 0,
+          "tailRms": 0,
+          "tailSeconds": 0.5,
+          "onsetFrame": 7683,
+          "stereoCorrelation": 0.01676483809234217,
+          "spectral": {
+            "centroidHz": 294.86407486796884,
+            "bandEnergyFractions": {
+              "hz20to200": 0.47179643324193166,
+              "hz200to1000": 0.5251426108786237,
+              "hz1000to8000": 0.0012962350835742896
+            },
+            "fftFrames": 4096,
+            "nominalHopFrames": 2048,
+            "analyzedWindows": 92,
+            "weighting": "Energy centroid; left/right spectral energy summed; fractions relative to 20 Hz–Nyquist"
+          }
+        },
+        "matchedFile": "transition-stereo.rust.matched.wav",
+        "matching": {
+          "gain": 10.232888387158503,
+          "targetRms": 0.12589254117941673,
+          "metrics": {
+            "peak": 0.790603756904602,
+            "rms": 0.12589254118972112,
+            "clippedSamples": 0,
+            "tailRms": 0,
+            "tailSeconds": 0.5,
+            "onsetFrame": 7681,
+            "stereoCorrelation": 0.01676483821403546,
+            "spectral": {
+              "centroidHz": 294.86407471805126,
+              "bandEnergyFractions": {
+                "hz20to200": 0.47179643329073634,
+                "hz200to1000": 0.5251426108317971,
+                "hz1000to8000": 0.0012962350905767845
+              },
+              "fftFrames": 4096,
+              "nominalHopFrames": 2048,
+              "analyzedWindows": 92,
+              "weighting": "Energy centroid; left/right spectral energy summed; fractions relative to 20 Hz–Nyquist"
+            }
+          }
+        }
+      },
+      "difference": {
+        "maxAbs": 7.450580596923828e-9,
+        "rms": 5.970763441239975e-11,
+        "signalToErrorDb": 166.27943795836742,
+        "exactlyEqual": false
+      },
+      "parity": {
+        "passed": true,
+        "maxAbsThreshold": 0.000001
+      }
+    }
+  ],
+  "benchmarks": [
+    {
+      "voices": 48,
+      "sceneFile": "stress-48.scene.json",
+      "sceneSha256": "2b178d4a0ca08e1a8fb4c930560be973e198b8ce1d20adcd2ab1afe31fd4dfec",
+      "javascript": {
+        "sampleRate": 48000,
+        "channels": 1,
+        "blockFrames": 128,
+        "maxVoices": 48,
+        "requestedVoices": 48,
+        "activeVoices": 48,
+        "reps": 3,
+        "warmupBlocks": 128,
+        "prefillFrames": 1920000,
+        "productionGuardBypassed": false,
+        "repetitionPolicy": "Fresh engine, identical primed history, identical warmup and input block sequence for each repetition",
+        "timing": {
+          "meanMs": 0.2538523437497133,
+          "medianMs": 0.2510980000006384,
+          "p95Ms": 0.26380600000265986,
+          "p99Ms": 0.306284999998752,
+          "maxMs": 0.6728589999984251,
+          "realtimeFactor": 0.0951946289061425,
+          "deadlineMisses": 0,
+          "blocks": 192
+        },
+        "trials": [
+          {
+            "meanMs": 0.25382603125001424,
+            "medianMs": 0.25269200000184355,
+            "p95Ms": 0.268011000000115,
+            "p99Ms": 0.306284999998752,
+            "maxMs": 0.306284999998752,
+            "realtimeFactor": 0.09518476171875534,
+            "deadlineMisses": 0,
+            "blocks": 64
+          },
+          {
+            "meanMs": 0.2570385468745826,
+            "medianMs": 0.2505130000063218,
+            "p95Ms": 0.2611369999940507,
+            "p99Ms": 0.6728589999984251,
+            "maxMs": 0.6728589999984251,
+            "realtimeFactor": 0.09638945507796848,
+            "deadlineMisses": 0,
+            "blocks": 64
+          },
+          {
+            "meanMs": 0.25069245312454314,
+            "medianMs": 0.25037600000359816,
+            "p95Ms": 0.26104200000554556,
+            "p99Ms": 0.2680679999975837,
+            "maxMs": 0.2680679999975837,
+            "realtimeFactor": 0.09400966992170368,
+            "deadlineMisses": 0,
+            "blocks": 64
+          }
+        ]
+      },
+      "rust": {
+        "activeVoices": 48,
+        "allocatedBytes": 10695086,
+        "blockFrames": 128,
+        "blocksPerRepetition": 64,
+        "channels": 1,
+        "engine": "l-system-delay-core",
+        "maxVoices": 16384,
+        "memoryMeasurement": "History, window, reserved voice structs and installed key capacities; excludes allocator overhead, control-thread temporary maps, source/render buffers and CPAL/ring buffers.",
+        "method": "Each repetition uses a fresh engine and identical periodic-source history prefill with voices disabled; voice warmup and source preparation are untimed. Process_block (including internal finish_block) timed for stationary 128-frame blocks. Offline CPU measurement; no device underrun guarantee.",
+        "peak": 0.06215059757232666,
+        "prefillFrames": 1920000,
+        "repetitions": 3,
+        "requestedVoices": 48,
+        "rms": 0.017296322828769636,
+        "runs": [
+          {
+            "meanMs": 0.06244934375,
+            "repetition": 0,
+            "totalMs": 3.996758
+          },
+          {
+            "meanMs": 0.062465484375000005,
+            "repetition": 1,
+            "totalMs": 3.9977910000000003
+          },
+          {
+            "meanMs": 0.06262162500000001,
+            "repetition": 2,
+            "totalMs": 4.007784000000001
+          }
+        ],
+        "sampleRate": 48000,
+        "targetVoices": 48,
+        "timing": {
+          "blocks": 192,
+          "deadlineMisses": 0,
+          "deadlineMs": 2.6666666666666665,
+          "maxMs": 0.066106,
+          "meanMs": 0.06251215104166667,
+          "medianMs": 0.062213,
+          "p50Ms": 0.062213,
+          "p95Ms": 0.064415,
+          "p99Ms": 0.066038,
+          "realtimeFactor": 0.023442056640625
+        },
+        "warmupBlocks": 128
+      }
+    },
+    {
+      "voices": 128,
+      "sceneFile": "stress-128.scene.json",
+      "sceneSha256": "4cfa6ca6f536371fd3093144107b5cb53bcf17f212fc6d4e820fee65d1e6bee8",
+      "javascript": {
+        "sampleRate": 48000,
+        "channels": 1,
+        "blockFrames": 128,
+        "maxVoices": 128,
+        "requestedVoices": 128,
+        "activeVoices": 128,
+        "reps": 3,
+        "warmupBlocks": 128,
+        "prefillFrames": 1920000,
+        "productionGuardBypassed": false,
+        "repetitionPolicy": "Fresh engine, identical primed history, identical warmup and input block sequence for each repetition",
+        "timing": {
+          "meanMs": 0.6720600208336691,
+          "medianMs": 0.6682739999960177,
+          "p95Ms": 0.6902339999942342,
+          "p99Ms": 1.0801899999933084,
+          "maxMs": 1.0930590000061784,
+          "realtimeFactor": 0.2520225078126259,
+          "deadlineMisses": 0,
+          "blocks": 192
+        },
+        "trials": [
+          {
+            "meanMs": 0.6758928281251428,
+            "medianMs": 0.6704029999964405,
+            "p95Ms": 0.6895439999934752,
+            "p99Ms": 1.0930590000061784,
+            "maxMs": 1.0930590000061784,
+            "realtimeFactor": 0.25345981054692857,
+            "deadlineMisses": 0,
+            "blocks": 64
+          },
+          {
+            "meanMs": 0.67395268749965,
+            "medianMs": 0.6682999999902677,
+            "p95Ms": 0.6898130000045057,
+            "p99Ms": 1.0801899999933084,
+            "maxMs": 1.0801899999933084,
+            "realtimeFactor": 0.25273225781236874,
+            "deadlineMisses": 0,
+            "blocks": 64
+          },
+          {
+            "meanMs": 0.6663345468762145,
+            "medianMs": 0.6660260000062408,
+            "p95Ms": 0.6907720000017434,
+            "p99Ms": 0.6949830000085058,
+            "maxMs": 0.6949830000085058,
+            "realtimeFactor": 0.24987545507858044,
+            "deadlineMisses": 0,
+            "blocks": 64
+          }
+        ]
+      },
+      "rust": {
+        "activeVoices": 128,
+        "allocatedBytes": 10695834,
+        "blockFrames": 128,
+        "blocksPerRepetition": 64,
+        "channels": 1,
+        "engine": "l-system-delay-core",
+        "maxVoices": 16384,
+        "memoryMeasurement": "History, window, reserved voice structs and installed key capacities; excludes allocator overhead, control-thread temporary maps, source/render buffers and CPAL/ring buffers.",
+        "method": "Each repetition uses a fresh engine and identical periodic-source history prefill with voices disabled; voice warmup and source preparation are untimed. Process_block (including internal finish_block) timed for stationary 128-frame blocks. Offline CPU measurement; no device underrun guarantee.",
+        "peak": 0.06925584375858307,
+        "prefillFrames": 1920000,
+        "repetitions": 3,
+        "requestedVoices": 128,
+        "rms": 0.017448291713350036,
+        "runs": [
+          {
+            "meanMs": 0.16493879687499996,
+            "repetition": 0,
+            "totalMs": 10.556082999999997
+          },
+          {
+            "meanMs": 0.166643203125,
+            "repetition": 1,
+            "totalMs": 10.665165
+          },
+          {
+            "meanMs": 0.16448429687500002,
+            "repetition": 2,
+            "totalMs": 10.526995000000001
+          }
+        ],
+        "sampleRate": 48000,
+        "targetVoices": 128,
+        "timing": {
+          "blocks": 192,
+          "deadlineMisses": 0,
+          "deadlineMs": 2.6666666666666665,
+          "maxMs": 0.24492300000000003,
+          "meanMs": 0.16535543229166663,
+          "medianMs": 0.163742,
+          "p50Ms": 0.163742,
+          "p95Ms": 0.17258400000000002,
+          "p99Ms": 0.179443,
+          "realtimeFactor": 0.06200828710937499
+        },
+        "warmupBlocks": 128
+      }
+    },
+    {
+      "voices": 256,
+      "sceneFile": "stress-256.scene.json",
+      "sceneSha256": "413324dd5ac2c5325e61ffa132e3972fe5f179e7cebaff9e70959742ed16496a",
+      "javascript": {
+        "sampleRate": 48000,
+        "channels": 1,
+        "blockFrames": 128,
+        "maxVoices": 256,
+        "requestedVoices": 256,
+        "activeVoices": 256,
+        "reps": 3,
+        "warmupBlocks": 128,
+        "prefillFrames": 1920000,
+        "productionGuardBypassed": false,
+        "repetitionPolicy": "Fresh engine, identical primed history, identical warmup and input block sequence for each repetition",
+        "timing": {
+          "meanMs": 1.38592031770789,
+          "medianMs": 1.3633450000052107,
+          "p95Ms": 1.5305280000029597,
+          "p99Ms": 1.7098430000041844,
+          "maxMs": 2.053182999996352,
+          "realtimeFactor": 0.5197201191404588,
+          "deadlineMisses": 0,
+          "blocks": 192
+        },
+        "trials": [
+          {
+            "meanMs": 1.3547529531258533,
+            "medianMs": 1.3505500000028405,
+            "p95Ms": 1.4132570000074338,
+            "p99Ms": 1.5709829999977956,
+            "maxMs": 1.5709829999977956,
+            "realtimeFactor": 0.508032357422195,
+            "deadlineMisses": 0,
+            "blocks": 64
+          },
+          {
+            "meanMs": 1.3941057968738733,
+            "medianMs": 1.3591720000113128,
+            "p95Ms": 1.5681600000098115,
+            "p99Ms": 2.053182999996352,
+            "maxMs": 2.053182999996352,
+            "realtimeFactor": 0.5227896738277025,
+            "deadlineMisses": 0,
+            "blocks": 64
+          },
+          {
+            "meanMs": 1.4089022031239438,
+            "medianMs": 1.3927800000092248,
+            "p95Ms": 1.5093090000009397,
+            "p99Ms": 1.7098430000041844,
+            "maxMs": 1.7098430000041844,
+            "realtimeFactor": 0.5283383261714789,
+            "deadlineMisses": 0,
+            "blocks": 64
+          }
+        ]
+      },
+      "rust": {
+        "activeVoices": 256,
+        "allocatedBytes": 10697114,
+        "blockFrames": 128,
+        "blocksPerRepetition": 64,
+        "channels": 1,
+        "engine": "l-system-delay-core",
+        "maxVoices": 16384,
+        "memoryMeasurement": "History, window, reserved voice structs and installed key capacities; excludes allocator overhead, control-thread temporary maps, source/render buffers and CPAL/ring buffers.",
+        "method": "Each repetition uses a fresh engine and identical periodic-source history prefill with voices disabled; voice warmup and source preparation are untimed. Process_block (including internal finish_block) timed for stationary 128-frame blocks. Offline CPU measurement; no device underrun guarantee.",
+        "peak": 0.05825662985444069,
+        "prefillFrames": 1920000,
+        "repetitions": 3,
+        "requestedVoices": 256,
+        "rms": 0.016397814006997587,
+        "runs": [
+          {
+            "meanMs": 0.329186796875,
+            "repetition": 0,
+            "totalMs": 21.067955
+          },
+          {
+            "meanMs": 0.3282860781249998,
+            "repetition": 1,
+            "totalMs": 21.01030899999999
+          },
+          {
+            "meanMs": 0.32684768750000004,
+            "repetition": 2,
+            "totalMs": 20.918252000000003
+          }
+        ],
+        "sampleRate": 48000,
+        "targetVoices": 256,
+        "timing": {
+          "blocks": 192,
+          "deadlineMisses": 0,
+          "deadlineMs": 2.6666666666666665,
+          "maxMs": 0.416384,
+          "meanMs": 0.3281068541666667,
+          "medianMs": 0.326117,
+          "p50Ms": 0.326117,
+          "p95Ms": 0.34277199999999997,
+          "p99Ms": 0.37889100000000003,
+          "realtimeFactor": 0.12304007031250001
+        },
+        "warmupBlocks": 128
+      }
+    },
+    {
+      "voices": 512,
+      "sceneFile": "stress-512.scene.json",
+      "sceneSha256": "62ffbed32a58fd72b5b0dd2e7e0b9c93456da9ea4dcb0f9054de4967f4a5830f",
+      "javascript": {
+        "sampleRate": 48000,
+        "channels": 1,
+        "blockFrames": 128,
+        "maxVoices": 512,
+        "requestedVoices": 512,
+        "activeVoices": 512,
+        "reps": 3,
+        "warmupBlocks": 128,
+        "prefillFrames": 1920000,
+        "productionGuardBypassed": false,
+        "repetitionPolicy": "Fresh engine, identical primed history, identical warmup and input block sequence for each repetition",
+        "timing": {
+          "meanMs": 2.7963062968756276,
+          "medianMs": 2.7922039999975823,
+          "p95Ms": 2.901988999990863,
+          "p99Ms": 2.995716999997967,
+          "maxMs": 3.0121130000043195,
+          "realtimeFactor": 1.0486148613283603,
+          "deadlineMisses": 192,
+          "blocks": 192
+        },
+        "trials": [
+          {
+            "meanMs": 2.7835991093757,
+            "medianMs": 2.775559000001522,
+            "p95Ms": 2.8937410000071395,
+            "p99Ms": 2.991684000007808,
+            "maxMs": 2.991684000007808,
+            "realtimeFactor": 1.0438496660158876,
+            "deadlineMisses": 64,
+            "blocks": 64
+          },
+          {
+            "meanMs": 2.7985763281251366,
+            "medianMs": 2.7905959999916377,
+            "p95Ms": 2.9263150000042515,
+            "p99Ms": 3.0121130000043195,
+            "maxMs": 3.0121130000043195,
+            "realtimeFactor": 1.0494661230469262,
+            "deadlineMisses": 64,
+            "blocks": 64
+          },
+          {
+            "meanMs": 2.806743453126046,
+            "medianMs": 2.8060609999956796,
+            "p95Ms": 2.87299200000416,
+            "p99Ms": 2.995716999997967,
+            "maxMs": 2.995716999997967,
+            "realtimeFactor": 1.0525287949222673,
+            "deadlineMisses": 64,
+            "blocks": 64
+          }
+        ]
+      },
+      "rust": {
+        "activeVoices": 512,
+        "allocatedBytes": 10699674,
+        "blockFrames": 128,
+        "blocksPerRepetition": 64,
+        "channels": 1,
+        "engine": "l-system-delay-core",
+        "maxVoices": 16384,
+        "memoryMeasurement": "History, window, reserved voice structs and installed key capacities; excludes allocator overhead, control-thread temporary maps, source/render buffers and CPAL/ring buffers.",
+        "method": "Each repetition uses a fresh engine and identical periodic-source history prefill with voices disabled; voice warmup and source preparation are untimed. Process_block (including internal finish_block) timed for stationary 128-frame blocks. Offline CPU measurement; no device underrun guarantee.",
+        "peak": 0.05974274501204491,
+        "prefillFrames": 1920000,
+        "repetitions": 3,
+        "requestedVoices": 512,
+        "rms": 0.015808151484845955,
+        "runs": [
+          {
+            "meanMs": 0.6536186406250001,
+            "repetition": 0,
+            "totalMs": 41.831593000000005
+          },
+          {
+            "meanMs": 0.6564321250000001,
+            "repetition": 1,
+            "totalMs": 42.01165600000001
+          },
+          {
+            "meanMs": 0.65401940625,
+            "repetition": 2,
+            "totalMs": 41.857242
+          }
+        ],
+        "sampleRate": 48000,
+        "targetVoices": 512,
+        "timing": {
+          "blocks": 192,
+          "deadlineMisses": 0,
+          "deadlineMs": 2.6666666666666665,
+          "maxMs": 0.7006830000000001,
+          "meanMs": 0.6546900572916664,
+          "medianMs": 0.65068,
+          "p50Ms": 0.65068,
+          "p95Ms": 0.669744,
+          "p99Ms": 0.679284,
+          "realtimeFactor": 0.24550877148437492
+        },
+        "warmupBlocks": 128
+      }
+    },
+    {
+      "voices": 1024,
+      "sceneFile": "stress-1024.scene.json",
+      "sceneSha256": "995af76f287139e73de83c11ad4ddc9d49394fceae24897bab04c81cf160e86a",
+      "javascript": {
+        "sampleRate": 48000,
+        "channels": 1,
+        "blockFrames": 128,
+        "maxVoices": 1024,
+        "requestedVoices": 1024,
+        "activeVoices": 1024,
+        "reps": 3,
+        "warmupBlocks": 128,
+        "prefillFrames": 1920000,
+        "productionGuardBypassed": false,
+        "repetitionPolicy": "Fresh engine, identical primed history, identical warmup and input block sequence for each repetition",
+        "timing": {
+          "meanMs": 5.739210479166559,
+          "medianMs": 5.718572999991011,
+          "p95Ms": 5.9755089999962365,
+          "p99Ms": 6.302109999989625,
+          "maxMs": 6.354666999992332,
+          "realtimeFactor": 2.1522039296874595,
+          "deadlineMisses": 192,
+          "blocks": 192
+        },
+        "trials": [
+          {
+            "meanMs": 5.7059989218741975,
+            "medianMs": 5.667472000000998,
+            "p95Ms": 5.96212199999718,
+            "p99Ms": 6.18401100000483,
+            "maxMs": 6.18401100000483,
+            "realtimeFactor": 2.139749595702824,
+            "deadlineMisses": 64,
+            "blocks": 64
+          },
+          {
+            "meanMs": 5.725689921875528,
+            "medianMs": 5.693039999998291,
+            "p95Ms": 6.008723999999347,
+            "p99Ms": 6.354666999992332,
+            "maxMs": 6.354666999992332,
+            "realtimeFactor": 2.147133720703323,
+            "deadlineMisses": 64,
+            "blocks": 64
+          },
+          {
+            "meanMs": 5.785942593749951,
+            "medianMs": 5.773488999999245,
+            "p95Ms": 5.948132000004989,
+            "p99Ms": 6.180181999996421,
+            "maxMs": 6.180181999996421,
+            "realtimeFactor": 2.1697284726562316,
+            "deadlineMisses": 64,
+            "blocks": 64
+          }
+        ]
+      },
+      "rust": {
+        "activeVoices": 1024,
+        "allocatedBytes": 10704818,
+        "blockFrames": 128,
+        "blocksPerRepetition": 64,
+        "channels": 1,
+        "engine": "l-system-delay-core",
+        "maxVoices": 16384,
+        "memoryMeasurement": "History, window, reserved voice structs and installed key capacities; excludes allocator overhead, control-thread temporary maps, source/render buffers and CPAL/ring buffers.",
+        "method": "Each repetition uses a fresh engine and identical periodic-source history prefill with voices disabled; voice warmup and source preparation are untimed. Process_block (including internal finish_block) timed for stationary 128-frame blocks. Offline CPU measurement; no device underrun guarantee.",
+        "peak": 0.05861525982618332,
+        "prefillFrames": 1920000,
+        "repetitions": 3,
+        "requestedVoices": 1024,
+        "rms": 0.01680868944505056,
+        "runs": [
+          {
+            "meanMs": 1.3049926718750005,
+            "repetition": 0,
+            "totalMs": 83.51953100000003
+          },
+          {
+            "meanMs": 1.3095046562500006,
+            "repetition": 1,
+            "totalMs": 83.80829800000004
+          },
+          {
+            "meanMs": 1.3061779687499997,
+            "repetition": 2,
+            "totalMs": 83.59538999999998
+          }
+        ],
+        "sampleRate": 48000,
+        "targetVoices": 1024,
+        "timing": {
+          "blocks": 192,
+          "deadlineMisses": 0,
+          "deadlineMs": 2.6666666666666665,
+          "maxMs": 1.428905,
+          "meanMs": 1.3068917656249992,
+          "medianMs": 1.298562,
+          "p50Ms": 1.298562,
+          "p95Ms": 1.351016,
+          "p99Ms": 1.4222620000000001,
+          "realtimeFactor": 0.4900844121093747
+        },
+        "warmupBlocks": 128
+      }
+    },
+    {
+      "voices": 2048,
+      "sceneFile": "stress-2048.scene.json",
+      "sceneSha256": "a471354b948d810956df921cdc0509331f1ce72d366e6012c5307c0b9cf81bf7",
+      "javascript": {
+        "sampleRate": 48000,
+        "channels": 1,
+        "blockFrames": 128,
+        "maxVoices": 2048,
+        "requestedVoices": 2048,
+        "activeVoices": 2048,
+        "reps": 3,
+        "warmupBlocks": 128,
+        "prefillFrames": 1920000,
+        "productionGuardBypassed": true,
+        "repetitionPolicy": "Fresh engine, identical primed history, identical warmup and input block sequence for each repetition",
+        "timing": {
+          "meanMs": 12.090765489583342,
+          "medianMs": 12.109081999995396,
+          "p95Ms": 12.514850999999908,
+          "p99Ms": 12.738938000009512,
+          "maxMs": 13.086668999996618,
+          "realtimeFactor": 4.5340370585937535,
+          "deadlineMisses": 192,
+          "blocks": 192
+        },
+        "trials": [
+          {
+            "meanMs": 12.15010767187573,
+            "medianMs": 12.189846000008401,
+            "p95Ms": 12.553029999995488,
+            "p99Ms": 12.62989799999923,
+            "maxMs": 12.62989799999923,
+            "realtimeFactor": 4.556290376953399,
+            "deadlineMisses": 64,
+            "blocks": 64
+          },
+          {
+            "meanMs": 12.033397203125332,
+            "medianMs": 12.060009000007994,
+            "p95Ms": 12.513019999998505,
+            "p99Ms": 12.7131389999995,
+            "maxMs": 12.7131389999995,
+            "realtimeFactor": 4.512523951172,
+            "deadlineMisses": 64,
+            "blocks": 64
+          },
+          {
+            "meanMs": 12.088791593748965,
+            "medianMs": 12.090538000004017,
+            "p95Ms": 12.474610999997822,
+            "p99Ms": 13.086668999996618,
+            "maxMs": 13.086668999996618,
+            "realtimeFactor": 4.533296847655862,
+            "deadlineMisses": 64,
+            "blocks": 64
+          }
+        ]
+      },
+      "rust": {
+        "activeVoices": 2048,
+        "allocatedBytes": 10716082,
+        "blockFrames": 128,
+        "blocksPerRepetition": 64,
+        "channels": 1,
+        "engine": "l-system-delay-core",
+        "maxVoices": 16384,
+        "memoryMeasurement": "History, window, reserved voice structs and installed key capacities; excludes allocator overhead, control-thread temporary maps, source/render buffers and CPAL/ring buffers.",
+        "method": "Each repetition uses a fresh engine and identical periodic-source history prefill with voices disabled; voice warmup and source preparation are untimed. Process_block (including internal finish_block) timed for stationary 128-frame blocks. Offline CPU measurement; no device underrun guarantee.",
+        "peak": 0.0667652040719986,
+        "prefillFrames": 1920000,
+        "repetitions": 3,
+        "requestedVoices": 2048,
+        "rms": 0.01790780295043382,
+        "runs": [
+          {
+            "meanMs": 2.6118926093750003,
+            "repetition": 0,
+            "totalMs": 167.16112700000002
+          },
+          {
+            "meanMs": 2.6308182031249996,
+            "repetition": 1,
+            "totalMs": 168.37236499999997
+          },
+          {
+            "meanMs": 2.6386162812500005,
+            "repetition": 2,
+            "totalMs": 168.87144200000003
+          }
+        ],
+        "sampleRate": 48000,
+        "targetVoices": 2048,
+        "timing": {
+          "blocks": 192,
+          "deadlineMisses": 17,
+          "deadlineMs": 2.6666666666666665,
+          "maxMs": 2.834701,
+          "meanMs": 2.6271090312500003,
+          "medianMs": 2.619043,
+          "p50Ms": 2.619043,
+          "p95Ms": 2.694208,
+          "p99Ms": 2.8167240000000002,
+          "realtimeFactor": 0.9851658867187502
+        },
+        "warmupBlocks": 128
+      }
+    },
+    {
+      "voices": 4096,
+      "sceneFile": "stress-4096.scene.json",
+      "sceneSha256": "d9f6e524e70ac3b255d6d2bd71a86bc54a38ae42c865e9ba4bdd33efad106a4c",
+      "javascript": {
+        "sampleRate": 48000,
+        "channels": 1,
+        "blockFrames": 128,
+        "maxVoices": 4096,
+        "requestedVoices": 4096,
+        "activeVoices": 4096,
+        "reps": 3,
+        "warmupBlocks": 128,
+        "prefillFrames": 1920000,
+        "productionGuardBypassed": true,
+        "repetitionPolicy": "Fresh engine, identical primed history, identical warmup and input block sequence for each repetition",
+        "timing": {
+          "meanMs": 25.605882265624967,
+          "medianMs": 25.591134000002057,
+          "p95Ms": 26.81295799999498,
+          "p99Ms": 27.567264999990584,
+          "maxMs": 33.8825940000097,
+          "realtimeFactor": 9.602205849609364,
+          "deadlineMisses": 192,
+          "blocks": 192
+        },
+        "trials": [
+          {
+            "meanMs": 26.17210745312468,
+            "medianMs": 26.132860999990953,
+            "p95Ms": 27.14665499998955,
+            "p99Ms": 33.8825940000097,
+            "maxMs": 33.8825940000097,
+            "realtimeFactor": 9.814540294921756,
+            "deadlineMisses": 64,
+            "blocks": 64
+          },
+          {
+            "meanMs": 25.261982406251718,
+            "medianMs": 25.453516000008676,
+            "p95Ms": 26.07573300000513,
+            "p99Ms": 26.360813999999664,
+            "maxMs": 26.360813999999664,
+            "realtimeFactor": 9.473243402344394,
+            "deadlineMisses": 64,
+            "blocks": 64
+          },
+          {
+            "meanMs": 25.383556937498497,
+            "medianMs": 25.556100000001607,
+            "p95Ms": 26.192062000001897,
+            "p99Ms": 26.388606999986223,
+            "maxMs": 26.388606999986223,
+            "realtimeFactor": 9.518833851561936,
+            "deadlineMisses": 64,
+            "blocks": 64
+          }
+        ]
+      },
+      "rust": {
+        "activeVoices": 4096,
+        "allocatedBytes": 10738610,
+        "blockFrames": 128,
+        "blocksPerRepetition": 64,
+        "channels": 1,
+        "engine": "l-system-delay-core",
+        "maxVoices": 16384,
+        "memoryMeasurement": "History, window, reserved voice structs and installed key capacities; excludes allocator overhead, control-thread temporary maps, source/render buffers and CPAL/ring buffers.",
+        "method": "Each repetition uses a fresh engine and identical periodic-source history prefill with voices disabled; voice warmup and source preparation are untimed. Process_block (including internal finish_block) timed for stationary 128-frame blocks. Offline CPU measurement; no device underrun guarantee.",
+        "peak": 0.05249849334359169,
+        "prefillFrames": 1920000,
+        "repetitions": 3,
+        "requestedVoices": 4096,
+        "rms": 0.01612182702623244,
+        "runs": [
+          {
+            "meanMs": 5.622649640624999,
+            "repetition": 0,
+            "totalMs": 359.84957699999995
+          },
+          {
+            "meanMs": 5.285908843750001,
+            "repetition": 1,
+            "totalMs": 338.29816600000004
+          },
+          {
+            "meanMs": 5.251589078124997,
+            "repetition": 2,
+            "totalMs": 336.1017009999998
+          }
+        ],
+        "sampleRate": 48000,
+        "targetVoices": 4096,
+        "timing": {
+          "blocks": 192,
+          "deadlineMisses": 192,
+          "deadlineMs": 2.6666666666666665,
+          "maxMs": 6.0139640000000005,
+          "meanMs": 5.386715854166666,
+          "medianMs": 5.254585,
+          "p50Ms": 5.254585,
+          "p95Ms": 5.8548230000000006,
+          "p99Ms": 5.984909,
+          "realtimeFactor": 2.0200184453124996
+        },
+        "warmupBlocks": 128
+      }
+    },
+    {
+      "voices": 8192,
+      "sceneFile": "stress-8192.scene.json",
+      "sceneSha256": "2aa83e8ba58cb96b7dcb748e777fb9391937237a3929dcff45bfe07606fcb782",
+      "javascript": {
+        "sampleRate": 48000,
+        "channels": 1,
+        "blockFrames": 128,
+        "maxVoices": 8192,
+        "requestedVoices": 8192,
+        "activeVoices": 8192,
+        "reps": 3,
+        "warmupBlocks": 128,
+        "prefillFrames": 1920000,
+        "productionGuardBypassed": true,
+        "repetitionPolicy": "Fresh engine, identical primed history, identical warmup and input block sequence for each repetition",
+        "timing": {
+          "meanMs": 72.87316537500085,
+          "medianMs": 67.97728899998765,
+          "p95Ms": 94.78856000000087,
+          "p99Ms": 95.94346799999767,
+          "maxMs": 96.0875390000001,
+          "realtimeFactor": 27.32743701562532,
+          "deadlineMisses": 192,
+          "blocks": 192
+        },
+        "trials": [
+          {
+            "meanMs": 85.98467346875032,
+            "medianMs": 84.1758039999986,
+            "p95Ms": 95.65260699999635,
+            "p99Ms": 96.0875390000001,
+            "maxMs": 96.0875390000001,
+            "realtimeFactor": 32.24425255078137,
+            "deadlineMisses": 64,
+            "blocks": 64
+          },
+          {
+            "meanMs": 66.80927342187488,
+            "medianMs": 67.55455099999381,
+            "p95Ms": 68.81591599999228,
+            "p99Ms": 69.3656420000043,
+            "maxMs": 69.3656420000043,
+            "realtimeFactor": 25.05347753320308,
+            "deadlineMisses": 64,
+            "blocks": 64
+          },
+          {
+            "meanMs": 65.82554923437738,
+            "medianMs": 66.226324999996,
+            "p95Ms": 69.07563800000935,
+            "p99Ms": 69.30419700001949,
+            "maxMs": 69.30419700001949,
+            "realtimeFactor": 24.684580962891516,
+            "deadlineMisses": 64,
+            "blocks": 64
+          }
+        ]
+      },
+      "rust": {
+        "activeVoices": 8192,
+        "allocatedBytes": 10783666,
+        "blockFrames": 128,
+        "blocksPerRepetition": 64,
+        "channels": 1,
+        "engine": "l-system-delay-core",
+        "maxVoices": 16384,
+        "memoryMeasurement": "History, window, reserved voice structs and installed key capacities; excludes allocator overhead, control-thread temporary maps, source/render buffers and CPAL/ring buffers.",
+        "method": "Each repetition uses a fresh engine and identical periodic-source history prefill with voices disabled; voice warmup and source preparation are untimed. Process_block (including internal finish_block) timed for stationary 128-frame blocks. Offline CPU measurement; no device underrun guarantee.",
+        "peak": 0.061504121869802475,
+        "prefillFrames": 1920000,
+        "repetitions": 3,
+        "requestedVoices": 8192,
+        "rms": 0.016589341938542546,
+        "runs": [
+          {
+            "meanMs": 13.507993828124999,
+            "repetition": 0,
+            "totalMs": 864.5116049999999
+          },
+          {
+            "meanMs": 11.153022859375001,
+            "repetition": 1,
+            "totalMs": 713.7934630000001
+          },
+          {
+            "meanMs": 10.949772484374995,
+            "repetition": 2,
+            "totalMs": 700.7854389999997
+          }
+        ],
+        "sampleRate": 48000,
+        "targetVoices": 8192,
+        "timing": {
+          "blocks": 192,
+          "deadlineMisses": 192,
+          "deadlineMs": 2.6666666666666665,
+          "maxMs": 19.849252,
+          "meanMs": 11.870263057291668,
+          "medianMs": 11.067578,
+          "p50Ms": 11.067578,
+          "p95Ms": 13.654356,
+          "p99Ms": 14.104487,
+          "realtimeFactor": 4.451348646484376
+        },
+        "warmupBlocks": 128
+      }
+    },
+    {
+      "voices": 16384,
+      "sceneFile": "stress-16384.scene.json",
+      "sceneSha256": "3841b8b93eac20e4f2bbf362852bfdae5302bfcc127799b971e8a5aea8273601",
+      "javascript": {
+        "sampleRate": 48000,
+        "channels": 1,
+        "blockFrames": 128,
+        "maxVoices": 16384,
+        "requestedVoices": 16384,
+        "activeVoices": 16384,
+        "reps": 3,
+        "warmupBlocks": 128,
+        "prefillFrames": 1920000,
+        "productionGuardBypassed": true,
+        "repetitionPolicy": "Fresh engine, identical primed history, identical warmup and input block sequence for each repetition",
+        "timing": {
+          "meanMs": 108.91187795833245,
+          "medianMs": 107.44190500001423,
+          "p95Ms": 118.85678899998311,
+          "p99Ms": 125.3497980000102,
+          "maxMs": 126.36358599999221,
+          "realtimeFactor": 40.841954234374676,
+          "deadlineMisses": 192,
+          "blocks": 192
+        },
+        "trials": [
+          {
+            "meanMs": 106.84020221875198,
+            "medianMs": 107.10626700002467,
+            "p95Ms": 110.09737199998926,
+            "p99Ms": 110.91359899999225,
+            "maxMs": 110.91359899999225,
+            "realtimeFactor": 40.065075832031994,
+            "deadlineMisses": 64,
+            "blocks": 64
+          },
+          {
+            "meanMs": 104.33362384374732,
+            "medianMs": 104.22863600001438,
+            "p95Ms": 107.49874800001271,
+            "p99Ms": 125.3497980000102,
+            "maxMs": 125.3497980000102,
+            "realtimeFactor": 39.125108941405244,
+            "deadlineMisses": 64,
+            "blocks": 64
+          },
+          {
+            "meanMs": 115.56180781249805,
+            "medianMs": 115.59216800000286,
+            "p95Ms": 120.93447999999626,
+            "p99Ms": 126.36358599999221,
+            "maxMs": 126.36358599999221,
+            "realtimeFactor": 43.33567792968677,
+            "deadlineMisses": 64,
+            "blocks": 64
+          }
+        ]
+      },
+      "rust": {
+        "activeVoices": 16384,
+        "allocatedBytes": 10880162,
+        "blockFrames": 128,
+        "blocksPerRepetition": 64,
+        "channels": 1,
+        "engine": "l-system-delay-core",
+        "maxVoices": 16384,
+        "memoryMeasurement": "History, window, reserved voice structs and installed key capacities; excludes allocator overhead, control-thread temporary maps, source/render buffers and CPAL/ring buffers.",
+        "method": "Each repetition uses a fresh engine and identical periodic-source history prefill with voices disabled; voice warmup and source preparation are untimed. Process_block (including internal finish_block) timed for stationary 128-frame blocks. Offline CPU measurement; no device underrun guarantee.",
+        "peak": 0.07055304944515228,
+        "prefillFrames": 1920000,
+        "repetitions": 3,
+        "requestedVoices": 16384,
+        "rms": 0.018236966055686796,
+        "runs": [
+          {
+            "meanMs": 22.0495238125,
+            "repetition": 0,
+            "totalMs": 1411.169524
+          },
+          {
+            "meanMs": 22.001657781250003,
+            "repetition": 1,
+            "totalMs": 1408.1060980000002
+          },
+          {
+            "meanMs": 21.648836796875003,
+            "repetition": 2,
+            "totalMs": 1385.5255550000002
+          }
+        ],
+        "sampleRate": 48000,
+        "targetVoices": 16384,
+        "timing": {
+          "blocks": 192,
+          "deadlineMisses": 192,
+          "deadlineMs": 2.6666666666666665,
+          "maxMs": 30.372102,
+          "meanMs": 21.900006130208336,
+          "medianMs": 21.705379,
+          "p50Ms": 21.705379,
+          "p95Ms": 23.662059,
+          "p99Ms": 26.698424,
+          "realtimeFactor": 8.212502298828126
+        },
+        "warmupBlocks": 128
+      }
+    }
+  ]
+}

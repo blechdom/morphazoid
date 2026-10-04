@@ -1481,3 +1481,12 @@ copy+require	vendor/wasm-runtime-notices/README.md
 copy+require	vendor/wasm-runtime-notices/Emscripten-LICENSE
 copy+require	vendor/wasm-runtime-notices/LLVM-LICENSE
 copy+require	vendor/wasm-runtime-notices/musl-COPYRIGHT
+
+# Native delay browser controls; Rust device code remains local-only.
+copy+require	src/instruments/micmic/native/app.js
+copy+require	src/instruments/micmic/native/model.js
+copy+require	src/instruments/micmic/native/mastering.js
+copy+require	src/instruments/micmic/native/style.css
+copy+require	src/instruments/micmic/native/presets.json
+copy+require	docs/l-system-delay-native.md
+copy+require	docs/l-system-delay-measurements.json

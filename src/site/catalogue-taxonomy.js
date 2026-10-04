@@ -390,6 +390,7 @@ export const ADDITIONAL_TAG_IDS = Object.freeze(Object.fromEntries(Object.entrie
     "fractal",
     "recursive"
   ],
+  "micmic-rust": ["fractal", "recursive"],
   "graph-delay": [
     "graph"
   ],

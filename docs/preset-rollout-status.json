@@ -4,9 +4,9 @@
   "branch": "codex/presets-continue-20260922",
   "source": "Review branch directory checkpoint 03619ff rebased onto origin/main ef6e593; pending pointer, family rename and preset drafts restored; no push or deployment",
   "counts": {
-    "implemented": 33,
-    "fullPresets": 1492,
-    "favesImplemented": 16,
+    "implemented": 34,
+    "fullPresets": 1518,
+    "favesImplemented": 17,
     "activeRemaining": 62,
     "regularRemaining": 130
   },
@@ -625,6 +625,16 @@
       "scope": "fave",
       "presets": 16,
       "status": "implemented-verification-pending"
+    },
+    {
+      "id": "micmic-rust",
+      "label": "L-system Delay Rust",
+      "href": "l-mic-rust.html",
+      "category": "audio-effect",
+      "scope": "fave",
+      "presets": 26,
+      "status": "implemented-verification-pending",
+      "evidence": "October 4 original preset parity, ten additional scenes and audio-clock branch travel; human listening and physical microphone acceptance remain pending."
     },
     {
       "id": "graph-delay",
@@ -1616,6 +1626,7 @@
       "hyper-rubix",
       "puggler",
       "micmic",
+      "micmic-rust",
       "l-system",
       "graph-delay",
       "graph-synth",
