@@ -28,6 +28,13 @@ import { getMethod, getPreset, createDefaultState, stateFromPreset, sanitizeStat
 import { SynthesisAudio } from "./audio.js";
 import { mountAudioInputControl } from "../../audio-input-control.js";
 import { createEnvelopeEditor } from "./envelope.js";
+import {
+  ENVELOPE_PRESETS,
+  getEnvelopePreset,
+  matchEnvelopePreset,
+  nextEnvelopePreset,
+  randomEnvelopePreset,
+} from "./envelope-presets.js";
 import { createParameterControl, createKnobControl } from "./controls.js";
 import { TUNINGS, getTuning, sanitizeTuningId, tuningRatioForDegree,
   tuningRatioForSemitoneCoordinate, frequencyForTuningDegree, frequencyForMidiNote,
@@ -228,8 +235,28 @@ for (const [id, host, key, label, min, max, factor, unit] of [
 }
 
 const envelopeEditor = createEnvelopeEditor($("envelopeControls"), {
-  onChange(envelope) { state.envelope = envelope; markCustom(); },
+  onChange(envelope) { state.envelope = envelope; markCustom(); paintEnvelopePreset(); },
 });
+
+function paintEnvelopePreset() {
+  const matched = matchEnvelopePreset(state.envelope);
+  const options = ENVELOPE_PRESETS.map(preset => new Option(preset.label, preset.id));
+  if (!matched) options.unshift(new Option("Custom envelope", "custom"));
+  $("envelopePresetSelect").replaceChildren(...options);
+  $("envelopePresetSelect").value = matched?.id || "custom";
+  $("envelopePresetDescription").textContent = matched?.description
+    || "Custom four-stage envelope from the current sound preset or manual edits.";
+  chooseControls.get("envelopePresetSelect")?.refresh();
+}
+
+function applyEnvelopePreset(presetOrId) {
+  const preset = getEnvelopePreset(presetOrId);
+  state.envelope = { ...preset.envelope };
+  envelopeEditor.setValue(state.envelope);
+  markCustom();
+  paintEnvelopePreset();
+  syncAudio(true);
+}
 
 const sequenceStudy = () => SEQUENCE_STUDIES.find(study => study.id === sequenceState.id) || null;
 const selectedBasicSequence = () => basicSequence(sequenceState.id);
@@ -317,21 +344,37 @@ function paintSequenceParameterControls() {
   }
   const values = createSequenceParameterValues(study, sequenceState.parameters);
   syncSequenceParameterState(values);
-  const nodes = [];
-  let group = null;
-  for (const definition of getSequenceParameterDefinitions(study)) {
-    if (definition.group !== group) {
-      group = definition.group;
-      const heading = document.createElement("h3");
-      heading.className = "synthesis-sequence-control-group";
-      heading.textContent = group === "cycle" ? "Cycle" : `${study.archetype.replaceAll("-", " ")} mechanism`;
-      nodes.push(heading);
+  const definitions = getSequenceParameterDefinitions(study).filter(definition => definition.id !== "gate");
+  const buildGrid = (items, className = "") => {
+    const grid = document.createElement("div");
+    grid.className = `synthesis-sequence-parameter-grid ${className}`.trim();
+    for (const definition of items) {
+      const field = makeSequenceParameterField(definition, values[definition.id]);
+      sequenceParameterFields.push(field);
+      grid.append(field);
     }
-    const field = makeSequenceParameterField(definition, values[definition.id]);
-    sequenceParameterFields.push(field);
-    nodes.push(field);
-  }
-  host.replaceChildren(...nodes);
+    return grid;
+  };
+  const mechanismName = study.archetype.split("-")
+    .map(word => word[0].toUpperCase() + word.slice(1)).join(" ");
+  const mechanismSection = document.createElement("section");
+  mechanismSection.className = "synthesis-sequence-parameter-section";
+  const heading = document.createElement("h3");
+  heading.className = "synthesis-sequence-control-group";
+  heading.textContent = `${mechanismName} controls`;
+  const note = document.createElement("p");
+  note.className = "synthesis-sequence-parameter-note";
+  note.textContent = `These controls define this preset’s ${mechanismName.toLowerCase()} shape.`;
+  const mechanism = definitions.filter(definition => definition.group === "mechanism");
+  mechanismSection.append(heading, note, buildGrid(mechanism, "synthesis-sequence-parameter-grid--mechanism"));
+
+  const cycleDetails = document.createElement("details");
+  cycleDetails.className = "synthesis-sequence-cycle-details";
+  const summary = document.createElement("summary");
+  summary.textContent = "Cycle, chance & pitch mapping";
+  const cycle = definitions.filter(definition => definition.group === "cycle");
+  cycleDetails.append(summary, buildGrid(cycle, "synthesis-sequence-parameter-grid--cycle"));
+  host.replaceChildren(mechanismSection, cycleDetails);
   refreshSequencePresetSelection();
 }
 
@@ -357,6 +400,12 @@ function paintTuning() {
   const processing = getMethod(state.methodId).kind === "processor";
   $("tuningSummary").textContent = `${tuning.degreeCents.length} notes · ${period} · ${evidence}. ${tuning.caveat || tuning.description}${processing ? " Used by synthesis notes when you return to Synth." : ""}`;
   $("tuningSummary").title = `${tuning.description} Source: ${tuning.source?.label || "tuning catalogue"}`;
+  $("tuningDescription").textContent = tuning.description;
+  $("tuningCaveat").textContent = tuning.caveat || "This tuning is used as a playable note map.";
+  $("tuningReference").textContent = tuning.source?.label || "Tuning catalogue notes";
+  $("tuningReference").href = tuning.source?.url || "docs/synthesaurus-tunings.md";
+  $("tuningReference").target = tuning.source?.url ? "_blank" : "";
+  $("tuningReference").rel = tuning.source?.url ? "noreferrer" : "";
 }
 
 function populateSequenceSelect() {
@@ -432,6 +481,7 @@ function paintSequenceMetadata() {
   $("sequenceSelect").value = study?.id || basic?.id || "none";
   $("sequenceControls").hidden = !active;
   $("sequenceStrip").hidden = !active;
+  $("sequenceShapeSummary").hidden = !active;
   $("sequenceParameterSummary").textContent = study
     ? `${study.kind} · ${study.archetype.replaceAll("-", " ")}`
     : basic ? `${basic.label} · selected tuning` : "Direct performance";
@@ -495,34 +545,102 @@ function paintSequenceStrip() {
   const cycle = sequenceState.cycle;
   if (!cycle) {
     strip.replaceChildren();
-    strip.style.removeProperty("--sequence-step-count");
     strip.setAttribute("aria-label", "No sequence selected");
+    $("sequenceShapeSummary").textContent = "";
     sequenceState.cursor = null;
     return;
   }
+  const pitchForNote = note => Number.isFinite(note?.ratio) && note.ratio > 0
+    ? 12 * Math.log2(note.ratio)
+    : Number(note?.semitone);
+  const pitches = cycle.steps.flatMap(step => (Array.isArray(step.notes) ? step.notes : []))
+    .map(pitchForNote).filter(Number.isFinite);
+  const pitchMin = pitches.length ? Math.min(...pitches) : 0;
+  const pitchMax = pitches.length ? Math.max(...pitches) : 0;
+  const padding = pitchMax === pitchMin ? 1 : Math.max(.5, (pitchMax - pitchMin) * .08);
+  const displayMin = pitchMin - padding;
+  const displayMax = pitchMax + padding;
+  const pitchFraction = pitch => Math.max(0, Math.min(1, (pitch - displayMin) / (displayMax - displayMin)));
+  const length = Math.max(1 / 64, Number(cycle.lengthBeats) || 1);
   const fragment = document.createDocumentFragment();
+  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  svg.classList.add("synthesis-sequence-contour");
+  svg.setAttribute("viewBox", `0 0 ${length} 100`);
+  svg.setAttribute("preserveAspectRatio", "none");
+  svg.setAttribute("aria-hidden", "true");
+  if (displayMin <= 0 && displayMax >= 0) {
+    const root = document.createElementNS("http://www.w3.org/2000/svg", "line");
+    root.classList.add("synthesis-sequence-root-line");
+    const y = 92 - pitchFraction(0) * 84;
+    root.setAttribute("x1", "0"); root.setAttribute("x2", String(length));
+    root.setAttribute("y1", String(y)); root.setAttribute("y2", String(y));
+    svg.append(root);
+  }
+  let path = "";
+  let segmentOpen = false;
+  for (const step of cycle.steps) {
+    const stepPitches = (Array.isArray(step.notes) ? step.notes : []).map(pitchForNote).filter(Number.isFinite);
+    if (!stepPitches.length) { segmentOpen = false; continue; }
+    const average = stepPitches.reduce((sum, pitch) => sum + pitch, 0) / stepPitches.length;
+    const x = Math.max(0, Math.min(length, sequenceStepAt(step) + Number(step.duration || 0) / 2));
+    const y = 92 - pitchFraction(average) * 84;
+    path += `${segmentOpen ? "L" : "M"}${x},${y}`;
+    segmentOpen = true;
+  }
+  if (path) {
+    const contour = document.createElementNS("http://www.w3.org/2000/svg", "path");
+    contour.classList.add("synthesis-sequence-contour-line");
+    contour.setAttribute("d", path);
+    svg.append(contour);
+  }
+  fragment.append(svg);
   let rests = 0;
   let accents = 0;
-  const pitches = [];
+  let noteCount = 0;
   cycle.steps.forEach((step, cursor) => {
     const cell = document.createElement("span");
     cell.className = "synthesis-sequence-step";
     cell.dataset.sequenceStep = String(cursor);
     cell.setAttribute("aria-hidden", "true");
     const notes = Array.isArray(step.notes) ? step.notes : [];
-    for (const note of notes) if (Number.isFinite(note.semitone)) pitches.push(note.semitone);
-    const velocity = notes.reduce((maximum, note) => Math.max(maximum, Number(note.velocity) || 0), 0);
-    cell.style.setProperty("--sequence-height", `${Math.round(18 + velocity * 78)}%`);
+    const left = Math.max(0, Math.min(100, sequenceStepAt(step) / length * 100));
+    const width = Math.max(.35, Math.min(100 - left, Number(step.duration || 0) / length * 100));
+    cell.style.left = `${left}%`;
+    cell.style.width = `${width}%`;
     if (!notes.length) { rests++; cell.classList.add("is-rest"); }
     if (notes.some(note => note.accent)) { accents++; cell.classList.add("is-accent"); }
-    cell.title = notes.length ? `Step ${cursor + 1} · ${notes.length} note${notes.length === 1 ? "" : "s"}` : `Step ${cursor + 1} · rest`;
+    const labels = [];
+    for (const note of notes) {
+      const pitch = pitchForNote(note);
+      if (!Number.isFinite(pitch)) continue;
+      noteCount++;
+      labels.push(`${pitch >= 0 ? "+" : ""}${pitch.toFixed(1)}`);
+      const marker = document.createElement("span");
+      marker.className = "synthesis-sequence-note" + (note.accent ? " is-accent" : "");
+      marker.style.bottom = `${6 + pitchFraction(pitch) * 84}%`;
+      marker.style.opacity = String(.45 + .55 * Math.max(0, Math.min(1, Number(note.velocity) || 0)));
+      cell.append(marker);
+    }
+    cell.title = notes.length
+      ? `Step ${cursor + 1} · tuned pitch ${labels.join(", ")} relative to base`
+      : `Step ${cursor + 1} · rest`;
     fragment.append(cell);
   });
-  strip.style.setProperty("--sequence-step-count", String(Math.max(1, cycle.steps.length)));
+  const highLabel = document.createElement("span");
+  highLabel.className = "synthesis-sequence-pitch-label synthesis-sequence-pitch-label--high";
+  highLabel.textContent = `${pitchMax >= 0 ? "+" : ""}${pitchMax.toFixed(1)}`;
+  highLabel.setAttribute("aria-hidden", "true");
+  const lowLabel = document.createElement("span");
+  lowLabel.className = "synthesis-sequence-pitch-label synthesis-sequence-pitch-label--low";
+  lowLabel.textContent = `${pitchMin >= 0 ? "+" : ""}${pitchMin.toFixed(1)}`;
+  lowLabel.setAttribute("aria-hidden", "true");
+  fragment.append(highLabel, lowLabel);
   const pitchRange = pitches.length
-    ? ` Pitch offsets span ${Math.min(...pitches).toFixed(1)} to ${Math.max(...pitches).toFixed(1)} semitones.`
+    ? ` Tuned pitch offsets span ${pitchMin.toFixed(1)} to ${pitchMax.toFixed(1)} semitones.`
     : "";
-  strip.setAttribute("aria-label", `${cycle.label}. ${cycle.steps.length} steps, including ${rests} rests and ${accents} accented steps.${pitchRange} The bright marker follows the audio clock.`);
+  const mechanism = cycle.archetype.replaceAll("-", " ");
+  strip.setAttribute("aria-label", `${cycle.label}. ${mechanism}. Time runs left to right and tuned pitch runs bottom to top. ${cycle.steps.length} steps, including ${rests} rests and ${accents} accented steps.${pitchRange} The highlighted column follows the audio clock.`);
+  $("sequenceShapeSummary").textContent = `${mechanism} · ${noteCount} note event${noteCount === 1 ? "" : "s"} · tuned pitch ${pitchMin >= 0 ? "+" : ""}${pitchMin.toFixed(1)} to ${pitchMax >= 0 ? "+" : ""}${pitchMax.toFixed(1)} · ${Number(length.toFixed(2))} beats`;
   strip.replaceChildren(fragment);
   sequenceState.cursor = null;
 }
@@ -787,6 +905,7 @@ function renderState(rebuildControls = true, audition = false, restoringSection 
   $("outputLevelOut").value = `${Math.round(state.outputLevel * 100)}%`;
   frequencyField.setValue(state.frequencyHz);
   envelopeEditor.setValue(state.envelope);
+  paintEnvelopePreset();
   if (rebuildControls) {
     controlFields.forEach(field => field.destroy());
     controlFields = method.controls.map((control, index) => createParameterControl(
@@ -1005,6 +1124,18 @@ listen($("randomSequence"), "click", () => {
 });
 listen($("nextTuning"), "click", () => dispatchChoice($("tuningSelect"), nextTuningId(state.tuningId)));
 listen($("randomTuning"), "click", () => dispatchChoice($("tuningSelect"), randomTuningId()));
+
+listen($("envelopePresetSelect"), "change", () => {
+  if ($("envelopePresetSelect").value !== "custom") applyEnvelopePreset($("envelopePresetSelect").value);
+});
+listen($("nextEnvelopePreset"), "click", () => {
+  const current = matchEnvelopePreset(state.envelope);
+  applyEnvelopePreset(nextEnvelopePreset(current?.id || "custom"));
+});
+listen($("randomEnvelopePreset"), "click", () => {
+  const current = matchEnvelopePreset(state.envelope);
+  applyEnvelopePreset(randomEnvelopePreset(Math.random, { excludeId: current?.id || null }));
+});
 
 listen($("randomMethod"), "click", () => {
   state = randomizeMethodState(state);
@@ -1561,7 +1692,7 @@ rebuildSequence({ route: false });
 renderSection();
 renderState();
 mountSectionPresets();
-for (const [id, label] of [["masterPresetSelect", "Choose master scene"], ["methodSelect", "Choose method"], ["sequenceSelect", "Choose arpeggiator or sequence"], ["sequencePresetSelect", "Choose arpeggiator settings preset"], ["tuningSelect", "Choose tuning and note map"], ["processingSource", "Choose processing input"], ["voiceMode", "Voicing"], ["touchstoneSelect", "Study"], ["spectrumMode", "Frequency display"]]) {
+for (const [id, label] of [["masterPresetSelect", "Choose master scene"], ["methodSelect", "Choose method"], ["sequenceSelect", "Choose arpeggiator or sequence"], ["sequencePresetSelect", "Choose arpeggiator settings preset"], ["tuningSelect", "Choose tuning and note map"], ["envelopePresetSelect", "Choose ADSR preset"], ["processingSource", "Choose processing input"], ["voiceMode", "Voicing"], ["touchstoneSelect", "Study"], ["spectrumMode", "Frequency display"]]) {
   chooseControls.set(id, enhanceChooseSelect($(id), { label }));
 }
 chooseControls.get("tuningSelect").summary.setAttribute("aria-describedby", "tuningSummary");
@@ -1577,6 +1708,7 @@ for (const [labelId, selectId] of [["tuningLabel", "tuningSelect"], ["sequenceLa
 paintSequenceMetadata();
 paintSequenceParameterControls();
 paintTuning();
+paintEnvelopePreset();
 refreshMasterPresetSelection();
 paintAudio();
 frames = requestAnimationFrame(animate);

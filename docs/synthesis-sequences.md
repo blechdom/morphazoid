@@ -39,17 +39,18 @@ algorithm as the inventor of a culture's rhythm.
 - `Direct note · current Play behavior` leaves the established Synthesaurus
   hold/repeat demonstration unchanged.
 - A selected study uses the same Play button and the existing Frequency, Tempo,
-  and Voicing controls. Its own cycle panel exposes steps, step length,
-  transpose, density, swing, gate, seed, pitch mapping, and controls specific to
-  its mechanism. Audio activation remains a separate user action.
+  and Voicing controls. Controls specific to its mechanism appear first; shared
+  cycle, chance, seed, and pitch-mapping controls stay in a secondary
+  disclosure. Audio activation remains a separate user action.
 - Sequence choice, per-study parameter edits, and phase are performance state,
   not sound-preset state. Method changes, preset recall, and sound randomization
   leave them intact. Switching away from a study and back restores its current
   session edits; the active study and edits are also encoded in the page URL.
 - Processing temporarily owns Play and hides sequence controls; the selected
   study remains available when returning to Synthesis.
-- The displayed step follows the audio-clock cursor. Animation frames are never
-  the event scheduler.
+- The sequence plot runs left-to-right in beat time and bottom-to-top in tuned
+  pitch, with velocity shown by marker intensity. The highlighted step follows
+  the audio-clock cursor; animation frames are never the event scheduler.
 - Random or conditional studies use an explicit integer seed so the same study
   can be repeated while comparing sounds.
 

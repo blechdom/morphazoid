@@ -87,6 +87,50 @@ test('complete synth, arpeggiator and tuning catalogs remain independent perform
   expect(selectedStudyIsVisible).toBe(true);
 });
 
+test('mechanism controls, tuned pitch shape, ADSR presets and research hierarchy stay legible', async ({ page }) => {
+  await page.goto('/synthesis.html?method=additive');
+  await choose(page, 'tuningSelect', 'edo-6-whole-tone');
+  await choose(page, 'sequenceSelect', 'rotating-euclidean-chords');
+
+  const mechanismSection = page.locator('.synthesis-sequence-parameter-section');
+  await expect(mechanismSection.locator('.synthesis-sequence-control-group')).toHaveText('Euclidean controls');
+  await expect(mechanismSection.locator('#sequence-param-pulses')).toBeVisible();
+  await expect(mechanismSection.locator('#sequence-param-euclideanSteps')).toBeVisible();
+  await expect(mechanismSection.locator('#sequence-param-rotation')).toBeVisible();
+  const sharedCycle = page.locator('.synthesis-sequence-cycle-details');
+  await expect(sharedCycle).not.toHaveAttribute('open', '');
+  await expect(sharedCycle.locator('#sequence-param-density')).toBeHidden();
+
+  await expect(page.locator('#sequenceStrip')).toHaveAttribute('aria-label', /tuned pitch runs bottom to top/i);
+  await expect(page.locator('.synthesis-sequence-contour-line')).toHaveCount(1);
+  const pitchPositions = await page.locator('.synthesis-sequence-note').evaluateAll(notes => (
+    [...new Set(notes.map(note => note.style.bottom))]
+  ));
+  expect(pitchPositions.length).toBeGreaterThan(1);
+  await expect(page.locator('#sequenceShapeSummary')).toContainText(/tuned pitch/i);
+
+  await expect(page.locator('.synth-envelope__handle')).toHaveCount(4);
+  await expect(page.locator('#envelopeControls input[type=range]')).toHaveCount(4);
+  await expect(page.locator('#envelopePresetSelect option:not([value="custom"])')).toHaveCount(8);
+  await choose(page, 'envelopePresetSelect', 'brass');
+  expect(await page.evaluate(() => window.MorphazoidSynthesis.getState().envelope)).toEqual({
+    attack: .045, decay: .32, sustain: .78, release: .28,
+  });
+  await expect(page.locator('#envelopePresetDescription')).toContainText('breath-sized onset');
+  await page.locator('#nextEnvelopePreset').click();
+  await expect(page.locator('#envelopePresetSelect')).toHaveValue('strings');
+  expect(await page.evaluate(() => window.MorphazoidSynthesis.getStatus())).toMatchObject({ armed: false, playing: false });
+
+  expect(await page.evaluate(() => {
+    const workbench = document.querySelector('.synthesis-layout');
+    const footer = document.querySelector('.synthesis-study-footer');
+    const history = document.querySelector('#sequenceNotes');
+    return footer.contains(history)
+      && Boolean(workbench.compareDocumentPosition(footer) & Node.DOCUMENT_POSITION_FOLLOWING)
+      && !document.querySelector('#soundControls').contains(history);
+  })).toBe(true);
+});
+
 test('Euclidean and tuning edits keep a running sequence on its monotonic phase', async ({ page }) => {
   await page.addInitScript(() => {
     window.sequenceMessages = [];
