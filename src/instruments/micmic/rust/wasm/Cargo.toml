@@ -1,0 +1,14 @@
+[package]
+name = "l-system-delay-wasm"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+description = "Browser worker topology and AudioWorklet DSP for L-system Delay"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+l-system-delay-core = { path = "../core" }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"

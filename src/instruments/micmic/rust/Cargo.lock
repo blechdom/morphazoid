@@ -309,6 +309,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "l-system-delay-wasm"
+version = "0.1.0"
+dependencies = [
+ "l-system-delay-core",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "libc"
 version = "0.2.190"
 source = "registry+https://github.com/rust-lang/crates.io-index"
