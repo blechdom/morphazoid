@@ -632,6 +632,8 @@ test('section switching cancels pending input and returning does not reopen a mi
   await page.locator('#audioButton').click();
   await expect(page.locator('#audioButton')).toHaveAttribute('aria-pressed','true');
   await choose(page, 'processingSource', 'microphone');
+  expect(await page.evaluate(()=>window.inputRequests)).toBe(0);
+  await page.locator('.mz-input-toggle').click();
   expect(await page.evaluate(()=>window.inputRequests)).toBe(1);
   await page.locator('#sectionSynthesis').click();
   await page.evaluate(()=>{
@@ -671,7 +673,7 @@ test('synthesis sample and processing file labels follow their independent sourc
   await page.locator('#sectionProcessing').click();
   await expect(page.locator('#processingSource')).toHaveValue('file');
   await expect(page.locator('.mz-input-toggle')).toBeVisible();
-  await page.locator('.mz-input-toggle').click();
   await expect(page.locator('#inputStatus')).toContainText('processing-input.wav');
+  await expect(page.locator('.mz-input-toggle')).toHaveAttribute('aria-pressed','true');
   await expect(page.locator('#audioError')).toBeHidden();
 });
