@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createDefaultState } from '../src/instruments/synthesis/catalog.js';
-import { INSTRUMENT_PRESETS, captureInstrumentPreset, randomizeInstrumentPreset, fitRandomAttackToSequence } from '../src/instruments/synthesis/instrument-presets.js';
+import { INSTRUMENT_PRESETS, instrumentPresetsForInput, captureInstrumentPreset, randomizeInstrumentPreset, fitRandomAttackToSequence } from '../src/instruments/synthesis/instrument-presets.js';
 import { validateFullPresetBank } from '../src/site/header-presets.js';
 import { compileSequence } from '../src/instruments/synthesis/sequence-compiler.js';
 
@@ -23,6 +23,34 @@ test('capture preserves direct and basic patterns for transaction rollback', () 
     assert.equal(snapshot.sequence.tempoBpm, 137);
     assert.equal(snapshot.sequence.gate, 39);
     assert.deepEqual(captureInstrumentPreset(snapshot), snapshot);
+  }
+});
+
+test('each voice input replaces the instrument bank and randomizes only its own musical category', () => {
+  assert.equal(instrumentPresetsForInput('synthesis'), INSTRUMENT_PRESETS);
+  assert.equal(instrumentPresetsForInput('signals'), INSTRUMENT_PRESETS);
+  for (const input of ['speech', 'singing']) {
+    const bank = instrumentPresetsForInput(input);
+    validateFullPresetBank(bank);
+    assert.ok(bank.length > 20);
+    for (const preset of bank) {
+      assert.equal(preset.snapshot.routing.input, input);
+      assert.equal(preset.snapshot.routing.effectEnabled, false);
+      assert.deepEqual(captureInstrumentPreset(preset.snapshot), preset.snapshot, preset.id);
+    }
+    let seed = 532;
+    const rng = () => (seed = Math.imul(seed, 1664525) + 1013904223 >>> 0) / 4294967296;
+    const engines = new Set(), loopPolicies = new Set(), effects = new Set();
+    for (let i = 0; i < 32; i++) {
+      const next = randomizeInstrumentPreset(bank[0].snapshot, rng);
+      assert.equal(next.routing.input, input);
+      assert.deepEqual(captureInstrumentPreset(next), next);
+      assert.notDeepEqual(next.routing.voice, bank[0].snapshot.routing.voice);
+      engines.add(next.routing.voice.scene.engine); loopPolicies.add(next.routing.loop); effects.add(next.routing.effectEnabled);
+      assert.ok(!Object.hasOwn(next.sound, 'outputLevel'));
+      assert.ok(!Object.hasOwn(next, 'playing'));
+    }
+    assert.ok(engines.size > 2); assert.equal(loopPolicies.size, 2); assert.equal(effects.size, 2);
   }
 });
 

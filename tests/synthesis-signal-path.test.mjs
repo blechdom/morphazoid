@@ -3,9 +3,10 @@ import assert from 'node:assert/strict';
 import { createDefaultState } from '../src/instruments/synthesis/catalog.js';
 import { INPUT_CATEGORIES, inputsForCategory, sanitizeSignalPath } from '../src/instruments/synthesis/signal-path.js';
 import { captureInstrumentPreset, randomizeInstrumentPreset } from '../src/instruments/synthesis/instrument-presets.js';
+import { createVoiceInputState } from '../src/instruments/synthesis/voice-input-state.js';
 
 test('source-led categories are flat and signals and recordings have different provenance', () => {
-  assert.deepEqual(INPUT_CATEGORIES.map(x => x.id), ['synthesis', 'microphone', 'file', 'samples', 'signals']);
+  assert.deepEqual(INPUT_CATEGORIES.map(x => x.id), ['synthesis', 'speech', 'singing', 'microphone', 'file', 'samples', 'signals']);
   assert.ok(inputsForCategory('samples').every(x => x.kind === 'demo'));
   assert.ok(inputsForCategory('signals').every(x => x.kind === 'signal'));
   for (const category of INPUT_CATEGORIES) for (const item of inputsForCategory(category.id)) assert.ok(!item.label.includes(' · '));
@@ -48,4 +49,23 @@ test('whole-instrument randomization includes insert settings and cannot request
   }
   assert.equal(enabled.size, 2); assert.ok(methods.size > 8);
   assert.equal(loopPolicies.size, 2);
+});
+
+test('speech and singing routes store native musical state, with optional processing', () => {
+  const sound = createDefaultState('fx-reverb');
+  for (const input of ['speech', 'singing']) {
+    const voice = createVoiceInputState(input);
+    const route = sanitizeSignalPath({ input, voice, loop: true, effectEnabled: false }, sound);
+    assert.equal(route.version, 2);
+    assert.equal(route.input, input);
+    assert.equal(route.selection, null);
+    assert.equal(route.effectEnabled, false);
+    assert.deepEqual(route.voice, voice);
+    assert.deepEqual(sanitizeSignalPath(route, sound), route);
+    const snapshot = captureInstrumentPreset({ sound, routing: route });
+    assert.deepEqual(captureInstrumentPreset(snapshot), snapshot);
+    assert.equal(sanitizeSignalPath({ ...route, effectEnabled: true }, sound).effectEnabled, true);
+    // A stale/cross-kind route must never put voice menus over a synth DSP state.
+    assert.equal(sanitizeSignalPath(route, createDefaultState('fm')).input, 'synthesis');
+  }
 });

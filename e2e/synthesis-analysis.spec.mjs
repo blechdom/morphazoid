@@ -10,26 +10,30 @@ for (const viewport of [{width:1440,height:900},{width:390,height:844},{width:84
     const errors=[];page.on('pageerror',error=>errors.push(error.message));
     await page.goto('/synthesis.html?method=graphic');
     for(const selector of ['#scope','#spectrum']) await expect(page.locator(selector)).toBeInViewport({ratio:1});
-    expect(await page.locator('#soundAnalysis').evaluate(node=>getComputedStyle(node).position)).toBe('sticky');
-    const initial=await page.locator('#soundAnalysis').boundingBox();
+    expect(await page.locator('#performanceDock').evaluate(node=>getComputedStyle(node).position)).toBe('sticky');
+    const initial=await page.locator('#performanceDock').boundingBox();
     const presets=await page.locator('#performancePresetHost').boundingBox();
-    expect(initial.y+initial.height).toBeLessThanOrEqual(presets.y);
+    const inputBar=await page.locator('#inputBar').boundingBox();
+    expect(presets.y).toBeGreaterThanOrEqual(initial.y);
+    expect(presets.y+presets.height).toBeLessThanOrEqual(inputBar.y);
+    expect(initial.height).toBeLessThanOrEqual(viewport.height * .3);
     expect((await page.locator('#scope').boundingBox()).height).toBeLessThanOrEqual(120);
     await expect(page.locator('#spectrumOverlay')).toBeChecked();
     await expect(page.locator('#spectrumMode')).toHaveValue('spectrogram');
     for(const selector of ['#methodControls input[type=range]']){
       const input=page.locator(selector).last();await input.scrollIntoViewIfNeeded();
       await expect(input).toBeInViewport({ratio:1});
-      const bounds=await input.boundingBox(),dock=await page.locator('#soundAnalysis').boundingBox();
+      const bounds=await input.boundingBox(),dock=await page.locator('#performanceDock').boundingBox();
       expect(dock.y).toBeCloseTo(0, 0);
       expect(bounds.y).toBeGreaterThanOrEqual(dock.y+dock.height);
       expect(await input.evaluate(node=>{const r=node.getBoundingClientRect();return document.elementFromPoint(r.x+r.width/2,r.y+r.height/2)===node;})).toBe(true);
       for(const monitor of ['#scope','#spectrum']) await expect(page.locator(monitor)).toBeInViewport({ratio:1});
+      await expect(page.locator('#performancePresetHost')).toBeInViewport({ratio:1});
       const knob=input.locator('..').locator('..');
       await knob.locator('.synthesis-knob-value').click();
       const editor=knob.locator('input[type=number]');
       await expect(editor).toBeInViewport({ratio:1});
-      const editorBounds=await editor.boundingBox(),editingDock=await page.locator('#soundAnalysis').boundingBox();
+      const editorBounds=await editor.boundingBox(),editingDock=await page.locator('#performanceDock').boundingBox();
       expect(editorBounds.y).toBeGreaterThanOrEqual(editingDock.y+editingDock.height);
       await editor.press('Escape');
       for(const monitor of ['#scope','#spectrum']) await expect(page.locator(monitor)).toBeInViewport({ratio:1});
@@ -37,7 +41,7 @@ for (const viewport of [{width:1440,height:900},{width:390,height:844},{width:84
     const sustain=page.locator('#envelopeControls [data-node="3"]');
     await sustain.scrollIntoViewIfNeeded();
     await expect(sustain).toBeInViewport({ratio:1});
-    const sustainBounds=await sustain.boundingBox(),envelopeDock=await page.locator('#soundAnalysis').boundingBox();
+    const sustainBounds=await sustain.boundingBox(),envelopeDock=await page.locator('#performanceDock').boundingBox();
     expect(sustainBounds.y).toBeGreaterThanOrEqual(envelopeDock.y+envelopeDock.height);
     await sustain.press('ArrowDown');
     for(const monitor of ['#scope','#spectrum']) await expect(page.locator(monitor)).toBeInViewport({ratio:1});
@@ -60,6 +64,11 @@ for (const viewport of [{width:1440,height:900},{width:390,height:844},{width:84
     await processorPresets.locator('summary').click();
     const row=processorPresets.locator('.instrument-picker-link:visible').last();await row.scrollIntoViewIfNeeded();await row.click();
     await expect(processorPresets.locator('summary')).toBeVisible();
+    // The persistent whole-instrument picker remains operable above the scopes.
+    await page.locator('#performancePresetHost summary').click();
+    const fullPreset=page.locator('#header-preset-panel .instrument-picker-link:visible').last();
+    await fullPreset.scrollIntoViewIfNeeded();await fullPreset.click();
+    await expect(page.locator('#performancePresetHost')).toBeInViewport({ratio:1});
     expect(await page.evaluate(()=>window.MorphazoidSynthesis.getStatus().armed)).toBe(false);
     expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
     expect(errors).toEqual([]);
@@ -84,6 +93,7 @@ test('live spectrum overlay and spectrogram freeze through rotation without chan
   await page.waitForTimeout(150);expect(await canvases(page)).toEqual(frozen);
   await page.setViewportSize({width:844,height:390});await settle(page);
   for(const monitor of ['#scope','#spectrum']) await expect(page.locator(monitor)).toBeInViewport({ratio:1});
+  await expect(page.locator('#performancePresetHost')).toBeInViewport({ratio:1});
   await page.setViewportSize({width:390,height:844});await settle(page);
   expect(await canvases(page)).toEqual(frozen);
   await choose(page, 'spectrumMode', 'spectrum');await settle(page);

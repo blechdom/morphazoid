@@ -31,21 +31,99 @@ try {
 }
 
 class Param{value=1;calls=[];setTargetAtTime(...args){this.calls.push(['target',...args]);}setValueAtTime(...args){this.calls.push(['set',...args]);}linearRampToValueAtTime(...args){this.calls.push(['ramp',...args]);}cancelScheduledValues(...args){this.calls.push(['cancel',...args]);}}
-class Node{connections=[];disconnected=0;connect(node){this.connections.push(node);return node;}disconnect(){this.disconnected++;this.connections=[];}}
+class Node{connections=[];disconnected=0;numberOfInputs=1;constructor(context){this.context=context;}connect(node){this.connections.push(node);return node;}disconnect(){this.disconnected++;this.connections=[];}}
 class Gain extends Node{gain=new Param();}
 class Buffer{constructor(channels,frames,sampleRate){this.length=frames;this.sampleRate=sampleRate;this.duration=frames/sampleRate;this.samples=new Float32Array(frames);}copyToChannel(samples){this.samples.set(samples);}getChannelData(){return this.samples;}}
 class Source extends Node{loop=false;onended=null;starts=[];stops=[];playbackRate={value:1};start(...args){this.starts.push(args);}stop(...args){this.stops.push(args);}end(){this.onended?.();}}
-class Context{state='running';sampleRate=48000;currentTime=10;sources=[];gains=[];createGain(){const gain=new Gain();this.gains.push(gain);return gain;}createAnalyser(){return new Node();}createBuffer(...args){return new Buffer(...args);}createBufferSource(){const s=new Source();this.sources.push(s);return s;}async suspend(){this.state='suspended';}async close(){this.state='closed';}}
+class Context{static created=0;state='running';sampleRate=48000;currentTime=10;sources=[];gains=[];analysers=[];suspended=0;closed=0;destination=new Node(this);constructor(){Context.created++;}createGain(){const gain=new Gain(this);this.gains.push(gain);return gain;}createAnalyser(){const analyser=new Node(this);this.analysers.push(analyser);return analyser;}createBuffer(...args){return new Buffer(...args);}createBufferSource(){const s=new Source(this);this.sources.push(s);return s;}async suspend(){this.suspended++;this.state='suspended';}async close(){this.closed++;this.state='closed';}}
 class WorkerMock{static all=[];terminated=false;constructor(url){this.url=url;WorkerMock.all.push(this);}postMessage(request){this.request=request;}terminate(){this.terminated=true;}ready(samples=new Float32Array(4800).fill(.1),sampleRate=48000){this.onmessage?.({data:{type:'ready',samples,sampleRate}});}}
-let unlocked=0,resumed=0;
+let unlocked=0,resumed=0,outputs=0,releasedOutputs=0;
 globalThis.AudioContext=Context;globalThis.Worker=WorkerMock;
-globalThis[dependencyKey]={resumeAudioContext:async c=>{resumed++;c.state='running';},unlockAudioContext:()=>unlocked++,connectSpellingOutput:()=>({release(){}}),NATIVE_OUTPUT_TRIMS:{sinsy:.37,flite:.81}};
+globalThis[dependencyKey]={resumeAudioContext:async c=>{resumed++;c.state='running';},unlockAudioContext:()=>unlocked++,connectSpellingOutput:()=>{outputs++;return {release(){releasedOutputs++;}};},NATIVE_OUTPUT_TRIMS:{sinsy:.37,flite:.81}};
 let NativeVoiceAudio;
 try { ({NativeVoiceAudio} = await import(fixtureUrl.href)); }
 catch (error) { await fs.rm(temporaryDirectory, {recursive:true,force:true}); throw error; }
 async function audio(){const a=new NativeVoiceAudio();await a.enable();return a;}
 async function ready(a,{store=false,engine='sinsy'}={}){const promise=a.render({engine},{store});const worker=WorkerMock.all.at(-1);worker.ready();return promise;}
 function phrase(a){a.buffer=new Buffer(1,192000,48000);a.position=1;a.engine='flite';a.loop=true;return a.buffer;}
+
+test('borrowed audio renders through the host input without owning or arming device output',async()=>{
+ const context=new Context(),destination=context.createAnalyser(),a=new NativeVoiceAudio();
+ const before=[Context.created,unlocked,resumed,outputs,releasedOutputs];
+ await a.enable({context,destination});
+ assert.equal(a.context,context);assert.equal(a.enabled,true);
+ assert.deepEqual(a.master.connections,[a.analyser]);assert.deepEqual(a.analyser.connections,[destination]);
+ const result=await ready(a,{store:true});assert.equal(a.play(),true);
+ assert.equal(a.source.buffer,result.buffer);assert.deepEqual(a.source.connections,[a.sourceGain]);assert.deepEqual(a.sourceGain.connections,[a.master]);
+ assert.deepEqual([Context.created,unlocked,resumed,outputs,releasedOutputs],before);
+ assert.deepEqual(context.destination.connections,[]);
+ const master=a.master,analyser=a.analyser,source=a.source,gain=a.sourceGain;
+ await a.close();
+ assert.equal(source.disconnected,1);assert.equal(gain.disconnected,1);assert.equal(master.disconnected,1);assert.equal(analyser.disconnected,1);
+ assert.equal(destination.disconnected,0);assert.equal(context.state,'running');assert.equal(context.suspended,0);assert.equal(context.closed,0);
+ assert.deepEqual([Context.created,unlocked,resumed,outputs,releasedOutputs],before);
+ assert.equal(a.context,null);assert.equal(a.master,null);assert.equal(a.analyser,null);
+ await a.close();assert.equal(master.disconnected,1);assert.equal(analyser.disconnected,1);
+});
+
+test('borrowed disable cancels rendering and active or retiring voices while retaining the host graph',async()=>{
+ const context=new Context(),destination=context.createAnalyser(),a=new NativeVoiceAudio();await a.enable({context,destination});
+ const main=phrase(a);a.play();const first=a.source;a.play();const second=a.source;
+ assert.equal(a.retiring.size,1);
+ const pending=a.render({engine:'sinsy'}),rejected=assert.rejects(pending,{name:'AbortError'}),worker=WorkerMock.all.at(-1),master=a.master,analyser=a.analyser;
+ await a.disable();await rejected;worker.ready();
+ assert.equal(worker.terminated,true);assert.equal(a.pendingRender,null);assert.equal(a.buffer,main);
+ assert.equal(a.enabled,false);assert.equal(a.playing,false);assert.equal(a.retiring.size,0);
+ assert.equal(first.disconnected,1);assert.equal(second.disconnected,1);
+ assert.equal(context.state,'running');assert.equal(context.suspended,0);assert.equal(context.closed,0);
+ assert.equal(master.disconnected,0);assert.deepEqual(analyser.connections,[destination]);
+ await a.enable({context,destination});await a.enable({context,destination});
+ assert.equal(a.master,master);assert.equal(a.analyser,analyser);assert.deepEqual(analyser.connections,[destination]);
+ assert.equal(a.play(),true);await a.close();
+});
+
+test('borrowed enable rejects missing, foreign, device, source-only and unarmed graphs without side effects',async()=>{
+ const context=new Context(),destination=context.createGain(),foreign=new Context(),sourceOnly=context.createBufferSource();sourceOnly.numberOfInputs=0;
+ const suspended=new Context();suspended.state='suspended';const closed=new Context();closed.state='closed';
+ const invalid=[{context},{destination},{context:foreign,destination},{context,destination:context.destination},{context,destination:sourceOnly},{context:{state:'running'},destination},
+  {context:suspended,destination:suspended.createGain()},{context:closed,destination:closed.createGain()}];
+ const before=[Context.created,unlocked,resumed,outputs];
+ for(const options of invalid){
+  const a=new NativeVoiceAudio();await assert.rejects(a.enable(options));
+  assert.equal(a.context,null);assert.equal(a.enabled,false);assert.equal(a.master,undefined);await a.close();
+ }
+ assert.deepEqual([Context.created,unlocked,resumed,outputs],before);
+ assert.equal(context.suspended,0);assert.equal(foreign.suspended,0);assert.equal(suspended.suspended,0);assert.equal(closed.closed,0);
+});
+
+test('an attached graph cannot silently change ownership or destination during playback',async()=>{
+ const context=new Context(),destination=context.createGain(),a=new NativeVoiceAudio();await a.enable({context,destination});phrase(a);a.play();
+ const source=a.source,master=a.master,analyser=a.analyser,other=new Context();
+ for(const options of [undefined,{context,destination:context.createGain()},{context:other,destination:other.createGain()}])await assert.rejects(a.enable(options),/host context|Close the voice audio graph/);
+ assert.equal(a.source,source);assert.equal(a.master,master);assert.equal(a.analyser,analyser);assert.equal(a.enabled,true);assert.equal(a.playing,true);assert.equal(source.stops.length,0);
+ await a.disable();context.state='suspended';const before=[unlocked,resumed];
+ await assert.rejects(a.enable({context,destination}),{name:'NotAllowedError'});assert.deepEqual([unlocked,resumed],before);assert.equal(a.enabled,false);
+ await a.close();assert.equal(context.closed,0);assert.equal(context.suspended,0);
+ const standalone=await audio(),owned=standalone.context;
+ await assert.rejects(standalone.enable({context:other,destination:other.createGain()}),/Close the voice audio graph/);
+ assert.equal(standalone.context,owned);await standalone.close();assert.equal(owned.closed,1);
+});
+
+test('failed borrowed connection disconnects partial nodes and permits retry',async()=>{
+ const context=new Context(),destination=context.createGain(),a=new NativeVoiceAudio(),createAnalyser=context.createAnalyser.bind(context);
+ context.createAnalyser=()=>{const node=createAnalyser();node.connect=()=>{throw Error('connection failed');};return node;};
+ await assert.rejects(a.enable({context,destination}),/connection failed/);
+ assert.equal(a.context,null);assert.equal(a.enabled,false);assert.equal(context.gains.at(-1).disconnected,1);assert.equal(context.analysers.at(-1).disconnected,1);assert.equal(destination.disconnected,0);
+ context.createAnalyser=createAnalyser;await a.enable({context,destination});assert.equal(a.enabled,true);await a.close();assert.equal(context.state,'running');
+});
+
+test('closing standalone audio still releases its output and permits a later borrowed session',async()=>{
+ const before=[outputs,releasedOutputs],a=await audio(),owned=a.context,master=a.master,analyser=a.analyser;
+ await a.close();assert.equal(owned.state,'closed');assert.equal(owned.closed,1);assert.equal(master.disconnected,1);assert.equal(analyser.disconnected,1);
+ assert.deepEqual([outputs,releasedOutputs],[before[0]+1,before[1]+1]);
+ const context=new Context(),destination=context.createGain();await a.enable({context,destination});await a.close();
+ assert.equal(context.state,'running');assert.equal(context.closed,0);assert.deepEqual([outputs,releasedOutputs],[before[0]+1,before[1]+1]);
+});
 
 test('offline sample-bank PCM uses the shared buffer and audition output without a worker',async()=>{
  const a=await audio(),main=phrase(a),workers=WorkerMock.all.length;

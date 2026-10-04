@@ -29,6 +29,7 @@
   <link rel="icon" href="favicon.svg" type="image/svg+xml" />
   <link rel="stylesheet" href="style.css" />
   <link rel="stylesheet" href="src/instruments/synthesis/synthesis.css" />
+  <link rel="stylesheet" href="src/instruments/synthesis/voice-input.css" />
 </head>
 <body class="synthesis-page">
   <header class="masthead">
@@ -42,7 +43,9 @@
   </header>
   <main class="synthesis-shell" id="synthesis">
     <svg class="synthesis-icon-defs" aria-hidden="true" width="0" height="0"><defs><symbol id="synthesisDice" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2" fill="none" stroke="currentColor" stroke-width="1.6"/><circle cx="7.5" cy="7.5" r="1.4"/><circle cx="16.5" cy="7.5" r="1.4"/><circle cx="12" cy="12" r="1.4"/><circle cx="7.5" cy="16.5" r="1.4"/><circle cx="16.5" cy="16.5" r="1.4"/></symbol></defs></svg>
-    <div class="synthesis-title"><h1>Synthesaurus</h1><p class="synthesis-subtitle">A compendium of historical sound synthesis, sequencing &amp; transformation.</p></div>
+    <div class="synthesis-title"><h1>Synthesaurus</h1><p class="synthesis-subtitle">A compendium of historical sound synthesis, voice synthesis, sequencing &amp; transformation.</p></div>
+    <div id="performanceDock" class="synthesis-performance-dock">
+    <div id="performancePresetHost" data-instrument-preset-host></div>
     <section id="soundAnalysis" class="synthesis-analysis" aria-label="Live sound analysis">
       <div class="synthesis-monitor">
       <div class="synthesis-monitor-heading"><span id="scopeTitle">Scope + spectrum</span><output id="levelReadout">−∞ dBFS</output></div>
@@ -54,8 +57,9 @@
       </div>
       <div class="synthesis-display-options"><label><input type="checkbox" id="spectrumOverlay" checked /> Spectrum overlay</label><label><input type="checkbox" id="freezeDisplay" aria-label="Freeze displays" /> Freeze</label><span id="signalStatus">Audio off</span></div>
     </section>
+    </div>
     <div class="synthesis-input-bar" id="inputBar">
-      <div class="synthesis-axis-field"><label for="inputCategory">Input</label><select id="inputCategory"><option value="synthesis">Synthesizer</option><option value="microphone">Mic / audio in</option><option value="file">Audio file</option><option value="samples">Sample loops</option><option value="signals">Test signals</option></select></div>
+      <div class="synthesis-axis-field"><label for="inputCategory">Input</label><select id="inputCategory"><option value="synthesis">Synthesizer</option><option value="speech">Speech synthesis</option><option value="singing">Singing synthesis</option><option value="microphone">Mic / audio in</option><option value="file">Audio file</option><option value="samples">Sample loops</option><option value="signals">Test signals</option></select></div>
       <div class="synthesis-axis-field" id="inputSelectionField" hidden><label for="processingSource" id="inputSelectionLabel">Signal</label><select id="processingSource"></select></div>
       <div id="inputSourceHost"></div>
       <label class="synthesis-loop" id="processingLoopControl" hidden><input id="processingLoop" type="checkbox" checked /> Loop input</label>
@@ -63,7 +67,6 @@
       <button class="synthesis-info" type="button" popovertarget="signalPathInfo" aria-label="About the signal path">i</button>
     </div>
     <output id="signalPathSummary" class="synthesis-signal-path">Synthesizer → Output</output>
-    <div id="performancePresetHost" data-instrument-preset-host></div>
     <div class="synthesis-layout">
       <section id="soundControls" class="synthesis-controls" aria-label="Synthesis controls">
         <div class="synthesis-play-row">
@@ -75,19 +78,23 @@
         <div class="synthesis-axis-pair">
           <div class="synthesis-axis-field">
             <div class="synthesis-axis-heading"><label for="methodSelect" id="methodLabel">Synthesis method</label><button type="button" class="synthesis-info" popovertarget="methodInfo" aria-label="About this synthesis method">i</button></div>
-            <div class="synthesis-axis-control"><select id="methodSelect"><option>Loading methods…</option></select><span class="synthesis-axis-actions"><button type="button" id="nextMethod" title="Next synthesis method" aria-label="Next synthesis method"><span aria-hidden="true">▶</span></button></span></div>
+            <div class="synthesis-axis-control"><select id="methodSelect"><option>Loading methods…</option></select><span class="synthesis-axis-actions"><button type="button" id="nextMethod" class="instrument-picker-next" title="Next synthesis method" aria-label="Next synthesis method"><span aria-hidden="true">▶</span></button></span></div>
           </div>
-          <div class="synthesis-axis-field synthesis-preset-section"><label class="synthesis-selector-label" for="presetSelect" id="presetSectionLabel">Synthesis preset</label><div id="presetHost" class="synthesis-axis-control"><select id="presetSelect"></select><span class="synthesis-axis-actions"><button id="nextPreset" type="button" title="Next synthesis preset" aria-label="Next synthesis preset">▶</button><button type="button" id="randomMethod" title="Randomize current method parameters" aria-label="Randomize current method parameters"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#synthesisDice"/></svg></button></span></div></div>
+          <div class="synthesis-axis-field synthesis-preset-section"><label class="synthesis-selector-label" for="presetSelect" id="presetSectionLabel">Synthesis preset</label><div id="presetHost" class="synthesis-axis-control"><select id="presetSelect"></select><span class="synthesis-axis-actions"><button id="nextPreset" class="instrument-picker-next" type="button" title="Next synthesis preset" aria-label="Next synthesis preset">▶</button><button type="button" id="randomMethod" class="instrument-picker-next synthesis-parameter-random" title="Randomize current method parameters" aria-label="Randomize current method parameters"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#synthesisDice"/></svg></button></span></div></div>
         </div>
       </section>
+      <div class="synthesis-pitch-row">
+      <div class="synthesis-pitch-options">
       <section class="synthesis-axis-card synthesis-tuning-choice" aria-labelledby="tuningLabel">
         <div class="synthesis-axis-heading"><label id="tuningLabel" for="tuningSelect">Tuning / note map</label><button type="button" class="synthesis-info" popovertarget="tuningInfo" aria-label="About this tuning map">i</button></div>
-        <div class="synthesis-axis-control"><select id="tuningSelect"><option>Loading tunings…</option></select><span class="synthesis-axis-actions"><button type="button" id="nextTuning" title="Next tuning" aria-label="Next tuning"><span aria-hidden="true">▶</span></button></span></div>
+        <div class="synthesis-axis-control"><select id="tuningSelect"><option>Loading tunings…</option></select><span class="synthesis-axis-actions"><button type="button" id="nextTuning" class="instrument-picker-next" title="Next tuning" aria-label="Next tuning"><span aria-hidden="true">▶</span></button></span></div>
       </section>
+        <div id="voiceModeControl" class="synthesis-axis-field synthesis-voicing"><div class="synthesis-axis-heading"><label for="voiceMode">Voicing</label></div><select id="voiceMode"><option value="mono">Mono</option><option value="poly">Poly · 8 voices</option></select></div>
+      </div>
             <div class="synthesis-synth-essentials">
               <div id="frequencyRow" class="synthesis-frequency-row"><div id="frequencyControl"></div></div>
-              <div id="voiceModeControl" class="synthesis-rate synthesis-voicing"><label for="voiceMode">Voicing</label><select id="voiceMode"><option value="mono">Mono</option><option value="poly">Poly · 8 voices</option></select></div>
             </div>
+      </div>
             <h2 id="synthParameterHeading" class="synthesis-parameter-heading">Synth parameters</h2>
             <div id="methodEditor" class="synthesis-method-editor" aria-live="polite"></div>
             <div id="methodControls" class="synthesis-parameters" aria-labelledby="synthParameterHeading"></div>
@@ -129,6 +136,7 @@
             </section>
           </div>
         </div>
+        <section id="voiceDetail" hidden aria-label="Voicesaurus controls"><div id="voiceInputPanel"></div><output id="voiceInputStatus" aria-live="polite"></output></section>
         <section id="processorDetail" class="synthesis-processor-detail" hidden>
           <div id="processorPanel"></div>
           <p id="processorLatency" class="synthesis-processor-latency" hidden></p>
@@ -143,7 +151,7 @@
     <section id="sequenceInfo" class="synthesis-info-popup" popover aria-labelledby="sequenceInfoTitle"><h2 id="sequenceInfoTitle"></h2><p id="sequenceCue"></p><p id="sequenceInfoDetails"></p><a id="sequenceInfoReference" href="synthesaurus-reference.html#arpeggiators">History &amp; sources ↗</a></section>
     <section id="tuningInfo" class="synthesis-info-popup" popover aria-labelledby="tuningInfoTitle"><h2 id="tuningInfoTitle"></h2><p id="tuningDescription"></p><p id="tuningCaveat"></p><a id="tuningInfoReference" href="synthesaurus-reference.html#tuning">History &amp; sources ↗</a></section>
     <section id="processorInfo" class="synthesis-info-popup" popover aria-labelledby="processorInfoTitle"><h2 id="processorInfoTitle">Processor</h2><p id="processorPrinciple"></p><p id="processorCue"></p><a id="processorReference" href="synthesaurus-reference.html#synthesis">History &amp; sources ↗</a></section>
-    <section id="signalPathInfo" class="synthesis-info-popup" popover aria-labelledby="signalPathInfoTitle"><h2 id="signalPathInfoTitle">Notes before sound; effects after sound</h2><p>The arpeggiator creates timed note events. The tuning map turns their pitch relationships into frequencies. The synthesizer turns those events into audio; the processor transforms that audio.</p><p>Mic, files, loops and test signals replace the synthesizer. They do not pass through its arpeggiator or tuning map. A processor's own carrier frequency or resonance is a separate control, not an automatic retuning of recorded audio.</p><p>Choose a local audio file; it stays in your browser. Sample loops include licensed recordings and original rendered demos—not a commercial synthesizer's factory library.</p><p id="processingInputHint"></p><a href="synthesaurus-reference.html#signal-flow">Routing, source credits &amp; processing research ↗</a></section>
+    <section id="signalPathInfo" class="synthesis-info-popup" popover aria-labelledby="signalPathInfoTitle"><h2 id="signalPathInfoTitle">Notes before sound; effects after sound</h2><p>The arpeggiator creates timed note events. The tuning map turns their pitch relationships into frequencies. The synthesizer turns those events into audio; the processor transforms that audio.</p><p>Mic, files, loops and test signals replace the synthesizer. They do not pass through its arpeggiator or tuning map. A processor's own carrier frequency or resonance is a separate control, not an automatic retuning of recorded audio.</p><p>Speech synthesis and Singing synthesis use Voicesaurus’s native engines. Speech has its own text or phonetic controls; singing has an editable score. They replace the regular synthesizer, arpeggiator and tuning controls, with optional processing afterward.</p><p>Choose a local audio file; it stays in your browser. Sample loops include licensed recordings and original rendered demos—not a commercial synthesizer's factory library.</p><p id="processingInputHint"></p><a href="synthesaurus-reference.html#signal-flow">Routing, source credits &amp; processing research ↗</a></section>
     <p id="audioError" class="synthesis-error" role="alert" hidden></p>
     <p id="status" class="sr-only" role="status" aria-live="polite">Audio is off.</p>
     <noscript>This synthesis page needs JavaScript and WebAssembly to make sound.</noscript>

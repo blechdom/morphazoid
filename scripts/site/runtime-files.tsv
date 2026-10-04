@@ -1224,6 +1224,10 @@ copy+require	src/instruments/synthesis/reference.js
 copy+require	src/instruments/synthesis/reference.css
 copy+require	src/instruments/synthesis/instrument-presets.js
 copy+require	src/instruments/synthesis/signal-path.js
+copy+require	src/instruments/synthesis/voice-input-state.js
+copy+require	src/instruments/synthesis/voice-input-panel.js
+copy+require	src/instruments/synthesis/voice-input.css
+copy+require	src/instruments/synthesis/voice-source.js
 copy+require	src/instruments/synthesis/processor-panel.js
 copy+require	src/instruments/synthesis/amplitude-models.js
 copy+require	src/instruments/synthesis/sequence-surfaces.js

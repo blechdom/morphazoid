@@ -1,8 +1,11 @@
 import { createDefaultState, getMethod, sanitizeState } from './catalog.js';
 import { PROCESSING_INPUT_OPTIONS, getProcessingInput } from './demo-sources.js';
+import { isVoiceInput, sanitizeVoiceInputState } from './voice-input-state.js';
 
 export const INPUT_CATEGORIES = Object.freeze([
   { id: 'synthesis', label: 'Synthesizer' },
+  { id: 'speech', label: 'Speech synthesis' },
+  { id: 'singing', label: 'Singing synthesis' },
   { id: 'microphone', label: 'Mic / audio in' },
   { id: 'file', label: 'Audio file' },
   { id: 'samples', label: 'Sample loops' },
@@ -35,6 +38,8 @@ export function sanitizeSignalPath(value = {}, sound = createDefaultState()) {
   const selection = options.some(item => item.id === value.selection) ? value.selection
     : category === 'signals' ? presetSignal(sound.source) : options[0]?.id ?? null;
   const { outputLevel, voiceMode, tuningId, ...effectSound } = effect;
-  return { version: 1, input: category, selection, loop: value.loop !== false,
-    effectEnabled: category !== 'synthesis' || value.effectEnabled === true, effect: effectSound };
+  const voice = isVoiceInput(category);
+  return { version: voice ? 2 : 1, input: category, selection, loop: value.loop !== false,
+    effectEnabled: (category !== 'synthesis' && !voice) || value.effectEnabled === true, effect: effectSound,
+    ...(voice ? { voice: sanitizeVoiceInputState(value.voice, category) } : {}) };
 }

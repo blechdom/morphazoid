@@ -16,7 +16,7 @@ const RESPONSIVE_VIEWPORTS = Object.freeze([
   { width: 521, height: 900, catalogLayout: 'stacked', methodLayout: 'stacked' },
   { width: 800, height: 900, catalogLayout: 'two-row', methodLayout: 'inline' },
   { width: 844, height: 390, catalogLayout: 'two-row', methodLayout: 'inline' },
-  { width: 1051, height: 900, catalogLayout: 'two-row', methodLayout: 'inline' },
+  { width: 1051, height: 900, catalogLayout: 'two-row', methodLayout: 'stacked' },
   { width: 1440, height: 900, catalogLayout: 'single-row', methodLayout: 'inline' },
 ]);
 
@@ -399,7 +399,9 @@ test('sound recalls preserve same-method phrases and give cross-method changes a
           if (!recall?.armed || !Number.isInteger(status.cursor) || status.cursor === recall.cursor) return;
 
           recall.armed = false;
-          recall.at = performance.now();
+          // Include the triggering status in the evidence window. A second
+          // performance.now() could exclude it by a fraction of a millisecond.
+          recall.at = entry.receivedAt;
           recall.onset = entry;
           recall.beforeState = window.MorphazoidSynthesis.getState();
           recall.beforeStatus = window.MorphazoidSynthesis.getStatus();

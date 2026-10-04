@@ -1,9 +1,10 @@
-import { sanitizeState } from './catalog.js';
+import { createDefaultState, sanitizeState } from './catalog.js';
 import { captureSoundState, SECTION_PRESETS } from './presets.js';
 import { SYNTHESAURUS_MASTER_PRESETS, sanitizeSequencePerformance, randomizeMasterPerformance } from './performance-presets.js';
 import { compileSequence } from './sequence-compiler.js';
 import { sanitizeSignalPath } from './signal-path.js';
 import { randomizeAllState } from './presets.js';
+import { isVoiceInput, voicePresetsForInput, randomizeVoiceInputState } from './voice-input-state.js';
 
 const directModes = new Set(['none', 'basic-up', 'basic-down', 'basic-up-down']);
 const bounded = (value, min, max, fallback) => Number.isFinite(Number(value)) ? Math.max(min, Math.min(max, Number(value))) : fallback;
@@ -11,15 +12,17 @@ const bounded = (value, min, max, fallback) => Number.isFinite(Number(value)) ? 
 /** Complete musical recall; devices, output level and live transport stay owned by the performer. */
 export function captureInstrumentPreset(value = {}) {
   const sound = sanitizeState(value.sound ?? value);
-  const source = value.sequence ?? { id: 'none' };
+  const routing = sanitizeSignalPath(value.routing, sound);
+  const voice = isVoiceInput(routing.input);
+  const source = voice ? { id: 'none' } : value.sequence ?? { id: 'none' };
   const sequence = directModes.has(source.id)
     ? { id: source.id, parameters: null, tempoBpm: Math.round(bounded(source.tempoBpm, 10, 1200, 120)) }
     : { ...sanitizeSequencePerformance(source) };
   return {
     sound: captureSoundState(sound),
-    voiceMode: value.voiceMode ?? sound.voiceMode,
-    tuningId: value.tuningId ?? sound.tuningId,
-    routing: sanitizeSignalPath(value.routing, sound),
+    voiceMode: voice ? 'mono' : value.voiceMode ?? sound.voiceMode,
+    tuningId: voice ? createDefaultState().tuningId : value.tuningId ?? sound.tuningId,
+    routing,
     sequence: { ...sequence, gate: bounded(source.gate, 5, 95, 65) },
   };
 }
@@ -33,7 +36,27 @@ export const INSTRUMENT_PRESETS = [
     .map(preset => ({ ...preset, id: `instrument:${preset.id}`, snapshot: captureInstrumentPreset({ sound: preset.snapshot }) })),
 ];
 
+/** Voice inputs replace the regular instrument tour with their native scenes. */
+export function instrumentPresetsForInput(input) {
+  if (!isVoiceInput(input)) return INSTRUMENT_PRESETS;
+  const sound = createDefaultState('fx-reverb');
+  return voicePresetsForInput(input).map(preset => ({
+    id: `voice:${input}:${preset.id}`, label: preset.label,
+    snapshot: captureInstrumentPreset({ sound,
+      routing: { input, voice: preset.state, effect: sound, effectEnabled: false, loop: true },
+    }),
+  }));
+}
+
 export function randomizeInstrumentPreset(value, rng = Math.random) {
+  if (isVoiceInput(value?.routing?.input)) {
+    const routing = sanitizeSignalPath(value.routing, value.sound);
+    const effect = randomizeAllState(routing.effect, rng);
+    return captureInstrumentPreset({ ...value, sound: effect, routing: {
+      ...routing, effect, effectEnabled: rng() > .5, loop: rng() > .5,
+      voice: randomizeVoiceInputState(routing.voice, routing.input, rng),
+    } });
+  }
   const next = randomizeMasterPerformance(value, rng);
   const routing = sanitizeSignalPath(value?.routing, next.sound);
   const effect = randomizeAllState(routing.effect, rng);

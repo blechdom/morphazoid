@@ -8,9 +8,29 @@ export class NativeVoiceAudio {
   constructor({onEnded=()=>{},onAuditionEnded=()=>{},renderSampleBank}={}) {
     this.renderSampleBank=renderSampleBank;this.onEnded=onEnded;this.onAuditionEnded=onAuditionEnded; this.enabled=false; this.playing=false; this.level=.46;
     this.context=null; this.buffer=null; this.position=0; this.loop=false; this.generation=0;
+    this.borrowed=false;this.destination=null;
     this.retiring=new Set();this.auditionGeneration=0;this.renderResults=new WeakMap();
   }
-  async enable() {
+  /** A supplied graph is already armed by its host, which retains device ownership. */
+  async enable({context:hostContext,destination}={}) {
+    if(hostContext!==undefined||destination!==undefined){
+      if(!hostContext||!['createGain','createAnalyser','createBuffer','createBufferSource'].every(key=>typeof hostContext[key]==='function'))throw new TypeError('Provide a host AudioContext and input destination.');
+      if(!destination||destination.context!==hostContext||typeof destination.connect!=='function'||typeof destination.disconnect!=='function'||destination.numberOfInputs===0||destination===hostContext.destination)throw new TypeError('The voice destination must be an input node in the host AudioContext.');
+      if(hostContext.state!=='running')throw Object.assign(Error('The host must enable Audio before attaching a voice.'),{name:'NotAllowedError'});
+      if(this.context&&(!this.borrowed||this.context!==hostContext||this.destination!==destination))throw new Error('Close the voice audio graph before changing its context or destination.');
+      if(!this.context){
+        let master,analyser;
+        try{
+          master=hostContext.createGain();master.gain.value=this.level/.82;
+          analyser=hostContext.createAnalyser();analyser.fftSize=2048;
+          master.connect(analyser);analyser.connect(destination);
+        }catch(error){master?.disconnect();analyser?.disconnect();throw error;}
+        this.context=hostContext;this.master=master;this.analyser=analyser;
+        this.borrowed=true;this.destination=destination;
+      }
+      this.enabled=true;return;
+    }
+    if(this.borrowed)throw new Error('A borrowed voice graph requires its host context and destination.');
     if(!this.context || this.context.state==='closed') {
       this.context=new AudioContext({latencyHint:'interactive'});
       this.master=this.context.createGain(); this.master.gain.value=this.level/.82;
@@ -138,6 +158,10 @@ export class NativeVoiceAudio {
       try{if(external)Promise.resolve(external(request,{signal:controller.signal})).then(data=>receive({data:{...data,type:'ready'}}),error=>finish(error));else worker.postMessage(request);}catch(error){finish(error);}
     });
   }
-  async disable() {this.armController?.abort();this.armController=null;this.enabled=false;this.cancelRender();this.pause();for(const retired of [...this.retiring])retired.release();await this.context?.suspend();}
-  async close() {await this.disable();this.output?.release();await this.context?.close();this.context=null;}
+  async disable() {this.armController?.abort();this.armController=null;this.enabled=false;this.cancelRender();this.pause();for(const retired of [...this.retiring])retired.release();if(!this.borrowed)await this.context?.suspend();}
+  async close() {
+    await this.disable();this.output?.release();this.master?.disconnect();this.analyser?.disconnect();
+    if(!this.borrowed)await this.context?.close();
+    this.context=null;this.master=null;this.analyser=null;this.output=null;this.destination=null;this.borrowed=false;
+  }
 }
