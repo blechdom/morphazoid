@@ -174,7 +174,7 @@ test('a sequence-root edit emits one focused worklet message without rebuilding 
 
   audio.setSequenceRootFrequency(330);
 
-  assert.deepEqual(messages, [{ type: 'sequence-root', rootFrequency: 330 }]);
+  assert.deepEqual(messages, [{ type: 'sequence-root', rootFrequency: 330, intent: 1 }]);
   assert.equal(audio.sequenceRootFrequency, 330);
   assert.deepEqual(audio.sequence, { studyId: 'running-cycle' });
   assert.equal(audio.sequencePlaying, true);
@@ -222,6 +222,190 @@ test('a running score and sound preset are replaced by one scheduled worklet tra
   assert.equal(audio.sequenceRootFrequency, 330);
   assert.ok(Math.abs(audio.currentSequenceBeat(now + .005) - message.phase) < 1e-12,
     'the main-thread transport predicts the same boundary beat');
+});
+
+test('an explicit sequence Start authors its phase at the scheduled boundary', () => {
+  const audio = new SynthesisAudio();
+  const messages = [];
+  audio.sequenceNow = () => 100;
+  audio.node = { port: { postMessage: message => messages.push(message) } };
+  audio.context = { state: 'running', currentTime: 12 };
+  audio.sequence = { studyId: 'beat-zero' };
+  audio.sequencePhase = 3;
+  audio.sequencePlaying = false;
+
+  audio.startSequence({ tempo: 120, rootFrequency: 220, phase: 0 });
+
+  assert.deepEqual(messages, [{
+    type: 'sequence-start', tempo: 120, rootFrequency: 220,
+    originBeat: 0, intent: 1, at: 12.005, phase: 0,
+  }]);
+  assert.equal(audio.sequencePhase, 0);
+  assert.equal(audio.sequenceEpoch, 100.005);
+  assert.equal(audio.currentSequenceBeat(100.005), 0,
+    'beat zero is not advanced past the authored attack during the scheduling lead');
+});
+
+test('a stopped score swap keeps its paused beat at the transaction boundary', () => {
+  const audio = new SynthesisAudio();
+  const messages = [];
+  audio.sequenceNow = () => 100;
+  audio.node = { port: { postMessage: message => messages.push(message) } };
+  audio.context = { state: 'running', currentTime: 12 };
+  audio.sequence = { studyId: 'old' };
+  audio.sequencePlaying = false;
+  audio.sequencePhase = 2;
+  const next = {
+    studyId: 'next', tempo: 90, lengthBeats: 4,
+    steps: [{ at: 1, duration: .5, notes: [{ ratio: 1, velocity: .8, gate: 1 }] }],
+  };
+
+  audio.swapSequence(next, { restart: true });
+
+  assert.equal(messages[0].phase, 2);
+  assert.equal(messages[0].originBeat, 1);
+  assert.equal(audio.sequenceEpoch, 100.005);
+  assert.equal(audio.currentSequenceBeat(100.005), 2);
+});
+
+test('stale sequence status cannot rewrite the desired origin of a rapid second swap', () => {
+  const audio = new SynthesisAudio();
+  const messages = [];
+  audio.sequenceNow = () => 100;
+  audio.node = { port: { postMessage: message => messages.push(message) } };
+  audio.context = { state: 'running', currentTime: 12 };
+  audio.sequence = { studyId: 'old', tempo: 120, steps: [] };
+  audio.sequencePlaying = true;
+  audio.sequenceTempo = 120;
+  audio.sequencePhase = 8;
+  audio.sequenceEpoch = 99;
+  audio.sequenceOriginBeat = 3;
+  const score = id => ({ studyId: id, tempo: 120, lengthBeats: 4,
+    steps: [{ at: 1, duration: 1, notes: [{ ratio: 1, velocity: .8, gate: 1 }] }] });
+
+  audio.swapSequence(score('first'), { restart: true });
+  const desiredOrigin = audio.sequenceOriginBeat;
+  audio.receiveSequenceStatus({ type: 'sequence-status', intent: 0, originBeat: 999 });
+  assert.equal(audio.sequenceOriginBeat, desiredOrigin);
+  audio.swapSequence(score('second'), { restart: false });
+
+  assert.equal(messages.at(-1).intent, 2);
+  assert.equal(messages.at(-1).originBeat, desiredOrigin,
+    'the rapid replacement is authored against desired state, not delayed acknowledgement');
+});
+
+test('resuming a suspended context rebases the score with a new intent', async () => {
+  const audio = new SynthesisAudio();
+  const messages = [];
+  let now = 103;
+  audio.sequenceNow = () => now;
+  audio.node = { port: { postMessage: message => messages.push(message) } };
+  audio.nodeReady = Promise.resolve();
+  audio.context = {
+    state: 'suspended', currentTime: 7,
+    async resume() { this.state = 'running'; },
+  };
+  audio.master = { gain: { setTargetAtTime() {} } };
+  audio.state = { outputLevel: .7 };
+  audio.armed = true;
+  audio.armRequested = true;
+  audio.sequence = { studyId: 'continuing' };
+  audio.sequencePlaying = true;
+  audio.sequenceSynchronized = true;
+  audio.sequenceTempo = 120;
+  audio.sequencePhase = 4;
+  audio.sequenceEpoch = 100;
+  audio.sequenceOriginBeat = 2;
+  audio.sequenceIntent = 4;
+  const originalAudioContext = globalThis.AudioContext;
+  globalThis.AudioContext = class {};
+  try {
+    await audio.start();
+    const sequenceMessages = messages.filter(message => message.type.startsWith('sequence-'));
+    assert.deepEqual(sequenceMessages.map(message => message.type), ['sequence-load', 'sequence-start']);
+    assert.deepEqual(sequenceMessages.map(message => message.intent), [5, 6]);
+    assert.equal(sequenceMessages[0].rebaseClock, true);
+    assert.ok(sequenceMessages.every(message => Math.abs(message.phase - 10.01) < 1e-12));
+    assert.equal(audio.sequenceIntent, 6);
+    audio.receiveSequenceStatus({ type: 'sequence-status', intent: 5, playing: false,
+      beat: 10.01, originBeat: 999, tempo: 120, at: 7.005 });
+    assert.equal(audio.sequencePlaying, true, 'intermediate load acknowledgement is not accepted as final state');
+    audio.receiveSequenceStatus({ type: 'sequence-status', intent: 4, originBeat: 999 });
+    assert.equal(audio.sequenceOriginBeat, 2, 'pre-suspend acknowledgement cannot undo the rebase');
+  } finally {
+    if (originalAudioContext === undefined) delete globalThis.AudioContext;
+    else globalThis.AudioContext = originalAudioContext;
+  }
+});
+
+test('tempo edits author the boundary beat under the old clock and switch clocks there', () => {
+  const audio = new SynthesisAudio();
+  const messages = [];
+  audio.sequenceNow = () => 100;
+  audio.node = { port: { postMessage: message => messages.push(message) } };
+  audio.context = { state: 'running', currentTime: 12 };
+  audio.sequencePlaying = true;
+  audio.sequenceTempo = 120;
+  audio.sequencePhase = 8;
+  audio.sequenceEpoch = 99;
+
+  audio.setSequenceTempo(60);
+
+  assert.deepEqual(messages, [{
+    type: 'sequence-tempo', tempo: 60, intent: 1, at: 12.005, phase: 10.01,
+  }]);
+  assert.equal(audio.sequencePhase, 10.01);
+  assert.equal(audio.sequenceEpoch, 100.005);
+  assert.equal(audio.currentSequenceBeat(100.005), 10.01);
+});
+
+test('a future-boundary status acknowledgement does not start the main clock early', () => {
+  const audio = new SynthesisAudio();
+  audio.sequenceNow = () => 100;
+  audio.context = { state: 'running', currentTime: 12 };
+  audio.sequenceIntent = 3;
+
+  audio.receiveSequenceStatus({
+    type: 'sequence-status', intent: 3, playing: true,
+    beat: 4, originBeat: 1, tempo: 120, rootFrequency: 330, at: 12.005,
+  });
+
+  assert.equal(audio.sequencePhase, 4);
+  assert.equal(audio.sequenceEpoch, 100.005);
+  assert.equal(audio.currentSequenceBeat(100), 4);
+  assert.equal(audio.currentSequenceBeat(100.005), 4);
+  assert.equal(audio.sequenceOriginBeat, 1);
+});
+
+test('normal resume delegates the stopped beat to the worklet while explicit restart keeps phase zero', () => {
+  const audio = new SynthesisAudio();
+  const messages = [];
+  audio.sequenceNow = () => 100;
+  audio.node = { port: { postMessage: message => messages.push(message) } };
+  audio.context = { state: 'running', currentTime: 12 };
+  audio.sequence = { studyId: 'paused' };
+  audio.sequencePlaying = false;
+  audio.sequencePhase = 3.25;
+
+  audio.startSequence({ tempo: 120 });
+  assert.equal(messages[0].resume, true);
+  assert.equal('phase' in messages[0], false);
+  assert.equal('originBeat' in messages[0], false);
+  assert.equal(audio.sequencePhase, 3.25);
+
+  audio.stopSequence();
+  audio.startSequence({ tempo: 120, phase: 0 });
+  assert.equal(messages.at(-1).phase, 0);
+  assert.equal('resume' in messages.at(-1), false);
+});
+
+test('first attack selection uses the earliest sounding step even when input is unsorted', () => {
+  const audio = new SynthesisAudio();
+  assert.equal(audio.firstSequenceAttackBeat({ steps: [
+    { at: 2, notes: [{ ratio: 1 }] },
+    { at: .5, notes: [{ ratio: 2 }] },
+    { at: .25, notes: [] },
+  ] }), .5);
 });
 
 test('muting and rearming an initialized sequence gates output without resyncing its transport', async () => {

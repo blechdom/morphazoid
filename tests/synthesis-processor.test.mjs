@@ -845,6 +845,200 @@ test('compiled sequence attacks land on exact sample-clock boundaries and Stop o
   } finally { h.dispose(); }
 });
 
+test('an explicitly scheduled phase-zero Start renders the authored beat-zero attack', () => {
+  const h = makeHarness();
+  try {
+    h.send({ type: 'state', state: state({ envelope: { attack: .001, decay: .01, sustain: .8, release: .02 } }) });
+    const score = sequence({ lengthBeats: 4, steps: [
+      { index: 0, at: 0, duration: 1, notes: [{ ratio: 1, velocity: .8, gate: 1 }] },
+    ] });
+    const targetFrame = 47;
+    h.send({ type: 'sequence-load', sequence: score, rootFrequency: 220, tempo: 120,
+      at: targetFrame / RATE, phase: 0, preservePhase: true });
+    const api = h.processor.api, attacks = [];
+    h.processor.api = {
+      ...api,
+      synth_note_on(...args) { attacks.push(args.at(-2)); return api.synth_note_on(...args); },
+    };
+    h.send({ type: 'sequence-start', phase: 0, originBeat: 0, rootFrequency: 220,
+      tempo: 120, at: targetFrame / RATE, intent: 1 });
+
+    const output = h.render(128);
+    assert.ok(output.subarray(0, targetFrame).every(value => value === 0));
+    assert.ok(rms(output.subarray(targetFrame)) > .0001);
+    assert.deepEqual(attacks, [220]);
+    assert.equal(h.processor.sequenceAnchorFrame, targetFrame);
+  } finally { h.dispose(); }
+});
+
+test('a replacement consumes an old scheduled attack inside its lead window', () => {
+  const h = makeHarness();
+  try {
+    h.send({ type: 'state', state: state({ envelope: { attack: .001, decay: .01, sustain: .8, release: .02 } }) });
+    h.send({ type: 'sequence-load', sequence: sequence({ lengthBeats: 4, steps: [
+      { index: 1, at: .25, duration: 1, notes: [{ ratio: 1, velocity: .8, gate: 1 }] },
+    ] }), rootFrequency: 220, tempo: 120 });
+    h.send({ type: 'sequence-start', phase: .245, originBeat: 0, rootFrequency: 220, tempo: 120, intent: 1 });
+    const oldAttackFrame = 120;
+    const requestedFrame = 240;
+    const phase = h.processor.sequenceBeatAt(requestedFrame);
+    const api = h.processor.api, attacks = [];
+    h.processor.api = {
+      ...api,
+      synth_note_on(...args) { attacks.push(args.at(-2)); return api.synth_note_on(...args); },
+    };
+    h.send({
+      type: 'sequence-swap', intent: 2,
+      sequence: sequence({ studyId: 'replacement-before-old-step', lengthBeats: 4, steps: [
+        { index: 2, at: .75, duration: 1, notes: [{ ratio: 1.5, velocity: .8, gate: 1 }] },
+      ] }),
+      rootFrequency: 220, tempo: 120, at: requestedFrame / RATE,
+      phase, originBeat: phase - .75, playing: true,
+      preserveVoices: false, triggerCurrent: true,
+    });
+
+    assert.equal(h.processor.pendingSequenceSwap.frame, oldAttackFrame);
+    const output = h.render(256);
+    assert.ok(output.subarray(0, oldAttackFrame).every(value => value === 0));
+    assert.ok(rms(output.subarray(oldAttackFrame)) > .0001);
+    assert.deepEqual(attacks, [330], 'only the replacement attack is rendered');
+    assert.equal(h.processor.sequenceAnchorFrame, oldAttackFrame);
+  } finally { h.dispose(); }
+});
+
+test('Direct Note Repeat hands release and next-trigger boundaries to the score without a gap or double', () => {
+  for (const boundaryKind of ['release', 'next trigger']) {
+    const h = makeHarness();
+    try {
+      h.send({ type: 'state', state: state({
+        playStyle: 'strike', envelope: { attack: .001, decay: .01, sustain: .8, release: .02 },
+      }) });
+      h.send({ type: 'play', playing: true, rate: 20, gate: .05 });
+      if (boundaryKind === 'next trigger') h.render(2304);
+      const boundary = boundaryKind === 'release' ? h.processor.releaseAt : h.processor.nextTrigger;
+      const requestedFrame = h.frame + 240;
+      assert.ok(boundary > h.frame && boundary < requestedFrame);
+      const api = h.processor.api;
+      const calls = { on: [], off: 0 };
+      h.processor.api = {
+        ...api,
+        synth_note_on(...args) { calls.on.push(args.at(-2)); return api.synth_note_on(...args); },
+        synth_note_off(...args) { calls.off++; return api.synth_note_off(...args); },
+      };
+      h.send({
+        type: 'sequence-swap', intent: 1,
+        sequence: sequence({ studyId: `direct-${boundaryKind}`, lengthBeats: 4, steps: [
+          { index: 4, at: .5, duration: 1, notes: [{ ratio: 1.5, velocity: .8, gate: 1 }] },
+        ] }),
+        rootFrequency: 220, tempo: 120, at: requestedFrame / RATE,
+        phase: 0, originBeat: -.5, playing: true, preserveVoices: false,
+        triggerCurrent: true, stopPlay: true,
+      });
+
+      assert.equal(h.processor.pendingSequenceSwap.frame, boundary);
+      const output = h.render(boundary - h.frame + 128);
+      assert.deepEqual(calls, { on: [330], off: 0 }, `${boundaryKind} is replaced by one target attack`);
+      assert.ok(rms(output.subarray(boundary - (boundaryKind === 'release' ? 0 : 2304))) > .0001);
+      assert.equal(h.processor.playing, false);
+    } finally { h.dispose(); }
+  }
+});
+
+test('a Poly Direct Note deadline is consumed at the same sample as the incoming score chord', () => {
+  const h = makeHarness();
+  try {
+    h.send({ type: 'state', state: state({ voiceMode: 'poly', playStyle: 'strike' }) });
+    h.send({ type: 'play', playing: true, rate: 20, gate: .05 });
+    const play = h.processor.polyDeadlines.find(note => note?.kind === 'play');
+    assert.ok(play);
+    const api = h.processor.api;
+    const calls = { on: 0, off: 0 };
+    h.processor.api = {
+      ...api,
+      poly_note_on(...args) { calls.on++; return api.poly_note_on(...args); },
+      poly_note_off(...args) { calls.off++; return api.poly_note_off(...args); },
+    };
+    h.send({
+      type: 'sequence-swap', intent: 1,
+      sequence: sequence({ studyId: 'poly-direct-handoff', lengthBeats: 4, steps: [
+        { index: 5, at: .5, duration: 1, notes: [{ ratio: 1.5, velocity: .8, gate: 1 }] },
+      ] }),
+      rootFrequency: 220, tempo: 120, at: 240 / RATE,
+      phase: 0, originBeat: -.5, playing: true, preserveVoices: false,
+      triggerCurrent: true, stopPlay: true,
+    });
+
+    assert.equal(h.processor.pendingSequenceSwap.frame, play.end);
+    const output = h.render(256);
+    assert.deepEqual(calls, { on: 1, off: 1 });
+    assert.ok(rms(output.subarray(play.end)) > .0001);
+    assert.ok(h.processor.polyDeadlines.some(note => note?.kind === 'sequence'));
+  } finally { h.dispose(); }
+});
+
+test('renderer-changing swaps render processor to Mono and Mono to Poly to Mono at quantum entry', () => {
+  const h = makeHarness();
+  const score = (id, ratio = 1) => sequence({ studyId: id, lengthBeats: 4, steps: [
+    { index: 0, at: .5, duration: 4, notes: [{ ratio, velocity: .8, gate: 1 }] },
+  ] });
+  const swap = (nextState, id, ratio = 1) => {
+    const requestedFrame = h.frame + 47;
+    const phase = h.processor.sequencePlaying ? h.processor.sequenceBeatAt(requestedFrame) : 0;
+    h.send({
+      type: 'sequence-swap', sequence: score(id, ratio), state: nextState,
+      rootFrequency: 220, tempo: 120, at: requestedFrame / RATE,
+      phase, originBeat: phase - .5, playing: true,
+      preserveVoices: false, triggerCurrent: true,
+    });
+    assert.equal(h.processor.pendingSequenceSwap.frame, h.frame,
+      'the renderer transaction is quantized to the next process entry');
+    return h.render(4096);
+  };
+  try {
+    h.send({ type: 'state', state: effectState({ source: 3 }) });
+    const mono = swap(state({ kind: 'synthesis', voiceMode: 'mono' }), 'processor-to-mono');
+    assert.equal(h.processor.state.kind, 'synthesis');
+    assert.ok(h.processor.sequenceMono);
+    assert.ok(rms(mono.subarray(256)) > .0001, 'processor to Mono renders the new synth immediately');
+
+    const poly = swap(state({ kind: 'synthesis', voiceMode: 'poly' }), 'mono-to-poly', 1.5);
+    assert.equal(h.processor.state.voiceMode, 'poly');
+    assert.equal(h.processor.sequenceMono, null);
+    assert.ok(h.processor.polyDeadlines.some(note => note?.kind === 'sequence'));
+    assert.ok(rms(poly.subarray(256)) > .0001, 'Mono to Poly renders through the Poly bank immediately');
+
+    const monoAgain = swap(state({ kind: 'synthesis', voiceMode: 'mono' }), 'poly-to-mono', 2);
+    assert.equal(h.processor.state.voiceMode, 'mono');
+    assert.ok(h.processor.sequenceMono);
+    assert.equal(h.processor.polyDeadlines.filter(Boolean).length, 0);
+    assert.ok(rms(monoAgain.subarray(256)) > .0001, 'Poly to Mono renders through the Mono engine immediately');
+  } finally { h.dispose(); }
+});
+
+test('a tempo edit cannot pull a renderer-changing swap into a render quantum interior', () => {
+  const h = makeHarness();
+  try {
+    h.send({ type: 'state', state: state({ voiceMode: 'mono' }) });
+    h.send({
+      type: 'sequence-swap', intent: 1,
+      sequence: sequence({ lengthBeats: 4, steps: [
+        { index: 0, at: 0, duration: 1, notes: [{ ratio: 1, velocity: .8, gate: 1 }] },
+      ] }),
+      state: state({ voiceMode: 'poly' }), rootFrequency: 220, tempo: 120,
+      at: 240 / RATE, phase: 0, originBeat: 0, playing: true,
+      preserveVoices: false, triggerCurrent: true,
+    });
+    assert.equal(h.processor.pendingSequenceSwap.frame, 128);
+    h.send({ type: 'sequence-tempo', tempo: 90, at: 47 / RATE, intent: 2 });
+    assert.equal(h.processor.pendingSequenceSwap.frame, 0,
+      'earlier tempo intent advances the whole renderer transaction to quantum entry');
+    const output = h.render(128);
+    assert.equal(h.processor.state.voiceMode, 'poly');
+    assert.ok(h.processor.polyDeadlines.some(note => note?.kind === 'sequence'));
+    assert.ok(rms(output) > .0001);
+  } finally { h.dispose(); }
+});
+
 test('sequence tempo edits preserve fractional beat phase and rescale the next authored attack', () => {
   const h = makeHarness();
   try {
@@ -1113,6 +1307,388 @@ test('late phase-preserving delivery advances to the actual worklet boundary wit
       'phase-preserving replacement does not move the established pattern origin');
     assert.ok(h.processor.sequenceNextBeat >= actualBeat,
       'the replacement seeks from the actual boundary rather than replaying stale work');
+  } finally { h.dispose(); }
+});
+
+test('a preserve-phase replacement retains authoritative worklet origin before acknowledgement', () => {
+  const h = makeHarness();
+  try {
+    h.send({ type: 'state', state: state() });
+    h.send({ type: 'sequence-load', sequence: sequence({ lengthBeats: 4 }), rootFrequency: 220, tempo: 120 });
+    h.send({ type: 'sequence-start', phase: 0, originBeat: 0, rootFrequency: 220, tempo: 120 });
+    h.render(4096);
+    const actualBeat = h.processor.sequenceBeatAt(h.frame);
+    h.send({
+      type: 'sequence-swap',
+      sequence: sequence({ studyId: 'late-restart', lengthBeats: 4, steps: [
+        { index: 1, at: .5, duration: 1, notes: [{ ratio: 1, velocity: .8, gate: 1 }] },
+      ] }),
+      rootFrequency: 220, tempo: 120, at: h.time - .02,
+      phase: actualBeat - .04, originBeat: actualBeat - .54,
+      playing: true, preserveVoices: false, triggerCurrent: true,
+    });
+    h.render(128);
+    const authoritativeOrigin = h.processor.sequenceOriginBeat;
+    assert.ok(Math.abs(authoritativeOrigin - (actualBeat - .5)) < 1e-9);
+
+    const phase = h.processor.sequenceBeatAt(h.frame + 47);
+    h.send({
+      type: 'sequence-swap',
+      sequence: sequence({ studyId: 'preserved-origin', lengthBeats: 4, steps: [] }),
+      rootFrequency: 220, tempo: 120, at: (h.frame + 47) / RATE,
+      phase, originBeat: 999, playing: true,
+      preserveVoices: true, triggerCurrent: false,
+    });
+    h.render(128);
+    assert.equal(h.processor.sequenceOriginBeat, authoritativeOrigin,
+      'stale sender origin cannot rewind a phrase-preserving transaction');
+
+    const authoritativeBeat = h.processor.sequenceBeatAt(h.frame);
+    h.send({ type: 'sequence-load', sequence: sequence({ studyId: 'paused-load' }),
+      rootFrequency: 220, tempo: 120, phase: authoritativeBeat - 1,
+      originBeat: 999, preservePhase: true, playing: true });
+    assert.equal(h.processor.sequenceAnchorBeat, authoritativeBeat,
+      'a preserve-phase load derives its beat from the worklet clock');
+    assert.equal(h.processor.sequenceOriginBeat, authoritativeOrigin,
+      'a preserve-phase load also retains the worklet origin');
+  } finally { h.dispose(); }
+});
+
+test('a rapid Start coalesces with an armed swap instead of opening a stop-start gap', () => {
+  const h = makeHarness();
+  try {
+    h.send({ type: 'state', state: state() });
+    h.send({ type: 'sequence-load', sequence: sequence({ lengthBeats: 4, steps: [
+      { index: 0, at: 0, duration: 4, notes: [{ ratio: 1, velocity: .8, gate: 1 }] },
+    ] }), rootFrequency: 220, tempo: 120, intent: 1 });
+    h.send({ type: 'sequence-start', phase: 0, originBeat: 0, rootFrequency: 220, tempo: 120, intent: 1 });
+    h.render(4096);
+    const targetFrame = h.frame + 240;
+    const phase = h.processor.sequenceBeatAt(targetFrame);
+    const api = h.processor.api;
+    const calls = { on: [], off: 0 };
+    h.processor.api = {
+      ...api,
+      synth_note_on(...args) { calls.on.push(args.at(-2)); return api.synth_note_on(...args); },
+      synth_note_off(...args) { calls.off++; return api.synth_note_off(...args); },
+    };
+    h.send({
+      type: 'sequence-swap', intent: 2,
+      sequence: sequence({ studyId: 'coalesced-start', lengthBeats: 4, steps: [
+        { index: 7, at: .75, duration: 2, notes: [{ ratio: 1.5, velocity: .8, gate: 1 }] },
+      ] }),
+      rootFrequency: 220, tempo: 120, at: targetFrame / RATE,
+      phase, originBeat: phase - .75, playing: true,
+      preserveVoices: false, triggerCurrent: true,
+    });
+    h.send({ type: 'sequence-start', intent: 3, tempo: 120, rootFrequency: 220,
+      at: targetFrame / RATE, phase, originBeat: phase - .75 });
+
+    assert.deepEqual(calls, { on: [], off: 0 }, 'Start does not force the transaction early');
+    assert.equal(h.processor.pendingSequenceSwap.intent, 3);
+    const crossing = h.render(384);
+    assert.ok(rms(crossing.subarray(0, 240)) > .001, 'the outgoing gate reaches the boundary');
+    assert.deepEqual(calls, { on: [330], off: 0 });
+    assert.ok(rms(crossing.subarray(240)) > .0001, 'the replacement begins at that boundary');
+  } finally { h.dispose(); }
+});
+
+test('tempo changes apply on the authored frame under the old worklet clock and never rewind when late', () => {
+  const onTime = makeHarness(), late = makeHarness();
+  try {
+    for (const h of [onTime, late]) {
+      h.send({ type: 'state', state: state({ envelope: { attack: .001, decay: .01, sustain: .8, release: .02 } }) });
+      h.send({ type: 'sequence-load', sequence: sequence({ lengthBeats: 4, steps: [
+        { index: 3, at: .25, duration: 1, notes: [{ ratio: 1, velocity: .8, gate: 1 }] },
+      ] }), rootFrequency: 220, tempo: 120, intent: 1 });
+      h.send({ type: 'sequence-start', phase: 0, originBeat: 0, rootFrequency: 220, tempo: 120, intent: 1 });
+    }
+
+    onTime.send({ type: 'sequence-tempo', tempo: 60, phase: 999, at: 6000 / RATE, intent: 2 });
+    assert.equal(rms(onTime.render(6000)), 0);
+    const attack = onTime.render(128);
+    assert.ok(rms(attack) > .0001, 'the old-clock attack at the tempo boundary is retained');
+    assert.equal(onTime.processor.sequenceAnchorFrame, 6000);
+    assert.ok(Math.abs(onTime.processor.sequenceAnchorBeat - .25) < 1e-12);
+    assert.equal(onTime.processor.sequenceTempo, 60);
+
+    late.render(4800);
+    late.send({ type: 'sequence-tempo', tempo: 60, phase: 999, at: late.time - .02, intent: 2 });
+    late.render(128);
+    assert.equal(late.processor.sequenceAnchorFrame, 4800);
+    assert.ok(Math.abs(late.processor.sequenceAnchorBeat - .2) < 1e-12,
+      'late delivery derives the actual old-clock beat instead of stale predicted phase');
+  } finally { onTime.dispose(); late.dispose(); }
+});
+
+test('root edits join pending tempo and score intents without acknowledging stale clock state', () => {
+  for (const transaction of ['tempo', 'swap']) {
+    const h = makeHarness();
+    try {
+      h.send({ type: 'state', state: state() });
+      h.send({ type: 'sequence-load', sequence: sequence({ studyId: 'old', lengthBeats: 4, steps: [
+        { index: 0, at: 0, duration: 4, notes: [{ ratio: 1, velocity: .8, gate: 1 }] },
+      ] }), rootFrequency: 220, tempo: 120, intent: 1 });
+      h.send({ type: 'sequence-start', phase: 0, originBeat: 0, rootFrequency: 220, tempo: 120, intent: 1 });
+      h.render(4096);
+      h.messages.length = 0;
+      const frame = h.frame + 240;
+      const phase = h.processor.sequenceBeatAt(frame);
+      if (transaction === 'tempo') {
+        h.send({ type: 'sequence-tempo', tempo: 90, at: frame / RATE, phase: 999, intent: 2 });
+      } else {
+        h.send({
+          type: 'sequence-swap', intent: 2,
+          sequence: sequence({ studyId: 'first', lengthBeats: 4, steps: [
+            { index: 1, at: .5, duration: 1, notes: [{ ratio: 1.5, velocity: .8, gate: 1 }] },
+          ] }),
+          rootFrequency: 220, tempo: 120, at: frame / RATE,
+          phase, originBeat: phase - .5, playing: true,
+          preserveVoices: false, triggerCurrent: true,
+        });
+      }
+      h.send({ type: 'sequence-root', rootFrequency: 330, intent: 3 });
+      assert.deepEqual(h.messages.filter(message => message.type === 'sequence-status'), [],
+        `${transaction} + root does not publish a partially applied intent`);
+      assert.equal(h.processor.sequenceIntent, 1);
+      if (transaction === 'swap') {
+        h.send({
+          type: 'sequence-swap', intent: 4,
+          sequence: sequence({ studyId: 'latest', lengthBeats: 4, steps: [
+            { index: 2, at: .75, duration: 1, notes: [{ ratio: 2, velocity: .8, gate: 1 }] },
+          ] }),
+          rootFrequency: 330, tempo: 120, at: (frame + 20) / RATE,
+          phase: h.processor.sequenceBeatAt(frame + 20), originBeat: 0,
+          playing: true, preserveVoices: true, triggerCurrent: false,
+        });
+      }
+      h.render(384);
+      const status = h.messages.filter(message => message.type === 'sequence-status').at(-1);
+      assert.equal(status.intent, transaction === 'swap' ? 4 : 3);
+      assert.equal(status.rootFrequency, 330);
+      if (transaction === 'tempo') assert.equal(status.tempo, 90);
+      else assert.equal(status.studyId, 'latest');
+    } finally { h.dispose(); }
+  }
+});
+
+test('Stop followed immediately by resume uses the authoritative stopped worklet beat', () => {
+  const h = makeHarness();
+  try {
+    h.send({ type: 'state', state: state() });
+    h.send({ type: 'sequence-load', sequence: sequence({ lengthBeats: 4 }), rootFrequency: 220, tempo: 120, intent: 1 });
+    h.send({ type: 'sequence-start', phase: 0, originBeat: 0, rootFrequency: 220, tempo: 120, intent: 1 });
+    h.render(4096);
+    h.send({ type: 'sequence-stop', intent: 2 });
+    const authoritativeBeat = h.processor.sequenceAnchorBeat;
+    h.send({ type: 'sequence-start', resume: true, at: (h.frame + 240) / RATE,
+      tempo: 120, rootFrequency: 220, originBeat: 999, intent: 3 });
+    assert.equal(h.processor.sequenceAnchorBeat, authoritativeBeat);
+    assert.equal(h.processor.sequenceAnchorFrame, h.frame + 240);
+    assert.equal(h.processor.sequenceOriginBeat, 0, 'resume ignores a stale main-thread origin');
+    h.send({ type: 'sequence-stop', intent: 4 });
+    h.send({ type: 'sequence-start', phase: 0, at: (h.frame + 240) / RATE,
+      tempo: 120, rootFrequency: 220, intent: 5 });
+    assert.equal(h.processor.sequenceAnchorBeat, 0, 'explicit phase remains an intentional restart');
+  } finally { h.dispose(); }
+});
+
+test('commands before a future Start neither rewind its beat nor pull its attack early', () => {
+  for (const command of ['stop', 'root', 'reset']) {
+    const h = makeHarness();
+    try {
+      h.send({ type: 'state', state: state() });
+      h.send({ type: 'sequence-load', sequence: sequence({ lengthBeats: 4, steps: [
+        { index: 0, at: 0, duration: 1, notes: [{ ratio: 1, velocity: .8, gate: 1 }] },
+      ] }), rootFrequency: 220, tempo: 120, intent: 1 });
+      const api = h.processor.api, attacks = [];
+      h.processor.api = {
+        ...api,
+        synth_note_on(...args) { attacks.push(args.at(-2)); return api.synth_note_on(...args); },
+      };
+      h.send({ type: 'sequence-start', phase: 0, originBeat: 0, at: 240 / RATE,
+        rootFrequency: 220, tempo: 120, intent: 2 });
+      if (command === 'stop') {
+        h.send({ type: 'sequence-stop', intent: 3 });
+        assert.equal(h.processor.sequenceAnchorBeat, 0, 'Stop freezes phase zero, never a negative pre-roll');
+        assert.equal(h.processor.sequencePlaying, false);
+        continue;
+      }
+      if (command === 'root') {
+        h.send({ type: 'sequence-root', rootFrequency: 330, intent: 3 });
+        const status = h.messages.filter(message => message.type === 'sequence-status').at(-1);
+        assert.equal(status.beat, 0);
+        assert.equal(status.at, 240 / RATE, 'the held beat is paired with its future anchor time');
+      } else {
+        h.send({ type: 'reset', intent: 3 });
+        assert.equal(h.processor.sequenceAnchorFrame, 240);
+      }
+      assert.ok(h.render(240).every(value => value === 0), `${command} cannot pull Start before frame 240`);
+      const onset = h.render(128);
+      assert.deepEqual(attacks, [command === 'root' ? 330 : 220]);
+      assert.ok(rms(onset) > .0001);
+    } finally { h.dispose(); }
+  }
+});
+
+test('rapid score swaps coalesce the latest score and state with sticky immediate-onset intent', () => {
+  const h = makeHarness();
+  try {
+    const initial = sequence({ lengthBeats: 4, steps: [
+      { index: 0, at: 0, duration: 4, notes: [{ ratio: 1, velocity: .8, gate: 1 }] },
+    ] });
+    h.send({ type: 'state', state: state({ engineId: 2 }) });
+    h.send({ type: 'sequence-load', sequence: initial, rootFrequency: 220, tempo: 120, intent: 1 });
+    h.send({ type: 'sequence-start', phase: 0, originBeat: 0, rootFrequency: 220, tempo: 120, intent: 1 });
+    h.render(4096);
+    const firstFrame = h.frame + 47, secondFrame = h.frame + 71;
+    const firstPhase = h.processor.sequenceBeatAt(firstFrame);
+    const secondPhase = h.processor.sequenceBeatAt(secondFrame);
+    const targetState = state({ engineId: 17 });
+    const calls = [], api = h.processor.api;
+    h.processor.api = {
+      ...api,
+      synth_note_on(...args) { calls.push(args.at(-2)); return api.synth_note_on(...args); },
+    };
+    h.send({
+      type: 'sequence-swap', intent: 2,
+      sequence: sequence({ studyId: 'superseded', lengthBeats: 4, steps: [
+        { index: 1, at: .25, duration: 1, notes: [{ ratio: 3, velocity: .8, gate: 1 }] },
+      ] }),
+      state: targetState, rootFrequency: 220, tempo: 120,
+      at: firstFrame / RATE, phase: firstPhase, originBeat: firstPhase - .25,
+      playing: true, preserveVoices: false, triggerCurrent: true,
+    });
+    h.send({
+      type: 'sequence-swap', intent: 3,
+      sequence: sequence({ studyId: 'latest', lengthBeats: 4, steps: [
+        { index: 2, at: .75, duration: 1, notes: [{ ratio: 1.5, velocity: .8, gate: 1 }] },
+      ] }),
+      rootFrequency: 220, tempo: 120,
+      at: secondFrame / RATE, phase: secondPhase, originBeat: 0,
+      playing: true, preserveVoices: true, triggerCurrent: false,
+    });
+
+    assert.equal(h.processor.pendingSequenceSwap.frame, firstFrame, 'a later edit cannot postpone an armed boundary');
+    assert.equal(h.processor.pendingSequenceSwap.sequence.studyId, 'latest');
+    assert.equal(h.processor.pendingSequenceSwap.state, targetState, 'the uncommitted sound intent is retained');
+    assert.equal(h.processor.pendingSequenceSwap.triggerCurrent, true, 'restart intent remains sticky');
+    assert.equal(h.processor.pendingSequenceSwap.preserveVoices, false);
+    assert.ok(Math.abs(h.processor.pendingSequenceSwap.originBeat - (secondPhase - .75)) < 1e-12,
+      'the latest score receives a freshly authored first-attack origin');
+    h.render(128);
+    assert.equal(h.processor.sequence.studyId, 'latest');
+    assert.equal(h.processor.state.engineId, 17);
+    assert.equal(h.processor.sequenceIntent, 3);
+    assert.deepEqual(calls, [330], 'only the latest score attacks, exactly once');
+  } finally { h.dispose(); }
+});
+
+test('newer state, root and tempo edits patch an armed swap instead of being reverted by it', () => {
+  const h = makeHarness();
+  try {
+    h.send({ type: 'state', state: state({ engineId: 2 }) });
+    h.send({ type: 'sequence-load', sequence: sequence({ lengthBeats: 4, steps: [
+      { index: 0, at: 0, duration: 4, notes: [{ ratio: 1, velocity: .8, gate: 1 }] },
+    ] }), rootFrequency: 220, tempo: 120, intent: 1 });
+    h.send({ type: 'sequence-start', phase: 0, originBeat: 0, rootFrequency: 220, tempo: 120, intent: 1 });
+    h.render(4096);
+    const targetFrame = h.frame + 47;
+    const phase = h.processor.sequenceBeatAt(targetFrame);
+    h.send({
+      type: 'sequence-swap', intent: 2,
+      sequence: sequence({ studyId: 'patched', lengthBeats: 4, steps: [
+        { index: 4, at: .5, duration: 1, notes: [{ ratio: 2, velocity: .8, gate: 1 }] },
+      ] }),
+      state: state({ engineId: 17 }), rootFrequency: 330, tempo: 90,
+      at: targetFrame / RATE, phase, originBeat: 0,
+      playing: true, preserveVoices: true, triggerCurrent: false,
+    });
+    const latestState = state({ engineId: 3 });
+    h.send({ type: 'state', state: latestState });
+    h.send({ type: 'sequence-root', rootFrequency: 440, intent: 2 });
+    h.send({ type: 'sequence-tempo', tempo: 75, phase, at: targetFrame / RATE, intent: 2 });
+    assert.equal(h.processor.pendingSequenceSwap.state, latestState);
+    assert.equal(h.processor.pendingSequenceSwap.rootFrequency, 440);
+    assert.equal(h.processor.pendingSequenceSwap.tempo, 75);
+
+    h.render(128);
+    assert.equal(h.processor.sequence.studyId, 'patched');
+    assert.equal(h.processor.state.engineId, 3);
+    assert.equal(h.processor.sequenceRootFrequency, 440);
+    assert.equal(h.processor.sequenceTempo, 75);
+  } finally { h.dispose(); }
+});
+
+test('Stop materializes a pending score without attacking it and Start can only revive that score', () => {
+  const h = makeHarness();
+  try {
+    h.send({ type: 'state', state: state({ engineId: 2 }) });
+    h.send({ type: 'sequence-load', sequence: sequence({ studyId: 'old', lengthBeats: 4, steps: [
+      { index: 0, at: 0, duration: 4, notes: [{ ratio: 1, velocity: .8, gate: 1 }] },
+    ] }), rootFrequency: 220, tempo: 120, intent: 1 });
+    h.send({ type: 'sequence-start', phase: 0, originBeat: 0, rootFrequency: 220, tempo: 120, intent: 1 });
+    h.render(4096);
+    const calls = [], api = h.processor.api;
+    h.processor.api = {
+      ...api,
+      synth_note_on(...args) { calls.push(args.at(-2)); return api.synth_note_on(...args); },
+    };
+    const targetFrame = h.frame + 240;
+    const phase = h.processor.sequenceBeatAt(targetFrame);
+    h.send({
+      type: 'sequence-swap', intent: 2,
+      sequence: sequence({ studyId: 'selected-while-stopping', lengthBeats: 4, steps: [
+        { index: 8, at: 1, duration: 1, notes: [{ ratio: 1.5, velocity: .8, gate: 1 }] },
+      ] }),
+      state: state({ engineId: 17 }), rootFrequency: 220, tempo: 120,
+      at: targetFrame / RATE, phase, originBeat: phase - 1,
+      playing: true, preserveVoices: false, triggerCurrent: true,
+    });
+    h.send({ type: 'sequence-stop', intent: 2 });
+    assert.equal(h.processor.pendingSequenceSwap, null);
+    assert.equal(h.processor.sequence.studyId, 'selected-while-stopping');
+    assert.equal(h.processor.state.engineId, 17);
+    assert.equal(h.processor.sequencePlaying, false);
+    assert.deepEqual(calls, [], 'Stop commits selection metadata without manufacturing an attack');
+
+    h.send({
+      type: 'sequence-start', intent: 2, tempo: 120, rootFrequency: 220,
+      phase: h.processor.sequenceAnchorBeat, originBeat: h.processor.sequenceOriginBeat,
+    });
+    h.render(128);
+    assert.equal(h.processor.sequence.studyId, 'selected-while-stopping');
+    assert.deepEqual(calls, [330], 'replay attacks the selected score, never the superseded score');
+  } finally { h.dispose(); }
+});
+
+test('Reset materializes pending score metadata and defers its one attack until rendering resumes', () => {
+  const h = makeHarness();
+  try {
+    h.send({ type: 'state', state: state() });
+    h.send({ type: 'sequence-load', sequence: sequence({ studyId: 'old' }), rootFrequency: 220, tempo: 120, intent: 1 });
+    h.send({ type: 'sequence-start', phase: 0, originBeat: 0, rootFrequency: 220, tempo: 120, intent: 1 });
+    h.render(4096);
+    const calls = [], api = h.processor.api;
+    h.processor.api = { ...api, synth_note_on(...args) { calls.push(args); return api.synth_note_on(...args); } };
+    const targetFrame = h.frame + 240, phase = h.processor.sequenceBeatAt(targetFrame);
+    h.send({
+      type: 'sequence-swap', intent: 2,
+      sequence: sequence({ studyId: 'reset-selection', lengthBeats: 4, steps: [
+        { index: 3, at: .75, duration: 1, notes: [{ ratio: 2, velocity: .8, gate: 1 }] },
+      ] }),
+      rootFrequency: 220, tempo: 120, at: targetFrame / RATE,
+      phase, originBeat: phase - .75, playing: true, preserveVoices: false, triggerCurrent: true,
+    });
+    h.send({ type: 'reset' });
+    assert.equal(h.processor.pendingSequenceSwap, null);
+    assert.equal(h.processor.sequence.studyId, 'reset-selection');
+    assert.equal(h.processor.sequenceIntent, 2);
+    assert.deepEqual(calls, []);
+    const resumed = h.render(128);
+    assert.equal(calls.length, 1, 'the suppressed restart is emitted once after engine reset');
+    assert.equal(calls[0].at(-2), 440);
+    assert.ok(rms(resumed) > .0001);
   } finally { h.dispose(); }
 });
 

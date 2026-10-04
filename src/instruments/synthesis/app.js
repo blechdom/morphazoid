@@ -772,10 +772,10 @@ function retuneSequenceRoot() {
 function rebuildSequence({ restart = false, route = true, audioState = null } = {}) {
   const cycle = compileSelectedSequence();
   if (cycle) {
-    audio.setPlaying(false, Number($("tempo").value) / 60, Number($("noteGate").value) / 100);
     if (playing && sequenceOwnsTransport()) {
       audio.swapSequence(cycle, { rootFrequency: state.frequencyHz, restart, state: audioState });
     } else {
+      audio.setPlaying(false, Number($("tempo").value) / 60, Number($("noteGate").value) / 100);
       audio.setSequence(cycle, { rootFrequency: state.frequencyHz, preservePhase: !restart });
     }
     sequenceState.rootFrequency = state.frequencyHz;
@@ -825,7 +825,7 @@ function syncTransportForSection({ restartSequence = false } = {}) {
   if (!playing) { audio.stopSequence(); return; }
   if (restartSequence || !audio.sequencePlaying) {
     audio.startSequence({ tempo, rootFrequency: state.frequencyHz,
-      phase: restartSequence ? 0 : audio.currentSequenceBeat() });
+      ...(restartSequence ? { phase: 0 } : {}) });
   }
 }
 
@@ -1192,7 +1192,7 @@ function setPlaying(value) {
   const tempo = Number($("tempo").value), gate = Number($("noteGate").value) / 100;
   if (sequenceOwnsTransport()) {
     audio.setPlaying(false, tempo / 60, gate);
-    if (playing && !audio.sequencePlaying) audio.startSequence({ tempo, rootFrequency: state.frequencyHz, phase: audio.currentSequenceBeat() });
+    if (playing && !audio.sequencePlaying) audio.startSequence({ tempo, rootFrequency: state.frequencyHz });
     else if (!playing) audio.stopSequence();
   } else {
     audio.stopSequence();
