@@ -64,13 +64,21 @@ class LSystemDelayProcessor extends AudioWorkletProcessor {
   message(data) {
     if (this.dead) return;
     if (data.type === 'install') {
-      const accepted = withBytes(this.api, new Uint8Array(data.pool), (pointer, length) => this.api.lsd_install(this.engine, pointer, length));
+      let accepted;
+      try {
+        accepted = withBytes(this.api, new Uint8Array(data.pool), (pointer, length) => this.api.lsd_install(this.engine, pointer, length));
+      } finally {
+        // A rejected allocation/copy/control can still grow WASM memory and
+        // detach every persistent PCM view. Keep the retained engine usable.
+        this.refreshViews();
+      }
       if (!accepted) throw new Error(wasmError(this.api, 'The audio topology could not be installed.'));
-      this.refreshViews();
     } else if (data.type === 'performance') {
-      const accepted = withJson(this.api, data.performance, (pointer, length) => this.api.lsd_performance(this.engine, pointer, length));
+      let accepted;
+      try {
+        accepted = withJson(this.api, data.performance, (pointer, length) => this.api.lsd_performance(this.engine, pointer, length));
+      } finally { this.refreshViews(); }
       if (!accepted) throw new Error(wasmError(this.api, 'The audio settings could not be applied.'));
-      this.refreshViews();
     } else if (data.type === 'strike') this.api.lsd_strike(this.engine);
     else if (data.type === 'dispose') {
       this.dead = true; this.api.lsd_drop(this.engine);
