@@ -1,0 +1,13 @@
+[package]
+name = "l-system-delay-cpal"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+description = "Native L-system Delay playback, live capture and deterministic comparison"
+
+[dependencies]
+l-system-delay-core = { path = "../core" }
+cpal = "0.16"
+hound = "3.5"
+rtrb = "0.3"
+serde_json = "1"

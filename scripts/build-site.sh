@@ -74,7 +74,7 @@ while IFS= read -r -d '' source_path; do
   [[ -f "$repo_root/$source_path" ]] || continue
 
   case "$source_path" in
-    .github/*|.storybook/*|stories/*|tests/*|scripts/*|src/pages/*|src/xyflow/*|dist/*|dist-wax/*|storybook-static/*|*.stories.js)
+    .github/*|.storybook/*|stories/*|tests/*|scripts/*|src/pages/*|src/xyflow/*|src/instruments/micmic/rust/*|dist/*|dist-wax/*|storybook-static/*|*.stories.js)
       continue
       ;;
   esac

@@ -1,0 +1,353 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#07090b" />
+    <meta name="description" content="Morphazoid L-system Delay — a live microphone that grows recursive audio descendants." />
+    <title>L-system Delay Rust — Morphazoid</title>
+    <link rel="canonical" href="l-mic-rust.html" />
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="src/instruments/micmic/micmic.css" />
+    <link rel="stylesheet" href="src/instruments/micmic/native/style.css" />
+  </head>
+  <body class="micmic-page" data-audio-backend="native-cpal">
+    <header class="masthead has-header-settings has-performance-header">
+      <a class="wordmark" href="./" aria-label="Morphazoid home">
+        <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+        <span>morphazoid</span>
+      </a>
+
+      <nav class="tabs tools-nav" id="instrumentNavigation" aria-label="Instrument"><a class="tab" href="l-mic.html">L-system Delay</a><a class="tab active" href="l-mic-rust.html" aria-current="page">L-system Delay Rust</a></nav>
+      <div class="header-io-controls micmic-header-controls" id="headerControls" role="group" aria-label="Audio and settings controls">
+        <div id="headerAudio"></div>
+        <details class="header-settings-menu" id="nativeSettings">
+          <summary class="header-settings-trigger" id="settingsButton" aria-label="Audio settings" title="Audio settings"><span class="header-settings-icon" aria-hidden="true"></span></summary>
+          <div class="header-settings-panel">
+            <section class="header-settings-section"><h2 class="header-settings-section-title">Native audio</h2>
+              <p class="header-settings-copy" id="engineStatus">Audio is off.</p>
+              <dl class="current-settings-readout native-diagnostics">
+                <div><dt>Output device</dt><dd id="outputDevice">Default output</dd></div>
+                <div><dt>Input device</dt><dd id="inputDevice">Default microphone</dd></div>
+                <div><dt>Sample rate</dt><dd id="sampleRate">—</dd></div>
+                <div><dt>Active voices / budget</dt><dd id="activeVoices">—</dd></div>
+                <div><dt>Requested / eligible voices</dt><dd><span id="requestedVoices">—</span> / <span id="eligibleVoices">—</span></dd></div>
+                <div><dt>Audio load / peak</dt><dd><span id="cpuLoad">—</span> / <span id="peakLoad">—</span></dd></div>
+                <div><dt>Input losses / callback deadlines</dt><dd id="streamMisses">0 / 0</dd></div>
+              </dl>
+              <div id="nativeMidiControl"></div>
+              <label class="native-check"><input id="automatic" type="checkbox" checked /> Adapt voices to this device</label>
+              <label class="control" for="voiceCeiling"><span><b>Optional voice cap</b><output id="voiceCeilingOut" for="voiceCeiling">No cap</output></span><input id="voiceCeiling" type="range" min="0" max="9007199254740991" step="1" value="0" /></label>
+            </section>
+            <p class="header-settings-copy">Audio runs on this computer through Rust CPAL. The browser controls the instrument. Microphone capture starts only with microphone selected and Audio enabled.</p>
+          </div>
+        </details>
+      </div>
+    </header>
+
+    <main class="shell" id="micmic">
+      <section class="stage fracta-stage" aria-label="L-system Delay echo tree">
+        <div class="stage-wrap" id="stageWrap">
+          <canvas
+            id="stage"
+            tabindex="0"
+            aria-label="Live fitted L-system tree for L-system Delay. Microphone off."
+            aria-describedby="treeDescription liveStatus canvasInstructions"
+          >
+            A fitted L-system tree whose branches vibrate as microphone audio travels through them.
+          </canvas>
+
+          <div class="fracta-seed-control" id="seedControl">
+            <button id="seedMicButton" type="button" aria-pressed="false" aria-label="Start microphone input">
+              <i aria-hidden="true"></i>
+              <span><b>Start input</b><small>microphone input</small></span>
+            </button>
+          </div>
+
+          <button class="fracta-panic" id="panicButton" type="button" disabled>
+            <span aria-hidden="true">×</span> panic
+          </button>
+
+          <div class="fracta-generation-key" id="generationKey" aria-hidden="true">
+            <span>G0 ROOT</span><i></i><span id="generationKeyEnd">G13 DESCENDANT</span>
+          </div>
+
+          <div class="stage-meta" aria-hidden="true">
+            <span id="stageReadout">MIC OFF · PYTHAGOREAN TREE · 13 GENERATIONS</span>
+          </div>
+        </div>
+      </section>
+
+      <aside class="panel" data-instrument-preset-host aria-label="L-system Delay controls">
+        <div class="micmic-panel-input" id="mobileInput">
+          <details class="micmic-input-menu" id="inputMenu" data-input-state="off">
+            <summary class="micmic-input-trigger" id="inputMenuButton" aria-label="Microphone controls: microphone off">
+              <span class="fracta-mic-icon" aria-hidden="true"><i></i></span><span>Input controls</span>
+            </summary>
+            <div class="micmic-input-popover" role="group" aria-label="Microphone input controls">
+              <p class="micmic-headphone-warning">
+                <strong>Use headphones.</strong> Speakers can feed the room back into the microphone before the digital recursion does.
+              </p>
+              <p class="micmic-headphone-warning"><a href="settings.html">Mic / stereo line input setup →</a> Choose your audio interface and mono/stereo there. Each delay keeps its own input trim.</p>
+              <div class="fracta-listen-actions">
+                <button class="fracta-mic-button" id="micButton" type="button" aria-pressed="false">
+                  <span class="fracta-mic-icon" aria-hidden="true"><i></i></span>
+                  <span><b id="micButtonLabel">Start input</b><small id="micButtonHint">microphone off</small></span>
+                </button>
+                <button class="fracta-freeze-button" id="freezeButton" type="button" aria-pressed="false" disabled>
+                  <span aria-hidden="true">×</span>
+                  <span><b id="freezeLabel">Stop audio</b><small id="freezeHint">tail clear</small></span>
+                </button>
+              </div>
+
+              <div class="fracta-meter" aria-label="Live microphone level">
+                <span><b>Input signal</b><output id="inputMeterOut">silent</output></span>
+                <div><i id="inputMeterBar"></i><em id="inputPeakMarker"></em></div>
+              </div>
+
+              <label class="control" for="inputTrim">
+                <span><b>Input trim</b><output id="inputTrimOut" for="inputTrim">85%</output></span>
+                <input id="inputTrim" type="range" min="0" max="1.5" step="0.01" value="0.85" />
+              </label>
+              <p class="audio-error" id="audioError" role="alert" hidden></p>
+            </div>
+          </details>
+        </div>
+        <details class="group control-section" id="presetSection" data-section="presets">
+          <summary class="group-summary">
+            <h2 class="group-title">Presets</h2>
+            <span class="section-state" id="presetSummary">Pythagorean Pine · Maximum</span>
+          </summary>
+          <div class="group-body">
+            <div class="micmic-preset-grid" id="generationPresetGrid" role="group" aria-label="L-system Delay presets">
+              <button id="generationPreset-pythagorean" type="button" data-generation-preset="pythagorean" aria-pressed="true"><b>Pythagorean Pine</b></button>
+              <button id="generationPreset-bramble" type="button" data-generation-preset="bramble" aria-pressed="false"><b>Blackberry Bramble</b></button>
+              <button id="generationPreset-venus" type="button" data-generation-preset="venus" aria-pressed="false"><b>Venus Flytrap</b></button>
+              <button id="generationPreset-ivy" type="button" data-generation-preset="ivy" aria-pressed="false"><b>Midnight Ivy</b></button>
+              <button id="generationPreset-binary" type="button" data-generation-preset="binary" aria-pressed="false"><b>Silver Birch</b></button>
+              <button id="generationPreset-coral" type="button" data-generation-preset="coral" aria-pressed="false"><b>Staghorn Coral</b></button>
+              <button id="generationPreset-moss" type="button" data-generation-preset="moss" aria-pressed="false"><b>Moss Carpet</b></button>
+              <button id="generationPreset-plant" type="button" data-generation-preset="plant" aria-pressed="false"><b>Fern Frond</b></button>
+              <button id="generationPreset-kelp" type="button" data-generation-preset="kelp" aria-pressed="false"><b>Kelp Forest</b></button>
+              <button id="generationPreset-dragon" type="button" data-generation-preset="dragon" aria-pressed="false"><b>Dragon Tree</b></button>
+              <button id="generationPreset-koch" type="button" data-generation-preset="koch" aria-pressed="false"><b>Frosted Agave</b></button>
+              <button id="generationPreset-clean" type="button" data-generation-preset="clean" aria-pressed="false"><b>Bamboo Shoot</b></button>
+              <button id="generationPreset-orchid" type="button" data-generation-preset="orchid" aria-pressed="false"><b>Ghost Orchid</b></button>
+              <button id="generationPreset-willow" type="button" data-generation-preset="willow" aria-pressed="false"><b>Weeping Willow</b></button>
+              <button id="generationPreset-mangrove" type="button" data-generation-preset="mangrove" aria-pressed="false"><b>Mangrove Roots</b></button>
+              <button id="generationPreset-sequoia" type="button" data-generation-preset="sequoia" aria-pressed="false"><b>Giant Sequoia</b></button>
+              <button id="generationPreset-cedar" type="button" data-generation-preset="cedar" aria-pressed="false"><b>Cedar Cathedral</b></button>
+              <button id="generationPreset-aspen" type="button" data-generation-preset="aspen" aria-pressed="false"><b>Quaking Aspen</b></button>
+              <button id="generationPreset-juniper" type="button" data-generation-preset="juniper" aria-pressed="false"><b>Juniper Mist</b></button>
+              <button id="generationPreset-baobab" type="button" data-generation-preset="baobab" aria-pressed="false"><b>Baobab Crown</b></button>
+              <button id="generationPreset-foxglove" type="button" data-generation-preset="foxglove" aria-pressed="false"><b>Foxglove Bells</b></button>
+              <button id="generationPreset-lotus" type="button" data-generation-preset="lotus" aria-pressed="false"><b>Lotus Ribbon</b></button>
+              <button id="generationPreset-acacia" type="button" data-generation-preset="acacia" aria-pressed="false"><b>Acacia Lace</b></button>
+              <button id="generationPreset-lichen" type="button" data-generation-preset="lichen" aria-pressed="false"><b>Lichen Islands</b></button>
+              <button id="generationPreset-moonflower" type="button" data-generation-preset="moonflower" aria-pressed="false"><b>Moonflower Wings</b></button>
+              <button id="generationPreset-horsetail" type="button" data-generation-preset="horsetail" aria-pressed="false"><b>Horsetail Spiral</b></button>
+            </div>
+          </div>
+        </details>
+
+        <details class="group control-section" id="recursionSection" data-section="recursion">
+          <summary class="group-summary">
+            <h2 class="group-title">Recursion</h2>
+            <span class="section-state" id="recursionSummary">Pythagorean tree · 13 generations</span>
+          </summary>
+          <div class="group-body">
+            <label class="select-control" for="lSystemType">
+              <span class="field-label">L-system type</span>
+              <span class="select-shell">
+                <select id="lSystemType">
+                  <optgroup label="Branching systems">
+                    <option value="pythagorean" selected>Pythagorean tree</option>
+                    <option value="plant">Branching plant</option>
+                    <option value="coral">Coral</option>
+                  </optgroup>
+                  <optgroup label="Classic fractals">
+                    <option value="dragon">Dragon curve</option>
+                    <option value="koch">Koch snowflake</option>
+                    <option value="sierpinski">Sierpiński triangle</option>
+                    <option value="hilbert">Hilbert curve</option>
+                    <option value="gosper">Gosper curve</option>
+                    <option value="cantor">Cantor set</option>
+                    <option value="levy">Lévy C curve</option>
+                    <option value="terdragon">Terdragon</option>
+                  </optgroup>
+                </select>
+              </span>
+            </label>
+            <section class="recursion-parameter-cluster" aria-labelledby="branchingParametersTitle">
+              <h3 class="parameter-cluster-title" id="branchingParametersTitle">Branching</h3>
+              <label class="control generation-control" for="generations">
+                <span>
+                  <b>Generations <small id="generationCapacityInline">48 of 1,022 branches ready · breadth first pruning · device-adjusted</small></b>
+                  <output id="generationsOut" for="generations">13 / 13</output>
+                </span>
+                <input id="generations" type="range" min="1" max="52" step="1" value="13" aria-describedby="generationCapacityInline" />
+              </label>
+              <label class="control signed-form-range" for="pruningBias">
+                <span><b>Pruning strategy</b><output id="pruningBiasOut" for="pruningBias">breadth first</output></span>
+                <input id="pruningBias" type="range" min="-1" max="1" step="0.01" value="0" aria-valuetext="breadth first" />
+                <span class="form-range-poles" aria-hidden="true"><span>Breadth first</span><span>Balanced</span><span>Depth first</span></span>
+              </label>
+              <label class="control" for="depth">
+                <span><b>Depth / decay</b><output id="depthOut" for="depth">72%</output></span>
+                <input id="depth" type="range" min="0" max="0.96" step="0.01" value="0.72" />
+              </label>
+            </section>
+
+            <section class="recursion-parameter-cluster" aria-labelledby="timingParametersTitle">
+              <h3 class="parameter-cluster-title" id="timingParametersTitle">Timing</h3>
+              <label class="control" for="interval">
+                <span><b>Time fold</b><output id="intervalOut" for="interval">240 ms</output></span>
+                <input id="interval" type="range" min="0" max="1000" step="1" value="300" aria-valuetext="240 ms" />
+              </label>
+              <label class="control" for="timeRatio"><span><b>Child time ratio</b><output id="timeRatioOut" for="timeRatio">0.72× per generation</output></span><input id="timeRatio" type="range" min="0.2" max="2" step="0.01" value="0.72" aria-valuemax="2" aria-valuetext="0.72× per generation" /></label>
+            </section>
+
+            <section class="recursion-parameter-cluster" aria-labelledby="pitchParametersTitle">
+              <h3 class="parameter-cluster-title" id="pitchParametersTitle">Pitch</h3>
+              <label class="select-control" for="pitchDetail">
+                <span class="field-label">Pitch detail</span>
+                <span class="select-shell">
+                  <select id="pitchDetail" aria-describedby="pitchDetailStatus">
+                    <option value="native" selected>Independent granular · adaptive voices</option>
+                  </select>
+                </span>
+              </label>
+              <small class="generation-safety-note" id="pitchDetailStatus" aria-live="polite">Independent pitch / time shift for every active voice</small>
+              <label class="control" for="generationAngle"><span><b>Branch angle</b><output id="generationAngleOut" for="generationAngle">45°</output></span><input id="generationAngle" type="range" min="0" max="180" step="0.5" value="45" /></label>
+              <label class="control" for="generationPitchScale"><span><b>Angle → octave span</b><output id="generationPitchScaleOut" for="generationPitchScale">100% / 180°</output></span><input id="generationPitchScale" type="range" min="0" max="4" step="0.05" value="1" /></label>
+            </section>
+
+            <section class="recursion-parameter-cluster" aria-labelledby="variationParametersTitle">
+              <h3 class="parameter-cluster-title" id="variationParametersTitle">Variation</h3>
+              <label class="control signed-form-range" for="generationAsymmetry"><span><b>Turn asymmetry</b><output id="generationAsymmetryOut" for="generationAsymmetry">even</output></span><input id="generationAsymmetry" type="range" min="-0.8" max="0.8" step="0.01" value="0" /><span class="form-range-poles" aria-hidden="true"><span>Left wider</span><span>Even</span><span>Right wider</span></span></label>
+              <label class="control" for="mutation">
+                <span><b>Rule mutation</b><output id="mutationOut" for="mutation">0% rule variance</output></span>
+                <input id="mutation" type="range" min="0" max="1" step="0.01" value="0" />
+              </label>
+            </section>
+
+            <button class="mini-action reset-form" id="resetGenerationRules" type="button">Reload selected preset</button>
+          </div>
+        </details>
+
+        <details class="group control-section" id="mixSection" data-section="mix">
+          <summary class="group-summary">
+            <h2 class="group-title">Mix</h2>
+            <span class="section-state" id="mixSummary">76% descendants · root muted</span>
+          </summary>
+          <div class="group-body">
+            <label class="control" for="wet">
+              <span><b>Descendants</b><output id="wetOut" for="wet">76%</output></span>
+              <input id="wet" type="range" min="0" max="1" step="0.01" value="0.76" />
+            </label>
+            <label class="control" for="dry">
+              <span><b>Original voice</b><output id="dryOut" for="dry">muted</output></span>
+              <input id="dry" type="range" min="0" max="0.5" step="0.01" value="0" />
+            </label>
+            <label class="control" for="spread">
+              <span><b>Stereo spread</b><output id="spreadOut" for="spread">90%</output></span>
+              <input id="spread" type="range" min="0" max="1" step="0.01" value="0.9" />
+            </label>
+          </div>
+        </details>
+
+        <details class="group control-section" id="seedSection" data-section="seed">
+          <summary class="group-summary"><h2 class="group-title">Input</h2><span class="section-state" id="seedSummary">Built-in test tone · 173 Hz</span></summary>
+          <div class="group-body">
+            <label class="select-control" for="source"><span class="field-label">Input source</span><span class="select-shell"><select id="source"><option value="mic">Microphone</option><option value="seed">Built-in test tone</option></select></span></label>
+            <div class="native-seed-parameters" id="seedParameters">
+              <label class="control" for="frequency"><span><b>Seed frequency</b><output id="frequencyOut" for="frequency">173 Hz</output></span><input id="frequency" type="range" min="40" max="1200" step="1" value="173" /></label>
+              <label class="control" for="pulseRate"><span><b>Seed pulse</b><output id="pulseRateOut" for="pulseRate">2 / s</output></span><input id="pulseRate" type="range" min="0.1" max="12" step="0.01" value="2" /></label>
+              <button class="mini-action" id="strikeButton" type="button">Strike tone</button>
+              <button class="mini-action" id="seedPauseButton" type="button" aria-pressed="false">Pause test tone</button>
+            </div>
+            <button class="mini-action" id="nativeStopAudio" type="button">Stop audio</button>
+          </div>
+        </details>
+        <div class="reset-all-row">
+          <button class="reset-all-button" type="button" data-reset-all>Reset all parameters</button>
+        </div>
+
+        <details class="group control-section" id="settingsSection" data-section="settings">
+          <summary class="group-summary">
+            <h2 class="group-title">Current settings</h2>
+            <span class="section-state" id="currentSettingsSummary">13 gen · 240 ms root fold</span>
+          </summary>
+          <div class="group-body">
+            <dl class="current-settings-readout">
+              <div>
+                <dt>Branches by generation</dt>
+                <dd><output id="generationCountReadout">1 → 2 → 4 → 8 → 16 → 32 → … → 128 at G13</output></dd>
+              </div>
+              <div>
+                <dt>Timing levels</dt>
+                <dd><output id="generationTimingReadout">240 ms → 173 ms → 124 ms → 90 ms … 3.35 ms at G13</output></dd>
+              </div>
+              <div>
+                <dt>Pitch turns · octave percentage</dt>
+                <dd><output id="generationPitchReadout">−45° → −25% octave · +45° → +25% octave</output></dd>
+              </div>
+            </dl>
+          </div>
+        </details>
+        <details class="group control-section" id="masteringSection" data-section="mastering">
+          <summary class="group-summary">
+            <h2 class="group-title">Mastering</h2>
+            <span class="section-state" id="masteringSummary">Original · 18:1 compression</span>
+          </summary>
+          <div class="group-body">
+            <label class="select-control" for="masteringPreset">
+              <span class="field-label">Mastering preset</span>
+              <span class="select-shell"><select id="masteringPreset">
+                <option value="original">Original</option>
+                <option value="transparent">Transparent</option>
+                <option value="gentle">Gentle</option>
+                <option value="dense">Dense</option>
+                <option value="warm">Warm</option>
+                <option value="airy">Airy</option>
+                <option value="telephone">Telephone</option>
+                <option value="custom" disabled>Custom</option>
+              </select></span>
+            </label>
+            <section class="recursion-parameter-cluster" aria-labelledby="masteringFiltersTitle">
+              <h3 class="parameter-cluster-title" id="masteringFiltersTitle">Filters</h3>
+              <label class="control" for="inputHighpassHz"><span><b>Input HPF</b><output id="inputHighpassHzOut" for="inputHighpassHz">55 Hz</output></span><input id="inputHighpassHz" type="range" min="0" max="1000" step="1" value="220" aria-valuetext="55 Hz" /></label>
+              <label class="control" for="highpassHz"><span><b>Output HPF</b><output id="highpassHzOut" for="highpassHz">Off</output></span><input id="highpassHz" type="range" min="0" max="1000" step="1" value="0" aria-valuetext="Off" /></label>
+              <label class="control" for="lowpassHz"><span><b>Output LPF</b><output id="lowpassHzOut" for="lowpassHz">Off</output></span><input id="lowpassHz" type="range" min="0" max="1000" step="1" value="1000" aria-valuetext="Off" /></label>
+              <p class="native-mastering-note">Input HPF shapes the recorded source. Output filters shape the complete mix.</p>
+            </section>
+            <section class="recursion-parameter-cluster" aria-labelledby="masteringCompressorTitle">
+              <h3 class="parameter-cluster-title" id="masteringCompressorTitle">Compression</h3>
+              <label class="native-check"><input id="compressorEnabled" type="checkbox" checked /> Enable compressor</label>
+              <div class="fracta-meter native-reduction-meter" aria-label="Live compressor gain reduction">
+                <span><b>Gain reduction</b><output id="gainReductionOut">0.0 dB</output></span>
+                <div><i id="gainReductionBar"></i></div>
+              </div>
+              <label class="control" for="thresholdDb"><span><b>Threshold</b><output id="thresholdDbOut" for="thresholdDb">−12 dB</output></span><input id="thresholdDb" type="range" min="-60" max="0" step="0.5" value="-12" /></label>
+              <label class="control" for="ratio"><span><b>Ratio</b><output id="ratioOut" for="ratio">18:1</output></span><input id="ratio" type="range" min="1" max="20" step="0.1" value="18" /></label>
+              <label class="control" for="kneeDb"><span><b>Knee</b><output id="kneeDbOut" for="kneeDb">5 dB</output></span><input id="kneeDb" type="range" min="0" max="40" step="0.5" value="5" /></label>
+              <label class="control" for="attackMs"><span><b>Attack</b><output id="attackMsOut" for="attackMs">3 ms</output></span><input id="attackMs" type="range" min="0.1" max="100" step="0.1" value="3" /></label>
+              <label class="control" for="releaseMs"><span><b>Release</b><output id="releaseMsOut" for="releaseMs">180 ms</output></span><input id="releaseMs" type="range" min="10" max="1500" step="1" value="180" /></label>
+              <label class="native-check"><input id="autoMakeup" type="checkbox" checked /> Automatic makeup gain</label>
+              <label class="control" for="makeupDb"><span><b>Makeup gain</b><output id="makeupDbOut" for="makeupDb">0 dB</output></span><input id="makeupDb" type="range" min="-12" max="12" step="0.1" value="0" /></label>
+            </section>
+          </div>
+        </details>
+        <section class="instrument-page-info" data-tool-id="micmic-rust" aria-label="About L-system Delay" id="instrumentIdentity"></section>
+      </aside>
+
+      <p class="sr-only" id="treeDescription">Pythagorean Pine. Colored branches show admitted delay taps. Each branch's brightness follows its own measured delayed sound; the root follows the input.</p>
+      <p class="sr-only" id="canvasInstructions">Drag horizontally to change Time fold and vertically to change Branch angle. Arrow keys adjust the same controls. Enter strikes the test tone. Audio remains independently armed.</p>
+      <p class="sr-only" id="liveStatus" aria-live="polite"></p>
+    </main>
+
+    <script type="module" src="nav.js"></script>
+    <script type="module" src="src/instruments/micmic/native/app.js"></script>
+  </body>
+</html>

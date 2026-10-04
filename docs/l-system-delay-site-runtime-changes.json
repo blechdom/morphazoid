@@ -1,0 +1,162 @@
+{
+  "schemaVersion": 1,
+  "baseCommit": "f48d59a45eb0e1eadcb240f83600e02df5aa5d4d",
+  "purpose": "Exact native delay webapp additions; older layout and navigation reference fixtures remain frozen.",
+  "changes": [
+    {
+      "file": "nav.js",
+      "sha256": "ccf834f8a1d50a0b3481681faa87e150c03f2f985a01c68fa78076993141a095",
+      "reason": "Integrate the owner-requested native delay alongside the original and preserve native device lifecycle.",
+      "regressionTests": [
+        "tests/l-system-delay-webapp.test.mjs",
+        "scripts/test-l-system-delay-app.mjs"
+      ],
+      "replacements": [
+        {
+          "before": "  }\n}\n\nif (typeof document !== \"undefined\") initializeSharedNavigation(document, globalThis);\n",
+          "after": "  }\n}\n\n// Native device pages own their audio settings and lifecycle. Their controller\n// reuses the pure site registry and shared controls without browser audio setup.\nif (typeof document !== \"undefined\" && document.body?.dataset?.audioBackend !== \"native-cpal\") {\n  initializeSharedNavigation(document, globalThis);\n}\n"
+        }
+      ]
+    },
+    {
+      "file": "src/site/instrument-registry.js",
+      "sha256": "af6ee14280008012ecd9d34040a9f577021f8d7bd913f0299e3db08d21705efb",
+      "reason": "Integrate the owner-requested native delay alongside the original and preserve native device lifecycle.",
+      "regressionTests": [
+        "tests/l-system-delay-webapp.test.mjs",
+        "scripts/test-l-system-delay-app.mjs"
+      ],
+      "replacements": [
+        {
+          "before": "  \"hyper-rubix\",\n  \"puggler\",\n  \"micmic\",\n  \"l-system\",\n  \"graph-delay\",\n  \"graph-synth\",\n",
+          "after": "  \"hyper-rubix\",\n  \"puggler\",\n  \"micmic\",\n  \"micmic-rust\",\n  \"l-system\",\n  \"graph-delay\",\n  \"graph-synth\",\n"
+        },
+        {
+          "before": "  freezeGroup(\"audio-effect\", \"Audio Effect\", [\n    { id: \"lumber\", label: \"Lumber Loops\", href: \"lumber.html\" },\n    { id: \"micmic\", label: \"L-system Delay\", href: \"l-mic.html\" },\n    { id: \"graph-delay\", label: \"Graph Delay\", href: \"graph-delay.html\" },\n  ]),\n  freezeGroup(\"infinite-illusion\", \"Infinite Illusion\", [\n",
+          "after": "  freezeGroup(\"audio-effect\", \"Audio Effect\", [\n    { id: \"lumber\", label: \"Lumber Loops\", href: \"lumber.html\" },\n    { id: \"micmic\", label: \"L-system Delay\", href: \"l-mic.html\" },\n    { id: \"micmic-rust\", label: \"L-system Delay Rust\", href: \"l-mic-rust.html\", imageHref: \"assets/instruments/micmic.webp\" },\n    { id: \"graph-delay\", label: \"Graph Delay\", href: \"graph-delay.html\" },\n  ]),\n  freezeGroup(\"infinite-illusion\", \"Infinite Illusion\", [\n"
+        }
+      ]
+    },
+    {
+      "file": "src/site/instrument-catalog.js",
+      "sha256": "69f3fd7de65627dec090dae36cc02a0acd4a21e7bfd1f486dc24ed9cd6b8198c",
+      "reason": "Integrate the owner-requested native delay alongside the original and preserve native device lifecycle.",
+      "regressionTests": [
+        "tests/l-system-delay-webapp.test.mjs",
+        "scripts/test-l-system-delay-app.mjs"
+      ],
+      "replacements": [
+        {
+          "before": "    \"Runs live microphone audio through an L-system tree where branches become delays and turns become pitch shifts.\",\n    \"Allow microphone access, start input, then change the grammar or branch timing.\",\n    [\"Mic input\"],\n  ),\n  \"graph-delay\": define(\n    \"Mic processor\",\n",
+          "after": "    \"Runs live microphone audio through an L-system tree where branches become delays and turns become pitch shifts.\",\n    \"Allow microphone access, start input, then change the grammar or branch timing.\",\n    [\"Mic input\"],\n  ),\n  \"micmic-rust\": define(\n    \"Native mic processor\",\n    \"Runs microphone audio through recursive delay branches with independently shifted playback rates. Rust CPAL processes audio on this computer and adapts voices to measured device capacity; the browser controls and displays the instrument.\",\n    \"Run the local native audio service, enable Audio, then speak or play into the microphone and reshape the tree.\",\n    [\"Mic input\", \"Local native audio\", \"Test tone\", \"Device-adaptive voices\"],\n  ),\n  \"graph-delay\": define(\n    \"Mic processor\",\n"
+        }
+      ]
+    },
+    {
+      "file": "src/site/instrument-identities.js",
+      "sha256": "bbd76b7f5060799b7e9e47aa3c445da5d82ab105ac72ec694d81e4627c90e9f6",
+      "reason": "Integrate the owner-requested native delay alongside the original and preserve native device lifecycle.",
+      "regressionTests": [
+        "tests/l-system-delay-webapp.test.mjs",
+        "scripts/test-l-system-delay-app.mjs"
+      ],
+      "replacements": [
+        {
+          "before": "  \"simd-lab\": \"simd-audio-lab\"\n});\nexport const ROUTE_INSTRUMENT_IDS = Object.freeze({\n  \"fractal-synthesis\": \"fractal-signals\",\n  \"gesticules\": \"gesticulating-hand\",\n  \"shape-synth\": \"shape-synth\",\n",
+          "after": "  \"simd-lab\": \"simd-audio-lab\"\n});\nexport const ROUTE_INSTRUMENT_IDS = Object.freeze({\n  \"l-mic-rust\": \"micmic-rust\",\n  \"fractal-synthesis\": \"fractal-signals\",\n  \"gesticules\": \"gesticulating-hand\",\n  \"shape-synth\": \"shape-synth\",\n"
+        }
+      ]
+    },
+    {
+      "file": "src/site/instrument-midi-capabilities.js",
+      "sha256": "12f536709133cc9bed59842aedd415112c1dfe446fbc11763eb01268fa1ace09",
+      "reason": "Integrate the owner-requested native delay alongside the original and preserve native device lifecycle.",
+      "regressionTests": [
+        "tests/l-system-delay-webapp.test.mjs",
+        "scripts/test-l-system-delay-app.mjs"
+      ],
+      "replacements": [
+        {
+          "before": "  processor: Object.freeze([\n    \"lumber\",\n    \"micmic\",\n    \"graph-delay\",\n    \"micromorph\",\n    \"slippery-resynthesis\",\n",
+          "after": "  processor: Object.freeze([\n    \"lumber\",\n    \"micmic\",\n    \"micmic-rust\",\n    \"graph-delay\",\n    \"micromorph\",\n    \"slippery-resynthesis\",\n"
+        },
+        {
+          "before": "  \"voicesaurus\",\n  \"lumber\",\n  \"micmic\",\n  \"karplus-strong\",\n  \"karplus-carpet\",\n  \"object-forge\",\n",
+          "after": "  \"voicesaurus\",\n  \"lumber\",\n  \"micmic\",\n  \"micmic-rust\",\n  \"karplus-strong\",\n  \"karplus-carpet\",\n  \"object-forge\",\n"
+        },
+        {
+          "before": "  \"fractal-signals\",\n  \"lumber\",\n  \"micmic\",\n  \"graph-delay\",\n  \"micromorph\",\n  \"slippery-resynthesis\",\n",
+          "after": "  \"fractal-signals\",\n  \"lumber\",\n  \"micmic\",\n  \"micmic-rust\",\n  \"graph-delay\",\n  \"micromorph\",\n  \"slippery-resynthesis\",\n"
+        }
+      ]
+    },
+    {
+      "file": "src/site/catalogue-taxonomy.js",
+      "sha256": "10b56f1daed38f72d506ba86297dbb1d29ab3e319a9cf4c8ab268c20872179f6",
+      "reason": "Integrate the owner-requested native delay alongside the original and preserve native device lifecycle.",
+      "regressionTests": [
+        "tests/l-system-delay-webapp.test.mjs",
+        "scripts/test-l-system-delay-app.mjs"
+      ],
+      "replacements": [
+        {
+          "before": "    \"fractal\",\n    \"recursive\"\n  ],\n  \"graph-delay\": [\n    \"graph\"\n  ],\n",
+          "after": "    \"fractal\",\n    \"recursive\"\n  ],\n  \"micmic-rust\": [\"fractal\", \"recursive\"],\n  \"graph-delay\": [\n    \"graph\"\n  ],\n"
+        }
+      ]
+    },
+    {
+      "file": "src/instruments/wax/wax-instrument-roles.js",
+      "sha256": "97f410fa1c0a4add6451bc3b66a6dd5a1f7de05bf0e39db965eb6d9d7d7a4769",
+      "reason": "Integrate the owner-requested native delay alongside the original and preserve native device lifecycle.",
+      "regressionTests": [
+        "tests/l-system-delay-webapp.test.mjs",
+        "scripts/test-l-system-delay-app.mjs"
+      ],
+      "replacements": [
+        {
+          "before": "}\n\nfunction summaryFor(instrument, noteMode, midiOutput, audioInput) {\n  if (noteMode === \"processor\") {\n    return audioInput\n      ? `Process a DAW track through ${instrument.label}'s live-input signal path.`\n",
+          "after": "}\n\nfunction summaryFor(instrument, noteMode, midiOutput, audioInput) {\n  if (instrument.id === \"micmic-rust\") {\n    return \"Control the local Rust CPAL instrument; its audio uses the computer's native devices.\";\n  }\n  if (noteMode === \"processor\") {\n    return audioInput\n      ? `Process a DAW track through ${instrument.label}'s live-input signal path.`\n"
+        },
+        {
+          "before": "}\n\nfunction caveatFor(instrument, noteMode, midiOutput) {\n  if (AUDIO_FX_IDS.has(instrument.id)) {\n    return \"Preview: confirm DAW track-input capture in your WAX host; the browser mic/file path may still need a page-specific adapter.\";\n  }\n",
+          "after": "}\n\nfunction caveatFor(instrument, noteMode, midiOutput) {\n  if (instrument.id === \"micmic-rust\") {\n    return \"Local native service required. CPAL input and output use system devices; this implementation does not connect to WAX audio buses.\";\n  }\n  if (AUDIO_FX_IDS.has(instrument.id)) {\n    return \"Preview: confirm DAW track-input capture in your WAX host; the browser mic/file path may still need a page-specific adapter.\";\n  }\n"
+        },
+        {
+          "before": "\nexport const WAX_INSTRUMENT_SUPPORT = Object.freeze(INSTRUMENTS.map((instrument) => {\n  const midiCapability = instrumentMidiCapabilityForId(instrument.id);\n  const {\n    audioInput, midiOutput, noteMode, startsAudio,\n  } = midiCapability;\n",
+          "after": "\nexport const WAX_INSTRUMENT_SUPPORT = Object.freeze(INSTRUMENTS.map((instrument) => {\n  const midiCapability = instrumentMidiCapabilityForId(instrument.id);\n  // Native device audio cannot enter or leave the WAX host's audio buses.\n  if (instrument.id === \"micmic-rust\") {\n    return Object.freeze({\n      id: instrument.id, available: false, recommended: null, roles: Object.freeze([]),\n      audioInput: false, midiInput: false, midiInputMode: midiCapability.midiInputMode,\n      computerKeyboardMode: midiCapability.computerKeyboardMode, midiOutput: false,\n      hostSync: false, noteMode: midiCapability.noteMode,\n      summary: summaryFor(instrument, midiCapability.noteMode, false, false),\n      caveat: caveatFor(instrument, midiCapability.noteMode, false),\n    });\n  }\n  const {\n    audioInput, midiOutput, noteMode, startsAudio,\n  } = midiCapability;\n"
+        }
+      ]
+    },
+    {
+      "file": "wax-page.js",
+      "sha256": "645d39e10425ef145edd951672c81bd308bc42d1c292e990261d8ec858c94843",
+      "reason": "Integrate the owner-requested native delay alongside the original and preserve native device lifecycle.",
+      "regressionTests": [
+        "tests/l-system-delay-webapp.test.mjs",
+        "scripts/test-l-system-delay-app.mjs"
+      ],
+      "replacements": [
+        {
+          "before": "  nameCell.append(link, element(doc, \"span\", \"\", instrument.kind));\n\n  const recommendedCell = element(doc, \"td\", \"wax-catalog-role\");\n  recommendedCell.append(roleBadge(doc, support.recommended, true));\n\n  const alsoCell = element(doc, \"td\", \"wax-catalog-role\");\n  const alsoWorks = support.roles.filter((roleId) => roleId !== support.recommended);\n",
+          "after": "  nameCell.append(link, element(doc, \"span\", \"\", instrument.kind));\n\n  const recommendedCell = element(doc, \"td\", \"wax-catalog-role\");\n  recommendedCell.append(support.available === false\n    ? element(doc, \"span\", \"wax-role-none\", \"Local native only\")\n    : roleBadge(doc, support.recommended, true));\n\n  const alsoCell = element(doc, \"td\", \"wax-catalog-role\");\n  const alsoWorks = support.roles.filter((roleId) => roleId !== support.recommended);\n"
+        }
+      ]
+    },
+    {
+      "file": "scripts/wax/wax-universal-adapter.js",
+      "sha256": "592a34d3b9c3be4d021a315509103741d63365a2684f9dbb9c0c8c25d991caa9",
+      "reason": "Integrate the owner-requested native delay alongside the original and preserve native device lifecycle.",
+      "regressionTests": [
+        "tests/l-system-delay-webapp.test.mjs",
+        "scripts/test-l-system-delay-app.mjs"
+      ],
+      "replacements": [
+        {
+          "before": "  const routeId = routeIdForLocation(runtime.location);\n  const legacyRouteId = legacyInstrumentId(routeId);\n  const support = waxSupportForId(routeId);\n  if (!support) return null;\n\n  const controlDocument = activeInstrumentControls(documentObject);\n  addStylesheet(documentObject);\n",
+          "after": "  const routeId = routeIdForLocation(runtime.location);\n  const legacyRouteId = legacyInstrumentId(routeId);\n  const support = waxSupportForId(routeId);\n  if (!support || support.available === false) return null;\n\n  const controlDocument = activeInstrumentControls(documentObject);\n  addStylesheet(documentObject);\n"
+        }
+      ]
+    }
+  ]
+}

@@ -17,6 +17,7 @@ export const FAVE_TOOL_IDS = Object.freeze([
   "hyper-rubix",
   "puggler",
   "micmic",
+  "micmic-rust",
   "l-system",
   "graph-delay",
   "graph-synth",
@@ -118,6 +119,7 @@ export const TOOL_GROUPS = Object.freeze([
   freezeGroup("audio-effect", "Audio Effect", [
     { id: "lumber", label: "Lumber Loops", href: "lumber.html" },
     { id: "micmic", label: "L-system Delay", href: "l-mic.html" },
+    { id: "micmic-rust", label: "L-system Delay Rust", href: "l-mic-rust.html", imageHref: "assets/instruments/micmic.webp" },
     { id: "graph-delay", label: "Graph Delay", href: "graph-delay.html" },
   ]),
   freezeGroup("infinite-illusion", "Infinite Illusion", [

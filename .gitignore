@@ -9,3 +9,10 @@ storybook-static/
 playwright-report/
 test-results/
 blob-report/
+
+# Reproducible native delay measurements and listening renders
+/artifacts/l-system-delay-comparison/
+
+# Native instrument interface QA
+/artifacts/l-system-delay-app/
+/artifacts/l-system-delay-visual-causality/

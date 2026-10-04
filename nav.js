@@ -1564,4 +1564,8 @@ export function initializeSharedNavigation(doc = globalThis.document, runtime = 
   }
 }
 
-if (typeof document !== "undefined") initializeSharedNavigation(document, globalThis);
+// Native device pages own their audio settings and lifecycle. Their controller
+// reuses the pure site registry and shared controls without browser audio setup.
+if (typeof document !== "undefined" && document.body?.dataset?.audioBackend !== "native-cpal") {
+  initializeSharedNavigation(document, globalThis);
+}

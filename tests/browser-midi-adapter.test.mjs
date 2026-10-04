@@ -213,6 +213,7 @@ test("one acyclic capability registry covers every playable catalog instrument a
     "voicesaurus",
     "lumber",
     "micmic",
+    "micmic-rust",
     "karplus-strong",
     "karplus-carpet",
     "object-forge",
