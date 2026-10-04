@@ -15,7 +15,7 @@ class LSystemDelayProcessor extends AudioWorkletProcessor {
     this.api = new WebAssembly.Instance(options.processorOptions.module, {}).exports;
     this.engine = this.api.lsd_new(sampleRate, 1);
     if (!this.engine) throw new Error(wasmError(this.api, 'The Rust delay engine could not start.'));
-    this.dead = false; this.failed = false; this.measuredSeconds = 0; this.measuredFrames = 0;
+    this.dead = false; this.failed = false; this.measuredSeconds = 0; this.measuredFrames = 0; this.adjustmentSeconds = 0;
     this.inputLeftPointer = this.api.lsd_alloc(BLOCK * 4);
     this.inputRightPointer = this.api.lsd_alloc(BLOCK * 4);
     this.outputLeftPointer = this.api.lsd_alloc(BLOCK * 4);
@@ -103,13 +103,22 @@ class LSystemDelayProcessor extends AudioWorkletProcessor {
       this.failed = true; left.fill(0); right?.fill(0); return false;
     }
     for (let i = 0; i < frames; i++) { left[i] = this.outputLeft[i]; if (right) right[i] = this.outputRight[i]; }
-    const seconds = Math.max(0, now() - started) / 1000;
-    if (fineClock) this.api.lsd_observe(this.engine, seconds, frames, 0);
+    // Admission probes also consume the audio thread. Carry that measured
+    // adjustment into the next observation, including coarse-clock batches.
+    const seconds = Math.max(0, now() - started) / 1000 + this.adjustmentSeconds;
+    this.adjustmentSeconds = 0;
+    if (fineClock) {
+      const adjustmentStarted = now();
+      this.api.lsd_observe(this.engine, seconds, frames, 0);
+      this.adjustmentSeconds = Math.max(0, now() - adjustmentStarted) / 1000;
+    }
     else {
       // Averaging makes a 1 ms clock tick useful without treating it as a spike.
       this.measuredSeconds += seconds; this.measuredFrames += frames;
       if (this.measuredFrames >= BLOCK * 32) {
+        const adjustmentStarted = now();
         this.api.lsd_observe(this.engine, this.measuredSeconds, this.measuredFrames, 0);
+        this.adjustmentSeconds = Math.max(0, now() - adjustmentStarted) / 1000;
         this.measuredSeconds = 0; this.measuredFrames = 0;
       }
     }
