@@ -49,6 +49,7 @@ class RoadsSynthesisProcessor extends AudioWorkletProcessor {
     this.sequenceRootFrequency = 220;
     this.sequenceAnchorBeat = 0;
     this.sequenceAnchorFrame = currentFrame;
+    this.sequenceOriginBeat = 0;
     this.sequenceNextStep = -1;
     this.sequenceNextBeat = Infinity;
     this.sequenceCycleBase = 0;
@@ -57,7 +58,10 @@ class RoadsSynthesisProcessor extends AudioWorkletProcessor {
     this.sequenceLastCursor = null;
     this.sequenceStatusFrame = 0;
     this.sequenceRevision = 0;
+    this.sequenceIntent = 0;
     this.sequenceNoteSequence = 0x40000000;
+    this.pendingSequenceSwap = null;
+    this.pendingSequenceTempo = null;
     this.dead = false;
     this.failed = false;
     this.port.onmessage = ({ data }) => {
@@ -127,6 +131,7 @@ class RoadsSynthesisProcessor extends AudioWorkletProcessor {
 
   sequenceBeatAt(frame = currentFrame) {
     if (!this.sequencePlaying) return this.sequenceAnchorBeat;
+    if (frame <= this.sequenceAnchorFrame) return this.sequenceAnchorBeat;
     return this.sequenceAnchorBeat + (frame - this.sequenceAnchorFrame) * this.sequenceTempo / (60 * sampleRate);
   }
 
@@ -148,7 +153,7 @@ class RoadsSynthesisProcessor extends AudioWorkletProcessor {
       this.sequenceCycleBase = 0;
       return;
     }
-    const phase = positiveModulo(beat, sequence.lengthBeats);
+    const phase = positiveModulo(beat - this.sequenceOriginBeat, sequence.lengthBeats);
     const cycleBase = beat - phase;
     const epsilon = 1e-9;
     let cursor = sequence.steps.findIndex(step => (
@@ -186,15 +191,206 @@ class RoadsSynthesisProcessor extends AudioWorkletProcessor {
     return Math.max(8, Math.min(20_000, this.sequenceRootFrequency * ratio));
   }
 
-  cancelSequenceVoices() {
+  sequenceIntentValue(value, fallback = this.sequenceIntent) {
+    return Number.isSafeInteger(value) && value >= 0 ? value : fallback;
+  }
+
+  firstSequenceAttackBeat(sequence) {
+    const first = sequence?.steps.find(step => step.notes.length > 0);
+    return Number.isFinite(first?.at) ? first.at : 0;
+  }
+
+  retuneSequenceVoices() {
+    if (this.sequenceMono) {
+      const frequency = this.sequenceFrequency(this.sequenceMono.ratio);
+      this.sequenceMono.frequency = frequency;
+      this.api.synth_set_frequency(this.engine, frequency);
+    }
+    for (const note of this.polyDeadlines) {
+      if (note?.kind !== "sequence" || !(note.ratio > 0)) continue;
+      const frequency = this.sequenceFrequency(note.ratio);
+      note.frequency = frequency;
+      this.api.poly_set_note_frequency(this.bank, note.id, frequency);
+    }
+  }
+
+  cancelSequenceVoices({ handoffMono = false } = {}) {
     if (this.sequenceMono) {
       this.sequenceMono = null;
-      this.resumeUnderlyingNote();
+      if (!handoffMono) this.resumeUnderlyingNote();
     }
     for (const note of [...this.polyDeadlines]) if (note?.kind === "sequence") this.polyOff(note.id);
   }
 
-  haltSequence() {
+  sequenceHasAttackAt(sequence, beat, originBeat = this.sequenceOriginBeat) {
+    if (!sequence?.steps.length || !(sequence.lengthBeats > 0)) return false;
+    const phase = positiveModulo(beat - originBeat, sequence.lengthBeats);
+    return sequence.steps.some(step => Math.abs(step.at - phase) <= 1e-9 && step.notes.length > 0);
+  }
+
+  sequenceEventBoundaryFrame() {
+    if (!this.sequencePlaying || !this.sequence || this.state?.kind === "processor") return Infinity;
+    let boundary = this.sequenceFrameAt(this.sequenceNextBeat);
+    if (this.sequenceMono) boundary = Math.min(boundary, this.sequenceFrameAt(this.sequenceMono.endBeat));
+    for (const note of this.polyDeadlines) {
+      if (note?.kind === "sequence") boundary = Math.min(boundary, this.sequenceFrameAt(note.endBeat));
+    }
+    return boundary;
+  }
+
+  renderMode(state = this.state) {
+    if (state?.kind === "processor") return "processor";
+    return state?.voiceMode === "poly" ? "poly" : "mono";
+  }
+
+  playEventBoundaryFrame(stopPlay) {
+    if (!stopPlay || !this.playing || this.state?.kind === "processor") return Infinity;
+    let boundary = this.nextTrigger;
+    if (this.state?.voiceMode === "poly") {
+      for (const note of this.polyDeadlines) {
+        if (note?.kind === "play") boundary = Math.min(boundary, note.end);
+      }
+    } else if (!this.pulseNote) boundary = Math.min(boundary, this.releaseAt);
+    return boundary;
+  }
+
+  renderBoundarySwapFrame(frame, state) {
+    const currentMode = this.renderMode();
+    const nextMode = this.renderMode(state ?? this.state);
+    if (currentMode !== "processor" && nextMode !== "processor" && currentMode === nextMode) return frame;
+    // A worklet chooses one renderer for the complete render quantum. Commit a
+    // renderer-changing transaction at quantum entry, never in its interior.
+    return Math.max(currentFrame, currentFrame + Math.floor(Math.max(0, frame - currentFrame) / 128) * 128);
+  }
+
+  queueSequenceSwap(data) {
+    const previous = this.pendingSequenceSwap;
+    const pendingTempo = this.pendingSequenceTempo;
+    const sequence = this.sanitizeSequence(data.sequence);
+    const requestedFrame = this.sequenceMessageFrame(data);
+    const phase = Number.isFinite(data.phase)
+      ? data.phase
+      : this.sequenceBeatAt(requestedFrame);
+    const playing = data.playing !== false && !!sequence;
+    const triggerCurrent = playing && (data.triggerCurrent === true || previous?.triggerCurrent === true);
+    const stopPlay = data.stopPlay === true || previous?.stopPlay === true;
+    const state = data.state && typeof data.state === "object" ? data.state : previous?.state ?? null;
+    const originBeat = triggerCurrent
+      ? phase - this.firstSequenceAttackBeat(sequence)
+      : Number.isFinite(previous?.originBeat) ? previous.originBeat : this.sequenceOriginBeat;
+    const eventFrame = Math.max(currentFrame, Math.min(
+      requestedFrame,
+      previous?.frame ?? Infinity,
+      pendingTempo?.frame ?? Infinity,
+      this.sequenceEventBoundaryFrame(),
+      this.playEventBoundaryFrame(stopPlay),
+    ));
+    const frame = this.renderBoundarySwapFrame(eventFrame, state);
+    this.pendingSequenceSwap = {
+      frame,
+      sequence,
+      tempo: this.sanitizeSequenceTempo(data.tempo ?? data.sequence?.tempo ?? pendingTempo?.tempo),
+      rootFrequency: this.sanitizeSequenceRoot(data.rootFrequency),
+      phase,
+      phaseFrame: requestedFrame,
+      originBeat,
+      playing,
+      preserveVoices: !triggerCurrent && data.preserveVoices === true,
+      triggerCurrent,
+      stopPlay,
+      state,
+      intent: Math.max(
+        this.sequenceIntent,
+        previous?.intent ?? 0,
+        pendingTempo?.intent ?? 0,
+        this.sequenceIntentValue(data.intent),
+      ),
+    };
+    this.pendingSequenceTempo = null;
+  }
+
+  stopPlayForSequenceSwap({ handoffMono = false } = {}) {
+    if (!this.playing) return;
+    if (this.state?.kind === "processor") {
+      this.playing = false;
+      this.processingUntil = 0;
+      this.updateProcessingGate();
+      return;
+    }
+    if (this.state?.voiceMode === "poly") {
+      this.playing = false;
+      this.stopPolyPlay();
+      return;
+    }
+    this.playing = false;
+    this.nextTrigger = Infinity;
+    if (!this.pulseNote) this.releaseAt = Infinity;
+    if (!handoffMono && !this.heldNote && !this.pulseNote) this.api.synth_note_off(this.engine);
+  }
+
+  applyPendingSequenceSwap(frame, { force = false, suppressAttack = false } = {}) {
+    const swap = this.pendingSequenceSwap;
+    if (!swap || !force && frame < swap.frame) return false;
+    this.pendingSequenceSwap = null;
+    // A stopped transport does not advance or rewind merely because renderer
+    // safety moves the transaction to an earlier quantum boundary.
+    const appliedPhase = this.sequencePlaying ? this.sequenceBeatAt(frame) : swap.phase;
+    const delayedBeats = appliedPhase - swap.phase;
+    const triggerCurrent = swap.triggerCurrent && !suppressAttack;
+    const nextOriginBeat = Number.isFinite(swap.originBeat)
+      ? swap.originBeat + (swap.triggerCurrent ? delayedBeats : 0)
+      : this.sequenceOriginBeat;
+    const nextState = swap.state ?? this.state;
+    const attacksAtBoundary = triggerCurrent
+      && nextState?.kind !== "processor"
+      && this.sequenceHasAttackAt(swap.sequence, appliedPhase, nextOriginBeat);
+    const directMonoHandoff = swap.stopPlay
+      && this.state?.voiceMode !== "poly"
+      && this.state?.kind !== "processor"
+      && nextState?.voiceMode !== "poly"
+      && attacksAtBoundary
+      && !this.heldNote
+      && !this.pulseNote;
+    if (swap.stopPlay) this.stopPlayForSequenceSwap({ handoffMono: directMonoHandoff });
+    // Stop/reset/load are ordering barriers, not auditions. Close the outgoing
+    // owned gate before installing a new method so a physical model cannot be
+    // excited merely by materializing pending metadata.
+    if (suppressAttack) this.cancelSequenceVoices();
+    if (swap.state) this.message({ type: "state", state: swap.state, audition: false });
+    const handoffMono = !swap.preserveVoices
+      && triggerCurrent
+      && this.state?.voiceMode !== "poly"
+      && this.state?.kind !== "processor"
+      && !this.heldNote
+      && !this.pulseNote
+      && !this.playing
+      && this.sequenceHasAttackAt(swap.sequence, appliedPhase, nextOriginBeat);
+    if (!suppressAttack && (!swap.preserveVoices || !swap.sequence || !swap.playing)) {
+      this.cancelSequenceVoices({ handoffMono });
+    }
+    this.sequence = swap.sequence;
+    this.sequenceTempo = swap.tempo;
+    const rootChanged = this.sequenceRootFrequency !== swap.rootFrequency;
+    this.sequenceRootFrequency = swap.rootFrequency;
+    if (swap.preserveVoices && rootChanged) this.retuneSequenceVoices();
+    this.sequencePlaying = !!swap.sequence && swap.playing;
+    this.sequenceOriginBeat = nextOriginBeat;
+    this.sequenceIntent = Math.max(this.sequenceIntent, swap.intent);
+    this.setSequenceAnchor(appliedPhase, frame);
+    this.sequenceRevision++;
+    this.sequenceLastStepIndex = null;
+    this.sequenceLastCursor = null;
+    this.seekSequence(appliedPhase, triggerCurrent);
+    this.reportSequenceStatus(frame, true);
+    return true;
+  }
+
+  haltSequence(data = {}) {
+    // Stop is also an ordering barrier: retain the newest selected score/state,
+    // but do not render its queued attack before closing the transport.
+    this.applyPendingSequenceSwap(currentFrame, { force: true, suppressAttack: true });
+    this.applyPendingSequenceTempo(currentFrame, { force: true });
+    this.sequenceIntent = Math.max(this.sequenceIntent, this.sequenceIntentValue(data.intent));
     const beat = this.sequenceBeatAt(currentFrame);
     this.cancelSequenceVoices();
     this.sequencePlaying = false;
@@ -209,7 +405,8 @@ class RoadsSynthesisProcessor extends AudioWorkletProcessor {
 
   reportSequenceStatus(frame = currentFrame, force = false) {
     if (!force && frame < this.sequenceStatusFrame) return;
-    const beat = this.sequenceBeatAt(frame);
+    const effectiveFrame = this.sequencePlaying ? Math.max(frame, this.sequenceAnchorFrame) : frame;
+    const beat = this.sequenceBeatAt(effectiveFrame);
     const length = this.sequence?.lengthBeats ?? 0;
     this.sequenceStatusFrame = frame + Math.round(sampleRate / 20);
     this.port.postMessage({
@@ -219,13 +416,15 @@ class RoadsSynthesisProcessor extends AudioWorkletProcessor {
       studyId: this.sequence?.studyId ?? null,
       stepIndex: this.sequenceLastStepIndex,
       cursor: this.sequenceLastCursor,
-      phaseBeats: length ? positiveModulo(beat, length) : 0,
+      phaseBeats: length ? positiveModulo(beat - this.sequenceOriginBeat, length) : 0,
       beat,
+      originBeat: this.sequenceOriginBeat,
       lengthBeats: length,
       tempo: this.sequenceTempo,
       rootFrequency: this.sequenceRootFrequency,
       revision: this.sequenceRevision,
-      at: frame / sampleRate,
+      intent: this.sequenceIntent,
+      at: effectiveFrame / sampleRate,
     });
   }
 
@@ -234,14 +433,26 @@ class RoadsSynthesisProcessor extends AudioWorkletProcessor {
   }
 
   loadSequence(data) {
+    this.applyPendingSequenceSwap(currentFrame, { force: true, suppressAttack: true });
+    // A later complete load owns tempo and phase; an older queued tempo edit
+    // must not rewrite it after the load.
+    this.pendingSequenceTempo = null;
     const frame = this.sequenceMessageFrame(data);
-    const previousBeat = Number.isFinite(data.phase) ? data.phase : this.sequenceBeatAt(frame);
+    const rebaseClock = data.rebaseClock === true;
+    const previousBeat = rebaseClock && Number.isFinite(data.phase)
+      ? data.phase
+      : this.sequenceBeatAt(frame);
     const wasPlaying = this.sequencePlaying;
     this.cancelSequenceVoices();
     this.sequence = this.sanitizeSequence(data.sequence);
     this.sequenceTempo = this.sanitizeSequenceTempo(data.tempo ?? data.sequence?.tempo);
     this.sequenceRootFrequency = this.sanitizeSequenceRoot(data.rootFrequency);
     this.sequencePlaying = !!this.sequence && (data.playing === true || wasPlaying && data.playing !== false);
+    this.sequenceIntent = Math.max(this.sequenceIntent, this.sequenceIntentValue(data.intent));
+    if (rebaseClock && Number.isFinite(data.originBeat)) this.sequenceOriginBeat = data.originBeat;
+    else if (data.preservePhase === false) {
+      this.sequenceOriginBeat = Number.isFinite(data.originBeat) ? data.originBeat : 0;
+    }
     this.setSequenceAnchor(data.preservePhase === false ? 0 : previousBeat, frame);
     this.sequenceRevision++;
     this.sequenceLastStepIndex = null;
@@ -251,42 +462,105 @@ class RoadsSynthesisProcessor extends AudioWorkletProcessor {
   }
 
   startSequence(data) {
+    if (this.pendingSequenceSwap) {
+      const pending = this.pendingSequenceSwap;
+      // Start is part of the armed replacement, not a stop-now/start-later
+      // sequence. Coalescing retains one attack at the earliest safe boundary.
+      this.queueSequenceSwap({
+        sequence: pending.sequence,
+        state: pending.state,
+        tempo: data.tempo ?? pending.tempo,
+        rootFrequency: data.rootFrequency ?? pending.rootFrequency,
+        at: Number.isFinite(data.at) ? data.at : pending.phaseFrame / sampleRate,
+        phase: Number.isFinite(data.phase) ? data.phase : pending.phase,
+        originBeat: Number.isFinite(data.originBeat) ? data.originBeat : pending.originBeat,
+        intent: this.sequenceIntentValue(data.intent, pending.intent),
+        playing: true,
+        preserveVoices: false,
+        triggerCurrent: true,
+        stopPlay: pending.stopPlay,
+      });
+      return;
+    }
+    if (this.pendingSequenceTempo) {
+      const pendingTempo = this.pendingSequenceTempo;
+      this.pendingSequenceTempo = null;
+      data = {
+        ...data,
+        tempo: Number.isFinite(data.tempo) ? data.tempo : pendingTempo.tempo,
+        intent: Math.max(pendingTempo.intent, this.sequenceIntentValue(data.intent)),
+      };
+    }
     if (!this.sequence) { this.reportSequenceStatus(currentFrame, true); return; }
     const frame = this.sequenceMessageFrame(data);
-    const beat = Number.isFinite(data.phase) ? data.phase : (this.sequencePlaying ? this.sequenceBeatAt(frame) : 0);
+    const beat = Number.isFinite(data.phase)
+      ? data.phase
+      : this.sequencePlaying ? this.sequenceBeatAt(frame) : this.sequenceAnchorBeat;
     this.cancelSequenceVoices();
     this.sequenceTempo = this.sanitizeSequenceTempo(data.tempo);
     this.sequenceRootFrequency = this.sanitizeSequenceRoot(data.rootFrequency);
     this.sequencePlaying = true;
+    this.sequenceIntent = Math.max(this.sequenceIntent, this.sequenceIntentValue(data.intent));
+    if (data.resume !== true && Number.isFinite(data.originBeat)) this.sequenceOriginBeat = data.originBeat;
     this.setSequenceAnchor(beat, frame);
     this.seekSequence(beat, true);
     this.reportSequenceStatus(frame, true);
   }
 
   setSequenceTempoMessage(data) {
-    if (!this.sequence) return;
+    const tempo = this.sanitizeSequenceTempo(data.tempo);
     const frame = this.sequenceMessageFrame(data);
-    const beat = Number.isFinite(data.phase) ? data.phase : this.sequenceBeatAt(frame);
-    this.sequenceTempo = this.sanitizeSequenceTempo(data.tempo);
+    const intent = Math.max(this.sequenceIntent, this.sequenceIntentValue(data.intent));
+    if (this.pendingSequenceSwap) {
+      this.pendingSequenceSwap.tempo = tempo;
+      this.pendingSequenceSwap.intent = Math.max(this.pendingSequenceSwap.intent, intent);
+      this.pendingSequenceSwap.frame = this.renderBoundarySwapFrame(
+        Math.max(currentFrame, Math.min(this.pendingSequenceSwap.frame, frame)),
+        this.pendingSequenceSwap.state,
+      );
+      return;
+    }
+    if (!this.sequence) {
+      this.sequenceTempo = tempo;
+      this.sequenceIntent = intent;
+      this.reportSequenceStatus(currentFrame, true);
+      return;
+    }
+    this.pendingSequenceTempo = {
+      frame: Math.max(currentFrame, Math.min(frame, this.pendingSequenceTempo?.frame ?? Infinity)),
+      tempo,
+      intent: Math.max(intent, this.pendingSequenceTempo?.intent ?? 0),
+    };
+  }
+
+  applyPendingSequenceTempo(frame, { force = false } = {}) {
+    const pending = this.pendingSequenceTempo;
+    if (!pending || !force && frame < pending.frame) return false;
+    this.pendingSequenceTempo = null;
+    // Derive the boundary beat from the actual old worklet clock. A late main
+    // message must never rewind us to its stale, predicted phase.
+    const beat = this.sequenceBeatAt(frame);
+    this.sequenceTempo = pending.tempo;
+    this.sequenceIntent = Math.max(this.sequenceIntent, pending.intent);
     this.setSequenceAnchor(beat, frame);
-    if (this.sequenceNextBeat <= beat + 1e-9) this.seekSequence(beat, false);
+    if (this.sequenceNextBeat < beat - 1e-9) this.seekSequence(beat, false);
     this.reportSequenceStatus(frame, true);
+    return true;
   }
 
   setSequenceRootMessage(data) {
-    this.sequenceRootFrequency = this.sanitizeSequenceRoot(data.rootFrequency);
-    if (this.sequenceMono) {
-      const frequency = this.sequenceFrequency(this.sequenceMono.ratio);
-      this.sequenceMono.frequency = frequency;
-      this.api.synth_set_frequency(this.engine, frequency);
+    const rootFrequency = this.sanitizeSequenceRoot(data.rootFrequency);
+    const intent = Math.max(this.sequenceIntent, this.sequenceIntentValue(data.intent));
+    if (this.pendingSequenceSwap) {
+      this.pendingSequenceSwap.rootFrequency = rootFrequency;
+      this.pendingSequenceSwap.intent = Math.max(this.pendingSequenceSwap.intent, intent);
+    } else if (this.pendingSequenceTempo) {
+      this.pendingSequenceTempo.intent = Math.max(this.pendingSequenceTempo.intent, intent);
     }
-    for (let slot = 0; slot < this.polyDeadlines.length; slot++) {
-      const note = this.polyDeadlines[slot];
-      if (note?.kind !== "sequence" || !(note.ratio > 0)) continue;
-      const frequency = this.sequenceFrequency(note.ratio);
-      note.frequency = frequency;
-      this.api.poly_set_note_frequency(this.bank, note.id, frequency);
-    }
+    this.sequenceRootFrequency = rootFrequency;
+    this.retuneSequenceVoices();
+    if (this.pendingSequenceSwap || this.pendingSequenceTempo) return;
+    this.sequenceIntent = intent;
     this.reportSequenceStatus(currentFrame, true);
   }
 
@@ -295,6 +569,9 @@ class RoadsSynthesisProcessor extends AudioWorkletProcessor {
     this.sequenceLastCursor = cursor;
     if (!step.notes.length || this.state?.kind === "processor") return;
     if (this.state?.voiceMode === "poly") {
+      for (const deadline of [...this.polyDeadlines]) {
+        if (deadline?.kind === "sequence" && deadline.revision !== this.sequenceRevision) this.polyOff(deadline.id);
+      }
       for (const note of step.notes) {
         const manualVoices = this.polyDeadlines.filter(deadline => deadline && deadline.kind !== "sequence").length;
         const sequenceVoices = this.polyDeadlines.filter(deadline => deadline?.kind === "sequence").length;
@@ -304,7 +581,10 @@ class RoadsSynthesisProcessor extends AudioWorkletProcessor {
         const id = this.nextSequenceNoteId();
         const slot = this.polyNote(id, this.sequenceFrequency(note.ratio),
           note.velocity, Infinity, "sequence", endBeat);
-        if (this.polyDeadlines[slot]?.id === id) this.polyDeadlines[slot].ratio = note.ratio;
+        if (this.polyDeadlines[slot]?.id === id) {
+          this.polyDeadlines[slot].ratio = note.ratio;
+          this.polyDeadlines[slot].revision = this.sequenceRevision;
+        }
       }
       return;
     }
@@ -314,7 +594,13 @@ class RoadsSynthesisProcessor extends AudioWorkletProcessor {
     const note = step.notes[0];
     const duration = Math.min(64, step.duration * note.gate);
     const frequency = this.sequenceFrequency(note.ratio);
-    this.sequenceMono = { endBeat: eventBeat + duration, ratio: note.ratio, frequency, velocity: note.velocity };
+    this.sequenceMono = {
+      endBeat: eventBeat + duration,
+      ratio: note.ratio,
+      frequency,
+      velocity: note.velocity,
+      revision: this.sequenceRevision,
+    };
     this.api.synth_note_on(this.engine, frequency, note.velocity);
   }
 
@@ -343,18 +629,18 @@ class RoadsSynthesisProcessor extends AudioWorkletProcessor {
   }
 
   sequenceBoundaryFrame() {
-    if (!this.sequencePlaying || !this.sequence || this.state?.kind === "processor") return Infinity;
-    let boundary = this.sequenceFrameAt(this.sequenceNextBeat);
-    if (this.sequenceMono) boundary = Math.min(boundary, this.sequenceFrameAt(this.sequenceMono.endBeat));
-    for (const note of this.polyDeadlines) {
-      if (note?.kind === "sequence") boundary = Math.min(boundary, this.sequenceFrameAt(note.endBeat));
-    }
-    return boundary;
+    return Math.min(
+      this.pendingSequenceSwap?.frame ?? Infinity,
+      this.pendingSequenceTempo?.frame ?? Infinity,
+      this.sequenceEventBoundaryFrame(),
+    );
   }
 
   message(data) {
     if (this.dead) return;
-    if (data.type === "sequence-load") {
+    if (data.type === "sequence-swap") {
+      this.queueSequenceSwap(data);
+    } else if (data.type === "sequence-load") {
       this.loadSequence(data);
     } else if (data.type === "sequence-start") {
       this.startSequence(data);
@@ -363,8 +649,15 @@ class RoadsSynthesisProcessor extends AudioWorkletProcessor {
     } else if (data.type === "sequence-root") {
       this.setSequenceRootMessage(data);
     } else if (data.type === "sequence-stop" || data.type === "sequence-panic") {
-      this.haltSequence();
+      this.haltSequence(data);
     } else if (data.type === "state") {
+      if (this.pendingSequenceSwap) {
+        const rendererChangesNow = this.renderMode(data.state) !== this.renderMode();
+        this.pendingSequenceSwap.state = data.state;
+        this.pendingSequenceSwap.frame = rendererChangesNow
+          ? currentFrame
+          : this.renderBoundarySwapFrame(this.pendingSequenceSwap.frame, data.state);
+      }
       const wasPoly = this.state?.voiceMode === "poly" && this.state?.kind !== "processor";
       const nextPoly = data.state.voiceMode === "poly" && data.state.kind !== "processor";
       const wasProcessor = this.state?.kind === "processor";
@@ -485,7 +778,7 @@ class RoadsSynthesisProcessor extends AudioWorkletProcessor {
         this.events.sort((a, b) => a.frame - b.frame);
       }
     } else if (data.type === "silence") {
-      this.haltSequence();
+      this.haltSequence(data);
       this.playing = false;
       this.processingUntil = 0;
       this.capture = null;
@@ -503,6 +796,15 @@ class RoadsSynthesisProcessor extends AudioWorkletProcessor {
       this.nextTrigger = Infinity;
       this.api.synth_note_off(this.engine);
     } else if (data.type === "reset") {
+      const restartPending = this.pendingSequenceSwap?.playing === true
+        && this.pendingSequenceSwap?.triggerCurrent === true;
+      const preserveFutureStart = !this.pendingSequenceSwap
+        && this.sequencePlaying
+        && this.sequenceAnchorFrame > currentFrame;
+      const futureStartFrame = this.sequenceAnchorFrame;
+      this.applyPendingSequenceSwap(currentFrame, { force: true, suppressAttack: true });
+      this.applyPendingSequenceTempo(currentFrame, { force: true });
+      this.sequenceIntent = Math.max(this.sequenceIntent, this.sequenceIntentValue(data.intent));
       const sequenceBeat = this.sequenceBeatAt(currentFrame);
       this.cancelSequenceVoices();
       this.api.synth_reset(this.engine);
@@ -517,9 +819,10 @@ class RoadsSynthesisProcessor extends AudioWorkletProcessor {
       this.events.length = 0;
       if (this.playing) this.startPlay();
       if (this.sequencePlaying) {
-        this.setSequenceAnchor(sequenceBeat, currentFrame);
-        this.seekSequence(sequenceBeat, false);
+        this.setSequenceAnchor(sequenceBeat, preserveFutureStart ? futureStartFrame : currentFrame);
+        this.seekSequence(sequenceBeat, restartPending || preserveFutureStart);
       }
+      this.reportSequenceStatus(currentFrame, true);
     } else if (data.type === "restore-source") {
       this.api.synth_restore_source(this.engine);
       this.api.poly_restore_source(this.bank);
@@ -692,6 +995,7 @@ class RoadsSynthesisProcessor extends AudioWorkletProcessor {
     const length = channels[0].length;
     while (offset < length) {
       const frame = currentFrame + offset;
+      this.applyPendingSequenceSwap(frame);
       while (this.events.length && this.events[0].frame <= frame) {
         const event = this.events.shift();
         if (event.type === "held-notes") this.restoreHeldNotes(event.notes);
@@ -714,6 +1018,7 @@ class RoadsSynthesisProcessor extends AudioWorkletProcessor {
       for (const note of this.polyDeadlines) if (note && frame >= note.end) this.polyOff(note.id);
       if (this.playing && (frame >= this.nextTrigger || this.state.playStyle === "hold" && this.polyPlayId === null)) this.startPolyPlay(frame);
       this.processSequenceAt(frame);
+      this.applyPendingSequenceTempo(frame);
       let deadline = Infinity;
       for (const note of this.polyDeadlines) if (note) deadline = Math.min(deadline, note.end);
       const boundary = Math.min(currentFrame + length, this.events[0]?.frame ?? Infinity, deadline,
@@ -835,12 +1140,20 @@ class RoadsSynthesisProcessor extends AudioWorkletProcessor {
     if (this.failed || !channels?.length) return true;
     try {
       this.processInputCapture(inputs);
-      if (this.state?.kind === "processor") { this.processEffect(inputs, channels); return true; }
+      // Renderer-changing swaps are quantized to this entry point. Applying
+      // before dispatch guarantees the boundary is rendered by the new engine.
+      this.applyPendingSequenceSwap(currentFrame);
+      if (this.state?.kind === "processor") {
+        this.applyPendingSequenceTempo(currentFrame);
+        this.processEffect(inputs, channels);
+        return true;
+      }
       if (this.state?.voiceMode === "poly") { this.processPoly(channels); return true; }
       let offset = 0;
       const length = channels[0].length;
       while (offset < length) {
         const frame = currentFrame + offset;
+        this.applyPendingSequenceSwap(frame);
         while (this.events.length && this.events[0].frame <= frame) {
           const event = this.events.shift();
           if (event.type === "held-notes") this.restoreHeldNotes(event.notes);
@@ -883,6 +1196,7 @@ class RoadsSynthesisProcessor extends AudioWorkletProcessor {
           this.nextTrigger = frame + Math.round(sampleRate / this.rate);
         }
         this.processSequenceAt(frame);
+        this.applyPendingSequenceTempo(frame);
         const boundary = Math.min(currentFrame + length, this.events[0]?.frame ?? Infinity, this.releaseAt,
           this.nextTrigger, this.sequenceBoundaryFrame());
         const count = Math.max(1, Math.min(128, boundary - frame));
