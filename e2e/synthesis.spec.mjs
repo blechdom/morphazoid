@@ -74,7 +74,7 @@ for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 
     for (const id of ['playButton', 'triggerButton', 'randomMethod']) {
       expect(await page.locator('#' + id).evaluate(button => button.scrollWidth <= button.clientWidth)).toBe(true);
     }
-    for (const selector of ["#playButton", "#randomMethod", "#presetHost summary", '[data-select-id="voiceMode"] summary', "#methodControls input[type=range]", ".synth-envelope__graph", ".synth-envelope .synthesis-knob-value", "#scope", "#spectrum", ".synthesis-notes summary"]) {
+    for (const selector of ["#playButton", "#randomMethod", "#presetHost summary", '[data-select-id="voiceMode"] summary', "#methodControls input[type=range]", ".synth-envelope [data-editor]", ".synth-envelope__number", "#scope", "#spectrum", ".synthesis-notes summary"]) {
       const locator = page.locator(selector).last();
       await locator.scrollIntoViewIfNeeded();
       await expect(locator).toBeInViewport();
@@ -83,8 +83,15 @@ for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 
     await expect(page.locator("#spectrum")).toHaveAttribute("aria-label", /frequency spectrum/);
     await page.locator('#sectionProcessing').click();
     await expect(page.locator('#noteTiming')).toBeHidden();
+    await expect(page.locator('#arpDetail')).toBeHidden();
+    await expect(page.locator('#sequencePresetSection')).toBeHidden();
     await expect(page.locator('#envelopeDetails')).toBeHidden();
     await expect(page.locator('#presetSectionLabel')).toHaveText('Processing presets');
+    expect(await page.evaluate(() => {
+      const synth = document.querySelector('#synthDetail');
+      return ['#processingControls', '#frequencyRow', '#sourceControls', '#methodControls']
+        .every(selector => synth.contains(document.querySelector(selector)));
+    })).toBe(true);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     for (const selector of ['#sectionSynthesis', '#sectionProcessing', '#presetHost summary', '#randomPreset', '#randomMethod', '[data-select-id=processingSource] summary', '#dryWet', '#processingBypass', '#methodControls input[type=range]']) {
       await page.locator(selector).last().scrollIntoViewIfNeeded();
@@ -176,21 +183,22 @@ test("preset selections and current-method Random audition without starting Play
 
 test("ADSR graph and exact fields edit the actual envelope without triggering extra notes", async ({ page }) => {
   await page.goto("/synthesis.html?method=additive");
-  const graph = page.locator(".synth-envelope__drawing");
-  const handles = page.locator(".synth-envelope__handle");
+  const graph = page.locator(".synth-envelope [data-editor]");
+  const handles = graph.locator("[data-node]");
   await expect(handles).toHaveCount(4);
+  await expect(graph.locator('[data-anchor="0"]')).toHaveCount(1);
   await expect(page.locator("#envelopeControls input[type=range]")).toHaveCount(4);
   const before = await page.evaluate(() => window.MorphazoidSynthesis.getState().envelope);
-  const attack = page.locator('.synth-envelope__handle[data-stage="attack"]');
+  const attack = graph.locator('[data-node="1"]');
   await attack.focus(); await attack.press("ArrowRight");
   const keyboard = await page.evaluate(() => window.MorphazoidSynthesis.getState().envelope);
-  expect(keyboard.attack).toBeCloseTo(before.attack + .001, 5);
-  expect(keyboard.decay).toBe(before.decay);
+  expect(keyboard.attack).toBeGreaterThan(before.attack);
+  expect(keyboard.decay).toBeCloseTo(before.decay, 10);
   const sustainInput = page.locator('.synth-envelope__number[data-stage="sustain"]');
   await exact(page, sustainInput, "35");
   expect(await page.evaluate(() => window.MorphazoidSynthesis.getState().envelope.sustain)).toBe(.35);
-  await expect(graph).toHaveAttribute("aria-label", /sustain 35 percent/);
-  const release = page.locator('.synth-envelope__handle[data-stage="release"]');
+  await expect(graph.locator('[data-node="3"]')).toHaveAttribute("aria-valuetext", /Sustain 35%/);
+  const release = graph.locator('[data-node="4"]');
   const box = await release.boundingBox();
   await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
   await page.mouse.down(); await page.mouse.move(box.x + box.width / 2 + 28, box.y + box.height / 2, { steps: 4 }); await page.mouse.up();
@@ -292,6 +300,7 @@ test("calibrated output reaches the browser destination with usable level and in
 test('processor controls use real sources and finite auditions without a note envelope', async ({ page }) => {
   await page.goto('/synthesis.html?method=fx-biquad');
   await expect(page.locator('#processingControls')).toBeVisible();
+  await expect(page.locator('#arpDetail')).toBeHidden();
   await expect(page.locator('#envelopeDetails')).toBeHidden();
   await expect(page.locator('#keyboardDetails')).toBeHidden();
   await page.locator('#triggerButton').click();

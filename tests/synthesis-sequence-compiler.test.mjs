@@ -71,6 +71,8 @@ test('hostile runtime options are clamped and copied into immutable settings', (
   assert.equal(settings.maxNotes, 8);
   assert.ok(Number.isInteger(settings.seed) && settings.seed >= 0);
   assert.ok(Object.isFrozen(settings));
+  assert.equal(sanitizeSequenceOptions('rising-latched-chord', { tempo: 0 }).tempo, 10);
+  assert.equal(sanitizeSequenceOptions('rising-latched-chord', { tempo: 10 }).tempo, 10);
 
   const cycle = compileSequence({ id: 'rising-latched-chord', config: { intervals: [Infinity] } }, {
     seed: NaN, density: NaN, gate: Infinity, swing: -Infinity, tempo: '40', steps: -20,
@@ -153,6 +155,21 @@ test('representative historical mechanisms preserve their defining semantics', (
 
   const phrase = compileSequence('chord-memory-strum', { steps: 12 });
   assert.ok(phrase.steps.some(step => step.notes.length >= 4));
+});
+
+test('stateful sequence controls alter the state path, timing tuple, wrapped phase and mutation supercycle', () => {
+  const markov = compileSequence('bounded-random-walk', { parameters: { seed: 2222 }, steps: 10 });
+  assert.deepEqual(markov.steps.map(step => step.notes[0]?.semitone), [2.7, 2.7, 6.4, 14.1, 6.4, 6.4, 9.8, 9.8, 14.1, 14.1]);
+
+  const canonZero = compileSequence('perforated-ratio-canon', { parameters: { phaseShift: 0 }, steps: 8 });
+  const canonEarly = compileSequence('perforated-ratio-canon', { parameters: { phaseShift: -1 }, steps: 8 });
+  const zeroCounts = canonZero.steps.map(step => step.notes.length);
+  const earlyCounts = canonEarly.steps.map(step => step.notes.length);
+  assert.deepEqual(earlyCounts, [...zeroCounts.slice(1), zeroCounts[0]], 'negative phase wraps the canon one step earlier instead of clamping to zero');
+
+  const shortGeneration = compileSequence('mutable-cell-loop', { parameters: { seed: 77, mutationChance: 1, generations: 2 }, steps: 48 });
+  const longGeneration = compileSequence('mutable-cell-loop', { parameters: { seed: 77, mutationChance: 1, generations: 5 }, steps: 48 });
+  assert.notDeepEqual(shortGeneration.steps.map(step => step.notes[0]?.semitone), longGeneration.steps.map(step => step.notes[0]?.semitone));
 });
 
 test('all reusable archetypes have at least one compiling catalog study', () => {

@@ -33,6 +33,17 @@ export function enhanceChooseSelect(select, options = {}) {
     target.addEventListener(type, callback, settings);
     removers.push(() => target.removeEventListener(type, callback, settings));
   };
+  // The native select remains the source of truth but is visually hidden.
+  // Preserve the browser's label behavior by forwarding associated-label
+  // clicks to the visible disclosure trigger.
+  for (const associatedLabel of Array.from(select.labels ?? [])) {
+    listen(associatedLabel, "click", event => {
+      if (select.disabled || details.contains(event.target)) return;
+      event.preventDefault();
+      summary.focus({ preventScroll: true });
+      if (!details.open) summary.click();
+    });
+  }
   const visibleButtons = () => buttons.filter(button => !button.parentElement.hidden && !button.disabled);
   function filter() {
     const query = searchInput.value.trim().toLocaleLowerCase();

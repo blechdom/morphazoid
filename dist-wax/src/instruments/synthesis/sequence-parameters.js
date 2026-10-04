@@ -49,6 +49,59 @@ const clamp = (value, min, max, fallback) => Math.max(min, Math.min(max, finite(
 const whole = (value, min, max, fallback) => Math.round(clamp(value, min, max, fallback));
 const pitch = value => clamp(value, -96, 96, 0);
 const modulo = (value, length) => length > 0 ? ((value % length) + length) % length : 0;
+const stepped = (value, min, max, step, fallback) => {
+  const lower = finite(min, 0);
+  const upper = Math.max(lower, finite(max, lower));
+  const increment = finite(step, 0);
+  const bounded = clamp(value, lower, upper, fallback);
+  if (!(increment > 0)) return bounded;
+  const requestedUnits = Math.round(Number(((bounded - lower) / increment).toPrecision(12)));
+  const maximumUnits = Math.floor(Number(((upper - lower) / increment).toPrecision(12)));
+  const units = Math.max(0, Math.min(maximumUnits, requestedUnits));
+  return Number((lower + units * increment).toPrecision(12));
+};
+const canonicalRotationBounds = length => {
+  const count = Math.max(1, Math.round(finite(length, 1)));
+  const negative = -Math.floor((count - 1) / 2);
+  return Object.freeze({
+    min: Object.is(negative, -0) ? 0 : negative,
+    max: Math.ceil((count - 1) / 2),
+  });
+};
+const greatestCommonDivisor = (left, right) => {
+  let a = Math.abs(Math.round(finite(left, 0)));
+  let b = Math.abs(Math.round(finite(right, 0)));
+  while (b) [a, b] = [b, a % b];
+  return a;
+};
+const leastCommonMultiple = (left, right) => {
+  const a = Math.max(1, Math.round(finite(left, 1)));
+  const b = Math.max(1, Math.round(finite(right, 1)));
+  return a / Math.max(1, greatestCommonDivisor(a, b)) * b;
+};
+const fundamentalArrayPeriod = values => {
+  if (!Array.isArray(values) || values.length < 2) return 1;
+  for (let period = 1; period <= values.length; period += 1) {
+    if (values.length % period !== 0) continue;
+    if (values.every((value, index) => Object.is(value, values[index % period]))) return period;
+  }
+  return values.length;
+};
+const ratioCanonPeriod = (voices, periodScale) => (Array.isArray(voices) ? voices : [])
+  .reduce((period, voice) => leastCommonMultiple(
+    period,
+    whole(finite(voice?.period, 1) * periodScale, 1, MAX_SEQUENCE_STEPS, 1),
+  ), 1);
+const maximumRatioCanonPeriod = voices => {
+  let maximum = 1;
+  for (let scale = .25; scale <= 4; scale += .25) maximum = Math.max(maximum, ratioCanonPeriod(voices, scale));
+  return maximum;
+};
+const traversalLength = (values, order) => {
+  const count = Math.max(1, Array.isArray(values) ? values.length : 1);
+  if (order !== 'pendulum') return count;
+  return count > 2 ? count * 2 - 2 : count;
+};
 
 const asBoolean = (value, fallback) => {
   if (typeof value === 'boolean') return value;
@@ -71,7 +124,7 @@ const resolveStudy = studyOrId => {
 };
 
 const numberDefinition = (id, label, defaultValue, min, max, step, help, unit = '') => ({
-  id, label, type: 'number', group: 'mechanism', default: defaultValue, min, max, step, help, ...(unit ? { unit } : {}),
+  id, label, type: 'number', group: 'mechanism', default: stepped(defaultValue, min, max, step, min), min, max, step, help, ...(unit ? { unit } : {}),
 });
 const selectDefinition = (id, label, defaultValue, choices, help) => ({
   id, label, type: 'select', group: 'mechanism', default: defaultValue, choices, help,
@@ -79,15 +132,19 @@ const selectDefinition = (id, label, defaultValue, choices, help) => ({
 const booleanDefinition = (id, label, defaultValue, help) => ({
   id, label, type: 'boolean', group: 'mechanism', default: defaultValue, help,
 });
+const rotationDefinition = (id, label, defaultValue, length, help, unit = 'steps') => {
+  const { min, max } = canonicalRotationBounds(length);
+  return numberDefinition(id, label, clamp(defaultValue, min, max, 0), min, max, 1, help, unit);
+};
 
 const commonDefinitions = study => [
-  { ...numberDefinition('steps', 'Cycle steps', study.defaults.steps, 1, MAX_SEQUENCE_STEPS, 1, 'Number of scheduled positions before the cycle repeats.', 'steps'), group: 'cycle' },
+  { ...numberDefinition('steps', 'Rendered steps', study.defaults.steps, 1, MAX_SEQUENCE_STEPS, 1, 'Number of scheduled positions rendered before the cycle repeats.', 'steps'), group: 'cycle' },
   { ...numberDefinition('stepBeats', 'Step length', study.defaults.stepBeats, 1 / 64, 4, 1 / 64, 'Length of each position in quarter-note beats.', 'beats'), group: 'cycle' },
-  { ...numberDefinition('transpose', 'Transpose', study.defaults.transpose, -96, 96, .1, 'Moves the entire generated line before tuning translation.', 'steps'), group: 'cycle' },
-  { ...numberDefinition('density', 'Density', study.defaults.density, 0, 1, .01, 'Probability that each generated note is retained.', '%'), group: 'cycle' },
+  { ...numberDefinition('transpose', 'Transpose', study.defaults.transpose, -96, 96, .1, 'Moves the authored pitch coordinate before tuning translation.', 'semitones'), group: 'cycle' },
+  { ...numberDefinition('density', 'Output density', study.defaults.density, 0, 1, .01, 'Probability that each generated note is retained at the output.', '%'), group: 'cycle' },
   { ...numberDefinition('swing', 'Swing', 0, -.49, .49, .01, 'Lengthens one step of each pair and shortens the other.', '%'), group: 'cycle' },
   { ...numberDefinition('gate', 'Gate', .72, .01, 1, .01, 'Scales each note articulation without changing the sequence clock.', '%'), group: 'cycle' },
-  { ...numberDefinition('seed', 'Seed', study.defaults.seed, 0, MAX_SEED, 1, 'Reproduces chance, mutation and thinning choices.'), group: 'cycle' },
+  { ...numberDefinition('seed', 'Seed', study.defaults.seed, 0, MAX_SEED, 1, 'Changes only reproducible chance, mutation and output-thinning choices.'), group: 'cycle' },
   {
     ...selectDefinition(
       'pitchMode',
@@ -109,18 +166,20 @@ const mechanismDefinitions = study => {
         numberDefinition('octaves', 'Octave span', finite(config.octaves, 1), 1, 8, 1, 'Repeats the interval set through this many octaves.', 'octaves'),
         numberDefinition('intervalSpread', 'Interval spread', 1, .25, 2, .01, 'Compresses or expands every interval around the root.', '×'),
       ];
-    case 'ratio-canon':
+    case 'ratio-canon': {
+      const { min: phaseMin, max: phaseMax } = canonicalRotationBounds(maximumRatioCanonPeriod(config.voices));
       return [
         numberDefinition('periodScale', 'Pulse spacing', 1, .25, 4, .25, 'Scales the independent pulse periods.', '×'),
-        numberDefinition('phaseShift', 'Phase shift', 0, -16, 16, 1, 'Offsets every canon voice against the cycle.', 'steps'),
+        numberDefinition('phaseShift', 'Phase shift', 0, phaseMin, phaseMax, 1, 'Offsets every canon voice against the cycle.', 'steps'),
         numberDefinition('ratioSpread', 'Ratio spread', 1, .25, 2, .01, 'Compresses or expands the pitch ratios around unison.', '×'),
         numberDefinition('ramp', 'Speed ramp', finite(config.ramp, 0), -.9, .9, .01, 'Changes event duration across the cycle.'),
       ];
+    }
     case 'drawn-rows':
       return [
         numberDefinition('contourScale', 'Contour height', 1, .25, 2, .01, 'Compresses or expands the drawn pitch contour.', '×'),
         booleanDefinition('reverseContour', 'Reverse drawing', false, 'Reads each drawn control row from right to left.'),
-        booleanDefinition('invertMasks', 'Invert cutouts', false, 'Swaps sounding and empty cells in authored row masks.'),
+        ...(Array.isArray(config.masks) ? [booleanDefinition('invertMasks', 'Invert cutouts', false, 'Swaps sounding and empty cells in authored row masks.')] : []),
       ];
     case 'parameter-rows':
       return [
@@ -131,9 +190,11 @@ const mechanismDefinitions = study => {
       ];
     case 'cv-rows':
       return [
-        numberDefinition('addressOffset', 'Address offset', 0, -16, 16, 1, 'Rotates addressed pitch-stage selection.', 'stages'),
-        numberDefinition('gateRotation', 'Gate rotation', 0, -16, 16, 1, 'Moves the gate pattern around the pitch stages.', 'steps'),
-        booleanDefinition('secondVoice', 'Second voltage row', Array.isArray(config.second), 'Enables or removes a parallel pitch-voltage row.'),
+        rotationDefinition('addressOffset', 'Address offset', 0, config.pitch?.length, 'Rotates addressed pitch-stage selection.', 'stages'),
+        ...(Array.isArray(config.gates) && config.gates.length > 1
+          ? [rotationDefinition('gateRotation', 'Gate rotation', 0, fundamentalArrayPeriod(config.gates), 'Moves the gate pattern around the pitch stages.')]
+          : []),
+        ...(Array.isArray(config.second) ? [booleanDefinition('secondVoice', 'Second voltage row', true, 'Enables or removes the authored parallel pitch-voltage row.')] : []),
         numberDefinition('voltageScale', 'Voltage range', 1, .25, 2, .01, 'Compresses or expands pitch, transpose and second-row voltages.', '×'),
       ];
     case 'gesture':
@@ -145,71 +206,89 @@ const mechanismDefinitions = study => {
       ];
     case 'phrase-bank':
       return [
-        numberDefinition('chainRotation', 'Phrase start', 0, -16, 16, 1, 'Rotates which stored phrase starts the chain.', 'phrases'),
+        rotationDefinition('chainRotation', 'Phrase start', 0, fundamentalArrayPeriod(config.chain), 'Rotates which stored phrase starts the chain.', 'phrases'),
         selectDefinition('phraseOrder', 'Phrase direction', 'forward', PHRASE_ORDER_CHOICES, 'Changes event order inside every stored phrase.'),
         numberDefinition('phraseRise', 'Phrase-step rise', 0, -24, 24, .1, 'Adds a cumulative transposition to successive phrases.', 'steps'),
       ];
     case 'accent-pattern':
       return [
-        numberDefinition('patternRotation', 'Pattern rotation', 0, -32, 32, 1, 'Rotates notes and their accent positions together.', 'steps'),
-        numberDefinition('accentShift', 'Accent offset', 0, -32, 32, 1, 'Moves accents independently of the note pattern.', 'steps'),
+        rotationDefinition('patternRotation', 'Pattern rotation', 0, config.notes?.length, 'Rotates notes and their accent positions together.'),
+        rotationDefinition('accentShift', 'Accent offset', 0, config.notes?.length, 'Moves accents independently of the note pattern.'),
         booleanDefinition('reversePattern', 'Reverse pattern', false, 'Reads notes and accents backward.'),
       ];
     case 'tracker':
       return [
-        numberDefinition('rowRotation', 'Row start', 0, -32, 32, 1, 'Rotates the tracker row that begins the cycle.', 'rows'),
+        rotationDefinition('rowRotation', 'Row start', 0, config.rows?.length, 'Rotates the tracker row that begins the cycle.', 'rows'),
         booleanDefinition('reverseRows', 'Reverse rows', false, 'Reads the tracker rows from bottom to top.'),
         numberDefinition('velocityScale', 'Row velocity', 1, .1, 2, .01, 'Scales velocity locks without flattening their differences.', '×'),
         numberDefinition('gateScale', 'Row gate', 1, .1, 2, .01, 'Scales gate locks without flattening their differences.', '×'),
+        ...(Array.isArray(config.remember) && config.remember.length ? [
+          booleanDefinition('carryVelocity', 'Carry velocity', config.remember.includes('velocity'), 'Keeps the previous velocity on rows without a velocity lock.'),
+          booleanDefinition('carryGate', 'Carry gate', config.remember.includes('gate'), 'Keeps the previous gate on rows without a gate lock.'),
+        ] : []),
       ];
     case 'groove':
       return [
         numberDefinition('timingDepth', 'Groove depth', 1, 0, 2, .01, 'Scales each timing deviation around a straight value of one.', '×'),
-        numberDefinition('patternRotation', 'Pattern rotation', 0, -32, 32, 1, 'Rotates notes, timing values and accents together.', 'steps'),
-        numberDefinition('accentShift', 'Accent offset', 0, -32, 32, 1, 'Moves accents independently of note timing.', 'steps'),
-        numberDefinition('rotateEvery', 'Evolve every', finite(config.rotateEvery, 0), 0, MAX_SEQUENCE_STEPS, 1, 'Rotates the pattern after this many passes; zero disables evolution.', 'passes'),
+        rotationDefinition('patternRotation', 'Pattern rotation', 0, config.notes?.length, 'Rotates notes, timing values and accents together.'),
+        rotationDefinition('accentShift', 'Accent offset', 0, config.notes?.length, 'Moves accents independently of note timing.'),
+        numberDefinition('rotateEvery', 'Evolve every', finite(config.rotateEvery, 0), 0,
+          Math.max(0, Math.floor((MAX_SEQUENCE_STEPS - 1) / Math.max(1, config.notes?.length || 1))), 1,
+          'Rotates the pattern after this many passes; zero disables evolution.', 'passes'),
       ];
     case 'markov':
+      {
+        const authoredLeap = Math.max(1, ...(config.transitions || []).map(row => Math.floor((row?.length || 1) / 2)));
+        const reachableLeap = Math.max(1, Math.min(Math.max(1, (config.states?.length || 1) - 1), authoredLeap));
       return [
-        numberDefinition('maxLeap', 'Maximum leap', finite(config.maxLeap, 1), 1, 16, 1, 'Limits how many neighboring states one transition can cross.', 'states'),
+        numberDefinition('maxLeap', 'Maximum leap', clamp(config.maxLeap, 1, reachableLeap, 1), 1, reachableLeap, 1, 'Limits how many neighboring states one transition can cross.', 'states'),
         numberDefinition('transitionFocus', 'Transition focus', 1, .25, 4, .01, 'Sharpens or flattens the authored transition weights.', '×'),
         numberDefinition('stateSpread', 'State spread', 1, .25, 2, .01, 'Compresses or expands the pitch-state field.', '×'),
         booleanDefinition('reverseStates', 'Reverse state field', false, 'Mirrors the pitch assigned to each state.'),
       ];
+      }
     case 'euclidean':
       return [
-        numberDefinition('pulses', 'Pulses', finite(config.pulses, 5), 0, Math.max(1, whole(config.steps, 1, MAX_SEQUENCE_STEPS, 16)), 1, 'Distributes this many attacks as evenly as possible.', 'pulses'),
-        numberDefinition('euclideanSteps', 'Pattern slots', finite(config.steps, 16), 1, MAX_SEQUENCE_STEPS, 1, 'Sets the length of the Euclidean gate pattern.', 'slots'),
-        numberDefinition('rotation', 'Pattern rotation', finite(config.rotation, 0), -MAX_SEQUENCE_STEPS, MAX_SEQUENCE_STEPS, 1, 'Rotates the distributed attacks around the pattern.', 'steps'),
-        numberDefinition('pitchRotation', 'Pitch rotation', 0, -16, 16, 1, 'Rotates the pitch or chord stream independently.', 'events'),
+        numberDefinition('pulses', 'Pulses', finite(config.pulses, 5), 0, MAX_SEQUENCE_STEPS, 1, 'Distributes this many attacks as evenly as possible.', 'pulses'),
+        numberDefinition('euclideanSteps', 'Euclidean slots', finite(config.steps, 16), 1, MAX_SEQUENCE_STEPS, 1, 'Sets the length of the Euclidean gate pattern.', 'slots'),
+        numberDefinition('rotation', 'Pattern rotation', finite(config.rotation, 0), -31, 32, 1, 'Rotates the distributed attacks around the pattern.', 'steps'),
+        numberDefinition('pitchRotation', 'Pitch rotation', 0, -31, 32, 1, 'Rotates the pitch or chord stream independently.', 'events'),
       ];
     case 'polymeter':
       return [
         numberDefinition('periodScale', 'Lane periods', 1, .25, 4, .25, 'Scales every lane period while preserving their relationship.', '×'),
         numberDefinition('phaseShift', 'Lane phase', 0, -16, 16, 1, 'Offsets all lanes against the shared cycle.', 'steps'),
         numberDefinition('laneSpacing', 'Lane spacing', 0, -24, 24, .1, 'Fans lanes apart above and below the center lane.', 'steps'),
-        booleanDefinition('reverseLanes', 'Reverse lane notes', false, 'Reads each independent lane backward.'),
+        ...(config.lanes?.some(lane => Array.isArray(lane.notes) && lane.notes.length > 1)
+          ? [booleanDefinition('reverseLanes', 'Reverse lane notes', false, 'Reads each independent lane backward.')]
+          : []),
       ];
     case 'mutating-loop':
+      {
+        const maximumGenerations = Math.max(1, Math.ceil(MAX_SEQUENCE_STEPS / Math.max(1, config.base?.length || 1)));
       return [
         numberDefinition('mutationChance', 'Mutation chance', finite(config.probability, .2), 0, 1, .01, 'Sets the chance that each cell changes at a loop boundary.', '%'),
-        numberDefinition('generations', 'Generations', finite(config.generations, 4), 1, MAX_SEQUENCE_STEPS, 1, 'Sets how many mutation states form the larger cycle.', 'loops'),
-        numberDefinition('mirrorEvery', 'Mirror every', finite(config.mirrorEvery, 0), 0, MAX_SEQUENCE_STEPS, 1, 'Reverses the mutable line at this generation interval; zero disables it.', 'generations'),
+        numberDefinition('generations', 'Generations', finite(config.generations, 4), 1, maximumGenerations, 1, 'Sets how many mutation states form the larger cycle.', 'loops'),
+        numberDefinition('mirrorEvery', 'Mirror every', finite(config.mirrorEvery, 0), 0, Math.max(0, maximumGenerations - 1), 1, 'Reverses the mutable line at this generation interval; zero disables it.', 'generations'),
         numberDefinition('mutationSpread', 'Mutation spread', 1, .25, 2, .01, 'Compresses or expands the mutation pitch pool.', '×'),
       ];
+      }
     case 'conditional-steps':
       return [
         numberDefinition('probabilityScale', 'Chance scale', 1, 0, 2, .01, 'Scales per-cell probability, including otherwise certain cells.', '×'),
-        numberDefinition('periodScale', 'Recurrence spacing', 1, .25, 4, .25, 'Scales each cell recurrence period.', '×'),
-        numberDefinition('offsetShift', 'Condition offset', 0, -16, 16, 1, 'Moves recurrence conditions against the cycle.', 'steps'),
-        numberDefinition('breathe', 'Density breath', finite(config.breathe, 0), 0, 1, .01, 'Shapes probability down and back up across the cycle.', '%'),
+        ...(config.cells?.some(cell => cell.every != null) ? [
+          numberDefinition('periodScale', 'Recurrence spacing', 1, .25, 4, .25, 'Scales each cell recurrence period.', '×'),
+          numberDefinition('offsetShift', 'Condition offset', 0, -16, 16, 1, 'Moves recurrence conditions against the cycle.', 'steps'),
+        ] : []),
+        numberDefinition('breathe', 'Density breath', finite(config.breathe, 0), 0, 1, .01, 'Shapes probability up and back down across the cycle.', '%'),
       ];
     case 'phrase-arp':
       return [
         selectDefinition('order', 'Traversal', config.order || 'up', ORDER_CHOICES, 'Changes how each held chord is traversed.'),
         numberDefinition('repeats', 'Chord repeats', finite(config.repeats, 1), 1, 8, 1, 'Repeats each chord traversal before advancing.', 'passes'),
-        booleanDefinition('strum', 'Chord on first step', Boolean(config.strum), 'Plays the whole chord at the start of each traversal.'),
-        numberDefinition('restShift', 'Rest offset', 0, -32, 32, 1, 'Moves authored rests through the generated phrase.', 'steps'),
+        booleanDefinition('strum', 'Opening chord', Boolean(config.strum), 'Plays the whole chord at the start of each traversal.'),
+        ...(Array.isArray(config.rests) ? [numberDefinition('restShift', 'Rest offset', 0, -31, 32, 1, 'Moves authored rests through the generated phrase.', 'steps')] : []),
+        ...(Array.isArray(config.velocityCycle) ? [numberDefinition('velocityDepth', 'Velocity depth', 1, 0, 2, .01, 'Compresses or expands the authored velocity differences around their mean.', '×')] : []),
       ];
     default:
       throw new RangeError(`Unsupported sequence archetype: ${study.archetype}`);
@@ -222,25 +301,81 @@ export function getSequenceParameterDefinitions(studyOrId) {
   return deepFreeze([...commonDefinitions(study), ...mechanismDefinitions(study)]);
 }
 
-const sanitizeValue = (definition, value) => {
+const sanitizeValue = (definition, value, bounds = definition) => {
   if (definition.type === 'boolean') return asBoolean(value, definition.default);
   if (definition.type === 'select') {
     const candidate = typeof value === 'string' ? value : definition.default;
     return definition.choices.some(choice => choice.value === candidate) ? candidate : definition.default;
   }
-  const sanitized = clamp(value, definition.min, definition.max, definition.default);
-  return definition.step >= 1 ? Math.round(sanitized) : sanitized;
+  return stepped(value, bounds.min, bounds.max, definition.step, definition.default);
 };
+
+const dependentBounds = (study, definition, values) => {
+  let { min, max } = definition;
+  const renderedSteps = whole(values.steps, 1, MAX_SEQUENCE_STEPS, study.defaults.steps);
+  if (study.archetype === 'ordered-chord' && definition.id === 'octaves'
+    && ['up', 'played', 'pendulum'].includes(values.order)) {
+    max = Math.max(1, Math.min(8, Math.ceil(renderedSteps / Math.max(1, study.config.intervals?.length || 1))));
+  } else if (study.archetype === 'ratio-canon' && definition.id === 'phaseShift') {
+    const scale = stepped(values.periodScale, .25, 4, .25, 1);
+    ({ min, max } = canonicalRotationBounds(ratioCanonPeriod(study.config.voices, scale)));
+  } else if (study.archetype === 'euclidean' && definition.id === 'pulses') {
+    max = whole(values.euclideanSteps, 1, renderedSteps, Math.min(study.config.steps, renderedSteps));
+  } else if (study.archetype === 'euclidean' && definition.id === 'euclideanSteps') {
+    min = Math.max(1, whole(values.pulses, 0, renderedSteps, Math.min(study.config.pulses, renderedSteps)));
+    max = renderedSteps;
+  } else if (study.archetype === 'euclidean' && definition.id === 'rotation') {
+    const slots = whole(values.euclideanSteps, 1, renderedSteps, Math.min(study.config.steps, renderedSteps));
+    const pulses = whole(values.pulses, 0, slots, Math.min(study.config.pulses, slots));
+    const period = pulses === 0 || pulses === slots ? 1 : slots / greatestCommonDivisor(slots, pulses);
+    ({ min, max } = canonicalRotationBounds(period));
+  } else if (study.archetype === 'euclidean' && definition.id === 'pitchRotation') {
+    ({ min, max } = canonicalRotationBounds(study.config.pitches?.length));
+  } else if (study.archetype === 'groove' && definition.id === 'rotateEvery') {
+    max = Math.max(0, Math.floor((renderedSteps - 1)
+      / Math.max(1, study.config.notes?.length || 1)));
+  } else if (study.archetype === 'mutating-loop' && ['generations', 'mirrorEvery'].includes(definition.id)) {
+    const loops = Math.max(1, Math.ceil(renderedSteps / Math.max(1, study.config.base?.length || 1)));
+    if (definition.id === 'generations') max = loops;
+    else max = Math.max(0, Math.min(loops - 1, whole(values.generations, 1, loops, finite(study.config.generations, 4)) - 1));
+  } else if (study.archetype === 'phrase-arp' && definition.id === 'repeats') {
+    const order = ORDER_CHOICES.some(choice => choice.value === values.order) ? values.order : study.config.order;
+    const firstChord = Array.isArray(study.config.chords?.[0]) ? study.config.chords[0] : [0];
+    max = Math.max(1, Math.min(8, Math.ceil(renderedSteps / traversalLength(firstChord, order))));
+  } else if (study.archetype === 'phrase-arp' && definition.id === 'restShift') {
+    ({ min, max } = canonicalRotationBounds(renderedSteps));
+  }
+  return { min, max };
+};
+
+/** Current effective range for controls whose useful domain depends on cycle settings. */
+export function getSequenceParameterBounds(studyOrId, parameterId, values = {}) {
+  const study = resolveStudy(studyOrId);
+  const definitions = getSequenceParameterDefinitions(study);
+  const definition = definitions.find(candidate => candidate.id === parameterId);
+  if (!definition || definition.type !== 'number') return null;
+  const source = values && typeof values === 'object' && !Array.isArray(values) ? values : {};
+  const context = Object.fromEntries(definitions.map(candidate => [
+    candidate.id,
+    sanitizeValue(candidate, source[candidate.id]),
+  ]));
+  return deepFreeze(dependentBounds(study, definition, context));
+}
 
 /** Sanitize a flat UI value map, discarding unknown or malformed entries. */
 export function createSequenceParameterValues(studyOrId, input = {}) {
   const study = resolveStudy(studyOrId);
   const source = input && typeof input === 'object' && !Array.isArray(input) ? input : {};
   const values = {};
-  for (const definition of getSequenceParameterDefinitions(study)) {
+  const definitions = getSequenceParameterDefinitions(study);
+  for (const definition of definitions) {
     values[definition.id] = sanitizeValue(definition, source[definition.id]);
   }
-  if (study.archetype === 'euclidean') values.pulses = Math.min(values.pulses, values.euclideanSteps);
+  for (const definition of definitions) {
+    if (definition.type !== 'number') continue;
+    const { min, max } = dependentBounds(study, definition, values);
+    values[definition.id] = sanitizeValue(definition, values[definition.id], { min, max });
+  }
   return deepFreeze(values);
 }
 
@@ -271,7 +406,10 @@ const applyMechanismValues = (study, config, values) => {
         config.voices = config.voices.map(voice => {
           const changed = { ...voice };
           if (values.periodScale !== 1) changed.period = whole(voice.period * values.periodScale, 1, MAX_SEQUENCE_STEPS, 1);
-          if (values.phaseShift !== 0) changed.phase = whole(finite(voice.phase, 0) + values.phaseShift, -MAX_SEQUENCE_STEPS, MAX_SEQUENCE_STEPS, 0);
+          if (values.phaseShift !== 0) {
+            const period = whole(changed.period, 1, MAX_SEQUENCE_STEPS, 1);
+            changed.phase = modulo(finite(voice.phase, 0) + values.phaseShift, period);
+          }
           if (values.ratioSpread !== 1) changed.pitchRatio = clamp(Math.pow(Math.max(1 / 256, finite(voice.pitchRatio, 1)), values.ratioSpread), 1 / 256, 256, 1);
           return changed;
         });
@@ -361,12 +499,18 @@ const applyMechanismValues = (study, config, values) => {
           ...(Number.isFinite(row.gate) && values.gateScale !== 1 ? { gate: clamp(row.gate * values.gateScale, .01, 1, .72) } : {}),
         }));
       }
+      if (Object.hasOwn(values, 'carryVelocity') || Object.hasOwn(values, 'carryGate')) {
+        const selected = new Set([values.carryVelocity ? 'velocity' : null, values.carryGate ? 'gate' : null].filter(Boolean));
+        const existing = Array.isArray(config.remember) ? config.remember.filter(key => selected.delete(key)) : [];
+        config.remember = [...existing, ...selected];
+      }
       break;
     case 'groove': {
       const length = Math.max(1, config.notes.length);
       if (values.timingDepth !== 1 && Array.isArray(config.timing)) config.timing = config.timing.map(value => clamp(1 + (value - 1) * values.timingDepth, 1 / 16, 16, 1));
       if (values.patternRotation !== 0) {
         config.notes = rotate(config.notes, values.patternRotation);
+        if (Array.isArray(config.timing)) config.timing = rotate(config.timing, values.patternRotation);
         config.accents = mapAccents(config.accents, length, value => value + values.patternRotation);
       }
       if (values.accentShift !== 0) config.accents = mapAccents(config.accents, length, value => value + values.accentShift);
@@ -422,6 +566,10 @@ const applyMechanismValues = (study, config, values) => {
       if (values.restShift !== 0 && Array.isArray(config.rests)) {
         const length = Math.max(1, values.steps);
         config.rests = config.rests.map(index => modulo(index + values.restShift, length));
+      }
+      if (Array.isArray(config.velocityCycle) && values.velocityDepth !== 1) {
+        const mean = config.velocityCycle.reduce((sum, value) => sum + finite(value, .72), 0) / config.velocityCycle.length;
+        config.velocityCycle = config.velocityCycle.map(value => clamp(mean + (finite(value, mean) - mean) * values.velocityDepth, .01, 1, mean));
       }
       break;
     default:

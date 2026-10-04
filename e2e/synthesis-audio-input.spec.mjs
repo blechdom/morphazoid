@@ -1,6 +1,37 @@
 import { test, expect } from "@playwright/test";
 import { installAudioInputFixture } from "./helpers/audio-input-fixture.mjs";
 
+test("audio input visibility follows ordinary, file-source and Processing modes", async ({ page }) => {
+  await installAudioInputFixture(page);
+  const row = page.locator(".mz-audio-input-strip");
+  const source = row.locator(".mz-input-source");
+  const micOption = source.locator('option[value="mic"]');
+
+  await page.goto("/synthesis.html?method=additive");
+  await expect(row).toBeHidden();
+
+  await page.goto("/synthesis.html?method=sampling");
+  await expect(row).toBeVisible();
+  await expect(row).toHaveAttribute("data-input-source", "file");
+  await expect(source).toBeHidden();
+  await expect(micOption).toBeDisabled();
+  expect(await micOption.evaluate(option => option.hidden)).toBe(true);
+  await expect(row.locator(".mz-input-toggle")).toHaveAccessibleName("Activate file input");
+  await expect(row.locator(".mz-input-file")).toBeVisible();
+  expect(await page.evaluate(() => __familyInput.requests)).toBe(0);
+
+  await page.goto("/synthesis.html?method=fx-biquad");
+  await expect(row).toBeVisible();
+  await expect(source).toBeVisible();
+  await expect(micOption).toBeEnabled();
+  expect(await micOption.evaluate(option => option.hidden)).toBe(false);
+  await expect(row).toHaveAttribute("data-input-source", "mic");
+  await expect(row.locator(".mz-input-toggle")).toHaveAccessibleName("Activate microphone input");
+  await source.selectOption("file");
+  await expect(row).toHaveAttribute("data-input-source", "file");
+  await expect(row.locator(".mz-input-file")).toBeVisible();
+});
+
 test("Synthesaurus captures and meters input with a muted master, retaining native dB gain", async ({ page }) => {
   const errors = []; page.on("pageerror", error => errors.push(error.message));
   await installAudioInputFixture(page);

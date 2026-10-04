@@ -109,7 +109,7 @@ export function sanitizeSequenceOptions(studyOrId, options = {}) {
     density: clamp(input.density, 0, 1, defaults.density),
     gate: clamp(input.gate, 0.01, 1, 0.72),
     swing: clamp(input.swing, -0.49, 0.49, 0),
-    tempo: clamp(input.tempo ?? input.tempoBpm, 20, 1200, defaults.tempoBpm),
+    tempo: clamp(input.tempo ?? input.tempoBpm, 10, 1200, defaults.tempoBpm),
     stepBeats: clamp(input.stepBeats, 1 / 64, 16, defaults.stepBeats),
     steps: whole(input.steps, 1, MAX_SEQUENCE_STEPS, defaults.steps),
     transpose: clamp(input.transpose, -96, 96, defaults.transpose),
@@ -163,7 +163,7 @@ function ratioCanon(config, count) {
     const notes = [];
     for (const voice of voices) {
       const period = whole(voice.period, 1, MAX_SEQUENCE_STEPS, 1);
-      const phase = whole(voice.phase, 0, MAX_SEQUENCE_STEPS - 1, 0);
+      const phase = whole(voice.phase, -MAX_SEQUENCE_STEPS, MAX_SEQUENCE_STEPS, 0);
       if (((index - phase) % period + period) % period === 0) notes.push(semitoneForRatio(voice.pitchRatio));
     }
     const ramp = clamp(config.ramp, -0.9, 0.9, 0);
@@ -299,9 +299,9 @@ const weightedIndex = (weights, random) => {
 function markov(config, count, random) {
   const states = Array.isArray(config.states) && config.states.length ? config.states.map(value => finite(value, 0)) : [0];
   let state = Math.floor(states.length / 2);
-  return Array.from({ length: count }, (_, index) => {
+  return Array.from({ length: count }, () => {
     const note = states[state];
-    const weights = item(config.transitions, index, [1]);
+    const weights = item(config.transitions, state, [1]);
     const relative = weightedIndex(weights, random) - Math.floor(weights.length / 2);
     const maxLeap = whole(config.maxLeap, 1, states.length, states.length);
     state = Math.max(0, Math.min(states.length - 1, state + Math.max(-maxLeap, Math.min(maxLeap, relative))));
@@ -359,8 +359,11 @@ function mutatingLoop(config, count, random) {
     const local = index % base.length;
     const generation = Math.floor(index / base.length) % generations;
     if (local === 0 && index > 0) {
-      for (let cell = 0; cell < mutable.length; cell += 1) if (random() < probability) mutable[cell] = item(mutationSet, Math.floor(random() * mutationSet.length), 0);
-      if (config.mirrorEvery && generation > 0 && generation % whole(config.mirrorEvery, 1, generations, 2) === 0) mutable.reverse();
+      if (generation === 0) mutable.splice(0, mutable.length, ...base);
+      else {
+        for (let cell = 0; cell < mutable.length; cell += 1) if (random() < probability) mutable[cell] = item(mutationSet, Math.floor(random() * mutationSet.length), 0);
+        if (config.mirrorEvery && generation % whole(config.mirrorEvery, 1, generations, 2) === 0) mutable.reverse();
+      }
     }
     result.push({ notes: asNotes(mutable[local]) });
   }

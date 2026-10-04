@@ -8,6 +8,7 @@ import {
 import { SEQUENCE_STUDIES, getSequenceStudy } from '../src/instruments/synthesis/sequence-catalog.js';
 import {
   createSequenceParameterValues,
+  getSequenceParameterBounds,
   getSequenceParameterDefinitions,
 } from '../src/instruments/synthesis/sequence-parameters.js';
 import { TUNINGS } from '../src/instruments/synthesis/tunings.js';
@@ -136,6 +137,11 @@ test('six bounded sequence-settings recipes apply to every historical mechanism'
       assert.deepEqual(preset.snapshot.parameters, createSequenceParameterValues(study, preset.snapshot.parameters));
       assert.ok(Number.isFinite(preset.snapshot.tempoBpm));
       assert.ok(Object.isFrozen(preset.snapshot.parameters));
+      for (const definition of getSequenceParameterDefinitions(study).filter(candidate => candidate.type === 'number')) {
+        const bounds = getSequenceParameterBounds(study, definition.id, preset.snapshot.parameters);
+        const value = preset.snapshot.parameters[definition.id];
+        assert.ok(value >= bounds.min && value <= bounds.max, `${preset.id}.${definition.id}: effective range`);
+      }
     }
     assert.deepEqual(presets[0].snapshot.parameters, createSequenceParameterValues(study), `${study.id}: Original is authored default`);
     const current = sanitizeSequencePerformance({ id: study.id, tempoBpm: 999, parameters: { density: .01 } });
@@ -167,7 +173,45 @@ test('sequence dice is deterministic, pure, bounded and covers every editable fi
   }
 });
 
-test('master dice randomizes all three axes while preserving only performer-owned sound choices', () => {
+test('dependent sequence dice samples live domains without piling up at clamped endpoints', () => {
+  const endpointRate = (studyId, parameterId) => {
+    let endpoints = 0;
+    let considered = 0;
+    for (let index = 0; index < 1024; index += 1) {
+      const values = randomizeSequenceParameters(studyId, mulberry32(12000 + index));
+      const bounds = getSequenceParameterBounds(studyId, parameterId, values);
+      if (bounds.max - bounds.min + 1 < 8) continue;
+      considered += 1;
+      if (values[parameterId] === bounds.min || values[parameterId] === bounds.max) endpoints += 1;
+    }
+    assert.ok(considered > 500, `${studyId}.${parameterId}: enough deterministic samples`);
+    return endpoints / considered;
+  };
+
+  assert.ok(endpointRate('perforated-ratio-canon', 'phaseShift') < .2, 'canon phases do not clamp to their live edges');
+  assert.ok(endpointRate('euclidean-pulse-rotation', 'rotation') < .3, 'Euclidean rotations do not clamp to their live edges');
+});
+
+test('factory recipes shift dependent controls within their established live domains', () => {
+  const canon = SEQUENCE_SETTINGS_PRESETS['perforated-ratio-canon'].slice(1);
+  for (const preset of canon) {
+    const values = preset.snapshot.parameters;
+    const bounds = getSequenceParameterBounds('perforated-ratio-canon', 'phaseShift', values);
+    if (bounds.min === bounds.max) continue;
+    assert.ok(values.phaseShift > bounds.min && values.phaseShift < bounds.max, `${preset.id}: phase is not post-clamped`);
+  }
+
+  const euclidean = SEQUENCE_SETTINGS_PRESETS['euclidean-pulse-rotation'];
+  for (const recipeId of ['spacious', 'sparse', 'tight']) {
+    const preset = euclidean.find(candidate => candidate.id.endsWith(`:${recipeId}`));
+    const values = preset.snapshot.parameters;
+    const bounds = getSequenceParameterBounds('euclidean-pulse-rotation', 'rotation', values);
+    assert.ok(bounds.min < bounds.max, `${preset.id}: useful rotation domain`);
+    assert.ok(values.rotation > bounds.min && values.rotation < bounds.max, `${preset.id}: rotation is not post-clamped`);
+  }
+});
+
+test('whole-instrument dice randomizes every musical axis while preserving safe output level', () => {
   const current = {
     sound: {
       ...createDefaultState('additive'),
@@ -187,7 +231,7 @@ test('master dice randomizes all three axes while preserving only performer-owne
   assert.deepEqual(first, second, 'injected RNG fully determines the result');
   assert.deepEqual(current, before, 'master dice is pure');
   assert.equal(first.sound.outputLevel, .23);
-  assert.equal(first.sound.voiceMode, 'poly');
+  assert.ok(['mono', 'poly'].includes(first.sound.voiceMode));
   assert.equal(first.sound.presetId, 'custom');
   assert.equal(first.sound.tuningId, first.tuningId);
   assert.ok(SYNTHESIS_METHODS.some(method => method.id === first.sound.methodId));
@@ -208,6 +252,8 @@ test('master dice randomizes all three axes while preserving only performer-owne
   assert.equal(high.sequence.id, SEQUENCE_STUDIES.at(-1).id);
   assert.equal(low.tuningId, TUNINGS[0].id);
   assert.equal(high.tuningId, TUNINGS.at(-1).id);
+  assert.equal(low.sound.voiceMode, 'mono');
+  assert.equal(high.sound.voiceMode, 'poly');
 });
 
 test('axis navigation helpers wrap and random helpers can reach both catalog edges', () => {

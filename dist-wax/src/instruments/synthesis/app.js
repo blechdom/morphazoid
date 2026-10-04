@@ -2,23 +2,19 @@ import { SYNTHESIS_DATES } from "./chronology.js";
 import { SEQUENCE_ERAS } from "./sequence-chronology.js";
 import { SEQUENCE_STUDIES, SEQUENCE_STUDY_COUNT } from "./sequence-catalog.js";
 import { compileSequence } from "./sequence-compiler.js";
-import { createSequenceParameterValues, getSequenceParameterDefinitions } from "./sequence-parameters.js";
+import { createSequenceParameterValues, getSequenceParameterBounds, getSequenceParameterDefinitions } from "./sequence-parameters.js";
 import { createChaoticSpectrum, updateChaoticSpectrum, drawChaoticSpectrum } from "../../families/chaotic/chaotic-synth-visuals.js";
 import { registerHeaderPresets } from "../../site/header-presets.js";
 import { SECTION_METHODS, SECTION_PRESETS, methodSection, captureSoundState, fullPresetId, randomizeAllState, randomizeMethodState } from "./presets.js";
 import {
-  SYNTHESAURUS_MASTER_PRESETS,
   SEQUENCE_SETTING_RECIPES,
   applyPerformanceSnapshot,
   applySequenceSettingsRecipe,
-  capturePerformanceSnapshot,
   createSequenceSettingsPresets,
-  instantiateMasterPreset,
   nextTuningId,
   randomizeMasterPerformance,
   randomSequenceId,
   randomizeSequenceSettings,
-  randomTuningId,
 } from "./performance-presets.js";
 import { PROCESSING_SCHEMA } from "./processing-schema.js";
 import { PROCESSING_INPUT_OPTIONS, getProcessingInput } from "./demo-sources.js";
@@ -35,7 +31,8 @@ import {
   nextEnvelopePreset,
   randomEnvelopePreset,
 } from "./envelope-presets.js";
-import { createParameterControl, createKnobControl } from "./controls.js";
+import { createParameterControl, createKnobControl, createLinearControl } from "./controls.js";
+import { createMethodGestureEditor, groupMethodControls } from "./method-ui.js";
 import { TUNINGS, getTuning, sanitizeTuningId, tuningRatioForDegree,
   tuningRatioForSemitoneCoordinate, frequencyForTuningDegree, frequencyForMidiNote,
   arpeggioDegrees } from "./tunings.js";
@@ -69,6 +66,10 @@ const queryObject = name => {
     return value && typeof value === "object" && !Array.isArray(value) ? value : {};
   } catch { return {}; }
 };
+const requestedSequenceTempo = queryNumber(
+  "sequenceTempo",
+  requestedSequence?.defaults.tempoBpm ?? 120,
+);
 const requestedParameterQuery = queryObject("sequenceParams");
 const requestedParameters = requestedSequence ? createSequenceParameterValues(requestedSequence, {
   ...requestedParameterQuery,
@@ -96,7 +97,6 @@ let auditionQueued = false;
 let deferTransportSync = false;
 let deferAudioSync = false;
 let fullPresets = null;
-let lastMasterPresetId = null;
 let lastFactoryPreset = { methodId: state.methodId, presetId: state.presetId };
 let activeSection = methodSection(state.methodId);
 const sectionSessions = Object.fromEntries(Object.entries(SECTION_METHODS).map(([section, methods]) => {
@@ -111,6 +111,7 @@ let frames = 0;
 let lastDraw = 0;
 let lastPeak = 0.05;
 let controlFields = [];
+let methodGestureEditor = null;
 let synthesisSourceName = "Built-in synthetic source";
 let processingInput = "preset";
 let inputIntent = 0;
@@ -207,7 +208,6 @@ function rememberSection() {
 }
 
 function syncPresetToolbar() {
-  refreshMasterPresetSelection();
   if (!fullPresets) return;
   fullPresets.lastPresetId = fullPresetId(lastFactoryPreset.methodId, lastFactoryPreset.presetId);
   fullPresets.hasPresetInteraction = true;
@@ -238,7 +238,7 @@ const frequencyField = createKnobControl({
 });
 $("frequencyControl").append(frequencyField);
 const tempoField = createKnobControl({ id: "tempo", label: "Tempo", min: 10, max: 1200, step: 1,
-  value: requestedSequence?.defaults.tempoBpm ?? 120, unit: "BPM", onInput: updateTempo });
+  value: requestedSequenceTempo, unit: "BPM", onInput: updateTempo });
 const gateField = createKnobControl({ id: "noteGate", label: "Note length", min: 5, max: 95, step: 1,
   value: 65, unit: "%", onInput: updateGate });
 $("tempoControl").append(tempoField); $("gateControl").append(gateField);
@@ -302,7 +302,22 @@ function updateSequenceParameter(id, value) {
     ...sequenceState.parameters,
     [id]: value,
   }));
+  syncSequenceParameterFields(study);
   rebuildSequence();
+}
+
+function syncSequenceParameterFields(study = sequenceStudy()) {
+  if (!study || !sequenceState.parameters) return;
+  for (const field of sequenceParameterFields) {
+    const id = field.sequenceParameterId;
+    if (!id || !Object.hasOwn(sequenceState.parameters, id)) continue;
+    const bounds = getSequenceParameterBounds(study, id, sequenceState.parameters);
+    if (bounds) {
+      field.setSequenceBounds?.(bounds.min, bounds.max);
+      field.setDisabled?.(bounds.min === bounds.max);
+    }
+    field.setSequenceValue?.(sequenceState.parameters[id]);
+  }
 }
 
 function makeSequenceParameterField(definition, value) {
@@ -319,6 +334,8 @@ function makeSequenceParameterField(definition, value) {
     const picker = enhanceChooseSelect(select, { label: `Choose ${definition.label.toLowerCase()}` });
     const change = () => updateSequenceParameter(definition.id, select.value);
     select.addEventListener("change", change);
+    root.sequenceParameterId = definition.id;
+    root.setSequenceValue = next => { select.value = String(next); picker.refresh(); };
     root.destroy = () => { select.removeEventListener("change", change); picker.destroy(); root.remove(); };
     return root;
   }
@@ -331,20 +348,48 @@ function makeSequenceParameterField(definition, value) {
     const change = () => updateSequenceParameter(definition.id, input.checked);
     input.addEventListener("change", change);
     root.append(input, copy);
+    root.sequenceParameterId = definition.id;
+    root.setSequenceValue = next => { input.checked = Boolean(next); };
     root.destroy = () => { input.removeEventListener("change", change); root.remove(); };
+    return root;
+  }
+  if (definition.id === "seed") {
+    const root = document.createElement("div");
+    root.className = "synthesis-parameter synthesis-seed-control";
+    root.title = definition.help;
+    const label = document.createElement("label"); label.htmlFor = `${id}-value`; label.textContent = definition.label;
+    const row = document.createElement("div"); row.className = "synthesis-seed-row";
+    const input = document.createElement("input");
+    input.type = "number"; input.id = `${id}-value`; input.min = String(definition.min);
+    input.max = String(definition.max); input.step = String(definition.step); input.value = String(value);
+    const reroll = document.createElement("button"); reroll.type = "button"; reroll.id = id;
+    reroll.textContent = "New seed"; reroll.setAttribute("aria-label", "Generate a new sequence seed");
+    const change = () => updateSequenceParameter(definition.id, input.valueAsNumber);
+    const randomize = () => updateSequenceParameter(definition.id, Math.floor(Math.random() * (definition.max + 1)));
+    input.addEventListener("change", change); reroll.addEventListener("click", randomize);
+    row.append(input, reroll); root.append(label, row);
+    root.sequenceParameterId = definition.id;
+    root.setSequenceValue = next => { input.value = String(next); };
+    root.destroy = () => { input.removeEventListener("change", change); reroll.removeEventListener("click", randomize); root.remove(); };
     return root;
   }
   const percent = definition.unit === "%" && definition.max <= 2;
   const factor = percent ? 100 : 1;
-  const field = createKnobControl({
+  const field = createLinearControl({
     id, label: definition.label,
     min: definition.min * factor, max: definition.max * factor,
     step: definition.step * factor, unit: definition.unit,
+    help: definition.help,
     value: value * factor,
     onInput: next => updateSequenceParameter(definition.id, next / factor),
   });
   field.classList.add("synthesis-parameter");
-  field.title = definition.help;
+  field.sequenceParameterId = definition.id;
+  field.setSequenceValue = next => field.setValue(next * factor);
+  field.setSequenceBounds = (min, max) => {
+    field.setMinimum(min * factor);
+    field.setMaximum(max * factor);
+  };
   return field;
 }
 
@@ -353,6 +398,7 @@ function paintSequenceParameterControls() {
   sequenceParameterFields = [];
   const host = $("sequenceParameterControls");
   const study = sequenceStudy();
+  $("gateControl").hidden = Boolean(study);
   if (!study) {
     const note = document.createElement("p");
     note.className = "synthesis-sequence-parameter-note";
@@ -365,7 +411,7 @@ function paintSequenceParameterControls() {
   }
   const values = createSequenceParameterValues(study, sequenceState.parameters);
   syncSequenceParameterState(values);
-  const definitions = getSequenceParameterDefinitions(study).filter(definition => definition.id !== "gate");
+  const definitions = getSequenceParameterDefinitions(study);
   const buildGrid = (items, className = "") => {
     const grid = document.createElement("div");
     grid.className = `synthesis-sequence-parameter-grid ${className}`.trim();
@@ -383,19 +429,28 @@ function paintSequenceParameterControls() {
   const heading = document.createElement("h3");
   heading.className = "synthesis-sequence-control-group";
   heading.textContent = `${mechanismName} controls`;
-  const note = document.createElement("p");
-  note.className = "synthesis-sequence-parameter-note";
-  note.textContent = `These controls define this preset’s ${mechanismName.toLowerCase()} shape.`;
   const mechanism = definitions.filter(definition => definition.group === "mechanism");
-  mechanismSection.append(heading, note, buildGrid(mechanism, "synthesis-sequence-parameter-grid--mechanism"));
+  mechanismSection.append(heading, buildGrid(mechanism, "synthesis-sequence-parameter-grid--mechanism"));
 
   const cycleDetails = document.createElement("details");
   cycleDetails.className = "synthesis-sequence-cycle-details";
+  cycleDetails.open = true;
   const summary = document.createElement("summary");
-  summary.textContent = "Cycle, chance & pitch mapping";
+  summary.textContent = "Cycle, articulation & pitch mapping";
   const cycle = definitions.filter(definition => definition.group === "cycle");
-  cycleDetails.append(summary, buildGrid(cycle, "synthesis-sequence-parameter-grid--cycle"));
+  const cycleSection = (label, ids) => {
+    const section = document.createElement("section");
+    section.className = "synthesis-sequence-parameter-section synthesis-sequence-parameter-section--shared";
+    const title = document.createElement("h3"); title.className = "synthesis-sequence-control-group"; title.textContent = label;
+    section.append(title, buildGrid(cycle.filter(definition => ids.includes(definition.id)), "synthesis-sequence-parameter-grid--cycle"));
+    return section;
+  };
+  cycleDetails.append(summary,
+    cycleSection("Clock & cycle", ["steps", "stepBeats", "swing"]),
+    cycleSection("Articulation & chance", ["gate", "density", "seed"]),
+    cycleSection("Pitch output", ["transpose", "pitchMode"]));
   host.replaceChildren(mechanismSection, cycleDetails);
+  syncSequenceParameterFields(study);
   refreshSequencePresetSelection();
 }
 
@@ -436,7 +491,7 @@ function populateSequenceSelect() {
     const group = document.createElement("optgroup");
     group.label = `${era.range} · ${era.label}`;
     for (const study of SEQUENCE_STUDIES.filter(entry => entry.eraId === era.id).sort((a, b) => a.placementYear - b.placementYear || a.label.localeCompare(b.label))) {
-      group.append(new Option(`${study.label} · ${study.dateLabel}`, study.id));
+      group.append(new Option(`${study.label} · ${study.shortDateLabel}`, study.id));
     }
     groups.push(group);
   }
@@ -449,43 +504,18 @@ function populateSequenceSelect() {
   $("sequenceCount").textContent = `${SEQUENCE_STUDY_COUNT} editable studies · search or scroll · ${BASIC_SEQUENCES.length} quick patterns`;
 }
 
-function populatePerformancePresetSelects() {
-  $("masterPresetSelect").replaceChildren(
-    new Option("Choose a complete scene…", "custom"),
-    ...SYNTHESAURUS_MASTER_PRESETS.map(preset => new Option(preset.label, preset.id)),
-  );
+function populateSequencePresetSelect() {
   $("sequencePresetSelect").replaceChildren(
     new Option("Custom settings", "custom"),
     ...SEQUENCE_SETTING_RECIPES.map(recipe => new Option(recipe.label, recipe.id)),
   );
 }
 
-function currentPerformanceSnapshot() {
-  const study = sequenceStudy();
-  if (!study || activeSection !== "synthesis") return null;
-  return capturePerformanceSnapshot({
-    sound: state,
-    tuningId: state.tuningId,
-    sequence: { id: study.id, parameters: sequenceState.parameters, tempoBpm: Number($("tempo").value) },
-  });
-}
-
-function refreshMasterPresetSelection() {
-  const select = $("masterPresetSelect");
-  if (!select) return;
-  const snapshot = currentPerformanceSnapshot();
-  const key = snapshot ? JSON.stringify(snapshot) : null;
-  const matching = key ? SYNTHESAURUS_MASTER_PRESETS.find(preset => JSON.stringify(preset.snapshot) === key) : null;
-  select.value = matching?.id || "custom";
-  if (matching) lastMasterPresetId = matching.id;
-  chooseControls.get("masterPresetSelect")?.refresh();
-}
-
 function refreshSequencePresetSelection() {
   const study = sequenceStudy();
   const section = $("sequencePresetSection");
-  section.hidden = !study;
-  if (!study) return;
+  section.hidden = !study || activeSection === "processing";
+  if (!study || activeSection === "processing") return;
   const tempo = Number($("tempo").value);
   const parameters = JSON.stringify(sequenceState.parameters);
   const matching = createSequenceSettingsPresets(study).find(preset => (
@@ -539,8 +569,7 @@ function paintSequenceMetadata() {
     return;
   }
   $("sequenceCue").textContent = study.cue;
-  $("sequenceMilestone").textContent = `${study.dateLabel} · ${study.dateKind}`;
-  $("sequenceMilestone").title = study.dateNote;
+  $("sequenceMilestone").textContent = `${study.shortDateLabel} · ${study.dateKind}. ${study.dateNote}`;
   $("sequenceKind").textContent = `${study.kind} · ${study.archetype.replaceAll("-", " ")}`;
   $("sequenceTestFocus").textContent = study.testFocus.join(" · ");
   $("sequenceLineage").textContent = study.lineage;
@@ -788,7 +817,6 @@ function rebuildSequence({ restart = false, route = true, audioState = null } = 
   paintSequenceStrip();
   paintPlayback();
   refreshSequencePresetSelection();
-  refreshMasterPresetSelection();
   if (route) updateUrl();
 }
 
@@ -797,7 +825,7 @@ function updateTempo() {
   if (sequenceOwnsTransport()) audio.setSequenceTempo(tempo);
   else audio.setPlaying(playing, tempo / 60, Number($("noteGate").value) / 100);
   refreshSequencePresetSelection();
-  refreshMasterPresetSelection();
+  updateUrl();
 }
 
 function updateGate() {
@@ -837,6 +865,7 @@ function updateUrl() {
   else params.delete("preset");
   if (hasSequence()) {
     params.set("sequence", sequenceState.id);
+    params.set("sequenceTempo", String(Number($("tempo").value)));
     params.set("sequenceDensity", String(Number(sequenceState.density.toFixed(2))));
     params.set("sequenceSwing", String(Number(sequenceState.swing.toFixed(2))));
     params.set("sequenceSeed", String(sequenceState.seed));
@@ -844,7 +873,7 @@ function updateUrl() {
     if (sequenceStudy() && sequenceState.parameters) params.set("sequenceParams", JSON.stringify(sequenceState.parameters));
     else params.delete("sequenceParams");
   } else {
-    for (const key of ["sequence", "sequenceDensity", "sequenceSwing", "sequenceSeed", "sequencePitch", "sequenceParams"]) params.delete(key);
+    for (const key of ["sequence", "sequenceTempo", "sequenceDensity", "sequenceSwing", "sequenceSeed", "sequencePitch", "sequenceParams"]) params.delete(key);
   }
   history.replaceState(null, "", `${location.pathname}?${params}${location.hash}`);
 }
@@ -868,9 +897,9 @@ function renderState(rebuildControls = true, audition = false, restoringSection 
   $("presetCue").textContent = state.presetId === "custom" ? "Custom settings. Next continues the preset tour." : getPreset(method.id, state.presetId).cue;
   $("methodNotes").textContent = method.lineage;
   const milestone = SYNTHESIS_DATES[method.id];
-  $("methodDate").textContent = `${milestone.dateLabel} · ${milestone.dateKind}`;
+  $("methodDate").textContent = milestone.dateLabel;
   $("methodDate").title = milestone.dateNote;
-  $("methodDateNote").textContent = milestone.dateNote;
+  $("methodDateNote").textContent = `${milestone.dateLabel} · ${milestone.dateKind}. ${milestone.dateNote}`;
   $("methodDateReference").textContent = milestone.dateSource.label;
   $("methodDateReference").href = milestone.dateSource.url;
   $("modelNote").textContent = [method.depth, ...(Array.isArray(method.limitations) ? method.limitations : [method.limitations])].filter(Boolean).join(" ");
@@ -878,11 +907,13 @@ function renderState(rebuildControls = true, audition = false, restoringSection 
   $("methodReference").href = method.citation.url;
   const processing = method.kind === "processor";
   if (processing && held.size) releaseAll();
-  $("masterPresetRow").hidden = processing;
+  $("performanceRandomRow").hidden = processing;
+  $("arpDetail").hidden = processing;
   $("sequenceCompendium").hidden = processing;
   $("sequenceSelect").disabled = processing;
   $("nextSequence").disabled = processing;
   $("randomSequence").disabled = processing;
+  refreshSequencePresetSelection();
   if (processing) chooseControls.get("sequenceSelect")?.details && (chooseControls.get("sequenceSelect").details.open = false);
   $("nextMethod").title = processing ? "Next processor" : "Next synthesis method";
   $("nextMethod").setAttribute("aria-label", $("nextMethod").title);
@@ -895,8 +926,6 @@ function renderState(rebuildControls = true, audition = false, restoringSection 
   $("noteTiming").hidden = processing;
   $("soundControls").setAttribute("aria-label", processing ? "Processing controls" : "Synthesis controls");
   $("processingControls").hidden = !processing;
-  if (processing) document.querySelector(".synthesis-play-row").after($("processingControls"), $("sourceControls"), $("frequencyRow"));
-  else { $("noteTiming").prepend($("frequencyRow")); $("methodControls").after($("sourceControls")); }
   $("envelopeDetails").hidden = processing;
   $("keyboardDetails").hidden = processing;
   $("voiceModeControl").hidden = processing;
@@ -929,11 +958,34 @@ function renderState(rebuildControls = true, audition = false, restoringSection 
   paintEnvelopePreset();
   if (rebuildControls) {
     controlFields.forEach(field => field.destroy());
+    methodGestureEditor?.destroy();
     controlFields = method.controls.map((control, index) => createParameterControl(
-      control, index, state.params[index], value => { state.params[index] = value; markCustom(); },
+      control, index, state.params[index], value => {
+        state.params[index] = value;
+        methodGestureEditor?.setValue(state.params);
+        markCustom();
+      },
     ));
-    $("methodControls").replaceChildren(...controlFields);
-  } else controlFields.forEach((field, index) => field.setValue(state.params[index]));
+    const groups = groupMethodControls(method).map(group => {
+      const section = document.createElement("section"); section.className = `synthesis-parameter-group is-${group.id}`;
+      section.dataset.parameterGroup = group.id;
+      const heading = document.createElement("h3"); heading.textContent = group.label;
+      const grid = document.createElement("div"); grid.className = "synthesis-parameter-group-grid";
+      grid.append(...group.indexes.map(index => controlFields[index]));
+      section.append(heading, grid); return section;
+    });
+    $("methodControls").replaceChildren(...groups);
+    methodGestureEditor = createMethodGestureEditor($("methodEditor"), method, state.params, changes => {
+      for (const { index, value } of changes) {
+        state.params[index] = value;
+        controlFields[index]?.setValue(value);
+      }
+      markCustom();
+    });
+  } else {
+    controlFields.forEach((field, index) => field.setValue(state.params[index]));
+    methodGestureEditor?.setValue(state.params);
+  }
   chooseControls.forEach(picker => picker.refresh());
   if (!deferAudioSync) syncAudio(audition);
   if (!deferTransportSync) queueMicrotask(() => syncTransportForSection());
@@ -982,7 +1034,6 @@ listen($("tuningSelect"), "change", () => {
   if (hasSequence()) rebuildSequence();
   syncAudio();
   rememberSection();
-  refreshMasterPresetSelection();
 });
 
 function selectSequence(id, { parameters, tempo, restart = false, announce = true } = {}) {
@@ -1042,10 +1093,13 @@ function randomOtherChoice(select) {
   return options[Math.min(options.length - 1, Math.floor(Math.max(0, Math.min(1, Math.random())) * options.length))].value;
 }
 
-function applyPreparedPerformance(performance, { presetId = null, message = "Performance loaded." } = {}) {
-  const prepared = applyPerformanceSnapshot(performance, state);
+function applyPreparedPerformance(performance, { message = "Performance loaded." } = {}) {
+  const prepared = applyPerformanceSnapshot(performance, {
+    ...state,
+    voiceMode: performance?.sound?.voiceMode ?? state.voiceMode,
+  });
   const study = SEQUENCE_STUDIES.find(candidate => candidate.id === prepared.sequence.id);
-  if (!study) throw new RangeError(`Unknown master-scene sequence: ${prepared.sequence.id}`);
+  if (!study) throw new RangeError(`Unknown randomized sequence: ${prepared.sequence.id}`);
   const previousMethod = state.methodId;
   state = sanitizeState(prepared.sound);
   lastFactoryPreset = { methodId: state.methodId, presetId: state.presetId };
@@ -1054,7 +1108,6 @@ function applyPreparedPerformance(performance, { presetId = null, message = "Per
   syncSequenceParameterState(createSequenceParameterValues(study, prepared.sequence.parameters));
   tempoField.setValue(prepared.sequence.tempoBpm);
   $("sequenceSelect").value = study.id;
-  lastMasterPresetId = presetId;
   const atomicSequenceChange = playing && activeSection === "synthesis";
   deferTransportSync = true;
   deferAudioSync = atomicSequenceChange;
@@ -1067,7 +1120,6 @@ function applyPreparedPerformance(performance, { presetId = null, message = "Per
   // An active gate is handed across; a silent phase launches the first authored attack.
   queueMicrotask(() => {
     rebuildSequence({ restart: playing, audioState: nextAudioState });
-    refreshMasterPresetSelection();
   });
   $("status").textContent = message;
 }
@@ -1085,28 +1137,10 @@ function currentPerformanceInput() {
   };
 }
 
-listen($("masterPresetSelect"), "change", () => {
-  const id = $("masterPresetSelect").value;
-  if (id === "custom") return;
-  try {
-    const preset = SYNTHESAURUS_MASTER_PRESETS.find(candidate => candidate.id === id);
-    applyPreparedPerformance(instantiateMasterPreset(id, state), {
-      presetId: id,
-      message: `${preset?.label || "Master scene"} loaded without stopping the transport.`,
-    });
-  } catch (error) { showError(error); refreshMasterPresetSelection(); }
-});
-
-listen($("nextMasterPreset"), "click", () => {
-  const currentId = $("masterPresetSelect").value !== "custom" ? $("masterPresetSelect").value : lastMasterPresetId;
-  const current = SYNTHESAURUS_MASTER_PRESETS.findIndex(preset => preset.id === currentId);
-  dispatchChoice($("masterPresetSelect"), SYNTHESAURUS_MASTER_PRESETS[(current + 1) % SYNTHESAURUS_MASTER_PRESETS.length].id);
-});
-
-listen($("randomMasterPreset"), "click", () => {
+listen($("randomPerformance"), "click", () => {
   try {
     applyPreparedPerformance(randomizeMasterPerformance(currentPerformanceInput()), {
-      message: "Synth, arpeggiator settings, and tuning randomized as one complete scene.",
+      message: "Every synth, voicing, ADSR, arpeggiator, tempo, and tuning setting was randomized.",
     });
   } catch (error) { showError(error); }
 });
@@ -1147,7 +1181,6 @@ listen($("randomSequence"), "click", () => {
   selectSequence(id, { parameters: next.parameters, tempo: next.tempoBpm, restart: playing });
 });
 listen($("nextTuning"), "click", () => dispatchChoice($("tuningSelect"), nextTuningId(state.tuningId)));
-listen($("randomTuning"), "click", () => dispatchChoice($("tuningSelect"), randomTuningId()));
 
 listen($("envelopePresetSelect"), "change", () => {
   if ($("envelopePresetSelect").value !== "custom") applyEnvelopePreset($("envelopePresetSelect").value);
@@ -1314,7 +1347,19 @@ function processingSource() {
 function selectedInput() { return getProcessingInput(processingInput); }
 function paintInput() {
   const status = audio.input.status();
-  const processing = getMethod(state.methodId).kind === "processor";
+  const method = getMethod(state.methodId);
+  const processing = method.kind === "processor";
+  const fileSynthesis = !processing && Boolean(method.sourceInput);
+  if (inputControl?.root) {
+    inputControl.root.hidden = !processing && !fileSynthesis;
+    const micOption = inputControl.root.sourceSelect?.querySelector('option[value="mic"]');
+    if (micOption) { micOption.hidden = !processing; micOption.disabled = !processing; }
+    if (inputControl.root.sourceSelect) inputControl.root.sourceSelect.hidden = !processing;
+    if (fileSynthesis) {
+      inputControl.root.sourceSelect && (inputControl.root.sourceSelect.value = "file");
+      inputControl.root.setSource?.("file");
+    }
+  }
   const option = selectedInput();
   const external = processing && processingSource() === 0;
   const loopable = processing && ["demo", "file"].includes(option?.kind);
@@ -1443,9 +1488,13 @@ inputControl = mountAudioInputControl({
   gainFormat: value => `${value > 0 ? "+" : ""}${value} dB`,
   gainMultiplier: () => 10 ** ((state.inputDb ?? 0) / 20),
   sources: [{ value: "mic", label: "Mic" }, { value: "file", label: "File" }], fileInput: $("sourceFile"),
-  getState: () => ({ active: audio.input.kind !== "none", pending: audio.input.pending || loadingInput, error: inputError,
-    supported: Boolean(getMethod(state.methodId).sourceInput || getMethod(state.methodId).kind === "processor"),
-    source: audio.input.kind === "file" || processingInput === "file" ? "file" : "mic" }),
+  getState: () => {
+    const method = getMethod(state.methodId);
+    const processing = method.kind === "processor";
+    return { active: audio.input.kind !== "none", pending: audio.input.pending || loadingInput, error: inputError,
+      supported: Boolean(method.sourceInput || processing),
+      source: !processing || audio.input.kind === "file" || processingInput === "file" ? "file" : "mic" };
+  },
   getSignal: () => ({ node: audio.input.node, stream: audio.input.stream,
     channels: audio.input.kind === "file" ? audio.input.fileBuffer?.numberOfChannels : undefined }),
   onStart: connectInput,
@@ -1648,7 +1697,7 @@ function animate(now) {
 // Small public host/debug seam: serializable musical state, never browser nodes.
 window.MorphazoidSynthesis = Object.freeze({
   getState: () => structuredClone(state),
-  getSequenceState: () => structuredClone({ version: 1, id: sequenceState.id, density: sequenceState.density,
+  getSequenceState: () => structuredClone({ version: 1, id: sequenceState.id, tempo: Number($("tempo").value), density: sequenceState.density,
     swing: sequenceState.swing, seed: sequenceState.seed, pitchMode: sequenceState.pitchMode,
     parameters: sequenceState.parameters, cycle: sequenceState.cycle }),
   applyState(value) {
@@ -1669,7 +1718,7 @@ listen(window, "pagehide", event => {
   paintAudio();
   if (event.persisted) audio.context?.suspend().catch(() => {});
   if (!event.persisted) {
-    cancelAnimationFrame(frames); analysisResize.disconnect(); document.documentElement.style.removeProperty("--synthesis-analysis-inset"); listeners.abort(); controlFields.forEach(field => field.destroy());
+    cancelAnimationFrame(frames); analysisResize.disconnect(); document.documentElement.style.removeProperty("--synthesis-analysis-inset"); listeners.abort(); controlFields.forEach(field => field.destroy()); methodGestureEditor?.destroy();
     envelopeEditor.destroy(); frequencyField.destroy(); tempoField.destroy(); gateField.destroy();
     sequenceParameterFields.forEach(field => field.destroy?.());
     Object.values(mixFields).forEach(field => field.destroy()); chooseControls.forEach(picker => picker.destroy()); audio.dispose();
@@ -1711,28 +1760,19 @@ function mountSectionPresets() {
 }
 populateTuningSelect();
 populateSequenceSelect();
-populatePerformancePresetSelects();
+populateSequencePresetSelect();
 rebuildSequence({ route: false });
 renderSection();
 renderState();
 mountSectionPresets();
-for (const [id, label] of [["masterPresetSelect", "Choose master scene"], ["methodSelect", "Choose method"], ["sequenceSelect", "Choose arpeggiator or sequence"], ["sequencePresetSelect", "Choose arpeggiator settings preset"], ["tuningSelect", "Choose tuning and note map"], ["envelopePresetSelect", "Choose ADSR preset"], ["processingSource", "Choose processing input"], ["voiceMode", "Voicing"], ["touchstoneSelect", "Study"], ["spectrumMode", "Frequency display"]]) {
+for (const [id, label] of [["methodSelect", "Choose method"], ["sequenceSelect", "Choose arpeggiator or sequence"], ["sequencePresetSelect", "Choose arpeggiator settings preset"], ["tuningSelect", "Choose tuning and note map"], ["envelopePresetSelect", "Choose ADSR preset"], ["processingSource", "Choose processing input"], ["voiceMode", "Voicing"], ["touchstoneSelect", "Study"], ["spectrumMode", "Frequency display"]]) {
   chooseControls.set(id, enhanceChooseSelect($(id), { label }));
 }
 chooseControls.get("tuningSelect").summary.setAttribute("aria-describedby", "tuningSummary");
 chooseControls.get("sequenceSelect").summary.setAttribute("aria-describedby", "sequenceCount");
-for (const [labelId, selectId] of [["tuningLabel", "tuningSelect"], ["sequenceLabel", "sequenceSelect"]]) {
-  listen($(labelId), "click", event => {
-    event.preventDefault();
-    const picker = chooseControls.get(selectId);
-    picker.summary.focus({ preventScroll: true });
-    if (!picker.details.open) picker.summary.click();
-  });
-}
 paintSequenceMetadata();
 paintSequenceParameterControls();
 paintTuning();
 paintEnvelopePreset();
-refreshMasterPresetSelection();
 paintAudio();
 frames = requestAnimationFrame(animate);

@@ -117,6 +117,55 @@ test("keyboard node focus is restored after a consumer synchronizes the editor",
   assert.equal(renderedNode.focused, true, "focus belongs to the final rendered node");
 });
 
+test("constrained ARIA sliders accept every standard arrow direction", () => {
+  const host = controlHost();
+  const points = [
+    { x: 0, y: 0 }, { x: .4, y: 1 }, { x: .5, y: .6 },
+    { x: .7, y: .6 }, { x: .9, y: 0 },
+  ];
+  const control = createAmplitudeControl(host, { editorModel: {
+    presetPoints: () => points.map(point => ({ ...point })),
+    normalizePoints: value => value.map(point => ({ ...point })),
+    nodeAria: (_value, index) => ({ min: 0, max: 1, value: 0, orientation: index === 3 ? "vertical" : "horizontal" }),
+    moveNode(value, index, point) {
+      const next = value.map(entry => ({ ...entry })); next[index] = { ...point }; return next;
+    },
+  } });
+  const press = (index, key) => host.listeners.get("keydown")({
+    target: { closest: () => ({ dataset: { node: String(index) } }) },
+    key, shiftKey: false, preventDefault() {},
+  });
+
+  press(1, "ArrowUp");
+  near(control.state.points[1].x, .41); near(control.state.points[1].y, 1);
+  press(1, "ArrowDown");
+  near(control.state.points[1].x, .4); near(control.state.points[1].y, 1);
+  press(3, "ArrowRight");
+  near(control.state.points[3].x, .7); near(control.state.points[3].y, .61);
+  press(3, "ArrowLeft");
+  near(control.state.points[3].x, .7); near(control.state.points[3].y, .6);
+});
+
+test("pointer cancellation restores the envelope at gesture start", () => {
+  const host = controlHost();
+  host.releasePointerCapture = () => {};
+  host.querySelector = selector => selector === "[data-editor]" ? {
+    getBoundingClientRect: () => ({ left: 0, top: 0, width: 100, height: 100 }),
+  } : null;
+  let changes = 0;
+  const control = createAmplitudeControl(host, { onChange: () => { changes += 1; } });
+  const before = control.captureState();
+  host.listeners.get("pointerdown")({
+    target: { closest: () => ({ dataset: { node: "1" } }) },
+    pointerId: 9, button: 0, isPrimary: true, clientX: 40, clientY: 30, preventDefault() {},
+  });
+  assert.notDeepEqual(control.captureState().points, before.points);
+  host.listeners.get("pointercancel")({ pointerId: 9 });
+  assert.deepEqual(control.captureState().points, before.points);
+  assert.equal(control.captureState().preset, before.preset);
+  assert.equal(changes, 2, "the live edit and rollback are both observable");
+});
+
 test("destroy releases pointer ownership and removes shared editor listeners", () => {
   const host = controlHost(), released = [];
   host.removeEventListener = (type, callback) => { if (host.listeners.get(type) === callback) host.listeners.delete(type); };

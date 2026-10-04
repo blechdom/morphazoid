@@ -46,6 +46,9 @@ const dateMetadata = (placementYear, sources) => {
   const years = milestoneYears.join(' / ');
   return {
     milestoneYears,
+    // Menus use the study's deliberately approximate chronological placement;
+    // the exact cited milestone language remains in the research metadata.
+    shortDateLabel: `~${Math.floor(placementYear / 10) * 10}s`,
     // `year` remains the menu-sort/display compatibility field, but now it is
     // always a cited milestone rather than an invented study date.
     year: milestoneYears.at(-1),
@@ -279,7 +282,7 @@ const studies = [
     chords: [[0, 3.8, 7.1, 10.9], [2.2, 6.4, 9.5, 14.1], [-3.1, 1.7, 8.3]], order: 'pendulum', velocityCycle: [.45, .72, .92, .6], rests: [11],
   }, { lineage: 'Phrase arpeggiators and independently patterned event parameters in modern software.', defaults: { steps: 36, tempoBpm: 138 }, testFocus: ['chord multiplex', 'parameter cycle', 'phrase transition'] }),
   d('bounded-random-walk', 'Bounded random walk', 'algorithmic', 'pattern-probability', 2022, 'markov', ['supercolliderHistory', 'supercolliderMarkov', 'strudel'], {
-    states: [-12, -7.1, -3.2, 0, 2.7, 6.4, 9.8, 14.1], transitions: [[.05, .55, .3, .1], [.2, .15, .45, .2], [.1, .25, .3, .25, .1]], maxLeap: 3,
+    states: [-12, -7.1, -3.2, 0, 2.7, 6.4, 9.8, 14.1], transitions: [[.05, .55, .3, .1], [.2, .15, .45, .2], [.1, .25, .3, .25, .1]], maxLeap: 2,
   }, { lineage: 'SuperCollider Pmarkov explicitly grounds Markov-chain patterns; Strudel supplies contemporary browser pattern context. Transition weights and pitches are original.', defaults: { steps: 48, seed: 2222, tempoBpm: 130 }, testFocus: ['seed reproducibility', 'bounded leap', 'register bounds'] }),
   d('density-breathing-stream', 'Density-breathing stream', 'algorithmic', 'pattern-probability', 2022, 'conditional-steps', ['strudel'], {
     cells: [{ note: -7.2, probability: .35 }, { note: -1.8, probability: .55 }, { note: 3.4, probability: .8 }, { note: 7.1, probability: .55 }, { note: 12.3, probability: .35 }], breathe: .4,

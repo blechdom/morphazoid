@@ -164,7 +164,14 @@ export function createAmplitudeControl(host, {
           const description = nodeDescription(point, index);
           const position = `left:${point.x * 100}%;top:${(1 - point.y) * 100}%`;
           if (fixedNodes.includes(index)) return `<span data-anchor="${index}" aria-label="${description}" title="${description}" style="${position}">${labels[index]}</span>`;
-          return `<button type="button" data-node="${index}" role="slider" aria-label="${labels[index]} envelope node" aria-valuetext="${description}" title="${description}" style="${position}" ${state.enabled ? "" : "disabled"}>${labels[index]}</button>`;
+          const aria = editorModel?.nodeAria?.(state.points, index) ?? {
+            min: 0, max: 1, value: point.x, orientation: "horizontal",
+          };
+          if (aria === false) {
+            return `<button type="button" data-node="${index}" aria-label="${description}" title="${description}" style="${position}" ${state.enabled ? "" : "disabled"}>${labels[index]}</button>`;
+          }
+          const slider = `role="slider" aria-orientation="${aria.orientation || "horizontal"}" aria-valuemin="${aria.min}" aria-valuemax="${aria.max}" aria-valuenow="${aria.value}"`;
+          return `<button type="button" data-node="${index}" ${slider} aria-label="${labels[index]} envelope node" aria-valuetext="${description}" title="${description}" style="${position}" ${state.enabled ? "" : "disabled"}>${labels[index]}</button>`;
         }).join("")}
       </div>
       ${editorModel?.axis ? `<div class="shared-amplitude-time-axis">${editorModel.axis(state.points).map(value => `<span>${value}</span>`).join("")}</div>` : usesMilliseconds ? `<div class="shared-amplitude-time-axis"><span>0 ms</span><span>log time</span><span>Release ${releaseTime}</span></div>` : ""}
@@ -204,7 +211,12 @@ export function createAmplitudeControl(host, {
   listen("pointerdown", (event) => {
     const node = event.target.closest?.("[data-node]");
     if (!node || !state.enabled || fixedNodes.includes(Number(node.dataset.node)) || dragging || event.button > 0 || event.isPrimary === false) return;
-    dragging = { index: Number(node.dataset.node), pointerId: event.pointerId };
+    dragging = {
+      index: Number(node.dataset.node),
+      pointerId: event.pointerId,
+      points: state.points.map(({ x, y }) => ({ x, y })),
+      preset: state.preset,
+    };
     host.setPointerCapture?.(event.pointerId);
     state.points = moveNode(state.points, dragging.index, pointFromEvent(event));
     state.preset = "custom";
@@ -224,9 +236,20 @@ export function createAmplitudeControl(host, {
     if (!node || !state.enabled || !["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(event.key)) return;
     event.preventDefault();
     const index = Number(node.dataset.node), point = state.points[index], step = event.shiftKey ? 0.05 : 0.01;
+    const aria = editorModel?.nodeAria?.(state.points, index);
+    const direction = ["ArrowRight", "ArrowUp"].includes(event.key) ? 1 : -1;
+    const constrained = aria && aria !== false;
+    const horizontal = !constrained || aria.orientation !== "vertical";
+    const vertical = !constrained || aria.orientation === "vertical";
+    const xDelta = constrained
+      ? (horizontal ? direction * step : 0)
+      : event.key === "ArrowRight" ? step : event.key === "ArrowLeft" ? -step : 0;
+    const yDelta = constrained
+      ? (vertical ? direction * step : 0)
+      : event.key === "ArrowUp" ? step : event.key === "ArrowDown" ? -step : 0;
     state.points = moveNode(state.points, index, {
-      x: point.x + (event.key === "ArrowRight" ? step : event.key === "ArrowLeft" ? -step : 0),
-      y: point.y + (event.key === "ArrowUp" ? step : event.key === "ArrowDown" ? -step : 0),
+      x: point.x + xDelta,
+      y: point.y + yDelta,
     });
     state.preset = "custom";
     render();
@@ -235,12 +258,20 @@ export function createAmplitudeControl(host, {
     // focus afterwards so constrained/no-op keyboard edits keep their node.
     host.querySelector?.(`[data-node="${index}"]`)?.focus();
   });
-  for (const type of ["pointerup", "pointercancel", "lostpointercapture"]) listen(type, event => {
+  const finishPointer = (event, rollback = false) => {
     if (!dragging || event.pointerId !== dragging.pointerId) return;
-    const pointerId = dragging.pointerId;
+    const { pointerId, points, preset } = dragging;
     dragging = null;
     try { host?.releasePointerCapture?.(pointerId); } catch { /* Automatic release already happened. */ }
-  });
+    if (!rollback) return;
+    state.points = points;
+    state.preset = preset;
+    render();
+    onChange(controller);
+  };
+  listen("pointerup", event => finishPointer(event));
+  listen("lostpointercapture", event => finishPointer(event));
+  listen("pointercancel", event => finishPointer(event, true));
   render();
   return controller;
 }

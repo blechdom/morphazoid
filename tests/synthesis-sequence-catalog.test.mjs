@@ -49,6 +49,8 @@ test('sequence compendium spans five historical eras with original, neutral stud
     assert.equal(brands.test(study.cue), false, `${study.id}: cue stays neutral`);
     assert.ok(study.lineage.length > 20);
     assert.ok(study.cue.length > 20);
+    assert.equal(study.shortDateLabel, `~${Math.floor(study.placementYear / 10) * 10}s`);
+    assert.match(study.shortDateLabel, /^~(?:19|20)\d0s$/);
     assert.match(study.dateLabel, /^(?:\d{4} documented milestone|after \d{4} documented milestone|based on \d{4}(?: \/ \d{4})+ documented sources)$/);
     assert.equal(/lineage|invention/i.test(study.dateLabel), false);
     assert.ok(study.dateKind.length > 3);

@@ -1235,6 +1235,7 @@ copy+require	src/instruments/synthesis/synthesis.css
 copy+require	src/instruments/synthesis/envelope.js
 copy+require	src/instruments/synthesis/envelope-presets.js
 copy+require	src/instruments/synthesis/controls.js
+copy+require	src/instruments/synthesis/method-ui.js
 copy+require	src/instruments/synthesis/choose.js
 copy+require	src/instruments/synthesis/knob.js
 copy+require	src/instruments/synthesis/demo-sources.js

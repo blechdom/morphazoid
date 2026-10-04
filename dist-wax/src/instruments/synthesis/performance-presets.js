@@ -9,6 +9,7 @@ import { captureSoundState } from './presets.js';
 import { SEQUENCE_STUDIES, getSequenceStudy } from './sequence-catalog.js';
 import {
   createSequenceParameterValues,
+  getSequenceParameterBounds,
   getSequenceParameterDefinitions,
 } from './sequence-parameters.js';
 import { TUNINGS, sanitizeTuningId } from './tunings.js';
@@ -157,20 +158,24 @@ const recipeFor = recipeOrId => {
   return recipe;
 };
 
-const quantizeNumber = (definition, value) => {
-  const steps = Math.round((value - definition.min) / definition.step);
-  const quantized = definition.min + steps * definition.step;
-  return Number(clamp(quantized, definition.min, definition.max, definition.default).toFixed(10));
+const quantizeNumber = (definition, value, bounds = definition) => {
+  const minimum = finite(bounds.min, definition.min);
+  const maximum = Math.max(minimum, finite(bounds.max, definition.max));
+  const steps = Math.round((value - minimum) / definition.step);
+  const quantized = minimum + steps * definition.step;
+  return Number(clamp(quantized, minimum, maximum, definition.default).toFixed(10));
 };
 
-const shiftedNumber = (definition, recipe, index) => {
-  const span = definition.max - definition.min;
-  if (!(span > 0)) return definition.default;
-  const original = (definition.default - definition.min) / span;
+const shiftedNumber = (definition, recipe, index, bounds, currentValue) => {
+  const span = bounds.max - bounds.min;
+  if (!(span > 0)) return bounds.min;
+  const current = clamp(currentValue, bounds.min, bounds.max, definition.default);
+  const original = (current - bounds.min) / span;
   const direction = recipe.id === 'wild' && index % 2 ? -1 : 1;
   return quantizeNumber(
     definition,
-    definition.min + span * clamp(original + recipe.mechanismShift * direction, 0, 1, original),
+    bounds.min + span * clamp(original + recipe.mechanismShift * direction, 0, 1, original),
+    bounds,
   );
 };
 
@@ -186,11 +191,27 @@ const selectForRecipe = (definition, recipe) => {
   return definition.choices[wrap(original + recipe.selectOffset, definition.choices.length)].value;
 };
 
+const dependencySafeDefinitions = study => {
+  const definitions = getSequenceParameterDefinitions(study);
+  if (study.archetype !== 'euclidean') return definitions;
+  const slots = definitions.findIndex(definition => definition.id === 'euclideanSteps');
+  const pulses = definitions.findIndex(definition => definition.id === 'pulses');
+  if (slots < 0 || pulses < 0 || slots < pulses) return definitions;
+  const ordered = [...definitions];
+  const [definition] = ordered.splice(slots, 1);
+  ordered.splice(pulses, 0, definition);
+  return ordered;
+};
+
+const effectiveBounds = (study, definition, values) => (
+  getSequenceParameterBounds(study, definition.id, values) || definition
+);
+
 function settingsValues(study, recipe) {
   const original = createSequenceParameterValues(study);
   if (recipe.id === 'original') return original;
-  const input = {
-    ...original,
+  const values = { ...original };
+  const cycleValues = {
     steps: original.steps * recipe.cycleScale,
     stepBeats: original.stepBeats * recipe.stepScale,
     density: recipe.density,
@@ -199,15 +220,29 @@ function settingsValues(study, recipe) {
     transpose: recipe.transpose ?? original.transpose,
     seed: hashText(`${study.id}:${recipe.id}`),
   };
-  let mechanismIndex = 0;
-  for (const definition of getSequenceParameterDefinitions(study)) {
-    if (definition.group !== 'mechanism') continue;
-    if (definition.type === 'number') input[definition.id] = shiftedNumber(definition, recipe, mechanismIndex);
-    else if (definition.type === 'boolean') input[definition.id] = booleanForRecipe(definition, recipe, mechanismIndex);
-    else input[definition.id] = selectForRecipe(definition, recipe);
-    mechanismIndex += 1;
+  const mechanismIndexes = new Map(getSequenceParameterDefinitions(study)
+    .filter(definition => definition.group === 'mechanism')
+    .map((definition, index) => [definition.id, index]));
+  for (const definition of dependencySafeDefinitions(study)) {
+    if (definition.group === 'cycle') {
+      if (Object.hasOwn(cycleValues, definition.id)) {
+        values[definition.id] = definition.type === 'number'
+          ? quantizeNumber(definition, cycleValues[definition.id], effectiveBounds(study, definition, values))
+          : cycleValues[definition.id];
+      }
+      continue;
+    }
+    const index = mechanismIndexes.get(definition.id);
+    if (definition.type === 'number') {
+      const bounds = effectiveBounds(study, definition, values);
+      values[definition.id] = shiftedNumber(definition, recipe, index, bounds, values[definition.id]);
+    } else if (definition.type === 'boolean') {
+      values[definition.id] = booleanForRecipe(definition, recipe, index);
+    } else {
+      values[definition.id] = selectForRecipe(definition, recipe);
+    }
   }
-  return createSequenceParameterValues(study, input);
+  return createSequenceParameterValues(study, values);
 }
 
 /** Build the six complete, mechanism-aware settings presets for one study. */
@@ -236,18 +271,22 @@ export function applySequenceSettingsRecipe(sequence, recipeOrId) {
   return SEQUENCE_SETTINGS_PRESETS[current.id].find(preset => preset.id.endsWith(`:${recipe.id}`)).snapshot;
 }
 
-const randomNumberValue = (definition, rng) => {
-  const raw = definition.min + (definition.max - definition.min) * unit(rng);
-  return quantizeNumber(definition, raw);
+const randomNumberValue = (definition, bounds, rng) => {
+  const count = Math.floor(Number(((bounds.max - bounds.min) / definition.step).toPrecision(12)));
+  const index = Math.min(count, Math.floor(unit(rng) * (count + 1)));
+  return quantizeNumber(definition, bounds.min + index * definition.step, bounds);
 };
 
 /** Randomize every exposed cycle and mechanism parameter for one study. */
 export function randomizeSequenceParameters(studyOrId, inputOrRng = {}, maybeRng = Math.random) {
   const study = resolveStudy(studyOrId);
   const rng = typeof inputOrRng === 'function' ? inputOrRng : maybeRng;
-  const values = {};
-  for (const definition of getSequenceParameterDefinitions(study)) {
-    if (definition.type === 'number') values[definition.id] = randomNumberValue(definition, rng);
+  const input = typeof inputOrRng === 'function' ? {} : inputOrRng;
+  const values = { ...createSequenceParameterValues(study, input) };
+  for (const definition of dependencySafeDefinitions(study)) {
+    if (definition.type === 'number') {
+      values[definition.id] = randomNumberValue(definition, effectiveBounds(study, definition, values), rng);
+    }
     else if (definition.type === 'boolean') values[definition.id] = unit(rng) >= .5;
     else values[definition.id] = pick(definition.choices, rng).value;
   }
@@ -259,7 +298,7 @@ export function randomizeSequenceSettings(sequence, rng = Math.random) {
   const current = sanitizeSequencePerformance(sequence);
   return sanitizeSequencePerformance({
     id: current.id,
-    parameters: randomizeSequenceParameters(current.id, rng),
+    parameters: randomizeSequenceParameters(current.id, current.parameters, rng),
     tempoBpm: MIN_RANDOM_TEMPO + (MAX_RANDOM_TEMPO - MIN_RANDOM_TEMPO) * unit(rng),
   });
 }
@@ -413,13 +452,17 @@ export function randomizeMasterPerformance(value = {}, rng = Math.random) {
   const method = pick(SYNTHESIS_METHODS, rng);
   const study = pick(SEQUENCE_STUDIES, rng);
   const tuning = pick(TUNINGS, rng);
+  const voiceMode = pick(['mono', 'poly'], rng);
   const initial = {
     ...createDefaultState(method.id),
     outputLevel: performer.outputLevel,
-    voiceMode: performer.voiceMode,
+    voiceMode,
     tuningId: tuning.id,
   };
   const sound = randomizeState(initial, rng);
   const sequence = randomizeSequenceSettings({ id: study.id }, rng);
-  return applyPerformanceSnapshot({ sound, sequence, tuningId: tuning.id }, performer);
+  return applyPerformanceSnapshot(
+    { sound, sequence, tuningId: tuning.id },
+    { ...performer, voiceMode },
+  );
 }

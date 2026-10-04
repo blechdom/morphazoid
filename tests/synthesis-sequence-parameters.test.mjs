@@ -5,6 +5,7 @@ import { SEQUENCE_ARCHETYPES, SEQUENCE_CONFIG_KEYS } from '../src/instruments/sy
 import {
   applySequenceParameterValues,
   createSequenceParameterValues,
+  getSequenceParameterBounds,
   getSequenceParameterDefinitions,
 } from '../src/instruments/synthesis/sequence-parameters.js';
 
@@ -22,7 +23,7 @@ test('every catalog study exposes common cycle controls and specific mechanism c
     const mechanism = definitions.filter(definition => definition.group === 'mechanism');
 
     assert.deepEqual(common.map(definition => definition.id), COMMON_IDS, `${study.id}: common controls`);
-    assert.ok(mechanism.length >= 2 && mechanism.length <= 4, `${study.id}: mechanism control count`);
+    assert.ok(mechanism.length >= 2 && mechanism.length <= 6, `${study.id}: mechanism control count`);
     assert.equal(new Set(ids).size, ids.length, `${study.id}: unique parameter IDs`);
     assert.ok(Object.isFrozen(definitions), `${study.id}: immutable definitions`);
 
@@ -80,7 +81,7 @@ test('runtime values are sanitized, dependent Euclidean values stay valid, and u
     pitchMode: 'nearest',
     pulses: 3,
     euclideanSteps: 3,
-    rotation: -64,
+    rotation: 0,
     pitchRotation: 0,
   });
   assert.equal(Object.hasOwn(values, 'unknown'), false);
@@ -100,6 +101,122 @@ test('runtime values are sanitized, dependent Euclidean values stay valid, and u
   assert.equal(fallback.order, 'up');
   assert.throws(() => createSequenceParameterValues('missing-study'), RangeError);
   assert.throws(() => getSequenceParameterDefinitions({}), TypeError);
+});
+
+test('rotation and generation controls expose only distinct, currently audible states', () => {
+  const definition = (id, parameter) => getSequenceParameterDefinitions(id).find(item => item.id === parameter);
+  assert.deepEqual(
+    { min: definition('tracker-row-steps', 'rowRotation').min, max: definition('tracker-row-steps', 'rowRotation').max },
+    { min: -3, max: 4 },
+  );
+  assert.deepEqual(getSequenceParameterBounds('rotating-euclidean-chords', 'pulses', { euclideanSteps: 5 }), { min: 0, max: 5 });
+  assert.deepEqual(getSequenceParameterBounds('rotating-euclidean-chords', 'rotation', { euclideanSteps: 5, pulses: 2 }), { min: -2, max: 2 });
+  assert.deepEqual(getSequenceParameterBounds('groove-template-shift', 'rotateEvery', { steps: 17 }), { min: 0, max: 2 });
+  assert.deepEqual(getSequenceParameterBounds('mutable-cell-loop', 'generations', { steps: 17 }), { min: 1, max: 3 });
+  assert.deepEqual(getSequenceParameterBounds('mutable-cell-loop', 'mirrorEvery', { steps: 17, generations: 2 }), { min: 0, max: 1 });
+  assert.deepEqual(getSequenceParameterBounds('syncopated-key-cycle', 'restShift', { steps: 8 }), { min: -3, max: 4 });
+  assert.equal(definition('bounded-random-walk', 'maxLeap').max, 2);
+});
+
+test('periodic offsets expose one representative for each distinct residue', () => {
+  const definition = (id, parameter) => getSequenceParameterDefinitions(id).find(item => item.id === parameter);
+  const gate = definition('three-row-voltage-walk', 'gateRotation');
+  assert.deepEqual({ min: gate.min, max: gate.max }, { min: -1, max: 2 }, 'the repeated eight-gate row has period four');
+  const gateRows = Array.from({ length: gate.max - gate.min + 1 }, (_, index) => (
+    applySequenceParameterValues('three-row-voltage-walk', { gateRotation: gate.min + index }).config.gates
+  ));
+  assert.equal(new Set(gateRows.map(JSON.stringify)).size, gateRows.length, 'every exposed gate rotation is distinct');
+
+  const chain = definition('transposable-phrase-memory', 'chainRotation');
+  assert.deepEqual({ min: chain.min, max: chain.max }, { min: 0, max: 1 }, 'the four-entry alternating chain has period two');
+  const chains = Array.from({ length: chain.max - chain.min + 1 }, (_, index) => (
+    applySequenceParameterValues('transposable-phrase-memory', { chainRotation: chain.min + index }).config.chain
+  ));
+  assert.equal(new Set(chains.map(JSON.stringify)).size, chains.length, 'every exposed chain rotation is distinct');
+
+  assert.deepEqual(getSequenceParameterBounds('perforated-ratio-canon', 'phaseShift', {}), { min: -14, max: 15 });
+  assert.deepEqual(getSequenceParameterBounds('perforated-ratio-canon', 'phaseShift', { periodScale: .5 }), { min: -2, max: 3 });
+  assert.deepEqual(getSequenceParameterBounds('perforated-ratio-canon', 'phaseShift', { periodScale: 2 }), { min: -29, max: 30 });
+  const wideCanon = getSequenceParameterBounds('perforated-ratio-canon', 'phaseShift', { periodScale: 3.75 });
+  const canonPhases = Array.from({ length: wideCanon.max - wideCanon.min + 1 }, (_, index) => (
+    applySequenceParameterValues('perforated-ratio-canon', { periodScale: 3.75, phaseShift: wideCanon.min + index })
+      .config.voices.map(voice => voice.phase || 0)
+  ));
+  assert.equal(new Set(canonPhases.map(JSON.stringify)).size, canonPhases.length, 'every LCM residue produces a distinct phase tuple');
+});
+
+test('rendered length and traversal choices remove inaudible octave and repeat aliases', () => {
+  for (const order of ['up', 'played', 'pendulum']) {
+    assert.deepEqual(
+      getSequenceParameterBounds('rising-latched-chord', 'octaves', { steps: 5, order }),
+      { min: 1, max: 2 },
+      order,
+    );
+    assert.equal(createSequenceParameterValues('rising-latched-chord', { steps: 5, order, octaves: 8 }).octaves, 2);
+  }
+  for (const order of ['down', 'inside-out', 'outside-in']) {
+    assert.deepEqual(
+      getSequenceParameterBounds('rising-latched-chord', 'octaves', { steps: 5, order }),
+      { min: 1, max: 8 },
+      order,
+    );
+    assert.equal(createSequenceParameterValues('rising-latched-chord', { steps: 5, order, octaves: 8 }).octaves, 8);
+  }
+
+  assert.deepEqual(getSequenceParameterBounds('captured-order-latch', 'repeats', { steps: 13, order: 'up' }), { min: 1, max: 4 });
+  assert.deepEqual(getSequenceParameterBounds('captured-order-latch', 'repeats', { steps: 13, order: 'pendulum' }), { min: 1, max: 3 });
+  assert.equal(createSequenceParameterValues('captured-order-latch', { steps: 13, order: 'pendulum', repeats: 8 }).repeats, 3);
+});
+
+test('Euclidean slot and rotation domains follow the rendered and fundamental periods', () => {
+  assert.deepEqual(
+    getSequenceParameterBounds('euclidean-pulse-rotation', 'euclideanSteps', { steps: 12, pulses: 7 }),
+    { min: 7, max: 12 },
+  );
+  assert.deepEqual(getSequenceParameterBounds('euclidean-pulse-rotation', 'rotation', { steps: 16, euclideanSteps: 8, pulses: 0 }), { min: 0, max: 0 });
+  assert.deepEqual(getSequenceParameterBounds('euclidean-pulse-rotation', 'rotation', { steps: 16, euclideanSteps: 8, pulses: 8 }), { min: 0, max: 0 });
+  assert.deepEqual(getSequenceParameterBounds('euclidean-pulse-rotation', 'rotation', { steps: 16, euclideanSteps: 8, pulses: 2 }), { min: -1, max: 2 });
+  assert.deepEqual(getSequenceParameterBounds('euclidean-pulse-rotation', 'rotation', { steps: 16, euclideanSteps: 8, pulses: 3 }), { min: -3, max: 4 });
+  assert.deepEqual(
+    createSequenceParameterValues('euclidean-pulse-rotation', { steps: 8, pulses: 20, euclideanSteps: 30, rotation: 7 }),
+    {
+      steps: 8, stepBeats: .125, transpose: 0, density: 1, swing: 0, gate: .72, seed: 1,
+      pitchMode: 'nearest', pulses: 8, euclideanSteps: 8, rotation: 0, pitchRotation: 0,
+    },
+  );
+});
+
+test('numeric parameters snap to their declared finite step before reaching state or audio config', () => {
+  const values = createSequenceParameterValues('perforated-ratio-canon', {
+    density: .555,
+    transpose: .15,
+    periodScale: .3,
+    ratioSpread: 1.234,
+    ramp: .456,
+  });
+  assert.equal(values.density, .56);
+  assert.equal(values.transpose, .2);
+  assert.equal(values.periodScale, .25);
+  assert.equal(values.ratioSpread, 1.23);
+  assert.equal(values.ramp, .46);
+
+  const applied = applySequenceParameterValues('perforated-ratio-canon', { periodScale: .3, ramp: .456 });
+  assert.equal(applied.values.periodScale, .25);
+  assert.equal(applied.config.ramp, .46);
+  assert.deepEqual(applied.config.voices.map(voice => voice.period), [1, 1, 1]);
+});
+
+test('partial bound queries merge authored defaults before deriving dependent ranges', () => {
+  assert.deepEqual(getSequenceParameterBounds('live-transform-mirror', 'mirrorEvery', {}), { min: 0, max: 3 });
+  assert.deepEqual(getSequenceParameterBounds('live-transform-mirror', 'mirrorEvery', { steps: 17 }), { min: 0, max: 2 });
+  assert.deepEqual(getSequenceParameterBounds('live-transform-mirror', 'mirrorEvery', { steps: 17, generations: 2 }), { min: 0, max: 1 });
+
+  for (const study of SEQUENCE_STUDIES) {
+    for (const definition of getSequenceParameterDefinitions(study).filter(candidate => candidate.type === 'number')) {
+      const bounds = getSequenceParameterBounds(study, definition.id, {});
+      assert.ok(definition.default >= bounds.min && definition.default <= bounds.max, `${study.id}.${definition.id}: authored default remains selectable`);
+    }
+  }
 });
 
 test('applying default values clones frozen studies without changing their authored config', () => {
@@ -188,7 +305,26 @@ test('representative mechanism controls alter the intended nested data without f
   assert.ok(groove.config.timing.every(value => value === 1));
   assert.deepEqual(groove.config.notes, SEQUENCE_STUDIES.find(study => study.id === 'groove-template-shift').config.notes);
 
+  const rotatedGroove = applySequenceParameterValues('groove-template-shift', { patternRotation: 1 });
+  const originalGroove = SEQUENCE_STUDIES.find(study => study.id === 'groove-template-shift').config;
+  assert.deepEqual(rotatedGroove.config.notes[0], originalGroove.notes.at(-1));
+  assert.equal(rotatedGroove.config.timing[0], originalGroove.timing.at(-1));
+
   const conditional = applySequenceParameterValues('modular-logic-gates', { probabilityScale: .5, offsetShift: 2 });
   assert.ok(conditional.config.cells.every(cell => cell.probability <= .5));
   assert.ok(conditional.config.cells.filter(cell => cell.every != null).every(cell => Number.isInteger(cell.offset)));
+});
+
+test('study-specific controls are only exposed when their authored signal path can use them', () => {
+  const ids = id => getSequenceParameterDefinitions(id).map(definition => definition.id);
+  assert.ok(ids('drawn-density-bands').includes('invertMasks'));
+  assert.ok(!ids('drawn-pitch-ribbon').includes('invertMasks'));
+  assert.ok(ids('three-row-voltage-walk').includes('secondVoice'));
+  assert.ok(!ids('addressed-stage-skip').includes('secondVoice'));
+  assert.ok(ids('syncopated-key-cycle').includes('restShift'));
+  assert.ok(!ids('captured-order-latch').includes('restShift'));
+  assert.ok(ids('recurring-conditional-steps').includes('periodScale'));
+  assert.ok(!ids('chance-weighted-steps').includes('periodScale'));
+  assert.ok(ids('tracker-effect-memory').includes('carryGate'));
+  assert.ok(!ids('locked-parameter-line').includes('carryGate'));
 });
