@@ -28,7 +28,7 @@ test('section banks partition every preset and keep grouped method order',()=>{
     assert.deepEqual(SECTION_PRESETS[section].map(p=>p.id), SECTION_METHODS[section].flatMap(m=>m.presets.map(p=>m.id+':'+p.id)));
   }
   assert.equal(SECTION_PRESETS.synthesis.length,424);
-  assert.equal(SECTION_PRESETS.processing.length,128);
+  assert.equal(SECTION_PRESETS.processing.length,SECTION_METHODS.processing.length * 8);
   assert.equal(new Set(Object.values(SECTION_PRESETS).flat().map(p=>p.id)).size,SYNTHESAURUS_FULL_PRESETS.length);
 });
 

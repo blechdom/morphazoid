@@ -66,6 +66,12 @@ impl Fixture {
         assert!(param_value(self.plugin, id as u32, &mut out));
         out
     }
+    unsafe fn restart(&self) {
+        stop(self.plugin);
+        deactivate(self.plugin);
+        assert!(activate(self.plugin, 48000., 1, 4096));
+        assert!(start(self.plugin));
+    }
 }
 impl Drop for Fixture {
     fn drop(&mut self) {
@@ -198,6 +204,13 @@ fn every_effect_accepts_pcm_without_allocating_or_enabling_test_sources() {
         let input: Vec<_> = (0..4096).map(|i| (i as f32 * 0.11).sin() * 0.15).collect();
         for method in 0..PROCESSOR_NAMES.len() {
             f.flush(&[(METHOD, method as f64), (PRESET, 0.)]);
+            if instance(f.plugin).restart_pending.load(Ordering::Acquire) {
+                f.restart();
+            }
+            assert_eq!(
+                audio(instance(f.plugin)).bank.as_ref().unwrap().method(),
+                method
+            );
             assert_eq!(f.value(SOURCE), 0.);
             assert_eq!(f.value(TEST_ON), 0.);
             reset(f.plugin);
@@ -331,5 +344,166 @@ fn sixty_four_bit_stereo_pcm_reaches_the_processor() {
         assert_eq!(process(f.plugin, &p), CLAP_PROCESS_CONTINUE);
         assert!(output_l.iter().all(|v| (*v - 0.17).abs() < 1e-7));
         assert!(output_r.iter().all(|v| (*v + 0.23).abs() < 1e-7));
+    }
+}
+
+unsafe extern "C" fn requested_restart(host: *const clap_host) {
+    let counts = &*(*host).host_data.cast::<[AtomicU32; 2]>();
+    counts[0].fetch_add(1, Ordering::Relaxed);
+}
+unsafe extern "C" fn latency_changed(host: *const clap_host) {
+    let counts = &*(*host).host_data.cast::<[AtomicU32; 2]>();
+    counts[1].fetch_add(1, Ordering::Relaxed);
+}
+static HOST_LATENCY: clap_host_latency = clap_host_latency {
+    changed: Some(latency_changed),
+};
+unsafe extern "C" fn host_extension(_: *const clap_host, id: *const c_char) -> *const c_void {
+    if CStr::from_ptr(id) == CLAP_EXT_LATENCY {
+        (&HOST_LATENCY as *const clap_host_latency).cast()
+    } else {
+        ptr::null()
+    }
+}
+
+#[test]
+fn spectral_latency_changes_only_on_reactivation_and_bypass_remains_immediate() {
+    unsafe {
+        let counts = Box::new([AtomicU32::new(0), AtomicU32::new(0)]);
+        let mut f = Fixture::new();
+        f._host.host_data = (&*counts as *const [AtomicU32; 2]).cast_mut().cast();
+        f._host.get_extension = Some(host_extension);
+        f._host.request_restart = Some(requested_restart);
+        let latency = extension(f.plugin, CLAP_EXT_LATENCY.as_ptr()).cast::<clap_plugin_latency>();
+        assert!(!latency.is_null());
+        assert_eq!(((*latency).get.unwrap())(f.plugin), 0);
+        f.flush(&[
+            (METHOD, 16.),
+            (PRESET, 0.),
+            (INPUT, 0.),
+            (OUTPUT, 0.),
+            (WET, 0.5),
+        ]);
+        assert_eq!(
+            counts[0].load(Ordering::Relaxed),
+            1,
+            "coalesce restart requests"
+        );
+        assert_eq!(
+            counts[1].load(Ordering::Relaxed),
+            0,
+            "no active latency notification"
+        );
+        assert_eq!(get_latency(f.plugin), 0);
+        assert_eq!(
+            audio(instance(f.plugin)).bank.as_ref().unwrap().method(),
+            0,
+            "old DSP stays active until restart"
+        );
+        f.restart();
+        assert_eq!(counts[1].load(Ordering::Relaxed), 1);
+        assert_eq!(get_latency(f.plugin), 1024);
+        let input: Vec<_> = (0..4096).map(|i| (i as f32 * 0.071).sin() * 0.2).collect();
+        let right: Vec<_> = input.iter().map(|x| -*x * 0.5).collect();
+        let out = render(&f, &input, &right, vec![], true);
+        for i in 1024..4096 {
+            assert!((out[0][i] - input[i - 1024]).abs() < 5e-6);
+            assert!((out[1][i] - right[i - 1024]).abs() < 5e-6);
+        }
+        f.flush(&[(BYPASS, 1.)]);
+        assert_eq!(
+            get_latency(f.plugin),
+            1024,
+            "bypass cannot change active latency"
+        );
+        assert_eq!(counts[0].load(Ordering::Relaxed), 2);
+        f.restart();
+        assert_eq!(get_latency(f.plugin), 0);
+        assert_eq!(counts[1].load(Ordering::Relaxed), 2);
+        let out = render(&f, &input, &right, vec![], true);
+        assert_eq!(out[0], input);
+        assert_eq!(out[1], right);
+    }
+}
+
+#[test]
+fn hosts_without_restart_keep_old_dsp_and_new_noise_sources_have_names() {
+    unsafe {
+        let f = Fixture::new();
+        f.flush(&[(METHOD, 16.)]);
+        assert_eq!(
+            f.value(METHOD),
+            16.,
+            "requested selection is retained for next activation"
+        );
+        assert_eq!(audio(instance(f.plugin)).bank.as_ref().unwrap().method(), 0);
+        assert_eq!(get_latency(f.plugin), 0);
+        f.restart();
+        assert_eq!(
+            audio(instance(f.plugin)).bank.as_ref().unwrap().method(),
+            16
+        );
+        for source in 8..=10 {
+            f.flush(&[(SOURCE, source as f64), (TEST_ON, 1.)]);
+            assert_eq!(f.value(SOURCE), source as f64);
+            let mut name = [0; 64];
+            assert!(value_text(
+                f.plugin,
+                SOURCE as u32,
+                source as f64,
+                name.as_mut_ptr(),
+                name.len() as u32
+            ));
+            assert_eq!(
+                CStr::from_ptr(name.as_ptr()).to_str().unwrap(),
+                SOURCE_NAMES[source]
+            );
+            reset(f.plugin);
+            let zero = [0.; 4096];
+            let out = render(&f, &zero, &zero, vec![], true);
+            assert!(out[0].iter().any(|x| x.abs() > 0.01));
+        }
+    }
+}
+
+#[test]
+fn spectral_state_restore_queues_latency_and_lifecycle_stop_releases_freeze() {
+    unsafe {
+        let f = Fixture::new();
+        f.flush(&[(METHOD, 16.), (PRESET, 4.), (INPUT, 0.), (OUTPUT, 0.)]);
+        f.restart();
+        let mut memory = Memory {
+            bytes: vec![],
+            offset: 0,
+        };
+        let stream = clap_ostream {
+            ctx: (&mut memory as *mut Memory).cast(),
+            write: Some(write),
+        };
+        assert!(save(f.plugin, &stream));
+        f.flush(&[(METHOD, 0.)]);
+        f.restart();
+        let stream = clap_istream {
+            ctx: (&mut memory as *mut Memory).cast(),
+            read: Some(read),
+        };
+        assert!(load(f.plugin, &stream));
+        let zero = [0.; 4096];
+        render(&f, &zero, &zero, vec![], true);
+        assert_eq!(f.value(METHOD), 16.);
+        assert_eq!(get_latency(f.plugin), 0);
+        assert_eq!(audio(instance(f.plugin)).bank.as_ref().unwrap().method(), 0);
+        f.restart();
+        assert_eq!(get_latency(f.plugin), 1024);
+        let input: Vec<_> = (0..4096).map(|i| (i as f32 * 0.057).sin() * 0.2).collect();
+        render(&f, &input, &input, vec![], true);
+        let held = render(&f, &zero, &zero, vec![], true);
+        assert!(held[0][2048..].iter().any(|x| x.abs() > 0.02));
+        stop(f.plugin);
+        assert!(start(f.plugin));
+        let released = render(&f, &zero, &zero, vec![], true);
+        assert!(released
+            .iter()
+            .all(|channel| channel[2048..].iter().all(|x| x.abs() < 1e-7)));
     }
 }

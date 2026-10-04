@@ -1,6 +1,6 @@
 # Synthesaurus chronology research
 
-Synthesaurus uses one sourced historical anchor for each of its 69 synthesis and processing methods. These dates are not presented as a uniform list of inventions. The label beside a method always includes an evidence type—publication, patent filing, product milestone, precursor or another specific category—because those events answer different historical questions.
+Synthesaurus uses a sourced historical anchor for each of its 70 synthesis and processing methods. These dates are not presented as a uniform list of inventions. The collected [reference page](../synthesaurus-reference.html) explains the evidence type—publication, patent filing, product milestone, precursor or another specific category—because those events answer different historical questions. Performance menus keep only concise names and dates where useful; the reference retains the context.
 
 The previous chronology used “by 1996” for 32 entries when Curtis Roads’s *The Computer Music Tutorial* established only that a method had been documented by then. That was a bibliography fallback, not a meaningful date for the individual method. Those fallback dates have been removed.
 

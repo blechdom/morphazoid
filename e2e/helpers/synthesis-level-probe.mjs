@@ -82,8 +82,16 @@ export async function installSynthesisLevelProbe(page) {
       return result;
     }
     window.__captureSynthesaurusPreset = (presetId, seconds) => new Promise((resolve, reject) => {
-      const button = document.querySelector('[data-full-preset][data-preset-id="' + presetId + '"]');
-      if (!button) { reject(new Error('Missing synthesis preset ' + presetId)); return; }
+      const [methodId, localId] = presetId.split(':');
+      const method = document.getElementById('methodSelect');
+      if (method.value !== methodId) {
+        method.value = methodId;
+        method.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+      const preset = document.getElementById('presetSelect');
+      if (![...preset.options].some(option => option.value === localId)) {
+        reject(new Error('Missing synthesis preset ' + presetId)); return;
+      }
       const id = ++sequence;
       const timer = setTimeout(() => reject(new Error('Audio capture timed out')), seconds * 1000 + 10000);
       tap.port.onmessage = ({ data }) => {
@@ -95,7 +103,8 @@ export async function installSynthesisLevelProbe(page) {
       tap.port.postMessage({ type: 'capture', id, frames: Math.ceil(seconds * context.sampleRate) });
       // Dispatch the production recall handler in the same task as capture,
       // avoiding UI automation delays before a very short attack.
-      button.click();
+      preset.value = localId;
+      preset.dispatchEvent(new Event('change', { bubbles: true }));
     });
     return { sampleRate: context.sampleRate, masterGain: master.gain.value };
   });

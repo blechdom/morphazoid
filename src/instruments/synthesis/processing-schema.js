@@ -1,4 +1,20 @@
 // Physical schemas for the shared stereo Rust processor bank.
+const spectralParams = [
+  { label: 'Mode', min: 0, max: 3, default: 1, unit: '', scale: 'linear', choices: ['Resynthesis', 'Spectral gate', 'Freeze', 'Spectral tilt'] },
+  { label: 'Threshold', min: -90, max: -12, default: -48, unit: 'dBFS', scale: 'linear', modes: [1] },
+  { label: 'Reduction', min: 0, max: 96, default: 48, unit: 'dB', scale: 'linear', modes: [1] },
+  { label: 'Response', min: .005, max: .5, default: .04, unit: 's', scale: 'log', modes: [1, 3] },
+  { label: 'Tilt', min: -12, max: 12, default: 0, unit: 'dB/oct', scale: 'linear', modes: [3] }
+].map((param, index) => ({ ...param, index, defaultNormalized: param.scale === 'log'
+  ? Math.log(param.default / param.min) / Math.log(param.max / param.min)
+  : (param.default - param.min) / (param.max - param.min) }));
+const spectralSchema = {
+  processorId: 16, id: 'spectral', name: 'FFT spectral processing', kind: 'processor',
+  defaultSource: 7, defaultFrequency: 220, latencyFrames: 1024, fftSize: 1024, hopFrames: 256,
+  params: spectralParams,
+  defaultParams: Array.from({ length: 16 }, (_, index) => spectralParams[index]?.defaultNormalized ?? 0)
+};
+
 export const PROCESSING_SCHEMA = {
   "version": 1,
   "blockFrames": 128,
@@ -11,7 +27,10 @@ export const PROCESSING_SCHEMA = {
     "Impulse train",
     "Pulse / saw",
     "Drum pattern",
-    "Voiced phrase"
+    "Voiced phrase",
+    "Pink noise",
+    "Brown noise",
+    "Gaussian white noise"
   ],
   "methods": [
     {
@@ -1322,6 +1341,7 @@ export const PROCESSING_SCHEMA = {
         0,
         0
       ]
-    }
+    },
+    spectralSchema
   ]
 };

@@ -1,4 +1,4 @@
-import { SEQUENCE_CHRONOLOGY, SEQUENCE_SOURCES } from './sequence-chronology.js';
+import { SEQUENCE_CHRONOLOGY, SEQUENCE_SOURCES, sequenceShortDateLabel } from './sequence-chronology.js';
 
 const deepFreeze = value => {
   if (value && typeof value === 'object' && !Object.isFrozen(value)) {
@@ -46,9 +46,8 @@ const dateMetadata = (placementYear, sources) => {
   const years = milestoneYears.join(' / ');
   return {
     milestoneYears,
-    // Menus use the study's deliberately approximate chronological placement;
-    // the exact cited milestone language remains in the research metadata.
-    shortDateLabel: `~${Math.floor(placementYear / 10) * 10}s`,
+    // Cite documented milestones in menus; placementYear only orders studies.
+    shortDateLabel: sequenceShortDateLabel(sources, placementYear),
     // `year` remains the menu-sort/display compatibility field, but now it is
     // always a cited milestone rather than an invented study date.
     year: milestoneYears.at(-1),

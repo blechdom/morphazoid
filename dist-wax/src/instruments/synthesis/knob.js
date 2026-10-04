@@ -3,10 +3,11 @@ import { enhanceRangeKnob } from "../../ui/primitives/range-knob.js";
 /** A native rotary range with physical-unit readout and optional precise entry. */
 export function createKnobControl(options, doc = globalThis.document) {
   const {
-    id, label, min = 0, max = 1, step = "any", value = min, unit = "",
-    scale = "linear", formatValue = number => `${Number(number.toPrecision(5))}${unit ? ` ${unit}` : ""}`,
+    id, label, min: initialMin = 0, max: initialMax = 1, step = "any", value = initialMin, unit = "",
+    scale = "linear", help = "", formatValue = number => `${Number(number.toPrecision(5))}${unit ? ` ${unit}` : ""}`,
     onInput = () => {}, editorId = `${id}-value`,
   } = options;
+  let min = initialMin, max = initialMax;
   const logarithmic = scale === "log" && min > 0 && max > min;
   const toSlider = options.toSlider || (logarithmic ? number => Math.log(number / min) / Math.log(max / min) : number => number);
   const fromSlider = options.fromSlider || (logarithmic ? number => min * (max / min) ** number : number => number);
@@ -35,6 +36,15 @@ export function createKnobControl(options, doc = globalThis.document) {
   editor.title = `${min}–${max}${unit ? ` ${unit}` : ""}`;
   editor.hidden = true;
   root.append(caption, dial, readout, editor);
+  if (help) {
+    const description = doc.createElement("span");
+    description.id = `${id}-help`; description.className = "sr-only"; description.textContent = help;
+    input.setAttribute("aria-describedby", description.id);
+    editor.setAttribute("aria-describedby", description.id);
+    readout.setAttribute("aria-describedby", description.id);
+    caption.title = root.title = help;
+    root.append(description);
+  }
   const knob = enhanceRangeKnob(input);
   const removers = [];
   let current = min;
@@ -96,6 +106,18 @@ export function createKnobControl(options, doc = globalThis.document) {
     if (disabled && editing) finishEdit(false);
     input.disabled = editor.disabled = readout.disabled = !!disabled;
     root.classList.toggle("is-disabled", !!disabled); knob.update();
+  };
+  root.setMinimum = next => {
+    if (!Number.isFinite(Number(next))) return min;
+    min = Math.min(Number(next), max); editor.min = String(min);
+    if (!Object.hasOwn(options, "sliderMin") && !logarithmic) input.min = String(min);
+    current = normalize(current); paint(); return min;
+  };
+  root.setMaximum = next => {
+    if (!Number.isFinite(Number(next))) return max;
+    max = Math.max(min, Number(next)); editor.max = String(max);
+    if (!Object.hasOwn(options, "sliderMax") && !logarithmic) input.max = String(max);
+    current = normalize(current); paint(); return max;
   };
   root.destroy = () => {
     if (destroyed) return;

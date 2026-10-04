@@ -1149,7 +1149,7 @@ export function sanitizeState(value = {}) {
     levelTrimDb: clamp(input.levelTrimDb, -36, 48, input.presetId === 'custom' ? method.referenceLevelTrimDb : preset.levelTrimDb),
     outputLevel: clamp(input.outputLevel, 0, 1, .7),
     ...(method.kind === 'processor' ? {
-      source: Math.round(clamp(input.source, 0, 7, preset.source)),
+      source: Math.round(clamp(input.source, 0, PROCESSING_SCHEMA.sources.length - 1, preset.source)),
       wet: clamp(input.wet, 0, 1, preset.wet), bypass: input.bypass === true,
       inputDb: clamp(input.inputDb, -36, 24, preset.inputDb), outputDb: clamp(input.outputDb, -36, 24, preset.outputDb),
     } : {}) };

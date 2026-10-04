@@ -112,8 +112,8 @@ export function createLinearControl(options, doc = globalThis.document) {
 }
 
 /** Method controls retain the full engine range through rotary and exact gestures. */
-export function createParameterControl(control, index, value, onInput) {
-  const id = `synth-param-${index}`;
+export function createParameterControl(control, index, value, onInput, { prefix = "synth-param" } = {}) {
+  const id = `${prefix}-${index}`;
   if (control.options) {
     const root = document.createElement("div");
     root.className = "synthesis-parameter synthesis-parameter-choice";
@@ -138,12 +138,7 @@ export function createParameterControl(control, index, value, onInput) {
   const physicalSlider = control.integer && control.scale !== "log";
   const toSlider = physical => physicalSlider ? physical : normalizedParameter(control, physical);
   const fromSlider = raw => physicalSlider ? raw : parameterValue(control, raw);
-  // Cyclic values benefit from a rotary affordance. Ordinary bounded values
-  // use a horizontal track so their range and relative position stay visible.
-  const cyclic = control.unit === "degrees" || control.unit === "cycles"
-    || /(?:^|-)rotation$|(?:^|-)phase$/.test(control.id);
-  const factory = cyclic ? createKnobControl : createLinearControl;
-  const root = factory({
+  const root = createKnobControl({
     id, label: control.label, min: control.min, max: control.max,
     unit: control.unit, step: control.integer ? 1 : "any",
     value: parameterValue(control, value),

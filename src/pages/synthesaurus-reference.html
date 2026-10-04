@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#090d10" />
+    <meta name="description" content="Synthesaurus synthesis, sequencing and tuning reference: mechanisms, listening studies, historical milestones, sources and coverage gaps." />
+    <title>Synthesaurus reference — Morphazoid</title>
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="src/instruments/synthesis/reference.css" />
+  </head>
+  <body class="synthesis-reference">
+    <a class="reference-skip" href="#reference-content">Skip to reference</a>
+    <header class="reference-header">
+      <a href="./" class="reference-brand">morphazoid</a>
+      <a href="synthesis.html" class="reference-back">← Play Synthesaurus</a>
+    </header>
+    <main id="reference-content" class="reference-shell">
+      <header class="reference-intro">
+        <p class="reference-kicker">Sound · pattern · pitch</p>
+        <h1>Synthesaurus reference</h1>
+        <p>Mechanisms, listening studies and historical evidence in one place. Open an entry to explore its controls, implementation limits and sources.</p>
+        <p id="reference-counts" class="reference-meta"></p>
+      </header>
+      <nav class="reference-nav" aria-label="Reference sections">
+        <a href="#synthesis">Synthesis</a>
+        <a href="#processing">Processing</a>
+        <a href="#arpeggiators">Arpeggiators</a>
+        <a href="#tuning">Tuning</a>
+        <a href="#missing">Missing methods</a>
+        <a href="#reading-dates">Reading the dates</a>
+        <a href="#signal-flow">Signal flow &amp; inputs</a>
+        <a href="#control-surfaces">Control surfaces &amp; amplitude</a>
+      </nav>
+      <label class="reference-search" for="reference-search">
+        <span>Find a technique, instrument, parameter or source</span>
+        <input id="reference-search" type="search" placeholder="Try FM, Grainger, pitch or 1982" autocomplete="off" />
+      </label>
+      <p id="reference-results" class="reference-meta" role="status" aria-live="polite"></p>
+      <section id="reading-dates" class="reference-explanation" aria-labelledby="dates-heading">
+        <h2 id="dates-heading">What a date means</h2>
+        <p>A date identifies a documented paper, instrument, patent or development milestone—not necessarily an invention. A pair names two cited milestones. Approximate decades use a lowercase <em>s</em>, such as ~1970s, only when exact evidence is unavailable. A bibliography’s publication year is not the origin of every technique it describes.</p>
+        <p>The arpeggiators are newly authored explorations of historical mechanisms. Their dates belong to the cited systems, not to these modern patterns. Each entry explains the relationship. The synthesis and processing catalogue likewise distinguishes working principles from reduced models and historical replicas.</p>
+      </section>
+      <section id="signal-flow" class="reference-explanation" aria-labelledby="flow-heading">
+        <h2 id="flow-heading">Notes, audio and transformations</h2>
+        <p>Synthesaurus uses one source followed by one optional stereo processor. For Synthesizer input, arpeggiator events and the tuning map drive the sound generator; its audio then feeds the processor. Other sources replace that generator. Microphone permission and output Audio are separate actions: selecting Mic requests input, but never turns output Audio on.</p>
+        <p>This distinction follows the note → instrument → audio-effect model documented in <a href="https://www.ableton.com/en/live-manual/12/working-with-instruments-and-effects/">Ableton's device-chain manual</a>. An arpeggiator does not ordinarily process a recording. Notes can control a vocoder carrier, resonator, pitch shifter or rhythmic gate when a device explicitly implements that mapping. <a href="https://www.ableton.com/en/manual/live-audio-effect-reference/">Ableton's Spectral Resonator</a> is an example of note-controlled audio processing. Synthesaurus does not currently route its arpeggiator or tuning map to external-input effects; the carrier and resonance controls are explicit frequencies instead.</p>
+        <h3>Digital processing is not one algorithm</h3>
+        <p>IIR describes recursive filtering; the biquad and state-variable filters are already examples. FIR describes a finite impulse response. FFT is an efficient transform used inside spectral algorithms, not an effect by itself. Reverb, delay, vocoding, sample-rate reduction, quantization, dynamics and spectral reconstruction have different control models. The <a href="https://www.w3.org/TR/audio-eq-cookbook/">Audio EQ Cookbook</a> specifies biquad response parameters; the <a href="https://www.ableton.com/en/manual/live-audio-effect-reference/">Live effect manual</a> provides useful modern examples of distinct dynamics, time-domain and spectral surfaces. These are design references, not claims of identical DSP or factory presets.</p>
+        <p>Remaining processing families include convolution with imported impulse responses, live pitch/time stretching with formant control, source separation, multiband dynamics, and arbitrary multieffect chains. The existing synthesis-side phase vocoder analyzes its stored source; it is not the same path as an external-input effect.</p>
+        <h3>Source material and provenance</h3>
+        <p>Sample loops includes original rendered bass, FM electric piano, plucked-string and wavetable phrases at 120 BPM; acoustic drums, edited lower/higher voice syllables, synthetic speech and birdsong. The voiced <em>test signal</em> is generated by DSP, whereas the voice syllable entries are recordings. White/pink/brown describe spectral color; Gaussian describes amplitude distribution, not a separate spectral color.</p>
+        <p>The acoustic drums are CC0 Karoryfer recordings distributed in the <a href="https://github.com/stargatedaw/stargate-sample-pack">Stargate DAW sample pack</a>. <a href="https://shop.karoryfer.com/pages/free-samples">Karoryfer's catalogue</a> also offers historical-instrument recordings, but no additional banks are bundled here. A free download or royalty-free music license does not automatically permit redistributing raw factory samples; <a href="https://help.ableton.com/hc/en-us/articles/209768885-Commercial-Use-rights-for-Live-content">Ableton's content-use terms</a> distinguish those cases.</p>
+        <p>Bundled provenance: <a href="assets/synthesis/loops/CREDITS.md">original musical loops</a>, <a href="assets/puggler/CREDITS.md">acoustic drums and speech</a>, <a href="vendor/cmu-arctic/COPYING">CMU voice license</a>, <a href="assets/bioacoustics/SOURCES.md">bird recording</a>. Local audio files stay in the browser; remote streaming URLs are not implemented.</p>
+      </section>
+      <section id="control-surfaces" class="reference-explanation" aria-labelledby="surfaces-heading">
+        <h2 id="surfaces-heading">A control should describe its mechanism</h2>
+        <p>A note-output plot is a useful monitor, not a universal historical interface. Voltage stages expose pitch and gate values; tracker patterns use rows and columns; phrase sequencers arrange patterns; probabilistic sequencers expose states and transitions. The <a href="https://tutorials.renoise.com/wiki/Pattern_Editor">Renoise pattern editor</a> documents separate note and effect columns and a pattern arrangement. The <a href="https://archive.bridgesmathart.org/2005/bridges2005-47.html">2005 Euclidean rhythm paper</a> motivates even pulse distribution; the circular rhythm editor here is a modern visualization, not a recreation of a historical panel.</p>
+        <p>The gesture editor records time, pitch and pressure functions. Dragging edits the compiled score; it does not act as a continuously gliding oscillator or implement Music Mouse's independent pitch axes. Voltage-stage pitch and gate rows and the Euclidean pulse ring are also directly editable. Other mechanism views describe the effective configuration; their nearby controls edit it. These are newly designed studies, not hardware facsimiles.</p>
+        <p>Synthesis X/Y pads likewise have different meanings. A vector mix really has two mixing coordinates, as in the <a href="https://www.korguser.net/iwavestation/original_manual/WAVESTATION_E.pdf">Wavestation reference manual</a>; an FM ratio/index pad here is a modern macro over two parameters, not a historical DX7 controller. Graphs of partial amplitudes, waveform points and formant frequencies edit the named DSP values only. Values owned by a graph are not repeated as knobs.</p>
+        <h3>Amplitude was never just one ADSR</h3>
+        <p>The <a href="https://usa.yamaha.com/files/download/other_assets/9/333979/DX7E1.pdf">Yamaha DX7 manual</a> describes four rates and four levels per operator: carrier envelopes affect amplitude while modulator envelopes change timbre. The <a href="https://help.uaudio.com/hc/en-us/articles/360041479272-Moog-Minimoog-Manual">licensed Minimoog model's manual</a> documents attack, decay and sustain with decay reused for release. Neither is the universal four-knob model sometimes projected backwards onto every technique.</p>
+        <p>Plucked strings and resonant bodies can decay within their own model; granular and formant-pulse techniques have short event windows; recordings carry their own dynamics. Synthesaurus labels these native controls separately. Its added note envelope still gates every synthesis engine and can also influence timbre in certain reduced models; it is not bypassed merely because its editor is collapsed. The per-method information popup identifies those couplings. Fully independent operator envelopes, freely movable rate/level breakpoints and continuous arpeggiator portamento are not implemented.</p>
+      </section>
+      <section id="synthesis" class="reference-section" aria-labelledby="synthesis-heading">
+        <header><h2 id="synthesis-heading">Synthesis methods</h2><p>Sound generation, analysis–resynthesis and the listening studies for each method.</p></header>
+        <div data-reference-list="synthesis"></div>
+      </section>
+      <section id="processing" class="reference-section" aria-labelledby="processing-heading">
+        <header><h2 id="processing-heading">Processing methods</h2><p>Filters, delay, dynamics and spectral transformations of an input sound.</p></header>
+        <div data-reference-list="processing"></div>
+      </section>
+      <section id="arpeggiators" class="reference-section" aria-labelledby="arpeggiators-heading">
+        <header><h2 id="arpeggiators-heading">Arpeggiators &amp; sequencers</h2><p>Mechanical rolls, voltage stages, held chords, stored patterns and contemporary event languages. Pitch, rhythm and articulation remain separate from the chosen sound generator.</p></header>
+        <div data-reference-list="arpeggiators"></div>
+      </section>
+      <section id="tuning" class="reference-section" aria-labelledby="tuning-heading">
+        <header><h2 id="tuning-heading">Tuning maps</h2><p>A tuning defines pitch spacing; a note collection chooses some of those pitches. A chord progression changes collections over time. These maps combine spacing and a playable collection; they do not supply a chord progression.</p></header>
+        <p>Equal divisions of the octave split a 2:1 frequency period evenly. The Bohlen–Pierce map instead divides a 3:1 tritave. Culturally named maps state whether they are a historical reconstruction, a contemporary keyboard arrangement or a deliberately idealized teaching model.</p>
+        <div data-reference-list="tuning"></div>
+      </section>
+      <section id="missing" class="reference-section" aria-labelledby="missing-heading">
+        <header><h2 id="missing-heading">What is still missing?</h2><p>A researched, selective coverage survey—not an exhaustive taxonomy. “Missing” means the specific mechanism is absent from Synthesaurus; related broad families may already be represented. It does not describe every other Morphazoid instrument.</p></header>
+        <div data-reference-list="missing"></div>
+        <h3 class="reference-subheading">Present, but deliberately reduced</h3>
+        <p>FM/PM feedback, Chebyshev waveshaping, clock-divider pulses, LFSR noise, delta playback and bytebeat already have dedicated entries. Their absence from older research notes should not be mistaken for a current gap. Neural methods use small locally trained teaching models rather than the cited WaveNet, RAVE or DiffWave models. The formant voice specifies resonances; it does not model a changing anatomical vocal tract. The physical models are small, bounded demonstrations rather than measured replicas of instruments.</p>
+        <p>Multi-operator FM routing, chip-accurate architectures, probabilistic Karplus–Strong drums, recorded-instrument multisampling, editable wave-sequence lanes and a complete UPIC-style graphical score are useful extensions within or across existing families. They should not inflate the count by treating every architecture or interface as a new synthesis principle.</p>
+      </section>
+      <footer class="reference-footer">
+        <p>Catalogue descriptions and listening studies are rendered from the same data as the instrument. Coverage survey and sequence-source clarifications reviewed 4 October 2026. Historical attribution remains revisable.</p>
+        <a href="synthesis.html">Return to Synthesaurus →</a>
+      </footer>
+      <noscript><p>Enable JavaScript to read the live catalogue. The source research is also available in <a href="docs/synthesis-chronology.md">synthesis chronology</a>, <a href="docs/synthesis-sequences.md">sequence research</a> and <a href="docs/synthesaurus-tunings.md">tuning research</a>.</p></noscript>
+    </main>
+    <script type="module" src="src/instruments/synthesis/reference.js"></script>
+  </body>
+</html>

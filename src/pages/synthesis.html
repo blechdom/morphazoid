@@ -22,53 +22,52 @@
   </header>
   <main class="synthesis-shell" id="synthesis">
     <svg class="synthesis-icon-defs" aria-hidden="true" width="0" height="0"><defs><symbol id="synthesisDice" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2" fill="none" stroke="currentColor" stroke-width="1.6"/><circle cx="7.5" cy="7.5" r="1.4"/><circle cx="16.5" cy="7.5" r="1.4"/><circle cx="12" cy="12" r="1.4"/><circle cx="7.5" cy="16.5" r="1.4"/><circle cx="16.5" cy="16.5" r="1.4"/></symbol></defs></svg>
-    <div class="synthesis-title"><h1>Synthesaurus</h1></div>
-    <div class="synthesis-sections" role="group" aria-label="Sound role">
-      <button type="button" id="sectionSynthesis" data-section="synthesis" aria-pressed="true">Synthesis</button>
-      <button type="button" id="sectionProcessing" data-section="processing" aria-pressed="false">Processing</button>
+    <div class="synthesis-title"><h1>Synthesaurus</h1><p class="synthesis-subtitle">A compendium of historical sound synthesis, sequencing &amp; transformation.</p></div>
+    <section id="soundAnalysis" class="synthesis-analysis" aria-label="Live sound analysis">
+      <div class="synthesis-monitor">
+      <div class="synthesis-monitor-heading"><span id="scopeTitle">Scope + spectrum</span><output id="levelReadout">−∞ dBFS</output></div>
+      <canvas id="scope" width="800" height="250" title="Spectrum bars: frequency in Hz and level in dBFS. Waveform: time with automatic amplitude scaling." aria-label="Live output waveform over a logarithmic frequency spectrum">The waveform overlays live frequency bars. The bars use a frequency axis; the waveform shows time.</canvas>
+      </div>
+      <div class="synthesis-monitor">
+      <div class="synthesis-monitor-heading"><label for="spectrumMode" class="sr-only">Frequency display</label><select id="spectrumMode"><option value="spectrogram">Spectrogram</option><option value="spectrum">Spectrum</option></select><span id="spectrumLegend">Time → · frequency ↑</span></div>
+      <canvas id="spectrum" width="800" height="320" aria-label="Live logarithmic frequency spectrogram">The live frequency distribution is shown here.</canvas>
+      </div>
+      <div class="synthesis-display-options"><label><input type="checkbox" id="spectrumOverlay" checked /> Spectrum overlay</label><label><input type="checkbox" id="freezeDisplay" aria-label="Freeze displays" /> Freeze</label><span id="signalStatus">Audio off</span></div>
+    </section>
+    <div class="synthesis-input-bar" id="inputBar">
+      <div class="synthesis-axis-field"><label for="inputCategory">Input</label><select id="inputCategory"><option value="synthesis">Synthesizer</option><option value="microphone">Mic / audio in</option><option value="file">Audio file</option><option value="samples">Sample loops</option><option value="signals">Test signals</option></select></div>
+      <div class="synthesis-axis-field" id="inputSelectionField" hidden><label for="processingSource" id="inputSelectionLabel">Signal</label><select id="processingSource"></select></div>
+      <div id="inputSourceHost"></div>
+      <label class="synthesis-loop" id="processingLoopControl" hidden><input id="processingLoop" type="checkbox" checked /> Loop input</label>
+      <label class="synthesis-effect-switch"><input id="processorEnabled" type="checkbox" /> Processing</label>
+      <button class="synthesis-info" type="button" popovertarget="signalPathInfo" aria-label="About the signal path">i</button>
     </div>
-    <div class="synthesis-random-row" id="performanceRandomRow">
-      <div><span class="synthesis-selector-label">Whole instrument</span><small>New synth, synthesis settings, voicing, ADSR, arpeggiator, arpeggiator settings, tempo, and tuning.</small></div>
-      <button type="button" id="randomPerformance" title="Randomize every musical setting" aria-label="Randomize every musical setting"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#synthesisDice"/></svg><span>Randomize everything</span></button>
-    </div>
-    <div class="synthesis-selectors">
-      <section class="synthesis-axis-card synthesis-method-choice" aria-labelledby="methodLabel">
-        <div class="synthesis-axis-pair">
-          <div class="synthesis-axis-field">
-            <div class="synthesis-axis-heading"><label for="methodSelect" id="methodLabel">Synth</label><span id="methodDate" class="synthesis-method-date"></span></div>
-            <div class="synthesis-axis-control"><select id="methodSelect"><option>Loading methods…</option></select><span class="synthesis-axis-actions"><button type="button" id="nextMethod" title="Next synthesis method" aria-label="Next synthesis method"><span aria-hidden="true">▶</span></button><button type="button" id="randomMethodType" title="Random synthesis method" aria-label="Random synthesis method"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#synthesisDice"/></svg></button></span></div>
-          </div>
-          <div class="synthesis-preset-section"><span class="synthesis-selector-label" id="presetSectionLabel">Synthesis presets</span><div id="presetHost" data-instrument-preset-host></div></div>
-        </div>
-      </section>
-      <section class="synthesis-axis-card synthesis-sequence-choice synthesis-sequence-choice--primary" aria-labelledby="sequenceLabel">
-        <label id="sequenceLabel" for="sequenceSelect">Arpeggiator / sequence</label>
-        <div class="synthesis-axis-control"><select id="sequenceSelect"><option value="none">Direct note</option></select><span class="synthesis-axis-actions"><button type="button" id="nextSequence" title="Next arpeggiator" aria-label="Next arpeggiator"><span aria-hidden="true">▶</span></button><button type="button" id="randomSequence" title="Random arpeggiator and settings" aria-label="Random arpeggiator and settings"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#synthesisDice"/></svg></button></span></div>
-        <small id="sequenceCount">Loading studies…</small>
-        <div id="sequencePresetSection" class="synthesis-sequence-preset-section" hidden><label for="sequencePresetSelect">Arpeggiator presets</label><div class="synthesis-axis-control"><select id="sequencePresetSelect"><option value="original">Original</option></select><span class="synthesis-axis-actions"><button type="button" id="nextSequencePreset" title="Next arpeggiator settings preset" aria-label="Next arpeggiator settings preset"><span aria-hidden="true">▶</span></button><button type="button" id="randomSequencePreset" title="Randomize this arpeggiator’s settings" aria-label="Randomize this arpeggiator’s settings"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#synthesisDice"/></svg></button></span></div></div>
-      </section>
-      <section class="synthesis-axis-card synthesis-tuning-choice" aria-labelledby="tuningLabel">
-        <label id="tuningLabel" for="tuningSelect">Tuning / note map</label>
-        <div class="synthesis-axis-control"><select id="tuningSelect" aria-describedby="tuningSummary"><option>Loading tunings…</option></select><span class="synthesis-axis-actions"><button type="button" id="nextTuning" title="Next tuning" aria-label="Next tuning"><span aria-hidden="true">▶</span></button></span></div><small id="tuningSummary"></small>
-      </section>
-    </div>
-    <p class="synthesis-principle" id="principle">Choose a synthesis method, enable Audio, then play.</p>
+    <output id="signalPathSummary" class="synthesis-signal-path">Synthesizer → Output</output>
+    <div id="performancePresetHost" data-instrument-preset-host></div>
     <div class="synthesis-layout">
       <section id="soundControls" class="synthesis-controls" aria-label="Synthesis controls">
         <div class="synthesis-play-row">
-          <div class="synthesis-note-actions"><button type="button" id="playButton" class="synthesis-transport" data-primary-transport aria-label="Play" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path class="play-icon" d="M8 5L20 12L8 19Z"/><path class="pause-icon" d="M7 5H10V19H7ZM14 5H17V19H14Z"/></svg></button><button type="button" id="triggerButton">Trigger Note</button><button type="button" id="randomMethod" title="Randomize settings within the current method" aria-label="Randomize current method"><span id="randomMethodLabel">Random synth</span></button></div>
+          <div class="synthesis-note-actions"><button type="button" id="playButton" class="synthesis-transport" data-primary-transport aria-label="Play" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path class="play-icon" d="M8 5L20 12L8 19Z"/><path class="pause-icon" d="M7 5H10V19H7ZM14 5H17V19H14Z"/></svg></button><button type="button" id="triggerButton">Trigger Note</button></div>
         </div>
         <div class="synthesis-detail-grid">
           <section id="synthDetail" class="synthesis-detail-panel synthesis-synth-detail" aria-labelledby="synthParameterHeading">
-            <div id="processingControls" class="synthesis-source" hidden>
-              <div class="synthesis-input-choice"><label for="processingSource">Input → processor</label><select id="processingSource"></select><label class="synthesis-loop" id="processingLoopControl" hidden><input id="processingLoop" type="checkbox" checked /> Loop input</label><p id="processingInputHint">Use the preset's signal or choose an input to keep while exploring effects.</p></div>
-              <div id="processingMix" class="synthesis-mix"><div id="wetControl"></div><div id="inputGainControl"></div><div id="effectGainControl"></div><label class="synthesis-bypass"><input id="processingBypass" type="checkbox" /> Bypass</label></div>
-            </div>
+      <section class="synthesis-axis-card synthesis-method-choice" aria-labelledby="methodLabel">
+        <div class="synthesis-axis-pair">
+          <div class="synthesis-axis-field">
+            <div class="synthesis-axis-heading"><label for="methodSelect" id="methodLabel">Synthesis method</label><button type="button" class="synthesis-info" popovertarget="methodInfo" aria-label="About this synthesis method">i</button></div>
+            <div class="synthesis-axis-control"><select id="methodSelect"><option>Loading methods…</option></select><span class="synthesis-axis-actions"><button type="button" id="nextMethod" title="Next synthesis method" aria-label="Next synthesis method"><span aria-hidden="true">▶</span></button></span></div>
+          </div>
+          <div class="synthesis-axis-field synthesis-preset-section"><label class="synthesis-selector-label" for="presetSelect" id="presetSectionLabel">Synthesis preset</label><div id="presetHost" class="synthesis-axis-control"><select id="presetSelect"></select><span class="synthesis-axis-actions"><button id="nextPreset" type="button" title="Next synthesis preset" aria-label="Next synthesis preset">▶</button><button type="button" id="randomMethod" title="Randomize current method parameters" aria-label="Randomize current method parameters"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#synthesisDice"/></svg></button></span></div></div>
+        </div>
+      </section>
+      <section class="synthesis-axis-card synthesis-tuning-choice" aria-labelledby="tuningLabel">
+        <div class="synthesis-axis-heading"><label id="tuningLabel" for="tuningSelect">Tuning / note map</label><button type="button" class="synthesis-info" popovertarget="tuningInfo" aria-label="About this tuning map">i</button></div>
+        <div class="synthesis-axis-control"><select id="tuningSelect"><option>Loading tunings…</option></select><span class="synthesis-axis-actions"><button type="button" id="nextTuning" title="Next tuning" aria-label="Next tuning"><span aria-hidden="true">▶</span></button></span></div>
+      </section>
             <div class="synthesis-synth-essentials">
               <div id="frequencyRow" class="synthesis-frequency-row"><div id="frequencyControl"></div></div>
               <div id="voiceModeControl" class="synthesis-rate synthesis-voicing"><label for="voiceMode">Voicing</label><select id="voiceMode"><option value="mono">Mono</option><option value="poly">Poly · 8 voices</option></select></div>
             </div>
-            <p id="presetCue" class="synthesis-cue"></p>
             <h2 id="synthParameterHeading" class="synthesis-parameter-heading">Synth parameters</h2>
             <div id="methodEditor" class="synthesis-method-editor" aria-live="polite"></div>
             <div id="methodControls" class="synthesis-parameters" aria-labelledby="synthParameterHeading"></div>
@@ -82,52 +81,51 @@
               <span id="inputStatus">No external input</span><output id="inputLevel">Input −∞ dBFS</output>
               <small id="inputHelp">Select your input device in Audio Settings.</small>
             </div>
-            <details class="synthesis-disclosure" id="envelopeDetails" open><summary>Amplitude envelope · ADSR</summary>
-              <p class="synthesis-envelope-explainer"><b>One connected envelope, four stages:</b> Attack rises, Decay settles, Sustain holds while the note is down, and Release fades after note-off.</p>
+            <details class="synthesis-disclosure" id="envelopeDetails" open><summary>Added note envelope · ADSR</summary>
               <div class="synthesis-envelope-preset">
                 <label for="envelopePresetSelect">ADSR preset</label>
-                <div class="synthesis-local-preset-row"><select id="envelopePresetSelect"><option>Loading envelopes…</option></select><button type="button" id="nextEnvelopePreset">Next</button><button type="button" id="randomEnvelopePreset">Random</button></div>
-                <small id="envelopePresetDescription"></small>
+                <div class="synthesis-local-preset-row"><select id="envelopePresetSelect"><option>Loading envelopes…</option></select><button type="button" id="nextEnvelopePreset" aria-label="Next ADSR preset">▶</button></div>
               </div>
               <div id="envelopeControls"></div>
             </details>
           </section>
           <div id="arpDetail" class="synthesis-detail-panel synthesis-arp-detail">
+      <section class="synthesis-axis-card synthesis-sequence-choice synthesis-sequence-choice--primary" aria-labelledby="sequenceLabel">
+        <div class="synthesis-axis-pair">
+          <div class="synthesis-axis-field"><div class="synthesis-axis-heading"><label id="sequenceLabel" for="sequenceSelect">Arpeggiator method</label><button type="button" class="synthesis-info" popovertarget="sequenceInfo" aria-label="About this arpeggiator method">i</button></div>
+          <div class="synthesis-axis-control"><select id="sequenceSelect"><option value="none">Direct note</option></select><span class="synthesis-axis-actions"><button type="button" id="nextSequence" title="Next arpeggiator" aria-label="Next arpeggiator"><span aria-hidden="true">▶</span></button></span></div></div>
+          <div id="sequencePresetSection" class="synthesis-axis-field synthesis-preset-section"><label for="sequencePresetSelect">Arpeggiator preset</label><div class="synthesis-axis-control"><select id="sequencePresetSelect"><option value="custom">Choose a method</option></select><span class="synthesis-axis-actions"><button type="button" id="nextSequencePreset" title="Next arpeggiator preset" aria-label="Next arpeggiator preset"><span aria-hidden="true">▶</span></button><button type="button" id="randomSequencePreset" title="Randomize this arpeggiator’s settings" aria-label="Randomize this arpeggiator’s settings"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#synthesisDice"/></svg></button></span></div></div>
+        </div>
+      </section>
             <section id="sequenceCompendium" class="synthesis-sequence-compendium" aria-labelledby="sequenceHeading">
-              <div class="synthesis-sequence-title"><h2 id="sequenceHeading">Arpeggiator parameters</h2><span id="sequenceParameterSummary">Direct performance</span></div>
+              <div class="synthesis-sequence-title"><h2 id="sequenceHeading">Arpeggiator parameters</h2></div>
               <div id="noteTiming" class="synthesis-timing"><div id="tempoControl"></div><div id="gateControl"></div></div>
+              <div id="sequenceSurface"></div>
+              <details id="sequenceOutput" class="synthesis-sequence-output" hidden><summary>Note output</summary>
               <div id="sequenceStrip" class="synthesis-sequence-steps" role="img" aria-label="No sequence selected" hidden></div>
               <output id="sequenceShapeSummary" class="synthesis-sequence-shape-summary" hidden></output>
+              </details>
               <div id="sequenceControls" hidden><div id="sequenceParameterControls" class="synthesis-sequence-controls"></div></div>
-              <p id="sequenceCue" class="synthesis-cue">Choose an original study to test the current synth with a historically grounded sequencing mechanism.</p>
             </section>
           </div>
         </div>
+        <section id="processorDetail" class="synthesis-processor-detail" hidden>
+          <div id="processorPanel"></div>
+          <p id="processorLatency" class="synthesis-processor-latency" hidden></p>
+          <div id="processingMix" class="synthesis-mix"><div id="wetControl"></div><div id="inputGainControl"></div><div id="effectGainControl"></div><label class="synthesis-bypass"><input id="processingBypass" type="checkbox" /> Bypass</label></div>
+        </section>
         <details class="synthesis-disclosure" id="keyboardDetails"><summary>Notes / computer keyboard</summary><p id="keyboardHelp">Optional chromatic notes relative to the frequency above. Hold a key or a note button; the most recent held note sounds.</p><div id="keyboard" class="synthesis-keyboard" role="group" aria-label="Playable computer keyboard"></div></details>
       </section>
-      <section id="soundAnalysis" class="synthesis-analysis" aria-label="Live sound analysis">
-        <div class="synthesis-monitor">
-        <div class="synthesis-monitor-heading"><span id="scopeTitle">Scope + spectrum</span><output id="levelReadout">−∞ dBFS</output></div>
-        <canvas id="scope" width="800" height="250" title="Spectrum bars: frequency in Hz and level in dBFS. Waveform: time with automatic amplitude scaling." aria-label="Live output waveform over a logarithmic frequency spectrum">The waveform overlays live frequency bars. The bars use a frequency axis; the waveform shows time.</canvas>
-        </div>
-        <div class="synthesis-monitor">
-        <div class="synthesis-monitor-heading"><label for="spectrumMode" class="sr-only">Frequency display</label><select id="spectrumMode"><option value="spectrogram">Spectrogram</option><option value="spectrum">Spectrum</option></select><span id="spectrumLegend">Time → · frequency ↑</span></div>
-        <canvas id="spectrum" width="800" height="320" aria-label="Live logarithmic frequency spectrogram">The live frequency distribution is shown here.</canvas>
-        </div>
-        <div class="synthesis-display-options"><label><input type="checkbox" id="spectrumOverlay" checked /> Spectrum overlay</label><label><input type="checkbox" id="freezeDisplay" aria-label="Freeze displays" /> Freeze</label><span id="signalStatus">Audio off</span></div>
-      </section>
+
     </div>
-    <div class="synthesis-study-footer">
-    <details id="sequenceNotes" class="synthesis-disclosure synthesis-sequence-notes"><summary>Arpeggiator history &amp; sources</summary><p id="sequenceCountFooter">The selected study’s evidence and limitations live below the playing controls.</p><dl class="synthesis-sequence-facts"><div><dt>Milestone</dt><dd id="sequenceMilestone">Direct performance</dd></div><div><dt>Mechanism</dt><dd id="sequenceKind">Held or repeated note</dd></div><div><dt>Tests</dt><dd id="sequenceTestFocus">The current preset without an added pitch pattern</dd></div></dl><p id="sequenceLineage">Direct mode keeps Synthesaurus’s existing sustained or pulse-note demonstration.</p><p id="sequenceLimitations">Sequence studies are newly authored demonstrations of general mechanisms, not copied factory phrases or exact hardware emulations.</p><p id="sequenceReferences"><a id="sequenceReference" href="docs/synthesis-sequences.md">Sequence history and sources</a></p><p><a href="docs/synthesis-sequences.md">Compendium research notes</a></p></details>
-    <details id="tuningNotes" class="synthesis-disclosure"><summary>Tuning notes &amp; sources</summary><p id="tuningDescription"></p><p id="tuningCaveat"></p><p><a id="tuningReference" href="docs/synthesaurus-tunings.md">Tuning source</a> · <a href="docs/synthesaurus-tunings.md">Tuning catalogue notes</a></p><p>Tuning systems determine interval size. Arpeggiator studies determine the ordered pitch and rhythm relationships.</p></details>
-    <details class="synthesis-disclosure" id="teachingDetails" open><summary>Touchstones / demonstrations</summary>
-      <div class="synthesis-source"><div class="synthesis-study-choice"><label for="touchstoneSelect">Study</label><select id="touchstoneSelect"></select></div><button type="button" id="loadTouchstone">Load demonstration</button></div>
-      <p id="touchstoneListen"></p><p id="touchstoneGesture"></p><div id="touchstoneActions" class="synthesis-source"></div>
-    </details>
+    <footer class="synthesis-reference-link"><a href="synthesaurus-reference.html">Synthesis, sequencing &amp; tuning reference · history, sources &amp; missing methods ↗</a></footer>
+    <section id="methodInfo" class="synthesis-info-popup" popover aria-labelledby="methodInfoTitle"><h2 id="methodInfoTitle"></h2><p id="principle"></p><p id="presetCue"></p><h3>Articulation</h3><p id="amplitudePrinciple"></p><p id="amplitudeHistory"></p><p id="amplitudeHostNote"></p><a id="methodInfoReference" href="synthesaurus-reference.html#synthesis">History &amp; sources ↗</a></section>
+    <section id="sequenceInfo" class="synthesis-info-popup" popover aria-labelledby="sequenceInfoTitle"><h2 id="sequenceInfoTitle"></h2><p id="sequenceCue"></p><p id="sequenceInfoDetails"></p><a id="sequenceInfoReference" href="synthesaurus-reference.html#arpeggiators">History &amp; sources ↗</a></section>
+    <section id="tuningInfo" class="synthesis-info-popup" popover aria-labelledby="tuningInfoTitle"><h2 id="tuningInfoTitle"></h2><p id="tuningDescription"></p><p id="tuningCaveat"></p><a id="tuningInfoReference" href="synthesaurus-reference.html#tuning">History &amp; sources ↗</a></section>
+    <section id="processorInfo" class="synthesis-info-popup" popover aria-labelledby="processorInfoTitle"><h2 id="processorInfoTitle">Processor</h2><p id="processorPrinciple"></p><p id="processorCue"></p><a id="processorReference" href="synthesaurus-reference.html#synthesis">History &amp; sources ↗</a></section>
+    <section id="signalPathInfo" class="synthesis-info-popup" popover aria-labelledby="signalPathInfoTitle"><h2 id="signalPathInfoTitle">Notes before sound; effects after sound</h2><p>The arpeggiator creates timed note events. The tuning map turns their pitch relationships into frequencies. The synthesizer turns those events into audio; the processor transforms that audio.</p><p>Mic, files, loops and test signals replace the synthesizer. They do not pass through its arpeggiator or tuning map. A processor's own carrier frequency or resonance is a separate control, not an automatic retuning of recorded audio.</p><p>Choose a local audio file; it stays in your browser. Sample loops include licensed recordings and original rendered demos—not a commercial synthesizer's factory library.</p><p id="processingInputHint"></p><a href="synthesaurus-reference.html#signal-flow">Routing, source credits &amp; processing research ↗</a></section>
     <p id="audioError" class="synthesis-error" role="alert" hidden></p>
     <p id="status" class="sr-only" role="status" aria-live="polite">Audio is off.</p>
-    <details class="synthesis-disclosure synthesis-notes"><summary>Method notes &amp; sources</summary><p id="methodNotes"></p><p id="methodDateNote"></p><p><a id="methodDateReference" href="docs/synthesis-methods.md">Historical source</a></p><p id="modelNote"></p><p><a id="methodReference" href="https://books.google.com/books?id=nZ-TetwzVcIC" target="_blank" rel="noreferrer">Reference</a> · <a href="docs/synthesis-methods.md">All method notes</a> · <a href="docs/synthesis-chronology.md">Chronology research</a> · <a href="docs/synthesis-sequences.md">Sequence history</a> · <a href="docs/synthesaurus-tunings.md">Tuning sources &amp; limits</a> · <a href="voicesaurus.html">Voicesaurus</a> · <a href="docs/synthesaurus-inventory.md">Coverage &amp; remaining techniques</a> · <a href="docs/synthesis-native.md">Rust / CPAL / CLAP</a></p><p>The short date beside each method is a selected, sourced milestone, not automatically the technique’s invention date. The evidence type and full note are kept here with the sources.</p><p>Synthesis creates a playable sound from notes, excitation or stored samples. Processing transforms incoming audio. An algorithm can serve either role: granular, spectral and filter techniques appear according to what each demonstration does. Built-in test signals let you hear processors before connecting an input.</p><p>Sample inputs: <a href="assets/synthesis/loops/CREDITS.md">Original bass, electric-piano, plucked-string and synth loops (MIT)</a>; <a href="assets/puggler/CREDITS.md">Karoryfer drums (CC0) and synthetic speech (MIT)</a>; <a href="vendor/cmu-arctic/COPYING">CMU ARCTIC edited voice syllables</a>; <a href="assets/bioacoustics/SOURCES.md">Oona Räisänen’s public-domain birdsong</a>. An explicit Input choice stays selected across processor presets; choose Preset input to follow each demonstration’s signal.</p><p>A growing compendium of synthesis, sequencing, tuning and processing. Method notes distinguish full signal paths from simplified educational models. Audio starts off. The plots show the actual output signal.</p></details>
-    </div>
     <noscript>This synthesis page needs JavaScript and WebAssembly to make sound.</noscript>
   </main>
   <script type="module" src="nav.js"></script>

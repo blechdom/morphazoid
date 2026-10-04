@@ -495,5 +495,12 @@ export const SYNTHESIS_DATES = Object.freeze({
     "Dudley filed Signal Transmission on 30 October 1935; it analyzes speech into bands and applies their average-power controls to corresponding locally generated bands. The current eight-band musical-carrier vocoder is a simplified digital descendant.",
     "Dudley, US2151091A Signal Transmission (filed 1935)",
     "https://patents.google.com/patent/US2151091A/en"
+  ),
+  "fx-spectral": milestone(
+    "1976",
+    "FFT phase-vocoder publication",
+    "Portnoff published an FFT implementation of digital phase-vocoder analysis and synthesis in June 1976. This anchors the analysis–resynthesis architecture, not the invention date of spectral gating or freeze; the browser's four-mode WOLA processor is a contemporary implementation.",
+    "Portnoff, Implementation of the digital phase vocoder using the fast Fourier transform (1976)",
+    "https://www.ee.columbia.edu/~dpwe/papers/Portnoff76-pvoc.pdf"
   )
 });

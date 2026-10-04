@@ -5,7 +5,7 @@ AudioWorklet. It contains no JavaScript oscillator substitute. The native CPAL
 player and CLAP plugin use that same core and the same generated preset bank.
 CLAP is a native plugin format; the browser uses Web Audio for device output.
 
-The page covers 53 synthesis methods and 16 stereo processors with eight presets each. Frequency, amplitude
+The page covers 53 synthesis methods and 17 stereo processors with eight presets each. Frequency, amplitude
 envelope, output, and the note gate are shared; method-specific controls retain
 their own DSP meanings. Synthesis defaults to **Mono**, with last-held-note priority. Select **Poly · 8 voices**
 to play independent notes with their own pitch, velocity, model state and ADSR.
@@ -221,7 +221,9 @@ vertical range and displays that range, while the meter reports actual dBFS.
 
 ## Stereo processing and the FX plugin
 
-The sixteen processors use `ProcessorBank` in the same Rust core as the WASM worklet. Their input, source gate, dry/wet, bypass and output trim are independent of synth notes, ADSR and synthesis calibration. The separate `synthesis-fx-clap` artifact exposes stereo input/output and keeps the existing synthesis plugin identity and state compatible. Its ID is `org.morphazoid.synthesaurus.fx`; it defaults to external input. The browser can use microphone/line input, local stereo files and seven deterministic test signals.
+The seventeen processors use `ProcessorBank` in the same Rust core as the WASM worklet. Their input, source gate, dry/wet, bypass and output trim are independent of synth notes, ADSR and synthesis calibration. The separate `synthesis-fx-clap` artifact exposes stereo input/output and keeps the existing synthesis plugin identity and state compatible. Its ID is `org.morphazoid.synthesaurus.fx`; it defaults to external input. The browser can use microphone/line input, local stereo files, bundled loops and ten deterministic test signals, including pink, brown and Gaussian white noise.
+
+The spectral processor adds 1,024 samples of latency, including its aligned dry mix; full bypass is immediate. FX CLAP reports this through the latency extension. Changes that cross the latency boundary request a host restart and retain the previous DSP until reactivation; hosts without restart support retain the old DSP. Ordinary same-latency edits remain live. CPAL offline renders retain the delay rather than trimming the onset. Freeze capture clears on stop, reset or source/mode changes and can be rearmed; external synth release tails are processed live after disarming.
 
 ```sh
 cargo build --manifest-path src/instruments/synthesis/rust/Cargo.toml --release -p synthesis-fx-clap -p synthesis-cpal

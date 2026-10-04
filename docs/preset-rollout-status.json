@@ -1608,6 +1608,7 @@
       "shapes",
       "rubix",
       "hiccup-head",
+      "synthesis",
       "creaturazoid",
       "hybrinx",
       "jaw-harp",
@@ -1621,8 +1622,7 @@
       "cellular-automata",
       "lattice",
       "gesticulating-hand",
-      "simd-chiptune",
-      "synthesis"
+      "simd-chiptune"
     ],
     "nonWipUnmigrated": [
       "shape-drum-machine",

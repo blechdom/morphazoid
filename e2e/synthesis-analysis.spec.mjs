@@ -4,19 +4,25 @@ import { choose, exact } from './helpers/synthesis-controls.mjs';
 const canvases = page => page.evaluate(() => ['scope','spectrum'].map(id => document.getElementById(id).toDataURL()));
 const settle = page => page.waitForTimeout(70); // Allow the 30 fps display loop to repaint.
 
-for (const viewport of [{width:390,height:844},{width:844,height:390}]) {
-  test('mobile analysis stays visible while editing at '+viewport.width+'×'+viewport.height, async ({page})=>{
+for (const viewport of [{width:1440,height:900},{width:390,height:844},{width:844,height:390}]) {
+  test('compact top analysis stays visible while editing at '+viewport.width+'×'+viewport.height, async ({page})=>{
     await page.setViewportSize(viewport);
     const errors=[];page.on('pageerror',error=>errors.push(error.message));
     await page.goto('/synthesis.html?method=graphic');
     for(const selector of ['#scope','#spectrum']) await expect(page.locator(selector)).toBeInViewport({ratio:1});
+    expect(await page.locator('#soundAnalysis').evaluate(node=>getComputedStyle(node).position)).toBe('sticky');
+    const initial=await page.locator('#soundAnalysis').boundingBox();
+    const presets=await page.locator('#performancePresetHost').boundingBox();
+    expect(initial.y+initial.height).toBeLessThanOrEqual(presets.y);
+    expect((await page.locator('#scope').boundingBox()).height).toBeLessThanOrEqual(120);
     await expect(page.locator('#spectrumOverlay')).toBeChecked();
     await expect(page.locator('#spectrumMode')).toHaveValue('spectrogram');
-    for(const selector of ['#methodControls input[type=range]','.synth-envelope input[type=range]']){
+    for(const selector of ['#methodControls input[type=range]']){
       const input=page.locator(selector).last();await input.scrollIntoViewIfNeeded();
       await expect(input).toBeInViewport({ratio:1});
       const bounds=await input.boundingBox(),dock=await page.locator('#soundAnalysis').boundingBox();
-      expect(bounds.y+bounds.height).toBeLessThanOrEqual(dock.y);
+      expect(dock.y).toBeCloseTo(0, 0);
+      expect(bounds.y).toBeGreaterThanOrEqual(dock.y+dock.height);
       expect(await input.evaluate(node=>{const r=node.getBoundingClientRect();return document.elementFromPoint(r.x+r.width/2,r.y+r.height/2)===node;})).toBe(true);
       for(const monitor of ['#scope','#spectrum']) await expect(page.locator(monitor)).toBeInViewport({ratio:1});
       const knob=input.locator('..').locator('..');
@@ -24,27 +30,36 @@ for (const viewport of [{width:390,height:844},{width:844,height:390}]) {
       const editor=knob.locator('input[type=number]');
       await expect(editor).toBeInViewport({ratio:1});
       const editorBounds=await editor.boundingBox(),editingDock=await page.locator('#soundAnalysis').boundingBox();
-      expect(editorBounds.y+editorBounds.height).toBeLessThanOrEqual(editingDock.y);
+      expect(editorBounds.y).toBeGreaterThanOrEqual(editingDock.y+editingDock.height);
       await editor.press('Escape');
       for(const monitor of ['#scope','#spectrum']) await expect(page.locator(monitor)).toBeInViewport({ratio:1});
     }
+    const sustain=page.locator('#envelopeControls [data-node="3"]');
+    await sustain.scrollIntoViewIfNeeded();
+    await expect(sustain).toBeInViewport({ratio:1});
+    const sustainBounds=await sustain.boundingBox(),envelopeDock=await page.locator('#soundAnalysis').boundingBox();
+    expect(sustainBounds.y).toBeGreaterThanOrEqual(envelopeDock.y+envelopeDock.height);
+    await sustain.press('ArrowDown');
+    for(const monitor of ['#scope','#spectrum']) await expect(page.locator(monitor)).toBeInViewport({ratio:1});
     // Closed local menus must scroll underneath the persistent analysis dock.
     await page.evaluate(() => {
-      const study=document.querySelector('[data-select-id="touchstoneSelect"]');
+      const study=document.querySelector('[data-select-id="envelopePresetSelect"]');
       const scope=document.getElementById('scope').getBoundingClientRect();
-      if(study) scrollBy(0,study.getBoundingClientRect().top-scope.top-scope.height/2);
+      const scroller=document.body.scrollHeight>document.body.clientHeight?document.body:document.scrollingElement;
+      if(study) scroller.scrollBy(0,study.getBoundingClientRect().top-scope.top-scope.height/2);
     });
     for(const monitor of ['#scope','#spectrum']) expect(await page.locator(monitor).evaluate(node=>{
       const r=node.getBoundingClientRect();return [.25,.5,.75].every(f=>document.elementFromPoint(r.x+r.width/2,r.y+r.height*f)===node);
     })).toBe(true);
-    await page.locator('#sectionProcessing').click();
+    await choose(page, 'inputCategory', 'signals');
     await exact(page, '#dryWet-value', 47);
     expect(await page.evaluate(()=>window.MorphazoidSynthesis.getState().wet)).toBeCloseTo(.47, 12);
     for(const monitor of ['#scope','#spectrum']) await expect(page.locator(monitor)).toBeInViewport({ratio:1});
-    await page.locator('#presetHost summary').click();
-    await page.locator('#header-preset-panel input').fill('delay');
-    const row=page.locator('[data-full-preset]:visible').last();await row.scrollIntoViewIfNeeded();await row.click();
-    await expect(page.locator('#presetHost summary')).toBeVisible();
+    await choose(page, 'methodSelect', 'fx-delay');
+    const processorPresets = page.locator('[data-select-id="processorPreset"]');
+    await processorPresets.locator('summary').click();
+    const row=processorPresets.locator('.instrument-picker-link:visible').last();await row.scrollIntoViewIfNeeded();await row.click();
+    await expect(processorPresets.locator('summary')).toBeVisible();
     expect(await page.evaluate(()=>window.MorphazoidSynthesis.getStatus().armed)).toBe(false);
     expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
     expect(errors).toEqual([]);

@@ -35,16 +35,16 @@ function stats(buffer) {
   return { peak, rms: Math.sqrt(energy / (buffer.length * buffer.numberOfChannels)) };
 }
 
-test('input choices distinguish live input, recorded demos and all seven stable Rust sources', () => {
+test('input choices distinguish live input, recorded demos and all ten Rust test signals', () => {
   assert.equal(new Set(PROCESSING_INPUT_OPTIONS.map(option => option.id)).size, PROCESSING_INPUT_OPTIONS.length);
   for (const option of PROCESSING_INPUT_OPTIONS) {
     assert.ok(Object.isFrozen(option));
     assert.ok(option.label && option.group);
     assert.equal(getProcessingInput(option.id), option);
-    assert.ok(Number.isInteger(option.source) && option.source >= 0 && option.source <= 7);
+    assert.ok(Number.isInteger(option.source) && option.source >= 0 && option.source <= 10);
     if (option.kind !== 'signal') assert.equal(option.source, 0);
   }
-  assert.deepEqual(PROCESSING_INPUT_OPTIONS.filter(option => option.kind === 'signal').map(option => option.source).sort(), [1,2,3,4,5,6,7]);
+  assert.deepEqual(PROCESSING_INPUT_OPTIONS.filter(option => option.kind === 'signal').map(option => option.source).sort((a, b) => a - b), [1,2,3,4,5,6,7,8,9,10]);
   assert.equal(getProcessingInput('unknown'), null);
 });
 

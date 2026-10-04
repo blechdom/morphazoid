@@ -261,7 +261,8 @@ test("next-instrument touring follows Faves then the visible menu without duplic
     .map(tool => [tool.id, tool])).values()];
   assert.equal(nextPickerTool()?.id, FAVE_TOOL_IDS[0]);
   assert.equal(nextPickerTool("not-a-tool")?.id, FAVE_TOOL_IDS[0]);
-  assert.equal(nextPickerTool("hiccup-head")?.id, "creaturazoid");
+  assert.equal(nextPickerTool("hiccup-head")?.id, "synthesis");
+  assert.equal(nextPickerTool("synthesis")?.id, "creaturazoid");
   assert.equal(nextPickerTool("hyper-rubix")?.id, "puggler");
   assert.equal(nextPickerTool("puggler")?.id, "micmic");
   assert.equal(FAVE_TOOL_IDS.includes("spiral"), false);
@@ -290,9 +291,9 @@ test("the next arrow is a native navigation link beside, not inside, Choose", ()
     assert.equal(picker, result.disclosures[0]);
     assert.equal(next.tagName, "A");
     assert.equal(next.className, "instrument-picker-next");
-    assert.equal(next.getAttribute("href"), `${siteRoot}creaturazoid.html`);
-    assert.equal(next.getAttribute("aria-label"), "Next instrument: Creaturazoid");
-    assert.equal(next.getAttribute("title"), "Next instrument: Creaturazoid");
+    assert.equal(next.getAttribute("href"), `${siteRoot}synthesis.html`);
+    assert.equal(next.getAttribute("aria-label"), "Next instrument: Synthesaurus");
+    assert.equal(next.getAttribute("title"), "Next instrument: Synthesaurus");
     assert.equal(next.children[0].textContent, "▶");
     assert.equal(next.children[0].getAttribute("aria-hidden"), "true");
     assert.equal(next.listeners.has("click"), false, "click uses native navigation");

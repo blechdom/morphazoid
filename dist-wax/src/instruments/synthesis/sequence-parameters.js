@@ -2,6 +2,7 @@ import { SEQUENCE_STUDIES, getSequenceStudy } from './sequence-catalog.js';
 
 const MAX_SEQUENCE_STEPS = 64;
 const MAX_SEED = 0xffffffff;
+export const MAX_GESTURE_POINTS = 64;
 const ORDER_CHOICES = Object.freeze([
   Object.freeze({ value: 'up', label: 'Low to high' }),
   Object.freeze({ value: 'down', label: 'High to low' }),
@@ -108,6 +109,13 @@ const asBoolean = (value, fallback) => {
   if (value === 1 || value === '1' || value === 'true' || value === 'on') return true;
   if (value === 0 || value === '0' || value === 'false' || value === 'off' || value === '') return false;
   return fallback;
+};
+
+const sanitizeVoltageGates = (study, input) => {
+  if (!Array.isArray(input) || !input.length) return null;
+  const gates = study.config.gates || study.config.pitch.map(() => 1);
+  return gates.slice(0, MAX_SEQUENCE_STEPS)
+    .map((value, index) => asBoolean(input[index], Boolean(value)) ? 1 : 0);
 };
 
 const resolveStudy = studyOrId => {
@@ -319,6 +327,9 @@ const dependentBounds = (study, definition, values) => {
   } else if (study.archetype === 'ratio-canon' && definition.id === 'phaseShift') {
     const scale = stepped(values.periodScale, .25, 4, .25, 1);
     ({ min, max } = canonicalRotationBounds(ratioCanonPeriod(study.config.voices, scale)));
+  } else if (study.archetype === 'cv-rows' && definition.id === 'gateRotation') {
+    const gates = sanitizeVoltageGates(study, values.stageGates) || study.config.gates;
+    ({ min, max } = canonicalRotationBounds(fundamentalArrayPeriod(gates)));
   } else if (study.archetype === 'euclidean' && definition.id === 'pulses') {
     max = whole(values.euclideanSteps, 1, renderedSteps, Math.min(study.config.steps, renderedSteps));
   } else if (study.archetype === 'euclidean' && definition.id === 'euclideanSteps') {
@@ -359,6 +370,7 @@ export function getSequenceParameterBounds(studyOrId, parameterId, values = {}) 
     candidate.id,
     sanitizeValue(candidate, source[candidate.id]),
   ]));
+  if (study.archetype === 'cv-rows') context.stageGates = sanitizeVoltageGates(study, source.stageGates);
   return deepFreeze(dependentBounds(study, definition, context));
 }
 
@@ -369,7 +381,25 @@ export function createSequenceParameterValues(studyOrId, input = {}) {
   const values = {};
   const definitions = getSequenceParameterDefinitions(study);
   for (const definition of definitions) {
-    values[definition.id] = sanitizeValue(definition, source[definition.id]);
+    // An edited gate drawing can have a longer fundamental period than the
+    // historical default. Do not clip its saved phase to the old descriptor.
+    const bounds = study.archetype === 'cv-rows' && definition.id === 'gateRotation'
+      ? dependentBounds(study, definition, source) : definition;
+    values[definition.id] = sanitizeValue(definition, source[definition.id], bounds);
+  }
+  // Optional authored data belongs to the same saved parameter snapshot as the
+  // scalar controls. Omitting it keeps legacy/default snapshots byte-compatible.
+  if (study.archetype === 'gesture' && Array.isArray(source.gesturePoints)) {
+    const points = sanitizeGesturePoints(source.gesturePoints);
+    if (points) values.gesturePoints = points;
+  }
+  if (study.archetype === 'cv-rows') {
+    if (Array.isArray(source.stagePitches) && source.stagePitches.length) {
+      values.stagePitches = study.config.pitch.slice(0, MAX_SEQUENCE_STEPS)
+        .map((value, index) => pitch(finite(source.stagePitches[index], value)));
+    }
+    const gates = sanitizeVoltageGates(study, source.stageGates);
+    if (gates) values.stageGates = gates;
   }
   for (const definition of definitions) {
     if (definition.type !== 'number') continue;
@@ -377,6 +407,21 @@ export function createSequenceParameterValues(studyOrId, input = {}) {
     values[definition.id] = sanitizeValue(definition, values[definition.id], { min, max });
   }
   return deepFreeze(values);
+}
+
+/** Bounded editable time functions. Null means use the study's original data. */
+export function sanitizeGesturePoints(input) {
+  if (!Array.isArray(input)) return null;
+  const points = input.slice(0, MAX_GESTURE_POINTS).flatMap(point => {
+    if (!point || typeof point !== 'object' || Array.isArray(point)) return [];
+    if (![point.time, point.note, point.pressure].every(value => Number.isFinite(finite(value, NaN)))) return [];
+    return [{ time: clamp(point.time, 0, 1, 0), note: pitch(point.note), pressure: clamp(point.pressure, 0, 1, .7) }];
+  }).sort((left, right) => left.time - right.time);
+  const unique = points.filter((point, index) => !index || point.time - points[index - 1].time >= .0001);
+  if (unique.length < 2) return null;
+  unique[0].time = 0;
+  unique[unique.length - 1].time = 1;
+  return deepFreeze(unique);
 }
 
 const rotate = (values, amount) => {
@@ -585,6 +630,9 @@ export function applySequenceParameterValues(studyOrId, input = {}) {
   const study = resolveStudy(studyOrId);
   const values = createSequenceParameterValues(study, input);
   const config = clone(study.config);
+  if (values.gesturePoints) config.points = clone(values.gesturePoints);
+  if (values.stagePitches) config.pitch = [...values.stagePitches];
+  if (values.stageGates) config.gates = [...values.stageGates];
   applyMechanismValues(study, config, values);
   const options = {
     steps: values.steps,

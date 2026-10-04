@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "baseCommit": "e107259726aac83a92692b858294fccfa3bef167",
+  "description": "Owner-requested October 4 placement: Synthesaurus immediately after Hiccup Head in Faves; retain its lab identity and all earlier catalogue reference hashes.",
+  "changes": [
+    {
+      "file": "src/site/instrument-registry.js",
+      "sha256": "af6ee14280008012ecd9d34040a9f577021f8d7bd913f0299e3db08d21705efb",
+      "regressionTests": [
+        "tests/nav.test.mjs",
+        "tests/full-instrument-presets.test.mjs",
+        "e2e/instrument-tour.spec.mjs"
+      ],
+      "replacements": [
+        {
+          "before": "  \"hiccup-head\",\n  \"creaturazoid\",",
+          "after": "  \"hiccup-head\",\n  \"synthesis\",\n  \"creaturazoid\","
+        },
+        {
+          "before": "  \"simd-chiptune\",\n  \"synthesis\"\n]);",
+          "after": "  \"simd-chiptune\"\n]);"
+        }
+      ]
+    }
+  ]
+}

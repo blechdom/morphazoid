@@ -10,6 +10,7 @@ export const FAVE_TOOL_IDS = Object.freeze([
   "shapes",
   "rubix",
   "hiccup-head",
+  "synthesis",
   "creaturazoid",
   "hybrinx",
   "jaw-harp",
@@ -23,8 +24,7 @@ export const FAVE_TOOL_IDS = Object.freeze([
   "cellular-automata",
   "lattice",
   "gesticulating-hand",
-  "simd-chiptune",
-  "synthesis"
+  "simd-chiptune"
 ]);
 
 export const TOOL_GROUPS = Object.freeze([

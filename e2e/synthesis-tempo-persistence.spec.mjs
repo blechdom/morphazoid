@@ -65,15 +65,15 @@ test('randomized sequence tempo survives a URL reload', async ({ page }) => {
   await page.evaluate(() => { Math.random = () => .999999; });
   await page.locator('#randomSequencePreset').click();
 
-  await expect(page.locator('#tempo')).toHaveValue('220');
-  expect(await page.evaluate(() => window.MorphazoidSynthesis.getSequenceState().tempo)).toBe(220);
-  expect(new URL(page.url()).searchParams.get('sequenceTempo')).toBe('220');
+  await expect(page.locator('#tempo')).toHaveValue('180');
+  expect(await page.evaluate(() => window.MorphazoidSynthesis.getSequenceState().tempo)).toBe(180);
+  expect(new URL(page.url()).searchParams.get('sequenceTempo')).toBe('180');
 
   await page.reload();
   await expect(page.locator('#sequenceSelect')).toHaveValue(STUDY_ID);
-  await expect(page.locator('#tempo')).toHaveValue('220');
+  await expect(page.locator('#tempo')).toHaveValue('180');
   expect(await page.evaluate(() => window.MorphazoidSynthesis.getSequenceState())).toMatchObject({
     id: STUDY_ID,
-    tempo: 220,
+    tempo: 180,
   });
 });

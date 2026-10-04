@@ -61,23 +61,23 @@ const sources = {
   nancarrow: {
     label: 'IRCAM composer biography and works overview: Conlon Nancarrow',
     year: 1947,
-    dateKind: 'documented practice',
+    dateKind: 'documented instrument acquisition',
     url: 'https://brahms.ircam.fr/en/conlon-nancarrow',
-    limitation: 'Documents the player-piano practice and chronology, not transferable roll data or a single invention date.',
+    limitation: 'IRCAM dates Nancarrow’s purchase of a player piano and encounter with a roll-punching machine to 1947. This anchors his later roll studies; it does not date every tempo-canon technique or provide transferable roll data.',
   },
   grainger: {
-    label: 'Grainger Museum collection overview: Free Music machines',
+    label: 'Grainger Museum exhibition catalogue: dated 1951 Free Music graphs and machines',
     year: 1951,
     dateKind: 'documented instrument development',
-    url: 'https://grainger.unimelb.edu.au/explore/collections/grainger-museum-collection/free-music-machines',
-    limitation: 'Establishes the drawn-control lineage; the studies use new curves rather than Grainger score material.',
+    url: 'https://grainger.unimelb.edu.au/__data/assets/pdf_file/0011/2036666/Free_Music_exhibition.pdf',
+    limitation: 'The museum transcribes dated 1951 graphs, reed tools and oscillator-player drawings (pp. 18–25); the better-known Kangaroo-pouch machine followed in 1952. The studies use new curves, not Grainger score material.',
   },
   rca: {
     label: 'Columbia University history: RCA Mark II Sound Synthesizer',
     year: 1957,
     dateKind: 'institutional system milestone',
     url: 'https://magazine.columbia.edu/article/how-robert-moog-launched-music-electronic-age',
-    limitation: 'An institutional overview of punched-paper control, not a technical reconstruction of the machine.',
+    limitation: 'Columbia dates the RCA Mark II’s introduction to 1957 and its installation at Columbia to 1959. This anchors punched-paper control, not a technical reconstruction of the machine or a claim about every control row.',
   },
   music3: {
     label: 'Mathews, An Acoustic Compiler for Music and Psychological Stimuli',
@@ -201,11 +201,11 @@ const sources = {
     limitation: 'Documents tracker representation without supplying the chronology date; all rows and carry rules here are original abstractions.',
   },
   koan: {
-    label: 'Intermorphic history: SSEYO Koan generative music system',
+    label: 'Intermorphic developer history: SSEYO Koan Plus (1994)',
     year: 1994,
     dateKind: 'developer history',
     url: 'https://intermorphic.com/archive/sseyo/koan/',
-    limitation: 'Grounds bounded rule-driven generation; no Koan content, presets or proprietary rule set is used.',
+    limitation: '1994 dates the Koan Plus release; development began in 1990, beta testing in 1992 and Koan Pro followed in 1995. No Koan content, presets or proprietary rule set is used.',
   },
   nordModular: {
     label: 'Nord official legacy account: Nord Modular',
@@ -254,16 +254,16 @@ const sources = {
   elektron: {
     label: 'Elektron Digitakt user manual: parameter locks and conditional locks',
     year: 2017,
-    dateKind: 'manufacturer documentation',
+    dateKind: 'documented product release',
     url: 'https://www.elektron.se/wp-content/uploads/2025/07/Digitakt-User-Manual_ENG_OS1.52A_250708.pdf',
-    limitation: 'Grounds per-step state and conditions; labels, notes and conditions are generic and original.',
+    limitation: 'The manual’s introductory history dates shipping to May 2017; this is a Digitakt milestone, not the invention of parameter locks or conditional sequencing. The linked manual was revised in 2025; study notes and conditions are original.',
   },
   tidal: {
     label: 'TidalCycles documentation: history and pattern transformations',
     year: 2009,
-    dateKind: 'project documentation',
+    dateKind: 'first public presentation',
     url: 'https://tidalcycles.org/docs/around_tidal/tidal_history/',
-    limitation: 'Grounds live pattern transformation; no tutorial or performance pattern is copied.',
+    limitation: 'McLean dates the first talk to 2009 and the initial pattern-rotation experiments to around 2006. 2009 is the presentation milestone, not an invention or initial-release date. No tutorial or performance pattern is copied.',
   },
   bitwig: {
     label: 'Bitwig Studio 4.0 release notes: Operators',
@@ -273,11 +273,11 @@ const sources = {
     limitation: 'Grounds chance, recurrence and occurrence conditions; the event set is newly authored.',
   },
   strudel: {
-    label: 'Strudel getting-started guide: browser pattern language',
+    label: 'Strudel developer release history: first commit, 22 January 2022',
     year: 2022,
-    dateKind: 'project documentation milestone',
-    url: 'https://strudel.cc/learn/getting-started/',
-    limitation: 'Grounds browser-based pattern algebra and live transformation without copying examples.',
+    dateKind: 'first development commit',
+    url: 'https://strudel.cc/blog/#release-notes-v100',
+    limitation: 'The January 2024 version 1.0 release notes date the first commit to 22 January 2022. This dates the browser project, not pattern algebra or live coding as a whole; no examples are copied.',
   },
 };
 
@@ -297,3 +297,11 @@ export const SEQUENCE_CHRONOLOGY = deepFreeze(Object.fromEntries(
 
 export const getSequenceEra = id => SEQUENCE_CHRONOLOGY[id] || null;
 export const getSequenceSource = id => SEQUENCE_SOURCES[id] || null;
+
+/** A compact citation date, never a fabricated year for an authored study. */
+export function sequenceShortDateLabel(sources, approximateYear) {
+  const years = [...new Set(sources.flatMap(source => source.milestoneYears || []))]
+    .filter(Number.isInteger).sort((a, b) => a - b);
+  if (years.length) return years.join(' / ');
+  return Number.isFinite(approximateYear) ? `~${Math.floor(approximateYear / 10) * 10}s` : '';
+}

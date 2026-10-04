@@ -3,7 +3,7 @@ import { FAVE_TOOL_IDS } from "../src/site/instrument-registry.js";
 import { readAudioStatus } from "./helpers/audio-probe.mjs";
 import { pageDiagnosticMessages, settlePage, watchPageDiagnostics } from "./helpers/diagnostics.mjs";
 
-test("homepage and Choose share Faves order, with Creaturazoid immediately after Hiccup Head", async ({ page }) => {
+test("homepage and Choose share Faves order, with Synthesaurus immediately after Hiccup Head", async ({ page }) => {
   await page.goto("index.html");
   await settlePage(page);
   const home = await page.locator('.catalogue-group[data-category-id="faves"] .instrument-card')
@@ -31,7 +31,9 @@ test("homepage and Choose share Faves order, with Creaturazoid immediately after
   await expect(page.locator('.catalogue-group[data-category-id="faves"] .instrument-card[data-instrument-id="simd-chiptune"] .instrument-card-link')).toHaveAttribute("href", "simd-chiptune.html");
   await expect(page.locator('.instrument-picker-group[data-group-id="faves"] .instrument-picker-link[data-tool-id="simd-chiptune"]')).toHaveAttribute("href", /\/simd-chiptune\.html$/);
   await expect(page.locator('.catalogue-group[data-category-id="simd-audio"] .instrument-card[data-instrument-id="simd-chiptune"]')).toBeVisible();
-  expect(home[home.indexOf("hiccup-head") + 1]).toBe("creaturazoid");
+  expect(home.filter(id => id === "synthesis")).toHaveLength(1);
+  expect(home.slice(home.indexOf("hiccup-head"), home.indexOf("hiccup-head") + 3))
+    .toEqual(["hiccup-head", "synthesis", "creaturazoid"]);
   expect(home).not.toContain("spiral");
   await expect(page.locator('.catalogue-group[data-category-id="tesselation"] .instrument-card[data-instrument-id="spiral"]')).toBeVisible();
   const next = page.getByRole("link", { name: "Next instrument: Shapes", exact: true });
@@ -52,7 +54,7 @@ for (const layout of [
       const diagnostics = watchPageDiagnostics(page, { baseURL });
       await page.goto("hiccup-head.html?tour-source=1#source");
       await settlePage(page);
-      const next = page.getByRole("link", { name: "Next instrument: Creaturazoid", exact: true });
+      const next = page.getByRole("link", { name: "Next instrument: Synthesaurus", exact: true });
       await expect(next).toBeVisible();
       const arrowBox = await next.boundingBox();
       const menuBox = await page.locator(".tabs .instrument-picker-trigger").boundingBox();
@@ -73,8 +75,8 @@ for (const layout of [
       expect((await readAudioStatus(page)).connectionCount).toBe(0);
       await expect(page.locator("#playButton")).toHaveAttribute("aria-pressed", "false");
       await page.keyboard.press("Enter");
-      await expect(page).toHaveURL(/\/creaturazoid\.html$/);
-      await expect(page.locator(".tabs .instrument-picker")).toHaveAttribute("data-active-tool-id", "creaturazoid");
+      await expect(page).toHaveURL(/\/synthesis\.html$/);
+      await expect(page.locator(".tabs .instrument-picker")).toHaveAttribute("data-active-tool-id", "synthesis");
       await expect(page.locator("#audioButton")).toHaveAttribute("aria-pressed", "false");
       expect((await readAudioStatus(page)).connectionCount).toBe(0);
       expect(pageDiagnosticMessages(diagnostics)).toEqual([]);
@@ -90,9 +92,9 @@ test("canonical routes and WAX navigation keep the correct next instrument and s
   await expect(page.locator("#audioButton")).toHaveAttribute("aria-pressed", "false");
   await page.goto("dist-wax/hiccup-head.html");
   await settlePage(page);
-  const next = page.getByRole("link", { name: "Next instrument: Creaturazoid", exact: true });
-  await expect(next).toHaveAttribute("href", /\/dist-wax\/creaturazoid\.html$/);
+  const next = page.getByRole("link", { name: "Next instrument: Synthesaurus", exact: true });
+  await expect(next).toHaveAttribute("href", /\/dist-wax\/synthesis\.html$/);
   await next.click();
-  await expect(page).toHaveURL(/\/dist-wax\/creaturazoid\.html$/);
+  await expect(page).toHaveURL(/\/dist-wax\/synthesis\.html$/);
   await expect(page.locator("#audioButton")).toHaveAttribute("aria-pressed", "false");
 });

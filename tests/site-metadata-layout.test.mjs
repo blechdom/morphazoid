@@ -4,6 +4,7 @@ import { restoreSpelling } from "./helpers/spelling-reference.mjs";
 import { restoreMorphazoidicalRemoval } from "./helpers/morphazoidical-removal-reference.mjs";
 import { restoreFabricFilter } from "./helpers/fabric-filter-reference.mjs";
 import { restoreVoicesaurus } from "./helpers/voicesaurus-reference.mjs";
+import { restoreSynthesaurusFavesOrder, synthesaurusFavesOrderChanges } from "./helpers/synthesaurus-faves-order-reference.mjs";
 import { restoreDominoRunSite, dominoRunSiteAmendments } from "./helpers/domino-run-site-reference.mjs";
 import { restoreRainVolumeMeters } from './helpers/rain-volume-meter-reference.mjs';
 import { restoreFractalSignalsSite, fractalSignalsSiteChanges } from "./helpers/fractal-signals-site-reference.mjs";
@@ -40,8 +41,24 @@ function restoreSynthesis(source, file) {
   return source;
 }
 // Voicesaurus is newer than both Synthesaurus and Domino; peel it off first.
-const readBeforeSynthesis = async file => restoreSynthesis(restoreVoicesaurus(restoreFabricFilter(restoreMorphazoidicalRemoval(restoreTapTempo(await readFile(new URL(file, root), "utf8"), file), file), file), file), file);
+const readBeforeSynthesis = async file => {
+  const current = restoreSynthesaurusFavesOrder(await readFile(new URL(file, root), "utf8"), file);
+  return restoreSynthesis(restoreVoicesaurus(restoreFabricFilter(restoreMorphazoidicalRemoval(restoreTapTempo(current, file), file), file), file), file);
+};
 const readBeforeDomino = async file => restoreDominoRunSite(await readBeforeSynthesis(file), file);
+
+test("Synthesaurus Faves reorder reverses exactly without changing older reference hashes", async () => {
+  assert.deepEqual(synthesaurusFavesOrderChanges.map(change => change.file), ["src/site/instrument-registry.js"]);
+  for (const change of synthesaurusFavesOrderChanges) {
+    const source = await readFile(new URL(change.file, root), "utf8");
+    assert.notEqual(restoreSynthesaurusFavesOrder(source, change.file), source);
+    assert.throws(() => restoreSynthesaurusFavesOrder(source + "\n// unrelated drift\n", change.file), /pre-Synthesaurus-reorder source preserved/);
+    for (const replacement of change.replacements) {
+      assert.throws(() => restoreSynthesaurusFavesOrder(source.replace(replacement.after, ""), change.file), /exact Synthesaurus Faves reorder/);
+    }
+  }
+  assert.equal(restoreSynthesaurusFavesOrder("untouched", "unrelated.js"), "untouched");
+});
 
 test("remaining flat JavaScript modules match the reviewed shared and toolchain boundaries", async () => {
   const previous = JSON.parse(await readFile(new URL("../docs/source-module-layout.json", import.meta.url)));

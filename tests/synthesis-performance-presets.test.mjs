@@ -6,6 +6,7 @@ import {
   sanitizeState,
 } from '../src/instruments/synthesis/catalog.js';
 import { SEQUENCE_STUDIES, getSequenceStudy } from '../src/instruments/synthesis/sequence-catalog.js';
+import { compileSequence } from '../src/instruments/synthesis/sequence-compiler.js';
 import {
   createSequenceParameterValues,
   getSequenceParameterBounds,
@@ -132,6 +133,7 @@ test('six bounded sequence-settings recipes apply to every historical mechanism'
     assert.equal(new Set(presets.map(preset => JSON.stringify(preset.snapshot))).size, presets.length, `${study.id}: recipes are distinct`);
     const parameterIds = getSequenceParameterDefinitions(study).map(definition => definition.id);
     for (const preset of presets) {
+      assert.ok(!/^(original|spacious|sparse|tight|dense|wild)$/i.test(preset.label), `${preset.id}: names its musical mechanism`);
       assert.equal(preset.snapshot.id, study.id);
       assert.deepEqual(Object.keys(preset.snapshot.parameters), parameterIds);
       assert.deepEqual(preset.snapshot.parameters, createSequenceParameterValues(study, preset.snapshot.parameters));
@@ -146,6 +148,55 @@ test('six bounded sequence-settings recipes apply to every historical mechanism'
     assert.deepEqual(presets[0].snapshot.parameters, createSequenceParameterValues(study), `${study.id}: Original is authored default`);
     const current = sanitizeSequencePerformance({ id: study.id, tempoBpm: 999, parameters: { density: .01 } });
     assert.deepEqual(applySequenceSettingsRecipe(current, 'dense'), presets[4].snapshot);
+  }
+});
+
+test('technique presets produce distinct mechanisms and an early audible event', () => {
+  for (const study of SEQUENCE_STUDIES) {
+    const presets = createSequenceSettingsPresets(study);
+    const mechanismPatterns = new Set();
+    for (const preset of presets) {
+      const parameters = preset.snapshot.parameters;
+      const compiled = compileSequence(study, { parameters });
+      const sounding = compiled.steps.filter(step => step.notes.length);
+      assert.ok(sounding.length >= 4, `${preset.id}: several visible attacks`);
+      assert.ok(sounding[0].at * 60 / preset.snapshot.tempoBpm <= .75, `${preset.id}: first note within 750 ms`);
+      assert.ok(compiled.steps.flatMap(step => step.notes).every(note => note.velocity >= .12), `${preset.id}: audible note velocities`);
+      // Remove superficial tempo, seed, articulation and register differences:
+      // the method's own mechanism must still create differing event patterns.
+      const neutral = compileSequence(study, {
+        parameters: { ...parameters, steps: 64, stepBeats: .25, gate: .72, density: 1, transpose: 0, swing: 0, seed: 1 },
+      });
+      mechanismPatterns.add(JSON.stringify(neutral.steps));
+    }
+    assert.ok(mechanismPatterns.size >= 4, `${study.id}: at least four distinct mechanisms, not relabeled tempo changes`);
+  }
+  assert.equal(createSequenceSettingsPresets('euclidean-pulse-rotation')[1].label, 'Three in eight');
+  assert.equal(createSequenceSettingsPresets('bounded-random-walk')[1].label, 'Neighbor-state melody');
+});
+
+test('arpeggiator dice compiles visible playable notes across methods, seeds and RNG edges', () => {
+  for (const study of SEQUENCE_STUDIES) {
+    const generators = [
+      ...[0, 1, .01, .5, .99, NaN, -1, 2].map(value => () => value),
+      ...Array.from({ length: 96 }, (_, index) => mulberry32(index + 4000)),
+    ];
+    for (const [index, rng] of generators.entries()) {
+      const state = randomizeSequenceSettings({ id: study.id }, rng);
+      const compiled = compileSequence(study, { parameters: state.parameters });
+      const sounding = compiled.steps.filter(step => step.notes.length);
+      const notes = sounding.flatMap(step => step.notes);
+      const label = `${study.id}: sample ${index}`;
+      assert.ok(sounding.length >= Math.max(4, Math.ceil(compiled.steps.length * .2)), `${label}: useful visible event density`);
+      assert.ok(sounding[0].at * 60 / state.tempoBpm <= .75, `${label}: first note within 750 ms`);
+      assert.ok(notes.every(note => note.semitone >= -36 && note.semitone <= 36), `${label}: bounded three-octave register`);
+      assert.ok(notes.every(note => note.velocity >= .12 && note.velocity <= 1), `${label}: non-negligible velocities`);
+      const noteRate = notes.length / compiled.lengthBeats * state.tempoBpm / 60;
+      assert.ok(noteRate >= .6 && noteRate <= 24, `${label}: useful note rate, received ${noteRate}`);
+      const durations = sounding.flatMap(step => step.notes.map(note => step.duration * note.gate * 60 / state.tempoBpm));
+      assert.ok(durations.every(duration => duration >= .004), `${label}: no sub-4 ms note gates`);
+      assert.ok(durations.reduce((sum, duration) => sum + duration, 0) / durations.length >= .03, `${label}: mean gate exceeds 30 ms`);
+    }
   }
 });
 

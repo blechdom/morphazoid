@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { choose } from './helpers/synthesis-controls.mjs';
+import { choose, exact } from './helpers/synthesis-controls.mjs';
 import { sampleAudioEnvelope, waitForStableAudioState } from './helpers/audio-probe.mjs';
 import { PROCESSING_INPUT_OPTIONS } from '../src/instruments/synthesis/demo-sources.js';
 
@@ -46,7 +46,8 @@ test('sample selection and transport remain silent without Audio; explicit armin
   await page.locator('#triggerButton').click();
   await page.locator('#playButton').click();
   expect(await status(page)).toMatchObject({ armed: false, playing: true, input: { selection: drums.id, source: 0, kind: 'none', loading: false } });
-  expect(await page.evaluate(() => window.MorphazoidSynthesis.getState())).toEqual(before);
+  const after = await page.evaluate(() => window.MorphazoidSynthesis.getState());
+  expect(after).toEqual({ ...before, routing: { ...before.routing, input: 'samples', selection: drums.id } });
   expect(requests).toEqual([]);
   await expect(page.locator('#inputStatus')).toContainText('Enable Audio');
   await page.locator('#processingBypass').check();
@@ -81,22 +82,30 @@ test('all bundled sample inputs reach the output with finite bounded audio', asy
   await testInfo.attach('processing-sample-levels.json', { body: JSON.stringify(measurements, null, 2), contentType: 'application/json' });
 });
 
-test('explicit input survives preset Next and both dice, then Noise releases the sample input', async ({ page }) => {
+test('explicit input survives processor preset Next and parameter edits, then Noise releases the sample input', async ({ page }) => {
   const requests = []; page.on('request', request => { if (isDemoRequest(request)) requests.push(request.url()); });
   await startBypassed(page);
   const voice = demos.find(option => option.id === 'voice-slt');
   await choose(page, 'processingSource', voice.id);
   await loaded(page, voice);
-  for (const selector of ['#nextPreset', '#randomMethod', '#randomPreset', '#nextPreset']) {
-    await page.locator(selector).click();
+  // Selecting Sample loops first starts that category's remembered/default
+  // loop. Only subsequent effect edits must leave the chosen voice untouched.
+  const loadedRequests = [...requests];
+  for (const action of ['next', 'edit', 'next']) {
+    if (action === 'edit') await exact(page, '#dryWet-value', 47);
+    else await page.locator('#nextProcessorPreset').click();
     await expect(page.locator('#processingSource')).toHaveValue(voice.id);
     expect(await status(page)).toMatchObject({ section: 'processing', armed: true, playing: true, input: { selection: voice.id, source: 0, kind: 'file', loading: false } });
     await expect(page.locator('#inputStatus')).toContainText(voice.label);
   }
-  expect(requests).toHaveLength(1);
+  expect(requests).toEqual(loadedRequests);
+  expect(requests.filter(url => url.endsWith('/vocalzoid-cmu-arctic-slt.wav'))).toHaveLength(1);
   await choose(page, 'processingSource', 'noise');
   expect(await inputStatus(page)).toMatchObject({ selection: 'noise', source: 3, kind: 'none', loading: false });
   await expect(page.locator('#inputStatus')).toHaveText('Noise');
+  await expect(page.locator('#frequencyRow')).toBeHidden();
+  await choose(page, 'processingSource', 'sine');
+  expect(await inputStatus(page)).toMatchObject({ selection: 'sine', source: 1, kind: 'none', loading: false });
   await expect(page.locator('#frequencyRow')).toBeVisible();
   await expect(page.locator('#audioError')).toBeHidden();
 });
@@ -117,7 +126,7 @@ for (const action of ['mute', 'section', 'input']) test(`a delayed sample reques
     await expect.poll(() => requested).toBe(true);
     expect(await inputStatus(page)).toMatchObject({ selection: 'voice-bdl', loading: true, kind: 'none' });
     if (action === 'mute') await page.locator('#audioButton').click();
-    else if (action === 'section') await page.locator('#sectionSynthesis').click();
+    else if (action === 'section') await choose(page, 'inputCategory', 'synthesis');
     else await choose(page, 'processingSource', 'noise');
     await expect.poll(() => inputStatus(page)).toMatchObject({ loading: false, kind: 'none' });
     release();
@@ -180,9 +189,9 @@ test('Loop input supports continuous playback, one-shot completion and replay wi
   await expect.poll(() => inputStatus(page)).toMatchObject({ ended: true });
   await page.locator('#triggerButton').click();
   assertAudible(await sampleAudioEnvelope(page, { durationMs: 400, intervalMs: 30 }));
-  await page.locator('#nextPreset').click();
+  await page.locator('#nextProcessorPreset').click();
   await expect(page.locator('#processingLoop')).not.toBeChecked();
-  await page.locator('#randomMethod').click();
+  await exact(page, '#dryWet-value', 47);
   await expect(page.locator('#processingLoop')).not.toBeChecked();
   await page.locator('#processingLoop').check();
   await expect.poll(() => inputStatus(page)).toMatchObject({ kind: 'file', loop: true, ended: false });

@@ -27,10 +27,10 @@ const equalIds = (actual, records) => assert.deepEqual(new Set(actual), new Set(
 
 test("Shapes leads Faves while individual geometry instruments remain category-only", () => {
   assert.deepEqual(FAVE_TOOL_IDS, [
-    "shapes", "rubix", "hiccup-head",
+    "shapes", "rubix", "hiccup-head", "synthesis",
     "creaturazoid", "hybrinx", "jaw-harp", "fractal-signals", "hyper-rubix", "puggler", "micmic",
     "l-system", "graph-delay", "graph-synth", "cellular-automata", "lattice",
-    "gesticulating-hand", "simd-chiptune", "synthesis",
+    "gesticulating-hand", "simd-chiptune",
   ]);
 });
 

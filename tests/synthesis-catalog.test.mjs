@@ -5,9 +5,9 @@ import { METHODS, SYNTHESIS_METHODS, PROCESSOR_METHODS, PRESET_COUNT, PARAMETER_
 
 test('synthesis catalog covers each requested engine with eight distinct, complete musical presets', () => {
   assert.equal(SYNTHESIS_METHODS.length, 53);
-  assert.equal(PROCESSOR_METHODS.length, 16);
-  assert.equal(METHODS.length, 69);
-  assert.equal(PRESET_COUNT, 552);
+  assert.equal(PROCESSOR_METHODS.length, 17);
+  assert.equal(METHODS.length, SYNTHESIS_METHODS.length + PROCESSOR_METHODS.length);
+  assert.equal(PRESET_COUNT, METHODS.length * 8);
   assert.equal(new Set(METHODS.map(method => method.id)).size, METHODS.length);
   METHODS.forEach((method, engineId) => {
     if (method.kind === "processor") assert.equal(method.processorId, engineId - SYNTHESIS_METHODS.length);
@@ -165,7 +165,7 @@ test('every method has grounded touchstone demonstrations and valid single-contr
 test('processing presets keep effect mix separate from master output and discard source devices', () => {
   const method = PROCESSOR_METHODS[0], preset = method.presets[0];
   const value = sanitizeState({ methodId: method.id, source: 99, wet: -1, inputDb: 90, outputDb: -99, bypass: true, stream: {}, file: {} });
-  assert.equal(value.source, 7); assert.equal(value.wet, 0); assert.equal(value.inputDb, 24); assert.equal(value.outputDb, -36);
+  assert.equal(value.source, 10); assert.equal(value.wet, 0); assert.equal(value.inputDb, 24); assert.equal(value.outputDb, -36);
   assert.equal(value.bypass, true); assert.ok(!('stream' in value) && !('file' in value));
   const recalled = stateFromPreset(method.id, preset.id, { outputLevel: .4 });
   assert.equal(recalled.outputLevel, .4); assert.equal(recalled.source, preset.source);

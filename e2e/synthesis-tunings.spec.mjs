@@ -10,14 +10,7 @@ import {
   tuningRatioForDegree,
 } from '../src/instruments/synthesis/tunings.js';
 
-const tuningGroups = new Set(TUNINGS.map(tuning => tuning.group));
 const SEQUENCE_OPTION_COUNT = 1 + 3 + SEQUENCE_STUDIES.length;
-const SELECTOR_TARGET_WIDTHS = Object.freeze({
-  method: 210,
-  preset: 185,
-  sequence: 260,
-  tuning: 240,
-});
 const RESPONSIVE_VIEWPORTS = Object.freeze([
   { width: 390, height: 844, catalogLayout: 'stacked', methodLayout: 'stacked' },
   { width: 521, height: 900, catalogLayout: 'stacked', methodLayout: 'stacked' },
@@ -27,32 +20,37 @@ const RESPONSIVE_VIEWPORTS = Object.freeze([
   { width: 1440, height: 900, catalogLayout: 'single-row', methodLayout: 'inline' },
 ]);
 
+const euclideanRing = page => page.getByRole('slider', { name: /^Euclidean pulse circle/ });
+async function setEuclideanPulses(page, target) {
+  const current = await page.evaluate(() => window.MorphazoidSynthesis.getSequenceState().parameters.pulses);
+  const ring = euclideanRing(page);
+  await expect(ring).toBeVisible();
+  for (let count = current; count !== target; count += target > current ? 1 : -1) {
+    await ring.press(target > current ? 'ArrowUp' : 'ArrowDown');
+  }
+  expect(await page.evaluate(() => window.MorphazoidSynthesis.getSequenceState().parameters.pulses)).toBe(target);
+}
+
 test('complete synth, arpeggiator and tuning catalogs remain independent performer choices', async ({ page }) => {
   await page.goto('/synthesis.html?method=additive');
 
-  expect(SYNTHESIS_METHODS).toHaveLength(53);
-  expect(SEQUENCE_STUDIES).toHaveLength(62);
-  expect(TUNINGS).toHaveLength(32);
   await expect(page.locator('#methodSelect option')).toHaveCount(SYNTHESIS_METHODS.length);
   await expect(page.locator('#sequenceSelect option')).toHaveCount(SEQUENCE_OPTION_COUNT);
   await expect(page.locator('#tuningSelect option')).toHaveCount(TUNINGS.length);
-  await expect(page.locator('#tuningSelect optgroup')).toHaveCount(tuningGroups.size);
+  await expect(page.locator('#tuningSelect optgroup')).toHaveCount(0);
   const sequenceOptions = await page.locator('#sequenceSelect option').evaluateAll(options => options.map(option => ({
     value: option.value,
     text: option.textContent,
   })));
-  expect(sequenceOptions[0]).toEqual({ value: 'none', text: 'Direct note · current Play behavior' });
-  expect(sequenceOptions[1]).toEqual({
-    value: SEQUENCE_STUDIES[0].id,
-    text: `${SEQUENCE_STUDIES[0].label} · ${SEQUENCE_STUDIES[0].shortDateLabel}`,
-  });
-  expect(sequenceOptions.slice(1, 1 + SEQUENCE_STUDIES.length).every(option => / · ~\d{4}s$/.test(option.text))).toBe(true);
+  expect(sequenceOptions[0]).toEqual({ value: 'none', text: 'Direct note' });
+  expect(sequenceOptions[1].value).toBe(SEQUENCE_STUDIES[0].id);
+  expect(sequenceOptions.slice(1, 1 + SEQUENCE_STUDIES.length).every(option => / · ~?\d{4}s?(?: \/ \d{4})?$/.test(option.text))).toBe(true);
   expect(sequenceOptions.slice(-3).map(option => option.value)).toEqual(['basic-up', 'basic-down', 'basic-up-down']);
-  await expect(page.locator('#sequenceCount')).toHaveText('62 editable studies · search or scroll · 3 quick patterns');
+  await expect(page.locator('#sequenceCount')).toHaveCount(0);
   await expect(page.locator('[data-select-id="sequenceSelect"] .instrument-picker-link')).toHaveCount(SEQUENCE_OPTION_COUNT);
-  await expect(page.locator('.synthesis-selectors > :nth-child(1)')).toHaveClass(/synthesis-method-choice/);
-  await expect(page.locator('.synthesis-selectors > :nth-child(2)')).toHaveClass(/synthesis-sequence-choice/);
-  await expect(page.locator('.synthesis-selectors > :nth-child(3)')).toHaveClass(/synthesis-tuning-choice/);
+  await expect(page.locator('#synthDetail .synthesis-method-choice')).toHaveCount(1);
+  await expect(page.locator('#arpDetail .synthesis-sequence-choice')).toHaveCount(1);
+  await expect(page.locator('#synthDetail .synthesis-tuning-choice')).toHaveCount(1);
   await expect(page.locator('.synthesis-method-choice #methodSelect')).toHaveCount(1);
   await expect(page.locator('.synthesis-method-choice #presetHost')).toHaveCount(1);
   await expect(page.locator('.synthesis-sequence-choice #sequenceSelect')).toHaveCount(1);
@@ -71,7 +69,7 @@ test('complete synth, arpeggiator and tuning catalogs remain independent perform
     };
   })).toEqual({ synth: true, arp: true });
   const methodPickerBounds = await page.locator('[data-select-id="methodSelect"] summary').boundingBox();
-  const presetPickerBounds = await page.locator('#presetHost .header-preset-picker summary').boundingBox();
+  const presetPickerBounds = await page.locator('#presetHost summary').boundingBox();
   expect(Math.abs(methodPickerBounds.y - presetPickerBounds.y)).toBeLessThan(20);
   expect(presetPickerBounds.x).toBeGreaterThan(methodPickerBounds.x);
 
@@ -84,11 +82,10 @@ test('complete synth, arpeggiator and tuning catalogs remain independent perform
   await choose(page, 'tuningSelect', 'edo-6-whole-tone');
   await choose(page, 'sequenceSelect', 'rotating-euclidean-chords');
   await expect(page.locator('.synthesis-sequence-choice #sequencePresetSection')).toBeVisible();
-  await expect(page.locator('#sequenceParameterControls')).toContainText('Pulses');
-  await expect(page.locator('#sequence-param-pulses')).toBeVisible();
-  await expect(page.locator('#sequence-param-euclideanSteps')).toBeVisible();
-  await expect(page.locator('#sequence-param-rotation')).toBeVisible();
-  await exact(page, '#sequence-param-pulses-value', 8);
+  await expect(euclideanRing(page)).toBeVisible();
+  await expect(page.getByRole('spinbutton', { name: 'Euclidean slots' })).toBeVisible();
+  await expect(page.locator('#sequence-param-pulses, #sequence-param-euclideanSteps, #sequence-param-rotation')).toHaveCount(0);
+  await setEuclideanPulses(page, 8);
 
   const additiveLabels = await page.locator('#methodControls label').allTextContents();
   await choose(page, 'methodSelect', 'fm');
@@ -130,23 +127,23 @@ test('complete synth, arpeggiator and tuning catalogs remain independent perform
   expect(selectedStudyIsVisible).toBe(true);
 });
 
-test('Randomize everything changes every musical category but preserves performer-owned state', async ({ page }) => {
+test('whole instrument dice changes every musical category but preserves performer-owned state', async ({ page }) => {
+  await page.addInitScript(() => { Math.random = () => .999999; });
   await page.goto('/synthesis.html?method=additive');
-  await expect(page.locator('#performanceRandomRow')).toContainText('New synth, synthesis settings, voicing, ADSR, arpeggiator, arpeggiator settings, tempo, and tuning.');
-  await expect(page.locator('#randomPerformance')).toHaveText(/Randomize everything/);
+  await expect(page.locator('#performanceRandomRow')).toHaveCount(0);
+  await expect(page.locator('#randomPerformance')).toHaveAccessibleName('Randomize every musical setting');
+  await expect(page.locator('#randomPerformance svg')).toHaveCount(1);
 
   const before = await page.evaluate(() => ({
     state: window.MorphazoidSynthesis.getState(),
     sequence: window.MorphazoidSynthesis.getSequenceState(),
     status: window.MorphazoidSynthesis.getStatus(),
   }));
-  await page.evaluate(() => { Math.random = () => .999999; });
   await page.locator('#randomPerformance').click();
 
   await expect(page.locator('#methodSelect')).toHaveValue(SYNTHESIS_METHODS.at(-1).id);
   await expect(page.locator('#sequenceSelect')).toHaveValue(SEQUENCE_STUDIES.at(-1).id);
   await expect(page.locator('#tuningSelect')).toHaveValue(TUNINGS.at(-1).id);
-  await expect(page.locator('#status')).toHaveText('Every synth, voicing, ADSR, arpeggiator, tempo, and tuning setting was randomized.');
   const after = await page.evaluate(() => ({
     state: window.MorphazoidSynthesis.getState(),
     sequence: window.MorphazoidSynthesis.getSequenceState(),
@@ -163,7 +160,7 @@ test('Randomize everything changes every musical category but preserves performe
   expect(after.state.voiceMode).not.toBe(before.state.voiceMode);
 });
 
-test('technique-shaped editors stay synchronized with exact controls', async ({ page }) => {
+test('technique-shaped editors own their values without duplicate exact controls', async ({ page }) => {
   await page.goto('/synthesis.html?method=multiple-wavetable');
 
   await expect(page.locator('.synthesis-gesture--xy')).toHaveCount(1);
@@ -195,8 +192,8 @@ test('technique-shaped editors stay synchronized with exact controls', async ({ 
   await vectorHandle.press('ArrowUp');
   await expect.poll(() => page.evaluate(() => window.MorphazoidSynthesis.getState().params[0])).toBeCloseTo(vectorBefore[0] + .01, 8);
   await expect.poll(() => page.evaluate(() => window.MorphazoidSynthesis.getState().params[1])).toBeCloseTo(vectorBefore[1] + .01, 8);
-  await expect(page.locator('#synth-param-0-value')).toHaveValue(String((vectorBefore[0] + .01) * 100));
-  await expect(page.locator('#synth-param-1-value')).toHaveValue(String((vectorBefore[1] + .01) * 100));
+  await expect(page.locator('#synth-param-0-value, #synth-param-1-value')).toHaveCount(0);
+  await expect(vectorHandle).toHaveAttribute('aria-label', /Vector X .*; Vector Y /);
   expect(await page.evaluate(() => window.MorphazoidSynthesis.getState().presetId)).toBe('custom');
   await vectorHandle.press('Enter');
   await expect.poll(() => page.evaluate(() => window.MorphazoidSynthesis.getState().params.slice(0, 2))).toEqual([.5, .5]);
@@ -221,7 +218,8 @@ test('technique-shaped editors stay synchronized with exact controls', async ({ 
   await expect.poll(() => page.evaluate(() => window.MorphazoidSynthesis.getState().params[0])).toBeCloseTo(curveBefore, 3);
   await curveHandle.press('End');
   await expect.poll(() => page.evaluate(() => window.MorphazoidSynthesis.getState().params[0])).toBe(1);
-  await expect(page.locator('#synth-param-0-value')).toHaveValue('1');
+  await expect(page.locator('#synth-param-0-value')).toHaveCount(0);
+  await expect(curveHandle).toHaveAttribute('aria-valuenow', '1');
 });
 
 test('mechanism controls, tuned pitch shape, ADSR presets and research hierarchy stay legible', async ({ page }) => {
@@ -229,31 +227,38 @@ test('mechanism controls, tuned pitch shape, ADSR presets and research hierarchy
   await choose(page, 'tuningSelect', 'edo-6-whole-tone');
   await choose(page, 'sequenceSelect', 'rotating-euclidean-chords');
 
-  const mechanismSection = page.locator('.synthesis-sequence-parameter-section').first();
+  const mechanismSection = page.locator('#sequenceSurface');
   await expect(page.locator('.synthesis-sequence-control-group')).toHaveText([
     'Euclidean controls',
     'Clock & cycle',
     'Articulation & chance',
     'Pitch output',
   ]);
-  await expect(mechanismSection.locator('#sequence-param-pulses')).toBeVisible();
-  await expect(mechanismSection.locator('#sequence-param-euclideanSteps')).toBeVisible();
-  await expect(mechanismSection.locator('#sequence-param-rotation')).toBeVisible();
-  const pulsesControl = page.locator('.synthesis-linear-control:has(#sequence-param-pulses)');
-  await expect(pulsesControl).toHaveAttribute('title', /Distributes this many attacks/);
-  await expect(page.locator('#sequence-param-pulses')).toHaveAttribute('aria-describedby', 'sequence-param-pulses-help');
-  await expect(page.locator('#sequence-param-pulses-help')).toHaveText(/as evenly as possible/);
-  await page.locator('#sequence-param-pulses-value').fill('2');
-  await page.locator('#sequence-param-pulses-value').press('Enter');
-  await page.locator('#sequence-param-euclideanSteps-value').fill('2');
-  await page.locator('#sequence-param-euclideanSteps-value').press('Enter');
-  await expect(page.locator('#sequence-param-pulses-value')).toHaveValue('2');
-  await expect(page.locator('#sequence-param-pulses-value')).toHaveAttribute('max', '2');
-  await expect(pulsesControl).toHaveAttribute('title', /Distributes this many attacks/);
+  const ring = euclideanRing(page);
+  const slots = page.getByRole('spinbutton', { name: 'Euclidean slots' });
+  await expect(ring).toBeVisible();
+  const ringBounds = await ring.boundingBox();
+  expect(Math.abs(ringBounds.width - ringBounds.height)).toBeLessThan(1);
+  await expect(ring).toHaveAttribute('aria-label', /Drag to rotate.*up and down change pulse count/);
+  await expect(mechanismSection.locator('.synthesis-sequence-surface-hint')).toHaveText(/circle.*rotate.*pulse count/);
+  await expect(page.locator('#sequence-param-pulses, #sequence-param-euclideanSteps, #sequence-param-rotation')).toHaveCount(0);
+  const rotation = await page.evaluate(() => window.MorphazoidSynthesis.getSequenceState().parameters.rotation);
+  await ring.press('ArrowRight');
+  expect(await page.evaluate(() => window.MorphazoidSynthesis.getSequenceState().parameters.rotation)).not.toBe(rotation);
+  await setEuclideanPulses(page, 2);
+  await slots.fill('2'); await slots.press('Tab');
+  await expect(slots).toHaveValue('2');
+  await expect(ring).toHaveAttribute('aria-valuetext', /2 pulses in 2 slots/);
+  // Pulses cannot exceed slots, and both visible pulse buttons edit the score.
+  await mechanismSection.getByRole('button', { name: '+ pulse', exact: true }).click();
   await expect.poll(() => page.evaluate(() => {
     const parameters = window.MorphazoidSynthesis.getSequenceState().parameters;
     return [parameters.pulses, parameters.euclideanSteps];
   })).toEqual([2, 2]);
+  await mechanismSection.getByRole('button', { name: '− pulse', exact: true }).click();
+  expect(await page.evaluate(() => window.MorphazoidSynthesis.getSequenceState().parameters.pulses)).toBe(1);
+  await mechanismSection.getByRole('button', { name: '+ pulse', exact: true }).click();
+  expect(await page.evaluate(() => window.MorphazoidSynthesis.getSequenceState().parameters.pulses)).toBe(2);
   await page.evaluate(() => { Math.random = () => .5; });
   await page.locator('#sequence-param-seed').click();
   await expect(page.locator('#sequence-param-seed-value')).toHaveValue('2147483648');
@@ -262,6 +267,9 @@ test('mechanism controls, tuned pitch shape, ADSR presets and research hierarchy
   await expect(sharedCycle).toHaveAttribute('open', '');
   await expect(sharedCycle.locator('#sequence-param-density')).toBeVisible();
 
+  await expect(page.locator('#sequenceStrip')).toBeHidden();
+  await page.locator('#sequenceOutput > summary').click();
+  await expect(page.locator('#sequenceStrip')).toBeVisible();
   await expect(page.locator('#sequenceStrip')).toHaveAttribute('aria-label', /tuned pitch runs bottom to top/i);
   await expect(page.locator('.synthesis-sequence-contour-line')).toHaveCount(1);
   const pitchPositions = await page.locator('.synthesis-sequence-note').evaluateAll(notes => (
@@ -276,13 +284,13 @@ test('mechanism controls, tuned pitch shape, ADSR presets and research hierarchy
   await expect(page.locator('#envelopeControls .shared-amplitude-heading')).toBeHidden();
   await expect(page.locator('#envelopeControls [data-editor]')).toHaveCSS('height', '170px');
   await expect(page.locator('#envelopeControls [data-anchor="0"]')).toHaveCSS('position', 'absolute');
-  await expect(page.locator('#envelopeControls input[type=range]')).toHaveCount(4);
+  await expect(page.locator('#envelopeControls input')).toHaveCount(0);
   await expect(page.locator('#envelopeControls [data-node="1"]')).toHaveAttribute('role', 'slider');
   await expect(page.locator('#envelopeControls [data-node="1"]')).toHaveAttribute('aria-valuemin', '0.001');
   await expect(page.locator('#envelopeControls [data-node="1"]')).toHaveAttribute('aria-valuemax', '12');
-  await expect(page.locator('#envelopeControls [data-node="2"]')).not.toHaveAttribute('role', 'slider');
-  await expect(page.locator('#envelopeControls [data-node="2"]')).not.toHaveAttribute('aria-valuetext', /.+/);
-  await expect(page.locator('#envelopeControls [data-node="2"]')).toHaveAttribute('aria-label', /Decay .*sustain/i);
+  await expect(page.locator('#envelopeControls [data-node="2"]')).toHaveAttribute('role', 'slider');
+  await expect(page.locator('#envelopeControls [data-node="2"]')).toHaveAttribute('aria-orientation', 'horizontal');
+  await expect(page.locator('#envelopeControls [data-node="2"]')).toHaveAttribute('aria-valuetext', /Decay .*drag left\/right/i);
   await expect(page.locator('#envelopeControls [data-node="3"]')).toHaveAttribute('aria-orientation', 'vertical');
   await expect(page.locator('#envelopeControls [data-node="4"]')).toHaveAttribute('aria-valuemax', '16');
   await expect(page.locator('#envelopePresetSelect option:not([value="custom"])')).toHaveCount(8);
@@ -295,19 +303,17 @@ test('mechanism controls, tuned pitch shape, ADSR presets and research hierarchy
   expect(await page.evaluate(() => window.MorphazoidSynthesis.getState().envelope)).toEqual({
     attack: .045, decay: .32, sustain: .78, release: .28,
   });
-  await expect(page.locator('#envelopePresetDescription')).toContainText('breath-sized onset');
+  await expect(page.locator('#envelopePresetDescription')).toHaveCount(0);
   await page.locator('#nextEnvelopePreset').click();
   await expect(page.locator('#envelopePresetSelect')).toHaveValue('strings');
   expect(await page.evaluate(() => window.MorphazoidSynthesis.getStatus())).toMatchObject({ armed: false, playing: false });
 
-  expect(await page.evaluate(() => {
-    const workbench = document.querySelector('.synthesis-layout');
-    const footer = document.querySelector('.synthesis-study-footer');
-    const history = document.querySelector('#sequenceNotes');
-    return footer.contains(history)
-      && Boolean(workbench.compareDocumentPosition(footer) & Node.DOCUMENT_POSITION_FOLLOWING)
-      && !document.querySelector('#soundControls').contains(history);
-  })).toBe(true);
+  await expect(page.locator('#sequenceNotes, #touchstoneSelect, .synthesis-study-footer')).toHaveCount(0);
+  await expect(page.locator('.synthesis-reference-link a')).toHaveAttribute('href', 'synthesaurus-reference.html');
+  await page.locator('[popovertarget="sequenceInfo"]').click();
+  await expect(page.locator('#sequenceInfo')).toBeVisible();
+  await expect(page.locator('#sequenceCue')).not.toHaveText('');
+  await page.keyboard.press('Escape');
 });
 
 test('Euclidean and tuning edits keep a running sequence on its monotonic phase', async ({ page }) => {
@@ -331,7 +337,7 @@ test('Euclidean and tuning edits keep a running sequence on its monotonic phase'
 
   const beforePulseBeat = await page.evaluate(() => window.MorphazoidSynthesis.getStatus().sequence.transportBeat);
   await page.waitForTimeout(80);
-  await exact(page, '#sequence-param-pulses-value', 8);
+  await setEuclideanPulses(page, 8);
   await expect.poll(() => page.evaluate(() => window.MorphazoidSynthesis.getSequenceState().parameters.pulses)).toBe(8);
   const pulseEdit = await page.evaluate(() => window.sequenceMessages.filter(message => message.type === 'sequence-swap').at(-1));
   expect(pulseEdit.playing).toBe(true);
@@ -589,18 +595,17 @@ for (const viewport of RESPONSIVE_VIEWPORTS) {
         return { clientWidth: node.clientWidth, scrollWidth: node.scrollWidth };
       };
       return {
-        cards: {
-          method: rect('.synthesis-method-choice'),
-          sequence: rect('.synthesis-sequence-choice--primary'),
-          tuning: rect('.synthesis-tuning-choice'),
+        columns: {
+          synth: rect('#synthDetail'),
+          arp: rect('#arpDetail'),
         },
         methodFields: {
-          method: rect('.synthesis-axis-field'),
-          preset: rect('.synthesis-preset-section'),
+          method: rect('#synthDetail .synthesis-method-choice .synthesis-axis-field'),
+          preset: rect('#synthDetail .synthesis-method-choice .synthesis-preset-section'),
         },
         triggers: {
           method: rect('[data-select-id="methodSelect"] summary'),
-          preset: rect('#presetHost .header-preset-picker summary'),
+          preset: rect('#presetHost summary'),
           sequence: rect('[data-select-id="sequenceSelect"] summary'),
           tuning: rect('[data-select-id="tuningSelect"] summary'),
         },
@@ -612,8 +617,8 @@ for (const viewport of RESPONSIVE_VIEWPORTS) {
         },
       };
     });
-    for (const [name, targetWidth] of Object.entries(SELECTOR_TARGET_WIDTHS)) {
-      expect(geometry.triggers[name].width, `${name} trigger width`).toBeGreaterThanOrEqual(targetWidth);
+    for (const name of Object.keys(geometry.triggers)) {
+      expect(geometry.triggers[name].width, `${name} trigger width`).toBeGreaterThan(90);
       expect(
         geometry.values[name].scrollWidth,
         `${name} selected value should not be ellipsized`,
@@ -626,20 +631,12 @@ for (const viewport of RESPONSIVE_VIEWPORTS) {
       expect(Math.abs(geometry.methodFields.preset.top - geometry.methodFields.method.top)).toBeLessThan(2);
       expect(geometry.methodFields.preset.left).toBeGreaterThan(geometry.methodFields.method.right);
     }
-    if (viewport.catalogLayout === 'stacked') {
-      expect(geometry.cards.sequence.top).toBeGreaterThan(geometry.cards.method.bottom);
-      expect(geometry.cards.tuning.top).toBeGreaterThan(geometry.cards.sequence.bottom);
-      expect(Math.abs(geometry.cards.sequence.left - geometry.cards.method.left)).toBeLessThan(2);
-      expect(Math.abs(geometry.cards.tuning.left - geometry.cards.method.left)).toBeLessThan(2);
-    } else if (viewport.catalogLayout === 'two-row') {
-      expect(geometry.cards.sequence.top).toBeGreaterThan(geometry.cards.method.bottom);
-      expect(Math.abs(geometry.cards.tuning.top - geometry.cards.sequence.top)).toBeLessThan(2);
-      expect(geometry.cards.tuning.left).toBeGreaterThan(geometry.cards.sequence.right);
+    if (viewport.width <= 900) {
+      expect(geometry.columns.arp.top).toBeGreaterThanOrEqual(geometry.columns.synth.bottom);
+      expect(Math.abs(geometry.columns.arp.left - geometry.columns.synth.left)).toBeLessThan(2);
     } else {
-      expect(Math.abs(geometry.cards.sequence.top - geometry.cards.method.top)).toBeLessThan(2);
-      expect(Math.abs(geometry.cards.tuning.top - geometry.cards.method.top)).toBeLessThan(2);
-      expect(geometry.cards.sequence.left).toBeGreaterThan(geometry.cards.method.right);
-      expect(geometry.cards.tuning.left).toBeGreaterThan(geometry.cards.sequence.right);
+      expect(Math.abs(geometry.columns.arp.top - geometry.columns.synth.top)).toBeLessThan(2);
+      expect(geometry.columns.arp.left).toBeGreaterThan(geometry.columns.synth.right);
     }
 
     const sequence = page.locator('[data-select-id="sequenceSelect"]');

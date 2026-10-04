@@ -380,7 +380,7 @@ pub fn run(args: &[String]) -> Result<(), Error> {
         return Ok(());
     }
     if args.iter().any(|s| s == "--help") {
-        println!("synthesis-cpal --processor <name|index> --preset <0..7> [--input file.wav] [--render output.wav] [--seconds N] [--sample-rate Hz] [--source 1..7] [--frequency Hz] [--wet 0..1] [--bypass] [--input-db dB] [--output-db dB] [--gain 0..1] [--param slot=value]\n--input processes real mono/stereo PCM16/24/32 or float32 WAV. Offline output preserves its sample rate unless --sample-rate is supplied. Device playback uses bounded windowed-sinc resampling. Without --input, an explicit Rust test source demonstrates the processor. --processors lists all effects; --controls lists normalized slots. Native live capture is not implemented; the browser and FX CLAP support live external input.");
+        println!("synthesis-cpal --processor <name|index> --preset <0..7> [--input file.wav] [--render output.wav] [--seconds N] [--sample-rate Hz] [--source 1..10] [--frequency Hz] [--wet 0..1] [--bypass] [--input-db dB] [--output-db dB] [--gain 0..1] [--param slot=value]\n--input processes real mono/stereo PCM16/24/32 or float32 WAV. Offline output preserves its sample rate unless --sample-rate is supplied. Device playback uses bounded windowed-sinc resampling. Without --input, an explicit Rust test source demonstrates the processor. Sources: 1 sine, 2 two-tone, 3 noise, 4 impulses, 5 pulse/saw, 6 drums, 7 procedural voice, 8 pink noise, 9 brown noise, 10 Gaussian white noise. Pink/brown are bounded approximations; Gaussian is bounded at four standard deviations. --processors lists all effects; --controls lists normalized slots. Spectral processing adds 1,024 samples of delay, including its aligned dry mix; full bypass remains immediate. Offline output retains this delay rather than trimming the onset. Native live capture is not implemented; the browser and FX CLAP support live external input.");
         return Ok(());
     }
     let method_arg = super::flag(args, "--processor").unwrap_or_else(|| "biquad".into());
@@ -429,7 +429,7 @@ pub fn run(args: &[String]) -> Result<(), Error> {
         gain: number("--gain", 1.)?,
         overrides: super::macro_overrides(args)?,
     };
-    if options.source > 7
+    if options.source > 10
         || !options.frequency.is_finite()
         || !(20.0..=8000.0).contains(&options.frequency)
         || !options.wet.is_finite()
@@ -561,5 +561,75 @@ mod tests {
         assert_eq!(runner.cursor, 3);
         assert!(runner.next(128) > 0);
         assert!(runner.stopped);
+    }
+    #[test]
+    fn spectral_offline_dry_mix_retains_exact_declared_latency() {
+        let frames: Vec<_> = (0..4096)
+            .map(|i| [(i as f32 * 0.07).sin() * 0.2, (i as f32 * 0.13).cos() * 0.1])
+            .collect();
+        let wav = Wav {
+            rate: 48000,
+            frames: frames.clone(),
+        };
+        let options = Options {
+            method: 16,
+            preset: 0,
+            frequency: 220.,
+            source: 0,
+            wet: 0.5,
+            bypass: false,
+            input_db: 0.,
+            output_db: 0.,
+            seconds: Some(0.15),
+            gain: 1.,
+            overrides: vec![],
+        };
+        let mut runner = configured(&options, 48000, Some(wav));
+        let mut output = Vec::new();
+        loop {
+            let count = runner.next(128);
+            if count == 0 {
+                break;
+            }
+            for i in 0..count {
+                output.push([runner.bank.output(0)[i], runner.bank.output(1)[i]]);
+            }
+        }
+        for i in 1024..5120 {
+            for c in 0..2 {
+                assert!((output[i][c] - frames[i - 1024][c]).abs() < 5e-6);
+            }
+        }
+        assert!(output[6200..].iter().flatten().all(|x| x.abs() < 1e-7));
+    }
+    #[test]
+    fn new_noise_demo_sources_are_audible_then_stop() {
+        for source in 8..=10 {
+            let options = Options {
+                method: 16,
+                preset: 0,
+                frequency: 220.,
+                source,
+                wet: 1.,
+                bypass: false,
+                input_db: 0.,
+                output_db: 0.,
+                seconds: Some(0.4),
+                gain: 1.,
+                overrides: vec![],
+            };
+            let mut runner = configured(&options, 48000, None);
+            let mut max = 0.0_f32;
+            while runner.next(128) > 0 {
+                max = runner
+                    .bank
+                    .output(0)
+                    .iter()
+                    .fold(max, |max, x| max.max(x.abs()));
+            }
+            assert!(max > 0.03 && max < 0.95);
+            assert!(runner.stopped);
+            assert!(runner.bank.output(0).iter().all(|x| x.abs() < 1e-5));
+        }
     }
 }

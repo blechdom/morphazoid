@@ -39,6 +39,8 @@ const automataIndex = reordered.indexOf("cellular-automata");
 [reordered[latticeIndex], reordered[automataIndex]] = [reordered[automataIndex], reordered[latticeIndex]];
 // Owner follow-up on September 29: put Puggler in the middle, after Hyper Rubix.
 reordered.splice(reordered.indexOf("hyper-rubix") + 1, 0, "puggler");
+// Owner follow-up October 4: Synthesaurus immediately follows Hiccup Head.
+reordered.splice(reordered.indexOf("hiccup-head") + 1, 0, "synthesis");
 // Shapes replaces the three individual geometry instruments in the first
 // Faves section. Their ordinary Geometric catalogue records remain intact.
 export const expectedFaveToolIds = Object.freeze([
@@ -47,8 +49,6 @@ export const expectedFaveToolIds = Object.freeze([
   "gesticulating-hand",
   // Owner follow-up on September 27: promote SIMD Chiptune into Faves.
   "simd-chiptune",
-  // Owner follow-up: append Synthesaurus without moving existing Faves.
-  "synthesis",
 ]);
 const faves = new Set(expectedFaveToolIds);
 export function expectedTagIdsFor(id) {

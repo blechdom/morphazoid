@@ -1,32 +1,41 @@
 # Synthesaurus
 
 The [Synthesaurus](../synthesis.html) is a compact listening laboratory with
-53 synthesis methods and 16 stereo processors, with eight presets per entry (552 total),
-146 guided studies, and 4–16 meaningful controls per entry. Its organization follows actual sound-generation families discussed in
+53 synthesis methods and 17 stereo processors, with eight presets per entry (560 total),
+148 guided studies, and 4–16 meaningful controls per entry. Its organization follows actual sound-generation families discussed in
 Curtis Roads’s *The Computer Music Tutorial* (1996), with additional established
 techniques, later DSP developments, and learned sound-generation families. It is a
 teaching implementation of those principles, not a transcription of the book’s
 examples or a complete historical taxonomy.
 
 Enable **Audio**, then choose a method or preset to hear one audition note.
-Choose **Synthesis** to create playable sounds or **Processing** to transform an
-input signal. Each section has its own method menu, preset search and **Next**
-tour. The preset dice explores methods and settings within the active section;
-**Random synth / effect** beside Play changes only the current method. Each
+The top **Input** menu defaults to **Synthesizer**, which can feed an optional
+stereo processor. Mic/audio in, audio files, sample loops and test signals instead
+feed the processor directly; their unused synthesis, arpeggiator and tuning controls
+are hidden. Method-specific preset menus have a **Next** tour. The top dice
+randomizes the whole musical instrument; local synthesis/arpeggiator dice change
+parameters within the chosen method. Processor selection has no dice. Each
 section remembers its edits and tour position while the page stays open. Output
-and running Play/Repeat remain under the performer's control. Notes and strikes can also be
-played directly. Tempo repeat spans 10–1,200 BPM with a 5–95% note gate. Auto
-uses repeated attacks for strike methods and zero-sustain envelopes; explicit
-Repeat/Hold selection overrides that choice. Tempo and transport remain outside
-preset state. Drag the ADSR graph's A/D/R handles for time and S for sustain
-level, or use its exact numeric fields.
-The sliders and physical-unit number fields alter the method’s actual synthesis
-parameters. Discrete algorithms use selection menus; continuously blended shapes
-retain sliders. Pitch is continuous;
-there is no scale quantization. The oscilloscope overlays the waveform on live frequency bars; **Spectrum overlay**
+and running Play remain under the performer's control. Notes and strikes can also be
+played directly. Tempo spans 10–1,200 BPM. Direct-note playback repeats attacks for
+strike methods and zero-sustain envelopes, or holds sustained methods. Complete
+presets can recall tempo; live Audio and transport remain performer-owned.
+Drag the added ADSR graph's A/D/R handles for time and S for sustain level.
+Native decay, excitation and window parameters are grouped separately and explained
+per method; the added envelope is not a claim about every historical instrument.
+Rotary controls support exact-value entry. Discrete algorithms use menus; graphs
+and X/Y controls exclusively own their displayed parameters. Sequence pitch can use
+quantized tuning degrees, a continuous tuning contour or authored intervals.
+The oscilloscope overlays the waveform on live frequency bars; **Spectrum overlay**
 toggles those bars. The spectrogram shows how frequency content changes over time.
 Both displays stay visible in a compact mobile dock while controls scroll. Some methods
 make pitch ambiguous, and a nominal frequency need not equal the perceived pitch.
+
+The [collected reference](../synthesaurus-reference.html) describes control-surface
+sources, amplitude models, signal routing, sample provenance, historical dates and
+implementation limits. Gesture scores, voltage stages and Euclidean pulse rings
+are directly editable; other sequence families expose mechanism-specific readouts
+beside their controls, with a separate optional note-output monitor.
 
 The eight presets per method are reproducible starting points. They include
 simple references, sustained textures, short transients, high and low registers,

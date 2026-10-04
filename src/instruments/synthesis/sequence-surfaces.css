@@ -1,0 +1,43 @@
+.synthesis-sequence-surface { min-width: 0; display: grid; gap: .45rem; margin: .55rem 0 .85rem; }
+.synthesis-sequence-surface h3 { margin: 0; font-size: .9rem; color: #d9c2ff; font-weight: 600; }
+.synthesis-sequence-surface-actions { display: flex; flex-wrap: wrap; align-items: center; gap: .35rem; }
+.synthesis-sequence-surface-actions button { min-height: 30px; padding: .2rem .5rem; font-size: .75rem; }
+.synthesis-sequence-surface-actions label { display: inline-flex; align-items: center; gap: .3rem; font-size: .75rem; }
+.synthesis-sequence-surface-actions input { width: 3.6rem; min-height: 30px; padding: .15rem .3rem; }
+.synthesis-sequence-surface-canvas { display: block; width: 100%; height: 156px; min-width: 0; background: #080f1bbd; border-radius: 6px; touch-action: none; cursor: crosshair; }
+.synthesis-sequence-surface-canvas.is-pressure { height: 86px; }
+.synthesis-sequence-surface-canvas.is-ring { width: min(100%, 240px); height: auto; aspect-ratio: 1; justify-self: center; }
+.synthesis-sequence-surface-canvas:focus-visible { outline: 2px solid #d6b3ff; outline-offset: 2px; }
+.synthesis-sequence-surface-readout { color: #dce4f0; font-variant-numeric: tabular-nums; font-size: .76rem; line-height: 1.4; }
+.synthesis-sequence-surface-hint { margin: 0; color: #aab7c9; font-size: .72rem; line-height: 1.45; }
+.synthesis-sequence-pulse-count { min-width: 3rem; text-align: center; font-variant-numeric: tabular-nums; }
+.synthesis-sequence-gate-row { display: flex; gap: 2px; touch-action: none; }
+.synthesis-sequence-gate-row button { flex: 1; min-width: 0; padding: 0; min-height: 30px; border-radius: 3px; font-size: .65rem; }
+.synthesis-sequence-gate-row button[aria-pressed="true"] { background: #6d45a0; color: #fff; }
+@media (pointer: coarse) {
+  .synthesis-sequence-surface-actions button, .synthesis-sequence-surface-actions input { min-height: 38px; }
+  .synthesis-sequence-gate-row button { min-height: 38px; }
+}
+.synthesis-sequence-mechanism { min-width: 0; display: grid; gap: .5rem; margin: .55rem 0 .8rem; }
+.synthesis-sequence-mechanism h3 { margin: 0; font-size: .9rem; color: #d9c2ff; font-weight: 600; }
+.synthesis-mechanism-block { min-width: 0; }
+.synthesis-mechanism-label { color: #b6c2d2; font-size: .72rem; margin: 0 0 .2rem; }
+.synthesis-mechanism-value, .synthesis-mechanism-lane-label { font-size: .76rem; line-height: 1.5; overflow-wrap: anywhere; }
+.synthesis-mechanism-table-scroll { max-height: 240px; max-width: 100%; overflow: auto; }
+.synthesis-sequence-mechanism table { width: 100%; border-collapse: collapse; font-size: .73rem; font-variant-numeric: tabular-nums; }
+.synthesis-sequence-mechanism th, .synthesis-sequence-mechanism td { padding: .3rem .45rem; border-bottom: 1px solid #ffffff12; text-align: left; line-height: 1.45; font-weight: normal; }
+.synthesis-sequence-mechanism th { color: #acbbcf; }
+.synthesis-sequence-mechanism thead th { background: #0d1727; position: sticky; top: 0; z-index: 1; white-space: nowrap; }
+.synthesis-sequence-mechanism td { color: #ecf0f9; }
+.synthesis-mechanism-path, .synthesis-mechanism-chain { display: flex; flex-wrap: wrap; align-items: baseline; gap: .15rem .4rem; list-style: none; margin: 0; padding: 0; font-size: .74rem; font-variant-numeric: tabular-nums; }
+.synthesis-mechanism-path li, .synthesis-mechanism-chain li { color: #d2b3ff; line-height: 1.8; }
+.synthesis-mechanism-chain li + li::before { content: '→'; color: #8492a6; margin-right: .4rem; }
+.synthesis-mechanism-path li { border-bottom: 2px solid transparent; }
+.synthesis-mechanism-path li.is-current { border-bottom-color: #fff; color: #fff; }
+.synthesis-mechanism-pass { display: grid; grid-template-columns: 3.7rem minmax(0, 1fr); align-items: baseline; gap: .4rem; font-size: .7rem; }
+.synthesis-mechanism-lane { display: flex; gap: 1px; width: 100%; height: 15px; margin: .15rem 0 .45rem; }
+.synthesis-mechanism-lane span { flex: 1; min-width: 0; background: #ffffff0b; }
+.synthesis-mechanism-lane span.is-on { background: #b483e7; }
+.synthesis-mechanism-curve { display: block; width: 100%; height: 64px; background: #09122080; }
+.synthesis-mechanism-curve path { fill: none; stroke: #b98aed; stroke-width: 2; }
+.synthesis-mechanism-secondary, .synthesis-mechanism-caption { margin: .2rem 0 0; font-size: .7rem; color: #9eacbf; line-height: 1.45; }

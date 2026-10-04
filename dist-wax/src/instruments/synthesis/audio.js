@@ -90,7 +90,7 @@ export class SynthesisAudio {
         this.analyser.smoothingTimeConstant = 0.55;
         this.node = new AudioWorkletNode(this.context, "roads-synthesis", {
           numberOfInputs: 1, numberOfOutputs: 1, outputChannelCount: [2], channelCount: 2, channelCountMode: "max",
-          processorOptions: { module },
+          processorOptions: { module, outputArmed: false },
         });
         this.sequenceSynchronized = false;
         // Node construction returns before the audio thread has initialized its
@@ -142,6 +142,7 @@ export class SynthesisAudio {
       await this.nodeReady;
       if (this.disposed || version !== this.startVersion) throw new Error("Audio startup was cancelled.");
       this.armed = this.armRequested;
+      this.node.port.postMessage({ type: "output-armed", armed: this.armed });
       this.setLevel(this.state?.outputLevel ?? 0.7);
       this.setPlaying(this.playing, this.rate, this.gate);
       if (!this.sequenceSynchronized) this.syncSequence();
@@ -193,6 +194,7 @@ export class SynthesisAudio {
     this.pendingAudition = false;
     this.armed = false;
     this.stopInput();
+    this.node?.port.postMessage({ type: "output-armed", armed: false });
     this.setLevel(0);
     // Keep either transport clock running behind the muted master. Re-enabling
     // Audio then rejoins the current phase instead of restarting step zero.

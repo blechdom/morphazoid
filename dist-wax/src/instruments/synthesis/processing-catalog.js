@@ -1,4 +1,46 @@
 // Eight idiomatic factory studies per stereo processor. Values are normalized from physical schemas.
+const spectralPreset = (id, name, mode, threshold, reduction, response, tilt, source, frequencyHz, outputDb, cue) => ({
+  id, name, params: [mode / 3, (threshold + 90) / 78, reduction / 96,
+    Math.log(response / .005) / Math.log(100), (tilt + 12) / 24, ...Array(11).fill(0)],
+  source, frequencyHz, wet: 1, inputDb: 0, outputDb, cue
+});
+const spectralData = {
+  processorId: 16, id: 'spectral',
+  description: 'A stereo short-time Fourier transform analyzes the actual input, modifies its frequency bins, and resynthesizes it with normalized weighted overlap-add. Choose transparent resynthesis, a per-bin threshold gate, a held spectrum, or frequency-dependent tilt.',
+  group: 'Spectral processing', lineage: 'FFT analysis–modification–resynthesis',
+  citation: { label: 'Julius O. Smith, Weighted Overlap Add', url: 'https://www.dsprelated.com/freebooks/sasp/Weighted_Overlap_Add.html' },
+  depth: 'Live stereo STFT processor: 1,024-point FFT, 256-sample hop, Hann analysis and synthesis windows.',
+  latencyFrames: 1024,
+  limitations: [
+    'Adds 1,024 samples of latency (21.33 ms at 48 kHz). The dry/wet paths are aligned; full bank bypass remains undelayed.',
+    'Gate threshold is a Hann-coherent-amplitude-normalized level per bin, not a broadband RMS threshold. No learned noise profile or transient detector.',
+    'Freeze captures one complete audible window and continues its measured bin phase increments. It is not time-stretching, formant correction, or a recording loop; percussive and moving sources can sound smeared.',
+    'Freeze holds across input silence until the host disarms capture on Stop, changes source/mode, or resets. Disarming processes remaining source tails live; rearming permits a new capture.',
+    'Tilt pivots at 1 kHz and is limited to ±24 dB at the spectrum edges. Fixed FFT size trades low-note resolution against latency.',
+    'Pink and brown demo noises are bounded approximations, and the voiced phrase is procedural, not a historical sample recording.'
+  ],
+  presets: [
+    spectralPreset('transparent-frame', 'Transparent frame', 0, -48, 48, .04, 0, 7, 220, -3, 'Unmodified FFT resynthesis: compare the preserved waveform and timbre. Latency remains even with no bin changes.'),
+    spectralPreset('soft-noise-curtain', 'Soft noise curtain', 1, -43, 18, .09, 0, 8, 220, -3, 'Gently attenuate low-amplitude bins in pink noise; lower Threshold to admit a broader spectrum.'),
+    spectralPreset('vowel-partials', 'Vowel partials', 1, -37, 66, .025, 0, 7, 165, 0, 'Keep the stronger harmonic bands of the moving procedural voice and suppress its quieter partials.'),
+    spectralPreset('percussion-sieve', 'Percussion sieve', 1, -45, 42, .008, 0, 6, 220, -6, 'Fast per-bin attenuation changes drum transients and tails; this is not a single broadband noise gate.'),
+    spectralPreset('held-vowel-spectrum', 'Held vowel spectrum', 2, -48, 48, .04, 0, 7, 196, 3, 'Capture the first complete audible voice window. Phase continues while its frequency-bin amplitudes are held.'),
+    spectralPreset('whisper-residue', 'Whisper residue', 1, -22, 12, .22, 0, 9, 220, -3, 'A high threshold and shallow, slow reduction leave a softened brown-noise residue instead of hard spectral holes.'),
+    spectralPreset('dark-spectrum', 'Dark spectrum', 3, -48, 48, .06, -3, 8, 220, -12, 'Tilt pink-noise bins downward above 1 kHz, with the opposite lift below the pivot.'),
+    spectralPreset('bright-spectrum', 'Bright spectrum', 3, -48, 48, .06, 4, 5, 220, -18, 'Emphasize the upper pulse/saw spectrum; the conservative output trim leaves headroom for edge-band boosts.')
+  ],
+  touchstones: [
+    { id: 'spectral-study-gate', title: 'Threshold: −60 → −28 dBFS', presetId: 'vowel-partials',
+      listenFor: 'Individual weak frequency bins vanish before the strongest voice partials.',
+      gesture: 'Sweep Threshold while keeping Reduction fixed; compare with transparent Resynthesis.',
+      parameterGestures: [{ controlIndex: 1, fromPhysical: -60, toPhysical: -28, fromNormalized: 30 / 78, toNormalized: 62 / 78 }] },
+    { id: 'spectral-study-tilt', title: 'Tilt: −4 → +4 dB/octave', presetId: 'bright-spectrum',
+      listenFor: 'Energy moves toward low or high frequency bins around the 1 kHz pivot.',
+      gesture: 'Sweep Tilt at a conservative output level; this edits FFT-bin gains, not a physical analog circuit.',
+      parameterGestures: [{ controlIndex: 4, fromPhysical: -4, toPhysical: 4, fromNormalized: 1 / 3, toNormalized: 2 / 3 }] }
+  ]
+};
+
 export const PROCESSING_DATA = [
   {
     "processorId": 0,
@@ -4399,5 +4441,6 @@ export const PROCESSING_DATA = [
         ]
       }
     ]
-  }
+  },
+  spectralData
 ];

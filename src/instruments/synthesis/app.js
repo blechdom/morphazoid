@@ -1,26 +1,28 @@
 import { SYNTHESIS_DATES } from "./chronology.js";
-import { SEQUENCE_ERAS } from "./sequence-chronology.js";
 import { SEQUENCE_STUDIES, SEQUENCE_STUDY_COUNT } from "./sequence-catalog.js";
 import { compileSequence } from "./sequence-compiler.js";
+import { createSequenceSurface } from "./sequence-surfaces.js";
+import { createSequenceMechanismView } from "./sequence-mechanism-view.js";
 import { createSequenceParameterValues, getSequenceParameterBounds, getSequenceParameterDefinitions } from "./sequence-parameters.js";
 import { createChaoticSpectrum, updateChaoticSpectrum, drawChaoticSpectrum } from "../../families/chaotic/chaotic-synth-visuals.js";
 import { registerHeaderPresets } from "../../site/header-presets.js";
-import { SECTION_METHODS, SECTION_PRESETS, methodSection, captureSoundState, fullPresetId, randomizeAllState, randomizeMethodState } from "./presets.js";
+import { SECTION_METHODS, methodSection, captureSoundState, randomizeMethodState } from "./presets.js";
+import { INSTRUMENT_PRESETS, captureInstrumentPreset, randomizeInstrumentPreset, fitRandomAttackToSequence } from "./instrument-presets.js";
 import {
   SEQUENCE_SETTING_RECIPES,
-  applyPerformanceSnapshot,
   applySequenceSettingsRecipe,
   createSequenceSettingsPresets,
   nextTuningId,
-  randomizeMasterPerformance,
-  randomSequenceId,
   randomizeSequenceSettings,
 } from "./performance-presets.js";
 import { PROCESSING_SCHEMA } from "./processing-schema.js";
+import { createProcessorPanel } from "./processor-panel.js";
+import { getAmplitudeModel } from "./amplitude-models.js";
+import { inputCategoryFor, inputsForCategory, presetSignal, sanitizeSignalPath } from "./signal-path.js";
 import { PROCESSING_INPUT_OPTIONS, getProcessingInput } from "./demo-sources.js";
 import { enhanceChooseSelect } from "./choose.js";
 import { COMPUTER_KEYBOARD_LAYOUTS } from "../../midi-manager.js";
-import { getMethod, getPreset, createDefaultState, stateFromPreset, sanitizeState, formatParameter } from "./catalog.js";
+import { getMethod, getPreset, createDefaultState, stateFromPreset, sanitizeState } from "./catalog.js";
 import { SynthesisAudio } from "./audio.js";
 import { mountAudioInputControl } from "../../audio-input-control.js";
 import { createEnvelopeEditor } from "./envelope.js";
@@ -29,10 +31,9 @@ import {
   getEnvelopePreset,
   matchEnvelopePreset,
   nextEnvelopePreset,
-  randomEnvelopePreset,
 } from "./envelope-presets.js";
-import { createParameterControl, createKnobControl, createLinearControl } from "./controls.js";
-import { createMethodGestureEditor, groupMethodControls } from "./method-ui.js";
+import { createParameterControl, createKnobControl } from "./controls.js";
+import { createMethodGestureEditor, groupMethodControls, METHOD_EDITOR_SCHEMAS } from "./method-ui.js";
 import { TUNINGS, getTuning, sanitizeTuningId, tuningRatioForDegree,
   tuningRatioForSemitoneCoordinate, frequencyForTuningDegree, frequencyForMidiNote,
   arpeggioDegrees } from "./tunings.js";
@@ -60,7 +61,7 @@ const queryNumber = (name, fallback) => {
 };
 const queryObject = name => {
   const raw = query.get(name);
-  if (!raw || raw.length > 4096) return {};
+  if (!raw || raw.length > 16384) return {};
   try {
     const value = JSON.parse(raw);
     return value && typeof value === "object" && !Array.isArray(value) ? value : {};
@@ -113,10 +114,16 @@ let lastPeak = 0.05;
 let controlFields = [];
 let methodGestureEditor = null;
 let synthesisSourceName = "Built-in synthetic source";
-let processingInput = "preset";
+let inputCategory = activeSection === "processing" ? "signals" : "synthesis";
+let processingInput = activeSection === "processing" ? presetSignal(state.source) : "noise";
+let effectState = activeSection === "processing" ? sanitizeState(state) : createDefaultState("fx-reverb");
+let effectEnabled = activeSection === "processing";
+let processorPanel = null;
+const inputSelections = { samples: "sample-drums", signals: processingInput };
 let inputIntent = 0;
 let loadingInput = false;
 let inputControl = null;
+let inputGainField = null;
 let inputError = "";
 const chooseControls = new Map();
 const held = new Map();
@@ -150,6 +157,9 @@ function configuredAudioState() {
     kind: method.kind || "synthesis",
     engineId: method.engineId,
     processorId: method.processorId,
+    insert: method.kind !== "processor" && effectEnabled ? {
+      ...effectState, processorId: getMethod(effectState.methodId).processorId, source: 0,
+    } : null,
     playStyle: basePlaybackStyle(),
   };
 }
@@ -182,6 +192,7 @@ function paintAudio() {
   $("audioState").textContent = arming ? "starting" : audio.armed ? "on" : "off";
   $("signalStatus").textContent = arming ? "Starting…" : audio.armed ? "Ready" : "Audio off";
   paintInput();
+  paintProcessorLatency();
   $("status").textContent = audio.armed ? "Audio enabled. Play or audition the demonstration." : "Audio is off.";
 }
 
@@ -208,10 +219,13 @@ function rememberSection() {
 }
 
 function syncPresetToolbar() {
-  if (!fullPresets) return;
-  fullPresets.lastPresetId = fullPresetId(lastFactoryPreset.methodId, lastFactoryPreset.presetId);
-  fullPresets.hasPresetInteraction = true;
-  fullPresets.refresh();
+  const method = getMethod(state.methodId);
+  const select = $("presetSelect");
+  select.replaceChildren(...(state.presetId === "custom" ? [new Option("Custom settings", "custom")] : []),
+    ...method.presets.map(preset => new Option(`${preset.name} · ${method.label}`, preset.id)));
+  select.value = state.presetId;
+  chooseControls.get("presetSelect")?.refresh();
+  fullPresets?.refresh();
   rememberSection();
 }
 
@@ -226,6 +240,7 @@ function markCustom() {
 function setFrequency(value) {
   if (!Number.isFinite(value)) return;
   state.frequencyHz = Math.min(8000, Math.max(20, value));
+  if (activeSection === "processing") effectState.frequencyHz = state.frequencyHz;
   frequencyField.setValue(state.frequencyHz);
   if (hasSequence() && !retuneSequenceRoot()) rebuildSequence();
   paintVoicing();
@@ -243,6 +258,7 @@ const gateField = createKnobControl({ id: "noteGate", label: "Note length", min:
   value: 65, unit: "%", onInput: updateGate });
 $("tempoControl").append(tempoField); $("gateControl").append(gateField);
 let sequenceParameterFields = [];
+let sequenceSurface = null;
 const mixFields = {};
 for (const [id, host, key, label, min, max, factor, unit] of [
   ["dryWet", "wetControl", "wet", "Wet", 0, 100, .01, "%"],
@@ -250,10 +266,48 @@ for (const [id, host, key, label, min, max, factor, unit] of [
   ["effectGain", "effectGainControl", "outputDb", "Effect output", -36, 24, 1, "dB"],
 ]) {
   const field = createKnobControl({ id, label, min, max, step: factor === .01 ? 1 : .5, unit,
-    value: (state[key] ?? (key === "wet" ? 1 : 0)) / factor,
-    onInput: value => { state[key] = value * factor; markCustom(); } });
+    value: (effectState[key] ?? (key === "wet" ? 1 : 0)) / factor,
+    onInput: value => { effectState[key] = value * factor; effectState.presetId = "custom"; updateEffect(); } });
   $(host).append(field); mixFields[key] = field;
 }
+
+processorPanel = createProcessorPanel($("processorPanel"), effectState, (next, options) => { effectState = next; updateEffect(options); });
+function updateEffect({ audition = false } = {}) {
+  if (activeSection === "processing") state = sanitizeState({ ...effectState, outputLevel: state.outputLevel, voiceMode: state.voiceMode, tuningId: state.tuningId });
+  sectionSessions.processing.sound = captureSoundState(effectState);
+  paintEffect(); syncAudio(audition && activeSection === "processing"); fullPresets?.refresh();
+}
+function paintEffect() {
+  $("processorDetail").hidden = !effectEnabled;
+  $("processorEnabled").checked = effectEnabled;
+  $("processorEnabled").disabled = inputCategory !== "synthesis";
+  processorPanel?.setValue(effectState);
+  mixFields.wet.setValue(effectState.wet * 100);
+  mixFields.inputDb.setValue(effectState.inputDb);
+  mixFields.outputDb.setValue(effectState.outputDb);
+  $("processingBypass").checked = effectState.bypass;
+  const effect = getMethod(effectState.methodId);
+  $("processorInfoTitle").textContent = effect.label;
+  $("processorPrinciple").textContent = effect.principle;
+  paintProcessorLatency();
+  $("processorCue").textContent = effectState.presetId === "custom" ? "Custom settings." : getPreset(effect.id, effectState.presetId).cue;
+  $("processorReference").href = `synthesaurus-reference.html#method-${effect.id}`;
+  paintSignalPath();
+}
+function paintProcessorLatency() {
+  const frames = getMethod(effectState.methodId).latencyFrames;
+  const rate = audio.context?.sampleRate || 48000;
+  const latency = $("processorLatency");
+  latency.hidden = !frames;
+  latency.textContent = frames ? `Latency: ${frames} samples · ${(frames / rate * 1000).toFixed(1)} ms at ${(rate / 1000).toFixed(1)} kHz. Dry/wet aligned; full bypass is immediate.` : "";
+}
+function paintSignalPath() {
+  const source = inputCategory === "synthesis" ? getMethod(state.methodId).label
+    : inputCategory === "microphone" ? "Mic / audio in" : inputCategory === "file" ? "Audio file" : selectedInput()?.label ?? "Input";
+  const notes = inputCategory === "synthesis" && hasSequence() ? "Arpeggiator + tuning → " : "";
+  $("signalPathSummary").textContent = notes + source + (effectEnabled ? " → " + (effectState.bypass ? "Bypassed processor" : getMethod(effectState.methodId).label) : "") + " → Output";
+}
+listen($("processorEnabled"), "change", () => { effectEnabled = $("processorEnabled").checked; paintEffect(); syncAudio(); fullPresets?.refresh(); });
 
 const envelopeEditor = createEnvelopeEditor($("envelopeControls"), {
   onChange(envelope) { state.envelope = envelope; markCustom(); paintEnvelopePreset(); },
@@ -265,8 +319,6 @@ function paintEnvelopePreset() {
   if (!matched) options.unshift(new Option("Custom envelope", "custom"));
   $("envelopePresetSelect").replaceChildren(...options);
   $("envelopePresetSelect").value = matched?.id || "custom";
-  $("envelopePresetDescription").textContent = matched?.description
-    || "Custom four-stage envelope from the current sound preset or manual edits.";
   chooseControls.get("envelopePresetSelect")?.refresh();
 }
 
@@ -308,6 +360,7 @@ function updateSequenceParameter(id, value) {
 
 function syncSequenceParameterFields(study = sequenceStudy()) {
   if (!study || !sequenceState.parameters) return;
+  sequenceSurface?.setValue(sequenceState.parameters, sequenceState.cycle);
   for (const field of sequenceParameterFields) {
     const id = field.sequenceParameterId;
     if (!id || !Object.hasOwn(sequenceState.parameters, id)) continue;
@@ -375,7 +428,7 @@ function makeSequenceParameterField(definition, value) {
   }
   const percent = definition.unit === "%" && definition.max <= 2;
   const factor = percent ? 100 : 1;
-  const field = createLinearControl({
+  const field = createKnobControl({
     id, label: definition.label,
     min: definition.min * factor, max: definition.max * factor,
     step: definition.step * factor, unit: definition.unit,
@@ -394,6 +447,8 @@ function makeSequenceParameterField(definition, value) {
 }
 
 function paintSequenceParameterControls() {
+  sequenceSurface?.destroy(); sequenceSurface = null;
+  $("sequenceSurface").replaceChildren();
   sequenceParameterFields.forEach(field => field.destroy?.());
   sequenceParameterFields = [];
   const host = $("sequenceParameterControls");
@@ -411,7 +466,13 @@ function paintSequenceParameterControls() {
   }
   const values = createSequenceParameterValues(study, sequenceState.parameters);
   syncSequenceParameterState(values);
-  const definitions = getSequenceParameterDefinitions(study);
+  sequenceSurface = createSequenceSurface($("sequenceSurface"), study, values, next => {
+    syncSequenceParameterState(next); syncSequenceParameterFields(study); rebuildSequence();
+  }) || createSequenceMechanismView($("sequenceSurface"), study, values, sequenceState.cycle);
+  sequenceSurface?.setCursor(sequenceState.cursor);
+  $("sequenceOutput").open = !sequenceSurface;
+  const owned = new Set(sequenceSurface?.ownedParameterIds ?? []);
+  const definitions = getSequenceParameterDefinitions(study).filter(definition => !owned.has(definition.id));
   const buildGrid = (items, className = "") => {
     const grid = document.createElement("div");
     grid.className = `synthesis-sequence-parameter-grid ${className}`.trim();
@@ -455,138 +516,69 @@ function paintSequenceParameterControls() {
 }
 
 function populateTuningSelect() {
-  const groups = new Map();
-  for (const tuning of TUNINGS) {
-    if (!groups.has(tuning.group)) {
-      const group = document.createElement("optgroup");
-      group.label = tuning.group;
-      groups.set(tuning.group, group);
-    }
-    groups.get(tuning.group).append(new Option(tuning.label, tuning.id));
-  }
-  $("tuningSelect").replaceChildren(...groups.values());
+  $("tuningSelect").replaceChildren(...TUNINGS.map(tuning => new Option(tuning.label, tuning.id)));
   $("tuningSelect").value = state.tuningId;
 }
 
 function paintTuning() {
   const tuning = getTuning(state.tuningId);
-  const period = Math.abs(tuning.periodRatio - 2) < 1e-9 ? "octave"
-    : Math.abs(tuning.periodRatio - 3) < 1e-9 ? "tritave" : `${Number(tuning.periodRatio.toFixed(4))}:1 period`;
-  const evidence = String(tuning.evidence || tuning.kind).replaceAll("-", " ");
-  const processing = getMethod(state.methodId).kind === "processor";
-  $("tuningSummary").textContent = `${tuning.degreeCents.length} notes · ${period} · ${evidence}. ${tuning.caveat || tuning.description}${processing ? " Used by synthesis notes when you return to Synth." : ""}`;
-  $("tuningSummary").title = `${tuning.description} Source: ${tuning.source?.label || "tuning catalogue"}`;
+  $("tuningInfoTitle").textContent = tuning.label;
   $("tuningDescription").textContent = tuning.description;
-  $("tuningCaveat").textContent = tuning.caveat || "This tuning is used as a playable note map.";
-  $("tuningReference").textContent = tuning.source?.label || "Tuning catalogue notes";
-  $("tuningReference").href = tuning.source?.url || "docs/synthesaurus-tunings.md";
-  $("tuningReference").target = tuning.source?.url ? "_blank" : "";
-  $("tuningReference").rel = tuning.source?.url ? "noreferrer" : "";
+  $("tuningCaveat").textContent = tuning.caveat || "This tuning determines the intervals; the arpeggiator determines their order and rhythm.";
+  $("tuningInfoReference").href = `synthesaurus-reference.html#tuning-${tuning.id}`;
 }
 
 function populateSequenceSelect() {
-  const direct = new Option("Direct note · current Play behavior", "none");
-  const groups = [];
-  for (const era of SEQUENCE_ERAS) {
-    const group = document.createElement("optgroup");
-    group.label = `${era.range} · ${era.label}`;
-    for (const study of SEQUENCE_STUDIES.filter(entry => entry.eraId === era.id).sort((a, b) => a.placementYear - b.placementYear || a.label.localeCompare(b.label))) {
-      group.append(new Option(`${study.label} · ${study.shortDateLabel}`, study.id));
-    }
-    groups.push(group);
-  }
-  const basics = document.createElement("optgroup");
-  basics.label = "Quick tuning arpeggios";
-  for (const item of BASIC_SEQUENCES) basics.append(new Option(item.label, item.id));
-  groups.push(basics);
-  $("sequenceSelect").replaceChildren(direct, ...groups);
+  $("sequenceSelect").replaceChildren(new Option("Direct note", "none"),
+    ...[...SEQUENCE_STUDIES].sort((a, b) => a.placementYear - b.placementYear || a.label.localeCompare(b.label))
+      .map(study => new Option(`${study.label} · ${study.shortDateLabel}`, study.id)),
+    ...BASIC_SEQUENCES.map(item => new Option(item.label, item.id)));
   $("sequenceSelect").value = sequenceState.id;
-  $("sequenceCount").textContent = `${SEQUENCE_STUDY_COUNT} editable studies · search or scroll · ${BASIC_SEQUENCES.length} quick patterns`;
 }
 
 function populateSequencePresetSelect() {
+  const study = sequenceStudy();
+  const presets = study ? createSequenceSettingsPresets(study) : [];
   $("sequencePresetSelect").replaceChildren(
-    new Option("Custom settings", "custom"),
-    ...SEQUENCE_SETTING_RECIPES.map(recipe => new Option(recipe.label, recipe.id)),
-  );
+    new Option(study ? "Custom settings" : "Direct / tuning pattern", "custom"),
+    ...presets.map(preset => new Option(preset.label, preset.id.split(":").at(-1))));
 }
 
 function refreshSequencePresetSelection() {
   const study = sequenceStudy();
-  const section = $("sequencePresetSection");
-  section.hidden = !study || activeSection === "processing";
-  if (!study || activeSection === "processing") return;
-  const tempo = Number($("tempo").value);
-  const parameters = JSON.stringify(sequenceState.parameters);
-  const matching = createSequenceSettingsPresets(study).find(preset => (
-    preset.snapshot.tempoBpm === tempo && JSON.stringify(preset.snapshot.parameters) === parameters
-  ));
-  $("sequencePresetSelect").value = matching?.id.split(":").at(-1) || "custom";
+  const disabled = !study || activeSection === "processing";
+  $("sequencePresetSelect").disabled = disabled;
+  $("nextSequencePreset").disabled = disabled;
+  $("randomSequencePreset").disabled = disabled;
+  populateSequencePresetSelect();
+  if (study) {
+    const parameters = JSON.stringify(sequenceState.parameters);
+    const matching = createSequenceSettingsPresets(study).find(preset =>
+      preset.snapshot.tempoBpm === Number($("tempo").value) && JSON.stringify(preset.snapshot.parameters) === parameters);
+    $("sequencePresetSelect").value = matching?.id.split(":").at(-1) || "custom";
+  }
   chooseControls.get("sequencePresetSelect")?.refresh();
+  fullPresets?.refresh();
 }
 
 function paintSequenceMetadata() {
-  const study = sequenceStudy();
-  const basic = selectedBasicSequence();
+  const study = sequenceStudy(), basic = selectedBasicSequence();
   const active = !!study || !!basic;
   $("sequenceSelect").value = study?.id || basic?.id || "none";
   $("sequenceControls").hidden = !active;
   $("sequenceStrip").hidden = !active;
+  $("sequenceOutput").hidden = !active;
+  if (!study) $("sequenceOutput").open = active;
   $("sequenceShapeSummary").hidden = !active;
-  $("sequenceParameterSummary").textContent = study
-    ? `${study.kind} · ${study.archetype.replaceAll("-", " ")}`
-    : basic ? `${basic.label} · selected tuning` : "Direct performance";
-  if (!active) {
-    $("sequenceCue").textContent = "Choose an original study to test the current synth with a historically grounded sequencing mechanism.";
-    $("sequenceMilestone").textContent = "Direct performance";
-    $("sequenceMilestone").removeAttribute("title");
-    $("sequenceKind").textContent = "Held or repeated note";
-    $("sequenceTestFocus").textContent = "The current preset without an added pitch pattern";
-    $("sequenceLineage").textContent = "Direct mode keeps Synthesaurus’s existing sustained or pulse-note demonstration.";
-    $("sequenceLimitations").textContent = "Sequence studies are newly authored demonstrations of general mechanisms, not copied factory phrases or exact hardware emulations.";
-    const reference = document.createElement("a");
-    reference.id = "sequenceReference";
-    reference.textContent = "Sequence history and sources";
-    reference.href = "docs/synthesis-sequences.md";
-    $("sequenceReferences").replaceChildren(reference);
-    chooseControls.get("sequenceSelect")?.refresh();
-    return;
-  }
-  if (basic) {
-    $("sequenceCue").textContent = `${basic.label} follows the chord degrees authored for ${getTuning(state.tuningId).label}.`;
-    $("sequenceMilestone").textContent = "Basic tuning-aware arpeggio";
-    $("sequenceMilestone").removeAttribute("title");
-    $("sequenceKind").textContent = "arpeggiator · ordered tuning chord";
-    $("sequenceTestFocus").textContent = "Tuning translation · envelope response · polyphony";
-    $("sequenceLineage").textContent = "A compact traversal retained from the original tuning implementation; choose any historical study above for a richer mechanism.";
-    $("sequenceLimitations").textContent = "Chord degrees follow each tuning catalogue entry and are an audition voicing, not a claim about a tradition’s harmony.";
-    const reference = document.createElement("a");
-    reference.id = "sequenceReference";
-    reference.textContent = "Tuning sources and limits";
-    reference.href = "docs/synthesaurus-tunings.md";
-    $("sequenceReferences").replaceChildren(reference);
-    chooseControls.get("sequenceSelect")?.refresh();
-    return;
-  }
-  $("sequenceCue").textContent = study.cue;
-  $("sequenceMilestone").textContent = `${study.shortDateLabel} · ${study.dateKind}. ${study.dateNote}`;
-  $("sequenceKind").textContent = `${study.kind} · ${study.archetype.replaceAll("-", " ")}`;
-  $("sequenceTestFocus").textContent = study.testFocus.join(" · ");
-  $("sequenceLineage").textContent = study.lineage;
-  const sources = study.provenance.sources;
-  $("sequenceLimitations").textContent = [study.limitations, ...sources.map(source => source.limitation)].filter(Boolean).join(" ");
-  const references = document.createDocumentFragment();
-  sources.forEach((source, index) => {
-    if (index) references.append(document.createTextNode(" · "));
-    const reference = document.createElement("a");
-    if (index === 0) reference.id = "sequenceReference";
-    reference.textContent = source.label;
-    reference.href = source.url;
-    reference.target = "_blank";
-    reference.rel = "noreferrer";
-    references.append(reference);
-  });
-  $("sequenceReferences").replaceChildren(references);
+  $("sequenceInfoTitle").textContent = study?.label || basic?.label || "Direct note";
+  $("sequenceCue").textContent = study?.cue || (basic
+    ? `Traverses the chord degrees in ${getTuning(state.tuningId).label}.`
+    : "Play holds or repeats the current sound without an additional pitch sequence.");
+  $("sequenceInfoDetails").textContent = study
+    ? [study.lineage, study.limitations, "Notes are separately triggered; there is no adjustable arpeggiator portamento."].filter(Boolean).join(" ")
+    : "Choose a historical method for editable cycle, articulation and pitch controls.";
+  $("sequenceInfoReference").href = study
+    ? `synthesaurus-reference.html#sequence-${study.id}` : "synthesaurus-reference.html#arpeggiators";
   chooseControls.get("sequenceSelect")?.refresh();
 }
 
@@ -718,6 +710,7 @@ function paintSequenceCursor() {
   const cell = Number.isInteger(cursor) ? $("sequenceStrip").querySelector(`[data-sequence-step="${cursor}"]`) : null;
   if (cell) cell.classList.add("is-current");
   sequenceState.cursor = cursor;
+  sequenceSurface?.setCursor(cursor);
 }
 
 function compileBasicSequence(item) {
@@ -758,7 +751,10 @@ function mapCycleToTuning(cycle, { basic = false, rootFrequency = state.frequenc
       let ratio = Number.isSafeInteger(note.degree)
         ? tuningRatioForDegree(note.degree, state.tuningId)
         : tuningRatioForSemitoneCoordinate(note.semitone, state.tuningId, sequenceState.pitchMode);
-      if (basic && Number.isFinite(ratio)) ratio = fitBasicRatio(ratio, rootFrequency);
+      // Preserve a playable note by translating whole tuning periods at the
+      // register boundary. Small/non-octave maps can otherwise drop an entire
+      // randomized phrase despite valid source notes.
+      if (Number.isFinite(ratio) && ratio > 0) ratio = fitBasicRatio(ratio, rootFrequency);
       const frequency = rootFrequency * ratio;
       return Number.isFinite(ratio) && ratio > 0 && frequency >= 20 && frequency <= 8000
         ? [{ ...note, ratio }] : [];
@@ -793,6 +789,7 @@ function retuneSequenceRoot() {
   // score change and still needs the ordinary sequence replacement path.
   if (cyclePitchKey(remapped) !== cyclePitchKey(sequenceState.cycle)) return false;
   sequenceState.cycle = remapped;
+  sequenceSurface?.setValue(sequenceState.parameters, remapped);
   sequenceState.rootFrequency = state.frequencyHz;
   audio.setSequenceRootFrequency(state.frequencyHz);
   return true;
@@ -800,6 +797,7 @@ function retuneSequenceRoot() {
 
 function rebuildSequence({ restart = false, route = true, audioState = null } = {}) {
   const cycle = compileSelectedSequence();
+  sequenceSurface?.setValue(sequenceState.parameters, cycle);
   if (cycle) {
     if (playing && sequenceOwnsTransport()) {
       audio.swapSequence(cycle, { rootFrequency: state.frequencyHz, restart, state: audioState });
@@ -832,6 +830,7 @@ function updateGate() {
   if (selectedBasicSequence()) rebuildSequence();
   else if (sequenceStudy()) return;
   else audio.setPlaying(playing, Number($("tempo").value) / 60, Number($("noteGate").value) / 100);
+  fullPresets?.refresh();
 }
 
 function syncTransportForSection({ restartSequence = false } = {}) {
@@ -883,8 +882,6 @@ function renderState(rebuildControls = true, audition = false, restoringSection 
   const sectionChanged = activeSection !== methodSection(method.id);
   if (sectionChanged) {
     chooseControls.forEach(picker => { picker.details.open = false; });
-    fullPresets?.destroy();
-    fullPresets = null;
     activeSection = methodSection(method.id);
     lastFactoryPreset = { ...sectionSessions[activeSection].lastFactoryPreset };
     if (!restoringSection) sectionSessions[activeSection].hasPresetInteraction = true;
@@ -895,37 +892,40 @@ function renderState(rebuildControls = true, audition = false, restoringSection 
   syncPresetToolbar();
   $("principle").textContent = method.principle;
   $("presetCue").textContent = state.presetId === "custom" ? "Custom settings. Next continues the preset tour." : getPreset(method.id, state.presetId).cue;
-  $("methodNotes").textContent = method.lineage;
-  const milestone = SYNTHESIS_DATES[method.id];
-  $("methodDate").textContent = milestone.dateLabel;
-  $("methodDate").title = milestone.dateNote;
-  $("methodDateNote").textContent = `${milestone.dateLabel} · ${milestone.dateKind}. ${milestone.dateNote}`;
-  $("methodDateReference").textContent = milestone.dateSource.label;
-  $("methodDateReference").href = milestone.dateSource.url;
-  $("modelNote").textContent = [method.depth, ...(Array.isArray(method.limitations) ? method.limitations : [method.limitations])].filter(Boolean).join(" ");
-  $("methodReference").textContent = method.citation.label;
-  $("methodReference").href = method.citation.url;
+  $("methodInfoTitle").textContent = method.label;
+  const amplitude = getAmplitudeModel(method);
+  $("amplitudePrinciple").textContent = amplitude?.intrinsicExplanation ?? "";
+  $("amplitudeHistory").textContent = amplitude?.historicalContext ?? "";
+  $("amplitudeHostNote").textContent = amplitude?.hostEnvelope.explanation ?? "";
+  if (renderState.envelopeMethod !== method.id) {
+    $("envelopeDetails").open = !amplitude?.hostEnvelope.collapseByDefault;
+    renderState.envelopeMethod = method.id;
+  }
+  $("methodInfoReference").href = `synthesaurus-reference.html#method-${method.id}`;
   const processing = method.kind === "processor";
+  if (processing) {
+    effectState = sanitizeState(state); effectEnabled = true;
+    if (inputCategory === "synthesis") { inputCategory = "signals"; processingInput = presetSignal(state.source); }
+  } else inputCategory = "synthesis";
+  $("synthDetail").hidden = processing;
   if (processing && held.size) releaseAll();
-  $("performanceRandomRow").hidden = processing;
+  document.querySelector('.synthesis-tuning-choice').hidden = processing;
   $("arpDetail").hidden = processing;
   $("sequenceCompendium").hidden = processing;
   $("sequenceSelect").disabled = processing;
   $("nextSequence").disabled = processing;
-  $("randomSequence").disabled = processing;
   refreshSequencePresetSelection();
   if (processing) chooseControls.get("sequenceSelect")?.details && (chooseControls.get("sequenceSelect").details.open = false);
   $("nextMethod").title = processing ? "Next processor" : "Next synthesis method";
   $("nextMethod").setAttribute("aria-label", $("nextMethod").title);
-  $("randomMethodType").title = processing ? "Random processor" : "Random synthesis method";
-  $("randomMethodType").setAttribute("aria-label", $("randomMethodType").title);
-  $("randomMethodLabel").textContent = processing ? "Random effect" : "Random synth";
+  $("nextPreset").title = processing ? "Next processing preset" : "Next synthesis preset";
+  $("nextPreset").setAttribute("aria-label", $("nextPreset").title);
   $("synthParameterHeading").textContent = processing ? "Processor parameters" : "Synth parameters";
   $("randomMethod").title = "Randomize settings for " + method.label + " only";
   $("randomMethod").setAttribute("aria-label", $("randomMethod").title);
   $("noteTiming").hidden = processing;
   $("soundControls").setAttribute("aria-label", processing ? "Processing controls" : "Synthesis controls");
-  $("processingControls").hidden = !processing;
+  $("randomMethod").hidden = processing;
   $("envelopeDetails").hidden = processing;
   $("keyboardDetails").hidden = processing;
   $("voiceModeControl").hidden = processing;
@@ -933,10 +933,7 @@ function renderState(rebuildControls = true, audition = false, restoringSection 
   $("tuningSelect").value = state.tuningId;
   paintTuning();
   paintVoicing();
-  mixFields.wet.setValue((state.wet ?? 1) * 100);
-  mixFields.inputDb.setValue(state.inputDb ?? 0);
-  mixFields.outputDb.setValue(state.outputDb ?? 0);
-  $("processingBypass").checked = state.bypass === true;
+  paintEffect();
   $("restoreSource").hidden = processing;
   if (renderState.lastMethod && renderState.lastMethod !== method.id) {
     if (!processing || audio.input.pending || audio.captureRequest) { inputIntent++; loadingInput = false; audio.stopInput(); }
@@ -946,7 +943,6 @@ function renderState(rebuildControls = true, audition = false, restoringSection 
   }
   renderState.lastMethod = method.id;
   paintInput();
-  renderTeaching(method);
   $("playButton").setAttribute("aria-label", playing ? "Pause" : "Play");
   $("playButton").setAttribute("aria-pressed", String(playing));
   paintPlayback();
@@ -956,26 +952,33 @@ function renderState(rebuildControls = true, audition = false, restoringSection 
   frequencyField.setValue(state.frequencyHz);
   envelopeEditor.setValue(state.envelope);
   paintEnvelopePreset();
-  if (rebuildControls) {
-    controlFields.forEach(field => field.destroy());
+  if (rebuildControls || processing) {
+    controlFields.forEach(field => field?.destroy());
     methodGestureEditor?.destroy();
-    controlFields = method.controls.map((control, index) => createParameterControl(
+    const graphical = new Set((METHOD_EDITOR_SCHEMAS[method.id] || []).flatMap(editor => editor.kind === "xy" ? [editor.x, editor.y] : editor.ids));
+    controlFields = (processing ? [] : method.controls).map((control, index) => graphical.has(control.id) ? null : createParameterControl(
       control, index, state.params[index], value => {
         state.params[index] = value;
         methodGestureEditor?.setValue(state.params);
         markCustom();
       },
     ));
-    const groups = groupMethodControls(method).map(group => {
+    const articulation = new Set(amplitude?.intrinsicControlIds ?? []);
+    const articulationIndexes = method.controls.map((control, index) => articulation.has(control.id) ? index : -1).filter(index => index >= 0);
+    const layout = [
+      ...(articulationIndexes.length ? [{ id: "articulation", label: amplitude.label, indexes: articulationIndexes }] : []),
+      ...groupMethodControls(method).map(group => ({ ...group, indexes: group.indexes.filter(index => !articulationIndexes.includes(index)) })),
+    ];
+    const groups = layout.filter(group => group.indexes.some(index => controlFields[index])).map(group => {
       const section = document.createElement("section"); section.className = `synthesis-parameter-group is-${group.id}`;
       section.dataset.parameterGroup = group.id;
       const heading = document.createElement("h3"); heading.textContent = group.label;
       const grid = document.createElement("div"); grid.className = "synthesis-parameter-group-grid";
-      grid.append(...group.indexes.map(index => controlFields[index]));
+      grid.append(...group.indexes.map(index => controlFields[index]).filter(Boolean));
       section.append(heading, grid); return section;
     });
     $("methodControls").replaceChildren(...groups);
-    methodGestureEditor = createMethodGestureEditor($("methodEditor"), method, state.params, changes => {
+    methodGestureEditor = processing ? null : createMethodGestureEditor($("methodEditor"), method, state.params, changes => {
       for (const { index, value } of changes) {
         state.params[index] = value;
         controlFields[index]?.setValue(value);
@@ -983,7 +986,7 @@ function renderState(rebuildControls = true, audition = false, restoringSection 
       markCustom();
     });
   } else {
-    controlFields.forEach((field, index) => field.setValue(state.params[index]));
+    controlFields.forEach((field, index) => field?.setValue(state.params[index]));
     methodGestureEditor?.setValue(state.params);
   }
   chooseControls.forEach(picker => picker.refresh());
@@ -992,7 +995,7 @@ function renderState(rebuildControls = true, audition = false, restoringSection 
   if (processing) void ensureProcessingInput({ audition });
   updateUrl();
   rememberSection();
-  if (sectionChanged) mountSectionPresets();
+  fullPresets?.refresh();
 }
 
 function renderSection() {
@@ -1002,15 +1005,13 @@ function renderSection() {
   for (const button of document.querySelectorAll(".synthesis-sections button")) button.setAttribute("aria-pressed", String(button.dataset.section === activeSection));
   $("methodLabel").textContent = processing ? "Processor" : "Synthesis method";
   $("presetSectionLabel").textContent = name + " presets";
-  const methods = SECTION_METHODS[activeSection];
-  const groups = new Map();
-  for (const method of methods) {
-    if (!groups.has(method.group)) {
-      const group = document.createElement("optgroup"); group.label = method.group; groups.set(method.group, group);
-    }
-    groups.get(method.group).append(new Option(`${method.label} · ${SYNTHESIS_DATES[method.id].dateLabel}`, method.id));
+  const presetPicker = chooseControls.get("presetSelect");
+  if (presetPicker) {
+    presetPicker.destroy();
+    chooseControls.set("presetSelect", enhanceChooseSelect($("presetSelect"), { label: `Choose ${name.toLowerCase()} preset` }));
   }
-  $("methodSelect").replaceChildren(...groups.values());
+  const methods = SECTION_METHODS[activeSection];
+  $("methodSelect").replaceChildren(...methods.map(method => new Option(method.label, method.id)));
 }
 
 function switchSection(section) {
@@ -1020,7 +1021,23 @@ function switchSection(section) {
     voiceMode: state.voiceMode, tuningId: state.tuningId });
   renderState(true, true, true);
 }
-for (const button of document.querySelectorAll("button[data-section]")) listen(button, "click", () => switchSection(button.dataset.section));
+listen($("inputCategory"), "change", async () => {
+  const category = $("inputCategory").value;
+  inputIntent++; loadingInput = false; inputError = ""; audio.stopInput();
+  inputCategory = category;
+  if (category !== "synthesis") {
+    effectEnabled = true;
+    processingInput = category === "samples" || category === "signals" ? inputSelections[category] : category;
+    sectionSessions.processing.sound = captureSoundState(effectState);
+  }
+  switchSection(category === "synthesis" ? "synthesis" : "processing");
+  paintEffect(); paintInput(); syncAudio();
+  if (category === "microphone") {
+    try { await connectInput(); } catch { paintInput(); }
+  }
+  else void ensureProcessingInput();
+  fullPresets?.refresh();
+});
 
 listen($("methodSelect"), "change", () => {
   state = stateFromPreset($("methodSelect").value, null, state);
@@ -1034,6 +1051,7 @@ listen($("tuningSelect"), "change", () => {
   if (hasSequence()) rebuildSequence();
   syncAudio();
   rememberSection();
+  fullPresets?.refresh();
 });
 
 function selectSequence(id, { parameters, tempo, restart = false, announce = true } = {}) {
@@ -1087,63 +1105,48 @@ function adjacentChoice(select, direction = 1) {
   return options[(current + (direction < 0 ? -1 : 1) + options.length) % options.length].value;
 }
 
-function randomOtherChoice(select) {
-  const options = [...select.options].filter(option => !option.disabled && !option.hidden && option.value !== select.value);
-  if (!options.length) return select.value;
-  return options[Math.min(options.length - 1, Math.floor(Math.max(0, Math.min(1, Math.random())) * options.length))].value;
-}
 
-function applyPreparedPerformance(performance, { message = "Performance loaded." } = {}) {
-  const prepared = applyPerformanceSnapshot(performance, {
-    ...state,
-    voiceMode: performance?.sound?.voiceMode ?? state.voiceMode,
-  });
-  const study = SEQUENCE_STUDIES.find(candidate => candidate.id === prepared.sequence.id);
-  if (!study) throw new RangeError(`Unknown randomized sequence: ${prepared.sequence.id}`);
+
+function applyPreparedPerformance(performance, { message = "Instrument preset loaded." } = {}) {
+  const prepared = captureInstrumentPreset(performance);
   const previousMethod = state.methodId;
-  state = sanitizeState(prepared.sound);
+  const previousSection = activeSection;
+  state = sanitizeState({ ...prepared.sound, voiceMode: prepared.voiceMode,
+    tuningId: prepared.tuningId, outputLevel: state.outputLevel });
+  restoreSignalPath(prepared.routing);
   lastFactoryPreset = { methodId: state.methodId, presetId: state.presetId };
-  sequenceState.id = study.id;
+  sequenceState.id = prepared.sequence.id;
   sequenceState.workletStatus = null;
-  syncSequenceParameterState(createSequenceParameterValues(study, prepared.sequence.parameters));
+  syncSequenceParameterState(prepared.sequence.parameters);
   tempoField.setValue(prepared.sequence.tempoBpm);
-  $("sequenceSelect").value = study.id;
-  const atomicSequenceChange = playing && activeSection === "synthesis";
+  gateField.setValue(prepared.sequence.gate);
+  $("sequenceSelect").value = sequenceState.id;
+  const atomicSequenceChange = playing && hasSequence()
+    && previousSection === "synthesis" && methodSection(state.methodId) === "synthesis";
   deferTransportSync = true;
   deferAudioSync = atomicSequenceChange;
   try { renderState(state.methodId !== previousMethod, false); }
   finally { deferTransportSync = false; deferAudioSync = false; }
-  chooseControls.get("sequenceSelect")?.refresh();
   paintSequenceParameterControls();
   const nextAudioState = atomicSequenceChange ? configuredAudioState() : null;
-  // A running scene changes sound and score together on one worklet boundary.
-  // An active gate is handed across; a silent phase launches the first authored attack.
   queueMicrotask(() => {
     rebuildSequence({ restart: playing, audioState: nextAudioState });
+    // A score owns its own clock and leaves ordinary Play off. Hand that clock
+    // back when recalling a processor or direct note, without changing the
+    // performer's Play/Audio intent or interrupting an atomic score swap.
+    if (!sequenceOwnsTransport()) syncTransportForSection();
   });
   $("status").textContent = message;
 }
 
 function currentPerformanceInput() {
-  const study = sequenceStudy() || SEQUENCE_STUDIES[0];
-  return {
-    sound: state,
-    tuningId: state.tuningId,
-    sequence: {
-      id: study.id,
-      parameters: sequenceState.parameters ?? createSequenceParameterValues(study),
-      tempoBpm: Number($("tempo").value),
-    },
-  };
+  return captureInstrumentPreset({
+    sound: state, voiceMode: state.voiceMode, tuningId: state.tuningId,
+    routing: currentSignalPath(),
+    sequence: { id: sequenceState.id, parameters: sequenceState.parameters,
+      tempoBpm: Number($("tempo").value), gate: Number($("noteGate").value) },
+  });
 }
-
-listen($("randomPerformance"), "click", () => {
-  try {
-    applyPreparedPerformance(randomizeMasterPerformance(currentPerformanceInput()), {
-      message: "Every synth, voicing, ADSR, arpeggiator, tempo, and tuning setting was randomized.",
-    });
-  } catch (error) { showError(error); }
-});
 
 listen($("sequencePresetSelect"), "change", () => {
   const study = sequenceStudy();
@@ -1153,7 +1156,7 @@ listen($("sequencePresetSelect"), "change", () => {
     id: study.id, parameters: sequenceState.parameters, tempoBpm: Number($("tempo").value),
   }, recipe);
   selectSequence(study.id, { parameters: next.parameters, tempo: next.tempoBpm, restart: playing, announce: false });
-  $("status").textContent = `${SEQUENCE_SETTING_RECIPES.find(item => item.id === recipe)?.label || "Settings"} arpeggiator settings loaded without changing the synth or tuning.`;
+  $("status").textContent = `${createSequenceSettingsPresets(study).find(item => item.id.endsWith(`:${recipe}`))?.label || "Settings"} arpeggiator settings loaded without changing the synth or tuning.`;
 });
 
 listen($("nextSequencePreset"), "click", () => {
@@ -1173,13 +1176,8 @@ listen($("randomSequencePreset"), "click", () => {
 });
 
 listen($("nextMethod"), "click", () => dispatchChoice($("methodSelect"), adjacentChoice($("methodSelect"))));
-listen($("randomMethodType"), "click", () => dispatchChoice($("methodSelect"), randomOtherChoice($("methodSelect"))));
 listen($("nextSequence"), "click", () => dispatchChoice($("sequenceSelect"), adjacentChoice($("sequenceSelect"))));
-listen($("randomSequence"), "click", () => {
-  const id = randomSequenceId();
-  const next = randomizeSequenceSettings({ id });
-  selectSequence(id, { parameters: next.parameters, tempo: next.tempoBpm, restart: playing });
-});
+
 listen($("nextTuning"), "click", () => dispatchChoice($("tuningSelect"), nextTuningId(state.tuningId)));
 
 listen($("envelopePresetSelect"), "change", () => {
@@ -1189,13 +1187,10 @@ listen($("nextEnvelopePreset"), "click", () => {
   const current = matchEnvelopePreset(state.envelope);
   applyEnvelopePreset(nextEnvelopePreset(current?.id || "custom"));
 });
-listen($("randomEnvelopePreset"), "click", () => {
-  const current = matchEnvelopePreset(state.envelope);
-  applyEnvelopePreset(randomEnvelopePreset(Math.random, { excludeId: current?.id || null }));
-});
+
 
 listen($("randomMethod"), "click", () => {
-  state = randomizeMethodState(state);
+  state = fitRandomAttackToSequence(randomizeMethodState(state), currentPerformanceInput().sequence);
   renderState(false, true);
 });
 listen($("outputLevel"), "input", event => {
@@ -1282,6 +1277,7 @@ listen($("voiceMode"), "change", () => {
   state.voiceMode = $("voiceMode").value === "poly" ? "poly" : "mono";
   paintVoicing();
   syncAudio();
+  fullPresets?.refresh();
 });
 function press(id, frequency, velocity = 0.75) {
   if (!Number.isFinite(frequency)) { $("status").textContent = "That mapped note is outside the 20 to 8,000 hertz playable range."; return; }
@@ -1342,7 +1338,19 @@ listen(window, "morphazoid:midi-input", event => {
   else if (message.type === "panic" || (message.type === "controlChange" && [120, 123].includes(message.controller))) { event.preventDefault(); releaseAll(); setPlaying(false); audio.panic(); }
 });
 function processingSource() {
-  return processingInput === "preset" ? (state.source ?? 0) : (getProcessingInput(processingInput)?.source ?? 0);
+  return getProcessingInput(processingInput)?.source ?? 0;
+}
+function currentSignalPath() {
+  return sanitizeSignalPath({ input: inputCategory, selection: processingInput, loop: audio.input.loop, effectEnabled, effect: effectState }, state);
+}
+function restoreSignalPath(value) {
+  const route = sanitizeSignalPath(value, state);
+  inputIntent++; loadingInput = false; audio.stopInput();
+  inputCategory = route.input; processingInput = route.selection ?? "noise";
+  audio.input.setLoop(route.loop);
+  effectEnabled = route.effectEnabled; effectState = sanitizeState({ ...route.effect, outputLevel: state.outputLevel });
+  if (inputCategory === "samples" || inputCategory === "signals") inputSelections[inputCategory] = processingInput;
+  sectionSessions.processing.sound = captureSoundState(effectState);
 }
 function selectedInput() { return getProcessingInput(processingInput); }
 function paintInput() {
@@ -1351,10 +1359,10 @@ function paintInput() {
   const processing = method.kind === "processor";
   const fileSynthesis = !processing && Boolean(method.sourceInput);
   if (inputControl?.root) {
-    inputControl.root.hidden = !processing && !fileSynthesis;
+    inputControl.root.hidden = !fileSynthesis && !(processing && ["microphone", "file"].includes(inputCategory));
     const micOption = inputControl.root.sourceSelect?.querySelector('option[value="mic"]');
     if (micOption) { micOption.hidden = !processing; micOption.disabled = !processing; }
-    if (inputControl.root.sourceSelect) inputControl.root.sourceSelect.hidden = !processing;
+    if (inputControl.root.sourceSelect) inputControl.root.sourceSelect.hidden = true;
     if (fileSynthesis) {
       inputControl.root.sourceSelect && (inputControl.root.sourceSelect.value = "file");
       inputControl.root.setSource?.("file");
@@ -1365,21 +1373,33 @@ function paintInput() {
   const loopable = processing && ["demo", "file"].includes(option?.kind);
   $("processingLoopControl").hidden = !loopable;
   $("processingLoop").checked = status.loop;
-  const microphone = external && (option?.kind === "microphone" || processingInput === "preset");
-  $("frequencyRow").hidden = processing && processingSource() === 0;
+  const microphone = external && option?.kind === "microphone";
+  $("frequencyRow").hidden = processing && [0, 3, 8, 9, 10].includes(processingSource());
+  const pitchHost = processing ? $("inputBar") : document.querySelector(".synthesis-synth-essentials");
+  if ($("frequencyRow").parentNode !== pitchHost) pitchHost.append($("frequencyRow"));
   frequencyField.labelElement.textContent = processing ? "Signal pitch" : "Frequency";
   $("sourceName").hidden = processing;
   $("sourceName").textContent = synthesisSourceName;
-  $("processingSource").value = processingInput;
-  const presetOption = $("processingSource").options[0];
-  if (presetOption) {
-    const text = "Preset input · " + (PROCESSING_SCHEMA.sources[state.source ?? 0] ?? "Signal");
-    if (presetOption.text !== text) presetOption.text = text;
+  $("inputCategory").value = inputCategory;
+  chooseControls.get("inputCategory")?.refresh();
+  $("inputSelectionField").hidden = !["samples", "signals"].includes(inputCategory);
+  $("inputSelectionLabel").textContent = inputCategory === "samples" ? "Sample loop" : "Test signal";
+  const options = inputsForCategory(inputCategory);
+  if ($("processingSource").dataset.category !== inputCategory) {
+    $("processingSource").replaceChildren(...options.map(item => new Option(item.label, item.id)));
+    $("processingSource").dataset.category = inputCategory;
   }
+  $("processingSource").value = processingInput;
   chooseControls.get("processingSource")?.refresh();
-  $("processingInputHint").textContent = processingInput === "preset"
-    ? "The preset chooses its demonstration signal. Choose another input to keep it while exploring effects."
-    : option?.kind === "microphone" ? "Mic / audio-in stays selected. Choose the hardware device in Audio Settings."
+  if (inputGainField) {
+    const inStrip = !inputControl.root.hidden;
+    const host = inStrip ? inputControl.root : $("inputGainControl");
+    if (inputGainField.parentNode !== host) host.prepend(inputGainField);
+    $("inputGainControl").hidden = inStrip;
+  }
+  $("sourceControls").hidden = !processing && !fileSynthesis;
+  paintSignalPath();
+  $("processingInputHint").textContent = option?.kind === "microphone" ? "Mic / audio-in stays selected. Choose the hardware device in Audio Settings."
     : loopable ? (status.loop ? "Play loops the full input; Audition previews 3 s." : "Play runs the input once; Replay starts it again.")
     : "This input stays selected across presets and dice. Play runs it; Audition previews 3 s.";
   $("inputStatus").textContent = loadingInput ? "Loading " + option?.label + "…" : status.kind !== "none" || status.pending ? status.label
@@ -1397,12 +1417,7 @@ function paintInput() {
   $("inputLevel").hidden = !external && processing;
   inputControl?.refresh();
 }
-const inputGroups = new Map();
-for (const option of PROCESSING_INPUT_OPTIONS) {
-  if (!inputGroups.has(option.group)) { const group = document.createElement("optgroup"); group.label = option.group; inputGroups.set(option.group, group); }
-  inputGroups.get(option.group).append(new Option(option.label, option.id));
-}
-$("processingSource").replaceChildren(new Option("Preset input", "preset"), ...inputGroups.values());
+$("inputSourceHost").append($("sourceControls"));
 async function ensureProcessingInput({ audition = false, connectMic = false, restart = false } = {}) {
   if (!audio.armed || getMethod(state.methodId).kind !== "processor") { paintInput(); return; }
   const option = selectedInput();
@@ -1428,12 +1443,15 @@ async function ensureProcessingInput({ audition = false, connectMic = false, res
 listen($("processingLoop"), "change", () => {
   audio.input.setLoop($("processingLoop").checked);
   if (playing) void ensureProcessingInput();
+  fullPresets?.refresh();
 });
 listen($("processingSource"), "change", () => {
   processingInput = $("processingSource").value;
+  inputSelections[inputCategory] = processingInput;
   inputIntent++; loadingInput = false; audio.stopInput();
   paintInput(); syncAudio(processingSource() !== 0);
   void ensureProcessingInput({ audition: true });
+  fullPresets?.refresh();
 });
 listen($("sourceFile"), "change", async event => {
   const file = event.target.files?.[0];
@@ -1455,7 +1473,7 @@ listen($("sourceFile"), "change", async event => {
   event.target.value = "";
 });
 listen($("restoreSource"), "click", () => { inputIntent++; synthesisSourceName = "Built-in synthetic source"; audio.restoreSource(); paintInput(); });
-listen($("processingBypass"), "change", () => { state.bypass = $("processingBypass").checked; markCustom(); });
+listen($("processingBypass"), "change", () => { effectState.bypass = $("processingBypass").checked; effectState.presetId = "custom"; updateEffect(); });
 async function connectInput() {
   inputError = "";
   const methodId = state.methodId;
@@ -1463,7 +1481,7 @@ async function connectInput() {
   try {
     await audio.start({ arm: false });
     if (intent !== inputIntent) return;
-    if (inputControl.root.sourceSelect.value === "file") {
+    if (inputCategory === "file" || getMethod(methodId).kind !== "processor") {
       if (getMethod(methodId).kind === "processor") {
         if (audio.processingFile) audio.input.setFile(audio.processingFile.buffer, audio.processingFile.label);
         else if (audio.input.fileBuffer) audio.input.startFile();
@@ -1483,16 +1501,16 @@ async function connectInput() {
   } catch (error) { inputError = error?.message || "Input unavailable"; throw error; }
 }
 inputControl = mountAudioInputControl({
-  container: $("sourceControls"), before: $("sourceFileLabel"),
+  container: $("sourceControls"), before: $("sourceFileLabel"), placement: false,
   button: $("startMicrophone"), gainInput: mixFields.inputDb.input, gainOutput: mixFields.inputDb.output,
   gainFormat: value => `${value > 0 ? "+" : ""}${value} dB`,
-  gainMultiplier: () => 10 ** ((state.inputDb ?? 0) / 20),
+  gainMultiplier: () => 10 ** ((effectState.inputDb ?? 0) / 20),
   sources: [{ value: "mic", label: "Mic" }, { value: "file", label: "File" }], fileInput: $("sourceFile"),
   getState: () => {
     const method = getMethod(state.methodId);
     const processing = method.kind === "processor";
     return { active: audio.input.kind !== "none", pending: audio.input.pending || loadingInput, error: inputError,
-      supported: Boolean(method.sourceInput || processing),
+      supported: Boolean(method.sourceInput || processing && ["microphone", "file"].includes(inputCategory)),
       source: !processing || audio.input.kind === "file" || processingInput === "file" ? "file" : "mic" };
   },
   getSignal: () => ({ node: audio.input.node, stream: audio.input.stream,
@@ -1502,62 +1520,16 @@ inputControl = mountAudioInputControl({
   onSourceChange: value => {
     inputError = "";
     inputIntent++; loadingInput = false; audio.stopInput();
-    processingInput = value === "file" ? "file" : "microphone";
+    processingInput = value === "file" ? "file" : "microphone"; inputCategory = processingInput;
     paintInput(); syncAudio();
   },
   hide: [$("sourceFileLabel"), $("stopInput"), $("resumeFile"), $("inputStatus"), $("inputLevel"), $("inputHelp"), $("inputGainControl")],
 });
+inputGainField = inputControl.root.querySelector(".mz-input-gain");
+$("inputGainControl").replaceChildren();
+$("inputGainControl").classList.remove("mz-input-legacy");
 
-function selectedTouchstone() {
-  return (getMethod(state.methodId).touchstones || []).find(item => item.id === $("touchstoneSelect").value);
-}
-function paintTouchstone() {
-  const item = selectedTouchstone();
-  $("touchstoneListen").textContent = item?.listenFor || item?.expected || "";
-  $("touchstoneGesture").textContent = item?.gesture || item?.action || "";
-  const actions = [];
-  for (const gesture of item?.parameterGestures || []) {
-    const index = gesture.controlIndex;
-    const control = getMethod(state.methodId).controls[index];
-    if (!control) continue;
-    const values = gesture.normalizedValues || [gesture.fromNormalized, gesture.toNormalized];
-    for (const value of values.filter(Number.isFinite)) {
-      const button = document.createElement("button");
-      button.type = "button";
-      button.textContent = `${control.label}: ${formatParameter(control, value)}`;
-      button.addEventListener("click", () => {
-        state.params[index] = value;
-        state.presetId = "custom";
-        renderState(false, !playing);
-      });
-      actions.push(button);
-    }
-  }
-  $("touchstoneActions").replaceChildren(...actions);
-}
-function renderTeaching(method) {
-  const previous = $("touchstoneSelect").value;
-  const items = method.touchstones || [];
-  $("touchstoneSelect").replaceChildren(...items.map(item => new Option(item.title, item.id)));
-  if (items.some(item => item.id === previous)) $("touchstoneSelect").value = previous;
-  $("teachingDetails").hidden = !items.length;
-  paintTouchstone();
-}
-listen($("touchstoneSelect"), "change", paintTouchstone);
-listen($("loadTouchstone"), "click", () => {
-  const item = selectedTouchstone();
-  if (!item) return;
-  state = stateFromPreset(state.methodId, item.presetId, state);
-  lastFactoryPreset = { methodId: state.methodId, presetId: state.presetId };
-  const before = JSON.stringify([state.params, state.frequencyHz]);
-  if (Number.isFinite(item.frequencyHz)) state.frequencyHz = item.frequencyHz;
-  for (const gesture of item.parameterGestures || []) {
-    const value = gesture.normalizedValues?.[0] ?? gesture.fromNormalized;
-    if (Number.isFinite(value)) state.params[gesture.controlIndex] = value;
-  }
-  if (before !== JSON.stringify([state.params, state.frequencyHz])) state.presetId = "custom";
-  renderState(false, true);
-});
+
 
 const scope = $("scope"), spectrum = $("spectrum");
 const scopeContext = scope.getContext("2d", { alpha: false });
@@ -1569,7 +1541,7 @@ const historyContext = historyCanvas.getContext("2d", { alpha: false });
 background(historyContext, historyCanvas.width, historyCanvas.height);
 const analysisResize = new ResizeObserver(() => {
   const dock = $("soundAnalysis");
-  const height = getComputedStyle(dock).position === "fixed" ? dock.getBoundingClientRect().height : 0;
+  const height = Math.ceil(dock.getBoundingClientRect().height);
   document.documentElement.style.setProperty("--synthesis-analysis-inset", height + "px");
   analysisDirty = true;
 });
@@ -1696,12 +1668,13 @@ function animate(now) {
 
 // Small public host/debug seam: serializable musical state, never browser nodes.
 window.MorphazoidSynthesis = Object.freeze({
-  getState: () => structuredClone(state),
+  getState: () => structuredClone({ ...state, routing: currentSignalPath() }),
   getSequenceState: () => structuredClone({ version: 1, id: sequenceState.id, tempo: Number($("tempo").value), density: sequenceState.density,
     swing: sequenceState.swing, seed: sequenceState.seed, pitchMode: sequenceState.pitchMode,
     parameters: sequenceState.parameters, cycle: sequenceState.cycle }),
   applyState(value) {
     state = sanitizeState(value);
+    if (value?.routing) restoreSignalPath(value.routing);
     renderState();
     if (value?.arpMode) applySequenceState({ arpMode: value.arpMode });
   },
@@ -1709,6 +1682,7 @@ window.MorphazoidSynthesis = Object.freeze({
   trigger, release: releaseAll,
   getStatus: () => ({ armed: audio.armed, playing, section: activeSection, sampleRate: audio.context?.sampleRate || null, heldNotes: held.size, voiceMode: state.voiceMode, voiceLimit: state.voiceMode === "poly" ? 8 : 1,
     tuningId: state.tuningId, tuningLabel: getTuning(state.tuningId).label,
+    routing: currentSignalPath(),
     input: { ...audio.input.status(), selection: processingInput, source: processingSource(), loading: loadingInput }, tempo: Number($("tempo").value), playbackMode: hasSequence() ? "sequence" : "auto", playStyle: playbackStyle(), noteGate: Number($("noteGate").value) / 100,
     sequence: { id: sequenceState.id, selected: hasSequence(), running: playing && sequenceOwnsTransport(), stepIndex: sequenceState.cursor, studyCount: SEQUENCE_STUDY_COUNT, transportBeat: audio.currentSequenceBeat(), audio: audio.getSequenceStatus() } }),
 });
@@ -1718,58 +1692,49 @@ listen(window, "pagehide", event => {
   paintAudio();
   if (event.persisted) audio.context?.suspend().catch(() => {});
   if (!event.persisted) {
-    cancelAnimationFrame(frames); analysisResize.disconnect(); document.documentElement.style.removeProperty("--synthesis-analysis-inset"); listeners.abort(); controlFields.forEach(field => field.destroy()); methodGestureEditor?.destroy();
+    cancelAnimationFrame(frames); analysisResize.disconnect(); document.documentElement.style.removeProperty("--synthesis-analysis-inset"); listeners.abort(); controlFields.forEach(field => field?.destroy()); methodGestureEditor?.destroy();
     envelopeEditor.destroy(); frequencyField.destroy(); tempoField.destroy(); gateField.destroy();
     sequenceParameterFields.forEach(field => field.destroy?.());
+    fullPresets?.destroy(); processorPanel?.destroy(); sequenceSurface?.destroy();
     Object.values(mixFields).forEach(field => field.destroy()); chooseControls.forEach(picker => picker.destroy()); audio.dispose();
     delete window.MorphazoidSynthesis;
   }
 });
-function mountSectionPresets() {
-  const section = activeSection;
-  const session = sectionSessions[section];
+function mountInstrumentPresets() {
   fullPresets = registerHeaderPresets({
-    id: "synthesis",
-    presets: SECTION_PRESETS[section],
-    host: $("presetHost"),
-    capture: () => captureSoundState(state),
-    apply(sound) {
-      const previousMethod = state.methodId;
-      state = sanitizeState({ ...sound, outputLevel: state.outputLevel,
-        voiceMode: state.voiceMode, tuningId: state.tuningId });
-      renderState(state.methodId !== previousMethod, true);
-    },
-    randomize: (sound, rng) => captureSoundState(randomizeAllState(sound, rng)),
+    id: "synthesis", presets: INSTRUMENT_PRESETS, host: $("performancePresetHost"),
+    capture: currentPerformanceInput, apply: applyPreparedPerformance,
+    randomize: randomizeInstrumentPreset,
   });
-  fullPresets.lastPresetId = fullPresetId(lastFactoryPreset.methodId, lastFactoryPreset.presetId);
-  fullPresets.hasPresetInteraction = session.hasPresetInteraction;
-  fullPresets.refresh();
-  const host = $("presetHost");
-  const next = host.querySelector(".header-preset-next");
-  next.id = "nextPreset";
-  next.title = "Next " + section + " preset";
-  next.setAttribute("aria-label", next.title);
+  const host = $("performancePresetHost");
+  host.querySelector(".header-preset-next").id = "nextPerformancePreset";
+  host.querySelector(".header-preset-random").id = "randomPerformance";
   const dice = host.querySelector(".header-preset-random");
-  dice.id = "randomPreset";
-  dice.title = section === "processing" ? "Randomize processor and its settings" : "Randomize synthesis method and its settings";
-  dice.setAttribute("aria-label", dice.title);
-  for (const selector of [".header-preset-controls", ".header-preset-picker summary", ".instrument-picker-list"]) {
-    host.querySelector(selector)?.setAttribute("aria-label", (section === "processing" ? "Processing" : "Synthesis") + " presets");
-  }
-  host.querySelector("#header-preset-panel input").placeholder = "Search " + section + " presets";
+  dice.title = "Randomize every musical setting"; dice.setAttribute("aria-label", dice.title);
 }
+
+listen($("presetSelect"), "change", () => {
+  if ($("presetSelect").value === "custom") return;
+  state = stateFromPreset(state.methodId, $("presetSelect").value, state);
+  renderState(false, true);
+});
+listen($("nextPreset"), "click", () => {
+  const method = getMethod(state.methodId);
+  const current = method.presets.findIndex(preset => preset.id === (state.presetId === "custom" ? lastFactoryPreset.presetId : state.presetId));
+  state = stateFromPreset(method.id, method.presets[(current + 1) % method.presets.length].id, state);
+  renderState(false, true);
+});
+
 populateTuningSelect();
 populateSequenceSelect();
 populateSequencePresetSelect();
 rebuildSequence({ route: false });
 renderSection();
 renderState();
-mountSectionPresets();
-for (const [id, label] of [["methodSelect", "Choose method"], ["sequenceSelect", "Choose arpeggiator or sequence"], ["sequencePresetSelect", "Choose arpeggiator settings preset"], ["tuningSelect", "Choose tuning and note map"], ["envelopePresetSelect", "Choose ADSR preset"], ["processingSource", "Choose processing input"], ["voiceMode", "Voicing"], ["touchstoneSelect", "Study"], ["spectrumMode", "Frequency display"]]) {
-  chooseControls.set(id, enhanceChooseSelect($(id), { label }));
+mountInstrumentPresets();
+for (const [id, label] of [["methodSelect", "Choose method"], ["presetSelect", "Choose synthesis preset"], ["sequenceSelect", "Choose arpeggiator or sequence"], ["sequencePresetSelect", "Choose arpeggiator settings preset"], ["tuningSelect", "Choose tuning and note map"], ["envelopePresetSelect", "Choose ADSR preset"], ["inputCategory", "Choose input"], ["processingSource", "Choose input material"], ["voiceMode", "Voicing"], ["spectrumMode", "Frequency display"]]) {
+  chooseControls.set(id, enhanceChooseSelect($(id), { label: id === "presetSelect" && activeSection === "processing" ? "Choose processing preset" : label }));
 }
-chooseControls.get("tuningSelect").summary.setAttribute("aria-describedby", "tuningSummary");
-chooseControls.get("sequenceSelect").summary.setAttribute("aria-describedby", "sequenceCount");
 paintSequenceMetadata();
 paintSequenceParameterControls();
 paintTuning();

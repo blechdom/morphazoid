@@ -15,8 +15,8 @@ const deepFreeze = value => {
   return value;
 };
 
-/** Only parameters that are genuinely coordinates or sampled values receive a
- * composite editor. The ordinary native controls remain present for precision. */
+/** Coordinate and sampled-value editors own their parameters exclusively.
+ * Pointer and keyboard gestures edit the same values without duplicate fields. */
 export const METHOD_EDITOR_SCHEMAS = deepFreeze({
   granular: [
     { kind: "xy", label: "Source region", x: "source-position", y: "position-spray", xLabel: "Source position", yLabel: "Position spray" },
@@ -130,6 +130,28 @@ const GROUP_OVERRIDES = Object.freeze({
 
 /** Group every method parameter exactly once without changing DSP ordering. */
 export function groupMethodControls(method) {
+  // Processor surfaces follow the signal's job, not ambiguous keyword buckets.
+  // Preserve schema order within each compact, method-specific group.
+  const processorGroups = {
+    'fx-biquad': [['Filter response', [0, 1, 2, 3]]],
+    'fx-svf': [['Filter response', [0, 1, 2]], ['Input color', [3]]],
+    'fx-ladder': [['Ladder response', [0, 1, 3]], ['Input color', [2]]],
+    'fx-fir': [['Passband', [0, 1, 2]], ['Kernel', [3]]],
+    'fx-comb': [['Comb resonance', [0, 1, 2, 3]]],
+    'fx-delay': [['Echo', [0, 1, 2]], ['Stereo routing', [3, 4]]],
+    'fx-modulated-delay': [['Delay sweep', [0, 1, 2]], ['Feedback / stereo', [3, 4]]],
+    'fx-phaser': [['Allpass sweep', [0, 1, 2]], ['Notch structure', [3, 4]]],
+    'fx-reverb': [['Space / decay', [0, 1, 2]], ['Arrival / stereo', [3, 4]]],
+    'fx-saturation': [['Transfer curve', [0, 1, 2]], ['Aliasing / tone', [3, 4]]],
+    'fx-decimator': [['Digital reduction', [0, 1]], ['Noise / reconstruction', [2, 3]]],
+    'fx-compressor': [['Gain curve', [0, 1, 4, 5]], ['Detector timing', [2, 3, 6]]],
+    'fx-expander': [['Gain curve', [0, 1, 4]], ['Detector timing', [2, 3, 5]]],
+    'fx-envelope-filter': [['Follower', [0, 4, 5]], ['Filter sweep', [1, 2, 3, 6]]],
+    'fx-frequency-shifter': [['Sideband shift', [0, 1, 2]], ['Input conditioning', [3]]],
+    'fx-vocoder': [['Carrier', [0, 1, 6]], ['Band followers', [2, 3, 4]], ['Resynthesis color', [5, 7]]],
+    'fx-spectral': [['Spectral operation', [0]], ['Bin shaping', [1, 2, 3, 4]]],
+  }[method.id];
+  if (processorGroups) return processorGroups.map(([label, indexes]) => ({ id: label.toLowerCase().replace(/[^a-z0-9]+/g, '-'), label, indexes }));
   const buckets = new Map(GROUPS.map(group => [group.id, { id: group.id, label: group.label, indexes: [] }]));
   method.controls.forEach((control, index) => {
     const id = control.id.toLowerCase();
@@ -190,6 +212,7 @@ function createXyEditor(parent, schema, lookup, readValues, emit, listen) {
   handle.setAttribute("aria-describedby", help.id);
   const xAxis = element("span", "synthesis-xy-axis synthesis-xy-axis--x", pad); xAxis.textContent = schema.xLabel;
   const yAxis = element("span", "synthesis-xy-axis synthesis-xy-axis--y", pad); yAxis.textContent = schema.yLabel;
+  const readout = element("output", "synthesis-gesture-readout", figure);
   let drag = null;
   const paint = () => {
     const values = readValues(), xv = clamp01(values[x.index]), yv = clamp01(values[y.index]);
@@ -197,6 +220,7 @@ function createXyEditor(parent, schema, lookup, readValues, emit, listen) {
     handle.style.top = `${(XY_INSET + (1 - yv) * XY_SPAN) * 100}%`;
     handle.setAttribute("aria-label", `${schema.xLabel} ${formatted(x, xv)}; ${schema.yLabel} ${formatted(y, yv)}`);
     handle.title = `${schema.xLabel} ${formatted(x, xv)} · ${schema.yLabel} ${formatted(y, yv)}`;
+    readout.textContent = handle.title;
   };
   const point = event => {
     const bounds = pad.getBoundingClientRect();
@@ -263,6 +287,8 @@ function createCurveEditor(parent, schema, lookup, readValues, emit, listen) {
     const badge = element("span", "synthesis-curve-index", button); badge.textContent = String(index + 1);
     return button;
   });
+  const readouts = element("div", "synthesis-gesture-values", figure);
+  const valuesOut = entries.map(() => element("output", "synthesis-gesture-readout", readouts));
   const xFor = index => entries.length === 1 ? 50 : 8 + index / (entries.length - 1) * 84;
   const zeroFor = entry => entry.control.min < 0 && entry.control.max > 0 ? normalizedParameter(entry.control, 0) : 0;
   const paint = () => {
@@ -276,6 +302,7 @@ function createCurveEditor(parent, schema, lookup, readValues, emit, listen) {
       const handle = handles[index]; handle.style.left = `${point.x}%`; handle.style.top = `${point.y / 64 * 100}%`;
       handle.setAttribute("aria-valuenow", String(value)); handle.setAttribute("aria-valuetext", formatted(entry, value));
       handle.title = `${entry.control.label}: ${formatted(entry, value)}`;
+      valuesOut[index].textContent = `${index + 1}. ${handle.title}`;
     });
   };
   const valueFrom = event => {

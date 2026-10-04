@@ -4,7 +4,7 @@ use clap_sys::{
     audio_buffer::*,
     entry::*,
     events::*,
-    ext::{audio_ports::*, params::*, state::*},
+    ext::{audio_ports::*, latency::*, params::*, state::*},
     factory::plugin_factory::*,
     host::*,
     plugin::*,
@@ -17,7 +17,7 @@ use std::{
     ffi::{c_char, c_void, CStr},
     mem::size_of,
     ptr,
-    sync::atomic::{AtomicBool, AtomicU64, Ordering},
+    sync::atomic::{AtomicBool, AtomicU32, AtomicU64, Ordering},
 };
 use synthesis_core::processing::{ProcessorBank, FRAMES};
 use synthesis_presets::{PROCESSOR_NAMES, PROCESSOR_PARAM_NAMES, PROCESSOR_PRESETS};
@@ -32,6 +32,27 @@ const SOURCE: usize = 6;
 const FREQ: usize = 7;
 const MACRO: usize = 8;
 const TEST_ON: usize = 24;
+const SOURCE_NAMES: [&str; 11] = [
+    "External input",
+    "Sine",
+    "Two-tone",
+    "Noise",
+    "Impulses",
+    "Pulse / saw",
+    "Drum pattern",
+    "Voiced phrase",
+    "Pink noise",
+    "Brown noise",
+    "Gaussian white noise",
+];
+// Shared-core spectral processing has fixed latency; bank bypass is immediate.
+fn requested_latency(values: &[f64; COUNT]) -> u32 {
+    if values[METHOD] == 16.0 && values[BYPASS] < 0.5 {
+        1024
+    } else {
+        0
+    }
+}
 const ID: &[u8] = b"org.morphazoid.synthesaurus.fx\0";
 const MAGIC: [u8; 8] = *b"SYNFXCLP";
 const STATE_SIZE: usize = 12 + COUNT * 8;
@@ -59,7 +80,7 @@ fn limits(i: usize) -> (f64, f64) {
         METHOD => (0., (PROCESSOR_NAMES.len() - 1) as f64),
         PRESET => (0., 7.),
         INPUT | OUTPUT => (-36., 24.),
-        SOURCE => (0., 7.),
+        SOURCE => (0., (SOURCE_NAMES.len() - 1) as f64),
         FREQ => (20., 8000.),
         _ => (0., 1.),
     }
@@ -137,6 +158,8 @@ struct Plugin {
     pending_version: AtomicU64,
     applied_version: AtomicU64,
     rescan: AtomicBool,
+    latency: AtomicU32,
+    restart_pending: AtomicBool,
 }
 unsafe impl Sync for Plugin {}
 unsafe fn instance<'a>(p: *const clap_plugin) -> &'a Plugin {
@@ -149,6 +172,22 @@ fn atomic_values(v: &[f64; COUNT]) -> [AtomicU64; COUNT] {
     std::array::from_fn(|i| AtomicU64::new(v[i].to_bits()))
 }
 impl Plugin {
+    unsafe fn apply(&self, a: &mut Audio) -> bool {
+        if self.active.load(Ordering::Acquire)
+            && requested_latency(&a.values) != self.latency.load(Ordering::Acquire)
+        {
+            // CLAP latency may only change during activate(). Retain the old
+            // complete DSP state until the host honors the restart request.
+            if !self.restart_pending.swap(true, Ordering::AcqRel) && !self.host.is_null() {
+                if let Some(restart) = (*self.host).request_restart {
+                    restart(self.host);
+                }
+            }
+            return false;
+        }
+        a.apply();
+        true
+    }
     fn publish(&self, v: &[f64; COUNT]) {
         self.published_version.fetch_add(1, Ordering::AcqRel);
         for (i, value) in v.iter().enumerate() {
@@ -181,9 +220,10 @@ impl Plugin {
             return;
         }
         a.values = values;
-        a.apply();
-        if let Some(b) = a.bank.as_mut() {
-            b.reset();
+        if self.apply(a) {
+            if let Some(b) = a.bank.as_mut() {
+                b.reset();
+            }
         }
         self.applied_version.store(version, Ordering::Release);
         self.publish(&a.values);
@@ -208,7 +248,7 @@ impl Plugin {
             preset(&mut a.values);
             self.rescan();
         }
-        a.apply();
+        self.apply(a);
         self.publish(&a.values);
     }
 }
@@ -237,6 +277,19 @@ unsafe extern "C" fn activate(p: *const clap_plugin, sr: f64, min: u32, max: u32
     s.pending(a);
     a.apply();
     a.bank.as_mut().unwrap().reset();
+    let latency = requested_latency(&a.values);
+    let previous_latency = s.latency.swap(latency, Ordering::AcqRel);
+    s.restart_pending.store(false, Ordering::Release);
+    if latency != previous_latency && !s.host.is_null() {
+        if let Some(get) = (*s.host).get_extension {
+            let extension = get(s.host, CLAP_EXT_LATENCY.as_ptr()).cast::<clap_host_latency>();
+            if let Some(extension) = extension.as_ref() {
+                if let Some(changed) = extension.changed {
+                    changed(s.host);
+                }
+            }
+        }
+    }
     s.active.store(true, Ordering::Release);
     true
 }
@@ -248,10 +301,20 @@ unsafe extern "C" fn deactivate(p: *const clap_plugin) {
 }
 unsafe extern "C" fn start(p: *const clap_plugin) -> bool {
     let s = instance(p);
-    s.active.load(Ordering::Acquire) && !s.processing.swap(true, Ordering::AcqRel)
+    if !s.active.load(Ordering::Acquire) || s.processing.swap(true, Ordering::AcqRel) {
+        return false;
+    }
+    if let Some(bank) = audio(s).bank.as_mut() {
+        bank.set_freeze_allowed(true);
+    }
+    true
 }
 unsafe extern "C" fn stop(p: *const clap_plugin) {
-    instance(p).processing.store(false, Ordering::Release);
+    let s = instance(p);
+    s.processing.store(false, Ordering::Release);
+    if let Some(bank) = audio(s).bank.as_mut() {
+        bank.set_freeze_allowed(false);
+    }
 }
 unsafe extern "C" fn reset(p: *const clap_plugin) {
     let s = instance(p);
@@ -520,17 +583,7 @@ unsafe extern "C" fn value_text(
             let m = f64::from_bits(instance(p).published[METHOD].load(Ordering::Acquire)) as usize;
             PROCESSOR_PRESETS[m][v as usize].name.to_owned()
         }
-        SOURCE => [
-            "External input",
-            "Sine",
-            "Two-tone",
-            "Noise",
-            "Impulses",
-            "Pulse / saw",
-            "Drum pattern",
-            "Voiced phrase",
-        ][v as usize]
-            .to_owned(),
+        SOURCE => SOURCE_NAMES[v as usize].to_owned(),
         BYPASS | TEST_ON => {
             if v > 0.5 {
                 "On".to_owned()
@@ -672,6 +725,12 @@ static STATE: clap_plugin_state = clap_plugin_state {
     save: Some(save),
     load: Some(load),
 };
+unsafe extern "C" fn get_latency(p: *const clap_plugin) -> u32 {
+    instance(p).latency.load(Ordering::Acquire)
+}
+static LATENCY: clap_plugin_latency = clap_plugin_latency {
+    get: Some(get_latency),
+};
 unsafe extern "C" fn extension(_: *const clap_plugin, id: *const c_char) -> *const c_void {
     if id.is_null() {
         return ptr::null();
@@ -683,6 +742,8 @@ unsafe extern "C" fn extension(_: *const clap_plugin, id: *const c_char) -> *con
         (&PARAMS as *const clap_plugin_params).cast()
     } else if id == CLAP_EXT_STATE {
         (&STATE as *const clap_plugin_state).cast()
+    } else if id == CLAP_EXT_LATENCY {
+        (&LATENCY as *const clap_plugin_latency).cast()
     } else {
         ptr::null()
     }
@@ -725,6 +786,8 @@ unsafe extern "C" fn create(
         pending_version: AtomicU64::new(0),
         applied_version: AtomicU64::new(0),
         rescan: AtomicBool::new(false),
+        latency: AtomicU32::new(0),
+        restart_pending: AtomicBool::new(false),
     });
     s.plugin.plugin_data = (&mut *s as *mut Plugin).cast();
     let raw = Box::into_raw(s);

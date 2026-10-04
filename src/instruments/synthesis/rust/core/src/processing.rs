@@ -2,12 +2,13 @@
 //! test sources are available to hosts but source 0 always means real input.
 //! No allocation, locking, permission requests or sample-rate changes in process.
 use std::f32::consts::{PI, TAU};
-pub const PROCESSOR_COUNT: usize = 16;
+use crate::{spectral_processing::SpectralProcessor, test_signals::TestNoise};
+pub const PROCESSOR_COUNT: usize = 17;
 pub const PARAMETER_COUNT: usize = 16;
 pub const FRAMES: usize = 128;
 const KNEE: f32 = 0.95;
 const CEILING: f32 = 0.999;
-pub const METHOD_NAMES: [&str; 16] = [
+pub const METHOD_NAMES: [&str; PROCESSOR_COUNT] = [
     "Biquad filter / EQ",
     "State-variable filter",
     "Nonlinear ladder filter",
@@ -24,8 +25,9 @@ pub const METHOD_NAMES: [&str; 16] = [
     "Envelope-following filter",
     "Hilbert frequency shifter",
     "Eight-band vocoder",
+    "FFT spectral processing",
 ];
-pub const METHOD_IDS: [&str; 16] = [
+pub const METHOD_IDS: [&str; PROCESSOR_COUNT] = [
     "biquad",
     "svf",
     "ladder",
@@ -42,9 +44,10 @@ pub const METHOD_IDS: [&str; 16] = [
     "envelope-filter",
     "frequency-shifter",
     "vocoder",
+    "spectral",
 ];
-pub const DEFAULT_SOURCES: [u32; 16] = [3, 3, 5, 3, 4, 6, 5, 5, 6, 1, 7, 6, 6, 6, 2, 7];
-pub const CONTROL_NAMES: [[&str; 16]; 16] = [
+pub const DEFAULT_SOURCES: [u32; PROCESSOR_COUNT] = [3, 3, 5, 3, 4, 6, 5, 5, 6, 1, 7, 6, 6, 6, 2, 7, 7];
+pub const CONTROL_NAMES: [[&str; 16]; PROCESSOR_COUNT] = [
     [
         "Response",
         "Frequency",
@@ -305,8 +308,9 @@ pub const CONTROL_NAMES: [[&str; 16]; 16] = [
         "Unused",
         "Unused",
     ],
+    ["Mode", "Threshold", "Reduction", "Response", "Tilt", "Unused", "Unused", "Unused", "Unused", "Unused", "Unused", "Unused", "Unused", "Unused", "Unused", "Unused"],
 ];
-pub const DEFAULT_PARAMS: [[f32; 16]; 16] = [
+pub const DEFAULT_PARAMS: [[f32; 16]; PROCESSOR_COUNT] = [
     [
         0.0,
         0.5927170834612145,
@@ -595,8 +599,9 @@ pub const DEFAULT_PARAMS: [[f32; 16]; 16] = [
         0.0,
         0.0,
     ],
+    [0.3333333333, 0.5384615385, 0.5, 0.4515449935, 0.5, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
 ];
-const RANGES: [[(f32, f32, bool); 16]; 16] = [
+const RANGES: [[(f32, f32, bool); 16]; PROCESSOR_COUNT] = [
     [
         (0.0, 7.0, false),
         (20.0, 20000.0, true),
@@ -885,6 +890,7 @@ const RANGES: [[(f32, f32, bool); 16]; 16] = [
         (0.0, 1.0, false),
         (0.0, 1.0, false),
     ],
+    [(0.0, 3.0, false), (-90.0, -12.0, false), (0.0, 96.0, false), (0.005, 0.5, true), (-12.0, 12.0, false), (0.0, 1.0, false), (0.0, 1.0, false), (0.0, 1.0, false), (0.0, 1.0, false), (0.0, 1.0, false), (0.0, 1.0, false), (0.0, 1.0, false), (0.0, 1.0, false), (0.0, 1.0, false), (0.0, 1.0, false), (0.0, 1.0, false)],
 ];
 
 fn finite(x: f32, fallback: f32) -> f32 {
@@ -1066,6 +1072,9 @@ pub struct ProcessorBank {
     source_phase_b: f32,
     source_seed: u32,
     source_low: f32,
+    test_noise: TestNoise,
+    spectral: SpectralProcessor,
+    freeze_allowed: bool,
     source_last: [f32; 2],
     source_from: [f32; 2],
     source_fade: u32,
@@ -1141,6 +1150,9 @@ impl ProcessorBank {
             source_phase_b: 0.0,
             source_seed: 0x9183ab,
             source_low: 0.0,
+            test_noise: TestNoise::new(sr),
+            spectral: SpectralProcessor::new(sr),
+            freeze_allowed: true,
             source_last: [0.0; 2],
             source_from: [0.0; 2],
             source_fade: 0,
@@ -1247,7 +1259,7 @@ impl ProcessorBank {
         }
     }
     pub fn set_source(&mut self, source: u32, frequency: f32, active: bool) {
-        let source = source.min(7);
+        let source = source.min(10);
         if source != self.source {
             self.source_from = self.source_last;
             self.source_fade = (self.sr * 0.005) as u32;
@@ -1257,10 +1269,19 @@ impl ProcessorBank {
             self.source_phase_b = 0.0;
             self.source_seed = 0x9183ab;
             self.source_low = 0.0;
+            self.test_noise.reset();
+            self.spectral.clear_capture();
         }
         self.source_frequency_target =
             finite(frequency, 220.0).clamp(20.0, (self.sr * 0.2).min(8000.0));
         self.source_target = if active { 1.0 } else { 0.0 };
+    }
+    /// Stop/panic disarms capture without cutting the source's release tail.
+    /// Hosts whose external-input gate stays open must call this on Stop, and
+    /// rearm it on Play. Existing source-active=false also disarms capture.
+    pub fn set_freeze_allowed(&mut self, allowed: bool) {
+        self.freeze_allowed = allowed;
+        if !allowed { self.spectral.clear_capture(); }
     }
     pub fn reset(&mut self) {
         self.reset_effects();
@@ -1276,6 +1297,7 @@ impl ProcessorBank {
         self.source_phase_b = 0.0;
         self.source_seed = 0x9183ab;
         self.source_low = 0.0;
+        self.test_noise.reset();
         self.source_last = [0.0; 2];
         self.source_from = [0.0; 2];
         self.source_fade = 0;
@@ -1289,6 +1311,7 @@ impl ProcessorBank {
         self.kernel = self.kernel_target;
     }
     fn reset_effects(&mut self) {
+        self.spectral.reset();
         self.biquad = [Biquad::default(); 2];
         self.svf = [Svf::default(); 2];
         self.ladder = [[0.0; 4]; 2];
@@ -1415,7 +1438,7 @@ impl ProcessorBank {
                 };
                 drum * velocity * 0.55
             }
-            _ => {
+            7 => {
                 let syllable = (time * 0.8).sin().max(0.0) * 0.8 + 0.2;
                 let mut voice = 0.0;
                 for h in 1..=16 {
@@ -1427,6 +1450,8 @@ impl ProcessorBank {
                 }
                 voice * syllable * 0.32
             }
+            8..=10 => self.test_noise.next(self.source),
+            _ => 0.0,
         };
         self.source_phase = (phase + self.source_frequency / self.sr).fract();
         self.source_phase_b = (self.source_phase_b + self.source_frequency * 1.5 / self.sr).fract();
@@ -1443,7 +1468,9 @@ impl ProcessorBank {
         out
     }
     fn effect(&mut self, x: [f32; 2]) -> [f32; 2] {
-        let p: [f32; 16] = std::array::from_fn(|i| map(self.method, i, self.smooth[i]));
+        let mut p: [f32; 16] = std::array::from_fn(|i| map(self.method, i, self.smooth[i]));
+        // A discrete mode must never glide through Freeze during a preset switch.
+        if self.method == 16 { p[0] = map(16, 0, self.params[0]); }
         let mut out = [0.0; 2];
         match self.method {
             0 => {
@@ -1730,7 +1757,7 @@ impl ProcessorBank {
                 self.fir_clock = (self.fir_clock + 1) % 128;
                 self.phase = (self.phase + (p[0] + p[1]) / self.sr).rem_euclid(1.0);
             }
-            _ => {
+            15 => {
                 let phase = self.carrier_phase;
                 let saw = phase * 2.0 - 1.0;
                 let pulse = if phase < 0.5 { 1.0 } else { -1.0 };
@@ -1762,6 +1789,8 @@ impl ProcessorBank {
                 }
                 self.carrier_phase = (phase + p[0] / self.sr).fract();
             }
+            16 => { out = self.spectral.next(x, &p, self.source_target > 0.0 && self.freeze_allowed); }
+            _ => { out = x; }
         }
         out.map(clean)
     }
@@ -1794,9 +1823,12 @@ impl ProcessorBank {
             let dry = source.map(|v| v * self.source_active);
             let input = dry.map(|v| clean(v * self.input_gain));
             let wet = self.effect(input);
+            // STFT wet latency and dry latency match at every mix position.
+            // Full bank bypass intentionally remains the immediate input.
+            let aligned = if self.method == 16 { self.spectral.aligned_dry() } else { input };
             let mut result = [0.0; 2];
             for c in 0..2 {
-                let mixed = (input[c] * (1.0 - self.wet) + wet[c] * self.wet) * self.output_gain;
+                let mixed = (aligned[c] * (1.0 - self.wet) + wet[c] * self.wet) * self.output_gain;
                 result[c] = mixed * (1.0 - self.bypass) + dry[c] * self.bypass;
                 self.input_peak[c] = self.input_peak[c].max(input[c].abs());
             }
@@ -1937,6 +1969,10 @@ pub unsafe extern "C" fn proc_set_source(
     }
 }
 #[no_mangle]
+pub unsafe extern "C" fn proc_set_freeze_allowed(ptr: *mut ProcessorBank, allowed: u32) {
+    if let Some(p) = ptr.as_mut() { p.set_freeze_allowed(allowed != 0); }
+}
+#[no_mangle]
 pub unsafe extern "C" fn proc_input_peak(ptr: *const ProcessorBank, channel: u32) -> f32 {
     ptr.as_ref()
         .map_or(0.0, |p| p.input_peak[channel.min(1) as usize])
@@ -1990,6 +2026,64 @@ mod tests {
         p.set_source(0, 220.0, true);
         p.reset();
         p
+    }
+    #[test]
+    fn spectral_dry_wet_is_phase_aligned_at_every_supported_rate() {
+        for sr in [8000.0, 44100.0, 48000.0, 96000.0, 192000.0] {
+            for wet in [0.0, 0.25, 0.5, 1.0] {
+                let mut bank = configured(16, sr);
+                let mut p = DEFAULT_PARAMS[16]; p[0] = 0.0;
+                bank.set_params(p); bank.set_mix(wet, false, 0.0, 0.0); bank.reset();
+                let input = |i: usize| [(TAU * 731.0 * i as f32 / sr).sin() * 0.13, (TAU * 1597.0 * i as f32 / sr).sin() * 0.19];
+                let output = render(&mut bank, 8192, input);
+                for i in 1024..output.len() {
+                    for c in 0..2 {
+                        assert!((output[i][c] - input(i - 1024)[c]).abs() < 5e-6, "{sr}/{wet}/{i}/{c}");
+                    }
+                }
+            }
+        }
+    }
+    #[test]
+    fn freeze_disarm_clears_hold_but_preserves_external_synth_release_tail() {
+        let mut bank = configured(16, 48000.0);
+        let mut p = DEFAULT_PARAMS[16]; p[0] = 2.0 / 3.0;
+        bank.set_params(p); bank.reset();
+        let input = |i: usize| [(TAU * 440.0 * i as f32 / 48000.0).sin() * 0.2, 0.0];
+        render(&mut bank, 4096, input);
+        let held = render(&mut bank, 8192, |_| [0.0; 2]);
+        assert!(rms(&held[4096..].iter().map(|x| x[0]).collect::<Vec<_>>()) > 0.02);
+        bank.set_freeze_allowed(false);
+        let output = render(&mut bank, 8192, input);
+        // The input gate stays open; only the held spectrum is released.
+        for i in 2048..output.len() {
+            assert!((output[i][0] - input(i - 1024)[0]).abs() < 5e-6);
+            assert_eq!(output[i][1], 0.0);
+        }
+        let silence = render(&mut bank, 4096, |_| [0.0; 2]);
+        assert!(silence[2048..].iter().flatten().all(|x| x.abs() < 1e-7));
+        bank.set_freeze_allowed(true);
+        render(&mut bank, 4096, input);
+        let recaptured = render(&mut bank, 8192, |_| [0.0; 2]);
+        assert!(rms(&recaptured[4096..].iter().map(|x| x[0]).collect::<Vec<_>>()) > 0.02);
+    }
+    #[test]
+    fn spectral_extremes_remain_bounded_and_reset_does_not_rearm_freeze() {
+        let mut bank = configured(16, 48000.0);
+        let mut p = DEFAULT_PARAMS[16]; p[0] = 1.0;
+        bank.set_params(p);
+        render(&mut bank, 128, |_| [0.2, 0.0]);
+        bank.set_freeze_allowed(false);
+        assert!(!bank.freeze_allowed);
+        // All modes, extreme controls and repeated resets remain bounded.
+        for mode in 0..=3 {
+            p[0] = mode as f32 / 3.0; p[1] = 1.0; p[2] = 1.0; p[3] = 0.0; p[4] = 1.0;
+            bank.set_params(p);
+            let output = render(&mut bank, 2048, |i| [(i as f32).sin() * 4.0, f32::NAN]);
+            assert!(output.iter().flatten().all(|x| x.is_finite() && x.abs() <= CEILING));
+        }
+        bank.reset();
+        assert!(!bank.freeze_allowed, "reset must not silently rearm a stopped host");
     }
     #[test]
     fn every_effect_processes_real_input_and_source_zero_never_injects_a_demo() {
@@ -2153,7 +2247,7 @@ mod tests {
     #[test]
     fn rates_extremes_invalid_input_and_abi_remain_bounded() {
         for sr in [8000.0, 44100.0, 96000.0, 192000.0] {
-            for method in 0..16 {
+            for method in 0..PROCESSOR_COUNT {
                 let mut b = configured(method, sr);
                 for extreme in [0.0, 1.0] {
                     b.set_params([extreme; 16]);
@@ -2190,7 +2284,7 @@ mod tests {
     fn test_sources_reset_deterministically_and_source_gate_stops_them() {
         let mut b = configured(0, 48000.0);
         b.set_mix(0.0, false, 0.0, 0.0);
-        for source in 1..=7 {
+        for source in 1..=10 {
             b.set_source(source, 220.0, true);
             b.reset();
             let first = render(&mut b, 4096, |_| [0.0; 2]);

@@ -29,6 +29,9 @@ class RoadsSynthesisProcessor extends AudioWorkletProcessor {
     this.modeFade = 0;
     this.modeFadeFrom = 0;
     this.processor = this.api.proc_new(sampleRate);
+    this.insertState = null;
+    this.insertBlend = 0;
+    this.outputArmed = options.processorOptions.outputArmed !== false;
     this.processingUntil = 0;
     this.capture = null;
     this.buffer = null;
@@ -638,7 +641,10 @@ class RoadsSynthesisProcessor extends AudioWorkletProcessor {
 
   message(data) {
     if (this.dead) return;
-    if (data.type === "sequence-swap") {
+    if (data.type === "output-armed") {
+      this.outputArmed = data.armed === true;
+      if (!this.outputArmed) this.api.proc_set_freeze_allowed?.(this.processor, 0);
+    } else if (data.type === "sequence-swap") {
       this.queueSequenceSwap(data);
     } else if (data.type === "sequence-load") {
       this.loadSequence(data);
@@ -681,6 +687,7 @@ class RoadsSynthesisProcessor extends AudioWorkletProcessor {
         this.api.proc_set_source(this.processor, 0, 220, 0);
         this.api.proc_reset(this.processor);
       }
+      this.configureInsert(data.state);
       if (wasPoly !== nextPoly) {
         this.modeFadeFrom = this.lastSample;
         this.modeFade = Math.round(sampleRate * .005);
@@ -778,6 +785,7 @@ class RoadsSynthesisProcessor extends AudioWorkletProcessor {
         this.events.sort((a, b) => a.frame - b.frame);
       }
     } else if (data.type === "silence") {
+      this.api.proc_set_freeze_allowed?.(this.processor, 0);
       this.haltSequence(data);
       this.playing = false;
       this.processingUntil = 0;
@@ -1035,6 +1043,8 @@ class RoadsSynthesisProcessor extends AudioWorkletProcessor {
   }
 
   configureProcessing(data, continuing) {
+    this.insertState = null;
+    this.insertBlend = 0;
     const previousMethod = this.state?.processorId;
     this.state = data.state;
     const s = this.state, p = this.api, e = this.processor;
@@ -1051,8 +1061,57 @@ class RoadsSynthesisProcessor extends AudioWorkletProcessor {
     this.updateProcessingGate();
   }
 
+  configureInsert(state) {
+    if (state.kind === "processor") this.insertBlend = 0;
+    const next = state.kind !== "processor" ? state.insert : null;
+    if (!next) { this.insertState = null; return; }
+    const p = this.api, e = this.processor;
+    if (!this.insertState || this.insertState.processorId !== next.processorId) {
+      p.proc_set_method(e, next.processorId);
+      if (!this.insertState) p.proc_reset(e);
+    }
+    this.insertState = next;
+    const params = new Float32Array(p.memory.buffer, p.proc_params_ptr(e), 16);
+    params.fill(0); params.set(next.params.slice(0, 16));
+    p.proc_apply_params(e);
+    p.proc_set_mix(e, next.wet ?? 1, next.bypass ? 1 : 0, next.inputDb ?? 0, next.outputDb ?? 0);
+    // Already-articulated synth audio is the input. Do not gate it again with
+    // Play: keyboard notes, release envelopes and effect tails must survive.
+    p.proc_set_source(e, 0, 220, 1);
+  }
+
+  processInsert(channels) {
+    if (!this.insertState && this.insertBlend < 1e-6) { this.insertBlend = 0; return; }
+    const p = this.api, e = this.processor;
+    // Panic closes the external-input gate as well as the synth voices. An
+    // insert still receives the synth's own articulated audio on the next
+    // block, including new keyboard notes without another state message.
+    p.proc_set_source(e, 0, 220, 1);
+    const coefficient = 1 - Math.exp(-1 / (sampleRate * .005));
+    const active = this.playing || this.sequencePlaying || this.heldNote || this.pulseNote
+      || this.polyDeadlines.some(note => note != null);
+    p.proc_set_freeze_allowed?.(e, this.outputArmed && active ? 1 : 0);
+    for (let offset = 0; offset < channels[0].length; offset += 128) {
+      const count = Math.min(128, channels[0].length - offset);
+      for (let channel = 0; channel < 2; channel++) {
+        const input = new Float32Array(p.memory.buffer, p.proc_input_ptr(e, channel), 128);
+        input.fill(0); input.set((channels[channel] || channels[0]).subarray(offset, offset + count));
+      }
+      p.proc_process(e, count);
+      const wet = channels.map((_, channel) => new Float32Array(p.memory.buffer, p.proc_output_ptr(e, Math.min(1, channel)), count));
+      for (let i = 0; i < count; i++) {
+        this.insertBlend += ((this.insertState ? 1 : 0) - this.insertBlend) * coefficient;
+        for (let channel = 0; channel < channels.length; channel++) {
+          const dry = channels[channel][offset + i];
+          channels[channel][offset + i] = dry + (wet[channel][i] - dry) * this.insertBlend;
+        }
+      }
+    }
+  }
+
   updateProcessingGate(frame = currentFrame) {
     if (this.state?.kind !== "processor") return;
+    this.api.proc_set_freeze_allowed?.(this.processor, this.outputArmed && (this.playing || frame < this.processingUntil) ? 1 : 0);
     this.api.proc_set_source(this.processor, this.state.source ?? 0, this.state.frequencyHz,
       this.playing || frame < this.processingUntil ? 1 : 0);
   }
@@ -1148,7 +1207,7 @@ class RoadsSynthesisProcessor extends AudioWorkletProcessor {
         this.processEffect(inputs, channels);
         return true;
       }
-      if (this.state?.voiceMode === "poly") { this.processPoly(channels); return true; }
+      if (this.state?.voiceMode === "poly") { this.processPoly(channels); this.processInsert(channels); return true; }
       let offset = 0;
       const length = channels[0].length;
       while (offset < length) {
@@ -1208,6 +1267,7 @@ class RoadsSynthesisProcessor extends AudioWorkletProcessor {
         this.copyOutput(this.output, channels, offset, count);
         offset += count;
       }
+      this.processInsert(channels);
     } catch (error) { for (const channel of channels) channel.fill(0); this.fail(error); }
     return true;
   }

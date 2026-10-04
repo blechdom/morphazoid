@@ -13,6 +13,8 @@ pub use controls::{
 #[cfg(feature = "neural")]
 pub mod neural;
 mod spectral;
+mod spectral_processing;
+mod test_signals;
 use conventional::Conventional;
 
 pub const BLOCK_FRAMES: usize = 128;

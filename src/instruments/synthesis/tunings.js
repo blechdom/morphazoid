@@ -116,7 +116,7 @@ const QUARTER_COMMA_MEANTONE_CENTS = Object.freeze([
 export const TUNINGS = Object.freeze([
   defineEdo({
     id: DEFAULT_TUNING_ID,
-    label: '12-EDO chromatic',
+    label: 'Chromatic · 12 equal divisions of the octave',
     group: 'Essentials',
     divisions: 12,
     description: 'Twelve equal divisions of the octave.',
@@ -126,7 +126,7 @@ export const TUNINGS = Object.freeze([
   }),
   defineEdo({
     id: 'edo-6-whole-tone',
-    label: '6-EDO whole-tone',
+    label: 'Whole-tone · 6 equal divisions of the octave',
     group: 'Essentials',
     divisions: 6,
     description: 'Six equal whole-tone divisions of the octave.',
@@ -136,7 +136,7 @@ export const TUNINGS = Object.freeze([
   }),
   defineEdo({
     id: 'edo-12-major',
-    label: '12-EDO major',
+    label: 'Major · 12 equal divisions of the octave',
     group: 'Essentials',
     divisions: 12,
     steps: [0, 2, 4, 5, 7, 9, 11],
@@ -147,7 +147,7 @@ export const TUNINGS = Object.freeze([
   }),
   defineEdo({
     id: 'edo-12-natural-minor',
-    label: '12-EDO natural minor',
+    label: 'Natural minor · 12 equal divisions of the octave',
     group: 'Essentials',
     divisions: 12,
     steps: [0, 2, 3, 5, 7, 8, 10],
@@ -158,7 +158,7 @@ export const TUNINGS = Object.freeze([
   }),
   defineEdo({
     id: 'edo-12-major-pentatonic',
-    label: '12-EDO major pentatonic',
+    label: 'Major pentatonic · 12 equal divisions of the octave',
     group: 'Essentials',
     divisions: 12,
     steps: [0, 2, 4, 7, 9],
@@ -169,7 +169,7 @@ export const TUNINGS = Object.freeze([
   }),
   defineEdo({
     id: 'edo-12-minor-pentatonic',
-    label: '12-EDO minor pentatonic',
+    label: 'Minor pentatonic · 12 equal divisions of the octave',
     group: 'Essentials',
     divisions: 12,
     steps: [0, 3, 5, 7, 10],
@@ -193,7 +193,7 @@ export const TUNINGS = Object.freeze([
     [72, [0, 24, 42]],
   ].map(([divisions, chordDegrees]) => defineEdo({
     id: `edo-${divisions}`,
-    label: `${divisions}-EDO`,
+    label: `Chromatic · ${divisions} equal divisions of the octave`,
     group: 'Equal divisions',
     divisions,
     description: `${divisions} equal divisions of the octave.`,
@@ -303,7 +303,7 @@ export const TUNINGS = Object.freeze([
 
   defineTuning({
     id: 'japanese-yo-12edo',
-    label: 'Japanese yō (Uehara) · 12-EDO map',
+    label: 'Japanese yō (Uehara) · 12 equal divisions of the octave',
     group: 'Japanese 12-EDO maps',
     kind: 'cents',
     evidence: 'modern-keyboard-map',
@@ -316,7 +316,7 @@ export const TUNINGS = Object.freeze([
   }),
   defineTuning({
     id: 'japanese-in-12edo',
-    label: 'Japanese in (Uehara, descending) · 12-EDO map',
+    label: 'Japanese in (Uehara, descending) · 12 equal divisions of the octave',
     group: 'Japanese 12-EDO maps',
     kind: 'cents',
     evidence: 'modern-keyboard-map',
@@ -330,7 +330,7 @@ export const TUNINGS = Object.freeze([
 
   defineTuning({
     id: 'javanese-slendro-5edo-model',
-    label: 'Javanese sléndro · 5-EDO teaching model',
+    label: 'Javanese sléndro model · 5 equal divisions of the octave',
     group: 'Central Java · teaching models',
     kind: 'cents',
     evidence: 'teaching-model',
@@ -343,7 +343,7 @@ export const TUNINGS = Object.freeze([
   }),
   defineTuning({
     id: 'javanese-pelog-9edo-model',
-    label: 'Javanese pélog · 9-EDO teaching model',
+    label: 'Javanese pélog model · subset of 9 equal divisions of the octave',
     group: 'Central Java · teaching models',
     kind: 'cents',
     evidence: 'teaching-model',
@@ -357,7 +357,7 @@ export const TUNINGS = Object.freeze([
 
   defineTuning({
     id: 'chopi-timbila-7edo-model',
-    label: 'Chopi timbila · 7-EDO teaching model',
+    label: 'Chopi timbila model · 7 equal divisions of the octave',
     group: 'Chopi · southern Mozambique',
     kind: 'cents',
     evidence: 'teaching-model',
@@ -370,7 +370,7 @@ export const TUNINGS = Object.freeze([
   }),
   defineTuning({
     id: 'amhara-tizita-major-12edo-map',
-    label: 'Amhara Tizita major · 12-EDO map',
+    label: 'Amhara Tizita major · 12 equal divisions of the octave',
     group: 'Amhara · Ethiopia',
     kind: 'cents',
     evidence: 'modern-keyboard-map',
@@ -383,7 +383,7 @@ export const TUNINGS = Object.freeze([
   }),
   defineTuning({
     id: 'amhara-ambassel-12edo-map',
-    label: 'Amhara Ambassel · 12-EDO map',
+    label: 'Amhara Ambassel · 12 equal divisions of the octave',
     group: 'Amhara · Ethiopia',
     kind: 'cents',
     evidence: 'modern-keyboard-map',
@@ -397,7 +397,7 @@ export const TUNINGS = Object.freeze([
 
   defineTuning({
     id: 'bohlen-pierce-13edt',
-    label: 'Bohlen–Pierce · 13-EDT',
+    label: 'Bohlen–Pierce · 13 equal divisions of the tritave',
     group: 'Experimental',
     kind: 'equal-division',
     evidence: 'mathematical',

@@ -21,7 +21,7 @@ test("every implemented full-preset owner declares exactly one explicit preset h
       : entry.id === "puggler" ? /<div class="puggler-preset-host" data-instrument-preset-host/ // Owner-requested mobile reparenting.
       : entry.id === "voicesaurus" ? /<aside[^>]*data-cooking-panel[^>]*>\s*<div class="native-voice-modes"[^>]*>[\s\S]*?<\/div>\s*<div data-instrument-preset-host/ // Owner-requested Speak/Sing selector above the presets it scopes.
       : entry.id === "spelling-synthesizer" ? /<aside[^>]*data-cooking-panel[^>]*>\s*<div data-instrument-preset-host/ // Shared speech family's first-row mount; sticky placement is browser-tested.
-      : entry.id === "synthesis" ? /<div id="presetHost" data-instrument-preset-host/ // Preset row beside the method selector.
+      : entry.id === "synthesis" ? /<div id="performancePresetHost" data-instrument-preset-host/ // Complete instrument presets precede the independent axes.
       : /<aside[^>]+data-instrument-preset-host/, entry.id);
   }
 });

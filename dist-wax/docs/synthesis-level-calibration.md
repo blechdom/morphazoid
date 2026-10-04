@@ -24,12 +24,6 @@ K-weighted RMS is an energy measurement, not integrated LUFS or proof of percept
 | 90% | -15.1 | -15.1 | -5.3 |
 | 100% | -15.1 | -15.1 | -5.3 |
 
-## Comparison with the preserved baseline
-
-Median browser K400 changed from -21.1 to -15.1 dBFS. The median paired lift is 6.0 dB. The central 80% spread changed from 3.0 to 6.8 dB.
-
-This includes source corrections and fixed trims. The browser master remains 0.7. Presets never reaching −48 dBFS over a 10 ms browser block changed from 0 to 0.
-
 ## Quietest measured auditions
 
 | Method / preset | Trim, dB | Browser K400, dBFS | Browser 100 ms RMS, dBFS | Browser peak, dBFS | Peak constrained |
@@ -61,7 +55,7 @@ This includes source corrections and fixed trims. The browser master remains 0.7
 
 ## Provenance
 
-- WASM SHA-256: `070760c01717912a486ca78ffa0f76bdb50a4b5d225293bef8ae2c05bad54da3`
+- WASM SHA-256: `6be21bbba7bf567d971d566560f761ca817ccaba9ddd01d278ea651845870530`
 - Signal fixture SHA-256: `536fb43772b0492dd048ba277be3be9badd33888f3a3055c3e25170d89475100`
 - Fixture hashing includes method/preset IDs, normalized parameters, frequency and envelope. It excludes calibration trims, descriptive copy and output master, avoiding a circular calibration dependency.
 - Full source hashes, all before/after metrics, explicit onset thresholds and baseline comparisons are in the adjacent JSON report.

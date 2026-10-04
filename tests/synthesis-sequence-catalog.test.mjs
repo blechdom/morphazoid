@@ -14,6 +14,7 @@ import {
   SEQUENCE_SOURCES,
   getSequenceEra,
   getSequenceSource,
+  sequenceShortDateLabel,
 } from '../src/instruments/synthesis/sequence-chronology.js';
 
 test('sequence compendium spans five historical eras with original, neutral studies', () => {
@@ -49,8 +50,8 @@ test('sequence compendium spans five historical eras with original, neutral stud
     assert.equal(brands.test(study.cue), false, `${study.id}: cue stays neutral`);
     assert.ok(study.lineage.length > 20);
     assert.ok(study.cue.length > 20);
-    assert.equal(study.shortDateLabel, `~${Math.floor(study.placementYear / 10) * 10}s`);
-    assert.match(study.shortDateLabel, /^~(?:19|20)\d0s$/);
+    assert.equal(study.shortDateLabel, sequenceShortDateLabel(study.provenance.sources));
+    assert.match(study.shortDateLabel, /^\d{4}(?: \/ \d{4})*$/);
     assert.match(study.dateLabel, /^(?:\d{4} documented milestone|after \d{4} documented milestone|based on \d{4}(?: \/ \d{4})+ documented sources)$/);
     assert.equal(/lineage|invention/i.test(study.dateLabel), false);
     assert.ok(study.dateKind.length > 3);
@@ -125,7 +126,7 @@ test('all chronology sources are used and audited replacement URLs stay stable',
   assert.equal(SEQUENCE_SOURCES.oberheim.url, 'https://www.tomoberheim.com/historical-products');
   assert.equal(SEQUENCE_SOURCES.ableton.url, 'https://www.ableton.com/en/press/press-archive/press-archive-release-8/');
   assert.equal(SEQUENCE_SOURCES.bitwig.url, 'https://downloads.bitwig.com/stable/4.0/Release-Notes-4.0.html');
-  assert.equal(SEQUENCE_SOURCES.strudel.url, 'https://strudel.cc/learn/getting-started/');
+  assert.equal(SEQUENCE_SOURCES.strudel.url, 'https://strudel.cc/blog/#release-notes-v100');
   assert.equal(SEQUENCE_SOURCES.supercolliderHistory.url, 'https://supercollider.github.io/');
   assert.equal(SEQUENCE_SOURCES.moog960History.url, 'https://archives.library.cornell.edu/repositories/2/resources/2099');
   assert.deepEqual(SEQUENCE_SOURCES.moog960History.milestoneYears, [1968]);
@@ -137,6 +138,16 @@ test('all chronology sources are used and audited replacement URLs stay stable',
   assert.deepEqual(SEQUENCE_SOURCES.supercolliderMarkov.milestoneYears, []);
   assert.deepEqual(SEQUENCE_SOURCES.tracker.milestoneYears, []);
   assert.deepEqual(SEQUENCE_SOURCES.ableton.milestoneYears, [2009]);
+});
+
+test('compact dates use source evidence, never invented placement years or capitalized decades', () => {
+  assert.equal(getSequenceStudy('falling-latched-chord').shortDateLabel, '1978');
+  assert.equal(getSequenceStudy('compact-keyboard-step-line').shortDateLabel, '1982');
+  assert.equal(getSequenceStudy('bounded-random-walk').shortDateLabel, '2002 / 2022');
+  assert.equal(sequenceShortDateLabel([{ milestoneYears: [] }], 1973), '~1970s');
+  assert.equal(sequenceShortDateLabel([]), '');
+  assert.match(SEQUENCE_SOURCES.tidal.limitation, /around 2006/);
+  assert.match(SEQUENCE_SOURCES.elektron.limitation, /not the invention/);
 });
 
 test('specific lineage corrections do not overclaim unsupported historical mechanisms', () => {

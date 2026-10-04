@@ -224,7 +224,7 @@ function gesture(config, count, random) {
     if (rightIndex < 0) rightIndex = points.length - 1;
     const right = points[rightIndex], left = points[Math.max(0, rightIndex - 1)];
     const leftTime = finite(left.time, 0), rightTime = finite(right.time, 1);
-    const mix = rightTime === leftTime ? 0 : (position - leftTime) / (rightTime - leftTime);
+    const mix = rightTime === leftTime ? 0 : clamp((position - leftTime) / (rightTime - leftTime), 0, 1, 0);
     const note = finite(left.note, 0) + (finite(right.note, 0) - finite(left.note, 0)) * mix;
     const pressure = clamp(finite(left.pressure, .7) + (finite(right.pressure, .7) - finite(left.pressure, .7)) * mix, 0, 1, .7);
     const audible = !config.densityFromPressure || random() <= pressure;
@@ -309,7 +309,9 @@ function markov(config, count, random) {
   });
 }
 
-function euclideanPattern(pulses, steps) {
+export function euclideanPattern(pulseCount, slotCount) {
+  const steps = whole(slotCount, 1, MAX_SEQUENCE_STEPS, 16);
+  const pulses = whole(pulseCount, 0, steps, Math.min(5, steps));
   const result = [];
   let bucket = 0;
   for (let index = 0; index < steps; index += 1) {
