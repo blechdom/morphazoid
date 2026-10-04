@@ -1,6 +1,5 @@
 #!/usr/bin/env node
 import assert from 'node:assert/strict';
-import { spawn } from 'node:child_process';
 import { createServer } from 'node:http';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
@@ -10,52 +9,31 @@ import { DEFAULT_PARAMETERS, DEFAULT_PERFORMANCE, L_SYSTEM_TYPES, buildPreview, 
 
 import { generationTopology } from '../src/instruments/micmic/micmic.js';
 import { L_SYSTEM_PRESETS } from '../src/instruments/l-system/l-system.js';
+import { decodeUtf8, withJson } from '../src/instruments/micmic/native/wasm-abi.js';
 
-// Build the Rust app before running this harness. An isolated --no-device
-// companion compiles authoritative deep-topology fixtures. The browser API is
-// mocked; this never touches live CPAL, microphone access or an audio device.
+// Compile authoritative deep-topology fixtures with the published Rust WASM.
+// Only this Canvas fixture harness substitutes the browser engine bridge;
+// real audio/worklet acceptance lives in test-l-system-delay-wasm.mjs.
 const root = resolve(process.env.MORPHAZOID_VISUAL_QA_ROOT ?? fileURLToPath(new URL('../', import.meta.url)));
 const artifacts = process.env.MORPHAZOID_VISUAL_QA_ARTIFACTS ? resolve(process.env.MORPHAZOID_VISUAL_QA_ARTIFACTS) : resolve(root, 'artifacts/l-system-delay-visual-causality');
 await mkdir(artifacts, { recursive: true });
 const bank = JSON.parse(await readFile(resolve(root, 'src/instruments/micmic/native/presets.json'), 'utf8'));
 const authoritativeFixtures = new Map();
 const fixtureKey = parameters => JSON.stringify(sanitizeParameters(parameters));
-const compiler = spawn(resolve(root, 'src/instruments/micmic/rust/target/release/l-system-delay-app'),
-  ['--port', '0', '--no-device'], { cwd: root, stdio: ['ignore', 'pipe', 'pipe'] });
-let compilerLogs = '';
-compiler.stderr.on('data', chunk => { compilerLogs += chunk; });
-try {
-  const compilerAddress = await new Promise((resolve, reject) => {
-    const timer = setTimeout(() => reject(new Error(`Fixture compiler did not start: ${compilerLogs}`)), 10000);
-    compiler.once('error', error => { clearTimeout(timer); reject(error); });
-    compiler.once('exit', code => { clearTimeout(timer); reject(new Error(`Fixture compiler exited ${code}: ${compilerLogs}`)); });
-    compiler.stdout.on('data', chunk => {
-      compilerLogs += chunk;
-      const match = compilerLogs.match(/http:\/\/localhost:\d+\//);
-      if (match) { clearTimeout(timer); resolve(match[0]); }
-    });
-  });
-  const compilerJson = async (path, body) => {
-    const response = await fetch(new URL(path, compilerAddress), body === undefined ? {} : {
-      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
-    });
-    const result = await response.json();
-    assert.ok(response.ok, `${path}: ${result.error ?? response.status}`);
-    return result;
-  };
-  for (const id of ['cedar', 'aspen', 'foxglove']) {
+const { instance: compiler } = await WebAssembly.instantiate(await readFile(resolve(root, 'assets/wasm/l-system-delay.wasm')), {});
+const compilerApi = compiler.exports;
+for (const id of ['cedar', 'aspen', 'foxglove']) {
     const preset = bank.find(preset => preset.id === id);
     assert.ok(preset && preset.snapshot.parameters.generations > 13, `${id}: deep factory preset`);
-    const snapshot = await compilerJson('/api/parameters', preset.snapshot.parameters);
-    const preview = await compilerJson('/api/preview');
-    assert.equal(snapshot.audio, false, 'The fixture compiler never opens an audio device');
-    assert.ok(preview.nodes.length > 1 && preview.parameters.generations > 13, `${id}: authoritative preview of the actual deep native topology`);
-    authoritativeFixtures.set(fixtureKey(preset.snapshot.parameters), { preview, requestedVoices: snapshot.requestedVoices,
-      eligibleVoices: snapshot.eligibleVoices, previewRequests: 0 });
-  }
-} finally {
-  compiler.kill('SIGTERM');
-  if (compiler.exitCode === null && compiler.signalCode === null) await new Promise(resolve => compiler.once('exit', resolve));
+    const handle = withJson(compilerApi, preset.snapshot.parameters, (pointer, length) => compilerApi.lsd_compile(pointer, length, 48000));
+    assert.ok(handle, `${id}: Rust WASM topology compiled`);
+    try {
+      const preview = JSON.parse(decodeUtf8(new Uint8Array(compilerApi.memory.buffer,
+        compilerApi.lsd_compile_json_ptr(handle), compilerApi.lsd_compile_json_len(handle))));
+      assert.ok(preview.nodes.length > 1 && preview.parameters.generations > 13, `${id}: authoritative preview of the actual deep Rust topology`);
+      authoritativeFixtures.set(fixtureKey(preset.snapshot.parameters), { preview, requestedVoices: preview.requestedVoices,
+        eligibleVoices: preview.eligibleVoices, previewRequests: 0 });
+    } finally { compilerApi.lsd_compile_free(handle); }
 }
 let actualRevision = 1;
 let renderChangesImmediately = false;
@@ -85,6 +63,19 @@ function updateGenerationVoiceCounts() {
 const server = createServer(async (request, response) => {
   try {
     const url = new URL(request.url, 'http://127.0.0.1');
+    if (url.pathname === '/src/instruments/micmic/native/browser-engine.js') {
+      response.writeHead(200, { 'Content-Type': 'text/javascript' });
+      response.end(`export function createBrowserDelayEngine() {
+        return { request: async (path, body) => {
+          const response = await fetch('/api/l-system-delay' + path.slice(4), body === undefined ? {} : {
+            method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body)
+          });
+          if (!response.ok) throw new Error('Visual fixture request failed');
+          return response.json();
+        }, prepareAudio: async () => {}, muteForDeparture() {}, dispose() {} };
+      }`);
+      return;
+    }
     if (url.pathname.startsWith('/api/l-system-delay/')) {
       if (request.method === 'POST') {
         let text = ''; for await (const chunk of request) text += chunk;

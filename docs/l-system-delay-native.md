@@ -177,24 +177,25 @@ Original. Older external snapshots that omit mastering retain the current
 settings. The full-state randomizer includes bounded mastering variation.
 
 Filters and dynamics process shared buses, rather than adding work to every
-voice. Coefficients and compressor curves are prepared on the control thread;
+voice. Coefficients and compressor curves are prepared outside audio processing;
 the callback retains filter state and lookahead storage during smoothed edits.
 The live voice controller measures this processing along with the delay engine.
 
 ## How the playable voice budget behaves
 
 The optional voice cap defaults to **No cap**. Automatic adaptation seeks the
-largest requested eligible voice count supported by measured callback work. A
-brief warmed benchmark establishes the initial budget on a separate recorded
-history; live measurements then probe upward and roll back unsuccessful probes.
+largest requested eligible voice count supported by measured callback work.
+The browser starts with a conservative budget and probes upward using actual worklet
+processing time, rolling back unsuccessful probes. The native comparison uses
+a separate warmed calibration before those live probes.
 Failed probes are retried, so capacity can increase when device conditions
 improve. The controller accounts for transient load and lets outgoing voices
 finish fading before repeatedly reducing the same budget. Severe or worsening
 overload still reduces it immediately. Turning adaptation off requests all
 eligible voices, subject to an explicitly chosen cap.
 
-Voice storage grows on the control thread and is swapped into the engine without
-resetting recording, branch phase or delay-edit crossfades. The callback does not
+Voice storage is prepared between processing callbacks and swapped into the
+engine without resetting recording, branch phase or delay-edit crossfades. The callback does not
 allocate or free that storage. Outgoing branches release smoothly, so active
 counts can briefly exceed a reduced target. Available memory limits structural
 allocation; measured audio deadlines limit simultaneous playback. Per-grammar
@@ -225,8 +226,8 @@ rather than a literal waveform of the granular output. Grain read-head age and
 per-tap RMS remains available for the first 2,048 priority ranks, with stable slot
 indices and coherent topology revisions. A bounded fallback uses those meters
 when input history is unavailable. The meter count does not cap the history-based
-animation or simultaneous audio. All callback storage is preallocated; HTTP
-snapshots copy data on the control thread.
+animation or simultaneous audio. Audio processing uses preallocated storage.
+Browser status messages copy bounded telemetry separately from the processing callback; there is no HTTP audio API.
 
 A regression renders 2,049 admitted taps and measures the additional output of
 the final unmetered tap. Increasing Pine from 13 to 14 generations requests
@@ -238,37 +239,33 @@ Processing load estimates callback work: control updates, test-tone/input
 preparation, DSP, mixing, adaptive changes and audio activity measurement/publication.
 It excludes the final telemetry stores and parts of device transport.
 `deadlineMisses` counts measured blocks exceeding their sample-time budget; it is
-not a hardware-driver xrun counter. Capture underruns and overruns count empty or
-full microphone FIFO frames separately and do not establish a CPU voice limit.
-Independent input/output clocks are not resampled, so sustained capture can drift.
+not a hardware-driver xrun counter. In the native comparison, capture underruns
+and overruns count empty or full microphone FIFO frames separately; independent input/output clocks can drift.
+The browser feeds microphone capture through the same AudioContext graph.
 A peak attempted voice count is not an established sustainable count.
 
 Run verification with installed JavaScript development dependencies and
 Playwright Chromium:
 
 ```sh
-cargo test --manifest-path src/instruments/micmic/rust/Cargo.toml --workspace --release
-cargo build --manifest-path src/instruments/micmic/rust/Cargo.toml -p l-system-delay-app --release
-node scripts/test-l-system-delay-app.mjs
-node scripts/test-l-system-delay-app.mjs --native
+npm run check:l-system-wasm
+cargo test --manifest-path src/instruments/micmic/rust/Cargo.toml -p l-system-delay-wasm --release
+node --test tests/l-system-delay-wasm.test.mjs
+node scripts/test-l-system-delay-wasm.mjs
 node scripts/test-l-system-delay-visuals.mjs
 ```
 
-Browser QA starts an isolated companion and Morphazoid server, visiting the
-canonical instrument route. It inspects actual descendant Canvas coverage after
-all 26 full recalls, including the larger native scenes, and tests named recall
-and growth reload. It covers ranges, all grammars and presets, desktop
-and phone layouts, touch, accessibility, and local intermediate drawing frames
-while an API reply is delayed. The native mode additionally uses real CPAL output
-at zero master level, with the test tone and no microphone capture. It exercises
-capacity growth, live pool expansion beyond the former 16,384-slot guard without
-resetting the clock, edits, stop/restart, departure shutdown and idle timeout.
-Screenshots and JSON telemetry are saved in ignored
-`artifacts/l-system-delay-app/`. Human listening and sustained physical microphone
-checks remain separate from these silent automated checks.
+The browser suite starts a plain static server with no native companion. It
+loads the committed WASM and exercises real AudioWorklet processing, microphone
+permission and capture, explicit output arming, controls, presets, layouts and
+lifecycle. Its input is automated rather than a physical microphone. Screenshots
+and telemetry are saved under ignored `artifacts/`; human listening and sustained
+physical-device checks remain separate. The compatibility command
+`test-l-system-delay-app.mjs` runs this browser suite; `--native` is rejected.
+Native CPAL and CLI comparisons remain independently testable through Cargo.
 
-The visual-causality check uses an isolated mocked API and instruments actual
-Canvas strokes. It verifies complete 1,001-segment color coverage (1,000 admitted
+The visual-causality check instruments actual Canvas strokes with an isolated
+test-only browser bridge and mocked telemetry. It verifies complete 1,001-segment color coverage (1,000 admitted
 taps plus root) at all three CPU pressure tiers, independent sibling brightness,
 rank continuity, visible measured release, mute darkness, and rejection of stale
 topology packets. Its screenshots and report are in ignored
@@ -282,10 +279,15 @@ input packet advances through early, middle and late positions of a descendant;
 quiet sections remain unlit. Separate silent-admission and muted-bus cases verify
 that capacity growth creates no signal waves. Representative screenshots and the
 report are generated without microphone capture. Full recalls of Cedar, Quaking
-Aspen and Foxglove use previews compiled by an isolated Rust companion; all
+Aspen and Foxglove use previews compiled by the committed Rust WASM; all
 sixteen original scenes also run with quiet and ordinary input envelopes. These
 mocked fixtures do not establish physical microphone behavior or a device voice
 deadline.
+
+## Historical native implementation verification
+
+These results describe the earlier CPAL implementation, before browser WASM.
+They are retained as comparison evidence rather than browser performance claims.
 
 The first October 3 integrated revision passed 61 Rust release tests, strict Clippy,
 formatting, and repository verification (5,452 passed, six skipped). Both
