@@ -56,7 +56,7 @@ export const LEVEL_CALIBRATION_METADATA = Object.freeze({
     "referenceTrimDb": -36,
     "rationale": "Collision and struck-resonator peaks vary with sample rate. Extra-rate references and final verification use raw sample peaks; K-weighted scoring remains at 48 kHz."
   },
-  "wasmSha256": "55a2a774c249555cfe7687d6a6c3f91068408220667f015c299ab76e6a9dd0b5",
+  "wasmSha256": "070760c01717912a486ca78ffa0f76bdb50a4b5d225293bef8ae2c05bad54da3",
   "signalFixtureSha256": "536fb43772b0492dd048ba277be3be9badd33888f3a3055c3e25170d89475100",
   "sourceHashes": {
     "src/instruments/synthesis/rust/core/src/controls.rs": "1fc8baa186744dbd89f9e51b78a74db9831a0815a241dcae0f9a351dc6b73b4e",

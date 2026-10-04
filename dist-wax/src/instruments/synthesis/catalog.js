@@ -2,6 +2,7 @@ import { PROCESSING_SCHEMA } from "./processing-schema.js";
 import { PROCESSING_DATA } from "./processing-catalog.js";
 import { TEACHING_DATA } from "./teaching.js";
 import { HISTORICAL_DATA } from "./historical-catalog.js";
+import { DEFAULT_TUNING_ID, sanitizeTuningId } from "./tunings.js";
 /** Synthesis teaching catalogue. Parameters are normalized; displayed units match
  * the Rust engine contract. Presets never own master output level or audio state. */
 import { PRESET_LEVEL_TRIMS_DB, METHOD_LEVEL_TRIMS_DB } from "./level-calibration.js";
@@ -1081,7 +1082,7 @@ export const METHODS = freeze([...SYNTHESIS_METHODS, ...PROCESSOR_METHODS]);
 
 export const METHOD_GROUPS = freeze([...new Set(METHODS.map(item => item.group))]);
 export const PRESET_COUNT = METHODS.reduce((sum, item) => sum + item.presets.length, 0);
-export const STATE_VERSION = 3;
+export const STATE_VERSION = 4;
 export function getMethod(id) {
   return METHODS.find(item => typeof id === 'number' ? item.engineId === id : item.id === id) || METHODS[0];
 }
@@ -1117,7 +1118,8 @@ export function createDefaultState(methodId = METHODS[0].id) {
   const method = getMethod(methodId);
   const preset = method.presets[0];
   return { version: STATE_VERSION, methodId: method.id, presetId: preset.id, params: [...preset.params],
-    voiceMode: 'mono', frequencyHz: preset.frequencyHz, envelope: { ...preset.envelope }, levelTrimDb: preset.levelTrimDb, outputLevel: .7,
+    voiceMode: 'mono', tuningId: DEFAULT_TUNING_ID, frequencyHz: preset.frequencyHz,
+    envelope: { ...preset.envelope }, levelTrimDb: preset.levelTrimDb, outputLevel: .7,
     ...(method.kind === "processor" ? { source: preset.source, wet: preset.wet, bypass: false, inputDb: preset.inputDb, outputDb: preset.outputDb } : {}) };
 }
 export function sanitizeState(value = {}) {
@@ -1140,6 +1142,7 @@ export function sanitizeState(value = {}) {
   const envelope = input.envelope && typeof input.envelope === 'object' ? input.envelope : {};
   return { version: STATE_VERSION, methodId: method.id, presetId: input.presetId === 'custom' ? 'custom' : preset.id, params,
     voiceMode: input.voiceMode === 'poly' ? 'poly' : 'mono',
+    tuningId: sanitizeTuningId(input.tuningId),
     frequencyHz: clamp(input.frequencyHz, 20, 8000, preset.frequencyHz),
     envelope: { attack: clamp(envelope.attack, .001, 12, preset.envelope.attack), decay: clamp(envelope.decay, .002, 12, preset.envelope.decay),
       sustain: clamp(envelope.sustain, 0, 1, preset.envelope.sustain), release: clamp(envelope.release, .003, 16, preset.envelope.release) },
@@ -1154,7 +1157,8 @@ export function sanitizeState(value = {}) {
 export function stateFromPreset(methodId, presetId, previous = {}) {
   const method = getMethod(methodId);
   const preset = getPreset(method.id, presetId);
-  return sanitizeState({ ...preset, version: STATE_VERSION, methodId: method.id, presetId: preset.id, outputLevel: previous.outputLevel, voiceMode: previous.voiceMode });
+  return sanitizeState({ ...preset, version: STATE_VERSION, methodId: method.id, presetId: preset.id,
+    outputLevel: previous.outputLevel, voiceMode: previous.voiceMode, tuningId: previous.tuningId });
 }
 /** Full bounded musical randomization. Audio state, output level and sources live outside presets. */
 export function randomizeState(value = {}, rng = Math.random) {

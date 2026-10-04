@@ -18,7 +18,7 @@ async function getModule() {
 
 /** Browser lifecycle only. All sample generation belongs to the shared Rust core. */
 export class SynthesisAudio {
-  constructor(onError = () => {}, onInputChange = () => {}) {
+  constructor(onError = () => {}, onInputChange = () => {}, onSequenceStatus = () => {}) {
     this.context = null;
     this.node = null;
     this.master = null;
@@ -35,6 +35,17 @@ export class SynthesisAudio {
     this.playing = false;
     this.rate = 2;
     this.gate = 0.65;
+    this.sequence = null;
+    this.sequencePlaying = false;
+    this.sequenceTempo = 120;
+    this.sequenceRootFrequency = 220;
+    this.sequencePhase = 0;
+    this.sequenceEpoch = null;
+    this.sequenceStatus = Object.freeze({
+      loaded: false, playing: false, studyId: null, stepIndex: null,
+      phaseBeats: 0, lengthBeats: 0, tempo: 120,
+    });
+    this.onSequenceStatus = typeof onSequenceStatus === "function" ? onSequenceStatus : () => {};
     this.onError = onError;
     this.source = null;
     this.input = new SynthesisInput({ isArmed: () => this.context?.state === "running" && !this.disposed, onChange: onInputChange });
@@ -107,6 +118,10 @@ export class SynthesisAudio {
             this.sendSource();
             request.resolve(`Microphone capture · ${(data.samples.length / data.sampleRate).toFixed(1)} s`);
           }
+          if (data.type === "sequence-status") {
+            this.sequenceStatus = Object.freeze({ ...data });
+            this.onSequenceStatus(this.sequenceStatus);
+          }
         };
         this.input.attach(this.context, this.node);
         this.node.connect(this.master);
@@ -119,7 +134,8 @@ export class SynthesisAudio {
       if (this.disposed || version !== this.startVersion) throw new Error("Audio startup was cancelled.");
       this.armed = this.armRequested;
       this.setLevel(this.state?.outputLevel ?? 0.7);
-      this.setPlaying(this.playing, this.rate);
+      this.setPlaying(this.playing, this.rate, this.gate);
+      this.syncSequence();
       if (this.pendingAudition) {
         this.pendingAudition = false;
         this.configure(this.state, { audition: true });
@@ -147,14 +163,132 @@ export class SynthesisAudio {
     this.armed = false;
     this.stopInput();
     this.setLevel(0);
-    this.node?.port.postMessage({ type: "silence" });
+    // Keep either transport clock running behind the muted master. Re-enabling
+    // Audio then rejoins the current phase instead of restarting step zero.
+    if (!this.playing && !this.sequencePlaying) this.node?.port.postMessage({ type: "silence" });
   }
 
   setPlaying(playing, rate = this.rate, gate = this.gate) {
     this.playing = !!playing;
     this.rate = rate;
     this.gate = gate;
-    this.node?.port.postMessage({ type: "play", playing: this.playing && this.armed, rate, gate });
+    this.node?.port.postMessage({ type: "play", playing: this.playing, rate, gate });
+  }
+
+  sequenceNow() {
+    return (globalThis.performance?.now?.() ?? Date.now()) / 1000;
+  }
+
+  currentSequenceBeat(now = this.sequenceNow()) {
+    if (!this.sequencePlaying || !Number.isFinite(this.sequenceEpoch)) return this.sequencePhase;
+    return this.sequencePhase + Math.max(0, now - this.sequenceEpoch) * this.sequenceTempo / 60;
+  }
+
+  normalizeSequenceTempo(value) {
+    return Math.max(10, Math.min(1200, Number.isFinite(value) ? value : this.sequenceTempo));
+  }
+
+  normalizeSequenceRoot(value) {
+    return Math.max(8, Math.min(20_000, Number.isFinite(value) ? value : this.sequenceRootFrequency));
+  }
+
+  sequenceMessageTiming() {
+    const lead = this.context && this.context.state === "running" ? 0.005 : 0;
+    const now = this.sequenceNow();
+    return {
+      at: (this.context?.currentTime ?? 0) + lead,
+      phase: this.currentSequenceBeat(now) + (this.sequencePlaying ? lead * this.sequenceTempo / 60 : 0),
+    };
+  }
+
+  /** Load a bounded, beat-addressed cycle without coupling it to the ordinary Play/Repeat transport. */
+  setSequence(sequence, { rootFrequency = this.sequenceRootFrequency, preservePhase = true } = {}) {
+    const now = this.sequenceNow();
+    const phase = preservePhase ? this.currentSequenceBeat(now) : 0;
+    this.sequence = sequence == null ? null : structuredClone(sequence);
+    if (!this.sequence) this.sequencePlaying = false;
+    this.sequencePhase = phase;
+    this.sequenceEpoch = now;
+    this.sequenceTempo = this.normalizeSequenceTempo(this.sequence?.tempo);
+    this.sequenceRootFrequency = this.normalizeSequenceRoot(rootFrequency);
+    const timing = this.sequenceMessageTiming();
+    this.node?.port.postMessage({
+      type: "sequence-load", sequence: this.sequence, tempo: this.sequenceTempo,
+      rootFrequency: this.sequenceRootFrequency, preservePhase, playing: this.sequencePlaying,
+      ...timing,
+    });
+    return this.sequence;
+  }
+
+  /** Start (or re-align) the sequence. Epoch is performance-clock seconds paired with phase in beats. */
+  startSequence({ tempo = this.sequenceTempo, rootFrequency = this.sequenceRootFrequency, phase = null, epoch = null } = {}) {
+    const now = this.sequenceNow();
+    const nextTempo = this.normalizeSequenceTempo(tempo);
+    const explicitPhase = Number.isFinite(phase);
+    let beat = explicitPhase ? phase : (this.sequencePlaying ? this.currentSequenceBeat(now) : 0);
+    if (explicitPhase && Number.isFinite(epoch)) beat += Math.max(0, now - epoch) * nextTempo / 60;
+    this.sequenceTempo = nextTempo;
+    this.sequenceRootFrequency = this.normalizeSequenceRoot(rootFrequency);
+    this.sequencePhase = beat;
+    this.sequenceEpoch = now;
+    this.sequencePlaying = true;
+    this.node?.port.postMessage({
+      type: "sequence-start", tempo: this.sequenceTempo, rootFrequency: this.sequenceRootFrequency,
+      ...this.sequenceMessageTiming(),
+    });
+  }
+
+  setSequenceTempo(tempo) {
+    if (!Number.isFinite(tempo)) return;
+    const now = this.sequenceNow();
+    this.sequencePhase = this.currentSequenceBeat(now);
+    this.sequenceEpoch = now;
+    this.sequenceTempo = this.normalizeSequenceTempo(tempo);
+    this.node?.port.postMessage({
+      type: "sequence-tempo", tempo: this.sequenceTempo, ...this.sequenceMessageTiming(),
+    });
+  }
+
+  setSequenceRootFrequency(rootFrequency) {
+    this.sequenceRootFrequency = this.normalizeSequenceRoot(rootFrequency);
+    this.node?.port.postMessage({
+      type: "sequence-root", rootFrequency: this.sequenceRootFrequency,
+    });
+  }
+
+  stopSequence() {
+    const now = this.sequenceNow();
+    this.sequencePhase = this.currentSequenceBeat(now);
+    this.sequenceEpoch = now;
+    this.sequencePlaying = false;
+    this.node?.port.postMessage({ type: "sequence-stop" });
+  }
+
+  panicSequence() {
+    const now = this.sequenceNow();
+    this.sequencePhase = this.currentSequenceBeat(now);
+    this.sequenceEpoch = now;
+    this.sequencePlaying = false;
+    this.node?.port.postMessage({ type: "sequence-panic" });
+  }
+
+  syncSequence() {
+    if (!this.node || !this.armed) return;
+    const timing = this.sequenceMessageTiming();
+    this.node.port.postMessage({
+      type: "sequence-load", sequence: this.sequence, tempo: this.sequenceTempo,
+      rootFrequency: this.sequenceRootFrequency, preservePhase: true, playing: false, ...timing,
+    });
+    if (this.sequencePlaying) this.node.port.postMessage({
+      type: "sequence-start", tempo: this.sequenceTempo, rootFrequency: this.sequenceRootFrequency, ...timing,
+    });
+  }
+
+  getSequenceStatus() { return { ...this.sequenceStatus }; }
+
+  setSequenceStatusListener(listener = () => {}) {
+    this.onSequenceStatus = typeof listener === "function" ? listener : () => {};
+    this.onSequenceStatus(this.sequenceStatus);
   }
 
   noteOn(frequency, velocity = 0.75, duration = null, noteId = null, at = null) {
@@ -169,12 +303,20 @@ export class SynthesisAudio {
 
   noteOff(noteId = null) { this.node?.port.postMessage({ type: "off", noteId, at: (this.context?.currentTime ?? 0) + 0.005 }); }
 
-  panic() { this.playing = false; this.node?.port.postMessage({ type: "silence" }); }
+  panic() {
+    const beat = this.currentSequenceBeat();
+    this.playing = false;
+    this.sequencePlaying = false;
+    this.sequencePhase = beat;
+    this.sequenceEpoch = this.sequenceNow();
+    this.node?.port.postMessage({ type: "silence" });
+  }
 
   reset() {
     this.node?.port.postMessage({ type: "reset" });
     this.configure(this.state);
-    this.setPlaying(this.playing);
+    this.setPlaying(this.playing, this.rate, this.gate);
+    this.syncSequence();
   }
 
   async loadFile(file, { processing = false } = {}) {

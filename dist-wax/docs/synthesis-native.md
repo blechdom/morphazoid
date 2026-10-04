@@ -12,9 +12,12 @@ to play independent notes with their own pitch, velocity, model state and ADSR.
 Voicing stays selected through presets, Next, Random and method changes. The
 oldest note is stolen only after idle and released voices are exhausted.
 Processors have a separate stereo path and hide the voicing selector.
-The optional two-row keyboard is chromatic; the main frequency control remains
-continuous. Audio arming is separate from Play/Repeat, and presets preserve
-the master output and running transport. Once Audio is armed, selecting a method
+The optional two-row keyboard follows the selected **Tuning / note map**; the main frequency control remains
+continuous. The sourced menu includes equal divisions, ratio and historical tunings, familiar note sets,
+culturally specific keyboard maps, explicit teaching models, and the non-octave Bohlen–Pierce tritave.
+The same resolver drives the keyboard, incoming MIDI, Trigger chord, and every sequence. Audio arming is separate
+from Play/Repeat, and presets preserve the tuning, sequence choice and sequence parameters,
+master output and running transport. Once Audio is armed, selecting a method
 or preset plays one audition note. **Synthesis** and **Processing** have separate
 method menus, searchable preset banks, and tours: 424 synthesis presets and 128
 processing presets. **Next** traverses the active section in method-menu order,
@@ -32,18 +35,23 @@ dice retains an explicitly selected external source, including across methods.
 Physical strikes and reeds use coupled random ranges that keep their exciters
 audible.
 
-The circular **Play / Pause** button runs a demo: physical strikes and
+The circular **Play / Pause** button runs a demo. With **Direct note** selected, physical strikes and
 zero-sustain sounds pulse at **10–1,200 BPM**, with note length from **5–95%**
-of the beat; sustained sounds hold a continuous note. Tempo and note length
-are disabled while a sound sustains. The behavior follows the current method
+of the beat, while sustained sounds hold a continuous note. Three basic tuning-chord choices retain
+up, down, and up–down traversal. The other 62 choices run newly authored studies through a bounded
+beat-addressed compiler. Each exposes cycle controls plus parameters specific to its arpeggiator,
+Euclidean, polymetric, Markov, gesture, tracker, phrase, groove, mutation, or conditional mechanism.
+The behavior follows the current method
 and envelope automatically, including during edits and preset changes.
 Timing runs on the audio thread; live tempo changes preserve the remaining
-beat fraction. Tempo and note length stay put through preset and method changes.
+beat fraction. Tuning, root, sequence-parameter, preset, and method changes preserve
+Play and phase. The active study's edits survive a study round-trip and page reload.
 Audio remains explicitly armed.
 
 **Trigger Note** plays one finite note in Mono. **Trigger Notes (poly)** plays
-three simultaneous notes: root, major third and fifth, with one attack per voice.
-Upper chord tones fold down an octave if they exceed the supported 8 kHz range.
+three simultaneous degrees chosen for the active tuning or note map, with one attack per voice.
+If needed, the entire chord folds together by the tuning's declared period to keep its intervals and
+ordering distinct inside the supported 20 Hz–8 kHz range.
 The processor button remains a three-second input audition. With a sample or
 audio file selected, **Loop input** controls whether Play repeats the whole input
 or plays it once; it is on by default and survives preset changes. Changing it
@@ -80,7 +88,9 @@ bottom dock on phone portrait and landscape layouts while the controls scroll.
 **Freeze** holds plot data through rotation and display-mode changes; audio and
 meters continue running.
 
-See [method descriptions](synthesis-methods.md) and
+See [method descriptions](synthesis-methods.md),
+[sequence history and provenance](synthesis-sequences.md),
+[tuning sources and limits](synthesaurus-tunings.md), and
 [neural model provenance](synthesis-neural-models.md). The four learned examples
 are small original trained models; they do not bundle the full named research
 systems or external pretrained weights.

@@ -161,3 +161,24 @@ test('a replaced sample ending cannot disconnect microphone input', async () => 
   assert.equal(microphone.loop, undefined);
   h.input.dispose();
 });
+
+test('a sequence-root edit emits one focused worklet message without rebuilding transport', () => {
+  const audio = new SynthesisAudio();
+  const messages = [];
+  audio.node = { port: { postMessage: message => messages.push(message) } };
+  audio.sequence = { studyId: 'running-cycle' };
+  audio.sequencePlaying = true;
+  audio.sequenceTempo = 137;
+  audio.sequencePhase = 2.75;
+  audio.sequenceEpoch = 42;
+
+  audio.setSequenceRootFrequency(330);
+
+  assert.deepEqual(messages, [{ type: 'sequence-root', rootFrequency: 330 }]);
+  assert.equal(audio.sequenceRootFrequency, 330);
+  assert.deepEqual(audio.sequence, { studyId: 'running-cycle' });
+  assert.equal(audio.sequencePlaying, true);
+  assert.equal(audio.sequenceTempo, 137);
+  assert.equal(audio.sequencePhase, 2.75);
+  assert.equal(audio.sequenceEpoch, 42);
+});

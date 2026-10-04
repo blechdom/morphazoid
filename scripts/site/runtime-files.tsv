@@ -1222,7 +1222,13 @@ copy+require	synthesis.html
 copy+require	src/instruments/synthesis/app.js
 copy+require	src/instruments/synthesis/audio.js
 copy+require	src/instruments/synthesis/catalog.js
+copy+require	src/instruments/synthesis/tunings.js
+copy+require	src/instruments/synthesis/sequence-catalog.js
+copy+require	src/instruments/synthesis/sequence-chronology.js
+copy+require	src/instruments/synthesis/sequence-compiler.js
+copy+require	src/instruments/synthesis/sequence-parameters.js
 copy+require	src/instruments/synthesis/presets.js
+copy+require	src/instruments/synthesis/performance-presets.js
 copy+require	src/instruments/synthesis/level-calibration.js
 copy+require	src/instruments/synthesis/processor.js
 copy+require	src/instruments/synthesis/synthesis.css
@@ -1247,6 +1253,9 @@ copy+require	docs/synthesis-neural-models.md
 copy+require	docs/synthesis-level-calibration.md
 copy+require	docs/synthesis-level-calibration.json
 copy+require	docs/synthesis-native.md
+copy+require	docs/synthesaurus-tunings.md
+copy+require	docs/synthesis-sequences.md
+copy+require	docs/synthesis-chronology.md
 copy+require	docs/synthesis-clap.md
 copy+require	docs/synthesis-neural-training-results.json
 copy+require	src/instruments/synthesis/input.js

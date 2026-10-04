@@ -47,11 +47,14 @@ test('normalized parameter display follows physical ranges, log cutoffs and disc
 test('malformed state is bounded, hidden parameters are cleared and defaults are copied', () => {
   const initial = createDefaultState('fm');
   const corrupt = sanitizeState({ version: 2, methodId: 'fm', presetId: 'custom', params: [-1, NaN, Infinity, 5, 1, 1, 1, 1], frequencyHz: -2, outputLevel: 5,
+    tuningId: 'not-a-tuning', arpMode: 'sideways',
     envelope: { attack: null, decay: Infinity, sustain: -1, release: 999 } });
   assert.equal(corrupt.methodId, 'fm');
   assert.equal(corrupt.presetId, 'custom');
   assert.equal(corrupt.frequencyHz, 20);
   assert.equal(corrupt.outputLevel, 1);
+  assert.equal(corrupt.tuningId, 'edo-12-chromatic');
+  assert.ok(!Object.hasOwn(corrupt, 'arpMode'));
   assert.ok(corrupt.params.slice(getMethod("fm").controls.length).every(value => value === 0));
   assert.equal(corrupt.params[0], 0);
   assert.equal(corrupt.params[3], 1);
@@ -69,21 +72,25 @@ test('malformed state is bounded, hidden parameters are cleared and defaults are
 
 test('preset recall and full randomization preserve master output and stay recoverable', () => {
   for (const method of METHODS) {
-    const current = { ...createDefaultState(method.id), outputLevel: .19 };
+    const current = { ...createDefaultState(method.id), outputLevel: .19, tuningId: 'edo-6-whole-tone', arpMode: 'up-down' };
     const recalled = stateFromPreset(method.id, method.presets[7].id, current);
     assert.equal(recalled.outputLevel, .19);
+    assert.equal(recalled.tuningId, 'edo-6-whole-tone');
+    assert.ok(!Object.hasOwn(recalled, 'arpMode'));
     assert.equal(recalled.presetId, method.presets[7].id);
     assert.deepEqual(recalled.params, method.presets[7].params);
     let step = 0;
     const randomized = randomizeState(current, () => ((step++ * 17 + 3) % 101) / 100);
     assert.equal(randomized.outputLevel, .19);
+    assert.equal(randomized.tuningId, 'edo-6-whole-tone');
+    assert.ok(!Object.hasOwn(randomized, 'arpMode'));
     assert.equal(randomized.presetId, 'custom');
     assert.equal(randomized.methodId, method.id);
     assert.notDeepEqual(randomized.params, current.params);
     assert.notDeepEqual(randomized.envelope, current.envelope);
     assert.notEqual(randomized.frequencyHz, current.frequencyHz);
     assert.deepEqual(randomized, sanitizeState(randomized));
-    assert.deepEqual(stateFromPreset(method.id, method.presets[0].id, randomized), current);
+    assert.deepEqual(stateFromPreset(method.id, method.presets[0].id, randomized), sanitizeState(current));
   }
 });
 
@@ -94,7 +101,7 @@ test('old eight-slot patches retain physical values and gain neutral extension d
     const method = getMethod(legacy.methodId);
     const defaults = createDefaultState(method.id);
     const migrated = sanitizeState(legacy);
-    assert.equal(migrated.version, 3);
+    assert.equal(migrated.version, 4);
     legacy.physical.forEach((value, index) => {
       const actual = parameterValue(method.controls[index], migrated.params[index]);
       assert.ok(Math.abs(actual - value) < 1e-4, `${method.id}/${index}: ${actual} should preserve ${value}`);
@@ -166,21 +173,36 @@ test('processing presets keep effect mix separate from master output and discard
 });
 
 
-test('Mono defaults and Poly survives presets, methods, processors and Random without remapping v2 parameters', () => {
+test('performer voicing and tuning survive presets, methods, processors and Random without owning arpeggiation', () => {
   for (const method of METHODS) {
     const original = createDefaultState(method.id);
     assert.equal(original.voiceMode, 'mono');
+    assert.equal(original.tuningId, 'edo-12-chromatic');
+    assert.ok(!Object.hasOwn(original, 'arpMode'));
     const migrated = sanitizeState({ ...original, version: 2 });
     assert.deepEqual(migrated.params, original.params, `${method.id}: v2 ranges remain unchanged`);
     assert.equal(migrated.voiceMode, 'mono');
-    const poly = sanitizeState({ ...original, voiceMode: 'poly' });
-    const recalled = stateFromPreset(method.id, method.presets[1].id, poly);
+    const performer = sanitizeState({ ...original, voiceMode: 'poly', tuningId: 'edo-6-whole-tone', arpMode: 'up-down' });
+    assert.ok(!Object.hasOwn(performer, 'arpMode'));
+    const recalled = stateFromPreset(method.id, method.presets[1].id, performer);
     assert.equal(recalled.voiceMode, 'poly');
+    assert.equal(recalled.tuningId, 'edo-6-whole-tone');
+    assert.ok(!Object.hasOwn(recalled, 'arpMode'));
     assert.equal(randomizeState(recalled).voiceMode, 'poly');
-    assert.equal(sanitizeState({ ...poly, voiceMode: 'invalid' }).voiceMode, 'mono');
+    assert.equal(randomizeState(recalled).tuningId, 'edo-6-whole-tone');
+    assert.ok(!Object.hasOwn(randomizeState(recalled), 'arpMode'));
+    const invalid = sanitizeState({ ...performer, voiceMode: 'invalid', tuningId: 'invalid', arpMode: 'invalid' });
+    assert.deepEqual({ voiceMode: invalid.voiceMode, tuningId: invalid.tuningId },
+      { voiceMode: 'mono', tuningId: 'edo-12-chromatic' });
+    assert.ok(!Object.hasOwn(invalid, 'arpMode'));
   }
-  const poly = { ...createDefaultState('additive'), voiceMode: 'poly' };
-  const effect = stateFromPreset('fx-delay', null, poly);
-  assert.equal(effect.voiceMode, 'poly');
-  assert.equal(stateFromPreset('fm', null, effect).voiceMode, 'poly');
+  const performer = { ...createDefaultState('additive'), voiceMode: 'poly', tuningId: 'edo-6-whole-tone', arpMode: 'down' };
+  const effect = stateFromPreset('fx-delay', null, performer);
+  assert.deepEqual({ voiceMode: effect.voiceMode, tuningId: effect.tuningId },
+    { voiceMode: 'poly', tuningId: 'edo-6-whole-tone' });
+  assert.ok(!Object.hasOwn(effect, 'arpMode'));
+  const returned = stateFromPreset('fm', null, effect);
+  assert.deepEqual({ voiceMode: returned.voiceMode, tuningId: returned.tuningId },
+    { voiceMode: 'poly', tuningId: 'edo-6-whole-tone' });
+  assert.ok(!Object.hasOwn(returned, 'arpMode'));
 });

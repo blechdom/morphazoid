@@ -1,3 +1,15 @@
+const MAX_SEQUENCE_STEPS = 64;
+const MAX_SEQUENCE_NOTES = 512;
+const MAX_SEQUENCE_NOTES_PER_STEP = 8;
+const MIN_SEQUENCE_TEMPO = 10;
+const MAX_SEQUENCE_TEMPO = 1200;
+
+const finiteNumber = (value, fallback) => Number.isFinite(value) ? Number(value) : fallback;
+const clampNumber = (value, minimum, maximum, fallback) => (
+  Math.max(minimum, Math.min(maximum, finiteNumber(value, fallback)))
+);
+const positiveModulo = (value, length) => ((value % length) + length) % length;
+
 /** Audio-clock scheduling and the Rust/WASM boundary. No JS oscillator fallback. */
 class RoadsSynthesisProcessor extends AudioWorkletProcessor {
   constructor(options) {
@@ -31,6 +43,21 @@ class RoadsSynthesisProcessor extends AudioWorkletProcessor {
     this.nextTrigger = Infinity;
     this.heldNote = null;
     this.pulseNote = null;
+    this.sequence = null;
+    this.sequencePlaying = false;
+    this.sequenceTempo = 120;
+    this.sequenceRootFrequency = 220;
+    this.sequenceAnchorBeat = 0;
+    this.sequenceAnchorFrame = currentFrame;
+    this.sequenceNextStep = -1;
+    this.sequenceNextBeat = Infinity;
+    this.sequenceCycleBase = 0;
+    this.sequenceMono = null;
+    this.sequenceLastStepIndex = null;
+    this.sequenceLastCursor = null;
+    this.sequenceStatusFrame = 0;
+    this.sequenceRevision = 0;
+    this.sequenceNoteSequence = 0x40000000;
     this.dead = false;
     this.failed = false;
     this.port.onmessage = ({ data }) => {
@@ -45,13 +72,309 @@ class RoadsSynthesisProcessor extends AudioWorkletProcessor {
     this.port.postMessage({ type: "error", message: String(error.message || error) });
   }
 
+  sanitizeSequence(source) {
+    if (!source || typeof source !== "object" || !Array.isArray(source.steps)) return null;
+    const lengthBeats = clampNumber(source.lengthBeats, 1 / 4, 1024, 4);
+    const steps = [];
+    let noteCount = 0;
+    for (let ordinal = 0; ordinal < Math.min(MAX_SEQUENCE_STEPS, source.steps.length); ordinal++) {
+      const rawStep = source.steps[ordinal];
+      if (!rawStep || typeof rawStep !== "object") continue;
+      const notes = [];
+      const rawNotes = Array.isArray(rawStep.notes) ? rawStep.notes : [];
+      for (let index = 0; index < Math.min(MAX_SEQUENCE_NOTES_PER_STEP, rawNotes.length); index++) {
+        if (noteCount >= MAX_SEQUENCE_NOTES) break;
+        const rawNote = rawNotes[index];
+        if (!rawNote || typeof rawNote !== "object") continue;
+        notes.push({
+          semitone: clampNumber(rawNote.semitone, -96, 96, 0),
+          ratio: clampNumber(rawNote.ratio, 1 / 256, 256,
+            2 ** (clampNumber(rawNote.semitone, -96, 96, 0) / 12)),
+          velocity: clampNumber(rawNote.velocity, 0, 1, .75),
+          gate: clampNumber(rawNote.gate, .01, 4, 1),
+          accent: rawNote.accent === true,
+        });
+        noteCount++;
+      }
+      const authoredIndex = finiteNumber(rawStep.index, ordinal);
+      steps.push({
+        index: Math.max(-1_000_000, Math.min(1_000_000, Math.trunc(authoredIndex))),
+        ordinal,
+        at: positiveModulo(finiteNumber(rawStep.atBeats ?? rawStep.at, ordinal), lengthBeats),
+        duration: clampNumber(rawStep.durationBeats ?? rawStep.duration, 1 / 960, 64, 1),
+        notes,
+        tie: rawStep.tie === true,
+        slide: rawStep.slide === true,
+      });
+    }
+    steps.sort((a, b) => a.at - b.at || a.ordinal - b.ordinal);
+    return {
+      studyId: typeof source.studyId === "string" ? source.studyId.slice(0, 96) : null,
+      seed: Math.trunc(clampNumber(source.seed, -0x7fffffff, 0x7fffffff, 0)),
+      stepBeats: clampNumber(source.stepBeats, 1 / 960, 64, 1),
+      lengthBeats,
+      steps,
+    };
+  }
+
+  sanitizeSequenceTempo(value) {
+    return clampNumber(value, MIN_SEQUENCE_TEMPO, MAX_SEQUENCE_TEMPO, this.sequenceTempo);
+  }
+
+  sanitizeSequenceRoot(value) {
+    return clampNumber(value, 8, 20_000, this.sequenceRootFrequency);
+  }
+
+  sequenceBeatAt(frame = currentFrame) {
+    if (!this.sequencePlaying) return this.sequenceAnchorBeat;
+    return this.sequenceAnchorBeat + (frame - this.sequenceAnchorFrame) * this.sequenceTempo / (60 * sampleRate);
+  }
+
+  sequenceFrameAt(beat) {
+    if (!this.sequencePlaying || !Number.isFinite(beat)) return Infinity;
+    return this.sequenceAnchorFrame + Math.round((beat - this.sequenceAnchorBeat) * 60 * sampleRate / this.sequenceTempo);
+  }
+
+  setSequenceAnchor(beat, frame) {
+    this.sequenceAnchorBeat = finiteNumber(beat, 0);
+    this.sequenceAnchorFrame = Math.max(currentFrame, Math.round(finiteNumber(frame, currentFrame)));
+  }
+
+  seekSequence(beat, includeCurrent = false) {
+    const sequence = this.sequence;
+    if (!this.sequencePlaying || !sequence?.steps.length) {
+      this.sequenceNextStep = -1;
+      this.sequenceNextBeat = Infinity;
+      this.sequenceCycleBase = 0;
+      return;
+    }
+    const phase = positiveModulo(beat, sequence.lengthBeats);
+    const cycleBase = beat - phase;
+    const epsilon = 1e-9;
+    let cursor = sequence.steps.findIndex(step => (
+      includeCurrent ? step.at >= phase - epsilon : step.at > phase + epsilon
+    ));
+    this.sequenceCycleBase = cycleBase;
+    if (cursor < 0) {
+      cursor = 0;
+      this.sequenceCycleBase += sequence.lengthBeats;
+    }
+    this.sequenceNextStep = cursor;
+    this.sequenceNextBeat = this.sequenceCycleBase + sequence.steps[cursor].at;
+  }
+
+  advanceSequenceStep() {
+    if (!this.sequence?.steps.length || this.sequenceNextStep < 0) {
+      this.sequenceNextStep = -1;
+      this.sequenceNextBeat = Infinity;
+      return;
+    }
+    this.sequenceNextStep++;
+    if (this.sequenceNextStep >= this.sequence.steps.length) {
+      this.sequenceNextStep = 0;
+      this.sequenceCycleBase += this.sequence.lengthBeats;
+    }
+    this.sequenceNextBeat = this.sequenceCycleBase + this.sequence.steps[this.sequenceNextStep].at;
+  }
+
+  nextSequenceNoteId() {
+    this.sequenceNoteSequence = this.sequenceNoteSequence >= 0x7ffffffe ? 0x40000000 : this.sequenceNoteSequence + 1;
+    return this.sequenceNoteSequence;
+  }
+
+  sequenceFrequency(ratio) {
+    return Math.max(8, Math.min(20_000, this.sequenceRootFrequency * ratio));
+  }
+
+  cancelSequenceVoices() {
+    if (this.sequenceMono) {
+      this.sequenceMono = null;
+      this.resumeUnderlyingNote();
+    }
+    for (const note of [...this.polyDeadlines]) if (note?.kind === "sequence") this.polyOff(note.id);
+  }
+
+  haltSequence() {
+    const beat = this.sequenceBeatAt(currentFrame);
+    this.cancelSequenceVoices();
+    this.sequencePlaying = false;
+    this.sequenceAnchorBeat = beat;
+    this.sequenceAnchorFrame = currentFrame;
+    this.sequenceNextStep = -1;
+    this.sequenceNextBeat = Infinity;
+    this.sequenceLastStepIndex = null;
+    this.sequenceLastCursor = null;
+    this.reportSequenceStatus(currentFrame, true);
+  }
+
+  reportSequenceStatus(frame = currentFrame, force = false) {
+    if (!force && frame < this.sequenceStatusFrame) return;
+    const beat = this.sequenceBeatAt(frame);
+    const length = this.sequence?.lengthBeats ?? 0;
+    this.sequenceStatusFrame = frame + Math.round(sampleRate / 20);
+    this.port.postMessage({
+      type: "sequence-status",
+      loaded: !!this.sequence,
+      playing: this.sequencePlaying && !!this.sequence,
+      studyId: this.sequence?.studyId ?? null,
+      stepIndex: this.sequenceLastStepIndex,
+      cursor: this.sequenceLastCursor,
+      phaseBeats: length ? positiveModulo(beat, length) : 0,
+      beat,
+      lengthBeats: length,
+      tempo: this.sequenceTempo,
+      rootFrequency: this.sequenceRootFrequency,
+      revision: this.sequenceRevision,
+      at: frame / sampleRate,
+    });
+  }
+
+  sequenceMessageFrame(data) {
+    return Math.max(currentFrame, Math.round(finiteNumber(data.at, currentTime) * sampleRate));
+  }
+
+  loadSequence(data) {
+    const frame = this.sequenceMessageFrame(data);
+    const previousBeat = Number.isFinite(data.phase) ? data.phase : this.sequenceBeatAt(frame);
+    const wasPlaying = this.sequencePlaying;
+    this.cancelSequenceVoices();
+    this.sequence = this.sanitizeSequence(data.sequence);
+    this.sequenceTempo = this.sanitizeSequenceTempo(data.tempo ?? data.sequence?.tempo);
+    this.sequenceRootFrequency = this.sanitizeSequenceRoot(data.rootFrequency);
+    this.sequencePlaying = !!this.sequence && (data.playing === true || wasPlaying && data.playing !== false);
+    this.setSequenceAnchor(data.preservePhase === false ? 0 : previousBeat, frame);
+    this.sequenceRevision++;
+    this.sequenceLastStepIndex = null;
+    this.sequenceLastCursor = null;
+    this.seekSequence(this.sequenceAnchorBeat, false);
+    this.reportSequenceStatus(frame, true);
+  }
+
+  startSequence(data) {
+    if (!this.sequence) { this.reportSequenceStatus(currentFrame, true); return; }
+    const frame = this.sequenceMessageFrame(data);
+    const beat = Number.isFinite(data.phase) ? data.phase : (this.sequencePlaying ? this.sequenceBeatAt(frame) : 0);
+    this.cancelSequenceVoices();
+    this.sequenceTempo = this.sanitizeSequenceTempo(data.tempo);
+    this.sequenceRootFrequency = this.sanitizeSequenceRoot(data.rootFrequency);
+    this.sequencePlaying = true;
+    this.setSequenceAnchor(beat, frame);
+    this.seekSequence(beat, true);
+    this.reportSequenceStatus(frame, true);
+  }
+
+  setSequenceTempoMessage(data) {
+    if (!this.sequence) return;
+    const frame = this.sequenceMessageFrame(data);
+    const beat = Number.isFinite(data.phase) ? data.phase : this.sequenceBeatAt(frame);
+    this.sequenceTempo = this.sanitizeSequenceTempo(data.tempo);
+    this.setSequenceAnchor(beat, frame);
+    if (this.sequenceNextBeat <= beat + 1e-9) this.seekSequence(beat, false);
+    this.reportSequenceStatus(frame, true);
+  }
+
+  setSequenceRootMessage(data) {
+    this.sequenceRootFrequency = this.sanitizeSequenceRoot(data.rootFrequency);
+    if (this.sequenceMono) {
+      const frequency = this.sequenceFrequency(this.sequenceMono.ratio);
+      this.sequenceMono.frequency = frequency;
+      this.api.synth_set_frequency(this.engine, frequency);
+    }
+    for (let slot = 0; slot < this.polyDeadlines.length; slot++) {
+      const note = this.polyDeadlines[slot];
+      if (note?.kind !== "sequence" || !(note.ratio > 0)) continue;
+      const frequency = this.sequenceFrequency(note.ratio);
+      note.frequency = frequency;
+      this.api.poly_set_note_frequency(this.bank, note.id, frequency);
+    }
+    this.reportSequenceStatus(currentFrame, true);
+  }
+
+  triggerSequenceStep(step, eventBeat, cursor) {
+    this.sequenceLastStepIndex = step.index;
+    this.sequenceLastCursor = cursor;
+    if (!step.notes.length || this.state?.kind === "processor") return;
+    if (this.state?.voiceMode === "poly") {
+      for (const note of step.notes) {
+        const manualVoices = this.polyDeadlines.filter(deadline => deadline && deadline.kind !== "sequence").length;
+        const sequenceVoices = this.polyDeadlines.filter(deadline => deadline?.kind === "sequence").length;
+        if (manualVoices >= 8 || sequenceVoices >= 8 - manualVoices) break;
+        const duration = Math.min(64, step.duration * note.gate);
+        const endBeat = eventBeat + duration;
+        const id = this.nextSequenceNoteId();
+        const slot = this.polyNote(id, this.sequenceFrequency(note.ratio),
+          note.velocity, Infinity, "sequence", endBeat);
+        if (this.polyDeadlines[slot]?.id === id) this.polyDeadlines[slot].ratio = note.ratio;
+      }
+      return;
+    }
+    // The monophonic lane never displaces a key, audition, or the existing
+    // Play/Repeat transport. Its next authored attack resumes automatically.
+    if (this.heldNote || this.pulseNote || this.playing) return;
+    const note = step.notes[0];
+    const duration = Math.min(64, step.duration * note.gate);
+    const frequency = this.sequenceFrequency(note.ratio);
+    this.sequenceMono = { endBeat: eventBeat + duration, ratio: note.ratio, frequency, velocity: note.velocity };
+    this.api.synth_note_on(this.engine, frequency, note.velocity);
+  }
+
+  processSequenceAt(frame) {
+    if (!this.sequencePlaying || !this.sequence || frame < this.sequenceAnchorFrame || this.state?.kind === "processor") return;
+    if (!this.state) {
+      this.seekSequence(this.sequenceBeatAt(frame), false);
+      return;
+    }
+    if (this.sequenceMono && this.sequenceFrameAt(this.sequenceMono.endBeat) <= frame) {
+      this.sequenceMono = null;
+      this.resumeUnderlyingNote();
+    }
+    for (const note of [...this.polyDeadlines]) {
+      if (note?.kind === "sequence" && this.sequenceFrameAt(note.endBeat) <= frame) this.polyOff(note.id);
+    }
+    let guard = 0;
+    while (this.sequenceNextStep >= 0 && this.sequenceFrameAt(this.sequenceNextBeat) <= frame && guard++ < MAX_SEQUENCE_STEPS) {
+      const cursor = this.sequenceNextStep;
+      const step = this.sequence.steps[cursor];
+      const eventBeat = this.sequenceNextBeat;
+      this.triggerSequenceStep(step, eventBeat, cursor);
+      this.advanceSequenceStep();
+    }
+    this.reportSequenceStatus(frame, false);
+  }
+
+  sequenceBoundaryFrame() {
+    if (!this.sequencePlaying || !this.sequence || this.state?.kind === "processor") return Infinity;
+    let boundary = this.sequenceFrameAt(this.sequenceNextBeat);
+    if (this.sequenceMono) boundary = Math.min(boundary, this.sequenceFrameAt(this.sequenceMono.endBeat));
+    for (const note of this.polyDeadlines) {
+      if (note?.kind === "sequence") boundary = Math.min(boundary, this.sequenceFrameAt(note.endBeat));
+    }
+    return boundary;
+  }
+
   message(data) {
     if (this.dead) return;
-    if (data.type === "state") {
+    if (data.type === "sequence-load") {
+      this.loadSequence(data);
+    } else if (data.type === "sequence-start") {
+      this.startSequence(data);
+    } else if (data.type === "sequence-tempo") {
+      this.setSequenceTempoMessage(data);
+    } else if (data.type === "sequence-root") {
+      this.setSequenceRootMessage(data);
+    } else if (data.type === "sequence-stop" || data.type === "sequence-panic") {
+      this.haltSequence();
+    } else if (data.type === "state") {
       const wasPoly = this.state?.voiceMode === "poly" && this.state?.kind !== "processor";
       const nextPoly = data.state.voiceMode === "poly" && data.state.kind !== "processor";
       const wasProcessor = this.state?.kind === "processor";
       const nextProcessor = data.state.kind === "processor";
+      if (wasPoly !== nextPoly || nextProcessor || wasProcessor) {
+        const sequenceBeat = this.sequenceBeatAt(currentFrame);
+        this.cancelSequenceVoices();
+        this.setSequenceAnchor(sequenceBeat, currentFrame);
+        this.seekSequence(sequenceBeat, false);
+      }
       if (nextProcessor || wasProcessor) {
         this.api.synth_note_off(this.engine);
         this.api.poly_reset(this.bank);
@@ -96,7 +419,7 @@ class RoadsSynthesisProcessor extends AudioWorkletProcessor {
         transfer.set(s.params.slice(0, this.parameterCount));
         p.synth_apply_params(e);
       } else s.params.forEach((v, i) => p.synth_set_param(e, i, v));
-      p.synth_set_frequency(e, this.pulseNote?.frequency ?? this.heldNote?.frequency ?? s.frequencyHz);
+      p.synth_set_frequency(e, this.pulseNote?.frequency ?? this.heldNote?.frequency ?? this.sequenceMono?.frequency ?? s.frequencyHz);
       p.synth_set_envelope(e, s.envelope.attack, s.envelope.decay, s.envelope.sustain, s.envelope.release);
       p.synth_set_level_trim_db?.(e, s.levelTrimDb ?? 0);
       if (audition) {
@@ -162,6 +485,7 @@ class RoadsSynthesisProcessor extends AudioWorkletProcessor {
         this.events.sort((a, b) => a.frame - b.frame);
       }
     } else if (data.type === "silence") {
+      this.haltSequence();
       this.playing = false;
       this.processingUntil = 0;
       this.capture = null;
@@ -179,6 +503,8 @@ class RoadsSynthesisProcessor extends AudioWorkletProcessor {
       this.nextTrigger = Infinity;
       this.api.synth_note_off(this.engine);
     } else if (data.type === "reset") {
+      const sequenceBeat = this.sequenceBeatAt(currentFrame);
+      this.cancelSequenceVoices();
       this.api.synth_reset(this.engine);
       this.api.poly_reset(this.bank);
       this.polyPulseUntil = 0;
@@ -190,6 +516,10 @@ class RoadsSynthesisProcessor extends AudioWorkletProcessor {
       this.api.proc_reset(this.processor);
       this.events.length = 0;
       if (this.playing) this.startPlay();
+      if (this.sequencePlaying) {
+        this.setSequenceAnchor(sequenceBeat, currentFrame);
+        this.seekSequence(sequenceBeat, false);
+      }
     } else if (data.type === "restore-source") {
       this.api.synth_restore_source(this.engine);
       this.api.poly_restore_source(this.bank);
@@ -220,6 +550,7 @@ class RoadsSynthesisProcessor extends AudioWorkletProcessor {
     if (this.state?.voiceMode === "poly") {
       for (const note of Array.from(this.noteOwners.values()).slice(-8)) this.polyNote(note.id, note.frequency, note.velocity);
     } else {
+      this.sequenceMono = null;
       this.heldNote = Array.from(this.noteOwners.values()).at(-1) || null;
       this.pulseNote = null;
       this.releaseAt = Infinity;
@@ -287,10 +618,15 @@ class RoadsSynthesisProcessor extends AudioWorkletProcessor {
     return this.polySequence;
   }
 
-  polyNote(id, frequency, velocity, end = Infinity, kind = "held") {
+  polyNote(id, frequency, velocity, end = Infinity, kind = "held", endBeat = Infinity) {
+    if (kind !== "sequence" && this.polyDeadlines.every(Boolean)) {
+      const sequence = this.polyDeadlines.find(note => note?.kind === "sequence");
+      if (sequence) this.polyOff(sequence.id);
+    }
     const slot = this.api.poly_note_on(this.bank, id, frequency, velocity);
     if (this.polyDeadlines[slot]?.id === this.polyPlayId) this.polyPlayId = null;
-    this.polyDeadlines[slot] = { id, end, kind, frequency, velocity };
+    this.polyDeadlines[slot] = { id, end, endBeat, kind, frequency, velocity };
+    return slot;
   }
 
   polyOff(id) {
@@ -377,9 +713,11 @@ class RoadsSynthesisProcessor extends AudioWorkletProcessor {
       }
       for (const note of this.polyDeadlines) if (note && frame >= note.end) this.polyOff(note.id);
       if (this.playing && (frame >= this.nextTrigger || this.state.playStyle === "hold" && this.polyPlayId === null)) this.startPolyPlay(frame);
+      this.processSequenceAt(frame);
       let deadline = Infinity;
       for (const note of this.polyDeadlines) if (note) deadline = Math.min(deadline, note.end);
-      const boundary = Math.min(currentFrame + length, this.events[0]?.frame ?? Infinity, deadline, this.nextTrigger);
+      const boundary = Math.min(currentFrame + length, this.events[0]?.frame ?? Infinity, deadline,
+        this.nextTrigger, this.sequenceBoundaryFrame());
       const count = Math.max(1, Math.min(128, boundary - frame));
       this.api.poly_process(this.bank, count);
       if (this.polyBuffer !== this.api.memory.buffer) {
@@ -453,6 +791,7 @@ class RoadsSynthesisProcessor extends AudioWorkletProcessor {
     if (!this.state) return;
     if (this.state.kind === "processor") { this.updateProcessingGate(); return; }
     if (this.state.voiceMode === "poly") { this.startPolyPlay(currentFrame); return; }
+    this.sequenceMono = null;
     this.nextTrigger = this.state.playStyle === "strike"
       ? (this.pulseNote ? Math.max(currentFrame, this.releaseAt) : currentFrame) + Math.round(sampleRate / this.rate)
       : Infinity;
@@ -474,6 +813,7 @@ class RoadsSynthesisProcessor extends AudioWorkletProcessor {
     const env = this.state?.envelope;
     const fallback = (env?.attack ?? 0.01) + (env?.decay ?? 0.2) + 0.18;
     const seconds = Math.min(24.2, Math.max(0.02, Number.isFinite(duration) ? duration : fallback));
+    this.sequenceMono = null;
     this.pulseNote = { frequency, velocity };
     this.releaseAt = frame + Math.round(sampleRate * seconds);
     this.api.synth_note_on(this.engine, frequency, velocity);
@@ -507,6 +847,7 @@ class RoadsSynthesisProcessor extends AudioWorkletProcessor {
           else if (event.type === "note") {
             if (event.duration === null) {
               const id = event.noteId ?? 1;
+              this.sequenceMono = null;
               this.heldNote = { id, frequency: event.frequency, velocity: event.velocity };
               this.noteOwners.delete(id);
               if (this.noteOwners.size >= 128) this.noteOwners.delete(this.noteOwners.keys().next().value);
@@ -541,7 +882,9 @@ class RoadsSynthesisProcessor extends AudioWorkletProcessor {
           }
           this.nextTrigger = frame + Math.round(sampleRate / this.rate);
         }
-        const boundary = Math.min(currentFrame + length, this.events[0]?.frame ?? Infinity, this.releaseAt, this.nextTrigger);
+        this.processSequenceAt(frame);
+        const boundary = Math.min(currentFrame + length, this.events[0]?.frame ?? Infinity, this.releaseAt,
+          this.nextTrigger, this.sequenceBoundaryFrame());
         const count = Math.max(1, Math.min(128, boundary - frame));
         this.api.synth_process(this.engine, count);
         if (this.buffer !== this.api.memory.buffer) {

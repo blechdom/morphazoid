@@ -116,7 +116,11 @@ export function enhanceChooseSelect(select, options = {}) {
     if (select.disabled) event.preventDefault();
   });
   listen(details, "toggle", () => {
-    if (details.open) refresh();
+    if (details.open) {
+      refresh();
+      const selected = buttons.find(button => Number(button.dataset.optionIndex) === select.selectedIndex);
+      if (typeof selected?.scrollIntoView === "function") selected.scrollIntoView({ block: "nearest", inline: "nearest" });
+    }
     else { searchInput.value = ""; filter(); }
   });
   listen(details, "keydown", event => {

@@ -333,7 +333,7 @@ See [voice mechanisms and port status](docs/voicesaurus.md).
 
 ## Synthesaurus
 
-[Synthesaurus](synthesis.html) explores 53 synthesis methods and 16 stereo processors through 552 presets and 146 guided studies. Microphone, file input, built-in test signals, exact parameter controls, and waveform/spectrum displays make the DSP playable. The Rust DSP runs in a browser AudioWorklet through WebAssembly and is shared with the CPAL player and CLAP plugin. See [method notes](docs/synthesis-methods.md), [model provenance](docs/synthesis-neural-models.md), and [native build instructions](docs/synthesis-native.md).
+[Synthesaurus](synthesis.html) explores 53 synthesis methods and 16 stereo processors through 552 presets and 146 guided studies. Its independent [sequence compendium](docs/synthesis-sequences.md) adds 62 original arpeggiator and sequencer studies with common and mechanism-specific controls. A sourced tuning/note-map menu applies equal divisions, ratios, historical systems, culturally specific maps and explicit teaching models to its keyboard, MIDI input, Trigger chord, and every sequence. Sequence choice, edits, and audio-clock phase survive sound-method and preset changes so the same musical input can test contrasting synthesis. Microphone, file input, built-in test signals, exact parameter controls, and waveform/spectrum displays make the DSP playable. The Rust DSP runs in a browser AudioWorklet through WebAssembly and is shared with the CPAL player and CLAP plugin. See [method notes](docs/synthesis-methods.md), [tuning sources and limits](docs/synthesaurus-tunings.md), [model provenance](docs/synthesis-neural-models.md), and [native build instructions](docs/synthesis-native.md).
 
 ## Development
 

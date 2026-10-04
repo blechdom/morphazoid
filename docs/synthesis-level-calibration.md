@@ -61,7 +61,7 @@ This includes source corrections and fixed trims. The browser master remains 0.7
 
 ## Provenance
 
-- WASM SHA-256: `55a2a774c249555cfe7687d6a6c3f91068408220667f015c299ab76e6a9dd0b5`
+- WASM SHA-256: `070760c01717912a486ca78ffa0f76bdb50a4b5d225293bef8ae2c05bad54da3`
 - Signal fixture SHA-256: `536fb43772b0492dd048ba277be3be9badd33888f3a3055c3e25170d89475100`
 - Fixture hashing includes method/preset IDs, normalized parameters, frequency and envelope. It excludes calibration trims, descriptive copy and output master, avoiding a circular calibration dependency.
 - Full source hashes, all before/after metrics, explicit onset thresholds and baseline comparisons are in the adjacent JSON report.

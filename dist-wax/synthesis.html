@@ -7,7 +7,7 @@
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="Morphazoid" />
     <meta property="og:title" content="Synthesaurus — Morphazoid" />
-    <meta property="og:description" content="Explore synthesis, filters and audio processing with playable demonstrations, touchstone presets, microphone input, and live waveform and spectrum displays." />
+    <meta property="og:description" content="Explore synthesis, historical sequence and arpeggiator studies, filters, and audio processing with playable demonstrations and live signal displays." />
     <meta property="og:url" content="https://morphazoid.com/synthesis.html" />
     <meta property="og:image" content="https://morphazoid.com/assets/social/morphazoid-card-20260917.png" />
     <meta property="og:image:secure_url" content="https://morphazoid.com/assets/social/morphazoid-card-20260917.png" />
@@ -17,14 +17,14 @@
     <meta property="og:image:alt" content="Morphazoid geometric wireframe logo on a dark background." />
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="Synthesaurus — Morphazoid" />
-    <meta name="twitter:description" content="Explore synthesis, filters and audio processing with playable demonstrations, touchstone presets, microphone input, and live waveform and spectrum displays." />
+    <meta name="twitter:description" content="Explore synthesis, historical sequence and arpeggiator studies, filters, and audio processing with playable demonstrations and live signal displays." />
     <meta name="twitter:image" content="https://morphazoid.com/assets/social/morphazoid-card-20260917.png" />
     <meta name="twitter:image:alt" content="Morphazoid geometric wireframe logo on a dark background." />
     <link rel="image_src" href="https://morphazoid.com/assets/social/morphazoid-card-20260917.png" />
     <!-- morphazoid-social-preview:end -->
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="theme-color" content="#101513" />
-  <meta name="description" content="Explore synthesis, filters and audio processing with playable demonstrations, touchstone presets, microphone input, and live waveform and spectrum displays." />
+  <meta name="description" content="Explore synthesis, historical sequence and arpeggiator studies, filters, and audio processing with playable demonstrations and live signal displays." />
   <title>Synthesaurus — Morphazoid</title>
   <link rel="icon" href="favicon.svg" type="image/svg+xml" />
   <link rel="stylesheet" href="style.css" />
@@ -47,15 +47,24 @@
       <button type="button" id="sectionProcessing" data-section="processing" aria-pressed="false">Processing</button>
     </div>
     <div class="synthesis-selectors">
-      <div class="synthesis-method-choice"><label for="methodSelect" id="methodLabel">Synthesis method</label><span id="methodDate" class="synthesis-method-date"></span><select id="methodSelect"><option>Loading methods…</option></select></div>
-      <div class="synthesis-preset-section"><span class="synthesis-selector-label" id="presetSectionLabel">Synthesis presets</span><div id="presetHost" data-instrument-preset-host></div></div>
+      <div class="synthesis-method-choice"><label for="methodSelect" id="methodLabel">Synth</label><span id="methodDate" class="synthesis-method-date" aria-label="Selected historical milestone"></span><select id="methodSelect"><option>Loading methods…</option></select></div>
+      <div class="synthesis-sequence-choice synthesis-sequence-choice--primary"><label id="sequenceLabel" for="sequenceSelect">Arpeggiator / sequence</label><select id="sequenceSelect"><option value="none">Direct note</option></select><small id="sequenceCount">Loading studies…</small></div>
+      <div class="synthesis-tuning-choice"><label id="tuningLabel" for="tuningSelect">Tuning / note map</label><select id="tuningSelect" aria-describedby="tuningSummary"><option>Loading tunings…</option></select><small id="tuningSummary"></small></div>
     </div>
+    <div class="synthesis-preset-row"><div class="synthesis-preset-section"><span class="synthesis-selector-label" id="presetSectionLabel">Synthesis presets</span><div id="presetHost" data-instrument-preset-host></div></div></div>
     <p class="synthesis-principle" id="principle">Choose a synthesis method, enable Audio, then play.</p>
     <div class="synthesis-layout">
       <section id="soundControls" class="synthesis-controls" aria-label="Synthesis controls">
         <div class="synthesis-play-row">
           <div class="synthesis-note-actions"><button type="button" id="playButton" class="synthesis-transport" data-primary-transport aria-label="Play" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path class="play-icon" d="M8 5L20 12L8 19Z"/><path class="pause-icon" d="M7 5H10V19H7ZM14 5H17V19H14Z"/></svg></button><button type="button" id="triggerButton">Trigger Note</button><button type="button" id="randomMethod" title="Randomize settings within the current method" aria-label="Randomize current method"><span id="randomMethodLabel">Random synth</span></button></div>
         </div>
+        <section id="sequenceCompendium" class="synthesis-sequence-compendium" aria-labelledby="sequenceHeading">
+          <div class="synthesis-sequence-title"><h2 id="sequenceHeading">Arpeggiator parameters</h2><span id="sequenceParameterSummary">Direct performance</span></div>
+          <div id="sequenceStrip" class="synthesis-sequence-steps" role="img" aria-label="No sequence selected" hidden></div>
+          <div id="sequenceControls" hidden><div id="sequenceParameterControls" class="synthesis-sequence-controls"></div></div>
+          <p id="sequenceCue" class="synthesis-cue">Choose an original study to test the current synth with a historically grounded sequencing mechanism.</p>
+          <details id="sequenceNotes" class="synthesis-disclosure synthesis-sequence-notes"><summary>Study history &amp; sources</summary><dl class="synthesis-sequence-facts"><div><dt>Milestone</dt><dd id="sequenceMilestone">Direct performance</dd></div><div><dt>Mechanism</dt><dd id="sequenceKind">Held or repeated note</dd></div><div><dt>Tests</dt><dd id="sequenceTestFocus">The current preset without an added pitch pattern</dd></div></dl><p id="sequenceLineage">Direct mode keeps Synthesaurus’s existing sustained or pulse-note demonstration.</p><p id="sequenceLimitations">Sequence studies are newly authored demonstrations of general mechanisms, not copied factory phrases or exact hardware emulations.</p><p id="sequenceReferences"><a id="sequenceReference" href="docs/synthesis-sequences.md">Sequence history and sources</a></p><p><a href="docs/synthesis-sequences.md">Compendium research notes</a></p></details>
+        </section>
         <div id="noteTiming" class="synthesis-timing"><div id="tempoControl"></div><div id="gateControl"></div>
           <div id="voiceModeControl" class="synthesis-rate synthesis-voicing"><label for="voiceMode">Voicing</label><select id="voiceMode"><option value="mono">Mono</option><option value="poly">Poly · 8 voices</option></select></div></div>
         <p id="presetCue" class="synthesis-cue"></p>
@@ -64,7 +73,8 @@
           <div class="synthesis-input-choice"><label for="processingSource">Input → processor</label><select id="processingSource"></select><label class="synthesis-loop" id="processingLoopControl" hidden><input id="processingLoop" type="checkbox" checked /> Loop input</label><p id="processingInputHint">Use the preset's signal or choose an input to keep while exploring effects.</p></div>
           <div id="processingMix" class="synthesis-mix"><div id="wetControl"></div><div id="inputGainControl"></div><div id="effectGainControl"></div><label class="synthesis-bypass"><input id="processingBypass" type="checkbox" /> Bypass</label></div>
         </div>
-        <div id="methodControls" class="synthesis-parameters"></div>
+        <h2 id="synthParameterHeading" class="synthesis-parameter-heading">Synth parameters</h2>
+        <div id="methodControls" class="synthesis-parameters" aria-labelledby="synthParameterHeading"></div>
         <div id="sourceControls" class="synthesis-source" hidden>
           <label class="synthesis-file" id="sourceFileLabel" for="sourceFile">Choose audio file<input id="sourceFile" type="file" accept="audio/*" /></label>
           <button type="button" id="restoreSource">Built-in source</button>
@@ -96,7 +106,7 @@
     </details>
     <p id="audioError" class="synthesis-error" role="alert" hidden></p>
     <p id="status" class="sr-only" role="status" aria-live="polite">Audio is off.</p>
-    <details class="synthesis-disclosure synthesis-notes"><summary>Method notes &amp; sources</summary><p id="methodNotes"></p><p id="methodDateNote"></p><p><a id="methodDateReference" href="docs/synthesis-methods.md">Historical source</a></p><p id="modelNote"></p><p><a id="methodReference" href="https://books.google.com/books?id=nZ-TetwzVcIC" target="_blank" rel="noreferrer">Reference</a> · <a href="docs/synthesis-methods.md">All method notes</a> · <a href="voicesaurus.html">Voicesaurus</a> · <a href="docs/synthesaurus-inventory.md">Coverage &amp; remaining techniques</a> · <a href="docs/synthesis-native.md">Rust / CPAL / CLAP</a></p><p>Synthesis creates a playable sound from notes, excitation or stored samples. Processing transforms incoming audio. An algorithm can serve either role: granular, spectral and filter techniques appear according to what each demonstration does. Built-in test signals let you hear processors before connecting an input.</p><p>Sample inputs: <a href="assets/synthesis/loops/CREDITS.md">Original bass, electric-piano, plucked-string and synth loops (MIT)</a>; <a href="assets/puggler/CREDITS.md">Karoryfer drums (CC0) and synthetic speech (MIT)</a>; <a href="vendor/cmu-arctic/COPYING">CMU ARCTIC edited voice syllables</a>; <a href="assets/bioacoustics/SOURCES.md">Oona Räisänen’s public-domain birdsong</a>. An explicit Input choice stays selected across processor presets; choose Preset input to follow each demonstration’s signal.</p><p>A growing compendium of synthesis and processing. Method notes distinguish full signal paths from simplified educational models. Audio starts off. The plots show the actual output signal.</p></details>
+    <details class="synthesis-disclosure synthesis-notes"><summary>Method notes &amp; sources</summary><p id="methodNotes"></p><p id="methodDateNote"></p><p><a id="methodDateReference" href="docs/synthesis-methods.md">Historical source</a></p><p id="modelNote"></p><p><a id="methodReference" href="https://books.google.com/books?id=nZ-TetwzVcIC" target="_blank" rel="noreferrer">Reference</a> · <a href="docs/synthesis-methods.md">All method notes</a> · <a href="docs/synthesis-chronology.md">Chronology research</a> · <a href="docs/synthesis-sequences.md">Sequence history</a> · <a href="docs/synthesaurus-tunings.md">Tuning sources &amp; limits</a> · <a href="voicesaurus.html">Voicesaurus</a> · <a href="docs/synthesaurus-inventory.md">Coverage &amp; remaining techniques</a> · <a href="docs/synthesis-native.md">Rust / CPAL / CLAP</a></p><p>The date beside each method is a selected, sourced milestone. Its adjacent type says whether it is a publication, patent, product, precursor, or other evidence; it is not automatically the technique’s invention date.</p><p>Synthesis creates a playable sound from notes, excitation or stored samples. Processing transforms incoming audio. An algorithm can serve either role: granular, spectral and filter techniques appear according to what each demonstration does. Built-in test signals let you hear processors before connecting an input.</p><p>Sample inputs: <a href="assets/synthesis/loops/CREDITS.md">Original bass, electric-piano, plucked-string and synth loops (MIT)</a>; <a href="assets/puggler/CREDITS.md">Karoryfer drums (CC0) and synthetic speech (MIT)</a>; <a href="vendor/cmu-arctic/COPYING">CMU ARCTIC edited voice syllables</a>; <a href="assets/bioacoustics/SOURCES.md">Oona Räisänen’s public-domain birdsong</a>. An explicit Input choice stays selected across processor presets; choose Preset input to follow each demonstration’s signal.</p><p>A growing compendium of synthesis, sequencing, tuning and processing. Method notes distinguish full signal paths from simplified educational models. Audio starts off. The plots show the actual output signal.</p></details>
     <noscript>This synthesis page needs JavaScript and WebAssembly to make sound.</noscript>
   </main>
   <script type="module" src="nav.js"></script>

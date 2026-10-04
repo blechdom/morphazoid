@@ -5,10 +5,10 @@
   "processors": 16,
   "processorPresets": 128,
   "presets": 424,
-  "wasmSha256": "55a2a774c249555cfe7687d6a6c3f91068408220667f015c299ab76e6a9dd0b5",
+  "wasmSha256": "070760c01717912a486ca78ffa0f76bdb50a4b5d225293bef8ae2c05bad54da3",
   "sourceHashes": {
-    "src/instruments/synthesis/catalog.js": "d82db2e7f9201498c892fd7a1fc885ef58f7bdb9b3fc394bc74111d08fe21a54",
-    "src/instruments/synthesis/level-calibration.js": "a518356720af9749dfa6341b46774191ea07ea27da4b33f8c52a07772afffa3f",
+    "src/instruments/synthesis/catalog.js": "085a11d13fe5f85c571c66a05316dbdb22def86caa3d59e3b1941948bf8122f5",
+    "src/instruments/synthesis/level-calibration.js": "dd4a482b2182ce91f5a454cbd1ea35afbafe2a9fdbbfd19726c1786e3eb02624",
     "src/instruments/synthesis/historical-catalog.js": "19d3def2d321447fb49e64e7ef835b42fd58512a1da10e72e53063259bde5ecc",
     "src/instruments/synthesis/processing-schema.js": "e26392e8c123b08c5a5b3df8394f2af1b71aa4d9dd9e415e0ee53acd29b3ff91",
     "src/instruments/synthesis/processing-catalog.js": "c0da5709db105887ce1f89182dc4d38482292301ca9393b578a5eaf9adc8c88b",

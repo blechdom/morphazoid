@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 import { resolve } from "node:path";
 import vm from "node:vm";
 import { sanitizeState, SYNTHESIS_METHODS } from "../src/instruments/synthesis/catalog.js";
+import { compileSequence } from "../src/instruments/synthesis/sequence-compiler.js";
 
 // The override permits an isolated reviewer to exercise an integration checkout.
 // In the normal suite, source and the committed artifact come from this repo.
@@ -797,5 +798,294 @@ test('a simultaneous finite Poly chord attacks each voice once and expires witho
     h.send({ type: 'off' }); h.render(24_000);
     assert.deepEqual(heldPolyIds(h), [], 'the original note is released');
     assert.ok(rms(h.render(4800)) < 1e-6, 'all release tails finish');
+  } finally { h.dispose(); }
+});
+
+function sequence(overrides = {}) {
+  return {
+    studyId: 'test-cycle', seed: 7, tempo: 120, stepBeats: .25, lengthBeats: 1,
+    steps: [{ index: 7, at: .25, duration: .1, notes: [{ ratio: 2, velocity: .8, gate: 1, accent: false }] }],
+    ...overrides,
+  };
+}
+
+function sequenceScheduleSnapshot(processor) {
+  return {
+    revision: processor.sequenceRevision,
+    anchorBeat: processor.sequenceAnchorBeat,
+    anchorFrame: processor.sequenceAnchorFrame,
+    nextStep: processor.sequenceNextStep,
+    nextBeat: processor.sequenceNextBeat,
+    cycleBase: processor.sequenceCycleBase,
+    lastStepIndex: processor.sequenceLastStepIndex,
+    lastCursor: processor.sequenceLastCursor,
+  };
+}
+
+test('compiled sequence attacks land on exact sample-clock boundaries and Stop owns their cancellation', () => {
+  const h = makeHarness();
+  try {
+    h.send({ type: 'state', state: state({ envelope: { attack: .001, decay: .005, sustain: .8, release: .003 } }) });
+    h.send({ type: 'sequence-load', sequence: sequence(), rootFrequency: 220, tempo: 120 });
+    h.send({ type: 'sequence-start', phase: 0, rootFrequency: 220, tempo: 120 });
+    const output = h.render(12_000);
+    assert.ok(output.subarray(0, 6000).every(value => value === 0), 'the quarter-beat note cannot sound one sample early');
+    assert.ok(rms(output.subarray(6000, 9000)) > .005, 'the sequence note begins at its calculated sample');
+    const status = h.messages.filter(message => message.type === 'sequence-status').at(-1);
+    assert.equal(status.playing, true);
+    assert.equal(status.stepIndex, 7);
+    assert.equal(status.studyId, 'test-cycle');
+    h.send({ type: 'sequence-stop' });
+    const stopped = h.messages.filter(message => message.type === 'sequence-status').at(-1);
+    assert.equal(stopped.playing, false);
+    assert.ok(Math.abs(stopped.phaseBeats - .5) < 1e-9, 'stopped status retains the elapsed cursor phase');
+    h.render(24_000);
+    assert.ok(rms(h.render(12_000)) < 1e-6, 'Stop releases owned sound and removes all future attacks');
+    assert.equal(h.processor.sequenceNextBeat, Infinity);
+  } finally { h.dispose(); }
+});
+
+test('sequence tempo edits preserve fractional beat phase and rescale the next authored attack', () => {
+  const h = makeHarness();
+  try {
+    h.send({ type: 'state', state: state({ envelope: { attack: .001, decay: .005, sustain: .8, release: .003 } }) });
+    h.send({ type: 'sequence-load', sequence: sequence({ tempo: 60, steps: [
+      { index: 3, at: .75, duration: .08, notes: [{ ratio: 1, velocity: .8, gate: 1 }] },
+    ] }), rootFrequency: 220, tempo: 60 });
+    h.send({ type: 'sequence-start', phase: .25, rootFrequency: 220, tempo: 60 });
+    assert.equal(rms(h.render(12_000)), 0); // phase .25 -> .5 at 60 BPM
+    h.send({ type: 'sequence-tempo', tempo: 120 });
+    const changed = h.render(10_000);
+    assert.ok(changed.subarray(0, 6000).every(value => value === 0), 'remaining quarter beat is preserved at the new tempo');
+    assert.ok(rms(changed.subarray(6000, 9000)) > .005, 'next attack follows the rescaled quarter beat');
+  } finally { h.dispose(); }
+});
+
+test('Mono sequence pitch survives timbre edits and follows live root-frequency changes', () => {
+  const h = makeHarness();
+  try {
+    h.send({ type: 'state', state: state() });
+    h.send({ type: 'sequence-load', sequence: sequence({ lengthBeats: 4, steps: [
+      { index: 0, at: 0, duration: 4, notes: [{ ratio: 2, velocity: .8, gate: 1 }] },
+    ] }), rootFrequency: 220, tempo: 120 });
+    h.send({ type: 'sequence-start', phase: 0, rootFrequency: 220, tempo: 120 });
+    h.render(4096);
+    assertPitch(h.render(4096), 440, 'initial sequence note');
+    h.send({ type: 'state', state: state({ frequencyHz: 173, params: [1, .15, 0, 0, 0, 0, 0, 0] }) });
+    h.render(4096);
+    assertPitch(h.render(4096), 440, 'sequence note after a timbre and base-frequency edit');
+    h.send({ type: 'sequence-root', rootFrequency: 165 });
+    h.render(4096);
+    assertPitch(h.render(4096), 330, 'sequence note after a live root-frequency edit');
+    assert.equal(h.processor.sequenceMono.frequency, 330);
+  } finally { h.dispose(); }
+});
+
+test('sequence-root continuously retunes an owned Mono voice without rebuilding its schedule', () => {
+  const h = makeHarness();
+  try {
+    h.send({ type: 'state', state: state() });
+    h.send({ type: 'sequence-load', sequence: sequence({ lengthBeats: 4, steps: [
+      { index: 12, at: 0, duration: 4, notes: [{ ratio: 2, velocity: .8, gate: 1 }] },
+    ] }), rootFrequency: 110, tempo: 120 });
+    h.send({ type: 'sequence-start', phase: 0, rootFrequency: 110, tempo: 120 });
+    h.render(4096);
+    assertPitch(h.render(4096), 220, 'owned Mono voice before retune');
+
+    const ownedVoice = h.processor.sequenceMono;
+    const schedule = sequenceScheduleSnapshot(h.processor);
+    const api = h.processor.api;
+    const calls = { on: 0, off: 0, frequency: [] };
+    h.processor.api = {
+      ...api,
+      synth_note_on(...args) { calls.on++; return api.synth_note_on(...args); },
+      synth_note_off(...args) { calls.off++; return api.synth_note_off(...args); },
+      synth_set_frequency(...args) { calls.frequency.push(args.at(-1)); return api.synth_set_frequency(...args); },
+    };
+
+    h.send({ type: 'sequence-root', rootFrequency: 165 });
+    assert.equal(h.processor.sequenceMono, ownedVoice, 'the worklet retains the active sequence voice');
+    assert.equal(h.processor.sequenceMono.frequency, 330);
+    assert.deepEqual(calls, { on: 0, off: 0, frequency: [330] }, 'retune changes pitch without a note-off or reattack');
+    assert.deepEqual(sequenceScheduleSnapshot(h.processor), schedule,
+      'retune leaves revision, anchor, next beat, and cursor untouched');
+
+    const changed = h.render(4096);
+    assert.ok(changed.every(Number.isFinite), 'retuned Mono output remains finite');
+    assert.ok(rms(changed.subarray(0, 512)) > .005, 'the already sounding voice has no silent restart gap');
+    assertPitch(changed.subarray(1024), 330, 'owned Mono voice after retune');
+  } finally { h.dispose(); }
+});
+
+test('sequence-root continuously retunes owned Poly voices without cancelling notes or moving the cursor', () => {
+  const h = makeHarness();
+  try {
+    h.send({ type: 'state', state: state({ voiceMode: 'poly' }) });
+    const ratios = [2, 3, 5];
+    h.send({ type: 'sequence-load', sequence: sequence({ lengthBeats: 4, steps: [
+      { index: 21, at: 0, duration: 4, notes: ratios.map(ratio => ({ ratio, velocity: .65, gate: 1 })) },
+    ] }), rootFrequency: 110, tempo: 120 });
+    h.send({ type: 'sequence-start', phase: 0, rootFrequency: 110, tempo: 120 });
+    h.render(4096);
+    const before = h.render(4096);
+    assert.ok(rms(before) > .005 && before.every(Number.isFinite), 'owned Poly chord sounds before retune');
+
+    const owned = h.processor.polyDeadlines
+      .map((note, slot) => note?.kind === 'sequence' ? { slot, note } : null)
+      .filter(Boolean);
+    assert.equal(owned.length, ratios.length);
+    assert.equal(polyCount(h), ratios.length);
+    const schedule = sequenceScheduleSnapshot(h.processor);
+    const noteSequence = h.processor.sequenceNoteSequence;
+    const api = h.processor.api;
+    const calls = { on: 0, off: 0, reset: 0, frequencies: [] };
+    h.processor.api = {
+      ...api,
+      poly_note_on(...args) { calls.on++; return api.poly_note_on(...args); },
+      poly_note_off(...args) { calls.off++; return api.poly_note_off(...args); },
+      poly_reset(...args) { calls.reset++; return api.poly_reset(...args); },
+      poly_set_note_frequency(...args) {
+        calls.frequencies.push({ id: args[1] >>> 0, frequency: args[2] });
+        return api.poly_set_note_frequency(...args);
+      },
+    };
+
+    h.send({ type: 'sequence-root', rootFrequency: 165 });
+    assert.equal(calls.on, 0, 'retune does not reattack Poly voices');
+    assert.equal(calls.off, 0, 'retune does not cancel Poly voices');
+    assert.equal(calls.reset, 0, 'retune does not reset the Poly bank');
+    assert.deepEqual(calls.frequencies.map(call => call.frequency), ratios.map(ratio => 165 * ratio));
+    assert.deepEqual(sequenceScheduleSnapshot(h.processor), schedule,
+      'retune leaves revision, anchor, next beat, and cursor untouched');
+    assert.equal(h.processor.sequenceNoteSequence, noteSequence, 'retune allocates no replacement note identities');
+    assert.equal(polyCount(h), ratios.length);
+    for (const { slot, note } of owned) {
+      assert.equal(h.processor.polyDeadlines[slot], note, 'each owned deadline remains in its original slot');
+      assert.equal(note.frequency, 165 * note.ratio);
+    }
+
+    const changed = h.render(4800);
+    assert.ok(changed.every(Number.isFinite), 'retuned Poly output remains finite');
+    assert.ok(rms(changed.subarray(0, 512)) > .005, 'the active chord has no silent restart gap');
+    for (const frequency of ratios.map(ratio => 165 * ratio)) {
+      assert.ok(spectralAmplitude(changed.subarray(1024), frequency) > .005,
+        `${frequency} Hz remains audible after the in-place retune`);
+    }
+  } finally { h.dispose(); }
+});
+
+test('a live cycle replacement keeps phase but cannot leak an attack from the superseded cycle', () => {
+  const h = makeHarness();
+  try {
+    h.send({ type: 'state', state: state({ envelope: { attack: .001, decay: .005, sustain: .8, release: .003 } }) });
+    h.send({ type: 'sequence-load', sequence: sequence({ tempo: 60, steps: [
+      { index: 1, at: .75, duration: .08, notes: [{ ratio: 1, velocity: .8, gate: 1 }] },
+    ] }), rootFrequency: 220, tempo: 60 });
+    h.send({ type: 'sequence-start', phase: .25, rootFrequency: 220, tempo: 60 });
+    h.render(12_000); // phase .5
+    h.send({ type: 'sequence-load', sequence: sequence({ tempo: 60, steps: [] }),
+      rootFrequency: 220, tempo: 60, preservePhase: true, playing: true });
+    assert.ok(Math.abs(h.processor.sequenceAnchorBeat - .5) < 1e-9, 'replacement inherits the live beat');
+    assert.equal(rms(h.render(36_000)), 0, 'the deleted .75-beat attack is never delivered');
+  } finally { h.dispose(); }
+});
+
+test('the worklet bounds hostile cycles independently of the catalog compiler', () => {
+  const h = makeHarness();
+  try {
+    const compiled = compileSequence('three-row-voltage-walk', { steps: 8, tempo: 137, gate: .61 });
+    h.send({ type: 'sequence-load', sequence: compiled, rootFrequency: 220, tempo: compiled.tempo });
+    assert.equal(h.processor.sequence.steps.length, compiled.steps.length, 'compiler output loads without an adapter');
+    assert.deepEqual(
+      Array.from(h.processor.sequence.steps, step => step.at),
+      compiled.steps.map(step => step.atBeats ?? step.at),
+      'compiled beat addresses reach the sample-clock scheduler unchanged',
+    );
+    const notes = Array.from({ length: 100 }, (_, index) => ({
+      ratio: index % 2 ? Infinity : -Infinity, semitone: index % 2 ? 12 : 0,
+      velocity: 99, gate: -5, accent: NaN,
+    }));
+    const steps = Array.from({ length: 1000 }, (_, index) => ({
+      index: Infinity, at: index * 1e100, duration: Infinity, notes,
+    }));
+    h.send({ type: 'sequence-load', sequence: sequence({ lengthBeats: 0, steps }),
+      rootFrequency: Infinity, tempo: 1e9 });
+    assert.equal(h.processor.sequence.steps.length, 64);
+    assert.equal(h.processor.sequence.steps.reduce((sum, step) => sum + step.notes.length, 0), 512);
+    assert.equal(h.processor.sequence.lengthBeats, .25);
+    assert.equal(h.processor.sequenceTempo, 1200);
+    assert.equal(h.processor.sequenceRootFrequency, 220);
+    for (const step of h.processor.sequence.steps) {
+      assert.ok(Number.isFinite(step.at) && step.at >= 0 && step.at < .25);
+      assert.ok(Number.isFinite(step.duration));
+      for (const note of step.notes) {
+        assert.ok([note.semitone, note.ratio, note.velocity, note.gate].every(Number.isFinite));
+        assert.ok(note.ratio >= 1 / 256 && note.ratio <= 256);
+        assert.equal(typeof note.accent, 'boolean');
+        assert.ok(note.velocity >= 0 && note.velocity <= 1);
+      }
+    }
+    h.send({ type: 'state', state: state({ voiceMode: 'poly' }) });
+    h.send({ type: 'sequence-start', phase: 0, tempo: Infinity, rootFrequency: Infinity });
+    assert.ok(h.render(2048).every(Number.isFinite), 'even the rejected extremes leave finite audio');
+  } finally { h.dispose(); }
+});
+
+test('sequence ratios take priority while semitone-only events remain backward compatible', () => {
+  const h = makeHarness();
+  try {
+    h.send({ type: 'sequence-load', sequence: sequence({ steps: [{
+      index: 0, at: 0, duration: 1,
+      notes: [
+        { ratio: 1.5, semitone: 12, velocity: .8, gate: 1 },
+        { semitone: 12, velocity: .8, gate: 1 },
+      ],
+    }] }), rootFrequency: 220, tempo: 120 });
+    assert.deepEqual(
+      Array.from(h.processor.sequence.steps[0].notes, note => note.ratio),
+      [1.5, 2],
+      'explicit ratios are retained and legacy semitones derive an equal-tempered ratio',
+    );
+  } finally { h.dispose(); }
+});
+
+test('manual Poly notes evict sequence voices first and survive sequence panic', () => {
+  const h = makeHarness();
+  try {
+    h.send({ type: 'state', state: state({ voiceMode: 'poly' }) });
+    const chord = Array.from({ length: 8 }, (_, index) => ({ ratio: 2 ** (index / 12), velocity: .5, gate: 1 }));
+    h.send({ type: 'sequence-load', sequence: sequence({ lengthBeats: 4, steps: [
+      { index: 0, at: 0, duration: 4, notes: chord },
+    ] }), rootFrequency: 110, tempo: 120 });
+    h.send({ type: 'sequence-start', phase: 0, rootFrequency: 110, tempo: 120 });
+    h.render(128);
+    assert.equal(h.processor.polyDeadlines.filter(note => note?.kind === 'sequence').length, 8);
+    h.send({ type: 'note', noteId: 99, frequency: 880, velocity: .8, duration: null, at: h.time });
+    h.render(128);
+    assert.equal(h.processor.polyDeadlines.filter(note => note?.kind === 'sequence').length, 7);
+    assert.ok(h.processor.polyDeadlines.some(note => note?.id === 99 && note.kind === 'held'));
+    h.send({ type: 'sequence-panic' });
+    h.render(24_000);
+    assert.deepEqual(heldPolyIds(h), [99], 'panic releases only sequence-owned identities');
+    assertPitch(h.render(4800), 880, 'performer note remains after sequence panic');
+  } finally { h.dispose(); }
+});
+
+test('a held Mono note has priority over sequence attacks and the sequence resumes afterward', () => {
+  const h = makeHarness();
+  try {
+    h.send({ type: 'state', state: state({ envelope: { attack: .001, decay: .005, sustain: .8, release: .003 } }) });
+    h.send({ type: 'sequence-load', sequence: sequence({ lengthBeats: 1, steps: [
+      { index: 0, at: 0, duration: 1, notes: [{ ratio: 1, velocity: .7, gate: 1 }] },
+      { index: 1, at: .5, duration: 1, notes: [{ ratio: 2 ** (7 / 12), velocity: .7, gate: 1 }] },
+    ] }), rootFrequency: 220, tempo: 120 });
+    h.send({ type: 'sequence-start', phase: 0, rootFrequency: 220, tempo: 120 });
+    h.render(4096);
+    h.send({ type: 'note', noteId: 41, frequency: 440, velocity: .8, duration: null, at: h.time });
+    h.render(14_000); // crosses the sequence's .5-beat attack while the key is held
+    assertPitch(h.render(4096), 440, 'held Mono note across a sequence boundary');
+    h.send({ type: 'off', noteId: 41, at: h.time });
+    h.render(10_000); // reaches the next cycle's root step
+    assertPitch(h.render(4096), 220, 'sequence after the held Mono note is released');
   } finally { h.dispose(); }
 });

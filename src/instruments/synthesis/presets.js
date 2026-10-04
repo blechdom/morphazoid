@@ -13,9 +13,9 @@ export const SECTION_METHODS = Object.freeze(Object.fromEntries(
 ));
 export const fullPresetId = (methodId, presetId) => `${methodId}:${presetId}`;
 
-/** Master level and voicing are performer choices, independent of sound recall. */
+/** Master level, voicing and tuning are performer choices, independent of sound recall. */
 export function captureSoundState(value) {
-  const { outputLevel, voiceMode, ...sound } = sanitizeState(value);
+  const { outputLevel, voiceMode, tuningId, ...sound } = sanitizeState(value);
   return sound;
 }
 
@@ -57,6 +57,7 @@ export function randomizeAllState(value = {}, rng = Math.random) {
   const method = methods[Math.min(methods.length - 1, Math.floor(unit * methods.length))];
   const initial = method.id === current.methodId ? current : {
     ...createDefaultState(method.id), outputLevel: current.outputLevel, voiceMode: current.voiceMode,
+    tuningId: current.tuningId,
   };
   // Changing processors retains an explicitly selected file or microphone input.
   if (method.kind === "processor" && current.source === 0) initial.source = 0;

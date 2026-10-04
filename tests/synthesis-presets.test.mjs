@@ -11,9 +11,13 @@ test('the shared Synthesaurus bank contains every full factory sound in grouped 
   assert.deepEqual(METHOD_MENU_ORDER,order);
   assert.deepEqual(SYNTHESAURUS_FULL_PRESETS.map(p=>p.id),order.flatMap(m=>m.presets.map(p=>`${m.id}:${p.id}`)));
   for(const preset of SYNTHESAURUS_FULL_PRESETS){
-    assert.deepEqual(captureSoundState({...preset.snapshot,outputLevel:.18,voiceMode:'poly'}),preset.snapshot);
+    const captured=captureSoundState({...preset.snapshot,outputLevel:.18,voiceMode:'poly',tuningId:'edo-6-whole-tone',arpMode:'up-down'});
+    assert.deepEqual(captured,preset.snapshot);
+    assert.ok(!Object.hasOwn(captured,'arpMode'));
     assert.ok(!Object.hasOwn(preset.snapshot,'outputLevel'));
     assert.ok(!Object.hasOwn(preset.snapshot,'voiceMode'));
+    assert.ok(!Object.hasOwn(preset.snapshot,'tuningId'));
+    assert.ok(!Object.hasOwn(preset.snapshot,'arpMode'));
   }
 });
 
@@ -30,7 +34,7 @@ test('section banks partition every preset and keep grouped method order',()=>{
 
 for (const section of ['synthesis','processing']) test(section+' dice reaches every method in its section and preserves performer choices',()=>{
   const methods=SECTION_METHODS[section];
-  const current={...createDefaultState(methods[0].id),outputLevel:.18,voiceMode:'poly'};
+  const current={...createDefaultState(methods[0].id),outputLevel:.18,voiceMode:'poly',tuningId:'edo-6-whole-tone',arpMode:'up-down'};
   const original=structuredClone(current);
   for(let index=0;index<methods.length;index++){
     let draws=0;
@@ -40,6 +44,8 @@ for (const section of ['synthesis','processing']) test(section+' dice reaches ev
     assert.equal(sound.presetId,'custom');
     assert.equal(sound.outputLevel,.18);
     assert.equal(sound.voiceMode,'poly');
+    assert.equal(sound.tuningId,'edo-6-whole-tone');
+    assert.ok(!Object.hasOwn(sound,'arpMode'));
     assert.deepEqual(sound,sanitizeState(sound));
     assert.ok(!method.presets.some(p=>JSON.stringify(p.params)===JSON.stringify(sound.params)));
     assert.notDeepEqual(sound.envelope,method.presets[0].envelope);
@@ -60,12 +66,13 @@ test('processing dice retains explicitly chosen external input across all proces
 });
 
 test('current-method randomization includes processing mix and gains while retaining an external input',()=>{
-  const source={...createDefaultState('fx-delay'),outputLevel:.22,voiceMode:'poly'};
+  const source={...createDefaultState('fx-delay'),outputLevel:.22,voiceMode:'poly',tuningId:'edo-6-whole-tone',arpMode:'down'};
   const samples=[.1,.3,.5,.7,.9].map(value=>randomizeMethodState(source,()=>value));
   for(const key of ['source','wet','inputDb','outputDb']) assert.ok(new Set(samples.map(s=>s[key])).size>1,key);
   for(const sample of samples){
     assert.equal(sample.methodId,source.methodId);
     assert.equal(sample.outputLevel,.22);assert.equal(sample.voiceMode,'poly');
+    assert.equal(sample.tuningId,'edo-6-whole-tone');assert.ok(!Object.hasOwn(sample,'arpMode'));
     assert.deepEqual(sample,sanitizeState(sample));
   }
   assert.equal(randomizeMethodState({...source,source:0},()=>.9).source,0);
