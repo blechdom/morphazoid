@@ -1,82 +1,70 @@
-# L-system Delay native instrument and comparison
+# L-system Delay Rust: browser audio and native comparison
 
-L-system Delay has a playable Rust / CPAL implementation inside the Morphazoid
-webapp, alongside the original JavaScript instrument. It retains the original
-interface, all sixteen original presets plus ten new scenes, eleven grammars and continuous controls. Microphone
-input is selected by default; an optional test tone auditions the delay without
-capture. Rust processes sound and CPAL connects the computer's audio devices.
-The browser supplies controls and drawing; sound comes from the computer running
-the native executable, including when that computer is accessed remotely.
+The published **[L-system Delay Rust](https://morphazoid.com/l-mic-rust.html)**
+runs its Rust audio engine as WebAssembly inside a browser AudioWorklet. It needs
+no local Rust executable or Morphazoid proxy. The original JavaScript instrument
+remains at `/l-mic.html`. Both keep their own route and settings.
 
-The default thirteen-generation binary tree has 16,382 descendants, each with its
-own inherited pitch and delay. This is a starting topology, not a voice ceiling.
-Larger trees use dynamically prepared storage, with per-grammar generation ranges
-derived from available memory. Playback calibrates an initial budget before
-opening audio, then probes for additional capacity against measured callback work.
+The Rust page retains all sixteen original presets plus ten additional scenes,
+eleven grammars, the original slider curves, mastering controls and audio-clock
+branch animation. Microphone input is selected by default. The header contains
+input trim, the microphone switch and meters; the test-tone shortcut has been
+removed. An optional audition source remains inside the lower **Input** section.
 
-This work starts from fresh `origin/main`, commit
-`f48d59a45eb0e1eadcb240f83600e02df5aa5d4d`, fetched on October 2, 2026.
-The native source is in [the instrument's Rust workspace](../src/instruments/micmic/rust/).
-The [comparison script](../scripts/compare-l-system-delay.mjs) exports the actual
-browser grammar and presets into native scenes, renders both engines, and
-creates a listening page. The [recorded measurements](l-system-delay-measurements.json)
-include source, input, scene and executable hashes.
+## Play the browser instrument
 
-## Play the native instrument
+Open the published instrument in a browser supporting WebAssembly, AudioWorklet
+and microphone capture. Click the microphone switch and allow access, then enable
+**Audio** to hear the recursive delays. Microphone capture and Audio are separate:
+input can be captured and metered while output remains off. Enabling Audio with
+microphone selected can also request capture as part of that explicit action.
+Nothing starts capture or audible output on page load, preset selection or MIDI
+enablement. Device selection uses Morphazoid's browser audio-input settings.
 
-From the repository root, run these commands in separate terminals:
+For local development, the usual static development server is sufficient:
 
 ```sh
-cargo run --manifest-path src/instruments/micmic/rust/Cargo.toml -p l-system-delay-app --release -- --port 3436
-npm run dev -- --port 3437 --strict-port
+npm run dev
 ```
 
-Open **http://localhost:3437/l-mic-rust.html**, or choose **L-system Delay Rust**
-from Morphazoid's Choose menu. The original browser instrument remains at
-`/l-mic.html`. The development server forwards `/api/l-system-delay/*` to the
-local Rust companion on port 3436. Use its `--native-delay-port` option if the
-companion runs on another port. Static hosting alone cannot provide CPAL device
-access; the local companion and proxy are required. This native implementation
-does not connect to WAX host audio buses.
+Open the printed localhost URL and choose **L-system Delay Rust**. The browser
+loads the committed `assets/wasm/l-system-delay.wasm`; compiling Rust is not
+required to play the instrument. To rebuild the engine after Rust source edits:
 
-Linux builds need the ALSA development package and `pkg-config`. The lockfile pins
-dependencies, including CPAL 0.16. The companion lives in
-[the native app directory](../src/instruments/micmic/rust/app/), and its public
-controls live in [the browser frontend](../src/instruments/micmic/native/).
+```sh
+rustup target add wasm32-unknown-unknown
+node scripts/build-l-system-delay-wasm.mjs
+```
 
-Audio starts off. Enabling **Audio** opens the native default microphone and
-output devices. Native capture uses CPAL's default input device rather than
-Morphazoid's saved browser input-device selection. Microphone capture uses
-operating-system audio access rather than browser microphone permission.
-Selecting a source while Audio is off does
-not open a device. Choose **Built-in test tone** under **Input → Input source**
-to audition without capture; **Strike tone** or Enter on the canvas retriggers it.
-Switching back to the test tone releases the input stream.
+The Rust source remains in
+[the instrument workspace](https://github.com/blechdom/morphazoid/tree/main/src/instruments/micmic/rust).
+The browser controls retain their existing `src/instruments/micmic/native/` paths
+for compatibility. A worker compiles the tree independently of rendering, and an
+AudioWorklet processes the microphone, granular delays, stereo mix and mastering.
+Graphics consume the actual audio sample clock and recorded input-envelope
+history. Rendering stalls do not schedule or trigger sound.
+
+The default thirteen-generation Pine requests 16,382 descendants, each with its
+own pitch and delay. That number is a topology, not a voice ceiling. Automatic
+adaptation measures audio processing work and probes toward the full requested
+eligible count, backing off when deadlines are threatened and retrying when
+conditions improve. An optional user cap is the only musical count ceiling;
+memory availability and real processing capacity still constrain playback.
+Browser performance must be measured on the actual device. The historical CPAL
+benchmarks below do not establish a sustainable browser voice count.
 
 Drag horizontally to change Time fold and vertically to change Branch angle;
 arrow keys provide the same controls, with Shift for finer changes. Presets and
-randomization retain Audio and device policy. **Reset all parameters** restores
-tree, mix, input trim and test-tone parameters while preserving Audio, source,
-input pause, output level and voice settings. Hiding or leaving the page requests
-Audio off; the server also releases devices after ten seconds without control or
-status requests. Returning to the page requires another explicit Audio enable.
+randomization preserve Audio and input policy. Mastering presets preserve the
+tree and live recording. Hiding or leaving the page mutes output and releases
+microphone capture; returning requires an explicit restart.
 
-The app prefers 48 kHz output and falls back to a supported default device rate.
-Settings shows the actual rate and devices. A selected microphone must support
-that output rate. The wet renderer has one 40-second mono history, with stereo
-branch panning; it processes blocks of 128 frames independently of browser
-drawing. Parameter edits preserve recording and stable branch phases. Pitch,
-pan and gain changes are smoothed, and delay edits crossfade fixed read heads
-over 65 ms. Audio off ends the session; starting Audio again records fresh
-history.
-
-The playable model supports all eleven original L-system types, including the
-branching plant, coral, and classic curve grammars. The Pythagorean rewrite keeps
-its uncapped native tree. The original pruning control blends connected breadth
-and depth orders; voice slots keep their history while the selected paths change.
-The app preserves the granular algorithm and does not add independent
-segment-duration stretching or the optional Silky spectral renderer. The Pitch
-detail selector identifies the available native independent-granular renderer.
+The audio engine shares the Rust granular pool, original input cleanup and
+mastering model with the native implementation. It retains a 40-second mono
+history, stereo branch panning and smoothed live pitch, pan, gain and delay
+changes. It does not add independent duration stretching or the optional Silky
+spectral renderer. WAX host audio buses remain unverified for this route;
+ordinary browser playback does not imply DAW track-input integration.
 
 ## Original interface and continuous edits
 

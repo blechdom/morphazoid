@@ -10,6 +10,7 @@ import { DEFAULT_PARAMETERS, DEFAULT_PERFORMANCE, sanitizeParameters, sanitizePe
   buildPreview, interpolateParameters, topologyBounds, fitTransform, visualBudget, nativePreviewNodes, interpolatePreviewNodes,
   topologyIdentity, tapActivityFrame, activityEnergy, smoothActivity, branchBaselineAlpha, branchWavePoints, inputHistoryFrame } from './model.js';
 import { DEFAULT_MASTERING, MASTERING_PROFILES, masteringProfileId, cutoffFromSlider, sliderFromCutoff } from './mastering.js';
+import { createBrowserDelayEngine } from './browser-engine.js';
 
 import { FAVE_TOOL_IDS, TOOL_GROUPS } from '../../../site/instrument-registry.js';
 import { createMidiStatus } from '../../../ui/patterns/midi-status.js';
@@ -17,8 +18,6 @@ import { installBrowserMidiAdapter } from '../../../browser-midi-adapter.js';
 import { getSharedMidiManager } from '../../../midi-manager.js';
 
 const SITE_ROOT = new URL('../../../../', import.meta.url);
-const API_ROOT = new URL('api/l-system-delay/', SITE_ROOT);
-const nativeApi = path => new URL(path.replace(/^\/api\//, ''), API_ROOT).href;
 const $ = id => document.getElementById(id);
 const state = { parameters: { ...DEFAULT_PARAMETERS }, performance: { ...DEFAULT_PERFORMANCE }, audio: false, status: {}, requestedVoices: 0, eligibleVoices: 0, generationLimits: {}, memoryVoiceCapacity: Number.MAX_SAFE_INTEGER };
 const CONTROL_IDS = { generations: 'generations', intervalMs: 'interval', timeRatio: 'timeRatio', angle: 'generationAngle',
@@ -32,6 +31,7 @@ let disposed = false, bootstrapped = false, parameterRevision = 0, performanceRe
 let parameterDirty = false, performanceDirty = false, parameterWorking = false, performanceWorking = false;
 let parameterTimer, performanceTimer, pollTimer, pollWorking = false;
 let audioRevision = 0, audioDesired = false, audioPending = false, mutationChain = Promise.resolve(), lastFailure = '';
+let microphoneRevision = 0, microphoneDesired = false, microphonePending = false;
 let manualFlashUntil = 0, tapReceivedAt = -Infinity, inputReceivedAt = -Infinity, activityDrawAt = performance.now();
 let inputTelemetry = { reader: null, receivedAt: -Infinity, clock: 0, clockReceivedAt: 0, endTime: -Infinity };
 let tapIdentity = topologyIdentity(state.parameters), tapTargets = new Map(), tapLevels = new Map(), rootLevel = 0;
@@ -51,10 +51,6 @@ audioStrip.levelOutput.id = 'levelOut';
 $('headerAudio').replaceWith(outputMeter, audioStrip);
 $('headerControls').insertBefore(inputStrip, outputMeter); inputStrip.dataset.inputPlacement = 'header';
 audioStrip.setAudioDisabled(true);
-const seedSource = document.createElement('button'); seedSource.id = 'nativeSeedSource'; seedSource.type = 'button';
-seedSource.className = 'mini-action native-seed-source'; seedSource.textContent = 'Test tone'; seedSource.setAttribute('aria-label', 'Use built-in test tone');
-// Keep the original gain → meter → input button strip intact. Seed is a native-only source shortcut.
-inputStrip.append(seedSource);
 const errorBox = $('audioError'); errorBox.className = 'audio-error native-audio-error'; errorBox.setAttribute('popover', 'manual'); document.body.append(errorBox);
 errorBox.addEventListener('click', () => { errorBox.hidden = true; if (errorBox.matches(':popover-open')) errorBox.hidePopover(); });
 const foldTap = createTapTempoButton({ ariaLabel: 'Tap Time fold', onTempo: bpm => updateParameter('intervalMs', clamp(60000 / bpm, 1, 3000), true) });
@@ -139,6 +135,7 @@ const unsubscribeMidiMessages = midiManager.subscribeMessages(() => {
   midiStatus.setReceiving(true); clearTimeout(midiActivityTimer);
   midiActivityTimer = setTimeout(() => midiStatus.setState(midiManager.status().enabled ? 'on' : 'off'), 120);
 });
+const browserEngine = createBrowserDelayEngine({ onStatus: reply => acceptStatus(reply), onError: error => showError(error?.message ?? String(error)) });
 
 function showError(message) {
   if (disposed) return;
@@ -148,15 +145,10 @@ function showError(message) {
 }
 function clearError() { errorBox.hidden = true; if (errorBox.matches(':popover-open')) errorBox.hidePopover(); }
 async function request(url, body) {
-  const response = await fetch(url.startsWith('/api/') ? nativeApi(url) : url, body === undefined ? { cache: 'no-store' } : { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-  const isNative = url.startsWith('/api/');
-  if (isNative && !response.headers.get('content-type')?.includes('application/json')) {
-    const message = 'Native audio requires the local Morphazoid and Rust servers.';
-    if (body === undefined) return { nativeAvailable: false, audio: false, error: message };
-    const error = new Error(message); error.status = 503; throw error;
-  }
+  if (url.startsWith('/api/')) return browserEngine.request(url, body);
+  const response = await fetch(url, { cache: 'no-store' });
   const result = await response.json();
-  if (!response.ok) { const error = new Error(result.error || `Native engine request failed (${response.status})`); error.status = response.status; throw error; }
+  if (!response.ok) throw new Error(result.error || `Preset bank could not load (${response.status}).`);
   return result;
 }
 function enqueue(task) { const pending = mutationChain.catch(() => {}).then(() => disposed ? null : task()); mutationChain = pending; return pending; }
@@ -259,9 +251,30 @@ async function toggleAudio(force) {
   const revision = ++audioRevision; audioDesired = force === undefined ? !audioDesired : Boolean(force); audioPending = true;
   const enabled = audioDesired; clearError(); audioStrip.setAttention(false); paintControls();
   try {
-    const reply = await enqueue(() => { if (revision !== audioRevision || (enabled && document.hidden)) return null; return request('/api/audio', { enabled }); });
+    let reply;
+    if (enabled) {
+      await browserEngine.prepareAudio();
+      reply = await enqueue(() => { if (revision !== audioRevision || document.hidden) return null; return request('/api/audio', { enabled: true }); });
+    } else {
+      // Stop also cancels an outstanding microphone permission request.
+      reply = await request('/api/audio', { enabled: false });
+    }
     if (revision === audioRevision && reply && !disposed) { audioPending = false; acceptStatus(reply); audioDesired = state.audio; }
   } catch (error) { if (revision === audioRevision) { audioPending = false; audioDesired = state.audio; lastFailure = error.message; showError(error.message); } }
+  paintControls(); scheduleDraw();
+}
+async function toggleMicrophone() {
+  const revision = ++microphoneRevision;
+  microphoneDesired = microphonePending ? !microphoneDesired : !Boolean(state.status.microphoneEnabled);
+  microphonePending = true; clearError();
+  if (state.performance.source !== 'mic') updatePerformance('source', 'mic', true, false);
+  paintControls();
+  try {
+    const reply = await browserEngine.setMicrophoneEnabled(microphoneDesired);
+    if (revision === microphoneRevision && !disposed) { microphonePending = false; acceptStatus(reply); }
+  } catch (error) {
+    if (revision === microphoneRevision && !disposed) { microphonePending = false; microphoneDesired = false; showError(error.message); }
+  }
   paintControls(); scheduleDraw();
 }
 async function strike() {
@@ -328,15 +341,15 @@ function paintControls() {
   $('gainReductionBar').style.width = `${clamp(reduction / 30) * 100}%`;
   $('generations').max = String(state.generationLimits[state.parameters.lSystemType] ?? 52);
   $('voiceCeiling').max = String(state.memoryVoiceCapacity);
-  const mic = state.performance.source === 'mic', inputActive = state.audio && !state.performance.frozen;
+  const mic = state.performance.source === 'mic', microphoneActive = Boolean(state.status.microphoneEnabled);
+  const inputActive = (mic ? microphoneActive : state.audio) && !state.performance.frozen;
   $('source').value = state.performance.source; $('seedParameters').hidden = mic;
   $('automatic').checked = state.performance.automatic;
-  inputStrip.setGain(state.performance.inputGain); inputStrip.setInputState({ active: mic && inputActive, pending: audioPending, supported: bootstrapped });
+  inputStrip.setGain(state.performance.inputGain); inputStrip.setInputState({ active: mic && microphoneActive, pending: microphonePending || Boolean(state.status.microphonePending), supported: bootstrapped });
   inputStrip.meter.setActive(inputActive);
-  const inputLabel = mic ? `${state.performance.frozen ? 'Resume' : 'Pause'} microphone input${state.audio ? '' : '. Audio remains off'}` : `Use microphone input${state.audio ? '' : '. Audio remains off'}`;
+  const inputLabel = `${mic && microphoneActive ? 'Stop' : 'Start'} microphone input${state.audio ? '' : '. Audio remains off'}`;
   inputStrip.button.setAttribute('aria-label', inputLabel); inputStrip.button.title = inputLabel;
   inputStrip.setLevels(inputActive ? Number(state.status.inputPeak) || 0 : 0);
-  seedSource.setAttribute('aria-pressed', String(!mic));
   $('seedMicButton').setAttribute('aria-pressed', String(inputActive)); $('seedMicButton').setAttribute('aria-label', inputLabel);
   $('seedMicButton').querySelector('b').textContent = state.performance.frozen ? 'Resume input' : state.audio ? 'Pause input' : 'Input ready';
   $('seedMicButton').querySelector('small').textContent = mic ? 'microphone input' : 'test tone';
@@ -558,9 +571,8 @@ $('masteringPreset').addEventListener('change', () => {
   if (preset) updateMastering(preset.settings, true);
 });
 $('source').addEventListener('change', () => updatePerformance('source', $('source').value, true, false));
-seedSource.addEventListener('click', () => updatePerformance('source', 'seed', true, false));
 const pauseInput = () => updatePerformance('frozen', !state.performance.frozen, true, false);
-inputStrip.button.addEventListener('click', () => { if (state.performance.source !== 'mic') updatePerformance('source', 'mic', true, false); else pauseInput(); });
+inputStrip.button.addEventListener('click', () => void toggleMicrophone());
 $('seedMicButton').addEventListener('click', pauseInput); $('seedPauseButton').addEventListener('click', pauseInput);
 $('automatic').addEventListener('change', () => updatePerformance('automatic', $('automatic').checked, true, false));
 $('strikeButton').addEventListener('click', () => void strike()); $('panicButton').addEventListener('click', () => void toggleAudio(false));
@@ -603,10 +615,6 @@ async function bootstrap() {
   const initialRevision = parameterRevision;
   try {
     const [reply, bank] = await Promise.all([request('/api/state'), request(new URL('./presets.json', import.meta.url).href)]); if (disposed) return;
-    if (reply.nativeAvailable === false) {
-      lastFailure = reply.error || 'Native audio is unavailable.'; paintControls();
-      setTimeout(bootstrap, 2000); return;
-    }
     if (parameterRevision === initialRevision && initialRevision === 0 && reply.parameters) state.parameters = sanitizeParameters(reply.parameters);
     if (performanceRevision === 0 && reply.performance) state.performance = sanitizePerformance(reply.performance);
     presets = bank;
@@ -625,23 +633,23 @@ async function bootstrap() {
     });
     bootstrapped = true; previewParameters = { ...state.parameters }; geometry = null;
     acceptStatus(reply); paintControls(); placeInput(); void refreshNativePreview();
-  } catch (error) { showError(`Cannot reach the native engine. ${error.message}`); if (!disposed) setTimeout(bootstrap, 2000); }
+  } catch (error) { showError(`The Rust audio engine could not load. ${error.message}`); if (!disposed) setTimeout(bootstrap, 2000); }
 }
 async function poll() {
   if (disposed) return;
   if (!document.hidden && !pollWorking && bootstrapped) {
     pollWorking = true; const revision = audioRevision;
     try { acceptStatus(await request('/api/status'), { acceptAudio: revision === audioRevision }); }
-    catch (error) { if (!document.hidden) showError(`Engine connection interrupted. ${error.message}`); }
+    catch (error) { if (!document.hidden) showError(error.message); }
     finally { pollWorking = false; }
   }
   if (!disposed) pollTimer = setTimeout(poll, state.audio ? 50 : 200);
 }
 function muteForDeparture() {
-  const wasActive = state.audio || audioPending;
   audioRevision++; audioDesired = false; audioPending = false; state.audio = false;
+  microphoneRevision++; microphoneDesired = false; microphonePending = false;
   clearTimeout(parameterTimer); clearTimeout(performanceTimer); parameterDirty = performanceDirty = false;
-  if (wasActive) void fetch(nativeApi('/api/audio'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ enabled: false }), keepalive: true }).catch(() => {});
+  browserEngine.muteForDeparture();
   paintControls(); scheduleDraw();
 }
 document.addEventListener('visibilitychange', () => { if (document.hidden) muteForDeparture(); });
@@ -649,6 +657,7 @@ addEventListener('pagehide', event => {
   muteForDeparture();
   if (event.persisted) return;
   disposed = true; clearTimeout(pollTimer); cancelAnimationFrame(frameId); resizeObserver.disconnect(); mobile.removeEventListener('change', placeInput);
+  browserEngine.dispose();
   midiManager.disable(); midiAdapter?.dispose(); unsubscribeMidiStatus(); unsubscribeMidiMessages(); clearTimeout(midiActivityTimer); midiStatus.destroy();
   foldTap.destroy(); pulseTap.destroy(); inputStrip.destroy(); audioStrip.destroy(); presetController?.destroy();
 });

@@ -12,7 +12,7 @@
     <link rel="stylesheet" href="src/instruments/micmic/micmic.css" />
     <link rel="stylesheet" href="src/instruments/micmic/native/style.css" />
   </head>
-  <body class="micmic-page" data-audio-backend="native-cpal">
+  <body class="micmic-page" data-audio-backend="rust-wasm">
     <header class="masthead has-header-settings has-performance-header">
       <a class="wordmark" href="./" aria-label="Morphazoid home">
         <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
@@ -40,7 +40,7 @@
               <label class="native-check"><input id="automatic" type="checkbox" checked /> Adapt voices to this device</label>
               <label class="control" for="voiceCeiling"><span><b>Optional voice cap</b><output id="voiceCeilingOut" for="voiceCeiling">No cap</output></span><input id="voiceCeiling" type="range" min="0" max="9007199254740991" step="1" value="0" /></label>
             </section>
-            <p class="header-settings-copy">Audio runs on this computer through Rust CPAL. The browser controls the instrument. Microphone capture starts only with microphone selected and Audio enabled.</p>
+            <p class="header-settings-copy">Rust audio runs directly in this browser. Turn on the microphone to capture input, then enable Audio to hear the delay.</p>
           </div>
         </details>
       </div>
@@ -258,7 +258,7 @@
         </details>
 
         <details class="group control-section" id="seedSection" data-section="seed">
-          <summary class="group-summary"><h2 class="group-title">Input</h2><span class="section-state" id="seedSummary">Built-in test tone · 173 Hz</span></summary>
+          <summary class="group-summary"><h2 class="group-title">Input</h2><span class="section-state" id="seedSummary">Microphone · ready</span></summary>
           <div class="group-body">
             <label class="select-control" for="source"><span class="field-label">Input source</span><span class="select-shell"><select id="source"><option value="mic">Microphone</option><option value="seed">Built-in test tone</option></select></span></label>
             <div class="native-seed-parameters" id="seedParameters">
