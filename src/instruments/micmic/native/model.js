@@ -111,7 +111,7 @@ export function inputHistoryFrame(reply, previous = {}, receivedAt = 0) {
   }
   return next;
 }
-/** Keep short branches legible without inventing activity at zero input.
+/** Keep sounding branches legible without inventing activity at zero input.
  * Rendered tap energy takes precedence on transit times below visual resolution.
  * Longer edges retain the traveling input packet, with their endpoint anchored
  * to the measured output instead of a prediction of granular playback.
