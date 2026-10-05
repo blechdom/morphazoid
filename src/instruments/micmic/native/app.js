@@ -8,7 +8,7 @@ import { generationTopology, timeFoldFromSlider, sliderFromTimeFold } from '../m
 import { DEFAULT_PARAMETERS, DEFAULT_PERFORMANCE, sanitizeParameters, sanitizePerformance,
   presetState, randomState, captureScene, gestureParameters, clamp, admittedPreviewNodes,
   buildPreview, interpolateParameters, topologyBounds, fitTransform, visualBudget, nativePreviewNodes, interpolatePreviewNodes,
-  topologyIdentity, tapActivityFrame, activityEnergy, smoothActivity, branchBaselineAlpha, branchWavePoints, inputHistoryFrame } from './model.js';
+  topologyIdentity, tapActivityFrame, activityEnergy, smoothActivity, branchWavePoints, inputHistoryFrame } from './model.js';
 import { DEFAULT_MASTERING, MASTERING_PROFILES, masteringProfileId, cutoffFromSlider, sliderFromCutoff } from './mastering.js';
 import { createBrowserDelayEngine } from './browser-engine.js';
 
@@ -429,10 +429,10 @@ function buildGeometry() {
   for (const n of nodes) { ghost.moveTo(n.startX, n.startY); ghost.lineTo(n.x, n.y); }
   const desiredFit = fitTransform(topologyBounds(nodes), width, height);
   geometry = { width, height, dpr, nodes, ghost, desiredFit, fit: lockedFit ? { ...lockedFit } : desiredFit, activeLimit: -1, active: [],
-    byVoiceIndex: new Map(nodes.filter(n => n.generation > 0).map(n => [n.voiceIndex, n])), baselinePaths: new Map() };
+    byVoiceIndex: new Map(nodes.filter(n => n.generation > 0).map(n => [n.voiceIndex, n])) };
   const counts = new Map(); for (const n of nodes) counts.set(n.generation, (counts.get(n.generation) ?? 0) + 1);
   $('generationCountReadout').textContent = [...counts].slice(0, 6).map(([, count]) => count.toLocaleString()).join(' → ') + (counts.size > 6 ? ` → … → ${(counts.get(Math.max(...counts.keys())) ?? 0).toLocaleString()} previewed at G${Math.max(...counts.keys())}` : '');
-  $('treeDescription').textContent = `${TYPE_LABELS[state.parameters.lSystemType]}. ${state.parameters.generations} audio generations; ${nodes.length.toLocaleString()} segments in the bounded visual preview. Colored branches are admitted delay taps; microphone envelopes travel along vibrating branches at their delay times.`;
+  $('treeDescription').textContent = `${TYPE_LABELS[state.parameters.lSystemType]}. ${state.parameters.generations} audio generations; ${nodes.length.toLocaleString()} segments in the bounded visual preview. The quiet outline stays still. Color and vibration follow sounding delay taps; long branches also show input traveling toward their measured endpoint.`;
   canvas.setAttribute('aria-label', `Live fitted L-system tree for L-system Delay. ${state.audio ? state.performance.frozen ? 'Input paused; recursive tail live' : `${state.performance.source === 'mic' ? 'Microphone' : 'Seed'} live` : 'Audio off'}.`);
 }
 function scheduleDraw() { if (!frameId && !disposed) frameId = requestAnimationFrame(draw); }
@@ -468,13 +468,10 @@ function draw(now) {
   context.globalAlpha = state.audio ? .34 : .28; context.lineWidth = .72 / fit.scale; context.stroke(ghost); context.restore();
   const limit = state.audio ? Math.max(0, Number(state.status.voiceLimit) || 0) : Math.min(48, state.performance.voiceCeiling || Infinity);
   if (geometry.activeLimit !== limit) {
-    geometry.activeLimit = limit; geometry.active = admittedPreviewNodes(nodes, limit); geometry.baselinePaths = new Map();
+    geometry.activeLimit = limit; geometry.active = admittedPreviewNodes(nodes, limit);
     geometry.selectedCounts = new Map();
     for (const n of geometry.active) {
       geometry.selectedCounts.set(n.generation, (geometry.selectedCounts.get(n.generation) ?? 0) + 1);
-      let path = geometry.baselinePaths.get(n.generation);
-      if (!path) { path = new Path2D(); geometry.baselinePaths.set(n.generation, path); }
-      path.moveTo(n.startX, n.startY); path.lineTo(n.x, n.y);
     }
   }
   const elapsed = Math.max(0, now - activityDrawAt); activityDrawAt = now;
@@ -499,7 +496,7 @@ function draw(now) {
   const branches = [...geometry.active, ...[...responding.values()].filter(({ node }) => !activeIds.has(node.id)).map(({ node }) => node)];
   const byId = new Map(nodes.map(n => [n.id, n]));
   const detailSteps = Math.max(5, Math.min(14, Math.floor(budget.branches * 8 / Math.max(1, branches.length))));
-  const baselines = new Map(), glows = [];
+  const glows = [];
   for (const n of branches) {
     const parent = byId.get(n.parentId), a = project(n.startX, n.startY), b = project(n.x, n.y);
     const wet = Number(state.status.wetBusGain || 0) > 0 ? state.performance.wet : 0;
@@ -508,36 +505,29 @@ function draw(now) {
     const voiceLevel = n.generation === 0 ? 1 : clamp(Math.sqrt(Math.max(0, gain) / .5) * Math.sqrt(wet));
     const history = historyFresh && activeIds.has(n.id);
     const energy = responding.get(n.id)?.energy ?? 0;
-    const points = branchWavePoints({ ...n, startDelay: parent?.delay ?? Math.max(0, (n.delay ?? 0) - state.parameters.intervalMs / 1000), voiceLevel },
+    const measured = n.generation === 0 || tapTargets.has(n.voiceIndex);
+    const parentMeasured = parent?.generation === 0 || tapTargets.has(parent?.voiceIndex);
+    const parentEnergy = parent?.generation === 0 ? rootLevel : responding.get(parent?.id)?.energy ?? 0;
+    const points = branchWavePoints({ ...n, startDelay: parent?.delay ?? Math.max(0, (n.delay ?? 0) - state.parameters.intervalMs / 1000), voiceLevel,
+      measuredEnergy: measured ? energy : undefined, parentEnergy: parentMeasured ? parentEnergy : undefined },
       a, b, history ? inputTelemetry.reader : energy, detailSteps, reducedMotion, seconds);
-    if (!history) for (const p of points) p.energy = energy;
-    if (activeIds.has(n.id)) {
-      let path = baselines.get(n.generation);
-      if (!path) { path = new Path2D(); baselines.set(n.generation, path); }
-      points.forEach((p, i) => i === 0 ? path.moveTo(p.x, p.y) : path.lineTo(p.x, p.y));
-    }
     const peak = Math.max(...points.map(p => p.energy));
     if (peak >= .015) glows.push({ node: n, points, peak });
   }
-  // Both strokes follow the same moving curve. Only the gray full-tree ghost
-  // stays straight; quiet parts of a branch receive no bright overlay.
+  // Capacity admission never paints a generation. The complete neutral outline
+  // stays still; only signal-bearing parts receive a colored, vibrating stroke.
   context.lineCap = 'round'; context.lineJoin = 'round';
-  for (const [generation, path] of baselines) {
-    context.strokeStyle = COLORS[generation % COLORS.length];
-    context.globalAlpha = branchBaselineAlpha(generation, state.parameters.depth, state.audio);
-    context.lineWidth = generation === 0 ? 1.85 : .95; context.stroke(path);
-  }
   for (const { node: n, points, peak } of glows) {
-    context.beginPath(); let connected = false;
+    const path = new Path2D(); let connected = false;
     for (let i = 1; i < points.length; i++) {
       if (Math.max(points[i - 1].energy, points[i].energy) < .015) { connected = false; continue; }
-      if (!connected) context.moveTo(points[i - 1].x, points[i - 1].y);
-      context.lineTo(points[i].x, points[i].y); connected = true;
+      if (!connected) path.moveTo(points[i - 1].x, points[i - 1].y);
+      path.lineTo(points[i].x, points[i].y); connected = true;
     }
     context.strokeStyle = COLORS[n.generation % COLORS.length]; context.globalAlpha = .24 + peak * .72;
     context.lineWidth = (n.generation === 0 ? 1.9 : 1.05) + peak * 2.4;
     context.shadowColor = context.strokeStyle; context.shadowBlur = budget.pressure === 0 && glows.length < 1000 ? 3 + peak * 12 : 0;
-    context.stroke();
+    context.stroke(path);
   }
   context.shadowBlur = 0;
   context.globalAlpha = 1;
