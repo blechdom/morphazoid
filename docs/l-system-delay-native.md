@@ -133,8 +133,12 @@ Canvas paths are batched by their generation palette.
 
 For a controlled graphics trial, use `/l-mic-rust.html?renderer=webgl2` to force
 WebGL2, and `/l-mic-rust.html?renderer=canvas` for the reference. Both use the same
-Rust/WASM audio engine, voice admission, presets, sample clock and 30/15/8 fps
-audio-pressure policy. Graphics do not impose another audio voice ceiling.
+Rust/WASM audio engine, voice admission, presets and sample clock. Rendering
+adapts to measured drawing cost and audio pressure, reducing resolution and
+curve detail before lowering its frame rate. Cached geometry and reusable wave
+buffers reduce per-frame work. The animation clock uses paired worklet sample
+time and AudioContext time, so delayed status delivery does not restart or
+rewind the wave motion. Graphics do not impose another audio voice ceiling.
 Software-rendered browser checks validate shader parity and lifecycle; they do
 not establish hardware GPU frame rates or increased audio polyphony.
 

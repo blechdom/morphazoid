@@ -67,14 +67,16 @@ const server = createServer(async (request, response) => {
     const url = new URL(request.url, 'http://127.0.0.1');
     if (url.pathname === '/src/instruments/micmic/native/browser-engine.js') {
       response.writeHead(200, { 'Content-Type': 'text/javascript' });
-      response.end(`export function createBrowserDelayEngine() {
+      response.end(`export function createBrowserDelayEngine({ onStatus = () => {} } = {}) {
         return { request: async (path, body) => {
           const response = await fetch('/api/l-system-delay' + path.slice(4), body === undefined ? {} : {
             method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body)
           });
           if (!response.ok) throw new Error('Visual fixture request failed');
-          return response.json();
-        }, prepareAudio: async () => {}, muteForDeparture() {}, dispose() {} };
+          const reply = await response.json();
+          if (path === '/api/status') onStatus(reply);
+          return reply;
+        }, getSampleTime: () => null, prepareAudio: async () => {}, muteForDeparture() {}, dispose() {} };
       }`);
       return;
     }
