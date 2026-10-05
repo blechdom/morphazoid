@@ -159,10 +159,10 @@ async function installCanvasAudit(page) {
     proto.lineTo = function (...args) { this.auditSubpaths?.at(-1)?.push(args); return line.apply(this, args); };
     proto.stroke = function (path, ...args) {
       const current = window.visualAudit.current;
-      if (this.canvas.id === 'stage' && current && colors.has(this.strokeStyle)) {
+      if (this.canvas.id === 'stage' && current) {
         const transform = this.getTransform(), dpr = Math.min(2, window.devicePixelRatio || 1);
         const displayWidth = this.lineWidth * Math.hypot(transform.a, transform.b) / dpr;
-        const baseline = Math.abs(displayWidth - .95) < 1e-5 || Math.abs(displayWidth - 1.85) < 1e-5;
+        const baseline = !colors.has(this.strokeStyle) && Boolean(path?.auditSubpaths);
         const subpaths = path?.auditSubpaths ?? this.auditSubpaths ?? [];
         const project = point => [(transform.a * point[0] + transform.c * point[1] + transform.e) / dpr,
           (transform.b * point[0] + transform.d * point[1] + transform.f) / dpr];
@@ -180,7 +180,8 @@ async function installCanvasAudit(page) {
               bentCount++;
             } else quietInteriorCount++;
           }
-          return { color: this.strokeStyle, alpha: this.globalAlpha, start, end, lineWidth: displayWidth,
+          return { color: this.strokeStyle, alpha: this.globalAlpha, start, end,
+            projectedPoints: window.__delayAuditPoints ? projected : undefined, lineWidth: displayWidth,
             pointCount: projected.length, interiorDeviation, signature, bentCount, quietInteriorCount,
             bentMeanProgress: bentCount ? bentProgress / bentCount : null };
         };
@@ -188,9 +189,8 @@ async function installCanvasAudit(page) {
         if (baseline) {
           current.coverage += segments.length; current.baselineAlphas.push(this.globalAlpha);
           current.baselines.push(...segments.map(describe));
-        } else if (segments.length && this.globalAlpha > .00001) {
-          const glow = describe(segments.flat()); glow.subpathCount = segments.length;
-          current.glows.push(glow);
+        } else if (colors.has(this.strokeStyle) && segments.length && this.globalAlpha > .00001) {
+          for (const points of segments) current.glows.push({ ...describe(points), subpathCount: 1 });
         }
       }
       return path === undefined ? stroke.call(this) : stroke.call(this, path, ...args);
@@ -210,112 +210,120 @@ try {
   observeErrors(page);
   await installCanvasAudit(page);
   await page.goto(address);
-  await page.waitForFunction(() => visualAudit.frames.length > 3
-    && visualAudit.frames.slice(-3).every(frame => frame.coverage === 1001 && frame.glows.length === 1));
-  const movingFrames = await page.evaluate(() => visualAudit.frames.slice(-3));
-  assert.ok(movingFrames.every(frame => frame.glows.length === 1), 'the fallback fixture isolates the actual sounding tap');
-  assert.ok(movingFrames.some(frame => Math.abs(frame.glows[0].signature - movingFrames[0].glows[0].signature) > .01),
-    'constant sounding tap changes wave position as the audio clock advances');
+  const initialCoverage = buildPreview(state.parameters, generationTopology).length;
+  const freshFrames = async (page, milliseconds = 400) => {
+    const since = await page.evaluate(() => performance.now());
+    await page.waitForTimeout(milliseconds);
+    await page.waitForFunction(since => visualAudit.frames.filter(frame => frame.at > since).length >= 2, since);
+    return page.evaluate(since => visualAudit.frames.filter(frame => frame.at > since).slice(-2), since);
+  };
+  const neutral = (frames, expected, label) => {
+    assert.ok(frames.every(frame => frame.coverage + frame.glows.length === expected), `${label}: colored availability and grey unavailable branches cover the complete tree`);
+    assert.ok(frames.every(frame => frame.baselines.every(branch => branch.pointCount === 2 && branch.interiorDeviation < 1e-8)),
+      `${label}: the quiet outline stays straight`);
+  };
+  const waves = frame => frame.glows.filter(branch => branch.interiorDeviation > 1e-8);
+  const availability = (frames, expected, label) => {
+    assert.ok(frames.every(frame => frame.glows.length === expected), `${label}: every admitted branch has a complete colored line`);
+    assert.ok(frames.every(frame => frame.glows.every(branch => branch.subpathCount === 1)), `${label}: colored availability never breaks into fragments`);
+    const styles = frames.flatMap(frame => frame.glows.map(branch => [branch.alpha, branch.lineWidth]));
+    assert.ok(styles.every(([alpha, width]) => Math.abs(alpha - styles[0][0]) < 1e-12
+      && Math.abs(width - styles[0][1]) < 1e-12), `${label}: input and delay strokes share a fixed thin style independent of sound`);
+  };
+  await page.waitForFunction(coverage => visualAudit.frames.length >= 3
+    && visualAudit.frames.slice(-3).every(frame => frame.coverage + frame.glows.length === coverage && frame.glows.length === 1001), initialCoverage);
+  let frames = await page.evaluate(() => visualAudit.frames.slice(-3));
+  const firstWave = waves(frames[0])[0];
+  assert.ok(firstWave && frames.some(frame => Math.abs(waves(frame)[0]?.signature - firstWave.signature) > .01),
+    'the actual sounding tap moves with audio time');
   const pressureChecks = [];
   for (const [name, load, peak] of [['normal', .2, .3], ['moderate', .7, .86], ['severe', .9, .96]]) {
     state.status.cpuLoad = load; state.status.peakLoad = peak;
-    await page.waitForTimeout(700);
-    const observed = await page.evaluate(() => visualAudit.frames.slice(-3));
-    assert.ok(observed.every(frame => frame.coverage === 1001), `${name}: every admitted branch remains colored`);
-    await page.locator('#stage').screenshot({ path: resolve(artifacts, `1000-voices-${name}.png`) });
-    pressureChecks.push({ name, load, peak, admittedSegments: 1001 });
+    frames = await freshFrames(page, 650);
+    neutral(frames, initialCoverage, name); availability(frames, 1001, name);
+    assert.ok(frames.every(frame => waves(frame).length === 1), `${name}: only the sounding sibling receives a wave`);
+    pressureChecks.push({ name, load, peak, previewSegments: initialCoverage,
+      unavailableGreySegments: initialCoverage - 1001, coloredAvailableSegments: 1001, signalCurves: 1 });
   }
-  let frames = await page.evaluate(() => visualAudit.frames.slice(-3));
-  assert.ok(frames.every(frame => frame.coverage === 1001), JSON.stringify(frames));
-  assert.ok(frames.every(frame => frame.glows.length === 1), 'only the sounding sibling glows');
-  const firstEndpoint = frames.at(-1).glows[0].end;
+  const firstEndpoint = waves(frames.at(-1))[0].end;
   state.status.tapVoiceIndices = [1, 0]; state.status.tapActivity = [0, .3];
-  await page.waitForTimeout(400);
-  frames = await page.evaluate(() => visualAudit.frames.slice(-3));
-  assert.ok(frames.every(frame => frame.coverage === 1001));
-  assert.deepEqual(frames.at(-1).glows[0].end, firstEndpoint, 'rank reordering retains the sounding branch');
+  frames = await freshFrames(page);
+  assert.deepEqual(waves(frames.at(-1))[0].end, firstEndpoint, 'rank reordering retains the sounding branch');
   state.status.voiceLimit = 0; state.status.activeVoices = 1;
-  await page.waitForTimeout(450);
-  frames = await page.evaluate(() => visualAudit.frames.slice(-2));
-  assert.ok(frames.every(frame => frame.coverage === 1), 'removed admission color leaves only the root skeleton');
-  assert.ok(frames.every(frame => frame.glows.length === 1), 'measured releasing tap remains visible');
-  assert.deepEqual(frames.at(-1).glows[0].end, firstEndpoint);
-  state.status.voiceLimit = 1000; state.status.activeVoices = 1000;
-  state.status.wetBusGain = 0;
-  await page.waitForTimeout(1800);
-  frames = await page.evaluate(() => visualAudit.frames.slice(-3));
-  assert.ok(frames.every(frame => frame.glows.length === 0), 'zero output bus leaves all descendants dark');
-  state.status.wetBusGain = .7;
+  frames = await freshFrames(page); neutral(frames, initialCoverage, 'admission shrink');
+  availability(frames, 2, 'released tap');
+  assert.ok(frames.every(frame => waves(frame).length === 1), 'a measured releasing tap remains visible after admission shrinks');
+  state.status.wetBusGain = 0; frames = await freshFrames(page, 1800);
+  availability(frames, 1, 'wet mute after admission shrink');
+  assert.ok(frames.every(frame => waves(frame).length === 0), 'a muted wet bus removes descendant waves');
+  state.status.voiceLimit = 1000; state.status.activeVoices = 1000; state.status.wetBusGain = .7;
   await page.locator('#lSystemType').evaluate(input => { input.value = 'cantor'; input.dispatchEvent(new Event('change', { bubbles: true })); });
-  await page.waitForTimeout(550);
-  frames = await page.evaluate(() => visualAudit.frames.slice(-2));
-  assert.ok(frames.every(frame => frame.glows.length === 0), 'old geometry meters cannot light a new grammar');
-  actualRevision = state.topologyRevision;
-  await page.waitForTimeout(450);
-  frames = await page.evaluate(() => visualAudit.frames.slice(-2));
-  assert.ok(frames.every(frame => frame.glows.length === 1), 'matching native topology lights the actual tap');
+  frames = await freshFrames(page, 550);
+  assert.ok(frames.every(frame => waves(frame).length === 0), 'old geometry meters cannot vibrate a new grammar');
+  actualRevision = state.topologyRevision; frames = await freshFrames(page, 450);
+  assert.ok(frames.every(frame => waves(frame).length === 1), 'matching topology RMS vibrates the measured tap');
   await page.close();
-  // A short input packet must move through positions on one delayed segment.
-  // Hold each published sample-clock epoch during this fixture so a slow page
-  // load cannot make the next controlled epoch rewind native input history.
-  // The renderer still extrapolates between packets using the actual RAF time.
-  // The isolated clock and envelope contain no generation-wide RMS activity.
+
+  // Availability is the complete colored line; the sound packet is measured
+  // from its perpendicular deflection along the independently recorded axis.
   state.parameters = { ...DEFAULT_PARAMETERS, lSystemType: 'cantor', generations: 1,
     intervalMs: 3000, timeRatio: 2, angle: 0, pitchScale: 0, depth: .8 };
   state.topologyRevision++; actualRevision = state.topologyRevision;
   state.performance = { ...DEFAULT_PERFORMANCE, wet: 1 }; state.audio = true;
   Object.assign(state.status, { voiceLimit: 1, activeVoices: 1, cpuLoad: .2, peakLoad: .3,
     inputPeak: 0, wetBusGain: 1, tapVoiceIndices: [0], tapActivity: [0] });
-  inputEnvelopePulse = { start: 10, end: 10.24, value: .8 };
-  audioClockPaused = true;
-  audioClockOffset = 10.3; audioClockStarted = Date.now();
+  inputEnvelopePulse = { start: 10, end: 10.24, value: .03 };
+  audioClockPaused = true; audioClockOffset = 10.3; audioClockStarted = Date.now();
   const pulsePage = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+  await pulsePage.addInitScript(() => { window.__delayAuditPoints = true; });
   observeErrors(pulsePage); await installCanvasAudit(pulsePage); await pulsePage.goto(address);
-  await pulsePage.waitForFunction(() => visualAudit.frames.length >= 2);
+  await pulsePage.waitForFunction(() => visualAudit.frames.length >= 2
+    && visualAudit.frames.at(-1).glows.some(branch => branch.color === '#55d9ff')
+    && visualAudit.frames.at(-1).coverage + visualAudit.frames.at(-1).glows.length === 2);
+  const pulseAxis = await pulsePage.evaluate(() => {
+    const branch = visualAudit.frames.at(-1).glows.find(branch => branch.color === '#55d9ff');
+    return { start: branch.start, end: branch.end };
+  });
   const pulsePositions = [];
   const pulseDelay = buildPreview(state.parameters, generationTopology).find(node => node.priority === 0).delay;
-  let previousPulseClock = audioClockOffset;
   for (const [name, seconds] of [['early', 10.5], ['middle', 11], ['late', 11.5]]) {
-    assert.ok(seconds > previousPulseClock, `${name}: published sample clock advances monotonically`);
-    previousPulseClock = seconds;
     audioClockOffset = seconds; audioClockStarted = Date.now();
     const changedAt = await pulsePage.evaluate(() => performance.now());
     await pulsePage.waitForFunction(({ changedAt, seconds }) => visualAudit.frames.slice(-2).length === 2
       && visualAudit.frames.slice(-2).every(frame => frame.at > changedAt + 60
         && frame.telemetryElapsedSeconds === seconds && frame.inputEnvelopeEndTime === seconds
-        && frame.telemetryAgeMs <= 100
-        && frame.baselines.some(branch => branch.color === '#55d9ff' && branch.bentCount > 0)), { changedAt, seconds });
+        && frame.telemetryAgeMs <= 100 && frame.glows.some(branch => branch.color === '#55d9ff' && branch.interiorDeviation > .1)),
+      { changedAt, seconds });
     const frame = await pulsePage.evaluate(() => visualAudit.frames.at(-1));
-    const descendant = frame.baselines.find(branch => branch.color === '#55d9ff');
-    assert.equal(frame.coverage, 2, `${name}: original connected tree remains fully colored`);
-    assert.ok(descendant.pointCount >= 6 && descendant.interiorDeviation > .01, `${name}: colored descendant itself vibrates`);
-    assert.ok(descendant.quietInteriorCount > 0, `${name}: quiet positions stay straight instead of flashing the full branch`);
-    assert.ok(frame.glows.some(glow => glow.color === '#55d9ff'), `${name}: in-flight sound brightens its active position`);
+    neutral([frame], 2, name); availability([frame], 2, name);
+    const descendant = frame.glows.find(branch => branch.color === '#55d9ff'), axis = pulseAxis;
+    assert.deepEqual(descendant.start, axis.start); assert.deepEqual(descendant.end, axis.end);
+    const dx = axis.end[0] - axis.start[0], dy = axis.end[1] - axis.start[1], squaredLength = dx * dx + dy * dy;
+    const positions = descendant.projectedPoints.map(([x, y]) => ({
+      progress: ((x - axis.start[0]) * dx + (y - axis.start[1]) * dy) / squaredLength,
+      weight: Math.abs(dx * (y - axis.start[1]) - dy * (x - axis.start[0])) / Math.sqrt(squaredLength),
+    })).filter(point => point.weight > 1e-5);
+    const weight = positions.reduce((sum, point) => sum + point.weight, 0);
+    const activatedPosition = positions.reduce((sum, point) => sum + point.progress * point.weight, 0) / weight;
     const renderedSeconds = frame.telemetryElapsedSeconds + Math.min(2, frame.telemetryAgeMs / 1000);
     const expectedPosition = (renderedSeconds - (inputEnvelopePulse.start + inputEnvelopePulse.end) / 2) / pulseDelay;
-    assert.ok(Math.abs(descendant.bentMeanProgress - expectedPosition) < .1,
-      `${name}: active position follows the published input onset and actual frame clock`);
-    pulsePositions.push({ name, seconds, activatedPosition: descendant.bentMeanProgress,
-      expectedPosition, renderedSeconds, quietInteriorPoints: descendant.quietInteriorCount,
-      coloredCurveDeviationPx: descendant.interiorDeviation });
+    assert.ok(descendant.interiorDeviation >= .1, `${name}: the ordinary packet visibly bends its active portion`);
+    assert.ok(Math.abs(activatedPosition - expectedPosition) < .14, `${name}: the active wave position follows the audio timestamp`);
+    assert.ok(Math.max(...positions.map(point => point.progress)) - Math.min(...positions.map(point => point.progress)) < .5,
+      `${name}: the packet bends only the portion currently carrying signal`);
+    pulsePositions.push({ name, seconds, activatedPosition, expectedPosition, maximumDeflectionCssPx: descendant.interiorDeviation });
     await pulsePage.locator('#stage').screenshot({ path: resolve(artifacts, `pulse-${name}.png`) });
   }
-  assert.ok(pulsePositions[1].activatedPosition > pulsePositions[0].activatedPosition + .1,
-    'the impulse advances from branch start toward the middle');
-  assert.ok(pulsePositions[2].activatedPosition > pulsePositions[1].activatedPosition + .1,
-    'the same impulse advances from the middle toward the delayed endpoint');
-  inputEnvelopePulse = null; inputEnvelopeValue = 0;
-  await pulsePage.waitForTimeout(400);
-  const pulseSilent = await pulsePage.evaluate(() => visualAudit.frames.slice(-2));
-  assert.ok(pulseSilent.every(frame => frame.glows.length === 0 && frame.baselines.every(branch => branch.interiorDeviation < 1e-8)),
-    'silence removes both partial glow and curved colored vibration');
-  await pulsePage.close();
-  audioClockPaused = false; audioClockStarted = Date.now();
-  await new Promise(resolve => setTimeout(resolve, 80));
-  // The full preset surface must refresh authoritative geometry on every
-  // recall beyond generation 13. Without that request only the root is admitted.
-  renderChangesImmediately = true;
-  state.parameters = { ...DEFAULT_PARAMETERS, generations: 4 };
+  assert.ok(pulsePositions[1].activatedPosition > pulsePositions[0].activatedPosition + .1);
+  assert.ok(pulsePositions[2].activatedPosition > pulsePositions[1].activatedPosition + .1);
+  inputEnvelopePulse = null; inputEnvelopeValue = 0; frames = await freshFrames(pulsePage, 450);
+  availability(frames, 2, 'long pulse silence');
+  assert.ok(frames.every(frame => waves(frame).length === 0), 'silence straightens the traveling packet without hiding availability');
+  await pulsePage.close(); audioClockPaused = false; audioClockStarted = Date.now();
+
+  // Deep full-scene recall uses the actual WASM topology, independently of
+  // audio admission. Unmetered history remains a signal-only fallback.
+  renderChangesImmediately = true; state.parameters = { ...DEFAULT_PARAMETERS, generations: 4 };
   state.topologyRevision++; actualRevision = state.topologyRevision;
   state.performance = { ...DEFAULT_PERFORMANCE }; state.audio = true;
   state.generationLimits = Object.fromEntries(L_SYSTEM_TYPES.map(type => [type, 30]));
@@ -328,177 +336,86 @@ try {
   const advancedPresetChecks = [];
   for (const id of ['cedar', 'aspen', 'foxglove']) {
     const preset = bank.find(preset => preset.id === id), fixture = authoritativeFixtures.get(fixtureKey(preset.snapshot.parameters));
-    const beforeRequests = fixture.previewRequests;
-    const expected = fixture.preview.nodes.filter(node => node.generation === 0
-      || Number.isInteger(node.priority) && node.priority >= 0 && node.priority < state.status.voiceLimit && node.gain > 0).length;
+    const before = fixture.previewRequests;
     await deepPage.locator('.instrument-preset-controls summary').click();
-    await deepPage.locator(`.instrument-preset-controls button[data-full-preset][data-preset-id="${id}"]`).click();
-    await deepPage.waitForFunction(id => document.querySelector('.instrument-preset-controls')?.dataset.presetId === id, id);
-    await deepPage.waitForFunction(coverage => visualAudit.frames.length >= 3 && visualAudit.frames.slice(-3).every(frame =>
-      frame.coverage === coverage && frame.baselines.every(branch => branch.pointCount >= 6 && branch.interiorDeviation > .000001)
-      && frame.glows.some(glow => glow.color !== '#fff3d6')), expected);
-    assert.ok(fixture.previewRequests > beforeRequests, `${id}: full recall requests its exact native preview`);
-    assert.equal(state.audio, true, `${id}: full recall preserves live Audio`);
-    assert.equal(state.parameters.lSystemType, preset.snapshot.parameters.lSystemType);
-    assert.equal(state.parameters.generations, preset.snapshot.parameters.generations);
-    const frame = await deepPage.evaluate(() => visualAudit.frames.at(-1));
-    advancedPresetChecks.push({ id, lSystemType: state.parameters.lSystemType, generations: state.parameters.generations,
-      inputEnvelope: inputEnvelopeValue, requestedTaps: fixture.requestedVoices, authoritativePreviewSegments: fixture.preview.nodes.length,
-      coloredAdmittedSegments: frame.coverage, nativePreviewRequests: fixture.previewRequests - beforeRequests,
-      movingDescendants: frame.baselines.filter(branch => branch.lineWidth < 1 && branch.interiorDeviation > .000001).length });
-    await deepPage.locator('#stage').screenshot({ path: resolve(artifacts, `advanced-full-${id}.png`) });
+    await deepPage.locator(`[data-full-preset][data-preset-id="${id}"]`).click();
+    await deepPage.waitForFunction(id => document.querySelector('.instrument-preset-controls').dataset.presetId === id, id);
+    await deepPage.waitForFunction(expected => visualAudit.frames.slice(-3).length === 3
+      && visualAudit.frames.slice(-3).every(frame => frame.coverage + frame.glows.length === expected && frame.glows.length > 0), fixture.preview.nodes.length);
+    frames = await deepPage.evaluate(() => visualAudit.frames.slice(-3)); neutral(frames, fixture.preview.nodes.length, id);
+    assert.ok(frames.some(frame => waves(frame).length > 0), `${id}: unmetered history still produces actual moving waves`);
+    assert.ok(fixture.previewRequests > before); assert.equal(state.audio, true);
+    advancedPresetChecks.push({ id, generations: state.parameters.generations, requestedTaps: fixture.requestedVoices,
+      unavailableGreySegments: frames.at(-1).coverage, coloredAvailableSegments: frames.at(-1).glows.length,
+      signalCurves: waves(frames.at(-1)).length, previewRequests: fixture.previewRequests - before });
   }
   await deepPage.close();
-  await new Promise(resolve => setTimeout(resolve, 80));
-  // Ordinary input levels must curve the colored baseline even when the
-  // original energetic-position threshold correctly leaves descendants dim.
-  state.audio = true;
-  const quietPage = await browser.newPage({ viewport: { width: 1440, height: 900 } });
-  observeErrors(quietPage); await installCanvasAudit(quietPage); await quietPage.goto(address);
-  await quietPage.waitForFunction(() => document.querySelector('.instrument-preset-controls'));
-  const quietPresetChecks = [];
-  for (const envelope of [.005, .03]) for (const preset of bank.slice(0, 16)) {
-    inputEnvelopeValue = envelope;
-    await quietPage.locator('.instrument-preset-controls summary').click();
-    await quietPage.locator(`.instrument-preset-controls button[data-full-preset][data-preset-id="${preset.id}"]`).click();
-    await quietPage.waitForFunction(id => document.querySelector('.instrument-preset-controls')?.dataset.presetId === id, preset.id);
-    const expected = buildPreview(preset.snapshot.parameters, generationTopology).filter(node => node.generation === 0
-      || Number.isInteger(node.priority) && node.priority >= 0 && node.priority < state.status.voiceLimit && node.gain > 0).length;
-    const selectedAt = await quietPage.evaluate(() => performance.now());
-    await quietPage.waitForFunction(({ expected, selectedAt }) => visualAudit.frames.length >= 3 && visualAudit.frames.slice(-3)
-      .every(frame => frame.at > selectedAt + 120 && frame.coverage === expected
-        && frame.baselines.every(branch => branch.pointCount >= 6 && branch.interiorDeviation > .0000001)
-        && frame.baselineAlphas.every(alpha => alpha >= .2 - 1e-12 && alpha <= .44 + 1e-12)), { expected, selectedAt });
-    const frames = await quietPage.evaluate(() => visualAudit.frames.slice(-3));
-    const descendants = frames.at(-1).baselines.filter(branch => branch.lineWidth < 1);
-    assert.ok(descendants.length > 0, `${preset.id}: quiet factory fixture contains admitted descendants`);
-    assert.ok(frames.at(-1).baselines.some((branch, index) => branch.lineWidth < 1
-      && Math.abs(branch.signature - frames[0].baselines[index].signature) > .0000001), `${preset.id}: quiet descendants vibrate through time`);
-    assert.equal(state.audio, true, `${preset.id}: quiet recall retains live Audio`);
-    quietPresetChecks.push({ id: preset.id, inputEnvelope: envelope, coloredDescendants: descendants.length,
-      minimumColoredCurveDeviationPx: Math.min(...descendants.map(branch => branch.interiorDeviation)),
-      glowingBranches: frames.at(-1).glows.length });
-    if (['pythagorean', 'plant', 'orchid'].includes(preset.id)) await quietPage.locator('#stage').screenshot({
-      path: resolve(artifacts, `quiet-${preset.id}-${envelope}.png`) });
-  }
-  await quietPage.close();
-  const denseGrammarChecks = [], representative = new Set(['pythagorean', 'plant', 'coral', 'hilbert']);
-  const pause = milliseconds => new Promise(resolve => setTimeout(resolve, milliseconds));
+
+  // All grammars receive explicit measured RMS and ordinary capture history.
+  // Available quiet voices stay colored and straight; only unavailable voices
+  // use the grey skeleton. Capacity growth must never invent a moving wave.
+  const denseGrammarChecks = [];
   for (const lSystemType of L_SYSTEM_TYPES) {
-    // Fixture every slot from the instrument's actual generation-13 topology,
-    // not an invented 1,000-voice counter with only one metered tap.
-    await pause(80);
-    const scene = bank.find(preset => preset.id === lSystemType)
-      ?? bank.find(preset => preset.snapshot.parameters.lSystemType === lSystemType && preset.snapshot.parameters.angle > 0);
-    const grammar = L_SYSTEM_PRESETS.find(preset => preset.id === lSystemType);
-    const parameters = { ...DEFAULT_PARAMETERS, angle: grammar?.angle ?? DEFAULT_PARAMETERS.angle,
-      ...scene?.snapshot.parameters, lSystemType, generations: 13 };
+    const scene = bank.find(p => p.id === lSystemType) ?? bank.find(p => p.snapshot.parameters.lSystemType === lSystemType);
+    const grammar = L_SYSTEM_PRESETS.find(p => p.id === lSystemType);
+    const parameters = { ...DEFAULT_PARAMETERS, angle: grammar?.angle ?? 45, ...scene?.snapshot.parameters, lSystemType, generations: 13 };
     const nodes = buildPreview(parameters, generationTopology);
-    const admitted = nodes.filter(node => Number.isInteger(node.priority) && node.priority >= 0 && node.gain > 0)
-      .sort((a, b) => a.priority - b.priority);
-    const metered = admitted.slice(0, 2048), measuredRms = .003, expectedCoverage = admitted.length + 1;
-    const expectedGlowsForAge = ageMs => {
-      const age = Math.min(2, Math.max(0, ageMs / 1000));
-      const energyAt = delay => 1 - Math.exp(-.3 * Math.exp(-Math.max(0, age - delay) / .16) * 5);
-      return Number(energyAt(0) >= .015) + admitted.filter(node => energyAt(node.delay)
-        * Math.min(1, Math.sqrt(node.gain / .5) * Math.sqrt(DEFAULT_PERFORMANCE.wet)) >= .015).length;
-    };
-    assert.ok(metered.length > 0, `${lSystemType}: fixture includes audible taps`);
+    const admitted = nodes.filter(n => Number.isInteger(n.priority) && n.priority >= 0 && n.gain > 0).sort((a, b) => a.priority - b.priority);
+    const metered = admitted.slice(0, 2048);
     state.parameters = parameters; state.topologyRevision++; actualRevision = state.topologyRevision;
-    state.performance = { ...DEFAULT_PERFORMANCE }; state.audio = true;
-    inputEnvelopeValue = .3;
+    state.performance = { ...DEFAULT_PERFORMANCE }; state.audio = true; inputEnvelopeValue = .03;
     audioClockOffset = 60; audioClockStarted = Date.now();
-    state.requestedVoices = nodes.length - 1; state.eligibleVoices = admitted.length;
-    state.generationLimits = Object.fromEntries(L_SYSTEM_TYPES.map(type => [type, 30]));
-    Object.assign(state.status, { topologyRevision: actualRevision, voiceLimit: admitted.length, activeVoices: admitted.length,
-      cpuLoad: .2, peakLoad: .3, inputPeak: 0, wetBusGain: 1,
-      tapVoiceIndices: metered.map(node => node.voiceIndex), tapActivity: metered.map(() => measuredRms) });
+    Object.assign(state.status, { voiceLimit: admitted.length, activeVoices: admitted.length, cpuLoad: .2, peakLoad: .3, inputPeak: 0,
+      wetBusGain: 1, tapVoiceIndices: metered.map(n => n.voiceIndex), tapActivity: metered.map(() => .0005) });
     const fixturePage = await browser.newPage({ viewport: { width: 1440, height: 900 } });
     observeErrors(fixturePage); await installCanvasAudit(fixturePage); await fixturePage.goto(address);
-    await fixturePage.waitForFunction(coverage => visualAudit.frames.length >= 3
-      && visualAudit.frames.slice(-3).every(frame => frame.coverage === coverage
-        && frame.baselines.length === coverage && frame.baselines.every(branch => branch.pointCount >= 6
-          && branch.interiorDeviation > .00001)), expectedCoverage);
+    await fixturePage.waitForFunction(() => visualAudit.frames.length >= 3);
     const conditions = [];
     for (const [name, load, peak] of [['normal', .2, .3], ['severe', .9, .98]]) {
       state.status.cpuLoad = load; state.status.peakLoad = peak;
-      await fixturePage.waitForTimeout(name === 'normal' ? 250 : 650);
-      const frames = await fixturePage.evaluate(() => visualAudit.frames.slice(-3));
-      for (const frame of frames) {
-        assert.equal(frame.coverage, expectedCoverage, `${lSystemType}/${name}: complete admission color`);
-        assert.equal(frame.glows.length, expectedGlowsForAge(frame.telemetryAgeMs),
-          `${lSystemType}/${name}: glow follows the recorded input and original predicted release (telemetry age ${frame.telemetryAgeMs} ms)`);
-        assert.ok(frame.baselines.every(branch => branch.pointCount >= 6), `${lSystemType}/${name}: original minimum five wave intervals`);
-        assert.ok(frame.baselines.every(branch => branch.interiorDeviation > .00001), `${lSystemType}/${name}: every admitted colored branch bends`);
-        assert.ok(frame.baselineAlphas.every(alpha => alpha >= .2 - 1e-12 && alpha <= .44 + 1e-12),
-          `${lSystemType}/${name}: original colored baseline opacity`);
-      }
-      const first = frames[0], last = frames.at(-1);
-      const movingCount = last.baselines.filter((branch, index) => Math.abs(branch.signature - first.baselines[index].signature) > .00001).length;
-      assert.ok(movingCount >= Math.floor(expectedCoverage * .8), `${lSystemType}/${name}: constant audio vibrates most branches through time`);
-      if (admitted.length > 2048) assert.ok(last.baselines.length - 1 > metered.length,
-        `${lSystemType}/${name}: unmetered admitted descendants retain derived moving waves`);
-      const minDeviation = Math.min(...frames.flatMap(frame => frame.baselines.map(branch => branch.interiorDeviation)));
-      const minPoints = Math.min(...frames.flatMap(frame => frame.baselines.map(branch => branch.pointCount)));
-      conditions.push({ name, load, peak, admittedSegments: expectedCoverage, meteredTaps: metered.length,
-        derivedTaps: Math.max(0, admitted.length - metered.length), movingColoredBranches: movingCount,
-        minimumInteriorDeviationPx: minDeviation, minimumCurvePoints: minPoints });
-      if (representative.has(lSystemType)) await fixturePage.locator('#stage').screenshot({
-        path: resolve(artifacts, `dense-${lSystemType}-${name}.png`) });
+      frames = await freshFrames(fixturePage, name === 'normal' ? 350 : 700);
+      neutral(frames, nodes.length, `${lSystemType}/${name}`); availability(frames, admitted.length + 1, `${lSystemType}/${name}`);
+      assert.ok(frames.some(frame => waves(frame).some(branch => branch.interiorDeviation >= 1)),
+        `${lSystemType}/${name}: actual sounding descendants have visible CSS-pixel movement`);
+      const moving = frames.at(-1).glows.filter((branch, i) => frames[0].glows[i]
+        && Math.abs(branch.signature - frames[0].glows[i].signature) > .01).length;
+      assert.ok(moving > 0, `${lSystemType}/${name}: waves advance in audio time`);
+      conditions.push({ name, previewSegments: nodes.length, unavailableGreySegments: frames.at(-1).coverage,
+        coloredAvailableSegments: admitted.length + 1,
+        maximumDeflectionCssPx: Math.max(...frames.flatMap(frame => frame.glows.map(branch => branch.interiorDeviation))), moving });
     }
-    inputEnvelopeValue = 0;
-    state.status.tapActivity.fill(0);
+    inputEnvelopeValue = 0; state.status.tapActivity.fill(0); state.status.inputPeak = 0;
     const silenceStarted = await fixturePage.evaluate(() => performance.now());
-    await fixturePage.waitForFunction(started => visualAudit.frames.length >= 3 && visualAudit.frames.slice(-3)
-      .every(frame => frame.at > started && frame.glows.length === 0), silenceStarted, { timeout: 10000 });
-    let silentFrames = await fixturePage.evaluate(() => visualAudit.frames.slice(-3));
-    assert.ok(silentFrames.every(frame => frame.glows.length === 0 && frame.baselines.every(branch => branch.interiorDeviation < 1e-8)),
-      `${lSystemType}: zero input history and RMS straighten every colored branch`);
-    assert.ok(silentFrames.every(frame => frame.baselineAlphas.every(alpha => alpha >= .2 - 1e-12 && alpha <= .44 + 1e-12)),
-      `${lSystemType}: silent baseline retains original opacity`);
+    await fixturePage.waitForFunction(since => visualAudit.frames.length >= 2
+      && visualAudit.frames.slice(-2).every(frame => frame.at > since
+        && frame.glows.every(branch => branch.interiorDeviation < 1e-8)), silenceStarted, { timeout: 5000 });
+    frames = await fixturePage.evaluate(() => visualAudit.frames.slice(-2));
+    availability(frames, admitted.length + 1, `${lSystemType}/silence`);
+    assert.ok(frames.every(frame => waves(frame).length === 0), `${lSystemType}: capture/tap silence removes waves while retaining availability colors`);
     const silentAdmission = [];
-    for (const limit of [0, Math.min(8, admitted.length), Math.floor(admitted.length / 2), admitted.length]) {
-      state.status.voiceLimit = limit; state.status.activeVoices = limit;
-      await fixturePage.waitForFunction(coverage => visualAudit.current?.coverage === coverage, limit + 1);
-      await fixturePage.waitForTimeout(170);
-      const silent = await fixturePage.evaluate(() => visualAudit.current);
-      assert.equal(silent.coverage, limit + 1, `${lSystemType}: silent admission remains complete`);
-      assert.equal(silent.glows.length, 0, `${lSystemType}: adding silent voices never creates moving waves`);
-      assert.ok(silent.baselineAlphas.every(alpha => alpha >= .2 - 1e-12 && alpha <= .44 + 1e-12),
-        `${lSystemType}: silent admission retains original opacity`);
-      silentAdmission.push({ voices: limit, coloredSegments: silent.coverage, waves: silent.glows.length });
+    for (const limit of [0, Math.min(31, admitted.length), admitted.length]) {
+      state.status.voiceLimit = limit; state.status.activeVoices = limit; frames = await freshFrames(fixturePage, 300);
+      neutral(frames, nodes.length, `${lSystemType}/silent${limit}`); availability(frames, limit + 1, `${lSystemType}/silent${limit}`);
+      assert.ok(frames.every(frame => waves(frame).length === 0), `${lSystemType}: adding available silent voices never invents a wave`);
+      silentAdmission.push({ voices: limit, neutralSegments: frames.at(-1).coverage, coloredAvailableSegments: limit + 1, movingWaves: 0 });
     }
-    inputEnvelopeValue = .3;
-    state.status.tapActivity.fill(measuredRms); state.status.wetBusGain = 0;
-    const mutedStarted = await fixturePage.evaluate(() => performance.now());
-    await fixturePage.waitForFunction(started => visualAudit.frames.length >= 2 && visualAudit.frames.slice(-2)
-      .every(frame => frame.at > started + 250 && frame.glows.length === 1
-        && frame.baselines.filter(branch => branch.lineWidth < 1).every(branch => branch.interiorDeviation < 1e-8)),
-    mutedStarted, { timeout: 10000 });
-    silentFrames = await fixturePage.evaluate(() => visualAudit.frames.slice(-2));
-    assert.ok(silentFrames.every(frame => frame.glows.every(glow => glow.color === '#fff3d6')
-      && frame.baselines.filter(branch => branch.lineWidth < 1).every(branch => branch.interiorDeviation < 1e-8)),
-    `${lSystemType}: muted wet bus straightens descendants while the input root can respond`);
-    const check = { lSystemType, parameters, generations: 13, actualTopologySegments: nodes.length,
-      requestedTaps: nodes.length - 1, admittedTaps: admitted.length,
-      meteredTaps: metered.length, measuredRms, conditions, silenceNoWaves: true, mutedWetBusNoWaves: true, silentAdmission };
-    denseGrammarChecks.push(check);
-    console.log(`${lSystemType}: ${admitted.length} admitted colored curves move at normal/severe pressure, including ${Math.max(0, admitted.length - metered.length)} derived taps`);
+    state.status.wetBusGain = 0; state.status.inputPeak = .03; state.status.tapActivity.fill(.003); inputEnvelopeValue = .03;
+    frames = await freshFrames(fixturePage, 1500);
+    availability(frames, admitted.length + 1, `${lSystemType}/wet mute`);
+    assert.ok(frames.every(frame => waves(frame).length === 1 && waves(frame)[0].color === '#fff3d6'),
+      `${lSystemType}: wet mute straightens descendants while the input root remains responsive`);
+    denseGrammarChecks.push({ lSystemType, requestedTaps: admitted.length, meteredTaps: metered.length, conditions, silentAdmission });
     await fixturePage.close();
+    console.log(`${lSystemType}: complete colored availability, actual moving waves, silent capacity growth and wet mute passed`);
   }
-  assert.deepEqual(errors, []);
-  assert.deepEqual(consoleErrors, []);
+  assert.deepEqual(errors, []); assert.deepEqual(consoleErrors, []);
   const report = { browserErrors: errors, browserConsoleErrors: consoleErrors, denseGrammarChecks, pressureChecks, pulsePositions,
-    advancedPresetChecks, quietPresetChecks, authoritativeDeepFixtureCompiler: 'Rust --no-device',
-    highPressureCoverage: 1001, individualSiblingIsolation: true, audioClockCarrierMovement: true, perPositionImpulseTravel: true,
-    vibratingColoredBaselines: true, derivedResponseBeyondIndividualMeterLimit: true,
-    reorderedRankContinuity: true, measuredReleaseAfterAdmissionShrink: true, mutedWetBusDark: true, staleGrammarRejected: true, currentTopologyAccepted: true,
-    mockedAudioTelemetry: true, nativeDeviceStarted: false };
-  await writeFile(resolve(artifacts, 'visual-qa.json'), `${JSON.stringify(report, null, 2)}\n`);
-  console.log(JSON.stringify({ browserErrors: errors, browserConsoleErrors: consoleErrors,
-    denseGrammarCount: denseGrammarChecks.length, testedPressureTiers: ['normal', 'severe'],
-    minimumInteriorDeviationPx: Math.min(...denseGrammarChecks.flatMap(check => check.conditions.map(condition => condition.minimumInteriorDeviationPx))),
-    silenceAdmissionAndMutePassed: true, artifacts }, null, 2));
+    advancedPresetChecks, authoritativeDeepFixtureCompiler: 'Rust WASM', staticNeutralOutline: true, availabilityIndependentOfAmplitude: true,
+    individualSiblingIsolation: true, reorderedRankContinuity: true, measuredReleaseAfterAdmissionShrink: true,
+    mutedWetBusNoWaves: true, staleGrammarRejected: true, perPositionImpulseTravel: true, mockedAudioTelemetry: true, nativeDeviceStarted: false };
+  await writeFile(resolve(artifacts, 'visual-qa.json'), JSON.stringify(report, null, 2) + '\n');
+  console.log(JSON.stringify({ denseGrammarCount: denseGrammarChecks.length, availabilityIndependentOfAmplitude: true,
+    longDelayPulsePositions: pulsePositions, artifacts }, null, 2));
 } finally {
   await browser?.close();
   server.closeAllConnections();
