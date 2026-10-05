@@ -55,8 +55,9 @@ benchmarks below do not establish a sustainable browser voice count.
 
 Drag horizontally to change Time fold and vertically to change Branch angle;
 arrow keys provide the same controls, with Shift for finer changes. Presets and
-randomization preserve Audio and input policy. Mastering presets preserve the
-tree and live recording. Hiding or leaving the page mutes output and releases
+randomization preserve Audio, input policy, input gain, output level and output
+boost. Mastering presets preserve the tree, live recording and those gain controls.
+Hiding or leaving the page mutes output and releases
 microphone capture; returning requires an explicit restart.
 
 The audio engine shares the Rust granular pool, original input cleanup and
@@ -73,12 +74,15 @@ The native page uses the original `l-mic.html` sections, shared site styles,
 The twenty-six-scene bank adds Cedar, Quaking Aspen, Juniper, Baobab, Foxglove,
 Lotus, Acacia, Lichen, Moonflower and Horsetail.
 The main preset menu contains all 26 scenes in the former button order. Each
-selection restores the complete grammar, growth, pruning, stereo spread, mix,
-mastering and original factory output level. The separate growth-button grid is
+selection restores the complete grammar, growth, pruning, stereo spread, wet/dry
+mix, filters and compression. Input gain, output level and output boost remain
+at the performer's current values, including when output is muted. The separate growth-button grid is
 removed. **Reload selected preset** uses the same complete recall. Missing mix
 or mastering fields in older scene data use defaults rather than inheriting
-another scene. Microphone capture, Audio, recorded history and device policy
-remain live. Pending edits cannot replace a completed recall; musical controls
+another scene. New captures omit the three live gain controls; gain values in
+older saved scenes are ignored on recall. Editing these controls leaves the
+selected sound's preset identity intact. Microphone capture, Audio, recorded
+history and device policy remain live. Pending edits cannot replace a completed recall; musical controls
 are temporarily unavailable while the scene is being installed.
 Negative original pruning values remain exact preset data; both engines treat
 them as breadth first.
@@ -170,7 +174,8 @@ bit-exact overall browser sound.
 The bottom of the control panel exposes input cleanup, stereo output filters and
 compression. **Original** retains the prior sound: input HPF at 55 Hz, output
 HPF/LPF bypassed, compressor threshold −12 dB, knee 5 dB, ratio 18:1, attack
-3 ms, release 180 ms, automatic makeup on and manual makeup at 0 dB.
+3 ms, release 180 ms and automatic makeup on. Manual output boost starts at 0 dB
+and remains independent of preset recall.
 
 Input HPF affects newly recorded audio before the delay tree. Output HPF and LPF
 affect the complete wet/dry mix before compression. Each filter has an **Off**
@@ -180,15 +185,15 @@ response. Cutoffs are limited to 45% of the current sample rate. During Audio,
 the readout shows the effective cutoff and the tooltip retains the requested
 frequency if the device rate limits it.
 
-| Mastering preset | Input HPF | Output HPF / LPF | Threshold / ratio | Attack / release | Makeup |
+| Mastering preset | Input HPF | Output HPF / LPF | Threshold / ratio | Attack / release | Automatic makeup |
 | --- | ---: | --- | --- | --- | --- |
-| Original | 55 Hz | Off / Off | −12 dB / 18:1 | 3 / 180 ms | Automatic |
-| Transparent | 55 Hz | Off / Off | Compressor off | — | 0 dB |
-| Gentle | 55 Hz | 35 Hz / Off | −18 dB / 2:1 | 20 / 180 ms | +2 dB |
-| Dense | 80 Hz | 80 Hz / 14 kHz | −22 dB / 4:1 | 8 / 240 ms | +4 dB |
-| Warm | 55 Hz | 35 Hz / 6.5 kHz | −16 dB / 2.5:1 | 25 / 260 ms | +2 dB |
-| Airy | 90 Hz | 120 Hz / 18 kHz | −18 dB / 2:1 | 15 / 150 ms | +2 dB |
-| Telephone | 55 Hz | 350 Hz / 3.5 kHz | −22 dB / 4:1 | 5 / 120 ms | +3 dB |
+| Original | 55 Hz | Off / Off | −12 dB / 18:1 | 3 / 180 ms | On |
+| Transparent | 55 Hz | Off / Off | Compressor off | — | Off |
+| Gentle | 55 Hz | 35 Hz / Off | −18 dB / 2:1 | 20 / 180 ms | Off |
+| Dense | 80 Hz | 80 Hz / 14 kHz | −22 dB / 4:1 | 8 / 240 ms | Off |
+| Warm | 55 Hz | 35 Hz / 6.5 kHz | −16 dB / 2.5:1 | 25 / 260 ms | Off |
+| Airy | 90 Hz | 120 Hz / 18 kHz | −18 dB / 2:1 | 15 / 150 ms | Off |
+| Telephone | 55 Hz | 350 Hz / 3.5 kHz | −22 dB / 4:1 | 5 / 120 ms | Off |
 
 The **Gain reduction** meter reports actual positive compressor attenuation in
 dB before automatic/manual makeup and the output knob. Compressor bypass keeps
@@ -201,13 +206,16 @@ and output boost (manual makeup) −12–+24 dB. Input/output HPF support up to 
 Mic input gain supports 0–4×. Output remains a 0–100% level control; the bottom
 Output boost control adds gain to the complete mix after compression, including
 when compression is off, and before the fixed 0.94 ceiling. This provides more
-gain for quiet microphones while retaining the original factory scene levels.
+gain for quiet microphones. The three gain controls remain live across presets,
+Next, arrows, randomization and scene reloads.
 
 Focused mastering presets preserve the current tree, mix, recording, input
-source, voice policy, output level and Audio state. Full factory scenes recall
-Original mastering; saved full
-scenes include the edited mastering settings. Reset all returns mastering to
-Original. Older external snapshots that omit mastering recall Original settings. The full-state randomizer includes bounded mastering variation.
+source, voice policy, input gain, output level, output boost and Audio state.
+Full factory scenes recall Original filters and compression; saved full scenes
+include the edited filters and compression. Reset all returns those settings to
+Original while retaining the live gain controls. Older external snapshots that
+omit mastering recall Original filters and compression. The full-state randomizer
+includes bounded mastering variation while preserving the live gain controls.
 
 Filters and dynamics process shared buses, rather than adding work to every
 voice. Coefficients and compressor curves are prepared outside audio processing;

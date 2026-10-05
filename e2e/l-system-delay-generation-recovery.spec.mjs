@@ -4,7 +4,7 @@ const ENGINE = '/src/instruments/micmic/native/browser-engine.js';
 const WORKLET = '**/src/instruments/micmic/native/delay-worklet.js';
 const FAULT = 'QA forced L-system processor failure';
 
-async function audioFixture(page, { fault = false } = {}) {
+async function audioFixture(page, { fault = false, sceneRecall = false } = {}) {
   const errors = [], consoleErrors = [];
   let faultSourceRequests = 0;
   page.on('pageerror', error => errors.push(error.message));
@@ -54,6 +54,12 @@ async function audioFixture(page, { fault = false } = {}) {
       }
       return destination.stream;
     };
+  });
+  if (sceneRecall) await page.route('**/src/instruments/micmic/native/app.js', async route => {
+    const response = await route.fetch(), source = await response.text();
+    // Exercise the existing saved/legacy scene adapter without adding a
+    // production debug API or replacing the real app, worker or Rust DSP.
+    await route.fulfill({ response, body: source + '\n__generationRecoveryQa.applyScene = applyScene;\n' });
   });
   if (fault) await page.route(WORKLET, async route => {
     faultSourceRequests++;
@@ -139,6 +145,15 @@ async function generation(page, value) {
     const d = await diagnostics(page);
     return d.parameters.generations === value && (!d.connectionCount || d.status.topologyRevision === d.topologyRevision);
   }, { timeout: 15000 }).toBe(true);
+}
+
+async function rangeControl(page, id, value) {
+  await page.locator(`#${id}`).evaluate((input, value) => {
+    input.value = String(value);
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+  }, value);
+  await expect(page.locator(`#${id}`)).toHaveValue(String(value));
 }
 
 async function live(page, previousClock = -1) {
@@ -268,14 +283,7 @@ test('expanded input gain and output boost reach real WASM PCM and preserve mute
   const factory = await page.evaluate(async () => (await (await fetch('/src/instruments/micmic/native/presets.json')).json())
     .find(preset => preset.id === 'pythagorean').snapshot);
   await generation(page, 3);
-  const range = async (id, value) => {
-    await page.locator(`#${id}`).evaluate((input, value) => {
-      input.value = String(value);
-      input.dispatchEvent(new Event('input', { bubbles: true }));
-      input.dispatchEvent(new Event('change', { bubbles: true }));
-    }, value);
-    await expect(page.locator(`#${id}`)).toHaveValue(String(value));
-  };
+  const range = (id, value) => rangeControl(page, id, value);
   const performance = async (inputGain, makeupDb, level = 1) => {
     await expect.poll(async () => {
       const d = await diagnostics(page), p = d.performance;
@@ -290,8 +298,9 @@ test('expanded input gain and output boost reach real WASM PCM and preserve mute
   const silent = await diagnostics(page), saved = await capture();
   expect(silent.audio).toBe(false); expect(silent.connectionCount).toBe(0);
   expect(await page.evaluate(() => __generationRecoveryQa.microphoneRequests)).toBe(0);
-  expect(saved.snapshot.performance.inputGain).toBe(4);
-  expect(saved.snapshot.performance.mastering.makeupDb).toBe(24);
+  expect(saved.snapshot.performance).not.toHaveProperty('inputGain');
+  expect(saved.snapshot.performance).not.toHaveProperty('level');
+  expect(saved.snapshot.performance.mastering).not.toHaveProperty('makeupDb');
   await page.locator('#audioButton').click();
   const initial = await live(page);
   await range('makeupDb', 0); await performance(4, 0);
@@ -317,8 +326,10 @@ test('expanded input gain and output boost reach real WASM PCM and preserve mute
   await expect.poll(capture, { timeout: 15000 }).toMatchObject({ snapshot: factory });
   await expect(page.locator('#generations')).toBeEnabled({ timeout: 15000 });
   await expect(page.locator('#stage')).toHaveAttribute('aria-busy', 'false');
-  await expect(page.locator('#inputTrim')).toHaveValue(String(factory.performance.inputGain));
-  await expect(page.locator('#makeupDb')).toHaveValue(String(factory.performance.mastering.makeupDb));
+  await performance(4, 24);
+  await expect(page.locator('#inputTrim')).toHaveValue('4');
+  await expect(page.locator('#makeupDb')).toHaveValue('24');
+  await expect(page.locator('#level')).toHaveValue('1');
   const recalled = await live(page, boosted.status.elapsedSeconds);
   expect(recalled.contextGeneration).toBe(initial.contextGeneration);
   await generation(page, 3);
@@ -342,5 +353,121 @@ test('expanded input gain and output boost reach real WASM PCM and preserve mute
   await expect.poll(async () => (await diagnostics(page)).connectionCount).toBe(0);
   await expect.poll(async () => (await diagnostics(page)).contextState).toBe('closed');
   await test.info().attach('expanded-gain-range', { body: JSON.stringify({ silent, saved, baseline, boosted, recalled, muted,
+    actualWasm: true, syntheticMicrophone: true, listeningPerformed: false }, null, 2), contentType: 'application/json' });
+});
+
+test('live levels survive sound navigation, dice, mastering and saved or legacy recall without changing identity', async ({ page }) => {
+  test.setTimeout(90000);
+  // A repeatable modest tree keeps the dice check independent of whichever
+  // grammar and exponential generation demand Math.random selects on a host.
+  await page.addInitScript(() => { Math.random = () => .5; });
+  const evidence = await audioFixture(page, { sceneRecall: true });
+  await ready(page, 'canvas');
+  await page.locator('#masteringSection > summary').click();
+  const capture = () => page.evaluate(async () => (await import('/src/site/header-presets.js')).captureHeaderPresetState());
+  const levels = d => ({ inputGain: d.performance.inputGain, level: d.performance.level, makeupDb: d.performance.mastering.makeupDb });
+  const setLevels = async expected => {
+    for (const [id, value] of [['inputTrim', expected.inputGain], ['level', expected.level], ['makeupDb', expected.makeupDb]]) {
+      await rangeControl(page, id, value);
+    }
+    await expect.poll(async () => levels(await diagnostics(page))).toEqual(expected);
+  };
+  const settled = () => expect(page.locator('#generations')).toBeEnabled({ timeout: 15000 });
+  const select = async id => {
+    await page.locator('.instrument-preset-controls summary').click();
+    await page.locator(`button[data-full-preset][data-preset-id="${id}"]`).click();
+    await expect(page.locator('.instrument-preset-controls')).toHaveAttribute('data-preset-id', id, { timeout: 15000 });
+    await settled();
+  };
+  const assertLevels = async expected => {
+    await expect.poll(async () => levels(await diagnostics(page))).toEqual(expected);
+    await expect(page.locator('#inputTrim')).toHaveValue(String(expected.inputGain));
+    await expect(page.locator('#level')).toHaveValue(String(expected.level));
+    await expect(page.locator('#makeupDb')).toHaveValue(String(expected.makeupDb));
+  };
+  await select('dragon');
+  const soundBefore = await capture(), firstLevels = { inputGain: 1.31, level: .41, makeupDb: 7 };
+  await setLevels(firstLevels);
+  const afterLevels = await capture();
+  expect(afterLevels.selectedId).toBe('dragon');
+  expect(afterLevels.snapshot).toEqual(soundBefore.snapshot);
+  expect((await diagnostics(page)).audio).toBe(false);
+  expect(await page.evaluate(() => __generationRecoveryQa.microphoneRequests)).toBe(0);
+  await page.locator('#audioButton').click();
+  const initial = await live(page);
+  await page.locator('.header-preset-next').click();
+  await expect(page.locator('.instrument-preset-controls')).toHaveAttribute('data-preset-id', 'koch', { timeout: 15000 });
+  await settled(); await assertLevels(firstLevels);
+  await page.locator('.instrument-preset-controls summary').focus(); await page.keyboard.press('ArrowLeft');
+  await expect(page.locator('.instrument-preset-controls')).toHaveAttribute('data-preset-id', 'dragon', { timeout: 15000 });
+  await settled(); await assertLevels(firstLevels);
+  const navigated = await live(page, initial.status.elapsedSeconds);
+  expect(navigated.contextGeneration).toBe(initial.contextGeneration);
+  await page.locator('#masteringPreset').selectOption('gentle');
+  await expect.poll(async () => (await diagnostics(page)).performance.mastering.ratio).toBe(2);
+  await assertLevels(firstLevels);
+  await rangeControl(page, 'makeupDb', 11);
+  const boostedLevels = { ...firstLevels, makeupDb: 11 };
+  await assertLevels(boostedLevels);
+  await expect(page.locator('#masteringPreset')).toHaveValue('gentle');
+  await page.locator('.header-preset-random').click();
+  await expect(page.locator('.instrument-preset-controls')).toHaveAttribute('data-preset-id', 'custom', { timeout: 15000 });
+  await settled(); await assertLevels(boostedLevels);
+  const saved = (await capture()).snapshot;
+  expect(saved.performance).not.toHaveProperty('inputGain');
+  expect(saved.performance).not.toHaveProperty('level');
+  expect(saved.performance.mastering).not.toHaveProperty('makeupDb');
+  expect(saved).not.toEqual(soundBefore.snapshot);
+  const restoredLevels = { inputGain: 1.41, level: .37, makeupDb: 9 };
+  await setLevels(restoredLevels);
+  await rangeControl(page, 'generationAngle', 137); await rangeControl(page, 'wet', .25);
+  await page.locator('#masteringPreset').selectOption('transparent');
+  await expect.poll(async () => (await diagnostics(page)).performance.mastering.compressorEnabled).toBe(false);
+  await page.evaluate(snapshot => __generationRecoveryQa.applyScene(snapshot), saved);
+  await expect.poll(async () => (await capture()).snapshot).toEqual(saved);
+  await assertLevels(restoredLevels);
+  const legacy = structuredClone(saved);
+  legacy.parameters.angle = 77;
+  legacy.performance.inputGain = 0; legacy.performance.level = 0;
+  legacy.performance.mastering.makeupDb = -12; legacy.performance.mastering.thresholdDb = -31;
+  const legacySound = structuredClone(legacy);
+  delete legacySound.performance.inputGain; delete legacySound.performance.level;
+  delete legacySound.performance.mastering.makeupDb;
+  await page.evaluate(snapshot => __generationRecoveryQa.applyScene(snapshot), legacy);
+  await expect.poll(async () => (await capture()).snapshot).toEqual(legacySound);
+  await assertLevels(restoredLevels);
+  const restored = await live(page, navigated.status.elapsedSeconds);
+  expect(restored.contextGeneration).toBe(initial.contextGeneration);
+  // Zero is an intentional live level, not a missing preset field. Neither
+  // full recall, focused mastering nor dice may make this muted engine loud.
+  const zeroLevels = { inputGain: 0, level: 0, makeupDb: 0 };
+  await setLevels(zeroLevels); await select('dragon'); await assertLevels(zeroLevels);
+  await page.locator('#masteringPreset').selectOption('dense');
+  await expect.poll(async () => (await diagnostics(page)).performance.mastering.ratio).toBe(4);
+  await assertLevels(zeroLevels);
+  await page.locator('.header-preset-random').click();
+  await expect(page.locator('.instrument-preset-controls')).toHaveAttribute('data-preset-id', 'custom', { timeout: 15000 });
+  await settled(); await assertLevels(zeroLevels);
+  await expect.poll(async () => {
+    const d = await diagnostics(page);
+    return d.audio && d.microphoneEnabled && d.status.elapsedSeconds > restored.status.elapsedSeconds
+      && d.pcmNonFinite === 0 && d.pcmPeak < .000001 && d.status.outputPeak < .000001;
+  }).toBe(true);
+  const muted = await diagnostics(page);
+  await setLevels(restoredLevels);
+  const resumed = await live(page, muted.status.elapsedSeconds);
+  expect(resumed.contextGeneration).toBe(initial.contextGeneration);
+  expect(await page.evaluate(() => __generationRecoveryQa.microphoneRequests)).toBe(1);
+  expect(await page.evaluate(() => __generationRecoveryQa.processorErrors)).toBe(0);
+  expect(evidence.errors).toEqual([]); expect(evidence.consoleErrors).toEqual([]);
+  await page.locator('#audioButton').click();
+  await expect.poll(async () => (await diagnostics(page)).audio).toBe(false);
+  expect((await diagnostics(page)).microphoneEnabled).toBe(false);
+  expect(await page.evaluate(() => __generationRecoveryQa.streams.every(stream => stream.getTracks().every(track => track.readyState === 'ended')))).toBe(true);
+  await page.evaluate(() => dispatchEvent(new PageTransitionEvent('pagehide', { persisted: false })));
+  await expect.poll(async () => (await diagnostics(page)).connectionCount).toBe(0);
+  await expect.poll(async () => (await diagnostics(page)).contextState).toBe('closed');
+  await test.info().attach('live-level-preset-boundary', { body: JSON.stringify({ soundBefore, afterLevels, firstLevels,
+    boostedLevels, saved, legacy, restoredLevels, restored, muted, resumed,
     actualWasm: true, syntheticMicrophone: true, listeningPerformed: false }, null, 2), contentType: 'application/json' });
 });

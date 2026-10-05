@@ -329,7 +329,7 @@ async function strike() {
 }
 function resetAll() {
   const performanceDefaults = { ...state.performance, wet: DEFAULT_PERFORMANCE.wet, dry: DEFAULT_PERFORMANCE.dry,
-    inputGain: DEFAULT_PERFORMANCE.inputGain, frequency: DEFAULT_PERFORMANCE.frequency, pulseRate: DEFAULT_PERFORMANCE.pulseRate,
+    frequency: DEFAULT_PERFORMANCE.frequency, pulseRate: DEFAULT_PERFORMANCE.pulseRate,
     mastering: DEFAULT_MASTERING };
   void applyScene({ parameters: DEFAULT_PARAMETERS, performance: performanceDefaults }, 'pythagorean').catch(() => {});
 }

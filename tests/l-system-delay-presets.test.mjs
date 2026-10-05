@@ -2,14 +2,15 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { readFile } from 'node:fs/promises';
 import { captureScene, presetState, DEFAULT_PARAMETERS, DEFAULT_PERFORMANCE } from '../src/instruments/micmic/native/model.js';
-import { DEFAULT_MASTERING } from '../src/instruments/micmic/native/mastering.js';
+import { DEFAULT_MASTERING, captureMastering } from '../src/instruments/micmic/native/mastering.js';
 
 const presets = JSON.parse(await readFile(new URL('../src/instruments/micmic/native/presets.json', import.meta.url), 'utf8'));
 const order = ['pythagorean', 'bramble', 'venus', 'ivy', 'binary', 'coral', 'moss', 'plant', 'kelp', 'dragon',
   'koch', 'clean', 'orchid', 'willow', 'mangrove', 'sequoia', 'cedar', 'aspen', 'juniper', 'baobab',
   'foxglove', 'lotus', 'acacia', 'lichen', 'moonflower', 'horsetail'];
-const external = { source: 'mic', frozen: true, frequency: 311, pulseRate: .7, automatic: false, voiceCeiling: 777 };
-const ownedMix = ['wet', 'dry', 'inputGain', 'level'];
+const external = { source: 'mic', frozen: true, frequency: 311, pulseRate: .7, automatic: false, voiceCeiling: 777,
+  inputGain: 3.25, level: 0 };
+const ownedMix = ['wet', 'dry'];
 const changedMastering = { ...DEFAULT_MASTERING, inputHighpassHz: 320, highpassHz: 710, lowpassHz: 2300,
   thresholdDb: -41, ratio: 4, kneeDb: 20, attackMs: 40, releaseMs: 710,
   makeupDb: 9, compressorEnabled: false, autoMakeup: false };
@@ -23,13 +24,15 @@ test('all factory presets remain in the former button order without a second pre
 
 test('every pair of factory recalls restores the destination full scene independently of its predecessor', () => {
   for (const previous of presets) for (const target of presets) {
-    const live = { ...DEFAULT_PERFORMANCE, ...previous.snapshot.performance, ...external };
+    const live = { ...DEFAULT_PERFORMANCE, ...previous.snapshot.performance, ...external,
+      mastering: { ...previous.snapshot.performance.mastering, makeupDb: 24 } };
     const before = structuredClone(live), snapshot = structuredClone(target.snapshot);
     const recalled = presetState(target, live);
     assert.deepEqual(captureScene(recalled.parameters, recalled.performance), target.snapshot,
-      `${previous.id} → ${target.id}: all parameters, mix, output and mastering`);
+      `${previous.id} → ${target.id}: all parameters, mix, filters and compression`);
     for (const [key, value] of Object.entries(external)) assert.equal(recalled.performance[key], value,
       `${previous.id} → ${target.id}: preserves external ${key}`);
+    assert.equal(recalled.performance.mastering.makeupDb, 24, 'recall preserves live output boost');
     assert.deepEqual(live, before, 'recall cannot mutate the current scene');
     assert.deepEqual(target.snapshot, snapshot, 'recall cannot mutate factory data');
   }
@@ -46,6 +49,7 @@ test('a saved custom scene restores its complete capture after arbitrary edits',
     const recalled = presetState({ snapshot }, live);
     assert.deepEqual(captureScene(recalled.parameters, recalled.performance), snapshot, previous.id);
     for (const [key, value] of Object.entries(external)) assert.equal(recalled.performance[key], value);
+    assert.equal(recalled.performance.mastering.makeupDb, DEFAULT_MASTERING.makeupDb);
   }
 });
 
@@ -56,13 +60,33 @@ test('legacy missing owned fields reset defaults instead of inheriting the prece
   const recalled = presetState(legacy, live);
   assert.deepEqual(recalled.parameters, { ...DEFAULT_PARAMETERS, generations: 4, angle: 71 });
   for (const key of ownedMix) assert.equal(recalled.performance[key], key === 'wet' ? .64 : DEFAULT_PERFORMANCE[key], key);
-  assert.deepEqual(recalled.performance.mastering, DEFAULT_MASTERING);
-  for (const [key, value] of Object.entries(external)) assert.equal(recalled.performance[key], value);
+  assert.deepEqual(recalled.performance.mastering, { ...DEFAULT_MASTERING, makeupDb: changedMastering.makeupDb });
+  for (const key of ['source', 'frozen', 'frequency', 'pulseRate', 'automatic', 'voiceCeiling', 'inputGain', 'level']) {
+    assert.equal(recalled.performance[key], live[key]);
+  }
   const partialMastering = presetState({ snapshot: { parameters: {}, performance: { mastering: { thresholdDb: -26 } } } }, live);
-  assert.deepEqual(partialMastering.performance.mastering, { ...DEFAULT_MASTERING, thresholdDb: -26 });
+  assert.deepEqual(partialMastering.performance.mastering, { ...DEFAULT_MASTERING, thresholdDb: -26, makeupDb: changedMastering.makeupDb });
   const noPerformance = presetState({ snapshot: { parameters: {} } }, live);
   for (const key of ownedMix) assert.equal(noPerformance.performance[key], DEFAULT_PERFORMANCE[key], key);
-  assert.deepEqual(noPerformance.performance.mastering, DEFAULT_MASTERING);
+  assert.deepEqual(noPerformance.performance.mastering, { ...DEFAULT_MASTERING, makeupDb: changedMastering.makeupDb });
+});
+
+test('saved scene identity excludes live levels and legacy level fields cannot override them', () => {
+  const sound = { ...DEFAULT_PERFORMANCE, wet: .31, dry: .23, mastering: changedMastering };
+  const snapshot = captureScene(DEFAULT_PARAMETERS, sound);
+  assert.deepEqual(Object.keys(snapshot.performance).sort(), ['dry', 'mastering', 'wet']);
+  assert.deepEqual(snapshot.performance.mastering, captureMastering(changedMastering));
+  const legacy = { ...snapshot, performance: { ...snapshot.performance, inputGain: 0, level: 1,
+    mastering: { ...snapshot.performance.mastering, makeupDb: -12 } } };
+  for (const inputGain of [0, .85, 4]) for (const level of [0, .27, 1]) for (const makeupDb of [-12, 9, 24]) {
+    const live = { ...sound, inputGain, level, mastering: { ...changedMastering, makeupDb } };
+    assert.deepEqual(captureScene(DEFAULT_PARAMETERS, live), snapshot, 'level edits cannot mark a sound Custom');
+    const recalled = presetState({ snapshot: legacy }, live);
+    assert.equal(recalled.performance.inputGain, inputGain);
+    assert.equal(recalled.performance.level, level);
+    assert.equal(recalled.performance.mastering.makeupDb, makeupDb);
+    assert.deepEqual(captureScene(recalled.parameters, recalled.performance), snapshot);
+  }
 });
 
 test('preset import cannot replace live microphone, freeze or device admission policy', () => {

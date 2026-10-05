@@ -7,18 +7,17 @@ import { DEFAULT_PARAMETERS, DEFAULT_PERFORMANCE, PARAMETER_LIMITS, L_SYSTEM_TYP
   sanitizePerformance, presetState, randomState, gestureParameters, isVoiceActive,
   buildPreview, interpolateParameters, topologyBounds, fitTransform, captureScene, visualBudget, nativePreviewNodes, interpolatePreviewNodes,
   admittedPreviewNodes, tapActivityFrame, activityEnergy, smoothActivity, branchWavePoints } from './model.js';
-import { DEFAULT_MASTERING, MASTERING_LIMITS, MASTERING_PROFILES, sanitizeMastering,
+import { DEFAULT_MASTERING, MASTERING_LIMITS, MASTERING_PROFILES, sanitizeMastering, captureMastering,
   cutoffFromSlider, sliderFromCutoff, masteringProfileId } from './mastering.js';
 const presets = JSON.parse(fs.readFileSync(new URL('./presets.json', import.meta.url)));
-// Factory scenes predate mastering. Compare their original physical state
-// separately while the complete capture contract retains the live master bus.
+// Compare the original musical mix independently of the live gain controls.
 const withoutMastering = snapshot => {
   const { mastering, ...performance } = snapshot.performance;
   return { ...snapshot, performance };
 };
 const legacyScene = scene => withoutMastering(captureScene(scene.parameters, scene.performance));
 
-test('native bank preserves every setting in all sixteen original full scenes', () => {
+test('native bank preserves the sound settings in all sixteen original scenes', () => {
   for (const reference of MICMIC_FULL_PRESETS) {
     const preset = presets.find(p => p.id === reference.id);
     assert.ok(preset, reference.id);
@@ -29,23 +28,22 @@ test('native bank preserves every setting in all sixteen original full scenes', 
       asymmetry: original.generationAsymmetry, mutation: original.mutation, pitchScale: original.generationPitchScale,
       pruningBias: original.pruningBias, depth: original.depth, spread: original.spread }, preset.id);
     assert.deepEqual(legacyScene(scene).performance, {
-      wet: original.wet, dry: original.dry, inputGain: original.inputTrim, level: original.level,
+      wet: original.wet, dry: original.dry,
     }, `${preset.id} mix`);
     assert.equal(preset.label, reference.label);
     assert.deepEqual(legacyScene(scene), withoutMastering(preset.snapshot));
-    assert.deepEqual(captureScene(scene.parameters, scene.performance).performance.mastering, DEFAULT_MASTERING);
+    assert.deepEqual(captureScene(scene.parameters, scene.performance).performance.mastering, captureMastering(DEFAULT_MASTERING));
   }
 });
-test('full preset recall preserves input, clocks and device policy while recalling the original level', () => {
+test('full preset recall preserves live gains, input, clocks and device policy', () => {
   const mastering = { ...DEFAULT_MASTERING, highpassHz: 160, lowpassHz: 6200, thresholdDb: -23, ratio: 3.5, makeupDb: 1.5 };
-  const live = { ...DEFAULT_PERFORMANCE, mastering, source: 'mic', frozen: true, frequency: 311, pulseRate: .7, level: .22, voiceCeiling: 512, automatic: false };
+  const live = { ...DEFAULT_PERFORMANCE, mastering, source: 'mic', frozen: true, frequency: 311, pulseRate: .7, inputGain: 4, level: .22, voiceCeiling: 512, automatic: false };
   const before = structuredClone(live);
   for (const preset of presets) {
     const scene = presetState(preset, live);
     assert.deepEqual(legacyScene(scene), withoutMastering(preset.snapshot), preset.id);
-    assert.deepEqual(scene.performance.mastering, DEFAULT_MASTERING, `${preset.id} recalls Original mastering`);
-    for (const key of ['source', 'frozen', 'frequency', 'pulseRate', 'voiceCeiling', 'automatic']) assert.equal(scene.performance[key], live[key]);
-    assert.equal(scene.performance.level, preset.snapshot.performance.level);
+    assert.deepEqual(scene.performance.mastering, { ...DEFAULT_MASTERING, makeupDb: mastering.makeupDb }, `${preset.id} recalls Original filters and compression`);
+    for (const key of ['source', 'frozen', 'frequency', 'pulseRate', 'inputGain', 'level', 'voiceCeiling', 'automatic']) assert.equal(scene.performance[key], live[key]);
   }
   assert.deepEqual(live, before);
 });
@@ -62,19 +60,23 @@ test('additional factory scenes retain every grammar in the single full-preset m
     assert.ok(preset.label.includes(' · '), preset.id);
     assert.ok(preset.snapshot.parameters.generations > 13, `${preset.id} explores the native generation range`);
     assert.deepEqual(Object.keys(preset.snapshot.parameters).sort(), ['lSystemType', ...Object.keys(PARAMETER_LIMITS)].sort());
-    assert.deepEqual(Object.keys(preset.snapshot.performance).sort(), ['dry', 'inputGain', 'level', 'mastering', 'wet']);
-    assert.deepEqual(preset.snapshot.performance.mastering, DEFAULT_MASTERING);
+    assert.deepEqual(Object.keys(preset.snapshot.performance).sort(), ['dry', 'mastering', 'wet']);
+    assert.deepEqual(preset.snapshot.performance.mastering, captureMastering(DEFAULT_MASTERING));
   }
 });
 test('complete randomization preserves live audio, seed clock, master level and device policy', () => {
-  const live = { ...DEFAULT_PERFORMANCE, source: 'mic', frozen: true, frequency: 311, pulseRate: .7, level: .22, voiceCeiling: 512, automatic: false };
+  const live = { ...DEFAULT_PERFORMANCE, source: 'mic', frozen: true, frequency: 311, pulseRate: .7, inputGain: 4, level: .22,
+    mastering: { ...DEFAULT_MASTERING, makeupDb: 24 }, voiceCeiling: 512, automatic: false };
   let seed = 428733; const rng = () => ((seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0) / 0xffffffff);
   const scenes = [];
   for (let i = 0; i < 50; i++) scenes.push(randomState(DEFAULT_PARAMETERS, live, rng));
-  for (const scene of scenes) for (const key of ['source', 'frozen', 'frequency', 'pulseRate', 'level', 'voiceCeiling', 'automatic']) assert.equal(scene.performance[key], live[key]);
+  for (const scene of scenes) {
+    for (const key of ['source', 'frozen', 'frequency', 'pulseRate', 'inputGain', 'level', 'voiceCeiling', 'automatic']) assert.equal(scene.performance[key], live[key]);
+    assert.equal(scene.performance.mastering.makeupDb, live.mastering.makeupDb);
+  }
   for (const key of [...Object.keys(PARAMETER_LIMITS), 'lSystemType']) assert.ok(new Set(scenes.map(s => s.parameters[key])).size > 3, key);
-  for (const key of ['wet', 'dry', 'inputGain']) assert.ok(new Set(scenes.map(s => s.performance[key])).size > 3, key);
-  for (const key of Object.keys(MASTERING_LIMITS)) {
+  for (const key of ['wet', 'dry']) assert.ok(new Set(scenes.map(s => s.performance[key])).size > 3, key);
+  for (const key of Object.keys(MASTERING_LIMITS).filter(key => key !== 'makeupDb')) {
     assert.ok(new Set(scenes.map(s => s.performance.mastering[key])).size > 3, `mastering/${key}`);
   }
   for (const key of ['compressorEnabled', 'autoMakeup']) {
@@ -191,10 +193,11 @@ test('mastering profiles cover filters and compression while complete scenes own
     ['Original', 'Transparent', 'Gentle', 'Dense', 'Warm', 'Airy', 'Telephone']);
   assert.equal(new Set(MASTERING_PROFILES.map(profile => profile.id)).size, 7);
   assert.equal(new Set(MASTERING_PROFILES.map(profile => JSON.stringify(profile.settings))).size, 7);
-  assert.deepEqual(MASTERING_PROFILES[0].settings, DEFAULT_MASTERING);
+  assert.deepEqual(MASTERING_PROFILES[0].settings, captureMastering(DEFAULT_MASTERING));
   for (const profile of MASTERING_PROFILES) {
-    assert.deepEqual(sanitizeMastering(profile.settings), profile.settings, profile.id);
+    assert.deepEqual(captureMastering(profile.settings), profile.settings, profile.id);
     assert.equal(masteringProfileId(profile.settings), profile.id);
+    for (const makeupDb of [-12, 0, 24]) assert.equal(masteringProfileId({ ...profile.settings, makeupDb }), profile.id);
   }
   const live = { ...DEFAULT_PERFORMANCE, source: 'seed', level: .17, frozen: true,
     frequency: 311, pulseRate: .7, automatic: false, voiceCeiling: 512,

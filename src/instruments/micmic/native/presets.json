@@ -2,7 +2,7 @@
   {
     "id": "pythagorean",
     "label": "Pythagorean Pine · Pythagorean tree",
-    "description": "The full reference canopy: clear forks, tapering time, and mirrored pitch. Complete topology, growth, pitch, mix and Original mastering. Microphone, frozen input, active pitch backend and recorded history are retained.",
+    "description": "The full reference canopy: clear forks, tapering time, and mirrored pitch. Complete topology, growth, pitch, mix and Original mastering. Input gain, output level, output boost, microphone, frozen input, active pitch backend and recorded history are retained.",
     "snapshot": {
       "parameters": {
         "lSystemType": "pythagorean",
@@ -20,8 +20,6 @@
       "performance": {
         "wet": 0.72,
         "dry": 0.18,
-        "inputGain": 0.75,
-        "level": 0.48,
         "mastering": {
           "inputHighpassHz": 55,
           "highpassHz": 0,
@@ -32,8 +30,7 @@
           "ratio": 18,
           "attackMs": 3,
           "releaseMs": 180,
-          "autoMakeup": true,
-          "makeupDb": 0
+          "autoMakeup": true
         }
       }
     }
@@ -41,7 +38,7 @@
   {
     "id": "bramble",
     "label": "Blackberry Bramble · Pythagorean tree",
-    "description": "A shredded 4 ms robot swarm expands 1.65× through thorny, unruly forks. Complete topology, growth, pitch, mix and Original mastering. Microphone, frozen input, active pitch backend and recorded history are retained.",
+    "description": "A shredded 4 ms robot swarm expands 1.65× through thorny, unruly forks. Complete topology, growth, pitch, mix and Original mastering. Input gain, output level, output boost, microphone, frozen input, active pitch backend and recorded history are retained.",
     "snapshot": {
       "parameters": {
         "lSystemType": "pythagorean",
@@ -59,8 +56,6 @@
       "performance": {
         "wet": 0.72,
         "dry": 0.18,
-        "inputGain": 0.75,
-        "level": 0.48,
         "mastering": {
           "inputHighpassHz": 55,
           "highpassHz": 0,
@@ -71,8 +66,7 @@
           "ratio": 18,
           "attackMs": 3,
           "releaseMs": 180,
-          "autoMakeup": true,
-          "makeupDb": 0
+          "autoMakeup": true
         }
       }
     }
@@ -80,7 +74,7 @@
   {
     "id": "venus",
     "label": "Venus Flytrap · Branching plant",
-    "description": "Hard 14 ms servo jaws double their spacing across an extreme pitch span. Complete topology, growth, pitch, mix and Original mastering. Microphone, frozen input, active pitch backend and recorded history are retained.",
+    "description": "Hard 14 ms servo jaws double their spacing across an extreme pitch span. Complete topology, growth, pitch, mix and Original mastering. Input gain, output level, output boost, microphone, frozen input, active pitch backend and recorded history are retained.",
     "snapshot": {
       "parameters": {
         "lSystemType": "plant",
@@ -98,8 +92,6 @@
       "performance": {
         "wet": 0.72,
         "dry": 0,
-        "inputGain": 0.75,
-        "level": 0.48,
         "mastering": {
           "inputHighpassHz": 55,
           "highpassHz": 0,
@@ -110,8 +102,7 @@
           "ratio": 18,
           "attackMs": 3,
           "releaseMs": 180,
-          "autoMakeup": true,
-          "makeupDb": 0
+          "autoMakeup": true
         }
       }
     }
@@ -119,7 +110,7 @@
   {
     "id": "ivy",
     "label": "Midnight Ivy · Pythagorean tree",
-    "description": "A tight 38 ms motor widens its spacing 1.35× through twelve skewed generations. Complete topology, growth, pitch, mix and Original mastering. Microphone, frozen input, active pitch backend and recorded history are retained.",
+    "description": "A tight 38 ms motor widens its spacing 1.35× through twelve skewed generations. Complete topology, growth, pitch, mix and Original mastering. Input gain, output level, output boost, microphone, frozen input, active pitch backend and recorded history are retained.",
     "snapshot": {
       "parameters": {
         "lSystemType": "pythagorean",
@@ -137,8 +128,6 @@
       "performance": {
         "wet": 0.72,
         "dry": 0,
-        "inputGain": 0.75,
-        "level": 0.48,
         "mastering": {
           "inputHighpassHz": 55,
           "highpassHz": 0,
@@ -149,8 +138,7 @@
           "ratio": 18,
           "attackMs": 3,
           "releaseMs": 180,
-          "autoMakeup": true,
-          "makeupDb": 0
+          "autoMakeup": true
         }
       }
     }
@@ -158,7 +146,7 @@
   {
     "id": "binary",
     "label": "Silver Birch · Coral",
-    "description": "An 85 ms clockwork fork halves its timing cleanly at every crown. Complete topology, growth, pitch, mix and Original mastering. Microphone, frozen input, active pitch backend and recorded history are retained.",
+    "description": "An 85 ms clockwork fork halves its timing cleanly at every crown. Complete topology, growth, pitch, mix and Original mastering. Input gain, output level, output boost, microphone, frozen input, active pitch backend and recorded history are retained.",
     "snapshot": {
       "parameters": {
         "lSystemType": "coral",
@@ -176,8 +164,6 @@
       "performance": {
         "wet": 0.72,
         "dry": 0,
-        "inputGain": 0.75,
-        "level": 0.48,
         "mastering": {
           "inputHighpassHz": 55,
           "highpassHz": 0,
@@ -188,8 +174,7 @@
           "ratio": 18,
           "attackMs": 3,
           "releaseMs": 180,
-          "autoMakeup": true,
-          "makeupDb": 0
+          "autoMakeup": true
         }
       }
     }
@@ -197,7 +182,7 @@
   {
     "id": "coral",
     "label": "Staghorn Coral · Coral",
-    "description": "A bright 160 ms ping lattice flickers with colorful mutation and a leftward bias. Complete topology, growth, pitch, mix and Original mastering. Microphone, frozen input, active pitch backend and recorded history are retained.",
+    "description": "A bright 160 ms ping lattice flickers with colorful mutation and a leftward bias. Complete topology, growth, pitch, mix and Original mastering. Input gain, output level, output boost, microphone, frozen input, active pitch backend and recorded history are retained.",
     "snapshot": {
       "parameters": {
         "lSystemType": "coral",
@@ -215,8 +200,6 @@
       "performance": {
         "wet": 0.55,
         "dry": 0,
-        "inputGain": 0.75,
-        "level": 0.48,
         "mastering": {
           "inputHighpassHz": 55,
           "highpassHz": 0,
@@ -227,8 +210,7 @@
           "ratio": 18,
           "attackMs": 3,
           "releaseMs": 180,
-          "autoMakeup": true,
-          "makeupDb": 0
+          "autoMakeup": true
         }
       }
     }
@@ -236,7 +218,7 @@
   {
     "id": "moss",
     "label": "Moss Carpet · Coral",
-    "description": "A metallic 1 ms micro-comb doubles its spacing into a long robotic canopy. Complete topology, growth, pitch, mix and Original mastering. Microphone, frozen input, active pitch backend and recorded history are retained.",
+    "description": "A metallic 1 ms micro-comb doubles its spacing into a long robotic canopy. Complete topology, growth, pitch, mix and Original mastering. Input gain, output level, output boost, microphone, frozen input, active pitch backend and recorded history are retained.",
     "snapshot": {
       "parameters": {
         "lSystemType": "coral",
@@ -254,8 +236,6 @@
       "performance": {
         "wet": 0.72,
         "dry": 0,
-        "inputGain": 0.75,
-        "level": 0.48,
         "mastering": {
           "inputHighpassHz": 55,
           "highpassHz": 0,
@@ -266,8 +246,7 @@
           "ratio": 18,
           "attackMs": 3,
           "releaseMs": 180,
-          "autoMakeup": true,
-          "makeupDb": 0
+          "autoMakeup": true
         }
       }
     }
@@ -275,7 +254,7 @@
   {
     "id": "plant",
     "label": "Fern Frond · Branching plant",
-    "description": "A bouncing 420 ms organic rhythm grows gently biased, lightly varied leaflets. Complete topology, growth, pitch, mix and Original mastering. Microphone, frozen input, active pitch backend and recorded history are retained.",
+    "description": "A bouncing 420 ms organic rhythm grows gently biased, lightly varied leaflets. Complete topology, growth, pitch, mix and Original mastering. Input gain, output level, output boost, microphone, frozen input, active pitch backend and recorded history are retained.",
     "snapshot": {
       "parameters": {
         "lSystemType": "plant",
@@ -293,8 +272,6 @@
       "performance": {
         "wet": 0.72,
         "dry": 0,
-        "inputGain": 0.75,
-        "level": 0.48,
         "mastering": {
           "inputHighpassHz": 55,
           "highpassHz": 0,
@@ -305,8 +282,7 @@
           "ratio": 18,
           "attackMs": 3,
           "releaseMs": 180,
-          "autoMakeup": true,
-          "makeupDb": 0
+          "autoMakeup": true
         }
       }
     }
@@ -314,7 +290,7 @@
   {
     "id": "kelp",
     "label": "Kelp Forest · Branching plant",
-    "description": "A rolling 750 ms smear expands gently through deep branches and broad pitch motion. Complete topology, growth, pitch, mix and Original mastering. Microphone, frozen input, active pitch backend and recorded history are retained.",
+    "description": "A rolling 750 ms smear expands gently through deep branches and broad pitch motion. Complete topology, growth, pitch, mix and Original mastering. Input gain, output level, output boost, microphone, frozen input, active pitch backend and recorded history are retained.",
     "snapshot": {
       "parameters": {
         "lSystemType": "plant",
@@ -332,8 +308,6 @@
       "performance": {
         "wet": 0.55,
         "dry": 0,
-        "inputGain": 0.75,
-        "level": 0.48,
         "mastering": {
           "inputHighpassHz": 55,
           "highpassHz": 0,
@@ -344,8 +318,7 @@
           "ratio": 18,
           "attackMs": 3,
           "releaseMs": 180,
-          "autoMakeup": true,
-          "makeupDb": 0
+          "autoMakeup": true
         }
       }
     }
@@ -353,7 +326,7 @@
   {
     "id": "dragon",
     "label": "Dragon Tree · Dragon curve",
-    "description": "Measured 1.05 second pulses travel through dramatic right-angle limbs. Complete topology, growth, pitch, mix and Original mastering. Microphone, frozen input, active pitch backend and recorded history are retained.",
+    "description": "Measured 1.05 second pulses travel through dramatic right-angle limbs. Complete topology, growth, pitch, mix and Original mastering. Input gain, output level, output boost, microphone, frozen input, active pitch backend and recorded history are retained.",
     "snapshot": {
       "parameters": {
         "lSystemType": "dragon",
@@ -371,8 +344,6 @@
       "performance": {
         "wet": 0.72,
         "dry": 0,
-        "inputGain": 0.75,
-        "level": 0.48,
         "mastering": {
           "inputHighpassHz": 55,
           "highpassHz": 0,
@@ -383,8 +354,7 @@
           "ratio": 18,
           "attackMs": 3,
           "releaseMs": 180,
-          "autoMakeup": true,
-          "makeupDb": 0
+          "autoMakeup": true
         }
       }
     }
@@ -392,7 +362,7 @@
   {
     "id": "koch",
     "label": "Frosted Agave · Koch snowflake",
-    "description": "A 1.35 second geometric fold contracts into exact timing thirds. Complete topology, growth, pitch, mix and Original mastering. Microphone, frozen input, active pitch backend and recorded history are retained.",
+    "description": "A 1.35 second geometric fold contracts into exact timing thirds. Complete topology, growth, pitch, mix and Original mastering. Input gain, output level, output boost, microphone, frozen input, active pitch backend and recorded history are retained.",
     "snapshot": {
       "parameters": {
         "lSystemType": "koch",
@@ -410,8 +380,6 @@
       "performance": {
         "wet": 0.72,
         "dry": 0.18,
-        "inputGain": 0.75,
-        "level": 0.48,
         "mastering": {
           "inputHighpassHz": 55,
           "highpassHz": 0,
@@ -422,8 +390,7 @@
           "ratio": 18,
           "attackMs": 3,
           "releaseMs": 180,
-          "autoMakeup": true,
-          "makeupDb": 0
+          "autoMakeup": true
         }
       }
     }
@@ -431,7 +398,7 @@
   {
     "id": "clean",
     "label": "Bamboo Shoot · Branching plant",
-    "description": "Pure, unpitched repeats rise slowly at a long one-to-one interval. Complete topology, growth, pitch, mix and Original mastering. Microphone, frozen input, active pitch backend and recorded history are retained.",
+    "description": "Pure, unpitched repeats rise slowly at a long one-to-one interval. Complete topology, growth, pitch, mix and Original mastering. Input gain, output level, output boost, microphone, frozen input, active pitch backend and recorded history are retained.",
     "snapshot": {
       "parameters": {
         "lSystemType": "plant",
@@ -449,8 +416,6 @@
       "performance": {
         "wet": 0.55,
         "dry": 0,
-        "inputGain": 0.75,
-        "level": 0.48,
         "mastering": {
           "inputHighpassHz": 55,
           "highpassHz": 0,
@@ -461,8 +426,7 @@
           "ratio": 18,
           "attackMs": 3,
           "releaseMs": 180,
-          "autoMakeup": true,
-          "makeupDb": 0
+          "autoMakeup": true
         }
       }
     }
@@ -470,7 +434,7 @@
   {
     "id": "orchid",
     "label": "Ghost Orchid · Pythagorean tree",
-    "description": "A sparse 1.95 second bloom floats through wide, smooth harmonic turns. Complete topology, growth, pitch, mix and Original mastering. Microphone, frozen input, active pitch backend and recorded history are retained.",
+    "description": "A sparse 1.95 second bloom floats through wide, smooth harmonic turns. Complete topology, growth, pitch, mix and Original mastering. Input gain, output level, output boost, microphone, frozen input, active pitch backend and recorded history are retained.",
     "snapshot": {
       "parameters": {
         "lSystemType": "pythagorean",
@@ -488,8 +452,6 @@
       "performance": {
         "wet": 0.72,
         "dry": 0,
-        "inputGain": 0.75,
-        "level": 0.48,
         "mastering": {
           "inputHighpassHz": 55,
           "highpassHz": 0,
@@ -500,8 +462,7 @@
           "ratio": 18,
           "attackMs": 3,
           "releaseMs": 180,
-          "autoMakeup": true,
-          "makeupDb": 0
+          "autoMakeup": true
         }
       }
     }
@@ -509,7 +470,7 @@
   {
     "id": "willow",
     "label": "Weeping Willow · Coral",
-    "description": "A smooth 2.3 second fold droops into a long, dark, gently pitched cascade. Complete topology, growth, pitch, mix and Original mastering. Microphone, frozen input, active pitch backend and recorded history are retained.",
+    "description": "A smooth 2.3 second fold droops into a long, dark, gently pitched cascade. Complete topology, growth, pitch, mix and Original mastering. Input gain, output level, output boost, microphone, frozen input, active pitch backend and recorded history are retained.",
     "snapshot": {
       "parameters": {
         "lSystemType": "coral",
@@ -527,8 +488,6 @@
       "performance": {
         "wet": 0.55,
         "dry": 0,
-        "inputGain": 0.75,
-        "level": 0.48,
         "mastering": {
           "inputHighpassHz": 55,
           "highpassHz": 0,
@@ -539,8 +498,7 @@
           "ratio": 18,
           "attackMs": 3,
           "releaseMs": 180,
-          "autoMakeup": true,
-          "makeupDb": 0
+          "autoMakeup": true
         }
       }
     }
@@ -548,7 +506,7 @@
   {
     "id": "mangrove",
     "label": "Mangrove Roots · Branching plant",
-    "description": "Broad low forks emerge from a smooth 2.7 second submerged pulse. Complete topology, growth, pitch, mix and Original mastering. Microphone, frozen input, active pitch backend and recorded history are retained.",
+    "description": "Broad low forks emerge from a smooth 2.7 second submerged pulse. Complete topology, growth, pitch, mix and Original mastering. Input gain, output level, output boost, microphone, frozen input, active pitch backend and recorded history are retained.",
     "snapshot": {
       "parameters": {
         "lSystemType": "plant",
@@ -566,8 +524,6 @@
       "performance": {
         "wet": 0.72,
         "dry": 0.18,
-        "inputGain": 0.75,
-        "level": 0.48,
         "mastering": {
           "inputHighpassHz": 55,
           "highpassHz": 0,
@@ -578,8 +534,7 @@
           "ratio": 18,
           "attackMs": 3,
           "releaseMs": 180,
-          "autoMakeup": true,
-          "makeupDb": 0
+          "autoMakeup": true
         }
       }
     }
@@ -587,7 +542,7 @@
   {
     "id": "sequoia",
     "label": "Giant Sequoia · Coral",
-    "description": "The longest smooth preset unfolds thirteen persistent generations over a 3 second fold. Complete topology, growth, pitch, mix and Original mastering. Microphone, frozen input, active pitch backend and recorded history are retained.",
+    "description": "The longest smooth preset unfolds thirteen persistent generations over a 3 second fold. Complete topology, growth, pitch, mix and Original mastering. Input gain, output level, output boost, microphone, frozen input, active pitch backend and recorded history are retained.",
     "snapshot": {
       "parameters": {
         "lSystemType": "coral",
@@ -605,8 +560,6 @@
       "performance": {
         "wet": 0.72,
         "dry": 0,
-        "inputGain": 0.75,
-        "level": 0.48,
         "mastering": {
           "inputHighpassHz": 55,
           "highpassHz": 0,
@@ -617,8 +570,7 @@
           "ratio": 18,
           "attackMs": 3,
           "releaseMs": 180,
-          "autoMakeup": true,
-          "makeupDb": 0
+          "autoMakeup": true
         }
       }
     }
@@ -644,8 +596,6 @@
       "performance": {
         "wet": 0.72,
         "dry": 0,
-        "inputGain": 0.75,
-        "level": 0.48,
         "mastering": {
           "inputHighpassHz": 55,
           "highpassHz": 0,
@@ -656,8 +606,7 @@
           "ratio": 18,
           "attackMs": 3,
           "releaseMs": 180,
-          "autoMakeup": true,
-          "makeupDb": 0
+          "autoMakeup": true
         }
       }
     }
@@ -683,8 +632,6 @@
       "performance": {
         "wet": 0.72,
         "dry": 0.12,
-        "inputGain": 0.75,
-        "level": 0.48,
         "mastering": {
           "inputHighpassHz": 55,
           "highpassHz": 0,
@@ -695,8 +642,7 @@
           "ratio": 18,
           "attackMs": 3,
           "releaseMs": 180,
-          "autoMakeup": true,
-          "makeupDb": 0
+          "autoMakeup": true
         }
       }
     }
@@ -722,8 +668,6 @@
       "performance": {
         "wet": 0.76,
         "dry": 0,
-        "inputGain": 0.75,
-        "level": 0.48,
         "mastering": {
           "inputHighpassHz": 55,
           "highpassHz": 0,
@@ -734,8 +678,7 @@
           "ratio": 18,
           "attackMs": 3,
           "releaseMs": 180,
-          "autoMakeup": true,
-          "makeupDb": 0
+          "autoMakeup": true
         }
       }
     }
@@ -761,8 +704,6 @@
       "performance": {
         "wet": 0.68,
         "dry": 0,
-        "inputGain": 0.75,
-        "level": 0.48,
         "mastering": {
           "inputHighpassHz": 55,
           "highpassHz": 0,
@@ -773,8 +714,7 @@
           "ratio": 18,
           "attackMs": 3,
           "releaseMs": 180,
-          "autoMakeup": true,
-          "makeupDb": 0
+          "autoMakeup": true
         }
       }
     }
@@ -800,8 +740,6 @@
       "performance": {
         "wet": 0.72,
         "dry": 0.12,
-        "inputGain": 0.75,
-        "level": 0.48,
         "mastering": {
           "inputHighpassHz": 55,
           "highpassHz": 0,
@@ -812,8 +750,7 @@
           "ratio": 18,
           "attackMs": 3,
           "releaseMs": 180,
-          "autoMakeup": true,
-          "makeupDb": 0
+          "autoMakeup": true
         }
       }
     }
@@ -839,8 +776,6 @@
       "performance": {
         "wet": 0.76,
         "dry": 0,
-        "inputGain": 0.75,
-        "level": 0.48,
         "mastering": {
           "inputHighpassHz": 55,
           "highpassHz": 0,
@@ -851,8 +786,7 @@
           "ratio": 18,
           "attackMs": 3,
           "releaseMs": 180,
-          "autoMakeup": true,
-          "makeupDb": 0
+          "autoMakeup": true
         }
       }
     }
@@ -878,8 +812,6 @@
       "performance": {
         "wet": 0.72,
         "dry": 0,
-        "inputGain": 0.75,
-        "level": 0.48,
         "mastering": {
           "inputHighpassHz": 55,
           "highpassHz": 0,
@@ -890,8 +822,7 @@
           "ratio": 18,
           "attackMs": 3,
           "releaseMs": 180,
-          "autoMakeup": true,
-          "makeupDb": 0
+          "autoMakeup": true
         }
       }
     }
@@ -917,8 +848,6 @@
       "performance": {
         "wet": 0.72,
         "dry": 0.18,
-        "inputGain": 0.75,
-        "level": 0.48,
         "mastering": {
           "inputHighpassHz": 55,
           "highpassHz": 0,
@@ -929,8 +858,7 @@
           "ratio": 18,
           "attackMs": 3,
           "releaseMs": 180,
-          "autoMakeup": true,
-          "makeupDb": 0
+          "autoMakeup": true
         }
       }
     }
@@ -956,8 +884,6 @@
       "performance": {
         "wet": 0.7,
         "dry": 0.12,
-        "inputGain": 0.75,
-        "level": 0.48,
         "mastering": {
           "inputHighpassHz": 55,
           "highpassHz": 0,
@@ -968,8 +894,7 @@
           "ratio": 18,
           "attackMs": 3,
           "releaseMs": 180,
-          "autoMakeup": true,
-          "makeupDb": 0
+          "autoMakeup": true
         }
       }
     }
@@ -995,8 +920,6 @@
       "performance": {
         "wet": 0.74,
         "dry": 0,
-        "inputGain": 0.75,
-        "level": 0.48,
         "mastering": {
           "inputHighpassHz": 55,
           "highpassHz": 0,
@@ -1007,8 +930,7 @@
           "ratio": 18,
           "attackMs": 3,
           "releaseMs": 180,
-          "autoMakeup": true,
-          "makeupDb": 0
+          "autoMakeup": true
         }
       }
     }

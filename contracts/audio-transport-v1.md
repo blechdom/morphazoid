@@ -172,6 +172,13 @@ Reseed appends a seed lineage. Paused edits stay silent. See
 Microphone presets retain the existing stream/input-pause state; selecting a
 scene must never initiate device permission or silently choose a new backend.
 
+On L-system Delay Rust, input gain, output level and manual output boost are live
+controls outside sound presets. Full and focused presets, Next/arrows, scene
+reloads and randomization retain their current values, including output zero.
+Scene capture omits these values and legacy saved levels are ignored on recall.
+Changing a live level does not invalidate preset identity. Wet/dry balance,
+filters, compression and automatic makeup remain musical preset parameters.
+
 ## MIDI and WAX boundaries
 
 Browser MIDI input remains governed by the Web MIDI toolbar contract. Its

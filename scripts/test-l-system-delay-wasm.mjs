@@ -8,6 +8,7 @@ import { fileURLToPath } from 'node:url';
 import { chromium } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 import { MASTERING_PROFILES } from '../src/instruments/micmic/native/mastering.js';
+import { captureScene } from '../src/instruments/micmic/native/model.js';
 import { presetStateKey } from '../src/site/header-presets.js';
 import { sliderFromTimeFold } from '../src/instruments/micmic/micmic.js';
 
@@ -219,9 +220,11 @@ function finiteSignal(reply, label) {
   assert.ok(reply.status.tapActivity.every(Number.isFinite), `${label}: finite tap activity`);
 }
 function matchesPreset(reply, preset) {
-  return Object.entries(preset.snapshot.parameters).every(([key, value]) => reply.parameters[key] === value)
-    && Object.entries(preset.snapshot.performance).every(([key, value]) =>
-      presetStateKey(reply.performance[key]) === presetStateKey(value));
+  return presetStateKey(captureScene(reply.parameters, reply.performance)) === presetStateKey(preset.snapshot);
+}
+function liveLevels(reply) {
+  return { inputGain: reply.performance.inputGain, level: reply.performance.level,
+    makeupDb: reply.performance.mastering.makeupDb };
 }
 async function causalCoralResponse() {
   const context = await browser.newContext({ viewport: { width: 1440, height: 900 } }), page = await context.newPage();
@@ -425,8 +428,8 @@ async function factoryBurstResponses() {
   await context.close(); return responses;
 }
 async function adversarialEdits(page) {
-  // Change every owned field through normal DOM events. The source and device
-  // policy are deliberately excluded, so recall cannot mask an input restart.
+  // Change sound and live level fields through normal DOM events. Recall must
+  // restore the sound while retaining the latest levels, source and policy.
   await page.evaluate(() => {
     const values = { generations: 3, interval: 900, timeRatio: 1.85, depth: .13, mutation: .92,
       generationAngle: 133, generationPitchScale: 3.4, generationAsymmetry: .61, spread: .12, pruningBias: .77,
@@ -500,6 +503,9 @@ try {
   // while allowing the actual Rust worklet and topology worker to execute.
   const startupContext = await browser.newContext(), startup = await startupContext.newPage();
   await installFixture(startup); await startup.goto(url); await ready(startup);
+  await range(startup, 'inputTrim', 1.23); await range(startup, 'level', .37); await range(startup, 'makeupDb', 5);
+  const startupLevels = liveLevels(await until(startup, reply => reply.performance.inputGain === 1.23
+    && reply.performance.level === .37 && reply.performance.mastering.makeupDb === 5, 'live startup levels'));
   await startup.evaluate(() => { __delayFixture.holdReady = true; __delayFixture.holdNextPerformanceAck = true; });
   await startup.locator('#audioButton').click();
   await startup.waitForFunction(() => __delayFixture.pendingReady.length === 1
@@ -520,8 +526,8 @@ try {
   await startup.evaluate(() => __delayFixture.pendingPerformance[0]());
   const firstPlaying = await until(startup, reply => reply.audio && reply.status.outputPeak > .001, 'first Audio and immediate preset');
   const koch = bank.find(preset => preset.id === 'koch');
-  assert.deepEqual(firstPlaying.parameters, koch.snapshot.parameters);
-  for (const [key, value] of Object.entries(koch.snapshot.performance)) assert.deepEqual(firstPlaying.performance[key], value);
+  assert.ok(matchesPreset(firstPlaying, koch), 'startup restores every sound-owned field');
+  assert.deepEqual(liveLevels(firstPlaying), startupLevels, 'startup recall preserves all three live gain controls');
   assert.equal(firstPlaying.status.requestedTargets, firstPlaying.requestedVoices, 'first start installs the selected audio topology');
   assert.equal(firstPlaying.status.topologyRevision, firstPlaying.topologyRevision, 'first start meters match displayed topology');
   const startupMessages = await startup.evaluate(() => __delayFixture.posted);
@@ -574,12 +580,16 @@ try {
     assert.equal((await diagnostics(page)).contextGeneration, live.contextGeneration); finiteSignal(changed, id);
   }
   assert.equal(await page.evaluate(() => __delayFixture.worklets), worklets, 'Edits reuse worklet');
+  await range(page, 'makeupDb', 7);
+  await until(page, reply => reply.performance.mastering.makeupDb === 7, 'live boost before mastering profiles');
   for (const profile of MASTERING_PROFILES) {
     const before = await state(page); await page.locator('#masteringPreset').selectOption(profile.id);
     const changed = await until(page, reply => Object.entries(profile.settings).every(([key, value]) =>
       typeof value === 'number' ? Math.abs(reply.performance.mastering[key] - value) < 1e-4
         : reply.performance.mastering[key] === value), `mastering ${profile.label}`);
     assert.equal(changed.audio, true); assert.deepEqual(changed.parameters, before.parameters);
+    assert.deepEqual(liveLevels(changed), liveLevels(before), `${profile.label}: mastering retains all live levels`);
+    assert.equal(await page.locator('#masteringPreset').inputValue(), profile.id, 'boost does not invalidate mastering identity');
     assert.ok(changed.status.elapsedSeconds >= before.status.elapsedSeconds);
     assert.equal((await diagnostics(page)).contextGeneration, live.contextGeneration); finiteSignal(changed, profile.label);
   }
@@ -588,7 +598,7 @@ try {
   await range(page, 'voiceCeiling', 111); await range(page, 'frequency', 311); await range(page, 'pulseRate', .7);
   await until(page, reply => !reply.performance.automatic && reply.performance.voiceCeiling === 111
     && reply.performance.frequency === 311 && reply.performance.pulseRate === .7, 'external policy fixture');
-  const externalKeys = ['source', 'frozen', 'automatic', 'voiceCeiling', 'frequency', 'pulseRate'];
+  const externalKeys = ['source', 'frozen', 'automatic', 'voiceCeiling', 'frequency', 'pulseRate', 'inputGain', 'level'];
   for (const id of menuOrder) {
     const preset = bank.find(preset => preset.id === id), before = await adversarialEdits(page);
     const requestsBefore = await page.evaluate(() => __delayFixture.requests);
@@ -599,6 +609,7 @@ try {
     assert.equal((await diagnostics(page)).microphoneEnabled, true, `${id}: capture stays active`);
     assert.equal(await page.evaluate(() => __delayFixture.requests), requestsBefore, `${id}: no new microphone permission`);
     for (const key of externalKeys) assert.equal(recalled.performance[key], before.performance[key], `${id}: preserves ${key}`);
+    assert.deepEqual(liveLevels(recalled), liveLevels(before), `${id}: output boost is outside the sound preset`);
     assert.equal(recalled.status.topologyRevision, recalled.topologyRevision);
     assert.equal(recalled.status.requestedTargets, recalled.requestedVoices);
     await page.waitForTimeout(150);
@@ -625,6 +636,7 @@ try {
     if (mode === 'menu') await selectPreset(page, pine.id);
     else await page.locator('#resetGenerationRules').click();
     const recalled = await until(page, reply => matchesPreset(reply, pine), `${mode}: reload full Pine`);
+    assert.deepEqual(liveLevels(recalled), liveLevels(before), `${mode}: reload retains live gains`);
     assert.equal(recalled.audio, true); assert.equal((await diagnostics(page)).microphoneEnabled, true);
     assert.ok(recalled.status.elapsedSeconds >= before.status.elapsedSeconds); report.samePresetReloads.push(mode);
   }

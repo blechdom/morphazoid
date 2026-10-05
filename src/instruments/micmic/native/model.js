@@ -1,5 +1,5 @@
 /** Native control model. Geometry follows the original browser instrument. */
-import { DEFAULT_MASTERING, sanitizeMastering, randomMastering } from './mastering.js';
+import { DEFAULT_MASTERING, sanitizeMastering, captureMastering, randomMastering } from './mastering.js';
 export const L_SYSTEM_TYPES = Object.freeze(['pythagorean', 'plant', 'coral', 'dragon', 'koch', 'sierpinski', 'hilbert', 'gosper', 'cantor', 'levy', 'terdragon']);
 export const DEFAULT_PARAMETERS = Object.freeze({ lSystemType: 'pythagorean', generations: 13, intervalMs: 240,
   timeRatio: .72, angle: 45, asymmetry: 0, mutation: 0, pitchScale: 1, pruningBias: 0, depth: .72, spread: .9 });
@@ -33,13 +33,15 @@ export function sanitizePerformance(candidate = {}) {
 }
 export function captureScene(parameters, performance) {
   return { parameters: sanitizeParameters(parameters), performance: { wet: performance.wet, dry: performance.dry,
-    inputGain: performance.inputGain, level: performance.level, mastering: sanitizeMastering(performance.mastering) } };
+    mastering: captureMastering(performance.mastering) } };
 }
-/** Complete musical recalls never inherit another scene's mix or mastering. */
+/** Recall the complete sound while retaining the performer's live gain controls. */
 export function presetState(preset, performance) {
   const snapshot = preset.snapshot ?? preset;
   const saved = snapshot.performance ?? {}, next = { ...performance };
-  for (const key of ['wet', 'dry', 'inputGain', 'level', 'mastering']) next[key] = saved[key] ?? DEFAULT_PERFORMANCE[key];
+  for (const key of ['wet', 'dry']) next[key] = saved[key] ?? DEFAULT_PERFORMANCE[key];
+  next.mastering = { ...sanitizeMastering(saved.mastering),
+    makeupDb: performance.mastering?.makeupDb ?? DEFAULT_MASTERING.makeupDb };
   // Older snapshots may include seed controls. Capture, freeze and device
   // policy belong to the current session even when a legacy file includes them.
   for (const key of ['frequency', 'pulseRate']) if (Object.hasOwn(saved, key)) next[key] = saved[key];
@@ -51,7 +53,8 @@ export function randomState(parameters, performance, random = Math.random) {
   return { parameters: sanitizeParameters({ ...parameters, lSystemType: L_SYSTEM_TYPES[Math.min(10, Math.floor(unit() * 11))],
     generations: Math.floor(between(3, 14)), intervalMs: 10 ** between(0, 3.1), timeRatio: between(.2, 2), angle: between(0, 180),
     asymmetry: between(-.8, .8), mutation: unit(), pitchScale: between(0, 4), pruningBias: unit(), depth: between(.25, .92), spread: unit() }),
-  performance: sanitizePerformance({ ...performance, wet: between(.4, .9), dry: between(0, .25), inputGain: between(.45, .85), mastering: randomMastering(random) }) };
+  performance: sanitizePerformance({ ...performance, wet: between(.4, .9), dry: between(0, .25),
+    mastering: { ...randomMastering(random), makeupDb: performance.mastering?.makeupDb ?? DEFAULT_MASTERING.makeupDb } }) };
 }
 export function gestureParameters(start, dx, dy, width, height, fine = false) {
   const scale = fine ? .15 : 1;
