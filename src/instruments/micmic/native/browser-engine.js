@@ -1,6 +1,7 @@
 import { DEFAULT_PARAMETERS, DEFAULT_PERFORMANCE, sanitizeParameters, sanitizePerformance } from './model.js';
 import { audioInputConstraints, audioInputDescription, configureAudioInputNode } from '../../../audio-input-settings.js';
 import { connectAudioOutput } from '../../../audio-output-manager.js';
+import { createInputSource } from './input-source.js';
 
 const WORKER_URL = new URL('./topology-worker.js', import.meta.url);
 const WORKLET_URL = new URL('./delay-worklet.js', import.meta.url);
@@ -20,10 +21,14 @@ export function createBrowserDelayEngine({ onStatus = () => {}, onError = () => 
   let parameters = sanitizeParameters(DEFAULT_PARAMETERS), performanceState = sanitizePerformance(DEFAULT_PERFORMANCE);
   let worker, module, topology, pool, topologyRevision = 0, compilerRevision = 0, compileChain = Promise.resolve();
   let context, node, master, releaseOutput, starting, ready, finishReady, controlsReady = false, contextGeneration = 0;
-  let stream, inputNode, microphonePending = false, captureVersion = 0, capturePromise;
+  let stream, inputNode, microphonePending = false, captureVersion = 0, capturePromise, captureCancel, inputRevision = 0;
   let audio = false, audioDesired = false, audioVersion = 0, disposed = false, failure = null;
   let status = emptyStatus(), sequence = 0, readyTopology;
   const workerRequests = new Map(), audioRequests = new Map();
+  const inputWaiters = new Set();
+  const input = createInputSource({ prepare: prepareAudio, getContext: () => context, getTarget: () => node,
+    canPlay: () => audioDesired && !disposed && !document.hidden,
+    onChange: () => onStatus(snapshot()), onError: report });
 
   function assertOpen() { if (disposed) throw new Error('This audio session has closed.'); }
   function report(error) { failure = String(error.message || error); onError(error); }
@@ -32,7 +37,7 @@ export function createBrowserDelayEngine({ onStatus = () => {}, onError = () => 
     // Processor exceptions permanently silence that node. Discard its graph so
     // the next explicit Audio/Mic action can prepare a fresh session.
     if (failedNode !== node || failedContext !== context) return;
-    audioVersion++; audioDesired = audio = false; setOutput(false, true); stopCapture();
+    audioVersion++; audioDesired = audio = false; setOutput(false, true); stopInputs();
     finishReady?.(error); settleRequests(audioRequests, error);
     controlsReady = false; starting = null;
     if (failedNode) {
@@ -179,24 +184,99 @@ export function createBrowserDelayEngine({ onStatus = () => {}, onError = () => 
 
   function stopCapture() {
     captureVersion++; microphonePending = false;
+    captureCancel?.(); captureCancel = null;
     inputNode?.disconnect(); inputNode = null;
     for (const track of stream?.getTracks() || []) track.stop();
     stream = null; capturePromise = null;
   }
 
-  function setMicrophoneEnabled(enabled) {
+  function invalidateInput() {
+    inputRevision++;
+    for (const cancel of inputWaiters) cancel();
+    inputWaiters.clear();
+  }
+  function stopInputs() { invalidateInput(); stopCapture(); input.stop(); }
+
+  function beginInputAction() { invalidateInput(); failure = null; return inputRevision; }
+  function finishInputAction(revision) {
+    if (revision === inputRevision) { failure = null; onStatus(snapshot()); }
+    return snapshot();
+  }
+
+  async function externalPerformance() {
+    if (performanceState.source === 'mic') return;
+    const next = sanitizePerformance({ ...performanceState, source: 'mic' });
+    if (node && controlsReady) await audioMessage('performance', { performance: next });
+    performanceState = next;
+  }
+
+  async function activateInput() {
+    if (!audioDesired || disposed || document.hidden) return snapshot();
+    const revision = inputRevision, mode = input.snapshot().mode;
+    let cancel;
+    const cancelled = new Promise(resolve => { cancel = resolve; inputWaiters.add(cancel); });
+    const active = (async () => {
+      if (mode === 'mic') await setMicrophoneEnabled(true, false);
+      else {
+        await externalPerformance();
+        if (revision === inputRevision) await input.start();
+      }
+    })();
+    // Device permission and decode cannot always be aborted. A newer input
+    // action finishes this older activation without ever reviving its source.
+    try { await Promise.race([active, cancelled]); }
+    finally { inputWaiters.delete(cancel); }
+    return snapshot();
+  }
+
+  async function setInputMode(mode) {
+    assertOpen();
+    if (!['mic', 'file', 'samples'].includes(mode)) throw new RangeError('Choose Mic, File or Samples input.');
+    const revision = beginInputAction();
+    if (mode !== input.snapshot().mode) stopCapture();
+    input.selectMode(mode);
+    await externalPerformance();
+    if (revision !== inputRevision) return snapshot();
+    if (audioDesired) await activateInput();
+    return finishInputAction(revision);
+  }
+
+  async function setSample(id) {
+    assertOpen(); const revision = beginInputAction(); input.selectSample(id);
+    if (input.snapshot().mode === 'samples' && audioDesired) await activateInput();
+    return finishInputAction(revision);
+  }
+
+  async function loadFile(file) {
+    assertOpen(); const revision = beginInputAction(); stopCapture(); await externalPerformance();
+    if (revision !== inputRevision) return snapshot();
+    await input.loadFile(file); return finishInputAction(revision);
+  }
+
+  function setInputLoop(enabled) { assertOpen(); input.setLoop(enabled); return snapshot(); }
+  function stopInput() { assertOpen(); stopInputs(); return snapshot(); }
+  async function restartInput() {
+    assertOpen(); const revision = beginInputAction(); stopCapture(); input.stop();
+    if (audioDesired) await activateInput();
+    return finishInputAction(revision);
+  }
+
+  function setMicrophoneEnabled(enabled, select = true) {
     if (!enabled) { stopCapture(); return Promise.resolve(snapshot()); }
+    // This explicit capture action may meter a microphone with output muted.
+    if (select) { invalidateInput(); input.selectMode('mic'); }
     // Capture can be prepared while the output gate remains off.
     const prepared = prepareAudio();
     if (stream) return prepared.then(() => snapshot());
     if (capturePromise) return capturePromise;
     const version = ++captureVersion; microphonePending = true;
-    capturePromise = (async () => {
+    const cancelled = new Promise(resolve => { captureCancel = resolve; });
+    const capturing = (async () => {
       await prepared; assertOpen();
-      if (version !== captureVersion) return snapshot();
+      if (version !== captureVersion || input.snapshot().mode !== 'mic') return snapshot();
       if (!navigator.mediaDevices?.getUserMedia) throw new Error('Microphone capture requires a secure browser page and a supported input device.');
       const captured = await navigator.mediaDevices.getUserMedia(audioInputConstraints());
-      if (disposed || version !== captureVersion) {
+      if (disposed || version !== captureVersion || input.snapshot().mode !== 'mic') {
         for (const track of captured.getTracks()) track.stop(); return snapshot();
       }
       stream = captured; inputNode = configureAudioInputNode(context.createMediaStreamSource(stream));
@@ -205,20 +285,25 @@ export function createBrowserDelayEngine({ onStatus = () => {}, onError = () => 
         if (stream === captured) { stopCapture(); onStatus(snapshot()); }
       }, { once: true });
       failure = null; return snapshot();
-    })().catch(error => { if (version === captureVersion) report(error); throw error; })
-      .finally(() => { if (version === captureVersion) { microphonePending = false; capturePromise = null; onStatus(snapshot()); } })
-      .then(() => snapshot());
+    })().catch(error => {
+      if (disposed || version !== captureVersion || input.snapshot().mode !== 'mic') return snapshot();
+      report(error); throw error;
+    })
+      .finally(() => { if (version === captureVersion) { microphonePending = false; capturePromise = null; captureCancel = null; onStatus(snapshot()); } });
+    capturePromise = Promise.race([capturing, cancelled]).then(() => snapshot());
     capturePromise.catch(() => {});
     return capturePromise;
   }
 
   function snapshot(includeNodes = false) {
+    const selectedInput = input.snapshot();
     const visibleStatus = { ...status, source: performanceState.source, automatic: performanceState.automatic,
       microphoneEnabled: Boolean(stream), microphonePending, inputDevice: stream ? audioInputDescription(stream) : null,
-      inputPeak: stream || performanceState.source === 'seed' ? status.inputPeak : 0, failure };
+      inputPeak: stream || selectedInput.playing || performanceState.source === 'seed' ? status.inputPeak : 0, failure };
     if (!audio) Object.assign(visibleStatus, { outputPeak: 0, outputLeftPeak: 0, outputRightPeak: 0, gainReductionDb: 0 });
     const reply = { audio, browserAvailable: true, nativeAvailable: true, deviceAvailable: Boolean(globalThis.AudioContext || globalThis.webkitAudioContext),
-      parameters: { ...parameters }, performance: structuredClone(performanceState), topologyRevision,
+      parameters: { ...parameters }, performance: structuredClone(performanceState), input: { ...selectedInput,
+        pending: selectedInput.pending || microphonePending, playing: selectedInput.mode === 'mic' ? Boolean(stream) : selectedInput.playing }, topologyRevision,
       requestedVoices: topology?.requestedVoices || 0, eligibleVoices: topology?.eligibleVoices || 0,
       memoryVoiceCapacity: topology?.memoryVoiceCapacity || Number.MAX_SAFE_INTEGER,
       generationLimits: topology?.generationLimits || {}, status: visibleStatus, error: failure };
@@ -235,14 +320,14 @@ export function createBrowserDelayEngine({ onStatus = () => {}, onError = () => 
     assertOpen();
     if (path === '/api/audio') {
       const version = ++audioVersion; audioDesired = Boolean(body?.enabled);
-      if (!audioDesired) { audio = false; setOutput(false); stopCapture(); return snapshot(); }
+      if (!audioDesired) { audio = false; setOutput(false); stopInputs(); return snapshot(); }
       try {
         await prepareAudio();
-        if (performanceState.source === 'mic') await setMicrophoneEnabled(true);
+        if (performanceState.source === 'mic') await activateInput();
         if (disposed || version !== audioVersion || !audioDesired || document.hidden) return snapshot();
         audio = true; failure = null; setOutput(true); return await refresh();
       } catch (error) {
-        if (version === audioVersion) { audioDesired = audio = false; setOutput(false, true); report(error); }
+        if (version === audioVersion) { audioDesired = audio = false; setOutput(false, true); stopInputs(); report(error); }
         throw error;
       }
     }
@@ -255,12 +340,13 @@ export function createBrowserDelayEngine({ onStatus = () => {}, onError = () => 
       compileChain = pending; return pending;
     }
     if (path === '/api/performance') {
-      const next = sanitizePerformance({ ...performanceState, ...body });
+      const next = sanitizePerformance({ ...performanceState, ...body,
+        ...(input.snapshot().mode !== 'mic' ? { source: 'mic' } : {}) });
       const needsCapture = audio && next.source === 'mic' && performanceState.source !== 'mic';
       if (node && controlsReady) await audioMessage('performance', { performance: next });
       performanceState = next; failure = null;
-      if (next.source !== 'mic') stopCapture();
-      else if (needsCapture) await setMicrophoneEnabled(true);
+      if (next.source !== 'mic') stopInputs();
+      else if (needsCapture) await activateInput();
       return refresh();
     }
     if (path === '/api/strike') {
@@ -271,7 +357,7 @@ export function createBrowserDelayEngine({ onStatus = () => {}, onError = () => 
   }
 
   function muteForDeparture() {
-    audioVersion++; audioDesired = audio = false; setOutput(false, true); stopCapture();
+    audioVersion++; audioDesired = audio = false; setOutput(false, true); stopInputs();
     // Suspending releases browser CPU and pauses its actual sample clock.
     if (context?.state === 'running') void context.suspend().catch(() => {});
     onStatus(snapshot());
@@ -279,7 +365,7 @@ export function createBrowserDelayEngine({ onStatus = () => {}, onError = () => 
 
   function dispose() {
     if (disposed) return;
-    muteForDeparture(); disposed = true;
+    muteForDeparture(); disposed = true; input.dispose();
     const error = new Error('This audio session has closed.');
     finishReady?.(error); settleRequests(workerRequests, error); settleRequests(audioRequests, error);
     worker?.terminate(); worker = null;
@@ -295,6 +381,7 @@ export function createBrowserDelayEngine({ onStatus = () => {}, onError = () => 
       sampleClock: status.elapsedSeconds, processedBlocks: status.processedBlocks || 0, buildRevision: topologyRevision };
   }
 
-  currentEngine = { request, prepareAudio, setMicrophoneEnabled, muteForDeparture, dispose, getDiagnostics };
+  currentEngine = { request, prepareAudio, setMicrophoneEnabled, setInputMode, setSample, loadFile,
+    setInputLoop, restartInput, stopInput, muteForDeparture, dispose, getDiagnostics };
   return currentEngine;
 }
