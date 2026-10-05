@@ -16,7 +16,7 @@ for (const viewport of [
   { width: 390, height: 844 }, { width: 844, height: 390 },
 ]) {
   test(`main Next and dice stay under a stationary pointer at ${viewport.width}×${viewport.height}`, async ({ page }) => {
-    test.setTimeout(90_000);
+    test.setTimeout(30_000 + INSTRUMENT_PRESETS.length * 2_000);
     await page.setViewportSize(viewport);
     await page.addInitScript(() => {
       let seed = 89341;

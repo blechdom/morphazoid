@@ -23,7 +23,7 @@ async function sounding(page, label, { continuous = false } = {}) {
 }
 
 test('Next sounds every whole-instrument preset across synth, speech and singing without restarting Play', async ({ page }) => {
-  test.setTimeout(220_000);
+  test.setTimeout(60_000 + INSTRUMENT_PRESETS.length * 5_000);
   const errors = []; page.on('pageerror', error => errors.push(error.message));
   await page.goto('/synthesis.html');
   await page.locator('#audioButton').click();
@@ -62,7 +62,7 @@ test('whole-instrument dice and local Next/dice remain audible after a test-sign
 });
 
 test('Next and dice preserve deliberately paused transport and never arm Audio', async ({ page }) => {
-  test.setTimeout(60_000);
+  test.setTimeout(30_000 + INSTRUMENT_PRESETS.length * 2_000);
   await page.goto('/synthesis.html');
   for (const preset of INSTRUMENT_PRESETS) {
     await page.locator('#nextPerformancePreset').click();

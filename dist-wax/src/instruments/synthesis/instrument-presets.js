@@ -1,11 +1,13 @@
-import { createDefaultState, sanitizeState } from './catalog.js';
+import { METHODS, createDefaultState, sanitizeState, stateFromPreset } from './catalog.js';
 import { captureSoundState } from './presets.js';
-import { SYNTHESAURUS_MASTER_PRESETS, sanitizeSequencePerformance, randomizeMasterPerformance } from './performance-presets.js';
+import { SYNTHESAURUS_MASTER_PRESETS, SEQUENCE_SETTINGS_PRESETS, sanitizeSequencePerformance, randomizeMasterPerformance } from './performance-presets.js';
 import { compileSequence } from './sequence-compiler.js';
 import { sanitizeSignalPath } from './signal-path.js';
 import { randomizeAllState } from './presets.js';
-import { isVoiceInput, voicePresetsForInput, randomizeVoiceInputState } from './voice-input-state.js';
+import { isVoiceInput, voicePresetsForInput, withVoiceInputText, randomizeVoiceInputState } from './voice-input-state.js';
 import { envelopeFromBreakpoints } from './envelope-shape.js';
+import { TUNINGS } from './tunings.js';
+import { SYNTHESIS_PERFORMANCE_RECIPES, VOICE_PERFORMANCE_RECIPES } from './instrument-preset-recipes.js';
 
 const directModes = new Set(['none', 'basic-up', 'basic-down', 'basic-up-down']);
 const bounded = (value, min, max, fallback) => Number.isFinite(Number(value)) ? Math.max(min, Math.min(max, Number(value))) : fallback;
@@ -57,9 +59,68 @@ const tours = [synthesisTour, voiceTour('speech'), voiceTour('singing')];
 
 // Spread shorter tours throughout longer ones instead of exhausting one family
 // before the next. The first three recalls introduce all three musical sources.
-export const INSTRUMENT_PRESETS = Object.freeze(tours.flatMap((bank, family) => bank.map((preset, index) => ({
+const mixTours = banks => banks.flatMap((bank, family) => bank.map((preset, index) => ({
   preset, family, position: index / bank.length,
-}))).sort((a, b) => a.position - b.position || a.family - b.family).map(entry => entry.preset));
+}))).sort((a, b) => a.position - b.position || a.family - b.family).map(entry => entry.preset);
+
+// Unlike interactive selection, authored recipes must never silently fall back
+// to another sound when a catalogue reference is misspelled or removed.
+function recipeSound(methodId, presetId, kind) {
+  const method = METHODS.find(item => item.id === methodId);
+  if (!method || (method.kind === 'processor') !== (kind === 'processor') || !method.presets.some(item => item.id === presetId)) {
+    throw new RangeError(`Unknown ${kind} preset in instrument recipe: ${methodId}:${presetId}`);
+  }
+  return stateFromPreset(methodId, presetId);
+}
+
+function recipeEffect(reference) {
+  const [methodId, presetId] = (reference ?? 'fx-reverb:small-room').split(':');
+  const sound = recipeSound(methodId, presetId, 'processor');
+  // The source is the selected instrument, never a processor test signal. Keep
+  // a generous dry component and the factory's calibrated, unboosted trims.
+  return sanitizeState({ ...sound, source: 0, wet: Math.min(.35, sound.wet), bypass: false });
+}
+
+function createSynthesisRecipe([id, label, methodId, presetId, sequenceId, settingsId, tuningId, tempoBpm, voiceMode, insert]) {
+  const settings = SEQUENCE_SETTINGS_PRESETS[sequenceId]?.find(item => item.id === `${sequenceId}:${settingsId}`);
+  if (!settings || !TUNINGS.some(item => item.id === tuningId)) throw new RangeError(`Unknown sequence or tuning in instrument recipe: ${id}`);
+  const sequence = { ...settings.snapshot, tempoBpm };
+  const factory = recipeSound(methodId, presetId, 'synthesis');
+  const sound = fitRandomAttackToSequence(factory, sequence);
+  // Attack fitting is a real envelope edit; don't mislabel the local sound as
+  // an unchanged factory patch. Preserve its measured level calibration.
+  if (JSON.stringify(sound.envelope) !== JSON.stringify(factory.envelope)) sound.presetId = 'custom';
+  return { id: `performance:${id}`, label, snapshot: captureInstrumentPreset({ sound, voiceMode, tuningId, sequence,
+    routing: { input: 'synthesis', loop: true, effectEnabled: !!insert, effect: recipeEffect(insert) },
+  }) };
+}
+
+const voiceFactories = new Map(['speech', 'singing'].map(input => [input, new Map(voicePresetsForInput(input).map(preset => [preset.id, preset]))]));
+function createVoiceRecipe([id, label, input, presetId, text, insert, amplitudeScale = 1]) {
+  const factory = voiceFactories.get(input)?.get(presetId);
+  if (!factory) throw new RangeError(`Unknown voice preset in instrument recipe: ${id}`);
+  const voice = text == null ? structuredClone(factory.state) : withVoiceInputText(factory.state, text);
+  if (amplitudeScale !== 1) {
+    // New STK lyrics can introduce stronger vowels than the factory's original
+    // phone. Apply headroom to both the editable voice and each rendered note.
+    voice.scene.values.amplitude *= amplitudeScale;
+    for (const note of voice.scene.input.phrase?.notes ?? []) note.values.amplitude *= amplitudeScale;
+  }
+  const sound = recipeEffect(insert);
+  return { id: `performance:${id}`, label, snapshot: captureInstrumentPreset({ sound,
+    routing: { input, voice, loop: true, effectEnabled: !!insert, effect: sound },
+  }) };
+}
+
+const addedVoices = VOICE_PERFORMANCE_RECIPES.map(createVoiceRecipe);
+export const ADDITIONAL_INSTRUMENT_PRESETS = Object.freeze(mixTours([
+  SYNTHESIS_PERFORMANCE_RECIPES.map(createSynthesisRecipe),
+  addedVoices.filter(preset => preset.snapshot.routing.input === 'speech'),
+  addedVoices.filter(preset => preset.snapshot.routing.input === 'singing'),
+]));
+// Keep the original tour's IDs, snapshots and ordering intact for saved links
+// and familiar Next positions; the new mixed performances follow it.
+export const INSTRUMENT_PRESETS = Object.freeze([...mixTours(tours), ...ADDITIONAL_INSTRUMENT_PRESETS]);
 
 /** Kept as a compatibility seam: Input no longer restricts the top-level tour. */
 export function instrumentPresetsForInput() { return INSTRUMENT_PRESETS; }

@@ -1,11 +1,54 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createDefaultState } from '../src/instruments/synthesis/catalog.js';
-import { INSTRUMENT_PRESETS, RANDOMIZABLE_INPUTS, instrumentPresetsForInput, captureInstrumentPreset, randomizeInstrumentPreset, fitRandomAttackToSequence } from '../src/instruments/synthesis/instrument-presets.js';
+import { SYNTHESIS_METHODS, createDefaultState } from '../src/instruments/synthesis/catalog.js';
+import { INSTRUMENT_PRESETS, ADDITIONAL_INSTRUMENT_PRESETS, RANDOMIZABLE_INPUTS, instrumentPresetsForInput, captureInstrumentPreset, randomizeInstrumentPreset, fitRandomAttackToSequence } from '../src/instruments/synthesis/instrument-presets.js';
 import { inputsForCategory } from '../src/instruments/synthesis/signal-path.js';
 import { NATIVE_METHODS } from '../src/instruments/voicesaurus/native-model.js';
 import { validateFullPresetBank } from '../src/site/header-presets.js';
 import { compileSequence } from '../src/instruments/synthesis/sequence-compiler.js';
+
+test('the main bank adds exactly 100 distinct complete presets after the existing 34', () => {
+  assert.equal(ADDITIONAL_INSTRUMENT_PRESETS.length, 100);
+  assert.equal(INSTRUMENT_PRESETS.length, 134);
+  assert.deepEqual(INSTRUMENT_PRESETS.slice(34), ADDITIONAL_INSTRUMENT_PRESETS);
+  assert.equal(new Set(INSTRUMENT_PRESETS.map(p => p.id)).size, 134);
+  assert.equal(new Set(INSTRUMENT_PRESETS.map(p => p.label)).size, 134);
+  assert.equal(new Set(INSTRUMENT_PRESETS.map(p => JSON.stringify(p.snapshot))).size, 134);
+  assert.deepEqual(RANDOMIZABLE_INPUTS.map(input => ADDITIONAL_INSTRUMENT_PRESETS.filter(p => p.snapshot.routing.input === input).length), [60, 20, 20]);
+  assert.deepEqual(new Set(ADDITIONAL_INSTRUMENT_PRESETS.filter(p => p.snapshot.routing.input === 'synthesis').map(p => p.snapshot.sound.methodId)), new Set(SYNTHESIS_METHODS.map(m => m.id)));
+  for (const { id, snapshot } of ADDITIONAL_INSTRUMENT_PRESETS) {
+    assert.deepEqual(captureInstrumentPreset(snapshot), snapshot, id);
+    assert.equal(snapshot.routing.loop, true, id);
+    assert.equal(snapshot.routing.selection, null, id);
+    assert.equal(snapshot.routing.effect.source, 0, id);
+    assert.ok(snapshot.routing.effect.wet <= .35, id);
+    if (snapshot.routing.input !== 'synthesis') {
+      assert.deepEqual(snapshot.sound, snapshot.routing.effect, id);
+      assert.equal(snapshot.sequence.id, 'none', id);
+      assert.ok(snapshot.routing.voice.text.length <= 220, id);
+    }
+  }
+});
+
+test('new synthesis performances compile sounding phrases with attacks fitted to their gates', () => {
+  const signatures = new Set(), sequences = new Set(), tunings = new Set();
+  for (const { id, snapshot } of ADDITIONAL_INSTRUMENT_PRESETS.filter(p => p.snapshot.routing.input === 'synthesis')) {
+    const { sound, sequence, tuningId } = snapshot;
+    const cycle = compileSequence(sequence.id, { parameters: sequence.parameters, tempo: sequence.tempoBpm });
+    const notes = cycle.steps.flatMap(step => step.notes);
+    assert.ok(notes.length >= 4, id);
+    let onset = 0;
+    for (const step of cycle.steps) { if (step.notes.length) break; onset += step.duration * 60 / sequence.tempoBpm; }
+    assert.ok(onset < 1, `${id}: first note at ${onset}s`);
+    const gates = cycle.steps.flatMap(step => step.notes.map(note => step.duration * note.gate * 60 / sequence.tempoBpm)).sort((a, b) => a - b);
+    assert.ok(sound.envelope.attack <= Math.max(.001, gates[Math.floor(gates.length / 2)] * .25) + .000001, id);
+    signatures.add(JSON.stringify([sound.methodId, sound.params, sequence, tuningId]));
+    sequences.add(sequence.id); tunings.add(tuningId);
+  }
+  assert.equal(signatures.size, 60);
+  assert.ok(sequences.size >= 16);
+  assert.ok(tunings.size >= 12);
+});
 
 test('whole-instrument bank recalls synthesis, processing, voicing, score, tempo, ADSR and tuning', () => {
   validateFullPresetBank(INSTRUMENT_PRESETS);

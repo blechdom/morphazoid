@@ -35,6 +35,7 @@ async function expectMatchingPresetControls(page) {
 }
 
 test('complete preset tour and dice recall the entire instrument without arming Audio', async ({ page }) => {
+  test.setTimeout(30_000 + INSTRUMENT_PRESETS.length * 2_000);
   const errors=[]; page.on('pageerror', error=>errors.push(error.message));
   page.on('console', message=>{ if(message.type()==='error') errors.push(message.text()); });
   await page.goto('/synthesis.html');
