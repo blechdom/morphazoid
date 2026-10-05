@@ -96,9 +96,12 @@ afterward, instead of waiting for returned HTTP geometry or repeatedly snapping
 to new bounds. Control requests carry the latest values and return lightweight
 status. Obsolete replies cannot replace a newer gesture. Classic grammar previews
 use the same generation ordering and connected pruning as the native audio model.
-The complete quiet outline is neutral and independent of voice admission.
-Capacity growth never paints new generations, including with silent input.
-Only signal-bearing portions receive a colored, vibrating stroke. The first
+Availability and amplitude have separate visual meanings. Every available
+branch stays colored at silence; unavailable branches remain grey. All branches
+use the same constant stroke width and opacity, including the input root.
+Signal amplitude changes wave deflection only, without blinking or clipping the
+connected line. Available paths are batched by their generation palette for
+bounded Canvas overhead. The first
 2,048 priority ranks expose actual rendered tap RMS with stable pool slots.
 On short acoustic transits (100 ms or less), this measured output drives the
 entire branch response rather than predicting it from input history. This
@@ -224,9 +227,9 @@ substituting an unrelated smaller tree. Full preset recalls fetch that preview,
 just as live parameter edits do, before the preset menu finishes applying.
 
 Each tap reads shared recorded input at its inherited pitch and cumulative delay;
-audio does not cascade through parent processors. The full neutral outline stays
-constant as device capacity changes. Color and vibration follow signal rather
-than admission, with actual tap RMS taking precedence on short edges and at
+audio does not cascade through parent processors. The full tree geometry stays
+constant as device capacity changes. Color indicates admission; wave amplitude
+indicates signal, with actual tap RMS taking precedence on short edges and at
 audible endpoints. Long-edge interiors illustrate nominal input travel, so there
 is no separate generation-activation timer. Frozen input records zeros while
 existing delayed audio and the retained input history continue.
@@ -242,7 +245,7 @@ A regression renders 2,049 admitted taps and measures the additional output of
 the final unmetered tap. Increasing Pine from 13 to 14 generations requests
 16,382 to 32,766 voices; automatic mode admits the count supported by measured
 device deadlines and retries when conditions improve. Quiet capacity growth
-creates neither generation-colored layers nor signal waves.
+colors newly available branches but creates no signal waves.
 
 Processing load estimates callback work: control updates, test-tone/input
 preparation, DSP, mixing, adaptive changes and audio activity measurement/publication.
@@ -274,9 +277,9 @@ physical-device checks remain separate. The compatibility command
 Native CPAL and CLI comparisons remain independently testable through Cargo.
 
 The visual-causality check instruments actual Canvas strokes with an isolated
-test-only browser bridge and mocked telemetry. It verifies the complete neutral
-outline and signal-bearing response at all three CPU pressure tiers, independent sibling brightness,
-rank continuity, visible measured release, mute darkness, and rejection of stale
+test-only browser bridge and mocked telemetry. It verifies complete colored
+availability and signal-bearing response at all three CPU pressure tiers, independent sibling motion,
+rank continuity, visible measured release, straight muted descendants, and rejection of stale
 topology packets. Its screenshots and report are in ignored
 `artifacts/l-system-delay-visual-causality/`; it starts no audio device. Core
 fixtures separately prove distinct real delay onsets within one generation and
@@ -285,9 +288,9 @@ Dense generation-13 fixtures cover all eleven grammars at normal and severe
 pressure. The Canvas checks inspect measured responses and the historical
 fallback for unmetered slots for interior displacement and changes over audio time. A short
 input packet advances through early, middle and late positions of a descendant;
-quiet sections remain unlit. Separate silent-admission and muted-bus cases verify
-that capacity growth creates no signal waves. Long branches keep measured-silent
-endpoints uncolored, and a muted wet bus cannot inject input-root energy into
+quiet sections remain straight and connected. Separate silent-admission and muted-bus cases verify
+that capacity growth creates no signal waves. Long branches keep their joined
+endpoint energy anchored to measured output, and a muted wet bus cannot inject input-root energy into
 descendants. Full scene recalls clear prior meters and wait for the new pool,
 including scenes sharing the same grammar and generation count.
 Representative screenshots and the report are generated without microphone capture. Full recalls of Cedar, Quaking
@@ -300,10 +303,13 @@ The actual browser WASM regression also feeds synthetic 173 Hz microphone bursts
 (230 ms every 850 ms) through the normal capture/worklet path. Staghorn Coral at
 1440×900 must show at least one CSS pixel of wave deflection on multiple
 non-root branches at input amplitudes .01, .03 and .05; subpixel movement alone
-does not pass. A fresh silent capture must keep the full outline unchanged and
-uncolored while automatic voice admission grows. These checks use synthetic
+does not pass. Pine, Venus, Ivy, Dragon and Koch also require visible descendant
+waves under ordinary .03 input bursts. A fresh silent capture must keep the full
+tree geometry unchanged and straight while availability colors track automatic
+voice admission. Muting wet output preserves those colors and removes descendant
+motion. These checks use synthetic
 media, not a physical microphone or a listening evaluation. The input and delay
-branches use the same stroke-width response; compression settings do not create
+branches use the same fixed stroke width; compression settings do not create
 a separate visual animation.
 
 ## Historical native implementation verification
