@@ -57,6 +57,7 @@ const NOTE_MODE_IDS = Object.freeze({
     "gesturama",
   ]),
   pitched: Object.freeze([
+    "bifurcator",
     "synthesis",
     "roach-synth",
     "spider-synth",

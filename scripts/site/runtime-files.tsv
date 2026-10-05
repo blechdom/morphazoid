@@ -1503,3 +1503,15 @@ copy+require	assets/wasm/l-system-delay.wasm
 copy+require	assets/wasm/l-system-delay-build.json
 copy+require	docs/l-system-delay-native.md
 copy+require	docs/l-system-delay-measurements.json
+
+# Bifurcator nonlinear instrument and its original procedural artwork.
+copy+require	src/instruments/bifurcator/model.js
+copy+require	src/instruments/bifurcator/shape-reader.js
+copy+require	src/instruments/bifurcator/cycle-monitor.js
+copy+require	src/instruments/bifurcator/processor.js
+copy+require	src/instruments/bifurcator/app.js
+copy+require	src/instruments/bifurcator/presets.js
+copy+require	src/instruments/bifurcator/renderer.js
+copy+require	src/instruments/bifurcator/bifurcator.css
+copy+require	assets/instruments/bifurcator.webp
+copy+require	docs/bifurcator.md

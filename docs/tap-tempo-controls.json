@@ -1643,6 +1643,44 @@
       },
       "note": "Direct bank reference hit-density /sec; one tapinterval=one referencehit.",
       "source": "src/instruments/ouroboros/ouroboros.js"
+    },
+    {
+      "route": "bifurcator",
+      "selector": "#tempo",
+      "mapping": {
+        "unit": "bpm"
+      },
+      "note": "Base tempo in BPM; geometric tempo maps and head ratios still apply.",
+      "source": "src/instruments/bifurcator/model.js"
+    },
+    {
+      "route": "bifurcator",
+      "selector": "#headRate",
+      "mapping": {
+        "unit": "multiplier",
+        "referenceBpm": 120
+      },
+      "note": "Travel multiplier: 120 BPM selects 1×, meaning six normalized path units per second before geometric mapping and spread. This is a relative gesture rate.",
+      "source": "src/instruments/bifurcator/shape-reader.js"
+    },
+    {
+      "route": "bifurcator",
+      "selector": "#speed",
+      "mapping": {
+        "unit": "multiplier",
+        "referenceBpm": 120
+      },
+      "note": "Model/growth multiplier: 120 BPM selects normal 1×. Each model retains its own time rescaling; orbit events are not synchronized to taps.",
+      "source": "src/instruments/bifurcator/model.js"
+    },
+    {
+      "route": "bifurcator",
+      "selector": "#sweepSeconds",
+      "mapping": {
+        "unit": "seconds"
+      },
+      "note": "One tap interval sets the 4–40 second duration of a full regime sweep; pitch and base rhythm tempo retain their values.",
+      "source": "src/instruments/bifurcator/model.js"
     }
   ],
   "ambiguous": [

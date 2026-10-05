@@ -122,3 +122,9 @@ The retained full-resolution transparent sources are:
 Each icon is exported as a transparent 512 × 512 lossless WebP. The matching
 variant directory retains the exact `catalogue-current.webp` copied to
 `assets/instruments/`.
+
+## Bifurcator
+
+`bifurcator.webp` is original procedural artwork rendered from the Lorenz
+equation as a 512 × 512 WebP. The attractor samples supply the butterfly
+trajectory; no third-party image is used.

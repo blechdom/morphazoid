@@ -1,5 +1,20 @@
 # Morphazoid
 
+**[Bifurcator](bifurcator.html)** plays five nonlinear systems: Hopf onset,
+logistic period-doubling, fold hysteresis, Lorenz and Rössler chaos. Its live
+orbit and sound share the same audio-clock simulation. Regime changes the
+mathematics; Clarity moves between raw motion and a pitched voice. Wave cycles
+overlays the actual synthesized waves; Sweep splits moves continuously from
+repeating cycles through period-doubling into chaos. Up to sixteen Shape
+playheads read continuous pitches from the growing contour. Shape rhythms adds
+plucks, bells, ticks and low pulses with independently changing tempos. Map
+height, horizontal position, depth, center distance, angle, bend or path position
+to pitch, tempo, travel, loudness and stereo pan. The Tempo map displays actual
+BPM and beat phases, with explicit rhythm ratios. Hold the contour while its
+readers keep moving, or adjust growth and travel independently. Try fifty
+complete presets. Audio starts off.
+[Controls, equations and model boundaries](docs/bifurcator.md).
+
 **[Domino Run](domino-run.html)** turns falling tiles into percussion across circles, forks, stairs and patterned fields. Six synthesized materials with dry impacts, seeded complete-scene randomization and a 512-tile limit include **Tone Henge**, its stone-circle preset. [Controls and model limits](docs/domino-run.md); [technique research](docs/domino-run-research.md).
 
 **[Spelling Synthesizer](spelling-synthesizer.html)** is now in Voice: a frontal

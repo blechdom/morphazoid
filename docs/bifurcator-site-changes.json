@@ -1,0 +1,67 @@
+{
+  "schemaVersion": 1,
+  "baseline": "Captured from the clean remote main commit above before adding Bifurcator. Exact inverse additions preserve all earlier metadata and Faves.",
+  "changes": [
+    {
+      "file": "src/site/instrument-registry.js",
+      "sha256": "b065f70a77652551717dfd6da1615007fae5580bd7716a481c81fcbd771ad7d1",
+      "regressionTests": [
+        "tests/bifurcator.test.mjs",
+        "tests/bifurcator-integration.test.mjs",
+        "e2e/bifurcator.spec.mjs"
+      ],
+      "replacements": [
+        {
+          "before": "    { id: \"chaotic-pm\", label: \"Chaotic PM\", href: \"chaotic-pm.html\" },\n",
+          "after": "    { id: \"chaotic-pm\", label: \"Chaotic PM\", href: \"chaotic-pm.html\" },\n    { id: \"bifurcator\", label: \"Bifurcator\", href: \"bifurcator.html\", imageHref: \"assets/instruments/bifurcator.webp\" },\n"
+        }
+      ]
+    },
+    {
+      "file": "src/site/instrument-catalog.js",
+      "sha256": "65648fdd9eca6c4176484abbce5a2a13f6179c5d2868c34ed478de3ea58366dd",
+      "regressionTests": [
+        "tests/bifurcator.test.mjs",
+        "tests/bifurcator-integration.test.mjs",
+        "e2e/bifurcator.spec.mjs"
+      ],
+      "replacements": [
+        {
+          "before": "  \"cascading-pm\": define(\n",
+          "after": "  bifurcator: define(\n    \"Nonlinear dynamical synth\",\n    \"Plays five nonlinear systems through orbit signals, sixteen geometric playheads and changing rhythms, with stereo mappings, tempo maps and fifty presets.\",\n    \"Enable Audio, choose a sonification and try a preset. Shape rhythms maps geometry to pulse speeds; Tempo map shows each head’s BPM and beat progress.\",\n    [\"Pointer\", \"MIDI\", \"Computer keys\", \"AudioWorklet\"],\n  ),\n  \"cascading-pm\": define(\n"
+        }
+      ]
+    },
+    {
+      "file": "src/site/catalogue-taxonomy.js",
+      "sha256": "831f624689179fe1cac820107ce6e55d4b5f81c8da82ddc2197ecc3f3302065a",
+      "regressionTests": [
+        "tests/bifurcator.test.mjs",
+        "tests/bifurcator-integration.test.mjs",
+        "e2e/bifurcator.spec.mjs"
+      ],
+      "replacements": [
+        {
+          "before": "  \"cascading-fm\": [\n",
+          "after": "  \"bifurcator\": [\"chaotic\", \"nonlinear\", \"sonification\"],\n  \"cascading-fm\": [\n"
+        }
+      ]
+    },
+    {
+      "file": "src/site/instrument-midi-capabilities.js",
+      "sha256": "9bca49a36f20d40c2bf19fa026ce7b9b3a3830a63586d4468fda35fcc450a5ec",
+      "regressionTests": [
+        "tests/bifurcator.test.mjs",
+        "tests/bifurcator-integration.test.mjs",
+        "e2e/bifurcator.spec.mjs"
+      ],
+      "replacements": [
+        {
+          "before": "  pitched: Object.freeze([\n",
+          "after": "  pitched: Object.freeze([\n    \"bifurcator\",\n"
+        }
+      ]
+    }
+  ],
+  "baseCommit": "1c8cd0d98e4144450308c04511f57bb75d9a2313"
+}

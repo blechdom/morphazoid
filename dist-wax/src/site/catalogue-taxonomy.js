@@ -480,6 +480,7 @@ export const ADDITIONAL_TAG_IDS = Object.freeze(Object.fromEntries(Object.entrie
     "nonlinear",
     "pm"
   ],
+  "bifurcator": ["chaotic", "nonlinear", "sonification"],
   "cascading-fm": [
     "chaotic",
     "nonlinear",

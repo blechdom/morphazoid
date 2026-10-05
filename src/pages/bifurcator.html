@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <meta name="theme-color" content="#080c12" />
+  <meta name="description" content="Bifurcator is a playable nonlinear instrument: explore Hopf onset, period-doubling, hysteresis, Lorenz and Rössler chaos through live orbits and continuous sound." />
+  <title>Bifurcator — Morphazoid</title>
+  <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="src/instruments/bifurcator/bifurcator.css" />
+</head>
+<body class="bifurcator-page">
+  <header class="masthead" data-audio-output-meter>
+    <a class="wordmark" href="./" aria-label="Morphazoid home"><span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span><span>morphazoid</span></a>
+    <nav class="tabs" aria-label="Instrument">
+      <a class="tab" href="chaotic-pm.html">chaotic pm</a>
+      <a class="tab active" href="bifurcator.html" aria-current="page">bifurcator</a>
+      <a class="tab" href="recursive-fm.html">recursive fm</a>
+    </nav>
+    <label class="mobile-instrument-nav"><span class="sr-only">Instrument</span><select class="mobile-instrument-select" aria-label="Instrument"><option value="chaotic-pm.html">chaotic pm</option><option value="bifurcator.html" selected>bifurcator</option><option value="recursive-fm.html">recursive fm</option></select></label>
+    <div class="audio-strip" aria-label="Audio controls">
+      <label class="header-level" for="level"><span><b>Output</b><output id="levelOut" for="level">32%</output></span><input id="level" type="range" min="0" max="0.8" step="0.01" value="0.32" aria-label="Output level" /></label>
+      <button class="audio-button" id="audioButton" type="button" aria-pressed="false"><span class="audio-glyph" aria-hidden="true">◉</span><span class="audio-copy"><b>Audio</b><small id="audioState">off</small></span></button>
+    </div>
+  </header>
+  <main class="shell bifurcator-shell">
+    <section class="stage bifurcator-stage" aria-labelledby="instrumentTitle">
+      <div class="bifurcator-stage-wrap" id="stageWrap">
+        <canvas id="stage" tabindex="0" role="img" aria-label="Live nonlinear orbit. Left and right arrows change regime; up and down arrows change clarity; Enter nudges the system." aria-describedby="gestureHint">The live trajectory of the selected nonlinear system. Use the labelled controls to explore its behavior.</canvas>
+        <div class="bifurcator-title"><h1 id="instrumentTitle">Bifurcator</h1><p id="modelReadout">Lorenz / butterfly</p><div class="stage-view" role="group" aria-label="Graphic view"><button id="orbitView" type="button" aria-pressed="true">Orbit</button><button id="cycleView" type="button" aria-pressed="false">Wave cycles</button><button id="tempoView" type="button" aria-pressed="false" hidden>Tempo map</button></div></div>
+        <div class="orbit-value"><span id="parameterLabel">ρ</span><output id="parameterValue" for="regime">28.00</output></div>
+        <div class="signal-monitor"><span>Synth signal</span><canvas id="signal" aria-label="Waveform of the synthesized output before master volume">Current synthesized waveform.</canvas></div>
+        <div class="stage-actions">
+          <button id="playButton" class="play-button" type="button" data-primary-transport aria-pressed="true" aria-label="Pause Bifurcator"><svg class="transport-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5 18 12 8 18.5Z" /></svg><svg class="transport-pause" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6v12M16 6v12" /></svg></button>
+          <button id="nudgeButton" class="mini-action" type="button">Nudge</button>
+          <button id="resetButton" class="mini-action" type="button" data-reset-all data-reset-in-place>Reset</button>
+          <span id="gestureHint">Drag: regime ↔ · clarity ↕</span>
+        </div>
+      </div>
+    </section>
+    <aside class="panel bifurcator-panel" data-instrument-preset-host aria-label="Bifurcator controls">
+      <section class="bifurcator-controls" aria-labelledby="systemHeading">
+        <h2 id="systemHeading">System</h2>
+        <label class="control" for="sonification"><span><b>Sonification</b></span><select id="sonification"><option value="orbit" selected>Orbit signal</option><option value="shape">Shape playheads</option><option value="rhythm">Shape rhythms</option></select></label>
+        <label class="control" for="model"><span><b>Model</b></span><select id="model"><option value="hopf">Hopf · tone onset</option><option value="logistic">Period-doubling</option><option value="fold">Fold · hysteresis</option><option value="lorenz" selected>Lorenz · butterfly</option><option value="rossler">Rössler · spiral chaos</option></select></label>
+        <label class="control" for="regime"><span><b id="regimeLabel">Regime · ρ</b><output id="regimeOut" for="regime">28.00</output></span><input id="regime" type="range" min="0" max="1" step="0.001" value="0.34591" /></label>
+        <details class="model-parameters" id="lorenzParameters" open><summary>Model coefficients</summary>
+          <label class="control" for="sigma"><span><b>σ · coupling</b><output id="sigmaOut" for="sigma">10.00</output></span><input id="sigma" type="range" min="4" max="18" step="0.01" value="10" /></label>
+          <label class="control" for="beta"><span><b>β · dissipation</b><output id="betaOut" for="beta">2.67</output></span><input id="beta" type="range" min="0.8" max="4" step="0.01" value="2.6666666667" /></label>
+        </details>
+        <details class="model-parameters" id="rosslerParameters" hidden open><summary>Model coefficients</summary>
+          <label class="control" for="a"><span><b>a · spiral growth</b><output id="aOut" for="a">0.20</output></span><input id="a" type="range" min="0.05" max="0.35" step="0.001" value="0.2" /></label>
+          <label class="control" for="b"><span><b>b · orbit lift</b><output id="bOut" for="b">0.20</output></span><input id="b" type="range" min="0.05" max="0.35" step="0.001" value="0.2" /></label>
+        </details>
+        <label class="control" for="speed"><span><b id="speedLabel">Motion rate</b><output id="speedOut" for="speed">1.00×</output></span><input id="speed" type="range" min="0.15" max="3" step="0.01" value="1" /></label>
+      </section>
+      <section class="bifurcator-controls" id="rhythmControls" aria-labelledby="rhythmHeading" hidden>
+        <h2 id="rhythmHeading">Rhythm &amp; tempo</h2>
+        <label class="control" for="tempo"><span><b>Base tempo</b><output id="tempoOut" for="tempo">96 BPM</output></span><input id="tempo" type="range" min="30" max="240" step="1" value="96" /></label>
+        <label class="control" for="tempoAxis"><span><b>Tempo follows</b></span><select id="tempoAxis"><option value="none" selected>Constant</option><option value="height">Height</option><option value="horizontal">Horizontal</option><option value="center">Center distance</option><option value="depth">Depth</option><option value="angle">Angle</option><option value="bend">Bend</option><option value="path">Path position</option></select></label>
+        <label class="control" for="tempoSpan"><span><b>Tempo range</b><output id="tempoSpanOut" for="tempoSpan">0.00 oct</output></span><input id="tempoSpan" type="range" min="0" max="3" step="0.01" value="0" /></label>
+        <label class="control" for="rhythmRatios"><span><b>Rhythm ratios</b></span><select id="rhythmRatios"><option value="unison" selected>1× · all heads</option><option value="octaves">½× · 1× · 2× · 4×</option><option value="two-three-four">2 : 3 : 4 · 1× · 1½× · 2×</option><option value="fibonacci">1× · 2× · 3× · 5×</option></select></label>
+        <output id="tempoSummary" class="tempo-summary" aria-label="Mapped tempo range" aria-live="off">96 BPM · every head</output>
+        <label class="control" for="pulseVoice"><span><b>Pulse voice</b></span><select id="pulseVoice"><option value="pluck" selected>Pluck</option><option value="bell">Bell</option><option value="tick">Tick</option><option value="kick">Low pulse</option></select></label>
+        <label class="control" for="pulseDecay"><span><b>Pulse decay</b><output id="pulseDecayOut" for="pulseDecay">180 ms</output></span><input id="pulseDecay" type="range" min="0.025" max="1.2" step="0.005" value="0.18" /></label>
+      </section>
+      <section class="bifurcator-controls" id="shapeReaderControls" aria-labelledby="shapeReaderHeading" hidden>
+        <h2 id="shapeReaderHeading">Shape playheads</h2>
+        <label class="control" for="headCount"><span><b>Playheads</b><output id="headCountOut" for="headCount">2 heads</output></span><input id="headCount" type="range" min="1" max="16" step="1" value="2" /></label>
+        <label class="control" for="pitchAxis"><span><b>Pitch follows</b></span><select id="pitchAxis"><option value="height" selected>Height ↑</option><option value="horizontal">Horizontal →</option><option value="center">Center distance</option><option value="depth">Depth</option><option value="angle">Angle</option><option value="bend">Bend</option><option value="path">Path position</option></select></label>
+        <label class="control" for="headRate"><span><b>Travel speed</b><output id="headRateOut" for="headRate">1.00×</output></span><input id="headRate" type="range" min="0.03" max="3" step="0.01" value="1" /></label>
+        <label class="control" for="pitchSpan"><span><b>Pitch span</b><output id="pitchSpanOut" for="pitchSpan">2.50 oct</output></span><input id="pitchSpan" type="range" min="0" max="4" step="0.01" value="2.5" /></label>
+        <label class="shape-growth" for="growShape"><input id="growShape" type="checkbox" checked /><span>Grow shape</span></label>
+        <p id="shapeHint" class="wave-hint">Higher on the shape → higher pitch.</p>
+        <details class="mapping-controls"><summary>Travel, loudness &amp; pan</summary>
+          <label class="control" for="headSpread"><span><b>Travel spread</b><output id="headSpreadOut" for="headSpread">0.00 oct</output></span><input id="headSpread" type="range" min="0" max="3" step="0.01" value="0" /></label>
+          <label class="control" for="travelAxis"><span><b>Travel follows</b></span><select id="travelAxis"><option value="none" selected>Constant</option><option value="height">Height</option><option value="horizontal">Horizontal</option><option value="center">Center distance</option><option value="depth">Depth</option><option value="angle">Angle</option><option value="bend">Bend</option><option value="path">Path position</option></select></label>
+          <label class="control" for="travelSpan"><span><b>Travel range</b><output id="travelSpanOut" for="travelSpan">0.00 oct</output></span><input id="travelSpan" type="range" min="0" max="3" step="0.01" value="0" /></label>
+          <label class="control" for="amplitudeAxis"><span><b>Loudness follows</b></span><select id="amplitudeAxis"><option value="none" selected>Constant</option><option value="height">Height</option><option value="horizontal">Horizontal</option><option value="center">Center distance</option><option value="depth">Depth</option><option value="angle">Angle</option><option value="bend">Bend</option><option value="path">Path position</option></select></label>
+          <label class="control" for="amplitudeDepth"><span><b>Loudness depth</b><output id="amplitudeDepthOut" for="amplitudeDepth">0%</output></span><input id="amplitudeDepth" type="range" min="0" max="1" step="0.01" value="0" /></label>
+          <label class="control" for="panAxis"><span><b>Pan follows</b></span><select id="panAxis"><option value="none" selected>Center</option><option value="height">Height</option><option value="horizontal">Horizontal</option><option value="center">Center distance</option><option value="depth">Depth</option><option value="angle">Angle</option><option value="bend">Bend</option><option value="path">Path position</option></select></label>
+          <label class="control" for="panWidth"><span><b>Pan width</b><output id="panWidthOut" for="panWidth">0%</output></span><input id="panWidth" type="range" min="0" max="1" step="0.01" value="0" /></label>
+        </details>
+      </section>
+      <section class="bifurcator-controls" id="headReadouts" aria-label="Live playheads" hidden>
+        <table class="head-readouts"><caption>Live playheads</caption><thead><tr><th scope="col">Head</th><th scope="col">Hz</th><th scope="col">BPM</th><th scope="col">Travel</th></tr></thead><tbody id="headRows"></tbody></table>
+        <output id="headFrequencies" class="sr-only" aria-label="Playhead frequencies" aria-live="off">Building contour</output>
+      </section>
+      <section class="bifurcator-controls" id="waveControls" aria-labelledby="waveHeading">
+        <h2 id="waveHeading">Wave splits</h2>
+        <label class="control" for="sweepSeconds"><span><b>Sweep time</b><output id="sweepSecondsOut" for="sweepSeconds">16 s</output></span><input id="sweepSeconds" type="range" min="4" max="40" step="1" value="16" /></label>
+        <div class="wave-actions"><button id="sweepButton" class="mini-action" type="button" aria-pressed="false" aria-describedby="sweepHint">Sweep splits</button><span id="sweepProgress" aria-hidden="true"></span></div>
+        <p id="sweepHint" class="wave-hint">Explore period-doubling at the current pitch.</p>
+      </section>
+      <section class="bifurcator-controls" aria-labelledby="soundHeading">
+        <h2 id="soundHeading">Sound</h2>
+        <div id="clarityControl"><label class="control" for="clarity"><span><b>Clarity</b><output id="clarityOut" for="clarity">45%</output></span><input id="clarity" type="range" min="0" max="1" step="0.01" value="0.45" /></label>
+        <div class="range-ends" aria-hidden="true"><span>raw / noisy</span><span>clear / tonal</span></div>
+        </div>
+        <label class="control" for="frequency"><span><b id="frequencyLabel">Pitch</b><output id="frequencyOut" for="frequency">110 Hz</output></span><input id="frequency" type="range" min="35" max="1400" step="0.1" value="110" /></label>
+        <div id="depthControl"><label class="control" for="depth"><span><b>Orbit → tone</b><output id="depthOut" for="depth">65%</output></span><input id="depth" type="range" min="0" max="1" step="0.01" value="0.65" /></label></div>
+        <label class="control" for="cutoff"><span><b>Brightness</b><output id="cutoffOut" for="cutoff">6.0 kHz</output></span><input id="cutoff" type="range" min="80" max="18000" step="10" value="6000" /></label>
+      </section>
+      <details class="bifurcator-notes"><summary>Playing & model notes</summary><p id="modelDescription">Change ρ to explore stable equilibria and chaotic orbits. Clarity changes the sonification.</p><p>Regime changes the system; Clarity blends its raw motion with a pitched voice. Nudge changes its current state. Audio and motion have separate switches.</p><p>Up to sixteen playheads read the actual contour. Height, horizontal position, depth, center distance, angle, bend or path position can map independently to pitch, travel, loudness and pan. Growth and travel have separate clocks. Uncheck Grow shape to hold the contour while the heads keep playing.</p><p>Shape rhythms turns the heads into plucks, bells, ticks or low pulses. Tempo follows a chosen dimension around Base tempo, with optional explicit ratios. Tempo map shows each head's actual BPM and beat phase; its up/down gestures change Tempo range, or Base tempo when set to Constant. Pause freezes all clocks after release.</p><p>Wave cycles overlays the synthesized cycles. Sweep splits selects period-doubling and moves from repeating cycles into chaos. Pitch, output, Audio and Play are preserved; Pause also holds the sweep. Editing Regime or choosing a preset ends the sweep.</p><p><a href="docs/bifurcator.md">Controls, equations & sources ↗</a></p></details>
+      <p id="liveStatus" role="status" class="bifurcator-status">Audio off · orbit moving</p>
+      <p id="audioError" role="alert" hidden></p>
+    </aside>
+  </main>
+  <script type="module" src="nav.js"></script>
+  <script type="module" src="src/instruments/bifurcator/app.js"></script>
+</body>
+</html>

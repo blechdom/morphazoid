@@ -4,8 +4,8 @@
   "branch": "codex/presets-continue-20260922",
   "source": "Review branch directory checkpoint 03619ff rebased onto origin/main ef6e593; pending pointer, family rename and preset drafts restored; no push or deployment",
   "counts": {
-    "implemented": 34,
-    "fullPresets": 1518,
+    "implemented": 35,
+    "fullPresets": 1568,
     "favesImplemented": 17,
     "activeRemaining": 62,
     "regularRemaining": 130
@@ -761,6 +761,16 @@
       "scope": "regular",
       "presets": null,
       "status": "unmigrated"
+    },
+    {
+      "id": "bifurcator",
+      "presets": 50,
+      "status": "implemented-verification-pending",
+      "evidence": "docs/bifurcator.md; model, audio, MIDI, responsive and accessibility checks; human listening and physical-device acceptance unperformed",
+      "label": "Bifurcator",
+      "href": "bifurcator.html",
+      "category": "synthesizer",
+      "scope": "regular"
     },
     {
       "id": "cascading-fm",

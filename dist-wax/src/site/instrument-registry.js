@@ -138,6 +138,7 @@ export const TOOL_GROUPS = Object.freeze([
     { id: "recursive-pm", label: "Recursive PM", href: "recursive-pm.html" },
     { id: "chaotic-fm", label: "Chaotic FM", href: "chaotic-fm.html" },
     { id: "chaotic-pm", label: "Chaotic PM", href: "chaotic-pm.html" },
+    { id: "bifurcator", label: "Bifurcator", href: "bifurcator.html", imageHref: "assets/instruments/bifurcator.webp" },
     { id: "cascading-fm", label: "Cascading FM", href: "cascading-fm.html" },
     { id: "cascading-pm", label: "Cascading PM", href: "cascading-pm.html" },
     { id: "weierstrass", label: "Weierstrass", href: "weierstrass.html" },

@@ -630,6 +630,12 @@ const CATALOG_DETAILS = Object.freeze({
     "Chains sine oscillators across rising, equal, or falling base frequencies, each one frequency-modulating the next with tapered depth.",
     "Turn on audio, then adjust the stage count, cascade ratio, modulation depth, and depth taper.",
   ),
+  bifurcator: define(
+    "Nonlinear dynamical synth",
+    "Plays five nonlinear systems through orbit signals, sixteen geometric playheads and changing rhythms, with stereo mappings, tempo maps and fifty presets.",
+    "Enable Audio, choose a sonification and try a preset. Shape rhythms maps geometry to pulse speeds; Tempo map shows each head’s BPM and beat progress.",
+    ["Pointer", "MIDI", "Computer keys", "AudioWorklet"],
+  ),
   "cascading-pm": define(
     "Synth",
     "Chains sine operators across rising, equal, or falling base frequencies, with every stage offsetting the next stage's phase in radians.",

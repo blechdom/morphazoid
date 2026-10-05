@@ -1,0 +1,17 @@
+{
+  "additions": [
+    {
+      "id": "bifurcator",
+      "label": "Bifurcator",
+      "href": "bifurcator.html",
+      "imageHref": "assets/instruments/bifurcator.webp",
+      "categoryId": "synthesizer",
+      "categoryLabel": "Synthesizer",
+      "tags": [
+        { "id": "chaotic", "label": "Chaotic" },
+        { "id": "nonlinear", "label": "Nonlinear" },
+        { "id": "sonification", "label": "Sonification" }
+      ]
+    }
+  ]
+}

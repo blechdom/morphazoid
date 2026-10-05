@@ -1,4 +1,5 @@
 import { readAudioInputReference as readFile } from "./helpers/audio-input-reference.mjs";
+import { restoreBifurcatorSite } from "./helpers/bifurcator-site-reference.mjs";
 import { restoreTapTempo } from "./helpers/tap-tempo-reference.mjs";
 import { restoreSpelling } from "./helpers/spelling-reference.mjs";
 import { restoreMorphazoidicalRemoval } from "./helpers/morphazoidical-removal-reference.mjs";
@@ -42,7 +43,7 @@ function restoreSynthesis(source, file) {
 }
 // Voicesaurus is newer than both Synthesaurus and Domino; peel it off first.
 const readBeforeSynthesis = async file => {
-  const current = restoreSynthesaurusFavesOrder(await readFile(new URL(file, root), "utf8"), file);
+  const current = restoreSynthesaurusFavesOrder(restoreBifurcatorSite(await readFile(new URL(file, root), "utf8"), file), file);
   return restoreSynthesis(restoreVoicesaurus(restoreFabricFilter(restoreMorphazoidicalRemoval(restoreTapTempo(current, file), file), file), file), file);
 };
 const readBeforeDomino = async file => restoreDominoRunSite(await readBeforeSynthesis(file), file);
@@ -50,7 +51,7 @@ const readBeforeDomino = async file => restoreDominoRunSite(await readBeforeSynt
 test("Synthesaurus Faves reorder reverses exactly without changing older reference hashes", async () => {
   assert.deepEqual(synthesaurusFavesOrderChanges.map(change => change.file), ["src/site/instrument-registry.js"]);
   for (const change of synthesaurusFavesOrderChanges) {
-    const source = await readFile(new URL(change.file, root), "utf8");
+    const source = restoreBifurcatorSite(await readFile(new URL(change.file, root), "utf8"), change.file);
     assert.notEqual(restoreSynthesaurusFavesOrder(source, change.file), source);
     assert.throws(() => restoreSynthesaurusFavesOrder(source + "\n// unrelated drift\n", change.file), /pre-Synthesaurus-reorder source preserved/);
     for (const replacement of change.replacements) {

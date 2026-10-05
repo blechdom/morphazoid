@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createHash } from 'node:crypto';
 import { nativeDelaySiteChanges, restoreNativeDelaySite } from './helpers/native-delay-site-reference.mjs';
+import { restoreBifurcatorSite } from './helpers/bifurcator-site-reference.mjs';
 import { restoreSynthesaurusFavesOrder } from './helpers/synthesaurus-faves-order-reference.mjs';
 import { readFile } from 'node:fs/promises';
 import { execFileSync } from 'node:child_process';
@@ -96,7 +97,7 @@ test('native proxy routing and origin rejection pass without native devices', ()
 
 test('native site additions reverse exactly without rewriting earlier layout evidence', async () => {
   for (const change of nativeDelaySiteChanges.changes) {
-    const source = await readFile(new URL('../' + change.file, import.meta.url), 'utf8');
+    const source = restoreBifurcatorSite(await readFile(new URL('../' + change.file, import.meta.url), 'utf8'), change.file);
     const restored = restoreSynthesaurusFavesOrder(restoreNativeDelaySite(source, change.file), change.file);
     assert.equal(createHash('sha256').update(restored).digest('hex'), change.sha256, change.file);
     for (const file of change.regressionTests) await readFile(new URL('../' + file, import.meta.url));
