@@ -71,12 +71,17 @@ ordinary browser playback does not imply DAW track-input integration.
 The native page uses the original `l-mic.html` sections, shared site styles,
 `micmic.css`, generation colors, all sixteen original full presets and slider mappings.
 The twenty-six-scene bank adds Cedar, Quaking Aspen, Juniper, Baobab, Foxglove,
-Lotus, Acacia, Lichen, Moonflower and Horsetail. Full scene recall includes the
-original factory output level (0.48); the growth buttons change only the original
-eight recursion settings and preserve grammar, mix and output. Negative pruning
-values are retained exactly as preset data; both engines treat them as breadth
-first. Full recalls identify scenes by canonical parameter values, so their growth
-names, highlights and **Reload selected preset** remain tied to the chosen scene.
+Lotus, Acacia, Lichen, Moonflower and Horsetail.
+The main preset menu contains all 26 scenes in the former button order. Each
+selection restores the complete grammar, growth, pruning, stereo spread, mix,
+mastering and original factory output level. The separate growth-button grid is
+removed. **Reload selected preset** uses the same complete recall. Missing mix
+or mastering fields in older scene data use defaults rather than inheriting
+another scene. Microphone capture, Audio, recorded history and device policy
+remain live. Pending edits cannot replace a completed recall; musical controls
+are temporarily unavailable while the scene is being installed.
+Negative original pruning values remain exact preset data; both engines treat
+them as breadth first.
 Four new Pine scenes request fourteen to sixteen generations, while six
 new scenes cover the additional curve grammars. Actual audio admission remains
 device measured rather than guaranteed by a preset.
@@ -170,11 +175,10 @@ and makeup −12–+12 dB. Input/output HPF support up to 2 kHz and output LPF u
 20 kHz, subject to the device-rate limit.
 
 Focused mastering presets preserve the current tree, mix, recording, input
-source, voice policy, output level and Audio state. Quick growth presets also
-preserve mastering. Full factory scenes recall Original mastering; saved full
+source, voice policy, output level and Audio state. Full factory scenes recall
+Original mastering; saved full
 scenes include the edited mastering settings. Reset all returns mastering to
-Original. Older external snapshots that omit mastering retain the current
-settings. The full-state randomizer includes bounded mastering variation.
+Original. Older external snapshots that omit mastering recall Original settings. The full-state randomizer includes bounded mastering variation.
 
 Filters and dynamics process shared buses, rather than adding work to every
 voice. Coefficients and compressor curves are prepared outside audio processing;

@@ -6,7 +6,7 @@ import { createTapTempoButton } from '../../../ui/primitives/tap-tempo-button.js
 import { registerHeaderPresets, presetStateKey } from '../../../site/header-presets.js';
 import { generationTopology, timeFoldFromSlider, sliderFromTimeFold } from '../micmic.js';
 import { DEFAULT_PARAMETERS, DEFAULT_PERFORMANCE, sanitizeParameters, sanitizePerformance,
-  presetState, randomState, captureScene, generationPresetParameters, gestureParameters, clamp, admittedPreviewNodes,
+  presetState, randomState, captureScene, gestureParameters, clamp, admittedPreviewNodes,
   buildPreview, interpolateParameters, topologyBounds, fitTransform, visualBudget, nativePreviewNodes, interpolatePreviewNodes,
   topologyIdentity, tapActivityFrame, activityEnergy, smoothActivity, branchBaselineAlpha, branchWavePoints, inputHistoryFrame } from './model.js';
 import { DEFAULT_MASTERING, MASTERING_PROFILES, masteringProfileId, cutoffFromSlider, sliderFromCutoff } from './mastering.js';
@@ -39,7 +39,7 @@ let lastDrawAt = -Infinity, visualPressureUntil = 0, heldVisualPressure = 0;
 let geometry = null, frameId = 0, drag = null, rangeGesture = false, gestureUntil = 0, lockedFit = null;
 let nativePreview = null, nativePreviewFrom = new Map(), nativePreviewStarted = 0, nativePreviewMoving = false;
 let previewParameters = { ...state.parameters }, previewFrom = { ...previewParameters }, previewStarted = 0, previewMoving = false;
-let presets = [], selectedPreset = 'pythagorean', lastGenerationPreset = 'pythagorean', presetController;
+let presets = [], lastScenePreset = 'pythagorean', presetController, sceneApplying = false;
 const canvas = $('stage'), context = canvas.getContext('2d'), reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
 const inputStrip = createAudioInputStrip({ button: $('micButton'), gainInput: $('inputTrim'), gainOutput: $('inputTrimOut'), channels: 1 });
 $('inputMenu').classList.add('mz-input-legacy'); $('seedMicButton').classList.add('mz-input-legacy');
@@ -200,7 +200,10 @@ async function flushParameters() {
   if (disposed || parameterWorking || !parameterDirty) return;
   parameterDirty = false; parameterWorking = true;
   const revision = parameterRevision, parameters = { ...state.parameters };
-  try { acceptStatus(await enqueue(() => request('/api/parameters', parameters))); void refreshNativePreview(revision); }
+  try {
+    const reply = await enqueue(() => revision === parameterRevision ? request('/api/parameters', parameters) : null);
+    if (revision === parameterRevision) { acceptStatus(reply); void refreshNativePreview(revision); }
+  }
   catch (error) {
     showError(error.message);
     try { const reply = await request('/api/status'); if (revision === parameterRevision && reply.parameters) { state.parameters = sanitizeParameters(reply.parameters); startPreview(); void refreshNativePreview(revision); } acceptStatus(reply); } catch { /* Keep the error visible until reconnection. */ }
@@ -214,37 +217,67 @@ async function flushPerformance() {
   if (disposed || performanceWorking || !performanceDirty) return;
   performanceDirty = false; performanceWorking = true;
   const revision = performanceRevision, snapshot = { ...state.performance };
-  try { acceptStatus(await enqueue(() => request('/api/performance', snapshot))); }
+  try {
+    const reply = await enqueue(() => revision === performanceRevision ? request('/api/performance', snapshot) : null);
+    if (revision === performanceRevision) acceptStatus(reply);
+  }
   catch (error) {
     showError(error.message);
     try { const reply = await request('/api/status'); if (revision === performanceRevision && reply.performance) state.performance = sanitizePerformance(reply.performance); acceptStatus(reply); } catch { /* Preserve the visible error. */ }
   } finally { performanceWorking = false; if (performanceDirty && !disposed) performanceTimer = setTimeout(flushPerformance, 30); }
 }
 function updateParameter(key, value, immediate = false) {
+  if (sceneApplying) return;
   state.parameters = sanitizeParameters({ ...state.parameters, [key]: value }); parameterRevision++;
-  if (!['lSystemType', 'pruningBias', 'spread'].includes(key)) selectedPreset = 'custom';
   startPreview(); paintControls(); scheduleParameters(immediate); presetController?.refresh();
 }
 function updatePerformance(key, value, immediate = false, musical = true) {
+  if (sceneApplying && ['wet', 'dry', 'inputGain', 'level', 'mastering', 'frequency', 'pulseRate'].includes(key)) return;
   state.performance = sanitizePerformance({ ...state.performance, [key]: value }); performanceRevision++;
-  // Mix and device edits leave the independent growth preset selection intact.
   paintControls(); schedulePerformance(immediate); presetController?.refresh();
 }
 function updateMastering(settings, immediate = false) {
   updatePerformance('mastering', { ...state.performance.mastering, ...settings }, immediate);
 }
 async function applyScene(scene, id = 'custom') {
+  if (disposed || sceneApplying) return;
   const next = presetState(scene, state.performance), previous = { parameters: state.parameters, performance: state.performance };
+  sceneApplying = true;
+  const picker = document.querySelector('.instrument-preset-controls');
+  const restoreFocus = Boolean(picker?.contains(document.activeElement));
+  if (picker) picker.inert = true;
+  const controls = [...new Set([...Object.values(CONTROL_IDS), 'lSystemType', 'wet', 'dry', 'inputTrim', 'level',
+    ...MASTERING_IDS, 'masteringPreset', 'compressorEnabled', 'autoMakeup', 'frequency', 'pulseRate', 'resetGenerationRules'])]
+    .map($).filter(Boolean);
+  const disabled = controls.map(control => control.disabled);
+  for (const control of controls) control.disabled = true;
+  canvas.setAttribute('aria-busy', 'true');
+  if (drag && canvas.hasPointerCapture(drag.id)) canvas.releasePointerCapture(drag.id);
+  drag = null; rangeGesture = false; lockedFit = null; geometry = null;
+  nativePreview = null; nativePreviewMoving = false; nativePreviewFrom = new Map();
   clearTimeout(parameterTimer); clearTimeout(performanceTimer); parameterDirty = performanceDirty = false;
-  state.parameters = next.parameters; state.performance = next.performance; parameterRevision++; performanceRevision++; selectedPreset = id;
-  const revision = parameterRevision; if (presets.some(p => p.id === id)) lastGenerationPreset = id; startPreview({ lock: false }); paintControls();
+  state.parameters = next.parameters; state.performance = next.performance; parameterRevision++; performanceRevision++;
+  const revision = parameterRevision; startPreview({ lock: false }); paintControls();
   try {
-    acceptStatus(await enqueue(() => request('/api/performance', next.performance)));
-    acceptStatus(await enqueue(() => request('/api/parameters', next.parameters)));
+    await enqueue(async () => {
+      if (disposed || revision !== parameterRevision) return;
+      acceptStatus(await request('/api/performance', presetState(scene, state.performance).performance));
+      acceptStatus(await request('/api/parameters', next.parameters));
+    });
     await refreshNativePreview(revision);
+    if (presets.some(p => p.id === id)) lastScenePreset = id;
   } catch (error) {
-    if (revision === parameterRevision) { state.parameters = previous.parameters; state.performance = previous.performance; startPreview(); paintControls(); }
+    if (revision === parameterRevision) {
+      const restored = presetState(previous, state.performance);
+      state.parameters = restored.parameters; state.performance = restored.performance; startPreview(); paintControls();
+    }
     showError(error.message); throw error;
+  } finally {
+    sceneApplying = false;
+    for (let index = 0; index < controls.length; index++) controls[index].disabled = disabled[index];
+    if (picker) picker.inert = false;
+    canvas.setAttribute('aria-busy', 'false');
+    if (restoreFocus && document.activeElement === document.body) picker?.querySelector('summary')?.focus({ preventScroll: true });
   }
 }
 async function toggleAudio(force) {
@@ -312,7 +345,6 @@ function paintControls() {
     const text = formatParameter(key, value); $(`${id}Out`).textContent = text; $(id).setAttribute('aria-valuetext', text);
   }
   $('lSystemType').value = state.parameters.lSystemType;
-  for (const button of document.querySelectorAll('[data-generation-preset]')) button.setAttribute('aria-pressed', String(button.dataset.generationPreset === selectedPreset));
   for (const [key, id] of Object.entries(PERFORMANCE_IDS)) {
     const value = state.performance[key]; $(id).value = value;
     $(`${id}Out`).textContent = key === 'frequency' ? `${Math.round(value)} Hz` : key === 'pulseRate' ? `${Number(value.toFixed(2))} / s`
@@ -365,7 +397,6 @@ function paintControls() {
   const limit = state.audio ? Number(s.voiceLimit) || 0 : Math.min(48, requested, state.performance.voiceCeiling || Infinity);
   $('generationCapacityInline').textContent = `${limit.toLocaleString()} of ${requested.toLocaleString()} branches ${state.audio ? 'active' : 'ready'} · ${pruning} pruning · ${state.performance.automatic ? 'device-adjusted' : 'manual ceiling'}`;
   $('recursionSummary').textContent = `${type} · ${p.generations} generations`;
-  $('presetSummary').textContent = presets.find(n => n.id === selectedPreset)?.label.split(' · ')[0] ?? 'Custom growth';
   $('mixSummary').textContent = `${Math.round(state.performance.wet * 100)}% descendants · ${state.performance.dry ? `${Math.round(state.performance.dry * 100)}% root` : 'root muted'}`;
   $('seedPauseButton').textContent = state.performance.frozen ? 'Resume test tone' : 'Pause test tone';
   $('seedPauseButton').setAttribute('aria-pressed', String(state.performance.frozen));
@@ -389,7 +420,7 @@ function buildGeometry() {
   const box = canvas.getBoundingClientRect(), width = Math.max(1, box.width), height = Math.max(1, box.height), dpr = Math.min(2, devicePixelRatio || 1);
   if (canvas.width !== Math.round(width * dpr) || canvas.height !== Math.round(height * dpr)) { canvas.width = Math.round(width * dpr); canvas.height = Math.round(height * dpr); lockedFit = null; }
   const advanced = state.parameters.generations > 13;
-  const authoritative = advanced && nativePreview?.parameters.lSystemType === state.parameters.lSystemType && nativePreview.parameters.generations === state.parameters.generations;
+  const authoritative = advanced && nativePreview && JSON.stringify(sanitizeParameters(nativePreview.parameters)) === JSON.stringify(state.parameters);
   const nodes = authoritative ? interpolatePreviewNodes(nativePreview.nodes, nativePreviewFrom, (performance.now() - nativePreviewStarted) / 120)
     : buildPreview(previewParameters, generationTopology);
   // A provisional ancestor drawing never claims to represent admitted deep taps.
@@ -518,7 +549,7 @@ function draw(now) {
 }
 
 canvas.addEventListener('pointerdown', event => {
-  if (event.button !== 0 || event.isPrimary === false) return;
+  if (sceneApplying || event.button !== 0 || event.isPrimary === false) return;
   event.preventDefault(); canvas.focus({ preventScroll: true }); lockedFit = geometry ? { ...geometry.fit } : null;
   drag = { id: event.pointerId, x: event.clientX, y: event.clientY, start: { ...state.parameters }, changed: false }; canvas.setPointerCapture(event.pointerId);
 });
@@ -527,7 +558,7 @@ canvas.addEventListener('pointermove', event => {
   const dx = event.clientX - drag.x, dy = event.clientY - drag.y;
   if (dx * dx + dy * dy < 16 && !drag.changed) return;
   drag.changed = true; const box = canvas.getBoundingClientRect();
-  state.parameters = gestureParameters(drag.start, dx, dy, box.width, box.height, event.shiftKey); parameterRevision++; selectedPreset = 'custom';
+  state.parameters = gestureParameters(drag.start, dx, dy, box.width, box.height, event.shiftKey); parameterRevision++;
   startPreview(); paintControls(); scheduleParameters(); presetController?.refresh();
 });
 function endDrag(event, cancelled = false) {
@@ -578,13 +609,7 @@ $('automatic').addEventListener('change', () => updatePerformance('automatic', $
 $('strikeButton').addEventListener('click', () => void strike()); $('panicButton').addEventListener('click', () => void toggleAudio(false));
 $('nativeStopAudio').addEventListener('click', () => void toggleAudio(false)); $('freezeButton').addEventListener('click', () => void toggleAudio(false));
 document.querySelector('[data-reset-all]').addEventListener('click', resetAll);
-function loadGenerationPreset(id) {
-  const preset = presets.find(p => p.id === id); if (!preset) return;
-  state.parameters = generationPresetParameters(state.parameters, preset); parameterRevision++; selectedPreset = lastGenerationPreset = id;
-  startPreview(); paintControls(); scheduleParameters(true); presetController?.refresh();
-}
-$('resetGenerationRules').addEventListener('click', () => loadGenerationPreset(lastGenerationPreset));
-for (const button of document.querySelectorAll('[data-generation-preset]')) button.addEventListener('click', () => loadGenerationPreset(button.dataset.generationPreset));
+$('resetGenerationRules').addEventListener('click', () => presetController?.view?.select(lastScenePreset));
 $('nativeSettings').addEventListener('toggle', () => $('settingsButton').setAttribute('aria-expanded', String($('nativeSettings').open)));
 function releaseRangeGesture() { if (!rangeGesture) return; rangeGesture = false; gestureUntil = performance.now() + 100; scheduleDraw(); }
 document.addEventListener('pointerup', releaseRangeGesture); document.addEventListener('pointercancel', releaseRangeGesture);
@@ -618,14 +643,9 @@ async function bootstrap() {
     if (parameterRevision === initialRevision && initialRevision === 0 && reply.parameters) state.parameters = sanitizeParameters(reply.parameters);
     if (performanceRevision === 0 && reply.performance) state.performance = sanitizePerformance(reply.performance);
     presets = bank;
-    const growthKeys = ['generations', 'depth', 'intervalMs', 'mutation', 'timeRatio', 'angle', 'asymmetry', 'pitchScale'];
-    selectedPreset = presets.find(p => growthKeys.every(key => p.snapshot.parameters[key] === state.parameters[key]))?.id ?? 'custom';
-    if (selectedPreset !== 'custom') lastGenerationPreset = selectedPreset;
-    const buttonPresetOrder = new Map([...document.querySelectorAll('[data-generation-preset]')]
-      .map((button, index) => [button.dataset.generationPreset, index]));
-    const menuPresets = [...presets].sort((a, b) =>
-      (buttonPresetOrder.get(a.id) ?? buttonPresetOrder.size) - (buttonPresetOrder.get(b.id) ?? buttonPresetOrder.size));
-    presetController = registerHeaderPresets({ id: 'micmic-rust', presets: menuPresets,
+    const initialScene = presets.find(p => presetStateKey(p.snapshot) === presetStateKey(captureScene(state.parameters, state.performance)));
+    if (initialScene) lastScenePreset = initialScene.id;
+    presetController = registerHeaderPresets({ id: 'micmic-rust', presets,
       capture: () => captureScene(state.parameters, state.performance),
       apply: snapshot => applyScene(snapshot, presets.find(p => presetStateKey(p.snapshot) === presetStateKey(snapshot))?.id ?? 'custom'),
       randomize: (current, random) => { const next = randomState(current.parameters, state.performance, random); return captureScene(next.parameters, next.performance); },
