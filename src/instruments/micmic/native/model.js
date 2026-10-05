@@ -153,7 +153,7 @@ export function branchWavePoints(node, start, end, envelope, detailSteps = 14, r
     const carrier = Math.sin(nowSeconds * 9 * rate + progress * Math.PI * (3 + node.generation * .35) + (node.index ?? node.voiceIndex ?? 0) * .71);
     const offset = reducedMotion ? 0 : Math.sin(Math.PI * progress) * deflection * offsetMaximum * carrier;
     const point = { x: start.x + dx * progress + normalX * offset, y: start.y + dy * progress + normalY * offset };
-    point.energy = strength;
+    if (fromHistory || measured) point.energy = strength;
     points.push(point);
   }
   // Preserve connection exactly while keeping the endpoint's signal energy.

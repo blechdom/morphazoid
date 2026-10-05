@@ -511,6 +511,7 @@ function draw(now) {
     const points = branchWavePoints({ ...n, startDelay: parent?.delay ?? Math.max(0, (n.delay ?? 0) - state.parameters.intervalMs / 1000), voiceLevel,
       measuredEnergy: measured ? energy : undefined, parentEnergy: parentMeasured ? parentEnergy : undefined },
       a, b, history ? inputTelemetry.reader : energy, detailSteps, reducedMotion, seconds);
+    if (!history && !measured) for (const point of points) point.energy = energy;
     const peak = Math.max(...points.map(p => p.energy));
     if (peak >= .015) glows.push({ node: n, points, peak });
   }
