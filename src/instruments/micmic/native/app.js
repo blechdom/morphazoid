@@ -35,6 +35,7 @@ let microphoneRevision = 0, microphoneDesired = false, microphonePending = false
 let manualFlashUntil = 0, tapReceivedAt = -Infinity, inputReceivedAt = -Infinity, activityDrawAt = performance.now();
 let inputTelemetry = { reader: null, receivedAt: -Infinity, clock: 0, clockReceivedAt: 0, endTime: -Infinity };
 let tapIdentity = topologyIdentity(state.parameters), tapTargets = new Map(), tapLevels = new Map(), rootLevel = 0;
+let sceneActivityPending = false, minimumTapRevision = 0;
 let lastDrawAt = -Infinity, visualPressureUntil = 0, heldVisualPressure = 0;
 let geometry = null, frameId = 0, drag = null, rangeGesture = false, gestureUntil = 0, lockedFit = null;
 let nativePreview = null, nativePreviewFrom = new Map(), nativePreviewStarted = 0, nativePreviewMoving = false;
@@ -165,7 +166,7 @@ function acceptStatus(reply, { acceptAudio = true } = {}) {
     state.status = reply.status; inputReceivedAt = performance.now();
     inputTelemetry = inputHistoryFrame(reply, inputTelemetry, performance.now());
     syncActivityIdentity();
-    const activity = tapActivityFrame(reply, state.parameters);
+    const activity = !sceneActivityPending && reply.topologyRevision >= minimumTapRevision ? tapActivityFrame(reply, state.parameters) : null;
     tapTargets = activity?.levels ?? new Map();
     if (activity) tapReceivedAt = performance.now();
   }
@@ -242,7 +243,8 @@ function updateMastering(settings, immediate = false) {
 async function applyScene(scene, id = 'custom') {
   if (disposed || sceneApplying) return;
   const next = presetState(scene, state.performance), previous = { parameters: state.parameters, performance: state.performance };
-  sceneApplying = true;
+  sceneApplying = true; sceneActivityPending = true;
+  tapTargets = new Map(); tapLevels = new Map(); tapReceivedAt = -Infinity;
   const picker = document.querySelector('.instrument-preset-controls');
   const restoreFocus = Boolean(picker?.contains(document.activeElement));
   if (picker) picker.inert = true;
@@ -262,7 +264,9 @@ async function applyScene(scene, id = 'custom') {
     await enqueue(async () => {
       if (disposed || revision !== parameterRevision) return;
       acceptStatus(await request('/api/performance', presetState(scene, state.performance).performance));
-      acceptStatus(await request('/api/parameters', next.parameters));
+      const reply = await request('/api/parameters', next.parameters);
+      minimumTapRevision = Math.max(minimumTapRevision, reply.topologyRevision ?? 0);
+      sceneActivityPending = false; acceptStatus(reply);
     });
     await refreshNativePreview(revision);
     if (presets.some(p => p.id === id)) lastScenePreset = id;
@@ -273,7 +277,7 @@ async function applyScene(scene, id = 'custom') {
     }
     showError(error.message); throw error;
   } finally {
-    sceneApplying = false;
+    sceneApplying = false; sceneActivityPending = false;
     for (let index = 0; index < controls.length; index++) controls[index].disabled = disabled[index];
     if (picker) picker.inert = false;
     canvas.setAttribute('aria-busy', 'false');
@@ -507,23 +511,33 @@ function draw(now) {
     const energy = responding.get(n.id)?.energy ?? 0;
     const measured = n.generation === 0 || tapTargets.has(n.voiceIndex);
     const parentMeasured = parent?.generation === 0 || tapTargets.has(parent?.voiceIndex);
-    const parentEnergy = parent?.generation === 0 ? rootLevel : responding.get(parent?.id)?.energy ?? 0;
+    const parentEnergy = wet > 0 ? (parent?.generation === 0 ? rootLevel * Math.sqrt(wet) : responding.get(parent?.id)?.energy ?? 0) : 0;
     const points = branchWavePoints({ ...n, startDelay: parent?.delay ?? Math.max(0, (n.delay ?? 0) - state.parameters.intervalMs / 1000), voiceLevel,
       measuredEnergy: measured ? energy : undefined, parentEnergy: parentMeasured ? parentEnergy : undefined },
       a, b, history ? inputTelemetry.reader : energy, detailSteps, reducedMotion, seconds);
     if (!history && !measured) for (const point of points) point.energy = energy;
     const peak = Math.max(...points.map(p => p.energy));
-    if (peak >= .015) glows.push({ node: n, points, peak });
+    if (peak >= .015) glows.push({ node: n, points, peak, measured });
   }
   // Capacity admission never paints a generation. The complete neutral outline
   // stays still; only signal-bearing parts receive a colored, vibrating stroke.
   context.lineCap = 'round'; context.lineJoin = 'round';
-  for (const { node: n, points, peak } of glows) {
+  for (const { node: n, points, peak, measured } of glows) {
     const path = new Path2D(); let connected = false;
     for (let i = 1; i < points.length; i++) {
-      if (Math.max(points[i - 1].energy, points[i].energy) < .015) { connected = false; continue; }
-      if (!connected) path.moveTo(points[i - 1].x, points[i - 1].y);
-      path.lineTo(points[i].x, points[i].y); connected = true;
+      const from = points[i - 1], to = points[i], threshold = .015;
+      // Leave the final sample interval quiet until its measured tap responds;
+      // a rounded stroke cap must not paint an inaudible endpoint.
+      if ((measured && i === points.length - 1 && to.energy < threshold)
+        || Math.max(from.energy, to.energy) < threshold) { connected = false; continue; }
+      let start = from, end = to;
+      if (Math.min(from.energy, to.energy) < threshold) {
+        const crossing = clamp((threshold - from.energy) / (to.energy - from.energy));
+        const edge = { x: from.x + (to.x - from.x) * crossing, y: from.y + (to.y - from.y) * crossing };
+        if (from.energy < threshold) start = edge; else end = edge;
+      }
+      if (!connected) path.moveTo(start.x, start.y);
+      path.lineTo(end.x, end.y); connected = to.energy >= threshold;
     }
     const contrast = Math.sqrt(peak);
     context.strokeStyle = COLORS[n.generation % COLORS.length]; context.globalAlpha = .24 + contrast * .72;

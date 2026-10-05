@@ -66,7 +66,7 @@ export function topologyIdentity(parameters) { return `${parameters.lSystemType}
 export function tapActivityFrame(reply, parameters) {
   const status = reply?.status, revision = reply?.topologyRevision;
   if (!status || !Number.isSafeInteger(revision) || revision < 1 || status.topologyRevision !== revision
-    || topologyIdentity(reply.parameters ?? {}) !== topologyIdentity(parameters)
+    || JSON.stringify(sanitizeParameters(reply.parameters)) !== JSON.stringify(sanitizeParameters(parameters))
     || !Array.isArray(status.tapActivity) || !Array.isArray(status.tapVoiceIndices)) return null;
   const wetBusGain = Number.isFinite(status.wetBusGain) ? Math.max(0, status.wetBusGain) : 0, levels = new Map();
   for (let rank = 0; rank < Math.min(status.tapActivity.length, status.tapVoiceIndices.length); rank++) {
@@ -143,6 +143,10 @@ export function branchWavePoints(node, start, end, envelope, detailSteps = 14, r
           const departure = clamp(progress / .2), outgoing = departure * departure * (3 - 2 * departure);
           strength = parentEnergy + (strength - parentEnergy) * outgoing;
         }
+        // A live timing gesture must not switch the entire edge abruptly at
+        // the visual-resolution boundary. Endpoints stay meter-driven.
+        const travel = clamp((transit - .1) / .04), mix = travel * travel * (3 - 2 * travel);
+        strength = measuredEnergy + (strength - measuredEnergy) * mix;
       }
     }
     const deflection = strength + (Math.sqrt(strength) - strength) * Math.sqrt(shortness);
