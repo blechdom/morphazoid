@@ -429,14 +429,12 @@ function buildGeometry() {
     : buildPreview(previewParameters, generationTopology);
   // A provisional ancestor drawing never claims to represent admitted deep taps.
   if (advanced && !authoritative) for (const n of nodes) n.priority = null;
-  const ghost = new Path2D();
-  for (const n of nodes) { ghost.moveTo(n.startX, n.startY); ghost.lineTo(n.x, n.y); }
   const desiredFit = fitTransform(topologyBounds(nodes), width, height);
-  geometry = { width, height, dpr, nodes, ghost, desiredFit, fit: lockedFit ? { ...lockedFit } : desiredFit, activeLimit: -1, active: [],
+  geometry = { width, height, dpr, nodes, desiredFit, fit: lockedFit ? { ...lockedFit } : desiredFit, activeLimit: -1, active: [], unavailableKey: null,
     byVoiceIndex: new Map(nodes.filter(n => n.generation > 0).map(n => [n.voiceIndex, n])) };
   const counts = new Map(); for (const n of nodes) counts.set(n.generation, (counts.get(n.generation) ?? 0) + 1);
   $('generationCountReadout').textContent = [...counts].slice(0, 6).map(([, count]) => count.toLocaleString()).join(' → ') + (counts.size > 6 ? ` → … → ${(counts.get(Math.max(...counts.keys())) ?? 0).toLocaleString()} previewed at G${Math.max(...counts.keys())}` : '');
-  $('treeDescription').textContent = `${TYPE_LABELS[state.parameters.lSystemType]}. ${state.parameters.generations} audio generations; ${nodes.length.toLocaleString()} segments in the bounded visual preview. The quiet outline stays still. Color and vibration follow sounding delay taps; long branches also show input traveling toward their measured endpoint.`;
+  $('treeDescription').textContent = `${TYPE_LABELS[state.parameters.lSystemType]}. ${state.parameters.generations} audio generations; ${nodes.length.toLocaleString()} segments in the bounded visual preview. Colored branches are available voices; grey branches are unavailable. Signal amplitude bends the connected lines without changing their color or thickness. Long branches also show input traveling toward their measured endpoint.`;
   canvas.setAttribute('aria-label', `Live fitted L-system tree for L-system Delay. ${state.audio ? state.performance.frozen ? 'Input paused; recursive tail live' : `${state.performance.source === 'mic' ? 'Microphone' : 'Seed'} live` : 'Audio off'}.`);
 }
 function scheduleDraw() { if (!frameId && !disposed) frameId = requestAnimationFrame(draw); }
@@ -456,7 +454,7 @@ function draw(now) {
     if (fraction >= 1) { previewParameters = { ...state.parameters }; previewMoving = false; }
   }
   if (!geometry) buildGeometry();
-  const { width, height, dpr, nodes, ghost, desiredFit } = geometry;
+  const { width, height, dpr, nodes, desiredFit } = geometry;
   let fitMoving = false;
   if (lockedFit && !drag && !rangeGesture && now > gestureUntil && !previewMoving) {
     for (const key of ['scale', 'x', 'y']) {
@@ -467,10 +465,7 @@ function draw(now) {
   }
   const fit = geometry.fit, project = (x, y) => ({ x: x * fit.scale + fit.x, y: -y * fit.scale + fit.y });
   context.setTransform(dpr, 0, 0, dpr, 0, 0); context.clearRect(0, 0, width, height);
-  context.save(); context.setTransform(dpr * fit.scale, 0, 0, -dpr * fit.scale, dpr * fit.x, dpr * fit.y);
-  context.lineCap = 'round'; context.lineJoin = 'round'; context.strokeStyle = 'rgba(119,131,126,.58)';
-  context.globalAlpha = state.audio ? .34 : .28; context.lineWidth = .72 / fit.scale; context.stroke(ghost); context.restore();
-  const limit = state.audio ? Math.max(0, Number(state.status.voiceLimit) || 0) : Math.min(48, state.performance.voiceCeiling || Infinity);
+  const limit = sceneActivityPending ? 0 : state.audio ? Math.max(0, Number(state.status.voiceLimit) || 0) : Math.min(48, state.performance.voiceCeiling || Infinity);
   if (geometry.activeLimit !== limit) {
     geometry.activeLimit = limit; geometry.active = admittedPreviewNodes(nodes, limit);
     geometry.selectedCounts = new Map();
@@ -498,9 +493,20 @@ function draw(now) {
   if (rootNode && rootLevel > 0) responding.set(rootNode.id, { node: rootNode, energy: rootLevel });
   const activeIds = new Set(geometry.active.map(n => n.id));
   const branches = [...geometry.active, ...[...responding.values()].filter(({ node }) => !activeIds.has(node.id)).map(({ node }) => node)];
+  // Color answers only availability, including voices still sounding through
+  // their release. Grey never doubles as a volume indicator.
+  const availableIds = new Set(branches.map(n => n.id));
+  const unavailableKey = `${limit}:${branches.slice(geometry.active.length).map(n => n.id).join(',')}`;
+  if (geometry.unavailableKey !== unavailableKey) {
+    geometry.unavailableKey = unavailableKey; geometry.unavailable = new Path2D();
+    for (const n of nodes) if (!availableIds.has(n.id)) { geometry.unavailable.moveTo(n.startX, n.startY); geometry.unavailable.lineTo(n.x, n.y); }
+  }
+  context.save(); context.setTransform(dpr * fit.scale, 0, 0, -dpr * fit.scale, dpr * fit.x, dpr * fit.y);
+  context.lineCap = 'round'; context.lineJoin = 'round'; context.strokeStyle = 'rgba(119,131,126,.58)';
+  context.globalAlpha = .4; context.lineWidth = .72 / fit.scale; context.stroke(geometry.unavailable); context.restore();
   const byId = new Map(nodes.map(n => [n.id, n]));
   const detailSteps = Math.max(5, Math.min(14, Math.floor(budget.branches * 8 / Math.max(1, branches.length))));
-  const glows = [];
+  const coloredPaths = COLORS.map(() => new Path2D());
   for (const n of branches) {
     const parent = byId.get(n.parentId), a = project(n.startX, n.startY), b = project(n.x, n.y);
     const wet = Number(state.status.wetBusGain || 0) > 0 ? state.performance.wet : 0;
@@ -517,33 +523,18 @@ function draw(now) {
       a, b, history ? inputTelemetry.reader : energy, detailSteps, reducedMotion, seconds);
     if (!history && !measured) for (const point of points) point.energy = energy;
     const peak = Math.max(...points.map(p => p.energy));
-    if (peak >= .015) glows.push({ node: n, points, peak, measured });
+    const path = coloredPaths[n.generation % COLORS.length];
+    path.moveTo(points[0].x, points[0].y);
+    if (peak === 0) path.lineTo(points.at(-1).x, points.at(-1).y);
+    else for (const point of points.slice(1)) path.lineTo(point.x, point.y);
   }
-  // Capacity admission never paints a generation. The complete neutral outline
-  // stays still; only signal-bearing parts receive a colored, vibrating stroke.
+  // All available lines stay colored and connected at silence. Only wave
+  // deflection responds to amplitude; no brightness/width gate creates gaps.
+  // Batch by palette color so quiet/high-polyphony trees require few strokes.
   context.lineCap = 'round'; context.lineJoin = 'round';
-  for (const { node: n, points, peak, measured } of glows) {
-    const path = new Path2D(); let connected = false;
-    for (let i = 1; i < points.length; i++) {
-      const from = points[i - 1], to = points[i], threshold = .015;
-      // Leave the final sample interval quiet until its measured tap responds;
-      // a rounded stroke cap must not paint an inaudible endpoint.
-      if ((measured && i === points.length - 1 && to.energy < threshold)
-        || Math.max(from.energy, to.energy) < threshold) { connected = false; continue; }
-      let start = from, end = to;
-      if (Math.min(from.energy, to.energy) < threshold) {
-        const crossing = clamp((threshold - from.energy) / (to.energy - from.energy));
-        const edge = { x: from.x + (to.x - from.x) * crossing, y: from.y + (to.y - from.y) * crossing };
-        if (from.energy < threshold) start = edge; else end = edge;
-      }
-      if (!connected) path.moveTo(start.x, start.y);
-      path.lineTo(end.x, end.y); connected = to.energy >= threshold;
-    }
-    const contrast = Math.sqrt(peak);
-    context.strokeStyle = COLORS[n.generation % COLORS.length]; context.globalAlpha = .24 + contrast * .72;
-    context.lineWidth = 1.05 + contrast * 2.4;
-    context.shadowColor = context.strokeStyle; context.shadowBlur = budget.pressure === 0 && glows.length < 1000 ? 3 + contrast * 12 : 0;
-    context.stroke(path);
+  context.globalAlpha = .85; context.lineWidth = 1.2; context.shadowBlur = 0;
+  for (let i = 0; i < coloredPaths.length; i++) {
+    context.strokeStyle = COLORS[i]; context.stroke(coloredPaths[i]);
   }
   context.shadowBlur = 0;
   context.globalAlpha = 1;
