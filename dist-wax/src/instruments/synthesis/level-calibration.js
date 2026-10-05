@@ -56,7 +56,7 @@ export const LEVEL_CALIBRATION_METADATA = Object.freeze({
     "referenceTrimDb": -36,
     "rationale": "Collision and struck-resonator peaks vary with sample rate. Extra-rate references and final verification use raw sample peaks; K-weighted scoring remains at 48 kHz."
   },
-  "wasmSha256": "330b6cd80ad67478bd281e23d64ad8922bd9770b90b2b1d0d73f75cf0a05e2e6",
+  "wasmSha256": "fcbb7622cd5cc6c7e13d471d1d73241428986c1c1815aceaf769a66ca1b98176",
   "signalFixtureSha256": "536fb43772b0492dd048ba277be3be9badd33888f3a3055c3e25170d89475100",
   "sourceHashes": {
     "src/instruments/synthesis/rust/core/src/controls.rs": "1fc8baa186744dbd89f9e51b78a74db9831a0815a241dcae0f9a351dc6b73b4e",
@@ -64,9 +64,10 @@ export const LEVEL_CALIBRATION_METADATA = Object.freeze({
     "src/instruments/synthesis/rust/core/src/expanded.rs": "42910830a83918f275429a7f1bd2b5f0cf7a9ef4ff343fddc5c74b7e0baaa22c",
     "src/instruments/synthesis/rust/core/src/expanded_tests.rs": "67011216db65ad4f3db99d9bfff3cb090b85bfb5810f64ccb24217aa11f3e835",
     "src/instruments/synthesis/rust/core/src/historical.rs": "5b07c64ef9f45626e5d69082c8ccbe32081ff4ed68164fe7800be15e2b18449a",
-    "src/instruments/synthesis/rust/core/src/lib.rs": "f73bbafa25c2c6ecf6c1cb7c96fea89a12e3705ccba81cf365f3114535759e23",
+    "src/instruments/synthesis/rust/core/src/lib.rs": "4f36ff8f56ad685fa0092fe95503d1300496e618b9e7fb200fe4f3d20a2fa4d8",
     "src/instruments/synthesis/rust/core/src/neural.rs": "70595882bd496b12cd8fcd5d625391b15f338c1576c0440ea9174d1961a2e182",
     "src/instruments/synthesis/rust/core/src/neural_weights.rs": "70e75d8164026095869b6ab00a2d8e07416ee634281535d97c27cc58563e72d0",
+    "src/instruments/synthesis/rust/core/src/percussion.rs": "1cfa0d3ee9e5315f134252ade57c32d89062f080533de2fa221f60676079cfb9",
     "src/instruments/synthesis/rust/core/src/point_envelope.rs": "df4272a6e0fba2096fe1fabb6d05b64c0fd382d939afa996b7190a00dcaa0e73",
     "src/instruments/synthesis/rust/core/src/polyphony.rs": "8bcac0138c9d404f873b7feb3db5df9263666dc6cd0432c4b6389c715ecb6424",
     "src/instruments/synthesis/rust/core/src/processing.rs": "48e6750289d04f2a1698f26411656330c9263343128cde14176e59d55609e8bd",

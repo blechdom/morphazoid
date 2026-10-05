@@ -2,18 +2,19 @@ import { METHODS, createDefaultState, sanitizeState, stateFromPreset } from './c
 import { captureSoundState } from './presets.js';
 import { SYNTHESAURUS_MASTER_PRESETS, SEQUENCE_SETTINGS_PRESETS, sanitizeSequencePerformance, randomizeMasterPerformance } from './performance-presets.js';
 import { compileSequence } from './sequence-compiler.js';
-import { sanitizeSignalPath } from './signal-path.js';
+import { inputsForCategory, sanitizeSignalPath } from './signal-path.js';
 import { randomizeAllState } from './presets.js';
 import { isVoiceInput, voicePresetsForInput, withVoiceInputText, randomizeVoiceInputState } from './voice-input-state.js';
 import { envelopeFromBreakpoints } from './envelope-shape.js';
 import { TUNINGS } from './tunings.js';
-import { SYNTHESIS_PERFORMANCE_RECIPES, VOICE_PERFORMANCE_RECIPES } from './instrument-preset-recipes.js';
+import { getProcessingInput } from './demo-sources.js';
+import { SYNTHESIS_PERFORMANCE_RECIPES, VOICE_PERFORMANCE_RECIPES, SAMPLE_PROCESSING_RECIPES } from './instrument-preset-recipes.js';
+import { PERCUSSION_METHODS, createPercussionState, applyPercussionKit, applyPercussionRhythm, randomizePercussionKit, randomizePercussionRhythm } from './percussion-state.js';
 
 const directModes = new Set(['none', 'basic-up', 'basic-down', 'basic-up-down']);
 const bounded = (value, min, max, fallback) => Number.isFinite(Number(value)) ? Math.max(min, Math.min(max, Number(value))) : fallback;
-// Recorded loops and test fixtures remain explicit Input choices, not part of
-// the musical preset tour or whole-instrument dice.
-export const RANDOMIZABLE_INPUTS = Object.freeze(['synthesis', 'speech', 'singing']);
+// Give every unattended musical input an equal share of the main dice.
+export const RANDOMIZABLE_INPUTS = Object.freeze(['synthesis', 'speech', 'singing', 'percussion', 'samples']);
 const pick = (values, rng) => values[Math.min(values.length - 1, Math.floor(rng() * values.length))];
 
 /** Complete musical recall; devices, output level and live transport stay owned by the performer. */
@@ -21,7 +22,7 @@ export function captureInstrumentPreset(value = {}) {
   const sound = sanitizeState(value.sound ?? value);
   const routing = sanitizeSignalPath(value.routing, sound);
   const voice = isVoiceInput(routing.input);
-  const source = voice ? { id: 'none' } : value.sequence ?? { id: 'none' };
+  const source = voice ? { id: 'none' } : routing.input === 'percussion' ? { ...value.sequence, id: 'none' } : value.sequence ?? { id: 'none' };
   const sequence = directModes.has(source.id)
     ? { id: source.id, parameters: null, tempoBpm: Math.round(bounded(source.tempoBpm, 10, 1200, 120)) }
     : { ...sanitizeSequencePerformance(source) };
@@ -113,14 +114,34 @@ function createVoiceRecipe([id, label, input, presetId, text, insert, amplitudeS
 }
 
 const addedVoices = VOICE_PERFORMANCE_RECIPES.map(createVoiceRecipe);
+export const SAMPLE_INSTRUMENT_PRESETS = Object.freeze(SAMPLE_PROCESSING_RECIPES.map(
+  ([id, label, selection, methodId, presetId, wet]) => {
+    if (getProcessingInput(selection)?.kind !== 'demo') throw new RangeError(`Unknown bundled sample in instrument recipe: ${id}`);
+    const factory = recipeSound(methodId, presetId, 'processor');
+    const sound = sanitizeState({ ...factory, source: 0, wet, bypass: false,
+      presetId: wet === factory.wet ? presetId : 'custom' });
+    return { id: `sample:${id}`, label, snapshot: captureInstrumentPreset({ sound,
+      voiceMode: 'mono', sequence: { id: 'none', tempoBpm: 120 },
+      routing: { input: 'samples', selection, loop: true, effectEnabled: true, effect: sound },
+    }) };
+  },
+));
 export const ADDITIONAL_INSTRUMENT_PRESETS = Object.freeze(mixTours([
   SYNTHESIS_PERFORMANCE_RECIPES.map(createSynthesisRecipe),
   addedVoices.filter(preset => preset.snapshot.routing.input === 'speech'),
   addedVoices.filter(preset => preset.snapshot.routing.input === 'singing'),
+  SAMPLE_INSTRUMENT_PRESETS,
 ]));
 // Keep the original tour's IDs, snapshots and ordering intact for saved links
 // and familiar Next positions; the new mixed performances follow it.
-export const INSTRUMENT_PRESETS = Object.freeze([...mixTours(tours), ...ADDITIONAL_INSTRUMENT_PRESETS]);
+export const PERCUSSION_INSTRUMENT_PRESETS = Object.freeze(PERCUSSION_METHODS.flatMap((method, methodIndex) => method.kits.map((kit, index) => {
+  const sound = sanitizeState({ ...createDefaultState('fx-reverb'), source: 0, wet: .18, inputDb: 0, outputDb: 0 });
+  const percussion = applyPercussionRhythm(applyPercussionKit(createPercussionState(method.id), kit.id), method.rhythms[index % method.rhythms.length].id);
+  return { id: `percussion:${method.id}:${kit.id}`, label: `${kit.label} · ${method.label}`,
+    snapshot: captureInstrumentPreset({ sound, routing: { input: 'percussion', percussion, effect: sound, effectEnabled: false, loop: true },
+      sequence: { id: 'none', tempoBpm: [112, 96, 128, 124, 86, 118][methodIndex] + index * 4 } }) };
+})));
+export const INSTRUMENT_PRESETS = Object.freeze([...mixTours(tours), ...ADDITIONAL_INSTRUMENT_PRESETS, ...PERCUSSION_INSTRUMENT_PRESETS]);
 
 /** Kept as a compatibility seam: Input no longer restricts the top-level tour. */
 export function instrumentPresetsForInput() { return INSTRUMENT_PRESETS; }
@@ -133,6 +154,19 @@ export function randomizeInstrumentPreset(value, rng = Math.random) {
   // Manual/local controls retain their full ranges, including fully-wet effects.
   effect.wet = .15 + .5 * r(); effect.inputDb = -9 + 9 * r(); effect.outputDb = -6 + 6 * r();
   const routing = { input, effectEnabled: r() > .5, loop: r() > .5, effect };
+  if (input === 'samples') {
+    // Bundled loops are ready to play without a file or device. Keep the
+    // recording audible alongside a freshly generated processor setting.
+    effect.source = 0; effect.bypass = false;
+    routing.selection = pick(inputsForCategory('samples'), r).id;
+    routing.loop = true; routing.effectEnabled = true;
+    return captureInstrumentPreset({ sound: effect, routing, voiceMode: 'mono', sequence: { id: 'none' } });
+  }
+  if (input === 'percussion') {
+    effect.source = 0; routing.loop = true;
+    routing.percussion = randomizePercussionRhythm(randomizePercussionKit(createPercussionState(pick(PERCUSSION_METHODS, r).id), r), r);
+    return captureInstrumentPreset({ sound: effect, routing, sequence: { id: 'none', tempoBpm: Math.round(72 + 88 * r()) } });
+  }
   if (isVoiceInput(input)) {
     // Whole-instrument auditions must not end Play after a short phrase and
     // leave the following Next silent. One-shot remains an explicit Loop edit.

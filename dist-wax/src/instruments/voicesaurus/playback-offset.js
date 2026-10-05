@@ -23,3 +23,16 @@ export function playbackOffsetForBeat(beat, descriptors, result = {}) {
   }
   return Math.max(0, pickup + note.startSeconds + note.seconds * fraction);
 }
+
+/** Invert this render's slot clock before replacing PCM after a live score edit.
+ * A native lead-in belongs to beat zero; an acoustic tail belongs to score end.
+ */
+export function playbackBeatForOffset(position, descriptors, timings) {
+  if (!Number.isFinite(position) || !descriptors?.length || !timings?.length) return null;
+  if (position < timings[0].start) return 0;
+  const timing = timings.find(slot => position >= slot.start && position < slot.end) ?? timings.at(-1);
+  const note = descriptors.find(note => note.index === timing.index);
+  if (!note || !Number.isFinite(timing.start) || !Number.isFinite(timing.end)) return null;
+  const fraction = timing.end > timing.start ? Math.max(0, Math.min(1, (position - timing.start) / (timing.end - timing.start))) : 1;
+  return note.startBeats + note.beats * fraction;
+}

@@ -20,7 +20,7 @@ const REVIEWED_STUDY_IDS = new Set(`
   voltage-row-pendulum row-switching-voltage pulse-divider-chain captured-control-gesture
   edited-gesture-loop short-phrase-memory phrase-bank-switching numeric-pitch-duration
   clocked-uncertain-voltage rising-latched-chord falling-latched-chord pendulum-latched-chord
-  captured-order-latch octave-spread-cycle chord-memory-strum accented-step-line compact-keyboard-step-line
+  captured-order-latch octave-spread-cycle chord-memory-strum accented-step-line compact-keyboard-step-line keyboard-range-arpeggio
   polyphonic-step-stack rotating-rhythm-fill transposable-phrase-memory held-chord-random-pick
   syncopated-key-cycle velocity-window-traverse clocked-phrase-chain tracker-row-steps
   tracker-effect-memory workstation-pattern-chain vector-control-lane layered-wave-lanes
@@ -189,6 +189,15 @@ const studies = [
   d('compact-keyboard-step-line', 'Compact keyboard step line', 'sequencer', 'classic-arp', 1982, 'accent-pattern', ['sh101'], {
     notes: [0, 2.4, 5.1, 9.7, 7.3, 12, 8.4, 3.6, -1.8, null, 4.5, 10.8], accents: [0, 4, 8],
   }, { lineage: 'The SH-101 owner’s manual grounds compact monophonic sequence entry and playback. The note line and accents are original; tie, glide and portamento behavior are not claimed.', defaults: { steps: 24, tempoBpm: 114 }, testFocus: ['monophonic retrigger', 'accent response', 'register motion'] }),
+  d('keyboard-range-arpeggio', 'Octave-range keyboard arp', 'arpeggiator', 'classic-arp', 1982, 'ordered-chord', ['juno60', 'juno60Manual'], {
+    intervals: [0, 3.8, 7.1], order: 'pendulum', octaves: 3, fullTraversal: true,
+  }, {
+    description: 'A JUNO-60-inspired range arpeggiator with complete upward, downward and returning sweeps.',
+    lineage: 'The 1982 JUNO-60 offered Up, Down and Up/Down across one to three octaves. This study extends the range to eight octaves and adds inside-out and outside-in traversals.',
+    limitations: 'Original note material, not a hardware emulation. Wider ranges are modern extensions. Complete traversals derive their cycle length from the notes and direction; the whole pattern is moved into the 20–8,000 Hz output range when needed, rather than reproducing the original keyboard ceiling behavior.',
+    defaults: { steps: 16, stepBeats: .25, tempoBpm: 112, transpose: -12 },
+    testFocus: ['complete up/down sweeps', 'octave range', 'register-wide envelope response'],
+  }),
   d('polyphonic-step-stack', 'Polyphonic step stack', 'sequencer', 'classic-arp', 1983, 'tracker', ['midi'], {
     rows: [{ notes: [0, 7.1], velocity: .68 }, { notes: [3.4, 10.2], velocity: .82 }, { notes: null }, { notes: [-4.8, 2.1, 8.9], velocity: .76 }, { notes: [5.2], gate: .9 }],
   }, { lineage: 'MIDI supplies interoperable note, velocity and synchronization lineage. The chord rows and phrase structure are an original abstraction, not a feature established by the standards history.', defaults: { steps: 20, tempoBpm: 108 }, testFocus: ['polyphonic chords', 'MIDI-like velocity', 'rest row'] }),

@@ -4,6 +4,7 @@ import { SEQUENCE_STUDIES } from './sequence-catalog.js';
 import { getSequenceParameterDefinitions } from './sequence-parameters.js';
 import { TUNINGS } from './tunings.js';
 import { getAmplitudeModel } from './amplitude-models.js';
+import { PERCUSSION_METHODS } from './percussion-state.js';
 
 // These are gaps in this instrument, not a claim that broad parent families
 // are missing, nor that other Morphazoid instruments do not demonstrate them.
@@ -220,11 +221,21 @@ export function mountSynthesisReference() {
   if (!containers.synthesis) return;
   SYNTHESIS_METHODS.forEach(method => renderMethod(containers.synthesis, method));
   PROCESSOR_METHODS.forEach(method => renderMethod(containers.processing, method));
+  if (containers.percussion) PERCUSSION_METHODS.forEach(method => {
+    const body = entry(containers.percussion, `percussion-${method.id}`, method.label, method.date);
+    paragraph(body, method.description);
+    heading(body, 'Original sound kits');
+    paragraph(body, method.kits.map(kit => kit.label).join(' · '));
+    heading(body, 'Independent rhythm presets');
+    paragraph(body, method.rhythms.map(rhythm => rhythm.label).join(' · '));
+    paragraph(body, 'Historical dates refer to the named reference instrument, not the invention of the synthesis principle. These are reduced technique studies, not circuit-accurate emulations. PCM and hybrid voices play cached original procedural one-shots, not factory ROM recordings. Pads and a modern editable velocity grid share one sample-clock scheduler; kit changes preserve the rhythm. Each voice has its own one-shot decay, pitch sweep or modal damping, without a global ADSR.', 'reference-limits');
+    sourcesList(body, method.sources);
+  });
   [...SEQUENCE_STUDIES].sort((a, b) => a.year - b.year || a.label.localeCompare(b.label))
     .forEach(study => renderSequence(containers.arpeggiators, study));
   TUNINGS.forEach(tuning => renderTuning(containers.tuning, tuning));
   SYNTHESIS_COVERAGE_GAPS.forEach(gap => renderCoverageGap(containers.missing, gap));
-  document.getElementById('reference-counts').textContent = `${SYNTHESIS_METHODS.length} synthesis methods · ${PROCESSOR_METHODS.length} processors · ${SEQUENCE_STUDIES.length} arpeggiators and sequencers · ${TUNINGS.length} tuning maps`;
+  document.getElementById('reference-counts').textContent = `${SYNTHESIS_METHODS.length} synthesis methods · ${PERCUSSION_METHODS.length} percussion studies · ${PROCESSOR_METHODS.length} processors · ${SEQUENCE_STUDIES.length} arpeggiators and sequencers · ${TUNINGS.length} tuning maps`;
 
   const search = document.getElementById('reference-search');
   const status = document.getElementById('reference-results');

@@ -12,6 +12,7 @@ import {
   createSequenceParameterValues,
   getSequenceParameterBounds,
   getSequenceParameterDefinitions,
+  orderedChordTraversalSteps,
 } from './sequence-parameters.js';
 import { TUNINGS, sanitizeTuningId } from './tunings.js';
 
@@ -79,6 +80,17 @@ export const SEQUENCE_SETTING_RECIPES = deepFreeze(
 );
 
 const variation = (label, description, parameters, tempoScale = 1) => ({ label, description, parameters, tempoScale });
+
+// Original testing patterns for the keyboard-range study, not manufacturer
+// factory phrases. Its six existing recipe IDs keep menu/Next contracts stable.
+const KEYBOARD_RANGE_VARIATIONS = deepFreeze([
+  variation('Three-octave up–down', 'Completes the outward and return traversal across three octave copies.', { order: 'pendulum', octaves: 3, transpose: -12, fullTraversal: true, density: 1 }),
+  variation('One-octave center out', 'Visits all three held intervals from the center outward.', { order: 'inside-out', octaves: 1, transpose: 0, fullTraversal: true, density: 1 }),
+  variation('Five-octave descent', 'Descends through the complete five-octave field.', { order: 'down', octaves: 5, transpose: -24, fullTraversal: true, density: 1 }),
+  variation('Seven-octave ascent', 'Visits every held interval from the bottom to the top of seven octave copies.', { order: 'up', octaves: 7, transpose: -36, fullTraversal: true, density: 1 }),
+  variation('Eight-octave up–down', 'Completes both directions across all eight octave copies without repeating either turnaround.', { order: 'pendulum', octaves: 8, transpose: -36, fullTraversal: true, density: 1 }),
+  variation('Eight-octave outside in', 'Visits the entire eight-octave field from its edges inward.', { order: 'outside-in', octaves: 8, transpose: -36, fullTraversal: true, density: 1 }),
+]);
 
 // These are authored demonstrations of this compiler's mechanisms, not factory
 // patches from the historical instruments which supply the catalog's lineage.
@@ -255,7 +267,8 @@ const effectiveBounds = (study, definition, values) => (
 export function createSequenceSettingsPresets(studyOrId) {
   const study = resolveStudy(studyOrId);
   const original = variation(authoredPatternLabel(study), 'The authored note material, cycle and mechanism values for this study.', {}, 1);
-  const variations = [original, ...MECHANISM_VARIATIONS[study.archetype]];
+  const variations = study.id === 'keyboard-range-arpeggio'
+    ? KEYBOARD_RANGE_VARIATIONS : [original, ...MECHANISM_VARIATIONS[study.archetype]];
   return deepFreeze(variations.map((preset, index) => {
     const recipe = SEQUENCE_SETTING_RECIPES[index];
     return {
@@ -318,6 +331,11 @@ const randomBounds = (study, definition, values) => {
     min = Math.max(3, Math.ceil(values.euclideanSteps * .3));
     max = Math.max(min, Math.floor(values.euclideanSteps * .8));
   }
+  if (study.id === 'keyboard-range-arpeggio' && definition.id === 'octaves') {
+    // One octave is a useful explicit preset, but its three-note complete cycle
+    // cannot meet the dice contract's minimum four audible events.
+    min = 2; max = Math.max(min, Math.min(8, live.max));
+  }
   return { min, max };
 };
 
@@ -340,7 +358,8 @@ const performanceMeasures = compiled => {
 const isPlayablePattern = (compiled, metrics) => (
   metrics.sounding.length >= Math.max(4, Math.ceil(compiled.steps.length * .2))
   && metrics.firstBeat * 60 / MIN_RANDOM_TEMPO <= .75
-  && metrics.minimumPitch >= -36 && metrics.maximumPitch <= 36
+  && metrics.minimumPitch >= -(compiled.studyId === 'keyboard-range-arpeggio' ? 48 : 36)
+  && metrics.maximumPitch <= (compiled.studyId === 'keyboard-range-arpeggio' ? 48 : 36)
   && metrics.notes.every(note => note.velocity >= .12)
   && metrics.minimumGateBeats * 60 / MAX_RANDOM_TEMPO >= .004
   && metrics.meanGateBeats * 60 / MAX_RANDOM_TEMPO >= .03
@@ -349,14 +368,23 @@ const isPlayablePattern = (compiled, metrics) => (
 );
 
 function fitPerformanceRange(study, input) {
-  let values = createSequenceParameterValues(study, input);
+  let candidate = input;
+  if (study.id === 'keyboard-range-arpeggio') {
+    // Even an OFF policy draw starts from whole journeys. Its steps remain
+    // independently editable afterward; ON derives them after every edit.
+    const traversal = orderedChordTraversalSteps(study, input);
+    const repeats = Math.max(1, Math.floor(clamp(input.steps, 1, 64, traversal) / traversal));
+    candidate = { ...input, steps: traversal * repeats };
+  }
+  let values = createSequenceParameterValues(study, candidate);
   let compiled = compileSequence(study, { parameters: values });
   let metrics = performanceMeasures(compiled);
   if (metrics.notes.length) {
-    // Retain the randomized register where possible; move it only enough to
-    // keep the complete pitch field within three octaves either side of root.
-    const low = -36 - metrics.minimumPitch + values.transpose;
-    const high = 36 - metrics.maximumPitch + values.transpose;
+    // Wider keyboard studies use a centered eight-octave field. Other studies
+    // retain the established three-octaves-either-side audition contract.
+    const pitchBound = study.id === 'keyboard-range-arpeggio' ? 48 : 36;
+    const low = -pitchBound - metrics.minimumPitch + values.transpose;
+    const high = pitchBound - metrics.maximumPitch + values.transpose;
     const transpose = low <= high ? clamp(values.transpose, low, high, 0) : values.transpose;
     // Bound event load across the entire randomized tempo range, including
     // polyphonic conditional cells and independent simultaneous lanes.
@@ -568,12 +596,19 @@ const createMasterPreset = recipe => {
   if (!tuning) throw new RangeError(`Master preset ${recipe.id} names unknown tuning ${recipe.tuningId}`);
   const settings = SEQUENCE_SETTINGS_PRESETS[study.id].find(candidate => candidate.id.endsWith(`:${recipe.settingsId}`));
   if (!settings) throw new RangeError(`Master preset ${recipe.id} names unknown settings ${recipe.settingsId}`);
+  const sound = stateFromPreset(method.id, preset.id);
+  if (recipe.id === 'meantone-strings') {
+    // The interlocking stream gates last about 80 ms: the factory's 1.4 s
+    // swell barely opens. Give this performance a bowed onset before gate-off.
+    sound.envelope.attack = .04;
+    sound.presetId = 'custom';
+  }
   return deepFreeze({
     id: recipe.id,
     label: recipe.label,
     description: `${method.label} · ${study.label} · ${tuning.label}.`,
     snapshot: capturePerformanceSnapshot({
-      sound: stateFromPreset(method.id, preset.id),
+      sound,
       sequence: settings.snapshot,
       tuningId: tuning.id,
     }),

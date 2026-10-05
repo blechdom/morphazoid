@@ -100,7 +100,7 @@ export function buildSequenceMechanismModel(studyOrId, parameters = {}, supplied
       caption = 'Effective phrase order and chain transpositions. Brackets are simultaneous notes; — is a rest.';
       break;
     case 'ordered-chord':
-      blocks.push(row('Held offsets', config.intervals.map(pitch).join(' · ')), row('Traversal', orderName(config.order)), row('Octave span', config.octaves), path());
+      blocks.push(row('Held offsets', config.intervals.map(pitch).join(' · ')), row('Traversal', orderName(config.order)), row('Octave range', config.octaves), path());
       break;
     case 'phrase-arp':
       blocks.push(table(['Chord', 'Held offsets'], config.chords.map((chord, index) => [String(index + 1), notes(chord)])),
