@@ -101,8 +101,6 @@ let auditionQueued = false;
 let deferTransportSync = false;
 let deferAudioSync = false;
 let fullPresets = null;
-let presetInput = null;
-const presetSessions = new Map();
 let voiceRenderTimer = null;
 let lastFactoryPreset = { methodId: state.methodId, presetId: state.presetId };
 let activeSection = methodSection(state.methodId);
@@ -1771,16 +1769,15 @@ listen(window, "pagehide", event => {
   }
 });
 function mountInstrumentPresets() {
-  const nextInput = isVoiceInput(inputCategory) ? inputCategory : "synthesis";
-  if (presetInput === nextInput && fullPresets) return;
-  if (fullPresets) presetSessions.set(presetInput, { hasPresetInteraction: fullPresets.hasPresetInteraction, lastPresetId: fullPresets.lastPresetId });
-  presetInput = nextInput;
+  // One tour and one cursor across every unattended source. Local method menus
+  // remain scoped, but choosing an input never replaces this top-level bank.
+  if (fullPresets) return;
   fullPresets = registerHeaderPresets({
-    id: "synthesis", presets: instrumentPresetsForInput(nextInput), host: $("performancePresetHost"),
+    id: "synthesis", presets: instrumentPresetsForInput(), host: $("performancePresetHost"),
     capture: currentPerformanceInput, apply: applyPreparedPerformance,
     randomize: randomizeInstrumentPreset,
   });
-  Object.assign(fullPresets, presetSessions.get(nextInput)); fullPresets.refresh();
+  fullPresets.refresh();
   const host = $("performancePresetHost");
   host.querySelector(".header-preset-next").id = "nextPerformancePreset";
   host.querySelector(".header-preset-random").id = "randomPerformance";

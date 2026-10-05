@@ -2,10 +2,26 @@ import {
   NATIVE_METHODS, defaultScene, defaultsFor, methodsForVoiceMode, presetsForVoiceMode, randomize,
   validateScene, voiceModeForEngine,
 } from '../voicesaurus/native-model.js';
+import { singingSceneFromPronunciations } from '../voicesaurus/singing-text.js';
+import { voiceTextForEngine, randomVoiceText } from './voice-texts.js';
 
 export const isVoiceInput = id => id === 'speech' || id === 'singing';
 const clone = value => structuredClone(value);
-const defaultText = 'Hello. This is Synthesaurus.';
+
+/** Prepare actual native input, not just a sentence displayed beside old audio.
+ * Factory/dice lyrics use the existing deterministic letter rules; the manual
+ * Apply lyrics path may additionally use the bundled pronunciation dictionary.
+ */
+export function withVoiceInputText(value, text) {
+  const next = { version: 1, scene: validateScene(value.scene), text };
+  if (voiceModeForEngine(next.scene.engine) === 'singing') {
+    next.scene = singingSceneFromPronunciations(next.scene, text).scene;
+  } else if (NATIVE_METHODS[next.scene.engine].mode === 'native-letters') {
+    next.scene.input = { ...next.scene.input, mode: 'text', text };
+    delete next.scene.input.phones;
+  }
+  return next;
+}
 
 export function voiceModeForInput(id) {
   if (!isVoiceInput(id)) throw new TypeError('Choose speech or singing synthesis.');
@@ -17,7 +33,7 @@ export function createVoiceInputState(id) {
   const scene = id === 'singing'
     ? clone(presetsForVoiceMode(mode).find(preset => preset.snapshot.engine === 'singer').snapshot)
     : defaultScene('espeak');
-  return { version: 1, scene, text: defaultText };
+  return withVoiceInputText({ scene }, voiceTextForEngine(scene.engine));
 }
 
 /** Presets contain musical state only; native finite values retain their range. */
@@ -36,7 +52,7 @@ export function sanitizeVoiceInputState(value, id) {
 export function voicePresetsForInput(id) {
   return presetsForVoiceMode(voiceModeForInput(id)).map(preset => ({
     id: preset.id, label: `${preset.label.replace(`${NATIVE_METHODS[preset.snapshot.engine].name} · `, '')} · ${NATIVE_METHODS[preset.snapshot.engine].name}`,
-    state: { version: 1, scene: clone(preset.snapshot), text: defaultText },
+    state: withVoiceInputText({ scene: preset.snapshot }, voiceTextForEngine(preset.snapshot.engine)),
   }));
 }
 
@@ -51,10 +67,26 @@ function playableRandomScene(scene, rng, { preserveInput = false } = {}) {
     values.rate = Math.round(span(120, 260)); values.wordGap = Math.round(span(0, 8));
     values.volume = Math.round(span(75, 110));
   }
+  if (scene.engine === 'espeak-klatt') {
+    values.volume = Math.round(span(30, 45));
+    values.emphasis = ['reduced', 'moderate'][Math.floor(r() * 2)];
+  }
+  if (scene.engine === 'pico') {
+    // Pico clips inside its native PCM renderer before host output gain.
+    values.volume = span(.3, .6); values.speed = span(.65, 1.8);
+  }
+  if (scene.engine === 'mea8000') {
+    // Very small chip amplitudes quantize to silence; narrow random resonators
+    // can saturate the emulator. Keep dice on audible, broad native registers.
+    values.amplitude = [.044, .062, .088][Math.floor(r() * 3)];
+    for (let index = 1; index <= 4; index++) values[`bandwidth${index}`] = [309, 726][Math.floor(r() * 2)];
+  }
   if (scene.engine === 'hts' || scene.engine === 'sinsy') {
     Object.assign(values, { speed: span(.6, 1.8), semitones: span(-8, 8), beta: span(0, .5),
       voicingThreshold: span(.3, .7), gvWeight: span(.6, 1.2), alpha: span(.45, .68), volumeDb: span(-6, 0) });
     if (scene.engine === 'hts') {
+      values.gvWeight = span(.6, .8);
+      values.volumeDb = span(-12, -6);
       values.f0GvWeight = span(.5, 1.5);
       values.sampleRate = [22050, 32000, 44100, 48000][Math.floor(r() * 4)];
       values.framePeriod = Math.round(values.sampleRate * span(.004, .0075));
@@ -156,5 +188,5 @@ export function randomizeVoiceInputState(previous, id, rng = Math.random) {
     };
     if (scene.engine === 'singer') for (const note of scene.input.phrase.notes) fitSingerTiming(note.values, r);
   }
-  return { ...next, scene: validateScene(scene) };
+  return withVoiceInputText({ ...next, scene: validateScene(scene) }, randomVoiceText(scene.engine, r));
 }

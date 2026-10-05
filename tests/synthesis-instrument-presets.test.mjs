@@ -1,7 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createDefaultState } from '../src/instruments/synthesis/catalog.js';
-import { INSTRUMENT_PRESETS, instrumentPresetsForInput, captureInstrumentPreset, randomizeInstrumentPreset, fitRandomAttackToSequence } from '../src/instruments/synthesis/instrument-presets.js';
+import { INSTRUMENT_PRESETS, RANDOMIZABLE_INPUTS, instrumentPresetsForInput, captureInstrumentPreset, randomizeInstrumentPreset, fitRandomAttackToSequence } from '../src/instruments/synthesis/instrument-presets.js';
+import { inputsForCategory } from '../src/instruments/synthesis/signal-path.js';
+import { NATIVE_METHODS } from '../src/instruments/voicesaurus/native-model.js';
 import { validateFullPresetBank } from '../src/site/header-presets.js';
 import { compileSequence } from '../src/instruments/synthesis/sequence-compiler.js';
 
@@ -26,31 +28,53 @@ test('capture preserves direct and basic patterns for transaction rollback', () 
   }
 });
 
-test('each voice input replaces the instrument bank and randomizes only its own musical category', () => {
-  assert.equal(instrumentPresetsForInput('synthesis'), INSTRUMENT_PRESETS);
-  assert.equal(instrumentPresetsForInput('signals'), INSTRUMENT_PRESETS);
-  for (const input of ['speech', 'singing']) {
+test('one mixed tour is available from every input and introduces all unattended sources', () => {
+  for (const input of [...RANDOMIZABLE_INPUTS, 'microphone', 'file']) {
     const bank = instrumentPresetsForInput(input);
+    assert.equal(bank, INSTRUMENT_PRESETS);
     validateFullPresetBank(bank);
-    assert.ok(bank.length > 20);
     for (const preset of bank) {
-      assert.equal(preset.snapshot.routing.input, input);
-      assert.equal(preset.snapshot.routing.effectEnabled, false);
+      assert.ok(RANDOMIZABLE_INPUTS.includes(preset.snapshot.routing.input));
       assert.deepEqual(captureInstrumentPreset(preset.snapshot), preset.snapshot, preset.id);
     }
-    let seed = 532;
-    const rng = () => (seed = Math.imul(seed, 1664525) + 1013904223 >>> 0) / 4294967296;
-    const engines = new Set(), loopPolicies = new Set(), effects = new Set();
-    for (let i = 0; i < 32; i++) {
-      const next = randomizeInstrumentPreset(bank[0].snapshot, rng);
-      assert.equal(next.routing.input, input);
-      assert.deepEqual(captureInstrumentPreset(next), next);
-      assert.notDeepEqual(next.routing.voice, bank[0].snapshot.routing.voice);
-      engines.add(next.routing.voice.scene.engine); loopPolicies.add(next.routing.loop); effects.add(next.routing.effectEnabled);
-      assert.ok(!Object.hasOwn(next.sound, 'outputLevel'));
-      assert.ok(!Object.hasOwn(next, 'playing'));
-    }
-    assert.ok(engines.size > 2); assert.equal(loopPolicies.size, 2); assert.equal(effects.size, 2);
+  }
+  assert.deepEqual(INSTRUMENT_PRESETS.slice(0, 5).map(p => p.snapshot.routing.input), RANDOMIZABLE_INPUTS);
+  assert.deepEqual(new Set(INSTRUMENT_PRESETS.flatMap(p => p.snapshot.routing.voice ? [p.snapshot.routing.voice.scene.engine] : [])), new Set(Object.keys(NATIVE_METHODS)));
+  for (const input of ['samples', 'signals']) for (const source of inputsForCategory(input)) {
+    const preset = INSTRUMENT_PRESETS.find(p => p.id === `input:${source.id}`);
+    assert.equal(preset.snapshot.routing.input, input);
+    assert.equal(preset.snapshot.routing.selection, source.id);
+    assert.equal(preset.snapshot.sound.source, source.source);
+    assert.deepEqual(preset.snapshot.sound, preset.snapshot.routing.effect);
+  }
+});
+
+test('global dice can leave every family and creates parameters across every safe input', () => {
+  let seed = 532;
+  const rng = () => (seed = Math.imul(seed, 1664525) + 1013904223 >>> 0) / 4294967296;
+  const inputs = new Set(), engines = new Set(), materials = new Set(), loopPolicies = new Set();
+  for (let i = 0; i < 500; i++) {
+    const previous = INSTRUMENT_PRESETS[i % INSTRUMENT_PRESETS.length].snapshot;
+    const before = structuredClone(previous), next = randomizeInstrumentPreset(previous, rng);
+    assert.ok(RANDOMIZABLE_INPUTS.includes(next.routing.input));
+    assert.deepEqual(previous, before);
+    assert.deepEqual(captureInstrumentPreset(next), next);
+    assert.notDeepEqual(next, previous);
+    assert.ok(!Object.hasOwn(next.sound, 'outputLevel'));
+    assert.ok(!Object.hasOwn(next, 'playing'));
+    assert.equal(next.routing.effect.presetId, 'custom');
+    if (['speech', 'singing', 'samples'].includes(next.routing.input)) assert.equal(next.routing.loop, true);
+    inputs.add(next.routing.input); loopPolicies.add(next.routing.loop);
+    if (next.routing.voice) engines.add(next.routing.voice.scene.engine);
+    if (next.routing.selection) materials.add(next.routing.selection);
+    if (next.routing.input !== 'synthesis') assert.deepEqual(next.sound, next.routing.effect);
+  }
+  assert.deepEqual(inputs, new Set(RANDOMIZABLE_INPUTS));
+  assert.equal(engines.size, Object.keys(NATIVE_METHODS).length);
+  assert.equal(materials.size, inputsForCategory('samples').length + inputsForCategory('signals').length);
+  assert.equal(loopPolicies.size, 2);
+  for (const draw of [0, 1, NaN, -1, Infinity]) {
+    assert.ok(RANDOMIZABLE_INPUTS.includes(randomizeInstrumentPreset({}, () => draw).routing.input));
   }
 });
 
@@ -59,7 +83,8 @@ test('whole-instrument dice makes a new complete musical state with a usable att
   for (let seed = 0; seed < 64; seed++) {
     let counter = seed + 1;
     const rng = () => ((counter = Math.imul(counter, 1664525) + 1013904223 >>> 0) / 4294967296);
-    const next = randomizeInstrumentPreset(current, rng);
+    let first = true;
+    const next = randomizeInstrumentPreset(current, () => { if (first) { first = false; return 0; } return rng(); });
     assert.notDeepEqual(next, current);
     assert.equal(next.sound.presetId, 'custom');
     assert.deepEqual(captureInstrumentPreset(next), next);
