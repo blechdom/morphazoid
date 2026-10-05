@@ -1,82 +1,70 @@
-# L-system Delay native instrument and comparison
+# L-system Delay Rust: browser audio and native comparison
 
-L-system Delay has a playable Rust / CPAL implementation inside the Morphazoid
-webapp, alongside the original JavaScript instrument. It retains the original
-interface, all sixteen original presets plus ten new scenes, eleven grammars and continuous controls. Microphone
-input is selected by default; an optional test tone auditions the delay without
-capture. Rust processes sound and CPAL connects the computer's audio devices.
-The browser supplies controls and drawing; sound comes from the computer running
-the native executable, including when that computer is accessed remotely.
+The published **[L-system Delay Rust](https://morphazoid.com/l-mic-rust.html)**
+runs its Rust audio engine as WebAssembly inside a browser AudioWorklet. It needs
+no local Rust executable or Morphazoid proxy. The original JavaScript instrument
+remains at `/l-mic.html`. Both keep their own route and settings.
 
-The default thirteen-generation binary tree has 16,382 descendants, each with its
-own inherited pitch and delay. This is a starting topology, not a voice ceiling.
-Larger trees use dynamically prepared storage, with per-grammar generation ranges
-derived from available memory. Playback calibrates an initial budget before
-opening audio, then probes for additional capacity against measured callback work.
+The Rust page retains all sixteen original presets plus ten additional scenes,
+eleven grammars, the original slider curves, mastering controls and audio-clock
+branch animation. Microphone input is selected by default. The header contains
+input trim, the microphone switch and meters; the test-tone shortcut has been
+removed. An optional audition source remains inside the lower **Input** section.
 
-This work starts from fresh `origin/main`, commit
-`f48d59a45eb0e1eadcb240f83600e02df5aa5d4d`, fetched on October 2, 2026.
-The native source is in [the instrument's Rust workspace](../src/instruments/micmic/rust/).
-The [comparison script](../scripts/compare-l-system-delay.mjs) exports the actual
-browser grammar and presets into native scenes, renders both engines, and
-creates a listening page. The [recorded measurements](l-system-delay-measurements.json)
-include source, input, scene and executable hashes.
+## Play the browser instrument
 
-## Play the native instrument
+Open the published instrument in a browser supporting WebAssembly, AudioWorklet
+and microphone capture. Click the microphone switch and allow access, then enable
+**Audio** to hear the recursive delays. Microphone capture and Audio are separate:
+input can be captured and metered while output remains off. Enabling Audio with
+microphone selected can also request capture as part of that explicit action.
+Nothing starts capture or audible output on page load, preset selection or MIDI
+enablement. Device selection uses Morphazoid's browser audio-input settings.
 
-From the repository root, run these commands in separate terminals:
+For local development, the usual static development server is sufficient:
 
 ```sh
-cargo run --manifest-path src/instruments/micmic/rust/Cargo.toml -p l-system-delay-app --release -- --port 3436
-npm run dev -- --port 3437 --strict-port
+npm run dev
 ```
 
-Open **http://localhost:3437/l-mic-rust.html**, or choose **L-system Delay Rust**
-from Morphazoid's Choose menu. The original browser instrument remains at
-`/l-mic.html`. The development server forwards `/api/l-system-delay/*` to the
-local Rust companion on port 3436. Use its `--native-delay-port` option if the
-companion runs on another port. Static hosting alone cannot provide CPAL device
-access; the local companion and proxy are required. This native implementation
-does not connect to WAX host audio buses.
+Open the printed localhost URL and choose **L-system Delay Rust**. The browser
+loads the committed `assets/wasm/l-system-delay.wasm`; compiling Rust is not
+required to play the instrument. To rebuild the engine after Rust source edits:
 
-Linux builds need the ALSA development package and `pkg-config`. The lockfile pins
-dependencies, including CPAL 0.16. The companion lives in
-[the native app directory](../src/instruments/micmic/rust/app/), and its public
-controls live in [the browser frontend](../src/instruments/micmic/native/).
+```sh
+rustup target add wasm32-unknown-unknown
+node scripts/build-l-system-delay-wasm.mjs
+```
 
-Audio starts off. Enabling **Audio** opens the native default microphone and
-output devices. Native capture uses CPAL's default input device rather than
-Morphazoid's saved browser input-device selection. Microphone capture uses
-operating-system audio access rather than browser microphone permission.
-Selecting a source while Audio is off does
-not open a device. Choose **Built-in test tone** under **Input → Input source**
-to audition without capture; **Strike tone** or Enter on the canvas retriggers it.
-Switching back to the test tone releases the input stream.
+The Rust source remains in
+[the instrument workspace](https://github.com/blechdom/morphazoid/tree/main/src/instruments/micmic/rust).
+The browser controls retain their existing `src/instruments/micmic/native/` paths
+for compatibility. A worker compiles the tree independently of rendering, and an
+AudioWorklet processes the microphone, granular delays, stereo mix and mastering.
+Graphics consume the actual audio sample clock and recorded input-envelope
+history. Rendering stalls do not schedule or trigger sound.
+
+The default thirteen-generation Pine requests 16,382 descendants, each with its
+own pitch and delay. That number is a topology, not a voice ceiling. Automatic
+adaptation measures audio processing work and probes toward the full requested
+eligible count, backing off when deadlines are threatened and retrying when
+conditions improve. An optional user cap is the only musical count ceiling;
+memory availability and real processing capacity still constrain playback.
+Browser performance must be measured on the actual device. The historical CPAL
+benchmarks below do not establish a sustainable browser voice count.
 
 Drag horizontally to change Time fold and vertically to change Branch angle;
 arrow keys provide the same controls, with Shift for finer changes. Presets and
-randomization retain Audio and device policy. **Reset all parameters** restores
-tree, mix, input trim and test-tone parameters while preserving Audio, source,
-input pause, output level and voice settings. Hiding or leaving the page requests
-Audio off; the server also releases devices after ten seconds without control or
-status requests. Returning to the page requires another explicit Audio enable.
+randomization preserve Audio and input policy. Mastering presets preserve the
+tree and live recording. Hiding or leaving the page mutes output and releases
+microphone capture; returning requires an explicit restart.
 
-The app prefers 48 kHz output and falls back to a supported default device rate.
-Settings shows the actual rate and devices. A selected microphone must support
-that output rate. The wet renderer has one 40-second mono history, with stereo
-branch panning; it processes blocks of 128 frames independently of browser
-drawing. Parameter edits preserve recording and stable branch phases. Pitch,
-pan and gain changes are smoothed, and delay edits crossfade fixed read heads
-over 65 ms. Audio off ends the session; starting Audio again records fresh
-history.
-
-The playable model supports all eleven original L-system types, including the
-branching plant, coral, and classic curve grammars. The Pythagorean rewrite keeps
-its uncapped native tree. The original pruning control blends connected breadth
-and depth orders; voice slots keep their history while the selected paths change.
-The app preserves the granular algorithm and does not add independent
-segment-duration stretching or the optional Silky spectral renderer. The Pitch
-detail selector identifies the available native independent-granular renderer.
+The audio engine shares the Rust granular pool, original input cleanup and
+mastering model with the native implementation. It retains a 40-second mono
+history, stereo branch panning and smoothed live pitch, pan, gain and delay
+changes. It does not add independent duration stretching or the optional Silky
+spectral renderer. WAX host audio buses remain unverified for this route;
+ordinary browser playback does not imply DAW track-input integration.
 
 ## Original interface and continuous edits
 
@@ -189,24 +177,25 @@ Original. Older external snapshots that omit mastering retain the current
 settings. The full-state randomizer includes bounded mastering variation.
 
 Filters and dynamics process shared buses, rather than adding work to every
-voice. Coefficients and compressor curves are prepared on the control thread;
+voice. Coefficients and compressor curves are prepared outside audio processing;
 the callback retains filter state and lookahead storage during smoothed edits.
 The live voice controller measures this processing along with the delay engine.
 
 ## How the playable voice budget behaves
 
 The optional voice cap defaults to **No cap**. Automatic adaptation seeks the
-largest requested eligible voice count supported by measured callback work. A
-brief warmed benchmark establishes the initial budget on a separate recorded
-history; live measurements then probe upward and roll back unsuccessful probes.
+largest requested eligible voice count supported by measured callback work.
+The browser starts with a conservative budget and probes upward using actual worklet
+processing time, rolling back unsuccessful probes. The native comparison uses
+a separate warmed calibration before those live probes.
 Failed probes are retried, so capacity can increase when device conditions
 improve. The controller accounts for transient load and lets outgoing voices
 finish fading before repeatedly reducing the same budget. Severe or worsening
 overload still reduces it immediately. Turning adaptation off requests all
 eligible voices, subject to an explicitly chosen cap.
 
-Voice storage grows on the control thread and is swapped into the engine without
-resetting recording, branch phase or delay-edit crossfades. The callback does not
+Voice storage is prepared between processing callbacks and swapped into the
+engine without resetting recording, branch phase or delay-edit crossfades. The callback does not
 allocate or free that storage. Outgoing branches release smoothly, so active
 counts can briefly exceed a reduced target. Available memory limits structural
 allocation; measured audio deadlines limit simultaneous playback. Per-grammar
@@ -237,8 +226,8 @@ rather than a literal waveform of the granular output. Grain read-head age and
 per-tap RMS remains available for the first 2,048 priority ranks, with stable slot
 indices and coherent topology revisions. A bounded fallback uses those meters
 when input history is unavailable. The meter count does not cap the history-based
-animation or simultaneous audio. All callback storage is preallocated; HTTP
-snapshots copy data on the control thread.
+animation or simultaneous audio. Audio processing uses preallocated storage.
+Browser status messages copy bounded telemetry separately from the processing callback; there is no HTTP audio API.
 
 A regression renders 2,049 admitted taps and measures the additional output of
 the final unmetered tap. Increasing Pine from 13 to 14 generations requests
@@ -250,37 +239,33 @@ Processing load estimates callback work: control updates, test-tone/input
 preparation, DSP, mixing, adaptive changes and audio activity measurement/publication.
 It excludes the final telemetry stores and parts of device transport.
 `deadlineMisses` counts measured blocks exceeding their sample-time budget; it is
-not a hardware-driver xrun counter. Capture underruns and overruns count empty or
-full microphone FIFO frames separately and do not establish a CPU voice limit.
-Independent input/output clocks are not resampled, so sustained capture can drift.
+not a hardware-driver xrun counter. In the native comparison, capture underruns
+and overruns count empty or full microphone FIFO frames separately; independent input/output clocks can drift.
+The browser feeds microphone capture through the same AudioContext graph.
 A peak attempted voice count is not an established sustainable count.
 
 Run verification with installed JavaScript development dependencies and
 Playwright Chromium:
 
 ```sh
-cargo test --manifest-path src/instruments/micmic/rust/Cargo.toml --workspace --release
-cargo build --manifest-path src/instruments/micmic/rust/Cargo.toml -p l-system-delay-app --release
-node scripts/test-l-system-delay-app.mjs
-node scripts/test-l-system-delay-app.mjs --native
+npm run check:l-system-wasm
+cargo test --manifest-path src/instruments/micmic/rust/Cargo.toml -p l-system-delay-wasm --release
+node --test tests/l-system-delay-wasm.test.mjs
+node scripts/test-l-system-delay-wasm.mjs
 node scripts/test-l-system-delay-visuals.mjs
 ```
 
-Browser QA starts an isolated companion and Morphazoid server, visiting the
-canonical instrument route. It inspects actual descendant Canvas coverage after
-all 26 full recalls, including the larger native scenes, and tests named recall
-and growth reload. It covers ranges, all grammars and presets, desktop
-and phone layouts, touch, accessibility, and local intermediate drawing frames
-while an API reply is delayed. The native mode additionally uses real CPAL output
-at zero master level, with the test tone and no microphone capture. It exercises
-capacity growth, live pool expansion beyond the former 16,384-slot guard without
-resetting the clock, edits, stop/restart, departure shutdown and idle timeout.
-Screenshots and JSON telemetry are saved in ignored
-`artifacts/l-system-delay-app/`. Human listening and sustained physical microphone
-checks remain separate from these silent automated checks.
+The browser suite starts a plain static server with no native companion. It
+loads the committed WASM and exercises real AudioWorklet processing, microphone
+permission and capture, explicit output arming, controls, presets, layouts and
+lifecycle. Its input is automated rather than a physical microphone. Screenshots
+and telemetry are saved under ignored `artifacts/`; human listening and sustained
+physical-device checks remain separate. The compatibility command
+`test-l-system-delay-app.mjs` runs this browser suite; `--native` is rejected.
+Native CPAL and CLI comparisons remain independently testable through Cargo.
 
-The visual-causality check uses an isolated mocked API and instruments actual
-Canvas strokes. It verifies complete 1,001-segment color coverage (1,000 admitted
+The visual-causality check instruments actual Canvas strokes with an isolated
+test-only browser bridge and mocked telemetry. It verifies complete 1,001-segment color coverage (1,000 admitted
 taps plus root) at all three CPU pressure tiers, independent sibling brightness,
 rank continuity, visible measured release, mute darkness, and rejection of stale
 topology packets. Its screenshots and report are in ignored
@@ -294,10 +279,15 @@ input packet advances through early, middle and late positions of a descendant;
 quiet sections remain unlit. Separate silent-admission and muted-bus cases verify
 that capacity growth creates no signal waves. Representative screenshots and the
 report are generated without microphone capture. Full recalls of Cedar, Quaking
-Aspen and Foxglove use previews compiled by an isolated Rust companion; all
+Aspen and Foxglove use previews compiled by the committed Rust WASM; all
 sixteen original scenes also run with quiet and ordinary input envelopes. These
 mocked fixtures do not establish physical microphone behavior or a device voice
 deadline.
+
+## Historical native implementation verification
+
+These results describe the earlier CPAL implementation, before browser WASM.
+They are retained as comparison evidence rather than browser performance claims.
 
 The first October 3 integrated revision passed 61 Rust release tests, strict Clippy,
 formatting, and repository verification (5,452 passed, six skipped). Both

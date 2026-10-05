@@ -355,10 +355,10 @@ const CATALOG_DETAILS = Object.freeze({
     ["Mic input"],
   ),
   "micmic-rust": define(
-    "Native mic processor",
-    "Runs microphone audio through recursive delay branches with independently shifted playback rates. Rust CPAL processes audio on this computer and adapts voices to measured device capacity; the browser controls and displays the instrument.",
-    "Run the local native audio service, enable Audio, then speak or play into the microphone and reshape the tree.",
-    ["Mic input", "Local native audio", "Test tone", "Device-adaptive voices"],
+    "Rust/WASM mic processor",
+    "Runs microphone audio through recursive delay branches with independently shifted playback rates. Rust compiled to WebAssembly processes audio inside the browser and adapts voices to measured device capacity; the tree follows the audio clock.",
+    "Allow microphone access, enable Audio, then speak or play into the microphone and reshape the tree.",
+    ["Mic input", "Browser WebAssembly", "Device-adaptive voices"],
   ),
   "graph-delay": define(
     "Mic processor",

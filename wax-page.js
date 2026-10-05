@@ -81,7 +81,7 @@ function createSupportRow(doc, support) {
 
   const recommendedCell = element(doc, "td", "wax-catalog-role");
   recommendedCell.append(support.available === false
-    ? element(doc, "span", "wax-role-none", "Local native only")
+    ? element(doc, "span", "wax-role-none", "Browser audio only")
     : roleBadge(doc, support.recommended, true));
 
   const alsoCell = element(doc, "td", "wax-catalog-role");

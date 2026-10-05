@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "baseCommit": "f48d59a45eb0e1eadcb240f83600e02df5aa5d4d",
-  "purpose": "Exact native delay webapp additions; older layout and navigation reference fixtures remain frozen.",
+  "purpose": "Exact Rust delay browser additions, now running WebAssembly; older layout and navigation reference fixtures remain frozen.",
   "changes": [
     {
       "file": "nav.js",
@@ -14,7 +14,7 @@
       "replacements": [
         {
           "before": "  }\n}\n\nif (typeof document !== \"undefined\") initializeSharedNavigation(document, globalThis);\n",
-          "after": "  }\n}\n\n// Native device pages own their audio settings and lifecycle. Their controller\n// reuses the pure site registry and shared controls without browser audio setup.\nif (typeof document !== \"undefined\" && document.body?.dataset?.audioBackend !== \"native-cpal\") {\n  initializeSharedNavigation(document, globalThis);\n}\n"
+          "after": "  }\n}\n\n// These instruments own their audio settings, input permissions and lifecycle.\n// Their controllers reuse the pure site registry and shared controls.\nif (typeof document !== \"undefined\" && ![\"native-cpal\", \"rust-wasm\"].includes(document.body?.dataset?.audioBackend)) {\n  initializeSharedNavigation(document, globalThis);\n}\n"
         }
       ]
     },
@@ -48,7 +48,7 @@
       "replacements": [
         {
           "before": "    \"Runs live microphone audio through an L-system tree where branches become delays and turns become pitch shifts.\",\n    \"Allow microphone access, start input, then change the grammar or branch timing.\",\n    [\"Mic input\"],\n  ),\n  \"graph-delay\": define(\n    \"Mic processor\",\n",
-          "after": "    \"Runs live microphone audio through an L-system tree where branches become delays and turns become pitch shifts.\",\n    \"Allow microphone access, start input, then change the grammar or branch timing.\",\n    [\"Mic input\"],\n  ),\n  \"micmic-rust\": define(\n    \"Native mic processor\",\n    \"Runs microphone audio through recursive delay branches with independently shifted playback rates. Rust CPAL processes audio on this computer and adapts voices to measured device capacity; the browser controls and displays the instrument.\",\n    \"Run the local native audio service, enable Audio, then speak or play into the microphone and reshape the tree.\",\n    [\"Mic input\", \"Local native audio\", \"Test tone\", \"Device-adaptive voices\"],\n  ),\n  \"graph-delay\": define(\n    \"Mic processor\",\n"
+          "after": "    \"Runs live microphone audio through an L-system tree where branches become delays and turns become pitch shifts.\",\n    \"Allow microphone access, start input, then change the grammar or branch timing.\",\n    [\"Mic input\"],\n  ),\n  \"micmic-rust\": define(\n    \"Rust/WASM mic processor\",\n    \"Runs microphone audio through recursive delay branches with independently shifted playback rates. Rust compiled to WebAssembly processes audio inside the browser and adapts voices to measured device capacity; the tree follows the audio clock.\",\n    \"Allow microphone access, enable Audio, then speak or play into the microphone and reshape the tree.\",\n    [\"Mic input\", \"Browser WebAssembly\", \"Device-adaptive voices\"],\n  ),\n  \"graph-delay\": define(\n    \"Mic processor\",\n"
         }
       ]
     },
@@ -116,15 +116,15 @@
       "replacements": [
         {
           "before": "}\n\nfunction summaryFor(instrument, noteMode, midiOutput, audioInput) {\n  if (noteMode === \"processor\") {\n    return audioInput\n      ? `Process a DAW track through ${instrument.label}'s live-input signal path.`\n",
-          "after": "}\n\nfunction summaryFor(instrument, noteMode, midiOutput, audioInput) {\n  if (instrument.id === \"micmic-rust\") {\n    return \"Control the local Rust CPAL instrument; its audio uses the computer's native devices.\";\n  }\n  if (noteMode === \"processor\") {\n    return audioInput\n      ? `Process a DAW track through ${instrument.label}'s live-input signal path.`\n"
+          "after": "}\n\nfunction summaryFor(instrument, noteMode, midiOutput, audioInput) {\n  if (instrument.id === \"micmic-rust\") {\n    return \"Process microphone audio through the Rust WebAssembly delay engine in the browser.\";\n  }\n  if (noteMode === \"processor\") {\n    return audioInput\n      ? `Process a DAW track through ${instrument.label}'s live-input signal path.`\n"
         },
         {
           "before": "}\n\nfunction caveatFor(instrument, noteMode, midiOutput) {\n  if (AUDIO_FX_IDS.has(instrument.id)) {\n    return \"Preview: confirm DAW track-input capture in your WAX host; the browser mic/file path may still need a page-specific adapter.\";\n  }\n",
-          "after": "}\n\nfunction caveatFor(instrument, noteMode, midiOutput) {\n  if (instrument.id === \"micmic-rust\") {\n    return \"Local native service required. CPAL input and output use system devices; this implementation does not connect to WAX audio buses.\";\n  }\n  if (AUDIO_FX_IDS.has(instrument.id)) {\n    return \"Preview: confirm DAW track-input capture in your WAX host; the browser mic/file path may still need a page-specific adapter.\";\n  }\n"
+          "after": "}\n\nfunction caveatFor(instrument, noteMode, midiOutput) {\n  if (instrument.id === \"micmic-rust\") {\n    return \"Browser WebAssembly audio is available without a local service; this implementation does not connect to WAX audio buses.\";\n  }\n  if (AUDIO_FX_IDS.has(instrument.id)) {\n    return \"Preview: confirm DAW track-input capture in your WAX host; the browser mic/file path may still need a page-specific adapter.\";\n  }\n"
         },
         {
           "before": "\nexport const WAX_INSTRUMENT_SUPPORT = Object.freeze(INSTRUMENTS.map((instrument) => {\n  const midiCapability = instrumentMidiCapabilityForId(instrument.id);\n  const {\n    audioInput, midiOutput, noteMode, startsAudio,\n  } = midiCapability;\n",
-          "after": "\nexport const WAX_INSTRUMENT_SUPPORT = Object.freeze(INSTRUMENTS.map((instrument) => {\n  const midiCapability = instrumentMidiCapabilityForId(instrument.id);\n  // Native device audio cannot enter or leave the WAX host's audio buses.\n  if (instrument.id === \"micmic-rust\") {\n    return Object.freeze({\n      id: instrument.id, available: false, recommended: null, roles: Object.freeze([]),\n      audioInput: false, midiInput: false, midiInputMode: midiCapability.midiInputMode,\n      computerKeyboardMode: midiCapability.computerKeyboardMode, midiOutput: false,\n      hostSync: false, noteMode: midiCapability.noteMode,\n      summary: summaryFor(instrument, midiCapability.noteMode, false, false),\n      caveat: caveatFor(instrument, midiCapability.noteMode, false),\n    });\n  }\n  const {\n    audioInput, midiOutput, noteMode, startsAudio,\n  } = midiCapability;\n"
+          "after": "\nexport const WAX_INSTRUMENT_SUPPORT = Object.freeze(INSTRUMENTS.map((instrument) => {\n  const midiCapability = instrumentMidiCapabilityForId(instrument.id);\n  // Browser playback is available; this route has no verified WAX bus adapter.\n  if (instrument.id === \"micmic-rust\") {\n    return Object.freeze({\n      id: instrument.id, available: false, recommended: null, roles: Object.freeze([]),\n      audioInput: false, midiInput: false, midiInputMode: midiCapability.midiInputMode,\n      computerKeyboardMode: midiCapability.computerKeyboardMode, midiOutput: false,\n      hostSync: false, noteMode: midiCapability.noteMode,\n      summary: summaryFor(instrument, midiCapability.noteMode, false, false),\n      caveat: caveatFor(instrument, midiCapability.noteMode, false),\n    });\n  }\n  const {\n    audioInput, midiOutput, noteMode, startsAudio,\n  } = midiCapability;\n"
         }
       ]
     },
@@ -139,7 +139,7 @@
       "replacements": [
         {
           "before": "  nameCell.append(link, element(doc, \"span\", \"\", instrument.kind));\n\n  const recommendedCell = element(doc, \"td\", \"wax-catalog-role\");\n  recommendedCell.append(roleBadge(doc, support.recommended, true));\n\n  const alsoCell = element(doc, \"td\", \"wax-catalog-role\");\n  const alsoWorks = support.roles.filter((roleId) => roleId !== support.recommended);\n",
-          "after": "  nameCell.append(link, element(doc, \"span\", \"\", instrument.kind));\n\n  const recommendedCell = element(doc, \"td\", \"wax-catalog-role\");\n  recommendedCell.append(support.available === false\n    ? element(doc, \"span\", \"wax-role-none\", \"Local native only\")\n    : roleBadge(doc, support.recommended, true));\n\n  const alsoCell = element(doc, \"td\", \"wax-catalog-role\");\n  const alsoWorks = support.roles.filter((roleId) => roleId !== support.recommended);\n"
+          "after": "  nameCell.append(link, element(doc, \"span\", \"\", instrument.kind));\n\n  const recommendedCell = element(doc, \"td\", \"wax-catalog-role\");\n  recommendedCell.append(support.available === false\n    ? element(doc, \"span\", \"wax-role-none\", \"Browser audio only\")\n    : roleBadge(doc, support.recommended, true));\n\n  const alsoCell = element(doc, \"td\", \"wax-catalog-role\");\n  const alsoWorks = support.roles.filter((roleId) => roleId !== support.recommended);\n"
         }
       ]
     },

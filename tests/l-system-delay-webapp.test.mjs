@@ -27,7 +27,8 @@ test('Rust delay is a separate Morphazoid route beside the preserved original', 
   assert.equal(tools[original + 1].href, 'l-mic-rust.html');
   assert.ok(FAVE_TOOL_IDS.includes('micmic-rust'));
   const record = INSTRUMENTS.find(instrument => instrument.id === 'micmic-rust');
-  assert.match(record.description, /Rust CPAL/);
+  assert.match(record.description, /Rust.*WebAssembly/);
+  assert.doesNotMatch(record.description, /CPAL|local companion/);
   assert.equal(record.imageHref, 'assets/instruments/micmic.webp');
   assert.equal(instrumentIdForRouteName('l-mic-rust'), 'micmic-rust');
   assert.equal(waxSupportForId('micmic-rust').available, false);
@@ -35,27 +36,40 @@ test('Rust delay is a separate Morphazoid route beside the preserved original', 
   assert.match(waxSupportForId('micmic-rust').caveat, /does not connect to WAX audio buses/);
 });
 
-test('canonical native page uses public assets and owns its device lifecycle', async () => {
+test('canonical Rust page publishes browser WASM and owns its audio lifecycle', async () => {
   const html = await readFile(new URL('../src/pages/l-mic-rust.html', import.meta.url), 'utf8');
   const app = await readFile(new URL('../src/instruments/micmic/native/app.js', import.meta.url), 'utf8');
   const nav = await readFile(new URL('../nav.js', import.meta.url), 'utf8');
-  assert.match(html, /data-audio-backend="native-cpal"/);
+  const engine = await readFile(new URL('../src/instruments/micmic/native/browser-engine.js', import.meta.url), 'utf8');
+  const worker = await readFile(new URL('../src/instruments/micmic/native/topology-worker.js', import.meta.url), 'utf8');
+  const worklet = await readFile(new URL('../src/instruments/micmic/native/delay-worklet.js', import.meta.url), 'utf8');
+  assert.match(html, /data-audio-backend="rust-wasm"/);
   assert.match(html, /href="\.\/"/);
   assert.match(html, /href="l-mic-rust.html"/);
   assert.match(html, /src="src\/instruments\/micmic\/native\/app.js"/);
   assert.doesNotMatch(html + app, /localhost:343[567]|nativeNavigationData|\/original-style\.css/);
-  assert.match(app, /api\/l-system-delay\//);
+  assert.match(app, /createBrowserDelayEngine/);
+  assert.doesNotMatch(app, /api\/l-system-delay\/|Native audio requires the local|nativeSeedSource/);
+  assert.match(worker, /WebAssembly\.compile/);
+  assert.match(worklet, /new WebAssembly\.Instance/);
+  assert.match(worklet, /lsd_process/);
+  assert.doesNotMatch(engine + worker + worklet, /localhost:\d|api\/l-system-delay\//);
   assert.match(app, /new URL\('\.\/presets\.json', import.meta.url\)/);
   assert.match(app, /new URL\(tool.href, SITE_ROOT\)/);
-  assert.match(nav, /audioBackend !== "native-cpal"/);
+  assert.match(nav, /\["native-cpal", "rust-wasm"\]\.includes\(document\.body\?\.dataset\?\.audioBackend\)/);
   const inventory = await readRuntimeManifest();
-  for (const file of ['app.js', 'model.js', 'style.css', 'presets.json']) {
+  for (const file of ['app.js', 'model.js', 'mastering.js', 'style.css', 'presets.json',
+    'browser-engine.js', 'delay-worklet.js', 'topology-worker.js', 'wasm-abi.js']) {
     assert.ok(inventory.worktreeFiles.includes(`src/instruments/micmic/native/${file}`), file);
     assert.ok(inventory.requiredFiles.includes(`src/instruments/micmic/native/${file}`), file);
   }
+  for (const file of ['assets/wasm/l-system-delay.wasm', 'assets/wasm/l-system-delay-build.json']) {
+    assert.ok(inventory.worktreeFiles.includes(file), file);
+    assert.ok(inventory.requiredFiles.includes(file), file);
+  }
 });
 
-test('native hardware MIDI controls do not arm CPAL or take over page keys', () => {
+test('Rust delay MIDI controls do not arm browser Audio or take over page keys', () => {
   const support = instrumentMidiCapabilityForId('micmic-rust');
   assert.equal(support.noteMode, 'processor');
   assert.equal(support.startsAudio, false);
