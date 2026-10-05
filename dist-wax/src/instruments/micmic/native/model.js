@@ -103,11 +103,11 @@ export function inputHistoryFrame(reply, previous = {}, receivedAt = 0) {
   const reset = reply.audio === false || status.sampleRate === 0 || elapsed + 1 < (previous.clock ?? 0);
   const next = { ...previous, clock: reset ? elapsed : Math.max(previous.clock ?? 0, elapsed),
     clockReceivedAt: reset || elapsed >= (previous.clock ?? 0) ? receivedAt : previous.clockReceivedAt };
-  if (reset) Object.assign(next, { reader: null, receivedAt: -Infinity, endTime: -Infinity });
+  if (reset) Object.assign(next, { reader: null, envelope: null, receivedAt: -Infinity, endTime: -Infinity });
   if (reply.audio === false || status.sampleRate === 0) return next;
   const reader = inputEnvelopeReader(status.inputEnvelope), endTime = status.inputEnvelope?.endTime;
   if (reader && (reset || endTime >= (previous.endTime ?? -Infinity))) {
-    Object.assign(next, { reader, receivedAt, endTime });
+    Object.assign(next, { reader, envelope: status.inputEnvelope, receivedAt, endTime });
   }
   return next;
 }

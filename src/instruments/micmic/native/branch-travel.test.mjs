@@ -146,3 +146,17 @@ test('reduced motion retains measured tap brightness without deflecting short se
   const points = branchWavePoints(node, { x: 0, y: 0 }, { x: 33, y: 0 }, () => 0, 14, true, 4);
   assert.ok(points.every(point => point.y === 0 && point.energy === .2));
 });
+
+
+test('accepted microphone history retains the same raw snapshot for GPU and Canvas readers', () => {
+  const envelope = { interval: .1, endTime: 4, values: [.1, .2, .3] };
+  const first = inputHistoryFrame({ audio: true, status: { sampleRate: 48000, elapsedSeconds: 4, inputEnvelope: envelope } }, {}, 100);
+  assert.equal(first.envelope, envelope);
+  assert.equal(first.reader(4), envelope.values.at(-1));
+  const stale = inputHistoryFrame({ audio: true, status: { sampleRate: 48000, elapsedSeconds: 3.9,
+    inputEnvelope: { interval: .1, endTime: 3.9, values: [.9] } } }, first, 200);
+  assert.equal(stale.envelope, envelope);
+  const stopped = inputHistoryFrame({ audio: false, status: { sampleRate: 0, elapsedSeconds: 0 } }, stale, 300);
+  assert.equal(stopped.envelope, null);
+  assert.equal(stopped.reader, null);
+});

@@ -1492,6 +1492,7 @@ copy+require	vendor/wasm-runtime-notices/musl-COPYRIGHT
 
 # Native delay browser controls; Rust device code remains local-only.
 copy+require	src/instruments/micmic/native/app.js
+copy+require	src/instruments/micmic/native/gpu-renderer.js
 copy+require	src/instruments/micmic/native/model.js
 copy+require	src/instruments/micmic/native/mastering.js
 copy+require	src/instruments/micmic/native/style.css

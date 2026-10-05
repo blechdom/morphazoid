@@ -11,6 +11,8 @@ import { MASTERING_PROFILES } from '../src/instruments/micmic/native/mastering.j
 import { presetStateKey } from '../src/site/header-presets.js';
 import { sliderFromTimeFold } from '../src/instruments/micmic/micmic.js';
 
+// Path2D inspection exercises the complete Canvas fallback. GPU shader and
+// normal WebGL/WASM lifecycle acceptance live in l-system-delay-gpu.spec.mjs.
 const root = fileURLToPath(new URL('../', import.meta.url));
 const artifacts = new URL('../artifacts/l-system-delay-wasm/', import.meta.url);
 await mkdir(artifacts, { recursive: true });
@@ -28,7 +30,7 @@ const address = await new Promise((resolve, reject) => {
     if (found) { clearTimeout(timeout); resolve(found[0]); }
   });
 });
-const url = new URL('l-mic-rust.html', address).href;
+const url = new URL('l-mic-rust.html?renderer=canvas', address).href;
 const engineModule = new URL('src/instruments/micmic/native/browser-engine.js', address).href;
 const bank = JSON.parse(await readFile(new URL('../src/instruments/micmic/native/presets.json', import.meta.url), 'utf8'));
 const report = { serverRoot: root, url, nativeCompanion: false, actualMicrophone: false,
