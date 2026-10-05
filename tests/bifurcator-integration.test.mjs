@@ -5,6 +5,7 @@ import test from 'node:test';
 import { FAVE_TOOL_IDS, TOOL_GROUPS } from '../src/site/instrument-registry.js';
 import { bifurcatorSiteChanges, restoreBifurcatorSite } from './helpers/bifurcator-site-reference.mjs';
 import { restoreSynthesaurusIcon } from './helpers/synthesaurus-icon-reference.mjs';
+import { recordedInputSiteChanges, restoreLSystemRecordedInputSite } from './helpers/l-system-recorded-input-site-reference.mjs';
 
 test('Bifurcator metadata preserves genuine remote-main source and rejects unrelated amendments', async () => {
   assert.equal(bifurcatorSiteChanges.baseCommit, '1c8cd0d98e4144450308c04511f57bb75d9a2313');
@@ -15,7 +16,9 @@ test('Bifurcator metadata preserves genuine remote-main source and rejects unrel
   for (const change of bifurcatorSiteChanges.changes) {
     const source = await readFile(new URL(`../${change.file}`, import.meta.url), 'utf8');
     assert.notEqual(restoreBifurcatorSite(source, change.file), source);
-    const preserved = value => assert.equal(createHash('sha256').update(restoreBifurcatorSite(restoreSynthesaurusIcon(value, change.file), change.file)).digest('hex'), change.sha256, 'pre-Bifurcator source preserved');
+    const preserved = value => assert.equal(createHash('sha256').update(restoreLSystemRecordedInputSite(
+      restoreBifurcatorSite(restoreSynthesaurusIcon(value, change.file), change.file), change.file,
+    )).digest('hex'), change.sha256, 'pre-Bifurcator source preserved');
     preserved(source);
     for (const replacement of change.replacements) {
       assert.match(replacement.after, /bifurcator/);
@@ -23,6 +26,12 @@ test('Bifurcator metadata preserves genuine remote-main source and rejects unrel
       assert.throws(() => restoreBifurcatorSite(source + replacement.after, change.file), /exact Bifurcator amendment/);
     }
     assert.throws(() => preserved(source + '\n// unrelated drift\n'), /pre-Bifurcator source preserved/);
+    for (const later of recordedInputSiteChanges.changes.filter(item => item.file === change.file)) {
+      for (const replacement of later.replacements) {
+        assert.throws(() => preserved(source.replace(replacement.after, '')), /exact L-system recorded input amendment/);
+        assert.throws(() => preserved(source + replacement.after), /exact L-system recorded input amendment/);
+      }
+    }
     for (const file of change.regressionTests) await readFile(new URL(`../${file}`, import.meta.url));
   }
   assert.equal(restoreBifurcatorSite('untouched', 'unrelated.js'), 'untouched');

@@ -8,6 +8,7 @@ import { buildPerformancePath, rotatePath, transformAnchor, inverseAnchor } from
 import { BLOB_PRESETS, randomizeBlobs } from '../src/instruments/blobs/presets.js';
 import { createShapeReaderModel } from '../src/families/geometry-presets/shape-readers.js';
 import { blobsSiteChanges, restoreBlobsSite } from './helpers/blobs-site-reference.mjs';
+import { recordedInputSiteChanges, restoreLSystemRecordedInputSite } from './helpers/l-system-recorded-input-site-reference.mjs';
 
 const square = { tool: 'line', points: [{ x: .2, y: .2 }, { x: .8, y: .2 }, { x: .8, y: .8 }, { x: .2, y: .8 }] };
 test('closed paths cover the closing segment with constant arc-length travel', () => {
@@ -122,8 +123,18 @@ test('whole-scene randomization varies every musical field within valid recall b
 test('Blobs registration preserves all pre-existing catalogue source bytes', async () => {
   for (const { file, addition, sha256 } of blobsSiteChanges) {
     const source = await readFile(new URL(`../${file}`, import.meta.url), 'utf8');
-    assert.equal(createHash('sha256').update(restoreBlobsSite(source, file)).digest('hex'), sha256);
+    const preserved = value => assert.equal(createHash('sha256').update(
+      restoreLSystemRecordedInputSite(restoreBlobsSite(value, file), file),
+    ).digest('hex'), sha256, 'pre-Blobs source preserved');
+    preserved(source);
     assert.throws(() => restoreBlobsSite(source + addition, file), /exact Blobs addition/);
     assert.throws(() => restoreBlobsSite(source.replace(addition, ''), file), /exact Blobs addition/);
+    assert.throws(() => preserved(source + '\n// unrelated drift\n'), /pre-Blobs source preserved/);
+    for (const later of recordedInputSiteChanges.changes.filter(item => item.file === file)) {
+      for (const replacement of later.replacements) {
+        assert.throws(() => preserved(source.replace(replacement.after, '')), /exact L-system recorded input amendment/);
+        assert.throws(() => preserved(source + replacement.after), /exact L-system recorded input amendment/);
+      }
+    }
   }
 });

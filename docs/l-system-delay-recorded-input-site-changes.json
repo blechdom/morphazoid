@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "baseCommit": "aac0427bbff4b5e7610abd2d9527e192843625a3",
+  "purpose": "Exact recorded-input catalogue copy update for L-system Delay Rust. Historical Bifurcator and Blobs catalogue hashes remain frozen; their hash assertions reverse only this reviewed later amendment.",
+  "changes": [
+    {
+      "file": "src/site/instrument-catalog.js",
+      "sha256": "d7ab425e0a8e41a92f45cf0db6b85c283b84fef52e796ea0683338d170b64f9e",
+      "reason": "Represent the owner-requested Mic/line, audio-file and built-in recorded-sample input modes.",
+      "regressionTests": [
+        "tests/bifurcator-integration.test.mjs",
+        "tests/blobs.test.mjs",
+        "tests/l-system-delay-webapp.test.mjs"
+      ],
+      "replacements": [
+        {
+          "before": "  \"micmic-rust\": define(\n    \"Rust/WASM mic processor\",\n    \"Runs microphone audio through recursive delay branches with independently shifted playback rates. Rust compiled to WebAssembly processes audio inside the browser and adapts voices to measured device capacity; the tree follows the audio clock.\",\n    \"Allow microphone access, enable Audio, then speak or play into the microphone and reshape the tree.\",\n    [\"Mic input\", \"Browser WebAssembly\", \"Device-adaptive voices\"],\n  ),\n",
+          "after": "  \"micmic-rust\": define(\n    \"Rust/WASM audio processor\",\n    \"Runs microphone, local-file or recorded-sample audio through recursive delay branches with independently shifted playback rates. Rust compiled to WebAssembly processes audio inside the browser and adapts voices to measured device capacity; the tree follows the audio clock.\",\n    \"Choose Mic/line, upload an audio file or select a built-in sample, then enable Audio and reshape the tree.\",\n    [\"Mic input\", \"Audio files\", \"Sample loops\", \"Browser WebAssembly\", \"Device-adaptive voices\"],\n  ),\n"
+        }
+      ]
+    }
+  ]
+}

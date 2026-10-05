@@ -4,6 +4,8 @@ import test from 'node:test';
 import { createHash } from 'node:crypto';
 import { nativeDelaySiteChanges, restoreNativeDelaySite } from './helpers/native-delay-site-reference.mjs';
 import { restoreBifurcatorSite } from './helpers/bifurcator-site-reference.mjs';
+import { restoreBlobsSite } from './helpers/blobs-site-reference.mjs';
+import { recordedInputSiteChanges, restoreLSystemRecordedInputSite } from './helpers/l-system-recorded-input-site-reference.mjs';
 import { restoreSynthesaurusFavesOrder } from './helpers/synthesaurus-faves-order-reference.mjs';
 import { readFile } from 'node:fs/promises';
 import { execFileSync } from 'node:child_process';
@@ -106,4 +108,24 @@ test('native site additions reverse exactly without rewriting earlier layout evi
       assert.throws(() => restoreNativeDelaySite(source + replacement.after, change.file), /exact native delay site amendment/);
     }
   }
+});
+
+test('recorded input catalogue copy restores the reviewed published entry without accepting unrelated drift', async () => {
+  assert.equal(recordedInputSiteChanges.baseCommit, 'aac0427bbff4b5e7610abd2d9527e192843625a3');
+  assert.deepEqual(recordedInputSiteChanges.changes.map(change => change.file), ['src/site/instrument-catalog.js']);
+  for (const change of recordedInputSiteChanges.changes) {
+    const source = restoreBlobsSite(await readFile(new URL('../' + change.file, import.meta.url), 'utf8'), change.file);
+    const preserved = value => assert.equal(createHash('sha256').update(
+      restoreLSystemRecordedInputSite(value, change.file),
+    ).digest('hex'), change.sha256, 'pre-recorded-input source preserved');
+    preserved(source);
+    for (const replacement of change.replacements) {
+      assert.match(replacement.after, /"micmic-rust": define\(/);
+      assert.throws(() => preserved(source.replace(replacement.after, '')), /exact L-system recorded input amendment/);
+      assert.throws(() => preserved(source + replacement.after), /exact L-system recorded input amendment/);
+    }
+    assert.throws(() => preserved(source + '\n// unrelated drift\n'), /pre-recorded-input source preserved/);
+    for (const file of change.regressionTests) await readFile(new URL('../' + file, import.meta.url));
+  }
+  assert.equal(restoreLSystemRecordedInputSite('untouched', 'unrelated.js'), 'untouched');
 });
