@@ -525,9 +525,10 @@ function draw(now) {
       if (!connected) path.moveTo(points[i - 1].x, points[i - 1].y);
       path.lineTo(points[i].x, points[i].y); connected = true;
     }
-    context.strokeStyle = COLORS[n.generation % COLORS.length]; context.globalAlpha = .24 + peak * .72;
-    context.lineWidth = (n.generation === 0 ? 1.9 : 1.05) + peak * 2.4;
-    context.shadowColor = context.strokeStyle; context.shadowBlur = budget.pressure === 0 && glows.length < 1000 ? 3 + peak * 12 : 0;
+    const contrast = Math.sqrt(peak);
+    context.strokeStyle = COLORS[n.generation % COLORS.length]; context.globalAlpha = .24 + contrast * .72;
+    context.lineWidth = (n.generation === 0 ? 1.9 : 1.05) + contrast * 2.4;
+    context.shadowColor = context.strokeStyle; context.shadowBlur = budget.pressure === 0 && glows.length < 1000 ? 3 + contrast * 12 : 0;
     context.stroke(path);
   }
   context.shadowBlur = 0;

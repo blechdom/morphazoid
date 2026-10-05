@@ -120,7 +120,7 @@ export function branchWavePoints(node, start, end, envelope, detailSteps = 14, r
   const dx = end.x - start.x, dy = end.y - start.y, length = Math.hypot(dx, dy);
   const normalX = length > 1e-6 ? -dy / length : 0, normalY = length > 1e-6 ? dx / length : 0;
   const steps = Math.max(5, Math.min(Math.max(5, Math.floor(detailSteps)), Math.max(5, Math.ceil(length / 14))));
-  const shortness = clamp(1 - length / 64), offsetMaximum = clamp(length * .055, 1.5, 8) + shortness * 6;
+  const shortness = clamp(1 - length / 64), offsetMaximum = clamp(length * .055, 1.5, 8) + shortness * 16;
   const fromHistory = typeof envelope === 'function';
   const startDelay = node.generation === 0 ? 0 : Math.max(0, node.startDelay ?? node.delay ?? 0);
   const endDelay = node.generation === 0 ? 0 : Math.max(startDelay, node.delay ?? 0);
@@ -145,7 +145,7 @@ export function branchWavePoints(node, start, end, envelope, detailSteps = 14, r
         }
       }
     }
-    const deflection = strength + (Math.sqrt(strength) - strength) * shortness;
+    const deflection = strength + (Math.sqrt(strength) - strength) * Math.sqrt(shortness);
     const carrier = Math.sin(nowSeconds * 9 * rate + progress * Math.PI * (3 + node.generation * .35) + (node.index ?? node.voiceIndex ?? 0) * .71);
     const offset = reducedMotion ? 0 : Math.sin(Math.PI * progress) * deflection * offsetMaximum * carrier;
     const point = { x: start.x + dx * progress + normalX * offset, y: start.y + dy * progress + normalY * offset };
