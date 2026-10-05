@@ -36,6 +36,10 @@
 :is(.synthesis-voice-input,.synthesis-voice-popup) .synthesis-choose { width:100%;height:auto;min-height:0;display:block;flex:1;min-width:0; }
 :is(.synthesis-voice-input,.synthesis-voice-popup) .instrument-picker-trigger { box-sizing:border-box;width:100%;min-height:32px;font:11px var(--mono); }
 :is(.synthesis-voice-input,.synthesis-voice-popup) :focus-visible { outline:2px solid var(--voice-accent);outline-offset:3px; }
+.synthesis-voice-history { color:#a9bbb4;font:11px/1.5 var(--mono);margin:0 0 6px; }
+.synthesis-voice-history summary { cursor:pointer;color:var(--voice-accent); }
+.synthesis-voice-history p { margin:6px 0; }
+.synthesis-voice-history a { display:block;color:var(--voice-accent);overflow-wrap:anywhere; }
 .synthesis-voice-input .native-singing-timeline { min-width:0; }
 .synthesis-voice-input .native-score-toolbar { display:flex;align-items:center;flex-wrap:wrap;gap:10px; }
 .synthesis-voice-input .native-score-toolbar > .native-param { min-width:64px; }

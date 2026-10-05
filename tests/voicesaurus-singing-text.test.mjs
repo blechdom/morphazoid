@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
-import {singingSceneFromText,englishSingingSyllables} from '../src/instruments/voicesaurus/singing-text.js';
+import {singingSceneFromText,singingSceneFromPronunciations,englishSingingSyllables} from '../src/instruments/voicesaurus/singing-text.js';
 import {defaultScene,validateScene} from '../src/instruments/voicesaurus/native-model.js';
 import {parseSpellingPronunciations} from '../src/instruments/spelling-synthesizer/spelling-pronunciation.js';
 const dictionary=parseSpellingPronunciations(await fs.readFile(new URL('../vendor/cmudict/cmudict-en-us.dict',import.meta.url),'utf8'),['hello','world','sing','my','cat','voice']);
@@ -132,4 +132,54 @@ test('Sinsy rejects unreadable and over-budget input atomically',async()=>{
 test('musical text conversion checks native per-note render limits before committing',async()=>{
  const scene=defaultScene('singer');scene.values.duration=40;const before=structuredClone(scene);
  await assert.rejects(convert(scene,'my'),/30 seconds/);assert.deepEqual(scene,before);
+});
+
+const singingEngines=['singer','stk-voicform','csound-fof','csound-vosim','sample-bank','sinsy'];
+for(const engine of singingEngines)test(`${engine}: synchronous and asynchronous pronunciation conversion produce identical complete editable scenes`,async()=>{
+ const scene=engine==='sinsy'?scoreMelody():engine==='sample-bank'?defaultScene(engine):melody(engine);
+ const before=structuredClone(scene),dictionaryBefore=structuredClone(dictionary),text=engine==='sinsy'?'さくら':'hello world';
+ const sync=singingSceneFromPronunciations(scene,text,{pronunciations:dictionary});
+ assert.equal(typeof sync.then,'undefined');validateScene(sync.scene);
+ const asyncResult=await singingSceneFromText(scene,text,{pronunciations:dictionary,fetcher:()=>{throw Error('Supplied pronunciations must not fetch.');}});
+ assert.deepEqual(sync,asyncResult);assert.deepEqual(scene,before);assert.deepEqual(dictionary,dictionaryBefore);
+ assert.equal(sync.scene.input.singingText,text);assert(sync.notes.length>0);
+});
+
+for(const engine of singingEngines)test(`${engine}: synchronous fallback and async dictionary failure retain warning order and native lyric behavior`,async()=>{
+ const scene=defaultScene(engine),text=engine==='sinsy'?'pa pi pu pe po':'hello world';
+ let calls=0;const fetcher=()=>{calls++;throw Error('offline');};
+ const sync=singingSceneFromPronunciations(scene,text),asyncResult=await singingSceneFromText(scene,text,{fetcher});
+ assert.equal(calls,engine==='sinsy'?0:1);
+ assert.deepEqual(asyncResult,{...sync,warnings:engine==='sinsy'?sync.warnings:['Dictionary unavailable; pronunciation uses letter rules.',...sync.warnings]});
+ if(engine!=='sinsy')assert.match(sync.warnings[0],/^Rule pronunciation:/);
+});
+
+for(const engine of singingEngines)test(`${engine}: synchronous failures match async validation and never partially alter the scene`,async()=>{
+ const scene=defaultScene(engine),before=structuredClone(scene);
+ for(const text of ['', '  ', 'hello 123', 'a'.repeat(1001), engine==='sinsy'?'あ'.repeat(63):'hello '.repeat(70)]){
+  let failure;
+  assert.throws(()=>singingSceneFromPronunciations(scene,text,{pronunciations:dictionary}),error=>{failure=error;return true;});
+  await assert.rejects(singingSceneFromText(scene,text,{pronunciations:dictionary}),error=>error.constructor===failure.constructor&&error.message===failure.message);
+  assert.deepEqual(scene,before);
+ }
+ if(engine!=='sinsy'){
+  assert.throws(()=>singingSceneFromPronunciations(scene,'hello',{pronunciations:{}}),/word-to-ARPAbet Map/);
+  await assert.rejects(singingSceneFromText(scene,'hello',{pronunciations:{}}),/word-to-ARPAbet Map/);
+ }
+});
+
+test('both APIs reject non-singing inputs before dictionary access',async()=>{
+ const scene=defaultScene('espeak');let calls=0;
+ assert.throws(()=>singingSceneFromPronunciations(scene,'hello'),/singing engine/);
+ await assert.rejects(singingSceneFromText(scene,'hello',{fetcher:()=>{calls++;throw Error('Must not fetch.');}}),/singing engine/);
+ for(const text of ['',null,'a'.repeat(1001)])await assert.rejects(singingSceneFromText(defaultScene('singer'),text,{fetcher:()=>{calls++;throw Error('Must not fetch.');}}));
+ assert.equal(calls,0);
+});
+
+test('async dictionary loading preserves the pre-load scene snapshot',async()=>{
+ const scene=melody('singer'),expected=singingSceneFromPronunciations(scene,'hello',{pronunciations:dictionary});
+ let finish;const loading=new Promise(resolve=>{finish=resolve;});
+ const pending=singingSceneFromText(scene,'hello',{fetcher:async()=>{await loading;return {ok:true,text:async()=>'hello HH AH L OW\n'};}});
+ scene.values.pitch=999;scene.input.phrase.notes[0].values.pitch=999;scene.input.phrase.notes[2].rest=true;
+ finish();assert.deepEqual(await pending,expected);
 });

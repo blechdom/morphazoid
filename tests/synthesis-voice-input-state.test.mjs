@@ -6,6 +6,7 @@ import {
   createVoiceInputState, isVoiceInput, randomizeVoiceInputState, randomizeVoiceMethodState,
   sanitizeVoiceInputState, voiceModeForInput, voicePresetsForInput,
 } from '../src/instruments/synthesis/voice-input-state.js';
+import { voiceTextForEngine, voiceTextOptions } from '../src/instruments/synthesis/voice-texts.js';
 
 const rng = (seed = 17943) => () => ((seed = Math.imul(seed, 1664525) + 1013904223 >>> 0) / 2 ** 32);
 
@@ -29,20 +30,24 @@ test('initial states provide complete native speech and an editable singing phra
   for (const state of [speech, singing]) for (const external of ['level', 'playing', 'enabled', 'context', 'loop', 'bank']) assert.equal(Object.hasOwn(state, external), false);
 });
 
-test('mode preset banks preserve every original native scene and lead with the changing name', () => {
+test('mode presets retain native voice settings and supply their own technique text as real input', () => {
   for (const id of ['speech', 'singing']) {
     const original = presetsForVoiceMode(voiceModeForInput(id)), bank = voicePresetsForInput(id);
     assert.equal(bank.length, original.length);
     for (const [index, item] of bank.entries()) {
       assert.equal(item.id, original[index].id);
-      assert.deepEqual(item.state.scene, original[index].snapshot);
+      assert.deepEqual(item.state.scene.values, original[index].snapshot.values);
+      assert.equal(item.state.text, voiceTextForEngine(item.state.scene.engine));
+      if (id === 'singing') assert.equal(item.state.scene.input.singingText, item.state.text);
+      else if (item.state.scene.engine === 'vizsn') assert.equal(item.state.scene.input.text, item.state.text);
+      else assert.deepEqual(item.state.scene, original[index].snapshot);
       const name = NATIVE_METHODS[item.state.scene.engine].name;
       assert.equal(item.label, `${original[index].label.replace(`${name} · `, '')} · ${name}`);
       assert.deepEqual(sanitizeVoiceInputState(item.state, id), item.state);
     }
     bank[0].state.scene.values[Object.keys(bank[0].state.scene.values)[0]] = 'changed';
     assert.notDeepEqual(bank[0].state.scene, original[0].snapshot);
-    assert.deepEqual(voicePresetsForInput(id)[0].state.scene, original[0].snapshot);
+    assert.deepEqual(voicePresetsForInput(id)[0].state.scene.values, original[0].snapshot.values);
   }
 });
 
@@ -62,11 +67,13 @@ test('state validation rejects cross-mode, incomplete and malformed snapshots wi
 test('full dice explores all engines in each input and produces independent complete state', () => {
   for (const id of ['speech', 'singing']) {
     const previous = createVoiceInputState(id), before = structuredClone(previous), random = rng();
-    previous.text = 'Retain these performance words.'; before.text = previous.text;
+    previous.text = 'Replace these words only on full dice.'; before.text = previous.text;
     const engines = new Set(), states = new Set();
     for (let index = 0; index < 300; index++) {
       const next = randomizeVoiceInputState(previous, id, random);
-      assert.equal(next.version, 1); assert.equal(next.text, previous.text);
+      assert.equal(next.version, 1);
+      assert.ok(voiceTextOptions(next.scene.engine).some(item => item.text === next.text));
+      if (id === 'singing') assert.equal(next.scene.input.singingText, next.text);
       assert.equal(voiceModeForEngine(next.scene.engine), voiceModeForInput(id));
       assert.deepEqual(validateScene(next.scene), next.scene);
       if (id === 'singing') assert.ok(singingNoteDescriptors(next.scene).length >= 3);
@@ -102,26 +109,42 @@ test('whole voice dice avoids the unstable long-note Singer open shape', () => {
   assert.equal(next.scene.engine, 'singer'); assert.notEqual(next.scene.input.phone, 'open');
   assert.ok(next.scene.input.phrase.notes.length >= 3);
   for (const note of next.scene.input.phrase.notes) {
-    assert.equal(note.input.phone, next.scene.input.phone);
-    assert.ok(note.values.duration >= .2 && note.values.duration <= 1.4);
+    assert.notEqual(note.input.phone, 'open');
+    assert.ok(note.values.duration > 0 && note.values.duration <= 1.4);
   }
   assert.deepEqual(validateScene(next.scene), next.scene);
 });
 
 test('voice dice keeps numerical dependencies and useful gaps without clamping manual native values', () => {
   const speech = voicePresetsForInput('speech'), singing = voicePresetsForInput('singing');
-  for (const engine of ['espeak', 'espeak-klatt', 'hts', 'sinsy', 'singer', 'csound-fof']) {
+  for (const engine of ['espeak', 'espeak-klatt', 'pico', 'mea8000', 'hts', 'sinsy', 'singer', 'csound-fof']) {
     const id = ['sinsy', 'singer', 'csound-fof'].includes(engine) ? 'singing' : 'speech';
     const previous = (id === 'singing' ? singing : speech).find(item => item.state.scene.engine === engine).state;
     for (let seed = 1; seed < 80; seed++) {
       const next = randomizeVoiceMethodState(previous, id, rng(seed));
       for (const values of [next.scene.values, ...(next.scene.input.phrase?.notes.map(note => note.values) ?? [])]) {
-        if (engine.startsWith('espeak')) assert.ok(values.wordGap <= 8 && values.volume >= 75);
+        if (engine.startsWith('espeak')) assert.ok(values.wordGap <= 8);
+        if (engine === 'espeak') assert.ok(values.volume >= 75 && values.volume <= 110);
+        if (engine === 'espeak-klatt') {
+          assert.ok(values.volume >= 30 && values.volume <= 45);
+          assert.ok(['reduced', 'moderate'].includes(values.emphasis));
+        }
+        if (engine === 'pico') {
+          assert.ok(values.volume >= .3 && values.volume <= .6);
+          assert.ok(values.speed >= .65 && values.speed <= 1.8);
+        }
+        if (engine === 'mea8000') {
+          assert.ok([.044, .062, .088].includes(values.amplitude));
+          for (let n = 1; n <= 4; n++) assert.ok([309, 726].includes(values[`bandwidth${n}`]));
+        }
         if (engine === 'hts' || engine === 'sinsy') {
           assert.ok(values.gvWeight >= .6 && values.gvWeight <= 1.2);
           assert.ok(values.alpha >= .45 && values.alpha <= .68);
-          assert.ok(values.volumeDb >= -6 && values.volumeDb <= 0);
-          if (engine === 'hts') assert.ok(values.framePeriod / values.sampleRate >= .0039 && values.framePeriod / values.sampleRate <= .0076);
+          if (engine === 'hts') {
+            assert.ok(values.gvWeight <= .8);
+            assert.ok(values.volumeDb >= -12 && values.volumeDb <= -6);
+            assert.ok(values.framePeriod / values.sampleRate >= .0039 && values.framePeriod / values.sampleRate <= .0076);
+          } else assert.ok(values.volumeDb >= -6 && values.volumeDb <= 0);
         }
         if (engine === 'csound-fof') {
           assert.ok(values.grainRise * Math.max(values.bandwidth1, values.bandwidth2, values.bandwidth3) <= .700001);

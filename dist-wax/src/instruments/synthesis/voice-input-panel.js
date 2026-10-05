@@ -1,4 +1,4 @@
-import { NATIVE_METHODS, defaultScene, methodsForVoiceMode } from '../voicesaurus/native-model.js';
+import { NATIVE_METHODS, methodsForVoiceMode } from '../voicesaurus/native-model.js';
 import { mountParameters, noteVowelControls } from '../voicesaurus/native-parameters.js';
 import { mountSingingTimeline } from '../voicesaurus/native-timeline.js';
 import { auditionScene, editableNote, singingNoteDescriptors } from '../voicesaurus/native-singing-model.js';
@@ -10,6 +10,7 @@ import { playbackOffsetForBeat } from '../voicesaurus/playback-offset.js';
 import { enhanceChooseSelect } from '../../ui/patterns/choose-select.js';
 import { createChoiceSwitch } from '../../ui/primitives/choice-switch.js';
 import { createVoiceInputState, isVoiceInput, randomizeVoiceMethodState, sanitizeVoiceInputState, voiceModeForInput, voicePresetsForInput } from './voice-input-state.js';
+import { VOICE_TECHNIQUE_TEXTS, voiceTextOptions } from './voice-texts.js';
 
 let panelSerial = 0;
 
@@ -108,10 +109,10 @@ export function mountVoiceInputPanel(host, { change = () => {}, error = () => {}
 
   function currentPresets() { return banks.get(inputId).filter(item => item.state.scene.engine === state.scene.engine); }
   function refreshPresets() {
-    const bank = currentPresets(), signature = JSON.stringify(state.scene);
+    const bank = currentPresets(), signature = JSON.stringify(state);
     const suffix = ` · ${NATIVE_METHODS[state.scene.engine].name}`;
     preset.replaceChildren(option('Custom settings', ''), ...bank.map(item => option(item.label.endsWith(suffix) ? item.label.slice(0, -suffix.length) : item.label, item.id)));
-    preset.value = bank.find(item => JSON.stringify(item.state.scene) === signature)?.id ?? ''; presetPicker.refresh();
+    preset.value = bank.find(item => JSON.stringify(item.state) === signature)?.id ?? ''; presetPicker.refresh();
   }
   function edited() {
     revision++; sessions.set(inputId, state); bankSources.refresh(); refreshPresets(); parameters.refresh?.();
@@ -130,9 +131,9 @@ export function mountVoiceInputPanel(host, { change = () => {}, error = () => {}
   }
   function chooseMethod(engine) {
     const factory = banks.get(inputId).find(item => item.state.scene.engine === engine);
-    replace({ version: 1, scene: inputId === 'singing' ? structuredClone(factory.state.scene) : defaultScene(engine), text: state.text }, true, { keepLyricDraft: true });
+    replace(structuredClone(factory.state), true);
   }
-  function applyPreset(item) { if (item) replace({ ...structuredClone(item.state), text: state.text }, true); }
+  function applyPreset(item) { if (item) replace(structuredClone(item.state), true); }
   listen(method, 'change', () => chooseMethod(method.value));
   listen(preset, 'change', () => applyPreset(currentPresets().find(item => item.id === preset.value)));
 
@@ -150,8 +151,16 @@ export function mountVoiceInputPanel(host, { change = () => {}, error = () => {}
   function mountText(spec) {
     const singing = inputId === 'singing', letters = spec.mode === 'native-letters';
     const draftKey = `${inputId}:${state.scene.engine}`;
+    const technique = VOICE_TECHNIQUE_TEXTS[state.scene.engine];
+    const about = make('details', 'synthesis-voice-history');
+    about.append(make('summary', '', technique.label), make('p', '', technique.text));
+    for (const source of technique.sources) {
+      const link = make('a', '', source.label); link.href = source.url;
+      link.target = '_blank'; link.rel = 'noopener noreferrer'; about.append(link);
+    }
+    inputHost.append(about);
     if (!singing && !letters && spec.mode !== 'text') {
-      inputHost.append(make('p', 'synthesis-voice-hint', 'Chip frame voice · edit pitch, formants and note length below.')); return;
+      inputHost.append(make('p', 'synthesis-voice-hint', 'This chip uses parameter frames, not a text frontend. Edit pitch, formants and note length below.')); return;
     }
     const words = make(singing ? 'input' : 'textarea'); words.id = `${prefix}-text`; words.maxLength = 1000;
     if (singing) { words.type = 'text'; words.value = lyricDrafts.get(draftKey) ?? state.scene.input.singingText ?? ''; }
@@ -175,10 +184,10 @@ export function mountVoiceInputPanel(host, { change = () => {}, error = () => {}
       apply.disabled = true; status.textContent = 'Preparing notes…';
       try {
         const { singingSceneFromText } = await import('../voicesaurus/singing-text.js');
-        const result = textPreset ? await singingSceneFromTextPreset(original.scene, textPreset) : await singingSceneFromText(original.scene, words.value);
+        const result = textPreset?.contour ? await singingSceneFromTextPreset(original.scene, textPreset) : await singingSceneFromText(original.scene, words.value);
         if (destroyed || token !== textSerial || pendingGeneration !== generation || state !== original) return;
         if (pendingRevision !== revision) { status.textContent = 'The score changed. Apply the lyrics again.'; return; }
-        replace({ ...state, scene: result.scene }, true);
+        replace({ ...state, text: words.value, scene: result.scene }, true);
         inputHost.querySelector('output').textContent = result.warnings.join(' ');
       } catch (reason) { if (!destroyed && pendingGeneration === generation && token === textSerial) { status.textContent = reason.message; error(reason); } }
       finally { if (!destroyed && pendingGeneration === generation && token === textSerial) apply.disabled = false; }
@@ -191,12 +200,21 @@ export function mountVoiceInputPanel(host, { change = () => {}, error = () => {}
       edited();
     });
     if (singing) listenScene(words, 'keydown', event => { if (event.key === 'Enter' && !event.isComposing) { event.preventDefault(); return convert(); } });
-    const texts = textPresetsForEngine(state.scene.engine, { textCapable: singing || spec.mode === 'text' });
+    const texts = [...voiceTextOptions(state.scene.engine),
+      ...textPresetsForEngine(state.scene.engine, { textCapable: singing || spec.mode === 'text' })];
     if (texts.length) {
       const select = make('select'); select.id = `${prefix}-text-preset`; select.setAttribute('aria-label', 'Text preset');
       select.append(option('Choose text', ''), ...texts.map(item => option(item.label, item.id)));
+      select.value = texts.find(item => item.text === words.value)?.id ?? '';
       inputHost.append(field('Text preset', select)); sceneWidgets.push(enhanceChooseSelect(select, { label: 'Text preset' }));
-      listenScene(select, 'change', () => { const chosen = texts.find(item => item.id === select.value); if (!chosen) return; words.value = chosen.text; markText(); if (singing) { lyricDrafts.set(draftKey, words.value); return convert(chosen); } state.text = chosen.text; edited(); });
+      listenScene(select, 'change', () => {
+        const chosen = texts.find(item => item.id === select.value); if (!chosen) return;
+        words.value = chosen.text; markText();
+        if (singing) { lyricDrafts.set(draftKey, words.value); return convert(chosen); }
+        state.text = chosen.text;
+        if (letters) { state.scene.input = { ...state.scene.input, mode: 'text', text: chosen.text }; delete state.scene.input.phones; encoding.setValue('text'); }
+        edited();
+      });
     }
   }
 

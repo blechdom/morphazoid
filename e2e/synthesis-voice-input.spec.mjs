@@ -20,7 +20,7 @@ async function sounding(page, engine) {
   expect((await readAudioStatus(page)).connectionCount).toBe(1);
 }
 
-test('voice inputs replace synth panels and preset banks, retain independent edits, and never arm Audio', async ({ page }) => {
+test('voice inputs replace synth panels, retain independent local edits, and never arm Audio', async ({ page }) => {
   const errors = []; page.on('pageerror', error => errors.push(error.message));
   await page.goto('/synthesis.html?method=fm&sequence=basic-up');
   const synth = await state(page);
@@ -33,7 +33,7 @@ test('voice inputs replace synth panels and preset banks, retain independent edi
   await choose(page, 'inputCategory', 'singing');
   await expect(page.locator('.native-piano-grid')).toBeVisible();
   const singing = (await state(page)).routing.voice;
-  await page.locator('#nextPerformancePreset').click();
+  await page.getByRole('button', { name: 'Next voice preset', exact: true }).click();
   expect((await state(page)).routing.voice.scene).not.toEqual(singing.scene);
   await choose(page, 'inputCategory', 'speech');
   expect((await state(page)).routing.voice).toEqual(speech);
@@ -69,7 +69,7 @@ test('speech and singing feed one host output, keep playing across Next, and sup
   await sounding(page, 'singer');
   await page.locator('#processorEnabled').uncheck();
   await sounding(page, 'singer');
-  await page.locator('#nextPerformancePreset').click();
+  await page.getByRole('button', { name: 'Next voice preset', exact: true }).click();
   await sounding(page, (await state(page)).routing.voice.scene.engine);
   expect(await status(page)).toMatchObject({ armed: true, playing: true });
   await choose(page, 'inputCategory', 'signals');
@@ -85,20 +85,20 @@ test('voice preset recall and dice preserve deliberately paused or muted transpo
   await page.addInitScript(() => { let seed = 490; Math.random = () => (seed = Math.imul(seed, 1664525) + 1013904223 >>> 0) / 4294967296; });
   await page.goto('/synthesis.html');
   await choose(page, 'inputCategory', 'speech');
-  await page.locator('#nextPerformancePreset').click();
-  await page.locator('#randomPerformance').click();
+  await page.getByRole('button', { name: 'Next voice preset', exact: true }).click();
+  await page.getByRole('button', { name: 'Randomize current voice parameters', exact: true }).click();
   expect(await status(page)).toMatchObject({ armed: false, playing: false });
   await page.locator('#audioButton').click();
   await expect.poll(async () => (await status(page)).armed).toBe(true);
   await readyVoice(page, (await state(page)).routing.voice.scene.engine);
-  await page.locator('#nextPerformancePreset').click();
+  await page.getByRole('button', { name: 'Next voice preset', exact: true }).click();
   await readyVoice(page, (await state(page)).routing.voice.scene.engine);
   expect(await status(page)).toMatchObject({ armed: true, playing: false });
   expect((await sampleAudioEnvelope(page, { durationMs: 400 })).summary.maxRms).toBeLessThan(.00001);
   await page.locator('#playButton').click();
   await page.locator('#audioButton').click();
   await choose(page, 'inputCategory', 'singing');
-  await page.locator('#nextPerformancePreset').click();
+  await page.getByRole('button', { name: 'Next voice preset', exact: true }).click();
   expect(await status(page)).toMatchObject({ armed: false, playing: true });
   expect((await sampleAudioEnvelope(page, { durationMs: 400 })).summary.maxRms).toBeLessThan(.00001);
 });
@@ -137,17 +137,18 @@ test('native knobs change rendered speech and editable singing notes survive sta
   expect(errors).toEqual([]);
 });
 
-test('voice preset cursors and unapplied lyric drafts survive source switching', async ({ page }) => {
+test('local voice preset cursors and unapplied lyric drafts survive source switching', async ({ page }) => {
   await page.goto('/synthesis.html');
   await choose(page, 'inputCategory', 'speech');
-  await page.locator('#nextPerformancePreset').click();
-  const speechLabel = await page.locator('#performancePresetHost .instrument-picker-current').textContent();
+  await page.getByRole('button', { name: 'Next voice preset', exact: true }).click();
+  const presetLabel = page.locator('[data-select-id="synthesis-voice-1-preset"] .instrument-picker-current');
+  const speechLabel = await presetLabel.textContent();
   await choose(page, 'inputCategory', 'singing');
   await page.locator('#' + textId).fill('Keep this unfinished lyric');
   await choose(page, 'inputCategory', 'speech');
-  await expect(page.locator('#performancePresetHost .instrument-picker-current')).toHaveText(speechLabel);
-  await page.locator('#nextPerformancePreset').click();
-  await expect(page.locator('#performancePresetHost .instrument-picker-current')).not.toHaveText(speechLabel);
+  await expect(presetLabel).toHaveText(speechLabel);
+  await page.getByRole('button', { name: 'Next voice preset', exact: true }).click();
+  await expect(presetLabel).not.toHaveText(speechLabel);
   await choose(page, 'inputCategory', 'singing');
   await expect(page.locator('#' + textId)).toHaveValue('Keep this unfinished lyric');
   expect(await status(page)).toMatchObject({ armed: false, playing: false });

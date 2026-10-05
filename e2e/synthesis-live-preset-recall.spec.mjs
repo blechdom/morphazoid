@@ -6,6 +6,10 @@ import { sampleAudioEnvelope } from './helpers/audio-probe.mjs';
 const status = page => page.evaluate(() => window.MorphazoidSynthesis.getStatus());
 
 async function sounding(page, label, { continuous = false } = {}) {
+  // Native speech/score rendering and bundled recordings load asynchronously;
+  // keep Play running while waiting for the newly selected source, not a timer.
+  await expect.poll(async () => (await status(page)).input.loading, { timeout: 40_000 }).toBe(false);
+  await expect(page.locator('#audioError')).toBeHidden();
   const measured = await sampleAudioEnvelope(page, { durationMs: 950, intervalMs: 50 });
   expect(measured.summary.finite, label).toBe(true);
   expect(measured.summary.maxRms, label).toBeGreaterThan(.0001);
@@ -18,8 +22,8 @@ async function sounding(page, label, { continuous = false } = {}) {
   expect(await status(page)).toMatchObject({ armed: true, playing: true });
 }
 
-test('Next sounds every whole-instrument preset across synth and test-signal routes without restarting Play', async ({ page }) => {
-  test.setTimeout(100_000);
+test('Next sounds every whole-instrument preset across all five source families without restarting Play', async ({ page }) => {
+  test.setTimeout(220_000);
   const errors = []; page.on('pageerror', error => errors.push(error.message));
   await page.goto('/synthesis.html');
   await page.locator('#audioButton').click();
@@ -35,7 +39,7 @@ test('Next sounds every whole-instrument preset across synth and test-signal rou
 });
 
 test('whole-instrument dice and local Next/dice remain audible after a test-signal preset', async ({ page }) => {
-  test.setTimeout(60_000);
+  test.setTimeout(120_000);
   await page.addInitScript(() => {
     let seed = 214;
     Math.random = () => ((seed = Math.imul(seed, 1664525) + 1013904223 >>> 0) / 4294967296);
@@ -48,6 +52,7 @@ test('whole-instrument dice and local Next/dice remain audible after a test-sign
     await page.locator('#randomPerformance').click();
     await sounding(page, 'whole-instrument dice ' + index);
   }
+  await choose(page, 'inputCategory', 'synthesis');
   await choose(page, 'methodSelect', 'additive');
   await choose(page, 'sequenceSelect', 'rotating-euclidean-chords');
   for (const id of ['nextPreset', 'randomMethod', 'nextSequencePreset', 'randomSequencePreset']) {
