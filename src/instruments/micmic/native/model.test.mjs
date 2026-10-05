@@ -6,7 +6,7 @@ import { MICMIC_FULL_PRESETS } from '../../../families/branch-presets/full-prese
 import { DEFAULT_PARAMETERS, DEFAULT_PERFORMANCE, PARAMETER_LIMITS, L_SYSTEM_TYPES, sanitizeParameters,
   sanitizePerformance, presetState, randomState, gestureParameters, isVoiceActive,
   buildPreview, interpolateParameters, topologyBounds, fitTransform, captureScene, visualBudget, nativePreviewNodes, interpolatePreviewNodes,
-  admittedPreviewNodes, tapActivityFrame, activityEnergy, smoothActivity, branchBaselineAlpha, branchWavePoints } from './model.js';
+  admittedPreviewNodes, tapActivityFrame, activityEnergy, smoothActivity, branchWavePoints } from './model.js';
 import { DEFAULT_MASTERING, MASTERING_LIMITS, MASTERING_PROFILES, sanitizeMastering,
   cutoffFromSlider, sliderFromCutoff, masteringProfileId } from './mastering.js';
 const presets = JSON.parse(fs.readFileSync(new URL('./presets.json', import.meta.url)));
@@ -370,19 +370,4 @@ test('screen-space magnification stays continuous and preserves the large Pine b
     const b = branchWavePoints(node, start, { x: length + .001, y: 0 }, energy, 4);
     assert.ok(a.every((p, i) => Math.abs(p.y - b[i].y) < .001));
   }
-});
-
-test('quiet admitted branches retain the original visible generation colors', () => {
-  for (const depth of [0, .72, .96]) {
-    let parentAlpha = .44;
-    for (let generation = 0; generation <= 52; generation++) {
-      const alpha = branchBaselineAlpha(generation, depth, true);
-      assert.ok(alpha >= .2 && alpha <= .44, 'Quiet bends remain visible at the original stroke opacity');
-      assert.ok(alpha <= parentAlpha, 'Generation attenuation follows the branch depth');
-      assert.equal(branchBaselineAlpha(generation, depth, false), .18);
-      parentAlpha = alpha;
-    }
-  }
-  assert.equal(branchBaselineAlpha(0, .72, true), .44);
-  assert.equal(branchBaselineAlpha(13, 0, true), .2);
 });

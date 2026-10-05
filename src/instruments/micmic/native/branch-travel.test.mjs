@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { inputEnvelopeReader, inputHistoryFrame, tapActivityFrame, branchWavePoints } from './model.js';
+import { inputEnvelopeReader, inputHistoryFrame, tapActivityFrame, branchWavePoints, activityEnergy } from './model.js';
 
 test('input history keeps its audio timestamps and interpolates adjacent samples', () => {
   const read = inputEnvelopeReader({ interval: .1, endTime: 2, values: [0, .4, 0] });
@@ -101,4 +101,48 @@ test('audio stop and a fresh sample-clock session clear the previous microphone 
     inputEnvelope: { interval: .1, endTime: .1, values: [.2] } } }, running, 3300);
   assert.equal(unseenRestart.clock, .1);
   assert.equal(unseenRestart.reader(.1), .2);
+});
+
+test('short Coral transits remain silent when the actual tap is silent despite input history', () => {
+  const node = { generation: 7, voiceIndex: 300, rate: 3, startDelay: .4, delay: .43,
+    voiceLevel: .08, measuredEnergy: 0, parentEnergy: .7 };
+  const points = branchWavePoints(node, { x: 0, y: 0 }, { x: 33, y: 0 }, () => .3, 14, false, 4);
+  assert.ok(points.every(point => point.energy === 0 && point.y === 0),
+    'a filled capture ring cannot invent activity before the granular tap actually sounds');
+});
+
+test('normal quiet tap RMS produces visible CSS-pixel movement on short Coral segments', () => {
+  // A faint output contribution, not an artificial full-volume input history.
+  const node = { generation: 7, voiceIndex: 300, rate: 3, startDelay: .4, delay: .43,
+    voiceLevel: .08, measuredEnergy: activityEnergy(.0005) };
+  let maximum = 0;
+  for (let time = 4; time < 4.6; time += .025) {
+    const points = branchWavePoints(node, { x: 0, y: 0 }, { x: 33, y: 0 }, () => 0, 14, false, time);
+    maximum = Math.max(maximum, ...points.map(point => Math.abs(point.y)));
+    assert.equal(points.at(-1).energy, node.measuredEnergy,
+      'the output endpoint follows measured response without another generation-count attenuation');
+  }
+  assert.ok(maximum >= 1, `normal short-segment response must move at least one CSS pixel; received ${maximum}`);
+});
+
+test('long-delay packets travel through the interior while the endpoint follows actual tap RMS', () => {
+  const node = { generation: 2, voiceIndex: 5, rate: 1, startDelay: .2, delay: 1.2,
+    voiceLevel: .7, measuredEnergy: 0, parentEnergy: 0 };
+  const pulse = time => Math.abs(time - 2) <= .08 ? .5 : 0;
+  const curve = now => branchWavePoints(node, { x: 0, y: 0 }, { x: 210, y: 0 }, pulse, 14, false, now);
+  const earlier = curve(2.45), later = curve(2.95), arrival = curve(3.2);
+  const active = points => points.filter(point => point.energy > .015).map(point => point.x);
+  assert.ok(active(earlier).length && active(later).length, 'in-flight packets retain spatial position');
+  assert.ok(Math.max(...active(earlier)) < Math.min(...active(later)), 'the packet advances along the branch');
+  assert.equal(arrival.at(-1).energy, 0, 'a delayed input prediction does not override the silent rendered endpoint');
+  const sounding = branchWavePoints({ ...node, measuredEnergy: .2 }, { x: 0, y: 0 }, { x: 210, y: 0 },
+    () => 0, 14, false, 4);
+  assert.equal(sounding.at(-1).energy, .2, 'the rendered endpoint can sound after the capture envelope has moved on');
+});
+
+test('reduced motion retains measured tap brightness without deflecting short segments', () => {
+  const node = { generation: 7, voiceIndex: 300, rate: 3, startDelay: .4, delay: .43,
+    measuredEnergy: .2, voiceLevel: .08 };
+  const points = branchWavePoints(node, { x: 0, y: 0 }, { x: 33, y: 0 }, () => 0, 14, true, 4);
+  assert.ok(points.every(point => point.y === 0 && point.energy === .2));
 });
