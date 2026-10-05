@@ -96,10 +96,14 @@ afterward, instead of waiting for returned HTTP geometry or repeatedly snapping
 to new bounds. Control requests carry the latest values and return lightweight
 status. Obsolete replies cannot replace a newer gesture. Classic grammar previews
 use the same generation ordering and connected pruning as the native audio model.
-The quiet gray full tree is cached at rest. All admitted colored paths follow
-the same vibrating polyline as their bright overlay, with the original colored
-stroke opacity so quiet bends remain visible. Input attacks travel along
-each branch between its parent and child delay, as in the original page.
+The complete quiet outline is neutral and independent of voice admission.
+Capacity growth never paints new generations, including with silent input.
+Only signal-bearing portions receive a colored, vibrating stroke. The first
+2,048 priority ranks expose actual rendered tap RMS with stable pool slots.
+On short acoustic transits (100 ms or less), this measured output drives the
+entire branch response rather than predicting it from input history. This
+includes all 511 taps of the Staghorn Coral factory scene. Granular taps that
+have not produced audio remain quiet even when captured input is present.
 Graphics reduce frame rate and curve resolution under load, retaining at least
 five curve intervals per animated branch, matching the original minimum, so
 dense patterns never collapse to an endpoint-only straight line. Short
@@ -109,14 +113,17 @@ The curve is an activity illustration rather than a literal sample waveform.
 Rust records a bounded 40-second input-envelope history at 100 Hz, using the
 original RMS/peak response and 160 ms release. Drawing interpolates that history
 against the native sample clock; its moving carrier also follows pitch rate.
-This derived response covers every admitted preview branch, including slots
-beyond the 2,048 individually metered taps. Silence produces no bend. The
+Long edges retain this spatial illustration in their interior, smoothly
+anchoring the final fifth to the actual tap response. Unmetered preview slots
+retain the history-derived illustration; this is a transit estimate rather
+than a measurement of their granular output. Silence produces no bend. The
 display keeps input history independently of topology revisions and individual
 tap snapshots, including through two seconds of polling or Canvas jitter,
 and extrapolates only the original release beyond the latest input sample.
-Intensity uses cached actual admitted-generation counts, including in sampled
-deep previews. The nominal-delay display is the original artistic illustration: granular headroom,
-phase and a delay edit crossfade can offset the exact audible attack by a grain.
+Only the historical illustration uses admitted-generation gain normalization;
+measured tap RMS already includes that normalization and is not attenuated again.
+Short screen-space segments receive continuous visual magnification, so normal
+microphone levels remain visible without adding motion at zero input.
 
 Pool timing edits preserve the current two-head crossfade, remember the newest
 delay, then fade to that target when the current 65 ms fade completes. Returning
@@ -216,28 +223,25 @@ substituting an unrelated smaller tree. Full preset recalls fetch that preview,
 just as live parameter edits do, before the preset menu finishes applying.
 
 Each tap reads shared recorded input at its inherited pitch and cumulative delay;
-audio does not cascade through parent processors. Every admitted preview branch
-retains its quiet generation color, independent of signal and CPU backoff. Its
-colored baseline bends along the original time-varying waveform; only active
-portions receive the bright overlay. The input-envelope history and native audio
-clock drive positions between each parent's and child's nominal delay, so there
-is no separate generation-activation timer. Frozen input records zeros while the
-retained history continues to move through descendants.
+audio does not cascade through parent processors. The full neutral outline stays
+constant as device capacity changes. Color and vibration follow signal rather
+than admission, with actual tap RMS taking precedence on short edges and at
+audible endpoints. Long-edge interiors illustrate nominal input travel, so there
+is no separate generation-activation timer. Frozen input records zeros while
+existing delayed audio and the retained input history continue.
 
-The original visualization is deliberately derived from input history and gain,
-rather than a literal waveform of the granular output. Grain read-head age and
-65 ms delay crossfades can differ from the nominal delay used for drawing. Real
-per-tap RMS remains available for the first 2,048 priority ranks, with stable slot
-indices and coherent topology revisions. A bounded fallback uses those meters
-when input history is unavailable. The meter count does not cap the history-based
-animation or simultaneous audio. Audio processing uses preallocated storage.
+The ripple carrier is an activity illustration rather than the literal PCM
+waveform. Metered response uses rendered granular output; long-edge transit and
+unmetered slots retain the historical approximation. Stable slots and coherent
+topology revisions keep meters on their actual branch. The meter count does not
+cap simultaneous audio. Audio processing uses preallocated storage.
 Browser status messages copy bounded telemetry separately from the processing callback; there is no HTTP audio API.
 
 A regression renders 2,049 admitted taps and measures the additional output of
 the final unmetered tap. Increasing Pine from 13 to 14 generations requests
 16,382 to 32,766 voices; automatic mode admits the count supported by measured
-device deadlines and retries when conditions improve. Color admission can expand
-by generation even in silence; quiet capacity growth creates no signal waves.
+device deadlines and retries when conditions improve. Quiet capacity growth
+creates neither generation-colored layers nor signal waves.
 
 Processing load estimates callback work: control updates, test-tone/input
 preparation, DSP, mixing, adaptive changes and audio activity measurement/publication.
@@ -269,24 +273,37 @@ physical-device checks remain separate. The compatibility command
 Native CPAL and CLI comparisons remain independently testable through Cargo.
 
 The visual-causality check instruments actual Canvas strokes with an isolated
-test-only browser bridge and mocked telemetry. It verifies complete 1,001-segment color coverage (1,000 admitted
-taps plus root) at all three CPU pressure tiers, independent sibling brightness,
+test-only browser bridge and mocked telemetry. It verifies the complete neutral
+outline and signal-bearing response at all three CPU pressure tiers, independent sibling brightness,
 rank continuity, visible measured release, mute darkness, and rejection of stale
 topology packets. Its screenshots and report are in ignored
 `artifacts/l-system-delay-visual-causality/`; it starts no audio device. Core
 fixtures separately prove distinct real delay onsets within one generation and
 an off-probe impulse whose tap meter agrees with measured rendered audio.
 Dense generation-13 fixtures cover all eleven grammars at normal and severe
-pressure. The Canvas checks inspect every admitted colored baseline, including
-unmetered slots, for interior displacement and changes over audio time. A short
+pressure. The Canvas checks inspect measured responses and the historical
+fallback for unmetered slots for interior displacement and changes over audio time. A short
 input packet advances through early, middle and late positions of a descendant;
 quiet sections remain unlit. Separate silent-admission and muted-bus cases verify
-that capacity growth creates no signal waves. Representative screenshots and the
-report are generated without microphone capture. Full recalls of Cedar, Quaking
+that capacity growth creates no signal waves. Long branches keep measured-silent
+endpoints uncolored, and a muted wet bus cannot inject input-root energy into
+descendants. Full scene recalls clear prior meters and wait for the new pool,
+including scenes sharing the same grammar and generation count.
+Representative screenshots and the report are generated without microphone capture. Full recalls of Cedar, Quaking
 Aspen and Foxglove use previews compiled by the committed Rust WASM; all
 sixteen original scenes also run with quiet and ordinary input envelopes. These
 mocked fixtures do not establish physical microphone behavior or a device voice
 deadline.
+
+The actual browser WASM regression also feeds synthetic 173 Hz microphone bursts
+(230 ms every 850 ms) through the normal capture/worklet path. Staghorn Coral at
+1440×900 must show at least one CSS pixel of wave deflection on multiple
+non-root branches at input amplitudes .01, .03 and .05; subpixel movement alone
+does not pass. A fresh silent capture must keep the full outline unchanged and
+uncolored while automatic voice admission grows. These checks use synthetic
+media, not a physical microphone or a listening evaluation. The input and delay
+branches use the same stroke-width response; compression settings do not create
+a separate visual animation.
 
 ## Historical native implementation verification
 

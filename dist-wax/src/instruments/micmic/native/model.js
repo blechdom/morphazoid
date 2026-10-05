@@ -66,7 +66,7 @@ export function topologyIdentity(parameters) { return `${parameters.lSystemType}
 export function tapActivityFrame(reply, parameters) {
   const status = reply?.status, revision = reply?.topologyRevision;
   if (!status || !Number.isSafeInteger(revision) || revision < 1 || status.topologyRevision !== revision
-    || topologyIdentity(reply.parameters ?? {}) !== topologyIdentity(parameters)
+    || JSON.stringify(sanitizeParameters(reply.parameters ?? {})) !== JSON.stringify(sanitizeParameters(parameters))
     || !Array.isArray(status.tapActivity) || !Array.isArray(status.tapVoiceIndices)) return null;
   const wetBusGain = Number.isFinite(status.wetBusGain) ? Math.max(0, status.wetBusGain) : 0, levels = new Map();
   for (let rank = 0; rank < Math.min(status.tapActivity.length, status.tapVoiceIndices.length); rank++) {
@@ -81,10 +81,6 @@ export function smoothActivity(current, target, elapsedMs) {
   const elapsed = clamp(Number.isFinite(elapsedMs) ? elapsedMs : 0, 0, 1000), timeConstant = target > current ? 25 : 110;
   const level = current + (target - current) * (1 - Math.exp(-elapsed / timeConstant));
   return target === 0 && level < 1e-5 ? 0 : level;
-}
-/** Original colored stroke; signal brightens only active parts of the curve. */
-export function branchBaselineAlpha(generation, depth, audio) {
-  return audio ? .2 + clamp(depth) ** (generation * .7) * .24 : .18;
 }
 /** Native input envelopes use their own sample clock, independent of tap ranks. */
 export function inputEnvelopeReader(snapshot) {
@@ -115,28 +111,49 @@ export function inputHistoryFrame(reply, previous = {}, receivedAt = 0) {
   }
   return next;
 }
-/** Keep the original five-interval minimum even on the smallest descendants.
- * Short turtle segments get continuous screen-space magnification so the same
- * input response remains legible on dense curves. Silence never bends a line.
+/** Keep short branches legible without inventing activity at zero input.
+ * Rendered tap energy takes precedence on transit times below visual resolution.
+ * Longer edges retain the traveling input packet, with their endpoint anchored
+ * to the measured output instead of a prediction of granular playback.
  */
 export function branchWavePoints(node, start, end, envelope, detailSteps = 14, reducedMotion = false, nowSeconds = 0) {
   const dx = end.x - start.x, dy = end.y - start.y, length = Math.hypot(dx, dy);
   const normalX = length > 1e-6 ? -dy / length : 0, normalY = length > 1e-6 ? dx / length : 0;
   const steps = Math.max(5, Math.min(Math.max(5, Math.floor(detailSteps)), Math.max(5, Math.ceil(length / 14))));
-  const shortness = clamp(1 - length / 36), offsetMaximum = clamp(length * .055, 1.5, 8) + shortness * 2.5;
+  const shortness = clamp(1 - length / 64), offsetMaximum = clamp(length * .055, 1.5, 8) + shortness * 16;
   const fromHistory = typeof envelope === 'function';
   const startDelay = node.generation === 0 ? 0 : Math.max(0, node.startDelay ?? node.delay ?? 0);
   const endDelay = node.generation === 0 ? 0 : Math.max(startDelay, node.delay ?? 0);
+  const measured = Number.isFinite(node.measuredEnergy), measuredEnergy = clamp(node.measuredEnergy ?? 0);
+  const parentMeasured = Number.isFinite(node.parentEnergy), parentEnergy = clamp(node.parentEnergy ?? 0);
+  const transit = endDelay - startDelay;
   const rate = Math.sqrt(clamp(node.rate ?? 1, .25, 4));
   const points = [];
   for (let i = 0; i <= steps; i++) {
     const progress = i / steps, delayedTime = nowSeconds - (startDelay + (endDelay - startDelay) * progress);
-    const strength = fromHistory ? clamp(1 - Math.exp(-Math.max(0, envelope(delayedTime)) * 5)) * clamp(node.voiceLevel ?? 1) : clamp(envelope);
-    const deflection = strength + (Math.sqrt(strength) - strength) * shortness;
+    let strength = fromHistory ? clamp(1 - Math.exp(-Math.max(0, envelope(delayedTime)) * 5)) * clamp(node.voiceLevel ?? 1) : clamp(envelope);
+    if (measured) {
+      if (!fromHistory || transit <= .1) strength = measuredEnergy;
+      else {
+        // The input packet can travel through a long edge before reaching its
+        // tap. Only actual output can brighten the audible endpoint.
+        const arrival = clamp((progress - .8) / .2), blend = arrival * arrival * (3 - 2 * arrival);
+        strength += (measuredEnergy - strength) * blend;
+        if (parentMeasured) {
+          const departure = clamp(progress / .2), outgoing = departure * departure * (3 - 2 * departure);
+          strength = parentEnergy + (strength - parentEnergy) * outgoing;
+        }
+        // A live timing gesture must not switch the entire edge abruptly at
+        // the visual-resolution boundary. Endpoints stay meter-driven.
+        const travel = clamp((transit - .1) / .04), mix = travel * travel * (3 - 2 * travel);
+        strength = measuredEnergy + (strength - measuredEnergy) * mix;
+      }
+    }
+    const deflection = strength + (Math.sqrt(strength) - strength) * Math.sqrt(shortness);
     const carrier = Math.sin(nowSeconds * 9 * rate + progress * Math.PI * (3 + node.generation * .35) + (node.index ?? node.voiceIndex ?? 0) * .71);
     const offset = reducedMotion ? 0 : Math.sin(Math.PI * progress) * deflection * offsetMaximum * carrier;
     const point = { x: start.x + dx * progress + normalX * offset, y: start.y + dy * progress + normalY * offset };
-    if (fromHistory) point.energy = strength;
+    if (fromHistory || measured) point.energy = strength;
     points.push(point);
   }
   // Preserve connection exactly while keeping the endpoint's signal energy.
