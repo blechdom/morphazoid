@@ -33,6 +33,7 @@ const engineModule = new URL('src/instruments/micmic/native/browser-engine.js', 
 const bank = JSON.parse(await readFile(new URL('../src/instruments/micmic/native/presets.json', import.meta.url), 'utf8'));
 const report = { serverRoot: root, url, nativeCompanion: false, actualMicrophone: false,
   listeningPerformed: false, httpApiRequests: [], wasmResponses: [], controls: [], presets: [], viewports: [] };
+const skipCausal = process.argv.includes('--skip-causal') || process.argv.includes('--browser-only');
 
 async function installFixture(page) {
   await page.addInitScript(() => {
@@ -61,6 +62,7 @@ async function installFixture(page) {
           set: value => {
             handler = value;
             descriptor.set.call(this.port, event => {
+              if (event.data.status) data.latestStatus = event.data.status;
               if (event.data.id) data.received.push(event.data.id);
               if (event.data.type === 'ready' && data.holdReady) data.pendingReady.push(() => value(event));
               else if (messages.get(event.data.id) === 'install' && data.holdNextInstallAck) {
@@ -138,7 +140,8 @@ async function installFixture(page) {
         audit.current = { preset: document.querySelector('.instrument-preset-controls')?.dataset.presetId,
           inputSeconds: data.sources.at(-1)?.context.currentTime ?? 0,
           coverage: 0, minimumPoints: Infinity, descendantBent: 0, neutralCoverage: 0,
-          neutralSignature: 0, neutralEdges: [], root: null, paths: [] };
+          neutralSignature: 0, outlineSignature: 0, reportedLimit: data.latestStatus?.voiceLimit ?? 0,
+          neutralEdges: [], root: null, paths: [] };
       }
       return clear.apply(this, args);
     };
@@ -151,23 +154,23 @@ async function installFixture(page) {
         const segments = path.auditSubpaths.filter(points => points.length >= 2);
         if (!colors.has(this.strokeStyle)) {
           frame.neutralCoverage += segments.length;
-          for (const points of segments) for (const [x, y] of points.map(project)) frame.neutralSignature += x + y * 3;
+          for (const points of segments) for (const [x, y] of points.map(project)) {
+            frame.neutralSignature += x + y * 3; frame.outlineSignature += x + y * 3;
+          }
           frame.neutralEdges.push(...segments.slice(0, 3).map(points => ({
             start: project(points[0]), end: project(points.at(-1)),
           })));
-          if (segments.length) {
-            const start = project(segments[0][0]), end = project(segments[0].at(-1));
-            frame.root = { start, end, length: Math.hypot(end[0] - start[0], end[1] - start[1]) };
-          }
         } else for (const points of segments) {
           const projected = points.map(project), [x, y] = projected[0], [endX, endY] = projected.at(-1);
+          frame.outlineSignature += x + y * 3 + endX + endY * 3;
           const length = Math.hypot(endX - x, endY - y), deviation = length > 1e-6
             ? Math.max(...projected.map(([px, py]) => Math.abs((px - x) * (endY - y) - (py - y) * (endX - x)) / length)) : 0;
+          if (!frame.root && this.strokeStyle === '#fff3d6') frame.root = { start: projected[0], end: projected.at(-1), length };
           const midpoint = projected[Math.floor(projected.length / 2)], root = frame.root;
           // Exclude the root and its close overlap. A root-only wave cannot
           // pass the Coral descendant visibility check.
           const descendant = root && Math.hypot(midpoint[0] - root.start[0], midpoint[1] - root.start[1]) > root.length + 12;
-          frame.paths.push({ deviation, length, alpha: this.globalAlpha, descendant,
+          frame.paths.push({ deviation, length, alpha: this.globalAlpha, lineWidth: this.lineWidth, descendant,
             color: this.strokeStyle, midpoint, start: projected[0], end: projected.at(-1), points: projected });
           frame.coverage++; frame.minimumPoints = Math.min(frame.minimumPoints, points.length);
           if (deviation >= 1 && descendant) frame.descendantBent++;
@@ -233,14 +236,25 @@ async function causalCoralResponse() {
     const reply = await state(page), frames = await page.evaluate(() => __delayCanvas.frames);
     assert.equal(reply.status.inputPeak, 0); assert.equal(reply.status.outputPeak, 0);
     assert.ok(reply.status.tapActivity.every(value => value === 0));
-    assert.ok(frames.every(frame => frame.coverage === 0), 'silent capacity growth cannot color any branch');
-    assert.ok(frames.every(frame => frame.neutralCoverage === 512), 'the complete neutral Coral outline stays present');
+    assert.ok(frames.every(frame => frame.paths.every(path => path.deviation < 1e-8)), 'silent capacity growth cannot invent a wave');
+    assert.ok(frames.every(frame => frame.neutralCoverage + frame.coverage === 512), 'colored availability and unavailable grey branches cover the complete Coral outline');
+    assert.ok(frames.every(frame => frame.coverage > 1 && Math.abs(frame.coverage - frame.reportedLimit - 1) <= 48),
+      'silent available Coral voices remain colored independently of their amplitude');
+    assert.ok(frames.every(frame => frame.paths.every(path => Math.abs(path.alpha - .85) < 1e-6 && Math.abs(path.lineWidth - 1.2) < 1e-6)),
+      'quiet input and delay branches use the same fixed thin style');
     silent.push({ time: reply.status.elapsedSeconds, admitted: reply.status.voiceLimit,
-      counts: reply.status.generationVoiceCounts.slice(0, 10), neutralSignature: frames.at(-1)?.neutralSignature });
+      coloredAvailableSegments: frames.at(-1)?.coverage,
+      counts: reply.status.generationVoiceCounts.slice(0, 10), outlineSignature: frames.at(-1)?.outlineSignature });
     await page.waitForTimeout(220);
   }
+  await writeFile(new URL('coral-silent-availability.json', artifacts), JSON.stringify(silent, null, 2) + '\n');
   assert.ok(silent.some(sample => sample.admitted > silent[0].admitted), 'the silence regression exercises real adaptive growth');
-  assert.ok(silent.every(sample => Math.abs(sample.neutralSignature - silent[0].neutralSignature) < 1e-6), 'admission never changes the neutral drawing');
+  // Canvas stores its grey-path transform at different precision than the
+  // already projected colored endpoints. Across 512 branches the summed
+  // signature may differ slightly as a branch changes representation.
+  assert.ok(silent.every(sample => Math.abs(sample.outlineSignature - silent[0].outlineSignature) < .1),
+    'admission changes availability color without moving the quiet geometry');
+  assert.ok(silent.some(sample => sample.coloredAvailableSegments > silent[0].coloredAvailableSegments), 'additional admitted silent voices become colored and stay straight');
   const bursts = [];
   for (const amplitude of [.01, .03, .05]) {
     await page.evaluate(amplitude => { __delayCanvas.frames = []; __delayFixture.sources.at(-1).setSignal('bursts', amplitude); }, amplitude);
@@ -248,11 +262,14 @@ async function causalCoralResponse() {
     for (let i = 0; i < 10; i++) {
       await page.waitForTimeout(280);
       const reply = await state(page), frames = await page.evaluate(() => __delayCanvas.frames);
+      assert.ok(frames.every(frame => frame.paths.every(path => Math.abs(path.alpha - .85) < 1e-6 && Math.abs(path.lineWidth - 1.2) < 1e-6)),
+        'microphone amplitude never changes availability brightness or line thickness');
       const descendants = frames.flatMap(frame => frame.paths.filter(path => path.descendant)); paths.push(...descendants);
       counts.push(Math.max(0, ...frames.map(frame => frame.paths.filter(path => path.descendant && path.deviation >= 1).length)));
       sounding = Math.max(sounding, ...reply.status.tapActivity);
     }
-    const deviations = paths.map(path => path.deviation).sort((a, b) => a - b), q = percentile => deviations[Math.floor((deviations.length - 1) * percentile)] || 0;
+    const deviations = paths.filter(path => path.deviation > 1e-8).map(path => path.deviation).sort((a, b) => a - b);
+    const q = percentile => deviations[Math.floor((deviations.length - 1) * percentile)] || 0;
     const result = { amplitude, medianCssPx: q(.5), p95CssPx: q(.95), maximumCssPx: q(1),
       maximumClearlyBentDescendants: Math.max(...counts), tapRmsPeak: sounding };
     console.log(`Coral burst response: ${JSON.stringify(result)}`);
@@ -266,19 +283,33 @@ async function causalCoralResponse() {
   }
   await range(page, 'wet', 0);
   await until(page, reply => reply.performance.wet === 0 && reply.status.wetBusGain < 1e-7, 'wet bus fade reaches silence');
-  await page.waitForTimeout(750);
   await page.evaluate(() => { __delayCanvas.frames = []; });
-  await page.waitForFunction(() => __delayCanvas.frames.length >= 3);
-  assert.ok((await page.evaluate(() => __delayCanvas.frames)).every(frame => frame.paths.every(path => !path.descendant)), 'muted wet output removes descendant color and vibration');
+  await page.waitForFunction(() => __delayCanvas.frames.length >= 3 && __delayCanvas.frames.slice(-3).every(frame => frame.paths
+    .filter(path => path.color !== '#fff3d6' || path.descendant).every(path => path.deviation < 1e-8)), null, { timeout: 5000 });
+  assert.ok((await page.evaluate(() => __delayCanvas.frames.slice(-3))).every(frame => frame.paths
+    .filter(path => path.color !== '#fff3d6' || path.descendant).every(path => path.deviation < 1e-8)),
+  'muted wet output straightens descendants while retaining their availability color');
   await range(page, 'wet', .55);
   await page.evaluate(() => __delayFixture.sources.at(-1).setSignal('continuous', 0));
   await until(page, reply => reply.status.outputPeak < 1e-7 && reply.status.tapActivity.every(value => value < 1e-7), 'Coral delayed tails reach silence');
-  await page.waitForTimeout(1000);
   await page.evaluate(() => { __delayCanvas.frames = []; });
-  await page.waitForFunction(() => __delayCanvas.frames.length >= 3);
-  assert.ok((await page.evaluate(() => __delayCanvas.frames)).every(frame => frame.coverage === 0), 'ended microphone bursts leave no colored activity');
+  await page.waitForFunction(() => __delayCanvas.frames.length >= 3 && __delayCanvas.frames.slice(-3).every(frame => frame.paths
+    .every(path => path.deviation < .01)), null, { timeout: 5000 });
+  assert.ok((await page.evaluate(() => __delayCanvas.frames.slice(-3))).every(frame => frame.coverage > 1
+    && frame.paths.every(path => path.deviation < .01)), 'ended microphone bursts retain colored availability with no visible residual wave');
+  const availableBeforePause = (await state(page)).status.voiceLimit;
+  await page.locator('#audioButton').click();
+  const paused = await until(page, reply => !reply.audio, 'pause retains measured availability');
+  await page.waitForTimeout(400); await page.evaluate(() => { __delayCanvas.frames = []; });
+  // An off scene redraws on resize, rather than requiring a running audio RAF.
+  await page.setViewportSize({ width: 1439, height: 900 }); await page.waitForFunction(() => __delayCanvas.frames.length >= 1);
+  const pausedFrame = await page.evaluate(() => __delayCanvas.current);
+  assert.equal(pausedFrame.coverage, paused.status.voiceLimit + 1, 'pausing keeps every measured available Coral voice colored');
+  assert.ok(pausedFrame.paths.every(path => path.deviation < .01), 'quiet paused availability has no visible residual wave');
   assert.deepEqual(errors, []);
-  await context.close(); return { silentCapacityGrowth: silent, bursts, wetZeroDark: true, tailSilenceDark: true, actualWasm: true };
+  await context.close(); return { silentCapacityGrowth: silent, bursts, wetZeroNoDescendantWaves: true,
+    tailSilenceNoVisibleWaves: true, maximumQuietTailCssPx: .01,
+    pauseRetainsMeasuredAvailability: { before: availableBeforePause, paused: paused.status.voiceLimit }, actualWasm: true };
 }
 async function causalLongPineResponse() {
   const context = await browser.newContext({ viewport: { width: 1440, height: 900 } }), page = await context.newPage();
@@ -293,6 +324,14 @@ async function causalLongPineResponse() {
   const preview = await request(page, '/api/preview');
   const firstChild = preview.nodes.find(node => node.generation === 1);
   assert.ok(firstChild.delay >= 2.8 && firstChild.delay <= 3.2, 'the test exercises a genuinely long first transit');
+  await page.evaluate(() => { __delayCanvas.frames = []; });
+  await page.waitForFunction(() => __delayCanvas.frames.length >= 3 && __delayCanvas.frames.slice(-3).every(frame =>
+    frame.paths.some(path => path.color === '#55d9ff')
+    && Math.abs(frame.outlineSignature - __delayCanvas.frames.at(-1).outlineSignature) < 1e-6));
+  const firstChildAxis = await page.evaluate(() => {
+    const branch = __delayCanvas.frames.at(-1).paths.find(path => path.color === '#55d9ff');
+    return { start: branch.start, end: branch.end };
+  });
   const pulseStart = await page.evaluate(() => {
     const source = __delayFixture.sources.at(-1); __delayCanvas.frames = [];
     const time = source.context.currentTime; source.setSignal('burst', .03); return time;
@@ -303,28 +342,34 @@ async function causalLongPineResponse() {
     const reply = await state(page), frames = await page.evaluate(() => __delayCanvas.frames);
     assert.ok(reply.status.tapActivity.every(value => value < 1e-7), 'fresh Pine endpoints have no delayed sound before first arrival');
     for (const frame of frames.filter(frame => frame.inputSeconds - pulseStart >= 2.45 && frame.inputSeconds - pulseStart <= 2.86)) {
-      const edge = frame.neutralEdges[1]; if (!edge) continue;
+      const edge = firstChildAxis;
       const dx = edge.end[0] - edge.start[0], dy = edge.end[1] - edge.start[1], squaredLength = dx * dx + dy * dy;
-      const cyan = frame.paths.filter(path => path.color === '#55d9ff');
-      const progresses = cyan.flatMap(path => path.points.map(([x, y]) => ((x - edge.start[0]) * dx + (y - edge.start[1]) * dy) / squaredLength));
-      assert.ok(cyan.every(path => Math.hypot(path.end[0] - edge.end[0], path.end[1] - edge.end[1]) > .01),
-        'actual Canvas never colors a silent measured Pine endpoint merely because the previous interior sample sounds');
-      samples.push({ inputSeconds: frame.inputSeconds - pulseStart, maximumProgress: Math.max(0, ...progresses), coloredParts: cyan.length });
+      const cyan = frame.paths.filter(path => path.color === '#55d9ff'
+        && Math.hypot(path.start[0] - edge.start[0], path.start[1] - edge.start[1]) < 1e-6
+        && Math.hypot(path.end[0] - edge.end[0], path.end[1] - edge.end[1]) < 1e-6);
+      assert.equal(cyan.length, 1, 'the available first Pine branch stays one connected line');
+      assert.deepEqual(cyan[0].end, edge.end, 'the actual Canvas keeps the measured-silent endpoint joined and undeflected');
+      const progresses = cyan.flatMap(path => path.points.filter(([x, y]) =>
+        Math.abs(dx * (y - edge.start[1]) - dy * (x - edge.start[0])) / Math.sqrt(squaredLength) > 1e-5)
+        .map(([x, y]) => ((x - edge.start[0]) * dx + (y - edge.start[1]) * dy) / squaredLength));
+      samples.push({ inputSeconds: frame.inputSeconds - pulseStart, maximumProgress: Math.max(0, ...progresses), wavePoints: progresses.length });
     }
     await page.waitForTimeout(55);
   }
-  assert.ok(samples.some(sample => sample.coloredParts && sample.maximumProgress > .7), 'the endpoint test includes a visible packet near the end of a long branch');
+  assert.ok(samples.some(sample => sample.wavePoints && sample.maximumProgress > .7), 'the joined-endpoint test includes a visible packet near the end of a long branch');
   await page.locator('#stage').screenshot({ path: fileURLToPath(new URL('pine-in-flight-silent-endpoint.png', artifacts)) });
   await page.evaluate(() => __delayFixture.sources.at(-1).setSignal('bursts', .03));
   await until(page, reply => reply.status.tapActivity.some(value => value > 1e-7), 'long Pine delayed sound arrives');
   await range(page, 'wet', 0);
   await until(page, reply => reply.performance.wet === 0 && reply.status.wetBusGain < 1e-7, 'long Pine wet bus silence');
-  await page.waitForTimeout(1000); await page.evaluate(() => { __delayCanvas.frames = []; });
-  await page.waitForFunction(() => __delayCanvas.frames.length >= 3);
-  assert.ok((await page.evaluate(() => __delayCanvas.frames)).every(frame => frame.paths.every(path => path.color === '#fff3d6')),
-    'wet-zero long Pine remains neutral on every descendant even while the dry root and microphone history sound');
+  await page.evaluate(() => { __delayCanvas.frames = []; });
+  await page.waitForFunction(() => __delayCanvas.frames.length >= 3 && __delayCanvas.frames.slice(-3).every(frame => frame.paths
+    .filter(path => path.color !== '#fff3d6').every(path => path.deviation < 1e-8)), null, { timeout: 5000 });
+  assert.ok((await page.evaluate(() => __delayCanvas.frames.slice(-3))).every(frame => frame.paths
+    .filter(path => path.color !== '#fff3d6').every(path => path.deviation < 1e-8)),
+    'wet-zero long Pine keeps every descendant colored and straight even while the dry root and microphone history sound');
   assert.deepEqual(errors, []); await context.close();
-  const result = { firstTransitSeconds: firstChild.delay, samples, silentCanvasEndpoint: true, wetZeroDescendantsDark: true };
+  const result = { firstTransitSeconds: firstChild.delay, samples, joinedSilentCanvasEndpoint: true, wetZeroDescendantsStraight: true };
   await writeFile(new URL('pine-long-response.json', artifacts), JSON.stringify(result, null, 2) + '\n');
   return result;
 }
@@ -338,7 +383,7 @@ async function factoryBurstResponses() {
     const preset = bank.find(preset => preset.id === id); await selectPreset(page, id);
     await until(page, reply => matchesPreset(reply, preset), `factory burst ${id}`);
     await page.waitForTimeout(250); await page.evaluate(() => { __delayCanvas.frames = []; });
-    const paths = [], rms = []; let admitted = 0, requested = 0, maxResponding = 0, maxBent = 0, sounding = 0;
+    const paths = [], rms = []; let admitted = 0, requested = 0, maxAvailable = 0, maxResponding = 0, maxBent = 0, sounding = 0;
     for (let i = 0; i < 16; i++) {
       await page.waitForTimeout(220);
       const reply = await state(page), frames = await page.evaluate(() => __delayCanvas.frames);
@@ -346,13 +391,15 @@ async function factoryBurstResponses() {
       const positive = reply.status.tapActivity.filter(value => value > 0); rms.push(...positive); sounding = Math.max(sounding, positive.length);
       for (const frame of frames) {
         const descendants = frame.paths.filter(path => path.descendant); paths.push(...descendants);
-        maxResponding = Math.max(maxResponding, descendants.length); maxBent = Math.max(maxBent, descendants.filter(path => path.deviation >= 1).length);
+        maxAvailable = Math.max(maxAvailable, descendants.length);
+        maxResponding = Math.max(maxResponding, descendants.filter(path => path.deviation > 1e-8).length);
+        maxBent = Math.max(maxBent, descendants.filter(path => path.deviation >= 1).length);
       }
     }
     const quantile = (values, fraction) => { values.sort((a, b) => a - b); return values[Math.floor((values.length - 1) * fraction)] || 0; };
-    const deviations = paths.map(path => path.deviation);
+    const deviations = paths.filter(path => path.deviation > 1e-8).map(path => path.deviation);
     const result = { id, amplitude: .03, requested, peakAdmitted: admitted, peakMeteredSounding: sounding,
-      peakRespondingNonRootCurves: maxResponding, peakBentNonRootCurves: maxBent,
+      peakAvailableNonRootCurves: maxAvailable, peakRespondingNonRootCurves: maxResponding, peakBentNonRootCurves: maxBent,
       medianPositiveTapRms: quantile(rms, .5), peakTapRms: quantile(rms, 1),
       medianCssPx: quantile(deviations, .5), p95CssPx: quantile(deviations, .95), maxCssPx: quantile(deviations, 1) };
     console.log(`Factory burst response: ${JSON.stringify(result)}`); responses.push(result);
@@ -388,11 +435,16 @@ async function adversarialEdits(page) {
 
 try {
   browser = await chromium.launch({ headless: true }); report.browser = browser.version();
-  if (!process.argv.includes('--factory-only')) {
+  if (process.argv.includes('--long-only')) {
+    report.longPineResponse = await causalLongPineResponse();
+    console.log('Actual WASM long Pine packet, joined endpoint and wet-zero checks passed.');
+    await browser.close(); web.kill('SIGTERM'); process.exit(0);
+  }
+  if (!process.argv.includes('--factory-only') && !skipCausal) {
     report.coralResponse = await causalCoralResponse();
     report.longPineResponse = await causalLongPineResponse();
   }
-  report.factoryBurstResponse = await factoryBurstResponses();
+  if (!skipCausal) report.factoryBurstResponse = await factoryBurstResponses();
   if (process.argv.includes('--factory-only')) {
     await browser.close(); web.kill('SIGTERM'); process.exit(0);
   }
@@ -540,11 +592,12 @@ try {
     const preview = await request(page, '/api/preview');
     const expected = preview.nodes.length;
     await page.waitForFunction(({ id, expected }) => __delayCanvas.frames.some(frame =>
-      frame.preset === id && frame.neutralCoverage >= expected), { id, expected });
+      frame.preset === id && frame.neutralCoverage + frame.coverage >= expected), { id, expected });
     const frame = await page.evaluate(id => __delayCanvas.frames.findLast(frame => frame.preset === id), id);
     finiteSignal(recalled, id);
     report.presets.push({ id, requested: recalled.requestedVoices, admitted: recalled.status.voiceLimit,
-      previewNodes: preview.nodes.length, coverage: frame.coverage, minimumPoints: frame.minimumPoints,
+      previewNodes: preview.nodes.length, coloredAvailableSegments: frame.coverage, unavailableGreySegments: frame.neutralCoverage,
+      minimumPoints: frame.minimumPoints,
       completeRecallAfterEveryOwnedEdit: true });
   }
   // Same preset selection and the lower Reload control both restore the entire

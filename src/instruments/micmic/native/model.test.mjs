@@ -375,7 +375,7 @@ test('screen-space magnification makes ordinary sounding branches visible, stays
     assert.ok(sweep.every(points => points[0].x === start.x && points[0].y === start.y
       && points.at(-1).x === end.x && points.at(-1).y === end.y), 'joined endpoints remain fixed');
     const silent = branchWavePoints({ ...node, measuredEnergy: 0 }, start, end, () => .03, 14, false, .37);
-    assert.ok(silent.every(point => point.y === 0 && point.energy === 0), 'measured silence remains exactly straight and dark');
+    assert.ok(silent.every(point => point.y === 0 && point.energy === 0), 'measured silence remains exactly straight with zero signal energy');
   }
   for (const length of [1.5, 23.999, 24.001, 35.999, 36.001, 63.999, 64.001, 100]) {
     const a = branchWavePoints(node, start, { x: length, y: 0 }, energy, 4);
