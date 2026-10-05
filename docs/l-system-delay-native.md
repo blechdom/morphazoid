@@ -106,9 +106,10 @@ includes all 511 taps of the Staghorn Coral factory scene. Granular taps that
 have not produced audio remain quiet even when captured input is present.
 Graphics reduce frame rate and curve resolution under load, retaining at least
 five curve intervals per animated branch, matching the original minimum, so
-dense patterns never collapse to an endpoint-only straight line. Short
-screen-space segments receive smoothly increased deflection; the larger Pine
-branches retain their prior curve shape.
+dense patterns never collapse to an endpoint-only straight line. Every branch
+length receives continuous visual magnification: faint normalized tap energy
+can still produce a visible wave, with an 8–16 CSS pixel maximum deflection.
+The carrier and fixed branch connections retain the original wave structure.
 The curve is an activity illustration rather than a literal sample waveform.
 Rust records a bounded 40-second input-envelope history at 100 Hz, using the
 original RMS/peak response and 160 ms release. Drawing interpolates that history
@@ -122,8 +123,8 @@ tap snapshots, including through two seconds of polling or Canvas jitter,
 and extrapolates only the original release beyond the latest input sample.
 Only the historical illustration uses admitted-generation gain normalization;
 measured tap RMS already includes that normalization and is not attenuated again.
-Short screen-space segments receive continuous visual magnification, so normal
-microphone levels remain visible without adding motion at zero input.
+This display mapping changes neither audio gain nor compression and adds no
+motion at zero input.
 
 Pool timing edits preserve the current two-head crossfade, remember the newest
 delay, then fade to that target when the current 65 ms fade completes. Returning
