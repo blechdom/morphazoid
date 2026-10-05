@@ -178,6 +178,12 @@ reloads and randomization retain their current values, including output zero.
 Scene capture omits these values and legacy saved levels are ignored on recall.
 Changing a live level does not invalidate preset identity. Wet/dry balance,
 filters, compression and automatic makeup remain musical preset parameters.
+Mic/line, uploaded-file and built-in-sample selection are also live session
+state outside sound presets, reload and dice. Selecting or loading a source
+with Audio off never arms output. When Audio is already on, a source change
+replaces the input without replacing the Rust worklet or resetting its history.
+Audio off, input Stop, hiding and teardown cancel pending source work and release
+capture/playback resources; a late permission or decode must not restart input.
 
 ## MIDI and WAX boundaries
 

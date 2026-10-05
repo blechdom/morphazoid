@@ -26,6 +26,7 @@ Mic capture can run with master Audio off. Turn Audio on to hear the instrument.
 | --- | --- |
 | [Graph Delay](http://localhost:4430/graph-delay.html) | live |
 | [L-system Delay](http://localhost:4430/l-mic.html) | live |
+| [L-system Delay Rust](http://localhost:4430/l-mic-rust.html) | mic/line, local file, built-in samples |
 | [Fabric Filter](http://localhost:4430/moire-drone.html) | live |
 | [Sandy Syrup Delay](http://localhost:4430/sandy-syrup-delay.html) | mic/file |
 | [Candy Coil Delay](http://localhost:4430/candy-coil-delay.html) | mic/file |
@@ -52,7 +53,7 @@ Mic capture can run with master Audio off. Turn Audio on to hear the instrument.
 | [Loop Soup](http://localhost:4430/loop-soup.html) | sample/file |
 | [Hollowphonic](http://localhost:4430/hollowphonic.html) | live |
 | [Loopini](http://localhost:4430/loopini.html) | sample |
-| [Synthesaurus](http://localhost:4430/synthesis.html?method=fx-biquad) | mic/file |
+| [Synthesaurus](http://localhost:4430/synthesis.html?method=fx-biquad) | mic/file, sample loops |
 | [Input settings](http://localhost:4430/settings.html#inputTest) | test |
 
 Splice Ring, Onset Atlas, and Synaptic Resonance currently use demo audio and have no microphone capture. Strophe Lab, Nightingale Manifolds, and Crickets accept uploaded recordings but have no microphone capture.

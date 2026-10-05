@@ -60,7 +60,7 @@ test('canonical Rust page publishes browser WASM and owns its audio lifecycle', 
   assert.match(nav, /\["native-cpal", "rust-wasm"\]\.includes\(document\.body\?\.dataset\?\.audioBackend\)/);
   const inventory = await readRuntimeManifest();
   for (const file of ['app.js', 'model.js', 'mastering.js', 'style.css', 'presets.json',
-    'browser-engine.js', 'delay-worklet.js', 'topology-worker.js', 'wasm-abi.js']) {
+    'browser-engine.js', 'input-source.js', 'delay-worklet.js', 'topology-worker.js', 'wasm-abi.js']) {
     assert.ok(inventory.worktreeFiles.includes(`src/instruments/micmic/native/${file}`), file);
     assert.ok(inventory.requiredFiles.includes(`src/instruments/micmic/native/${file}`), file);
   }

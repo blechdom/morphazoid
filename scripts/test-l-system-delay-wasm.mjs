@@ -595,9 +595,8 @@ try {
   }
   report.masteringProfiles = MASTERING_PROFILES.map(profile => profile.label);
   await page.locator('#automatic').evaluate(input => { input.checked = false; input.dispatchEvent(new Event('change', { bubbles: true })); });
-  await range(page, 'voiceCeiling', 111); await range(page, 'frequency', 311); await range(page, 'pulseRate', .7);
-  await until(page, reply => !reply.performance.automatic && reply.performance.voiceCeiling === 111
-    && reply.performance.frequency === 311 && reply.performance.pulseRate === .7, 'external policy fixture');
+  await range(page, 'voiceCeiling', 111);
+  await until(page, reply => !reply.performance.automatic && reply.performance.voiceCeiling === 111, 'external policy fixture');
   const externalKeys = ['source', 'frozen', 'automatic', 'voiceCeiling', 'frequency', 'pulseRate', 'inputGain', 'level'];
   for (const id of menuOrder) {
     const preset = bank.find(preset => preset.id === id), before = await adversarialEdits(page);
@@ -640,17 +639,25 @@ try {
     assert.equal(recalled.audio, true); assert.equal((await diagnostics(page)).microphoneEnabled, true);
     assert.ok(recalled.status.elapsedSeconds >= before.status.elapsedSeconds); report.samePresetReloads.push(mode);
   }
-  await page.locator('#source').selectOption('seed');
-  await until(page, reply => reply.performance.source === 'seed', 'explicitly select alternate source');
-  await page.locator('#seedPauseButton').click();
-  await until(page, reply => reply.performance.frozen, 'freeze input independently of recall');
+  await page.locator('#source').selectOption('samples', { force: true });
+  const recorded = await until(page, reply => reply.input?.mode === 'samples' && reply.input.playing,
+    'explicitly select a recorded sample');
+  assert.equal(recorded.performance.source, 'mic', 'recorded PCM enters the external Rust input');
+  assert.equal(recorded.status.microphoneEnabled, false, 'recorded input releases microphone capture');
+  await page.locator('#stopInput').click();
+  await until(page, reply => !reply.input.playing && !reply.input.pending, 'stop input independently of recall');
   await selectPreset(page, 'coral');
-  assert.equal((await state(page)).performance.frozen, true, 'recall preserves live input freeze');
-  assert.equal((await state(page)).performance.source, 'seed', 'recall preserves the explicitly selected source');
+  const stopped = await state(page);
+  assert.equal(stopped.input.mode, 'samples', 'recall preserves the explicitly selected source');
+  assert.equal(stopped.input.sampleId, recorded.input.sampleId, 'recall preserves the sample');
+  assert.equal(stopped.input.playing, false, 'recall preserves the stopped input');
+  assert.equal(stopped.audio, true, 'input stop leaves Audio and delay tails armed');
   assert.equal((await diagnostics(page)).microphoneEnabled, false, 'recall does not reopen microphone capture');
-  await page.locator('#seedPauseButton').click(); await until(page, reply => !reply.performance.frozen, 'unfreeze input');
-  await page.locator('#source').selectOption('mic');
-  await until(page, reply => reply.performance.source === 'mic' && reply.status.microphoneEnabled, 'restore explicit microphone source');
+  await page.locator('#restartInput').click();
+  await until(page, reply => reply.input.playing, 'restart selected recording');
+  await page.locator('#source').selectOption('mic', { force: true });
+  await until(page, reply => reply.input.mode === 'mic' && reply.performance.source === 'mic'
+    && reply.status.microphoneEnabled, 'restore explicit microphone source');
   // Delay an actual worker reply so the first edit remains in flight when the
   // full scene is selected. Queued and dirty edits must not win afterward.
   await page.evaluate(() => { __delayFixture.holdNextCompileAck = true; });

@@ -2,6 +2,7 @@ import { createAudioInputStrip } from '../../../ui/patterns/audio-input-strip.js
 import { createAudioStrip } from '../../../ui/patterns/audio-strip.js';
 import { createStereoMeter } from '../../../ui/patterns/level-meter.js';
 import { createChoosePickerShell } from '../../../ui/patterns/choose-picker-shell.js';
+import { enhanceChooseSelect } from '../../../ui/patterns/choose-select.js';
 import { createTapTempoButton } from '../../../ui/primitives/tap-tempo-button.js';
 import { registerHeaderPresets, presetStateKey } from '../../../site/header-presets.js';
 import { generationTopology, timeFoldFromSlider, sliderFromTimeFold } from '../micmic.js';
@@ -11,6 +12,7 @@ import { DEFAULT_PARAMETERS, DEFAULT_PERFORMANCE, sanitizeParameters, sanitizePe
   topologyIdentity, tapActivityFrame, activityEnergy, smoothActivity, branchWavePoints, inputHistoryFrame } from './model.js';
 import { DEFAULT_MASTERING, MASTERING_PROFILES, masteringProfileId, cutoffFromSlider, sliderFromCutoff } from './mastering.js';
 import { createBrowserDelayEngine } from './browser-engine.js';
+import { SAMPLE_INPUT_OPTIONS, DEFAULT_SAMPLE_ID } from './input-source.js';
 import { createGpuBranchRenderer } from './gpu-renderer.js';
 
 import { FAVE_TOOL_IDS, TOOL_GROUPS } from '../../../site/instrument-registry.js';
@@ -20,10 +22,12 @@ import { getSharedMidiManager } from '../../../midi-manager.js';
 
 const SITE_ROOT = new URL('../../../../', import.meta.url);
 const $ = id => document.getElementById(id);
-const state = { parameters: { ...DEFAULT_PARAMETERS }, performance: { ...DEFAULT_PERFORMANCE }, audio: false, status: {}, requestedVoices: 0, eligibleVoices: 0, generationLimits: {}, memoryVoiceCapacity: Number.MAX_SAFE_INTEGER };
+const state = { parameters: { ...DEFAULT_PARAMETERS }, performance: { ...DEFAULT_PERFORMANCE }, audio: false, status: {},
+  input: { mode: 'mic', sampleId: DEFAULT_SAMPLE_ID, label: 'Mic / line', pending: false, playing: false, hasFile: false, fileName: '', loop: true, ended: false, credit: '', creditUrl: '' },
+  requestedVoices: 0, eligibleVoices: 0, generationLimits: {}, memoryVoiceCapacity: Number.MAX_SAFE_INTEGER };
 const CONTROL_IDS = { generations: 'generations', intervalMs: 'interval', timeRatio: 'timeRatio', angle: 'generationAngle',
   asymmetry: 'generationAsymmetry', mutation: 'mutation', pitchScale: 'generationPitchScale', pruningBias: 'pruningBias', depth: 'depth', spread: 'spread' };
-const PERFORMANCE_IDS = { frequency: 'frequency', pulseRate: 'pulseRate', wet: 'wet', dry: 'dry', inputGain: 'inputTrim', level: 'level', voiceCeiling: 'voiceCeiling' };
+const PERFORMANCE_IDS = { wet: 'wet', dry: 'dry', inputGain: 'inputTrim', level: 'level', voiceCeiling: 'voiceCeiling' };
 const MASTERING_FREQUENCIES = { inputHighpassHz: 2000, highpassHz: 2000, lowpassHz: 20000 };
 const MASTERING_IDS = [...Object.keys(MASTERING_FREQUENCIES), 'thresholdDb', 'ratio', 'kneeDb', 'attackMs', 'releaseMs', 'makeupDb'];
 const TYPE_LABELS = Object.fromEntries([...$('lSystemType').options].map(o => [o.value, o.textContent]));
@@ -33,6 +37,7 @@ let parameterDirty = false, performanceDirty = false, parameterWorking = false, 
 let parameterTimer, performanceTimer, pollTimer, pollWorking = false;
 let audioRevision = 0, audioDesired = false, audioPending = false, mutationChain = Promise.resolve(), lastFailure = '';
 let microphoneRevision = 0, microphoneDesired = false, microphonePending = false;
+let inputRevision = 0;
 let manualFlashUntil = 0, tapReceivedAt = -Infinity, inputReceivedAt = -Infinity, activityDrawAt = performance.now();
 let inputTelemetry = { reader: null, receivedAt: -Infinity, clock: 0, clockReceivedAt: 0, endTime: -Infinity };
 let tapIdentity = topologyIdentity(state.parameters), tapTargets = new Map(), tapLevels = new Map(), rootLevel = 0;
@@ -50,7 +55,18 @@ const gpuRenderer = rendererMode === 'canvas' ? null
   : createGpuBranchRenderer(canvas, COLORS, { onInvalidate: scheduleDraw, force: rendererMode === 'webgl2' });
 canvas.dataset.renderer = gpuRenderer?.available ? 'webgl2' : 'canvas';
 const inputStrip = createAudioInputStrip({ button: $('micButton'), gainInput: $('inputTrim'), gainOutput: $('inputTrimOut'), channels: 1 });
-$('inputMenu').classList.add('mz-input-legacy'); $('seedMicButton').classList.add('mz-input-legacy');
+$('inputMenu').classList.add('mz-input-legacy');
+const sampleGroups = new Map();
+for (const option of SAMPLE_INPUT_OPTIONS) {
+  const group = option.group || 'Recordings';
+  if (!sampleGroups.has(group)) { const element = document.createElement('optgroup'); element.label = group; sampleGroups.set(group, element); }
+  sampleGroups.get(group).append(new Option(option.label, option.id));
+}
+$('inputSample').replaceChildren(...sampleGroups.values()); $('inputSample').value = DEFAULT_SAMPLE_ID;
+const inputChoices = new Map([
+  ['source', enhanceChooseSelect($('source'), { label: 'Choose input' })],
+  ['inputSample', enhanceChooseSelect($('inputSample'), { label: 'Choose sample preset' })],
+]);
 const outputMeter = createStereoMeter({ active: false });
 const audioStrip = createAudioStrip({ buttonId: 'audioButton', levelId: 'level', level: .58, levelLabel: 'Output',
   levelAriaLabel: 'L-system Delay output level', onAudioClick: () => void toggleAudio(),
@@ -64,8 +80,6 @@ errorBox.addEventListener('click', () => { errorBox.hidden = true; if (errorBox.
 const foldTap = createTapTempoButton({ ariaLabel: 'Tap Time fold', onTempo: bpm => updateParameter('intervalMs', clamp(60000 / bpm, 1, 3000), true) });
 function attachTap(input, button) { const field = input.closest('label'), wrapper = document.createElement('div'); wrapper.className = 'mz-tap-tempo-field'; field.before(wrapper); wrapper.append(field, button); }
 attachTap($('interval'), foldTap);
-const pulseTap = createTapTempoButton({ ariaLabel: 'Tap the seed pulse', onTempo: bpm => updatePerformance('pulseRate', clamp(bpm / 60, .1, 12), true) });
-attachTap($('pulseRate'), pulseTap);
 
 // Share Morphazoid's current catalogue while retaining this instrument's audio lifecycle.
 const toolsById = new Map(TOOL_GROUPS.flatMap(group => group.tools).map(tool => [tool.id, tool]));
@@ -126,7 +140,7 @@ choose.panel.append(choose.search, choose.list); choose.details.append(choose.su
 const nextInstrument = document.createElement('a'); nextInstrument.className = 'instrument-picker-next'; nextInstrument.href = new URL('graph-delay.html', SITE_ROOT).href;
 nextInstrument.setAttribute('aria-label', 'Next instrument: Graph Delay'); nextInstrument.title = 'Next instrument: Graph Delay'; nextInstrument.innerHTML = '<span class="instrument-picker-next-icon" aria-hidden="true">▶</span>';
 $('instrumentNavigation').append(choose.details, nextInstrument);
-$('instrumentIdentity').innerHTML = `<article class="instrument-picker-card"><header class="instrument-picker-card-heading"><div class="instrument-picker-card-visual"><img class="instrument-picker-card-image" alt="" width="512" height="512" loading="eager" decoding="sync" src="${new URL('assets/instruments/micmic.webp', SITE_ROOT).href}"></div><div class="instrument-picker-card-heading-copy"><h1 class="instrument-picker-card-title">L-system Delay Rust</h1><p class="instrument-picker-card-subtitle">Rust/WASM mic processor</p><ul class="instrument-picker-card-tags" aria-label="L-system Delay tags"><li>Audio Effect</li><li>Fractal</li><li>Recursive</li><li>Faves</li></ul></div></header><ul class="instrument-picker-card-traits" aria-label="L-system Delay inputs and controls"><li>Mic input</li><li>Built-in test tone</li><li>Computer keys</li></ul><p class="instrument-picker-card-description">Runs live microphone audio through an L-system tree where branches become delays and turns become pitch shifts.</p><div class="instrument-picker-card-start"><h3>Start</h3><p>Turn on the microphone, enable Audio, then change the grammar or branch timing.</p></div></article>`;
+$('instrumentIdentity').innerHTML = `<article class="instrument-picker-card"><header class="instrument-picker-card-heading"><div class="instrument-picker-card-visual"><img class="instrument-picker-card-image" alt="" width="512" height="512" loading="eager" decoding="sync" src="${new URL('assets/instruments/micmic.webp', SITE_ROOT).href}"></div><div class="instrument-picker-card-heading-copy"><h1 class="instrument-picker-card-title">L-system Delay Rust</h1><p class="instrument-picker-card-subtitle">Rust/WASM audio processor</p><ul class="instrument-picker-card-tags" aria-label="L-system Delay tags"><li>Audio Effect</li><li>Fractal</li><li>Recursive</li><li>Faves</li></ul></div></header><ul class="instrument-picker-card-traits" aria-label="L-system Delay inputs and controls"><li>Mic / line input</li><li>Local audio files</li><li>Recorded samples</li></ul><p class="instrument-picker-card-description">Runs microphone, local audio files and recorded samples through an L-system tree where branches become delays and turns become pitch shifts.</p><div class="instrument-picker-card-start"><h3>Start</h3><p>Choose an input, enable Audio, then change the grammar or branch timing.</p></div></article>`;
 
 const midiManager = getSharedMidiManager();
 const midiAdapter = installBrowserMidiAdapter(globalThis, document, { routeId: 'micmic-rust', manager: midiManager });
@@ -167,6 +181,7 @@ function syncActivityIdentity() {
 }
 function acceptStatus(reply, { acceptAudio = true } = {}) {
   if (!reply || disposed) return;
+  if (reply.input) state.input = { ...state.input, ...reply.input };
   if (reply.generationLimits) state.generationLimits = reply.generationLimits;
   if (reply.memoryVoiceCapacity) state.memoryVoiceCapacity = reply.memoryVoiceCapacity;
   if (reply.status) {
@@ -308,8 +323,9 @@ async function toggleAudio(force) {
   paintControls(); scheduleDraw();
 }
 async function toggleMicrophone() {
+  inputRevision++;
   const revision = ++microphoneRevision;
-  microphoneDesired = microphonePending ? !microphoneDesired : !Boolean(state.status.microphoneEnabled);
+  microphoneDesired = microphonePending ? !microphoneDesired : state.status.microphonePending ? false : !Boolean(state.status.microphoneEnabled);
   microphonePending = true; clearError();
   if (state.performance.source !== 'mic') updatePerformance('source', 'mic', true, false);
   paintControls();
@@ -320,6 +336,17 @@ async function toggleMicrophone() {
     if (revision === microphoneRevision && !disposed) { microphonePending = false; microphoneDesired = false; showError(error.message); }
   }
   paintControls(); scheduleDraw();
+}
+async function changeInput(action, { selectingSource = false } = {}) {
+  const revision = ++inputRevision; clearError();
+  if (selectingSource) { microphoneRevision++; microphoneDesired = false; microphonePending = false; }
+  try {
+    const reply = await action();
+    if (revision === inputRevision && !disposed) acceptStatus(reply);
+  } catch (error) {
+    if (revision === inputRevision && !disposed && error.name !== 'AbortError') showError(error.message);
+  }
+  if (!disposed) paintControls();
 }
 async function strike() {
   if (state.performance.source !== 'seed') return;
@@ -350,6 +377,41 @@ function formatMastering(key, value) {
   if (key === 'attackMs' || key === 'releaseMs') return `${amount} ms`;
   return `${key === 'makeupDb' && amount > 0 ? '+' : ''}${amount} dB`;
 }
+function paintInput() {
+  const input = state.input, mic = input.mode === 'mic', file = input.mode === 'file';
+  const microphoneActive = Boolean(state.status.microphoneEnabled);
+  const pending = input.pending || mic && (microphonePending || Boolean(state.status.microphonePending));
+  const label = mic ? 'Mic / line' : file ? input.fileName || 'Audio file' : SAMPLE_INPUT_OPTIONS.find(item => item.id === input.sampleId)?.label || input.label;
+  const playing = mic ? microphoneActive : input.playing;
+  const summary = pending ? 'loading' : playing ? state.performance.frozen ? 'paused' : 'live' : input.ended ? 'finished' : 'ready';
+  $('source').value = input.mode; $('inputSample').value = input.sampleId;
+  for (const picker of inputChoices.values()) picker.refresh();
+  $('inputSampleControl').hidden = input.mode !== 'samples';
+  $('inputFileControl').hidden = !file; $('inputMicHelp').hidden = !mic;
+  $('inputPlaybackControls').hidden = mic;
+  $('inputLoop').checked = input.loop;
+  $('restartInput').disabled = !bootstrapped || !state.audio || pending || file && !input.hasFile;
+  $('restartInput').textContent = file ? 'Restart file' : 'Restart sample';
+  $('stopInput').disabled = !pending && !playing;
+  $('inputSummary').textContent = `${mic ? label : file ? 'Audio file' : 'Built-in samples'} · ${summary}`;
+  const status = pending ? `Loading ${label}…`
+    : mic ? microphoneActive ? `Mic / line ${state.performance.frozen ? 'paused' : 'live'}${state.audio ? '' : ' · Audio off'}` : 'Mic / line ready · use Mic to start input'
+      : file && !input.hasFile ? 'Choose a local audio file'
+        : playing ? `${label} · ${state.performance.frozen ? 'paused' : input.loop ? 'looping' : 'playing'}`
+          : input.ended ? `${label} · finished · Restart to play again`
+            : `${label} · ${state.audio ? 'stopped · Restart to play' : 'ready · enable Audio to play'}`;
+  if ($('inputSourceStatus').textContent !== status) $('inputSourceStatus').textContent = status;
+  const credit = $('inputSourceCredit'), creditKey = `${input.credit || ''}\n${input.creditUrl || ''}`;
+  if (credit.dataset.credit !== creditKey) {
+    credit.dataset.credit = creditKey; credit.replaceChildren();
+    if (input.credit) {
+      if (/^https?:\/\//.test(input.creditUrl || '')) {
+        const link = document.createElement('a'); link.href = input.creditUrl; link.textContent = input.credit; credit.append(link);
+      } else credit.textContent = input.credit;
+    }
+  }
+  credit.hidden = !input.credit;
+}
 function paintControls() {
   for (const [key, id] of Object.entries(CONTROL_IDS)) {
     const value = state.parameters[key]; $(id).value = key === 'intervalMs' ? sliderFromTimeFold(value) : value;
@@ -358,8 +420,7 @@ function paintControls() {
   $('lSystemType').value = state.parameters.lSystemType;
   for (const [key, id] of Object.entries(PERFORMANCE_IDS)) {
     const value = state.performance[key]; $(id).value = value;
-    $(`${id}Out`).textContent = key === 'frequency' ? `${Math.round(value)} Hz` : key === 'pulseRate' ? `${Number(value.toFixed(2))} / s`
-      : key === 'voiceCeiling' ? value === 0 ? 'No cap' : value.toLocaleString() : key === 'dry' && value === 0 ? 'muted' : `${Math.round(value * 100)}%`;
+    $(`${id}Out`).textContent = key === 'voiceCeiling' ? value === 0 ? 'No cap' : value.toLocaleString() : key === 'dry' && value === 0 ? 'muted' : `${Math.round(value * 100)}%`;
   }
   const mastering = state.performance.mastering;
   for (const key of MASTERING_IDS) {
@@ -384,25 +445,22 @@ function paintControls() {
   $('gainReductionBar').style.width = `${clamp(reduction / 30) * 100}%`;
   $('generations').max = String(state.generationLimits[state.parameters.lSystemType] ?? 52);
   $('voiceCeiling').max = String(state.memoryVoiceCapacity);
-  const mic = state.performance.source === 'mic', microphoneActive = Boolean(state.status.microphoneEnabled);
-  const inputActive = (mic ? microphoneActive : state.audio) && !state.performance.frozen;
-  $('source').value = state.performance.source; $('seedParameters').hidden = mic;
+  const mic = state.input.mode === 'mic', microphoneActive = Boolean(state.status.microphoneEnabled);
+  const inputActive = (state.performance.source === 'seed' ? state.audio : mic ? microphoneActive : state.input.playing) && !state.performance.frozen;
   $('automatic').checked = state.performance.automatic;
   inputStrip.setGain(state.performance.inputGain); inputStrip.setInputState({ active: mic && microphoneActive, pending: microphonePending || Boolean(state.status.microphonePending), supported: bootstrapped });
   inputStrip.meter.setActive(inputActive);
   const inputLabel = `${mic && microphoneActive ? 'Stop' : 'Start'} microphone input${state.audio ? '' : '. Audio remains off'}`;
   inputStrip.button.setAttribute('aria-label', inputLabel); inputStrip.button.title = inputLabel;
   inputStrip.setLevels(inputActive ? Number(state.status.inputPeak) || 0 : 0);
-  $('seedMicButton').setAttribute('aria-pressed', String(inputActive)); $('seedMicButton').setAttribute('aria-label', inputLabel);
-  $('seedMicButton').querySelector('b').textContent = state.performance.frozen ? 'Resume input' : state.audio ? 'Pause input' : 'Input ready';
-  $('seedMicButton').querySelector('small').textContent = mic ? 'microphone input' : 'test tone';
+  paintInput();
   const audioState = audioPending ? 'starting' : state.audio ? 'on' : lastFailure ? 'error' : 'off';
   audioStrip.setAudioState(audioState); $('audioButton').disabled = !bootstrapped;
   $('audioButton').setAttribute('aria-pressed', String(audioDesired)); $('audioButton').setAttribute('aria-busy', String(audioPending));
   const audioLabel = audioPending ? audioDesired ? 'Audio starting. Cancel Audio start' : 'Audio stopping. Enable Audio' : state.audio ? 'Audio is on. Disable Audio' : 'Audio is off. Enable Audio';
   $('audioButton').setAttribute('aria-label', audioLabel); $('audioButton').title = audioLabel;
   outputMeter.setActive(state.audio); outputMeter.setLevels(state.audio ? Number(state.status.outputLeftPeak) || 0 : 0, state.audio ? Number(state.status.outputRightPeak) || 0 : 0);
-  $('panicButton').disabled = !state.audio && !audioPending; $('nativeStopAudio').disabled = !state.audio && !audioPending;
+  $('panicButton').disabled = !state.audio && !audioPending;
   const p = state.parameters, s = state.status, type = TYPE_LABELS[p.lSystemType], pruning = formatParameter('pruningBias', p.pruningBias);
   const requested = Number(state.requestedVoices) || (p.lSystemType === 'pythagorean' ? 2 ** (p.generations + 1) - 2 : 0);
   const limit = Math.max(0, Number(s.voiceLimit) || 0);
@@ -410,16 +468,14 @@ function paintControls() {
   $('generationCapacityInline').title = 'Color shows admitted audio voices. Waves show signal amplitude. Device capacity is measured separately from sound travel time.';
   $('recursionSummary').textContent = `${type} · ${p.generations} generations`;
   $('mixSummary').textContent = `${Math.round(state.performance.wet * 100)}% descendants · ${state.performance.dry ? `${Math.round(state.performance.dry * 100)}% root` : 'root muted'}`;
-  $('seedPauseButton').textContent = state.performance.frozen ? 'Resume test tone' : 'Pause test tone';
-  $('seedPauseButton').setAttribute('aria-pressed', String(state.performance.frozen));
-  $('seedSummary').textContent = mic ? `Microphone · ${state.performance.frozen ? 'paused' : 'ready'}` : `Built-in test tone · ${Math.round(state.performance.frequency)} Hz`;
   $('currentSettingsSummary').textContent = `${p.generations} gen · ${Math.round(p.intervalMs)} ms root fold`;
   $('pitchDetailStatus').textContent = `Independent granular · ${Number(s.activeVoices ?? 0).toLocaleString()} active voices · ${p.pitchScale === 0 ? 'exact unison' : 'independent pitch shifts'}`;
   $('generationKeyEnd').textContent = `G${p.generations} DESCENDANT`;
-  $('stageReadout').textContent = `${state.audio ? state.performance.frozen ? 'INPUT PAUSED' : mic ? 'MIC LIVE' : 'SEED LIVE' : 'AUDIO OFF'} · ${type.toUpperCase()} · ${p.generations} GENERATIONS`;
+  const sourceState = state.performance.frozen ? 'INPUT PAUSED' : inputActive ? mic ? 'MIC / LINE LIVE' : state.input.mode === 'file' ? 'FILE LIVE' : 'SAMPLE LIVE' : 'INPUT STOPPED';
+  $('stageReadout').textContent = `${state.audio ? sourceState : 'AUDIO OFF'} · ${type.toUpperCase()} · ${p.generations} GENERATIONS`;
   $('generationTimingReadout').textContent = `${Math.round(p.intervalMs)} ms → ${Number((p.intervalMs * p.timeRatio).toFixed(2))} ms → ${Number((p.intervalMs * p.timeRatio ** 2).toFixed(2))} ms … ${Number((p.intervalMs * p.timeRatio ** p.generations).toFixed(2))} ms at G${p.generations}`;
   $('generationPitchReadout').textContent = `${Number((-p.angle * (1 - p.asymmetry)).toFixed(1))}° → ${Number((-p.angle * (1 - p.asymmetry) / 180 * p.pitchScale * 100).toFixed(1))}% octave · ${Number((p.angle * (1 + p.asymmetry)).toFixed(1))}° → ${Number((p.angle * (1 + p.asymmetry) / 180 * p.pitchScale * 100).toFixed(1))}% octave`;
-  $('outputDevice').textContent = s.device || 'Default output'; $('inputDevice').textContent = mic ? s.inputDevice || 'Default input' : 'Built-in test tone';
+  $('outputDevice').textContent = s.device || 'Default output'; $('inputDevice').textContent = mic ? s.inputDevice || 'Default input' : state.input.label || (state.input.mode === 'file' ? 'Audio file' : 'Built-in sample');
   $('sampleRate').textContent = s.sampleRate ? `${(s.sampleRate / 1000).toFixed(1)} kHz` : '—';
   $('activeVoices').textContent = s.activeVoices === undefined ? '—' : `${s.activeVoices.toLocaleString()} / ${(s.voiceLimit ?? state.performance.voiceCeiling).toLocaleString()}`;
   $('requestedVoices').textContent = requested.toLocaleString(); $('eligibleVoices').textContent = Number(state.eligibleVoices).toLocaleString();
@@ -444,7 +500,7 @@ function buildGeometry() {
   const counts = new Map(); for (const n of nodes) counts.set(n.generation, (counts.get(n.generation) ?? 0) + 1);
   $('generationCountReadout').textContent = [...counts].slice(0, 6).map(([, count]) => count.toLocaleString()).join(' → ') + (counts.size > 6 ? ` → … → ${(counts.get(Math.max(...counts.keys())) ?? 0).toLocaleString()} previewed at G${Math.max(...counts.keys())}` : '');
   $('treeDescription').textContent = `${TYPE_LABELS[state.parameters.lSystemType]}. ${state.parameters.generations} audio generations; ${nodes.length.toLocaleString()} segments in the bounded visual preview. The green circle marks the start of the first white branch. Colored branches are available voices; grey branches are unavailable. Signal amplitude bends the connected lines without changing their color or thickness. Long branches also show input traveling toward their measured endpoint.`;
-  canvas.setAttribute('aria-label', `Live fitted L-system tree for L-system Delay. ${state.audio ? state.performance.frozen ? 'Input paused; recursive tail live' : `${state.performance.source === 'mic' ? 'Microphone' : 'Seed'} live` : 'Audio off'}.`);
+  canvas.setAttribute('aria-label', `Live fitted L-system tree for L-system Delay. ${state.audio ? state.performance.frozen ? 'Input paused; recursive tail live' : `${state.input.label || 'Input'} ${state.input.playing || state.status.microphoneEnabled ? 'live' : 'stopped'}` : 'Audio off'}.`);
 }
 function scheduleDraw() { if (!frameId && !disposed) frameId = requestAnimationFrame(draw); }
 function draw(now) {
@@ -563,7 +619,6 @@ function draw(now) {
   context.save(); context.beginPath(); context.arc(root.x, root.y, 4, 0, Math.PI * 2);
   context.fillStyle = '#6de48b'; context.fill();
   context.strokeStyle = '#07090b'; context.lineWidth = 1.5; context.stroke(); context.restore();
-  $('seedControl').style.left = `${root.x}px`; $('seedControl').style.top = `${root.y}px`; $('seedControl').style.width = `${seedSize}px`; $('seedControl').style.height = `${seedSize}px`;
   if (now < manualFlashUntil) { context.strokeStyle = COLORS[0]; context.globalAlpha = (manualFlashUntil - now) / 240; context.beginPath(); context.arc(root.x, root.y, seedSize / 2 + 5, 0, Math.PI * 2); context.stroke(); context.globalAlpha = 1; }
   if (state.audio || tapLevels.size || rootLevel > 0 || drag || previewMoving || nativePreviewMoving || fitMoving || (lockedFit && now <= gestureUntil) || now < manualFlashUntil) scheduleDraw();
 }
@@ -621,13 +676,20 @@ $('masteringPreset').addEventListener('change', () => {
   const preset = MASTERING_PROFILES.find(item => item.id === $('masteringPreset').value);
   if (preset) updateMastering(preset.settings, true);
 });
-$('source').addEventListener('change', () => updatePerformance('source', $('source').value, true, false));
-const pauseInput = () => updatePerformance('frozen', !state.performance.frozen, true, false);
+$('source').addEventListener('change', () => void changeInput(() => browserEngine.setInputMode($('source').value), { selectingSource: true }));
+$('inputSample').addEventListener('change', () => void changeInput(() => browserEngine.setSample($('inputSample').value), { selectingSource: true }));
+$('inputFile').addEventListener('change', () => {
+  const file = $('inputFile').files?.[0];
+  if (file) void changeInput(() => browserEngine.loadFile(file), { selectingSource: true });
+  $('inputFile').value = '';
+});
+$('inputLoop').addEventListener('change', () => void changeInput(() => browserEngine.setInputLoop($('inputLoop').checked)));
+$('restartInput').addEventListener('click', () => void changeInput(() => browserEngine.restartInput()));
+$('stopInput').addEventListener('click', () => void changeInput(() => browserEngine.stopInput()));
 inputStrip.button.addEventListener('click', () => void toggleMicrophone());
-$('seedMicButton').addEventListener('click', pauseInput); $('seedPauseButton').addEventListener('click', pauseInput);
 $('automatic').addEventListener('change', () => updatePerformance('automatic', $('automatic').checked, true, false));
-$('strikeButton').addEventListener('click', () => void strike()); $('panicButton').addEventListener('click', () => void toggleAudio(false));
-$('nativeStopAudio').addEventListener('click', () => void toggleAudio(false)); $('freezeButton').addEventListener('click', () => void toggleAudio(false));
+$('panicButton').addEventListener('click', () => void toggleAudio(false));
+$('freezeButton').addEventListener('click', () => void toggleAudio(false));
 document.querySelector('[data-reset-all]').addEventListener('click', resetAll);
 $('resetGenerationRules').addEventListener('click', () => presetController?.view?.select(lastScenePreset));
 $('nativeSettings').addEventListener('toggle', () => $('settingsButton').setAttribute('aria-expanded', String($('nativeSettings').open)));
@@ -688,6 +750,7 @@ async function poll() {
 function muteForDeparture() {
   audioRevision++; audioDesired = false; audioPending = false; state.audio = false;
   microphoneRevision++; microphoneDesired = false; microphonePending = false;
+  inputRevision++;
   clearTimeout(parameterTimer); clearTimeout(performanceTimer); parameterDirty = performanceDirty = false;
   browserEngine.muteForDeparture();
   paintControls(); scheduleDraw();
@@ -699,6 +762,6 @@ addEventListener('pagehide', event => {
   disposed = true; clearTimeout(pollTimer); cancelAnimationFrame(frameId); resizeObserver.disconnect(); mobile.removeEventListener('change', placeInput);
   gpuRenderer?.dispose(); browserEngine.dispose();
   midiManager.disable(); midiAdapter?.dispose(); unsubscribeMidiStatus(); unsubscribeMidiMessages(); clearTimeout(midiActivityTimer); midiStatus.destroy();
-  foldTap.destroy(); pulseTap.destroy(); inputStrip.destroy(); audioStrip.destroy(); presetController?.destroy();
+  foldTap.destroy(); for (const picker of inputChoices.values()) picker.destroy(); inputStrip.destroy(); audioStrip.destroy(); presetController?.destroy();
 });
 paintControls(); scheduleDraw(); void bootstrap(); void poll();

@@ -1,8 +1,23 @@
 /* Original site and instrument styles own the UI. Native additions use the same controls. */
 #headerAudio { display: contents; }
-#seedSection { --accent: #fff3d6; --accent-soft: color-mix(in oklab, #fff3d6 55%, transparent); --accent-glow: color-mix(in oklab, #fff3d6 20%, transparent); }
-.native-seed-parameters { display: grid; gap: 12px; }
-.native-seed-parameters[hidden] { display: none; }
+#inputSection { --accent: #b79bff; --accent-soft: color-mix(in oklab, #b79bff 55%, transparent); --accent-glow: color-mix(in oklab, #b79bff 20%, transparent); }
+.native-input-controls { display: grid; gap: 12px; }
+.native-input-controls [hidden] { display: none !important; }
+.native-input-choice { display: block; min-width: 0; }
+.native-input-choice .instrument-picker { width: 100%; }
+.native-input-choice .instrument-picker-trigger { width: 100%; min-height: 36px; }
+.native-input-choice .instrument-picker-current { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-transform: none; }
+.native-input-file label { display: grid; gap: 8px; }
+.native-input-file input { width: 100%; min-width: 0; color: var(--muted); font: 10px/1.5 ui-monospace, monospace; }
+.native-input-file input::file-selector-button { margin-right: 8px; padding: 8px 10px; border: 1px solid var(--line-strong); border-radius: 3px; background: var(--panel-high); color: var(--ink); font: inherit; cursor: pointer; }
+.native-input-note, .native-input-credit { margin: 0; color: var(--muted); font-size: 9px; line-height: 1.5; overflow-wrap: anywhere; }
+.native-input-file .native-input-note { margin-top: 6px; }
+.native-input-note strong { color: var(--ink); font-weight: 500; }
+.native-input-note a, .native-input-credit a { color: var(--accent); }
+.native-input-status { color: var(--ink); font-size: 10px; line-height: 1.5; overflow-wrap: anywhere; }
+.native-input-playback { display: grid; gap: 10px; }
+.native-input-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.native-input-actions .mini-action { flex: 1 1 100px; }
 .native-check { display: flex; align-items: center; gap: 8px; color: var(--ink); font-size: 10px; }
 .native-check input { accent-color: var(--accent); }
 .native-diagnostics { margin: 0; }
@@ -16,8 +31,8 @@
 #nativeSettings .header-settings-section { display: grid; gap: 12px; }
 #nativeSettings .header-settings-panel > p { margin: 12px; }
 @media (pointer: coarse) {
-  #seedMicButton { min-width: 48px; min-height: 48px; }
-  #strikeButton, #seedPauseButton, #nativeStopAudio, #panicButton { min-height: 48px; }
+  .native-input-choice .instrument-picker-trigger, .native-input-actions .mini-action, .native-input-file input::file-selector-button, #panicButton { min-height: 48px; }
+  .native-input-playback .native-check { min-height: 40px; }
 }
 @media (max-width: 520px) {
   .mz-input-preset-row { gap: 5px; }

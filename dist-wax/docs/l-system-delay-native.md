@@ -8,8 +8,10 @@ remains at `/l-mic.html`. Both keep their own route and settings.
 The Rust page retains all sixteen original presets plus ten additional scenes,
 eleven grammars, the original slider curves, mastering controls and audio-clock
 branch animation. Microphone input is selected by default. The header contains
-input trim, the microphone switch and meters; the test-tone shortcut has been
-removed. An optional audition source remains inside the lower **Input** section.
+input trim, the microphone switch and meters. The first **Input** control section
+offers **Mic/line**, **Audio file** with a local uploader, and **Built-in samples**
+with a second sample dropdown. There is no synthesizer or test-tone input in
+this browser menu.
 
 ## Play the browser instrument
 
@@ -20,6 +22,24 @@ input can be captured and metered while output remains off. Enabling Audio with
 microphone selected can also request capture as part of that explicit action.
 Nothing starts capture or audible output on page load, preset selection or MIDI
 enablement. Device selection uses Morphazoid's browser audio-input settings.
+
+For recorded input, choose **Audio file** and upload a local recording, or choose
+**Built-in samples** and a sample loop, then enable **Audio**. Both feed real PCM
+into the same Rust delay history as the microphone; the voice admission and
+pitch/time processing remain unchanged. **Loop input** controls repetition,
+**Restart input** starts the recording again, and **Stop input** releases its
+source while allowing the delay tail to continue. Turning Audio off or leaving
+the page releases input and cancels pending loads. Re-enabling Audio starts the
+selected input again.
+
+Input mode, the selected sample, the uploaded recording and loop preference are
+session state. Sound presets, reloads and dice retain them along with the live
+gain controls. Uploads stay in the browser; files may be up to 64 MiB and playback
+uses the first two minutes, with longer files labelled as excerpts. Built-in
+samples reuse Synthesaurus's
+locally bundled recordings and arrangements; the input section links their
+original credits, including CC0 acoustic drums, CMU ARCTIC voice syllables,
+public-domain birdsong and Morphazoid's original rendered musical loops.
 
 For local development, the usual static development server is sufficient:
 
