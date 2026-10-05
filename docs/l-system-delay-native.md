@@ -273,24 +273,37 @@ physical-device checks remain separate. The compatibility command
 Native CPAL and CLI comparisons remain independently testable through Cargo.
 
 The visual-causality check instruments actual Canvas strokes with an isolated
-test-only browser bridge and mocked telemetry. It verifies complete 1,001-segment color coverage (1,000 admitted
-taps plus root) at all three CPU pressure tiers, independent sibling brightness,
+test-only browser bridge and mocked telemetry. It verifies the complete neutral
+outline and signal-bearing response at all three CPU pressure tiers, independent sibling brightness,
 rank continuity, visible measured release, mute darkness, and rejection of stale
 topology packets. Its screenshots and report are in ignored
 `artifacts/l-system-delay-visual-causality/`; it starts no audio device. Core
 fixtures separately prove distinct real delay onsets within one generation and
 an off-probe impulse whose tap meter agrees with measured rendered audio.
 Dense generation-13 fixtures cover all eleven grammars at normal and severe
-pressure. The Canvas checks inspect every admitted colored baseline, including
-unmetered slots, for interior displacement and changes over audio time. A short
+pressure. The Canvas checks inspect measured responses and the historical
+fallback for unmetered slots for interior displacement and changes over audio time. A short
 input packet advances through early, middle and late positions of a descendant;
 quiet sections remain unlit. Separate silent-admission and muted-bus cases verify
-that capacity growth creates no signal waves. Representative screenshots and the
-report are generated without microphone capture. Full recalls of Cedar, Quaking
+that capacity growth creates no signal waves. Long branches keep measured-silent
+endpoints uncolored, and a muted wet bus cannot inject input-root energy into
+descendants. Full scene recalls clear prior meters and wait for the new pool,
+including scenes sharing the same grammar and generation count.
+Representative screenshots and the report are generated without microphone capture. Full recalls of Cedar, Quaking
 Aspen and Foxglove use previews compiled by the committed Rust WASM; all
 sixteen original scenes also run with quiet and ordinary input envelopes. These
 mocked fixtures do not establish physical microphone behavior or a device voice
 deadline.
+
+The actual browser WASM regression also feeds synthetic 173 Hz microphone bursts
+(230 ms every 850 ms) through the normal capture/worklet path. Staghorn Coral at
+1440×900 must show at least one CSS pixel of wave deflection on multiple
+non-root branches at input amplitudes .01, .03 and .05; subpixel movement alone
+does not pass. A fresh silent capture must keep the full outline unchanged and
+uncolored while automatic voice admission grows. These checks use synthetic
+media, not a physical microphone or a listening evaluation. The input and delay
+branches use the same stroke-width response; compression settings do not create
+a separate visual animation.
 
 ## Historical native implementation verification
 
