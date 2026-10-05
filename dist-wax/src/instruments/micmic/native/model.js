@@ -119,7 +119,7 @@ export function inputHistoryFrame(reply, previous = {}, receivedAt = 0) {
  * Longer edges retain the traveling input packet, with their endpoint anchored
  * to the measured output instead of a prediction of granular playback.
  */
-export function branchWavePoints(node, start, end, envelope, detailSteps = 14, reducedMotion = false, nowSeconds = 0) {
+export function branchWavePoints(node, start, end, envelope, detailSteps = 14, reducedMotion = false, nowSeconds = 0, points = []) {
   const dx = end.x - start.x, dy = end.y - start.y, length = Math.hypot(dx, dy);
   const normalX = length > 1e-6 ? -dy / length : 0, normalY = length > 1e-6 ? dx / length : 0;
   const steps = Math.max(5, Math.min(Math.max(5, Math.floor(detailSteps)), Math.max(5, Math.ceil(length / 14))));
@@ -131,7 +131,6 @@ export function branchWavePoints(node, start, end, envelope, detailSteps = 14, r
   const parentMeasured = Number.isFinite(node.parentEnergy), parentEnergy = clamp(node.parentEnergy ?? 0);
   const transit = endDelay - startDelay;
   const rate = Math.sqrt(clamp(node.rate ?? 1, .25, 4));
-  const points = [];
   for (let i = 0; i <= steps; i++) {
     const progress = i / steps, delayedTime = nowSeconds - (startDelay + (endDelay - startDelay) * progress);
     let strength = fromHistory ? clamp(1 - Math.exp(-Math.max(0, envelope(delayedTime)) * 5)) * clamp(node.voiceLevel ?? 1) : clamp(envelope);
@@ -157,12 +156,15 @@ export function branchWavePoints(node, start, end, envelope, detailSteps = 14, r
     const deflection = Math.sqrt(strength);
     const carrier = Math.sin(nowSeconds * 9 * rate + progress * Math.PI * (3 + node.generation * .35) + (node.index ?? node.voiceIndex ?? 0) * .71);
     const offset = reducedMotion ? 0 : Math.sin(Math.PI * progress) * deflection * offsetMaximum * carrier;
-    const point = { x: start.x + dx * progress + normalX * offset, y: start.y + dy * progress + normalY * offset };
+    const point = points[i] ?? (points[i] = {});
+    point.x = start.x + dx * progress + normalX * offset;
+    point.y = start.y + dy * progress + normalY * offset;
     if (fromHistory || measured) point.energy = strength;
-    points.push(point);
+    else delete point.energy;
   }
   // Preserve connection exactly while keeping the endpoint's signal energy.
-  points[0] = { ...points[0], ...start }; points[points.length - 1] = { ...points.at(-1), ...end };
+  points.length = steps + 1;
+  Object.assign(points[0], start); Object.assign(points[steps], end);
   return points;
 }
 
@@ -263,9 +265,14 @@ export function fitTransform(bounds, width, height) {
 }
 
 /** Visual backoff starts before audio approaches its processing deadline. */
-export function visualBudget(load = 0, peak = 0, gesture = false, audio = true) {
+export function visualBudget(load = 0, peak = 0, gesture = false, audio = true, frameCostMs = 0) {
   const pressure = load >= .85 || peak >= .95 ? 2 : load >= .65 || peak >= .85 ? 1 : 0;
-  return { fps: !audio ? 60 : gesture ? pressure ? 30 : 60 : pressure === 2 ? 8 : pressure === 1 ? 15 : 30,
+  const desired = !audio ? 60 : gesture ? pressure ? 30 : 60 : pressure === 2 ? 20 : pressure === 1 ? 30 : 60;
+  // Spend at most 5/7.5/10% of a main-thread second on steady rendering.
+  // Cheap GPU submissions can remain smooth; expensive Canvas frames back off.
+  const allowance = pressure === 2 ? 50 : pressure === 1 ? 75 : 100;
+  const cost = Number.isFinite(frameCostMs) ? Math.max(0, frameCostMs) : 0;
+  return { fps: !audio || cost === 0 ? desired : Math.min(desired, allowance / cost),
     branches: pressure === 2 ? 64 : pressure === 1 ? 160 : 640, pressure };
 }
 

@@ -16,6 +16,7 @@ class LSystemDelayProcessor extends AudioWorkletProcessor {
     this.engine = this.api.lsd_new(sampleRate, 1);
     if (!this.engine) throw new Error(wasmError(this.api, 'The Rust delay engine could not start.'));
     this.dead = false; this.failed = false; this.measuredSeconds = 0; this.measuredFrames = 0; this.adjustmentSeconds = 0;
+    this.audioTimeSeconds = null;
     this.inputLeftPointer = this.api.lsd_alloc(BLOCK * 4);
     this.inputRightPointer = this.api.lsd_alloc(BLOCK * 4);
     this.outputLeftPointer = this.api.lsd_alloc(BLOCK * 4);
@@ -51,6 +52,7 @@ class LSystemDelayProcessor extends AudioWorkletProcessor {
     // Metrics are refreshed by Rust on read, including values between callbacks.
     this.api.lsd_metrics_ptr(this.engine);
     for (let i = 0; i < METRICS.length; i++) status[METRICS[i]] = this.metrics[i];
+    status.audioTimeSeconds = this.audioTimeSeconds;
     const count = this.api.lsd_taps_count(this.engine);
     status.tapActivity = Array.from(new Float32Array(this.memory, this.api.lsd_taps_ptr(this.engine), count));
     status.tapVoiceIndices = Array.from(new Uint32Array(this.memory, this.api.lsd_tap_indices_ptr(this.engine), count), value => value === 0xffffffff ? -1 : value);
@@ -123,6 +125,9 @@ class LSystemDelayProcessor extends AudioWorkletProcessor {
       left.fill(0); right?.fill(0); return false;
     }
     for (let i = 0; i < frames; i++) { left[i] = this.outputLeft[i]; if (right) right[i] = this.outputRight[i]; }
+    // Pair the Rust processed-sample clock with the end of this exact audio
+    // quantum. Delivery latency on the UI thread must not move the wave phase.
+    if (Number.isFinite(globalThis.currentTime)) this.audioTimeSeconds = globalThis.currentTime + frames / sampleRate;
     // Admission probes also consume the audio thread. Carry that measured
     // adjustment into the next observation, including coarse-clock batches.
     const seconds = Math.max(0, now() - started) / 1000 + this.adjustmentSeconds;

@@ -42,8 +42,10 @@ let manualFlashUntil = 0, tapReceivedAt = -Infinity, inputReceivedAt = -Infinity
 let inputTelemetry = { reader: null, receivedAt: -Infinity, clock: 0, clockReceivedAt: 0, endTime: -Infinity };
 let tapIdentity = topologyIdentity(state.parameters), tapTargets = new Map(), tapLevels = new Map(), rootLevel = 0;
 let sceneActivityPending = false, minimumTapRevision = 0;
-let lastDrawAt = -Infinity, visualPressureUntil = 0, heldVisualPressure = 0;
+let lastDrawAt = -Infinity, visualCostMs = 0;
 let geometry = null, frameId = 0, drag = null, rangeGesture = false, gestureUntil = 0, lockedFit = null;
+let stageWidth = 0, stageHeight = 0;
+const waveScratch = [];
 let nativePreview = null, nativePreviewFrom = new Map(), nativePreviewStarted = 0, nativePreviewMoving = false;
 let previewParameters = { ...state.parameters }, previewFrom = { ...previewParameters }, previewStarted = 0, previewMoving = false;
 let presets = [], lastScenePreset = 'pythagorean', presetController, sceneApplying = false;
@@ -384,8 +386,9 @@ function paintInput() {
   const label = mic ? 'Mic / line' : file ? input.fileName || 'Audio file' : SAMPLE_INPUT_OPTIONS.find(item => item.id === input.sampleId)?.label || input.label;
   const playing = mic ? microphoneActive : input.playing;
   const summary = pending ? 'loading' : playing ? state.performance.frozen ? 'paused' : 'live' : input.ended ? 'finished' : 'ready';
-  $('source').value = input.mode; $('inputSample').value = input.sampleId;
-  for (const picker of inputChoices.values()) picker.refresh();
+  for (const [id, value] of [['source', input.mode], ['inputSample', input.sampleId]]) {
+    if ($(id).value !== value) { $(id).value = value; inputChoices.get(id).refresh(); }
+  }
   $('inputSampleControl').hidden = input.mode !== 'samples';
   $('inputFileControl').hidden = !file; $('inputMicHelp').hidden = !mic;
   $('inputPlaybackControls').hidden = mic;
@@ -486,7 +489,7 @@ function paintControls() {
 
 function buildGeometry() {
   const box = canvas.getBoundingClientRect(), width = Math.max(1, box.width), height = Math.max(1, box.height), dpr = Math.min(2, devicePixelRatio || 1);
-  if (canvas.width !== Math.round(width * dpr) || canvas.height !== Math.round(height * dpr)) { canvas.width = Math.round(width * dpr); canvas.height = Math.round(height * dpr); lockedFit = null; }
+  if (width !== stageWidth || height !== stageHeight) { stageWidth = width; stageHeight = height; lockedFit = null; }
   const advanced = state.parameters.generations > 13;
   const authoritative = advanced && nativePreview && JSON.stringify(sanitizeParameters(nativePreview.parameters)) === JSON.stringify(state.parameters);
   const nodes = authoritative ? interpolatePreviewNodes(nativePreview.nodes, nativePreviewFrom, (performance.now() - nativePreviewStarted) / 120)
@@ -494,7 +497,9 @@ function buildGeometry() {
   // A provisional ancestor drawing never claims to represent admitted deep taps.
   if (advanced && !authoritative) for (const n of nodes) n.priority = null;
   const desiredFit = fitTransform(topologyBounds(nodes), width, height);
-  geometry = { width, height, dpr, nodes, desiredFit, fit: lockedFit ? { ...lockedFit } : desiredFit, activeLimit: -1, active: [], unavailableKey: null,
+  const byId = new Map(nodes.map(n => [n.id, n]));
+  geometry = { width, height, dpr, nodes, byId, waves: new Map(), root: nodes.find(n => n.generation === 0), desiredFit, fit: lockedFit ? { ...lockedFit } : desiredFit,
+    activeLimit: -1, active: [], activeIds: new Set(), unavailableKey: null,
     byVoiceIndex: new Map(nodes.filter(n => n.generation > 0).map(n => [n.voiceIndex, n])) };
   gpuRenderer?.setGeometry(nodes, { intervalMs: state.parameters.intervalMs });
   const counts = new Map(); for (const n of nodes) counts.set(n.generation, (counts.get(n.generation) ?? 0) + 1);
@@ -505,21 +510,25 @@ function buildGeometry() {
 function scheduleDraw() { if (!frameId && !disposed) frameId = requestAnimationFrame(draw); }
 function draw(now) {
   frameId = 0; if (disposed) return;
-  const pressure = visualBudget(state.status.cpuLoad, state.status.peakLoad).pressure;
-  if (pressure >= heldVisualPressure) { heldVisualPressure = pressure; if (pressure) visualPressureUntil = now + 3000; }
-  else if (now > visualPressureUntil) heldVisualPressure = pressure;
-  const budget = visualBudget(heldVisualPressure === 2 ? .85 : heldVisualPressure === 1 ? .65 : 0, 0,
-    Boolean(drag || rangeGesture || previewMoving || nativePreviewMoving), state.audio);
+  // Rust already smooths average load and releases its peak over .53 seconds.
+  // Adding a three-second hold here kept quiet, cheap trees visibly stuttering.
+  const budget = visualBudget(state.status.cpuLoad, state.status.peakLoad,
+    Boolean(drag || rangeGesture || previewMoving || nativePreviewMoving), state.audio, visualCostMs);
   if (now - lastDrawAt < 1000 / budget.fps - 1) { scheduleDraw(); return; }
   lastDrawAt = now;
+  const drawStarted = performance.now(), interpolating = previewMoving || nativePreviewMoving;
   if (nativePreviewMoving) { geometry = null; if (now - nativePreviewStarted >= 120) nativePreviewMoving = false; }
   if (previewMoving) {
     const fraction = (now - previewStarted) / 120;
     previewParameters = interpolateParameters(previewFrom, state.parameters, fraction); geometry = null;
     if (fraction >= 1) { previewParameters = { ...state.parameters }; previewMoving = false; }
   }
-  if (!geometry) buildGeometry();
-  const { width, height, dpr, nodes, desiredFit } = geometry;
+  const rebuilding = !geometry;
+  if (rebuilding) buildGeometry();
+  const { width, height, nodes, desiredFit } = geometry;
+  const dpr = state.audio ? Math.min(geometry.dpr, budget.pressure === 2 ? 1 : budget.pressure === 1 ? 1.5 : 2) : geometry.dpr;
+  const pixelWidth = Math.round(width * dpr), pixelHeight = Math.round(height * dpr);
+  if (canvas.width !== pixelWidth || canvas.height !== pixelHeight) { canvas.width = pixelWidth; canvas.height = pixelHeight; }
   let fitMoving = false;
   if (lockedFit && !drag && !rangeGesture && now > gestureUntil && !previewMoving) {
     for (const key of ['scale', 'x', 'y']) {
@@ -533,6 +542,7 @@ function draw(now) {
   const limit = sceneActivityPending ? 0 : Math.max(0, Number(state.status.voiceLimit) || 0);
   if (geometry.activeLimit !== limit) {
     geometry.activeLimit = limit; geometry.active = admittedPreviewNodes(nodes, limit);
+    geometry.activeIds = new Set(geometry.active.map(n => n.id));
     geometry.selectedCounts = new Map();
     for (const n of geometry.active) {
       geometry.selectedCounts.set(n.generation, (geometry.selectedCounts.get(n.generation) ?? 0) + 1);
@@ -543,19 +553,15 @@ function draw(now) {
   // Retained history remains useful through a slow Canvas frame or HTTP jitter.
   // A short meter timeout must not erase the unmetered descendants' response.
   const historyFresh = state.audio && inputTelemetry.reader && now - inputTelemetry.receivedAt < 2000;
-  const seconds = inputTelemetry.clock + clamp((now - inputTelemetry.clockReceivedAt) / 1000, 0, 2);
-  const responding = new Map();
+  const seconds = browserEngine.getSampleTime?.() ?? inputTelemetry.clock + clamp((now - inputTelemetry.clockReceivedAt) / 1000, 0, 2);
   for (const [slot, target] of tapTargets) if (target > 0 && !tapLevels.has(slot)) tapLevels.set(slot, 0);
   for (const [slot, level] of tapLevels) {
     const next = smoothActivity(level, fresh ? activityEnergy(tapTargets.get(slot) ?? 0) : 0, elapsed);
     if (next === 0) { tapLevels.delete(slot); continue; }
     tapLevels.set(slot, next);
-    const node = geometry.byVoiceIndex.get(slot);
-    if (node) responding.set(node.id, { node, energy: next });
   }
   rootLevel = smoothActivity(rootLevel, state.audio && now - inputReceivedAt < 300 ? activityEnergy(Number(state.status.inputPeak || 0)) : 0, elapsed);
-  const rootNode = nodes.find(n => n.generation === 0);
-  if (rootNode && rootLevel > 0) responding.set(rootNode.id, { node: rootNode, energy: rootLevel });
+  const rootNode = geometry.root;
   canvas.dataset.renderer = gpuRenderer?.available ? 'webgl2' : 'canvas';
   if (gpuRenderer?.available) {
     const detailSteps = Math.max(5, Math.min(14, Math.floor(budget.branches * 8 / Math.max(1, geometry.active.length))));
@@ -565,42 +571,61 @@ function draw(now) {
       wetBusGain: Number(state.status.wetBusGain || 0), depth: state.parameters.depth,
       generationCounts: state.status.generationVoiceCounts, selectedCounts: geometry.selectedCounts });
   } else {
-    const activeIds = new Set(geometry.active.map(n => n.id));
-    const branches = [...geometry.active, ...[...responding.values()].filter(({ node }) => !activeIds.has(node.id)).map(({ node }) => node)];
+    const activeIds = geometry.activeIds, released = [];
+    for (const slot of tapLevels.keys()) {
+      const node = geometry.byVoiceIndex.get(slot);
+      if (node && !activeIds.has(node.id)) released.push(node);
+    }
+    const branches = released.length ? geometry.active.concat(released) : geometry.active;
     // Color answers only availability, including voices still sounding through
     // their release. Grey never doubles as a volume indicator.
-    const availableIds = new Set(branches.map(n => n.id));
-    const unavailableKey = `${limit}:${branches.slice(geometry.active.length).map(n => n.id).join(',')}`;
+    const unavailableKey = `${limit}:${released.map(n => n.id).join(',')}`;
     if (geometry.unavailableKey !== unavailableKey) {
       geometry.unavailableKey = unavailableKey; geometry.unavailable = new Path2D();
+      const availableIds = released.length ? new Set(branches.map(n => n.id)) : activeIds;
       for (const n of nodes) if (!availableIds.has(n.id)) { geometry.unavailable.moveTo(n.startX, n.startY); geometry.unavailable.lineTo(n.x, n.y); }
     }
     context.save(); context.setTransform(dpr * fit.scale, 0, 0, -dpr * fit.scale, dpr * fit.x, dpr * fit.y);
     context.lineCap = 'round'; context.lineJoin = 'round'; context.strokeStyle = 'rgba(119,131,126,.58)';
     context.globalAlpha = .4; context.lineWidth = .72 / fit.scale; context.stroke(geometry.unavailable); context.restore();
-    const byId = new Map(nodes.map(n => [n.id, n]));
     const detailSteps = Math.max(5, Math.min(14, Math.floor(budget.branches * 8 / Math.max(1, branches.length))));
     const coloredPaths = COLORS.map(() => new Path2D());
-    for (const n of branches) {
-      const parent = byId.get(n.parentId), a = project(n.startX, n.startY), b = project(n.x, n.y);
-      const wet = Number(state.status.wetBusGain || 0) > 0 ? state.performance.wet : 0;
+    const wet = Number(state.status.wetBusGain || 0) > 0 ? state.performance.wet : 0;
+    const voiceLevels = [1];
+    for (const n of branches) if (voiceLevels[n.generation] === undefined) {
       const selectedCount = state.status.generationVoiceCounts?.[n.generation] ?? geometry.selectedCounts.get(n.generation);
       const gain = .5 * state.parameters.depth ** (n.generation * .72) / Math.sqrt(selectedCount || 1);
-      const voiceLevel = n.generation === 0 ? 1 : clamp(Math.sqrt(Math.max(0, gain) / .5) * Math.sqrt(wet));
+      voiceLevels[n.generation] = clamp(Math.sqrt(Math.max(0, gain) / .5) * Math.sqrt(wet));
+    }
+    for (const n of branches) {
+      let wave = geometry.waves.get(n.id);
+      if (!wave) {
+        const parent = geometry.byId.get(n.parentId);
+        wave = { parent, start: {}, end: {}, signal: { generation: n.generation, index: n.index, voiceIndex: n.voiceIndex,
+          delay: n.delay, rate: n.rate, startDelay: parent?.delay ?? Math.max(0, (n.delay ?? 0) - state.parameters.intervalMs / 1000) } };
+        geometry.waves.set(n.id, wave);
+      }
+      const { parent, start, end, signal } = wave;
+      start.x = n.startX * fit.scale + fit.x; start.y = -n.startY * fit.scale + fit.y;
+      end.x = n.x * fit.scale + fit.x; end.y = -n.y * fit.scale + fit.y;
       const history = historyFresh && !sceneActivityPending && activeIds.has(n.id);
-      const energy = responding.get(n.id)?.energy ?? 0;
+      const energy = n.generation === 0 ? rootLevel : tapLevels.get(n.voiceIndex) ?? 0;
       const measured = n.generation === 0 || tapTargets.has(n.voiceIndex);
       const parentMeasured = parent?.generation === 0 || tapTargets.has(parent?.voiceIndex);
-      const parentEnergy = wet > 0 ? (parent?.generation === 0 ? rootLevel * Math.sqrt(wet) : responding.get(parent?.id)?.energy ?? 0) : 0;
-      const points = branchWavePoints({ ...n, startDelay: parent?.delay ?? Math.max(0, (n.delay ?? 0) - state.parameters.intervalMs / 1000), voiceLevel,
-        measuredEnergy: measured ? energy : undefined, parentEnergy: parentMeasured ? parentEnergy : undefined },
-        a, b, history ? inputTelemetry.reader : energy, detailSteps, reducedMotion, seconds);
-      if (!history && !measured) for (const point of points) point.energy = energy;
-      const peak = Math.max(...points.map(p => p.energy));
+      const parentEnergy = wet > 0 ? (parent?.generation === 0 ? rootLevel * Math.sqrt(wet) : tapLevels.get(parent?.voiceIndex) ?? 0) : 0;
+      signal.voiceLevel = voiceLevels[n.generation]; signal.measuredEnergy = measured ? energy : undefined;
+      signal.parentEnergy = parentMeasured ? parentEnergy : undefined;
       const path = coloredPaths[n.generation % COLORS.length];
+      if ((!history && energy === 0) || measured && energy === 0 && (!history || signal.delay - signal.startDelay <= .1)) {
+        path.moveTo(start.x, start.y); path.lineTo(end.x, end.y); continue;
+      }
+      const points = branchWavePoints(signal, start, end, history ? inputTelemetry.reader : energy,
+        detailSteps, reducedMotion, seconds, waveScratch);
+      let peak = !history && !measured ? energy : 0;
+      for (const point of points) peak = Math.max(peak, point.energy || 0);
       path.moveTo(points[0].x, points[0].y);
       if (peak === 0) path.lineTo(points.at(-1).x, points.at(-1).y);
-      else for (const point of points.slice(1)) path.lineTo(point.x, point.y);
+      else for (let i = 1; i < points.length; i++) path.lineTo(points[i].x, points[i].y);
     }
     // All available lines stay colored and connected at silence. Only wave
     // deflection responds to amplitude; no brightness/width gate creates gaps.
@@ -620,6 +645,10 @@ function draw(now) {
   context.fillStyle = '#6de48b'; context.fill();
   context.strokeStyle = '#07090b'; context.lineWidth = 1.5; context.stroke(); context.restore();
   if (now < manualFlashUntil) { context.strokeStyle = COLORS[0]; context.globalAlpha = (manualFlashUntil - now) / 240; context.beginPath(); context.arc(root.x, root.y, seedSize / 2 + 5, 0, Math.PI * 2); context.stroke(); context.globalAlpha = 1; }
+  if (!rebuilding && !interpolating) {
+    const cost = Math.max(0, performance.now() - drawStarted);
+    visualCostMs += (cost - visualCostMs) * .15;
+  }
   if (state.audio || tapLevels.size || rootLevel > 0 || drag || previewMoving || nativePreviewMoving || fitMoving || (lockedFit && now <= gestureUntil) || now < manualFlashUntil) scheduleDraw();
 }
 
@@ -740,8 +769,10 @@ async function bootstrap() {
 async function poll() {
   if (disposed) return;
   if (!document.hidden && !pollWorking && bootstrapped) {
-    pollWorking = true; const revision = audioRevision;
-    try { acceptStatus(await request('/api/status'), { acceptAudio: revision === audioRevision }); }
+    pollWorking = true;
+    // The browser engine publishes this reply through onStatus. Applying it a
+    // second time repeats every control paint and rebases the same audio clock.
+    try { await request('/api/status'); }
     catch (error) { if (!document.hidden) showError(error.message); }
     finally { pollWorking = false; }
   }
