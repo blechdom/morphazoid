@@ -14,18 +14,20 @@ import {
   sanitizeEnvelope,
 } from '../src/instruments/synthesis/envelope-presets.js';
 
-test('the eight useful ADSR presets are distinct, complete and deeply immutable', () => {
-  assert.deepEqual(ENVELOPE_PRESETS.map(preset => preset.id), [
+test('the expanded ADSR and shape presets are distinct, complete and deeply immutable', () => {
+  assert.deepEqual(ENVELOPE_PRESETS.slice(0, 8).map(preset => preset.id), [
     'pluck', 'percussion', 'organ', 'brass', 'strings', 'pad', 'swell', 'drone',
   ]);
-  assert.equal(new Set(ENVELOPE_PRESETS.map(preset => JSON.stringify(preset.envelope))).size, 8);
+  assert.equal(ENVELOPE_PRESETS.length, 32);
+  assert.equal(new Set(ENVELOPE_PRESETS.map(preset => JSON.stringify(preset.envelope))).size, ENVELOPE_PRESETS.length);
   assert.ok(Object.isFrozen(ENVELOPE_PRESETS));
   for (const preset of ENVELOPE_PRESETS) {
     assert.ok(preset.label);
     assert.ok(preset.description);
     assert.ok(Object.isFrozen(preset));
     assert.ok(Object.isFrozen(preset.envelope));
-    assert.deepEqual(Object.keys(preset.envelope), Object.keys(ENVELOPE_LIMITS));
+    assert.deepEqual(Object.keys(preset.envelope).filter(key => key !== 'points'), Object.keys(ENVELOPE_LIMITS));
+    assert.equal(matchEnvelopePreset(preset.envelope), preset);
     for (const [stage, limits] of Object.entries(ENVELOPE_LIMITS)) {
       assert.ok(preset.envelope[stage] >= limits.min && preset.envelope[stage] <= limits.max);
     }
@@ -72,4 +74,10 @@ test('preset and parameter random helpers are deterministic, bounded and immutab
     assert.ok(first[stage] >= limits.min && first[stage] <= limits.max);
   }
   assert.notEqual(matchEnvelopePreset(first), getEnvelopePreset('organ'));
+  assert.equal(first.points.length, 5);
+  for (const bad of [NaN, Infinity, -1, 2]) {
+    const envelope = randomizeEnvelope(() => bad);
+    assert.ok(envelope.points.every(point => Number.isFinite(point.time) && Number.isFinite(point.level)));
+    assert.ok(envelope.points[1].level >= .65);
+  }
 });

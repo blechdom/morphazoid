@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { NATIVE_METHODS, methodsForVoiceMode, presetsForVoiceMode, validateScene, voiceModeForEngine } from '../src/instruments/voicesaurus/native-model.js';
+import { NATIVE_METHODS, defaultsFor, methodsForVoiceMode, presetsForVoiceMode, validateScene, voiceModeForEngine } from '../src/instruments/voicesaurus/native-model.js';
 import { singingNoteDescriptors } from '../src/instruments/voicesaurus/native-singing-model.js';
 import {
   createVoiceInputState, isVoiceInput, randomizeVoiceInputState, randomizeVoiceMethodState,
@@ -204,4 +204,37 @@ test('local parameter dice varies every native sound control instead of selectin
       }
     }
   }
+});
+
+test('STK dice retains phoneme-relative resonators and fits articulation to each authored note', () => {
+  const previous = voicePresetsForInput('singing').find(item => item.state.scene.engine === 'stk-voicform').state;
+  previous.scene.input.phrase.notes[0].values.duration = .018;
+  for (let seed = 1; seed <= 80; seed++) {
+    const next = randomizeVoiceMethodState(previous, 'singing', rng(seed));
+    for (const { input, values } of [next.scene, ...next.scene.input.phrase.notes]) {
+      const base = defaultsFor('stk-voicform', input);
+      assert.ok(values.noise <= (base.noise ? base.noise * 1.1 : .02));
+      assert.ok(values.voiced >= base.voiced * .65 && values.voiced <= base.voiced * .95);
+      assert.ok(values.vibrato <= .05 && values.jitter <= .015);
+      assert.ok(values.vibratoRate >= 3.5 && values.vibratoRate <= 7);
+      assert.ok(values.attack <= values.duration * .15 && values.decay <= values.duration * .3);
+      assert.ok(values.release <= values.duration * .18);
+      assert.ok(values.changeTime < values.duration - values.release);
+      assert.ok(values.destinationPitch >= values.pitch * .75 && values.destinationPitch <= values.pitch * 1.25);
+      if (values.destination !== 'hold') {
+        const target = defaultsFor('stk-voicform', { phone: values.destination });
+        assert.equal(target.voiced, base.voiced); assert.equal(target.noise, base.noise);
+      }
+      for (let n = 1; n <= 4; n++) {
+        assert.ok(values[`formant${n}`] >= base[`formant${n}`] * .92 && values[`formant${n}`] <= base[`formant${n}`] * 1.08);
+        assert.ok(values[`radius${n}`] >= 0 && values[`radius${n}`] <= .997);
+        assert.ok(values[`gain${n}`] >= base[`gain${n}`] * .65 && values[`gain${n}`] <= base[`gain${n}`] * 1.15);
+      }
+    }
+    assert.deepEqual(next.scene.input.phrase.notes.map(note => [note.values.pitch, note.values.duration]),
+      previous.scene.input.phrase.notes.map(note => [note.values.pitch, note.values.duration]));
+  }
+  const manual = structuredClone(previous);
+  Object.assign(manual.scene.values, { noise: 16, vibrato: 4, vibratoRate: 11025, gain1: 32 });
+  assert.deepEqual(sanitizeVoiceInputState(manual, 'singing'), manual);
 });

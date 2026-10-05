@@ -6,6 +6,7 @@ import {
   adsrPoints,
   createEnvelopeEditor,
 } from '../src/instruments/synthesis/envelope.js';
+import { ENVELOPE_PRESETS } from '../src/instruments/synthesis/envelope-presets.js';
 
 const close = (actual, expected, tolerance = 1e-5) => {
   assert.ok(Math.abs(actual - expected) <= tolerance, `${actual} ~= ${expected}`);
@@ -25,42 +26,31 @@ test('Shape-style T/A/D/S/R points round-trip the full Synthesaurus ADSR range',
   }
 });
 
-test('ADSR graph keeps T fixed and gives each time its own log lane', () => {
+test('every time and level moves independently without displacing another endpoint', () => {
   const original = adsrPoints({ attack: .02, decay: .4, sustain: .6, release: .8 });
-  assert.deepEqual(SYNTH_ADSR_EDITOR_MODEL.fixedNodes, [0]);
-  const fixedMove = SYNTH_ADSR_EDITOR_MODEL.moveNode(original, 0, { x: 1, y: 1 });
-  assert.equal(fixedMove.length, original.length);
-  for (const [index, point] of fixedMove.entries()) {
-    close(point.x, original[index].x);
-    close(point.y, original[index].y);
+  assert.deepEqual(SYNTH_ADSR_EDITOR_MODEL.fixedNodes, []);
+  for (let index = 0; index < 5; index++) {
+    const moved = SYNTH_ADSR_EDITOR_MODEL.moveNode(original, index, { x: original[index].x + .012, y: .32 });
+    assert.notEqual(moved[index].x, original[index].x);
+    close(moved[index].y, .32);
+    for (let other = 0; other < 5; other++) if (other !== index) {
+      close(moved[other].x, original[other].x); close(moved[other].y, original[other].y);
+    }
+    assert.equal(SYNTH_ADSR_EDITOR_MODEL.nodeAria(original, index), false);
+    assert.match(SYNTH_ADSR_EDITOR_MODEL.describeNode(moved, index), /left\/right time, up\/down level/);
   }
-
-  const decay = SYNTH_ADSR_EDITOR_MODEL.moveNode(original, 2, { x: .5, y: .23 });
-  close(decay[2].y, .6); close(decay[3].y, .6);
-  const sustain = SYNTH_ADSR_EDITOR_MODEL.moveNode(decay, 3, { x: 0, y: .91 });
-  close(sustain[2].y, .91); close(sustain[3].y, .91);
-
-  const short = adsrPoints({ attack: .001, decay: .002, sustain: .5, release: .003 });
-  const long = adsrPoints({ attack: 12, decay: 12, sustain: .5, release: 16 });
-  assert.ok(short[1].x < long[1].x);
-  assert.ok(short[2].x < long[2].x);
-  assert.ok(short[4].x < long[4].x);
+  const movedS = SYNTH_ADSR_EDITOR_MODEL.moveNode(original, 3, { ...original[3], y: .2 });
+  close(movedS[2].y, .6); close(movedS[3].y, .2);
 });
 
-test('each ADSR handle changes only its own parameter, including off-axis drags', () => {
-  const envelope = { attack: .02, decay: .4, sustain: .6, release: .8 };
-  const original = adsrPoints(envelope);
-  for (const [index, key] of ['attack', 'decay', 'sustain', 'release'].entries()) {
-    for (const point of [{ x: 0, y: 0 }, { x: 1, y: 1 }]) {
-      const next = adsrFromPoints(SYNTH_ADSR_EDITOR_MODEL.moveNode(original, index + 1, point));
-      assert.notEqual(next[key], envelope[key], `${key} changes at its extrema`);
-      for (const other of Object.keys(envelope).filter(candidate => candidate !== key)) {
-        close(next[other], envelope[other]);
-      }
-    }
-    const aria = SYNTH_ADSR_EDITOR_MODEL.nodeAria(original, index + 1);
-    close(aria.value, envelope[key]);
-    assert.equal(aria.orientation, key === 'sustain' ? 'vertical' : 'horizontal');
+test('point ordering clamps only the selected endpoint, and shape state round-trips', () => {
+  const original = adsrPoints({ attack: .02, decay: .4, sustain: .6, release: .8 });
+  for (let index = 0; index < 5; index++) for (const extreme of [-1, 2]) {
+    const next = SYNTH_ADSR_EDITOR_MODEL.moveNode(original, index, { x: extreme, y: extreme });
+    const state = adsrFromPoints(next);
+    for (let at = 1; at < 5; at++) assert.ok(state.points[at].time > state.points[at - 1].time);
+    assert.ok(state.points.every(point => point.level >= 0 && point.level <= 1));
+    assert.deepEqual(adsrPoints(state), next);
   }
 });
 
@@ -81,7 +71,7 @@ function element() {
   };
 }
 
-test('editor has four accessible graphic controls without duplicate parameter fields', () => {
+test('editor has five accessible two-axis controls without duplicate parameter fields', () => {
   const previousDocument = globalThis.document;
   globalThis.document = { createElement: element };
   try {
@@ -89,16 +79,19 @@ test('editor has four accessible graphic controls without duplicate parameter fi
     const editor = createEnvelopeEditor(host, { onChange: value => changes.push(value) });
     const root = host.children[0], graph = root.children[0].children[0];
     assert.equal(root.children.length, 1, 'only the graph is mounted');
-    assert.equal((graph.innerHTML.match(/role="slider"/g) ?? []).length, 4);
+    assert.equal((graph.innerHTML.match(/data-node=/g) ?? []).length, 5);
+    assert.doesNotMatch(graph.innerHTML, /data-anchor/);
     assert.doesNotMatch(graph.innerHTML, /<input|data-level/);
     const envelope = { attack: .02, decay: .4, sustain: .6, release: .8 };
     editor.setValue(envelope);
     assert.equal(changes.length, 0, 'preset synchronization does not emit an edit');
     graph.listeners.get('pointerdown')({
       target: { closest: () => ({ dataset: { node: '2' } }) },
-      pointerId: 4, button: 0, isPrimary: true, clientX: 50, clientY: 95, preventDefault() {},
+      pointerId: 4, button: 0, isPrimary: true, clientX: 50, clientY: 40, preventDefault() {},
     });
-    assert.ok(changes[0].decay > envelope.decay);
+    assert.equal(changes.length, 0, 'taking hold does not change a legacy envelope or mark its preset custom');
+    graph.listeners.get('pointermove')({ pointerId: 4, clientX: 50, clientY: 95 });
+    close(changes[0].points[2].level, .05);
     close(changes[0].sustain, envelope.sustain);
     graph.listeners.get('pointercancel')({ pointerId: 4 });
     for (const key of Object.keys(envelope)) close(changes.at(-1)[key], envelope[key]);
@@ -108,5 +101,18 @@ test('editor has four accessible graphic controls without duplicate parameter fi
   } finally {
     if (previousDocument === undefined) delete globalThis.document;
     else globalThis.document = previousDocument;
+  }
+});
+
+test('all preset handles remain separated on phone and desktop without changing the curve', () => {
+  for (const preset of ENVELOPE_PRESETS) for (const width of [240, 280, 600]) {
+    const points = adsrPoints(preset.envelope), before = structuredClone(points);
+    const handles = SYNTH_ADSR_EDITOR_MODEL.handlePoints(points, { width });
+    assert.deepEqual(points, before);
+    for (let index = 0; index < 5; index++) {
+      assert.ok(handles[index].x >= 0 && handles[index].x <= 1, preset.id);
+      assert.equal(handles[index].y, points[index].y);
+      if (index) assert.ok((handles[index].x - handles[index - 1].x) * width >= 35.99, preset.id);
+    }
   }
 });

@@ -80,6 +80,39 @@ function state(overrides = {}) {
   return { ...patch, params: sanitizeState({ ...patch, version: 1, presetId: "custom" }).params };
 }
 const rms = (samples) => Math.sqrt(samples.reduce((sum, value) => sum + value * value, 0) / samples.length);
+
+for (const voiceMode of ['mono', 'poly']) test(`${voiceMode} worklet renders independent D/S points, live edits and a nonzero release endpoint safely`, () => {
+  const low = makeHarness(), high = makeHarness();
+  const envelope = level => ({ attack: .02, decay: .1, sustain: .6, release: .1,
+    points: [{ time: 0, level: 0 }, { time: .02, level: 1 }, { time: .12, level },
+      { time: .3, level: .6 }, { time: .4, level: .8 }] });
+  try {
+    for (const [h, level] of [[low, .1], [high, .9]]) {
+      h.send({ type: 'state', state: state({ voiceMode, envelope: envelope(level) }) });
+      h.send({ type: 'note', noteId: 91, frequency: 220, velocity: .8, duration: null });
+    }
+    const lowBody = low.render(19200), highBody = high.render(19200);
+    assert.ok(rms(highBody.subarray(4800, 5760)) > rms(lowBody.subarray(4800, 5760)) * 2, 'D has an audible independent height');
+    assert.ok(Math.abs(rms(highBody.subarray(16800)) - rms(lowBody.subarray(16800))) < .00001, 'the same S level is retained');
+    for (const h of [low, high]) {
+      h.send({ type: 'state', state: state({ voiceMode, envelope: envelope(.4) }) });
+      assert.ok(rms(h.render(2400)) > .001, 'live shape edits preserve the held note');
+      h.send({ type: 'off', noteId: 91 });
+      const tail = h.render(24000);
+      assert.ok(rms(tail.subarray(2400, 4000)) > .001, 'R may rise after note-off');
+      // The existing 8 Hz DC blocker settles after the envelope's 5 ms safety fade.
+      assert.ok(rms(tail.subarray(9000, 10000)) < rms(tail.subarray(6000, 7000)) * .1, 'the DC tail decays rather than holding');
+      assert.ok(rms(tail.subarray(-4096)) < 1e-6, 'nonzero R cannot leave a hanging note');
+      h.send({ type: 'state', state: state({ voiceMode, envelope: { attack: .002, decay: .01, sustain: .8, release: .02 } }) });
+      h.send({ type: 'note', noteId: 92, frequency: 220, velocity: .8, duration: null });
+      assert.ok(rms(h.render(4800)) > .001, 'legacy ADSR recall clears point mode and sounds immediately');
+      h.send({ type: 'off', noteId: 92 });
+      h.render(4800);
+      assert.ok(rms(h.render(4800)) < 1e-6);
+    }
+  } finally { low.dispose(); high.dispose(); }
+});
+
 function fundamental(samples) {
   const crossings = [];
   for (let i = 1; i < samples.length; i++) {

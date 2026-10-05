@@ -96,7 +96,13 @@ export function mountVoiceInputPanel(host, { change = () => {}, error = () => {}
     applyPreset(bank[(index + 1) % bank.length]);
   }), dice);
   presetRow.append(preset, presetActions);
-  axes.append(field('Voice', methodRow), field('Voice preset', presetRow)); host.append(axes);
+  const methodField = field('Voice', methodRow), methodHeading = make('div', 'synthesis-axis-heading');
+  const info = button('About this voice method', 'i', () => {});
+  info.className = 'synthesis-info'; info.setAttribute('popovertarget', `${prefix}-info`);
+  methodHeading.append(methodField.firstChild, info); methodField.prepend(methodHeading);
+  const about = make('section', 'synthesis-info-popup'); about.id = `${prefix}-info`;
+  about.setAttribute('popover', 'auto'); about.setAttribute('aria-labelledby', `${prefix}-info-title`);
+  axes.append(methodField, field('Voice preset', presetRow)); host.append(axes, about);
   const methodPicker = enhanceChooseSelect(method, { label: 'Voice method' });
   const presetPicker = enhanceChooseSelect(preset, { label: 'Voice preset' }); persistent.push(methodPicker, presetPicker);
   const inputHost = make('div', 'synthesis-voice-text'), bankHost = make('div', 'native-bank-controls');
@@ -119,6 +125,7 @@ export function mountVoiceInputPanel(host, { change = () => {}, error = () => {}
     change(structuredClone(state));
   }
   function clearEditor() {
+    about.hidePopover?.();
     generation++; timeline?.destroy(); timeline = null; parameters(); parameters = () => {};
     sceneListeners.abort(); sceneListeners = new AbortController();
     observer.disconnect(); if (!destroyed) observer.observe(host, { childList: true, subtree: true });
@@ -152,21 +159,23 @@ export function mountVoiceInputPanel(host, { change = () => {}, error = () => {}
     const singing = inputId === 'singing', letters = spec.mode === 'native-letters';
     const draftKey = `${inputId}:${state.scene.engine}`;
     const technique = VOICE_TECHNIQUE_TEXTS[state.scene.engine];
-    const about = make('details', 'synthesis-voice-history');
-    about.append(make('summary', '', technique.label), make('p', '', technique.text));
+    const heading = make('h2', '', spec.name); heading.id = `${prefix}-info-title`;
+    about.replaceChildren(heading, make('p', '', technique.text));
+    const sources = make('p', 'synthesis-voice-sources');
     for (const source of technique.sources) {
       const link = make('a', '', source.label); link.href = source.url;
-      link.target = '_blank'; link.rel = 'noopener noreferrer'; about.append(link);
+      link.target = '_blank'; link.rel = 'noopener noreferrer'; sources.append(link);
     }
-    inputHost.append(about);
+    about.append(sources);
     if (!singing && !letters && spec.mode !== 'text') {
       inputHost.append(make('p', 'synthesis-voice-hint', 'This chip uses parameter frames, not a text frontend. Edit pitch, formants and note length below.')); return;
     }
-    const words = make(singing ? 'input' : 'textarea'); words.id = `${prefix}-text`; words.maxLength = 1000;
-    if (singing) { words.type = 'text'; words.value = lyricDrafts.get(draftKey) ?? state.scene.input.singingText ?? ''; }
+    const words = make('textarea'); words.id = `${prefix}-text`; words.maxLength = 1000; words.rows = 2;
+    if (singing) words.value = lyricDrafts.get(draftKey) ?? state.scene.input.singingText ?? '';
     else words.value = letters ? state.scene.input.phones ?? state.scene.input.text ?? '' : state.text;
     const label = singing ? state.scene.engine === 'sinsy' ? 'Japanese lyrics · kana or romaji' : 'Lyrics' : letters ? 'Native sounds' : 'Text';
-    words.setAttribute('aria-label', label); inputHost.append(field(label, words));
+    const textField = field(label, words);
+    words.setAttribute('aria-label', label); inputHost.append(textField);
     let encoding;
     if (letters) {
       words.removeAttribute('maxlength');
@@ -176,7 +185,12 @@ export function mountVoiceInputPanel(host, { change = () => {}, error = () => {}
     }
     const status = make('output', 'synthesis-voice-status'); status.setAttribute('role', 'status');
     const apply = singing ? button('Apply lyrics to notes', 'Apply lyrics', () => convert(), true) : null;
-    if (apply) inputHost.append(apply); inputHost.append(status);
+    if (apply) {
+      apply.title = 'Apply lyrics to notes (Ctrl/⌘ + Enter)';
+      words.setAttribute('aria-keyshortcuts', 'Control+Enter Meta+Enter');
+      inputHost.append(apply);
+    }
+    inputHost.append(status);
     let textSerial = 0;
     const markText = () => { textSerial++; if (apply) apply.disabled = false; status.textContent = ''; };
     async function convert(textPreset) {
@@ -199,14 +213,16 @@ export function mountVoiceInputPanel(host, { change = () => {}, error = () => {}
       else state.text = words.value;
       edited();
     });
-    if (singing) listenScene(words, 'keydown', event => { if (event.key === 'Enter' && !event.isComposing) { event.preventDefault(); return convert(); } });
+    if (singing) listenScene(words, 'keydown', event => {
+      if (event.key === 'Enter' && (event.ctrlKey || event.metaKey) && !event.isComposing) { event.preventDefault(); return convert(); }
+    });
     const texts = [...voiceTextOptions(state.scene.engine),
       ...textPresetsForEngine(state.scene.engine, { textCapable: singing || spec.mode === 'text' })];
     if (texts.length) {
       const select = make('select'); select.id = `${prefix}-text-preset`; select.setAttribute('aria-label', 'Text preset');
       select.append(option('Choose text', ''), ...texts.map(item => option(item.label, item.id)));
       select.value = texts.find(item => item.text === words.value)?.id ?? '';
-      inputHost.append(field('Text preset', select)); sceneWidgets.push(enhanceChooseSelect(select, { label: 'Text preset' }));
+      inputHost.insertBefore(field('Text preset', select), textField); sceneWidgets.push(enhanceChooseSelect(select, { label: 'Text preset' }));
       listenScene(select, 'change', () => {
         const chosen = texts.find(item => item.id === select.value); if (!chosen) return;
         words.value = chosen.text; markText();
@@ -222,7 +238,10 @@ export function mountVoiceInputPanel(host, { change = () => {}, error = () => {}
     clearEditor();
     const spec = NATIVE_METHODS[state.scene.engine], singing = inputId === 'singing';
     host.dataset.voiceInput = inputId;
-    method.replaceChildren(...Object.entries(methodsForVoiceMode(voiceModeForInput(inputId))).map(([id, entry]) => option(entry.name, id)));
+    method.replaceChildren(...Object.entries(methodsForVoiceMode(voiceModeForInput(inputId))).map(([id, entry]) => {
+      const item = option(`${entry.name} · ${entry.year}`, id);
+      item.title = entry.date; return item;
+    }));
     method.value = state.scene.engine; methodPicker.refresh(); refreshPresets(); mountText(spec); bankSources.refresh();
     globalLabel.hidden = !singing; globalLabel.textContent = state.scene.engine === 'sinsy' ? 'Global voice · whole score' : 'Global voice · notes can override';
     const controls = Object.fromEntries(Object.entries(spec.controls).filter(([key]) => !(singing && ['pitch', 'duration'].includes(key))));

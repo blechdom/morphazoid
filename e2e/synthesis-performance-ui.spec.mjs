@@ -109,7 +109,7 @@ for (const viewport of [{width:1440,height:900},{width:390,height:844},{width:84
     expect(dice.width).toBeLessThanOrEqual(48);
     expect(Math.abs(dice.y - next.y)).toBeLessThan(1);
     const handles=await page.locator('.synth-envelope [data-node]').evaluateAll(nodes=>nodes.map(node=>{const rect=node.getBoundingClientRect();return {w:rect.width,h:rect.height,font:parseFloat(getComputedStyle(node.querySelector('span')||node).fontSize)};}));
-    expect(handles.length).toBeGreaterThanOrEqual(4);
+    expect(handles.length).toBe(5);
     for(const handle of handles){expect(Math.abs(handle.w-handle.h)).toBeLessThan(.5);expect(handle.font).toBeGreaterThanOrEqual(12);}
     for (const id of ['methodInfo','sequenceInfo','tuningInfo']) {
       await page.locator(`[popovertarget=${id}]`).click();
@@ -179,8 +179,10 @@ for (const viewport of [{ width: 390, height: 844 }, { width: 844, height: 390 }
       expect(knobs[1].y).toBe(knobs[0].y);
       expect(knobs[1].x - knobs[0].x - knobs[0].width).toBeLessThanOrEqual(8);
       const tap = await page.locator('#tempoControl .mz-tap-tempo').boundingBox();
-      const gate = await page.locator('#gateControl').boundingBox();
-      expect(tap.x + tap.width).toBeLessThanOrEqual(gate.x);
+      const transport = await page.locator('#transportTiming').boundingBox();
+      expect(tap.x).toBeGreaterThanOrEqual(transport.x);
+      expect(tap.x + tap.width).toBeLessThanOrEqual(transport.x + transport.width + 1);
+      await expect(page.locator('#performanceDock #tempoControl')).toBeVisible();
       const pair = await page.locator('.synthesis-method-choice .synthesis-axis-pair').boundingBox();
       const method = await page.locator('[data-select-id=methodSelect] summary').boundingBox();
       const preset = await page.locator('[data-select-id=presetSelect] summary').boundingBox();

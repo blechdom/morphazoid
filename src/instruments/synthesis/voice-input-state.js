@@ -4,6 +4,7 @@ import {
 } from '../voicesaurus/native-model.js';
 import { singingSceneFromPronunciations } from '../voicesaurus/singing-text.js';
 import { voiceTextForEngine, randomVoiceText } from './voice-texts.js';
+import { NATIVE_SHAPE_TRIMS } from '../../../vendor/musical-voices/native-data.js';
 
 export const isVoiceInput = id => id === 'speech' || id === 'singing';
 const clone = value => structuredClone(value);
@@ -59,6 +60,17 @@ export function voicePresetsForInput(id) {
 // The native exact-entry domains include experimental/unstable combinations.
 // Dice uses a playable subset; manual edits and authored scenes stay untouched.
 const singerDicePhones = ['ahh', 'aah', 'ehh', 'eee', 'ooo', 'uhh', 'nng', 'pipe1', 'rolledr'];
+const stkDefaults = Object.fromEntries(NATIVE_METHODS['stk-voicform'].phones.map(phone => [phone, defaultsFor('stk-voicform', { phone })]));
+const stkDiceDestinations = Object.fromEntries(Object.entries(stkDefaults).map(([phone, base]) => {
+  const trims = NATIVE_SHAPE_TRIMS['stk-voicform'];
+  // The native note renderer retains the starting phone's output trim through
+  // a morph. Similar excitation and trim avoid turning a quiet vowel into a
+  // much louder/noisy destination part-way through the note.
+  return [phone, ['hold', ...Object.keys(stkDefaults).filter(destination => {
+    const target = stkDefaults[destination], ratio = trims[destination] / trims[phone];
+    return target.voiced === base.voiced && target.noise === base.noise && ratio > .6 && ratio < 1.6;
+  })]];
+}));
 function playableRandomScene(scene, rng, { preserveInput = false } = {}) {
   const r = () => Math.min(.999999, Math.max(0, Number(rng()) || 0));
   const span = (lo, hi) => Number((lo + (hi - lo) * r()).toFixed(6));
@@ -103,6 +115,31 @@ function playableRandomScene(scene, rng, { preserveInput = false } = {}) {
     // product must stay small; independently random wide ranges can overflow.
     fitFofGrain(values);
   }
+  if (scene.engine === 'stk-voicform') {
+    const base = stkDefaults[scene.input.phone];
+    const ranges = { pitch: [85, 440], duration: [.3, 1.2], amplitude: [.45, .9],
+      attack: [.003, .025], decay: [.025, .12], sustain: [.6, .95], release: [.015, .1],
+      vibrato: [.002, .05], vibratoRate: [3.5, 7], jitter: [.001, .015],
+      glide: [.0001, .005], transition: [.0005, .005], formantScale: [.9, 1.1],
+      sourceZero: [-.98, -.75], voiceGainRate: [.001, .006], noiseGainRate: [.001, .006] };
+    for (const [key, range] of Object.entries(ranges)) values[key] = span(...range);
+    // Mutate around the original phoneme, not independently across the full
+    // experimental gain/pole domains. Fricatives keep their intended noise;
+    // vowels retain a voiced source instead of becoming saturated static.
+    values.voiced = base.voiced * span(.65, .95);
+    values.noise = base.noise ? base.noise * span(.6, 1.1) : span(0, .02);
+    values.tilt = Math.max(.65, Math.min(.98, base.tilt + span(-.06, .06)));
+    for (let n = 1; n <= 4; n++) {
+      values[`formant${n}`] = base[`formant${n}`] * span(.92, 1.08);
+      values[`radius${n}`] = Math.max(0, Math.min(.997, 1 - (1 - base[`radius${n}`]) * span(.8, 1.35)));
+      values[`gain${n}`] = base[`gain${n}`] * span(.65, 1.15);
+      values[`sweep${n}`] = span(.0005, .005);
+    }
+    values.customFormants = r() < .5; values.pitchSweep = r() < .5;
+    const destinations = stkDiceDestinations[scene.input.phone];
+    values.destination = destinations[Math.floor(r() * destinations.length)];
+    fitStkTiming(values, r);
+  }
   if (scene.engine === 'singer') {
     if (!preserveInput) scene.input.phone = singerDicePhones[Math.floor(r() * singerDicePhones.length)];
     const base = defaultsFor('singer', scene.input);
@@ -136,6 +173,13 @@ function fitSingerTiming(values, rng) {
   values.changeTime = values.duration * (.1 + .6 * rng());
   values.destinationPitch = values.pitch * (.75 + .5 * rng());
 }
+function fitStkTiming(values, rng) {
+  values.changeTime = values.duration * (.15 + .5 * rng());
+  values.destinationPitch = values.pitch * (.75 + .5 * rng());
+  values.attack = Math.min(values.attack, values.duration * .15);
+  values.decay = Math.min(values.decay, values.duration * .3);
+  values.release = Math.min(values.release, values.duration * .18);
+}
 
 function randomForMethod(scene, mode, rng) {
   const engines = Object.keys(methodsForVoiceMode(mode));
@@ -160,12 +204,14 @@ export function randomizeVoiceMethodState(previous, id, rng = Math.random) {
   }
   if (next.scene.engine === 'singer') fitSingerTiming(next.scene.values, r);
   if (next.scene.engine === 'csound-fof') fitFofGrain(next.scene.values);
+  if (next.scene.engine === 'stk-voicform') fitStkTiming(next.scene.values, r);
   for (const note of next.scene.input.phrase?.notes ?? []) {
     const sound = randomForMethod({ ...next.scene, input: note.input ?? next.scene.input }, mode, r).values;
     note.voiceOverrides = Object.keys(sound).filter(key => !performance.has(key));
     for (const key of note.voiceOverrides) note.values[key] = sound[key];
     if (next.scene.engine === 'singer') fitSingerTiming(note.values, r);
     if (next.scene.engine === 'csound-fof') fitFofGrain(note.values);
+    if (next.scene.engine === 'stk-voicform') fitStkTiming(note.values, r);
   }
   return { ...next, scene: validateScene(next.scene) };
 }
@@ -188,5 +234,10 @@ export function randomizeVoiceInputState(previous, id, rng = Math.random) {
     };
     if (scene.engine === 'singer') for (const note of scene.input.phrase.notes) fitSingerTiming(note.values, r);
   }
-  return withVoiceInputText({ ...next, scene: validateScene(scene) }, randomVoiceText(scene.engine, r));
+  const result = withVoiceInputText({ ...next, scene: validateScene(scene) }, randomVoiceText(scene.engine, r));
+  if (scene.engine === 'stk-voicform') {
+    fitStkTiming(result.scene.values, r);
+    for (const note of result.scene.input.phrase?.notes ?? []) fitStkTiming(note.values, r);
+  }
+  return result;
 }

@@ -1,134 +1,98 @@
 import { createAmplitudeControl } from "../../amplitude-control.js";
+import { DEFAULT_ENVELOPE, sanitizeEnvelope } from './envelope-presets.js';
+import { ENVELOPE_POINT_LIMIT, ENVELOPE_POINT_GAP, pointsFromEnvelope, envelopeFromBreakpoints } from './envelope-shape.js';
 
-const DEFAULTS = Object.freeze({ attack: 0.018, decay: 0.22, sustain: 0.8, release: 0.35 });
-const STAGES = Object.freeze([
-  { id: "attack", label: "Attack", min: 0.001, max: 12, step: 0.001, unit: "s" },
-  { id: "decay", label: "Decay", min: 0.002, max: 12, step: 0.002, unit: "s" },
-  { id: "sustain", label: "Sustain", min: 0, max: 1, step: 0.01, unit: "%" },
-  { id: "release", label: "Release", min: 0.003, max: 16, step: 0.003, unit: "s" },
-]);
-const LANES = Object.freeze({ attack: [.06, .25], decay: [.35, .53], release: [.80, .94] });
 const clamp = (value, min, max) => Math.max(min, Math.min(max, Number.isFinite(value) ? value : min));
-const rounded = value => Number(value.toFixed(6));
-const numberText = value => String(rounded(value));
-const secondsText = value => value < 1 ? `${numberText(value * 1000)} ms` : `${numberText(value)} s`;
+const secondsText = value => value < 1 ? Number((value * 1000).toFixed(1)) + ' ms' : Number(value.toFixed(3)) + ' s';
+const labels = ['T', 'A', 'D', 'S', 'R'];
+const logSpan = Math.log1p(ENVELOPE_POINT_LIMIT / .002);
+const encode = time => .04 + .92 * Math.log1p(time / .002) / logSpan;
+const decode = x => .002 * Math.expm1(clamp((x - .04) / .92, 0, 1) * logSpan);
 
-function normalized(input, fallback = DEFAULTS) {
-  return Object.fromEntries(STAGES.map(stage => {
-    const value = Number(input?.[stage.id]);
-    return [stage.id, Number.isFinite(value) ? clamp(value, stage.min, stage.max) : fallback[stage.id]];
-  }));
-}
-
-function encode(key, value) {
-  const stage = STAGES.find(candidate => candidate.id === key);
-  const [left, right] = LANES[key];
-  return left + Math.log(clamp(value, stage.min, stage.max) / stage.min) / Math.log(stage.max / stage.min) * (right - left);
-}
-
-function decode(key, position) {
-  const stage = STAGES.find(candidate => candidate.id === key);
-  const [left, right] = LANES[key];
-  const amount = (clamp(position, left, right) - left) / (right - left);
-  return stage.min * (stage.max / stage.min) ** amount;
-}
-
-export function adsrPoints(input = DEFAULTS) {
-  const value = normalized(input);
-  return [
-    { x: .022, y: 0 },
-    { x: encode("attack", value.attack), y: 1 },
-    { x: encode("decay", value.decay), y: value.sustain },
-    { x: .675, y: value.sustain },
-    { x: encode("release", value.release), y: 0 },
-  ];
+export function adsrPoints(envelope = DEFAULT_ENVELOPE) {
+  return pointsFromEnvelope(envelope).map(({ time, level }) => ({ x: encode(time), y: level }));
 }
 
 export function adsrFromPoints(points) {
-  const fallback = adsrPoints(DEFAULTS);
-  return normalized({
-    attack: decode("attack", points?.[1]?.x ?? fallback[1].x),
-    decay: decode("decay", points?.[2]?.x ?? fallback[2].x),
-    sustain: clamp(points?.[3]?.y ?? points?.[2]?.y ?? DEFAULTS.sustain, 0, 1),
-    release: decode("release", points?.[4]?.x ?? fallback[4].x),
-  });
+  return envelopeFromBreakpoints(points.map(point => ({ time: Number(decode(point.x).toFixed(6)), level: point.y })));
 }
 
-/** Shape-family five-node interaction adapted to Synthesaurus's gate ADSR. */
+/** Same Shape-family interaction, now backed by actual independent DSP points. */
 export const SYNTH_ADSR_EDITOR_MODEL = Object.freeze({
-  labels: ["T", "A", "D", "S", "R"],
-  fixedNodes: [0],
-  presetPoints: () => adsrPoints(DEFAULTS),
+  labels, fixedNodes: [], presetPoints: () => adsrPoints(DEFAULT_ENVELOPE),
   normalizePoints: points => adsrPoints(adsrFromPoints(points)),
-  nodeAria(points, index) {
-    const value = adsrFromPoints(points);
-    if (index === 1) return { min: .001, max: 12, value: value.attack, orientation: "horizontal" };
-    if (index === 2) return { min: .002, max: 12, value: value.decay, orientation: "horizontal" };
-    if (index === 3) return { min: 0, max: 1, value: value.sustain, orientation: "vertical" };
-    if (index === 4) return { min: .003, max: 16, value: value.release, orientation: "horizontal" };
-    return false;
+  // Each button is two-dimensional: left/right time, up/down level.
+  nodeAria: () => false,
+  handlePoints(points, { width }) {
+    const gap = Math.min(.21, 36 / Math.max(1, width));
+    const handles = points.map(point => ({ ...point }));
+    for (let index = 1; index < handles.length; index++) handles[index].x = Math.max(handles[index].x, handles[index - 1].x + gap);
+    handles[4].x = Math.min(.96, handles[4].x);
+    for (let index = 3; index >= 0; index--) handles[index].x = Math.min(handles[index].x, handles[index + 1].x - gap);
+    return handles;
   },
   moveNode(points, index, point) {
-    const value = adsrFromPoints(points);
-    if (index === 1) value.attack = decode("attack", point.x);
-    if (index === 2) value.decay = decode("decay", point.x);
-    if (index === 3) value.sustain = clamp(point.y, 0, 1);
-    if (index === 4) value.release = decode("release", point.x);
-    return adsrPoints(value);
+    const values = adsrFromPoints(points).points;
+    const minimum = index ? values[index - 1].time + ENVELOPE_POINT_GAP : 0;
+    const maximum = index < 4 ? values[index + 1].time - ENVELOPE_POINT_GAP : ENVELOPE_POINT_LIMIT;
+    values[index] = { time: clamp(Number(decode(point.x).toFixed(6)), minimum, maximum), level: clamp(point.y, 0, 1) };
+    return adsrPoints(envelopeFromBreakpoints(values));
   },
   describeNode(points, index) {
-    const value = adsrFromPoints(points);
-    return [
-      "T · note gate opens",
-      `A · Attack ${secondsText(value.attack)} · drag left/right`,
-      `D · Decay ${secondsText(value.decay)} · drag left/right`,
-      `S · Sustain ${numberText(value.sustain * 100)}% until note off · drag up/down`,
-      `R · Release ${secondsText(value.release)} · drag left/right`,
-    ][index];
+    const point = adsrFromPoints(points).points[index];
+    return labels[index] + ' envelope node · ' + secondsText(point.time) + ' · ' + Math.round(point.level * 100) + '% · left/right time, up/down level';
   },
   axis(points) {
-    const value = adsrFromPoints(points);
-    return [`A ${secondsText(value.attack)}`, `D ${secondsText(value.decay)}`, `S ${numberText(value.sustain * 100)}%`, `R ${secondsText(value.release)}`];
+    return adsrFromPoints(points).points.map((point, index) => labels[index] + ' ' + secondsText(point.time) + ' · ' + Math.round(point.level * 100) + '%');
   },
-  note: "A/D/R: drag left/right for time · S: drag up/down for level",
+  note: 'Drag any node · time runs left/right on a log scale · S holds until note-off; R ends with a short fade to silence.',
 });
 
-/** One Shape-style graphic owns all four ADSR values; readouts are not controls. */
 export function createEnvelopeEditor(host, { onChange = () => {} } = {}) {
-  if (!host?.append) throw new TypeError("An envelope editor needs a host element.");
-  const root = document.createElement("div"); root.className = "synth-envelope";
-  // The shared control owns its host's className while it renders. Keep our
-  // instrument-specific styling hook on a stable wrapper around that host.
-  const graph = document.createElement("div"); graph.className = "synth-envelope__shared";
-  const sharedHost = document.createElement("div"); graph.append(sharedHost);
+  if (!host?.append) throw new TypeError('An envelope editor needs a host element.');
+  const root = document.createElement('div'); root.className = 'synth-envelope';
+  const graph = document.createElement('div'); graph.className = 'synth-envelope__shared';
+  const sharedHost = document.createElement('div'); graph.append(sharedHost);
   root.append(graph); host.append(root);
-  let value = { ...DEFAULTS }, syncing = false, destroyed = false;
+  let referenceValue = structuredClone(DEFAULT_ENVELOPE), referencePoints = adsrPoints(referenceValue);
+  let syncing = false, destroyed = false;
   const shared = createAmplitudeControl(sharedHost, {
-    label: "Amplitude shape · T/A/D/S/R",
-    presets: [], showLevel: false, allowDisable: false,
+    label: 'Amplitude shape · T/A/D/S/R', presets: [], showLevel: false, allowDisable: false,
     editorModel: SYNTH_ADSR_EDITOR_MODEL,
     onChange(controller) {
       if (syncing || destroyed) return;
-      value = adsrFromPoints(controller.state.points);
-      onChange({ ...value });
+      const points = controller.state.points;
+      const unchanged = points.every((point, index) => Math.abs(point.x - referencePoints[index].x) < 1e-7
+        && Math.abs(point.y - referencePoints[index].y) < 1e-7);
+      // Cancelling a drag restores the original legacy ADSR too, not a new mode.
+      onChange(unchanged ? structuredClone(referenceValue) : adsrFromPoints(points));
     },
   });
-  const syncGraph = () => {
+  const syncGraph = (points = referencePoints) => {
     syncing = true;
-    shared.applyState({ enabled: true, preset: "custom", level: 1, points: adsrPoints(value) });
+    shared.applyState({ enabled: true, preset: 'custom', level: 1, points });
     syncing = false;
   };
   syncGraph();
+  let width = 0;
+  const resize = typeof ResizeObserver === 'function' ? new ResizeObserver(entries => {
+    const next = entries[0]?.contentRect.width;
+    if (next > 0 && next !== width) {
+      const focusedNode = root.contains(document.activeElement) ? document.activeElement.dataset.node : null;
+      width = next; syncGraph(shared.state.points);
+      if (focusedNode != null) root.querySelector(`[data-node="${focusedNode}"]`)?.focus({ preventScroll: true });
+    }
+  }) : null;
+  resize?.observe(root);
   return Object.freeze({
     setValue(envelope) {
       if (destroyed) return;
-      value = normalized(envelope, value);
+      referenceValue = structuredClone(sanitizeEnvelope(envelope)); referencePoints = adsrPoints(referenceValue);
       syncGraph();
     },
     destroy() {
       if (destroyed) return;
-      destroyed = true;
-      shared.destroy(); root.remove();
+      destroyed = true; resize?.disconnect(); shared.destroy(); root.remove();
     },
   });
 }

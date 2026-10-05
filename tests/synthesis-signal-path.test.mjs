@@ -43,7 +43,7 @@ test('whole-instrument randomization includes insert settings and cannot request
   const enabled = new Set(), methods = new Set(), loopPolicies = new Set();
   for (let i = 0; i < 50; i++) {
     const next = randomizeInstrumentPreset(current, rng);
-    assert.ok(['synthesis', 'speech', 'singing', 'samples', 'signals'].includes(next.routing.input));
+    assert.ok(['synthesis', 'speech', 'singing'].includes(next.routing.input));
     assert.ok(!['microphone', 'file'].includes(next.routing.selection));
     assert.equal(next.routing.effect.presetId, 'custom');
     enabled.add(next.routing.effectEnabled); methods.add(next.routing.effect.methodId); loopPolicies.add(next.routing.loop);

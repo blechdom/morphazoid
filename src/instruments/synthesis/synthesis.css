@@ -26,7 +26,7 @@ body.synthesis-page { --synth-accent:#a8e6c1; --synth-muted:#9aada5; --synth-gol
 .synthesis-random-row { display:flex; align-items:center; justify-content:space-between; gap:18px; margin:0 0 12px; padding:9px 10px; border:1px solid #2f4439; background:#121c17; }
 .synthesis-random-row > div { display:grid; gap:3px; min-width:0; }
 .synthesis-random-row small { color:var(--synth-muted); font-size:9px; line-height:1.45; }
-.synthesis-shell :is(#randomPerformance,.synthesis-parameter-random) { display:flex; align-items:center; justify-content:center; gap:7px; flex:none; min-height:36px; color:#101b16; background:var(--synth-accent); border-color:var(--synth-accent); font-weight:700; }
+.synthesis-shell :is(#randomPerformance,.synthesis-parameter-random) { display:flex; align-items:center; justify-content:center; gap:7px; flex:none; min-height:36px; color:var(--synth-muted); background:#141f1a; border-color:#33473d; }
 .synthesis-shell :is(#randomPerformance,.synthesis-parameter-random) svg { width:18px; height:18px; fill:currentColor; }
 .synthesis-selectors { display:grid; grid-template-columns:minmax(606px,1.45fr) minmax(378px,1fr) minmax(240px,.72fr); gap:12px; align-items:stretch; }
 .synthesis-axis-card { display:flex; flex-direction:column; min-width:0; gap:6px; padding:10px; border:1px solid #293b32; background:#0e1512; }
@@ -47,7 +47,7 @@ body.synthesis-page { --synth-accent:#a8e6c1; --synth-muted:#9aada5; --synth-gol
 .synthesis-principle { margin:12px 0 15px; color:#c0d2c7; line-height:1.6; font-size:12px; max-width:100ch; }
 .synthesis-layout { display:grid; grid-template-columns:minmax(0,2.15fr) minmax(310px,1fr); gap:28px; align-items:start; }
 .synthesis-controls,.synthesis-analysis { min-width:0; }
-.synthesis-play-row { position:sticky; top:var(--synthesis-analysis-inset, 188px); z-index:3; background:#101513; padding:7px 0; }
+.synthesis-play-row { display:flex; flex-wrap:wrap; align-items:center; gap:8px 14px; padding:0; }
 .synthesis-note-actions { display:flex; align-items:center; gap:10px; }
 .synthesis-shell #playButton { flex:none; width:44px; height:44px; min-width:44px; min-height:44px; border-radius:50%; padding:0; border:1px solid var(--synth-accent); color:var(--synth-accent); background:#1b3027; display:grid; place-items:center; }
 #playButton svg { width:23px; height:23px; fill:currentColor; }
@@ -271,7 +271,13 @@ html:has(body.synthesis-page),body.synthesis-page { scroll-padding-top:calc(var(
 .synthesis-shell { width:min(1440px,calc(100% - 48px)); }
 .synthesis-sections { display:inline-flex; gap:0; padding:3px; border:1px solid #4a6455; border-radius:24px; background:#0a100d; }
 .synthesis-shell .synthesis-sections button { min-height:34px; border-radius:20px; padding:7px 18px; transition:background .15s,color .15s; }
-#performancePresetHost { max-width:700px; margin:0 0 6px; min-width:0; }
+.synthesis-performance-controls { display:flex; flex-wrap:wrap; align-items:center; gap:4px 16px; margin:0 0 6px; }
+#performancePresetHost { flex:0 1 700px; width:100%; max-width:700px; align-self:flex-start; margin:0; min-width:0; }
+#transportTiming .synthesis-knob { grid-template-columns:48px 64px; grid-template-rows:20px 28px; column-gap:4px; }
+#transportTiming .synthesis-knob-label { grid-column:2; min-height:0; align-items:center; }
+#transportTiming .synthesis-knob-dial { grid-column:1; grid-row:1 / 3; }
+#transportTiming :is(.synthesis-knob-value,.synthesis-knob-editor) { grid-column:2; grid-row:2; }
+#transportTiming .mz-tap-tempo { align-self:center; }
 #performancePresetHost .instrument-preset-controls { position:relative; z-index:0; padding:0; border:0; background:transparent; flex-wrap:nowrap; }
 #performancePresetHost #randomPerformance { width:36px; min-width:36px; flex:0 0 36px; }
 #performancePresetHost .instrument-picker-trigger { min-height:36px; height:auto; padding-block:6px; }
@@ -315,6 +321,8 @@ html:has(body.synthesis-page),body.synthesis-page { scroll-padding-top:calc(var(
 .synthesis-timing > div { min-width:0; width:84px; }
 .synthesis-timing #tempoControl { width:auto; min-width:102px; }
 .synthesis-envelope-preset { border:0; padding:0; margin:0 0 8px; }
+.synthesis-envelope-preset > label { display:none; }
+.synthesis-envelope-preset .synthesis-axis-control { max-width:460px; }
 .synthesis-local-preset-row { grid-template-columns:minmax(0,1fr) auto; }
 .synthesis-envelope-preset .synthesis-local-preset-row > button { min-width:32px; }
 .synthesis-performance-dock { position:sticky; top:0; z-index:4; min-width:0; padding:4px 0; background:#101513; border-bottom:1px solid #293b32; }
@@ -324,7 +332,7 @@ html:has(body.synthesis-page),body.synthesis-page { scroll-padding-top:calc(var(
 .synthesis-analysis .synthesis-monitor-heading .instrument-picker-trigger { min-height:26px; }
 .synthesis-shell .instrument-picker-panel-title,.synthesis-shell .synthesis-choose-group-label { display:none; }
 .synthesis-shell .instrument-picker-current,.synthesis-shell .instrument-picker-link { text-transform:none; }
-.synthesis-shell .instrument-picker-current { white-space:normal; overflow-wrap:anywhere; text-overflow:clip; }
+.synthesis-shell .instrument-picker-current { white-space:nowrap; overflow-wrap:normal; text-overflow:ellipsis; }
 .synthesis-shell .synthesis-choose .instrument-picker-trigger { min-height:36px; }
 .synthesis-xy-handle { display:grid !important; place-items:center; }
 .synthesis-xy-handle::after { display:block; box-sizing:border-box; width:17px; height:17px; }
@@ -377,7 +385,7 @@ html:has(body.synthesis-page),body.synthesis-page { scroll-padding-top:calc(var(
   .synthesis-analysis .synthesis-display-options label { min-height:24px; }
 }
 @media (min-width:620px) and (max-height:540px) {
-  .synthesis-performance-dock { display:grid; grid-template-columns:minmax(230px,.8fr) minmax(0,1.2fr); align-items:center; gap:12px; }
+  .synthesis-performance-dock { display:grid; grid-template-columns:minmax(230px,.8fr) minmax(0,1.2fr); align-items:start; gap:12px; }
   #performancePresetHost { margin:0; }
   .synthesis-analysis .synthesis-display-options { gap:4px; font-size:9px; }
 }

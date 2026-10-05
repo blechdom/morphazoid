@@ -1248,6 +1248,7 @@ copy+require	src/instruments/synthesis/level-calibration.js
 copy+require	src/instruments/synthesis/processor.js
 copy+require	src/instruments/synthesis/synthesis.css
 copy+require	src/instruments/synthesis/envelope.js
+copy+require	src/instruments/synthesis/envelope-shape.js
 copy+require	src/instruments/synthesis/envelope-presets.js
 copy+require	src/instruments/synthesis/controls.js
 copy+require	src/instruments/synthesis/method-ui.js

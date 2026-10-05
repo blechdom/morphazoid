@@ -5,8 +5,8 @@
 //! input source is copied into all eight preallocated engines on source changes.
 //! Construction allocates; note events, parameter changes and render do not.
 use crate::{
-    bounded, default_parameters, protect_output, Engine, BLOCK_FRAMES, METHOD_COUNT, PARAM_COUNT,
-    SAMPLE_CAPACITY,
+    bounded, default_parameters, protect_output, Engine, EnvelopePoint, BLOCK_FRAMES,
+    ENVELOPE_POINT_COUNT, METHOD_COUNT, PARAM_COUNT, SAMPLE_CAPACITY,
 };
 
 pub const MAX_VOICES: usize = 8;
@@ -109,6 +109,16 @@ impl VoiceBank {
     pub fn set_envelope(&mut self, attack: f32, decay: f32, sustain: f32, release: f32) {
         for voice in &mut self.voices {
             voice.engine.set_envelope(attack, decay, sustain, release);
+        }
+    }
+    pub fn set_envelope_points(&mut self, points: [EnvelopePoint; ENVELOPE_POINT_COUNT]) {
+        for voice in &mut self.voices {
+            voice.engine.set_envelope_points(points);
+        }
+    }
+    pub fn clear_envelope_points(&mut self) {
+        for voice in &mut self.voices {
+            voice.engine.clear_envelope_points();
         }
     }
     pub fn set_level_trim_db(&mut self, db: f32) {
@@ -300,6 +310,33 @@ pub unsafe extern "C" fn poly_apply_params(ptr: *mut VoiceBank) {
 pub unsafe extern "C" fn poly_set_envelope(ptr: *mut VoiceBank, a: f32, d: f32, s: f32, r: f32) {
     if let Some(b) = ptr.as_mut() {
         b.set_envelope(a, d, s, r);
+    }
+}
+#[no_mangle]
+pub unsafe extern "C" fn poly_set_envelope_points(
+    ptr: *mut VoiceBank,
+    t0: f32,
+    l0: f32,
+    t1: f32,
+    l1: f32,
+    t2: f32,
+    l2: f32,
+    t3: f32,
+    l3: f32,
+    t4: f32,
+    l4: f32,
+) {
+    if let Some(b) = ptr.as_mut() {
+        b.set_envelope_points(
+            [(t0, l0), (t1, l1), (t2, l2), (t3, l3), (t4, l4)]
+                .map(|(time, level)| EnvelopePoint { time, level }),
+        );
+    }
+}
+#[no_mangle]
+pub unsafe extern "C" fn poly_clear_envelope_points(ptr: *mut VoiceBank) {
+    if let Some(b) = ptr.as_mut() {
+        b.clear_envelope_points();
     }
 }
 #[no_mangle]

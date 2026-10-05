@@ -15,8 +15,8 @@
 .synth-envelope__shared .shared-amplitude-presets { display: none; }
 
 .synth-envelope__shared .shared-amplitude-editor {
-  height: 170px;
-  margin: 22px 18px;
+  height: 110px;
+  margin: 18px 16px;
   border: 1px solid #2d4337;
   background:
     linear-gradient(to bottom, transparent calc(50% - .5px), #2c423666 50%, transparent calc(50% + .5px)),
@@ -25,6 +25,7 @@
 
 .synth-envelope__shared .shared-amplitude-editor svg { inset: 0; width: 100%; height: 100%; }
 .synth-envelope__shared .shared-amplitude-editor path { stroke: var(--envelope-accent); stroke-width: 1.6; }
+.synth-envelope__shared [data-envelope-leader] { stroke: var(--envelope-muted); stroke-width: .7; stroke-dasharray: 2 2; pointer-events: none; }
 .synth-envelope__shared .shared-amplitude-editor button {
   display: grid;
   place-items: center;
@@ -43,10 +44,7 @@
   font: 700 15px/1 var(--mono, ui-monospace, monospace);
   letter-spacing: 0;
 }
-.synth-envelope__shared .shared-amplitude-editor button[data-node="1"],
-.synth-envelope__shared .shared-amplitude-editor button[data-node="2"],
-.synth-envelope__shared .shared-amplitude-editor button[data-node="4"] { cursor: ew-resize; }
-.synth-envelope__shared .shared-amplitude-editor button[data-node="3"] { cursor: ns-resize; }
+.synth-envelope__shared .shared-amplitude-editor button[data-node] { cursor: move; }
 .synth-envelope__shared .shared-amplitude-editor button:focus-visible {
   outline: 2px solid #fff;
   outline-offset: 3px;
@@ -67,9 +65,9 @@
 }
 .synth-envelope__shared .shared-amplitude-time-axis {
   flex-wrap: wrap;
-  gap: 4px 12px;
+  gap: 3px 10px;
   color: var(--envelope-muted);
-  font: 11px/1.4 var(--mono, ui-monospace, monospace);
+  font: 10px/1.4 var(--mono, ui-monospace, monospace);
   text-transform: none;
 }
 .synth-envelope__shared .mz-control-note { color: var(--envelope-muted); font: 10px/1.5 var(--mono, ui-monospace, monospace); }

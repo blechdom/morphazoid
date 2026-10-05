@@ -28,8 +28,9 @@ test('capture preserves direct and basic patterns for transaction rollback', () 
   }
 });
 
-test('one mixed tour is available from every input and introduces all unattended sources', () => {
-  for (const input of [...RANDOMIZABLE_INPUTS, 'microphone', 'file']) {
+test('one mixed musical tour excludes test sounds and loops without restricting the Input menu', () => {
+  assert.deepEqual(RANDOMIZABLE_INPUTS, ['synthesis', 'speech', 'singing']);
+  for (const input of [...RANDOMIZABLE_INPUTS, 'microphone', 'file', 'samples', 'signals']) {
     const bank = instrumentPresetsForInput(input);
     assert.equal(bank, INSTRUMENT_PRESETS);
     validateFullPresetBank(bank);
@@ -38,21 +39,18 @@ test('one mixed tour is available from every input and introduces all unattended
       assert.deepEqual(captureInstrumentPreset(preset.snapshot), preset.snapshot, preset.id);
     }
   }
-  assert.deepEqual(INSTRUMENT_PRESETS.slice(0, 5).map(p => p.snapshot.routing.input), RANDOMIZABLE_INPUTS);
+  assert.deepEqual(INSTRUMENT_PRESETS.slice(0, 3).map(p => p.snapshot.routing.input), RANDOMIZABLE_INPUTS);
   assert.deepEqual(new Set(INSTRUMENT_PRESETS.flatMap(p => p.snapshot.routing.voice ? [p.snapshot.routing.voice.scene.engine] : [])), new Set(Object.keys(NATIVE_METHODS)));
-  for (const input of ['samples', 'signals']) for (const source of inputsForCategory(input)) {
-    const preset = INSTRUMENT_PRESETS.find(p => p.id === `input:${source.id}`);
-    assert.equal(preset.snapshot.routing.input, input);
-    assert.equal(preset.snapshot.routing.selection, source.id);
-    assert.equal(preset.snapshot.sound.source, source.source);
-    assert.deepEqual(preset.snapshot.sound, preset.snapshot.routing.effect);
+  for (const input of ['samples', 'signals']) {
+    assert.ok(inputsForCategory(input).length > 0);
+    assert.ok(INSTRUMENT_PRESETS.every(p => p.snapshot.routing.input !== input));
   }
 });
 
 test('global dice can leave every family and creates parameters across every safe input', () => {
   let seed = 532;
   const rng = () => (seed = Math.imul(seed, 1664525) + 1013904223 >>> 0) / 4294967296;
-  const inputs = new Set(), engines = new Set(), materials = new Set(), loopPolicies = new Set();
+  const inputs = new Set(), engines = new Set(), loopPolicies = new Set();
   for (let i = 0; i < 500; i++) {
     const previous = INSTRUMENT_PRESETS[i % INSTRUMENT_PRESETS.length].snapshot;
     const before = structuredClone(previous), next = randomizeInstrumentPreset(previous, rng);
@@ -63,15 +61,14 @@ test('global dice can leave every family and creates parameters across every saf
     assert.ok(!Object.hasOwn(next.sound, 'outputLevel'));
     assert.ok(!Object.hasOwn(next, 'playing'));
     assert.equal(next.routing.effect.presetId, 'custom');
-    if (['speech', 'singing', 'samples'].includes(next.routing.input)) assert.equal(next.routing.loop, true);
+    if (['speech', 'singing'].includes(next.routing.input)) assert.equal(next.routing.loop, true);
     inputs.add(next.routing.input); loopPolicies.add(next.routing.loop);
     if (next.routing.voice) engines.add(next.routing.voice.scene.engine);
-    if (next.routing.selection) materials.add(next.routing.selection);
+    assert.equal(next.routing.selection, null);
     if (next.routing.input !== 'synthesis') assert.deepEqual(next.sound, next.routing.effect);
   }
   assert.deepEqual(inputs, new Set(RANDOMIZABLE_INPUTS));
   assert.equal(engines.size, Object.keys(NATIVE_METHODS).length);
-  assert.equal(materials.size, inputsForCategory('samples').length + inputsForCategory('signals').length);
   assert.equal(loopPolicies.size, 2);
   for (const draw of [0, 1, NaN, -1, Infinity]) {
     assert.ok(RANDOMIZABLE_INPUTS.includes(randomizeInstrumentPreset({}, () => draw).routing.input));

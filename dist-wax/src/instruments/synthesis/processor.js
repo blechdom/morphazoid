@@ -9,6 +9,16 @@ const clampNumber = (value, minimum, maximum, fallback) => (
   Math.max(minimum, Math.min(maximum, finiteNumber(value, fallback)))
 );
 const positiveModulo = (value, length) => ((value % length) + length) % length;
+const envelopeGateSeconds = env => env?.points?.length === 5 ? env.points[3].time
+  : (env?.attack ?? .01) + (env?.decay ?? .2);
+function configureEnvelope(api, handle, env, poly = false) {
+  const prefix = poly ? 'poly' : 'synth';
+  if (env.points?.length === 5) {
+    const apply = api[prefix + '_set_envelope_points'];
+    if (!apply) throw new Error('The synthesis engine needs updating to play breakpoint envelopes. Reload the page.');
+    apply(handle, ...env.points.flatMap(point => [point.time, point.level]));
+  } else api[prefix + '_set_envelope'](handle, env.attack, env.decay, env.sustain, env.release);
+}
 
 /** Audio-clock scheduling and the Rust/WASM boundary. No JS oscillator fallback. */
 class RoadsSynthesisProcessor extends AudioWorkletProcessor {
@@ -720,7 +730,7 @@ class RoadsSynthesisProcessor extends AudioWorkletProcessor {
         p.synth_apply_params(e);
       } else s.params.forEach((v, i) => p.synth_set_param(e, i, v));
       p.synth_set_frequency(e, this.pulseNote?.frequency ?? this.heldNote?.frequency ?? this.sequenceMono?.frequency ?? s.frequencyHz);
-      p.synth_set_envelope(e, s.envelope.attack, s.envelope.decay, s.envelope.sustain, s.envelope.release);
+      configureEnvelope(p, e, s.envelope);
       p.synth_set_level_trim_db?.(e, s.levelTrimDb ?? 0);
       if (audition) {
         this.events = this.events.filter(event => event.type !== "note" || event.duration === null);
@@ -907,7 +917,7 @@ class RoadsSynthesisProcessor extends AudioWorkletProcessor {
     const params = new Float32Array(p.memory.buffer, p.poly_params_ptr(e), this.parameterCount);
     params.fill(0); params.set(s.params.slice(0, this.parameterCount));
     p.poly_apply_params(e);
-    p.poly_set_envelope(e, s.envelope.attack, s.envelope.decay, s.envelope.sustain, s.envelope.release);
+    configureEnvelope(p, e, s.envelope, true);
     p.poly_set_level_trim_db(e, s.levelTrimDb ?? 0);
     if (fresh) {
       for (const note of Array.from(this.noteOwners.values()).slice(-8)) this.polyNote(note.id, note.frequency, note.velocity);
@@ -954,8 +964,8 @@ class RoadsSynthesisProcessor extends AudioWorkletProcessor {
 
   polyPulse(frequency, velocity, duration, frame, audition = false) {
     const env = this.state.envelope;
-    const fallback = env.attack + env.decay + .18;
-    const seconds = Math.min(24.2, Math.max(.02, Number.isFinite(duration) ? duration : fallback));
+    const fallback = envelopeGateSeconds(env) + .18;
+    const seconds = Math.min(env.points ? 64.2 : 24.2, Math.max(.02, Number.isFinite(duration) ? duration : fallback));
     const end = frame + Math.round(sampleRate * seconds), id = this.nextPolyId();
     const takeHold = audition && this.playing && this.state.playStyle === "hold";
     this.polyNote(id, frequency, velocity, takeHold ? Infinity : end, takeHold ? "play" : "pulse");
@@ -1175,8 +1185,8 @@ class RoadsSynthesisProcessor extends AudioWorkletProcessor {
 
   beginPulse(frequency, velocity, duration, frame) {
     const env = this.state?.envelope;
-    const fallback = (env?.attack ?? 0.01) + (env?.decay ?? 0.2) + 0.18;
-    const seconds = Math.min(24.2, Math.max(0.02, Number.isFinite(duration) ? duration : fallback));
+    const fallback = envelopeGateSeconds(env) + .18;
+    const seconds = Math.min(env?.points ? 64.2 : 24.2, Math.max(0.02, Number.isFinite(duration) ? duration : fallback));
     this.sequenceMono = null;
     this.pulseNote = { frequency, velocity };
     this.releaseAt = frame + Math.round(sampleRate * seconds);
@@ -1190,7 +1200,7 @@ class RoadsSynthesisProcessor extends AudioWorkletProcessor {
   durationFrames() {
     if (this.gate !== null) return Math.max(1, Math.round(sampleRate / this.rate * this.gate));
     const env = this.state?.envelope;
-    return Math.round(sampleRate * Math.min(8, Math.max(0.05, (env?.attack ?? 0.01) + (env?.decay ?? 0.2) + 0.12)));
+    return Math.round(sampleRate * Math.min(env?.points ? 64.2 : 8, Math.max(.05, envelopeGateSeconds(env) + .12)));
   }
 
   process(inputs, outputs) {

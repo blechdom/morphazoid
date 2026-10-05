@@ -161,8 +161,8 @@ test('random voice starting points render across native engines without long gap
   await page.locator('#audioButton').click();
   await expect.poll(async () => (await status(page)).armed).toBe(true);
   await page.locator('#playButton').click();
-  for (const engine of ['espeak', 'espeak-klatt', 'hts', 'csound-fof', 'singer', 'sinsy']) {
-    const input = ['csound-fof', 'singer', 'sinsy'].includes(engine) ? 'singing' : 'speech';
+  for (const engine of ['espeak', 'espeak-klatt', 'hts', 'csound-fof', 'singer', 'stk-voicform', 'sinsy']) {
+    const input = ['csound-fof', 'singer', 'stk-voicform', 'sinsy'].includes(engine) ? 'singing' : 'speech';
     await choose(page, 'inputCategory', input);
     for (const seed of [17943, 38421]) {
       await page.evaluate(async ({ engine, input, seed }) => {
@@ -189,10 +189,85 @@ for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 
       await choose(page, 'inputCategory', input);
       await expect(page.locator('#voiceDetail')).toBeVisible();
       await expect(page.locator(`[data-select-id="${methodId}"] summary`)).toBeVisible();
+      const methodBox = await page.locator(`[data-select-id="${methodId}"] summary`).boundingBox();
+      const presetBox = await page.locator('[data-select-id="synthesis-voice-1-preset"] summary').boundingBox();
+      if (Math.abs(methodBox.x - presetBox.x) > 1) {
+        expect(Math.abs(methodBox.y - presetBox.y)).toBeLessThan(1);
+        expect(Math.abs(methodBox.height - presetBox.height)).toBeLessThan(1);
+      }
       const dimensions = await page.evaluate(() => ({ content: document.documentElement.scrollWidth, viewport: innerWidth }));
       expect(dimensions.content).toBeLessThanOrEqual(dimensions.viewport + 1);
+      const editor = page.locator('#' + textId);
+      await expect(editor).toHaveJSProperty('tagName', 'TEXTAREA');
+      await expect(editor).toHaveAttribute('rows', '2');
+      const layout = await editor.evaluate(node => {
+        const picker = document.querySelector('[data-select-id="synthesis-voice-1-text-preset"]');
+        const style = getComputedStyle(node);
+        return { height: node.getBoundingClientRect().height, font: parseFloat(style.fontSize),
+          background: style.backgroundColor, color: style.color,
+          presetAbove: picker.getBoundingClientRect().bottom <= node.closest('.synthesis-voice-field').getBoundingClientRect().top };
+      });
+      expect(layout).toMatchObject({ background: 'rgb(250, 251, 247)', color: 'rgb(24, 36, 30)', presetAbove: true });
+      expect(layout.height).toBe(74);
+      expect(layout.font).toBeGreaterThanOrEqual(16);
+      await expect(page.locator('.synthesis-voice-history')).toHaveCount(0);
+      const info = page.getByRole('button', { name: 'About this voice method', exact: true });
+      const popup = page.locator('#synthesis-voice-1-info');
+      await expect(popup).not.toBeVisible();
+      await info.click();
+      await expect(popup).toBeVisible();
+      await expect(popup.locator('a').first()).toHaveAttribute('href', /^https:/);
+      await page.keyboard.press('Escape');
+      await expect(popup).not.toBeVisible();
     }
     const ids = await page.evaluate(() => [...document.querySelectorAll('[id]')].map(node => node.id));
     expect(new Set(ids).size).toBe(ids.length);
+    await page.locator('#' + textId).scrollIntoViewIfNeeded();
+    await page.screenshot({ path: test.info().outputPath('voice-editor.png') });
   });
 }
+
+test('multiline lyrics remain editable and apply with the button or keyboard shortcut', async ({ page }) => {
+  await page.goto('/synthesis.html');
+  await choose(page, 'inputCategory', 'singing');
+  await choose(page, methodId, 'stk-voicform');
+  const editor = page.locator('#' + textId);
+  const before = (await state(page)).routing.voice.scene;
+  await editor.fill('ah');
+  await editor.press('End'); await editor.press('Enter'); await editor.press('o');
+  await expect(editor).toHaveValue('ah\no');
+  expect((await state(page)).routing.voice.scene).toEqual(before);
+  await page.getByRole('button', { name: 'Apply lyrics to notes', exact: true }).click();
+  await expect.poll(async () => (await state(page)).routing.voice.scene.input.singingText).toBe('ah\no');
+  await editor.fill('oo\nee'); await editor.press('Control+Enter');
+  await expect.poll(async () => (await state(page)).routing.voice.scene.input.singingText).toBe('oo\nee');
+  await choose(page, 'synthesis-voice-1-text-preset', 'vowel-orbit');
+  await expect.poll(async () => (await state(page)).routing.voice.scene.input.singingText).toBe('so o o o oh oh oh ohoh');
+  expect(await status(page)).toMatchObject({ armed: false, playing: false });
+});
+
+test.describe('touch voice editing', () => {
+  test.use({ hasTouch: true });
+  for (const viewport of [{ width: 390, height: 844 }, { width: 844, height: 390 }]) {
+    test(`lyrics and method info are reachable at ${viewport.width}×${viewport.height}`, async ({ page }) => {
+      await page.setViewportSize(viewport);
+      await page.goto('/synthesis.html');
+      await choose(page, 'inputCategory', 'singing');
+      await choose(page, methodId, 'stk-voicform');
+      const editor = page.locator('#' + textId);
+      await editor.tap(); await editor.fill('ah\noh');
+      await page.getByRole('button', { name: 'Apply lyrics to notes', exact: true }).tap();
+      await expect.poll(async () => (await state(page)).routing.voice.scene.input.singingText).toBe('ah\noh');
+      await page.getByRole('button', { name: 'About this voice method', exact: true }).tap();
+      const popup = page.locator('#synthesis-voice-1-info');
+      await expect(popup).toBeVisible();
+      await expect(popup.locator('h2')).toHaveText('STK VoicForm');
+      // A tap outside the popup dismisses it; no permanent About block remains.
+      await page.touchscreen.tap(2, 2);
+      await expect(popup).not.toBeVisible();
+      await editor.tap();
+      await expect(editor).toBeFocused();
+      expect(await status(page)).toMatchObject({ armed: false, playing: false });
+    });
+  }
+});

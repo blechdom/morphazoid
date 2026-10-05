@@ -10,6 +10,9 @@ export async function choose(page, id, value) {
   }
   if (id === 'methodSelect' && String(value).startsWith('fx-')) id = 'processorMethod';
   if (id === 'presetSelect' && await page.locator('#synthesis').getAttribute('data-section') === 'processing') id = 'processorPreset';
+  if (id === 'processorPreset' && value !== 'custom' && !String(value).includes(':')) {
+    value = `${await page.locator('#processorMethod').inputValue()}:${value}`;
+  }
   const select = page.locator('#' + id);
   const index = await select.evaluate((node, expected) => [...node.options].findIndex(option => option.value === expected), String(value));
   expect(index, `${id} has option ${value}`).toBeGreaterThanOrEqual(0);

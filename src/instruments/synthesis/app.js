@@ -29,11 +29,13 @@ import { mountVoiceInputPanel } from "./voice-input-panel.js";
 import { VoiceInputSource } from "./voice-source.js";
 import { mountAudioInputControl } from "../../audio-input-control.js";
 import { createEnvelopeEditor } from "./envelope.js";
+import { envelopeGateSeconds } from './envelope-shape.js';
 import {
   ENVELOPE_PRESETS,
   getEnvelopePreset,
   matchEnvelopePreset,
   nextEnvelopePreset,
+  randomizeEnvelope,
 } from "./envelope-presets.js";
 import { createParameterControl, createKnobControl } from "./controls.js";
 import { createMethodGestureEditor, groupMethodControls, METHOD_EDITOR_SCHEMAS } from "./method-ui.js";
@@ -968,6 +970,7 @@ function renderState(rebuildControls = true, audition = false, restoringSection 
   $("randomMethod").title = "Randomize settings for " + method.label + " only";
   $("randomMethod").setAttribute("aria-label", $("randomMethod").title);
   $("noteTiming").hidden = processing;
+  $("transportTiming").hidden = processing;
   $("soundControls").setAttribute("aria-label", processing ? "Processing controls" : "Synthesis controls");
   $("randomMethod").hidden = processing;
   $("envelopeDetails").hidden = processing;
@@ -1238,6 +1241,11 @@ listen($("nextEnvelopePreset"), "click", () => {
   const current = matchEnvelopePreset(state.envelope);
   applyEnvelopePreset(nextEnvelopePreset(current?.id || "custom"));
 });
+listen($("randomEnvelope"), "click", () => {
+  state = fitRandomAttackToSequence({ ...state, presetId: 'custom', envelope: randomizeEnvelope() }, currentPerformanceInput().sequence);
+  envelopeEditor.setValue(state.envelope);
+  markCustom(); paintEnvelopePreset(); syncAudio(true);
+});
 
 
 listen($("randomMethod"), "click", () => {
@@ -1292,7 +1300,7 @@ function trigger() {
     return;
   }
   const poly = state.voiceMode === "poly" && !processing;
-  const duration = Math.min(24.2, state.envelope.attack + state.envelope.decay + 0.18);
+  const duration = Math.min(state.envelope.points ? 64.2 : 24.2, envelopeGateSeconds(state.envelope) + .18);
   const at = audio.context.currentTime + .005;
   const degrees = poly ? getTuning(state.tuningId).chordDegrees : [0];
   for (const frequency of demonstrationFrequencies(degrees)) audio.noteOn(frequency, 0.8, duration, null, at);

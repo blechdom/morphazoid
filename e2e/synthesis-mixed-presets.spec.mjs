@@ -8,6 +8,7 @@ const state = page => page.evaluate(() => window.MorphazoidSynthesis.getState())
 const status = page => page.evaluate(() => window.MorphazoidSynthesis.getStatus());
 const current = page => page.locator('#performancePresetHost .instrument-picker-current');
 const bank = page => page.locator('#performancePresetHost button[data-preset-id]');
+const familyCount = RANDOMIZABLE_INPUTS.length;
 
 async function installSafetyProbe(page) {
   await page.addInitScript(() => {
@@ -35,25 +36,29 @@ test('the top tour stays global and Next retains its place through input changes
   const errors = []; page.on('pageerror', error => errors.push(error.message));
   await page.goto('/synthesis.html');
   const labels = INSTRUMENT_PRESETS.map(preset => preset.label);
-  for (const input of RANDOMIZABLE_INPUTS) {
+  for (const input of [...RANDOMIZABLE_INPUTS, 'samples', 'signals']) {
     await choose(page, 'inputCategory', input);
     expect(await bank(page).allTextContents()).toEqual(labels);
+    if (input === 'samples' || input === 'signals') {
+      await expect(page.locator('[data-select-id="processingSource"] summary')).toBeVisible();
+      expect(await page.locator('#processingSource option').count()).toBeGreaterThan(0);
+    }
   }
   // A manually chosen source must not reset or narrow the global tour.
-  for (let index = 0; index < 5; index++) {
+  for (let index = 0; index < familyCount; index++) {
     await choose(page, 'inputCategory', index % 2 ? 'singing' : 'speech');
     await page.locator('#nextPerformancePreset').click();
     await expect(current(page)).toHaveText(INSTRUMENT_PRESETS[index].label);
     expect((await state(page)).routing.input).toBe(RANDOMIZABLE_INPUTS[index]);
   }
   for (const [index, input] of RANDOMIZABLE_INPUTS.entries()) {
-    await page.evaluate(index => { window.nextFamilyDraw = (index + .5) / 5; }, index);
+    await page.evaluate(({ index, familyCount }) => { window.nextFamilyDraw = (index + .5) / familyCount; }, { index, familyCount });
     await page.locator('#randomPerformance').click();
     await expect(current(page)).toHaveText('Preset · Custom');
     expect((await state(page)).routing.input).toBe(input);
   }
   await page.locator('#nextPerformancePreset').click();
-  await expect(current(page)).toHaveText(INSTRUMENT_PRESETS[5].label);
+  await expect(current(page)).toHaveText(INSTRUMENT_PRESETS[familyCount].label);
   expect(await status(page)).toMatchObject({ armed: false, playing: false });
   expect(await page.evaluate(() => window.deviceRequests)).toBe(0);
   expect(fileRequests).toBe(0);
@@ -68,7 +73,7 @@ test('mixed preset recalls keep one live output, performer level, and Play/Audio
   await page.locator('#outputLevel').evaluate(node => { node.value = '.27'; node.dispatchEvent(new Event('input', { bubbles: true })); });
   await page.locator('#audioButton').click();
   await page.locator('#playButton').click();
-  for (const preset of INSTRUMENT_PRESETS.slice(0, 5)) {
+  for (const preset of INSTRUMENT_PRESETS.slice(0, familyCount)) {
     await page.locator('#nextPerformancePreset').click();
     await expect(current(page)).toHaveText(preset.label);
     await expect.poll(async () => (await status(page)).input.loading, { timeout: 40_000 }).toBe(false);
@@ -80,7 +85,7 @@ test('mixed preset recalls keep one live output, performer level, and Play/Audio
   }
   // Random voice auditions repeat beyond their first phrase. Otherwise natural
   // completion would stop host Play and make the following Next stay silent.
-  await page.evaluate(() => { window.nextFamilyDraw = .3; });
+  await page.evaluate(() => { window.nextFamilyDraw = .5; });
   await page.locator('#randomPerformance').click();
   await expect.poll(async () => (await status(page)).input.loading, { timeout: 40_000 }).toBe(false);
   const voice = await status(page);
@@ -90,10 +95,10 @@ test('mixed preset recalls keep one live output, performer level, and Play/Audio
   await page.waitForTimeout(voice.input.voice.duration * 1000 + 300);
   expect(await status(page)).toMatchObject({ armed: true, playing: true });
   await page.locator('#nextPerformancePreset').click();
-  await expect(current(page)).toHaveText(INSTRUMENT_PRESETS[5].label);
+  await expect(current(page)).toHaveText(INSTRUMENT_PRESETS[familyCount].label);
   expect((await sampleAudioEnvelope(page, { durationMs: 700 })).summary.maxRms).toBeGreaterThan(.0001);
   await page.locator('#playButton').click();
-  for (const preset of INSTRUMENT_PRESETS.slice(0, 5)) {
+  for (const preset of INSTRUMENT_PRESETS.slice(0, familyCount)) {
     await recall(page, preset);
     expect(await status(page)).toMatchObject({ armed: true, playing: false });
   }
@@ -102,7 +107,7 @@ test('mixed preset recalls keep one live output, performer level, and Play/Audio
   await page.locator('#audioButton').click();
   await page.locator('#playButton').click();
   for (const [index, input] of RANDOMIZABLE_INPUTS.entries()) {
-    await page.evaluate(index => { window.nextFamilyDraw = (index + .5) / 5; }, index);
+    await page.evaluate(({ index, familyCount }) => { window.nextFamilyDraw = (index + .5) / familyCount; }, { index, familyCount });
     await page.locator('#randomPerformance').click();
     expect((await state(page)).routing.input).toBe(input);
     expect((await state(page)).outputLevel).toBe(.27);

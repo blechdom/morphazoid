@@ -4,8 +4,9 @@ import { readAudioStatus, sampleAudioEnvelope, waitForStableAudioState } from ".
 import { METHODS } from "../src/instruments/synthesis/catalog.js";
 import { METHOD_EDITOR_SCHEMAS } from "../src/instruments/synthesis/method-ui.js";
 import { adsrPoints } from "../src/instruments/synthesis/envelope.js";
+import { pointsFromEnvelope } from "../src/instruments/synthesis/envelope-shape.js";
 
-import { SECTION_METHODS, methodSection } from "../src/instruments/synthesis/presets.js";
+import { SECTION_METHODS, SECTION_PRESETS, methodSection } from "../src/instruments/synthesis/presets.js";
 
 const knobCount = method => {
   const graphicIds = new Set((METHOD_EDITOR_SCHEMAS[method.id] || []).flatMap(editor => editor.kind === 'xy' ? [editor.x, editor.y] : editor.ids));
@@ -15,14 +16,19 @@ const knobCount = method => {
 async function moveEnvelopeHandle(page, key, value) {
   const index = ['attack', 'decay', 'sustain', 'release'].indexOf(key) + 1;
   const envelope = await page.evaluate(() => window.MorphazoidSynthesis.getState().envelope);
-  const point = adsrPoints({ ...envelope, [key]: value })[index];
+  const points = pointsFromEnvelope(envelope);
+  const original = adsrPoints(envelope)[index];
+  if (key === 'sustain') points[index].level = value;
+  else points[index].time = key === 'attack' ? value : points[index - 1].time + value;
+  const point = adsrPoints({ points })[index];
   const handle = page.locator(`#envelopeControls [data-node="${index}"]`);
   await handle.scrollIntoViewIfNeeded();
   const bounds = await page.locator('#envelopeControls [data-editor]').boundingBox();
   const start = await handle.boundingBox();
   await page.mouse.move(start.x + start.width / 2, start.y + start.height / 2);
   await page.mouse.down();
-  await page.mouse.move(bounds.x + bounds.width * point.x, bounds.y + bounds.height * (1 - point.y), { steps: 4 });
+  await page.mouse.move(start.x + start.width / 2 + bounds.width * (point.x - original.x),
+    start.y + start.height / 2 - bounds.height * (point.y - original.y), { steps: 4 });
   await page.mouse.up();
 }
 
@@ -38,7 +44,9 @@ async function selectSoundPreset(page, methodId, presetId) {
 }
 
 test("Audio arming, live method changes, preset recall, output and release", async ({ page }) => {
-  test.setTimeout(90_000);
+  // The tour now visits 70 live engines. Keep per-control expectations strict,
+  // but allow the complete tour to run on a busy release-validation machine.
+  test.setTimeout(180_000);
   const errors = []; page.on("pageerror", error => errors.push(error.message));
   await page.goto("/synthesis.html?method=additive");
   await expect(page.locator("#methodSelect option")).toHaveCount(SECTION_METHODS.synthesis.length);
@@ -50,7 +58,7 @@ test("Audio arming, live method changes, preset recall, output and release", asy
   for (const method of METHODS) {
     await selectMethod(page, method.id);
     const processing = methodSection(method.id) === 'processing';
-    await expect(page.locator(processing ? '#processorPreset option' : '#presetSelect option')).toHaveCount(method.presets.length);
+    await expect(page.locator(processing ? '#processorPreset option' : '#presetSelect option')).toHaveCount(processing ? SECTION_PRESETS.processing.length : method.presets.length);
     await expect(page.locator(processing ? '#processorParameters .synthesis-parameter' : '#methodControls .synthesis-parameter')).toHaveCount(knobCount(method));
     await page.locator(processing ? '#nextProcessorPreset' : '#nextPreset').click();
     expect(await page.evaluate(() => window.MorphazoidSynthesis.getStatus().playing)).toBe(true);
@@ -152,11 +160,11 @@ test("MIDI notes use independent identity, preserve pitch controls and release o
 });
 
 
-for (const section of ['synthesis','processing']) test("Next tours " + section + " presets and wraps within the chosen method", async ({ page }) => {
+for (const section of ['synthesis','processing']) test("Next tours " + section + " presets and wraps " + (section === 'processing' ? 'across all processors' : 'within the chosen method'), async ({ page }) => {
   test.setTimeout(90_000);
   await page.goto("/synthesis.html?method=" + SECTION_METHODS[section][0].id);
   const method = SECTION_METHODS[section][0];
-  const expected = method.presets.map(preset => `${method.id}:${preset.id}`);
+  const expected = section === 'processing' ? SECTION_PRESETS.processing.map(preset => preset.id) : method.presets.map(preset => `${method.id}:${preset.id}`);
   const visited = [];
   for (let i = 0; i < expected.length; i++) {
     visited.push(await page.evaluate(() => {
@@ -168,7 +176,7 @@ for (const section of ['synthesis','processing']) test("Next tours " + section +
     await page.waitForTimeout(25);
   }
   expect(visited).toEqual(expected);
-  expect(new Set(visited).size).toBe(method.presets.length);
+  expect(new Set(visited).size).toBe(expected.length);
   expect(await page.evaluate(() => {
     const state = window.MorphazoidSynthesis.getState();
     return `${state.methodId}:${state.presetId}`;
@@ -208,15 +216,15 @@ test("independent ADSR handles edit the actual envelope without triggering extra
   await page.goto("/synthesis.html?method=additive");
   const graph = page.locator(".synth-envelope [data-editor]");
   const handles = graph.locator("[data-node]");
-  await expect(handles).toHaveCount(4);
-  await expect(graph.locator('[data-anchor="0"]')).toHaveCount(1);
+  await expect(handles).toHaveCount(5);
+  await expect(graph.locator('[data-anchor]')).toHaveCount(0);
   await expect(page.locator("#envelopeControls input")).toHaveCount(0);
   const before = await page.evaluate(() => window.MorphazoidSynthesis.getState().envelope);
   const attack = graph.locator('[data-node="1"]');
   await attack.focus(); await attack.press("ArrowRight");
   const keyboard = await page.evaluate(() => window.MorphazoidSynthesis.getState().envelope);
   expect(keyboard.attack).toBeGreaterThan(before.attack);
-  expect(keyboard.decay).toBeCloseTo(before.decay, 10);
+  expect(keyboard.points[2].time).toBeCloseTo(before.attack + before.decay, 6);
   await moveEnvelopeHandle(page, 'sustain', .35);
   expect(await page.evaluate(() => window.MorphazoidSynthesis.getState().envelope.sustain)).toBeCloseTo(.35, 2);
   const release = graph.locator('[data-node="4"]');
@@ -282,6 +290,10 @@ test("method controls expose exact physical values, discrete choices and full su
   expect((await page.evaluate(() => window.MorphazoidSynthesis.getState())).params[numericIndex]).toBe(0);
   await choose(page, "synth-param-0", "3");
   expect((await page.evaluate(() => window.MorphazoidSynthesis.getState())).params[0]).toBe(1);
+  await page.evaluate(() => {
+    const state = window.MorphazoidSynthesis.getState();
+    window.MorphazoidSynthesis.applyState({ ...state, envelope: { attack: 4, decay: 12, sustain: .7, release: 4 } });
+  });
   await moveEnvelopeHandle(page, 'attack', 12);
   await moveEnvelopeHandle(page, 'release', 16);
   const envelope = (await page.evaluate(() => window.MorphazoidSynthesis.getState())).envelope;
@@ -617,7 +629,7 @@ test('deep links and host recalls select the matching section with one scoped to
   await page.goto('/synthesis.html?method='+effect.id+'&preset='+effect.presets[2].id);
   await expect(page.locator('#inputCategory')).toHaveValue('signals');
   await expect(page.locator('#methodSelect option')).toHaveCount(SECTION_METHODS.processing.length);
-  await expect(page.locator('#processorPreset option')).toHaveCount(effect.presets.length);
+  await expect(page.locator('#processorPreset option')).toHaveCount(SECTION_PRESETS.processing.length);
   await expect(page.locator('#nextProcessorPreset')).toHaveAccessibleName('Next processor preset');
   await page.locator('#nextProcessorPreset').click();
   expect(await page.evaluate(()=>window.MorphazoidSynthesis.getState().presetId)).toBe(effect.presets[3].id);
@@ -637,7 +649,7 @@ test('deep links and host recalls select the matching section with one scoped to
   expect(errors).toEqual([]);
 });
 
-test('processor parameter edits keep the selected processor without preset dice',async({page})=>{
+test('processor knob edits and parameter dice keep the selected processor',async({page})=>{
   await page.goto('/synthesis.html?method=fx-biquad');
   const initial=await page.evaluate(()=>window.MorphazoidSynthesis.getState());
   await page.locator('#processorParameters input[type=range]').first().press('ArrowRight');
@@ -653,7 +665,13 @@ test('processor parameter edits keep the selected processor without preset dice'
   const after=await page.evaluate(()=>window.MorphazoidSynthesis.getState());
   expect(after.methodId).toBe('fx-delay'); expect(after.params).not.toEqual(before.params);
   await expect(page.locator('#randomMethod')).toBeHidden();
-  await expect(page.locator('#processorPanel button[title*="Random"], #processorPanel button[aria-label*="Random"]')).toHaveCount(0);
+  await expect(page.locator('#processorPanel button[title*="Random"], #processorPanel button[aria-label*="Random"]')).toHaveCount(1);
+  await page.locator('#randomProcessor').click();
+  const randomized = await page.evaluate(() => window.MorphazoidSynthesis.getState());
+  expect(randomized.methodId).toBe('fx-delay');
+  expect(randomized.params).not.toEqual(after.params);
+  expect(randomized.source).toBe(after.source);
+  expect(randomized.presetId).toBe('custom');
   expect(await page.evaluate(()=>window.MorphazoidSynthesis.getStatus().armed)).toBe(false);
 });
 

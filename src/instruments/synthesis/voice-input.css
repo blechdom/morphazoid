@@ -2,10 +2,10 @@
 .synthesis-voice-input[hidden] { display:none; }
 .synthesis-voice-input .synthesis-axis-pair { margin-bottom:12px; }
 .synthesis-voice-input .synthesis-voice-field { display:grid;gap:5px;min-width:0; }
+.synthesis-voice-input .synthesis-axis-pair > .synthesis-voice-field { grid-template-rows:24px minmax(36px,1fr); }
 .synthesis-voice-input .synthesis-voice-text { display:grid;gap:8px;margin-bottom:12px; }
 .synthesis-voice-input .synthesis-voice-text:empty { display:none; }
-.synthesis-voice-input textarea,.synthesis-voice-input .synthesis-voice-text input[type=text] { box-sizing:border-box;width:100%;min-width:0;background:#11191b;border:1px solid #3d4950;color:#e7ecef;padding:8px;font:13px/1.5 var(--mono); }
-.synthesis-voice-input textarea { min-height:90px;resize:vertical; }
+.synthesis-voice-input .synthesis-voice-text textarea { box-sizing:border-box;width:100%;min-width:0;min-height:74px;height:74px;resize:vertical;background:#fafbf7;border:1px solid #c5cdbf;border-radius:4px;color:#18241e;caret-color:#18241e;padding:12px;font:16px/1.5 var(--mono);color-scheme:light; }
 .synthesis-voice-input .synthesis-voice-text > button { justify-self:start; }
 .synthesis-voice-input .synthesis-voice-status,.synthesis-voice-input .synthesis-voice-hint { margin:0;color:#b3bebd;font:11px/1.5 var(--mono); }
 .synthesis-voice-input .synthesis-voice-status:empty { display:none; }
@@ -36,10 +36,7 @@
 :is(.synthesis-voice-input,.synthesis-voice-popup) .synthesis-choose { width:100%;height:auto;min-height:0;display:block;flex:1;min-width:0; }
 :is(.synthesis-voice-input,.synthesis-voice-popup) .instrument-picker-trigger { box-sizing:border-box;width:100%;min-height:32px;font:11px var(--mono); }
 :is(.synthesis-voice-input,.synthesis-voice-popup) :focus-visible { outline:2px solid var(--voice-accent);outline-offset:3px; }
-.synthesis-voice-history { color:#a9bbb4;font:11px/1.5 var(--mono);margin:0 0 6px; }
-.synthesis-voice-history summary { cursor:pointer;color:var(--voice-accent); }
-.synthesis-voice-history p { margin:6px 0; }
-.synthesis-voice-history a { display:block;color:var(--voice-accent);overflow-wrap:anywhere; }
+.synthesis-voice-sources a { display:block;overflow-wrap:anywhere; }
 .synthesis-voice-input .native-singing-timeline { min-width:0; }
 .synthesis-voice-input .native-score-toolbar { display:flex;align-items:center;flex-wrap:wrap;gap:10px; }
 .synthesis-voice-input .native-score-toolbar > .native-param { min-width:64px; }

@@ -22,14 +22,14 @@ async function sounding(page, label, { continuous = false } = {}) {
   expect(await status(page)).toMatchObject({ armed: true, playing: true });
 }
 
-test('Next sounds every whole-instrument preset across all five source families without restarting Play', async ({ page }) => {
+test('Next sounds every whole-instrument preset across synth, speech and singing without restarting Play', async ({ page }) => {
   test.setTimeout(220_000);
   const errors = []; page.on('pageerror', error => errors.push(error.message));
   await page.goto('/synthesis.html');
   await page.locator('#audioButton').click();
   await expect.poll(async () => (await status(page)).armed).toBe(true);
   await page.locator('#playButton').click();
-  // Include wrapping from the final processor back to the first synth score.
+  // Include wrapping from the final musical patch back to the first synth score.
   for (const preset of [...INSTRUMENT_PRESETS, INSTRUMENT_PRESETS[0]]) {
     await page.locator('#nextPerformancePreset').click();
     await expect(page.locator('#performancePresetHost .instrument-picker-current')).toHaveText(preset.label);

@@ -155,14 +155,21 @@ export function createAmplitudeControl(host, {
   function render() {
     if (!host) return;
     host.className = "shared-amplitude-control";
+    const bounds = editorModel?.handlePoints ? (host.querySelector?.('[data-editor]')?.getBoundingClientRect?.()
+      ?? host.getBoundingClientRect?.() ?? { width: 280, height: 110 }) : null;
+    const handles = editorModel?.handlePoints?.(state.points, bounds) ?? state.points;
+    const leaders = editorModel?.handlePoints ? state.points.map((point, index) => {
+      const handle = handles[index];
+      return `<line data-envelope-leader x1="${point.x * 240}" y1="${96 - point.y * 96}" x2="${handle.x * 240}" y2="${96 - handle.y * 96}" />`;
+    }).join('') : '';
     const releaseTime = formatTime(timedAmplitudeEnvelopeDurationMs(state.points));
     host.innerHTML = `<div class="shared-amplitude-heading"><span class="field-label mz-field__label">${label}</span><div>${allowDisable ? `<button type="button" data-action="toggle" aria-pressed="${state.enabled}">${state.enabled ? "On" : "Off"}</button>` : ""}${usesMilliseconds || editorModel ? "" : `<button type="button" data-action="swell" aria-pressed="${state.swell}" ${state.enabled ? "" : "disabled"}>${state.swell ? "Swell on" : "Swell off"}</button>`}</div></div>
       <div class="shared-amplitude-presets">${presets.map((preset) => `<button type="button" data-preset="${preset}" aria-pressed="${state.preset === preset}" ${state.enabled ? "" : "disabled"}>${preset}</button>`).join("")}</div>
       <div class="shared-amplitude-editor ${usesMilliseconds ? "is-timed" : ""} ${state.enabled ? "" : "is-disabled"}" data-editor>
-        <svg viewBox="0 0 240 96" preserveAspectRatio="none" aria-hidden="true"><path d="${pathData()}" /></svg>
+        <svg viewBox="0 0 240 96" preserveAspectRatio="none" aria-hidden="true">${leaders}<path d="${pathData()}" /></svg>
         ${state.points.map((point, index) => {
           const description = nodeDescription(point, index);
-          const position = `left:${point.x * 100}%;top:${(1 - point.y) * 100}%`;
+          const position = `left:${handles[index].x * 100}%;top:${(1 - handles[index].y) * 100}%`;
           if (fixedNodes.includes(index)) return `<span data-anchor="${index}" aria-label="${description}" title="${description}" style="${position}">${labels[index]}</span>`;
           const aria = editorModel?.nodeAria?.(state.points, index) ?? {
             min: 0, max: 1, value: point.x, orientation: "horizontal",
@@ -182,10 +189,9 @@ export function createAmplitudeControl(host, {
   function pointFromEvent(event) {
     const editor = host.querySelector?.("[data-editor]");
     const bounds = editor?.getBoundingClientRect?.() ?? { left: 0, top: 0, width: 1, height: 1 };
-    return {
-      x: clamp((event.clientX - bounds.left) / Math.max(1, bounds.width)),
-      y: 1 - clamp((event.clientY - bounds.top) / Math.max(1, bounds.height)),
-    };
+    const x = (event.clientX - bounds.left) / Math.max(1, bounds.width);
+    const y = 1 - (event.clientY - bounds.top) / Math.max(1, bounds.height);
+    return editorModel?.handlePoints ? { x, y } : { x: clamp(x), y: clamp(y) };
   }
 
   listen("click", (event) => {
@@ -217,16 +223,24 @@ export function createAmplitudeControl(host, {
       points: state.points.map(({ x, y }) => ({ x, y })),
       preset: state.preset,
     };
+    if (editorModel?.handlePoints) {
+      const position = pointFromEvent(event), point = state.points[dragging.index];
+      dragging.offset = { x: position.x - point.x, y: position.y - point.y };
+    }
     host.setPointerCapture?.(event.pointerId);
-    state.points = moveNode(state.points, dragging.index, pointFromEvent(event));
-    state.preset = "custom";
-    render();
-    onChange(controller);
+    if (!dragging.offset) {
+      state.points = moveNode(state.points, dragging.index, pointFromEvent(event));
+      state.preset = "custom";
+      render();
+      onChange(controller);
+    }
     event.preventDefault();
   });
   listen("pointermove", (event) => {
     if (!dragging || dragging.pointerId !== event.pointerId) return;
-    state.points = moveNode(state.points, dragging.index, pointFromEvent(event));
+    const point = pointFromEvent(event);
+    if (dragging.offset) { point.x -= dragging.offset.x; point.y -= dragging.offset.y; }
+    state.points = moveNode(state.points, dragging.index, point);
     state.preset = "custom";
     render();
     onChange(controller);

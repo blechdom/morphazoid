@@ -1,14 +1,18 @@
 //! Portable monophonic synthesis demonstrations. Hosts own transport and output level.
-//! All algorithms share one explicit note gate and ADSR; synthesis parameters are
+//! All algorithms share one note gate and legacy ADSR or optional point envelope; parameters are
 //! normalized, smoothed and finite. Render performs no heap allocation.
 mod controls;
 mod conventional;
 mod expanded;
 mod historical;
+mod point_envelope;
 pub mod polyphony;
 pub mod processing;
 pub use controls::{
     default_parameters, migrate_legacy_parameter, CONTROL_COUNTS, METHOD_COUNT, PARAM_COUNT,
+};
+pub use point_envelope::{
+    sanitize_envelope_points, EnvelopePoint, ENVELOPE_POINT_COUNT, MAX_ENVELOPE_TIME,
 };
 #[cfg(feature = "neural")]
 pub mod neural;
@@ -56,6 +60,8 @@ pub struct Engine {
     envelope: f32,
     envelope_stage: u8,
     release_step: f32,
+    point_envelope: Option<point_envelope::PointEnvelope>,
+    envelope_elapsed: f64,
     velocity: f32,
     gate: bool,
     smooth_coefficient: f32,
@@ -96,6 +102,8 @@ impl Engine {
             envelope: 0.0,
             envelope_stage: 0,
             release_step: 0.0,
+            point_envelope: None,
+            envelope_elapsed: 0.0,
             velocity: 0.8,
             gate: false,
             smooth_coefficient: 1.0 - (-1.0 / (sr * 0.008)).exp(),
@@ -198,6 +206,10 @@ impl Engine {
         self.envelope = 0.0;
         self.envelope_stage = 0;
         self.release_step = 0.0;
+        self.envelope_elapsed = 0.0;
+        if let Some(envelope) = &mut self.point_envelope {
+            envelope.reset();
+        }
         self.conventional.reset();
         self.historical.reset();
         #[cfg(feature = "neural")]
@@ -232,6 +244,36 @@ impl Engine {
         self.decay = bounded(decay, 0.002, 12.0, 0.25);
         self.sustain = bounded(sustain, 0.0, 1.0, 0.7);
         self.release = bounded(release, 0.003, 16.0, 0.35);
+        self.clear_envelope_points();
+    }
+    /// Opt in to independent T/A/D/S/R times and levels. Existing notes retain
+    /// their elapsed gate time and smoothly acquire the new shape. Idle voices
+    /// only store configuration; setting an envelope never starts a note.
+    pub fn set_envelope_points(&mut self, points: [EnvelopePoint; ENVELOPE_POINT_COUNT]) {
+        if let Some(envelope) = &mut self.point_envelope {
+            envelope.update(points, self.envelope);
+        } else {
+            let mut envelope = point_envelope::PointEnvelope::new(points, self.sample_rate);
+            if self.envelope_stage != 0 {
+                envelope.note_on(self.envelope, self.envelope_elapsed);
+                if !self.gate {
+                    envelope.note_off(self.envelope);
+                }
+            }
+            self.point_envelope = Some(envelope);
+        }
+    }
+    /// Return to scalar ADSR without resetting output histories or live gates.
+    /// This is a no-op for all legacy callers that never enabled points.
+    pub fn clear_envelope_points(&mut self) {
+        if self.point_envelope.take().is_some() && self.envelope_stage != 0 {
+            if self.gate {
+                self.envelope_stage = 1;
+            } else {
+                self.envelope_stage = 4;
+                self.release_step = self.envelope / (self.release * self.sample_rate);
+            }
+        }
     }
     pub fn note_on(&mut self, frequency: f32, velocity: f32) {
         self.set_frequency(frequency);
@@ -246,6 +288,10 @@ impl Engine {
         self.velocity = bounded(velocity, 0.0, 1.0, 0.8);
         self.gate = true;
         self.envelope_stage = 1;
+        self.envelope_elapsed = 0.0;
+        if let Some(envelope) = &mut self.point_envelope {
+            envelope.note_on(self.envelope, 0.0);
+        }
         self.conventional
             .prepare(self.method, &self.params, self.frequency_target);
         self.historical
@@ -263,6 +309,9 @@ impl Engine {
     }
     pub fn note_off(&mut self) {
         self.gate = false;
+        if let Some(envelope) = &mut self.point_envelope {
+            envelope.note_off(self.envelope);
+        }
         if self.envelope_stage != 0 {
             self.envelope_stage = 4;
             self.release_step = self.envelope / (self.release * self.sample_rate);
@@ -275,6 +324,10 @@ impl Engine {
         self.gate = false;
         self.envelope = 0.0;
         self.envelope_stage = 0;
+        self.envelope_elapsed = 0.0;
+        if let Some(envelope) = &mut self.point_envelope {
+            envelope.reset();
+        }
         self.frequency = self.frequency_target;
         self.smooth = self.params;
         self.output_gain = self.output_gain_target;
@@ -320,6 +373,10 @@ impl Engine {
                 // Keeping an old sustain stage would mute zero-sustain strikes.
                 self.envelope = 0.0;
                 self.envelope_stage = 1;
+                self.envelope_elapsed = 0.0;
+                if let Some(envelope) = &mut self.point_envelope {
+                    envelope.note_on(0.0, 0.0);
+                }
                 self.conventional
                     .note_on(self.frequency, self.velocity, &self.params);
                 self.historical
@@ -337,30 +394,47 @@ impl Engine {
             for i in 0..PARAM_COUNT {
                 self.smooth[i] += (self.params[i] - self.smooth[i]) * self.smooth_coefficient;
             }
-            self.envelope = match self.envelope_stage {
-                1 => {
-                    let e = self.envelope + 1.0 / (self.attack * self.sample_rate);
-                    if e >= 1.0 {
-                        self.envelope_stage = 2;
+            if self.gate {
+                self.envelope_elapsed = (self.envelope_elapsed + 1.0 / self.sample_rate as f64)
+                    .min(MAX_ENVELOPE_TIME as f64);
+            }
+            self.envelope = if let Some(envelope) = &mut self.point_envelope {
+                let value = envelope.next(self.sample_rate);
+                self.envelope_stage = if !envelope.is_active() {
+                    0
+                } else if self.gate {
+                    1
+                } else {
+                    4
+                };
+                value
+            } else {
+                match self.envelope_stage {
+                    1 => {
+                        let e = self.envelope + 1.0 / (self.attack * self.sample_rate);
+                        if e >= 1.0 {
+                            self.envelope_stage = 2;
+                        }
+                        e.min(1.0)
                     }
-                    e.min(1.0)
-                }
-                2 => {
-                    let e = self.envelope - (1.0 - self.sustain) / (self.decay * self.sample_rate);
-                    if e <= self.sustain {
-                        self.envelope_stage = 3;
+                    2 => {
+                        let e =
+                            self.envelope - (1.0 - self.sustain) / (self.decay * self.sample_rate);
+                        if e <= self.sustain {
+                            self.envelope_stage = 3;
+                        }
+                        e.max(self.sustain)
                     }
-                    e.max(self.sustain)
-                }
-                3 => self.sustain,
-                4 => {
-                    let e = (self.envelope - self.release_step).max(0.0);
-                    if e <= 0.0 {
-                        self.envelope_stage = 0;
+                    3 => self.sustain,
+                    4 => {
+                        let e = (self.envelope - self.release_step).max(0.0);
+                        if e <= 0.0 {
+                            self.envelope_stage = 0;
+                        }
+                        e
                     }
-                    e
+                    _ => 0.0,
                 }
-                _ => 0.0,
             };
             let raw = if self.method >= 47 {
                 self.historical
@@ -451,6 +525,34 @@ pub unsafe extern "C" fn synth_set_frequency(ptr: *mut Engine, hz: f32) {
 pub unsafe extern "C" fn synth_set_envelope(ptr: *mut Engine, a: f32, d: f32, s: f32, r: f32) {
     if let Some(e) = ptr.as_mut() {
         e.set_envelope(a, d, s, r);
+    }
+}
+/// Additive ABI 2 extension. Times are absolute seconds; levels are independent.
+#[no_mangle]
+pub unsafe extern "C" fn synth_set_envelope_points(
+    ptr: *mut Engine,
+    t0: f32,
+    l0: f32,
+    t1: f32,
+    l1: f32,
+    t2: f32,
+    l2: f32,
+    t3: f32,
+    l3: f32,
+    t4: f32,
+    l4: f32,
+) {
+    if let Some(e) = ptr.as_mut() {
+        e.set_envelope_points(
+            [(t0, l0), (t1, l1), (t2, l2), (t3, l3), (t4, l4)]
+                .map(|(time, level)| EnvelopePoint { time, level }),
+        );
+    }
+}
+#[no_mangle]
+pub unsafe extern "C" fn synth_clear_envelope_points(ptr: *mut Engine) {
+    if let Some(e) = ptr.as_mut() {
+        e.clear_envelope_points();
     }
 }
 /// Additive ABI 2 extension; older hosts retain neutral 0 dB trim.
@@ -547,6 +649,166 @@ pub unsafe extern "C" fn synth_apply_params(ptr: *mut Engine) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    fn point_shape() -> [EnvelopePoint; 5] {
+        [
+            (0.02, 0.0),
+            (0.04, 1.0),
+            (0.06, 0.2),
+            (0.08, 0.6),
+            (0.1, 0.4),
+        ]
+        .map(|(time, level)| EnvelopePoint { time, level })
+    }
+    #[test]
+    fn point_envelope_controls_actual_amplitude_without_starting_idle_engines() {
+        let mut engine = Engine::new(48_000.0);
+        engine.set_method(2);
+        engine.set_params(default_parameters(2));
+        engine.set_envelope_points(point_shape());
+        render(&mut engine, 4800);
+        assert!(!engine.is_active());
+        engine.note_on(220.0, 0.8);
+        let first = render(&mut engine, 960);
+        assert!(first.iter().all(|sample| sample.abs() < 1.0e-8));
+        assert!(engine.is_active() && engine.is_held());
+        let audible = render(&mut engine, 4800);
+        assert!(rms(&audible) > 0.01);
+        assert!((engine.envelope - 0.6).abs() < 1.0e-6);
+        engine.note_off();
+        render(&mut engine, 960);
+        assert!((engine.envelope - 0.4).abs() < 1.0e-5);
+        let tail = render(&mut engine, 48_000);
+        assert!(tail
+            .iter()
+            .all(|sample| sample.is_finite() && sample.abs() <= OUTPUT_CEILING));
+        assert!(rms(&tail[24000..]) < 1.0e-7);
+        assert!(!engine.is_active());
+    }
+    #[test]
+    fn points_live_edit_conversion_and_clear_preserve_gates_and_level_continuity() {
+        let mut engine = Engine::new(48_000.0);
+        engine.set_envelope(0.001, 0.002, 0.6, 0.03);
+        engine.note_on(220.0, 0.8);
+        render(&mut engine, 4800);
+        let before = engine.envelope;
+        engine.set_envelope_points(point_shape());
+        assert_eq!(engine.envelope, before);
+        render(&mut engine, 1);
+        assert!((engine.envelope - before).abs() < 0.005);
+        let edited = point_shape().map(|point| EnvelopePoint {
+            level: point.level * 0.2,
+            ..point
+        });
+        engine.set_envelope_points(edited);
+        assert!(engine.is_held());
+        render(&mut engine, 1);
+        assert!((engine.envelope - before).abs() < 0.005);
+        render(&mut engine, 480);
+        assert!((engine.envelope - 0.12).abs() < 1.0e-6);
+        let before = engine.envelope;
+        engine.set_envelope(0.02, 0.02, 0.4, 0.02);
+        assert!(engine.point_envelope.is_none());
+        assert!(engine.is_held());
+        render(&mut engine, 1);
+        assert!((engine.envelope - before).abs() < 0.005);
+        engine.note_off();
+        render(&mut engine, 24000);
+        assert!(!engine.is_active());
+    }
+    #[test]
+    fn point_reset_audition_and_retrigger_reset_timeline_but_keep_configuration() {
+        let mut engine = Engine::new(48_000.0);
+        engine.set_envelope_points(point_shape());
+        for audition in [false, true] {
+            engine.note_on(220.0, 0.8);
+            render(&mut engine, 4800);
+            if audition {
+                engine.prepare_audition();
+            } else {
+                engine.reset();
+            }
+            assert_eq!(engine.envelope, 0.0);
+            assert!(!engine.is_held());
+            assert!(engine.point_envelope.is_some());
+            engine.note_on(330.0, 0.7);
+            render(&mut engine, 480);
+            assert_eq!(engine.envelope, 0.0);
+            render(&mut engine, 4800);
+            assert!((engine.envelope - 0.6).abs() < 1.0e-6);
+            engine.note_off();
+        }
+    }
+    #[test]
+    fn scalar_adsr_arithmetic_remains_sample_identical_to_legacy() {
+        for sample_rate in [8_000.0, 48_000.0, 192_000.0] {
+            let mut engine = Engine::new(sample_rate);
+            engine.set_envelope(0.003, 0.007, 0.31, 0.011);
+            engine.note_on(220.0, 0.8);
+            let mut stage = 1;
+            let mut value = 0.0_f32;
+            let mut release_step = 0.0;
+            for frame in 0..(sample_rate as usize / 10) {
+                if frame == sample_rate as usize / 20 {
+                    engine.note_off();
+                    stage = 4;
+                    release_step = value / (0.011 * sample_rate);
+                }
+                value = match stage {
+                    1 => {
+                        let e = value + 1.0 / (0.003 * sample_rate);
+                        if e >= 1.0 {
+                            stage = 2;
+                        }
+                        e.min(1.0)
+                    }
+                    2 => {
+                        let e = value - (1.0 - 0.31) / (0.007 * sample_rate);
+                        if e <= 0.31 {
+                            stage = 3;
+                        }
+                        e.max(0.31)
+                    }
+                    3 => 0.31,
+                    4 => {
+                        let e = (value - release_step).max(0.0);
+                        if e <= 0.0 {
+                            stage = 0;
+                        }
+                        e
+                    }
+                    _ => 0.0,
+                };
+                engine.render(&mut [0.0]);
+                assert_eq!(engine.envelope.to_bits(), value.to_bits());
+            }
+        }
+    }
+    #[test]
+    fn point_envelope_abi_is_additive_null_safe_and_scalar_setter_clears_it() {
+        unsafe {
+            synth_set_envelope_points(
+                std::ptr::null_mut(),
+                0.0,
+                0.0,
+                0.01,
+                1.0,
+                0.02,
+                0.2,
+                0.03,
+                0.4,
+                0.05,
+                0.0,
+            );
+            synth_clear_envelope_points(std::ptr::null_mut());
+            let ptr = synth_new(48_000.0);
+            synth_set_envelope_points(ptr, 0.0, 0.0, 0.01, 1.0, 0.02, 0.2, 0.03, 0.4, 0.05, 0.0);
+            assert!((*ptr).point_envelope.is_some());
+            assert_eq!(synth_abi_version(), 2);
+            synth_set_envelope(ptr, 0.001, 0.02, 0.4, 0.03);
+            assert!((*ptr).point_envelope.is_none());
+            synth_free(ptr);
+        }
+    }
     fn rms(values: &[f32]) -> f32 {
         (values.iter().map(|x| x * x).sum::<f32>() / values.len() as f32).sqrt()
     }

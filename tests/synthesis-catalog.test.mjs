@@ -101,7 +101,7 @@ test('old eight-slot patches retain physical values and gain neutral extension d
     const method = getMethod(legacy.methodId);
     const defaults = createDefaultState(method.id);
     const migrated = sanitizeState(legacy);
-    assert.equal(migrated.version, 4);
+    assert.equal(migrated.version, 5);
     legacy.physical.forEach((value, index) => {
       const actual = parameterValue(method.controls[index], migrated.params[index]);
       assert.ok(Math.abs(actual - value) < 1e-4, `${method.id}/${index}: ${actual} should preserve ${value}`);

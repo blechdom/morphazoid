@@ -64,7 +64,7 @@ test('complete synth, arpeggiator and tuning catalogs remain independent perform
     return {
       synth: ['#frequencyRow', '#voiceModeControl', '#methodEditor', '#methodControls', '#envelopeDetails']
         .every(selector => synth.contains(document.querySelector(selector))),
-      arp: ['#noteTiming', '#tempoControl', '#sequenceCompendium', '#sequenceParameterControls']
+      arp: ['#noteTiming', '#sequenceCompendium', '#sequenceParameterControls']
         .every(selector => arp.contains(document.querySelector(selector))),
     };
   })).toEqual({ synth: true, arp: true });
@@ -128,7 +128,11 @@ test('complete synth, arpeggiator and tuning catalogs remain independent perform
 });
 
 test('whole instrument dice changes every musical category but preserves performer-owned state', async ({ page }) => {
-  await page.addInitScript(() => { Math.random = () => .999999; });
+  await page.addInitScript(() => {
+    const original = Math.random;
+    Math.random = () => window.__synthRandomDraw === undefined ? original()
+      : window.__synthRandomDraw++ === 0 ? 0 : .999999;
+  });
   await page.goto('/synthesis.html?method=additive');
   await expect(page.locator('#performanceRandomRow')).toHaveCount(0);
   await expect(page.locator('#randomPerformance')).toHaveAccessibleName('Randomize every musical setting');
@@ -139,6 +143,9 @@ test('whole instrument dice changes every musical category but preserves perform
     sequence: window.MorphazoidSynthesis.getSequenceState(),
     status: window.MorphazoidSynthesis.getStatus(),
   }));
+  // The first draw chooses an input family. This case checks the synth branch;
+  // the mixed-input suite covers speech and singing.
+  await page.evaluate(() => { window.__synthRandomDraw = 0; });
   await page.locator('#randomPerformance').click();
 
   await expect(page.locator('#methodSelect')).toHaveValue(SYNTHESIS_METHODS.at(-1).id);
@@ -278,24 +285,19 @@ test('mechanism controls, tuned pitch shape, ADSR presets and research hierarchy
   expect(pitchPositions.length).toBeGreaterThan(1);
   await expect(page.locator('#sequenceShapeSummary')).toContainText(/tuned pitch/i);
 
-  await expect(page.locator('#envelopeControls [data-anchor="0"]')).toHaveText('T');
-  await expect(page.locator('#envelopeControls [data-node]')).toHaveText(['A', 'D', 'S', 'R']);
+  await expect(page.locator('#envelopeControls [data-anchor]')).toHaveCount(0);
+  await expect(page.locator('#envelopeControls [data-node]')).toHaveText(['T', 'A', 'D', 'S', 'R']);
   await expect(page.locator('#envelopeControls [data-editor]')).toBeVisible();
   await expect(page.locator('#envelopeControls .shared-amplitude-heading')).toBeHidden();
-  await expect(page.locator('#envelopeControls [data-editor]')).toHaveCSS('height', '170px');
-  await expect(page.locator('#envelopeControls [data-anchor="0"]')).toHaveCSS('position', 'absolute');
+  await expect(page.locator('#envelopeControls [data-editor]')).toHaveCSS('height', '110px');
   await expect(page.locator('#envelopeControls input')).toHaveCount(0);
-  await expect(page.locator('#envelopeControls [data-node="1"]')).toHaveAttribute('role', 'slider');
-  await expect(page.locator('#envelopeControls [data-node="1"]')).toHaveAttribute('aria-valuemin', '0.001');
-  await expect(page.locator('#envelopeControls [data-node="1"]')).toHaveAttribute('aria-valuemax', '12');
-  await expect(page.locator('#envelopeControls [data-node="2"]')).toHaveAttribute('role', 'slider');
-  await expect(page.locator('#envelopeControls [data-node="2"]')).toHaveAttribute('aria-orientation', 'horizontal');
-  await expect(page.locator('#envelopeControls [data-node="2"]')).toHaveAttribute('aria-valuetext', /Decay .*drag left\/right/i);
-  await expect(page.locator('#envelopeControls [data-node="3"]')).toHaveAttribute('aria-orientation', 'vertical');
-  await expect(page.locator('#envelopeControls [data-node="4"]')).toHaveAttribute('aria-valuemax', '16');
-  await expect(page.locator('#envelopePresetSelect option:not([value="custom"])')).toHaveCount(8);
+  for (let index = 0; index < 5; index++) {
+    await expect(page.locator(`#envelopeControls [data-node="${index}"]`)).toHaveAttribute('aria-label', /left\/right time, up\/down level/);
+    await expect(page.locator(`#envelopeControls [data-node="${index}"]`)).not.toHaveAttribute('role', 'slider');
+  }
+  await expect(page.locator('#envelopePresetSelect option:not([value="custom"])')).toHaveCount(32);
   const envelopeSummary = page.locator('[data-select-id="envelopePresetSelect"] summary');
-  await page.locator('.synthesis-envelope-preset > label').click();
+  await envelopeSummary.click();
   await expect(envelopeSummary).toBeFocused();
   await expect(page.locator('[data-select-id="envelopePresetSelect"]')).toHaveAttribute('open', '');
   await envelopeSummary.press('Escape');
