@@ -398,7 +398,7 @@ function paintControls() {
   $('panicButton').disabled = !state.audio && !audioPending; $('nativeStopAudio').disabled = !state.audio && !audioPending;
   const p = state.parameters, s = state.status, type = TYPE_LABELS[p.lSystemType], pruning = formatParameter('pruningBias', p.pruningBias);
   const requested = Number(state.requestedVoices) || (p.lSystemType === 'pythagorean' ? 2 ** (p.generations + 1) - 2 : 0);
-  const limit = state.audio ? Number(s.voiceLimit) || 0 : Math.min(48, requested, state.performance.voiceCeiling || Infinity);
+  const limit = Math.max(0, Number(s.voiceLimit) || 0);
   $('generationCapacityInline').textContent = `${limit.toLocaleString()} of ${requested.toLocaleString()} branches ${state.audio ? 'available' : 'ready'} · ${pruning} pruning · ${state.performance.automatic ? 'device-adjusted' : 'manual ceiling'}`;
   $('recursionSummary').textContent = `${type} · ${p.generations} generations`;
   $('mixSummary').textContent = `${Math.round(state.performance.wet * 100)}% descendants · ${state.performance.dry ? `${Math.round(state.performance.dry * 100)}% root` : 'root muted'}`;
@@ -465,7 +465,7 @@ function draw(now) {
   }
   const fit = geometry.fit, project = (x, y) => ({ x: x * fit.scale + fit.x, y: -y * fit.scale + fit.y });
   context.setTransform(dpr, 0, 0, dpr, 0, 0); context.clearRect(0, 0, width, height);
-  const limit = sceneActivityPending ? 0 : state.audio ? Math.max(0, Number(state.status.voiceLimit) || 0) : Math.min(48, state.performance.voiceCeiling || Infinity);
+  const limit = sceneActivityPending ? 0 : Math.max(0, Number(state.status.voiceLimit) || 0);
   if (geometry.activeLimit !== limit) {
     geometry.activeLimit = limit; geometry.active = admittedPreviewNodes(nodes, limit);
     geometry.selectedCounts = new Map();
