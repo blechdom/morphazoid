@@ -301,6 +301,12 @@ test('tap coloring rejects stale renderer revisions and different visible topolo
   assert.equal(tapActivityFrame({ ...reply, status: { ...reply.status, topologyRevision: 3 } }, parameters), null);
   assert.equal(tapActivityFrame(reply, { ...parameters, generations: 7 }), null);
   assert.equal(tapActivityFrame(reply, { ...parameters, lSystemType: 'cantor' }), null);
+  for (const [key, value] of Object.entries({ intervalMs: 1200, angle: 132, timeRatio: 1.42,
+    pitchScale: 2.9, asymmetry: -.44, spread: .07, pruningBias: .8, depth: .12, mutation: .91 })) {
+    assert.notEqual(parameters[key], value);
+    assert.equal(tapActivityFrame(reply, { ...parameters, [key]: value }), null,
+      `${key}: old meters cannot color a recalled scene with the same grammar and generation count`);
+  }
   assert.equal(tapActivityFrame({ ...reply, status: { ...reply.status, tapActivity: undefined } }, parameters), null);
   assert.equal(tapActivityFrame({ ...reply, topologyRevision: undefined }, parameters), null);
 });
