@@ -1,11 +1,13 @@
 import { createDefaultState, getMethod, sanitizeState } from './catalog.js';
 import { PROCESSING_INPUT_OPTIONS, getProcessingInput } from './demo-sources.js';
 import { isVoiceInput, sanitizeVoiceInputState } from './voice-input-state.js';
+import { sanitizePercussionState } from './percussion-state.js';
 
 export const INPUT_CATEGORIES = Object.freeze([
   { id: 'synthesis', label: 'Synthesizer' },
   { id: 'speech', label: 'Speech synthesis' },
   { id: 'singing', label: 'Singing synthesis' },
+  { id: 'percussion', label: 'Drums & percussion' },
   { id: 'microphone', label: 'Mic / audio in' },
   { id: 'file', label: 'Audio file' },
   { id: 'samples', label: 'Sample loops' },
@@ -39,7 +41,9 @@ export function sanitizeSignalPath(value = {}, sound = createDefaultState()) {
     : category === 'signals' ? presetSignal(sound.source) : options[0]?.id ?? null;
   const { outputLevel, voiceMode, tuningId, ...effectSound } = effect;
   const voice = isVoiceInput(category);
-  return { version: voice ? 2 : 1, input: category, selection, loop: value.loop !== false,
-    effectEnabled: (category !== 'synthesis' && !voice) || value.effectEnabled === true, effect: effectSound,
-    ...(voice ? { voice: sanitizeVoiceInputState(value.voice, category) } : {}) };
+  const drums = category === 'percussion';
+  return { version: drums ? 3 : voice ? 2 : 1, input: category, selection, loop: value.loop !== false,
+    effectEnabled: (category !== 'synthesis' && !voice && !drums) || value.effectEnabled === true, effect: effectSound,
+    ...(voice ? { voice: sanitizeVoiceInputState(value.voice, category) } : {}),
+    ...(drums ? { percussion: sanitizePercussionState(value.percussion) } : {}) };
 }

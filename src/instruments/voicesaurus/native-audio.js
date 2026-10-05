@@ -115,7 +115,7 @@ export class NativeVoiceAudio {
     try{source.start(0,this.position);}catch(error){this.playing=false;this.stopSource();throw error;}return true;
   }
   cancelRender() {this.generation++;this.cancelWorker?.();this.cancelWorker=null;this.pendingRender=null;}
-  async render(request,{store=true}={}) {
+  async render(request,{store=true,positionForResult}={}) {
     if(!this.enabled||!this.context||this.context.state==='closed')throw Object.assign(Error('Enable Audio before rendering a voice.'),{name:'NotAllowedError'});
     this.cancelRender();this.stopAudition();const generation=this.generation,context=this.context;
     return new Promise((resolve,reject)=>{
@@ -145,11 +145,14 @@ export class NativeVoiceAudio {
           const buffer=context.createBuffer(1,frames,playbackRate);
           if(playbackRate===sampleRate||!samples.length)buffer.copyToChannel(samples,0);
           else {const output=buffer.getChannelData(0);for(let i=0;i<frames;i++){const position=i*sampleRate/playbackRate,index=Math.min(samples.length-1,Math.floor(position)),fraction=position-index;output[i]=samples[index]*(1-fraction)+samples[Math.min(index+1,samples.length-1)]*fraction;}}
-          if(store){
-            const fraction=this.buffer?.duration?this.currentPosition()/this.buffer.duration:0;
-            this.pause();this.buffer=buffer;this.engine=request.engine;this.position=fraction*buffer.duration;
-          }
           const result={...data,buffer,engine:request.engine};
+          if(store){
+            const previous=this.currentPosition(),fraction=this.buffer?.duration?previous/this.buffer.duration:0;
+            // Resolve against the audio clock NOW, not when the worker started.
+            const position=positionForResult?.(result,previous)??fraction*buffer.duration;
+            if(!Number.isFinite(position))throw Error('Invalid replacement playback position.');
+            this.pause();this.buffer=buffer;this.engine=request.engine;this.position=Math.max(0,Math.min(position,buffer.duration));
+          }
           this.renderResults.set(result,{buffer,engine:request.engine,context,generation,auditionGeneration:this.auditionGeneration});
           finish(null,result);
         }catch(error){finish(error);}

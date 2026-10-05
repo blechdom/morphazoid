@@ -5,6 +5,44 @@ AudioWorklet. It contains no JavaScript oscillator substitute. The native CPAL
 player and CLAP plugin use that same core and the same generated preset bank.
 CLAP is a native plugin format; the browser uses Web Audio for device output.
 
+## Browser percussion input
+
+The **Drums & percussion** input adds six original technique studies with dated
+references: analog rhythm composition, PCM drum playback, swept electronic pads,
+analog/PCM hybrids, modal percussion and FM percussion. Each provides three kits
+and three independently selectable rhythm patterns. Eighteen complete percussion
+performances also appear in the main preset bank. Historical context, sources
+and approximation boundaries live on `synthesaurus-reference.html#percussion`.
+
+Eight pads share a 16-step velocity editor with captured drag painting and undo.
+Shift paints accents; Alt paints soft hits. A/S/D/F/G/H/J/K strike the pads;
+MIDI notes 36/38/42/46/45/50/39/51 address the same sounds. Play runs the drum
+sequencer, while manual pads work with Play stopped or running. Audio remains a
+separate explicit action. The general arpeggiator and tuning map are not routed
+to this bank. Ring time, noise, pitch sweep and FM parameters belong to individual
+sounds; there is no global ADSR. Edits affect subsequent strikes, not old tails.
+
+`rust/core/src/percussion.rs` is a dedicated 24-voice bank, not eight copies of
+the full teaching synthesizer. It snapshots voice parameters on each strike,
+uses bounded deterministic allocation and short choke/steal ramps, and renders
+stereo into the existing optional processor/output chain. The closed hat chokes
+the open hat. Eight cached, original 12-bit procedural one-shots demonstrate PCM
+playback; no manufacturer ROMs or factory recordings are bundled. PCM duration
+is limited by both playback rate and its source envelope; decay cannot extend it.
+
+The worklet's existing beat/sample clock schedules both pads and drum lanes.
+Kit edits keep rhythm phase; rhythm edits keep sound parameters; running whole
+presets commit kit, rhythm and tempo in one scheduled transaction. A drum score
+temporarily owns the worklet sequence slot; returning to Synthesizer restores
+the remembered arpeggiator. Normal Stop permits short tails; panic clears them.
+The browser exposes this new route; CPAL/CLAP menus do not yet expose the bank.
+
+Focused checks: `node --test tests/synthesis-percussion-*.test.mjs` and
+`npx playwright test e2e/synthesis-percussion.spec.mjs`. These establish timing,
+safety, continuity and interaction—not listening approval or hardware fidelity.
+
+## Existing synthesis and processing engines
+
 The page covers 53 synthesis methods and 17 stereo processors with eight presets each. Frequency, amplitude
 envelope, output, and the note gate are shared; method-specific controls retain
 their own DSP meanings. Synthesis defaults to **Mono**, with last-held-note priority. Select **Poly · 8 voices**
@@ -38,7 +76,7 @@ audible.
 The circular **Play / Pause** button runs a demo. With **Direct note** selected, physical strikes and
 zero-sustain sounds pulse at **10–1,200 BPM**, with note length from **5–95%**
 of the beat, while sustained sounds hold a continuous note. Three basic tuning-chord choices retain
-up, down, and up–down traversal. The other 62 choices run newly authored studies through a bounded
+up, down, and up–down traversal. The other 63 choices run newly authored studies through a bounded
 beat-addressed compiler. Each exposes cycle controls plus parameters specific to its arpeggiator,
 Euclidean, polymetric, Markov, gesture, tracker, phrase, groove, mutation, or conditional mechanism.
 The behavior follows the current method
@@ -47,6 +85,20 @@ Timing runs on the audio thread; live tempo changes preserve the remaining
 beat fraction. Tuning, root, sequence-parameter, preset, and method changes preserve
 Play and phase. The active study's edits survive a study round-trip and page reload.
 Audio remains explicitly armed.
+
+**Octave-range keyboard arp (1982)** follows the JUNO-60's Up, Down and Up/Down
+range controls. The original offered one to three octaves; this study extends
+that to eight and adds inside-out/outside-in traversal. **Complete traversal**
+derives the cycle length from the notes, octave range and direction, including
+the return journey without repeated turnaround notes. Its six original presets
+demonstrate one-, three-, five-, seven- and eight-octave patterns. Other ordered
+arpeggiators can opt into this policy without changing their saved patterns.
+The 64-step event budget remains enforced. When the complete field fits, all
+notes move together by whole tuning periods into the 20 Hz–8 kHz output range;
+this modern extension preserves pitch contour rather than imitating the
+hardware's upper-keyboard repetition. See the [original operation manual,
+pp. 19–23](https://cdn.roland.com/assets/media/pdf/JUNO-60_OM.pdf) and
+[Roland's release history](https://www.roland.com/global/products/rc_juno-60/).
 
 **Trigger Note** plays one finite note in Mono. **Trigger Notes (poly)** plays
 three simultaneous degrees chosen for the active tuning or note map, with one attack per voice.

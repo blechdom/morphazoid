@@ -52,7 +52,7 @@ test('complete preset tour and dice recall the entire instrument without arming 
 });
 
 test('local dice changes parameters in place and every arpeggiator retains visible notes', async ({ page }) => {
-  test.setTimeout(90_000);
+  test.setTimeout(30_000 + SEQUENCE_STUDIES.length * 2_000);
   await page.goto('/synthesis.html?method=fm&sequence=rotating-euclidean-chords');
   await page.evaluate(()=>{ let seed=214; Math.random=()=>((seed=Math.imul(seed,1664525)+1013904223>>>0)/4294967296); });
   const before=await page.evaluate(()=>window.MorphazoidSynthesis.getState());

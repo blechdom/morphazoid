@@ -24,7 +24,7 @@ class Player {
   pause() { this.playing = false; this.stopAudition(); }
   async disable() { this.enabled = false; this.cancelRender(); this.pause(); }
   async close() { await this.disable(); this.closed = true; }
-  render(request, { store = true } = {}) {
+  render(request, { store = true, positionForResult } = {}) {
     this.cancelRender(); this.stopAudition();
     const task = deferred();
     const job = { request, store, settled: false,
@@ -34,7 +34,8 @@ class Player {
         const buffer = data.buffer ?? { duration: 4 };
         if (store) {
           const fraction = this.buffer?.duration ? this.position / this.buffer.duration : 0;
-          this.pause(); this.buffer = buffer; this.engine = request.engine; this.position = fraction * buffer.duration;
+          const position = positionForResult?.({ ...data, buffer, engine: request.engine }, this.position) ?? fraction * buffer.duration;
+          this.pause(); this.buffer = buffer; this.engine = request.engine; this.position = position;
         }
         task.resolve({ ...data, buffer, engine: request.engine });
       },
@@ -112,6 +113,46 @@ test('a replacement render preserves the sounding buffer and position until PCM 
   h.player.pending.complete({ buffer: { duration: 8 } }); assert.equal(await pending, true);
   assert.notEqual(h.player.buffer, initial); assert.equal(h.player.position, 2); assert.equal(h.player.playing, true);
   assert.deepEqual(h.player.plays.at(-1), { restart: false }); assert.equal(h.source.busy, false);
+});
+
+test('singing edits hide stale tracking, preserve beat at commit, and seek against the new tempo', async () => {
+  const h = harness(), state = value('', 'sinsy');
+  state.scene.input = { tempo: 120, notes: [{ midi: 60, beats: 1, lyric: 'あ' }, { midi: 64, beats: 2, lyric: 'い' }] };
+  const timing = scale => [{ index: 0, start: .125 * scale, end: .625 * scale }, { index: 1, start: .625 * scale, end: 1.625 * scale }];
+  await loaded(h, state, { playing: true }, { buffer: { duration: 1.75 }, noteTimings: timing(1) });
+  assert.equal(h.source.timingsCurrent, true);
+  h.source.invalidate();
+  assert.equal(h.source.timingsCurrent, false, 'the debounce window cannot display old timing on an edited score');
+  state.scene.input.tempo = 60;
+  const pending = h.source.update(state, { playing: true }); await tick();
+  assert.equal(h.source.timingsCurrent, false);
+  h.player.position = 1.125; // beat 2 at completion, after worker latency
+  h.player.pending.complete({ buffer: { duration: 3.5 }, noteTimings: timing(2) });
+  assert.equal(await pending, true);
+  assert.equal(h.player.position, 2.25);
+  assert.equal(h.source.timingsCurrent, true);
+  assert.equal(h.source.seekBeat(2), true);
+  assert.equal(h.player.position, 2.25);
+  const good = h.player.buffer;
+  state.scene.values.alpha = .9;
+  const bad = h.source.update(state, { playing: true }); await tick();
+  h.player.pending.fail(Error('Sinsy produced sustained clipping.'));
+  assert.equal(await bad, false);
+  assert.equal(h.player.buffer, good); assert.equal(h.player.playing, true);
+  assert.equal(h.source.timingsCurrent, false);
+  assert.match(h.source.status().renderError, /keeping the last good voice/);
+  assert.equal(h.source.seekBeat(2), false, 'rejected settings cannot seek the retained older render');
+  state.scene.values.alpha = .55;
+  assert.equal(await h.source.update(state, { playing: true }), true);
+  assert.equal(h.source.timingsCurrent, true); assert.equal(h.source.status().renderError, null);
+});
+
+test('native timing-unavailable output remains playable but never fabricates a piano-roll clock', async () => {
+  const h = harness();
+  await loaded(h, value('', 'sinsy'), { playing: true }, { timingUnavailable: true, timingWarning: 'Native notes stretched.', noteTimings: [{ index: 0, start: 0, end: 1 }] });
+  assert.equal(h.player.playing, true); assert.deepEqual(h.source.timings, []);
+  assert.equal(h.source.status().timingWarning, 'Native notes stretched.');
+  assert.equal(h.source.seekBeat(1), false);
 });
 
 test('identical pending requests share a render and use the latest playback and loop intention', async () => {

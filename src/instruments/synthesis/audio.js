@@ -81,14 +81,18 @@ export class SynthesisAudio {
       if (!this.node) {
         const [module] = await Promise.all([getModule(), this.context.audioWorklet.addModule(PROCESSOR_URL)]);
         if (this.disposed) return;
-        this.master = this.context.createGain();
-        this.master.gain.value = 0;
-        this.analyser = this.context.createAnalyser();
-        this.analyser.fftSize = 4096;
-        this.analyser.minDecibels = -100;
-        this.analyser.maxDecibels = 0;
-        this.analyser.smoothingTimeConstant = 0.55;
-        this.node = new AudioWorkletNode(this.context, "roads-synthesis", {
+        if (!this.master) {
+          this.master = this.context.createGain();
+          this.master.gain.value = 0;
+          this.analyser = this.context.createAnalyser();
+          this.analyser.fftSize = 4096;
+          this.analyser.minDecibels = -100;
+          this.analyser.maxDecibels = 0;
+          this.analyser.smoothingTimeConstant = 0.55;
+          this.master.connect(this.analyser);
+          this.releaseOutput = connectAudioOutput(this.context, this.master);
+        }
+        const node = this.node = new AudioWorkletNode(this.context, "roads-synthesis", {
           numberOfInputs: 1, numberOfOutputs: 1, outputChannelCount: [2], channelCount: 2, channelCountMode: "max",
           processorOptions: { module, outputArmed: false },
         });
@@ -97,7 +101,7 @@ export class SynthesisAudio {
         // engines. Keep Audio in "starting" until that work has completed, so a
         // first audition is not consumed while the audio clock catches up.
         this.nodeReady = new Promise((resolve, reject) => {
-          const timer = setTimeout(() => this.finishReady?.(new Error("The audio engine took too long to start. Reload the page and try again.")), 10000);
+          const timer = setTimeout(() => this.failNode(node, new Error("The audio engine took too long to start.")), 10000);
           this.finishReady = error => {
             clearTimeout(timer);
             this.finishReady = null;
@@ -107,17 +111,15 @@ export class SynthesisAudio {
         // Install a rejection handler immediately; graph setup can throw before
         // the initialization promise reaches the await below.
         this.nodeReady.catch(() => {});
-        this.node.onprocessorerror = () => {
-          const error = new Error("The audio engine stopped. Turn Audio off and reload the page.");
-          this.finishReady?.(error);
-          this.onError(error);
-        };
-        this.node.port.onmessage = ({ data }) => {
+        node.onprocessorerror = () => this.failNode(node, new Error("The audio engine stopped."));
+        node.port.onmessage = ({ data }) => {
+          // A retired worklet can still have queued messages. It must never
+          // acknowledge a new engine's startup or overwrite its clock/state.
+          if (this.node !== node || this.disposed) return;
           if (data.type === "ready") this.finishReady?.();
           if (data.type === "error") {
-            const error = new Error(data.message);
-            this.finishReady?.(error);
-            this.onError(error);
+            this.failNode(node, new Error(data.message));
+            return;
           }
           if (data.type === "captured" && data.id === this.captureRequest?.id) {
             const request = this.captureRequest;
@@ -132,12 +134,14 @@ export class SynthesisAudio {
             this.receiveSequenceStatus(data);
           }
         };
-        this.input.attach(this.context, this.node);
-        this.node.connect(this.master);
-        this.master.connect(this.analyser);
-        this.releaseOutput = connectAudioOutput(this.context, this.master);
-        if (this.state) this.configure(this.state);
-        if (this.source) this.sendSource();
+        try {
+          this.input.attach(this.context, node);
+          node.connect(this.master);
+          if (this.state) this.configure(this.state);
+          if (this.source) this.sendSource();
+        } catch (error) {
+          throw this.failNode(node, error) ?? error;
+        }
       }
       await this.nodeReady;
       if (this.disposed || version !== this.startVersion) throw new Error("Audio startup was cancelled.");
@@ -152,6 +156,26 @@ export class SynthesisAudio {
       }
     })().finally(() => { this.starting = null; });
     return this.starting;
+  }
+
+  failNode(node, cause) {
+    if (!node || this.node !== node || this.disposed) return;
+    const error = new Error(`${cause?.message || cause} Enable Audio to restart the engine; no page refresh is needed.`);
+    this.finishReady?.(error);
+    this.node = null;
+    this.mute();
+    this.nodeReady = null;
+    this.sequenceSynchronized = false;
+    // Keep the context and input bus: native voices borrow that destination.
+    // Only the unusable worklet is replaced on the next explicit Audio arm.
+    this.input.analyser?.disconnect();
+    node.onprocessorerror = null;
+    node.port.onmessage = null;
+    try { node.port.postMessage({ type: "dispose" }); } catch { /* Failed port. */ }
+    node.port.close?.();
+    node.disconnect();
+    this.onError(error);
+    return error;
   }
 
   configure(state, { audition = false } = {}) {
@@ -447,6 +471,11 @@ export class SynthesisAudio {
   }
 
   noteOff(noteId = null) { this.node?.port.postMessage({ type: "off", noteId, at: (this.context?.currentTime ?? 0) + 0.005 }); }
+
+  drumHit(lane, velocity = .8, ratio = 1) {
+    if (!this.armed || !this.state?.percussion) return;
+    this.node?.port.postMessage({ type: 'drum-hit', lane, velocity, ratio, at: (this.context?.currentTime ?? 0) + .005 });
+  }
 
   panic() {
     const beat = this.currentSequenceBeat();

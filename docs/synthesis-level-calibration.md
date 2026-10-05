@@ -55,7 +55,7 @@ K-weighted RMS is an energy measurement, not integrated LUFS or proof of percept
 
 ## Provenance
 
-- WASM SHA-256: `330b6cd80ad67478bd281e23d64ad8922bd9770b90b2b1d0d73f75cf0a05e2e6`
+- WASM SHA-256: `fcbb7622cd5cc6c7e13d471d1d73241428986c1c1815aceaf769a66ca1b98176`
 - Signal fixture SHA-256: `536fb43772b0492dd048ba277be3be9badd33888f3a3055c3e25170d89475100`
 - Fixture hashing includes method/preset IDs, normalized parameters, frequency and envelope. It excludes calibration trims, descriptive copy and output master, avoiding a circular calibration dependency.
 - Full source hashes, all before/after metrics, explicit onset thresholds and baseline comparisons are in the adjacent JSON report.

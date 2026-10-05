@@ -19,7 +19,7 @@ import {
 
 test('sequence compendium spans five historical eras with original, neutral studies', () => {
   assert.equal(SEQUENCE_ERAS.length, 5);
-  assert.equal(SEQUENCE_STUDY_COUNT, 62);
+  assert.equal(SEQUENCE_STUDY_COUNT, 63);
   assert.equal(SEQUENCE_STUDIES.length, SEQUENCE_STUDY_COUNT);
   assert.equal(new Set(SEQUENCE_STUDIES.map(study => study.id)).size, SEQUENCE_STUDY_COUNT);
   assert.equal(new Set(SEQUENCE_STUDIES.map(study => study.label)).size, SEQUENCE_STUDY_COUNT);

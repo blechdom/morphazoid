@@ -1,5 +1,5 @@
 import { getSequenceStudy } from './sequence-catalog.js';
-import { applySequenceParameterValues } from './sequence-parameters.js';
+import { applySequenceParameterValues, orderedChordTransposeBounds } from './sequence-parameters.js';
 
 export const MAX_SEQUENCE_STEPS = 64;
 export const MAX_NOTES_PER_STEP = 8;
@@ -22,7 +22,7 @@ export const SEQUENCE_ARCHETYPES = Object.freeze([
   'phrase-arp',
 ]);
 export const SEQUENCE_CONFIG_KEYS = Object.freeze({
-  'ordered-chord': Object.freeze(['intervals', 'order', 'octaves']),
+  'ordered-chord': Object.freeze(['intervals', 'order', 'octaves', 'fullTraversal']),
   'ratio-canon': Object.freeze(['voices', 'ramp']),
   'drawn-rows': Object.freeze(['rows', 'masks', 'velocities']),
   'parameter-rows': Object.freeze(['pitch', 'velocity', 'gate', 'duration']),
@@ -444,7 +444,17 @@ export function compileSequence(studyOrId, options = {}) {
   const study = resolveStudy(studyOrId);
   const input = options && typeof options === 'object' ? options : {};
   const applied = applySequenceParameterValues(study, input.parameters);
-  const settings = sanitizeSequenceOptions(study, { ...applied.options, ...input });
+  const requestedSettings = sanitizeSequenceOptions(study, { ...applied.options, ...input,
+    // Complete traversal is explicit musical policy, not a suggestion that a
+    // stale top-level steps override may silently truncate.
+    ...(applied.config.fullTraversal === true ? { steps: applied.options.steps } : {}),
+  });
+  // Top-level compiler options can override the UI parameter snapshot. Apply
+  // the same whole-field rule again so those overrides cannot flatten notes.
+  const transposeBounds = orderedChordTransposeBounds(study, applied.values);
+  const settings = transposeBounds ? deepFreeze({ ...requestedSettings,
+    transpose: clamp(requestedSettings.transpose, transposeBounds.min, transposeBounds.max, applied.options.transpose),
+  }) : requestedSettings;
   const random = seededRandom(settings.seed);
   const builder = BUILDERS[study.archetype] || orderedChord;
   const rawSteps = builder(applied.config, settings.steps, random);

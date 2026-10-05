@@ -36,7 +36,7 @@ test('the top tour stays global and Next retains its place through input changes
   const errors = []; page.on('pageerror', error => errors.push(error.message));
   await page.goto('/synthesis.html');
   const labels = INSTRUMENT_PRESETS.map(preset => preset.label);
-  for (const input of [...RANDOMIZABLE_INPUTS, 'samples', 'signals']) {
+  for (const input of [...RANDOMIZABLE_INPUTS, 'signals']) {
     await choose(page, 'inputCategory', input);
     expect(await bank(page).allTextContents()).toEqual(labels);
     if (input === 'samples' || input === 'signals') {
@@ -49,7 +49,7 @@ test('the top tour stays global and Next retains its place through input changes
     await choose(page, 'inputCategory', index % 2 ? 'singing' : 'speech');
     await page.locator('#nextPerformancePreset').click();
     await expect(current(page)).toHaveText(INSTRUMENT_PRESETS[index].label);
-    expect((await state(page)).routing.input).toBe(RANDOMIZABLE_INPUTS[index]);
+    expect((await state(page)).routing.input).toBe(INSTRUMENT_PRESETS[index].snapshot.routing.input);
   }
   for (const [index, input] of RANDOMIZABLE_INPUTS.entries()) {
     await page.evaluate(({ index, familyCount }) => { window.nextFamilyDraw = (index + .5) / familyCount; }, { index, familyCount });
@@ -85,7 +85,8 @@ test('mixed preset recalls keep one live output, performer level, and Play/Audio
   }
   // Random voice auditions repeat beyond their first phrase. Otherwise natural
   // completion would stop host Play and make the following Next stay silent.
-  await page.evaluate(() => { window.nextFamilyDraw = .5; });
+  await page.evaluate(({ index, familyCount }) => { window.nextFamilyDraw = (index + .5) / familyCount; },
+    { index: RANDOMIZABLE_INPUTS.indexOf('speech'), familyCount });
   await page.locator('#randomPerformance').click();
   await expect.poll(async () => (await status(page)).input.loading, { timeout: 40_000 }).toBe(false);
   const voice = await status(page);

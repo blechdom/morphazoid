@@ -7,6 +7,7 @@ mod expanded;
 mod historical;
 mod point_envelope;
 pub mod polyphony;
+pub mod percussion;
 pub mod processing;
 pub use controls::{
     default_parameters, migrate_legacy_parameter, CONTROL_COUNTS, METHOD_COUNT, PARAM_COUNT,

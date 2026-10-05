@@ -6,7 +6,7 @@ import { captureInstrumentPreset, randomizeInstrumentPreset } from '../src/instr
 import { createVoiceInputState } from '../src/instruments/synthesis/voice-input-state.js';
 
 test('source-led categories are flat and signals and recordings have different provenance', () => {
-  assert.deepEqual(INPUT_CATEGORIES.map(x => x.id), ['synthesis', 'speech', 'singing', 'microphone', 'file', 'samples', 'signals']);
+  assert.deepEqual(INPUT_CATEGORIES.map(x => x.id), ['synthesis', 'speech', 'singing', 'percussion', 'microphone', 'file', 'samples', 'signals']);
   assert.ok(inputsForCategory('samples').every(x => x.kind === 'demo'));
   assert.ok(inputsForCategory('signals').every(x => x.kind === 'signal'));
   for (const category of INPUT_CATEGORIES) for (const item of inputsForCategory(category.id)) assert.ok(!item.label.includes(' · '));
@@ -24,7 +24,7 @@ test('old synth and processor snapshots migrate to deterministic safe routing', 
 });
 
 test('complete presets round-trip synth inserts, source selection and looping without storing devices', () => {
-  for (const input of ['synthesis', 'microphone', 'file', 'samples', 'signals']) {
+  for (const input of ['synthesis', 'percussion', 'microphone', 'file', 'samples', 'signals']) {
     const sound = createDefaultState(input === 'synthesis' ? 'modal' : 'fx-delay');
     const routing = { input, selection: inputsForCategory(input).at(-1)?.id, loop: false, effectEnabled: true, effect: createDefaultState('fx-delay') };
     const snapshot = captureInstrumentPreset({ sound, routing });
@@ -43,7 +43,7 @@ test('whole-instrument randomization includes insert settings and cannot request
   const enabled = new Set(), methods = new Set(), loopPolicies = new Set();
   for (let i = 0; i < 50; i++) {
     const next = randomizeInstrumentPreset(current, rng);
-    assert.ok(['synthesis', 'speech', 'singing'].includes(next.routing.input));
+    assert.ok(['synthesis', 'speech', 'singing', 'percussion', 'samples'].includes(next.routing.input));
     assert.ok(!['microphone', 'file'].includes(next.routing.selection));
     assert.equal(next.routing.effect.presetId, 'custom');
     enabled.add(next.routing.effectEnabled); methods.add(next.routing.effect.methodId); loopPolicies.add(next.routing.loop);
