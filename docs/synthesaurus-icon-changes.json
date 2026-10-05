@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "description": "Owner-requested Synthesaurus dinosaur / synthesizer / compendium icon. Reverse only its dedicated image reference before checking frozen catalogue history; leave all earlier hashes unchanged.",
+  "changes": [
+    {
+      "file": "src/site/instrument-registry.js",
+      "regressionTests": [
+        "tests/instrument-registry.test.mjs",
+        "e2e/synthesis-preset-stability.spec.mjs"
+      ],
+      "replacements": [
+        {
+          "before": "    { id: \"synthesis\", label: \"Synthesaurus\", href: \"synthesis.html\", imageHref: \"assets/instruments/lab-placeholder.webp\", catalogue: false, browse: true, entryType: \"lab\" },",
+          "after": "    { id: \"synthesis\", label: \"Synthesaurus\", href: \"synthesis.html\", imageHref: \"assets/instruments/synthesis.webp\", catalogue: false, browse: true, entryType: \"lab\" },"
+        }
+      ]
+    }
+  ]
+}

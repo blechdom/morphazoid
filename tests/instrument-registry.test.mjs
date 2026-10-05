@@ -7,8 +7,34 @@ import * as registry from "../src/site/instrument-registry.js";
 import { FAVE_TOOL_IDS, TOOL_GROUPS, SITE_LINKS, NAVIGATION_BASE_URL } from "../nav.js";
 import { INSTRUMENTS, INSTRUMENT_GROUPS } from "../src/site/instrument-catalog.js";
 import { removedInstrumentIds } from "./helpers/catalogue-plan.mjs";
+import { restoreSynthesaurusIcon, synthesaurusIconChanges } from "./helpers/synthesaurus-icon-reference.mjs";
 
 const snapshot = JSON.parse(await readFile(new URL("./fixtures/instrument-registry-v1.json", import.meta.url)));
+
+test("Synthesaurus uses its dedicated dinosaur / synth / compendium icon", async () => {
+  const tool = TOOL_GROUPS.flatMap(group => group.tools).find(item => item.id === "synthesis");
+  assert.equal(tool.imageHref, "assets/instruments/synthesis.webp");
+  const bytes = await readFile(new URL(`../${tool.imageHref}`, import.meta.url));
+  assert.equal(bytes.toString("ascii", 0, 4), "RIFF");
+  assert.equal(bytes.toString("ascii", 8, 12), "WEBP");
+  const manifest = await readFile(new URL("../scripts/site/runtime-files.tsv", import.meta.url), "utf8");
+  assert.ok(manifest.split("\n").includes(`copy+require\t${tool.imageHref}`));
+});
+
+test("the Synthesaurus icon amendment preserves older catalogue evidence exactly", async () => {
+  assert.deepEqual(synthesaurusIconChanges.map(change => change.file), ["src/site/instrument-registry.js"]);
+  for (const change of synthesaurusIconChanges) {
+    const source = await readFile(new URL(`../${change.file}`, import.meta.url), "utf8");
+    const restored = restoreSynthesaurusIcon(source, change.file);
+    assert.notEqual(restored, source);
+    assert.equal(change.replacements.length, 1);
+    const { before, after } = change.replacements[0];
+    assert.equal(restored.replace(before, after), source);
+    assert.throws(() => restoreSynthesaurusIcon(source.replace(after, ""), change.file), /exact Synthesaurus icon amendment/);
+    assert.throws(() => restoreSynthesaurusIcon(source + after, change.file), /exact Synthesaurus icon amendment/);
+  }
+  assert.equal(restoreSynthesaurusIcon("untouched", "unrelated.js"), "untouched");
+});
 
 test("Shapes leads Faves and Shape/Solid/Hyper remain only in Geometric", () => {
   assert.equal(FAVE_TOOL_IDS[0], "shapes");

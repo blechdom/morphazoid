@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { existsSync, readFileSync } from 'node:fs';
+import { restoreSynthesaurusIcon } from './synthesaurus-icon-reference.mjs';
 
 export const synthesaurusFavesOrderChanges = JSON.parse(readFileSync(
   new URL('../../docs/synthesaurus-faves-order-changes.json', import.meta.url), 'utf8',
@@ -8,6 +9,7 @@ export const synthesaurusFavesOrderChanges = JSON.parse(readFileSync(
 
 /** Peel off the later Faves reorder before verifying older frozen catalogues. */
 export function restoreSynthesaurusFavesOrder(source, file) {
+  source = restoreSynthesaurusIcon(source, file);
   for (const change of synthesaurusFavesOrderChanges.filter(change => change.file === file)) {
     for (const testFile of change.regressionTests) {
       assert.ok(existsSync(new URL('../../' + testFile, import.meta.url)), testFile);

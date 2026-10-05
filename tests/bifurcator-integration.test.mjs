@@ -4,6 +4,7 @@ import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 import { FAVE_TOOL_IDS, TOOL_GROUPS } from '../src/site/instrument-registry.js';
 import { bifurcatorSiteChanges, restoreBifurcatorSite } from './helpers/bifurcator-site-reference.mjs';
+import { restoreSynthesaurusIcon } from './helpers/synthesaurus-icon-reference.mjs';
 
 test('Bifurcator metadata preserves genuine remote-main source and rejects unrelated amendments', async () => {
   assert.equal(bifurcatorSiteChanges.baseCommit, '1c8cd0d98e4144450308c04511f57bb75d9a2313');
@@ -14,7 +15,7 @@ test('Bifurcator metadata preserves genuine remote-main source and rejects unrel
   for (const change of bifurcatorSiteChanges.changes) {
     const source = await readFile(new URL(`../${change.file}`, import.meta.url), 'utf8');
     assert.notEqual(restoreBifurcatorSite(source, change.file), source);
-    const preserved = value => assert.equal(createHash('sha256').update(restoreBifurcatorSite(value, change.file)).digest('hex'), change.sha256, 'pre-Bifurcator source preserved');
+    const preserved = value => assert.equal(createHash('sha256').update(restoreBifurcatorSite(restoreSynthesaurusIcon(value, change.file), change.file)).digest('hex'), change.sha256, 'pre-Bifurcator source preserved');
     preserved(source);
     for (const replacement of change.replacements) {
       assert.match(replacement.after, /bifurcator/);

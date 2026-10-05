@@ -1220,6 +1220,7 @@ copy+require	src/instruments/domino-run/domino-run.css
 # Synthesis studies: browser Rust engine and method documentation
 copy+require	synthesis.html
 copy+require	synthesaurus-reference.html
+copy+require	assets/instruments/synthesis.webp
 copy+require	src/instruments/synthesis/reference.js
 copy+require	src/instruments/synthesis/reference.css
 copy+require	src/instruments/synthesis/instrument-presets.js

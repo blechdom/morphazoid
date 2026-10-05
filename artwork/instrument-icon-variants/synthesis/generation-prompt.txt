@@ -1,0 +1,21 @@
+Synthesaurus catalogue icon — built-in image generation, transparent background.
+
+Design prompt:
+A really simple, clear Synthesaurus icon: half synthesizer, half dinosaur,
+with an encyclopedia integrated into the same silhouette. A long-neck dinosaur
+whose body is an open encyclopedia and synthesizer keyboard, with two knobs.
+Readable at small catalogue-icon sizes. No text, frame, background, eyes, smile,
+extra objects, shadows, glow, or 3D treatment. Real transparent alpha.
+
+Final refinement prompt (edit the generated composition):
+Use case: precise-object-edit. Preserve the dinosaur, open encyclopedia-shaped
+keyboard body, two knobs, and overall composition. Change the outer dinosaur
+body/head/neck/tail/legs from dark green to clear light mint near #a8e6c1 so
+the silhouette reads against a dark #101513 interface. Keep the book/pages
+warm off-white and keyboard separators, black keys and knob marks deep green.
+Flat fills; no textures, gradients, dimensional shading, shadows or glow.
+Preserve the simple geometry and transparent negative space. Do not add objects,
+borders, background, an eye, smile, lettering, or details. True transparent alpha.
+
+Selected source: round-1-synth-dinosaur-compendium-transparent-source.png
+Public asset: assets/instruments/synthesis.webp (512px lossless WebP, alpha preserved)
