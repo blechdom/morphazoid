@@ -7,8 +7,9 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { chromium } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
-import { GENERATION_PRESET_KEYS, isVoiceActive } from '../src/instruments/micmic/native/model.js';
+import { isVoiceActive } from '../src/instruments/micmic/native/model.js';
 import { MASTERING_PROFILES } from '../src/instruments/micmic/native/mastering.js';
+import { presetStateKey } from '../src/site/header-presets.js';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 const artifacts = new URL('../artifacts/l-system-delay-wasm/', import.meta.url);
@@ -35,11 +36,60 @@ const report = { serverRoot: root, url, nativeCompanion: false, actualMicrophone
 
 async function installFixture(page) {
   await page.addInitScript(() => {
-    const NativeContext = AudioContext, NativeWorklet = AudioWorkletNode;
+    const NativeContext = AudioContext, NativeWorklet = AudioWorkletNode, NativeWorker = Worker;
     const data = window.__delayFixture = { requests: 0, stopped: 0, contexts: [], worklets: 0,
-      streams: [], sources: [], pending: [], mode: 'normal', gain: .08 };
+      streams: [], sources: [], pending: [], mode: 'normal', gain: .08,
+      holdReady: false, holdNextInstallAck: false, holdNextPerformanceAck: false,
+      pendingReady: [], pendingInstall: [], pendingPerformance: [], posted: [], received: [],
+      holdNextCompileAck: false, pendingCompiles: [] };
     window.AudioContext = class extends NativeContext { constructor(...args) { super(...args); data.contexts.push(this); } };
-    window.AudioWorkletNode = class extends NativeWorklet { constructor(...args) { super(...args); data.worklets++; } };
+    window.AudioWorkletNode = class extends NativeWorklet {
+      constructor(...args) {
+        super(...args); data.worklets++;
+        const nativePost = this.port.postMessage.bind(this.port), messages = new Map();
+        this.port.postMessage = (message, ...transfer) => {
+          messages.set(message.id, message.type);
+          data.posted.push({ id: message.id, type: message.type,
+            revision: message.pool ? new DataView(message.pool).getUint32(16, true) : null,
+            performance: message.performance ? structuredClone(message.performance) : null });
+          nativePost(message, ...transfer);
+        };
+        const descriptor = Object.getOwnPropertyDescriptor(MessagePort.prototype, 'onmessage');
+        let handler;
+        Object.defineProperty(this.port, 'onmessage', { configurable: true,
+          get: () => handler,
+          set: value => {
+            handler = value;
+            descriptor.set.call(this.port, event => {
+              if (event.data.id) data.received.push(event.data.id);
+              if (event.data.type === 'ready' && data.holdReady) data.pendingReady.push(() => value(event));
+              else if (messages.get(event.data.id) === 'install' && data.holdNextInstallAck) {
+                data.holdNextInstallAck = false; data.pendingInstall.push(() => value(event));
+              } else if (messages.get(event.data.id) === 'performance' && data.holdNextPerformanceAck) {
+                data.holdNextPerformanceAck = false; data.pendingPerformance.push(() => value(event));
+              } else value(event);
+            });
+          },
+        });
+      }
+    };
+    window.Worker = class extends NativeWorker {
+      constructor(...args) {
+        super(...args);
+        const descriptor = Object.getOwnPropertyDescriptor(NativeWorker.prototype, 'onmessage');
+        let handler;
+        Object.defineProperty(this, 'onmessage', { configurable: true, get: () => handler,
+          set: value => {
+            handler = value;
+            descriptor.set.call(this, event => {
+              if (data.holdNextCompileAck && event.data.result) {
+                data.holdNextCompileAck = false; data.pendingCompiles.push(() => value(event));
+              } else value(event);
+            });
+          },
+        });
+      }
+    };
     navigator.mediaDevices.getUserMedia = async constraints => {
       data.requests++; data.lastConstraints = constraints;
       if (data.mode === 'deny') throw new DOMException('Test permission denied', 'NotAllowedError');
@@ -125,6 +175,33 @@ function finiteSignal(reply, label) {
   assert.ok(reply.status.outputPeak <= 1, `${label}: bounded output`);
   assert.ok(reply.status.tapActivity.every(Number.isFinite), `${label}: finite tap activity`);
 }
+function matchesPreset(reply, preset) {
+  return Object.entries(preset.snapshot.parameters).every(([key, value]) => reply.parameters[key] === value)
+    && Object.entries(preset.snapshot.performance).every(([key, value]) =>
+      presetStateKey(reply.performance[key]) === presetStateKey(value));
+}
+async function adversarialEdits(page) {
+  // Change every owned field through normal DOM events. The source and device
+  // policy are deliberately excluded, so recall cannot mask an input restart.
+  await page.evaluate(() => {
+    const values = { generations: 3, interval: 900, timeRatio: 1.85, depth: .13, mutation: .92,
+      generationAngle: 133, generationPitchScale: 3.4, generationAsymmetry: .61, spread: .12, pruningBias: .77,
+      wet: .19, dry: .41, inputTrim: 1.31, level: .19,
+      inputHighpassHz: 640, highpassHz: 760, lowpassHz: 440,
+      thresholdDb: -49, ratio: 2.2, kneeDb: 21, attackMs: 61, releaseMs: 941, makeupDb: 7 };
+    const type = document.getElementById('lSystemType'); type.value = 'cantor'; type.dispatchEvent(new Event('change', { bubbles: true }));
+    for (const [id, value] of Object.entries(values)) {
+      const input = document.getElementById(id); input.value = value;
+      input.dispatchEvent(new Event('input', { bubbles: true })); input.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+    for (const id of ['compressorEnabled', 'autoMakeup']) {
+      const input = document.getElementById(id); input.checked = false; input.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+  });
+  return until(page, reply => reply.parameters.lSystemType === 'cantor' && reply.parameters.angle === 133
+    && reply.performance.wet === .19 && reply.performance.mastering.thresholdDb === -49
+    && reply.performance.mastering.autoMakeup === false, 'all owned adversarial edits reached the engine');
+}
 
 try {
   browser = await chromium.launch({ headless: true }); report.browser = browser.version();
@@ -142,10 +219,9 @@ try {
   assert.equal((await diagnostics(page)).audio, false);
   assert.equal(await page.locator('#nativeSeedSource').count(), 0, 'No top test-tone shortcut');
   assert.ok(!(await page.locator('body').textContent()).includes('Native audio requires the local'));
-  const buttonOrder = await page.locator('[data-generation-preset]').evaluateAll(buttons => buttons.map(button => button.dataset.generationPreset));
   const menuOrder = await page.locator('[data-full-preset]').evaluateAll(buttons => buttons.map(button => button.dataset.presetId));
-  assert.equal(buttonOrder.length, bank.length);
-  assert.deepEqual(menuOrder.slice(0, buttonOrder.length), buttonOrder, 'Menu follows button order');
+  assert.equal(await page.locator('[data-generation-preset]').count(), 0, 'Growth buttons are removed');
+  assert.deepEqual(menuOrder, bank.map(preset => preset.id), 'Menu retains the complete ordered factory bank');
   assert.equal(new Set(menuOrder).size, menuOrder.length, 'No duplicate presets');
   await selectPreset(page, menuOrder.at(-1)); await page.locator('.header-preset-next').click();
   await page.waitForFunction(id => document.querySelector('.instrument-preset-controls').dataset.presetId === id, menuOrder[0]);
@@ -153,21 +229,48 @@ try {
   await page.locator('.panel details.control-section').evaluateAll(sections => {
     for (const section of sections) section.open = true;
   });
-  report.quickPresets = [];
-  for (const id of buttonOrder) {
-    const preset = bank.find(preset => preset.id === id), before = await state(page);
-    const expected = { ...before.parameters };
-    for (const key of GENERATION_PRESET_KEYS) expected[key] = preset.snapshot.parameters[key];
-    await page.locator(`[data-generation-preset="${id}"]`).click();
-    const recalled = await until(page, reply => Object.entries(expected)
-      .every(([key, value]) => reply.parameters[key] === value), `quick growth ${id}`);
-    assert.deepEqual(recalled.performance, before.performance, `${id}: growth preserves the mix/mastering/input policy`);
-    assert.equal(recalled.audio, false); report.quickPresets.push(id);
-  }
   await range(page, 'generationAngle', 61); await until(page, reply => reply.parameters.angle === 61, 'unarmed shape edit');
   await page.locator('#stage').focus(); await page.keyboard.press('ArrowRight');
   assert.equal((await state(page)).audio, false);
   assert.equal(await page.evaluate(() => __delayFixture.requests), 0, 'Gestures never request microphone');
+
+  // Hold real MessagePort deliveries to reproduce an initial Audio/preset race,
+  // while allowing the actual Rust worklet and topology worker to execute.
+  const startupContext = await browser.newContext(), startup = await startupContext.newPage();
+  await installFixture(startup); await startup.goto(url); await ready(startup);
+  await startup.evaluate(() => { __delayFixture.holdReady = true; __delayFixture.holdNextPerformanceAck = true; });
+  await startup.locator('#audioButton').click();
+  await startup.waitForFunction(() => __delayFixture.pendingReady.length === 1
+    && __delayFixture.posted.filter(message => message.type === 'install').every(message => __delayFixture.received.includes(message.id)));
+  await startup.evaluate(() => { __delayFixture.holdNextInstallAck = true; });
+  await startup.locator('.instrument-preset-controls summary').click();
+  await startup.locator('[data-full-preset][data-preset-id="koch"]').click();
+  await startup.waitForFunction(() => __delayFixture.pendingInstall.length === 1);
+  await startup.evaluate(() => { __delayFixture.holdReady = false; __delayFixture.pendingReady[0](); });
+  await startup.waitForFunction(() => __delayFixture.pendingPerformance.length === 1);
+  await startup.evaluate(() => __delayFixture.pendingInstall[0]());
+  await startup.waitForFunction(() => document.querySelector('.instrument-preset-controls').dataset.presetId === 'koch'
+    && document.querySelector('.instrument-preset-controls').getAttribute('aria-busy') !== 'true');
+  // Keep first startup waiting on its initial performance ACK, then edit and
+  // recall again. The new performance must reach Rust despite that pending ACK.
+  await range(startup, 'wet', .29); await selectPreset(startup, 'koch');
+  await startup.waitForFunction(() => __delayFixture.posted.filter(message => message.type === 'performance').length >= 2);
+  await startup.evaluate(() => __delayFixture.pendingPerformance[0]());
+  const firstPlaying = await until(startup, reply => reply.audio && reply.status.outputPeak > .001, 'first Audio and immediate preset');
+  const koch = bank.find(preset => preset.id === 'koch');
+  assert.deepEqual(firstPlaying.parameters, koch.snapshot.parameters);
+  for (const [key, value] of Object.entries(koch.snapshot.performance)) assert.deepEqual(firstPlaying.performance[key], value);
+  assert.equal(firstPlaying.status.requestedTargets, firstPlaying.requestedVoices, 'first start installs the selected audio topology');
+  assert.equal(firstPlaying.status.topologyRevision, firstPlaying.topologyRevision, 'first start meters match displayed topology');
+  const startupMessages = await startup.evaluate(() => __delayFixture.posted);
+  const revisions = startupMessages.filter(message => message.type === 'install').map(message => message.revision);
+  assert.ok(revisions.length >= 2 && revisions.every((revision, index) => index === 0 || revision >= revisions[index - 1]),
+    'startup never replaces the new pool with its initial older pool');
+  assert.deepEqual(startupMessages.filter(message => message.type === 'performance').at(-1).performance, firstPlaying.performance,
+    'a preset recalled during first startup reaches the actual worklet');
+  report.firstAudioRecall = { id: 'koch', requested: firstPlaying.requestedVoices,
+    revision: firstPlaying.topologyRevision, clock: firstPlaying.status.elapsedSeconds, installRevisions: revisions };
+  await startupContext.close();
 
   // Mic captures and meters independently while output remains unarmed.
   await page.locator('#micButton').click();
@@ -219,13 +322,25 @@ try {
     assert.equal((await diagnostics(page)).contextGeneration, live.contextGeneration); finiteSignal(changed, profile.label);
   }
   report.masteringProfiles = MASTERING_PROFILES.map(profile => profile.label);
+  await page.locator('#automatic').evaluate(input => { input.checked = false; input.dispatchEvent(new Event('change', { bubbles: true })); });
+  await range(page, 'voiceCeiling', 111); await range(page, 'frequency', 311); await range(page, 'pulseRate', .7);
+  await until(page, reply => !reply.performance.automatic && reply.performance.voiceCeiling === 111
+    && reply.performance.frequency === 311 && reply.performance.pulseRate === .7, 'external policy fixture');
+  const externalKeys = ['source', 'frozen', 'automatic', 'voiceCeiling', 'frequency', 'pulseRate'];
   for (const id of menuOrder) {
-    const preset = bank.find(preset => preset.id === id), before = await state(page);
+    const preset = bank.find(preset => preset.id === id), before = await adversarialEdits(page);
+    const requestsBefore = await page.evaluate(() => __delayFixture.requests);
     await selectPreset(page, id);
-    const recalled = await until(page, reply => Object.entries(preset.snapshot.parameters)
-      .every(([key, value]) => reply.parameters[key] === value), `full scene ${id}`);
+    const recalled = await until(page, reply => matchesPreset(reply, preset), `full scene ${id}`);
     assert.equal(recalled.audio, true); assert.ok(recalled.status.elapsedSeconds >= before.status.elapsedSeconds);
     assert.equal((await diagnostics(page)).contextGeneration, live.contextGeneration);
+    assert.equal((await diagnostics(page)).microphoneEnabled, true, `${id}: capture stays active`);
+    assert.equal(await page.evaluate(() => __delayFixture.requests), requestsBefore, `${id}: no new microphone permission`);
+    for (const key of externalKeys) assert.equal(recalled.performance[key], before.performance[key], `${id}: preserves ${key}`);
+    assert.equal(recalled.status.topologyRevision, recalled.topologyRevision);
+    assert.equal(recalled.status.requestedTargets, recalled.requestedVoices);
+    await page.waitForTimeout(150);
+    assert.ok(matchesPreset(await state(page), preset), `${id}: delayed edits cannot overwrite recall`);
     const preview = await request(page, '/api/preview');
     const expected = preview.nodes.filter(node => node.generation === 0 || isVoiceActive(node, recalled.status.voiceLimit)).length;
     await page.waitForFunction(({ id, expected }) => __delayCanvas.frames.some(frame =>
@@ -233,8 +348,54 @@ try {
     const frame = await page.evaluate(id => __delayCanvas.frames.findLast(frame => frame.preset === id), id);
     finiteSignal(recalled, id);
     report.presets.push({ id, requested: recalled.requestedVoices, admitted: recalled.status.voiceLimit,
-      previewNodes: preview.nodes.length, coverage: frame.coverage, minimumPoints: frame.minimumPoints });
+      previewNodes: preview.nodes.length, coverage: frame.coverage, minimumPoints: frame.minimumPoints,
+      completeRecallAfterEveryOwnedEdit: true });
   }
+  // Same preset selection and the lower Reload control both restore the entire
+  // selected scene after a grammar, mix and mastering edit.
+  const pine = bank.find(preset => preset.id === 'pythagorean');
+  await selectPreset(page, 'koch'); await selectPreset(page, pine.id);
+  assert.ok(matchesPreset(await state(page), pine), 'linear grammar → Pine restores the complete branching scene');
+  report.samePresetReloads = [];
+  for (const mode of ['menu', 'reload']) {
+    const before = await adversarialEdits(page);
+    if (mode === 'menu') await selectPreset(page, pine.id);
+    else await page.locator('#resetGenerationRules').click();
+    const recalled = await until(page, reply => matchesPreset(reply, pine), `${mode}: reload full Pine`);
+    assert.equal(recalled.audio, true); assert.equal((await diagnostics(page)).microphoneEnabled, true);
+    assert.ok(recalled.status.elapsedSeconds >= before.status.elapsedSeconds); report.samePresetReloads.push(mode);
+  }
+  await page.locator('#source').selectOption('seed');
+  await until(page, reply => reply.performance.source === 'seed', 'explicitly select alternate source');
+  await page.locator('#seedPauseButton').click();
+  await until(page, reply => reply.performance.frozen, 'freeze input independently of recall');
+  await selectPreset(page, 'coral');
+  assert.equal((await state(page)).performance.frozen, true, 'recall preserves live input freeze');
+  assert.equal((await state(page)).performance.source, 'seed', 'recall preserves the explicitly selected source');
+  assert.equal((await diagnostics(page)).microphoneEnabled, false, 'recall does not reopen microphone capture');
+  await page.locator('#seedPauseButton').click(); await until(page, reply => !reply.performance.frozen, 'unfreeze input');
+  await page.locator('#source').selectOption('mic');
+  await until(page, reply => reply.performance.source === 'mic' && reply.status.microphoneEnabled, 'restore explicit microphone source');
+  // Delay an actual worker reply so the first edit remains in flight when the
+  // full scene is selected. Queued and dirty edits must not win afterward.
+  await page.evaluate(() => { __delayFixture.holdNextCompileAck = true; });
+  await range(page, 'generationAngle', 131);
+  await page.waitForFunction(() => __delayFixture.pendingCompiles.length === 1);
+  await range(page, 'wet', .11); await range(page, 'spread', .17);
+  await page.locator('.instrument-preset-controls summary').click();
+  await page.locator(`[data-full-preset][data-preset-id="${pine.id}"]`).click();
+  await page.evaluate(() => __delayFixture.pendingCompiles[0]());
+  await until(page, reply => matchesPreset(reply, pine), 'queued edits → full Pine recall');
+  await page.waitForTimeout(400);
+  const settled = await state(page);
+  assert.ok(matchesPreset(settled, pine)); assert.equal(settled.audio, true);
+  assert.equal(settled.status.topologyRevision, settled.topologyRevision);
+  assert.equal(settled.status.requestedTargets, settled.requestedVoices);
+  assert.equal((await diagnostics(page)).contextGeneration, live.contextGeneration);
+  report.queuedEditRecall = { id: pine.id, revision: settled.topologyRevision, requested: settled.requestedVoices };
+  await page.locator('#automatic').evaluate(input => { input.checked = true; input.dispatchEvent(new Event('change', { bubbles: true })); });
+  await range(page, 'voiceCeiling', 0);
+  await until(page, reply => reply.performance.automatic && reply.performance.voiceCeiling === 0, 'restore adaptive policy');
   await selectPreset(page, 'pythagorean'); await range(page, 'generations', 3); await range(page, 'interval', 0);
   await until(page, reply => reply.parameters.generations === 3 && reply.status.tapActivity.some(value => value > 0), 'short descendants');
   await page.waitForFunction(() => __delayCanvas.frames.some(frame => frame.descendantBent > 0));

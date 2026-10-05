@@ -1,10 +1,10 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import fs from 'node:fs';
-import { GENERATION_RULE_PRESETS, generationTopology, generationVoiceSpecs, timeFoldFromSlider, sliderFromTimeFold } from '../micmic.js';
+import { generationTopology, generationVoiceSpecs, timeFoldFromSlider, sliderFromTimeFold } from '../micmic.js';
 import { MICMIC_FULL_PRESETS } from '../../../families/branch-presets/full-presets.js';
 import { DEFAULT_PARAMETERS, DEFAULT_PERFORMANCE, PARAMETER_LIMITS, L_SYSTEM_TYPES, sanitizeParameters,
-  sanitizePerformance, presetState, generationPresetParameters, GENERATION_PRESET_KEYS, randomState, gestureParameters, isVoiceActive,
+  sanitizePerformance, presetState, randomState, gestureParameters, isVoiceActive,
   buildPreview, interpolateParameters, topologyBounds, fitTransform, captureScene, visualBudget, nativePreviewNodes, interpolatePreviewNodes,
   admittedPreviewNodes, tapActivityFrame, activityEnergy, smoothActivity, branchBaselineAlpha, branchWavePoints } from './model.js';
 import { DEFAULT_MASTERING, MASTERING_LIMITS, MASTERING_PROFILES, sanitizeMastering,
@@ -19,20 +19,20 @@ const withoutMastering = snapshot => {
 const legacyScene = scene => withoutMastering(captureScene(scene.parameters, scene.performance));
 
 test('native bank preserves every setting in all sixteen original full scenes', () => {
-  const originals = presets.slice(0, MICMIC_FULL_PRESETS.length);
-  assert.deepEqual(originals.map(p => p.id), MICMIC_FULL_PRESETS.map(p => p.id));
-  for (let i = 0; i < originals.length; i++) {
-    const original = MICMIC_FULL_PRESETS[i].snapshot.parameters, scene = presetState(presets[i], DEFAULT_PERFORMANCE);
+  for (const reference of MICMIC_FULL_PRESETS) {
+    const preset = presets.find(p => p.id === reference.id);
+    assert.ok(preset, reference.id);
+    const original = reference.snapshot.parameters, scene = presetState(preset, DEFAULT_PERFORMANCE);
     assert.deepEqual(sanitizeParameters(scene.parameters), scene.parameters);
     assert.deepEqual(scene.parameters, { lSystemType: original.lSystemType, generations: original.generations,
       intervalMs: original.interval, timeRatio: original.timeRatio, angle: original.generationAngle,
       asymmetry: original.generationAsymmetry, mutation: original.mutation, pitchScale: original.generationPitchScale,
-      pruningBias: original.pruningBias, depth: original.depth, spread: original.spread }, presets[i].id);
+      pruningBias: original.pruningBias, depth: original.depth, spread: original.spread }, preset.id);
     assert.deepEqual(legacyScene(scene).performance, {
       wet: original.wet, dry: original.dry, inputGain: original.inputTrim, level: original.level,
-    }, `${presets[i].id} mix`);
-    assert.equal(presets[i].label, MICMIC_FULL_PRESETS[i].label);
-    assert.deepEqual(legacyScene(scene), withoutMastering(presets[i].snapshot));
+    }, `${preset.id} mix`);
+    assert.equal(preset.label, reference.label);
+    assert.deepEqual(legacyScene(scene), withoutMastering(preset.snapshot));
     assert.deepEqual(captureScene(scene.parameters, scene.performance).performance.mastering, DEFAULT_MASTERING);
   }
 });
@@ -49,37 +49,15 @@ test('full preset recall preserves input, clocks and device policy while recalli
   }
   assert.deepEqual(live, before);
 });
-test('quick growth buttons match the original eight settings and preserve grammar, pruning and mix', () => {
-  const current = { ...DEFAULT_PARAMETERS, lSystemType: 'dragon', pruningBias: -.61, spread: .31,
-    intervalMs: 611, angle: 71, generations: 7 };
-  const before = structuredClone(current);
-  assert.deepEqual(GENERATION_PRESET_KEYS, ['generations', 'depth', 'intervalMs', 'mutation', 'timeRatio', 'angle', 'asymmetry', 'pitchScale']);
-  for (const [id, growth] of Object.entries(GENERATION_RULE_PRESETS)) {
-    const actual = generationPresetParameters(current, presets.find(p => p.id === id));
-    const expected = { ...current, generations: growth.generations, depth: growth.depth, intervalMs: growth.interval,
-      mutation: growth.mutation, timeRatio: growth.timeRatio, angle: growth.angle, asymmetry: growth.asymmetry, pitchScale: growth.pitchScale };
-    assert.deepEqual(actual, expected, id);
-  }
-  for (const preset of presets) {
-    const actual = generationPresetParameters(current, preset);
-    for (const key of ['lSystemType', 'pruningBias', 'spread']) assert.equal(actual[key], current[key], `${preset.id}/${key}`);
-  }
-  assert.deepEqual(current, before);
-  const app = fs.readFileSync(new URL('./app.js', import.meta.url), 'utf8');
-  const quickHandler = app.slice(app.indexOf('function loadGenerationPreset('), app.indexOf("$('resetGenerationRules')"));
-  assert.match(quickHandler, /generationPresetParameters\(state\.parameters, preset\)/);
-  assert.doesNotMatch(quickHandler, /state\.performance\s*=/);
-});
-test('additional plant presets use native depth and cover every original grammar in both preset surfaces', () => {
-  const additions = presets.slice(MICMIC_FULL_PRESETS.length);
+test('additional factory scenes retain every grammar in the single full-preset menu', () => {
+  const originalIds = new Set(MICMIC_FULL_PRESETS.map(p => p.id));
+  const additions = presets.filter(p => !originalIds.has(p.id));
   assert.equal(additions.length, 10);
   assert.equal(new Set(presets.map(p => p.id)).size, presets.length);
   assert.equal(new Set(presets.map(p => JSON.stringify(p.snapshot))).size, presets.length);
   assert.deepEqual(new Set(presets.map(p => p.snapshot.parameters.lSystemType)), new Set(L_SYSTEM_TYPES));
   const html = fs.readFileSync(new URL('../../../pages/l-mic-rust.html', import.meta.url), 'utf8');
-  const quickIds = [...html.matchAll(/data-generation-preset="([^"]+)"/g)].map(match => match[1]);
-  assert.deepEqual(new Set(quickIds), new Set(presets.map(p => p.id)));
-  assert.equal(quickIds.length, presets.length);
+  assert.doesNotMatch(html, /data-generation-preset|id="generationPresets"/);
   for (const preset of additions) {
     assert.ok(preset.label.includes(' · '), preset.id);
     assert.ok(preset.snapshot.parameters.generations > 13, `${preset.id} explores the native generation range`);
@@ -233,7 +211,7 @@ test('mastering profiles cover filters and compression while complete scenes own
   const legacy = structuredClone(saved);
   delete legacy.performance.mastering;
   const legacyRecall = presetState({ snapshot: legacy }, changed);
-  assert.deepEqual(legacyRecall.performance.mastering, changed.mastering, 'Older external scenes retain current mastering');
+  assert.deepEqual(legacyRecall.performance.mastering, DEFAULT_MASTERING, 'Older scenes reset absent mastering to Original');
   assert.deepEqual(legacyScene(legacyRecall), legacy);
 });
 
