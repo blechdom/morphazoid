@@ -161,7 +161,7 @@ function directedWrappedPositionDelta(from, to, expectedDelta = 0) {
   return rawDelta + Math.round(expectedDelta - rawDelta);
 }
 
-class MorphazoidContourSynth extends AudioWorkletProcessor {
+export class MorphazoidContourSynth extends AudioWorkletProcessor {
   constructor(options) {
     super();
     this.maxVoices = Math.floor(clamp(

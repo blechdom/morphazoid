@@ -58,6 +58,7 @@ const NOTE_MODE_IDS = Object.freeze({
   ]),
   pitched: Object.freeze([
     "bifurcator",
+    "blobs",
     "synthesis",
     "roach-synth",
     "spider-synth",

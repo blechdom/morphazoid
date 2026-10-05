@@ -31,6 +31,7 @@ export const FAVE_TOOL_IDS = Object.freeze([
 export const TOOL_GROUPS = Object.freeze([
   freezeGroup("geometric", "Geometric", [
     { id: "shape-synth", label: "Shape", href: "shape-synth.html", legacyHrefs: ["shape.html"], imageHref: "assets/instruments/shape.webp" },
+    { id: "blobs", label: "Blobs", href: "blobs.html", imageHref: "assets/instruments/blobs.webp" },
     { id: "solid-synth", label: "Solid", href: "solid-synth.html", legacyHrefs: ["solid.html"], imageHref: "assets/instruments/solid.webp" },
     { id: "hyper-synth", label: "Hyper", href: "hyper-synth.html", legacyHrefs: ["hyper.html"], imageHref: "assets/instruments/hyper.webp" },
     { id: "graph-synth", label: "Graph Synth", href: "graph-synth.html" },

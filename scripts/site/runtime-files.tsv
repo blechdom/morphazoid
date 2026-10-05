@@ -1518,3 +1518,16 @@ copy+require	src/instruments/bifurcator/renderer.js
 copy+require	src/instruments/bifurcator/bifurcator.css
 copy+require	assets/instruments/bifurcator.webp
 copy+require	docs/bifurcator.md
+
+# Blobs: drawn closed-contour instrument
+copy+require	src/instruments/blobs/model.js
+copy+require	src/instruments/blobs/vector.js
+copy+require	src/instruments/blobs/symmetry.js
+copy+require	src/instruments/blobs/parameters.js
+copy+require	src/instruments/blobs/paths.js
+copy+require	src/instruments/blobs/presets.js
+copy+require	src/instruments/blobs/controls.js
+copy+require	src/instruments/blobs/processor.js
+copy+require	src/instruments/blobs/app.js
+copy+require	src/instruments/blobs/blobs.css
+copy+require	assets/instruments/blobs.webp

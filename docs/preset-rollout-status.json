@@ -4,8 +4,8 @@
   "branch": "codex/presets-continue-20260922",
   "source": "Review branch directory checkpoint 03619ff rebased onto origin/main ef6e593; pending pointer, family rename and preset drafts restored; no push or deployment",
   "counts": {
-    "implemented": 35,
-    "fullPresets": 1568,
+    "implemented": 36,
+    "fullPresets": 1598,
     "favesImplemented": 17,
     "activeRemaining": 62,
     "regularRemaining": 130
@@ -25,6 +25,16 @@
       "scope": "regular",
       "presets": 36,
       "status": "implemented-verification-pending"
+    },
+    {
+      "id": "blobs",
+      "label": "Blobs",
+      "href": "blobs.html",
+      "category": "geometric",
+      "scope": "regular",
+      "presets": 30,
+      "status": "implemented-verification-pending",
+      "evidence": "Full-state bank, bounded randomizer and Shape engine parity covered by tests/blobs.test.mjs, tests/blobs-processor-parity.test.mjs and e2e/blobs.spec.mjs. Human listening and physical touch acceptance remain unperformed."
     },
     {
       "id": "solid-synth",
