@@ -310,3 +310,180 @@ test('fine and coarse worklet capacity measurements include admission bookkeepin
     }
   }
 });
+
+let recoveryFixtureSequence = 0;
+/** Exercise the published WASM through its actual worklet boundary. Only the
+ * named export fault is substituted; sample generation and controls stay real.
+ */
+async function withRecoveryWorklet(run) {
+  const keys = ['AudioWorkletProcessor', 'registerProcessor', 'sampleRate'];
+  const saved = Object.fromEntries(keys.map(key => [key, Object.getOwnPropertyDescriptor(globalThis, key)]));
+  const messages = [];
+  let Processor, processor;
+  try {
+    globalThis.AudioWorkletProcessor = class {
+      constructor() { this.port = { postMessage: message => messages.push(message) }; }
+    };
+    globalThis.registerProcessor = (_name, implementation) => { Processor = implementation; };
+    globalThis.sampleRate = RATE;
+    await import(`../src/instruments/micmic/native/delay-worklet.js?recovery=${++recoveryFixtureSequence}`);
+    processor = new Processor({ processorOptions: { module } });
+    const compiler = renderer();
+    try {
+      const { pool } = compiler.compile({ generations: 1, intervalMs: 10, timeRatio: 1, pitchScale: 0 });
+      processor.port.onmessage({ data: { id: 1, type: 'install', pool: pool.buffer } });
+      assert.equal(messages.find(message => message.id === 1)?.error, undefined);
+    } finally { compiler.dispose(); }
+    processor.port.onmessage({ data: { id: 2, type: 'performance', performance: {
+      ...DEFAULT_PERFORMANCE, automatic: false, source: 'mic', inputGain: 1, level: .5,
+      wet: .7, dry: .3, mastering: TRANSPARENT,
+    } } });
+    assert.equal(messages.find(message => message.id === 2)?.error, undefined);
+    const input = new Float32Array(BLOCK), left = new Float32Array(BLOCK), right = new Float32Array(BLOCK);
+    let renderedFrames = 0;
+    const render = () => {
+      for (let index = 0; index < BLOCK; index++) input[index] = sine(173, .03)(renderedFrames + index);
+      const running = processor.process([[input]], [[left, right]]);
+      renderedFrames += BLOCK;
+      return running;
+    };
+    for (let block = 0; block < 100; block++) assert.equal(render(), true);
+    assert.ok(rms(left) > .001, 'fixture produces actual microphone-driven WASM audio');
+    assert.equal(messages.filter(message => message.type === 'failure').length, 0, 'steady rendering sends no failure messages');
+    await run({ processor, messages, input, left, right, render });
+  } finally {
+    processor?.port.onmessage({ data: { id: 999, type: 'dispose' } });
+    for (const [key, descriptor] of Object.entries(saved)) {
+      if (descriptor) Object.defineProperty(globalThis, key, descriptor); else delete globalThis[key];
+    }
+  }
+}
+
+test('worklet keeps actual audio and its clock live when memory grows between callbacks or during observation', async () => {
+  await withRecoveryWorklet(({ processor, messages, left, right, render }) => {
+    const api = processor.api, before = processor.snapshot().elapsedSeconds;
+    let previous = api.memory.buffer;
+    api.memory.grow(1);
+    assert.equal(previous.byteLength, 0, 'the fault fixture detaches persistent PCM views between callbacks');
+    assert.equal(render(), true);
+    assert.ok(rms(left) > .001, 'the next callback reads its real input through refreshed views');
+    let grew = false;
+    processor.api = { ...api, lsd_observe(...args) {
+      const result = api.lsd_observe(...args);
+      if (!grew) { previous = api.memory.buffer; api.memory.grow(1); grew = true; }
+      return result;
+    } };
+    assert.equal(render(), true);
+    assert.equal(grew, true, 'the observation boundary fault ran');
+    assert.equal(previous.byteLength, 0, 'observation growth detached the prior PCM views');
+    for (let block = 0; block < 30; block++) {
+      assert.equal(render(), true);
+      assert.ok(left.every(Number.isFinite) && right.every(Number.isFinite));
+    }
+    assert.ok(rms(left) > .001, 'observation growth does not strand the live topology in silence');
+    assert.ok(processor.snapshot().elapsedSeconds > before + BLOCK * 30 / RATE, 'sample clock keeps advancing after both faults');
+    assert.equal(messages.filter(message => message.type === 'failure').length, 0, 'recoverable memory growth is not a fatal error');
+  });
+});
+
+test('a fatal process return or Rust trap silences stereo and notifies the host exactly once', async () => {
+  for (const fault of ['return-zero', 'process-trap', 'observe-trap']) {
+    await withRecoveryWorklet(({ processor, messages, left, right, render }) => {
+      const api = processor.api;
+      processor.api = { ...api,
+        ...(fault === 'return-zero' ? { lsd_process: () => 0 } : {}),
+        ...(fault === 'process-trap' ? { lsd_process: () => { throw new WebAssembly.RuntimeError('unreachable: injected process trap'); } } : {}),
+        ...(fault === 'observe-trap' ? { lsd_observe: () => { throw new WebAssembly.RuntimeError('unreachable: injected admission trap'); } } : {}),
+      };
+      left.fill(.5); right.fill(-.5);
+      assert.equal(render(), false, `${fault}: the processor terminates instead of emitting broken audio`);
+      assert.ok(left.every(value => value === 0) && right.every(value => value === 0), `${fault}: both output channels are silenced`);
+      assert.equal(processor.failed, true);
+      const failures = messages.filter(message => message.type === 'failure');
+      assert.equal(failures.length, 1, `${fault}: the browser lifecycle receives an unsolicited fatal notification`);
+      assert.equal(typeof failures[0].error, 'string');
+      assert.ok(failures[0].error.length > 0);
+      assert.equal(render(), false, `${fault}: the failed processor cannot resume itself`);
+      assert.equal(messages.filter(message => message.type === 'failure').length, 1, `${fault}: later callbacks do not flood the message port`);
+    });
+  }
+});
+
+test('a Rust trap in an install or performance control notifies the host instead of retaining an unusable processor', async () => {
+  for (const type of ['install', 'performance']) {
+    await withRecoveryWorklet(({ processor, messages, render }) => {
+      const exportName = type === 'install' ? 'lsd_install' : 'lsd_performance';
+      processor.api = { ...processor.api, [exportName]: () => { throw new WebAssembly.RuntimeError(`unreachable: injected ${type} trap`); } };
+      const update = type === 'install' ? { pool: new ArrayBuffer(32) } : { performance: DEFAULT_PERFORMANCE };
+      processor.port.onmessage({ data: { id: 3, type, ...update } });
+      assert.match(messages.find(message => message.id === 3)?.error ?? '', /unreachable/);
+      const failures = messages.filter(message => message.type === 'failure');
+      assert.equal(failures.length, 1, `${type}: the host learns that this processor is terminal`);
+      assert.match(failures[0].error, /unreachable/);
+      assert.equal(render(), false, `${type}: processing never continues through a trapped Rust engine`);
+      assert.equal(messages.filter(message => message.type === 'failure').length, 1);
+    });
+  }
+});
+
+test('the actual topology worker recreates a trapped Rust compiler and retains the next valid pool', async () => {
+  const keys = ['self', 'fetch'];
+  const saved = Object.fromEntries(keys.map(key => [key, Object.getOwnPropertyDescriptor(globalThis, key)]));
+  const instanceDescriptor = Object.getOwnPropertyDescriptor(WebAssembly, 'Instance');
+  const NativeInstance = WebAssembly.Instance, instances = [], messages = [], pending = new Map();
+  let trappedCompilations = 0;
+  try {
+    globalThis.fetch = async () => ({ ok: true, status: 200,
+      arrayBuffer: async () => bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) });
+    globalThis.self = { onmessage: null, postMessage(message, transfers) {
+      messages.push({ message, transfers });
+      const request = pending.get(message.id);
+      if (request) { pending.delete(message.id); clearTimeout(request.timer); request.resolve(message); }
+    } };
+    Object.defineProperty(WebAssembly, 'Instance', { configurable: true, writable: true, value: class {
+      constructor(compiledModule, imports) {
+        const instance = new NativeInstance(compiledModule, imports);
+        instances.push(instance);
+        if (instances.length === 1) return { exports: { ...instance.exports,
+          lsd_compile() { trappedCompilations++; throw new WebAssembly.RuntimeError('unreachable: injected compiler trap'); },
+        } };
+        return instance;
+      }
+    } });
+    await import(`../src/instruments/micmic/native/topology-worker.js?recovery=${++recoveryFixtureSequence}`);
+    const exchange = (id, parameters, revision = id) => new Promise((resolve, reject) => {
+      const timer = setTimeout(() => { pending.delete(id); reject(new Error('The topology worker fixture did not reply.')); }, 10000);
+      pending.set(id, { resolve, reject, timer });
+      self.onmessage({ data: { id, parameters, revision, sampleRate: RATE } });
+    });
+    const parameters = { ...DEFAULT_PARAMETERS, generations: 3 };
+    const failed = await exchange(1, parameters);
+    assert.match(failed.error, /injected compiler trap/);
+    assert.equal(trappedCompilations, 1);
+    const recovered = await exchange(2, parameters, 0x10000002a);
+    assert.equal(recovered.error, undefined);
+    assert.equal(instances.length, 2, 'a Rust trap retires the first compiler instance');
+    assert.deepEqual(recovered.result.parameters, parameters);
+    assert.equal(recovered.result.requestedVoices, 14);
+    assert.equal(recovered.pool.byteLength, 32 + 14 * 48, 'the recovered compiler returns the complete real WASM pool');
+    assert.ok(recovered.module instanceof WebAssembly.Module);
+    assert.deepEqual(WebAssembly.Module.imports(recovered.module), []);
+    const header = new DataView(recovered.pool);
+    assert.equal(header.getUint32(0, true), 0x4c534431);
+    assert.equal(header.getUint32(16, true), 42);
+    assert.equal(header.getUint32(20, true), 1, 'the worker preserves the full topology revision');
+    assert.deepEqual(messages.find(record => record.message.id === 2).transfers, [recovered.pool]);
+    const rejected = await exchange(3, { ...parameters, lSystemType: 'unknown' });
+    assert.equal(typeof rejected.error, 'string', 'an ordinary invalid control is still rejected');
+    const following = await exchange(4, { ...parameters, generations: 4 });
+    assert.equal(following.error, undefined);
+    assert.equal(following.result.requestedVoices, 30);
+    assert.equal(instances.length, 2, 'ordinary validation errors retain the healthy recovered compiler');
+  } finally {
+    for (const request of pending.values()) clearTimeout(request.timer);
+    Object.defineProperty(WebAssembly, 'Instance', instanceDescriptor);
+    for (const [key, descriptor] of Object.entries(saved)) {
+      if (descriptor) Object.defineProperty(globalThis, key, descriptor); else delete globalThis[key];
+    }
+  }
+});

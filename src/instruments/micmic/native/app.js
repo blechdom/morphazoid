@@ -407,6 +407,7 @@ function paintControls() {
   const requested = Number(state.requestedVoices) || (p.lSystemType === 'pythagorean' ? 2 ** (p.generations + 1) - 2 : 0);
   const limit = Math.max(0, Number(s.voiceLimit) || 0);
   $('generationCapacityInline').textContent = `${limit.toLocaleString()} of ${requested.toLocaleString()} branches ${state.audio ? 'available' : 'ready'} · ${pruning} pruning · ${state.performance.automatic ? 'device-adjusted' : 'manual ceiling'}`;
+  $('generationCapacityInline').title = 'Color shows admitted audio voices. Waves show signal amplitude. Device capacity is measured separately from sound travel time.';
   $('recursionSummary').textContent = `${type} · ${p.generations} generations`;
   $('mixSummary').textContent = `${Math.round(state.performance.wet * 100)}% descendants · ${state.performance.dry ? `${Math.round(state.performance.dry * 100)}% root` : 'root muted'}`;
   $('seedPauseButton').textContent = state.performance.frozen ? 'Resume test tone' : 'Pause test tone';

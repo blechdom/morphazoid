@@ -206,7 +206,11 @@ pub struct Engine {
     window: Vec<f64>,
     voices: Vec<Voice>,
     active_indices: Vec<usize>,
-    rank_scratch: Vec<u64>,
+    rank_to_slot: Vec<usize>,
+    admission_scratch: Vec<usize>,
+    pool_admission_dirty: bool,
+    #[cfg(test)]
+    last_admission_visits: usize,
     pool_group_counts: [usize; 256],
     activity_energy: [f64; 256],
     activity: [f32; 256],
@@ -235,7 +239,8 @@ pub struct Engine {
 pub struct PreparedPool {
     voices: Vec<Voice>,
     active_indices: Vec<usize>,
-    rank_scratch: Vec<u64>,
+    rank_to_slot: Vec<usize>,
+    admission_scratch: Vec<usize>,
 }
 
 impl PreparedPool {
@@ -267,7 +272,8 @@ impl PreparedPool {
         Ok(Self {
             voices,
             active_indices: reserved(keys.len())?,
-            rank_scratch: filled(keys.len().div_ceil(64), 0)?,
+            rank_to_slot: filled(keys.len(), usize::MAX)?,
+            admission_scratch: reserved(keys.len())?,
         })
     }
     pub fn capacity(&self) -> usize {
@@ -312,7 +318,11 @@ impl Engine {
             window,
             voices: reserved(max_voices)?,
             active_indices: reserved(max_voices)?,
-            rank_scratch: filled(max_voices.div_ceil(64), 0)?,
+            rank_to_slot: filled(max_voices, usize::MAX)?,
+            admission_scratch: reserved(max_voices)?,
+            pool_admission_dirty: true,
+            #[cfg(test)]
+            last_admission_visits: 0,
             pool_group_counts: [0; 256],
             activity_energy: [0.; 256],
             activity: [0.; 256],
@@ -426,7 +436,9 @@ impl Engine {
         let prepared = PreparedPool::new(keys)?;
         self.voices = prepared.voices;
         self.active_indices = prepared.active_indices;
-        self.rank_scratch = prepared.rank_scratch;
+        self.rank_to_slot = prepared.rank_to_slot;
+        self.admission_scratch = prepared.admission_scratch;
+        self.pool_admission_dirty = true;
         self.pool_mode = true;
         self.runtime_limit = 0;
         self.target_count = 0;
@@ -461,9 +473,13 @@ impl Engine {
         prepared
             .active_indices
             .extend_from_slice(&self.active_indices);
+        prepared.rank_to_slot[..self.rank_to_slot.len()].copy_from_slice(&self.rank_to_slot);
+        prepared.rank_to_slot[self.rank_to_slot.len()..].fill(usize::MAX);
+        prepared.admission_scratch.clear();
         std::mem::swap(&mut self.voices, &mut prepared.voices);
         std::mem::swap(&mut self.active_indices, &mut prepared.active_indices);
-        std::mem::swap(&mut self.rank_scratch, &mut prepared.rank_scratch);
+        std::mem::swap(&mut self.rank_to_slot, &mut prepared.rank_to_slot);
+        std::mem::swap(&mut self.admission_scratch, &mut prepared.admission_scratch);
         self.max_voices = self.voices.len();
     }
 
@@ -498,11 +514,12 @@ impl Engine {
             return;
         }
         let maximum_delay = (self.history.len() - 3) as f64 / self.sample_rate;
-        self.rank_scratch.fill(0);
+        self.rank_to_slot.fill(usize::MAX);
+        self.pool_admission_dirty = true;
         self.tap_remap.fill(0.);
         self.tap_voice_indices.fill(usize::MAX);
         self.tap_count = 0;
-        let used_ranks = &mut self.rank_scratch;
+        let rank_to_slot = &mut self.rank_to_slot;
         let pool_length = self.voices.len();
         for (index, voice) in self.voices.iter_mut().enumerate() {
             let old_rank = voice.pool_rank;
@@ -516,14 +533,15 @@ impl Engine {
                     ranks.get(index).copied().unwrap_or(usize::MAX)
                 });
                 // A malformed duplicate rank must not let two branches spend
-                // one budget slot. Capacity-sized scratch owns no callback allocation.
-                voice.pool_rank =
-                    if rank < pool_length && used_ranks[rank / 64] & (1u64 << (rank % 64)) == 0 {
-                        used_ranks[rank / 64] |= 1u64 << (rank % 64);
-                        rank
-                    } else {
-                        usize::MAX
-                    };
+                // one budget slot. The first slot reserves its rank even when
+                // its desired gain is zero. This map also makes later budget
+                // changes independent of unadmitted pool storage.
+                voice.pool_rank = if rank < pool_length && rank_to_slot[rank] == usize::MAX {
+                    rank_to_slot[rank] = index;
+                    rank
+                } else {
+                    usize::MAX
+                };
                 voice.pool_group = groups
                     .and_then(|groups| groups.get(index))
                     .copied()
@@ -570,49 +588,101 @@ impl Engine {
                 voice.pool_rank = usize::MAX;
                 voice.pool_group = 0;
             }
+            if voice.inactive {
+                voice.target.gain = 0.;
+                voice.releasing = true;
+            }
         }
         std::mem::swap(&mut self.tap_activity, &mut self.tap_remap);
         self.tap_energy.fill(0.);
         self.set_pool_limit(limit);
     }
 
-    /// Sample-thread safe. Remembered gains let calibration grow the same
-    /// canopy without sending or allocating another control command.
+    /// Sample-thread safe. Visit changed ranks and audible/releasing slots;
+    /// unadmitted storage never adds work to an audio-thread budget probe.
     pub fn set_pool_limit(&mut self, limit: usize) {
         if !self.pool_mode {
             return;
         }
+        #[cfg(test)]
+        {
+            self.last_admission_visits = 0;
+        }
+        let previous_limit = if self.pool_admission_dirty {
+            self.pool_group_counts.fill(0);
+            0
+        } else {
+            self.runtime_limit
+        };
         self.runtime_limit = limit.min(self.max_voices).min(self.voices.len());
-        let mut group_counts = [0usize; 256];
-        self.target_count = 0;
-        for voice in &self.voices {
-            if voice.pool_rank < self.runtime_limit && voice.desired_gain > 0. {
-                self.target_count += 1;
-                group_counts[usize::from(voice.pool_group)] += 1;
+        self.pool_admission_dirty = false;
+        for rank in previous_limit.min(self.runtime_limit)..previous_limit.max(self.runtime_limit) {
+            #[cfg(test)]
+            {
+                self.last_admission_visits += 1;
+            }
+            if let Some(voice) = self.voices.get(self.rank_to_slot[rank]) {
+                if voice.desired_gain > 0. {
+                    let count = &mut self.pool_group_counts[usize::from(voice.pool_group)];
+                    if previous_limit < self.runtime_limit {
+                        *count += 1;
+                    } else {
+                        *count -= 1;
+                    }
+                }
             }
         }
-        self.pool_group_counts = group_counts;
+        self.target_count = self.pool_group_counts.iter().sum();
         let mut normalizers = [1.; 256];
-        for (group, count) in group_counts.iter().enumerate().skip(1) {
+        for (group, count) in self.pool_group_counts.iter().enumerate().skip(1) {
             if *count > 0 {
                 normalizers[group] = (*count as f64).sqrt();
             }
         }
-        self.active_indices.clear();
-        for (index, voice) in self.voices.iter_mut().enumerate() {
+        for &index in &self.active_indices {
+            #[cfg(test)]
+            {
+                self.last_admission_visits += 1;
+            }
+            let voice = &mut self.voices[index];
             voice.target.gain = if voice.pool_rank < self.runtime_limit {
                 voice.desired_gain / normalizers[usize::from(voice.pool_group)]
             } else {
                 0.
             };
-            if voice.target.gain > 0. {
-                voice.inactive = false;
-                voice.releasing = false;
-            } else {
-                voice.releasing = true;
+            voice.releasing = voice.target.gain <= 0.;
+        }
+        self.admission_scratch.clear();
+        for rank in previous_limit..self.runtime_limit {
+            #[cfg(test)]
+            {
+                self.last_admission_visits += 1;
             }
-            if !voice.inactive {
-                self.active_indices.push(index);
+            let index = self.rank_to_slot[rank];
+            if let Some(voice) = self.voices.get_mut(index) {
+                if voice.inactive && voice.desired_gain > 0. {
+                    voice.target.gain =
+                        voice.desired_gain / normalizers[usize::from(voice.pool_group)];
+                    voice.inactive = false;
+                    voice.releasing = false;
+                    self.admission_scratch.push(index);
+                }
+            }
+        }
+        // Pruning priorities can differ from stable slot order. Merge only
+        // newly admitted slots so DSP retains its exact original summing order.
+        self.admission_scratch.sort_unstable();
+        let mut old = self.active_indices.len();
+        let mut added = self.admission_scratch.len();
+        self.active_indices.resize(old + added, 0);
+        while added > 0 {
+            let destination = old + added - 1;
+            if old > 0 && self.active_indices[old - 1] > self.admission_scratch[added - 1] {
+                old -= 1;
+                self.active_indices[destination] = self.active_indices[old];
+            } else {
+                added -= 1;
+                self.active_indices[destination] = self.admission_scratch[added];
             }
         }
     }
@@ -626,6 +696,7 @@ impl Engine {
         }
         self.target_count = 0;
         self.pool_group_counts.fill(0);
+        self.pool_admission_dirty = true;
     }
     pub fn active_voice_count(&self) -> usize {
         self.active_indices.len()
@@ -669,7 +740,8 @@ impl Engine {
             + self.window.len() * 8
             + self.voices.capacity() * std::mem::size_of::<Voice>()
             + self.active_indices.capacity() * std::mem::size_of::<usize>()
-            + self.rank_scratch.capacity() * std::mem::size_of::<u64>()
+            + (self.rank_to_slot.capacity() + self.admission_scratch.capacity())
+                * std::mem::size_of::<usize>()
             + self
                 .voices
                 .iter()
@@ -1086,6 +1158,183 @@ fn read(history: &[f32], position: f64) -> f64 {
 #[cfg(test)]
 mod arithmetic_tests {
     use super::*;
+
+    // The original admission implementation is deliberately retained only as
+    // a test oracle. It discovers selected voices by scanning every pool slot.
+    fn full_scan_limit(engine: &mut Engine, limit: usize) {
+        engine.runtime_limit = limit.min(engine.max_voices).min(engine.voices.len());
+        let mut counts = [0usize; 256];
+        engine.target_count = 0;
+        for voice in &engine.voices {
+            if voice.pool_rank < engine.runtime_limit && voice.desired_gain > 0. {
+                engine.target_count += 1;
+                counts[usize::from(voice.pool_group)] += 1;
+            }
+        }
+        engine.pool_group_counts = counts;
+        let mut normalizers = [1.; 256];
+        for (group, count) in counts.iter().enumerate().skip(1) {
+            if *count > 0 {
+                normalizers[group] = (*count as f64).sqrt();
+            }
+        }
+        engine.active_indices.clear();
+        for (index, voice) in engine.voices.iter_mut().enumerate() {
+            voice.target.gain = if voice.pool_rank < engine.runtime_limit {
+                voice.desired_gain / normalizers[usize::from(voice.pool_group)]
+            } else {
+                0.
+            };
+            if voice.target.gain > 0. {
+                voice.inactive = false;
+                voice.releasing = false;
+            } else {
+                voice.releasing = true;
+            }
+            if !voice.inactive {
+                engine.active_indices.push(index);
+            }
+        }
+    }
+
+    fn assert_admission_matches(actual: &Engine, reference: &Engine) {
+        assert_eq!(actual.runtime_limit, reference.runtime_limit);
+        assert_eq!(actual.target_count, reference.target_count);
+        assert_eq!(actual.pool_group_counts, reference.pool_group_counts);
+        assert_eq!(actual.active_indices, reference.active_indices);
+        for (a, b) in actual.voices.iter().zip(&reference.voices) {
+            assert_eq!(a.target.gain, b.target.gain);
+            assert_eq!(a.inactive, b.inactive);
+            if !a.inactive {
+                assert_eq!(a.releasing, b.releasing);
+            }
+            assert_eq!(a.phase, b.phase);
+            assert_eq!(a.delays, b.delays);
+            assert_eq!(a.fade, b.fade);
+            assert_eq!(a.gain, b.gain);
+        }
+    }
+
+    fn render_matching(actual: &mut Engine, reference: &mut Engine, frames: usize) {
+        for frame in 0..frames {
+            let input = [(frame as f32 * 0.137).sin() * 0.05; 2];
+            assert_eq!(actual.process_frame(input), reference.process_frame(input));
+        }
+        actual.finish_block();
+        reference.finish_block();
+        assert_admission_matches(actual, reference);
+    }
+
+    #[test]
+    fn incremental_admission_matches_full_scan_through_rank_controls_and_retirement() {
+        let keys: Vec<_> = (0..64)
+            .map(|index| format!("differential:{index}"))
+            .collect();
+        let mut actual = Engine::new(8000, 4., 64, 2).unwrap();
+        let mut reference = Engine::new(8000, 4., 64, 2).unwrap();
+        actual.install_pool(&keys).unwrap();
+        reference.install_pool(&keys).unwrap();
+        for stage in 0..12 {
+            let length = if stage % 3 == 0 { 41 } else { 64 };
+            let targets: Vec<_> = (0..length)
+                .map(|index| PoolTarget {
+                    delay: 0.013 + (index % 7 + stage) as f64 * 0.002,
+                    rate: 0.5 + (index % 5) as f64 * 0.4,
+                    gain: if (index + stage) % 5 == 0 { 0. } else { 0.23 },
+                    pan: (index % 3) as f64 * 0.7 - 0.7,
+                })
+                .collect();
+            let mut ranks: Vec<_> = (0..length).map(|index| (index * 37 + stage) % 64).collect();
+            ranks[7] = ranks[2];
+            ranks[11] = usize::MAX;
+            ranks[14] = 64;
+            if stage % 2 == 0 {
+                ranks.truncate(29);
+            }
+            let groups: Vec<_> = (0..length.saturating_sub(3))
+                .map(|index| [0, 1, 2, 255][(index + stage) % 4])
+                .collect();
+            let initial = 5 + stage;
+            actual.update_pool_ranked(&targets, &ranks, &groups, initial);
+            reference.update_pool_ranked(&targets, &ranks, &groups, initial);
+            full_scan_limit(&mut reference, initial);
+            assert_admission_matches(&actual, &reference);
+            for limit in [64, 3, 47, 47, 0, 22, 65] {
+                actual.set_pool_limit(limit);
+                full_scan_limit(&mut reference, limit);
+                assert_admission_matches(&actual, &reference);
+                render_matching(&mut actual, &mut reference, 128);
+            }
+            actual.silence();
+            reference.silence();
+            render_matching(&mut actual, &mut reference, 1800);
+            actual.set_pool_limit(64);
+            full_scan_limit(&mut reference, 64);
+            render_matching(&mut actual, &mut reference, 256);
+        }
+    }
+
+    #[test]
+    fn admission_lookup_survives_growth_without_readmitting_rejected_ranks() {
+        let keys: Vec<_> = (0..16).map(|index| format!("grow:{index}")).collect();
+        let mut actual = Engine::new(8000, 4., 8, 1).unwrap();
+        let mut reference = Engine::new(8000, 4., 8, 1).unwrap();
+        actual.install_pool(&keys[..8]).unwrap();
+        reference.install_pool(&keys[..8]).unwrap();
+        let mut targets = [PoolTarget {
+            delay: 0.02,
+            rate: 1.4,
+            gain: 0.2,
+            pan: 0.,
+        }; 16];
+        targets[0].gain = 0.;
+        let ranks = [0, 0, 3, usize::MAX, 1, 7, 12, 5];
+        for engine in [&mut actual, &mut reference] {
+            engine.update_pool_ranked(&targets[..8], &ranks, &[2; 8], 5);
+        }
+        full_scan_limit(&mut reference, 5);
+        render_matching(&mut actual, &mut reference, 400);
+        actual.grow_pool(&mut PreparedPool::new(&keys).unwrap());
+        reference.grow_pool(&mut PreparedPool::new(&keys).unwrap());
+        actual.set_pool_limit(16);
+        full_scan_limit(&mut reference, 16);
+        assert_eq!(
+            actual.target_count, 4,
+            "zero first-winner and invalid rank stay excluded"
+        );
+        render_matching(&mut actual, &mut reference, 256);
+        let reordered: Vec<_> = (0..16).rev().collect();
+        actual.update_pool_ranked(&targets, &reordered, &[3; 16], 11);
+        reference.update_pool_ranked(&targets, &reordered, &[3; 16], 11);
+        full_scan_limit(&mut reference, 11);
+        render_matching(&mut actual, &mut reference, 256);
+    }
+
+    #[test]
+    fn tiny_admission_changes_do_not_visit_the_unadmitted_pool() {
+        let count = 131_072;
+        let keys: Vec<_> = (0..count).map(|index| format!("sparse:{index}")).collect();
+        let mut engine = Engine::new(8000, 4., count, 1).unwrap();
+        engine.install_pool(&keys).unwrap();
+        let targets = vec![
+            PoolTarget {
+                gain: 0.2,
+                ..PoolTarget::default()
+            };
+            count
+        ];
+        engine.update_pool(&targets, 48);
+        assert_eq!(engine.last_admission_visits, 96);
+        for _ in 0..100 {
+            engine.set_pool_limit(49);
+            assert_eq!(engine.target_count, 49);
+            assert!(engine.last_admission_visits <= 51);
+            engine.set_pool_limit(48);
+            assert_eq!(engine.target_count, 48);
+            assert_eq!(engine.active_indices.len(), 49, "release tail is retained");
+            assert!(engine.last_admission_visits <= 51);
+        }
+    }
     #[test]
     fn optimized_wrapping_interpolation_matches_floor_at_boundaries() {
         let history: Vec<f32> = (0..17).map(|i| i as f32 * 0.03 - 0.2).collect();

@@ -547,7 +547,7 @@ impl Renderer {
             self.revision as f64,
             f64::from(self.performance.automatic),
             f64::from(self.performance.source == Source::Mic),
-            0.,
+            self.adaptive.measured_limit() as f64,
             self.envelope.count() as f64,
             self.envelope.end_time(),
             self.envelope.interval,
@@ -875,6 +875,61 @@ mod browser_tests {
         assert_eq!(FREES.with(Cell::get), 0);
         assert_eq!(renderer.metrics[2], 254.);
         assert!(left.iter().any(|value| value.abs() > 1e-5));
+    }
+    #[test]
+    fn calibration_metric_retains_proved_device_capacity_through_small_topologies() {
+        let large = scene(7);
+        let small = scene(1);
+        let mut renderer = Renderer::new(8000, 1).unwrap();
+        renderer.install(&large.pool).unwrap();
+        assert_eq!(renderer.metrics[19], 0.);
+        for _ in 0..200 {
+            renderer.observe(0.001, BLOCK, false);
+        }
+        assert_eq!(renderer.metrics[19], 254.);
+        renderer.install(&small.pool).unwrap();
+        assert_eq!(renderer.metrics[3], 2.);
+        assert_eq!(renderer.metrics[19], 254.);
+        renderer.install(&large.pool).unwrap();
+        assert_eq!(renderer.metrics[3], 254.);
+        renderer.observe(0.02, BLOCK, false);
+        assert_eq!(
+            renderer.metrics[3], 2.,
+            "Restored device evidence must still survive current callback validation"
+        );
+        assert_eq!(renderer.metrics[19], 2.);
+    }
+    #[test]
+    fn manual_scene_is_not_fabricated_capacity_evidence_on_automatic_restart() {
+        let compiled = scene(7);
+        let mut renderer = Renderer::new(8000, 1).unwrap();
+        renderer
+            .set_performance(Performance {
+                automatic: false,
+                ..Performance::default()
+            })
+            .unwrap();
+        renderer.install(&compiled.pool).unwrap();
+        for _ in 0..200 {
+            renderer.observe(0.0001, BLOCK, false);
+        }
+        assert_eq!(renderer.metrics[3], 254.);
+        assert_eq!(
+            renderer.metrics[19], 0.,
+            "Manual admission has not passed automatic trial validation"
+        );
+        renderer.set_performance(Performance::default()).unwrap();
+        assert_eq!(renderer.metrics[3], 48.);
+        for _ in 0..200 {
+            renderer.observe(0.001, BLOCK, false);
+        }
+        assert_eq!(renderer.metrics[19], 254.);
+        renderer.observe(0.032, BLOCK, false);
+        assert!(renderer.metrics[3] < 254.);
+        assert!(
+            renderer.metrics[19] < 254.,
+            "Real overload must invalidate previously proved processing cost"
+        );
     }
     #[test]
     fn growing_reserved_storage_preserves_the_live_recording_and_voice_state() {

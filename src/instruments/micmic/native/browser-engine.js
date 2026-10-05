@@ -28,6 +28,24 @@ export function createBrowserDelayEngine({ onStatus = () => {}, onError = () => 
   function assertOpen() { if (disposed) throw new Error('This audio session has closed.'); }
   function report(error) { failure = String(error.message || error); onError(error); }
 
+  function failAudio(error, failedNode, failedContext = context) {
+    // Processor exceptions permanently silence that node. Discard its graph so
+    // the next explicit Audio/Mic action can prepare a fresh session.
+    if (failedNode !== node || failedContext !== context) return;
+    audioVersion++; audioDesired = audio = false; setOutput(false, true); stopCapture();
+    finishReady?.(error); settleRequests(audioRequests, error);
+    controlsReady = false; starting = null;
+    if (failedNode) {
+      failedNode.onprocessorerror = null; failedNode.port.onmessage = null;
+      failedNode.disconnect(); failedNode.port.close();
+    }
+    node = null;
+    releaseOutput?.(); releaseOutput = null; master?.disconnect(); master = null;
+    context = null;
+    if (failedContext && failedContext.state !== 'closed') void failedContext.close().catch(() => {});
+    status = emptyStatus(); report(error); onStatus(snapshot());
+  }
+
   function settleRequests(requests, error) {
     for (const pending of requests.values()) { clearTimeout(pending.timer); pending.reject(error); }
     requests.clear();
@@ -36,13 +54,16 @@ export function createBrowserDelayEngine({ onStatus = () => {}, onError = () => 
   function ensureWorker() {
     if (worker) return;
     worker = new Worker(WORKER_URL, { type: 'module', name: 'L-system topology' });
+    const activeWorker = worker;
     worker.onmessage = ({ data }) => {
       const pending = workerRequests.get(data.id); if (!pending) return;
       workerRequests.delete(data.id); clearTimeout(pending.timer);
       if (data.error) pending.reject(new Error(data.error)); else pending.resolve(data);
     };
     worker.onerror = event => {
+      if (worker !== activeWorker) return;
       const error = new Error(event.message || 'The topology worker stopped.');
+      activeWorker.terminate(); worker = null;
       settleRequests(workerRequests, error); report(error);
     };
   }
@@ -100,7 +121,8 @@ export function createBrowserDelayEngine({ onStatus = () => {}, onError = () => 
       const resumed = context.resume();
       if (starting) return starting;
       if (node) return resumed.then(() => { assertOpen(); return node; });
-      starting = (async () => {
+      const preparedContext = context;
+      const preparation = (async () => {
         await resumed;
         await Promise.all([ensureTopology(), context.audioWorklet.addModule(WORKLET_URL)]);
         assertOpen();
@@ -111,12 +133,17 @@ export function createBrowserDelayEngine({ onStatus = () => {}, onError = () => 
           numberOfInputs: 1, numberOfOutputs: 1, outputChannelCount: [2], channelCount: 2, channelCountMode: 'max',
           processorOptions: { module },
         });
+        const preparedNode = node;
         ready = new Promise((resolve, reject) => {
           const timer = setTimeout(() => finishReady?.(new Error('The Rust audio engine took too long to start.')), 15000);
           finishReady = error => { clearTimeout(timer); finishReady = null; if (error) reject(error); else resolve(); };
         });
         ready.catch(() => {});
         node.port.onmessage = ({ data }) => {
+          if (node !== preparedNode) return;
+          if (data.type === 'failure') {
+            failAudio(new Error(`${data.error || 'The Rust audio engine stopped.'} Press Audio to restart.`), preparedNode, preparedContext); return;
+          }
           if (data.type === 'ready') { finishReady?.(); return; }
           const pending = audioRequests.get(data.id);
           if (!pending) return;
@@ -124,11 +151,7 @@ export function createBrowserDelayEngine({ onStatus = () => {}, onError = () => 
           if (data.error) pending.reject(new Error(data.error));
           else { if (data.status) status = data.status; pending.resolve(data.status); }
         };
-        node.onprocessorerror = () => {
-          const error = new Error('The Rust audio engine stopped. Reload the instrument to start a new session.');
-          audioDesired = audio = false; setOutput(false, true); stopCapture();
-          finishReady?.(error); settleRequests(audioRequests, error); report(error);
-        };
+        node.onprocessorerror = () => failAudio(new Error('The Rust audio engine stopped. Press Audio to restart.'), preparedNode, preparedContext);
         node.connect(master); releaseOutput = connectAudioOutput(context, master);
         // Publish the initial pool before yielding. A preset can finish
         // compiling before the worklet's ready message reaches this thread;
@@ -142,7 +165,13 @@ export function createBrowserDelayEngine({ onStatus = () => {}, onError = () => 
         controlsReady = true;
         await audioMessage('performance', { performance: performanceState });
         return node;
-      })().finally(() => { starting = null; });
+      })().catch(error => {
+        // Startup failure/timeout also must not cache an unusable node. Ignore
+        // an old preparation's rejection once a new explicit session exists.
+        if (!disposed && context === preparedContext) failAudio(error, node, preparedContext);
+        throw error;
+      }).finally(() => { if (starting === preparation) starting = null; });
+      starting = preparation;
       starting.catch(() => {});
       return starting;
     } catch (error) { return Promise.reject(error); }

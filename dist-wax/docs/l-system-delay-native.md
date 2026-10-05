@@ -213,8 +213,13 @@ The live voice controller measures this processing along with the delay engine.
 
 The optional voice cap defaults to **No cap**. Automatic adaptation seeks the
 largest requested eligible voice count supported by measured callback work.
-The browser starts with a conservative budget and probes upward using actual worklet
-processing time, rolling back unsuccessful probes. The native comparison uses
+The browser starts with a conservative budget, measures 300 ms of callback work,
+then tests larger counts from the measured remaining headroom. Trials use 180 ms
+of evidence and another 60 ms of steady work before the next increase, replacing
+the slow generation-by-generation climb. Previously proved device capacity
+survives a smaller scene and is tested again when demand grows. These colors
+show admission, rather than the arrival of delayed sound; waviness shows signal.
+Unsuccessful probes roll back. The native comparison uses
 a separate warmed calibration before those live probes.
 Failed probes are retried, so capacity can increase when device conditions
 improve. The controller accounts for transient load and lets outgoing voices
@@ -231,6 +236,18 @@ ranges reflect memory and exact numeric representation, rather than a fixed
 thirteen-generation cap. Branches beyond 39 seconds of cumulative delay retain
 structure with zero audio gain, leaving grain read-head room within the
 40-second history. A completely inaudible tree does not grow a hidden budget.
+
+Rejected control updates retain the working tree. Recoverable WASM memory growth
+refreshes the audio buffers. A fatal processor failure mutes output, releases
+capture and discards the failed graph; pressing Audio prepares a fresh graph
+with the retained musical settings, without reloading the page. A trapping
+topology compilation also resets its compiler for the next edit.
+
+Audio-thread admission updates visit changed ranks and active/releasing voices,
+using a rank-to-slot lookup prepared with the controls. Increasing the requested
+tree no longer makes each device-budget adjustment scan every reserved branch.
+The lookup and merge scratch are reserved up front and included in memory metrics;
+admission and rendering do not allocate on the audio callback.
 
 Rendering visits active voices instead of scanning every reserved slot. Graphics
 reduce their frame rate and curve detail as audio load rises; the visual

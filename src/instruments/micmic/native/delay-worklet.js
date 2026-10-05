@@ -24,7 +24,10 @@ class LSystemDelayProcessor extends AudioWorkletProcessor {
     this.refreshViews();
     this.port.onmessage = ({ data }) => {
       try { this.message(data); }
-      catch (error) { this.port.postMessage({ id: data.id, error: String(error.message || error) }); }
+      catch (error) {
+        this.port.postMessage({ id: data.id, error: String(error.message || error) });
+        if (error instanceof WebAssembly.RuntimeError) this.fail(error);
+      }
     };
     this.port.postMessage({ type: 'ready', timing: fineClock ? 'high-resolution' : 'coarse-averaged' });
   }
@@ -43,6 +46,7 @@ class LSystemDelayProcessor extends AudioWorkletProcessor {
   }
 
   snapshot() {
+    if (this.memory !== this.api.memory.buffer) this.refreshViews();
     const status = {};
     // Metrics are refreshed by Rust on read, including values between callbacks.
     this.api.lsd_metrics_ptr(this.engine);
@@ -90,6 +94,21 @@ class LSystemDelayProcessor extends AudioWorkletProcessor {
 
   process(inputs, outputs) {
     if (this.dead || this.failed) return false;
+    try { return this.processBlock(inputs, outputs); }
+    catch (error) {
+      for (const channel of outputs[0] || []) channel.fill(0);
+      this.fail(error); return false;
+    }
+  }
+
+  fail(error) {
+    if (this.failed) return;
+    this.failed = true;
+    this.port.postMessage({ type: 'failure', error: String(error.message || error) });
+  }
+
+  processBlock(inputs, outputs) {
+    if (this.memory !== this.api.memory.buffer) this.refreshViews();
     const output = outputs[0], left = output?.[0], right = output?.[1];
     if (!left) return true;
     const frames = left.length, channels = inputs[0], inLeft = channels?.[0], inRight = channels?.[1];
@@ -100,7 +119,8 @@ class LSystemDelayProcessor extends AudioWorkletProcessor {
       this.inputRight[i] = inRight?.[i] ?? this.inputLeft[i];
     }
     if (!this.api.lsd_process(this.engine, this.inputLeftPointer, this.inputRightPointer, this.outputLeftPointer, this.outputRightPointer, frames)) {
-      this.failed = true; left.fill(0); right?.fill(0); return false;
+      this.fail(new Error(wasmError(this.api, 'The Rust delay renderer rejected an audio block.')));
+      left.fill(0); right?.fill(0); return false;
     }
     for (let i = 0; i < frames; i++) { left[i] = this.outputLeft[i]; if (right) right[i] = this.outputRight[i]; }
     // Admission probes also consume the audio thread. Carry that measured
