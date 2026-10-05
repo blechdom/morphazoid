@@ -340,6 +340,7 @@ for (const mode of ['canvas', 'null', 'throw', 'shader']) {
 test('real Rust WASM audio survives GPU loss, restore, UI stalls and branching preset recalls', async ({ page }) => {
   // This explicitly forces GPU rendering even on CI's slow software backend.
   test.setTimeout(180000);
+  await page.emulateMedia({ reducedMotion: 'no-preference' });
   const errors = [], requests = [];
   page.on('pageerror', error => errors.push(error.message));
   page.on('request', request => { if (new URL(request.url()).pathname.startsWith('/api/')) requests.push(request.url()); });
@@ -369,12 +370,13 @@ test('real Rust WASM audio survives GPU loss, restore, UI stalls and branching p
   await expect.poll(async () => (await status(page)).status.outputPeak, { timeout: 15000 }).toBeGreaterThan(.00001);
   await page.evaluate(() => { __delayGpuProbe.draws = []; __delayGpuProbe.remaining = 4; __delayGpuProbe.enabled = true; });
   await expect.poll(() => page.evaluate(() => {
-    const root = document.getElementById('seedControl'), rx = parseFloat(root.style.left), ry = parseFloat(root.style.top);
     let bent = 0;
     for (const draw of __delayGpuProbe.draws) for (let row = 0; row < draw.instances; row++) {
       const first = row * draw.count * 7, last = first + (draw.count - 1) * 7;
       const x = draw.output[first], y = draw.output[first + 1], ex = draw.output[last], ey = draw.output[last + 1];
-      if (!draw.output[first + 6] || Math.hypot(x - rx, y - ry) < 1) continue;
+      // Instance zero is the white root. The old test-tone control was removed;
+      // measure actual following branch geometry rather than that legacy DOM.
+      if (!draw.output[first + 6] || row === 0) continue;
       const length = Math.hypot(ex - x, ey - y); let bend = 0;
       for (let column = 0; column < draw.count; column++) {
         const index = first + column * 7;

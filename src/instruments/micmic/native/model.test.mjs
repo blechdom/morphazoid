@@ -261,12 +261,36 @@ test('audio demand and user ceilings can exceed the old voice guard while previe
 
 
 test('graphics back off before audio deadlines while gestures retain smooth interpolation', () => {
-  assert.deepEqual(visualBudget(.3, .5, false), { fps: 30, branches: 640, pressure: 0 });
+  assert.deepEqual(visualBudget(.3, .5, false), { fps: 60, branches: 640, pressure: 0 });
   const reduced = visualBudget(.7, .86, false);
-  assert.equal(reduced.fps, 15); assert.equal(reduced.branches, 160);
+  assert.equal(reduced.fps, 30); assert.equal(reduced.branches, 160);
   const severe = visualBudget(.9, .96, false);
-  assert.equal(severe.fps, 8); assert.equal(severe.branches, 64);
+  assert.equal(severe.fps, 20); assert.equal(severe.branches, 64);
   assert.equal(visualBudget(.9, .96, true).fps, 30);
+  for (const [load, peak, allowance] of [[.3, .5, 100], [.7, .86, 75], [.9, .96, 50]]) {
+    for (const cost of [.2, 2, 10, 40]) {
+      const measured = visualBudget(load, peak, false, true, cost);
+      assert.ok(measured.fps * cost <= allowance + 1e-9, 'drawing obeys the measured CPU allowance');
+      assert.equal(measured.branches, visualBudget(load, peak).branches, 'cost never removes voices or visual segments');
+    }
+  }
+  assert.equal(visualBudget(.9, .96, false, false, 40).fps, 60, 'Audio off leaves visual interaction immediate');
+});
+
+test('Canvas reuses its wave point scratch without retaining stale energy or breaking shared endpoints', () => {
+  const start = { x: 11, y: 20 }, end = { x: 180, y: 32 }, scratch = [];
+  const node = { generation: 3, rate: 1.3, voiceIndex: 7, startDelay: .2, delay: .7, measuredEnergy: .3, parentEnergy: .2 };
+  const expected = branchWavePoints(node, start, end, () => .1, 14, false, .4);
+  assert.equal(branchWavePoints(node, start, end, () => .1, 14, false, .4, scratch), scratch);
+  assert.deepEqual(scratch, expected);
+  const identities = scratch.slice();
+  branchWavePoints(node, start, end, () => .3, 14, false, .7, scratch);
+  assert.ok(scratch.every((point, index) => point === identities[index]));
+  const silentNode = { ...node, measuredEnergy: undefined, parentEnergy: undefined };
+  branchWavePoints(silentNode, start, end, 0, 5, false, .8, scratch);
+  assert.equal(scratch.length, 6);
+  assert.deepEqual(scratch, branchWavePoints(silentNode, start, end, 0, 5, false, .8));
+  assert.deepEqual(scratch[0], start); assert.deepEqual(scratch.at(-1), end);
 });
 
 

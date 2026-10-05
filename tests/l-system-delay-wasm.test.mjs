@@ -340,7 +340,7 @@ let recoveryFixtureSequence = 0;
  * named export fault is substituted; sample generation and controls stay real.
  */
 async function withRecoveryWorklet(run) {
-  const keys = ['AudioWorkletProcessor', 'registerProcessor', 'sampleRate'];
+  const keys = ['AudioWorkletProcessor', 'registerProcessor', 'sampleRate', 'currentTime'];
   const saved = Object.fromEntries(keys.map(key => [key, Object.getOwnPropertyDescriptor(globalThis, key)]));
   const messages = [];
   let Processor, processor;
@@ -366,6 +366,7 @@ async function withRecoveryWorklet(run) {
     const input = new Float32Array(BLOCK), left = new Float32Array(BLOCK), right = new Float32Array(BLOCK);
     let renderedFrames = 0;
     const render = () => {
+      globalThis.currentTime = 7.25 + renderedFrames / RATE;
       for (let index = 0; index < BLOCK; index++) input[index] = sine(173, .03)(renderedFrames + index);
       const running = processor.process([[input]], [[left, right]]);
       renderedFrames += BLOCK;
@@ -407,6 +408,19 @@ test('worklet keeps actual audio and its clock live when memory grows between ca
     assert.ok(rms(left) > .001, 'observation growth does not strand the live topology in silence');
     assert.ok(processor.snapshot().elapsedSeconds > before + BLOCK * 30 / RATE, 'sample clock keeps advancing after both faults');
     assert.equal(messages.filter(message => message.type === 'failure').length, 0, 'recoverable memory growth is not a fatal error');
+  });
+});
+
+test('worklet pairs the Rust sample clock with the end of the rendered audio quantum', async () => {
+  await withRecoveryWorklet(({ processor, render }) => {
+    for (let block = 0; block < 8; block++) {
+      assert.equal(render(), true);
+      const status = processor.snapshot();
+      assert.ok(Math.abs(status.audioTimeSeconds - 7.25 - status.elapsedSeconds) < 1e-12);
+    }
+    const at = processor.snapshot().audioTimeSeconds;
+    globalThis.currentTime += .2;
+    assert.equal(processor.snapshot().audioTimeSeconds, at, 'a delayed read retains the timestamp of the rendered samples');
   });
 });
 

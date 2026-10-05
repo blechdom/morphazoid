@@ -14,6 +14,7 @@ const file = name => ({ name, size: 8, arrayBuffer: async () => new ArrayBuffer(
 function fixture() {
   const originals = new Map(), engines = [], contexts = [], worklets = [], workers = [], sources = [], errors = [], updates = [];
   const f = { contexts, worklets, workers, sources, errors, updates, captureCalls: 0, fetchCalls: 0, statusReplies: [], holdStatus: false,
+    workletStatus: { elapsedSeconds: 1, inputPeak: .1, outputPeak: .2, processedBlocks: 4 },
     capture: async () => microphone(), decode: async () => pcm(), fetch: async () => ({ ok: true, arrayBuffer: async () => new ArrayBuffer(8) }) };
   function replace(key, value) { originals.set(key, Object.getOwnPropertyDescriptor(globalThis, key)); Object.defineProperty(globalThis, key, { configurable: true, writable: true, value }); }
   class Node { connect(target) { this.target = target; } disconnect() { this.disconnected = true; } }
@@ -35,7 +36,8 @@ function fixture() {
   class Worklet extends Node {
     constructor() { super(); worklets.push(this); this.messages = [];
       this.port = { postMessage: data => { this.messages.push(data); if (data.id) {
-        const reply = () => this.port.onmessage?.({ data: { id: data.id, status: { elapsedSeconds: 1, inputPeak: .1, outputPeak: .2, processedBlocks: 4 } } });
+        const status = { ...f.workletStatus };
+        const reply = () => this.port.onmessage?.({ data: { id: data.id, status } });
         if (f.holdStatus && data.type === 'status') f.statusReplies.push(reply); else queueMicrotask(reply);
       } }, close: () => { this.port.closed = true; } };
       queueMicrotask(() => this.port.onmessage?.({ data: { type: 'ready' } }));
@@ -53,6 +55,30 @@ function microphone() {
   const track = { stopped: false, label: 'Fixture mic', stop() { this.stopped = true; }, getSettings: () => ({ channelCount: 1 }), addEventListener() {} };
   return { track, getTracks: () => [track], getAudioTracks: () => [track] };
 }
+
+test('visual sample time follows the audio clock through delayed and duplicate status replies and graph recovery', async () => {
+  const f = fixture(); try {
+    const engine = f.engine(); assert.equal(engine.getSampleTime(), null);
+    await engine.setInputMode('samples'); await engine.request('/api/audio', { enabled: true });
+    assert.equal(engine.getSampleTime(), null, 'unpaired constructor or legacy status cannot calibrate a clock');
+    const context = f.contexts[0]; context.currentTime = 11;
+    f.workletStatus = { ...f.workletStatus, elapsedSeconds: 2, audioTimeSeconds: 10.75 };
+    f.holdStatus = true;
+    const pending = engine.request('/api/status'); await until(() => f.statusReplies.length === 1);
+    context.currentTime = 11.2; f.statusReplies.shift()(); await pending;
+    assert.ok(Math.abs(engine.getSampleTime() - 2.45) < 1e-12, 'message delivery lag does not become wave phase lag');
+    const duplicate = engine.request('/api/status'); await until(() => f.statusReplies.length === 1);
+    context.currentTime = 11.4; f.statusReplies.shift()(); await duplicate;
+    assert.ok(Math.abs(engine.getSampleTime() - 2.65) < 1e-12, 'the same packet cannot move the sample clock backwards');
+    await context.suspend(); const frozen = engine.getSampleTime(); await tick(); assert.equal(engine.getSampleTime(), frozen);
+    f.worklets[0].onprocessorerror(); assert.equal(engine.getSampleTime(), null, 'failed graph retires its clock anchor');
+    f.holdStatus = false; f.workletStatus = { ...f.workletStatus, elapsedSeconds: 0, audioTimeSeconds: null, processedBlocks: 0 };
+    await engine.request('/api/audio', { enabled: true }); assert.equal(engine.getSampleTime(), null);
+    f.contexts[1].currentTime = .3; f.workletStatus = { ...f.workletStatus, elapsedSeconds: .1, audioTimeSeconds: .2, processedBlocks: 1 };
+    await engine.request('/api/status'); assert.ok(Math.abs(engine.getSampleTime() - .2) < 1e-12, 'fresh graph has an independent clock');
+    engine.dispose(); assert.equal(engine.getSampleTime(), null);
+  } finally { f.cleanup(); }
+});
 
 test('mode and sample selection while Audio is off never prepares a graph or requests capture', async () => {
   const f = fixture(); try {

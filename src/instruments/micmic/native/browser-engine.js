@@ -381,7 +381,16 @@ export function createBrowserDelayEngine({ onStatus = () => {}, onError = () => 
       sampleClock: status.elapsedSeconds, processedBlocks: status.processedBlocks || 0, buildRevision: topologyRevision };
   }
 
+  function getSampleTime() {
+    const elapsed = status.elapsedSeconds, at = status.audioTimeSeconds;
+    if (disposed || !node || !context || !(status.processedBlocks > 0)
+      || !Number.isFinite(elapsed) || !Number.isFinite(at)) return null;
+    // Both clocks advance on the audio thread, including while status messages
+    // wait behind a UI frame. AudioContext.currentTime freezes on suspension.
+    return elapsed + Math.max(0, context.currentTime - at);
+  }
+
   currentEngine = { request, prepareAudio, setMicrophoneEnabled, setInputMode, setSample, loadFile,
-    setInputLoop, restartInput, stopInput, muteForDeparture, dispose, getDiagnostics };
+    setInputLoop, restartInput, stopInput, muteForDeparture, dispose, getDiagnostics, getSampleTime };
   return currentEngine;
 }
