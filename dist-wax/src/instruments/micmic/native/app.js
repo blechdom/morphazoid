@@ -11,6 +11,7 @@ import { DEFAULT_PARAMETERS, DEFAULT_PERFORMANCE, sanitizeParameters, sanitizePe
   topologyIdentity, tapActivityFrame, activityEnergy, smoothActivity, branchWavePoints, inputHistoryFrame } from './model.js';
 import { DEFAULT_MASTERING, MASTERING_PROFILES, masteringProfileId, cutoffFromSlider, sliderFromCutoff } from './mastering.js';
 import { createBrowserDelayEngine } from './browser-engine.js';
+import { createGpuBranchRenderer } from './gpu-renderer.js';
 
 import { FAVE_TOOL_IDS, TOOL_GROUPS } from '../../../site/instrument-registry.js';
 import { createMidiStatus } from '../../../ui/patterns/midi-status.js';
@@ -42,6 +43,12 @@ let nativePreview = null, nativePreviewFrom = new Map(), nativePreviewStarted = 
 let previewParameters = { ...state.parameters }, previewFrom = { ...previewParameters }, previewStarted = 0, previewMoving = false;
 let presets = [], lastScenePreset = 'pythagorean', presetController, sceneApplying = false;
 const canvas = $('stage'), context = canvas.getContext('2d'), reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+// The original canvas retains gestures, focus and small annotations. Branch
+// deformation lives in a separate GPU layer, with the full Canvas fallback.
+const rendererMode = new URLSearchParams(location.search).get('renderer');
+const gpuRenderer = rendererMode === 'canvas' ? null
+  : createGpuBranchRenderer(canvas, COLORS, { onInvalidate: scheduleDraw, force: rendererMode === 'webgl2' });
+canvas.dataset.renderer = gpuRenderer?.available ? 'webgl2' : 'canvas';
 const inputStrip = createAudioInputStrip({ button: $('micButton'), gainInput: $('inputTrim'), gainOutput: $('inputTrimOut'), channels: 1 });
 $('inputMenu').classList.add('mz-input-legacy'); $('seedMicButton').classList.add('mz-input-legacy');
 const outputMeter = createStereoMeter({ active: false });
@@ -432,6 +439,7 @@ function buildGeometry() {
   const desiredFit = fitTransform(topologyBounds(nodes), width, height);
   geometry = { width, height, dpr, nodes, desiredFit, fit: lockedFit ? { ...lockedFit } : desiredFit, activeLimit: -1, active: [], unavailableKey: null,
     byVoiceIndex: new Map(nodes.filter(n => n.generation > 0).map(n => [n.voiceIndex, n])) };
+  gpuRenderer?.setGeometry(nodes, { intervalMs: state.parameters.intervalMs });
   const counts = new Map(); for (const n of nodes) counts.set(n.generation, (counts.get(n.generation) ?? 0) + 1);
   $('generationCountReadout').textContent = [...counts].slice(0, 6).map(([, count]) => count.toLocaleString()).join(' → ') + (counts.size > 6 ? ` → … → ${(counts.get(Math.max(...counts.keys())) ?? 0).toLocaleString()} previewed at G${Math.max(...counts.keys())}` : '');
   $('treeDescription').textContent = `${TYPE_LABELS[state.parameters.lSystemType]}. ${state.parameters.generations} audio generations; ${nodes.length.toLocaleString()} segments in the bounded visual preview. Colored branches are available voices; grey branches are unavailable. Signal amplitude bends the connected lines without changing their color or thickness. Long branches also show input traveling toward their measured endpoint.`;
@@ -491,53 +499,63 @@ function draw(now) {
   rootLevel = smoothActivity(rootLevel, state.audio && now - inputReceivedAt < 300 ? activityEnergy(Number(state.status.inputPeak || 0)) : 0, elapsed);
   const rootNode = nodes.find(n => n.generation === 0);
   if (rootNode && rootLevel > 0) responding.set(rootNode.id, { node: rootNode, energy: rootLevel });
-  const activeIds = new Set(geometry.active.map(n => n.id));
-  const branches = [...geometry.active, ...[...responding.values()].filter(({ node }) => !activeIds.has(node.id)).map(({ node }) => node)];
-  // Color answers only availability, including voices still sounding through
-  // their release. Grey never doubles as a volume indicator.
-  const availableIds = new Set(branches.map(n => n.id));
-  const unavailableKey = `${limit}:${branches.slice(geometry.active.length).map(n => n.id).join(',')}`;
-  if (geometry.unavailableKey !== unavailableKey) {
-    geometry.unavailableKey = unavailableKey; geometry.unavailable = new Path2D();
-    for (const n of nodes) if (!availableIds.has(n.id)) { geometry.unavailable.moveTo(n.startX, n.startY); geometry.unavailable.lineTo(n.x, n.y); }
+  canvas.dataset.renderer = gpuRenderer?.available ? 'webgl2' : 'canvas';
+  if (gpuRenderer?.available) {
+    const detailSteps = Math.max(5, Math.min(14, Math.floor(budget.branches * 8 / Math.max(1, geometry.active.length))));
+    gpuRenderer.render({ width, height, dpr, fit, seconds, detailSteps, reducedMotion,
+      limit, pending: sceneActivityPending, historyFresh, history: inputTelemetry.envelope,
+      levels: tapLevels, targets: tapTargets, rootLevel, wet: state.performance.wet,
+      wetBusGain: Number(state.status.wetBusGain || 0), depth: state.parameters.depth,
+      generationCounts: state.status.generationVoiceCounts, selectedCounts: geometry.selectedCounts });
+  } else {
+    const activeIds = new Set(geometry.active.map(n => n.id));
+    const branches = [...geometry.active, ...[...responding.values()].filter(({ node }) => !activeIds.has(node.id)).map(({ node }) => node)];
+    // Color answers only availability, including voices still sounding through
+    // their release. Grey never doubles as a volume indicator.
+    const availableIds = new Set(branches.map(n => n.id));
+    const unavailableKey = `${limit}:${branches.slice(geometry.active.length).map(n => n.id).join(',')}`;
+    if (geometry.unavailableKey !== unavailableKey) {
+      geometry.unavailableKey = unavailableKey; geometry.unavailable = new Path2D();
+      for (const n of nodes) if (!availableIds.has(n.id)) { geometry.unavailable.moveTo(n.startX, n.startY); geometry.unavailable.lineTo(n.x, n.y); }
+    }
+    context.save(); context.setTransform(dpr * fit.scale, 0, 0, -dpr * fit.scale, dpr * fit.x, dpr * fit.y);
+    context.lineCap = 'round'; context.lineJoin = 'round'; context.strokeStyle = 'rgba(119,131,126,.58)';
+    context.globalAlpha = .4; context.lineWidth = .72 / fit.scale; context.stroke(geometry.unavailable); context.restore();
+    const byId = new Map(nodes.map(n => [n.id, n]));
+    const detailSteps = Math.max(5, Math.min(14, Math.floor(budget.branches * 8 / Math.max(1, branches.length))));
+    const coloredPaths = COLORS.map(() => new Path2D());
+    for (const n of branches) {
+      const parent = byId.get(n.parentId), a = project(n.startX, n.startY), b = project(n.x, n.y);
+      const wet = Number(state.status.wetBusGain || 0) > 0 ? state.performance.wet : 0;
+      const selectedCount = state.status.generationVoiceCounts?.[n.generation] ?? geometry.selectedCounts.get(n.generation);
+      const gain = .5 * state.parameters.depth ** (n.generation * .72) / Math.sqrt(selectedCount || 1);
+      const voiceLevel = n.generation === 0 ? 1 : clamp(Math.sqrt(Math.max(0, gain) / .5) * Math.sqrt(wet));
+      const history = historyFresh && !sceneActivityPending && activeIds.has(n.id);
+      const energy = responding.get(n.id)?.energy ?? 0;
+      const measured = n.generation === 0 || tapTargets.has(n.voiceIndex);
+      const parentMeasured = parent?.generation === 0 || tapTargets.has(parent?.voiceIndex);
+      const parentEnergy = wet > 0 ? (parent?.generation === 0 ? rootLevel * Math.sqrt(wet) : responding.get(parent?.id)?.energy ?? 0) : 0;
+      const points = branchWavePoints({ ...n, startDelay: parent?.delay ?? Math.max(0, (n.delay ?? 0) - state.parameters.intervalMs / 1000), voiceLevel,
+        measuredEnergy: measured ? energy : undefined, parentEnergy: parentMeasured ? parentEnergy : undefined },
+        a, b, history ? inputTelemetry.reader : energy, detailSteps, reducedMotion, seconds);
+      if (!history && !measured) for (const point of points) point.energy = energy;
+      const peak = Math.max(...points.map(p => p.energy));
+      const path = coloredPaths[n.generation % COLORS.length];
+      path.moveTo(points[0].x, points[0].y);
+      if (peak === 0) path.lineTo(points.at(-1).x, points.at(-1).y);
+      else for (const point of points.slice(1)) path.lineTo(point.x, point.y);
+    }
+    // All available lines stay colored and connected at silence. Only wave
+    // deflection responds to amplitude; no brightness/width gate creates gaps.
+    // Batch by palette color so quiet/high-polyphony trees require few strokes.
+    context.lineCap = 'round'; context.lineJoin = 'round';
+    context.globalAlpha = .85; context.lineWidth = 1.2; context.shadowBlur = 0;
+    for (let i = 0; i < coloredPaths.length; i++) {
+      context.strokeStyle = COLORS[i]; context.stroke(coloredPaths[i]);
+    }
+    context.shadowBlur = 0;
+    context.globalAlpha = 1;
   }
-  context.save(); context.setTransform(dpr * fit.scale, 0, 0, -dpr * fit.scale, dpr * fit.x, dpr * fit.y);
-  context.lineCap = 'round'; context.lineJoin = 'round'; context.strokeStyle = 'rgba(119,131,126,.58)';
-  context.globalAlpha = .4; context.lineWidth = .72 / fit.scale; context.stroke(geometry.unavailable); context.restore();
-  const byId = new Map(nodes.map(n => [n.id, n]));
-  const detailSteps = Math.max(5, Math.min(14, Math.floor(budget.branches * 8 / Math.max(1, branches.length))));
-  const coloredPaths = COLORS.map(() => new Path2D());
-  for (const n of branches) {
-    const parent = byId.get(n.parentId), a = project(n.startX, n.startY), b = project(n.x, n.y);
-    const wet = Number(state.status.wetBusGain || 0) > 0 ? state.performance.wet : 0;
-    const selectedCount = state.status.generationVoiceCounts?.[n.generation] ?? geometry.selectedCounts.get(n.generation);
-    const gain = .5 * state.parameters.depth ** (n.generation * .72) / Math.sqrt(selectedCount || 1);
-    const voiceLevel = n.generation === 0 ? 1 : clamp(Math.sqrt(Math.max(0, gain) / .5) * Math.sqrt(wet));
-    const history = historyFresh && !sceneActivityPending && activeIds.has(n.id);
-    const energy = responding.get(n.id)?.energy ?? 0;
-    const measured = n.generation === 0 || tapTargets.has(n.voiceIndex);
-    const parentMeasured = parent?.generation === 0 || tapTargets.has(parent?.voiceIndex);
-    const parentEnergy = wet > 0 ? (parent?.generation === 0 ? rootLevel * Math.sqrt(wet) : responding.get(parent?.id)?.energy ?? 0) : 0;
-    const points = branchWavePoints({ ...n, startDelay: parent?.delay ?? Math.max(0, (n.delay ?? 0) - state.parameters.intervalMs / 1000), voiceLevel,
-      measuredEnergy: measured ? energy : undefined, parentEnergy: parentMeasured ? parentEnergy : undefined },
-      a, b, history ? inputTelemetry.reader : energy, detailSteps, reducedMotion, seconds);
-    if (!history && !measured) for (const point of points) point.energy = energy;
-    const peak = Math.max(...points.map(p => p.energy));
-    const path = coloredPaths[n.generation % COLORS.length];
-    path.moveTo(points[0].x, points[0].y);
-    if (peak === 0) path.lineTo(points.at(-1).x, points.at(-1).y);
-    else for (const point of points.slice(1)) path.lineTo(point.x, point.y);
-  }
-  // All available lines stay colored and connected at silence. Only wave
-  // deflection responds to amplitude; no brightness/width gate creates gaps.
-  // Batch by palette color so quiet/high-polyphony trees require few strokes.
-  context.lineCap = 'round'; context.lineJoin = 'round';
-  context.globalAlpha = .85; context.lineWidth = 1.2; context.shadowBlur = 0;
-  for (let i = 0; i < coloredPaths.length; i++) {
-    context.strokeStyle = COLORS[i]; context.stroke(coloredPaths[i]);
-  }
-  context.shadowBlur = 0;
-  context.globalAlpha = 1;
   if (state.audio && state.performance.frozen) { context.fillStyle = 'rgba(199,155,255,.72)'; context.font = '9px ui-monospace, SFMono-Regular, Menlo, monospace'; context.fillText('INPUT PAUSED · DESCENDANTS DECAYING', 18, height - 42); }
   const root = project(0, 0), seedSize = clamp(Math.min(width, height) * .085, 46, 62);
   $('seedControl').style.left = `${root.x}px`; $('seedControl').style.top = `${root.y}px`; $('seedControl').style.width = `${seedSize}px`; $('seedControl').style.height = `${seedSize}px`;
@@ -674,7 +692,7 @@ addEventListener('pagehide', event => {
   muteForDeparture();
   if (event.persisted) return;
   disposed = true; clearTimeout(pollTimer); cancelAnimationFrame(frameId); resizeObserver.disconnect(); mobile.removeEventListener('change', placeInput);
-  browserEngine.dispose();
+  gpuRenderer?.dispose(); browserEngine.dispose();
   midiManager.disable(); midiAdapter?.dispose(); unsubscribeMidiStatus(); unsubscribeMidiMessages(); clearTimeout(midiActivityTimer); midiStatus.destroy();
   foldTap.destroy(); pulseTap.destroy(); inputStrip.destroy(); audioStrip.destroy(); presetController?.destroy();
 });

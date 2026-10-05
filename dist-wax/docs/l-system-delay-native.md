@@ -100,8 +100,21 @@ Availability and amplitude have separate visual meanings. Every available
 branch stays colored at silence; unavailable branches remain grey. All branches
 use the same constant stroke width and opacity, including the input root.
 Signal amplitude changes wave deflection only, without blinking or clipping the
-connected line. Available paths are batched by their generation palette for
-bounded Canvas overhead. The first
+connected line. On supported hardware, WebGL2 caches the tree and computes wave bends in a
+vertex shader, drawing thin ribbons and round endpoints. A separate transparent
+Canvas retains the original gestures, focus and annotations. Known software
+GPU backends and unavailable WebGL2 contexts use the complete Canvas renderer;
+context loss also falls back and restoration rebuilds the GPU resources.
+Canvas paths are batched by their generation palette.
+
+For a controlled graphics trial, use `/l-mic-rust.html?renderer=webgl2` to force
+WebGL2, and `/l-mic-rust.html?renderer=canvas` for the reference. Both use the same
+Rust/WASM audio engine, voice admission, presets, sample clock and 30/15/8 fps
+audio-pressure policy. Graphics do not impose another audio voice ceiling.
+Software-rendered browser checks validate shader parity and lifecycle; they do
+not establish hardware GPU frame rates or increased audio polyphony.
+
+The first
 2,048 priority ranks expose actual rendered tap RMS with stable pool slots.
 On short acoustic transits (100 ms or less), this measured output drives the
 entire branch response rather than predicting it from input history. This

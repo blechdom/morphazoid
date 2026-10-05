@@ -33,3 +33,7 @@
 @media (pointer: coarse) {
   #masteringSection .native-check { min-height: 40px; }
 }
+
+/* Decorative GPU geometry stays below the original interactive canvas. */
+.micmic-page .native-gpu-stage { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+.micmic-page #stage { position: relative; }

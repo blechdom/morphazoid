@@ -14,6 +14,8 @@ import { decodeUtf8, withJson } from '../src/instruments/micmic/native/wasm-abi.
 // Compile authoritative deep-topology fixtures with the published Rust WASM.
 // Only this Canvas fixture harness substitutes the browser engine bridge;
 // real audio/worklet acceptance lives in test-l-system-delay-wasm.mjs.
+// Path2D inspection exercises the complete Canvas fallback. GPU shader and
+// normal WebGL/WASM lifecycle acceptance live in l-system-delay-gpu.spec.mjs.
 const root = resolve(process.env.MORPHAZOID_VISUAL_QA_ROOT ?? fileURLToPath(new URL('../', import.meta.url)));
 const artifacts = process.env.MORPHAZOID_VISUAL_QA_ARTIFACTS ? resolve(process.env.MORPHAZOID_VISUAL_QA_ARTIFACTS) : resolve(root, 'artifacts/l-system-delay-visual-causality');
 await mkdir(artifacts, { recursive: true });
@@ -115,7 +117,7 @@ const server = createServer(async (request, response) => {
   } catch { response.writeHead(404); response.end('Not found'); }
 });
 await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
-const address = `http://127.0.0.1:${server.address().port}/l-mic-rust.html`;
+const address = `http://127.0.0.1:${server.address().port}/l-mic-rust.html?renderer=canvas`;
 async function installCanvasAudit(page) {
   await page.addInitScript(() => {
     const native = Path2D;
@@ -137,7 +139,7 @@ async function installCanvasAudit(page) {
       const body = await readJson.apply(this, args);
       if (body?.status?.tapActivity) window.visualAudit.telemetry = { receivedAt: performance.now(),
         hasInputEnvelope: Boolean(body.status.inputEnvelope), topologyRevision: body.topologyRevision,
-        renderedRevision: body.status.topologyRevision, voiceCounts: body.status.generationVoiceCounts,
+        renderedRevision: body.status.topologyRevision, voiceCounts: body.status.generationVoiceCounts, voiceLimit: body.status.voiceLimit,
         elapsedSeconds: body.status.elapsedSeconds, inputEnvelopeEndTime: body.status.inputEnvelope?.endTime };
       return body;
     };
@@ -150,6 +152,7 @@ async function installCanvasAudit(page) {
           ? Math.max(0, (window.visualAudit.lastRafTime ?? performance.now()) - window.visualAudit.telemetry.receivedAt) : null,
         telemetryElapsedSeconds: window.visualAudit.telemetry?.elapsedSeconds,
         inputEnvelopeEndTime: window.visualAudit.telemetry?.inputEnvelopeEndTime,
+        topologyRevision: window.visualAudit.telemetry?.topologyRevision,
         coverage: 0, baselineAlphas: [], baselines: [], glows: [] };
       }
       return clear.apply(this, args);
@@ -340,8 +343,10 @@ try {
     await deepPage.locator('.instrument-preset-controls summary').click();
     await deepPage.locator(`[data-full-preset][data-preset-id="${id}"]`).click();
     await deepPage.waitForFunction(id => document.querySelector('.instrument-preset-controls').dataset.presetId === id, id);
-    await deepPage.waitForFunction(expected => visualAudit.frames.slice(-3).length === 3
-      && visualAudit.frames.slice(-3).every(frame => frame.coverage + frame.glows.length === expected && frame.glows.length > 0), fixture.preview.nodes.length);
+    await deepPage.waitForFunction(({ expected, revision }) => visualAudit.frames.slice(-3).length === 3
+      && visualAudit.frames.slice(-3).every(frame => frame.topologyRevision === revision
+        && frame.coverage + frame.glows.length === expected && frame.glows.length > 0),
+      { expected: fixture.preview.nodes.length, revision: state.topologyRevision });
     frames = await deepPage.evaluate(() => visualAudit.frames.slice(-3)); neutral(frames, fixture.preview.nodes.length, id);
     assert.ok(frames.some(frame => waves(frame).length > 0), `${id}: unmetered history still produces actual moving waves`);
     assert.ok(fixture.previewRequests > before); assert.equal(state.audio, true);
@@ -394,7 +399,11 @@ try {
     assert.ok(frames.every(frame => waves(frame).length === 0), `${lSystemType}: capture/tap silence removes waves while retaining availability colors`);
     const silentAdmission = [];
     for (const limit of [0, Math.min(31, admitted.length), admitted.length]) {
-      state.status.voiceLimit = limit; state.status.activeVoices = limit; frames = await freshFrames(fixturePage, 300);
+      state.status.voiceLimit = limit; state.status.activeVoices = limit;
+      // Wait for the fixture's new admission snapshot before collecting frames;
+      // a slow 8-fps renderer must not compare the previous limit with this one.
+      await fixturePage.waitForFunction(limit => visualAudit.telemetry?.voiceLimit === limit, limit);
+      frames = await freshFrames(fixturePage, 300);
       neutral(frames, nodes.length, `${lSystemType}/silent${limit}`); availability(frames, limit + 1, `${lSystemType}/silent${limit}`);
       assert.ok(frames.every(frame => waves(frame).length === 0), `${lSystemType}: adding available silent voices never invents a wave`);
       silentAdmission.push({ voices: limit, neutralSegments: frames.at(-1).coverage, coloredAvailableSegments: limit + 1, movingWaves: 0 });
