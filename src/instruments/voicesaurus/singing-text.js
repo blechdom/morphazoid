@@ -8,6 +8,7 @@ import {nativeMusicalDefaults} from '../../families/speech/native-musical-contro
 import {validateScene} from './native-model.js';
 import {isSingingEngine,tempoForScene,SINGING_PHRASE_BUDGET} from './native-singing-model.js';
 import {sinsyScoreToMusicXml,validateSinsyMusicXml} from '../../families/speech/sinsy-score.js';
+import {tokenizeSinsyLyrics} from '../../families/speech/sinsy-lyrics.js';
 import {noteVoiceOverrideKeys} from './voice-settings.js';
 
 // ARPAbet -> original Singer / STK table keys. These are host articulatory
@@ -138,25 +139,27 @@ function convertGroup(engine,group,template,index,omitted,approximated){
  });
 }
 
-/**
- * Host text preprocessing into editable native notes. Never arms Audio, renders
- * speech, modifies its input scene, or claims a native text frontend for a synth.
- */
-export async function singingSceneFromText(scene,text,{fetcher=globalThis.fetch,pronunciations}={}) {
+function validateSingingText(scene,text) {
  if(!isSingingEngine(scene))throw new Error('Choose a singing engine before converting text.');
  if(typeof text!=='string'||!text.trim())throw new Error('Enter some lyrics first.');
  if(text.length>1000)throw new Error('Use at most 1000 characters for one singing phrase.');
+}
+
+/**
+ * Synchronous host preprocessing with supplied word pronunciations or explicit
+ * letter-rule fallback. Sinsy uses its native kana/romaji lyric tokenizer.
+ * Never fetches, arms Audio, renders speech, or modifies the supplied scene.
+ */
+export function singingSceneFromPronunciations(scene,text,{pronunciations=new Map()}={}) {
+ validateSingingText(scene,text);
  const next=clone(scene),warnings=[],omitted=[],approximated=[];
  let groups;
  if(next.engine==='sinsy'){
-  const {tokenizeSinsyLyrics}=await import('../../families/speech/sinsy-lyrics.js');
   groups=tokenizeSinsyLyrics(text).map(token=>({...token,word:token.source??token.lyric,phones:token.phonemes.split(/\s+/)}));
  }
  else{
-  let dictionary=pronunciations;
-  if(dictionary===undefined){try{dictionary=await dictionaryFor(text,fetcher);}catch{dictionary=new Map();warnings.push('Dictionary unavailable; pronunciation uses letter rules.');}}
-  if(!(dictionary instanceof Map))throw new TypeError('Pronunciations must be a word-to-ARPAbet Map.');
-  const parsed=englishSingingSyllables(text,dictionary);groups=parsed.groups;
+  if(!(pronunciations instanceof Map))throw new TypeError('Pronunciations must be a word-to-ARPAbet Map.');
+  const parsed=englishSingingSyllables(text,pronunciations);groups=parsed.groups;
   if(parsed.fallbackWords.length)warnings.push(`Rule pronunciation: ${parsed.fallbackWords.join(', ')}.`);
   if(next.engine.startsWith('csound-')){
    for(const group of groups)omitted.push(...group.phones.filter(phone=>!isSpellingPronunciationVowel(phone)));
@@ -209,4 +212,20 @@ export async function singingSceneFromText(scene,text,{fetcher=globalThis.fetch,
  if(score)validateSinsyMusicXml(sinsyScoreToMusicXml(next.input));
  else if(['singer','stk-voicform'].includes(next.engine)&&output.some((note,index)=>!note.rest&&(index<output.length-1?note.values.duration:note.values.duration+note.values.release)>30))throw new Error('The native musical renderer supports at most 30 seconds per note.');
  return {scene:validateScene(next),syllables:groups,notes:output,warnings:unique(warnings),reusedNotes:reused,addedSyllables:groups.length-reused,melismaNotes};
+}
+
+/**
+ * Load English word pronunciations, then use the same pure note conversion.
+ * This remains host preprocessing, not a native text frontend for a synth.
+ */
+export async function singingSceneFromText(scene,text,{fetcher=globalThis.fetch,pronunciations}={}) {
+ validateSingingText(scene,text);
+ // Snapshot before dictionary I/O so concurrent edits cannot change this request.
+ const next=clone(scene),warnings=[];
+ if(next.engine!=='sinsy'&&pronunciations===undefined){
+  try{pronunciations=await dictionaryFor(text,fetcher);}
+  catch{pronunciations=new Map();warnings.push('Dictionary unavailable; pronunciation uses letter rules.');}
+ }
+ const result=singingSceneFromPronunciations(next,text,{pronunciations});
+ return {...result,warnings:unique([...warnings,...result.warnings])};
 }
