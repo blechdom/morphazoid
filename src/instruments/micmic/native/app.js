@@ -541,7 +541,7 @@ function draw(now) {
     }
     const contrast = Math.sqrt(peak);
     context.strokeStyle = COLORS[n.generation % COLORS.length]; context.globalAlpha = .24 + contrast * .72;
-    context.lineWidth = (n.generation === 0 ? 1.9 : 1.05) + contrast * 2.4;
+    context.lineWidth = 1.05 + contrast * 2.4;
     context.shadowColor = context.strokeStyle; context.shadowBlur = budget.pressure === 0 && glows.length < 1000 ? 3 + contrast * 12 : 0;
     context.stroke(path);
   }
