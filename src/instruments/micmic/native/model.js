@@ -82,10 +82,6 @@ export function smoothActivity(current, target, elapsedMs) {
   const level = current + (target - current) * (1 - Math.exp(-elapsed / timeConstant));
   return target === 0 && level < 1e-5 ? 0 : level;
 }
-/** Original colored stroke; signal brightens only active parts of the curve. */
-export function branchBaselineAlpha(generation, depth, audio) {
-  return audio ? .2 + clamp(depth) ** (generation * .7) * .24 : .18;
-}
 /** Native input envelopes use their own sample clock, independent of tap ranks. */
 export function inputEnvelopeReader(snapshot) {
   const values = snapshot?.values, interval = Number(snapshot?.interval), end = Number(snapshot?.endTime);
