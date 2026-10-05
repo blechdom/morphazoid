@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { playbackOffsetForBeat as offset } from '../src/instruments/voicesaurus/playback-offset.js';
+import { playbackOffsetForBeat as offset, playbackBeatForOffset as beat } from '../src/instruments/voicesaurus/playback-offset.js';
 
 const notes = [
   { index: 0, startBeats: 0, beats: 1, startSeconds: 0, seconds: .5 },
@@ -59,4 +59,15 @@ test('malformed timing and non-finite targets fail without silently jumping to t
   assert.throws(() => offset(1, []), /Add a note/);
   assert.throws(() => offset(1, [{ ...notes[0], beats: Infinity }]), /finite beat timeline/);
   assert.throws(() => offset(1, [{ ...notes[0], seconds: null }]), /Timing is unavailable/);
+});
+
+test('live replacement preserves authored beat instead of percentage of the complete phrase', () => {
+  assert.equal(beat(1, notes, native.noteTimings), 2);
+  const slower = notes.map(note => ({ ...note, startSeconds: note.startSeconds * 2, seconds: note.seconds * 2 }));
+  assert.equal(offset(beat(1, notes, native.noteTimings), slower), 2);
+  const extended = [...notes.slice(0, 2), { ...notes[2], beats: 10, seconds: 5 }];
+  assert.equal(offset(beat(1, notes, native.noteTimings), extended), 1, 'extending the last note does not move an earlier sounding beat');
+  assert.equal(beat(0, notes, native.noteTimings.map(slot => ({ ...slot, start: slot.start + .125, end: slot.end + .125 }))), 0);
+  assert.equal(beat(3, notes, native.noteTimings), 4);
+  assert.equal(beat(1, notes, []), null);
 });

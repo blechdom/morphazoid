@@ -7,6 +7,7 @@ import {
   createSequenceParameterValues,
   getSequenceParameterBounds,
   getSequenceParameterDefinitions,
+  orderedChordTraversalSteps,
 } from '../src/instruments/synthesis/sequence-parameters.js';
 
 const COMMON_IDS = Object.freeze([
@@ -28,7 +29,7 @@ test('every catalog study exposes common cycle controls and specific mechanism c
     assert.ok(Object.isFrozen(definitions), `${study.id}: immutable definitions`);
 
     const values = createSequenceParameterValues(study);
-    assert.deepEqual(Object.keys(values), ids, `${study.id}: value schema follows definitions`);
+    assert.deepEqual(Object.keys(values), definitions.filter(definition => !definition.optional || Object.hasOwn(values, definition.id)).map(definition => definition.id), `${study.id}: required values and present optional values follow definitions`);
     assert.ok(Object.isFrozen(values), `${study.id}: immutable values`);
 
     for (const definition of definitions) {
@@ -36,7 +37,7 @@ test('every catalog study exposes common cycle controls and specific mechanism c
       assert.ok(definition.label.length > 2);
       assert.ok(definition.help.length > 10);
       assert.ok(['number', 'select', 'boolean'].includes(definition.type), `${study.id}.${definition.id}: supported UI type`);
-      assert.equal(values[definition.id], definition.default, `${study.id}.${definition.id}: honest default`);
+      assert.equal(definition.optional && !Object.hasOwn(values, definition.id) ? definition.default : values[definition.id], definition.default, `${study.id}.${definition.id}: honest default`);
       if (definition.type === 'number') {
         assert.ok(Number.isFinite(definition.default));
         assert.ok(Number.isFinite(definition.min) && definition.min <= definition.default);
@@ -267,7 +268,8 @@ test('every catalog study receives an audible mechanism-specific config transfor
     assert.ok(input, `${study.archetype}: test input exists`);
     const result = applySequenceParameterValues(study, input);
     assert.notDeepEqual(result.config, study.config, `${study.id}: mechanism controls transform config`);
-    assert.equal(result.options.steps, study.defaults.steps, `${study.id}: mechanism edit preserves cycle length`);
+    assert.equal(result.options.steps, result.values.fullTraversal ? orderedChordTraversalSteps(study, result.values) : study.defaults.steps,
+      `${study.id}: mechanism edit preserves fixed length or derives a complete traversal`);
   }
   assert.equal(JSON.stringify(SEQUENCE_STUDIES), before, 'catalog remains byte-for-byte stable');
 });

@@ -43,7 +43,7 @@
   </header>
   <main class="synthesis-shell" id="synthesis">
     <svg class="synthesis-icon-defs" aria-hidden="true" width="0" height="0"><defs><symbol id="synthesisDice" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2" fill="none" stroke="currentColor" stroke-width="1.6"/><circle cx="7.5" cy="7.5" r="1.4"/><circle cx="16.5" cy="7.5" r="1.4"/><circle cx="12" cy="12" r="1.4"/><circle cx="7.5" cy="16.5" r="1.4"/><circle cx="16.5" cy="16.5" r="1.4"/></symbol></defs></svg>
-    <div class="synthesis-title"><h1><img class="synthesis-title-icon" src="assets/instruments/synthesis.webp" width="48" height="48" alt="" decoding="async" />Synthesaurus</h1><p class="synthesis-subtitle">A compendium of historical sound synthesis, voice synthesis, sequencing &amp; transformation.</p></div>
+    <div class="synthesis-title"><img class="synthesis-title-icon" src="assets/instruments/synthesis.webp" width="96" height="96" alt="" decoding="async" /><div class="synthesis-title-copy"><h1>Synthesaurus</h1><p class="synthesis-subtitle">A compendium of historical sound techniques: synthesis, voice, percussion, arpeggiation, sequencing, and audio processing.</p></div></div>
     <div id="performanceDock" class="synthesis-performance-dock">
     <div class="synthesis-performance-controls">
     <div id="performancePresetHost" data-instrument-preset-host></div>
@@ -65,7 +65,7 @@
     </section>
     </div>
     <div class="synthesis-input-bar" id="inputBar">
-      <div class="synthesis-axis-field"><label for="inputCategory">Input</label><select id="inputCategory"><option value="synthesis">Synthesizer</option><option value="speech">Speech synthesis</option><option value="singing">Singing synthesis</option><option value="microphone">Mic / audio in</option><option value="file">Audio file</option><option value="samples">Sample loops</option><option value="signals">Test signals</option></select></div>
+      <div class="synthesis-axis-field"><label for="inputCategory">Input</label><select id="inputCategory"><option value="synthesis">Synthesizer</option><option value="speech">Speech synthesis</option><option value="singing">Singing synthesis</option><option value="percussion">Drums &amp; percussion</option><option value="microphone">Mic / audio in</option><option value="file">Audio file</option><option value="samples">Sample loops</option><option value="signals">Test signals</option></select></div>
       <div class="synthesis-axis-field" id="inputSelectionField" hidden><label for="processingSource" id="inputSelectionLabel">Signal</label><select id="processingSource"></select></div>
       <div id="inputSourceHost"></div>
       <label class="synthesis-loop" id="processingLoopControl" hidden><input id="processingLoop" type="checkbox" checked /> Loop input</label>
@@ -123,8 +123,8 @@
       <section class="synthesis-axis-card synthesis-sequence-choice synthesis-sequence-choice--primary" aria-labelledby="sequenceLabel">
         <div class="synthesis-axis-pair">
           <div class="synthesis-axis-field"><div class="synthesis-axis-heading"><label id="sequenceLabel" for="sequenceSelect">Arpeggiator method</label><button type="button" class="synthesis-info" popovertarget="sequenceInfo" aria-label="About this arpeggiator method">i</button></div>
-          <div class="synthesis-axis-control"><select id="sequenceSelect"><option value="none">Direct note</option></select><span class="synthesis-axis-actions"><button type="button" id="nextSequence" title="Next arpeggiator" aria-label="Next arpeggiator"><span aria-hidden="true">▶</span></button></span></div></div>
-          <div id="sequencePresetSection" class="synthesis-axis-field synthesis-preset-section"><label for="sequencePresetSelect">Arpeggiator preset</label><div class="synthesis-axis-control"><select id="sequencePresetSelect"><option value="custom">Choose a method</option></select><span class="synthesis-axis-actions"><button type="button" id="nextSequencePreset" title="Next arpeggiator preset" aria-label="Next arpeggiator preset"><span aria-hidden="true">▶</span></button><button type="button" id="randomSequencePreset" title="Randomize this arpeggiator’s settings" aria-label="Randomize this arpeggiator’s settings"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#synthesisDice"/></svg></button></span></div></div>
+          <div class="synthesis-axis-control"><select id="sequenceSelect"><option value="none">Direct note</option></select><span class="synthesis-axis-actions"><button type="button" id="nextSequence" class="instrument-picker-next" title="Next arpeggiator" aria-label="Next arpeggiator"><span aria-hidden="true">▶</span></button></span></div></div>
+          <div id="sequencePresetSection" class="synthesis-axis-field synthesis-preset-section"><label for="sequencePresetSelect">Arpeggiator preset</label><div class="synthesis-axis-control"><select id="sequencePresetSelect"><option value="custom">Choose a method</option></select><span class="synthesis-axis-actions"><button type="button" id="nextSequencePreset" class="instrument-picker-next" title="Next arpeggiator preset" aria-label="Next arpeggiator preset"><span aria-hidden="true">▶</span></button><button type="button" id="randomSequencePreset" class="instrument-picker-next synthesis-parameter-random" title="Randomize this arpeggiator’s settings" aria-label="Randomize this arpeggiator’s settings"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#synthesisDice"/></svg></button></span></div></div>
         </div>
       </section>
             <section id="sequenceCompendium" class="synthesis-sequence-compendium" aria-labelledby="sequenceHeading">
@@ -140,6 +140,7 @@
           </div>
         </div>
         <section id="voiceDetail" hidden aria-label="Voicesaurus controls"><div id="voiceInputPanel"></div><output id="voiceInputStatus" aria-live="polite"></output></section>
+        <section id="drumDetail" hidden aria-label="Drums and percussion"><div id="drumInputPanel"></div></section>
         <section id="processorDetail" class="synthesis-processor-detail" hidden>
           <div id="processorPanel"></div>
           <p id="processorLatency" class="synthesis-processor-latency" hidden></p>

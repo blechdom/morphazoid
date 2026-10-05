@@ -26,9 +26,12 @@ export class SynthesisInput {
     if (this.context === context && this.destination === destination) return;
     this.stop();
     this.analyser?.disconnect();
+    const sameContext = this.context === context;
     this.context = context;
     this.destination = destination;
-    this.analyser = context.createAnalyser();
+    // Native voice playback borrows this bus. Replacing a failed processor in
+    // the same context must not orphan the voice graph or change its identity.
+    if (!sameContext || !this.analyser) this.analyser = context.createAnalyser();
     this.analyser.fftSize = 2048;
     this.analyser.connect(destination);
   }

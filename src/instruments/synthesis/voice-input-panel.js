@@ -1,16 +1,16 @@
 import { NATIVE_METHODS, methodsForVoiceMode } from '../voicesaurus/native-model.js';
 import { mountParameters, noteVowelControls } from '../voicesaurus/native-parameters.js';
 import { mountSingingTimeline } from '../voicesaurus/native-timeline.js';
-import { auditionScene, editableNote, singingNoteDescriptors } from '../voicesaurus/native-singing-model.js';
+import { auditionScene, editableNote, singingNoteCount, singingNoteDescriptors } from '../voicesaurus/native-singing-model.js';
 import { materializeVoiceNote, noteVoiceOverrideKeys, setGlobalVoiceParameter, setNoteVoiceInheritance, setNoteVoiceParameter } from '../voicesaurus/voice-settings.js';
 import { mountSampleBankSources, mountSampleBankNote } from '../voicesaurus/sample-bank-ui.js';
 import { sampleBankRequest } from '../voicesaurus/sample-bank-model.js';
 import { textPresetsForEngine, singingSceneFromTextPreset } from '../voicesaurus/text-presets.js';
-import { playbackOffsetForBeat } from '../voicesaurus/playback-offset.js';
 import { enhanceChooseSelect } from '../../ui/patterns/choose-select.js';
 import { createChoiceSwitch } from '../../ui/primitives/choice-switch.js';
 import { createVoiceInputState, isVoiceInput, randomizeVoiceMethodState, sanitizeVoiceInputState, voiceModeForInput, voicePresetsForInput } from './voice-input-state.js';
 import { VOICE_TECHNIQUE_TEXTS, voiceTextOptions } from './voice-texts.js';
+import { VOICE_LOOP_MELODY_PRESETS, VOICE_LOOP_TEXT_CATEGORIES, applyVoiceLoopMelodyPreset, applyVoiceLoopTextPreset, randomizeVoiceLoopLengths, randomizeVoiceLoopPitches, randomizeVoiceLoopText, voiceLoopTextPresets } from './voice-loop-presets.js';
 
 let panelSerial = 0;
 
@@ -19,16 +19,22 @@ export function mountVoiceInputPanel(host, { change = () => {}, error = () => {}
   const doc = host.ownerDocument, prefix = `synthesis-voice-${++panelSerial}`;
   const sessions = new Map(['speech', 'singing'].map(id => [id, createVoiceInputState(id)]));
   const banks = new Map(['speech', 'singing'].map(id => [id, voicePresetsForInput(id)]));
-  const lyricDrafts = new Map();
+  const lyricDrafts = new Map(), textKinds = new Map(), loopTextChoices = new Map(), loopMelodyChoices = new Map();
   const selections = new Map(), listeners = new AbortController(), persistent = [];
   let sceneListeners = new AbortController();
   let inputId = 'speech', state = sessions.get(inputId), selectedNote = 0, generation = 0, revision = 0;
   let timeline = null, parameters = () => {}, sceneWidgets = [], destroyed = false, idSerial = 0, renderer = null, rendererPromise = null, timings = [];
+  let refreshLoopPreset = () => {};
+  const melodySignature = voice => JSON.stringify(singingNoteDescriptors(voice.scene).map(({ pitchHz, beats, rest }) => [pitchHz, beats, rest]));
   const make = (tag, className, text) => { const node = doc.createElement(tag); if (className) node.className = className; if (text !== undefined) node.textContent = text; return node; };
   const safe = action => { try { const result = action(); if (result?.catch) result.catch(error); } catch (reason) { error(reason); } };
   const listen = (node, type, fn) => node.addEventListener(type, event => safe(() => fn(event)), { signal: listeners.signal });
   const listenScene = (node, type, fn) => node.addEventListener(type, event => safe(() => fn(event)), { signal: sceneListeners.signal });
   const button = (label, text, action, transient = false) => { const node = make('button', '', text); node.type = 'button'; node.setAttribute('aria-label', label); node.title = label; (transient ? listenScene : listen)(node, 'click', action); return node; };
+  const nextButton = (label, action) => {
+    const node = button(label, '', action), icon = make('span', '', '▶');
+    node.className = 'instrument-picker-next'; icon.setAttribute('aria-hidden', 'true'); node.append(icon); return node;
+  };
   const option = (label, value) => { const node = make('option', '', label); node.value = value; return node; };
   const field = (label, node) => {
     const root = make('div', 'synthesis-voice-field'), caption = make('label', '', label);
@@ -73,11 +79,12 @@ export function mountVoiceInputPanel(host, { change = () => {}, error = () => {}
   method.id = `${prefix}-method`; method.setAttribute('aria-label', 'Voice method');
   preset.id = `${prefix}-preset`; preset.setAttribute('aria-label', 'Voice preset');
   const methodRow = make('div', 'synthesis-axis-control'), presetRow = make('div', 'synthesis-axis-control');
-  methodRow.append(method, button('Next voice method', '▶', () => {
+  methodRow.append(method, nextButton('Next voice method', () => {
     const ids = Object.keys(methodsForVoiceMode(voiceModeForInput(inputId)));
     chooseMethod(ids[(ids.indexOf(state.scene.engine) + 1) % ids.length]);
   }));
   const dice = button('Randomize current voice parameters', '', () => replace(randomizeVoiceMethodState(state, inputId), true, { keepLyricDraft: true }));
+  dice.className = 'instrument-picker-next synthesis-parameter-random';
   // Match the shared toolbar's monochrome five-pip dice.
   const svg = doc.createElementNS('http://www.w3.org/2000/svg', 'svg');
   for (const [key, value] of Object.entries({ viewBox: '0 0 24 24', width: 18, height: 18, 'aria-hidden': 'true', focusable: 'false' })) svg.setAttribute(key, String(value));
@@ -90,8 +97,12 @@ export function mountVoiceInputPanel(host, { change = () => {}, error = () => {}
     svg.append(pip);
   }
   dice.append(svg);
+  const loopDice = (label, action) => {
+    const node = button(label, '', action, true);
+    node.className = 'instrument-picker-next synthesis-parameter-random'; node.append(svg.cloneNode(true)); return node;
+  };
   const presetActions = make('span', 'synthesis-axis-actions');
-  presetActions.append(button('Next voice preset', '▶', () => {
+  presetActions.append(nextButton('Next voice preset', () => {
     const bank = currentPresets(), index = bank.findIndex(item => item.id === preset.value);
     applyPreset(bank[(index + 1) % bank.length]);
   }), dice);
@@ -106,9 +117,9 @@ export function mountVoiceInputPanel(host, { change = () => {}, error = () => {}
   const methodPicker = enhanceChooseSelect(method, { label: 'Voice method' });
   const presetPicker = enhanceChooseSelect(preset, { label: 'Voice preset' }); persistent.push(methodPicker, presetPicker);
   const inputHost = make('div', 'synthesis-voice-text'), bankHost = make('div', 'native-bank-controls');
-  const scoreHost = make('div', 'synthesis-voice-score'), globalHost = make('div', 'synthesis-voice-parameters');
+  const loopHost = make('div', 'synthesis-voice-loop'), scoreHost = make('div', 'synthesis-voice-score'), globalHost = make('div', 'synthesis-voice-parameters');
   const globalLabel = make('p', 'native-selection-label', 'Global voice');
-  host.append(inputHost, bankHost, scoreHost, globalLabel, globalHost);
+  host.append(inputHost, bankHost, loopHost, scoreHost, globalLabel, globalHost);
   const bankSources = mountSampleBankSources(bankHost, { getScene: () => state.scene, error,
     change: () => { timeline?.refresh(); edited(); } });
   persistent.push(bankSources);
@@ -121,19 +132,21 @@ export function mountVoiceInputPanel(host, { change = () => {}, error = () => {}
     preset.value = bank.find(item => JSON.stringify(item.state) === signature)?.id ?? ''; presetPicker.refresh();
   }
   function edited() {
-    revision++; sessions.set(inputId, state); bankSources.refresh(); refreshPresets(); parameters.refresh?.();
+    revision++; sessions.set(inputId, state); bankSources.refresh(); refreshPresets(); refreshLoopPreset(); parameters.refresh?.();
     change(structuredClone(state));
   }
   function clearEditor() {
     about.hidePopover?.();
-    generation++; timeline?.destroy(); timeline = null; parameters(); parameters = () => {};
+    generation++; timeline?.destroy(); timeline = null; parameters(); parameters = () => {}; refreshLoopPreset = () => {};
     sceneListeners.abort(); sceneListeners = new AbortController();
     observer.disconnect(); if (!destroyed) observer.observe(host, { childList: true, subtree: true });
-    sceneWidgets.splice(0).forEach(widget => widget.destroy()); inputHost.replaceChildren(); scoreHost.replaceChildren();
+    sceneWidgets.splice(0).forEach(widget => widget.destroy()); inputHost.replaceChildren(); loopHost.replaceChildren(); scoreHost.replaceChildren();
   }
-  function replace(next, notify = false, { keepLyricDraft = false } = {}) {
+  function replace(next, notify = false, { keepLyricDraft = false, keepSelection = false } = {}) {
     if (inputId === 'singing' && !keepLyricDraft) lyricDrafts.delete(`${inputId}:${next.scene.engine}`);
-    state = next; sessions.set(inputId, state); selectedNote = 0; revision++; timings = []; render();
+    state = next; sessions.set(inputId, state);
+    selectedNote = keepSelection && inputId === 'singing' ? Math.min(selectedNote, singingNoteCount(state.scene) - 1) : 0;
+    selections.set(inputId, selectedNote); revision++; timings = []; render();
     if (notify) change(structuredClone(state));
   }
   function chooseMethod(engine) {
@@ -176,6 +189,8 @@ export function mountVoiceInputPanel(host, { change = () => {}, error = () => {}
     const label = singing ? state.scene.engine === 'sinsy' ? 'Japanese lyrics · kana or romaji' : 'Lyrics' : letters ? 'Native sounds' : 'Text';
     const textField = field(label, words);
     words.setAttribute('aria-label', label); inputHost.append(textField);
+    const textControls = singing ? make('div', 'synthesis-axis-pair synthesis-voice-text-controls') : null;
+    if (textControls) inputHost.insertBefore(textControls, textField);
     let encoding;
     if (letters) {
       words.removeAttribute('maxlength');
@@ -191,8 +206,8 @@ export function mountVoiceInputPanel(host, { change = () => {}, error = () => {}
       inputHost.append(apply);
     }
     inputHost.append(status);
-    let textSerial = 0;
-    const markText = () => { textSerial++; if (apply) apply.disabled = false; status.textContent = ''; };
+    let textSerial = 0, refreshTextPreset = () => {};
+    const markText = () => { textSerial++; if (apply) apply.disabled = false; status.textContent = ''; refreshTextPreset(); };
     async function convert(textPreset) {
       const token = ++textSerial, pendingGeneration = generation, pendingRevision = revision, original = state;
       apply.disabled = true; status.textContent = 'Preparing notes…';
@@ -216,14 +231,38 @@ export function mountVoiceInputPanel(host, { change = () => {}, error = () => {}
     if (singing) listenScene(words, 'keydown', event => {
       if (event.key === 'Enter' && (event.ctrlKey || event.metaKey) && !event.isComposing) { event.preventDefault(); return convert(); }
     });
+    const loopTexts = singing ? voiceLoopTextPresets(state.scene.engine) : [];
     const texts = [...voiceTextOptions(state.scene.engine),
       ...textPresetsForEngine(state.scene.engine, { textCapable: singing || spec.mode === 'text' })];
-    if (texts.length) {
+    if (texts.length || loopTexts.length) {
       const select = make('select'); select.id = `${prefix}-text-preset`; select.setAttribute('aria-label', 'Text preset');
-      select.append(option('Choose text', ''), ...texts.map(item => option(item.label, item.id)));
-      select.value = texts.find(item => item.text === words.value)?.id ?? '';
-      inputHost.insertBefore(field('Text preset', select), textField); sceneWidgets.push(enhanceChooseSelect(select, { label: 'Text preset' }));
+      select.append(option('Choose text', ''));
+      for (const category of VOICE_LOOP_TEXT_CATEGORIES) {
+        const entries = loopTexts.filter(item => item.category === category.id); if (!entries.length) continue;
+        const group = make('optgroup'); group.label = category.label;
+        group.append(...entries.map(item => option(item.label, item.id))); select.append(group);
+      }
+      if (singing) {
+        const group = make('optgroup'); group.label = 'More text and phrases';
+        group.append(...texts.map(item => option(item.label, item.id))); select.append(group);
+      } else select.append(...texts.map(item => option(item.label, item.id)));
+      const presetField = field('Text preset', select);
+      if (textControls) textControls.append(presetField); else inputHost.insertBefore(presetField, textField);
+      const picker = enhanceChooseSelect(select, { label: 'Text preset' }); sceneWidgets.push(picker);
+      refreshTextPreset = () => {
+        const loopChoice = loopTextChoices.get(draftKey);
+        select.value = loopChoice?.text === words.value ? loopChoice.id : texts.find(item => item.text === words.value)?.id ?? '';
+        picker.refresh();
+      };
+      refreshTextPreset();
       listenScene(select, 'change', () => {
+        const loopText = loopTexts.find(item => item.id === select.value);
+        if (loopText) {
+          const next = applyVoiceLoopTextPreset(state, loopText.id);
+          textKinds.set(draftKey, loopText.category);
+          loopTextChoices.set(draftKey, { id: loopText.id, text: next.text });
+          return replace(next, true);
+        }
         const chosen = texts.find(item => item.id === select.value); if (!chosen) return;
         words.value = chosen.text; markText();
         if (singing) { lyricDrafts.set(draftKey, words.value); return convert(chosen); }
@@ -232,6 +271,46 @@ export function mountVoiceInputPanel(host, { change = () => {}, error = () => {}
         edited();
       });
     }
+    if (singing) {
+      const kind = make('select'); kind.id = `${prefix}-text-kind`; kind.setAttribute('aria-label', 'Random text style');
+      const categories = VOICE_LOOP_TEXT_CATEGORIES.filter(category => loopTexts.some(item => item.category === category.id));
+      kind.append(...categories.map(category => option(category.label, category.id)));
+      kind.value = categories.some(category => category.id === textKinds.get(draftKey)) ? textKinds.get(draftKey) : 'words';
+      const row = make('div', 'synthesis-axis-control');
+      row.append(kind, loopDice('Randomize loop text', () => {
+        const next = randomizeVoiceLoopText(state, kind.value); loopTextChoices.delete(draftKey); replace(next, true);
+      }));
+      textControls.append(field('Random text style', row));
+      sceneWidgets.push(enhanceChooseSelect(kind, { label: 'Random text style' }));
+      listenScene(kind, 'change', () => textKinds.set(draftKey, kind.value));
+    }
+  }
+
+  function mountLoopControls() {
+    const key = `${inputId}:${state.scene.engine}`;
+    const select = make('select'); select.id = `${prefix}-melody-preset`; select.setAttribute('aria-label', 'Melody preset');
+    select.append(option('Choose pitches + lengths', ''), ...VOICE_LOOP_MELODY_PRESETS.map(item => option(item.label, item.id)));
+    loopHost.append(field('Melody preset', select));
+    const picker = enhanceChooseSelect(select, { label: 'Melody preset' }); sceneWidgets.push(picker);
+    refreshLoopPreset = () => {
+      const chosen = loopMelodyChoices.get(key);
+      select.value = chosen?.signature === melodySignature(state) ? chosen.id : ''; picker.refresh();
+    };
+    refreshLoopPreset();
+    const apply = next => replace(next, true, { keepLyricDraft: true, keepSelection: true });
+    listenScene(select, 'change', () => {
+      if (!select.value) return;
+      const next = applyVoiceLoopMelodyPreset(state, select.value);
+      loopMelodyChoices.set(key, { id: select.value, signature: melodySignature(next) }); apply(next);
+    });
+    const actions = make('div', 'synthesis-voice-loop-actions');
+    for (const [label, action] of [['Pitches', randomizeVoiceLoopPitches], ['Note lengths', randomizeVoiceLoopLengths]]) {
+      const caption = make('span', '', label), control = loopDice(`Randomize ${label.toLowerCase()}`, () => {
+        const next = action(state); loopMelodyChoices.delete(key); apply(next);
+      });
+      const group = make('div', 'synthesis-voice-loop-action'); group.append(caption, control); actions.append(group);
+    }
+    loopHost.append(actions);
   }
 
   function render() {
@@ -247,10 +326,11 @@ export function mountVoiceInputPanel(host, { change = () => {}, error = () => {}
     const controls = Object.fromEntries(Object.entries(spec.controls).filter(([key]) => !(singing && ['pitch', 'duration'].includes(key))));
     parameters = parameterEditor(globalHost, controls, state.scene.values, (key, value) => { setGlobalVoiceParameter(state.scene, key, value); timeline?.refresh(); edited(); });
     scoreHost.hidden = !singing;
+    if (singing) mountLoopControls();
     if (singing) timeline = mountSingingTimeline(scoreHost, state.scene, { spec, initialSelection: selectedNote, error,
       change: edited, select: index => { selectedNote = index; selections.set(inputId, index); parameters.refresh?.(); },
       audition: index => safe(() => { const scene = auditionScene(state.scene, index); return audition({ ...scene, text: state.text }); }),
-      seek: beat => safe(() => seek(playbackOffsetForBeat(beat, singingNoteDescriptors(state.scene), { noteTimings: timings }))),
+      seek: beat => safe(() => seek(beat)),
       mountNoteSound: (target, index) => {
         scopePopup(target);
         return state.scene.engine === 'sample-bank' ? mountSampleBankNote(target, editableNote(state.scene, index), {
@@ -282,6 +362,7 @@ export function mountVoiceInputPanel(host, { change = () => {}, error = () => {}
       host.hidden = false; render();
     },
     getState: () => structuredClone(state),
+    get revision() { return revision; },
     applyState(value) { if (!destroyed) replace(sanitizeVoiceInputState(value, inputId)); },
     progress(position, nextTimings, playing) { timings = nextTimings ?? []; timeline?.progress(position, timings, playing); },
     async renderSampleBank(request, { signal } = {}) {

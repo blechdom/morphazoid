@@ -25,6 +25,7 @@
       </header>
       <nav class="reference-nav" aria-label="Reference sections">
         <a href="#synthesis">Synthesis</a>
+        <a href="#percussion">Drums &amp; percussion</a>
         <a href="#processing">Processing</a>
         <a href="#arpeggiators">Arpeggiators</a>
         <a href="#tuning">Tuning</a>
@@ -62,7 +63,7 @@
         <p>Synthesis X/Y pads likewise have different meanings. A vector mix really has two mixing coordinates, as in the <a href="https://www.korguser.net/iwavestation/original_manual/WAVESTATION_E.pdf">Wavestation reference manual</a>; an FM ratio/index pad here is a modern macro over two parameters, not a historical DX7 controller. Graphs of partial amplitudes, waveform points and formant frequencies edit the named DSP values only. Values owned by a graph are not repeated as knobs.</p>
         <h3>Amplitude was never just one ADSR</h3>
         <p>The <a href="https://usa.yamaha.com/files/download/other_assets/9/333979/DX7E1.pdf">Yamaha DX7 manual</a> describes four rates and four levels per operator: carrier envelopes affect amplitude while modulator envelopes change timbre. The <a href="https://help.uaudio.com/hc/en-us/articles/360041479272-Moog-Minimoog-Manual">licensed Minimoog model's manual</a> documents attack, decay and sustain with decay reused for release. Neither is the universal four-knob model sometimes projected backwards onto every technique.</p>
-        <p>Plucked strings and resonant bodies can decay within their own model; granular and formant-pulse techniques have short event windows; recordings carry their own dynamics. Synthesaurus labels these native controls separately. Its added note envelope still gates every synthesis engine and can also influence timbre in certain reduced models; it is not bypassed merely because its editor is collapsed. The per-method information popup identifies those couplings. Fully independent operator envelopes, freely movable rate/level breakpoints and continuous arpeggiator portamento are not implemented.</p>
+        <p>Plucked strings and resonant bodies can decay within their own model; granular and formant-pulse techniques have short event windows; recordings carry their own dynamics. Synthesaurus labels these native controls separately. Its added note envelope still gates every synthesis engine and can also influence timbre in certain reduced models; it is not bypassed merely because its editor is collapsed. The per-method information popup identifies those couplings. Its five-node editor allows each breakpoint to move independently. Fully independent operator envelopes and continuous arpeggiator portamento are not implemented.</p>
       </section>
       <section id="synthesis" class="reference-section" aria-labelledby="synthesis-heading">
         <header><h2 id="synthesis-heading">Synthesis methods</h2><p>Sound generation, analysis–resynthesis and the listening studies for each method.</p></header>
@@ -71,6 +72,11 @@
       <section id="processing" class="reference-section" aria-labelledby="processing-heading">
         <header><h2 id="processing-heading">Processing methods</h2><p>Filters, delay, dynamics and spectral transformations of an input sound.</p></header>
         <div data-reference-list="processing"></div>
+      </section>
+      <section id="percussion" class="reference-section" aria-labelledby="percussion-heading">
+        <header><h2 id="percussion-heading">Drum machines &amp; percussion synthesis</h2><p>Independent sound kits and rhythm patterns, with instrument-specific decay and timbre controls.</p></header>
+        <p>A drum sequencer addresses several percussion voices at once; an arpeggiator generally orders pitched notes. This input uses a dedicated eight-lane drum sequencer. The general arpeggiator and tuning map are not routed to it. Pads can be played with the rhythm stopped or alongside it. MIDI pad notes are 36, 38, 42, 46, 45, 50, 39 and 51.</p>
+        <div data-reference-list="percussion"></div>
       </section>
       <section id="arpeggiators" class="reference-section" aria-labelledby="arpeggiators-heading">
         <header><h2 id="arpeggiators-heading">Arpeggiators &amp; sequencers</h2><p>Mechanical rolls, voltage stages, held chords, stored patterns and contemporary event languages. Pitch, rhythm and articulation remain separate from the chosen sound generator.</p></header>

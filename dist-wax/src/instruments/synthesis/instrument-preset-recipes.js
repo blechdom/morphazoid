@@ -1,5 +1,21 @@
 // Authored Morphazoid performances, not historical manufacturers' factory banks.
 // Stable IDs and explicit catalogue references make every recall reproducible.
+// Sample columns: id, label, bundled input, processor, factory, wet mix.
+export const SAMPLE_PROCESSING_RECIPES = Object.freeze([
+  ['drum-wire-room', 'Drum wire room', 'sample-drums', 'fx-comb', 'metallic-drum-comb', .65],
+  ['crushed-break', 'Crushed break', 'sample-drums', 'fx-decimator', 'filtered-digital-drums', .8],
+  ['bass-auto-wah', 'Bass auto-wah', 'music-bass', 'fx-envelope-filter', 'upward-auto-wah', .8],
+  ['warm-bass-reel', 'Warm bass reel', 'music-bass', 'fx-saturation', 'gentle-tanh', .8],
+  ['chorus-keys', 'Chorus keys', 'music-keys', 'fx-modulated-delay', 'slow-wide-chorus', .5],
+  ['phased-keys', 'Phased keys', 'music-keys', 'fx-phaser', 'six-stage-sweep', .5],
+  ['string-echo-braid', 'String echo braid', 'music-plucks', 'fx-delay', 'stereo-eighth-echo', .4],
+  ['arpeggio-tape-trail', 'Arpeggio tape trail', 'music-arp', 'fx-delay', 'dark-tape-like-repeats', .5],
+  ['syllable-robot', 'Syllable robot', 'voice-bdl', 'fx-vocoder', 'robot-voice', .8],
+  ['voice-sideband-shimmer', 'Voice sideband shimmer', 'voice-slt', 'fx-frequency-shifter', 'slow-beating', .5],
+  ['pocket-radio', 'Pocket radio', 'speech', 'fx-decimator', 'telephone-like-bandwidth', .8],
+  ['birdsong-chamber', 'Birdsong chamber', 'birdsong', 'fx-reverb', 'bright-chamber', .4],
+]);
+
 // Synth columns: id, label, method, sound, sequence, variation, tuning, BPM, voicing, insert.
 export const SYNTHESIS_PERFORMANCE_RECIPES = Object.freeze([
   ['tape-confetti', 'Tape confetti', 'sampling', 'middle-fragment', 'phrase-bank-switching', 'tight', 'edo-12-major-pentatonic', 112, 'poly', 'fx-delay:stereo-eighth-echo'],
@@ -22,7 +38,7 @@ export const SYNTHESIS_PERFORMANCE_RECIPES = Object.freeze([
   ['ceramic-counterpoint', 'Ceramic counterpoint', 'modal', 'center-muted-chime', 'independent-function-lines', 'original', 'just-5-limit-major', 104, 'poly'],
   ['reed-pendulum', 'Reed pendulum', 'waveguide', 'gentle-reed', 'voltage-row-pendulum', 'spacious', 'pythagorean-12', 96, 'mono'],
   ['bridgework', 'Bridgework', 'karplus-strong', 'bright-bridge-pluck', 'captured-order-latch', 'original', 'quarter-comma-meantone', 118, 'poly', 'fx-delay:wide-unequal-echoes'],
-  ['small-vowel-orchestra', 'Small vowel orchestra', 'fof', 'bright-upper-vowel', 'multiplexed-phrase-arp', 'spacious', 'edo-12-major', 102, 'poly'],
+  ['small-vowel-orchestra', 'Small vowel orchestra', 'fof', 'open-low-vowel', 'multiplexed-phrase-arp', 'spacious', 'edo-12-major', 102, 'poly'],
   ['packet-calligraphy', 'Packet calligraphy', 'vosim', 'rounded-pulse-voice', 'edited-gesture-loop', 'spacious', 'edo-24', 92, 'mono'],
   ['windowed-syllables', 'Windowed syllables', 'window-formant', 'early-skewed-voice', 'punched-parameter-roll', 'spacious', 'edo-12-natural-minor', 96, 'mono', 'fx-phaser:six-stage-sweep'],
   ['segment-staircase', 'Segment staircase', 'waveform-segment', 'stepped-staircase', 'clocked-phrase-chain', 'original', 'edo-7', 122, 'mono'],

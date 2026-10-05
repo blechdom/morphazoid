@@ -4,8 +4,10 @@ import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { resolve } from "node:path";
 import vm from "node:vm";
-import { sanitizeState, SYNTHESIS_METHODS } from "../src/instruments/synthesis/catalog.js";
+import { sanitizeState, stateFromPreset, SYNTHESIS_METHODS } from "../src/instruments/synthesis/catalog.js";
 import { compileSequence } from "../src/instruments/synthesis/sequence-compiler.js";
+import { INSTRUMENT_PRESETS, fitRandomAttackToSequence } from "../src/instruments/synthesis/instrument-presets.js";
+import { tuningRatioForDegree, tuningRatioForSemitoneCoordinate } from "../src/instruments/synthesis/tunings.js";
 
 // The override permits an isolated reviewer to exercise an integration checkout.
 // In the normal suite, source and the committed artifact come from this repo.
@@ -80,6 +82,49 @@ function state(overrides = {}) {
   return { ...patch, params: sanitizeState({ ...patch, version: 1, presetId: "custom" }).params };
 }
 const rms = (samples) => Math.sqrt(samples.reduce((sum, value) => sum + value * value, 0) / samples.length);
+
+test('Small vowel orchestra gains body without the rejected upper-band emphasis or a master boost', () => {
+  const snapshot = INSTRUMENT_PRESETS.find(preset => preset.id === 'performance:small-vowel-orchestra').snapshot;
+  assert.equal(snapshot.sound.methodId, 'fof');
+  assert.equal(snapshot.voiceMode, 'poly');
+  assert.equal(snapshot.sequence.id, 'multiplexed-phrase-arp');
+  assert.equal(snapshot.sequence.tempoBpm, 102);
+  assert.equal(snapshot.tuningId, 'edo-12-major');
+  assert.equal(snapshot.routing.effectEnabled, false);
+  assert.ok(!Object.hasOwn(snapshot.sound, 'outputLevel'));
+  assert.equal(snapshot.sound.levelTrimDb, stateFromPreset('fof', 'open-low-vowel').levelTrimDb);
+  const cycle = structuredClone(compileSequence(snapshot.sequence.id, { tempo: snapshot.sequence.tempoBpm, parameters: snapshot.sequence.parameters }));
+  cycle.steps = cycle.steps.map(step => ({ ...step, notes: step.notes.map(note => ({ ...note,
+    ratio: Number.isSafeInteger(note.degree) ? tuningRatioForDegree(note.degree, snapshot.tuningId)
+      : tuningRatioForSemitoneCoordinate(note.semitone, snapshot.tuningId, snapshot.sequence.parameters.pitchMode),
+  })) }));
+  // The former scene is a rejected comparison, not a listening-approved baseline.
+  const previous = fitRandomAttackToSequence(stateFromPreset('fof', 'bright-upper-vowel'), snapshot.sequence);
+  const characterize = sound => {
+    const h = makeHarness();
+    try {
+      h.send({ type: 'state', state: { ...sound, engineId: 20, kind: 'synthesis', playStyle: 'hold', voiceMode: snapshot.voiceMode } });
+      h.send({ type: 'sequence-load', sequence: cycle, tempo: cycle.tempo, rootFrequency: sound.frequencyHz });
+      h.send({ type: 'sequence-start', phase: 0, tempo: cycle.tempo, rootFrequency: sound.frequencyHz });
+      const samples = h.render(Math.ceil(2 * cycle.lengthBeats * 60 / cycle.tempo * RATE));
+      let energy = 0, differences = 0, peak = 0;
+      for (let i = 0; i < samples.length; i++) {
+        energy += samples[i] ** 2;
+        if (i) differences += (samples[i] - samples[i - 1]) ** 2;
+        peak = Math.max(peak, Math.abs(samples[i]));
+      }
+      h.send({ type: 'sequence-stop' });
+      assert.equal(rms(h.render(RATE * 5).subarray(-4096)), 0, 'Stop settles completely');
+      // A level-invariant high-frequency-weighted metric, separate from raw RMS.
+      return { rms: rms(samples), peak, normalizedDifferenceEnergy: differences / energy };
+    } finally { h.dispose(); }
+  };
+  const before = characterize(previous), after = characterize(snapshot.sound);
+  assert.ok(after.rms > before.rms * 1.1, 'the same phrase gains measurable body without changing master');
+  assert.ok(after.normalizedDifferenceEnergy < before.normalizedDifferenceEnergy * .1,
+    'the level-normalized spectrum is no longer dominated by the upper-band patch');
+  assert.ok(after.peak < .8, 'the phrase stays below the emergency protection knee');
+});
 
 for (const voiceMode of ['mono', 'poly']) test(`${voiceMode} worklet renders independent D/S points, live edits and a nonzero release endpoint safely`, () => {
   const low = makeHarness(), high = makeHarness();
@@ -1086,6 +1131,23 @@ test('sequence tempo edits preserve fractional beat phase and rescale the next a
     assert.ok(changed.subarray(0, 6000).every(value => value === 0), 'remaining quarter beat is preserved at the new tempo');
     assert.ok(rms(changed.subarray(6000, 9000)) > .005, 'next attack follows the rescaled quarter beat');
   } finally { h.dispose(); }
+});
+
+test('mapped wide-register ratios reach the audio engine without a second pitch clamp', () => {
+  for (const [rootFrequency, ratio] of [[20, 300], [20, 400], [8000, 1 / 300], [8000, 1 / 400]]) {
+    const h = makeHarness();
+    try {
+      h.send({ type: 'state', state: state() });
+      h.send({ type: 'sequence-load', sequence: sequence({ lengthBeats: 4, steps: [
+        { index: 0, at: 0, duration: 4, notes: [{ ratio, velocity: .8, gate: 1 }] },
+      ] }), rootFrequency, tempo: 120 });
+      assert.equal(h.processor.sequence.steps[0].notes[0].ratio, ratio);
+      h.send({ type: 'sequence-start', phase: 0, rootFrequency, tempo: 120 });
+      h.render(4096);
+      assert.equal(h.processor.sequenceMono.frequency, rootFrequency * ratio);
+      assert.ok(rms(h.render(4096)) > .001, 'bounded wide-register notes remain audible and finite');
+    } finally { h.dispose(); }
+  }
 });
 
 test('Mono sequence pitch survives timbre edits and follows live root-frequency changes', () => {

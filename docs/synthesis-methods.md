@@ -20,6 +20,16 @@ and running Play remain under the performer's control. Notes and strikes can als
 played directly. Tempo spans 10–1,200 BPM. Direct-note playback repeats attacks for
 strike methods and zero-sustain envelopes, or holds sustained methods. Complete
 presets can recall tempo; live Audio and transport remain performer-owned.
+The mixed preset tour also includes twelve bundled sample-processing scenes:
+drums through comb filtering or bit reduction, bass through auto-wah or saturation,
+chorused and phased keys, echoing strings and arpeggios, robotic or shifted voice
+syllables, telephone-band speech, and reverberant birdsong. Each recalls its sample,
+processor and wet mix with Loop enabled. Select a scene, enable Audio, and press
+Play; changing scenes while playing keeps Play and the output volume in place.
+The main dice also chooses sample loops on one in five draws. It combines any
+of the nine bundled recordings or rendered loops with fresh processor settings,
+keeps a dry component audible, and enables looping without opening a file picker
+or microphone. Audio arming, Play and master output remain unchanged.
 Drag the added ADSR graph's A/D/R handles for time and S for sustain level.
 Native decay, excitation and window parameters are grouped separately and explained
 per method; the added envelope is not a claim about every historical instrument.
@@ -134,6 +144,20 @@ synthesis controls and envelopes while keeping the current source. The default
 LPC models and generated corpus demonstrate the mechanism without implying
 speech recognition, text-to-speech, a comprehensive phoneme inventory, or a
 large external sound database.
+
+## Singing loop controls
+
+The Singing input has independent text and melody controls above its piano roll.
+Text presets and the text dice offer short word phrases, open vowels and mouth
+percussion. They fit the current melody's syllable slots while preserving its
+pitches, timing and rests. Sinsy uses kana; the Csound vowel engines omit mouth
+percussion because they render vowels only.
+
+Five melody presets set pitches and lengths together. Separate pitch and note
+length dice preserve the other axis and the lyrics, including an unapplied text
+draft. Pitches stay in a moderate vocal range with repeated short motifs; lengths
+fit ordinary two- or four-bar loops where the existing score allows it. These
+controls preserve voice settings, output level, Audio arming and Play state.
 
 ## Engine and state contract
 

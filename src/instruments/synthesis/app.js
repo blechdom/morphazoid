@@ -1,6 +1,7 @@
 import { SYNTHESIS_DATES } from "./chronology.js";
 import { SEQUENCE_STUDIES, SEQUENCE_STUDY_COUNT } from "./sequence-catalog.js";
 import { compileSequence } from "./sequence-compiler.js";
+import { sequenceRegisterMultiplier } from "./sequence-register.js";
 import { createSequenceSurface } from "./sequence-surfaces.js";
 import { createSequenceMechanismView } from "./sequence-mechanism-view.js";
 import { createSequenceParameterValues, getSequenceParameterBounds, getSequenceParameterDefinitions } from "./sequence-parameters.js";
@@ -27,6 +28,8 @@ import { SynthesisAudio } from "./audio.js";
 import { isVoiceInput } from "./voice-input-state.js";
 import { mountVoiceInputPanel } from "./voice-input-panel.js";
 import { VoiceInputSource } from "./voice-source.js";
+import { mountPercussionPanel, DRUM_KEYS, DRUM_MIDI_NOTES } from "./percussion-panel.js";
+import { compilePercussionSequence } from "./percussion-state.js";
 import { mountAudioInputControl } from "../../audio-input-control.js";
 import { createEnvelopeEditor } from "./envelope.js";
 import { envelopeGateSeconds } from './envelope-shape.js';
@@ -127,6 +130,7 @@ let effectEnabled = activeSection === "processing";
 let processorPanel = null;
 const inputSelections = { samples: "sample-drums", signals: processingInput };
 let inputIntent = 0;
+let pendingHostDrums = [];
 let loadingInput = false;
 let inputControl = null;
 let inputGainField = null;
@@ -146,7 +150,13 @@ barSpectrum.displayData = new Float32Array(2048).fill(-100);
 barSpectrum.minimumDecibels = -100;
 let displayFrequency = state.frequencyHz;
 let analysisDirty = true;
-const audio = new SynthesisAudio(showError, paintInput);
+const audio = new SynthesisAudio(error => {
+  pendingHostDrums = [];
+  clearTimeout(voiceRenderTimer);
+  voiceSource.deactivate();
+  showError(error);
+  paintAudio();
+}, paintInput);
 audio.setSequenceStatusListener(status => { sequenceState.workletStatus = status; });
 const voiceSource = new VoiceInputSource({
   host: () => ({ armed: audio.armed && isVoiceInput(inputCategory), context: audio.context, input: audio.input }),
@@ -154,6 +164,7 @@ const voiceSource = new VoiceInputSource({
   error: showError,
   changed: status => {
     $("voiceInputStatus").textContent = status.loading ? "Rendering voice…" : !audio.armed ? "Enable Audio to hear this voice."
+      : status.renderError || status.timingWarning ? status.renderError || status.timingWarning
       : status.playing ? "" : status.duration ? "Ready" : "Press Play to hear this voice.";
   },
   activity: active => { if (isVoiceInput(inputCategory)) audio.setPlaying(playing || active); },
@@ -170,12 +181,26 @@ const voicePanel = mountVoiceInputPanel($("voiceInputPanel"), {
     if (!audio.armed) { $("status").textContent = "Enable Audio to hear this voice."; return; }
     setPlaying(false); clearTimeout(voiceRenderTimer); void voiceSource.audition(request);
   },
-  seek: async seconds => {
+  seek: async beat => {
     if (!audio.armed) return;
-    const intent = inputIntent;
-    await ensureProcessingInput();
-    if (intent !== inputIntent || !isVoiceInput(inputCategory)) return;
-    setPlaying(true); voiceSource.seek(seconds);
+    // Seeking owns this render now; the edit debounce must not cancel it later.
+    clearTimeout(voiceRenderTimer);
+    const intent = inputIntent, revision = voicePanel.revision;
+    const ready = await ensureProcessingInput();
+    if (!ready || intent !== inputIntent || revision !== voicePanel.revision || !isVoiceInput(inputCategory)) return;
+    if (voiceSource.seekBeat(beat)) setPlaying(true);
+  },
+});
+
+const drumPanel = mountPercussionPanel($("drumInputPanel"), {
+  change: (_next, { rhythm = false } = {}) => {
+    if (rhythm) syncDrumSequence();
+    else syncAudio();
+    fullPresets?.refresh(); paintSignalPath();
+  },
+  hit: (lane, velocity) => {
+    if (!audio.armed) { $("status").textContent = "Enable Audio to hear the drum pads."; return; }
+    audio.drumHit(lane, velocity);
   },
 });
 
@@ -189,7 +214,8 @@ function configuredAudioState() {
   const method = getMethod(state.methodId);
   return {
     ...state,
-    ...(isVoiceInput(inputCategory) && !effectEnabled ? { bypass: true, inputDb: 0, outputDb: 0 } : {}),
+    ...((isVoiceInput(inputCategory) || inputCategory === 'percussion') && !effectEnabled ? { bypass: true, inputDb: 0, outputDb: 0 } : {}),
+    percussion: inputCategory === 'percussion' ? { voices: drumPanel.getState().voices } : null,
     source: method.kind === "processor" ? processingSource() : state.source,
     kind: method.kind || "synthesis",
     engineId: method.engineId,
@@ -242,9 +268,13 @@ listen($("audioButton"), "click", async () => {
   try {
     syncAudio(); await audio.start();
     audio.resumeNotes(Array.from(held.values()));
+    const drumHits = pendingHostDrums; pendingHostDrums = [];
+    if (inputCategory === 'percussion') for (const hit of drumHits) {
+      if (hit.intent === inputIntent) audio.drumHit(hit.lane, hit.velocity);
+    }
     void ensureProcessingInput();
   }
-  catch (error) { audio.mute(); showError(error); }
+  catch (error) { pendingHostDrums = []; audio.mute(); showError(error); }
   finally { arming = false; paintAudio(); }
 });
 
@@ -317,7 +347,7 @@ function updateEffect({ audition = false } = {}) {
 function paintEffect() {
   $("processorDetail").hidden = !effectEnabled;
   $("processorEnabled").checked = effectEnabled;
-  $("processorEnabled").disabled = inputCategory !== "synthesis" && !isVoiceInput(inputCategory);
+  $("processorEnabled").disabled = inputCategory !== "synthesis" && inputCategory !== 'percussion' && !isVoiceInput(inputCategory);
   processorPanel?.setValue(effectState);
   mixFields.wet.setValue(effectState.wet * 100);
   mixFields.inputDb.setValue(effectState.inputDb);
@@ -340,6 +370,7 @@ function paintProcessorLatency() {
 }
 function paintSignalPath() {
   const source = inputCategory === "synthesis" ? getMethod(state.methodId).label
+    : inputCategory === 'percussion' ? 'Drum sequencer + pads → Percussion'
     : inputCategory === "speech" ? "Speech synthesis" : inputCategory === "singing" ? "Singing synthesis"
     : inputCategory === "microphone" ? "Mic / audio in" : inputCategory === "file" ? "Audio file" : selectedInput()?.label ?? "Input";
   const notes = inputCategory === "synthesis" && hasSequence() ? "Arpeggiator + tuning → " : "";
@@ -348,6 +379,8 @@ function paintSignalPath() {
 function paintVoiceInput() {
   const voice = isVoiceInput(inputCategory);
   $("voiceDetail").hidden = !voice;
+  $("drumDetail").hidden = inputCategory !== 'percussion';
+  $("transportTiming").hidden = activeSection === 'processing' && inputCategory !== 'percussion';
   if (voice) voicePanel.setInput(inputCategory);
   else { clearTimeout(voiceRenderTimer); voiceSource.deactivate(); }
   if (fullPresets) mountInstrumentPresets();
@@ -379,7 +412,7 @@ function applyEnvelopePreset(presetOrId) {
 const sequenceStudy = () => SEQUENCE_STUDIES.find(study => study.id === sequenceState.id) || null;
 const selectedBasicSequence = () => basicSequence(sequenceState.id);
 const hasSequence = () => sequenceState.id !== "none" && (!!sequenceStudy() || !!selectedBasicSequence());
-const sequenceOwnsTransport = () => activeSection === "synthesis" && hasSequence();
+const sequenceOwnsTransport = () => inputCategory === 'percussion' || activeSection === "synthesis" && hasSequence();
 const sequenceStepAt = step => Number(step?.at ?? step?.atBeats ?? 0);
 
 function syncSequenceParameterState(values) {
@@ -408,6 +441,8 @@ function syncSequenceParameterFields(study = sequenceStudy()) {
   sequenceSurface?.setValue(sequenceState.parameters, sequenceState.cycle);
   for (const field of sequenceParameterFields) {
     const id = field.sequenceParameterId;
+    if (id === "fullTraversal") field.setSequenceValue?.(Boolean(sequenceState.parameters.fullTraversal));
+    if (id === "steps") field.hidden = Boolean(sequenceState.parameters.fullTraversal);
     if (!id || !Object.hasOwn(sequenceState.parameters, id)) continue;
     const bounds = getSequenceParameterBounds(study, id, sequenceState.parameters);
     if (bounds) {
@@ -515,7 +550,7 @@ function paintSequenceParameterControls() {
     syncSequenceParameterState(next); syncSequenceParameterFields(study); rebuildSequence();
   }) || createSequenceMechanismView($("sequenceSurface"), study, values, sequenceState.cycle);
   sequenceSurface?.setCursor(sequenceState.cursor);
-  $("sequenceOutput").open = !sequenceSurface;
+  $("sequenceOutput").open = !sequenceSurface || Boolean(values.fullTraversal);
   const owned = new Set(sequenceSurface?.ownedParameterIds ?? []);
   const definitions = getSequenceParameterDefinitions(study).filter(definition => !owned.has(definition.id));
   const buildGrid = (items, className = "") => {
@@ -790,12 +825,16 @@ function fitBasicRatio(ratio, rootFrequency = state.frequencyHz) {
 
 function mapCycleToTuning(cycle, { basic = false, rootFrequency = state.frequencyHz } = {}) {
   if (!cycle) return null;
+  const ratioForNote = note => Number.isSafeInteger(note.degree)
+    ? tuningRatioForDegree(note.degree, state.tuningId)
+    : tuningRatioForSemitoneCoordinate(note.semitone, state.tuningId, sequenceState.pitchMode);
+  const register = cycle.parameters?.fullTraversal || cycle.studyId === 'keyboard-range-arpeggio'
+    ? sequenceRegisterMultiplier(cycle.steps.flatMap(step => step.notes.map(ratioForNote)),
+      rootFrequency, getTuning(state.tuningId).periodRatio) ?? 1 : 1;
   const steps = cycle.steps.map(step => ({
     ...step,
     notes: step.notes.flatMap(note => {
-      let ratio = Number.isSafeInteger(note.degree)
-        ? tuningRatioForDegree(note.degree, state.tuningId)
-        : tuningRatioForSemitoneCoordinate(note.semitone, state.tuningId, sequenceState.pitchMode);
+      let ratio = ratioForNote(note) * register;
       // Preserve a playable note by translating whole tuning periods at the
       // register boundary. Small/non-octave maps can otherwise drop an entire
       // randomized phrase despite valid source notes.
@@ -841,6 +880,7 @@ function retuneSequenceRoot() {
 }
 
 function rebuildSequence({ restart = false, route = true, audioState = null } = {}) {
+  if (inputCategory === 'percussion') { syncDrumSequence({ restart, audioState }); paintPlayback(); return; }
   const cycle = compileSelectedSequence();
   sequenceSurface?.setValue(sequenceState.parameters, cycle);
   if (cycle) {
@@ -863,6 +903,14 @@ function rebuildSequence({ restart = false, route = true, audioState = null } = 
   if (route) updateUrl();
 }
 
+function syncDrumSequence({ restart = false, audioState = null } = {}) {
+  const tempo = Number($("tempo").value);
+  const cycle = compilePercussionSequence(drumPanel.getState(), tempo);
+  const sound = audioState || configuredAudioState();
+  if (playing) audio.swapSequence(cycle, { rootFrequency: 220, restart, state: sound });
+  else { audio.configure(sound); audio.setPlaying(false); audio.setSequence(cycle, { preservePhase: !restart }); }
+}
+
 function updateTempo() {
   const tempo = Number($("tempo").value);
   if (sequenceOwnsTransport()) audio.setSequenceTempo(tempo);
@@ -880,11 +928,15 @@ function updateGate() {
 
 function syncTransportForSection({ restartSequence = false } = {}) {
   const tempo = Number($("tempo").value), gate = Number($("noteGate").value) / 100;
+  if (inputCategory === 'percussion') { syncDrumSequence({ restart: restartSequence }); return; }
   if (activeSection === "processing") {
     audio.stopSequence();
     audio.setPlaying(playing, tempo / 60, gate);
     return;
   }
+  // Drums borrow the worklet score slot, not the remembered pitched score.
+  // Restore it even when returning via a voice or another processing input.
+  if (audio.sequence?.archetype === 'drum-grid') rebuildSequence({ route: false, audioState: configuredAudioState() });
   if (!hasSequence()) {
     audio.stopSequence();
     audio.setPlaying(playing, tempo / 60, gate);
@@ -949,7 +1001,7 @@ function renderState(rebuildControls = true, audition = false, restoringSection 
   $("methodInfoReference").href = `synthesaurus-reference.html#method-${method.id}`;
   const processing = method.kind === "processor";
   if (processing) {
-    effectState = sanitizeState(state); if (!isVoiceInput(inputCategory)) effectEnabled = true;
+    effectState = sanitizeState(state); if (!isVoiceInput(inputCategory) && inputCategory !== 'percussion') effectEnabled = true;
     if (inputCategory === "synthesis") { inputCategory = "signals"; processingInput = presetSignal(state.source); }
   } else inputCategory = "synthesis";
   paintVoiceInput();
@@ -970,7 +1022,7 @@ function renderState(rebuildControls = true, audition = false, restoringSection 
   $("randomMethod").title = "Randomize settings for " + method.label + " only";
   $("randomMethod").setAttribute("aria-label", $("randomMethod").title);
   $("noteTiming").hidden = processing;
-  $("transportTiming").hidden = processing;
+  $("transportTiming").hidden = processing && inputCategory !== 'percussion';
   $("soundControls").setAttribute("aria-label", processing ? "Processing controls" : "Synthesis controls");
   $("randomMethod").hidden = processing;
   $("envelopeDetails").hidden = processing;
@@ -993,7 +1045,7 @@ function renderState(rebuildControls = true, audition = false, restoringSection 
   $("playButton").setAttribute("aria-label", playing ? "Pause" : "Play");
   $("playButton").setAttribute("aria-pressed", String(playing));
   paintPlayback();
-  $("sourceControls").hidden = isVoiceInput(inputCategory) || !method.sourceInput && !processing;
+  $("sourceControls").hidden = inputCategory === 'percussion' || isVoiceInput(inputCategory) || !method.sourceInput && !processing;
   $("outputLevel").value = state.outputLevel;
   $("outputLevelOut").value = `${Math.round(state.outputLevel * 100)}%`;
   frequencyField.setValue(state.frequencyHz);
@@ -1077,12 +1129,12 @@ listen($("inputCategory"), "change", async () => {
   inputIntent++; loadingInput = false; inputError = ""; audio.stopInput();
   inputCategory = category;
   if (category !== "synthesis") {
-    effectEnabled = !isVoiceInput(category);
+    effectEnabled = !isVoiceInput(category) && category !== 'percussion';
     processingInput = category === "samples" || category === "signals" ? inputSelections[category] : category;
     sectionSessions.processing.sound = captureSoundState(effectState);
   }
   switchSection(category === "synthesis" ? "synthesis" : "processing");
-  paintVoiceInput(); paintVoicing(); paintEffect(); paintInput(); syncAudio(); syncTransportForSection();
+  paintVoiceInput(); paintVoicing(); paintEffect(); paintInput(); syncAudio(); syncTransportForSection(); paintPlayback();
   if (category === "microphone") {
     try { await connectInput(); } catch { paintInput(); }
   }
@@ -1175,8 +1227,8 @@ function applyPreparedPerformance(performance, { message = "Instrument preset lo
     gateField.setValue(prepared.sequence.gate);
   }
   $("sequenceSelect").value = sequenceState.id;
-  const atomicSequenceChange = playing && hasSequence()
-    && previousSection === "synthesis" && methodSection(state.methodId) === "synthesis";
+  const atomicSequenceChange = playing && (inputCategory === 'percussion' || hasSequence()
+    && previousSection === "synthesis" && methodSection(state.methodId) === "synthesis");
   deferTransportSync = true;
   deferAudioSync = atomicSequenceChange;
   try { renderState(state.methodId !== previousMethod, false); }
@@ -1294,6 +1346,7 @@ listen($("playButton"), "click", () => { setPlaying(!playing); if (playing) void
 function trigger() {
   if (!audio.armed) { $("status").textContent = "Enable Audio to hear the demonstration."; return; }
   const processing = getMethod(state.methodId).kind === "processor";
+  if (inputCategory === 'percussion') { drumPanel.hit(drumPanel.getState().selectedLane); return; }
   if (isVoiceInput(inputCategory)) { void ensureProcessingInput({ audition: true, restart: true }); return; }
   if (processing && ["demo", "file"].includes(selectedInput()?.kind)) {
     void ensureProcessingInput({ audition: true, restart: true });
@@ -1325,8 +1378,8 @@ function demonstrationFrequencies(degrees) {
 
 function paintVoicing() {
   const processing = getMethod(state.methodId).kind === "processor";
-  $("triggerButton").textContent = isVoiceInput(inputCategory) ? "Preview voice" : processing ? "Audition · 3 s" : state.voiceMode === "poly" ? "Trigger Notes (poly)" : "Trigger Note";
-  $("triggerButton").title = isVoiceInput(inputCategory) ? "Play this voice phrase once without changing Play" : processing ? "Audition the selected input for three seconds" : state.voiceMode === "poly" ? "Play a three-note chord from the selected tuning and note map" : "Play one note at the selected frequency";
+  $("triggerButton").textContent = inputCategory === 'percussion' ? 'Hit pad' : isVoiceInput(inputCategory) ? "Preview voice" : processing ? "Audition · 3 s" : state.voiceMode === "poly" ? "Trigger Notes (poly)" : "Trigger Note";
+  $("triggerButton").title = inputCategory === 'percussion' ? 'Strike the selected drum without changing Play' : isVoiceInput(inputCategory) ? "Play this voice phrase once without changing Play" : processing ? "Audition the selected input for three seconds" : state.voiceMode === "poly" ? "Play a three-note chord from the selected tuning and note map" : "Play one note at the selected frequency";
   $("keyboardHelp").textContent = `Consecutive notes from ${getTuning(state.tuningId).label}, relative to the frequency above. Hold keys or note buttons. ${state.voiceMode === "poly" ? "Up to eight notes sound together, each with its own envelope." : "The most recent held note sounds."}`;
   for (const [code, button] of keyButtons) {
     const available = Number.isFinite(frequencyForTuningDegree(state.frequencyHz, offsets[code], state.tuningId, { minHz: 20, maxHz: 8000 }));
@@ -1377,6 +1430,9 @@ for (let row = 0; row < 2; row++) {
 }
 const editable = target => target?.closest?.("input,select,textarea,button,[contenteditable=true]");
 listen(document, "keydown", event => {
+  if (inputCategory === 'percussion' && !event.repeat && !event.ctrlKey && !event.metaKey && !event.altKey && !editable(event.target) && DRUM_KEYS.includes(event.code)) {
+    event.preventDefault(); drumPanel.hit(DRUM_KEYS.indexOf(event.code)); return;
+  }
   if (event.repeat || event.ctrlKey || event.metaKey || event.altKey || editable(event.target) || !(event.code in offsets)) return;
   event.preventDefault(); press(event.code, frequencyForTuningDegree(state.frequencyHz, offsets[event.code], state.tuningId, { minHz: 20, maxHz: 8000 }));
 });
@@ -1387,7 +1443,19 @@ listen(window, "morphazoid:midi-input", event => {
   const { message, routeId, source } = event.detail ?? {};
   if (!message || (routeId && routeId !== "synthesis")) return;
   if (source === "wax" && document.documentElement.dataset.morphazoidWaxOutputMode === "midi") return;
-  if (source === "wax" && getMethod(state.methodId).kind === "processor") return;
+  if (source === "wax" && getMethod(state.methodId).kind === "processor" && inputCategory !== 'percussion') return;
+  if (inputCategory === 'percussion' && message.type === 'noteOn' && Number(message.velocity) > 0) {
+    event.preventDefault(); const lane = DRUM_MIDI_NOTES.indexOf(Number(message.note));
+    if (lane < 0) return;
+    if (source === 'wax' && !audio.armed) {
+      // Host MIDI may explicitly arm Audio. Keep only the latest initial hit
+      // per pad, and never replay it after a source change or panic.
+      pendingHostDrums = pendingHostDrums.filter(hit => hit.lane !== lane);
+      pendingHostDrums.push({ lane, velocity: message.velocity / 127, intent: inputIntent });
+      if (!arming) $("audioButton").click();
+    } else drumPanel.hit(lane, message.velocity / 127);
+    return;
+  }
   const id = `midi:${message.sourceId || "default"}:${message.channel || 0}:${message.note}`;
   if (message.type === "noteOn" && Number(message.velocity) > 0) {
     event.preventDefault();
@@ -1396,14 +1464,15 @@ listen(window, "morphazoid:midi-input", event => {
     if (source === "wax" && !audio.armed && !arming) $("audioButton").click();
   }
   else if (message.type === "noteOff" || message.type === "noteOn" && Number(message.velocity) <= 0) { event.preventDefault(); release(id); }
-  else if (message.type === "panic" || (message.type === "controlChange" && [120, 123].includes(message.controller))) { event.preventDefault(); releaseAll(); setPlaying(false); audio.panic(); }
+  else if (message.type === "panic" || (message.type === "controlChange" && [120, 123].includes(message.controller))) { event.preventDefault(); pendingHostDrums = []; releaseAll(); setPlaying(false); audio.panic(); }
 });
 function processingSource() {
-  return isVoiceInput(inputCategory) ? 0 : getProcessingInput(processingInput)?.source ?? 0;
+  return inputCategory === 'percussion' || isVoiceInput(inputCategory) ? 0 : getProcessingInput(processingInput)?.source ?? 0;
 }
 function currentSignalPath() {
   return sanitizeSignalPath({ input: inputCategory, selection: processingInput, loop: audio.input.loop, effectEnabled, effect: effectState,
-    ...(isVoiceInput(inputCategory) ? { voice: voicePanel.getState() } : {}) }, state);
+    ...(isVoiceInput(inputCategory) ? { voice: voicePanel.getState() } : {}),
+    ...(inputCategory === 'percussion' ? { percussion: drumPanel.getState() } : {}) }, state);
 }
 function restoreSignalPath(value) {
   const route = sanitizeSignalPath(value, state);
@@ -1413,12 +1482,13 @@ function restoreSignalPath(value) {
   inputIntent++; loadingInput = false; audio.stopInput();
   inputCategory = route.input; processingInput = route.selection ?? (isVoiceInput(route.input) ? route.input : "noise");
   if (isVoiceInput(inputCategory)) { voicePanel.setInput(inputCategory); voicePanel.applyState(route.voice); }
+  if (inputCategory === 'percussion') drumPanel.setValue(route.percussion);
   audio.input.setLoop(route.loop);
   effectEnabled = route.effectEnabled; effectState = sanitizeState({ ...route.effect, outputLevel: state.outputLevel });
   if (inputCategory === "samples" || inputCategory === "signals") inputSelections[inputCategory] = processingInput;
   sectionSessions.processing.sound = captureSoundState(effectState);
 }
-function selectedInput() { return isVoiceInput(inputCategory) ? null : getProcessingInput(processingInput); }
+function selectedInput() { return inputCategory === 'percussion' || isVoiceInput(inputCategory) ? null : getProcessingInput(processingInput); }
 function paintInput() {
   const status = audio.input.status();
   const method = getMethod(state.methodId);
@@ -1463,7 +1533,7 @@ function paintInput() {
     if (inputGainField.parentNode !== host) host.prepend(inputGainField);
     $("inputGainControl").hidden = inStrip;
   }
-  $("sourceControls").hidden = isVoiceInput(inputCategory) || !processing && !fileSynthesis;
+  $("sourceControls").hidden = inputCategory === 'percussion' || isVoiceInput(inputCategory) || !processing && !fileSynthesis;
   paintSignalPath();
   $("processingInputHint").textContent = isVoiceInput(inputCategory) ? "Voicesaurus renders this voice through the shared output. Play follows Loop input; Preview voice plays the complete phrase once."
     : option?.kind === "microphone" ? "Mic / audio-in stays selected. Choose the hardware device in Audio Settings."
@@ -1712,7 +1782,11 @@ function animate(now) {
   if (document.hidden || now - lastDraw < 33) return;
   lastDraw = now;
   paintSequenceCursor();
-  if (isVoiceInput(inputCategory)) voicePanel.progress(voiceSource.player.currentPosition(), voiceSource.timings, voiceSource.player.playing);
+  if (inputCategory === 'percussion') {
+    const status = audio.getSequenceStatus();
+    drumPanel.progress(playing && audio.armed ? status?.stepIndex : null);
+  }
+  if (isVoiceInput(inputCategory)) voicePanel.progress(voiceSource.player.currentPosition(), voiceSource.timings, voiceSource.player.playing && voiceSource.timingsCurrent);
   const scopeResized = resize(scope), spectrumResized = resize(spectrum);
   const frozen = $("freezeDisplay").checked;
   if (audio.armed && audio.analyser) audio.analyser.getFloatTimeDomainData(wave);
@@ -1753,14 +1827,16 @@ window.MorphazoidSynthesis = Object.freeze({
   },
   applySequenceState,
   trigger, release: releaseAll,
-  getStatus: () => ({ armed: audio.armed, playing, section: activeSection, sampleRate: audio.context?.sampleRate || null, heldNotes: held.size, voiceMode: state.voiceMode, voiceLimit: state.voiceMode === "poly" ? 8 : 1,
+  getStatus: () => ({ armed: audio.armed, playing, section: activeSection, sampleRate: audio.context?.sampleRate || null, heldNotes: held.size, voiceMode: state.voiceMode, voiceLimit: inputCategory === 'percussion' ? 24 : state.voiceMode === "poly" ? 8 : 1,
     tuningId: state.tuningId, tuningLabel: getTuning(state.tuningId).label,
     routing: currentSignalPath(),
     input: { ...audio.input.status(), selection: processingInput, source: processingSource(), loading: loadingInput,
+      ...(inputCategory === 'percussion' ? { kind: 'percussion', label: 'Drums & percussion' } : {}),
       ...(isVoiceInput(inputCategory) ? { kind: inputCategory, label: inputCategory === "speech" ? "Speech synthesis" : "Singing synthesis", voice: voiceSource.status(), loading: voiceSource.busy } : {}) }, tempo: Number($("tempo").value), playbackMode: sequenceOwnsTransport() ? "sequence" : "auto", playStyle: playbackStyle(), noteGate: Number($("noteGate").value) / 100,
-    sequence: { id: sequenceState.id, selected: hasSequence(), running: playing && sequenceOwnsTransport(), stepIndex: sequenceState.cursor, studyCount: SEQUENCE_STUDY_COUNT, transportBeat: audio.currentSequenceBeat(), audio: audio.getSequenceStatus() } }),
+    sequence: { id: inputCategory === 'percussion' ? 'drum-grid' : sequenceState.id, selected: inputCategory === 'percussion' || hasSequence(), running: playing && sequenceOwnsTransport(), stepIndex: inputCategory === 'percussion' ? audio.getSequenceStatus()?.stepIndex : sequenceState.cursor, studyCount: SEQUENCE_STUDY_COUNT, transportBeat: audio.currentSequenceBeat(), audio: audio.getSequenceStatus() } }),
 });
 listen(window, "pagehide", event => {
+  pendingHostDrums = [];
   releaseAll();
   clearTimeout(voiceRenderTimer); voiceSource.deactivate();
   audio.mute();
@@ -1771,7 +1847,7 @@ listen(window, "pagehide", event => {
     envelopeEditor.destroy(); frequencyField.destroy(); tempoField.destroy(); gateField.destroy();
     sequenceParameterFields.forEach(field => field.destroy?.());
     fullPresets?.destroy(); processorPanel?.destroy(); sequenceSurface?.destroy();
-    voicePanel.destroy(); void voiceSource.destroy();
+    voicePanel.destroy(); void voiceSource.destroy(); drumPanel.destroy();
     Object.values(mixFields).forEach(field => field.destroy()); chooseControls.forEach(picker => picker.destroy()); audio.dispose();
     delete window.MorphazoidSynthesis;
   }

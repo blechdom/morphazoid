@@ -143,6 +143,21 @@ const sources = {
     url: 'https://www.roland.com/us/products/rc_jupiter-4/',
     limitation: 'Grounds the early polyphonic arpeggiator lineage without duplicating a factory phrase or interface.',
   },
+  juno60: {
+    label: 'Roland JUNO-60 product history',
+    year: 1982,
+    dateKind: 'manufacturer product account',
+    url: 'https://www.roland.com/global/products/rc_juno-60/',
+    limitation: 'Roland dates the original instrument to 1982. The study uses original note material; ranges beyond three octaves and inside/outside traversal are modern extensions.',
+  },
+  juno60Manual: {
+    label: 'Roland JUNO-60 operation manual: arpeggio, pp. 19–23',
+    milestoneYears: [],
+    supportingOnly: true,
+    dateKind: 'manufacturer mechanism documentation',
+    url: 'https://cdn.roland.com/assets/media/pdf/JUNO-60_OM.pdf',
+    limitation: 'Documents Up, Down, Up/Down, range 1–3, hold and external clock. The notation shows non-repeated turnaround notes. The original top-key range-repetition behavior is not reproduced.',
+  },
   sh101: {
     label: 'Roland SH-101 owner’s manual',
     year: 1982,

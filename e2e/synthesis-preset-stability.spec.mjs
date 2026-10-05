@@ -76,16 +76,22 @@ test('Synthesaurus catalogue icon retains real transparency', async ({ page }) =
   expect(result.transparent).toBeGreaterThan(.1);
   expect(result.solid).toBeGreaterThan(.1);
   const heading = page.getByRole('heading', { level: 1, name: 'Synthesaurus', exact: true });
-  const titleIcon = heading.locator('img');
+  const titleIcon = page.locator('.synthesis-title-icon');
   await expect(titleIcon).toHaveAttribute('src', 'assets/instruments/synthesis.webp');
   await expect(titleIcon).toHaveAttribute('alt', ''); // Decorative; don't repeat the heading for screen readers.
   for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 }, { width: 844, height: 390 }]) {
     await page.setViewportSize(viewport);
     await expect(titleIcon).toBeVisible();
     const iconBox = await box(titleIcon), headingBox = await box(heading);
+    const copyBox = await box(page.locator('.synthesis-title-copy'));
+    const subtitleBox = await box(page.locator('.synthesis-subtitle'));
     expect(iconBox.width).toBe(iconBox.height);
-    expect(iconBox.width).toBeLessThanOrEqual(48);
-    expect(Math.abs(center(iconBox).y - center(headingBox).y)).toBeLessThan(1);
+    expect(iconBox.height).toBe(96);
+    expect(headingBox.x).toBeGreaterThan(iconBox.x + iconBox.width);
+    expect(subtitleBox.x).toBe(headingBox.x);
+    expect(subtitleBox.y).toBeGreaterThanOrEqual(headingBox.y + headingBox.height);
+    expect(Math.abs(center(iconBox).y - center(copyBox).y)).toBeLessThan(1);
+    expect(await page.locator('.synthesis-subtitle').evaluate(node => getComputedStyle(node).fontStyle)).toBe('normal');
     expect(await titleIcon.evaluate(node => node.complete && node.naturalWidth === 512)).toBe(true);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
   }

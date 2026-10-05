@@ -12,7 +12,7 @@ self.onmessage=async({data})=>{
   try {
     const {engine,input,values,text}=data;
     let result;
-    if(engine==='sinsy')result={...await renderSinsyScore(sinsyScoreToMusicXml(input),values),...sinsyScoreTimings(input)};
+    if(engine==='sinsy')result={...sinsyScoreTimings(input),...await renderSinsyScore(sinsyScoreToMusicXml(input),values)};
     else if(NATIVE_PHRASE_ENGINES.includes(engine)&&Object.hasOwn(input??{},'phrase'))result=await renderNativePhrase(engine,input.phrase);
     else if(['singer','stk-voicform'].includes(engine))result=(await createNativeMusicalRenderer())(engine,input,values);
     else if(engine.startsWith('csound-'))result=await renderNativeCsound(engine,input,values);

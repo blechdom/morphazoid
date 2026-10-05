@@ -144,6 +144,23 @@ test('cancelling an offline sample-bank job aborts it and ignores late PCM',asyn
 
 test('default render stores AudioBuffer, keeps original PCM metadata and scales phrase position',async()=>{const a=await audio();phrase(a);const p=a.render({engine:'sinsy'});const samples=new Float32Array(48000).fill(.2);WorkerMock.all.at(-1).ready(samples);const result=await p;assert.equal(result.samples,samples);assert.equal(result.buffer,a.buffer);assert.equal(a.engine,'sinsy');assert.equal(a.position,.25);assert.equal(a.buffer.duration,1);assert.equal(a.pendingRender,null);await a.close();});
 
+test('musical replacement maps the current audio-clock position only after valid PCM arrives',async()=>{
+ const a=await audio();const old=phrase(a);a.play();let observed;
+ const pending=a.render({engine:'sinsy'},{positionForResult:(result,position)=>{observed={result,position,old:a.buffer};return position/2;}});
+ a.context.currentTime+=.5;
+ WorkerMock.all.at(-1).ready(new Float32Array(96000).fill(.1));
+ const result=await pending;
+ assert.equal(observed.position,1.5);assert.equal(observed.old,old);assert.equal(observed.result,result);
+ assert.equal(a.position,.75);assert.equal(a.buffer,result.buffer);await a.close();
+});
+
+test('an invalid replacement mapping preserves the last good playing source',async()=>{
+ const a=await audio();const old=phrase(a);a.play();const source=a.source;
+ const pending=a.render({engine:'sinsy'},{positionForResult:()=>NaN});
+ WorkerMock.all.at(-1).ready();await assert.rejects(pending,/replacement playback position/);
+ assert.equal(a.buffer,old);assert.equal(a.source,source);assert.equal(a.playing,true);await a.close();
+});
+
 test('store:false and audition preserve main phrase, position, engine and persistent Loop',async()=>{let ended=0;const a=await audio();a.onEnded=()=>ended++;const main=phrase(a);const result=await ready(a);assert.equal(a.buffer,main);assert.equal(a.position,1);assert.equal(a.engine,'flite');assert.equal(a.loop,true);assert.equal(a.audition(result),true);const s=a.auditionSource,g=a.auditionGain;assert.equal(s.buffer,result.buffer);assert.equal(s.loop,false);assert.equal(s.playbackRate.value,1);assert.deepEqual(s.starts,[[]]);assert.deepEqual(g.gain.calls.at(-1),['ramp',.37,10.008]);a.setLoop(false);a.setLoop(true);assert.equal(s.loop,false);s.end();assert.equal(ended,0);assert.equal(a.buffer,main);assert.equal(a.position,1);assert.equal(a.playing,false);assert.equal(a.auditionSource,null);assert.equal(s.disconnected,1);assert.equal(g.disconnected,1);await a.close();});
 
 test('store:false does not stop a playing phrase or replace its source',async()=>{const a=await audio();const main=phrase(a);a.play();const s=a.source;await ready(a);assert.equal(a.source,s);assert.equal(a.buffer,main);assert.equal(a.playing,true);assert.equal(a.position,1);await a.close();});

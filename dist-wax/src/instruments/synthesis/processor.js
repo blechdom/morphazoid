@@ -39,6 +39,10 @@ class RoadsSynthesisProcessor extends AudioWorkletProcessor {
     this.modeFade = 0;
     this.modeFadeFrom = 0;
     this.processor = this.api.proc_new(sampleRate);
+    // One small bank, not one heavyweight teaching Engine per drum voice.
+    // Optional until selected, so older cached binaries still play other inputs.
+    this.drums = this.api.drum_abi_version?.() === 1 ? this.api.drum_new(sampleRate) : null;
+    this.percussionEnabled = false;
     this.insertState = null;
     this.insertBlend = 0;
     this.outputArmed = options.processorOptions.outputArmed !== false;
@@ -104,8 +108,11 @@ class RoadsSynthesisProcessor extends AudioWorkletProcessor {
         const rawNote = rawNotes[index];
         if (!rawNote || typeof rawNote !== "object") continue;
         notes.push({
+          ...(Number.isInteger(rawNote.lane) && rawNote.lane >= 0 && rawNote.lane < 8 ? { lane: rawNote.lane } : {}),
           semitone: clampNumber(rawNote.semitone, -96, 96, 0),
-          ratio: clampNumber(rawNote.ratio, 1 / 256, 256,
+          // The mapped score can span the complete supported 20–8,000 Hz
+          // register even when its root is at either endpoint (ratio 400).
+          ratio: clampNumber(rawNote.ratio, 1 / 400, 400,
             2 ** (clampNumber(rawNote.semitone, -96, 96, 0) / 12)),
           velocity: clampNumber(rawNote.velocity, 0, 1, .75),
           gate: clampNumber(rawNote.gate, .01, 4, 1),
@@ -242,7 +249,7 @@ class RoadsSynthesisProcessor extends AudioWorkletProcessor {
   }
 
   sequenceEventBoundaryFrame() {
-    if (!this.sequencePlaying || !this.sequence || this.state?.kind === "processor") return Infinity;
+    if (!this.sequencePlaying || !this.sequence || this.state?.kind === "processor" && !this.percussionEnabled) return Infinity;
     let boundary = this.sequenceFrameAt(this.sequenceNextBeat);
     if (this.sequenceMono) boundary = Math.min(boundary, this.sequenceFrameAt(this.sequenceMono.endBeat));
     for (const note of this.polyDeadlines) {
@@ -252,6 +259,7 @@ class RoadsSynthesisProcessor extends AudioWorkletProcessor {
   }
 
   renderMode(state = this.state) {
+    if (state?.percussion) return "percussion";
     if (state?.kind === "processor") return "processor";
     return state?.voiceMode === "poly" ? "poly" : "mono";
   }
@@ -406,6 +414,10 @@ class RoadsSynthesisProcessor extends AudioWorkletProcessor {
     this.sequenceIntent = Math.max(this.sequenceIntent, this.sequenceIntentValue(data.intent));
     const beat = this.sequenceBeatAt(currentFrame);
     this.cancelSequenceVoices();
+    if (data.type === "sequence-panic" && this.drums) {
+      this.api.drum_reset(this.drums);
+      this.events = this.events.filter(event => event.type !== "drum-hit");
+    }
     this.sequencePlaying = false;
     this.sequenceAnchorBeat = beat;
     this.sequenceAnchorFrame = currentFrame;
@@ -580,7 +592,14 @@ class RoadsSynthesisProcessor extends AudioWorkletProcessor {
   triggerSequenceStep(step, eventBeat, cursor) {
     this.sequenceLastStepIndex = step.index;
     this.sequenceLastCursor = cursor;
-    if (!step.notes.length || this.state?.kind === "processor") return;
+    if (!step.notes.length) return;
+    if (this.percussionEnabled) {
+      for (const note of step.notes) {
+        if (Number.isInteger(note.lane)) this.api.drum_note(this.drums, note.lane, note.velocity, note.ratio);
+      }
+      return;
+    }
+    if (this.state?.kind === "processor") return;
     if (this.state?.voiceMode === "poly") {
       for (const deadline of [...this.polyDeadlines]) {
         if (deadline?.kind === "sequence" && deadline.revision !== this.sequenceRevision) this.polyOff(deadline.id);
@@ -618,7 +637,7 @@ class RoadsSynthesisProcessor extends AudioWorkletProcessor {
   }
 
   processSequenceAt(frame) {
-    if (!this.sequencePlaying || !this.sequence || frame < this.sequenceAnchorFrame || this.state?.kind === "processor") return;
+    if (!this.sequencePlaying || !this.sequence || frame < this.sequenceAnchorFrame || this.state?.kind === "processor" && !this.percussionEnabled) return;
     if (!this.state) {
       this.seekSequence(this.sequenceBeatAt(frame), false);
       return;
@@ -654,6 +673,12 @@ class RoadsSynthesisProcessor extends AudioWorkletProcessor {
     if (data.type === "output-armed") {
       this.outputArmed = data.armed === true;
       if (!this.outputArmed) this.api.proc_set_freeze_allowed?.(this.processor, 0);
+    } else if (data.type === "drum-hit") {
+      if (!this.percussionEnabled || !this.outputArmed || !Number.isInteger(data.lane) || data.lane < 0 || data.lane >= 8 || this.events.length >= 64) return;
+      this.events.push({ type: "drum-hit", lane: data.lane,
+        velocity: clampNumber(data.velocity, 0, 1, .75), ratio: clampNumber(data.ratio, 1 / 256, 256, 1),
+        frame: Math.max(currentFrame, Math.min(currentFrame + sampleRate * 4, Math.round(finiteNumber(data.at, currentTime) * sampleRate))) });
+      this.events.sort((a, b) => a.frame - b.frame);
     } else if (data.type === "sequence-swap") {
       this.queueSequenceSwap(data);
     } else if (data.type === "sequence-load") {
@@ -678,7 +703,9 @@ class RoadsSynthesisProcessor extends AudioWorkletProcessor {
       const nextPoly = data.state.voiceMode === "poly" && data.state.kind !== "processor";
       const wasProcessor = this.state?.kind === "processor";
       const nextProcessor = data.state.kind === "processor";
-      if (wasPoly !== nextPoly || nextProcessor || wasProcessor) {
+      const continuingPercussion = this.percussionEnabled && nextProcessor && !!data.state.percussion;
+      this.configurePercussion(nextProcessor ? data.state.percussion : null);
+      if (!continuingPercussion && (wasPoly !== nextPoly || nextProcessor || wasProcessor)) {
         const sequenceBeat = this.sequenceBeatAt(currentFrame);
         this.cancelSequenceVoices();
         this.setSequenceAnchor(sequenceBeat, currentFrame);
@@ -690,7 +717,7 @@ class RoadsSynthesisProcessor extends AudioWorkletProcessor {
         this.polyDeadlines.fill(null);
         this.polyPlayId = null;
         this.noteOwners.clear();
-        this.events.length = 0;
+        if (!continuingPercussion) this.events.length = 0;
         this.heldNote = this.pulseNote = null;
         this.releaseAt = this.nextTrigger = Infinity;
         if (nextProcessor) { this.configureProcessing(data, wasProcessor); return; }
@@ -795,6 +822,7 @@ class RoadsSynthesisProcessor extends AudioWorkletProcessor {
         this.events.sort((a, b) => a.frame - b.frame);
       }
     } else if (data.type === "silence") {
+      if (this.drums) this.api.drum_reset(this.drums);
       this.api.proc_set_freeze_allowed?.(this.processor, 0);
       this.haltSequence(data);
       this.playing = false;
@@ -821,6 +849,7 @@ class RoadsSynthesisProcessor extends AudioWorkletProcessor {
         && this.sequenceAnchorFrame > currentFrame;
       const futureStartFrame = this.sequenceAnchorFrame;
       this.applyPendingSequenceSwap(currentFrame, { force: true, suppressAttack: true });
+      if (this.drums) this.api.drum_reset(this.drums);
       this.applyPendingSequenceTempo(currentFrame, { force: true });
       this.sequenceIntent = Math.max(this.sequenceIntent, this.sequenceIntentValue(data.intent));
       const sequenceBeat = this.sequenceBeatAt(currentFrame);
@@ -855,6 +884,8 @@ class RoadsSynthesisProcessor extends AudioWorkletProcessor {
     } else if (data.type === "cancel-capture") {
       this.capture = null;
     } else if (data.type === "dispose") {
+      if (this.drums) this.api.drum_free(this.drums);
+      this.drums = null;
       this.api.synth_free(this.engine);
       this.api.poly_free(this.bank);
       this.api.proc_free(this.processor);
@@ -1071,6 +1102,26 @@ class RoadsSynthesisProcessor extends AudioWorkletProcessor {
     this.updateProcessingGate();
   }
 
+  configurePercussion(value) {
+    const enabled = !!value;
+    if (enabled && !this.drums) throw new Error("The percussion engine needs updating. Reload once to load the new sound engine.");
+    if (enabled !== this.percussionEnabled) {
+      if (this.drums) this.api.drum_reset(this.drums);
+      this.events = this.events.filter(event => event.type !== "drum-hit");
+    }
+    this.percussionEnabled = enabled;
+    if (!enabled) return;
+    const voices = Array.isArray(value.voices) ? value.voices : [];
+    for (let lane = 0; lane < 8; lane++) {
+      const voice = voices[lane] && typeof voices[lane] === "object" ? voices[lane] : { level: 0 };
+      this.api.drum_set_voice(this.drums, lane, Math.round(clampNumber(voice.model, 0, 5, 0)),
+        clampNumber(voice.frequency, 20, 8000, 60), clampNumber(voice.decay, .03, 3, .35),
+        clampNumber(voice.tone, 0, 1, .4), clampNumber(voice.noise, 0, 1, .05),
+        clampNumber(voice.sweep, -24, 48, 0), clampNumber(voice.ratio, .125, 16, 1.5),
+        clampNumber(voice.index, 0, 20, 3), clampNumber(voice.level, 0, 1, .7), clampNumber(voice.pan, -1, 1, 0));
+    }
+  }
+
   configureInsert(state) {
     if (state.kind === "processor") this.insertBlend = 0;
     const next = state.kind !== "processor" ? state.insert : null;
@@ -1121,6 +1172,13 @@ class RoadsSynthesisProcessor extends AudioWorkletProcessor {
 
   updateProcessingGate(frame = currentFrame) {
     if (this.state?.kind !== "processor") return;
+    if (this.percussionEnabled) {
+      // The drum bank owns attacks, release/choke and silence. A second Play
+      // gate would mute sequencer-owned transport and truncate manual-pad tails.
+      this.api.proc_set_freeze_allowed?.(this.processor, this.outputArmed && (this.sequencePlaying || !!this.api.drum_active(this.drums)) ? 1 : 0);
+      this.api.proc_set_source(this.processor, 0, this.state.frequencyHz, 1);
+      return;
+    }
     this.api.proc_set_freeze_allowed?.(this.processor, this.outputArmed && (this.playing || frame < this.processingUntil) ? 1 : 0);
     this.api.proc_set_source(this.processor, this.state.source ?? 0, this.state.frequencyHz,
       this.playing || frame < this.processingUntil ? 1 : 0);
@@ -1144,20 +1202,38 @@ class RoadsSynthesisProcessor extends AudioWorkletProcessor {
 
   processEffect(inputs, channels) {
     const p = this.api, e = this.processor, length = channels[0].length;
-    for (let offset = 0; offset < length; offset += 128) {
-      const count = Math.min(128, length - offset);
-      this.updateProcessingGate(currentFrame + offset);
+    let offset = 0;
+    while (offset < length) {
+      const frame = currentFrame + offset;
+      let count = Math.min(128, length - offset);
+      if (this.percussionEnabled) {
+        this.applyPendingSequenceSwap(frame);
+        while (this.events.length && this.events[0].frame <= frame) {
+          const event = this.events.shift();
+          if (event.type === "drum-hit") p.drum_note(this.drums, event.lane, event.velocity, event.ratio);
+        }
+        this.processSequenceAt(frame);
+        this.applyPendingSequenceTempo(frame);
+        const boundary = Math.min(currentFrame + length, this.events[0]?.frame ?? Infinity, this.sequenceBoundaryFrame());
+        count = Math.max(1, Math.min(count, boundary - frame));
+        p.drum_process(this.drums, count);
+      }
+      this.updateProcessingGate(frame);
       for (let channel = 0; channel < 2; channel++) {
         const input = new Float32Array(p.memory.buffer, p.proc_input_ptr(e, channel), 128);
         input.fill(0);
-        const source = inputs[0]?.[channel] || inputs[0]?.[0];
-        if (source) input.set(source.subarray(offset, offset + count));
+        if (this.percussionEnabled) input.set(new Float32Array(p.memory.buffer, p.drum_output_ptr(this.drums, channel), count));
+        else {
+          const source = inputs[0]?.[channel] || inputs[0]?.[0];
+          if (source) input.set(source.subarray(offset, offset + count));
+        }
       }
       p.proc_process(e, count);
       for (let channel = 0; channel < channels.length; channel++) {
         const output = new Float32Array(p.memory.buffer, p.proc_output_ptr(e, Math.min(1, channel)), count);
         channels[channel].set(output, offset);
       }
+      offset += count;
     }
   }
 

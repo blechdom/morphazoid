@@ -23,7 +23,8 @@ for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 
         select.value = study.id; select.dispatchEvent(new Event('change', { bubbles: true }));
         const surface = document.querySelector('#sequenceSurface > section');
         if (!surface?.textContent.trim()) problems.push(`${study.id}: missing mechanism`);
-        if (document.getElementById('sequenceOutput').open) problems.push(`${study.id}: generic output unexpectedly expanded`);
+        const completeTraversal = Boolean(window.MorphazoidSynthesis.getSequenceState().parameters.fullTraversal);
+        if (document.getElementById('sequenceOutput').open !== completeTraversal) problems.push(`${study.id}: output disclosure does not match traversal policy`);
         if (document.documentElement.scrollWidth > innerWidth) problems.push(`${study.id}: document overflow`);
         if (surface && surface.getBoundingClientRect().right > innerWidth + 1) problems.push(`${study.id}: clipped mechanism`);
         if (surface?.dataset.sequenceMechanism && surface.querySelector('button,input,select,[role="slider"]')) problems.push(`${study.id}: fake editing controls`);

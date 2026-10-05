@@ -67,7 +67,8 @@ test('master bank contains distinct complete synthesis + sequence + tuning scene
     assert.ok(tuningIds.has(tuningId), `${preset.id}: known tuning`);
     usedTunings.add(tuningId);
     assert.deepEqual(sequence.parameters, createSequenceParameterValues(sequence.id, sequence.parameters));
-    assert.deepEqual(Object.keys(sequence.parameters), getSequenceParameterDefinitions(sequence.id).map(definition => definition.id));
+    assert.deepEqual(Object.keys(sequence.parameters), getSequenceParameterDefinitions(sequence.id)
+      .filter(definition => !definition.optional || Object.hasOwn(sequence.parameters, definition.id)).map(definition => definition.id));
     assert.ok(sequence.tempoBpm >= MIN_SEQUENCE_TEMPO && sequence.tempoBpm <= MAX_SEQUENCE_TEMPO);
     for (const key of ['outputLevel', 'voiceMode', 'tuningId', 'source', 'audioEnabled', 'playing', 'transport', 'midi']) {
       assert.equal(Object.hasOwn(sound, key), false, `${preset.id}: sound excludes ${key}`);
@@ -131,11 +132,12 @@ test('six bounded sequence-settings recipes apply to every historical mechanism'
     assert.deepEqual(presets, SEQUENCE_SETTINGS_PRESETS[study.id]);
     assert.equal(presets.length, SEQUENCE_SETTING_RECIPES.length, `${study.id}: recipe count`);
     assert.equal(new Set(presets.map(preset => JSON.stringify(preset.snapshot))).size, presets.length, `${study.id}: recipes are distinct`);
-    const parameterIds = getSequenceParameterDefinitions(study).map(definition => definition.id);
+    const definitions = getSequenceParameterDefinitions(study);
     for (const preset of presets) {
       assert.ok(!/^(original|spacious|sparse|tight|dense|wild)$/i.test(preset.label), `${preset.id}: names its musical mechanism`);
       assert.equal(preset.snapshot.id, study.id);
-      assert.deepEqual(Object.keys(preset.snapshot.parameters), parameterIds);
+      assert.deepEqual(Object.keys(preset.snapshot.parameters), definitions
+        .filter(definition => !definition.optional || Object.hasOwn(preset.snapshot.parameters, definition.id)).map(definition => definition.id));
       assert.deepEqual(preset.snapshot.parameters, createSequenceParameterValues(study, preset.snapshot.parameters));
       assert.ok(Number.isFinite(preset.snapshot.tempoBpm));
       assert.ok(Object.isFrozen(preset.snapshot.parameters));
@@ -159,7 +161,8 @@ test('technique presets produce distinct mechanisms and an early audible event',
       const parameters = preset.snapshot.parameters;
       const compiled = compileSequence(study, { parameters });
       const sounding = compiled.steps.filter(step => step.notes.length);
-      assert.ok(sounding.length >= 4, `${preset.id}: several visible attacks`);
+      const minimumAttacks = study.id === 'keyboard-range-arpeggio' && parameters.octaves === 1 ? 3 : 4;
+      assert.ok(sounding.length >= minimumAttacks, `${preset.id}: complete three-note octave or several visible attacks`);
       assert.ok(sounding[0].at * 60 / preset.snapshot.tempoBpm <= .75, `${preset.id}: first note within 750 ms`);
       assert.ok(compiled.steps.flatMap(step => step.notes).every(note => note.velocity >= .12), `${preset.id}: audible note velocities`);
       // Remove superficial tempo, seed, articulation and register differences:
@@ -189,7 +192,8 @@ test('arpeggiator dice compiles visible playable notes across methods, seeds and
       const label = `${study.id}: sample ${index}`;
       assert.ok(sounding.length >= Math.max(4, Math.ceil(compiled.steps.length * .2)), `${label}: useful visible event density`);
       assert.ok(sounding[0].at * 60 / state.tempoBpm <= .75, `${label}: first note within 750 ms`);
-      assert.ok(notes.every(note => note.semitone >= -36 && note.semitone <= 36), `${label}: bounded three-octave register`);
+      const pitchBound = study.id === 'keyboard-range-arpeggio' ? 48 : 36;
+      assert.ok(notes.every(note => note.semitone >= -pitchBound && note.semitone <= pitchBound), `${label}: bounded authored register contract`);
       assert.ok(notes.every(note => note.velocity >= .12 && note.velocity <= 1), `${label}: non-negligible velocities`);
       const noteRate = notes.length / compiled.lengthBeats * state.tempoBpm / 60;
       assert.ok(noteRate >= .6 && noteRate <= 24, `${label}: useful note rate, received ${noteRate}`);

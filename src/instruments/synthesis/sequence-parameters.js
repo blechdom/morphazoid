@@ -171,8 +171,9 @@ const mechanismDefinitions = study => {
     case 'ordered-chord':
       return [
         selectDefinition('order', 'Traversal', config.order || 'up', ORDER_CHOICES, 'Changes how the held intervals are visited.'),
-        numberDefinition('octaves', 'Octave span', finite(config.octaves, 1), 1, 8, 1, 'Repeats the interval set through this many octaves.', 'octaves'),
+        numberDefinition('octaves', 'Octave range', finite(config.octaves, 1), 1, 8, 1, 'Repeats the interval set through this many octaves.', 'octaves'),
         numberDefinition('intervalSpread', 'Interval spread', 1, .25, 2, .01, 'Compresses or expands every interval around the root.', '×'),
+        { ...booleanDefinition('fullTraversal', 'Complete traversal', config.fullTraversal === true, 'Derives the cycle length from the range and direction, including the complete return journey.'), optional: config.fullTraversal !== true },
       ];
     case 'ratio-canon': {
       const { min: phaseMin, max: phaseMax } = canonicalRotationBounds(maximumRatioCanonPeriod(config.voices));
@@ -318,10 +319,55 @@ const sanitizeValue = (definition, value, bounds = definition) => {
   return stepped(value, bounds.min, bounds.max, definition.step, definition.default);
 };
 
+const completeOctaveMaximum = (study, order) => {
+  const intervals = Math.max(1, study.config.intervals?.length || 1);
+  const budget = order === 'pendulum' ? Math.floor((MAX_SEQUENCE_STEPS + 2) / 2) : MAX_SEQUENCE_STEPS;
+  return Math.max(1, Math.min(8, Math.floor(budget / intervals)));
+};
+
+/** Complete, bounded ordered-chord cycle length; no factory or caller state is mutated. */
+export function orderedChordTraversalSteps(studyOrId, values = {}) {
+  const study = resolveStudy(studyOrId);
+  if (study.archetype !== 'ordered-chord') return null;
+  const order = ORDER_CHOICES.some(choice => choice.value === values.order) ? values.order : study.config.order;
+  const octaves = whole(values.octaves, 1, completeOctaveMaximum(study, order), finite(study.config.octaves, 1));
+  const count = Math.max(1, study.config.intervals?.length || 1) * octaves;
+  return order === 'pendulum' && count > 1 ? count * 2 - 2 : count;
+}
+
+/** Move the whole expanded field inside the compiler's existing pitch bounds. */
+export function orderedChordTransposeBounds(studyOrId, values = {}) {
+  const study = resolveStudy(studyOrId);
+  const full = asBoolean(values.fullTraversal, study.config.fullTraversal === true);
+  if (study.archetype !== 'ordered-chord' || !full && study.id !== 'keyboard-range-arpeggio') return null;
+  const order = ORDER_CHOICES.some(choice => choice.value === values.order) ? values.order : study.config.order;
+  const intervals = study.config.intervals?.length ? study.config.intervals : [0];
+  const steps = whole(values.steps, 1, MAX_SEQUENCE_STEPS, study.defaults.steps);
+  const maximum = full ? completeOctaveMaximum(study, order)
+    : ['up', 'played', 'pendulum'].includes(order) ? Math.min(8, Math.ceil(steps / intervals.length)) : 8;
+  const octaves = whole(values.octaves, 1, maximum, finite(study.config.octaves, 1));
+  const spread = stepped(values.intervalSpread, .25, 2, .01, 1);
+  const pitches = intervals.map(note => pitch(finite(note, 0) * spread));
+  const low = Math.min(...pitches), high = Math.max(...pitches) + 12 * (octaves - 1);
+  // Inward rounding retains the existing 0.1-semitone control lattice while
+  // avoiding individual-note saturation at either end of a wide traversal.
+  return {
+    min: Math.max(-96, Math.ceil((-96 - low) * 10 - 1e-8) / 10),
+    max: Math.min(96, Math.floor((96 - high) * 10 + 1e-8) / 10),
+  };
+}
+
 const dependentBounds = (study, definition, values) => {
   let { min, max } = definition;
   const renderedSteps = whole(values.steps, 1, MAX_SEQUENCE_STEPS, study.defaults.steps);
-  if (study.archetype === 'ordered-chord' && definition.id === 'octaves'
+  const transposeBounds = definition.id === 'transpose' ? orderedChordTransposeBounds(study, values) : null;
+  if (transposeBounds) {
+    ({ min, max } = transposeBounds);
+  } else if (study.archetype === 'ordered-chord' && values.fullTraversal === true && definition.id === 'steps') {
+    min = max = orderedChordTraversalSteps(study, values);
+  } else if (study.archetype === 'ordered-chord' && values.fullTraversal === true && definition.id === 'octaves') {
+    max = completeOctaveMaximum(study, values.order);
+  } else if (study.archetype === 'ordered-chord' && definition.id === 'octaves'
     && ['up', 'played', 'pendulum'].includes(values.order)) {
     max = Math.max(1, Math.min(8, Math.ceil(renderedSteps / Math.max(1, study.config.intervals?.length || 1))));
   } else if (study.archetype === 'ratio-canon' && definition.id === 'phaseShift') {
@@ -406,6 +452,10 @@ export function createSequenceParameterValues(studyOrId, input = {}) {
     const { min, max } = dependentBounds(study, definition, values);
     values[definition.id] = sanitizeValue(definition, values[definition.id], { min, max });
   }
+  // Existing saved/default patterns predate this opt-in. Keep their shape and
+  // truncated-cycle semantics unchanged, while preserving an explicit OFF on
+  // a study whose authored default enables complete traversal.
+  if (study.archetype === 'ordered-chord' && !values.fullTraversal && study.config.fullTraversal !== true) delete values.fullTraversal;
   return deepFreeze(values);
 }
 
@@ -444,6 +494,8 @@ const applyMechanismValues = (study, config, values) => {
     case 'ordered-chord':
       config.order = values.order;
       config.octaves = values.octaves;
+      if (values.fullTraversal === true) config.fullTraversal = true;
+      else delete config.fullTraversal;
       if (values.intervalSpread !== 1) config.intervals = mapPitches(config.intervals, note => note * values.intervalSpread);
       break;
     case 'ratio-canon':
