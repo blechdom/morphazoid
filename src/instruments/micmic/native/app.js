@@ -507,7 +507,7 @@ function draw(now) {
     const selectedCount = state.status.generationVoiceCounts?.[n.generation] ?? geometry.selectedCounts.get(n.generation);
     const gain = .5 * state.parameters.depth ** (n.generation * .72) / Math.sqrt(selectedCount || 1);
     const voiceLevel = n.generation === 0 ? 1 : clamp(Math.sqrt(Math.max(0, gain) / .5) * Math.sqrt(wet));
-    const history = historyFresh && activeIds.has(n.id);
+    const history = historyFresh && !sceneActivityPending && activeIds.has(n.id);
     const energy = responding.get(n.id)?.energy ?? 0;
     const measured = n.generation === 0 || tapTargets.has(n.voiceIndex);
     const parentMeasured = parent?.generation === 0 || tapTargets.has(parent?.voiceIndex);
