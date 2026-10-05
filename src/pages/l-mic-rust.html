@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="theme-color" content="#07090b" />
-    <meta name="description" content="Morphazoid L-system Delay — a live microphone that grows recursive audio descendants." />
+    <meta name="description" content="Morphazoid L-system Delay — microphone, local audio and built-in recordings grow recursive audio descendants." />
     <title>L-system Delay Rust — Morphazoid</title>
     <link rel="canonical" href="l-mic-rust.html" />
     <link rel="icon" href="favicon.svg" type="image/svg+xml" />
@@ -40,7 +40,7 @@
               <label class="native-check"><input id="automatic" type="checkbox" checked /> Adapt voices to this device</label>
               <label class="control" for="voiceCeiling"><span><b>Optional voice cap</b><output id="voiceCeilingOut" for="voiceCeiling">No cap</output></span><input id="voiceCeiling" type="range" min="0" max="9007199254740991" step="1" value="0" /></label>
             </section>
-            <p class="header-settings-copy">Rust audio runs directly in this browser. Turn on the microphone to capture input, then enable Audio to hear the delay.</p>
+            <p class="header-settings-copy">Rust audio runs directly in this browser. Choose an input, then enable Audio to hear the delay. Mic / line input uses your Audio Settings device.</p>
           </div>
         </details>
       </div>
@@ -55,15 +55,8 @@
             aria-label="Live fitted L-system tree for L-system Delay. Microphone off."
             aria-describedby="treeDescription liveStatus canvasInstructions"
           >
-            A fitted L-system tree whose branches vibrate as microphone audio travels through them.
+            A fitted L-system tree whose branches vibrate as input audio travels through them.
           </canvas>
-
-          <div class="fracta-seed-control" id="seedControl">
-            <button id="seedMicButton" type="button" aria-pressed="false" aria-label="Start microphone input">
-              <i aria-hidden="true"></i>
-              <span><b>Start input</b><small>microphone input</small></span>
-            </button>
-          </div>
 
           <button class="fracta-panic" id="panicButton" type="button" disabled>
             <span aria-hidden="true">×</span> panic
@@ -80,7 +73,7 @@
       </section>
 
       <aside class="panel" data-instrument-preset-host aria-label="L-system Delay controls">
-        <div class="micmic-panel-input" id="mobileInput">
+        <div class="micmic-panel-input mz-input-legacy" id="mobileInput">
           <details class="micmic-input-menu" id="inputMenu" data-input-state="off">
             <summary class="micmic-input-trigger" id="inputMenuButton" aria-label="Microphone controls: microphone off">
               <span class="fracta-mic-icon" aria-hidden="true"><i></i></span><span>Input controls</span>
@@ -114,6 +107,24 @@
             </div>
           </details>
         </div>
+        <details class="group control-section" id="inputSection" data-section="input" open>
+          <summary class="group-summary"><h2 class="group-title">Input</h2><span class="section-state" id="inputSummary">Mic / line · ready</span></summary>
+          <div class="group-body native-input-controls">
+            <label class="select-control" for="source"><span class="field-label">Input source</span><span class="native-input-choice"><select id="source"><option value="mic">Mic / line</option><option value="file">Audio file</option><option value="samples">Built-in samples</option></select></span></label>
+            <label class="select-control" for="inputSample" id="inputSampleControl" hidden><span class="field-label">Sample preset</span><span class="native-input-choice"><select id="inputSample"><option value="sample-drums">Drum break</option></select></span></label>
+            <div id="inputFileControl" class="native-input-file" hidden>
+              <label for="inputFile"><span class="field-label">Choose local audio</span><input id="inputFile" type="file" accept="audio/*" aria-describedby="inputFileHint" /></label>
+              <p class="native-input-note" id="inputFileHint">Local files · up to 64 MiB · first 2 minutes</p>
+            </div>
+            <div class="native-input-playback" id="inputPlaybackControls" hidden>
+              <label class="native-check"><input id="inputLoop" type="checkbox" checked /> Loop input</label>
+              <div class="native-input-actions"><button class="mini-action" id="restartInput" type="button" disabled>Restart input</button><button class="mini-action" id="stopInput" type="button" disabled>Stop input</button></div>
+            </div>
+            <output class="native-input-status" id="inputSourceStatus" role="status">Mic / line ready · use Mic to start input</output>
+            <small class="native-input-credit" id="inputSourceCredit" hidden></small>
+            <p class="native-input-note" id="inputMicHelp"><strong>Use headphones.</strong> <a href="settings.html">Mic / line setup →</a> Choose your input device and mono/stereo there.</p>
+          </div>
+        </details>
         <details class="group control-section" id="recursionSection" data-section="recursion">
           <summary class="group-summary">
             <h2 class="group-title">Recursion</h2>
@@ -220,19 +231,6 @@
           </div>
         </details>
 
-        <details class="group control-section" id="seedSection" data-section="seed">
-          <summary class="group-summary"><h2 class="group-title">Input</h2><span class="section-state" id="seedSummary">Microphone · ready</span></summary>
-          <div class="group-body">
-            <label class="select-control" for="source"><span class="field-label">Input source</span><span class="select-shell"><select id="source"><option value="mic">Microphone</option><option value="seed">Built-in test tone</option></select></span></label>
-            <div class="native-seed-parameters" id="seedParameters">
-              <label class="control" for="frequency"><span><b>Seed frequency</b><output id="frequencyOut" for="frequency">173 Hz</output></span><input id="frequency" type="range" min="40" max="1200" step="1" value="173" /></label>
-              <label class="control" for="pulseRate"><span><b>Seed pulse</b><output id="pulseRateOut" for="pulseRate">2 / s</output></span><input id="pulseRate" type="range" min="0.1" max="12" step="0.01" value="2" /></label>
-              <button class="mini-action" id="strikeButton" type="button">Strike tone</button>
-              <button class="mini-action" id="seedPauseButton" type="button" aria-pressed="false">Pause test tone</button>
-            </div>
-            <button class="mini-action" id="nativeStopAudio" type="button">Stop audio</button>
-          </div>
-        </details>
         <div class="reset-all-row">
           <button class="reset-all-button" type="button" data-reset-all>Reset all parameters</button>
         </div>
@@ -307,7 +305,7 @@
       </aside>
 
       <p class="sr-only" id="treeDescription">Pythagorean Pine. Colored branches show admitted delay taps. Each branch's brightness follows its own measured delayed sound; the root follows the input.</p>
-      <p class="sr-only" id="canvasInstructions">Drag horizontally to change Time fold and vertically to change Branch angle. Arrow keys adjust the same controls. Enter strikes the test tone. Audio remains independently armed.</p>
+      <p class="sr-only" id="canvasInstructions">Drag horizontally to change Time fold and vertically to change Branch angle. Arrow keys adjust the same controls; Shift makes finer changes. Audio remains independently armed.</p>
       <p class="sr-only" id="liveStatus" aria-live="polite"></p>
     </main>
 
