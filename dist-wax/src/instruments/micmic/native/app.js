@@ -443,7 +443,7 @@ function buildGeometry() {
   gpuRenderer?.setGeometry(nodes, { intervalMs: state.parameters.intervalMs });
   const counts = new Map(); for (const n of nodes) counts.set(n.generation, (counts.get(n.generation) ?? 0) + 1);
   $('generationCountReadout').textContent = [...counts].slice(0, 6).map(([, count]) => count.toLocaleString()).join(' → ') + (counts.size > 6 ? ` → … → ${(counts.get(Math.max(...counts.keys())) ?? 0).toLocaleString()} previewed at G${Math.max(...counts.keys())}` : '');
-  $('treeDescription').textContent = `${TYPE_LABELS[state.parameters.lSystemType]}. ${state.parameters.generations} audio generations; ${nodes.length.toLocaleString()} segments in the bounded visual preview. Colored branches are available voices; grey branches are unavailable. Signal amplitude bends the connected lines without changing their color or thickness. Long branches also show input traveling toward their measured endpoint.`;
+  $('treeDescription').textContent = `${TYPE_LABELS[state.parameters.lSystemType]}. ${state.parameters.generations} audio generations; ${nodes.length.toLocaleString()} segments in the bounded visual preview. The green circle marks the start of the first white branch. Colored branches are available voices; grey branches are unavailable. Signal amplitude bends the connected lines without changing their color or thickness. Long branches also show input traveling toward their measured endpoint.`;
   canvas.setAttribute('aria-label', `Live fitted L-system tree for L-system Delay. ${state.audio ? state.performance.frozen ? 'Input paused; recursive tail live' : `${state.performance.source === 'mic' ? 'Microphone' : 'Seed'} live` : 'Audio off'}.`);
 }
 function scheduleDraw() { if (!frameId && !disposed) frameId = requestAnimationFrame(draw); }
@@ -558,7 +558,11 @@ function draw(now) {
     context.globalAlpha = 1;
   }
   if (state.audio && state.performance.frozen) { context.fillStyle = 'rgba(199,155,255,.72)'; context.font = '9px ui-monospace, SFMono-Regular, Menlo, monospace'; context.fillText('INPUT PAUSED · DESCENDANTS DECAYING', 18, height - 42); }
-  const root = project(0, 0), seedSize = clamp(Math.min(width, height) * .085, 46, 62);
+  const root = project(rootNode?.startX ?? 0, rootNode?.startY ?? 0), seedSize = clamp(Math.min(width, height) * .085, 46, 62);
+  // The annotation canvas stays above both branch renderers.
+  context.save(); context.beginPath(); context.arc(root.x, root.y, 4, 0, Math.PI * 2);
+  context.fillStyle = '#6de48b'; context.fill();
+  context.strokeStyle = '#07090b'; context.lineWidth = 1.5; context.stroke(); context.restore();
   $('seedControl').style.left = `${root.x}px`; $('seedControl').style.top = `${root.y}px`; $('seedControl').style.width = `${seedSize}px`; $('seedControl').style.height = `${seedSize}px`;
   if (now < manualFlashUntil) { context.strokeStyle = COLORS[0]; context.globalAlpha = (manualFlashUntil - now) / 240; context.beginPath(); context.arc(root.x, root.y, seedSize / 2 + 5, 0, Math.PI * 2); context.stroke(); context.globalAlpha = 1; }
   if (state.audio || tapLevels.size || rootLevel > 0 || drag || previewMoving || nativePreviewMoving || fitMoving || (lockedFit && now <= gestureUntil) || now < manualFlashUntil) scheduleDraw();
