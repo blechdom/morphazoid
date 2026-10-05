@@ -357,6 +357,7 @@ async function factoryBurstResponses() {
       medianCssPx: quantile(deviations, .5), p95CssPx: quantile(deviations, .95), maxCssPx: quantile(deviations, 1) };
     console.log(`Factory burst response: ${JSON.stringify(result)}`); responses.push(result);
     assert.ok(result.peakTapRms > 0, `${id}: real delay taps respond to ordinary microphone bursts`);
+    assert.ok(result.peakBentNonRootCurves >= 5, `${id}: ordinary factory bursts visibly bend several descendants by at least one CSS pixel`);
     await page.locator('#stage').screenshot({ path: fileURLToPath(new URL(`factory-bursts-${id}.png`, artifacts)) });
   }
   await writeFile(new URL('factory-burst-response.json', artifacts), JSON.stringify(responses, null, 2) + '\n');
@@ -387,9 +388,14 @@ async function adversarialEdits(page) {
 
 try {
   browser = await chromium.launch({ headless: true }); report.browser = browser.version();
-  report.coralResponse = await causalCoralResponse();
-  report.longPineResponse = await causalLongPineResponse();
+  if (!process.argv.includes('--factory-only')) {
+    report.coralResponse = await causalCoralResponse();
+    report.longPineResponse = await causalLongPineResponse();
+  }
   report.factoryBurstResponse = await factoryBurstResponses();
+  if (process.argv.includes('--factory-only')) {
+    await browser.close(); web.kill('SIGTERM'); process.exit(0);
+  }
   if (process.argv.includes('--coral-only')) {
     await writeFile(new URL('coral-response.json', artifacts), JSON.stringify(report.coralResponse, null, 2) + '\n');
     console.log('Actual WASM microphone-size checks passed: quiet capacity growth, Coral waves, long Pine endpoints and wet-zero descendants.');

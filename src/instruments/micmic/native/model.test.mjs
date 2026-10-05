@@ -311,7 +311,7 @@ test('tap coloring rejects stale renderer revisions and different visible topolo
   assert.equal(tapActivityFrame({ ...reply, topologyRevision: undefined }, parameters), null);
 });
 
-test('audio pressure changes frame detail while every admitted preview branch remains colored', () => {
+test('audio pressure changes frame detail while retaining every admitted branch eligible for signal response', () => {
   const nodes = buildPreview({ ...DEFAULT_PARAMETERS, generations: 10 }, generationTopology), limit = 1000;
   const expected = new Set(nodes.filter(n => n.generation === 0 || isVoiceActive(n, limit)).map(n => n.id));
   for (const [load, peak] of [[.1, .2], [.7, .86], [.9, .96]]) {
@@ -363,15 +363,21 @@ test('all grammar waves retain an interior bend at maximum density and every gra
   }
 });
 
-test('screen-space magnification stays continuous and preserves the large Pine branch wave', () => {
-  const node = { generation: 3, voiceIndex: 4 }, start = { x: 0, y: 0 }, energy = .18;
-  const points = branchWavePoints(node, start, { x: 100, y: 0 }, energy, 14);
-  for (let i = 0; i < points.length; i++) {
-    const progress = i / (points.length - 1);
-    const expected = Math.sin(Math.PI * progress) * energy * 5.5 * Math.sin(progress * Math.PI * 4.05 + 4 * .71);
-    assert.ok(Math.abs(points[i].y - expected) < 1e-10);
+test('screen-space magnification makes ordinary sounding branches visible, stays bounded and continuous, and preserves quiet endpoints', () => {
+  const start = { x: 0, y: 0 }, energy = activityEnergy(.0005);
+  const node = { generation: 3, voiceIndex: 4, measuredEnergy: energy, startDelay: 0, delay: .07 };
+  for (const length of [12, 33, 60, 100, 160]) {
+    const end = { x: length, y: 0 };
+    const sweep = Array.from({ length: 20 }, (_, i) => branchWavePoints(node, start, end, () => 0, 14, false, i / 20));
+    const maximum = Math.max(...sweep.flat().map(p => Math.abs(p.y)));
+    assert.ok(maximum >= 1, `${length}px: ordinary measured audio makes a clearly visible wave`);
+    assert.ok(maximum <= 16, `${length}px: visual response remains bounded`);
+    assert.ok(sweep.every(points => points[0].x === start.x && points[0].y === start.y
+      && points.at(-1).x === end.x && points.at(-1).y === end.y), 'joined endpoints remain fixed');
+    const silent = branchWavePoints({ ...node, measuredEnergy: 0 }, start, end, () => .03, 14, false, .37);
+    assert.ok(silent.every(point => point.y === 0 && point.energy === 0), 'measured silence remains exactly straight and dark');
   }
-  for (const length of [1.5, 23.999, 24.001, 35.999, 36.001]) {
+  for (const length of [1.5, 23.999, 24.001, 35.999, 36.001, 63.999, 64.001, 100]) {
     const a = branchWavePoints(node, start, { x: length, y: 0 }, energy, 4);
     const b = branchWavePoints(node, start, { x: length + .001, y: 0 }, energy, 4);
     assert.ok(a.every((p, i) => Math.abs(p.y - b[i].y) < .001));
