@@ -259,3 +259,88 @@ for (const fault of ['processor-error', 'wasm-trap']) test(`${fault} recovers re
   await test.info().attach('processor-failure-recovery', { body: JSON.stringify({ initial, failed, recovered,
     fault, actualWasm: true, listeningPerformed: false }, null, 2), contentType: 'application/json' });
 });
+
+test('expanded input gain and output boost reach real WASM PCM and preserve mute and full recall', async ({ page }) => {
+  test.setTimeout(90000);
+  const evidence = await audioFixture(page);
+  await ready(page, 'canvas');
+  const capture = () => page.evaluate(async () => (await import('/src/site/header-presets.js')).captureHeaderPresetState());
+  const factory = await page.evaluate(async () => (await (await fetch('/src/instruments/micmic/native/presets.json')).json())
+    .find(preset => preset.id === 'pythagorean').snapshot);
+  await generation(page, 3);
+  const range = async (id, value) => {
+    await page.locator(`#${id}`).evaluate((input, value) => {
+      input.value = String(value);
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+      input.dispatchEvent(new Event('change', { bubbles: true }));
+    }, value);
+    await expect(page.locator(`#${id}`)).toHaveValue(String(value));
+  };
+  const performance = async (inputGain, makeupDb, level = 1) => {
+    await expect.poll(async () => {
+      const d = await diagnostics(page), p = d.performance;
+      return p.inputGain === inputGain && p.mastering.makeupDb === makeupDb && p.level === level;
+    }).toBe(true);
+  };
+  await expect(page.locator('#inputTrim')).toHaveAttribute('max', '4');
+  await expect(page.locator('#makeupDb')).toHaveAttribute('max', '24');
+  await range('inputTrim', 4); await range('makeupDb', 24);
+  await range('level', 1); await range('wet', 1); await range('dry', .5);
+  await performance(4, 24);
+  const silent = await diagnostics(page), saved = await capture();
+  expect(silent.audio).toBe(false); expect(silent.connectionCount).toBe(0);
+  expect(await page.evaluate(() => __generationRecoveryQa.microphoneRequests)).toBe(0);
+  expect(saved.snapshot.performance.inputGain).toBe(4);
+  expect(saved.snapshot.performance.mastering.makeupDb).toBe(24);
+  await page.locator('#audioButton').click();
+  const initial = await live(page);
+  await range('makeupDb', 0); await performance(4, 0);
+  await page.waitForTimeout(300);
+  const baseline = await live(page, initial.status.elapsedSeconds);
+  await range('makeupDb', 24); await performance(4, 24);
+  await page.waitForTimeout(300);
+  const boosted = await live(page, baseline.status.elapsedSeconds);
+  // This comparison reads copied PCM with a fixed scene and synthetic mic,
+  // rather than accepting a larger number in a control or a Rust meter.
+  expect(boosted.pcmPeak).toBeGreaterThan(baseline.pcmPeak * 3);
+  expect(boosted.pcmPeak).toBeLessThanOrEqual(.940001);
+  for (const [inputGain, makeupDb] of [[.85, -12], [4, 12], [4, 24]]) {
+    await range('inputTrim', inputGain); await range('makeupDb', makeupDb);
+    await performance(inputGain, makeupDb);
+    const current = await live(page, boosted.status.elapsedSeconds);
+    expect(current.contextGeneration).toBe(initial.contextGeneration);
+    expect(current.pcmPeak).toBeLessThanOrEqual(.940001);
+  }
+  await generation(page, 4); await live(page, boosted.status.elapsedSeconds);
+  await page.locator('.instrument-preset-controls summary').click();
+  await page.locator('button[data-full-preset][data-preset-id="pythagorean"]').click();
+  await expect.poll(capture, { timeout: 15000 }).toMatchObject({ snapshot: factory });
+  await expect(page.locator('#generations')).toBeEnabled({ timeout: 15000 });
+  await expect(page.locator('#stage')).toHaveAttribute('aria-busy', 'false');
+  await expect(page.locator('#inputTrim')).toHaveValue(String(factory.performance.inputGain));
+  await expect(page.locator('#makeupDb')).toHaveValue(String(factory.performance.mastering.makeupDb));
+  const recalled = await live(page, boosted.status.elapsedSeconds);
+  expect(recalled.contextGeneration).toBe(initial.contextGeneration);
+  await generation(page, 3);
+  await range('inputTrim', 4); await range('makeupDb', 24); await range('level', 0);
+  await performance(4, 24, 0);
+  await expect.poll(async () => {
+    const d = await diagnostics(page);
+    return d.pcmPeak < .000001 && d.status.outputPeak < .000001 && d.status.elapsedSeconds > recalled.status.elapsedSeconds;
+  }).toBe(true);
+  const muted = await diagnostics(page);
+  expect(muted.audio).toBe(true); expect(muted.microphoneEnabled).toBe(true);
+  expect(muted.contextGeneration).toBe(initial.contextGeneration);
+  expect(muted.pcmNonFinite).toBe(0);
+  expect(await page.evaluate(() => __generationRecoveryQa.processorErrors)).toBe(0);
+  expect(evidence.errors).toEqual([]); expect(evidence.consoleErrors).toEqual([]);
+  await page.locator('#audioButton').click();
+  await expect.poll(async () => (await diagnostics(page)).audio).toBe(false);
+  expect((await diagnostics(page)).microphoneEnabled).toBe(false);
+  expect(await page.evaluate(() => __generationRecoveryQa.streams.every(stream => stream.getTracks().every(track => track.readyState === 'ended')))).toBe(true);
+  await page.evaluate(() => dispatchEvent(new PageTransitionEvent('pagehide', { persisted: false })));
+  await expect.poll(async () => (await diagnostics(page)).connectionCount).toBe(0);
+  await expect.poll(async () => (await diagnostics(page)).contextState).toBe('closed');
+  await test.info().attach('expanded-gain-range', { body: JSON.stringify({ silent, saved, baseline, boosted, recalled, muted,
+    actualWasm: true, syntheticMicrophone: true, listeningPerformed: false }, null, 2), contentType: 'application/json' });
+});

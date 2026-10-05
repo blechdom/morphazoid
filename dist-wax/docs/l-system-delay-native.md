@@ -195,8 +195,13 @@ dB before automatic/manual makeup and the output knob. Compressor bypass keeps
 the fixed 6 ms latency and final 0.94 ceiling. Manual makeup acts before that
 ceiling, including with the compressor off. The editable ranges are threshold
 −60–0 dB, ratio 1–20, knee 0–40 dB, attack 0.1–100 ms, release 10–1,500 ms,
-and makeup −12–+12 dB. Input/output HPF support up to 2 kHz and output LPF up to
+and output boost (manual makeup) −12–+24 dB. Input/output HPF support up to 2 kHz and output LPF up to
 20 kHz, subject to the device-rate limit.
+
+Mic input gain supports 0–4×. Output remains a 0–100% level control; the bottom
+Output boost control adds gain to the complete mix after compression, including
+when compression is off, and before the fixed 0.94 ceiling. This provides more
+gain for quiet microphones while retaining the original factory scene levels.
 
 Focused mastering presets preserve the current tree, mix, recording, input
 source, voice policy, output level and Audio state. Full factory scenes recall

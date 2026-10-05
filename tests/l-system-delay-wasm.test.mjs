@@ -200,6 +200,30 @@ test('mix, gain and mastering controls affect samples without resetting clock or
   } finally { engine.dispose(); }
 });
 
+test('expanded microphone and output boost ranges raise quiet PCM while retaining the ceiling and silence', () => {
+  const baseline = renderer(), boosted = renderer();
+  try {
+    baseline.performance({ inputGain: 1.5, dry: .5, mastering: { ...DEFAULT_MASTERING, makeupDb: 12 } });
+    boosted.performance({ inputGain: 4, dry: .5, mastering: { ...DEFAULT_MASTERING, makeupDb: 24 } });
+    for (const engine of [baseline, boosted]) engine.installPool({ count: 4, rate: 1.7, gain: .3 });
+    const reference = baseline.render(RATE, sine(173, .001)).slice(-RATE / 4);
+    const louder = boosted.render(RATE, sine(173, .001)).slice(-RATE / 4);
+    const expectedGain = (4 / 1.5) * 10 ** (12 / 20);
+    assert.ok(Math.abs(rms(louder) / rms(reference) / expectedGain - 1) < .01,
+      'the extra input and post-compression gain reach copied audio samples');
+    const before = boosted.metrics();
+    boosted.performance({ inputGain: 4, dry: .5, mastering: { ...DEFAULT_MASTERING, makeupDb: 24,
+      compressorEnabled: false, autoMakeup: false } });
+    assert.equal(boosted.metrics()[14], before[14], 'changing boost preserves the sample clock');
+    assert.equal(boosted.metrics()[16], before[16], 'changing boost retains the delay topology');
+    const hot = boosted.render(RATE / 2, sine(173, .5));
+    const peak = hot.reduce((maximum, value) => Math.max(maximum, Math.abs(value)), 0);
+    assert.ok(peak >= .939 && peak <= .940001, 'full boost fills headroom without exceeding the existing ceiling');
+    const silent = boosted.render(RATE);
+    assert.ok(rms(silent.slice(-RATE / 4)) < 1e-7, 'full boost does not generate sound after real delay tails finish');
+  } finally { baseline.dispose(); boosted.dispose(); }
+});
+
 test('invalid WASM control updates reject atomically and a dropped engine can be recreated', () => {
   const engine = renderer();
   try {

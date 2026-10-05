@@ -334,16 +334,26 @@ async function causalLongPineResponse() {
     const branch = __delayCanvas.frames.at(-1).paths.find(path => path.color === '#55d9ff');
     return { start: branch.start, end: branch.end };
   });
-  const pulseStart = await page.evaluate(() => {
+  const pulseStart = await page.evaluate(async module => {
+    const engine = (await import(module)).getBrowserDelayEngine();
+    const reply = await engine.request('/api/status');
     const source = __delayFixture.sources.at(-1); __delayCanvas.frames = [];
-    const time = source.context.currentTime; source.setSignal('burst', .03); return time;
-  });
+    const inputSeconds = source.context.currentTime; source.setSignal('burst', .03);
+    return { inputSeconds, audioSeconds: reply.status.elapsedSeconds };
+  }, engineModule);
   await page.waitForTimeout(2470);
-  const samples = [];
+  const samples = [], preArrivalObservations = [];
   for (let i = 0; i < 6; i++) {
     const reply = await state(page), frames = await page.evaluate(() => __delayCanvas.frames);
-    assert.ok(reply.status.tapActivity.every(value => value < 1e-7), 'fresh Pine endpoints have no delayed sound before first arrival');
-    for (const frame of frames.filter(frame => frame.inputSeconds - pulseStart >= 2.45 && frame.inputSeconds - pulseStart <= 2.86)) {
+    // Main-thread snapshots can arrive after the first echo under load. Judge silence
+    // by the Rust sample clock; the source and engine AudioContexts have separate clocks.
+    const audioSeconds = reply.status.elapsedSeconds - pulseStart.audioSeconds;
+    if (audioSeconds < firstChild.delay) {
+      assert.ok(reply.status.tapActivity.every(value => value < 1e-7), 'fresh Pine endpoints have no delayed sound before first arrival');
+      preArrivalObservations.push(audioSeconds);
+    }
+    for (const frame of frames.filter(frame => frame.inputSeconds - pulseStart.inputSeconds >= 2.45
+      && frame.inputSeconds - pulseStart.inputSeconds <= 2.86)) {
       const edge = firstChildAxis;
       const dx = edge.end[0] - edge.start[0], dy = edge.end[1] - edge.start[1], squaredLength = dx * dx + dy * dy;
       const cyan = frame.paths.filter(path => path.color === '#55d9ff'
@@ -354,10 +364,11 @@ async function causalLongPineResponse() {
       const progresses = cyan.flatMap(path => path.points.filter(([x, y]) =>
         Math.abs(dx * (y - edge.start[1]) - dy * (x - edge.start[0])) / Math.sqrt(squaredLength) > 1e-5)
         .map(([x, y]) => ((x - edge.start[0]) * dx + (y - edge.start[1]) * dy) / squaredLength));
-      samples.push({ inputSeconds: frame.inputSeconds - pulseStart, maximumProgress: Math.max(0, ...progresses), wavePoints: progresses.length });
+      samples.push({ inputSeconds: frame.inputSeconds - pulseStart.inputSeconds, maximumProgress: Math.max(0, ...progresses), wavePoints: progresses.length });
     }
     await page.waitForTimeout(55);
   }
+  assert.ok(preArrivalObservations.length > 0, 'the test observes actual audio-clock snapshots before the first Pine echo');
   assert.ok(samples.some(sample => sample.wavePoints && sample.maximumProgress > .7), 'the joined-endpoint test includes a visible packet near the end of a long branch');
   await page.locator('#stage').screenshot({ path: fileURLToPath(new URL('pine-in-flight-silent-endpoint.png', artifacts)) });
   await page.evaluate(() => __delayFixture.sources.at(-1).setSignal('bursts', .03));
@@ -371,7 +382,8 @@ async function causalLongPineResponse() {
     .filter(path => path.color !== '#fff3d6').every(path => path.deviation < 1e-8)),
     'wet-zero long Pine keeps every descendant colored and straight even while the dry root and microphone history sound');
   assert.deepEqual(errors, []); await context.close();
-  const result = { firstTransitSeconds: firstChild.delay, samples, joinedSilentCanvasEndpoint: true, wetZeroDescendantsStraight: true };
+  const result = { firstTransitSeconds: firstChild.delay, preArrivalObservations, samples,
+    joinedSilentCanvasEndpoint: true, wetZeroDescendantsStraight: true };
   await writeFile(new URL('pine-long-response.json', artifacts), JSON.stringify(result, null, 2) + '\n');
   return result;
 }

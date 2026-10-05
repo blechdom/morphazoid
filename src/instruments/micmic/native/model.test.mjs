@@ -129,7 +129,8 @@ test('parameter sanitization retains finite controls and native limits', () => {
   assert.equal(sanitizeParameters({ angle: NaN }).angle, 45);
   assert.equal(sanitizeParameters({ generations: 20, pruningBias: -1 }).generations, 20);
   assert.equal(sanitizePerformance({ dry: 1, inputGain: 4 }).dry, .5);
-  assert.equal(sanitizePerformance({ dry: 1, inputGain: 4 }).inputGain, 1.5);
+  assert.equal(sanitizePerformance({ dry: 1, inputGain: 4 }).inputGain, 4);
+  assert.equal(sanitizePerformance({ inputGain: 5 }).inputGain, 4);
 });
 
 test('mastering sanitization bounds every musical field and rejects non-finite cutoffs', () => {
@@ -138,7 +139,7 @@ test('mastering sanitization bounds every musical field and rejects non-finite c
   const ranges = {
     inputHighpassHz: [0, 2000], highpassHz: [0, 2000], lowpassHz: [0, 20000],
     thresholdDb: [-60, 0], kneeDb: [0, 40], ratio: [1, 20], attackMs: [.1, 100],
-    releaseMs: [10, 1500], makeupDb: [-12, 12],
+    releaseMs: [10, 1500], makeupDb: [-12, 24],
   };
   assert.deepEqual(MASTERING_LIMITS, ranges);
   for (const [key, [low, high]] of Object.entries(ranges)) {

@@ -816,32 +816,36 @@ mod tests {
     fn manual_makeup_applies_with_bypass_or_automatic_makeup_and_stays_before_ceiling() {
         for compressor_enabled in [false, true] {
             for auto_makeup in [false, true] {
-                let settings = Mastering {
-                    compressor_enabled,
-                    auto_makeup,
-                    makeup_db: 6.0,
-                    ..Mastering::default()
-                };
-                let mut conditioner = OutputConditioner::new_with_mastering(
-                    48_000,
-                    PreparedMastering::new(48_000, settings),
-                )
-                .unwrap();
-                let auto_gain = if compressor_enabled && auto_makeup {
-                    conditioner.curve.makeup
-                } else {
-                    1.0
-                };
-                let expected = 0.02 * to_linear(6.0) * auto_gain;
-                for _ in 0..1000 {
-                    conditioner.process([0.02; 2], 1.0);
-                }
-                assert!(
-                    (f64::from(conditioner.process([0.02; 2], 1.0)[0]) - expected).abs() < 1e-7
-                );
-                for _ in 0..48_000 {
-                    let output = conditioner.process([10.0; 2], 0.5);
-                    assert!(output[0] <= 0.470_001);
+                for makeup_db in [6.0, 12.0, 24.0] {
+                    let settings = Mastering {
+                        compressor_enabled,
+                        auto_makeup,
+                        makeup_db,
+                        ..Mastering::default()
+                    };
+                    let mut conditioner = OutputConditioner::new_with_mastering(
+                        48_000,
+                        PreparedMastering::new(48_000, settings),
+                    )
+                    .unwrap();
+                    let auto_gain = if compressor_enabled && auto_makeup {
+                        conditioner.curve.makeup
+                    } else {
+                        1.0
+                    };
+                    let input = 0.02 / to_linear(makeup_db);
+                    let expected = input * to_linear(makeup_db) * auto_gain;
+                    for _ in 0..1000 {
+                        conditioner.process([input; 2], 1.0);
+                    }
+                    assert!(
+                        (f64::from(conditioner.process([input; 2], 1.0)[0]) - expected).abs()
+                            < 1e-7
+                    );
+                    for _ in 0..48_000 {
+                        let output = conditioner.process([10.0; 2], 0.5);
+                        assert!(output[0] <= 0.470_001);
+                    }
                 }
             }
         }
@@ -987,7 +991,7 @@ mod tests {
                         ratio: 1.0 + 19.0 * t,
                         attack_ms: 0.1 + 99.9 * t,
                         release_ms: 10.0 + 1490.0 * t,
-                        makeup_db: -12.0 + 24.0 * t,
+                        makeup_db: -12.0 + 36.0 * t,
                         compressor_enabled: frame % 2 == 0,
                         auto_makeup: frame % 3 != 0,
                     };

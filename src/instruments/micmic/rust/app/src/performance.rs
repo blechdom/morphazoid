@@ -54,7 +54,7 @@ impl Mastering {
             ("Compressor ratio", self.ratio, 1.0, 20.0),
             ("Compressor attack", self.attack_ms, 0.1, 100.0),
             ("Compressor release", self.release_ms, 10.0, 1500.0),
-            ("Makeup gain", self.makeup_db, -12.0, 12.0),
+            ("Makeup gain", self.makeup_db, -12.0, 24.0),
         ] {
             if !value.is_finite() || !(minimum..=maximum).contains(&value) {
                 return Err(format!("{name} is outside its supported range"));
@@ -165,6 +165,7 @@ mod tests {
             r#"{"mastering":{"attackMs":0}}"#,
             r#"{"mastering":{"releaseMs":1501}}"#,
             r#"{"mastering":{"makeupDb":-13}}"#,
+            r#"{"mastering":{"makeupDb":25}}"#,
         ] {
             let settings = serde_json::from_str::<Performance>(payload).unwrap();
             assert!(settings.validate().is_err(), "Accepted {payload}");
