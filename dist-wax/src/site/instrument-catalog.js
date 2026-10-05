@@ -15,6 +15,12 @@ const define = (kind, description, start, features = [], pluginHref = null) => O
 });
 
 const CATALOG_DETAILS = Object.freeze({
+  blobs: define(
+    "Drawn-loop synthesizer",
+    "Pencil strokes, curved pen paths and straight lines become closed loops. Playheads trace each blob, mapping height to continuous pitch and width to stereo.",
+    "Enable Audio and Play the demo, or draw a closed blob. Use Pen for curves, Lines for corners and Edit to reshape a loop.",
+    ["Built-in synth", "Pointer", "Closed paths", "Playheads"],
+  ),
   "fractal-signals": define(
     "Six geometric sound processes",
     "Paths, branches, grains, waves, echoes and textures connect playable geometry to articulated synthesis, recursive rhythm and live input. Each has distinct engines, expanded controls and ADSR envelopes.",

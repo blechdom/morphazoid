@@ -20,6 +20,7 @@ export const CANONICAL_PAGE_ROUTES = Object.freeze([
   "bell-square.html",
   "bifurcator.html",
   "birdsong-lab.html",
+  "blobs.html",
   "blowhole.html",
   "boidzoid.html",
   "candy-coil-delay.html",

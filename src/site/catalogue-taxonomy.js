@@ -178,6 +178,7 @@ export const CATALOGUE_TAGS = Object.freeze([
   }
 ].map(tag => Object.freeze(tag)));
 export const ADDITIONAL_TAG_IDS = Object.freeze(Object.fromEntries(Object.entries({
+  blobs: ["graphic-ui", "2d", "synthesizer"],
   "shape-synth": [
     "2d",
     "synthesizer"

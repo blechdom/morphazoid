@@ -1,0 +1,50 @@
+/* Shape supplies the control styling; only the drawing workspace is Blob-owned. */
+.blobs-page { height: 100dvh; min-height: 0; overflow: hidden; }
+.blobs-shell { grid-template-columns: minmax(0, 1fr) clamp(320px, 24vw, 370px); grid-template-rows: minmax(0, 1fr); min-height: 0; overflow: hidden; }
+.blobs-stage { position: relative; z-index: auto; min-width: 0; min-height: 0; overflow: hidden; padding: 0; }
+.blobs-stage-wrap { height: 100%; min-height: 0; flex: 1 1 auto; }
+.blobs-stage-wrap h1 { position: absolute; z-index: 1; top: 22px; left: 30px; margin: 0; color: var(--accent); font: 600 clamp(30px, 4vw, 52px)/1.1 var(--mono); letter-spacing: -.055em; pointer-events: none; }
+.blobs-stage-wrap #stage { display: block; width: 100%; height: 100%; min-height: 0; touch-action: none; cursor: crosshair; }
+.blobs-stage-wrap .stage-meta { top: auto; bottom: 18px; left: 30px; right: 30px; justify-content: flex-start; font-size: 9px; }
+.blobs-panel { --faint: var(--muted); padding: 0 0 env(safe-area-inset-bottom); min-width: 0; min-height: 0; overflow-y: auto; overflow-x: hidden; }
+.blobs-tools { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.blobs-actions { display: flex; flex-wrap: wrap; gap: 7px; margin: 10px 0 14px; }
+.blobs-actions > .mini-action { flex: 1 1 auto; }
+.blobs-actions > .mini-action:disabled { opacity: .4; cursor: default; }
+.blobs-status { min-height: 15px; }
+.blobs-help { margin: 10px 0; color: var(--muted); font-size: 10px; line-height: 1.6; }
+.blobs-help summary { cursor: pointer; min-height: 30px; padding-block: 5px; color: var(--ink); }
+.blobs-help p { margin-block: 8px; }
+.blobs-tempo-field { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin: 4px 0 8px; font-size: 10px; color: var(--muted); }
+.blobs-tempo-field > span:first-child { color: var(--ink); font-size: 11px; }
+.blobs-tempo-field input { width: 76px; min-height: 32px; margin-right: 4px; padding: 4px 6px; border: 1px solid var(--line-strong); border-radius: 0; background: var(--bg-deep); color: var(--accent); font-size: 11px; font-variant-numeric: tabular-nums; }
+.blobs-page #tempoHelp, .blobs-page #cornerModeHelp { display: block; margin-bottom: 12px; }
+.blobs-page .curve-node, .blobs-page .head-marker { touch-action: none; }
+.blobs-page .play-button[aria-pressed="true"] { color: var(--bg-deep); }
+@media (max-width: 700px) and (orientation: portrait) {
+  .blobs-shell { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(250px, 40%) minmax(0, 1fr); }
+  .blobs-stage { border-right: 0; border-bottom: 1px solid var(--line-strong); }
+  .blobs-stage-wrap h1 { top: 16px; left: 20px; }
+  .blobs-stage-wrap .stage-meta { left: 20px; bottom: 12px; }
+}
+@media (max-width: 960px) and (min-width: 701px) and (orientation: portrait) {
+  .blobs-shell { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(300px, 44%) minmax(0, 1fr); }
+}
+@media (max-height: 500px) and (orientation: landscape) {
+  .blobs-shell { grid-template-columns: minmax(0, 1fr) 320px; grid-template-rows: minmax(0, 1fr); }
+  .blobs-stage { border-bottom: 0; border-right: 1px solid var(--line); }
+  .blobs-stage-wrap h1 { font-size: 28px; top: 12px; left: 18px; }
+  .blobs-stage-wrap .stage-meta { left: 18px; bottom: 10px; font-size: 8px; }
+  .blobs-panel .group-body { padding-inline: 18px; }
+  .blobs-panel .group-summary { padding-inline: 18px; }
+}
+@media (pointer: coarse) {
+  .blobs-page .play-button, .blobs-page #audioButton { width: 48px; min-width: 48px; height: 48px; min-height: 48px; }
+  .blobs-page .position-row { grid-template-columns: 48px minmax(0, 1fr); }
+  .blobs-actions > .mini-action, .blobs-tools > button { min-height: 44px; }
+}
+
+.blobs-reflections { grid-auto-flow: row; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.blobs-reflections > button { display: flex; align-items: center; justify-content: center; gap: 8px; min-height: 52px; padding: 6px; }
+.blobs-reflections svg { width: 32px; height: 32px; flex-shrink: 0; fill: none; stroke: currentColor; stroke-width: 1.5; }
+.blobs-reflections .mirror-motif { opacity: .65; }

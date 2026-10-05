@@ -1,3 +1,4 @@
+import { restoreBlobsSite } from './blobs-site-reference.mjs';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
@@ -5,6 +6,7 @@ export const bifurcatorSiteChanges = JSON.parse(readFileSync(new URL('../../docs
 
 // Peel only this instrument's exact additions before checking earlier evidence.
 export function restoreBifurcatorSite(source, file) {
+  source = restoreBlobsSite(source, file);
   for (const change of bifurcatorSiteChanges.changes.filter(change => change.file === file)) {
     for (const replacement of [...change.replacements].reverse()) {
       assert.equal(source.split(replacement.after).length - 1, 1, `${file}: exact Bifurcator amendment`);
