@@ -1,83 +1,5 @@
 [
   {
-    "id": "clean",
-    "label": "Bamboo Shoot · Branching plant",
-    "description": "Pure, unpitched repeats rise slowly at a long one-to-one interval. Complete topology, growth, pitch, mix and Original mastering. Microphone, frozen input, active pitch backend and recorded history are retained.",
-    "snapshot": {
-      "parameters": {
-        "lSystemType": "plant",
-        "generations": 5,
-        "intervalMs": 1650,
-        "timeRatio": 1,
-        "angle": 0,
-        "asymmetry": 0,
-        "mutation": 0,
-        "pitchScale": 0,
-        "pruningBias": -0.35,
-        "depth": 0.55,
-        "spread": 0.85
-      },
-      "performance": {
-        "wet": 0.55,
-        "dry": 0,
-        "inputGain": 0.75,
-        "level": 0.48,
-        "mastering": {
-          "inputHighpassHz": 55,
-          "highpassHz": 0,
-          "lowpassHz": 0,
-          "compressorEnabled": true,
-          "thresholdDb": -12,
-          "kneeDb": 5,
-          "ratio": 18,
-          "attackMs": 3,
-          "releaseMs": 180,
-          "autoMakeup": true,
-          "makeupDb": 0
-        }
-      }
-    }
-  },
-  {
-    "id": "binary",
-    "label": "Silver Birch · Coral",
-    "description": "An 85 ms clockwork fork halves its timing cleanly at every crown. Complete topology, growth, pitch, mix and Original mastering. Microphone, frozen input, active pitch backend and recorded history are retained.",
-    "snapshot": {
-      "parameters": {
-        "lSystemType": "coral",
-        "generations": 9,
-        "intervalMs": 85,
-        "timeRatio": 0.5,
-        "angle": 30,
-        "asymmetry": 0,
-        "mutation": 0.02,
-        "pitchScale": 0.9,
-        "pruningBias": 0.35,
-        "depth": 0.68,
-        "spread": 0.4
-      },
-      "performance": {
-        "wet": 0.72,
-        "dry": 0,
-        "inputGain": 0.75,
-        "level": 0.48,
-        "mastering": {
-          "inputHighpassHz": 55,
-          "highpassHz": 0,
-          "lowpassHz": 0,
-          "compressorEnabled": true,
-          "thresholdDb": -12,
-          "kneeDb": 5,
-          "ratio": 18,
-          "attackMs": 3,
-          "releaseMs": 180,
-          "autoMakeup": true,
-          "makeupDb": 0
-        }
-      }
-    }
-  },
-  {
     "id": "pythagorean",
     "label": "Pythagorean Pine · Pythagorean tree",
     "description": "The full reference canopy: clear forks, tapering time, and mirrored pitch. Complete topology, growth, pitch, mix and Original mastering. Microphone, frozen input, active pitch backend and recorded history are retained.",
@@ -117,26 +39,26 @@
     }
   },
   {
-    "id": "plant",
-    "label": "Fern Frond · Branching plant",
-    "description": "A bouncing 420 ms organic rhythm grows gently biased, lightly varied leaflets. Complete topology, growth, pitch, mix and Original mastering. Microphone, frozen input, active pitch backend and recorded history are retained.",
+    "id": "bramble",
+    "label": "Blackberry Bramble · Pythagorean tree",
+    "description": "A shredded 4 ms robot swarm expands 1.65× through thorny, unruly forks. Complete topology, growth, pitch, mix and Original mastering. Microphone, frozen input, active pitch backend and recorded history are retained.",
     "snapshot": {
       "parameters": {
-        "lSystemType": "plant",
-        "generations": 10,
-        "intervalMs": 420,
-        "timeRatio": 0.78,
-        "angle": 23,
-        "asymmetry": 0.18,
-        "mutation": 0.16,
-        "pitchScale": 1.05,
-        "pruningBias": -0.35,
-        "depth": 0.76,
+        "lSystemType": "pythagorean",
+        "generations": 11,
+        "intervalMs": 4,
+        "timeRatio": 1.65,
+        "angle": 72,
+        "asymmetry": 0.38,
+        "mutation": 0.86,
+        "pitchScale": 2.4,
+        "pruningBias": 0,
+        "depth": 0.74,
         "spread": 0.85
       },
       "performance": {
         "wet": 0.72,
-        "dry": 0,
+        "dry": 0.18,
         "inputGain": 0.75,
         "level": 0.48,
         "mastering": {
@@ -156,25 +78,25 @@
     }
   },
   {
-    "id": "willow",
-    "label": "Weeping Willow · Coral",
-    "description": "A smooth 2.3 second fold droops into a long, dark, gently pitched cascade. Complete topology, growth, pitch, mix and Original mastering. Microphone, frozen input, active pitch backend and recorded history are retained.",
+    "id": "venus",
+    "label": "Venus Flytrap · Branching plant",
+    "description": "Hard 14 ms servo jaws double their spacing across an extreme pitch span. Complete topology, growth, pitch, mix and Original mastering. Microphone, frozen input, active pitch backend and recorded history are retained.",
     "snapshot": {
       "parameters": {
-        "lSystemType": "coral",
-        "generations": 9,
-        "intervalMs": 2300,
-        "timeRatio": 0.88,
-        "angle": 30,
-        "asymmetry": -0.42,
-        "mutation": 0.12,
-        "pitchScale": 0.45,
-        "pruningBias": 0.35,
-        "depth": 0.88,
+        "lSystemType": "plant",
+        "generations": 7,
+        "intervalMs": 14,
+        "timeRatio": 2,
+        "angle": 135,
+        "asymmetry": 0.25,
+        "mutation": 0.32,
+        "pitchScale": 3.6,
+        "pruningBias": -0.35,
+        "depth": 0.62,
         "spread": 0.85
       },
       "performance": {
-        "wet": 0.55,
+        "wet": 0.72,
         "dry": 0,
         "inputGain": 0.75,
         "level": 0.48,
@@ -234,61 +156,22 @@
     }
   },
   {
-    "id": "mangrove",
-    "label": "Mangrove Roots · Branching plant",
-    "description": "Broad low forks emerge from a smooth 2.7 second submerged pulse. Complete topology, growth, pitch, mix and Original mastering. Microphone, frozen input, active pitch backend and recorded history are retained.",
-    "snapshot": {
-      "parameters": {
-        "lSystemType": "plant",
-        "generations": 8,
-        "intervalMs": 2700,
-        "timeRatio": 0.76,
-        "angle": 55,
-        "asymmetry": -0.16,
-        "mutation": 0.1,
-        "pitchScale": 0.35,
-        "pruningBias": -0.35,
-        "depth": 0.86,
-        "spread": 0.85
-      },
-      "performance": {
-        "wet": 0.72,
-        "dry": 0.18,
-        "inputGain": 0.75,
-        "level": 0.48,
-        "mastering": {
-          "inputHighpassHz": 55,
-          "highpassHz": 0,
-          "lowpassHz": 0,
-          "compressorEnabled": true,
-          "thresholdDb": -12,
-          "kneeDb": 5,
-          "ratio": 18,
-          "attackMs": 3,
-          "releaseMs": 180,
-          "autoMakeup": true,
-          "makeupDb": 0
-        }
-      }
-    }
-  },
-  {
-    "id": "sequoia",
-    "label": "Giant Sequoia · Coral",
-    "description": "The longest smooth preset unfolds thirteen persistent generations over a 3 second fold. Complete topology, growth, pitch, mix and Original mastering. Microphone, frozen input, active pitch backend and recorded history are retained.",
+    "id": "binary",
+    "label": "Silver Birch · Coral",
+    "description": "An 85 ms clockwork fork halves its timing cleanly at every crown. Complete topology, growth, pitch, mix and Original mastering. Microphone, frozen input, active pitch backend and recorded history are retained.",
     "snapshot": {
       "parameters": {
         "lSystemType": "coral",
-        "generations": 13,
-        "intervalMs": 3000,
-        "timeRatio": 0.97,
-        "angle": 12,
+        "generations": 9,
+        "intervalMs": 85,
+        "timeRatio": 0.5,
+        "angle": 30,
         "asymmetry": 0,
         "mutation": 0.02,
-        "pitchScale": 0.18,
+        "pitchScale": 0.9,
         "pruningBias": 0.35,
-        "depth": 0.94,
-        "spread": 0.85
+        "depth": 0.68,
+        "spread": 0.4
       },
       "performance": {
         "wet": 0.72,
@@ -327,6 +210,123 @@
         "pitchScale": 1.55,
         "pruningBias": 0,
         "depth": 0.71,
+        "spread": 0.85
+      },
+      "performance": {
+        "wet": 0.55,
+        "dry": 0,
+        "inputGain": 0.75,
+        "level": 0.48,
+        "mastering": {
+          "inputHighpassHz": 55,
+          "highpassHz": 0,
+          "lowpassHz": 0,
+          "compressorEnabled": true,
+          "thresholdDb": -12,
+          "kneeDb": 5,
+          "ratio": 18,
+          "attackMs": 3,
+          "releaseMs": 180,
+          "autoMakeup": true,
+          "makeupDb": 0
+        }
+      }
+    }
+  },
+  {
+    "id": "moss",
+    "label": "Moss Carpet · Coral",
+    "description": "A metallic 1 ms micro-comb doubles its spacing into a long robotic canopy. Complete topology, growth, pitch, mix and Original mastering. Microphone, frozen input, active pitch backend and recorded history are retained.",
+    "snapshot": {
+      "parameters": {
+        "lSystemType": "coral",
+        "generations": 13,
+        "intervalMs": 1,
+        "timeRatio": 2,
+        "angle": 6,
+        "asymmetry": -0.1,
+        "mutation": 0.18,
+        "pitchScale": 0.2,
+        "pruningBias": 0.35,
+        "depth": 0.86,
+        "spread": 0.4
+      },
+      "performance": {
+        "wet": 0.72,
+        "dry": 0,
+        "inputGain": 0.75,
+        "level": 0.48,
+        "mastering": {
+          "inputHighpassHz": 55,
+          "highpassHz": 0,
+          "lowpassHz": 0,
+          "compressorEnabled": true,
+          "thresholdDb": -12,
+          "kneeDb": 5,
+          "ratio": 18,
+          "attackMs": 3,
+          "releaseMs": 180,
+          "autoMakeup": true,
+          "makeupDb": 0
+        }
+      }
+    }
+  },
+  {
+    "id": "plant",
+    "label": "Fern Frond · Branching plant",
+    "description": "A bouncing 420 ms organic rhythm grows gently biased, lightly varied leaflets. Complete topology, growth, pitch, mix and Original mastering. Microphone, frozen input, active pitch backend and recorded history are retained.",
+    "snapshot": {
+      "parameters": {
+        "lSystemType": "plant",
+        "generations": 10,
+        "intervalMs": 420,
+        "timeRatio": 0.78,
+        "angle": 23,
+        "asymmetry": 0.18,
+        "mutation": 0.16,
+        "pitchScale": 1.05,
+        "pruningBias": -0.35,
+        "depth": 0.76,
+        "spread": 0.85
+      },
+      "performance": {
+        "wet": 0.72,
+        "dry": 0,
+        "inputGain": 0.75,
+        "level": 0.48,
+        "mastering": {
+          "inputHighpassHz": 55,
+          "highpassHz": 0,
+          "lowpassHz": 0,
+          "compressorEnabled": true,
+          "thresholdDb": -12,
+          "kneeDb": 5,
+          "ratio": 18,
+          "attackMs": 3,
+          "releaseMs": 180,
+          "autoMakeup": true,
+          "makeupDb": 0
+        }
+      }
+    }
+  },
+  {
+    "id": "kelp",
+    "label": "Kelp Forest · Branching plant",
+    "description": "A rolling 750 ms smear expands gently through deep branches and broad pitch motion. Complete topology, growth, pitch, mix and Original mastering. Microphone, frozen input, active pitch backend and recorded history are retained.",
+    "snapshot": {
+      "parameters": {
+        "lSystemType": "plant",
+        "generations": 10,
+        "intervalMs": 750,
+        "timeRatio": 1.08,
+        "angle": 35,
+        "asymmetry": 0.48,
+        "mutation": 0.55,
+        "pitchScale": 0.7,
+        "pruningBias": -0.35,
+        "depth": 0.84,
         "spread": 0.85
       },
       "performance": {
@@ -429,6 +429,45 @@
     }
   },
   {
+    "id": "clean",
+    "label": "Bamboo Shoot · Branching plant",
+    "description": "Pure, unpitched repeats rise slowly at a long one-to-one interval. Complete topology, growth, pitch, mix and Original mastering. Microphone, frozen input, active pitch backend and recorded history are retained.",
+    "snapshot": {
+      "parameters": {
+        "lSystemType": "plant",
+        "generations": 5,
+        "intervalMs": 1650,
+        "timeRatio": 1,
+        "angle": 0,
+        "asymmetry": 0,
+        "mutation": 0,
+        "pitchScale": 0,
+        "pruningBias": -0.35,
+        "depth": 0.55,
+        "spread": 0.85
+      },
+      "performance": {
+        "wet": 0.55,
+        "dry": 0,
+        "inputGain": 0.75,
+        "level": 0.48,
+        "mastering": {
+          "inputHighpassHz": 55,
+          "highpassHz": 0,
+          "lowpassHz": 0,
+          "compressorEnabled": true,
+          "thresholdDb": -12,
+          "kneeDb": 5,
+          "ratio": 18,
+          "attackMs": 3,
+          "releaseMs": 180,
+          "autoMakeup": true,
+          "makeupDb": 0
+        }
+      }
+    }
+  },
+  {
     "id": "orchid",
     "label": "Ghost Orchid · Pythagorean tree",
     "description": "A sparse 1.95 second bloom floats through wide, smooth harmonic turns. Complete topology, growth, pitch, mix and Original mastering. Microphone, frozen input, active pitch backend and recorded history are retained.",
@@ -468,21 +507,21 @@
     }
   },
   {
-    "id": "kelp",
-    "label": "Kelp Forest · Branching plant",
-    "description": "A rolling 750 ms smear expands gently through deep branches and broad pitch motion. Complete topology, growth, pitch, mix and Original mastering. Microphone, frozen input, active pitch backend and recorded history are retained.",
+    "id": "willow",
+    "label": "Weeping Willow · Coral",
+    "description": "A smooth 2.3 second fold droops into a long, dark, gently pitched cascade. Complete topology, growth, pitch, mix and Original mastering. Microphone, frozen input, active pitch backend and recorded history are retained.",
     "snapshot": {
       "parameters": {
-        "lSystemType": "plant",
-        "generations": 10,
-        "intervalMs": 750,
-        "timeRatio": 1.08,
-        "angle": 35,
-        "asymmetry": 0.48,
-        "mutation": 0.55,
-        "pitchScale": 0.7,
-        "pruningBias": -0.35,
-        "depth": 0.84,
+        "lSystemType": "coral",
+        "generations": 9,
+        "intervalMs": 2300,
+        "timeRatio": 0.88,
+        "angle": 30,
+        "asymmetry": -0.42,
+        "mutation": 0.12,
+        "pitchScale": 0.45,
+        "pruningBias": 0.35,
+        "depth": 0.88,
         "spread": 0.85
       },
       "performance": {
@@ -507,60 +546,21 @@
     }
   },
   {
-    "id": "moss",
-    "label": "Moss Carpet · Coral",
-    "description": "A metallic 1 ms micro-comb doubles its spacing into a long robotic canopy. Complete topology, growth, pitch, mix and Original mastering. Microphone, frozen input, active pitch backend and recorded history are retained.",
+    "id": "mangrove",
+    "label": "Mangrove Roots · Branching plant",
+    "description": "Broad low forks emerge from a smooth 2.7 second submerged pulse. Complete topology, growth, pitch, mix and Original mastering. Microphone, frozen input, active pitch backend and recorded history are retained.",
     "snapshot": {
       "parameters": {
-        "lSystemType": "coral",
-        "generations": 13,
-        "intervalMs": 1,
-        "timeRatio": 2,
-        "angle": 6,
-        "asymmetry": -0.1,
-        "mutation": 0.18,
-        "pitchScale": 0.2,
-        "pruningBias": 0.35,
+        "lSystemType": "plant",
+        "generations": 8,
+        "intervalMs": 2700,
+        "timeRatio": 0.76,
+        "angle": 55,
+        "asymmetry": -0.16,
+        "mutation": 0.1,
+        "pitchScale": 0.35,
+        "pruningBias": -0.35,
         "depth": 0.86,
-        "spread": 0.4
-      },
-      "performance": {
-        "wet": 0.72,
-        "dry": 0,
-        "inputGain": 0.75,
-        "level": 0.48,
-        "mastering": {
-          "inputHighpassHz": 55,
-          "highpassHz": 0,
-          "lowpassHz": 0,
-          "compressorEnabled": true,
-          "thresholdDb": -12,
-          "kneeDb": 5,
-          "ratio": 18,
-          "attackMs": 3,
-          "releaseMs": 180,
-          "autoMakeup": true,
-          "makeupDb": 0
-        }
-      }
-    }
-  },
-  {
-    "id": "bramble",
-    "label": "Blackberry Bramble · Pythagorean tree",
-    "description": "A shredded 4 ms robot swarm expands 1.65× through thorny, unruly forks. Complete topology, growth, pitch, mix and Original mastering. Microphone, frozen input, active pitch backend and recorded history are retained.",
-    "snapshot": {
-      "parameters": {
-        "lSystemType": "pythagorean",
-        "generations": 11,
-        "intervalMs": 4,
-        "timeRatio": 1.65,
-        "angle": 72,
-        "asymmetry": 0.38,
-        "mutation": 0.86,
-        "pitchScale": 2.4,
-        "pruningBias": 0,
-        "depth": 0.74,
         "spread": 0.85
       },
       "performance": {
@@ -585,21 +585,21 @@
     }
   },
   {
-    "id": "venus",
-    "label": "Venus Flytrap · Branching plant",
-    "description": "Hard 14 ms servo jaws double their spacing across an extreme pitch span. Complete topology, growth, pitch, mix and Original mastering. Microphone, frozen input, active pitch backend and recorded history are retained.",
+    "id": "sequoia",
+    "label": "Giant Sequoia · Coral",
+    "description": "The longest smooth preset unfolds thirteen persistent generations over a 3 second fold. Complete topology, growth, pitch, mix and Original mastering. Microphone, frozen input, active pitch backend and recorded history are retained.",
     "snapshot": {
       "parameters": {
-        "lSystemType": "plant",
-        "generations": 7,
-        "intervalMs": 14,
-        "timeRatio": 2,
-        "angle": 135,
-        "asymmetry": 0.25,
-        "mutation": 0.32,
-        "pitchScale": 3.6,
-        "pruningBias": -0.35,
-        "depth": 0.62,
+        "lSystemType": "coral",
+        "generations": 13,
+        "intervalMs": 3000,
+        "timeRatio": 0.97,
+        "angle": 12,
+        "asymmetry": 0,
+        "mutation": 0.02,
+        "pitchScale": 0.18,
+        "pruningBias": 0.35,
+        "depth": 0.94,
         "spread": 0.85
       },
       "performance": {

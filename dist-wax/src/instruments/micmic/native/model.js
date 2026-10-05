@@ -35,18 +35,15 @@ export function captureScene(parameters, performance) {
   return { parameters: sanitizeParameters(parameters), performance: { wet: performance.wet, dry: performance.dry,
     inputGain: performance.inputGain, level: performance.level, mastering: sanitizeMastering(performance.mastering) } };
 }
-/** Full scenes recall the original mix and level; device policy, clocks and Audio stay live. */
+/** Complete musical recalls never inherit another scene's mix or mastering. */
 export function presetState(preset, performance) {
   const snapshot = preset.snapshot ?? preset;
-  return { parameters: sanitizeParameters(snapshot.parameters), performance: sanitizePerformance({ ...performance, ...snapshot.performance }) };
-}
-export const GENERATION_PRESET_KEYS = Object.freeze(['generations', 'depth', 'intervalMs', 'mutation',
-  'timeRatio', 'angle', 'asymmetry', 'pitchScale']);
-/** Original quick buttons replace growth only, retaining the current grammar and mix. */
-export function generationPresetParameters(parameters, preset) {
-  const growth = (preset.snapshot ?? preset).parameters, next = { ...parameters };
-  for (const key of GENERATION_PRESET_KEYS) next[key] = growth[key];
-  return sanitizeParameters(next);
+  const saved = snapshot.performance ?? {}, next = { ...performance };
+  for (const key of ['wet', 'dry', 'inputGain', 'level', 'mastering']) next[key] = saved[key] ?? DEFAULT_PERFORMANCE[key];
+  // Older snapshots may include seed controls. Capture, freeze and device
+  // policy belong to the current session even when a legacy file includes them.
+  for (const key of ['frequency', 'pulseRate']) if (Object.hasOwn(saved, key)) next[key] = saved[key];
+  return { parameters: sanitizeParameters(snapshot.parameters), performance: sanitizePerformance(next) };
 }
 export function randomState(parameters, performance, random = Math.random) {
   const unit = () => clamp(Number(random()) || 0);
