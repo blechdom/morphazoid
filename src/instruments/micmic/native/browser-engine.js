@@ -19,7 +19,7 @@ const emptyStatus = () => ({ sampleRate: 0, device: 'Audio off', inputDevice: nu
 export function createBrowserDelayEngine({ onStatus = () => {}, onError = () => {} } = {}) {
   let parameters = sanitizeParameters(DEFAULT_PARAMETERS), performanceState = sanitizePerformance(DEFAULT_PERFORMANCE);
   let worker, module, topology, pool, topologyRevision = 0, compilerRevision = 0, compileChain = Promise.resolve();
-  let context, node, master, releaseOutput, starting, ready, finishReady, contextGeneration = 0;
+  let context, node, master, releaseOutput, starting, ready, finishReady, controlsReady = false, contextGeneration = 0;
   let stream, inputNode, microphonePending = false, captureVersion = 0, capturePromise;
   let audio = false, audioDesired = false, audioVersion = 0, disposed = false, failure = null;
   let status = emptyStatus(), sequence = 0, readyTopology;
@@ -130,8 +130,16 @@ export function createBrowserDelayEngine({ onStatus = () => {}, onError = () => 
           finishReady?.(error); settleRequests(audioRequests, error); report(error);
         };
         node.connect(master); releaseOutput = connectAudioOutput(context, master);
+        // Publish the initial pool before yielding. A preset can finish
+        // compiling before the worklet's ready message reaches this thread;
+        // all subsequent installations must follow this one in port order.
+        const initialInstall = audioMessage('install', { pool });
+        initialInstall.catch(() => {});
         await ready; assertOpen();
-        await audioMessage('install', { pool });
+        await initialInstall; assertOpen();
+        // Later performance edits must reach the worklet even while its first
+        // performance message is awaiting acknowledgement.
+        controlsReady = true;
         await audioMessage('performance', { performance: performanceState });
         return node;
       })().finally(() => { starting = null; });
@@ -220,7 +228,7 @@ export function createBrowserDelayEngine({ onStatus = () => {}, onError = () => 
     if (path === '/api/performance') {
       const next = sanitizePerformance({ ...performanceState, ...body });
       const needsCapture = audio && next.source === 'mic' && performanceState.source !== 'mic';
-      if (node && !starting) await audioMessage('performance', { performance: next });
+      if (node && controlsReady) await audioMessage('performance', { performance: next });
       performanceState = next; failure = null;
       if (next.source !== 'mic') stopCapture();
       else if (needsCapture) await setMicrophoneEnabled(true);
