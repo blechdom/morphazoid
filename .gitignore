@@ -16,3 +16,4 @@ blob-report/
 # Native instrument interface QA
 /artifacts/l-system-delay-app/
 /artifacts/l-system-delay-visual-causality/
+/artifacts/l-system-delay-wasm/
