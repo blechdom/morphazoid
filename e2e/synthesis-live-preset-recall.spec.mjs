@@ -5,6 +5,40 @@ import { sampleAudioEnvelope } from './helpers/audio-probe.mjs';
 
 const status = page => page.evaluate(() => window.MorphazoidSynthesis.getStatus());
 
+test('new statistical voice performances have headroom before host output limiting', async ({ page }) => {
+  test.setTimeout(120_000);
+  await page.goto('/synthesis.html');
+  // These two earlier candidate factory configurations clipped in native PCM;
+  // checking only the host's bounded meter concealed that upstream distortion.
+  for (const id of ['performance:spectral-grammar', 'performance:kana-vowel-orbit']) {
+    const voice = INSTRUMENT_PRESETS.find(preset => preset.id === id).snapshot.routing.voice;
+    for (let repeat = 0; repeat < 3; repeat++) {
+      const measured = await page.evaluate(voice => new Promise((resolve, reject) => {
+        const worker = new Worker('/src/instruments/voicesaurus/native-worker.js', { type: 'module' });
+        const finish = (error, result) => {
+          clearTimeout(timer); worker.terminate();
+          if (error) reject(new Error(error)); else resolve(result);
+        };
+        const timer = setTimeout(() => finish('Native voice render timed out'), 30_000);
+        worker.onerror = event => finish(event.message);
+        worker.onmessage = ({ data }) => {
+          if (data.type !== 'ready') { finish(data.message || 'Native voice render failed'); return; }
+          let peak = 0, sum = 0, finite = true;
+          for (const sample of data.samples) {
+            finite &&= Number.isFinite(sample); peak = Math.max(peak, Math.abs(sample)); sum += sample * sample;
+          }
+          finish(null, { finite, peak, rms: Math.sqrt(sum / data.samples.length) });
+        };
+        worker.postMessage({ ...voice.scene, text: voice.text });
+      }), voice);
+      expect(measured.finite, id).toBe(true);
+      expect(measured.rms, id).toBeGreaterThan(.0001);
+      expect(measured.peak, id).toBeLessThan(.9);
+    }
+  }
+  expect(await status(page)).toMatchObject({ armed: false, playing: false });
+});
+
 async function sounding(page, label, { continuous = false } = {}) {
   // Native speech/score rendering and bundled recordings load asynchronously;
   // keep Play running while waiting for the newly selected source, not a timer.
