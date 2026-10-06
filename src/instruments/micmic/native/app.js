@@ -487,6 +487,7 @@ function formatParameter(key, value) {
   if (key === 'pruningBias') return value <= .01 ? 'breadth first' : value >= .99 ? 'depth first' : `${Math.round(value * 100)}% depth first`;
   if (key === 'asymmetry') return Math.abs(value) < .005 ? 'even' : `${Math.round(Math.abs(value) * 100)}% ${value > 0 ? 'right' : 'left'} wider`;
   if (key === 'depth' && value === 1) return '100% · no decay';
+  if (key === 'mutation' && LAB_CONFIG) return `${Math.round(value * 100)}% module variation`;
   if (key === 'mutation') return `${Math.round(value * 100)}% ${state.parameters.lSystemType === 'pythagorean' ? 'branch' : 'delay'} variation`;
   return `${Math.round(value * 100)}%`;
 }
@@ -604,7 +605,7 @@ function paintControls() {
   $('generationTimingReadout').textContent = `${Math.round(p.intervalMs)} ms → ${Number((p.intervalMs * p.timeRatio).toFixed(2))} ms → ${Number((p.intervalMs * p.timeRatio ** 2).toFixed(2))} ms … ${Number((p.intervalMs * p.timeRatio ** p.generations).toFixed(2))} ms at G${p.generations}`;
   if (p.lab) $('generationTimingReadout').textContent = p.lab.kind === 'parametric'
     ? `${Math.round(p.intervalMs)} ms base fold · ${Number((p.timeRatio * p.lab.delayRatio).toFixed(3))}× child duration`
-    : `${Math.round(p.intervalMs)} ms base fold · ${Number(p.lab.symbolRatio.toFixed(3))}× symbol duration ratio`;
+    : `${Math.round(p.intervalMs)} ms base fold · ${Number(p.lab.symbolRatio.toFixed(3))}× ${['penrose', 'sphinx'].includes(p.lab.kind) ? 'tile pitch contrast' : 'symbol duration ratio'}`;
   $('generationPitchReadout').textContent = `${Number((-p.angle * (1 - p.asymmetry)).toFixed(1))}° → ${Number((-p.angle * (1 - p.asymmetry) / 180 * p.pitchScale * 100).toFixed(1))}% octave · ${Number((p.angle * (1 + p.asymmetry)).toFixed(1))}° → ${Number((p.angle * (1 + p.asymmetry) / 180 * p.pitchScale * 100).toFixed(1))}% octave`;
   $('outputDevice').textContent = s.device || 'Default output'; $('inputDevice').textContent = mic ? s.inputDevice || 'Default input' : state.input.label || (state.input.mode === 'file' ? 'Audio file' : 'Built-in sample');
   $('sampleRate').textContent = s.sampleRate ? `${(s.sampleRate / 1000).toFixed(1)} kHz` : '—';
@@ -849,7 +850,7 @@ function paintLabControls() {
   if (help) help.textContent = lab.kind === 'parametric' ? 'Numeric modules carry child length, turn, delay and pitch. A branch ends when its length falls below Stopping length.'
     : lab.kind === 'context' ? 'Parallel replacements use neighboring symbols. Neighbor influence changes the length and duration carried by each resulting module.'
     : lab.kind === 'thue-morse' || lab.kind === 'fibonacci' ? 'Symbols A and B form a rewritten sequence. Symbol ratio changes their lengths and delay contributions.'
-      : 'The tiling is drawn through its unique edges. Symbol ratio changes the relative timing and pitch of tile-edge types.';
+      : 'The tiling is drawn through its unique edges. Symbol ratio changes the pitch contrast between tile types and orientations.';
 }
 for (const [key, id] of Object.entries(LAB_CONTROL_IDS)) {
   if (!$(id)) continue;

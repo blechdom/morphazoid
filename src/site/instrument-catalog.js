@@ -368,7 +368,7 @@ const CATALOG_DETAILS = Object.freeze({
   ),
   "l-system-experiments": define(
     "L-system delay rule experiments",
-    "Compare neighbor-dependent branches, Thue–Morse and algae sequences, and recursive Penrose and sphinx tiling edges using live delay voices.",
+    "Compare neighbor-dependent sequences, Thue–Morse and algae sequences, and recursive Penrose and sphinx tiling edges using live delay voices.",
     "Choose an input and enable Audio. Select a rule family, then change iterations and symbol ratio.",
     ["Microphone", "Audio file", "Recorded samples", "Context rules", "Sequences", "Tilings", "Rust / WASM"],
   ),
