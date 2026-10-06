@@ -8,7 +8,7 @@ const APP = '/src/instruments/micmic/native/app.js';
 const CONTRACT = [
   ['inputTrim', '0', '4', '0.01', '0.85'], ['level', '0', '1', '0.01', ''],
   ['voiceCeiling', '0', null, '1', '0'], ['generations', '1', null, '1', '13'],
-  ['pruningBias', '-1', '1', '0.01', '0'], ['depth', '0', '0.96', '0.01', '0.72'],
+  ['pruningBias', '-1', '1', '0.01', '0'], ['depth', '0', '1', '0.01', '0.72'],
   ['interval', '0', '1000', '1', '300'], ['timeRatio', '0.2', '2', '0.01', '0.72'],
   ['generationAngle', '0', '180', '0.5', '45'], ['generationPitchScale', '0', '4', '0.05', '1'],
   ['generationAsymmetry', '-0.8', '0.8', '0.01', '0'], ['mutation', '0', '1', '0.01', '0'],
@@ -24,17 +24,42 @@ const BANK = JSON.parse(await readFile(new URL('../src/instruments/micmic/native
 const LIVE_GAINS = [1.13, .37, 4];
 const gainValues = d => [d.performance.inputGain, d.performance.level, d.performance.mastering.makeupDb];
 
-async function fixture(page) {
+// A low-level, seamless file keeps the dense endpoint test independent of
+// recorded attacks while decoding, playback, topology and Rust DSP remain real.
+function seamlessWav() {
+  const rate = 48000, frames = rate * 3, bytes = Buffer.alloc(44 + frames * 2);
+  bytes.write('RIFF', 0); bytes.writeUInt32LE(bytes.length - 8, 4); bytes.write('WAVEfmt ', 8);
+  bytes.writeUInt32LE(16, 16); bytes.writeUInt16LE(1, 20); bytes.writeUInt16LE(1, 22);
+  bytes.writeUInt32LE(rate, 24); bytes.writeUInt32LE(rate * 2, 28);
+  bytes.writeUInt16LE(2, 32); bytes.writeUInt16LE(16, 34); bytes.write('data', 36);
+  bytes.writeUInt32LE(frames * 2, 40);
+  for (let frame = 0; frame < frames; frame++) {
+    const t = frame / rate;
+    bytes.writeInt16LE(Math.round((.025 * Math.sin(t * Math.PI * 2 * 173)
+      + .012 * Math.sin(t * Math.PI * 2 * 257)) * 32767), 44 + frame * 2);
+  }
+  return bytes;
+}
+
+async function fixture(page, { seamlessInput = false } = {}) {
   const errors = [], consoleErrors = [];
   page.on('pageerror', error => errors.push(error.message));
   page.on('console', message => { if (message.type() === 'error') consoleErrors.push(message.text()); });
+  if (seamlessInput) await page.route('**/assets/synthesis/loops/electric-piano.wav', route => route.fulfill({
+    contentType: 'audio/wav', body: seamlessWav(),
+  }));
   await page.addInitScript(() => {
-    const qa = window.__knobsQa = { events: [], pointers: {}, compiles: 0, sources: [], nodes: [], frames: [], record: false };
+    const qa = window.__knobsQa = { events: [], pointers: {}, compiles: 0, installs: 0, depthMessages: [],
+      sources: [], nodes: [], frames: [], record: false, phase: '', microphoneRequests: 0 };
     for (const type of ['input', 'change']) document.addEventListener(type, event => {
       if (event.target.matches?.('input[type="range"]')) qa.events.push({ type, id: event.target.id,
-        value: Number(event.target.value), native: event instanceof Event, now: performance.now() });
+        value: Number(event.target.value), native: event instanceof Event, trusted: event.isTrusted, now: performance.now() });
     }, true);
     document.addEventListener('pointerdown', event => { qa.pointers[event.target.id] = event.pointerId; }, true);
+    if (navigator.mediaDevices?.getUserMedia) {
+      const capture = navigator.mediaDevices.getUserMedia.bind(navigator.mediaDevices);
+      navigator.mediaDevices.getUserMedia = (...args) => { qa.microphoneRequests++; return capture(...args); };
+    }
     const NativeWorker = Worker;
     window.Worker = new Proxy(NativeWorker, { construct(Target, args) {
       const worker = new Target(...args);
@@ -52,6 +77,12 @@ async function fixture(page) {
         analyser.fftSize = 1024; mute.gain.value = 0;
         node.connect(analyser).connect(mute).connect(node.context.destination);
         qa.nodes.push({ node, analyser, samples: new Float32Array(analyser.fftSize) });
+        const post = node.port.postMessage.bind(node.port);
+        node.port.postMessage = (data, ...rest) => {
+          if (data.type === 'install') qa.installs++;
+          if (data.type === 'depth') qa.depthMessages.push({ depth: data.depth, now: performance.now() });
+          return post(data, ...rest);
+        };
       }
       return node;
     } });
@@ -72,7 +103,9 @@ async function fixture(page) {
           if (Number.isFinite(value)) peak = Math.max(peak, Math.abs(value)); else nonFinite++;
         }
         qa.frames.push({ now, sampleTime: qa.engine.getSampleTime(), blocks: d.processedBlocks,
-          peak, nonFinite, inputPeak: d.status.inputPeak, tapPeak: Math.max(0, ...d.status.tapActivity) });
+          phase: qa.phase, depth: d.parameters.depth, peak, nonFinite, inputPeak: d.status.inputPeak,
+          tapPeak: Math.max(0, ...d.status.tapActivity), targetVoices: d.status.targetVoices,
+          historyEnd: d.status.inputEnvelope.endTime, historyCount: d.status.inputEnvelope.values.length });
       }
       requestAnimationFrame(frame);
     }
@@ -80,7 +113,12 @@ async function fixture(page) {
   });
   await page.route('**/src/instruments/micmic/native/app.js', async route => {
     const response = await route.fetch();
-    await route.fulfill({ response, body: await response.text() + '\n__knobsQa.applyScene = applyScene; __knobsQa.engine = browserEngine;\n' });
+    await route.fulfill({ response, body: await response.text() + `
+__knobsQa.applyScene = applyScene;
+__knobsQa.engine = browserEngine;
+__knobsQa.view = () => ({ parameters: { ...previewParameters }, revision: visualRevision,
+  nodes: geometry?.nodes.map(({ id, generation, priority, gain }) => ({ id, generation, priority, gain })) ?? [] });
+` });
   });
   return { errors, consoleErrors };
 }
@@ -145,6 +183,25 @@ async function needleChecks(page) {
 }
 async function assertNeedles(page) {
   await expect.poll(async () => (await needleChecks(page)).every(row => Math.abs(row.actual - row.expected) < .001)).toBe(true);
+}
+
+async function assertDepth(page, depth) {
+  const text = depth === 1 ? '100% · no decay' : `${Math.round(depth * 100)}%`;
+  await expect(page.locator('#depth')).toHaveValue(String(depth));
+  await expect(page.locator('#depth')).toHaveAttribute('aria-valuetext', text);
+  await expect(page.locator('#depthOut')).toHaveText(text);
+  await expect.poll(async () => (await diagnostics(page)).parameters.depth).toBe(depth);
+  const native = await page.evaluate(() => __knobsQa.engine.request('/api/state'));
+  expect(native.parameters.depth).toBe(depth);
+  await expect.poll(async () => {
+    const view = await page.evaluate(() => __knobsQa.view());
+    return view.nodes.length > 1 && view.nodes.every(node => node.gain === (node.generation === 0 ? 1 : .5 * depth ** (node.generation * .72)));
+  }).toBe(true);
+  await assertNeedles(page);
+}
+
+async function captureScene(page) {
+  return page.evaluate(async () => (await import('/src/site/header-presets.js')).captureHeaderPresetState().snapshot);
 }
 
 test('all original native ranges plus Curls, complete parameter controls and runtime bounds remain accessible as knobs', async ({ page }) => {
@@ -300,6 +357,119 @@ test('held depth and mix knob edits reach actual Rust before release while sourc
   await cleanup(page, evidence);
 });
 
+test('100% no decay reaches dense wet-only Rust audio and recovers through held zero without rebuilding or losing history', async ({ page }) => {
+  test.setTimeout(90000);
+  const evidence = await fixture(page, { seamlessInput: true }); await ready(page);
+  await page.evaluate(async () => {
+    const d = __knobsQa.engine.getDiagnostics();
+    await __knobsQa.applyScene({ parameters: { ...d.parameters, lSystemType: 'pythagorean', generations: 8,
+      intervalMs: 60, timeRatio: .8, depth: .6, pitchScale: .4 }, performance: { ...d.performance, wet: .65, dry: 0 } });
+  });
+  for (const [id, value] of [['inputTrim', LIVE_GAINS[0]], ['level', LIVE_GAINS[1]], ['makeupDb', LIVE_GAINS[2]]]) await inputValue(page, id, value);
+  await chooseInput(page, 'source', 'samples'); await chooseInput(page, 'inputSample', 'music-keys');
+  await expect.poll(async () => (await diagnostics(page)).input.pending).toBe(false);
+  await page.locator('#audioButton').click();
+  await expect.poll(async () => {
+    const d = await diagnostics(page);
+    return d.audio && d.input.playing && d.sampleClock > 1.5 && d.status.inputPeak > 1e-5 && d.status.outputPeak > 1e-5;
+  }, { timeout: 30000 }).toBe(true);
+  const before = await diagnostics(page);
+  expect(before.requestedVoices).toBeGreaterThanOrEqual(500);
+  const counts = await page.evaluate(() => ({ compiles: __knobsQa.compiles, installs: __knobsQa.installs,
+    sources: structuredClone(__knobsQa.sources), worklets: __knobsQa.nodes.length }));
+  const control = await openControl(page, 'depth');
+  await page.evaluate(() => { __knobsQa.record = true; __knobsQa.phase = 'keyboard-no-decay'; });
+  await clearEvents(page); await control.focus(); await page.keyboard.press('End');
+  await assertDepth(page, 1);
+  const keyboard = await events(page, 'depth');
+  expect(keyboard.some(event => event.type === 'input' && event.value === 1 && event.trusted)).toBe(true);
+  await expect.poll(async () => (await diagnostics(page)).status.outputPeak).toBeGreaterThan(1e-5);
+  await page.waitForTimeout(300);
+  const full = await diagnostics(page), fullView = await page.evaluate(() => __knobsQa.view());
+  expect(new Set(fullView.nodes.filter(node => node.generation > 0).map(node => node.generation)).size).toBe(8);
+  const edits = [];
+  for (const [target, dy] of [[0, 120], [1, -120]]) {
+    await clearEvents(page);
+    await page.evaluate(target => { __knobsQa.phase = target === 0 ? 'held-zero' : 'held-no-decay'; }, target);
+    const p = await beginDrag(page, 'depth');
+    for (let step = 1; step <= 12; step++) {
+      await page.mouse.move(p.x, p.y + dy * step / 12); await page.waitForTimeout(24);
+    }
+    await assertDepth(page, target);
+    const held = await events(page, 'depth');
+    expect(held.filter(event => event.type === 'input').length).toBeGreaterThan(1);
+    expect(held.some(event => event.type === 'change')).toBe(false);
+    await expect.poll(async () => {
+      const d = await diagnostics(page);
+      return target === 0 ? d.status.targetVoices === 0 && d.status.outputPeak < 1e-5
+        : d.status.targetVoices > 0 && d.status.outputPeak > 1e-5;
+    }).toBe(true);
+    const d = await diagnostics(page), view = await page.evaluate(() => __knobsQa.view());
+    expect(d.audio).toBe(true); expect(d.input.playing).toBe(true); expect(d.performance.dry).toBe(0);
+    expect(gainValues(d)).toEqual(LIVE_GAINS); expect(d.contextGeneration).toBe(before.contextGeneration);
+    expect(d.status.inputEnvelope.endTime).toBeGreaterThan(full.status.inputEnvelope.endTime);
+    expect(d.status.inputEnvelope.values.length).toBeGreaterThanOrEqual(full.status.inputEnvelope.values.length);
+    expect(view.nodes.map(node => [node.id, node.priority])).toEqual(fullView.nodes.map(node => [node.id, node.priority]));
+    await page.waitForTimeout(300); await page.mouse.up();
+    expect((await events(page, 'depth')).filter(event => event.type === 'change')).toHaveLength(1);
+    edits.push({ target, held, diagnostics: d });
+  }
+  const after = await diagnostics(page), captured = await page.evaluate(() => {
+    __knobsQa.record = false;
+    return { frames: __knobsQa.frames, compiles: __knobsQa.compiles, installs: __knobsQa.installs,
+      depthMessages: __knobsQa.depthMessages, sources: __knobsQa.sources, worklets: __knobsQa.nodes.length,
+      microphoneRequests: __knobsQa.microphoneRequests };
+  });
+  expect(captured.compiles).toBe(counts.compiles); expect(captured.installs).toBe(counts.installs);
+  expect(captured.sources).toEqual(counts.sources); expect(captured.sources).toEqual([{ started: 1, stopped: 0 }]);
+  expect(captured.worklets).toBe(counts.worklets); expect(captured.worklets).toBe(1); expect(captured.microphoneRequests).toBe(0);
+  expect(captured.depthMessages.some(message => message.depth === 0)).toBe(true);
+  expect(captured.depthMessages.filter(message => message.depth === 1).length).toBeGreaterThanOrEqual(2);
+  expect(after.contextState).toBe('running'); expect(after.connectionCount).toBe(1);
+  expect(after.contextGeneration).toBe(before.contextGeneration); expect(after.sampleClock).toBeGreaterThan(full.sampleClock);
+  expect(after.processedBlocks).toBeGreaterThan(full.processedBlocks); expect(after.error).toBeFalsy();
+  expect(captured.frames.length).toBeGreaterThan(10);
+  expect(captured.frames.every(frame => frame.nonFinite === 0 && frame.peak <= 1)).toBe(true);
+  for (const phase of ['keyboard-no-decay', 'held-no-decay']) {
+    expect(captured.frames.some(frame => frame.phase === phase && frame.depth === 1 && frame.peak > 1e-5 && frame.tapPeak > 1e-5)).toBe(true);
+  }
+  expect(captured.frames.some(frame => frame.phase === 'held-zero' && frame.depth === 0 && frame.targetVoices === 0 && frame.peak < 1e-5)).toBe(true);
+  for (let i = 1; i < captured.frames.length; i++) {
+    expect(captured.frames[i].sampleTime).toBeGreaterThanOrEqual(captured.frames[i - 1].sampleTime);
+    expect(captured.frames[i].historyEnd).toBeGreaterThanOrEqual(captured.frames[i - 1].historyEnd);
+    expect(captured.frames[i].historyCount).toBeGreaterThanOrEqual(captured.frames[i - 1].historyCount);
+  }
+  const wasmBuild = await (await page.request.get('/assets/wasm/l-system-delay-build.json')).json();
+  await save('knob-no-decay-live-rust', { before, full, after, keyboard, edits, ...captured, wasmBuild,
+    actualWasm: true, dryRootMuted: true, input: 'seamless two-sine WAV', listeningPerformed: false });
+  await page.locator('#audioButton').click(); await expect.poll(async () => (await diagnostics(page)).input.playing).toBe(false);
+  await cleanup(page, evidence);
+});
+
+test('100% no decay survives full scene JSON capture and recall while Audio stays off and live gains remain intact', async ({ page }) => {
+  test.setTimeout(60000);
+  const evidence = await fixture(page); await ready(page);
+  for (const [id, value] of [['inputTrim', LIVE_GAINS[0]], ['level', LIVE_GAINS[1]], ['makeupDb', LIVE_GAINS[2]]]) await inputValue(page, id, value);
+  const depth = await openControl(page, 'depth'); await depth.focus(); await page.keyboard.press('End');
+  await assertDepth(page, 1);
+  const saved = await captureScene(page);
+  expect(saved.parameters.depth).toBe(1);
+  await page.evaluate(scene => localStorage.setItem('morphazoid-no-decay-qa-scene', JSON.stringify(scene)), saved);
+  await page.keyboard.press('Home'); await assertDepth(page, 0);
+  await page.evaluate(async () => {
+    await __knobsQa.applyScene(JSON.parse(localStorage.getItem('morphazoid-no-decay-qa-scene')));
+    localStorage.removeItem('morphazoid-no-decay-qa-scene');
+  });
+  await assertDepth(page, 1); expect(await captureScene(page)).toEqual(saved);
+  const recalled = await diagnostics(page);
+  expect(recalled.parameters).toEqual(saved.parameters); expect(gainValues(recalled)).toEqual(LIVE_GAINS);
+  expect(recalled.audio).toBe(false); expect(recalled.contextState).toBe('absent');
+  expect(await page.evaluate(() => ({ sources: __knobsQa.sources, worklets: __knobsQa.nodes.length,
+    microphoneRequests: __knobsQa.microphoneRequests }))).toEqual({ sources: [], worklets: 0, microphoneRequests: 0 });
+  await save('knob-no-decay-scene-roundtrip', { saved, recalled, serializationApplySeam: true });
+  await cleanup(page, evidence);
+});
+
 test('preset and mastering recall redraw every dial and preserve live gain values and all scene fields', async ({ page }) => {
   test.setTimeout(90000);
   const evidence = await fixture(page); await ready(page);
@@ -342,6 +512,8 @@ test('compact knobs and every original control remain reachable in desktop, port
     ['portrait', { width: 390, height: 844 }, true], ['landscape', { width: 844, height: 390 }, true]]) {
     const context = await browser.newContext({ baseURL: test.info().project.use.baseURL, viewport, hasTouch, reducedMotion: 'reduce' }), page = await context.newPage();
     const evidence = await fixture(page); await ready(page);
+    const depth = await openControl(page, 'depth'); await depth.focus(); await page.keyboard.press('End');
+    await assertDepth(page, 1); expect((await diagnostics(page)).audio).toBe(false);
     await page.evaluate(() => { for (const id of ['recursionSection', 'mixSection', 'masteringSection']) document.getElementById(id).open = true; });
     const controls = [];
     for (const [id] of CONTRACT) {
