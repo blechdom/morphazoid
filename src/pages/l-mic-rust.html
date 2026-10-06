@@ -178,7 +178,8 @@
                 </label>
                 <label class="control native-knob-control" for="depth">
                   <span><b>Depth / decay</b><output id="depthOut" for="depth">72%</output></span>
-                  <input id="depth" type="range" min="0" max="0.96" step="0.01" value="0.72" />
+                  <input id="depth" type="range" min="0" max="1" step="0.01" value="0.72" aria-describedby="depthGuide" title="Controls the fade across generations. At 100%, there is no generation decay; voice balancing and mastering still apply." />
+                  <small class="sr-only" id="depthGuide">Controls the fade across generations. At 100%, there is no generation decay; voice balancing and mastering still apply.</small>
                 </label>
               </div>
               <small class="native-capacity-note" id="generationCapacityInline">48 of 1,022 branches ready · breadth first pruning · device-adjusted</small>

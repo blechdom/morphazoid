@@ -3,20 +3,20 @@
   "target": "wasm32-unknown-unknown",
   "compiler": "rustc 1.98.1 (48a229cea 2026-09-01)",
   "bytes": 306603,
-  "wasmSha256": "050d20b8af833739809752e2ae50fa0a15e072c483a2a550e128fe889a5b8546",
+  "wasmSha256": "96185f7bc7b44a22e8fedf4bc9734b75ec4f275e1f9fe7c7c0c7233fd7616ab2",
   "sourceHashes": {
     "scripts/build-l-system-delay-wasm.mjs": "21408c273bd5f3b22007c5c35bd7b5539ac5be6e84b715f8b9659020a8cb0f90",
     "src/instruments/micmic/rust/Cargo.lock": "1e126acdbf65c8ce394f0b0812fa3878b4e197c7ea5fe004af0473ac3eadd4e5",
     "src/instruments/micmic/rust/Cargo.toml": "fe3b57868ecf2b508d5a348f7b7c433faff0276ab477a56a282b0e4fd3afd987",
     "src/instruments/micmic/rust/app/src/adaptive.rs": "457eb673a5d3893a7432e4dacc70b67c3fefd1a186af612ae1f1578162012261",
     "src/instruments/micmic/rust/app/src/conditioning.rs": "99fb9b9f584c8ad3b4bb1e770216bb1e0a4b958fc532a1c409e673c8029e54cf",
-    "src/instruments/micmic/rust/app/src/model.rs": "c273f2ad82cb4d9b334fe6a4cb7c02c27c36c6d23d1f49b896bcd0c7b7ea4be7",
+    "src/instruments/micmic/rust/app/src/model.rs": "dda834bb2beb23ccbe9bf472edcff6654b555a6cd6824aefa4810ff8bac957c5",
     "src/instruments/micmic/rust/app/src/performance.rs": "f9408104fc7635439dc3aec904b5d835bfa6d1842ca167b8e90e2d08f94386cd",
     "src/instruments/micmic/rust/app/src/resources.rs": "4aa2cf6c5bfb6b5de2a0bd6b0d22234ed4d06f55cd01c6ae667e187a48eab2eb",
     "src/instruments/micmic/rust/core/Cargo.toml": "e2c4919e3b43e47aa46a3c5be984c1df6702dec93cc924eee89a0afa0ee2e0ff",
-    "src/instruments/micmic/rust/core/src/lib.rs": "9f089b04e5ed460a2835e86aec1d97a551d4edb1dc525e7057b1226f0c97c87c",
+    "src/instruments/micmic/rust/core/src/lib.rs": "f319f56912261449bb41459f4500b4e47d8382647d2fa7f5351996e00541b8ff",
     "src/instruments/micmic/rust/wasm/Cargo.toml": "4013a81589561c286c913ec9222e657f63947316ca6df657785c27df6485c767",
-    "src/instruments/micmic/rust/wasm/src/lib.rs": "5a95f8c089601424c347e7a875df98bb13801f0210e6469c4db0e20ac0c6b976"
+    "src/instruments/micmic/rust/wasm/src/lib.rs": "3abd6bb6b067b3032fd2df4fed6f001bd5d4a0f0f6ff909058df0f5375821944"
   },
   "exports": [
     "lsd_abi_version",

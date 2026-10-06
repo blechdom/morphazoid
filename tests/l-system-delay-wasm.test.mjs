@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { readFile } from 'node:fs/promises';
-import { DEFAULT_PARAMETERS, DEFAULT_PERFORMANCE } from '../src/instruments/micmic/native/model.js';
+import { DEFAULT_PARAMETERS, DEFAULT_PERFORMANCE, L_SYSTEM_TYPES } from '../src/instruments/micmic/native/model.js';
 import { DEFAULT_MASTERING } from '../src/instruments/micmic/native/mastering.js';
 
 const bytes = await readFile(new URL('../assets/wasm/l-system-delay.wasm', import.meta.url));
@@ -126,7 +126,24 @@ test('actual WASM preserves all factory topology settings and unlimited voice de
   } finally { engine.dispose(); }
 });
 
-test('actual WASM recursion edits retain recorded history and recover a cold zero-depth tree without reinstalling it', () => {
+test('actual WASM no-decay endpoint preserves equal generation power across every grammar', () => {
+  const engine = renderer();
+  try {
+    for (const lSystemType of L_SYSTEM_TYPES) {
+      const { preview } = engine.compile({ lSystemType, generations: 7, depth: 1 });
+      assert.equal(preview.parameters.depth, 1, lSystemType);
+      assert.equal(preview.eligibleVoices, preview.structuralEligibleVoices, `${lSystemType} retains all eligible voices`);
+      const powers = new Map();
+      for (const node of preview.nodes) if (node.generation > 0 && node.priority !== null) {
+        powers.set(node.generation, (powers.get(node.generation) ?? 0) + node.gain ** 2);
+      }
+      assert.ok(powers.size > 1, `${lSystemType} spans multiple generations`);
+      for (const [generation, power] of powers) assert.ok(Math.abs(power - .25) < 1e-10, `${lSystemType}/G${generation} has no generation attenuation`);
+    }
+  } finally { engine.dispose(); }
+});
+
+test('actual WASM recursion edits retain recorded history and recover a cold zero-depth tree at 100% without reinstalling it', () => {
   const engine = renderer();
   try {
     engine.performance();
@@ -135,15 +152,15 @@ test('actual WASM recursion edits retain recorded history and recover a cold zer
     assert.equal(preview.structuralEligibleVoices, 30);
     assert.ok(preview.nodes.slice(1).some(node => Number.isFinite(node.priority)), 'zero depth retains resumable structural ranks');
     engine.render(RATE / 2, sine(173, .03));
-    assert.equal(wasmDepth(.84), 1);
+    assert.equal(wasmDepth(1), 1);
     const delayed = engine.render(RATE / 4);
     assert.ok(rms(delayed) > 1e-4, 'the preserved recording produces wet echoes after silent depth is raised');
     assert.equal(wasmDepth(0), 1); engine.render(RATE / 2);
     assert.equal(rms(engine.render(BLOCK)), 0, 'zero depth smoothly settles to silence');
-    assert.equal(wasmDepth(.63), 1);
+    assert.equal(wasmDepth(1), 1);
     const active = engine.render(RATE / 2, sine(173, .03));
     assert.ok(rms(active.slice(-RATE / 10)) > 1e-4, 'the same tree resumes without a pool install or graph restart');
-    assert.equal(wasmDepth(NaN), 0); assert.equal(wasmDepth(Infinity), 0);
+    assert.equal(wasmDepth(NaN), 0); assert.equal(wasmDepth(Infinity), 0); assert.equal(wasmDepth(1.01), 0);
     assert.ok(rms(engine.render(BLOCK, sine(173, .03))) > 1e-4, 'rejected coefficients preserve active processing');
     function wasmDepth(depth) { return engine.wasm.lsd_depth(engine.handle, depth); }
   } finally { engine.dispose(); }

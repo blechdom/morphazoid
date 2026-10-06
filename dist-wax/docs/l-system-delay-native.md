@@ -204,6 +204,13 @@ direct generation-gain update rather than compiling a new tree. Mix and masterin
 updates bypass structural compilation and acknowledge without copying the full
 meter/history payload. Existing DSP smoothing applies to these live coefficients.
 Zero Recursion retains structural ranks and recorded history for immediate resume.
+**Depth / decay** spans 0–100%. At **100% · no decay**, every generation has the
+same underlying gain before voice balancing, with no progressive generation
+attenuation. Individual branches still share their generation's gain, and the
+existing wet-bus normalization and mastering remain active. This endpoint uses
+the same smooth live gain update; it does not recompile the tree or reset input
+playback, history, pitch heads or measured voice capacity. Saved scenes retain
+100% exactly; factory presets and the bounded dice range keep their earlier levels.
 
 The drawing retains the committed audio tree while a structural edit is prepared.
 The topology worker prepares the classic preview once per structural reply;

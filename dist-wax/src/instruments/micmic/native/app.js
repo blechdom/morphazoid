@@ -468,6 +468,7 @@ function formatParameter(key, value) {
   if (key === 'pitchScale') return `${Math.round(value * 100)}% / 180°`;
   if (key === 'pruningBias') return value <= .01 ? 'breadth first' : value >= .99 ? 'depth first' : `${Math.round(value * 100)}% depth first`;
   if (key === 'asymmetry') return Math.abs(value) < .005 ? 'even' : `${Math.round(Math.abs(value) * 100)}% ${value > 0 ? 'right' : 'left'} wider`;
+  if (key === 'depth' && value === 1) return '100% · no decay';
   if (key === 'mutation') return `${Math.round(value * 100)}% ${state.parameters.lSystemType === 'pythagorean' ? 'branch' : 'delay'} variation`;
   return `${Math.round(value * 100)}%`;
 }

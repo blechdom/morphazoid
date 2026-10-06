@@ -8,7 +8,7 @@ export const DEFAULT_PARAMETERS = Object.freeze({ lSystemType: 'pythagorean', ge
 export const DEFAULT_PERFORMANCE = Object.freeze({ source: 'mic', level: .58, wet: .76, dry: 0,
   frozen: false, inputGain: .85, frequency: 173, pulseRate: 2, voiceCeiling: 0, automatic: true, mastering: DEFAULT_MASTERING });
 export const PARAMETER_LIMITS = Object.freeze({ generations: [1, 52], intervalMs: [1, 3000], timeRatio: [.2, 2],
-  angle: [0, 180], asymmetry: [-.8, .8], curls: [-8, 8], mutation: [0, 1], pitchScale: [0, 4], pruningBias: [-1, 1], depth: [0, .96], spread: [0, 1] });
+  angle: [0, 180], asymmetry: [-.8, .8], curls: [-8, 8], mutation: [0, 1], pitchScale: [0, 4], pruningBias: [-1, 1], depth: [0, 1], spread: [0, 1] });
 export const PERFORMANCE_LIMITS = Object.freeze({ level: [0, 1], wet: [0, 1], dry: [0, .5], inputGain: [0, 4], frequency: [40, 1200], pulseRate: [.1, 12], voiceCeiling: [0, Number.MAX_SAFE_INTEGER] });
 export const clamp = (value, low = 0, high = 1) => Math.max(low, Math.min(high, value));
 const round = value => Number(value.toFixed(6));
@@ -67,7 +67,7 @@ export function isVoiceActive(node, limit) { return Number.isInteger(node.priori
 /** Preview gain follows the applied coefficient, including a newer live edit
  * than the topology compiler captured. Structural ranks stay untouched. */
 export function applyPreviewDepth(nodes, depth) {
-  const applied = clamp(depth, 0, .96);
+  const applied = clamp(depth, 0, 1);
   for (const node of nodes) node.gain = node.generation === 0 ? 1 : .5 * applied ** (node.generation * .72);
   return nodes;
 }
